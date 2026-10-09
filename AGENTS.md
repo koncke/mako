@@ -4407,6 +4407,12 @@ MaKo; `/instagram` redirige a `/chatbot` y el webhook de Zernio contesta 200 sin
 nada. Las tablas quedan. Sumarle un canal al Chatbot es una decisión del dueño, no un
 arreglo: `tests/sin-instagram.test.ts` falla si algo vuelve a cablear Instagram.
 
+**Y Chatwoot (el WhatsApp OFICIAL) está APAGADO desde el 09/10/2026** (Martín: «que no exista
+más. Guardalo en privado»). Un interruptor en `lib/chatwoot.ts` (`CHATWOOT_APAGADO`) corta toda
+llamada en `cfg()`; el código dormido sigue en 122 archivos y entero en la etiqueta de git
+`archivo/chatwoot-2026-10-09`. **Código nuevo no usa Chatwoot**: el WhatsApp es Evolution.
+`tests/sin-chatwoot.test.ts` falla si se prende sin decidirlo.
+
 # Evolution le BORRA un dígito a los números de Argentina y México: un número que dio WhatsApp viaja como jid
 
 Su `createJid` (2.3.7, `formatMXOrARNumber`) agarra todo número de 13 dígitos que empiece con

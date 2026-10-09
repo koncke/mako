@@ -29,8 +29,9 @@
 //   · LOS ID SON ESTABLES. Se guardan en `nutricion_secuencias.pasos`; renombrar uno deja a las
 //     filas guardadas como «condición desconocida». El rótulo se cambia libre; el id, nunca.
 //   · GENÉRICO. Nada armado para un cliente: la confirmación antes de la reunión de Mauricio es
-//     «Próxima reunión en ≤ 24 h» + «R1 pendiente»; el no-show de Código Inmobiliario es «No
-//     asistió a la R1»; «experiencia en el rubro» es «Respuesta del formulario contiene …».
+//     «Próxima reunión en ≤ 24 h» (desde la cuarta tanda, con la etapa de su primera llamada); el
+//     no-show de Código Inmobiliario es «No asistió a la reunión» sobre su etapa de auditoría;
+//     «experiencia en el rubro» es «Respuesta del formulario contiene …».
 //
 // ── LO QUE QUEDÓ AFUERA, Y POR QUÉ (medido el 09/10/2026 contra producción) ──────────
 //   · «Plan»: la única unión exacta tarea→lead es `cliente_lead_id`, puesta en 6 de 776 tareas; el
@@ -40,9 +41,25 @@
 //     es la confirmación de COMPRA, no de asistencia: ver `confirmado_sin_pago` en lib/nutricion.ts).
 //   · «Último mensaje hace N h»: sale de `wa_mensajes` (50.903 filas) y no hay una lectura por lote
 //     que no traiga todo el historial de cada lead.
+//
+// ── CUARTA TANDA (09/10/2026): LA REUNIÓN SIN «R1» NI «R2», Y LA CUOTA N ─────────────
+//   · Punto 5: «no tiene sentido diferenciar "R1" de "R2"... Hay negocios que solo tienen 1 llamada
+//     y otros que tienen más de 2... Sería bueno que simplemente diga "No asistió a la reunión" y que
+//     dentro del editable de esa sección se elija 1 o más reuniones de las etapas del kanban». Las
+//     reuniones son UNA familia (`reuniones: true`): la fila guarda las ETAPAS elegidas
+//     (`FilaCondicion.reuniones`, `${funnelId}:${key}`) y el motor las lleva a su lugar en la ficha
+//     POR ORDEN (`reunionesDe` + `slotPorIndice`, lib/funnel-etapas.ts), nunca por el nombre. La
+//     tabla `leads` tiene DOS lugares: una tercera reunión no tiene dato y da «no sé». Las de antes
+//     con R1 / R2 en el nombre quedan `retirada` (siguen evaluando lo guardado).
+//   · Punto 6: «que dentro de esa opción se pueda seleccionar "No pagó X cuota" la primera por
+//     ejemplo». «Pagó / No pagó» suma la cuota (`valor`, vacío = como siempre): la cuota N es la fila
+//     de `pagos` con `numero` N, la misma que el CRM dibuja como «Cuota N» (lib/pagos.ts la escribe).
 // =============================================================================
 
 import type { FilaCondicion, HechosLead } from './flujo-grafo';
+// Puro y compartido (lo importa también app/crm/CrmBoard.tsx): el mapeo índice → lugar de la ficha
+// vive ahí UNA vez (tests/reunion-slot-fuente-unica.test.ts).
+import { slotPorIndice } from './funnel-etapas';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
 
@@ -80,13 +97,15 @@ export type Fuente =
   | 'acceso'      // curso_accesos (el portal)
   | 'comunidad'   // comunidad_posts (sin los hilos de clase) + comunidad_comentarios
   | 'entrega'     // la etapa del kanban de entrega (`clientesEnEtapaDeEntrega`)
-  | 'cs';         // cs_clientes.estado
+  | 'cs'          // cs_clientes.estado
+  | 'reuniones';  // el ORDEN de las reuniones de los embudos que nombran las filas (`reunionesDe`)
 
 /** Los catálogos de los que sale el valor de una condición de lista. */
 export type CatalogoValor =
   | 'etiqueta' | 'etapa' | 'producto' | 'campana'
   | 'origen' | 'estado_lead' | 'estado_cliente'
-  | 'curso' | 'modulo' | 'clase' | 'clase_tarea' | 'post' | 'etapa_entrega';
+  | 'curso' | 'modulo' | 'clase' | 'clase_tarea' | 'post' | 'etapa_entrega'
+  | 'reunion';
 
 export type TipoValor =
   | { t: 'ninguno' }
@@ -115,6 +134,11 @@ export type DefCondicion = {
   /** La sección con un CRON de entrega, si cambia (los pagos son «Pagos del cliente»). */
   seccionEntrega?: SeccionCondicion;
   ambito: AmbitoCondicion;
+  /**
+   * Se puede ACOTAR a una o más etapas de reunión del kanban (`FilaCondicion.reuniones`; vacío =
+   * cualquiera). El editor dibuja el selector y el motor lee el orden de esos embudos (`reuniones`).
+   */
+  reuniones?: true;
   /** [afirmativa, negada]. Una frase técnica y corta: es lo que se DIBUJA. */
   rotulo: readonly [string, string];
   /** ¿Se ofrece negada? Un número no (el operador ya dice ≥ o ≤) ni un compuesto. */
@@ -159,7 +183,14 @@ export type HechosCatalogo = {
   clics?: number | null;
   /** Todas sus respuestas de formulario, en un texto normalizado (`normalizarTexto`). */
   respuestas?: string;
-  pagos?: { pagadas: number; vencidas: number };
+  /** `cuotas`: el estado de CADA cuota por su `numero` («No pagó la cuota N», `estadoDeCuotas`). */
+  pagos?: { pagadas: number; vencidas: number; cuotas?: ReadonlyMap<number, EstadoCuota> };
+  /**
+   * funnelId → las keys de sus reuniones EN ORDEN (`reunionesDe(cfg.stages)`), sólo de los embudos que
+   * nombran las filas (`embudosDeReunionDeFilas`). Es el mismo para todo el lote: es la config, no el
+   * lead. Un embudo que falta (borrado) hace «no sé» a sus etapas.
+   */
+  reuniones?: ReadonlyMap<number, readonly string[]>;
   curso?: {
     completas: ReadonlySet<number>;
     enviadas: ReadonlySet<number>;
@@ -195,6 +226,146 @@ function compara(f: FilaCondicion, dato: number | null | undefined): boolean | n
   return null;
 }
 const agendoDe = (l: NonNullable<HechosCatalogo['lead']>) => l.r1.fechaMs != null || l.r2.fechaMs != null || l.tieneFechaAgenda;
+
+// ── Las reuniones (cuarta tanda, punto 5) ─────────────────────────────────────────
+
+/** Lo que la ficha sabe de UNA reunión: uno de sus dos lugares (`r1` / `r2` del bloque `lead`). */
+type LugarReunion = { fechaMs: number | null; asistio: boolean | null };
+
+/** Cuántas etapas de reunión se guardan por fila: más que esto es un dato roto, no una elección. */
+export const TOPE_REUNIONES = 12;
+
+/** Las etapas de reunión de una fila, separadas y sin repetidos: `${funnelId}:${key}` → { funnelId, key }. */
+export function reunionesDeFila(f: Pick<FilaCondicion, 'reuniones'>): Array<{ funnelId: number; key: string }> {
+  const out: Array<{ funnelId: number; key: string }> = [];
+  const vistos = new Set<string>();
+  for (const x of Array.isArray(f.reuniones) ? f.reuniones : []) {
+    if (typeof x !== 'string' || vistos.has(x)) continue;
+    const i = x.indexOf(':');
+    const funnelId = Number(x.slice(0, i));
+    const key = x.slice(i + 1);
+    if (i <= 0 || !Number.isInteger(funnelId) || funnelId <= 0 || !key) continue;
+    vistos.add(x);
+    out.push({ funnelId, key });
+  }
+  return out;
+}
+
+/**
+ * LOS LUGARES DE LA FICHA de las reuniones que la fila nombra. Sin etapas elegidas: los dos (cualquier
+ * reunión). Con etapas: cada una va a su lugar POR ORDEN dentro de SU embudo (`reunionesDe` →
+ * `indexOf` → `slotPorIndice`), nunca por el nombre — el CRM puede marcar otra reunión antes y correr
+ * todo un lugar (lib/etapa-reunion.ts). Y sólo si el lead está en ese embudo: la ficha tiene UN par de
+ * lugares para todos sus productos, y la primera reunión de otro producto no es la de éste. Una etapa
+ * que dejó de ser reunión, la tercera en adelante o un embudo que no se leyó no aportan nada.
+ * `null` = no se sabe de ninguna (la fila no se cumple, ni negada).
+ */
+export function lugaresDeFila(f: FilaCondicion, h: HechosLead): LugarReunion[] | null {
+  const l = L(h);
+  if (!l) return null;
+  const elegidas = reunionesDeFila(f);
+  if (!elegidas.length) return [l.r1, l.r2];
+  const orden = h.catalogo?.reuniones;
+  if (!orden) return null;
+  const out: LugarReunion[] = [];
+  const usados = new Set<number>();
+  for (const { funnelId, key } of elegidas) {
+    if (!h.etapasPorProducto?.has(funnelId)) continue;
+    const slot = slotPorIndice(orden.get(funnelId)?.indexOf(key) ?? -1);
+    if (!slot || usados.has(slot.indice)) continue;
+    usados.add(slot.indice);
+    out.push(slot.indice === 0 ? l.r1 : l.r2);
+  }
+  return out.length ? out : null;
+}
+
+/**
+ * «Asistió a la reunión»: fue, y no faltó a ninguna de las elegidas. UNA NO-ASISTENCIA REGISTRADA MANDA:
+ * «No asistió» (la negación) se cumple si faltó a CUALQUIERA de ellas, que es lo que pide un «reagendar».
+ * Sin asistencia registrada en ninguna, «no sé»: un no-show exige la asistencia en false, no la falta de
+ * reunión (el hallazgo de la tercera tanda sobre «No asistió a la R1» negado).
+ */
+function asistioA(f: FilaCondicion, h: HechosLead): boolean | null {
+  const s = lugaresDeFila(f, h);
+  if (!s) return null;
+  if (s.some((x) => x.asistio === false)) return false;
+  return s.some((x) => x.asistio === true) ? true : null;
+}
+
+/** «Tiene reunión agendada»: alguna de las elegidas tiene fecha (pasada o futura, como «Tiene R2 agendada»). */
+function agendadaEn(f: FilaCondicion, h: HechosLead): boolean | null {
+  const s = lugaresDeFila(f, h);
+  return s ? s.some((x) => x.fechaMs != null) : null;
+}
+
+/** La próxima reunión FUTURA de las elegidas; sin etapas, la de siempre (`proximaReunionMs`). */
+function proximaEntre(f: FilaCondicion, h: HechosLead): number | null {
+  const l = L(h);
+  if (!l) return null;
+  if (!reunionesDeFila(f).length) return l.proximaReunionMs;
+  const s = lugaresDeFila(f, h);
+  if (!s) return null;
+  // `> ahora`: la misma regla que `reunionFuturaMs` (lib/nutricion-reinscripcion.ts).
+  const fut = s.map((x) => x.fechaMs).filter((ms): ms is number => ms != null && ms > h.ahoraMs);
+  return fut.length ? Math.min(...fut) : null;
+}
+
+/** Los embudos que nombran las filas con etapas de reunión: la fuente `reuniones` lee sólo ésos. */
+export function embudosDeReunionDeFilas(filas: readonly FilaCondicion[]): number[] {
+  const s = new Set<number>();
+  for (const f of filas) {
+    if (!condicionPorId(f.campo)?.reuniones) continue;
+    for (const r of reunionesDeFila(f)) s.add(r.funnelId);
+  }
+  return [...s];
+}
+
+// ── Las cuotas (cuarta tanda, punto 6) ────────────────────────────────────────────
+
+/** Una cuota en el día del negocio. Vencida = impaga con fecha esperada ANTES de hoy (`resumenPagos`). */
+export type EstadoCuota = 'pagada' | 'vencida' | 'pendiente';
+
+/** La cuota más alta que se puede pedir: más que esto es un dato roto (el plan del CRM son meses). */
+export const TOPE_CUOTA = 60;
+
+/** La cuota N de una fila «Pagó / No pagó» (`valor`). null = sin cuota, o una que no es un número válido. */
+export function cuotaDeFila(f: Pick<FilaCondicion, 'valor'>): number | null {
+  if (f.valor == null || f.valor === '') return null;
+  const n = Number(f.valor);
+  return Number.isInteger(n) && n >= 1 && n <= TOPE_CUOTA ? n : null;
+}
+
+/**
+ * El estado de CADA cuota del lead por su `numero` (la fila de `pagos` que el CRM dibuja «Cuota N»).
+ * La regla de vencida es la de `resumenPagos` (lib/nutricion-grafo-motor.ts), y un test compara las dos:
+ * sin fecha esperada nunca se declara vencida (la regla de lib/cs-senal.ts).
+ */
+export function estadoDeCuotas(
+  cuotas: ReadonlyArray<{ numero: number | string | null; pagado: boolean | null; fecha_esperada: string | null }>,
+  hoy: string,
+): Map<number, EstadoCuota> {
+  const m = new Map<number, EstadoCuota>();
+  for (const c of cuotas) {
+    const n = Number(c.numero);
+    if (c.numero == null || !Number.isInteger(n) || n < 0) continue;
+    m.set(n, c.pagado === true ? 'pagada' : c.fecha_esperada && c.fecha_esperada.slice(0, 10) < hoy ? 'vencida' : 'pendiente');
+  }
+  return m;
+}
+
+/**
+ * «Pagó / No pagó», con la cuota N si la fila la trae. Sin cuota, lo de siempre (`h.pago`: alguna vez
+ * pagó). Con cuota: pagada = «pagó»; vencida e impaga = «no pagó»; y lo demás —no existe, todavía no
+ * venció, no tiene fecha, o la cuota no es un número— es «no sé»: avisarle a alguien que «no pagó la
+ * cuota 2» antes de que venza es afirmar algo que el CRM no registró.
+ */
+export function pagoDeFila(f: FilaCondicion, h: HechosLead): boolean | null {
+  if (f.valor == null || f.valor === '') return h.pago;
+  const n = cuotaDeFila(f);
+  if (n == null) return null;
+  const e = h.catalogo?.pagos?.cuotas?.get(n);
+  return e === 'pagada' ? true : e === 'vencida' ? false : null;
+}
 
 /** Minúsculas y sin tildes: «Experiencia» encuentra «experiencia» y «EXPERIÉNCIA». */
 export function normalizarTexto(s: string): string {
@@ -290,8 +461,26 @@ export const CONDICIONES: readonly DefCondicion[] = [
 
   // ── Agenda y llamadas ──
   { id: 'agendo', seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Agendó', 'No agendó'], negable: true, valor: LEGADO, fuentes: ['lead'] },
+  // La familia de la REUNIÓN (cuarta tanda, punto 5): una pregunta, acotada a las etapas de reunión
+  // que se elijan (vacío = cualquiera). Las fuentes `productos` y `reuniones` las suma la fila que
+  // elige etapas (`fuentesDeFilas`): sin etapas no hace falta leer ningún embudo.
   {
-    id: 'r1_pendiente', seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['R1 agendada a futuro', 'Sin R1 a futuro'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    id: 'reunion_agendada', reuniones: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Tiene reunión agendada', 'Sin reunión agendada'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    evaluar: agendadaEn,
+  },
+  {
+    id: 'asistio_reunion', reuniones: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Asistió a la reunión', 'No asistió a la reunión'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    evaluar: asistioA,
+  },
+  {
+    id: 'reunion_en', reuniones: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Próxima reunión en', 'Próxima reunión en'], negable: false, valor: { t: 'numero', unidad: ' h', def: 24, min: 1, max: 720 }, fuentes: ['lead'],
+    evaluar: (f, h) => { const r = proximaEntre(f, h); return r == null ? null : compara(f, (r - h.ahoraMs) / 3_600_000); },
+  },
+  // ⚠️ LAS DE «R1» / «R2» QUEDAN RETIRADAS (cuarta tanda, punto 5: «no tiene sentido diferenciar "R1"
+  // de "R2"»). Se siguen evaluando para los flujos que ya las tienen; para lo nuevo están la familia de
+  // arriba y las de siempre («Calificado», «Estado del lead»).
+  {
+    id: 'r1_pendiente', retirada: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['R1 agendada a futuro', 'Sin R1 a futuro'], negable: true, valor: NINGUNO, fuentes: ['lead'],
     // La regla de «Agendó pero no confirmó» (`agendado_sin_confirmar`): la R1 por delante y sin
     // asistencia registrada. No hay un campo «confirmó»: no se inventa. «A futuro» con 12 h de
     // gracia: una R1 de sólo fecha se lee al mediodía de México (`parseFechaJunta`) y la de HOY
@@ -299,19 +488,15 @@ export const CONDICIONES: readonly DefCondicion[] = [
     evaluar: (_f, h) => { const l = L(h); return l ? l.r1.fechaMs != null && l.r1.fechaMs >= h.ahoraMs - 12 * 3_600_000 && l.r1.asistio == null : null; },
   },
   {
-    id: 'reunion_en', seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Próxima reunión en', 'Próxima reunión en'], negable: false, valor: { t: 'numero', unidad: ' h', def: 24, min: 1, max: 720 }, fuentes: ['lead'],
-    evaluar: (f, h) => { const r = L(h)?.proximaReunionMs; return r == null ? null : compara(f, (r - h.ahoraMs) / 3_600_000); },
-  },
-  {
-    id: 'asistio_r1', seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Asistió a la R1', 'No asistió a la R1'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    id: 'asistio_r1', retirada: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Asistió a la R1', 'No asistió a la R1'], negable: true, valor: NINGUNO, fuentes: ['lead'],
     evaluar: (_f, h) => tri(L(h)?.r1.asistio),
   },
   {
-    id: 'agendo_r2', seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Tiene R2 agendada', 'Sin R2 agendada'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    id: 'agendo_r2', retirada: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Tiene R2 agendada', 'Sin R2 agendada'], negable: true, valor: NINGUNO, fuentes: ['lead'],
     evaluar: (_f, h) => (L(h) ? L(h)!.r2.fechaMs != null : null),
   },
   {
-    id: 'asistio_r2', seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Asistió a la R2', 'No asistió a la R2'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    id: 'asistio_r2', retirada: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Asistió a la R2', 'No asistió a la R2'], negable: true, valor: NINGUNO, fuentes: ['lead'],
     evaluar: (_f, h) => tri(L(h)?.r2.asistio),
   },
   {
@@ -319,15 +504,15 @@ export const CONDICIONES: readonly DefCondicion[] = [
     evaluar: (_f, h) => tri(L(h)?.calificado),
   },
   {
-    id: 'r1_sin_avanzar', seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Asistió a la R1 y no avanza', ''], negable: false, valor: NINGUNO, fuentes: ['lead'],
+    id: 'r1_sin_avanzar', retirada: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Asistió a la R1 y no avanza', ''], negable: false, valor: NINGUNO, fuentes: ['lead'],
     evaluar: (_f, h) => { const l = L(h); return l ? l.r1.asistio === true && l.calificado == null && l.r2.fechaMs == null : null; },
   },
   {
-    id: 'calificado_sin_r2', seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Calificado sin R2', ''], negable: false, valor: NINGUNO, fuentes: ['lead'],
+    id: 'calificado_sin_r2', retirada: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Calificado sin R2', ''], negable: false, valor: NINGUNO, fuentes: ['lead'],
     evaluar: (_f, h) => { const l = L(h); return l ? l.calificado === true && l.r2.fechaMs == null && l.r2.asistio == null : null; },
   },
   {
-    id: 'r2_sin_cerrar', seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Asistió a la R2 y no cerró', ''], negable: false, valor: NINGUNO, fuentes: ['lead'],
+    id: 'r2_sin_cerrar', retirada: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Asistió a la R2 y no cerró', ''], negable: false, valor: NINGUNO, fuentes: ['lead'],
     evaluar: (_f, h) => { const l = L(h); return l ? l.r2.asistio === true && l.cerro == null && !l.tieneFechaCierre : null; },
   },
 
@@ -482,7 +667,8 @@ export function seccionEn(c: DefCondicion, ambito: AmbitoDisparo): SeccionCondic
 
 // ── Los catálogos que el editor recibe ─────────────────────────────────────────────
 
-export type OpcionCatalogo = { value: string; label: string };
+/** `disabled` + `sub`: se ve pero no se elige, y la razón va en el renglón (la tercera reunión). */
+export type OpcionCatalogo = { value: string; label: string; disabled?: boolean; sub?: string };
 export type SeccionOpciones = { title: string; options: OpcionCatalogo[] };
 
 /** Un producto con su embudo y su entrega (la forma de `ProductoParaDisparo`). */
@@ -504,7 +690,40 @@ export type CatalogosCondicion = {
   cursos?: ReadonlyArray<CursoCondicion>;
   posts?: ReadonlyArray<{ id: number; titulo: string }>;
   campanas?: ReadonlyArray<string>;
+  /** Las etapas de REUNIÓN de cada embudo (`reunionesParaEditor`). null = no se pudo leer. */
+  reuniones?: ReadonlyArray<ReunionesDeEmbudo> | null;
 };
+
+/**
+ * Las etapas de reunión de UN embudo, en su orden (GET /api/chat-agent/condiciones). `sinLugar`: de la
+ * tercera en adelante, que la ficha no tiene dónde guardar (`slotPorIndice`): se ve pero no se elige.
+ */
+export type ReunionesDeEmbudo = {
+  funnelId: number; nombre: string;
+  etapas: ReadonlyArray<{ key: string; label: string; sinLugar: boolean }>;
+};
+
+/**
+ * Las reuniones de cada embudo para el editor, desde sus etapas (`kind: 'reunion'`, la marca que pone
+ * el editor de etapas del CRM: lib/etapa-reunion.ts). El orden y el «sin lugar» salen de la MISMA
+ * cuenta que usa el motor (`slotPorIndice` sobre el índice), así lo que se ofrece es lo que se evalúa.
+ * Un embudo sin reuniones no va.
+ */
+export function reunionesParaEditor(
+  embudos: ReadonlyArray<{ funnelId: number; nombre: string; stages: ReadonlyArray<{ key: string; label?: string; kind?: string }> }>,
+): ReunionesDeEmbudo[] {
+  const out: ReunionesDeEmbudo[] = [];
+  for (const e of embudos) {
+    const reuniones = e.stages.filter((s) => s.kind === 'reunion');
+    if (!reuniones.length) continue;
+    out.push({
+      funnelId: e.funnelId,
+      nombre: e.nombre,
+      etapas: reuniones.map((s, i) => ({ key: s.key, label: s.label?.trim() || s.key, sinLugar: slotPorIndice(i) == null })),
+    });
+  }
+  return out;
+}
 
 /**
  * Los CURSOS para el editor (GET /api/chat-agent/condiciones): los productos que tienen clases, con
@@ -545,6 +764,18 @@ export function opcionesDe(catalogo: CatalogoValor, cat: CatalogosCondicion): Se
   if (fija) return [{ title: '', options: [...fija] }];
   const varios = (cat.productos?.length ?? 0) > 1 || (cat.cursos?.length ?? 0) > 1;
   switch (catalogo) {
+    // Las etapas de reunión, por embudo. La tercera en adelante se VE (para que no parezca que falta)
+    // pero no se elige: no tiene dato en la ficha y la condición daría siempre «no sé».
+    case 'reunion': {
+      const embudos = cat.reuniones ?? [];
+      return embudos.map((e) => ({
+        title: embudos.length > 1 ? e.nombre : '',
+        options: e.etapas.map((s) => ({
+          value: `${e.funnelId}:${s.key}`, label: s.label,
+          ...(s.sinLugar ? { disabled: true, sub: 'Sin dato en la ficha' } : {}),
+        })),
+      }));
+    }
     case 'etiqueta':
       return [{ title: '', options: (cat.etiquetas ?? []).filter((e) => !e.archivada_at).map((e) => ({ value: String(e.id), label: e.nombre })) }];
     case 'etapa':
@@ -634,8 +865,11 @@ export function problemaDeFila(f: FilaCondicion): string | null {
   if (v.t === 'legado') {
     if ((f.campo === 'etiqueta' || f.campo === 'etapa') && (f.valor == null || f.valor === '')) return `falta elegir la ${f.campo}`;
     if (f.campo === 'antiguedad' && !(Number(f.valor) > 0)) return 'falta el número de horas';
+    // La cuota es opcional (vacío = como siempre); puesta, un entero de 1 a TOPE_CUOTA.
+    if (f.campo === 'pago' && f.valor != null && f.valor !== '' && cuotaDeFila(f) == null) return `la cuota tiene que ser un número del 1 al ${TOPE_CUOTA}`;
     return null;
   }
+  if (c.reuniones && (f.reuniones?.length ?? 0) > TOPE_REUNIONES) return `«${c.rotulo[0]}» tiene más de ${TOPE_REUNIONES} reuniones`;
   if (v.t === 'lista' && (f.valor == null || f.valor === '')) return `falta elegir «${c.rotulo[0]}»`;
   if (v.t === 'texto' && !String(f.valor ?? '').trim()) return `falta el texto de «${c.rotulo[0]}»`;
   if (v.t === 'numero') {
@@ -663,10 +897,20 @@ export function cumpleCatalogo(f: FilaCondicion, h: HechosLead): boolean {
 
 // ── Qué tiene que leer el motor ───────────────────────────────────────────────────
 
-/** Las fuentes que piden estas filas. `lead` va siempre: es la fila que arma el resto. */
+/**
+ * Las fuentes que piden estas filas. `lead` va siempre: es la fila que arma el resto. Lo que depende
+ * de la FILA y no de la condición lo suma la fila: las etapas de reunión elegidas piden el orden de
+ * esos embudos y en cuáles está el lead (`reuniones` + `productos`), y «No pagó la cuota N» pide las
+ * cuotas (`pagos`). Sin eso, «No pagó» de siempre seguiría leyendo sólo la fila del lead.
+ */
 export function fuentesDeFilas(filas: readonly FilaCondicion[]): Set<Fuente> {
   const out = new Set<Fuente>(['lead']);
-  for (const f of filas) for (const x of condicionPorId(f.campo)?.fuentes ?? []) out.add(x);
+  for (const f of filas) {
+    const c = condicionPorId(f.campo);
+    for (const x of c?.fuentes ?? []) out.add(x);
+    if (c?.reuniones && reunionesDeFila(f).length) { out.add('reuniones'); out.add('productos'); }
+    if (f.campo === 'pago' && f.valor != null && f.valor !== '') out.add('pagos');
+  }
   return out;
 }
 
@@ -695,7 +939,7 @@ export type NombresCatalogo = (catalogo: CatalogoValor, valor: string) => string
 const GENERICO: Record<CatalogoValor, string> = {
   etiqueta: 'una etiqueta', etapa: 'una etapa', producto: 'un producto', campana: 'una campaña', origen: 'un origen',
   estado_lead: 'un estado', estado_cliente: 'un estado', curso: 'un curso', modulo: 'un módulo', clase: 'una clase',
-  clase_tarea: 'una clase', post: 'un post', etapa_entrega: 'una etapa',
+  clase_tarea: 'una clase', post: 'un post', etapa_entrega: 'una etapa', reunion: 'una reunión',
 };
 
 /**
@@ -723,6 +967,18 @@ export function nombreDeValor(catalogo: CatalogoValor, valor: string, n?: Nombre
  * que se dibuja en la tarjeta («Cuotas vencidas ≥ 2», «Completó la clase «Bienvenida»»).
  */
 export function textoCondicion(f: FilaCondicion, n?: NombresCatalogo): string {
+  const base = textoBase(f, n);
+  const c = condicionPorId(f.campo);
+  // Las etapas de reunión elegidas, por su nombre («No asistió a la reunión «Discovery»»). Sin el
+  // catálogo (un setter, o la lectura caída) dicen «una reunión» una sola vez: repetirlo no informa.
+  const elegidas = c?.reuniones ? reunionesDeFila(f) : [];
+  if (!elegidas.length) return base;
+  const nombres = [...new Set(elegidas.map((e) => nombreDeValor('reunion', `${e.funnelId}:${e.key}`, n)))];
+  const lista = nombres.map((x) => (x === GENERICO.reunion ? x : `«${x}»`)).join(' o ');
+  return c?.valor.t === 'numero' ? `${base} · ${lista}` : `${base} ${lista}`;
+}
+
+function textoBase(f: FilaCondicion, n?: NombresCatalogo): string {
   const c = condicionPorId(f.campo);
   if (!c) return 'Condición';
   const r = c.rotulo[f.no && c.negable ? 1 : 0];

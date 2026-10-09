@@ -13,6 +13,7 @@ import { googleCalendarConectado, googleCalendarDueno } from './google-calendar'
 import { capaDef } from './capas';
 import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { getAgenteToken } from './agente-token';
+import { CHATWOOT_APAGADO } from './chatwoot';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
 
@@ -171,7 +172,10 @@ export async function getIntegraciones(): Promise<Integracion[]> {
    * dejaría el inbox sin forma de administrar sus credenciales — esconder una integración
    * viva no la apaga, solo la vuelve inmanejable.
    */
-  const yaUsaOficial = await credWs('CHATWOOT_API_TOKEN').then(Boolean).catch(() => false);
+  //
+  // ⛔ Y desde el 09/10/2026 Chatwoot está APAGADO para todos (lib/chatwoot.ts,
+  // `CHATWOOT_APAGADO`): la tarjeta ya no se le muestra a nadie, tampoco a quien lo tenía.
+  const yaUsaOficial = !CHATWOOT_APAGADO && await credWs('CHATWOOT_API_TOKEN').then(Boolean).catch(() => false);
   const defs = defsTodas.filter((d) => d.key !== 'whatsapp' || yaUsaOficial);
   return Promise.all(defs.map(async (d) => {
     if (d.key === 'landing') {

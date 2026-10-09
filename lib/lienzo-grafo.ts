@@ -245,6 +245,10 @@ export function yDePuerto(n: NodoFlujo, puerto?: string): number {
   if (!puerto || !tieneFilas(n)) return cabecera;
   const filas = n.puertos ?? [];
   let i = filas.findIndex((p) => p.id === puerto);
+  // CUARTA TANDA, PUNTO 8: una flecha en paralelo de un RESULTADO (`par:<destino>@<resultado>`) sale de
+  // la fila de ESE resultado; sin esto, toda flecha par: salía de la PRIMERA fila con `paralelo`.
+  const arroba = puerto.startsWith('par:') ? puerto.lastIndexOf('@') : -1;
+  if (i < 0 && arroba > 0) i = filas.findIndex((p) => p.id === puerto.slice(arroba + 1));
   if (i < 0 && puerto.startsWith('par:')) i = filas.findIndex((p) => p.paralelo);
   // ⚠️ Y SI LA FILA YA NO OFRECE MÁS (`paralelo` ausente: se llegó al tope de caminos), las
   // flechas que YA salen en paralelo siguen saliendo de ella: es la salida de siempre ('sig').
@@ -488,7 +492,7 @@ export const MUELLE = {
   /** El hueco de las cosas que flotan contra el borde (la lista, «Probar»). */
   hueco: 16,
   /** La lista de automatizaciones, a la izquierda. */
-  listaAncho: 272,
+  listaAncho: 320,
   /** «Probar», apilado arriba a la derecha (pedido literal, punto 8: «más ancho, no tan largo»). */
   probarAncho: 560,
   probarAnchoMin: 360,

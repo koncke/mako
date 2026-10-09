@@ -294,7 +294,9 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
   if (pedido.silencioso) {
     try {
       const { cerrarEntregaDeEtapa } = await import('./nutricion');
-      await cerrarEntregaDeEtapa(pedido.leadId, desde, pedido.productoId);
+      // Con la etapa nueva: una secuencia que cubre las DOS (CRON con varias etapas, cuarta tanda,
+      // punto 14) no se corta al moverse entre ellas.
+      await cerrarEntregaDeEtapa(pedido.leadId, desde, pedido.productoId, hacia);
     } catch (e) {
       console.error(`[cs-mover-etapa] el cliente ${pedido.leadId} se movió en silencio a «${hacia}» pero no pude cerrar lo agendado de «${desde ?? '—'}»:`, e instanceof Error ? e.message : String(e));
     }

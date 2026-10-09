@@ -8,12 +8,20 @@ import { Icon } from '../_components/icons';
 import { ConfigInnerTabs } from './ConfigInnerTabs';
 import { EquipoView } from '../equipo/EquipoView';
 import { requireRolWs } from '@/lib/tab-access';
+import { getCapaActual } from '@/lib/workspace';
+import { tabEnCapa } from '@/lib/capas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function ConfiguracionesPage() {
   await requireRolWs([], { nav: 'configuraciones' });
+  // ¿El negocio tiene /chatbot? (quinta tanda, punto 5). Ahí se edita el lienzo de cada mensaje de
+  // Notificaciones, y acá queda un link. Se pregunta con `tabEnCapa('setting', …)`, la MISMA
+  // función con la que el guard de /chatbot (`requireRolWs(['setter'], { nav: 'setting' })`)
+  // decide si deja entrar: con dos reglas, un link podría aterrizar en un rebote. La de
+  // Configuraciones ya exige admin, y /chatbot deja entrar al admin siempre.
+  const mensajesEnChatbot = tabEnCapa('setting', await getCapaActual());
 
   const equipoPanel = (
     <div>
@@ -28,7 +36,7 @@ export default async function ConfiguracionesPage() {
         <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="config" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Configuraciones</h1>
       </header>
-      <ConfigInnerTabs equipoPanel={equipoPanel} />
+      <ConfigInnerTabs equipoPanel={equipoPanel} mensajesEnChatbot={mensajesEnChatbot} />
     </main>
   );
 }

@@ -33,7 +33,7 @@
 import { TOPE_NOMBRE_SECUENCIA } from './setting-estrategia';
 
 /** Las columnas que la copia trae tal cual de la original. */
-export const COPIA = ['etapa', 'trigger_tipo', 'estrategia', 'funnel_id', 'producto_id', 'instance_name', 'etiqueta_id', 'emoji'] as const;
+export const COPIA = ['etapa', 'etapas', 'trigger_tipo', 'estrategia', 'funnel_id', 'producto_id', 'instance_name', 'etiqueta_id', 'emoji'] as const;
 
 /**
  * Las que NO se copian, cada una por algo: la identidad (`id`, `clave`, `workspace_id`, que pone

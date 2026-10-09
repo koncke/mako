@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  SimuladorWhatsApp, filaCreando, listaConCreando, claveCreando, esFilaCreando, opcionesDeFila, NOMBRE_CREANDO, opcionesDeFiltro, QUITAR_FILTRO,
+  SimuladorWhatsApp, filaCreando, listaConCreando, claveCreando, esFilaCreando, opcionesDeFila, NOMBRE_CREANDO,
 } from '../app/chatbot/SimuladorWhatsApp';
 import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
 
@@ -105,10 +105,13 @@ test('crearNueva pone la fila y la abre ANTES de pedirle nada al server; el id r
   assert.ok(iReal > iPost && iLoad > iReal, 'el id real tiene que llegar antes del load');
   assert.match(c, /const temporal = -Date\.now\(\);/);
   // La lista que se dibuja es la del server más la que se está creando, en los dos lugares.
+  // ⚠️ QUINTA TANDA, PUNTO 5: los dos lugares miran también si hay Mensajes de MaKo (`hayAvisos`):
+  // sin automatizaciones pero con mensajes va la lista, para que el link de Notificaciones
+  // (`/chatbot?aviso=<id>`) aterrice en el lienzo de su mensaje y no en «Todavía no hay…».
   const app = APP();
   assert.match(app, /const visibles = secuencias === null \? null : listaConCreando\(secuencias, creando\);/);
-  assert.match(app, /\{visibles !== null && visibles\.length === 0 && !error && \(/);
-  assert.match(app, /\{visibles !== null && visibles\.length > 0 && \(\n\s+<SimuladorWhatsApp\n\s+secuencias=\{visibles\}/);
+  assert.match(app, /\{visibles !== null && visibles\.length === 0 && !hayAvisos && !error && \(/);
+  assert.match(app, /\{visibles !== null && \(visibles\.length > 0 \|\| hayAvisos\) && \(\n\s+<SimuladorWhatsApp\n\s+secuencias=\{visibles\}/);
 });
 
 test('la selección SIGUE a la fila cuando toma su id real (por su clave), y si falla vuelve la de antes', () => {
@@ -117,8 +120,9 @@ test('la selección SIGUE a la fila cuando toma su id real (por su clave), y si 
   assert.match(lista, /const selId = existe\(elegidaViva\) \? elegidaViva : existe\(volverA\) \? volverA : \(secuencias\[0\]\?\.id \?\? ''\);/);
   const cambiar = recorte(lista, 'const cambiarA = (id: number | typeof ID_RECORDATORIO) => {', '\n  };', 600);
   assert.match(cambiar, /if \(typeof id === 'number' && id < 0\) setVolverA\(selId\);/);
-  // La nueva nace pausada: con «Activas» o un texto en el buscador no se vería.
-  assert.match(lista, /if \(creandoSel && \(filtro !== '' \|\| busq\)\) \{ setFiltro\(''\); setBusq\(''\); \}/);
+  // La nueva nace pausada: con «Activas» o un texto en el buscador no se vería. (Quinta tanda, punto
+  // 4: el filtro pasó a ser VARIOS valores, `filtros`; la regla es la misma.)
+  assert.match(lista, /if \(creandoSel && \(filtros\.length > 0 \|\| busq\)\) \{ setFiltros\(\[\]\); setBusq\(''\); \}/);
 });
 
 test('«Nueva» tiene su animación al pasar el cursor (el ＋ gira), quieta con reduced-motion, y el hover le gana al estilo', () => {
@@ -184,15 +188,17 @@ test('la copia se abre cuando llega en la lista, pero NO si hay algo sin publica
 //     «Activas» la nueva no se ve; L10 el «⋯» adentro del botón de la fila.
 //   · A1 la fila aparece después del POST; A2 la lista dibujada sin la fila nueva.
 
-test('el filtro de la lista: al lado del buscador, por estado y por emoji, y «Quitar filtro» en vez de «Todas» (cuarta tanda, punto 13)', () => {
-  const secs = [{ activa: true, emoji: '🗓️', estrategia: null }, { activa: false, emoji: '🗓️', estrategia: null }, { activa: true, emoji: null, estrategia: null }];
-  const sin = opcionesDeFiltro(secs, '', '⏰');
-  assert.deepEqual(sin.map((o) => o.label), ['Activas · 2', 'Pausadas · 1', '🗓️ · 2', '⚑ · 1', '⏰ · 1']);
-  assert.ok(!sin.some((o) => /Todas/.test(o.label)), 'volvió «Todas»');
-  assert.equal(opcionesDeFiltro(secs, 'activas', null)[0].value, QUITAR_FILTRO, 'con un filtro puesto, lo primero es quitarlo');
-  assert.ok(!opcionesDeFiltro(secs, '', null).some((o) => o.value === QUITAR_FILTRO), '«Quitar filtro» sin filtro puesto');
-  // Y va en la MISMA fila que el buscador.
+// ⚠️ CAMBIADO POR LA QUINTA TANDA, PUNTO 4. Este test fijaba el filtro de la cuarta (punto 13): un
+// Dropdown de UN valor (estado o un emoji) de 104 px con «Quitar filtro» como su PRIMER renglón.
+// Martín lo devolvió: «debería ser más chico, con el ícono de filtro […] Replica el desplegable de
+// Filtro que tenemos en el plan... "Quitar filtros" es un texto sutil abajo del todo... Y hay
+// secciones». Lo que se sigue cuidando: que vaya en la MISMA fila que el buscador. Lo nuevo (las
+// secciones, varias marcadas, el canal derivado de los pasos, «Quitar filtros» abajo) lo ejecuta
+// tests/chatbot-lista-filtro.test.ts.
+test('el filtro de la lista va al lado del buscador, y es el botón chico del Plan (quinta tanda, punto 4)', () => {
   const lista = LISTA();
-  const fila = lista.slice(lista.indexOf('aria-label="Buscar por nombre"') - 200, lista.indexOf('ariaLabel="Filtrar secuencias"'));
+  const fila = lista.slice(lista.indexOf('aria-label="Buscar por nombre"') - 200, lista.indexOf('<FiltroLista filas={todasLasFilas} valores={filtros} onCambio={setFiltros} />'));
   assert.ok(fila.length > 0 && fila.length < 900, 'el filtro no está al lado del buscador');
+  // El de la cuarta tanda no volvió: ni el Dropdown de un valor, ni «Quitar filtro» arriba.
+  assert.doesNotMatch(lista, /ariaLabel="Filtrar secuencias"|QUITAR_FILTRO|opcionesDeFiltro/);
 });

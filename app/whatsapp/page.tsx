@@ -11,6 +11,7 @@ import { getRolWsEfectivo } from '@/lib/workspace';
 import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
 import { OnboardingCanalWhatsApp } from './OnboardingCanalWhatsApp';
 import { integracionConectada } from '@/lib/credenciales';
+import { CHATWOOT_APAGADO } from '@/lib/chatwoot';
 import { listarLineas } from '@/lib/evolution';
 import { PanelActivacion } from '../_components/PanelActivacion';
 import { tabActivacion } from '@/lib/tab-activacion';
@@ -34,8 +35,10 @@ export default async function WhatsAppPage() {
   // principal y lo movía a mano). Van en el mismo `Promise.all` para no sumar un viaje en
   // serie, y con `leerFunnels`: `null` = no se pudieron leer, que la bandeja NO confunde con
   // «hay uno» (ahí el botón queda de un clic y decide el server).
+  // ⛔ El canal OFICIAL corre sobre Chatwoot, que está APAGADO desde el 09/10/2026
+  // (lib/chatwoot.ts): la pestaña no se muestra, aunque queden credenciales cargadas.
   const [oficial, noOficial, funnels] = await Promise.all([
-    integracionConectada('whatsapp'),
+    CHATWOOT_APAGADO ? false : integracionConectada('whatsapp'),
     listarLineas().then((ls) => ls.some((l) => l.estado === 'conectado')).catch(() => false),
     leerFunnels(),
   ]);

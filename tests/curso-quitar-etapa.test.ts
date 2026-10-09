@@ -121,7 +121,7 @@ test('el choke point EN SILENCIO bloquea las secuencias de la nueva ANTES de mov
   assert.match(antes, /catch \(e\) \{[\s\S]*return fallo\(pedido,/, 'sin poder bloquear, NO se mueve (fail-closed)');
   // DESPUÉS de la columna y de su historial: cierra lo agendado de la que deja, y vuelve sin enrolar.
   const sil = bloque(fn.slice(pos("from('lead_audit').insert")), 'if (pedido.silencioso) {', 'return { ...base, cambio: true };');
-  assert.match(sil, /await cerrarEntregaDeEtapa\(pedido\.leadId, desde, pedido\.productoId\)/);
+  assert.match(sil, /await cerrarEntregaDeEtapa\(pedido\.leadId, desde, pedido\.productoId, hacia\)/, 'sin la etapa nueva, un CRON de varias etapas se corta al moverse entre dos suyas (cuarta tanda, punto 14)');
   assert.doesNotMatch(sil, /enrolarPorEvento|avisarEntradaAEtapa|enviar/, 'en silencio no se enrola ni se manda nada');
   const despues = pos('if (pedido.silencioso) {', pos("from('lead_audit').insert"));
   assert.ok(despues < pos('enrolarPorEvento('), 'el silencio corta ANTES del enrolamiento');

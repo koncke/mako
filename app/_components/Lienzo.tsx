@@ -786,6 +786,11 @@ export function Lienzo({
                 const puede = Boolean(onAgregarTras) && (puedeAgregarTras?.(n.id) ?? true);
                 const color = p.tono ? COLOR_TONO[p.tono] : 'var(--border-strong)';
                 const opciones = (puerto: string, medio: boolean) => (opcionesEn ? opcionesEn(n.id, puerto, medio) : (opcionesAgregar ?? [{ value: 'accion', label: '＋' }]));
+                // La flecha en paralelo NUEVA: desde la salida de siempre es 'par'; desde la fila de un
+                // RESULTADO de una condición es 'par@<fila>' (cuarta tanda, punto 8: «varias si se
+                // cumple y varias si no se cumple»). Con 'par' a secas, el ＋ del «Si no» no diría de
+                // qué fila sale, y el modelo no la agregaría en ningún lado.
+                const enParalelo = p.id === 'sig' ? 'par' : `par@${p.id}`;
                 return (
                   <div key={`pt-${n.id}-${p.id}`}>
                     <span aria-hidden style={{
@@ -810,8 +815,8 @@ export function Lienzo({
                         <MasDeSalida
                           ariaLabel="Agregar en paralelo"
                           disabled={agregarOcupado}
-                          opciones={opciones('par', false)}
-                          onElegir={(v) => onAgregarTras(n.id, v, 'par')}
+                          opciones={opciones(enParalelo, false)}
+                          onElegir={(v) => onAgregarTras(n.id, v, enParalelo)}
                         />
                       </span>
                     )}
