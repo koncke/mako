@@ -184,7 +184,7 @@ export const DISPARADORES_SOCIALES: readonly DisparadorSocial[] = [
     ojo: 'En un chat NUEVO, Instagram manda el ref sólo si la cuenta tiene al menos un Ice Breaker.' },
   { canal: 'messenger', subtipo: 'anuncio', rotulo: 'Hace clic en tu anuncio', evento: 'message.received (metadata.referral.ad_id) / referral.received', disponible: true },
   { canal: 'messenger', subtipo: 'comentario', rotulo: 'Comenta tu publicación', evento: 'comment.received', disponible: true,
-    ojo: 'El id del que comenta en Facebook no es el de su chat: la persona se une cuando contesta la respuesta privada.' },
+    ojo: 'NO medido: el id de quien comenta en Facebook puede no ser el de su chat de Messenger (en Instagram es el mismo IGSID).' },
   { canal: 'messenger', subtipo: 'mensaje', rotulo: 'Te envía un mensaje', evento: 'message.received', disponible: true },
   { canal: 'messenger', subtipo: 'referencia', rotulo: 'Hace clic en tu enlace de referencia', evento: 'referral.received / metadata.referral.ref', disponible: true },
   { canal: 'messenger', subtipo: 'qr', rotulo: 'Escanea un código QR', evento: 'referral.received (ref qr-…)', disponible: true,

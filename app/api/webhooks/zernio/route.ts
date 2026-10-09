@@ -35,7 +35,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { eventoSocialDe } from '@/lib/canal-social';
 import { procesarEventoSocial, dispararEventoSocial } from '@/lib/zernio-entrante';
-import { RUTEO_CUENTA, RUTEO_PERFIL } from '@/lib/zernio';
+import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTOS_WEBHOOK } from '@/lib/zernio';
 
 export const dynamic = 'force-dynamic';
 // El primer mensaje de la automatización sale en `after`, después de contestar.
@@ -43,8 +43,8 @@ export const maxDuration = 120;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** Lo que este webhook procesa. El resto se contesta 200 y se anota en el log. */
-const EVENTOS = new Set(['message.received', 'referral.received', 'comment.received', 'account.connected']);
+/** Lo que este webhook procesa: lo MISMO que se suscribe (`EVENTOS_WEBHOOK`). El resto, 200 y al log. */
+const EVENTOS: ReadonlySet<string> = new Set(EVENTOS_WEBHOOK);
 
 type Cuerpo = { id?: unknown; event?: unknown; account?: { profileId?: unknown; accountId?: unknown; id?: unknown } | null };
 const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : null);

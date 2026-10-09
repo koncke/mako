@@ -1209,6 +1209,110 @@ tardó 4,6 min; matar un `npm test` en curso deja 218 falsos rojos «The service
 de migración se ocupó DOS veces mientras se trabajaba (0231 y 0232): se mira justo antes de commitear.
 Y el agente dejó el `next dev` prendido al terminar: quien une la tanda revisa los procesos.
 
+## Sexta tanda (09/10/2026, parte «canales»): Instagram y Messenger por Zernio
+
+Medido contra la doc de Zernio (`docs.zernio.com/llms-full.txt` y `zernio.com/openapi.json` v1.249.1,
+bajados el 09/10/2026) y contra producción en sólo lectura. **No se mandó un solo mensaje ni se recibió
+un evento real**: todo lo de abajo que dice «doc» es lo que Zernio documenta, no lo que se vio pasar.
+
+### Los disparadores de ManyChat contra lo que Zernio entrega [canales]
+
+| ManyChat | Canal | Qué lo trae en Zernio | ¿Va? |
+|---|---|---|---|
+| Comenta tu publicación o Reel | Instagram | `comment.received` (`comment.isLive` ausente) | sí: se contesta por privado, UNA vez y en 7 días; a quien no sigue la cuenta, sólo texto |
+| Responde a tu historia | Instagram | `message.received` con `metadata.storyReply` | sí |
+| Te envía un mensaje | Instagram | `message.received` | sí |
+| Hace clic en tu anuncio | Instagram | `message.received` con `metadata.referral.ad_id` | sí: Meta suele mandar primero el post del anuncio SIN referral y el referral en el mensaje que sigue |
+| Comenta en tu En vivo | Instagram | `comment.received` con `comment.isLive: true` | sí: la respuesta privada sale mientras el En vivo está al aire |
+| Clic en tu enlace de referencia | Instagram | `metadata.referral.ref` (o `referral.received` en un chat que ya existía) | sí, con trampa: en un chat NUEVO Instagram manda el `ref` sólo si la cuenta tiene un Ice Breaker |
+| Hace clic en tu anuncio | Messenger | `metadata.referral.ad_id` / `referral.received` (clic de vuelta) | sí |
+| Comenta tu publicación | Messenger | `comment.received` (platform `facebook`) | sí, con una duda NO medida: el id del autor de un comentario de Facebook puede no ser su PSID de Messenger, y entonces quien comenta y quien contesta la respuesta privada serían dos filas (en Instagram los dos son el IGSID) |
+| Te envía un mensaje | Messenger | `message.received` | sí |
+| Clic en tu enlace de referencia | Messenger | `referral.received` / `metadata.referral.ref` | sí |
+| Escanea un código QR | Messenger | el mismo `referral`, con un `ref` que empieza con `qr-` | sí, por convención: Meta no distingue escanear de tocar (el QR es el link `m.me/…?ref=qr-…`) |
+| Mensajes de tu tienda de Facebook | Messenger | — | **NO: apagado**, «Zernio no avisa los mensajes que llegan desde la tienda» |
+
+La tabla vive en código (`DISPARADORES_SOCIALES`) y `tests/canal-social.test.ts` exige que cada fila
+«disponible» la produzca un cuerpo del webhook. Una mención en una historia SÍ llega
+(`metadata.isStoryMention`) y no la escucha ningún disparador: no es «te envía un mensaje».
+
+**Vive en:** `lib/canal-social.ts` (`DISPARADORES_SOCIALES`, `eventoSocialDe`)
+
+### Instagram NO es el WhatsApp no oficial: la ventana de 24 h acá SÍ existe [canales]
+
+AGENTS.md dice «el WhatsApp del chatbot no tiene ventana de 24 h», y el reflejo es copiar el WhatsApp
+tal cual. Para Instagram y Messenger es al revés: un DM sale dentro de las 24 h del último mensaje DE LA
+PERSONA, o como la única respuesta privada a un comentario (7 días). Fuera de eso Instagram acepta sólo
+`HUMAN_AGENT`, que por política de Meta es para una persona que contesta, nunca para una automatización.
+
+- Un paso social fuera de la ventana NO sale y es **terminal** (cierra el hilo con su motivo): reintentar no
+  la abre; sólo la abre la persona escribiendo.
+- El reloj de acá es la pre-guarda; lo que manda es la respuesta de Zernio (`PLATFORM_LIMITATION`,
+  `privateReplyConsumed`, `not_thread_owner`: `esLimiteDeMeta`).
+- **El freno de 20 h del WhatsApp NO aplica**: protege a la línea no oficial de un baneo, y frenar 20 h un
+  segundo DM lo dejaría fuera de la ventana.
+- Un DELAY de más de 24 h antes de una tarjeta de Instagram la deja siempre afuera: el editor todavía no lo avisa.
+
+**Vive en:** `lib/canal-social.ts` (`decidirSalida`) · `lib/canal-zernio.ts` · `lib/nutricion.ts` (la rama social)
+
+### Un paso de Instagram le habría salido al lead POR WHATSAPP, sin un error [canales]
+
+El diagnóstico obvio era «falta la rama de envío». La causa real eran dos lugares que convierten en
+WhatsApp todo lo que no reconocen:
+
+- `setSecuenciaPasos` guardaba `canal: email ? 'email' : 'whatsapp'`: la tarjeta de Instagram se publicaba
+  como WhatsApp. Ahora `canalAGuardar` la conserva.
+- La respuesta de «Si responde» (`responderConGrafo`) preguntaba `proveedorDelPaso(p) !== 'no_oficial'`, y un
+  paso de Instagram «es» no oficial porque no tiene plantilla: salía por la línea. Ahora se frena antes.
+
+La regla está en AGENTS.md: un camino que manda lo que dice un paso pregunta `esCanalSocial` ANTES de
+decidir que es WhatsApp.
+
+**Vive en:** `lib/nutricion.ts` (`setSecuenciaPasos`, `procesarEnvios`, `responderConGrafo`)
+
+### El webhook de Zernio nunca entregó un evento: con key propia, el webhook vive en SU cuenta [canales]
+
+Medido en producción (09/10/2026): los dos negocios con Zernio (ws11 y ws13) tienen key PROPIA, fila de
+ruteo por profile y `zernio_workspace.webhook_ok = false` desde agosto. No es la firma ni el ruteo: con
+key propia el webhook se registra en la cuenta de Zernio DEL NEGOCIO, y nadie lo registró. Lo registra
+MaKo (`asegurarWebhook`, idempotente, con el secreto de la plataforma) cuando el editor de la tarjeta pide
+la cuenta (POST `/api/zernio`, «estado»).
+
+Y dos trampas de la forma del evento: **un `comment.received` NO trae el profile** (sólo
+`account.accountId`), así que el ruteo por profile no alcanza y cada cuenta conectada se reclama aparte
+(`zernio_cuenta`); y **Zernio corta a los 5 s**, así que el webhook guarda rápido y dispara la
+automatización en `after`. El dedup es por el id del EVENTO (`zernio_eventos`, mig 0242), que es el mismo
+en cada uno de los 7 reintentos.
+
+**Vive en:** `lib/zernio.ts` (`asegurarWebhook`, `cuentasConectadas`) · `app/api/webhooks/zernio/route.ts` · `app/api/zernio/route.ts`
+
+### Trampas chicas que se pagan caro [canales]
+
+- **`createLead` tira `meta_ad_id` sin avisar**: lo tiene en `LeadCreateInput` y no en el insert (sí lo
+  escribe el alta del instant form). Pasarlo no da error y no guarda nada. `lib/leads.ts`
+- **Instagram rechaza el MP3 y el OGG/Opus** (doc de Zernio): las notas de voz de la biblioteca de WhatsApp
+  no salen por ahí, y por eso el editor social no graba audio.
+- **Un test no puede importar un módulo `server-only`** (el paquete tira fuera de `react-server`): el webhook y
+  el motor se fijan sobre el FUENTE, y lo que decide va en módulos puros (`lib/canal-social.ts`,
+  `lib/zernio-firma.ts`) que sí se ejecutan.
+- **Un ancla de rotura tiene que poder fallar**: dos de las roturas del arnés pasaron en verde la primera vez
+  porque el reemplazo no tocaba lo que el assert miraba (un `JSON.parse(raw || …)` contra un assert que busca
+  `JSON.parse(raw)`). Se rehicieron; el número que vale es el de la segunda corrida.
+
+### Lo que quedó sin hacer (parte «canales») [canales]
+
+- **Una respuesta por Instagram NO pausa la salida**: `pausarPorRespuesta` pausa y además contesta (asistido,
+  «Si responde», la charla) POR WHATSAPP. Hace falta que el motor conteste por el canal donde le escribieron.
+  `lib/nutricion.ts` · `lib/zernio-entrante.ts`
+- **El tinte de la tarjeta** (`CanalTarjeta` e `identidadDeTarjeta`, de la parte «lienzo») y el rótulo de
+  «Probar» con varios canales (`SecuenciaPerfil`). Los colores están en `IDENTIDAD_SOCIAL`.
+  `lib/lienzo-grafo.ts` · `app/_components/Lienzo.tsx` · `app/chatbot/SecuenciaPerfil.tsx`
+- **El editor del CRON con los doce disparadores** (parte «disparadores»), el QR dibujado y los Ice Breakers
+  que pide el `ref` de Instagram. `lib/canal-social.ts` (`DISPARADORES_SOCIALES`, `linkDeReferencia`)
+- **Medir en Messenger si quien comenta y quien contesta son la misma fila** (ver la tabla). Si no, la unión
+  sale del eco de la respuesta privada (`message.sent`), que hoy no se escucha. `lib/zernio-entrante.ts`
+- **Verlo con clics y un evento real**: nada de esto recibió un webhook de verdad.
+
 ## Lo que quedó sin hacer
 
 **De la parte «lienzo» (quinta 2), lo que decide Martín:** si mover una tarjeta se deshace con Ctrl+Z (hoy

@@ -33,8 +33,12 @@ const ZERNIO_BASE = 'https://zernio.com/api/v1';
 export const RUTEO_PERFIL = 'zernio';
 export const RUTEO_CUENTA = 'zernio_cuenta';
 
-/** Los eventos que el canal escucha. Ver la tabla en docs/hallazgos-chatbot.md. */
-export const EVENTOS_WEBHOOK = ['message.received', 'message.sent', 'referral.received', 'comment.received', 'account.connected'] as const;
+/**
+ * Los eventos que el canal escucha: los que se suscriben al registrar el webhook Y los que el webhook
+ * procesa (app/api/webhooks/zernio/route.ts importa esta lista). Sin `message.sent`: lo que le llegó a
+ * cada lead ya está en `nutricion_envios.texto_enviado`. La tabla, en docs/hallazgos-chatbot.md.
+ */
+export const EVENTOS_WEBHOOK = ['message.received', 'referral.received', 'comment.received', 'account.connected'] as const;
 
 // ── Error tipado (envelope de Zernio: «Branch on type and code, never on error text») ──
 
