@@ -125,7 +125,8 @@ test('⚠️ `insetDer`: lo que flota a la derecha se corre, en los CUATRO lugar
   // chrome, a la altura del chrome y en la franja de abajo no tapa nada; ausentes = `insetDer`.
   assert.match(LIENZO, /const derChrome = insetDerChrome \?\? insetDer;\n\s+const derAbajo = insetDerAbajo \?\? insetDer;/);
   assert.match(LIENZO, /left: insetIzq, right: derChrome, top: 0, padding: 14/, 'el chrome');
-  assert.match(LIENZO, /data-esquina-ocupada style=\{\{ position: 'absolute', right: 12 \+ derAbajo, bottom: 12 \}\}/, '«Publicar»');
+  // El `zIndex` lo fija tests/lienzo-capas.test.ts (encima del panel apaisado).
+  assert.match(LIENZO, /data-esquina-ocupada style=\{\{ position: 'absolute', right: 12 \+ derAbajo, bottom: 12, zIndex: Z_ACCION_LIENZO \}\}/, '«Publicar»');
   // ⚠️ SIN EL `+ 30` (hallazgos-chatbot.md): `* { box-sizing: border-box }` hace de `maxWidth` el
   // ancho EXTERIOR, y restarle el relleno y el borde otra vez angostaba el editor 30 px de más.
   assert.match(LIENZO, /maxWidth: `calc\(100% - \$\{PANEL_MARGEN \* 2 \+ insetIzq \+ insetDer\}px\)`/, 'el panel del nodo');

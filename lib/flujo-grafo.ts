@@ -643,6 +643,14 @@ export function repartenEnBucle(pasos: readonly PasoGrafo[]): Set<string> {
 /**
  * Las reglas de la SEGUNDA TANDA (el inicio, «Si responde» sin padre y las flechas en paralelo).
  * Aparte de `validarGrafo` para que cada una se lea con su porqué.
+ *
+ * ⚠️ EL PORQUÉ VA EN ESTOS COMENTARIOS, NO EN EL MENSAJE. Estos textos llegan a la pantalla
+ * (`errorLegible`, al lado de «Publicar»), y con el porqué entre paréntesis («(abriría caminos
+ * nuevos en cada vuelta)», «(le llegaría lo mismo dos veces)», «(una condición, «Si responde» y un
+ * «Ir a» no las tienen)») el error con el nombre de la tarjeta ocupaba TRES renglones: unos 69 px,
+ * y el panel apaisado que ese mismo error abre le tapaba el primero, el que nombra la tarjeta
+ * (revisión de la segunda tanda, 09/10/2026). AGENTS.md: «La pantalla dice QUÉ pasó; el PORQUÉ va
+ * al código».
  */
 function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp: string | null): string[] {
   const err: string[] = [];
@@ -665,7 +673,8 @@ function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp
   pasos.forEach((p, i) => {
     const crudos = Array.isArray(p.paralelos) ? p.paralelos.filter((d) => typeof d === 'string' && d) : [];
     if (!crudos.length) return;
-    if (!puedeTenerParalelos(p)) { err.push(`la tarjeta ${ids[i]} no puede sacar flechas en paralelo (una condición, «Si responde» y un «Ir a» no las tienen)`); return; }
+    // Una condición, «Si responde» y un «Ir a» no las tienen (`puedeTenerParalelos`).
+    if (!puedeTenerParalelos(p)) { err.push(`la tarjeta ${ids[i]} no puede sacar flechas en paralelo`); return; }
     const par = paralelosDe(p);
     if (par.length !== crudos.length) err.push(`la tarjeta ${ids[i]} repite una flecha en paralelo`);
     // El hilo de una flecha en paralelo se llama como su primera tarjeta (`hiloDe`, el `h` del
@@ -685,7 +694,7 @@ function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp
   // Una tarjeta con paralelos DENTRO DE UN BUCLE de «Ir a» abre hilos nuevos en cada vuelta, sin
   // fin: m1 (en paralelo m2) → esperar 1 día → «Ir a» m1 suma un hilo m2 por día. Qué es un bucle
   // lo decide `nodosEnBucle`, la misma función con la que el lienzo deja de ofrecerlo.
-  for (const id of repartenEnBucle(pasos)) err.push(`la tarjeta ${id} saca flechas en paralelo dentro de un bucle de «Ir a» (abriría caminos nuevos en cada vuelta)`);
+  for (const id of repartenEnBucle(pasos)) err.push(`la tarjeta ${id} saca flechas en paralelo dentro de un bucle de «Ir a»`);
   // Un «Ir a {tarjeta}» de la SALIDA sólo salta dentro de su propio hilo: a la tarjeta de otro,
   // dos cursores caen en la misma tarjeta y al lead le llega el mismo mensaje dos veces. Desde «Si
   // responde» sí se puede ir a cualquier lado: la respuesta pausa todo y retoma UN solo hilo.
@@ -699,7 +708,8 @@ function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp
     const desde = hilo.get(ids[i]);
     if (!desde || desde === HILO_RESPUESTA) return;
     const hasta = hilo.get(destino);
-    if (hasta !== undefined && hasta !== desde) err.push(`el «Ir a» ${ids[i]} salta a una tarjeta de otro camino (le llegaría lo mismo dos veces)`);
+    // Dos cursores en la misma tarjeta: al lead le llegaría lo mismo dos veces.
+    if (hasta !== undefined && hasta !== desde) err.push(`el «Ir a» ${ids[i]} salta a una tarjeta de otro camino`);
   });
   return err;
 }

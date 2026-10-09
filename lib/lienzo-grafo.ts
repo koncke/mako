@@ -390,6 +390,29 @@ export const ZOOM_ALTO = 40;
 export const CHROME_ALTO = 64;
 
 /**
+ * LAS CAPAS DE LO QUE FLOTA SOBRE EL LIENZO (revisión de la segunda tanda, 09/10/2026).
+ *
+ * El panel APAISADO llega al rincón de abajo a la derecha de la ventana —el lienzo de /chatbot va
+ * de borde a borde— y ahí pinta, `fixed` y en z 55, la esquina de avisos (EsquinaAvisos), subida a
+ * 64 px por el `data-esquina-ocupada` de «Publicar». Sin capa propia (ningún ancestro del lienzo
+ * tiene z-index) la pastilla quedaba encima de la última fila del editor de WhatsApp en `fila`, la
+ * de «Revisar antes de enviar», y esa casilla no recibía el clic. Y las cajas de «Crear con IA»
+ * (z 4, SecuenciaPerfil) tapaban el pie del editor y el desplegable del disparador.
+ *
+ * - El panel apaisado va ENCIMA de la esquina (55) y de esas cajas, y DEBAJO de los modales (la
+ *   pila arranca en 130; AGENTS.md: «un aviso flotante va debajo de los modales»). Lo abrió la
+ *   persona: mientras está abierto tapa el aviso, y el aviso vuelve al cerrarlo. Los menús de
+ *   `Dropdown` van portaleados a `body` en z 1000 y el Toast en 600, así que siguen arriba.
+ * - «Publicar» y su error, ENCIMA del panel: el error que frena Publicar abre la tarjeta culpable,
+ *   o sea que el panel está abierto mientras se lee, y antes le tapaba el primer renglón.
+ *
+ * ⚠️ No se subió la esquina con `:root:has([data-panel-forma="apaisado"])`: con «Probar» apilado,
+ * su borde de abajo queda a 12 px del techo del panel y la esquina subida caería sobre ese chat.
+ */
+export const Z_EDITOR_APAISADO = 56;
+export const Z_ACCION_LIENZO = 57;
+
+/**
  * CÓMO QUEDA LA VISTA CUANDO SE ABRE EL PANEL APAISADO (la franja de abajo).
  *
  * Es la otra mitad de `vistaConPanel`: aquél corre el lienzo en HORIZONTAL porque el panel de
