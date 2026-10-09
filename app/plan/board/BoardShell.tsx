@@ -40,6 +40,7 @@ import { EditableInline } from '@/app/_components/EditableInline';
 import { fondoPortada, esFoto, urlPortada } from '@/lib/portadas';
 import { AudienciaModal } from './AudienciaModal';
 import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
+import { lugarEn, sugerirNumero, type Lugar } from './lugar-al-soltar';
 import { MakoProyectoModal } from './MakoProyecto';
 import { useVerMas } from './VerMas';
 // ⚠️ EL DESPLEGABLE, SU DIÁLOGO Y LA LISTA DE OPCIONES VIENEN DE ACÁ Y NO DE `lib/`, y el
@@ -469,7 +470,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // Qué prioridad se está editando, y por qué camino se llegó. UNO para los dos caminos:
   // el ARRASTRE (que trae la columna de destino) y el LÁPIZ del panel (que no trae ninguna,
   // porque no se movió de columna). Antes era sólo del arrastre y sólo de tareas.
-  const [soltada, setSoltada] = useState<{ entidad: 'proyecto' | 'tarea'; id: string; destino?: Prio; sugerido?: number } | null>(null);
+  const [soltada, setSoltada] = useState<{ entidad: 'proyecto' | 'tarea'; id: string; destino?: Prio; sugerido?: number; lugar?: Lugar } | null>(null);
   /**
    * SOBRE QUÉ está trabajando el Perro AHORA mismo (ids de tarea o de proyecto).
    *
@@ -1580,7 +1581,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
                  cliente no tiene con qué escribir una prioridad a mano, así que ahí la
                  tabla no dibuja el agarre en vez de ofrecer un gesto que contesta 403. */
               onSoltar={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} /></div>
-          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} sel={selTareasVista} setSel={setSelTareasVista} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
+          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} sel={selTareasVista} setSel={setSelTareasVista} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, destino, sugerido, lugar })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} pasaCliente={pasaClienteProy} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
         {view === 'recurrentes' && <RecurrentesView tareas={recurrentesVisibles} proyectos={proyRecurrentesVisibles} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId}
@@ -1617,7 +1618,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           hoy las dos abrían el pop-up en el mismo número. */}
       {soltada && soltadaItem && (
         <MoverPrioridadModal
-          titulo={soltadaItem.titulo} score={soltadaItem.score}
+          titulo={soltadaItem.titulo} score={soltadaItem.score} conLugar={!!soltada.lugar}
           sugerido={soltada.sugerido ?? (soltada.destino ? scoreFromPrio[soltada.destino] : soltadaItem.score)}
           vecinos={soltada.entidad === 'tarea'
             ? tasks.filter((x) => x.id !== soltada.id && x.progress < 100).map((x) => ({ id: x.id, titulo: x.title, score: x.score }))
@@ -1627,7 +1628,9 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
             : undefined}
           onAbrir={(id) => (soltada.entidad === 'tarea' ? setOpenId(id) : setOpenProj(id))}
           onAplicado={async (n) => {
-            const r = await board.repo.prioridadManual!(soltada.entidad, soltada.id, n);
+            // El lugar del Kanban viaja con el número: el server corre a las de abajo para que
+            // la tarjeta quede donde se soltó, y lo que corrió vuelve en `movidos`.
+            const r = await board.repo.prioridadManual!(soltada.entidad, soltada.id, n, soltada.lugar ? { lugar: soltada.lugar } : undefined);
             board.aplicarCascadaManual(soltada.entidad, { id: soltada.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${r.score} a mano` }, r.movidos);
           }}
           onClose={() => setSoltada(null)} />
@@ -3372,8 +3375,13 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, s
    * `BoardShell`, que es el ancestro que las dos formas comparten.
    */
   sel: ReadonlySet<string>; setSel: Dispatch<SetStateAction<ReadonlySet<string>>>;
-  /** soltaste una tarjeta: NO se fija sola, se pregunta el número — con el que sugiere la POSICIÓN */
-  onSoltar: (id: string, destino: Prio, sugerido?: number) => void;
+  /**
+   * soltaste una tarjeta: NO se fija sola, se pregunta el número — con el que sugiere la
+   * POSICIÓN. `lugar` viaja sólo cuando la columna está ordenada por prioridad de mayor a
+   * menor: ahí la posición ES la prioridad y el server corre a las de abajo para cumplirla
+   * (`hacerLugar`, lugar-al-soltar.ts). Ordenada por nombre o por fecha, el lugar no dice nada.
+   */
+  onSoltar: (id: string, destino: Prio, sugerido?: number, lugar?: Lugar) => void;
 }) {
   // Dónde caería si soltaras ahora. Es estado y no un ref porque se DIBUJA: el hueco entre
   // las tarjetas es la única forma de saber dónde va a caer antes de soltarla.
@@ -3517,7 +3525,22 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, s
               const otros = items.filter((t) => t.id !== id);
               const iYo = items.findIndex((t) => t.id === id);
               const idx = Math.max(0, Math.min(iYo >= 0 && crudo > iYo ? crudo - 1 : crudo, otros.length));
-              if (id) onSoltar(id, p, scoreEntre(otros, idx, p));
+              if (!id) return;
+              const base = scoreEntre(otros, idx, p);
+              // ⚠️ EL PUNTO MEDIO SOLO NO ALCANZA: entre dos tarjetas con el MISMO número no hay
+              // número que deje a la soltada en el medio, y el desempate por `num` la corría 1 a
+              // 3 lugares en el 76% de los lugares (medido el 06/10/2026). Con la columna por
+              // prioridad de mayor a menor, el número sale de `sugerirNumero` —el que deja la
+              // tarjeta ahí corriendo a las de abajo— y el lugar viaja para que el server lo
+              // cumpla con el tablero recién leído. El universo es el tablero ENTERO y no lo que
+              // dejó el buscador: el server no ve los filtros.
+              const porPrioridad = sortMode === 'score' && sortDir === 'desc';
+              const yo = board.tasks.find((t) => t.id === id);
+              if (!porPrioridad || !yo) { onSoltar(id, p, base); return; }
+              const compite = (t: BoardTask) => t.progress < 100 && !esRecurrente(t);
+              const lugar = lugarEn(otros, idx, compite);
+              const col = board.tasks.filter((t) => t.id !== id && compite(t)).map((t) => ({ id: t.id, score: t.score, num: t.num }));
+              onSoltar(id, p, sugerirNumero(col, { id, num: yo.num }, lugar, p, base), lugar);
             }}
             // `data-prio` es cómo el arrastre táctil sabe dónde está cada columna: al armarse
             // el gesto mide estos cuatro rectángulos UNA vez y después no vuelve a leer layout.

@@ -1,0 +1,185 @@
+// =============================================================================
+// Soltar una tarea en el Kanban la deja DONDE SE SOLTÓ: se corren las de abajo
+// =============================================================================
+// «En el plan funciona diferente, ya que la posición son PRIORIDADES, creo que el plan ya
+// lo hace. Si lo hace bien, que no modifique nada» (06/10/2026). No lo hacía bien: las
+// tareas empatan a propósito y el Kanban desempata por `num`, así que entre dos con el
+// mismo número la soltada quedaba corrida — 472 de 618 lugares (76%) sobre el tablero real.
+// El 09/10/2026 se eligió «Correr las de abajo», y otra vez con el costo medido: en la
+// mitad de los lugares se corren 0 o 1, en el 10% peor hasta 29 y como máximo 52, un punto
+// cada una, sin cruzarse y sin cambiar de columna.
+//
+// Medido con la regla de acá contra las 184 abiertas del tablero real (561 lugares, tres
+// tarjetas que se mueven): 561 de 561 quedan donde se soltaron, ninguna vecina sube y
+// ninguna cambia de columna.
+//
+// Dos mitades: la regla se EJECUTA (`hacerLugar`, `sugerirNumero`) y el cableado se lee del
+// fuente — el Kanban manda el lugar, el pop-up lo pasa, y los dos tableros lo cumplen.
+//
+// PROBADO ROMPIÉNDOLO (09/10/2026), sobre 13 tests, restaurando de memoria:
+//   1. en `vaAntes`, el desempate dado vuelta (`a.num < b.num`): 9 pass / 4 fail.
+//   2. en `hacerLugar`, la vecina corrida siempre un punto (sin el empate por `num`):
+//      11 pass / 2 fail. Sin la aserción del plan exacto de «a igual número…» pasaba en
+//      verde: la tarjeta igual queda en su lugar, sólo que la ola baja la columna entera.
+//   3. en `hacerLugar`, sin el tope de la columna (`if (despues < min) return null`):
+//      12 pass / 1 fail.
+//   4. el pop-up sin `{ lugar: soltada.lugar }`: 12 pass / 1 fail.
+//   5. `fijarPrioridadAMano` sin el `.eq('score', c.antes)`: 12 pass / 1 fail.
+//   6. el Kanban mandando el lugar con cualquier orden (`porPrioridad = true`): 12 / 1.
+//   7. el botón «Cambiar» apagado con el mismo número aunque haya lugar: 12 / 1.
+//   8. el pop-up montado sin `conLugar`: 12 / 1.
+// =============================================================================
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { hacerLugar, sugerirNumero, lugarEn, vaAntes, bandaDe, baseCorrida, type FilaLugar } from '../app/plan/board/lugar-al-soltar';
+import { prioFromScore, type Prio } from '../app/plan/board/types';
+
+const ordenar = (l: FilaLugar[]) => [...l].sort((a, b) => (vaAntes(a, b) ? -1 : vaAntes(b, a) ? 1 : 0));
+/** Aplica un plan y devuelve el lugar donde quedó `yo` dentro de su columna. */
+const lugarFinal = (col: FilaLugar[], yo: FilaLugar, plan: { id: string; despues: number }[]) => {
+  const nuevo = new Map(plan.map((c) => [c.id, c.despues]));
+  const p = prioFromScore(yo.score);
+  return ordenar([...col.map((c) => ({ ...c, score: nuevo.get(c.id) ?? c.score })), yo].filter((t) => prioFromScore(t.score) === p))
+    .findIndex((t) => t.id === yo.id);
+};
+
+test('el caso que lo motivó: soltada entre dos con el mismo número queda en el medio, corriendo la de abajo', () => {
+  // Media: 62 (#90) y 62 (#80), y debajo 61 (#100). La soltada es #50: con 62 el desempate
+  // la ponía DETRÁS de #80, que es exactamente el «la solté acá y quedó allá».
+  const col: FilaLugar[] = [{ id: 'a', score: 62, num: 90 }, { id: 'b', score: 62, num: 80 }, { id: 'c', score: 61, num: 100 }];
+  const lugar = { arriba: 'a', abajo: 'b' };
+  const n = sugerirNumero(col, { id: 'yo', num: 50 }, lugar, 'media', 62);
+  const plan = hacerLugar(col, { id: 'yo', score: n, num: 50 }, lugar);
+  assert.ok(plan, 'tiene que haber lugar');
+  assert.equal(lugarFinal(col, { id: 'yo', score: n, num: 50 }, plan!), 1, 'queda segunda, entre a y b');
+  assert.ok(plan!.every((c) => c.despues < c.antes), 'sólo se corren las de ABAJO, y para abajo');
+  assert.ok(plan!.every((c) => c.id !== 'a'), 'la de arriba no se toca');
+});
+
+test('sin estorbo no se corre a nadie: el número del medio alcanza', () => {
+  const col: FilaLugar[] = [{ id: 'a', score: 70, num: 1 }, { id: 'b', score: 60, num: 2 }];
+  const n = sugerirNumero(col, { id: 'yo', num: 3 }, { arriba: 'a', abajo: 'b' }, 'media', 65);
+  assert.equal(n, 65);
+  assert.deepEqual(hacerLugar(col, { id: 'yo', score: n, num: 3 }, { arriba: 'a', abajo: 'b' }), []);
+});
+
+test('a igual número alcanza con que el desempate la deje detrás: no se le resta un punto de más', () => {
+  // La de abajo tiene `num` MENOR que la soltada: ya queda detrás sin tocarla.
+  const col: FilaLugar[] = [{ id: 'a', score: 63, num: 1 }, { id: 'b', score: 62, num: 5 }, { id: 'c', score: 62, num: 2 }];
+  const plan = hacerLugar(col, { id: 'yo', score: 62, num: 10 }, { arriba: 'a', abajo: 'b' });
+  assert.deepEqual(plan, []);
+  // Y cuando sí estorba: #50 baja a 61; #5, que ya queda detrás de #50 por desempate, baja
+  // a 61 también — NO a 60. Restar siempre un punto corre la ola por toda la columna.
+  const col2: FilaLugar[] = [{ id: 'a', score: 63, num: 1 }, { id: 'b', score: 62, num: 50 }, { id: 'c', score: 62, num: 5 }];
+  assert.deepEqual(hacerLugar(col2, { id: 'yo', score: 62, num: 10 }, { arriba: 'a', abajo: 'b' }), [
+    { id: 'b', antes: 62, despues: 61 },
+    { id: 'c', antes: 62, despues: 61 },
+  ]);
+});
+
+test('el número que contradice el lugar gana: no se corre a nadie', () => {
+  const col: FilaLugar[] = [{ id: 'a', score: 62, num: 9 }, { id: 'b', score: 60, num: 8 }];
+  assert.equal(hacerLugar(col, { id: 'yo', score: 70, num: 1 }, { arriba: 'a', abajo: 'b' }), null, 'más alto que la de arriba');
+  assert.equal(hacerLugar(col, { id: 'yo', score: 55, num: 1 }, { arriba: 'a', abajo: 'b' }), null, 'muy por debajo de la de abajo');
+});
+
+test('una vecina que ya no está, o que cambió de lado: el lugar no existe más', () => {
+  const col: FilaLugar[] = [{ id: 'a', score: 62, num: 9 }, { id: 'b', score: 60, num: 8 }];
+  assert.equal(hacerLugar(col, { id: 'yo', score: 61, num: 1 }, { arriba: 'a', abajo: 'zz' }), null);
+  assert.equal(hacerLugar(col, { id: 'yo', score: 61, num: 1 }, { arriba: 'b', abajo: 'a' }), null);
+});
+
+test('correr a alguien fuera de su columna NO se hace: se escribe el número solo', () => {
+  // Media empieza en 50. La de abajo está en 50 con num más alto: tendría que bajar a 49 (Baja).
+  const col: FilaLugar[] = [{ id: 'a', score: 51, num: 200 }, { id: 'b', score: 50, num: 300 }];
+  assert.equal(bandaDe('media').min, 50);
+  assert.equal(hacerLugar(col, { id: 'yo', score: 50, num: 1 }, { arriba: 'a', abajo: 'b' }), null);
+});
+
+test('las vecinas que no compiten no cuentan para el lugar', () => {
+  const lista = [{ id: 'x', ok: true }, { id: 'hecha', ok: false }, { id: 'y', ok: true }, { id: 'rep', ok: false }];
+  assert.deepEqual(lugarEn(lista, 2, (t) => t.ok), { arriba: 'x', abajo: 'y' });
+  assert.deepEqual(lugarEn(lista, 4, (t) => t.ok), { arriba: 'y', abajo: null });
+});
+
+test('la base se corre lo mismo que el número', () => {
+  assert.equal(baseCorrida(58, { id: 'b', antes: 62, despues: 61 }), 57);
+  assert.equal(baseCorrida(undefined, { id: 'b', antes: 62, despues: 61 }), 61);
+});
+
+test('en columnas llenas de empates, CADA lugar queda exacto, sin subir a nadie ni cambiar de columna', () => {
+  // Pseudo-azar con semilla: columnas densas como las del tablero real (más tareas que números).
+  let s = 42;
+  const azar = (n: number) => { s = (s * 1103515245 + 12345) % 2147483648; return s % n; };
+  let lugares = 0;
+  for (let ronda = 0; ronda < 40; ronda++) {
+    const destino: Prio = (['alta', 'media', 'baja', 'futuro'] as Prio[])[ronda % 4];
+    const { min, max } = bandaDe(destino);
+    const col: FilaLugar[] = Array.from({ length: 12 + azar(30) }, (_, i) => ({ id: `t${ronda}-${i}`, score: min + 2 + azar(max - min - 3), num: 1 + azar(500) }));
+    const yo = { id: 'yo', num: 1 + azar(500) };
+    const orden = ordenar(col);
+    for (let idx = 0; idx <= orden.length; idx++) {
+      const lugar = { arriba: orden[idx - 1]?.id ?? null, abajo: orden[idx]?.id ?? null };
+      const base = Math.round(((orden[idx - 1]?.score ?? max) + (orden[idx]?.score ?? min)) / 2);
+      const n = sugerirNumero(col, yo, lugar, destino, base);
+      const plan = hacerLugar(col, { ...yo, score: n }, lugar);
+      assert.ok(plan, `ronda ${ronda}, lugar ${idx}: sin plan`);
+      assert.equal(lugarFinal(col, { ...yo, score: n }, plan!), idx, `ronda ${ronda}: soltada en ${idx}`);
+      assert.ok(plan!.every((c) => prioFromScore(c.despues) === prioFromScore(c.antes)), 'ninguna cambia de columna');
+      assert.ok(plan!.every((c) => c.despues < c.antes), 'sólo se corren las de abajo');
+      // Y entre las que se corren, nadie se cruza: el orden de las otras es el de antes.
+      const nuevo = new Map(plan!.map((c) => [c.id, c.despues]));
+      const despues = ordenar(col.map((c) => ({ ...c, score: nuevo.get(c.id) ?? c.score }))).map((c) => c.id);
+      assert.deepEqual(despues, orden.map((c) => c.id), 'el orden de las demás no cambia');
+      lugares++;
+    }
+  }
+  assert.ok(lugares > 500, `se probaron ${lugares} lugares`);
+});
+
+// ── el cableado ──────────────────────────────────────────────────────────────
+
+const leer = (f: string) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
+const sinComentarios = (src: string) => src
+  .replace(/^[ \t]*\/\/.*$/gm, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
+const SHELL = sinComentarios(leer('app/plan/board/BoardShell.tsx'));
+const REPRIO = sinComentarios(leer('lib/plan-reprio.ts'));
+
+test('el Kanban manda el lugar SÓLO ordenado por prioridad de mayor a menor', () => {
+  const a = SHELL.indexOf('function Kanban(');
+  const kanban = SHELL.slice(a, SHELL.indexOf('\nfunction ', a + 1));
+  assert.ok(kanban.length > 1000 && kanban.length < 40000, `el recorte del Kanban mide ${kanban.length}`);
+  assert.match(kanban, /const porPrioridad = sortMode === 'score' && sortDir === 'desc';/);
+  assert.match(kanban, /if \(!porPrioridad \|\| !yo\) \{ onSoltar\(id, p, base\); return; \}/);
+  assert.match(kanban, /onSoltar\(id, p, sugerirNumero\(col, \{ id, num: yo\.num \}, lugar, p, base\), lugar\);/);
+});
+
+test('el pop-up le pasa el lugar a quien escribe, y deja aplicar el mismo número', () => {
+  assert.match(SHELL, /board\.repo\.prioridadManual!\(soltada\.entidad, soltada\.id, n, soltada\.lugar \? \{ lugar: soltada\.lugar \} : undefined\)/);
+  // Soltar una tarjeta de 62 entre dos de 62 no cambia el número y SÍ el lugar: con el botón
+  // apagado por «no cambiaste nada», el lugar no se podía aplicar nunca.
+  assert.match(SHELL, /conLugar=\{!!soltada\.lugar\}/);
+  assert.match(sinComentarios(leer('app/plan/board/PrioridadAMano.tsx')), /const sinCambio = v === score && !conLugar;/);
+});
+
+test('el tablero del dueño corre a las de abajo con el tablero recién leído y con compare-and-set', () => {
+  const a = REPRIO.indexOf('if (!esProy) {');
+  const rama = REPRIO.slice(a, REPRIO.indexOf('const universo', a));
+  assert.ok(rama.length > 500, 'no encontré la rama de tareas');
+  assert.match(rama, /hacerLugar\(compiten\.map/);
+  assert.match(rama, /\.eq\('id', c\.id\)\.eq\('score', c\.antes\)/);
+  assert.match(rama, /score_base: baseCorrida\(/);
+  assert.match(rama, /!p\.lugar && !p\.deshacer\?\.length|const movidos = vecinas\.filter\(\(c\) => escritas\.has\(c\.id\)\)/);
+  assert.match(sinComentarios(leer('app/api/plan-board/route.ts')), /fijarPrioridadAMano\(\{ entidad, itemId: id, score, lugar, deshacer \}\)/);
+  assert.match(sinComentarios(leer('app/plan/board/repo-plan.ts')), /lugar: opts\?\.lugar, deshacer: opts\?\.deshacer/);
+});
+
+test('el tablero del cliente corre a las de abajo con la MISMA regla, y el deshacer las devuelve', () => {
+  assert.match(sinComentarios(leer('app/plan/TodoBoard.tsx')), /hacerLugar\(compiten\.map/);
+  const board = sinComentarios(leer('app/plan/board/useBoard.ts'));
+  assert.match(board, /repo\.prioridadManual\?\.\(entidad, fijado\.id, scorePrevio, corridas\.length \? \{ deshacer: corridas \} : undefined\)/);
+  assert.match(board, /scoreBase: baseCorrida\(x\.scoreBase, \{ id: x\.id, antes: x\.score, despues: n \}\)/);
+});

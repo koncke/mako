@@ -19,7 +19,8 @@ export const PARTES: Parte[] = [
   { titulo: 'Cargar tareas sin preguntas', detalle: 'Las reuniones, WhatsApp, Claude y el proyecto vacío cargan derecho: el borrador nace sin preguntas y la fecha y la prioridad las pone el Perro', estado: 'hecha' },
   { titulo: 'La casilla de selección animada', detalle: 'Tarjetas de tarea y de proyecto con la misma regla del CRM: de ancho 0 a 15 con el hover, y todas a la vista con algo elegido', estado: 'hecha' },
   { titulo: 'Borrar lo que quedó sin call site', detalle: '`PreguntaCampo` y cuatro exports de lib/preguntas-contrato.ts ya no los usa ninguna pantalla', estado: 'cola' },
-  { titulo: 'La tarjeta queda donde se soltó', detalle: 'Entre dos tareas con el mismo número no hay entero que la deje en el medio; decide Martín: correr a los vecinos o una posición a mano', estado: 'cola' },
+  { titulo: 'La tarjeta queda donde se soltó', detalle: 'Al soltar en el Kanban se corren las de abajo un punto, sin cruzarse ni cambiar de columna; el deshacer las devuelve', estado: 'hecha' },
+  { titulo: 'Las tablas también', detalle: 'Arrastrar una fila de la tabla de tareas sigue usando el punto medio solo', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -118,6 +119,34 @@ export const BITACORA: Hito[] = [
     archivos: [
       'lib/cierre-tarjeta.ts — `TOPE_PRUEBA_CIERRE`, `recortarPrueba` y `renglonDeCierre`',
       'tests/cierre-tarjeta.test.ts — 4 tests con los tres largos medidos, ocho roturas probadas',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '—', chat: '—', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las tres decisiones que esperaban: el arrastre, los scores del 03/10 y la proyección',
+    pedido: '«Cuando soltás una tarjeta entre dos que tienen la misma prioridad, ¿qué querés que pase?» → «Correr las de abajo (Recomendado)». «La corrida del 03/10 reordenó la prioridad de 14 proyectos según la llamada con Leila del 1/10. ¿Qué hago con esas prioridades?» → «Dejarlos (Recomendado)». «¿Qué hago con docs/proyeccion-04oct.md, que nunca se cargó al tablero?» → «Mostrame qué cambiaría (Recomendado)».',
+    puntos: [
+      'Contestadas en un pop-up de opciones, al retomar el Plan en la cuenta 2. El texto de arriba es la pregunta y la opción elegida, tal cual.',
+      'Después, con el costo del arrastre medido (la mitad de las veces se corren 0 o 1 tareas, el 10% peor 29, máximo 52), la segunda pregunta: «Con esos números, ¿cómo sigo con el arrastre del Kanban?» → «Correr las de abajo igual (Recomendado)». La primera estimación («de 2 a 5») era mía y estaba mal.',
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '14:38', chat: '—', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Soltar una tarea en el Kanban la deja donde se soltó: se corren las de abajo',
+    puntos: [
+      '**Una regla pura, tres lectores** (`app/plan/board/lugar-al-soltar.ts`): el Kanban la usa para sugerir el número, el server del dueño la corre con el tablero recién leído y el tablero del cliente la corre en el navegador.',
+      'Contra las 184 abiertas del tablero real (561 lugares): 561 quedan donde se soltaron, ninguna vecina sube ni cambia de columna. Se corren p50 1, p90 29, máximo 52, un punto cada una y sin cruzarse.',
+      '**Dos trampas que encontró escribir la verificación**: el botón «Cambiar» se apagaba con el mismo número —soltar una de 62 entre dos de 62 cambia el lugar y no el número— y el server tenía el mismo atajo. Las dos dejaban el lugar imposible de aplicar.',
+      'La BASE de cada vecina se corre igual que su número: el Perro re-curva desde ahí cada día. El deshacer devuelve a las vecinas con compare-and-set.',
+      '⚠️ Sin verificar con un arrastre en el navegador: el dev server de otra sesión no contestaba y la máquina tenía 0,6 GB libres. Cómo medirlo, en el relevo del Plan.',
+    ],
+    commits: [
+      { sha: '27ef6b28', msg: 'Plan: soltar una tarea en el Kanban la deja donde se soltó, corriendo las de abajo', lineas: 572, archivos: 10 },
+    ],
+    archivos: [
+      'app/plan/board/lugar-al-soltar.ts — `hacerLugar`, `sugerirNumero`, `lugarEn`, `baseCorrida`',
+      'lib/plan-reprio.ts — la rama de tareas de `fijarPrioridadAMano` corre a las vecinas y devuelve las que se escribieron',
+      'tests/plan-lugar-al-soltar.test.ts — 13 tests, ocho roturas probadas',
     ],
   },
 ];

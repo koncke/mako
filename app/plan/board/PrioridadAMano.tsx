@@ -104,7 +104,7 @@ const bandaDe = (n: number) => { const p = prioFromScore(n); return { label: PLA
  * `onDebate` es la única puerta que le queda a la audiencia con el Perro, y es un ÍCONO
  * arriba a la derecha: discutirle el número es la excepción, no el botón principal.
  */
-export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], cuantos = 1, consecutivos = false, onAplicado, onDebate, onAbrir, onClose }: {
+export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], cuantos = 1, consecutivos = false, conLugar = false, onAplicado, onDebate, onAbrir, onClose }: {
   titulo: string;
   /**
    * El número que tiene HOY. `null` = son varias y no hay uno solo (modo lote): con eso el
@@ -133,6 +133,12 @@ export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], cua
    * escribir, porque después ya es tarde para explicarlo.
    */
   consecutivos?: boolean;
+  /**
+   * La tarjeta se SOLTÓ en un lugar del Kanban (ver `hacerLugar`, lugar-al-soltar.ts). Con eso,
+   * dejar el mismo número que ya tenía también es un cambio: la tarjeta pasa a otro lugar
+   * entre las que empatan, y el botón no se puede apagar por «no cambiaste nada».
+   */
+  conLugar?: boolean;
   onAplicado: (score: number) => Promise<void> | void;
   /** abrir la audiencia con el Perro. Ausente = este tablero no la tiene. */
   onDebate?: () => void;
@@ -157,6 +163,7 @@ export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], cua
     catch (e) { setErr(e instanceof Error ? e.message : String(e)); setGuardando(false); }
   };
 
+  const sinCambio = v === score && !conLugar;
   const banda = bandaDe(v);
   /**
    * TRES ARRIBA Y TRES ABAJO, con la propia EN EL MEDIO.
@@ -263,8 +270,8 @@ export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], cua
         {err && <div style={{ fontSize: 12, color: 'var(--bad)', marginTop: 10 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 9, justifyContent: 'flex-end', marginTop: 16 }}>
           <button type="button" onClick={onClose} style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 10, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-          <button type="button" onClick={() => void aplicar()} disabled={guardando || v === score}
-            style={{ border: 'none', background: 'var(--primary)', color: '#fff', borderRadius: 10, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: guardando || v === score ? 'default' : 'pointer', opacity: guardando || v === score ? 0.5 : 1, fontFamily: SANS }}>
+          <button type="button" onClick={() => void aplicar()} disabled={guardando || sinCambio}
+            style={{ border: 'none', background: 'var(--primary)', color: '#fff', borderRadius: 10, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: guardando || sinCambio ? 'default' : 'pointer', opacity: guardando || sinCambio ? 0.5 : 1, fontFamily: SANS }}>
             {guardando ? 'Guardando…' : 'Cambiar'}
           </button>
         </div>

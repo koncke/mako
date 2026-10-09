@@ -13,8 +13,6 @@ import { OnboardingCanalWhatsApp } from './OnboardingCanalWhatsApp';
 import { integracionConectada } from '@/lib/credenciales';
 import { CHATWOOT_APAGADO } from '@/lib/chatwoot';
 import { listarLineas } from '@/lib/evolution';
-import { PanelActivacion } from '../_components/PanelActivacion';
-import { tabActivacion } from '@/lib/tab-activacion';
 import { leerFunnels } from '@/lib/funnels';
 import { productosParaAlta } from '@/lib/lead-funnel-reglas';
 import { WhatsAppApp } from './WhatsAppApp';
@@ -29,7 +27,6 @@ export default async function WhatsAppPage() {
   // por método, y el no oficial (Evolution, por QR) funciona sin ninguna
   // credencial: pedir Chatwoot para entrar dejaba fuera de la tab a un cliente
   // que acababa de vincular su número y ya tenía sus conversaciones adentro.
-  const tabWa = tabActivacion('whatsapp');
   //
   // Y los PRODUCTOS del «+ Agregar al CRM» (pedido de Leila, 08/10/2026: todo nacía en el
   // principal y lo movía a mano). Van en el mismo `Promise.all` para no sumar un viaje en
@@ -51,16 +48,20 @@ export default async function WhatsAppPage() {
   const faltaOnboarding = await onboardingTabPendiente('whatsapp');
 
   // ORDEN IMPORTANTE. Si no hay NINGÚN canal vivo, gana el onboarding —  que es
-  // donde vive el QR para re-vincular. Antes ganaba el PanelActivacion, que es
-  // un formulario de credenciales de Chatwoot: un cliente que desvinculaba su
-  // número quedaba sin ninguna forma de volver a escanear desde esta tab.
+  // donde vive el QR para re-vincular.
   if (faltaOnboarding && !oficial && !noOficial) return <OnboardingCanalWhatsApp productos={productos} />;
-  if (tabWa && !oficial && !noOficial) return <PanelActivacion tab={tabWa} />;
 
+  // ⛔ Y SIN canal vivo con el onboarding ya hecho, se sirve la BANDEJA, nunca el
+  // PanelActivacion. Ese panel es el formulario de credenciales de CHATWOOT («WhatsApp
+  // se prende con esto — Conecta tu cuenta por Chatwoot…»), y Chatwoot está apagado
+  // desde el 09/10/2026. Medido ese día en el ws11: con su número desvinculado (o con
+  // `listarLineas` fallando, que cae a false), la tab entera era ese formulario, sin
+  // ningún camino al QR — Martín: «los clientes lo necesitan usar y eso lo bloquea».
+  // La bandeja con el canal no oficial dibuja `EvolutionConnect`, que es el QR.
+  // Lo fija tests/whatsapp-sin-chatwoot-gate.test.ts.
+  //
   // Con algún canal vivo, la tab se sirve igual aunque el onboarding se haya
-  // reabierto: reemplazarla entera dejaría al cliente sin su inbox oficial —
-  // que no tiene nada que ver con el número que desvinculó— y sin salida.
-  if (faltaOnboarding && !noOficial && !oficial) return <OnboardingCanalWhatsApp productos={productos} />;
+  // reabierto: reemplazarla entera dejaría al cliente sin su inbox y sin salida.
   // ¿Este usuario puede ABRIR /chatbot? Ahí viven ahora las plantillas de Meta, y /chatbot
   // es setter+admin (app/chatbot/page.tsx). Un closer entra a /whatsapp pero rebota de
   // /chatbot a /crm: ofrecerle «redactar plantilla» sería un botón que lo expulsa de la

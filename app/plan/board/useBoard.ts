@@ -8,6 +8,7 @@ import { useUndoToast } from '../../_components/UndoToast';
 import { quarterDeFecha } from './cuando';
 import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
 import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './dependencias';
+import { baseCorrida } from './lugar-al-soltar';
 // «Se repite para siempre» (mig 0163). El predicado, la regla de la fecha y los porqués
 // salen del módulo de datos: una pantalla no escribe `t.recurrente === true` ni redacta de
 // nuevo por qué algo no compite.
@@ -278,7 +279,12 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   const aplicarCascadaManual = (
     entidad: 'proyecto' | 'tarea',
     fijado: { id: string; score: number; razon: string; texto: string },
-    movidos: Array<{ id: string; despues: number }> = [],
+    /**
+     * Lo que se corrió para hacerle lugar. En un PROYECTO es la cascada del método; en una
+     * TAREA son las de abajo que corrió un arrastre del Kanban (`hacerLugar`). Con `antes`, el
+     * deshacer las puede devolver.
+     */
+    movidos: Array<{ id: string; despues: number; antes?: number }> = [],
     /**
      * ⚠️ EN FALSE PARA UNA ACCIÓN EN LOTE, y es la Única razón por la que existe el
      * parámetro. El toast vive en UN solo casillero (`useToast`: `show` pisa al anterior),
@@ -311,12 +317,27 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     const previoL = entidad === 'proyecto' ? labels.find((l) => l.id === fijado.id) ?? null : null;
     const scorePrevio = previoT?.score ?? previoL?.score ?? null;
     const manualPrevio = !!(previoT?.scoreManual ?? previoL?.scoreManual);
-    if (conDeshacer && scorePrevio != null && scorePrevio !== clampScore(fijado.score)) {
+    // ⚠️ LAS VECINAS QUE CORRIÓ UN ARRASTRE TAMBIÉN VUELVEN. Sin esto, deshacer devolvía la
+    // tarjeta a su lugar y dejaba a las de abajo un punto más abajo, que es un cambio que nadie
+    // pidió y que ya no tiene motivo. Viajan al server para que las devuelva él, y sólo a las
+    // que nadie movió en el medio (`OpcionesPrioridadManual.deshacer`).
+    const corridas = entidad === 'tarea'
+      ? movidos.filter((m) => m.id !== fijado.id && m.antes != null).map((m) => ({ id: m.id, antes: m.antes as number, despues: m.despues }))
+      : [];
+    if (conDeshacer && scorePrevio != null && (scorePrevio !== clampScore(fijado.score) || corridas.length > 0)) {
       show(`Prioridad ${scorePrevio} → ${clampScore(fijado.score)}`, async () => {
         try {
-          await repo.prioridadManual?.(entidad, fijado.id, scorePrevio);
+          await repo.prioridadManual?.(entidad, fijado.id, scorePrevio, corridas.length ? { deshacer: corridas } : undefined);
           if (!manualPrevio) await repo.prioridadAlPerro?.(entidad, fijado.id);
         } catch (e) { console.error('[board] deshacer prioridad', e); }
+        if (corridas.length) {
+          const vuelta = new Map(corridas.map((c) => [c.id, c]));
+          setTasks((ts) => ts.map((x) => {
+            const c = vuelta.get(x.id);
+            if (!c || x.score !== c.despues) return x;
+            return { ...x, score: c.antes, scoreBase: baseCorrida(x.scoreBase, { id: c.id, antes: c.despues, despues: c.antes }), priority: prioFromScore(c.antes) };
+          }));
+        }
         // La pantalla, después de que el server confirmó: el número vuelve, el candado
         // vuelve a como estaba, y la entrada del historial se va (un cambio deshecho no es
         // historia, mismo criterio que `undoHist`).
@@ -339,7 +360,12 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
           return { ...x, score: s, scoreBase: s, priority: prioFromScore(s), scoreRazon: fijado.razon || x.scoreRazon, scoreManual: true, historial: entry ? [entry, ...x.historial].slice(0, HIST_CAP) : x.historial };
         }
         const s = otros.get(x.id);
-        return s == null ? x : { ...x, score: clampScore(s), priority: prioFromScore(clampScore(s)) };
+        if (s == null) return x;
+        // La BASE se corre igual que el número, como la corre el server: el próximo autosave de
+        // esta tarjeta upsertea la fila ENTERA, y con la base vieja en memoria le devolvería el
+        // juicio de antes — y el Perro, que re-curva desde la base, la volvería a empatar.
+        const n = clampScore(s);
+        return { ...x, score: n, scoreBase: baseCorrida(x.scoreBase, { id: x.id, antes: x.score, despues: n }), priority: prioFromScore(n) };
       }));
       return;
     }
