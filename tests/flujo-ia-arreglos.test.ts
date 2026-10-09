@@ -45,8 +45,6 @@ const ctxBase = (o: Partial<CtxIA> = {}): CtxIA => ({
   archivos: [],
   acciones,
   links: { agenda: { url: 'https://cal.com/negocio/llamada', para: 'agendar una llamada' } },
-  automatizaciones: [],
-  secuenciaId: 99,
   ...o,
 });
 /** Un generador determinista para `nuevoId`. */

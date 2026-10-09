@@ -454,7 +454,7 @@ export const REGISTRY: Group[] = [
         label: 'Crear una automatización con IA (system)', kind: 'system', dynamic: true,
         variables: [], scope: 'static-only', sensitive: false,
         default: CREAR_IA_SYSTEM_TEMPLATE,
-        context: 'La caja «¿Qué quieres que haga?» de una automatización nueva: el modelo devuelve el flujo como un JSON propio con NOMBRES, y el código lo traduce y lo repara (lib/flujo-ia.ts → deIA). No borres la forma del JSON ni las reglas duras: el código saca lo que no las cumple y, si queda roto, prueba otro proveedor. No le pidas links ni ids: los pone el código. Y no lo pases a voseo: los mensajes le llegan al cliente del negocio.',
+        context: 'La caja «Generar con IA» de una automatización nueva: el modelo devuelve el flujo como un JSON propio con NOMBRES, y el código lo traduce y lo repara (lib/flujo-ia.ts → deIA). No borres la forma del JSON ni las reglas duras: el código saca lo que no las cumple y, si queda roto, prueba otro proveedor. No le pidas links ni ids: los pone el código, y el disparador va por su clave corta (d1, d2…). No le agregues «ir_a»: la IA no arma saltos (el código los saca). No lo alargues: cada token de más le resta salida a Groq y lo deja afuera de la cascada. Y no lo pases a voseo: los mensajes le llegan al cliente del negocio.',
       },
       {
         key: 'chatbot.editar-ia.system', source: 'override',

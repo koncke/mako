@@ -39,15 +39,29 @@ const funcion = (src: string, nombre: string) => {
 const RUTA = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
 
 // rotura 1 (chatClaude en vez de la cascada): 1 fallo. rotura 2 (CASCADA_GRATIS, sin Gemini): 1 fallo.
-test('la ruta va por la cascada GRATIS con Gemini adelante, con el pin de /modelos-ia, y nunca por Claude', () => {
+// TERCERA TANDA (09/10/2026): la lista es `PROVS_CREAR_IA` (sin OpenAI, que cobra y estaba en
+// CASCADA_DOCS, ni Mistral, que rebota siempre), el pin va PRIMERO y uno pago se ignora, y el error
+// sale de `falloDeIA` (el motivo por proveedor) y no de `errorDeCascada` (la bolsa entera).
+// PROBADO ROMPIÉNDOLO (09/10/2026, scratchpad F-romper.mjs, restaura de memoria), de 9 tests: volver a
+// `: CASCADA_DOCS` → 1 fallo; el pin sin `PROVS_GRATIS_PIN` → 1 fallo; `errorDeCascada` → 1 fallo.
+test('la ruta va por la cascada GRATIS (gemini → groq → openrouter), con el pin primero, y nunca por algo pago', () => {
   assert.doesNotMatch(RUTA, /chatClaude|anthropic\.ts|@\/lib\/anthropic'/);
   assert.match(RUTA, /chatCheapCascade\(\{/);
-  assert.match(RUTA, /: CASCADA_DOCS;/);
-  assert.doesNotMatch(RUTA, /CASCADA_GRATIS/);
+  assert.doesNotMatch(RUTA, /CASCADA_DOCS|CASCADA_GRATIS/);
+  assert.match(RUTA, /: \[\.\.\.PROVS_CREAR_IA\];/);
   assert.match(RUTA, /overrideDeFeature\(FEATURE_CREAR_IA\)/);
-  assert.match(RUTA, /pin\.provider !== 'anthropic'/);
-  assert.match(RUTA, /errorDeCascada\(errores, /);
+  assert.match(RUTA, /PROVS_GRATIS_PIN\.includes\(pin\.provider as ProvName\)/);
+  assert.match(RUTA, /\[pinGratis\.provider as ProvName, \.\.\.PROVS_CREAR_IA\.filter\(/);
+  assert.match(RUTA, /\.\.\.MODELO_DOCS, \.\.\.MODELOS_CREAR_IA,/);
+  assert.match(RUTA, /return falloDeIA\(errores, hayIA\);/);
+  assert.doesNotMatch(RUTA, /errorDeCascada/);
   assert.match(RUTA, /export const maxDuration = 300;/);
+});
+
+// rotura (volver a `maxTokens: 6000` fijo): 1 fallo.
+test('la salida se dimensiona con la MISMA cuenta que usa la cascada para saltear a Groq', () => {
+  assert.match(RUTA, /const maxTokens = salidaParaIA\(tokensAprox\(p\.system\) \+ tokensAprox\(p\.user\), techoDeEntrada\('groq'\)\);/);
+  assert.doesNotMatch(RUTA, /maxTokens: 6000/);
 });
 
 // rotura 3 (crear etiquetas antes de mirar la cancelación): 1 fallo.

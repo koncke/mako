@@ -459,8 +459,15 @@ const TECHO_ENTRADA: Partial<Record<ProvName, number>> = {
 
 /** Tokens aproximados de un prompt. 3,5 caracteres por token es el número del español
  *  (el inglés está más cerca de 4); se queda corto a propósito, porque pasarse de
- *  optimista acá significa volver a mandarle a Groq algo que va a rebotar. */
-const tokensAprox = (texto: string): number => Math.ceil(texto.length / 3.5);
+ *  optimista acá significa volver a mandarle a Groq algo que va a rebotar.
+ *  Exportada (con `techoDeEntrada`) para que un caller dimensione su `maxTokens` con LA MISMA cuenta
+ *  que usa la cascada para saltear proveedores (Crear con IA, 09/10/2026: `salidaParaIA`). */
+export const tokensAprox = (texto: string): number => Math.ceil(texto.length / 3.5);
+
+/** El techo de entrada de un proveedor (prompt + salida), el mismo con el que la cascada lo saltea. */
+export function techoDeEntrada(p: ProvName): number | undefined {
+  return TECHO_ENTRADA[p];
+}
 // erroresOut es opcional y ADITIVO (no cambia qué devuelve la función): si el caller
 // pasa un array, cada proveedor que falla empuja su motivo ahí — así quien llama puede
 // distinguir "sin key" de "con key pero la cascada falló" (cuota, rate-limit, timeout)
