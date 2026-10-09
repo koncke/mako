@@ -64,8 +64,10 @@ test('el Dropdown decide con lugarDelMenu, mide el menú montado UNA vez y lo to
   // Medido con el menú en el DOM, antes de pintar, y una sola vez por apertura (no se mueve al tipear).
   assert.match(src, /useLayoutEffect\(\(\) => \{\s*if \(!open \|\| medido\.current != null \|\| !menuRef\.current\) return;\s*medido\.current = menuRef\.current\.scrollHeight \+ 2;\s*place\(medido\.current\);/);
   assert.match(src, /if \(!open\) \{ place\(\); setQ\(''\); medido\.current = null; \}/, 'se vuelve a medir en cada apertura');
-  // El alto máximo sale del lugar que tiene, en la lista y en las columnas.
-  assert.match(src, /: altoMaximoDelMenu\(340, pos\.espacio\), overflowY: 'auto'/);
+  // El alto máximo sale del lugar que tiene, en la lista y en las columnas. Desde la segunda tanda
+  // (08/10/2026) el tope de la lista se puede pedir más alto (`menuAlto`, el selector de acciones de
+  // un flujo); sin pasarlo sigue siendo 340, y siempre topado al lugar.
+  assert.match(src, /: altoMaximoDelMenu\(menuAlto \?\? 340, pos\.espacio\), overflowY: 'auto'/);
   assert.match(src, /altoMaximoDelMenu\(480, pos\.espacio, 200\)/);
 });
 

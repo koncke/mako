@@ -35,6 +35,24 @@ export async function tieneBorradorNutriPendiente(leadId: number): Promise<boole
   return (count ?? 0) > 0;
 }
 
+/**
+ * ¿Quedó PENDIENTE el borrador de ESE paso de ESA inscripción? (`paso` = el índice + 1, el mismo
+ * que escribe `crearBorrador`.) Lo pregunta una acción de un flujo con hilos en paralelo (segunda
+ * tanda, 08/10/2026): espera el borrador de SU mensaje anterior, no el de cualquier hilo del lead
+ * —con `tieneBorradorNutriPendiente`, un borrador del hilo de WhatsApp frenaba la acción del otro
+ * hilo sin ninguna razón—. Un `paso` menor que 1 (no hay mensaje arriba) no espera nada.
+ */
+export async function tieneBorradorPendienteDePaso(inscripcionId: number, paso: number): Promise<boolean> {
+  if (!(paso >= 1)) return false;
+  const supabase = await getTenantDb();
+  const { count, error } = await supabase.from('wa_borradores')
+    .select('id', { count: 'exact', head: true })
+    .eq('inscripcion_id', inscripcionId).eq('paso', paso).eq('origen', 'nutricion').eq('estado', 'pendiente');
+  // No pude leer = espero: correr la acción sin saber si el mensaje de arriba salió es lo que esto evita.
+  if (error) { console.error(`[evolution-envio] borrador del paso ${paso} (inscripción ${inscripcionId}): ${error.message}`); return true; }
+  return (count ?? 0) > 0;
+}
+
 // Envía un texto por el no oficial y espeja el saliente en wa_mensajes (para que
 // aparezca en el hilo). Devuelve el id del mensaje o el error.
 // `linea`: por qué número sale (`evolution_instancias.instance_name`). Sin ella, la de por

@@ -231,7 +231,10 @@ test('(8) el aviso de «Otra cosa» lleva el texto del lead, se deduplica por re
   assert.match(b, /if \(r\.deduped\) return \{ ok: true, resumen: `\$\{AVISO_REPETIDO\}/);
   // El motor: le pasa el texto, y marca el aviso con lo que DEVOLVIÓ, no antes de correrlo.
   const accion = fn(NUTRI, 'async function correrAccionDeRespuesta(');
-  assert.match(accion, /const params = esAviso && respuesta \? \{ \.\.\.\(p\.accion\?\.params \?\? \{\}\), respuesta \} : p\.accion\?\.params;/);
+  // Segunda tanda: el campo sale de LLENA_EL_FLUJO (la lista que el editor esconde), no de un
+  // `esAviso` cableado. Verificado sacando el spread de delFlujo: 1 fallo.
+  assert.match(accion, /const delFlujo = Object\.entries\(LLENA_EL_FLUJO\[operacion\] \?\? \{\}\)\.filter\(\(\[, fuente\]\) => fuente === 'respuesta_del_lead'\);/);
+  assert.match(accion, /\.\.\.Object\.fromEntries\(delFlujo\.map\(\(\[campo\]\) => \[campo, respuesta\]\)\)/);
   assert.match(accion, /avisoSalio: esAviso && avisoSalio\(r\)/);
   const grafo = fn(NUTRI, 'async function responderConGrafo(');
   assert.doesNotMatch(grafo, /operacion === OP_AVISAR\) avisoDelFlujo = true/, 'el aviso se da por hecho antes de correr');

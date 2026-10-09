@@ -80,10 +80,14 @@ export function siguienteIndice(pasos: readonly PasoGrafo[], idx: number): numbe
   return indicePorId(pasos, siguienteDe(pasos, idx));
 }
 
+// ⚠️ EL INICIO TAMBIÉN (segunda tanda, 08/10/2026): no manda nada. Sin él acá, `setSecuenciaPasos`
+// no le ponía el relleno de control y lo reconstruía como un mensaje, `esPrimerPaso` creía que la
+// primera tarjeta de un hilo tenía un mensaje adelante, y la prueba, el generador y la API lo
+// recorrían como un mensaje vacío.
 const esControl = (p: PasoGrafo | undefined): boolean => {
   if (!p) return false;
   const c = claseDe(p);
-  return c === 'condicion' || c === 'esperar' || c === 'ir_a' || c === 'respuesta';
+  return c === 'condicion' || c === 'esperar' || c === 'ir_a' || c === 'respuesta' || c === 'inicio';
 };
 
 export const esNodoDeControl = esControl;
@@ -98,7 +102,14 @@ export type ContextoControl = {
   reunionMs: number | null;
 };
 
-export type Resolucion =
+/**
+ * Una flecha en paralelo que arranca un hilo NUEVO (segunda tanda, 08/10/2026): `destino` es su
+ * primera tarjeta y `desdeMs`, desde cuándo puede correr (cuando venció la espera que la tiene, o
+ * ahora si es el inicio o la espera ya había vencido).
+ */
+export type Reparto = { destino: string; desdeMs: number };
+
+export type Resolucion = (
   /** Un mensaje o una acción: sigue a las guardas y al envío. */
   | { tipo: 'nodo'; idx: number; via: string[] }
   /** Una espera: se programa `proximoMs` y la inscripción pasa a `idx` (lo que sigue a la espera). */
@@ -107,12 +118,25 @@ export type Resolucion =
   | { tipo: 'fin'; motivo: string; via: string[] }
   /** «Ir a» otra automatización: se inscribe en ésa y ésta termina. */
   | { tipo: 'ir_a_secuencia'; secuenciaId: number; via: string[] }
-  /** Hay que evaluar una condición y no hay hechos: leerlos y volver a llamar. */
-  | { tipo: 'faltan_hechos' }
   /** Una espera «antes de la reunión» sin reunión por delante: se cierra sin mandar, como el ancla de siempre. */
   | { tipo: 'sin_reunion'; via: string[] }
   /** Más de `TOPE_SALTOS` «Ir a» seguidos: un bucle que `validarGrafo` no dejó guardar, hecho a mano. */
-  | { tipo: 'tope_saltos'; via: string[] };
+  | { tipo: 'tope_saltos'; via: string[] }
+) & {
+  /**
+   * Las flechas en paralelo que la resolución ENCONTRÓ en el camino (de una espera o del inicio).
+   * ⚠️ SE DEVUELVEN AUNQUE LA RESOLUCIÓN SIGA DE LARGO: una espera ya vencida se pasa sin frenar,
+   * y sin esto sus flechas en paralelo se perdían en silencio. Vacío en un flujo sin paralelos.
+   */
+  repartos: Reparto[];
+}
+  /** Hay que evaluar una condición y no hay hechos: leerlos y volver a llamar. */
+  | { tipo: 'faltan_hechos' };
+
+/** Las flechas en paralelo de una tarjeta (sin repetidos ni vacías), tal como las recorre el motor. */
+function paralelosDelNodo(pasos: readonly PasoGrafo[], idx: number): string[] {
+  return puertosDe(pasos, idx).flatMap((pt) => (pt.puerto.startsWith('par:') && pt.destino ? [pt.destino] : []));
+}
 
 /**
  * Resuelve los nodos de CONTROL desde `desde` hasta el primer mensaje o acción.
@@ -127,53 +151,71 @@ export type Resolucion =
  */
 export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx: ContextoControl): Resolucion {
   const via: string[] = [];
+  const repartos: Reparto[] = [];
+  const repartir = (i: number, desdeMs: number) => {
+    for (const d of paralelosDelNodo(pasos, i)) if (!repartos.some((r) => r.destino === d)) repartos.push({ destino: d, desdeMs });
+  };
   let idx = desde;
   let saltos = 0;
   for (let vuelta = 0; vuelta <= TOPE_NODOS * 2 + TOPE_SALTOS; vuelta++) {
     const p = pasos[idx];
-    if (!p) return { tipo: 'fin', motivo: 'no hay más tarjetas', via };
+    if (!p) return { tipo: 'fin', motivo: 'no hay más tarjetas', via, repartos };
     const c = claseDe(p);
-    if (c === 'mensaje' || c === 'accion') return { tipo: 'nodo', idx, via };
+    if (c === 'mensaje' || c === 'accion') return { tipo: 'nodo', idx, via, repartos };
     via.push(idDe(p, idx));
-    if (c === 'respuesta') return { tipo: 'fin', motivo: '«Si responde» no corre en la salida', via };
+    if (c === 'respuesta') return { tipo: 'fin', motivo: '«Si responde» no corre en la salida', via, repartos };
+    if (c === 'inicio') {
+      // El CRON con flechas en paralelo. El motor arranca un hilo por raíz al inscribir
+      // (`raicesSalida`) y nunca debería pararse acá; si una fila llega a esta tarjeta igual, se
+      // sigue por su salida principal y sus flechas arrancan ahora.
+      repartir(idx, ctx.ahoraMs);
+      const j = siguienteIndice(pasos, idx);
+      if (j < 0) return { tipo: 'fin', motivo: 'el CRON no tiene una salida principal', via, repartos };
+      idx = j;
+      continue;
+    }
     if (c === 'condicion') {
       if (!ctx.hechos) return { tipo: 'faltan_hechos' };
       const s = elegirSalida(p, ctx.hechos);
       const j = indicePorId(pasos, s.destino);
-      if (j < 0) return { tipo: 'fin', motivo: 'la condición termina aquí', via };
+      if (j < 0) return { tipo: 'fin', motivo: 'la condición termina aquí', via, repartos };
       idx = j;
       continue;
     }
     if (c === 'esperar') {
       const j = siguienteIndice(pasos, idx);
-      // Esperar para no hacer nada después es lo mismo que terminar ahora.
-      if (j < 0) return { tipo: 'fin', motivo: 'no hay nada después de la espera', via };
+      const tieneParalelos = paralelosDelNodo(pasos, idx).length > 0;
+      // Esperar para no hacer nada después es lo mismo que terminar ahora (salvo que la espera
+      // tenga flechas en paralelo: esas arrancan cuando vence, aunque este camino termine).
+      if (j < 0 && !tieneParalelos) return { tipo: 'fin', motivo: 'no hay nada después de la espera', via, repartos };
       const minutos = Math.max(0, Number(p.espera?.minutos) || 0);
       let objetivo: number;
       if (p.espera?.modo === 'antes_reunion') {
-        if (ctx.reunionMs == null) return { tipo: 'sin_reunion', via };
+        if (ctx.reunionMs == null) return { tipo: 'sin_reunion', via, repartos };
         objetivo = ctx.reunionMs - minutos * 60_000;
       } else {
         objetivo = ctx.ahoraMs + minutos * 60_000;
       }
+      repartir(idx, Math.max(objetivo, ctx.ahoraMs));
+      if (j < 0) return { tipo: 'fin', motivo: 'no hay nada después de la espera', via, repartos };
       if (objetivo <= ctx.ahoraMs) { idx = j; continue; }
-      return { tipo: 'esperar', idx: j, proximoMs: objetivo, via };
+      return { tipo: 'esperar', idx: j, proximoMs: objetivo, via, repartos };
     }
     // ir_a
     const d = p.destino;
-    if (!d) return { tipo: 'fin', motivo: '«Ir a» sin destino', via };
+    if (!d) return { tipo: 'fin', motivo: '«Ir a» sin destino', via, repartos };
     if ('secuencia_id' in d) {
       const sid = Number(d.secuencia_id);
-      if (!Number.isInteger(sid) || sid <= 0) return { tipo: 'fin', motivo: '«Ir a» sin destino', via };
-      return { tipo: 'ir_a_secuencia', secuenciaId: sid, via };
+      if (!Number.isInteger(sid) || sid <= 0) return { tipo: 'fin', motivo: '«Ir a» sin destino', via, repartos };
+      return { tipo: 'ir_a_secuencia', secuenciaId: sid, via, repartos };
     }
     saltos += 1;
-    if (saltos > TOPE_SALTOS) return { tipo: 'tope_saltos', via };
+    if (saltos > TOPE_SALTOS) return { tipo: 'tope_saltos', via, repartos };
     const j = indicePorId(pasos, d.nodo);
-    if (j < 0) return { tipo: 'fin', motivo: 'el «Ir a» apunta a una tarjeta que ya no existe', via };
+    if (j < 0) return { tipo: 'fin', motivo: 'el «Ir a» apunta a una tarjeta que ya no existe', via, repartos };
     idx = j;
   }
-  return { tipo: 'tope_saltos', via };
+  return { tipo: 'tope_saltos', via, repartos };
 }
 
 /**
@@ -190,7 +232,7 @@ export function necesitaHechos(pasos: readonly PasoGrafo[], desde: number): bool
     if (!p) return false;
     const c = claseDe(p);
     if (c === 'condicion') return true;
-    if (c === 'esperar') { idx = siguienteIndice(pasos, idx); continue; }
+    if (c === 'esperar' || c === 'inicio') { idx = siguienteIndice(pasos, idx); continue; }
     if (c === 'ir_a' && p.destino && 'nodo' in p.destino) { idx = indicePorId(pasos, p.destino.nodo); continue; }
     return false;
   }
@@ -487,6 +529,96 @@ export function avisoSalio(r: { ok: boolean; resumen: string }): boolean {
   return r.ok && !r.resumen.startsWith(AVISO_REPETIDO);
 }
 
+// ── El freno anti-ban, POR CANAL (decisión 5 de la segunda tanda, 08/10/2026) ───
+
+/** Los dos canales que el freno distingue. Todo lo que no es email frena como WhatsApp. */
+export type CanalFreno = 'whatsapp' | 'email';
+export const canalDelFreno = (canal: string | null | undefined): CanalFreno => (canal === 'email' ? 'email' : 'whatsapp');
+
+/** Los leads que recibieron algo en la ventana del freno, leídos de la base, uno por canal. */
+export type RecientesPorCanal = { whatsapp: ReadonlySet<number>; email: ReadonlySet<number> };
+
+/** Lo que salió EN ESTA corrida, por lead y por canal (`enviadoEnCorrida`). */
+export type EnviadoEnCorrida = Map<number, Set<CanalFreno>>;
+
+/**
+ * ¿El freno de 20 h para a este mensaje? Mira LAS DOS cosas: lo que dice la base (leído UNA vez
+ * por lote) y lo que salió en esta misma corrida.
+ *
+ * ⚠️ SIN LA SEGUNDA, DOS HILOS DE WHATSAPP DEL MISMO LEAD SALÍAN EN LA MISMA VUELTA: la lectura
+ * de la base es por lote y no se entera de lo que el lote acaba de mandar. Y SIN EL CANAL, un
+ * email frenaba al WhatsApp 20 h (y al revés): el ejemplo de Martín —WhatsApp y email desde el
+ * mismo CRON— salía con un día de diferencia.
+ */
+export function frenadoPorAntiBan(leadId: number, canal: string | null | undefined, deLaBase: RecientesPorCanal, enCorrida: ReadonlyMap<number, ReadonlySet<CanalFreno>>): boolean {
+  const c = canalDelFreno(canal);
+  return deLaBase[c].has(leadId) || enCorrida.get(leadId)?.has(c) === true;
+}
+
+/** Anota que a este lead le salió algo (un envío o un borrador) por este canal en esta corrida. */
+export function anotarEnCorrida(m: EnviadoEnCorrida, leadId: number, canal: string | null | undefined): void {
+  const s = m.get(leadId) ?? new Set<CanalFreno>();
+  s.add(canalDelFreno(canal));
+  m.set(leadId, s);
+}
+
+// ── La ventana horaria, en la zona del NEGOCIO (decisión 6) ─────────────────────
+
+/**
+ * La zona de un negocio que no tiene `mako.timezone`: Ciudad de México, que es lo que el motor
+ * hacía siempre (`TZ_OFFSET_MX = -6`). No es `TZ_DEFAULT` (Tijuana) a propósito: cambiar la
+ * ventana de los que no tienen zona sería mover cuándo les sale todo, sin que nadie lo pidiera.
+ */
+export const ZONA_SIN_CONFIGURAR = 'America/Mexico_City';
+
+/** ¿Es una zona IANA que el runtime conoce? */
+export function zonaValida(tz: unknown): tz is string {
+  if (typeof tz !== 'string' || !tz) return false;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch { return false; }
+}
+
+/** La zona con la que corre el motor: la guardada si es válida, si no Ciudad de México. */
+export function zonaDelMotor(guardada: unknown): string {
+  return zonaValida(guardada) ? guardada : ZONA_SIN_CONFIGURAR;
+}
+
+/** La hora de pared (0-23) de un instante en una zona. */
+export function horaEnZona(ahoraMs: number, tz: string): number {
+  const h = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).format(new Date(ahoraMs));
+  return Number(h) % 24;
+}
+
+/** ¿Este instante cae entre `inicio` (incluida) y `fin` (excluida) en la zona del negocio? */
+export function dentroDeVentanaEn(ahoraMs: number, tz: string, inicio: number, fin: number): boolean {
+  const h = horaEnZona(ahoraMs, tz);
+  return h >= inicio && h < fin;
+}
+
+// ── La fecha de una reunión, en palabras y en la zona del negocio ───────────────
+
+/**
+ * «viernes 9 de octubre, 18:00» para el aviso «no confirmó» (lib/nutricion-desenlace.ts).
+ *
+ * ⚠️ SE ESCRIBÍA EN LA ZONA DEL SERVIDOR, que en Vercel es UTC: medido el 08/10/2026 en el grupo de
+ * Mauricio, el aviso dijo «sábado 10, 01:00 a.m.» para una reunión del viernes 9 a las 18 de
+ * Tijuana. La hora va en la zona del NEGOCIO (`tz`). Una fecha sin hora (sólo el día) se dice sin
+ * hora: inventarle una sería afirmar algo que nadie cargó.
+ */
+export function textoFechaReunion(lead: Record<string, unknown>, tz: string): string {
+  const raw = [lead.junta_1_at, lead.fecha_junta_1, lead.fecha_agenda].find((x) => typeof x === 'string' && x);
+  if (typeof raw !== 'string') return '';
+  const soloDia = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  // Un día suelto se lee a mediodía UTC: cae en ese mismo día en cualquier zona de América.
+  const d = new Date(soloDia ? `${raw}T12:00:00Z` : raw);
+  if (Number.isNaN(d.getTime())) return '';
+  const zona = zonaValida(tz) ? tz : ZONA_SIN_CONFIGURAR;
+  try {
+    return soloDia
+      ? d.toLocaleDateString('es-MX', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' })
+      : d.toLocaleString('es-MX', { timeZone: zona, weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  } catch { return ''; }
+}
+
 // ── Archivos ────────────────────────────────────────────────────────────────────
 
 /** Cómo sale un archivo de la biblioteca por Evolution: imagen, video o documento según el mime. */
@@ -510,7 +642,9 @@ export function mediaDeAdjunto(a: { media_mime: string; nombre_archivo?: string 
 const RX_ID = /^[A-Za-z0-9_-]{1,60}$/;
 const idValido = (x: unknown): x is string => typeof x === 'string' && RX_ID.test(x);
 const destinoId = (x: unknown): string | null | undefined => (x === null ? null : idValido(x) ? x : undefined);
-const NODOS = new Set(['esperar', 'condicion', 'respuesta', 'ir_a']);
+// 'inicio' (segunda tanda, 08/10/2026): el CRON con flechas en paralelo. Sin él acá, el primer
+// guardado lo volvía un mensaje vacío y las flechas del CRON se perdían en silencio.
+const NODOS = new Set(['esperar', 'condicion', 'respuesta', 'ir_a', 'inicio']);
 /** Un año de espera, en minutos. Una espera más larga es un dato roto, no una decisión. */
 const TOPE_ESPERA_MIN = 366 * 24 * 60;
 
@@ -570,7 +704,19 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 }
 
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
-export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar'>;
+export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar'>;
+
+/**
+ * Las flechas en paralelo, saneadas: ids válidos, sin repetidos. Sólo en las clases que las
+ * admiten (mensaje, acción, espera, inicio): en una condición no significan nada y `normalizar`
+ * las tiraría igual. Vacío = sin el campo.
+ */
+function sanearParalelos(x: unknown): string[] | undefined {
+  if (!Array.isArray(x)) return undefined;
+  const out: string[] = [];
+  for (const d of x) if (idValido(d) && !out.includes(d)) out.push(d);
+  return out.length ? out : undefined;
+}
 
 /**
  * Los campos del FLUJO de un paso, saneados uno por uno. Lo que no se reconoce no viaja: un
@@ -596,6 +742,9 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
   }
   if (nodo === 'ir_a') out.destino = sanearDestino(o.destino);
   if (!nodo && typeof o.revisar === 'boolean') out.revisar = o.revisar;
+  // ⚠️ LA QUINTA PUERTA (AGENTS.md): `setSecuenciaPasos` reconstruye cada paso campo por campo, y
+  // sin esta línea BORRABA las flechas en paralelo en el primer guardado, sin error.
+  if (!nodo || nodo === 'esperar' || nodo === 'inicio') { const par = sanearParalelos(o.paralelos); if (par) out.paralelos = par; }
   return out;
 }
 
@@ -618,6 +767,9 @@ export function esLineal(pasos: readonly PasoGrafo[]): boolean {
   for (let i = 0; i < pasos.length; i++) {
     const c = claseDe(pasos[i]);
     if (c === 'condicion' || c === 'respuesta' || c === 'ir_a') return false;
+    // El inicio y las flechas en paralelo: «el paso 3» ya no es UN lugar (puede haber dos
+    // caminos corriendo a la vez), así que una edición «por orden» no tiene a qué referirse.
+    if (c === 'inicio' || (Array.isArray(pasos[i].paralelos) && pasos[i].paralelos!.length > 0)) return false;
     const esperado = pasos[i + 1] ? idDe(pasos[i + 1], i + 1) : null;
     if (siguienteDe(pasos, i) !== esperado) return false;
   }

@@ -96,6 +96,35 @@ export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): P
   return (data as { id: number }).id;
 }
 
+/** El nombre con el que nace una automatización vacía (crear con IA lo reemplaza). */
+export const NOMBRE_PROVISORIO = 'Nueva automatización';
+
+/**
+ * UNA AUTOMATIZACIÓN VACÍA Y PAUSADA: lo que crea «＋ Nueva» (08/10/2026, decisión 14 de
+ * docs/chatbot-flujo-ramas-diseno.md). Abre el lienzo con sólo el CRON y la caja de crear con IA.
+ *
+ * ⚠️ SIN PASOS DE RELLENO, a propósito: `crearSecuenciaDesdeEtapa` (arriba) siembra dos pasos con
+ * «[MaKo lo escribe…]», y ese corchete hace que el paso no salga NUNCA (`RX_RELLENO`,
+ * lib/nutricion.ts). Crear con IA exige una automatización VACÍA para escribir encima, y una que
+ * se arme a mano empieza tocando el ＋ del CRON.
+ *
+ * ⚠️ Y CON `trigger_tipo: 'manual'`: es el único disparador que no inscribe a nadie
+ * (`TRIGGERS_APARTE` en lib/flujo-conversacion.ts no lo ofrece por eso). Nace pausada igual: un
+ * canal propone, una persona confirma (decisión 16).
+ */
+export async function crearSecuenciaVacia(nombre?: string | null): Promise<{ id: number; nombre: string }> {
+  const supabase = await getTenantDb();
+  const n = nombreDeSecuencia(nombre ?? '') || NOMBRE_PROVISORIO;
+  const clave = `automatizacion-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  const { data, error } = await supabase
+    .from('nutricion_secuencias')
+    .insert({ clave, nombre: n, etapa: 'manual', trigger_tipo: 'manual', activa: false, pasos: [] })
+    .select('id')
+    .single();
+  if (error) throw new Error(`crearSecuenciaVacia: ${error.message}`);
+  return { id: (data as { id: number }).id, nombre: n };
+}
+
 /**
  * Renombrar una secuencia.
  *

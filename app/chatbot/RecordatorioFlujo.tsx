@@ -35,6 +35,8 @@ import { EditorMensajeWhatsApp, type VariableEditor } from './EditorMensajeWhats
 import type { PasoSecuenciaDto } from './ChatAgentApp';
 import { ANCHO_NODO, ALTO_MIN, MARGEN, encerrar, type AristaFlujo, type GrafoFlujo, type NodoFlujo } from '@/lib/lienzo-grafo';
 import { TOQUES, type Toque } from '@/lib/recordatorio-lead';
+// El CRON no comparte el ⚡ con la Acción (segunda tanda, decisión 9): es UN ícono para los dos lienzos.
+import { ICONO_CRON } from '@/lib/flujo-conversacion';
 
 const URL_API = '/api/chat-agent/recordatorio-reunion';
 
@@ -76,7 +78,7 @@ export function grafoRecordatorio(textos: Partial<Record<Toque, string>>): Grafo
     if (prev) aristas.push({ desde: prev.id, hasta: n.id, tono: 'normal' });
     x += n.ancho + GAP;
   };
-  poner({ id: 'entrada', tipo: 'entrada', titulo: 'CRON', icono: '⚡', detalle: 'Agendó una reunión', ancho: ANCHO_CRON, alto: ALTO_MIN });
+  poner({ id: 'entrada', tipo: 'entrada', titulo: 'CRON', icono: ICONO_CRON, detalle: 'Agendó una reunión', ancho: ANCHO_CRON, alto: ALTO_MIN });
   for (const min of TOQUES) {
     poner({ id: `espera-${min}`, tipo: 'espera', titulo: 'Esperar', icono: '⏳', detalle: ANTES[min], ancho: ANCHO_ESPERA, alto: ALTO_MIN });
     // Un alto que crece con el texto, para que la flecha salga a la altura de la cabecera.

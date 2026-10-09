@@ -119,6 +119,11 @@ export type Parametro = {
   /** lo que lee el modelo y la persona: qué es, de dónde se saca, qué forma tiene.
    *  Español neutro: lo lee un cliente en la referencia. */
   descripcion: string;
+  /** el rótulo que ve una PERSONA en un formulario (el paso «⚡ Acción» de un flujo), con sus
+   *  tildes y en 1-3 palabras: «Título», «Año», «Automatización». Opcional: sin él sale del
+   *  diccionario de respaldo de lib/editor-acciones.ts (`rotuloDeParametro`) o del nombre partido.
+   *  Antes el editor lo derivaba del camelCase y salía «Titulo», «Razon», «Anio». */
+  rotulo?: string;
   obligatorio?: boolean;
   /** valores permitidos (para `string` y `string[]`) */
   enum?: readonly string[];

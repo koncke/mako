@@ -250,7 +250,8 @@ test('⚠️ los dos horarios (dry-run y commit) escalonan el residuo', () => {
   const fn = bloque(src, 'async function aInscribir(', '\n}\n');
   assert.ok(fn.length < 3000, `el recorte mide ${fn.length}: mira otra cosa`);
   assert.match(fn, /sec\.trigger_tipo === TRIGGER_RESIDUO && pendientes\.length\s*\?\s*await horariosResiduo\(db, \{ pendientes,/);
-  assert.match(fn, /proximo_envio_at: escalonados\?\.get\(lead_id\) \?\? proximoEnvioDePaso\(/);
+  // (Segunda tanda, 08/10/2026: sin escalonado, el mínimo entre las raíces, `proximoDeEntrada`.)
+  assert.match(fn, /proximo_envio_at: escalonados\?\.get\(lead_id\) \?\? proximoDeEntrada\(sec\.pasos, \(p\) => proximoEnvioDePaso\(p, /);
   assert.doesNotMatch(src, /horariosDeInscripcion\(/, 'volvió el segundo camino del horario');
   const llamadas = [...src.matchAll(/await aInscribir\(supabase, sec, candidatos\)/g)];
   assert.equal(llamadas.length, 2, 'son dos los que inscriben: el dry-run y el commit, y los dos por aInscribir');
@@ -297,7 +298,9 @@ test('⚠️ el residuo pasa de a RESIDUO_POR_CORRIDA por corrida, después de l
   assert.match(tope, /if \(residuoEnCorrida >= RESIDUO_POR_CORRIDA\)\s*\{\s*res\.detalle\.push\(\{[^}]*\}\);\s*continue;\s*\}\s*residuoEnCorrida \+= 1;/);
   // Después de «msg <20h» (si no, esa fila le gasta el turno a la siguiente) y antes
   // de cualquier rama que mande o deje un borrador.
-  assert.ok(ini > fn.indexOf('conEnvioReciente.has(insc.lead_id)'));
+  // (08/10/2026, segunda tanda: el freno es `frenadoPorAntiBan`, por canal y con lo de la corrida.)
+  const freno = fn.indexOf('frenadoPorAntiBan(insc.lead_id');
+  assert.ok(freno > 0 && ini > freno);
   for (const sale of ['enviarYEspejar(', 'enviarAudioYEspejar(', 'crearBorrador(']) {
     assert.ok(ini < fn.indexOf(sale), `el techo va después de ${sale}`);
   }
@@ -306,7 +309,8 @@ test('⚠️ el residuo pasa de a RESIDUO_POR_CORRIDA por corrida, después de l
   // mensajes O secuencias con pasos «⚡ Acción», que no gastan cupo. Con el ancla nueva,
   // probado rompiéndolo: el contador declarado adentro del bucle → 29 pasan / 1 falla, éste.)
   const decl = fn.indexOf('let residuoEnCorrida = 0;');
-  const bucle = fn.indexOf('while ((!cupoLleno() || conAcciones.length > 0) && rondas < 6)');
+  // (Y el 08/10/2026 noche, decisión 5: con el cupo de WhatsApp cumplido siguen acciones Y emails.)
+  const bucle = fn.indexOf('while ((!cupoLleno() || sinTopeWa.length > 0) && rondas < 6)');
   assert.ok(bucle > 0, 'no encontré el bucle de lotes');
   assert.ok(decl >= 0 && decl < bucle, 'el contador se reinicia por lote');
 });
