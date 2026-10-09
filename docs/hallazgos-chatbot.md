@@ -1209,6 +1209,151 @@ tardó 4,6 min; matar un `npm test` en curso deja 218 falsos rojos «The service
 de migración se ocupó DOS veces mientras se trabajaba (0231 y 0232): se mira justo antes de commitear.
 Y el agente dejó el `next dev` prendido al terminar: quien une la tanda revisa los procesos.
 
+## Sexta tanda, parte «modelo» (09/10/2026, noche): varias flechas a una tarjeta, sueltas, «Si responde» como CONDITION, sin GO TO
+
+Las decisiones y los contratos, en [chatbot-flujo-ramas-diseno.md](chatbot-flujo-ramas-diseno.md) →
+«SEXTA TANDA, parte «modelo»». Acá, lo que costó.
+
+### «No puedo abrir 2 flechas después de una condición» era el TOPE DE CAMINOS sumando de más [modelo]
+
+**Síntoma:** Martín, punto 13: «Aún no funciona poner o sacar más de una flecha a una tarjeta... si
+quiero luego de una condición abrir 2 flechas. Debería poderse».
+
+**El diagnóstico obvio era el equivocado:** que el lienzo no ofrecía el ＋ en paralelo en un resultado,
+o que el motor no corría los paralelos. El motor, «Probar» y `validarGrafo` los corrían bien. La causa
+real eran DOS: (1) `validarGrafo` rechazaba «la tarjeta X cuelga de N lugares» y no había ninguna
+edición para conectar a una tarjeta que ya existe; (2) el tope de caminos (`TOPE_HILOS` = 6) se medía
+con la SUMA de todas las flechas en paralelo, también las de los DOS resultados de cada condición,
+aunque para un lead corre uno solo. Con tres condiciones con una flecha en el «Sí» y otra en el «Si
+no» eran 1 + 6 = 7 «caminos»: la tercera ya no podía sacar su segunda flecha. Y como el lienzo
+pregunta con la misma función qué ofrecer, el botón tampoco aparecía — se leía como un botón que falta.
+
+**La regla:** un tope sobre «lo que corre a la vez» se calcula sobre lo que CORRE: en ramas que se
+excluyen es el MÁXIMO, nunca la suma (`contarParalelos`, la suma quedó en `totalDeParalelos`). Y cuando
+un número decide a la vez lo que se OFRECE y lo que se RECHAZA, un número inflado se ve como un botón
+que no está, no como un error.
+
+**Vive en:** `lib/flujo-grafo.ts` (`contarParalelos`, `reglasDeHilos`)
+
+### Sacar «un padre por tarjeta» rompía en silencio a cuatro lectores que subían por `padreDe` [modelo]
+
+**Síntoma (en la revisión, no en pantalla):** con varios padres permitidos, tres ayudantes del motor
+seguían subiendo por UN padre: `esPrimerPaso` (¿es la bienvenida? — decide si se vuelve a mirar el tope
+de antigüedad), `minutosAntesDeReunion` (¿es un recordatorio? — sin eso sale «Mañana es tu reunión» sin
+reunión) y `mensajeAnteriorDe` (qué borrador espera una acción). Y `borrarNodo` reconectaba sólo al
+primer padre: los demás quedaban apuntando a la nada.
+
+**Causa real:** relajar un invariante estructural (de árbol a grafo con ciclos) no rompe a quien lo
+declaró; rompe a quien lo ASUMÍA, que es otro archivo y no falla: elige un padre y sigue.
+
+**La regla:** al aflojar un invariante, `grep` de cada lector del supuesto (`padreDe`) y una decisión
+por lector: «por TODOS los padres» (`padresDe`) o «sin la flecha que vuelve» (`padresSinVuelta`, con
+`aristasDeVuelta`: la flecha de un «volver al principio» no es «lo de antes» — sin sacarla, la
+bienvenida de un bucle dejaba de ser la primera). Lo fijan `tests/flujo-sexta-modelo.test.ts` (M6, M9,
+M10, M13 de sus roturas).
+
+**Vive en:** `lib/nutricion-grafo-motor.ts` · `lib/nutricion-hilos.ts` · `lib/flujo-grafo.ts` (`borrarNodo`, `soloDe`)
+
+### Una tarjeta suelta conectada a la primera se volvía la ENTRADA [modelo]
+
+**Síntoma (medido con el modelo, antes de dibujar):** conectar una suelta a la primera tarjeta dejaba
+a la suelta como raíz: el CRON le iba a escribir al lead lo que la persona dejó a un costado.
+
+**El diagnóstico obvio era el equivocado:** «que `normalizar` fije la raíz». `normalizar` no sabe
+cuál era la raíz ANTES de la edición; cuando corre, la primera ya está apuntada. **Causa real:** sin el
+nodo `inicio` en el dato, la raíz se DEDUCE («la primera tarjeta que nadie apunta»), y con tarjetas
+sueltas esa deducción deja de alcanzar.
+
+**La regla:** toda edición de flechas fija la raíz ANTES (`fijarRaiz`: el CRON como dato, al final del
+array para no correr ningún `paso_actual`). Y «volver al principio» con una flecha dejaba la primera
+apuntada y `raizSalida` sin raíz: si todo lo que la apunta cuelga de ella misma, sigue siendo la raíz.
+
+**Vive en:** `lib/flujo-grafo.ts` (`fijarRaiz`, `raizSalida`, `conectar`, `desconectar`, `crearSuelta`)
+
+### Un ciclo ya no lo arma sólo un «Ir a»; y el «Ir a» que retoma desde «Si responde» no es un cruce [modelo]
+
+**Síntoma:** con flechas que vuelven, la regla «el «Ir a» X vuelve atrás sin espera» no veía un ciclo
+armado con flechas. Y la primera versión de `cruces` marcaba como «dos caminos a la vez» el «Ir a» que
+retoma la salida desde «Si responde» (5 rojos en tests viejos).
+
+**Causa real:** el retome no es un camino más: el motor descarta los congelados y sigue UNO. Y los
+resultados de una condición se excluyen: dos llegadas sólo chocan si no tomaron resultados distintos
+en ninguna condición que compartan (`ctx`).
+
+**La regla:** los ciclos se buscan en el grafo de EJECUCIÓN sin las esperas (`ciclosSinEspera`); un
+cruce se juzga con el contexto de qué resultado tomó cada llegada. El texto viejo «…de «Ir a»» queda
+sólo si el bucle tiene un «Ir a»: `tests/lienzo-capas.test.ts` mira el texto exacto, y nombrar algo que
+ya no existe no dice qué pasó.
+
+**Vive en:** `lib/flujo-grafo.ts` (`ciclosSinEspera`, `cruces`, `llegadasPorTarjeta`)
+
+### No había borrador: una automatización a medias no sobrevivía a una recarga [modelo]
+
+**Medido:** lo único que escribía los pasos era Publicar (PATCH /api/whatsapp/secuencias →
+`setSecuenciaPasos` → `validarGrafo`). El lienzo editaba en memoria. «Que quede flotando» era imposible
+de guardar.
+
+**La trampa al hacer el borrador:** se abre sólo si se armó sobre lo publicado de hoy, y la huella
+(`firmaPublicado`) tiene que ser el MISMO cálculo de los dos lados —ordenado por `orden`, normalizado y
+renumerado, como lo publica `setSecuenciaPasos` y lo carga el lienzo—. Con una diferencia en el orden,
+ningún borrador se abriría nunca, sin un error (rotura B3).
+
+**La regla:** lo incompleto se GUARDA con `validarParaGuardar` y se PUBLICA con `validarGrafo`; el
+motor no lee `pasos_borrador` nunca (lo fija un guard que barre los tres módulos del motor).
+
+**Vive en:** `lib/secuencia-borrador.ts` · `supabase/migrations/0240_secuencia_borrador.sql`
+
+### «Si responde» como CONDITION: convertir el dato era el camino caro [modelo]
+
+**El diagnóstico obvio:** pasar el nodo `respuesta` a `nodo: 'condicion'` con una fila nueva. **Por qué
+no:** #212 y #213 (ws1, un cliente) corren en vivo con ese nodo, y una respuesta nunca PASA por una
+tarjeta de la salida: la pausa y entra por `responderConGrafo`. Convertir obligaba a reescribir ese
+camino y reubicar inscripciones. Se dibuja y se edita como condición sobre el mismo motor (la familia
+«Respuesta» del catálogo con `evento: 'respuesta'`, que no se ofrece en la salida y cuyo `evaluar` dice
+«no sé»). Una fila «Su respuesta trata de» puesta a mano en una condición de la salida no se guarda.
+
+**Vive en:** `lib/condiciones-catalogo.ts` (`respuesta_trata_de`, `seOfrece`) · `lib/flujo-grafo.ts` (`condicionARespuesta`) · `app/chatbot/EditorCondicion.tsx` (`EditorCondicionDeRespuesta`)
+
+### GO TO: lo medido en producción y la red de `abrirFlujo` [modelo]
+
+**Medido (09/10/2026, `scripts/quitar-ir-a.mts --simular --con-archivadas`, sólo lectura):** de 69
+automatizaciones, tres con «Ir a»: #198 (activa, dos «Sigue en #212»; a #212 la dispara su CRON), #221
+(pausada, un salto que vuelve a la espera de arriba → flecha) y #222 (archivada, tres «Sigue en #221»,
+que está pausada: por el salto tampoco entraba nadie). Cero inscripciones paradas en un «Ir a»; cero
+riesgos. `--aplicar` no se corrió.
+
+**La trampa:** `erroresNuevos` compara TEXTOS de error, y sacar un «Ir a» cambia el texto de un error
+que ya estaba («…dentro de un bucle de «Ir a»» → «…dentro de un bucle»): una automatización que ya no
+se podía publicar contaba como «la conversión la rompe» y el lienzo la habría abierto CON el GO TO. Lo
+de antes vuelve sólo si se podía publicar y convertido no (no pasa en ninguna de las tres: es la red).
+
+**Vive en:** `lib/flujo-legado.ts` (`quitarIrA`, `abrirFlujo`) · `scripts/quitar-ir-a.mts`
+
+### Trampas del entorno de esta corrida [modelo]
+
+- **El scratchpad de la sesión es COMPARTIDO por las ocho partes en paralelo** (había `parte-lienzo/`,
+  `editores-v6/`, un `romper.mjs` ajeno): es la regla de `/tmp` un nivel más adentro. Cada parte usa
+  una subcarpeta propia, o el `commit -F` de una lee el mensaje de otra.
+- **Python en Windows escribe CRLF en modo texto**: un `.ts` creado en LF y editado con `open().write()`
+  queda CRLF entero (parejo, no mezclado). Y un arnés de roturas cuyo «de» viene de un JSON con `\n` no
+  encuentra nada en un archivo CRLF: el arnés tiene que pasar sus anclas al salto del archivo.
+- **Un script no puede importar el catálogo de CRON** (`TRIGGERS`, `lib/email-marketing.ts`): arrastra
+  `lib/workspace.ts`, que es `server-only`. El script imprime el `trigger_tipo` crudo; copiar la lista
+  sería un segundo catálogo.
+
+### Lo que quedó sin hacer (parte «modelo»)
+
+- **El cableado, que es de otras partes** (las líneas exactas van en el reporte de la corrida):
+  `SecuenciaPerfil` abre con `abrirFlujo` y guarda el borrador; la ruta POST
+  `/api/chat-agent/secuencias` con `action: 'borrador'`; el GET lee `leerBorradoresSecuencias`; el
+  `EditorDeNodo` pasa `onPasarARespuesta`; `lib/flujo-conversacion.ts` dibuja `respuesta` como
+  CONDITION; `lib/flujo-edicion.ts` edita por `conectar` / `desconectar` / `crearSuelta`.
+- **Aplicar la 0240 ANTES del deploy** (tolera su ausencia: sin columna no hay borrador).
+- **`scripts/quitar-ir-a.mts --aplicar`**: lo decide Martín. Sin correrlo, el lienzo abre igual sin GO TO
+  y Publicar guarda lo convertido.
+- **El plazo de una respuesta** («si responde en N horas») no existe en el motor. `lib/nutricion.ts`
+- **Verlo con clics**: nada de esta parte se vio en un navegador.
+
 ## Lo que quedó sin hacer
 
 **De la parte «lienzo» (quinta 2), lo que decide Martín:** si mover una tarjeta se deshace con Ctrl+Z (hoy

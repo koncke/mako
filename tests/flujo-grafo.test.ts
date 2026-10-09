@@ -122,9 +122,12 @@ test('la etapa de un PRODUCTO se mira en ese producto, no en la casa', () => {
 
 // ── Validar: lo que no se guarda ─────────────────────────────────────────────────
 
-test('validarGrafo rechaza dos padres, destinos que no existen, esperas en «Si responde» y saltos hacia atrás sin espera', () => {
+test('validarGrafo rechaza destinos que no existen, esperas en «Si responde» y saltos hacia atrás sin espera (y desde la sexta tanda, NO dos padres)', () => {
+  // SEXTA TANDA (punto 13): dos flechas que llegan a la misma tarjeta se publican. Antes era «cuelga de
+  // 2 lugares (para juntar ramas se usa «Ir a»)». La tarjeta `b` de este flujo es suelta: lo que se mira
+  // es que el error de los dos padres no está.
   const dosPadres = [msg({ id: 'a', siguiente: 'c' }), msg({ id: 'b', siguiente: 'c' }), msg({ id: 'c', siguiente: null })];
-  assert.ok(validarGrafo(dosPadres).some((e) => e.includes('cuelga de 2')));
+  assert.ok(!validarGrafo(dosPadres).some((e) => e.includes('cuelga de')));
   assert.ok(validarGrafo([msg({ id: 'a', siguiente: 'zz' })]).some((e) => e.includes('no existe')));
   const esperaEnRespuesta: PasoGrafo[] = [
     msg({ id: 'a', siguiente: null }),

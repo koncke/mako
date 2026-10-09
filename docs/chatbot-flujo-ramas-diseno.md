@@ -623,3 +623,108 @@ mandó al chat de CRM el mismo día. La cuenta estaba en 92 % de su cuota semana
     del canal elegido: el de Email no muestra WhatsApp.
 
 Lo que no entre en esta cuenta queda en `docs/relevo/chatbot.md` con su número de punto.
+
+
+# SEXTA TANDA (09/10/2026, noche), parte «modelo»: varias flechas a una tarjeta, tarjetas sueltas, «Si responde» como CONDITION y sin GO TO
+
+El pedido literal está en `app/admin/dev/chatbot/bitacora.ts` (hito de la sexta tanda). Esta parte
+es el modelo (`lib/flujo-grafo.ts`, `lib/flujo-legado.ts`), los ayudantes del motor que miran «lo de
+antes» (`lib/nutricion-grafo-motor.ts`, `lib/nutricion-hilos.ts`), el catálogo de condiciones, el
+editor de CONDITION y el borrador. Lo medido y lo que costó, en
+[hallazgos-chatbot.md](hallazgos-chatbot.md) → «Sexta tanda, parte «modelo»».
+
+## Decisiones (mías; Martín las puede dar vuelta)
+
+1. **Varias flechas pueden llegar a una tarjeta.** Sale el error «la tarjeta X cuelga de N lugares
+   (para juntar ramas se usa «Ir a»)». Lo que se sigue mirando, al PUBLICAR: que todo ciclo tenga una
+   espera en el medio (`ciclosSinEspera`, por flechas y por los «Ir a» de antes) y que dos caminos que
+   corren A LA VEZ no caigan en la misma tarjeta (`cruces`: al lead le llegaría dos veces). Los dos
+   resultados de una condición se excluyen: el «Sí» y el «Si no» pueden juntarse.
+2. **El tope de caminos cuenta lo que corre a la vez** (`contarParalelos`): en una condición, el
+   resultado que más abre; en una tarjeta, su salida más cada flecha en paralelo. Hasta acá se sumaban
+   las flechas de los DOS resultados de cada condición, y era por eso que «luego de una condición abrir
+   2 flechas» no se podía (punto 13).
+3. **Guardar no es publicar.** `validarParaGuardar` frena sólo lo que rompe el DATO (una flecha a una
+   tarjeta que no existe, los topes, una flecha al CRON o a «Si responde», una flecha en paralelo donde
+   la clase no la admite, «Su respuesta trata de» en una condición de la salida). `validarGrafo` —lo
+   que corre Publicar, `setSecuenciaPasos`, y el lienzo antes de Publicar y de Probar— suma lo
+   INCOMPLETO: tarjetas sueltas (nombradas), condiciones sin completar, una espera sin cuánto, un caso
+   sin nombre, «el CRON no lleva a ninguna tarjeta» (primero, si el CRON quedó sin flecha), los ciclos
+   sin espera y los cruces.
+4. **El borrador vive en su propia columna** (`nutricion_secuencias.pasos_borrador`, mig 0240) y lo
+   escribe su propia acción, nunca Publicar. Medido: hasta acá no había borrador —el lienzo editaba en
+   memoria y lo único que escribía era Publicar—, así que una automatización con una tarjeta suelta no
+   sobrevivía a una recarga. No va en `pasos` (el motor lo correría y `setSecuenciaPasos` lo
+   reconstruye) ni en `estrategia` (se guarda entera desde varias pantallas) ni en `localStorage` (no
+   sobrevive a otro navegador ni a otra persona del equipo). **El motor no la lee nunca**: por eso una
+   suelta no corre. Un borrador se abre sólo si se armó sobre lo publicado de hoy (`base`, la huella
+   de `firmaPublicado`): si después se publicó otra cosa, abrirlo y publicarlo pisaría lo nuevo.
+5. **«Si responde» es una CONDITION, sin convertir los datos.** El nodo `respuesta` y sus `casos`
+   siguen siendo lo que corre el motor (`responderConGrafo`, `escenariosDeRespuesta`): el clasificador
+   de siempre, «contesta solo» o borrador por tarjeta, la charla de 7 días y el hand-off del «Si no».
+   Cambia cómo se DIBUJA y cómo se EDITA: una tarjeta CONDITION cuyas filas son de la familia
+   «Respuesta» del catálogo («Su respuesta trata de «Pregunta el precio»») y cuyo «Si no» es lo que
+   antes era «Otra cosa». **Por qué no convertir el dato**: la condición dura era que #212 y #213 (ws1,
+   un cliente) no cambiaran lo que hacen en vivo. Convertirlas a `nodo: 'condicion'` con una fila nueva
+   obligaba a que el motor evaluara «su respuesta trata de» al PASAR por la tarjeta, y por ahí nunca pasa
+   una respuesta: una respuesta pausa la salida y entra por otro camino (`pausarPorRespuesta` →
+   `responderConGrafo`). Habría que reescribir ese camino y reubicar las inscripciones paradas adentro
+   de «Si responde»: dos riesgos sobre un cliente para un cambio que es de cómo se ve. Dibujarla y
+   editarla como condición sobre el mismo motor da lo que se pidió sin tocar lo que corre.
+   - **Una nueva se crea** eligiendo «Su respuesta trata de» en una CONDITION VACÍA
+     (`condicionARespuesta`): la tarjeta pasa a escuchar —sin flecha de entrada, porque se decide
+     cuando el lead ESCRIBE— con su primer caso, su «MaKo contesta» (borrador) y el «Si no» avisando al
+     equipo. Una por automatización, como siempre.
+   - **«Respondió» a secas no hace falta**: el «Si no» de la condición que escucha ES «respondió otra
+     cosa», y en la salida «respondió» no puede ser cierto (la respuesta la pausa).
+   - **Sin plazo**: el motor de respuestas no tiene una ventana propia más que la charla de 7 días. Si
+     Martín quiere «si responde en N horas», es otra tanda.
+   - El ＋ y el lienzo ya no ofrecen REPLY (el ofrecimiento es de las partes «lienzo» y del ＋; ver los
+     contratos abajo).
+6. **GO TO desaparece** (`quitarIrA`, `lib/flujo-legado.ts`, la usan el lienzo al abrir y
+   `scripts/quitar-ir-a.mts`):
+   - a una tarjeta de la MISMA automatización → una FLECHA directa (varios padres ya valen); lo que
+     corre es lo mismo, medido con «Probar» antes y después;
+   - a OTRA automatización → se SACA: la otra arranca por su propio CRON (el pedido: «ya solo se
+     dispara, no necesito "Go to"»). La salida que lo apuntaba queda vacía;
+   - el que retoma la salida desde «Si responde» QUEDA: una flecha correría esas tarjetas en el momento
+     de la respuesta, y el «Ir a» retoma UN camino y descarta los congelados. No hay ninguno en
+     producción;
+   - el motor sigue sabiendo correr los «Ir a» que queden.
+   - **Medido en producción (09/10/2026, simulacro)**: tres con «Ir a». #198 (activa): dos «Sigue en
+     #212», a #212 la dispara su CRON (`agendado_ya_contactado`). #221 (pausada): un «Ir a» que vuelve a
+     la espera de arriba → flecha. #222 (archivada): tres «Sigue en #221», pausada (por el «Ir a»
+     tampoco entraba nadie: el motor no inscribe en una pausada). Cero inscripciones paradas en un «Ir
+     a», cero riesgos. `--aplicar` NO se corrió.
+   - **El riesgo que queda** (lo decide Martín): con #198, el lead que agenda ya no entra a #212 en el
+     acto por el salto; entra por el evento de la agenda o por el barrido horario de #212. Un lead que
+     agendó ANTES de recibir la bienvenida es de #213 (la otra mitad de la post-agenda): sin el salto,
+     el que lo decide es la regla de familias, que es la misma que manda en el resto.
+7. **Toda edición de flechas fija la raíz antes** (`fijarRaiz`: crea el nodo `inicio` = el CRON, al
+   final del array). Sin CRON en el dato, la raíz era «la primera tarjeta que nadie apunta», y con una
+   suelta conectada a ella la raíz pasaba a ser la suelta.
+8. **El editor de CONDITION**: el desplegable principal con el campo grande de la casa (48); «＋ y» /
+   «＋ o» como placeholders punteados lado a lado a todo el ancho; y las listas con jerarquía como un
+   ÁRBOL (curso → módulo → clase, curso → módulo, producto → etapa, embudo → reunión,
+   `arbolDeOpciones`), que guarda los MISMOS valores que la lista plana. Un nivel con una sola rama no
+   se dibuja.
+
+## Contratos para las otras partes (lo que enchufa la integración)
+
+- **El lienzo** (`lib/flujo-edicion.ts`, parte «lienzo») edita las flechas por `conectar(pasos,
+  origen, puerto, destino)` → `{ pasos, hecho: 'principal' | 'paralelo' | null, motivo? }` (una salida
+  ocupada abre una flecha en paralelo; `motivo` es el texto para el toast), `desconectar(pasos, origen,
+  puerto)` (la tarjeta queda flotando), `crearSuelta(pasos, nuevo)` → `{ pasos, id }` y
+  `destinosConectables(pasos, origen, puerto)` (lo que se ilumina al arrastrar sale de la MISMA regla).
+  Las cuatro fijan la raíz. Ninguna usa `conectarPuerto` pelado.
+- **El dibujo** (`lib/flujo-conversacion.ts`): el nodo `respuesta` se dibuja como CONDITION, con una
+  fila por caso (`textoCasoRespuesta`) y el «Si no»; el CRON sin «Si responde» como fila. Después de
+  `abrirFlujo` no quedan «Ir a» salvo los que retoman desde «Si responde».
+- **La pantalla** (`app/chatbot/SecuenciaPerfil.tsx`): abre con `abrirFlujo(pasos, estrategia, {
+  idDeClave, nombreDeSecuencia })` en vez de `legadoAGrafo`, y limpia la estrategia sólo con
+  `limpiarEstrategia`. El borrador: GET con `leerBorradoresSecuencias`, guardado con un respiro por
+  POST `{ action: 'borrador', id, pasos }` → `guardarBorradorSecuencia`, y `descartarBorradorSecuencia`
+  al publicar.
+- **El editor de nodo** (`FlujoLienzo.tsx`, `EditorDeNodo`, `case 'condicion'`): pasa
+  `onPasarARespuesta` cuando la condición está vacía y la automatización no tiene una que escuche, con
+  `condicionARespuesta`.

@@ -54,6 +54,16 @@
 //   · Punto 6: «que dentro de esa opción se pueda seleccionar "No pagó X cuota" la primera por
 //     ejemplo». «Pagó / No pagó» suma la cuota (`valor`, vacío = como siempre): la cuota N es la fila
 //     de `pagos` con `numero` N, la misma que el CRM dibuja como «Cuota N» (lib/pagos.ts la escribe).
+//
+// ── SEXTA TANDA (09/10/2026, noche) ───────────────────────────────────────────────────
+//   · Punto 12 de «General»: «Reply ya te dije que tiene que estar dentro de CONDITION». La familia
+//     «Respuesta» («Su respuesta trata de…») es la de la condición que escucha las respuestas (el
+//     nodo `respuesta` de siempre: sus filas son sus casos). Se decide cuando el lead ESCRIBE, con el
+//     clasificador de siempre (`responderConGrafo`), no cuando la salida pasa: por eso no se ofrece en
+//     una condición de la salida (`evento`) y su `evaluar` dice «no sé».
+//   · Punto 1 de «CONDITION»: «primero selecciono el módulo y ahí me aparecen las clases de ese
+//     módulo... Esto para TODO». Los catálogos con jerarquía se ofrecen como un ÁRBOL
+//     (`arbolDeOpciones`): curso → módulo → clase, producto → etapa, embudo → reunión.
 // =============================================================================
 
 import type { FilaCondicion, HechosLead } from './flujo-grafo';
@@ -71,7 +81,11 @@ export type AmbitoDisparo = 'adquisicion' | 'entrega';
 export type SeccionCondicion =
   | 'Información del lead' | 'Origen y tracking' | 'Etapa y pipeline' | 'Agenda y llamadas' | 'Pagos'
   | 'Mensajes' | 'Etiquetas'
-  | 'Curso y avance' | 'Comunidad' | 'Tareas del curso' | 'Pagos del cliente' | 'Etapa de entrega';
+  | 'Curso y avance' | 'Comunidad' | 'Tareas del curso' | 'Pagos del cliente' | 'Etapa de entrega'
+  | 'Respuesta';
+
+/** La sección de la condición que escucha las respuestas (sexta tanda). No está en `SECCIONES`: no es de la salida. */
+export const SECCION_RESPUESTA: SeccionCondicion = 'Respuesta';
 
 /** El orden de las secciones en el desplegable, por ámbito. */
 export const SECCIONES: Record<AmbitoDisparo, readonly SeccionCondicion[]> = {
@@ -139,6 +153,12 @@ export type DefCondicion = {
    * cualquiera). El editor dibuja el selector y el motor lee el orden de esos embudos (`reuniones`).
    */
   reuniones?: true;
+  /**
+   * SEXTA TANDA: se decide cuando el lead ESCRIBE (la condición que escucha las respuestas), no cuando
+   * la salida pasa por la tarjeta. No se ofrece en una condición de la salida (`seOfrece`) y su
+   * `evaluar` dice «no sé»: en la salida el lead no respondió (una respuesta la pausa).
+   */
+  evento?: 'respuesta';
   /** [afirmativa, negada]. Una frase técnica y corta: es lo que se DIBUJA. */
   rotulo: readonly [string, string];
   /** ¿Se ofrece negada? Un número no (el operador ya dice ≥ o ≤) ni un compuesto. */
@@ -542,6 +562,17 @@ export const CONDICIONES: readonly DefCondicion[] = [
   // ── Etiquetas ──
   { id: 'etiqueta', seccion: 'Etiquetas', ambito: 'ambos', rotulo: ['Tiene la etiqueta', 'No tiene la etiqueta'], negable: true, valor: LEGADO, fuentes: ['etiquetas'] },
 
+  // ── Respuesta (sexta tanda) ──
+  // La fila de la condición que escucha las respuestas: cada CASO es una («Su respuesta trata de
+  // «Pregunta el precio»»), con su nombre y cuándo aplica, que es lo que lee el clasificador. Lo decide
+  // `responderConGrafo` con `escenariosDeRespuesta` (lib/flujo-grafo.ts) en el momento en que el lead
+  // escribe; la fuente es la de «Te escribió» (`respondio`) porque es la misma charla. En la salida no
+  // se cumple nunca: ahí el texto de un caso no se evalúa contra nada.
+  {
+    id: 'respuesta_trata_de', evento: 'respuesta', seccion: 'Respuesta', ambito: 'ambos', rotulo: ['Su respuesta trata de', ''], negable: false, valor: { t: 'texto' }, fuentes: ['respondio'],
+    evaluar: () => null,
+  },
+
   // ── Curso y avance (entrega) ──
   {
     id: 'completo_clase', seccion: 'Curso y avance', ambito: 'entrega', rotulo: ['Completó la clase', 'No completó la clase'], negable: true, valor: { t: 'lista', catalogo: 'clase' }, fuentes: ['curso'],
@@ -658,6 +689,8 @@ export function ambitoDeDisparo(triggerTipo: string | null | undefined): AmbitoD
 /** ¿Se ofrece esta condición con este CRON? */
 export function seOfrece(c: DefCondicion, ambito: AmbitoDisparo): boolean {
   if (c.retirada) return false;
+  // La de la respuesta no es de la salida (sexta tanda): la ofrece el editor de la condición que escucha.
+  if (c.evento) return false;
   return c.ambito === 'ambos' || c.ambito === ambito;
 }
 
@@ -807,6 +840,70 @@ export function opcionesDe(catalogo: CatalogoValor, cat: CatalogosCondicion): Se
 }
 
 const hayOpciones = (s: SeccionOpciones[]) => s.some((x) => x.options.length > 0);
+
+/**
+ * UN NIVEL DEL ÁRBOL: sus opciones y, si tiene, los niveles de adentro (la forma de `DropdownGroup`,
+ * app/components/Dropdown.tsx, que abre cada nivel con su ‹ para volver y aplana al buscar).
+ */
+export type NivelArbol = { title: string; options: OpcionCatalogo[]; grupos?: NivelArbol[] };
+
+/**
+ * LAS OPCIONES DE UN CATÁLOGO COMO ÁRBOL (sexta tanda, punto 1 de «CONDITION»: «primero selecciono
+ * el módulo y ahí me aparecen las clases de ese módulo... Esto para TODO»). Donde hay jerarquía:
+ *
+ *   · una clase (y una clase con tarea): el curso → su módulo → sus clases;
+ *   · un módulo: el curso → sus módulos;
+ *   · una etapa: el producto → sus etapas (de venta, o de entrega);
+ *   · una reunión: el embudo → sus etapas de reunión.
+ *
+ * Un nivel con UNA sola rama no se dibuja (un curso solo: elegirlo es un clic que no decide nada) y
+ * lo de adentro sube. Lo que no tiene jerarquía va plano, como siempre (`opcionesDe`). Los valores
+ * son los MISMOS de `opcionesDe`: el árbol cambia cómo se elige, no qué se guarda.
+ */
+export function arbolDeOpciones(catalogo: CatalogoValor, cat: CatalogosCondicion): NivelArbol[] {
+  const clase = (k: { id: number; titulo: string }): OpcionCatalogo => ({ value: String(k.id), label: k.titulo });
+  if (catalogo === 'clase' || catalogo === 'clase_tarea') {
+    return colapsar((cat.cursos ?? []).map((c) => {
+      const clases = c.clases.filter((k) => catalogo === 'clase' || k.tieneTarea);
+      const conModulo = new Set(c.modulos.map((m) => m.clave));
+      const grupos: NivelArbol[] = c.modulos.map((m) => ({ title: m.nombre, options: clases.filter((k) => k.modulo === m.clave).map(clase) }));
+      // Una clase de un módulo que ya no existe va igual, bajo su curso (como en `armarCursos`).
+      const sueltas = clases.filter((k) => !conModulo.has(k.modulo));
+      if (sueltas.length) grupos.push({ title: 'Sin módulo', options: sueltas.map(clase) });
+      return { title: c.nombre, options: [], grupos };
+    }));
+  }
+  if (catalogo === 'modulo') {
+    return colapsar((cat.cursos ?? []).map((c) => ({ title: c.nombre, options: c.modulos.map((m) => ({ value: `${c.productoId}:${m.clave}`, label: m.nombre })) })));
+  }
+  if (catalogo === 'etapa' || catalogo === 'etapa_entrega' || catalogo === 'reunion') {
+    // Ya vienen por producto (o por embudo): cada sección es un nivel.
+    return colapsar(opcionesDe(catalogo, cat).map((s, k) => ({ title: s.title || `Producto ${k + 1}`, options: s.options })));
+  }
+  return opcionesDe(catalogo, cat).filter((s) => s.options.length > 0);
+}
+
+/** Saca los niveles vacíos y sube lo de adentro de un nivel que es el ÚNICO de los suyos. */
+function colapsar(niveles: NivelArbol[]): NivelArbol[] {
+  const limpio = (n: NivelArbol): NivelArbol | null => {
+    const grupos = (n.grupos ?? []).map(limpio).filter((g): g is NivelArbol => !!g);
+    if (!n.options.length && !grupos.length) return null;
+    // Sin opciones propias y con UN solo nivel adentro: lo de adentro sube, con el NOMBRE de afuera (un
+    // curso con un módulo muestra sus clases bajo el nombre del curso, que es el que la persona conoce).
+    if (!n.options.length && grupos.length === 1) return { ...grupos[0], title: n.title || grupos[0].title };
+    return grupos.length ? { title: n.title, options: n.options, grupos } : { title: n.title, options: n.options };
+  };
+  const out = niveles.map(limpio).filter((g): g is NivelArbol => !!g);
+  // Un solo nivel en la raíz: se abre directo, sin la fila que habría que tocar para entrar.
+  if (out.length === 1 && !out[0].options.length && out[0].grupos?.length) return out[0].grupos;
+  if (out.length === 1 && !out[0].grupos?.length) return [{ title: '', options: out[0].options }];
+  return out;
+}
+
+/** ¿El árbol tiene algo que ABRIR (más de un nivel con nombre)? Si no, se dibuja como una lista plana. */
+export function esArbol(niveles: readonly NivelArbol[]): boolean {
+  return niveles.length > 1 || niveles.some((n) => (n.grupos?.length ?? 0) > 0);
+}
 
 /** ¿Hay con qué completar esta condición? Una de lista sin elementos no se ofrece. */
 export function tieneCatalogo(c: DefCondicion, cat: CatalogosCondicion): boolean {

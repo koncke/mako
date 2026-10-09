@@ -41,7 +41,8 @@ import { EditorEmailGmail } from './EditorEmailGmail';
 import { EditorEtiqueta } from './EditorEtiqueta';
 // El editor de la CONDICIÓN (tercera tanda, puntos 9 y 10): una frase por fila, del catálogo por
 // secciones filtrado por el CRON. Vive aparte; este archivo sólo lo monta.
-import { EditorCondicion, useCatalogosCondicion, catalogosDe } from './EditorCondicion';
+import { EditorCondicion, EditorCondicionDeRespuesta, useCatalogosCondicion, catalogosDe } from './EditorCondicion';
+import { quitarIrA } from '@/lib/flujo-legado';
 import { ambitoDeDisparo, nombresCatalogoDe } from '@/lib/condiciones-catalogo';
 import { LEAD_DEL_EVENTO } from '@/lib/api-mako/flujo-params';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
@@ -56,7 +57,7 @@ import {
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
-  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, tarjetasParaIrA, esMako, makoDeAccion,
+  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, makoDeAccion,
   ID_ENTRADA, PUERTO_RESPUESTA,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES,
   type NodoFlujo, type QueAgregar,
@@ -750,80 +751,46 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
 }
 
 /**
- * «SI RESPONDE»: los casos (nombre corto + cuándo aplica) con «+ caso». Es lo que antes eran
- * los escenarios del modo asistido, editados en un formulario arriba de la pantalla
- * (punto 1). Cada caso nuevo nace con su tarjeta «MaKo contesta» (`agregarCaso`), que es
- * donde se escribe cómo responder. «Otra cosa» es la última salida, fija.
+ * «SI RESPONDE», EDITADA COMO UNA CONDITION (sexta tanda, punto 12: «Reply ya te dije que tiene que
+ * estar dentro de CONDITION»). Es el mismo dato y el mismo motor de siempre —los casos de la tarjeta
+ * `respuesta`, que clasifica `responderConGrafo` cuando el lead escribe—; lo que cambia es la cara: el
+ * editor de la CONDITION con la familia «Respuesta» (`EditorCondicionDeRespuesta`). Cada caso nuevo
+ * nace con su tarjeta «MaKo contesta» (`agregarCaso`), que no se abre sola para no sacar a la persona
+ * de la lista que está armando; el «Si no» es lo que antes era «Otra cosa».
  */
 function EditorRespuesta({ paso, id, cambiar, onPasos, busy, onAbrir }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const casos = paso.casos ?? [];
-  const setCaso = (k: number, p: Partial<(typeof casos)[number]>) => cambiar({ casos: casos.map((c, j) => (j === k ? { ...c, ...p } : c)) }, false);
   return (
-    <div>
-      {casos.map((c, k) => (
-        <div key={c.id} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 9 }}>
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <input value={c.titulo} maxLength={40} placeholder="Nombre" disabled={busy} aria-label="Nombre del caso"
-              onChange={(e) => setCaso(k, { titulo: e.target.value })} style={{ ...inpLienzo, fontWeight: 600 }} />
-            <textarea value={c.cuando} rows={2} placeholder="Cuándo aplica" disabled={busy} aria-label="Cuándo aplica"
-              onChange={(e) => setCaso(k, { cuando: e.target.value })} style={{ ...inpLienzo, resize: 'vertical', lineHeight: 1.45 }} />
-          </div>
-          <button type="button" onClick={() => onPasos((prev) => quitarCaso(prev, id, c.id), true)} disabled={busy} title="Quitar" aria-label="Quitar este caso"
-            style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, padding: '8px 2px' }}>✕</button>
-        </div>
-      ))}
-      {/* El caso se nombra acá; cómo responder se escribe en su tarjeta «MaKo contesta»,
-          que no se abre sola para no sacar a la persona de la lista que está armando. */}
-      <BotonTexto disabled={busy || casos.length >= TOPE_CASOS} onClick={() => onPasos((prev) => agregarCaso(prev, id).pasos, true)}>+ caso</BotonTexto>
-      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 12, color: 'var(--dim)' }}>Otra cosa</span>
-        {paso.si_no && (
-          <button type="button" onClick={() => onAbrir(paso.si_no!)}
-            style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 0, fontSize: 12, color: 'var(--primary)', cursor: 'pointer', fontFamily: SANS }}>Ver</button>
-        )}
-      </div>
-    </div>
+    <EditorCondicionDeRespuesta key={`resp-${id}`} busy={busy} r={{
+      casos,
+      cambiarCasos: (c, apilar) => cambiar({ casos: c }, apilar),
+      onAgregarCaso: () => { if (casos.length < TOPE_CASOS) onPasos((prev) => agregarCaso(prev, id).pasos, true); },
+      onQuitarCaso: (casoId) => onPasos((prev) => quitarCaso(prev, id, casoId), true),
+      ...(paso.si_no ? { onVerSiNo: () => onAbrir(paso.si_no!) } : {}),
+    }} />
   );
 }
 
 /**
- * «IR A»: otra automatización (se la inscribe) u otra tarjeta de este flujo (un salto).
- *
- * ⚠️ DESDE LA SALIDA, SÓLO LAS TARJETAS DE SU HILO (`tarjetasParaIrA`, con `hiloDe` del modelo):
- * con flechas en paralelo, saltar a la tarjeta de otro hilo le manda lo mismo dos veces al lead y
- * `validarGrafo` no lo deja publicar. Desde «Si responde», todas.
+ * «IR A», SÓLO EL QUE QUEDA (sexta tanda, punto 12: «"Go to" desaparece directamente»). No se crea
+ * desde la tercera tanda, y al abrir la automatización el lienzo los pasa a flechas
+ * (`abrirFlujo` → `quitarIrA`, lib/flujo-legado.ts). Si igual se abre uno —un flujo que todavía no se
+ * convirtió—, dice a dónde va y lo pasa a lo de ahora con un botón: a una tarjeta de este flujo, una
+ * flecha directa; a otra automatización, se quita (la otra arranca por su propio CRON). El motor lo
+ * sigue corriendo mientras tanto.
  */
-function EditorIrA({ paso, id, cambiar, pasos, secuencias, nombres, busy }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorIrA({ paso, id, pasos, secuencias, nombres, busy, onPasos }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const d = paso.destino ?? null;
-  const valor = !d ? '' : 'secuencia_id' in d ? `sec:${d.secuencia_id}` : `nodo:${d.nodo}`;
-  const secciones = [
-    { title: 'Otra automatización', options: secuencias.map((s) => ({ value: `sec:${s.id}`, label: s.nombre })) },
-    {
-      title: 'Otra tarjeta de este flujo',
-      // El nombre ya trae lo que la tarjeta dice («Mensaje: Hola, te…»), como la tarjeta del «Ir a».
-      options: tarjetasParaIrA(pasos, id).map((t) => ({ value: `nodo:${t}`, label: nombreDeTarjeta(pasos, t, nombres) })),
-    },
-  ].filter((s) => s.options.length > 0);
-  if (valor && !secciones.some((s) => s.options.some((o) => o.value === valor))) {
-    secciones.unshift({ title: 'La que tiene puesta', options: [{ value: valor, label: 'Algo que ya no existe' }] });
-  }
-  // Grande y de ancho completo: es lo único que se elige acá (cuarta tanda, punto 1).
+  const aTarjeta = d && 'nodo' in d ? d.nodo : null;
+  const otra = d && 'secuencia_id' in d ? (secuencias.find((s) => s.id === Number(d.secuencia_id))?.nombre ?? 'otra automatización') : null;
+  const texto = aTarjeta ? `Va a «${nombreDeTarjeta(pasos, aTarjeta, nombres)}»` : otra ? `Sigue en «${otra}»` : 'No dice a dónde';
   return (
-    <Dropdown value={valor} secciones={secciones} placeholder="Elige a dónde" width="100%" ariaLabel="A dónde va" disabled={busy} search buttonStyle={botonGrande}
-      onChange={(v) => {
-        const [clase, ...resto] = v.split(':');
-        const x = resto.join(':');
-        if (clase === 'sec' && Number(x) > 0) cambiar({ destino: { secuencia_id: Number(x) } }, true);
-        if (clase === 'nodo' && x) cambiar({ destino: { nodo: x } }, true);
-      }} />
-  );
-}
-
-function BotonTexto({ children, onClick, disabled }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled}
-      style={{ background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, fontFamily: SANS, color: disabled ? 'var(--faint)' : 'var(--primary)', cursor: disabled ? 'default' : 'pointer' }}>
-      {children}
-    </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 14, color: 'var(--ink)', fontFamily: SANS }}>{texto}</div>
+      <button type="button" disabled={busy} onClick={() => onPasos((prev) => quitarIrA(prev, { solo: id }).pasos, true)}
+        style={{ ...botonGrande, width: '100%', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--primary)', cursor: busy ? 'default' : 'pointer', fontFamily: SANS }}>
+        {aTarjeta ? 'Pasar a flecha' : 'Quitar'}
+      </button>
+    </div>
   );
 }

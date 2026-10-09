@@ -113,7 +113,8 @@ test('ACTION: el desplegable «Elige una acción» de ancho completo y grande, y
 
 test('GO TO y MAKO: el destino grande; el mensaje llena el panel', () => {
   const ir = bloque(FLUJO, 'function EditorIrA(', '\n}\n', 2_400);
-  assert.match(ir, /placeholder="Elige a dónde" width="100%" ariaLabel="A dónde va" disabled=\{busy\} search buttonStyle=\{botonGrande\}/);
+  // SEXTA TANDA (punto 12): GO TO ya no elige destino; el botón que lo pasa a flecha es el campo grande.
+  assert.match(ir, /style=\{\{ \.\.\.botonGrande, width: '100%'/);
   const mako = bloque(FLUJO, 'function EditorMako(', '\n}\n', 3_200);
   assert.match(mako, /<div style=\{\{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 \}\}>/, 'el editor MAKO no llena el alto del panel');
   assert.match(mako, /style=\{\{ \.\.\.inpLienzo, flex: 1, minHeight: 96, resize: 'none'/, 'el mensaje no es el que estira');

@@ -22,6 +22,7 @@ import {
   TOPE_PARALELOS, TOPE_HILOS, RESULTADO_SI_NO,
   puertosDe, padreDe, descendientes, hiloDe, raicesSalida, normalizar, validarGrafo, conectarPuerto, insertarNodo,
   borrarNodo, nodoPorId, paralelosDeResultado, puertoParalelo, leerPuertoParalelo, contarParalelos, repartenEnBucle,
+  totalDeParalelos,
 } from '../lib/flujo-grafo';
 import { resolverControl, camposDelFlujo, alcanzablesDesde, esPrimerPaso } from '../lib/nutricion-grafo-motor';
 import { repartosDe, planDePosicion, estadoDeCierrePermanente, type Hilo } from '../lib/nutricion-hilos';
@@ -67,7 +68,9 @@ test('el ejemplo del pedido: cada resultado es una salida más sus flechas en pa
   assert.deepEqual(Object.fromEntries(hiloDe(EJEMPLO)), { k: 'p', ws: 'p', es: 'es', wn: 'p', en: 'en' });
   // No son raíces: no arrancan al inscribir, arrancan cuando la condición sale por su resultado.
   assert.deepEqual(raicesSalida(EJEMPLO), ['k']);
-  assert.equal(contarParalelos(EJEMPLO), 2);
+  // Dos flechas dibujadas, y UNA corre a la vez (sexta tanda: para un lead sale un solo resultado).
+  assert.equal(totalDeParalelos(EJEMPLO), 2);
+  assert.equal(contarParalelos(EJEMPLO), 1);
   assert.deepEqual(paralelosDeResultado(EJEMPLO[0], 'si'), ['es']);
   assert.deepEqual(paralelosDeResultado(EJEMPLO[0], RESULTADO_SI_NO), ['en']);
   assert.deepEqual(paralelosDeResultado(EJEMPLO[0], 'otra'), []);
@@ -145,7 +148,7 @@ test('⚠️ borrar la tarjeta destino de una flecha de un resultado no deja ids
   assert.deepEqual(validarGrafo(filtrado), []);
 });
 
-test('validar: el tope es POR RESULTADO, y los caminos suman los de los dos resultados', () => {
+test('validar: el tope es POR RESULTADO, y los caminos son los que corren A LA VEZ (sexta tanda)', () => {
   const hijos = (n: number, pre: string) => Array.from({ length: n }, (_, j) => msg(`${pre}${j}`));
   const conLista = (enSi: number, enNo: number): PasoGrafo[] => [
     cond('k', {
@@ -156,10 +159,16 @@ test('validar: el tope es POR RESULTADO, y los caminos suman los de los dos resu
   ];
   assert.deepEqual(validarGrafo(conLista(TOPE_PARALELOS, 0)), []);
   assert.ok(con(validarGrafo(conLista(TOPE_PARALELOS + 1, 0)), `más de ${TOPE_PARALELOS} flechas en paralelo en un resultado`));
-  // 1 + 3 + 2 = 6 caminos: entra. 1 + 3 + 3 = 7: no (aunque a un lead le corra uno solo de los dos).
+  // ⚠️ SEXTA TANDA, PUNTO 13: hasta acá 1 + 3 + 3 = 7 «caminos» no entraban, aunque a un lead le corre
+  // UNO solo de los dos resultados: era la regla que frenaba «abrir 2 flechas» en la tercera condición.
+  // Ahora cuenta el resultado que más abre: 1 + máx(3, 3) = 4.
   assert.equal(TOPE_HILOS, 6);
   assert.deepEqual(validarGrafo(conLista(3, 2)), []);
-  assert.ok(con(validarGrafo(conLista(3, 3)), `como mucho ${TOPE_HILOS} caminos`));
+  assert.deepEqual(validarGrafo(conLista(3, 3)), []);
+  // Lo que sí corre a la vez: el WhatsApp del «Sí» saca otras 3 en paralelo → 1 + 3 + 3 = 7.
+  const aLaVez = conLista(3, 0).map((p) => (p.id === 'ws' ? { ...p, paralelos: ['x0', 'x1', 'x2'] } : p));
+  aLaVez.push(msg('x0'), msg('x1'), msg('x2'));
+  assert.ok(con(validarGrafo(aLaVez), `como mucho ${TOPE_HILOS} caminos`));
 });
 
 test('validar: repetidas, ids reservados, adentro de «Si responde» y dentro de un bucle', () => {
@@ -380,7 +389,11 @@ test('⚠️ el ＋ en paralelo de una fila se ofrece SÓLO donde Publicar lo ac
   const fixtures: Record<string, PasoGrafo[]> = {
     ejemplo: EJEMPLO,
     'tope del resultado': [cond('k', { ramas: [{ id: 'si', modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: 'ws', paralelos: ['s0', 's1', 's2'] }], si_no: 'wn' }), msg('ws'), msg('wn'), ...hijos(3, 's')],
-    'tope de caminos': [cond('k', { ramas: [{ id: 'si', modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: 'ws', paralelos: ['s0', 's1', 's2'] }], si_no: 'wn', paralelos_si_no: ['n0', 'n1'] }), msg('ws'), msg('wn'), ...hijos(3, 's'), ...hijos(2, 'n')],
+    // SEXTA TANDA: los dos resultados se excluyen, así que con 3 en el «Sí» el «Si no» todavía puede
+    // sacar una más (hasta acá sumaban 1 + 3 + 2 = 6 y el lienzo no la ofrecía).
+    'dos resultados se excluyen': [cond('k', { ramas: [{ id: 'si', modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: 'ws', paralelos: ['s0', 's1', 's2'] }], si_no: 'wn', paralelos_si_no: ['n0', 'n1'] }), msg('ws'), msg('wn'), ...hijos(3, 's'), ...hijos(2, 'n')],
+    // El tope de caminos de verdad: en el «Si no» corren A LA VEZ sus 2 flechas y las 3 del WhatsApp.
+    'tope de caminos': [cond('k', { ramas: [{ id: 'si', modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: 'ws', paralelos: ['s0', 's1', 's2'] }], si_no: 'wn', paralelos_si_no: ['n0', 'n1'] }), msg('ws'), msg('wn', { paralelos: ['y0', 'y1', 'y2'] }), ...hijos(3, 's'), ...hijos(2, 'n'), ...hijos(3, 'y')],
     'en «Si responde»': [msg('m'), msg('R', { nodo: 'respuesta', cuerpo: '', casos: [{ id: 'c1', titulo: 'Precio', cuando: 'pregunta el precio', siguiente: 'k' }], si_no: null }), cond('k', { ramas: [{ id: 'si', modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: 'a' }], si_no: 'b' }), msg('a'), msg('b')],
     'en un bucle': [cond('k', { ramas: [{ id: 'si', modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: 'm1' }], si_no: 'b' }), msg('m1', { siguiente: 'e' }), esperar('e', 'j'), irA('j', 'k'), msg('b')],
     // Una regla que sólo ve el flujo HIPOTÉTICO (ningún chequeo explícito la mira): 60 tarjetas, el
@@ -394,6 +407,7 @@ test('⚠️ el ＋ en paralelo de una fila se ofrece SÓLO donde Publicar lo ac
   const esperado: Record<string, Array<[string, boolean]>> = {
     ejemplo: [['si', true], ['si_no', true]],
     'tope del resultado': [['si', false], ['si_no', true]],
+    'dos resultados se excluyen': [['si', false], ['si_no', true]],
     'tope de caminos': [['si', false], ['si_no', false]],
     'en «Si responde»': [['si', false], ['si_no', false]],
     'en un bucle': [['si', false], ['si_no', false]],

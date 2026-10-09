@@ -23,8 +23,9 @@
 // =============================================================================
 
 import {
-  type PasoGrafo, type RamaCondicion, type CasoRespuesta,
-  claseDe, idDe, normalizar, nuevoId,
+  type PasoGrafo, type RamaCondicion, type CasoRespuesta, type DestinoIrA,
+  claseDe, idDe, normalizar, nuevoId, nodoPorId, indicePorId, hiloDe, raizSalida, fijarRaiz, padresDe,
+  conectarPuerto, validarGrafo, HILO_RESPUESTA,
 } from './flujo-grafo';
 
 export type EstrategiaLegada = {
@@ -406,4 +407,138 @@ export function legadoAGrafo<P extends PasoGrafo>(pasosIn: readonly P[], est: Es
 
   if (est?.envio_automatico === true) notas.push('«Sale sola» pasó a cada mensaje');
   return { pasos: normalizar(orden), limpieza: limpiezaPara(est), notas, convertida: true };
+}
+
+// ── SEXTA TANDA: «IR A» DESAPARECE ─────────────────────────────────────────────────────────────
+// Pedido literal (punto 12 de «General»): «"Go to" desaparece directamente... Porque justamente
+// existen las etiquetas y/o los cambios de etapa en el CRM con una acción... Y si eso pasa, y tengo
+// otra automatización que el CRON inicia con esa etiqueta o etapa del kanban, ya solo se dispara, no
+// necesito "Go to"». Medido en producción el 09/10/2026 (scripts/quitar-ir-a.mts --simular): tres «Ir
+// a» en las vigentes —dos de #198 a #212 y uno de #221 que junta dos ramas— y ninguna inscripción
+// parada en uno.
+//
+//   · Un «Ir a» a una tarjeta de ESTA automatización pasa a ser una FLECHA directa a esa tarjeta (que
+//     desde la sexta tanda puede tener varios padres). Lo que corre es lo mismo: el motor seguía el
+//     salto en la misma resolución, y ahora sigue la flecha.
+//   · Un «Ir a» a OTRA automatización se SACA: la otra arranca por su propio CRON. La salida que lo
+//     apuntaba queda vacía (el lead termina ahí ESTA automatización). Si la otra no tiene un CRON que
+//     agarre a ese lead, es un riesgo y lo lista el script.
+//   · Un «Ir a» desde «Si responde» a la salida NO se convierte: retoma la salida en UN camino y
+//     descarta los congelados, y una flecha haría otra cosa (correr esas tarjetas en el momento de la
+//     respuesta). Queda, con su nota, y el motor lo sigue corriendo. No hay ninguno en producción.
+
+export type CambioIrA = {
+  /** El «Ir a» que se tocó. */
+  id: string;
+  destino: DestinoIrA | null;
+  /** 'flecha': ahora es una flecha · 'quitado': se sacó · 'queda': no se convirtió (ver la nota). */
+  como: 'flecha' | 'quitado' | 'queda';
+  nota: string;
+};
+
+export type ResultadoSinIrA<P> = {
+  pasos: P[];
+  cambios: CambioIrA[];
+  /** Una línea por cosa que no es 1:1, como las de `legadoAGrafo`. */
+  notas: string[];
+  /** true si cambió algo. */
+  convertida: boolean;
+  /**
+   * Los errores de PUBLICAR que la conversión trajo y no estaban antes (vacío = lo convertido se puede
+   * publicar si lo de antes se podía). El script no escribe una que traiga alguno.
+   */
+  erroresNuevos: string[];
+};
+
+/**
+ * Saca los «Ir a» de un flujo (ver arriba). Pura: la usan el lienzo al abrir (`abrirFlujo`) y
+ * scripts/quitar-ir-a.mts. `nombreDeSecuencia` sólo sirve para las notas.
+ */
+export function quitarIrA<P extends PasoGrafo>(
+  pasosIn: readonly P[], op: { nombreDeSecuencia?: (id: number) => string | null; solo?: string } = {},
+): ResultadoSinIrA<P> {
+  const base = normalizar(pasosIn);
+  // `solo`: el de UNA tarjeta (el botón de su editor); sin él, todos.
+  const saltos = base.filter((p) => claseDe(p) === 'ir_a' && (op.solo == null || p.id === op.solo));
+  if (!saltos.length) return { pasos: base, cambios: [], notas: [], convertida: false, erroresNuevos: [] };
+  const hilo = hiloDe(base);
+  const raiz = raizSalida(base);
+  // Una flecha que vuelve a la primera tarjeta («volver al principio») la deja apuntada: con la raíz
+  // fijada en el CRON (`fijarRaiz`) no hay duda de por dónde entra.
+  let out: P[] = saltos.some((p) => p.destino && 'nodo' in p.destino && p.destino.nodo === raiz) ? fijarRaiz(base) : [...base];
+  const cambios: CambioIrA[] = [];
+  const notas: string[] = [];
+  const quitar = new Set<string>();
+  // Un «Ir a» que salta a otro «Ir a» (escrito a mano: el lienzo nunca lo ofreció) se sigue hasta el
+  // final, o la flecha quedaría apuntando a un salto que también se saca.
+  const final = (d: DestinoIrA | null): DestinoIrA | null => {
+    let cur = d;
+    for (let k = 0; cur && 'nodo' in cur && k <= base.length; k++) {
+      const q = nodoPorId(base, cur.nodo);
+      if (!q || claseDe(q) !== 'ir_a') return cur;
+      cur = q.destino ?? null;
+    }
+    return cur && 'nodo' in cur && claseDe(nodoPorId(base, cur.nodo) ?? {}) === 'ir_a' ? null : cur;
+  };
+  for (const j of saltos) {
+    const id = j.id!;
+    const d = final(j.destino ?? null);
+    const padres = padresDe(out, id);
+    if (d && 'nodo' in d) {
+      const enRespuesta = hilo.get(id) === HILO_RESPUESTA;
+      if (enRespuesta && hilo.get(d.nodo) !== HILO_RESPUESTA) {
+        cambios.push({ id, destino: d, como: 'queda', nota: 'desde «Si responde» retoma la salida: no es una flecha' });
+        notas.push('un «Ir a» de «Si responde» retoma la salida y se dejó como estaba');
+        continue;
+      }
+      if (indicePorId(out, d.nodo) < 0) {
+        for (const pa of padres) out = conectarPuerto(out, pa.id, pa.puerto, null);
+        quitar.add(id);
+        cambios.push({ id, destino: d, como: 'quitado', nota: 'apuntaba a una tarjeta que ya no existe' });
+        continue;
+      }
+      for (const pa of padres) out = conectarPuerto(out, pa.id, pa.puerto, d.nodo);
+      quitar.add(id);
+      cambios.push({ id, destino: d, como: 'flecha', nota: padres.length ? 'ahora es una flecha' : 'no lo apuntaba nadie: se sacó' });
+      continue;
+    }
+    for (const pa of padres) out = conectarPuerto(out, pa.id, pa.puerto, null);
+    quitar.add(id);
+    if (d && 'secuencia_id' in d) {
+      const nom = op.nombreDeSecuencia?.(Number(d.secuencia_id)) ?? `#${d.secuencia_id}`;
+      cambios.push({ id, destino: d, como: 'quitado', nota: `«${nom}» arranca por su propio CRON` });
+      notas.push(`«Sigue en «${nom}»» se sacó: esa automatización arranca por su propio CRON`);
+    } else {
+      cambios.push({ id, destino: null, como: 'quitado', nota: 'no decía a dónde' });
+    }
+  }
+  out = normalizar(out.filter((p) => !quitar.has(p.id!)));
+  const antes = new Set(validarGrafo(base));
+  const erroresNuevos = validarGrafo(out).filter((e) => !antes.has(e));
+  return { pasos: out, cambios, notas: [...new Set(notas)], convertida: quitar.size > 0, erroresNuevos };
+}
+
+/**
+ * LO QUE EL LIENZO MUESTRA AL ABRIR una automatización: una lista de antes, convertida a tarjetas
+ * (`legadoAGrafo`); un flujo, tal cual; y en los dos casos SIN «Ir a» (`quitarIrA`). Publicar guarda
+ * eso. `limpiarEstrategia`: sólo si se convirtió una lista de antes (lo que el motor viejo hacía por
+ * su lado ahora lo hacen las tarjetas); sacar un «Ir a» no toca la estrategia.
+ */
+export function abrirFlujo<P extends PasoGrafo>(
+  pasosIn: readonly P[], est: EstrategiaLegada, op: Opciones & { nombreDeSecuencia?: (id: number) => string | null } = {},
+): { pasos: P[]; notas: string[]; convertida: boolean; limpiarEstrategia: boolean } {
+  const r = legadoAGrafo(pasosIn, est, op);
+  const s = quitarIrA(r.pasos, op);
+  // Se muestra lo de antes (con sus «Ir a», que el motor sigue corriendo) SÓLO si lo de antes se podía
+  // publicar y la conversión no: así nunca se rompe una automatización que corre. Una que ya no se
+  // podía publicar se abre convertida igual —GO TO no se dibuja más— y Publicar dice lo que falta.
+  // (Medido sobre la forma de las tres de producción: ninguna cae acá; es la red, no el camino.)
+  const sePodia = s.erroresNuevos.length > 0 && validarGrafo(r.pasos).length === 0;
+  const sinSaltos = sePodia ? null : s;
+  return {
+    pasos: sinSaltos ? sinSaltos.pasos : r.pasos,
+    notas: [...r.notas, ...(sinSaltos ? sinSaltos.notas : [])],
+    convertida: r.convertida || !!sinSaltos?.convertida,
+    limpiarEstrategia: r.convertida,
+  };
 }
