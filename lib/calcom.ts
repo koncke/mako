@@ -389,7 +389,10 @@ export function preguntasDeReserva(respuestas: RespuestaReserva[]): Array<{ ques
  * Topes del aviso. Es un WhatsApp al grupo del negocio que se lee en el celular: un renglón por
  * respuesta, con el rótulo ABREVIADO (los del formulario de ws13 llegan a 230 caracteres: «Valoramos
  * mucho nuestro tiempo tanto como el suyo, si selecciona un dia…») y el valor cortado. Lo completo
- * queda en la ficha, que es adonde lleva el link del final.
+ * queda en el RESUMEN del lead (/crm/<id>/resumen), que es adonde lleva el link del final: desde el
+ * 09/10/2026 esa pantalla lee `lead_respuestas` (`respuestasDelResumen`, lib/lead-respuestas.ts);
+ * antes sólo leía las columnas respuesta_* de Calendly, y para un lead de Cal.com «Lo que contestó
+ * al agendar» no salía nunca.
  */
 export const TOPE_AVISO = { respuestas: 6, rotulo: 40, valor: 60 } as const;
 

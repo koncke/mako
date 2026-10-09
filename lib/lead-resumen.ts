@@ -15,11 +15,12 @@ import 'server-only';
 //
 // NO GASTA IA. Todo sale de lo que ya está analizado: `closing_analyses` la
 // llena el Closing Analyst después de cada llamada, y las respuestas del
-// formulario las trae el webhook de Calendly. Abrir esta pantalla cien veces
+// formulario las traen los webhooks de Calendly y de Cal.com. Abrir esta pantalla cien veces
 // cuesta cero.
 // =============================================================================
 
-import { getLead, type Lead, type FathomLink } from './leads';
+import { getLead, getLeadRespuestas, type Lead, type FathomLink } from './leads';
+import { respuestasDelResumen, type RespuestaFormulario } from './lead-respuestas';
 import { APP_BASE_URL } from './app-url';
 import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
 import { linkApp } from './app-url';
@@ -50,8 +51,8 @@ export function linkResumenLead(leadId: number, ws: number | null): string {
  */
 export type LlamadaResumen = InsightLlamada;
 
-/** Una pregunta del formulario de Calendly con su respuesta. */
-export type RespuestaFormulario = { pregunta: string; respuesta: string };
+/** Una pregunta del formulario (de Calendly o de Cal.com) con su respuesta. Vive en lib/lead-respuestas.ts. */
+export type { RespuestaFormulario };
 
 export type ResumenLead = {
   lead: Lead;
@@ -142,7 +143,13 @@ export async function getResumenLead(leadId: number): Promise<ResumenLead | null
   const ws = (await getWorkspaceActual()) ?? OWNER_WS;
   const supabase = await getTenantDb();
 
-  const [tz, llamadas, campMap, adMap, borrador] = await Promise.all([
+  // Las columnas de Calendly, con sus rótulos curados. Sin ninguna (un lead de Cal.com), las
+  // respuestas salen de `lead_respuestas`: ver `respuestasDelResumen`.
+  const legado: RespuestaFormulario[] = PREGUNTAS
+    .map(({ campo, pregunta }) => ({ pregunta, respuesta: String(lead[campo] ?? '').trim() }))
+    .filter((r) => r.respuesta.length > 0);
+
+  const [tz, llamadas, campMap, adMap, borrador, porReunion] = await Promise.all([
     tzDeWorkspace(ws).catch(() => TZ_DEFAULT),
     // ⚠️ SIN `.catch(() => [])`: «no pude leer el análisis» y «esta llamada no se
     // analizó» mandan a lugares distintos, y acá el segundo caso ya tiene su
@@ -165,11 +172,12 @@ export async function getResumenLead(leadId: number): Promise<ResumenLead | null
     )
       .then((r) => ((r.data ?? [])[0] as { texto: string; created_at: string } | undefined) ?? null)
       .catch(() => null),
+    // Sólo si las columnas no trajeron nada: con ellas, el ws1 sigue viendo lo de siempre y no
+    // paga la lectura. Un fallo de lectura deja la sección afuera, como antes (no tumba la pantalla).
+    legado.length ? Promise.resolve(null) : getLeadRespuestas(lead).catch(() => null),
   ]);
 
-  const respuestas: RespuestaFormulario[] = PREGUNTAS
-    .map(({ campo, pregunta }) => ({ pregunta, respuesta: String(lead[campo] ?? '').trim() }))
-    .filter((r) => r.respuesta.length > 0);
+  const respuestas = respuestasDelResumen(legado, porReunion);
 
   const utmC = lead.utm_content?.trim() || null;
   const adId = adIdDeLead(lead.meta_ad_id, utmC, adMap);
