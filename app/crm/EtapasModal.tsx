@@ -36,6 +36,7 @@ import { Modal } from '@/app/_ui/Modal';
 import { Confirm } from '@/app/_ui/Confirm';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { MAX_LABEL_ETAPA } from '@/lib/pipeline';
+import { puedeSerReunion, cambioDeReuniones, reunionSinLugar } from '@/lib/etapa-reunion';
 import {
   editarEtapaAction, embudoEnDetalleAction, renombrarEmbudoAction, archivarEmbudoAction,
   restaurarEmbudoAction, extrasDelEmbudoAction,
@@ -69,6 +70,40 @@ function AccionFila({ etiqueta, onClick, disabled, children }: {
   );
 }
 
+
+/**
+ * «Es una reunión», por etapa. Prendido = `kind: 'reunion'` (lib/etapa-reunion.ts): es lo que
+ * leen los requisitos de etapa, los dos lugares de fecha del lead y la condición «Asistió / No
+ * asistió» del Chatbot. Lo pidió Martín el 09/10/2026: «debería poder seleccionarse qué etapas
+ * hacen referencia a una REUNIÓN».
+ *
+ * La tercera reunión en adelante lleva «Sin fecha»: la tabla `leads` guarda fecha y asistencia
+ * de DOS (`slotPorIndice`), y una tercera marcada no tiene dónde. El porqué va en el `title`,
+ * no en la pantalla.
+ */
+function BotonReunion({ etapa, activa, sinLugar, disabled, onClick }: {
+  etapa: string; activa: boolean; sinLugar: boolean; disabled?: boolean; onClick: () => void;
+}) {
+  return (
+    <span data-nodrag style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none' }}>
+      {activa && sinLugar && (
+        <span title="Se guardan la fecha y la asistencia de dos reuniones: esta tercera no tiene dónde."
+          style={{ fontFamily: SANS, fontSize: 11, color: 'var(--warn)' }}>Sin fecha</span>
+      )}
+      <button
+        type="button" onClick={onClick} disabled={disabled} aria-pressed={activa}
+        title={activa ? `${etapa} es una reunión. Toca para desmarcarla.` : `Marcar ${etapa} como reunión`}
+        style={{
+          flex: 'none', height: 24, padding: '0 9px', borderRadius: 999, fontFamily: SANS, fontSize: 12, fontWeight: 600,
+          border: `1px solid ${activa ? 'var(--primary)' : 'var(--border-strong)'}`,
+          background: activa ? 'var(--primary-weak)' : 'transparent',
+          color: activa ? 'var(--primary)' : 'var(--dim)',
+          cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1,
+        }}
+      >Reunión</button>
+    </span>
+  );
+}
 
 /** El loader. Nunca la palabra «Cargando…»: un texto no dice que algo está pasando. */
 function Cargando() {
@@ -304,6 +339,23 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
       setError(null);
       await cargar();
       router.refresh();
+    });
+  };
+
+  // ── marcar una etapa como reunión ───────────────────────────────────────────────────
+  // ⚠️ PREGUNTA SÓLO SI UNA REUNIÓN QUE YA EXISTE CAMBIA DE NÚMERO. La fecha del lead va por
+  // ORDEN de las reuniones (lib/etapa-reunion.ts, `cambioDeReuniones`): marcar una etapa que
+  // va antes de otra reunión la corre al segundo lugar, y las fechas ya cargadas se verían en
+  // otra etapa. Si nada se corre, se marca sin fricción.
+  const marcarReunion = (e: EtapaDelFunnel, es: boolean) => {
+    const c = cambioDeReuniones(etapas, e.key, es);
+    const hacer = () => aplicar({ op: 'reunion', key: e.key, es });
+    if (!c.corridas.length) { hacer(); return; }
+    setConfirmar({
+      titulo: es ? `«${e.label}» es una reunión` : `«${e.label}» deja de ser reunión`,
+      cuerpo: `${c.corridas.map((r) => `«${r.label}» pasa a ser la reunión ${r.a}.`).join(' ')} Las fechas ya cargadas van por número: pueden verse en otra etapa.`,
+      boton: es ? 'Marcar' : 'Desmarcar',
+      hacer,
     });
   };
 
@@ -555,6 +607,11 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                         {entradasAbierto ? <CerrarIcon /> : <LapizIcon />}
                       </AccionFila>
                     ) : (<>
+                      {puedeSerReunion(e) && (
+                        <BotonReunion etapa={e.label} activa={e.kind === 'reunion'}
+                          sinLugar={reunionSinLugar(etapas, e.key)} disabled={trabajando}
+                          onClick={() => marcarReunion(e, e.kind !== 'reunion')} />
+                      )}
                       {/* Las condiciones son las de siempre: nada sube por encima de la entrada
                           (`pisoDelOrden`) y la última no baja. Lo nuevo es que las dos viven en
                           UN control partido, y que si ninguna sirve no se dibuja nada. */}
