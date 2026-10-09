@@ -120,7 +120,7 @@
 
 // El catálogo de condiciones importa sólo TIPOS de acá: el ciclo no existe en runtime.
 import {
-  cumpleCatalogo, problemaDeFila, textoCondicion, pagoDeFila, cuotaDeFila,
+  cumpleCatalogo, problemaDeFila, textoCondicion, pagoDeFila, cuotaDeFila, condicionPorId,
   type HechosCatalogo, type NombresCatalogo, type OperadorCondicion,
 } from './condiciones-catalogo';
 // Puro y sin dependencias: lo importan también el editor (cliente) y el motor.
@@ -910,6 +910,10 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
       for (const rama of ramas) {
         if (publicar && !rama.filas?.length) err.push(`una rama de la condición ${ids[i]} no tiene ninguna condición`);
         if ((rama.filas?.length ?? 0) > TOPE_FILAS) err.push(`una rama de la condición ${ids[i]} tiene más de ${TOPE_FILAS} condiciones`);
+        // SEXTA TANDA: «Su respuesta trata de» es la fila de la condición que ESCUCHA (sus casos), no
+        // una de la salida: ahí no se evalúa contra nada y la rama no se cumpliría nunca. El editor no
+        // la deja poner (la ofrece sólo en una condición vacía, que la convierte); esto es para la API.
+        if (rama.filas?.some((f) => condicionPorId(f.campo)?.evento)) err.push(`«${ROTULO_RESPUESTA}» va en la condición que escucha las respuestas, no en la condición ${ids[i]}`);
         // Lo que cada fila necesita para que el motor la pueda decidir lo dice UNA función, la del
         // catálogo (`problemaDeFila`): la misma que mira el editor para marcar la fila incompleta.
         if (publicar) for (const f of rama.filas ?? []) {

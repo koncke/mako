@@ -95,7 +95,7 @@ test('⚠️ el borrador NO pasa con lo que rompe el dato: una flecha a una tarj
 test('el HTML de un email del borrador pasa por la lista blanca (el borrador se vuelve a DIBUJAR)', () => {
   const s = sanearBorrador([{ ...msg('a'), canal: 'email', cuerpo_html: '<p>hola</p><script>alert(1)</script>' } as PasoGrafo, ini('a')]);
   assert.equal(s.ok, true);
-  const html = String((s as { pasos: PasoGrafo[] }).pasos[0].cuerpo_html);
+  const html = String(((s as { pasos: PasoGrafo[] }).pasos[0] as Record<string, unknown>).cuerpo_html);
   assert.doesNotMatch(html, /<script/i);
   assert.match(html, /hola/);
 });

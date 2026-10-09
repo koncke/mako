@@ -529,9 +529,12 @@ export function abrirFlujo<P extends PasoGrafo>(
 ): { pasos: P[]; notas: string[]; convertida: boolean; limpiarEstrategia: boolean } {
   const r = legadoAGrafo(pasosIn, est, op);
   const s = quitarIrA(r.pasos, op);
-  // Si sacar los «Ir a» trajo un error que no estaba, se muestra lo de antes (el motor lo sigue
-  // corriendo): una conversión que no se puede publicar dejaría la automatización sin poder guardarse.
-  const sinSaltos = s.erroresNuevos.length ? null : s;
+  // Se muestra lo de antes (con sus «Ir a», que el motor sigue corriendo) SÓLO si lo de antes se podía
+  // publicar y la conversión no: así nunca se rompe una automatización que corre. Una que ya no se
+  // podía publicar se abre convertida igual —GO TO no se dibuja más— y Publicar dice lo que falta.
+  // (Medido sobre la forma de las tres de producción: ninguna cae acá; es la red, no el camino.)
+  const sePodia = s.erroresNuevos.length > 0 && validarGrafo(r.pasos).length === 0;
+  const sinSaltos = sePodia ? null : s;
   return {
     pasos: sinSaltos ? sinSaltos.pasos : r.pasos,
     notas: [...r.notas, ...(sinSaltos ? sinSaltos.notas : [])],

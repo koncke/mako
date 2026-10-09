@@ -888,8 +888,9 @@ function colapsar(niveles: NivelArbol[]): NivelArbol[] {
   const limpio = (n: NivelArbol): NivelArbol | null => {
     const grupos = (n.grupos ?? []).map(limpio).filter((g): g is NivelArbol => !!g);
     if (!n.options.length && !grupos.length) return null;
-    // Sin opciones propias y con UN solo nivel adentro: ése sube (un curso con un módulo es ese módulo).
-    if (!n.options.length && grupos.length === 1) return grupos[0];
+    // Sin opciones propias y con UN solo nivel adentro: lo de adentro sube, con el NOMBRE de afuera (un
+    // curso con un módulo muestra sus clases bajo el nombre del curso, que es el que la persona conoce).
+    if (!n.options.length && grupos.length === 1) return { ...grupos[0], title: n.title || grupos[0].title };
     return grupos.length ? { title: n.title, options: n.options, grupos } : { title: n.title, options: n.options };
   };
   const out = niveles.map(limpio).filter((g): g is NivelArbol => !!g);
