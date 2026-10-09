@@ -27,7 +27,7 @@ import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { porId } from '@/lib/api-mako/registro';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
-import { herramientasDelTurno } from '@/lib/doer-herramientas';
+import { herramientasDelTurno, preguntoReunionOTarea } from '@/lib/doer-herramientas';
 import { credWs } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
@@ -801,6 +801,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       hayContacto: contactosDelMensaje(data.message).length > 0,
       hayAgendaAbierta: !!agendaAbierta,
       makoPregunto: makoPreguntoAlgo(typeof ultimoDeMako === 'string' ? ultimoDeMako : null),
+      // «la reunión» / «la tarea» contestan «¿La reunión o la tarea?» sólo si MaKo hizo ESA
+      // pregunta: después de cualquier otra, «la agenda de mañana?» es una consulta.
+      preguntoReunionOTarea: preguntoReunionOTarea(typeof ultimoDeMako === 'string' ? ultimoDeMako : null),
     });
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
@@ -903,7 +906,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      * (`cheapSys`): era la tercera escritura de la misma regla y la única que faltaba.
      */
     const bloqueTools = tools.length
-      ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
+      ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
       : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea («eso lo miro y te lo paso») y nada más.';
     // ⚠️ HOY, EN LA ZONA DEL NEGOCIO. Sin esto el modelo no sabe qué día es, y «agendá una
     // visita el jueves» le pedía ADIVINAR la fecha: una fecha adivinada es una invitación

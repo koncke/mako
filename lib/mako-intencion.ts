@@ -86,6 +86,11 @@ export type VeredictoIntencion = {
    *  viernes» no comparte ninguna raíz con el título de la herramienta de mover, y sin esto
    *  quedaba afuera de los 12.000 caracteres frente al resto del CRM (08/10/2026). */
   relevancia?: string;
+  /** Mover a otro día sin decir qué ('sin-decir-que'), o la respuesta «la tarea» ('tarea'). Lo
+   *  pone en palabras lib/doer-herramientas.ts. Marcado acá y no vuelto a leer del texto: el
+   *  revisor midió «buen día, movela al viernes» con las dos áreas y SIN la pregunta, porque
+   *  doer-herramientas re-leía el texto y su preludio no pelaba «buen día» (09/10/2026). */
+  mover?: 'sin-decir-que' | 'tarea';
 };
 
 /** Lo que dice un pedido de agenda para el presupuesto: pone primero las de agenda. */
@@ -363,6 +368,10 @@ export function sinPrefijoDeLote(texto: string): string {
   return t.replace(/^\[[^\]]*\]\s*/, '').replace(/(^|\n)\(\d+\) /g, '$1');
 }
 
+/** Otra tarea dictada en la misma línea: un infinitivo que arranca después de una coma, un
+ *  punto o un punto y coma («…, llamar a…»). Sin tildes, como el resto. */
+const OTRO_INFINITIVO = /[,;.]\s*(?:y\s+|tambien\s+|despues\s+|luego\s+)?[a-z]{2,}(?:ar|er|ir)\b/;
+
 /** ¿Pide crear, mover, cambiar o cancelar una reunión? Recibe el texto sin tildes. */
 function esPedidoAgenda(n: string): boolean {
   const t = n.replace(PRELUDIO, '').trim();
@@ -372,6 +381,16 @@ function esPedidoAgenda(n: string): boolean {
   const sobre = VERBO_SOBRE_REUNION.test(t) || !!modal;
   const tiempo = TIEMPO_AGENDA.test(t);
   const reunion = SUSTANTIVO_AGENDA.test(t);
+  // «Agendar reunión con Ana mañana a las 15», SOLO. El infinitivo es también como se dicta
+  // una tarea, así que cuenta como orden con las dos —reunión y día u hora— y en UNA línea.
+  // Dentro de un mensaje de varias líneas es material para el plan, como hasta hoy (decisión
+  // del 09/10/2026: cargar tareas no pregunta nada); una lista ya la toma antes el dictado.
+  // Medido ese día: suelto también caía al default (material, dudosa), no sólo en la lista.
+  // ⚠️ Y una línea no es un pedido: un AUDIO dictado llega en UNA línea con comas («Agendar
+  // reunión con Ana mañana a las 15, llamar a la inmobiliaria y subir las fotos»), y eso es
+  // la misma lista sin saltos. Con otro infinitivo después de una coma o un punto, no es una
+  // orden (medido por el revisor el 09/10: sin esto, esa tanda llegaba como agenda).
+  if (/^(?:re)?agendar\b/.test(t) && !t.includes('\n') && reunion && tiempo && !OTRO_INFINITIVO.test(t)) return true;
   // «agendar» sólo quiere decir una cosa: con un día, una hora o una reunión alcanza.
   if (agendar && (tiempo || reunion)) return true;
   // «cambiá», «pasá», «cancelá» quieren decir muchas: hace falta la reunión, y además un
@@ -391,6 +410,53 @@ function corrigeAgenda(n: string, hayPendienteDeAgenda: boolean): boolean {
   if (!resto || !TIEMPO_AGENDA.test(resto)) return false;
   return hayPendienteDeAgenda || VERBO_AGENDAR.test(resto) || VERBO_SOBRE_REUNION.test(resto);
 }
+
+// ── MOVER SIN DECIR QUÉ ─────────────────────────────────────────────────────────
+// EL CASO (abierto el 08/10/2026 en docs/hallazgos-api-mako.md). «movela al viernes», sin
+// pendiente ni agenda abierta, no nombra la reunión, y «movela» también se usa para una
+// tarea del plan. Medido el 09/10 con el turno real: «movela al viernes» se leía como mover
+// a un lead DE ETAPA (`MOVER_A` toma «al viernes» por una columna), sin `agenda_del_dia` y
+// sin nada del plan; «cambiala para el jueves», «reprogramala para mañana» y «movela para
+// mañana» caían al default (material, dudosa), sin ninguna herramienta que mueva nada.
+//
+// Decisión (Martín, 09/10/2026, «terminalo todo»): un pedido corto de mover a un día u hora
+// sin objeto lleva a la vez la agenda y el plan, y si el modelo no puede saber cuál es,
+// pregunta UNA vez «¿La reunión o la tarea?» — preguntar acá no es cargar tareas. La
+// pregunta la pone lib/doer-herramientas.ts; acá sólo se reconoce el pedido y su respuesta.
+// Se prueba contra el texto SIN tildes; con un objeto nombrado (la reunión, la tarea, un
+// lead) no es esto: lo toman las reglas de agenda, del plan o del CRM.
+const VERBO_MOVER = /^(?:move|mueve|pasa|cambia|corre|reprograma|posterga|adelanta|atrasa|patea)(?:(?:la|lo|las|los)\b|\s+(?:eso|esto|esa|ese|esta)\b)/;
+/** Lo que va entre el verbo y el día: «al», «para el», «del jueves al». */
+const HACIA = /^(?:\s*(?:para|pa|hasta|al?|el|del?|en)\b)*\s*/;
+/** El destino ES un día o una hora, PEGADO al verbo. ⚠️ No alcanza con que el mensaje traiga un
+ *  día: «pasalo a agendado para el lunes» mueve un lead a una ETAPA, y con TIEMPO_AGENDA en
+ *  cualquier lado esta regla se lo quedaba y MaKo preguntaba «¿La reunión o la tarea?» por un
+ *  lead (medido por el revisor el 09/10/2026: «movelo a contactado mañana», «pasala a no show
+ *  hoy» y «movelo a seguimiento el lunes» también). Las etapas son de cada negocio: no hay
+ *  lista de nombres que las cubra, así que se mira QUÉ viene después del verbo. */
+const DESTINO_TIEMPO = /^(?:hoy|manana|pasado manana|lunes|martes|miercoles|jueves|viernes|sabado|domingo|(?:la )?(?:semana que viene|proxima semana)|esta (?:tarde|noche)|las? \d|la una|\d{1,2}(?::\d{2})?\s*(?:hs?|hrs?|horas?|am|pm)?\b)/;
+const OBJETO_PLAN = /\b(?:tareas?|proyectos?|plan|deadline|quarter|pendientes?)\b/;
+/** Lo que suma al presupuesto «la tarea»: buscarla y cambiarle la fecha. */
+const RELEVANCIA_TAREA_FECHA = 'cambiar fecha deadline quarter tarea plan buscar';
+/** Lo que suma un «movela al viernes»: reagendar, leer el día («qué tengo», el título de
+ *  `agenda_del_dia`) y la tarea. Entran 15 de las ~100 de CRM y plan: medido el 09/10, con
+ *  «buscar» y sin «tengo» la lectura del día quedaba afuera con «al viernes». */
+const RELEVANCIA_MOVER = `${RELEVANCIA_AGENDA} que tengo fecha deadline tarea plan`;
+
+/** ¿Pide mover algo a un día u hora sin decir qué? Recibe el texto CRUDO. Lo usa sólo el
+ *  clasificador: lib/doer-herramientas.ts lee el veredicto (`mover`), no el texto otra vez. */
+function esMoverSinObjeto(texto: string): boolean {
+  const t = norm(sinPrefijoDeLote(texto || '')).replace(PRELUDIO_CRM, '').trim();
+  if (!t || t.length > 80 || t.includes('\n')) return false;
+  const verbo = VERBO_MOVER.exec(t);
+  if (!verbo || !DESTINO_TIEMPO.test(t.slice(verbo[0].length).replace(HACIA, ''))) return false;
+  return !SUSTANTIVO_AGENDA.test(t) && !OBJETO_PLAN.test(t) && !OBJETO_CRM.test(t);
+}
+
+/** La respuesta a «¿La reunión o la tarea?»: corta, y arranca nombrando una de las dos. Sólo se
+ *  mira si MaKo hizo ESA pregunta (`preguntoReunionOTarea`, lib/doer-herramientas.ts). */
+const RESPUESTA_REUNION = /^(?:(?:la|el|a la|al)\s+)?(?:reunion|cita|visita|evento|llamada|zoom|agenda)\b/;
+const RESPUESTA_TAREA = /^(?:(?:la|el|a la|al)\s+)?(?:tarea|plan|proyecto)\b/;
 
 
 // ── El clasificador ──────────────────────────────────────────────────────────
@@ -436,7 +502,7 @@ const NEGATIVA = /^[\s¡!¿?]*(no|nop|cancela|cancel[áa]|mejor no|dejalo|déjal
 
 export function clasificarIntencion(
   texto: string,
-  ctx: { hayPendientes?: boolean; hayPendienteDeAgenda?: boolean; hayMedia?: boolean; hayContacto?: boolean; hayAgendaAbierta?: boolean; makoPregunto?: boolean } = {},
+  ctx: { hayPendientes?: boolean; hayPendienteDeAgenda?: boolean; hayMedia?: boolean; hayContacto?: boolean; hayAgendaAbierta?: boolean; makoPregunto?: boolean; preguntoReunionOTarea?: boolean } = {},
 ): VeredictoIntencion {
   const t = (texto || '').trim();
   const n = norm(t);
@@ -525,6 +591,30 @@ export function clasificarIntencion(
   //        a «¿te la agendo mañana a las 12?» llegaba sin ninguna herramienta de Google.
   if (ctx.makoPregunto && CONFIRMACION.test(t) && !NEGATIVA.test(t) && t.length <= 160 && !esLista(t)) {
     return { intencion: 'actuar', dudosa: false, porque: 'dice que sí a lo que MaKo le acaba de ofrecer', sigueOfrecimiento: true };
+  }
+
+  // 3-ter-bis) CONTESTA «¿La reunión o la tarea?» (ver `esMoverSinObjeto`). «la reunión» no trae
+  //            verbo ni día: sin esto caía al default —material, dudosa— y el pedido que se
+  //            acababa de aclarar llegaba sin ninguna herramienta para moverlo. Con
+  //            `sigueOfrecimiento` las herramientas se eligen también por el pedido anterior.
+  //            ⚠️ Sólo si MaKo hizo ESA pregunta, no cualquiera: con `makoPregunto` (que es
+  //            verdad después de CUALQUIER «¿…?» de MaKo) «la agenda de mañana?» y «el plan de
+  //            esta semana cómo va?» dejaban de ser consultas y llegaban como acciones, con las
+  //            herramientas que escriben, contra la decisión del 08/10 de que en una pregunta
+  //            MaKo OFRECE (medido por el revisor el 09/10/2026).
+  if (ctx.preguntoReunionOTarea && t.length <= 60 && !t.includes('\n')) {
+    const r = n.replace(PRELUDIO_CRM, '').replace(/^(?:no|nop)\b[\s,.:;!-]*/, '').trim();
+    if (RESPUESTA_REUNION.test(r)) return { intencion: 'actuar', dudosa: false, porque: 'contesta que es la reunión', sigueOfrecimiento: true, areas: ['crm'], relevancia: RELEVANCIA_AGENDA };
+    if (RESPUESTA_TAREA.test(r)) return { intencion: 'actuar', dudosa: false, porque: 'contesta que es la tarea', sigueOfrecimiento: true, areas: ['plan'], relevancia: RELEVANCIA_TAREA_FECHA, mover: 'tarea' };
+  }
+
+  // 3-ter-ter) MOVER A UN DÍA U HORA SIN DECIR QUÉ («movela al viernes»). Va antes del pedido
+  //            sobre un lead, que lo tomaba como mover a un lead de etapa. Con una propuesta de
+  //            agenda abierta es la reunión y no hay nada que preguntar; si no, viajan la
+  //            agenda y el plan, y lib/doer-herramientas.ts pone la pregunta.
+  if (esMoverSinObjeto(t)) {
+    if (ctx.hayPendienteDeAgenda) return { intencion: 'actuar', dudosa: false, porque: 'mover sin decir qué, con una propuesta de agenda abierta: es la reunión', areas: ['crm'], relevancia: RELEVANCIA_AGENDA };
+    return { intencion: 'actuar', dudosa: false, porque: 'mover a un día u hora sin decir qué: la reunión o la tarea', areas: ['crm', 'plan'], relevancia: RELEVANCIA_MOVER, mover: 'sin-decir-que' };
   }
 
   // 3-quater) UN PEDIDO SOBRE UN LEAD: una nota, una etapa, «calificado», una etiqueta, el
