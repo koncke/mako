@@ -36,7 +36,7 @@ import { verificarServicio } from '@/lib/metodo-verificar';
 import { permisoCalendarioGoogle, googleCalendarConectado } from '@/lib/google-calendar';
 import { cuotasProveedores, cuentasDe } from '@/lib/ia-cuotas';
 import { getUsageSummary } from '@/lib/anthropic-usage';
-import { tabActivacion } from '@/lib/tab-activacion';
+import { tabActivacion, TABS_ACTIVACION } from '@/lib/tab-activacion';
 import { getAgenteToken } from '@/lib/agente-token';
 import { linkPantalla } from '../link';
 import { OWNER_WS } from '@/lib/workspace';
@@ -226,7 +226,9 @@ export const RUNNERS: Runners = {
     leer: async (input, ctx) => {
       const key = str(input, 'key');
       const t = tabActivacion(key);
-      if (!t) return fallo(`La tab «${key}» no tiene activación declarada.`, ['closing', 'whatsapp', 'email', 'script', 'crm', 'marketing', 'experimentos', 'comercial']);
+      // Las disponibles salen del catálogo, no de una copia: la copia seguía ofreciendo
+      // 'whatsapp' después de que esa entrada se fue con el WhatsApp oficial (09/10/2026).
+      if (!t) return fallo(`La tab «${key}» no tiene activación declarada.`, Object.keys(TABS_ACTIVACION));
       const conectada = t.servicio ? await integracionConectada(t.servicio, ctx.ws).catch(() => null) : null;
       return J({
         tab: t.key, titulo: t.titulo,

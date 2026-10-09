@@ -21,6 +21,7 @@
 // =============================================================================
 
 import type { Gating, OperacionDef } from '../tipos';
+import { TABS_ACTIVACION as TABS_CON_ACTIVACION } from '../../tab-activacion';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 /** Costos de IA: nunca por HTTP (decisión del diseño, §4 regla de canales). */
@@ -29,14 +30,23 @@ const SIN_HTTP = ['whatsapp', 'app'] as const;
 const G_TAB: Gating = { tab: 'integraciones' };
 const G_ADMIN: Gating = { tab: 'integraciones', rolMinimo: 'admin' };
 
-/** Las tabs de lib/tab-activacion.ts (TABS_ACTIVACION). Cerrado: el runner lo vuelve a validar. */
-const TABS_ACTIVACION = ['closing', 'whatsapp', 'email', 'script', 'crm', 'marketing', 'experimentos', 'comercial'] as const;
+/**
+ * Las tabs con activación: las CLAVES de lib/tab-activacion.ts (datos puros, sin server-only,
+ * así que esta def lo puede importar). Cerrado: el runner lo vuelve a validar.
+ *
+ * ⚠️ SE DERIVA, NO SE COPIA. Era una lista escrita a mano y el 09/10/2026 la entrada `whatsapp`
+ * se fue de lib/tab-activacion.ts con el WhatsApp oficial (pedía sus credenciales): la copia la
+ * siguió ofreciendo, y la API le decía a MaKo que `ver_activacion_tab` aceptaba una tab que el
+ * runner contestaba «no tiene activación declarada». Lo fija el test «la API de MaKo ofrece la
+ * activación sólo de las tabs que la tienen», en el guard del retiro del oficial.
+ */
+const TABS_ACTIVACION: readonly string[] = Object.keys(TABS_CON_ACTIVACION);
 
 export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_integraciones', area: 'integraciones', tipo: 'lectura',
     titulo: 'Estado de las integraciones',
-    descripcion: 'Lista las integraciones que ve este negocio (Meta, WhatsApp, email, IA, Fathom, Calendly, Google Calendar, Pixel de MaKo, Claude…) con su estado «conectada» o «falta» y qué campos le faltan. Es presencia de credenciales, NO una prueba: «conectada» no garantiza que ande. Para probarla usa probar_conexion_integracion; para Google usa ver_estado_google_calendar; para la salud de Meta, ver_salud_cuenta_meta. No requiere parámetros.',
+    descripcion: 'Lista las integraciones que ve este negocio (Meta, email, IA, Fathom, Calendly, Google Calendar, Pixel de MaKo, Claude…) con su estado «conectada» o «falta» y qué campos le faltan. Es presencia de credenciales, NO una prueba: «conectada» no garantiza que ande. Para probarla usa probar_conexion_integracion; para Google usa ver_estado_google_calendar; para la salud de Meta, ver_salud_cuenta_meta. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_ADMIN,
   },
@@ -45,7 +55,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Detalle de una integración',
     descripcion: 'Para UNA integración: para qué sirve, si está conectada, qué campos pide (cuáles son obligatorios, cuáles ya están cargados, cuáles quedaron ilegibles y hay que volver a pegar, cuáles completa MaKo sola) y el paso que hay que hacer del otro lado (por ejemplo, la URL de webhook que se pega en Fathom). Nunca devuelve los valores. Úsala ante «¿qué me falta para conectar X?».',
     parametros: [
-      { nombre: 'servicio', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración (meta, whatsapp, email, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones.', ejemplo: 'fathom' },
+      { nombre: 'servicio', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración (meta, email, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones.', ejemplo: 'fathom' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_ADMIN,
   },
@@ -54,7 +64,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Probar la conexión de integración',
     descripcion: 'Prueba una integración con las credenciales YA guardadas: hace el pedido más barato al proveedor y dice si anda y, si no, el motivo (key inválida, falta un campo, el servicio no respondió en 8 s). No acepta credenciales nuevas: para cargarlas, pasa el link de link_configurar_integracion. Google Calendar y el Pixel de MaKo no se prueban aquí (usa ver_estado_google_calendar).',
     parametros: [
-      { nombre: 'servicioKey', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración a probar, tal como sale en ver_integraciones (meta, whatsapp, fathom, gemini…).', ejemplo: 'gemini' },
+      { nombre: 'servicioKey', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración a probar, tal como sale en ver_integraciones (meta, fathom, gemini…).', ejemplo: 'gemini' },
     ],
     salida: 'json', canales: TODOS, costo: 'externo', gating: G_ADMIN,
   },
@@ -82,9 +92,9 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_activacion_tab', area: 'integraciones', tipo: 'lectura',
     titulo: 'Qué le falta a una tab',
-    descripcion: 'Para una tab de MaKo (closing, whatsapp, email, script, crm, marketing, experimentos, comercial): qué integración necesita, si ya está conectada, qué le falta en palabras simples y el aviso de cuando conectar no alcanza (por ejemplo, Calendly necesita además sus tipos de evento). Es la respuesta a «¿por qué mi CRM o mi WhatsApp está vacío?»: distingue configuración faltante de dato vacío.',
+    descripcion: 'Para una tab de MaKo (closing, email, script, crm, marketing, experimentos, comercial): qué integración necesita, si ya está conectada, qué le falta en palabras simples y el aviso de cuando conectar no alcanza (por ejemplo, Calendly necesita además sus tipos de evento). Es la respuesta a «¿por qué mi CRM está vacío?»: distingue configuración faltante de dato vacío. WhatsApp no está: su número se vincula por QR desde la misma tab, sin credenciales.',
     parametros: [
-      { nombre: 'key', tipo: 'string', obligatorio: true, enum: TABS_ACTIVACION, descripcion: 'la tab: closing (Closing Analyst), whatsapp, email, script (Ads Analyst), crm, marketing (Dashboard), experimentos o comercial.' },
+      { nombre: 'key', tipo: 'string', obligatorio: true, enum: TABS_ACTIVACION, descripcion: 'la tab: closing (Closing Analyst), email, script (Ads Analyst), crm, marketing (Dashboard), experimentos o comercial.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
@@ -100,7 +110,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Link para conectar integración',
     descripcion: 'Devuelve el link que abre /integraciones con el formulario de esa integración ya abierto, para que la persona pegue su credencial o autorice con Google. Úsala SIEMPRE que haya que cargar, cambiar o borrar una credencial: nunca pidas una key por el chat. Necesita la key de la integración (de ver_integraciones).',
     parametros: [
-      { nombre: 'servicio', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración, tal como sale en ver_integraciones (meta, whatsapp, google, agente, landing…).', ejemplo: 'calendly' },
+      { nombre: 'servicio', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración, tal como sale en ver_integraciones (meta, google, agente, landing…).', ejemplo: 'calendly' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
   },

@@ -9,7 +9,8 @@
 // Volver a traerlo es una decisión de Martín: este test falla hasta que alguien la tome.
 //
 // Lo que fija:
-//   1. lib/chatwoot.ts es un cascarón: ni un `fetch`, ni una credencial, y `chatwootConfigurado()`
+//   1. lib/chatwoot.ts es un cascarón: ni un import (salvo 'server-only'), ni un `fetch`, ni una
+//      credencial, y `chatwootConfigurado()`
 //      contesta false. Sigue existiendo SÓLO porque lo importan archivos que tiene a medio cambiar
 //      otra rama (wip/api-acciones-0910) y las plantillas de Meta (segunda tanda).
 //   2. Quién lo importa, en POSITIVO y en las dos direcciones: un importador nuevo falla, y uno
@@ -18,7 +19,8 @@
 //      scripts/ que dice «Chatwoot» está en PUEDEN_NOMBRARLO con su motivo, y uno que dejó de
 //      nombrarlo tiene que salir de la lista. La mayoría es historia (bitácoras, comentarios que
 //      cuentan qué se borró); lo que no es historia está marcado como pendiente.
-//   4. Que no vuelvan ni las rutas, ni la integración en los catálogos, ni una credencial.
+//   4. Que no vuelvan ni las rutas, ni la integración en los catálogos (tampoco en la API de MaKo:
+//      `ver_activacion_tab`), ni una credencial.
 //   5. Los textos que se ven (lo que fijaba la versión del interruptor).
 //
 // PROBADO ROMPIÉNDOLO (09/10/2026), una rotura por vez y restaurando de memoria, sobre 9 tests:
@@ -33,6 +35,20 @@
 //   · el texto «si tienes Chatwoot conectado» en TelefonosPanel ............. 1 fallo / 8 pases
 //   · app/api/webhooks/chatwoot/route.ts recreado ........................... 1 fallo / 8 pases
 // Con todo en su lugar: 9 pases, 0 fallos.
+//
+// REVISIÓN (09/10/2026, mismo día): el regex de importadores sólo aceptaba UN `../`, así que
+// `import { chatwootConfigurado } from '../../chatwoot'` en lib/api-mako/areas/equipo.def.ts daba
+// 9 pases / 0 fallos (medido). Y el cascarón sólo miraba `fetch(` y `CHATWOOT_`: un `credWs`
+// importado de lib/credenciales pasaba. Se amplió el regex, el cascarón tiene que importar sólo
+// 'server-only', y entró el test de la activación de tabs de la API. Roturas sobre 10 tests, una
+// por vez y restaurando de memoria:
+//   · `from '../../chatwoot'` en lib/api-mako/areas/equipo.def.ts .......... 1 fallo / 9 pases
+//   · `from '../../lib/chatwoot'` en app/whatsapp/page.tsx ................. 1 fallo / 9 pases
+//   · lib/chatwoot.ts importando `credWs` de ./credenciales ................ 1 fallo / 9 pases
+//   · lib/chatwoot.ts con un `await import('./credenciales')` .............. 1 fallo / 9 pases
+//   · integraciones.def.ts volviendo a la lista a mano con 'whatsapp' ...... 1 fallo / 9 pases
+//   · integraciones.run.ts volviendo a la lista a mano ..................... 1 fallo / 9 pases
+// Con todo en su lugar: 10 pases, 0 fallos.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -40,6 +56,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { TABS_ACTIVACION } from '../lib/tab-activacion';
+import { DEFS as DEFS_INTEGRACIONES } from '../lib/api-mako/areas/integraciones.def';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -156,13 +174,23 @@ const PUEDEN_NOMBRARLO: Record<string, string> = {
 
 test('lib/chatwoot.ts es un cascarón: ni un pedido, ni una credencial, y nadie lo tiene configurado', () => {
   const src = sinComentarios(leer('lib/chatwoot.ts'));
+  // Lo único que importa es 'server-only'. Buscar `fetch(` no alcanza: un helper importado de
+  // otro módulo (o un `credWs` traído de lib/credenciales) devuelve el pedido sin que la palabra
+  // aparezca acá. Un cascarón no necesita importar nada más.
+  const imports = (src.match(/^\s*import\b[^;]*;/gm) ?? []).map((s) => s.trim());
+  assert.deepEqual(imports, ["import 'server-only';"], 'el cascarón volvió a importar algo: un pedido o una credencial pueden entrar por ahí');
+  assert.doesNotMatch(src, /\bfrom\s*['"]|\brequire\s*\(|\bimport\s*\(/, 'el cascarón trae código de otro módulo (re-export o import dinámico)');
   assert.doesNotMatch(src, /\bfetch\(/, 'volvió un pedido a Chatwoot');
   assert.doesNotMatch(src, /\bcredWs|process\.env|CHATWOOT_[A-Z]/, 'volvió a leer una credencial de Chatwoot');
   assert.match(src, /export async function chatwootConfigurado\(\): Promise<boolean> \{\s*return false;\s*\}/, 'chatwootConfigurado ya no contesta false: alguien lo prendió');
 });
 
 test('quién importa lib/chatwoot.ts: sólo la lista, y la lista sólo se achica', () => {
-  const importa = (f: string) => /from ['"](?:@\/lib\/|\.\/|\.\.\/)chatwoot['"]|import\(['"](?:@\/lib\/|\.\/|\.\.\/)chatwoot['"]\)/.test(sinComentarios(leer(f)));
+  // Cualquier forma de nombrar el módulo: el alias, `./`, y CUALQUIER profundidad relativa
+  // (`../../chatwoot` desde lib/api-mako/areas/, `../../lib/chatwoot` desde app/), con o sin
+  // `.ts`, por `from`, `import()` o `require()`. La versión anterior sólo aceptaba UN `../`:
+  // un `import … from '../../chatwoot'` en un archivo de lib/api-mako/areas/ pasaba en verde.
+  const importa = (f: string) => /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*)['"](?:@\/lib\/|(?:\.{1,2}\/)+(?:lib\/)?)chatwoot(?:\.ts)?['"]/.test(sinComentarios(leer(f)));
   const reales = ARCHIVOS.filter((f) => f !== 'lib/chatwoot.ts' && importa(f));
   const nuevos = reales.filter((f) => !(f in IMPORTADORES));
   assert.deepEqual(nuevos, [], 'lo importa alguien nuevo: Chatwoot se borró (decisión de Martín, 09/10/2026)');
@@ -190,6 +218,20 @@ test('la integración no está en los registros (tarjeta, campos, ping, ruteo)',
     assert.doesNotMatch(sinComentarios(leer(f)), /chatwoot/i, `${f} volvió a registrar Chatwoot`);
   }
   assert.ok(!existsSync(join(RAIZ, 'lib/chatwoot-canales.ts')), 'volvió lib/chatwoot-canales.ts');
+});
+
+test('la API de MaKo ofrece la activación sólo de las tabs que la tienen (la de WhatsApp se fue)', () => {
+  // La entrada `whatsapp` de lib/tab-activacion.ts pedía las credenciales de Chatwoot y se fue con
+  // él. La API la seguía ofreciendo en `ver_activacion_tab` (una lista copiada a mano en la def y
+  // otra en el runner): MaKo, ante «¿por qué mi WhatsApp está vacío?», llamaba con una key que el
+  // runner contestaba «no tiene activación declarada». Ahora la def y el runner DERIVAN la lista.
+  const def = DEFS_INTEGRACIONES.find((d) => d.id === 'ver_activacion_tab');
+  assert.ok(def, 'no encontré ver_activacion_tab en el área integraciones');
+  const enumKey = def.parametros.find((p) => p.nombre === 'key')?.enum ?? [];
+  assert.deepEqual([...enumKey].sort(), Object.keys(TABS_ACTIVACION).sort(), 'el enum de ver_activacion_tab no es el catálogo de tabs con activación');
+  assert.ok(!enumKey.includes('whatsapp'), 'la API volvió a ofrecer la activación de WhatsApp');
+  const run = sinComentarios(leer('lib/api-mako/areas/integraciones.run.ts'));
+  assert.match(run, /no tiene activación declarada\.`, Object\.keys\(TABS_ACTIVACION\)\)/, 'el runner volvió a copiar a mano la lista de tabs');
 });
 
 test('no vuelve ninguna ruta del canal oficial', () => {

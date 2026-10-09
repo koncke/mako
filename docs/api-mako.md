@@ -9563,7 +9563,7 @@ Tab **Integraciones** (`/integraciones`). 8 lecturas · 0 acciones.
 
 ### `GET /api/v1/integraciones/servicios` — Estado de las integraciones
 
-Lista las integraciones que ve este negocio (Meta, WhatsApp, email, IA, Fathom, Calendly, Google Calendar, Pixel de MaKo, Claude…) con su estado «conectada» o «falta» y qué campos le faltan. Es presencia de credenciales, NO una prueba: «conectada» no garantiza que ande. Para probarla usa probar_conexion_integracion; para Google usa ver_estado_google_calendar; para la salud de Meta, ver_salud_cuenta_meta. No requiere parámetros.
+Lista las integraciones que ve este negocio (Meta, email, IA, Fathom, Calendly, Google Calendar, Pixel de MaKo, Claude…) con su estado «conectada» o «falta» y qué campos le faltan. Es presencia de credenciales, NO una prueba: «conectada» no garantiza que ande. Para probarla usa probar_conexion_integracion; para Google usa ver_estado_google_calendar; para la salud de Meta, ver_salud_cuenta_meta. No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/integraciones/ver_integraciones`
 - **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)
@@ -9597,7 +9597,7 @@ Para UNA integración: para qué sirve, si está conectada, qué campos pide (cu
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `servicio` | string | sí | key de la integración (meta, whatsapp, email, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones. |
+| `servicio` | string | sí | key de la integración (meta, email, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones. |
 
 ```bash
 curl -L \
@@ -9621,7 +9621,7 @@ Prueba una integración con las credenciales YA guardadas: hace el pedido más b
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `servicioKey` | string | sí | key de la integración a probar, tal como sale en ver_integraciones (meta, whatsapp, fathom, gemini…). |
+| `servicioKey` | string | sí | key de la integración a probar, tal como sale en ver_integraciones (meta, fathom, gemini…). |
 
 ```bash
 curl -L \
@@ -9676,7 +9676,7 @@ curl -L \
 
 ### `GET /api/v1/integraciones/tabs/{key}/activacion` — Qué le falta a una tab
 
-Para una tab de MaKo (closing, whatsapp, email, script, crm, marketing, experimentos, comercial): qué integración necesita, si ya está conectada, qué le falta en palabras simples y el aviso de cuando conectar no alcanza (por ejemplo, Calendly necesita además sus tipos de evento). Es la respuesta a «¿por qué mi CRM o mi WhatsApp está vacío?»: distingue configuración faltante de dato vacío.
+Para una tab de MaKo (closing, email, script, crm, marketing, experimentos, comercial): qué integración necesita, si ya está conectada, qué le falta en palabras simples y el aviso de cuando conectar no alcanza (por ejemplo, Calendly necesita además sus tipos de evento). Es la respuesta a «¿por qué mi CRM está vacío?»: distingue configuración faltante de dato vacío. WhatsApp no está: su número se vincula por QR desde la misma tab, sin credenciales.
 
 - **Ruta por operación:** `GET /api/v1/integraciones/ver_activacion_tab`
 - **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)
@@ -9687,7 +9687,7 @@ Para una tab de MaKo (closing, whatsapp, email, script, crm, marketing, experime
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `key` | string (closing \\| whatsapp \\| email \\| script \\| crm \\| marketing \\| experimentos \\| comercial) | sí | la tab: closing (Closing Analyst), whatsapp, email, script (Ads Analyst), crm, marketing (Dashboard), experimentos o comercial. |
+| `key` | string (closing \\| email \\| script \\| crm \\| marketing \\| experimentos \\| comercial) | sí | la tab: closing (Closing Analyst), email, script (Ads Analyst), crm, marketing (Dashboard), experimentos o comercial. |
 
 ```bash
 curl -L \
@@ -9732,7 +9732,7 @@ Devuelve el link que abre /integraciones con el formulario de esa integración y
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `servicio` | string | sí | key de la integración, tal como sale en ver_integraciones (meta, whatsapp, google, agente, landing…). |
+| `servicio` | string | sí | key de la integración, tal como sale en ver_integraciones (meta, google, agente, landing…). |
 
 ```bash
 curl -L \
