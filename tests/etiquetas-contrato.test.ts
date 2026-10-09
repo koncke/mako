@@ -52,6 +52,7 @@ import { join } from 'node:path';
 import { TABLAS_DE_INQUILINO } from '../lib/tablas-de-inquilino';
 import { porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
+import { controlDe } from '../lib/editor-acciones';
 
 const RAIZ = join(__dirname, '..');
 const leer = (p: string) => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
@@ -163,7 +164,10 @@ test('WhatsApp: por la línea de la etiqueta, y «res.ok» no es «se puso»', (
 
 test('las pantallas: el selector del paso «⚡ Acción», la ficha y la ruta', () => {
   const editor = sinComentarios(leer('app/_components/EditorAccionMako.tsx'));
-  assert.match(editor, /p\.nombre === 'etiquetaId'[\s\S]{0,400}<SelectorEtiqueta/, 'un etiquetaId se elige de un desplegable, no se tipea');
+  // Desde la tercera tanda (09/10/2026) el control de cada parámetro lo decide `controlDe`
+  // (lib/editor-acciones.ts) y el editor dibuja por caso.
+  assert.equal(controlDe({ nombre: 'etiquetaId', tipo: 'number' }), 'etiqueta', 'un etiquetaId se elige de un desplegable, no se tipea');
+  assert.match(editor, /case 'etiqueta':[\s\S]{0,400}<SelectorEtiqueta/, 'un etiquetaId se elige de un desplegable, no se tipea');
   for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
     assert.match(sinComentarios(leer(f)), /<EtiquetasDelLead leadId=\{lead\.id\}[^>]*\/>/, `${f} no muestra las etiquetas del lead`);
   }

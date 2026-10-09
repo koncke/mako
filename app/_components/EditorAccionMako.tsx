@@ -11,42 +11,43 @@
 // Decisión de Martín (08/10/2026): lo que se configura acá CORRE SOLO cuando el flujo llega
 // a este paso, sin pedir un «sí» (lib/api-mako/flujo.ts).
 //
-// ── Segunda tanda (08/10/2026, punto 7): «El editor de Acción esta muy complejo, simplificalo…
-// sobre todo el desplegable de acciones… Tener barra de busqueda y también que sea modular, como
-// tenemos el desplegable de Plan, de una sección se abren opciones.» Vino con la captura de
-// «Avisar al equipo» mostrando «Lead» y «Respuesta» a la vista. Lo que cambió:
-//   · EL SELECTOR VA POR SECCIONES (`Select secciones`, el patrón del filtro del Plan que ya vivía
-//     en el Dropdown): «Más usadas», «Con este lead», una por área y «Avanzado» con las que piden
-//     JSON. El buscador aplana. Cada renglón dice qué hace en una línea. Las secciones las arma
-//     `seccionesDeAcciones` (lib/editor-acciones.ts), pura y con test.
-//   · DEBAJO, LA ACCIÓN ELEGIDA CON UNA LÍNEA DE QUÉ HACE. Ya no hay rótulo «Acción» ni la glosa
-//     «Corre sola…»: la tarjeta ya dice que es una acción.
-//   · LO QUE LLENA EL FLUJO NO SE DIBUJA: el `respuesta` del aviso (LLENA_EL_FLUJO, la misma lista
-//     que lee el motor) y el lead cuando es el del evento, que queda como una línea «Sobre el lead
-//     de este flujo · Cambiar».
-//   · LO OBLIGATORIO A LA VISTA Y LO OPCIONAL PLEGADO detrás de «Más opciones».
-//   · LOS RÓTULOS CON TILDES DESDE UN LUGAR (`rotuloDeParametro`): antes se derivaban acá del
-//     camelCase y salían «Titulo», «Razon», «Anio».
+// ── Tercera tanda (09/10/2026, punto 16) ── «Le puse "Mover un lead de etapa" y me pide un campo
+// abierto para colocar el nombre de la etapa? En lugar de un desplegable…? Y abajo me aparece "Monto" y
+// "Motivo", no tiene nada de sentido… cada cosa debes configurar bien los campos. También siento que
+// pusiste muchísimas acciones que tal vez no son necesarias». Lo que cambió:
+//   · EL SELECTOR OFRECE LA LISTA CORTA (`ACCIONES_DEL_FLUJO`, lib/editor-acciones.ts), por grupo.
+//     Las otras ~190 siguen en el registro para la API y el doer; un paso ya guardado con una de ellas
+//     aparece en «La que tiene puesta» y se edita igual.
+//   · CADA PARÁMETRO CON SU CONTROL (`controlDe`): la etapa es producto → etapa de su kanban, la
+//     etiqueta el `SelectorEtiqueta`, la automatización y la persona del equipo se eligen de la lista
+//     del negocio, el monto lleva su moneda. Los controles con datos viven en ./CamposAccion.tsx.
+//   · LO QUE DEPENDE DE OTRO CAMPO APARECE SÓLO CUANDO APLICA (`repartoDelFormulario` con contexto):
+//     monto y motivo sólo al mover a una etapa que los pide (y ahí obligatorios), el motivo del estado
+//     del cliente sólo para una baja o una pausa.
+// ── Segunda tanda (08/10/2026, punto 7) ── lo que sigue valiendo: lo que llena el FLUJO no se dibuja
+// (el `respuesta` del aviso, LLENA_EL_FLUJO), el lead del evento es una línea «Sobre el lead de este
+// flujo · Cambiar», lo opcional va plegado detrás de «Más opciones», y los rótulos salen de UN lugar
+// (`rotuloDeParametro`).
 //
 // El lead: si la acción pide `leadId`, el default es «el lead del evento» (el que entró, el
 // que agendó, el de la inscripción). Al ELEGIR una acción que pide lead se guarda
 // LEAD_DEL_EVENTO explícito, también si el lead es opcional: sin eso un «Avisar al equipo»
-// recién elegido nacía en «Ninguno» y el aviso salía sin el nombre ni el link del lead, al
-// revés de lo que decía este mismo encabezado. La excepción es la acción con OTRO destinatario
-// (un teléfono): ahí el lead del evento chocaba con él (`naceSobreElLeadDelEvento`,
-// lib/editor-acciones.ts). «Ninguno» y «el del evento» siguen a un clic («Cambiar»).
-//
-// La etiqueta: un `etiquetaId` (poner_etiqueta_lead, sacar_etiqueta_lead, editar y archivar) se
-// ELIGE de un desplegable con las etiquetas del CRM y «＋ Nueva», nunca se tipea como número: el
-// id es lo que se guarda (renombrar la etiqueta no rompe el paso) y el nombre es lo que se ve.
+// recién elegido nacía en «Ninguno» y el aviso salía sin el nombre ni el link del lead. La
+// excepción es la acción con OTRO destinatario (un teléfono): ahí el lead del evento chocaba con
+// él (`naceSobreElLeadDelEvento`, lib/editor-acciones.ts). «Ninguno» y «el del evento» siguen a un
+// clic («Cambiar»).
 // =============================================================================
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Select, Input, Textarea, Checkbox, Field } from '@/app/_ui';
 import type { AccionEditor, ParametroEditor } from '@/lib/api-mako/flujo';
 import { LEAD_DEL_EVENTO, LEAD_A_ELEGIR, LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
-import { rotuloDeParametro, resumenDeAccion, seccionesDeAcciones, repartoDelFormulario, naceSobreElLeadDelEvento } from '@/lib/editor-acciones';
+import {
+  rotuloDeParametro, resumenDeAccion, seccionesDeAcciones, repartoDelFormulario, naceSobreElLeadDelEvento,
+  controlDe, monedaDe, rotuloDeOpcion, SECCION_PUESTA, type OpcionesAccion,
+} from '@/lib/editor-acciones';
 import { SelectorEtiqueta } from './etiquetas-cliente';
+import { useOpcionesAccion, SelectorEtapa, SelectorProducto, SelectorSecuencia, SelectorPersona, CampoMonto, type Cambiar } from './CamposAccion';
 
 export type ValorAccion = { operacion?: string; params?: Record<string, unknown> };
 
@@ -67,7 +68,8 @@ function catalogo(): Promise<AccionEditor[]> {
  * abrir el panel. Es la MISMA lectura (y la misma caché) que el desplegable del editor: los
  * dos lienzos la pedían cada uno por su cuenta. Se pide sólo si el flujo tiene pasos de
  * acción; mientras no llega, o si falla (no es admin, sin red), devuelve null y la tarjeta
- * dice el id legible.
+ * dice el id legible. Trae también las que no están en la lista corta: un paso viejo sigue
+ * diciendo qué hace.
  */
 export function useTitulosAcciones(activo: boolean): Map<string, string> | null {
   const [titulos, setTitulos] = useState<Map<string, string> | null>(null);
@@ -82,8 +84,6 @@ export function useTitulosAcciones(activo: boolean): Map<string, string> | null 
   return titulos;
 }
 
-const ES_TEXTO_LARGO = /texto|mensaje|nota|detalle|descripcion|cuerpo|contenido/i;
-
 /** Los parámetros que pone el flujo para esta operación: no se dibujan. */
 const ocultosDe = (operacion: string): ReadonlySet<string> => new Set(Object.keys(LLENA_EL_FLUJO[operacion] ?? {}));
 
@@ -92,6 +92,9 @@ const paramsIniciales = (a: Pick<AccionEditor, 'pideLead' | 'parametros'> | unde
   (a?.pideLead && naceSobreElLeadDelEvento(a.parametros) ? { leadId: LEAD_DEL_EVENTO } : {});
 
 const tieneValor = (v: unknown): boolean => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length);
+
+/** La línea de qué hace: la de la lista corta, o la sacada de la descripción del registro. */
+const lineaDe = (a: Pick<AccionEditor, 'que' | 'descripcion'>): string => a.que ?? resumenDeAccion(a.descripcion);
 
 /** El botón de texto de la casa para «Cambiar» y «Más opciones»: sin caja, en el color del link. */
 const botonTexto: CSSProperties = {
@@ -113,25 +116,28 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
   }, []);
 
   const elegida = useMemo(() => acciones?.find((a) => a.id === valor.operacion) ?? null, [acciones, valor.operacion]);
+  // Las listas de la base se piden recién cuando hay una acción elegida que las puede necesitar.
+  const opciones = useOpcionesAccion(!!elegida);
   const secciones = useMemo(() => {
     if (!acciones) return [];
-    const out = seccionesDeAcciones(acciones).map((s) => ({
+    const out = seccionesDeAcciones(acciones, valor.operacion).map((s) => ({
       title: s.titulo,
-      atajo: s.atajo,
-      options: s.acciones.map((a) => ({ value: a.id, label: a.titulo, sub: resumenDeAccion(a.descripcion), buscar: `${a.id} ${a.descripcion}` })),
+      options: s.acciones.map((a) => ({ value: a.id, label: a.titulo, sub: lineaDe(a), buscar: a.id })),
     }));
-    // ⚠️ LA QUE ESTÁ PUESTA ENTRA AUNQUE YA NO SE PUEDA ELEGIR (otra capa, una operación que se
-    // retiró): un desplegable cuyo valor no está entre sus opciones no muestra nada (AGENTS.md).
+    // ⚠️ LA QUE ESTÁ PUESTA ENTRA AUNQUE YA NO EXISTA (otra capa, una operación que se retiró): un
+    // desplegable cuyo valor no está entre sus opciones no muestra nada (AGENTS.md).
     if (valor.operacion && !acciones.some((a) => a.id === valor.operacion)) {
-      out.unshift({ title: 'La que tiene puesta', atajo: undefined, options: [{ value: valor.operacion, label: valor.operacion.replace(/_/g, ' '), sub: 'Ya no está en el catálogo', buscar: valor.operacion }] });
+      out.unshift({ title: SECCION_PUESTA, options: [{ value: valor.operacion, label: valor.operacion.replace(/_/g, ' '), sub: 'Ya no está disponible', buscar: valor.operacion }] });
     }
     return out;
   }, [acciones, valor.operacion]);
 
   const params = valor.params ?? {};
-  const fijar = (nombre: string, v: unknown) => {
+  const cambiar: Cambiar = (patch) => {
     const p = { ...params };
-    if (v === undefined || v === '' || (Array.isArray(v) && !v.length)) delete p[nombre]; else p[nombre] = v;
+    for (const [nombre, v] of Object.entries(patch)) {
+      if (v === undefined || v === '' || (Array.isArray(v) && !v.length)) delete p[nombre]; else p[nombre] = v;
+    }
     onCambio({ operacion: valor.operacion, params: p });
   };
 
@@ -146,41 +152,48 @@ export function EditorAccionMako({ valor, onCambio, disabled }: {
           onChange={(id) => onCambio({ operacion: id, params: paramsIniciales(acciones.find((a) => a.id === id)) })}
           secciones={secciones}
           placeholder="Elige qué hace MaKo"
-          search
           disabled={disabled}
           ariaLabel="Acción"
-          menuAncho={420}
-          menuAlto={460}
+          menuAncho={340}
+          menuAlto={420}
         />
-        {elegida && <p style={{ margin: '0 2px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45 }}>{resumenDeAccion(elegida.descripcion)}</p>}
+        {elegida && <p style={{ margin: '0 2px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45 }}>{lineaDe(elegida)}</p>}
       </div>
       {/* `key` por operación: lo plegado y el «Cambiar» del lead son de ESTA acción. */}
-      {elegida && <FormularioAccion key={elegida.id} accion={elegida} valor={valor} params={params} fijar={fijar} disabled={disabled} />}
+      {elegida && <FormularioAccion key={elegida.id} accion={elegida} valor={valor} params={params} cambiar={cambiar} opciones={opciones} disabled={disabled} />}
     </div>
   );
 }
 
-/** El formulario de UNA acción ya elegida (exportado para tests/editor-acciones.test.ts). */
-export function FormularioAccion({ accion, valor, params, fijar, disabled }: {
+/**
+ * El formulario de UNA acción ya elegida (exportado para tests/editor-acciones.test.ts, que lo
+ * renderiza con `opciones` puestas: el fetch no corre en un render del server).
+ */
+export function FormularioAccion({ accion, valor, params, cambiar, opciones, disabled }: {
   accion: AccionEditor; valor: ValorAccion; params: Record<string, unknown>;
-  fijar: (nombre: string, v: unknown) => void; disabled?: boolean;
+  cambiar: Cambiar;
+  /** Las listas de la base. `undefined` = todavía no llegaron. */
+  opciones?: OpcionesAccion;
+  disabled?: boolean;
 }) {
-  const { lead, obligatorios, opcionales } = repartoDelFormulario(accion.parametros, accion.pideLead, ocultosDe(accion.id));
+  const { lead, obligatorios, opcionales, plegar } = repartoDelFormulario(accion.parametros, accion.pideLead, ocultosDe(accion.id), { accionId: accion.id, params, opciones });
   // Abierto de entrada si algo de lo plegado ya tiene valor: plegar lo que está puesto lo esconde.
   const [mas, setMas] = useState(() => opcionales.some((p) => tieneValor(params[p.nombre])));
-  const campo = (p: ParametroEditor) => (
-    <CampoParametro key={`${valor.operacion ?? ''}:${p.nombre}`} p={p} valor={params[p.nombre]} onCambio={(v) => fijar(p.nombre, v)} pideLead={accion.pideLead} disabled={disabled} />
+  const campo = (p: ParametroEditor, required: boolean) => (
+    <CampoParametro key={`${valor.operacion ?? ''}:${p.nombre}`} p={p} required={required} params={params} cambiar={cambiar}
+      opciones={opciones} pideLead={accion.pideLead} disabled={disabled} />
   );
   return (
     <>
-      {lead && <FilaLead p={lead} valor={params.leadId} onCambio={(v) => fijar('leadId', v)} disabled={disabled} />}
-      {obligatorios.map(campo)}
-      {opcionales.length > 0 && (
+      {lead && <FilaLead p={lead} valor={params.leadId} onCambio={(v) => cambiar({ leadId: v })} disabled={disabled} />}
+      {obligatorios.map((p) => campo(p, true))}
+      {!plegar && opcionales.map((p) => campo(p, false))}
+      {plegar && opcionales.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <button type="button" onClick={() => setMas((m) => !m)} aria-expanded={mas} style={{ ...botonTexto, alignSelf: 'flex-start' }}>
             {mas ? 'Menos opciones ▴' : 'Más opciones ▾'}
           </button>
-          {mas && opcionales.map(campo)}
+          {mas && opcionales.map((p) => campo(p, false))}
         </div>
       )}
     </>
@@ -203,111 +216,140 @@ function FilaLead({ p, valor, onCambio, disabled }: { p: ParametroEditor; valor:
       </div>
     );
   }
-  return <CampoParametro p={p} valor={valor} onCambio={onCambio} pideLead disabled={disabled} />;
+  return <SelectorLead p={p} valor={valor} onCambio={onCambio} disabled={disabled} />;
 }
 
-function CampoParametro({ p, valor, onCambio, pideLead, disabled }: {
-  p: ParametroEditor; valor: unknown; onCambio: (v: unknown) => void; pideLead: boolean; disabled?: boolean;
-}) {
-  const label = rotuloDeParametro(p);
-  const [crudo, setCrudo] = useState<string>(() => (p.tipo === 'object' || p.tipo === 'object[]') && valor != null ? JSON.stringify(valor, null, 1) : '');
-  const [jsonMal, setJsonMal] = useState(false);
-
-  if (p.nombre === 'leadId' && pideLead) {
-    // El modo se GUARDA, no se deduce de un campo vacío: «Otro lead» sin id vuelve como
-    // LEAD_A_ELEGIR. Antes se guardaba '' y `fijar` lo borraba, así que el desplegable volvía
-    // solo a «El lead del evento» y la acción corría sobre ese lead.
-    const modo = typeof valor === 'number' || valor === LEAD_A_ELEGIR ? 'otro'
-      : valor === LEAD_DEL_EVENTO || p.obligatorio ? 'evento' : 'ninguno';
-    const opciones = [
-      { value: 'evento', label: 'El lead del evento' },
-      { value: 'otro', label: 'Otro lead (por id)' },
-      // Un lead opcional vacío es «ninguno» (lib/api-mako/flujo-params.ts, paramsDelPaso).
-      ...(p.obligatorio ? [] : [{ value: 'ninguno', label: 'Ninguno' }]),
-    ];
-    return (
-      <Field label={label} required={p.obligatorio} error={modo === 'otro' && typeof valor !== 'number' ? 'Falta el id.' : undefined}>
-        <Select
-          value={modo}
-          onChange={(v) => onCambio(v === 'evento' ? LEAD_DEL_EVENTO : v === 'ninguno' ? undefined : (typeof valor === 'number' ? valor : LEAD_A_ELEGIR))}
-          options={opciones}
-          disabled={disabled}
-          ariaLabel="De qué lead"
-        />
-        {modo === 'otro' && (
-          <Input type="number" value={typeof valor === 'number' ? String(valor) : ''} placeholder="id del lead" disabled={disabled}
-            onChange={(e) => onCambio(e.target.value ? Number(e.target.value) : LEAD_A_ELEGIR)} />
-        )}
-      </Field>
-    );
-  }
-  // Una lista con opciones cerradas se elige con VARIOS: con el desplegable de un solo valor
-  // nunca se podía marcar más de uno (y guardar_diagnostico_fase pide seis).
-  if (p.tipo === 'string[]' && p.enum?.length) {
-    const lista = Array.isArray(valor) ? (valor as string[]) : [];
-    return (
-      <Select label={label} required={p.obligatorio} value="" placeholder="Elige" varios={lista}
-        onChange={(v) => onCambio(lista.includes(v) ? lista.filter((x) => x !== v) : [...lista, v])}
-        options={p.enum.map((e) => ({ value: e, label: e }))} disabled={disabled} />
-    );
-  }
-  if (p.enum?.length) {
-    return (
-      <Select label={label} required={p.obligatorio} value={typeof valor === 'string' ? valor : ''} onChange={(v) => onCambio(v)}
-        options={p.enum.map((e) => ({ value: e, label: e }))} disabled={disabled} />
-    );
-  }
-  if (p.tipo === 'boolean') {
-    return <Checkbox checked={valor === true} onChange={(v) => onCambio(v)} label={label} disabled={disabled} />;
-  }
-  if (p.nombre === 'etiquetaId' && p.tipo === 'number') {
-    return (
-      <Field label={label} required={p.obligatorio}>
-        <SelectorEtiqueta value={typeof valor === 'number' ? valor : null} onElegir={(e) => onCambio(e.id)}
-          placeholder="Elige una etiqueta" ariaLabel="Etiqueta" width="100%" disabled={disabled} />
-      </Field>
-    );
-  }
-  if (p.tipo === 'number') {
-    return (
-      <Field label={label} required={p.obligatorio}>
-        <Input type="number" value={typeof valor === 'number' ? String(valor) : ''} disabled={disabled} title={p.descripcion}
-          onChange={(e) => onCambio(e.target.value === '' ? undefined : Number(e.target.value))} />
-      </Field>
-    );
-  }
-  if (p.tipo === 'string[]') {
-    return (
-      <Field label={label} required={p.obligatorio} hint="Separados por coma.">
-        <Input value={Array.isArray(valor) ? valor.join(', ') : ''} disabled={disabled} title={p.descripcion}
-          onChange={(e) => onCambio(e.target.value.split(',').map((x) => x.trim()).filter(Boolean))} />
-      </Field>
-    );
-  }
-  if (p.tipo === 'object' || p.tipo === 'object[]') {
-    return (
-      <Field label={label} required={p.obligatorio} error={jsonMal ? (p.tipo === 'object' ? 'Tiene que ser un objeto { … }.' : 'Tiene que ser una lista [ { … } ].') : undefined}>
-        <Textarea rows={4} value={crudo} disabled={disabled} title={p.descripcion}
-          onChange={(e) => setCrudo(e.target.value)}
-          onBlur={() => {
-            if (!crudo.trim()) { setJsonMal(false); onCambio(undefined); return; }
-            // «hola» o [ … ] en un campo de objeto son JSON válido y fallaban en cada corrida.
-            const esObjeto = (x: unknown) => x != null && typeof x === 'object' && !Array.isArray(x);
-            try {
-              const v: unknown = JSON.parse(crudo);
-              const ok = p.tipo === 'object' ? esObjeto(v) : Array.isArray(v) && v.every(esObjeto);
-              if (ok) { onCambio(v); setJsonMal(false); } else setJsonMal(true);
-            } catch { setJsonMal(true); }
-          }} />
-      </Field>
-    );
-  }
-  const largo = ES_TEXTO_LARGO.test(p.nombre);
+function SelectorLead({ p, valor, onCambio, disabled }: { p: ParametroEditor; valor: unknown; onCambio: (v: unknown) => void; disabled?: boolean }) {
+  // El modo se GUARDA, no se deduce de un campo vacío: «Otro lead» sin id vuelve como
+  // LEAD_A_ELEGIR. Antes se guardaba '' y se borraba, así que el desplegable volvía solo a
+  // «El lead del evento» y la acción corría sobre ese lead.
+  const modo = typeof valor === 'number' || valor === LEAD_A_ELEGIR ? 'otro'
+    : valor === LEAD_DEL_EVENTO || p.obligatorio ? 'evento' : 'ninguno';
+  const opciones = [
+    { value: 'evento', label: 'El lead del evento' },
+    { value: 'otro', label: 'Otro lead (por id)' },
+    // Un lead opcional vacío es «ninguno» (lib/api-mako/flujo-params.ts, paramsDelPaso).
+    ...(p.obligatorio ? [] : [{ value: 'ninguno', label: 'Ninguno' }]),
+  ];
   return (
-    <Field label={label} required={p.obligatorio}>
-      {largo
-        ? <Textarea rows={3} value={typeof valor === 'string' ? valor : ''} disabled={disabled} title={p.descripcion} onChange={(e) => onCambio(e.target.value)} />
-        : <Input value={typeof valor === 'string' ? valor : ''} disabled={disabled} title={p.descripcion} onChange={(e) => onCambio(e.target.value)} />}
+    <Field label={rotuloDeParametro(p)} required={p.obligatorio} error={modo === 'otro' && typeof valor !== 'number' ? 'Falta el id.' : undefined}>
+      <Select
+        value={modo}
+        onChange={(v) => onCambio(v === 'evento' ? LEAD_DEL_EVENTO : v === 'ninguno' ? undefined : (typeof valor === 'number' ? valor : LEAD_A_ELEGIR))}
+        options={opciones}
+        disabled={disabled}
+        ariaLabel="De qué lead"
+      />
+      {modo === 'otro' && (
+        <Input type="number" value={typeof valor === 'number' ? String(valor) : ''} placeholder="id del lead" disabled={disabled}
+          onChange={(e) => onCambio(e.target.value ? Number(e.target.value) : LEAD_A_ELEGIR)} />
+      )}
     </Field>
   );
+}
+
+/** Un parámetro con SU control (`controlDe`, lib/editor-acciones.ts). */
+function CampoParametro({ p, required, params, cambiar, opciones, pideLead, disabled }: {
+  p: ParametroEditor; required: boolean; params: Record<string, unknown>; cambiar: Cambiar;
+  opciones: OpcionesAccion | undefined; pideLead: boolean; disabled?: boolean;
+}) {
+  const label = rotuloDeParametro(p);
+  const valor = params[p.nombre];
+  const onCambio = (v: unknown) => cambiar({ [p.nombre]: v });
+  const [crudo, setCrudo] = useState<string>(() => (p.tipo === 'object' || p.tipo === 'object[]') && valor != null ? JSON.stringify(valor, null, 1) : '');
+  const [jsonMal, setJsonMal] = useState(false);
+  const comun = { label, required, disabled };
+
+  switch (controlDe(p)) {
+    case 'lead':
+      return pideLead ? <SelectorLead p={p} valor={valor} onCambio={onCambio} disabled={disabled} /> : null;
+    case 'etapa':
+      return <SelectorEtapa {...comun} params={params} opciones={opciones} cambiar={cambiar} />;
+    case 'producto':
+      return <SelectorProducto {...comun} valor={valor} opciones={opciones} onCambio={onCambio} />;
+    case 'secuencia':
+      return <SelectorSecuencia {...comun} valor={valor} opciones={opciones} onCambio={onCambio} />;
+    case 'persona':
+      return <SelectorPersona {...comun} valor={valor} opciones={opciones} onCambio={onCambio} />;
+    case 'monto':
+      return <CampoMonto {...comun} valor={valor} moneda={monedaDe(p) ?? ''} onCambio={onCambio} title={p.descripcion} />;
+    case 'etiqueta':
+      return (
+        <Field label={label} required={required}>
+          <SelectorEtiqueta value={typeof valor === 'number' ? valor : null} onElegir={(e) => onCambio(e.id)}
+            placeholder="Elige una etiqueta" ariaLabel="Etiqueta" width="100%" disabled={disabled} />
+        </Field>
+      );
+    case 'fecha':
+      return (
+        <Field label={label} required={required}>
+          <Input type="date" value={typeof valor === 'string' ? valor : ''} disabled={disabled} title={p.descripcion} onChange={(e) => onCambio(e.target.value || undefined)} />
+        </Field>
+      );
+    case 'si_no':
+      // Un sí/no OBLIGATORIO no es una casilla: destildada se lee «no», y sin tocarla el paso no tiene valor.
+      return (
+        <Select label={label} required={required} value={valor === true ? 'si' : valor === false ? 'no' : ''} onChange={(v) => onCambio(v === 'si')}
+          options={[{ value: 'si', label: 'Sí' }, { value: 'no', label: 'No' }]} placeholder="Elige" disabled={disabled} />
+      );
+    case 'casilla':
+      return <Checkbox checked={valor === true} onChange={(v) => onCambio(v)} label={label} disabled={disabled} />;
+    case 'varias': {
+      // Una lista con opciones cerradas se elige con VARIOS (guardar_diagnostico_fase pide seis).
+      const lista = Array.isArray(valor) ? (valor as string[]) : [];
+      return (
+        <Select label={label} required={required} value="" placeholder="Elige" varios={lista}
+          onChange={(v) => onCambio(lista.includes(v) ? lista.filter((x) => x !== v) : [...lista, v])}
+          options={(p.enum ?? []).map((e) => ({ value: e, label: rotuloDeOpcion(e) }))} disabled={disabled} />
+      );
+    }
+    case 'opcion':
+      return (
+        <Select label={label} required={required} value={typeof valor === 'string' ? valor : ''} onChange={(v) => onCambio(v)}
+          options={(p.enum ?? []).map((e) => ({ value: e, label: rotuloDeOpcion(e) }))} placeholder="Elige" disabled={disabled} />
+      );
+    case 'numero':
+      return (
+        <Field label={label} required={required}>
+          <Input type="number" value={typeof valor === 'number' ? String(valor) : ''} disabled={disabled} title={p.descripcion}
+            onChange={(e) => onCambio(e.target.value === '' ? undefined : Number(e.target.value))} />
+        </Field>
+      );
+    case 'lista':
+      return (
+        <Field label={label} required={required} hint="Separados por coma.">
+          <Input value={Array.isArray(valor) ? valor.join(', ') : ''} disabled={disabled} title={p.descripcion}
+            onChange={(e) => onCambio(e.target.value.split(',').map((x) => x.trim()).filter(Boolean))} />
+        </Field>
+      );
+    case 'json':
+      return (
+        <Field label={label} required={required} error={jsonMal ? (p.tipo === 'object' ? 'Tiene que ser un objeto { … }.' : 'Tiene que ser una lista [ { … } ].') : undefined}>
+          <Textarea rows={4} value={crudo} disabled={disabled} title={p.descripcion}
+            onChange={(e) => setCrudo(e.target.value)}
+            onBlur={() => {
+              if (!crudo.trim()) { setJsonMal(false); onCambio(undefined); return; }
+              // «hola» o [ … ] en un campo de objeto son JSON válido y fallaban en cada corrida.
+              const esObjeto = (x: unknown) => x != null && typeof x === 'object' && !Array.isArray(x);
+              try {
+                const v: unknown = JSON.parse(crudo);
+                const ok = p.tipo === 'object' ? esObjeto(v) : Array.isArray(v) && v.every(esObjeto);
+                if (ok) { onCambio(v); setJsonMal(false); } else setJsonMal(true);
+              } catch { setJsonMal(true); }
+            }} />
+        </Field>
+      );
+    case 'texto_largo':
+      return (
+        <Field label={label} required={required}>
+          <Textarea rows={3} value={typeof valor === 'string' ? valor : ''} disabled={disabled} title={p.descripcion} onChange={(e) => onCambio(e.target.value)} />
+        </Field>
+      );
+    case 'texto':
+      return (
+        <Field label={label} required={required}>
+          <Input value={typeof valor === 'string' ? valor : ''} disabled={disabled} title={p.descripcion} onChange={(e) => onCambio(e.target.value)} />
+        </Field>
+      );
+  }
 }

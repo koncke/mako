@@ -6,11 +6,24 @@
 // bien diseñado. Tener barra de busqueda y también que sea modular, como tenemos el desplegable de
 // Plan, de una sección se abren opciones.»
 //
+// Tercera tanda (09/10/2026, punto 16), textual: «Le puse "Mover un lead de etapa" y me pide un campo
+// abierto para colocar el nombre de la etapa? En lugar de un desplegable para seleccionar las que tengo
+// disponible? Y abajo me aparece "Monto" y "Motivo", no tiene nada de sentido... cada cosa debes
+// configurar bien los campos. También siento que pusiste muchísimas acciones que tal vez no son
+// necesarias...». Decisión 16 del diseño (docs/chatbot-flujo-ramas-diseno.md).
+//
 // Acá vive, PURO y con test (tests/editor-acciones.test.ts), lo que decide cómo se ve el catálogo:
+//   · la LISTA CORTA de acciones que ofrece el lienzo (`ACCIONES_DEL_FLUJO`): las que tienen sentido
+//     CORRIENDO SOLAS sobre el lead de un flujo. El resto del registro sigue existiendo para la API y
+//     el doer, y un paso ya guardado con una de ellas se sigue dibujando y editando;
 //   · los RÓTULOS de los parámetros, con tildes: el `rotulo?` de la def (lib/api-mako/tipos.ts)
 //     gana; si no lo tiene, este diccionario de respaldo; si tampoco, el nombre partido. Antes los
 //     derivaba el componente del camelCase y salían «Titulo», «Razon», «Anio», «Kpi id»;
-//   · las SECCIONES del selector: «Más usadas», «Con este lead», una por área y «Avanzado»;
+//   · las SECCIONES del selector, por grupo de la lista corta;
+//   · el CONTROL de cada parámetro (`controlDe`): la etapa con producto + etapa, la etiqueta, la
+//     automatización, la persona del equipo, el monto con su moneda, la fecha;
+//   · qué campos se ven según lo elegido (`repartoDelFormulario`): monto y motivo sólo al mover a una
+//     etapa que los pide (la regla es la del CRM: `datosQuePideLaEtapa` → lib/stage-requirements.ts);
 //   · la LÍNEA de qué hace una acción, sacada de su descripción;
 //   · qué operaciones son de ETIQUETA (la tarjeta 🏷️ es una presentación sobre ellas).
 //
@@ -26,6 +39,10 @@
 // =============================================================================
 
 import type { Parametro, TipoParametro } from './api-mako/tipos';
+// Puro y sin `server-only` (lo importa el tablero del CRM en el navegador): es la MISMA regla con la
+// que el CRM decide qué pide mover a una etapa. Ver `datosQuePideLaEtapa`.
+import { funnelReqInfo, stepsForStage } from './stage-requirements';
+import type { EtapaLite } from './funnel-etapas';
 
 // ── Rótulos ─────────────────────────────────────────────────────────────────────────────────
 
@@ -146,29 +163,59 @@ export function resumenDeAccion(descripcion: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// ── Las secciones del selector ──────────────────────────────────────────────────────────────
+// ── La lista CORTA del lienzo ───────────────────────────────────────────────────────────────
 
-/** Lo mínimo de una acción que necesitan las secciones (es un subconjunto de `AccionEditor`). */
-export type AccionParaSecciones = {
-  id: string; area: string; areaTitulo: string; titulo: string; descripcion: string; pideLead: boolean;
-  parametros: ReadonlyArray<{ nombre: string; tipo: TipoParametro }>;
+/** Los grupos del selector, en orden. */
+export const GRUPOS_ACCION = ['El lead', 'Equipo', 'Automatizaciones', 'Cliente'] as const;
+export type GrupoAccion = (typeof GRUPOS_ACCION)[number];
+
+/** Una acción que el lienzo ofrece: su id del registro y cómo se presenta en un flujo. */
+export type AccionDelFlujo = {
+  id: string;
+  /** El nombre en el lienzo (el del registro está escrito para el modelo: «Meter un lead en una secuencia»). */
+  titulo: string;
+  /** La línea de qué hace, debajo del nombre. Corta: es texto que se DIBUJA. */
+  que: string;
+  grupo: GrupoAccion;
 };
 
 /**
- * Las más usadas en un flujo de LEADS, en este orden. Curada a mano, no medida: el día que haya uso
- * real que contar, se cuenta (lib/api-mako: `ejecutarDesdeFlujo` deja su fila con el flujo de origen).
+ * LAS ACCIONES QUE OFRECE EL LIENZO, en orden. Es el ÚNICO lugar donde vive esta lista:
+ * `accionesParaFlujo` (lib/api-mako/flujo.ts) la aplica al armar el catálogo, y el selector sólo
+ * ofrece éstas.
+ *
+ * El criterio, medido contra las 200 acciones del registro el 09/10/2026: que tenga sentido CORRIENDO
+ * SOLA sobre el lead del flujo, sin una persona mirando. Quedaron afuera, con su porqué:
+ *   · las que piden un valor FIJO que en un flujo miente: `mover_a_nutricion_manual` (una fecha límite
+ *     fija vence para todos los leads que entren después), `proponer_agendar_agenda` (un día y una hora
+ *     fijos), `editar_contacto_lead` (pisaría el nombre o el email de cada lead con el mismo texto);
+ *   · `proponer_tareas_plan`: aplicar un borrador del plan corre al Perro, que re-curva TODO el
+ *     tablero (AGENTS.md); una tarea por lead lo dispararía en cada inscripción;
+ *   · `mover_lead_en_producto` y `quitar_lead_de_producto`: «Mover de etapa» ya elige producto y etapa,
+ *     y quitar sólo funciona con dos productos o más;
+ *   · `marcar_asistencia_reunion`: la asistencia la marca el evento de la agenda, no un flujo;
+ *   · `generar_insight_lead`: usa IA y tarda; no es algo para correr en cada lead;
+ *   · lo que no es de UN lead (configurar, publicar, Meta, cursos, el equipo).
+ * Lo que falta y NO existe en el registro («sacar de una automatización», «mover en la entrega»)
+ * se agrega declarando la acción en su área, y recién ahí entra acá.
+ *
+ * Un paso ya guardado con una acción que no está acá se sigue dibujando y editando: el catálogo trae
+ * TODAS las del workspace marcadas con `curada` (lib/api-mako/flujo.ts), y el selector suma la puesta.
  */
-export const MAS_USADAS: readonly string[] = [
-  'avisar_al_equipo',
-  'poner_etiqueta_lead',
-  'sacar_etiqueta_lead',
-  'proponer_cambio_etapa',
-  'agregar_nota_lead',
-  'asignar_closer_setter',
-  'inscribir_lead_secuencia',
-  'marcar_calificado',
-  'mover_a_nutricion_manual',
+export const ACCIONES_DEL_FLUJO: readonly AccionDelFlujo[] = [
+  { id: 'proponer_cambio_etapa', titulo: 'Mover de etapa', que: 'Lo pasa a otra etapa del kanban', grupo: 'El lead' },
+  { id: 'agregar_lead_a_producto', titulo: 'Agregar a un producto', que: 'Lo suma a otro producto, sin sacarlo del suyo', grupo: 'El lead' },
+  { id: 'poner_etiqueta_lead', titulo: 'Poner una etiqueta', que: 'Le pone una etiqueta del CRM', grupo: 'El lead' },
+  { id: 'sacar_etiqueta_lead', titulo: 'Sacar una etiqueta', que: 'Le saca una etiqueta del CRM', grupo: 'El lead' },
+  { id: 'agregar_nota_lead', titulo: 'Agregar una nota', que: 'Deja una nota en su historial', grupo: 'El lead' },
+  { id: 'marcar_calificado', titulo: 'Marcar calificado', que: 'Marca si era un buen fit', grupo: 'El lead' },
+  { id: 'asignar_closer_setter', titulo: 'Asignar closer o setter', que: 'Le asigna alguien del equipo', grupo: 'Equipo' },
+  { id: 'avisar_al_equipo', titulo: 'Avisar al equipo', que: 'Manda un aviso al grupo de WhatsApp', grupo: 'Equipo' },
+  { id: 'inscribir_lead_secuencia', titulo: 'Inscribir en otra automatización', que: 'Lo mete en otra automatización', grupo: 'Automatizaciones' },
+  { id: 'marcar_estado_cliente_cs', titulo: 'Cambiar el estado del cliente', que: 'Activo, graduado, baja o pausado', grupo: 'Cliente' },
 ];
+
+const POR_ID: ReadonlyMap<string, AccionDelFlujo> = new Map(ACCIONES_DEL_FLUJO.map((a) => [a.id, a]));
 
 /** Las operaciones que dibuja la tarjeta 🏷️ (decisión 8: una presentación sobre la ⚡ Acción). */
 export const OPS_ETIQUETA = ['poner_etiqueta_lead', 'sacar_etiqueta_lead'] as const;
@@ -176,54 +223,137 @@ export type OperacionEtiqueta = (typeof OPS_ETIQUETA)[number];
 export const esOperacionEtiqueta = (op: string | null | undefined): op is OperacionEtiqueta =>
   op === 'poner_etiqueta_lead' || op === 'sacar_etiqueta_lead';
 
-/** ¿Configurarla pide escribir JSON a mano? Ésas van a «Avanzado» y a ningún otro lado. */
-export const pideJsonCrudo = (a: Pick<AccionParaSecciones, 'parametros'>): boolean =>
-  a.parametros.some((p) => p.tipo === 'object' || p.tipo === 'object[]');
+/** La acción de la lista corta, o null si el lienzo no la ofrece. */
+export const accionDelFlujo = (id: string | null | undefined): AccionDelFlujo | null => (id ? POR_ID.get(id) ?? null : null);
 
-/** «Ads (Manager y Analyst)» → «Ads»: el título del área en el registro trae su letra chica. */
-export const tituloDeArea = (t: string): string => t.replace(/\s*\(.*\)\s*$/, '').trim() || t;
+// ── Las secciones del selector ──────────────────────────────────────────────────────────────
 
-export type SeccionAcciones<A> = {
-  titulo: string;
-  acciones: A[];
-  /**
-   * Un ATAJO: sus acciones también están en su área. Con texto en el buscador no se dibuja, o cada
-   * resultado salía dos veces (prop `atajo` de `DropdownGroup`, app/components/Dropdown.tsx).
-   */
-  atajo?: boolean;
-};
+/** Lo mínimo de una acción que necesitan las secciones (es un subconjunto de `AccionEditor`). */
+export type AccionParaSecciones = { id: string; titulo: string; descripcion: string; curada: boolean; grupo: GrupoAccion | null };
 
-export const SECCION_MAS_USADAS = 'Más usadas';
-export const SECCION_CON_LEAD = 'Con este lead';
-export const SECCION_AVANZADO = 'Avanzado';
+export type SeccionAcciones<A> = { titulo: string; acciones: A[] };
+
+export const SECCION_PUESTA = 'La que tiene puesta';
 
 /**
- * Las secciones del selector, en orden: «Más usadas» (curada), «Con este lead» (las que piden
- * `leadId`, menos las de arriba), una por área en el orden del catálogo y «Avanzado» al final con
- * las que piden JSON crudo. Las dos primeras son atajos: todo lo que tienen vive también en su área.
- * Una sección vacía no se devuelve. Las de JSON van SÓLO a «Avanzado»: si siguieran en su área, no
- * estarían escondidas en ningún lado.
+ * Las secciones del selector: un grupo de la lista corta por sección, en el orden de
+ * `GRUPOS_ACCION` y de la lista. Si el paso tiene puesta una acción que NO está en la lista corta
+ * (`puesta`), va primero en «La que tiene puesta»: un desplegable cuyo valor no está entre sus
+ * opciones no muestra nada (AGENTS.md). Una sección vacía no se devuelve.
  */
-export function seccionesDeAcciones<A extends AccionParaSecciones>(acciones: readonly A[]): SeccionAcciones<A>[] {
-  const simples = acciones.filter((a) => !pideJsonCrudo(a));
-  const porId = new Map(simples.map((a) => [a.id, a]));
-  const usadas = MAS_USADAS.map((id) => porId.get(id)).filter((a): a is A => !!a);
-  const enUsadas = new Set(usadas.map((a) => a.id));
-  const conLead = simples.filter((a) => a.pideLead && !enUsadas.has(a.id));
-  const areas: SeccionAcciones<A>[] = [];
-  const indice = new Map<string, number>();
-  for (const a of simples) {
-    let i = indice.get(a.area);
-    if (i == null) { i = areas.length; indice.set(a.area, i); areas.push({ titulo: tituloDeArea(a.areaTitulo), acciones: [] }); }
-    areas[i].acciones.push(a);
+export function seccionesDeAcciones<A extends AccionParaSecciones>(acciones: readonly A[], puesta?: string | null): SeccionAcciones<A>[] {
+  const out: SeccionAcciones<A>[] = [];
+  const fuera = puesta ? acciones.find((a) => a.id === puesta && !a.curada) : undefined;
+  if (fuera) out.push({ titulo: SECCION_PUESTA, acciones: [fuera] });
+  const orden = new Map(ACCIONES_DEL_FLUJO.map((a, i) => [a.id, i]));
+  for (const g of GRUPOS_ACCION) {
+    const del = acciones.filter((a) => a.curada && a.grupo === g).sort((x, y) => (orden.get(x.id) ?? 99) - (orden.get(y.id) ?? 99));
+    if (del.length) out.push({ titulo: g, acciones: del });
   }
-  const avanzado = acciones.filter((a) => pideJsonCrudo(a));
-  return [
-    { titulo: SECCION_MAS_USADAS, acciones: usadas, atajo: true },
-    { titulo: SECCION_CON_LEAD, acciones: conLead, atajo: true },
-    ...areas,
-    { titulo: SECCION_AVANZADO, acciones: avanzado },
-  ].filter((s) => s.acciones.length > 0);
+  return out;
+}
+
+// ── Lo que pide una etapa ───────────────────────────────────────────────────────────────────
+
+/** Los datos que un flujo PUEDE cargar al mover (`REQUISITOS_PEDIBLES` del doer: lib/mako-doer-acciones.ts). */
+export type DatoDeEtapa = 'monto' | 'motivo';
+
+/**
+ * Qué pide mover a ESTA etapa que un paso de un flujo pueda cargar: el monto (la etapa de cierre del
+ * funnel) o el motivo (perdido, descalificado).
+ *
+ * ⚠️ NO ES UNA REGLA NUEVA: es `stepsForStage` (lib/stage-requirements.ts) —la que usa el CRM y la que
+ * corre `proponer_cambio_etapa` al proponer (`faltantesParaMover`)— preguntada por una etapa sin lead.
+ * Con una copia («ganado pide monto, perdido pide motivo»), un funnel cuya etapa de cierre no se llama
+ * `ganado` mostraría el monto en otra columna que la que lo exige. Las reuniones (`sinR1`/`sinR2`)
+ * quedan afuera a propósito: un flujo no las puede cargar, y la acción no las exige (las deja dichas
+ * en el historial).
+ */
+export function datosQuePideLaEtapa(pipeline: readonly EtapaLite[], key: string): DatoDeEtapa[] {
+  const info = funnelReqInfo([...pipeline], key);
+  const pasos = stepsForStage(key, {
+    nivel: info.nivel, numReuniones: info.numReuniones, esVenta: info.esVenta, sinR1: true, sinR2: true,
+  });
+  return (['monto', 'motivo'] as const).filter((d) => pasos.some((p) => p.id === d));
+}
+
+// ── Lo que el editor necesita de la base ─────────────────────────────────────────────────────
+
+export type EtapaDeAccion = { value: string; label: string; pide: DatoDeEtapa[] };
+export type ProductoDeAccion = { embudoId: number; nombre: string; esDefault: boolean; etapas: EtapaDeAccion[] };
+export type SecuenciaDeAccion = { id: number; nombre: string };
+
+/**
+ * Las opciones de los controles (GET /api/flujos/opciones). Cada lista en `null` = NO SE
+ * PUDO LEER, que no es «no hay» (AGENTS.md: «No pude leer» es un tercer estado): el control lo dice
+ * y conserva lo puesto, en vez de ofrecer una lista vacía que se lee como que el negocio no tiene.
+ */
+export type OpcionesAccion = {
+  productos: ProductoDeAccion[] | null;
+  equipo: string[] | null;
+  secuencias: SecuenciaDeAccion[] | null;
+};
+
+// ── El control de cada parámetro ─────────────────────────────────────────────────────────────
+
+export type Control =
+  | 'lead' | 'etapa' | 'producto' | 'etiqueta' | 'secuencia' | 'persona' | 'monto' | 'fecha'
+  | 'si_no' | 'casilla' | 'opcion' | 'varias' | 'numero' | 'lista' | 'json' | 'texto_largo' | 'texto';
+
+type ParamDeControl = { nombre: string; tipo: TipoParametro; obligatorio?: boolean; enum?: readonly string[]; descripcion?: string };
+
+const ES_TEXTO_LARGO = /texto|mensaje|nota|detalle|descripcion|cuerpo|contenido|motivo/i;
+
+/** La moneda de un parámetro de plata, por su nombre o su descripción; null = no es plata. */
+export function monedaDe(p: Pick<ParamDeControl, 'nombre' | 'tipo' | 'descripcion'>): string | null {
+  if (p.tipo !== 'number') return null;
+  if (/(_usd|Usd)$/.test(p.nombre)) return 'USD';
+  if (/(_mxn|Mxn)$/.test(p.nombre)) return 'MXN';
+  if (/^monto/i.test(p.nombre)) return /\bMXN\b/.test(p.descripcion ?? '') ? 'MXN' : /\bUSD\b/.test(p.descripcion ?? '') ? 'USD' : '';
+  return null;
+}
+
+/**
+ * Qué control dibuja un parámetro. Por NOMBRE para los que son ids de algo del negocio (la etapa, el
+ * producto, la etiqueta, la automatización, la persona): un id se elige, nunca se tipea. Por tipo
+ * para el resto.
+ *
+ * ⚠️ LA ETAPA ES UN CONTROL DE DOS PASOS (producto → etapa de SU kanban). Si la acción declara
+ * `embudoId`, ese mismo control lo escribe y el reparto no lo dibuja aparte.
+ */
+export function controlDe(p: ParamDeControl): Control {
+  if (p.nombre === 'leadId') return 'lead';
+  if (p.nombre === 'etapa' && p.tipo === 'string' && !p.enum?.length) return 'etapa';
+  if (p.nombre === 'embudoId' && p.tipo === 'number') return 'producto';
+  if (p.nombre === 'etiquetaId' && p.tipo === 'number') return 'etiqueta';
+  if (p.nombre === 'secuenciaId' && p.tipo === 'number') return 'secuencia';
+  if ((p.nombre === 'closer' || p.nombre === 'setter') && p.tipo === 'string') return 'persona';
+  if (monedaDe(p) != null) return 'monto';
+  if (p.tipo === 'string' && /YYYY-MM-DD/.test(p.descripcion ?? '') && !/HH:MM/.test(p.descripcion ?? '')) return 'fecha';
+  if (p.tipo === 'boolean') return p.obligatorio ? 'si_no' : 'casilla';
+  if (p.tipo === 'string[]' && p.enum?.length) return 'varias';
+  if (p.enum?.length) return 'opcion';
+  if (p.tipo === 'number') return 'numero';
+  if (p.tipo === 'string[]') return 'lista';
+  if (p.tipo === 'object' || p.tipo === 'object[]') return 'json';
+  return ES_TEXTO_LARGO.test(p.nombre) ? 'texto_largo' : 'texto';
+}
+
+/**
+ * El producto de un control de etapa: el elegido (`embudoId`), o el que tiene esa etapa (el principal
+ * primero: es donde se mueve un lead con `proponer_cambio_etapa`), o el principal.
+ */
+export function productoDeLaEtapa(productos: readonly ProductoDeAccion[], embudoId: unknown, etapa: unknown): ProductoDeAccion | null {
+  if (typeof embudoId === 'number') return productos.find((p) => p.embudoId === embudoId) ?? null;
+  const tiene = (p: ProductoDeAccion) => typeof etapa === 'string' && p.etapas.some((e) => e.value === etapa);
+  if (typeof etapa === 'string' && etapa) return productos.find((p) => p.esDefault && tiene(p)) ?? productos.find(tiene) ?? null;
+  return productos.find((p) => p.esDefault) ?? productos[0] ?? null;
+}
+
+/** La etapa elegida en un paso, con lo que pide; null si no hay o no se pudo leer. */
+export function etapaElegida(params: Record<string, unknown>, opciones: OpcionesAccion | null | undefined): EtapaDeAccion | null {
+  if (!opciones?.productos || typeof params.etapa !== 'string') return null;
+  return productoDeLaEtapa(opciones.productos, params.embudoId, params.etapa)?.etapas.find((e) => e.value === params.etapa) ?? null;
 }
 
 // ── El formulario ───────────────────────────────────────────────────────────────────────────
@@ -253,19 +383,79 @@ export function naceSobreElLeadDelEvento(parametros: ReadonlyArray<{ nombre: str
   return !parametros.some((p) => OTRO_DESTINATARIO.includes(p.nombre));
 }
 
+const tieneValor = (v: unknown): boolean => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length);
+
+/** Cómo se ve un campo según lo que ya está elegido en el paso. */
+export type Visibilidad = 'obligatorio' | 'opcional' | 'oculto';
+
+/** Lo que el reparto necesita saber del paso para decidir los campos que dependen de otro. */
+export type ContextoDelPaso = { accionId: string; params: Record<string, unknown>; opciones?: OpcionesAccion | null };
+
+/**
+ * LOS CAMPOS QUE DEPENDEN DE OTRO. Lo que se lee en la captura de Martín: «Monto» y «Motivo» a la
+ * vista en «Mover de etapa» con cualquier etapa.
+ *   · con un control de ETAPA: el monto y el motivo aparecen —y obligatorios— sólo si la etapa
+ *     elegida los pide (`datosQuePideLaEtapa`, la regla del CRM). Sin etapa elegida, o sin poder leer
+ *     las etapas, no se ven (salvo que ya tengan valor: plegar lo puesto lo esconde). Y `embudoId` lo
+ *     escribe el mismo control, así que no se dibuja aparte;
+ *   · el estado de un cliente: el motivo, obligatorio para una baja (lo exige `preparar`, cs.run.ts) y
+ *     opcional al pausar; con activo o graduado no hay nada que explicar.
+ * El resto: obligatorio u opcional según la def.
+ */
+export function visibilidadDe(p: Pick<ParamDeControl, 'nombre' | 'tipo' | 'obligatorio' | 'enum'>, parametros: readonly Pick<ParamDeControl, 'nombre' | 'tipo' | 'enum'>[], ctx?: ContextoDelPaso): Visibilidad {
+  const declarado: Visibilidad = p.obligatorio === true ? 'obligatorio' : 'opcional';
+  if (!ctx) return declarado;
+  const conEtapa = parametros.some((x) => controlDe(x) === 'etapa');
+  if (conEtapa && p.nombre === 'embudoId') return 'oculto';
+  if (conEtapa && (p.nombre === 'monto' || p.nombre === 'motivo')) {
+    if (etapaElegida(ctx.params, ctx.opciones)?.pide.includes(p.nombre)) return 'obligatorio';
+    if (p.obligatorio === true) return 'obligatorio';
+    return tieneValor(ctx.params[p.nombre]) ? 'opcional' : 'oculto';
+  }
+  if (ctx.accionId === 'marcar_estado_cliente_cs' && p.nombre === 'motivo') {
+    if (ctx.params.estado === 'baja') return 'obligatorio';
+    if (ctx.params.estado === 'pausado' || tieneValor(ctx.params.motivo)) return 'opcional';
+    return 'oculto';
+  }
+  return declarado;
+}
+
 /** Lo mínimo de un parámetro que necesita el reparto del formulario. */
-type ParamReparto = Pick<Parametro, 'nombre' | 'obligatorio'>;
+type ParamReparto = Pick<Parametro, 'nombre' | 'obligatorio' | 'tipo' | 'enum'>;
 
 /**
  * Cómo se reparte el formulario de una acción: el lead aparte (va primero, como una línea), lo
  * obligatorio a la vista y lo opcional plegado detrás de «Más opciones». Lo que llena el FLUJO
- * (`ocultos`, de `LLENA_EL_FLUJO` en lib/api-mako/flujo-params.ts) no se dibuja.
+ * (`ocultos`, de `LLENA_EL_FLUJO` en lib/api-mako/flujo-params.ts) no se dibuja, y lo que depende de
+ * otro campo sale de `visibilidadDe` (con `ctx`; sin él, como lo declara la def).
+ *
+ * ⚠️ `plegar` es false cuando NO HAY NADA OBLIGATORIO a la vista: «Asignar closer o setter» tiene sus
+ * dos campos opcionales (pide uno de los dos), y plegados el formulario quedaba vacío con un «Más
+ * opciones» como única pista de que había algo que elegir.
  */
 export function repartoDelFormulario<P extends ParamReparto>(
-  parametros: readonly P[], pideLead: boolean, ocultos: ReadonlySet<string>,
-): { lead: P | null; obligatorios: P[]; opcionales: P[] } {
+  parametros: readonly P[], pideLead: boolean, ocultos: ReadonlySet<string>, ctx?: ContextoDelPaso,
+): { lead: P | null; obligatorios: P[]; opcionales: P[]; plegar: boolean } {
   const visibles = parametros.filter((p) => !ocultos.has(p.nombre));
   const lead = pideLead ? visibles.find((p) => p.nombre === 'leadId') ?? null : null;
-  const resto = visibles.filter((p) => p !== lead);
-  return { lead, obligatorios: resto.filter((p) => p.obligatorio === true), opcionales: resto.filter((p) => p.obligatorio !== true) };
+  const resto = visibles.filter((p) => p !== lead).map((p) => [p, visibilidadDe(p, parametros, ctx)] as const);
+  const obligatorios = resto.filter(([, v]) => v === 'obligatorio').map(([p]) => p);
+  return { lead, obligatorios, opcionales: resto.filter(([, v]) => v === 'opcional').map(([p]) => p), plegar: obligatorios.length > 0 };
 }
+
+/**
+ * Lo OBLIGATORIO que el formulario muestra y el paso no trae, por nombre de parámetro: lo declarado
+ * en la def MÁS lo que pide lo elegido (el monto al mover a Ganado, el motivo de una baja). El lead no
+ * cuenta (el del evento lo pone el motor: `faltanEnPaso`, lib/api-mako/flujo-params.ts). Es para
+ * «Probar» y «Publicar» (decisión 13 de la tercera tanda): `faltanEnPaso` sólo ve lo declarado, y un
+ * «Mover a Ganado» sin monto rebota en cada lead con «falta cargar: Monto de cierre».
+ */
+export function faltanDelFormulario(
+  accionId: string, parametros: readonly ParamReparto[], params: Record<string, unknown>, opciones?: OpcionesAccion | null, ocultos: ReadonlySet<string> = new Set(),
+): string[] {
+  const { obligatorios } = repartoDelFormulario(parametros, parametros.some((p) => p.nombre === 'leadId'), ocultos, { accionId, params, opciones });
+  return obligatorios.filter((p) => !tieneValor(params[p.nombre])).map((p) => p.nombre);
+}
+
+/** El rótulo de una opción cerrada («baja» → «Baja»): el valor se guarda tal cual. */
+export const rotuloDeOpcion = (v: string): string => (v ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, ' ') : v);
