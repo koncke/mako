@@ -7201,6 +7201,23 @@ primera edición si uno tiene su propia idea del orden.
 - **Un guard con regex sobre un fuente tolera CRLF**: `\r?\n`, nunca `\n` solo. En el clon de
   Windows los archivos llegan en CRLF.
 
+**Y desde la segunda tanda (09/10/2026), el flujo tiene HILOS EN PARALELO** (`paralelos` en una
+tarjeta y en el nodo `inicio` = el CRON; el motor los lleva en `nutricion_inscripciones.hilos`,
+mig 0228). Lo que eso exige al escribir código nuevo:
+
+- **Las salidas en paralelo son puertos `par:<id>`**, y las raíces de la salida son `raicesSalida`
+  (nunca sólo `raizSalida`, que es la principal). El inicio NUNCA es un paso: ni el motor ni «Probar»
+  lo ejecutan.
+- **Toda escritura de `hilos` sube `hilos_rev`**, o el compare-and-set del motor deja de proteger: una
+  retoma que escribe `hilos: null` sin subirla revivía hilos congelados.
+- **En modo hilos, el estado con que cierra el ÚLTIMO hilo es el de la inscripción**: un cierre
+  terminal se prueba en los dos órdenes (este hilo primero y último).
+- **El freno anti-ban y los topes son por canal** (WhatsApp por un lado, email por el otro), y el freno
+  de la corrida se actualiza en memoria después de cada envío. Un camino nuevo que mande algo pasa por
+  esa misma guarda.
+- **Lo que el lienzo OFRECE sale de la regla que Publicar RECHAZA** (`validarGrafo` sobre el flujo
+  hipotético), nunca de una copia parcial de sus reglas.
+
 # Un TIPO DE NODO nuevo son CINCO puertas; un CAMPO del nodo es UNA rama
 
 Cuando a un paso del lienzo le falta una capacidad —que el mensaje lo escriba la IA, que

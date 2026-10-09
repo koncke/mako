@@ -689,19 +689,195 @@ grepea cada prop nueva y cuenta sus call sites antes del commit.
 **Vive en:** `app/chatbot/FlujoLienzo.tsx` (`paraGuion`) · `app/chatbot/SimuladorWhatsApp.tsx`
 (`handoffs`) · `app/chatbot/ChatAgentApp.tsx` (`SecuenciaDto`)
 
-### Estado de producción al cerrar la corrida (08/10/2026, medido con SELECT)
+### Estado de producción (medido con SELECT)
 
-- Ni la 0223, ni la 0224, ni la 0225 están aplicadas.
-- Una inscripción en 'handoff' (id 199, ws1, secuencia #198, lead 2590, paso 1) con su hand-off #3
-  sin resolver; 0 inscripciones activas; 0 charlas cerradas; 0 secuencias con `funnel_id`.
-- El dry-run de `scripts/migrar-secuencias-a-grafo.mts` da 6 secuencias para convertir (#198, #212,
-  #213 y #220 del ws1; #209 y #210 del ws4) y 0 que no validan. No se corrió con `--aplicar`.
+- **08/10/2026, al cerrar la primera tanda:** ni la 0223, ni la 0224, ni la 0225 estaban aplicadas.
+  ⚠️ Es una afirmación CON FECHA: el mismo día se aplicaron, y la conversión de las 6 secuencias
+  corrió. La segunda tanda la leyó como estado actual y dos relevos la repitieron.
+- **09/10/2026, al cerrar la segunda:** 0223-0225 y **0228** aplicadas (`hilos`, `hilos_rev` y el
+  CHECK `nutricion_inscripciones_hilos_chk`, verificados contra information_schema y pg_constraint);
+  0 inscripciones activas en toda la base.
 
 ---
 
+## La segunda tanda (08-09/10/2026): un solo CRON, hilos en paralelo, editores anchos, IA
+
+El pedido (11 puntos), el diseño y las 16 decisiones están en docs/chatbot-flujo-ramas-diseno.md →
+«SEGUNDA TANDA». Se construyó en 7 partes (modelo + 6 en worktrees) y una revisión adversarial de
+5 frentes: 38 hallazgos, 32 confirmados por un verificador independiente, los 32 arreglados con test.
+
+### Una flecha en paralelo es un PUERTO, y así el modelo no tuvo que cambiar sus recorridos [modelo]
+
+**Qué:** `paralelos?: string[]` en mensaje, acción, espera y el nodo `inicio` (id `'entrada'`, se crea
+sólo con la primera flecha desde el CRON y va al FINAL del array para no correr índices).
+`puertosDe` los devuelve como `par:<id>`, así `apuntados`, `padreDe`, `descendientes`, la regla de un
+padre y las sueltas siguieron andando sin tocarlos. Lo que sí hubo que escribir: `raicesSalida`,
+`hiloDe` ('p' el principal, el id de la primera tarjeta de cada flecha, 'r' «Si responde') y las
+reglas de `validarGrafo` (paralelos en un bucle de «Ir a» = un hilo nuevo por vuelta; «Ir a» de la
+salida a otro hilo = el mismo mensaje dos veces).
+
+**La regla:** una clase nueva de nodo pasa por DOS lugares del guardado con dueños distintos: el
+saneo (`camposDelFlujo`) y el relleno (`esNodoDeControl`). Sanear la clase no alcanza: el inicio se
+guardaba como si fuera un mensaje. Y `PasoSecuencia` copiaba a mano la unión de `nodo`: al ampliar una
+unión del contrato, los tipos copiados y los `switch` exhaustivos de afuera se cuentan antes.
+
+**Vive en:** `lib/flujo-grafo.ts` · `lib/nutricion-grafo-motor.ts` (`camposDelFlujo`) · `lib/nutricion.ts`
+
+### Un compare-and-set por revisión sólo protege si TODOS los escritores suben la revisión [motor]
+
+**Síntoma (revisión):** una escritura del motor leída antes de que el lead contestara revivía los
+hilos congelados y pisaba la tarjeta del «Ir a» de «Si responde».
+
+**Causa:** las dos retomas (`responderConGrafo` y el destrabe de `pausarPorRespuesta`) escriben
+`hilos: null` sin subir `hilos_rev`; la fila volvió a 'activa' y la revisión seguía igual, así que el
+CAS del motor pasaba. ⚠️ Y el diagnóstico obvio al revés también es falso: perder el CAS NO dice «otra
+corrida movió este hilo»: cualquier hilo de la fila sube la revisión. Al perder se relee y se pregunta
+por ESTE hilo (`hiloSigueEn`).
+
+**La regla:** si el CAS es por la versión de la fila, exige también la FORMA leída (`not hilos is null`
+cuando se leyó con hilos), o todos los escritores suben la revisión.
+
+**Vive en:** `lib/nutricion.ts` (`escribirHilos`) · `lib/nutricion-hilos.ts`
+
+### En modo hilos, el estado del ÚLTIMO hilo que cierra es el de la inscripción [motor]
+
+**Síntoma (revisión):** mismo lead, mismos WhatsApp recibidos: el «no confirmó» salía o no según qué
+hilo cerraba último. Un email terminal (sin email, dado de baja) cerraba su hilo 'cancelada'; si era el
+último, la inscripción entera quedaba 'cancelada' y el desenlace la saltaba.
+
+**La regla:** todo cierre de hilo con estado terminal se prueba en los DOS órdenes. Con hilos, lo
+terminal de un email cierra 'completada' (el silencio se mide igual desde el último envío real).
+
+**Vive en:** `lib/nutricion.ts` · `lib/nutricion-hilos.ts` (`aplicarAHilo`) · `lib/nutricion-desenlace.ts`
+
+### «Vuelve a la cola» se decidía en TRES caminos, y el nuevo concepto entró en dos [motor]
+
+**Síntoma (revisión):** un hilo «Enseguida» que arrancaba una acción esperaba una hora; detrás de un
+mensaje o una espera salía en la misma corrida.
+
+**La regla:** si una decisión del motor se repite en varios caminos, va en UNA función que llamen
+todos; al sumar un concepto (hilos), `grep` de `otraVuelta = true` y revisar cada condición. Y lo nuevo
+del motor va FUERA de `procesarEnvios` (un test lo recorta con tope de 40.000 caracteres).
+
+**Vive en:** `lib/nutricion.ts` (`procesarEnvios`)
+
+### El freno anti-ban y los topes son POR CANAL, y eso cambia también a los flujos de antes [motor]
+
+`qNutri` y `enviosUltimas24h` contaban todos los canales y el freno se calculaba una vez por lote:
+WhatsApp y email del mismo CRON salían con 20 h de diferencia, y dos hilos de WhatsApp en la misma
+vuelta. Ahora los 20 h y los topes miran WhatsApp, el email tiene su propio freno y su tope
+(`MAX_EMAIL_POR_DIA` = 100), y `enviadoEnCorrida` se actualiza tras cada envío. ⚠️ No es «modo hilos»:
+un email masivo ya no frena 20 h al WhatsApp del mismo lead en NINGÚN flujo. Medido: 0 inscripciones
+activas al desplegar.
+
+**Ventana 9-21:** se decide con `zonaDelMotor` (`mako.timezone`; sin zona, Ciudad de México como
+siempre). El ws1 NO tiene `mako.timezone`; ws9/10/13/14/15 son Buenos Aires. Para MOSTRAR una hora va
+`tzDeWorkspace`. Guardar la zona del ws1 (America/Tijuana) es una decisión de Martín.
+
+**Vive en:** `lib/nutricion.ts`
+
+### Una validación nueva dentro de una escritura que corre un `ejecutar()` consume la pendiente [motor]
+
+Activar pasó a validar lo mismo que Publicar (decisión 15) adentro de `setSecuenciaActiva`, que es lo
+que corre el «sí» de la pendiente `nutricion_toggle`: el sí se consumía y contestaba error. La misma
+validación va exportada y la corre quien PROPONE. Regla de AGENTS.md («falla en preparar()»), aplicada
+a un throw nuevo en una función vieja: grepear quién la llama desde un `ejecutar()`.
+
+**Vive en:** `lib/nutricion.ts` (`setSecuenciaActiva`, `setSecuenciaPasos(…, { soloValidar })`) · `lib/mako-doer-acciones.ts`
+
+### Lo que un editor OFRECE sale de la regla que lo RECHAZA al guardar [modelo]
+
+El lienzo ofrecía «＋ En paralelo» y destinos de «Ir a» que Publicar después rechazaba: `admiteParalelo`
+y `tarjetasParaIrA` reescribían a mano PARTE de `validarGrafo` y se olvidaron del bucle. Para ofrecer un
+valor se corre la regla sobre el flujo hipotético con ese valor puesto. (Queda: «Crear con IA»
+—`problemaDeSalto`— todavía copia reglas en vez de usar `repartenEnBucle`.)
+
+**Vive en:** `lib/flujo-conversacion.ts` · `lib/flujo-grafo.ts` (`repartenEnBucle`) · `lib/flujo-ia.ts`
+
+### Lo que flota sobre un lienzo se mide contra la SALIDA del encuadre, no sólo contra los insets [ui]
+
+La caja de «Crear con IA» centrada entre los insets caía EXACTAMENTE encima del CRON, porque
+`encuadreInicial` centra el grafo en el mismo lugar. El encuadre le reserva su franja (`franjaIA`,
+`lib/crear-ia-lugar.ts`). Y el envoltorio de una capa con `pointerEvents: auto` mide lo mismo que lo que
+dibuja: el aire transparente también come clics. Lo que tiene un pedido en vuelo se ESCONDE, no se
+desmonta (desmontar cancela la IA).
+
+**Vive en:** `app/chatbot/SecuenciaPerfil.tsx` · `lib/crear-ia-lugar.ts`
+
+### El panel apaisado llega al rincón de abajo a la derecha y necesita capa propia [modelo, ui]
+
+Sin z-index, la esquina de avisos tapaba «Revisar antes de enviar» del editor en fila. Capa entre 55
+(esquina de avisos) y 60; los modales arrancan en 130. El contenido va en columna flex con `flex: 1` +
+`min-height: 0` (los editores anchos estiran así; nada de `height: 100%`).
+
+**Vive en:** `app/_components/Lienzo.tsx`
+
+### Crear con IA: lo que el modelo inventa se repara con código, y hay cosas que no se ven en los tests [ia]
+
+- **Un id, una etiqueta, un link o un monto nunca vienen del modelo**: la etiqueta por nombre (o se
+  crea), el link desde una clave, y un monto de Ganado vale sólo si aparece literal en lo que escribió
+  una persona. Las `{{variables}}` en los datos de una ⚡ Acción se borran (`aplicarVariables` corre
+  sólo sobre mensajes: llegarían con llaves al grupo).
+- **Dos padres y uno es una espera: gana la espera** (sólo existe para demorar lo que sigue). Lo
+  encontró una salida REAL de Groq que pasaba `validarGrafo`; las fixtures escritas a mano no.
+- **Lo que puede CREAR una referencia se resuelve antes de decidir qué se crea** (el disparador por
+  etiqueta nueva quedaba `etiqueta:-2`).
+- **Un callback que se llama al final de un pedido largo va por un ref**: la prop capturada al clic
+  comparaba contra el lienzo de hace un minuto.
+- **Cancelar sólo se dibuja mientras el server todavía lo respeta**, y un 409 por estado viejo
+  devuelve lo guardado.
+- **La key de Gemini de PLATAFORMA está bloqueada por Google** (403 «Your project has been denied
+  access»): una prueba «con la key de plataforma» no prueba nada; se probó por Groq.
+- **El voseo de la salida no lo caza `marcasDeVoseo`** (lista corta a mano): el detector bueno vive en
+  `tests/puente-panel-copy.test.ts`. Mudarlo a `lib` está sin hacer.
+- **Lo que una pantalla decide con un módulo que tiene prompts va en un módulo aparte**
+  (`lib/flujo-ia-cliente.ts`): importar un valor de `lib/flujo-ia.ts` desde un `'use client'` se lleva
+  los prompts al navegador.
+
+**Vive en:** `lib/flujo-ia.ts` · `lib/flujo-ia-cliente.ts` · `app/api/chat-agent/secuencias/ia/route.ts` · `app/chatbot/CrearConIA.tsx`
+
+### Un estado sembrado de una prop que el SERVER cambia bajo el mismo `key` [ui]
+
+Después de «Crear con IA», el CRON decía «A mano»: `disparo` se sembraba una vez y la ruta de IA cambia
+el disparador en el server sin cambiar el id. Se resiembra comparando una firma en el render. Lo mismo
+con la caché de etiquetas: una ruta del SERVER que crea entidades obliga a quien recibe su respuesta a
+invalidar la caché (`avisarCambioEtiquetas`).
+
+**Vive en:** `app/chatbot/SecuenciaPerfil.tsx` · `app/_components/etiquetas-cliente.tsx`
+
+### Cal.com: las respuestas, el aviso y lo que la pantalla promete [datos]
+
+Las respuestas se deduplican por clave (`responses` primero; `userFieldsResponses` repite), se saltean
+las ocultas, y lo que ya es un campo de la reserva se excluye en positivo. ⚠️ Un jsonb no conserva el
+orden de las claves: comparar con `JSON.stringify` contra lo guardado habría insertado de nuevo cada
+reentrega. Un emoji cortado en el tope deja un sustituto suelto y Postgres rechaza el jsonb ENTERO
+(se perdían todas las respuestas). Y el aviso dice «+N en el resumen»: el resumen tenía que leer ESA
+tabla (`lead_respuestas`).
+
+**Vive en:** `lib/calcom.ts` · `app/api/webhooks/calcom/route.ts` · `lib/leads.ts` · `lib/lead-respuestas.ts`
+
 ## Lo que quedó sin hacer
 
-**Antes de desplegar**
+**De la segunda tanda (09/10/2026)**
+
+- **Verla en un navegador en producción**: el CRON con «Al entrar» y «Si responde», el ＋ en paralelo,
+  las tarjetas de control, el editor apaisado (WhatsApp en fila, Gmail, la frase de etiqueta), el
+  selector de acciones, «Probar» ancho con un email, y crear con IA de punta a punta en el ws3.
+- **Las secuencias de los clientes, en pausa** (punto 10): las especificaciones validadas están en
+  `docs/relevo/chatbot-secuencias.json` (M1 confirmación pre-reunión que reemplaza a 212/213, la 220
+  con «Si responde», la Bienvenida con email; C2 confirmación y C3 no-show de Código Inmobiliario).
+  Falta crearlas con `setSecuenciaPasos` (crear la etiqueta «Confirmó» en el ws1; sacar el
+  `LINK_AGENDA_R1`, que no existe). Código Inmobiliario no tiene canal hoy.
+- `saveLeadRespuestas` guarda el set entero en UN insert: una fila mala pierde todas. `lib/leads.ts`
+- El «+N» de los avisos de la IA vive en el `title` (no se ve en un teléfono). `app/chatbot/SecuenciaPerfil.tsx`
+- `asignar_closer_setter` salió de la lista blanca de la IA en vez de validar nombres. `lib/flujo-ia.ts`
+- Un override guardado del prompt `chatbot.crear-ia.system` conserva el ejemplo viejo.
+- El editor y «Probar» pintan itálica con `_…_` sin bordes (`lead_nombre_x`). `app/agencia/EditorMensaje.tsx` · `app/_components/TextoMarcas.tsx`
+- `scripts/typecheck-lock.mjs` arma la ruta de tsc a mano: en un worktree anidado da MODULE_NOT_FOUND
+  (va `createRequire(...).resolve('typescript/bin/tsc')`). Lo mismo `tests/replay-envoltorio.test.ts`.
+- El detector de voseo bueno vive en un test; `validarIA` usa la lista corta.
+
+**De la primera tanda — antes de desplegar (HECHO el 08/10)**
 
 - **Aplicar la 0223, la 0224 y la 0225 ANTES del deploy** (el código nuevo lee sus columnas y
   tablas) y, después del deploy, correr `npx tsx scripts/migrar-secuencias-a-grafo.mts --aplicar`.
