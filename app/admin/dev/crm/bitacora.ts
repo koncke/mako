@@ -1408,5 +1408,46 @@ export const BITACORA: Hito[] = [
       "lib/mako-tools.ts · lib/meta-leads-campos.ts — formulario_meta en ficha_lead",
       "app/crm/page.tsx — sin PanelActivacion"
     ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "19:50",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Joan pidió una NOTA en el lead y MaKo creó una tarea",
+    "pedido": "Revisa el grupo con Brigitte, Joan le pidió que cargue una NOTA a ese lead y creó una tarea... Cuando justamente creamos toda una documentación API para que MaKo en WhatsApp pueda hacer todas las acciones dentro de la app.",
+    "puntos": [
+      "Joan, por audio: «Solo agregá esa nota al lead Nicolás».",
+      "Una hora antes, «movelo a calificado dentro del CRM» tampoco se hizo."
+    ]
+  },
+  {
+    "fecha": "8 oct",
+    "hora": "20:50",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "Los pedidos sobre un lead llegan a MaKo con su herramienta",
+    "puntos": [
+      "«Anotá» era «al plan» en tres lugares: clasificador, router y doer.",
+      "17 de 19 pedidos comunes del CRM llegaban sin su herramienta. Ahora llegan todos.",
+      "En los 178 mensajes reales cambian 4, y los 4 eran pedidos perdidos."
+    ],
+    "commits": [
+      {
+        "sha": "40d01258",
+        "msg": "MaKo por WhatsApp: los pedidos sobre un lead (nota, etapa, calificado, etiqueta, closer, alta) llegan con su herramienta",
+        "lineas": 295,
+        "archivos": 4
+      }
+    ],
+    "archivos": [
+      "lib/mako-intencion.ts — esPedidoSobreLead y la regla 3-quater",
+      "lib/mako-router.ts · lib/mako-doer-in.ts — «anotá en el lead» no es del plan",
+      "tests/crm-pedidos-whatsapp.test.ts — el turno real, con las frases de los grupos"
+    ]
   }
 ];

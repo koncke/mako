@@ -544,6 +544,78 @@ del chatbot (`lib/paso-ia.ts:96`) tampoco ven `meta_field_data`.
 *08/10/2026 — diagnóstico y refutación con subagentes, sólo lectura. Medido con la
 herramienta real: `#2594` pasó de 438 a 648 caracteres. Commit `ddfb07e8`.*
 
+## ⚠️ El registro tenía las operaciones del CRM y el clasificador no las dejaba llegar: «anotá» era «al plan» en TRES puertas (08/10/2026)
+
+**Vive en:** `lib/mako-intencion.ts` (`esPedidoSobreLead`, regla 3-quater, `PEDIDO_ANOTAR`) ·
+`lib/mako-router.ts` (`PLAN`) · `lib/mako-doer-in.ts` (`esCargaDePlan`, `guardarCrudo`) ·
+`tests/crm-pedidos-whatsapp.test.ts`
+
+Martín: «Joan le pidió que cargue una NOTA a ese lead y creó una tarea… Cuando justamente
+creamos toda una documentación API para que MaKo en WhatsApp pueda hacer todas las acciones».
+En ws15 (#1274), Joan dijo por audio: «Macu, anotá en el lead… Nicolás como una nota que ya
+tiene su propiedad con Remax… Solo agregá esa nota al lead Nicolás».
+
+**El diagnóstico obvio, «a MaKo le falta la herramienta», era el equivocado.**
+`agregar_nota_lead` existe, y su descripción dice textual «úsala cuando el dueño diga "anota en
+X que…"». Lo que pasó:
+
+1. **«Anotá» se leía como «cargalo al plan» en TRES lugares que no se hablan:**
+   - `PEDIDO_ANOTAR` del clasificador, la regla 2, que corre antes que todo;
+   - el `PLAN` del router (también con `agregá`, `sumá` y `cargá`), que pone `(plan)` en la
+     ruta, y con eso el doer exige un borrador del plan;
+   - `esCargaDePlan` del doer, que manda el «Claro, anoto eso 👇», obliga a usar una
+     herramienta y decide el guardado crudo.
+
+   El turno llegó con las 3 herramientas del plan.
+2. **Gemini dio 503 y el respaldo guardó el pedido como borrador del plan:** «MaKo no pudo
+   procesarlo — quedó tal cual lo dijiste» (`plan_propuestas`, `propmuzvpq2whd8hr`). Esa es
+   la «tarea» que vio Martín. El respaldo hizo lo que tenía que hacer con lo que le llegó: el
+   error estaba en la clasificación, no en el respaldo.
+3. **Una hora antes, otro pedido se había perdido sin que nadie lo notara.** «okay, movelo a
+   "calificado" dentro del CRM» cayó al default (`capturar`), porque «movelo» sin tilde no
+   está en ninguna lista. Con solo las herramientas del plan en la mesa, MaKo contestó «Voy a
+   moverlo a Calificado. ¿Confirmas?» **sin dejar ninguna pendiente**, y el «sí» chocó con
+   otro 503. Nicolas nunca se movió.
+
+⚠️ **No era un caso suelto.** Se midió con el turno real (clasificador + `herramientasDelTurno`).
+De 19 pedidos comunes del CRM (nota, mover de etapa, marcar calificado, asignar closer,
+etiqueta), 17 llegaban SIN su herramienta. Pasaban sólo «mové a Rosana…», con la tilde exacta
+que pide `ACCION_CUENTA_RE`, y el «sí» a un ofrecimiento.
+
+**La regla:**
+- **La señal es el OBJETO, no el verbo.** Un verbo de pedido más algo que sólo vive en el CRM
+  (lead, ficha, nota, etapa, «calificado», etiqueta, closer) da `actuar`, con el área y la
+  relevancia de su tipo. Sin la relevancia, la herramienta queda afuera del presupuesto de
+  12.000 caracteres. Por eso la nota sin la palabra «nota» («anotá en el lead de Rosana
+  que…») se marca por el verbo de anotar.
+- **Las tres puertas preguntan lo MISMO** (`esPedidoSobreLead`). Arreglar sólo el
+  clasificador deja el `(plan)` del router y el acuse de «anoto eso».
+
+**Medido sobre los 178 mensajes reales de `mako_doer_conv`:** cambian 4 clasificaciones, y
+las 4 eran pedidos perdidos:
+- #349 de ws11, «Me agregas a lead…»;
+- #1095 de ws13, «agrega el link a notas del lead…», que también había terminado de tarea
+  del plan;
+- #1267 y #1274 de ws15.
+
+Ningún volcado de ideas cambia.
+
+**Lo que quedó SIN hacer:**
+- **La nota se probó hasta el turno, no hasta la ficha.** `agregar_nota_lead` escribe el
+  evento `Nota` de `lead_audit`, el mismo que lee la tarjeta «Notas» de la ficha
+  (`getLeadNotasAction`, en `app/crm/actions.ts`). Pero no se corrió un «sí» de punta a punta,
+  porque ws15 es un cliente.
+- **«¿Confirmas?» sin pendiente.** Un turno sin la herramienta puede prometer una confirmación
+  que no existe, y nada lo ataja: `validarRespuestaDoer` caza un link inventado, no una
+  pregunta de confirmación sin pendiente.
+- **Gemini caído entero y una sola key.** La red de plataforma (Groq gratis) no entra en un
+  turno de más de ~7 k tokens, y el último recurso pago sigue siendo una decisión de Martín.
+- **Las operaciones del registro que no son del CRM tienen el mismo cuello**: ads, chatbot,
+  email. No se midió cuántas llegan por WhatsApp.
+
+*08/10/2026 — sin subagentes para el arreglo; diagnóstico leyendo `mako_doer_conv`,
+`anthropic_usage` y `plan_propuestas` de ws15.*
+
 ## Lo que quedó sin hacer en el núcleo
 
 | Qué | Dónde | Por qué no se hizo |
