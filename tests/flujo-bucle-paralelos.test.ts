@@ -64,7 +64,9 @@ test('⚠️ `nodosEnBucle`: el ciclo del grafo de EJECUCIÓN, incluidos dos sal
 test('⚠️ el ＋ en paralelo NO se ofrece en una tarjeta de un bucle; afuera del bucle, sí', () => {
   const g = grafoDeSecuencia(volverAlPrincipio(), { disparador: 'X' });
   assert.equal(nodo(g, 'm1').puertos![0].paralelo, undefined, 'se ofreció «En paralelo» en m1, dentro del bucle');
-  assert.equal(nodo(g, 'w1').puertos![0].paralelo, undefined, 'se ofreció «En paralelo» en la espera, dentro del bucle');
+  // Sexta tanda (DELAY 1): la espera de m1 al «Ir a» va SOBRE la flecha, sin salida propia: no ofrece nada.
+  assert.equal(nodo(g, 'w1').enFlecha, true);
+  assert.deepEqual(nodo(g, 'w1').puertos, [], 'se ofreció «En paralelo» en la espera, dentro del bucle');
   // Una tarjeta ANTES del bucle (m0 no vuelve a sí misma) sigue pudiendo repartir.
   const conM0 = [inicio('m0'), msg('m0', { siguiente: 'm1' }), msg('m1', { siguiente: 'w1' }), esp('w1', 'g1'), irA('g1', 'm1')];
   assert.deepEqual(validarGrafo(conM0), []);

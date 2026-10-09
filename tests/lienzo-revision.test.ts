@@ -33,7 +33,7 @@ import {
   faltaEscribir, estrategiaConLimpieza, seccionesDisparo, detalleDisparador,
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
-import { vistaConPanel } from '../lib/lienzo-grafo';
+import { vistaConPanel, ALTO_PUERTO } from '../lib/lienzo-grafo';
 import { escenariosDeRespuesta, nodoPorId, idDe, validarGrafo } from '../lib/flujo-grafo';
 import { saleSolo } from '../lib/nutricion-grafo-motor';
 
@@ -150,7 +150,8 @@ test('costuras-7: el alto de una nota de voz se suma por partes (reproductor, t�
   assert.ok(altoDeMensaje(voz('x'.repeat(2000)), { transcript: 'y'.repeat(500) }) <= 260, 'sin tope');
   // El árbol usa la biblioteca para saber si hay transcripción.
   const g = grafoDeSecuencia([voz('')], { disparador: 'X', audioDe: () => ({ transcript: 'Hola, te cuento algo largo que dice la nota de voz.' }) });
-  assert.equal(nodo(g, 'v').alto, altoDeMensaje(voz(''), { transcript: 'Hola, te cuento algo largo que dice la nota de voz.' }));
+  // Más la fila de su salida al pie (sexta tanda, punto 4: «Entonces ●»).
+  assert.equal(nodo(g, 'v').alto, altoDeMensaje(voz(''), { transcript: 'Hola, te cuento algo largo que dice la nota de voz.' }) + ALTO_PUERTO);
   assert.match(LIENZO_FLUJO, /audioDe: \(id\) => audios\.find\(\(a\) => a\.id === id\) \?\? null/);
 });
 

@@ -61,7 +61,7 @@ test('⚠️ el panel toma el alto que le pasan, TAMBIÉN de columna, y el conte
 });
 
 test('⚠️ el lienzo de /chatbot le pasa el tamaño del TIPO de la tarjeta abierta, no el del editor de WhatsApp', () => {
-  assert.match(FLUJO, /import \{ editorDeTarjeta, type Muelles \} from '@\/lib\/lienzo-grafo';/);
+  assert.match(FLUJO, /import \{ editorDeTarjeta,[^}]*type Muelles \} from '@\/lib\/lienzo-grafo';/);
   assert.match(FLUJO, /const talla = editorDeTarjeta\(muelles, sel != null \? grafo\.nodos\.find\(\(n\) => n\.id === sel\)\?\.tipo : null\);/);
   assert.match(FLUJO, /panelAncho=\{talla\.ancho\}/);
   assert.match(FLUJO, /panelAlto=\{talla\.alto\}/);

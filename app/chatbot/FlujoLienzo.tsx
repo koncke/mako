@@ -33,7 +33,12 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
-import { Lienzo, TarjetaNodo, inpLienzo, campoGrande, botonGrande } from '@/app/_components/Lienzo';
+import {
+  Lienzo, TarjetaNodo, IconoNodo, IconoBorrar, IconoAcomodar, inpLienzo, campoGrande, botonGrande, type ItemMenuLienzo,
+} from '@/app/_components/Lienzo';
+import { Icon } from '@/app/_components/icons';
+import { Toast, useToast } from '@/app/_ui';
+import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, type Edicion } from '@/lib/flujo-edicion';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import { EditorMensajeWhatsApp, BotonMakoWhatsApp, makoPosible, type EditorMensajeWhatsAppProps } from './EditorMensajeWhatsApp';
@@ -52,23 +57,24 @@ import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { aplicarVariables, VARIABLES_LEAD } from '@/lib/template-vars';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
-  claseDe, idDe, TOPE_CASOS,
+  claseDe, idDe, borrarNodo, TOPE_CASOS,
   type Espera, type NombresParaTexto,
 } from '@/lib/flujo-grafo';
 import {
-  grafoDeSecuencia, opcionesDelMas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
-  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, makoDeAccion,
+  grafoDeSecuencia, opcionesDelMas, opcionesSueltas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
+  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, makoDeAccion, errorLegible,
   ID_ENTRADA, PUERTO_RESPUESTA,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES,
-  type NodoFlujo, type QueAgregar,
+  MARCO_DISPARO, RENGLON_DISPARO, SEP_DISPARO, ALTO_NUEVO_DISPARO,
+  type NodoFlujo, type QueAgregar, type DisparadorTarjeta, type AristaFlujo,
 } from '@/lib/flujo-conversacion';
 import { partesExplicitas } from '@/lib/mensaje-partes';
-import { editorDeTarjeta, type Muelles } from '@/lib/lienzo-grafo';
+import { editorDeTarjeta, Y_ENTRADA, type Muelles } from '@/lib/lienzo-grafo';
 import {
   UNIDADES_ESPERA, SEGUNDOS_DE, rotuloUnidad, segundosDeMinutos, minutosDeSegundos, unidadMostrada, sinPrecision, avisoDePrecision,
   type UnidadEspera,
 } from '@/lib/espera-duracion';
-import { conPosiciones, moverRelativo, type Posiciones } from '@/lib/lienzo-posiciones';
+import { conPosiciones, moverRelativo, fijarPosicion, type Posiciones } from '@/lib/lienzo-posiciones';
 import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 
 const SANS = "'Geist', sans-serif";
@@ -98,7 +104,22 @@ export function FlujoLienzo({
   onPasos, onAgregar, onBorrar, onCrearRespuesta, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
   onTarjetaAbierta, reservaAbajo, triggerTipo, productos, posiciones, onPosiciones, linea,
+  disparadores, onNuevoDisparador, onAbrirDisparador, onPublicar, puedePublicar = false,
 }: {
+  /**
+   * LOS DISPARADORES DE LA TARJETA CRON (sexta tanda, CRON 10: «copiá la tarjeta de CRON de ManyChat…
+   * agrega la opción de tener más de un CRON»), uno por cajita. Los arma la parte de los disparadores
+   * desde SecuenciaPerfil. Sin esto, la tarjeta dibuja el disparador de siempre (`disparador`).
+   */
+  disparadores?: DisparadorTarjeta[];
+  /** «＋ Nuevo CRON», abajo de las cajitas. Sin esto, no se dibuja. Abre también el editor del CRON. */
+  onNuevoDisparador?: () => void;
+  /** Tocar la cajita de un disparador: abre el editor del CRON en ese disparador. */
+  onAbrirDisparador?: (id: string) => void;
+  /** «Publicar» desde el click derecho del lienzo (sexta tanda, punto 2: «guardar, etc...»). */
+  onPublicar?: () => void;
+  /** Hay algo que publicar: si no, la opción va apagada (como el botón). */
+  puedePublicar?: boolean;
   /**
    * EL NÚMERO DE SALIDA de la automatización y su guardado (cuarta tanda, punto 15): el mismo del
    * selector del CRON, en el editor de cada mensaje de WhatsApp. Sin esto, la fila no se dibuja.
@@ -232,15 +253,112 @@ export function FlujoLienzo({
     etiqueta: (id) => nombreEtiqueta(etiquetas, id), etapa: nombreEtapa,
     catalogo: nombresCatalogoDe(catalogosDe({ etapas, productos: productos ?? [], remotos: remotosCond })),
   };
+  const conNuevoDisparador = editable && !!onNuevoDisparador;
   const derivado = grafoDeSecuencia(pasos, {
     disparador, secuencias, tituloAccion: (op) => titulos?.get(op),
     nombres, colorEtiqueta: (id) => etiquetas.find((t) => t.id === id)?.color ?? null,
     audioDe: (id) => audios.find((a) => a.id === id) ?? null,
     pendientesOtraCosa,
+    // El alto de la tarjeta CRON es fijo y se suma por cajita (`altoCron`): tiene que saber cuántas son.
+    disparadores, nuevoDisparador: conNuevoDisparador,
   });
   // Lo movido, sobre el árbol. `moverRelativo` mide contra el DERIVADO: mover el CRON no arrastra al resto.
   const grafo = conPosiciones(derivado, posiciones, ID_ENTRADA);
   const pasoDe = (id: string) => pasos.find((p, i) => idDe(p, i) === id) ?? null;
+
+  // ── LO QUE EL MOUSE LE HACE AL FLUJO (sexta tanda): todo por lib/flujo-edicion.ts y `onPasos` ──
+  // Cada edición se calcula sobre el flujo de AHORA y, si no se puede, el motivo va al aviso de al lado
+  // de «Publicar» (`onError`, pasado por `errorLegible`: la red de `conectar` puede traer ids). Sube
+  // con foto (deshacible) y nada se guarda hasta Publicar: este archivo sigue sin guardar nada.
+  const { toast, show: avisar, clear: limpiarAviso } = useToast(6000);
+  const aplicar = (r: Edicion<PasoSecuenciaDto>): boolean => {
+    if (!r.ok) { onError(errorLegible(r.motivo, pasos)); return false; }
+    onPasos(() => r.pasos, true);
+    // Lo que se hizo bien borra el motivo de lo que no se pudo (si no, quedaba en rojo hasta Publicar).
+    onError('');
+    return true;
+  };
+  /** Una tarjeta nueva PUESTA en un punto (la suelta del click derecho, la copia de «Duplicar»). */
+  const ponerEn = (id: string, x: number, y: number) => {
+    onPosiciones?.(fijarPosicion(derivado, posiciones, id, Math.round(x), Math.round(y), ID_ENTRADA));
+  };
+  const crearSueltaEn = (que: QueAgregar, punto: { x: number; y: number }) => {
+    const r = crearSuelta(pasos, que);
+    onPasos(() => r.pasos, true);
+    ponerEn(r.id, punto.x, punto.y);
+    setSel(r.id);
+  };
+  const duplicarTarjeta = (id: string) => {
+    const r = duplicar(pasos, id);
+    if (!aplicar(r) || !r.ok || !r.id) return;
+    // La copia, debajo de la original (suelta: se conecta después).
+    const o = grafo.nodos.find((x) => x.id === id);
+    if (o) ponerEn(r.id, o.x, o.y + o.alto + 28);
+    setSel(r.id);
+  };
+  /**
+   * ELIMINAR UNA TARJETA: lo de después queda suelto (`eliminar`, por `onBorrar`). La espera que va EN
+   * UNA FLECHA es la excepción: es parte de la flecha, así que se saca de la cadena y la flecha queda
+   * (`borrarNodo` reconecta a su padre con lo de después).
+   */
+  const borrarTarjeta = (id: string) => {
+    if (grafo.nodos.find((x) => x.id === id)?.enFlecha) { onPasos((prev) => borrarNodo(prev, id), true); return; }
+    onBorrar?.(id);
+  };
+  /**
+   * LA PAPELERA DE UNA FLECHA (punto 6): la de después queda SUELTA. Si la flecha lleva esperas encima
+   * (sus pastillas), en el dato llega a la PRIMERA espera, y las esperas se van con la flecha: eran de ella.
+   */
+  const quitarFlecha = (a: AristaFlujo) => {
+    const r = desconectar(pasos, a.desde, a.puerto ?? 'sig', a.esperas?.[0]?.id ?? a.hasta);
+    if (!r.ok) { onError(errorLegible(r.motivo, pasos)); return; }
+    let out = r.pasos;
+    for (const e of a.esperas ?? []) { const x = eliminar(out, e.id); if (x.ok) out = x.pasos; }
+    onPasos(() => out, true);
+    if (sel && (a.esperas ?? []).some((e) => e.id === sel)) setSel(null);
+  };
+  /** «ACOMODAR» (punto 14): vuelve al árbol (borra lo movido), con su deshacer en el aviso. */
+  const hayPosiciones = !!posiciones && Object.keys(posiciones).length > 0;
+  const acomodar = () => {
+    if (!onPosiciones || !posiciones || !hayPosiciones) return;
+    const antes = posiciones;
+    onPosiciones({});
+    avisar('Acomodado', () => onPosiciones(antes));
+  };
+  const iconoMenu = (src?: string) => (src ? <img src={src} alt="" width={18} height={18} style={{ display: 'block' }} /> : undefined);
+  /** EL CLICK DERECHO EN EL FONDO (punto 2): crear cada tipo de tarjeta EN ese punto, Publicar y Acomodar. */
+  const menuLienzo = editable ? (punto: { x: number; y: number }): ItemMenuLienzo[] => [
+    ...opcionesSueltas().map((o) => ({
+      id: `crear-${o.value}`, label: o.label, grupo: o.grupo, icono: iconoMenu(o.icono),
+      onElegir: () => crearSueltaEn(o.value as QueAgregar, punto),
+    })),
+    ...(onPublicar ? [{ id: 'publicar', label: 'Publicar', grupo: 90, icono: <Icon name="check" size={16} />, deshabilitado: !puedePublicar || busy, onElegir: onPublicar }] : []),
+    ...(onPosiciones ? [{ id: 'acomodar', label: 'Acomodar', grupo: 90, icono: <IconoAcomodar />, deshabilitado: !hayPosiciones, onElegir: acomodar }] : []),
+  ] : undefined;
+  /** EL CLICK DERECHO EN UNA TARJETA (punto 2): duplicar, desconectar (le saca lo que le llega) y eliminar. */
+  const menuNodo = editable ? (id: string): ItemMenuLienzo[] => {
+    const paso = pasoDe(id);
+    if (id === ID_ENTRADA || !paso) return [];
+    const nodo = grafo.nodos.find((x) => x.id === id);
+    const leLlega = grafo.aristas.some((a) => a.hasta === id && !(a.esperas?.length && nodo?.enFlecha));
+    return [
+      ...(claseDe(paso) !== 'respuesta' ? [{ id: 'duplicar', label: 'Duplicar', icono: <Icon name="copy" size={16} />, onElegir: () => duplicarTarjeta(id) }] : []),
+      ...(leLlega && !nodo?.enFlecha ? [{ id: 'desconectar', label: 'Desconectar', icono: <Icon name="tijera" size={16} />, onElegir: () => aplicar(soltar(pasos, id)) }] : []),
+      { id: 'eliminar', label: 'Eliminar', grupo: 1, peligro: true, icono: <IconoBorrar />, onElegir: () => { if (sel === id) setSel(null); borrarTarjeta(id); } },
+    ];
+  } : undefined;
+  /** El botón «Acomodar», pegado al deshacer (donde estaba el ✦ de MaKo, punto 14). */
+  const conAcomodar = editable && onPosiciones ? (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {herramientas}
+      <button type="button" onClick={acomodar} disabled={!hayPosiciones} title="Acomodar" aria-label="Acomodar las tarjetas"
+        style={{
+          width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)',
+          color: hayPosiciones ? 'var(--dim)' : 'var(--faint)', cursor: hayPosiciones ? 'pointer' : 'default', opacity: hayPosiciones ? 1 : 0.45,
+        }}><IconoAcomodar /></button>
+    </span>
+  ) : herramientas;
   /**
    * ¿HAY UNA TARJETA ABIERTA? Se CALCULA del dato, igual que el Lienzo decide si dibuja el panel
    * (una selección que apunta a una tarjeta borrada no abre nada), y se avisa ANTES de pintar
@@ -267,6 +385,7 @@ export function FlujoLienzo({
   const talla = editorDeTarjeta(muelles, sel != null ? grafo.nodos.find((n) => n.id === sel)?.tipo : null);
 
   return (
+    <>
     <Lienzo
       grafo={grafo} seleccion={sel} onSeleccion={setSel}
       onMover={onPosiciones ? (id, x, y) => onPosiciones(moverRelativo(derivado, posiciones, id, x, y, ID_ENTRADA)) : undefined}
@@ -275,12 +394,16 @@ export function FlujoLienzo({
       insetDerChrome={muelles?.insets.derChrome} insetDerAbajo={muelles?.insets.derAbajo}
       panelForma={formaPanel} panelAlto={talla.alto}
       revelar={revelar} reservaAbajo={reservaAbajo}
-      chrome={chrome} herramientas={herramientas} accion={pie}
+      chrome={chrome} herramientas={conAcomodar} accion={pie}
       /* ⚠️ EL ＋ ES EL DE CADA SALIDA (y el del medio de cada flecha), y la tarjeta nueva se
          abre sola: casi todas nacen con algo que elegir (la acción, a dónde va el salto, la
          condición). La fila «Si responde» del CRON, vacía, crea «Si responde» (`crearRespuesta`):
-         desapareció la tarjeta fantasma que lo hacía (decisión 1, un solo CRON). */
-      onAgregarTras={editable ? ((id, que, puerto) => {
+         desapareció la tarjeta fantasma que lo hacía (decisión 1, un solo CRON).
+
+         ⚠️ SEXTA TANDA, PUNTO 5: el ＋ del círculo asoma una flecha y el menú va en su PUNTA
+         (`punto`). Si la tarjeta de origen está MOVIDA (tiene posición guardada), la nueva nace ahí,
+         en la punta: el árbol la pondría al lado de donde estaba antes la de origen, lejos de ella. */
+      onAgregarTras={editable ? ((id, que, puerto, punto) => {
         if (id === ID_ENTRADA && puerto === PUERTO_RESPUESTA) {
           const r = onCrearRespuesta ? onCrearRespuesta() : null;
           if (r) setSel(r);
@@ -288,14 +411,31 @@ export function FlujoLienzo({
         }
         const nuevo = onAgregar!(id, puerto, que as QueAgregar);
         if (nuevo) setSel(nuevo);
+        if (nuevo && punto && posiciones?.[id]) ponerEn(nuevo, punto.x, punto.y - Y_ENTRADA);
       }) : undefined}
       opcionesEn={(nodo, puerto, medio) => opcionesDelMas(pasos, nodo, medio, puerto)}
-      onBorrar={rolAdmin && onBorrar ? onBorrar : undefined}
+      onBorrar={rolAdmin && onBorrar ? borrarTarjeta : undefined}
       puedeBorrar={(id) => id !== ID_ENTRADA}
+      onConectar={editable ? (desde, puerto, hacia) => { aplicar(conectar(pasos, desde, puerto, hacia)); } : undefined}
+      onQuitarFlecha={editable ? quitarFlecha : undefined}
+      menuLienzo={menuLienzo} menuNodo={menuNodo}
+      nombreNodo={(id) => nombreDeTarjeta(pasos, id, nombres)}
       renderNodo={(n, activo) => {
         const paso = pasoDe(n.id);
         // La espera es una píldora de UNA línea: su texto va suelto (TarjetaNodo lo envuelve).
         if (n.tipo === 'espera') return <TarjetaNodo key={n.id} nodo={n} activo={activo}>{n.detalle}</TarjetaNodo>;
+        // LA TARJETA CRON (sexta tanda, CRON 10): «⚡ CRON», una cajita por disparador y «＋ Nuevo CRON».
+        if (n.id === ID_ENTRADA) {
+          return (
+            <TarjetaNodo key={n.id} nodo={n} activo={activo}>
+              <CuerpoCron
+                disparadores={disparadores?.length ? disparadores : [{ id: '', texto: n.detalle ?? disparador }]}
+                onAbrir={disparadores?.length && onAbrirDisparador ? (did) => { setSel(ID_ENTRADA); onAbrirDisparador(did); } : undefined}
+                onNuevo={conNuevoDisparador ? () => { setSel(ID_ENTRADA); onNuevoDisparador!(); } : undefined}
+              />
+            </TarjetaNodo>
+          );
+        }
         return (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={n.tipo === 'ir-a' && Boolean(n.advertencia)}>
             {n.tipo === 'mensaje' && paso
@@ -337,6 +477,55 @@ export function FlujoLienzo({
         );
       }}
     />
+    {/* El aviso de «Acomodado», con su deshacer (las posiciones no viven en la pila de los pasos). */}
+    <Toast state={toast} onClose={limpiarAviso} />
+    </>
+  );
+}
+
+/**
+ * EL CUERPO DE LA TARJETA CRON (sexta tanda, CRON 10, copiando la de ManyChat: «Me gusta que se vea la
+ * opción de Cron que seleccioné y abajo también "+Nuevo CRON"»): una cajita gris por disparador, con su
+ * ícono y su texto, y abajo el «＋ Nuevo CRON» punteado (el placeholder de la casa). La salida al pie
+ * («Entonces ●») la dibuja la tarjeta.
+ *
+ * ⚠️ LOS NÚMEROS SON LOS DE `altoCron` (lib/flujo-conversacion.ts: `MARCO_DISPARO`, `RENGLON_DISPARO`,
+ * `SEP_DISPARO`, `ALTO_NUEVO_DISPARO`): la tarjeta tiene alto fijo y se estima antes de pintar.
+ *
+ * Las cajitas y el «＋» son botones con `data-no-pan`: el lienzo no arma un gesto con ellos, así que su
+ * clic les llega (sin la marca, el lienzo lo tomaba como un clic en la tarjeta). Sin `onAbrir` la
+ * cajita es texto y tocarla abre la tarjeta, como siempre.
+ */
+function CuerpoCron({ disparadores, onAbrir, onNuevo }: {
+  disparadores: DisparadorTarjeta[]; onAbrir?: (id: string) => void; onNuevo?: () => void;
+}) {
+  const caja: CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 6, width: '100%', boxSizing: 'border-box', textAlign: 'left',
+    padding: `${(MARCO_DISPARO - 2) / 2}px 9px`, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)',
+    fontFamily: SANS, fontSize: 12.5, lineHeight: `${RENGLON_DISPARO}px`, color: 'var(--ink)', fontWeight: 600,
+  };
+  const texto: CSSProperties = { minWidth: 0, flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: SEP_DISPARO }}>
+      {disparadores.map((d) => {
+        const cuerpo = (
+          <>
+            {d.icono && <span style={{ flex: 'none', display: 'inline-flex' }}><IconoNodo icono={d.icono} tam={14} /></span>}
+            <span style={texto}>{d.texto}</span>
+          </>
+        );
+        return onAbrir && d.id
+          ? <button key={d.id} type="button" data-no-pan data-disparador={d.id} onClick={() => onAbrir(d.id)} title={d.texto} style={{ ...caja, cursor: 'pointer' }}>{cuerpo}</button>
+          : <div key={d.id || 'unico'} title={d.texto} style={caja}>{cuerpo}</div>;
+      })}
+      {onNuevo && (
+        <button type="button" data-no-pan data-nuevo-disparador onClick={onNuevo}
+          style={{
+            height: ALTO_NUEVO_DISPARO, width: '100%', borderRadius: 8, border: '1px dashed var(--border-strong)',
+            background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+          }}>＋ Nuevo CRON</button>
+      )}
+    </div>
   );
 }
 

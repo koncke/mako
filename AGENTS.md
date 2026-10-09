@@ -6548,7 +6548,7 @@ la que faltaba. El pedido volvió textual: «el "Qué lo dispara" NO es editable
 destraba es buscar el MECANISMO antes que el control: el número ya existía y estaba
 cableado en cada call site en vez de salir de la pantalla.
 
-# Un lienzo DIBUJA UNA AFIRMACIÓN: las aristas salen del DATO, no de un gesto
+# Un lienzo DIBUJA UNA AFIRMACIÓN: las aristas salen del DATO, aunque se dibujen con un gesto
 
 Una flecha que se bifurca dice «acá el motor decide». Se lee sin abrir nada y parece
 la estructura del sistema, así que un diagrama miente con más autoridad que un campo
@@ -6556,12 +6556,31 @@ en un formulario: nadie va a auditar una flecha.
 
 De ahí las dos reglas de cualquier pantalla tipo flujo en este repo:
 
-1. **Las aristas se DERIVAN del dato, no se configuran.** Lo que conecta dos cosas ya
-   está escrito y el motor ya lo ejecuta (el orden de los pasos, una condición, la
-   clave de la secuencia que sigue). Nadie arrastra una flecha — el editor de flechas
-   del funnel se construyó, el dueño lo llamó «rebuscado» y se borró. Y el beneficio
-   no es sólo de UX: una arista derivada no puede quedar vieja respecto del motor, y
-   una dibujada a mano sí.
+1. **La arista ES el dato; el gesto sólo lo escribe.** Lo que conecta dos cosas está
+   escrito en lo que el motor ejecuta (`siguiente`, las ramas, `si_no`, los casos, los
+   `paralelos` de /chatbot) y el dibujo SALE de ahí: nunca hay un «dibujo de la flecha»
+   guardado aparte. Una arista derivada no puede quedar vieja respecto del motor, y una
+   dibujada a mano sí.
+
+   ⚠️ **CAMBIÓ EL 09/10/2026 (sexta tanda): en /chatbot SE ARRASTRAN flechas.** Esta regla
+   decía «nadie arrastra una flecha» (el editor de flechas del funnel se había borrado
+   por rebuscado) y Martín lo pidió con todas las letras, copiando ManyChat: «si apreto y
+   mantengo el click en el "+" debería poder arrastrar esa flecha a otra tarjeta», con su
+   papelera para borrar ESA flecha y tarjetas sueltas que se conectan después. Lo que
+   sigue valiendo y gobierna el código nuevo:
+   - **El gesto llama a una función PURA que escribe el dato** (`conectar`, `desconectar`,
+     `eliminar`, `crearSuelta`, `duplicar` en `lib/flujo-edicion.ts`, con test) y el lienzo
+     vuelve a dibujar desde el dato. Ningún componente escribe `siguiente` a mano.
+   - **Lo que el gesto ofrece sale de las reglas que Publicar rechaza**: `conectar` corre
+     `validarGrafo` sobre el flujo conectado y no deja un error que antes no estaba (más
+     sus reglas propias: ni círculos, ni dos caminos en paralelo que se juntan, ni flechas
+     al CRON o a «Si responde»). Soltar en el vacío no hace nada.
+   - **Borrar una flecha o una tarjeta NUNCA borra lo de después**: queda SUELTA (punteada)
+     y Publicar la frena hasta que alguien la conecte. Y sin nodo de inicio, una edición
+     que cambiaría «la primera que nadie apunta» deja la flecha del CRON explícita: si no,
+     la de después pasaba sola a colgar del CRON.
+   - Una tarjeta puede tener VARIOS padres (punto 13); para juntar ramas ya no hace falta
+     «Ir a». /mensajes no arrastra flechas: sus nodos no tienen puertos.
 2. **Sólo se dibuja la rama que el motor EJECUTA.** Se ata con un guard que lee las
    condiciones de la fuente del motor y falla si las dos listas se separan, en
    cualquiera de las dos direcciones (molde: `CONDICIONES_VIVAS` en

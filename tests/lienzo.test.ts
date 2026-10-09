@@ -183,7 +183,9 @@ test('⚠️ y el LIENZO usa las dos, y guarda el `antes` UNA sola vez', () => {
   // 2.000 desde el 08/10 (revisión, lienzo-4): el efecto ganó el tope derecho del corrimiento
   // y su comentario; el recorte mide ~1.800 con los saltos CRLF de un worktree. 2.600 desde la
   // segunda tanda: ganó la rama del panel APAISADO (`vistaConPanelAbajo`); mide ~2.250.
-  assert.ok(ef.length < 2600, `el recorte del efecto mide ${ef.length}: está mirando otra cosa`);
+  // 2.900 desde la sexta tanda: ganó la pastilla de la espera que va en una flecha (`posicionDePildora`);
+  // mide ~2.700.
+  assert.ok(ef.length < 2900, `el recorte del efecto mide ${ef.length}: está mirando otra cosa`);
   assert.match(ef, /const prox = apaisado\r?\n\s+\? vistaConPanelAbajo\(vista\.current, n, \{/, 'el panel apaisado no corre la vista en vertical');
   assert.match(ef, /antes: corrimiento\.current\?\.antes \?\? vista\.current/,
     'el lienzo pisa el `antes` en cada corrimiento: volver deja la vista del nodo anterior');

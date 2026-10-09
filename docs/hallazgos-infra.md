@@ -2849,6 +2849,11 @@ formas distintas:
    imágenes del build de todas las sesiones. Antes de borrar lo que queda, se listan los
    enlaces (`Get-ChildItem -Recurse -Attributes ReparsePoint`) y se sacan de a uno, igual que
    el de `node_modules`.
+   ⚠️ **Y `next dev` deja DOS, en otra carpeta**: `.next/dev/node_modules/postcss-<hash>` y
+   `sharp-<hash>`, junctions al `postcss` y al `sharp` del clon (medido el 09/10/2026 al bajar
+   un dev server de verificación). Se sacan con `cmd /c rmdir` antes de borrar `.next`, contando
+   los archivos del clon antes y después. Y matar el server deja además `.next/dev/types`
+   cortado: el typecheck da rojo en `routes.d.ts`/`validator.ts` hasta que se borra.
 2. **`.env.local`** — está en `.gitignore`, así que el worktree nace sin él y la app arranca sin
    credenciales. Se copia.
 3. **El puerto** — `next start` y `next dev` compiten igual. `EADDRINUSE` se lee como si el
