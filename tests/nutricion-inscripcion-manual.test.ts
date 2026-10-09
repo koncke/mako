@@ -174,7 +174,9 @@ test('lo que el motor vuelve a mirar al mandar se pregunta con SUS funciones, y 
   assert.match(FN, /\.insert\(\{\s*lead_id: leadId, secuencia_id: s\.id, paso_actual: 0, estado: 'activa', proximo_envio_at: proximo,\s*\.\.\.\(prepara \? \{ reunion_at: reunionAt \} : \{\}\),/);
   // El primer envío lo programa el nodo de ENTRADA (08/10/2026): con ramas, `pasos[0]` puede ser
   // «Si responde» o una condición, y no el primer mensaje.
-  assert.match(FN, /const proximo = proximoEnvioDePaso\(pasoDeEntrada\(pasos\), lead\);/);
+  // Y desde la segunda tanda (08/10/2026), con flechas en paralelo desde el CRON, el MÍNIMO entre
+  // las raíces (`proximoDeEntrada`): con una sola raíz es el nodo de entrada, como antes.
+  assert.match(FN, /const proximo = proximoDeEntrada\(pasos, \(p\) => proximoEnvioDePaso\(p, lead\)\);/);
   // El unique (lead_id, secuencia_id) que choca no es un error de la base: otra corrida ganó.
   assert.match(FN, /if \(error\?\.code === '23505'\) return \{ inscribe: false, porque: 'carrera'/);
   assert.match(FN, /try \{ await procesarEnvios\(\{ soloLeadId: leadId \}\); \}/, 'la vía rápida de enrolarPorEvento');

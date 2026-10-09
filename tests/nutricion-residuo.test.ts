@@ -250,7 +250,8 @@ test('⚠️ los dos horarios (dry-run y commit) escalonan el residuo', () => {
   const fn = bloque(src, 'async function aInscribir(', '\n}\n');
   assert.ok(fn.length < 3000, `el recorte mide ${fn.length}: mira otra cosa`);
   assert.match(fn, /sec\.trigger_tipo === TRIGGER_RESIDUO && pendientes\.length\s*\?\s*await horariosResiduo\(db, \{ pendientes,/);
-  assert.match(fn, /proximo_envio_at: escalonados\?\.get\(lead_id\) \?\? proximoEnvioDePaso\(/);
+  // (Segunda tanda, 08/10/2026: sin escalonado, el mínimo entre las raíces, `proximoDeEntrada`.)
+  assert.match(fn, /proximo_envio_at: escalonados\?\.get\(lead_id\) \?\? proximoDeEntrada\(sec\.pasos, \(p\) => proximoEnvioDePaso\(p, /);
   assert.doesNotMatch(src, /horariosDeInscripcion\(/, 'volvió el segundo camino del horario');
   const llamadas = [...src.matchAll(/await aInscribir\(supabase, sec, candidatos\)/g)];
   assert.equal(llamadas.length, 2, 'son dos los que inscriben: el dry-run y el commit, y los dos por aInscribir');
