@@ -43,6 +43,19 @@ export type CampoCredencial = {
   secreto?: boolean;
   /** true → el servicio puede quedar "conectado" sin este campo. */
   opcional?: boolean;
+  /**
+   * Para un campo `opcional` que igual HACE FALTA: qué no anda sin él, en una frase. Con esto la
+   * pantalla lo pinta «falta» y no «opcional».
+   *
+   * Existe por el remitente de Resend (09/10/2026, punto 15 del audio de Customer Success). No
+   * puede dejar de ser `opcional`: eso lo leen los tres lectores de «conectado»
+   * (`integracionConectada`, `verificarServicio`, /api/metodo) y la tab /email se abre con la key
+   * sola, que es como se verifica el dominio desde MaKo. Marcarlo obligatorio dejaba esa tab detrás
+   * de la activación justo a quien tiene que entrar a verificar. Pero sin remitente los correos
+   * salen de onboarding@resend.dev y sólo le llegan al dueño de la cuenta, así que «opcional» era
+   * mentira: son dos preguntas («¿se puede abrir?» y «¿sale algo?») y cada una tiene su campo.
+   */
+  sinEsto?: string;
   /** Nota corta debajo del campo (formato esperado, dónde se ve, etc.). */
   nota?: string;
   /** true → su valor define el HOST de un request de "Probar conexión". Al
@@ -233,7 +246,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'Envío de emails de nutrición, broadcasts y reportes.',
     campos: [
       { env: 'RESEND_API_KEY', label: 'API key', secreto: true, placeholder: 're_…', nota: 'Empieza con re_. Se saca en resend.com → "API Keys" → "Create API Key", con el permiso "Full access". Se muestra UNA sola vez.' },
-      { env: 'RESEND_FROM', label: 'Remitente', opcional: true, placeholder: 'Tu negocio <hola@tudominio.com>', nota: 'Tu nombre, un espacio y tu correo entre < >. Por ejemplo: Tu negocio <hola@tunegocio.com>. El dominio (lo que va después de la arroba) tiene que estar verificado en Resend, o el envío falla.' },
+      { env: 'RESEND_FROM', label: 'Remitente', opcional: true, sinEsto: 'Sin remitente, tus correos solo te llegan a ti.', placeholder: 'Tu negocio <hola@tudominio.com>', nota:'Tu nombre, un espacio y tu correo entre < >. Por ejemplo: Tu negocio <hola@tunegocio.com>. El dominio (lo que va después de la arroba) tiene que estar verificado en Resend, o el envío falla.' },
     ],
     tutorial: {
       url: 'https://resend.com/domains',
@@ -261,7 +274,10 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Copia la key —empieza con re_— y pégala en el campo "API key". Se muestra UNA sola vez.',
         'En el campo "Remitente" escribe cómo quieres que te vean: tu nombre, un espacio, y tu correo entre los signos < >. Por ejemplo: Tu negocio <hola@tunegocio.com>.',
         'Ese correo tiene que ser del dominio que acabas de verificar, o el envío falla.',
-        'El remitente es opcional: si lo dejas vacío MaKo usa uno por defecto, pero entonces tu cliente no ve tu nombre en el correo.',
+        // ⚠️ Decía «El remitente es opcional: si lo dejas vacío MaKo usa uno por defecto». Falso
+        // con tu propia key: el «por defecto» es onboarding@resend.dev, que sólo le entrega al
+        // dueño de la cuenta de Resend (punto 15 del audio de Customer Success, 08/10/2026).
+        'No dejes el remitente vacío: sin él los correos salen desde onboarding@resend.dev, que solo te los entrega a ti. Nadie más los recibe.',
       ],
     },
   },

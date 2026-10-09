@@ -14,6 +14,7 @@ import { credWs } from './credenciales';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
+import { problemaDelRemitente } from './resend-remitente';
 
 type Valores = Record<string, string>;
 
@@ -140,6 +141,10 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     if (status === 401) return { ok: false, error: 'API key inválida.' };
     if (status >= 400) return { ok: false, error: `Resend respondió ${status}.` };
     const dominios = (body.data as Array<{ name?: string; status?: string }> | undefined) ?? [];
+    // El remitente se juzga contra ESTA cuenta (la key de este ping), antes de guardar: un dominio
+    // que no está o no verificó hace fallar cada envío después, sin que la pantalla lo diga.
+    const problema = problemaDelRemitente(v.RESEND_FROM, dominios);
+    if (problema) return { ok: false, error: problema };
     const verificados = dominios.filter((d) => d.status === 'verified').map((d) => d.name).filter(Boolean);
     return {
       ok: true,

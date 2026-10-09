@@ -67,6 +67,9 @@ type Campo = {
   ilegible: boolean;
   /** Cómo se consigue ESTA credencial. Si falta, cae al tutorial del servicio. */
   ayuda: Tutorial | null;
+  /** Opcional para «conectado», pero sin él algo no anda (ver `CampoCredencial.sinEsto`):
+   *  vacío se pinta «falta», nunca «opcional». */
+  sinEsto?: string | null;
 };
 /** Lo que hay que pegar del OTRO lado. Ver PasoExterno en lib/metodo-catalogo. */
 type PasoExterno = { titulo: string; porque: string; valor: string; donde: string; ojo?: string[] };
@@ -129,6 +132,12 @@ function semaforo(c: Campo, tipeado: boolean): { color: string; texto: string; p
   if (tipeado) return { color: 'var(--primary)', texto: 'sin guardar', placeholder: '' };
   if (c.ilegible) return { color: 'var(--bad)', texto: 'ilegible', placeholder: 'Vuelve a pegarla' };
   if (c.configurado) return { color: 'var(--good)', texto: 'guardada', placeholder: `••••${c.mask}` };
+  // ⚠️ «OPCIONAL» SÓLO SI DE VERDAD NO HACE FALTA. El remitente de Resend no cuenta para
+  // «conectado» (la tab /email tiene que poder abrirse con la key sola, para verificar el
+  // dominio desde ahí), y aun así sin él los correos salen de onboarding@resend.dev y sólo le
+  // llegan al dueño de la cuenta. Decía «opcional» y Leandro, con la key puesta y los correos
+  // sin salir, lo leyó como lo que decía (Customer Success, audio del 08/10/2026, punto 15).
+  if (c.opcional && c.sinEsto) return { color: 'var(--warn-fill)', texto: 'falta', placeholder: 'Falta' };
   if (c.opcional) return { color: 'var(--faint)', texto: 'opcional', placeholder: 'Opcional' };
   return { color: 'var(--warn-fill)', texto: 'pendiente', placeholder: 'Pendiente' };
 }
@@ -167,9 +176,24 @@ export function IconBtn({ name, title, onClick, disabled, tone = 'dim' }: {
 // "¿Cómo consigo ESTA key?" — se despliega bajo su propia fila. Va en azul suave
 // para que no se confunda ni con la barra gris de la key ni con el aviso de
 // seguridad de arriba.
-function PasosAyuda({ ayuda }: { ayuda: Tutorial }) {
+//
+// ⚠️ EL LINK VA ARRIBA DE TODO, antes de los pasos (Customer Success, audio del 08/10/2026,
+// punto 13). Abajo de una lista de doce pasos no lo encontraba nadie, y es lo único que hace
+// falta para la mitad de las personas: ir a la página donde se saca la key.
+//
+// Y la `nota` del catálogo vive ACÁ adentro: se dibujaba en gris debajo del campo, donde «no la
+// va a leer nadie», y tapaba el «Cómo configurarlo». Algunas dicen algo que los pasos no dicen
+// («Lo completa MaKo», «con el prefijo act_»), así que no se borra: se muda.
+function PasosAyuda({ ayuda, nota }: { ayuda: Tutorial; nota?: string | null }) {
   return (
     <div style={{ marginTop: 8, padding: '12px 14px', borderRadius: 11, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)', animation: 'mkFade .18s ease' }}>
+      {ayuda.url && (
+        <a href={ayuda.url} target="_blank" rel="noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10, padding: '7px 12px', borderRadius: 'var(--r-sm)', background: 'var(--surface)', border: '1px solid var(--primary-weak)', fontSize: 13, fontWeight: 650, color: 'var(--primary-strong)', textDecoration: 'none' }}>
+          {ayuda.urlLabel ?? 'Abrir'} ↗
+        </a>
+      )}
+      {nota && <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5, marginBottom: 10 }}>{nota}</div>}
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
         {ayuda.pasos.map((p, i) => (
           <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
@@ -178,12 +202,6 @@ function PasosAyuda({ ayuda }: { ayuda: Tutorial }) {
           </li>
         ))}
       </ol>
-      {ayuda.url && (
-        <a href={ayuda.url} target="_blank" rel="noreferrer"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12.5, fontWeight: 600, color: 'var(--primary-strong)', textDecoration: 'none' }}>
-          {ayuda.urlLabel ?? 'Abrir'} ↗
-        </a>
-      )}
     </div>
   );
 }
@@ -718,11 +736,13 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           const verValor = revelado[c.env];
           const m = msg[c.env];
           const ocupada = guardando === c.env || probando === c.env || quitando === c.env || revelando === c.env;
+          const ayuda = c.ayuda ?? servicio.tutorial;
           return (
             <div key={c.env}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 7 }}>
                 <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
-                <span style={{ flex: 'none', marginLeft: 'auto', fontFamily: MONO, fontSize: 10.5, color: sem.color, whiteSpace: 'nowrap' }}>{sem.texto}</span>
+                <span title={!c.configurado && c.sinEsto ? c.sinEsto : undefined}
+                  style={{ flex: 'none', marginLeft: 'auto', fontFamily: MONO, fontSize: 10.5, color: sem.color, whiteSpace: 'nowrap' }}>{sem.texto}</span>
               </div>
 
               {/* UNA barra: semáforo + valor + acciones, todo adentro */}
@@ -770,11 +790,13 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
 
                 {/* Qué botones tiene cada estado:
                     · guardada       → ver · probar · quitar
-                    · algo tipeado   → ayuda · guardar (el tilde YA prueba antes
-                                       de guardar, así que un "probar" aparte
-                                       sobra y confunde)
-                    · vacía          → ayuda, y nada más: sin key no hay nada que
-                                       guardar ni que probar. */}
+                    · algo tipeado   → guardar (el tilde YA prueba antes de guardar,
+                                       así que un "probar" aparte sobra y confunde)
+                    · vacía          → nada: sin key no hay nada que guardar ni que
+                                       probar.
+                    La ayuda NO es un botón de la barra desde el 09/10/2026: era un «?»
+                    que «pasa desapercibido» (Customer Success, audio del 08/10, punto
+                    13). Es el «Cómo configurarlo» con rótulo, debajo del campo. */}
                 {cerrada ? (
                   <>
                     {verValor
@@ -785,9 +807,6 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
                   </>
                 ) : (
                   <>
-                    <IconBtn name="help" title={ayudaAbierta[c.env] ? 'Ocultar la ayuda' : `¿Cómo consigo ${c.label.toLowerCase()}?`}
-                      tone={ayudaAbierta[c.env] ? 'primary' : 'dim'}
-                      onClick={() => setAyudaAbierta((a) => ({ ...a, [c.env]: !a[c.env] }))} />
                     {/* ⚠️ CON RÓTULO, NO UN TILDE MUDO.
 
                         Era un `IconBtn` de check y nada más. Medido acompañando a un
@@ -832,17 +851,21 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
               )}
               {c.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6, lineHeight: 1.45 }}>Guardada pero ilegible (rotó la clave de cifrado) — vuelve a pegarla.</div>}
 
-              {/* La nota del catálogo dice qué es ESTE campo y de dónde sale ("Lo
-                  completa MaKo", "Con el prefijo act_"). Solo mientras está por
-                  cargarse: con la credencial ya guardada sobra, y con la ayuda
-                  abierta la repetiría el tutorial. */}
-              {!cerrada && !ayudaAbierta[c.env] && c.nota && (
-                <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 6, lineHeight: 1.45 }}>{c.nota}</div>
+              {/* «Cómo configurarlo», CON RÓTULO y debajo del campo (Customer Success, audio
+                  del 08/10/2026, punto 13). Reemplaza dos cosas: el «?» de la barra, que
+                  pasaba desapercibido, y la nota gris de debajo, que «no la va a leer
+                  nadie» — la nota ahora vive adentro de la ayuda (PasosAyuda), con el link
+                  a la página de keys arriba de todo. Solo mientras NO esté guardada: al
+                  guardar la credencial (cerrada), la ayuda se cierra sola. */}
+              {!cerrada && ayuda && (
+                <button type="button" aria-expanded={!!ayudaAbierta[c.env]}
+                  onClick={() => setAyudaAbierta((a) => ({ ...a, [c.env]: !a[c.env] }))}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 7, padding: 0, border: 0, background: 'transparent', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--primary-strong)', cursor: 'pointer' }}>
+                  {ayudaAbierta[c.env] ? 'Ocultar' : 'Cómo configurarlo'}
+                  <span aria-hidden style={{ display: 'inline-flex', transform: ayudaAbierta[c.env] ? 'rotate(180deg)' : 'none', transition: 'transform .15s ease' }}><Icon name="chevron" size={13} /></span>
+                </button>
               )}
-
-              {/* Ayuda de ESTA key. Solo mientras NO esté guardada: al guardar la
-                  credencial (cerrada), el tutorial se cierra solo (no queda colgado). */}
-              {!cerrada && ayudaAbierta[c.env] && <PasosAyuda ayuda={c.ayuda ?? servicio.tutorial} />}
+              {!cerrada && ayuda && ayudaAbierta[c.env] && <PasosAyuda ayuda={ayuda} nota={c.nota} />}
             </div>
           );
         })}

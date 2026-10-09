@@ -183,6 +183,8 @@ async function estadoServicio(servicioKey: string, ctx: Contexto) {
       placeholder: c.placeholder ?? null,
       secreto: !!c.secreto,
       opcional: !!c.opcional,
+      // Opcional para «conectado» pero sin él algo no anda: la pantalla lo pinta «falta».
+      sinEsto: c.sinEsto ?? null,
       nota: c.nota ?? null,
       host: !!c.host,
       // true → no se pide como campo: lo completa la app (ver CampoCredencial.auto).

@@ -8,6 +8,7 @@
 
 import 'server-only';
 import { credWs } from './credenciales';
+import { remitenteEsSandbox } from './resend';
 import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
@@ -179,6 +180,22 @@ export async function getIntegraciones(): Promise<Integracion[]> {
     for (const k of d.envs) {
       const ok = d.global ? envGlobalReal(k) : Boolean(await credWs(k));
       if (!ok) faltan.push(k);
+    }
+    // ⚠️ EMAIL CON LA KEY Y SIN REMITENTE NO ESTÁ CONECTADO, aunque la key sea lo único que pide
+    // para abrir /email (por eso el remitente sigue `opcional` en el catálogo, ver `sinEsto`). Sin
+    // remitente los correos salen de onboarding@resend.dev y sólo le llegan al dueño de la cuenta
+    // de Resend; la tarjeta decía «Conectada» al lado de un campo vacío (Customer Success, audio
+    // del 08/10/2026, punto 15). Medido ese día: el ws4 tiene su key y ningún remitente.
+    // Es una lectura para DIBUJAR: si el setting no se pudo leer cae al sandbox y dice «falta»,
+    // que se corrige solo en la próxima carga; no decide ningún envío.
+    if (d.key === 'email' && !faltan.length && await remitenteEsSandbox().catch(() => false)) {
+      return {
+        key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
+        estado: 'falta' as EstadoIntegracion,
+        detalle: 'Falta el remitente: tus correos solo te llegan a ti.',
+        tieneDetalle: d.tieneDetalle,
+        ...delMetodo(d.key),
+      };
     }
     return {
       key: d.key,
