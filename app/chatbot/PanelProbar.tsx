@@ -33,24 +33,44 @@
 //     mandado no lo reenvía: el simulador no espera las esperas, y ese bucle eran ~21 WhatsApp
 //     iguales en segundos por la línea NO oficial (datos-4). El server además topea por destino.
 //
+// ── SEGUNDA TANDA (08/10/2026, noche): ANCHO Y BAJO, Y CON VARIOS CAMINOS ──────────────
+// Pedido de Martín, punto 8: «El "Probar" debe ser más ancho también, no tan largo, sino, se
+// rompe el diseño». Decisión 11 del diseño: arriba a la derecha, ~560 × ~400, con el editor del
+// nodo en la franja de abajo. Lo que cambió acá:
+//   · LLENA EL RECTÁNGULO QUE LE DA SU PADRE (`width/height: 100%`). Dónde va y cuánto mide lo
+//     decide UNA función pura del lienzo (`muelles`, lib/lienzo-grafo.ts), no este componente:
+//     con tres componentes eligiendo su lugar, el editor y «Probar» se pisaban.
+//   · LA CABECERA EN UN RENGLÓN (Probar · Cambió ↻ · ↻ · ✕ Cerrar) y LOS DOS INTERRUPTORES EN
+//     UNA FILA: con ~400 de alto, cada renglón apilado es chat que no se ve.
+//   · UN EMAIL SE VE COMO UN MAIL (`CorreoDePrueba`: ✉️ asunto, la vista previa en gris y el
+//     cuerpo recortado), no como una burbuja de WhatsApp.
+//   · VARIOS CAMINOS A LA VEZ: el recorrido corre el hilo de reloj más bajo
+//     (lib/simulador-grafo.ts), así que el email del día 0 sale antes que el WhatsApp del día 1.
+//
 // ⚠️ EL TEXTO DE ESTA PIEZA ES CORTO A PROPÓSITO (AGENTS.md, «el texto que se DIBUJA»): una
 // píldora son 1-4 palabras. El porqué de cada cosa vive acá, no en la pantalla.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { Switch } from '@/app/_ui';
+import { TextoMarcas } from '@/app/_components/TextoMarcas';
 import { useTitulosAcciones } from '@/app/_components/EditorAccionMako';
 import type { AudioSetting, PasoSecuenciaDto, SecuenciaDto } from './ChatAgentApp';
 import type { EdicionLocal } from './SecuenciaPerfil';
 import { raizRespuesta } from '@/lib/flujo-grafo';
 import {
   flujoParaProbar, firmaFlujo, iniciar, siguiente, elegir, pausarPorRespuesta, entrarEnRespuesta,
-  escenarioParaRedactar, textoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
+  escenarioParaRedactar, textoDeEjemplo, correoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
   type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba,
 } from '@/lib/simulador-grafo';
 
-/** El ancho del teléfono. Lo usa quien lo monta para correr lo que flota (`insetDer`). */
-export const PANEL_PROBAR_ANCHO = 360;
+/**
+ * El tamaño que pide «Probar»: ancho y bajo (decisión 11). Lo usa quien lo monta para elegir el
+ * rectángulo y correr lo que flota; el componente llena lo que le den. Con el rectángulo de
+ * `muelles` (lib/lienzo-grafo.ts), la cuenta vive allá y esto es sólo el pedido.
+ */
+export const PANEL_PROBAR_ANCHO = 560;
+export const PANEL_PROBAR_ALTO = 400;
 
 const API = '/api/chat-agent/simulador';
 const ESCRIBIENDO_MS = 600;
@@ -65,10 +85,78 @@ const iconBtn: CSSProperties = {
   background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
 };
+const cerrarBtn: CSSProperties = {
+  ...iconBtn, width: 'auto', padding: '0 11px', gap: 5, color: 'var(--ink)', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap',
+};
 const inpReal: CSSProperties = {
   flex: 1, minWidth: 0, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-strong)',
   background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 12.5, fontFamily: "'Geist', sans-serif", outline: 'none',
 };
+/**
+ * Un interruptor con su destino al lado. Las dos van en UNA fila; en un panel angosto la segunda
+ * baja (`flex-wrap`), nunca se aplastan los rótulos.
+ */
+const filaReal: CSSProperties = { flex: '1 1 240px', minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 };
+
+/** Lo que sale de un email del flujo, para dibujarlo como un mail. */
+export type CorreoVisto = { asunto: string; vistaPrevia: string; cuerpo: string };
+
+/**
+ * Un mensaje del teléfono de «Probar». Un email del flujo viaja con `tipo: 'email'` y su `correo`
+ * (lo que `CorreoDePrueba` dibuja) ADENTRO del mensaje, no en un mapa aparte: así sobrevive a ↻ y
+ * al orden del hilo sin una segunda fuente que mantener.
+ */
+export type MsgProbar = HiloMsg & { correo?: CorreoVisto };
+
+/**
+ * Cómo se dibuja a mano un mensaje del hilo de «Probar»: un email, como un MAIL; todo lo demás,
+ * `null` (la burbuja de siempre). Es lo que `ChatHilo` recibe por `renderMensaje`.
+ *
+ * ⚠️ `ChatHilo` (app/whatsapp/_shared/ChatHilo.tsx) todavía NO tiene esa prop y no es de esta parte:
+ * hasta que se le agregue, un `tipo` desconocido cae a la burbuja de WhatsApp con «✉️ asunto» como
+ * firma y el cuerpo adentro (se ve, pero no como un mail). El pedido exacto (la prop en ChatHilo y
+ * `renderMensaje={dibujarMensajeProbar}` acá) lo lleva el reporte de la parte P de la segunda tanda.
+ */
+export function dibujarMensajeProbar(m: HiloMsg): ReactNode | null {
+  const c = m.tipo === 'email' ? (m as MsgProbar).correo : undefined;
+  return c ? <CorreoDePrueba {...c} /> : null;
+}
+
+/**
+ * Un email del flujo tal como se ve en la bandeja: ✉️ el asunto, la vista previa en gris (el
+ * preheader) y el cuerpo recortado. NO es una burbuja de WhatsApp: «Probar» muestra cómo llega
+ * cada cosa, y un email que se ve como un WhatsApp no prueba nada (decisión 11).
+ *
+ * El cuerpo se recorta con `line-clamp` y no cortando el texto: un corte a mano puede partir una
+ * marca (`*negrita*`) y dejar el asterisco a la vista. Las marcas se pintan como en el envío.
+ */
+export function CorreoDePrueba({ asunto, vistaPrevia, cuerpo }: CorreoVisto) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+      <div aria-label="Email" style={{
+        width: 'min(420px, 92%)', minWidth: 0, boxSizing: 'border-box', padding: '10px 13px',
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
+        boxShadow: '0 1px 2px rgba(18,21,27,.04)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, minWidth: 0 }}>
+          <span aria-hidden style={{ flex: 'none', fontSize: 13 }}>✉️</span>
+          <span style={{ minWidth: 0, flex: 1, fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {asunto || 'Sin asunto'}
+          </span>
+        </div>
+        {vistaPrevia && (
+          <div style={{ marginTop: 2, fontSize: 12.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vistaPrevia}</div>
+        )}
+        <div style={{
+          marginTop: 7, paddingTop: 7, borderTop: '1px solid var(--border)', fontSize: 13, lineHeight: 1.45, color: 'var(--dim)',
+          whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        }}>
+          {cuerpo.trim() ? <TextoMarcas texto={cuerpo} /> : 'Sin escribir'}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 async function postar(body: Record<string, unknown>): Promise<Record<string, unknown> & { ok?: boolean; error?: string }> {
   try {
@@ -112,7 +200,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   /** La huella del flujo con el que arrancó esta prueba: si cambia, el panel lo dice. */
   const [firmaProbada, setFirmaProbada] = useState(firmaViva);
 
-  const [mensajes, setMensajes] = useState<HiloMsg[]>([]);
+  const [mensajes, setMensajes] = useState<MsgProbar[]>([]);
   const [typing, setTyping] = useState<{ lado: 'left' | 'right'; autor?: string } | null>(null);
   const [opciones, setOpciones] = useState<OpcionRama[] | null>(null);
   /** Las pruebas de verdad. El destino se precarga y NO se guarda en ningún lado. */
@@ -181,7 +269,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   // el estado de ahora. Lo que cambia con las props se copia a `ctx` después de cada render.
   const flujoRef = useRef(flujoVivo);
   const simRef = useRef<EstadoSim>(iniciar(flujoVivo));
-  const msgsRef = useRef<HiloMsg[]>([]);
+  const msgsRef = useRef<MsgProbar[]>([]);
   const run = useRef(0);
   const timers = useRef<number[]>([]);
   const seq = useRef(0);
@@ -200,7 +288,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
 
   const firma = () => ctx.current.negocio || 'Tu negocio';
   const nuevoId = (pre: string) => `${pre}-${++seq.current}`;
-  const poner = (m: HiloMsg) => { msgsRef.current = [...msgsRef.current, m]; setMensajes(msgsRef.current); };
+  const poner = (m: MsgProbar) => { msgsRef.current = [...msgsRef.current, m]; setMensajes(msgsRef.current); };
   const sistema = (texto: string, tono: 'ok' | 'bad' | null = null) =>
     poner({ id: nuevoId('sis'), fromMe: false, tipo: 'sistema', tono, texto, fecha: new Date().toISOString() });
   const luego = (ms: number, fn: () => void) => {
@@ -246,10 +334,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     const c = ctx.current;
     const ahora = new Date().toISOString();
     if (p.canal === 'email') {
-      const asunto = textoDeEjemplo(p.asunto ?? '', c.negocio);
-      const texto = textoDeEjemplo(p.cuerpo, c.negocio);
-      poner({ id: nuevoId('em'), fromMe: false, autor: `✉️ ${asunto || 'Email'}`, texto, fecha: ahora });
-      mandarReal({ canal: 'email', tipo: 'texto', texto, asunto }, nodo, enRespuesta);
+      const correo = correoDeEjemplo(p, c.negocio);
+      // `tipo: 'email'` + su `correo`: `dibujarMensajeProbar` lo dibuja como un mail. `autor` y
+      // `texto` son el respaldo para un hilo que todavía no acepte `renderMensaje` (ver arriba).
+      poner({ id: nuevoId('em'), fromMe: false, tipo: 'email', correo, autor: `✉️ ${correo.asunto || 'Sin asunto'}`, texto: correo.cuerpo, fecha: ahora });
+      mandarReal({ canal: 'email', tipo: 'texto', texto: correo.cuerpo, asunto: correo.asunto }, nodo, enRespuesta);
       return;
     }
     if (p.tipo === 'audio') {
@@ -407,14 +496,22 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
 
   const cambio = firmaViva !== firmaProbada;
 
+  // LLENA EL RECTÁNGULO DEL PADRE (`width/height: 100%`): el lugar y el tamaño los decide quien lo
+  // monta (`muelles`). Un padre que lo ancla arriba Y abajo sin dar alto lo dimensiona con el
+  // ancla: ahí un `height: 100%` lo estiraría más allá del borde de abajo.
+  const raiz: CSSProperties = {
+    display: 'flex', flexDirection: 'column', minHeight: 0, gap: 8, padding: 10,
+    width: '100%', height: '100%',
+    background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18,
+    boxShadow: '0 8px 28px rgba(18,21,27,.12)', boxSizing: 'border-box', ...style,
+  };
+  if (style?.top != null && style?.bottom != null && style.height == null) delete raiz.height;
+
   return (
-    <section aria-label="Probar" style={{
-      display: 'flex', flexDirection: 'column', minHeight: 0, gap: 8, padding: 10,
-      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18,
-      boxShadow: '0 8px 28px rgba(18,21,27,.12)', boxSizing: 'border-box', ...style,
-    }}>
-      <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 0' }}>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Probar</span>
+    <section aria-label="Probar" style={raiz}>
+      {/* La cabecera, en UN renglón: el nombre, «Cambió» si el flujo se editó, ↻ y ✕ Cerrar. */}
+      <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 0', whiteSpace: 'nowrap' }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis' }}>Probar</span>
         {cambio && (
           <button type="button" onClick={reiniciar} title="Reiniciar con lo último"
             style={{ flex: 'none', background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 600, color: 'var(--warn)', cursor: 'pointer' }}>
@@ -422,18 +519,20 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           </button>
         )}
         <button type="button" onClick={reiniciar} title="Reiniciar" aria-label="Reiniciar" style={iconBtn}>↻</button>
-        <button type="button" onClick={() => { cortar(); onCerrar(); }} title="Cerrar" aria-label="Cerrar" style={iconBtn}>✕</button>
+        <button type="button" onClick={() => { cortar(); onCerrar(); }} title="Cerrar" aria-label="Cerrar" style={cerrarBtn}>✕ Cerrar</button>
       </div>
 
-      {/* «In messengers»: sólo el admin manda de verdad. El destino es de esta prueba. */}
+      {/* «In messengers»: sólo el admin manda de verdad. El destino es de esta prueba. Los dos
+          interruptores en UNA fila (`filaReal`): en un panel bajo, cada renglón apilado es chat
+          que no se ve. */}
       {rolAdmin && (
-        <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 2, padding: '0 2px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Switch checked={realWa} onChange={setRealWa} label="A mi WhatsApp" />
+        <div style={{ flex: 'none', display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 16, rowGap: 0, padding: '0 2px' }}>
+          <div style={filaReal}>
+            <span style={{ flex: 'none' }}><Switch checked={realWa} onChange={setRealWa} label="A mi WhatsApp" /></span>
             <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" aria-label="Tu WhatsApp" placeholder="Tu número" style={inpReal} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Switch checked={realEmail} onChange={setRealEmail} label="A mi email" />
+          <div style={filaReal}>
+            <span style={{ flex: 'none' }}><Switch checked={realEmail} onChange={setRealEmail} label="A mi email" /></span>
             <input value={email} onChange={(e) => setEmail(e.target.value)} inputMode="email" aria-label="Tu email" placeholder="Tu email" style={inpReal} />
           </div>
         </div>
