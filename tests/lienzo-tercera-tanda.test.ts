@@ -173,7 +173,11 @@ test('⚠️ «Probar» se frena con lo mismo que Publicar, abre la tarjeta, y e
   assert.match(perfil, /const canales = canalesParaProbar\(pasos\);/);
   assert.match(perfil, /\{canales\.length > 1 \? \(\s*<Dropdown value="" resetAfterSelect sinFlecha=\{false\} botonLabel="▶ Probar"/);
   assert.match(perfil, /<button onClick=\{\(\) => probar\(canales\[0\]\)\} title="Probar esta automatización" style=\{estiloProbar\}>▶ Probar<\/button>/);
-  assert.match(perfil, /onProbar\?: \(canal: 'whatsapp' \| 'email'\) => void;/);
+  // El tipo del canal es el del panel (`CanalProbar`, app/chatbot/PanelProbar.tsx): uno en las dos puntas.
+  assert.match(perfil, /onProbar\?: \(canal: CanalProbar\) => void;/);
+  assert.match(perfil, /import type \{ CanalProbar \} from '\.\/PanelProbar';/);
+  // El «⋯» de la lista prende o pausa sin remontar el lienzo: el interruptor se resiembra de la prop.
+  assert.match(perfil, /if \(secuencia\.activa !== activaVista\) \{ setActivaVista\(secuencia\.activa\); setActiva\(secuencia\.activa\); \}/);
 });
 
 test('⚠️ «Publicar» sin el cartel «Sin publicar»: apagado si no hay cambios', () => {
@@ -197,6 +201,11 @@ test('el emoji del título: se guarda sólo un emoji, null vuelve al del objetiv
 test('⚠️ el emoji se toca en el chrome, se guarda por su acción y el GET lo devuelve (mig 0229, antes del deploy)', () => {
   const perfil = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
   assert.match(perfil, /<EmojiPickerMini value=\{emojiVisto\} onPick=\{\(e\) => void guardarEmoji\(e\)\} \/>/);
+  // El DTO declara `emoji` (integración): sin el cast estructural, y la lista de la izquierda dice el
+  // mismo emoji que el chrome, con el mismo respaldo (el del objetivo).
+  assert.match(perfil, /const emojiProp = secuencia\.emoji \?\? null;/);
+  assert.match(sinComentarios(leer('../app/chatbot/ChatAgentApp.tsx')), /emoji\?: string \| null;/);
+  assert.match(sinComentarios(leer('../app/chatbot/SimuladorWhatsApp.tsx')), /const emojiSecuencia = \(j: SecuenciaDto\): string =>\n\s+j\.emoji \|\| \(j\.estrategia/);
   assert.match(perfil, /const j = await api\(\{ action: 'emoji', secuenciaId: secuencia\.id, emoji: e \}\);/);
   assert.match(perfil, /const emojiVisto = emojiGuardado \|\| \(est \? \(EMOJI_OBJ\[est\.objetivo as Objetivo\] \?\? '🎯'\) : '⚑'\);/, 'sin emoji guardado, el del objetivo');
   const ruta = sinComentarios(leer('../app/api/chat-agent/secuencias/route.ts'));

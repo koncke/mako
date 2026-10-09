@@ -94,6 +94,8 @@ export type SecuenciaDto = {
   instance_name?: string | null;
   /** La etiqueta que la dispara (`trigger_tipo: 'etiqueta_puesta'`, mig 0223). */
   etiqueta_id?: number | null;
+  /** El emoji del título (mig 0229). `null`/ausente = el del objetivo. */
+  emoji?: string | null;
   /**
    * EL HORARIO con el que inscribe (mig 0192). `null`/ausente = se dispara por una
    * ACCIÓN, que es lo que hacen hoy todas las filas. Ver lib/nutricion-agenda.ts.
@@ -340,7 +342,6 @@ function ChatAgentInner() {
   };
   /** La lista que se dibuja: la del server más la fila que se está creando (`listaConCreando`). */
   const visibles = secuencias === null ? null : listaConCreando(secuencias, creando);
-  const ejemplosIA = huecos.slice(0, 2).map((h) => `Una bienvenida para quien llega a «${h.label}»`);
 
   // ── El ancla del deep link ────────────────────────────────────────────────
   // Se aplica UNA sola vez. Sin el ref, cada render volvería a forzar la sub-tab
@@ -578,7 +579,7 @@ function ChatAgentInner() {
           secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={(pedido) => void crearNueva(pedido)} errorNueva={errCrear} onReload={() => void load()}
-          ejemplosIA={ejemplosIA} pedidoIA={pedidoIA}
+          pedidoIA={pedidoIA}
           abrir={abrirSec}
           handoffs={sinCaso}
           /* ⚠️ QUÉ ETAPAS QUEDARON SIN SECUENCIA — ERA UNA FRANJA ARRIBA DEL LIENZO.

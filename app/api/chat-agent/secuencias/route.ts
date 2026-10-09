@@ -12,10 +12,11 @@
 //        { action:'trigger', id, trigger_tipo, etapa?, producto_id?, funnel_id?, etiqueta_id? }
 //                                                          → «qué lo dispara» (400 si no se puede)
 //        { action:'emoji', secuenciaId, emoji | null }    → el emoji del título (mig 0229; 400 si no es uno)
+//        { action:'duplicar', secuenciaId }               → { secuenciaId, nombre } (la copia nace PAUSADA)
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
+import { getRolWsEfectivo, getWorkspaceActual, getWorkspace, getTenantDb } from '@/lib/workspace';
 import {
   getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, crearSecuenciaVacia, probarSecuencia,
   muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa, setDisparadorEntrega, renombrarSecuencia, setCronSecuencia,
@@ -39,6 +40,10 @@ import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
 import { getEntregables, setEntregables } from '@/lib/entregable';
 import { getInstanciaRow, motivoCaida } from '@/lib/evolution';
 import { envioWhatsappHabilitadoEstricto } from '@/lib/envio-flags';
+// «Duplicar» del «⋯» de la lista (tercera tanda, decisión 6). La copia entra por las puertas de cada
+// campo: los pasos por `setSecuenciaPasos` y el horario por `setCronSecuencia` (lib/secuencia-duplicar.ts).
+import { duplicarSecuencia, type DbDuplicar } from '@/lib/secuencia-duplicar';
+import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -289,6 +294,19 @@ export async function POST(req: NextRequest) {
       const nuevoLm = { id: `lm-${Date.now().toString(36)}`, nombre, tipo: 'Lead magnet', queEs: '', fomo: '', enlace };
       await setEntregables([...lista, nuevoLm]);
       return Response.json({ ok: true, id: nuevoLm.id });
+    }
+    // «Duplicar»: una copia PAUSADA con los mismos pasos y el mismo disparador. Un paso que ya no pasa
+    // la validación de hoy contesta 400 con el motivo (y la copia a medias se borra).
+    if (body.action === 'duplicar') {
+      const id = Number(body.secuenciaId);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
+      try {
+        const r = await duplicarSecuencia(id, { db: (await getTenantDb()) as unknown as DbDuplicar, setPasos: setSecuenciaPasos, setCron: setCronSecuencia });
+        return Response.json({ ok: true, secuenciaId: r.id, nombre: r.nombre });
+      } catch (e) {
+        if (e instanceof PasosInvalidosError) return Response.json({ ok: false, error: e.message }, { status: 400 });
+        throw e;
+      }
     }
     if (body.action === 'archivar') {
       // Sin ids = archivar TODAS las vigentes. Es la salida para el dueño que

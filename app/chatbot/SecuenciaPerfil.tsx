@@ -28,6 +28,7 @@ import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas 
 import { Dropdown } from '@/app/components/Dropdown';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
+import type { CanalProbar } from './PanelProbar';
 import { franjaIA, CAJA_IA_ANCHO, BARRA_IA_ANCHO, RESERVA_ABAJO_CREAR } from '@/lib/crear-ia-lugar';
 import { resumenAvisos, edicionVigente } from '@/lib/flujo-ia-cliente';
 import type { Objetivo } from '@/lib/setting-estrategia';
@@ -95,7 +96,7 @@ export type EdicionLocal = {
   instance_name: string | null;
 };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, ejemplosIA, pedidoIA }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, pedidoIA }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver un «Ir a» y convertir un «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -113,7 +114,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * Email, sólo con los que el flujo usa). Lo decide quien monta: el panel es una vista hermana del
    * lienzo. Se llama recién cuando el flujo pasa lo mismo que Publicar (`frenoDelFlujo`).
    */
-  onProbar?: (canal: 'whatsapp' | 'email') => void;
+  onProbar?: (canal: CanalProbar) => void;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   rolAdmin: boolean;
@@ -155,8 +156,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * componente y lo no publicado se perdía sin aviso (medido, R1/R3).
    */
   onSinPublicar?: (hay: boolean) => void;
-  /** «Crear con IA»: pedidos de ejemplo para la caja de una automatización vacía. */
-  ejemplosIA?: readonly string[];
   /** «Crear con IA»: un pedido ya escrito (el «Armar una» de una etapa sin automatización). */
   pedidoIA?: string;
 }) {
@@ -318,12 +317,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   /**
    * EL EMOJI (mig 0229, `nutricion_secuencias.emoji`): se guarda al elegir, optimista y con la vuelta
    * si el server dice que no. Sin emoji guardado, el del objetivo (el de siempre). `undefined` en el
-   * optimista = «todavía no tocaron nada, manda la prop».
-   *
-   * ⚠️ El DTO todavía no declara `emoji` (SecuenciaDto vive en ChatAgentApp.tsx, de otra parte): se
-   * lee estructural hasta que la integración sume el campo.
+   * optimista = «todavía no tocaron nada, manda la prop». La lista de la izquierda lee el mismo campo
+   * (`SecuenciaDto.emoji`) con el mismo respaldo.
    */
-  const emojiProp = (secuencia as SecuenciaDto & { emoji?: string | null }).emoji ?? null;
+  const emojiProp = secuencia.emoji ?? null;
   const [emojiOptimista, setEmojiOptimista] = useState<string | null | undefined>(undefined);
   const emojiGuardado = emojiOptimista !== undefined ? emojiOptimista : emojiProp;
   const emojiVisto = emojiGuardado || (est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑');
@@ -337,6 +334,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   };
 
   const [activa, setActiva] = useState(secuencia.activa);
+  // El «⋯» de la lista prende o pausa sin remontar el lienzo (misma `key`): lo de afuera manda. Es el
+  // ajuste de estado en el render (no un efecto): el interruptor cambia en el mismo pintado que la lista.
+  const [activaVista, setActivaVista] = useState(secuencia.activa);
+  if (secuencia.activa !== activaVista) { setActivaVista(secuencia.activa); setActiva(secuencia.activa); }
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -653,7 +654,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * uno solo, un botón). Quien monta abre el panel con ese canal (`onProbar(canal)`).
    */
   const canales = canalesParaProbar(pasos);
-  const probar = (canal: 'whatsapp' | 'email') => {
+  const probar = (canal: CanalProbar) => {
     if (!onProbar) return;
     const freno = frenoDelFlujo(pasos);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
@@ -690,7 +691,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       {rolAdmin && pasos.length === 0 && (
         <div data-crear-ia="crear" style={{ position: 'absolute', ...franja, display: tarjetaAbierta ? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 }}>
           <div style={{ pointerEvents: 'auto', width: `min(${CAJA_IA_ANCHO}px, 100%)` }}>
-            <CrearConIA modo="crear" secuenciaId={secuencia.id} ejemplos={ejemplosIA} pedidoInicial={pedidoIA} onListo={alListoIA} />
+            <CrearConIA modo="crear" secuenciaId={secuencia.id} pedidoInicial={pedidoIA} onListo={alListoIA} />
           </div>
         </div>
       )}
@@ -770,7 +771,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 {canales.length > 1 ? (
                   <Dropdown value="" resetAfterSelect sinFlecha={false} botonLabel="▶ Probar" ariaLabel="Probar esta automatización"
                     options={canales.map((c) => ({ value: c, label: c === 'email' ? 'Email' : 'WhatsApp' }))}
-                    buttonStyle={estiloProbar} onChange={(v) => v && probar(v as 'whatsapp' | 'email')} />
+                    buttonStyle={estiloProbar} onChange={(v) => v && probar(v === 'email' ? 'email' : 'whatsapp')} />
                 ) : (
                   <button onClick={() => probar(canales[0])} title="Probar esta automatización" style={estiloProbar}>▶ Probar</button>
                 )}

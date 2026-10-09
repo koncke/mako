@@ -32,6 +32,7 @@ import {
   CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE, type CtxIA,
 } from '../lib/flujo-ia';
 import { motivoDeErroresCascada } from '../lib/ia-mensajes';
+import { accionDelFlujo } from '../lib/editor-acciones';
 import { seccionesDisparo } from '../lib/flujo-conversacion';
 import { porId } from '../lib/api-mako/registro';
 import { marcasDeVoseo } from '../lib/puestas-data';
@@ -107,6 +108,14 @@ test('la lista de proveedores no cobra nunca, y el pin pago no entra', () => {
   assert.match(MODELOS_CREAR_IA.openrouter ?? '', /:free$/, 'el de OpenRouter tiene que ser un :free');
 });
 
+// Integración (decisión 16): la IA sólo arma acciones que el lienzo OFRECE (`ACCIONES_DEL_FLUJO`).
+// Rotura (devolver `mover_lead_en_producto` a la lista sin el filtro): 1 fallo.
+test('la lista blanca de la IA es un subconjunto de la lista corta del lienzo', () => {
+  for (const id of LISTA_BLANCA_IA) assert.ok(accionDelFlujo(id), `${id} no está en la lista corta del lienzo`);
+  assert.ok(!LISTA_BLANCA_IA.includes('mover_lead_en_producto'));
+  assert.equal(LISTA_BLANCA_IA.length, 5, 'el filtro se llevó una acción que la IA ponía: ¿salió del lienzo?');
+});
+
 // rotura (salidaParaIA devuelve siempre SALIDA_MAX_IA, como los 6000 fijos de antes): 2 fallos.
 test('salidaParaIA: lo que queda bajo el techo, si alcanza para un flujo; si no, la de siempre', () => {
   assert.equal(salidaParaIA(2869, 7000), 4131, 'el pedido del ws1 después del arreglo');
@@ -122,22 +131,30 @@ const DIVISOR = Number(/export const tokensAprox = \(texto: string\): number => 
 const tokens = (s: string) => Math.ceil(s.length / DIVISOR);
 
 /**
- * Un negocio GRANDE, más que cualquiera de hoy: perfil y guía de voz largos (se cortan en su tope), 2
- * productos de 14 etapas con su entrega, 40 eventos (más de 100 disparadores: el bloque se corta en 80),
- * 8 audios y 20 etiquetas. Medido (scratchpad F-medir.mts): ~3.580 tokens de prompt, o sea ~3.420 de
- * salida bajo el techo. Calibrado para que quede CERCA del borde: sin el tope del perfil, o con los
+ * Un negocio GRANDE, más que cualquiera de hoy: perfil y guía de voz largos (se cortan en su tope), 4
+ * productos de 14 etapas con su entrega (más de 100 disparadores: el bloque se corta en 80), 8 audios y
+ * 20 etiquetas. Calibrado para que quede CERCA del borde: sin el tope del perfil, o con los
  * disparadores en una línea por opción, se pasa (ver las roturas).
+ *
+ * ⚠️ RECALIBRADO EN LA INTEGRACIÓN DE LA TERCERA TANDA. Hasta ahí eran 2 productos y 40 EVENTOS; la
+ * decisión 4 (parte B) sacó los eventos del CRON y `seccionesDisparo` ya no los trae, así que quedaban
+ * 63 disparadores y ~3.140 tokens: con ese aire, las dos roturas de abajo daban VERDE (medido con
+ * scratchpad medir-ia.mts: sin tope ~3.980 y con una línea por opción ~3.880, los dos bajo 4.000). Con
+ * 4 productos: 105 disparadores y ~3.430 tokens de prompt (~3.570 de salida bajo el techo). Roturas
+ * re-medidas con el calibre nuevo (arnés que restaura de memoria): sin el tope del perfil y la voz,
+ * 13 pass / 1 fail; DISPARADORES en una línea por opción con el valor interno, 12 / 2.
  */
 function ctxGrande(): { ctx: CtxIA; perfil: string; voz: string } {
   const etapas = Array.from({ length: 14 }, (_, i) => ({ value: `etapa_${i}`, label: `Etapa número ${i + 1}` }));
   const productos = [
     { funnelId: 3, productoId: 7, nombre: 'Mentoría de negocio', esDefault: true, etapas, etapasEntrega: etapas.slice(0, 8) },
     { funnelId: 5, productoId: 11, nombre: 'Curso de ventas', etapas, etapasEntrega: etapas.slice(0, 6) },
+    { funnelId: 6, productoId: 12, nombre: 'Comunidad de dueños', etapas, etapasEntrega: etapas.slice(0, 8) },
+    { funnelId: 8, productoId: 15, nombre: 'Programa de liderazgo', etapas, etapasEntrega: etapas.slice(0, 6) },
   ];
-  const eventos = Array.from({ length: 40 }, (_, i) => ({ value: `evento_${i}`, label: `Llenó el formulario número ${i} y no agendó` }));
   const etiquetas = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, nombre: `Etiqueta ${i + 1}`, archivada_at: null }));
   const disparadores = disparadoresParaIA(seccionesDisparo({
-    disparadores: eventos, productos, etiquetas, actual: { trigger_tipo: 'manual' }, textoActual: 'manual',
+    disparadores: [], productos, etiquetas, actual: { trigger_tipo: 'manual' }, textoActual: 'manual',
   }));
   const ctx: CtxIA = {
     etiquetas: etiquetas.map((e) => ({ id: e.id, nombre: e.nombre })), productos, disparadores,
@@ -156,6 +173,9 @@ test('con todo en el tope, el pedido deja salida para un flujo bajo el techo de 
   assert.ok(ctx.disparadores.length >= 100, `son ${ctx.disparadores.length}`);
   const user = userDeCrear(ctx, { perfil, voz, pedido: 'Recuperar a quien dejó sus datos y no agendó, con un WhatsApp al día y un email a los dos días.' });
   const prompt = tokens(CREAR_IA_SYSTEM_TEMPLATE) + tokens(user);
+  // El calibre: cerca del borde. Si el prompt baja mucho (otro cambio del CRON), las roturas dejan de
+  // medir: este assert lo dice antes de que den verde sin que nadie se entere.
+  assert.ok(prompt >= 3_300, `el prompt pesa ~${prompt} tokens: lejos del borde, las roturas ya no miden; recalibrar ctxGrande`);
   const salida = salidaParaIA(prompt, TECHO_GROQ);
   assert.ok(prompt + SALIDA_MIN_IA <= TECHO_GROQ, `el prompt pesa ~${prompt} tokens: no deja ${SALIDA_MIN_IA} de salida bajo ${TECHO_GROQ}`);
   assert.ok(salida >= SALIDA_MIN_IA && prompt + salida <= TECHO_GROQ, `salida ${salida}`);
@@ -182,20 +202,24 @@ test('DISPARADORES compacto: una línea por sección, claves cortas, y la clave 
     etiquetas: [{ id: 9, nombre: 'Cualificado', archivada_at: null }], actual: { trigger_tipo: 'manual' }, textoActual: 'manual',
   })).filter((o) => o.value !== 'trigger:manual');
   const bloque = bloqueDisparadores(d);
+  // Sin «Eventos»: la decisión 4 de la tercera tanda (parte B) los sacó del CRON —ahora son condiciones—,
+  // y `seccionesDisparo` ya no los trae. El evento que se le pasa no aparece (integración).
   assert.equal(bloque, [
-    '- Eventos: d1 Formulario sin agenda',
-    '- Etapa · Mentoría (llega a): d2 Nuevo · d3 Agendado',
-    '- Etapa · Curso (llega a): d4 Agendado',
-    '- Etiquetas (se le puso): d5 Cualificado',
+    '- Etapa · Mentoría (llega a): d1 Nuevo · d2 Agendado',
+    '- Etapa · Curso (llega a): d3 Agendado',
+    '- Etiquetas (se le puso): d4 Cualificado',
   ].join('\n'));
   assert.doesNotMatch(bloque, /venta:|trigger:|etiqueta:/, 'el valor interno no viaja al modelo');
+  assert.doesNotMatch(bloque, /Formulario sin agenda/, 'un evento volvió a ofrecerse como disparador');
   const ctx: CtxIA = { etiquetas: [], productos: [], disparadores: d, audios: [], archivos: [], acciones, links: {} };
   const r = (disparador: string) => deIA({ disparador, inicio: 't1', tarjetas: [{ id: 't1', tipo: 'mensaje', texto: 'Hola' }] }, ctx, rndDe()).disparador;
-  assert.equal(r('d4'), 'venta:5:agendado');
-  assert.equal(r('D2'), 'venta:3:nuevo');
+  assert.equal(r('d3'), 'venta:5:agendado');
+  assert.equal(r('D1'), 'venta:3:nuevo');
   assert.equal(r('d99'), null, 'una clave que no existe no elige nada');
   // Lo de antes sigue entrando (un prompt guardado en /configuraciones que pida el valor).
-  assert.equal(r('trigger:instant_form_sin_agenda'), 'trigger:instant_form_sin_agenda');
+  assert.equal(r('venta:5:agendado'), 'venta:5:agendado');
+  // Y un evento, que ya no es un disparador, no elige nada.
+  assert.equal(r('trigger:instant_form_sin_agenda'), null);
 });
 
 // ── 4. Los prompts, sin «Ir a» ─────────────────────────────────────────────────────
@@ -215,13 +239,19 @@ const dibujar = (props: Partial<Parameters<typeof CrearConIA>[0]> = {}) => rende
   modo: 'crear', secuenciaId: 7, onListo: () => {}, ...props,
 } as Parameters<typeof CrearConIA>[0]));
 
-// rotura (volver a dibujar los `ejemplos` como chips): 1 fallo.
+// rotura (volver a dibujar los `ejemplos` como chips): 1 fallo. Desde la integración la prop ya no
+// existe: lo que se fija es que no vuelvan ni ella ni la cadena que los armaba con nombres de etapas
+// (ChatAgentApp → SimuladorWhatsApp → SecuenciaPerfil → CrearConIA).
 test('dibujada: «Generar con IA», el primer ejemplo genérico en el placeholder y sin los ejemplos de props', () => {
-  const html = dibujar({ ejemplos: ['Una bienvenida para quien llega a «Nutrición No Show R1»'] });
+  const html = dibujar();
   assert.match(html, />Generar con IA</);
   assert.doesNotMatch(html, /¿Qué quieres que haga\?/);
   assert.match(html, new RegExp(`placeholder="${EJEMPLOS[0]}"`));
   assert.doesNotMatch(html, /Nutrición No Show/);
+  assert.doesNotMatch(CAJA, /ejemplos\?:/, 'volvió la prop `ejemplos`');
+  for (const f of ['app/chatbot/ChatAgentApp.tsx', 'app/chatbot/SimuladorWhatsApp.tsx', 'app/chatbot/SecuenciaPerfil.tsx']) {
+    assert.doesNotMatch(sinComentarios(leer(f)), /ejemplosIA/, `${f}: volvió la cadena de los ejemplos con nombres de etapas`);
+  }
   // El micrófono del Plan (el mismo botón, no una copia).
   assert.match(html, /aria-label="Dictar el pedido"/);
   assert.match(CAJA, /import \{ BotonDictar \} from '@\/app\/plan\/board\/CrearTareaModal';/);

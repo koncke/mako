@@ -113,10 +113,11 @@ export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'dupl
   ];
 }
 
-// El objetivo puede ser uno del catálogo O uno que escribió el dueño: para esos no hay emoji
-// propio y cae al genérico.
+// El emoji que se eligió en el título (tercera tanda, decisión 8: `nutricion_secuencias.emoji`) y, sin
+// uno elegido, el del objetivo, como el chrome del lienzo. El objetivo puede ser uno del catálogo O uno
+// que escribió el dueño: para esos no hay emoji propio y cae al genérico.
 const emojiSecuencia = (j: SecuenciaDto): string =>
-  (j.estrategia ? (EMOJI_OBJETIVO[j.estrategia.objetivo as Objetivo] ?? '🎯') : '⚑');
+  j.emoji || (j.estrategia ? (EMOJI_OBJETIVO[j.estrategia.objetivo as Objetivo] ?? '🎯') : '⚑');
 
 const API_SECUENCIAS = '/api/chat-agent/secuencias';
 
@@ -154,7 +155,7 @@ const CSS_LISTA = `
  */
 export type AbrirSecuencia = { id: number };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, pie, tz, abrir, handoffs, ejemplosIA, pedidoIA }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, pie, tz, abrir, handoffs, pedidoIA }: {
   /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
   handoffs?: ReadonlyArray<{ secuenciaId: number | null }>;
   productos: ProductoOpcion[];
@@ -176,8 +177,6 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   onNueva: (pedido?: string) => void;
   /** Por qué no se pudo crear la última («＋ Nueva»): se dibuja pegado al botón. */
   errorNueva?: string | null;
-  /** Pedidos de ejemplo para la caja de una automatización vacía (las etapas sin secuencia). */
-  ejemplosIA?: readonly string[];
   /** Un pedido ya escrito para la automatización recién creada («Armar una»). */
   pedidoIA?: { secuenciaId: number; pedido: string } | null;
   onReload: () => void;
@@ -447,11 +446,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               const otra = secuencias.find((j) => j.clave === clave);
               if (otra) elegir(otra.id);
             }}
-            /* El canal lo elige el desplegable de «Probar» (SecuenciaPerfil). Opcional a
-               propósito: un `onProbar()` sin canal abre WhatsApp, el de siempre. */
-            onProbar={(canal?: CanalProbar) => setProbando(canal === 'email' ? 'email' : 'whatsapp')}
+            /* El canal lo elige el desplegable de «Probar» (SecuenciaPerfil, `onProbar(canal)`), y
+               el panel se monta con ESE canal. Una sola forma: el tipo es `CanalProbar` en las dos
+               puntas, así que no hay un «sin canal» que adivinar. */
+            onProbar={(canal: CanalProbar) => setProbando(canal)}
             onCambioLocal={recibirEdicion}
-            ejemplosIA={ejemplosIA}
             pedidoIA={pedidoIA?.secuenciaId === sel.id ? pedidoIA.pedido : undefined}
             onCambio={onReload} />
         )}

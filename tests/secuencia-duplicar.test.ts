@@ -135,6 +135,16 @@ test('el módulo no importa nada del servidor (lo enchufa la ruta): el test lo e
   assert.deepEqual([...src.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]), ['./setting-estrategia']);
 });
 
+test('la ruta ENCHUFA la acción con las puertas de verdad (sin esto, el «⋯» contesta «action inválida»)', () => {
+  // Integración de la tercera tanda: la función es de la parte E y la ruta de la parte B. Una función
+  // con cero call sites compila y pasa sus tests (AGENTS.md, «Escribir la salida no es ofrecerla»).
+  // Rotura (sacar el bloque `duplicar` de la ruta): 1 fallo.
+  const ruta = readFileSync(new URL('../app/api/chat-agent/secuencias/route.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(ruta, /if \(body\.action === 'duplicar'\) \{[\s\S]{0,400}await duplicarSecuencia\(id, \{ db: \(await getTenantDb\(\)\) as unknown as DbDuplicar, setPasos: setSecuenciaPasos, setCron: setCronSecuencia \}\)/);
+  assert.match(ruta, /if \(e instanceof PasosInvalidosError\) return Response\.json\(\{ ok: false, error: e\.message \}, \{ status: 400 \}\);/);
+  assert.match(ruta, /\{ action:'duplicar', secuenciaId \}/, 'la cabecera de la ruta no la nombra');
+});
+
 // ROTURAS (09/10/2026), una por vez sobre lib/secuencia-duplicar.ts, con un arnés que rompe, corre este
 // archivo y restaura DE MEMORIA (nunca con git checkout) verificando con md5. Sin romper: 7 / 0. Las 5
 // cayeron:

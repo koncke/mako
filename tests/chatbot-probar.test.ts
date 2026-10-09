@@ -118,7 +118,9 @@ test('«Probar» NO reemplaza al lienzo: el editor queda montado y el panel se a
   // El editor se monta SIEMPRE que hay una secuencia elegida, abra o no el panel.
   assert.match(lista, /\) : !sel \? \(\n[\s\S]*?\) : \(\n\s*\n?\s*<SecuenciaPerfil key=\{sel\.id\}/);
   // Tercera tanda (decisión 14): «Probar» es de UN canal, y lo elige el desplegable de SecuenciaPerfil.
-  assert.match(lista, /onProbar=\{\(canal\?: CanalProbar\) => setProbando\(canal === 'email' \? 'email' : 'whatsapp'\)\}/);
+  // (Integración: con `onProbar: (canal: CanalProbar) => void` en SecuenciaPerfil, el canal llega
+  // siempre; ya no hay un «sin canal» que caiga a WhatsApp.)
+  assert.match(lista, /onProbar=\{\(canal: CanalProbar\) => setProbando\(canal\)\}/);
   assert.match(lista, /onCambioLocal=\{recibirEdicion\}/);
   // Segunda tanda (decisión 11): dónde va «Probar» lo decide UNA función pura (`muelles`,
   // lib/lienzo-grafo.ts, con test en tests/lienzo-muelles.test.ts). La lista sólo mide su caja,

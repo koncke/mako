@@ -56,6 +56,7 @@ import {
   conectarPuerto, puedeTenerParalelos, validarGrafo,
 } from './flujo-grafo';
 import { faltanEnPaso, LEAD_DEL_EVENTO } from './api-mako/flujo-params';
+import { accionDelFlujo } from './editor-acciones';
 import type { Parametro } from './api-mako/tipos';
 import { esVariableConocida } from './template-vars';
 import { marcasDeVoseo } from './puestas-data';
@@ -137,11 +138,16 @@ export function salidaParaIA(promptTokens: number, techo: number | undefined): n
  * no es nadie del equipo». O sea una tarjeta que el lienzo dibuja configurada y que no hace nada.
  * Para volver a sumarla hace falta pasar los nombres asignables en `CtxIA` y validarlos con un
  * igual exacto en `resolverAccion`.
+ *
+ * ⚠️ Y SÓLO LO QUE EL LIENZO OFRECE (integración de la tercera tanda, decisión 16): la lista corta del
+ * selector es `ACCIONES_DEL_FLUJO` (lib/editor-acciones.ts), y una tarjeta que la IA arma con una acción
+ * que el lienzo no ofrece se edita sólo como «La que tiene puesta». `mover_lead_en_producto` salió por
+ * eso: «Mover de etapa» ya elige producto y etapa. El filtro deriva de la lista del lienzo, así que si
+ * ésa saca una, la IA deja de ponerla sin que nadie se acuerde.
  */
 export const LISTA_BLANCA_IA: readonly string[] = [
-  'poner_etiqueta_lead', 'sacar_etiqueta_lead', 'proponer_cambio_etapa', 'mover_lead_en_producto',
-  'agregar_lead_a_producto', 'avisar_al_equipo',
-];
+  'poner_etiqueta_lead', 'sacar_etiqueta_lead', 'proponer_cambio_etapa', 'agregar_lead_a_producto', 'avisar_al_equipo',
+].filter((id) => accionDelFlujo(id) != null);
 
 const OP_PONER = 'poner_etiqueta_lead';
 const OP_SACAR = 'sacar_etiqueta_lead';

@@ -14,8 +14,8 @@
 //   · «el título… mejor "Generar con IA"»;
 //   · «el placeholder… escribe un ejemplo, borra y escribe otra cosa… ejemplos más genéricos… al darle
 //     click debe parar la animación completamente» → `useEjemploQueSeEscribe`, que para DEL TODO al
-//     primer toque y no vuelve. Los `ejemplos` que llegan por props (armados con nombres de etapas, tipo
-//     «Nutrición No Show R1») ya no se dibujan;
+//     primer toque y no vuelve. Los ejemplos que llegaban por props (armados con nombres de etapas, tipo
+//     «Nutrición No Show R1») se fueron con la prop, y con toda la cadena que los armaba en la tab;
 //   · «la animación de creación debería poner un poco "opaco" todo el resto, y no dejar editar el flujo
 //     mientras la IA lo crea… con un botón de cancelar» → mientras trabaja, una CAPA fija sobre toda la
 //     pantalla (portal a `document.body`) con el estado encima, que se traga los clics y el teclado, y
@@ -60,12 +60,6 @@ export type CrearConIAProps = {
   secuenciaId: number;
   /** Editar: el borrador LOCAL del lienzo (puede tener cambios sin publicar). */
   pasos?: readonly PasoGrafo[];
-  /**
-   * @deprecated Ya no se dibuja (tercera tanda, punto 5: «pon ejemplos más genéricos, no algo tan
-   * específico como "Nutrición no show 1"»). Los ejemplos son los de `EJEMPLOS`, escribiéndose en el
-   * placeholder. Queda en el tipo sólo para no romper el call site de SecuenciaPerfil.
-   */
-  ejemplos?: readonly string[];
   /** Un pedido ya escrito (el «Armar una» de una etapa sin automatización). */
   pedidoInicial?: string;
   /** `false` = no lo aplicó (editar sobre un lienzo que cambió): el pedido queda escrito. */
