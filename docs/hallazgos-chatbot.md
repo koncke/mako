@@ -856,7 +856,101 @@ tabla (`lead_respuestas`).
 
 **Vive en:** `lib/calcom.ts` · `app/api/webhooks/calcom/route.ts` · `lib/leads.ts` · `lib/lead-respuestas.ts`
 
+
+## La tercera tanda (09/10/2026): condiciones de todo el negocio, CRON por producto, editores medidos
+
+Pedido literal en la bitácora (9 oct 02:05); decisiones en docs/chatbot-flujo-ramas-diseno.md →
+«TERCERA TANDA». Seis partes en worktrees y una integración: 6035 tests, typecheck 0.
+
+### Una condición devuelve sí, no o «no sé», y «no sé» no se cumple ni negada [condiciones]
+
+`lib/condiciones-catalogo.ts` tiene 48 condiciones por sección y ámbito (adquisición = CRM; entrega =
+Customer Success), y cada una sale de un dato que el motor lee en BATCH (`hechosDeLeads(db, ids,
+filas)` lee sólo las fuentes que piden los flujos del lote). «No asistió a la R1» negado salía para
+quien todavía no tuvo la reunión: un no-show exige la asistencia registrada como «no asistió», no la
+falta de reunión. Y lo que no tiene un dato que lo registre no se ofrece: «Confirmó la asistencia» y
+«Reagendó» no existen en ningún campo; la sección «Plan» tampoco (la unión tarea→lead está puesta en 6
+de 776 tareas, medido).
+
+**Vive en:** `lib/condiciones-catalogo.ts` · `lib/flujo-grafo.ts` (`cumpleFila`) · `lib/nutricion.ts` (`hechosDeLeads`) · `app/chatbot/EditorCondicion.tsx`
+
+### «+y» que creaba «+o»: agregar y elegir el modo son dos decisiones [condiciones]
+
+Los dos botones agregaban una fila con un «Agendó» de relleno Y fijaban el modo de la rama entera, así
+que el separador de todas las filas cambiaba con el último tocado. Ahora «＋ Condición» abre el
+desplegable por secciones y la fila nace al elegir; «Todas / Cualquiera» es su propio control. Y una
+rama (o una condición) nueva nace VACÍA: validarGrafo la frena hasta que se elija algo.
+
+**Vive en:** `app/chatbot/EditorCondicion.tsx` · `lib/flujo-conversacion.ts` (`agregarRama`, `nodoNuevo`)
+
+### Lo que pide una etapa se calcula sobre el embudo REAL, no sobre el pipeline de fábrica [acciones]
+
+El diagnóstico obvio para «Mover de etapa» era «ganado pide monto, perdido pide motivo» sobre
+`DEFAULT_PIPELINE`. Lo que pide una etapa sale de `cfg.stages` del embudo del producto
+(getFunnelDe/buildFunnel), y para elegir A DÓNDE mover hacen falta todas las etapas, incluidas las
+salidas (`productosConEtapas` las filtra: la ruta nueva `app/api/flujos/opciones` las lee sin filtrar).
+⚠️ `proponer_cambio_etapa` sólo mueve en el producto principal: el producto del editor es una
+referencia hasta que la acción acepte `embudoId`. Y un parámetro que la acción no declara viaja en los
+params sin error: un nombre mal escrito desaparece igual de callado.
+
+**Vive en:** `app/_components/EditorAccionMako.tsx` · `app/_components/CamposAccion.tsx` · `lib/editor-acciones.ts`
+
+### Crear con IA fallaba porque el único proveedor sano no cabía [ia]
+
+Medido con las keys del ws1: Gemini 403 (Google bloqueó el proyecto de la key, que es la misma de la
+plataforma) y 429; OpenRouter 404 (el modelo gratis ya no es gratis); Mistral 429 siempre; OpenAI 429
+sin crédito. Groq armaba un flujo válido en 3 s y la cascada nunca lo probaba: `maxTokens` CUENTA para
+el techo de entrada, y 4k de prompt + 6k de salida pasaban los 7k. Se achicó el contexto (claves
+cortas para los disparadores, topes al perfil) y la salida se calcula para que entre (`salidaParaIA`).
+⚠️ El mensaje culpaba a «la configuración de MaKo» porque clasificaba todos los errores juntos: ahora
+es por proveedor (`falloDeIA`). Los demás callers de `errorDeCascada` siguen con el defecto.
+
+**Vive en:** `lib/flujo-ia.ts` · `app/api/chat-agent/secuencias/ia/route.ts` · `lib/ai-cheap.ts` (`techoDeEntrada`)
+
+### El email en HTML: las variables se resuelven POR CONTEXTO dentro del saneo [mensajes]
+
+El cuerpo del email es el editor rico de las lecciones y el paso guarda `cuerpo_html` saneado con
+lista blanca (`lib/email-html-seguro.ts`). Un `{{nombre}}` adentro de un href (`?n={{lead_nombre}}`)
+con «Ana Pérez» rompía el link: en el texto va escapado, en un href/src codificado, y la URL se valida
+DESPUÉS de reemplazar. Sin imágenes subidas: falta un almacenamiento público.
+
+**Vive en:** `lib/email-html-seguro.ts` · `lib/email-html.ts` · `app/chatbot/EditorEmailGmail.tsx` · `lib/nutricion.ts` (envío)
+
+### Una fila optimista es un estado aparte, y se sigue por una clave estable [lista]
+
+La fila de «＋ Nueva» que aparece al instante desaparecía a mitad de la creación y la selección se
+perdía al llegar el id real. Va calculada sobre la lista del server (`creando:<temporal>`), aplicada al
+dibujar. Y «Duplicar» no copia la fila entera: inserta una pausada con lista blanca de columnas y cada
+campo con puerta propia pasa por su puerta (pasos → setSecuenciaPasos).
+
+**Vive en:** `app/chatbot/SimuladorWhatsApp.tsx` · `app/chatbot/ChatAgentApp.tsx` · `lib/secuencia-duplicar.ts`
+
+### Un cambio de contrato de una parte deja «verde por aire» el test de otra [integración]
+
+Al sacar «Eventos» del CRON, el test de presupuesto de Crear con IA siguió en verde con sus roturas: el
+negocio de prueba pesaba 40 eventos y ya no medía el borde. Un test de presupuesto se calibra CERCA del
+borde, con la medición escrita, y se re-prueba rompiéndolo cuando cambia lo que mide. Y una función
+que alimenta una pantalla y otro lector no se reforma para la pantalla: se agrega la forma nueva al
+lado (el CRON por pasos dejaba a Crear con IA sin disparadores).
+
+**Vive en:** `tests/flujo-ia*.test.ts` · `lib/flujo-conversacion.ts` (`seccionesDisparo`)
+
 ## Lo que quedó sin hacer
+
+**De la tercera tanda (09/10/2026)**
+
+- **Verla en un navegador**: editor mediano, CRON por pasos, emoji, «⋯» de la lista, «Nueva», bandeja
+  tipo Gmail de «Probar», editor rico del email, monto al mover a Ganado y la capa de Crear con IA.
+- `proponer_cambio_etapa` no acepta el producto (`embudoId`); faltan en el registro «sacar de una
+  automatización» y «mover en el kanban de entrega». `lib/api-mako/areas/crm.def.ts` · `cs.def.ts`
+- Crear con IA sólo conoce las 9 condiciones de antes, no el catálogo. `lib/flujo-ia.ts`
+- `getVslEngagementMap` se traga el error: con la base caída, «No reprodujo el VSL» se cumpliría para
+  todos. Hace falta una lectura estricta para el motor. `lib/leads.ts`
+- El modelo gratis de OpenRouter por default está muerto para TODAS las features y `CASCADA_DOCS` sigue
+  con OpenAI y Mistral. `lib/ai-cheap.ts`
+- La red de plataforma en Crear con IA (cliente con una sola key) y Cancelar que no frena la cascada. `lib/ai-cheap.ts`
+- Las props muertas del editor de WhatsApp (`mostrarRevisar`, `revisarHeredado`, `disposicion`). `app/chatbot/EditorMensajeWhatsApp.tsx`
+- **La key de Gemini de la plataforma está bloqueada por Google** (403): lo decide Martín.
 
 **De la segunda tanda (09/10/2026)**
 

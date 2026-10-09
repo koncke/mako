@@ -1,10 +1,27 @@
 # Retomar: Chatbot
 
-**Dónde quedó:** 09/10/2026, ~01:10. Cuenta `claude2`. La segunda tanda está en `main`
-(`ecf93d0f`) y **desplegada** (Vercel Ready). La mig **0228** está aplicada y verificada contra
-information_schema. La cosecha va en el commit de después de éste.
+**Dónde quedó:** 09/10/2026, ~04:00. Cuenta `claude2`. La TERCERA tanda está en `main` (`240cb75c`),
+con la mig **0229** (emoji) aplicada y verificada. Antes, la segunda (`ecf93d0f`) y las secuencias
+de los clientes en pausa. La cuota semanal de la cuenta está en ~87 %.
 
-## El hilo
+## La tercera tanda (pedido del 9 oct 02:05, en la bitácora)
+
+Hecho: el editor mediano (WhatsApp en una columna, sin «Revisar antes de enviar»), «Ir a» fuera del
+＋ y de la IA, el CRON por producto → adquisición/entrega → etapa (sin «Eventos»), títulos en inglés
+y tarjetas con cara de WhatsApp y de Gmail, la tarjeta MAKO (aviso al grupo con datos del lead), el
+emoji del título, los «⋯» de la lista (activar, duplicar, eliminar), «Nueva» al instante, el
+catálogo de 48 condiciones por sección filtrado por el CRON (el motor las evalúa en batch), el email
+con el editor rico de las lecciones (HTML saneado), «Probar» por canal (teléfono o bandeja Gmail) y
+frenado si falta algo, «Publicar» apagado sin cambios, las acciones en una lista corta con un
+control por campo (monto y motivo sólo para Ganado/Perdido), y Crear con IA arreglado (Groq entra
+con un pedido compacto) con la caja del Plan, dictado en vivo, placeholder animado y la capa con
+Cancelar.
+
+Falta: verlo con clics; lo demás está en `docs/hallazgos-chatbot.md` → «Lo que quedó sin hacer».
+
+## La segunda tanda (para contexto)
+
+### El hilo
 
 El pedido de Martín del 08/10 a la noche, 11 puntos. Están literales en
 `docs/chatbot-flujo-ramas-diseno.md` → «SEGUNDA TANDA» y en `app/admin/dev/chatbot/bitacora.ts`.

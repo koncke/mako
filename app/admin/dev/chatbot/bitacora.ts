@@ -936,4 +936,24 @@ export const BITACORA: Hito[] = [
       "Vino con siete capturas de producción: el CRON con «Eventos» en el desplegable, el editor de la nota de voz con el chat y el composer separados, el desplegable del CRON por secciones, la caja de crear con IA con el error de proveedores, la condición con «+y +o», el editor de email partido en dos y la acción «Mover un lead de etapa» con un campo abierto.",
     ],
   },
+  {
+    fecha: "9 oct", hora: "04:00", chat: "—", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Tercera tanda: condiciones de todo el negocio, CRON por producto, títulos en inglés, la tarjeta MAKO, email enriquecido, «Probar» por canal, acciones con sus campos y Crear con IA arreglado",
+    puntos: [
+      "Las condiciones salen de un catálogo de 48, por sección (información del lead, origen y tracking, agenda y llamadas, pagos, mensajes, etiquetas; y del lado de la entrega: curso y avance, comunidad, tareas, pagos del cliente), filtrado por si el CRON es de adquisición o de entrega. El motor las evalúa con datos que lee en lote, y lo que no tiene un dato que lo registre no se ofrece.",
+      "El CRON elige producto → adquisición o entrega → etapa; los eventos de antes pasaron a ser condiciones. «Ir a» y «Revisar antes de enviar» salieron.",
+      "Tarjetas con títulos en inglés y con la cara de WhatsApp y de Gmail; la tarjeta MAKO avisa al grupo del negocio con los datos del lead; el emoji del título se edita.",
+      "El email se escribe con el editor rico de las lecciones y sale en HTML saneado. «Probar» se elige por canal (el teléfono o una bandeja tipo Gmail) y no abre si falta algo.",
+      "Las acciones son una lista corta y cada campo tiene su control: la etapa se elige del kanban, y monto y motivo aparecen sólo al mover a Ganado o Perdido.",
+      "Crear con IA fallaba porque el único proveedor sano (Groq) no cabía con un pedido tan grande: se achicó y entra. La caja copia la de «Nueva tarea» del Plan, con dictado en vivo, placeholder animado y una capa con Cancelar.",
+      "⚠️ Sin ver con clics todavía.",
+    ],
+    commits: [
+      { sha: "412bfd3b", msg: "Chatbot: las condiciones salen de UN catálogo por secciones, filtrado por el CRON, y el motor lee sólo lo que piden", lineas: 1933, archivos: 7 },
+      { sha: "d2e3d5a5", msg: "Chatbot (integración tercera tanda): el lienzo monta el editor de condiciones nuevo y la rama nace vacía", lineas: 179, archivos: 5 },
+      { sha: "5ab3f511", msg: "Chatbot (integración tercera tanda): «Probar» por canal, Duplicar enchufado, el emoji en la lista y la IA con la lista corta", lineas: 176, archivos: 10 },
+      { sha: "7551049e", msg: "Chatbot (integración tercera tanda): una acción a medio configurar frena Publicar, MAKO con los datos del lead y el email en HTML en «Probar»", lineas: 235, archivos: 14 },
+    ],
+  },
 ];
