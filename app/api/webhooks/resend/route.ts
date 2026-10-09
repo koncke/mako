@@ -15,6 +15,7 @@
 
 import type { NextRequest } from 'next/server';
 import { verifyResendSignature } from '@/lib/resend';
+import { envCred } from '@/lib/credenciales';
 import { marcarEventoEmail, suprimirPorRebote } from '@/lib/email-marketing';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +28,9 @@ type ResendEvent = {
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
-  const secret = process.env.RESEND_WEBHOOK_SECRET ?? '';
+  // envCred y no process.env: el mismo agujero que la key de la plataforma (lib/resend.ts), con
+  // la hidratación de credenciales todavía en curso la firma se verificaba contra un secreto vacío.
+  const secret = (await envCred('RESEND_WEBHOOK_SECRET')) ?? '';
 
   const ok = verifyResendSignature(
     rawBody,

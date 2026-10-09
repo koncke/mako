@@ -12,7 +12,7 @@
 import 'server-only';
 import { verificarFirmaSvix } from './standard-webhooks';
 import crypto from 'node:crypto';
-import { credWs } from './credenciales';
+import { credWs, envCred } from './credenciales';
 import { getSetting } from './settings';
 import { APP_BASE_URL } from './app-url';
 
@@ -40,7 +40,11 @@ const SANDBOX_FROM = 'onboarding@resend.dev';
 async function resendKey(): Promise<string | null> {
   const propia = await credWs('RESEND_API_KEY');
   if (propia) return propia;
-  const compartida = process.env.RESEND_API_KEY;
+  // ⚠️ envCred y NO process.env (09/10/2026, lo encontró la sesión de Customer Success): la key
+  // de la PLATAFORMA vive en las credenciales del dueño y llega a process.env recién cuando termina
+  // la hidratación del arranque. Leída antes, daba null, y el invitar del curso le pedía al cliente
+  // que conectara SU correo para tapar una falla nuestra («RESEND_API_KEY no configurada»).
+  const compartida = await envCred('RESEND_API_KEY');
   return compartida && compartida.trim() ? compartida : null;
 }
 
