@@ -189,7 +189,8 @@ test('secuencias: sin canales, el cron corre igual las acciones', () => {
   const src = sinComentarios(leer('../app/api/cron/nutricion/route.ts'));
   assert.match(src, /if \(!conAcciones\) return \{ ws: w\.id, modo: 'off'/);
   // Con el tope de las esperas cortas desde la quinta tanda (tests/espera-duracion.test.ts).
-  assert.match(src, /const proc = await procesarEnvios\(\{ ignorarVentana, esperarHastaMs \}\);\n\s+return \{ ws: w\.id, modo: 'off \(sólo acciones\)'/);
+  // (Y desde la sexta tanda, con el turno del negocio y el cupo de la hora: tests/espera-duracion.test.ts.)
+  assert.match(src, /const proc = await conTurno\(w\.id, turnoHastaMs, \(\) => procesarEnvios\(\{ ignorarVentana, esperarHastaMs, cupoPorHora: true \}\)\);\n\s+return \{ ws: w\.id, modo: 'off \(sólo acciones\)'/);
 });
 
 test('las pantallas de /chatbot cuentan como WhatsApp sólo los MENSAJES', () => {

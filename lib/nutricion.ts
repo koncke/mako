@@ -20,6 +20,7 @@ import { getVslEngagementMap } from '@/lib/leads';
 import { pipelineStageOf } from '@/lib/pipeline';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
+import { datosParaElLead } from '@/lib/variables-resolver';
 import { sanearHtmlEmail, textoDeHtmlEmail, aplicarVariablesHtml, cuerpoHtmlAGuardar, cuerpoHtmlEntrante, problemaDeCuerpoHtml } from '@/lib/email-html-seguro';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom } from '@/lib/resend';
 import { remitenteDelPaso, remitenteAGuardar, firmaDelPie } from '@/lib/email-remitente';
@@ -37,7 +38,7 @@ import {
   secuenciasDeEtapa, secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas,
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
 } from '@/lib/nutricion-etapa';
-import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA } from '@/lib/nutricion-residuo';
+import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA, RESIDUO_POR_DIA } from '@/lib/nutricion-residuo';
 import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { decidirAgenda } from '@/lib/nutricion-agenda';
@@ -70,7 +71,7 @@ import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
-  avisoSalio, frenadoPorAntiBan, anotarEnCorrida, zonaDelMotor, dentroDeVentanaEn,
+  avisoSalio, frenadoPorAntiBan, anotarEnCorrida, zonaDelMotor,
   filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
   type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida, type FilaLeadCatalogo,
 } from '@/lib/nutricion-grafo-motor';
@@ -78,7 +79,8 @@ import {
   fuentesDeFilas, etapasEntregaDeFilas, embudosDeReunionDeFilas, estadoDeCuotas, normalizarTexto, type Fuente, type HechosCatalogo,
 } from '@/lib/condiciones-catalogo';
 import { hoyEnTz } from '@/lib/date-utils';
-import { getSetting } from '@/lib/settings';
+import { getSetting, getSettingEstricto } from '@/lib/settings';
+import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
   hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
@@ -368,10 +370,12 @@ const HS_MIN_ENTRE_MSGS = 20;     // no mandar 2 mensajes al mismo lead en <20h 
 // de un lead con reunión próxima no es el de la prospección fría.
 const HS_MIN_PREPARACION = 3;
 const HS_REUNION_CERCA = 48;      // reunión dentro de este plazo → cadencia de preparación
-// La ventana horaria se evalúa en la zona del NEGOCIO (`mako.timezone`, decisión 6 de la segunda
-// tanda); sin zona, Ciudad de México, que es lo que hacía `TZ_OFFSET_MX` (`zonaDelMotor`).
-const VENTANA_INICIO = 9;
-const VENTANA_FIN = 21;
+// ⛔ LA VENTANA FIJA DE 9 A 21 SE FUE (sexta tanda, 09/10/2026). Era `VENTANA_INICIO = 9` y
+// `VENTANA_FIN = 21`, sin forma de apagarla. Decisión de Martín: «Sin límite, editable» — las
+// esperas se cumplen a la hora exacta, de día o de noche, y cada negocio puede poner un horario en
+// Configuraciones (lib/horario-envio.ts, `mako.horario_envio`). Por defecto no hay ninguno. Con
+// horario, la zona sigue siendo la del NEGOCIO (`mako.timezone`, decisión 6 de la segunda tanda) y
+// sin zona Ciudad de México (`zonaDelMotor`).
 
 function ahoraISO(): string {
   return new Date().toISOString();
@@ -1671,9 +1675,10 @@ async function reactivarReusables(
 // casi al instante ("si pasan días, nos van a tratar como extraños"). El cron
 // horario no alcanza: estos enganches enrolan y disparan el primer paso YA.
 //
-// La ventana horaria SÍ se respeta (no despertamos a nadie a las 3am): si el
-// evento cae fuera de 9-21 MX, la inscripción queda vencida y la levanta la
-// primera corrida del cron de la mañana.
+// El HORARIO DE ENVÍO del negocio, si lo puso, SÍ se respeta: si el evento cae
+// afuera, la inscripción queda vencida y la levanta el tick del minuto en que el
+// horario abre (`acabaDeAbrir`, lib/horario-envio.ts). Sin horario (el default
+// desde el 09/10/2026) sale ya, de día o de noche.
 
 /**
  * Los eventos que inscriben en el acto.
@@ -2205,12 +2210,25 @@ function haceHorasISO(h: number): string {
 }
 
 /**
- * ¿Es hora de escribirle a alguien? Entre las 9 y las 21 de la zona del negocio. Era la hora de
- * México para todos (`TZ_OFFSET_MX`): a Código Inmobiliario, en Buenos Aires, le salía corrida
- * tres horas. La zona se lee UNA vez por corrida (`zonaDelMotor`, en `procesarEnvios`).
+ * El horario de envío del negocio, una vez por corrida. `null` = sin horario (el default: manda a
+ * cualquier hora); `'ilegible'` = la base no contestó.
+ *
+ * ⚠️ «NO PUDE LEER» NO ES «NO HAY HORARIO». Leído con `getSetting`, una base caída devolvía `null`
+ * y un negocio que puso «de 9 a 18» recibía sus WhatsApps a las 3 de la mañana. Se lee ESTRICTO y,
+ * si falla, la corrida no manda nada (lo vencido sigue ahí para la próxima).
  */
-function dentroDeVentana(tz: string): boolean {
-  return dentroDeVentanaEn(Date.now(), tz, VENTANA_INICIO, VENTANA_FIN);
+async function horarioDeEnvio(): Promise<HorarioEnvio | null | 'ilegible'> {
+  try { return horarioVigente(await getSettingEstricto(KEY_HORARIO_ENVIO)); } catch { return 'ilegible'; }
+}
+
+/**
+ * ¿Es hora de escribirle a alguien? Sin horario, siempre. Con horario, en la zona del negocio.
+ * Era «entre las 9 y las 21» para todos y sin forma de apagarlo (ver `VENTANA_*`, arriba). La zona
+ * se lee sólo si hay horario, UNA vez por corrida y sin salir a la red (`zonaDelMotor`).
+ */
+async function dentroDeVentana(horario: HorarioEnvio | null): Promise<boolean> {
+  if (!horario) return true;
+  return dentroDelHorario(Date.now(), zonaDelMotor(await getSetting(KEY_TIMEZONE).catch(() => null)), horario);
 }
 
 // Tope diario: cuenta SOLO envíos reales — una corrida de prueba (?commit=1,
@@ -2226,6 +2244,61 @@ async function enviosUltimas24h(canal: CanalNutricion): Promise<number> {
     .gte('created_at', haceHorasISO(24));
   if (error) throw new Error(`enviosUltimas24h: ${error.message}`);
   return count ?? 0;
+}
+
+/**
+ * Lo que salió por este canal desde el comienzo de la HORA de reloj (UTC), envíos reales.
+ *
+ * Es el tope «por corrida» traducido a un motor que corre cada minuto (sexta tanda, 09/10/2026).
+ * `MAX_POR_CORRIDA` (6) era el ritmo anti-ban de la línea cuando había UNA corrida por hora: con el
+ * tick, cada minuto sería una corrida con su propio cupo de 6, y una cohorte de 30 leads inscriptos
+ * a la vez saldría en cinco minutos en vez de en cinco horas. Con esto las corridas del cron de la
+ * misma hora COMPARTEN el cupo, que es lo que había.
+ *
+ * ⚠️ LA HORA DE RELOJ Y NO 60 MINUTOS MÓVILES, a propósito: la corrida de las :00 mandaba 6 a las
+ * 10:00:05 y, con una ventana móvil, la de las 11:00:02 encontraba esos 6 adentro y no mandaba nada.
+ * La que barre lo viejo es justamente ésa, así que la cola vieja salía cada dos horas.
+ */
+async function enviosEnLaHora(canal: CanalNutricion): Promise<number> {
+  const supabase = (await getTenantDb());
+  const inicio = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000).toISOString();
+  const { count, error } = await supabase
+    .from('nutricion_envios')
+    .select('id', { count: 'exact', head: true })
+    .eq('estado', 'enviado')
+    .eq('canal', canal)
+    .gte('created_at', inicio);
+  if (error) throw new Error(`enviosEnLaHora: ${error.message}`);
+  return count ?? 0;
+}
+
+/**
+ * Cuántos turnos del residuo (#790) ya se usaron, en la escala de `RESIDUO_POR_CORRIDA`: el
+ * contador de la corrida arranca acá. Cuentan los tres desenlaces de un turno (enviado, borrador,
+ * fallo), como en la corrida: contar de más sólo hace que el residuo salga más lento.
+ *
+ * Devuelve `RESIDUO_POR_CORRIDA` (sin turno) si en esta hora de reloj ya pasó uno, o si en 24 h ya
+ * pasaron `RESIDUO_POR_DIA`. Sin secuencias del residuo, 0 y sin leer nada.
+ *
+ * ⚠️ «NO PUDE LEER» ES «SIN TURNO»: el residuo es lo que nunca apura.
+ */
+async function residuoYaUsado(idsResiduo: readonly number[]): Promise<number> {
+  if (!idsResiduo.length) return 0;
+  try {
+    const supabase = (await getTenantDb());
+    const contar = async (desde: string): Promise<number> => {
+      const { count, error } = await supabase.from('nutricion_envios').select('id', { count: 'exact', head: true })
+        .in('secuencia_id', [...idsResiduo]).in('estado', ['enviado', 'borrador', 'fallo']).gte('created_at', desde);
+      if (error) throw new Error(error.message);
+      return count ?? 0;
+    };
+    const inicioHora = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000).toISOString();
+    const [enLaHora, enElDia] = await Promise.all([contar(inicioHora), contar(haceHorasISO(24))]);
+    return enLaHora >= RESIDUO_POR_CORRIDA || enElDia >= RESIDUO_POR_DIA ? RESIDUO_POR_CORRIDA : enLaHora;
+  } catch (e) {
+    console.error('[nutricion] turnos del residuo:', e instanceof Error ? e.message : String(e));
+    return RESIDUO_POR_CORRIDA;
+  }
 }
 
 // Set de lead_ids que ya recibieron un envío (nutrición o broadcast) en las
@@ -2991,7 +3064,14 @@ async function enviarPartesDelPaso(a: {
 // workspaces por delante). Sin él no se duerme nunca: la vía rápida de un evento corre adentro de un
 // webhook, y dos minutos colgado ahí es un reintento del proveedor. Para la vía rápida (`soloLeadId`
 // sin tope), la espera corta se cumple DESPUÉS de contestar: `seguirDespuesDeResponder`.
-export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number; esperarHastaMs?: number }): Promise<ResultadoProceso> {
+//
+// Sexta tanda (09/10/2026), las dos que pasan las corridas del cron (app/api/cron/nutricion y
+// app/api/cron/nutricion-tick), nunca la vía rápida:
+//   · `cupoPorHora`: el cupo de WhatsApp es el de la HORA de reloj (`enviosEnLaHora`), compartido
+//     entre las corridas de esa hora, y no 6 por corrida — con un tick por minuto serían 360 por hora.
+//   · `vencidasDesde`: el tick mira sólo lo que venció desde ese instante (`VENTANA_FRESCA_MIN`,
+//     lib/espera-duracion.ts). Lo más viejo es algo frenado, y lo barre la corrida de cada hora.
+export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number; esperarHastaMs?: number; cupoPorHora?: boolean; vencidasDesde?: string }): Promise<ResultadoProceso> {
   const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, esperando: 0, borradores: 0, fallos: 0, acciones: 0, detalle: [] };
   const [waOn, emailOn, sandbox, remitente, lineasEvo] = await Promise.all([
     envioWhatsappHabilitado(),
@@ -3038,18 +3118,22 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     return p;
   };
 
-  // ⚠️ LA VENTANA HORARIA VALE TAMBIÉN PARA LOS PASOS «⚡ ACCIÓN». Una acción puede mandar
-  // algo (un WhatsApp de empresa, un email): «que pueda hacer todo» incluye lo que suena en
-  // el teléfono de alguien a las 3 de la mañana, y la ventana existe para eso. Y no cuesta:
-  // el cron corre sólo de 15 a 23 UTC (vercel.json), dentro de la ventana; esto frena la vía
-  // rápida de un evento nocturno, que queda para la primera corrida de la mañana.
-  // La zona del NEGOCIO, una vez por corrida (decisión 6). Sin `mako.timezone`, o si no se pudo
-  // leer, Ciudad de México: lo que el motor hacía siempre. No se AVERIGUA acá (`tzDeWorkspace`
-  // sale a la red): el cron no puede colgarse por una zona.
-  if (!opts?.ignorarVentana && !dentroDeVentana(zonaDelMotor(await getSetting(KEY_TIMEZONE).catch(() => null)))) {
-    return { ...res, saltado: 'fuera-de-ventana-horaria' };
+  // ⚠️ EL HORARIO DE ENVÍO VALE TAMBIÉN PARA LOS PASOS «⚡ ACCIÓN». Una acción puede mandar
+  // algo (un WhatsApp de empresa, un email): si el negocio puso «de 9 a 18», lo que suena en el
+  // teléfono de alguien a las 3 de la mañana es justo lo que pidió que no pase. Sin horario (el
+  // default desde el 09/10/2026, lib/horario-envio.ts) no se corta nada: las esperas se cumplen
+  // a su hora, de día o de noche. Con horario, lo vencido afuera queda en la fila y sale al abrir
+  // (lo barre el tick: `acabaDeAbrir`). La zona es la del NEGOCIO, una vez por corrida (decisión 6);
+  // sin `mako.timezone`, Ciudad de México. No se AVERIGUA acá (`tzDeWorkspace` sale a la red): el
+  // cron no puede colgarse por una zona.
+  if (!opts?.ignorarVentana) {
+    const horario = await horarioDeEnvio();
+    if (horario === 'ilegible') return { ...res, saltado: 'horario-ilegible' };
+    if (!(await dentroDeVentana(horario))) return { ...res, saltado: 'fuera-de-horario' };
   }
   const presupuesto = MAX_POR_DIA - (await enviosUltimas24h('whatsapp'));
+  // Lo que ya salió en esta HORA, sólo para las corridas del cron (`cupoPorHora`).
+  const enLaHora = opts?.cupoPorHora ? await enviosEnLaHora('whatsapp') : 0;
 
   const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
@@ -3072,7 +3156,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // Lo que puede seguir con el cupo de WHATSAPP cumplido: las acciones y, con tope de email, los emails.
   const sinTopeWa = [...new Set([...conAcciones, ...(presupuestoEmail > 0 ? conEmail : [])])];
   if (presupuesto <= 0 && !sinTopeWa.length) return { ...res, saltado: 'tope-diario' };
-  const cupo = Math.max(0, Math.min(MAX_POR_CORRIDA, presupuesto));
+  const cupo = Math.max(0, Math.min(MAX_POR_CORRIDA - enLaHora, presupuesto));
   // El cupo cuenta SÓLO WhatsApp (decisión 5): `waEnCorrida`, no `res.enviados`, que suma el email.
   let waEnCorrida = 0;
   const cupoLleno = (): boolean => waEnCorrida >= cupo;
@@ -3243,6 +3327,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // Cuántas filas del residuo ya pasaron al envío en esta corrida (#790): ver
   // `RESIDUO_POR_CORRIDA` y su uso más abajo.
   let residuoEnCorrida = 0;
+  // ⚠️ CON EL CRON CADA MINUTO, «POR CORRIDA» ES POR HORA Y POR DÍA (sexta tanda, 09/10/2026). El
+  // techo del residuo valía «9 por día» porque había 9 corridas; con el tick y la corrida de cada
+  // hora las 24 h serían 60 por hora. En las corridas del cron (`cupoPorHora`) el contador ARRANCA
+  // en lo que el residuo ya usó: 1 por hora de reloj y `RESIDUO_POR_DIA` en 24 h.
+  if (opts?.cupoPorHora) residuoEnCorrida = await residuoYaUsado(secuencias.filter((s) => s.trigger_tipo === TRIGGER_RESIDUO).map((s) => s.id));
 
   /**
    * LAS ESPERAS CORTAS SE CUMPLEN ADENTRO DE ESTA CORRIDA (quinta tanda, punto 3: «En Delay, falta la
@@ -3253,10 +3342,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
    * `vistos` las que ya vencieron y da otra vuelta. Lo que sigue a la espera pasa por TODAS sus
    * guardas de nuevo —el anti-ban de 20 h incluido—.
    *
-   * ⚠️ SIN ESTO, «10 s» ERA «la corrida que viene»: el cron corre una vez por hora (vercel.json), así
-   * que una espera de segundos salía a la hora siguiente, o al día siguiente si caía después de las 23
-   * UTC. Y si la corrida muere mientras duerme no se pierde nada: la fila ya tiene su hora exacta y la
-   * toma la corrida de después.
+   * ⚠️ SIN ESTO, «10 s» ERA «la corrida que viene»: hasta el 09/10/2026 el cron corría una vez por
+   * hora y sólo de 15 a 23 UTC. Con el tick de cada minuto (app/api/cron/nutricion-tick) sería «el
+   * minuto que viene»; esto lo deja al segundo. Y si la corrida muere mientras duerme no se pierde
+   * nada: la fila ya tiene su hora exacta y la toma el tick siguiente.
    *
    * ⚠️ DUERME AL FINAL DE LA VUELTA Y NO EN LA FILA: una por corrida para todas las esperas que vencen
    * juntas, y sin frenar al resto del lote. La vuelta que despierta no cuenta para el tope de 6
@@ -3299,6 +3388,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // Vía rápida de UN lead (enrolamiento por evento): reusa TODO el motor
     // (anti-ban, audio, borradores, gates) sin esperar la corrida del cron.
     if (opts?.soloLeadId) q = q.eq('lead_id', opts.soloLeadId);
+    // El tick: sólo lo que venció hace poco (ver la firma). Lo que esta misma corrida acaba de
+    // mover a un paso que ya toca vence AHORA, así que sigue adentro.
+    if (opts?.vencidasDesde) q = q.gte('proximo_envio_at', opts.vencidasDesde);
     // Sin cupo de mensajes, lo único que puede correr es un paso de acción: no se leen
     // las filas de las secuencias que no tienen ninguno.
     if (cupoLleno()) q = q.in('secuencia_id', sinTopeWa);
@@ -3856,7 +3948,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // patrón que WhatsApp detecta para restringir un número — y además se
         // lee como un bot. Sortear no cuesta nada; redactar por lead costaría
         // una llamada de IA por mensaje.
-        const varsNO = valoresVariablesLead(lead ?? {}, { negocio });
+        // Los datos del «{ }» (sexta tanda): a lo que el motor tiene en la mano se le suma lo que
+        // el paso NOMBRE del catálogo (la etapa, la reunión, el curso…), una lectura por entidad
+        // nombrada. Se mira el paso ENTERO (todas sus partes y el pie): un token en la segunda parte
+        // también cuenta. `datosParaElLead`, lib/variables-resolver.ts.
+        const varsNO = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead ?? {}, { negocio }), { ws: wsCorrida, leadId: insc.lead_id });
         const cuerpoNO = aplicarVariables(textoDelPaso(paso), varsNO);
         // PASO EN MODO IA: el texto se escribe recién en la rama que lo manda, DESPUÉS
         // de cada guarda que corta el envío (sin teléfono, línea caída, bloqueado,
@@ -4106,7 +4202,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // puede salir no mata el WhatsApp ni deja la inscripción sin terminar nunca.
           terminal = hayOtrosHilos(sanearHilos(insc.hilos), insc.h ?? null);
         } else {
-          const vars = valoresVariablesLead(lead, { negocio });
+          // Los datos del «{ }», como el WhatsApp de arriba (`datosParaElLead`).
+          const vars = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead, { negocio }), { ws: wsCorrida, leadId: insc.lead_id });
           const cuerpo = aplicarVariables(paso.cuerpo, vars);
           // El cuerpo del editor rico (tercera tanda): se vuelve a SANEAR acá —lo guardó
           // `setSecuenciaPasos`, pero la fila la puede escribir otro— y las variables entran con
@@ -4899,7 +4996,8 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
   if (!(await envioWhatsappHabilitado().catch(() => false))) { await registrar('fallo', 'el envío de WhatsApp está apagado', null); return no('No le contesté: el envío de WhatsApp está apagado.'); }
   if (await estaBloqueado(lead.telefono).catch(() => true)) { await registrar('omitido', 'contacto bloqueado', null); return no('No le contesté: el contacto está bloqueado.'); }
   const negocio = await getWorkspace(ws ?? 0).then((w) => w?.nombre ?? '').catch(() => '');
-  const pie = aplicarVariables(textoDelPaso(p), valoresVariablesLead(lead, { negocio }));
+  // Los datos del «{ }», como los mensajes de la salida (`datosParaElLead`).
+  const pie = aplicarVariables(textoDelPaso(p), await datosParaElLead(JSON.stringify(p), valoresVariablesLead(lead, { negocio }), { ws: ws ?? null, leadId }));
   const sale = saleSolo(p, secuencia.envio_automatico) || await esLeadCliente(leadId);
 
   if (p.tipo === 'audio' && Number(p.audio_id) > 0) {

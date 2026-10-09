@@ -31,11 +31,21 @@ export const VARIABLES_LEAD: VarLead[] = [
  * latente: el generador de MaKo sólo usa variables del catálogo, así que esperaba a
  * la primera persona que lo escribiera a mano.
  */
-export const VARIABLES_NEGOCIO: VarLead[] = [
-  { key: 'negocio', label: 'Tu negocio', ejemplo: 'Inmobiliaria del Valle', descripcion: 'El nombre de tu negocio, como está cargado en MaKo' },
-];
+//
+// ⛔ «TU NEGOCIO» YA NO SE OFRECE (sexta tanda, 09/10/2026). Martín: «no entiendo el dato "Tu
+// negocio", si ya está el de "Empresa", el de "Tu negocio" eliminalo... y esto para todos los
+// lugares donde usamos el botón de {}». La lista queda VACÍA —la importan dos editores de otra parte
+// de la tanda (app/chatbot/EditorMensajeWhatsApp.tsx y EditorEmailGmail.tsx) para armar su «{ }», y
+// vacía el dato desaparece de los dos sin tocarlos— y el TOKEN se sigue resolviendo: hay mensajes
+// guardados con `{{negocio}}` (`CLAVES_SIN_OFRECER`, `valoresVariablesLead`). El catálogo de TODOS
+// los «{ }» es lib/variables-aviso.ts; esta lista la borra quien une la tanda, con esos dos imports.
+/** @deprecated vacía a propósito: ver arriba. */
+export const VARIABLES_NEGOCIO: VarLead[] = [];
 
-const KEYS = new Set([...VARIABLES_LEAD, ...VARIABLES_NEGOCIO].map((v) => v.key));
+/** Lo que el motor RESUELVE sin ofrecerlo: tokens de mensajes ya guardados. */
+const CLAVES_SIN_OFRECER = ['negocio'] as const;
+
+const KEYS = new Set<string>([...VARIABLES_LEAD.map((v) => v.key), ...CLAVES_SIN_OFRECER]);
 export const esVariableConocida = (k: string): boolean => KEYS.has(k);
 
 // Rellena TODAS las variables del catálogo a partir del lead. El template usa las
@@ -64,11 +74,16 @@ export function valoresVariablesLead(
 
 // Reemplaza {{key}} y {key} por su valor. Las variables desconocidas se dejan tal
 // cual. La usan el email (sintaxis {nombre}) y previews. Devuelve string seguro.
+//
+// ⚠️ CON DOS LLAVES, LA CLAVE PUEDE LLEVAR DÍGITOS (sexta tanda, 09/10/2026): el motor resuelve
+// ahora el catálogo entero del «{ }» (lib/variables-aviso.ts), y ahí hay `{{lead_fecha_r1}}`,
+// `{{lead_hora_r2}}`. Con UNA llave, no: un `{1}` de un copy de Meta no es una variable, y esta
+// función se usa al lado de los parámetros que se registran en Meta.
 export function aplicarVariables(texto: string, vars: Record<string, string>): string {
   // Defensa: el valor sale de jsonb (puede no ser string en runtime pese al tipo).
   if (typeof texto !== 'string' || !texto) return '';
-  return texto.replace(/\{\{?\s*([a-z_]+)\s*\}?\}/gi, (match, rawKey: string) => {
-    const key = rawKey.toLowerCase();
+  return texto.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}|\{\{?\s*([a-z_]+)\s*\}?\}/gi, (match, conDigitos: string | undefined, rawKey: string | undefined) => {
+    const key = (conDigitos ?? rawKey ?? '').toLowerCase();
     return Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : match;
   });
 }

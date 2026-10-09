@@ -151,12 +151,33 @@ test('el día del cambio de horario la ventana sigue a la zona (Tijuana, 1/11/20
   assert.equal(dentroDeVentanaEn(domingo, tj, 9, 21), false, 'el domingo del cambio salía a las 8');
 });
 
-test('el motor lee la zona UNA vez por corrida, antes de cortar por la ventana, y sin salir a la red', () => {
-  assert.equal((PROC.match(/getSetting\(KEY_TIMEZONE\)/g) ?? []).length, 1, 'la zona se lee una vez');
-  assert.match(PROC, /!dentroDeVentana\(zonaDelMotor\(await getSetting\(KEY_TIMEZONE\)\.catch\(\(\) => null\)\)\)/);
-  assert.doesNotMatch(PROC, /tzDeWorkspace|tzActual\(/, '`tzDeWorkspace` averigua por la red: el cron no se cuelga por una zona');
-  assert.ok(PROC.indexOf('getSetting(KEY_TIMEZONE)') < PROC.indexOf('while ((!cupoLleno()'));
-  const v = cuerpo(NUTRI, 'function dentroDeVentana(', '\n}');
-  assert.match(v, /dentroDeVentanaEn\(Date\.now\(\), tz, VENTANA_INICIO, VENTANA_FIN\)/);
+test('⚠️ sin horario NO hay ventana (sexta tanda): el motor corta sólo con el horario que puso el negocio', () => {
+  // Decisión de Martín (09/10/2026): «Sin límite, editable». La ventana fija de 9 a 21 se fue; el
+  // horario es opcional y apagado (lib/horario-envio.ts, tests/horario-envio.test.ts).
+  // Probado rompiéndolo (09/10/2026): devolver `VENTANA_INICIO = 9` (y su uso) → cae éste.
+  assert.doesNotMatch(NUTRI, /VENTANA_INICIO|VENTANA_FIN/, 'volvió la ventana fija de 9 a 21');
   assert.doesNotMatch(NUTRI, /TZ_OFFSET_MX/, 'la ventana fija de México volvió');
+  // El corte, UNA vez por corrida, antes del bucle, con el horario leído ESTRICTO.
+  assert.match(PROC, /const horario = await horarioDeEnvio\(\);\s*if \(horario === 'ilegible'\) return \{ \.\.\.res, saltado: 'horario-ilegible' \};\s*if \(!\(await dentroDeVentana\(horario\)\)\) return \{ \.\.\.res, saltado: 'fuera-de-horario' \};/);
+  assert.ok(PROC.indexOf('horarioDeEnvio()') < PROC.indexOf('while ((!cupoLleno()'));
+  const h = cuerpo(NUTRI, 'async function horarioDeEnvio(', '\n}');
+  assert.match(h, /horarioVigente\(await getSettingEstricto\(KEY_HORARIO_ENVIO\)\)/, '«no pude leer» no es «no hay horario»');
+  assert.match(h, /catch \{ return 'ilegible'; \}/);
+  // La zona: sólo con horario, una vez, y sin salir a la red.
+  const v = cuerpo(NUTRI, 'async function dentroDeVentana(', '\n}');
+  assert.match(v, /if \(!horario\) return true;/, 'sin horario, siempre');
+  assert.match(v, /dentroDelHorario\(Date\.now\(\), zonaDelMotor\(await getSetting\(KEY_TIMEZONE\)\.catch\(\(\) => null\)\), horario\)/);
+  assert.equal((NUTRI.match(/getSetting\(KEY_TIMEZONE\)/g) ?? []).length, 1, 'la zona se lee en un solo lugar');
+  assert.doesNotMatch(PROC + v, /tzDeWorkspace|tzActual\(/, '`tzDeWorkspace` averigua por la red: el cron no se cuelga por una zona');
+});
+
+test('⚠️ el cupo de WhatsApp de las corridas del cron es el de la HORA de reloj, compartido', () => {
+  // Con el tick de cada minuto, 6 por corrida serían 360 por hora desde la línea del cliente.
+  // Probado rompiéndolo (09/10/2026): el cupo sin `- enLaHora` → cae éste.
+  assert.match(PROC, /const enLaHora = opts\?\.cupoPorHora \? await enviosEnLaHora\('whatsapp'\) : 0;/);
+  assert.match(PROC, /const cupo = Math\.max\(0, Math\.min\(MAX_POR_CORRIDA - enLaHora, presupuesto\)\);/);
+  const hora = cuerpo(NUTRI, 'async function enviosEnLaHora(', '\n}');
+  assert.match(hora, /Math\.floor\(Date\.now\(\) \/ 3_600_000\) \* 3_600_000/, 'la hora de RELOJ, no 60 minutos móviles');
+  assert.match(hora, /\.eq\('estado', 'enviado'\)/);
+  assert.match(hora, /\.eq\('canal', canal\)/);
 });

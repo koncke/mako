@@ -32,7 +32,22 @@ test('el nombre del negocio lo pasa el EMISOR, y sin valor el token queda CRUDO'
 test('`negocio` es una variable CONOCIDA: el validador de plantillas no la rechaza', () => {
   assert.equal(esVariableConocida('negocio'), true);
   assert.equal(esVariableConocida('inventada'), false);
-  assert.ok(VARIABLES_NEGOCIO.length >= 1);
+  // ⛔ Y ya NO SE OFRECE (sexta tanda, 09/10/2026: «no entiendo el dato "Tu negocio", si ya está el
+  // de "Empresa"... eliminalo»): la lista que arman los «{ }» de los editores de WhatsApp y de email
+  // está vacía, y el token se sigue resolviendo para los mensajes guardados (el test de arriba).
+  // Probado rompiéndolo (09/10/2026): devolver la fila de «Tu negocio» a la lista → cae éste.
+  assert.deepEqual(VARIABLES_NEGOCIO, []);
+});
+
+test('⚠️ el motor resuelve los tokens del catálogo con dígitos (`{{lead_fecha_r1}}`), y una llave sola con dígito NO', () => {
+  // El motor resuelve desde la sexta tanda todo el «{ }» (lib/variables-aviso.ts), y ahí hay claves
+  // con dígitos. Con UNA llave la regla es la de siempre: un `{1}` de un copy de Meta no es variable.
+  // Probado rompiéndolo (09/10/2026): la regex de dos llaves sin `0-9` → cae éste.
+  const v = { lead_fecha_r1: '14/10', nombre: 'Sofía' };
+  assert.equal(aplicarVariables('Nos vemos el {{lead_fecha_r1}}, {{nombre}}', v), 'Nos vemos el 14/10, Sofía');
+  assert.equal(aplicarVariables('Hola {nombre}, paso {1}', v), 'Hola Sofía, paso {1}');
+  assert.equal(aplicarVariables('{{ lead_fecha_r1 }}', v), '14/10');
+  assert.equal(aplicarVariables('{{inventada_2}}', v), '{{inventada_2}}', 'lo desconocido queda crudo');
 });
 
 // ⚠️ REESCRITO EL 08/10/2026: la tarjeta del lienzo ya no resuelve `{{negocio}}` con un

@@ -1898,8 +1898,130 @@ La regla: antes de dar por cerrada una parte que toca `lib/nutricion.ts` o un pr
   (`lib/secuencia-duplicar.ts`) es del mismo workspace y está bien que la conserve.
 - **Verlo con clics en producción**: el ✦ con las keys reales de un cliente (sólo se probó la pantalla) y
   la grabación en Safari (el WAV unido se probó en Chrome).
+## Sexta tanda (09/10/2026, parte «tiempo»): las esperas a la hora exacta, el horario de envío y el «{ }»
+
+Pedido literal: DELAY 2 («No entiendo el texto "Sigue a la hora en punto"... Eso se hace en todo caso
+en configuraciones, no aquí. No pongas esa limitación»), la respuesta del mismo día («Sin límite,
+editable»), WhatsApp 10 y MaKo en WhatsApp 4 (el «{ }» en árbol, con muchos más datos, sin «Tu
+negocio», igual en todos lados). Rama `wip-v6-tiempo`.
+
+### Un tick cada minuto NO es la corrida de cada hora cada minuto: lo frenado sigue vencido [motor]
+
+La salida obvia —pasar `/api/cron/nutricion` a `* * * * *`— corre el motor entero de cada negocio
+cada minuto, todo el día, por una razón que no se ve en el código del cron: una fila frenada por el
+anti-ban («msg <20h»), por el tope o por la lectura de la condición NO SE TOCA, sigue vencida, y un
+motor que mira «todo lo vencido» la encuentra en cada vuelta. El tick nuevo
+(`app/api/cron/nutricion-tick`, `1-59 * * * *`) mira sólo lo que venció en los últimos
+`VENTANA_FRESCA_MIN` (10) minutos y, sin nada, termina con dos consultas para todos los negocios; lo
+viejo lo sigue barriendo la corrida de cada hora (`0 * * * *`, las 24 h). Medido en prod el 09/10: 0
+inscripciones activas, o sea que hoy el tick cuesta 2 consultas por minuto. Vercel Pro: 100 crons por
+proyecto y cada minuto (docs del 15/07/2026); con éste son 38.
+
+Lo que el corte no cubre: un hilo en paralelo frenado deja la fila con su hora vieja (la fila resume
+el hilo que vence primero, lib/nutricion-hilos.ts), y otro hilo que vence después sale con la corrida
+de la hora, no con el tick.
+
+**Vive en:** `app/api/cron/nutricion-tick/route.ts` · `lib/espera-duracion.ts` (`VENTANA_FRESCA_MIN`, `desdeFresco`) · `lib/nutricion.ts` (`vencidasDesde`) · `lib/motor-tick.ts`
+
+### Un tope «por corrida» es un tope por HORA disfrazado: al cambiar la cadencia se multiplica [motor]
+
+`MAX_POR_CORRIDA` (6 WhatsApp) y `RESIDUO_POR_CORRIDA` (1) valían como ritmo anti-ban porque había 9
+corridas por día. Con 60 por hora, una cohorte de 30 leads inscriptos juntos saldría en cinco minutos.
+Lo cazó un test que ya existía (`tests/nutricion-residuo.test.ts` cruzaba el techo con vercel.json):
+el cron nuevo no se dejaba contar. Ahora las corridas del cron comparten el cupo de la HORA DE RELOJ
+(`enviosEnLaHora`, opción `cupoPorHora`) y el residuo arranca su contador en lo ya usado (1 por hora,
+10 en 24 h, `residuoYaUsado`). ⚠️ De reloj y no 60 minutos móviles: con la ventana móvil, la corrida
+de las 11:00 encontraba los 6 que mandó la de las 10:00:05 y no mandaba nada — y es la única que barre
+lo viejo. La vía rápida de un evento sigue con su cupo de siempre (un lead).
+
+**Vive en:** `lib/nutricion.ts` (`enviosEnLaHora`, `residuoYaUsado`, `procesarEnvios`) · `lib/nutricion-residuo.ts`
+
+### Un mensaje del motor no se RECLAMA antes de salir: el compare-and-set no lo cubre [motor]
+
+El diagnóstico obvio era «el motor ya tiene compare-and-set, dos corridas no pueden pisarse». Es cierto
+para las condiciones, las esperas y las acciones (`modo: 'cas'`); el avance DESPUÉS de mandar un
+mensaje es `modo: 'fila'` y el freno anti-ban se lee por lote: dos corridas que leen la misma fila
+vencida a la vez mandan las dos. Con una corrida por hora casi no pasaba; con un tick por minuto, una
+corrida que tarda más de 60 s (varios WhatsApp con su tipeo, una espera corta durmiendo) se pisa con la
+siguiente. Va el TURNO del negocio (`conTurnoDelMotor`, compare-and-set sobre `mako.nutricion.turno`,
+vence solo a los 6 min); la corrida de la hora lo espera hasta 60 s en total. La vía rápida no lo toma
+(lo de antes, sin cambios).
+
+**Vive en:** `lib/motor-turno.ts` · `lib/motor-tick.ts` · `app/api/cron/nutricion/route.ts` (`conTurno`)
+
+### «No pude leer el horario» no es «sin horario» [motor]
+
+El horario de envío (lib/horario-envio.ts, Configuraciones › Horario, apagado por defecto) se lee con
+`getSettingEstricto`: con `getSetting`, una base caída devuelve `null`, y `null` ES «sin límite» — un
+negocio que puso «de 9 a 18» recibía sus WhatsApps a las 3 de la mañana el día que Supabase tosía. Con
+la lectura caída la corrida no manda (`saltado: 'horario-ilegible'`) y lo vencido queda para el minuto
+siguiente. Y «sale al abrir» lo cumple el tick: en los primeros minutos del horario barre ENTERO lo
+vencido de ese negocio (`acabaDeAbrir`), no sólo lo fresco.
+
+**Vive en:** `lib/horario-envio.ts` · `lib/nutricion.ts` (`horarioDeEnvio`, `dentroDeVentana`) · `app/configuraciones/HorarioEnvioPanel.tsx`
+
+### El motor dejaba CRUDO todo token con dígitos: el «{ }» no podía ofrecer más de cinco datos [motor, ui]
+
+`aplicarVariables` (lib/template-vars.ts) matcheaba `[a-z_]+`: `{{lead_fecha_r1}}` salía literal al
+lead. Y el motor resolvía sólo nombre, nombre completo, apellido, empresa y negocio, así que el selector
+de WhatsApp no podía ofrecer la etapa ni la reunión (AGENTS.md: «La previsualización de un editor no
+puede resolver un token que el motor NO resuelve»). Ahora hay UN catálogo (lib/variables-aviso.ts, 75
+datos en 10 ramas) con la FUENTE de cada dato y su DESTINO, y el motor lo resuelve con
+`datosParaElLead` en sus tres envíos (una lectura por entidad que el texto nombra). Con una llave sola
+la regex sigue sin dígitos: un `{1}` de un copy de Meta no es una variable. Las plantillas OFICIALES
+(`bodyParams`) siguen con los cinco: sus parámetros los registra Meta.
+
+La regla: **antes de ofrecer un token en un editor, pasalo por la función del MOTOR**, no por la de la
+vista previa. Y `lead_nombre` (el completo, de los avisos) y `nombre` (el primero, del motor) eran el
+mismo nombre con dos significados: quedan los dos resueltos y sólo `nombre` / `nombre_completo` en el
+árbol.
+
+**Vive en:** `lib/variables-aviso.ts` · `lib/variables-del-lead.ts` · `lib/variables-resolver.ts` (`datosParaElLead`) · `lib/template-vars.ts` · `app/_components/SelectorDatos.tsx`
+
+### `v_funnel_productos` no está en `TENANT_TABLES`: `getTenantDb` no la acota [entorno]
+
+Una vista que no está en el `Set` de lib/workspace.ts pasa sin filtro de workspace. Se acota sola sólo
+si se filtra por un id que ya es de un negocio (el `funnel_id`, que es global): eso hace el resolvedor
+del curso. Una lectura de esa vista sin ese filtro devuelve los productos de todos los clientes.
+
+**Vive en:** `lib/variables-resolver.ts` (`valoresDeSuCurso`) · `lib/workspace.ts`
+
+### El scratchpad es COMPARTIDO entre las partes de una tanda [proceso]
+
+Las 8 partes corren en worktrees distintos pero con el MISMO scratchpad. El mensaje de commit de esta
+parte (`msg1.txt`) lo pisó, minutos después de usarlo, el de la parte «canales». Salió bien porque se
+commiteó antes; al revés, esta rama llevaba el mensaje de otra. Cada parte escribe en su subcarpeta
+(`scratchpad/<parte>/`) y verifica `git log -1 --format=%B` después de commitear.
 
 ## Lo que quedó sin hacer
+
+**De la parte «tiempo» (sexta tanda, 09/10/2026):**
+
+- **Montar el selector en los cinco «{ }»** (las líneas exactas, en el informe de la parte): el composer
+  de WhatsApp (`app/chatbot/EditorMensajeWhatsApp.tsx`, el `MenuWA` de `abierto === 'datos'`), el email
+  (`app/chatbot/EditorEmailGmail.tsx`, los dos `MenuWA` de datos), el editor de avisos
+  (`app/agencia/EditorMensaje.tsx`, el `Dropdown` de secciones), la tarjeta MAKO (`app/chatbot/FlujoLienzo.tsx`,
+  `DATOS_MAKO`) y los avisos (`app/agencia/FlujoAviso.tsx`, que ya recibe el árbol nuevo). Hasta que se
+  monten, el WhatsApp y el email ofrecen los 4 de siempre (sin «Tu negocio») y el aviso, el árbol nuevo
+  aplanado en secciones.
+- **La tarjeta MAKO resuelve sólo los 5 del motor** (`textoDelAviso`, lib/api-mako/areas/chatbot.run.ts):
+  pasarla a `conVariables(t, { ws, leadId, destino: 'equipo' })` ANTES de ofrecerle el árbol.
+- **Borrar los cascarones** `sinPrecision` / `avisoDePrecision` (lib/espera-duracion.ts) junto con su uso en
+  `EditorEspera` (app/chatbot/FlujoLienzo.tsx, el `const aviso = …` y `{aviso}`).
+- **«Probar»** previsualiza con el lead de ejemplo de los 5 datos (`textoDeEjemplo`, lib/simulador-grafo.ts) y
+  la prueba real con `valoresVariablesLead` (`probarSecuencia`, lib/setting-secuencias.ts): los tokens nuevos
+  salen crudos ahí. Va `{ ...valoresDeEjemplo(), ...lo de hoy }`.
+- **Textos de la API viejos**: «cada hora, en horario de envío» y «la ventana de 9 a 21» en
+  lib/api-mako/areas/chatbot.run.ts (`cuandoSale`, la nota de la simulación) y chatbot.def.ts (dos descripciones).
+- **Lo que decide Martín**: los recordatorios de clases (lib/curso-mensajes.ts) y las insistencias al grupo
+  (lib/flujos-tipos.ts, `INSISTIR_VENTANA` 8-21) tienen su propio horario fijo y no siguen al de
+  Configuraciones; ¿el horario del negocio vale también para ellos?
+- **El curso de un lead es una aproximación** (lo que abre su acceso, o su entrega + el producto de su
+  embudo + donde ya tiene avance): la regla completa vive en `universoDeLaEntrega` y lee la cartera entera.
+  `lib/variables-resolver.ts`
+- **El tick topea en 1000 filas** por minuto (PostgREST): con más, lo que queda sale al minuto siguiente o con
+  la corrida de la hora. `app/api/cron/nutricion-tick/route.ts`
+- **Verlo con clics**: Configuraciones › Horario y el selector en árbol.
 
 **De la parte «lienzo» (quinta 2), lo que decide Martín:** si mover una tarjeta se deshace con Ctrl+Z (hoy
 no: la pila es de los pasos), si hace falta un «Reacomodar» que vuelva al layout automático, y qué pasa con

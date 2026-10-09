@@ -70,14 +70,16 @@ export const RESIDUO_POR_DIA = 10;
  * pasa puede terminar en un envío, un borrador o un fallo: los tres cuentan, y
  * contar de más sólo hace que el residuo salga más lento, que es la dirección buena).
  *
- * Con el cron de la nutrición en `0 15-23 * * *` son 9 corridas por día, así que el
- * residuo no pasa de 9 por día aunque la cola se haya amontonado, y nunca ocupa más
+ * Con el cron de la nutrición en `0 15-23 * * *` eran 9 corridas por día, así que el
+ * residuo no pasaba de 9 por día aunque la cola se hubiera amontonado, y nunca ocupa más
  * de UNO de los `MAX_POR_CORRIDA` lugares de una corrida: el resto es de la
  * post-agenda. Las filas que no pasan se saltean SIN tocarlas y siguen vencidas para
  * la corrida siguiente (`vistos` evita que trabe el resto de la cola).
  *
- * El test cruza este número con el cron de vercel.json: si el cron se vuelve más
- * frecuente, este techo deja de valer y el test lo dice.
+ * ⚠️ DESDE EL 09/10/2026 EL CRON CORRE CADA MINUTO (el tick) y cada hora las 24 h: «por
+ * corrida» dejó de ser un techo. En las corridas del cron el contador arranca en lo que el
+ * residuo ya usó (`residuoYaUsado`, lib/nutricion.ts): UNO por hora de reloj y
+ * `RESIDUO_POR_DIA` en 24 h. El test cruza las dos cosas con vercel.json.
  */
 export const RESIDUO_POR_CORRIDA = 1;
 
