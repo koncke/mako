@@ -469,25 +469,28 @@ function puertos(): PuertosEtiquetas<Etiqueta> {
     // veces. ⚠️ Y NADIE LO LEVANTA DESPUÉS: el disparador «se le puso X» sin horario es SÓLO por
     // evento (decisión del 08/10/2026: el barrido horario no inscribe por etiqueta). Por eso queda
     // escrito en el historial del lead, que es donde se puede ver.
-    reclamarDisparo: async (etiquetaId, leadId, minutos) => {
+    // Poner y sacar tienen su PROPIA clave (sexta tanda): sacar una etiqueta a los 10 s de ponerla es
+    // otro evento, no el mismo disparo repetido.
+    reclamarDisparo: async (etiquetaId, leadId, minutos, accion = 'poner') => {
       const ws = await getWorkspaceActual();
       if (ws == null) return false;
-      try { return await reclamarEspaciado(ws, `etiqueta:${etiquetaId}`, minutos, String(leadId)); } catch (e) {
+      try { return await reclamarEspaciado(ws, accion === 'sacar' ? `etiqueta-quitada:${etiquetaId}` : `etiqueta:${etiquetaId}`, minutos, String(leadId)); } catch (e) {
         console.error(`[etiquetas] espaciado del lead ${leadId}:`, msg(e));
         await logLeadEvent(leadId, CAMPO_HISTORIAL, `No se dispararon las automatizaciones de la etiqueta: ${msg(e)}`.slice(0, 300), MAKO_SETTER);
         return false;
       }
     },
     // ⚠️ IMPORT DINÁMICO: lib/nutricion.ts importa lib/leads.ts, que importa éste por sus ganchos.
-    // El evento 'etiqueta' y su `etiquetaId` los suma la parte M (diseño §2): hasta que su
-    // nutricion.ts llegue, `TRIGGERS_POR_EVENTO['etiqueta']` no existe y esto enrola en cero. El
-    // tipo se declara acá para compilar en los dos árboles; `enrolarPorEvento` nunca tira.
-    disparar: async (leadId, etiquetaId) => {
+    // El tipo se declara acá para compilar en los dos árboles; `enrolarPorEvento` nunca tira.
+    // Sacar dispara 'etiqueta_quitada' (sexta tanda, CRON punto 3: «Se elimina etiqueta a un lead»);
+    // el «Ignorar» de cada automatización lo mira el motor (`disparaPorEvento`, lib/disparadores.ts).
+    disparar: async (leadId, etiquetaId, accion = 'poner') => {
       try {
         const mod = (await import('./nutricion')) as unknown as {
           enrolarPorEvento: (leadId: number, evento: string, ctx?: { etiquetaId?: number }) => Promise<number>;
         };
-        await mod.enrolarPorEvento(leadId, 'etiqueta', { etiquetaId });
+        if (accion === 'sacar') await mod.enrolarPorEvento(leadId, 'etiqueta_quitada', { etiquetaId });
+        else await mod.enrolarPorEvento(leadId, 'etiqueta', { etiquetaId });
       } catch (e) {
         console.error(`[etiquetas] no pude disparar las automatizaciones del lead ${leadId}:`, msg(e));
       }
@@ -526,7 +529,10 @@ export async function ponerEtiqueta(leadId: number, etiquetaId: number, opts?: O
   return envolver(() => ponerEtiquetaCon(puertos(), leadId, etiquetaId, { autor, origen: opts?.origen }));
 }
 
-/** Saca una etiqueta a un lead. Idempotente (`yaEstaba` si no la tenía). No dispara nada. Nunca tira. */
+/**
+ * Saca una etiqueta a un lead. Idempotente (`yaEstaba` si no la tenía). Dispara «Se elimina etiqueta
+ * a un lead» (sexta tanda), salvo que la saque salir de la etapa vinculada. Nunca tira.
+ */
 export async function sacarEtiqueta(leadId: number, etiquetaId: number, opts?: OpcionesEscritura): Promise<ResultadoPoner> {
   const autor = await autorDelMovimiento(opts?.autor);
   return envolver(() => sacarEtiquetaCon(puertos(), leadId, etiquetaId, { autor, origen: opts?.origen }));
