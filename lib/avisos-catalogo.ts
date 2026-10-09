@@ -214,6 +214,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   // Habla de los leads que se quedaron quietos, no del motor que los movió: el rótulo
   // tiene que decirle al dueño de qué le están hablando desde la primera línea.
   'crm-lead-estancado': 'lead',
+  'crm-lead-quieto': 'lead',
 };
 
 export function areaDeAviso(id: string): AreaAviso {
@@ -826,6 +827,15 @@ https://hola-mako.com/plan — MaKo`,
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'El CRM automático movió leads que pasaron el plazo de su etapa. UN mensaje por corrida con todos juntos, y como máximo uno por día.',
     ejemplo: `⏳ Moví *6 leads* que quedaron más tiempo del que marca tu embudo: 4 de *Lead entrante* (plazo 2 días) y 2 de *No responde* (plazo 30 días). El motivo quedó en el historial de cada uno. — MaKo`,
+  },
+  {
+    // ⚠️ NO ES EL DE ARRIBA. Aquél cuenta lo que el CRM automático MOVIÓ (tres columnas, y sólo
+    // donde el motor está prendido); éste avisa de los que siguen QUIETOS en cualquier etapa
+    // con plazo, y no toca a nadie (lib/lead-quieto.ts, #800). Sin plazos declarados no sale.
+    id: 'crm-lead-quieto', titulo: 'Leads que pasaron el plazo de su etapa', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Un lead lleva en su etapa más días que el plazo que le pusiste en el editor de etapas. UN mensaje por día con todos juntos.',
+    ejemplo: `⏳ *5 leads* llevan en su etapa más de lo que marca tu embudo: 3 en *Agenda R2* (más de 5 días) y 2 en *Facturando* (más de 3 días). Los que más esperan: Ana, Pedro y Lucía. — MaKo`,
   },
 
   // ── COBRANZA / CASH ────────────────────────────────────────────────────────

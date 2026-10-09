@@ -3833,6 +3833,15 @@ el lead entra al primer producto y el resto se convierte en un borrador.
 - **El olor:** un `for` nuevo alrededor de una llamada que antes estaba sola, cuyo cuerpo
   valida contra lo que el propio bucle acaba de escribir.
 
+⚠️ **Y ANTES DE ESCRIBIR EL BUCLE, PREGUNTÁ SI SON N COSAS O UNA COSA EN N LUGARES.** El opt-in
+de arriba ya no crea N fichas: desde el 06/10/2026 (`f26c0a94`) crea UNA y le AGREGA los otros
+productos (`agregarAProducto`, `lib/lead-funnel.ts`, mig 0207), porque un lead en tres
+productos es UNA persona — y tres fichas son tres personas para todo lo que cuenta leads, manda
+mensajes o dispara la conversión de Meta. Martín, cuando el «Mover a prueba» le sacó un lead
+del producto principal: «No se debe "Mover", se debe agregar al otro producto». La regla de
+arriba sigue valiendo para las entidades que SÍ son N (una tarea por tablero, una fila por
+cuota); la pregunta es la primera línea.
+
 # Si la misma pregunta se contesta en DOS lugares, el BORRADO va por una función
 
 La regla de arriba autoriza partir un dato en dos claves, y está bien. Lo que no
@@ -5927,6 +5936,13 @@ verde sobre un worker que no cargaba, porque `tsx` transpila a CJS y ahí el
 **En el comentario del test va el resultado de la rotura**, con números: «verificado
 quitando el arreglo: 1 fallo, 1 pase». El que lo lea dentro de seis meses no tiene
 por qué creerte, y ese renglón es la diferencia entre un test probado y uno escrito.
+
+⚠️ **Y LA ROTURA SE LEE CONTRA UNA BASE EN VERDE.** Si el archivo ya tenía un rojo antes de
+romper, el «1 fallo» que da la rotura puede ser ESE rojo, y se anota como detectado algo que
+nadie detectó. Medido el 09/10/2026 en `tests/lead-quieto.test.ts`: romper el cableado de
+`relojDesde` dio «1 fallo, 14 pases», y el fallo era otro test que un cambio propio había
+dejado rojo minutos antes. Con la base en verde, el guard real no existía todavía. Primero
+`0 fallos`, después cada rotura.
 
 ⚠️ **Y UN GUARD QUE LEE EL ARCHIVO ENTERO ENCUENTRA LO QUE EL ARCHIVO DICE DE SÍ.** Un
 `assert.match(SRC, /notas:/)` sobre un módulo de 700 líneas no prueba que el campo esté en

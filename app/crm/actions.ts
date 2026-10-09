@@ -64,10 +64,11 @@ import { respuestasPropias } from '@/lib/meta-leads-campos';
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
   renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados, eliminarFunnelDefinitivo,
-  productosPorFunnel, idDelFunnelDefault, leerFunnels } from '@/lib/funnels';
+  productosPorFunnel, idDelFunnelDefault, leerFunnels, umbralesDe } from '@/lib/funnels';
 import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
   conTerminales, esTerminal, etapaDeGanado, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import { puedeSerReunion, tipoAlMarcar } from '@/lib/etapa-reunion';
+import { puedeTenerPlazo, sanearPlazo, plazosValidos, PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
   alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
@@ -1746,6 +1747,13 @@ export type ImportLeadsResult = {
   ganados: number;
   omitidos: number;
   errores: string[];
+  /**
+   * QUÉ LEAD quedó detrás de cada fila que hizo algo: el que se CREÓ, o el que ya existía y
+   * la persona eligió usar (`completar`, aunque no hubiera nada que llenar: es la misma
+   * persona). Lo lee la pantalla de revisión de una propuesta para agregar el lead a los
+   * productos que pidió (lib/lead-funnel.ts) y dejarle la atribución de la landing.
+   */
+  ids?: Array<{ filaId: string; leadId: number; destino: 'crear' | 'enriquecer' }>;
 };
 
 /** Crea los leads de las filas ya revisadas y tildadas por el usuario. */
@@ -1816,11 +1824,13 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   // ⚠️ Y SI EL SERVER DESCUBRE UN DUPLICADO QUE LA PANTALLA NO MOSTRÓ, EL TILDE DE ESA
   // FILA NO ES UNA DECISIÓN SOBRE ESO. `entra()` honra el tilde de un duplicado porque
   // la persona lo vio marcado y lo tildó igual — eso vale para el modal de importar,
-  // que pinta el motivo antes de que nadie toque nada. Pero `/crm/revisar/[id]` siembra
-  // sus filas con `incluir: true` y `yaExiste: false` (RevisarLead.tsx), así que el
-  // «ya existe» aparece ACÁ, después de que la pantalla se dibujó: honrar ese tilde es
-  // crear el duplicado y además atribuirle la decisión a alguien que nunca la tomó.
-  // Se baja el tilde y la fila cuenta como omitida, igual que en el modal.
+  // que pinta el motivo antes de que nadie toque nada. `/crm/revisar/[id]` sembraba sus
+  // filas con `incluir: true` y `yaExiste: false`, así que el «ya existe» aparecía ACÁ,
+  // después de que la pantalla se dibujó; desde el 09/10/2026 lo resuelve al dibujarse
+  // (page.tsx → `filasIniciales`), y esto sigue cubriendo al que entra EN EL MEDIO (un
+  // webhook entre que se abrió la pantalla y se confirmó). Honrar ese tilde es crear el
+  // duplicado y además atribuirle la decisión a alguien que nunca la tomó: se baja el
+  // tilde y la fila cuenta como omitida, igual que en el modal.
   const validadas = (await marcarExistentes(limpias)).map((f, i) => {
     if (f.motivo === MOTIVO_DECIDIBLE && !vioDuplicado[i]) return { ...f, incluir: false, enriquecer: false };
     if (f.enriquecer && f.leadExistenteId !== idQueVio[i]) return { ...f, enriquecer: false };
@@ -1832,6 +1842,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   let ganados = 0;
   let omitidos = 0;
   const errores: string[] = [];
+  const ids: NonNullable<ImportLeadsResult['ids']> = [];
   const emailsNuevos = new Set<string>();
   const telsNuevos = new Set<string>();
 
@@ -1903,6 +1914,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
         });
         if (llenados.length) enriquecidos++;
         else omitidos++;
+        ids.push({ filaId: f.id, leadId: f.leadExistenteId, destino: 'enriquecer' });
       } catch (e) {
         omitidos++;
         errores.push(`${f.nombre}: ${e instanceof Error ? e.message : 'error'}`);
@@ -1935,6 +1947,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
         funnel_id: funnelId ?? null,
       });
       creados++;
+      ids.push({ filaId: f.id, leadId: creado.id, destino: 'crear' });
       if (email) emailsNuevos.add(email);
       if (tel) telsNuevos.add(tel);
       /**
@@ -1971,7 +1984,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   bust(TAG.leads);
   revalidatePath('/crm');
   revalidatePath('/general');
-  return { creados, enriquecidos, ganados, omitidos, errores: errores.slice(0, 20) };
+  return { creados, enriquecidos, ganados, omitidos, errores: errores.slice(0, 20), ids };
 }
 
 // ⚠️ ACÁ VIVÍAN `previsualizarImportLeadsAction` e `importLeadsCsvAction`, y se
@@ -2723,6 +2736,11 @@ export type EmbudoEnDetalle = {
    * descalificar a alguien.
    */
   problemas: string[];
+  /**
+   * El plazo de cada etapa en días (#800), sólo los válidos. null = no se pudo leer: la
+   * pantalla no dibuja el campo, porque un vacío afirmaría «sin plazo» sobre algo que no vio.
+   */
+  plazos: Record<string, number> | null;
 };
 
 /**
@@ -2840,7 +2858,10 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
         problemas: problemasDePipeline(cfg.pipeline),
         entradas: cfg.entradas,
         evento: cfg.evento,
-
+        plazos: await (async () => {
+          const u = await umbralesDe(funnelId ?? null);
+          return u == null ? null : plazosValidos(u.porEtapa, cfg.stages).plazos;
+        })(),
       },
     };
   } catch (e) {
@@ -3032,6 +3053,12 @@ export type OpEtapa =
    */
   | { op: 'reunion'; key: string; es: boolean }
   /**
+   * El PLAZO de una etapa, en días (#800): si un lead pasa más que eso sin moverse, MaKo le
+   * avisa al dueño (lib/lead-quieto.ts). `dias: null` lo saca. Vive en
+   * `data.umbrales.porEtapa`, que es lo que ya leía el CRM automático para T2 y T6.
+   */
+  | { op: 'plazo'; key: string; dias: number | null }
+  /**
    * Apagar o encender una nutrición. `id` es `"desde>hacia"`, la misma clave que vive en
    * `data.suppressed`.
    *
@@ -3164,6 +3191,30 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       bust(TAG.pipeline, TAG.leads);
       revalidatePath('/crm');
       revalidatePath('/funnel');
+      return { ok: true };
+    } else if (op.op === 'plazo') {
+      // ⚠️ SE DECIDE ACÁ: `op` es el argumento de una server action. Una etapa terminal o el
+      // cierre no tienen plazo (un lead en Ganado no está «quieto», ya terminó), y la etapa
+      // tiene que existir en ESTE embudo.
+      const st = actual.stages.find((x) => x.key === op.key);
+      if (!st) return { ok: false, error: 'Esa etapa no es de este embudo.' };
+      if (!puedeTenerPlazo(st)) return { ok: false, error: 'Esa etapa no lleva plazo.' };
+      const dias = op.dias == null ? null : sanearPlazo(op.dias);
+      if (op.dias != null && dias == null) return { ok: false, error: `El plazo va de 1 a ${PLAZO_MAX_DIAS} días.` };
+      // Las OTRAS claves de `umbrales` se conservan: las cuatro perillas del CRM automático
+      // viven en el mismo objeto, y `saveFunnelDe` reemplaza `umbrales` entero.
+      const u = await umbralesDe(funnelId ?? null);
+      if (u == null) return { ok: false, error: 'No se pudo leer el embudo; no se guardó nada para no pisarlo.' };
+      const previos = u.porEtapa && typeof u.porEtapa === 'object' && !Array.isArray(u.porEtapa)
+        ? { ...(u.porEtapa as Record<string, unknown>) } : {};
+      if (dias == null) delete previos[op.key];
+      else previos[op.key] = dias;
+      // ⚠️ Con el pipeline INTACTO, como la nutrición: esta operación sólo toca `umbrales`.
+      const conGanadoPlazo = conTerminales(actual.pipeline);
+      const extra = { labels, umbrales: { ...u, porEtapa: previos } };
+      if (funnelId != null) await saveFunnelDe(funnelId, conGanadoPlazo, actual.suppressed, extra);
+      else await saveFunnelDefault(conGanadoPlazo, actual.suppressed, extra);
+      revalidatePath('/crm');
       return { ok: true };
     } else if (op.op === 'mover') {
       // ⚠️ SOLO SE MUEVE LO QUE VIVE EN EL PIPELINE. Las tres terminales derivadas

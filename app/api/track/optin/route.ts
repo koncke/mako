@@ -445,19 +445,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ⚠️ EL CAMINO DEL DUPLICADO TODAVIA NO LLEVA EL PRODUCTO, y no se escribe el
-  // campo para disimularlo: `datos.leads[]` lo aplica
-  // `importarLeadsRevisadosAction` a traves de `FilaImport`, que NO declara
-  // `funnel_id` (grep: cero coincidencias de «funnel» en app/crm/leads-importar.ts),
-  // asi que un campo puesto aca no lo leeria nadie. Un dato que solo existe en su
-  // declaracion es peor que su ausencia: se lee como que ya funciona.
-  //
-  // Mientras tanto el duplicado cae en el embudo del negocio, que es donde cae
-  // hoy — y ahi lo decide una PERSONA que esta mirando el CRM, agregandolo a su
-  // producto desde el desplegable de la ficha (`agregarAProductoAction`, que suma
-  // el producto sin sacarlo del negocio). Lo que falta para cerrarlo es un `funnel_id`
-  // en `FilaImport` (app/crm/leads-importar.ts) y pasarlo al `createLead` del
-  // importador (app/crm/actions.ts).
+  // ⚠️ EL CAMINO DEL DUPLICADO LLEVA LOS PRODUCTOS Y LA ATRIBUCIÓN DESDE EL 09/10/2026, y
+  // los dos los aplica QUIEN CONFIRMA (app/crm/revisar/[id]/acciones.ts), leyéndolos de
+  // la propuesta y no del navegador: `datos.funnels` decide en qué productos queda (el
+  // primero es la casa del lead nuevo; si se completa la ficha que ya estaba, se la
+  // agrega a todos) y los utm / fbclid / visitor_id de `datos.leads[]` se le escriben al
+  // lead que se crea. Antes no llegaba ninguno: `FilaImport` sólo tiene nombre, email,
+  // teléfono y empresa, así que el lead nacía «importado», en el embudo del negocio y sin
+  // campaña. Las reglas viven en app/crm/revisar/[id]/propuesta-lead.ts.
   const { id, nueva } = await crearPropuesta({
     ws,
     tipo: 'lead',
@@ -488,6 +483,12 @@ export async function POST(req: NextRequest) {
       // columna propia: `propuestas` es una tabla genérica de todos los canales, y
       // una columna que solo usa uno la vuelve la tabla de ese canal.
       prueba: txt(body.prueba),
+      // Los PRODUCTOS que pidió, en orden (el primero es la casa; `null` = el del
+      // negocio). Los lee la pantalla de revisión al confirmar: el lead nuevo nace en
+      // el primero y se lo agrega a los demás; si se eligió completar la ficha que ya
+      // estaba, se la agrega a todos (app/crm/revisar/[id]/acciones.ts). Sin esto, el
+      // duplicado de una landing de «Mentoría» no aparecía nunca en Mentoría.
+      funnels: funnelesDelLead,
     },
   });
 

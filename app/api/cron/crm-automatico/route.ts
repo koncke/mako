@@ -26,18 +26,26 @@
 // propósito: aquel inscribe y manda, y éste no tiene que poder hacer ninguna de las dos cosas.
 // En `dry=1` no corre (escribe). Tiene su propio presupuesto de tiempo (ESPEJO_MS) para no
 // comerle los 300 s al CRM automático: lo que no entra queda para la hora siguiente.
+//
+// ⚠️ Y EL AVISO DEL LEAD QUIETO (lib/lead-quieto-aviso.ts, #800) corre acá también, DESPUÉS del
+// CRM automático y SIN mirar crm_auto_enabled: no mueve a nadie, le avisa al dueño de los leads
+// que pasaron el plazo de su etapa. Va después a propósito —lo que el motor acaba de mover ya no
+// está quieto— y sin plazos declarados no lee ni un lead. Un mensaje por día (dedup de ~20 h).
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { evaluarAutoTodos, aplicarAutoTodos } from '@/lib/crm-auto';
 import { conciliarEspejoEtapasTodos } from '@/lib/etiquetas';
+import { avisarLeadsQuietosTodos } from '@/lib/lead-quieto-aviso';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 /** Cuánto puede tardar el barrido del espejo en una corrida, sumando todos los negocios. */
 const ESPEJO_MS = 90_000;
+/** Lo mismo para el aviso del lead quieto. Lo que no entra, a la hora siguiente. */
+const QUIETOS_MS = 60_000;
 
 export async function GET(request: NextRequest) {
   const unauth = checkCronAuth(request);
@@ -52,7 +60,11 @@ export async function GET(request: NextRequest) {
       const evals = await evaluarAutoTodos();
       const filtrados = soloWs ? evals.filter((e) => e.ws === soloWs) : evals;
       const total = filtrados.reduce((a, e) => a + (e.acciones?.length ?? 0), 0);
-      return Response.json({ ok: true, modo: 'dry-run', acciones_total: total, workspaces: filtrados });
+      // El aviso del lead quieto, en modo prueba: calcula y muestra el texto, no manda nada.
+      const quietos = await avisarLeadsQuietosTodos({ soloWs, dry: true }).catch((e) => [
+        { ws: 0, ok: false, error: e instanceof Error ? e.message : String(e) },
+      ]);
+      return Response.json({ ok: true, modo: 'dry-run', acciones_total: total, workspaces: filtrados, leads_quietos: quietos });
     }
 
     const forzar = url.searchParams.get('commit') === '1';
@@ -71,6 +83,10 @@ export async function GET(request: NextRequest) {
     if (soloWs && res.length === 0) {
       return Response.json({ ok: false, error: `workspace ${soloWs} inexistente o pausado` }, { status: 404 });
     }
+    // Nunca tira: cada negocio falla por su cuenta y lo dice en su fila.
+    const quietos = await avisarLeadsQuietosTodos({ soloWs, hastaMs: Date.now() + QUIETOS_MS }).catch((e) => [
+      { ws: 0, ok: false, error: e instanceof Error ? e.message : String(e) },
+    ]);
     const auto = res.reduce((a, e) => a + (e.auto ?? 0), 0);
     const confirmaciones = res.reduce((a, e) => a + (e.confirmaciones ?? 0), 0);
     const errores = res.filter((r) => !r.ok).length;
@@ -83,6 +99,7 @@ export async function GET(request: NextRequest) {
         confirmaciones_creadas: confirmaciones,
         workspaces: res,
         espejo_etiquetas: espejo,
+        leads_quietos: quietos,
       },
       { status: todoFallo ? 500 : 200 },
     );

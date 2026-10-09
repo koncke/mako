@@ -20,31 +20,22 @@ import { TablaRevisionLeads } from '@/app/crm/TablaRevisionLeads';
 import { contar, recalcular, type FilaImport } from '@/app/crm/leads-importar';
 import type { Propuesta } from '@/lib/propuestas';
 import { confirmarLeadsAction, descartarLeadsAction } from './acciones';
+import { quienPropuso } from './propuesta-lead';
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '');
+const lista = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
 
-/** Los leads propuestos, con la forma que espera la tabla del importador.
- *  Acepta el LOTE (`datos.leads`) y también la forma vieja de un lead suelto en la
- *  raíz: una propuesta ya guardada no se migra sola, y romperle el link a alguien que
- *  lo tiene abierto sería peor que estas tres líneas. */
-function aFilas(datos: Record<string, unknown>): FilaImport[] {
-  const crudos = Array.isArray(datos.leads) ? (datos.leads as Record<string, unknown>[]) : [datos];
-  return recalcular(crudos.map((c, i) => ({
-    id: `p${i}`,
-    nombre: str(c.nombre),
-    email: str(c.email),
-    telefono: str(c.telefono),
-    empresa: str(c.empresa),
-    incluir: true,
-    yaExiste: false,
-  })));
-}
-
-export function RevisarLead({ prop }: { prop: Propuesta }) {
+/**
+ * `filas` llegan del server con el «ya existe» resuelto y el repetido destildado
+ * (page.tsx → `filasIniciales`), y `productos` son los nombres de lo que pidió la persona.
+ * Las filas se arman en app/crm/revisar/[id]/propuesta-lead.ts, que acepta el LOTE
+ * (`datos.leads`) y la forma vieja de un lead suelto en la raíz.
+ */
+export function RevisarLead({ prop, filas: iniciales, productos }: { prop: Propuesta; filas: FilaImport[]; productos: string[] }) {
   const router = useRouter();
-  // `recalcular` ya corrió en el inicializador: los descartes por «sin nombre» o
-  // «repetido» tienen que estar marcados en el primer pintado, no después de tocar algo.
-  const [filas, setFilas] = useState<FilaImport[]>(() => aFilas(prop.datos));
+  // `recalcular` ya corrió en el server (`filasIniciales`, con el «ya existe» contra la
+  // base): los descartes por «sin nombre» o «repetido» tienen que estar marcados en el
+  // primer pintado, no después de tocar algo.
+  const [filas, setFilas] = useState<FilaImport[]>(iniciales);
   const [trabajando, setTrabajando] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -54,7 +45,9 @@ export function RevisarLead({ prop }: { prop: Propuesta }) {
     setFilas((prev) => recalcular(typeof v === 'function' ? v(prev) : v));
 
   const c = useMemo(() => contar(filas), [filas]);
-  const origen = str(prop.datos.origen);
+  // Completar la ficha que ya está también es hacer algo: el botón no puede decir «No hay
+  // nada tildado» cuando lo único elegido es completar (el mismo criterio del importador).
+  const haceAlgo = c.tildadas + c.aEnriquecer;
   const yaResuelta = prop.estado !== 'pendiente';
 
   const confirmar = async () => {
@@ -97,16 +90,19 @@ export function RevisarLead({ prop }: { prop: Propuesta }) {
       titulo={`Contactos propuestos · ${filas.length} fila${filas.length === 1 ? '' : 's'}`}
       pasos={['Revisar']} pasoActual="Revisar"
       pregunta="¿Está bien lo que va a entrar?"
-      sub={`Lo propuso Claude${origen ? ` desde ${origen}` : ''}. Corrige lo que haga falta y tilda qué se crea.`}
+      sub={`${quienPropuso(prop.origen, prop.datos)}${productos.length ? ` · pidió ${lista(productos)}` : ''}. Corrige lo que haga falta y tilda qué entra.`}
       error={err}
       pending={trabajando}
-      puedeAvanzar={c.tildadas > 0}
+      puedeAvanzar={haceAlgo > 0}
       enUltimo
-      confirmLabel={c.tildadas > 0 ? `Crear ${c.tildadas} lead${c.tildadas === 1 ? '' : 's'} →` : 'No hay nada tildado'}
+      confirmLabel={haceAlgo === 0 ? 'No hay nada tildado'
+        : c.aEnriquecer === 0 ? `Crear ${c.tildadas} lead${c.tildadas === 1 ? '' : 's'} →`
+        : c.tildadas === 0 ? `Completar ${c.aEnriquecer} ficha${c.aEnriquecer === 1 ? '' : 's'} →`
+        : `Crear ${c.tildadas} · completar ${c.aEnriquecer} →`}
       atrasLabel="No sumarlos"
       onAtras={() => { void descartar(); }}
       onSiguiente={() => {}}
-      onConfirmar={() => { if (c.tildadas > 0 && !trabajando) void confirmar(); }}
+      onConfirmar={() => { if (haceAlgo > 0 && !trabajando) void confirmar(); }}
       onClose={() => router.push('/crm')}
     >
       <TablaRevisionLeads

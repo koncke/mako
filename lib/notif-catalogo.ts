@@ -179,4 +179,5 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   { id: 'meta-alcanzada', titulo: 'Cumpliste un objetivo', sub: 'Un objetivo del trimestre llegó a su meta.' },
   { id: 'quarter-planificar', titulo: 'Falta planificar el trimestre que viene', sub: 'Se está terminando el Quarter y el siguiente todavía está vacío.' },
   { id: 'crm-lead-estancado', titulo: 'Leads quietos en una etapa', sub: 'MaKo movió los que pasaron el plazo de su columna. UN mensaje por día con todos juntos.' },
+  { id: 'crm-lead-quieto', titulo: 'Leads que pasaron el plazo de su etapa', sub: 'Siguen quietos más días de los que le pusiste a la etapa. UN mensaje por día con todos juntos.' },
 ];

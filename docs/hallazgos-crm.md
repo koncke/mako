@@ -5495,6 +5495,10 @@ fecha y hora (un plazo en días de la etapa no contesta esa pregunta) y T3 cuelg
 `nutricion_manual_deadline`, una fecha que una PERSONA escribió para ESE lead — un plazo de
 etapa encima sería el código contradiciendo una decisión.
 
+✅ **Cerrado el 09/10/2026: ver «El lead QUIETO» más abajo.** Lo de este párrafo era cierto
+y además le faltaba la mitad: aunque hubiera habido pantalla, el plazo sólo le servía a T2 y
+T6 (tres columnas, y sólo con el motor prendido).
+
 ⚠️ **LO QUE QUEDÓ SIN HACER, Y ES LO QUE FALTA PARA CERRARLO: no hay pantalla que escriba
 `funnels.data.umbrales`.** No es una regresión de esta tanda — ninguna de las cuatro
 perillas globales tuvo escritor nunca (AGENTS.md ya lo tenía anotado como «un lector sin
@@ -5547,6 +5551,66 @@ posibilidad de apagarlo**, que es peor que el aviso.
   donde vive el mismo dato.
 
 **Vive en:** `lib/crm-auto-plan.ts` (`PlazosPorEtapa`, `plazoDeEtapa`, `sanearPlazosPorEtapa`, `resumenEstancados`) · `lib/crm-auto.ts` (`umbralesDelWorkspace`, `etapasDelWs`, `avisarEstancados`) · `lib/avisos-catalogo.ts` · `lib/avisos-agrupables.ts` · `lib/notif-catalogo.ts` · `tests/crm-auto-sla-etapa.test.ts` · *2026-10-05 paquete-800*
+
+---
+
+## El lead QUIETO: el plazo de cada etapa, y un aviso que no depende del motor (09/10/2026)
+
+**El diagnóstico obvio era el equivocado.** La entrada de arriba cerraba con «falta la
+pantalla que escriba `umbrales.porEtapa`», y escribir esa pantalla habría dejado un control
+que no hace nada en casi todas las etapas: el plazo lo leen T2 y T6, o sea **«Lead
+entrante», «Nutrición - No Agenda» y las de los fríos, y sólo en los negocios con el CRM
+automático prendido** (nace apagado por cliente). Un plazo en «Agenda R2» o «Facturando» se
+guardaba y no pasaba nada. Lo que #800 pedía desde el principio era otra cosa: *avisar
+cuando NO pasa nada*, en cualquier etapa, sin mover a nadie.
+
+Quedó así:
+
+- **El campo:** una pastilla «Plazo» por etapa en el editor de etapas del CRM (también en la
+  entrada; nunca en el cierre ni en las cuatro terminales: un lead en Ganado no está quieto,
+  ya terminó). Guarda en `funnels.data.umbrales.porEtapa`, el mismo mapa que ya leía el motor,
+  así que en las tres columnas de T2/T6 además sigue siendo el piso de la salida automática.
+- **El aviso:** `crm-lead-quieto`, aparte de `crm-lead-estancado`. Aquél dice «moví N»; éste
+  dice «N siguen quietos» y no toca a nadie. Corre en el cron del CRM automático, **después**
+  del motor (lo recién movido ya no está quieto) y **sin mirar `crm_auto_enabled`**. Sin un
+  solo plazo declarado no lee ni un lead. Uno por día (dedup de ~20 h).
+
+**`leads` no guarda desde cuándo está un lead en su etapa, y la respuesta sale del
+historial.** Cada cambio de etapa —el de una persona y el que sale solo de la derivación por
+fechas— deja una fila `Etapa` en `lead_audit` con la clave nueva, y `etapa_vista` dice cuál
+fue la última registrada (medido el 09/10: 2.084 filas sobre 1.277 leads, y `etapa_vista`
+vacía en 1 lead de 1.592). Desde cuándo = la última fila de ESA etapa. Y **«no sé» es un
+tercer estado** (`entradaALaEtapa` devuelve null): si `etapa_vista` es otra que la de hoy, o
+la última fila dice otra clave, el cambio todavía no se registró y no se afirma nada. Sin
+filas y con la vista al día vale la fecha de alta — que puede quedarse corta en días, nunca
+larga respecto del plazo; por eso el mensaje dice «más de N días» con N = el plazo, nunca los
+días exactos de cada lead.
+
+⚠️ **En una etapa de REUNIÓN el reloj arranca el día de la reunión** (`relojDesde`). Un lead
+en «Agenda R1» con la reunión dentro de diez días está esperando, que es lo que esa columna
+significa; el quieto es el que tuvo la reunión y nadie marcó si asistió. Medido: en ws1 hay 2
+leads en Agenda R1 con la reunión por delante — sin esto salían en el aviso.
+
+⚠️ **Y una trampa del arnés de roturas:** la primera vez que se rompió el cableado de
+`relojDesde` dio «1 fallo», y ese fallo era el de OTRO test que ya estaba rojo por un cambio
+propio (el test del orden en el cron buscaba la primera llamada, y el modo `dry` agregó una
+antes). Una rotura se lee contra una línea de base en VERDE, nunca contra una que ya tenía un
+rojo: el número parece una detección y no lo es.
+
+**Verificado con datos reales sin mandar nada:** plazos de prueba en el embudo de ws4 (leads
+ficticios), el aviso en modo `dry` y los plazos sacados: 89 quietos en cuatro etapas, el texto
+con los rótulos del embudo y el link al CRM. El `?dry=1` del cron muestra lo mismo para
+cualquier negocio.
+
+**La pastilla, mirada en el navegador** (ws9, Playwright contra el `next dev` del clon): las
+cuatro etapas propias la muestran —«Lead entrante» incluida, al lado del lápiz—; poner 4 días,
+recargar la página y que vuelva del server; un 999 se ignora sin borrar el que había; y vacía
+vuelve a «Plazo». ws3 no sirvió: hoy rebota al onboarding.
+
+**Sin hacer:** el aviso no distingue un lead «quieto» porque el negocio lo dejó ahí a
+propósito (un plazo largo lo resuelve).
+
+**Vive en:** `lib/lead-quieto.ts` (puro: `puedeTenerPlazo`, `plazosValidos`, `entradaALaEtapa`, `relojDesde`, `leadsQuietos`, `textoLeadsQuietos`) · `lib/lead-quieto-aviso.ts` · `lib/funnels.ts` (`umbralesDe`, `funnelsConUmbrales`) · `app/crm/actions.ts` (op `plazo`, `EmbudoEnDetalle.plazos`) · `app/crm/EtapasModal.tsx` (`PlazoEtapa`) · `app/api/cron/crm-automatico/route.ts` · `tests/lead-quieto.test.ts` · *2026-10-09 #800*
 
 ---
 
@@ -7552,3 +7616,51 @@ cumple la action, porque `op` es el argumento de una server action.
   la fecha queda en el lugar de su número viejo.
 
 _09/10/2026, cuenta 2, sin subagentes. Commit `adf1ca3d`._
+
+---
+
+## Confirmar una propuesta de la landing perdía al lead, sus productos y su campaña (09/10/2026)
+
+**El relevo del 06/10 lo anotaba chico** («el duplicado del opt-in no lleva los productos») y
+era tres agujeros en la misma pantalla, `/crm/revisar/<id>`, que es por donde entra todo
+contacto de la landing que ya existía en el CRM (o cuyo alta directa falló):
+
+1. **El «ya existe» no se mostraba, y el botón mentía.** `RevisarLead` sembraba las filas con
+   `yaExiste: false`; el server lo descubría al confirmar y —con razón: no puede honrar una
+   decisión que nadie vio— bajaba el tilde y la contaba como omitida. La pantalla decía
+   «Crear 1 lead», la persona apretaba, volvía al CRM y no había pasado nada: ni ficha nueva,
+   ni la ficha vieja tocada. Ahora la página corre `marcarExistentes` antes de dibujar y el
+   repetido nace destildado, igual que en el importador, con «Duplicar / Completar».
+2. **Los productos no viajaban.** El opt-in sabía en qué productos se anotó la persona y la
+   propuesta no lo guardaba (el comentario del opt-in lo decía: «un campo puesto acá no lo
+   leería nadie»). El lead nacía en el embudo del negocio; el que ya existía no se agregaba a
+   ninguno. Ahora `datos.funnels` viaja, y al confirmar: el nuevo nace en el primero y se lo
+   AGREGA a los demás; si se elige completar la ficha que estaba, se la agrega a todos
+   («agregar, nunca mover»).
+3. **La atribución tampoco.** La propuesta guardaba utm, fbclid y la visita
+   (`visitor_id`), pero la tabla sólo copia nombre, email, teléfono y empresa, e
+   `importarLeadsRevisadosAction` crea con `origen_lead: importacion`. El lead nacía sin
+   campaña, sin fbclid para Meta y sin la sesión grabada. Ahora se le escriben al lead CREADO
+   (nunca a una ficha que ya existía: su primer contacto es el que la trajo).
+
+**La regla que queda:** si una propuesta guarda campos que la tabla de revisión no muestra,
+alguien tiene que leerlos al confirmar — y se leen de la PROPUESTA (la guardó el server), no
+del navegador. Es «escribir la salida no es ofrecerla» con la salida en un jsonb: el opt-in
+escribía `fbclid` «en los dos caminos» con un comentario que lo exigía, y el segundo camino
+no lo leía nadie.
+
+⚠️ **Y la pantalla decía «Lo propuso Claude» sobre todo**, también sobre un formulario de la
+landing o un pedido por WhatsApp: el texto era una constante con el origen sólo como sufijo.
+`quienPropuso` lo saca del `origen` de la propuesta.
+
+**Mirado en el navegador** (ws9, `next dev` propio, una propuesta de prueba creada y borrada):
+dice «Llegó de tu landing», el botón cuenta «Crear 1 lead», y «No sumarlos» la descarta y
+vuelve al CRM sin errores. Si lo único que pidió es el producto del negocio no se nombra:
+«pidió Funnel principal» no informaba nada.
+
+**Sin hacer:** confirmar marca la propuesta DESPUÉS de crear (dos pestañas pueden crear dos
+veces; el ejecutor de flujos ya reclama antes). El camino del REPETIDO (Duplicar / Completar
++ los productos) tiene test pero no se miró en pantalla: ningún workspace de prueba tiene un
+lead con email al que duplicar sin tocar datos reales.
+
+**Vive en:** `app/crm/revisar/[id]/propuesta-lead.ts` (puro) · `app/crm/revisar/[id]/page.tsx` · `app/crm/revisar/[id]/RevisarLead.tsx` · `app/crm/revisar/[id]/acciones.ts` · `app/crm/actions.ts` (`ImportLeadsResult.ids`) · `app/api/track/optin/route.ts` (`datos.funnels`) · `tests/crm-revisar-propuesta.test.ts` · *2026-10-09*
