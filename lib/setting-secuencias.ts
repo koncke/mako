@@ -27,7 +27,8 @@ import { getInstanciaRow } from './evolution';
 import { enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar } from './evolution-envio';
 import { getAudio, audioBase64 } from './setting-audios';
 import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
-import { aplicarVariables, valoresVariablesLead } from './template-vars';
+import { aplicarVariables } from './template-vars';
+import { datosDeEjemplo } from './simulador-grafo';
 import { esPasoAccion } from './nutricion-paso-accion';
 import { partesDe } from './mensaje-partes';
 import { emojiDeSecuencia } from './flujo-conversacion';
@@ -623,7 +624,10 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
   let enviadosWa = 0;
   let enviadosEmail = 0;
   const total = sec.pasos.length;
-  const vars = valoresVariablesLead({ nombre: contacto.nombre || 'Prueba' });
+  // El catálogo entero del «{ }» con sus ejemplos y, encima, el nombre de quien prueba (`datosDeEjemplo`,
+  // lib/simulador-grafo.ts: el MISMO de «Probar»). Con los cinco de antes, la etapa o la reunión le
+  // llegaban crudas a quien probaba.
+  const vars = datosDeEjemplo({ nombre: contacto.nombre || 'Prueba' });
 
   // La prueba sale por la línea de ESTA secuencia (`null` = la de por default): probarla
   // por otra sería probar otra cosa — y el estado que se mira es el de esa línea.

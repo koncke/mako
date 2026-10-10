@@ -176,7 +176,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'plan_nutricion_hoy', area: 'chatbot', tipo: 'lectura',
     titulo: 'A quién le escribiría el chatbot',
-    descripcion: 'Simulación del motor sin escribir nada: qué leads entrarían hoy a cada secuencia activa (con el horario del primer paso) y qué envíos están vencidos para la próxima corrida (lead, secuencia, paso, canal). No aplica el tope diario configurado, la pausa de 20 horas por lead, la ventana de 9 a 21 ni si el envío del canal está habilitado: lo que de verdad sale puede ser menos. Una fila con reactiva: true no es un alta: es una inscripción que ya terminó y vuelve a correr porque el lead volvió a agendar. Úsala para «a quién le va a escribir el chatbot».',
+    descripcion: 'Simulación del motor sin escribir nada: qué leads entrarían hoy a cada secuencia activa (con el horario del primer paso) y qué envíos están vencidos para la próxima corrida (lead, secuencia, paso, canal). No aplica el tope diario configurado, la pausa de 20 horas por lead, el horario de envío del negocio (si puso uno en Configuraciones; sin él, el motor manda a cualquier hora) ni si el envío del canal está habilitado: lo que de verdad sale puede ser menos. Una fila con reactiva: true no es un alta: es una inscripción que ya terminó y vuelve a correr porque el lead volvió a agendar. Úsala para «a quién le va a escribir el chatbot».',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', lenta: true, gating: { tab: TAB, rolMinimo: 'admin' },
   },

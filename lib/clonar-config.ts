@@ -22,6 +22,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { claveNombre, traducirEtiquetasEnSecuencia } from './etiquetas-reglas';
+import { pasosParaElDestino } from './clonar-pasos';
 
 /** Settings de contexto que se replican tal cual. */
 const KEYS_COPIABLES = [
@@ -69,24 +70,19 @@ type TablaClon = {
  * datos-6). Viajaban tal cual, con ids que en el destino no significan nada o significan otra cosa:
  *   · las ETIQUETAS (condiciones, pasos ⚡ y el disparador) se traducen con el mapa por nombre de
  *     las que se acaban de copiar; lo que no está en el mapa queda vacío (`traducirEtiquetasEnSecuencia`);
- *   · `audio_id` y `media_id` apuntan a la biblioteca del DUEÑO, que este clon no copia: quedan
- *     vacíos. Un id del dueño que sobrevive no se reproduce en el destino (getAdjunto filtra por
- *     workspace) y, por casualidad, podría ser el de OTRO archivo.
+ *   · `audio_id` y `media_id` (también adentro de las partes de un mensaje) apuntan a la biblioteca
+ *     del DUEÑO, que este clon no copia, y `linea` (el número por mensaje) es una línea del dueño: no
+ *     viajan (`pasosParaElDestino`, lib/clonar-pasos.ts, con el porqué de cada uno). La columna
+ *     `instance_name` tampoco se copia: el mensaje sale por la línea de la automatización del destino.
  */
 function secuenciaParaElDestino(r: Record<string, unknown>, ctx: CtxClon): Record<string, unknown> {
   const mapa = ctx.etiquetas;
   const t = traducirEtiquetasEnSecuencia(r.pasos, r.etiqueta_id, (id) => mapa?.get(id) ?? null);
   if (t.sinTraducir) ctx.avisos.push(`«${String(r.nombre ?? r.clave)}»: ${t.sinTraducir} ${t.sinTraducir === 1 ? 'etiqueta quedó' : 'etiquetas quedaron'} sin elegir (no hay una igual en este cliente).`);
-  let anulados = 0;
-  const pasos = Array.isArray(t.pasos)
-    ? t.pasos.map((p) => {
-      if (!p || typeof p !== 'object') return p;
-      const o = { ...(p as Record<string, unknown>) };
-      for (const k of ['audio_id', 'media_id']) if (o[k] != null) { o[k] = null; anulados++; }
-      return o;
-    })
-    : t.pasos;
+  // Los adjuntos y las líneas del dueño no viajan (`pasosParaElDestino`, lib/clonar-pasos.ts: puro, con test).
+  const { pasos, adjuntos: anulados, lineas: sinLinea } = pasosParaElDestino(t.pasos);
   if (anulados) ctx.avisos.push(`«${String(r.nombre ?? r.clave)}»: ${anulados} ${anulados === 1 ? 'audio o archivo quedó' : 'audios o archivos quedaron'} sin adjuntar (son de la biblioteca del dueño).`);
+  if (sinLinea) ctx.avisos.push(`«${String(r.nombre ?? r.clave)}»: ${sinLinea} ${sinLinea === 1 ? 'mensaje vuelve' : 'mensajes vuelven'} a la línea de la automatización.`);
   return { ...r, pasos, etiqueta_id: t.etiquetaId };
 }
 

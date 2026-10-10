@@ -117,10 +117,22 @@ test('el cableado: la firma, la lectura estricta, la fila ANTES del disparo, y e
   assert.match(recibir, /if \(esTablaQueFalta\(code\)\) \{\n\s+console\.error\([^\n]*\n\s+return responder\(200, \{ ok: false, error: 'sin_tabla' \}\);\n\s+\}/, 'sin la tabla no se dispara (no hay cómo deduplicar)');
   // El lead: el patrón escapado, y en el workspace del email (nunca el de la sesión: no hay).
   assert.match(recibir, /\.from\('leads'\)\.select\('id, email'\)\.ilike\('email', escaparIlike\(email\.de\)\)/);
-  // UNA puerta al motor, con el cast marcado.
+  // UNA puerta al motor, SIN casts (segunda pasada de la sexta tanda: el evento ya existe en
+  // `EventoNutricion`), y con el `ctx` que lee `disparaPorEvento` (el subtipo del CRON de email).
   assert.equal((lib.match(/enrolarPorEvento\(/g) ?? []).length, 1, 'el evento se dispara por un solo lugar');
-  assert.match(lib, /return enrolarPorEvento\(leadId, EVENTO_EMAIL_RECIBIDO as EventoNutricion, ctx\);/);
+  const disparo = lib.slice(lib.indexOf('export async function enrolarPorEmailRecibido('), lib.indexOf('export async function dominiosReclamados('));
+  assert.ok(disparo.length > 0 && disparo.length < 400, `el recorte de la puerta mide ${disparo.length}`);
+  assert.match(disparo, /const ctx: CtxEvento = \{ subtipo: EVENTOS_EMAIL\[0\]\.subtipo \};\n\s+return enrolarPorEvento\(leadId, EVENTO_EMAIL_RECIBIDO, ctx\);/);
+  assert.doesNotMatch(disparo, /\bas (unknown|EventoNutricion|CtxEvento)\b/, 'volvió un cast: un evento que el motor no conoce compila y no inscribe a nadie');
   assert.equal(EVENTO_EMAIL_RECIBIDO, 'email_recibido');
+  // «No pude leer de quién es» se ANOTA en el super admin, como en los demás webhooks.
+  assert.match(recibir, /try \{ reclamados = await dominiosReclamados\(\); \} catch \(e\) \{ return falloDeRuteo\(e, email\.para\[0\] \?\? null\); \}/);
+  assert.match(lib, /const r = await responderFalloDeRuteo\('email', e, identificador\);/);
+  // Y el webhook de siempre de Resend (ya suscripto a `email.received`) lo manda a la MISMA función.
+  const resend = sinComentarios(leer('app/api/webhooks/resend/route.ts'));
+  assert.match(resend, /case 'email\.received': \{\n\s+const r = await recibirEmailEntrante\(evt\);\n\s+return Response\.json\(r\.body, \{ status: r\.status \}\);/,
+    'sin el case, un mail que llega al webhook de siempre cae al `default` y se pierde con un 200');
+  assert.ok(resend.indexOf("case 'email.received'") < resend.indexOf('default:'), 'el case va antes del default');
   // Ruteo por el dominio RECLAMADO, nunca por el remitente (el del ws1 es el de la plataforma).
   assert.match(dominios, /\.eq\('key', 'resend_domain'\)/);
   assert.doesNotMatch(lib, /resend_from/, 'rutear por el remitente le daría a un cliente los mails de MaKo');
@@ -148,3 +160,6 @@ test('la migración: email_id único, los mismos estados que el código, y cerra
 //     guard dio 8 / 0: su `[\s\S]{0,200}` llegaba al `return` del duplicado; con el bloque exacto,
 //     7 / 1) · el lead sin escapar el patrón · rutear por `resend_from` · 503 para todo.
 //   · la ruta sin verificar la firma · la migración sin el índice único · el CHECK sin un estado.
+// Segunda pasada de la sexta tanda (09/10/2026, base 8 / 0), las tres 7 / 1: vuelve un cast en la
+// puerta del disparo · el ruteo que falla vuelve al log (`fallo('ruteo', e)`) en vez de anotarse · el
+// webhook de siempre de Resend sin el `case 'email.received'`.

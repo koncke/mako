@@ -39,7 +39,7 @@ import { createLead } from '@/lib/leads';
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { enviarBorrador } from '@/lib/evolution-envio';
 import { runWithWorkspace } from '@/lib/workspace';
-import { ACCIONES_DEL_FLUJO, accionDelFlujo, type GrupoAccion } from '@/lib/editor-acciones';
+import { ACCIONES_DEL_FLUJO, accionDelFlujo, unaPorEtiqueta, juntarPorEtiqueta, type GrupoAccion } from '@/lib/editor-acciones';
 
 export type ResultadoFlujo = {
   ok: boolean;
@@ -75,8 +75,20 @@ export async function ejecutarDesdeFlujo(
 ): Promise<ResultadoFlujo> {
   const def = porId(operacion);
   if (!def || !esAccion(def)) return { ok: false, resumen: `«${operacion}» no es una acción de MaKo.`, via: 'ninguna' };
+  // ⚠️ UNA TARJETA TAG CON VARIAS ETIQUETAS CORRE UNA VEZ POR ETIQUETA (sexta tanda, TAG 2). La def del
+  // registro acepta UNA (`etiquetaId`) y el validador tira en silencio lo que no declara (`etiquetaIds`):
+  // sin esto, «Agregar Cualificado, Seguimiento y Llamar» agregaba sólo Cualificado, sin un error. Cada
+  // tanda pasa por el mismo camino de siempre (y deja su fila); el resultado es UNO, ok sólo si salieron
+  // todas, y el resumen dice cada una (`juntarPorEtiqueta`, lib/editor-acciones.ts).
+  const tandas = unaPorEtiqueta(operacion, params);
+  if (tandas.length > 1) {
+    const rs: ResultadoFlujo[] = [];
+    for (const p of tandas) rs.push(await ejecutarDesdeFlujo(operacion, p, opts));
+    return juntarPorEtiqueta(rs);
+  }
   const ctx = ctxDeFlujo(opts.ws, opts.origen, opts.nombre);
-  const input = paramsDelPaso(def.parametros, params, { leadId: opts.leadId ?? null });
+  // La tanda única (con una etiqueta en la lista, ésa queda en `etiquetaId`); para todo lo demás, `params`.
+  const input = paramsDelPaso(def.parametros, tandas[0], { leadId: opts.leadId ?? null });
   // ⚠️ EL WORKSPACE LO FIJA EL EJECUTOR, no quien lo llama. `ejecutarOperacion` lo fija para
   // proponer, pero confirmar (`confirmarPendiente`) corre el `ejecutar()` de la acción tal
   // cual, y ahí `logLeadEvent` → `getTenantDb` sin contexto cae a las cookies: medido el

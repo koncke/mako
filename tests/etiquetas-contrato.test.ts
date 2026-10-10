@@ -258,7 +258,9 @@ test('datos-6: los clonadores copian el catálogo de etiquetas ANTES y traducen 
   assert.match(tablas, /cols: \[[^\]]*'etiqueta_id'[^\]]*\],\s*forzar: \{ activa: false \},\s*preparar: secuenciaParaElDestino/);
   const prep = bloque(cc, 'function secuenciaParaElDestino(', '\n}\n');
   assert.match(prep, /traducirEtiquetasEnSecuencia\(r\.pasos, r\.etiqueta_id,/);
-  assert.match(prep, /for \(const k of \['audio_id', 'media_id'\]\) if \(o\[k\] != null\) \{ o\[k\] = null;/, 'los adjuntos del dueño no viajan');
+  // Los adjuntos (y las líneas) del dueño no viajan: lo decide una función PURA que se ejecuta en
+  // tests/clonar-pasos.test.ts (sexta tanda, segunda pasada); acá, que el clon la use.
+  assert.match(prep, /= pasosParaElDestino\(t\.pasos\);/, 'los adjuntos del dueño no viajan');
   const dm = sinComentarios(leer('lib/datos-mau.ts'));
   const setting = bloque(dm, '  setting: {', "\n    nota: 'Los audios");
   assert.ok(setting.indexOf("tabla: 'crm_etiquetas'") >= 0 && setting.indexOf("tabla: 'crm_etiquetas'") < setting.indexOf("tabla: 'nutricion_secuencias'"));

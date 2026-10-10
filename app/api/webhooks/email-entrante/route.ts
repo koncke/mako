@@ -17,8 +17,9 @@
 //      dominio, hola-mako.com, con `receiving: disabled`.
 //   2. Que ese dominio (o el que lo contiene) sea el `resend_domain` del workspace (lo carga /email).
 //   3. Un webhook de Resend a ESTA ruta con el evento `email.received`, y su secreto en
-//      `RESEND_INBOUND_WEBHOOK_SECRET`. (O sumar `email.received` a /api/webhooks/resend, que YA
-//      está suscripto a ese evento y hoy lo ignora: ver los bloqueantes del relevo de la tanda.)
+//      `RESEND_INBOUND_WEBHOOK_SECRET`. O nada más: el webhook de siempre (/api/webhooks/resend) YA
+//      está suscripto a ese evento y desde la segunda pasada de la sexta tanda lo manda a la misma
+//      `recibirEmailEntrante`. Con los dos a la vez no hay duplicado (la fila deduplica por email_id).
 //
 // RESPUESTAS: 401 sin firma; 503 sólo si reintentar lo arregla (Resend reintenta y, con Svix, apaga
 // el endpoint si falla días seguidos: AGENTS.md, «un webhook contesta 5xx SÓLO a lo que se arregla

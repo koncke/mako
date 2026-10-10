@@ -64,6 +64,18 @@ export const TRIGGERS_SOLO_EVENTO: ReadonlySet<string> = new Set([
 /** Todos los que este módulo agrega al catálogo de siempre (`TRIGGERS`, lib/email-marketing.ts). */
 export const TRIGGERS_NUEVOS: readonly string[] = [...TRIGGERS_SOLO_EVENTO, TRIGGER_SOLO_GRUPO];
 
+/**
+ * LOS QUE SÓLO SE ELIGEN EN EL CRON DE LA AUTOMATIZACIÓN (segunda pasada de la sexta tanda,
+ * 09/10/2026). Necesitan un dato que el selector de siempre —el de /email, la API de email— no
+ * tiene: el EVENTO del canal (`subtipo`) o el HORARIO y «A quién». Desde `TRIGGERS` se pueden NOMBRAR,
+ * pero guardados por esa puerta quedaban como una automatización que no arranca nunca, sin un error
+ * (`disparaPorEvento` exige el subtipo; el grupo sin horario no barre). Los rechazan
+ * `crearEmailSecuencia` / `actualizarMetaEmailSecuencia` (lib/email-marketing.ts) y la API de email.
+ * Las dos de etiqueta («Se agrega / se elimina») no están: su «Ignorar» es opcional.
+ */
+export const SOLO_DESDE_EL_CRON: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_SOLO_GRUPO]);
+export const MOTIVO_SOLO_DESDE_EL_CRON = 'Ese disparador se elige en el CRON de la automatización.';
+
 /** Cuántos CRON puede tener una automatización. ManyChat no topea; diez es más de lo que se usa. */
 export const TOPE_DISPARADORES = 10;
 /** Cuántas etiquetas se pueden «Ignorar». */
@@ -99,14 +111,21 @@ export const EVENTOS_INSTAGRAM: readonly EventoCanal[] = [
   { subtipo: 'ref', label: 'El usuario hace clic en un enlace de referencia' },
 ];
 
-/** Los de Messenger (CRON punto 7), con el del anuncio apagado como en ManyChat. */
+/**
+ * Los de Messenger (CRON punto 7), con el del anuncio apagado como en ManyChat.
+ *
+ * ⚠️ LA TIENDA VA APAGADA (segunda pasada, 09/10/2026): Zernio no avisa los mensajes que llegan desde
+ * la tienda de Facebook (`DISPARADORES_SOCIALES`, lib/canal-social.ts, la marca `disponible: false`),
+ * así que un CRON guardado con ese evento era una automatización que no arranca NUNCA, sin un error.
+ * tests/disparadores-canal-social.test.ts cruza las dos tablas.
+ */
 export const EVENTOS_MESSENGER: readonly EventoCanal[] = [
   { subtipo: 'anuncio', label: 'El usuario hace clic en un anuncio de Facebook', apagado: 'Todavía no' },
   { subtipo: 'comentario', label: 'El usuario comenta tu publicación' },
   { subtipo: 'dm', label: 'El usuario envía un mensaje' },
   { subtipo: 'ref', label: 'El usuario hace clic en un enlace de referencia' },
   { subtipo: 'qr', label: 'El usuario escanea un código QR' },
-  { subtipo: 'tienda', label: 'Mensajes de usuarios de tu tienda de Facebook' },
+  { subtipo: 'tienda', label: 'Mensajes de usuarios de tu tienda de Facebook', apagado: 'Todavía no' },
 ];
 
 /** «Si recibo un email» (CRON punto 8). Uno solo: es el único hecho que el email trae hoy. */
@@ -120,6 +139,28 @@ export function eventosDe(clase: ClaseDisparador | 'otro' | null): readonly Even
   if (clase === 'messenger') return EVENTOS_MESSENGER;
   if (clase === 'email') return EVENTOS_EMAIL;
   return [];
+}
+
+/**
+ * EL EVENTO DEL WEBHOOK, EN LAS PALABRAS DEL CRON (segunda pasada de la sexta tanda, 09/10/2026).
+ *
+ * ⚠️ HAY DOS VOCABULARIOS Y NINGUNO DA ERROR. El lector del webhook de Zernio (`eventoSocialDe`,
+ * lib/canal-social.ts) dice `mensaje`, `comentario_vivo` y `referencia`; el CRON guarda `dm`, `en_vivo`
+ * y `ref` (`EVENTOS_INSTAGRAM` / `EVENTOS_MESSENGER`, arriba). Cada parte los eligió por su lado y los
+ * dos tienen su test. Sacar el cast de `dispararEventoSocial` sin esta traducción compilaba perfecto y
+ * dejaba un «El usuario envía un mensaje» sin arrancar NUNCA: `disparaPorEvento` compara el subtipo
+ * exacto y `'mensaje' !== 'dm'`. Medido con la tabla del webhook (tests/disparadores-canal-social.test.ts):
+ * 3 de los 11 eventos que llegan no coincidían.
+ *
+ * null = el evento no lo escucha ningún CRON de ese canal (una mención en una historia, por ejemplo).
+ */
+const SUBTIPO_DEL_WEBHOOK: Readonly<Record<string, string>> = {
+  mensaje: 'dm', historia: 'historia', comentario: 'comentario', comentario_vivo: 'en_vivo',
+  anuncio: 'anuncio', referencia: 'ref', qr: 'qr', tienda: 'tienda',
+};
+export function subtipoDelEvento(canal: 'instagram' | 'messenger', subtipoDelWebhook: string | null | undefined): string | null {
+  const s = subtipoDelWebhook ? SUBTIPO_DEL_WEBHOOK[subtipoDelWebhook] : undefined;
+  return s && eventosDe(canal).some((e) => e.subtipo === s) ? s : null;
 }
 
 /** El `trigger_tipo` de cada clase de canal. */
@@ -559,6 +600,34 @@ export function vistasPorDisparador<S extends SecuenciaConDisparo>(sec: S): Arra
 export function unaPorSecuencia<T extends { id: number }>(vistas: readonly T[]): T[] {
   const vistos = new Set<number>();
   return vistas.filter((v) => (vistos.has(v.id) ? false : (vistos.add(v.id), true)));
+}
+
+/**
+ * ¿ALGUNA DE ESTAS AUTOMATIZACIONES ARRANCA CON ESTE EVENTO? La MISMA pregunta que se hace al
+ * inscribir (`disparaPorEvento` sobre cada CRON, `vistasPorDisparador`), así que «hay quien escuche»
+ * y «a quién se inscribe» no pueden contestar distinto.
+ *
+ * La usa el webhook de Instagram y Messenger (lib/zernio-entrante.ts) antes de CREAR un lead: sin
+ * ninguna automatización que escuche ESE evento, cada persona que comenta una publicación sería un
+ * lead del CRM. ⚠️ Preguntaba por `trigger_tipo.includes(canal)` —el PRIMER CRON y cualquier evento
+ * del canal—: un CRON «comenta tu publicación» creaba un lead por cada DM, y un segundo CRON de
+ * Instagram no contaba.
+ */
+export function escuchaElEvento(
+  secs: readonly SecuenciaConDisparo[],
+  evento: EventoDisparador | string,
+  ctx?: { etiquetaId?: number | string | null; subtipo?: string | null } | null,
+): boolean {
+  return secs.some((s) => vistasPorDisparador(s).some((v) => disparaPorEvento(v.disparador, evento, ctx)));
+}
+
+/**
+ * ¿Tiene un Recurrente que le habla al grupo de MaKo? Lo pregunta el cron de nutrición
+ * (app/api/cron/nutricion) cuando el negocio tiene los dos canales apagados: el grupo se escribe por
+ * la línea de MaKo, no por la del negocio, así que ese Recurrente sale igual.
+ */
+export function tieneRecurrenteAlGrupo(sec: SecuenciaConDisparo): boolean {
+  return vistasPorDisparador(sec).some((v) => v.cron != null && v.disparador.grupo === true);
 }
 
 // ── El Recurrente: «A quién» ─────────────────────────────────────────────────────────────────────

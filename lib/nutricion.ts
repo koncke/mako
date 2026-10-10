@@ -1520,11 +1520,17 @@ async function aInscribir(
 // · EL RECURRENTE AL GRUPO DE MAKO sale una vez por ocurrencia, la que esta corrida acaba de
 //   reclamar (`mandarRecurrenteAlGrupo`). No inscribe a nadie: el grupo no es un lead.
 //
+// · `soloGrupo` (segunda pasada de la sexta tanda, 09/10/2026): lo pide el cron cuando el negocio
+//   tiene los DOS canales apagados (app/api/cron/nutricion). Mira sólo los CRON con el grupo marcado,
+//   reclama su ocurrencia y le manda al grupo —que sale por la línea de MaKo, no por la del negocio—
+//   y NO inscribe a la cohorte: con los canales apagados no se inscribe a nadie (modo 'off'). Sin
+//   esto, un Recurrente sólo al grupo no salía nunca en un negocio sin WhatsApp ni email.
+//
 // · Un error de `aInscribir` LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y el
 //   insert moría contra el unique — o sea que igual cortaba, pero con un mensaje que culpaba al
 //   insert y no a la lectura. `reunion_at` va sólo en la familia que prepara una reunión: fuera de
 //   ella la columna no dice nada, y no mandarla deja a las demás andando sin la 0205.
-export async function comprometerInscripciones(): Promise<number> {
+export async function comprometerInscripciones(opts?: { soloGrupo?: boolean }): Promise<number> {
   const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
   let creadas = 0;
@@ -1538,6 +1544,7 @@ export async function comprometerInscripciones(): Promise<number> {
     for (const sec of vistasPorDisparador(base)) {
       if (!barridoInscribe(sec)) continue;
       if (!barreElDisparador(sec) && !sec.disparador.grupo) continue;
+      if (opts?.soloGrupo && !sec.disparador.grupo) continue;
       const agenda = decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora);
       if (agenda.proxima) {
         let reclamada = false;
@@ -1555,6 +1562,7 @@ export async function comprometerInscripciones(): Promise<number> {
       if (!agenda.toca) continue;
       if (sec.disparador.grupo) await mandarRecurrenteAlGrupo(base, sec.disparador, sec.cron_proxima_at);
       if (!barreElDisparador(sec)) continue;
+      if (opts?.soloGrupo) continue;
       // Una o varias etapas (punto 14).
       const candidatos = (await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, etapasDe(sec), sec.funnel_id, sec.producto_id, sec.etiqueta_id)))
         .filter((id) => !yaInscriptos.has(id));
@@ -4340,7 +4348,15 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 // `opts.origen`: por dónde llegó. Sólo importa para el aviso de una charla que el setter ya no
 // sigue (#788): por el oficial, el webhook de Chatwoot avisa CADA mensaje por su cuenta, y un
 // segundo aviso sería ruido; por el no oficial, ése es el único aviso que hay.
-export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' }): Promise<number> {
+//
+// ⚠️ CON `origen` INSTAGRAM O MESSENGER (segunda pasada de la sexta tanda, 09/10/2026: lo llama el
+// webhook de Zernio, lib/zernio-entrante.ts) SÓLO PAUSA: marca 'respondio' lo activo y lo terminado
+// que le escribió, y se va. Lo de abajo —destrabar un paso que esperaba la respuesta, el borrador del
+// modo asistido, «Si responde», la charla— CONTESTA, y contesta por WhatsApp al teléfono del lead: a
+// quien escribió por Instagram le llegaría un WhatsApp. (El `requiere: 'respondio'` del destrabe es
+// del modelo lineal de antes, que no tiene pasos sociales: no se pierde nada.)
+export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial }): Promise<number> {
+  const soloPausa = esCanalSocial(opts?.origen);
   const supabase = (await getTenantDb());
   // ⚠️ LAS SECUENCIAS SE LEEN ANTES DE MARCAR 'respondio' (revisión del 08/10/2026). Con el deploy
   // adelantado a una migración que agrega una columna que esta lectura pide (la 0223,
@@ -4399,6 +4415,9 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     }
   } catch (e) { console.error(`[nutricion] respuesta a secuencia terminada, lead ${leadId}:`, e); }
 
+  // Por Instagram o Messenger, hasta acá: lo que sigue contesta por WhatsApp (ver arriba).
+  if (soloPausa) return pausadas.length + tardias.length;
+
   // PASOS CONDICIONALES (reunión 31/07): un paso con requiere='respondio' está
   // esperando justamente esto — el caso del lead magnet ("¿lo querés? es gratis"
   // y recién si contesta se manda). La respuesta lo DESTRABA: la inscripción
@@ -4447,7 +4466,7 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
       atendida = await asistirRespuesta(leadId, atendibles.map((i) => i.secuencia_id), opts?.texto, opts?.linea ?? null);
     }
     // DEL SEGUNDO MENSAJE EN ADELANTE no hay inscripción activa: la charla se busca (#788).
-    if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, opts?.origen ?? 'oficial');
+    if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial');
   } catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   return respondidas.length;
 }

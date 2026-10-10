@@ -105,15 +105,21 @@ test('⚠️ el lienzo arma el paso con `paramsConEtiquetas` y le pasa al editor
   assert.match(ed, /params: paramsConEtiquetas\(ids, \{ leadId: LEAD_DEL_EVENTO \}\)/, 'el paso no guarda las demás');
 });
 
-// ⚠️ ENCHUFE PENDIENTE (09/10/2026): el que corre la acción vive en lib/api-mako/flujo.ts, que no es de la
-// parte «editores». Sin esto, una tarjeta con tres etiquetas corre SÓLO la primera, en silencio (el
-// validador del registro tira `etiquetaIds`). Lo enchufa quien integra la tanda; al enchufarlo, se le
-// saca el `todo` a este test y queda como guard.
-test('ENCHUFE: `ejecutarDesdeFlujo` corre una vez por etiqueta (`unaPorEtiqueta` + `juntarPorEtiqueta`)', { todo: 'lo enchufa la integración: lib/api-mako/flujo.ts' }, () => {
+// ENCHUFADO (sexta tanda, segunda pasada, parte «motor», 09/10/2026): el que corre la acción vive en
+// lib/api-mako/flujo.ts. Sin esto, una tarjeta con tres etiquetas corre SÓLO la primera, en silencio (el
+// validador del registro tira `etiquetaIds`). Queda como guard.
+// Probado rompiéndolo (09/10/2026, este archivo con el `todo` ya sacado, base 9 / 0): sin la vuelta por
+// tanda → 8 / 1; usando `params` en vez de `tandas[0]` para la tanda única → 8 / 1. Restaurado: 9 / 0.
+test('ENCHUFE: `ejecutarDesdeFlujo` corre una vez por etiqueta (`unaPorEtiqueta` + `juntarPorEtiqueta`)', () => {
   const flujo = sinComentarios(leer('lib/api-mako/flujo.ts'));
   const ej = flujo.slice(flujo.indexOf('export async function ejecutarDesdeFlujo('), flujo.indexOf('export async function aplicarEnElActo('));
-  assert.match(ej, /unaPorEtiqueta\(operacion, params\)/);
-  assert.match(ej, /juntarPorEtiqueta\(/);
+  assert.ok(ej.length > 0 && ej.length < 2000, `el recorte mide ${ej.length}: está mirando otra cosa`);
+  assert.match(ej, /const tandas = unaPorEtiqueta\(operacion, params\);/);
+  assert.match(ej, /if \(tandas\.length > 1\) \{\n\s+const rs: ResultadoFlujo\[\] = \[\];\n\s+for \(const p of tandas\) rs\.push\(await ejecutarDesdeFlujo\(operacion, p, opts\)\);\n\s+return juntarPorEtiqueta\(rs\);/);
+  // La tanda única (una etiqueta EN LA LISTA) corre con su `etiquetaId`, no con los parámetros crudos.
+  assert.match(ej, /paramsDelPaso\(def\.parametros, tandas\[0\],/);
+  // Y la vuelta por tanda va ANTES de proponer: si no, la primera ya corrió con las demás tiradas.
+  assert.ok(ej.indexOf('const tandas = unaPorEtiqueta(') < ej.indexOf('aplicarEnElActo('));
 });
 
 // ⚠️ ENCHUFE PENDIENTE (09/10/2026): el ✕ del chip de una etiqueta (app/_components/etiquetas-cliente.tsx,

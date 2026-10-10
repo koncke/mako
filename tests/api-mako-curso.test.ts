@@ -59,11 +59,24 @@ test('los topes del área son los de la tab', () => {
   for (const d of conDias) assert.match(d.descripcion, new RegExp(`\\b${DIAS_PAPELERA} días\\b`), `${d.id} promete otros días de papelera`);
 });
 
-test('el área sale SÓLO por HTTP, gateada como la tab, y cada operación tiene su ruta REST', () => {
+// ⚠️ LAS DOS LECTURAS DE LA ESTRUCTURA SALEN TAMBIÉN POR LA APP (sexta tanda, segunda pasada,
+// 09/10/2026): el ✦ que redacta un mensaje en el lienzo (`LECTURAS_REDACTA`, lib/mako-redacta.ts) pide
+// `listar_cursos`, y por la app contestaba 404. Son la estructura del curso, sin una sola persona; por
+// WhatsApp, no. Todo lo demás —y toda escritura— sigue SÓLO por HTTP.
+// Probado rompiéndolo (09/10/2026, este archivo, base 13 / 0): `ver_clase_curso` con 'app' → 12 / 1;
+// las dos lecturas también por 'whatsapp' → 12 / 1. Restaurado: 13 / 0.
+const LECTURAS_POR_LA_APP: ReadonlySet<string> = new Set(['listar_cursos', 'ver_curso']);
+
+test('el área sale SÓLO por HTTP (salvo las dos lecturas de la estructura, también por la app), gateada como la tab, y cada operación tiene su ruta REST', () => {
   assert.ok(DEFS.length >= 10);
   for (const d of DEFS) {
     assert.equal(d.area, 'curso');
-    assert.deepEqual([...d.canales], ['http'], `${d.id} sale por otro canal: sumarla al doer es otra decisión`);
+    if (LECTURAS_POR_LA_APP.has(d.id)) {
+      assert.equal(d.tipo, 'lectura', `${d.id}: por la app sólo una LECTURA`);
+      assert.deepEqual([...d.canales].sort(), ['app', 'http'], `${d.id}: por la app y por HTTP, nunca por WhatsApp`);
+    } else {
+      assert.deepEqual([...d.canales], ['http'], `${d.id} sale por otro canal: sumarla al doer es otra decisión`);
+    }
     assert.deepEqual(d.gating, { tab: 'customer-success', rolMinimo: 'admin' }, `${d.id} sin la puerta de la tab`);
     assert.ok(porId(d.id)?.id === d.id, `${d.id} no está en el registro`);
     assert.ok(RUTAS_REST.some(([, , op]) => op === d.id), `${d.id} sin ruta REST`);

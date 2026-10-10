@@ -353,14 +353,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_etiquetas', area: 'crm', tipo: 'lectura',
     titulo: 'Etiquetas del CRM',
-    descripcion: 'Las etiquetas del CRM del negocio (las que se le ponen a un lead: «Seguimiento», «Cualificado»…) con su id, nombre, color, la etapa del CRM a la que está vinculada (si la hay), a qué etiqueta del WhatsApp del celular corresponde y cuántos leads la tienen. De aquí sale el etiquetaId que piden poner_etiqueta_lead, sacar_etiqueta_lead, editar_etiqueta y archivar_etiqueta. Las archivadas no se pueden poner y solo vienen si se piden.',
+    descripcion: 'Las etiquetas del CRM del negocio (las que se le agregan a un lead: «Seguimiento», «Cualificado»…) con su id, nombre, color, la etapa del CRM a la que está vinculada (si la hay), a qué etiqueta del WhatsApp del celular corresponde y cuántos leads la tienen. De aquí sale el etiquetaId que piden poner_etiqueta_lead, sacar_etiqueta_lead, editar_etiqueta y archivar_etiqueta. Las archivadas no se pueden agregar y solo vienen si se piden.',
     parametros: [{ nombre: 'incluirArchivadas', tipo: 'boolean', descripcion: 'true para ver también las archivadas (default false).' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
     id: 'etiquetas_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Etiquetas de un lead',
-    descripcion: 'Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le puso cada una y quién (una persona, MaKo o una automatización; por la API HTTP no se dice QUÉ persona: sale «una persona»). Úsala antes de poner o sacar una etiqueta, o para contestar «¿este lead está cualificado?». Una archivada viene con archivada en true: ya no cuenta en las automatizaciones. Pide el leadId (de buscar_leads).',
+    descripcion: 'Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le agregó cada una y quién (una persona, MaKo o una automatización; por la API HTTP no se dice QUÉ persona: sale «una persona»). Úsala antes de agregar o eliminar una etiqueta, o para contestar «¿este lead está cualificado?». Una archivada viene con archivada en true: ya no cuenta en las automatizaciones. Pide el leadId (de buscar_leads).',
     parametros: [leadId()],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
@@ -633,7 +633,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'editar_etiqueta', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Editar una etiqueta del CRM',
-    descripcion: 'PROPONE cambiar el nombre, el color, el emoji, la etapa vinculada o la etiqueta del WhatsApp del celular de una etiqueta del CRM (queda pendiente hasta el «sí»). Cambiar la etapa vale desde ahora: no les pone ni les saca la etiqueta a los que ya están en esa etapa. Para desvincular, sinEtapa o sinWhatsApp en true. Si no cambia nada, lo dice.',
+    descripcion: 'PROPONE cambiar el nombre, el color, el emoji, la etapa vinculada o la etiqueta del WhatsApp del celular de una etiqueta del CRM (queda pendiente hasta el «sí»). Cambiar la etapa vale desde ahora: no les agrega ni les elimina la etiqueta a los que ya están en esa etapa. Para desvincular, sinEtapa o sinWhatsApp en true. Si no cambia nada, lo dice.',
     parametros: [
       etiquetaId(),
       { nombre: 'nombre', tipo: 'string', max: 40, descripcion: 'el nombre nuevo (hasta 40 caracteres).' },
@@ -647,7 +647,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'archivar_etiqueta', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Archivar una etiqueta del CRM',
-    descripcion: 'PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»). Archivarla la APAGA: deja de ofrecerse y de poder ponerse, no dispara más las automatizaciones que arrancan con ella y las condiciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen conservan la fila como historia (su ficha la muestra «archivada»), y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.',
+    descripcion: 'PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»). Archivarla la APAGA: deja de ofrecerse y de poder agregarse, no dispara más las automatizaciones que arrancan con ella y las condiciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen conservan la fila como historia (su ficha la muestra «archivada»), y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.',
     parametros: [
       etiquetaId(),
       { nombre: 'archivar', tipo: 'boolean', descripcion: 'false para recuperarla (default true, archivar).' },
@@ -657,19 +657,19 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'poner_etiqueta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Ponerle una etiqueta a un lead',
-    descripcion: 'PROPONE ponerle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). Si la etiqueta está vinculada a una etapa, lo pasa a esa etapa (salvo un cierre, que se mueve a mano). Dispara las automatizaciones que arrancan con esa etiqueta y la pone también en su chat de WhatsApp y en Chatwoot si están conectados. Si ya la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (listar_etiquetas).',
+    titulo: 'Agregarle una etiqueta a un lead',
+    descripcion: 'PROPONE agregarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). Si la etiqueta está vinculada a una etapa, lo pasa a esa etapa (salvo un cierre, que se mueve a mano). Dispara las automatizaciones que arrancan con esa etiqueta (y las de «Se agrega etiqueta a un lead») y la agrega también en su chat de WhatsApp y en Chatwoot si están conectados. Si ya la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (listar_etiquetas).',
     parametros: [leadId(), etiquetaId()],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: true, escribe: 'una fila en crm_lead_etiquetas y una línea en el historial del lead; puede mover al lead a la etapa vinculada, inscribirlo en las automatizaciones de esa etiqueta y ponerla en WhatsApp y Chatwoot',
+    reversible: true, escribe: 'una fila en crm_lead_etiquetas y una línea en el historial del lead; puede mover al lead a la etapa vinculada, inscribirlo en las automatizaciones de esa etiqueta y agregarla en WhatsApp y Chatwoot',
   },
   {
     id: 'sacar_etiqueta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Sacarle una etiqueta a un lead',
-    descripcion: 'PROPONE sacarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). No lo mueve de etapa ni dispara nada; la saca también de su chat de WhatsApp y de Chatwoot si estaba ahí. Si no la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (etiquetas_lead).',
+    titulo: 'Eliminarle una etiqueta a un lead',
+    descripcion: 'PROPONE eliminarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). No lo mueve de etapa; dispara las automatizaciones de «Se elimina etiqueta a un lead», y la elimina también de su chat de WhatsApp y de Chatwoot si estaba ahí. Si no la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (etiquetas_lead).',
     parametros: [leadId(), etiquetaId()],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: true, escribe: 'borra la fila de crm_lead_etiquetas y deja una línea en el historial del lead; la saca de WhatsApp y Chatwoot',
+    reversible: true, escribe: 'borra la fila de crm_lead_etiquetas y deja una línea en el historial del lead; puede inscribirlo en las automatizaciones de «Se elimina etiqueta a un lead» y la elimina de WhatsApp y Chatwoot',
   },
 
   // ── Acciones nuevas: pantalla (genérica /mako/revisar) ────────────────────────

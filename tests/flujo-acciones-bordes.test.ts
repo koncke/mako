@@ -187,10 +187,12 @@ test('secuencias: «Publicar» no guarda un paso de acción al que le falta un d
 
 test('secuencias: sin canales, el cron corre igual las acciones', () => {
   const src = sinComentarios(leer('../app/api/cron/nutricion/route.ts'));
-  assert.match(src, /if \(!conAcciones\) return \{ ws: w\.id, modo: 'off'/);
+  // (Desde la segunda pasada de la sexta tanda también el Recurrente al grupo de MaKo: ver
+  // tests/motor-segunda-pasada.test.ts. 'off' es sólo sin ninguna de las dos cosas.)
+  assert.match(src, /if \(!conAcciones && !conGrupo\) return \{ ws: w\.id, modo: 'off'/);
   // Con el tope de las esperas cortas desde la quinta tanda (tests/espera-duracion.test.ts).
   // (Y desde la sexta tanda, con el turno del negocio y el cupo de la hora: tests/espera-duracion.test.ts.)
-  assert.match(src, /const proc = await conTurno\(w\.id, turnoHastaMs, \(\) => procesarEnvios\(\{ ignorarVentana, esperarHastaMs, cupoPorHora: true \}\)\);\n\s+return \{ ws: w\.id, modo: 'off \(sólo acciones\)'/);
+  assert.match(src, /const proc = await conTurno\(w\.id, turnoHastaMs, \(\) => procesarEnvios\(\{ ignorarVentana, esperarHastaMs, cupoPorHora: true \}\)\);\n\s+return \{ ws: w\.id, modo: conGrupo \? 'off \(acciones y el grupo\)' : 'off \(sólo acciones\)'/);
 });
 
 test('las pantallas de /chatbot cuentan como WhatsApp sólo los MENSAJES', () => {

@@ -158,11 +158,16 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   // salía crudo al grupo. Mensaje Y título, con la función del motor y el nombre CRUDO del lead (el
   // `nombre` del aviso trae el respaldo «el lead #N», que no es un nombre).
   // Rotura (el runner arma el texto con el mensaje crudo): 1 fallo.
+  // ⚠️ Y desde la sexta tanda (segunda pasada), con el CATÁLOGO ENTERO del «{ }» para el EQUIPO
+  // (`conVariables`, destino 'equipo', el workspace del ctx): lo que el árbol ofrece se resuelve.
+  // Lo del motor que ya estaba en la mano va como `datos` (gana), y `aplicarVariables` cubre lo de antes
+  // con una llave. Roturas en tests/motor-segunda-pasada.test.ts.
   const run = sinComentarios(leer('../lib/api-mako/areas/chatbot.run.ts'));
   assert.match(run, /\.select\('id, nombre, telefono, empresa'\)/);
-  assert.match(run, /return aplicarVariables\(t, valoresVariablesLead\(\{ nombre: lead\.nombreCrudo, empresa: lead\.empresa \}\)\)\.trim\(\);/);
-  assert.match(run, /const mensaje = textoDelAviso\(mensajeCrudo, lead\);/);
-  assert.match(run, /const titulo = textoDelAviso\(String\(payload\.titulo \?\? ''\), lead\) \|\|/);
+  assert.match(run, /const base = lead \? valoresVariablesLead\(\{ nombre: lead\.nombreCrudo, empresa: lead\.empresa \}\) : \{\};/);
+  assert.match(run, /await conVariables\(t, \{ ws, leadId: lead\?\.id \?\? null, leadNombre: lead\?\.nombreCrudo \?\? null, destino: 'equipo' \}, base\);/);
+  assert.match(run, /const mensaje = await textoDelAviso\(mensajeCrudo, lead, ctx\.ws\);/);
+  assert.match(run, /const titulo = \(await textoDelAviso\(String\(payload\.titulo \?\? ''\), lead, ctx\.ws\)\) \|\|/);
 });
 
 test('«Probar» ofrece sólo los canales que el flujo usa', () => {

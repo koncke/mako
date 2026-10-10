@@ -56,7 +56,7 @@ import {
   conectarPuerto, puedeTenerParalelos, validarGrafo, contarParalelos,
 } from './flujo-grafo';
 import { faltanEnPaso, LEAD_DEL_EVENTO } from './api-mako/flujo-params';
-import { accionDelFlujo } from './editor-acciones';
+import { accionDelFlujo, PARAM_ETIQUETAS } from './editor-acciones';
 import type { Parametro } from './api-mako/tipos';
 import { esVariableConocida } from './template-vars';
 import { marcasDeVoseo } from './puestas-data';
@@ -154,6 +154,34 @@ export const LISTA_BLANCA_IA: readonly string[] = [
 
 const OP_PONER = 'poner_etiqueta_lead';
 const OP_SACAR = 'sacar_etiqueta_lead';
+
+/**
+ * LAS ETIQUETAS DE UNA TARJETA TAG, TAMBIÉN LAS NUEVAS (segunda pasada de la sexta tanda, 09/10/2026).
+ * Una tarjeta lleva la primera en `etiquetaId` y TODAS en `etiquetaIds` cuando son más de una
+ * (`paramsConEtiquetas`, lib/editor-acciones.ts). Los lectores de acá miraban sólo `etiquetaId`: el
+ * ref de una etiqueta nueva en la 2.ª posición no se cambiaba por su id real y se guardaba NEGATIVO, la
+ * validación no miraba la 2.ª, y el contexto de «Editar con IA» decía una sola.
+ *
+ * ⚠️ NO ES `etiquetasDelPaso`: ésa descarta lo que no es un id positivo, y acá un NEGATIVO es una
+ * etiqueta que la IA pidió crear (`resolverEtiqueta`) y que hay que ver para crearla.
+ */
+function etiquetasDeAccion(params: Record<string, unknown> | null | undefined): number[] {
+  const out: number[] = [];
+  const sumar = (v: unknown) => { const n = Number(v); if (Number.isInteger(n) && n !== 0 && !out.includes(n)) out.push(n); };
+  const lista = params?.[PARAM_ETIQUETAS];
+  if (Array.isArray(lista)) lista.forEach(sumar);
+  sumar(params?.etiquetaId);
+  return out;
+}
+
+/** Los parámetros con ESTAS etiquetas, en la forma de la tarjeta (la de `paramsConEtiquetas`, que no
+ *  sirve acá porque tira los refs negativos): la primera en `etiquetaId`, la lista sólo con más de una. */
+function conEtiquetas(params: Record<string, unknown>, ids: readonly number[]): Record<string, unknown> {
+  const { etiquetaId: _1, [PARAM_ETIQUETAS]: _2, ...resto } = params;
+  void _1; void _2;
+  if (!ids.length) return resto;
+  return { ...resto, etiquetaId: ids[0], ...(ids.length > 1 ? { [PARAM_ETIQUETAS]: [...ids] } : {}) };
+}
 
 /** Tope de tarjetas que se le pide al modelo (el del grafo es 60: `TOPE_NODOS`). */
 export const TOPE_TARJETAS_IA = 20;
@@ -709,10 +737,17 @@ function nodoDe(c: Card, est: Estado): NodoIA {
       const accion = normNombre(raw.accion);
       const op = sacar || accion === 'sacar' ? OP_SACAR : OP_PONER;
       const nombre = raw.poner ?? raw.sacar ?? raw.etiqueta ?? raw.nombre;
-      if (!est.ctx.acciones.some((a) => a.id === op)) { avisos.push('Saqué una etiqueta: poner etiquetas no está disponible aquí'); n.quitar = true; return n; }
-      const id = resolverEtiqueta(nombre, est);
-      if (id == null) { avisos.push('Saqué una tarjeta de etiqueta sin etiqueta'); n.quitar = true; return n; }
-      n.paso = { accion: { operacion: op, params: { leadId: LEAD_DEL_EVENTO, etiquetaId: id } } };
+      // TAG 1 (sexta tanda): «Agregar» y «Eliminar», nunca «Poner» / «Sacar».
+      if (!est.ctx.acciones.some((a) => a.id === op)) { avisos.push(`Quité una etiqueta: ${op === OP_SACAR ? 'eliminar' : 'agregar'} etiquetas no está disponible aquí`); n.quitar = true; return n; }
+      // UNA O VARIAS (TAG 2): el contexto de «Editar con IA» trae la lista de una tarjeta de varias
+      // (`aIA`), así que el modelo también puede devolverla. Cada una se resuelve por separado.
+      const ids: number[] = [];
+      for (const x of Array.isArray(nombre) ? nombre : [nombre]) {
+        const id = resolverEtiqueta(x, est);
+        if (id != null && !ids.includes(id)) ids.push(id);
+      }
+      if (!ids.length) { avisos.push('Saqué una tarjeta de etiqueta sin etiqueta'); n.quitar = true; return n; }
+      n.paso = { accion: { operacion: op, params: conEtiquetas({ leadId: LEAD_DEL_EVENTO }, ids) } };
       return n;
     }
     case 'accion': {
@@ -1216,7 +1251,7 @@ function refsEnPasos(pasos: readonly PasoGrafo[]): number[] {
   for (const p of pasos) {
     for (const r of p.ramas ?? []) for (const f of r.filas ?? []) if (f.campo === 'etiqueta' && Number(f.valor) < 0) out.push(Number(f.valor));
     const a = (p as PasoIA).accion;
-    if (a && (a.operacion === OP_PONER || a.operacion === OP_SACAR) && Number(a.params?.etiquetaId) < 0) out.push(Number(a.params.etiquetaId));
+    if (a && (a.operacion === OP_PONER || a.operacion === OP_SACAR)) for (const id of etiquetasDeAccion(a.params)) if (id < 0) out.push(id);
   }
   return out;
 }
@@ -1237,8 +1272,11 @@ export function conEtiquetasReales<P extends PasoGrafo>(pasos: readonly P[], ids
       q = { ...q, ramas: p.ramas.map((r) => ({ ...r, filas: r.filas.map((f) => (f.campo === 'etiqueta' && ids.has(Number(f.valor)) ? { ...f, valor: ids.get(Number(f.valor))! } : f)) })) };
     }
     const a = (p as PasoIA).accion;
-    if (a && (a.operacion === OP_PONER || a.operacion === OP_SACAR) && ids.has(Number(a.params?.etiquetaId))) {
-      q = { ...q, accion: { ...a, params: { ...a.params, etiquetaId: ids.get(Number(a.params.etiquetaId))! } } };
+    const deLaTarjeta = a && (a.operacion === OP_PONER || a.operacion === OP_SACAR) ? etiquetasDeAccion(a.params) : [];
+    if (a && deLaTarjeta.some((id) => ids.has(id))) {
+      // TODAS las de la tarjeta (TAG 2), no sólo la primera: un ref que no tiene id real se deja
+      // negativo, y `refsSinResolver` lo ve.
+      q = { ...q, accion: { ...a, params: conEtiquetas(a.params ?? {}, deLaTarjeta.map((id) => ids.get(id) ?? id)) } };
     }
     return q;
   });
@@ -1447,7 +1485,11 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
       else {
         const faltan = faltanEnPaso(def.parametros as Parametro[], a.params, { leadId: 1 });
         if (faltan.length) err.push(`a «${def.titulo}» le falta ${faltan.join(', ')}`);
-        if ((a.operacion === OP_PONER || a.operacion === OP_SACAR) && !etiquetaOk(a.params?.etiquetaId)) err.push('una etiqueta de una acción no existe');
+        if ((a.operacion === OP_PONER || a.operacion === OP_SACAR)) {
+          // Todas las de la tarjeta (TAG 2), y al menos una: una tarjeta TAG vacía no hace nada.
+          const suyas = etiquetasDeAccion(a.params);
+          if (!suyas.length || suyas.some((id) => !etiquetaOk(id))) err.push('una etiqueta de una acción no existe');
+        }
         if ('embudoId' in (a.params ?? {}) && !ctx.productos.some((x) => x.funnelId === Number(a.params.embudoId))) err.push('una acción usa un producto que no existe');
         for (const pr of def.parametros) {
           const v = a.params?.[pr.nombre];
@@ -1529,8 +1571,13 @@ export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres): { inicio: s
       case 'accion': {
         const a = p.accion;
         if (a && (a.operacion === OP_PONER || a.operacion === OP_SACAR)) {
-          const nom = nombres?.etiquetas.find((e) => e.id === Number(a.params?.etiquetaId))?.nombre ?? `#${String(a.params?.etiquetaId ?? '')}`;
-          tarjetas.push({ id, tipo: 'etiqueta', [a.operacion === OP_PONER ? 'poner' : 'sacar']: nom, sigue: sigue() });
+          // TODAS las de la tarjeta (TAG 2): con una, el nombre; con varias, la lista. «Editar con IA» no
+          // reconstruye esta tarjeta (sólo agrega: `deIAEdicion`), pero el modelo la LEE para decidir qué
+          // falta, y con sólo la primera creía que la tarjeta agregaba una.
+          const nom = (n: number) => nombres?.etiquetas.find((e) => e.id === n)?.nombre ?? `#${n}`;
+          const suyas = etiquetasDeAccion(a.params);
+          const valor = suyas.length > 1 ? suyas.map(nom) : suyas.length ? nom(suyas[0]) : '#';
+          tarjetas.push({ id, tipo: 'etiqueta', [a.operacion === OP_PONER ? 'poner' : 'sacar']: valor, sigue: sigue() });
           return;
         }
         const datos = { ...(a?.params ?? {}) };

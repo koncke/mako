@@ -14,9 +14,10 @@
 //
 // El envío real se decide por workspace con lib/envio-flags.ts (setting
 // envio_whatsapp_enabled / envio_email_enabled; el dueño hereda el env si no
-// tiene setting). Un workspace SIN ningún canal habilitado no se toca (modo
-// 'off': no inscribe ni consume pasos — los flags globales de deploy ya no
-// comprometen a todos los clientes a la vez).
+// tiene setting). Un workspace SIN ningún canal habilitado no inscribe a nadie ni
+// manda mensajes (modo 'off' — los flags globales de deploy ya no comprometen a
+// todos los clientes a la vez); sólo corren sus acciones y el Recurrente al grupo
+// de MaKo, que no usan los canales del negocio (ver la rama de abajo).
 //
 // Modos manuales (para probar la máquina):
 //   ?dry=1[&ws=N]     → dry-run del workspace N (default dueño): lista qué
@@ -37,6 +38,7 @@ import {
   getSecuenciasActivas,
 } from '@/lib/nutricion';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
+import { tieneRecurrenteAlGrupo } from '@/lib/disparadores';
 import { evaluarDesenlaces } from '@/lib/nutricion-desenlace';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
@@ -173,10 +175,20 @@ export async function GET(request: NextRequest) {
             // evento— y el día que se prendía un canal corrían todas juntas, semanas tarde. Con los
             // dos canales apagados, el motor hace esperar 24 h a cada MENSAJE sin mandarlo, así que
             // correrlo sólo mueve las acciones. No inscribe por cohorte: eso sigue en 'off'.
-            const conAcciones = (await getSecuenciasActivas()).some((s) => s.pasos.some(esPasoAccion));
-            if (!conAcciones) return { ws: w.id, modo: 'off', ...(cerradas ?? {}) };
+            //
+            // ⚠️ Y EL RECURRENTE AL GRUPO DE MAKO TAMBIÉN SALE (segunda pasada de la sexta tanda,
+            // 09/10/2026): el grupo se escribe por la línea de MaKo, no por la del negocio, así que
+            // los canales del negocio no le aplican. `soloGrupo` reclama la ocurrencia y le manda al
+            // grupo sin inscribir a nadie de la cohorte. Antes esta rama cortaba antes del barrido y
+            // un Recurrente sólo al grupo, en un negocio sin WhatsApp ni email, no salía nunca.
+            const activas = await getSecuenciasActivas();
+            const conAcciones = activas.some((s) => s.pasos.some(esPasoAccion));
+            const conGrupo = activas.some(tieneRecurrenteAlGrupo);
+            if (!conAcciones && !conGrupo) return { ws: w.id, modo: 'off', ...(cerradas ?? {}) };
+            if (conGrupo) await comprometerInscripciones({ soloGrupo: true });
+            if (!conAcciones) return { ws: w.id, modo: 'off (sólo el grupo)', ...(cerradas ?? {}) };
             const proc = await conTurno(w.id, turnoHastaMs, () => procesarEnvios({ ignorarVentana, esperarHastaMs, cupoPorHora: true }));
-            return { ws: w.id, modo: 'off (sólo acciones)', ...proc, ...(cerradas ?? {}) };
+            return { ws: w.id, modo: conGrupo ? 'off (acciones y el grupo)' : 'off (sólo acciones)', ...proc, ...(cerradas ?? {}) };
           }
           const inscriptas = await comprometerInscripciones();
           const proc = await conTurno(w.id, turnoHastaMs, () => procesarEnvios({ ignorarVentana, esperarHastaMs, cupoPorHora: true }));

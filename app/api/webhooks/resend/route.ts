@@ -7,7 +7,17 @@
 //   email.clicked    → marca clic_at
 //   email.bounced    → da de baja al lead (supresión)
 //   email.complained → da de baja al lead (marcó spam)
+//   email.received   → un email que LLEGA dispara las automatizaciones de su lead
+//                      (lib/email-entrante.ts, sexta tanda, CRON 8)
 // Cualquier otro evento se ignora (200 para que Resend no reintente).
+//
+// ⚠️ `email.received` VA ACÁ TAMBIÉN, y no sólo en /api/webhooks/email-entrante (segunda pasada,
+// 09/10/2026): el único webhook de la cuenta de Resend de MaKo apunta a esta ruta y YA está
+// suscripto a `email.received` (medido el 09/10, sólo lectura). Sin este case, el día que alguien
+// prenda la recepción en un dominio los mails llegaban acá, caían al `default` y se perdían con un
+// 200. Con los dos endpoints suscriptos a la vez no hay duplicado: la fila de `email_entrantes`
+// deduplica por `email_id`. La respuesta es la de `recibirEmailEntrante` (503 sólo si reintentar
+// lo arregla).
 //
 // Setup: en Resend → Webhooks, apuntar a /api/webhooks/resend y copiar el
 // Signing Secret a RESEND_WEBHOOK_SECRET (whsec_...).
@@ -17,8 +27,11 @@ import type { NextRequest } from 'next/server';
 import { verifyResendSignature } from '@/lib/resend';
 import { envCred } from '@/lib/credenciales';
 import { marcarEventoEmail, suprimirPorRebote } from '@/lib/email-marketing';
+import { recibirEmailEntrante } from '@/lib/email-entrante';
 
 export const dynamic = 'force-dynamic';
+// `email.received` puede mandar el primer mensaje de una automatización en el acto (la vía rápida).
+export const maxDuration = 60;
 
 type ResendEvent = {
   type?: string;
@@ -76,6 +89,11 @@ export async function POST(req: NextRequest) {
         // Marcó spam → baja inmediata.
         await suprimirPorRebote(emailId);
         break;
+      case 'email.received': {
+        // Un email que llega (ver la cabecera). Contesta lo que decida `recibirEmailEntrante`.
+        const r = await recibirEmailEntrante(evt);
+        return Response.json(r.body, { status: r.status });
+      }
       default:
         return Response.json({ ok: true, ignored: evt.type ?? 'sin tipo' });
     }
