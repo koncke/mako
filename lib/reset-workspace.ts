@@ -107,8 +107,10 @@ export async function vaciarTablas(ws: number): Promise<{ borrado: Record<string
           // ⚠️ SE DISTINGUE «no existe» DE «una FK la está frenando». Los dos llegan
           // como error y el reintento los trata igual, así que una tabla mal escrita se
           // reportaba tres pasadas después como si fuera un problema de integridad. Con
-          // 42P01 no hay nada que reintentar: la tabla no está.
-          const noExiste = (error as { code?: string }).code === '42P01';
+          // 42P01 no hay nada que reintentar: la tabla no está. ⚠️ Y por PostgREST (supabase-js) una
+          // tabla que no existe contesta PGRST205, no 42P01 (medido el 09/10/2026 con email_entrantes
+          // y zernio_eventos antes de aplicar sus migraciones): sin los dos, se avisaba como una FK.
+          const noExiste = ['42P01', 'PGRST205'].includes(String((error as { code?: string }).code));
           if (noExiste) { avisos.push(`${tabla}: esa tabla no existe en la base. Sácala de TABLAS_DE_INQUILINO.`); continue; }
           if (pasada === 2) avisos.push(`${tabla}: ${error.message}`);
           continue;

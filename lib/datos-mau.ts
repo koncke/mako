@@ -665,6 +665,18 @@ async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos
     }
     if (sinTraducir) avisos.push(`${t.tabla}: ${sinTraducir} ${sinTraducir === 1 ? 'etiqueta quedó' : 'etiquetas quedaron'} sin elegir (no se copió una igual).`);
   }
+  // LA LÍNEA DE WHATSAPP DE CADA MENSAJE (sexta tanda, WhatsApp 2) es del workspace de origen: en el
+  // destino no existe y `elegirLinea` no manda ese mensaje. Sin la clave, sale por la de la
+  // automatización, como en la copia de configuración (lib/clonar-pasos.ts).
+  for (const f of nuevas) {
+    if (!Array.isArray(f.pasos)) continue;
+    f.pasos = (f.pasos as unknown[]).map((p) => {
+      if (!p || typeof p !== 'object' || !('linea' in p)) return p;
+      const o = { ...(p as Record<string, unknown>) };
+      delete o.linea;
+      return o;
+    });
+  }
   const { data: ins, error } = await sb.from(t.tabla).insert(nuevas).select('id');
   if (error) { avisos.push(`${t.tabla}: ${error.message}`); return 0; }
 

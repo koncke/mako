@@ -94,11 +94,3 @@ export function IconoEvento({ subtipo, tam = 18 }: { subtipo: string; tam?: numb
   return <svg {...p}><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m4 7 8 6 8-6" /></svg>;
 }
 
-/** El tacho de borrar, ROJO siempre (sexta tanda, general punto 9: «que siempre el ícono de borrar sea rojo»). */
-export function IconoBorrar({ tam = 16 }: { tam?: number }) {
-  return (
-    <svg width={tam} height={tam} viewBox="0 0 24 24" fill="none" stroke="var(--bad)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6" />
-    </svg>
-  );
-}

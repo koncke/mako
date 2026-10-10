@@ -3938,7 +3938,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         } else {
           const r = await enviarPasoSocial({
             ws: wsCorrida, leadId: insc.lead_id, canal: paso.canal, partes: partesDe(paso),
-            vars: valoresVariablesLead(lead ?? {}, { negocio }), idempotencia: `nutri:${insc.id}:${idDe(paso, insc.paso_actual)}`, desde,
+            // El catálogo entero del «{ }», como el WhatsApp no oficial y el email (`datosParaElLead`).
+            vars: await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead ?? {}, { negocio }), { ws: wsCorrida, leadId: insc.lead_id }), idempotencia: `nutri:${insc.id}:${idDe(paso, insc.paso_actual)}`, desde,
           });
           partesSalidas = r.salieron;
           destinoSocial = r.destino;

@@ -484,8 +484,7 @@ export function FlujoLienzo({
         const paso = pasoDe(n.id);
         if (paso && esMako(paso)) return <CabeceraMakoEnWhatsApp />;
         if (!paso) return null;
-        // `linea` es un campo del paso (`PasoSecuenciaDto`): sin cast (hasta la segunda pasada iba por
-        // un `Partial<PasoConLinea>` porque el DTO no lo declaraba).
+        // `linea` es un campo del paso (`PasoSecuenciaDto`): sin cast.
         return (
           <CabeceraWhatsApp paso={paso} lineaAutomatizacion={linea?.actual ?? null} deshabilitado={busy}
             conMako={permiteIADe(paso, !!onModoIA)}
@@ -825,13 +824,10 @@ type Cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => void;
  * la campaña), con el MISMO contrato con que lo resuelve el aviso (`conVariables`, destino 'equipo').
  * Hasta la segunda pasada eran los 4 datos del motor (`VARIABLES_LEAD`).
  *
- * ⚠️ PLANO HASTA QUE EL EDITOR DEL GRUPO ACEPTE EL ÁRBOL. El «{ }» lo dibuja `EditorMensajeGrupo`
- * (app/chatbot/EditorMensajeWhatsApp.tsx, de otra parte), que hoy recibe una lista: montar acá un
- * `SelectorDatos` aparte dejaba DOS «{ }» en el mismo editor. Va la lista con la rama en el rótulo
- * («Campaña · Anuncio»), y `GRUPOS_MAKO` queda listo para el árbol (pedido como bloqueante).
+ * Va como ÁRBOL al «{ }» del mismo editor de WhatsApp en modo grupo (`EditorMensajeGrupo`, prop `datos`):
+ * un `SelectorDatos` aparte dejaba DOS «{ }» en el mismo editor.
  */
 const GRUPOS_MAKO = datosOfrecidos({ destino: 'equipo', conLead: true });
-const DATOS_MAKO = GRUPOS_MAKO.flatMap((g) => g.items.map((v) => ({ key: v.key, label: `${g.titulo} · ${v.label}`, ejemplo: v.ejemplo })));
 
 /**
  * LA TARJETA MAKO («MaKo en WhatsApp»): el mensaje que MaKo le manda al GRUPO de WhatsApp del negocio
@@ -854,7 +850,7 @@ function EditorMako({ paso, busy, cambiar }: { paso: PasoSecuenciaDto; busy: boo
     const sig: Record<string, unknown> = { ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO, mensaje };
     cambiar({ accion: { operacion: paso.accion?.operacion ?? '', params: sig } }, false);
   };
-  return <EditorMensajeGrupo texto={m.mensaje} onTexto={poner} variables={DATOS_MAKO} deshabilitado={busy} />;
+  return <EditorMensajeGrupo texto={m.mensaje} onTexto={poner} datos={GRUPOS_MAKO} deshabilitado={busy} />;
 }
 
 function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto | null }) {

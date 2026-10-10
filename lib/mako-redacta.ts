@@ -23,7 +23,7 @@
 // ⚠️ LAS VARIABLES SON LAS DEL MOTOR (`esVariableConocida`, lib/template-vars.ts): una `{{x}}` que el
 //    motor no resuelve le llegaría al lead con las llaves puestas. Se sacan.
 
-import { esVariableConocida, VARIABLES_LEAD, VARIABLES_NEGOCIO } from './template-vars';
+import { esVariableConocida, VARIABLES_LEAD } from './template-vars';
 import { marcasDeVoseo } from './puestas-data';
 import { palabrasDe, GUION_PALABRAS } from './guion-audio';
 
@@ -32,8 +32,7 @@ export const LECTURAS_REDACTA: ReadonlyArray<{ id: string; input?: Record<string
   { id: 'contexto_negocio', rotulo: 'tu negocio', tope: 3_600 },
   { id: 'listar_productos', input: { soloActivos: true }, rotulo: 'tus productos', tope: 1_600 },
   { id: 'ver_funnel', rotulo: 'tu embudo', tope: 900 },
-  // ⚠️ HOY NO SALE POR LA APP: el área `curso` declara `canales: ['http']` (lib/api-mako/areas/curso.def.ts).
-  //    Se pide igual: el registro contesta 404 y se saltea, y el día que el área sume 'app' entra sola.
+  // Sale por la app desde la segunda pasada de la sexta tanda (lib/api-mako/areas/curso.def.ts).
   { id: 'listar_cursos', rotulo: 'tu curso', tope: 900 },
   { id: 'guia_voz_negocio', rotulo: 'tu voz', tope: 1_800 },
 ];
@@ -70,12 +69,12 @@ export function pedidoDeRedacta(raw: unknown): PedidoRedacta | null {
 }
 
 /**
- * Las variables que el prompt ofrece, del MISMO catálogo que resuelve el motor (`VARIABLES_LEAD` +
- * `VARIABLES_NEGOCIO`). Escritas a mano se quedan viejas el día que el catálogo cambie, y una que el
+ * Las variables que el prompt ofrece, del MISMO catálogo que resuelve el motor (`VARIABLES_LEAD`;
+ * «Tu negocio» salió en la sexta tanda). Escritas a mano se quedan viejas el día que el catálogo cambie, y una que el
  * motor ya no conoce la saca `sinVariablesAjenas`: el mensaje quedaría con un hueco.
  */
 export function variablesParaPrompt(): string {
-  return [...VARIABLES_LEAD, ...VARIABLES_NEGOCIO].map((v) => `{{${v.key}}} (${v.descripcion})`).join(', ');
+  return VARIABLES_LEAD.map((v) => `{{${v.key}}} (${v.descripcion})`).join(', ');
 }
 
 /** El system, con las variables del catálogo vivo. */

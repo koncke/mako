@@ -182,14 +182,16 @@ test('las funciones de cada entidad dicen lo que dicen', () => {
   assert.deepEqual(valoresDelNombre('  Sofía   Contreras Ruiz '), { nombre: 'Sofía', nombre_completo: 'Sofía Contreras Ruiz', lead_nombre: 'Sofía Contreras Ruiz', apellido: 'Contreras Ruiz' });
 });
 
-test('⚠️ una lectura por ENTIDAD que el texto NOMBRA, y el motor la usa en sus TRES envíos', () => {
+test('⚠️ una lectura por ENTIDAD que el texto NOMBRA, y el motor la usa en sus CUATRO envíos', () => {
   // Probado rompiéndolo (09/10/2026): el email del motor volviendo a `valoresVariablesLead` solo → cae éste.
+  // Integración de la segunda pasada: el cuarto es Instagram/Messenger (`enviarPasoSocial`). Con ese
+  // envío todavía en `valoresVariablesLead` (como estaba antes de enchufarlo) daba 3 → cae éste.
   assert.deepEqual([...fuentesQueNombra('Hola {{nombre}}, tu reunión es el {{lead_fecha_r1}} a las {{lead_hora_r1}}')].sort(), ['ficha', 'nombre', 'zona']);
   assert.deepEqual([...fuentesQueNombra('Sin datos, {{inventada}}')], []);
   assert.deepEqual([...fuentesQueNombra('{{negocio_oferta}} y {{negocio_lead_magnet}}')].sort(), ['lead_magnet', 'perfil']);
   const motor = sinComentarios(leer('lib/nutricion.ts'));
   const usos = motor.match(/await datosParaElLead\(JSON\.stringify\((paso|p)\), valoresVariablesLead\(/g) ?? [];
-  assert.equal(usos.length, 3, `el motor resuelve el «{ }» en ${usos.length} de sus 3 envíos (WhatsApp, email, «Si responde»)`);
+  assert.equal(usos.length, 4, `el motor resuelve el «{ }» en ${usos.length} de sus 4 envíos (WhatsApp, email, «Si responde», Instagram/Messenger)`);
   // Lo oficial (las plantillas de Meta) sigue con lo de siempre: sus parámetros los registra Meta.
   assert.match(motor, /bodyParams: valoresVariablesLead\(lead, \{ negocio \}\),/);
   // `datosParaElLead` no lee nada si lo que el texto nombra ya lo tiene el motor en la mano.

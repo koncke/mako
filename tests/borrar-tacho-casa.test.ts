@@ -69,13 +69,8 @@ const esBitacora = (f: string) => /^app\/admin\/dev\/(.+\/)?bitacora\.ts$/.test(
  * para que el tacho viejo vuelva a ese archivo.
  */
 const PENDIENTES: Record<string, string> = {
-  'app/_components/Lienzo.tsx': 'el 🗑 del panel del lienzo (el que ve Martín): parte «lienzo»',
-  'app/chatbot/IconosDisparador.tsx': 'un tacho propio, ya rojo: parte del Chatbot',
-  'app/chatbot/EditorMensajeWhatsApp.tsx': 'usa `IconTrash` del composer: parte «whatsapp»',
-  'app/chatbot/EditorMensajeSocial.tsx': 'usa `IconTrash` del composer: parte «canales»',
-  'app/whatsapp/_shared/composer-icons.tsx': '`IconTrash`, el tacho del composer: parte «whatsapp»',
-  'app/whatsapp/_shared/VoiceRecorder.tsx': 'usa `IconTrash` del composer: parte «whatsapp»',
-  'app/crm/AccionesLoteLeads.tsx': 'el tacho de la barra de lote del CRM: archivo de otra parte',
+  // Vacía desde la integración de la segunda pasada (09/10/2026): las otras partes cambiaron sus tachos
+  // al de la casa. Queda la lista por si mañana hace falta otra, con su motivo y su dueño.
 };
 
 function archivos(): string[] {

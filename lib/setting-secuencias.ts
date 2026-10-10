@@ -36,6 +36,7 @@ import { leerPosicionesSecuencias, type DbPosiciones } from './secuencia-posicio
 import type { Posiciones } from './lienzo-posiciones';
 import { leerBorradoresSecuencias, type DbBorrador } from './secuencia-borrador';
 import type { PasoGrafo } from './flujo-grafo';
+import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from './disparadores';
 
 export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
@@ -515,6 +516,9 @@ export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigge
   // La etiqueta la suma al catálogo la parte de etiquetas; hasta que esté, se acepta por su constante.
   const valido = tipo === TRIGGER_ETIQUETA || TRIGGERS.some((t) => t.value === tipo);
   if (!valido) throw new TriggerInvalidoError(`«${tipo || '(vacío)'}» no es un disparador de las secuencias.`);
+  // Instagram, Messenger, el email que llega y el Recurrente al grupo necesitan su evento o su horario,
+  // que sólo arma el CRON (lib/disparadores-guardar.ts): elegidos por esta puerta quedarían mudos.
+  if (SOLO_DESDE_EL_CRON.has(tipo)) throw new TriggerInvalidoError(MOTIVO_SOLO_DESDE_EL_CRON);
   // ⚠️ `funnel_id` AUSENTE NO ES `null` (revisión del 08/10/2026). El desplegable del CRON no
   // ofrece producto para un evento ni para una etiqueta, y no lo manda: con `num(undefined)` →
   // null se escribía «todos los embudos» y una secuencia del producto B pasaba a inscribir leads

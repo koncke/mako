@@ -256,10 +256,9 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   const conNegocio = (t: string) => aplicarVariables(t, negocio?.trim() ? { negocio: negocio.trim() } : {});
   const ocupado = !!deshabilitado || !!subida;
   // EL «{ }» DE LA CASA (el árbol, como en WhatsApp y el email), con lo que el motor resuelve POR ESTE
-  // CANAL: `enviarPasoSocial` (lib/nutricion.ts) recibe `valoresVariablesLead`, los datos del lead de
-  // siempre, y no el catálogo entero. Ofrecer el resto sería mandarle el `{{token}}` crudo por
-  // Instagram. Cuando ese envío pase por `datosParaElLead`, esto es `datosDelLead(true)`.
-  const datos = datosDelLead(false);
+  // CANAL: `enviarPasoSocial` (lib/nutricion.ts) recibe lo que arma `datosParaElLead`, el catálogo
+  // entero, como el WhatsApp no oficial (integración de la segunda pasada).
+  const datos = datosDelLead(true);
 
   const burbujaDe = (p: ParteMensaje): ReactNode => {
     if (p.tipo === 'media') {

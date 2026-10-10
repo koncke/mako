@@ -118,9 +118,6 @@ export function arbolDeVariables(vars: readonly VariableEditor[]): GrupoDatos[] 
   }];
 }
 
-/** El paso con la línea de ESTA tarjeta (sexta tanda, WhatsApp 2). El campo viaja tal cual en `pasos`. */
-export type PasoConLinea = PasoSecuenciaDto & { linea?: string | null };
-
 export type EditorMensajeWhatsAppProps = {
   /** El mensaje (un nodo `mensaje` del flujo). */
   paso: PasoSecuenciaDto;

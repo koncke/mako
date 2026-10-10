@@ -176,12 +176,13 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   const flujo = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
   assert.match(flujo, /if \(esMako\(paso\)\) return <EditorMako key=\{`mako-\$\{id\}`\} /);
   const ed = bloque(flujo, 'function EditorMako(', '\n}\n', 3_200);
-  assert.match(ed, /<EditorMensajeGrupo texto=\{m\.mensaje\} onTexto=\{poner\} variables=\{DATOS_MAKO\}/);
+  assert.match(ed, /<EditorMensajeGrupo texto=\{m\.mensaje\} onTexto=\{poner\} datos=\{GRUPOS_MAKO\}/);
   assert.match(ed, /\.\.\.params, leadId: params\.leadId \?\? LEAD_DEL_EVENTO, mensaje/, 'el aviso perdió el lead del evento o el título guardado');
   // Segunda pasada: el catálogo de lo que un mensaje AL EQUIPO sobre un lead puede resolver, no los 4
   // datos del motor (MaKo en WhatsApp 4: «falta muchísimos datos posibles»).
   assert.match(flujo, /const GRUPOS_MAKO = datosOfrecidos\(\{ destino: 'equipo', conLead: true \}\);/);
-  assert.match(flujo, /const DATOS_MAKO = GRUPOS_MAKO\.flatMap/);
+  // Integración: va como ÁRBOL (prop `datos`), no aplanado con el grupo en el rótulo.
+  assert.doesNotMatch(flujo, /DATOS_MAKO/, 'volvió la lista plana de la tarjeta MAKO');
   // ⚠️ Y EL RUNNER LOS REEMPLAZA (integración): «＋ Dato del lead» inserta `{{nombre}}`, y sin esto
   // salía crudo al grupo. Mensaje Y título, con la función del motor y el nombre CRUDO del lead (el
   // `nombre` del aviso trae el respaldo «el lead #N», que no es un nombre).
