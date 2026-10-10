@@ -2933,7 +2933,8 @@ evento: lo decide Martín.
 Pedido literal: «El horario de oficina si se configura en la tab de configuraciones, pero haz que se
 pueda configurar allí mismo, sin redirigir.» Rama `wip-v6e-horario`. Un botón con el reloj en el renglón
 de «Chatbot» de la lista abre el MISMO `HorarioEnvioPanel` en un panel anclado, con las mismas acciones;
-Configuraciones › Horario se queda. Lo fija `tests/automations-horario.test.ts` (10 roturas, las 10 en rojo).
+Configuraciones › Horario se queda. Lo fija `tests/automations-horario.test.ts` (10 roturas, las 10 en rojo,
+y 18 más de la revisión en `wip-v6f-horario`, las 18 en rojo).
 
 ### Lo que usa una acción de Configuraciones no se importa en la lista: entra como nodo [horario]
 
@@ -2960,16 +2961,35 @@ lo mide y se le da el foco.
 
 **Vive en:** `app/automations/HorarioBoton.tsx` · `app/components/Dropdown.tsx` · `app/_components/pila-modales.ts`
 
+### Revisión: el panel anclado tiraba lo no guardado, y el borde en línea anulaba el hover [horario]
+
+La revisión adversarial (sólo lectura) dejó dos reglas. Se arreglaron en la rama `wip-v6f-horario`.
+
+- **Un panel anclado con «Guardar» que se cierra con un clic afuera pierde lo no guardado.** El editor se
+  desmonta al cerrar, así que cambiar «De 9» a «De 8» y tocar el lienzo lo tiraba sin avisar. En
+  Configuraciones eso sólo pasa al salir de la pantalla; acá alcanzaba un clic suelto. Arreglo: el panel
+  avisa `onSucio` (con un efecto ANTES del return temprano) y `onGuardado`. Con cambios sin guardar no
+  cierran ni el clic afuera, ni el Escape, ni el scroll (`retener`). ⚠️ **El Escape retenido se FRENA
+  igual** (`stopImmediatePropagation`): un `return` antes del freno le pasa la tecla a la capa de abajo, y
+  entonces se cierra lo de atrás con el panel abierto. El botón del reloj cierra siempre: es la salida
+  explícita para descartar.
+- **Un `border` en el `style` en línea anula el `:hover` de la clase.** El fondo ya estaba en la clase por
+  esa razón, y el borde no: no cambiaba al pasar el cursor ni con el panel abierto, y su transición no
+  corría nunca. El test dibuja el botón y falla si el `style` pone una propiedad que el hover cambia, o su
+  atajo (`border` pisa `border-color`).
+
+**Vive en:** `app/configuraciones/HorarioEnvioPanel.tsx` · `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `tests/automations-horario.test.ts`
+
 ### Lo que quedó sin hacer (parte «horario»)
 
-- **`onGuardado` en `HorarioEnvioPanel`**, que esta parte no podía tocar (otra corrida lo arreglaba). Hasta
-  entonces el botón se pone al día al guardar mirando que aparezca «Guardado» adentro del panel
-  (`AVISO_GUARDADO` + un `MutationObserver` en `HorarioLista`, con su test de contrato), y siempre al cerrar.
-  Con el prop: `HorarioEnvioPanel({ onGuardado }: { onGuardado?: (h: HorarioEnvio) => void })`, llamarlo
-  después de `setAviso('Guardado')`, y en `HorarioLista` pasar `onGuardado={() => leer()}` y borrar el puente.
-- **Verlo con clics**: no se levantó la app (bootear local escribe en prod).
-- Sin ninguna automatización la lista no se dibuja (va «Todavía no hay automatizaciones») y el botón
-  tampoco: ahí el horario queda sólo en Configuraciones.
+- **Verlo con clics**: no se levantó la app (bootear local escribe en prod). Falta ver en un navegador la
+  retención con cambios sin guardar, el cierre por scroll, el borde en el hover y el panel colgando del
+  botón en el cartel vacío.
+- **Una decisión por defecto, avisada a Martín:** con cambios sin guardar el panel no se cierra solo, y el
+  clic afuera no muestra ninguna señal (lo de atrás contesta igual). Si prefiere que cierre igual, la otra
+  salida es dejar el editor montado y escondido después de la primera apertura.
+- En el cartel vacío, «＋ Nueva» con el panel abierto y sucio crea la primera automatización y el cartel se
+  desmonta con el panel: lo no guardado se pierde ahí.
 
 ## Lo que quedó sin hacer
 

@@ -26,7 +26,9 @@
 //     `stopImmediatePropagation`: los Escape de la casa viven todos en `document` y en captura;
 //   · vive adentro de una lista con `overflowY: auto`, así que va por `createPortal` al body y se
 //     ubica por cuenta (`ubicarAfuera`), midiendo el panel de verdad;
-//   · abre hacia AFUERA de la lista, como el «⋯» de las filas: no tapa «＋ Nueva» ni los «⋯».
+//   · abre hacia AFUERA de la lista, como el «⋯» de las filas: no tapa «＋ Nueva» ni los «⋯»;
+//   · se cierra con el clic afuera, el Escape y el scroll que saca al botón de la vista (como el
+//     `Dropdown` de la casa), SALVO con cambios sin guardar (`retener`): ahí se queda abierto.
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -44,16 +46,6 @@ export type EstadoHorario =
   | { t: 'cargando' }
   | { t: 'error' }
   | { t: 'listo'; horario: HorarioEnvio; zona: string };
-
-/**
- * ⚠️ PUENTE: el texto con que HorarioEnvioPanel confirma que guardó (`setAviso('Guardado')`). El
- * panel no avisa a quien lo monta (no tiene un `onGuardado`, y este archivo no lo puede tocar: es de
- * Configuraciones), así que HorarioLista mira cuándo aparece este texto para volver a leer y que el
- * botón cambie al guardar, sin esperar a que se cierre el panel. `tests/automations-horario.test.ts`
- * cruza el contrato: si el panel cambia la palabra, el test cae (y el botón igual se pone al día al
- * cerrar). El día que el panel tenga `onGuardado`, esto se va.
- */
-export const AVISO_GUARDADO = 'Guardado';
 
 /** El estado corto del botón. Vacío mientras carga: un «Cargando…» escrito no es un loader. */
 export function rotuloHorario(e: EstadoHorario): string {
@@ -108,12 +100,52 @@ export function ubicarAfuera(
   return { left, top };
 }
 
+/** La franja de la pantalla donde el botón se puede ver: arriba y abajo, en px de la ventana. */
+export type Franja = { top: number; bottom: number };
+
+/** ¿El botón quedó ENTERO afuera de la franja visible? Con un píxel adentro, todavía se ve. */
+export function fueraDeVista(ancla: Caja, franja: Franja): boolean {
+  return ancla.bottom <= franja.top || ancla.top >= franja.bottom;
+}
+
 /**
- * Lo que un estilo en línea no puede: el hover del botón. El fondo va en la CLASE y no en el `style`
- * (un estilo en línea le gana a cualquier `:hover`). Sin backticks acá adentro: es un template literal.
+ * QUÉ HACE EL PANEL CUANDO ALGO SCROLLEA. Si el botón salió de la vista, el panel se cierra —como el
+ * `Dropdown` de la casa, que se cierra con cualquier scroll— porque si no queda flotando arriba de todo
+ * sin nada al lado. Salvo que haya cambios sin guardar (`retener`): ahí se queda, pegado al borde de
+ * arriba de la ventana (lo hace `ubicarAfuera`), porque cerrarlo tiraría lo que la persona escribió.
+ * Si el botón se sigue viendo, se recoloca. Pura y exportada para que el test la ejecute.
+ */
+export function alScrollear(ancla: Caja | null, franja: Franja, retener: boolean): 'cerrar' | 'recolocar' {
+  if (ancla && !retener && fueraDeVista(ancla, franja)) return 'cerrar';
+  return 'recolocar';
+}
+
+/**
+ * La franja visible del botón: la del primer contenedor que scrollea de verdad (la lista de
+ * automatizaciones, `overflowY: auto`), recortada a la ventana. Sin un contenedor así (el cartel de
+ * «Todavía no hay automatizaciones»), la ventana.
+ */
+function franjaDe(el: HTMLElement): Franja {
+  const ventana = { top: 0, bottom: window.innerHeight };
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const oy = getComputedStyle(p).overflowY;
+    if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && p.scrollHeight > p.clientHeight) {
+      const r = p.getBoundingClientRect();
+      return { top: Math.max(r.top, ventana.top), bottom: Math.min(r.bottom, ventana.bottom) };
+    }
+  }
+  return ventana;
+}
+
+/**
+ * Lo que un estilo en línea no puede: el hover del botón. El fondo, el color Y EL BORDE van en la CLASE
+ * y no en el `style`: un estilo en línea le gana a cualquier `:hover`, y con el `border` en línea el
+ * borde no cambiaba al pasar el cursor ni con el panel abierto (y su transición no corría nunca).
+ * `tests/automations-horario.test.ts` dibuja el botón y falla si el `style` pisa algo de esta regla.
+ * Sin backticks acá adentro: es un template literal.
  */
 const CSS_HORARIO = `
-.chb-horario{background:transparent;color:var(--dim);transition:background .14s ease,color .14s ease,border-color .14s ease}
+.chb-horario{border:1px solid var(--border);background:transparent;color:var(--dim);transition:background .14s ease,color .14s ease,border-color .14s ease}
 button.chb-horario:hover,button.chb-horario:focus-visible,button.chb-horario[aria-expanded="true"]{background:var(--surface-2);color:var(--ink);border-color:var(--border-strong)}
 `;
 
@@ -133,7 +165,7 @@ export function BotonHorario({ estado, editable, abierto, onAlternar }: {
   const frase = describirHorario(estado);
   const estilo: CSSProperties = {
     flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 5, height: 24, boxSizing: 'border-box',
-    padding: rotulo ? '0 9px 0 7px' : '0 6px', borderRadius: 999, border: '1px solid var(--border)',
+    padding: rotulo ? '0 9px 0 7px' : '0 6px', borderRadius: 999,
     fontFamily: "'Geist', sans-serif", fontSize: 11.5, fontWeight: 600, lineHeight: 1, whiteSpace: 'nowrap',
     color: estado.t === 'error' ? 'var(--bad)' : undefined,
   };
@@ -178,12 +210,19 @@ const hayMenuAbiertoEn = (el: HTMLElement | null): boolean => !!el?.querySelecto
  * primera vez — que es justo la trampa que AGENTS.md documenta («un efecto que mide un nodo montado
  * por un portal depende del estado que monta el portal»).
  */
-export function PanelAnclado({ ancla, etiqueta, onCerrar, children }: {
+export function PanelAnclado({ ancla, etiqueta, onCerrar, retener, children }: {
   /** El botón que lo abrió: de ahí cuelga, y se vuelve a medir en cada `scroll` y `resize`. */
   ancla: HTMLElement | null;
   /** Para el lector de pantalla: el panel no dibuja título. */
   etiqueta: string;
   onCerrar: () => void;
+  /**
+   * ¿Hay algo que se perdería al cerrar? Mientras diga que sí, el clic afuera, el Escape y el scroll que
+   * saca al botón de la vista NO cierran: el panel queda abierto. Default seguro, avisado a Martín: un
+   * clic suelto en el lienzo tiraba un horario a medio editar sin decir nada. El botón que lo abrió
+   * sí cierra siempre: es el gesto explícito, y la única salida para descartar sin guardar.
+   */
+  retener?: () => boolean;
   children: ReactNode;
 }) {
   const capa = useCapaModal(true, { anidada: true });
@@ -194,9 +233,12 @@ export function PanelAnclado({ ancla, etiqueta, onCerrar, children }: {
    * `onCerrar` por REF: los listeners se registran UNA vez mientras el panel está abierto. Con
    * `onCerrar` en las dependencias, una identidad nueva re-ejecutaba el efecto del foco y su limpieza
    * lo devolvía al botón a mitad de la edición (AGENTS.md, el foco de `Modal` con un `onCerrar` inestable).
+   * `retener`, por lo mismo.
    */
   const cerrarRef = useRef(onCerrar);
   useEffect(() => { cerrarRef.current = onCerrar; }, [onCerrar]);
+  const retenerRef = useRef(retener);
+  useEffect(() => { retenerRef.current = retener; }, [retener]);
 
   useLayoutEffect(() => {
     const recolocar = () => {
@@ -218,7 +260,15 @@ export function PanelAnclado({ ancla, etiqueta, onCerrar, children }: {
     const ro = new ResizeObserver(recolocar);
     if (panel.current) ro.observe(panel.current);
     // EN CAPTURA: lo que scrollea es la lista, y un `scroll` de un contenedor no burbujea a `window`.
-    const alScroll = (e: Event) => { if (e.target instanceof Node && panel.current?.contains(e.target)) return; recolocar(); };
+    // Lo que scrollea ADENTRO del panel es del panel. Si el botón salió de la vista, se cierra (ver
+    // `alScrollear`), salvo con cambios sin guardar.
+    const alScroll = (e: Event) => {
+      if (e.target instanceof Node && panel.current?.contains(e.target)) return;
+      const a = ancla?.isConnected ? ancla.getBoundingClientRect() : null;
+      const franja = ancla?.isConnected ? franjaDe(ancla) : { top: 0, bottom: window.innerHeight };
+      if (alScrollear(a, franja, !!retenerRef.current?.()) === 'cerrar') { cerrarRef.current(); return; }
+      recolocar();
+    };
     window.addEventListener('resize', recolocar);
     window.addEventListener('scroll', alScroll, true);
     return () => {
@@ -230,12 +280,14 @@ export function PanelAnclado({ ancla, etiqueta, onCerrar, children }: {
 
   // Clic afuera: la salida de un popover. El ANCLA queda exceptuada —es un interruptor y se cierra
   // sola— y, con un desplegable abierto adentro, el clic es de él. En `pointerdown`: el lienzo de
-  // atrás captura el puntero, y un `mousedown` puede no llegar.
+  // atrás captura el puntero, y un `mousedown` puede no llegar. Con cambios sin guardar no cierra, y el
+  // clic sigue su camino: el panel no es modal, lo de atrás contesta igual.
   useEffect(() => {
     const fuera = (e: PointerEvent) => {
       const t = e.target as Node | null;
       if (!t || panel.current?.contains(t) || ancla?.contains(t)) return;
       if (hayMenuAbiertoEn(panel.current)) return;
+      if (retenerRef.current?.()) return;
       cerrarRef.current();
     };
     document.addEventListener('pointerdown', fuera, true);
@@ -254,6 +306,9 @@ export function PanelAnclado({ ancla, etiqueta, onCerrar, children }: {
       if (!arriba()) return;
       e.stopImmediatePropagation();
       e.preventDefault();
+      // Con cambios sin guardar, la tecla se FRENA igual pero no cierra: si la soltara, la contestaría
+      // la capa de abajo y se cerraría lo de atrás con el panel todavía abierto.
+      if (retenerRef.current?.()) return;
       cerrarRef.current();
     };
     document.addEventListener('keydown', onKey, true);

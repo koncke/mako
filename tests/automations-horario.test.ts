@@ -13,7 +13,11 @@
 //   · el panel es una capa de la casa: anidada en la pila, Escape con `stopImmediatePropagation`,
 //     por portal, abriendo hacia afuera de la lista;
 //   · el rótulo corto y la cuenta de dónde cae el panel, ejecutados;
-//   · el contrato con el panel: la palabra con que confirma que guardó (el puente de `AVISO_GUARDADO`).
+//   · (revisión, 10/10/2026) con cambios sin guardar el clic afuera, el Escape y el scroll NO cierran
+//     (`onSucio` del panel + `retener`); el botón se pone al día con `onGuardado`, sin mirar el DOM;
+//   · el borde del botón va en la CLASE: un `style` en línea anula el `:hover`;
+//   · si el botón sale de la vista de la lista, el panel se cierra (como el `Dropdown` de la casa);
+//   · sin ninguna automatización, el cartel vacío también monta el control.
 //
 // HorarioLista NO se puede importar acá: las acciones de Configuraciones arrastran `server-only`, que
 // tira bajo tsx. Por eso lo que vive ahí se fija en el fuente sin comentarios, y lo que se puede
@@ -29,7 +33,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { SimuladorWhatsApp } from '../app/automations/SimuladorWhatsApp';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 import {
-  AVISO_GUARDADO, BotonHorario, describirHorario, rotuloHorario, ubicarAfuera, SEPARACION_AFUERA, type EstadoHorario,
+  BotonHorario, alScrollear, describirHorario, fueraDeVista, rotuloHorario, ubicarAfuera, SEPARACION_AFUERA, type EstadoHorario,
 } from '../app/automations/HorarioBoton';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -115,13 +119,14 @@ test('el control monta el editor de Configuraciones con sus acciones, sólo para
   assert.match(src, /import \{ getHorarioEnvioAction \} from '@\/app\/configuraciones\/horario-actions';/, 'no es la MISMA lectura');
   // El panel, una sola vez y adentro de la rama del admin.
   assert.equal(src.split('<HorarioEnvioPanel').length - 1, 1);
-  assert.match(src, /\{rolAdmin && ancla && \(\s*<PanelAnclado [^>]*>\s*<div ref=\{setCuerpo\}>\s*<HorarioEnvioPanel \/>\s*<\/div>\s*<\/PanelAnclado>\s*\)\}/,
+  assert.match(src, /\{rolAdmin && ancla && \(\s*<PanelAnclado [^>]*>\s*<HorarioEnvioPanel onGuardado=\{leer\} onSucio=\{alSucio\} \/>\s*<\/PanelAnclado>\s*\)\}/,
     'el editor no está montado en el panel, o no sólo para admin');
   assert.match(src, /<BotonHorario estado=\{estado\} editable=\{rolAdmin\} /, 'quien no es admin no abre el editor');
   // El estado del botón sale de la misma lectura, y se vuelve a pedir al cerrar y al guardar.
   assert.match(src, /getHorarioEnvioAction\(\)\s*\.then\(\(d\) => \{ if \(n === pedido\.current\) setEstado\(\{ t: 'listo', horario: d\.horario, zona: d\.zona \}\); \}\)/);
-  assert.match(src, /const cerrar = useCallback\(\(\) => \{ setAncla\(null\); leer\(\); \}, \[leer\]\);/);
-  assert.match(src, /if \(ahora && !visto\) leer\(\);/);
+  assert.match(src, /const cerrar = useCallback\(\(\) => \{ sucio\.current = false; setAncla\(null\); leer\(\); \}, \[leer\]\);/);
+  // Al guardar lo avisa el PANEL (`onGuardado`): el puente que miraba aparecer «Guardado» en el DOM se fue.
+  assert.doesNotMatch(src, /MutationObserver|AVISO_GUARDADO|setCuerpo/, 'volvió el puente que leía el DOM del panel');
   // Sin redirigir: ninguna ruta a /configuraciones, ningún link ni navegación en estas piezas.
   for (const r of ['app/automations/HorarioLista.tsx', 'app/automations/HorarioBoton.tsx']) {
     const s = fuente(r);
@@ -159,12 +164,115 @@ test('dónde cae: a la derecha de la LISTA (no del botón), a la altura del bot�
   assert.deepEqual(angosta, { left: 10, top: 124 + 8 });
 });
 
-// ── El contrato del puente con el panel de Configuraciones ────────────────────────────────
+// ── (revisión) Lo no guardado no se pierde con un clic suelto ─────────────────────────────
 
-test('el puente: la palabra con que el panel confirma que guardó es la que espera el botón para volver a leer', () => {
-  const panel = leer('app/configuraciones/HorarioEnvioPanel.tsx');
-  assert.ok(panel.includes(`setAviso('${AVISO_GUARDADO}')`),
-    `HorarioEnvioPanel ya no dice «${AVISO_GUARDADO}» al guardar: el botón sólo se pone al día al cerrar el panel`);
+/** El cuerpo de una función o de un listener: desde su apertura hasta lo que abre el bloque siguiente. */
+const bloque = (src: string, desde: string, hasta: string) => {
+  const ini = src.indexOf(desde);
+  assert.ok(ini >= 0, `no encontré «${desde}»`);
+  const fin = src.indexOf(hasta, ini + desde.length);
+  assert.ok(fin > ini, `no encontré «${hasta}» después de «${desde}»`);
+  return src.slice(ini, fin);
+};
+
+test('el panel de Configuraciones avisa si hay cambios sin guardar (antes de todo return) y cuándo guardó bien', () => {
+  const src = fuente('app/configuraciones/HorarioEnvioPanel.tsx');
+  // Las dos props son OPCIONALES: Configuraciones › Horario lo monta sin ninguna (tests/horario-envio.test.ts
+  // fija ese montaje, `panel: <HorarioEnvioPanel />`).
+  assert.match(src, /export function HorarioEnvioPanel\(\{ onGuardado, onSucio \}: \{\s*onGuardado\?: \(h: HorarioEnvio\) => void;\s*onSucio\?: \(sucio: boolean\) => void;\s*\}\)/);
+  // «Sucio» se avisa con un efecto que corre ANTES del return temprano (un hook detrás de un return es
+  // la pantalla en blanco), y con el horario sin leer no hay nada que perder.
+  const iEfecto = src.indexOf('useEffect(() => { onSucio?.(sucio); }, [sucio, onSucio]);');
+  const iReturn = src.indexOf('if (!h) return');
+  assert.ok(iEfecto > 0 && iReturn > iEfecto, 'el aviso de «sucio» no está, o quedó detrás del return temprano');
+  assert.match(src, /const sucio = h != null && JSON\.stringify\(h\) !== guardado;/);
+  // `onGuardado`, sólo con el guardado BIEN y con lo que quedó guardado.
+  const g = bloque(src, 'async function guardar()', 'const off = ');
+  const iNoOk = g.indexOf('if (!r.ok)');
+  const iAviso = g.indexOf("setAviso('Guardado');");
+  const iAvisa = g.indexOf('onGuardado?.(quedo);');
+  assert.ok(iNoOk >= 0 && iAviso > iNoOk && iAvisa > iAviso, '`onGuardado` no corre justo después de guardar bien');
+  assert.match(g, /const quedo = \('horario' in r && r\.horario\) \? r\.horario : h;\s*setH\(quedo\);\s*setGuardado\(JSON\.stringify\(quedo\)\);/);
+});
+
+test('la lista lleva «sucio» en un ref, y el panel anclado no se cierra mientras diga que sí', () => {
+  const lista = fuente('app/automations/HorarioLista.tsx');
+  assert.match(lista, /const sucio = useRef\(false\);/);
+  assert.match(lista, /const retener = useCallback\(\(\) => sucio\.current, \[\]\);/);
+  assert.match(lista, /const alSucio = useCallback\(\(s: boolean\) => \{ sucio\.current = s; \}, \[\]\);/);
+  assert.match(lista, /<PanelAnclado [^>]*\bretener=\{retener\}[^>]*>/, 'el panel anclado no sabe si hay cambios sin guardar');
+
+  const panel = fuente('app/automations/HorarioBoton.tsx');
+  const p = panel.slice(panel.indexOf('export function PanelAnclado('));
+  // Por REF, como `onCerrar`: los listeners se registran una vez por apertura.
+  assert.match(p, /const retenerRef = useRef\(retener\);\s*useEffect\(\(\) => \{ retenerRef\.current = retener; \}, \[retener\]\);/);
+  // El clic afuera: con cambios sin guardar, no cierra.
+  const fuera = bloque(p, 'const fuera = (e: PointerEvent) => {', "document.addEventListener('pointerdown'");
+  assert.match(fuera, /if \(hayMenuAbiertoEn\(panel\.current\)\) return;\s*if \(retenerRef\.current\?\.\(\)\) return;\s*cerrarRef\.current\(\);/,
+    'el clic afuera cierra con cambios sin guardar');
+  // El Escape: se FRENA igual (si no, lo contesta la capa de abajo) y no cierra.
+  const esc = bloque(p, 'const onKey = (e: KeyboardEvent) => {', "document.addEventListener('keydown'");
+  assert.match(esc, /e\.stopImmediatePropagation\(\);\s*e\.preventDefault\(\);\s*if \(retenerRef\.current\?\.\(\)\) return;\s*cerrarRef\.current\(\);/,
+    'el Escape cierra con cambios sin guardar, o los suelta a la capa de abajo');
+});
+
+// ── (revisión) El borde del botón va en la CLASE ──────────────────────────────────────────
+
+test('el botón: el `style` en línea no pisa nada de lo que cambia el :hover (el borde incluido)', () => {
+  const html = renderToStaticMarkup(createElement(BotonHorario, { estado: LISTO({}), editable: true, abierto: false, onAlternar: () => {} }));
+  const css = (html.match(/<style>([\s\S]*?)<\/style>/) ?? [])[1] ?? '';
+  // Lo que cambia la regla del hover / foco / abierto.
+  const hover = css.match(/button\.chb-horario:hover[^{]*\{([^}]*)\}/);
+  assert.ok(hover, 'no encontré la regla del hover');
+  const props = (s: string) => s.split(';').map((d) => d.split(':')[0].trim().toLowerCase()).filter(Boolean);
+  const delHover = props(hover[1]);
+  assert.ok(delHover.includes('border-color'), 'el hover ya no cambia el borde: este test perdió su sujeto');
+  // El borde existe, y vive en la clase.
+  assert.match(css, /\.chb-horario\{[^}]*border:1px solid var\(--border\)/, 'el borde salió de la clase');
+  // Lo que escribe el `style` del botón: nada que pise esas propiedades (ni su atajo: `border` pisa `border-color`).
+  const estilo = (html.match(/<button[^>]*\sstyle="([^"]*)"/) ?? [])[1] ?? '';
+  assert.ok(estilo.length > 0, 'no encontré el style del botón');
+  const pisa = (enLinea: string, deHover: string) => enLinea === deHover || deHover.startsWith(`${enLinea}-`) || enLinea.startsWith(`${deHover}-`);
+  for (const enLinea of props(estilo)) {
+    for (const h of delHover) assert.ok(!pisa(enLinea, h), `el style en línea pone «${enLinea}», que le gana al «${h}» del :hover`);
+  }
+});
+
+// ── (revisión) El botón sale de la vista: el panel se cierra, salvo cambios sin guardar ───
+
+test('al scrollear: si el botón salió de la vista se cierra, salvo cambios sin guardar; si se ve, se recoloca', () => {
+  const franja = { top: 100, bottom: 600 };
+  const boton = (top: number) => ({ left: 300, right: 330, top, bottom: top + 24 });
+  // Adentro, y a medias (un píxel adentro todavía se ve): se recoloca.
+  assert.equal(alScrollear(boton(300), franja, false), 'recolocar');
+  assert.equal(alScrollear(boton(90), franja, false), 'recolocar', 'con un pedazo a la vista, se cerró');
+  assert.equal(fueraDeVista(boton(77), franja), false);
+  // Entero afuera, por arriba o por abajo: se cierra.
+  assert.equal(fueraDeVista(boton(76), franja), true, 'justo en el borde ya no se ve');
+  assert.equal(alScrollear(boton(40), franja, false), 'cerrar');
+  assert.equal(alScrollear(boton(600), franja, false), 'cerrar');
+  // Con cambios sin guardar, queda (pegado arriba, como antes).
+  assert.equal(alScrollear(boton(40), franja, true), 'recolocar', 'con cambios sin guardar, el scroll tiró lo escrito');
+  // Sin ancla (el botón se desmontó): no se decide nada por el scroll.
+  assert.equal(alScrollear(null, franja, false), 'recolocar');
+
+  // Y el listener del scroll le pregunta a esa función, con «sucio» y por los refs.
+  const src = fuente('app/automations/HorarioBoton.tsx');
+  const s = bloque(src, 'const alScroll = (e: Event) => {', "window.addEventListener('resize'");
+  assert.match(s, /if \(alScrollear\(a, franja, !!retenerRef\.current\?\.\(\)\) === 'cerrar'\) \{ cerrarRef\.current\(\); return; \}\s*recolocar\(\);/,
+    'el scroll no cierra cuando el botón sale de la vista');
+});
+
+// ── (revisión) Sin ninguna automatización, el cartel vacío también lo monta ───────────────
+
+test('sin ninguna automatización: el cartel monta el control del horario al lado de su «＋ Nueva», para admin', () => {
+  const app = fuente('app/automations/ChatAgentApp.tsx');
+  const cartel = bloque(app, 'Todavía no hay automatizaciones.', '<SimuladorWhatsApp');
+  // (`[^\n]*` y no `[^>]*` en el botón: su `onClick={() => …}` trae un `>` adentro.)
+  assert.match(cartel, /\{rolAdmin && \(\s*<div [^>]*>\s*<button [^\n]*>＋ Nueva<\/button>\s*\{\}\s*<HorarioLista rolAdmin=\{rolAdmin\} \/>/,
+    'el cartel vacío no tiene el horario al lado de «＋ Nueva»');
+  // Una por lugar: el cartel y la lista (nunca los dos a la vez: uno es `length === 0`, el otro `> 0`).
+  assert.equal(app.split('<HorarioLista ').length - 1, 2);
 });
 
 // ── ROTURAS (10/10/2026) ──────────────────────────────────────────────────────────────────
@@ -181,3 +289,27 @@ test('el puente: la palabra con que el panel confirma que guardó es la que espe
 //   R9. `ubicarAfuera` mide desde el botón y no desde el borde de la lista             → 7 / 1
 //   R10. El botón espera otra palabra («Guardada») que la del panel                    → 7 / 1
 // Restaurado: 8 / 0.
+// (R10 se retiró con el puente: el panel avisa con `onGuardado`; ahora lo fija B7/B8.)
+//
+// ── ROTURAS de la revisión (10/10/2026, rama wip-v6f-horario) ─────────────────────────────
+// Mismo método (arnés que guarda el original en memoria y comprueba que quedó idéntico), este archivo
+// solo. Base: 12 pass / 0 fail.
+//   B1. HorarioEnvioPanel sin el efecto de `onSucio`                                   → 11 / 1
+//   B2. el efecto de `onSucio` DETRÁS del return temprano                              → 11 / 1
+//   B3. guardar no llama a `onGuardado`                                                → 11 / 1
+//   B4. HorarioLista no le pasa `retener` al panel anclado                             → 11 / 1
+//   B5. `retener` siempre false                                                        → 11 / 1
+//   B6. HorarioLista no le pasa `onSucio` al editor                                    → 11 / 1
+//   B7. HorarioLista no le pasa `onGuardado` (el botón cambia recién al cerrar)        → 11 / 1
+//   B8. vuelve el puente que lee el DOM (`AVISO_GUARDADO`)                             → 11 / 1
+//   B9. el clic afuera cierra con cambios sin guardar                                  → 11 / 1
+//   B10. el Escape cierra con cambios sin guardar                                      → 11 / 1
+//   B11. el Escape retenido se SUELTA a la capa de abajo (retener antes del stop)      → 10 / 2
+//   B12. el `border` vuelve al `style` en línea                                        → 11 / 1
+//   B13. el borde sale de la clase (botón sin borde)                                   → 11 / 1
+//   B14. `alScrollear` ignora los cambios sin guardar                                  → 11 / 1
+//   B15. `fueraDeVista` cierra con el botón a medias                                   → 11 / 1
+//   B16. el scroll sólo recoloca (como antes)                                          → 11 / 1
+//   B17. el scroll no le pasa «sucio» a la decisión                                    → 11 / 1
+//   B18. el cartel vacío sin el control del horario                                    → 11 / 1
+// Restaurado: 12 / 0.
