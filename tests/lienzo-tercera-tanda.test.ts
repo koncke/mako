@@ -220,7 +220,9 @@ test('⚠️ «Probar» se frena con lo mismo que Publicar, abre la tarjeta, y e
   assert.ok(freno >= 0 && freno < probar.indexOf('onProbar(canal)'), '«Probar» abre sin frenar lo inconcluso');
   assert.match(probar, /if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
   assert.match(perfil, /const canales = canalesParaProbar\(pasos\);/);
-  assert.match(perfil, /: canales\.length > 1 \? \(\s*<Dropdown value="" resetAfterSelect sinFlecha=\{false\} botonLabel="▶ Probar"/);
+  // Sin la flecha y anclado a la derecha desde el 10/10/2026 (general 8: «Quita la flecha... y fijate que al darle
+  // se esconde fuera de la pantalla el desplegable»).
+  assert.match(perfil, /: canales\.length > 1 \? \([\s\S]{0,400}?<Dropdown value="" resetAfterSelect sinFlecha align="right" botonLabel="▶ Probar"/);
   assert.match(perfil, /<button onClick=\{\(\) => probar\(canales\[0\]\)\} title="Probar esta automatización" style=\{estiloProbar\}>▶ Probar<\/button>/);
   // El tipo del canal es el del panel (`CanalProbar`, app/automations/PanelProbar.tsx): uno en las dos puntas.
   assert.match(perfil, /onProbar\?: \(canal: CanalProbar\) => void;/);

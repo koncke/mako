@@ -53,6 +53,8 @@ import {
   contarParalelos, fijarRaiz, validarParaGuardar, cruces, ciclosSinEspera,
 } from './flujo-grafo';
 import { nodoNuevo, type QueAgregar } from './flujo-conversacion';
+// Puro: las partes de un mensaje y cómo se guardan (partirConEspera).
+import { partesDe, formaGuardada, type ParteMensaje, type PasoConPartes } from './mensaje-partes';
 
 /** Lo que devuelve una edición: el flujo nuevo, o el MISMO flujo con un motivo corto (va a un aviso). */
 export type Edicion<P> =
@@ -158,7 +160,14 @@ export function conectar<P extends PasoGrafo>(pasosIn: readonly P[], desde: stri
   const j = indicePorId(fijo, hacia);
   if (j < 0) return no(base, MOTIVO.noExiste);
   if (claseDe(fijo[j]) === 'inicio') return no(base, MOTIVO.alCron);
-  if (claseDe(fijo[j]) === 'respuesta') return no(base, MOTIVO.aRespuesta);
+  if (claseDe(fijo[j]) === 'respuesta') {
+    // «Si responde» sólo cuelga del CRON. Si la persona le había borrado esa flecha (`suelta`), conectarla
+    // desde el CRON se la devuelve (10/10/2026, «Una condición normal»).
+    if (desde === ID_INICIO && fijo[j].suelta === true && raizRespuesta(fijo) == null) {
+      return listo(normalizar(fijo.map((q, k) => (k === j ? sinSuelta(q) : q))));
+    }
+    return no(base, MOTIVO.aRespuesta);
+  }
   const i = indicePorId(fijo, desde);
   if (i < 0) return no(base, MOTIVO.noExiste);
   const p = fijo[i];
@@ -204,6 +213,9 @@ export function conectar<P extends PasoGrafo>(pasosIn: readonly P[], desde: stri
  */
 export function desconectar<P extends PasoGrafo>(pasosIn: readonly P[], desde: string, puerto: string, hacia: string): Edicion<P> {
   const { base, fijo } = paraEditar(pasosIn);
+  // LA FLECHA DEL CRON A «SI RESPONDE» (10/10/2026): no es un puerto del dato, así que borrarla es soltar
+  // la tarjeta (`suelta`): deja de escuchar y Publicar la frena hasta que se vuelva a conectar.
+  if (desde === ID_INICIO && hacia === raizRespuesta(fijo)) return listo(conSuelta(fijo, hacia));
   const i = indicePorId(fijo, desde);
   if (i < 0) return no(base, MOTIVO.noConectadas);
   const pt = puertosDe(fijo, i).find((x) => x.destino === hacia && (x.puerto === puerto || filaDe(x.puerto) === filaDe(puerto)));
@@ -219,9 +231,23 @@ export function soltar<P extends PasoGrafo>(pasosIn: readonly P[], id: string): 
   const { base, fijo } = paraEditar(pasosIn);
   const i = indicePorId(fijo, id);
   if (id === ID_INICIO || i < 0 || claseDe(fijo[i]) === 'inicio') return no(base, i < 0 ? MOTIVO.noExiste : MOTIVO.sinFlechas);
+  // «Desconectar» sobre «Si responde» le saca la única flecha que tiene: la del CRON.
+  if (claseDe(fijo[i]) === 'respuesta') return id === raizRespuesta(fijo) ? listo(conSuelta(fijo, id)) : no(base, MOTIVO.sinFlechas);
   const out = soltarDe(fijo, id);
   if (out === fijo || JSON.stringify(out) === JSON.stringify(fijo)) return no(base, MOTIVO.sinFlechas);
   return listo(out);
+}
+
+/** «Si responde» sin su flecha del CRON: la marca `suelta` (lib/flujo-grafo.ts). */
+function conSuelta<P extends PasoGrafo>(pasos: readonly P[], id: string): P[] {
+  return pasos.map((q, k) => (idDe(q, k) === id ? { ...q, suelta: true } : q));
+}
+
+/** La misma tarjeta sin la marca: ausente = conectada. */
+function sinSuelta<P extends PasoGrafo>(q: P): P {
+  const { suelta: _fuera, ...resto } = q;
+  void _fuera;
+  return resto as P;
 }
 
 /**
@@ -242,6 +268,42 @@ export function eliminar<P extends PasoGrafo>(pasosIn: readonly P[], id: string)
   const out = soltarDe(fijo, id).filter((q, k) => idDe(q, k) !== id);
   return listo(out.map((q) => (claseDe(q) === 'ir_a' && q.destino && 'nodo' in q.destino && q.destino.nodo === id ? { ...q, destino: null } : q)));
 }
+
+/**
+ * PARTIR UN MENSAJE DE VARIOS CON UNA ESPERA EN EL MEDIO (10/10/2026, WhatsApp 2: el delay entre mensajes
+ * «que permita editar más, no solo 10 segundos, incluso minutos también»). La pausa de segundos la DUERME
+ * el motor adentro de una corrida (lib/mensaje-partes.ts, con su tope); minutos no se pueden dormir ahí.
+ * Así que la tarjeta se parte: lo de antes del mensaje `i` queda en ella, después va una ESPERA de
+ * `minutos` (la que programa y sobrevive a la corrida) y después una tarjeta nueva con el resto. Las
+ * flechas en paralelo y lo de después se mudan a la última: arrancaban cuando la tarjeta terminaba.
+ * Devuelve el id de la espera (la que el lienzo abre).
+ */
+export function partirConEspera<P extends PasoGrafo>(pasosIn: readonly P[], id: string, i: number, minutos: number, rnd: () => number = Math.random): Edicion<P> {
+  const { base, fijo } = paraEditar(pasosIn);
+  const k = indicePorId(fijo, id);
+  if (k < 0) return no(base, MOTIVO.noExiste);
+  const p = fijo[k] as P & PasoConPartes & { paralelos?: string[]; variantes?: string[] };
+  const partes = partesDe(p);
+  if (claseDe(p) !== 'mensaje' || !(i > 0 && i < partes.length) || !(minutos > 0)) return no(base, MOTIVO.sinSalida);
+  const idEspera = nuevoId(fijo, rnd);
+  const idResto = nuevoId([...fijo, { id: idEspera }], rnd);
+  const ia = p.tipo === 'ia';
+  // La primera del resto no espera segundos: la espera de minutos la reemplaza.
+  const resto = partes.slice(i).map((x, j) => (j === 0 ? sinPausa(x) : x));
+  const { variantes: _v, paralelos: par, ...sinExtras } = p;
+  void _v;
+  const antes = { ...sinExtras, ...formaGuardada(partes.slice(0, i), ia), siguiente: idEspera } as unknown as P;
+  const espera = { ...nodoNuevo('esperar', fijo, rnd), id: idEspera, espera: { modo: 'tiempo', minutos: Math.round(minutos) }, siguiente: idResto } as unknown as P;
+  const despues = { ...sinExtras, ...formaGuardada(resto, ia), id: idResto, siguiente: p.siguiente ?? null, ...(par?.length ? { paralelos: par } : {}) } as unknown as P;
+  const out = [...fijo.slice(0, k), antes, espera, despues, ...fijo.slice(k + 1)];
+  return listo(normalizar(out), idEspera);
+}
+
+const sinPausa = (x: ParteMensaje): ParteMensaje => {
+  const { pausa_s: _p, ...r } = x as ParteMensaje & { pausa_s?: number };
+  void _p;
+  return r as ParteMensaje;
+};
 
 /**
  * UNA TARJETA SUELTA NUEVA (el click derecho en el lienzo: «crear una tarjeta» en ese punto). Nace

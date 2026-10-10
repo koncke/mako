@@ -112,12 +112,12 @@ test('⚠️ el ＋ de una salida vacía y el ＋ del medio de una flecha insert
   assert.match(puntos, /bajarCirculo\(e, n, p, conMas && !agregarOcupado \? puertoAgregar : null\)/);
   assert.doesNotMatch(LIENZO, /titulo="En paralelo"/, 'volvió el título «En paralelo» (cuarta tanda, punto 10)');
   // Y el clic del círculo pide las opciones de ESE lugar y agrega en ESE puerto (con la punta).
-  const clic = tramo('function soltarCirculo(', 'function quitarDeFila(', 2_600);
+  const clic = tramo('function soltarCirculo(', 'function onContextMenu(', 6_000);
   assert.match(clic, /const puerto = g\.puertoAgregar;/);
   assert.match(clic, /opcionesEn \? opcionesEn\(n\.id, puerto, false\)/);
   assert.match(clic, /onAgregarTras\(n\.id, v, puerto, fin\)/);
   // El medio de una flecha: inserta en el puerto de ESA flecha, y la curva sale de él.
-  const medio = tramo('{((onAgregarTras && (opcionesEn || opcionesAgregar)) || onQuitarFlecha) && grafo.aristas.map((a, i) => {', '{grafo.aristas.map((a, i) => {', 3_400);
+  const medio = tramo('{((onAgregarTras && (opcionesEn || opcionesAgregar)) || onQuitarFlecha) && grafo.aristas.map((a, i) => {', '{grafo.aristas.map((a, i) => {', 4_200);
   assert.match(medio, /const m = medioDeCurva\(d, h, a\.puerto\);/);
   assert.match(medio, /onChange=\{\(v\) => v && onAgregarTras\(a\.desde, v, a\.puerto\)\}/);
   assert.match(medio, /opcionesEn \? opcionesEn\(a\.desde, a\.puerto, true\)/);
@@ -156,7 +156,10 @@ test('la papelera de la cabecera del panel borra la tarjeta (y cierra el panel)'
   assert.match(cab, /onClick=\{\(\) => \{ const id = nodoSel\.id; onSeleccion\(null\); onBorrar\(id\); \}\}/);
   // Desde la segunda pasada de la sexta tanda es la papelera ROJA de la casa (`BotonBorrar`, app/_ui):
   // su `title` es también el `aria-label` (lo fija tests/dropdown-reglas.test.ts sobre el componente).
-  assert.match(cab, /<BotonBorrar talla="sm" title="Borrar esta tarjeta"/);
+  // `md` desde el 10/10/2026 (condición 2: «hazlos más grandes que los botones de basura que aparecen en el
+  // resto de la tarjeta»), alineado con el ✕ en su recuadro (`BotonCerrar`).
+  assert.match(cab, /<BotonBorrar talla="md" title="Borrar esta tarjeta"/);
+  assert.match(cab, /<BotonCerrar talla="md" title="Cerrar este paso"/);
   assert.doesNotMatch(cab, /🗑/, 'el 🗑 gris de antes no vuelve');
 });
 

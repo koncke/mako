@@ -34,7 +34,8 @@ import { botonGrande } from '@/app/_components/Lienzo';
 import { EditorRecurrente } from './EditorRecurrente';
 import { IconoDisparador, IconoEvento } from './IconosDisparador';
 // La papelera de la casa, roja siempre (sexta tanda, general 9): UNA definición para toda la app.
-import { IconoBorrar } from '@/app/_ui/BotonBorrar';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
+import { NuevoPlaceholder } from './NuevoPlaceholder';
 import { CRON_DEFAULT } from '@/app/_components/EditorCron';
 import {
   CLASES_DISPARADOR, claseDeDisparador, eventosDe, triggerDeCanal, borradorDeClase, conDisparo, disparoActualDe,
@@ -198,38 +199,48 @@ function Volver({ onClick, disabled }: { onClick: () => void; disabled?: boolean
   );
 }
 
-/** «＋ Nuevo CRON», tipo placeholder (CONDITION punto 4: «un diseño grande, tipo placeholder, centrado»). */
+/**
+ * «＋ Nuevo CRON», tipo placeholder (CONDITION punto 4) y con la animación de «＋ Nueva automatización»
+ * (10/10/2026, CRON 1). Desde el 10/10 es un RECUADRO más de la lista de CRON (CRON 3): llena lo que le
+ * toca del panel, como el del CRON de arriba.
+ */
 function NuevoCron({ onClick }: { onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="mk-placeholder-cron"
-      style={{ width: '100%', minHeight: 40, borderRadius: 11, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--faint)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'color .12s, border-color .12s, background .12s' }}
-      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--faint)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; }}>
-      ＋ Nuevo CRON
-    </button>
-  );
+  return <NuevoPlaceholder texto="Nuevo CRON" onClick={onClick} style={{ flex: 1, minHeight: ALTO_RECUADRO_CRON }} />;
 }
+
+/** El alto mínimo de cada recuadro de CRON: con más de dos, la lista scrollea (CRON 3). */
+const ALTO_RECUADRO_CRON = 150;
 
 /**
  * LA PRIMERA PANTALLA: seis botones gigantes con su ícono (CRON puntos 1 y 2). En una grilla de tres,
  * sin rótulos ni frases: el ícono y el nombre dicen qué es cada uno.
  */
-function ElegirClase({ onElegir, disabled }: { onElegir: (c: ClaseDisparador) => void; disabled?: boolean }) {
+/**
+ * ⚠️ SIN FLECHA PARA VOLVER (10/10/2026, CRON 2: «la flecha para ir hacia atrás es infinita... Si llego al
+ * primer paso sigue estando... No debería»). Ésta ES la primera pantalla. La clase que el CRON ya tiene va
+ * MARCADA (CRON 4: «si le pongo a la flecha de atrás, que esté marcado la opción que había elegido») y
+ * tocarla vuelve a su editor tal cual (lo decide quien monta), sin empezar de cero.
+ */
+export function ElegirClase({ onElegir, disabled, actual }: { onElegir: (c: ClaseDisparador) => void; disabled?: boolean; actual?: ClaseDisparador | 'otro' | null }) {
   return (
     <div role="group" aria-label="Qué dispara esta automatización" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-      {CLASES_DISPARADOR.map((c) => (
-        <button key={c.clase} type="button" onClick={() => onElegir(c.clase)} disabled={disabled} data-clase-cron={c.clase}
-          style={{
-            minHeight: 92, padding: '14px 8px', borderRadius: 14, border: '1.5px solid var(--border)', background: 'var(--surface)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 9, cursor: 'pointer',
-            fontFamily: SANS, fontSize: 15, fontWeight: 700, color: 'var(--ink)', transition: 'border-color .12s, box-shadow .12s, transform .12s',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,.07)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}>
-          <IconoDisparador tipo={c.clase} tam={38} />
-          {c.label}
-        </button>
-      ))}
+      {CLASES_DISPARADOR.map((c) => {
+        const on = actual === c.clase;
+        return (
+          <button key={c.clase} type="button" onClick={() => onElegir(c.clase)} disabled={disabled} data-clase-cron={c.clase} aria-pressed={on}
+            style={{
+              minHeight: 92, padding: '14px 8px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`,
+              background: on ? 'var(--primary-bg)' : 'var(--surface)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 9, cursor: 'pointer',
+              fontFamily: SANS, fontSize: 15, fontWeight: 700, color: on ? 'var(--primary)' : 'var(--ink)', transition: 'border-color .12s, box-shadow .12s, transform .12s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,.07)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = on ? 'var(--primary)' : 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}>
+            <IconoDisparador tipo={c.clase} tam={38} />
+            {c.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -321,6 +332,9 @@ export type PropsEditorDisparadores = {
   rolAdmin: boolean;
   /** Lo que va debajo de todo (lo que es de la automatización y no de un CRON). */
   pie?: ReactNode;
+  /** El tipo ya elegido en el modal de «＋ Nueva automatización»: el panel abre en su editor. */
+  claseInicial?: ClaseDisparador | null;
+  onClaseInicialUsada?: () => void;
 };
 
 /**
@@ -335,7 +349,14 @@ export function EditorDisparadores(p: PropsEditorDisparadores) {
    * completo, y su CLASE: un «Producto» o una «Etiqueta» recién elegidos todavía no tienen tipo de
    * disparo (son `manual`), así que la clase no se puede deducir del dato.
    */
-  const [borrador, setBorrador] = useState<{ d: Disparador; clase: ClaseDisparador } | null>(null);
+  const [borrador, setBorrador] = useState<{ d: Disparador; clase: ClaseDisparador } | null>(() => {
+    if (!p.claseInicial) return null;
+    // Sobre el CRON a elegir de la recién creada (el `manual` de «＋ Nueva»), no uno más.
+    const id = p.lista[0]?.id ?? nuevoIdDisparador([]);
+    return { d: borradorDeClase(p.claseInicial, id, CRON_DEFAULT), clase: p.claseInicial };
+  });
+  useEffect(() => { if (p.claseInicial) p.onClaseInicialUsada?.(); /* una vez, al abrir */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   /** Volver a la primera pantalla sin tocar lo guardado. */
   const [eligiendo, setEligiendo] = useState(false);
   // Cambiar de CRON (otra pastilla, la tarjeta) descarta lo que se estaba armando en el otro.
@@ -391,55 +412,63 @@ export function EditorDisparadores(p: PropsEditorDisparadores) {
     );
   }
 
+  /**
+   * ⚠️ CADA CRON EN SU RECUADRO, y el «＋ Nuevo CRON» es otro (10/10/2026, CRON 3: «Un cron debería tener
+   * un contenedor y ser más alto, no solo el desplegable... siempre habrán "2 recuadros de CRON" uno del
+   * actual y otro del placeholder de nuevo... Que entre esos 2 ocupen toda la tarjeta. Y que si creo más
+   * de 2, tenga scroll»). Hasta acá eran pastillas «CRON 1 / CRON 2» arriba y UN editor: el desplegable
+   * suelto se confundía con el resto del panel. El abierto muestra su editor; los otros, lo que disparan
+   * (tocarlos los abre). Con dos recuadros los dos llenan el alto; con más, cada uno su mínimo y scroll.
+   */
+  const llenan = lista.length + 1 <= 2;
+  const recuadro = (esteAbierto: boolean): CSSProperties => ({
+    position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 14, boxSizing: 'border-box',
+    border: `1.5px solid ${esteAbierto ? 'var(--primary)' : 'var(--border)'}`, background: esteAbierto ? 'var(--surface)' : 'var(--surface-2)',
+    flex: llenan ? 1 : 'none', minHeight: ALTO_RECUADRO_CRON,
+  });
+  const rotulo = (texto: string) => (
+    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>{texto}</span>
+  );
+  const esquina: CSSProperties = { position: 'absolute', top: -9, right: -9, zIndex: 1, boxShadow: '0 1px 3px rgba(0,0,0,.12)' };
+  const editorAbierto = elegirTipo ? (
+    // Otra clase con la de antes MARCADA; tocar la misma vuelve a su editor sin tocar nada (CRON 2 y 4).
+    <ElegirClase disabled={busy} actual={eligiendo && abierto ? claseDeDisparador(abierto) : null}
+      onElegir={(c) => { if (eligiendo && abierto && claseDeDisparador(abierto) === c) { setEligiendo(false); return; } elegirClase(c); }} />
+  ) : actual ? (
+    <EditorDeClase
+      d={actual} clase={clase} textos={textos} estadoCanales={estadoCanales}
+      productos={p.productos} etiquetas={p.etiquetas} disparadores={p.disparadores} tz={p.tz} busy={busy}
+      onCambiar={aplicar} onVolver={() => { setBorrador(null); setEligiendo(true); }}
+    />
+  ) : null;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {(lista.length > 1 || editando === 'nuevo') && (
-        <div role="tablist" aria-label="Los CRON de esta automatización" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {lista.map((d, i) => {
-            const on = editando !== 'nuevo' && actual?.id === d.id;
-            return (
-              <button key={d.id} type="button" role="tab" aria-selected={on} onClick={() => onEditar(d.id)} title={textos.texto(d)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 10px 0 6px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: 700,
-                  border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)' }}>
-                <IconoDisparador tipo={claseDeDisparador(d) ?? 'otro'} tam={20} />CRON {i + 1}
-              </button>
-            );
-          })}
-          {editando === 'nuevo' && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', height: 30, padding: '0 10px', borderRadius: 999, border: '1.5px solid var(--primary)', background: 'var(--primary-bg)', color: 'var(--primary)', fontFamily: SANS, fontSize: 12.5, fontWeight: 700 }}>Nuevo</span>
-          )}
-          {/* El tacho del abierto, ROJO (general punto 9). Con uno solo no hay tacho: un CRON menos que uno no dispara nada. */}
-          {lista.length > 1 && editando !== 'nuevo' && actual && lista.some((x) => x.id === actual.id) && (
-            <button type="button" onClick={() => quitar(actual.id)} disabled={busy} title="Eliminar este CRON" aria-label="Eliminar este CRON"
-              style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-              <IconoBorrar size={16} />
-            </button>
-          )}
-          {editando === 'nuevo' && (
-            <button type="button" onClick={() => onEditar(null)} title="Descartar el CRON nuevo" aria-label="Descartar el CRON nuevo"
-              style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-              <IconoBorrar size={16} />
-            </button>
-          )}
-        </div>
-      )}
-
-      {elegirTipo ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {eligiendo && abierto && claseDeDisparador(abierto) !== null && (
-            <div><Volver onClick={() => setEligiendo(false)} /></div>
-          )}
-          <ElegirClase onElegir={elegirClase} disabled={busy} />
-        </div>
-      ) : actual && (
-        <EditorDeClase
-          d={actual} clase={clase} textos={textos} estadoCanales={estadoCanales}
-          productos={p.productos} etiquetas={p.etiquetas} disparadores={p.disparadores} tz={p.tz} busy={busy}
-          onCambiar={aplicar} onVolver={() => { setBorrador(null); setEligiendo(true); }}
-        />
-      )}
-
-      {!elegirTipo && editando !== 'nuevo' && !borrador && <NuevoCron onClick={() => onEditar('nuevo')} />}
+    <div data-cron-recuadros style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12, overflowY: llenan ? 'visible' : 'auto', padding: '9px 9px 2px 0' }}>
+        {lista.map((d, i) => {
+          const esteAbierto = editando !== 'nuevo' && abierto?.id === d.id;
+          return (
+            <div key={d.id} data-cron-recuadro={d.id} style={recuadro(esteAbierto)}>
+              {lista.length > 1 && <BotonBorrar talla="xs" title="Eliminar este CRON" disabled={busy} onClick={() => quitar(d.id)} style={esquina} />}
+              {lista.length > 1 && rotulo(`CRON ${i + 1}`)}
+              {esteAbierto ? editorAbierto : (
+                <button type="button" onClick={() => onEditar(d.id)} title="Editar este CRON"
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>
+                  <IconoDisparador tipo={claseDeDisparador(d) ?? 'otro'} tam={30} />
+                  <span style={{ minWidth: 0, flex: 1, lineHeight: 1.35 }}>{textos.texto(d)}</span>
+                </button>
+              )}
+            </div>
+          );
+        })}
+        {editando === 'nuevo' ? (
+          <div data-cron-recuadro="nuevo" style={recuadro(true)}>
+            <BotonBorrar talla="xs" title="Descartar el CRON nuevo" onClick={() => onEditar(null)} style={esquina} />
+            {rotulo('Nuevo CRON')}
+            {editorAbierto}
+          </div>
+        ) : !borrador && <NuevoCron onClick={() => onEditar('nuevo')} />}
+      </div>
       {p.pie}
     </div>
   );

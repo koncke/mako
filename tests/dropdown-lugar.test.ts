@@ -56,13 +56,13 @@ test('sin medir todavía (el primer cuadro), la regla de siempre; el efecto lo v
 test('el Dropdown decide con lugarDelMenu, mide el menú montado UNA vez y lo topa a su lugar', () => {
   const src = leer('app/components/Dropdown.tsx');
   assert.match(src, /import \{ altoMaximoDelMenu, lugarDelMenu, CAJA_MENU, SEPARACION_MENU \} from '\.\/dropdown-lugar';/);
-  const place = src.slice(src.indexOf('const place = (alto: number | null = null) => {'), src.indexOf('const toggle = () => {'));
+  const place = src.slice(src.indexOf('const place = (alto: number | null = null, ancho: number | null = null) => {'), src.indexOf('const toggle = () => {'));
   assert.ok(place.length > 100 && place.length < 2000, `el recorte de place mide ${place.length}`);
   assert.match(place, /const lugar = lugarDelMenu\(\{ top: r\.top, bottom: r\.bottom, ventana: window\.innerHeight, alto \}\);/);
   assert.match(place, /const espacio = Math\.max\(0, lugar\.espacio - CAJA_MENU\);/, 'el alto del CONTENIDO: sin el relleno, la caja tocaba el borde');
   assert.doesNotMatch(place, /below < 300/, 'volvió la regla de un número');
   // Medido con el menú en el DOM, antes de pintar, y una sola vez por apertura (no se mueve al tipear).
-  assert.match(src, /useLayoutEffect\(\(\) => \{\s*if \(!open \|\| medido\.current != null \|\| !menuRef\.current\) return;\s*medido\.current = menuRef\.current\.scrollHeight \+ 2;\s*place\(medido\.current\);/);
+  assert.match(src, /useLayoutEffect\(\(\) => \{\s*if \(!open \|\| medido\.current != null \|\| !menuRef\.current\) return;\s*medido\.current = menuRef\.current\.scrollHeight \+ 2;\s*place\(medido\.current, menuRef\.current\.getBoundingClientRect\(\)\.width\);/);
   assert.match(src, /if \(!open\) \{ place\(\); setQ\(''\); medido\.current = null; \}/, 'se vuelve a medir en cada apertura');
   // El alto máximo sale del lugar que tiene, en la lista y en las columnas. Desde la segunda tanda
   // (08/10/2026) el tope de la lista se puede pedir más alto (`menuAlto`, el selector de acciones de

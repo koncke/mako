@@ -61,7 +61,7 @@ import { createPortal } from 'react-dom';
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
 import { MakoLogo } from './MakoBrand';
 // La papelera de la casa, roja siempre (sexta tanda, general 9): UNA definición para toda la app.
-import { IconoBorrar, BotonBorrar } from '@/app/_ui/BotonBorrar';
+import { IconoBorrar, BotonBorrar, BotonCerrar } from '@/app/_ui/BotonBorrar';
 import { Dropdown, IconoOpcion, type DropdownOption } from '../components/Dropdown';
 import {
   curvaEntre, curvaPuntos, medioDeCurva, puntoDeCurva, tDePildora, posicionDePildora, puntoDeEntrada, puntoDePuerto, filaDePuerto,
@@ -137,6 +137,10 @@ const DESVIO_MEDIO = 22;
 /** El círculo de una salida: su diámetro, y cuánto asoma la flecha al tocarlo (con el menú en la punta). */
 const CIRCULO = 16;
 const ASOMA_FLECHA = 118;
+/** Sin tarjetas elegidas con el lazo (una constante: un `[]` en el default sería otro en cada render). */
+const SIN_VARIOS: readonly string[] = [];
+/** Lo que mide la punta agarrable de una flecha, en píxeles de PANTALLA (se escala al revés del zoom). */
+const PUNTA_FLECHA = 18;
 
 export function Lienzo({
   grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accionesTitulo, accion,
@@ -144,7 +148,29 @@ export function Lienzo({
   insetDerChrome, insetDerAbajo, panelForma = 'columna', panelAlto, revelar = null,
   onBorrar, puedeBorrar, reservaAbajo = 0,
   onConectar, onQuitarFlecha, menuLienzo, menuNodo, nombreNodo,
+  varios = SIN_VARIOS, onVarios, onReconectar, onReconectarANueva, onCopiar, onPegar,
 }: {
+  /**
+   * CTRL+C SOBRE EL LIENZO (10/10/2026, copiar tarjetas «y llevandolo a otro flujo»): las elegidas con el
+   * lazo o, si no hay, la abierta. Devuelve el TEXTO que va al portapapeles (lib/flujo-copia.ts), o null
+   * si no hay nada que copiar. Sincrónico: el evento `copy` se escribe en el momento.
+   */
+  onCopiar?: (ids: string[]) => string | null;
+  /** CTRL+V SOBRE EL LIENZO: lo pegado y DÓNDE (el último lugar del cursor sobre el lienzo, o el centro). */
+  onPegar?: (texto: string, punto: { x: number; y: number }) => void;
+  /**
+   * EL LAZO (10/10/2026, general 3: «si mantengo el click izquierdo, se debería seleccionar, el típico
+   * lazo de selección para seleccionar varias cosas a la vez... replica lo "opaco" que ya hiciste cuando
+   * estoy agarrando una flecha, los que selecciono dejan de estar opacos»). Las tarjetas elegidas, y
+   * quién se entera. Sin `onVarios` no hay lazo y el fondo panea con el botón izquierdo, como siempre
+   * (el lienzo de /mensajes). Con lazo, el lienzo se mueve con el botón DERECHO apretado.
+   */
+  varios?: readonly string[];
+  onVarios?: (ids: string[]) => void;
+  /** Arrastrar la PUNTA de una flecha a otra tarjeta (general 13). Sin esto, la punta no se agarra. */
+  onReconectar?: (a: AristaFlujo, hacia: string) => void;
+  /** Soltar esa punta en el vacío: el menú de tarjeta nueva, que nace donde se soltó (general 13 y 14). */
+  onReconectarANueva?: (a: AristaFlujo, que: string, punto: { x: number; y: number }) => void;
   /**
    * ARRASTRAR UNA FLECHA (sexta tanda, punto 5): se soltó el ＋ del círculo de la salida `puerto` (la
    * FILA: 'sig', una rama, un caso) de `desde` sobre la tarjeta `hacia`. Lo que eso significa en el
@@ -276,7 +302,7 @@ export function Lienzo({
    *
    *  `punto`: dónde quedó la PUNTA de la flecha que asomó al tocar el círculo (sexta tanda, punto 5),
    *  en coordenadas del grafo. Quien monta puede poner ahí la tarjeta nueva. */
-  onAgregarTras?: (id: string, que: string, puerto?: string, punto?: { x: number; y: number }) => void;
+  onAgregarTras?: (id: string, que: string, puerto?: string, punto?: { x: number; y: number }, enElPunto?: boolean) => void;
   /**
    * Qué se puede agregar EN un lugar (un nodo, una de sus salidas, el medio de una
    * flecha). Gana sobre `opcionesAgregar` y sobre su filtro del medio, que es de /mensajes:
@@ -326,7 +352,18 @@ export function Lienzo({
     x0: number; y0: number; tx0: number; ty0: number; movido: number; nodo: string | null;
     /** La posición del nodo al empezar, en coordenadas del GRAFO. */
     nx0: number; ny0: number; arrastrandoNodo: boolean;
+    /** Qué hace este gesto con el fondo: panear (el derecho, o el izquierdo sin lazo) o el lazo. */
+    modo: 'pan' | 'lazo' | 'nodo';
+    /** Con el botón derecho: si se movió, al soltar NO se abre el menú del click derecho. */
+    derecho: boolean;
   } | null>(null);
+  /** El rectángulo del lazo (se escribe en el DOM, nunca con setState: es la trampa 3). */
+  const lazoRef = useRef<HTMLDivElement | null>(null);
+  /** Se acaba de panear con el botón derecho: el `contextmenu` que llega después no abre nada. */
+  const paneoDerecho = useRef(false);
+  const hayVarios = varios.length > 0;
+  /** Dónde está el cursor sobre el lienzo, en coordenadas de PANTALLA: ahí se pega con Ctrl+V. */
+  const cursor = useRef<{ x: number; y: number } | null>(null);
   /** Lo que se está moviendo AHORA, para pintarlo sin pasar por el estado. */
   const movido = useRef<{ id: string; x: number; y: number } | null>(null);
   const [zoomTxt, setZoomTxt] = useState(100);
@@ -386,7 +423,7 @@ export function Lienzo({
    * qué tarjeta sale y sobre cuál está el cursor—, que es lo que atenúa y resalta. La punta que sigue
    * al cursor se escribe en el DOM (`flechaTemp`), nunca con setState: es la trampa 3.
    */
-  const [arrastreFlecha, setArrastreFlecha] = useState<{ desde: string } | null>(null);
+  const [arrastreFlecha, setArrastreFlecha] = useState<{ desde: string; indice?: number } | null>(null);
   const [sobreFlecha, setSobreFlecha] = useState<string | null>(null);
   const flechaTemp = useRef<SVGPathElement | null>(null);
   /** La `d` con que nace la flecha arrastrada (después la mueve `moverCirculo` sobre el DOM). */
@@ -394,6 +431,8 @@ export function Lienzo({
   const gestoFlecha = useRef<{
     desde: string; fila: string; puertoAgregar: string | null; x0: number; y0: number;
     activo: boolean; sobre: string | null; sx: number; sy: number; vacio: boolean;
+    /** Se agarró la PUNTA de esta flecha (general 13): soltarla la lleva a otra tarjeta o a una nueva. */
+    arista?: AristaFlujo; indice?: number;
   } | null>(null);
   /** El click derecho abierto (en coordenadas de PANTALLA: va por portal). */
   const [menu, setMenu] = useState<{ x: number; y: number; items: ItemMenuLienzo[] } | null>(null);
@@ -410,6 +449,61 @@ export function Lienzo({
     const v = vista.current;
     return { x: (r?.left ?? 0) + v.tx + x * v.k, y: (r?.top ?? 0) + v.ty + y * v.k };
   };
+
+  /**
+   * COPIAR, PEGAR Y SOLTAR EL LAZO, desde el teclado. En `document`, porque el lienzo no tiene foco
+   * propio. ⚠️ Lo que se está escribiendo MANDA: con el foco en un campo (un texto del panel, el título) o
+   * con texto seleccionado, Ctrl+C y Ctrl+V son los del navegador. Es la misma regla que el Ctrl+Z de la
+   * pila (AGENTS.md, «el Ctrl+Z nativo del texto gana»).
+   */
+  const escribiendo = () => {
+    const a = typeof document !== 'undefined' ? document.activeElement : null;
+    if (!(a instanceof HTMLElement)) return false;
+    if (a.isContentEditable || a.tagName === 'TEXTAREA') return true;
+    if (a.tagName === 'INPUT') { const t = (a as HTMLInputElement).type; return t !== 'checkbox' && t !== 'radio' && t !== 'button'; }
+    return false;
+  };
+  const refsTeclado = useRef({ onCopiar, onPegar, onVarios, varios, seleccion });
+  useEffect(() => { refsTeclado.current = { onCopiar, onPegar, onVarios, varios, seleccion }; });
+  useEffect(() => {
+    const alCopiar = (e: ClipboardEvent) => {
+      const r = refsTeclado.current;
+      if (!r.onCopiar || escribiendo()) return;
+      if ((window.getSelection()?.toString() ?? '').trim()) return;
+      const ids = r.varios.length ? [...r.varios] : r.seleccion ? [r.seleccion] : [];
+      if (!ids.length) return;
+      const texto = r.onCopiar(ids);
+      if (!texto || !e.clipboardData) return;
+      e.clipboardData.setData('text/plain', texto);
+      e.preventDefault();
+    };
+    const alPegar = (e: ClipboardEvent) => {
+      const r = refsTeclado.current;
+      if (!r.onPegar || escribiendo()) return;
+      const texto = e.clipboardData?.getData('text/plain') ?? '';
+      if (!texto.includes('mako-flujo')) return;
+      e.preventDefault();
+      const c = caja.current?.getBoundingClientRect();
+      const p = cursor.current && c && cursor.current.x >= c.left && cursor.current.x <= c.right && cursor.current.y >= c.top && cursor.current.y <= c.bottom
+        ? cursor.current
+        : c ? { x: c.left + c.width / 2, y: c.top + c.height / 3 } : { x: 0, y: 0 };
+      r.onPegar(texto, aGrafo(p.x, p.y));
+    };
+    const alTeclear = (e: KeyboardEvent) => {
+      const r = refsTeclado.current;
+      if (e.key === 'Escape' && r.varios.length && r.onVarios) r.onVarios([]);
+    };
+    document.addEventListener('copy', alCopiar);
+    document.addEventListener('paste', alPegar);
+    document.addEventListener('keydown', alTeclear);
+    return () => {
+      document.removeEventListener('copy', alCopiar);
+      document.removeEventListener('paste', alPegar);
+      document.removeEventListener('keydown', alTeclear);
+    };
+    // `aGrafo` lee refs (la caja y la vista): no cambia el qué.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Las opciones de un ＋ como opciones del menú, con su ícono y su grupo. */
   const comoItems = (opciones: OpcionAgrupada[], elegir: (v: string) => void): ItemMenuLienzo[] =>
@@ -439,6 +533,16 @@ export function Lienzo({
     gestoFlecha.current = { desde: n.id, fila: p.id, puertoAgregar, x0: e.clientX, y0: e.clientY, activo: false, sobre: null, sx: s.x, sy: s.y, vacio: p.vacio };
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* el gesto sigue sin captura */ }
   }
+  /** Agarrar la PUNTA de una flecha (general 13): el mismo gesto que el círculo, desde su salida. */
+  function bajarPunta(e: React.PointerEvent, a: AristaFlujo, i: number) {
+    if (e.button !== 0 || !onReconectar) return;
+    e.stopPropagation();
+    const d = grafo.nodos.find((x) => x.id === a.desde);
+    if (!d) return;
+    const s = puntoDePuerto(d, a.puerto);
+    gestoFlecha.current = { desde: a.desde, fila: a.puerto ?? 'sig', puertoAgregar: null, x0: e.clientX, y0: e.clientY, activo: false, sobre: null, sx: s.x, sy: s.y, vacio: false, arista: a, indice: i };
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* el gesto sigue sin captura */ }
+  }
   function moverCirculo(e: React.PointerEvent) {
     const g = gestoFlecha.current;
     if (!g) return;
@@ -449,7 +553,7 @@ export function Lienzo({
       const p0 = aGrafo(e.clientX, e.clientY);
       dTemp.current = curvaPuntos(g.sx, g.sy, p0.x, p0.y);
       setFantasma(null);
-      setArrastreFlecha({ desde: g.desde });
+      setArrastreFlecha({ desde: g.desde, ...(g.indice != null ? { indice: g.indice } : {}) });
     }
     const sobre = tarjetaBajo(e.clientX, e.clientY, g.desde);
     if (sobre !== g.sobre) { g.sobre = sobre; setSobreFlecha(sobre); }
@@ -466,7 +570,34 @@ export function Lienzo({
     if (!g) return;
     if (g.activo) {
       setArrastreFlecha(null); setSobreFlecha(null);
-      if (!cancelado && g.sobre) onConectar?.(g.desde, g.fila, g.sobre);
+      if (cancelado) return;
+      // LA PUNTA DE UNA FLECHA QUE YA ESTABA: a otra tarjeta, o al vacío (el menú de una nueva, ahí).
+      if (g.arista) {
+        if (g.sobre) { if (g.sobre !== g.arista.hasta) onReconectar?.(g.arista, g.sobre); return; }
+        if (!onReconectarANueva) return;
+        const a = g.arista;
+        const punto = aGrafo(e.clientX, e.clientY);
+        const opciones: OpcionAgrupada[] = opcionesEn ? opcionesEn(a.desde, a.puerto ?? 'sig', false) : (opcionesAgregar ?? []);
+        if (!opciones.length) return;
+        const elegir = (v: string) => { setFantasma(null); onReconectarANueva(a, v, punto); };
+        setMenu(null);
+        setFantasma({ desde: a.desde, puerto: a.puerto ?? 'sig', x1: g.sx, y1: g.sy, x2: punto.x, y2: punto.y, menuX: e.clientX + 6, menuY: e.clientY - 14, items: comoItems(opciones, elegir) });
+        return;
+      }
+      if (g.sobre) { onConectar?.(g.desde, g.fila, g.sobre); return; }
+      // ⚠️ SOLTADA EN CUALQUIER LADO, EL MENÚ DE TARJETA NUEVA (10/10/2026, general 14: «Si agarro una
+      // flecha y la suelto en cualquier lugar, debería salir el desplegable de nueva tarjeta siempre»).
+      // Hasta acá soltar en el vacío no hacía nada. La tarjeta nace donde se soltó (`punto`).
+      if (g.puertoAgregar == null || !onAgregarTras) return;
+      const n = grafo.nodos.find((x) => x.id === g.desde);
+      if (!n) return;
+      const puerto = g.puertoAgregar;
+      const punto = aGrafo(e.clientX, e.clientY);
+      const opciones: OpcionAgrupada[] = opcionesEn ? opcionesEn(n.id, puerto, false) : (opcionesAgregar ?? [{ value: 'accion', label: '＋' }]);
+      const elegir = (v: string) => { setFantasma(null); onAgregarTras(n.id, v, puerto, punto, true); };
+      if (opciones.length === 1) { elegir(opciones[0].value); return; }
+      setMenu(null);
+      setFantasma({ desde: n.id, puerto, x1: g.sx, y1: g.sy, x2: punto.x, y2: punto.y, menuX: e.clientX + 6, menuY: e.clientY - 14, items: comoItems(opciones, elegir) });
       return;
     }
     if (cancelado || g.puertoAgregar == null || !onAgregarTras) return;
@@ -485,20 +616,11 @@ export function Lienzo({
     setFantasma({ desde: n.id, puerto, x1: g.sx, y1: g.sy, x2: fin.x, y2: fin.y, menuX: pant.x + 6, menuY: pant.y - 14, items: comoItems(opciones, elegir) });
   }
 
-  /** La papelera de un círculo: con UNA flecha la saca; con varias, pregunta cuál. */
-  function quitarDeFila(e: React.MouseEvent, flechas: AristaFlujo[]) {
-    e.stopPropagation();
-    if (!onQuitarFlecha || !flechas.length) return;
-    if (flechas.length === 1) { onQuitarFlecha(flechas[0]); return; }
-    setFantasma(null);
-    setMenu({
-      x: e.clientX, y: e.clientY,
-      items: flechas.map((a, k) => ({
-        id: `quitar-${k}`, label: `Quitar la flecha a «${nombreNodo?.(a.hasta) ?? grafo.nodos.find((x) => x.id === a.hasta)?.titulo ?? 'esa tarjeta'}»`,
-        icono: <IconoBorrar size={16} />, peligro: true, onElegir: () => onQuitarFlecha(a),
-      })),
-    });
-  }
+  /*
+   * (Acá vivía `quitarDeFila`, la papelera pegada al círculo de cada salida. Desde el 10/10/2026 la
+   * flecha se borra SÓLO desde el medio (general 10: «Hay 2 botones de basura para eliminar una flecha,
+   * uno en el medio y otro al comienzo. Que solo quede el del medio»).)
+   */
 
   /**
    * EL CLICK DERECHO (sexta tanda, punto 2): en una tarjeta (o la pastilla de una espera), lo de esa
@@ -506,6 +628,9 @@ export function Lienzo({
    * zoom (`data-no-pan`) queda el del navegador: ahí se copia y se pega.
    */
   function onContextMenu(e: React.MouseEvent) {
+    // ⚠️ DESPUÉS DE ARRASTRAR CON EL DERECHO NO HAY MENÚ: en Windows el `contextmenu` llega al SOLTAR,
+    // así que sin esto mover el lienzo terminaba abriendo el menú. Igual se frena el del navegador.
+    if (paneoDerecho.current) { paneoDerecho.current = false; e.preventDefault(); return; }
     if (!menuLienzo && !menuNodo) return;
     const t = e.target as HTMLElement;
     if (!caja.current?.contains(t)) return;
@@ -717,12 +842,20 @@ export function Lienzo({
      */
     const dentro = caja.current?.contains(e.target as Node) ?? false;
     if (!dentro) return;
-    // ⚠️ SÓLO EL BOTÓN PRINCIPAL (sexta tanda): con el click derecho abriendo su menú, el botón 2 armaba
-    // un gesto y al soltar SELECCIONABA la tarjeta (abría su panel debajo del menú).
-    if (e.button !== 0) return;
     // Los controles de adentro del editor no arrastran el lienzo.
     if ((e.target as HTMLElement).closest('[data-no-pan]')) return;
     const v = vista.current;
+    // ⚠️ EL BOTÓN DERECHO MUEVE EL LIENZO (10/10/2026, general 3: «el arrastre por el lienzo debería ser
+    // ahora manteniendo el click derecho»), sobre el fondo o sobre una tarjeta. Sin moverse, al soltar es
+    // el click derecho de siempre (`onContextMenu`). Nunca SELECCIONA: con el botón 2 un gesto armado
+    // abría el panel de la tarjeta debajo del menú (sexta tanda).
+    if (e.button === 2) {
+      paneoDerecho.current = false;
+      gesto.current = { x0: e.clientX, y0: e.clientY, tx0: v.tx, ty0: v.ty, movido: 0, nodo: null, nx0: 0, ny0: 0, arrastrandoNodo: false, modo: 'pan', derecho: true };
+      try { caja.current?.setPointerCapture(e.pointerId); } catch { /* el gesto sigue sin captura */ }
+      return;
+    }
+    if (e.button !== 0) return;
     // ⚠️ EL NODO SE ANOTA ACÁ, EN EL POINTERDOWN, Y NO AL SOLTAR. `setPointerCapture`
     // RETARGETEA todos los eventos siguientes al elemento que capturó: en el
     // `pointerup` el `e.target` ya es el contenedor, así que buscar el nodo ahí
@@ -733,19 +866,35 @@ export function Lienzo({
     gesto.current = {
       x0: e.clientX, y0: e.clientY, tx0: v.tx, ty0: v.ty, movido: 0, nodo: id,
       nx0: n?.x ?? 0, ny0: n?.y ?? 0,
-      // Agarrar una TARJETA la mueve a ella; agarrar el fondo panea el lienzo. Es
-      // la misma distinción que hace cualquier editor de nodos, y sin ella no hay
-      // forma de acomodar el dibujo.
+      // Agarrar una TARJETA la mueve a ella; agarrar el fondo hace el LAZO (o panea, sin lazo). Es la
+      // misma distinción que hace cualquier editor de nodos, y sin ella no hay forma de acomodar el dibujo.
       arrastrandoNodo: Boolean(id) && Boolean(onMover),
+      modo: id ? 'nodo' : onVarios ? 'lazo' : 'pan', derecho: false,
     };
     try { caja.current?.setPointerCapture(e.pointerId); } catch { /* el gesto sigue sin captura */ }
   }
 
   function onPointerMove(e: React.PointerEvent) {
+    cursor.current = { x: e.clientX, y: e.clientY };
     const g = gesto.current;
     if (!g) return;
     const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
     g.movido = Math.max(g.movido, dx * dx + dy * dy);
+    if (g.modo === 'lazo') {
+      // El rectángulo, en coordenadas de la CAJA (vive afuera de la capa transformada: no escala).
+      const el = lazoRef.current;
+      const r = caja.current?.getBoundingClientRect();
+      if (el && r && g.movido > ARRASTRE2) {
+        el.style.display = 'block';
+        el.style.left = `${Math.min(g.x0, e.clientX) - r.left}px`;
+        el.style.top = `${Math.min(g.y0, e.clientY) - r.top}px`;
+        el.style.width = `${Math.abs(dx)}px`;
+        el.style.height = `${Math.abs(dy)}px`;
+      }
+      return;
+    }
+    // Paneando con el derecho, el menú que pudo abrirse al apretar (en Mac llega al bajar) se cierra.
+    if (g.derecho && g.movido > ARRASTRE2 && menu) cerrarMenu();
     if (g.arrastrandoNodo && g.nodo) {
       // ⚠️ EL DELTA SE DIVIDE POR EL ZOOM. Al 50%, mover el mouse 100 px tiene que
       // mover la tarjeta 200 en coordenadas del grafo, o el dibujo se despega del
@@ -768,6 +917,28 @@ export function Lienzo({
     // —`InvalidPointerId` si la captura no llegó a tomarse— abortaba el handler y
     // el nodo no se abría, con el código leyéndose perfecto.
     if (!g) return;
+    if (g.derecho) {
+      // Movido: fue un paneo, y el `contextmenu` que viene no abre nada. Quieto: es el click derecho.
+      paneoDerecho.current = g.movido > ARRASTRE2;
+      try { caja.current?.releasePointerCapture(e.pointerId); } catch { /* ya se soltó */ }
+      return;
+    }
+    if (g.modo === 'lazo') {
+      if (lazoRef.current) lazoRef.current.style.display = 'none';
+      try { caja.current?.releasePointerCapture(e.pointerId); } catch { /* ya se soltó */ }
+      if (g.movido <= ARRASTRE2) { onSeleccion(null); onVarios?.([]); return; }
+      // Lo que TOCA el rectángulo queda elegido (como en Figma o ManyChat: no hace falta encerrarlo entero).
+      const a = aGrafo(Math.min(g.x0, e.clientX), Math.min(g.y0, e.clientY));
+      const b = aGrafo(Math.max(g.x0, e.clientX), Math.max(g.y0, e.clientY));
+      const ids = grafo.nodos
+        .filter((n) => !n.enFlecha && n.x < b.x && n.x + n.ancho > a.x && n.y < b.y && n.y + n.alto > a.y)
+        .map((n) => n.id);
+      onSeleccion(null);
+      onVarios?.(ids);
+      return;
+    }
+    // Tocar una tarjeta suelta la selección del lazo.
+    if (hayVarios && g.movido <= ARRASTRE2) onVarios?.([]);
     // El CLIC se resuelve acá y no en un onClick del nodo: con la captura puesta,
     // los eventos siguientes van al contenedor y el onClick del hijo no dispara.
     // Lo que el arrastre escribió a mano en el DOM vuelve a lo que dice el ESTADO, y recién después
@@ -887,10 +1058,14 @@ export function Lienzo({
           backgroundSize: '22px 22px, 22px 22px',
           backgroundPosition: '-1px -1px, -1px -1px',
           opacity: 1,
-          touchAction: 'none', cursor: 'grab', userSelect: 'none',
+          touchAction: 'none', cursor: onVarios ? 'default' : 'grab', userSelect: 'none',
         }}
       >
-        <div ref={capa} style={{ position: 'absolute', left: 0, top: 0, transformOrigin: '0 0', willChange: 'transform' }}>
+        {/* ⚠️ SIN `willChange: 'transform'` (10/10/2026, general 12: «si le doy zoom se le va la calidad de
+            resolución. Eso no debería pasar nunca»). Con esa pista Chrome pinta la capa UNA vez y la ESTIRA
+            como una imagen al cambiar la escala: al acercar se veía borroso. Sin ella vuelve a pintar el
+            texto y los trazos a la escala nueva. */}
+        <div ref={capa} style={{ position: 'absolute', left: 0, top: 0, transformOrigin: '0 0' }}>
           <svg width={grafo.ancho} height={grafo.alto} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}>
             <defs>
               {(Object.keys(COLOR_TONO) as TonoArista[]).map((t) => (
@@ -900,7 +1075,7 @@ export function Lienzo({
               ))}
             </defs>
             {/* Mientras se arrastra una flecha, las de verdad se atenúan con el resto (punto 5). */}
-            <g opacity={arrastreFlecha ? ATENUADO : 1} style={{ transition: 'opacity .12s ease' }}>
+            <g opacity={arrastreFlecha && arrastreFlecha.indice == null ? ATENUADO : 1} style={{ transition: 'opacity .12s ease' }}>
             {grafo.aristas.map((a, i) => {
               const d = grafo.nodos.find((n) => n.id === a.desde);
               const h = grafo.nodos.find((n) => n.id === a.hasta);
@@ -910,10 +1085,14 @@ export function Lienzo({
               // La flecha con el cursor encima se marca (más opaca y un poco más gruesa): es la pista de
               // que se puede tocar, que antes daba la etiqueta «24 h».
               const tocada = enFlecha === i;
+              // La que se está llevando desde su punta no se dibuja (la lleva la flecha temporal); con el
+              // lazo, las que no unen dos tarjetas elegidas van atenuadas, como el resto.
+              const llevada = arrastreFlecha?.indice === i;
+              const fuera = arrastreFlecha?.indice != null ? true : hayVarios && !(varios.includes(a.desde) && varios.includes(a.hasta));
               return (
                 <path key={i} data-arista={i} d={curvaEntre(d, h, a.puerto)} fill="none" stroke={COLOR_TONO[a.tono]}
                   strokeWidth={tocada ? 2.4 : 1.6} strokeDasharray={a.tono === 'condicional' ? '5 4' : undefined}
-                  markerEnd={`url(#punta-${a.tono})`} opacity={vista ? (tocada ? 1 : 0.85) : 0}
+                  markerEnd={`url(#punta-${a.tono})`} opacity={!vista || llevada ? 0 : fuera ? ATENUADO : (tocada ? 1 : 0.85)}
                   style={revelar ? { transition: `opacity ${REVELAR_DURACION_MS}ms ease` } : undefined} />
               );
             })}
@@ -948,7 +1127,7 @@ export function Lienzo({
               · Sin ＋ que mostrar (sin `onAgregarTras`, `sinMas`, revelando) no hay zona.
             */}
             {((onAgregarTras && (opcionesEn || opcionesAgregar)) || onQuitarFlecha) && !revelando && !arrastreFlecha && grafo.aristas.map((a, i) => {
-              if (a.sinMas) return null;
+              if (a.sinMas && !(onQuitarFlecha && a.quitable)) return null;
               const d = grafo.nodos.find((n) => n.id === a.desde);
               const h = grafo.nodos.find((n) => n.id === a.hasta);
               if (!d || !h) return null;
@@ -991,14 +1170,16 @@ export function Lienzo({
           {((onAgregarTras && (opcionesEn || opcionesAgregar)) || onQuitarFlecha) && grafo.aristas.map((a, i) => {
             const d = grafo.nodos.find((n) => n.id === a.desde);
             const h = grafo.nodos.find((n) => n.id === a.hasta);
-            if (!d || !h || a.sinMas) return null;
+            // Una flecha `sinMas` no lleva ＋ en el medio; si es `quitable` (la de «Si responde», 10/10/2026)
+            // lleva su papelera igual: «la flecha no se puede eliminar… nada de eso tiene sentido».
+            if (!d || !h || (a.sinMas && !(onQuitarFlecha && a.quitable))) return null;
             // Mientras se revela no hay dónde insertar: la flecha todavía no está. Y mientras se
             // arrastra otra flecha, tampoco: el ＋ quedaría bajo el cursor.
             if (revelando || arrastreFlecha) return null;
             const m = medioDeCurva(d, h, a.puerto);
             const abierta = enFlecha === i;
             const desvio = a.esperas?.length ? DESVIO_MEDIO : 0;
-            const conMas = Boolean(onAgregarTras && (opcionesEn || opcionesAgregar));
+            const conMas = Boolean(onAgregarTras && (opcionesEn || opcionesAgregar)) && !a.sinMas;
             return (
               <div key={`mas-${i}`} data-no-pan data-arista-medio={i} data-desvio={desvio}
                 onPointerEnter={() => entrarFlecha(i)}
@@ -1031,6 +1212,31 @@ export function Lienzo({
                     aria-label="Borrar esta flecha" title="Borrar esta flecha" data-quitar-flecha={i}
                     style={{ ...estiloPapelera, width: 22, height: 22 }}><IconoBorrar size={13} /></button>
                 )}
+              </div>
+            );
+          })}
+
+          {/* LA PUNTA DE CADA FLECHA SE AGARRA (10/10/2026, general 13: «Si agarro el otro extremo de la
+              flecha, donde está la flecha, debería dejarme arrastrar esa flecha a otra tarjeta, o si la suelto
+              en el lienzo que salga el desplegable de nueva tarjeta»). Un punto chico en la punta, que se ve
+              al pasar el cursor por la flecha y se arrastra como el círculo de una salida (`bajarPunta`). */}
+          {onReconectar && !revelando && !arrastreFlecha && grafo.aristas.map((a, i) => {
+            if (a.sinMas || a.esperas?.length) return null;
+            const h = grafo.nodos.find((n) => n.id === a.hasta);
+            if (!h) return null;
+            const p = puntoDeEntrada(h);
+            const vista = enFlecha === i;
+            return (
+              <div key={`punta-${i}`} data-no-pan data-punta-flecha={i} title="Arrastrar para llevar la flecha a otra tarjeta"
+                onPointerEnter={() => entrarFlecha(i)} onPointerLeave={() => salirFlecha(i)}
+                onPointerDown={(e) => bajarPunta(e, a, i)} onPointerMove={moverCirculo}
+                onPointerUp={(e) => soltarCirculo(e)} onPointerCancel={(e) => soltarCirculo(e, true)}
+                style={{
+                  position: 'absolute', left: p.x - 6, top: p.y, width: PUNTA_FLECHA, height: PUNTA_FLECHA,
+                  transform: `translate(-50%, -50%) scale(${100 / zoomTxt})`, borderRadius: 999, cursor: 'grab', touchAction: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                <span aria-hidden style={{ width: 9, height: 9, borderRadius: 999, background: COLOR_TONO[a.tono], boxShadow: '0 0 0 2px var(--surface)', opacity: vista ? 1 : 0, transition: 'opacity .12s ease' }} />
               </div>
             );
           })}
@@ -1117,7 +1323,8 @@ export function Lienzo({
                 ...estiloRevelado(n.id),
                 ...(arrastreFlecha && n.id !== arrastreFlecha.desde && n.id !== sobreFlecha
                   ? { opacity: ATENUADO, transition: 'opacity .12s ease' }
-                  : arrastreFlecha ? { transition: 'opacity .12s ease' } : {}),
+                  : arrastreFlecha ? { transition: 'opacity .12s ease' }
+                  : hayVarios ? { opacity: varios.includes(n.id) ? 1 : ATENUADO, transition: 'opacity .12s ease' } : {}),
               }}
               onPointerEnter={() => setEncima(n.id)}
               /**
@@ -1133,7 +1340,7 @@ export function Lienzo({
             >
               {/* La de abajo del cursor mientras se arrastra una flecha va resaltada como elegida: es
                   donde va a entrar. */}
-              {renderNodo(n, seleccion === n.id || sobreFlecha === n.id)}
+              {renderNodo(n, seleccion === n.id || sobreFlecha === n.id || (hayVarios && varios.includes(n.id)))}
               {/* Un nodo CON puertos agrega desde sus puntos (abajo), no desde el ＋ de
                   pasar el cursor: dos ＋ en la misma tarjeta prometerían dos lugares. */}
               {onAgregarTras && !n.puertos && encima === n.id && (puedeAgregarTras?.(n.id) ?? true) && (
@@ -1202,9 +1409,6 @@ export function Lienzo({
                 // Se arrastra desde donde se puede sumar una flecha (vacía, o que admite paralelo): de
                 // una salida llena que no admite más, una flecha nueva no tiene a dónde ir.
                 const arrastrable = Boolean(onConectar) && conMas;
-                // Las flechas que salen de ESTA fila (la principal y las que salen en paralelo de ella).
-                const flechas = onQuitarFlecha ? grafo.aristas.filter((a) => a.desde === n.id && !a.sinMas && (filaDePuerto(n, a.puerto) ?? 'sig') === p.id) : [];
-                const conPapelera = flechas.length > 0 && !arrastreFlecha && (encima === n.id || seleccion === n.id);
                 const titulo = p.rotulo ? `«${p.rotulo}»` : 'esta salida';
                 return (
                   <span key={`pt-${n.id}-${p.id}`} data-no-pan data-salida={`${n.id}:${p.id}`}
@@ -1224,17 +1428,20 @@ export function Lienzo({
                         cursor: conMas || arrastrable ? 'pointer' : 'default', touchAction: 'none',
                         boxShadow: '0 1px 3px rgba(0,0,0,.12)',
                       }}>{conMas ? '＋' : null}</button>
-                    {conPapelera && (
-                      <button type="button" data-quitar-salida={`${n.id}:${p.id}`} onClick={(e) => quitarDeFila(e, flechas)} disabled={agregarOcupado}
-                        aria-label={flechas.length === 1 ? 'Borrar esta flecha' : 'Borrar una flecha'} title={flechas.length === 1 ? 'Borrar esta flecha' : 'Borrar una flecha'}
-                        style={estiloPapelera}><IconoBorrar size={13} /></button>
-                    )}
                   </span>
                 );
               })}
             </div>
           ))}
         </div>
+
+        {/* EL RECTÁNGULO DEL LAZO: en coordenadas de la caja, afuera de la capa (no escala con el zoom). */}
+        {onVarios && (
+          <div ref={lazoRef} aria-hidden data-lazo style={{
+            position: 'absolute', display: 'none', pointerEvents: 'none', zIndex: 2,
+            border: '1.5px dashed var(--primary)', background: 'var(--primary-bg)', opacity: 0.55, borderRadius: 6,
+          }} />
+        )}
 
         {/* TODO LO QUE NO ES EL DIBUJO FLOTA. Va fuera de la capa transformada —o se
             achica con el zoom— y encima del lienzo, no arriba: el recuadro entero es
@@ -1354,12 +1561,17 @@ export function Lienzo({
               {/* La papelera de la casa, ROJA (sexta tanda, general 9: «Cambia el botón de BORRAR con ese
                   ícono de basura que no se ve... Y que siempre el ícono de borrar sea rojo»). Hasta la
                   segunda pasada era un 🗑 en `--faint`, el que más se ve del lienzo. */}
-              {onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) && (
-                <BotonBorrar talla="sm" title="Borrar esta tarjeta" style={{ marginLeft: 'auto' }}
-                  onClick={() => { const id = nodoSel.id; onSeleccion(null); onBorrar(id); }} />
-              )}
-              <button onClick={() => onSeleccion(null)} aria-label="Cerrar este paso" title="Cerrar este paso"
-                style={{ marginLeft: onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) ? 0 : 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', padding: 0 }}>✕</button>
+              {/* ⚠️ EL TACHO Y EL ✕, ALINEADOS Y DEL MISMO TAMAÑO, cada uno en su recuadro (10/10/2026,
+                  condición 2: «el botón de basura no está alineado a la X de cerrar… Y hazlos más grandes
+                  que los botones de basura que aparecen en el resto de la tarjeta»). `md` acá y `sm`
+                  adentro del editor: el de la tarjeta entera se distingue del de una fila. */}
+              <div style={{ marginLeft: 'auto', flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) && (
+                  <BotonBorrar talla="md" title="Borrar esta tarjeta"
+                    onClick={() => { const id = nodoSel.id; onSeleccion(null); onBorrar(id); }} />
+                )}
+                <BotonCerrar talla="md" title="Cerrar este paso" onClick={() => onSeleccion(null)} />
+              </div>
             </div>
             {altoFijo
               // En COLUMNA flex: los editores anchos (WhatsApp en fila, el email tipo Gmail) estiran

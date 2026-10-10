@@ -45,6 +45,11 @@ import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
 import { FiltroLista, LADO_FILTRO } from './FiltroLista';
 import { MensajeMakoLienzo } from './MensajeMakoLienzo';
+import { TemplateDetalleModal } from '../agencia/TemplateDetalleModal';
+import { ENDPOINT_MENSAJES_MAKO } from '@/lib/chatbot-mensajes-mako';
+import { disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
+import { copiaDeFlujo, textoDeCopia, type PasoCopiado } from '@/lib/flujo-copia';
+import type { ClaseDisparador } from '@/lib/disparadores';
 import type { ProductoOpcion } from './ChatAgentApp';
 import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
@@ -128,14 +133,17 @@ export function listaConCreando(lista: readonly SecuenciaDto[], creando: Creando
  * `data:`, con la papelera en un rojo copiado a mano.
  */
 export const ICONOS_FILA = {
-  activar: 'activar', pausar: 'pausar', duplicar: 'duplicar', eliminar: 'borrar',
+  activar: 'activar', pausar: 'pausar', duplicar: 'duplicar', copiar: 'copiar', eliminar: 'borrar',
 } as const satisfies Record<string, NombreIconoMenu>;
 
 /** Lo que ofrece el «⋯» de una fila. Activar o Pausar según cómo esté. Cada una con su ícono. */
-export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'duplicar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
+export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'duplicar' | 'copiar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
   return [
     { value: 'activa', label: activa ? 'Pausar' : 'Activar', icono: activa ? ICONOS_FILA.pausar : ICONOS_FILA.activar },
     { value: 'duplicar', label: 'Duplicar', icono: ICONOS_FILA.duplicar },
+    // «COPIAR FLUJO» (10/10/2026: «que esté en los 3 puntos de cada flujo en la sidebar... por si un usuario
+    // de MaKo le quiere compartir un flujo que creó a otro»). Va al portapapeles (lib/flujo-copia.ts).
+    { value: 'copiar', label: 'Copiar flujo', icono: ICONOS_FILA.copiar },
     { value: 'eliminar', label: 'Eliminar', icono: ICONOS_FILA.eliminar },
   ];
 }
@@ -227,7 +235,10 @@ export type AbrirSecuencia = { id: number };
 /** Lo mismo para un Mensaje de MaKo (el link de Notificaciones, `/automations?aviso=<id>`): un objeto por pedido. */
 export type AbrirAviso = { id: string };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, horario, tz, abrir, handoffs, avisos, abrirAviso, onAvisosCambio }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, horario, tz, abrir, handoffs, avisos, abrirAviso, onAvisosCambio, arranque, onArranqueUsado }: {
+  /** La recién creada con un tipo de CRON elegido en el modal: su lienzo abre ese CRON (una vez). */
+  arranque?: { id: number; clase: ClaseDisparador } | null;
+  onArranqueUsado?: () => void;
   /**
    * Los Mensajes de MaKo (los flujos de Configuraciones › Notificaciones, quinta tanda punto 5), como
    * los lee su propio endpoint. `null`/ausente = no se leyeron (quien no es admin no los ve: el
@@ -347,8 +358,10 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * sin «Cambió · ↻» y, con la prueba real prendida, mandándolo—. Un clic sin efecto visible no
    * puede cambiar qué se prueba.
    */
+  /** El alta de un Mensaje de MaKo propio, en el lugar del lienzo («＋ Nuevo mensaje»). */
+  const [creandoMensaje, setCreandoMensaje] = useState(false);
   const cambiarA = (id: number) => {
-    setSelId(id); setProbando(null); setEdicion(null); setAvisoSel(null);
+    setSelId(id); setProbando(null); setEdicion(null); setAvisoSel(null); setCreandoMensaje(false);
     // Abrir la fila que se está creando recuerda de dónde se vino (si el server falla, se vuelve).
     if (typeof id === 'number' && id < 0) setVolverA(selId);
   };
@@ -359,7 +372,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * botón; «Nueva secuencia» pasa por la misma puerta.
    */
   const [sinPublicar, setSinPublicar] = useState(false);
-  const [pendiente, setPendiente] = useState<{ ir: number | 'nueva' | 'aviso'; aviso?: string } | null>(null);
+  const [pendiente, setPendiente] = useState<{ ir: number | 'nueva' | 'mensaje' | 'aviso'; aviso?: string } | null>(null);
   /** El descarte del borrador del lienzo abierto (lo deja SecuenciaPerfil): «Descartar cambios» lo BORRA, no lo guarda. */
   const descartarBorrador = useRef<(() => void) | null>(null);
   const elegir = (id: number) => {
@@ -378,7 +391,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     elegir(id);
   };
   /** Abrir un Mensaje de MaKo: cierra «Probar» y suelta la edición local de la automatización. */
-  const abrirAvisoYa = (id: string) => { setAvisoSel(id); setProbando(null); setEdicion(null); };
+  const abrirAvisoYa = (id: string) => { setAvisoSel(id); setProbando(null); setEdicion(null); setCreandoMensaje(false); };
   /**
    * Elegir un Mensaje de MaKo, con la MISMA puerta de lo no publicado que una automatización: su
    * lienzo se desmonta y lo no publicado se perdería. Entre dos mensajes no se pregunta nada: el
@@ -393,7 +406,13 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   // de antes creaba la fila primero y «Seguir editando» dejaba una vacía de más.
   const nueva = () => {
     if (sinPublicar) { setPendiente({ ir: 'nueva' }); return; }
+    setCreandoMensaje(false);
     onNueva();
+  };
+  const nuevoMensaje = () => {
+    if (sinPublicar) { setPendiente({ ir: 'mensaje' }); return; }
+    setAvisoSel(null); setProbando(null); setEdicion(null);
+    setCreandoMensaje(true);
   };
   const descartar = () => {
     const p = pendiente;
@@ -404,6 +423,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     descartarBorrador.current?.();
     setSinPublicar(false);
     if (p.ir === 'nueva') onNueva();
+    else if (p.ir === 'mensaje') { setAvisoSel(null); setCreandoMensaje(true); }
     else if (p.ir === 'aviso') { if (p.aviso) abrirAvisoYa(p.aviso); }
     else cambiarA(p.ir);
   };
@@ -430,8 +450,31 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * (`setSecuenciaActiva`) y Duplicar pasa los pasos por `setSecuenciaPasos`
    * (lib/secuencia-duplicar.ts); lo que contesta mal queda pegado a la fila.
    */
+  /** «Flujo copiado»: debajo de ESA fila, un momento. */
+  const [copiada, setCopiada] = useState<number | null>(null);
+  /**
+   * COPIAR EL FLUJO ENTERO al portapapeles: lo que el lienzo abre (el borrador, si hay; si no, lo
+   * publicado), dónde estaba cada tarjeta, sus CRON y el guion de cada audio (del otro lado el audio no
+   * existe y queda como texto: decisión de Martín, «Pegar y marcar en rojo»).
+   */
+  const copiarFlujo = async (j: SecuenciaDto) => {
+    const guiones: Record<string, string> = {};
+    for (const a of audios) if (a.transcript?.trim()) guiones[String(a.id)] = a.transcript;
+    const copia = copiaDeFlujo({
+      nombre: j.nombre, emoji: j.emoji ?? null, pasos: ((j.borrador?.pasos ?? j.pasos) as unknown as PasoCopiado[]),
+      posiciones: j.posiciones ?? null, disparadores: disparadoresDeSecuencia(j as SecuenciaConDisparadores), guiones,
+    });
+    try {
+      await navigator.clipboard.writeText(textoDeCopia(copia));
+      setCopiada(j.id);
+      setTimeout(() => setCopiada((c) => (c === j.id ? null : c)), 2500);
+    } catch {
+      setErrFila({ id: j.id, texto: 'No se pudo copiar' });
+    }
+  };
   const accionFila = async (j: SecuenciaDto, accion: string) => {
     if (accion === 'eliminar') { setErrFila(null); setAEliminar(j); return; }
+    if (accion === 'copiar') { setErrFila(null); await copiarFlujo(j); return; }
     if (accion !== 'activa' && accion !== 'duplicar') return;
     setErrFila(null); setOcupada(j.id);
     try {
@@ -538,7 +581,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       <style>{CSS_LISTA}</style>
       {/* EL LIENZO: debajo de todo y de borde a borde. Con un Mensaje de MaKo abierto (quinta
           tanda, punto 5), el suyo: el MISMO editor de Notificaciones, con el inset de la lista. */}
-      {aviso ? (
+      {creandoMensaje ? (
+        <div style={{ ...ESTILO_LIENZO, paddingLeft: m.insets.izq }}>
+          <TemplateDetalleModal plantilla={null} endpoint={ENDPOINT_MENSAJES_MAKO} alto="100%" marco={false}
+            onCambio={() => onAvisosCambio?.()} onClose={() => setCreandoMensaje(false)} />
+        </div>
+      ) : aviso ? (
         <div style={ESTILO_LIENZO}>
           <MensajeMakoLienzo key={aviso.id} plantilla={aviso} insetIzq={m.insets.izq} muelles={m}
             onCambio={() => onAvisosCambio?.()} onCerrar={() => setAvisoSel(null)} />
@@ -591,6 +639,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             onProbar={(canal: CanalProbar) => setProbando(canal)}
             probarAbierto={probarVisible} onCerrarProbar={() => setProbando(null)}
             onCambioLocal={recibirEdicion}
+            onAccionTodo={rolAdmin ? (a) => void accionFila(sel, a) : undefined}
+            arranque={arranque?.id === sel.id ? arranque.clase : undefined} onArranqueUsado={onArranqueUsado}
             onCambio={onReload} />
         )}
       </div>
@@ -637,7 +687,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             <button type="button" onClick={() => nueva()} className="chb-nueva"
               style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center', padding: '10px', borderRadius: 12, cursor: 'pointer', marginBottom: 6, fontFamily: 'inherit' }}>
               <span aria-hidden className="chb-nueva__mas" style={{ width: 36, height: 36, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>＋</span>
-              <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva</span>
+              <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva automatización</span>
             </button>
           )}
           {rolAdmin && errorNueva && <div role="alert" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errorNueva}</div>}
@@ -662,6 +712,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
                       onChange={(v) => void accionFila(j, v)} />
                   ) : undefined} />
                 {errFila?.id === j.id && <div role="alert" style={{ padding: '0 12px 8px 56px', fontSize: 12.5, color: 'var(--bad)' }}>{errFila.texto}</div>}
+                {copiada === j.id && <div role="status" style={{ padding: '0 12px 8px 56px', fontSize: 12.5, color: 'var(--good)', fontWeight: 600 }}>Flujo copiado</div>}
               </div>
             );
           })}
@@ -670,8 +721,18 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               su rótulo, para que no se lean como automatizaciones: no se duplican ni se archivan
               desde acá (no son filas de secuencias), así que van sin «⋯» — se prenden y se
               eliminan en su propio lienzo, como en Notificaciones. */}
-          {avisosVisibles.length > 0 && (
+          {(avisosVisibles.length > 0 || rolAdmin) && (
             <div data-grupo-mensajes-mako style={ROTULO_GRUPO}>{ROTULO_MENSAJES_MAKO}</div>
+          )}
+          {/* «＋ NUEVO MENSAJE» TAMBIÉN ACÁ (10/10/2026: «por el botón de "Nueva" también abajo en la sección
+              de MaKo en WhatsApp»): el mismo botón, y abre el alta de un mensaje propio de MaKo (el de
+              Notificaciones, TemplateDetalleModal sin plantilla). */}
+          {rolAdmin && (
+            <button type="button" onClick={() => nuevoMensaje()} className="chb-nueva"
+              style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center', padding: '10px', borderRadius: 12, cursor: 'pointer', marginBottom: 6, fontFamily: 'inherit' }}>
+              <span aria-hidden className="chb-nueva__mas" style={{ width: 36, height: 36, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>＋</span>
+              <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nuevo mensaje</span>
+            </button>
           )}
           {avisosVisibles.map((a) => (
             <ItemLista key={`aviso:${a.id}`} on={aviso?.id === a.id} activa={mensajeActivo(a)} emoji={emojiDeMensaje(a)} nombre={a.titulo}

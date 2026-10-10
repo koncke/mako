@@ -174,6 +174,12 @@ export type AristaFlujo = {
    */
   sinMas?: boolean;
   /**
+   * Una flecha `sinMas` que igual se puede BORRAR (su papelera en el medio, sin ＋): la del CRON a «Si
+   * responde» (10/10/2026: «la flecha no se puede eliminar, no se puede editar, nada de eso tiene
+   * sentido»). Borrarla deja «Si responde» SUELTA (`suelta`, lib/flujo-grafo.ts).
+   */
+  quitable?: boolean;
+  /**
    * LAS ESPERAS QUE VAN SOBRE ESTA FLECHA (sexta tanda, DELAY 1), en orden: la flecha va de `desde` a
    * `hasta` sin cortarse y cada espera es una pastilla en el camino. En el DATO la flecha de `desde`
    * llega a la PRIMERA espera (`esperas[0].id`) y la última sigue en `hasta`: quien borra o inserta

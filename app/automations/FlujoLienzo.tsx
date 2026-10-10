@@ -31,7 +31,7 @@
 // (sólo Publicar publica). Una edición que escribiera por su cuenta sería un segundo
 // camino a la base que no pasa por `validarGrafo`.
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import {
   Lienzo, TarjetaNodo, IconoNodo, IconoAcomodar, inpLienzo, campoGrande, botonGrande, type ItemMenuLienzo,
@@ -40,14 +40,16 @@ import {
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Icon } from '@/app/_components/icons';
 import { Toast, useToast } from '@/app/_ui';
-import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, type Edicion } from '@/lib/flujo-edicion';
+import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, partirConEspera, type Edicion } from '@/lib/flujo-edicion';
+import { insertarDesdeLienzo } from '@/lib/flujo-conversacion';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import {
-  EditorMensajeWhatsApp, EditorMensajeGrupo, CabeceraWhatsApp, CabeceraMakoEnWhatsApp,
+  EditorMensajeWhatsApp, EditorMensajeGrupo, CabeceraWhatsApp, CabeceraMakoEnWhatsApp, horaDeAhora,
   type EditorMensajeWhatsAppProps,
 } from './EditorMensajeWhatsApp';
 import { EditorEmailGmail } from './EditorEmailGmail';
+import { NuevoPlaceholder } from './NuevoPlaceholder';
 import { EditorEtiqueta } from './EditorEtiqueta';
 // El editor de la CONDICIÓN (tercera tanda, puntos 9 y 10): una frase por fila, del catálogo por
 // secciones filtrado por el CRON. Vive aparte; este archivo sólo lo monta.
@@ -56,6 +58,7 @@ import { quitarIrA } from '@/lib/flujo-legado';
 import { ambitoDeDisparo, nombresCatalogoDe } from '@/lib/condiciones-catalogo';
 import { LEAD_DEL_EVENTO } from '@/lib/api-mako/flujo-params';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
+import { Ticks } from '@/app/whatsapp/_shared/Ticks';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
@@ -70,7 +73,7 @@ import {
 import {
   grafoDeSecuencia, opcionesDelMas, opcionesSueltas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
   revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, makoDeAccion, errorLegible,
-  ID_ENTRADA,
+  ID_ENTRADA, tarjetasIncompletas, PARTES_EN_TARJETA, RENGLONES_CON_DOS, SEP_BURBUJAS_TARJETA, ALTO_MAS_PARTES, ALTO_PALOMITAS,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES, altoDeMensaje,
   MARCO_DISPARO, RENGLON_DISPARO, SEP_DISPARO, ALTO_NUEVO_DISPARO,
   type NodoFlujo, type QueAgregar, type DisparadorTarjeta, type AristaFlujo,
@@ -84,7 +87,8 @@ import {
 import { etiquetasDelPaso, paramsConEtiquetas } from '@/lib/editor-acciones';
 import { ALTO_PRINCIPAL } from '@/app/components/dropdown-reglas';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
-import { conPosiciones, moverRelativo, fijarPosicion, type Posiciones } from '@/lib/lienzo-posiciones';
+import { conPosiciones, moverRelativo, fijarPosicion, congelarPosiciones, fijarVarias, type Posiciones } from '@/lib/lienzo-posiciones';
+import { leerCopia, copiaDeTarjetas, pegarTarjetas, referenciasDe, textoDeCopia, type PasoCopiado } from '@/lib/flujo-copia';
 import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 // Instagram y Messenger (sexta tanda, parte «canales»): su tarjeta y su editor viven aparte.
 import { esCanalSocial } from '@/lib/canal-social';
@@ -121,8 +125,15 @@ export function FlujoLienzo({
   onPasos, onAgregar, onBorrar, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
   onTarjetaAbierta, reservaAbajo, triggerTipo, productos, posiciones, onPosiciones, linea,
-  disparadores, onNuevoDisparador, onAbrirDisparador, onPublicar, puedePublicar = false,
+  disparadores, onNuevoDisparador, onAbrirDisparador, onPublicar, puedePublicar = false, accionesTodo,
 }: {
+  /**
+   * EL CLICK DERECHO EN LA TARJETA CRON (10/10/2026, general 11: «Si le doy click derecho al cron, no me
+   * salen las opciones en desplegable, debería... si es "Eliminar" es "Eliminar todo" o "Duplicar
+   * todo". Y claro, ahora falta la opción de copiar»): lo de la AUTOMATIZACIÓN ENTERA, que hace la lista
+   * (SimuladorWhatsApp: el mismo «⋯» de la fila). Sin esto, el CRON no tiene menú.
+   */
+  accionesTodo?: { copiar: () => void; duplicar: () => void; eliminar: () => void };
   /**
    * LOS DISPARADORES DE LA TARJETA CRON (sexta tanda, CRON 10: «copiá la tarjeta de CRON de ManyChat…
    * agrega la opción de tener más de un CRON»), uno por cajita. Los arma la parte de los disparadores
@@ -230,6 +241,21 @@ export function FlujoLienzo({
   productos?: ProductoOpcion[];
 }) {
   const [sel, setSel] = useState<string | null>(null);
+  /** Las tarjetas elegidas con el LAZO (general 3). Se copian, se eliminan y se pegan juntas. */
+  const [varios, setVarios] = useState<string[]>([]);
+  /**
+   * LAS TARJETAS QUE YA SE ABRIERON Y SE CERRARON (10/10/2026, condición 4: «Si cierro una condición, como
+   * cualquier cosa, sin completar, debe remarcarse con rojo para identificar donde falta»). Una recién
+   * creada no se pinta de rojo mientras se la está llenando: recién al cerrarla, si le falta algo.
+   */
+  const [cerradas, setCerradas] = useState<ReadonlySet<string>>(() => new Set());
+  const selAntes = useRef<string | null>(null);
+  useEffect(() => {
+    const antes = selAntes.current;
+    selAntes.current = sel;
+    if (antes && antes !== sel) setCerradas((c) => (c.has(antes) ? c : new Set([...c, antes])));
+  }, [sel]);
+  const incompletas = useMemo(() => (cerradas.size ? tarjetasIncompletas(pasos) : new Set<string>()), [cerradas, pasos]);
   // El foco que pide Publicar se aplica UNA vez por pedido (ajuste de estado en el render,
   // no un efecto: la tarjeta se abre en el mismo pintado que el error).
   const [focoVisto, setFocoVisto] = useState(0);
@@ -271,14 +297,15 @@ export function FlujoLienzo({
     catalogo: nombresCatalogoDe(catalogosDe({ etapas, productos: productos ?? [], remotos: remotosCond })),
   };
   const conNuevoDisparador = editable && !!onNuevoDisparador;
-  const derivado = grafoDeSecuencia(pasos, {
+  const opcionesGrafo: Parameters<typeof grafoDeSecuencia>[1] = {
     disparador, secuencias, tituloAccion: (op) => titulos?.get(op),
     nombres, colorEtiqueta: (id) => etiquetas.find((t) => t.id === id)?.color ?? null,
     audioDe: (id) => audios.find((a) => a.id === id) ?? null,
     pendientesOtraCosa,
     // El alto de la tarjeta CRON es fijo y se suma por cajita (`altoCron`): tiene que saber cuántas son.
     disparadores, nuevoDisparador: conNuevoDisparador,
-  });
+  };
+  const derivado = grafoDeSecuencia(pasos, opcionesGrafo);
   // Lo movido, sobre el árbol. `moverRelativo` mide contra el DERIVADO: mover el CRON no arrastra al resto.
   const grafo = conPosiciones(derivado, posiciones, ID_ENTRADA);
   const pasoDe = (id: string) => pasos.find((p, i) => idDe(p, i) === id) ?? null;
@@ -288,8 +315,18 @@ export function FlujoLienzo({
   // de «Publicar» (`onError`, pasado por `errorLegible`: la red de `conectar` puede traer ids). Sube
   // con foto (deshacible) y nada se guarda hasta Publicar: este archivo sigue sin guardar nada.
   const { toast, show: avisar, clear: limpiarAviso } = useToast(6000);
-  const aplicar = (r: Edicion<PasoSecuenciaDto>): boolean => {
+  /**
+   * LO QUE SE VE SE QUEDA DONDE ESTÁ al sacar una flecha o una tarjeta (10/10/2026, general 9: «Si elimino
+   * una flecha, no se deben mover las tarjetas»): las que el árbol nuevo correría quedan fijas donde están
+   * (`congelarPosiciones`). Crear sí acomoda: ahí no se llama.
+   */
+  const congelar = (nuevos: readonly PasoSecuenciaDto[]) => {
+    if (!onPosiciones) return;
+    onPosiciones(congelarPosiciones(grafo, grafoDeSecuencia(nuevos, opcionesGrafo), posiciones, ID_ENTRADA));
+  };
+  const aplicar = (r: Edicion<PasoSecuenciaDto>, quieto = false): boolean => {
     if (!r.ok) { onError(errorLegible(r.motivo, pasos)); return false; }
+    if (quieto) congelar(r.pasos);
     onPasos(() => r.pasos, true);
     // Lo que se hizo bien borra el motivo de lo que no se pudo (si no, quedaba en rojo hasta Publicar).
     onError('');
@@ -320,6 +357,8 @@ export function FlujoLienzo({
    */
   const borrarTarjeta = (id: string) => {
     if (grafo.nodos.find((x) => x.id === id)?.enFlecha) { onPasos((prev) => borrarNodo(prev, id), true); return; }
+    const r = eliminar(pasos, id);
+    if (r.ok) congelar(r.pasos);
     onBorrar?.(id);
   };
   /**
@@ -331,8 +370,101 @@ export function FlujoLienzo({
     if (!r.ok) { onError(errorLegible(r.motivo, pasos)); return; }
     let out = r.pasos;
     for (const e of a.esperas ?? []) { const x = eliminar(out, e.id); if (x.ok) out = x.pasos; }
+    congelar(out);
     onPasos(() => out, true);
     if (sel && (a.esperas ?? []).some((e) => e.id === sel)) setSel(null);
+  };
+  /**
+   * LA PUNTA DE UNA FLECHA, LLEVADA A OTRA TARJETA (general 13): se saca la flecha y se pone la nueva
+   * desde la MISMA salida. Si la nueva no se puede (un círculo, dos caminos que se juntan), no se toca
+   * nada: el motivo va al aviso, como con cualquier conexión.
+   */
+  const desdeDe = (a: AristaFlujo) => (a.esperas?.length ? { desde: a.esperas[a.esperas.length - 1].id, puerto: 'sig' } : { desde: a.desde, puerto: a.puerto ?? 'sig' });
+  const reconectar = (a: AristaFlujo, hacia: string) => {
+    const o = desdeDe(a);
+    const r1 = desconectar(pasos, o.desde, o.puerto, a.hasta);
+    if (!r1.ok) { onError(errorLegible(r1.motivo, pasos)); return; }
+    aplicar(conectar(r1.pasos, o.desde, o.puerto, hacia));
+  };
+  /** Y soltada en el vacío: una tarjeta NUEVA desde esa salida, donde se soltó (general 13 y 14). */
+  const reconectarANueva = (a: AristaFlujo, que: string, punto: { x: number; y: number }) => {
+    const o = desdeDe(a);
+    const r1 = desconectar(pasos, o.desde, o.puerto, a.hasta);
+    if (!r1.ok) { onError(errorLegible(r1.motivo, pasos)); return; }
+    const r2 = insertarDesdeLienzo(r1.pasos, o.desde, o.puerto, que as QueAgregar);
+    if (!r2.id) return;
+    onPasos(() => r2.pasos, true);
+    ponerEn(r2.id, punto.x, punto.y - Y_ENTRADA);
+    setSel(r2.id);
+  };
+  /**
+   * COPIAR (Ctrl+C, el click derecho): las tarjetas, con sus flechas ENTRE ellas, dónde estaba cada una
+   * (relativo a la esquina de lo copiado) y el guion de cada audio. lib/flujo-copia.ts.
+   */
+  const textoCopiado = (ids: readonly string[]): string | null => {
+    const nodos = grafo.nodos.filter((n) => ids.includes(n.id) && !n.enFlecha && n.id !== ID_ENTRADA);
+    if (!nodos.length) return null;
+    const x0 = Math.min(...nodos.map((n) => n.x)), y0 = Math.min(...nodos.map((n) => n.y));
+    const lugares: Posiciones = {};
+    for (const n of nodos) lugares[n.id] = { x: n.x - x0, y: n.y - y0 };
+    const guiones: Record<string, string> = {};
+    for (const au of audios) if (au.transcript?.trim()) guiones[String(au.id)] = au.transcript;
+    const c = copiaDeTarjetas(pasos as unknown as PasoCopiado[], [...ids, ...grafo.nodos.filter((n) => n.enFlecha).map((n) => n.id).filter((e) => ids.includes(e))], { guiones, lugares });
+    return c ? textoDeCopia(c) : null;
+  };
+  const copiarTarjetas = async (ids: readonly string[]) => {
+    const t = textoCopiado(ids);
+    if (!t) return;
+    try { await navigator.clipboard.writeText(t); avisar(ids.length === 1 ? 'Tarjeta copiada' : `${ids.length} tarjetas copiadas`); } catch { onError('No se pudo copiar'); }
+  };
+  /**
+   * PEGAR (Ctrl+V): las tarjetas copiadas —de este flujo, de otro o de otro negocio— entran SUELTAS, con
+   * ids nuevos, alrededor de donde está el cursor, y quedan elegidas. Lo que no existe en este negocio lo
+   * saca el server (`limpiar_copia`: decisión de Martín, «Pegar y marcar en rojo»).
+   */
+  const pegarTexto = async (texto: string, punto: { x: number; y: number }) => {
+    const copia = leerCopia(texto);
+    if (!copia || !editable) return;
+    let entrantes = copia.pasos;
+    if (referenciasDe(entrantes)) {
+      try {
+        const r = await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'limpiar_copia', copia: texto }), signal: AbortSignal.timeout(30_000) });
+        const j = await r.json().catch(() => null) as { ok?: boolean; pasos?: PasoCopiado[]; error?: string } | null;
+        if (!j?.ok || !Array.isArray(j.pasos)) { onError(j?.error ?? 'No se pudo pegar'); return; }
+        entrantes = j.pasos;
+      } catch { onError('No se pudo pegar'); return; }
+    }
+    const r = pegarTarjetas(pasos, { ...copia, pasos: entrantes });
+    if (!r.ids.length) return;
+    // Dónde va cada una: lo que traía la copia de tarjetas, o el dibujo del flujo copiado (uno entero).
+    let lugares = copia.lugares;
+    if (!lugares) {
+      const g = conPosiciones(grafoDeSecuencia(entrantes as unknown as PasoSecuenciaDto[], opcionesGrafo), copia.posiciones ?? null, ID_ENTRADA);
+      const nodos = g.nodos.filter((n) => !n.enFlecha && n.id !== ID_ENTRADA);
+      const x0 = Math.min(...nodos.map((n) => n.x)), y0 = Math.min(...nodos.map((n) => n.y));
+      lugares = {};
+      for (const n of nodos) lugares[n.id] = { x: n.x - x0, y: n.y - y0 };
+    }
+    const nuevas: Posiciones = {};
+    let k = 0;
+    for (const [viejo, nuevo] of r.mapa) {
+      const l = lugares[viejo] ?? { x: 0, y: (k++) * 40 };
+      nuevas[nuevo] = { x: Math.round(punto.x + l.x), y: Math.round(punto.y + l.y) };
+    }
+    onPasos(() => r.pasos as PasoSecuenciaDto[], true);
+    onPosiciones?.(fijarVarias(derivado, posiciones, nuevas, ID_ENTRADA));
+    setSel(null);
+    setVarios(r.ids);
+    avisar(r.ids.length === 1 ? 'Tarjeta pegada' : `${r.ids.length} tarjetas pegadas`);
+  };
+  /** Eliminar lo elegido con el lazo: cada una queda fuera y lo de después, suelto (como una sola). */
+  const eliminarVarias = (ids: readonly string[]) => {
+    let out = pasos;
+    for (const id of ids) { if (id === ID_ENTRADA) continue; const r = eliminar(out, id); if (r.ok) out = r.pasos; }
+    if (out === pasos) return;
+    congelar(out);
+    onPasos(() => out, true);
+    setVarios([]); setSel(null);
   };
   /** «ACOMODAR» (punto 14): vuelve al árbol (borra lo movido), con su deshacer en el aviso. */
   const hayPosiciones = !!posiciones && Object.keys(posiciones).length > 0;
@@ -354,15 +486,32 @@ export function FlujoLienzo({
   ] : undefined;
   /** EL CLICK DERECHO EN UNA TARJETA (punto 2): duplicar, desconectar (le saca lo que le llega) y eliminar. */
   const menuNodo = editable ? (id: string): ItemMenuLienzo[] => {
+    // Con el LAZO: lo que se hace es con TODAS las elegidas.
+    if (varios.length > 1 && varios.includes(id)) {
+      return [
+        { id: 'copiar-varias', label: `Copiar ${varios.length} tarjetas`, icono: <Icon name="copy" size={16} />, onElegir: () => void copiarTarjetas(varios) },
+        { id: 'eliminar-varias', label: `Eliminar ${varios.length} tarjetas`, grupo: 1, peligro: true, icono: <IconoBorrar size={16} />, onElegir: () => eliminarVarias(varios) },
+      ];
+    }
+    if (id === ID_ENTRADA) {
+      if (!accionesTodo) return [];
+      return [
+        { id: 'copiar-todo', label: 'Copiar todo', icono: <Icon name="copy" size={16} />, onElegir: accionesTodo.copiar },
+        { id: 'duplicar-todo', label: 'Duplicar todo', icono: <Icon name="copy" size={16} />, onElegir: accionesTodo.duplicar },
+        { id: 'eliminar-todo', label: 'Eliminar todo', grupo: 1, peligro: true, icono: <IconoBorrar size={16} />, onElegir: accionesTodo.eliminar },
+      ];
+    }
     const paso = pasoDe(id);
-    if (id === ID_ENTRADA || !paso) return [];
+    if (!paso) return [];
     const nodo = grafo.nodos.find((x) => x.id === id);
     // ⚠️ LA FLECHA DEL CRON A «SI RESPONDE» NO CUENTA (séptima tanda): es dibujo, no dato (`sinMas`), y
     // «Desconectar» sobre la que escucha no tiene nada que soltar (`soltar` contestaría que no le llega nada).
-    const leLlega = grafo.aristas.some((a) => a.hasta === id && !a.sinMas && !(a.esperas?.length && nodo?.enFlecha));
+    // Desde el 10/10/2026 la de «Si responde» SÍ cuenta (`quitable`): desconectarla la deja suelta.
+    const leLlega = grafo.aristas.some((a) => a.hasta === id && !(a.sinMas && !a.quitable) && !(a.esperas?.length && nodo?.enFlecha));
     return [
       ...(claseDe(paso) !== 'respuesta' ? [{ id: 'duplicar', label: 'Duplicar', icono: <Icon name="copy" size={16} />, onElegir: () => duplicarTarjeta(id) }] : []),
-      ...(leLlega && !nodo?.enFlecha ? [{ id: 'desconectar', label: 'Desconectar', icono: <Icon name="tijera" size={16} />, onElegir: () => aplicar(soltar(pasos, id)) }] : []),
+      { id: 'copiar', label: 'Copiar', icono: <Icon name="copy" size={16} />, onElegir: () => void copiarTarjetas([id]) },
+      ...(leLlega && !nodo?.enFlecha ? [{ id: 'desconectar', label: 'Desconectar', icono: <Icon name="tijera" size={16} />, onElegir: () => aplicar(soltar(pasos, id), true) }] : []),
       { id: 'eliminar', label: 'Eliminar', grupo: 1, peligro: true, icono: <IconoBorrar size={16} />, onElegir: () => { if (sel === id) setSel(null); borrarTarjeta(id); } },
     ];
   } : undefined;
@@ -420,11 +569,17 @@ export function FlujoLienzo({
          ⚠️ SEXTA TANDA, PUNTO 5: el ＋ del círculo asoma una flecha y el menú va en su PUNTA
          (`punto`). Si la tarjeta de origen está MOVIDA (tiene posición guardada), la nueva nace ahí,
          en la punta: el árbol la pondría al lado de donde estaba antes la de origen, lejos de ella. */
-      onAgregarTras={editable ? ((id, que, puerto, punto) => {
+      onAgregarTras={editable ? ((id, que, puerto, punto, enElPunto) => {
         const nuevo = onAgregar!(id, puerto, que as QueAgregar);
         if (nuevo) setSel(nuevo);
-        if (nuevo && punto && posiciones?.[id]) ponerEn(nuevo, punto.x, punto.y - Y_ENTRADA);
+        // Soltada la flecha en el vacío (general 14), la tarjeta nace DONDE se soltó.
+        if (nuevo && punto && (enElPunto || posiciones?.[id])) ponerEn(nuevo, punto.x, punto.y - Y_ENTRADA);
       }) : undefined}
+      varios={varios} onVarios={editable ? setVarios : undefined}
+      onReconectar={editable ? reconectar : undefined}
+      onReconectarANueva={editable ? reconectarANueva : undefined}
+      onCopiar={editable ? textoCopiado : undefined}
+      onPegar={editable ? (t, p) => { void pegarTexto(t, p); } : undefined}
       opcionesEn={(nodo, puerto, medio) => opcionesDelMas(pasos, nodo, medio, puerto)}
       onBorrar={rolAdmin && onBorrar ? borrarTarjeta : undefined}
       puedeBorrar={(id) => id !== ID_ENTRADA}
@@ -449,7 +604,7 @@ export function FlujoLienzo({
           );
         }
         return (
-          <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={n.tipo === 'ir-a' && Boolean(n.advertencia)}>
+          <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={(n.tipo === 'ir-a' && Boolean(n.advertencia)) || (cerradas.has(n.id) && incompletas.has(n.id))}>
             {n.tipo === 'mensaje' && paso && esCanalSocial(paso.canal)
               ? <VistaMensajeSocial paso={paso} canal={paso.canal} negocio={negocio} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : null} />
               : n.tipo === 'mensaje' && paso
@@ -543,13 +698,8 @@ export function CuerpoCron({ disparadores, onAbrir, onNuevo }: {
           ? <button key={d.id} type="button" data-no-pan data-disparador={d.id} onClick={() => onAbrir(d.id)} title={d.texto} style={{ ...caja, cursor: 'pointer' }}>{cuerpo}</button>
           : <div key={d.id || 'unico'} title={d.texto} style={caja}>{cuerpo}</div>;
       })}
-      {onNuevo && (
-        <button type="button" data-no-pan data-nuevo-disparador onClick={onNuevo}
-          style={{
-            height: ALTO_NUEVO_DISPARO, width: '100%', borderRadius: 8, border: '1px dashed var(--border-strong)',
-            background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-          }}>＋ Nuevo CRON</button>
-      )}
+      {/* Con la animación de «＋ Nueva automatización» (10/10/2026, CRON 1): `NuevoPlaceholder`. */}
+      {onNuevo && <NuevoPlaceholder chico texto="Nuevo CRON" onClick={onNuevo} data-no-pan data-nuevo-disparador style={{ height: ALTO_NUEVO_DISPARO }} />}
     </div>
   );
 }
@@ -593,30 +743,54 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
   const n = negocio.trim();
   const texto = aplicarVariables(paso.cuerpo || '', n ? { negocio: n } : {});
   const a = paso.tipo === 'audio' ? audios.find((x) => x.id === paso.audio_id) ?? null : null;
+  // La hora de las burbujas: la de cuando se abrió el lienzo, como en el editor (`horaDeAhora`).
+  const [hora] = useState(horaDeAhora);
   if (paso.canal === 'email') return <VistaEmail paso={paso} texto={texto} negocio={n} />;
+  const partes = partesExplicitas(paso);
+  /**
+   * ⚠️ COMO UN WHATSAPP (10/10/2026, WhatsApp 1: «los mensajes deben estar separados, como en el editable, y
+   * que se vean como máximo 2 mensajes en la tarjeta del lienzo, para no romper diseño. Que se vea las
+   * palomitas todo... Y si hay más mensajes un pequeño y sutil recuadro que diga "+3 mensajes..."»). Cada
+   * burbuja con su hora y su ✓✓, hasta dos, y el recuadro de lo que queda. El alto lo mide `altoDeMensaje`
+   * con las MISMAS piezas (`altoDeBurbuja`, `ALTO_MAS_PARTES`).
+   */
+  const pie = { hora, pie: <Ticks status="read" /> };
+  if (partes && partes.length > 1) {
+    const resto = partes.length - PARTES_EN_TARJETA;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: SEP_BURBUJAS_TARJETA }}>
+        {partes.slice(0, PARTES_EN_TARJETA).map((pt, k) => {
+          if (pt.tipo === 'audio') {
+            const au = audios.find((x) => x.id === pt.audio_id) ?? null;
+            return <BurbujaHilo key={k} compacta saliente autor={negocio} {...pie} contenido={{ audio: { url: au?.url ?? null, titulo: au?.titulo, transcript: null, duracion_s: au?.duracion_s ?? null } }} />;
+          }
+          if (pt.tipo === 'media') {
+            const v = vistaDeArchivo(pt.media_id, biblioteca?.estado === 'ok' ? biblioteca.lista : biblioteca?.estado === 'error' ? 'error' : null);
+            return <BurbujaHilo key={k} compacta saliente autor={negocio} {...pie} lineas={RENGLONES_CON_DOS}
+              contenido={{ texto: aplicarVariables(pt.cuerpo ?? '', n ? { negocio: n } : {}), media: { url: v.modo === 'documento' ? v.url : null, mime: v.modo === 'documento' ? v.mime : '', nombre: v.nombre, tipo: 'document' } }} />;
+          }
+          return <BurbujaHilo key={k} compacta saliente autor={negocio} {...pie} lineas={RENGLONES_CON_DOS} contenido={{ texto: aplicarVariables(pt.cuerpo, n ? { negocio: n } : {}) }} />;
+        })}
+        {resto > 0 && (
+          <div style={{ alignSelf: 'flex-end', height: ALTO_MAS_PARTES, boxSizing: 'border-box', padding: '0 9px', display: 'inline-flex', alignItems: 'center', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 11, color: 'var(--faint)' }}>
+            {textoMasPartes(resto)}
+          </div>
+        )}
+      </div>
+    );
+  }
   const vacio = paso.tipo === 'media' ? !paso.media_id : paso.tipo !== 'audio' && !texto.trim();
   if (vacio) return <span style={{ fontSize: 12, color: 'var(--faint)' }}>Sin escribir</span>;
-  // VARIAS PARTES (cuarta tanda, punto 15; sexta, WhatsApp 12: «muestre solo el primer mensaje, y abajo
-  // a la derecha sutil "+1 mensaje..."»): la tarjeta dibuja la PRIMERA (los campos de siempre son su
-  // espejo) y el renglón chico a la derecha. El alto lo mide `altoDeMensaje` con lo mismo
-  // (`RENGLON_MAS_PARTES`).
-  const mas = (partesExplicitas(paso)?.length ?? 1) - 1;
-  const masPartes = mas > 0
-    ? <div style={{ marginTop: 4, fontSize: 11, lineHeight: `${RENGLON_MAS_PARTES}px`, color: 'var(--faint)', textAlign: 'right' }}>{textoMasPartes(mas)}</div>
-    : null;
-  if (paso.tipo === 'media') return <><VistaArchivo paso={paso} texto={texto} negocio={negocio} biblioteca={biblioteca} />{masPartes}</>;
+  if (paso.tipo === 'media') return <VistaArchivo paso={paso} texto={texto} negocio={negocio} biblioteca={biblioteca} />;
   return (
-    <>
-      {/* Sin la transcripción del audio (punto 15: «que no se vea la transcripción»): el alto
-          tampoco la cuenta. Un texto largo TERMINA EN «…» adentro de la tarjeta (WhatsApp 12: «así no
-          se rompe el diseño»): los renglones salen del MISMO alto que estima el árbol. */}
-      <BurbujaHilo compacta saliente autor={negocio} lineas={renglonesDeTarjeta(paso, mas)} contenido={{
-        texto,
-        audio: paso.tipo === 'audio' ? { url: a?.url ?? null, titulo: a?.titulo, transcript: null, duracion_s: a?.duracion_s ?? null } : null,
-        ia: paso.tipo === 'ia',
-      }} />
-      {masPartes}
-    </>
+    // Sin la transcripción del audio (punto 15: «que no se vea la transcripción»): el alto tampoco la
+    // cuenta. Un texto largo TERMINA EN «…» adentro de la tarjeta (WhatsApp 12: «así no se rompe el
+    // diseño»): los renglones salen del MISMO alto que estima el árbol.
+    <BurbujaHilo compacta saliente autor={negocio} {...pie} lineas={renglonesDeTarjeta(paso, 0)} contenido={{
+      texto,
+      audio: paso.tipo === 'audio' ? { url: a?.url ?? null, titulo: a?.titulo, transcript: null, duracion_s: a?.duracion_s ?? null } : null,
+      ia: paso.tipo === 'ia',
+    }} />
   );
 }
 
@@ -632,7 +806,8 @@ export const textoMasPartes = (n: number): string => `+${n} ${n === 1 ? 'mensaje
  */
 export function renglonesDeTarjeta(paso: PasoSecuenciaDto, mas: number): number {
   const alto = altoDeMensaje(paso as unknown as Parameters<typeof altoDeMensaje>[0]);
-  const libre = alto - 47 - 18 - 6 - (paso.tipo === 'ia' ? 18 : 0) - (mas > 0 ? 4 + RENGLON_MAS_PARTES : 0);
+  // La fila de las palomitas (WhatsApp 1, 10/10/2026) lleva también el ✦ de «MaKo lo adapta».
+  const libre = alto - 47 - 18 - 6 - ALTO_PALOMITAS - (mas > 0 ? 4 + RENGLON_MAS_PARTES : 0);
   return Math.max(1, Math.min(5, Math.floor(libre / 18.125)));
 }
 
@@ -877,7 +1052,7 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, disparador, triggerTipo }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, disparador, triggerTipo, onPasos }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const noOficial = proveedorDelPaso(paso) === 'no_oficial';
   // EL RECORDATORIO DE LA REUNIÓN (10/10/2026): lo manda su emisor, que manda TEXTO y resuelve SUS datos
   // (lib/recordatorio-automatizacion.ts). Ni audio, ni archivos, ni «Revisar» (sale siempre), y el «{ }» con
@@ -916,6 +1091,8 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       permiteAdjuntos={noOficial && !recordatorio}
       variables={recordatorio ? DATOS_RECORDATORIO.map((d) => ({ ...d })) : undefined}
       redactaCon={recordatorio ? 'recordatorio' : undefined}
+      // Minutos entre dos mensajes (WhatsApp 2): la tarjeta se parte con una espera en el medio.
+      onPartirConEspera={noOficial && !recordatorio ? (i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true) : undefined}
       // «Sale sola» pasó a cada mensaje (punto 6): ausente en el paso = lo que hace el MOTOR con
       // él, así que el interruptor se pinta con ese valor (`revisarHeredado`: un «MaKo contesta»
       // de «Si responde» sin `revisar` deja borrador, aunque la secuencia salga sola).

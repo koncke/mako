@@ -46,13 +46,19 @@ const cuerpo = (src: string, nombre: string) => {
   return src.slice(ini, fin < 0 ? undefined : fin);
 };
 
-test('la CONDITION que escucha se dibuja colgando del CRON, con su etiqueta y sin ＋ ni papelera', () => {
+// ⚠️ DESDE EL 10/10/2026 LA FLECHA ES NORMAL: sin rótulo, sin punteado y con su papelera (`quitable`). Martín:
+// «aparece luego del cron una flecha punteada que dice "Si responde"... La flecha no se puede eliminar, no se
+// puede editar, nada de eso tiene sentido. De por sí no debería haber un chip en el medio»; y eligió «Una
+// condición normal». Sin ＋ en el medio sigue (`sinMas`): insertar ahí escribiría lo que el dato no admite.
+test('la CONDITION que escucha cuelga del CRON con una flecha NORMAL: sin rótulo, sin ＋ y con papelera', () => {
   const g = grafoDeSecuencia(conEscucha(), { disparador: 'Dejó el formulario' });
   const a = g.aristas.filter((x) => x.hasta === 'r');
   assert.equal(a.length, 1, 'la CONDITION que escucha quedó sin flecha de entrada (se lee suelta)');
   assert.equal(a[0].desde, 'entrada');
-  assert.equal(a[0].etiqueta, 'Si responde');
-  assert.equal(a[0].sinMas, true, 'la flecha no es del dato: el ＋ del medio y la papelera no la pueden tocar');
+  assert.equal(a[0].etiqueta, undefined, 'volvió el chip «Si responde» en el medio de la flecha');
+  assert.equal(a[0].tono, 'normal', 'volvió la flecha punteada');
+  assert.equal(a[0].sinMas, true, 'insertar en el medio escribiría una flecha que el dato no admite');
+  assert.equal(a[0].quitable, true, 'la flecha volvió a no poder borrarse');
 });
 
 test('sin casos, su única fila dice «Respondió»; con casos, la última sigue siendo «Si no»', () => {
@@ -99,7 +105,7 @@ test('⚠️ con «Probar» abierto, cada rearranque mira el MISMO freno que Pub
   assert.match(perfil, /freno: frenoLocal, frenar: frenarDesdeProbar,/, 'el lienzo no le pasa el freno al panel');
 });
 
-test('«Desconectar» no cuenta la flecha del CRON a la que escucha (no hay nada que soltar)', () => {
+test('«Desconectar» SÍ cuenta la flecha del CRON a la que escucha (10/10/2026: la deja suelta)', () => {
   const lienzo = fuente('app/automations/FlujoLienzo.tsx');
-  assert.match(lienzo, /const leLlega = grafo\.aristas\.some\(\(a\) => a\.hasta === id && !a\.sinMas && /);
+  assert.match(lienzo, /const leLlega = grafo\.aristas\.some\(\(a\) => a\.hasta === id && !\(a\.sinMas && !a\.quitable\) && /);
 });

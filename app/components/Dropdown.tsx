@@ -112,7 +112,7 @@ function renderOption(
       {o.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: o.color, flex: 'none' }} />}
       {o.crear && <span aria-hidden style={{ flex: 'none', fontSize: 13, lineHeight: 1 }}>＋</span>}
       <span style={{ minWidth: 0, flex: 1 }}>
-        <span style={{ display: 'block', fontWeight: on ? 700 : 600, color: on ? 'var(--ink)' : undefined, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+        <span style={{ display: 'block', fontWeight: on ? 700 : 600, color: on ? (varios ? 'var(--ink)' : 'var(--primary)') : undefined, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
         {(!enColumna || conSub) && o.sub && <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 1, lineHeight: 1.3 }}>{o.sub}</span>}
       </span>
       {/* ⚠️ ACÁ HABÍA UN ✓ y se fue el 29/09/2026: «no pongas un check, solo haz que sea
@@ -125,7 +125,9 @@ function renderOption(
     display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
     padding: '9px 11px', borderRadius: 8, border: 'none',
     cursor: o.disabled || bloqueado ? 'default' : 'pointer',
-    background: on ? 'var(--surface-2)' : 'transparent',
+    // Lo elegido, LLAMATIVO (10/10/2026, CRON 4: «que esté pintado o llamativo de otra manera»): el fondo
+    // del color primario suave. Con casillas (`varios`) la casilla rellena ya lo dice: ahí sigue el gris.
+    background: on ? (varios ? 'var(--surface-2)' : 'var(--primary-bg)') : 'transparent',
     color: o.crear || o.sutil ? 'var(--faint)' : 'var(--ink)',
     fontFamily: SANS, fontSize: o.sutil ? 12.5 : 13.5,
     opacity: o.disabled ? 0.45 : o.sutil ? 0.7 : o.crear ? 0.8 : 1,
@@ -336,6 +338,21 @@ export type DropdownGroup = { title: string; options: DropdownOption[];
 /** Las opciones de un grupo y de todos los de adentro. */
 function opcionesDe(g: DropdownGroup): DropdownOption[] {
   return [...g.options, ...(g.grupos ?? []).flatMap(opcionesDe)];
+}
+/**
+ * EL CAMINO HASTA LO ELEGIDO: los títulos de las secciones que hay que abrir para llegar al renglón de
+ * `valor` (null = no está en ninguna). Lo usa la apertura: el menú abre PARADO ahí (10/10/2026, CRON 4:
+ * «si ya tengo configurado un cron, al abrir el desplegable me marque y este ya abierto la opción que
+ * seleccioné»). Exportado para el test.
+ */
+export function caminoDe(gs: readonly DropdownGroup[] | undefined, valor: string): string[] | null {
+  if (!gs || !valor) return null;
+  for (const g of gs) {
+    if (g.options.some((o) => o.value === valor)) return [g.title];
+    const adentro = caminoDe(g.grupos, valor);
+    if (adentro) return [g.title, ...adentro];
+  }
+  return null;
 }
 /** Los grupos con algo que mostrar después de filtrar, con sus hijos filtrados también. */
 function filtrarGrupos(gs: readonly DropdownGroup[], coincide: (o: DropdownOption) => boolean, sinAtajos: boolean): DropdownGroup[] {
@@ -561,7 +578,7 @@ export function Dropdown({
   // si quedan 300 px» un menú de 340 abría para abajo y se cortaba (item 7 del curso, 08/10/2026). El
   // primer cuadro no tiene el menú para medir y va con la regla de siempre; el efecto de abajo lo mide
   // y lo vuelve a ubicar ANTES de pintar.
-  const place = (alto: number | null = null) => {
+  const place = (alto: number | null = null, ancho: number | null = null) => {
     if (!ref.current) return;
     const r = ref.current.getBoundingClientRect();
     const lugar = lugarDelMenu({ top: r.top, bottom: r.bottom, ventana: window.innerHeight, alto });
@@ -579,12 +596,17 @@ export function Dropdown({
       setPos({ width: r.width, ...vertical, left, espacio });
       return;
     }
-    setPos({
-      width: r.width,
-      ...vertical,
-      espacio,
-      ...(align === 'right' ? { right: window.innerWidth - r.right } : align === 'afuera' ? { left: r.right + SEPARACION_MENU } : { left: r.left }),
-    });
+    // ⚠️ QUE NO SE SALGA POR EL COSTADO (10/10/2026: «al darle se esconde fuera de la pantalla el
+    // desplegable, eso no debe pasar», sobre «Probar» pegado al borde derecho). Con el ancho MEDIDO
+    // (el segundo cuadro), un menú que abre hacia la derecha y no entra se ancla al borde derecho del
+    // botón, y uno que abre «afuera» y no entra, del otro lado del botón.
+    const noEntra = (izq: number) => ancho != null && izq + ancho > window.innerWidth - 12;
+    const horizontal = align === 'right'
+      ? { right: window.innerWidth - r.right }
+      : align === 'afuera'
+        ? (noEntra(r.right + SEPARACION_MENU) ? { right: window.innerWidth - r.left + SEPARACION_MENU } : { left: r.right + SEPARACION_MENU })
+        : (noEntra(r.left) ? { right: Math.max(12, window.innerWidth - r.right) } : { left: r.left });
+    setPos({ width: r.width, ...vertical, espacio, ...horizontal });
   };
   const toggle = () => {
     if (disabled) return;
@@ -606,7 +628,7 @@ export function Dropdown({
     if (!open || medido.current != null || !menuRef.current) return;
     // `scrollHeight` es el contenido, aunque el alto máximo lo esté recortando; el borde va aparte.
     medido.current = menuRef.current.scrollHeight + 2;
-    place(medido.current);
+    place(medido.current, menuRef.current.getBoundingClientRect().width);
     // `place` se arma en cada render y lee las props de ahora: no es una dependencia que cambie el qué.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, pos]);
@@ -708,17 +730,30 @@ export function Dropdown({
   // El foco entra solo en la búsqueda: con el menú abierto ya se puede escribir,
   // sin tener que ir a buscar el campo con el mouse.
   useEffect(() => {
-    if (!open) { setRuta([]); return; }   // se reabre en la raíz, siempre
+    if (!open) { setRuta([]); return; }
+    // Se abre PARADO EN LO ELEGIDO (CRON 4); sin nada elegido, en la raíz. Un valor que no está en el
+    // árbol (una opción que se fue) también abre en la raíz.
+    const elegido = !resetAfterSelect ? (varios?.length ? varios[0] : value) : '';
+    const camino = caminoDe(secciones, elegido);
+    if (camino) setRuta(camino);
     const t = setTimeout(() => searchRef.current?.focus(), 0);
     return () => clearTimeout(t);
+    // Sólo al ABRIR: lo elegido de ese momento. Elegir adentro (con `varios`) no tiene que mover el menú.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   /** El renglón que ABRE una sección (en la raíz, o adentro de otra con `grupos`). */
+  // La sección donde está lo elegido se PINTA (CRON 4: «que esté pintado o llamativo»): así se ve el
+  // camino aunque se vuelva atrás.
+  const elegidoEn = (g: DropdownGroup) => {
+    const marcados = resetAfterSelect ? [] : varios?.length ? varios : value ? [value] : [];
+    return marcados.length > 0 && opcionesDe(g).some((o) => marcados.includes(o.value));
+  };
   const botonSeccion = (g: DropdownGroup) => (
     <button key={g.title} type="button" onClick={() => setRuta((r) => [...r, g.title])}
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 9, width: '100%', padding: '10px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 9, width: '100%', padding: '10px 9px', borderRadius: 7, border: 'none', background: elegidoEn(g) ? 'var(--primary-bg)' : 'transparent', cursor: 'pointer', fontSize: 13, color: elegidoEn(g) ? 'var(--primary)' : 'var(--ink)', textAlign: 'left', fontFamily: SANS }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = elegidoEn(g) ? 'var(--primary-bg)' : 'var(--surface-2)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = elegidoEn(g) ? 'var(--primary-bg)' : 'transparent'; }}>
       {/* El ícono de la sección (CRM, WhatsApp…), como el de un renglón: el árbol se lee por su forma. */}
       <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
         {g.icono && <IconoOpcion icono={g.icono} />}

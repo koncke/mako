@@ -35,7 +35,7 @@ import { createPortal } from 'react-dom';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ubicarPanel } from '@/app/_components/PortadaPicker';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
-import { DIAS_PANTALLA, type HorarioEnvio } from '@/lib/horario-envio';
+import { DIAS_PANTALLA, horaCorta, type HorarioEnvio } from '@/lib/horario-envio';
 
 /**
  * Lo que se sabe del horario, de la MISMA lectura que el panel (`getHorarioEnvioAction`).
@@ -52,7 +52,7 @@ export function rotuloHorario(e: EstadoHorario): string {
   if (e.t === 'cargando') return '';
   if (e.t === 'error') return 'Horario';
   if (!e.horario.activo) return 'Sin horario';
-  return `${e.horario.desde} a ${e.horario.hasta}`;
+  return `${horaCorta(e.horario.desde)} a ${horaCorta(e.horario.hasta)}`;
 }
 
 /** Los días, en el orden en que se dibujan (lunes primero): «todos los días» o «lunes, martes y viernes». */
@@ -68,7 +68,7 @@ export function describirHorario(e: EstadoHorario): string {
   if (e.t === 'cargando') return 'Horario de envío';
   if (e.t === 'error') return 'No pude leer el horario de envío';
   if (!e.horario.activo) return 'Horario de envío: sin horario, mandan a cualquier hora';
-  return `Horario de envío: de ${e.horario.desde} a ${e.horario.hasta}, ${diasEnPalabras(e.horario.dias)} (hora de ${e.zona})`;
+  return `Horario de oficina: de ${horaCorta(e.horario.desde)} a ${horaCorta(e.horario.hasta)}, ${diasEnPalabras(e.horario.dias)} (hora de ${e.zona})`;
 }
 
 type Caja = { left: number; right: number; top: number; bottom: number };
@@ -76,7 +76,7 @@ type Caja = { left: number; right: number; top: number; bottom: number };
 /** Lo que separa el panel del borde de la lista. */
 export const SEPARACION_AFUERA = 10;
 /** El ancho del panel: entran los siete días y «De [hora] a [hora]» sin partirse. */
-export const ANCHO_PANEL_HORARIO = 392;
+export const ANCHO_PANEL_HORARIO = 560;
 
 /**
  * DÓNDE CAE EL PANEL. Afuera de la lista, a su DERECHA y a la altura del botón —como el «⋯» de las

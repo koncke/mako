@@ -6,6 +6,9 @@
 // POST → admin-only:
 //        { action:'crear', etapa, nombre }                → secuencia nueva (wizard paso 1)
 //        { action:'crear_vacia', nombre? }                → automatización VACÍA y pausada → { secuenciaId, nombre }
+//        { action:'crear_desde_copia', copia }            → una automatización APAGADA con lo copiado (lib/flujo-copia.ts)
+//                                                          → { secuenciaId, nombre, aviso? }
+//        { action:'limpiar_copia', copia }                → lo pegado con Ctrl+V, sin lo que no existe acá → { pasos }
 //        { action:'crear_desde_plantilla', plantilla, disparador? }
 //                                                          → una de la GALERÍA (lib/plantillas-automatizaciones.ts),
 //                                                            APAGADA → { secuenciaId, nombre, pide, aviso? }
@@ -71,6 +74,8 @@ import { estadoCanalesDisparo } from '@/lib/disparadores-canales';
 // LA GALERÍA (10/10/2026): crear una automatización desde una plantilla. Los pasos van por
 // `setSecuenciaPasos` y el CRON por `guardarDisparadores`, las puertas de siempre (lib/plantilla-crear.ts).
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
+import { leerCopia } from '@/lib/flujo-copia';
+import { crearDesdeCopia, limpiarCopia } from '@/lib/flujo-copia-negocio';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -197,6 +202,8 @@ export async function POST(req: NextRequest) {
     base?: unknown;
     /** `crear_desde_plantilla`: el id de la plantilla y la etapa elegida (opcional). */
     plantilla?: unknown; disparador?: unknown;
+    /** `crear_desde_copia` / `limpiar_copia`: el TEXTO del portapapeles (lib/flujo-copia.ts). */
+    copia?: unknown;
   };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -361,6 +368,26 @@ export async function POST(req: NextRequest) {
      * crear —una plantilla que no existe, una etapa de otro kanban, pasos que no pasan— contesta 400 con
      * el motivo; la etapa que el negocio no tiene no tumba la automatización: vuelve en `aviso`.
      */
+    /**
+     * COPIAR Y PEGAR UN FLUJO (10/10/2026, lib/flujo-copia.ts): `copia` es el TEXTO del portapapeles.
+     *   · `crear_desde_copia`: una automatización nueva, APAGADA, con lo copiado (el aviso al entrar y
+     *     «Pegar» al crear una nueva).
+     *   · `limpiar_copia`: lo pegado con Ctrl+V en el lienzo, sin lo que no existe en este negocio. No
+     *     escribe nada: el lienzo lo suma a lo que se ve y se publica como cualquier cambio.
+     */
+    if (body.action === 'crear_desde_copia' || body.action === 'limpiar_copia') {
+      const copia = leerCopia(body.copia);
+      if (!copia) return Response.json({ ok: false, error: 'Eso no es un flujo copiado de MaKo.' }, { status: 400 });
+      if (body.action === 'limpiar_copia') return Response.json({ ok: true, pasos: await limpiarCopia(copia) });
+      try {
+        const r = await crearDesdeCopia(copia);
+        return Response.json({ ok: true, secuenciaId: r.id, nombre: r.nombre, ...(r.aviso ? { aviso: r.aviso } : {}) });
+      } catch (e) {
+        if (e instanceof PasosInvalidosError) return Response.json({ ok: false, error: e.message }, { status: 400 });
+        throw e;
+      }
+    }
+
     if (body.action === 'crear_desde_plantilla') {
       try {
         const r = await crearDesdePlantilla(body.plantilla, {

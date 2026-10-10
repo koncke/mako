@@ -114,6 +114,46 @@ export function moverRelativo(
 }
 
 /**
+ * QUE NADA SE MUEVA AL SACAR UNA FLECHA (10/10/2026, general 9: «Si elimino una flecha, no se deben mover
+ * las tarjetas, que se queden donde están... Si creo una tarjeta ahí si está bien que se desplacen las
+ * otras»). Sacar una flecha cambia el árbol —lo de después queda suelto y el layout lo pone en otro
+ * lado, y `aOrigen` puede correr el dibujo entero—, así que cada tarjeta que CAMBIARÍA de lugar se fija
+ * donde se ve ahora. Las que no cambian siguen sin posición guardada: el árbol las sigue acomodando.
+ *
+ * `actual` es el grafo que se ve (con las posiciones aplicadas) y `derivadoNuevo`, el árbol del flujo
+ * DESPUÉS del cambio (sin posiciones). La cuenta es contra el ancla del árbol NUEVO: la posición guardada
+ * es relativa a ella (ver la cabecera).
+ */
+export function congelarPosiciones(
+  actual: Pick<GrafoFlujo, 'nodos'>, derivadoNuevo: GrafoFlujo, pos: Posiciones | null | undefined, ancla = 'entrada',
+): Posiciones {
+  const despues = conPosiciones(derivadoNuevo, pos, ancla);
+  const base = baseDe(derivadoNuevo, ancla);
+  const out: Posiciones = { ...(pos ?? {}) };
+  for (const n of actual.nodos) {
+    if (n.enFlecha) continue;
+    const d = despues.nodos.find((x) => x.id === n.id);
+    if (!d || (Math.round(d.x) === Math.round(n.x) && Math.round(d.y) === Math.round(n.y))) continue;
+    out[n.id] = { x: n.x - base.x, y: n.y - base.y };
+  }
+  return podarPosiciones(sanearPosiciones(out, Number.POSITIVE_INFINITY), derivadoNuevo.nodos.map((n) => n.id));
+}
+
+/**
+ * VARIAS TARJETAS QUE TODAVÍA NO ESTÁN EN EL DIBUJO, cada una en su lugar (lo pegado con Ctrl+V,
+ * 10/10/2026). Es `fijarPosicion` para N de una vez: llamada N veces, cada una podaba a la anterior
+ * (que tampoco está todavía en el grafo derivado). `nuevas` va en coordenadas del GRAFO.
+ */
+export function fijarVarias(
+  derivado: Pick<GrafoFlujo, 'nodos'>, pos: Posiciones | null | undefined, nuevas: Posiciones, ancla = 'entrada',
+): Posiciones {
+  const base = baseDe(derivado, ancla);
+  const sig: Posiciones = { ...(pos ?? {}) };
+  for (const [id, p] of Object.entries(nuevas)) sig[id] = { x: p.x - base.x, y: p.y - base.y };
+  return podarPosiciones(sanearPosiciones(sig, Number.POSITIVE_INFINITY), [...derivado.nodos.map((n) => n.id), ...Object.keys(nuevas)]);
+}
+
+/**
  * UNA TARJETA QUE TODAVÍA NO ESTÁ EN EL DIBUJO, PUESTA EN UN LUGAR (sexta tanda, punto 7: los pasos
  * sueltos que se crean con el click derecho «en cualquier momento y lugar del tablero», y la copia de
  * «Duplicar» al lado de la original). Es `moverRelativo` sin podar ESE id: la tarjeta nace en el mismo

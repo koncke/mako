@@ -18,7 +18,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { altoDeMensaje, RENGLON_MAS_PARTES, type PasoParaGrafo } from '../lib/flujo-conversacion';
+import { altoDeMensaje, altoDeBurbuja, RENGLONES_CON_DOS, SEP_BURBUJAS_TARJETA, ALTO_MAS_PARTES, type PasoParaGrafo } from '../lib/flujo-conversacion';
 
 const leer = (p: string): string => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -40,20 +40,25 @@ const LIENZO = sinComentarios(leer('app/_components/Lienzo.tsx'));
 const msg = (extra: Record<string, unknown>): PasoParaGrafo =>
   ({ id: 'm', canal: 'whatsapp', proveedor: 'no_oficial', tipo: 'texto', cuerpo: 'Hola, te dejo esto', ...extra }) as unknown as PasoParaGrafo;
 
-test('la tarjeta de un mensaje de VARIAS partes mide la primera más el renglón «+N más»', () => {
+// ⚠️ DESDE EL 10/10/2026 LA TARJETA DIBUJA HASTA DOS MENSAJES, cada uno con sus palomitas, y el recuadro de lo
+// que queda (WhatsApp 1). El alto suma esas MISMAS piezas (`altoDeBurbuja`).
+test('la tarjeta de un mensaje de VARIAS partes mide sus dos primeras burbujas y el recuadro «+N mensajes…»', () => {
   const una = altoDeMensaje(msg({}));
-  const tres = altoDeMensaje(msg({ partes: [
+  const partes = [
     { tipo: 'texto', cuerpo: 'Hola, te dejo esto' }, { tipo: 'texto', cuerpo: 'https://hola-mako.com' }, { tipo: 'audio', audio_id: 3 },
-  ] }));
-  assert.equal(tres - una, 4 + RENGLON_MAS_PARTES, `el «+N más» suma ${tres - una}`);
+  ] as const;
+  const tres = altoDeMensaje(msg({ partes }));
+  const esperado = Math.ceil(47 + altoDeBurbuja(partes[0], RENGLONES_CON_DOS) + SEP_BURBUJAS_TARJETA + altoDeBurbuja(partes[1], RENGLONES_CON_DOS) + SEP_BURBUJAS_TARJETA + ALTO_MAS_PARTES + 6);
+  assert.equal(tres, Math.min(260, esperado), `la tarjeta de tres mide ${tres}`);
   // Una lista de UNA parte es un mensaje de los de siempre: no suma nada.
   assert.equal(altoDeMensaje(msg({ partes: [{ tipo: 'texto', cuerpo: 'Hola, te dejo esto' }] })), una);
 });
 
-test('la tarjeta dibuja la primera parte, «+N más» y NO la transcripción del audio', () => {
+test('la tarjeta dibuja hasta dos partes, «+N mensajes…» y NO la transcripción del audio', () => {
   const vista = bloque(FLUJO, 'function VistaMensaje(', '\nfunction VistaEmail(', 4_000);
   assert.match(vista, /partesExplicitas\(paso\)/, 'la tarjeta no cuenta las partes');
-  assert.match(vista, /RENGLON_MAS_PARTES/, 'el renglón no usa el alto con que lo mide `altoDeMensaje`');
+  assert.match(vista, /height: ALTO_MAS_PARTES/, 'el recuadro no usa el alto con que lo mide `altoDeMensaje`');
+  assert.match(vista, /partes\.slice\(0, PARTES_EN_TARJETA\)/, 'la tarjeta no corta en dos burbujas');
   assert.match(vista, /transcript: null/, 'la tarjeta vuelve a dibujar la transcripción');
 });
 

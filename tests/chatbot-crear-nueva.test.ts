@@ -36,6 +36,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { SimuladorWhatsApp } from '../app/automations/SimuladorWhatsApp';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
+import type { ClaseDisparador } from '../lib/disparadores';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -55,7 +56,7 @@ const dibujar = (extra: Record<string, unknown>) => renderToStaticMarkup(createE
 /** El cuerpo de `crearNueva` en ChatAgentApp, hasta su cierre real. */
 function crearNueva(): string {
   const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
-  const ini = src.indexOf('const crearNueva = async () => {');
+  const ini = src.indexOf('const crearNueva = async (clase?: ClaseDisparador) => {');
   assert.ok(ini >= 0, 'no está crearNueva');
   const fin = src.indexOf('\n  };', ini);
   const cuerpo = src.slice(ini, fin);
@@ -80,7 +81,7 @@ test('el pie de antes («N etapas sin secuencia · Armar una») no vuelve, ni su
 test('la puerta pregunta por lo no publicado ANTES de crear', () => {
   // Sin DOM no se puede prender `sinPublicar` (lo emite el lienzo en un efecto): se fija el fuente.
   const src = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
-  assert.match(src, /const nueva = \(\) => \{\n {4}if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva' \}\); return; \}\n {4}onNueva\(\);\n {2}\};/);
+  assert.match(src, /const nueva = \(\) => \{\n {4}if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva' \}\); return; \}\n {4}setCreandoMensaje\(false\);\n {4}onNueva\(\);\n {2}\};/);
   assert.match(src, /if \(p\.ir === 'nueva'\) onNueva\(\);/);
   // El «＋ Nueva» de la lista recibe ESA puerta, no `onNueva`.
   assert.match(src, /onClick=\{\(\) => nueva\(\)\}/);
@@ -88,7 +89,7 @@ test('la puerta pregunta por lo no publicado ANTES de crear', () => {
 
 test('el fallo de crear se dibuja pegado al «＋ Nueva» de la lista', () => {
   const html = dibujar({ errorNueva: 'No se pudo crear' });
-  const iNueva = html.indexOf('>Nueva<');
+  const iNueva = html.indexOf('>Nueva automatización<');
   const iError = html.indexOf('No se pudo crear');
   assert.ok(iNueva >= 0 && iError > iNueva, 'el error no está debajo del botón');
   assert.ok(!dibujar({}).includes('role="alert"'), 'sin error no hay alerta');
@@ -96,7 +97,7 @@ test('el fallo de crear se dibuja pegado al «＋ Nueva» de la lista', () => {
 
 test('crearNueva ignora los clics mientras hay un POST en vuelo, y se suelta en un finally', () => {
   const c = crearNueva();
-  assert.match(c, /^const crearNueva = async \(\) => \{\n {4}if \(creandoNueva\.current\) return;\n {4}creandoNueva\.current = true;/);
+  assert.match(c, /^const crearNueva = async \(clase\?: ClaseDisparador\) => \{\n {4}if \(creandoNueva\.current\) return;\n {4}creandoNueva\.current = true;/);
   // Tercera tanda: el finally suelta también la fila de «Nueva» (`creando`): si falló, se va.
   assert.match(c, /finally \{ setCreando\(null\); creandoNueva\.current = false; \}/);
   assert.match(sinComentarios(leer('app/automations/ChatAgentApp.tsx')), /const creandoNueva = useRef\(false\);/);

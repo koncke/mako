@@ -27,6 +27,19 @@
 //
 // ⚠️ EL HOVER VA EN LA CLASE, NUNCA EN EL `style` (docs/hallazgos-chatbot.md, parte «horario»: un
 // `border` en línea anula el `:hover` de la clase).
+//
+// ── DESDE EL 10/10/2026: LA PRIMERA PANTALLA ES «¿QUÉ LA DISPARA?» ──────────────────────────────
+// Pedido de Martín, textual: «Que automáticamente al crear, me salte el desplegable de "Nuevo cron" con
+// las opciones... Pero como es una nueva automatización, que este desplegable esté en el medio esta
+// vez, que cubra todo. Y que abajo de las 6 opciones, estén los "templates" de casos típicos de flujos,
+// y si apreto esos, que se cree solo. Y que en ese mismo modal esté la opción de pedirle a la IA...
+// Revisa como acomodar bien estas 3 cosas para que no esté todo un bulto que no se entienda».
+// El acomodo, de arriba abajo y cada cosa con su rótulo: (1) los SEIS botones del CRON, los mismos del
+// panel (`ElegirClase`, app/automations/EditorDisparadores.tsx) — elegir uno crea la automatización y
+// abre su CRON en ese tipo; (2) una fila con dos salidas, «Pídesela a MaKo» (la crea vacía y abre la
+// caja de Crear con IA) y, si hay algo copiado, «Pegar lo copiado» (copiar flujo, lib/flujo-copia.ts);
+// (3) las plantillas. El modal es ANCHO (cubre casi todo) y el viejo «En blanco» se fue: era lo mismo
+// que «Pídesela a MaKo» sin decirlo.
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Modal } from '@/app/_ui/Modal';
@@ -37,6 +50,10 @@ import {
   PLANTILLAS, seccionesParaCron, rotuloDeEleccion, type PlantillaAutomatizacion, type PideCron,
 } from '@/lib/plantillas-automatizaciones';
 import type { ProductoParaDisparo } from '@/lib/flujo-conversacion';
+import { ElegirClase } from './EditorDisparadores';
+import type { ClaseDisparador } from '@/lib/disparadores';
+import { leerCopia } from '@/lib/flujo-copia';
+import { MakoStar } from '@/app/_components/MakoBrand';
 
 /** Las dos formas de empezar sin plantilla (las de «＋ Nueva»). */
 export type QueNueva = 'blanco' | 'mako';
@@ -62,10 +79,12 @@ const TOPE_MS = 30_000;
  * está roto: queda una, que dice las dos cosas. El texto es corto a propósito.
  */
 export const EMPEZAR: ReadonlyArray<{ que: QueNueva; nombre: string; linea: string; icono: 'agregar' | 'mako' }> = [
-  { que: 'blanco', nombre: 'En blanco', linea: 'Tarjeta por tarjeta, o pídesela a MaKo.', icono: 'agregar' },
+  { que: 'mako', nombre: 'Pídesela a MaKo', linea: 'Cuéntale qué quieres y la arma.', icono: 'mako' },
 ];
 
 export const TITULO_GALERIA = 'Nueva automatización';
+export const ROTULO_CRON = '¿Qué la dispara?';
+export const ROTULO_OTRAS = 'O empieza así';
 export const ROTULO_PLANTILLAS = 'Desde una plantilla';
 export const PREGUNTA_ETAPA = '¿En qué etapa arranca?';
 
@@ -99,11 +118,29 @@ export function GaleriaPlantillas(p: {
   /** Los productos con sus etapas (los mismos que lee el editor del CRON). */
   productos: readonly ProductoParaDisparo[];
   onCerrar: () => void;
-  /** «En blanco» o «Con MaKo»: quien monta crea la vacía de «＋ Nueva». */
+  /** «Pídesela a MaKo»: quien monta crea la vacía de «＋ Nueva» (que abre la caja de Crear con IA). */
   onEmpezar: (como: QueNueva) => void;
+  /** Uno de los seis del CRON: quien monta la crea y abre su CRON en ese tipo. */
+  onCron?: (clase: ClaseDisparador) => void;
+  /** «Pegar lo copiado»: el texto del portapapeles (lib/flujo-copia.ts). Quien monta la crea. */
+  onPegar?: (texto: string) => void;
   /** La que se creó desde una plantilla: quien monta la abre. */
   onCreada: (r: CreadaGaleria) => void;
 }) {
+  // LO COPIADO, si hay (copiar flujo, 10/10/2026: «al momento de crear un nuevo flujo que te aparezca la
+  // opción de pegar»). Leer el portapapeles puede pedir permiso: si no lo dan, la opción no aparece.
+  const [copiado, setCopiado] = useState<{ texto: string; nombre: string } | null>(null);
+  useEffect(() => {
+    if (!p.onPegar || typeof navigator === 'undefined' || !navigator.clipboard?.readText) return;
+    let vivo = true;
+    navigator.clipboard.readText().then((t) => {
+      const c = leerCopia(t);
+      if (vivo && c) setCopiado({ texto: t, nombre: c.nombre ?? (c.pasos.length === 1 ? 'una tarjeta' : `${c.pasos.length} tarjetas`) });
+    }).catch(() => { /* sin permiso: no se ofrece */ });
+    return () => { vivo = false; };
+    // Una vez, al abrir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [elegida, setElegida] = useState<PlantillaAutomatizacion | null>(null);
   const [valor, setValor] = useState('');
   const [creando, setCreando] = useState<string | null>(null);
@@ -175,18 +212,35 @@ export function GaleriaPlantillas(p: {
   // ── 1. ¿Cómo empiezas? ──
   const ocupado = creando != null;
   return (
-    <Modal titulo={TITULO_GALERIA} onCerrar={cerrar} ancho={760} sinFiletes>
+    <Modal titulo={TITULO_GALERIA} onCerrar={cerrar} ancho={980} sinFiletes>
       <style>{CSS}</style>
       <div data-galeria-paso="lista">
+        {p.onCron && (
+          <>
+            <div style={{ ...ROTULO, marginTop: 0 }}>{ROTULO_CRON}</div>
+            <div data-galeria-cron>
+              <ElegirClase disabled={ocupado} onElegir={(c) => props.current.onCron?.(c)} />
+            </div>
+          </>
+        )}
+        <div style={ROTULO}>{ROTULO_OTRAS}</div>
         <div className="gal-grilla gal-grilla--empezar">
           {EMPEZAR.map((e) => (
             <button key={e.que} type="button" className="gal-tarjeta gal-tarjeta--empezar" data-empezar={e.que} disabled={ocupado}
               onClick={() => props.current.onEmpezar(e.que)}>
-              <span className="gal-icono" aria-hidden><IconoMenu nombre={e.icono} size={20} /></span>
+              <span className="gal-icono gal-icono--mako" aria-hidden><MakoStar size={20} animate={false} /></span>
               <span style={NOMBRE}>{e.nombre}</span>
               <span style={LINEA}>{e.linea}</span>
             </button>
           ))}
+          {copiado && p.onPegar && (
+            <button type="button" className="gal-tarjeta gal-tarjeta--empezar" data-pegar disabled={ocupado}
+              onClick={() => props.current.onPegar?.(copiado.texto)}>
+              <span className="gal-icono" aria-hidden><IconoMenu nombre="copiar" size={20} /></span>
+              <span style={NOMBRE}>Pegar lo copiado</span>
+              <span style={LINEA}>«{copiado.nombre}»</span>
+            </button>
+          )}
         </div>
         <div style={ROTULO}>{ROTULO_PLANTILLAS}</div>
         {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)', marginBottom: 10 }}>{error}</div>}

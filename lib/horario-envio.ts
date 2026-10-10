@@ -64,8 +64,9 @@ export function sanearHorario(raw: unknown): HorarioEnvio | null {
   const o = v as Record<string, unknown>;
   const desde = Number(o.desde);
   const hasta = Number(o.hasta);
-  if (!Number.isInteger(desde) || !Number.isInteger(hasta)) return null;
-  if (desde < 0 || desde > 23 || hasta < 1 || hasta > 24 || hasta <= desde) return null;
+  // DE MEDIA EN MEDIA HORA (10/10/2026: «Las horas debes ponerlas de media en media hora»): 9,5 es 9:30.
+  if (!Number.isInteger(desde * 2) || !Number.isInteger(hasta * 2)) return null;
+  if (desde < 0 || desde > 23.5 || hasta < 0.5 || hasta > 24 || hasta <= desde) return null;
   const dias = Array.isArray(o.dias)
     ? [...new Set(o.dias.map(Number).filter((d): d is DiaSemana => Number.isInteger(d) && d >= 0 && d <= 6))].sort((a, b) => a - b)
     : TODOS;
@@ -114,7 +115,9 @@ export function relojEnZona(ahoraMs: number, tz: string): { hora: number; minuto
 export function dentroDelHorario(ahoraMs: number, tz: string, h: HorarioEnvio | null): boolean {
   if (!h) return true;
   const r = relojEnZona(ahoraMs, tz);
-  return h.dias.includes(r.dia) && r.hora >= h.desde && r.hora < h.hasta;
+  // En MINUTOS: con medias horas, «desde las 9:30» no se cumple a las 9:10 aunque la hora sea 9.
+  const ahora = r.hora * 60 + r.minuto;
+  return h.dias.includes(r.dia) && ahora >= h.desde * 60 && ahora < h.hasta * 60;
 }
 
 /**
@@ -129,11 +132,17 @@ export function acabaDeAbrir(ahoraMs: number, tz: string, h: HorarioEnvio | null
   if (!h) return false;
   if (!dentroDelHorario(ahoraMs, tz, h)) return false;
   const r = relojEnZona(ahoraMs, tz);
-  return r.hora === h.desde && r.minuto < Math.max(1, minutos);
+  const desde = r.hora * 60 + r.minuto - h.desde * 60;
+  return desde >= 0 && desde < Math.max(1, minutos);
 }
 
-/** «09:00» / «24:00» para la pantalla. */
-export const horaTexto = (h: number): string => `${String(h).padStart(2, '0')}:00`;
+/** «09:00» / «09:30» / «24:00» para la pantalla. */
+export const horaTexto = (h: number): string => `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}`;
+/** «9» / «9:30»: lo corto del botón («9 a 21»). */
+export const horaCorta = (h: number): string => (h % 1 ? `${Math.floor(h)}:30` : String(h));
+/** Las medias horas del día, como las elige la pantalla: 0, 0,5 … 23,5 para abrir; 0,5 … 24 para cerrar. */
+export const MEDIAS_HORAS_DESDE: readonly number[] = Array.from({ length: 48 }, (_, i) => i / 2);
+export const MEDIAS_HORAS_HASTA: readonly number[] = Array.from({ length: 48 }, (_, i) => (i + 1) / 2);
 
 /** Las iniciales de los días, en el orden en que se dibujan (lunes primero). */
 export const DIAS_PANTALLA: ReadonlyArray<{ dia: DiaSemana; corto: string; nombre: string }> = [

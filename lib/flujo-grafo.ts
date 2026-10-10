@@ -248,6 +248,13 @@ export type PasoGrafo = {
   espera?: Espera;
   ramas?: RamaCondicion[];
   casos?: CasoRespuesta[];
+  /**
+   * Sólo «Si responde»: la persona le BORRÓ la flecha del CRON (10/10/2026, «Una condición normal»: la
+   * flecha se borra como cualquier otra). Suelta, no escucha: `raizRespuesta` no la devuelve, así que el
+   * motor no la corre y Publicar la frena como a cualquier tarjeta suelta (`tarjetasSueltas`). Conectarla
+   * desde el CRON la vuelve a enganchar (`conectar`, lib/flujo-edicion.ts). Ausente = conectada.
+   */
+  suelta?: boolean;
   /** condicion: «si no» · respuesta: «otra cosa». */
   si_no?: string | null;
   /**
@@ -636,7 +643,8 @@ export function hiloDe(pasos: readonly PasoGrafo[]): Map<string, string> {
 
 /** El nodo «Si responde», si la automatización tiene uno. */
 export function raizRespuesta(pasos: readonly PasoGrafo[]): string | null {
-  const i = pasos.findIndex((p) => claseDe(p) === 'respuesta');
+  // Una «Si responde» SUELTA (le borraron la flecha del CRON) no escucha: no es raíz de nada.
+  const i = pasos.findIndex((p) => claseDe(p) === 'respuesta' && p.suelta !== true);
   return i >= 0 ? idDe(pasos[i], i) : null;
 }
 

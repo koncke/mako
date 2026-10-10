@@ -116,7 +116,12 @@ test('quien no es admin no ve ningún mensaje (el endpoint le contesta 403), y s
   const html = dibujar({ avisos: AVISOS, rolAdmin: false });
   assert.doesNotMatch(html, />Reporte semanal<|>Cuota vencida</);
   assert.doesNotMatch(html, new RegExp(`>${ROTULO_MENSAJES_MAKO}</div>`));
-  assert.doesNotMatch(dibujar({ avisos: [] }), new RegExp(`>${ROTULO_MENSAJES_MAKO}</div>`));
+  assert.doesNotMatch(dibujar({ avisos: [], rolAdmin: false }), new RegExp(`>${ROTULO_MENSAJES_MAKO}</div>`));
+  // Un admin sin mensajes SÍ ve el rótulo, con su «＋ Nuevo mensaje» (10/10/2026: «por el botón de "Nueva"
+  // también abajo en la sección de MaKo en WhatsApp»): sin el rótulo no tendría dónde crear el primero.
+  const vacio = dibujar({ avisos: [] });
+  assert.match(vacio, new RegExp(`>${ROTULO_MENSAJES_MAKO}</div>`));
+  assert.ok(vacio.indexOf('>Nuevo mensaje</span>') > vacio.indexOf(`>${ROTULO_MENSAJES_MAKO}</div>`), 'falta «＋ Nuevo mensaje» bajo su rótulo');
 });
 
 test('el link `?aviso=` abre el lienzo de ESE mensaje en /automations: el MISMO editor de Notificaciones, con el inset de la lista', () => {

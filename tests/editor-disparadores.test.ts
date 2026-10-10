@@ -58,21 +58,27 @@ test('la primera pantalla: los SEIS botones gigantes, en orden y con su ícono; 
 test('un CRON «Producto»: el desplegable dice las etapas puestas, y abajo «＋ Nuevo CRON»; con uno solo, sin pastillas', () => {
   const html = dibujar([{ id: 'd1', trigger_tipo: 'entrega_actual', etapa: 'onb', etapas: ['onb', 'm1'], producto_id: 9 }]);
   assert.match(html, /Llega a «Bienvenida» o «Módulo 1»/);
-  assert.match(html, /＋ Nuevo CRON/);
+  // Los DOS recuadros (10/10/2026, CRON 3): el del CRON y el del «＋ Nuevo CRON».
+  assert.match(html, /data-cron-recuadro="d1"/);
+  assert.match(html, /mk-nuevo__mas[^>]*>＋<\/span>Nuevo CRON/);
   assert.doesNotMatch(html, /role="tablist"/, 'con un solo CRON no hay pastillas');
   assert.doesNotMatch(html, /Eliminar este CRON/, 'un CRON menos que uno no dispara nada: con uno solo no hay tacho');
 });
 
-test('DOS CRON: una pastilla por CRON y el tacho del abierto; «Etiqueta» con «Se agrega…» e «Ignorar»', () => {
+// ⚠️ CADA CRON EN SU RECUADRO desde el 10/10/2026 (CRON 3: «Un cron debería tener un contenedor y ser más
+// alto... Y que si creo más de 2, tenga scroll»): sin pastillas; el abierto muestra su editor, el otro lo
+// que dispara, y cada uno su tacho en la esquina.
+test('DOS CRON: un recuadro por CRON, cada uno con su tacho; el abierto con su editor («Se agrega…» e «Ignorar»)', () => {
   const html = dibujar([
     { id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 },
     { id: 'd2', trigger_tipo: 'etiqueta_agregada', ignorar: [4] },
   ], { editando: 'd2' });
-  assert.match(html, /role="tablist"/);
-  assert.match(html, /CRON 1<\/button>/);
-  assert.match(html, /CRON 2<\/button>/);
-  assert.match(html, /aria-selected="true"[^>]*>(?:(?!<\/button>).)*CRON 2<\/button>/);
-  assert.match(html, /aria-label="Eliminar este CRON"/);
+  assert.doesNotMatch(html, /role="tablist"/, 'volvieron las pastillas');
+  assert.match(html, /data-cron-recuadro="d1"/);
+  assert.match(html, /data-cron-recuadro="d2"/);
+  assert.match(html, />CRON 1</);
+  assert.match(html, />CRON 2</);
+  assert.equal(html.split('aria-label="Eliminar este CRON"').length - 1, 2, 'un tacho por CRON');
   assert.match(html, /Se agrega etiqueta a un lead/);
   assert.match(html, />Ignorar</);
   assert.match(html, /«Seguimiento»/, 'el botón de «Ignorar» no dice cuáles');

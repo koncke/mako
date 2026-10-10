@@ -240,11 +240,14 @@ function Rama({ rama, numero, secciones, cat, busy, onCambiar, onQuitarRama, pue
           {fi > 0 && <Union union={unionDe(rama, fi)} busy={busy} onCambiar={(u) => setFila(fi, { ...f, union: u }, true)} />}
           <FilaFrase fila={f} cat={cat} secciones={deLaSalida} busy={busy}
             onCambiar={(nf, apilar) => setFila(fi, nf, apilar)}
-            onQuitar={() => quitarFila(fi)} />
+            // ⚠️ CON UN SOLO DESPLEGABLE, SIN TACHO (10/10/2026, condición 1: «si hay un solo desplegable
+            // no debería estar el tacho de basura, para eso se elimina toda la tarjeta, y para eso ya
+            // tenemos el botón al lado de cerrar»).
+            onQuitar={filas.length > 1 || puedeQuitarRama ? () => quitarFila(fi) : undefined} />
         </Fragment>
       ))}
       {filas.length === 0
-        ? <Agregar texto="＋ Condición" aria="Agregar una condición" secciones={secciones} disabled={lleno} onElegir={agregar(null)} />
+        ? <Agregar texto="＋ Condición" aria="Agregar una condición" secciones={secciones} disabled={lleno} onElegir={agregar(null)} falta />
         : (
           // Los dos placeholders LADO A LADO y repartiendo el renglón (punto 4: «no pongas uno abajo
           // del otro, sino que uno al lado del otro, pero que ocupen todo el ancho»).
@@ -261,15 +264,17 @@ function Rama({ rama, numero, secciones, cat, busy, onCambiar, onQuitarRama, pue
  * «＋ Condición» / «＋ y» / «＋ o»: el desplegable de condiciones por secciones, con cara de PLACEHOLDER
  * (punto 4). Ocupa lo que le dan: solo, el renglón; de a dos, la mitad cada uno.
  */
-function Agregar({ texto, aria, titulo, secciones, disabled, onElegir }: {
+function Agregar({ texto, aria, titulo, secciones, disabled, onElegir, falta }: {
   texto: string; aria: string; titulo?: string; secciones: SeccionOpciones[]; disabled: boolean; onElegir: (v: string) => void;
+  /** La condición todavía no pregunta nada: el placeholder va en ROJO (condición 4, «donde falta»). */
+  falta?: boolean;
 }) {
   return (
     <div title={titulo} style={{ flex: 1, minWidth: 0 }}>
       <Dropdown value="" secciones={secciones as DropdownGroup[]} onChange={onElegir} resetAfterSelect sinFlecha search
         disabled={disabled} ariaLabel={aria} menuAncho={340} menuAlto={420} width="100%"
         botonLabel={<span style={{ fontSize: 14.5, fontWeight: 600, color: disabled ? 'var(--faint)' : 'var(--primary)', fontFamily: SANS }}>{texto}</span>}
-        buttonStyle={PLACEHOLDER} />
+        buttonStyle={falta ? { ...PLACEHOLDER, borderColor: 'var(--bad)' } : PLACEHOLDER} />
     </div>
   );
 }
@@ -307,7 +312,9 @@ function tieneValor(def: DefCondicion | null, campo: string): boolean {
  */
 function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar }: {
   fila: FilaCondicion; cat: CatalogosCondicion; secciones: SeccionOpciones[]; busy: boolean;
-  onCambiar: (f: FilaCondicion, apilar: boolean) => void; onQuitar: () => void;
+  onCambiar: (f: FilaCondicion, apilar: boolean) => void;
+  /** Ausente = es la única condición: sin tacho (se borra la tarjeta entera). */
+  onQuitar?: () => void;
 }) {
   const def = condicionPorId(fila.campo);
   const valorCampo = valorOpcion(String(fila.campo), !!fila.no && !!def?.negable);
@@ -331,16 +338,19 @@ function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar }: {
     if (f) onCambiar(fila.union ? { ...f, union: fila.union } : f, true);
   };
   const incompleta = problemaDeFila(fila) != null;
+  // ⚠️ CADA CONDICIÓN EN SU CONTENEDOR, con el tacho CHICO arriba a la derecha (10/10/2026, condición 3:
+  // «lo mismo que hicimos en el CRON, que tenga un contenedor para toda esa condición, entonces el
+  // botón de eliminar arriba a la derecha más chico, no al lado del desplegable»). El tacho cuelga de la
+  // esquina para no robarle ancho a la pregunta, que sigue siendo el campo grande.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Dropdown value={valorCampo} secciones={secciones as DropdownGroup[]} search ariaLabel="Condición" disabled={busy}
-            width="100%" menuAncho={340} menuAlto={420} onChange={elegirCampo} buttonStyle={botonGrande}
-            botonLabel={enLista ? undefined : rotuloPuesto} />
-        </div>
-        <BotonQuitar onClick={onQuitar} disabled={busy} aria="Quitar esta condición" />
-      </div>
+    <div data-condicion-fila style={{
+      position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, padding: 10, borderRadius: 12,
+      border: `1px solid ${incompleta ? 'var(--bad)' : 'var(--border)'}`, background: 'var(--surface-2)',
+    }}>
+      {onQuitar && <BotonQuitar onClick={onQuitar} disabled={busy} aria="Quitar esta condición" />}
+      <Dropdown value={valorCampo} secciones={secciones as DropdownGroup[]} search ariaLabel="Condición" disabled={busy}
+        width="100%" menuAncho={340} menuAlto={420} onChange={elegirCampo} buttonStyle={botonGrande}
+        botonLabel={enLista ? undefined : rotuloPuesto} />
       {tieneValor(def, String(fila.campo)) && (
         <div style={COLGANDO}>
           <Valor fila={fila} cat={cat} busy={busy} onCambiar={onCambiar} incompleta={incompleta} />
@@ -355,9 +365,16 @@ function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar }: {
  * QUITAR UNA FILA (una condición, un caso): la papelera de la casa, ROJA (sexta tanda, general 9: «Cambia
  * el botón de BORRAR con ese ícono... Esto en TODOS lados. Y que siempre el ícono de borrar sea rojo»).
  * Hasta la segunda pasada era una ✕ gris, que se lee como «cerrar» y no como «borrar esta fila».
+ *
+ * Desde el 10/10/2026 (condición 3) es CHICA y cuelga de la ESQUINA de arriba a la derecha del contenedor
+ * de la condición (`xs`): al lado del desplegable le robaba ancho a la pregunta y se confundía con el de
+ * la tarjeta entera, que es el `md` de la cabecera del panel.
  */
 function BotonQuitar({ onClick, disabled, aria }: { onClick: () => void; disabled: boolean; aria: string }) {
-  return <BotonBorrar talla="sm" onClick={onClick} disabled={disabled} title={aria} />;
+  return (
+    <BotonBorrar talla="xs" onClick={onClick} disabled={disabled} title={aria}
+      style={{ position: 'absolute', top: -9, right: -9, zIndex: 1, boxShadow: '0 1px 3px rgba(0,0,0,.12)' }} />
+  );
 }
 
 /** Saca una clave de la fila (para volver a «cualquiera»): ausente, no vacía. */
@@ -375,7 +392,8 @@ function Valor({ fila, cat, busy, onCambiar, incompleta }: {
   const def = condicionPorId(fila.campo);
   if (!def) return null;
   const v = def.valor;
-  const marco: CSSProperties | undefined = incompleta ? { borderColor: 'var(--warn)' } : undefined;
+  // Lo que falta, en ROJO (10/10/2026, condición 4: «debe remarcarse con rojo para identificar donde falta»).
+  const marco: CSSProperties | undefined = incompleta ? { borderColor: 'var(--bad)' } : undefined;
   const unidad = (t: string) => <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{t}</span>;
 
   if (v.t === 'legado') {
@@ -388,7 +406,7 @@ function Valor({ fila, cat, busy, onCambiar, incompleta }: {
     if (fila.campo === 'etapa') {
       const valor = fila.valor != null && fila.valor !== '' ? `${fila.funnel_id ?? ''}:${fila.valor}` : '';
       return (
-        <SelectorDeLista niveles={arbolDeOpciones('etapa', cat)} valor={valor} nombrePuesto={String(fila.valor ?? '')} busy={busy} aria="Etapa"
+        <SelectorDeLista niveles={arbolDeOpciones('etapa', cat)} valor={valor} nombrePuesto={String(fila.valor ?? '')} busy={busy} aria="Etapa" falta={incompleta}
           onElegir={(x) => { const [fid, ...k] = x.split(':'); onCambiar({ ...fila, valor: k.join(':'), funnel_id: fid ? Number(fid) : null }, true); }} />
       );
     }
@@ -425,7 +443,7 @@ function Valor({ fila, cat, busy, onCambiar, incompleta }: {
     const valor = fila.valor == null ? '' : String(fila.valor);
     return (
       <SelectorDeLista niveles={arbolDeOpciones(v.catalogo, cat)} valor={valor} nombrePuesto={nombreDeValor(v.catalogo, valor, nombresCatalogoDe(cat))}
-        busy={busy} aria={def.rotulo[0]} onElegir={(x) => onCambiar({ ...fila, valor: x }, true)} />
+        busy={busy} aria={def.rotulo[0]} falta={incompleta} onElegir={(x) => onCambiar({ ...fila, valor: x }, true)} />
     );
   }
 
@@ -508,17 +526,20 @@ function opcionesDelNivel(n: NivelArbol): DropdownOption[] {
  * catálogo tiene jerarquía, un ÁRBOL (`arbolDeOpciones`: primero el curso o el módulo, después lo de
  * adentro; buscar aplana); si no, plano. Lo puesto que no está en la lista lo dice el botón.
  */
-function SelectorDeLista({ niveles, valor, nombrePuesto, busy, aria, onElegir }: {
+function SelectorDeLista({ niveles, valor, nombrePuesto, busy, aria, onElegir, falta }: {
   niveles: NivelArbol[]; valor: string; nombrePuesto: string; busy: boolean; aria: string; onElegir: (v: string) => void;
+  /** Falta elegir: el borde en rojo (condición 4). */
+  falta?: boolean;
 }) {
+  const estilo: CSSProperties = falta ? { ...SECUNDARIO, border: '1px solid var(--bad)' } : SECUNDARIO;
   const todas = niveles.flatMap(opcionesDelNivel);
   const esta = !valor || todas.some((o) => o.value === valor);
   const botonLabel = esta ? undefined : nombrePuesto;
   return (
     <div style={{ flex: 1, minWidth: 180 }}>
       {esArbol(niveles)
-        ? <Dropdown value={valor} secciones={niveles as DropdownGroup[]} placeholder="Elige" width="100%" ariaLabel={aria} disabled={busy} search onChange={onElegir} botonLabel={botonLabel} buttonStyle={SECUNDARIO} />
-        : <Dropdown value={valor} options={todas} placeholder="Elige" width="100%" ariaLabel={aria} disabled={busy} onChange={onElegir} botonLabel={botonLabel} buttonStyle={SECUNDARIO} />}
+        ? <Dropdown value={valor} secciones={niveles as DropdownGroup[]} placeholder="Elige" width="100%" ariaLabel={aria} disabled={busy} search onChange={onElegir} botonLabel={botonLabel} buttonStyle={estilo} />
+        : <Dropdown value={valor} options={todas} placeholder="Elige" width="100%" ariaLabel={aria} disabled={busy} onChange={onElegir} botonLabel={botonLabel} buttonStyle={estilo} />}
     </div>
   );
 }
@@ -539,26 +560,44 @@ export function EditorCondicionDeRespuesta({ r, busy }: { r: EdicionRespuesta; b
   const casos = r.casos;
   const setCaso = (k: number, p: Partial<CasoRespuesta>) => r.cambiarCasos(casos.map((c, j) => (j === k ? { ...c, ...p } : c)), false);
   const lleno = busy || casos.length >= TOPE_CASOS;
+  // ⚠️ CON EL DISEÑO DE LA CONDICIÓN (10/10/2026: «el editable proximo de condición está vacío… esos que
+  // no funcionan pareciera que son viejos, no tienen el diseño de condición que hicimos»). Cada caso es
+  // una condición en su contenedor, con el tacho chico en la esquina; sin casos, la condición es
+  // «Respondió» (cualquier respuesta), en su contenedor como cualquiera, y no una caja vacía con un «＋ o».
+  const caja = (falta: boolean): CSSProperties => ({
+    position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, padding: 10, borderRadius: 12,
+    border: `1px solid ${falta ? 'var(--bad)' : 'var(--border)'}`, background: 'var(--surface-2)',
+  });
+  const pregunta: CSSProperties = {
+    ...botonGrande, display: 'flex', alignItems: 'center', boxSizing: 'border-box',
+    border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS,
+  };
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {casos.length === 0 && (
+        <div style={caja(false)}>
+          <div aria-label="Condición" style={pregunta}>
+            <span style={{ flex: 1, minWidth: 0 }}>{rotuloSiNoDeRespuesta({ casos })}</span>
+            {r.onVerSiNo && (
+              <button type="button" onClick={r.onVerSiNo}
+                style={{ background: 'none', border: 'none', padding: 0, fontSize: 13, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer', fontFamily: SANS }}>Ver</button>
+            )}
+          </div>
+        </div>
+      )}
       {casos.map((c, k) => (
         <Fragment key={c.id}>
           {k > 0 && <Separador><span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)', fontFamily: SANS }}>o</span></Separador>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div aria-label="Condición" style={{
-                ...botonGrande, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', boxSizing: 'border-box',
-                border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS,
-              }}>{ROTULO_RESPUESTA}</div>
-              <BotonQuitar onClick={() => r.onQuitarCaso(c.id)} disabled={busy} aria="Quitar este caso" />
-            </div>
+          <div style={caja(!c.titulo.trim() || !c.cuando.trim())}>
+            {casos.length > 1 && <BotonQuitar onClick={() => r.onQuitarCaso(c.id)} disabled={busy} aria="Quitar este caso" />}
+            <div aria-label="Condición" style={pregunta}>{ROTULO_RESPUESTA}</div>
             <div style={{ ...COLGANDO, flexDirection: 'column', alignItems: 'stretch' }}>
               <input value={c.titulo} maxLength={40} placeholder="Nombre del caso" disabled={busy} aria-label="Nombre del caso"
                 onChange={(e) => setCaso(k, { titulo: e.target.value })}
-                style={{ ...inpLienzo, fontWeight: 600, ...(c.titulo.trim() ? {} : { borderColor: 'var(--warn)' }) }} />
+                style={{ ...inpLienzo, fontWeight: 600, ...(c.titulo.trim() ? {} : { borderColor: 'var(--bad)' }) }} />
               <textarea value={c.cuando} rows={2} placeholder="Cuándo aplica" disabled={busy} aria-label="Cuándo aplica"
                 onChange={(e) => setCaso(k, { cuando: e.target.value })}
-                style={{ ...inpLienzo, resize: 'vertical', lineHeight: 1.45, ...(c.cuando.trim() ? {} : { borderColor: 'var(--warn)' }) }} />
+                style={{ ...inpLienzo, resize: 'vertical', lineHeight: 1.45, ...(c.cuando.trim() ? {} : { borderColor: 'var(--bad)' }) }} />
             </div>
           </div>
         </Fragment>
@@ -567,14 +606,15 @@ export function EditorCondicionDeRespuesta({ r, busy }: { r: EdicionRespuesta; b
         style={{ ...PLACEHOLDER, display: 'flex', alignItems: 'center', cursor: lleno ? 'default' : 'pointer', color: lleno ? 'var(--faint)' : 'var(--primary)', fontFamily: SANS, fontWeight: 600 }}>
         ＋ o
       </button>
-      <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        {/* Sin casos es «Respondió», como en la tarjeta: la misma función (séptima tanda). */}
-        <span style={{ fontSize: 12, color: 'var(--dim)' }}>{rotuloSiNoDeRespuesta({ casos })}</span>
-        {r.onVerSiNo && (
-          <button type="button" onClick={r.onVerSiNo}
-            style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 0, fontSize: 12, color: 'var(--primary)', cursor: 'pointer', fontFamily: SANS }}>Ver</button>
-        )}
-      </div>
+      {casos.length > 0 && (
+        <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, color: 'var(--dim)' }}>{rotuloSiNoDeRespuesta({ casos })}</span>
+          {r.onVerSiNo && (
+            <button type="button" onClick={r.onVerSiNo}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 0, fontSize: 12, color: 'var(--primary)', cursor: 'pointer', fontFamily: SANS }}>Ver</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

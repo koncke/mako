@@ -24,6 +24,8 @@ import Link from '@/app/_ui/Link';
 import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type AbrirAviso, type Creando } from './SimuladorWhatsApp';
 import { HorarioLista } from './HorarioLista';
 import { GaleriaPlantillas, type CreadaGaleria } from './GaleriaPlantillas';
+import { leerCopia, firmaDeCopia } from '@/lib/flujo-copia';
+import type { ClaseDisparador } from '@/lib/disparadores';
 // Los Mensajes de MaKo (los flujos de Configuraciones › Notificaciones, quinta tanda punto 5): el
 // endpoint y el parámetro del link son los de allá (lib/chatbot-mensajes-mako.ts).
 import { ENDPOINT_MENSAJES_MAKO, PARAM_AVISO, mensajePedido } from '@/lib/chatbot-mensajes-mako';
@@ -393,7 +395,7 @@ function ChatAgentInner() {
    * `creando` es un ESTADO aparte y no una fila metida en `secuencias`: un `load()` de otra pantalla
    * en el medio la borraría.
    */
-  const crearNueva = async () => {
+  const crearNueva = async (clase?: ClaseDisparador) => {
     if (creandoNueva.current) return;
     creandoNueva.current = true;
     setErrCrear(null);
@@ -404,12 +406,61 @@ function ChatAgentInner() {
       const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_vacia' }) })).json();
       if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); return; }
       const id = Number(r.secuenciaId);
+      // Con uno de los seis del CRON elegido en el modal, se abre su CRON en ese tipo (10/10/2026).
+      if (clase) setArranque({ id, clase });
       setCreando({ temporal, id });
       await load();
     } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
   };
   /** «＋ Nueva»: la galería. «En blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia). */
   const abrirGaleria = () => { setErrCrear(null); setGaleria(true); };
+  /** La que se acaba de crear con un tipo de CRON elegido: su lienzo abre ese CRON (SecuenciaPerfil, `arranque`). */
+  const [arranque, setArranque] = useState<{ id: number; clase: ClaseDisparador } | null>(null);
+  /**
+   * CREAR DESDE LO COPIADO (copiar flujo, 10/10/2026): el aviso al entrar a la tab y «Pegar lo copiado» del
+   * modal. Nace APAGADA (lib/flujo-copia-negocio.ts); lo que no existe en este negocio queda vacío y en rojo.
+   */
+  const crearDesdeCopia = async (texto: string) => {
+    setErrCrear(null);
+    try {
+      const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_desde_copia', copia: texto }) })).json();
+      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo pegar'); return; }
+      setErrCrear(typeof r.aviso === 'string' ? r.aviso : null);
+      await load();
+      setAbrirSec({ id: Number(r.secuenciaId) });
+    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); }
+  };
+  /**
+   * «COPIASTE UN FLUJO, ¿LO CREO?» (10/10/2026: «al entrar a la tab de automations, si detecta que tenes
+   * copiado un flujo nuevo, que te proponga crearlo»). Se mira el portapapeles al entrar y al volver a la
+   * pestaña. Leerlo puede pedir permiso al navegador; sin permiso, no hay aviso. «Ahora no» se recuerda
+   * por COPIA (su firma, en este navegador): la misma copia no se vuelve a ofrecer, una nueva sí.
+   */
+  const [ofrecerCopia, setOfrecerCopia] = useState<{ texto: string; nombre: string; firma: string } | null>(null);
+  useEffect(() => {
+    if (!rolAdmin) return;
+    const mirar = () => {
+      if (typeof navigator === 'undefined' || !navigator.clipboard?.readText || document.visibilityState !== 'visible') return;
+      navigator.clipboard.readText().then((t) => {
+        const c = leerCopia(t);
+        if (!c || c.que !== 'flujo') return;
+        const firma = firmaDeCopia(t);
+        let vista = false;
+        try { vista = localStorage.getItem('mako.copia-ofrecida') === firma; } catch { /* sin storage */ }
+        if (!vista) setOfrecerCopia({ texto: t, nombre: c.nombre ?? 'Automatización', firma });
+      }).catch(() => { /* sin permiso o sin foco: no se ofrece */ });
+    };
+    mirar();
+    window.addEventListener('focus', mirar);
+    return () => window.removeEventListener('focus', mirar);
+  }, [rolAdmin]);
+  const descartarCopia = (crear: boolean) => {
+    const o = ofrecerCopia;
+    setOfrecerCopia(null);
+    if (!o) return;
+    try { localStorage.setItem('mako.copia-ofrecida', o.firma); } catch { /* sin storage */ }
+    if (crear) void crearDesdeCopia(o.texto);
+  };
   /** Una creada desde una plantilla: se trae la lista y se abre su lienzo. El aviso (la etapa no se pudo guardar) va pegado al botón. */
   const alCrearDePlantilla = async (r: CreadaGaleria) => {
     setGaleria(false);
@@ -683,6 +734,7 @@ function ChatAgentInner() {
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
           abrir={abrirSec}
+          arranque={arranque} onArranqueUsado={() => setArranque(null)}
           handoffs={sinCaso}
           /* EL HORARIO DE ENVÍO, ahí mismo en la lista (10/10/2026: «haz que se pueda configurar allí
              mismo, sin redirigir»): el editor de Configuraciones › Horario adentro de un panel anclado.
@@ -701,7 +753,23 @@ function ChatAgentInner() {
       {/* LA GALERÍA de «＋ Nueva» (sólo un admin crea). «En blanco» es la vacía de siempre. */}
       {galeria && rolAdmin && (
         <GaleriaPlantillas productos={productos} onCerrar={() => setGaleria(false)}
-          onEmpezar={() => { setGaleria(false); void crearNueva(); }} onCreada={(r) => void alCrearDePlantilla(r)} />
+          onEmpezar={() => { setGaleria(false); void crearNueva(); }}
+          onCron={(clase) => { setGaleria(false); void crearNueva(clase); }}
+          onPegar={(t) => { setGaleria(false); void crearDesdeCopia(t); }}
+          onCreada={(r) => void alCrearDePlantilla(r)} />
+      )}
+
+      {/* «COPIASTE UN FLUJO»: arriba al centro, sobre el lienzo, hasta que se conteste. */}
+      {ofrecerCopia && (
+        <div role="dialog" aria-label="Crear lo copiado" style={{
+          position: 'fixed', top: 18, left: '50%', transform: 'translateX(-50%)', zIndex: 58,
+          display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px 10px 16px', borderRadius: 14,
+          background: 'var(--surface)', border: '1px solid var(--border-strong)', boxShadow: '0 12px 32px rgba(0,0,0,.16)', fontSize: 13.5, color: 'var(--ink)',
+        }}>
+          <span>Copiaste «<strong>{ofrecerCopia.nombre}</strong>». ¿Crearla?</span>
+          <button type="button" onClick={() => descartarCopia(true)} style={{ ...btnDark, padding: '7px 14px', fontSize: 13 }}>Crear</button>
+          <button type="button" onClick={() => descartarCopia(false)} style={{ padding: '7px 10px', border: 'none', background: 'transparent', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Ahora no</button>
+        </div>
       )}
 
     </main>

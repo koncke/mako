@@ -71,6 +71,7 @@ import { MakoRedacta } from './MakoRedacta';
 import { Dropdown } from '../components/Dropdown';
 import { SvcIcon } from '@/app/_components/ServicioVisual';
 import { MakoLogo } from '@/app/_components/MakoBrand';
+import { BotonMako } from '@/app/_ui/BotonMako';
 import { useWs } from '@/app/_ui/Link';
 import { Spinner, Toast, useToast } from '@/app/_ui';
 import { aplicarVariables, esVariableConocida } from '@/lib/template-vars';
@@ -140,6 +141,11 @@ export type EditorMensajeWhatsAppProps = {
    * mensaje y sin «adaptarlo a cada persona» (su emisor manda el texto tal cual). Ausente = los del motor.
    */
   redactaCon?: 'recordatorio';
+  /**
+   * Una espera de MINUTOS antes del mensaje `i` (WhatsApp 2, 10/10/2026): quien monta PARTE la tarjeta
+   * en dos con una espera en el medio (lib/flujo-edicion.ts, `partirConEspera`). Sin esto, sólo segundos.
+   */
+  onPartirConEspera?: (i: number, minutos: number) => void;
   /**
    * El árbol del «{ }» ya armado (`datosOfrecidos`, lib/variables-aviso.ts): el mensaje de MaKo al
    * GRUPO (destino «equipo»). Gana sobre `variables`. Sin los dos: lo que el motor resuelve para un
@@ -237,14 +243,12 @@ function usePanelMako(clave: string): boolean {
 /** El ✦ de MaKo: abre (o cierra) el panel que ayuda a escribir ESTE mensaje. */
 export function BotonMakoWhatsApp({ clave, adaptando, deshabilitado }: { clave: string; adaptando?: boolean; deshabilitado?: boolean }) {
   const abierto = usePanelMako(clave);
-  const on = abierto || !!adaptando;
+  // El botón de MaKo de la casa (app/_ui/BotonMako.tsx): negro y con el recuadro estándar. Era una
+  // píldora con el logo adentro (10/10/2026: «tiene el botón de MaKo super redondeado, eso está mal»).
   return (
-    <button type="button" data-no-pan disabled={deshabilitado} aria-pressed={abierto}
-      title={adaptando ? 'MaKo lo adapta a cada persona' : 'Que MaKo te ayude a escribirlo'} aria-label="Que MaKo te ayude a escribirlo"
-      onClick={() => alternarPanelMako(clave)}
-      style={{ ...chip, padding: '0 8px', ...(on ? { background: 'var(--mako-bg)', border: '1px solid var(--mako-border)', color: 'var(--mako-ink)' } : {}) }}>
-      <MakoLogo size={16} animate={false} />
-    </button>
+    <BotonMako lado={32} encendido={abierto || !!adaptando} deshabilitado={deshabilitado}
+      title={adaptando ? 'MaKo lo adapta a cada persona' : 'Que MaKo te ayude a escribirlo'}
+      onClick={() => alternarPanelMako(clave)} />
   );
 }
 
@@ -388,15 +392,19 @@ export const ALTO_MIN_CHAT = 110;
 /** Lo que dice la pastilla de la pausa entre dos mensajes (WhatsApp 11). Pura (test). */
 export const rotuloPausa = (s: number): string => `${Number.isInteger(s) ? s : s.toFixed(1)} s`;
 
+/** Las esperas de MINUTOS entre dos mensajes (WhatsApp 2): elegir una parte la tarjeta (`onPartirConEspera`). */
+export const MINUTOS_ENTRE_MENSAJES = [1, 5, 15, 30, 60] as const;
+export const rotuloMinutos = (m: number): string => (m >= 60 && m % 60 === 0 ? `${m / 60} h` : `${m} min`);
+
 /** La hora de las burbujas: la de cuando se abrió el editor, como en un chat. */
-function horaDeAhora(): string {
+export function horaDeAhora(): string {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 export function EditorMensajeWhatsApp({
   paso, onChange, audios, onAudioNuevo, variables, datos, permiteIA, onModoIA, permiteAudio = true, permiteAdjuntos = true,
-  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor, redactaCon,
+  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor, redactaCon, onPartirConEspera,
 }: EditorMensajeWhatsAppProps) {
   const ws = useWs();
   // ¿Varias partes? Sólo por el no oficial (ver la cabecera): el oficial, el recordatorio y el aviso
@@ -768,12 +776,24 @@ export function EditorMensajeWhatsApp({
     if (s == null) return null;
     const posibles = pausasPosibles(partes, i);
     return (
-      <div key={`pausa-${i}`} data-pausa={i} style={{ alignSelf: 'center', margin: '-2px 0' }}>
-        <Dropdown value={String(s)} search={false} disabled={ocupado} ariaLabel={`Espera antes del mensaje ${i + 1}`}
+      // ⚠️ PEGADO A LA DERECHA, con las burbujas (10/10/2026, WhatsApp 2: «que esté pegado a la derecha, no
+      // centrado en el medio. Y que permita editar más, no solo 10 segundos, incluso minutos también»).
+      // Los SEGUNDOS son la pausa de la tarjeta (el motor duerme, con su tope: lib/mensaje-partes.ts). Los
+      // MINUTOS no se pueden dormir adentro de una corrida, así que elegir uno PARTE la tarjeta en dos con
+      // una espera en el medio (`onPartirConEspera`, lib/flujo-edicion.ts): la espera que programa, la que
+      // sobrevive a la corrida.
+      <div key={`pausa-${i}`} data-pausa={i} style={{ alignSelf: 'flex-end', margin: '-2px 0' }}>
+        <Dropdown value={String(s)} search={false} disabled={ocupado} ariaLabel={`Espera antes del mensaje ${i + 1}`} align="right"
           botonLabel={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconReloj /> {rotuloPausa(s)}</span>}
           buttonStyle={{ padding: '2px 9px', fontSize: 11.5, borderRadius: 999, minHeight: 0, background: 'var(--surface)', color: 'var(--dim)' }}
-          options={posibles.map((x) => ({ value: String(x), label: rotuloPausa(x), icono: 'cronometro' }))}
-          onChange={(v) => { const n = Number(v); if (n > 0) ponerPausa(i, n); }} />
+          options={[
+            ...posibles.map((x) => ({ value: String(x), label: rotuloPausa(x), icono: 'cronometro' as const })),
+            ...(onPartirConEspera ? MINUTOS_ENTRE_MENSAJES.map((m, k) => ({ value: `m${m}`, label: rotuloMinutos(m), icono: 'cronometro' as const, lineaArriba: k === 0 })) : []),
+          ]}
+          onChange={(v) => {
+            if (v.startsWith('m')) { const m = Number(v.slice(1)); if (m > 0) onPartirConEspera?.(i, m); return; }
+            const n = Number(v); if (n > 0) ponerPausa(i, n);
+          }} />
       </div>
     );
   };

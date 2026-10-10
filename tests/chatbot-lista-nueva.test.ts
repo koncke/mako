@@ -97,7 +97,7 @@ test('con la fila que se está creando elegida, el lienzo está abierto con su l
 
 test('crearNueva pone la fila y la abre ANTES de pedirle nada al server; el id real ANTES del load', () => {
   // Sin `pedido` desde el 10/10/2026: lo mandaba «Armar una» del pie de la lista, que salió.
-  const c = recorte(APP(), 'const crearNueva = async () => {', '\n  };', 1500);
+  const c = recorte(APP(), 'const crearNueva = async (clase?: ClaseDisparador) => {', '\n  };', 1700);
   const iFila = c.indexOf('setCreando({ temporal, id: null });\n    setAbrirSec({ id: temporal });');
   const iPost = c.indexOf("fetch('/api/chat-agent/secuencias'");
   const iReal = c.indexOf('setCreando({ temporal, id });');
@@ -133,7 +133,8 @@ test('«Nueva» tiene su animación al pasar el cursor (el ＋ gira), quieta con
   assert.match(css, /\.chb-nueva:hover,\.chb-nueva:focus-visible\{opacity:1;color:var\(--primary\);border-color:var\(--primary\);background:var\(--primary-bg\)\}/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)\{\.chb-nueva__mas\{transition:none\}/);
   // ⚠️ Un estilo en línea le gana a cualquier :hover: el botón y su ＋ no llevan fondo, color, borde ni opacidad en línea.
-  const boton = lista.slice(lista.indexOf('className="chb-nueva"'), lista.indexOf('>Nueva</span>'));
+  // «＋ Nueva automatización» desde el 10/10/2026 (Martín: «que en lugar de "+ Nueva" sea "+ Nueva automatización"»).
+  const boton = lista.slice(lista.indexOf('className="chb-nueva"'), lista.indexOf('>Nueva automatización</span>'));
   assert.ok(boton.length > 0 && boton.length < 900, `el recorte de «Nueva» mide ${boton.length}`);
   assert.doesNotMatch(boton, /\b(background|color|border|opacity):/);
   assert.match(lista, /<style>\{CSS_LISTA\}<\/style>/);
@@ -143,8 +144,9 @@ test('«Nueva» tiene su animación al pasar el cursor (el ＋ gira), quieta con
 // ── Los tres puntos (decisión 6) ─────────────────────────────────────────────────
 
 test('cada fila tiene su «⋯» (el menú de la casa): Activar o Pausar, Duplicar y Eliminar', () => {
-  assert.deepEqual(opcionesDeFila(true).map((o) => o.label), ['Pausar', 'Duplicar', 'Eliminar']);
-  assert.deepEqual(opcionesDeFila(false).map((o) => o.label), ['Activar', 'Duplicar', 'Eliminar']);
+  // «Copiar flujo» desde el 10/10/2026 (copiar y pegar flujos, lib/flujo-copia.ts).
+  assert.deepEqual(opcionesDeFila(true).map((o) => o.label), ['Pausar', 'Duplicar', 'Copiar flujo', 'Eliminar']);
+  assert.deepEqual(opcionesDeFila(false).map((o) => o.label), ['Activar', 'Duplicar', 'Copiar flujo', 'Eliminar']);
   const html = dibujar([SECUENCIA]);
   assert.match(html, /aria-label="Opciones de Bienvenida"/);
   // Su columna PROPIA, al lado del botón que abre: no tapa el nombre (y un botón no va adentro de otro).

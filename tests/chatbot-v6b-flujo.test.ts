@@ -520,7 +520,9 @@ test('CRON 10: una fila por disparador con SU ícono, cada una abre ESE CRON, y 
   for (const tipo of ['producto', 'recurrente'] as const) {
     assert.ok(html.includes(renderToStaticMarkup(createElement(IconoDisparador, { tipo, tam: 16 }))), `la fila de ${tipo} no lleva el ícono de su clase`);
   }
-  assert.match(html, /＋ Nuevo CRON/);
+  // El ＋ va en su propio span desde el 10/10/2026: gira al pasar el cursor (NuevoPlaceholder, CRON 1).
+  assert.match(html, /data-nuevo-disparador/);
+  assert.match(html, /mk-nuevo__mas[^>]*>＋<\/span>Nuevo CRON/);
   // Sin quien sepa agregar, no se ofrece; sin quien sepa abrir, las filas no son botones.
   const soloVer = renderToStaticMarkup(createElement(CuerpoCron, { disparadores: ds }));
   assert.doesNotMatch(soloVer, /Nuevo CRON|data-disparador|<button/);
@@ -564,6 +566,6 @@ test('general 9: «borrar» es UNA definición (app/_ui/BotonBorrar.tsx) en los 
     assert.doesNotMatch(c, /🗑|name="trash"/, `${r} dibuja la papelera vieja`);
   }
   const quitar = tramo(codigo('app/automations/EditorCondicion.tsx'), 'function BotonQuitar(', '\n}');
-  assert.match(quitar, /<BotonBorrar talla="sm"/);
+  assert.match(quitar, /<BotonBorrar talla="xs"/);
   assert.doesNotMatch(quitar, /✕/, 'quitar una fila vuelve a ser la ✕ gris, que se lee como «cerrar»');
 });

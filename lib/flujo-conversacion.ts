@@ -335,6 +335,19 @@ const RENGLONES_TEXTO = 5;      // el `WebkitLineClamp` de la burbuja compacta
 export const RENGLON_MAS_PARTES = 16;
 const HOLGURA = 6;              // la fuente que no llegó, el redondeo
 const TOPE_MENSAJE = 260;
+/**
+ * LA TARJETA DE WHATSAPP COMO UN WHATSAPP (10/10/2026, WhatsApp 1: «los mensajes deben estar separados,
+ * como en el editable, y que se vean como máximo 2 mensajes en la tarjeta del lienzo, para no romper
+ * diseño. Que se vea las palomitas todo, como si fuera un whatsapp... Y si hay más mensajes un pequeño y
+ * sutil recuadro que diga "+3 mensajes..."»). Cada burbuja lleva su fila de la hora y el ✓✓
+ * (`ALTO_PALOMITAS`: marginTop 3 + 10,5 px), hasta dos burbujas separadas, y el recuadro de lo que queda.
+ */
+export const ALTO_PALOMITAS = 15;
+export const SEP_BURBUJAS_TARJETA = 6;
+export const ALTO_MAS_PARTES = 22;
+export const PARTES_EN_TARJETA = 2;
+/** Los renglones de texto de cada burbuja cuando la tarjeta dibuja dos (con uno, `RENGLONES_TEXTO`). */
+export const RENGLONES_CON_DOS = 3;
 // La caja del mail (`VistaEmail`): relleno 7×2 + borde 1×2; el asunto a 12,5 px en 18; la vista
 // previa a 11 px en 16; el cuerpo a 12 px × 1,45, tres renglones como mucho, de ~36 letras.
 export const MARCO_MAIL = 16;
@@ -366,9 +379,29 @@ export type AudioParaAlto = { transcript?: string | null } | null | undefined;
  * abajo. `_audio` queda en la firma porque el árbol se lo pasa (`audioDe`).
  */
 export function altoDeMensaje(p: PasoParaGrafo, _audio?: AudioParaAlto): number {
-  const mas = (partesExplicitas(p)?.length ?? 1) - 1;
+  const partes = partesExplicitas(p);
+  const conPalomitas = p.canal !== 'email' && !esCanalSocial(p.canal);
+  // VARIOS MENSAJES: hasta dos burbujas y el recuadro «+N mensajes…» (WhatsApp 1, 10/10/2026).
+  if (conPalomitas && partes && partes.length > 1) {
+    const vis = partes.slice(0, PARTES_EN_TARJETA);
+    const h = MARCO_TARJETA
+      + vis.reduce((acc, x, k) => acc + (k ? SEP_BURBUJAS_TARJETA : 0) + altoDeBurbuja(x, RENGLONES_CON_DOS), 0)
+      + (partes.length > PARTES_EN_TARJETA ? SEP_BURBUJAS_TARJETA + ALTO_MAS_PARTES : 0) + HOLGURA;
+    return Math.min(TOPE_MENSAJE, Math.max(ALTO_MIN, Math.ceil(h)));
+  }
+  const mas = (partes?.length ?? 1) - 1;
   const base = altoDeLaPrimera(p);
-  return mas > 0 ? Math.min(TOPE_MENSAJE, base + SEP_BURBUJA + RENGLON_MAS_PARTES) : base;
+  if (!conPalomitas) return mas > 0 ? Math.min(TOPE_MENSAJE, base + SEP_BURBUJA + RENGLON_MAS_PARTES) : base;
+  // La fila de las palomitas comparte renglón con el ✦ de «MaKo lo adapta»: con hora, ese renglón ya está.
+  return Math.min(TOPE_MENSAJE, base + ALTO_PALOMITAS - (p.tipo === 'ia' ? 18 : 0));
+}
+
+/** El alto de UNA burbuja de la tarjeta (una parte), con su fila de palomitas. */
+export function altoDeBurbuja(parte: { tipo: string; cuerpo?: string }, renglonesMax: number): number {
+  if (parte.tipo === 'audio') return MARCO_BURBUJA + ALTO_REPRODUCTOR + SEP_BURBUJA + ALTO_TITULO_AUDIO + ALTO_PALOMITAS;
+  const r = Math.min(renglonesMax, renglonesDe(parte.cuerpo ?? '', LETRAS_TEXTO));
+  if (parte.tipo === 'media') return MARCO_BURBUJA + ALTO_CHIP_ARCHIVO + (r ? SEP_BURBUJA + r * RENGLON_TEXTO : 0) + ALTO_PALOMITAS;
+  return MARCO_BURBUJA + Math.max(1, r) * RENGLON_TEXTO + ALTO_PALOMITAS;
 }
 
 /** El alto de la burbuja que la tarjeta dibuja: el mensaje, o la PRIMERA parte (el espejo). */
@@ -505,6 +538,27 @@ export function faltaEscribir(pasos: readonly PasoGrafo[]): { id: string; error:
     if (mensajeVacio(p)) return { id, error: `Falta completar «${nombreDeTarjeta(pasos, id)}»` };
   }
   return null;
+}
+
+/**
+ * LAS TARJETAS A MEDIO COMPLETAR (10/10/2026, condición 4: «Si cierro una condición, como cualquier
+ * cosa, sin completar, debe remarcarse con rojo para identificar donde falta»). La MISMA vara que
+ * Publicar: los errores de `validarGrafo` que nombran una tarjeta, más lo que falta escribir
+ * (`faltaEscribir`, para TODAS y no sólo la primera). Lo de estar SUELTA no cuenta: una tarjeta suelta
+ * es un borrador permitido y ya se dibuja punteada, no le falta nada adentro.
+ */
+export function tarjetasIncompletas(pasos: readonly PasoGrafo[]): Set<string> {
+  const out = new Set<string>();
+  for (const e of validarGrafo(pasos)) {
+    if (e.startsWith('tarjetas sueltas')) continue;
+    const t = tarjetaDelError(e, pasos);
+    if (t) out.add(t);
+  }
+  pasos.forEach((p, i) => {
+    const vacia = esMako(p) ? !(makoDeAccion(p)?.mensaje ?? '').trim() : claseDe(p) === 'mensaje' && mensajeVacio(p);
+    if (vacia) out.add(idDe(p, i));
+  });
+  return out;
 }
 
 /**
@@ -1065,14 +1119,19 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       }
     }
   });
-  // ── LA FLECHA DE LA QUE ESCUCHA (séptima tanda): del CRON a «Si responde», desde su salida ──
-  // NO es un dato (en `pasos` «Si responde» no tiene padre): es lo que hace el motor dicho en el dibujo
-  // —escucha desde que el lead entra por el CRON—. Por eso va punteada (`condicional`, como lo que no es
-  // «después» sino «a la vez»), con su rótulo corto, y `sinMas`: sin ＋ en el medio (insertar ahí
-  // escribiría una flecha que el dato no admite) y sin papelera (no hay nada que desconectar; el lienzo
-  // tampoco le ofrece «Desconectar» a la tarjeta, app/automations/FlujoLienzo.tsx).
+  // ── LA FLECHA DE LA QUE ESCUCHA: del CRON a «Si responde», desde su salida ──
+  // En `pasos` «Si responde» no tiene padre: la flecha dice lo que hace el motor —escucha desde que el
+  // lead entra por el CRON—. `sinMas`: sin ＋ en el medio (insertar ahí escribiría una flecha que el dato
+  // no admite).
+  //
+  // ⚠️ DESDE EL 10/10/2026 ES UNA FLECHA NORMAL, SIN RÓTULO Y CON PAPELERA (`quitable`). Pedido de Martín:
+  // «aparece luego del cron una flecha punteada que dice "Si responde"… La flecha no se puede eliminar, no
+  // se puede editar, nada de eso tiene sentido. De por sí no debería haber un chip en el medio… para eso
+  // ya tenemos la tarjeta de condición»; y eligió «Una condición normal». Borrarla deja «Si responde»
+  // SUELTA (`suelta`, lib/flujo-grafo.ts: el motor deja de escuchar y Publicar la frena como a cualquier
+  // suelta); se vuelve a conectar arrastrando desde el CRON (`conectar`, lib/flujo-edicion.ts).
   if (resp && pos.has(resp)) {
-    aristas.push({ desde: ID_ENTRADA, hasta: resp, puerto: 'sig', etiqueta: ETIQUETA_FLECHA_ESCUCHA, tono: 'condicional', sinMas: true });
+    aristas.push({ desde: ID_ENTRADA, hasta: resp, puerto: 'sig', tono: 'normal', sinMas: true, quitable: true });
   }
 
   const normal = aOrigen(nodos, MARGEN);

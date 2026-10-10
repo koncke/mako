@@ -32,7 +32,7 @@ import {
   EditorMensajeWhatsApp, EditorMensajeGrupo, CabeceraMakoEnWhatsApp, propuestaALista, enviarALista, rotuloPausa,
 } from '../app/automations/EditorMensajeWhatsApp';
 import { textoMasPartes, renglonesDeTarjeta } from '../app/automations/FlujoLienzo';
-import { altoDeMensaje } from '../lib/flujo-conversacion';
+import { altoDeMensaje, ALTO_PALOMITAS } from '../lib/flujo-conversacion';
 import { pedidoDeRedacta, revisarRedacta, redactaSystem, userDeRedacta, sinVariablesAjenas, LECTURAS_REDACTA } from '../lib/mako-redacta';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO } from '../lib/template-vars';
 import { porId } from '../lib/api-mako/registro';
@@ -476,23 +476,23 @@ test('editar un audio abre la barra de escucharlo (con 🎤 para seguir), no el 
   assert.match(editar, /else \{ setAdjunto\(null\); escribir\(''\); \}/, 'un audio editado volvía como chip («Bienvenida ✕»)');
 });
 
-test('la tarjeta: «+1 mensaje…» abajo a la derecha, y el texto largo termina en «…» ADENTRO del alto estimado', () => {
+// ⚠️ DESDE EL 10/10/2026 (WhatsApp 1): hasta DOS burbujas, cada una con sus palomitas, y el recuadro «+N
+// mensajes…» de lo que queda. Un mensaje solo corta adentro del alto estimado, ahora con la fila de la hora.
+test('la tarjeta: hasta dos mensajes y «+N mensajes…», y el texto largo termina en «…» ADENTRO del alto estimado', () => {
   assert.equal(textoMasPartes(1), '+1 mensaje…');
   assert.equal(textoMasPartes(3), '+3 mensajes…');
   for (const largo of [10, 60, 140, 260, 600, 2000]) {
-    for (const mas of [0, 2]) {
-      const cuerpo = 'a'.repeat(largo);
-      const partes = mas ? [{ tipo: 'texto' as const, cuerpo }, ...Array.from({ length: mas }, () => ({ tipo: 'texto' as const, cuerpo: 'otro' }))] : undefined;
-      const paso = { id: 'x', orden: 1, canal: 'whatsapp' as const, delay_horas: 0, asunto: null, template_wa: null, tipo: 'texto' as const, cuerpo, ...(partes ? { partes } : {}) } as PasoSecuenciaDto;
-      const lineas = renglonesDeTarjeta(paso, mas);
-      const alto = altoDeMensaje(paso as unknown as Parameters<typeof altoDeMensaje>[0]);
-      assert.ok(lineas >= 1 && lineas <= 5);
-      assert.ok(47 + 18 + 6 + lineas * 18.125 + (mas ? 20 : 0) <= alto, `con ${largo} letras y +${mas} los ${lineas} renglones no entran en ${alto}`);
-    }
+    const cuerpo = 'a'.repeat(largo);
+    const paso = { id: 'x', orden: 1, canal: 'whatsapp' as const, delay_horas: 0, asunto: null, template_wa: null, tipo: 'texto' as const, cuerpo } as PasoSecuenciaDto;
+    const lineas = renglonesDeTarjeta(paso, 0);
+    const alto = altoDeMensaje(paso as unknown as Parameters<typeof altoDeMensaje>[0]);
+    assert.ok(lineas >= 1 && lineas <= 5);
+    assert.ok(47 + 18 + 6 + ALTO_PALOMITAS + lineas * 18.125 <= alto, `con ${largo} letras los ${lineas} renglones no entran en ${alto}`);
   }
-  const vista = bloque(sinComentarios(leer('app/automations/FlujoLienzo.tsx')), 'function VistaMensaje(', '\nfunction VistaEmail(', 4_500);
-  assert.match(vista, /lineas=\{renglonesDeTarjeta\(paso, mas\)\}/, 'la tarjeta no corta con el alto que estima el árbol');
-  assert.match(vista, /textAlign: 'right' \}\}>\{textoMasPartes\(mas\)\}/);
+  const vista = bloque(sinComentarios(leer('app/automations/FlujoLienzo.tsx')), 'function VistaMensaje(', '\nfunction VistaEmail(', 6_000);
+  assert.match(vista, /lineas=\{renglonesDeTarjeta\(paso, 0\)\}/, 'la tarjeta no corta con el alto que estima el árbol');
+  assert.match(vista, /\{textoMasPartes\(resto\)\}/);
+  assert.match(vista, /pie: <Ticks status="read" \/>/, 'la tarjeta perdió las palomitas');
 });
 
 test('lo que propone MaKo: «Usar» reemplaza los mensajes, «Agregar» los suma, con el tope', () => {

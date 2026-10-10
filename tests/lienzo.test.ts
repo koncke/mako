@@ -207,7 +207,9 @@ test('⚠️ el ＋ del medio respeta `sinMas`, y mide en píxeles de PANTALLA',
   const i = src.indexOf('EL ＋ DE LA FLECHA');
   assert.ok(i > 0, 'se fue el bloque del ＋ de la flecha');
   const bloque = src.slice(i, src.indexOf('{grafo.aristas.map', i));
-  assert.match(bloque, /a\.sinMas\) return null/, 'el ＋ del medio dejó de respetar `sinMas`');
+  // Una `sinMas` `quitable` (la de «Si responde», 10/10/2026) lleva su papelera, nunca el ＋.
+  assert.match(bloque, /\(a\.sinMas && !\(onQuitarFlecha && a\.quitable\)\)\) return null/, 'el ＋ del medio dejó de respetar `sinMas`');
+  assert.match(bloque, /const conMas = Boolean\(onAgregarTras && \(opcionesEn \|\| opcionesAgregar\)\) && !a\.sinMas;/);
   assert.match(bloque, /scale\(\$\{100 \/ zoomTxt\}\)/, 'la zona volvió a medirse en unidades del grafo');
 });
 

@@ -186,16 +186,24 @@ const LIENZO = sinComentarios(leer('../app/_components/Lienzo.tsx'));
 const FLUJO = sinComentarios(leer('../app/automations/FlujoLienzo.tsx'));
 const PERFIL = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
 
-test('⚠️ el lienzo: el gesto es del botón PRINCIPAL, y el click derecho abre su menú', () => {
-  const down = tramo(LIENZO, 'function onPointerDown(', 'function onPointerMove(', 3_000);
-  assert.match(down, /if \(e\.button !== 0\) return;/, 'el botón derecho arma un gesto y selecciona la tarjeta');
+// ⚠️ DESDE EL 10/10/2026 EL BOTÓN DERECHO MUEVE EL LIENZO (general 3: «el arrastre por el lienzo debería ser
+// ahora manteniendo el click derecho, y si mantengo el click izquierdo, se debería seleccionar»). Nunca
+// SELECCIONA (el gesto del derecho es `pan`), y quieto sigue siendo el click derecho de siempre.
+test('⚠️ el lienzo: el derecho panea y nunca selecciona, el izquierdo hace el lazo, y el click derecho abre su menú', () => {
+  const down = tramo(LIENZO, 'function onPointerDown(', 'function onPointerMove(', 4_000);
+  assert.match(down, /if \(e\.button === 2\) \{[\s\S]*?modo: 'pan', derecho: true \};[\s\S]*?return;\n\s*\}/);
+  assert.match(down, /if \(e\.button !== 0\) return;/);
+  assert.match(down, /modo: id \? 'nodo' : onVarios \? 'lazo' : 'pan'/);
+  assert.match(LIENZO, /if \(paneoDerecho\.current\) \{ paneoDerecho\.current = false; e\.preventDefault\(\); return; \}/, 'después de panear con el derecho se abre el menú');
   assert.match(LIENZO, /onContextMenu=\{onContextMenu\}/);
   const ctx = tramo(LIENZO, 'function onContextMenu(', 'const [revelados, setRevelados]', 2_600);
   assert.match(ctx, /menuNodo\?\.\(id\)/);
   assert.match(ctx, /menuLienzo\?\.\(aGrafo\(e\.clientX, e\.clientY\)\)/);
   // Arrastrar: al soltar sobre una tarjeta, `onConectar` con la FILA del círculo.
-  const soltar = tramo(LIENZO, 'function soltarCirculo(', 'function quitarDeFila(', 2_600);
-  assert.match(soltar, /if \(!cancelado && g\.sobre\) onConectar\?\.\(g\.desde, g\.fila, g\.sobre\);/);
+  const soltar = tramo(LIENZO, 'function soltarCirculo(', 'function onContextMenu(', 6_000);
+  assert.match(soltar, /if \(g\.sobre\) \{ onConectar\?\.\(g\.desde, g\.fila, g\.sobre\); return; \}/);
+  // Soltada en el vacío: el menú de tarjeta nueva, que nace donde se soltó (general 14).
+  assert.match(soltar, /onAgregarTras\(n\.id, v, puerto, punto, true\)/);
   // Y se atenúa todo menos el origen y la de abajo del cursor.
   assert.match(LIENZO, /arrastreFlecha && n\.id !== arrastreFlecha\.desde && n\.id !== sobreFlecha/);
 });

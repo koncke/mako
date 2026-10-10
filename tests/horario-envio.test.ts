@@ -46,7 +46,9 @@ test('el saneo: lo que se guarda vuelve igual, los días sin repetir y en orden'
   assert.deepEqual(h, { activo: true, desde: 9, hasta: 18, dias: [1, 3, 5] });
   // Sin `dias` (una fila de antes de que existieran): todos.
   assert.deepEqual(sanearHorario({ activo: true, desde: 0, hasta: 24 })?.dias, [0, 1, 2, 3, 4, 5, 6]);
-  assert.equal(sanearHorario({ activo: true, desde: 9.5, hasta: 18 }), null, 'horas enteras');
+  // De media en media hora desde el 10/10/2026 (Martín: «Las horas debes ponerlas de media en media hora»).
+  assert.deepEqual(sanearHorario({ activo: true, desde: 9.5, hasta: 18 }), { activo: true, desde: 9.5, hasta: 18, dias: [0, 1, 2, 3, 4, 5, 6] });
+  assert.equal(sanearHorario({ activo: true, desde: 9.25, hasta: 18 }), null, 'de media en media hora, nada más fino');
   assert.equal(sanearHorario({ activo: true, desde: -1, hasta: 18 }), null);
   assert.equal(sanearHorario({ activo: true, desde: 9, hasta: 25 }), null);
   assert.equal(KEY_HORARIO_ENVIO, 'mako.horario_envio');
@@ -142,8 +144,11 @@ test('la pantalla: Configuraciones › Horario, la monta la fila de tabs y guard
   assert.match(acc, /getSettingEstricto\(KEY_HORARIO_ENVIO\)/, '«no pude leer» no se dibuja como «sin horario»');
   // Lo que se dibuja: corto (AGENTS.md) y de tú (los leads y los clientes son de México).
   const panel = leer('app/configuraciones/HorarioEnvioPanel.tsx');
+  // 10/10/2026: el título es «Horario de oficina», con un interruptor; sin la frase de arriba ni la de abajo.
+  assert.ok(panel.includes('Horario de oficina'), 'falta el título «Horario de oficina»');
+  assert.match(panel, /role="switch"/, 'el horario se prende con un interruptor, no con una casilla');
   for (const t of ['Limitar el horario', 'Lo que vence afuera sale al abrir.', 'Tus automatizaciones mandan a cualquier hora. Si quieres, ponles un horario.']) {
-    assert.ok(panel.includes(t), `falta «${t}»`);
+    assert.ok(!sinComentarios(panel).includes(t), `volvió «${t}»`);
   }
   assert.equal(DIAS_PANTALLA.length, 7);
   assert.equal(DIAS_PANTALLA[0].dia, 1, 'la semana arranca el lunes');

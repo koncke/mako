@@ -54,8 +54,10 @@ test('el rótulo: «Sin horario», «9 a 21», nada mientras carga y nunca «Sin
   assert.equal(rotuloHorario(LISTO({})), '9 a 21');
   assert.equal(rotuloHorario(LISTO({ desde: 8, hasta: 18 })), '8 a 18');
   // La frase del `title` dice lo que el rótulo no: los días y la zona.
-  assert.equal(describirHorario(LISTO({})), 'Horario de envío: de 9 a 21, todos los días (hora de America/Mexico_City)');
-  assert.equal(describirHorario(LISTO({ dias: [5, 1, 2] })), 'Horario de envío: de 9 a 21, lunes, martes y viernes (hora de America/Mexico_City)');
+  // «Horario de oficina» desde el 10/10/2026 (el título que pidió Martín), y de media en media hora.
+  assert.equal(describirHorario(LISTO({})), 'Horario de oficina: de 9 a 21, todos los días (hora de America/Mexico_City)');
+  assert.equal(describirHorario(LISTO({ dias: [5, 1, 2] })), 'Horario de oficina: de 9 a 21, lunes, martes y viernes (hora de America/Mexico_City)');
+  assert.equal(rotuloHorario(LISTO({ desde: 9.5, hasta: 18.5 })), '9:30 a 18:30');
   assert.match(describirHorario({ t: 'error' }), /No pude leer/);
   assert.match(describirHorario(LISTO({ activo: false })), /sin horario/);
 });
@@ -95,7 +97,7 @@ test('la lista dibuja el control en el renglón de «Chatbot», arriba de «＋ 
   const iCabecera = html.indexOf('data-cabecera-chatbot');
   const iRotulo = html.indexOf('>Chatbot</div>');
   const iHorario = html.indexOf('data-prueba-horario');
-  const iNueva = html.indexOf('>Nueva</span>');
+  const iNueva = html.indexOf('>Nueva automatización</span>');
   assert.ok(iCabecera >= 0 && iRotulo > iCabecera, 'falta el renglón de «Chatbot»');
   assert.ok(iHorario > iRotulo && iHorario < iNueva, 'el horario no va en el renglón de «Chatbot», arriba de «＋ Nueva»');
 });
@@ -183,17 +185,18 @@ test('el panel de Configuraciones avisa si hay cambios sin guardar (antes de tod
   assert.match(src, /export function HorarioEnvioPanel\(\{ onGuardado, onSucio \}: \{\s*onGuardado\?: \(h: HorarioEnvio\) => void;\s*onSucio\?: \(sucio: boolean\) => void;\s*\}\)/);
   // «Sucio» se avisa con un efecto que corre ANTES del return temprano (un hook detrás de un return es
   // la pantalla en blanco), y con el horario sin leer no hay nada que perder.
-  const iEfecto = src.indexOf('useEffect(() => { onSucio?.(sucio); }, [sucio, onSucio]);');
+  // ⚠️ DESDE EL 10/10/2026 SE GUARDA SOLO (Martín: «elimina el botón de guardar, si se hace un cambio ya se
+  // debe quedar guardado»): «sucio» es un guardado EN VUELO, y se avisa antes del return temprano.
+  const iEfecto = src.indexOf('useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);');
   const iReturn = src.indexOf('if (!h) return');
   assert.ok(iEfecto > 0 && iReturn > iEfecto, 'el aviso de «sucio» no está, o quedó detrás del return temprano');
-  assert.match(src, /const sucio = h != null && JSON\.stringify\(h\) !== guardado;/);
-  // `onGuardado`, sólo con el guardado BIEN y con lo que quedó guardado.
-  const g = bloque(src, 'async function guardar()', 'const off = ');
+  assert.doesNotMatch(src, />Guardar</, 'volvió el botón de guardar');
+  // `onGuardado`, sólo con el guardado BIEN.
+  const g = bloque(src, 'const cambiar = (patch: Partial<HorarioEnvio>) => {', 'const cambiarZona = ');
   const iNoOk = g.indexOf('if (!r.ok)');
-  const iAviso = g.indexOf("setAviso('Guardado');");
-  const iAvisa = g.indexOf('onGuardado?.(quedo);');
-  assert.ok(iNoOk >= 0 && iAviso > iNoOk && iAvisa > iAviso, '`onGuardado` no corre justo después de guardar bien');
-  assert.match(g, /const quedo = \('horario' in r && r\.horario\) \? r\.horario : h;\s*setH\(quedo\);\s*setGuardado\(JSON\.stringify\(quedo\)\);/);
+  const iAvisa = g.indexOf('onGuardado?.(');
+  assert.ok(iNoOk >= 0 && iAvisa > iNoOk, '`onGuardado` no corre justo después de guardar bien');
+  assert.match(g, /if \(p\) \{ setEnVuelo\(false\); return; \}/, 'lo que no cierra se guardaba igual');
 });
 
 test('la lista lleva «sucio» en un ref, y el panel anclado no se cierra mientras diga que sí', () => {

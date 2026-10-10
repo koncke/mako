@@ -881,7 +881,7 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 }
 
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
-export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar'>;
+export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar'>;
 
 /**
  * Las flechas en paralelo, saneadas: ids válidos, sin repetidos. Sólo en las clases que las
@@ -919,6 +919,9 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
   if (nodo === 'respuesta') {
     out.casos = Array.isArray(o.casos) ? o.casos.map(sanearCaso).filter((c): c is CasoRespuesta => !!c) : [];
     out.si_no = destinoId(o.si_no) ?? null;
+    // La sexta puerta (10/10/2026): sin esta línea, guardar le devolvía la flecha a una «Si responde»
+    // que la persona había soltado.
+    if (o.suelta === true) out.suelta = true;
   }
   if (nodo === 'ir_a') out.destino = sanearDestino(o.destino);
   if (!nodo && typeof o.revisar === 'boolean') out.revisar = o.revisar;

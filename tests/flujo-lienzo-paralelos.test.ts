@@ -121,7 +121,7 @@ test('⚠️ las flechas en paralelo del CRON: hijos en la columna 1, apilados s
   // Las flechas: todas desde el CRON, de su fila «Al entrar», y las en paralelo con OTRO tono.
   const cron = nodo(g, ID_ENTRADA);
   const yAlEntrar = yDePuerto(cron, 'sig');
-  for (const [hasta, puerto, tono] of [['m1', 'sig', 'normal'], ['e1', 'par:e1', 'condicional'], ['f1', 'par:f1', 'condicional'], [resp.id, 'sig', 'condicional']] as const) {
+  for (const [hasta, puerto, tono] of [['m1', 'sig', 'normal'], ['e1', 'par:e1', 'condicional'], ['f1', 'par:f1', 'condicional'], [resp.id, 'sig', 'normal']] as const) {
     const a = g.aristas.find((x) => x.hasta === hasta);
     assert.equal(a?.desde, ID_ENTRADA, `${hasta} no sale del CRON`);
     assert.equal(a?.puerto, puerto);

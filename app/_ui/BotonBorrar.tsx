@@ -25,8 +25,8 @@
 import { useState, type CSSProperties, type MouseEvent } from 'react';
 import { TRAZOS_BORRAR } from './iconos-menu';
 
-/** Los tamaños del botón: el lado del cuadrado y el del ícono. `lg` es el de los editores grandes. */
-export const TALLAS_BORRAR = { sm: { lado: 26, icono: 15 }, md: { lado: 32, icono: 18 }, lg: { lado: 44, icono: 22 } } as const;
+/** Los tamaños del botón: el lado del cuadrado y el del ícono. `lg` es el de los editores grandes; `xs`, el que cuelga de la esquina de un contenedor. */
+export const TALLAS_BORRAR = { xs: { lado: 22, icono: 13 }, sm: { lado: 26, icono: 15 }, md: { lado: 32, icono: 18 }, lg: { lado: 44, icono: 22 } } as const;
 export type TallaBorrar = keyof typeof TALLAS_BORRAR;
 
 /** El tacho, rojo. Para meter adentro de un botón propio (el de una burbuja, el de una fila). */
@@ -40,8 +40,39 @@ export function IconoBorrar({ size = 18 }: { size?: number }) {
 }
 
 /**
- * El botón de borrar de la casa: el tacho rojo, sin caja, y un fondo rojo suave al pasar el cursor.
- * Con `texto`, el texto al lado (también rojo): para cuando hay lugar y la acción merece decirse.
+ * EL RECUADRO DE LA CASA (10/10/2026, condición 2): «que siempre tengan un contenedor cuadrado con los
+ * bordes un poco redondeados, como los botones de basura y editar dentro de WhatsApp... Siempre siempre
+ * en todos lados ese recuadro. Pero que no sea tan redondeado... Debe ser un estándar». El radio sale de
+ * acá y de ningún otro lado: con un número por botón, el próximo vuelve a ser una píldora.
+ */
+export const RADIO_CAJA = 8;
+
+/** Lo que comparten todos los botones de ícono con recuadro (el de borrar, el ✕, el lápiz, el ✦ de MaKo). */
+export function estiloCaja(talla: TallaBorrar = 'md'): CSSProperties {
+  const t = TALLAS_BORRAR[talla];
+  return {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxSizing: 'border-box',
+    width: t.lado, height: t.lado, padding: 0, borderRadius: talla === 'lg' ? RADIO_CAJA + 2 : RADIO_CAJA,
+    border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit',
+  };
+}
+
+/** El ✕ de cerrar, con su recuadro. Va pegado al tacho del mismo tamaño (los dos alineados). */
+export function BotonCerrar({ onClick, title = 'Cerrar', talla = 'md' }: { onClick: () => void; title?: string; talla?: TallaBorrar }) {
+  const t = TALLAS_BORRAR[talla];
+  return (
+    <button type="button" onClick={onClick} title={title} aria-label={title} style={estiloCaja(talla)}>
+      <svg width={t.icono - 2} height={t.icono - 2} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden>
+        <path d="M6 6l12 12M18 6L6 18" />
+      </svg>
+    </button>
+  );
+}
+
+/**
+ * El botón de borrar de la casa: el tacho rojo EN SU RECUADRO de borde rojo (el de la burbuja de
+ * WhatsApp), y un fondo rojo suave al pasar el cursor. Con `texto`, el texto al lado (también rojo):
+ * para cuando hay lugar y la acción merece decirse.
  */
 export function BotonBorrar({ onClick, title = 'Eliminar', disabled, talla = 'md', texto, style }: {
   onClick: (e: MouseEvent<HTMLButtonElement>) => void;
@@ -60,13 +91,13 @@ export function BotonBorrar({ onClick, title = 'Eliminar', disabled, talla = 'md
     <button type="button" onClick={onClick} disabled={disabled} title={title} aria-label={title}
       onMouseEnter={() => setEncima(true)} onMouseLeave={() => setEncima(false)}
       style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: 'none',
-        minWidth: t.lado, height: t.lado, padding: texto ? '0 10px' : 0, borderRadius: Math.round(t.lado / 3.2),
-        border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1,
-        fontFamily: 'inherit', fontSize: talla === 'lg' ? 15 : 13, fontWeight: 600, transition: 'background .12s',
+        ...estiloCaja(talla), gap: 6,
+        width: texto ? 'auto' : t.lado, minWidth: t.lado, padding: texto ? '0 10px' : 0,
+        cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1,
+        fontSize: talla === 'lg' ? 15 : 13, fontWeight: 600, transition: 'background .12s',
         ...style,
-        color: 'var(--bad)',
-        background: encima && !disabled ? 'var(--bad-bg)' : 'transparent',
+        color: 'var(--bad)', border: '1px solid var(--bad)',
+        background: encima && !disabled ? 'var(--bad-bg)' : 'var(--surface)',
       }}>
       <IconoBorrar size={t.icono} />
       {texto && <span>{texto}</span>}

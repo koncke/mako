@@ -24,7 +24,7 @@ import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
 import { EditorDisparadores, useDisparadores, useTextoDisparador, type SecuenciaConDisparadores } from './EditorDisparadores';
-import { disparoActualDe, iconoDeDisparador } from '@/lib/disparadores';
+import { disparoActualDe, iconoDeDisparador, type ClaseDisparador } from '@/lib/disparadores';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
 import { usePosicionesLienzo } from './usePosicionesLienzo';
@@ -42,12 +42,12 @@ import { resumenAvisos, edicionVigente } from '@/lib/flujo-ia-cliente';
 import type { Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, esNodoMensaje } from '@/lib/flujo-grafo';
 import { eliminar } from '@/lib/flujo-edicion';
-import { MakoStar } from '@/app/_components/MakoBrand';
+import { BotonMako } from '@/app/_ui/BotonMako';
 import type { Muelles } from '@/lib/lienzo-grafo';
 import { abrirFlujo } from '@/lib/flujo-legado';
 import {
   insertarDesdeLienzo, renumerar, errorLegible, tarjetaDelError, estrategiaConLimpieza,
-  disparoDeValor, canalesParaProbar, frenoDelFlujo,
+  disparoDeValor, canalesParaProbar, frenoDelFlujo, ID_ENTRADA,
   type QueAgregar,
 } from '@/lib/flujo-conversacion';
 import { EmojiPickerMini } from '@/app/plan/board/EmojiPicker';
@@ -70,6 +70,9 @@ const NOMBRE_MAX = 40;
 /** Las tarjetas del chrome FLOTANTE: fondo propio para leerse sobre la cuadrícula del
  *  lienzo, y el mismo radio que el resto de la casa. Copiado de TemplateDetalleModal a
  *  propósito: son la misma pieza en las dos pantallas. */
+/** El alto de «Probar», «Activar» y «Publicar» (10/10/2026: «más grandes»). */
+const ALTO_ACCION = 44;
+
 const tarjetaChrome: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
   padding: '7px 12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)',
@@ -106,7 +109,15 @@ export type EdicionLocal = {
 /** Lo que devuelve `frenoDelFlujo`: el error legible y la tarjeta a abrir. */
 export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, arranque, onArranqueUsado }: {
+  /**
+   * RECIÉN CREADA CON UN TIPO DE CRON ELEGIDO (el modal de «＋ Nueva automatización», 10/10/2026): el lienzo
+   * abre su CRON con ese tipo ya elegido. Se usa UNA vez (`onArranqueUsado`).
+   */
+  arranque?: ClaseDisparador;
+  onArranqueUsado?: () => void;
+  /** Lo de la AUTOMATIZACIÓN ENTERA desde el click derecho del CRON (copiar, duplicar, eliminar): lo hace la lista. */
+  onAccionTodo?: (accion: 'copiar' | 'duplicar' | 'eliminar') => void;
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver un «Ir a» y convertir un «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -502,6 +513,16 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * cada pedido, así el mismo error dos veces la vuelve a abrir.
    */
   const [foco, setFoco] = useState<{ id: string; vez: number } | null>(null);
+  /** El tipo de CRON con que arranca (ver `arranque`): lo lee el panel del CRON al abrirse. */
+  const [claseArranque, setClaseArranque] = useState<ClaseDisparador | null>(arranque ?? null);
+  useEffect(() => {
+    if (!arranque) return;
+    setCronAbierto(null);
+    setFoco((f) => ({ id: ID_ENTRADA, vez: (f?.vez ?? 0) + 1 }));
+    onArranqueUsado?.();
+    // Una vez, al montar la recién creada.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   /**
    * Lo que le falta a cada «⚡ Acción» según su formulario (el monto al mover a Ganado, el motivo de una
    * baja): lo frena `frenoDelFlujo` en Publicar y en Probar. Se pide sólo si hay una acción.
@@ -761,7 +782,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     setErr(null);
     onProbar(canal);
   };
-  const estiloProbar: CSSProperties = { ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit' };
+  // MÁS GRANDES (10/10/2026: «Pon el botón de "Publicar" y "Activar" y "Probar" más grandes»): los tres
+  // con el mismo alto, `ALTO_ACCION`, para que se lean como la misma familia.
+  const estiloProbar: CSSProperties = { ...tarjetaChrome, height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 18px', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14.5, fontWeight: 700, color: 'var(--ink)', cursor: 'pointer', fontFamily: 'inherit' };
 
   /**
    * ⚠️ EL LIENZO ES LA PANTALLA. No hay barra, ni cabecera, ni pie: el título, el
@@ -857,16 +880,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 "Pedirle un cambio a MaKo" ponlo al lado del cuadro del título, donde hoy está
                 "activar"»). Vivía en la fila del zoom, como un ✦ más entre el deshacer; ahí quedó
                 «Acomodar» (punto 14). Abre y cierra la barra de «Crear con IA» de abajo. */}
+            {/* Negro, como el logo de MaKo (10/10/2026: «debe ser negro, como el logo de MaKo»), y del
+                alto de la tarjeta del título. */}
             {rolAdmin && pasos.length > 0 && (
-              <button type="button" onClick={() => setEditandoIA((v) => !v)} aria-pressed={editandoIA}
-                title="Pedirle un cambio a MaKo" aria-label="Pedirle un cambio a MaKo"
-                style={{
-                  ...tarjetaChrome, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  height: 38, minWidth: 38, padding: '0 11px', cursor: 'pointer', fontFamily: 'inherit',
-                  ...(editandoIA ? { background: 'var(--mako-bg)', borderColor: 'var(--mako-border)' } : {}),
-                }}>
-                <MakoStar size={16} animate={false} />
-              </button>
+              <BotonMako lado={38} encendido={editandoIA} onClick={() => setEditandoIA((v) => !v)} title="Pedirle un cambio a MaKo" />
             )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
@@ -881,7 +898,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                   // Los canales que el flujo usa, con su logo (`CANALES_PROBAR`, el mismo lugar del que
                   // lee el panel): WhatsApp, Email, Instagram y Messenger. Hasta la segunda pasada lo
                   // que no era email se rotulaba y se probaba como WhatsApp.
-                  <Dropdown value="" resetAfterSelect sinFlecha={false} botonLabel="▶ Probar" ariaLabel="Probar esta automatización"
+                  // Sin la flecha de desplegable (10/10/2026: «Quita la flecha de la derecha… en el botón
+                  // de probar»), y el menú ancla a la DERECHA del botón: pegado al borde, abriendo hacia
+                  // la derecha se salía de la pantalla.
+                  <Dropdown value="" resetAfterSelect sinFlecha align="right" botonLabel="▶ Probar" ariaLabel="Probar esta automatización"
                     options={canales.map((c) => ({ value: c, label: CANALES_PROBAR[c].nombre, icono: CANALES_PROBAR[c].logo }))}
                     buttonStyle={estiloProbar} onChange={(v) => { if (v && v in CANALES_PROBAR) probar(v as CanalProbar); }} />
                 ) : (
@@ -902,6 +922,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         // «Publicar» también desde el click derecho del lienzo (sexta tanda, punto 2), con la MISMA
         // función y apagado cuando el botón lo está.
         onPublicar={rolAdmin ? () => void publicar() : undefined}
+        accionesTodo={rolAdmin && onAccionTodo ? { copiar: () => onAccionTodo('copiar'), duplicar: () => onAccionTodo('duplicar'), eliminar: () => onAccionTodo('eliminar') } : undefined}
         puedePublicar={sinPublicar && busy !== 'save'}
         // El pie va también para quien no edita: ve si está activa (el interruptor, apagado). Lo de
         // escribir —el error, «Publicar»— es sólo del admin.
@@ -925,11 +946,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             )}
             {/* «ACTIVAR», AL LADO DE «PUBLICAR» (sexta tanda, punto 8: «Activar pasa a estar al lado de
                 "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
-            <div style={{ ...tarjetaChrome, flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
+            <div style={{ ...tarjetaChrome, flex: 'none', height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 14.5, fontWeight: 700, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
               <button onClick={toggle} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
-                style={{ width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
-                <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
+                style={{ width: 46, height: 26, borderRadius: 999, border: 'none', padding: 3, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
+                <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(20px)' : 'none', transition: 'transform .15s' }} />
               </button>
             </div>
             {/* ⚠️ «PUBLICAR», NO «GUARDAR»: es el mismo verbo que en /mensajes y dice lo
@@ -943,7 +964,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {rolAdmin && (
               <button onClick={() => void publicar()} disabled={busy === 'save' || !sinPublicar}
                 title={sinPublicar && convertida && inicial.notas.length ? inicial.notas.join(' · ') : undefined}
-                style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: sinPublicar ? 'pointer' : 'default', opacity: busy === 'save' || !sinPublicar ? 0.45 : 1, fontFamily: 'inherit' }}>
+                style={{ height: ALTO_ACCION, padding: '0 26px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: sinPublicar ? 'pointer' : 'default', opacity: busy === 'save' || !sinPublicar ? 0.45 : 1, fontFamily: 'inherit' }}>
                 {busy === 'save' ? 'Publicando…' : 'Publicar'}
               </button>
             )}
@@ -961,6 +982,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
            * Lo que mide el PANEL (que no quede aire debajo) es del lienzo (`MUELLE`, lib/lienzo-grafo.ts).
            */
           <EditorDisparadores
+            claseInicial={claseArranque} onClaseInicialUsada={() => setClaseArranque(null)}
             lista={crons.lista} editando={cronAbierto} onEditar={setCronAbierto} onGuardar={crons.guardar}
             productos={productos} etiquetas={etiquetas} disparadores={disparadores} etiquetaEtapa={etiquetaEtapa}
             tz={tz} busy={busy != null} rolAdmin={rolAdmin}
