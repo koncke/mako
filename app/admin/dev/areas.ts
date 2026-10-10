@@ -883,17 +883,17 @@ export const AREAS: AreaDev[] = [
     slug: 'public-site', titulo: 'Public Site', familia: 'Business', grupo: 'Go-to-Market',
     estado: 'listo',
     alcance: 'La landing + las 25 páginas de detalle. Lo único que ve un prospecto antes de pagar.',
-    vive: ['app/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/landing-html.ts', 'app/vsl/showcase.ts', 'app/vsl/_detalle/FeatureDetail.tsx', 'app/vsl/_detalle/features.ts', 'app/vsl/estrategia/Estrategia.tsx'],
+    vive: ['app/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/landing-html.ts', 'app/vsl/showcase.ts', 'app/vsl/_detalle/FeatureDetail.tsx', 'app/vsl/_detalle/features.ts'],
     proyectos: ['Vender MaKo: Landing y VSL'],
   },
   {
     slug: 'gtm-ads', titulo: 'GTM: Ads', familia: 'Business', grupo: 'Go-to-Market',
     estado: 'parcial',
     alcance: 'La publicidad paga de MaKo para MaKo: la campaña de mensajes a WhatsApp que corre hoy, su plan de gasto, y el VSL Funnel propio con ads que espera a que haya caja.',
-    vive: ['app/vsl/estrategia/Estrategia.tsx', 'lib/plan-proyectos-catalogo.ts'],
+    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'lib/plan-proyectos-catalogo.ts'],
     proyectos: ['Vender MaKo: Ads'],
     hallazgos: 'hallazgos-landing',
-    nota: 'El único código propio es el doc interno /vsl/estrategia (app/vsl/estrategia/Estrategia.tsx): el canal B «campaña de mensajes» con su escalerita de métricas —8 de las 15 llamadas agendadas, US$125 por agenda, US$500 por cliente, 3× de retorno— y el plan de gasto US$1.000 de ads sobre US$10.000 facturados. El canal E (VSL Funnel propio + ads) queda para cuando la campaña dé señal. La ejecución vive fuera del repo, en el Ads Manager de Meta. NO CONFUNDIR con app/ads-manager, app/marketing ni app/ads-writer: eso es el producto que se le vende al cliente.',
+    nota: 'El único código propio es la tab de super admin /admin/estrategia (app/admin/estrategia/datos.ts; hasta el 10/10/2026 era el doc /vsl/estrategia, que ahora redirige ahí): el canal B «campaña de mensajes» con su escalerita de métricas —8 de las 15 llamadas agendadas, US$125 por agenda, US$500 por cliente, 3× de retorno— y el plan de gasto US$1.000 de ads sobre US$10.000 facturados. El canal E (VSL Funnel propio + ads) queda para cuando la campaña dé señal. La ejecución vive fuera del repo, en el Ads Manager de Meta. NO CONFUNDIR con app/ads-manager, app/marketing ni app/ads-writer: eso es el producto que se le vende al cliente.',
   },
   {
     slug: 'gtm-instagram', titulo: 'GTM: Instagram', familia: 'Business', grupo: 'Go-to-Market',
@@ -909,15 +909,15 @@ export const AREAS: AreaDev[] = [
     alcance: 'El canal de YouTube propio de MaKo: banner, bio, videos largos, el video pilar y los CTA. Cero código, y ni siquiera figura como canal en el doc de estrategia.',
     vive: [],
     proyectos: ['Vender MaKo: Orgánico YouTube'],
-    nota: 'Misma homonimia que Instagram: app/youtube-writer/page.tsx es un <ComingSoon> del producto para el cliente, no el canal propio. El área existe solo como proyecto del tablero en lib/plan-proyectos-catalogo.ts:183. De los siete canales que enumera /vsl/estrategia (A prospección, B campaña de mensajes, C referidos, D orgánico+lead magnet, E VSL funnel+ads, F webinar, G infoproductores), YouTube no es ninguno — es el área con menos base escrita de todo el bloque GTM.',
+    nota: 'Misma homonimia que Instagram: app/youtube-writer/page.tsx es un <ComingSoon> del producto para el cliente, no el canal propio. El área existe solo como proyecto del tablero en lib/plan-proyectos-catalogo.ts:183. De los siete canales que enumera /admin/estrategia (antes /vsl/estrategia; A prospección, B campaña de mensajes, C referidos, D orgánico+lead magnet, E VSL funnel+ads, F webinar, G infoproductores), YouTube no es ninguno — es el área con menos base escrita de todo el bloque GTM.',
   },
   {
     slug: 'gtm-prospeccion', titulo: 'GTM: Prospección', familia: 'Business', grupo: 'Go-to-Market',
     estado: 'parcial',
     alcance: 'Salir a buscar clientes de a uno: listas, mensajes en frío, un Loom VSL por lead y el seguimiento. Es el canal A, costo cero, y hoy trae 7 de las 15 llamadas del mes proyectado.',
-    vive: ['app/vsl/estrategia/Estrategia.tsx', 'lib/plan-proyectos-catalogo.ts'],
+    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'lib/plan-proyectos-catalogo.ts'],
     proyectos: ['Vender MaKo: Prospección'],
-    nota: 'Todo lo escrito está en el doc interno /vsl/estrategia: el motor A (círculo rojo + leads 100% fríos), la regla de que la prospección es personalizada —un Loom VSL por cada lead— y tasas de respuesta a propósito distintas a las del canal pago. No hay herramienta: la ejecución es manual y los leads entran por el Calendly propio (calendly.com/koncke/asesoria, cableado en app/vsl/Landing.tsx:25) que cae al CRM por el webhook genérico del producto.',
+    nota: 'Todo lo escrito está en la tab /admin/estrategia (antes el doc /vsl/estrategia): el motor A (círculo rojo + leads 100% fríos), la regla de que la prospección es personalizada —un Loom VSL por cada lead— y tasas de respuesta a propósito distintas a las del canal pago. No hay herramienta: la ejecución es manual y los leads entran por el Calendly propio (calendly.com/koncke/asesoria, cableado en app/vsl/Landing.tsx:25) que cae al CRM por el webhook genérico del producto.',
   },
   {
     slug: 'gtm-oferta-y-precios', titulo: 'GTM: Oferta y precios', familia: 'Business', grupo: 'Go-to-Market',
@@ -929,10 +929,10 @@ export const AREAS: AreaDev[] = [
     // guarda los números. Se amplió al escribir la bitácora — la regla de AGENTS.md
     // «Una ruta que apunta a la nada»: el vive[] cubre dónde cae el trabajo de
     // verdad, no solo los componentes de la pantalla.
-    vive: ['app/vsl/estrategia/Estrategia.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts'],
+    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts'],
     proyectos: ['Vender MaKo: Oferta y precios'],
     hallazgos: 'hallazgos-landing',
-    nota: 'Está partido en dos mitades que no se hablan, y es lo primero que hay que entender: (1) la oferta high-ticket con llamada vive en /vsl/estrategia —MIX, unit economics, la escalera para que «cualquier lead compre algo»—; (2) los planes de software con cupo de MaKo Tokens viven en app/admin/dev/pricing/modelo.ts, que ya tiene su propio registro en /admin/dev con slug `pricing` (app/admin/dev/areas.ts) — no duplicarlo. Regla del archivo modelo.ts: cada número declara si es `medido` (de anthropic_usage en prod), `publicado` (precio de lista con fecha) o `supuesto`; un número sin origen no se agrega. La única superficie pública de precio es el bloque «Precio de fundador» de app/vsl/landing-html.ts, que no da cifra.',
+    nota: 'Está partido en dos mitades que no se hablan, y es lo primero que hay que entender: (1) la oferta y la estrategia viven en /admin/estrategia (antes /vsl/estrategia, que redirige; desde el 10/10/2026 importa sus números de modelo.ts y del runway) —MIX, unit economics, la escalera para que «cualquier lead compre algo»—; (2) los planes de software con cupo de MaKo Tokens viven en app/admin/dev/pricing/modelo.ts, que ya tiene su propio registro en /admin/dev con slug `pricing` (app/admin/dev/areas.ts) — no duplicarlo. Regla del archivo modelo.ts: cada número declara si es `medido` (de anthropic_usage en prod), `publicado` (precio de lista con fecha) o `supuesto`; un número sin origen no se agrega. La única superficie pública de precio es el bloque «Precio de fundador» de app/vsl/landing-html.ts, que no da cifra.',
   },
   {
     slug: 'referrals', titulo: 'Referrals', familia: 'Business', grupo: 'Go-to-Market',
@@ -940,7 +940,7 @@ export const AREAS: AreaDev[] = [
     alcance: '«Ganá dinero con MaKo»: que los clientes traigan clientes, con su incentivo y su seguimiento. No existe ni la cara del cliente ni la nuestra; hay un párrafo de intención y nada más.',
     vive: [],
     proyectos: ['Vender MaKo: Referidos'],
-    nota: 'Lo único escrito es el canal C «Referidos» de la lista FUTURO en app/vsl/estrategia/Estrategia.tsx: cuatro líneas, «costo cero», pedirlos a mano a la red, a los clientes y a cada persona prospectada tenga o no interés propio. Cero programa, cero código de referido, cero atribución, cero liquidación. Dependencia dura: sin pasarela (payment-gateway, que tampoco existe) no hay con qué pagar un incentivo, así que este área no puede ir antes que aquella. El proyecto del tablero es «Vender MaKo: Referidos» (lib/plan-proyectos-catalogo.ts:185).',
+    nota: 'El programa se DECIDIÓ el 10/10/2026 (docs/referidos.md, «El programa decidido» y los dos cambios del mismo día) y se dibuja en la sección Referidos de /admin/estrategia (app/admin/estrategia/datos.ts). Antes, lo único escrito era el canal C de la lista de canales a futuro: «costo cero», pedirlos a mano. Cero código de referido, cero atribución, cero liquidación. Dependencia dura: sin pasarela (payment-gateway, que tampoco existe) no hay con qué pagar un incentivo, así que este área no puede ir antes que aquella. El proyecto del tablero es «Vender MaKo: Referidos» (lib/plan-proyectos-catalogo.ts:185).',
   },
 
   // ────────────────────────────────────────────────────────── Platform

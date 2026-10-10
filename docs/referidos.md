@@ -38,6 +38,30 @@ secciones de más abajo son el camino y quedan como respaldo de las cuentas.
 | **Plan agencia** | **Va dentro del de 97.** Cualquier cuenta de 97 puede dar de alta workspaces para sus clientes (`agencia_clientes`, mig 0175), y **cada workspace paga su plan** (47 o 97). Cada workspace nuevo es un referido de la agencia: con 2 clientes de 47, su 97 de ese mes es gratis. No hay plan de 200. |
 | **Reglas comunes** | Las de la sección 1: registro previo, el origen que vale es el primero, sólo clientes nuevos, precio de lista, prohibido pautar con la palabra «MaKo». **Todo se cobra**, también a los amigos. |
 
+### Dos cambios de Martín, más tarde el mismo 10/10 (mandan sobre la tabla de arriba)
+
+1. **El que llega:** en el plan de 47, **el primer mes gratis**. En el de 97, como mucho **50% del
+   primer mes**: «si no, no es rentable». (Reemplaza el «2º mes gratis» de la tabla.)
+2. **Los revendedores** (agencias y partners): lo que ganan **primero se descuenta de su
+   suscripción**, y una vez cubierta, **lo que sobra se les paga en plata** por transferencia
+   local. Los usuarios comunes siguen sólo con descuento acumulable.
+
+**Las cuentas con esos cambios (IA de hoy):**
+
+| Caso | Cuenta | Costo esperado | Techo |
+|---|---|---|---|
+| Pro referido, con el 1er mes gratis | 43,77 (el mes gratis) + 44,03 × 0,7827 (crédito al que refiere, si el cliente llega a pagar 2 meses) | **US$78,23** | 81,50 ✓ |
+| Pro referido por un revendedor que cobra en plata | 43,77 + 47 × 0,7827 | **US$80,56** | 81,50 ✓, justo |
+| Cliente de 97 con 50% del 1er mes | 45,44 + 90,87 × 0,9356 (con el 50%, el 1er mes YA es un pago: «pagó 2 meses» es el mes 2, r y no r²) | **US$130,46** | 158 (payback) ✓ |
+
+- **El crédito del que refiere cuenta cuando el cliente ya pagó 2 meses.** Con el primer mes
+  gratis, eso es el mes 3. Si se gatillara en el primer pago (mes 2) el Pro costaría US$82,72
+  y se pasaría del techo: el gatillo es lo que lo deja adentro.
+- **El riesgo nuevo** es el que entra por el mes gratis y no paga nunca. No le cuesta crédito
+  a nadie (el gatillo lo filtra), pero sí el mes de servirlo: ~US$14,90 con la IA de hoy.
+  Si muchos referidos no pasan del mes gratis, la salida es volver a «pagás el 1º, el 2º
+  es gratis», que hace pagar un mes a cada uno.
+
 ### Por qué cierra (IA de hoy)
 
 - **Un Pro referido le cuesta a MaKo ~US$73** en valor esperado: el descuento al que refiere

@@ -40,7 +40,7 @@ export const HITOS: Hito[] = [
   { fecha: '2026-10-14', rotulo: '14 OCT', nota: 'cierra lo técnico', peso: 'fuerte' },
   { fecha: '2026-10-18', rotulo: '18', nota: 'prospección' },
   { fecha: '2026-11-01', rotulo: '1 NOV', nota: 'arrancan los anuncios', peso: 'fuerte' },
-  { fecha: '2026-11-30', rotulo: '30 NOV', nota: 'se acaba la plata', tono: 'malo' },
+  { fecha: '2026-11-30', rotulo: '30 NOV', nota: 'se acaba el capital', tono: 'malo' },
   { fecha: '2026-12-15', rotulo: '15 DIC', nota: 'dejan de comprar', tono: 'malo' },
 ];
 

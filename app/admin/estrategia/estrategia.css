@@ -1,0 +1,556 @@
+/* =============================================================================
+   /admin/estrategia — el lenguaje de la página de estrategia, con los tokens de la casa
+   =============================================================================
+   Todo vive bajo `.est`, la raíz de la tab: no toca una regla del resto de la app.
+
+   ⚠️ LOS COLORES DE LA UI SALEN DE LOS TOKENS (--primary, --mako, --good, --bad…),
+   así se ven en claro, en oscuro y con un tema candidato. La página vieja
+   (/vsl/estrategia) traía hex fijos y sólo tema claro: no se copian.
+
+   ⚠️ LAS SERIES DE LAS TORTAS SÍ SON HEX PROPIOS, y a propósito: los tokens de la
+   casa no pasan como paleta categórica (validate_palette.js de la skill dataviz:
+   rojo↔verde da ΔE 2,5 en deuteranopía, y el dorado sale de la banda de
+   luminosidad). Esta paleta pasa los chequeos en los dos temas, en el ORDEN en que
+   se dibujan las porciones (ganancia → conseguir → servir → reembolso → cobro):
+     claro  #0E9F6E #E09612 #2F6FED #D0504A · gris #66707F  (sobre #FFFFFF)
+     oscuro #21A473 #C2841A #5A87EC #DB615B · gris #8A919C  (sobre #2A2F39)
+   El gris es el «de-énfasis» (el cobro) y no pasa el piso de croma a propósito.
+   El dorado claro da 2,46:1 contra el blanco: por eso cada porción va con su
+   rótulo en la leyenda (la regla de alivio de la skill).
+   ============================================================================= */
+
+.est {
+  --est-oro-bg: color-mix(in srgb, var(--mako) 13%, var(--surface));
+  --est-azul-bg: color-mix(in srgb, var(--primary) 9%, var(--surface));
+  --est-verde-bg: color-mix(in srgb, var(--good) 10%, var(--surface));
+  --est-rojo-bg: color-mix(in srgb, var(--bad) 10%, var(--surface));
+  /* La tinta sobre el oro: el pedido de diseño, igual en los dos temas. */
+  --est-on-oro: #3A2604;
+
+  --est-s-ganancia: #0E9F6E;
+  --est-s-conseguir: #E09612;
+  --est-s-servir: #2F6FED;
+  --est-s-reembolso: #D0504A;
+  --est-s-cobro: #66707F;
+  /* El texto que va ADENTRO de una porción (el % de las grandes). */
+  --est-s-tinta: #FFFFFF;
+  --est-s-tinta-oro: #3A2604;
+  /* Sobre el verde de la ganancia, tinta oscura: el blanco da 3,39:1 (#16191F da 5,2:1). */
+  --est-s-tinta-verde: #16191F;
+  /* El texto sobre var(--good) relleno (la fase 2, el «Efectivo» del revendedor, la A
+     del canal). En oscuro y con un tema candidato es --on-primary, que ya contrasta;
+     en el claro de la casa el blanco sobre #1E9E57 da 3,45:1 y va tinta oscura (5,1:1). */
+  --est-on-verde: var(--on-primary);
+
+  font-family: 'Geist', system-ui, sans-serif;
+  color: var(--ink);
+  min-width: 0;
+}
+[data-tema="oscuro"] .est {
+  --est-s-ganancia: #21A473;
+  --est-s-conseguir: #C2841A;
+  --est-s-servir: #5A87EC;
+  --est-s-reembolso: #DB615B;
+  --est-s-cobro: #8A919C;
+  /* En oscuro las porciones bajan de luz: el blanco encima da ~3:1, la tinta oscura ~5:1. */
+  --est-s-tinta: #16191F;
+  --est-s-tinta-oro: #16191F;
+  --est-s-tinta-verde: #16191F;
+}
+html:not([data-tema="oscuro"]):not([data-tema-candidato]) .est { --est-on-verde: #16191F; }
+.est *,
+.est *::before,
+.est *::after { box-sizing: border-box; }
+
+.est-num {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+.est-eyebrow {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* ── secciones ─────────────────────────────────────────────────────────────── */
+.est-sec { margin-top: 52px; min-width: 0; }
+.est-h2 {
+  margin: 0 0 16px;
+  font-size: clamp(21px, 2.3vw, 27px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  color: var(--ink);
+}
+.est-h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.est-sub {
+  margin: 28px 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.est-caja {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  min-width: 0;
+}
+.est-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--min, 240px)), 1fr));
+}
+.est-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+.est-chip--azul { color: var(--primary); background: var(--est-azul-bg); }
+.est-chip--verde { color: var(--good); background: var(--est-verde-bg); }
+.est-chip--oro { color: var(--est-on-oro); background: var(--mako); }
+.est-chip--gris { color: var(--dim); background: var(--surface-2); }
+.est-chip--rojo { color: var(--bad); background: var(--est-rojo-bg); }
+
+/* ── a. las cifras grandes ─────────────────────────────────────────────────── */
+.est-kpi {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 20px 16px;
+  min-width: 0;
+  box-shadow: inset 0 3px 0 var(--k, var(--border-strong));
+  /* La cifra se mide contra el ANCHO DE LA TARJETA, no de la ventana: entre ~1015 y
+     ~1110 px la grilla arma 4 columnas de ~200 px y «US$10.000» a 40 px desbordaba 23 px. */
+  container-type: inline-size;
+}
+.est-kpi-v {
+  margin: 6px 0 0;
+  font-size: clamp(24px, 17cqi, 40px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  color: var(--k-ink, var(--ink));
+}
+.est-kpi-s { margin: 6px 0 0; font-size: 13px; color: var(--dim); }
+
+/* ── b. el riel ────────────────────────────────────────────────────────────── */
+.est-riel { position: relative; height: 122px; }
+.est-riel-pista,
+.est-riel-plata,
+.est-riel-ventana { position: absolute; height: 10px; border-radius: 5px; }
+.est-riel-pista { left: 0; right: 0; top: 46px; background: var(--surface-2); }
+/* Las barras van ENCIMA de las líneas de los hitos: una línea cruzando la barra se lee como un corte. */
+.est-riel-pista, .est-riel-plata, .est-riel-ventana { z-index: 1; }
+.est-riel-hoy { z-index: 2; }
+.est-riel-plata {
+  left: 0; top: 46px; border-radius: 5px 0 0 5px;
+  background: linear-gradient(90deg, var(--good), var(--warn-fill) 60%, var(--bad));
+}
+.est-riel-ventana { top: 62px; right: 0; background: var(--primary); opacity: 0.85; }
+.est-riel-linea { position: absolute; top: 0; height: 80px; width: 1px; background: var(--border-strong); }
+.est-riel-linea--fuerte { background: var(--ink); }
+.est-riel-linea--malo { background: var(--bad); }
+.est-riel-linea--pasado { opacity: 0.35; }
+.est-riel-nota {
+  position: absolute; left: 0; white-space: nowrap;
+  font-size: 11.5px; color: var(--dim); background: var(--surface); padding: 0 5px;
+}
+.est-riel-fecha {
+  position: absolute; left: 0; top: 80px; white-space: nowrap;
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em;
+  background: var(--surface); padding: 2px 5px; border-radius: 4px; color: var(--ink);
+}
+.est-riel-fecha--malo { color: var(--bad); }
+.est-riel-hoy { position: absolute; top: 38px; height: 38px; width: 2px; background: var(--primary); }
+.est-riel-hoy span {
+  position: absolute; top: 64px; left: 0; white-space: nowrap;
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  color: var(--primary); background: var(--surface); padding: 0 5px;
+}
+.est-ley-riel { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; font-size: 12.5px; color: var(--dim); }
+.est-ley-riel span { display: inline-flex; align-items: center; gap: 7px; }
+.est-ley-riel i { display: inline-block; width: 16px; height: 8px; border-radius: 4px; }
+
+/* La lista de hitos sólo existe en una caja angosta: ahí los rótulos del riel se pisan
+   (medido: con menos de ~720 px «P1 técnico» y «prospección» comparten renglón). Es una
+   consulta de CONTENEDOR y no de pantalla: el ancho lo decide también la barra lateral. */
+.est-riel-caja { container-type: inline-size; }
+.est-hitos { display: none; }
+@container (max-width: 720px) {
+  .est-riel { height: 52px; }
+  .est-riel-pista, .est-riel-plata { top: 8px; }
+  .est-riel-ventana { top: 24px; }
+  .est-riel-linea { height: 40px; }
+  .est-riel-hoy { top: 2px; height: 36px; }
+  .est-riel-nota, .est-riel-fecha, .est-riel-hoy span { display: none; }
+  .est-hitos { display: flex; flex-direction: column; gap: 2px; margin-top: 14px; }
+}
+
+/* ── c. la oferta ──────────────────────────────────────────────────────────── */
+.est-plan {
+  position: relative;
+  display: flex; flex-direction: column; gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px;
+  min-width: 0;
+}
+.est-plan--97 { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+.est-plan--grupal {
+  border-color: color-mix(in srgb, var(--mako) 60%, var(--border));
+  background: linear-gradient(170deg, var(--est-oro-bg), var(--surface) 62%);
+}
+.est-precio { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.est-precio b { font-size: 40px; font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
+.est-precio span { font-size: 13px; color: var(--faint); }
+
+/* El árbol de la agencia: una cuenta de 97 arriba, los workspaces de sus clientes abajo. */
+.est-arbol { display: flex; flex-direction: column; align-items: center; }
+.est-nodo {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 600;
+  padding: 7px 11px; border-radius: 9px;
+  background: var(--surface-2); color: var(--ink);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.est-nodo--padre { background: var(--primary); color: var(--on-primary); border-color: transparent; }
+.est-nodo--padre::after {
+  content: ''; position: absolute; left: 50%; top: 100%; width: 1px; height: 12px; background: var(--border-strong);
+}
+.est-nodo--padre.est-nodo--solo::after { content: none; }
+.est-hijos { position: relative; display: flex; gap: 8px; padding-top: 24px; flex-wrap: nowrap; }
+.est-hijos::before {
+  content: ''; position: absolute; top: 12px; left: 25%; right: 25%; height: 1px; background: var(--border-strong);
+}
+.est-hijos .est-nodo::before {
+  content: ''; position: absolute; left: 50%; bottom: 100%; width: 1px; height: 12px; background: var(--border-strong);
+}
+
+.est-cuotas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.est-cuota {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  padding: 9px 8px 8px; border-radius: 10px;
+  background: var(--surface); border: 1px solid color-mix(in srgb, var(--mako) 45%, var(--border));
+}
+.est-cuota b { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.est-cuota span { font-size: 11px; color: var(--faint); }
+
+/* ── d. las tortas ─────────────────────────────────────────────────────────── */
+.est-torta { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.est-dona { display: block; width: 100%; max-width: 210px; height: auto; overflow: visible; }
+.est-dona path { stroke: var(--surface); stroke-width: 2; stroke-linejoin: round; transition: opacity 0.15s ease; }
+.est-dona:hover path:not(:hover) { opacity: 0.4; }
+.est-dona-total { fill: var(--ink); font-family: 'Geist Mono', ui-monospace, monospace; font-weight: 600; letter-spacing: -0.02em; }
+.est-dona-unidad { fill: var(--faint); font-size: 11px; }
+.est-dona-pct { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; pointer-events: none; }
+.est-ley { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 2px; }
+.est-ley li {
+  display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 48px; align-items: center; gap: 9px;
+  padding: 6px 4px; border-top: 1px solid var(--border); font-size: 13px; color: var(--dim);
+}
+.est-ley li:first-child { border-top: none; }
+.est-ley li.est-ley--heroe { color: var(--ink); font-weight: 600; }
+/* break-word y no anywhere: anywhere partía «Conseguir/lo» y «reembol/so» a la mitad. */
+.est-ley li > span:nth-child(2) { min-width: 0; overflow-wrap: break-word; }
+.est-sw { width: 10px; height: 10px; border-radius: 3px; }
+.est-ley-usd { color: var(--ink); text-align: right; white-space: nowrap; }
+.est-ley-pct { color: var(--faint); text-align: right; white-space: nowrap; font-size: 12px; }
+
+/* ── e y h. barras con techo ──────────────────────────────────────────────── */
+.est-barras { display: flex; flex-direction: column; gap: 12px; }
+.est-fila {
+  display: grid; grid-template-columns: 170px minmax(0, 1fr) 96px; align-items: center; gap: 12px;
+}
+.est-fila-l { font-size: 13.5px; color: var(--ink); min-width: 0; }
+.est-fila-v { text-align: right; font-size: 13.5px; color: var(--ink); white-space: nowrap; }
+.est-fila-v small { display: block; font-size: 11px; color: var(--faint); }
+.est-carril { position: relative; height: 18px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.est-barra { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; min-width: 2px; }
+.est-barra--entra { background: var(--good); }
+.est-barra--no { background: var(--bad); }
+/* 60% y no 35%: al 35% la barra daba 1,47:1 contra el carril, debajo del 3:1 de una marca de dato. */
+.est-barra--ltv, .est-sw-ltv { background: color-mix(in srgb, var(--good) 60%, var(--surface-2)); }
+/* El techo, FINO y centrado sobre la barra del LTV (bullet chart): a todo el alto
+   y desde 0 se leía como una barra apilada oro + verde. */
+.est-barra--techo { background: var(--mako); top: 7px; bottom: 7px; border-radius: 0 3px 3px 0; }
+.est-techo { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); }
+.est-techo-cab { position: absolute; top: 0; white-space: nowrap; font-size: 11.5px; font-weight: 600; color: var(--ink); }
+.est-cabe { font-size: 11px; font-weight: 700; }
+.est-fila-v .est-cabe--si { color: var(--good); }
+.est-fila-v .est-cabe--no { color: var(--bad); }
+
+/* ── f. la estrategia ──────────────────────────────────────────────────────── */
+.est-flujo { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 10px; align-items: stretch; }
+.est-paso {
+  position: relative;
+  display: flex; flex-direction: column; gap: 12px; align-items: flex-start;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px;
+}
+.est-paso--fin { border-color: color-mix(in srgb, var(--mako) 60%, var(--border)); background: linear-gradient(165deg, var(--est-oro-bg), var(--surface) 62%); }
+.est-paso-ic {
+  width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center;
+  background: var(--est-azul-bg); color: var(--primary);
+}
+.est-paso--fin .est-paso-ic { background: var(--mako); color: var(--est-on-oro); }
+.est-paso-n { position: absolute; top: 18px; right: 20px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; font-weight: 600; color: var(--faint); }
+.est-paso h3 { margin: 0; font-size: 18px; line-height: 1.3; font-weight: 600; letter-spacing: -0.015em; }
+.est-flecha { display: flex; align-items: center; justify-content: center; color: var(--faint); }
+
+.est-canal { display: flex; flex-direction: column; gap: 16px; }
+.est-canal--A { border-color: color-mix(in srgb, var(--good) 35%, var(--border)); }
+.est-canal--B { border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+.est-canal-hd { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.est-canal-hd > div { flex: 1; min-width: 0; }
+.est-canal-id {
+  flex: none; width: 34px; height: 34px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px; color: var(--on-primary); background: var(--primary);
+}
+.est-canal--A .est-canal-id { background: var(--good); color: var(--est-on-verde); }
+.est-canal-sub { font-size: 12.5px; color: var(--faint); }
+.est-hecho { font-size: 14px; color: var(--dim); background: var(--surface-2); border-radius: 10px; padding: 11px 13px; }
+.est-hecho b { color: var(--ink); font-weight: 600; }
+
+/* La pauta del canal B: una barra partida en sus dos fases. */
+/* El monto va ADENTRO del segmento y el nombre de la fase DEBAJO, con el mismo ancho:
+   adentro de un 30% no entra «Fase 1 · Ad ganador» y se cortaba. */
+.est-fases, .est-fases-rot { display: flex; gap: 2px; }
+.est-fases { height: 34px; border-radius: 10px; overflow: hidden; }
+.est-fase {
+  display: flex; align-items: center; padding: 0 10px; min-width: 0;
+  font-size: 12.5px; font-weight: 700; color: var(--on-primary); background: var(--primary);
+}
+.est-fase--2 { background: var(--good); color: var(--est-on-verde); }
+.est-fases-rot { margin-top: -10px; }
+.est-fases-rot span { min-width: 0; padding: 0 2px; font-size: 12px; color: var(--dim); line-height: 1.35; }
+.est-fases-rot b { color: var(--ink); font-weight: 600; }
+
+/* El embudo de cada canal: barras sobre la MISMA escala en los dos, para poder compararlos. */
+.est-embudo { display: flex; flex-direction: column; gap: 10px; }
+.est-escalon { display: flex; flex-direction: column; gap: 5px; }
+.est-escalon-hd { display: flex; align-items: baseline; gap: 10px; font-size: 13.5px; color: var(--dim); }
+/* El rótulo NO baja de su palabra más larga (min-width: auto): con flex:1 y min-width:0 se
+   achicaba a cero y la tasa se le dibujaba encima. */
+.est-escalon-hd > span:first-child { flex: 1 1 auto; }
+/* La tasa puede ser larga («7 de prospección + 8 de…»): en una caja angosta baja de renglón, no desborda. */
+.est-escalon-hd small { flex: 0 1 auto; min-width: 0; font-size: 11.5px; color: var(--faint); text-align: right; }
+.est-escalon-hd b { flex: none; }
+.est-escalon-hd b { font-size: 17px; font-weight: 600; color: var(--ink); }
+.est-escalon--fin .est-escalon-hd b { font-size: 22px; }
+.est-escalon .est-carril { height: 12px; }
+.est-escalon .est-barra { background: var(--primary); }
+.est-canal--A .est-escalon .est-barra { background: var(--good); }
+
+/* Lead magnet y Loom. */
+.est-mini { display: flex; gap: 8px; }
+.est-mini-i {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px;
+  background: var(--est-azul-bg); border-radius: 12px; padding: 12px; font-size: 12.5px; line-height: 1.35; font-weight: 500;
+}
+.est-mini-i b {
+  width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--on-primary); background: var(--primary);
+}
+.est-mini--A .est-mini-i { background: var(--est-verde-bg); }
+.est-mini--A .est-mini-i b { background: var(--good); color: var(--est-on-verde); }
+/* El paso que trae detalle en el title lo avisa con el cursor. */
+.est-mini-i[title] { cursor: help; }
+.est-puente { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 600; }
+.est-puente span { padding: 7px 11px; border-radius: 9px; }
+.est-puente span:first-child { background: var(--surface-2); color: var(--dim); }
+.est-puente span:last-child { background: var(--mako); color: var(--est-on-oro); }
+
+/* La razón egoísta. */
+.est-cita {
+  margin: 0; font-size: clamp(18px, 2vw, 22px); line-height: 1.4; font-weight: 600; letter-spacing: -0.015em;
+  padding-left: 16px; border-left: 3px solid var(--mako);
+}
+/* Los seis ejes: ícono + título, sin la frase (va en el title). */
+.est-ejes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
+.est-eje {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0;
+  padding: 14px; border-radius: 12px; background: var(--surface-2); cursor: help;
+}
+.est-eje-ic {
+  width: 36px; height: 36px; border-radius: 10px; flex: none;
+  display: flex; align-items: center; justify-content: center; background: var(--est-azul-bg); color: var(--primary);
+}
+.est-eje strong { font-size: 14px; font-weight: 600; line-height: 1.3; }
+
+/* El QUÉ y el CÓMO. */
+.est-que-como { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; border-radius: 16px; overflow: hidden; }
+.est-que, .est-como { padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
+.est-que { background: var(--est-verde-bg); }
+.est-como { background: var(--est-rojo-bg); }
+.est-que b { color: var(--good); }
+.est-como b { color: var(--bad); }
+.est-que b, .est-como b { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
+.est-que p, .est-como p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
+
+/* La duda: una matriz de criterios × con/sin, con ✓ / ✕ / = en cada celda. */
+.est-duda { padding: 6px 20px; }
+.est-duda-fila {
+  display: grid; grid-template-columns: minmax(96px, 0.8fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px;
+  align-items: center; padding: 10px 0; border-top: 1px solid var(--border); font-size: 13.5px;
+}
+.est-duda-fila:first-child { border-top: none; }
+.est-duda-fila[title] { cursor: help; }
+.est-duda-fila--cab { padding: 12px 0 8px; }
+.est-duda-cab {
+  display: inline-flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; min-width: 0;
+  font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);
+}
+.est-duda-cab--con { color: var(--primary); }
+.est-duda-cab b { font-size: 12px; padding: 1px 7px; border-radius: 6px; background: var(--surface-2); color: var(--ink); }
+.est-duda-crit { font-weight: 600; color: var(--ink); min-width: 0; }
+.est-duda-celda { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--dim); }
+.est-marca {
+  flex: none; width: 22px; height: 22px; border-radius: 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.est-marca--si { background: var(--est-verde-bg); color: var(--good); }
+.est-marca--no { background: var(--est-rojo-bg); color: var(--bad); }
+.est-marca--igual { background: var(--surface-2); color: var(--faint); }
+
+/* ── g. la proyección ──────────────────────────────────────────────────────── */
+.est-proy { display: flex; flex-direction: column; gap: 10px; }
+.est-proy .est-escalon .est-carril { height: 26px; border-radius: 6px; }
+.est-proy .est-escalon .est-barra { border-radius: 0 6px 6px 0; }
+.est-proy .est-escalon--fin .est-barra { background: var(--good); }
+.est-cuenta { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+.est-cuenta-i {
+  flex: 1 1 150px; display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; min-width: 0;
+}
+.est-cuenta-i b { font-size: clamp(22px, 2.6vw, 28px); font-weight: 600; letter-spacing: -0.03em; }
+.est-cuenta-i--neto { border-color: var(--good); background: var(--est-verde-bg); }
+.est-cuenta-i--neto b { color: var(--good); }
+.est-cuenta-i[title] { cursor: help; }
+.est-cuenta-s { font-size: 12px; color: var(--faint); }
+.est-op { align-self: center; font-size: 22px; font-weight: 600; color: var(--faint); }
+
+/* Lo proyectado contra el objetivo: la parte llena es lo que vende el embudo, la
+   rayada es lo que falta. Las dos en la misma barra, con el objetivo como total. */
+.est-brecha { display: flex; flex-direction: column; gap: 10px; }
+.est-brecha-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.est-brecha-hd b { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+.est-brecha-carril { display: flex; height: 34px; border-radius: 9px; overflow: hidden; gap: 2px; }
+.est-brecha-llena, .est-brecha-falta {
+  display: flex; align-items: center; padding: 0 10px; min-width: 0;
+  font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden;
+}
+.est-brecha-llena { flex: none; background: var(--good); color: var(--est-on-verde); }
+.est-brecha-falta {
+  flex: 1; justify-content: flex-end; color: var(--bad);
+  background: repeating-linear-gradient(135deg, var(--est-rojo-bg) 0 6px, var(--surface-2) 6px 12px);
+}
+.est-brecha-pie { margin: 0; font-size: 13px; color: var(--dim); }
+.est-brecha-pie b { color: var(--ink); font-weight: 600; }
+
+/* ── h. referidos ──────────────────────────────────────────────────────────── */
+/* 2×2 y no cuatro de 230: a 1280 las ecuaciones se partían dejando el «=» colgado. */
+.est-grid--2x2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.est-quien { display: flex; flex-direction: column; gap: 14px; }
+.est-quien[title] { cursor: help; }
+/* Un lado de una ecuación no se parte: el renglón corta ANTES del operador. */
+.est-eq-lado { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.est-quien-hd { display: flex; align-items: center; gap: 10px; }
+.est-quien-ic {
+  width: 36px; height: 36px; border-radius: 10px; flex: none;
+  display: flex; align-items: center; justify-content: center; background: var(--est-azul-bg); color: var(--primary);
+}
+.est-quien--grupal .est-quien-ic { background: var(--mako); color: var(--est-on-oro); }
+.est-gana { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.est-gana .est-nodo { font-size: 13px; }
+.est-gana-big { font-size: clamp(24px, 2.6vw, 30px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; }
+.est-gana-txt { font-size: 18px; font-weight: 600; letter-spacing: -0.015em; }
+.est-pie { font-size: 12.5px; color: var(--faint); line-height: 1.45; margin: 0; }
+.est-eq { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
+.est-eq i { font-style: normal; color: var(--faint); font-weight: 600; }
+.est-eq .est-nodo--gratis { background: var(--est-verde-bg); color: var(--good); border-color: transparent; }
+.est-tramo { display: flex; height: 30px; border-radius: 9px; overflow: hidden; gap: 2px; }
+.est-tramo span {
+  display: flex; align-items: center; padding: 0 10px; font-size: 12px; font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.est-tramo span:first-child { flex: 3; background: var(--est-azul-bg); color: var(--primary); }
+.est-tramo span:last-child { flex: 2; background: var(--good); color: var(--est-on-verde); }
+
+/* ── i. canales a futuro ──────────────────────────────────────────────────── */
+.est-futuro { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; }
+.est-futuro-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.est-futuro-id {
+  width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; background: var(--surface-2); color: var(--dim);
+}
+.est-futuro[title] { cursor: help; }
+.est-futuro--palanca { border-color: color-mix(in srgb, var(--mako) 60%, var(--border)); }
+
+/* ── j. el pie ─────────────────────────────────────────────────────────────── */
+.est-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  text-decoration: none; color: inherit;
+  transition: border-color 0.15s ease;
+}
+.est-link:hover { border-color: var(--primary); }
+.est-link b { color: var(--primary); font-weight: 600; }
+
+/* ── responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 820px) {
+  .est-flujo { grid-template-columns: 1fr; }
+  .est-flecha { transform: rotate(90deg); height: 18px; }
+  .est-que-como { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  /* La columna del valor con ancho FIJO e igual en todas las filas (incluida la del
+     rótulo del techo): con `auto` cada fila medía su carril distinto (217 a 233 px) y
+     la línea del techo saltaba de fila en fila. */
+  .est-fila { grid-template-columns: minmax(0, 1fr) 108px; row-gap: 6px; }
+  .est-fila-l { grid-column: 1 / -1; }
+  .est-grid--2x2 { grid-template-columns: minmax(0, 1fr); }
+  .est-duda { padding: 6px 14px; }
+  .est-duda-fila { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: 6px; }
+  .est-duda-crit { grid-column: 1 / -1; }
+  .est-duda-fila--cab > span:first-child { display: none; }
+  .est-mini { flex-direction: column; }
+  .est-mini-i { flex-direction: row; align-items: center; }
+  .est-cuenta { flex-direction: column; }
+  .est-cuenta-i { flex: none; }
+  .est-op { line-height: 1; }
+  .est-precio b { font-size: 34px; }
+}
+.est-hito {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px;
+}
+.est-hito:first-child { border-top: none; }
+.est-hito b { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; font-weight: 600; }
+.est-hito small { font-size: 11.5px; color: var(--faint); white-space: nowrap; }
+.est-hito--malo b { color: var(--bad); }
+.est-hito--pasado { opacity: 0.45; }
+.est-hito--hoy b, .est-hito--hoy span { color: var(--primary); font-weight: 700; }

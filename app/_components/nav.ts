@@ -387,6 +387,12 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // del cerebro de MaKo porque es información de CLIENTES, no configuración de
         // la IA: se lee al lado de «Clientes», que es la pregunta que contesta.
         { key: 'admin-agente', label: 'Agente de los clientes', href: '/admin/agente', icon: 'mako', match: starts('/admin/agente') },
+        // La estrategia de MaKo en UNA pantalla (10/10/2026, pedido de Martín: «tenemos
+        // runway, tenemos una de análisis de costos, y mucha info desparramada»): la
+        // oferta, a dónde va cada dólar, el CAC, la adquisición, la proyección y los
+        // referidos. Sólo super admin: vive bajo /admin y abre con getSesionAdmin. La key
+        // NO lleva el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros).
+        { key: 'admin-estrategia', label: 'Strategy', href: '/admin/estrategia', icon: 'analytics', match: starts('/admin/estrategia') },
       ],
       // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
       // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar

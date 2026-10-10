@@ -1,17 +1,22 @@
-import type { Metadata } from 'next';
-import Estrategia from './Estrategia';
+// =============================================================================
+// /vsl/estrategia — redirige a la tab de super admin /admin/estrategia
+// =============================================================================
+// Era el documento interno de oferta y estrategia (revisión del 28/07), público
+// por caer bajo '/vsl' (PUBLICOS en lib/rutas-publicas.ts) y con noindex. El
+// 10/10/2026 su contenido se mudó a /admin/estrategia, junto con el runway y los
+// costos, sólo para super admin.
+//
+// ⚠️ LA RUTA NO SE BORRA: el link circuló (se le mandó a un consultor) y un 404 es
+// peor que un salto. Redirige, y el guard de /admin/* (proxy + getSesionAdmin) se
+// encarga de quién la puede ver: quien no es super admin ya no la lee.
+//
+// ⚠️ '/vsl' SIGUE EN PUBLICOS: tests/acciones-sin-sesion.test.ts exige que esta
+// ruta sea pública y de sólo lectura, y un redirect lo cumple.
 
-// Documento INTERNO (oferta + estrategia de marketing) para presentarle al
-// consultor. La ruta cae bajo /vsl → es pública por proxy.ts (startsWith
-// '/vsl/'), lo que permite compartir el link sin login. noindex para que no lo
-// levante ningún buscador: es material interno, no distribuir.
-export const metadata: Metadata = {
-  title: 'MaKo — Oferta y estrategia de marketing · Interno',
-  description:
-    'Documento interno: la escalera de oferta de MaKo, los dos motores de adquisición (prospección y campaña de mensajes), los canales a futuro y las funcionalidades que faltan.',
-  robots: { index: false, follow: false },
-};
+import { redirect } from 'next/navigation';
 
-export default function Page() {
-  return <Estrategia />;
+export const dynamic = 'force-dynamic';
+
+export default function EstrategiaVieja() {
+  redirect('/admin/estrategia');
 }

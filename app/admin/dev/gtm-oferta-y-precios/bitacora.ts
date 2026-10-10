@@ -7,7 +7,7 @@
 // por canal), los planes de software Free/Pro 47/Growth 97 con cupo de MaKo
 // Tokens, y la única superficie pública de precio: el bloque «Precio de
 // fundador» de la landing, que no da cifra.
-// Vive en: app/vsl/estrategia/, app/admin/dev/pricing/ (modelo.ts, Piezas.tsx),
+// Vive en: app/admin/estrategia/ (desde el 10/10/2026; /vsl/estrategia redirige ahí), app/admin/dev/pricing/ (modelo.ts, Piezas.tsx),
 // docs/embudo-y-high-ticket.md, docs/costos-ia-y-planes.md, app/vsl/landing-html.ts.
 //
 // ⚠️ EL ÁREA ESTÁ PARTIDA EN DOS Y COMPARTE ARCHIVOS CON OTRO REGISTRO. La

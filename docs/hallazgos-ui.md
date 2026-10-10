@@ -547,7 +547,7 @@ correcta (ámbar oscuro sobre dorado claro: `#C77E08` sobre `#FBEBCB`, `#9A6207`
 alcanza** (el extremo claro queda en ~3,3:1): la salida que pasa AA es texto casi negro
 ámbar (`#3A2604`, ~5,2:1 y ~7:1) manteniendo el dorado brillante.
 
-**Vive en:** app/vsl/estrategia/Estrategia.tsx (.s-tier-ribbon, .s-diff-seg-3, .s-ch-lever .s-ch-id, .s-rung-1 .s-rung-n) · *2026-07-19 ~revision-landing-estrategia-vsl*
+**Vive en:** app/vsl/estrategia/Estrategia.tsx — BORRADO el 10/10/2026; la página se mudó a app/admin/estrategia/ (Estrategia.tsx + estrategia.css), sin estas clases (.s-tier-ribbon, .s-diff-seg-3, .s-ch-lever .s-ch-id, .s-rung-1 .s-rung-n) · *2026-07-19 ~revision-landing-estrategia-vsl*
 
 ### ⚠️ El gris de de-énfasis de una barra no es `--border-strong`: da 1,23:1 y es invisible
 
@@ -973,7 +973,7 @@ escondía cortando justo el número. Arreglo: la barra va dentro de un track `fl
 min-width:0` y el label `flex:none`, para que el `width:X%` se mida contra el espacio que
 sobra.
 
-**Vive en:** app/vsl/estrategia/Estrategia.tsx (.s-fbar-row / .s-fbar / .s-fbar-lbl) · *2026-07-19 ~revision-landing-estrategia-vsl*
+**Vive en:** app/vsl/estrategia/Estrategia.tsx — BORRADO el 10/10/2026; la página se mudó a app/admin/estrategia/ (Estrategia.tsx + estrategia.css), sin estas clases (.s-fbar-row / .s-fbar / .s-fbar-lbl) · *2026-07-19 ~revision-landing-estrategia-vsl*
 
 ### El placeholder animado no cuesta renders: cuesta el NOMBRE del control
 

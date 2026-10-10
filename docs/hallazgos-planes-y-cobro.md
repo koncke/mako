@@ -250,6 +250,57 @@ sí (US$69/mes con pagos manuales). Verificarlo en el trial antes de prometer na
 
 ---
 
+## La tab /admin/estrategia (10/10/2026): lo que no coincidía entre las fuentes al juntarlas
+
+Martín pidió juntar en UNA tab de super admin la estrategia, el runway, los costos y los
+referidos. La tab **importa** de `app/admin/runway/datos.ts` y de `modelo.ts` en vez de copiar
+números; al hacerlo aparecieron estas diferencias, que la pantalla resuelve como se dice y
+que siguen vivas en las fuentes. Corrida `wf_b425a044-e9e` (4 lectores, 1 constructor, 3
+verificadores, 1 corrector).
+
+**El objetivo de US$10.000 no sale de la oferta vigente.** La proyección de la estrategia
+(15 agendas → 12 efectivas → 5 ventas) llegaba a 10.000 con una mezcla de «1 a 1 de 4.000 + 4
+grupales de 1.500». El 1 a 1 de 4.000 no aparece en ninguna decisión posterior al 20/09. Con
+sólo el grupal, 5 ventas son **US$7.500** (neto 6.500 con US$1.000 de anuncios), y el objetivo
+pide **7 ventas, ~22 agendas**. La tab dibuja las dos cosas por separado: lo proyectado y la
+brecha contra el objetivo. **La regla:** un total rotulado «Facturado» se calcula de ventas ×
+precio; si es una meta, se rotula «Objetivo» y se dibuja aparte.
+
+**El runway y la estrategia proyectan dos meses distintos.** Runway: US$2.000 de pauta, US$100
+por agenda, 50% de show y — sin decirlo — 100% de cierre (10 clientes, US$15.000). Estrategia:
+US$1.000 de campaña, US$125 por agenda, 80% de asistencia, 40% de cierre. La tab usa la de la
+estrategia (es la que Martín revisó tasa por tasa) y deja el capital y el calendario del runway.
+**Sin resolver: ¿la pauta de noviembre es 1.000 o 2.000?**
+
+**`CAC_CANALES` (modelo.ts:1030) mide la venta autoservicio del Pro CON usuarios Free.** El
+«WhatsApp US$176» son 100 de medios + 76 de 19 Free que no pagan; el carrito, 124,22 + 12. En
+la oferta vigente no hay Free (`UNIT_V2.free`: «NO EXISTE hasta el mes 10»), y la campaña de
+la estrategia vende el GRUPAL por llamada. Dibujado tal cual, la página declaraba «no entra»
+al canal pago que ella misma propone. La tab separa dos gráficos, cada uno contra su techo:
+el grupal (campaña ~US$390 por venta contra US$1.190 que deja) y el Pro vendido solo, sin el
+componente Free. Y el referido de `CAC_CANALES` (43,55) es el premio viejo de tokens: el
+decidido el 10/10 cuesta 78,23.
+
+**La torta del 97 dividía por la regla equivocada.** «Captación» era un tercio de la
+contribución (17,56/mes = el techo 3:1 de 272,23), pero `UNIT_V2` dice que en el Growth
+gobierna el payback (158,07). Ahora cada porción de captación es el techo que se dibuja ÷ la
+vida del cliente: 9,37 en el 47 y 10,20 en el 97.
+
+**El techo del 47 son 81,53, no 81,50.** `UNIT_V2` mezcla el ajuste de `ASCENSO_NETO` (−6,57,
+del modelo v1); el 81,50 de `docs/referidos.md` y de `modelo.ts:1439` es el redondeo del
+comentario. Su propia fórmula sin el ajuste da 83,72. Diferencias de centavos: no cambian
+ninguna decisión.
+
+**Los hitos del runway son los del 03/10.** El audio del 04/10 movió el cierre técnico y la
+prospección (18/10 y 19/10), y la «ventana de 45 días» son 29-30 días con plata. La tab importa
+`HITOS` tal cual: se corrige en `runway/datos.ts` y se corrige en las dos pantallas.
+
+**`/vsl/costos` sigue pública sin login**, con los costos de la empresa. Era el otro documento
+interno bajo `/vsl`; su cabecera decía «igual que /vsl/estrategia», que dejó de ser cierto.
+**Decisión de Martín.**
+
+---
+
 ## Lo que quedó SIN hacer, con el archivo donde vive
 
 | Qué | Dónde |
