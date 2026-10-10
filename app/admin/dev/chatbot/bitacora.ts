@@ -1051,4 +1051,14 @@ export const BITACORA: Hito[] = [
       "La investigación de Instagram sin Zernio (la app de Meta en verificación: DMs, publicar Reels, lo que hace Metricool) se le pidió al chat de Ads Manager el mismo día.",
     ],
   },
+  {
+    fecha: "9 oct", hora: "23:40", chat: "—", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El horario de envío también se configura desde Automations, ahí mismo",
+    pedido: "El horario de oficina si se configura en la tab de configuraciones, pero haz que se pueda configurar allí mismo, sin redirigir.",
+    puntos: [
+      "Llegó mientras corría la revisión de la sexta tanda, contestando el aviso de que, sin límite de horario, las post-agendas del ws1 (de Mauricio, un cliente) podían salir de noche.",
+      "Se leyó «allí mismo» como la tab Automations: un botón con reloj en la lista, al lado de «＋ Nueva», que abre el mismo editor de Configuraciones › Horario en un panel anclado. El ajuste sigue siendo uno por negocio.",
+    ],
+  },
 ];
