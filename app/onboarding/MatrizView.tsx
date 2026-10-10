@@ -23,6 +23,7 @@
 // Lee /api/onboarding/razones.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { formatoPorId, type Medio } from '@/lib/angulos-data';
 import { SeccionCard, parsearSecciones, ICONO_SECCION_GUION, type Seccion } from '../components/SeccionCard';
 import ErrorIA from '../_components/ErrorIA';
@@ -664,7 +665,7 @@ function GuionesTab({ celda, angulos, estructuras, siguientePasoDefault, siguien
                   onRetroceder={() => onRetrocederEstado(g.id)} />
                 <button type="button" onClick={() => onCopiar(g)} style={btnMini} title="Copiar todo el guion">{copiado === g.id ? '✓ Copiado' : '📋 Copiar'}</button>
                 <button type="button" onClick={() => onDescargar(g)} style={btnMini} title="Descargar como .md">⬇ .md</button>
-                <button type="button" onClick={() => onBorrarGuion(g.id)} aria-label="Borrar guion" style={{ ...btnMini, padding: '5px 8px' }}>✕</button>
+                <button type="button" onClick={() => onBorrarGuion(g.id)} aria-label="Borrar guion" title="Borrar guion" style={{ ...btnMini, padding: '4px 7px', display: 'inline-flex', alignItems: 'center' }}><IconoBorrar size={15} /></button>
               </div>
               {abierto && (
                 <div style={{ padding: 12 }}>

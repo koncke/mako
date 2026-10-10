@@ -15,6 +15,7 @@
 // catálogo de código.
 
 import { useEffect, useState, type CSSProperties } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Icon } from '../../_components/icons';
 import { Dropdown } from '../../components/Dropdown';
 
@@ -133,7 +134,7 @@ export function GuionesAdminView({ tabExterna }: { tabExterna?: 'angulos' | 'est
                       <span aria-hidden style={{ marginLeft: 'auto', flex: 'none', color: 'var(--faint)', fontSize: 12, transform: on ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
                     </button>
                     <button type="button" onClick={() => edAngulo(a.id, { activo: !a.activo })} style={{ ...btnGhost, padding: '6px 11px', fontSize: 12 }}>{a.activo ? 'Activo' : 'Apagado'}</button>
-                    <button type="button" onClick={() => { setAngulos((as) => (as ? as.filter((x) => x.id !== a.id) : as)); setMsg(null); }} aria-label="Borrar" style={{ ...btnGhost, padding: '6px 9px', fontSize: 12 }}>✕</button>
+                    <button type="button" onClick={() => { setAngulos((as) => (as ? as.filter((x) => x.id !== a.id) : as)); setMsg(null); }} aria-label="Borrar" title="Borrar" style={{ ...btnGhost, padding: '5px 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center' }}><IconoBorrar size={15} /></button>
                   </div>
                   {on && (
                     <div style={{ borderTop: '1px solid var(--border)', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -204,7 +205,7 @@ export function GuionesAdminView({ tabExterna }: { tabExterna?: 'angulos' | 'est
                       <span aria-hidden style={{ marginLeft: 'auto', flex: 'none', color: 'var(--faint)', fontSize: 12, transform: on ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
                     </button>
                     <button type="button" onClick={() => edEstructura(e.id, { activo: !e.activo })} style={{ ...btnGhost, padding: '6px 11px', fontSize: 12 }}>{e.activo ? 'Activa' : 'Apagada'}</button>
-                    <button type="button" onClick={() => { setEstructuras((es) => (es ? es.filter((x) => x.id !== e.id) : es)); setMsg(null); }} aria-label="Borrar" style={{ ...btnGhost, padding: '6px 9px', fontSize: 12 }}>✕</button>
+                    <button type="button" onClick={() => { setEstructuras((es) => (es ? es.filter((x) => x.id !== e.id) : es)); setMsg(null); }} aria-label="Borrar" title="Borrar" style={{ ...btnGhost, padding: '5px 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center' }}><IconoBorrar size={15} /></button>
                   </div>
                   {on && (
                     <div style={{ borderTop: '1px solid var(--border)', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>

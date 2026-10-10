@@ -17,6 +17,7 @@ import { ayerEnTijuana, diasAntes, primerDiaDelMesEnTijuana, primerDiaDelMesDeFe
 import { MakoStar, MakoWord } from '@/app/_components/MakoBrand';
 import { useConfirm } from '@/app/_components/useConfirm';
 import { Icon } from '@/app/_components/icons';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import type { Toast } from './ExperimentosApp';
 import { RetroReport } from './RetroReport';
 import {
@@ -110,7 +111,7 @@ export function RetroTab({
         {confirmNode}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <button type="button" onClick={() => setSelId(null)} style={{ ...btnGhost, border: 'none', paddingLeft: 0 }}>← Todas las retros</button>
-          <button type="button" onClick={() => borrar(sel.id)} style={{ ...btnGhost, border: 'none', color: 'var(--faint)' }}>🗑 Eliminar</button>
+          <BotonBorrar onClick={() => borrar(sel.id)} title="Eliminar esta Retro" texto="Eliminar" />
         </div>
         {sel.reporte ? (
           <>
@@ -182,10 +183,10 @@ function RetroFila({ retro, onOpen, onBorrar }: { retro: Retro; onOpen: () => vo
           Corrida el {fmtFechaLarga(retro.created_at)} · analiza {fmtFechaLarga(retro.periodo_desde)} – {fmtFechaLarga(retro.periodo_hasta)} · {alcanceLabel(retro)} · {n} {n === 1 ? 'recomendación' : 'recomendaciones'}{aceptadas > 0 ? ` · ${aceptadas} aceptada${aceptadas === 1 ? '' : 's'}` : ''}
         </div>
       </div>
-      <button type="button" onClick={(e) => { e.stopPropagation(); onBorrar(); }} aria-label="Eliminar"
-        style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 9, border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, opacity: hover ? 1 : 0, transition: 'opacity .15s' }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bad-bg)'; e.currentTarget.style.color = 'var(--bad)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--faint)'; }}>🗑</button>
+      {/* El tacho de la casa, rojo (general 9): antes era un 🗑 en `--faint`. Sigue apareciendo al pasar
+          por la tarjeta, como antes; lo que cambió es que, cuando se ve, se lee como borrar. */}
+      <BotonBorrar onClick={(e) => { e.stopPropagation(); onBorrar(); }} title="Eliminar esta Retro"
+        style={{ opacity: hover ? 1 : 0, transition: 'opacity .15s, background .12s' }} />
       <span style={{ color: 'var(--faint)', fontSize: 20, flexShrink: 0 }}>›</span>
     </div>
   );

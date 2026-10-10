@@ -16,6 +16,7 @@
 // =============================================================================
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { SeccionCard, parsearSecciones, ICONO_SECCION_GUION, type Seccion } from '../components/SeccionCard';
 import { Button, IconButton, Tag } from '../_ui';
 import { EstadoChip } from '../onboarding/EstadoChip';
@@ -119,7 +120,7 @@ export function GuionLector({ g, celdaNombre, avatarNombre, anguloEmoji, onCerra
           <Button variant="secondary" onClick={onDescargar}>Descargar .md</Button>
           {irAlAnuncio && <Button variant="tertiary" onClick={irAlAnuncio}>Ver el anuncio</Button>}
           <span style={{ flex: 1 }} />
-          <IconButton title="Borrar este guion" danger onClick={onBorrar}>✕</IconButton>
+          <IconButton title="Borrar este guion" danger onClick={onBorrar}><IconoBorrar size={18} /></IconButton>
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@
 // para generar las imágenes de los creativos con esa persona. Corre en el workspace.
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 import ErrorIA from '../_components/ErrorIA';
 
@@ -126,7 +127,7 @@ export function PersonaView({ onListo }: { onListo?: (listo: boolean) => void } 
             <div style={{ width: '100%', aspectRatio: '4 / 5', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
               {f.url ? <img src={f.url} alt={f.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ ...eyebrow, display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>IMG</div>}
             </div>
-            <button type="button" aria-label="Quitar" onClick={() => borrar(f.id)} style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 999, border: 'none', background: 'rgba(18,21,27,.72)', color: '#fff', fontSize: 12, lineHeight: '22px', cursor: 'pointer', padding: 0 }}>✕</button>
+            <button type="button" aria-label="Borrar esta foto" title="Borrar esta foto" onClick={() => borrar(f.id)} style={{ position: 'absolute', top: 5, right: 5, width: 26, height: 26, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}><IconoBorrar size={14} /></button>
           </div>
         ))}
         <label

@@ -9,6 +9,7 @@
 // y vista de status (borrador/revisión/aprobada/rechazada) filtrable.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { Dropdown } from '../components/Dropdown';
 import { VARIABLES_LEAD, refDeRegla, explicarRechazo } from '../../lib/template-vars';
 
@@ -881,7 +882,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: Button[]; onChange: (b:
             <input value={b.text} maxLength={25} onChange={(e) => patch(i, { text: e.target.value })} placeholder="Texto del botón" style={{ ...inputBase, flex: '1 1 130px', width: 'auto' }} />
             {b.type === 'URL' && <input value={b.url ?? ''} onChange={(e) => patch(i, { url: e.target.value })} placeholder="https://tudominio.com/…" style={{ ...inputBase, flex: '1 1 180px', width: 'auto', fontFamily: MONO }} />}
             {b.type === 'PHONE_NUMBER' && <input value={b.phone_number ?? ''} onChange={(e) => patch(i, { phone_number: e.target.value })} placeholder="+5216863996369" style={{ ...inputBase, flex: '1 1 150px', width: 'auto', fontFamily: MONO }} />}
-            <button onClick={() => del(i)} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', cursor: 'pointer', fontSize: 16, padding: 2 }}>✕</button>
+            <BotonBorrar talla="sm" onClick={() => del(i)} title="Quitar este botón" />
           </div>
         ))}
       </div>

@@ -21,6 +21,7 @@ import {
   MONO, type Tono,
 } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import { Roadmap, ChangeHistory } from '@/app/admin/dev/_registro/Registro';
 import { BITACORA, PARTES } from './bitacora';
@@ -190,7 +191,10 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
           <Button icon={<Icon name="check" size={16} />}>Confirmar</Button>
           <ButtonLink href="/admin/ui" variant="secondary" iconRight={<span>→</span>}>Enlace-botón</ButtonLink>
           <IconButton title="Buscar"><Icon name="search" size={18} /></IconButton>
-          <IconButton title="Eliminar" danger><Icon name="trash" size={18} /></IconButton>
+          {/* Borrar es UNO en toda la app: el tacho de la casa, ROJO siempre (general 9). Sin caja y
+              con texto, las dos formas de BotonBorrar. */}
+          <BotonBorrar onClick={() => {}} title="Eliminar este elemento" />
+          <BotonBorrar onClick={() => {}} title="Eliminar este elemento" texto="Eliminar" />
         </Fila>
       </Seccion>
 

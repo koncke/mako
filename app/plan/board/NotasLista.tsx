@@ -18,6 +18,7 @@
 // =============================================================================
 
 import { useMemo, useState, type CSSProperties } from 'react';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { RichText, sanitizeHtml, mdAHtml } from './RichText';
 
 const SANS = "'Geist', sans-serif";
@@ -98,8 +99,7 @@ export function NotasLista({ valor, onGuardar }: {
             <div key={n.id} style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)', padding: '10px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
                 <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{fmt(n.ts)}</span>
-                <button type="button" onClick={() => borrar(n.id)} aria-label="Borrar la nota"
-                  style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                <BotonBorrar talla="sm" onClick={() => borrar(n.id)} title="Borrar la nota" />
               </div>
               <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.55 }}
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(mdAHtml(n.texto)) }} />

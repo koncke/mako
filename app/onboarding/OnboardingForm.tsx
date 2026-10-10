@@ -8,6 +8,7 @@
 // =============================================================================
 
 import Link from '@/app/_ui/Link';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { MakoLogo, MakoIntro } from '../_components/MakoBrand';
 import { TaxonomyManager, type TaxItem } from '../components/TaxonomyManager';
@@ -153,7 +154,7 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
                       ]}
                     />
                     <input style={input} value={f.placeholder ?? ''} placeholder="Placeholder (opcional)" onChange={(e) => setField(gi, fi, { placeholder: e.target.value })} />
-                    <button aria-label="Quitar campo" style={{ ...btnGhostSm, color: 'var(--bad)' }} onClick={() => delField(gi, fi)}>✕</button>
+                    <button aria-label="Quitar campo" title="Quitar campo" style={{ ...btnGhostSm, color: 'var(--bad)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => delField(gi, fi)}><IconoBorrar size={15} /></button>
                   </div>
                 ))}
               </div>

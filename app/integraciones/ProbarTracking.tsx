@@ -18,6 +18,7 @@ import { enumerar, haceCuanto, nombresDe, type Cambios } from '@/lib/landing-sna
 import { Button, Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
 import { Icon } from '@/app/_components/icons';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { mismaPagina } from '@/lib/landing-paginas';
 import type { VideoLanding } from '@/lib/landing-videos';
 import { NombrarVideos, type VideoDetectado } from './NombrarVideos';
@@ -295,7 +296,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
    */
   const accionesDe = (u: string) => [
     { icono: <Icon name="pen" size={14} />, title: 'Corregir esta dirección', onClick: () => { setUrl(u); setEditando(paginas.some((p) => mismaPagina(p, u)) ? u : null); setEligiendoNueva(true); } },
-    { icono: <Icon name="trash" size={14} />, title: 'Quitarla de la lista', tone: 'bad' as const, onClick: () => { void borrar(u); } },
+    { icono: <IconoBorrar size={15} />, title: 'Quitarla de la lista', tone: 'bad' as const, onClick: () => { void borrar(u); } },
   ];
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 

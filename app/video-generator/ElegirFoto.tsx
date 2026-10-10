@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Button } from '@/app/_ui';
 import { Icon } from '../_components/icons';
+import { IconoBorrar } from '../_ui/BotonBorrar';
 
 export type FotoElegible = { id: string; url: string };
 
@@ -237,7 +238,7 @@ export function ModalFotos({ fotos, elegida, onElegir, onSubida, onBorrar, onCer
                   background: 'var(--surface)', color: 'var(--dim)',
                 }}
               >
-                <Icon name="trash" size={13} />
+                <IconoBorrar size={14} />
               </button>
             </span>
           )];

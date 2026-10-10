@@ -11,6 +11,7 @@
 // =============================================================================
 
 import { createElement as h, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useRouter } from '@/app/_ui/Link';
 import dynamic from 'next/dynamic';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
@@ -739,7 +740,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
                   </button>
                   <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: rgba(vv.c, .1), color: vv.c, border: `1px solid ${rgba(vv.c, .3)}`, whiteSpace: 'nowrap', flex: 'none' }}>{vv.label}</span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap', flex: 'none' }}>{d.created_at.slice(0, 10)}</span>
-                  <button onClick={() => borrarDraft(d.id)} aria-label="Borrar del historial" title="Borrar del historial" style={{ flex: 'none', width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--faint)', fontSize: 13, cursor: 'pointer' }}>✕</button>
+                  <button onClick={() => borrarDraft(d.id)} aria-label="Borrar del historial" title="Borrar del historial" style={{ flex: 'none', width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><IconoBorrar size={15} /></button>
                 </div>
               ); })}
             </div>

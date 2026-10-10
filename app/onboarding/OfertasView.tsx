@@ -19,6 +19,7 @@
 // comercial no lo es.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { WizardShell } from '../_components/WizardShell';
 import { URGENCIAS, urgenciaTexto, precioTexto, type Bono, type Oferta, type UrgenciaTipo } from '@/lib/oferta-modelo';
 import { CANALES } from '@/lib/fase-diagnostico';
@@ -308,8 +309,7 @@ export function OfertasView({ onListo }: { onListo?: (listo: boolean) => void } 
                         <button type="button" onClick={() => void post({ action: 'principal', id: o.id })} style={linkBtn}>Hacer principal</button>
                       )}
                       <button type="button" onClick={() => setAbierta(abierto ? null : o.id)} style={linkBtn}>{abierto ? 'Cerrar' : 'Ver todo'}</button>
-                      <button type="button" onClick={() => void post({ action: 'borrar', id: o.id })} aria-label={`Borrar ${o.nombre}`}
-                        style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 2 }}>×</button>
+                      <BotonBorrar talla="sm" onClick={() => void post({ action: 'borrar', id: o.id })} title={`Borrar ${o.nombre}`} />
                     </div>
                   </div>
 

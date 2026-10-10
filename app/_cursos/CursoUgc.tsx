@@ -46,6 +46,7 @@
  */
 
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { usePosicion, type Posicion } from '@/app/conocimientos/posicion';
 import { Miniatura } from '@/app/conocimientos/Miniatura';
 import { PortadaModulo } from '@/app/conocimientos/PortadaModulo';
@@ -772,7 +773,7 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
                         onAbrir={(a) => estructura.abrirOpciones({ tipo: 'clase', id: c.id }, a)} />
                     ) : (
                       <button type="button" className="ugc-editable-btn ugc-editable-btn--borrar" title="Borrar" aria-label="Borrar"
-                        disabled={edicion!.ocupado} onClick={() => edicion!.onBorrar(c.id)}>&times;</button>
+                        disabled={edicion!.ocupado} onClick={() => edicion!.onBorrar(c.id)}><IconoBorrar size={14} /></button>
                     )}
                   </div>
                 </div>
