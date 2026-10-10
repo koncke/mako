@@ -17,13 +17,22 @@ import { readFileSync } from 'node:fs';
 import {
   grafoDeAviso, porDondeLlega, podarPosiciones, textoDisparador, disparadorCorto,
   pasosDibujados, insertarPasoTras, quitarPasoDibujado,
+  disparadoresDeAviso, cabezaDeCadena, textoEsperaAviso, segundosDeEspera, horasDeEspera, unidadDeEsperaAviso,
+  UNIDADES_ESPERA_AVISO, ESPERA_AVISO_MAX_S, PUERTO_SI, PUERTO_SI_NO,
   type AvisoParaGrafo,
 } from '../lib/flujo-aviso';
 import type { Paso } from '../lib/flujos-tipos';
-import { ANCHO_NODO, ICONO_MAKO } from '../lib/lienzo-grafo';
+import { ANCHO_NODO, ICONO_MAKO, yDePuerto } from '../lib/lienzo-grafo';
+import { altoCron } from '../lib/flujo-conversacion';
+import { DELAY_MAX_HORAS } from '../lib/flujo-pasos';
 import { identidadDeTarjeta } from '../app/_components/Lienzo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
+/** El fuente sin comentarios y con LF (la casa explica en el comentario lo que se sacó: AGENTS.md). */
+const sinComentariosDe = (src: string): string => src.replace(/\r\n/g, '\n')
+  .replace(/^[ \t]*\/\/.*$/gm, '')
+  .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
 
 const aviso = (p: Partial<AvisoParaGrafo> = {}): AvisoParaGrafo => ({
   disparador: 'Cron los lunes a la mañana', frecuenciaMin: 0, texto: 'Hola',
@@ -331,7 +340,9 @@ test('Los nodos montan los controles que YA existían, no copias', () => {
   // FlujoAviso montando otro editor en lugar de `<EditorMensajeGrupo` → 1 fallo acá (y 1 en
   // tests/variables-aviso). Restaurado → verde.
   assert.match(src, /<EditorMensajeGrupo[\s\n]/, 'el nodo dejó de montar el editor de WhatsApp: ¿se copió su control?');
-  assert.match(src, /import \{ EditorMensajeGrupo \} from '@\/app\/automations\/EditorMensajeWhatsApp';/);
+  // Desde el 10/10/2026 también la cabecera «MaKo en WhatsApp» sale del mismo módulo (no una copia).
+  // ROTURA (arnés w9-avisos/romper.mjs): la cabecera copiada en FlujoAviso → 1 fallo (éste), 47 pases.
+  assert.match(src, /import \{ EditorMensajeGrupo, CabeceraMakoEnWhatsApp \} from '@\/app\/automations\/EditorMensajeWhatsApp';/);
   assert.ok(!/action: 'frecuencia'/.test(src), 'el lienzo escribió la frecuencia por su cuenta');
   assert.ok(!/from '\.\/Disparador'/.test(src), 'volvió el componente que la sección CRON reemplazó');
 });
@@ -577,22 +588,182 @@ test('⚠️ un condicional dibuja SUS DOS RAMAS, y la que salta no ofrece el �
   // ese paso y punto. Y esa flecha no lleva ＋: el del medio inserta tras el ORIGEN, o
   // sea en la otra rama — un control que hace algo distinto de lo que dice la flecha de
   // la que cuelga es peor que no tenerlo.
+  //
+  // ⚠️ DESDE EL 10/10/2026 LAS RAMAS SON LAS DOS FILAS DE LA TARJETA, como la CONDITION de una
+  // automatización (restos de versiones anteriores: eran flechas rotuladas «si se cumple» / «si no» que
+  // salían de la cabecera). Cada flecha sale de SU fila (`puerto`); el color es el de la fila.
   const g = grafoDeAviso(aviso({ pasos: [COND, accion(1), accion(2)] }));
+  const cond = g.nodos.find((n) => n.id === 'paso-0')!;
+  assert.deepEqual(cond.puertos?.map((p) => [p.id, p.rotulo, p.tono]), [
+    [PUERTO_SI, 'Si alguien contestó en el grupo', 'buena'], [PUERTO_SI_NO, 'Si no', 'mala'],
+  ], 'la CONDITION no tiene sus dos filas');
+  assert.equal(cond.familia, 'control', 'la CONDITION se dibuja como una tarjeta de contenido');
   const desdeCond = g.aristas.filter((a) => a.desde === 'paso-0');
   assert.equal(desdeCond.length, 2, 'el condicional no dibuja sus dos ramas');
   const siCumple = desdeCond.find((a) => a.hasta === 'paso-1');
   const siNo = desdeCond.find((a) => a.hasta === 'paso-2');
   assert.ok(siCumple && siNo, 'las ramas no van a los pasos que el motor elige (+1 y +2)');
-  assert.equal(siCumple.etiqueta, 'si se cumple');
-  assert.equal(siNo.etiqueta, 'si no');
-  assert.equal(siCumple.tono, 'condicional', 'la rama que puede no ocurrir se dibuja igual que una segura');
-  assert.equal(siNo.tono, 'condicional');
+  assert.equal(siCumple.puerto, PUERTO_SI, 'la rama del «sí» no sale de su fila');
+  assert.equal(siNo.puerto, PUERTO_SI_NO, 'la rama del «si no» no sale de su fila');
   assert.ok(!siCumple.sinMas, 'la rama normal SÍ ofrece el ＋ del medio');
   assert.equal(siNo.sinMas, true, 'la rama que salta ofrece un ＋ que inserta en la otra');
+  // ⚠️ Y LA FILA «SI NO» TAMPOCO OFRECE ＋ (va llena): lo que se agrega ahí iría en la lista, y el de dos
+  // más allá también lo recorre el «sí». Sin el paso de dos más allá, el motor termina, y la fila lo dice.
+  assert.equal(cond.puertos?.[1].vacio, false, 'el «Si no» ofrece un ＋ que agrega para los dos caminos');
+  // ⚠️ La tarjeta del «sí» SUBE una fila: en la misma, la flecha del «Si no» —que sale horizontal de la
+  // fila de abajo— pasaba POR DETRÁS de ella (y se leía como que entraba ahí). Medido en el navegador.
+  // ROTURAS (10/10/2026, arnés w9-avisos/romper.mjs): sin la subida (`sube` siempre falso) → 1 fallo
+  // (éste); el «Si no» sin su «termina» → 1; la fila del «sí» al final sin su ＋ → 1. Base 48/0.
+  const p1 = g.nodos.find((n) => n.id === 'paso-1')!;
+  const p2 = g.nodos.find((n) => n.id === 'paso-2')!;
+  assert.ok(p1.y + p1.alto < yDePuerto(cond, PUERTO_SI_NO), 'la flecha del «Si no» pasa por detrás de la tarjeta del «sí»');
+  assert.equal(p2.y, cond.y, 'la tarjeta del salto dejó la fila de la CONDITION');
+  assert.ok(g.nodos.every((n) => n.y >= 0), 'una tarjeta quedó arriba del borde del dibujo');
   // Y sin un paso dos más allá, el motor termina: no hay salto que dibujar — queda la
   // rama normal y nada más.
   const corto = grafoDeAviso(aviso({ pasos: [COND, accion(1)] }));
   const desdeCorto = corto.aristas.filter((a) => a.desde === 'paso-0');
   assert.equal(desdeCorto.length, 1, 'dibujó un salto a un paso que no existe');
   assert.equal(desdeCorto[0].hasta, 'paso-1');
+  assert.equal(corto.nodos.find((n) => n.id === 'paso-0')!.puertos?.[1].rotulo, 'Si no, termina');
+  // Al final de todo, la fila del «sí» va vacía: ahí sí está el ＋ (agrega lo que corre si se cumple).
+  const alFinal = grafoDeAviso(aviso({ pasos: [COND] })).nodos.find((n) => n.id === 'paso-0')!;
+  assert.equal(alFinal.puertos?.[0].vacio, true, 'la fila del «sí» sin nada no ofrece su ＋');
+});
+
+// ── Las piezas de una automatización (10/10/2026, restos de versiones anteriores) ─────────────────
+// Martín abrió /automations y el lienzo de un mensaje de MaKo seguía con lo de antes de la sexta tanda:
+// el DELAY como tarjeta, el CRON como texto suelto, el ＋ al costado. Estos fijan las formas nuevas.
+//
+// PROBADO ROMPIÉNDOLO (10/10/2026, arnés w9-avisos/romper.mjs del scratchpad, restaurado de memoria):
+// base en verde (48 pases y 0 fallos, este archivo + tests/barrido-sexta-datos); 24 roturas, una por
+// vez, y cada una → 1 fallo y 47 pases (la del ＋ con su lista propia → 2: el cableado y el barrido);
+// restaurado → 48 y 0. La rotura de cada test, en su comentario.
+
+const ESPERA_48: Paso = { tipo: 'esperar', horas: 48 };
+const EVENTO = { tipo: 'evento', evento: 'lead.agendo' } as const;
+
+test('⚠️ el DELAY va SOBRE la flecha cuando está entre dos cosas (sexta tanda, DELAY 1)', () => {
+  // «Que Delay no sea una tarjeta, que la flecha no se corte, que sea algo en medio de la flecha, más
+  // sutil.» Con la MISMA regla que una automatización: una sola flecha que le llega y algo después.
+  // ROTURAS: `enFlecha` siempre falso → 1 fallo (éste); la pastilla sin su `texto` → 1 fallo (éste).
+  const g = grafoDeAviso(aviso({ evento: EVENTO, pasos: [ESPERA_48, accion(1)] }));
+  const espera = g.nodos.find((n) => n.id === 'paso-0')!;
+  assert.equal(espera.enFlecha, true, 'el DELAY volvió a ser una tarjeta');
+  assert.equal(espera.titulo, 'DELAY', 'la pastilla se nombra como la tarjeta de la casa en el menú');
+  const flecha = g.aristas.find((a) => a.desde === 'mensaje')!;
+  assert.equal(flecha.hasta, 'paso-1', 'la flecha se corta en la espera');
+  assert.deepEqual(flecha.esperas, [{ id: 'paso-0', texto: '2 días' }]);
+  // No ocupa columna: el paso de después va en la de al lado del mensaje.
+  const m = g.nodos.find((n) => n.id === 'mensaje')!;
+  const p1 = g.nodos.find((n) => n.id === 'paso-1')!;
+  assert.ok(p1.x - (m.x + m.ancho) < 200, 'la pastilla ocupa una columna');
+  // Al final, o con DOS flechas que le llegan (la del «Si no» y la de su paso de al lado), es su
+  // píldora, con su salida: ahí sí es un lugar del dibujo.
+  const alFinal = grafoDeAviso(aviso({ pasos: [accion(1), ESPERA_48] })).nodos.find((n) => n.id === 'paso-1')!;
+  assert.ok(!alFinal.enFlecha && alFinal.familia === 'control', 'una espera al final no tiene flecha donde ir');
+  assert.deepEqual(alFinal.puertos, [{ id: 'sig', vacio: true }]);
+  const dosPadres = grafoDeAviso(aviso({ pasos: [COND, accion(1), ESPERA_48, accion(2)] })).nodos.find((n) => n.id === 'paso-2')!;
+  assert.ok(!dosPadres.enFlecha, 'una espera a la que le llegan dos flechas se dibujó en una sola');
+  // Y lo que dice es lo que el motor ESPERA: 8760 h de antes son los 30 días del techo.
+  assert.equal(textoEsperaAviso(8760), '30 días');
+  assert.equal(textoEsperaAviso(1.5), '90 min');
+});
+
+test('La tarjeta CRON tiene sus cajitas y su salida al pie, como en una automatización (CRON 10)', () => {
+  // «Te adjunto la captura de como se ve la tarjeta de CRON en Manychat, copiala. Me gusta que se vea la
+  // opción de Cron que seleccioné y abajo también "+Nuevo CRON"».
+  // ROTURAS: sin `salidaAlPie` en el CRON → 1 fallo (éste); «＋ Nuevo CRON» también con un evento
+  // elegido → 1 fallo (éste).
+  const sinNada = grafoDeAviso(aviso({ nuevoCron: true })).nodos[0];
+  assert.equal(sinNada.id, 'entrada');
+  assert.equal(sinNada.salidaAlPie, true, 'el CRON perdió su «Entonces»');
+  assert.deepEqual(sinNada.puertos, [{ id: 'sig', vacio: false }], 'el CRON ofrece un ＋ que no tiene a dónde ir');
+  assert.deepEqual(disparadoresDeAviso(aviso()), [{ id: '', texto: 'Hoy sale solo: cron los lunes a la mañana' }]);
+  const conEvento = aviso({ evento: EVENTO, nuevoCron: true });
+  assert.deepEqual(disparadoresDeAviso(conEvento), [
+    { id: 'evento', texto: 'Cuando un lead agenda una reunión', icono: 'otro' },
+    { id: '', texto: 'Hoy sale solo: cron los lunes a la mañana' },
+  ]);
+  assert.equal(disparadoresDeAviso({ disparador: '', evento: null })[0].texto, 'Sin configurar');
+  // «＋ Nuevo CRON» sólo mientras no hay ninguno elegido: un mensaje sale por tiempo O por un evento.
+  const textos = (a: AvisoParaGrafo) => disparadoresDeAviso(a).map((d) => d.texto);
+  assert.equal(sinNada.alto, altoCron(textos(aviso()), true, 1), 'el CRON sin elegir no dibuja «＋ Nuevo CRON»');
+  assert.equal(grafoDeAviso(conEvento).nodos[0].alto, altoCron(textos(conEvento), false, 1), 'con un evento elegido se ofrece otro');
+  assert.equal(grafoDeAviso(aviso()).nodos[0].alto, altoCron(textos(aviso()), false, 1), 'sin quien lo elija, igual se dibuja');
+});
+
+test('Sólo la cabeza de la cadena tiene círculo, y del CRON al mensaje no entra nada', () => {
+  // «Cada paso tiene un círculo al final que dice "Entonces"… Ya no existe más el "+" al lado de una
+  // tarjeta» (sexta tanda, punto 4). ROTURAS: la tarjeta del mail con salida también con WhatsApp
+  // prendido → 1 fallo (éste); el ＋ del medio de la flecha del CRON de vuelta → 1 fallo (éste).
+  const g = grafoDeAviso(aviso({ canales: { wa: true, email: true } }));
+  const wa = g.nodos.find((n) => n.id === 'mensaje')!;
+  assert.equal(wa.salidaAlPie, true);
+  assert.deepEqual(wa.puertos, [{ id: 'sig', vacio: true }], 'la tarjeta del mensaje sin pasos no ofrece su ＋');
+  assert.deepEqual(g.nodos.find((n) => n.id === 'mensaje-email')!.puertos, [],
+    'el mail sale A LA VEZ que el WhatsApp: un círculo ahí promete un «después» que no existe');
+  const delCron = g.aristas.filter((a) => a.desde === 'entrada');
+  assert.deepEqual(delCron.map((a) => a.hasta), ['mensaje', 'mensaje-email']);
+  assert.ok(delCron.every((a) => a.sinMas), 'el ＋ del medio de la flecha del CRON inserta DESPUÉS del mensaje');
+  // Con WhatsApp apagado, la cabeza es la del mail.
+  assert.equal(cabezaDeCadena({ wa: false, email: true }), 'mensaje-email');
+  assert.equal(cabezaDeCadena({ wa: false, email: false }), 'mensaje');
+  const soloMail = grafoDeAviso(aviso({ canales: { wa: false, email: true }, evento: EVENTO, pasos: [accion(1)] }));
+  assert.equal(soloMail.aristas.find((a) => a.hasta === 'paso-0')?.desde, 'mensaje-email');
+  // ⚠️ Con un canal apagado, la cabeza ofrece su ＋ EN PARALELO aunque ya siga en algo: prender el otro
+  // canal es algo que sale a la vez. Sin esto, con pasos puestos no quedaba en el lienzo cómo prenderlo
+  // (el ＋ del costado se fue). ROTURA: sin `paralelo` → 1 fallo (éste).
+  assert.deepEqual(soloMail.nodos.find((n) => n.id === 'mensaje-email')!.puertos, [{ id: 'sig', vacio: false, paralelo: true }]);
+  // Y cada paso, su círculo al pie.
+  const p = soloMail.nodos.find((n) => n.id === 'paso-0')!;
+  assert.equal(p.salidaAlPie, true);
+  assert.deepEqual(p.puertos, [{ id: 'sig', vacio: true }]);
+});
+
+test('El «al lead» de antes NO SE ENVÍA, y su tarjeta lo dice', () => {
+  // Decisión de Martín (06/10/2026): «nada al cliente». Un título que dice «le escribe» sobre algo que
+  // no sale es una afirmación de más. ROTURA: sin la advertencia → 1 fallo (éste).
+  const g = grafoDeAviso(aviso({ evento: EVENTO, pasos: [{ tipo: 'mensaje', canal: 'wa_lead', texto: 'hola' }] }));
+  assert.match(g.nodos.find((n) => n.id === 'paso-0')!.advertencia ?? '', /No se envía/);
+});
+
+test('La espera de un mensaje se ofrece con el marco del MOTOR: de un minuto a 30 días, sin segundos', () => {
+  // El motor de avisos acota con `sanearHoras` (lib/flujo-pasos.ts). Hasta el 10/10 el editor dejaba
+  // escribir 8760 horas (un año) y el motor esperaba 720. ROTURAS: el techo en 8760 h → 1 fallo (éste);
+  // los segundos de vuelta en las unidades → 1 fallo (éste).
+  assert.deepEqual(UNIDADES_ESPERA_AVISO, ['min', 'h', 'dias']);
+  assert.equal(ESPERA_AVISO_MAX_S, DELAY_MAX_HORAS * 3600);
+  assert.equal(segundosDeEspera(8760), 30 * 86400, 'una espera vieja se lee más larga de lo que espera');
+  assert.equal(segundosDeEspera(1 / 60), 60);
+  assert.equal(segundosDeEspera(24), 86400);
+  assert.equal(horasDeEspera(40 * 86400), DELAY_MAX_HORAS, 'se guarda una espera que el motor corta');
+  assert.equal(horasDeEspera(30), 1 / 60, 'se guarda una espera de segundos');
+  assert.equal(horasDeEspera(90 * 60), 1.5);
+  // La unidad: la elegida si la expresa entera, y nunca los segundos.
+  assert.equal(unidadDeEsperaAviso(86400, null), 'dias');
+  assert.equal(unidadDeEsperaAviso(86400, 'h'), 'h');
+  assert.equal(unidadDeEsperaAviso(90, null), 'min', 'la pantalla mostró una unidad que no ofrece');
+});
+
+test('El lienzo de un mensaje usa las piezas de una automatización, no copias (cableado)', () => {
+  // ROTURAS (una por renglón, restauradas de memoria): `CuerpoCron` reemplazado por el texto suelto → 1;
+  // `onBorrar` sin pasar al Lienzo → 1; «Quitar este paso» de vuelta → 1; el Recurrente reemplazado por
+  // el editor de antes → 1; la cabecera de MaKo sin `CabeceraMakoEnWhatsApp` → 1; sin `muelles` en el
+  // tamaño del panel → 1; el ＋ con su lista propia → 1 (y 1 en tests/barrido-sexta-datos); un componente
+  // de vuelta en EditorCron.tsx → 1.
+  const src = sinComentariosDe(leer('../app/agencia/FlujoAviso.tsx'));
+  assert.match(src, /import \{ CuerpoCron, renglonesDeTarjeta \} from '@\/app\/automations\/FlujoLienzo';/);
+  assert.match(src, /<CuerpoCron disparadores=\{disparadoresDeAviso\(aviso\)\}/, 'la tarjeta CRON dejó de dibujar sus cajitas');
+  assert.match(src, /onBorrar=\{editable \? borrarPaso : undefined\}/, 'el tacho de la cabecera del panel no borra el paso');
+  assert.doesNotMatch(src, /Quitar este paso/, 'volvió el link rojo de borrar');
+  assert.match(src, /<EditorRecurrente cron=\{cron\}/, 'el horario de un mensaje no es el de Google Calendar');
+  assert.doesNotMatch(src, /SelectorDisparo|<EditorCron\b|PedirleAMaKo|MaKo lo escribiría así/, 'volvió una pieza de antes');
+  assert.match(src, /<CabeceraMakoEnWhatsApp \/>/, 'la cabecera del panel de MaKo en WhatsApp es la de antes');
+  assert.match(src, /editorDeTarjeta\(muelles, tallaDe\(nodoSel\)\)/, 'el panel no tiene el tamaño de su tipo');
+  assert.match(src, /opcionesEn=\{opcionesEn\}/);
+  // Y lo que el CRON de antes dejó en su archivo es sólo el horario de default.
+  const cron = sinComentariosDe(leer('../app/_components/EditorCron.tsx'));
+  assert.doesNotMatch(cron, /export function/, 'volvió un componente al archivo del CRON de antes');
+  assert.match(cron, /export const CRON_DEFAULT/);
 });

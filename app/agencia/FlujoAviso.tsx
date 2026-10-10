@@ -27,23 +27,49 @@
 // Por eso un paso agregado sin evento elegido se dibuja con su advertencia en vez
 // de en silencio: un paso que no corre y no lo dice es el control que se dibuja y
 // no hace nada.
+//
+// ── LAS PIEZAS DE UNA AUTOMATIZACIÓN (10/10/2026, restos de versiones anteriores) ──
+// Martín abrió /automations y este lienzo seguía con lo de antes de la sexta tanda. Desde acá usa las
+// piezas del lienzo de una automatización: la tarjeta CRON con sus cajitas (`CuerpoCron`), el círculo
+// «Entonces / Siguiente paso» con el ＋ adentro y el menú de la casa (`MENU_MAS`), el DELAY sobre la
+// flecha, la CONDITION con sus dos filas, el tacho en la cabecera del panel, el click derecho y
+// «Acomodar», el CRON con botones gigantes y el Recurrente de Google Calendar (`EditorRecurrente`), y la
+// cabecera «MaKo en WhatsApp» con su ✦. El grafo, en lib/flujo-aviso.ts. Lo que no se pudo reusar tal
+// cual (está privado en otro archivo) se dice en docs/hallazgos-chatbot.md, «Restos de versiones
+// anteriores, grupo avisos».
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Lienzo, TarjetaNodo, inpLienzo, rotuloLienzo } from '@/app/_components/Lienzo';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Lienzo, TarjetaNodo, IconoAcomodar, inpLienzo, rotuloLienzo, campoGrande, type ItemMenuLienzo } from '@/app/_components/Lienzo';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 import { TextoMarcas } from '@/app/_components/TextoMarcas';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { MakoLogo } from '@/app/_components/MakoBrand';
+// La papelera de la casa, roja siempre (sexta tanda, general 9).
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
+import { Icon } from '@/app/_components/icons';
+import { Spinner } from '@/app/_ui';
 import { Dropdown } from '../components/Dropdown';
-import { EditorMensajeGrupo } from '@/app/automations/EditorMensajeWhatsApp';
-import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
+import { ALTO_PRINCIPAL } from '../components/dropdown-reglas';
+import { EditorMensajeGrupo, CabeceraMakoEnWhatsApp } from '@/app/automations/EditorMensajeWhatsApp';
+// La tarjeta CRON y los renglones de la burbuja: los MISMOS de una automatización.
+import { CuerpoCron, renglonesDeTarjeta } from '@/app/automations/FlujoLienzo';
+import { EditorRecurrente } from '@/app/automations/EditorRecurrente';
+import { IconoDisparador } from '@/app/automations/IconosDisparador';
+import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
+import { PopoverWA, insertarEnCursor } from '@/app/whatsapp/_shared/ComposerWhatsApp';
+import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
+import {
+  grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, disparadoresDeAviso,
+  cabezaDeCadena, pasoDeTarjeta, segundosDeEspera, horasDeEspera, unidadDeEsperaAviso, UNIDADES_ESPERA_AVISO, ESPERA_AVISO_MAX_S,
+  type AvisoParaGrafo, type Posiciones,
+} from '@/lib/flujo-aviso';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
-import { EditorCron, SelectorDisparo, useModoDisparo, CRON_DEFAULT, type ModoDisparo } from '@/app/_components/EditorCron';
+import { CRON_DEFAULT } from '@/app/_components/EditorCron';
 import { variablesOfrecidas } from '@/lib/variables-aviso';
 import { guardarCanalDeMensaje } from '@/lib/mensaje-canales';
 import {
   EVENTOS, EVENTOS_SIN_EMISOR, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, sanearInsistir,
-  type Flujo, type Paso, type PasoAccion,
+  type Flujo, type Paso, type PasoAccion, type EventoFlujo,
   operacionDelPaso, pasoDeAccion, rotuloOperacion, SIN_ACCION,
   ACUSES, UNIDADES_RECORDATORIO, cadaDeMin, aMinutos, type UnidadRecordatorio,
 } from '@/lib/flujos-tipos';
@@ -51,21 +77,19 @@ import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_c
 // Las condiciones que el motor SABE evaluar, y sus rótulos: el editor del CONDITION ofrece ésas y
 // ninguna otra (tests/flujo-condicional.test.ts cruza las dos listas).
 import { CONDICIONES_FLUJO, ROTULO_CONDICION } from '@/lib/flujo-pasos';
-import type { NodoFlujo } from '@/lib/lienzo-grafo';
+// El menú del ＋ de la casa (los nombres y los íconos de una automatización) y las piezas del email.
+import {
+  MENU_MAS, MARCO_MAIL, RENGLON_ASUNTO, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, type QueAgregar,
+} from '@/lib/flujo-conversacion';
+import { editorDeTarjeta, type NodoFlujo, type Muelles, type TipoNodo } from '@/lib/lienzo-grafo';
+import { SEGUNDOS_DE, rotuloUnidad, type UnidadEspera } from '@/lib/espera-duracion';
+import { GRAMATICA } from '@/lib/mako-gramatica';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
 
-const btnFantasma = {
-  padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)',
-  background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600,
-  cursor: 'pointer', fontFamily: SANS,
-} as const;
-
-const btnQuitarPaso = {
-  marginTop: 12, background: 'none', border: 'none', color: 'var(--bad)', fontSize: 12,
-  fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: SANS,
-} as const;
+/** El ancho del panel sin `muelles` (Configuraciones y /mensajes): «la sección de edición del mensaje tiene que ser MUCHO más grande». */
+const PANEL_AVISO = 460;
 
 // La tarjeta del lienzo dice QUÉ acción corre el paso: el título sale de `useTitulosAcciones`
 // (la misma lectura y la misma caché que el desplegable del editor). Mientras no llega, o si
@@ -93,13 +117,20 @@ const ICONO_EVENTO: Record<(typeof EVENTOS)[number]['key'], NombreIconoMenu> = {
 /** Lo que una pasada de deshacer restaura: el tablero entero, no un campo. */
 type FotoTablero = { flujo: Flujo | null; pos: Posiciones };
 
-/** Lo que se agenda al elegir TIEMPO: todos los días a las 9 de la mañana. Es el
- *  caso que más se pidió y el que no necesita ningún campo más. */
+/** Lo que el ＋ crea como PASO (los canales se prenden, no son pasos: ver `agregarTras`). */
+const OPCIONES_PASO: ReadonlySet<QueAgregar> = new Set<QueAgregar>(['esperar', 'condicion', 'accion']);
+
+/** El tamaño del editor de cada tarjeta, como en una automatización: los mensajes, el grande. */
+const tallaDe = (n: NodoFlujo | null | undefined): TipoNodo | null => {
+  if (!n) return null;
+  if (n.id === 'mensaje' || n.id === 'mensaje-email' || n.tipo === 'mako') return 'mensaje';
+  return n.tipo;
+};
 
 export function FlujoAviso({
   id, disparador, frecuenciaMin, texto, canales, posiciones, endpoint, editable, textoEditable, guardando,
   asunto, onAsunto, onAsuntoGuardar, tituloMensaje, aporta = [],
-  onTexto, onCambio, probando, prueba, onProbar, chrome, pie, insetIzq,
+  onTexto, onCambio, probando, prueba, onProbar, chrome, pie, insetIzq: insetIzqDado, muelles,
 }: {
   id: string;
   /**
@@ -108,6 +139,13 @@ export function FlujoAviso({
    * `insetIzq` del lienzo. Ausente = 0 (la tab de /mensajes, sin nada encima).
    */
   insetIzq?: number;
+  /**
+   * DÓNDE VA CADA COSA QUE FLOTA en /automations (`muelles`, lib/lienzo-grafo.ts), como en una
+   * automatización: con esto el editor de cada tarjeta tiene el tamaño de su tipo (`editorDeTarjeta`:
+   * el de un mensaje, el grande) y los insets salen de la misma cuenta. Sin esto, el panel de columna
+   * de siempre (`PANEL_AVISO`) e `insetIzq`.
+   */
+  muelles?: Muelles | null;
   disparador: string;
   frecuenciaMin: number;
   texto: string;
@@ -144,6 +182,13 @@ export function FlujoAviso({
   pie?: React.ReactNode;
 }) {
   const [sel, setSel] = useState<string | null>(null);
+  /**
+   * La tarjeta cuyo ✦ de MaKo está abierto (sexta tanda, WhatsApp 3 y MaKo en WhatsApp 2: el ✦ en la
+   * cabecera del panel, al lado del título). Es POR TARJETA y se cierra al elegir otra: abrir la misma
+   * otra vez no trae un panel que se dejó abierto en otra cosa.
+   */
+  const [redactaEn, setRedactaEn] = useState<string | null>(null);
+  const elegirTarjeta = (s: string | null) => { setSel(s); setRedactaEn(null); };
   const panelPendiente = useRef<PanelPendiente | null>(null);
   const [flujo, setFlujo] = useState<Flujo | null>(null);
   /** El agendado por TIEMPO vive en su TABLA, no en el store del mensaje: el store
@@ -157,6 +202,8 @@ export function FlujoAviso({
   const [pos, setPos] = useState<Posiciones>(posiciones);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const insetIzq = muelles ? muelles.insets.izq : insetIzqDado;
+  const textoEdit = textoEditable ?? editable;
 
   const api = useCallback(async (body: unknown) => {
     try {
@@ -245,7 +292,7 @@ export function FlujoAviso({
     // Lo que el panel no alcanzó a guardar se DESCARTA: deshacer es volver atrás, y un guardado
     // diferido que sale después del deshacer lo revierte.
     panelPendiente.current?.tomar();
-    setSel(null);
+    elegirTarjeta(null);
     setPos(foto.pos);
     void api({ action: 'posiciones', id, posiciones: foto.pos });
     void guardarFlujo(foto.flujo, { apilar: false });
@@ -282,8 +329,13 @@ export function FlujoAviso({
     insistir: insistir ? { cadaMin: insistir.cadaMin, veces: insistir.veces } : null,
     evento: flujo?.disparador ?? null,
     pasos: pasosExtra,
+    // «＋ Nuevo CRON» en la tarjeta, sólo para quien puede elegirlo (y el grafo lo saca con uno elegido).
+    nuevoCron: editable,
   };
   const grafo = grafoDeAviso(aviso);
+  const cabeza = cabezaDeCadena(canales);
+  /** Lo que el texto del mensaje alcanza a mostrar en su tarjeta antes del «…» (WhatsApp 12). */
+  const lineasMensaje = renglonesDeTarjeta(pasoDeTarjeta(texto) as unknown as Parameters<typeof renglonesDeTarjeta>[0], 0);
 
   // ⚠️ EL GUARDADO DE LA POSICIÓN ES OPTIMISTA Y SE DEBE. Arrastrar tiene que
   // responder en el frame; esperar el POST deja la tarjeta volviendo a su lugar
@@ -310,59 +362,54 @@ export function FlujoAviso({
   }
 
   /**
-   * AGREGAR UN PASO DESPUÉS DE ESTA TARJETA.
-   *
-   * El único tipo que queda es la ACCIÓN: «eliminar "mensaje al lead", ya que no
-   * estamos configurando el chatbot». Con un solo tipo el ＋ no abre ningún menú —
-   * un desplegable de una opción es una pregunta que ya está contestada.
-   *
-   * Dónde entra sale del id del nodo: los pasos del grafo son `paso-<i>`, así que
-   * el ＋ de `paso-2` inserta en la posición 3 y el de cualquier nodo del tronco
-   * (entrada, mensaje, recordatorio) inserta al principio. Eso es lo que hace que
-   * el botón diga DÓNDE va a caer el paso, que es lo que un botón suelto en una
-   * esquina no puede decir.
+   * «ACOMODAR» (sexta tanda, punto 14: «pon un botón de ícono para "acomodar" todas las tarjetas»): todas
+   * vuelven a su lugar calculado. Entra a la pila como cualquier arrastre, así que se deshace con Ctrl+Z.
    */
+  const hayPosiciones = Object.keys(pos).length > 0;
+  const acomodar = () => {
+    if (!hayPosiciones) return;
+    apilar({ flujo, pos });
+    if (guardarPos.current) { clearTimeout(guardarPos.current); guardarPos.current = null; }
+    setPos({});
+    void api({ action: 'posiciones', id, posiciones: {} });
+  };
+
   /**
-   * ⚠️ EL ＋ PREGUNTA QUE CREAR, Y DOS DE LAS TRES OPCIONES NO SON UN PASO.
+   * ⚠️ EL ＋ PREGUNTA QUE CREAR, Y DOS DE LAS OPCIONES NO SON UN PASO.
    *
    * Pedido el 04/10/2026: «si le doy al botón de +, antes de crear una tarjeta
    * debería salir un desplegable que me pregunte qué quiero crear… otro "WhatsApp" o
    * un "Email" o una "Acción" que es lo que sale por defecto ahora».
    *
-   * WhatsApp y Email NO son pasos: las tarjetas de canal se DERIVAN de
+   * MaKo en WhatsApp y Email NO son pasos: las tarjetas de canal se DERIVAN de
    * `canales:{wa,email}`, dos booleanos del mensaje, y en el motor `CanalPaso` sólo
    * tiene `aviso_dueno | wa_lead` — no hay ninguna rama que mande mail. Elegirlos
    * PRENDE el canal, que es lo que hace aparecer su tarjeta. Es la decisión de
-   * siempre: por dónde sale un mensaje es un campo, no un nodo.
-   *
-   * ⚠️ Y ESTO ARREGLA ALGO QUE ROMPÍ YO. El único control vivo que escribía
-   * `canales.email` vivía en `BandejaEmail`, que dejé de montar el 04/10. Medido
-   * después: CERO de los 65 mensajes tenía el canal de mail prendido en los cuatro
-   * workspaces que tocaron el store, así que la tarjeta EMAIL no se dibujaba para
-   * nadie y no quedaba forma de prenderla. El comentario que dejé en
-   * `NotificacionesPanel` afirmaba que «el canal se prende ahora en el tablero»:
-   * esto es lo que lo vuelve cierto.
+   * siempre: por dónde sale un mensaje es un campo, no un nodo. Por eso se ofrecen sólo
+   * en el círculo de la tarjeta del mensaje (`opcionesEn`), que es donde aparece la suya:
+   * ofrecidos desde un paso, señalaban un lugar y la tarjeta caía en otro.
    *
    * ⚠️ Y VA POR `guardarCanalDeMensaje`, NO ESCRIBIENDO `canales` DERECHO. Los tres
    * reportes tienen su canal en OTRA tienda (`notification_prefs`) y ese módulo es el
    * que sabe cuál mirar: escribir el store a mano los dejaría con el tablero diciendo
    * una cosa y el correo saliendo igual.
    *
-   * El «Condicional» que también se pidió NO está en el menú, a propósito: el motor
-   * no puede ejecutarlo hoy —`ejecutarPasos` es un `for` sincrónico adentro del
-   * webhook, sin fila, sin estado y sin reanudación, tanto que el paso `esperar` que
-   * ya existe hace `break`— y la regla de la casa es que sólo se dibuja la rama que
-   * el motor EJECUTA. Un botón que no hace nada se lee como que la app está rota.
+   * Los nombres y los íconos son los de una automatización (`MENU_MAS`: «Esperar»,
+   * «Condición», «Acción», «MaKo en WhatsApp», «Email»), y DÓNDE entra sale del id del
+   * nodo: los pasos del grafo son `paso-<i>`, así que el ＋ de `paso-2` inserta en la
+   * posición 3 y el de la tarjeta del mensaje, al principio. El de la fila de una
+   * CONDITION inserta después de ella: la rama del «sí» (el «Si no» no ofrece ＋).
    */
   async function agregarTras(nodoId: string, que: string) {
+    const canal = que === 'mako' ? 'wa' : que === 'email' ? 'email' : null;
     // Lo escrito en el panel abierto se TOMA y entra en el mismo guardado, y el panel se cierra:
     // el paso nuevo corre los índices, y con el panel abierto lo de una acción caía en otra.
-    const pend = que === 'wa' || que === 'email' ? null : panelPendiente.current?.tomar() ?? null;
-    if (que !== 'wa' && que !== 'email') setSel(null);
-    if (que === 'wa' || que === 'email') {
+    const pend = canal ? null : panelPendiente.current?.tomar() ?? null;
+    if (!canal) { setSel(null); setRedactaEn(null); }
+    if (canal) {
       if (!id) return;
       setBusy(true); setErr(null);
-      const r = await guardarCanalDeMensaje(id, que, true, endpoint);
+      const r = await guardarCanalDeMensaje(id, canal, true, endpoint);
       if (!r.ok) setErr(r.error ?? 'No pude prender el canal');
       setBusy(false);
       onCambio?.();
@@ -386,78 +433,169 @@ export function FlujoAviso({
      * Sin operación el motor no la corre y la tarjeta dice «Elige una acción».
      */
     const nuevo: Paso =
-      que === 'delay' ? { tipo: 'esperar', horas: 24 }
-      : que === 'condicional' ? { tipo: 'condicional', condicion: 'contestaron' }
+      que === 'esperar' ? { tipo: 'esperar', horas: 24 }
+      : que === 'condicion' ? { tipo: 'condicional', condicion: 'contestaron' }
       : { tipo: 'accion' };
     void guardarFlujo({ ...base, activo: true, pasos: insertarPasoTras(base.pasos, nodoId, nuevo) });
   }
 
+  /**
+   * QUÉ OFRECE EL ＋ DE CADA LUGAR: el menú de una automatización (`MENU_MAS`, con sus nombres, sus
+   * íconos y sus grupos), recortado a lo que un mensaje de MaKo puede tener. Los canales, sólo en el
+   * círculo de la tarjeta del mensaje y si están apagados (un canal prendido no es una opción: su
+   * tarjeta ya está); en el medio de una flecha, nunca (un canal se prende para el mensaje entero, no
+   * entre dos pasos).
+   */
+  const opcionesEn = (nodo: string, puerto: string | undefined, medio: boolean) => {
+    // El ＋ «en paralelo» del círculo de la cabeza (lib/flujo-aviso.ts, `canalPorPrender`): sólo prende un
+    // canal, que sale a la vez. Un paso en paralelo no tiene lugar en una lista.
+    const enParalelo = (puerto ?? '').startsWith('par');
+    return MENU_MAS
+      .filter((o) => (o.value === 'mako' ? !medio && nodo === cabeza && !canales.wa
+        : o.value === 'email' ? !medio && nodo === cabeza && !canales.email
+          : OPCIONES_PASO.has(o.value) && !enParalelo))
+      .map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
+  };
+
+  /**
+   * BORRAR UN PASO: el tacho de la cabecera del panel (sexta tanda, general 9) y el click derecho. Hasta
+   * acá era un link rojo «Quitar este paso» al pie de cada editor. Lo escrito en el panel se DESCARTA:
+   * se armó sobre el paso que se va, y guardado después lo devolvería.
+   */
+  const borrarPaso = (nodoId: string) => {
+    const m = /^paso-(\d+)$/.exec(nodoId);
+    if (!m) return;
+    panelPendiente.current?.tomar();
+    elegirTarjeta(null);
+    const base = flujo ?? FLUJO_VACIO;
+    void guardarFlujo({ ...base, pasos: quitarPasoDibujado(base.pasos, Number(m[1])) });
+  };
+  /** DUPLICAR UN PASO (click derecho, sexta tanda, punto 2): la copia va justo después, con lo pendiente adentro. */
+  const duplicarPaso = (nodoId: string) => {
+    const m = /^paso-(\d+)$/.exec(nodoId);
+    if (!m) return;
+    const pend = panelPendiente.current?.tomar() ?? null;
+    elegirTarjeta(null);
+    const sinPend = flujo ?? FLUJO_VACIO;
+    const base = pend ? { ...sinPend, pasos: sinPend.pasos.map((p) => (p === pend.original ? pend.nuevo : p)) } : sinPend;
+    const original = pasosDibujados(base.pasos)[Number(m[1])];
+    if (!original) return;
+    void guardarFlujo({ ...base, pasos: insertarPasoTras(base.pasos, nodoId, JSON.parse(JSON.stringify(original)) as Paso) });
+  };
+
+  /**
+   * EL CLICK DERECHO (sexta tanda, punto 2): en un paso, duplicar y eliminar; en el fondo, «Acomodar» (el
+   * lienzo suma «Centrar»). Lo que NO se ofrece, a propósito: crear una tarjeta suelta y arrastrar o borrar
+   * una flecha. Los pasos de un mensaje son una LISTA que el motor recorre en orden (`decidir`): una
+   * tarjeta sin flecha o una flecha a otro lado no tienen cómo guardarse.
+   */
+  const menuNodo = editable ? (nodoId: string): ItemMenuLienzo[] => (/^paso-\d+$/.test(nodoId) ? [
+    { id: 'duplicar', label: 'Duplicar', icono: <Icon name="copy" size={16} />, onElegir: () => duplicarPaso(nodoId) },
+    { id: 'eliminar', label: 'Eliminar', grupo: 1, peligro: true, icono: <IconoBorrar size={16} />, onElegir: () => borrarPaso(nodoId) },
+  ] : []) : undefined;
+  const menuLienzo = editable ? (): ItemMenuLienzo[] => [
+    { id: 'acomodar', label: 'Acomodar', grupo: 90, icono: <IconoAcomodar />, deshabilitado: !hayPosiciones, onElegir: acomodar },
+  ] : undefined;
+
+  // El tamaño del panel de la tarjeta abierta (con `muelles`): por su TIPO, nunca por su contenido.
+  const nodoSel = sel ? grafo.nodos.find((n) => n.id === sel) ?? null : null;
+  const talla = muelles ? editorDeTarjeta(muelles, tallaDe(nodoSel)) : null;
+  /**
+   * LA CABECERA DEL PANEL DE «MaKo en WhatsApp» (sexta tanda, MaKo en WhatsApp 1 y 2): el logo y «MaKo en
+   * WhatsApp», como la tarjeta MAKO de una automatización (`CabeceraMakoEnWhatsApp`), y el ✦ al lado del
+   * título en el mensaje que MaKo puede escribir. Hasta acá era el ícono y «MAKO EN WHATSAPP» en
+   * mayúsculas, con el botón de IA metido adentro del editor.
+   */
+  const cabeceraMaKo = nodoSel?.tipo === 'mako';
+
   return (
     <>
       <Lienzo
-        grafo={grafo} seleccion={sel} onSeleccion={setSel} onMover={mover}
+        grafo={grafo} seleccion={sel} onSeleccion={elegirTarjeta} onMover={mover}
         onAgregarTras={editable ? ((nodoId, que) => void agregarTras(nodoId, que)) : undefined}
-        /**
-         * ⚠️ EL CANAL YA PRENDIDO NO SE OFRECE. Es la misma decisión del selector de
-         * datos: lo que no se puede elegir no se dibuja en gris, no se dibuja. Un canal
-         * prendido no es una opción — su tarjeta ya está en el lienzo.
-         *
-         * Y la lista va PLANA, con emoji y título: son cuatro opciones.
-         */
-        // ⚠️ CON ÍCONOS DEL SET, NO EMOJIS (sexta tanda, general 10: «pon íconos en todos los
-        // desplegables, en todas las opciones»): el campo `icono` del Dropdown acepta un nombre de
-        // app/_ui/iconos-menu.tsx. Y el WhatsApp de este mensaje es el de MaKo al grupo (MaKo en
-        // WhatsApp 3): se llama como su tarjeta.
-        opcionesAgregar={[
-          ...(canales.wa ? [] : [{ value: 'wa', label: 'MaKo en WhatsApp', icono: 'mako' as const }]),
-          ...(canales.email ? [] : [{ value: 'email', label: 'Email', icono: 'email' as const }]),
-          { value: 'delay', label: 'Delay', icono: 'reloj' as const },
-          { value: 'condicional', label: 'Condicional', icono: 'condicion' as const },
-          { value: 'accion', label: 'Acción', icono: 'accion' as const },
-        ]}
-        // Sólo donde el paso va a caer de verdad: `insertarPasoTras` cuelga del
-        // MENSAJE todo lo que no sea un `paso-N`, así que el ＋ de la tarjeta del
-        // CRON señalaba un lugar y el paso aparecía en otro.
-        puedeAgregarTras={(idNodo) => idNodo === 'mensaje' || /^paso-\d+$/.test(idNodo)}
+        opcionesEn={opcionesEn}
+        // El círculo de la tarjeta del mensaje (la cabeza de la cadena) y el de cada paso. El del CRON no:
+        // lo que sigue al CRON es el mensaje, y su salida va llena.
+        puedeAgregarTras={(idNodo) => idNodo === cabeza || /^paso-\d+$/.test(idNodo)}
         agregarOcupado={busy}
-        panelAncho={460}
+        onBorrar={editable ? borrarPaso : undefined}
+        puedeBorrar={(idNodo) => /^paso-\d+$/.test(idNodo)}
+        menuNodo={menuNodo} menuLienzo={menuLienzo}
+        panelAncho={talla ? talla.ancho : PANEL_AVISO}
+        panelForma={muelles?.editorForma === 'apaisado' ? 'apaisado' : 'columna'}
+        panelAlto={talla?.alto}
         chrome={chrome}
         herramientas={editable ? (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <BotonPila titulo="Deshacer (Ctrl+Z)" onClick={deshacer} activo={puedeDeshacer}>↶</BotonPila>
             <BotonPila titulo="Rehacer (Ctrl+Y)" onClick={rehacer} activo={puedeRehacer}>↷</BotonPila>
+            <BotonPila titulo="Acomodar" onClick={acomodar} activo={hayPosiciones}><IconoAcomodar /></BotonPila>
           </div>
         ) : undefined}
         sinMarco alto="100%" insetIzq={insetIzq}
-        renderNodo={(n, activo) => (
-          <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={Boolean(n.advertencia)}>
-            {/* ⚠️ LA TARJETA DE MaKo EN WHATSAPP (MaKo en WhatsApp 3): el mensaje como le llega al
-                grupo, con la MISMA burbuja que el lienzo del Chatbot y que su editor (`BurbujaHilo`,
-                firmada por MaKo, a la izquierda como la ve el equipo). El id es `mensaje` aunque el
-                tipo sea `mako` (lib/flujo-aviso.ts): las posiciones y el ＋ se buscan por id. */}
-            {n.id === 'mensaje'
-              ? <BurbujaHilo compacta saliente={false} autor="MaKo" contenido={{ texto }}
-                  vacio={<span style={{ color: 'var(--faint)', fontSize: 12.5 }}>Sin escribir</span>} />
-              : <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{detalleDe(n)}</div>}
-          </TarjetaNodo>
-        )}
+        insetDer={muelles?.insets.der} insetDerChrome={muelles?.insets.derChrome} insetDerAbajo={muelles?.insets.derAbajo}
+        renderNodo={(n, activo) => {
+          // El DELAY que no va en una flecha (al final de la cadena): su píldora de una línea.
+          if (n.tipo === 'espera') return <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={Boolean(n.advertencia)}>{n.detalle}</TarjetaNodo>;
+          // LA TARJETA CRON (sexta tanda, CRON 10): una cajita por cosa que lo dispara y «＋ Nuevo CRON» mientras
+          // no haya ninguno elegido. Tocar una cajita abre el editor del CRON.
+          if (n.id === 'entrada') {
+            return (
+              <TarjetaNodo key={n.id} nodo={n} activo={activo}>
+                <CuerpoCron disparadores={disparadoresDeAviso(aviso)}
+                  onAbrir={() => elegirTarjeta('entrada')}
+                  onNuevo={editable && !cron && aviso.evento?.tipo !== 'evento' ? () => elegirTarjeta('entrada') : undefined} />
+              </TarjetaNodo>
+            );
+          }
+          return (
+            <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={Boolean(n.advertencia)}>
+              {/* ⚠️ LA TARJETA DE MaKo EN WHATSAPP (MaKo en WhatsApp 3): el mensaje como le llega al
+                  grupo, con la MISMA burbuja que el lienzo del Chatbot y que su editor (`BurbujaHilo`,
+                  firmada por MaKo, a la izquierda como la ve el equipo). El id es `mensaje` aunque el
+                  tipo sea `mako` (lib/flujo-aviso.ts): las posiciones y el ＋ se buscan por id. Un texto
+                  largo termina en «…» adentro de la tarjeta (WhatsApp 12): los renglones salen del MISMO
+                  alto que estima el grafo. */}
+              {n.id === 'mensaje' && n.tipo === 'mako'
+                ? <>
+                    <BurbujaHilo compacta saliente={false} autor="MaKo" contenido={{ texto }} lineas={lineasMensaje}
+                      vacio={<span style={{ color: 'var(--faint)', fontSize: 12.5 }}>Sin escribir</span>} />
+                    {n.detalle && <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.detalle}</div>}
+                  </>
+                : n.id === 'mensaje-email'
+                  ? <VistaEmailAviso asunto={asunto ?? ''} titulo={tituloMensaje ?? ''} texto={texto} />
+                  : n.tipo === 'condicion'
+                    ? null
+                    : <div style={{
+                      fontSize: 12.5, fontWeight: n.tipo === 'accion' ? 600 : 400, color: 'var(--ink)', lineHeight: 1.45, whiteSpace: 'pre-wrap',
+                      display: '-webkit-box', WebkitLineClamp: n.tipo === 'mako' ? 3 : 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere',
+                    }}>{detalleDe(n)}</div>}
+            </TarjetaNodo>
+          );
+        }}
         renderEditor={(n) => (
           <EditorDelAviso
             nodo={n} id={id} disparador={disparador} frecuenciaMin={frecuenciaMin}
-            texto={texto} endpoint={endpoint} editable={editable} textoEditable={textoEditable ?? editable} guardando={guardando || busy}
+            texto={texto} endpoint={endpoint} editable={editable} textoEditable={textoEdit} guardando={guardando || busy}
             asunto={asunto} onAsunto={onAsunto} onAsuntoGuardar={onAsuntoGuardar}
+            tituloMensaje={tituloMensaje}
             aporta={aporta}
             canales={canales} flujo={flujo} insistir={insistir} cron={cron} tz={tz} onCron={guardarCron}
             acusesTxt={acusesTxt} onAcuses={guardarAcuses}
             onTexto={onTexto} onCambio={onCambio} onFlujo={guardarFlujo} panelPendiente={panelPendiente}
-            onQuitarPaso={(i) => {
-              const base = flujo ?? FLUJO_VACIO;
-              void guardarFlujo({ ...base, pasos: quitarPasoDibujado(base.pasos, i) });
-              setSel(null);
-            }}
             probando={probando} prueba={prueba} onProbar={onProbar}
+            redactando={redactaEn === n.id} onCerrarRedacta={() => setRedactaEn(null)}
           />
         )}
+        tituloEditor={cabeceraMaKo ? (n) => (
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: '0 1 auto', minWidth: 0 }}><CabeceraMakoEnWhatsApp /></div>
+            {n.id === 'mensaje' && textoEdit && (
+              <BotonMakoAviso abierto={redactaEn === n.id} deshabilitado={probando}
+                onClick={() => setRedactaEn((x) => (x === n.id ? null : n.id))} />
+            )}
+          </div>
+        ) : undefined}
         accion={pie}
       />
       {err && (
@@ -467,17 +605,59 @@ export function FlujoAviso({
   );
 }
 
+/**
+ * EL EMAIL EN LA TARJETA, COMO UN MAIL (como en una automatización: `VistaEmail` de
+ * app/automations/FlujoLienzo.tsx, privada allá): el asunto arriba en negrita —el título del mensaje en
+ * gris si no tiene uno propio— y hasta tres renglones del cuerpo, que es el MISMO texto del mensaje. Los
+ * números son los de `altoDeMensaje` (`MARCO_MAIL`, `RENGLON_ASUNTO`, …): la tarjeta tiene alto fijo.
+ */
+function VistaEmailAviso({ asunto, titulo, texto }: { asunto: string; titulo: string; texto: string }) {
+  const propio = asunto.trim();
+  const linea: CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: `${(MARCO_MAIL - 2) / 2}px 9px`, background: 'var(--surface)' }}>
+      <div style={{ ...linea, fontSize: 12.5, fontWeight: 700, lineHeight: `${RENGLON_ASUNTO}px`, color: propio ? 'var(--ink)' : 'var(--faint)' }}>{propio || titulo || 'Sin asunto'}</div>
+      {texto.trim() && (
+        <div style={{
+          marginTop: SEP_MAIL, fontSize: 12, lineHeight: `${RENGLON_CUERPO_MAIL}px`, color: 'var(--dim)', whiteSpace: 'pre-wrap',
+          display: '-webkit-box', WebkitLineClamp: RENGLONES_EMAIL, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere',
+        }}><TextoMarcas texto={texto} /></div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * El ✦ de MaKo de la cabecera del panel (la misma cara que el de un WhatsApp: el logo en un chip, dorado
+ * con el panel abierto). Abre el panel que ayuda a escribir el mensaje (`RedactaAviso`).
+ */
+function BotonMakoAviso({ abierto, onClick, deshabilitado }: { abierto: boolean; onClick: () => void; deshabilitado?: boolean }) {
+  return (
+    <button type="button" data-no-pan disabled={deshabilitado} aria-pressed={abierto} onClick={onClick}
+      title="Que MaKo te ayude a escribirlo" aria-label="Que MaKo te ayude a escribirlo"
+      style={{
+        flex: 'none', height: 28, padding: '0 8px', borderRadius: 14, cursor: deshabilitado ? 'default' : 'pointer',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: SANS,
+        border: `1px solid ${abierto ? 'var(--mako-border)' : 'var(--border)'}`,
+        background: abierto ? 'var(--mako-bg)' : 'var(--surface)', opacity: deshabilitado ? 0.5 : 1,
+      }}>
+      <MakoLogo size={16} animate={false} />
+    </button>
+  );
+}
+
 // ── El editor de cada nodo ──────────────────────────────────────────────────
 
 function EditorDelAviso({
-  nodo, id, disparador, frecuenciaMin, texto, endpoint, editable, textoEditable, guardando, canales,
-  asunto, onAsunto, onAsuntoGuardar, aporta,
-  flujo, insistir, cron, tz, onCron, acusesTxt, onAcuses, onTexto, onCambio, onFlujo, onQuitarPaso, probando, prueba, onProbar,
-  panelPendiente,
+  nodo, texto, editable, textoEditable, guardando, canales,
+  asunto, onAsunto, onAsuntoGuardar, tituloMensaje, aporta,
+  flujo, cron, tz, onCron, onTexto, onFlujo, probando, prueba, onProbar,
+  panelPendiente, redactando, onCerrarRedacta,
 }: {
   nodo: NodoFlujo; id: string; disparador: string; frecuenciaMin: number; texto: string;
   endpoint: string; editable: boolean; textoEditable: boolean; guardando: boolean; canales: { wa: boolean; email: boolean };
   asunto?: string; onAsunto?: (v: string) => void; onAsuntoGuardar?: () => void;
+  tituloMensaje?: string;
   aporta: ReadonlyArray<'lead' | 'cuota'>;
   flujo: Flujo | null;
   insistir: Extract<Paso, { tipo: 'insistir' }> | null;
@@ -489,9 +669,11 @@ function EditorDelAviso({
   onTexto: (v: string) => void;
   onCambio?: () => void;
   onFlujo: (f: Flujo | null) => void;
-  onQuitarPaso: (i: number) => void;
   probando: boolean; prueba: string | null; onProbar: (contexto?: string) => void;
   panelPendiente: React.MutableRefObject<PanelPendiente | null>;
+  /** El ✦ de la cabecera está abierto sobre esta tarjeta. */
+  redactando: boolean;
+  onCerrarRedacta: () => void;
 }) {
   const base = flujo ?? FLUJO_VACIO;
 
@@ -504,58 +686,30 @@ function EditorDelAviso({
     );
   }
   /**
-   * EL NODO DEL EMAIL. Hasta el 04/10/2026 caía en el `return` del final y mostraba el
-   * `detalle`, que para esta tarjeta es la cadena vacía: tocarla abría un panel EN
-   * BLANCO. Pedido así: «me faltan las plantillas de los email, que ahora como es todo
-   * un mismo editor falta eso».
+   * EL NODO DEL EMAIL, CON LA CARA DE REDACTAR EN GMAIL (como el editor del email de una automatización,
+   * `EditorEmailGmail`, que no se monta tal cual: ése le escribe a un LEAD, con su «De», su HTML y los
+   * datos del lead). Hasta el 10/10 era un rótulo «Asunto del correo», un input y una frase.
    *
    * ⚠️ EL CUERPO ES UNO, Y SE DICE. El mensaje tiene UN `texto` para los dos canales, y
    * lo único que es propio del correo es el ASUNTO —en WhatsApp no hay asunto, y en una
-   * bandeja el título interno («Lead sin confirmar») se lee como un log—. Dibujar acá un
-   * segundo editor de cuerpo sería prometer dos textos: serían dos borradores y dos
-   * «sin publicar», y eso se decide cuando alguien lo pida. Mientras tanto el panel lo
-   * DICE en una línea, que es más honesto que un campo que pisa el otro.
+   * bandeja el título interno («Lead sin confirmar») se lee como un log—. El cuerpo que se
+   * edita acá es ESE texto (con WhatsApp apagado, es el único lugar donde se escribe), y
+   * con WhatsApp prendido la línea de abajo lo dice.
    */
   if (nodo.id === 'mensaje-email') {
     return (
-      <>
-        <label style={rotuloLienzo}>Asunto del correo</label>
-        <input
-          value={asunto ?? ''} disabled={guardando || !editable || !onAsunto}
-          onChange={(e) => onAsunto?.(e.target.value)}
-          onBlur={() => onAsuntoGuardar?.()}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onAsuntoGuardar?.(); } }}
-          // El título como placeholder: es lo que se usa si esto queda vacío, y verlo
-          // acá es la diferencia entre «no puse nada» y «puse esto».
-          placeholder={nodo.detalle || 'El título del mensaje'}
-          maxLength={160}
-          style={{ ...inpLienzo, marginBottom: 8 }}
-        />
-        <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, margin: 0 }}>
-          Vacío: va el título. El cuerpo es el mismo que el de WhatsApp.
-        </p>
-        {nodo.advertencia && (
-          <p style={{ fontSize: 11.5, color: 'var(--warn)', lineHeight: 1.45, marginTop: 8, marginBottom: 0 }}>{nodo.advertencia}</p>
-        )}
-      </>
+      <EditorEmailAviso nodo={nodo} asunto={asunto ?? ''} titulo={tituloMensaje ?? ''} texto={texto}
+        asuntoEditable={!guardando && editable && !!onAsunto} textoEditable={textoEditable && !guardando}
+        onAsunto={(v) => onAsunto?.(v)} onAsuntoGuardar={() => onAsuntoGuardar?.()} onTexto={onTexto}
+        conWhatsApp={canales.wa}
+        datos={variablesOfrecidas({
+          destino: 'equipo',
+          conLead: base.disparador.tipo === 'evento' || aporta.includes('lead'),
+          conCuota: aporta.includes('cuota'),
+        })} />
     );
   }
   if (nodo.id === 'mensaje') {
-    /**
-     * ⚠️ RECORDATORIOS VIVE ACÁ, NO EN UN NODO APARTE.
-     *
-     * Pedido textual, dos veces: «lo de «Si no contesta» debería llamarse
-     * RECORDATORIOS, y no debería ser una nueva sección, sino una opción dentro de
-     * la sección de mensaje, que se pueda activar o desactivar» y, cuando no se
-     * hizo, «te dije que el RECORDATORIO se debe configurar dentro del MENSAJE».
-     *
-     * ⚠️ Y VA ARRIBA DEL `if (!editable)`, no debajo del editor. Hasta acá el
-     * interruptor vivía en una rama que NO miraba `editable`, así que era alcanzable
-     * siempre; pegarlo abajo del `<EditorMensaje>` lo dejaría detrás de ese return y
-     * desaparecería para los avisos que redacta MaKo — que el server SÍ deja
-     * configurar (`flujo-set` no pasa por `esAdministrativo`). Esconder un control
-     * que el servidor acepta es sacar una función sin decirlo.
-     */
     /**
      * ⚠️ ACA VIVIA «RECORDATORIOS», Y SE FUE EL 04/10/2026.
      *
@@ -566,24 +720,8 @@ function EditorDelAviso({
      *
      * Se midió antes de sacarlo, que es lo que la regla de la casa pide cuando se
      * saca un patrón: **cero flujos tienen hoy un paso `insistir`** en los cuatro
-     * workspaces que tocaron el store. O sea que no quedó ningún mensaje con un
-     * recordatorio prendido que ya no se pueda editar — que es el peor de los dos
-     * mundos y la razón de medir.
-     *
-     * ⚠️ Lo que NO se fue y hay que acordarse: el motor sigue ejecutando `insistir`
-     * si alguna vez vuelve a aparecer uno (una fila heredada del dueño, un flujo
-     * escrito por la API). Si el condicional lo reemplaza de verdad, ahí se saca
-     * también del motor; mientras tanto, el código que lo ejecuta es correcto y no
-     * tiene quién lo encienda.
-     *
-     * Y pagó el ítem 6: sacarlo liberó el alto que hacía falta para que la caja de
-     * texto creciera sin tocar `PANEL_ANCHO` ni el `maxHeight` del panel, que son
-     * constantes compartidas por TODOS los lienzos.
+     * workspaces que tocaron el store.
      */
-
-    // El campo se pinta en el frame y se GUARDA al soltar: son palabras separadas por
-    // coma, y escribir en la base a mitad de una deja «ok, gr» en la lista del negocio.
-    const onAcusesLocal = (v: string) => onAcuses(v, true);
 
     // ⚠️ `textoEditable`, no `editable` (sexta tanda): en un aviso cuyo texto arma el código el flujo
     // se sigue editando y el mensaje no. Y la nota sirve para los dos casos —el aviso técnico de la
@@ -599,46 +737,28 @@ function EditorDelAviso({
         </>
       );
     }
+    // EL ✦ DE LA CABECERA (sexta tanda, WhatsApp 3): el panel que ayuda a escribir ocupa el lugar del chat.
+    if (redactando) {
+      return (
+        <RedactaAviso prueba={prueba} probando={probando} onProbar={onProbar} deshabilitado={guardando}
+          onUsar={(t, modo) => { onTexto(modo === 'reemplazar' ? t : [texto, t].filter((x) => x.trim()).join('\n\n')); onCerrarRedacta(); }}
+          onCerrar={onCerrarRedacta} />
+      );
+    }
     return (
-      <>
-        {/* ⚠️ SE OFRECE SÓLO LO QUE ESTE MENSAJE PUEDE RESOLVER. Un `{{lead_nombre}}`
-            en un aviso que no habla de ningún lead sale CRUDO al WhatsApp del cliente:
-            el resolvedor deja intacto lo que no sabe, a propósito, y el filtro de acá
-            es lo único que evita que llegue ahí. */}
-        {/* ⚠️ EL MISMO EDITOR QUE «MaKo EN WHATSAPP» DEL CHATBOT (MaKo en WhatsApp 2 y 3: «El editable
-            de MaKo en WhatsApp debe ser lo mismo que el editable de WhatsApp» y «tienen una interfaz
-            vieja, elimina eso»): `EditorMensajeGrupo`, el chat con la burbuja de MaKo, emojis y el
-            árbol del «{ }». Hasta la sexta tanda era el editor de marcas de /mensajes (B / I / S y
-            «＋ Dato de MaKo», app/agencia/EditorMensaje.tsx), que se fue con esto. El ✦ que le pide el
-            texto a MaKo va arriba, a la derecha, como el de la cabecera del WhatsApp. */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, minHeight: 28 }}>
-          <PedirleAMaKo onProbar={onProbar} probando={probando} />
-        </div>
-        <EditorMensajeGrupo texto={texto} onTexto={onTexto} deshabilitado={guardando}
-          // ⚠️ LO QUE SE PUEDE RESOLVER NO SALE SÓLO DEL FLUJO. Un cron puede traer el
-          // lead en la mano —la cobranza es el caso— y preguntando únicamente por el
-          // disparador del flujo, ese mensaje mostraba los datos del CRM apagados
-          // teniendo cómo resolverlos. Lo declara el catálogo (`aporta`). Y el destino es el
-          // EQUIPO: el link al portal del curso de un lead no va al grupo.
-          datos={variablesOfrecidas({
-            destino: 'equipo',
-            conLead: base.disparador.tipo === 'evento' || aporta.includes('lead'),
-            conCuota: aporta.includes('cuota'),
-          })} />
-        {/* ⚠️ LA SUGERENCIA SE APLICA, NO SE MIRA. El botón dejaba un texto en azul
-            debajo y no tocaba el mensaje: «no hace nada, me escribe algo abajo pero
-            no cambia el texto». Un botón que produce algo y no lo pone donde va es
-            medio botón. Nada se publica hasta «Publicar», así que es reversible. */}
-        {prueba && prueba !== texto && (
-          <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)' }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--primary-strong)', marginBottom: 5 }}>MaKo lo escribiría así</div>
-            <div style={{ fontSize: 12.5, color: 'var(--ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: 8 }}><TextoMarcas texto={prueba} /></div>
-            <button onClick={() => onTexto(prueba)} style={{ ...btnFantasma, background: 'var(--primary)', color: '#fff', border: 'none' }}>
-              Usar este texto
-            </button>
-          </div>
-        )}
-      </>
+      // ⚠️ EL MISMO EDITOR QUE «MaKo EN WHATSAPP» DEL CHATBOT (MaKo en WhatsApp 2 y 3: «El editable
+      // de MaKo en WhatsApp debe ser lo mismo que el editable de WhatsApp» y «tienen una interfaz
+      // vieja, elimina eso»): `EditorMensajeGrupo`, el chat con la burbuja de MaKo, emojis y el
+      // árbol del «{ }». ⚠️ SE OFRECE SÓLO LO QUE ESTE MENSAJE PUEDE RESOLVER: un `{{lead_nombre}}`
+      // en un aviso que no habla de ningún lead sale CRUDO al WhatsApp del cliente. Y LO QUE SE PUEDE
+      // RESOLVER NO SALE SÓLO DEL FLUJO: un cron puede traer el lead en la mano —la cobranza es el
+      // caso—, y lo declara el catálogo (`aporta`). El destino es el EQUIPO.
+      <EditorMensajeGrupo texto={texto} onTexto={onTexto} deshabilitado={guardando}
+        datos={variablesOfrecidas({
+          destino: 'equipo',
+          conLead: base.disparador.tipo === 'evento' || aporta.includes('lead'),
+          conCuota: aporta.includes('cuota'),
+        })} />
     );
   }
 
@@ -646,11 +766,12 @@ function EditorDelAviso({
   //
   // ⚠️ LA ESPERA, LA CONDICIÓN Y EL MENSAJE AL GRUPO CAÍAN AL `return` DEL FINAL (sexta tanda,
   // General 15: «hay plantillas que quedaron viejas… que no tienen sentido»): el panel mostraba una
-  // línea y nada más — ni un campo, ni «Quitar este paso». La plantilla de fábrica de la cobranza son
-  // EXACTAMENTE esos tres tipos (dos esperas y dos mensajes al grupo), así que la cadencia que Martín
-  // pidió editable el 04/10 («que cada usuario lo pueda editar») no se podía tocar, y un DELAY o un
-  // CONDITION agregados con el ＋ quedaban para siempre. La pregunta es por el ID (`paso-N`), no por
-  // el tipo: el mensaje al grupo es `tipo: 'mako'`, igual que el mensaje principal.
+  // línea y nada más. La plantilla de fábrica de la cobranza son EXACTAMENTE esos tres tipos (dos
+  // esperas y dos mensajes al grupo). La pregunta es por el ID (`paso-N`), no por el tipo: el mensaje
+  // al grupo es `tipo: 'mako'`, igual que el mensaje principal.
+  //
+  // ⚠️ Y NINGUNO LLEVA «Quitar este paso» (10/10/2026): borrar es de la TARJETA, el tacho rojo de la
+  // cabecera del panel (`onBorrar` del Lienzo), como en una automatización.
   if (/^paso-\d+$/.test(nodo.id)) {
     const i = nodo.orden ?? 0;
     const vivos = pasosDibujados(base.pasos);
@@ -664,25 +785,24 @@ function EditorDelAviso({
       // no reusar el de la anterior (el editor siembra un `useState` de props).
       return (
         <EditorPasoAccion key={nodo.id} paso={paso} onGuardar={reemplazar}
-          onQuitar={() => onQuitarPaso(i)} guardando={guardando} advertencia={advertencia}
-          panelPendiente={panelPendiente} />
+          advertencia={advertencia} panelPendiente={panelPendiente} />
       );
     }
     if (paso?.tipo === 'esperar') {
       return (
-        <EditorPasoEspera key={nodo.id} paso={paso} onGuardar={reemplazar} onQuitar={() => onQuitarPaso(i)}
+        <EditorPasoEspera key={nodo.id} paso={paso} onGuardar={reemplazar}
           guardando={guardando} advertencia={advertencia} panelPendiente={panelPendiente} />
       );
     }
     if (paso?.tipo === 'condicional') {
       return (
-        <EditorPasoCondicion key={nodo.id} paso={paso} onGuardar={reemplazar} onQuitar={() => onQuitarPaso(i)}
+        <EditorPasoCondicion key={nodo.id} paso={paso} onGuardar={reemplazar}
           guardando={guardando} advertencia={advertencia} panelPendiente={panelPendiente} />
       );
     }
     if (paso?.tipo === 'mensaje' && paso.canal === 'aviso_dueno') {
       return (
-        <EditorPasoAlGrupo key={nodo.id} paso={paso} onGuardar={reemplazar} onQuitar={() => onQuitarPaso(i)}
+        <EditorPasoAlGrupo key={nodo.id} paso={paso} onGuardar={reemplazar}
           guardando={guardando} advertencia={advertencia} panelPendiente={panelPendiente}
           datos={variablesOfrecidas({
             destino: 'equipo',
@@ -700,18 +820,11 @@ function EditorDelAviso({
               onChange={(e) => reemplazar({ ...paso, texto: e.target.value })}
               style={{ ...inpLienzo, resize: 'vertical', lineHeight: 1.45 }} />
             {/* ⛔ Este paso NO SE MANDA (decisión de Martín, 06/10/2026: «nada al
-                cliente»; ver la rama en lib/flujos.ts). Hasta el 08/10 esta línea decía
-                que MaKo lo proponía en el grupo y salía con un «sí»: no pasaba ni lo uno
-                ni lo otro. El lienzo ya no ofrece crearlo; queda para el que exista. */}
-            <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, marginTop: 8, marginBottom: 0 }}>
-              No se envía: nada sale al cliente.
-            </p>
+                cliente»; ver la rama en lib/flujos.ts). El lienzo ya no ofrece crearlo; queda
+                para el que exista, con su marca en la tarjeta. */}
           </>
         )}
         {advertencia}
-        <button onClick={() => onQuitarPaso(i)} disabled={guardando} style={btnQuitarPaso}>
-          Quitar este paso
-        </button>
       </>
     );
   }
@@ -739,14 +852,13 @@ function EditorDelAviso({
  *    perdería el foco a mitad de una palabra.
  * Elegir la ACCIÓN se guarda en el acto; los datos, 700 ms después de la última tecla.
  *
- * ⚠️ Y LO PENDIENTE SE MANDA AL CERRAR EL PANEL, salvo que se haya QUITADO el paso: el
- * guardado diferido se arma con el flujo de antes de quitarlo, y lo devolvería.
+ * ⚠️ Y LO PENDIENTE SE MANDA AL CERRAR EL PANEL, salvo que se haya BORRADO el paso: el tacho
+ * lo descarta antes (`borrarPaso` toma lo pendiente), porque armado con el flujo de antes de
+ * quitarlo, lo devolvería.
  */
-function EditorPasoAccion({ paso, onGuardar, onQuitar, guardando, advertencia, panelPendiente }: {
+function EditorPasoAccion({ paso, onGuardar, advertencia, panelPendiente }: {
   paso: PasoAccion;
   onGuardar: (nuevo: PasoAccion) => void;
-  onQuitar: () => void;
-  guardando: boolean;
   advertencia?: React.ReactNode;
   panelPendiente: React.MutableRefObject<PanelPendiente | null>;
 }) {
@@ -802,19 +914,10 @@ function EditorPasoAccion({ paso, onGuardar, onQuitar, guardando, advertencia, p
     else reloj.current = setTimeout(soltar, 700);
   };
 
-  const quitar = () => {
-    if (reloj.current) { clearTimeout(reloj.current); reloj.current = null; }
-    pendiente.current = null;
-    onQuitar();
-  };
-
   return (
     <>
       <EditorAccionMako valor={valor} onCambio={cambiar} />
       {advertencia}
-      <button onClick={quitar} disabled={guardando} style={btnQuitarPaso}>
-        Quitar este paso
-      </button>
     </>
   );
 }
@@ -823,9 +926,8 @@ function EditorPasoAccion({ paso, onGuardar, onQuitar, guardando, advertencia, p
  * EL GUARDADO DIFERIDO DE UN PASO, para los editores de la espera, la condición y el mensaje al
  * grupo (sexta tanda). Es el MISMO contrato que `EditorPasoAccion` (arriba, y por las mismas
  * razones): lo escrito espera 700 ms, se registra en `panelPendiente` para que el tablero lo TOME
- * antes de cambiar el flujo por otro camino (un ＋, un deshacer), se manda al desmontar y al ocultar
- * la pestaña, y quitar el paso lo DESCARTA (armado sobre el flujo de antes, lo devolvería).
- * `enElActo` es para lo que se elige de una vez (una opción de un desplegable).
+ * antes de cambiar el flujo por otro camino (un ＋, un deshacer, el tacho), se manda al desmontar y al
+ * ocultar la pestaña. `enElActo` es para lo que se elige de una vez (una opción de un desplegable).
  */
 function usePasoDiferido<V>(paso: Paso, inicial: () => V, aPaso: (v: V) => Paso, onGuardar: (nuevo: Paso) => void,
   panelPendiente: React.MutableRefObject<PanelPendiente | null>) {
@@ -870,53 +972,79 @@ function usePasoDiferido<V>(paso: Paso, inicial: () => V, aPaso: (v: V) => Paso,
     if (enElActo) soltar();
     else reloj.current = setTimeout(soltar, 700);
   };
-  const descartar = () => { parar(); pendiente.current = null; };
-  return { valor, cambiar, descartar };
+  return { valor, cambiar };
 }
 
 type PropsPaso<P extends Paso> = {
   paso: P;
   onGuardar: (nuevo: Paso) => void;
-  onQuitar: () => void;
   guardando: boolean;
   advertencia?: React.ReactNode;
   panelPendiente: React.MutableRefObject<PanelPendiente | null>;
 };
 
-/** El tope de una espera: un año, como el de las automatizaciones (`366 * 1440` min en lib/flujo-ia.ts). */
-const HORAS_MAX_ESPERA = 8760;
+/** Un ícono por unidad (general 10), los mismos del DELAY de una automatización. */
+const ICONO_UNIDAD: Record<UnidadEspera, NombreIconoMenu> = { s: 'cronometro', min: 'reloj', h: 'reloj', dias: 'calendario' };
 
-/** DELAY: cuántas horas espera antes del paso siguiente (el motor lee `horas`, lib/flujo-pasos.ts). */
-function EditorPasoEspera({ paso, onGuardar, onQuitar, guardando, advertencia, panelPendiente }: PropsPaso<Extract<Paso, { tipo: 'esperar' }>>) {
-  const { valor, cambiar, descartar } = usePasoDiferido<string>(paso, () => String(paso.horas),
-    (v) => ({ tipo: 'esperar', horas: Math.max(1, Math.min(HORAS_MAX_ESPERA, Math.round(Number(v) || 1))) }),
-    onGuardar, panelPendiente);
+/**
+ * DELAY, COMO UNA FRASE GIGANTE: «Esperar [24] [horas ▾]» (como el DELAY de una automatización, sexta tanda,
+ * CRON 1: «Haz los botones gigantes»; quinta, punto 3: minutos además de horas). Hasta el 10/10 era «Cuántas
+ * horas espera» con un input chico y sólo horas.
+ *
+ * ⚠️ EL DATO SIGUE SIENDO `horas` (lo lee el motor de avisos, `decidir` en lib/flujo-pasos.ts, que acepta
+ * fracciones: un minuto es 1/60). Lo que se ofrece es lo que el motor cumple: de un minuto a 30 días, y lo
+ * guardado se MUESTRA acotado igual que el motor lo acota (`sanearHoras`): una espera vieja de 8760 h se lee
+ * «30 días», que es lo que de verdad espera.
+ */
+function EditorPasoEspera({ paso, onGuardar, guardando, advertencia, panelPendiente }: PropsPaso<Extract<Paso, { tipo: 'esperar' }>>) {
+  // El valor del panel son SEGUNDOS (en minutos enteros, acotados como el motor); el paso guarda `horas`.
+  const { valor, cambiar } = usePasoDiferido<number>(paso, () => segundosDeEspera(paso.horas),
+    (s) => ({ tipo: 'esperar', horas: horasDeEspera(s) }), onGuardar, panelPendiente);
+  const [preferida, setPreferida] = useState<UnidadEspera | null>(null);
+  const unidad = unidadDeEsperaAviso(valor, preferida);
+  const n = Math.max(1, Math.round(valor / SEGUNDOS_DE[unidad]));
+  const poner = (cuanto: number, u: UnidadEspera, enElActo: boolean) =>
+    cambiar(Math.round(horasDeEspera(Math.round(cuanto) * SEGUNDOS_DE[u]) * 3600), enElActo);
   return (
     <>
-      <label style={rotuloLienzo}>Cuántas horas espera</label>
-      <input type="number" inputMode="numeric" min={1} max={HORAS_MAX_ESPERA} step={1} value={valor}
-        onChange={(e) => cambiar(e.target.value)} style={inpLienzo} aria-label="Horas de espera" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', flex: 'none', fontFamily: SANS }}>Esperar</span>
+        <input type="number" min={1} max={Math.floor(ESPERA_AVISO_MAX_S / SEGUNDOS_DE[unidad])} step={1} value={n} disabled={guardando}
+          aria-label="Cuánto" inputMode="numeric"
+          onChange={(ev) => { const v = Number(ev.target.value); if (v > 0) poner(v, unidad, false); }}
+          style={{ ...campoGrande, minHeight: ALTO_PRINCIPAL, width: 104, flex: 'none', textAlign: 'center', fontSize: 22, fontWeight: 700, borderRadius: 13, border: '1.5px solid var(--border-strong)' }} />
+        <div style={{ flex: '1 1 170px', minWidth: 0 }}>
+          <Dropdown value={unidad} width="100%" ariaLabel="Unidad" search={false} disabled={guardando} variante="principal"
+            options={UNIDADES_ESPERA_AVISO.map((u) => ({ value: u, label: rotuloUnidad(u, n), icono: ICONO_UNIDAD[u] }))}
+            onChange={(v) => { const u = v as UnidadEspera; setPreferida(u); poner(n, u, true); }} />
+        </div>
+      </div>
       {advertencia}
-      <button onClick={() => { descartar(); onQuitar(); }} disabled={guardando} style={btnQuitarPaso}>
-        Quitar este paso
-      </button>
     </>
   );
 }
 
-/** CONDITION: el único dato que este motor ve es si alguien contestó en el grupo (`CONDICIONES_FLUJO`). */
-function EditorPasoCondicion({ paso, onGuardar, onQuitar, guardando, advertencia, panelPendiente }: PropsPaso<Extract<Paso, { tipo: 'condicional' }>>) {
-  const { valor, cambiar, descartar } = usePasoDiferido<string>(paso, () => paso.condicion,
+/**
+ * CONDITION: el único dato que este motor ve es si alguien contestó en el grupo (`CONDICIONES_FLUJO`).
+ * Una frase, sin rótulo arriba (8/10, punto 5: «menos títulos»), con el desplegable PRINCIPAL de la casa
+ * (CONDITION 3: «Tiene que tener más protagonismo el principal»). Lo que pasa si no se cumple lo dice la
+ * tarjeta, en su fila «Si no».
+ */
+function EditorPasoCondicion({ paso, onGuardar, guardando, advertencia, panelPendiente }: PropsPaso<Extract<Paso, { tipo: 'condicional' }>>) {
+  const { valor, cambiar } = usePasoDiferido<string>(paso, () => paso.condicion,
     (v) => ({ tipo: 'condicional', condicion: v }), onGuardar, panelPendiente);
+  const conocida = (CONDICIONES_FLUJO as readonly string[]).includes(valor);
   return (
     <>
-      <label style={rotuloLienzo}>Sigue si</label>
-      <Dropdown value={valor} onChange={(v) => cambiar(String(v), true)} ariaLabel="Condición"
-        options={CONDICIONES_FLUJO.map((c) => ({ value: c, label: ROTULO_CONDICION[c], icono: ICONO_CONDICION[c] }))} />
+      <Dropdown value={valor} onChange={(v) => cambiar(String(v), true)} ariaLabel="Condición" variante="principal" width="100%"
+        search={false} disabled={guardando}
+        // Una condición guardada que el motor ya no conoce se MUESTRA (un `value` fuera de sus opciones
+        // no dibuja nada y el primer clic lo pisa: AGENTS.md); no se ofrece.
+        options={[
+          ...CONDICIONES_FLUJO.map((c) => ({ value: c, label: ROTULO_CONDICION[c], icono: ICONO_CONDICION[c] })),
+          ...(conocida ? [] : [{ value: valor, label: valor, icono: 'condicion' as NombreIconoMenu }]),
+        ]} />
       {advertencia}
-      <button onClick={() => { descartar(); onQuitar(); }} disabled={guardando} style={btnQuitarPaso}>
-        Quitar este paso
-      </button>
     </>
   );
 }
@@ -927,18 +1055,15 @@ const ICONO_CONDICION: Record<(typeof CONDICIONES_FLUJO)[number], NombreIconoMen
  * (`EditorMensajeGrupo`, MaKo en WhatsApp 2) y lo que ESTE aviso puede resolver en el «{ }». Sale
  * tal cual, con los datos puestos por código (lib/flujos.ts).
  */
-function EditorPasoAlGrupo({ paso, onGuardar, onQuitar, guardando, advertencia, panelPendiente, datos }: PropsPaso<Extract<Paso, { tipo: 'mensaje' }>> & {
+function EditorPasoAlGrupo({ paso, onGuardar, advertencia, panelPendiente, datos }: PropsPaso<Extract<Paso, { tipo: 'mensaje' }>> & {
   datos: ReturnType<typeof variablesOfrecidas>;
 }) {
-  const { valor, cambiar, descartar } = usePasoDiferido<string>(paso, () => paso.texto,
+  const { valor, cambiar } = usePasoDiferido<string>(paso, () => paso.texto,
     (v) => ({ ...paso, texto: v }), onGuardar, panelPendiente);
   return (
     <>
       <EditorMensajeGrupo texto={valor} onTexto={(v) => cambiar(v)} datos={datos} />
       {advertencia}
-      <button onClick={() => { descartar(); onQuitar(); }} disabled={guardando} style={btnQuitarPaso}>
-        Quitar este paso
-      </button>
     </>
   );
 }
@@ -962,37 +1087,48 @@ function Opcion({ activa, onClick, disabled, children }: {
 
 // ──────────────────────────────────────────────────────────────────────────
 
+/** El modo del CRON de un mensaje: por tiempo, por un evento, o ninguno (sale sólo por su camino de siempre). */
+type ModoDisparo = 'tiempo' | 'accion' | null;
+
+/**
+ * LOS DOS TIPOS DE CRON DE UN MENSAJE, como los botones gigantes del CRON de una automatización (sexta
+ * tanda, CRON 1 y 2: «Haz los botones gigantes» y «reemplaza "Por tiempo" y "Por una acción" por lo que ya
+ * tenemos… "Recurrente"»). Un mensaje de MaKo no tiene producto ni etiqueta que lo disparen: tiene un
+ * horario (el Recurrente) o uno de los eventos que el motor emite (`EVENTOS`).
+ */
+const TIPOS_CRON: ReadonlyArray<{ modo: 'tiempo' | 'accion'; label: string; icono: 'recurrente' | 'otro' }> = [
+  { modo: 'tiempo', label: 'Recurrente', icono: 'recurrente' },
+  { modo: 'accion', label: 'Evento', icono: 'otro' },
+];
+
 /**
  * LA SECCIÓN «CRON»: TIEMPO **o** ACCIÓN, nunca las dos.
  *
  * Pedido textual: «El cron debería ser uno de dos… O el usuario lo configura para
  * que salga en TIEMPO… O lo configura que se dispare mediante una ACCIÓN. Y no deben
- * poder editarse los 2 al mismo tiempo, primero se selecciona tiempo o acción y luego
- * se selecciona el desplegable».
+ * poder editarse los 2 al mismo tiempo».
+ *
+ * ⚠️ DESDE EL 10/10/2026 CON LAS PIEZAS DEL CRON DE UNA AUTOMATIZACIÓN (`EditorDisparadores`): la
+ * primera pantalla son dos botones gigantes («Recurrente» y «Evento»), el horario es el de Google
+ * Calendar (`EditorRecurrente`, que trabaja sobre el mismo `CronAviso` y cuya zona y fecha de inicio
+ * respeta `proximaOcurrencia`), y el evento va en el desplegable PRINCIPAL. Hasta acá eran «Por tiempo
+ * / Por una acción» chiquitos y el horario de antes («Cada [n] [unidad] / A las [h]:[m]»).
+ *
+ * Como en una automatización, la ← vuelve a elegir el tipo SIN apagar lo guardado: lo de antes sigue
+ * hasta que lo nuevo esté completo (un horario se completa al elegirlo; un evento, al elegir cuál). Y
+ * como un mensaje sin CRON es legítimo —sale sólo por su camino de siempre—, el tacho rojo lo quita.
  *
  * ⚠️ ES UN COMPONENTE PROPIO PORQUE NECESITA ESTADO, y un `useState` adentro del
  * editor de nodos quedaría detrás de los `return` por tipo de nodo — que es el
- * «Minified React error #300» que esta casa ya pagó con la pantalla en blanco, y que
- * el pre-push mira con `scripts/hooks-en-orden.sh`.
+ * «Minified React error #300» que esta casa ya pagó con la pantalla en blanco.
  *
- * ⚠️ Y EL MODO NO SE PUEDE DERIVAR SOLO DE LOS DATOS. La primera versión hacía
- * `modo = cron ? 'tiempo' : evento ? 'accion' : 'nada'`, y con eso apretar «Por una
- * acción» no hacía NADA: sin evento elegido el modo seguía siendo 'nada', el
- * desplegable no se dibujaba, y no había forma de llegar a elegir el evento. Medido en
- * el navegador — el botón cambiaba de color y el panel no cambiaba. Elegir un modo es
- * una INTENCIÓN de quien mira; lo que hay guardado es otra cosa, y la intención manda
- * hasta que se guarde algo.
- *
- * ⚠️ Y HAY UN TERCER ESTADO QUE NO SE PUEDE ESCONDER: 60 de los 65 mensajes del
- * catálogo ya salen por su cuenta, desde el código que los produce. Eso no se apaga
- * desde acá, así que un control de dos opciones donde ninguna está puesta estaría
- * mintiendo sobre qué hace hoy el mensaje. «Nada más» es ese estado con su nombre, y
- * arriba, en una línea, lo que el mensaje hace por su cuenta.
+ * ⚠️ Y EL MODO NO SE PUEDE DERIVAR SOLO DE LOS DATOS. Con `modo = cron ? 'tiempo' : evento ? 'accion' :
+ * null`, elegir «Evento» no hacía NADA: sin evento elegido el modo seguía siendo null y el desplegable no
+ * se dibujaba. Elegir un modo es una INTENCIÓN de quien mira; lo guardado es otra cosa, y la intención
+ * manda hasta que se guarde algo.
  *
  * Y el desplegable «cada cuánto, como máximo» se fue de la pantalla: «realmente no me
- * hace ningun tipo de sentido». Medido antes de sacarlo — los 108 avisos activos de
- * los 10 workspaces lo tienen en 0, así que no apaga ninguna protección que hoy
- * funcione. El CAMPO y sus dos lectores quedan.
+ * hace ningun tipo de sentido». El CAMPO y sus dos lectores quedan.
  */
 function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
   base: Flujo; cron: CronAviso | null; tz: string | null;
@@ -1000,75 +1136,100 @@ function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
 }) {
   const evento = base.disparador.tipo === 'evento' ? base.disparador.evento : '';
   const guardado: ModoDisparo = cron ? 'tiempo' : evento ? 'accion' : null;
-  // Sin nada elegido los dos botones están apagados, y eso es cierto para los 65: nadie
-  // configuró cuándo sale. Lo que ese estado NO dice es «no sale» — eso lo dice la
-  // tarjeta, con el disparador nativo rotulado.
-  const [modo, setIntencion] = useModoDisparo(guardado);
+  const [intencion, setIntencion] = useState<ModoDisparo>(null);
+  /** La ← : volver a los dos botones sin tocar lo guardado. */
+  const [eligiendo, setEligiendo] = useState(false);
+  const modo: ModoDisparo = eligiendo ? null : (intencion ?? guardado);
 
   /**
-   * ⚠️ LOS BOTONES SON DOS Y APAGAN AL VOLVER A APRETARLOS.
+   * ⚠️ ELEGIR UNO APAGA EL OTRO, y es una ESCRITURA y no un `disabled`: las dos mitades viven en
+   * lugares distintos —el evento en el store del flujo, el horario en su tabla— así que dejar el de
+   * al lado puesto y sólo grisarlo dejaría un mensaje disparado por las dos cosas con la pantalla
+   * diciendo una. `null` es el tacho: apaga lo que haya.
    *
-   * «Qué es ese botón de "Nada más" no tiene sentido!!! Quitalo... Son 2 botones como
-   * te dije, o por tiempo o por acción.» Lo único que ese tercer botón tenía de propio
-   * era APAGAR, así que eso pasa al toggle del que está activo: sin él, elegir «Por
-   * tiempo» una vez dejaría el mensaje agendado para siempre, sin ninguna salida que
-   * no sea apagar el mensaje entero.
+   * ⚠️ SI EL AGENDADO SE NIEGA, LA INTENCIÓN VUELVE ATRÁS (y el evento NO se apaga). Pasa con el texto de
+   * ejemplo (`motivoNoAgendable`): el server contesta el motivo, `guardarCron` revierte el horario, y sin
+   * esto quedaba «Recurrente» elegido sin nada abajo — un botón que se prendió y no hizo nada.
    */
   const elegir = (m: ModoDisparo) => {
-    if (m === modo) {
+    setEligiendo(false);
+    if (m === null) {
       setIntencion(null);
-      if (m === 'tiempo') onCron(null);
-      else onFlujo({ ...base, disparador: { tipo: 'manual' } });
+      if (cron) onCron(null);
+      if (evento) onFlujo({ ...base, disparador: { tipo: 'manual' } });
       return;
     }
     setIntencion(m);
-    // Elegir uno APAGA el otro, y es una ESCRITURA y no un `disabled`: las dos
-    // mitades viven en lugares distintos —el evento en el store del flujo, el
-    // horario en su tabla— así que dejar el de al lado puesto y sólo grisarlo
-    // dejaría un mensaje disparado por las dos cosas con la pantalla diciendo una.
-    if (m !== 'accion' && evento) onFlujo({ ...base, disparador: { tipo: 'manual' } });
-    if (m !== 'tiempo' && cron) onCron(null);
-    // ⚠️ SI EL AGENDADO SE NIEGA, LA INTENCIÓN VUELVE ATRÁS. Pasa con el texto de
-    // ejemplo (`motivoNoAgendable`): el server contesta el motivo, `guardarCron`
-    // revierte el horario, y sin esto quedaba «Por tiempo» elegido sin nada abajo —
-    // un botón que se prendió y no hizo nada.
     if (m === 'tiempo' && !cron) {
-      void Promise.resolve(onCron(CRON_DEFAULT)).then((ok) => { if (ok === false) setIntencion(null); });
-    }
+      void Promise.resolve(onCron(CRON_DEFAULT)).then((ok) => { if (ok === false) setIntencion(null); else if (evento) onFlujo({ ...base, disparador: { tipo: 'manual' } }); });
+    } else if (m === 'tiempo' && evento) onFlujo({ ...base, disparador: { tipo: 'manual' } });
+  };
+  /** Elegir el evento lo completa en el acto: recién ahí se apaga el horario, si había uno. */
+  const elegirEvento = (v: string) => {
+    setIntencion('accion');
+    onFlujo({ ...base, activo: true, disparador: { tipo: 'evento', evento: v as EventoFlujo } });
+    if (cron) onCron(null);
   };
 
-  return (
-    <>
-      {/* ⚠️ ACÁ NO VA EL DISPARADOR DEL CATÁLOGO. Esa línea decía «Cron los lunes a la
-          mañana» —el campo `disparador`, la descripción de fábrica— arriba de un
-          agendado vacío, y se leyó exactamente como lo que parecía: «estás
-          PRECONFIGURANDO el cron… cuando JUSTAMENTE lo estamos haciendo editable».
-          El hecho no se pierde: lo dice la TARJETA, rotulado «Hoy sale solo». */}
-      {/*
-        ⚠️ UNA SOLA OPCION A LA VEZ, Y SE VUELVE CON LA FLECHA.
-        Pedido con la captura delante: «el CRON debería elegirse 1 sola opción, por
-        tiempo o por acción y si se quiere cambiar debería retroceder. No que
-        aparezcan siempre ambos botones». Con los dos puestos, el apagado se leia como
-        una segunda cosa configurable al lado de la elegida.
-        La salida NO se pierde —que es lo que el toggle de antes resolvia—: la flecha
-        hace exactamente lo mismo que volver a apretar el activo, o sea apagar el
-        agendado. Sin ella, elegir «Por tiempo» una vez dejaria el mensaje agendado
-        para siempre sin mas salida que apagar el mensaje entero.
-      */}
-      <SelectorDisparo modo={modo} disabled={guardando} onModo={(m) => elegir(m ?? modo)} />
-      {modo === 'tiempo' && cron && <EditorCron cron={cron} tz={tz} disabled={guardando} onCron={onCron} />}
-      {modo === 'accion' && (
-        <Dropdown
-          value={evento}
-          // Un evento que quedó sin emisor no se OFRECE, pero si ya está elegido se muestra marcado:
-          // un desplegable cuyo valor no está entre sus opciones no muestra nada (AGENTS.md).
-          options={[...EVENTOS, ...EVENTOS_SIN_EMISOR.filter((e) => e.key === evento)]
-            .map((e) => ({ value: e.key, label: e.label, icono: ICONO_EVENTO[e.key] }))}
-          onChange={(v) => onFlujo({ ...base, activo: true, disparador: { tipo: 'evento', evento: v as typeof EVENTOS[number]['key'] } })}
-          width="100%" ariaLabel="Qué acción dispara este mensaje"
-        />
+  if (modo === null) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {eligiendo && guardado && <div><BotonVolver onClick={() => setEligiendo(false)} titulo="Volver al CRON elegido" /></div>}
+        <div role="group" aria-label="Qué dispara este mensaje" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+          {TIPOS_CRON.map((t) => (
+            <button key={t.modo} type="button" onClick={() => elegir(t.modo)} disabled={guardando} data-clase-cron={t.modo}
+              className="mk-cron-gigante"
+              style={{
+                minHeight: 92, padding: '14px 8px', borderRadius: 14, border: '1.5px solid var(--border)', background: 'var(--surface)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 9, cursor: 'pointer',
+                fontFamily: SANS, fontSize: 15, fontWeight: 700, color: 'var(--ink)', transition: 'border-color .12s, box-shadow .12s',
+              }}>
+              <IconoDisparador tipo={t.icono} tam={38} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <style>{'.mk-cron-gigante:hover:not(:disabled){border-color:var(--primary)!important;box-shadow:0 2px 10px rgba(0,0,0,.07)}'}</style>
+      </div>
+    );
+  }
+
+  const fila = (editor: React.ReactNode) => (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
+      <BotonVolver onClick={() => setEligiendo(true)} disabled={guardando} titulo="Elegir otro tipo" />
+      <div style={{ flex: 1, minWidth: 0 }}>{editor}</div>
+      {guardado && (
+        <button type="button" onClick={() => elegir(null)} disabled={guardando} title="Quitar este CRON" aria-label="Quitar este CRON"
+          style={{ flex: 'none', width: 34, height: 34, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          <IconoBorrar size={16} />
+        </button>
       )}
-    </>
+    </div>
+  );
+
+  if (modo === 'tiempo') {
+    // Mientras el horario de default va al server (`guardarCron` lo pinta optimista), no hay nada que esperar.
+    return cron ? fila(<EditorRecurrente cron={cron} tzNegocio={tz} disabled={guardando} onCron={(c) => void onCron(c)} />) : null;
+  }
+  return fila(
+    <Dropdown
+      value={evento} variante="principal" width="100%"
+      botonLabel={evento ? undefined : 'Elige el evento'}
+      // Un evento que quedó sin emisor no se OFRECE, pero si ya está elegido se muestra marcado:
+      // un desplegable cuyo valor no está entre sus opciones no muestra nada (AGENTS.md).
+      options={[...EVENTOS, ...EVENTOS_SIN_EMISOR.filter((e) => e.key === evento)]
+        .map((e) => ({ value: e.key, label: e.label, icono: ICONO_EVENTO[e.key] }))}
+      onChange={(v) => elegirEvento(v)}
+      ariaLabel="Qué evento dispara este mensaje" disabled={guardando}
+    />,
+  );
+}
+
+/** La ← de la casa para volver a elegir (la del CRON de una automatización). */
+function BotonVolver({ onClick, disabled, titulo }: { onClick: () => void; disabled?: boolean; titulo: string }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} title={titulo} aria-label={titulo}
+      style={{ flex: 'none', width: 34, height: 34, borderRadius: 9, cursor: 'pointer', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 15, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
   );
 }
 
@@ -1098,62 +1259,133 @@ function BotonPila({ titulo, onClick, activo, children }: {
 }
 
 /**
- * El botón de IA: un ícono que PREGUNTA QUÉ ESCRIBIR antes de escribir.
+ * EL PANEL DEL ✦: MaKo escribe el mensaje a partir de lo que le contás (sexta tanda, WhatsApp 3: «que se
+ * pueda grabar audio y que se vaya transcribiendo»). Con la misma cara que el panel del ✦ de un WhatsApp
+ * (`MakoRedacta`): la caja con el dictado en vivo (`BotonDictar`), «Escribir», y lo que propone como la
+ * burbuja de MaKo, con «Agregar» y «Usar». Nada se publica hasta «Publicar».
  *
- * Pedido el 04/10/2026, las dos mitades: «"Que lo escriba MaKo" solo debería ser el
- * ícono de IA, y de última si paso el cursor que diga lo que hace» y «si lo escribe
- * MaKo, debería primero preguntar QUÉ escribir, sino, no tiene contexto sobre que
- * escribir».
+ * Pide por el camino de SIEMPRE de un aviso (`onProbar` → la ruta `probar` → `generarMensajeAviso`, la
+ * cascada gratis con la key del negocio), no por el de `MakoRedacta`: ése escribe un mensaje AL LEAD con
+ * la voz del negocio, y éste lo escribe MaKo para el EQUIPO. Hasta el 10/10 era un input metido en el
+ * editor y una caja «MaKo lo escribiría así» debajo.
  *
- * ⚠️ LA SEGUNDA MITAD ERA UN CAMPO QUE FALTABA DEL LADO DEL CLIENTE, NO UNA
- * CAPACIDAD QUE FALTARA. El parámetro `contexto` ya estaba aceptado en las DOS rutas
- * y nadie lo mandaba nunca: sin él, el server caía a «Usa datos de ejemplo
- * realistas», o sea que MaKo escribía a ciegas. Por eso esto es un input y no un
- * segundo botón.
- *
- * Y no cuesta plata: la feature `avisos` corre en gemini-flash por la cascada gratis
- * con la key del propio workspace, y no está en `CLAUDE_PERMITIDO`, así que el
- * fallback pago muere en el veto. Preguntar antes no cambia quién paga: cambia que
- * la respuesta sirva.
+ * ⚠️ SÓLO SE MUESTRA LO QUE SE PIDIÓ EN ESTA APERTURA: la propuesta vive en quien monta y sobrevive al
+ * panel. Si el pedido no trae nada nuevo (la ruta falló, o contestó lo mismo), lo dice.
  */
-function PedirleAMaKo({ onProbar, probando }: { onProbar: (contexto?: string) => void; probando: boolean }) {
-  const [abierto, setAbierto] = useState(false);
-  const [que, setQue] = useState('');
-  const mandar = () => { onProbar(que); setAbierto(false); setQue(''); };
-
-  if (!abierto) {
-    return (
-      <button type="button" onClick={() => setAbierto(true)} disabled={probando}
-        title="Que lo escriba MaKo: le dices qué quieres que diga y te lo redacta"
-        aria-label="Que lo escriba MaKo"
-        style={{
-          width: 28, height: 26, borderRadius: 6, border: 'none', background: 'transparent',
-          cursor: probando ? 'default' : 'pointer', fontSize: 14, lineHeight: 1,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: probando ? 0.5 : 1,
-        }}>
-        {/* El logo de MaKo, como el ✦ de la cabecera del WhatsApp del Chatbot (un ícono, no un emoji). */}
-        {probando ? '…' : <MakoLogo size={18} animate={false} />}
-      </button>
-    );
-  }
+function RedactaAviso({ prueba, probando, onProbar, onUsar, onCerrar, deshabilitado }: {
+  prueba: string | null; probando: boolean; onProbar: (contexto?: string) => void;
+  onUsar: (texto: string, modo: 'reemplazar' | 'agregar') => void; onCerrar: () => void; deshabilitado?: boolean;
+}) {
+  const [pedido, setPedido] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  /** La propuesta que había al pedir: lo que llega después es lo nuevo. `undefined` = todavía no se pidió. */
+  const [antes, setAntes] = useState<string | null | undefined>(undefined);
+  const pidio = antes !== undefined;
+  const nueva = pidio && !probando && prueba && prueba !== antes ? prueba : null;
+  const escribir = () => {
+    if (probando || !pedido.trim()) return;
+    setError(null);
+    setAntes(prueba);
+    onProbar(pedido);
+  };
+  const btn: CSSProperties = { height: 32, padding: '0 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 };
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
-      <input
-        autoFocus value={que} onChange={(e) => setQue(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') mandar(); if (e.key === 'Escape') setAbierto(false); }}
-        placeholder="¿Qué quieres que diga?"
-        style={{
-          flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '5px 9px', borderRadius: 6,
-          border: '1px solid var(--border-strong)', background: 'var(--surface-2)',
-          color: 'var(--ink)', fontSize: 12, fontFamily: 'inherit', outline: 'none',
-        }} />
-      <button type="button" onClick={mandar} disabled={!que.trim()} title="Que MaKo lo escriba"
-        style={{
-          flex: 'none', padding: '5px 10px', borderRadius: 6, border: 'none',
-          background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 600,
-          fontFamily: 'inherit', cursor: que.trim() ? 'pointer' : 'default', opacity: que.trim() ? 1 : 0.45,
-        }}>Escribir</button>
+    <div data-mako-redacta style={{ display: 'flex', flexDirection: 'column', gap: 10, fontFamily: SANS, padding: 12, borderRadius: 14, border: '1px solid var(--mako-border)', background: 'var(--surface)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--mako-ink)' }}>✦ MaKo</span>
+        <button type="button" onClick={onCerrar} aria-label="Cerrar MaKo" title="Cerrar"
+          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, padding: 0 }}>✕</button>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+        <textarea value={pedido} onChange={(e) => setPedido(e.target.value)} rows={3} disabled={deshabilitado || probando}
+          placeholder="¿Qué quieres que diga?" aria-label="Qué quieres que diga el mensaje"
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); escribir(); } }}
+          style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.45, outline: 'none', resize: 'none' }} />
+        <BotonDictar titulo="Dictar" valor={pedido} onValor={setPedido} onError={setError} />
+      </div>
+      <div>
+        <button type="button" onClick={escribir} disabled={deshabilitado || probando || !pedido.trim()}
+          style={{ ...btn, height: 36, padding: '0 16px', fontSize: 13.5, border: '1px solid var(--mako-border)', background: 'var(--mako-bg)', color: 'var(--mako-ink)', opacity: pedido.trim() ? 1 : 0.55 }}>
+          {probando ? <><Spinner size={12} /> {GRAMATICA.analizando.rotulo}…</> : nueva ? 'Escribir otro' : 'Escribir'}
+        </button>
+      </div>
+      {error && <div role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}</div>}
+      {nueva && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--mako-ink)' }}>✦ {GRAMATICA.recomienda.rotulo}</div>
+          <BurbujaHilo saliente={false} autor="MaKo" contenido={{ texto: nueva }} maxAncho="92%" />
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+            <button type="button" style={btn} disabled={deshabilitado} onClick={() => onUsar(nueva, 'agregar')}>Agregar</button>
+            <button type="button" style={{ ...btn, border: 'none', background: 'var(--wa)', color: '#fff' }} disabled={deshabilitado} onClick={() => onUsar(nueva, 'reemplazar')}>Usar</button>
+          </div>
+        </div>
+      )}
+      {pidio && !probando && !nueva && <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>No llegó nada. Prueba de nuevo.</div>}
     </div>
+  );
+}
+
+/**
+ * EL EMAIL DE UN MENSAJE, CON LA CARA DE REDACTAR EN GMAIL: «Mensaje nuevo», el asunto y el cuerpo, en
+ * una ventana como la del editor del email de una automatización (`EditorEmailGmail`). El asunto se
+ * guarda al SALIR del campo (son 160 caracteres y escribir en la base a mitad de una palabra deja «Tu
+ * reporte de la sem» en la bandeja de alguien); su placeholder es el título, que es lo que va si queda
+ * vacío. El cuerpo es el texto del mensaje (ver `EditorDelAviso`), con el «{ }» de lo que este aviso
+ * puede resolver.
+ */
+function EditorEmailAviso({ nodo, asunto, titulo, texto, asuntoEditable, textoEditable, onAsunto, onAsuntoGuardar, onTexto, conWhatsApp, datos }: {
+  nodo: NodoFlujo; asunto: string; titulo: string; texto: string; asuntoEditable: boolean; textoEditable: boolean;
+  onAsunto: (v: string) => void; onAsuntoGuardar: () => void; onTexto: (v: string) => void; conWhatsApp: boolean;
+  datos: ReturnType<typeof variablesOfrecidas>;
+}) {
+  const cuerpo = useRef<HTMLTextAreaElement>(null);
+  const [btnDatos, setBtnDatos] = useState<HTMLButtonElement | null>(null);
+  const [datosAbiertos, setDatosAbiertos] = useState(false);
+  const fila: CSSProperties = { flex: 'none', display: 'flex', alignItems: 'center', gap: 8, minHeight: 34, padding: '0 12px', borderBottom: '1px solid var(--border)', fontSize: 13 };
+  const insertar = (k: string) => {
+    const el = cuerpo.current;
+    const r = insertarEnCursor(texto, el?.selectionStart, el?.selectionEnd, `{{${k}}}`);
+    onTexto(r.valor);
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(r.cursor, r.cursor); });
+  };
+  return (
+    <>
+      <section aria-label="Mensaje nuevo" style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)', fontFamily: SANS }}>
+        <div style={{ flex: 'none', padding: '8px 12px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Mensaje nuevo</div>
+        <div style={fila}>
+          <input value={asunto} disabled={!asuntoEditable} aria-label="Asunto"
+            onChange={(e) => onAsunto(e.target.value)} onBlur={onAsuntoGuardar}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onAsuntoGuardar(); } }}
+            // El título como placeholder: es lo que se usa si esto queda vacío, y verlo
+            // acá es la diferencia entre «no puse nada» y «puse esto».
+            placeholder={titulo || 'Asunto'} maxLength={160}
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, padding: '7px 0' }} />
+        </div>
+        {textoEditable ? (
+          <textarea ref={cuerpo} value={texto} onChange={(e) => onTexto(e.target.value)} rows={8} aria-label="Cuerpo del email"
+            placeholder="Escribe el mensaje"
+            style={{ border: 'none', outline: 'none', resize: 'vertical', padding: '10px 12px', background: 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, lineHeight: 1.5, minHeight: 140 }} />
+        ) : (
+          <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}><TextoMarcas texto={texto} /></div>
+        )}
+        {textoEditable && datos.length > 0 && (
+          <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 2, padding: '4px 6px', borderTop: '1px solid var(--border)' }}>
+            <button type="button" ref={setBtnDatos} onClick={() => setDatosAbiertos((v) => !v)} aria-expanded={datosAbiertos}
+              title="Insertar un dato" aria-label="Insertar un dato"
+              style={{ height: 28, minWidth: 28, padding: '0 7px', border: 'none', borderRadius: 7, background: datosAbiertos ? 'var(--primary-bg)' : 'transparent', color: datosAbiertos ? 'var(--primary)' : 'var(--dim)', cursor: 'pointer', fontFamily: "'Geist Mono', monospace", fontSize: 12.5, fontWeight: 600 }}>{'{ }'}</button>
+          </div>
+        )}
+      </section>
+      {conWhatsApp && <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, margin: '8px 0 0' }}>Mismo texto que MaKo en WhatsApp.</p>}
+      {!textoEditable && <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, margin: '8px 0 0' }}>Lo redacta MaKo con lo que pasa cada vez: esto es un ejemplo.</p>}
+      {nodo.advertencia && (
+        <p style={{ fontSize: 11.5, color: 'var(--warn)', lineHeight: 1.45, marginTop: 8, marginBottom: 0 }}>{nodo.advertencia}</p>
+      )}
+      {datosAbiertos && (
+        <PopoverWA ancla={btnDatos} etiqueta="Datos" onCerrar={() => setDatosAbiertos(false)}>
+          <ArbolDeDatos grupos={datos} onElegir={(k) => { insertar(k); setDatosAbiertos(false); }} />
+        </PopoverWA>
+      )}
+    </>
   );
 }

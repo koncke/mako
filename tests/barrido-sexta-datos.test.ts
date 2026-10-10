@@ -77,13 +77,24 @@ test('«Agregar» y «Eliminar», nunca «Poner» ni «Sacar», en lo que se lee
 test('las opciones de los desplegables llevan su ícono del set, no un emoji pegado al nombre (general 10)', () => {
   // PROBADO ROMPIÉNDOLO (09/10/2026): devolverle «⏳ Delay» al ＋ de Notificaciones → 1 fallo (éste);
   // el «🎙» de vuelta en los audios guardados del paso → 1 fallo (éste). Restaurado → verde.
+  //
+  // ⚠️ Desde el 10/10/2026 el ＋ de un mensaje de MaKo es el MENÚ DE LA CASA (`MENU_MAS`, el de una
+  // automatización: nombres e íconos SVG, sin emojis), recortado por `opcionesEn` — ya no tiene su lista
+  // propia. Lo que se cuida es lo mismo: que no vuelva una lista con emojis o sin íconos. PROBADO
+  // ROMPIÉNDOLO (10/10/2026, arnés w9-avisos/romper.mjs, restaurado de memoria, base 48/0 con
+  // tests/flujo-aviso): `opcionesAgregar={[…]}` de vuelta en FlujoAviso → 1 fallo acá (y 1 en flujo-aviso);
+  // el ＋ armando su propio menú (`[...MENU_MAS]`) → 1; el menú de la casa con «⏳ Esperar» → 1.
+  // Restaurado → verde.
   const aviso = sinComentarios(leer('app/agencia/FlujoAviso.tsx'));
-  const agregar = aviso.slice(aviso.indexOf('opcionesAgregar={['), aviso.indexOf(']}', aviso.indexOf('opcionesAgregar={[')));
-  assert.ok(agregar.length > 0 && agregar.length < 900, `el recorte del ＋ mide ${agregar.length}`);
-  const filas = agregar.match(/\{ value: '[a-z]+', label: '[^']*'[^}]*\}/g) ?? [];
-  assert.equal(filas.length, 5, 'las cinco opciones del ＋');
+  assert.doesNotMatch(aviso, /opcionesAgregar=/, 'volvió la lista propia del ＋ de los mensajes');
+  assert.match(aviso, /opcionesEn=\{opcionesEn\}/, 'el ＋ dejó de preguntarle al menú de la casa');
+  assert.match(aviso, /return MENU_MAS\s*\n?\s*\.filter\(/, 'el ＋ de los mensajes arma su propio menú');
+  const casa = sinComentarios(leer('lib/flujo-conversacion.ts'));
+  const menu = casa.slice(casa.indexOf('export const MENU_MAS'), casa.indexOf('];', casa.indexOf('export const MENU_MAS')));
+  const filas = menu.match(/\{ value: '[a-z]+', label: '[^']*'[^}]*\}/g) ?? [];
+  assert.ok(filas.length >= 5, `el menú de la casa tiene ${filas.length} filas: el recorte quedó viejo`);
   for (const f of filas) {
-    assert.match(f, /icono: '[a-z]+'/, `sin ícono: ${f}`);
+    assert.match(f, /icono: ICONOS_MAS\.[a-z]+/, `sin ícono: ${f}`);
     assert.doesNotMatch(f, /label: '[^']*\p{Extended_Pictographic}/u, `un emoji en el nombre: ${f}`);
   }
   assert.match(aviso, /icono: ICONO_EVENTO\[e\.key\]/, 'los eventos del disparador sin ícono');
