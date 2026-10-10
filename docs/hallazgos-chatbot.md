@@ -2115,6 +2115,51 @@ por su propia acción (`action: 'borrador'`), con un respiro, y el motor no la l
 `app/api/chat-agent/secuencias/route.ts` · `lib/setting-secuencias.ts` (`getSettingData`) ·
 `lib/secuencia-borrador.ts` · `tests/chatbot-v6b-flujo.test.ts`
 
+### La base del borrador la pone la pestaña que LEYÓ, no el momento de guardar [borrador, revisión 10/10]
+
+**Síntoma (revisión adversarial, reproducido con las funciones reales):** la pestaña A abre X; MaKo por
+WhatsApp, otra pestaña o un hand-off (que le suma un caso a «Si responde») publican Y; A toca una tarjeta y
+guarda X+cambio. El server anotaba como base lo publicado AL GUARDAR (Y), así que al recargar —en todas las
+pestañas, también la que publicó Y— se abría el borrador viejo encima de Y, sin aviso, y Publicar revertía Y.
+`borradorVigente` comparaba bien, sobre el dato equivocado.
+
+**Regla:** un token de «sobre qué versión trabajo» lo pone QUIEN LEYÓ y viaja con cada escritura; el server
+compara y, si no coincide, no escribe y lo dice (409 `desactualizado` → «Cambió lo publicado: recarga»).
+Guardar con la base del cliente y dejar que `borradorVigente` lo descarte es peor: queda guardado y no se
+abre nunca, o sea perdido sin aviso.
+
+⚠️ **El arreglo obvio era el equivocado: calcular la huella en el navegador.** `firmaPublicado` es pura,
+pero `setSecuenciaPasos` reconstruye cada paso campo por campo y le mergea variantes, partes y remitentes:
+la firma de lo que el lienzo mandó a publicar no es la de lo que quedó en la fila (leído en el código, no
+medido). Con la huella del navegador, cada borrador después de publicar se rechazaría como «otro publicó».
+La calcula el server en el GET (`getSettingData`, sobre la MISMA columna cruda que lee
+`guardarBorradorSecuencia`) y, después de publicar, la devuelve `descartar-borrador`.
+
+**Lo que eso arrastra (`crearBorrador`):** publicar cierra una compuerta (lo que sale de su respiro espera
+la base nueva, o el cartel acusaría a otro de lo que publicó esta pestaña) y las respuestas de antes del
+PATCH no se escuchan. «Descartar» y «Volver a lo publicado» NO adoptan la base que contesta el server (no
+publicaron nada), y el borrado sale DETRÁS de lo que ya salió: al revés, un guardado lento lo resucitaba.
+
+**Y «Descartar cambios» guardaba lo descartado:** la pregunta vive en SimuladorWhatsApp, cambiar de
+automatización desmonta el lienzo, y el desmonte despacha lo que esperaba su respiro. Va por una ref que
+llena SecuenciaPerfil (`descartarBorrador`) y la tab llama ANTES de cambiar. Al irse se relee la lista
+(`cerrar` → `onSalir`) cuando el server quedó distinto: la lista se lee al entrar, y volver a la misma
+automatización en la visita abría lo de la entrada. ⚠️ Releerla en el acto, como pedía el verificador,
+compite con el borrado en vuelo: el GET puede ver el borrador todavía. Va después de que el borrado volvió.
+
+⚠️ **Un test de «descartar no guarda lo pendiente» que llama `yaGuardado` antes del desmonte da verde con
+el bug puesto** (`yaGuardado` suelta lo pendiente por su cuenta): roturas M8 y M9 en 22 / 0 hasta partirlo.
+
+**Vive en:** `lib/secuencia-borrador.ts` · `app/automations/useBorradorSecuencia.ts` ·
+`app/automations/SecuenciaPerfil.tsx` · `app/api/chat-agent/secuencias/route.ts` ·
+`lib/setting-secuencias.ts` · `tests/secuencia-borrador.test.ts` · `tests/chatbot-v6b-flujo.test.ts`
+
+**Sin hacer:** el enchufe en `app/automations/SimuladorWhatsApp.tsx` (`descartarBorrador.current?.()` en
+`descartar()`, antes de cambiar) y `base?: string` en `SecuenciaDto` (`app/automations/ChatAgentApp.tsx`;
+hoy SecuenciaPerfil lo lee con `SecuenciaConBase`). Quedan dos ventanas de milisegundos: otro que publica
+entre el PATCH y la respuesta de `descartar-borrador` (la pestaña tomaría su base), y un guardado que espera
+la compuerta cuando se cierra la pestaña.
+
 ### «Si responde» se DIBUJA como la CONDITION que escucha; el dato sigue siendo `respuesta` [respuesta]
 
 Punto 12: «Reply ya te dije que tiene que estar dentro de CONDITION». Se cambió el DIBUJO, no el nodo:
