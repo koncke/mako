@@ -1,6 +1,49 @@
 # Retomar: Automations (ex Chatbot)
 
-**Dónde quedó:** 10/10/2026 ~10:00, cuenta `claude2` (cuota semanal 67 %). La SEXTA tanda está ENTERA en
+**Dónde quedó:** 10/10/2026 ~12:45, cuenta `claude2` (cuota semanal 76 %). La SÉPTIMA tanda (los pedidos de
+la mañana del 10/10: «no están todas las plantillas de Mauricio», «revisa las de mi workspace», «una condición
+suelta… me deja probarlo», «también en Código Inmobiliario») está en la rama `chatbot-v6`, con la suite en
+verde (6.817), los tipos y el build. El pedido literal y lo hecho, en `app/admin/dev/chatbot/bitacora.ts`
+(hitos del 10 oct 10:21-12:38); lo aprendido, en `docs/hallazgos-chatbot.md` → «Séptima tanda».
+**Nada se vio con clics.**
+
+Los arreglos de DATOS ya están en producción (Martín los aprobó a las 11:25 con el antes y el después):
+198 (ws1) sin los «Ir a #212» ni su resto y sin la errata del borrador; 221 (ws1) archivada; 223 (ws13) sin
+«mañana»; 224 (ws13) con el CRON «No asistió a R1» (sigue pausada); 226 (ws1) sin «bienvenida» en el CRON, con
+la etiqueta también por email y el saludo corregido. Releídos con las funciones de la app: los cinco pasan
+Publicar.
+
+## Lo que decide Martín (séptima tanda)
+
+- **La 224 (ws13)**: «Agendó» también cuenta la reunión a la que faltó, así que el email de reagendar no le
+  sale a nadie. ¿Se cambia por «Próxima reunión en ≤ 720 h», como la plantilla?
+- **El recordatorio**: ¿se muda al motor de las automatizaciones? Con eso vienen solos el ✦, mover tarjetas,
+  «Acomodar» y «Probar». Con el emisor prendido en el ws1, mudarlo puede mandar todo dos veces. Y que no tenga
+  «＋ Nuevo CRON» es un default (sólo dispara por la agenda).
+- **Los mensajes de MaKo en WhatsApp**: el flujo (pasos, CRON) se guarda en el acto y «Publicar» publica sólo
+  el texto; en una automatización todo sale con Publicar.
+- **Del ws9**: el store de tus mensajes es el default de todos los clientes (¿se avisa en la pantalla o se separa
+  la base de la plataforma?); el reporte semanal no sale por WhatsApp desde que se borró Chatwoot (¿al grupo de
+  MaKo, o se apaga WhatsApp para los reportes?); el CRON «Agendó una reunión» no ve las reuniones cargadas a mano
+  sin hora; `{{hora}}` sale en la zona del negocio; los títulos de 6 mensajes (los del catálogo de
+  notificaciones son más cortos).
+- **El aviso de 30 minutos al dueño** sólo corre con Calendly: ¿se extiende a todos (Código Inmobiliario usa
+  Cal.com)? Es mandar avisos nuevos a clientes.
+- **Activar** no frena una automatización con la línea desconectada (ws13) ni una nueva con el CRON viejo de la
+  post-agenda (`agendado_sin_confirmar`) junto a la 212/213. ¿Lo frena?
+- **A Mauricio**: la 198 manda «Te dejo aquí el video» (el de antes de la reunión) a quien no agendó, y la 226
+  linkea el mismo video como «de repaso».
+
+## Lo que falta (no espera a nadie)
+
+- **Verlo con clics**: la flecha de la condición que escucha, «Probar» frenando con el panel abierto, la galería
+  de «＋ Nueva», el recordatorio y MaKo en WhatsApp con las piezas nuevas, la pastilla del DELAY.
+- Las copias que quedan en `app/agencia/FlujoAviso.tsx` (`VistaEmailAviso`, `BotonMakoAviso`, `BotonVolver`,
+  `RedactaAviso`) y `/api/chat-agent/onboarding/resumen` sin llamadores (la lista, en los hallazgos).
+
+## La sexta tanda (para contexto)
+
+**Dónde había quedado:** 10/10/2026 ~10:00, cuenta `claude2` (cuota semanal 67 %). La SEXTA tanda está ENTERA en
 `main` (el push de la rama `chatbot-v6`), con las migraciones 0240, 0241, 0242 y 0245 aplicadas. La tab se
 llama **Automations** y vive en `app/automations` (`/automations`; `/chatbot` redirige con la query). El
 pedido literal está en `app/admin/dev/chatbot/bitacora.ts` (hitos del 9 oct 18:37 y 23:40); lo hecho, en
@@ -42,14 +85,14 @@ destinatario · las plantillas de fábrica al día.
 
 ## Lo que decide Martín
 
-- **Los dos scripts de datos, en simulacro:** `scripts/quitar-ir-a.mts` (ws1 #198: saca 2 «Ir a #212», que
-  arranca por su CRON; #221 pasa a flecha) y `scripts/plantillas-viejas.mts` (ws1: 4 flujos manuales vacíos
-  y un paso «⚡ Acción» viejo; ws4: 2 flujos vacíos). ¿Se corren con `--aplicar`?
+- **Los dos scripts de datos, en simulacro:** `scripts/quitar-ir-a.mts` (la 198 y la 221 ya se arreglaron a
+  mano el 10/10, ver arriba) y `scripts/plantillas-viejas.mts` (ws1: 4 flujos manuales vacíos y un paso «⚡
+  Acción» viejo; ws4: 2 flujos vacíos). ¿Se corren con `--aplicar`?
 - Los 7 mensajes de MaKo que arma el código (reporte semanal, recordatorio de reunión, Fathom, mensaje
   entrante, línea caída y volvió): hoy se ven como ejemplo y no se editan. ¿Pasan a mandar lo que escribe el
   cliente? Y en /mensajes (la agencia) todavía se editan.
-- ws1 #221 duplica la post-agenda nueva (¿archivarla?), ws4 #210 es la post-agenda vieja del onboarding,
-  ws13 #224 no tiene disparador, y ws13 «Nueva Agenda VSL» (un mensaje propio con evento) nunca sale.
+- ws4 #210 es la post-agenda vieja del onboarding, y ws13 «Nueva Agenda VSL» (un mensaje propio con evento)
+  nunca sale. (La 221 se archivó y la 224 tiene CRON desde el 10/10.)
 - El email que llega: prender «Receiving» en Resend, que el cliente cargue el MX y el secreto del webhook.
 - ws11 tiene su cuenta de Zernio pausada por falta de pago (402).
 - Sin horario, las post-agendas en vivo del ws1 (de Mauricio) pueden salir de noche: ¿se le pone uno?

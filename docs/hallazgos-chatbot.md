@@ -3221,6 +3221,73 @@ preguntarle a Martín con opciones (no se tocó nada):
   equipo hace falta otro contexto y la `clave` de arriba.
 - **Verlo con clics**: nada de esto se vio en un navegador.
 
+## Séptima tanda (10/10/2026): la condición «suelta», las de Mauricio y Código Inmobiliario, y lo viejo del ws9
+
+Pedidos literales en la bitácora (hitos del 10 oct 10:21-11:25). Lo que se aprendió, no lo que se hizo:
+
+- **La «condición suelta» de la 198 no estaba suelta: el DIBUJO mentía.** Es la CONDITION que escucha la
+  respuesta (nodo 'respuesta'), que en el motor cuelga del CRON y por eso `validarGrafo` la deja pasar. La
+  segunda pasada de la sexta tanda le sacó la flecha al sacar la fila «Si responde» del CRON, y se veía igual
+  que una tarjeta suelta. ⚠️ **El diagnóstico obvio —«Publicar y Probar no frenan las sueltas»— era el
+  equivocado** para esa tarjeta: las 8 automatizaciones vivas de ws1 y ws13 pasaban `validarGrafo` sin una
+  suelta real. La regla: lo que el motor cuelga de algo se DIBUJA colgado de eso, con una flecha que no es del
+  dato (`sinMas`: sin ＋ en el medio, sin papelera, y «Desconectar» no la cuenta). Y una fila única no se llama
+  «Si no» (sin un «Sí» arriba se lee a medio armar): `rotuloSiNoDeRespuesta`, que leen la tarjeta, su editor y
+  «Probar».
+- **Pero «me deja probarlo» era cierto por otra puerta.** El botón «▶ Probar» frenaba; con el panel ABIERTO,
+  ↻, «Cambió · ↻», «Probar en WhatsApp» y un número nuevo rearrancaban sobre lo que se edita sin mirar nada, y
+  «Probar en WhatsApp» MANDABA. El freno va en cada puerta que arranca, no en el botón que abre: el lienzo le
+  pasa al panel el mismo `frenoDelFlujo` que Publicar (`EdicionLocal.freno`).
+- **Un script que cambia `pasos` deja el borrador huérfano en silencio.** El borrador guarda `base` = la firma
+  de lo publicado (`firmaPublicado`); con otra firma, `borradorVigente` ya no lo abre. Al arreglar datos se
+  rearma o se borra en el mismo cambio. Y para comparar un borrador con lo publicado se ignora `orden`: el
+  lienzo lo renumera al abrir (el de la 198 sólo difería en eso y en una errata).
+- **La 221 era la post-agenda VIEJA** (`agendado_sin_confirmar`), que no está en `FAMILIA_POST_AGENDA`: prendida
+  junto a la 212 y la 213, el lead recibía el audio dos veces y Activar no lo frenaba. Se archivó; el agujero del
+  código sigue (ver abajo).
+- **La pastilla del DELAY pisaba las tarjetas en CUALQUIER automatización**: el árbol separaba las columnas 92 px
+  y «1 h antes de la reunión» mide 150. El recordatorio lo había arreglado sólo para él. La columna se corre lo
+  que pide su flecha (`huecoHacia`). ⚠️ Un test que medía sólo el eje X dio un falso rojo con dos esperas
+  seguidas: van a distinta altura sobre la curva, así que se comparan rectángulos.
+- **Un test que fija un camino que nunca corre.** `tests/flujo-aviso.test.ts` fijaba `editorDeTarjeta(muelles, …)`
+  en FlujoAviso, pero `muelles` no llegaba desde la lista: el panel de MaKo en WhatsApp estaba siempre en 460 px.
+  Se enchufó de punta a punta (SimuladorWhatsApp → MensajeMakoLienzo → TemplateDetalleModal → FlujoAviso) y el
+  guard mira la cadena entera.
+- **Dos botones con el mismo resultado se leen como que uno está roto.** La galería traía «En blanco» y «Con
+  MaKo», y una vacía abre siempre con la caja de Crear con IA: queda una tarjeta.
+- **Un reporte sale por las preferencias, no por su plantilla.** El lienzo del reporte semanal dibujaba WhatsApp (el
+  default de la plantilla) y no Email, que es por donde sale: `canalesDeMensaje`, la misma de la bandeja.
+- **El guard de nombres reales existía y no tenía los nombres.** «Terminó la R1 con Sergio Esquer» (un cliente
+  de Mauricio) pasaba el test de los ejemplos del catálogo porque la lista `REALES` no lo nombraba. La lista caza
+  los conocidos; cada nombre real que aparezca se suma ahí.
+- **El aviso de 30 minutos al dueño miraba sólo la hora**: una cancelación de Calendly borra la fecha y deja la
+  hora (0 de 130 filas hoy). `reunionParaElDueno` (pura, con test) pasa por `juntasDe` + `fechaCoincide`.
+
+### Lo que quedó sin hacer, con su archivo
+
+- **`agendado_sin_confirmar` fuera de la regla del doble envío** (`lib/nutricion-familias.ts`, `FAMILIA_POST_AGENDA`):
+  una automatización nueva con ese CRON, prendida junto a 212/213, repite el audio. Activar no lo frena.
+- **Activar no mira si la línea está conectada** (`mako_ws13` desconectada y sin número): se prende y no sale nada.
+- **Una espera «N antes de la reunión» que ya pasó sale enseguida** (el «mañana» de la 223, a quien reserva con
+  menos de 24 h). Se arregló el texto; el motor sigue de largo (`lib/nutricion.ts`).
+- **La 224: «Agendó» cuenta la reunión a la que faltó**, así que el email de reagendar no le sale a nadie. La
+  plantilla de la galería lo resuelve con «Próxima reunión en ≤ 720 h»; la 224 la decide Martín.
+- **El recordatorio sin ✦, sin mover tarjetas, sin «Acomodar» y sin «Probar»** (`app/automations/RecordatorioFlujo.tsx`;
+  los cambios exactos en la sección del grupo recordatorio). Si el recordatorio se muda al motor, vienen solos.
+- **Copias en FlujoAviso**: `VistaEmailAviso`, `BotonMakoAviso`, `BotonVolver` y `RedactaAviso` (originales:
+  `VistaEmail` y `EditorEspera` de FlujoLienzo, `BotonMakoWhatsApp`, `Volver` de EditorDisparadores, `MakoRedacta`
+  con una prop `pedir`). `BotonPila` ya es uno (`app/automations/BotonPila.tsx`, con guard).
+- **«Probar» en MaKo en WhatsApp**: la vista del chat sigue en Notificaciones (`MensajeMakoLienzo` no pasa `onVerChat`).
+- **El aviso de 30 min al dueño sólo corre con Calendly** (`app/api/cron/reunion-recordatorio/route.ts`,
+  `correrPorWorkspace('calendly', …)`): ws13 (Cal.com) no lo recibe. Extenderlo es mandar avisos nuevos a clientes.
+- **`/api/chat-agent/onboarding/resumen` sin llamadores**; retirarla pide `npx next typegen` en el clon.
+- **El reporte semanal no sale por WhatsApp** desde que se borró Chatwoot (`despacharReporte`, `lib/notify.ts`).
+- **El store de mensajes del ws9 es el default de todos los clientes** (`leerPar`, `lib/plantillas.ts`).
+
+**Vive en:** `lib/flujo-conversacion.ts` (`huecoHacia`, la flecha de la que escucha) · `lib/flujo-grafo.ts`
+(`rotuloSiNoDeRespuesta`) · `app/automations/PanelProbar.tsx` · `app/automations/SecuenciaPerfil.tsx`
+(`EdicionLocal.freno`) · `app/agencia/TemplateDetalleModal.tsx` · `lib/recordatorio-lead.ts` (`reunionParaElDueno`)
+
 ## Lo que quedó sin hacer
 
 **De la parte «tiempo» (sexta tanda, 09/10/2026):**
