@@ -228,7 +228,7 @@ test('la casilla sale sólo donde el saneo conserva el modo, con la MISMA funci�
   assert.match(lienzo, /permiteIA=\{permiteIADe\(paso, !!onModoIA\)\}/);
   const editor = sinComentarios(leer('app/automations/EditorMensajeWhatsApp.tsx'));
   assert.match(editor, /const puedeAdaptar = !!permiteIA && adaptable\(paso, varias\);/);
-  assert.match(editor, /adaptar=\{puedeAdaptar \? \{/, 'la casilla salía con un audio o con varias partes');
+  assert.match(editor, /adaptar=\{puedeAdaptar && !redactaCon \? \{/, 'la casilla salía con un audio o con varias partes');
   assert.match(lienzo, /import \{ proveedorDelPaso \} from '@\/lib\/nutricion-canal'/);
   // Y la tarjeta lo dice: sin la marca, una tarjeta IA y una fija se ven idénticas.
   assert.match(lienzo, /ia: paso\.tipo === 'ia',/);

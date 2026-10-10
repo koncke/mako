@@ -5,7 +5,8 @@
 //
 // ROTURAS (10/10/2026), restaurando de memoria, base 2 / 0:
 //   U1. una `function BotonPila` de vuelta en FlujoAviso                 → 1 / 1
-//   U2. el recordatorio sin sus botones de la pila                       → 1 / 1
+//   U2. (el recordatorio era un lienzo propio sin los botones; desde el 10/10/2026 es una automatización
+//       más, con los de SecuenciaPerfil)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -19,8 +20,8 @@ test('`BotonPila` se define UNA vez (app/automations/BotonPila.tsx)', () => {
   assert.deepEqual(donde, ['app/automations/BotonPila.tsx'], 'hay una copia de BotonPila');
 });
 
-test('el recordatorio tiene los botones de la pila, como una automatización', () => {
-  const r = leer('app/automations/RecordatorioFlujo.tsx');
+test('el lienzo de una automatización (el recordatorio incluido) tiene los botones de la pila', () => {
+  const r = leer('app/automations/SecuenciaPerfil.tsx');
   assert.match(r, /import \{ BotonPila \} from '\.\/BotonPila';/);
-  assert.match(r, /herramientas=\{\([\s\S]*?onClick=\{deshacer\} activo=\{puedeDeshacer\}[\s\S]*?onClick=\{rehacer\} activo=\{puedeRehacer\}/);
+  assert.match(r, /onClick=\{deshacer\} activo=\{puedeDeshacer\}[\s\S]*?onClick=\{rehacer\} activo=\{puedeRehacer\}/);
 });

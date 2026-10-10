@@ -198,6 +198,7 @@ export const COHORTE_GLOSS: Record<string, string> = {
   agendado_sin_confirmar: 'Tiene la primera reunión (R1) agendada a futuro: confirmar asistencia y subir la expectativa.',
   agendado_ya_contactado: 'Agendó DESPUÉS de recibir tu mensaje de bienvenida: ya te escuchó, ya sabe quién eres. Se retoma la conversación, NO te presentas de nuevo.',
   agendado_primer_contacto: 'Agendó sin haber hablado nunca contigo: este es el primer mensaje que recibe de ti. Te presentas.',
+  reunion_recordatorio: 'Tiene una reunión agendada: le recuerdas cuándo es (24 h, 1 h y 15 min antes), con la hora y el link si lo hay. Corto y cálido, sin vender.',
   no_show_j1: 'Tenía agendada la primera reunión (R1) y no se presentó.',
   post_j1_sin_avanzar: 'Asistió a la primera reunión (R1) pero no avanzó: ni calificó ni agendó la segunda.',
   post_j1_calificado_sin_j2: 'Calificó en la primera reunión pero todavía no agendó la segunda (R2).',

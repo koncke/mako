@@ -150,9 +150,8 @@ test('el lienzo embebido: el detalle de Notificaciones con su endpoint, sin marc
 
 test('con un mensaje abierto, tocar una automatización vuelve a ella (aunque sea la que quedó elegida debajo), y lo no publicado se pregunta', () => {
   const lista = fuente('app/automations/SimuladorWhatsApp.tsx');
-  assert.match(lista, /const elegirDeLaLista = \(id: number \| typeof ID_RECORDATORIO\) => \{\n\s+if \(avisoSel != null\) \{ setAvisoSel\(null\); if \(id === selId\) return; \}\n\s+elegir\(id\);/);
+  assert.match(lista, /const elegirDeLaLista = \(id: number\) => \{\n\s+if \(avisoSel != null\) \{ setAvisoSel\(null\); if \(id === selId\) return; \}\n\s+elegir\(id\);/);
   assert.match(lista, /onClick=\{\(\) => elegirDeLaLista\(j\.id\)\}/);
-  assert.match(lista, /onClick=\{\(\) => elegirDeLaLista\(ID_RECORDATORIO\)\}/);
   // Abrir un mensaje con cambios sin publicar en la automatización pasa por el Confirm de siempre.
   assert.match(lista, /const elegirAviso = \(id: string\) => \{\n\s+if \(id === avisoSel\) return;\n\s+if \(sinPublicar\) \{ setPendiente\(\{ ir: 'aviso', aviso: id \}\); return; \}\n\s+abrirAvisoYa\(id\);/);
   assert.match(lista, /else if \(p\.ir === 'aviso'\) \{ if \(p\.aviso\) abrirAvisoYa\(p\.aviso\); \}/);

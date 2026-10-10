@@ -411,7 +411,7 @@ export function altoConFilas(filas: number): number {
 /**
  * LOS TÍTULOS DE LAS TARJETAS, EN INGLÉS (tercera tanda, decisión 5; pedido literal: «todos los
  * títulos de las tarjetas estén en inglés, "CRON - DELAY - WHATSAPP"»). UN lugar: el árbol, los
- * errores y el recordatorio (app/automations/RecordatorioFlujo.tsx) leen de acá. Van en mayúsculas
+ * errores leen de acá. Van en mayúsculas
  * porque así se dibujan, y el error nombra la tarjeta con lo mismo que se lee.
  */
 export const TITULO = {

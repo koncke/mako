@@ -115,6 +115,7 @@ import {
 } from '@/lib/simulador-grafo';
 import { partesDe, type ParteMensaje } from '@/lib/mensaje-partes';
 import { ICONOS_MAS, frenoDelFlujo } from '@/lib/flujo-conversacion';
+import { TRIGGER_RECORDATORIO, EJEMPLOS_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
 import { PopoverWA } from '../whatsapp/_shared/ComposerWhatsApp';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
@@ -787,9 +788,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const contactoDe = (f: typeof flujoVivo): ContactoPrueba =>
     contactoParaProbar(f, (p) => canalDelPaso(p) === canal, CANALES_PROBAR[canal].contacto, leadRef.current, ctx.current.nombres);
   const emisorReal = emisorAEnviar(canal, emisor);
-  const ctx = useRef({ nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal });
+  // El recordatorio de la reunión se prueba con SUS datos (lib/recordatorio-automatizacion.ts).
+  const datosExtra = (propia?.trigger_tipo ?? secuencia.trigger_tipo) === TRIGGER_RECORDATORIO ? EJEMPLOS_RECORDATORIO : undefined;
+  const ctx = useRef({ nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal, datosExtra });
   useEffect(() => {
-    ctx.current = { nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal };
+    ctx.current = { nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal, datosExtra };
   });
 
   const firma = () => ctx.current.negocio || 'Tu negocio';
@@ -865,13 +868,13 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     }
     if (parte.tipo === 'media') {
       const adj = c.adjuntos.find((x) => x.id === parte.media_id) ?? null;
-      const caption = textoDeEjemplo(parte.cuerpo ?? '', c.negocio);
+      const caption = textoDeEjemplo(parte.cuerpo ?? '', c.negocio, c.datosExtra);
       // El documento con SU nombre y el caption aparte, como le llega al lead (costuras-8).
       poner({ id: nuevoId('md'), fromMe: false, autor: firma(), ...burbujaDeArchivo(adj, caption), fecha: ahora });
       mandarReal({ canal: 'whatsapp', tipo: 'media', media_id: parte.media_id, texto: caption }, clave, enRespuesta);
       return;
     }
-    const texto = textoDeEjemplo(parte.cuerpo, c.negocio);
+    const texto = textoDeEjemplo(parte.cuerpo, c.negocio, c.datosExtra);
     poner({ id: nuevoId('tx'), fromMe: false, autor: firma(), texto: texto.trim() || 'Sin escribir', fecha: ahora });
     if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto }, clave, enRespuesta);
   };
@@ -905,7 +908,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       });
       return (lista.length - 1) * ENTRE_PARTES_MS;
     }
-    const texto = redactado ?? textoDeEjemplo(p.cuerpo, c.negocio);
+    const texto = redactado ?? textoDeEjemplo(p.cuerpo, c.negocio, c.datosExtra);
     // En la salida, un «Lo adapta MaKo» muestra el texto BASE: a cada lead le llega otro.
     const marca = p.tipo === 'ia' && !enRespuesta ? ' · ✦' : '';
     poner({ id: nuevoId('tx'), fromMe: false, autor: `${firma()}${marca}`, texto: texto.trim() || 'Sin escribir', fecha: ahora });

@@ -384,8 +384,8 @@ export function variablesDesconocidas(texto: string): string[] {
 
 /**
  * Por qué un texto NO se puede publicar, o null. La pregunta es UNA y la hacen los dos lados: la ruta
- * al guardar (app/api/chat-agent/recordatorio-reunion) y la pantalla antes de mandarlo, para abrir la
- * tarjeta culpable (`frenoDelRecordatorio`, lib/recordatorio-grafo.ts). Un texto vacío sí se puede:
+ * al publicar (`toquesDeLaAutomatizacion`, lib/recordatorio-automatizacion.ts, en el server y en el lienzo), para
+ * abrir la tarjeta culpable. Un texto vacío sí se puede:
  * vuelve al de fábrica.
  */
 export function problemaDelTexto(texto: string): string | null {

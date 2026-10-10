@@ -119,7 +119,7 @@ test('la selección SIGUE a la fila cuando toma su id real (por su clave), y si 
   const lista = LISTA();
   assert.match(lista, /if \(typeof elegida === 'number' && elegida < 0\) \{\n\s+const fila = secuencias\.find\(\(j\) => j\.clave === claveCreando\(elegida\)\);\n\s+if \(fila && fila\.id !== elegida\) \{ elegidaViva = fila\.id; setSelId\(fila\.id\); \}/);
   assert.match(lista, /const selId = existe\(elegidaViva\) \? elegidaViva : existe\(volverA\) \? volverA : \(secuencias\[0\]\?\.id \?\? ''\);/);
-  const cambiar = recorte(lista, 'const cambiarA = (id: number | typeof ID_RECORDATORIO) => {', '\n  };', 600);
+  const cambiar = recorte(lista, 'const cambiarA = (id: number) => {', '\n  };', 600);
   assert.match(cambiar, /if \(typeof id === 'number' && id < 0\) setVolverA\(selId\);/);
   // La nueva nace pausada: con «Activas» o un texto en el buscador no se vería. (Quinta tanda, punto
   // 4: el filtro pasó a ser VARIOS valores, `filtros`; la regla es la misma.)

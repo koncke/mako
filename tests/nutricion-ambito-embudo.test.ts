@@ -184,7 +184,9 @@ test('el motor le pasa a la cohorte el embudo DE LA SECUENCIA', () => {
   // verde sobre una medición que nunca ocurrió.
   for (const campo of ['funnel_id', 'producto_id']) {
     // Los `.select('…trigger_tipo…')` que queden sueltos, y la constante de las dos lecturas del motor.
-    const selects = [...[...src.matchAll(/\.select\('([^']*trigger_tipo[^']*)'\)/g)].map((m) => m[1]), cols];
+    // (Fuera queda la lectura de setSecuenciaPasos, 'pasos, trigger_tipo': no lee secuencias para el motor,
+    // pregunta si la fila es el recordatorio de la reunión para validar su forma —10/10/2026—.)
+    const selects = [...[...src.matchAll(/\.select\('([^']*trigger_tipo[^']*)'\)/g)].map((m) => m[1]).filter((x) => x !== 'pasos, trigger_tipo'), cols];
     assert.ok(selects.length > 0, 'no encontré el select de las secuencias');
     for (const sel of selects) {
       assert.ok(sel.includes(campo),

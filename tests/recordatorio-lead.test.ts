@@ -409,17 +409,12 @@ test('CABLEADO: el emisor le pasa la zona del negocio a toquesVencidos (la hora 
   assert.ok(b.indexOf('const tz = ') >= 0 && b.indexOf('const tz = ') < b.indexOf('toquesVencidos('), 'la zona se resuelve ANTES de decidir');
 });
 
-test('CABLEADO: cada toque sale por SU número, y la ruta lo valida con la regla del envío', () => {
+test('CABLEADO: cada toque sale por SU número', () => {
   const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
   assert.match(b, /enviarYEspejar\(\{ telefono, texto, leadId: lead\.id, linea: toque\.linea \}\)/,
     'sin `linea`, el número elegido en la tarjeta se guarda y el toque sale por la de por default');
-  const api = sinComentarios(leer('app/api/chat-agent/recordatorio-reunion/route.ts'));
-  // La línea pedida se valida contra las del NEGOCIO (en su workspace), con `elegirLinea`.
-  assert.match(api, /delNegocio \?\?= await runWithWorkspace\(g\.ws, \(\) => listarLineas\(\)\);/);
-  assert.match(api, /const e = elegirLinea\(delNegocio, v, g\.ws\);\s+if \(!e\.ok\) return Response\.json\(\{ ok: false, error: e\.motivo \}, \{ status: 400 \}\);\s+lineas\[min\] = e\.instance;/);
-  // Lo que no viene se conserva: «Activar» no le borra el número a nadie.
-  assert.match(api, /const lineas: Partial<Record<Toque, string \| null>> = \{ \.\.\.actual\.lineas \};/);
-  assert.match(api, /linea: cfg\.lineas\[min\] \?\? null,/, 'el GET no devuelve el número: la tarjeta mostraría la de por default sobre uno elegido');
+  // (La ruta que guardaba el número de cada toque se fue con el lienzo de antes, el 10/10/2026: el número
+  // es la `linea` del paso de la automatización, que valida `setSecuenciaPasos` como en cualquier otra.)
 });
 
 test('CABLEADO: el setting no se hereda del dueño — se lee con el workspace_id explícito', () => {
@@ -492,24 +487,12 @@ test('la migración 0204 existe, agrega las dos columnas y dice su orden de desp
   assert.match(EMISOR, /junta_1_url, junta_2_url'/);
 });
 
-// ⚠️ MUDADO EL 08/10/2026: el renglón de arriba del lienzo (`RecordatorioReunion`) se fue —«No
-// entiendo por qué está el "Recordatorio de la reunión" cuando eso debe configurarse en las
-// tarjetas!!!»— y el recordatorio es un ítem de la lista que abre su lienzo (RecordatorioFlujo).
-// Lo que se cuida es lo mismo: que siga montado para el admin y que escriba por la MISMA ruta.
-test('CABLEADO: el recordatorio es un ítem de la lista de /automations y guarda por una ruta con guard de admin', () => {
-  const lista = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
-  assert.match(lista, /\{selId === ID_RECORDATORIO && rolAdmin \? \(\r?\n\s+<RecordatorioFlujo /);
-  assert.match(lista, /const verRecordatorio = rolAdmin\r?\n/);
-  assert.doesNotMatch(sinComentarios(leer('app/automations/ChatAgentApp.tsx')), /RecordatorioReunion/);
-  const tarjeta = sinComentarios(leer('app/automations/RecordatorioFlujo.tsx'));
-  assert.match(tarjeta, /'\/api\/chat-agent\/recordatorio-reunion'/);
-  const api = sinComentarios(leer('app/api/chat-agent/recordatorio-reunion/route.ts'));
-  assert.match(api, /if \(ws == null \|\| rol !== 'admin'\)/);
-  assert.match(api, /runWithWorkspace\(g\.ws, \(\) => setSetting\(KEY_RECORDATORIO,/, 'se escribe en el workspace del request, explícito');
-  // (Desde el 10/10/2026 por `problemaDelTexto`, la misma pregunta que hace la pantalla antes de mandar.)
-  assert.match(api, /const problema = problemaDelTexto\(v\);\s+if \(problema\) return Response\.json/, 'una variable que no existe se rechaza al guardar');
+// ⚠️ MUDADO DOS VECES. El 08/10/2026 el recordatorio pasó de un renglón arriba del lienzo a un ítem de la lista;
+// el 10/10/2026 (decisión de Martín: «Mudarlo al motor») pasó a ser una AUTOMATIZACIÓN con su CRON. Lo que se
+// cuida es lo mismo: que lo que se publica sea lo que su emisor sabe mandar, con los datos que resuelve.
+test('CABLEADO: Publicar y Activar rechazan, con el CRON del recordatorio, lo que su emisor no sabe mandar', () => {
+  const nut = sinComentarios(leer('lib/nutricion.ts'));
+  assert.match(nut, /\.from\('nutricion_secuencias'\)\.select\('pasos, trigger_tipo'\)\.eq\('id', id\)\.maybeSingle\(\);/);
+  assert.match(nut, /if \(\(previo as \{ trigger_tipo\?: string \} \| null\)\?\.trigger_tipo === TRIGGER_RECORDATORIO\) \{\s*const r = toquesDeLaAutomatizacion\(grafo\);\s*if \(r\.problema\) throw new PasosInvalidosError/);
   assert.match(sinComentarios(leer('lib/recordatorio-lead.ts')), /const malas = variablesDesconocidas\(t\);/);
-  // «No pude leer» no se dibuja «envío apagado»: el no-estricto se come el error y el catch no corre.
-  assert.match(api, /runWithWorkspace\(ws, \(\) => envioWhatsappHabilitadoEstricto\(\)\)\.catch\(\(\) => null\)/);
-  assert.doesNotMatch(api, /envioWhatsappHabilitado\(\)/);
 });

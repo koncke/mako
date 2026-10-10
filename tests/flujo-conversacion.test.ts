@@ -324,9 +324,11 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   // Tercera tanda (decisión 13): la forma y lo que falta escribir los decide UNA función,
   // `frenoDelFlujo`, que también frena «Probar». El error ABRE la tarjeta (`frenar`, con su id).
   // (Integración: el freno recibe además lo que le falta a cada «⚡ Acción» según su formulario.)
-  const valida = pub.indexOf('frenoDelFlujo(pasos, faltanEnAccion)');
+  // (Desde el 10/10/2026 va por `frenoDeEsta`, que es `frenoDelFlujo` más la regla del recordatorio.)
+  assert.match(perfil, /const frenoDeEsta = useCallback\(\s*\(ps: typeof pasos\) => frenoDelFlujo\(ps, faltanEnAccion\) \?\? \(esRecordatorio \? frenoDelRecordatorio\(ps\) : null\),/);
+  const valida = pub.indexOf('frenoDeEsta(pasos)');
   assert.ok(valida >= 0 && valida < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda sin validar');
-  assert.match(pub, /const freno = frenoDelFlujo\(pasos, faltanEnAccion\);\s*if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
+  assert.match(pub, /const freno = frenoDeEsta\(pasos\);\s*if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
   const freno = sinComentarios(leer('../lib/flujo-conversacion.ts'));
   const fn = bloque(freno, 'export function frenoDelFlujo(', '\n}\n', 1_800);
   assert.ok(fn.indexOf('validarGrafo(pasos)') >= 0 && fn.indexOf('validarGrafo(pasos)') < fn.indexOf('faltaEscribir(pasos)'), 'el freno no mira la forma antes que lo vacío');

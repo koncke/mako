@@ -216,7 +216,7 @@ test('«Probar» ofrece sólo los canales que el flujo usa', () => {
 test('⚠️ «Probar» se frena con lo mismo que Publicar, abre la tarjeta, y es un desplegable con los canales del flujo', () => {
   const perfil = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
   const probar = bloque(perfil, 'const probar = (canal:', '\n  };', 400);
-  const freno = probar.indexOf('const freno = frenoDelFlujo(pasos, faltanEnAccion);');
+  const freno = probar.indexOf('const freno = frenoDeEsta(pasos);');
   assert.ok(freno >= 0 && freno < probar.indexOf('onProbar(canal)'), '«Probar» abre sin frenar lo inconcluso');
   assert.match(probar, /if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
   assert.match(perfil, /const canales = canalesParaProbar\(pasos\);/);
@@ -274,15 +274,13 @@ test('⚠️ el emoji se toca en el chrome, se guarda por su acción y el GET lo
   assert.match(mig, /alter table public\.nutricion_secuencias add column if not exists emoji text;/);
 });
 
-// Desde el 10/10/2026 el recordatorio no arma sus tarjetas: las arma `grafoDeSecuencia` (vía
-// `grafoRecordatorio`, lib/recordatorio-grafo.ts), así que los títulos son por construcción los del
-// lienzo. Se EJECUTA, y se fija que ninguno de los dos archivos escriba un título a mano.
+// Desde el 10/10/2026 el recordatorio es una automatización más (lib/recordatorio-automatizacion.ts): sus
+// tarjetas las arma `grafoDeSecuencia`, como las de cualquiera. Se EJECUTA con sus pasos de fábrica.
 test('el recordatorio usa los MISMOS títulos que el lienzo (y la tarjeta de WhatsApp con su identidad)', async () => {
-  const { grafoRecordatorio } = await import('../lib/recordatorio-grafo');
-  for (const f of ['../app/automations/RecordatorioFlujo.tsx', '../lib/recordatorio-grafo.ts']) {
-    assert.doesNotMatch(sinComentarios(leer(f)), /titulo: '/, `${f}: un título del recordatorio quedó escrito a mano`);
-  }
-  const g = grafoRecordatorio({});
+  const { pasosDeLaConfig } = await import('../lib/recordatorio-automatizacion');
+  const { configDeRecordatorio } = await import('../lib/recordatorio-lead');
+  assert.doesNotMatch(sinComentarios(leer('../lib/recordatorio-automatizacion.ts')), /titulo: '/, 'un título del recordatorio quedó escrito a mano');
+  const g = grafoDeSecuencia(pasosDeLaConfig(configDeRecordatorio(null)) as Parameters<typeof grafoDeSecuencia>[0], { disparador: 'Agendó una reunión' });
   const tarjetas = g.nodos.filter((n) => !n.enFlecha);
   assert.equal(nodo(g, ID_ENTRADA).titulo, TITULO.cron);
   const mensajes = tarjetas.filter((n) => n.id !== ID_ENTRADA);

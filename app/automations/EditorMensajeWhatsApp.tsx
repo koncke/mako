@@ -136,6 +136,11 @@ export type EditorMensajeWhatsAppProps = {
    */
   variables?: VariableEditor[];
   /**
+   * QUÉ DATOS USA EL ✦ AL ESCRIBIR (10/10/2026): 'recordatorio' = los del recordatorio de la reunión, un solo
+   * mensaje y sin «adaptarlo a cada persona» (su emisor manda el texto tal cual). Ausente = los del motor.
+   */
+  redactaCon?: 'recordatorio';
+  /**
    * El árbol del «{ }» ya armado (`datosOfrecidos`, lib/variables-aviso.ts): el mensaje de MaKo al
    * GRUPO (destino «equipo»). Gana sobre `variables`. Sin los dos: lo que el motor resuelve para un
    * mensaje al lead (`datosDelLead`).
@@ -391,7 +396,7 @@ function horaDeAhora(): string {
 
 export function EditorMensajeWhatsApp({
   paso, onChange, audios, onAudioNuevo, variables, datos, permiteIA, onModoIA, permiteAudio = true, permiteAdjuntos = true,
-  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor,
+  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor, redactaCon,
 }: EditorMensajeWhatsAppProps) {
   const ws = useWs();
   // ¿Varias partes? Sólo por el no oficial (ver la cabecera): el oficial, el recordatorio y el aviso
@@ -901,7 +906,8 @@ export function EditorMensajeWhatsApp({
           <MakoRedacta
             contexto={{ actual: textoActual, disparador, objetivo: paraGuion?.objetivo ?? null, gancho: paraGuion?.gancho ?? null }}
             permiteAudio={permiteAudio}
-            adaptar={puedeAdaptar ? { activo: esIA, onCambiar: (on) => { onChange({ tipo: on ? 'ia' : 'texto' }); onModoIA?.(on); } } : null}
+            datos={redactaCon ?? 'motor'}
+            adaptar={puedeAdaptar && !redactaCon ? { activo: esIA, onCambiar: (on) => { onChange({ tipo: on ? 'ia' : 'texto' }); onModoIA?.(on); } } : null}
             onUsar={usarPropuesta} onGuion={usarGuion}
             onCerrar={() => alternarPanelMako(claveBorrador, false)}
             deshabilitado={ocupado}

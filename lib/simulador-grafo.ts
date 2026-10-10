@@ -294,9 +294,12 @@ export function datosDeEjemplo(lead: { nombre?: string | null; empresa?: string 
   return { ...ejemplos, ...valoresVariablesLead(lead, { negocio }) };
 }
 
-/** El texto tal como le llegaría al lead de ejemplo. Lo desconocido queda CRUDO, como en el motor. */
-export function textoDeEjemplo(texto: string, negocio?: string | null): string {
-  return aplicarVariables(texto ?? '', datosDeEjemplo(LEAD_DE_EJEMPLO, negocio));
+/**
+ * El texto tal como le llegaría al lead de ejemplo. Lo desconocido queda CRUDO, como en el motor. `extra`: los
+ * datos propios de quien manda (el recordatorio de la reunión: `EJEMPLOS_RECORDATORIO`), que pisan a los del motor.
+ */
+export function textoDeEjemplo(texto: string, negocio?: string | null, extra?: Record<string, string>): string {
+  return aplicarVariables(texto ?? '', { ...datosDeEjemplo(LEAD_DE_EJEMPLO, negocio), ...(extra ?? {}) });
 }
 
 /**

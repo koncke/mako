@@ -33,7 +33,9 @@ const caja: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '
 const btn: CSSProperties = { height: 32, padding: '0 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 };
 const btnMako: CSSProperties = { ...btn, border: '1px solid var(--mako-border)', background: 'var(--mako-bg)', color: 'var(--mako-ink)' };
 
-export function MakoRedacta({ contexto, permiteAudio, adaptar, onUsar, onGuion, onCerrar, deshabilitado }: {
+export function MakoRedacta({ contexto, permiteAudio, adaptar, onUsar, onGuion, onCerrar, deshabilitado, datos = 'motor' }: {
+  /** Qué datos resuelve quien manda (lib/mako-redacta.ts, `PedidoRedacta.datos`): el recordatorio tiene los suyos. */
+  datos?: 'motor' | 'recordatorio';
   /** Lo que el mensaje ya dice y lo de la automatización (el disparador, el objetivo). */
   contexto: { actual: string; disparador?: string; objetivo?: string | null; gancho?: string | null };
   /** ¿Se puede proponer una nota de voz? (el no oficial). */
@@ -60,7 +62,7 @@ export function MakoRedacta({ contexto, permiteAudio, adaptar, onUsar, onGuion, 
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pedido, actual: contexto.actual, disparador: contexto.disparador ?? '',
-          objetivo: contexto.objetivo ?? '', gancho: contexto.gancho ?? '', permiteAudio,
+          objetivo: contexto.objetivo ?? '', gancho: contexto.gancho ?? '', permiteAudio, datos,
         }),
         signal: AbortSignal.timeout(ESPERA_MS),
       });

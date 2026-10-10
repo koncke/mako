@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
   // `null` y sólo un `false` medido ofrece configurar. Esta lectura sólo decide eso: la voz que llega al
   // prompt sale del registro (`guia_voz_negocio`, en LECTURAS_REDACTA).
   const [{ leido }, hayVoz] = await Promise.all([leer(ctx), hayVozGuiaEstricto().catch(() => null)]);
-  const system = redactaSystem();
+  const system = redactaSystem(p.datos);
   const user = userDeRedacta(p, leido);
   // Lo que se le dio a leer: de acá pueden salir los links que un mensaje nombra.
   const permitido = [user].join('\n');
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
   let propuesta: PropuestaRedacta | null = null;
   const valida = (t: string): boolean => {
     try {
-      const r = revisarRedacta(parseJsonObject(t), permitido, p.permiteAudio);
+      const r = revisarRedacta(parseJsonObject(t), permitido, p.permiteAudio, p.datos);
       if (!r.mensajes.length && !r.audio) return false;
       propuesta = r;
       return true;

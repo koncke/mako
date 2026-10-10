@@ -207,14 +207,14 @@ test('el desplegable es el del Plan: el Dropdown de la casa por secciones, con v
   assert.match(f, /pie=\{n > 0 \? \{ label: 'Quitar filtros', onClick: \(\) => onCambio\(\[\]\) \} : undefined\}/);
   // El número arriba a la derecha, que también quita (el molde del Plan y del CRM).
   assert.match(f, /\{n > 0 && \(\n\s+<span aria-hidden onClick=\{\(\) => onCambio\(\[\]\)\} title="Quitar filtros"/);
-  // La lista le pasa TODAS sus filas (automatizaciones, recordatorio, mensajes) y filtra con la misma función.
+  // La lista le pasa TODAS sus filas (automatizaciones —el recordatorio es una más desde el 10/10/2026— y
+  // mensajes) y filtra con la misma función.
   const lista = fuente('app/automations/SimuladorWhatsApp.tsx');
   assert.match(lista, /<FiltroLista filas=\{todasLasFilas\} valores=\{filtros\} onCambio=\{setFiltros\} \/>/);
   const filas = lista.slice(lista.indexOf('const todasLasFilas: FilaFiltrable[] = ['), lista.indexOf('];', lista.indexOf('const todasLasFilas: FilaFiltrable[] = [')));
-  assert.match(filas, /\.\.\.filasSec\.values\(\),\n\s+\.\.\.\(rolAdmin \? \[filaDeRecordatorio\(recordatorioActivo\)\] : \[\]\),\n\s+\.\.\.avisosLista\.map\(filaDeMensaje\),/,
+  assert.match(filas, /\.\.\.filasSec\.values\(\),\n\s+\.\.\.avisosLista\.map\(filaDeMensaje\),/,
     'el desplegable no cuenta todas las filas de la lista');
   assert.match(lista, /pasaFiltroLista\(filasSec\.get\(j\.id\) \?\? filaDeSecuencia\(j\), filtros\)/);
-  assert.match(lista, /&& pasaFiltroLista\(filaDeRecordatorio\(recordatorioActivo\), filtros\)/);
   assert.match(lista, /avisosLista\.filter\(\(a\) => pasaFiltroLista\(filaDeMensaje\(a\), filtros\)/);
 });
 

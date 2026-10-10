@@ -12,6 +12,7 @@
 // =============================================================================
 
 import { FAMILIA_POST_AGENDA, TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, preparaUnaReunion, secuenciasParaElLead } from '@/lib/nutricion-familias';
+import { TRIGGER_RECORDATORIO, toquesDeLaAutomatizacion } from '@/lib/recordatorio-automatizacion';
 import { getTenantDb, getWorkspace, getWorkspaceActual, runWithWorkspace, wsEnContexto } from '@/lib/workspace';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { idsConAlMenosUnaFila, enTandas } from '@/lib/ids-con-filas';
@@ -610,7 +611,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   // en su lugar. Un paso sin id es `o<índice>` de los dos lados, que es exactamente el merge por
   // orden de siempre.
   const { data: previo } = await supabase
-    .from('nutricion_secuencias').select('pasos').eq('id', id).maybeSingle();
+    .from('nutricion_secuencias').select('pasos, trigger_tipo').eq('id', id).maybeSingle();
   const antes = Array.isArray((previo as { pasos?: unknown } | null)?.pasos)
     ? ((previo as { pasos: PasoSecuencia[] }).pasos)
     : [];
@@ -779,6 +780,12 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   const grafo = normalizar(limpio);
   const errores = validarGrafo(grafo);
   if (errores.length) throw new PasosInvalidosError(`No se guardó: ${errores[0]}.`);
+  // EL RECORDATORIO DE LA REUNIÓN (10/10/2026): con su CRON, sólo la fila que su emisor sabe mandar
+  // (`toquesDeLaAutomatizacion`, lib/recordatorio-automatizacion.ts). Lo demás se publicaría y no saldría.
+  if ((previo as { trigger_tipo?: string } | null)?.trigger_tipo === TRIGGER_RECORDATORIO) {
+    const r = toquesDeLaAutomatizacion(grafo);
+    if (r.problema) throw new PasosInvalidosError(`No se guardó: ${r.problema}`);
+  }
   // Activar valida lo mismo que Publicar, sin escribir (`setSecuenciaActiva`).
   if (o?.soloValidar) return;
   const { error } = await supabase
@@ -995,6 +1002,10 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
   const supabase = (await getTenantDb());
 
   if (triggerTipo === TRIGGER_ETIQUETA) return leadsConEtiqueta(supabase, etiquetaId, ambito);
+  // ⛔ EL RECORDATORIO DE LA REUNIÓN NO SE INSCRIBE ACÁ (decisión de Martín, 10/10/2026: «Mudarlo al motor»).
+  // Su automatización la lee el emisor de siempre (`toquesDelNegocio`, lib/reunion-recordatorio.ts), que ya
+  // resuelve la R1 y la R2, las reagendas y la tolerancia: inscribirla también acá mandaría todo dos veces.
+  if (triggerTipo === 'reunion_recordatorio') return [];
   const desde = haceDiasISO(VENTANA_DIAS);          // timestamp ISO, para created_at
   const hoy = ahoraISO().slice(0, 10);              // YYYY-MM-DD (UTC), para fechas futuras
   const fechaDesde45 = haceDiasISO(45).slice(0, 10); // YYYY-MM-DD, ventana de hitos recientes

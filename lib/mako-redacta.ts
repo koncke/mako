@@ -24,6 +24,7 @@
 //    motor no resuelve le llegaría al lead con las llaves puestas. Se sacan.
 
 import { esVariableConocida, VARIABLES_LEAD } from './template-vars';
+import { DATOS_RECORDATORIO } from './recordatorio-automatizacion';
 import { marcasDeVoseo } from './puestas-data';
 import { palabrasDe, GUION_PALABRAS } from './guion-audio';
 
@@ -49,6 +50,13 @@ export type PedidoRedacta = {
   gancho: string;
   /** ¿Se puede mandar audio por este canal? (el no oficial sí). */
   permiteAudio: boolean;
+  /**
+   * QUÉ DATOS RESUELVE QUIEN MANDA (10/10/2026). 'motor': los de una automatización (`VARIABLES_LEAD`).
+   * 'recordatorio': los del recordatorio de la reunión (`DATOS_RECORDATORIO`, lib/recordatorio-automatizacion.ts),
+   * que lo manda su emisor, un solo mensaje por toque. Es un conjunto CERRADO: el navegador elige cuál, nunca
+   * manda una lista de nombres.
+   */
+  datos: 'motor' | 'recordatorio';
 };
 
 const txt = (v: unknown, tope: number): string => (typeof v === 'string' ? v.trim().slice(0, tope) : '');
@@ -63,7 +71,8 @@ export function pedidoDeRedacta(raw: unknown): PedidoRedacta | null {
     disparador: txt(o.disparador, 300),
     objetivo: txt(o.objetivo, 200),
     gancho: txt(o.gancho, 300),
-    permiteAudio: o.permiteAudio === true,
+    permiteAudio: o.permiteAudio === true && o.datos !== 'recordatorio',
+    datos: o.datos === 'recordatorio' ? 'recordatorio' : 'motor',
   };
   return p.pedido || p.actual ? p : null;
 }
@@ -73,12 +82,13 @@ export function pedidoDeRedacta(raw: unknown): PedidoRedacta | null {
  * «Tu negocio» salió en la sexta tanda). Escritas a mano se quedan viejas el día que el catálogo cambie, y una que el
  * motor ya no conoce la saca `sinVariablesAjenas`: el mensaje quedaría con un hueco.
  */
-export function variablesParaPrompt(): string {
+export function variablesParaPrompt(datos: PedidoRedacta['datos'] = 'motor'): string {
+  if (datos === 'recordatorio') return DATOS_RECORDATORIO.map((v) => `{{${v.key}}} (${v.label.toLowerCase()}, p. ej. «${v.ejemplo}»)`).join(', ');
   return VARIABLES_LEAD.map((v) => `{{${v.key}}} (${v.descripcion})`).join(', ');
 }
 
-/** El system, con las variables del catálogo vivo. */
-export const redactaSystem = (): string => REDACTA_SYSTEM.replace('{{variables}}', variablesParaPrompt());
+/** El system, con las variables del catálogo vivo (o las del recordatorio). */
+export const redactaSystem = (datos: PedidoRedacta['datos'] = 'motor'): string => REDACTA_SYSTEM.replace('{{variables}}', variablesParaPrompt(datos));
 
 const REDACTA_SYSTEM = `Escribes mensajes de WhatsApp para un negocio. El dueño te dice qué quiere lograr con un mensaje de una automatización (una secuencia que le escribe sola a sus leads) y tú lo escribes con SU voz, listo para mandar.
 
@@ -105,6 +115,7 @@ export function userDeRedacta(p: PedidoRedacta, leido: ReadonlyArray<{ rotulo: s
   if (p.objetivo) partes.push(`Objetivo: ${p.objetivo}`);
   if (p.gancho) partes.push(`Lo que se le ofrece: ${p.gancho}`);
   partes.push(p.permiteAudio ? 'Se puede mandar nota de voz: sí.' : 'Se puede mandar nota de voz: NO (no propongas audio).');
+  if (p.datos === 'recordatorio') partes.push('Es un RECORDATORIO de la reunión que el lead ya agendó: escribe UN SOLO mensaje, corto, que diga cuándo es ({{cuando}}, {{hora}}) y deje el link ({{link}}). No vendas.');
   if (p.actual) partes.push(`## LO QUE EL MENSAJE DICE HOY (mejóralo, no lo ignores)\n${p.actual}`);
   partes.push(`## LO QUE QUIERE EL DUEÑO\n${p.pedido || 'Mejora el mensaje de hoy.'}`);
   return partes.join('\n\n');
@@ -115,9 +126,12 @@ export type PropuestaRedacta = { mensajes: string[]; audio: string | null; nota:
 
 const URL_RE = /\bhttps?:\/\/[^\s)>\]]+|\bwww\.[^\s)>\]]+/gi;
 
-/** Saca las `{{x}}` que el motor no conoce (le llegarían al lead con las llaves). */
-export function sinVariablesAjenas(t: string): string {
-  return t.replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (m, k: string) => (esVariableConocida(k.toLowerCase()) ? `{{${k.toLowerCase()}}}` : ''));
+/** Saca las `{{x}}` que quien manda no conoce (le llegarían al lead con las llaves): el motor, o el recordatorio. */
+export function sinVariablesAjenas(t: string, datos: PedidoRedacta['datos'] = 'motor'): string {
+  const conocida = datos === 'recordatorio'
+    ? (k: string) => DATOS_RECORDATORIO.some((d) => d.key === k)
+    : esVariableConocida;
+  return t.replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (m, k: string) => (conocida(k.toLowerCase()) ? `{{${k.toLowerCase()}}}` : ''));
 }
 
 /**
@@ -125,20 +139,21 @@ export function sinVariablesAjenas(t: string): string {
  * está ahí es inventada. Cada descarte dice POR QUÉ (un descarte mudo hace indistinguibles «el modelo
  * no contestó» de «lo tiramos nosotros»).
  */
-export function revisarRedacta(json: unknown, permitido: string, permiteAudio: boolean): PropuestaRedacta {
+export function revisarRedacta(json: unknown, permitido: string, permiteAudio: boolean, datos: PedidoRedacta['datos'] = 'motor'): PropuestaRedacta {
   const o = (json && typeof json === 'object' && !Array.isArray(json) ? json : {}) as Record<string, unknown>;
   const descartes: string[] = [];
   const crudos = Array.isArray(o.mensajes) ? o.mensajes : typeof o.mensaje === 'string' ? [o.mensaje] : [];
   const mensajes: string[] = [];
   for (const c of crudos.slice(0, 4)) {
     if (typeof c !== 'string' || !c.trim()) continue;
-    const t = sinVariablesAjenas(c.trim()).slice(0, 1_000);
+    const t = sinVariablesAjenas(c.trim(), datos).slice(0, 1_000);
     const urls = t.match(URL_RE) ?? [];
     const inventada = urls.find((u) => !permitido.includes(u));
     if (inventada) { descartes.push(`un mensaje traía un link que MaKo no tiene (${inventada.slice(0, 60)})`); continue; }
     if (marcasDeVoseo(t).length) { descartes.push('un mensaje vino con voseo'); continue; }
     mensajes.push(t);
-    if (mensajes.length >= 3) break;
+    // Un recordatorio es UN mensaje por toque (lo manda su emisor): con más, el toque no se podría publicar.
+    if (mensajes.length >= (datos === 'recordatorio' ? 1 : 3)) break;
   }
   let audio: string | null = null;
   if (permiteAudio && typeof o.audio === 'string' && o.audio.trim() && o.audio.trim().toLowerCase() !== 'null') {

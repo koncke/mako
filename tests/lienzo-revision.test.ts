@@ -113,7 +113,7 @@ test('costuras-3: lo que la casilla PINTA es, para cada mensaje, lo contrario de
     }
   }
   // Y el lienzo le pasa ESO al editor, no la secuencia a secas.
-  assert.match(LIENZO_FLUJO, /mostrarRevisar\s+revisarHeredado=\{revisarHeredado\(pasos, id, envioAutoSecuencia\)\}/);
+  assert.match(LIENZO_FLUJO, /mostrarRevisar=\{!recordatorio\}\s+revisarHeredado=\{revisarHeredado\(pasos, id, envioAutoSecuencia\)\}/);
 });
 
 // ── costuras-4: «✦ guion» recibe la estrategia ─────────────────────────────────────────

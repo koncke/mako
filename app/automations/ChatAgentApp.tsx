@@ -36,7 +36,7 @@ import type { CronAviso } from '@/lib/cron-aviso';
 //   · Los casos que el formulario enseñaba son las ramas de la tarjeta «Si responde» del lienzo,
 //     y «Otra cosa» es el hand-off. `resolverHandoff` y su acción en /api/chat-agent/secuencias
 //     se quedan: los usa MaKo (`resolver_handoff`).
-//   · El recordatorio es un ítem más de la lista (RecordatorioFlujo), con sus tarjetas.
+//   · El recordatorio de la reunión es una automatización más (lib/recordatorio-automatizacion.ts).
 // La misma pieza que /whatsapp: el QR, su sondeo y la recuperación de una sesión caída.
 import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
 import { abreEnQR, marcarWhatsappAlCargar, puertaAlRecargar, type OnboardingChatbot } from '@/lib/chatbot-puerta';

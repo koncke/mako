@@ -96,7 +96,7 @@ test('la pantalla decide la puerta con abreEnQR y marca el paso al vincular desd
 // `revisar` deja borrador; lo que hace esa función lo prueba tests/lienzo-revision.test.ts.
 test('«Sale sola» es de cada mensaje («Revisar antes de enviar»), con el valor heredado de la secuencia', () => {
   const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
-  assert.match(lienzo, /mostrarRevisar\s+revisarHeredado=\{revisarHeredado\(pasos, id, envioAutoSecuencia\)\}/);
+  assert.match(lienzo, /mostrarRevisar=\{!recordatorio\}\s+revisarHeredado=\{revisarHeredado\(pasos, id, envioAutoSecuencia\)\}/);
   assert.doesNotMatch(lienzo, /label="Sale sola"|onEnvioAuto/, 'volvió «Sale sola» a la tarjeta del disparador');
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   assert.match(perfil, /envioAutoSecuencia=\{est\?\.envio_automatico === true\}/);

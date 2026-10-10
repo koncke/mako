@@ -33,6 +33,7 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
 import { BotonPila } from './BotonPila';
+import { TRIGGER_RECORDATORIO, frenoDelRecordatorio } from '@/lib/recordatorio-automatizacion';
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
 import { useFaltanEnAcciones } from '@/app/_components/EditorAccionMako';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
@@ -506,6 +507,16 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * baja): lo frena `frenoDelFlujo` en Publicar y en Probar. Se pide sólo si hay una acción.
    */
   const faltanEnAccion = useFaltanEnAcciones(rolAdmin && pasos.some(esPasoAccion));
+  /**
+   * EL FRENO DE ESTA AUTOMATIZACIÓN: el de Publicar (`frenoDelFlujo`) y, con el CRON del recordatorio de la
+   * reunión, lo que su emisor sabe mandar (`frenoDelRecordatorio`, lib/recordatorio-automatizacion.ts). Lo usan
+   * Publicar, «Probar» y sus rearranques (`EdicionLocal.freno`): los tres frenan lo mismo que el server.
+   */
+  const esRecordatorio = disparo.trigger_tipo === TRIGGER_RECORDATORIO;
+  const frenoDeEsta = useCallback(
+    (ps: typeof pasos) => frenoDelFlujo(ps, faltanEnAccion) ?? (esRecordatorio ? frenoDelRecordatorio(ps) : null),
+    [faltanEnAccion, esRecordatorio],
+  );
   // Identidad FIJA (sólo usa setters): viaja en `EdicionLocal` y un `frenar` nuevo por render
   // re-dispararía el efecto que la manda en cada tecla.
   const frenar = useCallback((mensaje: string, tarjeta: string | null) => {
@@ -517,7 +528,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * frenan Publicar y el botón «Probar» de abajo. El panel lo mira antes de cada rearranque (ver
    * `EdicionLocal.freno`).
    */
-  const frenoLocal = useMemo(() => frenoDelFlujo(pasos, faltanEnAccion), [pasos, faltanEnAccion]);
+  const frenoLocal = useMemo(() => frenoDeEsta(pasos), [pasos, frenoDeEsta]);
   const frenarDesdeProbar = useCallback((f: FrenoDelFlujo) => frenar(f.error, f.tarjeta), [frenar]);
 
   /**
@@ -533,7 +544,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const publicar = async () => {
     setErr(null);
     // La forma y lo que falta escribir, con la MISMA función que frena «Probar» (`frenoDelFlujo`).
-    const freno = frenoDelFlujo(pasos, faltanEnAccion);
+    const freno = frenoDeEsta(pasos);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
     setBusy('save');
     // ⚠️ PUBLICAR CAMBIA LA BASE DEL BORRADOR (revisión, 10/10/2026): lo que salga de su respiro mientras
@@ -745,7 +756,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const canales = canalesParaProbar(pasos);
   const probar = (canal: CanalProbar) => {
     if (!onProbar) return;
-    const freno = frenoDelFlujo(pasos, faltanEnAccion);
+    const freno = frenoDeEsta(pasos);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
     setErr(null);
     onProbar(canal);

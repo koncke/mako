@@ -32,7 +32,6 @@ const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').
 const APP = () => sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
 const LISTA = () => sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
 const PANEL = () => sinComentarios(leer('app/automations/PanelProbar.tsx'));
-const RECORDATORIO = () => sinComentarios(leer('app/automations/RecordatorioFlujo.tsx'));
 const RUTA = () => sinComentarios(leer('app/api/chat-agent/simulador/route.ts'));
 const PRUEBA = () => sinComentarios(leer('lib/prueba-paso.ts'));
 
@@ -79,40 +78,16 @@ test('la lista muestra SÓLO el nombre, entero en dos renglones, y busca por nom
   assert.match(lista, /export const TOPE_NOMBRE = 40;/);
 });
 
-// ── El recordatorio, en la lista y con sus tarjetas ─────────────────────────────
+// ── El recordatorio, una automatización más (10/10/2026) ─────────────────────────
+// Decisión de Martín: «Mudarlo al motor». Ya no es una fila especial con su lienzo propio: es una automatización
+// con su CRON («Agendó una reunión»), que el motor de nutrición NO inscribe —lo manda su emisor de siempre—. Lo
+// que el emisor lee de la fila lo EJECUTA tests/recordatorio-automatizacion.test.ts.
 
-test('el recordatorio lee y escribe EXACTAMENTE el mismo setting, por la misma ruta', () => {
-  const r = RECORDATORIO();
-  assert.match(r, /const URL_API = '\/api\/chat-agent\/recordatorio-reunion';/);
-  // «Activar» = `activo`, en el acto.
-  assert.match(r, /const ok = await guardar\(\{ activo: v \}\);/);
-  // Sólo «Publicar» manda los textos (y desde el 10/10/2026 el número de cada toque), uno por cada
-  // toque del emisor.
-  const publicar = r.slice(r.indexOf('const publicar = async'), r.indexOf('const grafo = useMemo'));
-  assert.match(publicar, /const ok = await guardar\(\{\n\s+textos: Object\.fromEntries\(TOQUES\.map\(\(m\) => \[m, edicion\.textos\[m\] \?\? ''\]\)\),\n\s+lineas: /);
-  assert.equal((r.match(/textos: Object\.fromEntries\(TOQUES/g) ?? []).length, 1, 'los textos se guardan en un solo lugar: Publicar');
-  assert.match(r, /import \{ TOQUES, type Toque \} from '@\/lib\/recordatorio-lead';/);
-  // La ruta escribe la MISMA clave, en el workspace del request (lo fija también recordatorio-lead).
-  const api = sinComentarios(leer('app/api/chat-agent/recordatorio-reunion/route.ts'));
-  assert.match(api, /setSetting\(KEY_RECORDATORIO, serializarConfig\(\{ activo, textos, lineas \}\)\)/);
-  assert.match(api, /const v = entrantes\[String\(min\)\];/);
-  assert.match(sinComentarios(leer('lib/recordatorio-lead.ts')), /export const KEY_RECORDATORIO = 'chatbot\.recordatorio_reunion';/);
-});
-
-test('el recordatorio ofrece sólo lo que el emisor permite: textos, sin quitar ni agregar, sin audio ni archivos', () => {
-  const r = RECORDATORIO();
-  assert.doesNotMatch(r, /onAgregarTras|opcionesAgregar|onMover/, 'un toque no se quita ni se agrega: el emisor manda los tres');
-  assert.match(r, /permiteIA=\{false\} permiteAudio=\{false\} permiteAdjuntos=\{false\}/);
-  // Las esperas no se abren: sus minutos son fijos en el emisor.
-  assert.match(r, /onSeleccion=\{\(id\) => setSel\(esTarjetaDeToque\(id\) \? id : null\)\}/);
-  // El disparador se llama CRON (punto 4) y la cadena es la del emisor: 24 h, 1 h, 15 min. Desde el
-  // 10/10/2026 las tarjetas las arma el MISMO constructor que una automatización (`grafoDeSecuencia`,
-  // vía `grafoRecordatorio`): lo EJECUTA tests/recordatorio-lienzo.test.ts.
-  assert.match(r, /grafoRecordatorio\(edicion\.textos\)/);
-  const lib = sinComentarios(leer('lib/recordatorio-grafo.ts'));
-  assert.match(lib, /export const DISPARADOR_RECORDATORIO = 'Agendó una reunión';/);
-  assert.match(lib, /export const ANTES: Record<Toque, string> = \{ 1440: '24 h antes', 60: '1 h antes', 15: '15 min antes' \};/);
-  assert.match(lib, /const base = grafoDeSecuencia\(pasosDelRecordatorio\(textos\), \{/);
+test('el recordatorio es una automatización más: sin fila especial en la lista ni lienzo propio', () => {
+  const lista = LISTA();
+  assert.doesNotMatch(lista, /ID_RECORDATORIO|RecordatorioFlujo|recordatorio-reunion/, 'volvió la fila especial del recordatorio');
+  assert.match(sinComentarios(leer('lib/email-marketing.ts')), /\{ value: 'reunion_recordatorio', label: 'Agendó una reunión' \}/);
+  assert.match(sinComentarios(leer('lib/nutricion.ts')), /if \(triggerTipo === 'reunion_recordatorio'\) return \[\];/, 'el motor de nutrición inscribe el recordatorio: saldría dos veces');
 });
 
 // ── Punto 10: «Probar» ─────────────────────────────────────────────────────────
@@ -121,7 +96,7 @@ test('«Probar» NO reemplaza al lienzo: el editor queda montado y el panel se a
   const lista = LISTA();
   assert.doesNotMatch(lista, /modo === 'chat'|setModo\(|<ChatHilo/, 'volvió el modo que reemplaza al lienzo');
   // El editor se monta SIEMPRE que hay una secuencia elegida, abra o no el panel.
-  assert.match(lista, /\) : !sel \? \(\n[\s\S]*?\) : \(\n\s*\n?\s*<SecuenciaPerfil key=\{sel\.id\}/);
+  assert.match(lista, /\{!sel \? \(\n[\s\S]*?\) : \(\n\s*\n?\s*<SecuenciaPerfil key=\{sel\.id\}/);
   // Tercera tanda (decisión 14): «Probar» es de UN canal, y lo elige el desplegable de SecuenciaPerfil.
   // (Integración: con `onProbar: (canal: CanalProbar) => void` en SecuenciaPerfil, el canal llega
   // siempre; ya no hay un «sin canal» que caiga a WhatsApp.)
@@ -158,7 +133,7 @@ test('el panel prueba lo LOCAL, anima los mensajes y dice si el flujo cambió', 
   assert.match(panel, /const cambio = firmaViva !== firmaProbada;/);
   assert.match(panel, /\{cambio && \(/);
   // Las variables con el catálogo del motor, no con un reemplazo propio.
-  assert.match(panel, /textoDeEjemplo\(p\.cuerpo, c\.negocio\)/);
+  assert.match(panel, /textoDeEjemplo\(p\.cuerpo, c\.negocio, c\.datosExtra\)/);
   assert.doesNotMatch(panel, /conVars|'Juan'|Acme SRL/);
 });
 
@@ -256,11 +231,11 @@ test('lienzo-3: «A mi WhatsApp» se precarga con lo de QUIEN PRUEBA, nunca con 
 
 test('lienzo-5: tocar la automatización ya elegida no suelta lo que se está probando', () => {
   const lista = LISTA();
-  const elegirFn = lista.slice(lista.indexOf('const elegir = (id: number | typeof ID_RECORDATORIO) => {'), lista.indexOf('const recibirEdicion'));
+  const elegirFn = lista.slice(lista.indexOf('const elegir = (id: number) => {'), lista.indexOf('const recibirEdicion'));
   // Segunda tanda (decisión 15): con cambios sin publicar, PRIMERO se pregunta; el cambio de
   // verdad (`cambiarA`) es el de siempre.
   assert.match(elegirFn, /=> \{\n\s+if \(id === selId\) return;\n\s+if \(sinPublicar\) \{ setPendiente\(\{ ir: id \}\); return; \}\n\s+cambiarA\(id\);/);
-  assert.match(lista, /const cambiarA = \(id: number \| typeof ID_RECORDATORIO\) => \{\n\s+setSelId\(id\); setProbando\(null\); setEdicion\(null\);/);
+  assert.match(lista, /const cambiarA = \(id: number\) => \{\n\s+setSelId\(id\); setProbando\(null\); setEdicion\(null\);/);
 });
 
 test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el wizard', () => {

@@ -310,6 +310,8 @@ export const TRIGGERS: Opcion[] = [
   // mismo: al que ya te escuchó no se le puede decir «soy Fulano» de nuevo.
   { value: 'agendado_ya_contactado', label: 'Agendó después de tu bienvenida' },
   { value: 'agendado_primer_contacto', label: 'Agendó sin haber hablado contigo' },
+  // El recordatorio de la reunión (lib/recordatorio-automatizacion.ts): lo manda su emisor, no el motor.
+  { value: 'reunion_recordatorio', label: 'Agendó una reunión' },
   { value: 'no_show_j1', label: 'No asistió a R1' },
   { value: 'post_j1_sin_avanzar', label: 'Asistió a R1 pero no avanza' },
   { value: 'post_j1_calificado_sin_j2', label: 'Calificado sin R2' },

@@ -59,6 +59,7 @@ import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
+import { TRIGGER_RECORDATORIO, DATOS_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
 import { aplicarVariables } from '@/lib/template-vars';
 import { datosOfrecidos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
@@ -876,8 +877,12 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, disparador }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, disparador, triggerTipo }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const noOficial = proveedorDelPaso(paso) === 'no_oficial';
+  // EL RECORDATORIO DE LA REUNIÓN (10/10/2026): lo manda su emisor, que manda TEXTO y resuelve SUS datos
+  // (lib/recordatorio-automatizacion.ts). Ni audio, ni archivos, ni «Revisar» (sale siempre), y el «{ }» con
+  // sus datos y no los del motor.
+  const recordatorio = triggerTipo === TRIGGER_RECORDATORIO;
   const modoIA = (on: boolean) => {
     // El tipo cambia ACÁ (un cambio que se deshace) y la guía la abre quien monta. Las dos
     // cosas idempotentes: el composer puede mandar también `{ tipo }` por `onChange`.
@@ -907,12 +912,14 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       // de este mensaje (sexta tanda, WhatsApp 2 y 3).
       permiteIA={permiteIADe(paso, !!onModoIA)}
       onModoIA={modoIA}
-      permiteAudio={noOficial}
-      permiteAdjuntos={noOficial}
+      permiteAudio={noOficial && !recordatorio}
+      permiteAdjuntos={noOficial && !recordatorio}
+      variables={recordatorio ? DATOS_RECORDATORIO.map((d) => ({ ...d })) : undefined}
+      redactaCon={recordatorio ? 'recordatorio' : undefined}
       // «Sale sola» pasó a cada mensaje (punto 6): ausente en el paso = lo que hace el MOTOR con
       // él, así que el interruptor se pinta con ese valor (`revisarHeredado`: un «MaKo contesta»
       // de «Si responde» sin `revisar` deja borrador, aunque la secuencia salga sola).
-      mostrarRevisar
+      mostrarRevisar={!recordatorio}
       revisarHeredado={revisarHeredado(pasos, id, envioAutoSecuencia)}
       negocio={negocio}
       placeholder={paso.tipo === 'ia' ? 'Cómo responder' : undefined}

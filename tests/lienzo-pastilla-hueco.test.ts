@@ -1,7 +1,7 @@
 // La pastilla de una espera (DELAY en la flecha) no pisa las tarjetas de sus puntas, en CUALQUIER
 // automatización. Lo encontró la verificación de los restos (10/10/2026): el árbol separa las columnas 92 px
 // y «1 h antes de la reunión» mide 150, así que iba de x=251 a x=401 con el CRON terminando en 280 y la
-// tarjeta siguiente empezando en 372. El recordatorio lo arreglaba sólo para él (lib/recordatorio-grafo.ts);
+// tarjeta siguiente empezando en 372. El recordatorio lo arreglaba sólo para él (en su lienzo de antes);
 // ahora la columna se corre lo que pide su pastilla (`huecoHacia`, lib/flujo-conversacion.ts).
 //
 // ROTURAS (10/10/2026), restaurando de memoria, base 3 / 0:

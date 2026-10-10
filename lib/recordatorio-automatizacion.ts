@@ -22,7 +22,7 @@
 
 import { claseDe, idDe, nodoPorId, raizSalida, type PasoGrafo } from './flujo-grafo';
 import { lineaDelPaso } from './mensaje-partes';
-import { TOQUES, TEXTO_DEFAULT, problemaDelTexto, type ConfigRecordatorio, type Toque } from './recordatorio-lead';
+import { TOQUES, TEXTO_DEFAULT, VARIABLES, problemaDelTexto, type ConfigRecordatorio, type Toque } from './recordatorio-lead';
 
 /** El CRON del recordatorio. NO lo inscribe el motor de nutrición: lo lee el emisor (ver la cabecera). */
 export const TRIGGER_RECORDATORIO = 'reunion_recordatorio';
@@ -30,6 +30,22 @@ export const TRIGGER_RECORDATORIO = 'reunion_recordatorio';
 export const ROTULO_TRIGGER_RECORDATORIO = 'Agendó una reunión';
 /** El nombre de la automatización que crea la mudanza (y la plantilla de la galería). */
 export const NOMBRE_RECORDATORIO_AUTOMATIZACION = 'Recordatorio de la reunión';
+
+/**
+ * LOS DATOS DEL «{ }» DE UN RECORDATORIO: los que su emisor resuelve (`VARIABLES`, `textoDelToque` de
+ * lib/recordatorio-lead.ts), con su rótulo y su ejemplo. NO son los del motor: un `{{lead_nombre}}` acá no se
+ * resolvería, y Publicar lo rechaza (`problemaDelTexto`). Los ejemplos también los usa «Probar».
+ */
+export const DATOS_RECORDATORIO: ReadonlyArray<{ key: (typeof VARIABLES)[number]; label: string; ejemplo: string }> = [
+  { key: 'nombre', label: 'Nombre', ejemplo: 'Luis' },
+  { key: 'cuando', label: 'Cuándo', ejemplo: 'mañana' },
+  { key: 'hora', label: 'Hora', ejemplo: '10:00 a. m.' },
+  { key: 'faltan', label: 'Cuánto falta', ejemplo: 'en 1 hora' },
+  { key: 'link', label: 'Link', ejemplo: 'https://meet.google.com/abc-defg-hij' },
+];
+
+/** Los datos de ejemplo de un recordatorio para «Probar» (el nombre es el del lead de ejemplo). */
+export const EJEMPLOS_RECORDATORIO: Record<string, string> = Object.fromEntries(DATOS_RECORDATORIO.filter((d) => d.key !== 'nombre').map((d) => [d.key, d.ejemplo]));
 
 export type ToqueDeAutomatizacion = {
   min: Toque;
@@ -88,6 +104,16 @@ export function toquesDeLaAutomatizacion(pasos: readonly PasoGrafo[]): { toques:
   const afuera = pasos.map((p, i) => idDe(p, i)).filter((id, i) => !vistos.has(id) && claseDe(pasos[i]) !== 'inicio');
   if (afuera.length) return mal('Hay tarjetas que no salen en el recordatorio: conéctalas o bórralas.', afuera[0]);
   return { toques, problema: null, tarjeta: null };
+}
+
+/**
+ * EL FRENO DEL RECORDATORIO, con la forma del de Publicar (`frenoDelFlujo`, lib/flujo-conversacion.ts): el
+ * porqué y la tarjeta a abrir. Lo suma el lienzo a su freno cuando el CRON es el del recordatorio, así Publicar,
+ * «Probar» y sus rearranques frenan lo mismo que el server (`setSecuenciaPasos`).
+ */
+export function frenoDelRecordatorio(pasos: readonly PasoGrafo[]): { error: string; tarjeta: string | null } | null {
+  const r = toquesDeLaAutomatizacion(pasos);
+  return r.problema ? { error: r.problema, tarjeta: r.tarjeta } : null;
 }
 
 /**

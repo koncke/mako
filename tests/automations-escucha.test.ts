@@ -95,7 +95,7 @@ test('⚠️ con «Probar» abierto, cada rearranque mira el MISMO freno que Pub
   assert.match(panel, /if \(!frenado\(\)\) arrancarRefs\(\);/, 'al abrir arranca sin mirar el freno');
   // Y el lienzo le pasa el freno al panel, calculado con la misma función que Publicar.
   const perfil = fuente('app/automations/SecuenciaPerfil.tsx');
-  assert.match(perfil, /const frenoLocal = useMemo\(\(\) => frenoDelFlujo\(pasos, faltanEnAccion\), \[pasos, faltanEnAccion\]\);/);
+  assert.match(perfil, /const frenoLocal = useMemo\(\(\) => frenoDeEsta\(pasos\), \[pasos, frenoDeEsta\]\);/);
   assert.match(perfil, /freno: frenoLocal, frenar: frenarDesdeProbar,/, 'el lienzo no le pasa el freno al panel');
 });
 

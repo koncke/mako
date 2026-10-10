@@ -43,7 +43,6 @@ import { Confirm } from '@/app/_ui/Confirm';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
-import { RecordatorioFlujo, NOMBRE_RECORDATORIO, EMOJI_RECORDATORIO } from './RecordatorioFlujo';
 import { FiltroLista, LADO_FILTRO } from './FiltroLista';
 import { MensajeMakoLienzo } from './MensajeMakoLienzo';
 import type { ProductoOpcion } from './ChatAgentApp';
@@ -75,8 +74,9 @@ const LISTA_HUECO = MUELLE.hueco;
  */
 export const TOPE_NOMBRE = 40;
 
-/** El ítem del recordatorio en la lista. No es una fila de `nutricion_secuencias`. */
-const ID_RECORDATORIO = 'recordatorio' as const;
+// (Acá vivía `ID_RECORDATORIO`, el ítem del recordatorio de la reunión en la lista, que no era una fila de
+// `nutricion_secuencias`. Desde el 10/10/2026 el recordatorio ES una automatización —con su CRON, «Agendó una
+// reunión»— y sale en la lista como cualquiera: lib/recordatorio-automatizacion.ts.)
 
 // ── «Nueva» al instante (decisión 7) ──────────────────────────────────────────
 // Viven ACÁ y no en ChatAgentApp porque los usan los dos y ChatAgentApp ya importa este archivo:
@@ -146,7 +146,6 @@ export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'dupl
 export const emojiSecuencia = (j: Pick<SecuenciaDto, 'emoji' | 'estrategia'>): string =>
   j.emoji || (j.estrategia ? (EMOJI_OBJETIVO[j.estrategia.objetivo as Objetivo] ?? '🎯') : '⚑');
 
-// (El emoji del recordatorio en la lista es `EMOJI_RECORDATORIO`, de RecordatorioFlujo: uno, no dos.)
 
 // ⚠️ ACÁ VIVÍAN `opcionesDeFiltro` Y `QUITAR_FILTRO` (cuarta tanda, punto 13): un Dropdown de un
 // valor —estado o un emoji— con «Quitar filtro» como el PRIMER renglón. La quinta tanda (punto 4) lo
@@ -171,11 +170,6 @@ export const filaDeSecuencia = (j: Pick<SecuenciaDto, 'activa' | 'emoji' | 'estr
  * guardado. `null`/ausente = no hay borrador (o no se pudo leer: no se afirma nada).
  */
 export const sinPublicarDe = (x: { borrador?: unknown }, abierta = false): boolean => abierta || x.borrador != null;
-
-/** El recordatorio de la reunión le escribe al LEAD por WhatsApp (lib/reunion-recordatorio.ts). */
-const filaDeRecordatorio = (activo: boolean | null): FilaFiltrable => ({
-  activa: activo, emoji: EMOJI_RECORDATORIO, envios: [{ canal: 'whatsapp', destino: 'clientes' }],
-});
 
 /**
  * LAS DOS DIVISIONES DE LA LISTA (sexta tanda, punto 3, con la respuesta de Martín del mismo día: la
@@ -288,7 +282,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * con `varios` (`estado:activas`, `emoji:📅`, `canal:whatsapp`, `destino:mako`…). `[]` = sin filtro.
    */
   const [filtros, setFiltros] = useState<string[]>([]);
-  const [elegida, setSelId] = useState<number | typeof ID_RECORDATORIO | ''>('');
+  const [elegida, setSelId] = useState<number | ''>('');
   /**
    * EL MENSAJE DE MAKO ABIERTO (quinta tanda, punto 5), APARTE de `elegida`. Mientras hay uno, el
    * lienzo es el suyo; elegir una automatización lo suelta (`cambiarA`). Va aparte y no como un
@@ -300,7 +294,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   /** El que está abierto, si todavía existe: si se eliminó, se vuelve solo a la automatización. Se CALCULA. */
   const aviso = rolAdmin && avisoSel != null ? (avisos ?? []).find((a) => a.id === avisoSel) ?? null : null;
   /** La que estaba elegida antes de abrir una fila que se está creando: si falla, se vuelve. */
-  const [volverA, setVolverA] = useState<number | typeof ID_RECORDATORIO | ''>('');
+  const [volverA, setVolverA] = useState<number | ''>('');
 
   // LA FILA NUEVA TOMÓ SU ID REAL: la selección la sigue, por su clave (decisión 7). Se aplica AL
   // DIBUJAR y no en un efecto: un efecto pintaría primero «Elige una automatización».
@@ -314,26 +308,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * antes y, si tampoco, la primera. Se CALCULA y no se escribe con un efecto: un efecto que
    * corrige el estado dibuja primero la pantalla vacía y después la corrige.
    */
-  const existe = (id: number | typeof ID_RECORDATORIO | ''): boolean =>
-    id === ID_RECORDATORIO ? true : id !== '' && secuencias.some((j) => j.id === id);
+  const existe = (id: number | ''): boolean => id !== '' && secuencias.some((j) => j.id === id);
   const selId = existe(elegidaViva) ? elegidaViva : existe(volverA) ? volverA : (secuencias[0]?.id ?? '');
   /** El panel de «Probar» abierto, y de qué canal. El lienzo NO se desmonta: se prueba lo que se edita. */
   const [probando, setProbando] = useState<CanalProbar | null>(null);
   /** Lo que el lienzo tiene sin publicar (`onCambioLocal`): es lo que prueba el panel. */
   const [edicion, setEdicion] = useState<EdicionLocal | null>(null);
-  /** El interruptor del recordatorio, para el punto de la lista y el filtro. null = no se sabe. */
-  const [recordatorioActivo, setRecordatorioActivo] = useState<boolean | null>(null);
-
-  // El recordatorio es sólo del admin (su ruta tiene guard de admin): para el resto no existe.
-  useEffect(() => {
-    if (!rolAdmin) return;
-    let vivo = true;
-    void fetch('/api/chat-agent/recordatorio-reunion', { cache: 'no-store' }).then((r) => r.json()).then((j) => {
-      if (vivo && j?.ok) setRecordatorioActivo(Boolean(j.activo));
-    }).catch(() => { /* sin punto de estado */ });
-    return () => { vivo = false; };
-  }, [rolAdmin]);
-
   const sel = typeof selId === 'number' ? secuencias.find((j) => j.id === selId) : undefined;
   const creandoSel = !!sel && esFilaCreando(sel);
   // La fila que se está creando nace PAUSADA: con «Activas» o un texto en el buscador no se vería,
@@ -350,16 +330,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const avisosLista = useMemo(() => (rolAdmin ? avisos ?? [] : []), [rolAdmin, avisos]);
   const todasLasFilas: FilaFiltrable[] = [
     ...filasSec.values(),
-    ...(rolAdmin ? [filaDeRecordatorio(recordatorioActivo)] : []),
     ...avisosLista.map(filaDeMensaje),
   ];
   const lista = useMemo(
     () => secuencias.filter((j) => pasaFiltroLista(filasSec.get(j.id) ?? filaDeSecuencia(j), filtros) && (!q || j.nombre.toLowerCase().includes(q))),
     [secuencias, filasSec, q, filtros],
   );
-  const verRecordatorio = rolAdmin
-    && pasaFiltroLista(filaDeRecordatorio(recordatorioActivo), filtros)
-    && (!q || NOMBRE_RECORDATORIO.toLowerCase().includes(q));
   const avisosVisibles = avisosLista.filter((a) => pasaFiltroLista(filaDeMensaje(a), filtros) && (!q || a.titulo.toLowerCase().includes(q)));
 
   /**
@@ -371,7 +347,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * sin «Cambió · ↻» y, con la prueba real prendida, mandándolo—. Un clic sin efecto visible no
    * puede cambiar qué se prueba.
    */
-  const cambiarA = (id: number | typeof ID_RECORDATORIO) => {
+  const cambiarA = (id: number) => {
     setSelId(id); setProbando(null); setEdicion(null); setAvisoSel(null);
     // Abrir la fila que se está creando recuerda de dónde se vino (si el server falla, se vuelve).
     if (typeof id === 'number' && id < 0) setVolverA(selId);
@@ -383,10 +359,10 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * botón; «Nueva secuencia» pasa por la misma puerta.
    */
   const [sinPublicar, setSinPublicar] = useState(false);
-  const [pendiente, setPendiente] = useState<{ ir: number | typeof ID_RECORDATORIO | 'nueva' | 'aviso'; aviso?: string } | null>(null);
+  const [pendiente, setPendiente] = useState<{ ir: number | 'nueva' | 'aviso'; aviso?: string } | null>(null);
   /** El descarte del borrador del lienzo abierto (lo deja SecuenciaPerfil): «Descartar cambios» lo BORRA, no lo guarda. */
   const descartarBorrador = useRef<(() => void) | null>(null);
-  const elegir = (id: number | typeof ID_RECORDATORIO) => {
+  const elegir = (id: number) => {
     if (id === selId) return;
     if (sinPublicar) { setPendiente({ ir: id }); return; }
     cambiarA(id);
@@ -397,7 +373,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * no hace nada con la que ya está elegida (lienzo-5). Lo no publicado no se pregunta: con un
    * mensaje abierto, el lienzo de la automatización no está montado.
    */
-  const elegirDeLaLista = (id: number | typeof ID_RECORDATORIO) => {
+  const elegirDeLaLista = (id: number) => {
     if (avisoSel != null) { setAvisoSel(null); if (id === selId) return; }
     elegir(id);
   };
@@ -569,9 +545,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         </div>
       ) : (
       <div style={ESTILO_LIENZO}>
-        {selId === ID_RECORDATORIO && rolAdmin ? (
-          <RecordatorioFlujo negocio={negocio} insetIzq={m.insets.izq} muelles={m} onSinPublicar={setSinPublicar} onCambio={setRecordatorioActivo} />
-        ) : !sel ? (
+        {!sel ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>
             Elige una automatización
           </div>
@@ -667,7 +641,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             </button>
           )}
           {rolAdmin && errorNueva && <div role="alert" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errorNueva}</div>}
-          {lista.length === 0 && !verRecordatorio && avisosVisibles.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}
+          {lista.length === 0 && avisosVisibles.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}
           {lista.map((j) => {
             const creando = esFilaCreando(j);
             return (
@@ -691,14 +665,6 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               </div>
             );
           })}
-          {/* EL RECORDATORIO, COMO UNA AUTOMATIZACIÓN MÁS (punto 2). Lo sigue mandando su
-              emisor de siempre; la lista sólo lo abre en su lienzo. Sin «⋯»: no se duplica ni
-              se archiva (no es una fila de secuencias), y se prende en su propio lienzo. */}
-          {verRecordatorio && (
-            <ItemLista on={!aviso && selId === ID_RECORDATORIO} activa={recordatorioActivo === true} emoji={EMOJI_RECORDATORIO} nombre={NOMBRE_RECORDATORIO} onClick={() => elegirDeLaLista(ID_RECORDATORIO)}
-              // Sin borrador guardado (sus textos viven en su emisor): sólo lo que el lienzo avise abierto.
-              sinPublicar={!aviso && selId === ID_RECORDATORIO && sinPublicar} />
-          )}
           {/* LOS MENSAJES DE MAKO (quinta tanda, punto 5): los flujos de Configuraciones ›
               Notificaciones, cada uno una fila con su emoji, su nombre y su punto de prendido. Bajo
               su rótulo, para que no se lean como automatizaciones: no se duplican ni se archivan
