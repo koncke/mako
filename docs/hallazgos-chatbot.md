@@ -3000,6 +3000,55 @@ La revisión adversarial (sólo lectura) dejó dos reglas. Se arreglaron en la r
 - En el cartel vacío, «＋ Nueva» con el panel abierto y sucio crea la primera automatización y el cartel se
   desmonta con el panel: lo no guardado se pierde ahí.
 
+## Restos de versiones anteriores, grupo avisos (10/10/2026): el lienzo de un mensaje de MaKo
+
+Pedido literal: «Pero no estan todas las plantillas de Mauricio y siguen habiendo cosas de versiones
+anteriores que estan mal..». Rama `wip-v7-avisos`. El lienzo de un mensaje de MaKo (`FlujoAviso`) pasó a
+las piezas de una automatización: el DELAY sobre la flecha, la tarjeta CRON con sus cajitas, el círculo
+«Entonces», la CONDITION con sus dos filas, el tacho del panel, el menú de la casa. Lo fijan
+`tests/flujo-aviso.test.ts` y `tests/barrido-sexta-datos.test.ts` (24 roturas, las 24 en rojo).
+
+### La flecha del «Si no» pasaba POR DETRÁS de la tarjeta del «sí» [avisos]
+
+**Síntoma (visto en un navegador, con los tests en verde):** con las ramas como filas de la CONDITION, la
+flecha del «Si no» sale horizontal de la fila de abajo, y la tarjeta del «sí» estaba en la misma fila: la
+flecha la cruzaba por detrás y se leía como que entraba ahí. **El diagnóstico obvio era el equivocado:**
+bajar la tarjeta del salto no cambia nada, porque lo que estorba es la de al lado. **La regla:** la tarjeta
+del «sí» de una CONDITION con salto SUBE una fila (`sube`), y la fila del tronco (`fila`) baja lo que suba
+la más alta, para que nada quede arriba del borde del dibujo. Por eso el modelo de los pasos se calcula
+ANTES que el tronco.
+
+**Vive en:** `lib/flujo-aviso.ts` (`grafoDeAviso`)
+
+### Un mensaje de MaKo es una LISTA: el ＋ en paralelo sólo prende un canal [avisos]
+
+El lienzo de una automatización ofrece flechas sueltas, en paralelo y arrastrables porque su motor es un
+grafo; el de los avisos (`decidir`, `lib/flujo-pasos.ts`) recorre una lista: +1, o +2 si la condición no
+se cumple. Copiar esos gestos dibujaría caminos que el motor no corre. Lo único que sale «a la vez» en un
+mensaje es el otro canal: con un canal apagado, el círculo de la cabeza ofrece su ＋ aunque ya siga en
+algo, y ese ＋ ofrece sólo el canal (el Lienzo le pasa el puerto `par`). Sin eso, con pasos puestos no
+quedaba en el lienzo cómo prender el mail, porque el ＋ del costado se fue. Y con WhatsApp prendido la
+tarjeta del mail no tiene círculo: un «después» del mail no existe.
+
+Y la espera dice lo que el motor ESPERA: el editor de antes dejaba poner 8760 horas y `sanearHoras` corta
+en 720 (`DELAY_MAX_HORAS`). Una espera vieja de un año se dibuja «30 días», y así se guarda al tocarla.
+
+**Vive en:** `lib/flujo-aviso.ts` (`salidaDe`, `canalPorPrender`, `segundosDeEspera`) · `app/agencia/FlujoAviso.tsx` (`opcionesEn`, `EditorPasoEspera`)
+
+### Lo que quedó sin hacer (grupo avisos)
+
+- **Verlo con clics en la app real.** Se vio en un arnés (esbuild + `fetch` simulado, Chrome sin ventana):
+  las pastillas, el CRON, los círculos, el menú, el click derecho y el tacho. La app no se levantó.
+- **`muelles` no tiene call site:** FlujoAviso la recibe y la cadena `SimuladorWhatsApp` →
+  `MensajeMakoLienzo` → `TemplateDetalleModal` no la pasa, así que el panel abre con el tamaño de siempre.
+- **El ✦ del mensaje es `RedactaAviso`, no `MakoRedacta`:** el del composer escribe con la voz del lead
+  para una automatización, y un aviso va al grupo del dueño. Se reusa el día que acepte un `pedir` propio
+  (`app/automations/EditorMensajeWhatsApp.tsx`).
+- **Piezas privadas:** `VistaEmail` y `EditorEspera` (`app/automations/FlujoLienzo.tsx`) y
+  `ElegirClase`/`Volver` (`app/automations/EditorDisparadores.tsx`) no se exportan.
+- **`CRON_DEFAULT` sigue en `app/_components/EditorCron.tsx`** porque lo importa `EditorDisparadores`; su
+  lugar es `lib/cron-aviso.ts`.
+
 ## Lo que quedó sin hacer
 
 **De la parte «tiempo» (sexta tanda, 09/10/2026):**
