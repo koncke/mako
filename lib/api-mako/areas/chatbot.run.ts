@@ -24,13 +24,17 @@ import { emitirAviso } from '@/lib/avisos';
 import { linkApp } from '@/lib/app-url';
 import { aplicarVariables, valoresVariablesLead } from '@/lib/template-vars';
 import { conVariables } from '@/lib/variables-resolver';
+import { prepararDisparadores, guardarDisparadores } from '@/lib/disparadores-guardar';
+import { firmaLista, eventosDe, claseDeDisparador, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { textoCron } from '@/lib/cron-aviso';
+import { TRIGGERS } from '@/lib/email-marketing';
 import { getTenantDb } from '@/lib/workspace';
 import { logLeadEvent } from '@/lib/leads';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { PREFIJO_FLUJO } from '../canal';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { partesExplicitas, pasosUsanAudio } from '@/lib/mensaje-partes';
-import { getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia, muestraParaCriterio } from '@/lib/setting-secuencias';
+import { getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia, muestraParaCriterio, TriggerInvalidoError } from '@/lib/setting-secuencias';
 import { parseEstrategia, OBJETIVOS, type Estrategia, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import { huecosDeSecuencias, archivarSecuencias } from '@/lib/secuencias-huecos';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
@@ -156,6 +160,22 @@ async function cuandoSale(iso: string, ws: number, porElCron: boolean): Promise<
   let cuando = iso;
   try { cuando = new Date(iso).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }); } catch { /* el ISO tal cual */ }
   return `el primer mensaje sale desde el ${cuando}`;
+}
+
+/**
+ * Un CRON en una línea, para el resumen de `cambiar_crons_secuencia` (lo lee la persona en la pantalla
+ * de revisión). El nombre del disparador sale del catálogo (`TRIGGERS`), el evento de su lista, el
+ * horario de `textoCron` con la zona que el horario eligió (sin ella, la del negocio).
+ */
+function textoDeUnCron(d: Disparador): string {
+  const nombre = TRIGGERS.find((t) => t.value === d.trigger_tipo)?.label ?? d.trigger_tipo;
+  if (d.cron) return `${textoCron(d.cron, d.cron.tz ?? null)}${d.grupo ? ' · al grupo de MaKo' : ''}${d.trigger_tipo !== TRIGGER_SOLO_GRUPO && d.trigger_tipo !== 'manual' ? ` · ${nombre}` : ''}`;
+  const clase = claseDeDisparador(d);
+  const evento = clase === 'instagram' || clase === 'messenger' || clase === 'email' ? eventosDe(clase).find((e) => e.subtipo === d.subtipo)?.label : null;
+  if (evento) return evento;
+  if (d.etapa) return `${nombre}: ${[...new Set([d.etapa, ...(d.etapas ?? [])])].join(', ')}`;
+  if (d.etiqueta_id) return `${nombre} (#${d.etiqueta_id})`;
+  return nombre;
 }
 
 /** El detector de copy sin terminar del motor (RX_RELLENO en lib/nutricion.ts, que no lo exporta):
@@ -849,6 +869,43 @@ export const RUNNERS: Runners = {
       if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La secuencia ya no existe o se archivó.' };
       await setSecuenciaPasos(id, payload.pasos as PasoSecuencia[]);
       return { ok: true, resumen: `Pasos de la secuencia #${id} guardados.` };
+    },
+  },
+
+  // Los CRON de una automatización, por la MISMA puerta que la pantalla (lib/disparadores-guardar.ts).
+  // `preparar` chequea TODO lo que se puede saber sin escribir (la etapa, el producto, la etiqueta, el
+  // evento): un rechazo al confirmar consumiría la pendiente.
+  cambiar_crons_secuencia: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      // `ignorar` y `cron.dias` llegan como textos (el validador no tiene listas de números): el saneador
+      // del CRON (`sanearDisparador` / `sanearCron`) ya los convierte, como con lo que manda la pantalla.
+      try {
+        const { lista, previos } = await prepararDisparadores(id, input.crons);
+        if (firmaLista(lista) === firmaLista(previos)) return { error: `«${s.nombre}» ya arranca por esos CRON.`, yaEstaba: true };
+        // Sin leer la zona del negocio: `tzDeWorkspace` la ESCRIBE si falta, y preparar() no escribe.
+        const textos = lista.map(textoDeUnCron);
+        return {
+          payload: { secuenciaId: id, crons: lista },
+          resumen: `Cambiar los CRON de «${s.nombre}» (${previos.length} → ${lista.length}): ${textos.join(' · ')}.${s.activa ? ' Está ACTIVA: la próxima corrida inscribe con los CRON nuevos.' : ''}`,
+        };
+      } catch (e) {
+        if (e instanceof TriggerInvalidoError) return { error: e.message };
+        throw e;
+      }
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId);
+      if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
+      try {
+        const quedo = await guardarDisparadores(id, payload.crons);
+        return { ok: true, resumen: `Listo: la automatización #${id} arranca por ${quedo.length} CRON.`, datos: { disparadores: quedo } };
+      } catch (e) {
+        if (e instanceof TriggerInvalidoError) return { ok: false, resumen: e.message };
+        throw e;
+      }
     },
   },
 
