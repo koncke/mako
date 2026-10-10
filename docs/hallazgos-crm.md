@@ -7817,6 +7817,14 @@ afirmaba exactamente la regla equivocada y daba verde.
 del panel —medido antes y después de abrirlo, el mismo número— y quedó sin tocar: si alguien
 reporta «scroll lateral en el CRM desde el celular», no es el filtro.
 
+**Y guardar los filtros en el navegador tiene una trampa de orden.** Se restauran en un
+layout effect al entrar y se guardan en un effect cada vez que cambian (`0deedbe5`,
+`app/crm/filtros-guardados.ts`). Los dos corren en el MISMO commit, y el guardado de ese commit
+ve los filtros del render de antes —vacíos al entrar, los del embudo anterior al cambiar—: sin
+saltearlo una vez, pisa lo guardado con nada, y el F5 «no se acuerda» aunque el código de
+restaurar esté perfecto. La clave lleva cliente y embudo, y una etapa que ya no existe en el
+embudo no vuelve (dejaría el tablero vacío sin casilla para destildarla).
+
 **Vive en:** `lib/campana-atribucion.ts` (`arbolDeAnuncios`, `pasaFiltroAnuncio`) ·
 `app/crm/arbol-seleccion.ts` · `app/crm/CrmToolbar.tsx` (el árbol del menú y los chips) ·
 `app/crm/CrmBoard.tsx` (una sola lista) · `app/crm/filtro-panel.ts` · `tests/crm-filtro-ads.test.ts` ·

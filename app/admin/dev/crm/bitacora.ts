@@ -1731,4 +1731,30 @@ export const BITACORA: Hito[] = [
       'tests/crm-filtro-ads.test.ts — que no vuelva, y el Limpiar igual al del Plan',
     ],
   },
+  {
+    fecha: '10 oct', hora: '20:38', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los filtros del CRM se mantienen al refrescar o volver',
+    pedido: 'Si refresco o me voy de pestaña y vuelvo, se deben mantener siempre los filtros. Haz ese cambio rapido',
+    puntos: [
+      'Hasta acá cada F5 o cada ida a otra tab dejaba el tablero sin filtros.',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '20:46', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los filtros del CRM quedan guardados en el navegador, por cliente y por embudo',
+    puntos: [
+      'Etapa, origen, campaña, anuncio y el «Ordenar» elegido se guardan y vuelven al entrar; el buscador no.',
+      'Una clave por cliente y por embudo: las etapas son de cada embudo y el super admin mira varios clientes desde el mismo navegador.',
+      'La trampa: restaurar y guardar corren juntos, y el guardado de ese momento todavía veía los filtros vacíos y pisaba lo guardado. Se saltea esa una vez.',
+      'Verificado en Código Inmobiliario: siguen tras el F5 y tras ir al Plan y volver; limpiados y F5, vuelven limpios.',
+    ],
+    commits: [{ sha: '0deedbe5', msg: 'CRM: los filtros sobreviven a un F5 y a irse de la tab', lineas: 123, archivos: 3 }],
+    archivos: [
+      'app/crm/filtros-guardados.ts — qué se guarda y cómo se sanea',
+      'app/crm/CrmBoard.tsx — restaurar al entrar y guardar después',
+      'tests/crm-filtro-ads.test.ts — dos roturas, pass 20 / fail 1',
+    ],
+  },
 ];

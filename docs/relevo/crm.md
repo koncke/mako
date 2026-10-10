@@ -146,6 +146,8 @@ el navegador sobre Código Inmobiliario (ws13):
 - **`0a55645e`** — se fue la fila de chips debajo de «Filtrar» y su «Limpiar»: *«No debe salir
   los chips de abajo del filtro y el botón de "limpiar" si para eso ya está la notificacion en
   filtros»*. Limpiar es «Limpiar filtros (N)» abajo del menú, igual que en el Plan.
+- **`0deedbe5`** — los filtros (etapa, origen, campaña, anuncio y «Ordenar») sobreviven a un F5
+  y a irse de la tab: se guardan en el navegador por cliente y por embudo.
 - **`bd4251c9`** — la cosecha, en `docs/hallazgos-crm.md` («Campaña y Anuncio pasan a ser UN
   árbol…») y en la bitácora del CRM.
 
