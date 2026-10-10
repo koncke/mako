@@ -15,6 +15,9 @@
 //     producción: los dos workspaces con Zernio (ws11 y ws13) tienen key propia.
 //   · Sin key propia, la de la PLATAFORMA (`envCred`), y el aislamiento lo da el PROFILE de Zernio:
 //     uno por workspace (`ensureProfile`), y todo listado se filtra por él.
+//   · ⚠️ La key puede CAMBIAR después de guardar el profile (ws11: profile acuñado con la de la
+//     plataforma el 15/08, key propia el 28/08), así que el profile guardado se valida contra la
+//     cuenta de la key de HOY (`profileIdEfectivo`, lib/zernio-profile.ts), en las dos direcciones.
 //
 // TENANT-SAFETY: todo recibe `ws` EXPLÍCITO (corre en webhooks y crons, sin sesión). La tabla
 // `zernio_workspace` se lee con el cliente crudo y `.eq('workspace_id', ws)`, igual que
@@ -26,6 +29,7 @@ import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './workspace';
 import { upsertRouting } from './webhook-routing';
 import { linkApp } from './app-url';
+import { profileDeLaCuenta } from './zernio-profile';
 
 const ZERNIO_BASE = 'https://zernio.com/api/v1';
 
@@ -117,18 +121,26 @@ type ZernioProfile = { _id: string; name: string; isDefault?: boolean };
  * El profile de Zernio del workspace. Con la key de PLATAFORMA crea uno por workspace (`mako_ws_<ws>`,
  * lo que aísla a cada cliente dentro de la cuenta de la agencia); con key PROPIA, `null` = el Default
  * de SU cuenta. Reclama el ruteo del profile (`RUTEO_PERFIL`): el webhook rutea por él.
+ *
+ * Con key propia devuelve lo GUARDADO sin juzgarlo: si es de otra cuenta lo suelta `profileIdEfectivo`,
+ * que es el que le pregunta a esa cuenta.
  */
 export async function ensureProfile(ws: number): Promise<string | null> {
   const db = getSupabaseServer();
   const { data, error: errSel } = await db.from('zernio_workspace').select('profile_id').eq('workspace_id', ws).maybeSingle();
   if (errSel) throw new ZernioError(`zernio_workspace (select): ${errSel.message}`, 0, null);
-  if (data) return (data.profile_id as string | null) ?? null;
+  const guardado = data ? ((data.profile_id as string | null) ?? null) : null;
   const c = await cfg(ws);
   if (c.byok) {
+    if (data) return guardado;
     const { error } = await db.from('zernio_workspace').upsert({ workspace_id: ws, profile_id: null }, { onConflict: 'workspace_id' });
     if (error) throw new ZernioError(`zernio_workspace (upsert byok): ${error.message}`, 0, null);
     return null;
   }
+  // ⚠️ Con la key de la PLATAFORMA, un `null` guardado no es «el Default»: es lo que dejó una key propia
+  // que ya no está. Devolverlo dejaba al negocio que borró su key sin profile para siempre («el
+  // workspace no tiene profile»): la trampa de ws11 dada vuelta. Se acuña como la primera vez.
+  if (guardado) return guardado;
   const nombre = `mako_ws_${ws}`;
   let profileId: string;
   try {
@@ -149,16 +161,26 @@ export async function ensureProfile(ws: number): Promise<string | null> {
   return profileId;
 }
 
-/** El profile CONCRETO (con key propia, el Default de su cuenta). También reclama su ruteo. */
+/**
+ * El profile CONCRETO con el que se habla, y reclama su ruteo. Con la key de la plataforma, el
+ * `mako_ws_<ws>`; con key propia, el guardado SI es de esa cuenta, y si no el Default de SU cuenta.
+ */
 async function profileIdEfectivo(ws: number, c: ZernioCfg): Promise<string | null> {
   const guardado = await ensureProfile(ws);
-  if (guardado) return guardado;
   if (!c.byok) return guardado;
-  const r = await zFetch<{ profiles: ZernioProfile[] }>(c.apiKey, '/profiles');
-  const def = r.profiles.find((p) => p.isDefault) ?? r.profiles[0];
-  if (!def) return null;
-  await upsertRouting(RUTEO_PERFIL, def._id, ws);
-  return def._id;
+  // ⚠️ CON KEY PROPIA SE LE PREGUNTA A SU CUENTA SIEMPRE, aunque haya un guardado: el de ws11 era de la
+  // cuenta de la AGENCIA (lib/zernio-profile.ts) y con él cada pedido iba a un profile ajeno. Un 401 o
+  // un 402 de su cuenta tira como siempre.
+  const r = await zFetch<{ profiles?: ZernioProfile[] }>(c.apiKey, '/profiles');
+  const { profileId, soltarGuardado } = profileDeLaCuenta(guardado, r.profiles ?? []);
+  if (soltarGuardado) {
+    const { error } = await getSupabaseServer().from('zernio_workspace').update({ profile_id: null }).eq('workspace_id', ws);
+    if (error) throw new ZernioError(`zernio_workspace (profile de otra cuenta): ${error.message}`, 0, null);
+    console.warn(`[zernio] ws${ws}: el profile guardado ${guardado} no es de su cuenta de Zernio; queda ${profileId ?? 'ninguno'}`);
+  }
+  if (!profileId) return null;
+  await upsertRouting(RUTEO_PERFIL, profileId, ws);
+  return profileId;
 }
 
 // ── Cuentas ──────────────────────────────────────────────────────────────────
