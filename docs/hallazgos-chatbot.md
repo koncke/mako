@@ -2060,8 +2060,100 @@ lugar. Y hoy hay UN remitente por negocio: «Vincular nuevo» del email REEMPLAZ
   servicio `'email'` a `ServicioRuteo` (`lib/webhook-ruteo-huella.ts`) para anotar los fallos de ruteo
   en el super admin como los demás webhooks.
 - `app/chatbot/SimuladorEmail.tsx` tiene CERO call sites (lo reemplazó la bandeja de `PanelProbar`).
+  *(Borrado en la segunda pasada, parte «datos».)*
 - Nada de esto se vio con clics: el desplegable «De / Para», «Vincular nuevo» en su modal y la bandeja
   con la #226.
+
+## Sexta tanda, segunda pasada, parte «datos» (09/10/2026, noche): el «{ }» montado, MaKo en WhatsApp en Notificaciones, los grabadores
+
+Rama `wip-v6b-datos`. Enchufó lo que la primera pasada dejó escrito y sin llamar: el árbol del «{ }»
+en los editores, la tarjeta y el editor de MaKo en Configuraciones › Notificaciones, la sesión de voz en
+los dos grabadores que faltaban, el modal de «Vincular nuevo» de «Probar».
+
+### «El mismo «{ }» en todos lados» NO es el mismo árbol en todos lados: lo que se ofrece lo decide el CANAL [ui, motor]
+
+El bloqueante decía «`ArbolDeDatos` con `datosOfrecidos({ destino: 'lead', conLead: true })` en el
+editor de WhatsApp», y montarlo así en los tres editores era el diagnóstico obvio. Medido contra el motor
+(lib/nutricion.ts), el catálogo entero sólo se resuelve por DOS caminos: el WhatsApp no oficial y el
+email, que pasan el texto por `datosParaElLead`. La vía OFICIAL manda la plantilla de Meta con
+`bodyParams: valoresVariablesLead(...)` (cuatro datos), e Instagram / Messenger llaman a
+`enviarPasoSocial` con `vars: valoresVariablesLead(...)` (los mismos cuatro). Con el árbol entero ahí,
+`{{lead_fecha_r1}}` le llegaba CRUDO al lead.
+
+**Regla:** el «{ }» de un mensaje al lead sale de `datosDelLead(todos)`
+(app/chatbot/EditorMensajeWhatsApp.tsx): el árbol de la casa recortado a lo que el motor resuelve POR ESE
+CANAL. Antes de ofrecerle el árbol entero a un canal nuevo, se busca en lib/nutricion.ts con qué `vars`
+sale su envío. Y el test que fija «el editor ofrece sólo lo que el motor resuelve» lee al MOTOR, no al
+editor: el de tests/editor-email-gmail exigía importar de lib/template-vars.ts «porque el envío de
+nutrición no resuelve las de /mensajes», una premisa que la parte «tiempo» volvió falsa el mismo día —
+ahora cruza el editor con el `datosParaElLead` del envío del email.
+
+**Vive en:** `app/chatbot/EditorMensajeWhatsApp.tsx` (`datosDelLead`, `arbolDeVariables`) · `app/chatbot/EditorEmailGmail.tsx` · `app/chatbot/EditorMensajeSocial.tsx` · `lib/nutricion.ts` (los `vars` de cada envío)
+
+### Cambiarle el `tipo` a un nodo para que herede la identidad de otro: grepear quién decide por `tipo` [lienzo]
+
+La tarjeta del mensaje al grupo de Notificaciones tenía que verse como «MaKo en WhatsApp» sin tocar
+`Lienzo.tsx`. `identidadDeTarjeta` pinta por `canal` y por `tipo`, así que alcanza con `tipo: 'mako'` (y
+`ICONO_MAKO`, el logo) en `grafoDeAviso`. Lo que cuesta no está en el lienzo: FlujoAviso decidía el cuerpo
+de la tarjeta con `n.tipo === 'mensaje' && n.id === 'mensaje'` y los tests contaban `tipo === 'mensaje'`;
+los dos pasaron a preguntar por el ID, que no cambia porque las posiciones guardadas se podan por id.
+⚠️ Y `editorDeTarjeta` (lib/lienzo-grafo.ts) mide el panel por `tipo`: un `mako` tiene 280 de alto. Hoy
+/mensajes no pasa `muelles` y no le afecta; el día que los pase, el editor del aviso queda en 280.
+
+**Vive en:** `lib/flujo-aviso.ts` (`grafoDeAviso`, `TITULO_MAKO_EN_WHATSAPP`) · `app/agencia/FlujoAviso.tsx` · `app/_components/Lienzo.tsx` (`identidadDeTarjeta`, no se tocó)
+
+### La sesión de voz suelta la grabación ANTES de entregarla: quien sube y puede fallar la tiene que devolver [whatsapp, curso]
+
+`crearSesionVoz.enviar` vacía la revisión y vuelve a `quieta` antes de llamar a `onSend`, a propósito
+(un doble clic no la manda dos veces). Para un consumidor cuya subida puede fallar —la tarea de audio del
+alumno— eso es perder la grabación en el primer 5xx: antes, su grabador propio volvía a «grabado». Se
+devuelve con `revisarExistente({ blob, secs })`. Y varios tramos se unen en un WAV (`unirAudios`): ~5,6 MB
+por minuto, 57 MB con el tope de 10 minutos de una tarea; quien sube un archivo lo pasa a MP3 antes
+(`blobToMp3`, ~1 MB por minuto). El composer de WhatsApp ya lo hacía; la tarea del alumno no tenía por qué
+saberlo.
+
+**Regla:** al montar `useGrabacionVoz` donde lo que se hace con el audio puede fallar, el fallo vuelve a
+la barra de escuchar; y si se SUBE, el WAV no viaja.
+
+**Vive en:** `app/whatsapp/_shared/VoiceRecorder.tsx` (`crearSesionVoz`, `unirAudios`) · `app/compartido/curso/[token]/TareaAlumno.tsx` (`CampoGrabacionAudio`) · `app/video-generator/OnboardingVideoGen.tsx` (`GrabadorVoz`)
+
+### Borrar un archivo sin llamadores pone en rojo tests/dev-areas, y `areas.ts` no es de ninguna parte [proceso]
+
+app/agencia/EditorMensaje.tsx quedó con cero llamadores al pasar los avisos al editor de WhatsApp, y se
+borró. tests/dev-areas.test.ts exige que cada ruta del `vive[]` de app/admin/dev/areas.ts exista, y
+`app/agencia/EditorMensaje.tsx` está en el del área de configuraciones. Con el reparto por archivo,
+`areas.ts` no es de ninguna parte: todo borrado de un archivo declarado ahí deja un rojo que sólo arregla
+quien integra. Es la regla de AGENTS.md («al mover o renombrar un archivo, grepeá su ruta vieja en … 
+app/admin/dev/areas.ts») vista desde el reparto: el bloqueante se escribe con la línea exacta.
+
+**Vive en:** `app/admin/dev/areas.ts` (el `vive` de configuraciones) · `tests/dev-areas.test.ts`
+
+### «El trailer PEGADO sin línea en blanco» es entre los dos trailers, no con el cuerpo [proceso]
+
+El primer commit de esta parte llevó `Claude-Cuenta:` pegado al último párrafo del cuerpo, y
+`git log -1 --format='%(trailers:key=Claude-Cuenta,valueonly)'` devolvió VACÍO: git sólo toma como
+trailers el último párrafo si es TODO trailers. Lo correcto: una línea en blanco antes del bloque, y
+`Claude-Cuenta:` y `Co-Authored-By:` pegados entre sí. Se verifica con ese comando, no leyendo el mensaje
+(se ve perfecto). Se corrigió con un `--amend` sobre el commit propio.
+
+### Lo que quedó sin hacer (parte «datos»)
+
+- **El ✦ / la tarjeta MAKO del Chatbot sigue con la lista plana**: `EditorMako` (app/chatbot/FlujoLienzo.tsx)
+  le pasa `variables={DATOS_MAKO}` a `EditorMensajeGrupo`; con `datos={datosOfrecidos({ destino: 'equipo',
+  conLead: true })}` recibe el árbol, DESPUÉS de que `textoDelAviso` (lib/api-mako/areas/chatbot.run.ts)
+  resuelva el catálogo. Es de la parte «flujo».
+- **Instagram y Messenger ofrecen sólo los cuatro datos** hasta que `enviarPasoSocial` (lib/nutricion.ts)
+  reciba `datosParaElLead`; ahí `EditorMensajeSocial` pasa a `datosDelLead(true)`.
+- **`VARIABLES_NEGOCIO` (vacía) no se pudo borrar**: la importa lib/mako-redacta.ts (`variablesParaPrompt`).
+- **`app/agencia/EditorMensaje.tsx` se borró**: falta sacarlo del `vive` de configuraciones en
+  app/admin/dev/areas.ts (tests/dev-areas en rojo hasta entonces).
+- **Sin llamadores**: `PasoAudioControl` (app/chatbot/PasoAudioControl.tsx; lo leen tests/guion-audio y
+  tests/whatsapp-sexta-tanda) y el botón suelto `SelectorDatos` (app/_components/SelectorDatos.tsx).
+- **El selector de acento del onboarding del Video Generator** (`Select` de app/_ui) no tiene íconos: son
+  regiones, y `Select` no pasa `icono`.
+- **Nada se vio con clics**: el árbol en los tres editores, la tarjeta y el editor de MaKo en
+  Notificaciones (el alto del panel con el editor de WhatsApp adentro), la grabación nueva del Video
+  Generator y la tarea de audio del alumno.
 
 ## Lo que quedó sin hacer
 

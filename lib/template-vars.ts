@@ -34,11 +34,12 @@ export const VARIABLES_LEAD: VarLead[] = [
 //
 // ⛔ «TU NEGOCIO» YA NO SE OFRECE (sexta tanda, 09/10/2026). Martín: «no entiendo el dato "Tu
 // negocio", si ya está el de "Empresa", el de "Tu negocio" eliminalo... y esto para todos los
-// lugares donde usamos el botón de {}». La lista queda VACÍA —la importan dos editores de otra parte
-// de la tanda (app/chatbot/EditorMensajeWhatsApp.tsx y EditorEmailGmail.tsx) para armar su «{ }», y
-// vacía el dato desaparece de los dos sin tocarlos— y el TOKEN se sigue resolviendo: hay mensajes
-// guardados con `{{negocio}}` (`CLAVES_SIN_OFRECER`, `valoresVariablesLead`). El catálogo de TODOS
-// los «{ }» es lib/variables-aviso.ts; esta lista la borra quien une la tanda, con esos dos imports.
+// lugares donde usamos el botón de {}». La lista queda VACÍA y el TOKEN se sigue resolviendo: hay
+// mensajes guardados con `{{negocio}}` (`CLAVES_SIN_OFRECER`, `valoresVariablesLead`). El catálogo de
+// TODOS los «{ }» es lib/variables-aviso.ts, y desde la segunda pasada de la tanda ningún editor arma su
+// «{ }» con esta lista (los de WhatsApp, email e Instagram montan `ArbolDeDatos`). La sigue importando
+// SÓLO lib/mako-redacta.ts (`variablesParaPrompt`, para decirle al modelo qué tokens puede usar): se
+// borra cuando ese import se vaya.
 /** @deprecated vacía a propósito: ver arriba. */
 export const VARIABLES_NEGOCIO: VarLead[] = [];
 
