@@ -7346,6 +7346,16 @@ mig 0228). Lo que eso exige al escribir código nuevo:
 - **Lo que el lienzo OFRECE sale de la regla que Publicar RECHAZA** (`validarGrafo` sobre el flujo
   hipotético), nunca de una copia parcial de sus reglas.
 
+**Y desde la sexta tanda (09/10/2026) una tarjeta tiene VARIOS padres y una automatización VARIOS CRON:**
+
+- **Quién apunta a una tarjeta es `padresDe` (o `padresSinVuelta`), nunca `padreDe`**, que devuelve UNO.
+  Y toda edición de flechas —conectar, soltar, desconectar, crear suelta, borrar— entra por UNA puerta,
+  `lib/flujo-edicion.ts`: la regla «dos caminos a la vez no se juntan» vive una vez, en `cruces`.
+- **Los disparadores de una automatización son `vistasPorDisparador` (lib/disparadores.ts)**; leer
+  `trigger_tipo` solo ve el primer CRON y se pierde los demás.
+- **Guardar no es publicar**: un borrador o una edición del lienzo pasa por `validarParaGuardar` (lo que
+  rompe el DATO); `validarGrafo` es la vara de Publicar y rechaza lo que está a medio armar.
+
 # Un TIPO DE NODO nuevo son CINCO puertas; un CAMPO del nodo es UNA rama
 
 Cuando a un paso del lienzo le falta una capacidad —que el mensaje lo escriba la IA, que

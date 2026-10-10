@@ -758,12 +758,21 @@ export const PANEL_COLUMNA_ANCHO = 392;
 /**
  * EL ALTO DEL EDITOR DE CADA TARJETA DE CONTROL, con la cabecera incluida (62 px: relleno, borde, el
  * renglón del título y su aire). Cada número es su contenido TÍPICO, medido sobre los editores:
- *   · DELAY, TAG, GO TO: una frase o un campo grande (48) y una línea debajo (el aviso de precisión
- *     del DELAY, el error de «＋ Nueva» etiqueta) → 140;
+ *   · DELAY y GO TO: una frase o un campo grande (56) y una línea debajo → 140 (el DELAY ya no lleva el
+ *     aviso de precisión: sexta tanda, DELAY 2);
  *   · MAKO: el título, el mensaje con ~5 renglones y «＋ Dato del lead» → 280;
  *   · ACTION: el desplegable, lo que hace, el lead y dos o tres campos («Mover un lead de etapa»:
  *     producto, etapa y el monto de Ganado) → 400;
- *   · CONDITION y CRON: dos o tres filas con sus «＋» → 320; «Si responde», tres casos → 400.
+ *   · CONDITION: dos o tres filas con sus «＋» → 320; «Si responde», tres casos → 400.
+ *   · CRON (segunda pasada de la sexta tanda, medido sumando los estilos de app/chatbot/EditorDisparadores.tsx
+ *     y EditorRecurrente.tsx en el panel apaisado de 600): el «Recurrente» semanal con UN CRON son seis
+ *     filas de 36 con 8 de aire (repetir, días, empieza, a las, huso, a quién: 256), «＋ Nuevo CRON» (40)
+ *     y el número de salida al pie (~73), con 12 entre bloques → 393 + 62 → 460. Con 320 el panel
+ *     scrolleaba en lo más común. Con dos CRON (sus pastillas, 42 más), el calendario abierto o la
+ *     columna angosta (los días bajan de renglón), scrollea.
+ *   · TAG con VARIAS etiquetas (sexta tanda, TAG 2): en el panel de columna (392) el verbo (168) y el
+ *     campo de chips (240 de base) no entran lado a lado y bajan: 56 + 10 + ~74 (dos renglones de
+ *     chips con «＋ Otra») + 62 → 200. Con 140 scrolleaba apenas había dos etiquetas.
  * Lo que no entra SCROLLEA adentro del panel: el panel no crece.
  *
  * ⚠️ POR TIPO, NUNCA POR CONTENIDO (AGENTS.md: «una caja cuyo alto es un tope cambia de tamaño, y se
@@ -771,10 +780,10 @@ export const PANEL_COLUMNA_ANCHO = 392;
  * panel; pasar de una tarjeta a otra del mismo tipo, tampoco.
  */
 export const ALTO_EDITOR_CONTROL: Readonly<Partial<Record<TipoNodo, number>>> = {
-  espera: 140, etiqueta: 140, 'ir-a': 140,
+  espera: 140, etiqueta: 200, 'ir-a': 140,
   mako: 280,
   accion: 400,
-  condicion: 320, entrada: 320, respuesta: 400,
+  condicion: 320, entrada: 460, respuesta: 400,
 };
 const ALTO_EDITOR_CONTROL_OTRO = 320;
 

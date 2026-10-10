@@ -43,19 +43,28 @@
 //  22. con UN producto, el paso del producto igual está                            -> 14 / 1
 //  23. `frenoDelFlujo` sin `validarGrafo` (sólo mira lo vacío)                     -> 14 / 1
 //
+// Sexta tanda, segunda pasada (09/10/2026, parte «flujo»; base en verde 15 / 0). Pasan / fallan:
+//   S1. «Si responde» vuelve a titularse REPLY                                  -> 14 / 1
+//   S2. su última fila vuelve a decir «Otra cosa» y no «Si no»                  -> 14 / 1
+//   S3. los casos sin la frase del catálogo (`textoCasoRespuesta`)              -> 14 / 1
+//   S4. la tarjeta MAKO vuelve a llamarse «MAKO»                                -> 14 / 1
+//   S5. vuelve la fila «Si responde» al CRON                                    -> 14 / 1
+//   S6. Publicar limpia la estrategia de todo lo que abrió «convertido»         -> 14 / 1
+//   S7. SecuenciaPerfil abre con `legadoAGrafo` y no con `abrirFlujo`          -> 14 / 1
+//
 // Correr: node --import tsx --test tests/flujo-conversacion.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   grafoDeSecuencia, detalleDisparador, insertarDesdeLienzo, nodoNuevo, opcionesDelMas,
-  seccionesDisparo, pedidoDisparo, valorDisparo, errorLegible, faltaEscribir, crearRespuesta, agregarCaso, quitarRama, agregarRama,
+  seccionesDisparo, pedidoDisparo, valorDisparo, errorLegible, faltaEscribir, quitarRama, agregarRama,
   rotuloDisparo, opcionesDeSecciones, frenoDelFlujo, pasosDisparo,
-  CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA, PUERTO_RESPUESTA,
+  CONDICIONES_VIVAS, FRASE_CONDICION, ID_ENTRADA,
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
 import { MARGEN, centroDeFilas } from '../lib/lienzo-grafo';
-import { claseDe, nodoPorId, validarGrafo, raizRespuesta, escenariosDeRespuesta } from '../lib/flujo-grafo';
+import { claseDe, nodoPorId, validarGrafo, raizRespuesta, escenariosDeRespuesta, condicionARespuesta } from '../lib/flujo-grafo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas ANTES que los bloques: un `/*` adentro de un `//` se comería código (AGENTS.md).
@@ -78,6 +87,17 @@ const cond = (id: string, ramas: Array<[string, string | null]>, siNo: string | 
   id, canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', si_no: siNo,
   ramas: ramas.map(([rid, sig]) => ({ id: rid, modo: 'todas', filas: [{ campo: 'agendo' }], siguiente: sig })),
 });
+/**
+ * Un flujo CON la condición que escucha («Si responde», lo que tienen #212 y #213 en vivo), creada como
+ * se crea desde la segunda pasada de la sexta tanda: una CONDITION vacía que pasa a escuchar
+ * (`condicionARespuesta`), con su primer caso, su «MaKo contesta» y su «Si no» avisando al equipo.
+ */
+const conRespuesta = (pasos: PasoParaGrafo[], rnd = rndDe()): { pasos: PasoParaGrafo[]; id: string } => {
+  const vacia: PasoParaGrafo = { id: 'escucha', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', si_no: null, ramas: [{ id: 'escucha_r', modo: 'todas', filas: [], siguiente: null }] };
+  const r = condicionARespuesta([...pasos, vacia], 'escucha', rnd);
+  assert.ok(!('error' in r), 'no se pudo crear la condición que escucha');
+  return { pasos: (r as { pasos: PasoParaGrafo[] }).pasos, id: 'escucha' };
+};
 const nodo = (g: { nodos: NodoFlujo[] }, id: string): NodoFlujo => { const n = g.nodos.find((x) => x.id === id); assert.ok(n, `no está el nodo ${id}`); return n; };
 const centro = (n: NodoFlujo) => n.y + n.alto / 2;
 const sePisan = (a: NodoFlujo, b: NodoFlujo) => a.x < b.x + b.ancho && b.x < a.x + a.ancho && a.y < b.y + b.alto && b.y < a.y + a.alto;
@@ -147,42 +167,37 @@ test('⚠️ el árbol: dos ramas no se pisan, se apilan ARRIBA y ABAJO del puer
   }
 });
 
-test('«Si responde» CUELGA DEL CRON: columna 1, debajo de la salida, con su flecha desde su fila (segunda tanda)', () => {
-  // Decisión 1 (un solo CRON): hasta el 08/10 «Si responde» iba suelta en la columna del CRON y,
-  // sin ella, había una tarjeta fantasma «＋ Si responde». Ahora es la segunda fila del CRON.
-  const r = crearRespuesta([msg('a', { siguiente: 'b' }), msg('b')], rndDe());
-  const conCaso = agregarCaso(r.pasos, r.id, rndDe(7)).pasos;
-  const g = grafoDeSecuencia(conCaso, { disparador: 'X' });
+test('⚠️ «Si responde» se dibuja como la CONDITION QUE ESCUCHA: sin flecha de entrada, debajo del CRON, una fila por caso y «Si no»', () => {
+  // Sexta tanda, punto 12, literal: «Reply ya te dije que tiene que estar dentro de CONDITION». Hasta la
+  // segunda pasada era la segunda fila del CRON («Si responde»), con su flecha y el título REPLY.
+  const r = conRespuesta([msg('a', { siguiente: 'b' }), msg('b')]);
+  const pasos = r.pasos.map((p) => (p.id === r.id ? { ...p, casos: p.casos!.map((c) => ({ ...c, titulo: 'Pregunta el precio', cuando: 'el precio' })) } : p));
+  const g = grafoDeSecuencia(pasos, { disparador: 'X' });
   sinPisarse(g);
   const resp = nodo(g, r.id);
   const e = nodo(g, ID_ENTRADA);
-  assert.equal(resp.titulo, 'REPLY');
-  assert.equal(resp.x, nodo(g, 'a').x, '«Si responde» va en la columna 1, la de la salida');
-  assert.ok(resp.x > e.x + e.ancho, '«Si responde» va a la derecha del CRON');
-  const salida = g.nodos.filter((n) => n.id === 'a' || n.id === 'b');
-  assert.ok(resp.y > Math.max(...salida.map((n) => n.y + n.alto)), '«Si responde» va abajo de la salida');
-  const flecha = g.aristas.find((x) => x.hasta === r.id);
-  assert.equal(flecha?.desde, ID_ENTRADA);
-  assert.equal(flecha?.puerto, PUERTO_RESPUESTA, 'la flecha sale de la fila «Si responde» del CRON');
-  assert.equal(flecha?.sinMas, true, 'nada va antes de «Si responde»: sin el ＋ del medio');
-  assert.deepEqual(e.puertos!.map((p) => [p.id, p.rotulo, p.vacio]), [['sig', 'Al entrar', false], [PUERTO_RESPUESTA, 'Si responde', false]]);
-  assert.equal(g.nodos.length, conCaso.length + 1, 'una tarjeta por paso y el CRON: no hay fantasma');
-  // Sus salidas son los casos y «Otra cosa», en ese orden; el caso nace con «MaKo contesta».
-  assert.deepEqual(resp.puertos!.map((p) => p.rotulo), ['Caso sin nombre', 'Otra cosa']);
-  const caso = nodoPorId(conCaso, r.id)!.casos![0];
-  const contesta = nodoPorId(conCaso, caso.siguiente)!;
+  assert.equal(resp.titulo, 'CONDITION', 'volvió el título REPLY');
+  assert.equal(resp.familia, 'control');
+  assert.deepEqual(resp.puertos!.map((p) => p.rotulo), ['Su respuesta trata de «Pregunta el precio»', 'Si no']);
+  assert.equal(g.aristas.some((x) => x.hasta === r.id), false, 'volvió la flecha del CRON a la condición que escucha');
+  assert.deepEqual(e.puertos!.map((p) => p.id), ['sig'], 'volvió la fila «Si responde» al CRON');
+  assert.equal(e.salidaAlPie, true);
+  assert.equal(resp.x, e.x, 'la que escucha va en la columna del CRON');
+  const arbol = g.nodos.filter((n) => n.id === ID_ENTRADA || n.id === 'a' || n.id === 'b');
+  assert.ok(resp.y >= Math.max(...arbol.map((n) => n.y + n.alto)), 'la que escucha va debajo del árbol del CRON');
+  assert.equal(resp.suelta, undefined, 'la que escucha no es una tarjeta suelta');
+  assert.equal(g.nodos.length, pasos.filter((p) => claseDe(p) !== 'inicio').length + 1, 'una tarjeta por paso y el CRON: no hay fantasma');
+  // El caso nace con su «MaKo contesta» (un WhatsApp escrito por MaKo, título WHATSAPP) y el «Si no» avisa.
+  const caso = nodoPorId(pasos, r.id)!.casos![0];
+  const contesta = nodoPorId(pasos, caso.siguiente)!;
   assert.equal(contesta.tipo, 'ia');
-  // Tercera tanda (decisión 5): un WhatsApp escrito por MaKo también se titula WHATSAPP.
   assert.equal(nodo(g, contesta.id!).titulo, 'WHATSAPP');
-  // Y el motor lo lee como la guía del caso (`escenariosDeRespuesta`), con «Otra cosa» avisando.
-  assert.equal(escenariosDeRespuesta(conCaso).length, 1);
-  assert.equal((nodoPorId(conCaso, nodoPorId(conCaso, r.id)!.si_no)!.accion as { operacion: string }).operacion, 'avisar_al_equipo');
-  // Sin «Si responde» (cuarta tanda, punto 4): el CRON no tiene la fila ni se ofrece crearla, y no
-  // hay ninguna tarjeta de más. Lo de arriba es lo que sigue dibujando un flujo que YA la tiene.
+  assert.equal(escenariosDeRespuesta(pasos).length, 1, 'el motor no la lee como la guía del caso');
+  assert.equal((nodoPorId(pasos, nodoPorId(pasos, r.id)!.si_no)!.accion as { operacion: string }).operacion, 'avisar_al_equipo');
+  // Sin «Si responde»: nada de más, y el ＋ no la ofrece (nace de una CONDITION vacía).
   const sin = grafoDeSecuencia([msg('a')], { disparador: 'X' });
   assert.equal(sin.nodos.length, 2, 'volvió la tarjeta fantasma');
-  assert.equal(nodo(sin, ID_ENTRADA).puertos!.find((p) => p.id === PUERTO_RESPUESTA), undefined, 'volvió la fila «Si responde» al CRON');
-  assert.ok(!opcionesDelMas([msg('a')], ID_ENTRADA, false, PUERTO_RESPUESTA).some((o) => o.value === 'respuesta'), 'el ＋ volvió a ofrecer «Si responde»');
+  assert.ok(!opcionesDelMas([msg('a')], ID_ENTRADA, false).some((o) => (o.value as string) === 'respuesta'), 'el ＋ volvió a ofrecer «Si responde»');
 });
 
 test('⚠️ cada flecha sale de SU puerto, y une nodos que existen', () => {
@@ -268,7 +283,7 @@ test('⚠️ ningún mensaje nace con espera: la espera es su propia tarjeta (pu
 });
 
 test('el menú del ＋: sin «Email» ni «Esperar» debajo de «Si responde», sin «Ir a» en ningún lado, y con MaKo', () => {
-  const r = crearRespuesta([msg('a')], rndDe());
+  const r = conRespuesta([msg('a')]);
   const valores = (o: Array<{ value: string }>) => o.map((x) => x.value);
   // Tercera tanda: «Ir a» ya no se crea (decisión 3) y suma «MaKo» con su logo (decisión 11).
   // Sexta tanda (parte «canales»): Instagram y Messenger, con los mensajes.
@@ -315,12 +330,12 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   assert.match(fn, /return \{ error: errorLegible\(errores\[0\], pasos\), tarjeta: tarjetaDelError\(errores\[0\], pasos\) \}/);
   // Convertida: los pasos Y la estrategia con la LIMPIEZA (el motor viejo no repite lo que hacen
   // las tarjetas). Sin estrategia no se manda nada (lienzo-8, en tests/lienzo-revision.test.ts).
-  assert.match(pub, /if \(convertida\) \{\s*const limpia = estrategiaConLimpieza\(est\);\s*if \(limpia\) \{\s*const r = await api\(\{ action: 'guardar-estrategia', secuenciaId: secuencia\.id, estrategia: limpia \}\)/);
+  assert.match(pub, /if \(convertida && limpiar\) \{\s*const limpia = estrategiaConLimpieza\(est\);\s*if \(limpia\) \{\s*const r = await api\(\{ action: 'guardar-estrategia', secuenciaId: secuencia\.id, estrategia: limpia \}\)/);
   assert.ok(pub.indexOf("fetch('/api/whatsapp/secuencias'") < pub.indexOf('guardar-estrategia'), 'primero los pasos, después la limpieza');
   // Una tarjeta VACÍA no se publica: `validarGrafo` mira la forma y no el contenido, y el
   // «MaKo contesta» con el que nace cada caso de «Si responde» nace sin guía.
-  const r = crearRespuesta([msg('a')], rndDe());
-  const conCaso = agregarCaso(r.pasos, r.id, rndDe(3));
+  const r = conRespuesta([msg('a')]);
+  const conCaso = { pasos: r.pasos, mensaje: nodoPorId(r.pasos, r.id)!.casos![0].siguiente };
   assert.deepEqual(faltaEscribir(conCaso.pasos), { id: conCaso.mensaje, error: 'Falta completar «WHATSAPP»' });
   // El freno mira primero la FORMA: un caso sin nombre lo frena `validarGrafo`; con nombre, lo vacío.
   assert.equal(frenoDelFlujo(conCaso.pasos)?.error, 'Un caso de «Si responde» no tiene nombre o descripción');
@@ -337,7 +352,7 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   assert.equal(faltaEscribir([{ ...conImagen, cuerpo_html: '<p></p>' } as PasoParaGrafo])?.id, 'e');
   // La tarjeta MAKO sin mensaje tampoco sale (`avisar_al_equipo` lo exige).
   const conMako = insertarDesdeLienzo([msg('a')], 'a', 'sig', 'mako', rndDe(8));
-  assert.deepEqual(faltaEscribir(conMako.pasos), { id: conMako.id, error: 'Falta completar «MAKO»' });
+  assert.deepEqual(faltaEscribir(conMako.pasos), { id: conMako.id, error: 'Falta completar «MAKO EN WHATSAPP»' });
   // El error, sin ids crudos, y sin «la condición «CONDITION»».
   const malos: PasoParaGrafo[] = [{ id: 'n0abcde', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', ramas: [], si_no: null }];
   const legible = errorLegible(validarGrafo(malos)[0], malos);
@@ -346,15 +361,17 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   assert.deepEqual(frenoDelFlujo(malos), { error: legible, tarjeta: 'n0abcde' });
 });
 
-test('⚠️ al abrir, lo de antes se ve CONVERTIDO; un flujo de tarjetas no se vuelve a convertir ni pierde lo de su estrategia', () => {
+test('⚠️ al abrir, lo de antes se ve CONVERTIDO y SIN «Ir a» (`abrirFlujo`); la estrategia se limpia sólo si se convirtió una lista', () => {
   const perfil = sinComentarios(leer(PERFIL));
   const ini = bloque(perfil, 'const [inicial] = useState(() => {', '\n  });', 1_200);
-  // Tener ids NO es ser un flujo (una lista de antes que pasó por setSecuenciaPasos los tiene):
-  // lo decide `esFlujoExplicito`. Y un flujo no limpia su estrategia: el motor la sigue leyendo.
-  assert.match(ini, /const yaEsFlujo = esFlujoExplicito\(ordenados\);/);
-  assert.match(ini, /convertida: false \}/);
-  assert.match(ini, /: legadoAGrafo\(ordenados, est, \{ idDeClave: \(clave\) => secuencias\.find\(\(s\) => s\.clave === clave\)\?\.id \?\? null \}\)/);
-  assert.match(ini, /yaEsFlujo\s*\? \{ pasos: normalizar\(ordenados\)/, 'un flujo con ramas pasado por el conversor queda aplastado en una fila');
+  // Una función decide (lib/flujo-legado.ts): una lista de antes → tarjetas (`legadoAGrafo`), un flujo →
+  // tal cual (tener ids NO es ser un flujo), y en los dos sin «Ir a» (`quitarIrA`, sexta tanda, punto 12).
+  assert.match(ini, /const r = abrirFlujo\(ordenados, est, \{/);
+  assert.doesNotMatch(ini, /legadoAGrafo\(|esFlujoExplicito\(/, 'volvió la conversión a mano: un flujo con «Ir a» abre con su GO TO');
+  // Y la estrategia se limpia SÓLO si se convirtió una lista de antes: un flujo al que se le sacó un «Ir
+  // a» abre «convertido» y limpiarle la estrategia apagaba lo que el motor todavía hace.
+  assert.match(perfil, /const \[limpiar, setLimpiar\] = useState\(inicial\.limpiarEstrategia\);/);
+  assert.match(perfil, /convertida && limpiar \? \(\(estrategiaConLimpieza\(est\)/, '«Probar» limpia la estrategia de algo que no se limpia');
 });
 
 // ── 5: el desplegable del disparador ────────────────────────────────────────
@@ -482,7 +499,7 @@ test('⚠️ `CONDICIONES_VIVAS` es lo que el motor EVALÚA, medido en el `switc
   assert.match(lienzo, /ambito=\{ambitoDeDisparo\(pr\.triggerTipo\)\}/);
   assert.match(lienzo, /catalogo: nombresCatalogoDe\(catalogosDe\(\{ etapas, productos: productos \?\? \[\], remotos: remotosCond \}\)\)/);
   // Y la tarjeta dice las ramas con el texto del modelo (`textoRama`), no uno propio.
-  const r = crearRespuesta([cond('c', [['r1', null]], null)], rndDe());
+  const r = conRespuesta([cond('c', [['r1', null]], null)]);
   assert.ok(raizRespuesta(r.pasos));
   assert.equal(nodo(grafoDeSecuencia(r.pasos, { disparador: 'X' }), 'c').puertos![0].rotulo, 'Agendó');
 });

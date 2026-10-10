@@ -37,6 +37,8 @@ import { PanelMarketing } from '@/app/_components/PanelMarketing';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 import { Icon } from '@/app/_components/icons';
+// La papelera de la casa, roja siempre (sexta tanda, general 9: «ese ícono de basura que no se ve»).
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Avatar } from '../whatsapp/_shared/Avatar';
 import { GrabadorAudioPaso, type AudioGrabado } from './GrabadorAudioPaso';
 import { audiosDe, defDeClave, PUBLICOS, type PublicoGenero } from '@/lib/audios-paso';
@@ -1173,7 +1175,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
                 title="Desconectar este número" aria-label="Desconectar este número"
                 style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'transparent', color: 'var(--bad)', cursor: busyEvo ? 'default' : 'pointer', opacity: busyEvo === 'desconectar' ? 0.5 : 1 }}
               >
-                <Icon name="trash" size={16} />
+                <IconoBorrar size={16} />
               </button>
             </div>
           ) : evo.estado === 'desconocido' ? (

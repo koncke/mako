@@ -32,6 +32,10 @@
 //  11. eliminar una tarjeta vuelve a ser `borrarNodo`                               -> 12 / 1
 //  12. sin la suelta marcada                                                        -> 12 / 1
 //  13. la lista sin la división «Chatbot»                                           -> 12 / 1
+// Segunda pasada (09/10/2026, parte «flujo»: los íconos del «⋯» por nombre del set). Base 13 / 0:
+//  14. «Eliminar» con un ícono que no es la papelera (`cerrar`)                     -> 12 / 1
+//  15. una opción con un `data:` propio en vez de un nombre del set                 -> 12 / 1
+//  16. vuelve la fila «Si responde» al CRON de un flujo que la tiene                -> 12 / 1
 //
 // Correr: node --import tsx --test tests/lienzo-sexta-tanda.test.ts
 import { test } from 'node:test';
@@ -50,6 +54,7 @@ import { ID_INICIO } from '../lib/flujo-grafo';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { SimuladorWhatsApp, ROTULO_CHATBOT, ROTULO_MENSAJES_MAKO, opcionesDeFila } from '../app/chatbot/SimuladorWhatsApp';
+import { esIconoMenu } from '../app/_ui/iconos-menu';
 import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
 import type { PlantillaVista } from '../lib/plantillas';
 
@@ -238,14 +243,22 @@ test('⚠️ la lista lleva DOS divisiones: «Chatbot» arriba y «MaKo en Whats
   const iMako = html.indexOf(`>${ROTULO_MENSAJES_MAKO}</div>`);
   const iAviso = html.indexOf('>Reporte semanal</span>');
   assert.ok(iChatbot >= 0 && iChatbot < iSec && iSec < iMako && iMako < iAviso, 'las divisiones no van en orden: Chatbot, sus automatizaciones, MaKo en WhatsApp, sus mensajes');
-  assert.ok(opcionesDeFila(true).every((o) => o.icono.startsWith('data:image/svg+xml')), 'una opción del «⋯» sin ícono');
-  assert.match(decodeURIComponent(opcionesDeFila(false).find((o) => o.value === 'eliminar')!.icono), /stroke="#D0504A"/, 'la papelera no es roja');
+  // Segunda pasada: los íconos del «⋯» son NOMBRES del set de la casa (app/_ui/iconos-menu.tsx), no
+  // `data:` propios; y «borrar» es rojo SIEMPRE porque lo pinta `IconoMenu`, no la fila.
+  for (const activa of [true, false]) {
+    assert.ok(opcionesDeFila(activa).every((o) => esIconoMenu(o.icono)), 'una opción del «⋯» sin ícono del set');
+  }
+  assert.equal(opcionesDeFila(false).find((o) => o.value === 'eliminar')!.icono, 'borrar', 'la papelera no es la roja de la casa');
 });
 
-test('el CRON del lienzo de antes (con «Si responde») sigue con sus dos filas, sin la salida al pie', () => {
+test('⚠️ el CRON de un flujo CON «Si responde» ya no tiene esa fila: su salida va al pie, como todos (punto 12)', () => {
+  // Segunda pasada de la sexta tanda: «Si responde» es la CONDITION que escucha, sin flecha de entrada.
+  // Hasta acá un flujo de antes dibujaba el CRON con dos filas («Al entrar» y «Si responde»).
   const pasos: PasoParaGrafo[] = [msg('m1'), { id: 'r', nodo: 'respuesta', casos: [], si_no: null, canal: 'whatsapp', delay_horas: 0, cuerpo: '' }];
-  const e = nodo(grafoDeSecuencia(pasos, { disparador: 'X' }), ID_ENTRADA);
-  assert.equal(e.salidaAlPie, undefined);
-  assert.deepEqual(e.puertos!.map((p) => p.rotulo), ['Al entrar', 'Si responde']);
+  const g = grafoDeSecuencia(pasos, { disparador: 'X' });
+  const e = nodo(g, ID_ENTRADA);
+  assert.equal(e.salidaAlPie, true);
+  assert.deepEqual(e.puertos!.map((p) => p.id), ['sig'], 'volvió la fila «Si responde» al CRON');
+  assert.equal(g.aristas.some((a) => a.hasta === 'r'), false, 'volvió la flecha del CRON a la que escucha');
   void ID_INICIO;
 });

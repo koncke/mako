@@ -189,17 +189,20 @@ export function seccionesDelFiltro(filas: readonly FilaFiltrable[], valores: rea
   for (const x of filas) if (x.emoji && !emojis.includes(x.emoji)) emojis.push(x.emoji);
   for (const e of f.emojis) if (!emojis.includes(e)) emojis.push(e);
 
+  // ÍCONOS EN CADA OPCIÓN (sexta tanda, general 10: «pon íconos en todos los desplegable, en todas las
+  // opciones»), por NOMBRE del set de la casa (app/_ui/iconos-menu.tsx). Un emoji no lleva ícono: el
+  // renglón ES el emoji.
   const opEmojis: DropdownOption[] = emojis.map((e) => ({ value: VALOR.emoji(e), label: `${e} · ${cuantas((x) => x.emoji === e)}` }));
   const opEstado: DropdownOption[] = [
-    { value: VALOR.activas, label: `Activas · ${cuantas((x) => x.activa === true)}` },
-    { value: VALOR.pausadas, label: `Pausadas · ${cuantas((x) => x.activa === false)}` },
+    { value: VALOR.activas, label: `Activas · ${cuantas((x) => x.activa === true)}`, icono: 'activar' },
+    { value: VALOR.pausadas, label: `Pausadas · ${cuantas((x) => x.activa === false)}`, icono: 'pausar' },
   ];
   const opCanal: DropdownOption[] = [
-    { value: VALOR.whatsapp, label: `WhatsApp · ${cuantas(conCanal('whatsapp'))}` },
-    { value: VALOR.email, label: `Email · ${cuantas(conCanal('email'))}` },
+    { value: VALOR.whatsapp, label: `WhatsApp · ${cuantas(conCanal('whatsapp'))}`, icono: 'whatsapp' },
+    { value: VALOR.email, label: `Email · ${cuantas(conCanal('email'))}`, icono: 'email' },
     // La línea va ARRIBA de «A clientes»: separa «por dónde» de «a quién».
-    { value: VALOR.clientes, label: `A clientes · ${cuantas(conDestino('clientes'))}`, lineaArriba: true },
-    { value: VALOR.mako, label: `Al WhatsApp de MaKo · ${cuantas(conDestino('mako'))}` },
+    { value: VALOR.clientes, label: `A clientes · ${cuantas(conDestino('clientes'))}`, lineaArriba: true, icono: 'cliente' },
+    { value: VALOR.mako, label: `Al WhatsApp de MaKo · ${cuantas(conDestino('mako'))}`, icono: 'mako' },
   ];
 
   const ROTULO: Record<string, string> = {
@@ -218,8 +221,8 @@ export function seccionesDelFiltro(filas: readonly FilaFiltrable[], valores: rea
   const activo = (ops: DropdownOption[]) => ops.some((o) => valores.includes(o.value));
 
   return [
-    { title: SECCION.emojis, options: opEmojis, resumen: resumen(opEmojis, 'Todos', true), activo: activo(opEmojis) },
-    { title: SECCION.estado, options: opEstado, resumen: resumen(opEstado, 'Todas'), activo: activo(opEstado) },
-    { title: SECCION.canal, options: opCanal, resumen: resumen(opCanal, 'Todos'), activo: activo(opCanal) },
+    { title: SECCION.emojis, icono: 'emoji', options: opEmojis, resumen: resumen(opEmojis, 'Todos', true), activo: activo(opEmojis) },
+    { title: SECCION.estado, icono: 'activar', options: opEstado, resumen: resumen(opEstado, 'Todas'), activo: activo(opEstado) },
+    { title: SECCION.canal, icono: 'enviar', options: opCanal, resumen: resumen(opCanal, 'Todos'), activo: activo(opCanal) },
   ];
 }

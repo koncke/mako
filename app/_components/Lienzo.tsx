@@ -60,7 +60,8 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, ty
 import { createPortal } from 'react-dom';
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
 import { MakoLogo } from './MakoBrand';
-import { Icon } from './icons';
+// La papelera de la casa, roja siempre (sexta tanda, general 9): UNA definición para toda la app.
+import { IconoBorrar, BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { Dropdown, IconoOpcion, type DropdownOption } from '../components/Dropdown';
 import {
   curvaEntre, curvaPuntos, medioDeCurva, puntoDeCurva, tDePildora, posicionDePildora, puntoDeEntrada, puntoDePuerto, filaDePuerto,
@@ -494,7 +495,7 @@ export function Lienzo({
       x: e.clientX, y: e.clientY,
       items: flechas.map((a, k) => ({
         id: `quitar-${k}`, label: `Quitar la flecha a «${nombreNodo?.(a.hasta) ?? grafo.nodos.find((x) => x.id === a.hasta)?.titulo ?? 'esa tarjeta'}»`,
-        icono: <IconoBorrar />, peligro: true, onElegir: () => onQuitarFlecha(a),
+        icono: <IconoBorrar size={16} />, peligro: true, onElegir: () => onQuitarFlecha(a),
       })),
     });
   }
@@ -1028,7 +1029,7 @@ export function Lienzo({
                 {abierta && onQuitarFlecha && (
                   <button type="button" onClick={(e) => { e.stopPropagation(); onQuitarFlecha(a); setEnFlecha(null); }} disabled={agregarOcupado}
                     aria-label="Borrar esta flecha" title="Borrar esta flecha" data-quitar-flecha={i}
-                    style={{ ...estiloPapelera, width: 22, height: 22 }}><IconoBorrar tam={13} /></button>
+                    style={{ ...estiloPapelera, width: 22, height: 22 }}><IconoBorrar size={13} /></button>
                 )}
               </div>
             );
@@ -1226,7 +1227,7 @@ export function Lienzo({
                     {conPapelera && (
                       <button type="button" data-quitar-salida={`${n.id}:${p.id}`} onClick={(e) => quitarDeFila(e, flechas)} disabled={agregarOcupado}
                         aria-label={flechas.length === 1 ? 'Borrar esta flecha' : 'Borrar una flecha'} title={flechas.length === 1 ? 'Borrar esta flecha' : 'Borrar una flecha'}
-                        style={estiloPapelera}><IconoBorrar tam={13} /></button>
+                        style={estiloPapelera}><IconoBorrar size={13} /></button>
                     )}
                   </span>
                 );
@@ -1350,9 +1351,12 @@ export function Lienzo({
                   arriba se va del mensaje (y pregunta si publicar), éste sólo repliega
                   el panel de un nodo. Medido con Playwright: `getByLabel('Cerrar el
                   editor')` resolvía a DOS. */}
+              {/* La papelera de la casa, ROJA (sexta tanda, general 9: «Cambia el botón de BORRAR con ese
+                  ícono de basura que no se ve... Y que siempre el ícono de borrar sea rojo»). Hasta la
+                  segunda pasada era un 🗑 en `--faint`, el que más se ve del lienzo. */}
               {onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) && (
-                <button onClick={() => { const id = nodoSel.id; onSeleccion(null); onBorrar(id); }} aria-label="Borrar esta tarjeta" title="Borrar esta tarjeta"
-                  style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 14, cursor: 'pointer', padding: 0, lineHeight: 1 }}>🗑</button>
+                <BotonBorrar talla="sm" title="Borrar esta tarjeta" style={{ marginLeft: 'auto' }}
+                  onClick={() => { const id = nodoSel.id; onSeleccion(null); onBorrar(id); }} />
               )}
               <button onClick={() => onSeleccion(null)} aria-label="Cerrar este paso" title="Cerrar este paso"
                 style={{ marginLeft: onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) ? 0 : 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', padding: 0 }}>✕</button>
@@ -1457,13 +1461,12 @@ function MenuFlotante({ x, y, items, onCerrar, etiqueta }: {
   );
 }
 
-/**
- * LA PAPELERA, SIEMPRE EN ROJO (sexta tanda, punto 9: «busca un ícono más reconocible... Y que siempre
- * el ícono de borrar sea rojo»): el `trash` de la casa (app/_components/icons.tsx), en `--bad`.
+/*
+ * (Acá vivía `IconoBorrar`, el `trash` de app/_components/icons.tsx pintado de rojo: el mismo dibujo que
+ * Martín pidió cambiar —sexta tanda, general 9: «ese ícono de basura que no se ve, no se entiende»—. Desde
+ * la segunda pasada la papelera del lienzo es la de la casa, UNA definición: `IconoBorrar` y
+ * `BotonBorrar` de app/_ui/BotonBorrar.tsx, rojos siempre.)
  */
-export function IconoBorrar({ tam = 16 }: { tam?: number }) {
-  return <span aria-hidden style={{ display: 'inline-flex', color: 'var(--bad)' }}><Icon name="trash" size={tam} /></span>;
-}
 
 /** El botón de la papelera de una flecha: chico, redondo, con el borde de la casa. */
 const estiloPapelera: CSSProperties = {

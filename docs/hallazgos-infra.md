@@ -5152,3 +5152,26 @@ cuenta de errores. Un `grep -c` sobre la salida de algo que pudo cortarse no es 
 escrituras y, al terminar, verifica el árbol con un grep de cada rotura; y con otras sesiones vivas,
 antes de restaurar compara el archivo contra la versión rota (si otro lo tocó en el medio, deshace
 sólo la rotura). · *2026-10-08 Customer Success*
+
+## El bloque de trailers es un PÁRRAFO propio: pegado a la prosa, `%(trailers)` contesta vacío (09/10/2026)
+
+**Síntoma:** dos commits de la sexta tanda (parte «flujo» de /chatbot) salieron con `Claude-Cuenta:
+claude2` y `Co-Authored-By:` pegados entre sí, como manda AGENTS.md, y `git log
+--format='%(trailers:key=Claude-Cuenta,valueonly)'` devolvía VACÍO. Leído a ojo, el mensaje estaba bien.
+
+**Causa:** git toma como trailers sólo el ÚLTIMO PÁRRAFO del mensaje, y sólo si es todo trailers. El
+mensaje terminaba en «…se mudan.» y en la línea siguiente `Claude-Cuenta:`, sin línea en blanco: el
+párrafo era prosa con dos líneas al final, y git no lo reconoce. AGENTS.md dice que NO va línea en blanco
+ENTRE los dos trailers; lo que faltaba decir es que SÍ va una ANTES del bloque.
+
+**Regla:** `texto` · línea en blanco · `Claude-Cuenta:` · `Co-Authored-By:` (pegados). Y se verifica con
+`%(trailers:key=Claude-Cuenta,valueonly)`, no leyendo el mensaje. En una rama propia y sin pushear se
+arregla sin `rebase -i`: `git filter-branch --msg-filter '<script que agrega la línea>' <base>..HEAD`, y
+después `git update-ref -d refs/original/refs/heads/<rama>`.
+
+**Y dos del worktree aislado de una corrida:** la herramienta Write escribe LF en un árbol que es CRLF
+(se pasa el archivo entero a CRLF con un script, nunca a mano), y el aislamiento rechaza todo comando con
+un argumento calculado (`$(...)`, una variable en el bucle): lo que haga falta se escribe en un script
+del scratchpad y se corre `node <script>` con rutas literales.
+
+**Vive en:** el mensaje de cada commit · *2026-10-09 /chatbot, sexta tanda, segunda pasada*

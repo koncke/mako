@@ -9,6 +9,9 @@
 //   · «✦ MaKo» al lado del título del panel: sin `accionesTitulo` seguía en la fila de arriba;
 //   · la tarjeta: dibujaba la transcripción del audio y sólo la primera parte de un mensaje.
 //
+// PROBADO ROMPIÉNDOLO. Sexta tanda, segunda pasada (09/10/2026, parte «flujo»; base en verde 7 / 0), restaurada DE MEMORIA. Pasan / fallan:
+//   S1. `onLinea` vuelve con el cast (`as Partial<PasoGrafo>`)                  -> 6 / 1
+//
 // Correr: node --import tsx --test tests/chatbot-enchufes.test.ts
 // Probado rompiéndolo (09/10/2026, base 7/0): ver el pie del archivo.
 // =============================================================================
@@ -69,7 +72,9 @@ test('el número de salida viaja de SecuenciaPerfil al editor de WhatsApp', () =
   // la automatización llega a la cabecera como lo que se ve cuando la tarjeta no eligió otra.
   const cabecera = bloque(FLUJO, 'tituloEditor={cabeceraDe(', '\n    />', 1_500);
   assert.match(cabecera, /<CabeceraWhatsApp paso=\{paso\} lineaAutomatizacion=\{linea\?\.actual \?\? null\}/, 'la cabecera no recibe la línea de la automatización');
-  assert.match(cabecera, /cambiarNodo\(prev, n\.id, conLinea as Partial<PasoSecuenciaDto>\), true\)/, 'elegir el número de un mensaje no se guarda en ESE paso (o no se puede deshacer)');
+  // Segunda pasada: `linea` es un campo del paso (`PasoSecuenciaDto`), sin el cast de antes (`conLinea`).
+  assert.match(cabecera, /onLinea=\{\(l\) => onPasos\(\(prev\) => cambiarNodo\(prev, n\.id, \{ linea: l \}\), true\)\}/, 'elegir el número de un mensaje no se guarda en ESE paso (o no se puede deshacer)');
+  assert.doesNotMatch(cabecera, /conLinea|as Partial</, 'volvió el cast de la línea');
   assert.match(FLUJO, /editorEntrada=\{editorEntrada\} formaPanel=\{formaPanel\} linea=\{linea\}/, 'EditorDeNodo no la pasa');
 });
 

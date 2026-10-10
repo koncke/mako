@@ -23,6 +23,9 @@
 // PROBADO ROMPIÉNDOLO (09/10/2026), una rotura por vez y restaurada DE MEMORIA (arnés en el
 // scratchpad, nunca `git checkout`). Con todo puesto: ver el pie del archivo.
 //
+// Sexta tanda, segunda pasada (09/10/2026, parte «flujo»; base en verde 13 / 0). Pasan / fallan:
+//   S1. vuelve un cascarón exportado (`sinPrecision`)                           -> 12 / 1
+//
 // Correr: npx tsx --test tests/espera-duracion.test.ts
 // =============================================================================
 
@@ -31,7 +34,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   UNIDADES_ESPERA, SEGUNDOS_DE, rotuloUnidad, segundosDeMinutos, minutosDeSegundos, unidadDe, unidadMostrada,
-  textoDuracion, esperaEnLaCorrida, sinPrecision, avisoDePrecision, desdeFresco,
+  textoDuracion, esperaEnLaCorrida, desdeFresco,
   ESPERA_EN_CORRIDA_MAX_S, ESPERA_CORRIDA_HASTA_MS, CADENCIA_MOTOR_MIN, VENTANA_FRESCA_MIN,
 } from '../lib/espera-duracion';
 import { camposDelFlujo, resolverControl } from '../lib/nutricion-grafo-motor';
@@ -177,13 +180,13 @@ test('⚠️ adentro de la corrida: hasta 120 s, antes del tope que dio la ruta,
 
 test('⛔ ya no hay nada que avisar: ninguna espera dibuja «Sigue a la hora en punto» (sexta tanda)', () => {
   // Martín (09/10/2026): «No entiendo el texto "Sigue a la hora en punto", eso no tiene sentido,
-  // eliminalo». Con el tick de cada minuto la espera dura lo que dice. Los dos cascarones existen
-  // sólo porque el editor del DELAY (de otra parte de la tanda) todavía los importa: con `false` y
-  // vacío, el aviso no se dibuja para ninguna duración.
-  for (const s of [10, 120, 121, 5 * 60, 2 * 3600, 86400, 7 * 86400]) assert.equal(sinPrecision(s), false, `${s} s avisa`);
-  for (const off of [360, 180, -120, -330, 0]) assert.equal(avisoDePrecision(off), '', 'el aviso volvió a decir algo');
+  // eliminalo». Con el tick de cada minuto la espera dura lo que dice. Segunda pasada: los dos
+  // cascarones que quedaban (`sinPrecision`, `avisoDePrecision`) se fueron, y nadie los importa.
+  const mod = sinComentarios(leer('lib/espera-duracion.ts'));
+  assert.doesNotMatch(mod, /export function (sinPrecision|avisoDePrecision)\b/, 'volvió un cascarón del aviso');
+  assert.doesNotMatch(sinComentarios(leer('app/chatbot/FlujoLienzo.tsx')), /sinPrecision|avisoDePrecision/, 'el editor del DELAY volvió a importar el aviso');
   // Y el texto no vive en el código del módulo (en los comentarios sí: es el porqué).
-  assert.doesNotMatch(sinComentarios(leer('lib/espera-duracion.ts')), /hora en punto/i);
+  assert.doesNotMatch(mod, /hora en punto/i);
 });
 
 /** Las horas UTC en que corre un schedule de cron (el segundo campo). `null` = no se sabe contar. */

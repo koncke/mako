@@ -15,6 +15,10 @@
 //        { action:'duplicar', secuenciaId }               → { secuenciaId, nombre } (la copia nace PAUSADA)
 //        { action:'posiciones', secuenciaId, posiciones } → dónde quedó cada tarjeta del lienzo (mig 0233)
 //                                                          → { ok, posiciones } | { ok:false, sinColumna }
+//        { action:'borrador', secuenciaId, pasos }        → lo que el lienzo tiene SIN publicar (mig 0240)
+//                                                          → { ok, guardado_at } | { ok:false, sinColumna }
+//                                                            (400 si rompe el dato: `validarParaGuardar`)
+//        { action:'descartar-borrador', secuenciaId }     → lo borra (al publicar) → { ok } | { ok:false, sinColumna }
 //        { action:'disparadores', secuenciaId, disparadores: Disparador[] }
 //                                                          → los CRON de la automatización, la lista
 //                                                            entera (mig 0241) → { ok, disparadores }
@@ -53,6 +57,8 @@ import { envioWhatsappHabilitadoEstricto } from '@/lib/envio-flags';
 import { duplicarSecuencia, type DbDuplicar } from '@/lib/secuencia-duplicar';
 import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 import { guardarPosicionesSecuencia, type DbPosiciones } from '@/lib/secuencia-posiciones';
+// El BORRADOR del lienzo (sexta tanda, mig 0240): lo que no se puede publicar todavía, en su columna.
+import { guardarBorradorSecuencia, descartarBorradorSecuencia, type DbBorrador } from '@/lib/secuencia-borrador';
 // VARIOS CRON (sexta tanda, mig 0241): guardar la lista y saber qué canales se pueden ofrecer.
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
 import { estadoCanalesDisparo } from '@/lib/disparadores-canales';
@@ -176,7 +182,7 @@ export async function POST(req: NextRequest) {
     action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown;
     handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown; cron?: unknown;
     id?: unknown; trigger_tipo?: unknown; producto_id?: unknown; funnel_id?: unknown; etiqueta_id?: unknown;
-    emoji?: unknown; etapas?: unknown[]; posiciones?: unknown; disparadores?: unknown;
+    emoji?: unknown; etapas?: unknown[]; posiciones?: unknown; disparadores?: unknown; pasos?: unknown;
   };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -263,6 +269,27 @@ export async function POST(req: NextRequest) {
       const r = await guardarPosicionesSecuencia((await getTenantDb()) as unknown as DbPosiciones, id, body.posiciones);
       if (r.ok) return Response.json({ ok: true, posiciones: r.posiciones });
       if (r.motivo === 'sin_columna') return Response.json({ ok: false, sinColumna: true });
+      return Response.json({ ok: false, error: 'Esa automatización no existe en este negocio.' }, { status: 404 });
+    }
+
+    /**
+     * EL BORRADOR DEL LIENZO (mig 0240, sexta tanda, punto 7: «Que se elimine una flecha no significa
+     * que se elimine la tarjeta posterior, sino que queda "flotando"»): lo que está a medio armar, que
+     * no se puede publicar. Su PROPIA acción, como las posiciones: no pasa por Publicar ni por
+     * `setSecuenciaPasos`, y el motor no lo lee nunca (lib/secuencia-borrador.ts). Valida sólo lo que
+     * rompe el dato (`validarParaGuardar`): lo incompleto se guarda. La columna que falta contesta
+     * `sinColumna` (200: no es un error de la persona) y la pantalla deja de mandar.
+     */
+    if (body.action === 'borrador' || body.action === 'descartar-borrador') {
+      const id = Number(body.secuenciaId);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
+      const db = (await getTenantDb()) as unknown as DbBorrador;
+      const r = body.action === 'borrador'
+        ? await guardarBorradorSecuencia(db, id, body.pasos)
+        : await descartarBorradorSecuencia(db, id);
+      if (r.ok) return Response.json({ ok: true, ...('guardado_at' in r ? { guardado_at: r.guardado_at } : {}) });
+      if (r.motivo === 'sin_columna') return Response.json({ ok: false, sinColumna: true });
+      if (r.motivo === 'invalido') return Response.json({ ok: false, error: r.error ?? 'Borrador inválido.' }, { status: 400 });
       return Response.json({ ok: false, error: 'Esa automatización no existe en este negocio.' }, { status: 404 });
     }
 

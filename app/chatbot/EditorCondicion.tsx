@@ -44,6 +44,7 @@ import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } fro
 import { Dropdown, type DropdownGroup, type DropdownOption } from '../components/Dropdown';
 import { SelectorEtiqueta } from '@/app/_components/etiquetas-cliente';
 import { inpLienzo, botonGrande } from '@/app/_components/Lienzo';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { TOPE_FILAS, TOPE_CASOS, ROTULO_RESPUESTA, unionDe, type FilaCondicion, type RamaCondicion, type CasoRespuesta } from '@/lib/flujo-grafo';
 import {
   condicionPorId, seccionesDeCondiciones, arbolDeOpciones, esArbol, filaNueva, deValorOpcion, valorOpcion, problemaDeFila,
@@ -350,12 +351,13 @@ function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar }: {
   );
 }
 
-/** La ✕ de una fila. */
+/**
+ * QUITAR UNA FILA (una condición, un caso): la papelera de la casa, ROJA (sexta tanda, general 9: «Cambia
+ * el botón de BORRAR con ese ícono... Esto en TODOS lados. Y que siempre el ícono de borrar sea rojo»).
+ * Hasta la segunda pasada era una ✕ gris, que se lee como «cerrar» y no como «borrar esta fila».
+ */
 function BotonQuitar({ onClick, disabled, aria }: { onClick: () => void; disabled: boolean; aria: string }) {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} title="Quitar" aria-label={aria}
-      style={{ flex: 'none', background: 'none', border: 'none', color: 'var(--faint)', cursor: disabled ? 'default' : 'pointer', fontSize: 14, padding: '6px 4px' }}>✕</button>
-  );
+  return <BotonBorrar talla="sm" onClick={onClick} disabled={disabled} title={aria} />;
 }
 
 /** Saca una clave de la fila (para volver a «cualquiera»): ausente, no vacía. */

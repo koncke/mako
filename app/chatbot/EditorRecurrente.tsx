@@ -115,8 +115,10 @@ export function EditorRecurrente({ cron, tzNegocio, disabled, onCron, aQuien }: 
           <input type="number" min={1} max={CADA_MAX} value={cron.cada} disabled={disabled} aria-label={`Cada cuántos ${unidad.plural}`}
             onChange={(e) => { const n = Math.floor(Number(e.target.value)); if (Number.isFinite(n) && n >= 1 && n <= CADA_MAX) set({ cada: n }); }}
             style={num} />
+          {/* Un ícono por opción (sexta tanda, general 10), del set de la casa: el reloj para las horas,
+              el calendario para lo demás (como las unidades del DELAY). */}
           <Dropdown value={cron.unidad} ariaLabel="Cada qué se repite" buttonStyle={btnCampo} disabled={disabled}
-            options={UNIDADES.map((u) => ({ value: u.key, label: cron.cada === 1 ? u.label : u.plural }))}
+            options={UNIDADES.map((u) => ({ value: u.key, label: cron.cada === 1 ? u.label : u.plural, icono: u.key === 'hora' ? 'reloj' : 'calendario' }))}
             onChange={(v) => cambiarUnidad(v as UnidadCron)} />
         </div>
       </div>

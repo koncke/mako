@@ -28,10 +28,11 @@ import { disparoActualDe, iconoDeDisparador } from '@/lib/disparadores';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
 import { usePosicionesLienzo } from './usePosicionesLienzo';
+import { useBorradorSecuencia } from './useBorradorSecuencia';
 import { Dropdown } from '@/app/components/Dropdown';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
-import type { CanalProbar } from './PanelProbar';
+import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
 import { useFaltanEnAcciones } from '@/app/_components/EditorAccionMako';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { franjaIA, CAJA_IA_ANCHO, BARRA_IA_ANCHO, RESERVA_ABAJO_CREAR } from '@/lib/crear-ia-lugar';
@@ -41,9 +42,9 @@ import { normalizar, esNodoMensaje } from '@/lib/flujo-grafo';
 import { eliminar } from '@/lib/flujo-edicion';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import type { Muelles } from '@/lib/lienzo-grafo';
-import { legadoAGrafo, esFlujoExplicito } from '@/lib/flujo-legado';
+import { abrirFlujo } from '@/lib/flujo-legado';
 import {
-  insertarDesdeLienzo, crearRespuesta, renumerar, errorLegible, tarjetaDelError, estrategiaConLimpieza,
+  insertarDesdeLienzo, renumerar, errorLegible, tarjetaDelError, estrategiaConLimpieza,
   disparoDeValor, canalesParaProbar, frenoDelFlujo,
   type QueAgregar,
 } from '@/lib/flujo-conversacion';
@@ -180,28 +181,59 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * (el tope de antigüedad al inscribir, por ejemplo), y limpiarlo lo apagaría en silencio.
    * Tener ids NO es ser un flujo: una lista de antes que pasó por `setSecuenciaPasos` los
    * tiene (`o<i>`) y sigue siendo una lista que se convierte.
+   *
+   * ⚠️ SEXTA TANDA, SEGUNDA PASADA: ABRE CON `abrirFlujo` (lib/flujo-legado.ts), que hace las dos
+   * cosas: la lista de antes convertida (`legadoAGrafo`; un flujo, tal cual) y SIN «Ir a» (`quitarIrA`,
+   * punto 12: «"Go to" desaparece directamente»: a una tarjeta de acá, una flecha; a otra
+   * automatización, se saca). Y la estrategia se limpia SÓLO si se convirtió una lista de antes
+   * (`limpiarEstrategia`): sacar un «Ir a» de un flujo de tarjetas no toca la estrategia, y limpiarla
+   * apagaría lo que el motor todavía hace por su lado (el tope de antigüedad al inscribir, por ejemplo).
+   *
+   * ⚠️ Y SI HAY UN BORRADOR (`secuencia.borrador`, mig 0240), se abre ESE: lo que la persona dejó a
+   * medio armar sobre lo publicado de hoy (lib/secuencia-borrador.ts, `borradorVigente`).
    */
   const [inicial] = useState(() => {
     const ordenados = [...secuencia.pasos].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
-    const yaEsFlujo = esFlujoExplicito(ordenados);
-    const r = yaEsFlujo
-      ? { pasos: normalizar(ordenados), notas: [] as string[], convertida: false }
-      : legadoAGrafo(ordenados, est, { idDeClave: (clave) => secuencias.find((s) => s.clave === clave)?.id ?? null });
-    return { ...r, pasos: renumerar(r.pasos), publicado: JSON.stringify(renumerar(normalizar(ordenados))) };
+    const r = abrirFlujo(ordenados, est, {
+      idDeClave: (clave) => secuencias.find((s) => s.clave === clave)?.id ?? null,
+      nombreDeSecuencia: (id) => secuencias.find((s) => s.id === id)?.nombre ?? null,
+    });
+    const borrador = secuencia.borrador?.pasos?.length ? renumerar(normalizar(secuencia.borrador.pasos)) : null;
+    return { ...r, pasos: borrador ?? renumerar(r.pasos), publicado: JSON.stringify(renumerar(normalizar(ordenados))) };
   });
   const [pasos, setPasos] = useState<PasoSecuenciaDto[]>(inicial.pasos);
   const [convertida, setConvertida] = useState(inicial.convertida);
+  /** Publicar limpia la estrategia sólo si se convirtió una lista de antes (ver arriba). */
+  const [limpiar, setLimpiar] = useState(inicial.limpiarEstrategia);
   const [publicado, setPublicado] = useState(inicial.publicado);
   const sinPublicar = convertida || JSON.stringify(pasos) !== publicado;
 
   /**
    * LO QUE LA PERSONA CAMBIÓ Y NO PUBLICÓ (decisión 15): el flujo de ahora contra el que vio al
-   * abrir o al publicar por última vez. NO es `sinPublicar`: una secuencia de antes abre
+   * abrir, al publicar por última vez o el último que quedó guardado como BORRADOR (segunda pasada de
+   * la sexta tanda: guardado, salir no pierde nada). NO es `sinPublicar`: una secuencia de antes abre
    * CONVERTIDA (el lienzo la muestra en tarjetas) y eso dice «Sin publicar» sin que nadie haya
    * tocado nada. Preguntar «Tienes cambios sin publicar» ahí sería afirmar algo falso, y salir no
    * pierde nada: la conversión se vuelve a hacer al abrirla.
    */
   const [visto, setVisto] = useState(() => JSON.stringify(inicial.pasos));
+
+  /**
+   * EL BORRADOR (sexta tanda, punto 7; mig 0240, lib/secuencia-borrador.ts): cada cambio del flujo se
+   * guarda solo, con un respiro, en su propia columna —nunca en `pasos`: el motor no lo lee, así una
+   * tarjeta suelta no corre—. Sólo si el GET lo pudo leer (`secuencia.borrador` presente, aunque sea
+   * null): si no, guardarlo pisaría uno que la pantalla no vio. Lo guardado pasa a ser lo «visto»:
+   * desde ahí salir no pierde nada, y la tab deja de preguntar.
+   */
+  const borrador = useBorradorSecuencia(secuencia.id, {
+    puedeGuardar: rolAdmin && secuencia.borrador !== undefined,
+    inicial: inicial.pasos,
+    onGuardado: (json) => setVisto(json),
+    onError: (m) => setErr(m),
+  });
+  // `borrador` lee refs: lo único que cambia algo es el flujo.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { borrador.cambio(pasos); }, [pasos]);
 
   /**
    * «CREAR CON IA» (punto 11, decisión 14). Crear ya GUARDÓ la automatización (pausada) en el server:
@@ -325,6 +357,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       setPublicado(guardado);
       setVisto(JSON.stringify(nuevos));
       setConvertida(false);
+      setLimpiar(false);
+      // Ya lo guardó el server (publicado y pausado): no es un borrador.
+      borrador.yaGuardado(nuevos);
       if (r.nombre) setNombre(r.nombre);
       // El disparador que quedó puesto (revisión, 09/10/2026): `disparo` se siembra al montar, y sin
       // esto la tarjeta CRON seguía diciendo el de antes («manual») hasta recargar.
@@ -387,11 +422,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     fotoAntes();
     setPasos(renumerar(r.pasos));
   };
-  const nuevaRespuesta = (): string | null => {
-    const r = crearRespuesta(pasos);
-    if (r.pasos.length !== pasos.length) { fotoAntes(); setPasos(r.pasos); }
-    return r.id;
-  };
+  // (Acá vivía `nuevaRespuesta`, el ＋ de la fila «Si responde» del CRON. Se fue con la fila: «Si
+  // responde» nace de una CONDITION vacía, en su editor.)
 
   /**
    * ⚠️ UN ERROR QUE FRENA PUBLICAR ABRE LA TARJETA CULPABLE (revisión, lienzo-6). El texto
@@ -439,7 +471,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     } catch { setErr('Sin conexión — prueba de nuevo.'); setBusy(null); return; }
     setPublicado(JSON.stringify(pasos));
     setVisto(JSON.stringify(pasos));
-    if (convertida) {
+    // Lo publicado ya no es un borrador: se borra (sin esto tampoco se abriría: cambió la base).
+    borrador.descartar();
+    borrador.yaGuardado(pasos);
+    // ⚠️ LA ESTRATEGIA SE LIMPIA SÓLO SI SE CONVIRTIÓ UNA LISTA DE ANTES (`limpiar`, de `abrirFlujo`).
+    // Un flujo al que sólo se le sacó un «Ir a» también abre «convertido», y limpiarle la estrategia
+    // apagaba lo que el motor todavía hace por su lado.
+    if (convertida && limpiar) {
       // ⚠️ SIN ESTRATEGIA NO SE MANDA NADA (revisión, lienzo-8): `estrategiaConLimpieza(null)`
       // es null, y antes inventaba `{ objetivo: 'agendar', … }` donde no había nada.
       const limpia = estrategiaConLimpieza(est);
@@ -447,8 +485,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         const r = await api({ action: 'guardar-estrategia', secuenciaId: secuencia.id, estrategia: limpia });
         if (!r.ok) { setErr('Faltó limpiar lo de antes: publica otra vez.'); setBusy(null); onCambio(); return; }
       }
-      setConvertida(false);
     }
+    setConvertida(false);
+    setLimpiar(false);
     flashOk('Publicado ✓'); onCambio();
     setBusy(null);
   };
@@ -595,7 +634,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
 
   // ── Lo que lee «Probar» ──
   // Sin estrategia, «Probar» prueba sin estrategia: la limpieza de null es null (lienzo-8).
-  const estAPublicar = useMemo(() => (convertida ? ((estrategiaConLimpieza(est) ?? est) as unknown as SecuenciaDto['estrategia']) : est), [convertida, est]);
+  const estAPublicar = useMemo(() => (convertida && limpiar ? ((estrategiaConLimpieza(est) ?? est) as unknown as SecuenciaDto['estrategia']) : est), [convertida, limpiar, est]);
 
   /** Lo que «✦ guion» de una nota de voz necesita de la estrategia (revisión, costuras-4). */
   const paraGuion = useMemo(() => (est ? { objetivo: est.objetivo, gancho: est.gancho, preguntas: est.preguntas } : undefined), [est]);
@@ -676,7 +715,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         onPasos={onPasos}
         onAgregar={rolAdmin ? agregarEn : undefined}
         onBorrar={rolAdmin ? borrar : undefined}
-        onCrearRespuesta={rolAdmin ? nuevaRespuesta : undefined}
         onAudioNuevo={onAudioNuevo} onError={setErr}
         onModoIA={rolAdmin ? abrirGuiaSiFalta : undefined}
         insetIzq={insetIzq} insetDer={insetDer} muelles={muelles} revelar={revelarIA ?? revelar}
@@ -742,9 +780,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 {probarAbierto ? (
                   <button onClick={() => onCerrarProbar?.()} title="Cerrar la prueba" style={estiloProbar}>✕ Cerrar</button>
                 ) : canales.length > 1 ? (
+                  // Los canales que el flujo usa, con su logo (`CANALES_PROBAR`, el mismo lugar del que
+                  // lee el panel): WhatsApp, Email, Instagram y Messenger. Hasta la segunda pasada lo
+                  // que no era email se rotulaba y se probaba como WhatsApp.
                   <Dropdown value="" resetAfterSelect sinFlecha={false} botonLabel="▶ Probar" ariaLabel="Probar esta automatización"
-                    options={canales.map((c) => ({ value: c, label: c === 'email' ? 'Email' : 'WhatsApp' }))}
-                    buttonStyle={estiloProbar} onChange={(v) => v && probar(v === 'email' ? 'email' : 'whatsapp')} />
+                    options={canales.map((c) => ({ value: c, label: CANALES_PROBAR[c].nombre, icono: CANALES_PROBAR[c].logo }))}
+                    buttonStyle={estiloProbar} onChange={(v) => { if (v && v in CANALES_PROBAR) probar(v as CanalProbar); }} />
                 ) : (
                   <button onClick={() => probar(canales[0])} title="Probar esta automatización" style={estiloProbar}>▶ Probar</button>
                 )}
