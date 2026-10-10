@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MutableRefObject, type ReactNode } from 'react';
 import { ResumenView } from './ResumenView';
 import ErrorIA from '../_components/ErrorIA';
+import { IconoBorrar } from '../_ui/BotonBorrar';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -76,7 +77,7 @@ const Ico = ({ d, size = 15 }: { d: string; size?: number }) => (
 );
 const I_OJO = 'M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z|M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z';
 const I_BAJAR = 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4|M7 10l5 5 5-5|M12 15V3';
-const I_BORRAR = 'M3 6h18|M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6';
+// Borrar NO va acá: es el tacho de la casa (`IconoBorrar`, rojo siempre; sexta tanda, general 9).
 const I_SUBIR = 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4|M7 9l5-5 5 5|M12 4v12';
 
 // Desvanecido de arriba hacia abajo, UNA sola vez por `id` (no se repite al volver).
@@ -110,7 +111,7 @@ function DocAcciones({ id, confirm, onConfirm, onBorrar }: { id: string; confirm
     <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
       <a href={`/api/onboarding/archivero/download?id=${id}&preview=1`} target="_blank" rel="noopener noreferrer" title="Abrir" style={{ ...iconBtn, textDecoration: 'none' }}><Ico d={I_OJO} /></a>
       <a href={`/api/onboarding/archivero/download?id=${id}`} title="Descargar" style={{ ...iconBtn, textDecoration: 'none' }}><Ico d={I_BAJAR} /></a>
-      <button type="button" title="Borrar" onClick={() => (confirm ? onBorrar() : onConfirm())} style={{ ...iconBtn, color: confirm ? 'var(--bad)' : 'var(--dim)', borderColor: confirm ? 'var(--bad)' : 'var(--border-strong)' }}><Ico d={I_BORRAR} /></button>
+      <button type="button" title="Borrar" aria-label="Borrar este documento" onClick={() => (confirm ? onBorrar() : onConfirm())} style={{ ...iconBtn, color: 'var(--bad)', borderColor: confirm ? 'var(--bad)' : 'var(--border-strong)' }}><IconoBorrar size={15} /></button>
       {confirm && <span style={{ fontSize: 11, color: 'var(--bad)', fontWeight: 600 }}>¿Seguro?</span>}
     </div>
   );

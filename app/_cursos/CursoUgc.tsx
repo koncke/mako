@@ -46,6 +46,8 @@
  */
 
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
+import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { usePosicion, type Posicion } from '@/app/conocimientos/posicion';
 import { Miniatura } from '@/app/conocimientos/Miniatura';
 import { PortadaModulo } from '@/app/conocimientos/PortadaModulo';
@@ -772,7 +774,7 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
                         onAbrir={(a) => estructura.abrirOpciones({ tipo: 'clase', id: c.id }, a)} />
                     ) : (
                       <button type="button" className="ugc-editable-btn ugc-editable-btn--borrar" title="Borrar" aria-label="Borrar"
-                        disabled={edicion!.ocupado} onClick={() => edicion!.onBorrar(c.id)}>&times;</button>
+                        disabled={edicion!.ocupado} onClick={() => edicion!.onBorrar(c.id)}><IconoBorrar size={14} /></button>
                     )}
                   </div>
                 </div>
@@ -1046,8 +1048,11 @@ function MenuMarca({ id, etiqueta, ancla, onCerrar, children }: {
 }
 
 /** Un renglón del menú de la marca. Con `activo` va marcado (el producto que se está viendo). */
-export function ItemMenuUgc({ activo, onClick, children, title, disabled, peligro }: {
+export function ItemMenuUgc({ activo, onClick, children, title, disabled, peligro, icono }: {
   activo?: boolean; onClick: () => void; children: ReactNode; title?: string;
+  /** Uno del set de la casa (app/_ui/iconos-menu.tsx), antes del texto (sexta tanda, general 10). Lo que
+   *  nombra cada negocio (un producto, un módulo) no lleva: es un nombre, no una acción. */
+  icono?: NombreIconoMenu;
   /** Apagado se DIBUJA igual (con su `title` diciendo por qué): uno que desaparece no explica nada. */
   disabled?: boolean;
   /** Borrar: se tiñe al pasar el cursor. */
@@ -1056,6 +1061,7 @@ export function ItemMenuUgc({ activo, onClick, children, title, disabled, peligr
   return (
     <button type="button" className={`ugc-menu-item${activo ? ' on' : ''}${peligro ? ' ugc-menu-item--peligro' : ''}`} aria-current={activo || undefined}
       title={title} onClick={onClick} disabled={disabled || undefined}>
+      {icono && <IconoMenu nombre={icono} size={16} />}
       {children}
     </button>
   );

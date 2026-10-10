@@ -9,6 +9,7 @@
 // onboarding del cliente). Reusable desde Ads Analyst y desde el onboarding.
 
 import { useRef, useState, type CSSProperties } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -86,7 +87,7 @@ export function TaxonomyManager({ angles, avatares, onClose, onSaved, inline = f
               <input value={r.label} placeholder={placeholder} onChange={(e) => ops.update(r.uid, { label: e.target.value })} style={inp} />
               <input value={r.desc} placeholder="Cuándo aplica — guía para la IA (opcional)" onChange={(e) => ops.update(r.uid, { desc: e.target.value })} style={{ ...inp, fontSize: 12.5, color: 'var(--dim)' }} />
             </div>
-            <button onClick={() => ops.remove(r.uid)} aria-label="Borrar" style={{ width: 38, height: 38, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 15, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+            <button onClick={() => ops.remove(r.uid)} aria-label="Borrar" style={{ width: 38, height: 38, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 15, cursor: 'pointer', fontFamily: SANS, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><IconoBorrar size={17} /></button>
           </div>
         ))}
         <button onClick={ops.add} style={{ alignSelf: 'flex-start', padding: '8px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar</button>

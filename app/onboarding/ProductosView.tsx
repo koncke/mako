@@ -16,6 +16,7 @@
 // y el deal hereda su tipo de cobro, su precio y su plazo.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { WizardShell } from '../_components/WizardShell';
 
 const MONO = "'Geist Mono', monospace";
@@ -202,7 +203,7 @@ export function ProductosView({ onListo }: { onListo?: (listo: boolean) => void 
               <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '15px 17px', background: 'var(--surface)' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                   <Edit valor={p.nombre} ph="Nombre del producto" onSave={(v) => guardarCampo(p, { nombre: v })} style={{ fontSize: 16.5, fontWeight: 650, color: 'var(--ink)' }} />
-                  <button type="button" onClick={() => borrar(p.id)} aria-label={`Borrar ${p.nombre}`} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 2, flex: 'none' }}>×</button>
+                  <BotonBorrar talla="sm" onClick={() => borrar(p.id)} title={`Borrar ${p.nombre}`} />
                 </div>
 
                 {/* Tipo y precio: se tocan, no se escriben. */}

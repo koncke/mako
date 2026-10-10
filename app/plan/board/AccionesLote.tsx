@@ -1342,7 +1342,7 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
                    Y no se ofrece si no hay ninguna fecha que quitar: una opción que no puede
                    hacer nada se lee como que la app está rota. */
                 options={[
-                  { value: VALOR_ELEGIR_FECHA, label: 'Elegir fecha…', sub: subFecha },
+                  { value: VALOR_ELEGIR_FECHA, label: 'Elegir fecha…', sub: subFecha, icono: 'calendario' },
                   ...(hayFecha ? [{ value: VALOR_QUITAR_FECHA, label: 'Quitar deadline', sutil: true }] : []),
                 ]}
                 onChange={(v) => {

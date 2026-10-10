@@ -35,6 +35,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { Button, Modal, Alert } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { moverBorde, quitarTramo, partirTramo, inicios, enSegundo, mismoPlan } from './editor-cortes';
 import type { Plan } from './plan-montaje';
 import { PISTAS, hayMusica } from '@/lib/musica-catalogo';
@@ -513,7 +514,7 @@ export function EditorAnuncio({
                 onClick={() => quitar(sel)}
                 style={botonPista}
               >
-                <Icon name="trash" size={15} />Quitar este tramo
+                <IconoBorrar size={15} />Quitar este tramo
               </button>
             )}
             <div style={{

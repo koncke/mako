@@ -4226,14 +4226,13 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                 aparezca en «este Quarter» y no se caiga de todas las vistas. */}
             <div>
               <label style={rowLabel}>Quarter</label>
-              <select
-                value={t.quarter ?? ''}
-                onChange={(e) => board.setQuarter(t.id, e.target.value, t.quarter ?? '')}
-                style={selStyle}
-              >
-                <option value="">Sin asignar</option>
-                {quartersElegibles(hoyISO(), 8, t.quarter).map((q) => <option key={q.key} value={q.key}>{q.label}</option>)}
-              </select>
+              {/* El `Dropdown` de la casa y no un `<select>` nativo (sexta tanda, general 11: «la barra
+                  de búsqueda en todos los desplegables»): son nueve opciones y el buscador sale solo.
+                  Elegir el mismo no escribe: el nativo no disparaba `onChange` ahí, éste sí. */}
+              <Dropdown
+                value={t.quarter ?? ''} width="100%" ariaLabel="Quarter"
+                options={[{ value: '', label: 'Sin asignar' }, ...quartersElegibles(hoyISO(), 8, t.quarter).map((q) => ({ value: q.key, label: q.label }))]}
+                onChange={(v) => { if (v !== (t.quarter ?? '')) board.setQuarter(t.id, v, t.quarter ?? ''); }} />
               {/* ⚠️ AVISA, NO CORRIGE. Que el deadline caiga en otro trimestre que el
                   planificado puede ser un error de tipeo o una decisión (una entrega de Q3
                   que se planificó para Q2). Quien sabe cuál de las dos es, es la persona;
@@ -5785,10 +5784,10 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                 misma pregunta; dos moldes para lo mismo divergen a la primera. */}
             <div>
               <label style={rowLabel}>Quarter</label>
-              <select value={proj.quarter ?? ''} onChange={(e) => board.setLabelQuarter(proj.id, e.target.value)} style={selStyle}>
-                <option value="">Sin asignar</option>
-                {quartersElegibles(hoyISO(), 8, proj.quarter).map((q) => <option key={q.key} value={q.key}>{q.label}</option>)}
-              </select>
+              <Dropdown
+                value={proj.quarter ?? ''} width="100%" ariaLabel="Quarter del proyecto"
+                options={[{ value: '', label: 'Sin asignar' }, ...quartersElegibles(hoyISO(), 8, proj.quarter).map((q) => ({ value: q.key, label: q.label }))]}
+                onChange={(v) => { if (v !== (proj.quarter ?? '')) board.setLabelQuarter(proj.id, v); }} />
               {proj.quarter && proj.deadline && quarterDeFecha(proj.deadline) !== proj.quarter && (
                 <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 11.5, color: 'var(--warn, #B4762A)', lineHeight: 1.35, marginTop: 6 }}>
                   <WarnMark title="El Quarter y la fecha no coinciden" size={13} blink={false} />

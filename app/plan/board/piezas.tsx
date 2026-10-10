@@ -17,6 +17,7 @@ import type { BoardTask } from './types';
 // (El modulo NO lleva `server-only` a proposito, justamente para que lo pueda importar
 // un `'use client'` como éste.)
 import { ROTULO_RECURRENTE, esRecurrente } from '@/lib/plan-recurrentes';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -377,7 +378,13 @@ export function LineaDeadline({ iso, hoy, hecho = false, tam = 10.5, mono = true
  *
  * ⚠️ Quien lo use lleva `aria-label` Y `title`: un botón cuyo único contenido es un SVG no
  * tiene nombre accesible — el lector de pantalla anuncia «botón», a secas.
+ *
+ * ⚠️ DESDE LA SEXTA TANDA (09/10/2026) ES EL TACHO DE LA CASA, ROJO SIEMPRE. General 9, textual:
+ * «Cambia el botón de BORRAR con ese ícono de basura que no se ve, no se entiende… Esto en TODOS
+ * lados. Y que siempre el ícono de borrar sea rojo». Acá había un trazo propio en viewBox 16 que
+ * heredaba el gris del botón hasta el hover. Se queda el NOMBRE (lo montan la tarjeta, la fila, el
+ * detalle y la barra de lote del Plan) y el dibujo es `IconoBorrar` (app/_ui/BotonBorrar.tsx).
  */
 export function IconoTacho({ size = 15 }: { size?: number }) {
-  return <svg aria-hidden width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M2.6 4.2h10.8M6.4 4.2V2.9h3.2v1.3M4.3 4.2l.6 8.3a1 1 0 0 0 1 .9h4.2a1 1 0 0 0 1-.9l.6-8.3M6.6 6.7v4.3M9.4 6.7v4.3" /></svg>;
+  return <IconoBorrar size={size} />;
 }

@@ -49,6 +49,7 @@
 //    un campo pasa de una tarea a otra. Suelto (sin `arrastre`), arrastra en su propia lista.
 
 import { Fragment, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import type { Campo, Escala, PreguntaQuiz } from '@/lib/curso';
 import { MAX_ARCHIVOS, NOTA_MIN_DEFAULT, MAX_SEG_DEFAULT, TOPE_TEXTO_EJEMPLO, MAX_OPCIONES_QUIZ, TOPE_PREGUNTA, conTextoDeEjemplo } from '@/lib/curso';
 import { Button, IconButton, Input, Select, Checkbox } from '@/app/_ui';
@@ -221,7 +222,7 @@ export function EditorCampos({
                 <span className="ec-cab-acc">
                   <IconButton small title="Subir" disabled={deshabilitado || i === 0} onClick={() => onCampos(moverEnLista(campos, i, 'arriba'), 'movido')}>↑</IconButton>
                   <IconButton small title="Bajar" disabled={deshabilitado || i === campos.length - 1} onClick={() => onCampos(moverEnLista(campos, i, 'abajo'), 'movido')}>↓</IconButton>
-                  <IconButton small danger title="Borrar campo" disabled={deshabilitado} onClick={() => onCampos(campos.filter((_, j) => j !== i), 'borrado')}>✕</IconButton>
+                  <IconButton small danger title="Borrar campo" disabled={deshabilitado} onClick={() => onCampos(campos.filter((_, j) => j !== i), 'borrado')}><IconoBorrar size={15} /></IconButton>
                 </span>
               </div>
 
@@ -568,7 +569,7 @@ function EditorQuiz({ campo, deshabilitado, onCambio }: {
               <input className="ec-preg-in" value={p.texto} placeholder="La pregunta del quiz" aria-label={`Pregunta ${j + 1} del quiz`} disabled={deshabilitado}
                 onChange={(e) => setP(j, { texto: e.target.value })} />
               <IconButton small danger title="Quitar pregunta" disabled={deshabilitado || ps.length === 1}
-                onClick={() => onCambio({ preguntas: ps.filter((_, k) => k !== j) }, tieneContenido(p) ? 'pregunta' : undefined)}>✕</IconButton>
+                onClick={() => onCambio({ preguntas: ps.filter((_, k) => k !== j) }, tieneContenido(p) ? 'pregunta' : undefined)}><IconoBorrar size={15} /></IconButton>
             </div>
             <ListaDeOpciones filas={p.opciones} marca={multiple ? 'casilla' : 'circulo'} etiqueta="Opción" tope={MAX_OPCIONES_QUIZ}
               deshabilitado={deshabilitado} nombre={`Opciones de la pregunta ${j + 1}`}

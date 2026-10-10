@@ -185,9 +185,9 @@ export function EquipoView() {
                 ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
                 buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
                 options={[
-                  { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
-                  { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender' },
-                  { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
+                  { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso', icono: 'enviar' },
+                  { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender', icono: u.estado === 'suspendido' ? 'activar' : 'pausar' },
+                  { value: 'eliminar', label: 'Eliminar…', icono: 'borrar' },
                 ]}
                 onChange={(v) => {
                   if (v === 'reinvitar') reenviar(u);

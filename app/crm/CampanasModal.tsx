@@ -278,8 +278,8 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
   // ── Dibujo ───────────────────────────────────────────────────────────────
   const opcionesEstado: DropdownOption[] = [
     { value: '', label: 'Todos los estados' },
-    { value: 'ACTIVE', label: 'Activas' },
-    { value: 'otra', label: 'No activas' },
+    { value: 'ACTIVE', label: 'Activas', icono: 'activar' },
+    { value: 'otra', label: 'No activas', icono: 'pausar' },
   ];
   const opcionesAsig: DropdownOption[] = [
     { value: '', label: 'Todos los productos' },

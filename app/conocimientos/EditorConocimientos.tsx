@@ -175,7 +175,7 @@ export default function EditorConocimientos({ curso, filas: iniciales, onFilas, 
   };
   const menuMarca = (cerrar: () => void) => (
     <>
-      <ItemMenuUgc onClick={() => { cerrar(); onSalir(); }}>Todos los cursos</ItemMenuUgc>
+      <ItemMenuUgc icono="curso" onClick={() => { cerrar(); onSalir(); }}>Todos los cursos</ItemMenuUgc>
       <div className="ugc-menu-sep" />
       <TituloMenuUgc>Color del curso</TituloMenuUgc>
       <div className="ugc-swatches">
@@ -208,15 +208,15 @@ export default function EditorConocimientos({ curso, filas: iniciales, onFilas, 
     const despues = correrA(i + 1);
     return (
       <>
-        {ctl.renombrar && <ItemMenuUgc onClick={ctl.renombrar}>Renombrar</ItemMenuUgc>}
+        {ctl.renombrar && <ItemMenuUgc icono="renombrar" onClick={ctl.renombrar}>Renombrar</ItemMenuUgc>}
         {ma.nombre !== ma.key && (
-          <ItemMenuUgc title={ma.key} onClick={() => { ctl.cerrar(); void guardar(que.modulo(ma.key, 'nombre'), null); }}>Nombre original</ItemMenuUgc>
+          <ItemMenuUgc icono="restaurar" title={ma.key} onClick={() => { ctl.cerrar(); void guardar(que.modulo(ma.key, 'nombre'), null); }}>Nombre original</ItemMenuUgc>
         )}
-        <ItemMenuUgc onClick={() => { const a = ctl.ancla; ctl.cerrar(); if (a) abrirPortada({ tipo: 'modulo', key: ma.key }, a); }}>Portada</ItemMenuUgc>
-        <ItemMenuUgc disabled={!antes} onClick={() => { ctl.cerrar(); antes?.(); }}>Mover antes</ItemMenuUgc>
-        <ItemMenuUgc disabled={!despues} onClick={() => { ctl.cerrar(); despues?.(); }}>Mover después</ItemMenuUgc>
+        <ItemMenuUgc icono="imagen" onClick={() => { const a = ctl.ancla; ctl.cerrar(); if (a) abrirPortada({ tipo: 'modulo', key: ma.key }, a); }}>Portada</ItemMenuUgc>
+        <ItemMenuUgc icono="arriba" disabled={!antes} onClick={() => { ctl.cerrar(); antes?.(); }}>Mover antes</ItemMenuUgc>
+        <ItemMenuUgc icono="abajo" disabled={!despues} onClick={() => { ctl.cerrar(); despues?.(); }}>Mover después</ItemMenuUgc>
         <div className="ugc-menu-sep" />
-        <ItemMenuUgc onClick={() => { ctl.cerrar(); void guardar(que.modulo(ma.key, 'oculto'), ma.oculto ? null : '1'); }}>
+        <ItemMenuUgc icono={ma.oculto ? 'ver' : 'ocultar'} onClick={() => { ctl.cerrar(); void guardar(que.modulo(ma.key, 'oculto'), ma.oculto ? null : '1'); }}>
           {ma.oculto ? 'Mostrar' : 'Ocultar'}
         </ItemMenuUgc>
         {/* La consecuencia, ANTES del clic y pegada al control. */}
@@ -234,9 +234,9 @@ export default function EditorConocimientos({ curso, filas: iniciales, onFilas, 
     const porSuModulo = c.oculta && !c.ocultaPropia;
     return (
       <>
-        <ItemMenuUgc onClick={() => { const a = ctl.ancla; ctl.cerrar(); if (a) abrirPortada({ tipo: 'clase', id: c.n }, a); }}>Portada</ItemMenuUgc>
+        <ItemMenuUgc icono="imagen" onClick={() => { const a = ctl.ancla; ctl.cerrar(); if (a) abrirPortada({ tipo: 'clase', id: c.n }, a); }}>Portada</ItemMenuUgc>
         {c.titulo !== c.tituloOriginal && (
-          <ItemMenuUgc title={c.tituloOriginal} onClick={() => { ctl.cerrar(); void guardar(que.clase(c.n, 'titulo'), null); }}>Título original</ItemMenuUgc>
+          <ItemMenuUgc icono="restaurar" title={c.tituloOriginal} onClick={() => { ctl.cerrar(); void guardar(que.clase(c.n, 'titulo'), null); }}>Título original</ItemMenuUgc>
         )}
         {otros.length > 0 && (
           <div className="ugc-menu-bloque">
@@ -250,7 +250,7 @@ export default function EditorConocimientos({ curso, filas: iniciales, onFilas, 
           </div>
         )}
         <div className="ugc-menu-sep" />
-        <ItemMenuUgc onClick={() => { ctl.cerrar(); void guardar(que.clase(c.n, 'oculta'), c.ocultaPropia ? null : '1'); }}>
+        <ItemMenuUgc icono={c.ocultaPropia ? 'ver' : 'ocultar'} onClick={() => { ctl.cerrar(); void guardar(que.clase(c.n, 'oculta'), c.ocultaPropia ? null : '1'); }}>
           {c.ocultaPropia ? 'Mostrar' : 'Ocultar'}
         </ItemMenuUgc>
         <div className="ugc-menu-bloque">

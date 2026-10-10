@@ -28,6 +28,7 @@
 import { useMemo } from 'react';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { DURACIONES_FLOW, creditosDeClip } from '@/lib/costo-clip';
 import type { PlanGuardado } from './video-datos';
@@ -408,7 +409,7 @@ export function PasoTomas({
               Sumar una toma aquí
             </Button>
             <Button size="sm" variant="tertiary" disabled={trabajando || clips.length <= 1}
-              icon={<Icon name="trash" size={14} />}
+              icon={<IconoBorrar size={15} />}
               onClick={() => correr('quitar', async () => {
                 const r = await acciones.editar({ que: 'quitar', n: sel });
                 if (r.ok) onSel(Math.max(1, sel - 1));

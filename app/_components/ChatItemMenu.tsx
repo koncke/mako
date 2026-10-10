@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { useCapaModal } from './pila-modales';
+import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
 
@@ -55,11 +56,14 @@ export function ChatItemMenu({
   const [open, setOpen] = useState(false);
   const [ask, setAsk] = useState<null | 'archive' | 'delete'>(null);
 
+  // Cada renglón lleva su ícono del set de la casa (sexta tanda, general 10: «en los desplegables de los
+  // 3 puntos en la sidebar… pon íconos en todos»). Borrar sale rojo solo (`IconoMenu`).
   const item = (danger = false) => ({
-    display: 'block', width: '100%', textAlign: 'left' as const, padding: '8px 12px',
+    display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left' as const, padding: '8px 12px',
     background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13,
     color: danger ? 'var(--bad)' : 'var(--ink)',
   });
+  const ico = (n: NombreIconoMenu) => <span aria-hidden style={{ display: 'inline-flex', color: n === 'borrar' ? undefined : 'var(--dim)' }}><IconoMenu nombre={n} size={15} /></span>;
 
   return (
     <div style={{ position: 'relative', flex: 'none' }}>
@@ -75,10 +79,10 @@ export function ChatItemMenu({
         <>
           <div onClick={(e) => { e.stopPropagation(); setOpen(false); }} style={{ position: 'fixed', inset: 0, zIndex: 80 }} aria-hidden />
           <div style={{ position: 'absolute', top: 32, right: 0, zIndex: 81, width: 172, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 16px 40px rgba(18,21,27,.22)', overflow: 'hidden', padding: '4px 0' }}>
-            <button type="button" style={item()} onClick={(e) => { e.stopPropagation(); setOpen(false); onRename(); }}>Cambiar nombre</button>
-            <button type="button" style={item()} onClick={(e) => { e.stopPropagation(); setOpen(false); onPin(); }}>{pinned ? 'Despinear' : 'Pinear'}</button>
-            <button type="button" style={item()} onClick={(e) => { e.stopPropagation(); setOpen(false); setAsk('archive'); }}>Archivar</button>
-            <button type="button" style={item(true)} onClick={(e) => { e.stopPropagation(); setOpen(false); setAsk('delete'); }}>Eliminar</button>
+            <button type="button" style={item()} onClick={(e) => { e.stopPropagation(); setOpen(false); onRename(); }}>{ico('renombrar')}Cambiar nombre</button>
+            <button type="button" style={item()} onClick={(e) => { e.stopPropagation(); setOpen(false); onPin(); }}>{ico('fijar')}{pinned ? 'Despinear' : 'Pinear'}</button>
+            <button type="button" style={item()} onClick={(e) => { e.stopPropagation(); setOpen(false); setAsk('archive'); }}>{ico('archivar')}Archivar</button>
+            <button type="button" style={item(true)} onClick={(e) => { e.stopPropagation(); setOpen(false); setAsk('delete'); }}>{ico('borrar')}Eliminar</button>
           </div>
         </>
       )}

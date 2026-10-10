@@ -77,9 +77,9 @@ function Secciones({ tipo, items }: { tipo: 'modulo' | 'clase'; items: Partial<R
 /** Lo de arriba, igual para los dos: portada y mover. Renombrar lo pone cada uno (cambia el cómo). */
 function itemsDeArriba(ctl: ControlMenuUgc, ocupado: boolean, onPortada: ((ancla: HTMLElement) => void) | undefined, onMover: Mover) {
   return {
-    portada: onPortada ? <ItemMenuUgc onClick={() => { const a = ctl.ancla; ctl.cerrar(); if (a) onPortada(a); }}>Portada</ItemMenuUgc> : null,
-    'mover-antes': <ItemMenuUgc disabled={ocupado || !onMover.antes} onClick={() => { ctl.cerrar(); onMover.antes?.(); }}>Mover antes</ItemMenuUgc>,
-    'mover-despues': <ItemMenuUgc disabled={ocupado || !onMover.despues} onClick={() => { ctl.cerrar(); onMover.despues?.(); }}>Mover después</ItemMenuUgc>,
+    portada: onPortada ? <ItemMenuUgc icono="imagen" onClick={() => { const a = ctl.ancla; ctl.cerrar(); if (a) onPortada(a); }}>Portada</ItemMenuUgc> : null,
+    'mover-antes': <ItemMenuUgc icono="arriba" disabled={ocupado || !onMover.antes} onClick={() => { ctl.cerrar(); onMover.antes?.(); }}>Mover antes</ItemMenuUgc>,
+    'mover-despues': <ItemMenuUgc icono="abajo" disabled={ocupado || !onMover.despues} onClick={() => { ctl.cerrar(); onMover.despues?.(); }}>Mover después</ItemMenuUgc>,
   };
 }
 
@@ -101,14 +101,14 @@ export function MenuModulo({ modulo, entrada, clases, ctl, ocupado, onPortada, o
   const objeto: ObjetoBloqueo = modulo.vinculado ? 'vinculado' : 'suelto';
   return (
     <Secciones tipo="modulo" items={{
-      renombrar: ctl.renombrar ? <ItemMenuUgc disabled={ocupado} onClick={ctl.renombrar}>Renombrar</ItemMenuUgc> : null,
+      renombrar: ctl.renombrar ? <ItemMenuUgc icono="renombrar" disabled={ocupado} onClick={ctl.renombrar}>Renombrar</ItemMenuUgc> : null,
       ...itemsDeArriba(ctl, ocupado, onPortada, onMover),
       acceso: <AccesoMenu objeto={objeto} valor={modulo.bloqueo} ocupado={ocupado} onGuardar={onBloqueo}
         clases={clasesParaTarea(clases, { modulo: modulo.clave })} />,
       kanban: <InterruptorKanban activo={modulo.vinculado} entrada={entrada} ocupado={ocupado}
         onCambiar={(v) => { ctl.cerrar(); onKanban(v); }} />,
       eliminar: (
-        <ItemMenuUgc peligro disabled={ocupado || entrada} title={entrada ? ERROR_ENTRADA : undefined}
+        <ItemMenuUgc peligro icono="borrar" disabled={ocupado || entrada} title={entrada ? ERROR_ENTRADA : undefined}
           onClick={() => { ctl.cerrar(); onEliminar(); }}>Eliminar módulo</ItemMenuUgc>
       ),
     }} />
@@ -141,7 +141,7 @@ export function MenuClase({ clase, clases, ctl, ocupado, onPortada, onRenombrar,
       acceso: <AccesoMenu objeto="clase" valor={clase.bloqueo ?? null} propia={clase.id} ocupado={ocupado} onGuardar={onBloqueo}
         clases={clasesParaTarea(clases, { clase: clase.id })} />,
       obligatoria: obligatoria ? <InterruptorObligatoria o={obligatoria} ocupado={ocupado} /> : null,
-      eliminar: <ItemMenuUgc peligro disabled={ocupado} onClick={() => { ctl.cerrar(); onEliminar(); }}>Eliminar clase</ItemMenuUgc>,
+      eliminar: <ItemMenuUgc peligro icono="borrar" disabled={ocupado} onClick={() => { ctl.cerrar(); onEliminar(); }}>Eliminar clase</ItemMenuUgc>,
     }} />
   );
 }
@@ -182,7 +182,7 @@ function RenombrarEnMenu({ valor, ocupado, onGuardar }: { valor: string; ocupado
   const [guardando, setGuardando] = useState(false);
   const enCurso = useRef(false);
   if (!abierto) {
-    return <ItemMenuUgc disabled={ocupado} onClick={() => { setTexto(valor); setError(null); setAbierto(true); }}>Renombrar</ItemMenuUgc>;
+    return <ItemMenuUgc icono="renombrar" disabled={ocupado} onClick={() => { setTexto(valor); setError(null); setAbierto(true); }}>Renombrar</ItemMenuUgc>;
   }
   const guardar = async () => {
     if (enCurso.current) return;

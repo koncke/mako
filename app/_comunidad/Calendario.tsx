@@ -305,8 +305,8 @@ function EventoModal({ evento, oc, zona, onCerrar, onEditar, onBorrado }: {
   };
 
   const itemsAgregar: ItemMenu[] = [
-    { label: 'Este evento', onClick: () => void agregar(false) },
-    { label: 'Toda la serie', onClick: () => void agregar(true) },
+    { label: 'Este evento', icono: 'calendario', onClick: () => void agregar(false) },
+    { label: 'Toda la serie', icono: 'repetir', onClick: () => void agregar(true) },
   ];
 
   const pie = (

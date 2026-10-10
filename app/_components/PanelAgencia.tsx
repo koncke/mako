@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { createPortal } from 'react-dom';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
-import { Icon } from './icons';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { AvisoFlotante } from './AvisoFlotante';
 import { WS_DISENO } from '@/lib/auth-session';
 import { TEMAS, ATTR_TEMA, ATTR_MODO, LS_MODO } from '@/lib/temas-candidatos';
@@ -63,7 +63,7 @@ function BotonIcono({ icono, titulo, onClick, disabled, tono = 'neutro', cargand
     >
       {cargando
         ? <span aria-hidden style={{ width: 12, height: 12, border: '2px solid var(--border)', borderTopColor: color, borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
-        : icono === 'trash' ? <Icon name="trash" size={14} />
+        : icono === 'trash' ? <IconoBorrar size={15} />
         : <span aria-hidden style={{ fontSize: 14, lineHeight: 1, fontWeight: 700 }}>↓</span>}
     </button>
   );

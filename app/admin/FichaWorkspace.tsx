@@ -39,7 +39,7 @@ import { Modal } from '@/app/_ui';
 import { CabeceraDetalle } from '@/app/_components/CabeceraDetalle';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { Icon } from '@/app/_components/icons';
-import { Dropdown } from '@/app/components/Dropdown';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { colorDe } from '@/app/_components/TarjetaEntidad';
 import { capaDef } from '@/lib/capas';
 import { MONO, chip } from './estilos';
@@ -77,7 +77,7 @@ export function FichaWorkspace({
    * que alguien eligió a propósito para este cliente (mig 0179).
    */
   cara: string | null;
-  opciones: { value: string; label: string; disabled?: boolean }[];
+  opciones: DropdownOption[];
   accionando: boolean;
   onAccion: (v: string) => void;
   onNombre: (nombre: string) => void;

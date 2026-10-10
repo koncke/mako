@@ -19,6 +19,8 @@
 // comercial no lo es.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { Dropdown } from '@/app/components/Dropdown';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { WizardShell } from '../_components/WizardShell';
 import { URGENCIAS, urgenciaTexto, precioTexto, type Bono, type Oferta, type UrgenciaTipo } from '@/lib/oferta-modelo';
 import { CANALES } from '@/lib/fase-diagnostico';
@@ -308,8 +310,7 @@ export function OfertasView({ onListo }: { onListo?: (listo: boolean) => void } 
                         <button type="button" onClick={() => void post({ action: 'principal', id: o.id })} style={linkBtn}>Hacer principal</button>
                       )}
                       <button type="button" onClick={() => setAbierta(abierto ? null : o.id)} style={linkBtn}>{abierto ? 'Cerrar' : 'Ver todo'}</button>
-                      <button type="button" onClick={() => void post({ action: 'borrar', id: o.id })} aria-label={`Borrar ${o.nombre}`}
-                        style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 2 }}>×</button>
+                      <BotonBorrar talla="sm" onClick={() => void post({ action: 'borrar', id: o.id })} title={`Borrar ${o.nombre}`} />
                     </div>
                   </div>
 
@@ -328,12 +329,11 @@ export function OfertasView({ onListo }: { onListo?: (listo: boolean) => void } 
                     ))}
                     {fs.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>ninguno todavía</span>}
                     {sinLigar.length > 0 && (
-                      <select value="" onChange={(e) => { const v = Number(e.target.value); if (v) void post({ action: 'ligar-funnel', ofertaId: o.id, funnelId: v }); }}
-                        aria-label={`Asociar un funnel a ${o.nombre}`}
-                        style={{ ...chip, cursor: 'pointer', padding: '4px 8px' }}>
-                        <option value="">+ Asociar</option>
-                        {sinLigar.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
-                      </select>
+                      // El desplegable de la casa (sexta tanda, general 11): con más de siete funnels, buscador.
+                      <Dropdown value="" resetAfterSelect placeholder="+ Asociar" sinFlecha ariaLabel={`Asociar un funnel a ${o.nombre}`}
+                        buttonStyle={{ ...chip, cursor: 'pointer', padding: '4px 8px' }}
+                        options={sinLigar.map((f) => ({ value: String(f.id), label: f.nombre }))}
+                        onChange={(s) => { const v = Number(s); if (v) void post({ action: 'ligar-funnel', ofertaId: o.id, funnelId: v }); }} />
                     )}
                     <button type="button" onClick={() => setFunnelPara(o)} style={linkBtn}>+ Nuevo funnel</button>
                   </div>
@@ -351,12 +351,10 @@ export function OfertasView({ onListo }: { onListo?: (listo: boolean) => void } 
                     ))}
                     {ps.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>ningún producto</span>}
                     {(est?.productos ?? []).filter((p) => !ps.some((x) => x.id === p.id)).length > 0 && (
-                      <select value="" onChange={(e) => { const v = Number(e.target.value); if (v) void post({ action: 'ligar-producto', ofertaId: o.id, productoId: v }); }}
-                        aria-label={`Ligar un producto a ${o.nombre}`}
-                        style={{ ...chip, cursor: 'pointer', padding: '4px 8px' }}>
-                        <option value="">+ Ligar producto</option>
-                        {(est?.productos ?? []).filter((p) => !ps.some((x) => x.id === p.id)).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                      </select>
+                      <Dropdown value="" resetAfterSelect placeholder="+ Ligar producto" sinFlecha ariaLabel={`Ligar un producto a ${o.nombre}`}
+                        buttonStyle={{ ...chip, cursor: 'pointer', padding: '4px 8px' }}
+                        options={(est?.productos ?? []).filter((p) => !ps.some((x) => x.id === p.id)).map((p) => ({ value: String(p.id), label: p.nombre }))}
+                        onChange={(s) => { const v = Number(s); if (v) void post({ action: 'ligar-producto', ofertaId: o.id, productoId: v }); }} />
                     )}
                   </div>
 

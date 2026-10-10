@@ -9,7 +9,8 @@
 // y vista de status (borrador/revisión/aprobada/rechazada) filtrable.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Dropdown } from '../components/Dropdown';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
+import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { VARIABLES_LEAD, refDeRegla, explicarRechazo } from '../../lib/template-vars';
 
 const SANS = "'Geist', sans-serif";
@@ -24,10 +25,11 @@ const ETAPAS = [
   { value: 'nopaga', label: 'No paga' },
   { value: 'manual', label: 'Manual' },
 ];
-const CATEGORIAS = [
-  { value: 'marketing', label: 'Marketing' },
-  { value: 'utility', label: 'Utility' },
-  { value: 'authentication', label: 'Authentication' },
+// Con su ícono del set de la casa (sexta tanda, general 10): son las tres de Meta, iguales para todos.
+const CATEGORIAS: DropdownOption[] = [
+  { value: 'marketing', label: 'Marketing', icono: 'anuncio' },
+  { value: 'utility', label: 'Utility', icono: 'configurar' },
+  { value: 'authentication', label: 'Authentication', icono: 'llave' },
 ];
 // Etapas del lead para el redactor "Levanta Muertos" de MaKo.
 const ETAPAS_LM = [
@@ -68,12 +70,12 @@ const RIESGO_META: Record<string, { color: string; bg: string; label: string }> 
   BAJO: { color: 'var(--good)', bg: 'var(--good-bg)', label: 'Riesgo BAJO — probable aprobación' },
 };
 
-const FILTROS = [
+const FILTROS: DropdownOption[] = [
   { value: 'todos', label: 'Todas' },
-  { value: 'borrador', label: 'Borradores' },
-  { value: 'pending', label: 'En revisión' },
-  { value: 'approved', label: 'Aprobadas' },
-  { value: 'rejected', label: 'Rechazadas' },
+  { value: 'borrador', label: 'Borradores', icono: 'editar' },
+  { value: 'pending', label: 'En revisión', icono: 'reloj' },
+  { value: 'approved', label: 'Aprobadas', icono: 'calificado' },
+  { value: 'rejected', label: 'Rechazadas', icono: 'cerrar' },
 ];
 
 const ejemploDe = (key: string) => VARIABLES_LEAD.find((v) => v.key === key)?.ejemplo ?? '';
@@ -646,7 +648,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5, flexWrap: 'wrap' }}>
                 <label style={{ ...labelBase, margin: 0 }}>Encabezado (opcional)</label>
                 <Dropdown value={headerTipo} onChange={cambiarHeaderTipo} width={170} ariaLabel="Tipo de encabezado" buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }}
-                  options={[{ value: 'NONE', label: 'Ninguno' }, { value: 'TEXT', label: 'Texto' }, { value: 'IMAGE', label: '🖼️ Imagen' }, { value: 'VIDEO', label: '🎬 Video' }, { value: 'DOCUMENT', label: '📄 Documento (PDF)' }]} />
+                  options={[{ value: 'NONE', label: 'Ninguno', icono: 'cerrar' }, { value: 'TEXT', label: 'Texto', icono: 'texto' }, { value: 'IMAGE', label: 'Imagen', icono: 'imagen' }, { value: 'VIDEO', label: 'Video', icono: 'video' }, { value: 'DOCUMENT', label: 'Documento (PDF)', icono: 'archivo' }]} />
                 {headerTipo === 'NONE' && <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>← elige Imagen / Video / Documento para adjuntar un archivo</span>}
               </div>
               {headerTipo === 'TEXT' && (
@@ -881,7 +883,7 @@ function ButtonsEditor({ buttons, onChange }: { buttons: Button[]; onChange: (b:
             <input value={b.text} maxLength={25} onChange={(e) => patch(i, { text: e.target.value })} placeholder="Texto del botón" style={{ ...inputBase, flex: '1 1 130px', width: 'auto' }} />
             {b.type === 'URL' && <input value={b.url ?? ''} onChange={(e) => patch(i, { url: e.target.value })} placeholder="https://tudominio.com/…" style={{ ...inputBase, flex: '1 1 180px', width: 'auto', fontFamily: MONO }} />}
             {b.type === 'PHONE_NUMBER' && <input value={b.phone_number ?? ''} onChange={(e) => patch(i, { phone_number: e.target.value })} placeholder="+5216863996369" style={{ ...inputBase, flex: '1 1 150px', width: 'auto', fontFamily: MONO }} />}
-            <button onClick={() => del(i)} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', cursor: 'pointer', fontSize: 16, padding: 2 }}>✕</button>
+            <BotonBorrar talla="sm" onClick={() => del(i)} title="Quitar este botón" />
           </div>
         ))}
       </div>

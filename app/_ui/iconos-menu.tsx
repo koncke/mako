@@ -104,6 +104,20 @@ const TRAZOS = {
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   cerrar: <path d="M6 6l12 12M18 6 6 18" />,
   mas: <path d="M5.5 12h.01M12 12h.01M18.5 12h.01" />,
+  // ── Sumados en el barrido de la segunda pasada (09/10/2026), para los menús de «⋯» y los
+  //    desplegables del resto de la app. Mismo trazo y viewbox que los de arriba.
+  fijar: <><path d="M9 3.5h6l-.8 5.3 3.3 3.2H6.5l3.3-3.2L9 3.5Z" /><path d="M12 12v8.5" /></>,
+  llave: <><circle cx="8" cy="15.5" r="3.5" /><path d="m10.5 13 8.5-8.5M15.5 8l2.5 2.5M13.3 10.2l2 2" /></>,
+  candado: <><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" /></>,
+  repetir: <><path d="m17 3.5 3 3-3 3" /><path d="M4 11.5V10a3.5 3.5 0 0 1 3.5-3.5H20" /><path d="m7 20.5-3-3 3-3" /><path d="M20 12.5V14a3.5 3.5 0 0 1-3.5 3.5H4" /></>,
+  anuncio: <><path d="M4 10v4h3l7 4V6l-7 4H4Z" /><path d="M17 9a3.5 3.5 0 0 1 0 6" /></>,
+  'persona-menos': <><circle cx="10" cy="8" r="3.5" /><path d="M3.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16.5 10.5h5" /></>,
+  numero: <path d="M9.5 4 7.5 20M16.5 4l-2 16M4.5 9h15M3.5 15h15" />,
+  texto: <path d="M4.5 6.5h15M4.5 12h15M4.5 17.5h9" />,
+  cita: <><path d="M5 6v12" /><path d="M9.5 8h9.5M9.5 12h9.5M9.5 16h6" /></>,
+  arriba: <><path d="M12 19.5V5" /><path d="m6.5 10.5 5.5-5.5 5.5 5.5" /></>,
+  abajo: <><path d="M12 4.5V19" /><path d="m6.5 13.5 5.5 5.5 5.5-5.5" /></>,
+  pregunta: <><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7" /><path d="M12 17h.01" /></>,
 } satisfies Record<string, ReactNode>;
 
 export type NombreIconoMenu = keyof typeof TRAZOS;
@@ -118,6 +132,18 @@ export const NOMBRES_ICONO_MENU = Object.keys(TRAZOS) as NombreIconoMenu[];
  */
 export function esIconoMenu(s: unknown): s is NombreIconoMenu {
   return typeof s === 'string' && Object.prototype.hasOwnProperty.call(TRAZOS, s);
+}
+
+/**
+ * Le pone a cada opción el ícono de su `value` según un mapa, sin tocar la lista de quien la arma.
+ *
+ * Existe para las listas que viven en un módulo PURO con test (`opcionesDeCursoEnTarjeta`, un catálogo de
+ * `lib/`): el ícono es cosa de la pantalla y un `deepEqual` sobre la lista no tiene por qué enterarse.
+ * Una opción cuyo `value` no está en el mapa queda SIN ícono, igual que antes: un ícono genérico de
+ * relleno no distingue a nadie. Y una que ya traía el suyo lo conserva.
+ */
+export function conIconos<T extends { value: string; icono?: unknown }>(ops: readonly T[], mapa: Readonly<Partial<Record<string, NombreIconoMenu>>>): T[] {
+  return ops.map((o) => (o.icono !== undefined || !mapa[o.value] ? o : { ...o, icono: mapa[o.value] }));
 }
 
 /**

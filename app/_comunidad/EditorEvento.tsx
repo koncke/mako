@@ -233,9 +233,9 @@ export function EditorEvento({ evento, oc, zonaVista, onCerrar, onListo }: {
                 <Select ariaLabel="Quién entra" value={tipoAcceso}
                   onChange={(v) => setAcceso(v === 'nivel' ? { tipo: 'nivel', nivel: 2 } : v === 'modulo' ? { tipo: 'modulo', clave: modulos[0]?.clave ?? '' } : { tipo: 'todos' })}
                   options={[
-                    { value: 'todos', label: 'Todos' },
-                    { value: 'nivel', label: 'Desde un nivel' },
-                    ...(modulos.length || tipoAcceso === 'modulo' ? [{ value: 'modulo', label: 'Con un módulo' }] : []),
+                    { value: 'todos', label: 'Todos', icono: 'equipo' },
+                    { value: 'nivel', label: 'Desde un nivel', icono: 'grafico' },
+                    ...(modulos.length || tipoAcceso === 'modulo' ? [{ value: 'modulo', label: 'Con un módulo', icono: 'curso' as const }] : []),
                   ]} />
               </div>
               {acceso.tipo === 'nivel' && (

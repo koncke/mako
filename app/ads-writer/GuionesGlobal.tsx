@@ -15,6 +15,10 @@
 // =============================================================================
 
 import { useMemo, useState, type CSSProperties } from 'react';
+import { conBuscador } from '../components/dropdown-reglas';
+
+/** Para buscar sin que un acento o una mayúscula escondan el resultado. */
+const sinAcentos = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 import { Input, NoResults, EmptyState, Tag, Button } from '../_ui';
 import { GuionCard, GuionCardFantasma, GUION_CARD_MIN, type GuionCardData } from './GuionCard';
 import { GuionLector } from './GuionLector';
@@ -55,7 +59,13 @@ export function GuionesGlobal({ celdas, avatares, angulos, cargando, onEstado, o
   const [fAvatar, setFAvatar] = useState(TODOS);
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
-  const [menu, setMenu] = useState<null | 'raiz' | 'angulo' | 'avatar' | 'fecha'>(null);
+  const [menu, setMenuCrudo] = useState<null | 'raiz' | 'angulo' | 'avatar' | 'fecha'>(null);
+  // El buscador de una lista del filtro (sexta tanda, general 11: «la barra de búsqueda en todos los
+  // desplegables… al menos que tenga muy pocas opciones»): el mismo umbral que el Dropdown de la casa
+  // (`conBuscador`), y arranca vacío en cada lista que se abre.
+  const [buscaMenu, setBuscaMenu] = useState('');
+  const setMenu = (m: typeof menu) => { setMenuCrudo(m); setBuscaMenu(''); };
+  const coincide = (s: string) => sinAcentos(s).includes(sinAcentos(buscaMenu.trim()));
   const [abierto, setAbierto] = useState<string | null>(null);
 
   const emojiDe = useMemo(() => {
@@ -221,17 +231,19 @@ export function GuionesGlobal({ celdas, avatares, angulos, cargando, onEstado, o
                     </>
                   )}
                   {menu === 'angulo' && (
-                    <MenuSub titulo="Ángulo" onVolver={() => setMenu('raiz')}>
+                    <MenuSub titulo="Ángulo" onVolver={() => setMenu('raiz')}
+                      busqueda={conBuscador(angulosUsados.length + 1) ? { valor: buscaMenu, onCambiar: setBuscaMenu } : undefined}>
                       <MenuOpcion label="Todos los ángulos" on={!fAngulo} onClick={() => { setFAngulo(TODOS); setMenu('raiz'); }} />
-                      {angulosUsados.map((a) => (
+                      {angulosUsados.filter(coincide).map((a) => (
                         <MenuOpcion key={a} label={a} on={fAngulo === a} onClick={() => { setFAngulo(a); setMenu('raiz'); }} />
                       ))}
                     </MenuSub>
                   )}
                   {menu === 'avatar' && (
-                    <MenuSub titulo="Avatar" onVolver={() => setMenu('raiz')}>
+                    <MenuSub titulo="Avatar" onVolver={() => setMenu('raiz')}
+                      busqueda={conBuscador(avatares.length + 1) ? { valor: buscaMenu, onCambiar: setBuscaMenu } : undefined}>
                       <MenuOpcion label="Todos los avatares" on={!fAvatar} onClick={() => { setFAvatar(TODOS); setMenu('raiz'); }} />
-                      {avatares.map((a) => (
+                      {avatares.filter((a) => coincide(`${a.nombre} ${a.segmento ?? ''}`)).map((a) => (
                         <MenuOpcion key={a.id} label={a.nombre} sub={a.segmento} on={fAvatar === a.id} onClick={() => { setFAvatar(a.id); setMenu('raiz'); }} />
                       ))}
                     </MenuSub>
@@ -312,12 +324,19 @@ function MenuFila({ label, valor, onClick }: { label: string; valor: string; onC
   );
 }
 
-function MenuSub({ titulo, onVolver, children }: { titulo: string; onVolver: () => void; children: React.ReactNode }) {
+function MenuSub({ titulo, onVolver, children, busqueda }: { titulo: string; onVolver: () => void; children: React.ReactNode;
+  /** Con esto, un campo para buscar arriba de la lista. Quien llama decide cuándo (`conBuscador`) y filtra. */
+  busqueda?: { valor: string; onCambiar: (s: string) => void } }) {
   return (
     <>
       <button type="button" className="mk-menu-fila" onClick={onVolver} style={{ ...menuFila, color: 'var(--dim)' }}>
         <span aria-hidden>‹</span> <span style={{ fontWeight: 600 }}>{titulo}</span>
       </button>
+      {busqueda && (
+        <input autoFocus value={busqueda.valor} onChange={(e) => busqueda.onCambiar(e.target.value)} placeholder="Buscar…"
+          aria-label={`Buscar en ${titulo.toLowerCase()}`}
+          style={{ display: 'block', width: '100%', boxSizing: 'border-box', margin: '2px 0 6px', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', font: 'inherit', fontSize: 'var(--fs-sm)', outline: 'none' }} />
+      )}
       <div style={{ maxHeight: 260, overflowY: 'auto' }}>{children}</div>
     </>
   );

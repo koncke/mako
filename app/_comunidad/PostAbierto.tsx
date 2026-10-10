@@ -100,11 +100,11 @@ export function PostAbierto({ postId, onCerrar, onCambio, onBorrado, onEditar }:
   };
 
   const items: ItemMenu[] = post ? [
-    ...(post.puedoEditar ? [{ label: 'Editar', onClick: () => onEditar(post) }] : []),
-    ...(comunidad.puedoFijar && api.fijarPost ? [{ label: post.fijado ? 'Soltar' : 'Fijar arriba', onClick: () => void fijar(!post.fijado) }] : []),
-    ...(comunidad.puedoModerar && api.cerrarComentarios ? [{ label: post.cerrado ? 'Abrir comentarios' : 'Cerrar comentarios', onClick: () => void cerrar(!post.cerrado) }] : []),
-    ...(sacar && !post.autor.equipo && post.autor.clave !== comunidad.yo.clave ? [{ label: `Sacar a ${post.autor.nombre}`, onClick: () => { onCerrar(); sacar(post.autor); } }] : []),
-    ...(post.puedoBorrar ? [{ label: 'Borrar', onClick: () => void borrar(), peligro: true }] : []),
+    ...(post.puedoEditar ? [{ label: 'Editar', icono: 'editar' as const, onClick: () => onEditar(post) }] : []),
+    ...(comunidad.puedoFijar && api.fijarPost ? [{ label: post.fijado ? 'Soltar' : 'Fijar arriba', icono: 'fijar' as const, onClick: () => void fijar(!post.fijado) }] : []),
+    ...(comunidad.puedoModerar && api.cerrarComentarios ? [{ label: post.cerrado ? 'Abrir comentarios' : 'Cerrar comentarios', icono: 'candado' as const, onClick: () => void cerrar(!post.cerrado) }] : []),
+    ...(sacar && !post.autor.equipo && post.autor.clave !== comunidad.yo.clave ? [{ label: `Sacar a ${post.autor.nombre}`, icono: 'persona-menos' as const, onClick: () => { onCerrar(); sacar(post.autor); } }] : []),
+    ...(post.puedoBorrar ? [{ label: 'Borrar', icono: 'borrar' as const, onClick: () => void borrar(), peligro: true }] : []),
   ] : [];
   const categoria = post?.categoriaId != null ? comunidad.categorias.find((c) => c.id === post.categoriaId) : null;
 
@@ -234,8 +234,8 @@ function Comentario({ c, chico = false, onCambio, onBorrado, onResponder }: {
   const items: ItemMenu[] = [
     // El campo arranca con las menciones que el comentario YA tiene (`mencionesDeTokens`): con la lista
     // vacía, guardar mandaba `menciones: []` y el `@Nombre` quedaba como texto suelto, sin link ni aviso.
-    ...(c.puedoEditar ? [{ label: 'Editar', onClick: () => { setTexto(c.texto); setMenciones(mencionesDeTokens(c.cuerpo)); setEditando(true); } }] : []),
-    ...(c.puedoBorrar ? [{ label: 'Borrar', onClick: () => void borrar(), peligro: true }] : []),
+    ...(c.puedoEditar ? [{ label: 'Editar', onClick: () => { setTexto(c.texto); setMenciones(mencionesDeTokens(c.cuerpo)); setEditando(true); }, icono: 'editar' as const }] : []),
+    ...(c.puedoBorrar ? [{ label: 'Borrar', icono: 'borrar' as const, onClick: () => void borrar(), peligro: true }] : []),
   ];
 
   return (

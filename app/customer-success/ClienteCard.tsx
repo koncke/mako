@@ -28,11 +28,18 @@ import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
 import { TarjetaEntidad, PieNumeros, PieTexto, colorDe } from '@/app/_components/TarjetaEntidad';
 import { Dropdown } from '@/app/components/Dropdown';
+import { conIconos, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { CuentaDeMaKo, type CuentasProp } from './CuentaDeMaKo';
 import { useFotoCliente } from './foto-cliente';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { ModalInvitar } from './curso/InvitarAlCurso';
 import { opcionesDeCursoEnTarjeta, type AccesoFicha, type AccesoInvitacion } from './curso-ficha-lectura';
+
+/** El ícono de cada acción del menú de la tarjeta (sexta tanda, general 10). Las listas las arma
+ *  `opcionesDeCursoEnTarjeta` (pura, con test) y esta tarjeta; el ícono es cosa de la pantalla. */
+const ICONOS_ACCIONES: Record<string, NombreIconoMenu> = {
+  'curso-invitar': 'curso', 'curso-permisos': 'llave', reinvitar: 'enviar', equipo: 'equipo',
+};
 
 // `colorDe` vivía acá y se fue con el molde, porque lo usan las dos pantallas. Se
 // re-exporta para no tocar a los tres que ya lo importaban de este archivo (la
@@ -283,7 +290,7 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
                 value="" resetAfterSelect align="right" placeholder="Acciones"
                 ariaLabel={`Acciones sobre ${nombre}`} disabled={reenviando}
                 buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
-                options={opciones}
+                options={conIconos(opciones, ICONOS_ACCIONES)}
                 onChange={elegir}
               />
             </span>

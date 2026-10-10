@@ -105,6 +105,7 @@ import { CSS_RICO, idDeRef, urlDibujable, anchoDeImagen, alineaDeImagen, type Al
 import { repartoDeBarra, recortarSeparadores, anchoDeArrastre, anchoInicialDeImagen, esCodigoParaInsertar } from './editor-rico-reglas';
 import { embedDe, embedDeIframe, atributosDeIframe, altoDeEmbed, claseDeProveedor, porQueNoSeInserta, type Embed } from '@/lib/embeds';
 import { Toast, useToast } from './Toast';
+import { IconoBorrar } from './BotonBorrar';
 
 // ── El contrato ──────────────────────────────────────────────────────────────
 
@@ -539,7 +540,9 @@ const I = {
   tabla: <Ico><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 10v10M15 10v10" /></Ico>,
   insertar: <Ico><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m10 9 5 3-5 3z" /></Ico>,
   mas: <Ico><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></Ico>,
-  basura: <Ico d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" />,
+  // Borrar es el tacho de la casa, ROJO siempre (sexta tanda, general 9): no un trazo propio en el gris
+  // de la barra. Mismo dibujo que `IconoMenu nombre="borrar"` y que `BotonBorrar`.
+  borrar: <IconoBorrar size={16} />,
   filaArriba: <Ico d="M4 14h16M4 20h16M12 11V3M8.5 6.5 12 3l3.5 3.5" />,
   filaAbajo: <Ico d="M4 4h16M4 10h16M12 13v8M8.5 17.5 12 21l3.5-3.5" />,
   colIzquierda: <Ico d="M14 4v16M20 4v16M11 12H3M6.5 8.5 3 12l3.5 3.5" />,
@@ -1381,7 +1384,7 @@ export function EditorRico({
             <div role="separator" className="mk-er-menu-sep" />
             <FilaMenu nombre="Fila de títulos" icono={I.titulos} activo={estado.tabla.titulos} onClick={() => cadena()?.toggleHeaderRow().run()} />
             <div role="separator" className="mk-er-menu-sep" />
-            <FilaMenu nombre="Borrar tabla" icono={I.basura} peligro
+            <FilaMenu nombre="Borrar tabla" icono={I.borrar} peligro
               onClick={() => { const pos = estado.tabla?.pos; cerrarPanel(); if (pos != null) sacarConDeshacer(pos, 'Tabla borrada'); }} />
           </Menu>
         </Flotante>
@@ -1703,7 +1706,7 @@ function ControlesImagen({ editor, raiz, pos, ancho, alinea, onQuitar }: {
           onMouseDown={(e) => e.preventDefault()} onClick={() => aplicar({ alinea: 'centro' })}>{I.centro}</button>
         <span className="mk-er-img-sep" aria-hidden="true" />
         <button type="button" className="mk-er-img-op" title="Quitar imagen" aria-label="Quitar imagen"
-          onMouseDown={(e) => e.preventDefault()} onClick={onQuitar}>{I.basura}</button>
+          onMouseDown={(e) => e.preventDefault()} onClick={onQuitar}>{I.borrar}</button>
       </div>
       <button
         ref={asa}
@@ -1812,7 +1815,7 @@ function ControlesInsertado({ editor, raiz, pos, onQuitar }: {
   return (
     <div ref={barra} className="mk-er-img-barra" role="toolbar" aria-label="Insertado" style={{ top: caja.top >= 40 ? caja.top - 38 : caja.top + 8 }}>
       <button type="button" className="mk-er-img-op" title="Quitar" aria-label="Quitar"
-        onMouseDown={(e) => e.preventDefault()} onClick={onQuitar}>{I.basura}</button>
+        onMouseDown={(e) => e.preventDefault()} onClick={onQuitar}>{I.borrar}</button>
     </div>
   );
 }

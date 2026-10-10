@@ -14,6 +14,7 @@
 // =============================================================================
 
 import { useEffect, useState, type CSSProperties } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import {
   ETIQUETA_ESTANDAR, MAX_PREGUNTAS_PROPIAS, PREGUNTAS_ESTANDAR, erroresFormulario,
   type FormularioNuevo, type PreguntaEstandar,
@@ -98,7 +99,7 @@ export function CrearFormulario({ onCreado, onCancelar, compacto = false, pageId
             <input value={p} autoFocus={!p} placeholder="Tu pregunta, ej. ¿Qué tipo de propiedad buscas vender?"
               onChange={(e) => set({ propias: f.propias.map((x, k) => (k === i ? e.target.value : x)) })} style={campo} />
             <button type="button" aria-label="Quitar pregunta" onClick={() => set({ propias: f.propias.filter((_, k) => k !== i) })}
-              style={{ width: 38, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer' }}>✕</button>
+              style={{ width: 38, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><IconoBorrar size={16} /></button>
           </div>
         ))}
         {f.propias.length < MAX_PREGUNTAS_PROPIAS && (

@@ -2398,6 +2398,94 @@ trailers el último párrafo si es TODO trailers. Lo correcto: una línea en bla
 - **Nada se vio con clics**: el árbol en los tres editores, la tarjeta y el editor de MaKo en
   Notificaciones (el alto del panel con el editor de WhatsApp adentro), la grabación nueva del Video
   Generator y la tarea de audio del alumno.
+## Sexta tanda, segunda pasada, parte «barrido» (09/10/2026): el tacho y los íconos en toda la app
+
+General 9 (el tacho rojo «en TODOS lados»), 10 (íconos en todos los desplegables) y 11 (el buscador),
+fuera de /chatbot. Las reglas que valen para código nuevo quedaron en AGENTS.md («Borrar es UN tacho…»).
+
+### El tacho se cambia en el SET, no en cada pantalla: `Icon name="trash"` arrastra a las de otras partes [ui]
+
+La salida obvia era reemplazar cada `<Icon name="trash">` por `IconoBorrar`, y no alcanzaba: lo piden
+también `IconBtn name="trash"` (/integraciones), `BotonLote icono="trash"` (Ads Manager, con un test que
+exige ese texto) y archivos de otras partes (el lienzo, el chatbot). Lo que cerró los diez de una vez
+fue que la entrada `trash` de `app/_components/icons.tsx` sea `TRAZOS_BORRAR` y que `Icon` la pinte
+roja ÉL (`const borrar = name === 'trash'`). Lo mismo con los nombres propios que ya tenían su lugar:
+`IconoTacho` del Plan delega en `IconoBorrar`, y `basura` del editor rico pasó a `borrar`.
+
+**La regla:** cuando un set tiene un NOMBRE que significa una acción, el dibujo y el color se arreglan
+en el set; los call sites con nombre siguen andando. Lo que queda prohibido es el trazo propio.
+
+**Vive en:** `app/_components/icons.tsx` · `app/plan/board/piezas.tsx` · `tests/borrar-tacho-casa.test.ts`
+
+### La firma de un tacho a mano: la tapa ARRANCA la cadena y el subpath siguiente sube a la manija [tests]
+
+Para el guard hacía falta reconocer un tacho dibujado a mano sin reconocer cualquier ícono. «Una raya
+de 10 a 19 y una `V` a y=2..5 en la misma cadena» dio CUATRO falsos positivos (dos íconos de alinear del
+editor rico, la `nota` del set, el reloj de arena del flujo y un rectángulo de ServicioVisual). La que
+caza los seis que había y ninguno de esos: la cadena EMPIEZA con la tapa (`"M x y h1N`) y el subpath que
+sigue arranca subiendo a la manija (`M x y V2..5`). El test lleva las dos listas adentro y se prueba a sí
+mismo.
+
+**Vive en:** `tests/borrar-tacho-casa.test.ts`
+
+### Cuándo una ✕ es un tacho: si la cosa deja de EXISTIR [ui]
+
+No se puede barrer por texto (las ✕ que cierran son la mayoría). El criterio, el de Google Forms: la ✕
+que BORRA algo que deja de existir (un guion, un producto, una nota, una pregunta de un formulario, un
+campo, un borrador del historial) pasa al tacho; la que QUITA de una selección o de un vínculo (un chip,
+un público elegido, un archivo todavía no subido, «desasociar», una opción de una lista que se tipea, una
+cuota) se queda. Y un renglón `sutil` del Dropdown («Quitar deadline») sigue siendo sólo texto: lo pidió
+así («debe ser un texto»).
+
+### Un `<select>` adentro de un menú propio NO se puede pasar al Dropdown sin romperlo [ui]
+
+El pedido decía «pasalos al de la casa si se puede sin cambiar comportamiento», y en los menús «⋯» del
+curso (`MenuCurso.tsx`, `EditorConocimientos.tsx`) no se puede: el menú del Dropdown vive en un PORTAL
+sobre el `body`, y el menú del curso se cierra con cualquier `mousedown` fuera de SU nodo
+(`MenuUgc`, `afuera` en `app/_cursos/CursoUgc.tsx`). Elegir una opción cerraría el menú de atrás antes
+de que la opción llegue. Para pasarlos, el menú de atrás tiene que reconocer el portal como suyo.
+
+### Pasar un `<select>` al Dropdown: elegir el MISMO valor ahora dispara `onChange` [ui]
+
+El nativo no avisa si se elige lo que ya estaba; el Dropdown sí. En el Quarter del Plan eso habría escrito
+un cambio que no fue (historial y deshacer de algo que no cambió): va `if (v !== actual)`.
+
+### Una aserción que lee el renglón exacto se rompe con el ícono, y está bien [tests]
+
+`>Eliminar módulo</button>` (tests/curso-menu-estructura) y `label: 'Campañas de Meta' }` (tests/
+campana-producto) fallaron apenas el renglón llevó su ícono. Se admite el ícono sin exigirlo
+(`(?:<svg…</svg>)?`) y la aserción sigue cazando lo que cazaba: 9/1 y 34/1 rompiendo lo de antes.
+
+### Proceso: «PEGADO sin línea en blanco» es entre los dos trailers, no contra el cuerpo [proceso]
+
+El primer commit de esta parte puso `Claude-Cuenta:` pegado a la última viñeta del cuerpo. Git sólo lee
+como trailers el ÚLTIMO PÁRRAFO si es todo de trailers: `%(trailers:key=Claude-Cuenta)` devolvió VACÍO.
+Va una línea en blanco antes del bloque, y los dos trailers juntos. Se verifica con
+`git log -1 --format='%(trailers:key=Claude-Cuenta,valueonly)'`, no leyendo el mensaje.
+
+### Lo que quedó sin hacer (parte «barrido»)
+
+- **Los tachos de archivos de otras partes** (la lista vive en `PENDIENTES` del test, que falla cuando
+  una se arregla para que se saque): el 🗑 del panel del lienzo (`app/_components/Lienzo.tsx:1355`), el
+  tacho propio de `app/chatbot/IconosDisparador.tsx:101`, `IconTrash` del composer
+  (`app/whatsapp/_shared/composer-icons.tsx:26`, usado en `VoiceRecorder.tsx:477/496/523`,
+  `app/chatbot/EditorMensajeWhatsApp.tsx:677` y `EditorMensajeSocial.tsx:297`) y el de la barra de lote
+  del CRM (`app/crm/AccionesLoteLeads.tsx:147`).
+- **Desplegables de archivos de otras partes, sin íconos:** `app/_components/CamposAccion.tsx:85/105/108/
+  122/137/158`, `app/_components/etiquetas-cliente.tsx:251`, `app/agencia/FlujoAviso.tsx:863`,
+  `app/agencia/EditorMensaje.tsx:427`, `app/crm/AccionesLoteLeads.tsx:310/320/332`,
+  `app/video-generator/OnboardingVideoGen.tsx:1097` y los de `app/chatbot/**`.
+- **Selects nativos que se quedan:** los del menú del curso (`app/customer-success/curso/MenuCurso.tsx:
+  327/352/368`, `app/conocimientos/EditorConocimientos.tsx:245`, ver arriba), el rol de
+  `app/customer-success/FichaCliente.tsx:870` (tres opciones) y los de `app/api-mako/*` (copian GitHub
+  tal cual, decisión de Martín).
+- **Sin ícono a propósito, y lo puede querer distinto:** la barra del editor rico («Párrafo / Título /
+  Subtítulo», `app/_ui/EditorRico.tsx:1214`: el botón es de ancho fijo y el ícono del elegido se dibuja
+  adentro), los públicos de Meta (`app/ads-manager/NuevaCampanaModal.tsx:1244`: Facebook e Instagram
+  piden su logo, que el set no tiene), los disparadores del email (`lib/email-marketing.ts:299`, una
+  situación por renglón) y los roles.
+- No se vio con clics: ni el tacho rojo en cada pantalla, ni los menús con su ícono, ni el buscador del
+  Quarter.
 
 ## Lo que quedó sin hacer
 

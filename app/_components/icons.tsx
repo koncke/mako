@@ -6,6 +6,7 @@
 // depender de una librería externa.
 
 import type { ReactNode } from 'react';
+import { TRAZOS_BORRAR } from '../_ui/iconos-menu';
 
 const PATHS: Record<string, ReactNode> = {
   general: (<><path d="M4 15a8 8 0 0 1 16 0" /><path d="M12 15l4.2-3.4" /><circle cx="12" cy="15" r="1.1" /><path d="M4.2 15H5.6M18.4 15h1.4M12 7.2V5.6" /></>),
@@ -79,8 +80,14 @@ const PATHS: Record<string, ReactNode> = {
   api: (<><path d="M8.5 4.5c-1.6 0-2.5.8-2.5 2.4v2.6c0 1.6-.8 2.5-2.5 2.5 1.7 0 2.5.9 2.5 2.5v2.6c0 1.6.9 2.4 2.5 2.4" /><path d="M15.5 4.5c1.6 0 2.5.8 2.5 2.4v2.6c0 1.6.8 2.5 2.5 2.5-1.7 0-2.5.9-2.5 2.5v2.6c0 1.6-.9 2.4-2.5 2.4" /></>),
   // Cruz: cancelar una edición en curso.
   x: (<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />),
-  // Tacho: "Quitar credencial".
-  trash: (<><path d="M4 6.5h16" /><path d="M9.5 6.5V5a1.3 1.3 0 0 1 1.3-1.3h2.4A1.3 1.3 0 0 1 14.5 5v1.5" /><path d="M6.6 6.5l.85 12.6a1.8 1.8 0 0 0 1.8 1.7h5.5a1.8 1.8 0 0 0 1.8-1.7l.85-12.6" /><path d="M10.4 10.5v6M13.6 10.5v6" /></>),
+  // Tacho: borrar. ES EL DE LA CASA (`TRAZOS_BORRAR`, app/_ui/iconos-menu.tsx) y `Icon` lo pinta ROJO
+  // siempre (sexta tanda, general 9: «Cambia el botón de BORRAR con ese ícono de basura que no se ve…
+  // Esto en TODOS lados. Y que siempre el ícono de borrar sea rojo»). Antes había acá un tacho propio de
+  // línea fina que heredaba el gris de la fila. Se queda el NOMBRE y no el dibujo: lo siguen pidiendo
+  // `IconBtn name="trash"` (/integraciones), `BotonLote icono="trash"` (Ads Manager) y pantallas de
+  // otras partes; cambiado el dibujo acá, todas dibujan el mismo tacho sin tocar una línea. Código nuevo
+  // usa `IconoBorrar` / `BotonBorrar` (app/_ui/BotonBorrar.tsx). Lo fija tests/borrar-tacho-casa.test.ts.
+  trash: TRAZOS_BORRAR,
   // Tilde: guardar ESTA credencial (una por fila, sin botón global).
   check: (<path d="M4.5 12.5l5 5 10-11" />),
   // Copiar al portapapeles: la hoja de atrás asomando arriba a la derecha es el
@@ -302,8 +309,11 @@ export function ClaudeMark({ size = 18, color = '#D97757' }: { size?: number; co
 }
 
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
+  // ⚠️ `trash` ES ROJO SIEMPRE, y no lo decide quien lo llama: un tacho gris se lee como decoración
+  //    (general 9). Es el mismo criterio que `IconoMenu nombre="borrar"` (app/_ui/iconos-menu.tsx).
+  const borrar = name === 'trash';
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.85} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none' }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={borrar ? 2 : 1.85} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', ...(borrar ? { color: 'var(--bad)' } : null) }}>
       {PATHS[name] ?? PATHS.dot}
     </svg>
   );
