@@ -9,6 +9,11 @@ mensajear** desde esta. Verificado el 27/09: `get_session` sobre las 4 sesiones 
 mañana devuelve *not found*, y esta build no expone ninguna herramienta para crear
 sesiones. El único paso que Claude no puede dar es el clic de «chat nuevo».
 
+**Antes que esta tabla: [`chats.md`](chats.md)** — en qué chats se estuvo trabajando, con la
+última actividad de cada uno. Una cuenta nueva ve la barra lateral VACÍA (está partida por
+cuenta), así que ése es el índice que contesta «¿dónde estaba trabajando?». Esta tabla
+contesta la siguiente: «ya sé cuál, ¿qué le pego?».
+
 El flujo, entonces: Martín abre un chat con el título de siempre y pega **una línea**.
 
 | Chat | Pegar |
@@ -22,6 +27,8 @@ El flujo, entonces: Martín abre un chat con el título de siempre y pega **una 
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |
 | Ads Manager | `Leé docs/relevo/ads-manager.md y seguimos desde ahí.` |
 | Plan / Perro Guardián | `Leé docs/relevo/plan-perro-guardian.md y seguimos desde ahí.` |
+| Pricing MaKo / Strategy | `Leé docs/relevo/super-admin.md y seguimos desde ahí.` |
+| Fallas en la PC / infra | `Leé docs/relevo/infra-y-build.md y seguimos desde ahí.` |
 
 Y los de ÁREA, que no tienen un chat con ese nombre pero sí briefing propio —se pegan en el
 chat que toque ese código: `seguridad-aislamiento.md`, `pixel-clarity-landing.md`,

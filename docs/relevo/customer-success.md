@@ -1,193 +1,315 @@
-# Retomar: Customer Success
+# Customer Success, el curso y la comunidad
 
-## 09/10, ~16:15: el feedback del audio del 08/10 a la noche (SIN COMMITEAR)
+<sub>Escrito el 10/10/2026 para una cuenta de Claude que arranca **sin una sola línea de
+historial**. Cubre la ventana del commit `6785dc16` (05/10/2026 12:33) a `a6481b4d`
+(10/10/2026 19:05). Reemplaza entero al briefing anterior (del 09/10 16:09): lo que ése
+afirmaba y hoy es falso está más abajo, en «Lo que el briefing viejo decía mal».</sub>
 
-**Qué cambió** (fuente: docs/feedback-curso-08oct-noche.md; lo aprendido, en
-docs/hallazgos-customer-success.md → «El feedback del audio del 08/10 a la noche»):
+## Qué es esta parte del producto, para alguien que nunca la vio
 
-- **Mig 0232 APLICADA**: `curso_accesos.productos`, o sea qué cursos abre cada acceso (NULL = todos).
-- **Se invita al curso donde se está parado.** Vale para el editor, la tarjeta del kanban, la tabla
-  Avance, la ficha y la invitación al ganar. El mail nombra sólo ése, y el portal, la comunidad y los
-  mensajes ven sólo lo que abre el acceso.
-- **La vista del alumno**: la escala centrada, el quiz que dice el resultado, un solo scroll, la vista
-  previa que corrige como el server y el pie «Este curso es personal. © {curso}».
-- **El editor**: el nombre del producto ya no pierde el foco, el borrador al invitar, el correo
-  configurable ahí mismo y el teléfono opcional.
-- Typecheck acotado con 0 errores y 1025/1025 tests. **Nada de la invitación por producto se vio en
-  la app real.** Los archivos están en `git status` (tres pistas y el cierre): commitear por ruta.
+MaKo es la plataforma de Martín Koncke. Cada cliente de MaKo es un **negocio** (un
+*workspace*, con su número: ws1, ws3, ws13…) y ese negocio tiene a su vez **sus propios
+clientes**. Customer Success es la tab donde el negocio administra la **ENTREGA** de lo que
+ya vendió: un kanban por producto, con columnas que son las etapas de ese servicio. Y de
+ahí cuelgan dos cosas que nacieron en esta ventana:
 
-**Espera a Martín:**
+- **El CURSO**: las clases que el negocio le da a sus clientes. El negocio las edita en
+  `/customer-success/curso`; el cliente las ve en un **portal personal** que se abre con un
+  link firmado (`/compartido/curso/<token>`) o con su propia cookie (`/mi-curso`), **sin
+  tener cuenta de MaKo**.
+- **La COMUNIDAD**: un foro tipo Skool **por producto** (`/customer-success/comunidad` para
+  el equipo del negocio; adentro del portal, para el alumno). Categorías, posts,
+  comentarios, likes que son puntos, niveles, ranking, calendario de eventos, campana de
+  notificaciones, moderación y una página «About».
 
-- **La fila de Leandro** (ws10, lead 2625) sigue abriendo los DOS cursos: es un NULL ya usado y no se
-  achica solo. Va la línea SQL del hallazgo o «Quitar de este producto», y que pruebe con un alumno
-  nuevo.
-- **`lib/resend.ts:37`** (Integraciones): leer la key de MaKo con `envCred`. Es la causa real del
-  «RESEND_API_KEY no configurada».
-- **`app/_ui/Modal.tsx` de raíz**: el mismo bug del foco vive en «Abrir cuenta» y en otros 8 diálogos.
-- Las decisiones por default del hallazgo: la ficha mira la invitación desde el curso elegido, y las
-  correctas se muestran sólo con el quiz cerrado y nunca por área. También las ideas del audio y lo
-  de Gmail, que es de Integraciones.
+«Alumno» = un cliente del negocio con acceso al curso. «Entrega» = la parte post-venta.
+«Lead» = la ficha de una persona en el CRM; un alumno siempre es un lead ganado.
 
-**Dónde quedó:** 07/10, 18:45. Sesión `7a6bc4be` (cuenta `claude2`). Último pedido: la tab Curso
-sin barra y personalizable (abajo). El de la tanda anterior: «Revisa todo lo que falta en el
-proyecto de Customer Success y terminalo todo, cierra las tareas».
+## Las cuatro pantallas, y dónde vive cada una
 
-## ⚠️ Corrección medida el 06/10 21:40, gana sobre todo lo de abajo
+| Ruta | Quién entra | Archivo que manda |
+|---|---|---|
+| `/customer-success` | el equipo del negocio | `app/customer-success/page.tsx` · `KanbanEntrega.tsx` |
+| `/customer-success/curso` | el equipo (editor del curso) | `app/customer-success/curso/CursoApp.tsx` |
+| `/customer-success/comunidad` | el equipo | `app/customer-success/comunidad/page.tsx` |
+| `/compartido/curso/<token>` y `/mi-curso` | **el alumno, sin sesión de MaKo** | `app/compartido/curso/[token]/PortalAlumno.tsx` |
 
-- **08/10, 15:06: el FEEDBACK DEL AUDIO de la tarde está en `main`** (`dbae4da9`, migs 0226 y 0227 APLICADAS).
-  La lección del editor se guarda A MANO, la tarea va en contenedores (y puede haber varias), videos y
-  agendas por embed, comentarios de clase, y el STT ya no toma un bucle por una transcripción. La fuente,
-  en docs/feedback-curso-08oct.md; lo aprendido y lo que espera a Martín, en
-  docs/hallazgos-customer-success.md → «El feedback del audio del 08/10». Nada se vio en la app real.
-- **08/10, 10:24: los 20 AJUSTES de Martín sobre el curso publicado están en `main`** (`d188f3a8`,
-  mig 0223 APLICADA). Ojo: apagar «Etapa del kanban» ahora QUITA la etapa y mueve a sus clientes en
-  silencio; nada de eso se probó en la app real (en el ws3, nunca en el ws1). Lo aprendido y lo que
-  espera a Martín, en docs/hallazgos-customer-success.md → «El curso tipo Skool, los 20 ajustes».
-- **08/10, 07:55: la TANDA 2 también está en `main`** (`bccbebae`, migs 0220 y 0221 APLICADAS): módulos que
-  pueden no ser etapas, candados, arrastre, la lección editable, el portal del alumno con su comunidad y
-  Conocimientos editable por el super admin. Lo que quedó sin hacer y las decisiones de Martín, en
-  docs/hallazgos-customer-success.md → «El curso tipo Skool, tanda 2». Lo de abajo describe la tanda 1.
-- **08/10: el curso tipo Skool (los 19 pedidos del 07/10).** La **tanda 1 está en `main`**
-  (`1080f74c`, 02:35, migs 0216-0219 APLICADAS): comunidad, tipos de tarea, invitar y permisos con
-  link mágico, editor rico, portadas diseñadas y recorrido — el recorrido, el editor, las láminas en
-  las tarjetas, invitar desde el editor y la comunidad del alumno están escritos y SIN MONTAR. La
-  **tanda 2 está en curso**: módulos, bloqueos, arrastre, la lección editable y el portal (ahí se
-  monta lo anterior). Después, **Conocimientos editable** por el super admin (item 1). El pedido 19
-  (invitar al curso al ganar) lo hizo **el CRM en su chat** (`77279ea4`, apagado por default). Lo
-  aprendido y la lista de lo que falta, en `docs/hallazgos-customer-success.md` → «El curso tipo
-  Skool, tanda 1»; el diseño, en `docs/diseno-curso-skool.md`; el pedido literal, en la bitácora
-  de `/admin/dev/customer-success`. Nada de la tanda 1 se vio todavía en el navegador.
-- **`envio_whatsapp_enabled` del ws1 está en TRUE.** Lo que dice más abajo («apagado desde el
-  29/09») quedó viejo. Mover a un cliente por el camino AUTOMÁTICO del curso le manda un WhatsApp
-  real: no se prueba nada sobre el ws1 que dispare mensajes.
-- La auditoría de las 12 tareas contra HEAD dio **cero hechas**. Primera tanda (`54e31272`,
-  `ab81f03f`, migs 0208-0210 APLICADAS): llamadas de entrega analizadas (#107), grabar/no grabar
-  (#693), notas y adjuntos por clase (#692), purga de huérfanos, onboarding de la tab Curso, CAS +
-  autor + puerta en el choke point, ficha linkeable, fase en la tabla, MaKo ve vencidas y avance
-  del curso, secuencias de entrega con los clientes sin fila, compromisos de la junta al DUEÑO,
-  #694 aplicado en la base del ws1, borrador de graduación (#667).
-- Segunda tanda, con las decisiones de Martín (memoria `cs-decisiones-cierre-0610`), en
-  `f6b33ed0` (migs 0211-0213 APLICADAS, 13 clases marcadas por área en el ws1): cartera con
-  «Último contacto» y «Vencidas» + alerta de baja al dueño (#109), «Sin cobro» en el CRM (#747),
-  recordatorio de clases por WhatsApp a los 3 días (#780) y las tres piezas de #665.
-- **El borrador del Plan con los cierres está en https://hola-mako.com/plan/revisar/propavremjgpwd98**
-  (2 a medias, 3 enriquecidas y 7 tarjetas nuevas; las 7 hechas se cerraron el 07/10 por pedido de
-  Martín, con su prueba en el historial). Y lo que se hizo, tarjeta por
-  tarjeta, en `/admin/runway#customer-success`.
-- **El análisis de las llamadas de entrega (#107) no analizó ninguna todavía**: `gemini-flash-latest`
-  contesta 503 («high demand») desde el 07/10 a la madrugada. Reintenta cada hora sin gastar el
-  intento de la sesión y NO baja de modelo a propósito. Mirar `closing_analyses` con
-  `analysis_version = 3` antes de dar #107 por cerrada.
-- **La clienta del ws1 en «onboarding»** (Teresa, lead 21) es una etapa que su producto no tiene;
-  la causa probable era el choke point validando contra las etapas de FÁBRICA con el catálogo sin
-  leer (ya arreglado). Dónde ponerla lo decide Martín: se mueve con un clic desde su ficha.
-- **El portal del alumno y la tab Curso se dibujan con el diseño de Conocimientos** (07/10,
-  `70a207df`, pedido de Martín): `app/_cursos/CursoUgc.tsx` ya está enchufado. Lo que aprendió y
-  lo que falta, en `docs/hallazgos-customer-success.md` → «El portal del alumno y la tab Curso con
-  el diseño de Conocimientos».
-- **La tab Curso sin barra y personalizable** (07/10, `5cbaedbb`, mig 0214 APLICADA): la marca de
-  la barra oscura es el desplegable de cursos y color; color, portadas y títulos con un clic. El
-  título NO renombra el producto del CRM (a propósito); la etapa SÍ renombra la columna. **Espera
-  una decisión de Martín: ¿las clases van por link o se suben?** Lo medido y la recomendación, en
-  `docs/hallazgos-customer-success.md` → «La tab Curso sin barra, el curso personalizable».
+El dibujo del curso es **UNO** y lo comparten el editor, el portal del alumno y la tab
+Conocimientos: `app/_cursos/CursoUgc.tsx`.
 
 ---
 
-**Lo de abajo es del relevo anterior (06/10, 18:30, cuenta `claude1`).** Cerró el trabajo del
-**curso con invitación** que otra sesión dejó a medias, sin commitear, al quedarse sin cuota.
+## 1. En qué quedó
 
-## ⚠️ Lo que cambió desde el relevo anterior, y lo cambia todo
+**El área está quieta desde el 09/10/2026 a las 16:09.** Medido: `git log
+6785dc16..HEAD -- app/customer-success app/_comunidad app/compartido 'lib/curso*.ts'
+'lib/cs-*.ts'` no devuelve **ni un commit del 10/10**. Los **76 commits del 10/10**
+(`git log --since='2026-10-10 00:00' --oneline | wc -l`) fueron de Automations, CRM,
+Referidos y Strategy — ninguno de acá. Y todo lo del área **está en
+`origin/main`** (`git merge-base --is-ancestor 594a31fb origin/main` → sí).
 
-**La decisión grande YA ESTÁ TOMADA.** El relevo del 05/10 decía que dónde vivía el programa de
-Mauricio «seguía sin decidir». Se decidió el 06/10: **el curso vive EN MaKo, colgado de las etapas
-de la entrega, y Whop salió del producto.** El pedido literal de Martín (7 puntos, incluido
-«implementa todo esto, no preguntes») está sin resumir en la bitácora de
-`/admin/dev/customer-success`, hito «6 oct 12:38». El detalle de esa tanda, en
-[`docs/relevo/instagram-afuera-y-curso.md`](instagram-afuera-y-curso.md).
+⚠️ **Pushear no es desplegar.** Que esté en `origin/main` no prueba que Vercel lo haya
+compilado: eso se confirma con `vercel ls`. **No lo verifiqué.**
 
-Y el **mensaje de 4 preguntas a Mauricio** quedó medio desactualizado: dos de las cuatro eran
-sobre Whop (¿sus clientes entran gratis?, ¿quién los da de alta?), que ya no está. No sé si se
-mandó: preguntale a Martín antes de mandarlo, y si sigue en pie, sacale las dos de Whop.
+Los 19 commits del área, con su migración, todos en `main`:
 
-## Lo que SÍ está hecho
+| Commit | Fecha | Qué dejó | Migración |
+|---|---|---|---|
+| `42d91a41` `9b5a4c9b` `a9d4471c` | 05/10 | acciones en lote, tabla del Plan, el deshacer que devuelve el reloj de la etapa, un solo menú de etapas | — |
+| `41566563` | 05/10 23:27 | casilla del CRM, fases al filtro, editor nuevo, ficha por pestañas | — |
+| `b7a72267` `dac568b9` | 06/10 | clientes **por producto**, la ficha con las tabs del CRM, editor por cajas, la foto del cliente | — |
+| `d9ee19cd` | 06/10 03:42 | «quitar de un producto» y el orden manual | **0196** |
+| `eba4f12f` `d57bed5e` | 06/10 12:38 | **el curso nace**: tab Curso, portal del cliente, la ficha, paso de etapa por tareas. Whop sale del producto | **0202** |
+| `c0e2570b` | 06/10 18:20 | el alumno entra con **su cookie**, nunca con sesión de MaKo | **0206** |
+| `54e31272` `ab81f03f` | 06/10 23:40 | las llamadas de entrega se analizan, el curso se anota y se limpia, el choke point deja de mentir | **0208 0209 0210** |
+| `f6b33ed0` `823b7122` | 07/10 01:28 | cartera con señal, «Sin cobro», recordatorio de clases, el bucle de #665 | **0211 0212 0213** |
+| `70a207df` | 07/10 16:30 | el portal y la tab Curso con el diseño de Conocimientos | — |
+| `5cbaedbb` | 07/10 18:44 | la tab **sin barra** y el curso personalizable (color, portadas, títulos) | **0214** |
+| `1080f74c` | 08/10 02:35 | **curso tipo Skool, tanda 1**: la comunidad entera, tipos de tarea, invitar y permisos con link mágico, editor rico, portadas diseñadas, recorrido | **0216 0217 0218 0219** |
+| `bccbebae` | 08/10 07:26 | **tanda 2**: módulos, candados, arrastre, la lección editable en su lugar, el portal, Conocimientos editable | **0220** (+0221) |
+| `d188f3a8` | 08/10 10:24 | **los 20 ajustes de Martín**: la lección, la tarea, el editor, los menús, la papelera con Deshacer, dos tutoriales | **0223_curso_papelera** |
+| `dbae4da9` | 08/10 15:06 | **feedback del audio del 08/10**: la lección se guarda a mano, la tarea en contenedores, videos y agendas por embed, comentarios de clase, el STT que contaba un bucle | **0226 0227** |
+| `594a31fb` | 09/10 16:09 | **acceso por producto**: cada alumno ve sólo los cursos a los que se lo invitó. Más la vista del alumno (quiz que dice el resultado, un scroll, pie «Este curso es personal»), el borrador al invitar, el correo configurable ahí mismo, el teléfono opcional, y el foco que se perdía al tipear | **0232** |
 
-| Qué | Dónde vive |
+Y seis commits **de otras sesiones** tocaron archivos del área el 09/10 a la tarde, sin
+pedirlo nadie de acá (son barridos de toda la app, y hay que saberlo porque aparecen en el
+`git log` del área): `16942e70` (la tarjeta dice cuándo nadie puede entrar), `71690b4b` (el
+tacho de borrar, rojo), `06fc917c` y `abc88da0` (íconos en menús y desplegables),
+`042eaf26` (**grabar audio en la tarea del alumno**, `TareaAlumno.tsx`, +123 líneas),
+`04f40af4` (el renombre de /chatbot a /automations tocó `EtapasEntregaModal.tsx`).
+
+**Medición propia, 10/10/2026:** los 70 archivos de test del área
+(`tests/curso*.test.ts tests/cs-*.test.ts tests/comunidad-*.test.ts` + 5 más) dan
+**1067 pass, 0 fail**, en 30,9 s.
+
+---
+
+## 2. Lo que NACIÓ en la ventana (el 05/10 no existía nada de esto)
+
+1. **El curso adentro de MaKo** (06/10, `eba4f12f`). La decisión grande: **el curso vive en
+   MaKo y Whop salió del producto**. Whop era la plataforma externa donde estaba el programa;
+   hoy es historia (`ab81f03f`).
+2. **El alumno sin cuenta de MaKo** (06/10, `c0e2570b`). Tiene su propia cookie
+   (`mako_alumno`), **nunca** `mako_session` ni fila en `usuarios`.
+3. **La comunidad entera** (08/10, `1080f74c`, mig **0217**): 12 tablas de una sola vez
+   (`comunidad_ajustes`, `_categorias`, `_posts`, `_comentarios`, `_likes`, `_votos`,
+   `_perfiles`, `_notificaciones`, `_seguimientos`, `_baneos`, `_eventos`,
+   `_evento_avisos`). 18 componentes en `app/_comunidad/` y 10 módulos `lib/comunidad-*.ts`.
+4. **Módulos y candados** (08/10, mig **0220**): `curso_modulos`, `curso_desbloqueos`, el
+   `bloqueo` por clase. Un módulo puede no ser una etapa del kanban.
+5. **La papelera** (08/10, mig **0223_curso_papelera**): borrado suave con `borrada_at` /
+   `borrado_at`, y **todas** las lecturas de clases filtran por eso.
+6. **Las entregas del alumno** (08/10, mig **0218**): bucket privado `curso-entregas`,
+   100 MiB por archivo, y la nota de los quizzes en `curso_progreso.calificacion`.
+7. **El acceso por producto** (09/10, mig **0232**): `curso_accesos.productos` dice qué
+   cursos abre cada acceso. **`NULL` = todos**, que es como funcionaba antes.
+8. **El análisis de las sesiones de entrega** (06/10, mig **0209**): `closing_analyses` con
+   `analysis_version = 3` para riesgos y próximos pasos de una junta de entrega (#107).
+
+---
+
+## 3. Lo que quedó a medio hacer o SIN VERIFICAR, con el archivo
+
+### Lo que nunca se vio en la app real (lo más grande)
+
+⚠️ **Nada del acceso por producto (09/10) se abrió en la app real.** Ni el modal de invitar
+con su borrador, ni el correo embebido, ni la lista desde el curso, ni la tarjeta, ni
+Avance, ni la ficha por producto. Y los 20 ajustes del 08/10 y el feedback del audio
+tampoco. Se verificó en bancos de prueba y con Chromium apuntando a un dev server, **nunca
+en el producto andando**. El motivo está medido: el ws3 («Cliente de Prueba», el workspace
+donde se puede romper cosas) tiene **0 productos**, y el único con datos es el **ws1, que es
+de Mauricio Bustos — un CLIENTE real**.
+
+### Arreglos escritos y no aplicados, con las líneas exactas
+
+- **`app/_ui/Modal.tsx` — el arreglo de raíz del foco. VERIFICADO HOY QUE SIGUE SIN HACER**
+  (`app/_ui/Modal.tsx:152` todavía dice `}, [onCerrar, arriba]);`). El efecto de foco
+  depende de `onCerrar`, así que un `onCerrar={() => …}` nuevo en cada render lo re-dispara
+  con cada tecla y **el campo pierde el foco letra por letra**. El parche exacto (dos
+  partes, con el código línea por línea y medido en un banco) está en
+  `docs/hallazgos-customer-success.md` → «El feedback del audio del 08/10 a la noche» →
+  «Lo que quedó SIN hacer». Mientras tanto el mismo bug vive, **medido**, en
+  `app/customer-success/CuentaDeMaKo.tsx:217` («Abrir cuenta»: tipear «ana@x» deja «a» —
+  verifiqué que la flecha sigue ahí), y con la misma forma y **sin medir** en
+  `AdminView.tsx:1025`, `EditarObjetivo.tsx:94` y `:172`, Pricing, CampanasBrowser, CrmBoard
+  y VideoGeneratorApp. El workaround del área es `useCerrarEstable`
+  (`app/customer-success/curso/dialogo-foco.ts`), hoy puesto en sólo 3 diálogos:
+  `NuevoProducto.tsx`, `QuitarEtapa.tsx`, `LeccionEditable.tsx`.
+- **`InvitarAlCurso.tsx:136` y `InvitarAlumnos.tsx:163`** siguen con
+  `alCerrar.current = onCerrar;` **en el cuerpo del render** (verificado hoy): eslint lo
+  marca y va `useCerrarEstable`. Y en `InvitarAlCurso.tsx:139-144` el foco al abrir no llega
+  al campo (medido por la sesión anterior): va `useFocoInicial(id)`. Mismo patrón, sin
+  medir: `PortadaPicker.tsx:243-277` y `Dropdown.tsx:704-738`.
+- **El editor de la tab Curso tiene DOS scrolls en la lección.** Verificado:
+  `app/customer-success/curso/CursoApp.tsx:1112` monta `<CursoUgc` y **no** le pasa
+  `unSoloScroll`, el prop que ya existe (`app/_cursos/tipos.ts:405`) y que el portal del
+  alumno sí usa (`PortalAlumno.tsx:314`). Es pasárselo.
+- **La ficha del cliente no muestra qué cursos abre el acceso**, ni deja sacar uno salvo con
+  «Quitar de este producto» o «Cortar acceso». El dato ya viaja hasta la pantalla
+  (`accesoParaPantalla.productos`; el componente es `Permisos` en
+  `app/customer-success/FichaCurso.tsx:602`).
+- **La invitación al ganar, en un producto AGREGADO: SIN MEDIR.** Con el producto puesto, si
+  el lead no tiene fila en `cliente_entrega` de ése, el núcleo contesta «No es cliente de
+  ese producto» y no invita (`lib/crm-curso-al-ganar.ts`). Antes invitaba a lo que veía.
+- **La foto subida en la vista de agencia queda en la carpeta del que mira**
+  (`/api/perfil/avatar` arma la ruta con la sesión). Se ve bien; el archivo no es «de» la
+  cuenta.
+- **Los otros lectores de `getPerfil`** (el usuario del menú en /plan y /customer-success, el
+  guion del audio) ahora muestran al cliente en la vista de agencia. **No se miraron uno por
+  uno en el navegador.**
+
+### Datos de producción que NO pude medir (no tengo acceso a la base; lo heredo del briefing anterior y va MARCADO)
+
+- **`envio_whatsapp_enabled` del ws1 estaría en TRUE** (afirmado el 06/10). Si es cierto,
+  mover a un cliente por el camino automático del curso **le manda un WhatsApp real a una
+  persona real**. **Hasta comprobarlo, no se prueba nada sobre el ws1 que dispare mensajes.**
+- **El ws1 tendría 107 clases cargadas** y 13 marcadas por área (afirmado el 06-07/10).
+- **La fila de acceso de Leandro** (ws10, lead 2625, `curso_accesos.id = 5`) seguiría
+  abriendo **los DOS cursos**: es un `productos = NULL` ya usado, y ninguna invitación nueva
+  lo acota (`yaSeLeDio`, `lib/curso-invitar-reglas.ts`). Afirmado el 09/10.
+- **El acceso de Brigitte Eberlin (ws15)**: `usuarios where workspace_id = 15` daba **0** el
+  09/10, y su email **no está en ninguna columna de texto de la base**. No hay a quién
+  mandarle la invitación, y por eso nunca salió. **Falta que alguien consiga su email.**
+- **El análisis de las llamadas de entrega (#107) no habría analizado ninguna todavía**:
+  `gemini-flash-latest` contestaba 503 («high demand») desde el 07/10. Se comprueba mirando
+  `closing_analyses` con `analysis_version = 3`.
+- **La clienta del ws1 en la etapa «onboarding»** (Teresa, lead 21) está en una etapa que su
+  producto no tiene. La causa (el choke point validando contra las etapas de FÁBRICA con el
+  catálogo sin leer) ya está arreglada; **dónde ponerla la decide Martín**, y se mueve con un
+  clic desde su ficha.
+
+### Deuda de registro (verificada hoy)
+
+**Cuatro archivos del último commit no están declarados en el área**, así que
+`/admin/dev/customer-success` no ve ese trabajo. Medido con `grep -c` sobre
+`app/admin/dev/areas.ts`: `supabase/migrations/0232_curso_accesos_productos.sql` → 0,
+`lib/curso-invitar-reglas.ts` → 0, `app/customer-success/curso/dialogo-foco.ts` → 0,
+`docs/feedback-curso-08oct-noche.md` → 0. El `vive[]` del área arranca en
+`app/admin/dev/areas.ts:422`.
+
+---
+
+## 4. Las trampas del área (las que más tiempo ahorran)
+
+1. ⚠️ **El alumno NUNCA recibe `mako_session` ni una fila en `usuarios`.** Está medido: con
+   una fila, **leía el CRM de Mauricio**. Tiene su cookie propia, el proxy no la toma por
+   sesión, y lo único que abre es `/mi-curso`. **Si alguien propone «darle una cuenta de MaKo
+   con rol de alumno», es esto lo que rompe.** El porqué, en `lib/alumno-sesion.ts`.
+2. ⚠️ **Verificar esta tab ESCRIBE en producción**, y bootear local también (local apunta a
+   la Supabase de PROD). Abrir la pestaña Curso de un cliente le **CREA** su fila de
+   `curso_accesos`, y abrir el portal le **cuenta un ingreso**: de los 6 ingresos del lead
+   2625, hasta 5 son de mediciones.
+3. ⚠️ **El reparto de clientes en columnas es DERIVADO**: un cliente **sin** fila en
+   `cliente_entrega` está en la PRIMERA etapa. Toda función que aplique esa regla necesita
+   el **universo de clientes**, no las filas de la tabla — pasarle `Object.values(<mapa de
+   filas>)` hace que el editor diga «0 clientes» al lado de 5 tarjetas dibujadas, y con ese
+   0 **la columna se borra sin preguntar**.
+4. ⚠️ **HAY DOS MIGRACIONES CON EL NÚMERO 0223**: `0223_curso_papelera.sql` (de esta área,
+   `d188f3a8`) y `0223_flujo_grafo.sql` (de Automations). Las dos están en `main` y las dos
+   dicen «ANTES del deploy». Es exactamente la colisión que AGENTS.md advierte, y pasó.
+   **Y el próximo número del área NO es 0233**: el repo ya tiene 0233 y 0240-0245 de otras
+   áreas. Antes de nombrar una, `git pull` y `ls supabase/migrations/ | tail -5`.
+5. ⚠️ **Los templates de estilos de `KanbanEntrega.tsx` y `EtapasEntregaModal.tsx` no
+   admiten NI UN backtick**, ni en un comentario: cierra la cadena a la mitad y el typecheck
+   señala otra línea.
+6. ⚠️ **Apagar «Etapa del kanban» QUITA la etapa y mueve a sus clientes en silencio.** Eso
+   se construyó el 08/10 (`d188f3a8`) y **no se probó en la app real**.
+7. ⚠️ **Antes de declarar ajeno un hunk, grepeá qué TEST lo nombra.** El 06/10 se dejaron
+   afuera dos arreglos de `app/api/admin/agencia/*` por «no ser del curso», y los delató un
+   test del curso que los cuidaba.
+8. **Trampas de verificar con Playwright en este área** (cada una costó minutos y se lee
+   como un bug del código):
+   - `route.continue({ headers: { 'sec-fetch-dest': 'empty' } })` **no pisa
+     `sec-fetch-dest`** en Chromium. Lo que funciona es pedir el documento con `route.fetch`
+     desde Node, con «preview» en el user-agent, y servirlo con `route.fulfill`.
+   - Un documento servido con `route.fulfill` hace que **Local Network Access bloquee el
+     websocket del HMR**: la página queda en «Abriendo el curso…» para siempre, sin un solo
+     error. Se lanza con
+     `--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests`.
+   - En headless, con la página recién cargada, **el primer `requestAnimationFrame` llega
+     570 ms tarde**: un banco de foco se abre con un clic, nunca montado al cargar.
+9. ⚠️ **Si el portal entero contesta «No pudimos cargar tus clases»**, antes de diagnosticar
+   un portal caído: `git status` de `lib/curso-datos.ts` y comprobar que la columna que lee
+   exista en `information_schema`. Una lectura nueva en el árbol con su migración sin aplicar
+   tira el portal completo.
+10. ⚠️ **Cinco `tsc` a la vez llevaron el typecheck a 35 minutos**, y el lock se vence a los
+    10. Lo que alcanza es un tsconfig acotado en el scratchpad: `files` con los archivos
+    tocados, `include: []`, `incremental: false` y `plugins: []` (1509 archivos, ~1,5 min).
+
+---
+
+## 5. Lo que el briefing viejo decía mal (corregido con su prueba)
+
+| Lo que decía (09/10 16:09 o antes) | La verdad, medida el 10/10/2026 |
 |---|---|
-| El kanban de la entrega por producto, con FASES | `app/customer-success/KanbanEntrega.tsx` · `lib/servicio-etapas.ts` · mig 0188 |
-| El curso: la tab, el portal, la ficha y el paso de etapa | `app/customer-success/curso/` · `lib/curso*.ts` · mig 0202 — el ws1 tiene 107 clases cargadas |
-| **La invitación al curso y la cookie del alumno** (06/10 tarde) | `lib/alumno-sesion.ts` · `lib/alumno-acceso.ts` · `app/mi-curso/` · `app/api/compartido/curso/entrar/` · mig 0206 (**aplicada**) |
-
-Las decisiones que gobiernan la tab —son 14— están en la memoria `cs-ficha-cliente`. La cosecha
-de cada tanda, en [`docs/hallazgos-customer-success.md`](../hallazgos-customer-success.md): la de
-la invitación es la subsección «Invitar al cliente al curso: la cookie del alumno».
-
-## Lo que falta, en orden
-
-1. ⚠️ **Prender `envio_whatsapp_enabled` en el ws1.** Es el interruptor entre «está hecho» y «está
-   funcionando»: apagado desde el 29/09, así que a ninguno de los 14 clientes de Mauricio le llega
-   el link, la etapa nueva ni los avisos de las llamadas. **La invitación por MAIL no depende de
-   ese flag**: sale por Resend aunque el WhatsApp esté apagado. Es decisión de Martín.
-2. **Nadie fue invitado todavía** (0 invitaciones, medido el 06/10 18:05). La invitación no se
-   probó de punta a punta con un email real.
-3. **El PAS fuera de orden**: el kanban lo pone tercero y la planilla de Mauricio después de
-   Tablero y Ritmo, a propósito. Se arregla moviendo la etapa en el editor (las clases viajan
-   solas). Lo decide Martín.
-4. **Los 14 clientes de Mauricio están todos en Bienvenida**: falta ubicarlos en su etapa real.
-5. ~~`app/_cursos/` sin enchufar~~: **enchufado el 07/10** (`70a207df`), lo montan el portal y la
-   tab Curso. Falta que lo monte Conocimientos (`CursoReplica`, que sigue con su copia).
-6. Las secuencias de nutrición no se disparan por la etapa de entrega; la ficha no es linkeable;
-   el onboarding de la tab Curso; lo que MaKo puede leer del curso por la API. El resto, en la
-   memoria `cs-ficha-cliente`, sección «Lo que quedó SIN hacer».
-
-## ⚠️ Lo que hay en el árbol y NO es de esta área — no lo commitees
-
-Al 06/10 18:30 el clon tenía ~50 archivos sin commitear de otras sesiones. Los que tocan bordes de
-esta área:
-
-- **`app/_cursos/` (+ el campo `extra` de `app/conocimientos/posicion.ts`)**: una extracción del
-  dibujo de un curso cuya cabecera dice que la montan tres pantallas, y que tiene **CERO
-  `import`**. Se dejó afuera A PROPÓSITO: nada depende de ella y commitearla dejaría una cabecera
-  que miente. Quien la retome toca `/conocimientos`, que tiene alumnos reales.
-- **`lib/workspace.ts` y `lib/tablas-de-inquilino.ts`**: traen sólo `lead_funnel` (mig 0207), que
-  es del **CRM**.
-- **`AGENTS.md`**: trae «LO PRIMERO AL ABRIR», de la sesión de Estrategia 2 Cuentas.
-- **`tests/crm-auto-asistencia.test.ts` está ROJO** sobre el árbol compartido: alguien cambió en
-  `lib/crm-auto.ts` el texto `Asistió R…` por `Asistió ${reunion}` y el guard busca el literal. Es
-  del CRM/Fathom. El pre-push no corre tests, así que no frena a nadie, pero aparece en todo
-  `npm test`.
-- **Un archivo vacío llamado `=`** en la raíz del repo (06/10 11:16, 0 bytes): huele a un `>` que se
-  escapó en un comando. No es de nadie que se sepa; no lo borres sin preguntar.
-
-## Las trampas que más tiempo ahorran en esta tab
-
-1. ⚠️ **El alumno del curso NUNCA recibe `mako_session` ni una fila en `usuarios`.** Está medido:
-   con una fila, leía el CRM de Mauricio. Tiene su cookie propia, que el proxy no toma por sesión,
-   y lo único que abre es `/mi-curso`. **Si alguien propone «darle una cuenta de MaKo con rol de
-   alumno», es esto lo que rompe.**
-2. ⚠️ **Antes de declarar ajeno un hunk, grepeá qué TEST lo nombra.** El 06/10 dejé afuera dos
-   arreglos de `app/api/admin/agencia/*` por «no ser del curso», y los delató un test del curso que
-   los cuidaba. La forma de que salga sola: verificar el conjunto en un **worktree limpio con SÓLO
-   lo tuyo** (`git worktree add --detach`, junction a `node_modules` con PowerShell). Ojo: ahí
-   falla `tests/dev-areas.test.ts` por un archivo local (`.claude/settings.local.json`) que un
-   worktree no tiene — eso es del entorno, no tuyo.
-3. ⚠️ **El reparto de clientes en columnas es DERIVADO**: un cliente sin fila en `cliente_entrega`
-   está en la PRIMERA etapa. Toda función que aplique esa regla necesita el UNIVERSO de clientes,
-   no las filas.
-4. ⚠️ **Los templates de estilos de `KanbanEntrega` y `EtapasEntregaModal` no admiten NI UN
-   backtick**, ni en un comentario: cierra la cadena a la mitad y el typecheck señala otra línea.
-5. ⚠️ **Verificar esta tab ESCRIBE en producción.** El ws3 está en cero; abrir la pestaña Curso de
-   un cliente le CREA su fila de `curso_accesos` (hay que borrarla después).
+| «Los archivos están en `git status` (tres pistas y el cierre): **commitear por ruta**» | **Ya se commitearon**: `594a31fb`, 09/10 16:08:46, 45 archivos. `git status` del área está limpio |
+| «Espera a Martín: **`lib/resend.ts:37`**, leer la key de MaKo con `envCred`» | **Hecho por la sesión de Integraciones**: `3677e675`, 09/10 15:50:44. Verificado en `lib/resend.ts:47` → `await envCred('RESEND_API_KEY')` |
+| «**`tests/crm-auto-asistencia.test.ts` está ROJO** sobre el árbol compartido» | **Verde**: 5 pass / 0 fail, corrido hoy |
+| «Un archivo vacío llamado **`=`** en la raíz del repo; no lo borres sin preguntar» | **Ya no existe** (`ls '='` → No such file or directory) |
+| «**`app/_cursos/` tiene CERO `import`**, se dejó afuera a propósito, su cabecera miente» | **Falso desde el 07/10** (`70a207df`): lo importan 20+ archivos y es el dibujo único del curso |
+| «Falta que lo monte Conocimientos (**`CursoReplica`**, que sigue con su copia)» | **Hecho el 08/10**: `CursoReplica.tsx` pasó a ser `app/conocimientos/CursoConocimientos.tsx`, que monta `CursoUgc` (ver su cabecera, líneas 12 y 26) |
+| «Último pedido: la tab Curso sin barra y personalizable» (fechado 07/10 18:45) | **Hecho a las 18:44 de ese mismo día**: `5cbaedbb`, mig 0214 |
+| «`envio_whatsapp_enabled` del ws1 apagado desde el 29/09» | Corregido ya el 06/10: estaría en **TRUE**. Sigue **sin verificar** por mí |
 
 ---
 
-## Lo que vale para cualquier chat de este relevo
+## 6. Qué espera una decisión de Martín
 
-- **Somos `claude1` (Mauricio).** Antes de firmar releé `head -1 ~/.claude/cuenta-activa.txt`: lo
-  que inyecta el hook al arrancar es una foto.
-- El trailer `Claude-Cuenta:` va **pegado** a `Co-Authored-By:`, sin línea en blanco.
-- **Suele haber varias sesiones sobre el mismo clon.** `git status` antes de commitear, y
-  `git commit -- <rutas>` por ruta explícita: un commit pelado se lleva el índice entero.
-- ⚠️ **`/tmp` es compartido entre las sesiones.** Todo temporal va al scratchpad de tu sesión;
-  `git commit -F /tmp/msg.txt` puede commitear el mensaje de otra.
-- ⚠️ **Un reporte sobre el árbol se FECHA o no se entiende**, y se vuelve a medir antes de mandarlo.
-- ⚠️ **Bootear local ESCRIBE en la Supabase de PRODUCCIÓN.**
+1. **La fila de acceso de Leandro** (ws10, lead 2625) abre los dos cursos y no se achica
+   sola. Dos opciones: (a) la línea SQL —
+   `update curso_accesos set productos = '{39}' where id = 5 and workspace_id = 10 and
+   lead_id = 2625 and area is null;` — o (b) «Quitar de este producto» en Service Delivery
+   (producto 10). En los dos casos conviene que **pruebe con un alumno NUEVO**, porque un
+   `NULL` ya usado no se acota. Y el «Entró N veces» de esa fila subió por las mediciones:
+   corregirlo es otra escritura, también suya.
+2. **El acceso de Brigitte Eberlin (ws15)**. Hace falta **su email**, que no está en la
+   base. Con él hay dos caminos: Joan (la agencia, ws13) desde la tarjeta → «Acciones» →
+   «Pedir sumar a alguien», y Martín aprueba; o Martín directo desde la ficha → Equipo →
+   «Sumar y mandarle el acceso». Después se verifica `invitacion_enviada_at` en su fila.
+3. **El PAS fuera de orden.** El kanban pone la etapa PAS tercera y la planilla de Mauricio
+   la pone después de Tablero y Ritmo. Se arregla moviendo la etapa en el editor (las clases
+   viajan solas). **Lo decide él.**
+4. **Dónde va Teresa** (ws1, lead 21), hoy en una etapa que su producto no tiene. Se mueve
+   con un clic desde su ficha.
+5. **Las respuestas correctas de un quiz**: hoy se muestran sólo con el quiz cerrado y
+   **nunca por área** (default puesto por la sesión anterior, sin confirmar). Lo mismo para
+   un quiz reabierto (`darOtroIntento`, `lib/curso-entregas.ts`): las de un reabierto ya se
+   ven. **Confirmar o cambiar.**
+6. **La ficha mira la invitación desde el curso elegido** (otro default sin confirmar).
+7. **Ideas sin pedido, para decidir si se hacen**: el diseño del mail de invitación; el
+   Curso como pestaña de la comunidad (a Leandro le gusta separado, no hay pedido); los
+   niveles del ranking, que hoy salen sin configurar; crear el grupo de WhatsApp del curso
+   desde MaKo.
+8. **Del audio del 08/10 a la noche quedan los puntos 13, 14 y 15** (el correo con
+   Google/Gmail entre ellos): **son de Integraciones**, no de acá.
+
+---
+
+## Lo que había en el árbol sin commitear cuando escribí esto (10/10/2026 19:20) — NO es mío
+
+Hay otras sesiones trabajando sobre este mismo clon. Al momento de escribir, `git status`
+mostraba, **todo ajeno**, de la sesión del CRM: `app/crm/CrmBoard.tsx`,
+`app/crm/CrmToolbar.tsx`, `lib/campana-atribucion.ts`, `tests/crm-filtro-ads.test.ts`,
+`app/crm/arbol-seleccion.ts` (nuevo) y `docs/relevo/chatbot.md`. **No los toqué.** Uno
+importa acá: `CrmBoard.tsx` es uno de los archivos que arrastran el bug de foco de
+`app/_ui/Modal.tsx`, así que si alguien arregla Modal de raíz, ese archivo puede estar a
+medio escribir por otro — se mira `git status` de la ruta **en su propio comando** antes de
+tocarla.
+
+## Dónde está lo demás
+
+- **La cosecha completa del área** (síntoma → causa → regla, 5.300 líneas):
+  `docs/hallazgos-customer-success.md`. **No lo abras entero** (~17.000 tokens): cada entrada
+  trae `**Vive en:** <archivo>`, así que se busca con `Grep` de la ruta que te importa.
+  Las secciones de esta ventana arrancan en «El kanban de la ENTREGA de un servicio
+  (05/10/2026)» y la última es «No se le envió la invitación a Brigitte (09/10/2026)».
+- **Las fuentes literales de los pedidos**: `docs/feedback-curso-08oct.md`,
+  `docs/feedback-curso-08oct-noche.md`, `docs/diseno-curso-skool.md` (el diseño, con las
+  decisiones D1-D8), y la bitácora de `/admin/dev/customer-success`
+  (`app/admin/dev/customer-success/bitacora.ts`), cuyo último hito es del 9 oct 16:08.
+- **El índice de todos los chats** (lo que contesta «¿en qué estuve trabajando?»):
+  `docs/relevo/chats.md`, escrito el 10/10 19:05 por el hook de cierre de otra sesión. Ojo:
+  ese commit (`a6481b4d`) **está sin pushear**.
+- **Las reglas que gobiernan código nuevo** salieron a `AGENTS.md`: «Todo `<Modal>` recibe un
+  `onCerrar` de identidad FIJA», «Una regla DERIVADA necesita el UNIVERSO, no las filas», «Si
+  una fila de una tabla compartida pasa a significar OTRA cosa, cada LECTOR decide».

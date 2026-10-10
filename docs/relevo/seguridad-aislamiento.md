@@ -1,339 +1,416 @@
-# Relevo — Seguridad y aislamiento entre clientes
+# Relevo — Seguridad, cifrado y aislamiento entre clientes
 
-**Ventana:** del commit `6785dc16` (05/10/2026 12:33) a `de64b5b7` (06/10/2026 15:58). 97 commits
-en total; los de esta área son 8. Escrito el 06/10/2026 por la cuenta 1 al agotarse la cuota.
+**Ventana:** del commit `6785dc16` (05/10/2026 12:33) a `9862c146` (10/10/2026 18:59). 670 commits
+en total; 46 migraciones nuevas (0193 → 0245); los de esta área, ~25. Escrito el 10/10/2026.
 
-**Qué cubre:** que nada de un cliente llegue a otro — el workspace con el que sale un mensaje, un
-mail, un link o un acuse; la herencia de configuración entre inquilinos; y la superficie que se
-atiende sin sesión.
+**Qué es esta parte del producto, para quien nunca la vio.** MaKo es una sola aplicación que
+usan varios negocios a la vez. Cada negocio es un **workspace** (un número: el 1, el 9, el 11…).
+Esta área contesta una sola pregunta: **que nada de un cliente llegue a otro.** Tres cosas
+distintas, y hay que tenerlas separadas en la cabeza:
 
-> **Lo primero:** en esta ventana aparecieron **siete fugas reales** (seis «cruces» entre clientes
-> + una ejecución de server actions sin sesión). **Las siete están arregladas y pusheadas**, con
-> guard. **Sólo una está verificada contra producción** — la de las server actions, que la verifiqué
-> yo al cerrar. Las otras seis están fijadas por guards que leen el FUENTE, no el comportamiento.
-> El detalle, abajo.
+1. **La puerta de entrada** (`proxy.ts` + `lib/rutas-publicas.ts`): qué se atiende sin estar
+   logueado y con qué método.
+2. **El aislamiento de los datos** (`lib/workspace.ts`): quién decide, en cada consulta, de qué
+   workspace son las filas. Y a dónde cae eso cuando nadie lo dijo.
+3. **Las credenciales del cliente** (`lib/credenciales.ts`, `lib/cripto-credenciales.ts`): los
+   tokens de Meta, Google, WhatsApp y las keys de IA que cada negocio conecta, cifrados.
 
----
+**Dos nombres que hay que aprender ANTES de leer el resto, porque todo lo demás cuelga de ahí:**
 
-## 1. En qué quedó: lo hecho y desplegado
+- **`OWNER_WS` vale 1, y el workspace 1 es de Mauricio Bustos, que es un CLIENTE.** La constante
+  se llama así porque MaKo nació como el dashboard de su agencia. Cuando nadie dice de quién es
+  algo —un cron, un webhook, un pedido sin cookie— el workspace efectivo cae al 1. O sea que
+  cualquier olvido se convierte en una fuga de datos de un cliente real.
+- **`wsSuperAdmin()` es el workspace de la plataforma: hoy el 9. Y el 9 TAMBIÉN es un negocio
+  real que usa Martín.** Esto mordió en esta misma ventana (ver §5.1): «la plataforma» no es un
+  workspace, es una clave propia.
 
-Todo pusheado (`git log origin/main..HEAD` vacío) y el último deploy de producción está en Ready
-(`npx vercel ls` → `mako-7kbeubz4a…`, Production, Ready).
-
-### 1.1 Los seis cruces entre clientes
-
-El disparador fue un pedido literal de Martín del 06/10: *«es MUY importante que jamás se choquen
-las notificaciones entre workspace, eso es gravísimo, altera toda la ciberseguridad y datos
-sensibles de clientes»*. Se auditó la capa entera (8 caminos, 44 hallazgos, 12 sobrevivieron a dos
-escépticos cada uno) y salieron seis familias. **Dos movían estado o identidad de un cliente a
-otro**; las otras cuatro mandaban por el canal equivocado o no mandaban nada.
-
-| # | El cruce | Qué pasaba | Commit que lo cierra |
-|---|---|---|---|
-| 1 | **Links sin `?ws=`** | 25 links en 13 archivos armaban la URL pegando `APP_BASE_URL` + la ruta a mano | `e307a6a6` (06/10 02:39), segunda mitad de `2d991183` (05/10 22:52) |
-| 2 | ⚠️ **El acuse de un grupo de WhatsApp** | resolvía el workspace por la LÍNEA (`wsDeInstancia`), que es la de voz de MaKo mapeada al ws1: **todo «ok» de todo grupo de todos los clientes cerraba las insistencias de Mauricio** y marcaba SUS corridas de flujo | `626325a5` (06/10 02:51) |
-| 3 | ⚠️ **El mail de `/compartir`** | el remitente salía del workspace EN CURSO, o sea del cliente que el super admin tenía abierto en la pestaña. Medido en producción: el ws11 tiene su `RESEND_API_KEY` y su `RESEND_FROM`, así que un mail de MaKo podía salir firmado por ese negocio y por su cuenta de Resend | `626325a5` |
-| 4 | **El inbox de Chatwoot** | `cfg()` hacía `Number(inboxRaw ?? '3')`: sin la env declarada, todo salía por el inbox 3 (el de Mauricio). Y reusar una conversación abierta no miraba de qué bandeja era | `260bff7d` (06/10 03:01) |
-| 5 | **El drenador de corridas** | `corridasVencidas` leía con `getTenantDb()`; el cron corre sin cookie, el workspace cae al dueño, y `flujo_corridas` es tabla de inquilino: **el «esperar 2 horas» de cualquier cliente que no fuera el ws1 esperaba para siempre**, sin un error | `260bff7d` |
-| 6 | ⚠️ **La herencia del store de mensajes** | la base de la herencia era `OWNER_WS` (el ws1, que es Mauricio, un cliente): siete workspaces (5, 9, 10, 11, 14, 15 y 17) veían como texto de fábrica un `reporte-semanal` con **los números reales de Mauricio** — «$640 · 92 leads · CPL $6,9 · 4 cierres · CAC…» — dibujado como ejemplo en el editor de cada uno | `157a302a` (06/10 03:10) |
-
-Cómo quedó cada uno, en una línea:
-
-- **(1)** todo link pasa por `linkApp(ruta, ws)` / `linkPantalla`. El `ws` sale de `ctx.ws` y no de
-  `wsEnContexto()`, porque el drenador de agendados (`lib/avisos-programados.ts`) resuelve sin
-  envolver nada y ahí el contexto es `null`.
-- **(2)** el acuse agrupa por jid y resuelve con `wsDeGrupoJid`, que pasó a exportarse desde
-  `lib/mako-doer-in.ts` para que el acuse y el doer contesten lo mismo. **Fail-closed:** un grupo
-  sin dueño reconocido no acusa nada.
-- **(3)** el envío corre en `runWithWorkspace(await wsSuperAdmin())` con el `from` EXPLÍCITO, y el
-  preflight se mudó adentro del mismo workspace (antes preguntaba `remitenteEsSandbox()` sobre el
-  workspace en curso: verificaba otra cosa y se creía cubierto).
-- **(4)** el inbox es `number | null` y se lee siempre por `inboxWA(c)`, que tira diciendo qué
-  falta. Medido en producción antes de tocarlo: sólo ws1 y ws4 lo declaran, y son los únicos con
-  token de Chatwoot — exigirlo no le cortó el canal a nadie.
-- **(5)** la lectura de DESCUBRIMIENTO pasa a cruda (`getSupabaseServer()`) y lo que toca datos
-  sigue adentro de `runWithWorkspace(ws)` en `retomarCorrida`. El guard fija las DOS mitades:
-  sin la segunda, leer crudo sí sería un cruce.
-- **(6)** la base pasa a ser `wsSuperAdmin()` — la plataforma, cuyo store hoy está vacío. Los
-  clientes heredan el catálogo de fábrica y el ws1 queda como un inquilino más. Sin migración de
-  datos y sin que ningún mensaje automático deje de salir.
-
-**El guard de los seis:** `tests/cruce-notificaciones.test.ts` (seis tests) + `tests/link-con-workspace.test.ts`
-(tres). La cosecha completa está en `docs/hallazgos-comunicacion.md` → «Que jamás se crucen los
-mensajes entre clientes: seis familias (06/10/2026)», commit `04151008`.
-
-### 1.2 Server actions sin sesión por una página pública — el único verificado en producción
-
-`5b6426aa` (06/10 15:54). **Medido en local:** un `POST /login` con el header `next-action` de
-`listConfirmacionesAction`, cuerpo `[]`, **sin cookie y sin Origin**, contestaba **200 con las
-confirmaciones pendientes del CRM del ws1**: id, lead, nombre del lead, el cambio aplicado y el
-`revert` para deshacerlo. Igual por `/privacidad`, `/terminos` y `/vsl`.
-
-Tres cosas que solas no alcanzan:
-
-1. el early-return de las rutas públicas en `proxy.ts` **se saltea el chequeo de Origin**, y sólo
-   limitaba el MÉTODO en la lista de sólo lectura (`/compartido`);
-2. **Next REENVÍA una server action a cualquier worker que la tenga** — el manifest decía que
-   `listConfirmacionesAction` vivía en los workers de `/plan` y `/conocimientos`, y el POST a
-   `/login` la ejecutó igual. O sea que por la puerta de una página pública entraba **cualquier**
-   acción de la app;
-3. sin cookie, `getWorkspaceActual()` cae al dueño (`OWNER_WS` = ws1, un cliente).
-
-El arreglo, en dos capas: **toda página pública sólo se lee** (`esPublicaSoloLeer` en
-`lib/rutas-publicas.ts`; todo lo que no es `/api/` acepta GET/HEAD/OPTIONS y nada más), y **las dos
-acciones que monta el layout raíz exigen sesión adentro** (`haySesion()` en
-`app/crm/mako-confirm-actions.ts`), porque su id viaja en todas las páginas y no pueden depender de
-por qué ruta llegaron.
-
-**VERIFICADO EN PRODUCCIÓN el 06/10/2026 al cerrar la ventana** (esto es nuevo: el hallazgo escrito
-en `docs/hallazgos-seguridad.md` dice «no se verificó en producción»; ya está):
-
-```
-# contra https://hola-mako.com, con y sin header next-action inventado
-POST /login        -> 405      POST /login + next-action        -> 405
-POST /privacidad   -> 405      POST /privacidad + next-action   -> 405
-POST /terminos     -> 405      POST /terminos + next-action     -> 405
-POST /vsl          -> 405      POST /vsl + next-action          -> 405
-POST /vsl-assets   -> 405
-POST /compartido   -> 405      POST /compartido + next-action   -> 405
-GET  /login        -> 200   (los controles siguen sanos)
-POST /api/track/vsl -> 200   (las APIs públicas que escriben siguen escribiendo)
-```
-
-Las seis páginas públicas cortan por los dos caminos y nada de lo que tenía que seguir andando se
-rompió. **Es lo único de esta área que está probado contra el runtime de producción.**
-
-### 1.3 Lo que se cerró de paso
-
-- **`/api/compartido/tarea` se fue de `PUBLICOS_ESCRITURA`** (`eba4f12f`): la ruta se había borrado
-  el 26/09 con el programa viejo y la entrada seguía abriendo a POST una ruta que no existe. *Una
-  excepción de escritura sin dueño es la que hereda la próxima ruta que alguien cree con ese
-  nombre.* Hoy la lista tiene `/api/compartido/curso/progreso`, `/api/compartido/curso/tarea` y
-  `/api/agente/lead`.
-- **El aviso de línea caída ya no le llega al negocio que desvinculó su número a propósito**
-  (`d23b3685`): `desconectar()` conserva la fila en «desconectado» y el vigilante nuevo la sondeaba
-  igual, así que mandaba «🔴 Se cortó tu WhatsApp, reconectalo» a su grupo cada 24 h para siempre.
-  Mensajes reales a personas reales sobre una decisión suya.
-- **El reporte semanal ahora recorre los workspaces activos** y corre cada uno adentro del suyo
-  (`c7510ddd`, decisión «b: solo el semanal para los clientes»). Un workspace roto no corta a los
-  demás y `?dry=1` lista a quién le mandaría, enmascarado. Diario y horario **no** se tocaron.
+**Mis rutas:** `lib/credenciales.ts` · `lib/workspace.ts` · `lib/tablas-de-inquilino.ts` ·
+`lib/rutas-publicas.ts` · `proxy.ts` · `app/api/auth/`.
+⚠️ **`lib/cifrado*.ts` NO EXISTE** (me lo asignaron por nombre y no está en el repo): el cifrado
+de credenciales vive en **`lib/cripto-credenciales.ts`**.
 
 ---
 
-## 2. Lo que quedó a medio hacer o sin verificar
+## 1. En qué quedó: lo hecho y DESPLEGADO
 
-### 2.1 ⚠️ Cinco de los seis cruces NO se verificaron contra producción
+Todo pusheado: `git log origin/main..HEAD` vacío al 10/10 19:00.
 
-Los guards de los seis **leen el fuente**, no el comportamiento (`tests/cruce-notificaciones.test.ts`
-lo dice en su encabezado: «Se lee el FUENTE sin comentarios»). Prueban que el código dice lo
-correcto, no que el runtime lo haga. Medido por mí al cerrar: los 13 tests de los tres guards pasan
-en HEAD.
+### 1.1 Lo que cerré/medí yo contra PRODUCCIÓN el 10/10/2026
+
+Estas cuatro mediciones las hice hoy contra `https://hola-mako.com` y contra Supabase. Son el
+estado de verdad; lo de abajo que no tenga una medición así va marcado como tal.
+
+**Las páginas públicas siguen siendo de sólo lectura** (el arreglo de `5b6426aa`, 06/10, aguanta):
 
 ```
-node --import tsx --test tests/cruce-notificaciones.test.ts tests/link-con-workspace.test.ts tests/acciones-sin-sesion.test.ts
-→ 13/13 pass, 0 fail (64 s; el guard de links se come 61 de esos 64 segundos)
+/login       POST=405  POST+next-action=405  GET=200
+/privacidad  POST=405  POST+next-action=405  GET=200
+/terminos    POST=405  POST+next-action=405  GET=200
+/vsl         POST=405  POST+next-action=405  GET=308
+/compartido  POST=405  POST+next-action=405  GET=404
+/mi-curso    POST=403  POST+next-action=403  GET=307   ← la rama nueva del alumno
+POST multipart a /login con $ACTION_ID_… en el cuerpo (sin header) → 405
 ```
 
-El único de los seis con una medición contra producción es el **inbox de Chatwoot**, y es una
-medición PREVIA (sólo ws1 y ws4 lo declaran, así que exigirlo no rompía a nadie), no una
-observación del comportamiento después del deploy.
+**Las vistas de cohortes están cerradas.** La clave `anon` contra
+`/rest/v1/v_cohortes_semanales` → **HTTP 401 `42501 permission denied for view`**. Antes de la
+mig 0231 (09/10) contestaba 200 con 54 filas: la facturación, los cierres y las asistencias de
+TODOS los clientes, con una clave que viaja al navegador.
 
-Lo que falta observar en producción, con el chequeo concreto:
+**El código del token por hash está corriendo.** Un bearer inventado a `/api/v1/crm/leads` y a
+`/api/agente/skill` contesta **401 con el texto de LA RUTA** («Token inválido o revocado»), no con
+el del middleware («no autenticado»). Esa diferencia es la pista que dice si la ruta se ejecutó.
+
+**El bucket de las fotos de los leads sigue siendo público.** GET anónimo, sin credencial, a
+`…/storage/v1/object/public/avatars/leads/1/999999999.jpg` → cuerpo
+`{"statusCode":"404","error":"not_found","code":"NoSuchKey"}`. O sea *«ese objeto no está»*, no
+*«el bucket no es público»*. **No bajé ninguna foto real a propósito.** Sigue abierto (§4.1).
+
+### 1.2 Las fugas que se cerraron en la ventana, con su commit
+
+| Qué | Commit | Fecha |
+|---|---|---|
+| Una página pública sólo se LEE (por `/login` se ejecutaban server actions sin sesión contra el ws1) | `5b6426aa` | 06/10 |
+| El cliente entra a su curso con SU cookie, nunca con una sesión de MaKo | `c0e2570b` | 06/10 |
+| Los clientes heredan los mensajes de la PLATAFORMA, no de Mauricio | `157a302a` | 06/10 |
+| …y la base deja de ser el store del ws9: clave propia | `7ad16c8a` | **10/10** |
+| Los seis cruces entre clientes (links sin `?ws=`, el acuse del grupo, el mail de `/compartir`, el inbox, el drenador de corridas, la herencia) | `e307a6a6` `626325a5` `260bff7d` `157a302a` | 05-06/10 |
+| Ruteo estricto en `/api/track` y en los tokens: «no pude leer» deja de contestarse como «no es de nadie» | `dd58b168` | 07/10 |
+| Tokens detallados (`mako_pat_`) por hash, permisos por área, sólo `/api/v1` | `f2c0a04b` `b51155c9` | 08/10 |
+| El token clásico deja de guardarse en claro: hash + pista | `dc25a921` `0f12fe27` | 09/10 |
+| Las cohortes dejan de leerse con la clave pública (mig 0231) | `70d52565` | 09/10 |
+| Chatwoot borrado del producto | `f98778f7` | 09/10 |
+
+Los 91 guards del área pasan en HEAD. **Medido por mí el 10/10:**
+
+```
+node --import tsx --test tests/cruce-notificaciones.test.ts tests/link-con-workspace.test.ts \
+  tests/acciones-sin-sesion.test.ts tests/rutas-publicas.test.ts tests/alumno-sesion.test.ts \
+  tests/webhooks-ruteo-estricto.test.ts tests/api-mako-tokens.test.ts \
+  tests/agente-token-hash.test.ts tests/tenant-tables-contract.test.ts tests/funnel-declarado.test.ts
+→ 91 pass / 0 fail (5,2 s)
+```
+
+---
+
+## 2. Lo que NACIÓ en la ventana y el 05/10 no existía
+
+### 2.1 Una segunda clase de sesión: el ALUMNO (`c0e2570b`, 06-07/10)
+
+Es lo más grande que nació acá. Un cliente del cliente —alguien invitado a un curso— entra a
+MaKo **sin ser usuario de MaKo**.
+
+- **Cookie propia, `mako_alumno`**, firmada aparte: `al1.<ws>.<lead>.<version>.<exp>.<firma>`,
+  30 días (`lib/alumno-sesion.ts`). El prefijo `al1.` hace que ninguna otra firma de la casa
+  sirva como ésta ni al revés.
+- **El alumno NUNCA recibe `mako_session` ni una fila en `usuarios`, y el porqué está medido**
+  (está escrito en la cabecera de `lib/alumno-sesion.ts`): para el proxy una sesión válida pasa
+  por todas las rutas que no son `/admin`; `requireRolWs` manda un rol desconocido a `/crm`;
+  `getRolWsEfectivo` cae a `'admin'`; y 98 APIs más las acciones de `app/crm/actions.ts` no miran
+  el rol. **Con una fila en `usuarios`, el alumno leía el CRM de Mauricio.**
+- **Lo único que se le abre es `/mi-curso`**, por una rama propia del proxy
+  (`decidirRutaAlumno`, `lib/rutas-publicas.ts:209`), con match EXACTO y sólo GET/HEAD.
+  ⚠️ **No está en `PUBLICOS` a propósito**: estar ahí significa «no leo cookie», y esta página SÍ
+  lee una.
+- **Entra también por Google** (`app/api/auth/callback/google/route.ts`): si el email no está en
+  `usuarios` pero tiene una invitación vigente, se le pone la cookie de alumno y va a
+  `/mi-curso`, ignorando el `?next=`. `usuarios` gana siempre, así que un suspendido no se puede
+  colar por ahí.
+- **El logout la borra** con las mismas opciones con las que se pone (`app/api/auth/logout`): con
+  otro `path`, el navegador no la borra.
+- **La firma no alcanza y eso está resuelto:** si el acceso sigue vigente lo contesta la base EN
+  CADA PEDIDO (`resolverAcceso`, `lib/alumno-acceso.ts`). Revocar sube la versión y corta la
+  cookie en el pedido siguiente.
+
+### 2.2 Las credenciales de la API de MaKo pasaron a hash (08-09/10)
+
+Dos clases de token, dos puertas:
+
+- **El clásico** (`agente_token`, el de la skill de Claude del cliente): hasta el 09/10 vivía
+  **en claro** en `app_settings` y en `webhook_routing`. Desde `dc25a921` se guarda como sha256 +
+  una pista no secreta (`mkoag_e_…a1b2`) y se muestra UNA sola vez. Vale en `/api/agente/*` y en
+  `/api/v1`.
+- **Los detallados** (`mako_pat_`, la tab `/api-mako`, `lib/api-mako/tokens.ts`): hash, permisos
+  por área y vencimiento. **Valen sólo en `/api/v1`** — `/api/agente/*` no los conoce. Sus
+  permisos se miran en `gatingOk`, que es la misma guarda que corre al CONFIRMAR una acción.
+
+⚠️ **LO MÁS IMPORTANTE DE TODO ESTE BRIEFING: NO SE PUEDE VOLVER A UN DEPLOY ANTERIOR A
+`dc25a921`.** La conversión de las filas que quedaban se corrió **en producción el 09/10/2026 a
+las 16:07 (−03)**: 3 settings (ws1, ws9, ws11) pasados a hash y 5 filas en claro borradas del
+índice. Releído después: 0 en claro, 3 por hash.
+
+**Por qué no se puede volver, explicado:** el código anterior a `dc25a921` lee el setting como si
+fuera el token en texto plano. Después de la conversión ahí sólo hay un sha256. Entonces el
+código viejo (a) compara el bearer que le presentan contra un hash, así que **ningún token
+autentica**, y (b) `/api/agente/skill` armaba el archivo releyendo el setting, así que le
+entregaría **el hash como si fuera el token**. Las tres skills instaladas dejan de funcionar **sin
+un solo error que lo explique**: contestan 401 «token inválido o revocado», que es exactamente lo
+que se ve cuando el token está mal. Y no hay vuelta atrás posible porque el texto plano ya no
+existe en ningún lado — por diseño. La salida, si pasara, es que cada cliente apriete «Generar
+otro» en `/integraciones`.
+
+### 2.3 «No pude leer» dejó de ser «no es de nadie» (`dd58b168`, 07/10)
+
+Seis lugares que deciden de quién es algo que entra SIN sesión usaban una lectura que, con la base
+caída, devuelve `null` — y `null` se leía como «no es de ningún negocio». Ahora:
+`/api/track/optin` reintenta y, si no puede, anota en `webhooks.fallos_ruteo` y va 503; los
+beacons de medición van 503 sin reintento (reintentar le suma carga a una base caída); y el token
+del agente contesta **503 «no pude verificar»**, nunca 401 — un 401 sobre un token bueno manda a
+la persona a rotarlo. En credenciales nació `credWsEstricta` (`lib/credenciales.ts:131`) para lo
+mismo: `credWs` la usa medio producto y que empiece a tirar le cambiaría el comportamiento a todos.
+
+### 2.4 Superficie pública NUEVA (toda en `lib/rutas-publicas.ts`)
+
+| Ruta | Qué es | Cómo se autentica |
+|---|---|---|
+| `/m.js` (09/10) | el cargador del Pixel: la línea que el cliente pega en SU página | token público del query; no lee cookie. GET anónimo con un token falso → **404** (medido 10/10) |
+| `/api/alumno/link` · `/api/alumno/entrar` (07/10) | «soy alumno: entrar con mi email» | el token firmado del link, en el CUERPO |
+| `/api/compartido/curso/entrega` · `/api/compartido/comunidad` (07/10) | el portal del curso: subir una entrega, la comunidad | el token del portal, en el CUERPO. Entraron a `PUBLICOS_ESCRITURA` |
+| `/api/webhooks/zernio` (09/10) | Instagram y Messenger como canal | firma HMAC + `?w=<ws>`; **fail-closed**: sin secreto, sin firma o con `?w=` roto, 401 |
+| `/api/webhooks/resend` · `/api/webhooks/email-entrante` (09/10) | entregas y respuestas de email | firma Svix; sin firma válida, 401 |
+
+Los tres webhooks nuevos usan la lectura ESTRICTA de ruteo y pasan el guard
+`tests/webhooks-ruteo-estricto.test.ts`, que barre `app/` y `lib/` enteros.
+
+`PUBLICOS_ESCRITURA` tiene hoy **cinco** entradas. `/api/compartido/tarea` se fue el 06/10
+(`eba4f12f`) y no volvió.
+
+### 2.5 Chatwoot borrado (`f98778f7`, 09/10)
+
+Martín: *«que no exista más, guardalo en privado»*. El código entero está en la etiqueta de git
+**`archivo/chatwoot-2026-10-09`**. `lib/chatwoot.ts` quedó como **cascarón** —cero pedidos, cero
+credenciales— porque lo importan archivos que la rama `wip/api-acciones-0910` tiene a medio
+cambiar; cuando esa rama entre, se borra entero. Las tarjetas salieron de
+`lib/integraciones-catalogo.ts` y de `lib/metodo-catalogo.ts`, así que **nadie puede volver a
+configurarlo**. `tests/sin-chatwoot.test.ts` lo fija en positivo.
+
+### 2.6 Las dos listas de tablas crecieron
+
+- `TENANT_TABLES` (`lib/workspace.ts:85`): **119** tablas. Es la que `getTenantDb()` scopea.
+- `TABLAS_DE_INQUILINO` (`lib/tablas-de-inquilino.ts:45`): **120**. Es la que se usa para vaciar
+  o borrar un inquilino.
+- En la ventana nacieron **29 tablas nuevas con `workspace_id`** (curso, comunidad, etiquetas,
+  adjuntos, hilos…). 28 entraron a `TENANT_TABLES`. **Una no: `email_entrantes`** (mig 0245,
+  09/10) — ver §4.2.
+
+---
+
+## 3. Lo que CORREGÍ del briefing del 06/10 (afirmaciones que ya no son ciertas)
+
+| El briefing del 06/10 decía | Lo cierto al 10/10, con la prueba |
+|---|---|
+| «Hay trabajo SIN COMMITEAR de otra sesión justo encima del proxy… el riesgo es que una sesión futura pise `proxy.ts`» (§2.5) | **Se commiteó el mismo 06/10 en `c0e2570b`.** `decidirRutaAlumno` está en `lib/rutas-publicas.ts:209`, la rama en `proxy.ts:208`, y medí `/mi-curso` en producción: POST 403, GET 307. El riesgo se cerró |
+| «La base de la herencia pasa a ser `wsSuperAdmin()` — la plataforma, cuyo store hoy está vacío» (cruce 6) | **Era verdad a medias y durante cuatro días fue una fuga nueva.** `wsSuperAdmin()` es el ws9, que es un negocio real de Martín: lo que él cambiaba en «MaKo en WhatsApp» de SU negocio —prender, apagar, un texto, una cadencia— **lo heredaba todo cliente que no lo hubiera tocado**, sin que la pantalla lo dijera. Lo cerró `7ad16c8a` (10/10 13:18) dándole a la base su propia clave, `mako.plantillas.base`, que sólo edita `/mensajes` desde la plataforma. Medido ese día: las dos claves vacías, no hubo nada que mudar |
+| «53 `?? OWNER_WS` en 37 archivos» | **54 en 39 archivos, pero sólo 41 son código: 13 están en COMENTARIOS** (`git grep "?? OWNER_WS" HEAD -- 'lib/*.ts' 'app/**/*.ts'`, separando las líneas que arrancan con `//` o `*`). O sea que el número vivo nunca fue 53. Nuevos en la ventana: `app/api/ads-manager/adset-add/route.ts:83` y `creative-upload/route.ts:272`, las dos detrás del gate de sesión. El de `app/api/webhooks/fathom/route.ts:180` **es un comentario histórico, no código**: ese webhook ya resuelve su workspace |
+| «53 acciones de `app/crm/actions.ts`» sin guarda propia | **Son 50** (`grep -c "^export async function .*Action"`), y **CERO verifican la sesión** en sus primeras líneas. `deleteLeadAction` se movió a `:1106` y `exportLeadsAction` a `:1683` (el briefing decía `:968` y `:1537`) |
+| «Las vistas `v_cohortes_*` siguen abiertas al rol anon» (venía de `hallazgos-seguridad.md`) | **Cerradas el 09/10** por la mig 0231 (`70d52565`). Medido por mí el 10/10: 401 `permission denied` con la clave pública, y la service role sigue leyendo |
+| «4.1 Los reportes diario y horario siguen siendo sólo del ws1» | **Sigue siendo cierto** (verificado: ninguno de los dos llama `listarWorkspaces` ni `runWithWorkspace`), pero **cambió el canal**: desde `90c5e313` (10/10) **ningún reporte sale por WhatsApp**. Decisión de Martín: *«Apagar WhatsApp en los reportes»*, porque desde que se borró Chatwoot no tenían por dónde salir. Una constante, `REPORTE_POR_WHATSAPP = false` (`lib/mensaje-canales.ts:35`), que leen los tres lugares que decidían |
+
+---
+
+## 4. Lo que quedó a medio hacer o SIN VERIFICAR, con el archivo donde vive
+
+### 4.1 ⚠️ Las caras de los leads siguen en un bucket PÚBLICO
+
+**Vive en:** `lib/fotos-contacto.ts:86` (`getPublicUrl`) · `app/api/cron/fotos-contacto/` ·
+`app/api/perfil/avatar/route.ts:47` (que crea el bucket `avatars` con `{ public: true }`).
+
+**Sin tocar desde el 06/10** (`git log -- lib/fotos-contacto.ts` → sólo `0418a6ab`). Re-medido
+por mí el 10/10 (§1.1): la ruta se lee sin ninguna credencial y lo único que protege la foto es
+adivinar dos enteros chicos (`<ws>` va de 1 a ~17, `<lead>` es el id de la fila). La cara de una
+persona que le escribió a un cliente es un dato personal de un tercero. **No es un cruce entre
+workspaces** —nadie ve el panel de otro—, es superficie pública que nadie marcó como tal.
+
+### 4.2 ⚠️ El guard de aislamiento de tablas sólo cubre las de 2024
+
+**Vive en:** `tests/tenant-tables-contract.test.ts:72`.
+
+Ese test tiene dos mitades y la segunda miente por omisión. La *forward* («toda tabla de
+`TENANT_TABLES` tiene `workspace_id`») cubre las 119. La *inverse* («toda tabla con
+`workspace_id` está scopeada») **sólo recorre las tablas del loop bulk de la migración 0054** —lo
+dice su propio nombre—. O sea que **una tabla nueva con `workspace_id` que alguien se olvide de
+agregar a `TENANT_TABLES` no la caza nadie**, y el modo de falla está documentado: `getTenantDb()`
+sobre una tabla que no está en el Set es **passthrough**, no «sin scope». Devuelve las filas de
+cualquier workspace, sin dar error.
+
+Medido hoy: de las 29 tablas con `workspace_id` que nacieron en la ventana, **`email_entrantes`
+(mig 0245) está fuera del Set**. Hoy no es una fuga —`lib/email-entrante.ts` usa el cliente de
+servicio con el `workspace_id` explícito en el insert y lee por `email_id`, que es único global—
+pero es exactamente la forma del bug de `avisos_programados` del 30/09. Las otras seis que están
+fuera del Set (`shares`, `webhook_routing`, `branding_assets`, `credenciales_auditoria`,
+`agente_consentimiento`, y las tres excepciones declaradas `app_settings`, `credenciales`,
+`funnel_config`) están cada una concentrada en UN módulo que las scopea a mano, y las dos
+primeras son cross-workspace por diseño.
+
+### 4.3 ⚠️ El reporte semanal multi-inquilino NUNCA corrió, y el dry-run NO se pudo hacer
+
+**Vive en:** `app/api/cron/reporte-semanal/route.ts` · `vercel.json:93`.
+
+`"schedule": "20 14 * * 1"` → **lunes**. El cambio se desplegó el martes 06/10, así que la
+primera corrida real es el **lunes 12/10/2026 a las 14:20 UTC**, y es la primera vez que ese cron
+le manda algo a un cliente que no sea Mauricio.
+
+Verificado hoy en el código: el cron **sí** itera los workspaces activos y corre cada uno adentro
+de `runWithWorkspace(w.id, …)` (`:97-99`). Y `DEFAULT_PREFS.semanal` es
+`{ activo: true, wa: true, email: true }` (`lib/perfil.ts:233`), así que con WhatsApp apagado por
+`REPORTE_POR_WHATSAPP = false` **el reporte le sale por EMAIL a todo workspace activo que tenga un
+destinatario**, sin que nadie haya tocado nada.
+
+⚠️ **Intenté correr el `?dry=1` contra producción y NO PUDE: el `CRON_SECRET` del `.env` de este
+clon no es el de producción.** La ruta contestó su propio `{"ok":false,"error":"Unauthorized"}`
+(401 de `checkCronAuth`, `lib/cron-auth.ts:15`), o sea que llegó y el secreto no coincide. **El
+dry-run sigue pendiente y hay que hacerlo con el secreto de Vercel antes del lunes**: `dry`
+devuelve antes de `buildReporteSemanal` y de `despacharReporte` (`:60-68`), así que es seguro, y
+lista los destinatarios enmascarados. Si sale mal, salen mails de verdad a negocios de verdad.
+
+### 4.4 ⚠️ Cinco de los seis cruces siguen SIN verificar contra producción
+
+Los guards (`tests/cruce-notificaciones.test.ts`, `tests/link-con-workspace.test.ts`) **leen el
+FUENTE, no el comportamiento** — lo dice su propio encabezado. Prueban que el código dice lo
+correcto, no que el runtime lo haga. El único de los seis con una medición real es el de las
+páginas públicas / server actions, que re-verifiqué hoy. Nada entre el 06/10 y el 10/10 registró
+una verificación de los otros cinco (`docs/hallazgos-comunicacion.md` → «Que jamás se crucen los
+mensajes entre clientes: seis familias»). Lo que falta observar:
 
 | Cruce | Cómo se comprueba de verdad |
 |---|---|
-| El acuse de un grupo | mandar «ok» en un grupo de un cliente y ver que **no** se cierren insistencias del ws1 |
-| El mail de `/compartir` | compartir material desde una pestaña parada en el ws11 y mirar el `From:` del mail que llega (debería ser el de MaKo, no el del cliente) |
+| El acuse de un grupo de WhatsApp | mandar «ok» en un grupo de un cliente y ver que **no** se cierren insistencias del ws1 |
+| El mail de `/compartir` | compartir material con la pestaña parada en el ws11 y mirar el `From:` del mail (debe ser el de MaKo) |
 | El drenador de corridas | buscar en `flujo_corridas` una corrida vencida de un workspace que no sea el 1 y ver que despierte |
-| La herencia del store | abrir `/mensajes` con un workspace sin store propio (5, 9, 10, 11, 14, 15, 17) y confirmar que el ejemplo del `reporte-semanal` **ya no** trae los números de Mauricio |
-| Los links con `?ws=` | abrir el botón «Verlo en MaKo» de un aviso de un cliente y mirar que la URL lleve su `?ws=` |
+| La herencia del store | abrir `/mensajes` con un workspace sin store propio y confirmar que el ejemplo no trae los números de Mauricio **ni lo que el ws9 editó para sí** (esto último es nuevo: lo cerró `7ad16c8a` el 10/10 y no se verificó) |
+| Los links con `?ws=` | abrir el «Verlo en MaKo» de un aviso de un cliente y mirar que la URL lleve su `?ws=` |
 
-### 2.2 ⚠️ El reporte semanal multi-inquilino nunca corrió
+### 4.5 ⚠️ El uso real de una skill DESPUÉS de la conversión a hash
 
-`vercel.json` (HEAD): `"/api/cron/reporte-semanal"`, `"schedule": "20 14 * * 1"`. **Lunes.** El
-cambio se desplegó el martes 06/10, así que **la primera corrida real es el lunes 12/10/2026 a las
-14:20 UTC**, y es la primera vez que ese cron le manda algo a un cliente que no sea Mauricio.
-Medido en el commit: el WhatsApp del reporte sale por el Chatwoot del workspace y sólo el ws1 lo
-tiene, así que a los clientes les llega **por mail**.
+No hay forma de probarlo sin el valor de un token, y por diseño ya no se guarda. Lo que se sabe:
+las rutas contestan con su propio 401 (medido hoy, §1.1) y los 15 tests cubren el camino por
+hash. **La prueba de verdad es el próximo uso**, y se lee en
+`app_settings.api_tokens_uso` → `principal`. Último uso registrado del ws1: 03:02 UTC del 09/10,
+o sea **antes** de convertir. Si un cliente dice que su skill dejó de andar, es esto.
 
-**Antes del lunes 12/10 conviene correrlo con `?dry=1`** y mirar la lista de destinatarios
-enmascarada. Si sale mal, salen mails de verdad a negocios de verdad.
+### 4.6 Lo más chico, pero anotado
 
-### 2.3 Lo que sigue sin guarda propia
-
-- **`deleteLeadAction` y `exportLeadsAction` no miran la sesión.** Verificado en HEAD:
-  `app/crm/actions.ts:968` (`deleteLeadAction`) entra directo a `deleteLead(id)`; `:1537`
-  (`exportLeadsAction`). Hoy están cubiertos **por el proxy** —sin sesión ya no llegan— pero no
-  tienen su propio corte, y con una sesión de CUALQUIER rol corren acotadas a su workspace. Nunca
-  se hizo el barrido de las otras 51 acciones de ese archivo.
-- **Los `?? OWNER_WS` escritos a mano siguen ahí.** Medido en HEAD:
-  `git grep -c "?? OWNER_WS" HEAD -- 'lib/*.ts' 'app/**/*.ts'` → **53 ocurrencias en 37 archivos**.
-  Cada uno es un lugar donde un workspace nulo termina leyendo o escribiendo en el del ws1, que es
-  un cliente. Es la raíz común de los cruces 2, 5 y 6 y de lo de `/login`.
-- **`docs/auditoria-aislamiento-workspace.md` no se tocó en toda la ventana** (verificado:
-  `git log 6785dc16..HEAD -- docs/auditoria-aislamiento-workspace.md` vacío). Es el mapa de qué se
-  scopea por workspace y qué no; los seis cruces de esta ventana no están reflejados ahí.
-
-### 2.4 ⚠️ Las caras de los leads viven en un bucket PÚBLICO
-
-`0418a6ab` (06/10) empezó a copiar la foto de perfil de WhatsApp de cada lead a
-`avatars/leads/<ws>/<lead>.jpg`, y la sirve con **`getPublicUrl`** (`lib/fotos-contacto.ts:86`).
-El bucket `avatars` es público por construcción: `app/api/perfil/avatar/route.ts:47` lo crea con
-`{ public: true }`.
-
-**Medido por mí el 06/10:** un GET anónimo a
-`<SUPABASE_URL>/storage/v1/object/public/avatars/leads/1/999999999.jpg` contesta
-`404 {"error":"not_found","code":"NoSuchKey"}` — o sea *«el objeto no está»*, no *«el bucket no es
-público»*. La ruta se lee **sin ninguna credencial**; lo único que protege la foto es adivinar dos
-enteros chicos (`<ws>` va de 1 a ~17, `<lead>` es el id de la fila). **No bajé ninguna foto real a
-propósito.**
-
-El relleno inicial ya copió 32 fotos en el cliente más grande y 11 en otro. La cara de una persona
-que le escribió a un cliente es un dato personal de un tercero: esto no es un cruce entre
-workspaces (nadie ve el panel de otro), pero sí superficie pública nueva que nadie marcó como tal.
-Vive en `lib/fotos-contacto.ts` y `app/api/cron/fotos-contacto/`.
-
-### 2.5 ⚠️ Hay trabajo SIN COMMITEAR de otra sesión justo encima del proxy
-
-Al cerrar, el árbol compartido tenía modificados —**por otra sesión, no por mí; los dejé donde
-estaban**— archivos que son el borde de esta área:
-
-- `proxy.ts`: una **rama nueva** antes del chequeo de Origin, `decidirRutaAlumno(pathname, método, conAccion)`.
-- `lib/rutas-publicas.ts`: `RUTA_ALUMNO = '/mi-curso'` y esa función, con match EXACTO y sólo
-  GET/HEAD, **a propósito fuera de `PUBLICOS`** (porque esa página SÍ lee una cookie, y estar en
-  `PUBLICOS` significa «no lee cookie»).
-- `lib/workspace.ts` y `lib/tablas-de-inquilino.ts`: `lead_funnel` agregada a las tablas de
-  inquilino (mig 0207).
-- Sin trackear: `lib/alumno-sesion.ts`, `lib/alumno-acceso.ts`, `app/mi-curso/`,
-  `app/api/compartido/curso/entrar/`, `supabase/migrations/0206_curso_invitacion.sql`, `0207_lead_funnel.sql`,
-  `tests/alumno-sesion.test.ts`.
-
-**Por qué importa para esta área:** es una **cookie de sesión nueva** (`mako_alumno`, firma propia
-`al1.<ws>.<lead>.<version>.<exp>.<firma>`, 30 días) para un cliente del cliente, y el comentario de
-`lib/alumno-sesion.ts` explica por qué el alumno **no** puede recibir `mako_session`: medido en el
-relevo de auth del 06/10, una sesión válida pasa por todas las rutas que no son `/admin`,
-`requireRolWs` manda un rol desconocido a `/crm`, `getRolWsEfectivo` cae a `'admin'`, y 98 APIs más
-las 53 acciones de `app/crm/actions.ts` no miran el rol. **Con una fila en `usuarios`, el alumno
-leía el CRM de Mauricio.**
-
-**Lo que el que entre tiene que mirar:** si ese trabajo se commiteó, revisar que la rama de
-`/mi-curso` siga siendo exacta y sólo de lectura, y que `resolverAcceso` se consulte en CADA pedido
-(la firma sólo dice quién era el alumno el día que entró). Si no se commiteó, **el riesgo es que
-una sesión futura pise `proxy.ts` o `lib/rutas-publicas.ts` y se lleve el corte de `esPublicaSoloLeer`
-con ella** — es el archivo más delicado del repo y hoy está sucio.
-
-### 2.6 Lo más chico, pero anotado
-
-- **La tabla `notificaciones` nunca se aplicó en producción** (anotado el 23/09, sigue así). Un
-  aviso que no sale por WhatsApp no queda registrado en ningún lado.
-- **Cuatro workspaces no tienen ningún canal de aviso.** No es un cruce —no les llega nada a ellos
-  ni a otros— pero es la otra mitad de «que cada uno reciba lo suyo».
+- **`docs/auditoria-aislamiento-workspace.md` no se toca desde el 05/07/2026** (`c5615a0c`, tres
+  meses). Es el mapa de qué se scopea por workspace y qué no. Ni los seis cruces del 06/10 ni
+  nada de esta ventana están reflejados ahí. Hoy es un documento que miente por viejo.
+- **Las 50 acciones de `app/crm/actions.ts` no miran la sesión** (§3). Hoy están cubiertas **por
+  el proxy** —sin sesión ya no llegan— pero no tienen corte propio, y con una sesión de cualquier
+  rol corren acotadas a su workspace. El barrido nunca se hizo.
+- **La tabla `notificaciones` (mig 0048) nunca se aplicó en producción** (anotado el 23/09, sigue
+  igual: no está en ninguna de las dos listas de tablas). Un aviso que no sale por WhatsApp no
+  queda registrado en ningún lado.
+- **Dos migraciones con el MISMO número: `0223_curso_papelera.sql` y `0223_flujo_grafo.sql`.** Es
+  el choque de recurso compartido que AGENTS.md advierte (dos sesiones eligen el mismo número a la
+  vez). No es de esta área, pero vive en la serie que auditás; el día que alguien corra las
+  migraciones en orden, el orden entre esas dos es el del sistema de archivos.
 
 ---
 
-## 3. Las trampas del área
+## 5. Las trampas del área
 
-**1. Un guard verde no quiere decir que el agujero esté cerrado — quiere decir que el guard no lo
-ve.** `tests/link-con-workspace.test.ts` existía desde el 05/10 y daba **verde sobre los 25 links
-que seguían rotos**. Era ciego a dos formas que compilan igual: la ruta guardada en una variable
-(`${APP_BASE_URL}${ruta}`, que es justo la forma del resolvedor de los seis `{{link_*}}` y de los 18
-links de la API de MaKo) y la URL armada en una `const` de módulo. Y **eximía por ARCHIVO**: una
-excusa legítima en una línea dejaba pasar todo lo demás del archivo. Las tres correcciones valen
-para cualquier guard que busque un patrón en el fuente:
+**5.1 «La plataforma» no es un workspace: es una CLAVE.** La regla vieja —«`OWNER_WS` no es la
+plataforma, es un cliente; lo de MaKo va en `wsSuperAdmin()`»— es correcta y **no alcanza**, y
+eso se pagó en esta ventana. El ws9 es el workspace de la plataforma **y además un negocio real
+que Martín usa**: usar su store como «lo de fábrica» convirtió sus propias ediciones en el default
+de todos los clientes. La prueba mental que lo detecta: *probalo con dos.* Si el valor «de la
+plataforma» se puede editar desde una pantalla de negocio, no es de la plataforma.
 
-- **Se enumera lo PERMITIDO, no lo prohibido.** La lista que se mantenía era la de pantallas de
-  inquilino (`DE_INQUILINO`, 7 rutas), que **crece con el producto y envejece sola** — faltaban
-  `/integraciones`, `/inicio`, `/ads-manager`, `/closing`, `/mako`, `/instagram` y `/experimentos`.
-  Ahora se mantiene la lista de rutas PÚBLICAS, que no se movió en seis meses.
-- **Una ruta en una variable es una FALLA, no un «no sé».** Si el guard no puede leer del fuente a
-  dónde va, no puede autorizarlo.
-- **Se exime por BLOQUE** —la función con su cierre real— y nunca por archivo.
+**5.2 El TEXTO de un 401 dice QUIÉN contestó, y los dos se ven iguales desde afuera.**
+«no autenticado» = contestó `proxy.ts`, la ruta ni se ejecutó (le falta estar en `PUBLICOS`).
+El error propio de la ruta = la ruta corrió y el problema es la credencial. Sin distinguirlos se
+buscan headers y entornos que no tienen nada que ver. **Y en local esto NO se ve:** sin
+`AUTH_SECRET`, `gateConfigurado()` es false y el middleware hace no-op, así que una ruta que le
+falta en la lista anda perfecto contra `localhost` y falla sólo en producción. La integración con
+Claude vivió meses así.
 
-**2. Un `assert.match` sobre el archivo entero encuentra lo que el archivo dice de sí, no lo que
-hace la función.** La cuarta rotura de `tests/cruce-notificaciones.test.ts` **pasó en VERDE la
-primera vez**: el `assert.match` del `runWithWorkspace` se satisfacía con el del *preflight* de más
-arriba en el mismo archivo. Ahora se exige adentro del bloque de `invitar`, con `bloque(src, desde,
-hasta)` y el cierre real. Si no se prueba rompiéndolo, un guard así afirma cualquier cosa.
+**5.3 Un guard verde no quiere decir que el agujero esté cerrado: quiere decir que el guard no lo
+ve.** `tests/link-con-workspace.test.ts` existía desde el 05/10 y daba verde sobre los 25 links
+que seguían rotos. Las tres correcciones valen para cualquier guard que lea fuente: se enumera lo
+PERMITIDO (la lista de rutas públicas, que no se movió en seis meses) y no lo prohibido (la lista
+de pantallas, que crece con el producto y envejece sola); una ruta guardada en una variable es una
+FALLA, no un «no sé»; y se exime por BLOQUE —la función con su cierre real—, nunca por archivo.
+§4.2 es la versión viva de esto.
 
-**3. Un rojo cuyo nombre dice «landing» puede ser de un archivo que no se llama así.** `cad249b3`:
-`tests/landing-optin.test.ts` falló y se reportó «es un rojo de HEAD, del commit `b42c5194`». Las
-dos cosas eran falsas. El assert hacía `leer('../app/api/cron/tracking-vigilante/route.ts')`, y
-**ese** archivo lo estaba editando una tercera sesión. La regla de la casa («lo PRIMERO es
-`git status --short` de los archivos que el error nombra») no cubre este caso: **un guard sobre el
-fuente pone su propio nombre en el error, nunca el del archivo que mira**. Aplicarla al nombre que
-aparece es preguntar por el archivo equivocado, y el resultado no es «no sé»: es una acusación
-contra el commit de otra sesión. El comando correcto: `grep` de qué lee el test, y
-`git show HEAD:<ese archivo>`. Si HEAD lo tiene y el disco no, no hay nada que arreglar: hay
-alguien tipeando.
+**5.4 Una VISTA no tiene RLS, y el `revoke` tiene que ser POSTERIOR a su última creación.**
+`alter table … enable row level security` no existe para una vista, y una vista corre con los
+permisos de su DUEÑO, que se saltea el RLS de las tablas de abajo. Van las dos líneas:
+`set (security_invoker = on)` + `revoke all … from anon, authenticated`. Y la sutileza que el
+guard de las cohortes enseñó el 09/10: **una vista re-creada (`drop` + `create`) nace sin lo que
+se le hizo antes**, así que un revoke viejo no la cubre. `tests/funnel-declarado.test.ts` ahora lo
+exige en la misma migración o en una posterior a la ÚLTIMA creación, y ya no tiene lista de
+excusas.
 
-**4. El diagnóstico obvio de lo de `/login` era el corto, y estaba mal.** Parecía «cortar el header
-`next-action` en las rutas públicas». Next **también** procesa una acción que llega como POST de
-formulario (multipart o urlencoded) con `$ACTION_ID_<id>` en el cuerpo, **sin header** — es el
-camino de los formularios sin JavaScript. Ese camino no se pudo medir ejecutándolo (una acción de
-lectura no devuelve su resultado por ahí: Next re-dibuja la página), pero existe, y un corte por
-header lo dejaba abierto. Por eso el corte es por MÉTODO.
+**5.5 El `CRON_SECRET` de este clon NO es el de producción.** No se puede disparar ni un `?dry=1`
+de un cron desde acá (§4.3). El síntoma es un 401 con el JSON de `checkCronAuth` — y es fácil
+leerlo como «la ruta está rota».
 
-**5. `OWNER_WS` no es la plataforma: es un cliente.** Es la regla que produjo cuatro de las siete
-fugas de la ventana. El ws1 es Mauricio. Cuando no hay cookie el workspace efectivo es el del
-dueño — por contrato explícito de `lib/workspace.ts`, que es lo correcto para un cron o un webhook
-y es exactamente lo que convierte cualquier olvido en una fuga de un cliente real. **La plataforma
-es `wsSuperAdmin()`**, y su store de mensajes está vacío a propósito.
+**5.6 `hidratarCredenciales` no filtra por catálogo.** En cada arranque lee **todas** las filas
+de `credenciales` del ws1 y las escribe en `process.env` (`lib/credenciales.ts:390-405`). Sacar
+una integración del catálogo —como se hizo con Chatwoot el 09/10— **no saca sus filas del
+entorno**: siguen hidratándose para siempre. Hoy no hay quién las lea (`lib/chatwoot.ts` es un
+cascarón), pero una credencial retirada que vuelve al entorno en cada boot es la que hereda la
+próxima feature que use ese nombre de env.
 
-**6. La pregunta de aislamiento es por el WORKSPACE, no por el usuario.** El super admin **sigue
-siendo admin** cuando entra al workspace de un cliente con `?ws=N`: `getSesionAdmin()` contesta
+**5.7 Un 404 de Supabase Storage no dice que el bucket sea privado.** `NoSuchKey` es *«el objeto
+no está»*. Si querés saber si un prefijo está protegido, la pregunta es cómo se crea el bucket
+(`createBucket(..., { public: true })`) y con qué se sirve la URL (`getPublicUrl` vs una URL
+firmada), nunca el código de una clave que no existe.
+
+**5.8 Sin un corte, lo que falla es el SILENCIO.** Los seis cruces compartían el modo de falla:
+no daba error. El acuse cerraba insistencias ajenas devolviendo «ok». El inbox mandaba por el
+canal de otro y el envío volvía «ok». El mail de `/compartir` salía válido las dos veces — *por
+eso nadie lo ve*. Y el ejemplo nuevo de la ventana es el mismo: lo que el ws9 editaba para sí
+aparecía como texto de fábrica en el editor de siete clientes, sin un error, sin una pantalla que
+lo dijera.
+
+**5.9 El diagnóstico obvio de lo de `/login` era el corto y estaba mal.** Parecía «cortar el
+header `next-action`». Next **también** procesa una acción que llega como POST de formulario
+(multipart o urlencoded) con `$ACTION_ID_<id>` en el cuerpo, **sin header**. Por eso el corte es
+por MÉTODO y no por header, y por eso hoy medí las dos formas (§1.1).
+
+**5.10 La pregunta de aislamiento es por el WORKSPACE, no por el usuario.** El super admin sigue
+siendo admin cuando entra al workspace de un cliente con `?ws=N`: `getSesionAdmin()` contesta
 «¿quién mira es admin?», que es otra pregunta. Lo que hay que preguntar es
-`wsActual === wsSuperAdmin()`. (Hallazgo de agosto, pero es el molde del cruce 3 de esta ventana: el
-`from` del mail salía del workspace de la pestaña.)
-
-**7. El síntoma «este lead no es de esta cuenta» sobre un lead propio no era el chatbot cruzando
-workspaces.** Eran los links de los avisos sin `?ws=`: el aviso llega al teléfono con la app parada
-en otro workspace y la guardia de agosto contesta eso. Medido por los escépticos: el `?ws=` viaja
-**únicamente** en la URL, así que un link pelado abierto desde WhatsApp **no hereda la pestaña** —
-abre una pestaña nueva y el workspace lo resuelve la cookie. Para un cliente normal eso aterriza en
-SU propio workspace y no puede ver datos de otro: `proxy.ts` sólo honra el parámetro con sesión
-firmada de admin. **El cruce aparece para quien tiene acceso a MÁS de un workspace** (el super
-admin con su cookie de impersonación de 12 h, una agencia con cartera). Es un destino que falta, no
-una fuga de datos — pero se arregló todo igual, porque es lo que produce el síntoma.
-
-**8. Hay un redirect_uri que NO se puede tocar.** El `redirect_uri` del OAuth tiene que coincidir
-carácter por carácter con el registrado en el proveedor: agregarle el `?ws=` lo **ROMPE**. Está
-documentado en la lista de públicas del guard, con su motivo.
-
-**9. Sin un corte, lo que falla es el silencio.** Los seis cruces compartían el mismo modo de
-falla: **no daba error**. El acuse cerraba insistencias ajenas devolviendo «ok». El inbox 3 mandaba
-el WhatsApp por el canal de otro y el envío volvía «ok». El drenador no despertaba una corrida y
-«no salió» es indistinguible de «no había nada que avisar». El mail de `/compartir` salía válido las
-dos veces — *por eso nadie lo ve*.
+`wsActual === await wsSuperAdmin()`.
 
 ---
 
-## 4. Qué espera una decisión de Martín
+## 6. Qué espera una decisión de Martín
 
-**4.1 Los reportes diario y horario siguen siendo sólo del ws1.** El 06/10 Martín decidió «b: solo
-el semanal para los clientes» y eso ya está implementado (`c7510ddd`). Los otros dos crons
-(`/api/cron/reporte-diario` a las 14:10 UTC, `/api/cron/reporte-horario` cada hora) siguen leyendo
-el interruptor, el teléfono y el mail del ws1 sin envolver nada, así que **las preferencias de
-notificación de los demás clientes son decorativas para esos dos caminos**: la pantalla los deja
-configurar y nada los lee. Opciones: (a) dejarlo así y sacar los dos de la lista que ve el cliente
-en `/mensajes`, para no prometerle algo que no sale; (b) multi-inquilinizarlos como el semanal; (c)
-dejarlo como está y anotar que es a propósito. Vive en `app/api/cron/reporte-diario/route.ts`,
-`-horario` y `lib/perfil.ts`.
+**6.1 La foto de los leads en un bucket público (§4.1).** Es la que está abierta hace más tiempo.
+(a) Dejarlo: la URL es pública y la protege la dificultad de adivinar `<ws>/<lead>`. (b) Pasar ese
+prefijo a privado y servir la foto por URL firmada, como ya hace el portal del curso. (c) Dejar el
+bucket público pero poner un nombre no adivinable (un hash en vez del id del lead). **La (c) es la
+más barata y cierra el único riesgo real, que es la enumeración.**
 
-**4.2 La foto de los leads en un bucket público (§2.4).** Opciones: (a) dejarlo (es lo que hay hoy:
-la URL es pública y la protege la dificultad de adivinar `<ws>/<lead>`); (b) pasar ese prefijo a
-privado y servir la foto por URL firmada, como ya hace el portal del curso; (c) dejar el bucket
-público pero poner un nombre no adivinable (un hash en vez del id del lead). La (c) es la más
-barata y cierra el único riesgo real, que es la enumeración.
+**6.2 Los reportes diario y horario siguen siendo sólo del ws1 (§3).** El semanal ya es
+multi-inquilino; los otros dos leen el interruptor, el teléfono y el mail del ws1 sin envolver
+nada, así que **las preferencias de notificación de los demás clientes son decorativas para esos
+dos caminos**: la pantalla los deja configurar y nada los lee. (a) Dejarlo y sacarlos de la lista
+que ve el cliente en `/mensajes`, para no prometerle algo que no sale. (b) Multi-inquilinizarlos
+como el semanal. (c) Dejarlo y anotar que es a propósito. Vive en
+`app/api/cron/reporte-diario/route.ts`, `-horario` y `lib/perfil.ts`.
 
-**4.3 El barrido de las server actions sin guarda propia (§2.3).** Son 53 acciones sólo en
-`app/crm/actions.ts`, más las de otros archivos. Opciones: (a) no hacer nada, el proxy ya corta sin
-sesión; (b) un guard de fuente que exija que toda `export async function …Action` empiece
-verificando sesión, con una lista blanca en positivo para las excepciones; (c) un barrido a mano,
-que envejece. **La (b) es la única que no envejece**, y es el molde que ya funcionó en los dos
-guards de esta ventana.
+**6.3 El barrido de las 50 acciones sin guarda propia (§4.6).** (a) No hacer nada: el proxy ya
+corta sin sesión. (b) Un guard de fuente que exija que toda `export async function …Action`
+empiece verificando sesión, con lista blanca en positivo para las excepciones. (c) Un barrido a
+mano, que envejece. **La (b) es la única que no envejece**, y es el molde que ya funcionó dos
+veces en esta área.
 
-**4.4 Los 53 `?? OWNER_WS`.** Es la raíz común y es trabajo grande. Opciones: (a) dejarlos y
-confiar en los guards puntuales; (b) hacer que `OWNER_WS` deje de ser el fallback y que un workspace
-sin resolver **tire**, migrando los 53 call-sites de a tandas (fail-closed, pero puede romper crons
-que hoy andan); (c) partir la diferencia: fail-closed sólo en lo que ESCRIBE o manda un mensaje, y
-dejar el fallback en lo que sólo lee. Esto es una decisión de arquitectura, no un arreglo.
+**6.4 Los 41 `?? OWNER_WS` vivos (§3).** Es la raíz común de casi todo lo de arriba y es trabajo
+grande. (a) Dejarlos y confiar en los guards puntuales. (b) Que `OWNER_WS` deje de ser el fallback
+y que un workspace sin resolver **tire**, migrando los call-sites de a tandas (fail-closed, pero
+puede romper crons que hoy andan). (c) Partir la diferencia: fail-closed sólo en lo que ESCRIBE o
+manda un mensaje, y dejar el fallback en lo que sólo lee. Es una decisión de arquitectura, no un
+arreglo.
+
+**6.5 El guard inverso de `TENANT_TABLES` (§4.2).** Hoy sólo cubre las tablas de la mig 0054, o
+sea ninguna de las 29 que nacieron esta semana. (a) Extenderlo a TODAS las migraciones, con una
+lista blanca explícita para las cross-workspace a propósito (`shares`, `webhook_routing`) y las
+tres excepciones declaradas. (b) Dejarlo y agregar `email_entrantes` a mano. **La (a) es la que
+evita que vuelva**; la (b) arregla el caso y deja el agujero.
+
+**6.6 `docs/auditoria-aislamiento-workspace.md`, tres meses viejo (§4.6).** O se reescribe contra
+el estado de hoy, o se borra y se deja `docs/hallazgos-seguridad.md` como la única fuente. Un
+documento de seguridad desactualizado es peor que ninguno: alguien lo va a leer como el mapa.

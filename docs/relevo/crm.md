@@ -1,241 +1,346 @@
-# Relevo — CRM
+# Relevo — CRM, leads y embudos
 
-## ✅ PEDIDO de Martín (10/10/2026) — HECHO por el chat de Ads Manager (`686c51be`)
+**Ventana:** del 05/10/2026 12:33 (commit `6785dc16`) al 10/10/2026 18:59 (`9862c146`).
+**Escrito el 10/10/2026 a las 19:10** por la sesión de CRM (cuenta `claude2`), reescribiendo
+el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el árbol.
+**Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
+`lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
-No había un chat de CRM abierto en la cuenta 2; Martín dijo «Entonces soluciona eso tu mismo» y se hizo desde Ads Manager. **Tocó archivos de este chat**: `lib/leads.ts` (`LISTA_COLS`), `app/crm/origen-lead.ts` (`canalDeLead`, nueva), `app/crm/crm-map.ts`, `app/crm/CrmBoard.tsx` y el guard del fbclid en `tests/atribucion-landing.test.ts`. El detalle está en `docs/hallazgos-crm.md` → «El filtro de anuncios existía y no tenía datos». Lo que pidió, textual:
+**Qué es esta parte del producto, para quien nunca la vio.** MaKo es una plataforma de
+marketing y ventas que Martín Koncke (el dueño) le vende a negocios. El CRM es la tab
+`/crm`: un tablero kanban donde cada tarjeta es un **lead** (un contacto interesado) y cada
+columna una **etapa** del recorrido de venta (llegó → agendó una reunión → asistió → pagó →
+Ganado). El conjunto de etapas se llama **embudo** o **funnel**, y un negocio puede tener
+varios: uno por producto que vende. Los leads entran solos (un formulario de Meta, la
+landing del cliente, Calendly/Cal.com, WhatsApp) o importados de una planilla.
 
-> «Acá al filtrar, en campaña, y en Origen, aparece lo mismo. Y falta el filtro de ANUNCIO,
-> para filtrar por un ad específico. Mandale esta tarea al CRM»
+Vocabulario que se usa acá y no se explica dos veces:
 
-La captura que mandó (el menú «Filtrar» del tablero, con Etapa / Origen / Campaña / Ordenar, y
-tarjetas «VSL FUNNEL inmobiliarios CI» — o sea, muy probablemente Código Inmobiliario, ws13):
-`C:\Users\marti\.claude\uploads\b1c92d31-61a4-43c0-b089-2f07f6ef8d51\241e1994-image.jpg`
-
-**Lo que se leyó antes de arreglarlo (queda como historia; las hipótesis se confirmaron con los datos):**
-
-- **El filtro por anuncio YA EXISTE**: es la categoría «Creativo» (`app/crm/CrmBoard.tsx`,
-  `listasFiltro` ~línea 1615; pedido de Martín del 06/10, commit `117ea2bd`). **Sólo se ofrece si algún
-  lead del tablero tiene `anuncioKey`** —«una categoría sin opciones no se ofrece»,
-  `CrmToolbar.tsx:449`—. En la captura no aparece, así que en esa cuenta ningún lead cargado
-  trae el anuncio. La pregunta no es «falta el filtro» sino **por qué esos leads llegan sin
-  `anuncioKey`**: si es el camino de entrada de ese workspace (la landing/VSL, que no trae el
-  `ad_id` como trae un formulario de Meta) o el mapeo. Y además el rótulo dice «Creativo» y él
-  lo busca como «Anuncio».
-- **Campaña y Origen «iguales»**: Origen son los valores distintos de `l.origin`; Campaña,
-  `campanaKey`/`campanaNombre`. Si en ese workspace el `origin` guarda el nombre de la campaña,
-  las dos listas salen idénticas. **Hipótesis, no medida**: lo primero es mirar en la base qué
-  traen esos dos campos para los leads de ws13.
-
-*Dejado el 10/10/2026 por el chat de Ads Manager (claude2), a pedido de Martín.*
-
-
-## ⚡ Actualización del 09/10/2026, 15:10 — sesión CRM, cuenta claude2
-
-Commit `5a4e3f04` (pusheado en esta misma tanda). Dos cosas, las dos sin decisión pendiente:
-
-- **#800 cerrado en código:** pastilla «Plazo» por etapa en el editor de etapas y aviso diario
-  `crm-lead-quieto` (los que pasaron el plazo, sin moverlos, sin depender del CRM automático).
-  → `docs/hallazgos-crm.md` → «El lead QUIETO». Nace sin efecto: nadie tiene plazos todavía.
-- **La revisión de propuestas (`/crm/revisar`) perdía al contacto repetido de la landing**, sus
-  productos y su campaña. Arreglado. → `docs/hallazgos-crm.md` → «Confirmar una propuesta de la
-  landing…». ⚠️ **Leila (ws11) tiene 5 contactos de su landing esperando ahí**, uno de hoy: con
-  el arreglo desplegado ya se pueden confirmar sin perder nada.
-
-**Lo que espera a Martín** (se lo pregunté en el chat; nada de esto se decide solo):
-1. ws11: la mensualidad de Nadia #2605 (4.235,29 es el total del contrato), ¿los 444 de Fabi
-   #2606 son USD o pesos?, y Fabi sigue en dos productos (Nora ya no).
-2. Ganar en un producto AGREGADO no marca ganado al lead: ¿así?
-3. #18: el texto de los follow-ups, cuántos y cada cuánto (se puede armar en /chatbot).
-4. #15: en qué cliente se prende el piloto del CRM automático.
-5. #20: n8n, ¿se apaga o pasa el acceso?
-6. #671: «Agendar R2» necesita un Calendly conectado para probarlo (sólo lo tiene el ws1).
-7. Prender en quien lo quiera lo que nació apagado (página de gracias → Ganado, invitar al curso).
-
-**Quedan abiertos en el plan:** #671, #18, #15, #40 (el planificador del CRM automático sigue
-en R1/R2 y necesita una migración para la reunión N) y #20. **Sin hacer y sin decisión:** la
-COHORTE del panel lateral (punto 1 del relevo del 05/10) y que confirmar una propuesta la marque
-ANTES de crear (dos pestañas pueden crear dos veces).
-
-⚠️ Dos rojos de la suite que NO son del CRM (09/10, 14:50): `tests/curso-tareas-secciones` lee
-archivos del curso que Customer Success tiene a medio editar, y `tests/inbox-agregar-al-crm`
-cuenta 4 montajes de la bandeja de WhatsApp donde espera 5 desde `c09e16ad` (14:28).
-
-## ⚡ Actualización del 08/10/2026, 08:00 — sesión CRM, cuenta claude2
-
-El feedback de Leila (ws11) y la grabación de sesiones, en producción:
-
-- **«Completar datos» ya no mueve al lead** y la ficha se relee al guardar (era el «loop» de la
-  empresa, y des-ganó al #2605). → `docs/hallazgos-crm.md` → «"Completar datos" devolvía al lead…».
-- **El monto de Ganado**: sí se guardaba (en `suscripcion_monto_usd`); la tarjeta ahora muestra
-  «$X/mes», el contrato precarga sin esconder el paso, y Deal Details edita la mensualidad.
-- **«+ Agregar al CRM» desde WhatsApp** elige el producto.
-- **La grabación de sesiones** (área landing): la ficha dice la verdad, el r.js v2 graba a quien mira
-  sin tocar (sin repegar) y el reproductor por fin abre las grabaciones. ⚠️ El r.js v2 se le sirve a
-  TODAS las páginas con Pixel v21/v22 en cuanto el servidor contesta `rec.v=2`.
-
-**Lo que espera a Leila / Martín:** corregir los datos de ws11 que entraron mal (Nadia #2605: la
-mensualidad dice 4.235,29 y es el total del contrato, con 12 cuotas de 4.235,29 pendientes que inflan
-el MRR un 85%; Fabi: ¿444 USD o pesos?; Nora #2610 y Fabi #2606 siguen en dos productos), y decidir si
-sacar el producto donde se ganó des-gana al lead. **Sin verificar en un navegador** ninguna de las
-pantallas; el grabador sí, con el snippet real en headless y contra la página real de ws1.
-
-## ⚡ Actualización del 08/10/2026, 02:50 — sesión CRM, cuenta claude2
-
-Tres cosas salieron y están desplegadas, las tres APAGADAS para todos hasta que alguien las prenda:
-
-- **Lo que contestó en el formulario de Meta** (`e21003d6`): en el pop-up y en la ruta de la ficha,
-  legible, y su WhatsApp nace apagado en /chatbot. → `docs/hallazgos-crm.md` → «Lo que contestó en
-  el formulario de Meta».
-- **La página de gracias pasa a Ganado** (`76cfa80f` + `ec90fddc`): interruptor «Es la página de
-  gracias» en el paso 2 del Pixel. ⚠️ La visita no prueba la compra: quien tenga la URL la abre sin
-  pagar. → `docs/hallazgos-landing.md` → «La página de GRACIAS pasa a Ganado».
-- **Invitar al curso al ganar** (`77279ea4`): «Invitar al curso al ganar» en el «⋯» de la columna
-  Ganado, por embudo. La invitación es la de Customer Success (`invitarAlCursoSinSesion`); el CRM
-  decide cuándo, en los TRES caminos a Ganado. → `docs/hallazgos-crm.md` → «La invitación al curso
-  AL GANAR».
-
-**Lo que espera a Martín:** prender cada cosa en el cliente que la quiera (nada nace prendido), y
-decidir si la página de gracias necesita la verificación de la compra (el webhook de la plataforma de
-pago, que no existe). **Sin hacer:** el aviso `lead-de-landing` tiene su texto armado en código
-(`app/api/track/optin/route.ts`), y las respuestas del formulario de la LANDING no se guardan en el
-lead. Ninguna de las dos pantallas nuevas se miró en el navegador (la máquina no daba).
-
-## ⚡ Actualización del 06/10/2026, 19:00 — sesión CRM, cuenta claude2
-
-**Lo que hay que saber primero:** `lead_funnel` (un lead en VARIOS productos, mig 0207) está
-**commiteado** (`f26c0a94`) y verificado en el navegador. Lo había escrito la sesión de claude1
-con nueve agentes y se cortó la cuota a mitad de la verificación: nada estaba commiteado. El
-porqué del modelo y sus trampas: `docs/hallazgos-crm.md` → «Un lead en VARIOS productos».
-
-- **Qué es:** la casa de un lead sigue en `leads.funnel_id` + `pipeline_stage`; cada otro
-  producto es una fila de `lead_funnel` con su etapa. «Agregar», nunca «mover»: ficha (X / ＋),
-  tablero, lote, «Traer», alta, campañas y el opt-in de la landing. Todo lo demás (métricas,
-  CAPI, MaKo, nutrición, Customer Success) lee sólo la casa.
-- **El lead que se movió por error** (Fernando Muñoz, 2381, ws1) ya está de vuelta en el producto
-  principal y en «Agenda R2».
-- **Calendly y la fuga de `dispararEvento`** salieron de la misma corrida y son de la sesión de
-  **Chatbot**, que los está terminando. No están en `f26c0a94`.
-
-**Decisiones de Martín que quedaron abiertas** (detalle en el hallazgo):
-1. Ganar en un producto AGREGADO no marca ganado al lead (la venta no existe hasta que ese
-   producto sea la casa).
-2. La casa de un opt-in con varios productos es el primero tildado: ¿alcanza o hace falta marcar
-   el principal?
-3. Mover entre dos etapas abiertas (Facturando → Falta pago) limpia la venta: ¿sólo cuando el
-   estado cambia?
-4. ¿El monto de cierre puede vivir en un lead abierto? (hoy su «Deshacer» no hace nada).
-5. Dos Ganados sin fecha de cierre (ws1 y ws13): se completan a mano.
-
-**Sin hacer y sin decisión pendiente:** la COHORTE del panel lateral (abajo, punto 1) sigue
-abierta; el duplicado del opt-in no lleva los productos; `AGENTS.md` sigue citando el opt-in
-viejo como ejemplo de «un alta que crea N filas».
-
-_Lo que sigue abajo es el relevo del 05/10 y vale como historia._
+- **ws1, ws11, ws13**: los negocios (workspaces) por número. **ws1 es Mauricio Bustos, un
+  CLIENTE** (el primer cliente, por eso la constante se llama `OWNER_WS` — no es el dueño).
+  ws11 es Leila, ws13 es Código Inmobiliario, ws3 es el Cliente de Prueba.
+- **La casa de un lead**: el producto donde «vive» (`leads.funnel_id` + `leads.pipeline_stage`).
+- **`funnel_id = NULL` NO es «sin producto»**: es el embudo del NEGOCIO, el que viene por
+  defecto. Es la trampa número uno del área (abajo).
 
 ---
 
-**Escrito el 05/10/2026 por la sesión `claude2` (CRM), al agotarse la cuota.**
-Lo lee la sesión de la otra cuenta: es el único canal entre las dos.
+## 1. En qué quedó: lo hecho y DESPLEGADO
+
+Todo lo de esta lista está en `main` y desplegado. Un commit por renglón, salvo donde se dice.
+
+**El cambio de modelo de la ventana: un lead está en VARIOS productos** (`f26c0a94`, 06/10,
+mig `0207_lead_funnel`). Antes un lead tenía UN solo `funnel_id`, así que ponerlo en un
+segundo producto obligaba a MOVERLO —y moverlo le reseteaba la etapa y, si estaba en Ganado,
+le limpiaba la venta—. Martín lo reportó textual: *«Le acabo de dar a un lead a "Mover a
+prueba" y se desapareció del producto principal de Mauricio. Eso JAMÁS debe pasar… No se debe
+"Mover" se debe agregar al otro producto»*. Ahora: la **casa** sigue en `leads.funnel_id`, y
+cada otro producto es una fila de la tabla nueva `lead_funnel` con su etapa propia. «Agregar»,
+nunca «mover». Entra por la ficha, el tablero, el lote, «Traer de otro producto», el alta, las
+campañas y el opt-in de la landing. El detalle y sus trampas:
+`docs/hallazgos-crm.md` → «Un lead en VARIOS productos».
+
+**El tablero y la tabla.** Marca de dónde vas a soltar la tarjeta (`3faab70d`); el tablero
+sigue desplazándose con el cursor fuera del kanban (`abbb7a12`); acciones en lote
+(`403e9f40`); la tabla deja de ser una lista y se le arrastran las filas (`cceda0d3`,
+`ef4dcab5`); la casilla de selección sale al pasar el cursor (`9dc1cf2e`); arrastrar dentro
+de la misma columna la deja ahí, con «Ordenar → Manual» (`1703c786`, mig
+`0200_lead_orden`).
+
+**Campañas de Meta → producto.** Asignar campañas y conjuntos de Meta a un producto desde
+«Lead entrante», para que sus leads caigan en ese tablero (`c2a02c1a`, `ebcfbad8`,
+`dc8a8ae6`, `721ad387`, mig `0193_lead_campana_meta`). Y filtrar el tablero por campaña y por
+creativo (`117ea2bd`).
+
+**El filtro «Anuncio» (10/10, `686c51be`).** Martín: *«Acá al filtrar, en campaña, y en
+Origen, aparece lo mismo. Y falta el filtro de ANUNCIO, para filtrar por un ad específico»*.
+Eran dos causas y ninguna estaba en la atribución: (a) el `select` del tablero (`LISTA_COLS`
+en `lib/leads.ts`) no pedía `utm_content`, que es donde la landing guarda el id del anuncio
+—44 de los 52 leads de ws13 lo tienen, con 13 anuncios distintos—, así que la categoría
+existía desde el 06/10 y se escondía sola por no tener opciones; (b) el filtro «Origen»
+listaba `origenLegible`, que dice lo más específico que se sepa (anuncio → campaña → canal),
+o sea las campañas otra vez. Ahora el filtro usa `canalDeLead` (`app/crm/origen-lead.ts`,
+nueva) y el rótulo pasa de «Creativo» a «Anuncio». Lo hizo el chat de **Ads Manager**, no
+este, porque no había un chat de CRM abierto.
+
+**La ficha del lead.** Producto en el pop-up, campo Web, un solo WhatsApp, la cara del
+contacto, sin «Reactivar» (`ee98547d`, `7f5377dc`, migs `0194_lead_web` y
+`0195_lead_foto_guardada`); las fotos de WhatsApp se copian a nuestro bucket porque la URL de
+WhatsApp vence a los 10 días (`0418a6ab`); la ficha dice por qué un lead no tiene grabación en
+vez de inventar duraciones (`6106544d`); cada campo se edita en el lugar.
+
+**Ganado y plata.** El paso a Ganado pregunta el monto del contrato, la tarjeta muestra la
+suscripción («$X/mes») y se corrige en Deal Details (`9f9bfc57`); «Completar datos» ya no
+devuelve al lead a la etapa de antes y la ficha se relee al guardar (`65ec2298`); al ganar se
+puede invitar al curso, por embudo y **apagado por default** (`77279ea4`).
+
+**Reuniones.** En el editor de etapas se marca qué etapa es una reunión (`adf1ca3d`); el
+resumen muestra lo que el lead contestó en Cal.com (`0218e6ed`, `6cd9d5dd`); una reunión nueva
+limpia la marca de «no asistió» (`6e75cc0c`); lo que contestó en el formulario de Meta se ve
+legible en el pop-up, y su WhatsApp nace apagado (`e21003d6`).
+
+**Etiquetas del CRM** (`f92559e0`, `3f3aadd8`, mig `0224_crm_etiquetas`). Pedido de Martín del
+08/10: un CRUD de etiquetas por negocio, vinculables a etapas del CRM, que sirvan en las
+condiciones de las automatizaciones, disparen CRON y se espejen en WhatsApp. El espejo
+etapa↔etiqueta mira **transiciones** con una foto por workspace, no impone por barrido.
+
+**El plazo de cada etapa y el lead quieto** (`5a4e3f04`, 09/10, tarea #800). Pastilla «Plazo»
+en el editor de etapas y aviso diario `crm-lead-quieto` para los que pasaron el plazo, sin
+moverlos y sin depender del CRM automático. **Nace sin efecto: nadie tiene plazos cargados
+todavía.** En el mismo commit, `/crm/revisar` dejó de perder al contacto repetido de la
+landing, sus productos y su campaña.
+
+**Dos cosas de navegación.** El CRM entra directo al tablero, sin el panel de activación
+delante (`713661d7`, 08/10: es una decisión más nueva de Martín que le gana a la regla
+«onboarding en toda tab»). Y «¿Qué hacer ahora?» volvía a no abrir nada por dos capas en la
+pila de modales para una sola pantalla (`b57a53ba`).
+
+**Verificado ahora (10/10 19:04):** `tests/crm-orden-manual`, `crm-revisar-propuesta`,
+`lead-quieto`, `crm-origen-lead` y `etiquetas-contrato` → **65 pass / 0 fail**.
 
 ---
 
-## Lo primero que hay que mirar
+## 2. Lo que NACIÓ en la ventana (el 05/10 no existía)
 
-1. **`git log --oneline -12`** y después `docs/hallazgos-crm.md` (85+ secciones; se
-   busca con `Grep` de la ruta del archivo que vas a tocar, NUNCA abriéndolo entero).
-2. **El tablero** `Feature: CRM`: 28 cerradas, 7 abiertas al empezar el día; hoy se
-   cerraron #627 y se dejaron al 50% #800, #18, #40, #671, #701 y #19.
-3. **Hay TRES sesiones sobre este clon** (CRM, Chatbot, Perro Guardián, y entró una
-   cuarta: Customer Success). El árbol no tiene un estado, tiene una hora.
+- **`lead_funnel`** (mig 0207): la tabla que permite un lead en varios productos, con
+  `lib/lead-funnel.ts` (agregar, quitar —que promueve la casa—, mover, lote) y
+  `lib/lead-funnel-reglas.ts` (puro, con test).
+- **`lead_orden`** (mig 0200): el orden manual de cada columna del kanban. UNA fila por
+  (embudo, etapa) con la lista de leads, no una posición por lead.
+- **`crm_etiquetas`** (mig 0224): el catálogo de etiquetas de cada negocio y qué lead tiene
+  cuál, con el espejo a las etapas y a WhatsApp.
+- **`leads.meta_campaign_id`** (0193), **`leads.web`** (0194), **`leads.foto_auto_url` +
+  `foto_auto_at`** (0195).
+- **El plazo por etapa** y el aviso `crm-lead-quieto` (`lib/lead-quieto.ts`,
+  `lib/lead-quieto-aviso.ts`).
+- **Las acciones en lote del CRM** (`app/crm/AccionesLoteLeads.tsx`) y el arrastre de filas en
+  la vista de tabla.
+- **El filtro por campaña, creativo/anuncio** (`lib/campana-atribucion.ts`,
+  `app/crm/origen-lead.ts`).
+- **La asignación de campañas y conjuntos de Meta a un producto**
+  (`lib/campana-asignar.ts`, `lib/campana-funnel.ts`, `lib/campana-traer.ts`,
+  `app/crm/campanas-actions.ts`, `app/crm/CampanasModal.tsx`).
 
-## Lo que quedó SIN TERMINAR, en orden de riesgo
+---
 
-### 1. La ficha sin botón «Editar»: VERIFICADA, con un bug arreglado y otro abierto
-La corrida terminó y se leyó. Veredicto: el botón se fue por las dos puertas (cero
-controles de editar en 10 pasadas), la edición de texto guarda de verdad y «Borrar
-lead» sigue existiendo en las dos con su confirmación.
+## 3. Lo que quedó a medio hacer o sin verificar, con el archivo donde vive
 
-**Arreglado (commit 1c08d4d7):** vaciar el setter en un workspace sin equipo cargado
-hacía DESAPARECER el desplegable al recargar — el campo quedaba inasignable justo
-después de vaciarlo, y la única salida era «Restaurar» desde el historial, que además
-borra esa entrada. Le pegaba a todo cliente nuevo.
+### ⚠️ EN CURSO AHORA MISMO, por OTRA sesión — leé esto antes de tocar el tablero
 
-**ABIERTO:** al panel lateral le falta la COHORTE que la ruta sí dibuja. No se arregla
-pasando la prop: sale de `lib/leads.ts` (2.600 líneas con dependencias de servidor) y
-`LeadSheet` es `use client`. Se calcula en el server y baja por props, como hace la ruta.
+Hay trabajo **sin commitear** en archivos de esta área, y **no es mío**. Lo medí dos veces,
+con siete minutos de diferencia, y conviene leer las dos lecturas porque es el ejemplo
+perfecto de que el árbol de este clon no tiene un estado, tiene una hora:
 
-### 2. ⚠️ El replay de sesión: completo pero sin la vuelta entera
-Está todo: grabador, ingesta, retención, reproductor, artefactos en `public/replay/1/`
-y las dos migraciones aplicadas. **Lo que falta es volver a correr la prueba de punta
-a punta**, porque la que existe se hizo ANTES de que se agregaran los artefactos y la
-migración, y dio «anda a medias» por eso.
+| | 19:04 | 19:11 |
+|---|---|---|
+| `app/crm/CrmBoard.tsx` | ` M` (58 líneas) | ` M` |
+| `app/crm/CrmToolbar.tsx` | ` M` (121 líneas) | ` M` |
+| `lib/campana-atribucion.ts` | ` M` (73 líneas, puras adiciones) | ` M` |
+| `tests/crm-filtro-ads.test.ts` | limpio | ` M` (el guard, mudado) |
+| `app/crm/arbol-seleccion.ts` | no existía | `??` (nuevo) |
+| `tests/crm-filtro-ads.test.ts` | **1 fail** | **15 pass / 0 fail** |
 
-Lo comprobado a mano después: `/replay/1/r.js` y `/replay/1/player.js` dan 200
-(63.925 y 226.921 bytes), `replay_sesiones` y `replay_lotes` existen, y el
-healthcheck publica el tope correcto (262.144, no 1.048.576).
+Es un pedido **nuevo de Martín del 10/10**, posterior a `686c51be`, citado textual en el
+comentario que esa sesión está escribiendo: *«No separes el filtro de Campaña y Anuncio… Que
+dentro del filtro de "Anuncio" estén las campañas primero como arbol y dentro se pueda
+seleccionar anuncios de esas campañas»*. El filtro pasa a ser un ÁRBOL campaña › anuncio:
+`arbolDeAnuncios` y `pasaFiltroAnuncio` en `lib/campana-atribucion.ts`, `alternarGrupo` /
+`alternarHijo` en el `app/crm/arbol-seleccion.ts` nuevo, y el cruce entre los dos niveles es
+**«O», no «Y»** (antes eran dos categorías que se cruzaban con «Y», o sea que elegir una
+campaña y un anuncio de otra no devolvía nada). Casi con seguridad es el chat de **Ads
+Manager**, que es el que hizo `686c51be`.
 
-**⚠️ Está APAGADO en todos los workspaces menos el 4**, donde se prendió para probar
-(`app_settings`, key `landing.replay`). Eso es a propósito: un sistema que graba
-personas no se enciende por un deploy.
+**No se toca nada de esos cinco archivos.** Y si lo ves rojo, antes de buscar un bug:
 
-### 3. Tres pedidos de Martín que llegaron por la sesión de Customer Success
-No se empezaron. Ella ya dejó el arrastre extraído y listo para importar:
+- A las 19:04 `tests/crm-filtro-ads.test.ts` fallaba pidiendo
+  `facetas('creativo', creativoFilter, 'Sin anuncio')`, que el árbol ya no usa. **En HEAD
+  estaba y está todo bien** (`git show HEAD:app/crm/CrmBoard.tsx`, líneas 1611 y 1616): era
+  una ventana, no una regresión.
+- A las 19:11 el guard ya estaba mudado y el archivo da 15/15 en disco. O sea que esa sesión
+  está cerrando bien: mudó el test en vez de borrarlo.
+- **Nada de esto está commiteado todavía**, así que para Martín todavía no existe: si abre la
+  app, el filtro sigue siendo el de `686c51be` (dos categorías separadas). Si entrás y
+  pregunta «¿no cambió nada el filtro?», la respuesta se da con `git log` y `vercel ls`, no
+  leyendo el código.
 
-1. **Sacar la tab «Pendientes»** y llevarla al desplegable de abajo. El título
-   («MaKo movió 3 leads») hay que cambiarlo: va a contener dos cosas y hoy afirma
-   una. Criterio propuesto: que diga **qué hay que decidir**, no qué hizo el sistema.
-2. **El toggle Kanban/Tabla con íconos**, los mismos de Customer Success
-   (`app/customer-success/BarraClientes.tsx` → `VISTA_META` y `VistaToggleClientes`).
-   Esa barra ya la montan dos pantallas: conviene montarla, no clonar los SVG.
-3. **El arrastre del Plan en el CRM**: `import { fotoVaciaDeArrastre, useArrastreCopia }
-   from '@/app/plan/board/arrastre-copia'`. ⚠️ Y lo que no está en el hook: **al nodo
-   origen no se le toca nada** — el CRM hoy le pone `opacity: .5` y `scale(0.97)`, y
-   con la copia y el hueco eso hace que la misma tarjeta aparezca TRES veces. Falta
-   además el hueco (molde corto: `app/customer-success/KanbanEntrega.tsx`).
+### Lo demás, con su archivo
 
-### 4. Lo que espera una decisión de Martín
-- **Las 11 secuencias de nutrición sin embudo declarado.** El código ya respeta el
-  embudo que una secuencia declare; falta la regla: con dos embudos vivos, ¿las
-  existentes son del principal o se declara una por una? Sólo 4 workspaces tienen dos.
-- **#20 (n8n):** hace falta la URL/credencial de la instancia, o la decisión de matarlo.
-- **#18:** el texto del follow-up post-llamada. Es su voz.
-- **#15:** prender el motor automático en su workspace.
-- **El dataset de CRM de Meta:** es lo único que no se puede automatizar (no tiene
-  endpoint). El tutorial ya está escrito en el catálogo; falta que alguien lo haga.
+- **La COHORTE del panel lateral del lead.** El panel (`app/crm/LeadSheet.tsx:225`) no dibuja
+  la cohorte que la ruta sí dibuja (`app/crm/[id]/page.tsx:207`), y hay un ⚠️ escrito en el
+  archivo explicándolo: no se arregla pasando la prop, porque sale de `labelMadurez` /
+  `estadoMadurezLead` en `lib/leads.ts:1980` (2.600 líneas, con dependencias de servidor) y
+  `LeadSheet` es `use client`. Se calcula en el server y baja por props, como hace la ruta.
+  Abierto desde el 05/10.
+- **El duplicado del opt-in de la landing no lleva los productos.** Falta `funnelIds` en
+  `FilaImport` (`app/crm/leads-importar.ts:211`, verificado: no está) y en el importador
+  (`app/crm/actions.ts`). Hoy ese lead entra al producto del negocio y una persona lo tiene
+  que agregar a mano desde la ficha.
+- **Confirmar una propuesta MARCA DESPUÉS de crear**
+  (`app/crm/revisar/[id]/acciones.ts:83`). El comentario de arriba lo declara a propósito
+  desde el 11/08/2026 (`2d4201b2`) y afirma que «dos pestañas o un doble click crean UN solo
+  lote». **Eso no lo pude verificar y la lectura del código dice que no se sostiene para dos
+  pestañas simultáneas**: las dos crean y recién después una de las dos `marcarAplicada`
+  devuelve false; lo que las salva es el dedup del importador, no la guarda. El molde de
+  reclamar-antes-de-ejecutar ya existe en el repo: `lib/api-mako/acciones.ts:137` y
+  `lib/api-mako/flujo.ts:172` (`marcarAplicada(id, { en_curso: true })` ANTES).
+- **El barrido del espejo etapa↔etiqueta no lo ejecuta ningún test** (lo cubren `planEspejo`,
+  que es puro, y guardas de fuente), y reconoce lo que tocó una persona por el **NOMBRE** en
+  `lead_audit`: una etiqueta renombrada entre dos corridas se espeja igual. Sin medir contra
+  datos reales. Vive en `lib/etiquetas-motor.ts` y en el cron
+  `app/api/cron/crm-automatico/route.ts` (`conciliarEspejoEtapas`).
+- **Dos leads en Ganado sin `fecha_cierre`** (uno en ws1, uno en ws13). Antes cualquier
+  corrección les ponía la de hoy; ahora no se les inventa nada. Se completan a mano.
+- **Ninguna de las pantallas de la ventana se miró en un navegador**, salvo el modelo de
+  `lead_funnel` (verificado el 06/10 en ws4 con un producto de prueba que después se borró) y
+  el grabador de sesiones. El resto —Ganado con monto, etiquetas, plazo por etapa, filtros—
+  está verificado por tests y por lectura, no por ojo.
+- **Las propuestas pendientes de ws11 (Leila): SIN VERIFICAR hoy.** El briefing del 09/10
+  decía «5 contactos de su landing esperando en `/crm/revisar`, uno de hoy». No lo pude
+  medir: requiere consultar la base. Lo que SÍ está medido y escrito en el repo es más
+  viejo: `app/crm/revisar/page.tsx:15` registra **4 leads reales en `pendiente` en ws11 el
+  14/08/2026** (Diana Vallin, Ibrahim Dosal, Marina Olvera, Magdiel Cortes). Si entrás,
+  mirá la bandeja antes de prometerle nada a nadie.
+- **Las tareas del tablero `Feature: CRM`: SIN VERIFICAR.** Vienen del briefing del 09/10 y
+  viven en la base, no en el repo: **#671** («Agendar R2» necesita un Calendly conectado para
+  probarlo, y sólo lo tiene el ws1), **#18** (el texto de los follow-ups), **#15** (en qué
+  cliente se prende el piloto del CRM automático), **#40** (el planificador del CRM automático
+  sigue en R1/R2 y necesita una migración para la reunión N) y **#20** (n8n: se apaga o se
+  pasa el acceso).
 
-## Trampas de este clon que cuestan tiempo si no se saben
+---
 
-- **`sed -i` puede no aplicar y NO avisar.** Un test dio 8/0 sobre un archivo que yo
-  creía roto. Las roturas se hacen con un script y se verifica el conteo.
-- **Un backtick dentro de `python -c "…"` o `node -e "…"` lo come bash.** Me borró una
-  palabra de un comentario sin decir nada.
-- **El fin de línea es POR ARCHIVO.** `ComportamientoCard.tsx` es CRLF puro,
-  `[id]/page.tsx` es LF. Un script de parcheo detecta el del archivo, convierte sus
-  anclas, y **valida ANTES de escribir** (yo lo hice al revés y dejé uno mezclado).
-- **Un guard que fija el texto EXACTO de un `select` se pone rojo cuando el vecino
-  agrega una columna legítima.** Pasó hoy con `tests/nutricion-ambito-embudo.test.ts`.
-- **Dos migraciones con el número 0190.** La mía (`0190_clic_con_su_punto`) está
-  commiteada y aplicada; `0190_secuencia_cron` es de otra sesión y estaba sin
-  commitear. Si sigue ahí, hay que renumerarla.
+## 4. Las trampas de esta área (esto es lo que ahorra tiempo)
 
-## Archivos que son del CRM (míos)
+**1. `funnel_id = NULL` ES el embudo del negocio, y el producto del negocio se escribe de DOS
+formas.** El tablero del negocio pide sus leads con `.is('funnel_id', null)`; un `.eq()` con
+null no matchea nada en Postgres (`= NULL` es NULL, no true) y pierde los leads en silencio
+—1.530 al 05/10—. Y como **fila** de `lead_funnel` el producto del negocio va con su id REAL
+(la FK no admite NULL). Escribir el id del default en `leads.funnel_id` deja al lead **fuera
+de TODOS los tableros**, con el producto correcto escrito y sin un error. Toda escritura de la
+casa pasa por `casaParaEscribir` (`lib/lead-funnel-reglas.ts`).
 
-`app/crm/**`, `lib/leads.ts`, `lib/leads-duplicados.ts`, `lib/crm-auto*.ts`,
-`lib/calificado-reunion.ts`, `lib/clic-ruido.ts`, `lib/funnel-comercial.ts`,
-`lib/landing-funnel.ts`, `lib/landing-token.ts`, `lib/landing-pulso*.ts`,
-`lib/meta-capi*.ts`, `lib/insights-llamada*.ts`, `lib/replay-*.ts`,
-`app/api/track/**`, `app/api/crm/replay/**`, `app/api/cron/replay-purga/**`,
-`app/landing-analyst/**`, `public/replay/**`, `scripts/replay-libs.mjs`.
+**2. «¿Está en este producto?» se contesta por CASA o por FILA, y hay que mirar las dos.** Los
+lectores que lo preguntaban se fueron encontrando de a uno: el dedup del alta, «Traer de otro
+producto», el lote, la traída de campañas, la validación del orden manual
+(`app/crm/orden-actions.ts:71-77`) y el conteo por etapa — en ése, sin sumar las filas, una
+etapa con gente agregada decía 0 y se borraba **sin preguntar**. El próximo lector que
+pregunte por `leads.funnel_id` solo, mide la mitad.
 
-**NO son míos:** `app/chatbot/**`, `app/agencia/**`, `lib/flujo*.ts`,
-`lib/nutricion*.ts` (hoy lo tiene el Chatbot), `lib/servicio-etapas.ts`,
-`lib/setting-secuencias.ts`, `app/customer-success/**`, `app/plan/**`.
+**3. Lo que lee SÓLO la casa, a propósito (decisión v1 de Martín):** métricas, el CAPI de
+Meta, el CRM automático, MaKo, la nutrición, la etiqueta de WhatsApp y Customer Success. Es lo
+que hizo posible cambiar el modelo sin tocarlos. No es un olvido; está escrito en la cabecera
+de `supabase/migrations/0207_lead_funnel.sql`. La consecuencia de producto está abierta y la
+decide Martín (sección 5).
 
-## Lo que se cosechó hoy
+**4. El tablero no ve una columna que su `select` no pide.** Los mappers de `app/crm/crm-map.ts`
+leen campos que `LISTA_COLS` (`lib/leads.ts`) tiene que traer. Una categoría de filtro sin
+opciones **no se ofrece** (`app/crm/CrmToolbar.tsx:449`), así que una columna que falta no se
+ve como un error: se ve como un filtro que no existe. Eso fue exactamente el bug del 10/10, y
+el diagnóstico obvio (la atribución) era el equivocado: su test pasaba. Desde `686c51be` hay
+un guard del CABLEADO, derivado del tipo `LeadAtribuible` y del cuerpo real de las funciones,
+no de una lista copiada.
 
-`docs/hallazgos-crm.md` (el duplicado de 1.153 teléfonos, el sello del constructor,
-el `funnel_id` del opt-in, el análisis huérfano por email, una fusión no es un
-reorden), `docs/hallazgos-landing.md` (Clarity y el iframe, el default de privacidad
-de rrweb), `docs/hallazgos-ads.md` (el dataset de CRM) y `AGENTS.md` (las tres
-sesiones, el `tmp-` como candado, el «remote rejected» que es «ya está subido», y el
-chequeo número trece del pre-push).
+**5. Mover un Ganado a una etapa ABIERTA le limpia la venta.** No es un bug suelto: está
+escrito y es consciente en `lib/lead-desenlace.ts:38` y `lib/leads.ts:918`. La causa es que
+`setPipelineStage` manda SIEMPRE `estado_lead`, y la coerción del desenlace corre cuando el
+caller tocó un campo que decide la venta. Pasar de «Facturando» a «Falta pago» entra ahí.
+Es una línea para cambiarlo y la decide Martín (sección 5).
+
+**6. La etapa que se VE no es `pipeline_stage`.** Es `pipelineStageOf`: el override o la
+derivada de las fechas, y en la mayoría de los leads la columna es NULL. Agendar por Calendly,
+marcar asistencia o ganar desde la ficha mueven la etapa **derivada** sin escribirla. Por eso
+el espejo de etiquetas mira transiciones comparando `pipelineStageOf(antes)` contra después, y
+no la columna. (El hallazgo viejo «stageMeta miente» es de esta misma familia.)
+
+**7. El techo de 1000 filas de PostgREST.** Un `.select()` suelto anda perfecto hasta que la
+tabla pasa las 1000 y desde ahí pierde datos sin un log. Ya se pagó en este área: el CRM
+mostró 4 ganados de 13 (US$52.700) porque `_listLeads` no paginaba. Se lee con `leerTodo` /
+`leerPorPaginas` (`lib/supabase-paginado.ts`) y con un orden que termine en una columna
+ÚNICA. `.limit(2000)` no sube el techo.
+
+**8. `docs/hallazgos-crm.md` tiene 7.771 líneas: NO se abre entero.** Se busca con `Grep` de
+la ruta del archivo que vas a tocar — cada entrada trae adentro su línea `**Vive en:**`. Abrirlo
+completo son decenas de miles de tokens para encontrar una cosa.
+
+**9. El fin de línea es POR ARCHIVO en este clon.** `app/crm/[id]/page.tsx` es LF y otros del
+mismo directorio son CRLF. Un script de parcheo contesta «0 coincidencias» sobre un ancla
+copiada carácter por carácter del propio archivo. Y un guard con regex sobre fuente va con
+`\r?\n`, nunca `\n` solo.
+
+**10. La herramienta de búsqueda reescribe `/` como `\` en el CONTENIDO que devuelve.** Un
+`//` que vuelve como `\` es la firma. `Grep` sirve para ENCONTRAR, no para CITAR: antes de
+reportar un bug que depende de un carácter, releé la línea con `Read`.
+
+**11. Hay varias sesiones sobre este MISMO clon y el árbol no tiene un estado, tiene una
+hora.** Un rojo de un test puede no ser tuyo (hoy pasa: ver sección 3). Antes de acusar a
+nadie: `git status --short` de los archivos que el error nombra, y `git show HEAD:<archivo>`
+para saber si el bug existe en HEAD o sólo en el disco de alguien que está tipeando. Y
+**nunca** `git add -A` ni `git commit` pelado: va `git commit <ruta> -F <msg>`.
+
+**12. El próximo número de migración NO es 0225.** En disco hay hasta `0242_canales_zernio`,
+y además existen **DOS archivos con el número 0223** (`0223_curso_papelera` y
+`0223_flujo_grafo`), que es la colisión clásica de dos sesiones eligiendo el mismo número.
+Antes de nombrar una migración nueva: `git pull` y `ls supabase/migrations/ | tail -5`.
+
+---
+
+## 5. Qué espera una decisión de Martín
+
+Ninguna de estas se decide sola y ninguna se re-pregunta si ya está contestada en el chat.
+
+1. **Ganar en un producto AGREGADO no marca al lead como ganado.** Es la v1 a propósito (manda
+   la casa), y la consecuencia es que si alguien compra el segundo producto, esa venta no
+   existe para Revenue, el CAPI de Meta ni Customer Success hasta que ese producto sea la casa.
+   **Opciones:** (a) dejarlo así y que el equipo cambie la casa al ganar; (b) que ganar en
+   cualquier producto marque al lead como ganado y la plata se sume por producto; (c) que el
+   monto viva en la fila de `lead_funnel` y Revenue sume casa + filas.
+2. **La casa de un opt-in de la landing con varios productos es el PRIMERO tildado** en la
+   configuración. **Opciones:** (a) alcanza el orden de los tildes; (b) hace falta marcar
+   explícitamente cuál es el principal.
+3. **Mover entre dos etapas abiertas limpia la venta** (Facturando → Falta pago).
+   **Opciones:** (a) dejarlo; (b) limpiar sólo cuando el estado CAMBIA de verdad (Ganado →
+   abierta). Es una línea en `setPipelineStage`.
+4. **El «Deshacer» de «Monto de cierre» sobre un lead abierto no hace nada**, porque el monto
+   decide la venta y el lead no tiene `cerro`. **La pregunta:** ¿el monto puede vivir en un
+   lead abierto? Hoy ya lo escriben por otro camino `lib/pagos.ts` y el editor del deal.
+5. **La etiqueta que pone una ETAPA no dispara automatizaciones** (sólo dispara ponerla
+   directo: la ficha, la API, un paso «⚡ Acción»). Es una decisión del constructor, tomada
+   para que mover 200 leads en lote no disparara 200 WhatsApps. **Se la puede dar vuelta.**
+6. **Prender en cada cliente lo que nació apagado:** la página de gracias → Ganado, invitar al
+   curso al ganar, el WhatsApp de las respuestas del formulario de Meta. Nada nace prendido, a
+   propósito.
+7. **Los plazos por etapa están vacíos para todos.** El aviso del lead quieto existe y no
+   avisa de nada hasta que alguien cargue plazos. ¿En qué cliente se arranca?
+8. **Los datos mal cargados de ws11 (Leila), que son suyos y no del código:** Nadia #2605
+   tiene como mensualidad 4.235,29, que es el TOTAL del contrato (con 12 cuotas de 4.235,29
+   pendientes, eso infla el MRR un 85%); de Fabi #2606, ¿los 444 son USD o pesos?; y Fabi
+   sigue en dos productos (Nora #2610 ya no). **Sin verificar hoy**: viene del briefing del
+   08-09/10.
+9. **Las tareas #671, #18, #15, #40 y #20** del tablero `Feature: CRM` (ver sección 3).
+
+---
+
+## 6. Correcciones al briefing anterior
+
+Lo que el briefing previo daba por abierto y **ya no es cierto**:
+
+- **«`AGENTS.md` sigue citando el opt-in viejo como ejemplo de "un alta que crea N filas"»** —
+  **FALSO desde el 09/10.** El commit `5a4e3f04` le agregó el párrafo que lo corrige: *«⚠️ Y
+  ANTES DE ESCRIBIR EL BUCLE, PREGUNTÁ SI SON N COSAS O UNA COSA EN N LUGARES. El opt-in de
+  arriba ya no crea N fichas: desde el 06/10/2026 (`f26c0a94`) crea UNA y le AGREGA los otros
+  productos»*. Verificado en `AGENTS.md`, sección «Un alta que pasa a crear N filas…».
+  ⚠️ **`docs/hallazgos-crm.md:7086` todavía lo lista como pendiente** — ese archivo no es
+  mío en esta corrida y lo dejé como está; el que lo toque, que lo saque.
+- **«Hay que arreglar el filtro de anuncios» / «es una hipótesis sin medir»** — **HECHO el
+  10/10 a las 17:08** (`686c51be`), con los datos medidos en ws13 (52 leads, 44 con
+  `utm_content`, 13 anuncios). Y ya quedó viejo otra vez: hay un pedido posterior del mismo
+  día, en curso y sin commitear (sección 3).
+- **«Confirmar una propuesta no marca antes de crear» como simple pendiente** — es más matizado:
+  está **decidido a propósito** desde el 11/08 con su comentario, y lo que no se sostiene es la
+  afirmación de ese comentario sobre dos pestañas simultáneas (sección 3).
+- **Los dos rojos de la suite que el briefing del 09/10 reportaba como ajenos**
+  (`tests/curso-tareas-secciones` y `tests/inbox-agregar-al-crm`) ya no son el problema del
+  momento. El único rojo que vi hoy en esta área fue `tests/crm-filtro-ads.test.ts` a las
+  19:04, ajeno y transitorio: a las 19:11 ya estaba verde (sección 3). **Si lo reportás,
+  fechá la lectura y volvé a medir antes de mandar el mensaje** — re-correrlo cuesta
+  segundos y acusar a la sesión de al lado de romper el repo cuesta un turno de ella.

@@ -1,194 +1,387 @@
-# Relevo — Ads Manager
+# Relevo — Ads Manager, Meta e Instagram
 
-**Escrito el 06/10/2026 a las 16:50 por la sesión `claude1` (Ads Manager), antes del pase a la
-cuenta 2.** Lo lee la sesión de la otra cuenta: es el único canal entre las dos.
+**Reescrito el 10/10/2026 para una cuenta de Claude que arranca SIN historial.** Ventana que
+cubre: **05/10/2026 12:33 (`6785dc16`) → 10/10/2026 18:59 (`9862c146`)**. La versión anterior de
+este archivo se escribió el 06/10 y su último commit fue `db7b7682` (07/10 15:47): **todo lo del
+07/10 16:06 en adelante no estaba acá**, y abajo hay dos afirmaciones suyas que resultaron falsas.
+
+**Qué es esta parte del producto, para quien nunca la vio.** MaKo es el dashboard de marketing que
+Martín Koncke vende como SaaS. Esta área es la pantalla **`/ads-manager`**: el panel desde donde un
+cliente ve y opera sus anuncios de **Meta** (Facebook/Instagram Ads) sin entrar al Ads Manager de
+Meta — crear una campaña, subir creativos, pausar, cambiar presupuesto, renombrar, borrar, editar
+los textos de un anuncio y a quién se le muestra. Del otro lado está la **conexión con Meta** (el
+token de cada cliente, la cuenta publicitaria, la página, la entrada de leads de los formularios) y
+la tab **`/instagram`**, que se retiró el 06/10 y hoy sólo redirige.
+
+> **Vocabulario mínimo:** *ws1* = el workspace 1, que es de **Mauricio Bustos, un CLIENTE** (la
+> constante se llama `OWNER_WS` por historia, no porque sea el dueño). *ws9* = el workspace de
+> Martín. *ws3* = Cliente de Prueba. *ws11/13/14/15* = clientes reales. Un *conjunto* es un ad set.
 
 ---
 
 ## Lo primero que hay que mirar
 
-1. **El punto ⚠️ de abajo («operar desde un cliente da 403»).** Es lo único de esta área que
-   rompe algo para un cliente hoy, y el rediseño de esta sesión lo agrandó.
-2. `git log --oneline -12 -- app/ads-manager/` y después `docs/hallazgos-ads.md` — es largo:
-   se busca con `Grep` de la ruta que vas a tocar, nunca abriéndolo entero.
-3. La bitácora del área: `app/admin/dev/ads-manager/bitacora.ts` (en `/admin/dev/ads-manager`),
-   con los dos pedidos textuales de Martín del 05 y 06/10.
+1. **La bitácora del área miente sobre la migración 0215** y manda a hacer algo que ya está hecho
+   (punto «Corregido», abajo). Si entrás a trabajar acá, eso es lo que te va a desviar primero.
+2. `git log --oneline -15 -- app/ads-manager/` y después **grepeá la ruta que vas a tocar** en
+   `docs/hallazgos-ads.md` (3.900+ líneas: nunca se abre entero, se busca por `**Vive en:**`).
+3. `app/admin/dev/ads-manager/bitacora.ts` (se ve en `/admin/dev/ads-manager`): los pedidos
+   textuales de Martín. Sus tres últimos hitos están en `estado: 'sigue'`.
 
-## En qué quedó: hecho y DESPLEGADO
+---
 
-Todo lo de abajo está en `origin/main` y en producción (último deploy de esta sesión, `d46b0eca`,
-quedó *Ready* el 06/10 ~03:05; los deploys posteriores lo contienen).
+## En qué quedó: hecho, pusheado y desplegado
 
-| Commit | Fecha | Qué |
+`HEAD == origin/main == 9862c146`. Medido el 10/10/2026 con `vercel ls`: todos los deploys de
+producción en **Ready**, el más reciente 5 minutos antes de la medición. El árbol de trabajo estaba
+**limpio** (ninguna otra sesión tenía nada sin commitear en estas rutas).
+
+| Commit | Fecha | Qué quedó andando |
 |---|---|---|
-| `2ae26f80` | 11/09 | Los rechazos de Meta al publicar dicen de QUIÉN son (Código Inmobiliario) |
-| `885f2f07` | 16/09 | El rechazo 1885183 ya no le pide al cliente que publique su app |
-| `aea8dea1` | 16/09 | Publicar reusando un anuncio de la propia página pasa el bloqueo, y ahora se ve |
-| `07073522` | 05/10 | Elegir el producto al crear la campaña, y asignarla desde la tabla |
-| `0b48181e` | 06/10 | Rediseño: «Nueva campaña» arriba a la derecha, el resto en un ⋯, UN filtro |
-| `f36651e3` | 06/10 | Selección múltiple, tabla densa, el conjunto que hereda el producto de su campaña |
-| `60fc93b0` | 06/10 | «Filtrar» con embudo, ⋯ con íconos, renombrar/agregar en la barra de lote, cero emoji |
-| `dc5c162d` | 06/10 | El rango de «no hay emoji» vive en UN lugar: `tests/_emoji.ts` |
-| `cad249b3` | 06/10 | Regla de triage en `AGENTS.md`: un guard que lee fuente nombra al guard |
-| `d46b0eca` | 06/10 | Botones cuadrados como el CRM (radio 10) y la barra de lote centrada de verdad |
+| `07073522` | 05/10 23:54 | Elegir el **producto** al crear una campaña, y asignarlo desde la tabla |
+| `0b48181e` `f36651e3` `60fc93b0` `d46b0eca` | 06/10 | Rediseño de la pantalla: «Nueva campaña» arriba a la derecha, el resto en un `⋯`, UN filtro, selección múltiple, tabla densa, barra de lote |
+| `8d16c6ff` | 06/10 14:23 | **Instagram sale del producto**: la tab, su API y su integración (#792) |
+| `db7b7682` | 07/10 15:47 | **Pausar, presupuestar, renombrar y borrar con la cuenta de CADA cliente** (antes era 403 fuera del ws1) |
+| `9f745fae` | 07/10 16:06 | Botón **«Conectar con Meta»** con la app propia de MaKo + sección `#meta` en la privacidad |
+| `025f44ec` `6f5c43fc` | 07/10 17:49-18:21 | El presupuesto pasa por un **cartel de confirmación** y en la **moneda de la cuenta** (#349) |
+| `f6ed4c33` `c5a5c933` | 07/10 19:03-19:47 | Un video se usa **cuando Meta lo procesó**, y un reintento **no publica dos veces** (#59) |
+| `772ae3ec` `5488bbe0` | 07/10 20:26-21:01 | **«Mis creativos»**: usar un video que MaKo ya generó, sin bajarlo y volverlo a subir (#797) |
+| `335837cb` `6fe99555` | 07/10 21:37-22:05 | **«Dónde se muestra»** un conjunto que ya corre, y editar sus lugares (#715) |
+| `af9030c7` | 08/10 01:12 | El **píxel de Meta de MaKo** en su propia landing (visita y agenda) |
+| `6118b275` | 08/10 02:57 | **El gasto de Meta en dólares sale de la moneda de cada cuenta**, no asumiendo pesos |
+| `e869a24e` `ddfb07e8` | 08/10 13:38 | El **poll de leads** corre cada 10 min y deja al webhook los recién llegados; MaKo lee lo que el lead contestó en el formulario |
+| `d11aa86f` `87b32895` | 09/10 19:47-20:07 | **Instagram y Messenger VUELVEN como canales de las automatizaciones**, por Zernio (no vuelve la tab) |
+| `71690b4b` `04f40af4` | 09/10 21:14-23:11 | El tacho de borrar de la casa (rojo) en `CrearFormulario.tsx`; `/instagram` redirige directo a `/automations` |
 
-(`721ad387` del 06/10 tocó `app/ads-manager/ProductoCelda.tsx` pero es del chat del **CRM**: un
-prop opcional `buttonStyle`, aditivo. Verificado que no rompe nada de acá.)
+**Lo más importante de todo esto, en una línea:** hasta el 07/10 a las 15:47 **cada botón de
+escritura del Ads Manager contestaba 403 para el admin de un cliente** y, para el super admin,
+escribía con el token de Mauricio. Eso se cerró: `app/api/meta-write/route.ts:22` resuelve el
+workspace con `wsDeAdsManager()` (`lib/ads-guard.ts`) y `lib/meta-write.ts:48` saca el token con
+`credWs('META_ACCESS_TOKEN', ws)`.
 
-**Cómo quedó la pantalla**, para no volver a poner algo donde ya se decidió que no va:
+---
 
-| Acción | Dónde |
+## Lo que NACIÓ en la ventana (el 05/10 no existía)
+
+| Archivo | Qué es |
 |---|---|
-| Nueva campaña | botón primario, arriba a la derecha |
-| Subir creativos · Agregar conjunto a una campaña · Analizar con Meta | el ⋯, con ícono y sin subtítulo |
-| Filtrar (fechas + estado + columnas) | a la altura de las tabs; radio 10, copiado del CRM |
-| Actualizar estado | su propio botón cuadrado, a la derecha del filtro |
-| Presupuesto · Producto · Renombrar · Agregar conjunto/anuncio | centro de la barra de selección |
-| Activar/pausar (UN interruptor) + Eliminar | juntos, a la derecha de la barra |
-| Editar textos (anuncio) · Editar público (conjunto) | la fila |
+| `lib/presupuesto-cambio.ts` (07/10) | La conversión USD → moneda de la cuenta, en UN lugar. Antes el ×17,30 del peso estaba copiado en tres |
+| `lib/meta-idempotencia.ts` (07/10) | La clave de idempotencia de una publicación: `claveAMandar`, `trasRespuesta`, `decidirReintentoCampana` |
+| `lib/creativo-mako.ts` + `lib/creativo-mako-fuentes.ts` (07/10) | Resolver una ref `montaje:<id>` / `toma:<plan>:<n>:<op>` a una URL del bucket propio, **en el server** |
+| `app/ads-manager/MisCreativosMako.tsx` (07/10) | El selector de videos ya generados por MaKo |
+| `app/ads-manager/LugaresLectura.tsx` (07/10) | «Dónde se muestra»: incluidos, excluidos, radio, el pin |
+| `lib/meta-login.ts` + `lib/meta-conexion.ts` (07/10) | Facebook Login for Business con la app propia **MaKo (2586146911825340)**, y la ÚNICA puerta que guarda una conexión de Meta |
+| `lib/moneda-meta.ts` (08/10) | `conversorGastoMeta()`: el gasto que se LEE sale de la moneda de la cuenta |
+| `lib/meta-pixel-mako.ts` (08/10) | El píxel/conjunto de datos «MaKo» (1869323014511830) de la propia landing |
+| `lib/titular-mako.ts` (08/10) | La razón social de MaKo, para que Meta la encuentre en el sitio |
+| `lib/meta-leads-poll-reglas.ts` (08/10) | Las reglas del poll de leads cada 10 minutos |
+| `supabase/migrations/0215_meta_campaign_drafts_idem.sql` (07/10) | `meta_campaign_drafts.idem_key` + su índice único parcial. **YA APLICADA** |
 
-Agregar conjunto/anuncio desde la barra sólo aparece con **una** fila tildada. Renombrar actúa
-sobre **lo elegido**, no sobre la tab entera.
+Y dos cosas que pasaron **fuera del repo** y mandan en el área:
 
-## ⚠️ Lo más urgente: operar desde un cliente da 403
+- **La cuenta publicitaria de MaKo existe**: `act_1426493815659364`, en **USD** y zona horaria de
+  Buenos Aires, en el portafolio MaKo (493711571134922), con la página «Hola MaKo»
+  (1315098941694049). **Sin medio de pago todavía** — lo carga Martín. Decisiones suyas: nadie más
+  como admin por ahora, y el doble factor al final.
+- **El negocio quedó VERIFICADO el 08/10/2026 (~04:00), al tercer envío.** Meta no rechazaba el
+  documento: rechazaba que la razón social no apareciera **en el HTML que el sitio sirve sin
+  JavaScript**. El arreglo que lo destrabó fue sacar la portada de un bloque oculto del streaming
+  de React, no publicar el nombre (eso ya estaba y había fallado).
 
-> ✅ **RESUELTO el 07/10/2026 (claude2).** `/api/meta-write` pasa por `wsDeAdsManager()` (el mismo
-> guard que `/api/ads-manager/*`) y `lib/meta-write.ts` saca el token con
-> `credWs('META_ACCESS_TOKEN', ws)`. El doer de MaKo también: `soloWs1` → `G_META_ADMIN` (sigue
-> exigiendo admin) y sin el `OWNER_WS` de los runners. Lo de abajo queda como historia. El detalle
-> —incluidos los dos lugares que no se veían leyendo la ruta— en `docs/hallazgos-ads.md` →
-> «Pausar, represupuestar, renombrar y borrar: ahora con la cuenta de cada cliente».
+---
 
-**Verificado leyendo el código el 06/10/2026, NO en el navegador.**
+## Lo que quedó A MEDIO HACER o SIN VERIFICAR
 
-- `app/api/meta-write/route.ts` corta con `esDuenoAdmin()` y contesta **403 «Esta acción solo está
-  disponible en el workspace principal por ahora»**. Por ahí pasan pausar/activar, presupuesto,
-  renombrar y eliminar (`CampanasBrowser.tsx:410`, `:433`, `:539`, `:557`).
-- Y `lib/meta-write.ts` saca el token con `envCred('META_ACCESS_TOKEN')`, que **resuelve siempre
-  contra el workspace dueño** (`lib/credenciales.ts:204`): el de Mauricio (ws1).
-- La pantalla **no sabe nada de esto**: no hay ningún `esDueno`/`soloLectura` en `app/ads-manager/`.
-  Dibuja los controles para todos.
+### Lo que bloquea de verdad
 
-Consecuencia: para el admin de un cliente (ws11, ws13, ws14…), **cada botón de escritura de la
-barra de lote y de la fila contesta 403**. El rediseño de esta sesión sumó botones que escriben,
-así que agrandó la superficie rota.
+- **Los permisos de anuncios de la app MaKo NO entran.** Medido dos veces el 08/10 en ws9: el token
+  vuelve bien (`/me` = «MaKo System User», no vence) y trae la página y los leads, pero
+  `/me/permissions` **no lista `ads_management`, `ads_read` ni `business_management`**, aunque la
+  configuración los pide. `/act_1426493815659364` contesta «(#200) Ad account owner has NOT grant
+  ads_management or ads_read permission». Se descartó que sea el rol y que sea la cuenta elegida.
+  **Hipótesis a la vista y NO MEDIDA:** la app está en «Marketing API Access Tier: Acceso limitado»
+  y la verificación de acceso de proveedor de tecnología se **envió el 08/10 y sigue en revisión**.
+  Se confirma o se descarta **reconectando cuando Meta conteste** y volviendo a mirar
+  `/me/permissions`. Vive en `lib/meta-login.ts` · `lib/meta-conexion.ts`.
+- **Por eso el botón «Conectar con Meta» todavía no lo ve ningún cliente.**
+  `conectarMetaDisponible()` lo ofrece sólo al super admin hasta la aprobación, y a todos con
+  `META_OAUTH_ABIERTO=true` en Vercel — **sin deploy**, el día que Meta apruebe.
+- **La tarjeta de Meta en `/integraciones` dice «No se pudo leer»** y no dice por qué. Tendría que
+  decir «Faltan permisos de anuncios», leyendo `/me/permissions` al descubrir
+  (`lib/meta-conexion.ts`).
+- **La app MaKo no tiene webhook de leads.** Nadie llama a `subscribed_apps`, así que los leads de
+  un cliente conectado SÓLO por la app MaKo entran **por el polling, no en vivo**. Hace falta
+  `pages_manage_metadata` (quedó afuera del App Review a propósito), suscribir la página, y que
+  `app/api/webhooks/meta-leads` acepte la firma de **las dos apps** durante la migración.
 
-**Y no es una limitación pareja del área: es UNA ruta que quedó atrás.** Las 15 rutas de
-`app/api/ads-manager/` ya cortan con `guardAdsWs()` (`lib/ads-guard.ts`), que pregunta si sos
-admin **de ese** workspace — crear, sugerir y leer andan para un cliente, y `lib/meta-ads-create.ts`
-usa `credWs`. Sólo `/api/meta-write`, que vive afuera de esa carpeta, quedó con el corte del dueño
-y el token del dueño.
+### Bugs vivos, chicos y medidos
 
-⚠️ **El peor caso es Renombrar**: la PROPUESTA (`/api/ads-manager/rename-suggest`) pasa
-`guardAdsWs` y gasta IA contra la key de la plataforma, y recién al APLICAR (`op: 'name'` por
-`/api/meta-write`) el cliente recibe el 403. O sea: se paga el modelo y después falla.
+- **`app/ads-manager/EntityDetalle.tsx:121` escribe «MXN» a mano** en el resumen que se le pasa a
+  MaKo (`presupuestoMxn.toLocaleString('es-MX')} MXN`). El commit de la moneda del 08/10
+  (`6118b275`) **no lo tocó**: para ws13/14/15, que cobran en USD, MaKo lee un monto con la moneda
+  equivocada. *(El briefing viejo decía `:87`; hoy es `:121`.)*
+- **El offset de centavos de Meta, sin verificar.** `lib/meta-write.ts` multiplica por 100 y
+  `lib/meta-health.ts` divide por 100. Hay monedas sin centavos (COP, CLP, JPY, KRW, TWD): un
+  cliente que cobre en una de ésas vería la celda, el cartel y el wizard **100× corridos**.
+- **`app/api/ads-manager/adset-targeting` no comprueba que el conjunto sea de la cuenta del
+  workspace.** Con un token de agencia, un id equivocado lee o pisa el de otro cliente. Ya pasaba
+  antes; el detalle de conjunto del 07/10 le sumó un call site de lectura.
+- **Dos defaults para la misma moneda:** `computeAccountHealth` y `HEALTH_SIN_CONEXION` inventan
+  `'MXN'` si Meta no manda `currency`; el wizard cae a `'USD'`. Riesgo bajo, pero el cartel no
+  distingue una moneda medida de un default.
+- **El lote escribe en paralelo** (`Promise.allSettled`): con muchas filas puede chocar con el rate
+  limit de Meta. No medido.
 
-Y el caso raro: `esDuenoAdmin()` deja pasar al **super admin en cualquier workspace**, así que
-Martín mirando un cliente pasa el corte pero escribe **con el token de Mauricio** sobre ids de
-otra cuenta. Lo esperable es el error 100 de Meta («Object … does not exist… missing
-permissions») — **sin verificar**.
+### Lo que NUNCA se probó contra Meta de verdad
 
-**Toda la verificación en navegador de esta sesión se hizo en ws1**, el único workspace donde
-esto anda. Por eso no apareció.
+Esto es lo más importante de la sección: **casi todo lo del 07/10 se verificó con Meta SIMULADO.**
+Lo tiene que hacer Martín, mirando, y cada punto dice por qué nadie más puede.
 
-Dos salidas, y es la primera decisión de abajo: o se pasa `meta-write` a lo mismo que sus
-hermanas (`guardAdsWs()` en la ruta + `credWs(ws, …)` en `lib/meta-write.ts`, con el `ws` que
-devuelve `wsQuePuedeOperar()`), o se esconden los controles de escritura fuera del dueño hasta que
-esté. ⚠️ Ojo al cambiar `lib/meta-write.ts`: **también lo usa el doer de MaKo**, así que hay que
-mirar con qué workspace lo llama ese camino antes de tocar de dónde sale el token.
+- **Publicar una campaña de verdad.** ws1 es un cliente con plata real. Con la app MaKo nueva Meta
+  rechazaría todo creativo con el error 1885183 mientras la app esté en «modo desarrollo», y eso se
+  destraba pasándola a «Publicada», **no con el App Review**. En qué modo está hoy **no está escrito
+  en ningún lado**.
+- **La idempotencia nunca corrió con una clave real.** Medido en producción el 10/10/2026:
+  `meta_campaign_drafts` tiene **19 filas y 0 con `idem_key`**. O sea: la 0215 está aplicada, el
+  código la usa, y todavía no pasó una publicación por ese camino.
+- **Escribir un presupuesto en una cuenta real** (conviene una campaña EN PAUSA).
+- **Cambiar los lugares de un conjunto real.** Sólo se probó en el navegador, 27 de 27 con Meta
+  simulado. Hace falta una campaña de prueba en pausa **en una cuenta de Martín, nunca de un
+  cliente**: cambiar lugares manda el conjunto a revisión y reinicia el aprendizaje.
+- **Usar un video de MaKo de punta a punta.** Antes: conectar Meta en ws9 (hoy no tiene token, ni
+  cuenta, ni página), tener ahí un anuncio generado (gasta créditos de Flow) y, para el montado,
+  desplegar el contenedor del worker (`MONTAJE_WORKER_TOKEN`) — sin eso los dos montajes pendientes,
+  que son de clientes, no se mueven.
+- **Crear un formulario de leads desde cero** contra una página real: es irreversible (sólo se
+  archiva). Martín elige la página.
+- **Un video de 300-500 MB**: cuánto tarda Meta en procesarlo y si `file_url` lo acepta. El tope de
+  15 minutos del navegador no está medido contra nada.
+- **Joan / Código Inmobiliario (ws13):** el 16/09 su conexión era de una app propia en modo
+  desarrollo, y por eso Meta rechazaba sus creativos nuevos (14 fracasos, todos 1885183 en el primer
+  creativo). **No sé si reconectó.** Se mide con `debug_token` del token de ws13 comparando `app_id`.
+  Lo mismo ws11 y ws14, que hoy conectan con apps de sus clientes.
+
+### Deudas de prolijidad que ya mordieron
+
+- **El tutorial de Meta** (`lib/metodo-catalogo.ts`) todavía enseña al cliente a crear una app
+  propia, que es justo lo que el botón nuevo vino a evitar.
+- **Bloquear tokens de apps ajenas** en `descubrirMeta` (mirando `app_id` del `debug_token`): hay
+  que hacerlo **después** del App Review, porque antes dejaría a ws11/13/14 sin forma de conectarse.
+- **La API de MaKo sigue sin «editar público»**: falta la función en la lib que lea el crudo y
+  superponga en el server.
+- **Fixtures con datos de clientes:** las lecturas que alimentaron el parser de lugares salieron
+  **fuera del plan**, sobre tres cuentas de clientes (el ws1 incluido), y las fixtures commiteadas
+  conservaban `primary_city_id` y `region_id` reales. En la revisión del mismo día pasaron a valores
+  **sintéticos**. Queda la pregunta para Martín: si la medición se rehace sobre su cuenta cuando ws9
+  tenga Meta, o si alcanza con la forma.
+
+---
+
+## Las trampas de esta área (esto es lo que ahorra horas)
+
+1. **Si no hay workspace resuelto, el Ads Manager opera sobre el ws1 — que es un CLIENTE con plata
+   real.** `wsQuePuedeOperar()` (`lib/ads-guard.ts:41`) devuelve el workspace de la pestaña y, si no
+   resuelve ninguno y hay sesión de super admin, **cae a `OWNER_WS`**. O sea: Martín abriendo
+   `/ads-manager` sin el `?ws=` de un cliente puede estar tocando la cuenta de Mauricio. Para probar
+   algo, se entra **dentro** de un workspace.
+2. **El error 1885183 de Meta juzga qué app PARIÓ el post, no quién llama.** Reusar un post o un
+   `creative_id` que ya existe en la página propia **pasa** aunque la app esté en desarrollo; un
+   `object_story_spec` nuevo da 1885183. Medido el 16/09 con corridas en seco.
+3. **La conexión de Meta de un cliente son DOS tokens** (`META_ACCESS_TOKEN` y
+   `META_PAGE_ACCESS_TOKEN`), y el de página **guardado le gana al derivado**. Cambiar sólo el de
+   acceso deja la ingesta de leads con la app vieja, **y borrar la fila del token de página corta la
+   entrada de leads**. Todo lo que guarde una conexión pasa por `guardarConexionMeta`
+   (`lib/meta-conexion.ts`): es la única puerta, y ahí vive la regla.
+4. **`META_APP_SECRET` es el secreto de la app VIEJA**, con el que se verifica la firma de cada lead
+   del webhook. El de la app MaKo es **`MAKO_META_APP_SECRET`**. Pisar el primero con el valor del
+   segundo no da error al guardar: **rechaza todos los leads entrantes**.
+5. **El árbol de Meta que leen las guardas puede tener CUALQUIER edad.** `/api/meta-health` usa
+   `unstable_cache`, que es stale-while-revalidate: la primera lectura después de vencer devuelve la
+   entrada **vieja**. No se invalida al escribir, porque `TAG.marketing` es global y lo comparten 12
+   lecturas de todos los workspaces. Lo que suelta un valor optimista es
+   `presupuestosVigentes`/`horaDeEscritura` (`lib/presupuesto-cambio.ts`), comparando la hora del
+   header `Date` de `/api/meta-write` contra el inicio de la lectura — **nunca un reloj local**.
+6. **Un estimador de alcance que devuelve CERO no valida nada.** `delivery_estimate` contesta `0–0`
+   **sin error** para lugares que se pisan o un radio fuera de rango; `reachestimate` devuelve el
+   mismo subcode con el que la creación rechaza (8 de 8, medido el 11/09). Para validar antes de
+   escribir se usa el endpoint que **falla igual que la escritura**.
+7. **El campo «URI de redireccionamiento de OAuth válidos» del panel de Meta es de chips:** el texto
+   pegado **no cuenta** hasta apretar Enter y después «Guardar cambios», y se pierde sin aviso. El
+   08/10 eso costó una hora diagnosticando «el dominio no está en los dominios de la app», que era
+   el diagnóstico equivocado. Se verifica con el **Validador de URI** de la misma pantalla, nunca
+   releyendo lo tipeado.
+8. **Cómo saber qué leyó Meta en una verificación:** 11-20 minutos después del envío llega desde la
+   red de Meta (AS32934) un `GET /` con user agent de Chrome, referer `www.facebook.com` y un
+   `fbclid`, y ~35 s después `facebookexternalhit` con el mismo `fbclid`. En el log de Vercel eso
+   dice qué versión del sitio se evaluó. **No desplegar mientras hay una revisión abierta.**
+9. **Un `<select>` cuyo valor no está entre sus opciones no muestra nada, y el primer clic lo
+   borra.** Pasó con el radio de un pin: 12 km decía «Seleccionar…» y el primer clic escribía otro
+   radio. El valor actual entra a la lista marcado «(actual)».
+10. **Cada detalle de conjunto que se abre es una lectura más a Meta**, contra la cuota de la cuenta
+    de **cada cliente**. El editor de público suma el alcance del selector.
+11. **`vercel ls` escribe en stderr**: con `2>/dev/null` no ves nada y parece que no hubo deploy.
+12. **Un guard que lee fuente pone en el error SU nombre, no el del archivo que mira.** Antes de
+    culpar a un commit, grepeá qué archivo lee el test y comparalo contra `git show HEAD:<ese
+    archivo>`. Esto ya costó acusar al commit equivocado de otra sesión.
+13. **Hay varias sesiones de Claude sobre este mismo clon.** `git status` antes de tocar nada; lo que
+    esté modificado y no sea tuyo, se deja. Commitear **por ruta explícita** (`git commit <ruta>`),
+    nunca `git add -A`.
+
+---
 
 ## Lo que espera una DECISIÓN DE MARTÍN
 
-1. ~~**Operar desde un cliente**~~ **Resuelto el 07/10: por workspace.** (Era: ¿`meta-write` por workspace ya, o esconder
-   los controles hasta entonces? Vive en `app/api/meta-write/route.ts` y `lib/meta-write.ts`.
-2. **Producto MÚLTIPLE por campaña** (punto 7 de su pedido del 05/10). Choca con que un lead
-   tiene UN solo `funnel_id` (`lib/campana-config.ts`, `funnelIdDeCampana`). Las tres salidas:
-   - partir por conjunto: cada conjunto a un producto — **ya funciona hoy**;
-   - múltiple con prioridad: la campaña en varios, y el lead cae en el primero — es un
-     desempate silencioso;
-   - un lead por producto — cambia el modelo del CRM.
-3. **La barra de lote oscura o clara.** La del Ads Manager es oscura (`var(--ink)`); la genérica
-   del plan y del CRM (`app/plan/board/AccionesLote.tsx:1143`) es clara (`--primary-bg`). Él sólo
-   pidió radio y orden, así que no la toqué. Es una línea en `BarraLoteAds`
-   (`app/ads-manager/BarraAcciones.tsx`).
-4. **El `ⓘ` del chip «Con problemas» pasó a un ícono de ojo** y eso NO estaba en su lista: se
-   cambió por consistencia con la regla de «no emoji». Si no le gusta, se revierte en una línea.
-5. ~~**La app de Meta**~~ **Decisión REVERTIDA el 28/09**: Martín creó una app propia, «MaKo»
-   (2586146911825340, portafolio MaKo), para que ningún cliente tenga que crear ni compartir la
-   suya. Al 07/10 la verificación del negocio está en revisión y falta el App Review. Lo de abajo
-   es historia. (Era: decidido el 11/09: se queda en la cuenta de Mauricio, #185 diferido.) Lo
-   que sigue abierto ahí, en `docs/hallazgos-ads.md` → «Cómo llegó una app ajena a MaKo»: mirar
-   en el panel de la app (Revisión → Permisos y funciones) si `ads_management`, `ads_read` y
-   `leads_retrieval` están en acceso **avanzado** o **estándar** — decide si alcanza con que el
-   cliente comparta como socio o hace falta App Review. Eso lo ve quien tenga el panel.
+1. **Producto MÚLTIPLE por campaña** (punto 7 de su pedido del 05/10). Hoy una campaña se asigna a
+   **UN** producto. Las opciones, con el argumento ya corregido (ver abajo):
+   - **(a) Partir por conjunto** — cada conjunto a un producto. **Ya funciona hoy**, cero código.
+   - **(b) Múltiple con prioridad** — la campaña en varios y el lead cae en el primero. Es un
+     desempate silencioso.
+   - **(c) El lead entra a VARIOS productos** — y esto **ya no cambia el modelo del CRM**: el modelo
+     existe desde el 06/10 (`lead_funnel`, mig 0207). Lo que falta es cablearlo en la entrada de
+     leads de Meta, que hoy resuelve UNO solo.
+2. **Cómo se CREA un pin** (un punto en el mapa con radio). Hoy se leen, se ven y se les cambia el
+   radio, pero no se puede crear uno. Dos caminos:
+   - **(a)** pegar coordenadas o un link LARGO de Maps, con vista previa de OpenStreetMap en un
+     iframe: **sin librería y sin costo** (falta agregar `frame-src` a la CSP, y que
+     `pareceDireccion` no ofrezca una URL como si fuera una calle).
+   - **(b)** un mapa para arrastrar el pin: con librería y con proveedor.
+3. **Varias cuentas publicitarias en UN workspace (#799).** La pregunta previa no es técnica: desde
+   el 28/09 la salida diseñada es la **cartera de agencia** (cada cliente de la agencia es su propio
+   workspace con su propia cuenta). Si alcanza con eso, la tarea se cierra. Si se hace, son cinco
+   cosas que tocan plata o datos — la peor: `upsertMetrics` **borra todas las filas de Meta de la
+   fecha**, así que sincronizar una segunda cuenta se lleva puesto el rendimiento de la primera y se
+   lee como «no gastó».
+4. **La barra de lote: oscura o clara.** La del Ads Manager es oscura
+   (`app/ads-manager/BarraAcciones.tsx:333`, `background: 'var(--ink)'`); la genérica del plan y del
+   CRM es clara. Él sólo pidió radio y orden, así que no se tocó. Es una línea.
+5. **Qué ve la persona cuando un reintento encuentra una publicación A MEDIAS.** Hoy: «Quedó a
+   medias en Meta… revísalo en la tabla», y la misma clave sigue contestando eso hasta que algo del
+   spec cambie.
+6. **El `ⓘ` del chip «Con problemas» pasó a un ícono de ojo** por consistencia con la regla de «no
+   emoji», y eso no estaba en su lista. Si no le gusta, se revierte en una línea.
+7. **Las fixtures de lugares:** ¿se rehace la medición sobre su propia cuenta cuando ws9 tenga Meta,
+   o alcanza con la forma sintética?
 
-## Lo que quedó SIN verificar (y cómo medirlo)
+---
 
-- **Ninguna acción de ESCRITURA de la barra de lote se apretó en el navegador**: presupuesto en
-  lote, producto en lote, aplicar un renombrado, eliminar, agregar conjunto/anuncio desde la
-  barra. Escriben en Meta o en el CRM, y el único workspace donde andan es la cuenta real de
-  Mauricio. Cómo: en ws1, sobre una campaña PAUSADA de prueba; o, cuando `meta-write` sea por
-  workspace, en el Cliente de Prueba (ws3).
-- **Lo que ve un cliente**: entrar a `/ads-manager` con un usuario admin de un cliente (no el
-  super admin) y apretar el interruptor de una fila. Lo esperable, leyendo el código, es un toast
-  con el 403. Y abrir Renombrar → «Proponer» → «Aplicar»: lo esperable es que la propuesta salga
-  (y se pague) y el aplicar falle.
-- **El super admin escribiendo sobre un cliente** (el caso raro de arriba): lo esperable es el
-  error 100 de Meta. Sin medir.
-- **«Si la cuenta tiene un solo producto, todo a ese»**: con un producto, la columna no se dibuja
-  y el lote no la ofrece (`asig.productos.length > 1`). Que los leads caigan en ese producto sale
-  del ruteo por defecto (una campaña sin asignar → `asignada: false` → el embudo principal).
-  **Leído en el código, no medido con un lead real.**
-- **Joan / Código Inmobiliario (ws13)**: el 16/09 su conexión de Meta era de una app propia en
-  modo desarrollo, y por eso Meta rechazaba los creativos nuevos (1885183). No sé si reconectó
-  con la app de MaKo después. Cómo: `debug_token` del token guardado de ws13 y comparar `app_id`.
-- **El centrado de la barra en anchos chicos**: a 1280 px entra en un renglón y queda centrado
-  exacto (medido: 722/722). A 1024 y 820 baja a dos renglones sin desbordar (medido), pero ahí
-  el grupo del medio ya no queda centrado — se corre a la derecha. No lo pidió; anotado.
+## CORREGIDO: dos afirmaciones del briefing viejo que eran FALSAS
 
-## Trampas de esta área que ahorran tiempo
+### 1. «Falta aplicar la migración 0215» — ESTÁ APLICADA
 
-- **El 1885183 juzga qué app PARIÓ el post, no quién llama.** Reusar un post o un `creative_id`
-  existente de la página propia PASA aunque la app esté en desarrollo; un `object_story_spec`
-  nuevo da 1885183. Medido el 16/09 con corridas en seco.
-- **La conexión de Meta de un cliente son DOS tokens** (regla en `AGENTS.md`): cambiar sólo
-  `META_ACCESS_TOKEN` deja la ingesta de leads con la app vieja, y **borrar** la fila del token de
-  página corta la entrada de leads.
-- **`vercel ls` escribe en stderr.** Con `2>/dev/null` no ves nada y parece que no hubo deploy.
-- **Un solo `next dev` por carpeta**, en cualquier puerto: Next 16 rechaza el segundo. Un worktree
-  con `node_modules` por junction **sirve para pushear y NO para `next dev`** (Turbopack: «Symlink
-  … points out of the filesystem root»). Se levanta con `ZERNIO_API_KEY= ELEVENLABS_API_KEY= npx
-  next dev -p <puerto>` o el boot escribe credenciales en la base de prod; el log tiene que decir
-  «hidratadas» y ninguna «migradas». Después de borrar `.next`, la primera página tarda más de
-  30 s en compilar: calentala con `curl` antes del Playwright. Hoy el dev server de :3010 es del
-  chat de Customer Success: avisale antes de usarlo o bajarlo.
-- **Un guard que lee fuente pone en el error SU nombre, no el del archivo que mira.** Antes de
-  culpar a un commit, `grep` de qué lee el test y `git show HEAD:<ese archivo>`. Lo pagué el
-  06/10 acusando al commit equivocado de otra sesión; quedó en `AGENTS.md`.
-- **`space-between` no centra el medio si las dos puntas miden distinto.** Con eso la barra quedó
-  74 px corrida; lo que centra son las dos puntas en `flex: '1 1 0'`. La barra genérica del plan
-  tiene el mismo sesgo.
-- **`aria-expanded={abierto}` aparece DOS veces en `BarraAcciones.tsx`** (el ⋯ y el filtro). Un
-  guard que anclaba ahí medía el ⋯ creyendo medir el filtro. Anclá en un texto único.
-- **El rango de emoji es uno solo**: `tests/_emoji.ts` (`PICTOGRAFICOS`, `emojiDe`). Lo importan
-  el guard de Ads Manager y el de la ficha del lead. `2700–27BF` queda afuera a propósito (`✓ ✕
-  ✦` son tipografía).
+Lo dicen todavía `app/admin/dev/ads-manager/bitacora.ts:26`, `:129`, `:130`, `:138` y
+`docs/hallazgos-ads.md:3423` y `:3439`. **Medido el 10/10/2026 contra la base de producción**
+(consulta de sólo lectura a `information_schema` y `pg_indexes`):
 
-## Archivos que son de Ads Manager
+- `meta_campaign_drafts.idem_key` **existe**;
+- `uq_meta_campaign_drafts_idem` existe: `CREATE UNIQUE INDEX … ON public.meta_campaign_drafts
+  (workspace_id, idem_key) WHERE (idem_key IS NOT NULL)`.
 
-`app/ads-manager/**` (el 90% vive en `CampanasBrowser.tsx` y `BarraAcciones.tsx`),
+Qué significa: el aviso de `f6ed4c33` («mientras falte la columna, "reintentar es seguro" es
+FALSO») **ya no aplica** — la idempotencia está activa. Lo que sí sigue siendo cierto, y es dato
+nuevo: **19 filas en la tabla y 0 con `idem_key`**, o sea que todavía no pasó ninguna publicación
+real por ese camino. **Esos seis renglones del repo siguen sin corregir: no son de este archivo y no
+los toqué.**
+
+### 2. «Producto múltiple choca con que un lead tiene UN solo `funnel_id`» — dejó de ser cierto el 06/10
+
+El argumento era: un lead vive en un solo embudo, así que una campaña en varios productos no tiene
+dónde caer. Eso **dejó de ser verdad con `f26c0a94` (06/10/2026 18:49, migración 0207)**, que creó
+la tabla **`lead_funnel`**: un lead tiene su *casa* (`leads.funnel_id`) y una fila por cada **otro**
+producto donde está, con su etapa propia en ese tablero. El pedido textual de Martín ese día fue
+«no se debe "Mover", se debe agregar al otro producto».
+
+**Verificado el 10/10/2026 en producción:** la tabla existe con sus índices
+(`lead_funnel_uk` único sobre `workspace_id, lead_id, funnel_id`) y tiene 2 filas.
+`agregarAProducto` vive en `lib/lead-funnel.ts:58` y la llaman el opt-in de la landing
+(`app/api/track/optin/route.ts:404`), el CRM (`app/crm/actions.ts:1056`), la bandeja de revisión y
+la API de MaKo.
+
+**Lo que SÍ sigue siendo cierto, y es lo que hay que decidir:** la **entrada de leads de Meta no usa
+esa tabla**. Un lead de un formulario de Meta resuelve **UN** embudo y nada más —
+`lib/leads.ts` → `funnelDeCampana` (`lib/campana-funnel.ts:93`) → `funnelIdDeCampana`
+(`lib/campana-config.ts:148`, el conjunto gana a la campaña) — y escribe `leads.funnel_id`. Nadie
+llama a `agregarAProducto` desde ahí. Así que la opción (c) de la decisión 1 **ya no es «cambiar el
+modelo del CRM»: es agregar un call site en ese camino.** Y ojo con el otro lado: por diseño de la
+0207, las métricas, el CAPI, el CRM automático, MaKo y la nutrición leen **sólo la casa**.
+
+### 3. Dos cosas del briefing viejo que ya estaban resueltas y conviene no volver a abrir
+
+- **«Operar desde un cliente da 403»**: cerrado el 07/10 con `db7b7682`. Verificado hoy en el
+  código: `app/api/meta-write/route.ts:22` → `wsDeAdsManager()`, `lib/meta-write.ts:48` →
+  `credWs('META_ACCESS_TOKEN', ws)`.
+- **«El super admin escribe con el token de Mauricio sobre ids de otra cuenta»** (que el briefing
+  viejo dejó como *sin verificar*): también lo cierra ese commit. `wsDeAdsManager()` →
+  `adminDeWorkspaceActual()` → `getWorkspaceActual()`, que honra el `?ws=` de la pestaña, así que
+  mirando a ws13 se escribe con las credenciales de ws13. **Lo que queda es la trampa 1 de arriba:
+  cuando NO hay workspace resuelto, cae al ws1.**
+
+---
+
+## Instagram: la tab está AFUERA, el canal VOLVIÓ
+
+Dos decisiones de Martín que no se contradicen, y conviene no confundirlas:
+
+- **06/10/2026 — «C: sacar la tab».** Se fue entera: la bandeja de DMs, el programador de
+  publicaciones, el puente de los DMs al setter y sus 21 operaciones de la API de MaKo (`8d16c6ff`,
+  #792). Medido ese día en producción: **0 conversaciones, 0 mensajes y 0 publicaciones** en toda su
+  historia. `app/instagram/page.tsx` **sólo redirige** a `/automations` (desde el 09/10, directo, sin
+  pasar por `/chatbot`): se redirige y no se borra porque hay links viejos afuera del repo.
+- **09/10/2026 — vuelve como CANAL de las automatizaciones, por Zernio**, junto con Messenger
+  (`d11aa86f`, `87b32895`). Su detalle **no vive acá**: está en los hallazgos y el relevo del
+  Chatbot/Automations. Lo que toca a esta área, en tres renglones:
+  - **Instagram NO es el WhatsApp no oficial: ahí SÍ manda la ventana de 24 h de Meta.**
+  - Una app usa Facebook Login **O** Instagram Login para los permisos de Instagram, no las dos. La
+    app MaKo ya usa Facebook Login for Business, así que Instagram entra por ahí y exige página
+    vinculada.
+  - **`pages_manage_metadata` no puede seguir afuera del App Review**: lo exige toda suscripción de
+    webhook de página (DM, comentarios y el de leads en vivo).
+  - `tests/sin-instagram.test.ts` fija **en positivo**, archivo por archivo, quién puede hablar con
+    Zernio. Un archivo nuevo que lo haga es una decisión, no un arreglo.
+
+---
+
+## Archivos del área
+
+**La pantalla:** `app/ads-manager/**` — el 90% vive en `CampanasBrowser.tsx` (~1.250 líneas) y
+`BarraAcciones.tsx`. Los modales: `NuevaCampanaModal`, `AgregarConjuntoModal`, `AgregarAnuncioModal`,
+`EditarTextosModal`, `EditarPublicoModal`, `EntityDetalle`, `LugarPicker`, `LugaresLectura`,
+`MisCreativosMako`, `CrearFormulario`, `ProductoCelda`.
+
+**Las libs:** `lib/meta-ads-create.ts` (crea en Meta), `lib/meta-write.ts` (pausa/presupuesto/
+renombre/borrado), `lib/meta-health.ts` + `lib/meta-health-ui.ts` (el árbol y su caché),
+`lib/meta-geo.ts` (lugares), `lib/meta-idempotencia.ts`, `lib/presupuesto-cambio.ts`,
+`lib/moneda-meta.ts`, `lib/creativo-mako.ts`, `lib/ads-guard.ts`, `lib/ads-staging.ts`,
 `lib/meta-publicar-errores.ts`, `lib/ganadores-reuso.ts`, `lib/campana-asignar.ts`,
-`app/admin/dev/ads-manager/bitacora.ts`, `tests/ads-barra.test.ts`, `tests/campana-asignar.test.ts`,
-`tests/_emoji.ts`.
+`lib/meta-formularios.ts`, `lib/meta-pais.ts`.
 
-**Compartidos con el CRM** (hablar antes de cambiar firmas): `app/crm/campanas-actions.ts` (las
-acciones de asignar, que desde `721ad387` delegan en las de lote) y `lib/campana-config.ts`.
+**La conexión con Meta:** `lib/meta-login.ts`, `lib/meta-conexion.ts`,
+`app/api/integraciones/meta/route.ts` y `/callback/route.ts`.
 
-**NO son de acá**, aunque estén cerca: `app/api/meta-write/route.ts` y `lib/meta-write.ts`
-(también los usa el doer de MaKo), `lib/meta-descubrir.ts`, `app/components/Dropdown.tsx`.
+**Las rutas:** las 15 de `app/api/ads-manager/` (todas cortan con `guardAdsWs()`) y
+`app/api/meta-write/route.ts` (que vive afuera de esa carpeta y **también lo usa el doer de MaKo**:
+mirá con qué workspace lo llama ese camino antes de tocar de dónde sale el token).
 
-## Dónde quedó cosechado
+**Compartidos — hablá antes de cambiar firmas:** `app/crm/campanas-actions.ts` y
+`lib/campana-config.ts` (son del CRM), `app/components/Dropdown.tsx`, `app/_ui/Confirm.tsx` (lo usan
+más de 14 pantallas).
 
-`docs/hallazgos-ads.md` (las secciones del 11/09, 16/09 y 06/10: la app ajena, el 1885183, el
-guard de emoji que buscaba donde uno adivinaba, el mapa de dónde vive cada acción, los rangos que
-habían divergido), `AGENTS.md` (el triage de un rojo) y la bitácora de `/admin/dev/ads-manager`.
+**Tests:** `tests/ads-barra.test.ts`, `tests/ads-presupuesto-confirma.test.ts`,
+`tests/ads-creativo-mako.test.ts`, `tests/creativo-mako.test.ts`, `tests/meta-geo.test.ts`,
+`tests/ads-lugares-conjunto.test.ts`, `tests/meta-login.test.ts`, `tests/moneda-meta.test.ts`,
+`tests/campana-asignar.test.ts`, `tests/_emoji.ts`, `tests/sin-instagram.test.ts`.
+
+**Dónde está cosechado el detalle:** `docs/hallazgos-ads.md` (grepeá la ruta que vas a tocar, nunca
+lo abras entero), `AGENTS.md` (las reglas que gobiernan código nuevo) y
+`app/admin/dev/ads-manager/bitacora.ts` (los pedidos textuales de Martín).
+
+---
+
+### Trabajo de OTRA sesión que estaba sin commitear el 10/10 y toca de refilón esta área
+
+Al escribir esto, `git status` mostraba cambios ajenos (del chat del CRM, no míos, y no los toqué).
+Dos importan acá: **`lib/campana-atribucion.ts`** —que usa la MISMA precedencia conjunto > campaña
+que `funnelIdDeCampana`, así que si cambia una, la otra tiene que mirarse— y
+**`tests/crm-filtro-ads.test.ts`**. Los otros eran `app/crm/CrmBoard.tsx`,
+`app/crm/CrmToolbar.tsx` y un `app/crm/arbol-seleccion.ts` nuevo. Si algo de lo que afirmo sobre la
+atribución de campañas no cierra, lo primero es `git log -1 -- lib/campana-atribucion.ts`: pudo
+entrar después de esta medición.

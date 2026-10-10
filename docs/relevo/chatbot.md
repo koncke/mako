@@ -1,286 +1,317 @@
-# Retomar: Automations (ex Chatbot)
+# Relevo: Automations (ex /chatbot) y las secuencias
 
-**Dónde quedó (10/10/2026 ~19:00, `claude2`, cuota semanal 79 %):** el RECORDATORIO ya es una automatización y está
-en producción (`c309b390`, Ready) con su fila en los 10 negocios (ws1 #228 PRENDIDA desde la automatización —
-verificado: el emisor lee `fuente: 'automatizacion'`—; los otros 9 pausados). Y la OCTAVA TANDA (el feedback grande
-de la tarde: copiar/pegar flujos, lazo y paneo con el derecho, horario de oficina, CRON en recuadros, CONDITION con
-contenedores, «Si responde» como condición normal, tarjeta de WhatsApp con dos burbujas, modal de «Nueva
-automatización») está COMMITEADA en `chatbot-v6` (`b8af255e`), con la suite en verde (6.823) y los tipos.
-**NO está pusheada ni vista con clics**: falta el build (raíz temporal), mirarla en el navegador (el lazo, el
-derecho que panea, Ctrl+C/Ctrl+V, el modal, el panel del CRON, el horario) y recién ahí pushear. El detalle de cada
-punto, en el mensaje de `b8af255e`.
+**Área:** la tab **Automations** y el motor de secuencias (nutrición). **Ventana de este relevo:
+05/10/2026 → 10/10/2026.** Escrito el 10/10/2026 a la noche, cuenta `claude2`.
 
-**Lo que quedó sin hacer, con su archivo:**
-- La galería no tiene «Recordatorio de la reunión» (lib/plantillas-automatizaciones.ts: su CRON es fijo,
-  `reunion_recordatorio`, y la galería sólo sabe pedir una etapa). Un negocio NUEVO no tiene fila: hasta que la
-  tenga, el emisor usa la configuración de antes y no se ve en la lista.
-- «Pídesela a MaKo» del modal crea la vacía y abre la caja de Crear con IA; el pedido no se escribe en el modal.
-- El delay de MINUTOS entre mensajes parte la tarjeta con una espera (el motor no duerme minutos adentro de una
-  corrida): es una decisión mía, a confirmar con Martín.
-- El lazo elige y copia/borra junto; arrastrar lo elegido junto NO está (cada tarjeta se mueve sola).
+**Qué es esto, para alguien que nunca lo vio.** Es el constructor de automatizaciones del producto:
+una pantalla con un **lienzo** (como ManyChat o un diagrama de flujo) donde el dueño de un negocio
+arma lo que le va a salir solo a un lead — «cuando alguien agenda una reunión, mandale un WhatsApp;
+si no contesta en 12 h, mandale otro; si contestó, pará y avisame». Cada cosa del lienzo es una
+**tarjeta** (un WhatsApp, un email, una espera, una condición, una etiqueta, una acción) y el
+arranque es un **CRON** (el disparador: una etapa del CRM, una etiqueta, un evento, un horario).
+Lo que la pantalla dibuja lo ejecuta el **motor de nutrición**, que corre por cron en el server.
+El WhatsApp sale por la línea **NO oficial** (Evolution, un WhatsApp Web automatizado): no hay
+ventana de 24 h ni plantillas aprobadas, y el riesgo real es que baneen la línea.
 
-**Antes (12:45):** 10/10/2026 ~12:45, cuenta `claude2` (cuota semanal 76 %). La SÉPTIMA tanda (los pedidos de
-la mañana del 10/10: «no están todas las plantillas de Mauricio», «revisa las de mi workspace», «una condición
-suelta… me deja probarlo», «también en Código Inmobiliario») está en la rama `chatbot-v6`, con la suite en
-verde (6.817), los tipos y el build. El pedido literal y lo hecho, en `app/admin/dev/chatbot/bitacora.ts`
-(hitos del 10 oct 10:21-12:38); lo aprendido, en `docs/hallazgos-chatbot.md` → «Séptima tanda».
-**Nada se vio con clics.**
+---
 
-Los arreglos de DATOS ya están en producción (Martín los aprobó a las 11:25 con el antes y el después):
-198 (ws1) sin los «Ir a #212» ni su resto y sin la errata del borrador; 221 (ws1) archivada; 223 (ws13) sin
-«mañana»; 224 (ws13) con el CRON «No asistió a R1» (sigue pausada); 226 (ws1) sin «bienvenida» en el CRON, con
-la etiqueta también por email y el saludo corregido. Releídos con las funciones de la app: los cinco pasan
-Publicar.
+## 1. Cómo se llama hoy y dónde vive el código
 
-## Lo que Martín decidió a las 13:07 (y está hecho, salvo el recordatorio)
+**La tab se llama `Automations`.** Era «Chatbot» hasta el 09/10/2026 (`04f40af4`), y Martín lo pidió
+textual: «Cambia el nombre de la tab "Chatbot" por "Automations", el nombre en la sidebar, la ruta,
+todo.»
 
-- **La 224**: «Agendó» → «Próxima reunión en ≤ 720 h» (escrito y releído; sigue pausada).
-- **Los reportes salen por email**, sin WhatsApp (`REPORTE_POR_WHATSAPP`, lib/mensaje-canales.ts).
-- **La base de la plataforma, separada** (`mako.plantillas.base`; la edita sólo /mensajes en el ws9).
-- **El recordatorio, «mudarlo al motor»** — EN CURSO, con este plan:
-  1. Un CRON propio, «Agendó una reunión» (`reunion_recordatorio`), registrado en TRIGGERS, la glosa y el
-     selector del CRON. El motor de nutrición NO lo inscribe: lo manda el emisor de siempre
-     (`mandarRecordatoriosAlLead`), que ya resuelve la R1 y la R2, las reagendas, `fechaCoincide` y no repite
-     un toque (`claveToque`). Así la mudanza no cambia QUÉ sale ni CUÁNDO.
-  2. La forma que el emisor sabe mandar: CRON → (espera antes de la reunión → WhatsApp) × N, en fila. Publicar
-     rechaza con ese CRON lo que no sabría mandar (condiciones, acciones, email, esperas por tiempo).
-  3. El emisor lee los toques de esa fila (minutos, texto, número) y su `activa`, en vez de
-     `chatbot.recordatorio_reunion`, que queda como respaldo.
-  4. Los datos del recordatorio ({{cuando}}, {{hora}}, {{faltan}}, {{link}}) en el «{ }», el ✦ y «Probar».
-  5. Migración por negocio (ws1 prendido, ws11 apagado): la fila con sus textos y números, y el mismo
-     interruptor. Las marcas de lo ya mandado siguen valiendo: es el mismo emisor.
-  6. Sale la fila especial de la lista y `RecordatorioFlujo`; la galería suma «Recordatorio de la reunión».
+| Qué | Dónde |
+|---|---|
+| La pantalla | **`app/automations/`** (32 archivos; la raíz es `page.tsx` → `ChatAgentApp.tsx`) |
+| El lienzo compartido | `app/_components/Lienzo.tsx` (lo usan Automations y /mensajes) |
+| El lienzo de esta tab | `app/automations/FlujoLienzo.tsx` |
+| El modelo del flujo | `lib/flujo-grafo.ts`, `lib/flujo-conversacion.ts`, `lib/flujo-edicion.ts` |
+| El motor | `lib/nutricion.ts`, `lib/nutricion-grafo-motor.ts`, `lib/nutricion-hilos.ts` |
+| La ruta vieja | `app/chatbot/page.tsx` → redirige a `/automations` **con la query entera** |
+| El nombre de la ruta | `lib/ruta-automations.ts` (`RUTA_AUTOMATIONS`, `RUTAS_VIEJAS_AUTOMATIONS`) |
 
-## Lo que decide Martín (séptima tanda)
+⚠️ **Lo que NO se renombró, y no se renombra: las claves guardadas en la base.** La key `setting`
+del nav (capas, roles, `onboarding.tab.setting`), el área `chatbot` de la API de MaKo, la API
+interna `/api/chat-agent/*`, el proyecto «Agente: Chatbot» del tablero y la carpeta
+`app/admin/dev/chatbot/` (la bitácora). Cambiar una clave guardada le reabre el onboarding a los
+clientes o les deja la tab sin permiso, **y eso no lo ve ningún test: se ve en la cuenta de un
+cliente** (está escrito así en `lib/ruta-automations.ts`). Lo cuida `tests/ruta-automations.test.ts`.
 
-- **Los mensajes de MaKo en WhatsApp**: el flujo (pasos, CRON) se guarda en el acto y «Publicar» publica sólo
-  el texto; en una automatización todo sale con Publicar.
-- **Del ws9**: el CRON «Agendó una reunión» no ve las reuniones cargadas a mano sin hora; `{{hora}}` sale en la
-  zona del negocio; los títulos de 6 mensajes (los del catálogo de notificaciones son más cortos).
-- **El aviso de 30 minutos al dueño** sólo corre con Calendly: ¿se extiende a todos (Código Inmobiliario usa
-  Cal.com)? Es mandar avisos nuevos a clientes.
-- **Activar** no frena una automatización con la línea desconectada (ws13) ni una nueva con el CRON viejo de la
-  post-agenda (`agendado_sin_confirmar`) junto a la 212/213. ¿Lo frena?
-- **A Mauricio**: la 198 manda «Te dejo aquí el video» (el de antes de la reunión) a quien no agendó, y la 226
-  linkea el mismo video como «de repaso».
+Así que si buscás algo y encontrás «chatbot», puede ser correcto: la ruta cambió, las claves no.
 
-## Lo que falta (no espera a nadie)
+---
 
-- **Verlo con clics**: la flecha de la condición que escucha, «Probar» frenando con el panel abierto, la galería
-  de «＋ Nueva», el recordatorio y MaKo en WhatsApp con las piezas nuevas, la pastilla del DELAY.
-- Las copias que quedan en `app/agencia/FlujoAviso.tsx` (`VistaEmailAviso`, `BotonMakoAviso`, `BotonVolver`,
-  `RedactaAviso`) y `/api/chat-agent/onboarding/resumen` sin llamadores (la lista, en los hallazgos).
+## 2. En qué quedó: TODO está en `main` y DESPLEGADO
 
-## La sexta tanda (para contexto)
+Medido por mí el 10/10/2026 a la noche:
 
-**Dónde había quedado:** 10/10/2026 ~10:00, cuenta `claude2` (cuota semanal 67 %). La SEXTA tanda está ENTERA en
-`main` (el push de la rama `chatbot-v6`), con las migraciones 0240, 0241, 0242 y 0245 aplicadas. La tab se
-llama **Automations** y vive en `app/automations` (`/automations`; `/chatbot` redirige con la query). El
-pedido literal está en `app/admin/dev/chatbot/bitacora.ts` (hitos del 9 oct 18:37 y 23:40); lo hecho, en
-el hito de implementación del 10 oct; lo que costó, en las secciones «Sexta tanda» de
-`docs/hallazgos-chatbot.md`. **Nada se vio con clics** salvo una recorrida en sólo lectura sobre el ws1
-(todas las pantallas se dibujaron sin errores de consola).
+- `HEAD` = `origin/main` = **`9862c146`** (10/10 18:59). No hay nada de esta área retenido.
+- `git merge-base --is-ancestor` confirma en `origin/main`: **`b8af255e`**, **`37727baa`**, **`c309b390`**.
+- `npx vercel ls`: el último deploy de **Production** está **Ready**, 3 minutos de edad; el de las
+  **17:38** (también Ready) ya llevaba la octava tanda.
+- **749 tests del área, 0 rojos** (corrí `tests/automations-*`, `chatbot-*`, `flujo-*`, `lienzo-*`,
+  `recordatorio-*`, `nutricion-*`: 30 s).
 
-Antes del push, una revisión adversarial confirmó 13 defectos y se arreglaron todos (el mismo WhatsApp dos
-veces por la vía rápida y el tick de cada minuto, el secreto del webhook de Zernio en la cuenta del cliente,
-el borrador que pisaba lo publicado, una nota de voz al chat anterior en /whatsapp, y nueve menores).
+En la ventana entraron **ocho tandas de feedback de Martín**. Los commits que importan:
 
-## Qué hay
+| Commit | Cuándo | Qué |
+|---|---|---|
+| `b8af255e` | 10/10 15:33 | **Octava tanda** (43 archivos, 2.648 líneas): copiar/pegar flujos, el lazo, el horario de oficina, CRON en recuadros, CONDITION con contenedores, el modal de «Nueva automatización» |
+| `37727baa` | 10/10 15:47 | el menú del lazo no cuenta el CRON. **Salió de mirarlo en el navegador**: decía «Eliminar 3 tarjetas» y borraba 2 |
+| `c309b390` | 10/10 14:07 | **el recordatorio de la reunión es una automatización más** y su pantalla especial se fue |
+| `04f40af4` | 09/10 23:11 | el renombre a Automations |
+| `5619de24` | 09/10 20:21 | el panel del CRON nuevo (seis botones gigantes, varios CRON, Recurrente) |
+| `b2034e9c` | 09/10 19:47 | el lienzo tipo ManyChat: «Entonces», arrastrar flechas, el DELAY en la flecha, el click derecho |
+| `3c1cd8fe` | 08/10 09:03 | **el lienzo con RAMAS** (CRON, condiciones, «Si responde», esperas, «Ir a») |
+| `0a244608` | 08/10 19:45 | el modelo con **hilos en paralelo** |
 
-Lienzo como ManyChat (círculo «Entonces», arrastrar flechas, papelera por flecha, click derecho, Acomodar,
-DELAY sobre la flecha) · varias flechas que entran y salen, tarjetas sueltas con borrador (0240) · «Si
-responde» como CONDITION y sin GO TO · varios CRON (0241) con Producto, Recurrente, Etiqueta, Instagram,
-Messenger y Email · Instagram y Messenger por Zernio (0242) · el email que llega como disparador (0245, sin
-prender) · el editor de WhatsApp a fondo (audio arreglado, número por mensaje, ✦ para redactar, grabar →
-escuchar → mandar, palomitas, pausa entre mensajes) · MaKo en WhatsApp con el mismo editor · esperas a la
-hora exacta y el horario opcional (Configuraciones o el reloj de la lista) · el «{ }» en árbol · el tacho
-rojo y los íconos en los desplegables de toda la app · «Probar» del email arreglado, con emisor y
-destinatario · las plantillas de fábrica al día.
+### Lo que trajo la octava tanda (lo último, y es lo que menos ojos tiene encima)
 
-## Lo que falta (no espera a nadie)
+- **Copiar y pegar flujos ENTRE NEGOCIOS** (`lib/flujo-copia.ts`, `lib/flujo-copia-negocio.ts`):
+  «Copiar flujo» en el «⋯» de la lista, Ctrl+C / Ctrl+V de tarjetas en el lienzo, «Copiar todo /
+  Duplicar todo / Eliminar todo» en el click derecho del CRON, el aviso «Copiaste «X». ¿Crearla?»
+  al entrar y «Pegar lo copiado» al crear. Decisión de Martín: **lo que no existe en el negocio que
+  pega queda vacío y marcado en rojo** (una etiqueta, un producto); un audio pasa a texto con su guion.
+- **El lienzo: el botón DERECHO panea y el IZQUIERDO hace el lazo** de selección (lo no elegido se
+  atenúa). La punta de una flecha se arrastra a otra tarjeta o al vacío; soltarla en cualquier lado
+  abre el menú de tarjeta nueva; una sola papelera por flecha; sacar una flecha o una tarjeta ya no
+  mueve a las demás (`congelarPosiciones`, `lib/lienzo-posiciones.ts`).
+- **«Si responde» pasó a ser una condición normal** (decisión de Martín: la flecha punteada «no tiene
+  sentido»). Se borra y se reconecta desde el CRON.
+- **Horario de oficina** (antes «Limitar horario»): interruptor, horas de media en media hora, huso en
+  la misma fila (`mako.timezone`), **sin botón de guardar** — guarda solo.
+- **Modal de «Nueva automatización»**: ancho, con los seis CRON, «Pídesela a MaKo», «Pegar lo copiado»
+  y las 7 plantillas de fábrica.
+- **La tarjeta de WhatsApp** dibuja hasta dos burbujas con hora y ✓✓ y «+N mensajes…».
 
-- **Verlo con clics** en producción, sobre todo: arrastrar una flecha, el borrador al recargar, el CRON
-  Recurrente, el ✦ de redactar con las keys de un cliente, grabar y escuchar en Safari, el reloj del horario.
-- Íconos en los desplegables de `app/automations` que quedaron sin (la lista exacta, en la sección «barrido»
-  de los hallazgos) y 40 `<a href>` crudos en 25 archivos de `app/` que pierden el `?ws=`.
-- «Si la subida falla, la grabación vuelve a la barra» falta en `GrabadorAudioPaso`, en el `usarAudio` del
-  editor de WhatsApp y en `/whatsapp` (una nota cuyo envío falla se pierde).
-- Publicar no compara la base: con dos pestañas gana la última que publica (`app/api/whatsapp/secuencias`).
-- El 402 de Zernio llega como «Zernio no contestó» (`app/api/zernio/route.ts`); el CRON de un mensaje de
-  MaKo sigue con «Por tiempo / Por una acción» (`app/_components/EditorCron.tsx`) y su DELAY es tarjeta.
-- Crear con IA elige un solo CRON; la copia de configuración no copia la lista de CRON; las ramas de la línea
-  oficial del onboarding (`OnboardingChatAgent.tsx`) son código muerto; `cambiar_crons_secuencia` no sale
-  por HTTP.
-- Cerrar la #350 del plan (el reproductor de audios: era CSS) cuando se vea con clics.
+### El recordatorio de la reunión (`c309b390`), que es el caso más delicado
 
-## Lo que decide Martín
+Es lo primero que hace la tab para un negocio: avisarle al lead que tiene reunión (24 h, 1 h y 15 min
+antes, con el link). Hasta el 10/10 era una **fila especial** con su propia pantalla; ahora es una
+automatización como cualquier otra, con el CRON `reunion_recordatorio` («Agendó una reunión»).
 
-- **Los dos scripts de datos, en simulacro:** `scripts/quitar-ir-a.mts` (la 198 y la 221 ya se arreglaron a
-  mano el 10/10, ver arriba) y `scripts/plantillas-viejas.mts` (ws1: 4 flujos manuales vacíos y un paso «⚡
-  Acción» viejo; ws4: 2 flujos vacíos). ¿Se corren con `--aplicar`?
-- Los 7 mensajes de MaKo que arma el código (reporte semanal, recordatorio de reunión, Fathom, mensaje
-  entrante, línea caída y volvió): hoy se ven como ejemplo y no se editan. ¿Pasan a mandar lo que escribe el
-  cliente? Y en /mensajes (la agencia) todavía se editan.
-- ws4 #210 es la post-agenda vieja del onboarding, y ws13 «Nueva Agenda VSL» (un mensaje propio con evento)
-  nunca sale. (La 221 se archivó y la 224 tiene CRON desde el 10/10.)
-- El email que llega: prender «Receiving» en Resend, que el cliente cargue el MX y el secreto del webhook.
-- ws11 tiene su cuenta de Zernio pausada por falta de pago (402).
-- Sin horario, las post-agendas en vivo del ws1 (de Mauricio) pueden salir de noche: ¿se le pone uno?
-- Los recordatorios de clases (9 a 21) y las insistencias al grupo (8 a 21) siguen con su ventana fija:
-  ¿pasan a seguir el horario del negocio?
-- Sin WhatsApp ni email, una automatización social por cohorte no inscribe a nadie (por evento sí anda).
-- Un email del lead no pausa la automatización que le escribe (una respuesta por WhatsApp sí).
-- El panel del horario con cambios sin guardar no se cierra solo con un clic afuera (default seguro).
-- Una sola «Mover de etapa» que elija por lead el producto principal o uno agregado.
+⚠️ **Pero NO lo manda el motor de nutrición: lo manda el emisor de siempre**
+(`mandarRecordatoriosAlLead`, `lib/reunion-recordatorio.ts`), que ya resuelve la R1 y la R2, las
+reagendas del mismo día, la tolerancia de cada toque y no repetir un toque (`claveToque`). Lo único
+que cambió es **de dónde lee los toques**: ahora de la fila (`lib/reunion-recordatorio.ts:259`, un
+select a `nutricion_secuencias` por `trigger_tipo`). Así la mudanza no cambió qué sale ni cuándo, y
+las marcas de lo ya mandado siguen valiendo. El porqué está escrito en la cabecera de
+`lib/recordatorio-automatizacion.ts` — **leela antes de tocar esto.**
 
-## La cuarta y la quinta tanda (para contexto)
+Lo que se borró: `app/automations/RecordatorioFlujo.tsx` (378 líneas), `lib/recordatorio-grafo.ts`
+(160) y la ruta `/api/chat-agent/recordatorio-reunion`. Publicar y Activar **validan la forma** que
+el emisor sabe mandar (CRON → espera antes de la reunión → WhatsApp, en fila) y rechazan lo demás:
+`frenoDelRecordatorio` en el lienzo y `setSecuenciaPasos` en el server.
 
-**Dónde había quedado:** 09/10/2026 ~15:30, cuenta `claude2` (cuota semanal 33 %). La CUARTA y la QUINTA tanda
-están ENTERAS en `main` (el push de la rama `chatbot-v2` de esta tarde), con las migraciones 0230 y
-0233 aplicadas. El pedido literal de las dos está en `app/admin/dev/chatbot/bitacora.ts` (hitos del
-9 oct 11:02 y 12:09); lo que costó, en `docs/hallazgos-chatbot.md`. **Nada se vio con clics** salvo el
-lienzo de la quinta 2, que un agente arrastró en el ws1 en sólo lectura.
+El script que crea la fila de cada negocio es `scripts/recordatorio-a-automatizacion.mts`
+(**simulacro por default**; escribe con `--aplicar`).
 
-Y del mismo cierre (Martín: «Termina todo lo que haga falta y cierra las tareas en el plan»): el plan
-de «Feature: Chatbot» quedó en **33 de 34 cerradas**; abierta la #350 (el reproductor de audios: con
-el reproductor solo no se reproduce, falta probarlo en la pantalla real). Lo que se decidió en el
-formulario del 09/10 (no-show que reagenda, línea caída apagable + «volvió», residuo apagado) está
-hecho y anotado en `docs/hallazgos-comunicacion.md`.
+---
 
-## Qué hay, por punto
+## 3. Lo que NACIÓ en la ventana (el 05/10 no existía)
 
-**Cuarta tanda:** 1 el panel mide por TIPO de tarjeta y el selector es el grande · 2 el CRON arranca
-en «Productos» / «Etiquetas» · 3 y 17 «Probar» sin ramas, arriba, con «Cerrar» · 4 y 12 el CRON sin
-filas, sin REPLY ni GO TO · 5 la reunión por etapas del kanban (sin R1/R2) · 6 «No pagó la cuota N» ·
-7 «＋ y» / «＋ o» y sin «＋ Rama» · 8 varias flechas por resultado · 9 el DELAY sólo espera · 10 el ＋
-con íconos y por grupos · 11 «Elige una acción», sin las dos que sobraban · 13 el filtro al lado del
-buscador · 14 el CRON con varias etapas (mig 0230) · 15 WhatsApp con varias partes por tarjeta, el
-número de salida y «✦ MaKo» al lado del título · 16 el email con «De», modo HTML y la firma del negocio.
+Esto es lo que más cambió, y es por qué cualquier documento anterior al 08/10 sobre esta área está
+viejo: **una automatización dejó de ser una lista de mensajes y pasó a ser un GRAFO.**
 
-**Quinta tanda:** 1 «Probar» con el logo, los números y mails guardados de quien prueba, y las
-condiciones decididas como un lead RECIÉN LLEGADO · 2 el ＋ en cualquier punto de la flecha y las
-tarjetas que se mueven y se guardan (mig 0233) · 3 segundos y minutos en el DELAY: hasta 120 s se
-cumple exacto, más que eso sigue con el cron y la pantalla dice cuándo · 4 el filtro del Plan en la
-lista y la lista a 320 · 5 los Mensajes de MaKo (Configuraciones › Notificaciones) adentro de /chatbot.
+1. **El flujo con ramas** (mig `0223_flujo_grafo`, 08/10). Antes los pasos eran una fila lineal; hoy
+   cada paso es un **nodo con `id` estable y su `siguiente`**, y el orden del array **no** es el orden
+   del flujo. La entrada es `raizSalida(pasos)`, nunca `pasos[0]`. Nacieron cuatro clases de nodo que
+   no son mensajes: `esperar`, `condicion`, `respuesta` («Si responde») e `ir_a`.
+2. **Hilos en paralelo** (mig `0228_hilos_paralelos`, 08/10): varias flechas salen a la vez del CRON o
+   de una tarjeta, y cada una es un hilo que corre solo.
+3. **Varios CRON por automatización** (mig `0241_secuencia_disparadores`): arranca por CUALQUIERA de
+   ellos. Quién la dispara se lee con `vistasPorDisparador` (`lib/disparadores.ts`) — leer
+   `trigger_tipo` ve sólo el primero.
+4. **Guardar ≠ publicar** (mig `0240_secuencia_borrador`): hay un borrador que se autoguarda y un
+   «Publicar» que promueve. `validarParaGuardar` es la vara del borrador; `validarGrafo` la de Publicar.
+5. **Las posiciones del lienzo se guardan** (mig `0233_secuencia_posiciones`): sólo lo que la persona
+   movió, relativo al CRON derivado, en su propia columna (nunca adentro de `pasos`).
+6. **Instagram y Messenger como canales**, por Zernio (mig `0242_canales_zernio`, 09/10). La tab de
+   Instagram sigue AFUERA (se retiró el 06/10); volvieron sólo como canales. ⚠️ Ahí **sí** manda la
+   ventana de 24 h de Meta, al revés que WhatsApp.
+7. **El email que llega como disparador** (mig `0245_email_entrantes`) — **sin prender**.
+8. **El paso «⚡ Acción»** (08/10, `1035b951`): un paso del lienzo corre cualquier acción de la API de
+   MaKo sin pedir un «sí», porque el dueño la confirmó al configurar el paso.
+9. **La galería de 7 plantillas** al crear (`lib/plantillas-automatizaciones.ts`).
+10. **Copiar y pegar flujos** y **el horario de oficina** (la octava tanda, arriba).
+11. **Chatwoot se BORRÓ** del repo el 09/10 (el WhatsApp oficial). El código quedó en la etiqueta de
+    git `archivo/chatwoot-2026-10-09`. Código nuevo **no** importa `lib/chatwoot.ts`.
 
-## Lo que falta (no espera a nadie)
+---
 
-- **Verlo con clics** en producción: la tercera, la cuarta y la quinta tanda.
-- **11:** sumar las acciones de Customer Success cuando entre la rama de la API de MaKo
-  (`wip/api-acciones-0910`) a `ACCIONES_DEL_FLUJO` (lib/editor-acciones.ts).
-- Las partes de un mensaje: la marca de cuántas salieron vive en `nutricion_envios.asunto` (lo prolijo
-  es una columna `partes_salidas`), y un borrador del setter de varias partes junta los textos en uno.
-- «Probar» manda con el remitente del negocio y no con el del paso (da lo mismo mientras haya uno).
-- Unificar el selector del CRON (`BOTON_CAMPO_CRON`) con el grande de la casa y darle el grande a la
-  CONDITION. `onAgregarRama` de FlujoLienzo ya no lo usa nadie.
-- Medir en producción cuánto vive la espera corta que corre después de contestar un webhook.
+## 4. Lo que está a medio hacer o sin verificar, con el archivo
 
-## Lo que decide Martín
+**Nada de esta área se verificó con clics en PRODUCCIÓN.** Lo que sí se vio: la octava tanda se miró
+en el navegador en **dev local sobre el ws9, sin guardar nada** (paneo con el derecho, el lazo con 3
+elegidas y la cuarta atenuada, el menú del CRON, el modal con 6 CRON y 7 plantillas, el panel del
+CRON y el horario). Está anotado en el hito del 10 oct 15:47 de `app/admin/dev/chatbot/bitacora.ts`.
+Las tandas 2.ª a 7.ª **no se vieron nunca con clics** en ningún lado.
 
-- ¿/mensajes (el catálogo de avisos de la agencia) también se muda a /chatbot?
-- ¿Se retira la condición «Agendó»? Dice lo mismo que «Tiene reunión agendada».
-- «Felicitar a un alumno que terminó una clase»: la IA elige todas las etapas de entrega, pero llegar a
-  una etapa es terminar un MÓDULO, no una clase.
-- Varios remitentes por negocio: hoy «Vincular nuevo» REEMPLAZA el remitente (lo avisa).
-- Minutos exactos entre 2 y 59 min (haría falta un tick frecuente), y el cron corre de 15 a 23 UTC: de 17 a
-  21 de México no hay ninguna corrida.
-- El lienzo: ¿mover una tarjeta se deshace con Ctrl+Z?, ¿un botón «Reacomodar»?, ¿«Duplicar» hereda el
-  acomodo (hoy sí)?
-- «Probar»: ¿muestra por qué rama siguió? ¿un lead nuevo «tiene email» por defecto (hoy sí)?
-- De antes: activar #221/#222 (pausando 212, 213 y 198) y el disparador de #224; la key de Gemini de la
-  plataforma está bloqueada por Google; apagar el workflow de n8n «WhatsApp Reminders for Calendly»;
-  rotar la key de Fathom.
+Lo que falta mirar, en orden de riesgo: arrastrar una flecha y soltarla en el vacío · Ctrl+C/Ctrl+V
+entre dos negocios · el borrador al recargar · el CRON Recurrente · grabar y escuchar un audio en
+Safari · el reloj del horario · el recordatorio con sus piezas nuevas · la pastilla del DELAY.
 
-## La tercera tanda (para contexto)
+Pendientes concretos:
 
-### Lo que se hizo (pedido del 9 oct 02:05, en la bitácora)
+- **La galería NO tiene «Recordatorio de la reunión»** (`lib/plantillas-automatizaciones.ts`: tiene 7
+  plantillas y ninguna es ésa). Su CRON es fijo y la galería sólo sabe pedir una etapa. **Consecuencia:
+  un negocio NUEVO no tiene la fila, así que su emisor usa la configuración de antes
+  (`chatbot.recordatorio_reunion`, que quedó como respaldo) y el recordatorio no se ve en la lista.**
+  ⚠️ Y el comentario de `lib/recordatorio-automatizacion.ts:32` ya promete esa plantilla («y la
+  plantilla de la galería»): el código dice una cosa y la galería otra.
+- **Arrastrar lo elegido con el lazo JUNTO no está**: el lazo elige, copia y borra en lote, pero cada
+  tarjeta se mueve sola (`app/_components/Lienzo.tsx`).
+- **«Pídesela a MaKo» del modal no lleva el pedido escrito**: crea la automatización vacía y abre la
+  caja de Crear con IA (`app/automations/GaleriaPlantillas.tsx`).
+- **Publicar no compara la base**: con dos pestañas abiertas gana la última que publica
+  (`app/api/whatsapp/secuencias/route.ts`).
+- **«Si la subida falla, la grabación vuelve a la barra» falta** en `GrabadorAudioPaso`, en el
+  `usarAudio` del editor de WhatsApp y en `/whatsapp`: una nota de voz cuyo envío falla **se pierde**.
+- **El 402 de Zernio llega como «Zernio no contestó»** (`app/api/zernio/route.ts:58`): sólo distingue
+  el 401. Un cliente sin pagar lee un error que no dice qué pasa.
+- **Crear con IA elige un solo CRON**, y la copia de configuración no copia la lista de CRON.
+- **Las ramas de la línea oficial del onboarding son código muerto**
+  (`app/automations/OnboardingChatAgent.tsx`; el componente sí se usa, desde `SecuenciaPerfil.tsx:1025`
+  y `app/email/OnboardingCanalEmail.tsx`).
+- **Copias sin llamadores** en `app/agencia/FlujoAviso.tsx` (`VistaEmailAviso`, `BotonMakoAviso`,
+  `BotonVolver`, `RedactaAviso`) y `/api/chat-agent/onboarding/resumen`.
+- **Cerrar la #350 del plan** (el reproductor de audios: era CSS) cuando se vea con clics.
+- **Dos scripts de datos esperan el «sí»** (hoy en simulacro): `scripts/quitar-ir-a.mts` y
+  `scripts/plantillas-viejas.mts`.
 
-Hecho: el editor mediano (WhatsApp en una columna, sin «Revisar antes de enviar»), «Ir a» fuera del
-＋ y de la IA, el CRON por producto → adquisición/entrega → etapa (sin «Eventos»), títulos en inglés
-y tarjetas con cara de WhatsApp y de Gmail, la tarjeta MAKO (aviso al grupo con datos del lead), el
-emoji del título, los «⋯» de la lista (activar, duplicar, eliminar), «Nueva» al instante, el
-catálogo de 48 condiciones por sección filtrado por el CRON (el motor las evalúa en batch), el email
-con el editor rico de las lecciones (HTML saneado), «Probar» por canal (teléfono o bandeja Gmail) y
-frenado si falta algo, «Publicar» apagado sin cambios, las acciones en una lista corta con un
-control por campo (monto y motivo sólo para Ganado/Perdido), y Crear con IA arreglado (Groq entra
-con un pedido compacto) con la caja del Plan, dictado en vivo, placeholder animado y la capa con
-Cancelar.
+**SIN VERIFICAR por mí (lo midió la sesión que lo hizo el 10/10 ~14:00, no lo volví a medir):** que la
+fila del recordatorio esté creada en los 10 negocios, con la del **ws1 (#228) PRENDIDA** y las otras 9
+pausadas, y que los arreglos de datos de las secuencias 198/221/223/224/226 estén en producción
+(Martín los aprobó a las 11:25 con el antes y el después). Eso son filas de la base, no código:
+para confirmarlo hay que consultar `nutricion_secuencias`.
 
-Falta: verlo con clics; lo demás está en `docs/hallazgos-chatbot.md` → «Lo que quedó sin hacer».
+⚠️ **Hay otra sesión trabajando en este mismo clon ahora, y está tocando el CRM.** Al cerrar este
+relevo (10/10 a la noche) `git status` mostraba, sin commitear y **sin ser míos**:
+`app/crm/CrmBoard.tsx`, `app/crm/CrmToolbar.tsx`, `lib/campana-atribucion.ts`,
+`tests/crm-filtro-ads.test.ts` y el archivo nuevo `app/crm/arbol-seleccion.ts` — y aparecieron dos
+más en los minutos que tardé en escribir esto. **Dejalos donde están**: ninguno es de esta área, y
+un `git checkout --` sobre ellos borra trabajo ajeno. Lo único mío es `docs/relevo/chatbot.md`.
 
-## La segunda tanda (para contexto)
+---
 
-### El hilo
+## 5. Las trampas del área (esto es lo que ahorra tiempo)
 
-El pedido de Martín del 08/10 a la noche, 11 puntos. Están literales en
-`docs/chatbot-flujo-ramas-diseno.md` → «SEGUNDA TANDA» y en `app/admin/dev/chatbot/bitacora.ts`.
-Lo que quedó, punto por punto:
+1. **`setSecuenciaPasos` (`lib/nutricion.ts`) reconstruye cada paso CAMPO POR CAMPO y tira lo que no
+   conoce.** Un campo nuevo del nodo que no esté en `camposDelFlujo` se **pierde en el primer
+   guardado**, sin un error. Ya costó las `variantes` borradas en silencio, y es la puerta que se
+   olvida: la marca `suelta` de «Si responde» fue la **sexta** vez.
+2. **Un TIPO de nodo nuevo son CINCO puertas** (`lib/lienzo-grafo.ts`, `grafoDeSecuencia`, el panel de
+   `FlujoLienzo.tsx`, el motor y `setSecuenciaPasos`). Si la capacidad nueva sigue siendo «este nodo
+   manda un mensaje», es un **campo** adentro del paso y una rama en el motor, no un nodo nuevo.
+3. **Todo lo que recorre `pasos` tiene que saltear lo que no es un mensaje.** La prueba de una
+   secuencia, el generador de copy, la ficha que lee MaKo y las tools de la API trataban una acción
+   como un mensaje vacío: **salía un WhatsApp de prueba en blanco por cada acción**. Antes de sumar un
+   tipo de paso: `grep` de `.pasos` y de `setSecuenciaPasos`.
+4. **El diagnóstico obvio del zoom borroso era el equivocado.** No era resolución: era
+   `willChange: 'transform'` en la capa del lienzo — con esa pista Chrome pinta el bitmap una vez y lo
+   estira al cambiar la escala. Sacarla lo arregló (`app/_components/Lienzo.tsx`).
+5. **⚠️ La primera medición del lazo dio CERO y el lazo andaba.** El arrastre de prueba arrancaba en
+   el rincón de abajo a la derecha, **encima de «Publicar»** (`data-no-pan`), que el lienzo no toma a
+   propósito. Repetido desde el fondo vacío: funcionaba perfecto. **Antes de diagnosticar un gesto,
+   mirá DÓNDE empezó.**
+6. **Un menú que cuenta lo elegido tiene que contar lo que la acción HACE.** El CRON entra en el lazo
+   pero no se copia ni se borra como tarjeta: el menú decía «Eliminar 3» y borraba 2. **Lo vio el
+   navegador, no un test** (`37727baa`).
+7. **Minutos entre dos mensajes NO se pueden dormir.** El motor duerme las pausas adentro de la
+   corrida con tope de 10 s, así que elegir minutos **PARTE la tarjeta** con una espera en el medio
+   (`partirConEspera`, `lib/flujo-edicion.ts`). Es un default que puso Claude: **a confirmar con Martín.**
+8. **El WhatsApp de esta tab es el NO oficial.** No existe la ventana de 24 h ni las plantillas
+   aprobadas: no escribas un gate que cuelgue de ellas. Lo que protege la línea es el RITMO y el
+   CONTENIDO. Pero Instagram y Messenger (por Zernio) **sí** tienen la ventana de 24 h de Meta.
+9. **Un flujo que arranca por una ETAPA no hereda la guarda «la reunión ya pasó»** (decide por el
+   `trigger_tipo`). Quien arme un flujo así —una plantilla, Crear con IA, la API— tiene que poner
+   «Próxima reunión en ≤ 720 h» después de CADA espera por tiempo, antes de lo que habla de la reunión.
+   Si no, un audio de preparación le llega al lead **después** de la llamada.
+10. **«Agendó» significa «tiene una reunión cargada», pasada o futura** — también a quien faltó a una.
+11. **Hay DOS migraciones numeradas `0223`**: `0223_flujo_grafo.sql` (esta área) y
+    `0223_curso_papelera.sql` (el curso). Pasó justo lo que AGENTS.md advierte: dos sesiones eligieron
+    el mismo número a la vez. Y faltan los números 0234-0239 y 0243-0244. **Antes de nombrar una
+    migración: `git pull` y `ls supabase/migrations/ | tail -5`.**
+12. **Leer el portapapeles pide permiso.** El aviso «Copiaste un flujo» al entrar y «Pegar lo copiado»
+    del modal no aparecen sin permiso, y no se insiste. Ctrl+C / Ctrl+V del lienzo usan los eventos
+    `copy`/`paste`, que no piden nada.
+13. **`next dev` en un worktree tropieza igual que el build** con el junction de `node_modules`
+    («Symlink … points out of the filesystem root»): hace falta la misma raíz temporal en
+    `next.config.ts`, y restaurarla después (ese cambio NO se commitea).
+14. **Un guard con regex sobre un fuente tiene que tolerar CRLF** (`\r?\n`, nunca `\n` solo): en este
+    clon de Windows los archivos llegan en CRLF.
 
-1. **Un solo CRON.** «Si responde» es la segunda fila de la tarjeta CRON («Al entrar» / «Si
-   responde») y cuelga de ella. Ya no hay tarjeta fantasma.
-2. **Flechas en paralelo** desde el CRON y desde cualquier mensaje, acción o espera. Cada una es un
-   hilo que corre a la vez (`hilos` en la inscripción). El freno de 20 h y los topes son por canal, y
-   la ventana 9-21 va en la zona del negocio.
-3. **El editor de WhatsApp es apaisado**: el chat a la izquierda y el composer a la derecha, en una
-   franja abajo del lienzo.
-4. **Email tipo Gmail**: De (el remitente del workspace, con aviso si es sandbox o está apagado),
-   Para, Asunto, Vista previa y cuerpo con B/I/S. A la derecha, el mail abierto con el mismo render
-   que sale. «✉️ Email» está en el ＋.
-5. **Dos familias de tarjetas.** Las de control (condición, esperar, etiqueta, ir a) son compactas y
-   teñidas, y la espera es una píldora. El CRON tiene su ícono (⏰).
-6. **La tarjeta de etiqueta** (🏷️ + / −) se edita con una frase: «[Poner ▾] [etiqueta ▾]».
-7. **El editor de acción, simplificado**: un desplegable por secciones con buscador («Más usadas»,
-   «Con este lead», una por área, «Avanzado»), una línea de qué hace, lo opcional plegado, y sin los
-   campos que llena el flujo.
-8. **«Probar» ancho y bajo**, arriba a la derecha. Recorre los hilos con reloj virtual y muestra el
-   email como un mail.
-9. **Auditoría de ManyChat**: `docs/chatbot-auditoria-manychat.md`. Trae lo que hacemos mejor, lo
-   que hacíamos mal (y qué se arregló), lo que falta en orden, lo que decide Martín y lo que no hay
-   que copiar.
-10. **Secuencias de los clientes, creadas EN PAUSA** (09/10, ~01:40). No se tocó ninguna prendida:
-    - ws1: **#221** «Agendó: confirmar y preparar» (reemplaza a 212 y 213, pone la etiqueta
-      «Confirmó», que se creó), **#222** «Bienvenida con email» (reemplaza a 198; sus «Ir a» van a
-      #221), y la **#220** suma «Si responde» (sigue apagada).
-    - ws13: **#223** «Agendó: confirmación de auditoría», con el WhatsApp y el email EN PARALELO desde
-      el CRON, y **#224** «No asistió: reagendar auditoría», todavía sin disparador (queda en «A
-      mano»): la etapa «noresp» de sus leads no existe en su embudo.
-    - Las especificaciones están en `docs/relevo/chatbot-secuencias.json`.
-    Para Código Inmobiliario quedó hecho lo que pidieron: el aviso «Nuevo agendado» trae teléfono,
-    email y las respuestas del formulario de Cal.com, que ahora se guardan en la ficha.
-11. **Crear con IA.** «＋ Nueva» crea una automatización vacía y pausada y abre la caja del pedido. El
-    modelo es Gemini o Groq gratis, nunca Claude. Las tarjetas aparecen de a una, y el ✦ de las
-    herramientas pide cambios (sólo agrega). El wizard de 9 pasos se borró.
+---
 
-La revisión adversarial reportó 38 hallazgos: 32 confirmados, los 32 arreglados con test. Suite:
-5938 tests, 0 rojos.
+## 6. Lo que espera una decisión de Martín
 
-### Lo que faltaba de la segunda tanda (08/10)
+### De la octava tanda (lo más fresco)
 
-- **Mirarlo en un navegador en producción.** Nada de la tanda se vio con clics (bootear local
-  escribe en prod). La lista de qué mirar está en `docs/hallazgos-chatbot.md` → «Lo que quedó sin
-  hacer».
-- **El disparador de la #224** (no-show de Código Inmobiliario): su embudo tiene lead, agenda,
-  ganado, st0, manual y reactivación, y no tiene «noresp». Hay que sumar la etapa o usar
-  `no_show_j1`, que exige leads abiertos, y ninguno de sus 14 no-shows lo está.
-- Los pendientes técnicos chicos están en `docs/hallazgos-chatbot.md`.
+- **El delay de MINUTOS entre dos mensajes parte la tarjeta con una espera** (el motor no puede dormir
+  minutos adentro de una corrida). Opciones: (a) dejarlo así, que es lo implementado; (b) no ofrecer
+  minutos y topear en segundos; (c) un tick frecuente del cron para minutos exactos, que es trabajo de
+  infraestructura.
+- **La plantilla «Recordatorio de la reunión» en la galería**: hoy un negocio nuevo no tiene la fila.
+  Opciones: (a) sumarla a la galería; (b) crearla sola al dar de alta un negocio; (c) dejar el respaldo
+  viejo y que el recordatorio no se vea en la lista de esos negocios.
 
-### Lo que esperaba a Martín en la segunda tanda (08/10)
+### De las tandas 6.ª y 7.ª (siguen sin respuesta)
 
-- **Activar las secuencias nuevas**: pausar 212 y 213 y activar la #221. Para la #222 (que
-  reemplaza a la 198), el email del ws1 tiene que estar prendido y el remitente no puede seguir
-  siendo «MaKo». La copia nueva («voy a liberar el espacio» 4 h antes, «no vio el video», «puede no
-  calificar») sale como borrador hasta que la mires.
-- **Código Inmobiliario no tiene canal** hacia sus leads: la línea está desconectada y el email sale
-  del sandbox.
-- **Decisiones mías de la tanda (con su default)**, en el diseño:
-  - una respuesta pausa todos los hilos;
-  - el «Ir a» de «Si responde» retoma uno;
-  - dos hilos de WhatsApp se permiten, y el freno los espacia;
-  - los topes de 40 por día y 6 por corrida son sólo de WhatsApp, y el email tiene 100 por día;
-  - «Si responde» cuelga sólo del CRON;
-  - las flechas en paralelo de una tarjeta borrada pasan a la que la reemplaza.
-- **Guardar la zona del ws1** (`mako.timezone` = America/Tijuana): hoy decide con Ciudad de México.
-- **De la auditoría**: varias acciones por tarjeta o una; «Si responde» con tiempo límite; guardar lo
-  que el lead contesta en un campo.
-- **Las cuatro de la primera tanda que siguen sin respuesta**: el espejo etiqueta↔etapa, la
-  sincronización de email, las esperas en horas y días, y que archivar apague.
+- **Los Mensajes de MaKo en WhatsApp**: hoy el flujo (pasos, CRON) se guarda en el acto y «Publicar»
+  publica sólo el texto. En una automatización normal **todo** sale con Publicar. ¿Se unifica?
+- **El aviso de 30 minutos al dueño** sólo corre con Calendly. ¿Se extiende a todos? Código
+  Inmobiliario usa Cal.com. Es mandar avisos nuevos a clientes.
+- **«Activar» no frena** una automatización con la línea de WhatsApp desconectada (ws13), ni una nueva
+  con el CRON viejo de la post-agenda (`agendado_sin_confirmar`) junto a las secuencias 212/213. ¿Lo frena?
+- **Los dos scripts de datos**, en simulacro: `scripts/quitar-ir-a.mts` y `scripts/plantillas-viejas.mts`
+  (ws1: 4 flujos manuales vacíos y un paso «⚡ Acción» viejo; ws4: 2 flujos vacíos). ¿Se corren con `--aplicar`?
+- **Los 7 mensajes de MaKo que arma el código** (reporte semanal, recordatorio, Fathom, mensaje
+  entrante, línea caída y volvió): hoy se ven como ejemplo y no se editan. ¿Pasan a mandar lo que
+  escribe el cliente? En /mensajes (la agencia) todavía se editan.
+- **Sin horario, las post-agendas en vivo del ws1 pueden salir de noche**: ¿se le pone un horario?
+- **Los recordatorios de clases (9 a 21) y las insistencias al grupo (8 a 21)** siguen con su ventana
+  fija. ¿Pasan a seguir el horario del negocio?
+- **El email que llega como disparador** necesita: prender «Receiving» en Resend, que el cliente cargue
+  el MX y el secreto del webhook. Hoy está escrito y apagado.
+- **ws11 tiene su cuenta de Zernio pausada por falta de pago** (402).
+- **Del ws9**: el CRON «Agendó una reunión» no ve las reuniones cargadas a mano sin hora; `{{hora}}`
+  sale en la zona del negocio; los títulos de 6 mensajes son más largos que los del catálogo.
+- **A Mauricio (ws1)**: la 198 manda «Te dejo aquí el video» (el de antes de la reunión) a quien **no**
+  agendó, y la 226 linkea el mismo video como «de repaso».
+- **ws4 #210** es la post-agenda vieja del onboarding, y ws13 «Nueva Agenda VSL» (un mensaje propio con
+  evento) nunca sale.
+- Decisiones de diseño que siguen abiertas: ¿se retira la condición «Agendó», que dice lo mismo que
+  «Tiene reunión agendada»? ¿Mover una tarjeta se deshace con Ctrl+Z? ¿«Probar» muestra por qué rama
+  siguió? ¿Varios remitentes de email por negocio (hoy «Vincular nuevo» REEMPLAZA)? ¿Una sola «Mover de
+  etapa» que elija por lead el producto principal o uno agregado?
+
+---
+
+## 7. Lo que CORREGÍ de la versión anterior de este documento
+
+La versión anterior se escribió el 10/10 a las **15:34** (`651c5690`), y la ventana siguió hasta las
+**18:59**. Tres afirmaciones suyas eran falsas:
+
+1. **«La octava tanda NO está pusheada ni vista con clics.»** Las dos mitades son falsas.
+   `b8af255e` y `37727baa` están en `origin/main` y **desplegadas** (el deploy de Production de las
+   17:38 ya las lleva, verificado con `npx vercel ls`), y la tanda **sí se vio con clics** en dev local
+   sobre el ws9 — tanto que `37727baa` **salió** de mirarla («Visto en el navegador: con el CRON adentro
+   del lazo decía "Eliminar 3 tarjetas" y borraba 2»). Dejó de ser cierta con `37727baa` (15:47) y con
+   el push que la llevó a `main`.
+2. **«El área `chatbot` de `/admin/dev` no apunta a `hallazgos-chatbot`.»** Falsa desde **`c309b390`**:
+   `app/admin/dev/areas.ts:547` tiene `hallazgos: 'hallazgos-chatbot'`, y la misma entrada ya se llama
+   `titulo: 'Automations'` con `slug: 'chatbot'`.
+3. **`app/automations/RecordatorioFlujo.tsx` figuraba como pendiente a limpiar.** **`c309b390` lo
+   borró** (378 líneas), junto con `lib/recordatorio-grafo.ts` y
+   `/api/chat-agent/recordatorio-reunion`. El archivo ya no existe.
+
+Lo que sí sigue siendo cierto de esa versión, y verifiqué: que la galería no tiene «Recordatorio de la
+reunión» (7 plantillas, ninguna es ésa), que «Pídesela a MaKo» no lleva el pedido escrito, que el lazo
+no arrastra lo elegido junto, y que el delay en minutos parte la tarjeta.
+
+**Y si querés el porqué de cada decisión, no está acá:** el pedido **literal** de Martín de cada tanda
+está en `app/admin/dev/chatbot/bitacora.ts` (hitos del 8, 9 y 10 de octubre) y lo que costó
+implementarlo, en `docs/hallazgos-chatbot.md` (secciones «Sexta tanda», «Séptima tanda» y «Octava
+tanda», que son las últimas del archivo). Esos dos documentos son de primera mano; este relevo es un
+resumen.
