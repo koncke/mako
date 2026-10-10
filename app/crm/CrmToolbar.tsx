@@ -37,7 +37,7 @@ import { Icon } from '@/app/_components/icons';
 import { CANALES } from '@/lib/fase-diagnostico';
 import { ENTRADAS, ENTRADAS_OFRECIDAS, type EntradaId } from '@/lib/pipeline';
 import { crearProductoAction, declararEntradasAction, embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction } from './actions';
-import { alternarGrupo, alternarHijo } from './arbol-seleccion';
+import { alternarGrupo, alternarHijo, conGrupoAbierto } from './arbol-seleccion';
 import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
 import { Confirm } from '@/app/_ui/Confirm';
 import { useCrmAuto } from './CrmAutoToggle';
@@ -554,17 +554,21 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   const gruposArbol = arbol && lista
     ? lista.opciones.filter((g) => coincide(g.label, g.value) || hijosDe(g.value).some((h) => coincide(h.label, h.value)))
     : [];
-  const abiertoGrupo = (g: string) => !!textoBuscar || ((lista?.opciones.length ?? 0) <= 3) !== alternados.has(g);
+  const abiertoPorDefecto = (lista?.opciones.length ?? 0) <= 3;
+  const abiertoGrupo = (g: string) => !!textoBuscar || abiertoPorDefecto !== alternados.has(g);
   const alternar = (g: string) => setAlternados((prev) => { const c = new Set(prev); if (c.has(g)) c.delete(g); else c.add(g); return c; });
   // Qué tildar y destildar en el árbol lo decide app/crm/arbol-seleccion.ts (puro y con test):
   // acá sólo se lee el estado y se escribe lo que devuelve.
   const aplicar = (r: { grupos: Set<string>; hijos: Set<string> }) => { lista?.set(r.grupos); arbol?.set(r.hijos); };
   const toggleGrupo = (g: string) => {
-    if (lista && arbol) aplicar(alternarGrupo({ grupos: lista.sel, hijos: arbol.sel }, g, hijosDe(g).map((h) => h.value)));
-    // Tocar la campaña también la DESPLIEGA, nunca la pliega: «Si clickeo una campaña […]
-    // quiero que se abra el desplegable» (Martín, 10/10/2026). Se ven los anuncios que
-    // acaba de elegir, y desde ahí se puede destildar uno.
-    if (!abiertoGrupo(g) && hijosDe(g).length > 0) alternar(g);
+    if (!lista || !arbol) return;
+    // Lo que hace este toque: tildar la campaña entera, o destildarla.
+    const elegir = !lista.sel.has(g);
+    aplicar(alternarGrupo({ grupos: lista.sel, hijos: arbol.sel }, g, hijosDe(g).map((h) => h.value)));
+    // Tildarla la DESPLIEGA y destildarla la PLIEGA: «Si clickeo una campaña […] quiero que
+    // se abra el desplegable» y «si deselecciono se debe volver a plegar» (Martín,
+    // 10/10/2026). Se ven los anuncios que acaba de elegir, y desde ahí se destilda uno.
+    if (hijosDe(g).length > 0) setAlternados((prev) => conGrupoAbierto(prev, g, elegir, abiertoPorDefecto));
   };
   const toggleHijo = (g: string, h: string) => {
     if (lista && arbol) aplicar(alternarHijo({ grupos: lista.sel, hijos: arbol.sel }, g, h, hijosDe(g).map((x) => x.value)));
@@ -636,10 +640,11 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
                   return (
                     <div key={g.value}>
                       <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                        {/* La fila elige la campaña entera (y la despliega); el chevron, a la
-                            DERECHA siempre («El botón de desplegar debe estar a la derecha»,
-                            Martín, 10/10/2026), sólo abre o cierra. No comparten botón:
-                            plegar para esconder los anuncios no puede filtrar por accidente. */}
+                        {/* La fila elige la campaña entera (y la despliega, o la pliega al
+                            destildarla); el chevron, a la DERECHA siempre («El botón de
+                            desplegar debe estar a la derecha», Martín, 10/10/2026), sólo abre o
+                            cierra. No comparten botón: abrir o cerrar para mirar los anuncios no
+                            puede filtrar por accidente. */}
                         <button type="button" onClick={() => toggleGrupo(g.value)} style={{ ...rowBtn, flex: 1 }} title={g.label} aria-pressed={entero}>
                           <span style={check(entero || parcial)}>{entero ? '✓' : parcial ? '–' : ''}</span>
                           <span style={{ ...texto, flex: 1, fontWeight: 600 }}>{g.label}</span>

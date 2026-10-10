@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mapaDeAnuncios, origenAds, opcionesDeFiltro, arbolDeAnuncios, pasaFiltroAnuncio, SIN_ORIGEN_ADS } from '../lib/campana-atribucion';
-import { alternarGrupo, alternarHijo } from '../app/crm/arbol-seleccion';
+import { alternarGrupo, alternarHijo, conGrupoAbierto } from '../app/crm/arbol-seleccion';
 import { lugarDelPanel, ANCHO_PANEL, MARGEN_VENTANA } from '../app/crm/filtro-panel';
 import { canalDeLead } from '../app/crm/origen-lead';
 
@@ -279,9 +279,11 @@ test('el árbol: chevron a la DERECHA, tocar la campaña la despliega, y el pane
   const elige = fila.indexOf('onClick={() => toggleGrupo(g.value)}');
   const despliega = fila.indexOf('onClick={() => alternar(g.value)}');
   assert.ok(elige > 0 && despliega > elige, 'el chevron va a la derecha de la campaña');
-  // Elegir la campaña la abre, y nunca la cierra.
+  // Tildar la campaña la abre y destildarla la cierra: lo que se fija es lo que el toque HIZO.
   const tg = t.slice(t.indexOf('const toggleGrupo'), t.indexOf('const toggleHijo'));
-  assert.match(tg, /if \(!abiertoGrupo\(g\) && hijosDe\(g\)\.length > 0\) alternar\(g\);/);
+  assert.ok(tg.length > 100 && tg.length < 1200, `toggleGrupo mide ${tg.length}`);
+  assert.match(tg, /const elegir = !lista\.sel\.has\(g\);[\s\S]*aplicar\(alternarGrupo\(/, 'se lee ANTES de aplicar');
+  assert.match(tg, /conGrupoAbierto\(prev, g, elegir, abiertoPorDefecto\)/);
   // Sin scroll de costado adentro del panel, y el ancho sale de la cuenta de arriba.
   assert.match(t, /data-filtro-panel style=\{\{[^}]*left: lugar\.izq[^}]*width: lugar\.ancho[^}]*overflowX: 'hidden'/);
   assert.match(t, /const rowBtn: CSSProperties = \{[^}]*boxSizing: 'border-box'/, 'una fila con sangría no puede medir más que el panel');
@@ -290,4 +292,19 @@ test('el árbol: chevron a la DERECHA, tocar la campaña la despliega, y el pane
   //   ROTO A PROPÓSITO (2026-10-10): con el chevron otra vez a la izquierda, sin la línea que despliega,
   //   sin el overflowX, sin el box-sizing de las filas y sin medir el contenido:
   //   pass 16 / fail 1 cada una.
+});
+
+// «Si aprieto seleccionar una campaña se despliega, pero si deselecciono se debe volver a
+// plegar» (Martín, 10/10/2026).
+test('conGrupoAbierto FIJA abierta o cerrada, con cualquier default', () => {
+  const vista = (alt: Set<string>, g: string, porDefecto: boolean) => porDefecto !== alt.has(g);
+  for (const porDefecto of [true, false]) {
+    for (const antes of [new Set<string>(), new Set(['A'])]) {
+      assert.equal(vista(conGrupoAbierto(antes, 'A', true, porDefecto), 'A', porDefecto), true, `abrir (default ${porDefecto})`);
+      assert.equal(vista(conGrupoAbierto(antes, 'A', false, porDefecto), 'A', porDefecto), false, `cerrar (default ${porDefecto})`);
+    }
+  }
+  assert.deepEqual([...conGrupoAbierto(new Set(['B']), 'A', true, true)], ['B'], 'no toca las otras campañas');
+  //   ROTO A PROPÓSITO (2026-10-10): alternando a ciegas en vez de fijar, pass 17 / fail 1; y en el
+  //   menú, con destildar abriendo igual (siempre `true`), pass 17 / fail 1.
 });

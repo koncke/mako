@@ -51,3 +51,20 @@ export function alternarHijo(sel: SeleccionArbol, grupo: string, hijo: string, h
   else hijos.add(hijo);
   return { grupos, hijos };
 }
+
+/**
+ * Abrir o cerrar un grupo A MANO, sobre el registro de «los que están al revés de su
+ * default» (con pocas campañas nacen abiertas; con muchas, cerradas). Se FIJA el estado
+ * pedido, no se alterna: alternar a ciegas, con el buscador abierto (que muestra todo
+ * desplegado), dejaba el registro al revés de lo que se ve.
+ *
+ * Lo usa la fila de la campaña: tildarla la despliega y destildarla la pliega — «Si
+ * aprieto seleccionar una campaña se despliega, pero si deselecciono se debe volver a
+ * plegar» (Martín, 10/10/2026).
+ */
+export function conGrupoAbierto(alternados: Set<string>, grupo: string, abrir: boolean, abiertoPorDefecto: boolean): Set<string> {
+  const c = new Set(alternados);
+  if (abrir === abiertoPorDefecto) c.delete(grupo);
+  else c.add(grupo);
+  return c;
+}
