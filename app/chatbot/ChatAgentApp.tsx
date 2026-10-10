@@ -50,11 +50,23 @@ const marcarPasoWhatsapp = () => fetch('/api/chat-agent/onboarding', {
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import type { ParteMensaje } from '@/lib/mensaje-partes';
+import type { CanalSocial } from '@/lib/canal-social';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import type { MetricasSecuencia } from '@/lib/setting-metricas';
 
 export type PasoSecuenciaDto = {
-  orden: number; canal: 'email' | 'whatsapp'; delay_horas: number;
+  /**
+   * Por dónde sale. Instagram y Messenger desde la sexta tanda (parte «canales», por Zernio): hasta la
+   * segunda pasada el tipo decía sólo email y WhatsApp, y compilaba porque `esCanalSocial` angostaba el
+   * canal a `never`. Con el tipo honesto, el compilador ve las ramas sociales.
+   */
+  orden: number; canal: 'email' | 'whatsapp' | CanalSocial; delay_horas: number;
+  /**
+   * El NÚMERO de WhatsApp de ESTE mensaje (sexta tanda, WhatsApp 2: «Si más adelante en la
+   * automatización quiero enviar otro mensaje por otro de mis números vinculados en MaKo, se debería
+   * poder»). `null`/ausente = el de la automatización. Lo lee el motor con `lineaDelPaso`.
+   */
+  linea?: string | null;
   asunto: string | null; preheader?: string | null; cuerpo: string;
   /** Sólo email: el cuerpo del editor rico, en HTML saneado. `cuerpo` es su texto plano (lib/nutricion.ts, `cuerpo_html`). */
   cuerpo_html?: string | null;
@@ -117,6 +129,13 @@ export type SecuenciaDto = {
   /** Dónde quedó cada tarjeta movida del lienzo (mig 0233). `{}` = ninguna; `null` = no se pudieron
    *  leer (el lienzo se mueve y no guarda). Ver lib/secuencia-posiciones.ts. */
   posiciones?: Record<string, { x: number; y: number }> | null;
+  /**
+   * LO QUE QUEDÓ A MEDIO ARMAR, SIN PUBLICAR (sexta tanda, punto 7; mig 0240, lib/secuencia-borrador.ts):
+   * el lienzo abre esto en vez de lo publicado. `null` = no hay; AUSENTE = no se pudo leer (falta la
+   * columna o falló la lectura): el lienzo abre lo publicado y no guarda borradores, para no pisar uno
+   * que no vio.
+   */
+  borrador?: { pasos: PasoSecuenciaDto[]; guardado_at: string } | null;
   /**
    * EL HORARIO con el que inscribe (mig 0192). `null`/ausente = se dispara por una
    * ACCIÓN, que es lo que hacen hoy todas las filas. Ver lib/nutricion-agenda.ts.

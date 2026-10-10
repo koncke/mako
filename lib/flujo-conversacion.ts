@@ -32,25 +32,28 @@
 // Pedido literal, punto 1: «No pueden haber 2 flujos por separado. Solo 1 CRON y de ahí
 // desprende todo». Hasta acá «Si responde» se dibujaba ABAJO, suelta en la columna del CRON, y
 // cuando no existía había una tarjeta fantasma «＋ Si responde»: dos flujos, uno debajo del otro.
-//   · arriba a la izquierda, la tarjeta CRON (el disparador; NO es un paso) con DOS filas: «Al
-//     entrar» (la salida: lo que MaKo manda por su cuenta, `raizSalida`, y las flechas en
-//     paralelo del CRON) y «Si responde» (vacía, su ＋ crea la tarjeta: `crearRespuesta`);
-//   · «Si responde» es un HIJO del CRON en el dibujo (columna 1, debajo de la salida y de los
-//     paralelos), con su flecha desde su fila. No es una flecha más de «Al entrar»: es un EVENTO,
-//     no un camino en el tiempo (decisión 1). El DATO no cambia: «Si responde» no tiene padre
-//     (`validarGrafo` lo exige) y la relación con el CRON sale de que es única.
+//   · arriba a la izquierda, la tarjeta CRON (el disparador; NO es un paso), con su salida al pie
+//     (lo que MaKo manda por su cuenta, `raizSalida`, y las flechas en paralelo del CRON);
+//   · «Si responde» se dibuja como la CONDITION QUE ESCUCHA (segunda pasada de la sexta tanda,
+//     punto 12): sin flecha de entrada —se decide cuando el lead escribe, no es un camino en el
+//     tiempo—, primera de lo que no cuelga del CRON, debajo de su árbol. Hasta acá era una segunda
+//     fila del CRON con su flecha. El DATO no cambia: «Si responde» no tiene padre (`validarGrafo`
+//     lo exige) y es única;
 //   · cada nodo de varias salidas —una condición, «Si responde», el CRON y toda tarjeta con
 //     flechas en paralelo— apila sus hijos ARRIBA y ABAJO de su ancla, cada uno con el alto de
 //     su subárbol, así dos ramas no se pisan nunca;
 //   · al final todo se corre a coordenadas ≥ 0 (`aOrigen`): la primera rama de la primera
 //     condición nace arriba de su padre, o sea con `y` negativa.
 //   · el nodo de INICIO (`'entrada'`, lib/flujo-grafo.ts) NO se dibuja: ES el CRON. Sus flechas
-//     salen de la fila «Al entrar».
+//     salen de la salida del CRON.
 
 // Puro (sólo importa ./template-vars): la pregunta «¿este HTML tiene algo que leer?» del saneo del email.
 import { htmlEmailVacio } from './email-html-seguro';
 // Instagram y Messenger (sexta tanda, parte «canales»): sus tarjetas, su ＋ y su «Probar». Puro.
-import { esCanalSocial, logoSocialSvg, type CanalSocial } from './canal-social';
+import { esCanalSocial, logoSocialSvg, VENTANA_META_MS, type CanalSocial } from './canal-social';
+// Puro: cuántas etiquetas lleva una tarjeta TAG y cómo se dice («Agregar Cualificado y 2 más»). El
+// verbo vive en UN lugar, `VERBO_ETIQUETA` (sexta tanda, TAG 1 y 2).
+import { etiquetasDelPaso, textoDeEtiquetas } from './editor-acciones';
 import {
   ANCHO_NODO, ALTO_MIN, GAP_Y, MARGEN, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, ICONO_MAKO, ICONO_GMAIL,
   encerrar, aOrigen, centroDeFilas, tieneFilas, posicionDePildora,
@@ -58,9 +61,9 @@ import {
 } from './lienzo-grafo';
 import {
   type PasoGrafo, type RamaCondicion, type CampoCondicion, type NombresParaTexto, type LugarInsercion,
-  CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, HILO_RESPUESTA,
-  claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, hiloDe,
-  indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, repartenEnBucle,
+  CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS,
+  claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, padresDe,
+  indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, textoCasoRespuesta,
   RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos,
 } from './flujo-grafo';
 import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
@@ -92,8 +95,12 @@ export type PasoParaGrafo = PasoGrafo & {
  * `nuevoId` da `n…` y `normalizar` da `o<índice>`.
  */
 export const ID_ENTRADA = ID_INICIO;
-/** La fila «Si responde» del CRON (la otra es «Al entrar», el puerto 'sig'). */
-export const PUERTO_RESPUESTA = 'resp';
+/*
+ * (Hasta la segunda pasada de la sexta tanda el CRON de un flujo con «Si responde» tenía una segunda
+ * fila, «Si responde» —el puerto 'resp', `PUERTO_RESPUESTA`—, y su ＋ creaba la tarjeta. «Si responde»
+ * se dibuja ahora como la CONDITION que escucha, sin flecha de entrada, y lo nuevo se crea eligiendo
+ * «Su respuesta trata de» en una CONDITION vacía (`condicionARespuesta`, lib/flujo-grafo.ts).)
+ */
 
 /** Las dos operaciones que se dibujan como la tarjeta de ETIQUETA (decisión 8). */
 export const OP_PONER_ETIQUETA = 'poner_etiqueta_lead';
@@ -179,24 +186,26 @@ function anchoPildora(texto: string): number {
 
 /**
  * ¿ESTE PASO ES UNA TARJETA DE ETIQUETA? Una ⚡ Acción `poner_etiqueta_lead` /
- * `sacar_etiqueta_lead` (decisión 8: una PRESENTACIÓN, el motor no cambia). Devuelve qué hace y
- * con qué etiqueta (null = todavía sin elegir), o null si no es una.
+ * `sacar_etiqueta_lead` (decisión 8: una PRESENTACIÓN, el motor no cambia). Devuelve qué hace, la
+ * primera etiqueta (null = todavía sin elegir) y TODAS (sexta tanda, TAG 2: «Se debería poder
+ * seleccionar multiple»: la primera en `etiquetaId` y las demás en `etiquetaIds`, `etiquetasDelPaso`),
+ * o null si no es una.
  */
-export function etiquetaDeAccion(p: PasoGrafo): { operacion: typeof OP_PONER_ETIQUETA | typeof OP_SACAR_ETIQUETA; etiquetaId: number | null } | null {
+export function etiquetaDeAccion(p: PasoGrafo): { operacion: typeof OP_PONER_ETIQUETA | typeof OP_SACAR_ETIQUETA; etiquetaId: number | null; etiquetaIds: number[] } | null {
   if (claseDe(p) !== 'accion') return null;
   const a = p.accion as { operacion?: unknown; params?: Record<string, unknown> } | null | undefined;
   const op = typeof a?.operacion === 'string' ? a.operacion : '';
   if (op !== OP_PONER_ETIQUETA && op !== OP_SACAR_ETIQUETA) return null;
-  const id = Number(a?.params?.etiquetaId);
-  return { operacion: op, etiquetaId: Number.isFinite(id) && id > 0 ? id : null };
+  const ids = etiquetasDelPaso(a?.params);
+  return { operacion: op, etiquetaId: ids[0] ?? null, etiquetaIds: ids };
 }
 
 /**
  * ¿ESTE PASO ES LA TARJETA MAKO? (tercera tanda, decisión 11; pedido literal: «Falta una tarjeta de
  * "WhatsApp de MaKo" para que se pueda configurar un mensaje que envíe MaKo al grupo de WhatsApp»).
  * Es la ⚡ Acción `avisar_al_equipo` (OP_AVISAR) dibujada como lo que hace, igual que la etiqueta: el
- * motor no cambia. NO es un mensaje al lead: le escribe al GRUPO del negocio. La «Otra cosa» que
- * nace con «Si responde» (`crearRespuesta`) también es una.
+ * motor no cambia. NO es un mensaje al lead: le escribe al GRUPO del negocio. El «Si no» con el que
+ * nace la CONDITION que escucha (`condicionARespuesta`) también es una.
  */
 export function esMako(p: PasoGrafo): boolean {
   if (claseDe(p) !== 'accion') return false;
@@ -214,11 +223,14 @@ export function makoDeAccion(p: PasoGrafo): { mensaje: string; titulo: string } 
   };
 }
 
-/** «Agregar Cualificado» / «Eliminar Seguimiento»: lo que dice la tarjeta de etiqueta (sexta tanda, TAG 1). */
+/**
+ * «Agregar Cualificado» / «Eliminar Seguimiento» / «Agregar Cualificado y Seguimiento»: lo que dice la
+ * tarjeta de etiqueta (sexta tanda, TAG 1 y 2). Con más de una las nombra `textoDeEtiquetas`
+ * (lib/editor-acciones.ts), que es también la que pone el verbo: «Agregar» y «Eliminar» viven ahí.
+ */
 function textoEtiqueta(e: NonNullable<ReturnType<typeof etiquetaDeAccion>>, nombres?: NombresParaTexto): string {
   if (e.etiquetaId == null) return 'Sin elegir';
-  const nom = nombres?.etiqueta?.(e.etiquetaId) ?? 'una etiqueta';
-  return `${e.operacion === OP_PONER_ETIQUETA ? 'Agregar' : 'Eliminar'} ${nom}`;
+  return textoDeEtiquetas(e.operacion, e.etiquetaIds.map((id) => nombres?.etiqueta?.(id) ?? 'una etiqueta'));
 }
 
 // ── El disparador, dicho como es ──────────────────────────────────────────────────
@@ -391,7 +403,12 @@ export function altoConFilas(filas: number): number {
  */
 export const TITULO = {
   cron: 'CRON', whatsapp: 'WHATSAPP', email: 'EMAIL', esperar: 'DELAY', condicion: 'CONDITION',
-  etiqueta: 'TAG', accion: 'ACTION', mako: 'MAKO', respuesta: 'REPLY',
+  etiqueta: 'TAG', accion: 'ACTION',
+  // Sexta tanda, MaKo en WhatsApp 1, literal: «El título debe ser ese, "MaKo en WhatsApp" no solo
+  // MaKo... Sino se confunde con una ayuda de la IA».
+  mako: 'MAKO EN WHATSAPP',
+  // (`respuesta: 'REPLY'` se fue en la segunda pasada de la sexta tanda: «Si responde» se dibuja como
+  // la CONDITION que escucha —punto 12: «Reply ya te dije que tiene que estar dentro de CONDITION»—.)
   // «Ir a» ya no se crea (decisión 3), pero los que existen se siguen dibujando.
   ir_a: 'GO TO',
   // Los canales de Meta por Zernio (sexta tanda, CRON 5 y 7).
@@ -406,8 +423,8 @@ export const TITULO = {
 export function tituloDeTarjeta(p: PasoGrafo, enRespuesta?: boolean): string {
   void enRespuesta;
   switch (claseDe(p)) {
-    case 'condicion': return TITULO.condicion;
-    case 'respuesta': return TITULO.respuesta;
+    // «Si responde» es la CONDITION que escucha (sexta tanda, punto 12): se nombra como se ve.
+    case 'condicion': case 'respuesta': return TITULO.condicion;
     case 'ir_a': return TITULO.ir_a;
     case 'esperar': return TITULO.esperar;
     case 'accion': return etiquetaDeAccion(p) ? TITULO.etiqueta : esMako(p) ? TITULO.mako : TITULO.accion;
@@ -427,6 +444,8 @@ function trozoDe(p: PasoGrafo, nombres?: NombresParaTexto): string {
   if (c === 'mensaje') t = p.canal === 'email' ? (p.asunto ?? '') || (p.cuerpo ?? '') : (p.cuerpo ?? '');
   else if (c === 'esperar') t = textoEspera(p.espera).replace(/^Esperar /, '');
   else if (c === 'condicion' && p.ramas?.[0]) t = textoRama(p.ramas[0], nombres);
+  // La que escucha, por su primer caso («CONDITION: Pregunta el precio»): la frase entera no entra.
+  else if (c === 'respuesta' && p.casos?.[0]) t = p.casos[0].titulo ?? '';
   else if (et && et.etiquetaId != null) t = textoEtiqueta(et, nombres);
   else if (esMako(p)) t = makoDeAccion(p)?.mensaje ?? '';
   t = t.replace(/\s+/g, ' ').trim();
@@ -571,6 +590,32 @@ export type OpcionesGrafo = {
 export function subarbolRespuesta(pasos: readonly PasoGrafo[]): Set<string> {
   const r = raizRespuesta(pasos);
   return r ? descendientes(pasos, r) : new Set();
+}
+
+/**
+ * EL AVISO DE UN DM QUE NO VA A SALIR (segunda pasada de la sexta tanda): un DELAY de más de 24 h justo
+ * antes de una tarjeta de Instagram o Messenger. Meta deja escribirle a alguien sólo dentro de las 24 h
+ * de SU último mensaje (`VENTANA_META_MS`, lib/canal-social.ts), y el motor cierra ese paso sin mandar
+ * (`decidirSalida`). Hasta acá no se decía en ningún lado antes de que pasara. Corto: es el ⚠ de la
+ * tarjeta, y el porqué es este comentario.
+ */
+export const AVISO_VENTANA_META = 'Tras 24 h de espera no sale';
+
+/**
+ * CUÁNTOS MINUTOS SE ESPERA JUSTO ANTES DE UNA TARJETA: la espera (por tiempo) que la apunta, sumada a
+ * las que vienen pegadas antes de ella (dos esperas seguidas son UNA espera más larga). Con varios
+ * padres, el camino que más espera. Una espera «antes de la reunión» no cuenta: depende de la fecha.
+ */
+export function esperaAntesDe(pasos: readonly PasoGrafo[], id: string, vistos: ReadonlySet<string> = new Set()): number {
+  let max = 0;
+  for (const pa of padresDe(pasos, id)) {
+    if (vistos.has(pa.id)) continue;
+    const q = nodoPorId(pasos, pa.id);
+    if (!q || claseDe(q) !== 'esperar' || q.espera?.modo === 'antes_reunion') continue;
+    const m = Math.max(0, Number(q.espera?.minutos) || 0);
+    max = Math.max(max, m + esperaAntesDe(pasos, pa.id, new Set([...vistos, id])));
+  }
+  return max;
 }
 
 /**
@@ -732,10 +777,15 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       puertos.push({ id: RESULTADO_SI_NO, rotulo: 'Si no', tono: 'mala', vacio: !p.si_no, ...enParalelo(RESULTADO_SI_NO) });
       t = { ...base, tipo: 'condicion', familia: 'control', titulo: TITULO.condicion, icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'respuesta') {
-      const puertos: PuertoNodo[] = (p.casos ?? []).map((x) => ({ id: x.id, rotulo: x.titulo?.trim() || 'Caso sin nombre', tono: 'buena' as const, vacio: !x.siguiente }));
+      // «SI RESPONDE» SE DIBUJA COMO LA CONDITION QUE ESCUCHA (sexta tanda, punto 12: «Reply ya te dije
+      // que tiene que estar dentro de CONDITION»): una fila por caso, «Su respuesta trata de «…»»
+      // (`textoCasoRespuesta`, la frase del catálogo), y la última «Si no» —lo que antes era «Otra
+      // cosa»—. El dato y el motor no cambian (lib/flujo-grafo.ts, «Si responde» es una CONDITION).
+      // `tipo` sigue siendo 'respuesta': de ahí salen el alto de su editor y su identidad.
+      const puertos: PuertoNodo[] = (p.casos ?? []).map((x) => ({ id: x.id, rotulo: textoCasoRespuesta(x), tono: 'buena' as const, vacio: !x.siguiente }));
       const pendientes = Math.max(0, Math.floor(Number(op.pendientesOtraCosa) || 0));
-      puertos.push({ id: 'si_no', rotulo: 'Otra cosa', tono: 'mala', vacio: !p.si_no, ...(pendientes ? { marca: `${pendientes} sin caso` } : {}) });
-      t = { ...base, tipo: 'respuesta', familia: 'contenido', titulo: TITULO.respuesta, icono: '↩️', puertos, alto: altoConFilas(puertos.length) };
+      puertos.push({ id: 'si_no', rotulo: 'Si no', tono: 'mala', vacio: !p.si_no, ...(pendientes ? { marca: `${pendientes} sin caso` } : {}) });
+      t = { ...base, tipo: 'respuesta', familia: 'control', titulo: TITULO.condicion, icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'ir_a') {
       const d = p.destino;
       let detalle = 'Sin elegir';
@@ -800,9 +850,13 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         const icono = social ?? (email ? ICONO_GMAIL : 'whatsapp');
         const vacio = mensajeVacio(p);
         const audio = p.tipo === 'audio' && Number(p.audio_id) > 0 ? op.audioDe?.(Number(p.audio_id)) : undefined;
+        // Un DM de Instagram o Messenger después de una espera de más de 24 h: Meta no deja escribirle
+        // y el motor lo cierra sin mandar (`decidirSalida`, lib/canal-social.ts). Se avisa en la tarjeta.
+        const fueraDeVentana = social != null && esperaAntesDe(pasos, id) > VENTANA_META_MS / 60_000;
         t = {
           ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, canal: social ?? (email ? 'email' : 'whatsapp'),
-          puertos, ...pie, alto: altoDeMensaje(p, audio) + ALTO_PUERTO, ...(vacio ? { advertencia: 'Sin escribir' } : {}),
+          puertos, ...pie, alto: altoDeMensaje(p, audio) + ALTO_PUERTO,
+          ...(vacio ? { advertencia: 'Sin escribir' } : fueraDeVentana ? { advertencia: AVISO_VENTANA_META } : {}),
         };
       }
     }
@@ -819,45 +873,42 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     tarjetas.set(id, t);
   });
 
-  // ── La tarjeta CRON: el disparador, con sus DOS filas (decisión 1) ──
-  // «Al entrar» es la salida (`sig`) y de ella salen las flechas en paralelo del CRON; «Si
-  // responde» es el evento, y vacía su ＋ crea la tarjeta. Las dos se dibujan SIEMPRE: una fila
-  // que aparece sólo a veces es un lugar que nadie encuentra.
-  //
+  // ── La tarjeta CRON: el disparador ──
   // ⚠️ CUARTA TANDA, PUNTO 4: «No tiene sentido que el CRON tenga la opción de "Si responde"... Eso es
   // una CONDITION... se va el texto "Si responde" del CRON, y también quita el texto "Al entrar"». El
-  // CRON nuevo no tiene filas: de él salen varias flechas (en paralelo) desde la cabecera. Sólo un
-  // flujo que YA tiene «Si responde» (los convertidos de la primera tanda) lo sigue dibujando con
-  // sus dos filas: sacarlo cambiaría qué hace hoy una secuencia prendida.
+  // CRON no tiene filas: de él salen varias flechas (en paralelo) desde su salida.
   //
   // ⚠️ SEXTA TANDA, CRON 10: «copiá la tarjeta de CRON de ManyChat»: «⚡ CRON» con una cajita por
   // disparador elegido (`op.disparadores`, o la de siempre con `op.disparador`), «+ Nuevo CRON» abajo
   // si quien monta sabe agregar uno, y la salida al pie, «Entonces ●». El alto se SUMA (`altoCron`):
-  // la tarjeta tiene alto fijo. Un flujo con «Si responde» sigue con sus dos filas.
+  // la tarjeta tiene alto fijo.
+  //
+  // ⚠️ Y SIN LA FILA «SI RESPONDE» TAMPOCO EN LOS FLUJOS QUE LA TIENEN (segunda pasada de la sexta
+  // tanda). Hasta acá un flujo convertido de la primera tanda seguía dibujando las dos filas («Al
+  // entrar» y «Si responde») y una flecha del CRON a la tarjeta. «Si responde» es la CONDITION que
+  // escucha: se decide cuando el lead ESCRIBE, así que no tiene flecha de entrada (se dibuja suelta,
+  // debajo del CRON, sin la marca de suelta). Lo que corre no cambió: es el mismo nodo.
   const textosCron = (op.disparadores?.length ? op.disparadores.map((d) => d.texto) : [op.disparador]);
   const salidaCron = { id: 'sig', vacio: !raiz, ...(raiz && admiteParalelo(iIni) ? { paralelo: true } : {}) };
   tarjetas.set(ID_ENTRADA, {
     id: ID_ENTRADA, tipo: 'entrada', familia: 'contenido', titulo: TITULO.cron, icono: ICONO_CRON, detalle: op.disparador,
-    puertos: resp
-      ? [{ ...salidaCron, rotulo: 'Al entrar' }, { id: PUERTO_RESPUESTA, rotulo: 'Si responde', vacio: false }]
-      : [salidaCron],
-    ...(resp ? {} : { salidaAlPie: true }),
-    ancho: ANCHO_NODO, alto: altoCron(textosCron, op.nuevoDisparador === true, resp ? 2 : 1),
+    puertos: [salidaCron], salidaAlPie: true,
+    ancho: ANCHO_NODO, alto: altoCron(textosCron, op.nuevoDisparador === true, 1),
   });
 
   // ── El árbol: a quién le cuelga cada uno (el PRIMERO que lo alcanza gana) ──
   // Con un grafo válido cada nodo tiene un padre; mientras se edita puede no serlo, y un
   // nodo con dos padres se dibuja UNA vez (las dos flechas igual se ven).
   //
-  // Los hijos del CRON son [la salida principal, …sus flechas en paralelo, «Si responde»]: en
-  // ese orden se apilan, así «Si responde» queda debajo de la salida y de los paralelos.
+  // Los hijos del CRON son [la salida principal, …sus flechas en paralelo]: en ese orden se apilan.
+  // «Si responde» NO es su hijo (segunda pasada de la sexta tanda): no tiene flecha de entrada, y va
+  // primera entre lo que no cuelga del CRON (abajo, 2.).
   //
   // Una espera que va EN LA FLECHA no ocupa columna: el hijo es lo que viene después de ella (`tramo`).
   const destinosDe = (id: string): Array<string | null> => {
     const visibles = (ds: Array<string | null>) => ds.map((d) => tramo(d).hasta);
     if (id !== ID_ENTRADA) return visibles(puertosDe(pasos, indicePorId(pasos, id)).map((pt) => pt.destino));
-    const salida = iIni >= 0 ? puertosDe(pasos, iIni).map((pt) => pt.destino) : [raiz];
-    return [...visibles(salida), resp];
+    return visibles(iIni >= 0 ? puertosDe(pasos, iIni).map((pt) => pt.destino) : [raiz]);
   };
   const hijos = new Map<string, string[]>();
   const asignado = new Set<string>();
@@ -919,7 +970,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     }
   };
 
-  // 1. El CRON y todo lo que cuelga de él: la salida, sus paralelos y «Si responde» (columna 1).
+  // 1. El CRON y todo lo que cuelga de él: la salida y sus paralelos (columna 1).
   //    Las esperas que van en una flecha no son de nadie: no se colocan (ni abajo, como sueltas).
   for (const e of enFlecha) asignado.add(e);
   asignado.add(ID_ENTRADA); armar(ID_ENTRADA);
@@ -927,9 +978,11 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   colocar(ID_ENTRADA, 0, 0);
   let cursor = mCron.bajo + GAP_RAICES;
 
-  // 2. Lo que no cuelga de ninguna raíz (el destino de un salto sin padre, una tarjeta
-  //    suelta, un ciclo), abajo de todo y en el orden del array. El inicio no: ES el CRON.
-  for (let i = 0; i < ids.length; i++) {
+  // 2. Lo que no cuelga del CRON, abajo y en columna 0: PRIMERO «Si responde» (la CONDITION que
+  //    escucha, con lo suyo), y después lo demás —el destino de un salto sin padre, una tarjeta
+  //    suelta, un ciclo— en el orden del array. El inicio no: ES el CRON.
+  const libres = resp ? [indicePorId(pasos, resp), ...ids.map((_, i) => i).filter((i) => ids[i] !== resp)] : ids.map((_, i) => i);
+  for (const i of libres) {
     const id = ids[i];
     if (asignado.has(id) || i === iIni) continue;
     asignado.add(id); armar(id);
@@ -964,9 +1017,8 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       }
     }
   });
-  // «Si responde», desde su fila del CRON. SIN el ＋ del medio: nada puede ir antes de «Si
-  // responde» (no tiene padre), así que insertar ahí sería un control que no se puede publicar.
-  if (resp && pos.has(resp)) aristas.push({ desde: ID_ENTRADA, hasta: resp, puerto: PUERTO_RESPUESTA, tono: 'normal', sinMas: true });
+  // (Acá iba la flecha del CRON a «Si responde», desde su fila. Se fue con la fila: la CONDITION que
+  // escucha no tiene flecha de entrada, ni dibujada ni en el dato.)
 
   const normal = aOrigen(nodos, MARGEN);
   // Las esperas de las flechas, como nodos `enFlecha` en el lugar de su pastilla: no se dibujan como
@@ -994,11 +1046,15 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
  * crearlos. Con «MaKo» (decisión 11): la ⚡ Acción `avisar_al_equipo`, dibujada como su tarjeta.
  */
 export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako' | CanalSocial;
-/** Lo que ofrece el ＋ de un lugar: lo que se inserta, y en la fila «Si responde» del CRON, crearla. */
-export type QueAgregarEn = QueAgregar | 'respuesta';
-/** Una opción del menú del ＋ (estructural: `DropdownOption` vive en un componente). `grupo` separa
- *  el menú con una línea; `icono` es un SVG (`data:`), nunca un emoji. */
-export type OpcionMas = { value: QueAgregarEn; label: string; icono?: string; grupo?: number };
+/**
+ * Una opción del menú del ＋ (estructural: `DropdownOption` vive en un componente). `grupo` separa
+ * el menú con una línea; `icono` es un SVG (`data:`), nunca un emoji.
+ *
+ * (Hasta la segunda pasada de la sexta tanda el ＋ podía ofrecer además 'respuesta' —crear «Si
+ * responde» desde su fila del CRON—. Se fue con la fila: lo nuevo se crea eligiendo «Su respuesta
+ * trata de» en una CONDITION vacía, `condicionARespuesta`.)
+ */
+export type OpcionMas = { value: QueAgregar; label: string; icono?: string; grupo?: number };
 
 /** Un SVG chico como `data:` para un renglón del menú. */
 const svg = (cuerpo: string, viewBox = '0 0 24 24') =>
@@ -1176,40 +1232,9 @@ export function sacarSubarbol<P extends PasoGrafo>(pasos: readonly P[], raiz: st
   return out;
 }
 
-/**
- * LAS TARJETAS A LAS QUE PUEDE SALTAR UN «IR A» (en el orden del array).
- *
- * ⚠️ DESDE LA SALIDA, SÓLO LAS DE SU PROPIO HILO (segunda tanda): con flechas en paralelo, un
- * «Ir a» a la tarjeta de OTRO hilo pone dos cursores en la misma tarjeta y al lead le llega el
- * mismo mensaje dos veces. `validarGrafo` lo rechaza al publicar; ofrecerlo en el desplegable
- * sería un control que no se puede guardar. Desde «Si responde» se ofrecen todas: la respuesta
- * pausa todo y retoma UN solo hilo. Un «Ir a» suelto (sin hilo todavía) también las ve todas.
- *
- * ⚠️ Y NINGUNA QUE ARME UN BUCLE CON UNA TARJETA QUE REPARTE. Con m1 sacando una flecha en
- * paralelo, un «Ir a» puesto después de la espera ofrecía m1, y elegirla armaba el bucle que
- * `validarGrafo` rechaza («saca flechas en paralelo dentro de un bucle»). Se pregunta con la MISMA
- * regla (`repartenEnBucle`) sobre el flujo con ese destino puesto, contra el mismo flujo con el
- * «Ir a» sin destino: así un bucle que ya estaba mal por otro lado no esconde todas las opciones,
- * y el destino que tiene puesto, si el resto está bien, sigue en la lista.
- *
- * Nunca a sí mismo, a otro «Ir a», a «Si responde» ni al CRON (volver a entrar no es un salto).
- */
-export function tarjetasParaIrA(pasos: readonly PasoGrafo[], irAId: string): string[] {
-  const hilo = hiloDe(pasos);
-  const desde = hilo.get(irAId);
-  const todas = desde === undefined || desde === HILO_RESPUESTA;
-  const sinDestino = cambiarNodo(pasos, irAId, { destino: undefined });
-  const yaMal = repartenEnBucle(sinDestino);
-  const armaBucle = (d: string): boolean => [...repartenEnBucle(cambiarNodo(pasos, irAId, { destino: { nodo: d } }))].some((x) => !yaMal.has(x));
-  return pasos
-    .map((p, i) => ({ p, id: idDe(p, i) }))
-    .filter(({ p, id }) => {
-      const c = claseDe(p);
-      if (id === irAId || c === 'ir_a' || c === 'respuesta' || c === 'inicio') return false;
-      return (todas || hilo.get(id) === desde) && !armaBucle(id);
-    })
-    .map(({ id }) => id);
-}
+// (Acá vivía `tarjetasParaIrA`, a dónde podía saltar un «Ir a». Desde la sexta tanda GO TO no se crea ni
+// elige destino: su editor lo pasa a flecha o lo quita (`quitarIrA`, lib/flujo-legado.ts). Se fue en la
+// segunda pasada, sin call site.)
 
 export function cambiarNodo<P extends PasoGrafo>(pasos: readonly P[], id: string, patch: Partial<P>): P[] {
   return pasos.map((p, i) => (idDe(p, i) === id ? { ...p, ...patch } : p));
@@ -1268,21 +1293,9 @@ export function quitarCaso<P extends PasoGrafo>(pasos: readonly P[], respId: str
   return renumerar(cambiarNodo(sin, respId, { casos: (r2.casos ?? []).filter((x) => x.id !== casoId) } as Partial<P>));
 }
 
-/**
- * La tarjeta «Si responde», si no la hay. Nace sin casos y con «Otra cosa» ya puesta en
- * una Acción que avisa al equipo: es lo que hacía el hand-off de antes (MaKo se calla y
- * te avisa), y una respuesta que no encaja en nada no puede quedar sin nadie que la mire.
- */
-export function crearRespuesta<P extends PasoGrafo>(pasos: readonly P[], rnd: () => number = Math.random): { pasos: P[]; id: string } {
-  const base = normalizar(pasos);
-  const hay = raizRespuesta(base);
-  if (hay) return { pasos: base, id: hay };
-  const avisoId = nuevoId(base, rnd);
-  const aviso = { ...relleno(), id: avisoId, accion: { operacion: OP_AVISAR, params: { leadId: 'evento', mensaje: 'Te escribió algo que no sé contestar' } }, siguiente: null } as unknown as P;
-  const respId = nuevoId([...base, aviso], rnd);
-  const resp = { ...relleno(), id: respId, nodo: 'respuesta', casos: [], si_no: avisoId } as unknown as P;
-  return { pasos: renumerar([...base, resp, aviso]), id: respId };
-}
+// (Acá vivía `crearRespuesta`, que armaba «Si responde» desde la fila del CRON. Se fue con la fila en la
+// segunda pasada de la sexta tanda: la CONDITION que escucha nace de una CONDITION vacía al elegir «Su
+// respuesta trata de» (`condicionARespuesta`, lib/flujo-grafo.ts), con su «Si no» avisando al equipo.)
 
 /**
  * La estrategia que se publica cuando la secuencia se CONVIRTIÓ (`legadoAGrafo`): la de

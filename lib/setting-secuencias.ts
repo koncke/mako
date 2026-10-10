@@ -33,6 +33,8 @@ import { partesDe } from './mensaje-partes';
 import { emojiDeSecuencia } from './flujo-conversacion';
 import { leerPosicionesSecuencias, type DbPosiciones } from './secuencia-posiciones';
 import type { Posiciones } from './lienzo-posiciones';
+import { leerBorradoresSecuencias, type DbBorrador } from './secuencia-borrador';
+import type { PasoGrafo } from './flujo-grafo';
 
 export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
@@ -44,6 +46,12 @@ export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
    * dibuja como siempre y no guarda, para no pisar lo que no se leyó.
    */
   posiciones: Posiciones | null;
+  /**
+   * Lo que quedó a medio armar en el lienzo, sin publicar (mig 0240, lib/secuencia-borrador.ts): el
+   * borrador VIGENTE (`borradorVigente`). `null` = no hay. AUSENTE = no se pudo leer (falta la columna
+   * o falló la consulta): la pantalla abre lo publicado y no guarda borradores.
+   */
+  borrador?: { pasos: PasoGrafo[]; guardado_at: string } | null;
 };
 
 /**
@@ -99,10 +107,12 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
     leerTodo<FilaInsc>(supabase, 'nutricion_inscripciones', 'secuencia_id, estado, updated_at', { orden: 'id' }),
   ]);
   const met = agregarMetricas(filasEnvio, filasInsc);
-  // Las posiciones van aparte y tolerantes (no tiran): ver `leerPosicionesSecuencias`.
-  const [emojis, posiciones] = await Promise.all([
+  // Las posiciones y los borradores van aparte y tolerantes (no tiran): ver `leerPosicionesSecuencias`
+  // y `leerBorradoresSecuencias`. `null` = no se pudieron leer, que no es «ninguno».
+  const [emojis, posiciones, borradores] = await Promise.all([
     emojisDeSecuencias(supabase),
     leerPosicionesSecuencias(supabase as unknown as DbPosiciones),
+    leerBorradoresSecuencias(supabase as unknown as DbBorrador),
   ]);
   const secuencias = secs.map((s) => ({
     ...s,
@@ -110,6 +120,9 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
     metricas: met.get(s.id) ?? { ...METRICAS_CERO },
     emoji: emojis.get(s.id) ?? null,
     posiciones: posiciones ? (posiciones.get(s.id) ?? {}) : null,
+    // Sin poder leerlos, la clave NO va: la pantalla distingue «no hay» (null) de «no sé» (ausente) y
+    // en el segundo caso no guarda, para no pisar un borrador que no vio.
+    ...(borradores ? { borrador: borradores.get(s.id) ?? null } : {}),
   }));
   return { secuencias, serie: serieDiaria(filasEnvio, filasInsc, new Date().toISOString()) };
 }

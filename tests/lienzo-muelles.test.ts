@@ -241,8 +241,13 @@ test('⚠️ el editor de un MENSAJE es más grande que antes (punto 16) y el de
     assert.ok(c.alto < msg.alto, `${t}: el de control no es más chico que el de un mensaje`);
     assert.equal(c.ancho, MUELLE.editorControlAncho, `${t}: el de control no va con su ancho`);
   }
-  // DELAY, TAG y GO TO son UNA frase o un campo: el panel no pasa de 160 (antes, 420 con un renglón).
-  for (const t of ['espera', 'etiqueta', 'ir-a'] as const) assert.ok(editorDeTarjeta(m, t).alto <= 160, `${t}: volvió el panel con aire`);
+  // DELAY y GO TO son UNA frase o un campo: el panel no pasa de 160 (antes, 420 con un renglón). El TAG,
+  // desde la sexta tanda (TAG 2), lleva VARIAS etiquetas: el verbo y los chips bajan de renglón en el
+  // panel de columna, y su tope es 200 (lib/lienzo-grafo.ts, `ALTO_EDITOR_CONTROL`, con la cuenta).
+  for (const t of ['espera', 'ir-a'] as const) assert.ok(editorDeTarjeta(m, t).alto <= 160, `${t}: volvió el panel con aire`);
+  assert.ok(editorDeTarjeta(m, 'etiqueta').alto <= 200, 'etiqueta: volvió el panel con aire');
+  // Y el CRON mide lo de un «Recurrente» con un CRON (segunda pasada): con 320 scrolleaba en lo más común.
+  assert.ok(editorDeTarjeta(m, 'entrada').alto >= 440, 'entrada: el Recurrente no entra en el panel del CRON');
 });
 
 test('⚠️ POR TIPO, NUNCA POR CONTENIDO: dos tarjetas del mismo tipo miden lo mismo en cualquier caja', () => {

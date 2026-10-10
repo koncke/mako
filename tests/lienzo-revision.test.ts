@@ -28,7 +28,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  agregarCaso, crearRespuesta, cambiarNodo, insertarDesdeLienzo, revisarHeredado, cambioApila, nombreEtiqueta,
+  agregarCaso, cambiarNodo, insertarDesdeLienzo, revisarHeredado, cambioApila, nombreEtiqueta,
   vistaDeArchivo, altoDeMensaje, grafoDeSecuencia, nombreDeTarjeta, tituloDeTarjeta, errorLegible, tarjetaDelError,
   faltaEscribir, estrategiaConLimpieza, seccionesDisparo, detalleDisparador,
   type PasoParaGrafo, type NodoFlujo,
@@ -56,10 +56,23 @@ const LIENZO = sinComentarios(leer('../app/_components/Lienzo.tsx'));
 const rndDe = (semilla = 1) => { let s = semilla; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; };
 const msg = (id: string, extra: Partial<PasoParaGrafo> = {}): PasoParaGrafo => ({ id, canal: 'whatsapp', delay_horas: 0, cuerpo: 'hola', siguiente: null, ...extra });
 const nodo = (g: { nodos: NodoFlujo[] }, id: string): NodoFlujo => { const n = g.nodos.find((x) => x.id === id); assert.ok(n, `no está el nodo ${id}`); return n; };
+/**
+ * «Si responde» SIN casos y con su «Otra cosa» avisando al equipo: la forma que tienen los flujos
+ * convertidos de la primera tanda. Desde la segunda pasada de la sexta tanda no hay una función que la
+ * arme desde el CRON (lo nuevo nace de una CONDITION vacía, `condicionARespuesta`): es un fixture.
+ */
+const conRespuestaVacia = (pasos: PasoParaGrafo[]): { pasos: PasoParaGrafo[]; id: string } => ({
+  pasos: [
+    ...pasos,
+    { id: 'R', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'respuesta', casos: [], si_no: 'otra' },
+    { id: 'otra', canal: 'whatsapp', delay_horas: 0, cuerpo: '', siguiente: null, accion: { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje: 'Te escribió algo que no sé contestar' } } },
+  ],
+  id: 'R',
+});
 
 /** Una salida (un texto y un «IA») y «Si responde» con UN caso: su «MaKo contesta» y, en la misma rama, un texto. */
 function conCaso(): { pasos: PasoParaGrafo[]; contesta: string; textoRama: string } {
-  const r = crearRespuesta([msg('a', { siguiente: 'b' }), msg('b', { tipo: 'ia' })], rndDe());
+  const r = conRespuestaVacia([msg('a', { siguiente: 'b' }), msg('b', { tipo: 'ia' })]);
   const c = agregarCaso(r.pasos, r.id, rndDe(5));
   const ins = insertarDesdeLienzo(c.pasos, c.mensaje!, 'sig', 'mensaje', rndDe(9));
   return { pasos: cambiarNodo(ins.pasos, ins.id!, { cuerpo: 'te paso el link' }), contesta: c.mensaje!, textoRama: ins.id! };
@@ -277,18 +290,19 @@ test('lienzo-8: sin estrategia no hay nada que limpiar: no se manda `guardar-est
   assert.equal(con?.antiguedad_max_horas, null);
   const pub = bloque(PERFIL, 'const publicar = async () => {', '\n  };', 2_600);
   assert.match(pub, /const limpia = estrategiaConLimpieza\(est\);\s*if \(limpia\) \{/);
-  assert.match(PERFIL, /convertida \? \(\(estrategiaConLimpieza\(est\) \?\? est\)/, '«Probar» prueba con una estrategia inventada');
+  assert.match(PERFIL, /convertida && limpiar \? \(\(estrategiaConLimpieza\(est\) \?\? est\)/, '«Probar» prueba con una estrategia inventada');
 });
 
 // ── costuras-5 (la parte del lienzo): «Otra cosa» dice cuántas esperan ────────────────
 
-test('costuras-5: la fila «Otra cosa» marca cuántas respuestas quedaron sin caso', () => {
-  const r = crearRespuesta([msg('a')], rndDe());
+test('costuras-5: la fila «Si no» (la «Otra cosa» de antes) marca cuántas respuestas quedaron sin caso', () => {
+  const r = conRespuestaVacia([msg('a')]);
   const fila = (n?: number) => nodo(grafoDeSecuencia(r.pasos, { disparador: 'X', pendientesOtraCosa: n }), r.id).puertos!.find((p) => p.id === 'si_no')!;
   assert.equal(fila(2).marca, '2 sin caso');
   assert.equal(fila(0).marca, undefined);
   assert.equal(fila().marca, undefined);
-  assert.equal(fila(2).rotulo, 'Otra cosa', 'la marca no reemplaza al rótulo');
+  // Sexta tanda, segunda pasada: «Si responde» se dibuja como CONDITION y su última fila es «Si no».
+  assert.equal(fila(2).rotulo, 'Si no', 'la marca no reemplaza al rótulo');
   // La tarjeta la dibuja, y el perfil cuenta las de ESTA automatización.
   // Hasta `tinteDeControl`, que desde la segunda tanda va entre la tarjeta y `BotonChico`.
   const tarjeta = bloque(LIENZO, 'export function TarjetaNodo(', '\nexport function tinteDeControl', 4_600);

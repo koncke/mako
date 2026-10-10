@@ -1146,9 +1146,8 @@ function llegadasPorTarjeta(pasos: readonly PasoGrafo[], conCtx: boolean): Map<s
  *
  * ⚠️ UNA SOLA FUNCIÓN PARA LA REGLA Y PARA LO QUE SE OFRECE. La usan `reglasDeHilos` (rechaza al
  * publicar una tarjeta que reparte dentro de un bucle) y el lienzo (`grafoDeSecuencia` no ofrece
- * el ＋ en paralelo en una tarjeta de un bucle, y `tarjetasParaIrA` no ofrece el destino que lo
- * arma). Hasta el 09/10/2026 el lienzo miraba la clase, «Si responde» y los topes y NO los
- * bucles: ofrecía «＋ En paralelo» en CRON → m1 → esperar → «Ir a» m1 y Publicar lo rechazaba
+ * el ＋ en paralelo en una tarjeta de un bucle). Hasta el 09/10/2026 el lienzo miraba la clase,
+ * «Si responde» y los topes y NO los bucles: ofrecía «＋ En paralelo» en CRON → m1 → esperar → «Ir a» m1 y Publicar lo rechazaba
  * (revisión de la segunda tanda, frente modelo). Con dos copias de «qué es un bucle», la del
  * lienzo y la de validar se separan en la primera que se toque.
  */
@@ -1181,8 +1180,8 @@ export function nodosEnBucle(pasos: readonly PasoGrafo[]): Set<string> {
 
 /**
  * Las tarjetas que sacan flechas en paralelo DENTRO DE UN BUCLE (lo que `validarGrafo` rechaza,
- * en el orden del array). Exportada para que el lienzo pregunte lo MISMO sobre un flujo
- * hipotético (`tarjetasParaIrA`) en vez de reescribir la regla.
+ * en el orden del array). Exportada para que quien pregunte por un flujo hipotético use la MISMA
+ * regla en vez de reescribirla (la usaba `tarjetasParaIrA`, que se fue con el GO TO).
  */
 export function repartenEnBucle(pasos: readonly PasoGrafo[]): Set<string> {
   // `todosLosParalelos`: una condición que reparte desde un RESULTADO dentro de un bucle abre hilos

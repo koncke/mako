@@ -36,12 +36,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  grafoDeSecuencia, crearRespuesta, nombreDeTarjeta, canalesParaProbar, emojiDeSecuencia, esMako, makoDeAccion,
+  grafoDeSecuencia, nombreDeTarjeta, canalesParaProbar, emojiDeSecuencia, esMako, makoDeAccion,
   insertarDesdeLienzo, TITULO, ID_ENTRADA, ALTO_MAKO,
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
 import { ICONO_MAKO, ICONO_GMAIL, ALTO_PUERTO } from '../lib/lienzo-grafo';
-import { ID_INICIO } from '../lib/flujo-grafo';
+import { ID_INICIO, condicionARespuesta } from '../lib/flujo-grafo';
 import { identidadDeTarjeta } from '../app/_components/Lienzo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -57,6 +57,19 @@ const bloque = (src: string, abre: string, cierra: string, tope: number): string
 };
 const rndDe = (semilla = 1) => { let s = semilla; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; };
 const msg = (id: string, extra: Partial<PasoParaGrafo> = {}): PasoParaGrafo => ({ id, canal: 'whatsapp', delay_horas: 0, cuerpo: 'hola', siguiente: null, ...extra });
+/**
+ * «Si responde» SIN casos y con su «Otra cosa» avisando al equipo: la forma que tienen los flujos
+ * convertidos de la primera tanda. Desde la segunda pasada de la sexta tanda no hay una función que la
+ * arme desde el CRON (lo nuevo nace de una CONDITION vacía, `condicionARespuesta`): es un fixture.
+ */
+const conRespuestaVacia = (pasos: PasoParaGrafo[]): { pasos: PasoParaGrafo[]; id: string } => ({
+  pasos: [
+    ...pasos,
+    { id: 'R', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'respuesta', casos: [], si_no: 'otra' },
+    { id: 'otra', canal: 'whatsapp', delay_horas: 0, cuerpo: '', siguiente: null, accion: { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje: 'Te escribió algo que no sé contestar' } } },
+  ],
+  id: 'R',
+});
 const nodo = (g: { nodos: NodoFlujo[] }, id: string): NodoFlujo => { const n = g.nodos.find((x) => x.id === id); assert.ok(n, `no está el nodo ${id}`); return n; };
 const mako = (id: string, mensaje: string, extra: Partial<PasoParaGrafo> = {}): PasoParaGrafo =>
   msg(id, { cuerpo: '', accion: { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje } }, ...extra });
@@ -76,7 +89,7 @@ test('⚠️ los títulos, en inglés: CRON · WHATSAPP · EMAIL · DELAY · CON
     // Un «Ir a» que ya existía: se sigue dibujando (decisión 3: lo que se va es crearlo).
     { id: 'ir', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'ir_a', destino: { nodo: 't' } },
   ];
-  const r = crearRespuesta(pasos, rndDe());
+  const r = conRespuestaVacia(pasos);
   const g = grafoDeSecuencia(r.pasos, { disparador: 'X' });
   const titulo = (id: string) => nodo(g, id).titulo;
   assert.equal(titulo(ID_ENTRADA), 'CRON');
@@ -86,8 +99,10 @@ test('⚠️ los títulos, en inglés: CRON · WHATSAPP · EMAIL · DELAY · CON
   assert.equal(titulo('c'), 'CONDITION');
   assert.equal(titulo('ac'), 'ACTION');
   assert.equal(titulo('tag'), 'TAG');
-  assert.equal(titulo('mk'), 'MAKO');
-  assert.equal(titulo(r.id), 'REPLY');
+  // Sexta tanda: «MaKo en WhatsApp» (MaKo en WhatsApp 1: «Sino se confunde con una ayuda de la IA»), y
+  // «Si responde» es la CONDITION que escucha (punto 12), sin el título REPLY.
+  assert.equal(titulo('mk'), 'MAKO EN WHATSAPP');
+  assert.equal(titulo(r.id), 'CONDITION');
   assert.equal(titulo('ir'), 'GO TO');
   // Todos salen del catálogo (`TITULO`): ningún título de tarjeta queda en castellano.
   const del = new Set<string>(Object.values(TITULO));
@@ -140,11 +155,15 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   assert.deepEqual(n.puertos, [{ id: 'sig', vacio: false, paralelo: true }], 'la tarjeta MAKO sigue con una salida, como una Acción');
   assert.ok(esMako(mako('x', 'y')) && !esMako(msg('x')) && !esMako(msg('x', { accion: { operacion: 'poner_etiqueta_lead', params: {} } })));
   assert.deepEqual(makoDeAccion(mako('x', 'Llámalo', { accion: { operacion: 'avisar_al_equipo', params: { mensaje: 'Llámalo', titulo: 'Urgente' } } })), { mensaje: 'Llámalo', titulo: 'Urgente' });
-  // La «Otra cosa» con la que nace «Si responde» es una tarjeta MAKO (el aviso al grupo).
-  const r = crearRespuesta([msg('a')], rndDe());
-  const otra = r.pasos.find((p) => p.id === r.pasos.find((q) => q.id === r.id)!.si_no)!;
-  assert.equal(nodo(grafoDeSecuencia(r.pasos, { disparador: 'X' }), otra.id!).tipo, 'mako');
-  assert.equal(nombreDeTarjeta(r.pasos, otra.id!), 'MAKO: Te escribió algo que no s…');
+  // El «Si no» con el que nace la condición que escucha es una tarjeta MAKO (el aviso al grupo): se crea
+  // eligiendo «Su respuesta trata de» en una CONDITION vacía (`condicionARespuesta`).
+  const vacia: PasoParaGrafo = { id: 'k', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', si_no: null, ramas: [{ id: 'kr', modo: 'todas', filas: [], siguiente: null }] };
+  const cr = condicionARespuesta([msg('a', { siguiente: 'k' }), vacia], 'k', rndDe());
+  assert.ok(!('error' in cr));
+  const rp = (cr as { pasos: PasoParaGrafo[] }).pasos;
+  const otra = rp.find((p) => p.id === rp.find((q) => q.id === 'k')!.si_no)!;
+  assert.equal(nodo(grafoDeSecuencia(rp, { disparador: 'X' }), otra.id!).tipo, 'mako');
+  assert.equal(nombreDeTarjeta(rp, otra.id!), 'MAKO EN WHATSAPP: Te escribió algo que no s…');
   // Y el editor de la tarjeta MAKO es el de WhatsApp en modo grupo (sexta tanda, MaKo en WhatsApp 2:
   // «la misma interfaz»): el mensaje con los datos del lead en «{ }». El título salió de la pantalla y
   // el guardado lo conserva (`params` viaja entero).
@@ -153,7 +172,10 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   const ed = bloque(flujo, 'function EditorMako(', '\n}\n', 3_200);
   assert.match(ed, /<EditorMensajeGrupo texto=\{m\.mensaje\} onTexto=\{poner\} variables=\{DATOS_MAKO\}/);
   assert.match(ed, /\.\.\.params, leadId: params\.leadId \?\? LEAD_DEL_EVENTO, mensaje/, 'el aviso perdió el lead del evento o el título guardado');
-  assert.match(flujo, /const DATOS_MAKO = VARIABLES_LEAD\.map/);
+  // Segunda pasada: el catálogo de lo que un mensaje AL EQUIPO sobre un lead puede resolver, no los 4
+  // datos del motor (MaKo en WhatsApp 4: «falta muchísimos datos posibles»).
+  assert.match(flujo, /const GRUPOS_MAKO = datosOfrecidos\(\{ destino: 'equipo', conLead: true \}\);/);
+  assert.match(flujo, /const DATOS_MAKO = GRUPOS_MAKO\.flatMap/);
   // ⚠️ Y EL RUNNER LOS REEMPLAZA (integración): «＋ Dato del lead» inserta `{{nombre}}`, y sin esto
   // salía crudo al grupo. Mensaje Y título, con la función del motor y el nombre CRUDO del lead (el
   // `nombre` del aviso trae el respaldo «el lead #N», que no es un nombre).
@@ -174,7 +196,7 @@ test('«Probar» ofrece sólo los canales que el flujo usa', () => {
   assert.deepEqual(canalesParaProbar([]), ['whatsapp'], 'sin mensajes, el teléfono (lo que «Probar» abre por default)');
 });
 
-test('⚠️ «Probar» se frena con lo mismo que Publicar, abre la tarjeta, y es un desplegable con 2 canales', () => {
+test('⚠️ «Probar» se frena con lo mismo que Publicar, abre la tarjeta, y es un desplegable con los canales del flujo', () => {
   const perfil = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
   const probar = bloque(perfil, 'const probar = (canal:', '\n  };', 400);
   const freno = probar.indexOf('const freno = frenoDelFlujo(pasos, faltanEnAccion);');
@@ -185,7 +207,13 @@ test('⚠️ «Probar» se frena con lo mismo que Publicar, abre la tarjeta, y e
   assert.match(perfil, /<button onClick=\{\(\) => probar\(canales\[0\]\)\} title="Probar esta automatización" style=\{estiloProbar\}>▶ Probar<\/button>/);
   // El tipo del canal es el del panel (`CanalProbar`, app/chatbot/PanelProbar.tsx): uno en las dos puntas.
   assert.match(perfil, /onProbar\?: \(canal: CanalProbar\) => void;/);
-  assert.match(perfil, /import type \{ CanalProbar \} from '\.\/PanelProbar';/);
+  assert.match(perfil, /import \{ CANALES_PROBAR, type CanalProbar \} from '\.\/PanelProbar';/);
+  // Sexta tanda, segunda pasada: WhatsApp, Email, Instagram y Messenger, cada uno con su nombre y su logo
+  // del MISMO lugar que el panel (`CANALES_PROBAR`). Hasta acá lo que no era email se rotulaba «WhatsApp»
+  // y se probaba como WhatsApp.
+  assert.match(perfil, /options=\{canales\.map\(\(c\) => \(\{ value: c, label: CANALES_PROBAR\[c\]\.nombre, icono: CANALES_PROBAR\[c\]\.logo \}\)\)\}/);
+  assert.match(perfil, /if \(v && v in CANALES_PROBAR\) probar\(v as CanalProbar\);/);
+  assert.doesNotMatch(perfil, /probar\(v === 'email' \? 'email' : 'whatsapp'\)/, 'volvió el desplegable que colapsa todo a WhatsApp');
   // El «⋯» de la lista prende o pausa sin remontar el lienzo: el interruptor se resiembra de la prop.
   assert.match(perfil, /if \(secuencia\.activa !== activaVista\) \{ setActivaVista\(secuencia\.activa\); setActiva\(secuencia\.activa\); \}/);
 });

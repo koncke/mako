@@ -34,12 +34,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  grafoDeSecuencia, insertarDesdeLienzo, nodoNuevo, crearRespuesta, faltaEscribir, nombreDeTarjeta, tarjetasParaIrA,
-  lugarDesdeLienzo, ID_ENTRADA, PUERTO_RESPUESTA, ICONO_CRON, ALTO_PILDORA, ANCHO_PILDORA, ALTO_COMPACTO, ANCHO_ETIQUETA,
+  grafoDeSecuencia, insertarDesdeLienzo, nodoNuevo, faltaEscribir, nombreDeTarjeta,
+  lugarDesdeLienzo, ID_ENTRADA, ICONO_CRON, ALTO_PILDORA, ANCHO_PILDORA, ALTO_COMPACTO, ANCHO_ETIQUETA,
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
 import { ANCHO_NODO, ALTO_MIN, ALTO_PUERTO, yDePuerto } from '../lib/lienzo-grafo';
-import { validarGrafo, nodoPorId, claseDe, ID_INICIO, TOPE_PARALELOS } from '../lib/flujo-grafo';
+import { validarGrafo, nodoPorId, claseDe, condicionARespuesta, ID_INICIO, TOPE_PARALELOS } from '../lib/flujo-grafo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -55,10 +55,23 @@ const sinPisarse = (g: { nodos: NodoFlujo[] }) => {
   }
 };
 
+/**
+ * Un flujo CON la condición que escucha («Si responde»), creada como se crea desde la segunda pasada de
+ * la sexta tanda: una CONDITION vacía que pasa a escuchar (`condicionARespuesta`).
+ */
+const conRespuesta = (pasos: PasoParaGrafo[], rnd = rndDe()): { pasos: PasoParaGrafo[]; id: string } => {
+  const vacia: PasoParaGrafo = { id: 'escucha', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', si_no: null, ramas: [{ id: 'escucha_r', modo: 'todas', filas: [], siguiente: null }] };
+  const r = condicionARespuesta([...pasos, vacia], 'escucha', rnd);
+  assert.ok(!('error' in r), 'no se pudo crear la condición que escucha');
+  // Con nombre y descripción: un caso sin nombre no se publica, y el fixture tiene que ser válido.
+  const pasosR = (r as { pasos: PasoParaGrafo[] }).pasos.map((p) => (p.id === 'escucha' ? { ...p, casos: p.casos!.map((c) => ({ ...c, titulo: 'Precio', cuando: 'pregunta el precio' })) } : p));
+  return { pasos: pasosR, id: 'escucha' };
+};
+
 /** WhatsApp por la principal y dos hilos de email en paralelo desde el CRON, y «Si responde». */
 const conHilosDelCron = (): PasoParaGrafo[] => {
   const base = [msg('m1', { siguiente: 'm2' }), msg('m2'), mail('e1', { siguiente: 'e2' }), mail('e2'), mail('f1'), inicio('m1', ['e1', 'f1'])];
-  return crearRespuesta(base, rndDe(3)).pasos;
+  return conRespuesta(base, rndDe(3)).pasos;
 };
 
 test('⚠️ el CRON: SIN filas (ni «Al entrar» ni «Si responde»), su propio ícono y la familia de contenido', () => {
@@ -84,15 +97,20 @@ test('⚠️ el CRON: SIN filas (ni «Al entrar» ni «Si responde»), su propio
   assert.deepEqual(lugarDesdeLienzo(ID_ENTRADA, 'sig'), { inicio: true });
 });
 
-test('⚠️ las flechas en paralelo del CRON: hijos en la columna 1, apilados sin pisarse, «Si responde» abajo de todo', () => {
+test('⚠️ las flechas en paralelo del CRON: hijos en la columna 1, apilados sin pisarse; «Si responde» abajo, sin flecha', () => {
   const pasos = conHilosDelCron();
   assert.deepEqual(validarGrafo(pasos), [], 'el fixture tiene que ser un flujo válido');
   const g = grafoDeSecuencia(pasos, { disparador: 'X' });
   sinPisarse(g);
   const resp = g.nodos.find((n) => n.tipo === 'respuesta')!;
   const col1 = ['m1', 'e1', 'f1'].map((id) => nodo(g, id));
-  for (const n of [...col1, resp]) assert.equal(n.x, nodo(g, 'm1').x, `${n.id} no está en la columna 1`);
-  assert.ok(col1[0].y < col1[1].y && col1[1].y < col1[2].y && col1[2].y < resp.y, 'el orden es [principal, …paralelos, «Si responde»]');
+  for (const n of col1) assert.equal(n.x, nodo(g, 'm1').x, `${n.id} no está en la columna 1`);
+  assert.ok(col1[0].y < col1[1].y && col1[1].y < col1[2].y, 'el orden es [principal, …paralelos]');
+  // Segunda pasada de la sexta tanda: «Si responde» es la CONDITION que escucha, sin flecha de entrada:
+  // va en la columna del CRON, debajo de su árbol (ya no es su hijo en la columna 1).
+  assert.equal(resp.x, nodo(g, ID_ENTRADA).x, '«Si responde» no va en la columna del CRON');
+  assert.ok(resp.y > Math.max(...col1.map((n) => n.y + n.alto)), '«Si responde» no va debajo del árbol del CRON');
+  assert.equal(g.aristas.some((a) => a.hasta === resp.id), false, 'volvió la flecha a «Si responde»');
   // El inicio NO se dibuja: ES el CRON. Una tarjeta por paso (menos el inicio) y el CRON.
   assert.ok(!g.nodos.some((n) => n.id !== ID_ENTRADA && n.titulo === 'CRON'));
   assert.equal(g.nodos.length, pasos.length);
@@ -134,7 +152,7 @@ test('⚠️ el ＋ en paralelo se ofrece SÓLO donde se puede publicar', () => 
   assert.equal(TOPE_PARALELOS, 3);
   assert.equal(nodo(grafoDeSecuencia(llena, { disparador: 'X' }), 'm1').puertos![0].paralelo, undefined, 'se ofreció una cuarta flecha en paralelo');
   // Dentro de «Si responde», no (validarGrafo lo rechaza: la respuesta corre en el momento).
-  const r = crearRespuesta([msg('a')], rndDe());
+  const r = conRespuesta([msg('a')]);
   const aviso = nodoPorId(r.pasos, r.id)!.si_no!;
   const g = grafoDeSecuencia(r.pasos, { disparador: 'X' });
   assert.equal(nodo(g, aviso).puertos![0].paralelo, undefined, 'se ofreció paralelo dentro de «Si responde»');
@@ -182,25 +200,19 @@ const conIrA = (pasos: PasoParaGrafo[], desde: string, id: string): { pasos: Pas
   id,
 });
 
-test('⚠️ el «Ir a» de la salida no ofrece tarjetas de OTRO hilo; el de «Si responde», todas', () => {
-  const pasos = conHilosDelCron();
-  const conSalto = conIrA(pasos, 'e2', 'irx');
-  const ofrece = tarjetasParaIrA(conSalto.pasos, conSalto.id!);
-  assert.ok(ofrece.includes('e1') && ofrece.includes('e2'), 'el «Ir a» no ofrece las de su propio hilo');
-  for (const otro of ['m1', 'm2', 'f1']) assert.ok(!ofrece.includes(otro), `ofreció ${otro}, de otro hilo: el mismo mensaje saldría dos veces`);
-  assert.ok(!ofrece.includes(ID_INICIO), 'el CRON no es un destino');
-  // Desde «Si responde» (la respuesta pausa todo y retoma UN hilo), todas las de la salida.
-  const resp = pasos.find((p) => claseDe(p) === 'respuesta')!;
-  const avisoId = resp.si_no!;
-  const desdeResp = conIrA(conSalto.pasos, avisoId, 'iry');
-  const todas = tarjetasParaIrA(desdeResp.pasos, desdeResp.id!);
-  for (const t of ['m1', 'm2', 'e1', 'e2', 'f1']) assert.ok(todas.includes(t), `desde «Si responde» falta ${t}`);
-  // SEXTA TANDA (punto 12, «"Go to" desaparece directamente»): el editor del «Ir a» ya no elige un
-  // destino; el que queda se pasa a una flecha (o se quita) con la MISMA conversión que el lienzo al
-  // abrir (`quitarIrA`). `tarjetasParaIrA` queda para lo de antes (la IA, los tests de arriba).
+test('⚠️ el «Ir a» no elige destino: se pasa a una flecha o se quita (sexta tanda, punto 12)', () => {
+  // «"Go to" desaparece directamente»: el editor del «Ir a» ya no elige un destino; el que queda se pasa
+  // a una flecha (o se quita) con la MISMA conversión que el lienzo al abrir (`quitarIrA`). Hasta la
+  // segunda pasada quedaba `tarjetasParaIrA` (a dónde podía saltar): se fue, sin call site.
   const flujo = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
   assert.match(flujo, /onPasos\(\(prev\) => quitarIrA\(prev, \{ solo: id \}\)\.pasos, true\)/);
   assert.doesNotMatch(flujo, /tarjetasParaIrA\(/, 'el editor del «Ir a» vuelve a ofrecer destinos');
+  assert.doesNotMatch(sinComentarios(leer('../lib/flujo-conversacion.ts')), /export function tarjetasParaIrA/, 'volvió `tarjetasParaIrA` sin call site');
+  // Y el que retoma la salida desde «Si responde» se sigue dibujando (el motor lo corre).
+  const pasos = conHilosDelCron();
+  const avisoId = pasos.find((p) => claseDe(p) === 'respuesta')!.si_no!;
+  const desdeResp = conIrA(pasos, avisoId, 'iry');
+  assert.equal(nodo(grafoDeSecuencia(desdeResp.pasos, { disparador: 'X' }), 'iry').tipo, 'ir-a');
 });
 
 test('⚠️ dos familias: las de control son compactas (la espera, una píldora) y las columnas siguen alineadas', () => {
@@ -327,10 +339,13 @@ test('⚠️ lo no publicado: se pregunta al cambiar de automatización, y cerra
   assert.match(tab, /onSinPublicar=\{setSinPublicar\}/);
 });
 
-test('el lienzo de /chatbot: sin la tarjeta fantasma, la fila «Si responde» crea la tarjeta, el editor sigue a `muelles`', () => {
+test('el lienzo de /chatbot: sin la tarjeta fantasma ni la fila «Si responde», el editor sigue a `muelles`', () => {
   const flujo = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
   assert.doesNotMatch(flujo, /ID_NUEVA_RESPUESTA|function Fantasma/, 'volvió la tarjeta fantasma');
-  assert.match(flujo, /if \(id === ID_ENTRADA && puerto === PUERTO_RESPUESTA\) \{\n\s+const r = onCrearRespuesta \? onCrearRespuesta\(\) : null;/);
+  // Segunda pasada de la sexta tanda: «Si responde» nace de una CONDITION vacía (`onPasarARespuesta`), no
+  // del ＋ de una fila del CRON.
+  assert.doesNotMatch(flujo, /PUERTO_RESPUESTA|onCrearRespuesta/, 'volvió la fila «Si responde» del CRON');
+  assert.match(flujo, /onPasarARespuesta=\{pasarARespuesta\}/);
   assert.match(flujo, /const formaPanel: 'apaisado' \| 'columna' = muelles\?\.editorForma === 'apaisado' \? 'apaisado' : 'columna';/);
   // Cuarta tanda, punto 1: el tamaño del panel sale del TIPO de la tarjeta abierta (`editorDeTarjeta`,
   // con test en tests/lienzo-muelles.test.ts), no del editor de WhatsApp para todas.
@@ -347,5 +362,4 @@ test('el lienzo de /chatbot: sin la tarjeta fantasma, la fila «Si responde» cr
   // un costado y el composer al otro) Martín lo leyó «bugeado». Y el panel mide lo que dice `muelles`.
   assert.doesNotMatch(flujo, /disposicion=/, 'volvió el WhatsApp partido en dos columnas');
   assert.match(flujo, /panelAncho=\{talla\.ancho\}/);
-  assert.equal(PUERTO_RESPUESTA, 'resp');
 });

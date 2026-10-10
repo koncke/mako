@@ -186,23 +186,9 @@ export function desdeFresco(ahoraMs: number): string {
   return new Date(ahoraMs - VENTANA_FRESCA_MIN * 60_000).toISOString();
 }
 
-/**
- * ¿La espera depende de una corrida que no llega a tiempo? Ya no: el tick mira cada minuto.
- *
- * ⚠️ CASCARÓN (09/10/2026, sexta tanda). Devuelve `false` siempre. Existe sólo porque el editor del
- * DELAY (app/chatbot/FlujoLienzo.tsx, `EditorEspera`, de otra parte de la tanda) todavía lo importa
- * para dibujar el aviso: con `false`, el aviso no se dibuja. Lo borra quien une la tanda, junto con
- * esa línea del editor. No se borró acá porque sin él el editor no compila.
- * @deprecated
+/*
+ * (Acá vivían `sinPrecision` y `avisoDePrecision`, el «Sigue a la hora en punto» del DELAY. Con el tick de
+ * cada minuto la espera dura lo que dice, y Martín lo pidió fuera (sexta tanda, DELAY 2: «No entiendo el
+ * texto "Sigue a la hora en punto", eso no tiene sentido, eliminalo»). Quedaron como cascarones mientras
+ * el editor del DELAY los importaba, y se fueron en la segunda pasada, cuando dejó de hacerlo.)
  */
-export function sinPrecision(_segundos: number): boolean {
-  return false;
-}
-
-/**
- * ⚠️ CASCARÓN, por lo mismo que `sinPrecision`: no queda nada que avisar. Devuelve vacío.
- * @deprecated
- */
-export function avisoDePrecision(_offsetMin = 0): string {
-  return '';
-}

@@ -11,13 +11,13 @@
 // sería un control que no se puede guardar»).
 //
 // La cura es UNA función para la regla y para lo que se ofrece: `nodosEnBucle` / `repartenEnBucle`
-// (lib/flujo-grafo.ts), que usan `reglasDeHilos`, `admiteParalelo` y `tarjetasParaIrA`.
+// (lib/flujo-grafo.ts), que usan `reglasDeHilos` y `admiteParalelo`. (`tarjetasParaIrA`, a dónde podía
+// saltar un «Ir a», se fue en la segunda pasada de la sexta tanda: GO TO ya no elige destino —«"Go to"
+// desaparece directamente»—; sus tests se fueron con ella.)
 //
-// PROBADO ROMPIÉNDOLO (09/10/2026; con todo puesto: 6 pasan, 0 fallan). Cada rotura de a una,
+// PROBADO ROMPIÉNDOLO (09/10/2026; con todo puesto: 4 pasan, 0 fallan, desde la segunda pasada). Cada rotura de a una,
 // aplicada y restaurada DE MEMORIA por un arnés (nunca con git). Pasan / fallan:
 //   1. `admiteParalelo` sin `!enBucle.has(ids[i])`                              -> 4 / 2
-//   2. `tarjetasParaIrA` sin `&& !armaBucle(id)`                                 -> 5 / 1
-//   3. `armaBucle` contra un conjunto vacío (no contra el flujo sin destino)     -> 5 / 1
 //   4. `nodosEnBucle` sin seguir los saltos de un «Ir a»                         -> 2 / 4
 //      (y 1 fallo en tests/flujo-grafo-paralelos.test.ts: la regla de validar lee la misma función)
 //
@@ -25,7 +25,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  grafoDeSecuencia, insertarDesdeLienzo, tarjetasParaIrA, cambiarNodo, ID_ENTRADA,
+  grafoDeSecuencia, insertarDesdeLienzo, cambiarNodo, ID_ENTRADA,
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
 import { validarGrafo, nodosEnBucle, repartenEnBucle, ID_INICIO } from '../lib/flujo-grafo';
@@ -94,37 +94,12 @@ test('⚠️ TODO ＋ en paralelo que el lienzo ofrece se puede publicar (la pro
   }
 });
 
-test('⚠️ el «Ir a» no ofrece el destino que arma un bucle con una tarjeta que reparte', () => {
-  // CRON → m1 (en paralelo e1) → esperar → «Ir a» sin destino todavía.
-  const pasos = [inicio('m1'), msg('m1', { siguiente: 'w1', paralelos: ['e1'] }), esp('w1', 'g1'), irA('g1'), mail('e1')];
-  const ofrece = tarjetasParaIrA(pasos, 'g1');
-  assert.ok(!ofrece.includes('m1'), 'ofreció m1: elegirla arma el bucle que Publicar rechaza');
-  assert.ok(ofrece.includes('w1'), 'la espera (que no reparte) se puede elegir: el bucle w1 → «Ir a» → w1 es válido');
-  // Cada destino que se ofrece se puede publicar sin el error del bucle.
-  for (const d of ofrece) assert.deepEqual(bucle(validarGrafo(cambiarNodo(pasos, 'g1', { destino: { nodo: d } }))), [], `ofreció ${d} y arma un bucle`);
-  // Y el que tiene puesto, si es válido, sigue en la lista (si no, el desplegable diría otra cosa).
-  assert.ok(tarjetasParaIrA(cambiarNodo(pasos, 'g1', { destino: { nodo: 'w1' } }), 'g1').includes('w1'));
-});
-
-test('un bucle que YA estaba mal por otro lado no esconde todas las opciones del «Ir a»', () => {
-  // a reparte dentro de un bucle (mal, y Publicar lo va a decir). En el hilo de x, un «Ir a» sin
-  // destino: volver a x o a su espera es válido y se tiene que poder elegir.
-  const pasos = [
-    inicio('a', ['x']), msg('a', { siguiente: 'ea', paralelos: ['p'] }), esp('ea', 'ja'), irA('ja', 'a'), msg('p'),
-    msg('x', { siguiente: 'ex' }), esp('ex', 'k'), irA('k'),
-  ];
-  assert.deepEqual([...repartenEnBucle(pasos)], ['a']);
-  const ofrece = tarjetasParaIrA(pasos, 'k');
-  assert.ok(ofrece.includes('x') && ofrece.includes('ex'), `el «Ir a» quedó sin opciones válidas: ${JSON.stringify(ofrece)}`);
-});
-
-test('desde «Si responde» el «Ir a» sigue ofreciendo la tarjeta que reparte (la respuesta no arma bucle)', () => {
+test('desde «Si responde» un «Ir a» a la tarjeta que reparte no arma un bucle (la respuesta no tiene padre)', () => {
   // «Si responde» no tiene padre: nada de la salida vuelve a él, así que saltar de ahí a m1 no es un ciclo.
   const pasos: PasoParaGrafo[] = [
     inicio('m1'), msg('m1', { siguiente: 'w1', paralelos: ['e1'] }), esp('w1', null), mail('e1'),
     { id: 'R', nodo: 'respuesta', canal: 'whatsapp', delay_horas: 0, cuerpo: '', casos: [{ id: 'c1', titulo: 'Precio', cuando: 'pregunta el precio', siguiente: 'j' }], si_no: null },
     irA('j'),
   ];
-  assert.ok(tarjetasParaIrA(pasos, 'j').includes('m1'));
   assert.deepEqual(bucle(validarGrafo(cambiarNodo(pasos, 'j', { destino: { nodo: 'm1' } }))), []);
 });

@@ -43,7 +43,7 @@ import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, type Ed
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import {
   EditorMensajeWhatsApp, EditorMensajeGrupo, CabeceraWhatsApp, CabeceraMakoEnWhatsApp,
-  type EditorMensajeWhatsAppProps, type PasoConLinea,
+  type EditorMensajeWhatsAppProps,
 } from './EditorMensajeWhatsApp';
 import { EditorEmailGmail } from './EditorEmailGmail';
 import { EditorEtiqueta } from './EditorEtiqueta';
@@ -57,16 +57,17 @@ import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
-import { aplicarVariables, VARIABLES_LEAD } from '@/lib/template-vars';
+import { aplicarVariables } from '@/lib/template-vars';
+import { datosOfrecidos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
-  claseDe, idDe, borrarNodo, TOPE_CASOS,
+  claseDe, idDe, borrarNodo, condicionARespuesta, raizRespuesta, TOPE_CASOS,
   type Espera, type NombresParaTexto,
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, opcionesSueltas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
   revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, makoDeAccion, errorLegible,
-  ID_ENTRADA, PUERTO_RESPUESTA,
+  ID_ENTRADA,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES, altoDeMensaje,
   MARCO_DISPARO, RENGLON_DISPARO, SEP_DISPARO, ALTO_NUEVO_DISPARO,
   type NodoFlujo, type QueAgregar, type DisparadorTarjeta, type AristaFlujo,
@@ -86,6 +87,9 @@ import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion } from './ChatAgent
 import { esCanalSocial } from '@/lib/canal-social';
 import { VistaMensajeSocial } from './VistaMensajeSocial';
 import { EditorMensajeSocial } from './EditorMensajeSocial';
+// El ícono de cada CRON de la tarjeta (sexta tanda, CRON 10): el de su clase, como en el panel.
+import { IconoDisparador } from './IconosDisparador';
+import type { ClaseDisparador } from '@/lib/disparadores';
 
 const SANS = "'Geist', sans-serif";
 
@@ -111,7 +115,7 @@ type Biblioteca = { estado: 'ok'; lista: AdjuntoDto[] } | { estado: 'error' } | 
 export function FlujoLienzo({
   pasos, disparador, secuencias, audios, negocio, rolAdmin, busy, envioAutoSecuencia,
   etiquetas, etapas, paraGuion, foco, pendientesOtraCosa,
-  onPasos, onAgregar, onBorrar, onCrearRespuesta, onAudioNuevo, onError, onModoIA,
+  onPasos, onAgregar, onBorrar, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
   onTarjetaAbierta, reservaAbajo, triggerTipo, productos, posiciones, onPosiciones, linea,
   disparadores, onNuevoDisparador, onAbrirDisparador, onPublicar, puedePublicar = false,
@@ -177,8 +181,8 @@ export function FlujoLienzo({
   onAgregar?: (nodo: string, puerto: string | undefined, que: QueAgregar) => string | null;
   /** La papelera de la cabecera del panel. */
   onBorrar?: (id: string) => void;
-  /** El ＋ de la fila «Si responde» del CRON, vacía: crea la tarjeta. Devuelve su id. */
-  onCrearRespuesta?: () => string | null;
+  // (`onCrearRespuesta`, el ＋ de la fila «Si responde» del CRON, se fue con la fila en la segunda pasada
+  // de la sexta tanda: «Si responde» nace de una CONDITION vacía, `onPasarARespuesta` en su editor.)
   onAudioNuevo: (a: AudioSetting) => void;
   onError: (m: string) => void;
   /** Se prendió (o apagó) «MaKo lo adapta» en un mensaje: la primera vez abre la guía de voz. */
@@ -406,19 +410,12 @@ export function FlujoLienzo({
       revelar={revelar} reservaAbajo={reservaAbajo}
       chrome={chrome} herramientas={conAcomodar} accion={pie}
       /* ⚠️ EL ＋ ES EL DE CADA SALIDA (y el del medio de cada flecha), y la tarjeta nueva se
-         abre sola: casi todas nacen con algo que elegir (la acción, a dónde va el salto, la
-         condición). La fila «Si responde» del CRON, vacía, crea «Si responde» (`crearRespuesta`):
-         desapareció la tarjeta fantasma que lo hacía (decisión 1, un solo CRON).
+         abre sola: casi todas nacen con algo que elegir (la acción, la condición).
 
          ⚠️ SEXTA TANDA, PUNTO 5: el ＋ del círculo asoma una flecha y el menú va en su PUNTA
          (`punto`). Si la tarjeta de origen está MOVIDA (tiene posición guardada), la nueva nace ahí,
          en la punta: el árbol la pondría al lado de donde estaba antes la de origen, lejos de ella. */
       onAgregarTras={editable ? ((id, que, puerto, punto) => {
-        if (id === ID_ENTRADA && puerto === PUERTO_RESPUESTA) {
-          const r = onCrearRespuesta ? onCrearRespuesta() : null;
-          if (r) setSel(r);
-          return;
-        }
         const nuevo = onAgregar!(id, puerto, que as QueAgregar);
         if (nuevo) setSel(nuevo);
         if (nuevo && punto && posiciones?.[id]) ponerEn(nuevo, punto.x, punto.y - Y_ENTRADA);
@@ -473,6 +470,7 @@ export function FlujoLienzo({
           nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
           editorEntrada={editorEntrada} formaPanel={formaPanel} linea={linea}
+          disparador={disparador}
           onAbrir={(id) => setSel(id)}
         />
       )}
@@ -484,11 +482,12 @@ export function FlujoLienzo({
         const paso = pasoDe(n.id);
         if (paso && esMako(paso)) return <CabeceraMakoEnWhatsApp />;
         if (!paso) return null;
-        const conLinea: Partial<PasoConLinea> = {};
+        // `linea` es un campo del paso (`PasoSecuenciaDto`): sin cast (hasta la segunda pasada iba por
+        // un `Partial<PasoConLinea>` porque el DTO no lo declaraba).
         return (
           <CabeceraWhatsApp paso={paso} lineaAutomatizacion={linea?.actual ?? null} deshabilitado={busy}
             conMako={permiteIADe(paso, !!onModoIA)}
-            onLinea={(l) => { conLinea.linea = l; onPasos((prev) => cambiarNodo(prev, n.id, conLinea as Partial<PasoSecuenciaDto>), true); }} />
+            onLinea={(l) => onPasos((prev) => cambiarNodo(prev, n.id, { linea: l }), true)} />
         );
       } : undefined}
     />
@@ -511,7 +510,7 @@ export function FlujoLienzo({
  * clic les llega (sin la marca, el lienzo lo tomaba como un clic en la tarjeta). Sin `onAbrir` la
  * cajita es texto y tocarla abre la tarjeta, como siempre.
  */
-function CuerpoCron({ disparadores, onAbrir, onNuevo }: {
+export function CuerpoCron({ disparadores, onAbrir, onNuevo }: {
   disparadores: DisparadorTarjeta[]; onAbrir?: (id: string) => void; onNuevo?: () => void;
 }) {
   const caja: CSSProperties = {
@@ -523,9 +522,16 @@ function CuerpoCron({ disparadores, onAbrir, onNuevo }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SEP_DISPARO }}>
       {disparadores.map((d) => {
+        // El ícono de CADA CRON es el de su clase (`iconoDeDisparador`, lib/disparadores.ts): el mismo
+        // dibujo que su botón gigante en el panel (`IconoDisparador`). Otra cosa (un emoji, una marca),
+        // como el ícono de una tarjeta.
         const cuerpo = (
           <>
-            {d.icono && <span style={{ flex: 'none', display: 'inline-flex' }}><IconoNodo icono={d.icono} tam={14} /></span>}
+            {d.icono && (
+              <span style={{ flex: 'none', display: 'inline-flex' }}>
+                {esClaseDeIcono(d.icono) ? <IconoDisparador tipo={d.icono} tam={16} /> : <IconoNodo icono={d.icono} tam={14} />}
+              </span>
+            )}
             <span style={texto}>{d.texto}</span>
           </>
         );
@@ -543,6 +549,10 @@ function CuerpoCron({ disparadores, onAbrir, onNuevo }: {
     </div>
   );
 }
+
+/** Las claves que da `iconoDeDisparador` (lib/disparadores.ts): las dibuja `IconoDisparador`. */
+const CLASES_ICONO_CRON: ReadonlySet<string> = new Set<ClaseDisparador | 'otro'>(['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email', 'otro']);
+const esClaseDeIcono = (s: string): s is ClaseDisparador | 'otro' => CLASES_ICONO_CRON.has(s);
 
 /**
  * ¿La tarjeta abierta lleva la cabecera propia? Un WhatsApp NO oficial (el número y el ✦) o una
@@ -694,6 +704,11 @@ type PropsEditor = {
   onAbrir: (id: string) => void;
   /** El número de salida de la automatización (ver FlujoLienzo). */
   linea?: EditorMensajeWhatsAppProps['linea'];
+  /**
+   * El disparador en palabras («Llega a «Agendado»»): el ✦ de MaKo del editor de WhatsApp lo lee como
+   * contexto para escribir el mensaje (sexta tanda, WhatsApp 3). Es el de la tarjeta CRON.
+   */
+  disparador?: string;
 };
 
 /**
@@ -725,12 +740,23 @@ function EditorDeNodo(pr: PropsEditor) {
     case 'esperar': return <EditorEspera key={`espera-${id}`} espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
     // La condición (parte A de la tercera tanda): el catálogo filtrado por el ámbito del CRON. Agregar
     // o quitar una rama crea un puerto o se lleva lo que colgaba de él: eso lo hace el lienzo.
-    case 'condicion': return (
-      <EditorCondicion key={`cond-${id}`} paso={paso} cambiar={cambiar}
-        ambito={ambitoDeDisparo(pr.triggerTipo)} etapas={pr.etapas} productos={pr.productos ?? []} busy={pr.busy}
-        onAgregarRama={() => pr.onPasos((prev) => agregarRama(prev, id), true)}
-        onQuitarRama={(ramaId) => pr.onPasos((prev) => quitarRama(prev, id, ramaId), true)} />
-    );
+    //
+    // ⚠️ SEXTA TANDA, PUNTO 12 («Reply ya te dije que tiene que estar dentro de CONDITION»): una
+    // condición VACÍA —ninguna fila elegida— ofrece «Su respuesta trata de», y elegirla la pasa a ser
+    // la CONDITION que escucha (`condicionARespuesta`: el nodo «Si responde» de siempre, con su primer
+    // caso y su «Si no» avisando al equipo). Una por automatización: si ya hay una, no se ofrece.
+    case 'condicion': {
+      const pasarARespuesta = (paso.ramas ?? []).every((r) => !r.filas?.length) && !raizRespuesta(pr.pasos)
+        ? () => pr.onPasos((prev) => { const r = condicionARespuesta(prev, id); return 'error' in r ? prev : r.pasos; }, true)
+        : undefined;
+      return (
+        <EditorCondicion key={`cond-${id}`} paso={paso} cambiar={cambiar}
+          ambito={ambitoDeDisparo(pr.triggerTipo)} etapas={pr.etapas} productos={pr.productos ?? []} busy={pr.busy}
+          onAgregarRama={() => pr.onPasos((prev) => agregarRama(prev, id), true)}
+          onQuitarRama={(ramaId) => pr.onPasos((prev) => quitarRama(prev, id, ramaId), true)}
+          onPasarARespuesta={pasarARespuesta} />
+      );
+    }
     case 'respuesta': return <EditorRespuesta {...pr} paso={paso} id={id} cambiar={cambiar} />;
     case 'ir_a': return <EditorIrA {...pr} paso={paso} id={id} cambiar={cambiar} />;
     default:
@@ -789,8 +815,21 @@ function EditorEtiquetaLienzo(p: { paso: PasoSecuenciaDto; id: string; busy: boo
 
 type Cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => void;
 
-/** Los datos del lead que se pueden poner en el mensaje de la tarjeta MAKO (el aviso los resuelve). */
-const DATOS_MAKO = VARIABLES_LEAD.map((v) => ({ key: v.key, label: v.label, ejemplo: v.ejemplo }));
+/**
+ * LOS DATOS QUE SE PUEDEN PONER EN LA TARJETA MAKO (sexta tanda, MaKo en WhatsApp 4: «falta muchísimos
+ * datos posibles que enviar en el botón de {}... Como datos de campaña, del second brain, de lo que
+ * sea... y siempre como arbol»). Es el catálogo de lo que un mensaje AL EQUIPO sobre UN lead puede
+ * resolver (`datosOfrecidos`, lib/variables-aviso.ts: al equipo sí le llegan el link al CRM, la etapa,
+ * la campaña), con el MISMO contrato con que lo resuelve el aviso (`conVariables`, destino 'equipo').
+ * Hasta la segunda pasada eran los 4 datos del motor (`VARIABLES_LEAD`).
+ *
+ * ⚠️ PLANO HASTA QUE EL EDITOR DEL GRUPO ACEPTE EL ÁRBOL. El «{ }» lo dibuja `EditorMensajeGrupo`
+ * (app/chatbot/EditorMensajeWhatsApp.tsx, de otra parte), que hoy recibe una lista: montar acá un
+ * `SelectorDatos` aparte dejaba DOS «{ }» en el mismo editor. Va la lista con la rama en el rótulo
+ * («Campaña · Anuncio»), y `GRUPOS_MAKO` queda listo para el árbol (pedido como bloqueante).
+ */
+const GRUPOS_MAKO = datosOfrecidos({ destino: 'equipo', conLead: true });
+const DATOS_MAKO = GRUPOS_MAKO.flatMap((g) => g.items.map((v) => ({ key: v.key, label: `${g.titulo} · ${v.label}`, ejemplo: v.ejemplo })));
 
 /**
  * LA TARJETA MAKO («MaKo en WhatsApp»): el mensaje que MaKo le manda al GRUPO de WhatsApp del negocio
@@ -837,7 +876,7 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, disparador }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const noOficial = proveedorDelPaso(paso) === 'no_oficial';
   const modoIA = (on: boolean) => {
     // El tipo cambia ACÁ (un cambio que se deshace) y la guía la abre quien monta. Las dos
@@ -862,6 +901,7 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       audios={audios} onAudioNuevo={onAudioNuevo}
       adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
       paraGuion={paraGuion}
+      disparador={disparador}
       // El ✦ va en la CABECERA del panel (`CabeceraWhatsApp`, el `tituloEditor` de FlujoLienzo), con la
       // misma regla; el panel que abre se dibuja en el editor. El número también va en la cabecera y es
       // de este mensaje (sexta tanda, WhatsApp 2 y 3).
