@@ -1,7 +1,7 @@
 # Referidos de MaKo — la propuesta (10/10/2026)
 
-> **Estado: PROPUESTA.** Nada de esto está aplicado ni prometido a nadie. Las decisiones que
-> le quedan a Martín están en la sección 8. El proyecto «Vender MaKo: Referidos» (P68) sigue
+> **Estado: PROPUESTA, con cinco respuestas de Martín del mismo 10/10** (la sección «Lo que
+> decidió Martín», justo abajo, manda sobre el resto). Nada está aplicado ni prometido a nadie. El proyecto «Vender MaKo: Referidos» (P68) sigue
 > **tachado** en el Plan desde el 20/09: reabrirlo es parte de esa decisión.
 
 **De dónde sale.** Del audio del 10/10/2026 (28 min, Martín y su socio discutiendo
@@ -21,6 +21,69 @@ US$251,17, techo de CAC US$81,50), no la del ruteo barato, porque el ruteo barat
 no tiene código. Entre paréntesis, la IA barata.
 
 ---
+
+## ✅ Lo que decidió Martín el mismo 10/10 — manda sobre todo lo de abajo
+
+**Contestó las decisiones de la sección 8:**
+
+1. **El plan de 47 y el de 97 existen.**
+2. **El grupal** es de US$1.500, se puede pagar en cuotas, y son 3 meses de entrega.
+3. **El plan agencia** lo había pensado a US$200; ahora duda entre eso e incluirlo en el de 97.
+4. **Todo se cobra**, también a los amigos (Leila, Leandro, Código Inmobiliario, P2P, Brigitte).
+5. **La plata se paga por transferencia local** por ahora.
+
+**Y descartó el «modo cuenta» de los partners** (US$10 por mes menos en su plan por cada
+cliente activo): «¿quién preferiría US$10 antes que US$47?». Tiene razón, aunque en valor
+esperado los US$10 por mes sumen más (~US$62 en la vida de un Pro): el referidor compara
+los dos números que ve, y un premio que necesita una cuenta para entenderse no mueve a nadie.
+**Desde acá, todo lo que el documento dice de «modo cuenta» está DESCARTADO.**
+
+### El programa, con eso aplicado: un solo número para todos
+
+| | Regla |
+|---|---|
+| **Qué gana el que refiere** | **El primer mes de cada cliente que trae**: US$47 por un plan de 47, US$97 por uno de 97. El mismo número para un cliente común, un partner o una agencia. |
+| **Cómo lo cobra** | A elección: **transferencia local**, o **saldo en su propia cuenta de MaKo**. Con saldo funciona el «un dólar, un peso» del audio: dos clientes de 47 en un mes le pagan su mes de 97. |
+| **Cuándo** | 14 días después del **2º pago** del cliente que trajo. Si ese cliente se va antes, no hay premio (MaKo ya cobró un mes). |
+| **Qué gana el que entra** | El **2º mes gratis**. Paga el 1º. |
+| **Grupal** | **US$300 por grupal** (el 20% de 1.500). Si se cobra en cuotas, se paga el **20% de cada cuota cobrada**: en 3 cuotas de 500, son 100 por cuota. Si el comprador pide el reembolso de la garantía, no hay comisión. |
+| **Reglas comunes** | Las de la sección 1 siguen igual: registro previo, el origen que vale es el primero, sólo clientes nuevos, precio de lista, prohibido pautar con la palabra «MaKo». |
+
+**Por qué cierra, con la IA de hoy:**
+- Un Pro referido le cuesta a MaKo **US$75,51** en valor esperado (47 × 0,7827 de llegar al 2º
+  pago + 43,77 × 0,8847 del 2º mes gratis), contra un techo de **US$81,50**.
+- Un cliente de 97 referido cuesta **US$169,93** (97 × 0,8754 + 90,87 × 0,9356, con la
+  retención del 45% anual de esa banda). Pasa la regla de payback (US$158) por poco y entra
+  holgado en la de 3:1 (US$272). Aceptable; no es el caso más frecuente.
+- El grupal deja **US$890** después de la comisión y de la hora de entrega por cabeza
+  (1.290 de caja − 100 de la hora − 300). Por anuncio, el mismo grupal cuesta entre ~US$500
+  (40% de cierre) y ~US$1.000 (20%).
+- Los tres casos de la sección 5.3 en «modo plata» siguen valiendo: Leila con 5 recibe ~184 en
+  el año y a MaKo le quedan 587; Juanfran con 10, 368 y 1.173; tu hermana con 30, 1.104 y 3.520.
+
+### El plan agencia: la recomendación es meterlo en el de 97, sin plan de 200
+
+- **Qué es «agencia»:** la capacidad de dar de alta workspaces para sus clientes y verlos en
+  un panel (`agencia_clientes`, mig 0175). **Cada workspace de cliente paga su plan** (47 o 97).
+- **Por qué en el de 97 y no un plan de 200:** un plan aparte agrega una decisión más en la
+  página de precios y un escalón que hay que justificar, cuando lo que le interesa a MaKo de
+  una agencia no son sus 97 sino los workspaces que da de alta. Cada uno de esos workspaces es
+  un referido: la agencia se lleva su primer mes, como cualquiera.
+- **Quién paga el workspace del cliente:** puede pagarlo el cliente directo (y la agencia
+  cobra el primer mes como referido), o la agencia, que lo incluye en el precio de SU servicio.
+  En el segundo caso lo que cobre la agencia es asunto suyo, porque su cliente no le compra
+  MaKo: le compra el servicio. El «sobreprecio» que se prohíbe es vender MaKo por encima de
+  la web, no cobrar un servicio que usa MaKo.
+- **Lo que NO se hace:** un plan de agencia con N workspaces adentro. Es venta mayorista y
+  pierde plata (el de 297 con 10 clientes es US$29,70 por workspace; ver los hallazgos).
+
+### Lo que sigue abierto
+- **200 o 300 por grupal**: el documento propone 300 (20%); Martín no lo cerró.
+- **Si el plan agencia va dentro del de 97**: es la recomendación, no la decisión.
+
+---
+
+## La propuesta original de la corrida (con el «modo cuenta», ya descartado)
 
 **Resumen**
 - **A. Recomendar** (cualquier cliente que paga). Cuando la persona que trajiste paga por segunda vez, tu factura baja lo mismo que ella pagó en su primer mes, y ella tiene el 2º mes gratis. Funciona uno a uno: un Pro que trae un Pro tiene un mes gratis.
