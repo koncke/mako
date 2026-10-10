@@ -2063,6 +2063,114 @@ lugar. Y hoy hay UN remitente por negocio: «Vincular nuevo» del email REEMPLAZ
 - Nada de esto se vio con clics: el desplegable «De / Para», «Vincular nuevo» en su modal y la bandeja
   con la #226.
 
+## Sexta tanda, segunda pasada, parte «flujo» (09/10/2026): UNA puerta para las flechas, el borrador y «Si responde» como CONDITION
+
+### Dos puertas para las flechas, y cada una tenía la mitad de las reglas [edicion]
+
+**Síntoma:** el lienzo editaba flechas por DOS módulos: `conectar` / `desconectar` / `crearSuelta` /
+`destinosConectables` de `lib/flujo-grafo.ts`, y los de `lib/flujo-edicion.ts`. El primero no miraba si
+dos caminos se juntaban; el segundo sí, pero FILTRANDO EL TEXTO de `validarGrafo` (`errorPropio` buscaba
+«cuelga de» y el id de la tarjeta en cada error) y con su propia copia de la regla
+(`tarjetasDondeSeJuntan`), distinta de `cruces`, que es la que usa Publicar.
+
+⚠️ **El filtro de texto es la parte cara**: el día que alguien reescribe la frase de un error de
+`validarGrafo`, la regla del lienzo se apaga sin un rojo. Y la copia de la regla no la pasaban Crear con
+IA, la API ni un flujo de antes: lo que el lienzo prohibía entraba por las otras puertas.
+
+**Regla:** toda edición de flechas pasa por `lib/flujo-edicion.ts` (`paraEditar` fija la raíz con
+`fijarRaiz` SIEMPRE, antes de tocar nada). Lo que decide es la DIFERENCIA de antes a después, por función
+y no por texto: `cruces` (dos caminos que se juntan; con «Si responde», `MOTIVO.conRespuesta`),
+`ciclosSinEspera` (`MOTIVO.circulo`) y `validarParaGuardar` (lo que rompe el dato). Un error que ya estaba
+no frena la edición de al lado. El guard «UNA PUERTA» de `tests/flujo-edicion.test.ts` falla si
+`lib/flujo-grafo.ts` vuelve a exportar una edición de flechas, o si `lib/flujo-edicion.ts` vuelve a leer
+el texto de `validarGrafo`.
+
+**Y el círculo:** la regla vieja rechazaba TODO círculo, y `abrirFlujo` (`quitarIrA`) convierte un «Ir a»
+hacia atrás en una flecha que cierra uno: la automatización abría con un círculo que la misma pantalla no
+dejaba volver a dibujar. Lo que el motor no puede correr es un círculo SIN espera; con espera, se dibuja.
+
+**Vive en:** `lib/flujo-edicion.ts` · `lib/flujo-grafo.ts` (`fijarRaiz`, `cruces`, `ciclosSinEspera`,
+`validarParaGuardar`) · `tests/flujo-edicion.test.ts`
+
+### El borrador: «no lo pude leer» y «no hay» son dos respuestas [borrador]
+
+Una automatización a medio armar (una suelta, una condición vacía) no se puede publicar, y hasta acá
+tampoco se guardaba: se perdía al recargar. Ahora va a `nutricion_secuencias.pasos_borrador` (mig 0240)
+por su propia acción (`action: 'borrador'`), con un respiro, y el motor no la lee nunca.
+
+- **`secuencia.borrador` AUSENTE = no se pudo leer** (falta la columna o falló la consulta); `null` = no
+  hay. Con ausente la pantalla abre lo publicado y NO guarda: tratarlo como «no hay» haría que el primer
+  cambio pisara un borrador que la pantalla no vio. La ruta contesta `sinColumna` y el lienzo deja de
+  mandar sin cartel.
+- **Publicar descarta el borrador** y anota lo publicado como ya guardado (sin eso, el respiro lo volvía
+  a mandar como borrador). Un borrador cuya base cambió no se abre (`borradorVigente`).
+- **La lógica de un hook con relojes no se prueba leyendo el fuente**: vivía en refs y el único test
+  posible era un regex. Pasó a `crearBorrador` (sin React) y se ejecuta con `mock.timers` — ocho
+  roturas de comportamiento (respiro, `sinColumna`, rechazo, despachar al irse, descartar) que un guard
+  de cableado no habría visto.
+
+**Vive en:** `app/chatbot/useBorradorSecuencia.ts` · `app/chatbot/SecuenciaPerfil.tsx` ·
+`app/api/chat-agent/secuencias/route.ts` · `lib/setting-secuencias.ts` (`getSettingData`) ·
+`lib/secuencia-borrador.ts` · `tests/chatbot-v6b-flujo.test.ts`
+
+### «Si responde» se DIBUJA como la CONDITION que escucha; el dato sigue siendo `respuesta` [respuesta]
+
+Punto 12: «Reply ya te dije que tiene que estar dentro de CONDITION». Se cambió el DIBUJO, no el nodo:
+`nodo: 'respuesta'` lo leen el motor, «Probar» y la API, y renombrarlo era una migración de datos sin
+ganancia. La tarjeta se titula CONDITION, una fila por caso (`textoCasoRespuesta`) y la última «Si no»;
+el CRON pierde su fila «Si responde» y su flecha; el ＋ ya no la ofrece. Se crea eligiendo «Su respuesta
+trata de» en una CONDITION vacía (`condicionARespuesta`, desde `EditorDeNodo`), una por automatización.
+
+⚠️ **Sin flecha de entrada, el layout la ponía donde cayera en el array**: se crea al final, así que
+una suelta creada antes quedaba entre el CRON y ella. Va PRIMERA entre lo que no cuelga del CRON
+(`libres` en `grafoDeSecuencia`), y no se marca suelta.
+
+**Vive en:** `lib/flujo-conversacion.ts` (`grafoDeSecuencia`, `tituloDeTarjeta`) · `app/chatbot/FlujoLienzo.tsx`
+(`case 'condicion'`) · `lib/flujo-grafo.ts` (`condicionARespuesta`)
+
+### El aviso de las 24 h es una aproximación, y lo dice [ventana-meta]
+
+Un DELAY de más de 24 h justo antes de Instagram o Messenger marca la tarjeta «Tras 24 h no sale»: Meta
+deja escribir sólo dentro de las 24 h del último mensaje DEL LEAD (`VENTANA_META_MS`) y el motor cierra
+el paso sin mandar. `esperaAntesDe` suma las esperas pegadas (dos seguidas son una), toma el padre que
+más espera y no cuenta «antes de la reunión» (depende de la fecha).
+
+⚠️ **Lo que mide no es la ventana**: mide la espera de ANTES de la tarjeta. Un DM tras 2 h de espera
+también cae fuera si el lead escribió hace tres días; eso sólo lo sabe el motor al mandar. El aviso caza
+el caso que se puede ver dibujando, nada más.
+
+**Vive en:** `lib/flujo-conversacion.ts` (`esperaAntesDe`, `AVISO_VENTANA_META`) · `lib/canal-social.ts`
+
+### Lo demás, medido
+
+- **`ALTO_EDITOR_CONTROL`** sale de medir los paneles, no de un número a ojo: el CRON con el Recurrente
+  (seis filas de 36 + 5 huecos de 8, «＋ Nuevo CRON», el pie y la cabecera de 62) pide ~460; la etiqueta
+  en columna, ~200. `lib/lienzo-grafo.ts` · `tests/lienzo-muelles.test.ts`
+- **La tarjeta MAKO ofrece los datos del EQUIPO con lead** (`datosOfrecidos({ destino: 'equipo', conLead:
+  true })`), pero PLANOS con el grupo de prefijo: montar el árbol (`SelectorDatos`) dentro de su panel
+  dibujaba un segundo «{ }» al lado del de `EditorMensajeGrupo`, que no es de esta parte.
+  `app/chatbot/FlujoLienzo.tsx` (`GRUPOS_MAKO`, `DATOS_MAKO`)
+- **Quitar dos tests de un archivo deja viejos los números de sus roturas**: la cabecera de
+  `tests/flujo-bucle-paralelos.test.ts` decía «4 / 2» y «2 / 4» sobre seis tests que ya eran cuatro. Al
+  borrar tests, se re-miden las roturas que quedan.
+
+### Lo que quedó sin hacer (parte «flujo»)
+
+- **Nada se vio con clics**: el borrador al recargar, la condición que pasa a escuchar, las filas del
+  CRON abriendo cada una su CRON, el aviso de las 24 h, la papelera roja en el panel y en las condiciones.
+- **El árbol de datos en la tarjeta MAKO**: `EditorMensajeGrupo` (app/chatbot/EditorMensajeWhatsApp.tsx)
+  tiene que aceptar `grupos?: GrupoDatos[]` y dibujar `ArbolDeDatos` en su «{ }»; después `EditorMako`
+  le pasa `grupos={GRUPOS_MAKO}` y `DATOS_MAKO` se borra.
+- **`IconoBorrar` de app/chatbot/IconosDisparador.tsx** quedó sin call site (todos usan el de
+  app/_ui/BotonBorrar.tsx): se borra.
+- **`PasoConLinea`** (app/chatbot/EditorMensajeWhatsApp.tsx) sobra desde que `PasoSecuenciaDto` trae `linea`.
+- **La mig 0240 sin aplicar no rompe nada** (el GET no trae el borrador y el lienzo no guarda), pero sin
+  ella el punto 7 no existe: va antes o junto con el deploy. `supabase/migrations/0240_secuencia_borrador.sql`
+- **Sin ícono a propósito**: los días, meses, ordinales y zonas de `EditorRecurrente`, el operador ≥/≤ de
+  la condición y las líneas de WhatsApp (son del negocio, con su punto de color). Si Martín los quiere,
+  es una fila por desplegable.
+- `repartenEnBucle` sigue exportada sólo para sus tests y `admiteParalelo`. `lib/flujo-grafo.ts`
+
 ## Lo que quedó sin hacer
 
 **De la parte «tiempo» (sexta tanda, 09/10/2026):**
@@ -2076,8 +2184,8 @@ lugar. Y hoy hay UN remitente por negocio: «Vincular nuevo» del email REEMPLAZ
   aplanado en secciones.
 - **La tarjeta MAKO resuelve sólo los 5 del motor** (`textoDelAviso`, lib/api-mako/areas/chatbot.run.ts):
   pasarla a `conVariables(t, { ws, leadId, destino: 'equipo' })` ANTES de ofrecerle el árbol.
-- **Borrar los cascarones** `sinPrecision` / `avisoDePrecision` (lib/espera-duracion.ts) junto con su uso en
-  `EditorEspera` (app/chatbot/FlujoLienzo.tsx, el `const aviso = …` y `{aviso}`).
+- ~~Borrar los cascarones `sinPrecision` / `avisoDePrecision`~~ HECHO en la segunda pasada (parte «flujo»):
+  `tests/espera-duracion.test.ts` falla si vuelven.
 - **«Probar»** previsualiza con el lead de ejemplo de los 5 datos (`textoDeEjemplo`, lib/simulador-grafo.ts) y
   la prueba real con `valoresVariablesLead` (`probarSecuencia`, lib/setting-secuencias.ts): los tokens nuevos
   salen crudos ahí. Va `{ ...valoresDeEjemplo(), ...lo de hoy }`.
