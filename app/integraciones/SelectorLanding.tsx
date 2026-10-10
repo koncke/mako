@@ -13,6 +13,7 @@
 // eran falsas.
 
 import { useEffect, useState } from 'react';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Button, Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
 import { mismaPagina } from '@/lib/landing-paginas';
@@ -97,7 +98,8 @@ export function SelectorLanding({ elegida, onElegir, landings, onLandings }: {
                   value: l.url,
                   label: l.url,
                   acciones: [{
-                    icono: <span aria-hidden style={{ fontSize: 13 }}>✕</span>,
+                    // Borra la página guardada: el tacho de la casa, como «Quitarla de la lista» de Probar.
+                    icono: <IconoBorrar size={15} />,
                     title: 'Quitar esta página',
                     tone: 'bad' as const,
                     onClick: () => { void borrar(l.url); },

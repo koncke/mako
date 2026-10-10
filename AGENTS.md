@@ -3429,6 +3429,26 @@ es sólo acomodarlos.
 El detalle, con la tabla de las siete cosas que no volvieron y por qué, en
 [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md).
 
+# Borrar es UN tacho, rojo; y un desplegable lleva ícono en cada opción que se pueda estandarizar
+
+Pedido de Martín (09/10/2026, sexta tanda), textual: «Cambia el botón de BORRAR con ese ícono de basura
+que no se ve… Esto en TODOS lados. Y que siempre el ícono de borrar sea rojo» y «pon íconos en todos los
+desplegable, en todas las opciones… Al menos que veas que no se pueda estandarizar con un ícono».
+
+- **Borrar va con `BotonBorrar` / `IconoBorrar` (`app/_ui/BotonBorrar.tsx`) o con `icono: 'borrar'` en
+  un renglón**, y nada más: ni un 🗑, ni un trazo de tacho propio, ni un `color` gris. El rojo no es un
+  prop. `Icon name="trash"` dibuja el mismo tacho y lo pinta rojo solo (para los que ya lo pedían por
+  nombre). `tests/borrar-tacho-casa.test.ts` barre la app y frena el tacho propio.
+- **Una ✕ es un tacho si la cosa deja de EXISTIR** (un guion, un producto, una nota, una pregunta). Si
+  sólo se QUITA de una selección o de un vínculo (un chip, un filtro, un archivo sin subir), es una ✕.
+- **Cada opción de un desplegable lleva su ícono del set (`app/_ui/iconos-menu.tsx`, por nombre)** cuando
+  es una acción, un tipo de cosa, un estado, un quién o una unidad. **No llevan** lo que nombra cada negocio
+  (etapas, productos, etiquetas, personas: van con su `color` o nada) ni los valores de una misma escala
+  (períodos, horas, órdenes), donde sería el mismo dibujo repetido. Si al set le falta uno, se le agrega
+  al set. Una lista que arma un módulo puro con test recibe sus íconos en la pantalla con `conIconos`.
+- **Un desplegable es el `Dropdown` de la casa** (pone el buscador solo pasadas las 7 opciones). Un menú
+  propio con una lista que crece usa el mismo umbral (`conBuscador`, `app/components/dropdown-reglas.ts`).
+
 # Dos reglas de layout que se rompen solas
 
 **1. El `<main>` de una pantalla es `Pagina`.** Una pantalla no elige su propio ancho.
