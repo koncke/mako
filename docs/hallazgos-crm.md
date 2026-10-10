@@ -1661,6 +1661,41 @@ ocupado en otro calendario del dueño **no** bloquea — limitación conocida.
 
 **Vive en:** `lib/google-calendar.ts:848`
 
+### Reagendar movía cualquier evento que el dueño tuviera a la hora vieja (09/10/2026)
+
+**Síntoma:** grabando el video de la verificación de Google, «Reagendar» de un lead de prueba
+en el CRM (ws9) movió la instancia del jueves 8 a las 15:00 de «Sprint 4» —una serie del
+dueño, sin invitados— al domingo 12 a las 10:00. Se restauró a mano desde Google Calendar
+(«sólo este evento»). No avisó a nadie porque no tenía invitados; con invitados, les habría
+llegado el cambio.
+
+**Causa:** `buscarEventoDeReunion` aceptaba un evento con UNA de tres pruebas, y dos no
+probaban nada:
+- «arranca a ±10 min de la reunión vieja»: la hora sola dice que hay algo a esa hora, no de
+  quién es. La reunión vieja del lead era a las 15:00, y Sprint 4 también.
+- «el lead está invitado»: el lead tenía el email del DUEÑO, y Google lista al dueño en sus
+  propios eventos con `self: true`. Ese lead «estaba invitado» a todo lo que el dueño tiene.
+
+⚠️ **El diagnóstico obvio era el equivocado:** «la ventana de 10 minutos es muy ancha».
+Con cualquier ventana la hora sola sigue sin decir de quién es el evento: con 1 minuto,
+Sprint 4 se movía igual.
+
+**La regla que queda:** al evento al que se le pega un PATCH con `sendUpdates=all` se lo
+identifica con una PRUEBA —el lead invitado de verdad, o un título parecido sobre un evento
+que no es con otra persona— y la cercanía a la hora vieja sólo desempata. Un invitado con
+`self: true` es el dueño de la agenda y no prueba nada sobre el lead. Vale igual para
+`eventoExacto` (cancelar y cambiar) y `proximasReunionesCon` (las que MaKo ofrece mover).
+
+**Lo que cambia para quien usa el CRM:** si la reunión no tiene al lead invitado ni su nombre
+en el título, «Reagendar» CREA un evento nuevo en vez de mover el viejo (recuperable: el viejo
+queda a la vista), y MaKo por WhatsApp contesta que no la encontró. Es el precio elegido:
+lo de antes podía mover la agenda de un tercero y avisarle a sus invitados.
+
+**Vive en:** `lib/calendario-reunion.ts` (la regla, pura y con test) ·
+`lib/google-calendar.ts` (`buscarEventoDeReunion`, `eventoExacto`, `proximasReunionesCon`) ·
+`tests/calendario-reunion.test.ts` (la agenda de ese día como fixture; probado rompiéndolo)
+· *2026-10-10*
+
 ### Leer huecos y mover el evento son permisos distintos, y el traductor de errores decía lo contrario
 
 Dos trampas del mismo módulo:
@@ -6034,6 +6069,29 @@ que exista un camino en el que cerrar el de abajo sea una pérdida.
 **Vive en:** `app/crm/LeadSheet.tsx` (el envoltorio y el `if (!quedarse) onClose()`) ·
 `app/_components/WizardShell.tsx:490` (su backdrop) · `app/_components/pila-modales.ts`
 (la mitad del Escape) · *2026-10-05*
+
+## «¿Qué hacer ahora?» volvió a no abrir: dos capas en la pila para una sola pantalla (09/10/2026)
+
+**Síntoma:** en producción, el botón «¿Qué hacer ahora?» de una reunión que ya pasó no abría
+nada. El diálogo estaba montado, con su texto, adentro de un contenedor en `display:none` y
+z 130. Se vio grabando el video de la verificación de Google.
+
+**Causa:** `CrmBoard` registraba `useCapaModal(!!queHacer)` mientras el formulario estaba
+abierto, y el `WizardShell` de adentro registra SU capa. React corre los efectos del hijo
+ANTES que los del padre: el wizard entraba primero a la pila, la capa del tablero quedaba
+arriba sin dibujar nada, y `decidirVisible` apagaba al wizard.
+
+**La regla:** un componente registra capa sólo por el overlay que ÉL dibuja. Si lo que abre
+es un hijo que ya registra la suya, la capa del padre sobra, y como entra a la pila después,
+tapa al hijo. Acá la del tablero existe sólo con el resultado del reagendado (`reagOut`), el
+único overlay que dibuja `CrmBoard`.
+
+⚠️ No lo cazaba nada: compila, la regla pura de la pila está bien y tiene test, y el síntoma
+es un botón que «no hace nada». Lo encontró abrir la pantalla y mirar el DOM.
+
+**Vive en:** `app/crm/CrmBoard.tsx` (`capaQueHacer`) · `app/_components/pila-modales.ts` ·
+`tests/crm-que-hacer-capa.test.ts` (probado rompiéndolo: 1 fallo) · commit `b57a53ba` ·
+*2026-10-09*
 
 ## Un arnés que rompe código dice «NO MUTÓ» y se lee como un test flojo
 

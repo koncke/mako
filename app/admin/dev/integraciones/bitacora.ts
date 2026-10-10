@@ -799,4 +799,38 @@ export const BITACORA: Hito[] = [
       'AGENTS.md — Chatwoot, las puertas, el guard de vistas, el build en un worktree',
     ],
   },
+  {
+    fecha: '9 oct', hora: '23:30', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El video de Google: editarlo y mostrárselo antes de mandarlo',
+    pedido: 'Y antes de mandar la grabación, editala bien y muestramelo',
+    puntos: [
+      'Sobre la primera versión: «Siento que está muy lento... Podrías recortar o hacerlo más rápido. Y también los subtitulos tapan al principio donde se ven las politicas de privacidad... Revisa bien esas cosas».',
+      'Sobre la segunda: «Sí, subilo así a YouTube» y «Y termina todo el flujo».',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '01:05', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La verificación de Google, enviada',
+    puntos: [
+      'El video quedó en YouTube como no listado (https://youtu.be/sCTIvH1Ilns, 2:50, en inglés con subtítulos), pegado en Data Access, y la verificación enviada: Google dice «under review».',
+      '⚠️ **El botón de enviar no aparece hasta que la marca está verificada Y publicada.** Hubo que pedir la verificación de la marca (unos 5 minutos) y publicarla antes.',
+      'Las preguntas de Google llegan a martinkoncke@gmail.com y se contestan en el mismo hilo. Se borraron el lead y los dos eventos de prueba (sin avisos); la agenda de Martín queda conectada al ws9.',
+    ],
+    archivos: [
+      'docs/verificacion-google.md — qué se envió, y lo que falta',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '01:25', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: 'Lo aprendido grabando el video, en sus documentos',
+    puntos: [
+      'El estado de la verificación en docs/verificacion-google.md. Los dos bugs que salieron al grabar —el evento ajeno movido y «¿Qué hacer ahora?» que no abría— en docs/hallazgos-crm.md, que es donde vive la agenda.',
+    ],
+    archivos: [
+      'docs/verificacion-google.md · docs/hallazgos-crm.md · docs/hallazgos.md',
+    ],
+  },
 ];

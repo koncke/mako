@@ -4,17 +4,51 @@ App OAuth del proyecto `mako-500317` (cuenta martinkoncke@gmail.com), cliente «
 Publicada («In production») el 07/10/2026 y **sin verificar**: quien conecta su agenda ve
 «Google no verificó esta app» y la app tiene un tope de 100 usuarios en toda su vida.
 
-**Estado al 07/10/2026: no se envió nada a Google; el Uso Limitado quedó resuelto.** Google tarda 3 a 5 días hábiles una vez
+**Estado al 10/10/2026: ENVIADA. Google dice «Your app's data access is under review».** La
+marca quedó verificada y publicada ese mismo día. Google tarda 3 a 5 días hábiles una vez
 enviada ([requisitos oficiales](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification)).
+
+## Lo que se envió (10/10/2026)
+
+- **El video:** https://youtu.be/sCTIvH1Ilns (no listado, canal de martinkoncke@, 2:50, en
+  inglés con subtítulos y sin audio). Orden: la home con los links de privacidad y términos →
+  Integraciones → la pantalla de Google con el `client_id` en la barra → «¿Qué hacer ahora?»
+  del CRM → la grilla de horarios libres → el evento en Calendar → «agenda una visita» por
+  WhatsApp, el «sí» → el evento en Calendar → «Quitar esta agenda».
+- **Data Access:** los 3 no sensibles, `calendar.events` y `calendar.readonly`. La consola
+  nueva tiene UNA sola caja de justificación para todos los sensibles (1000 caracteres), así
+  que van los dos textos de abajo comprimidos en 836.
+- **Additional info:** los dos lugares del video donde se usa `calendar.events`, y que el
+  proyecto tiene un solo cliente OAuth.
+- **El cuestionario:** «No» a uso personal, interno, de pruebas y plugin de WordPress; los dos
+  acuses marcados.
+- **Antes de enviar:** `hola-mako.com` verificado en Search Console (TXT en Porkbun); fuera
+  `makodigital.app` y `dashboard-marketing-six` (orígenes y 3 redirect URIs); borrado el
+  cliente de escritorio «MaKo CLI extensión», que no se usaba (Martín: sí; restaurable 30
+  días); la agenda de martinkoncke@ quedó conectada al ws9.
+
+⚠️ **El botón de enviar no existe hasta que la marca está verificada Y PUBLICADA.** El
+Verification Center sólo dice «You need to verify and publish your branding before you can
+request for verification». La verificación de la marca tarda unos 5 minutos, y sin publicarla
+vence a los 7 días.
+
+⚠️ **Las preguntas de Google llegan a martinkoncke@gmail.com** (es el correo de soporte y de
+contacto: la consola sólo acepta el de la cuenta o un grupo suyo), y se contestan en el mismo
+hilo. Hasta que aprueben, quien conecta su agenda sigue viendo «Google no verificó esta app»
+y rige el tope de 100 usuarios.
+
+⚠️ **Grabar el video movió un evento ajeno de la agenda de Martín.** El bug está arreglado
+(`lib/calendario-reunion.ts`) y la autopsia está en `docs/hallazgos-crm.md` → «Reagendar
+movía cualquier evento…».
 
 ## Lo que pide Google, y cómo estamos
 
 | # | Requisito | Estado |
 |---|---|---|
 | 1 | Branding: nombre, inicio, privacidad, términos y correo de soporte | ✅ MaKo · `hola-mako.com` · `/privacidad` · `/terminos` |
-| 2 | Cada dominio autorizado, verificado en Search Console por un dueño del proyecto | ❌ `hola-mako.com` no está verificado en martinkoncke@. Y sobran dos dominios muertos |
-| 3 | Los permisos declarados en *Data Access*, con su justificación | ❌ No hay ninguno declarado |
-| 4 | Un video en YouTube, oculto y en inglés | ❌ Hay que grabarlo (guion abajo) |
+| 2 | Cada dominio autorizado, verificado en Search Console por un dueño del proyecto | ✅ `hola-mako.com` verificado el 09/10 (TXT en Porkbun); los dos dominios muertos, fuera |
+| 3 | Los permisos declarados en *Data Access*, con su justificación | ✅ Declarados el 09/10, con la justificación |
+| 4 | Un video en YouTube, oculto y en inglés | ✅ https://youtu.be/sCTIvH1Ilns |
 | 5 | Una política de privacidad que coincida con lo que hace la app | ✅ Desde el 07/10: la agenda no pasa por ninguna IA |
 
 ⚠️ **El Verification Center dice «Verification is not required».** Lo dice porque *Data
@@ -99,7 +133,7 @@ Subir a YouTube como **Unlisted** («Oculto») y pegar el link en el formulario.
 ## El orden para enviarla
 
 1. ~~Decidir el Uso Limitado y aplicarlo en el código y en `/privacidad`~~ — hecho el 07/10.
-2. Verificar `hola-mako.com` y sacar los dos dominios muertos.
-3. Declarar los permisos en *Data Access* con los textos de arriba.
-4. Grabar y subir el video.
-5. Enviar desde *Verification Center* → la confirmación final de enviar la da Martín.
+2. ~~Verificar `hola-mako.com` y sacar los dos dominios muertos~~ — hecho el 09/10.
+3. ~~Declarar los permisos en *Data Access* con los textos de arriba~~ — hecho el 09/10.
+4. ~~Grabar y subir el video~~ — hecho el 10/10, después de que Martín lo viera editado.
+5. ~~Enviar desde *Verification Center*~~ — enviada el 10/10 (Martín: «Y termina todo el flujo»).
