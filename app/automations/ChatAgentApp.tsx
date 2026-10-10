@@ -188,7 +188,7 @@ const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border:
 //
 // ⚠️ `?sec=` ABRE EL LIENZO DE ESA AUTOMATIZACIÓN, NO EL WIZARD (revisión adversarial del
 // 08/10/2026, costuras-5). El aviso de una charla que pasó a una persona
-// (lib/chat-agent-handoff.ts) dice «súmalo como caso en «Si responde»» con este link, y el wizard
+// (lib/chat-agent-handoff.ts) dice «súmalo como «Su respuesta trata de…»» con este link, y el wizard
 // de 9 pasos no tiene «Si responde»: es la tarjeta del lienzo. Y el lienzo ES hoy el editor de
 // los mensajes, que es lo que el link de MaKo («Ver los 5 mensajes») prometía.
 export function ChatAgentApp() {

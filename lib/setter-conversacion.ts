@@ -320,13 +320,15 @@ export function conversacionAbierta(inscs: InscCharla[], ahoraMs: number): Vered
   const cierreUltimo = ultimoCierre > 0 ? asistidas.find((i) => ms(i.conversacion_cerrada_at) === ultimoCierre) : undefined;
   if (masReciente.estado === 'handoff' || (cierreUltimo && cerradaPorUnaPersona(cierreUltimo))) return { abierta: false, motivo: 'la charla la está siguiendo una persona' };
   if (masReciente.conversacion_cerrada_at || ultimoCierre > 0) return { abierta: false, motivo: 'la charla ya se había cerrado' };
-  if (masReciente.pausada) return { abierta: false, motivo: 'la secuencia está pausada' };
+  // (Los motivos le llegan al dueño en el aviso: dicen «automatización» desde el 10/10/2026, la palabra
+  // de la tab. Decían «secuencia», el nombre de antes.)
+  if (masReciente.pausada) return { abierta: false, motivo: 'la automatización está pausada' };
   if (masReciente.reunionFutura === false) return { abierta: false, motivo: 'su reunión ya pasó' };
-  if (!masReciente.tieneEnviado) return { abierta: false, motivo: 'la secuencia todavía no le había mandado nada' };
+  if (!masReciente.tieneEnviado) return { abierta: false, motivo: 'la automatización todavía no le había mandado nada' };
   if (masReciente.conversacion_ultima_at && ahoraMs - ultimo(masReciente) > ventanaMs) {
     return { abierta: false, motivo: `pasaron más de ${DIAS_CHARLA_ABIERTA} días desde la última charla` };
   }
-  return { abierta: false, motivo: 'la secuencia ya había terminado con este lead' };
+  return { abierta: false, motivo: 'la automatización ya había terminado con este lead' };
 }
 
 /**

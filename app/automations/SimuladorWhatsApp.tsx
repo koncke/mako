@@ -515,7 +515,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
 
   /**
    * EL LINK DEL AVISO ABRE EL LIENZO (revisión adversarial del 08/10/2026, costuras-5). El aviso
-   * de una charla que pasó a una persona dice «súmalo como caso en «Si responde»» con
+   * de una charla que pasó a una persona dice «súmalo como «Su respuesta trata de…»» con
    * `/automations?sec=<id>`, y ese link abría el wizard de 9 pasos, donde «Si responde» no existe.
    * Se aplica AL DIBUJAR y no en un efecto: un efecto pintaría primero la primera de la lista y
    * después la del link. Es también la puerta por la que se abre la fila que se está creando.

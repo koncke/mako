@@ -137,11 +137,13 @@ export async function registrarHandoff(input: {
       ws: ws ?? undefined,
       texto: [
         `🖐 *${quien} escribió algo que no tengo previsto.*`,
-        input.secuenciaNombre ? `Secuencia: ${input.secuenciaNombre}` : '',
+        // Con los nombres de la tab (restos de versiones anteriores, 10/10/2026): «Automatización» y la
+        // fila «Su respuesta trata de…» de la condición que escucha. Decía «Secuencia» y «Si responde».
+        input.secuenciaNombre ? `Automatización: ${input.secuenciaNombre}` : '',
         '',
         `_"${input.mensaje.trim().slice(0, 220)}"_`,
         '',
-        'No le contesté nada: prefiero no improvisar con alguien real. Contéstale tú y, si es un caso que se va a repetir, súmalo como caso en «Si responde» para que la próxima sepa qué hacer.',
+        'No le contesté nada: prefiero no improvisar con alguien real. Contéstale tú y, si es un caso que se va a repetir, súmalo como «Su respuesta trata de…» en esa automatización para que la próxima sepa qué hacer.',
         link ? `👉 ${link}` : '',
         '',
         '— MaKo',
