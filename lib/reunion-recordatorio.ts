@@ -32,6 +32,7 @@ import { enviarYEspejar } from './evolution-envio';
 import { estaBloqueado } from './evolution-block';
 import { normalizarTelefono } from './leads';
 import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
+import { TRIGGER_RECORDATORIO, toquesDeLaAutomatizacion } from './recordatorio-automatizacion';
 import {
   KEY_RECORDATORIO, TOQUES, TOLERANCIA_MIN as TOLERANCIA_LEAD_MIN, configDeRecordatorio, juntasDe, leadAbierto, reunionParaElDueno,
   toquesVencidos, estadoDeLaMarca, envioIncierto, textoDelToque, type ConfigRecordatorio, type CualReunion, type Toque,
@@ -192,8 +193,10 @@ export type RecordatorioEnSeco = { leadId: number; cual: CualReunion; min: numbe
 
 export type ResultadoAlLead = {
   ws: number;
-  /** El interruptor del negocio (`chatbot.recordatorio_reunion.activo`). */
+  /** El interruptor del negocio: el `activa` de su automatización, o el de la configuración de antes. */
   activo: boolean;
+  /** De dónde salieron los toques (ver `toquesDelNegocio`). Ausente = no se llegó a leer. */
+  fuente?: 'automatizacion' | 'configuracion';
   /** `envio_whatsapp_enabled` del negocio. null = no se llegó a mirar. */
   envio: boolean | null;
   /** Toques vencidos en esta corrida. */
@@ -237,6 +240,46 @@ export async function leerConfigRecordatorio(ws: number): Promise<ConfigRecordat
 }
 
 /**
+ * DE DÓNDE SALEN LOS TOQUES DE UN NEGOCIO (decisión de Martín, 10/10/2026: «Mudarlo al motor»). Si el negocio
+ * tiene una automatización con el CRON del recordatorio (`TRIGGER_RECORDATORIO`, lib/recordatorio-automatizacion.ts),
+ * de ESA fila: su `activa` y, por cada toque, el texto y el número. Si no tiene ninguna, de la configuración de
+ * antes (`chatbot.recordatorio_reunion`), como siempre.
+ *
+ * ⚠️ CON LA FILA, LA CONFIGURACIÓN DE ANTES NO SE MIRA, aunque diga `activo`: si no, archivar la automatización
+ * revivía lo de antes. La mudanza además la deja apagada (scripts/recordatorio-a-automatizacion.mts).
+ * ⚠️ Y UNA LECTURA QUE FALLA TIRA: «no pude leer las automatizaciones» no es «no tiene», y caer a la configuración
+ * de antes sería mandar con los textos viejos. Con varias filas manda la primera activa por cada minuto (las marcas
+ * `claveToque` son por lead, reunión y minuto: dos filas con el mismo toque no lo mandan dos veces).
+ */
+export async function toquesDelNegocio(ws: number): Promise<{
+  activo: boolean; fuente: 'automatizacion' | 'configuracion';
+  toques: Array<{ min: number; texto: string; linea: string | null }>; problemas: string[];
+}> {
+  const { data, error } = await getSupabaseServer()
+    .from('nutricion_secuencias').select('id, activa, pasos')
+    .eq('workspace_id', ws).eq('trigger_tipo', TRIGGER_RECORDATORIO).is('archivada_at', null)
+    .order('id', { ascending: true });
+  if (error) throw new Error(`No pude leer las automatizaciones del recordatorio: ${error.message}`);
+  const filas = (data ?? []) as Array<{ id: number; activa: boolean | null; pasos: unknown }>;
+  if (filas.length) {
+    const problemas: string[] = [];
+    const porMin = new Map<number, { min: number; texto: string; linea: string | null }>();
+    const activas = filas.filter((f) => f.activa === true);
+    for (const f of activas.length ? activas : filas.slice(0, 1)) {
+      const r = toquesDeLaAutomatizacion(Array.isArray(f.pasos) ? f.pasos : []);
+      if (r.problema) { problemas.push(`#${f.id}: ${r.problema}`); continue; }
+      for (const t of r.toques) if (!porMin.has(t.min)) porMin.set(t.min, { min: t.min, texto: t.texto, linea: t.linea });
+    }
+    return { activo: activas.length > 0, fuente: 'automatizacion', toques: [...porMin.values()], problemas };
+  }
+  const cfg = await leerConfigRecordatorio(ws);
+  return {
+    activo: cfg.activo, fuente: 'configuracion', problemas: [],
+    toques: TOQUES.map((min) => ({ min, texto: cfg.textos[min], linea: cfg.lineas[min] ?? null })),
+  };
+}
+
+/**
  * Manda los recordatorios al lead de UN workspace. Con `dry` no reclama ni manda nada: devuelve
  * en `enSeco` lo que mandaría (y lo calcula aunque el interruptor esté apagado, que es para lo
  * que sirve: mirarlo un día antes de prenderlo).
@@ -252,13 +295,16 @@ export async function mandarRecordatoriosAlLead(
     };
     const omitir = (motivo: string) => { res.omitidos[motivo] = (res.omitidos[motivo] ?? 0) + 1; };
 
-    let cfg: ConfigRecordatorio;
-    try { cfg = await leerConfigRecordatorio(ws); }
+    let fuente: Awaited<ReturnType<typeof toquesDelNegocio>>;
+    try { fuente = await toquesDelNegocio(ws); }
     catch (e) { res.errores.push(msgErr(e)); return res; }
-    res.activo = cfg.activo;
+    res.activo = fuente.activo;
+    res.fuente = fuente.fuente;
+    res.errores.push(...fuente.problemas);
+    const toquePorMin = new Map(fuente.toques.map((x) => [x.min, x]));
     // Apagado: ni se mira la base. Es lo que pasa en casi todos los negocios en casi todas las
     // corridas, y este cron corre cada 10 minutos.
-    if (!cfg.activo && !opts.dry) return res;
+    if (!fuente.activo && !opts.dry) return res;
 
     res.envio = await envioWhatsappHabilitado().catch(() => false);
     if (!res.envio && !opts.dry) return res;
@@ -266,7 +312,8 @@ export async function mandarRecordatoriosAlLead(
     const ahora = opts.ahora ?? new Date();
     const t = ahora.getTime();
     const desde = ahora.toISOString();
-    const hasta = new Date(t + (Math.max(...TOQUES) + TOLERANCIA_LEAD_MIN) * 60_000).toISOString();
+    if (!toquePorMin.size) return res;
+    const hasta = new Date(t + (Math.max(...toquePorMin.keys()) + TOLERANCIA_LEAD_MIN) * 60_000).toISOString();
     // Las DOS reuniones en una vuelta, como el aviso de arriba. Son las de las próximas 24 h de un
     // negocio: no llegan a las 1000 filas del tope de PostgREST.
     const { data, error } = await (await getTenantDb())
@@ -280,7 +327,7 @@ export async function mandarRecordatoriosAlLead(
     const tz = filas.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
     for (const lead of filas) {
       if (!leadAbierto(lead.estado_lead)) continue;
-      const vencidos = toquesVencidos({ leadId: lead.id, juntas: juntasDe(lead), ahora: t, tz });
+      const vencidos = toquesVencidos({ leadId: lead.id, juntas: juntasDe(lead), ahora: t, tz, toques: [...toquePorMin.keys()] });
       for (const v of vencidos) {
         res.vencidos += 1;
         const telefono = normalizarTelefono(lead.telefono);
@@ -294,8 +341,10 @@ export async function mandarRecordatoriosAlLead(
 
         if (await estaBloqueado(telefono)) { omitir('contacto bloqueado'); continue; }
 
+        const toque = toquePorMin.get(v.min);
+        if (!toque) continue;
         const texto = textoDelToque({
-          plantilla: cfg.textos[v.min as Toque], nombre: lead.nombre,
+          plantilla: toque.texto, nombre: lead.nombre,
           inicio: new Date(v.inicio), ahora, tz, link: v.link,
         });
         if (!texto) { omitir('texto vacío'); continue; }
@@ -311,7 +360,7 @@ export async function mandarRecordatoriosAlLead(
         // Por el número de ESE toque (el que se eligió en su tarjeta); sin elegir, el de por default,
         // como siempre. Uno que ya no está no cae al de por default: `enviarTexto` no manda y el
         // error queda abajo, en `fallo:` (lib/recordatorio-lead.ts, `ConfigRecordatorio.lineas`).
-        const r = await enviarYEspejar({ telefono, texto, leadId: lead.id, linea: cfg.lineas[v.min as Toque] ?? null })
+        const r = await enviarYEspejar({ telefono, texto, leadId: lead.id, linea: toque.linea })
           .catch((e): { ok: false; error: string } => ({ ok: false, error: msgErr(e) }));
         if (r.ok) {
           // La marca de ENVIADO va después del envío ok, nunca antes.

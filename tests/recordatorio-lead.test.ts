@@ -377,7 +377,10 @@ const EMISOR = sinComentarios(leer('lib/reunion-recordatorio.ts'));
 test('CABLEADO: el emisor manda sólo con el interruptor del negocio Y el envío prendidos', () => {
   const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
   assert.match(b, /return runWithWorkspace\(ws, async \(\) =>/, 'envioWhatsappHabilitado lee el contexto: tiene que ir adentro del runWithWorkspace');
-  assert.match(b, /if \(!cfg\.activo && !opts\.dry\) return res;/, 'apagado tiene que cortar ANTES de mirar los leads');
+  // Desde la mudanza (10/10/2026) el interruptor y los toques salen de `toquesDelNegocio`: la automatización del
+  // recordatorio si el negocio la tiene, y si no la configuración de antes (tests/recordatorio-automatizacion.test.ts).
+  assert.match(b, /try \{ fuente = await toquesDelNegocio\(ws\); \}\s*catch \(e\) \{ res\.errores\.push\(msgErr\(e\)\); return res; \}/, 'una lectura que falla no puede caer a otra fuente');
+  assert.match(b, /if \(!fuente\.activo && !opts\.dry\) return res;/, 'apagado tiene que cortar ANTES de mirar los leads');
   assert.match(b, /res\.envio = await envioWhatsappHabilitado\(\)/);
   assert.match(b, /if \(!res\.envio && !opts\.dry\) return res;/);
   assert.match(b, /await estaBloqueado\(telefono\)/, 'un contacto bloqueado no recibe nada');
@@ -402,13 +405,13 @@ test('CABLEADO: reclamo con compare-and-set ANTES de mandar, y `enviado:` DESPU�
 
 test('CABLEADO: el emisor le pasa la zona del negocio a toquesVencidos (la hora vieja no sale)', () => {
   const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
-  assert.match(b, /toquesVencidos\(\{ leadId: lead\.id, juntas: juntasDe\(lead\), ahora: t, tz \}\)/);
+  assert.match(b, /toquesVencidos\(\{ leadId: lead\.id, juntas: juntasDe\(lead\), ahora: t, tz, toques: \[\.\.\.toquePorMin\.keys\(\)\] \}\)/);
   assert.ok(b.indexOf('const tz = ') >= 0 && b.indexOf('const tz = ') < b.indexOf('toquesVencidos('), 'la zona se resuelve ANTES de decidir');
 });
 
 test('CABLEADO: cada toque sale por SU número, y la ruta lo valida con la regla del envío', () => {
   const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
-  assert.match(b, /enviarYEspejar\(\{ telefono, texto, leadId: lead\.id, linea: cfg\.lineas\[v\.min as Toque\] \?\? null \}\)/,
+  assert.match(b, /enviarYEspejar\(\{ telefono, texto, leadId: lead\.id, linea: toque\.linea \}\)/,
     'sin `linea`, el número elegido en la tarjeta se guarda y el toque sale por la de por default');
   const api = sinComentarios(leer('app/api/chat-agent/recordatorio-reunion/route.ts'));
   // La línea pedida se valida contra las del NEGOCIO (en su workspace), con `elegirLinea`.
