@@ -162,6 +162,97 @@ test('editar un audio que ya existe (WhatsApp 9): se revisa, 🎤 le suma, y lo 
   assert.equal(await t.entregas[0]!.texto, 'base+tramo1');
 });
 
+// Revisión de la sexta tanda (10/10/2026, hallazgo 8): la sesión pone «grabando» y dibuja la barra ANTES
+// de que el navegador entregue el micrófono (su cartel de permiso). Un 🗑 en ese rato dejaba, al dar
+// Permitir, el MediaRecorder grabando sin ninguna barra; un ✓ dejaba la barra con `uniendo` y todo apagado,
+// con el micrófono abierto y sin salida. Acá el permiso se contesta A MANO (`permitir`).
+// PROBADO ROMPIÉNDOLO (10/10/2026, de a una y restaurando de memoria; base 31/0):
+//   R8a el grabador arranca aunque el pedido se haya cancelado (sin el `mio !== intento`) → 29/2
+//   R8b `terminar` sin mirar `pidiendoMic`                                                → 30/1
+//   R8c `descartar` sin apagar `pidiendoMic`                                              → 30/1
+//   R8d el ✓ de la barra sin apagarse mientras se pide el micrófono                        → 30/1
+//   R8e el 🗑 también apagado mientras se pide (no habría cómo cancelar el pedido)         → 30/1
+//   R8f el `stop` del grabador sin cancelar el pedido                                      → 30/1
+//   R8g el `soltar` del grabador sin cancelar el pedido                                    → 30/1
+// Restaurado: 31/0. (R8a y R8b también sin `--test-force-exit`: ningún proceso queda colgado.)
+function armarMicPendiente() {
+  const pedidos: Array<() => void> = [];
+  const recs: RecFalso[] = [];
+  let pistasParadas = 0;
+  const estados: EstadoVoz[] = [];
+  const entregas: number[] = [];
+  const s = crearSesionVoz((e) => estados.push(e), {
+    pedirMicrofono: () => new Promise<MediaStream>((res) => {
+      pedidos.push(() => res({ getTracks: () => [{ stop: () => { pistasParadas++; } }] } as unknown as MediaStream));
+    }),
+    crearRecorder: () => { const r = new RecFalso(`tramo${recs.length + 1}`); recs.push(r); return r as unknown as MediaRecorder; },
+    unir: async (bs) => new Blob(bs),
+    crearUrl: (b) => `blob:${b.size}`,
+    soltarUrl: () => {},
+  });
+  return {
+    s, recs, entregas, onSend: (_b: Blob, secs: number) => { entregas.push(secs); },
+    /** El navegador contesta el pedido más viejo con «Permitir». */
+    permitir: async () => {
+      const p = pedidos.shift();
+      assert.ok(p, 'no había un pedido de micrófono pendiente');
+      p!();
+      await new Promise((r) => setTimeout(r, 0));
+    },
+    pistasParadas: () => pistasParadas,
+    ultimo: () => estados[estados.length - 1] ?? ESTADO_VOZ_INICIAL,
+  };
+}
+
+// ⚠️ Cada test SUELTA su sesión al final, pase o falle: un recorder falso que quedó «grabando» deja vivo
+// el `setInterval` del grabador y el proceso del test no termina nunca (la primera corrida de las roturas
+// se colgó así, con el archivo roto en el disco hasta que se mató el arnés y se restauró a mano).
+test('🗑 mientras el navegador pide el micrófono CANCELA el pedido: al permitir no graba nada, y el siguiente 🎤 anda', async () => {
+  const t = armarMicPendiente();
+  try {
+    const p = t.s.start(t.onSend);
+    assert.equal(t.ultimo().fase, 'grabando');
+    assert.equal(t.ultimo().pidiendoMic, true, 'la barra no sabe que el micrófono todavía no llegó');
+    t.s.descartar();
+    assert.equal(t.ultimo().fase, 'quieta');
+    assert.equal(t.ultimo().pidiendoMic, false);
+    await t.permitir(); await p;
+    assert.equal(t.recs.length, 0, 'el micrófono quedó grabando sin ninguna barra');
+    assert.equal(t.pistasParadas(), 1, 'el micrófono quedó abierto');
+    assert.equal(t.ultimo().fase, 'quieta');
+    // El siguiente 🎤 graba de verdad y su ✓ termina (antes el grabador viejo seguía «activo» y la barra se trababa).
+    const p2 = t.s.start(t.onSend);
+    await t.permitir(); await p2;
+    assert.equal(t.recs.length, 1);
+    assert.equal(t.ultimo().pidiendoMic, false);
+    t.s.terminar(); await esperar();
+    assert.equal(t.ultimo().fase, 'revisando');
+    assert.equal(t.entregas.length, 0, '✓ termina, no manda');
+  } finally { t.s.soltar(); }
+});
+
+test('✓ mientras se pide el micrófono no hace nada; al permitir se graba, y el ✓ termina. Desmontar en el medio lo suelta', async () => {
+  const t = armarMicPendiente();
+  const u = armarMicPendiente();
+  try {
+    const p = t.s.start(t.onSend);
+    t.s.terminar();
+    assert.equal(t.ultimo().uniendo, false, 'el ✓ dejaba la barra «cerrando» con todo apagado y el micrófono abierto');
+    await t.permitir(); await p;
+    assert.equal(t.ultimo().fase, 'grabando');
+    assert.equal(t.ultimo().pidiendoMic, false);
+    assert.equal(t.recs[0]?.state, 'recording');
+    t.s.terminar(); await esperar();
+    assert.equal(t.ultimo().fase, 'revisando');
+    // Cerrar el panel (o cambiar de chat) mientras se pide: al volver, el micrófono se suelta y no graba.
+    const pu = u.s.start(u.onSend);
+    u.s.soltar();
+    await u.permitir(); await pu;
+    assert.equal(u.recs.length, 0);
+    assert.equal(u.pistasParadas(), 1);
+  } finally { t.s.soltar(); u.s.soltar(); }
+});
+
 test('el WAV de la unión es un WAV de verdad, y la onda cuenta barras con el ancho', () => {
   const w = wavDe([new Float32Array([0, 0.5]), new Float32Array([-1])], 48_000);
   assert.equal(w.type, 'audio/wav');
@@ -188,6 +279,19 @@ test('la barra: grabando con el ✓ (nunca una ➤), revisando con ▶, 🎤 y l
   assert.ok(!rev.includes('Terminar grabación'));
 });
 
+// Hallazgo 8 (ver el arnés `armarMicPendiente`, arriba): la barra mientras el navegador pide el micrófono.
+test('la barra con el micrófono pendiente: ⏸ y ✓ apagados, 🗑 prendido (es lo que cancela el pedido)', () => {
+  const html = renderToStaticMarkup(createElement(BarraGrabacion, { voz: voz({ fase: 'grabando', pidiendoMic: true }) }));
+  const boton = (rotulo: string) => new RegExp(`<button[^>]*aria-label="${rotulo}"[^>]*>`).exec(html)?.[0] ?? '';
+  assert.match(boton('Terminar grabación'), /disabled=""/, 'un ✓ sin tramo que cerrar trababa la barra');
+  assert.match(boton('Pausar grabación'), /disabled=""/);
+  assert.ok(boton('Eliminar grabación'), 'falta el 🗑');
+  assert.doesNotMatch(boton('Eliminar grabación'), /disabled=""/, 'sin el 🗑 no hay cómo cancelar el pedido del micrófono');
+  // Y sin pedido pendiente, el ✓ vuelve a andar (no quedó apagado para siempre).
+  const listo = renderToStaticMarkup(createElement(BarraGrabacion, { voz: voz({ fase: 'grabando' }) }));
+  assert.doesNotMatch(new RegExp('<button[^>]*aria-label="Terminar grabación"[^>]*>').exec(listo)?.[0] ?? 'disabled=""', /disabled=""/);
+});
+
 test('NINGÚN composer manda al soltar: `audioAlSoltar` no decide nada, y la grabación es la sesión', () => {
   const comp = sinComentarios(leer('app/whatsapp/_shared/ComposerWhatsApp.tsx'));
   const cuerpo = comp.slice(comp.indexOf('export function ComposerWhatsApp('));
@@ -202,6 +306,21 @@ test('NINGÚN composer manda al soltar: `audioAlSoltar` no decide nada, y la gra
   assert.match(hilo, /key=\{draftKey \?\? 'hilo'\}/, 'una escucha a medias viajaría al chat de al lado');
 });
 
+// Revisión de la sexta tanda (10/10/2026, hallazgo 7): en /whatsapp, grabar en el chat A, terminar, tocar
+// al lead B y apretar la ➤ mandaba la nota al lead A con la pantalla mostrando a B (la sesión guarda el
+// `onSend` del render del 🎤, y ése lee el `sel` de A). ChatHilo ya llevaba la key; EmpresaInbox no.
+// ⚠️ Acá SÓLO se sacan los comentarios de LÍNEA: el `acceptArchivo="image/*,…"` del composer abre un
+// «bloque» para el regex de `sinComentarios` que se come el JSX hasta el próximo `*/` del archivo.
+// PROBADO ROMPIÉNDOLO (10/10/2026, de a una y restaurando de memoria; base 28/0): sin la `key` → 27/1;
+// devolviendo `audioAlSoltar` a la bandeja → 27/1; devolviéndolo al tipo del composer → 27/1.
+test('/whatsapp: el composer va POR CONVERSACIÓN (`key`), y `audioAlSoltar` no existe más', () => {
+  const sinLineas = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '');
+  const inbox = sinLineas(leer('app/whatsapp/EmpresaInbox.tsx'));
+  assert.match(inbox, /<ComposerWhatsApp\s+key=\{selConv\.chatJid\}\s+modo="enviar"/, 'una nota escuchada en el chat B salía al lead A');
+  assert.doesNotMatch(inbox, /audioAlSoltar/, 'la bandeja vuelve a pedir que el audio salga al soltar');
+  assert.doesNotMatch(sinLineas(leer('app/whatsapp/_shared/ComposerWhatsApp.tsx')), /audioAlSoltar/, 'la prop volvió al tipo del composer');
+});
+
 // «Esto en todos lados» (WhatsApp 7): los dos grabadores que faltaban (segunda pasada, parte «datos»).
 // PROBADO ROMPIÉNDOLO (09/10/2026, arnés w2-datos/romper.mjs, restaurado de memoria): el onboarding del
 // Video Generator de vuelta a `useVoiceRecorder` → 1 fallo; su barra con `alignSelf: 'center'` → 1 fallo;
@@ -211,9 +330,22 @@ test('el onboarding del Video Generator y la tarea de audio del alumno graban co
   const vg = sinComentarios(leer('app/video-generator/OnboardingVideoGen.tsx'));
   const grabador = vg.slice(vg.indexOf('function GrabadorVoz('), vg.indexOf('const COLUMNAS_ACENTO'));
   assert.ok(grabador.length > 0 && grabador.length < 2500, `el recorte del grabador mide ${grabador.length}`);
-  assert.match(grabador, /const voz = useGrabacionVoz\(onListo, setFallo\);/, 'el onboarding volvió a entregar al soltar');
+  assert.match(grabador, /const voz = useGrabacionVoz\(usar, setFallo\);/, 'el onboarding volvió a entregar al soltar');
   assert.doesNotMatch(vg, /useVoiceRecorder|VoiceRecorderBar/);
   assert.match(grabador, /<div style=\{\{ alignSelf: 'stretch', width: '100%' \}\}>\s*<BarraGrabacion voz=\{voz\}/, 'la barra no ocupa el ancho');
+  // Revisión de la sexta tanda (10/10/2026, hallazgo 10): la muestra que no se pudo usar (menos de 20 s, o
+  // una subida que falló) VUELVE a la barra de escuchar; la sesión ya la había soltado. Molde: TareaAlumno.
+  // PROBADO ROMPIÉNDOLO (10/10/2026, restaurando de memoria; base 32/0): `usar` sin el `revisarExistente`
+  // → 31/1; el piso de 20 s devolviendo `true` → 31/1; la subida que falla devolviendo `true` → 31/1; la
+  // que sale bien devolviendo `false` (volvería a la barra lo ya guardado) → 31/1. El compilador no caza
+  // ninguna de las tres: son un `boolean` bien tipado con el valor al revés.
+  assert.match(grabador, /if \(!\(await onListo\(blob, secs\)\)\) void vozViva\.current\?\.revisarExistente\(\{ blob, secs \}\);/, 'una muestra rechazada se perdía: hasta 90 s leídos en voz alta');
+  const subir = bloque(vg, 'const subirGrabacion = useCallback(', '}, []);', 2_000);
+  assert.match(subir, /async \(blob: Blob, secs: number\): Promise<boolean> =>/);
+  assert.match(subir, /if \(secs < 20\) \{[\s\S]{0,200}?return false;\s*\}/, 'con menos de 20 s no quedaba ni el 🎤 para sumar el tramo que faltaba');
+  assert.match(subir, /contarFalloEleven\(j, 'No se pudo guardar la grabación\.'\); return false; \}/);
+  assert.match(subir, /setMuestras\(j\.muestras \?\? \[\]\);\s*return true;/);
+  assert.match(subir, /catch \{[^}]*return false; \}/);
   const tarea = sinComentarios(leer('app/compartido/curso/[token]/TareaAlumno.tsx'));
   assert.match(tarea, /return p\.campo\.tipo === 'audio' \? <CampoGrabacionAudio \{\.\.\.p\} \/> : <CampoGrabacionVideo \{\.\.\.p\} \/>;/);
   const audio = tarea.slice(tarea.indexOf('function CampoGrabacionAudio('), tarea.indexOf('function CampoGrabacionVideo('));
@@ -420,6 +552,23 @@ test('el contexto sale del REGISTRO de la API de MaKo (lecturas que existen), y 
   assert.match(ruta, /pin\.provider !== 'anthropic' && pin\.provider !== 'openai'/, 'un pin pago se usaría');
   assert.match(ruta, /motivo: `⚠ red de plataforma/);
   assert.match(ruta, /errorDeCascada\(errores, 'escribir el mensaje'\)/, 'los errores de la red eligieran el texto del cliente');
+});
+
+// Revisión de la sexta tanda (10/10/2026, hallazgo 9): con `sinVoz: true` el panel ofrece «Que la aprenda
+// MaKo» y «Escribirla yo», y los dos terminan en `setVozGuia` sin comparar con lo que había. La ruta leía
+// con `getVozGuia` (vía `getSetting`, que vuelve null un error de Supabase) + `.catch(() => null)`: un
+// negocio con su guía escrita a mano, ante una lectura caída, veía que no tenía voz y un clic se la pisaba.
+// PROBADO ROMPIÉNDOLO (10/10/2026, restaurando de memoria; base 32/0): `sinVoz: !hayVoz` (null = «no hay»)
+// → 31/1; la lectura estricta sin su `.catch` (una lectura caída tira el ✦ entero) → 31/1;
+// `hayVozGuiaEstricto` leyendo con `getSetting` → 31/1.
+test('el ✦ ofrece configurar la voz sólo si SE MIDIÓ que no hay: «no pude leer» no es «no tienes voz»', () => {
+  const ruta = sinComentarios(leer('app/api/chat-agent/redactar/route.ts'));
+  assert.match(ruta, /hayVozGuiaEstricto\(\)\.catch\(\(\) => null\)/, 'una lectura caída tumbaría la propuesta entera');
+  assert.match(ruta, /sinVoz: hayVoz === false,/, 'con la lectura caída el panel ofrece pisar la guía');
+  assert.doesNotMatch(ruta, /getVozGuia\(/, 'la lectura tolerante convierte «no pude leer» en «no hay voz»');
+  // Y la estricta TIRA de verdad: lee con `getSettingEstricto`, no con `getSetting`.
+  const est = bloque(sinComentarios(leer('lib/nutricion-generator.ts')), 'export async function hayVozGuiaEstricto(', '\n}\n', 400);
+  assert.match(est, /await getSettingEstricto\(KEY_VOZ\)/);
 });
 
 // ── MaKo en WhatsApp 1 y 2 ───────────────────────────────────────────────────────────────────

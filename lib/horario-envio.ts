@@ -79,11 +79,22 @@ export function horarioVigente(raw: unknown): HorarioEnvio | null {
   return h && h.activo ? h : null;
 }
 
-/** Lo que se escribe en la base, o el motivo por el que no. Valida con las mismas reglas que lee. */
+/**
+ * Lo que se escribe en la base, o el motivo por el que no. Valida con las mismas reglas que lee.
+ *
+ * ⚠️ APAGADO SE GUARDA SIEMPRE (revisión de la sexta tanda, 10/10/2026). Prender, sacar todos los días
+ * (o poner el cierre antes de la apertura) y apagar dejaba el «Guardar» habilitado —la pantalla sólo
+ * valida prendido— y acá rebotaba con «Elige al menos un día», con los días escondidos. Si lo guardado
+ * estaba prendido, seguía limitando los envíos que el dueño quería soltar. Con un `false` LITERAL y lo
+ * elegido que no cierra, se guarda apagado con lo sugerido (9 a 21, todos los días): es lo mismo que
+ * propone la pantalla sin nada guardado, y al volver a prenderlo se ve eso. Cualquier otra cosa que no
+ * se entienda sigue siendo un error: un pedido roto no apaga el horario de nadie.
+ */
 export function horarioParaGuardar(h: unknown): { ok: true; valor: string } | { ok: false; error: string } {
   const s = sanearHorario(h);
   if (!s) {
     const o = (h ?? {}) as Record<string, unknown>;
+    if (o.activo === false) return { ok: true, valor: JSON.stringify({ ...HORARIO_SUGERIDO, activo: false }) };
     if (Array.isArray(o.dias) && !o.dias.length) return { ok: false, error: 'Elige al menos un día.' };
     return { ok: false, error: 'La hora de cierre tiene que ser después de la de apertura.' };
   }

@@ -108,6 +108,27 @@ test('se guarda sólo lo que se sabe leer, con el motivo que lee la persona', ()
   assert.match(sinDias.ok ? '' : sinDias.error, /al menos un día/);
 });
 
+// Revisión de la sexta tanda (10/10/2026, hallazgo 11): prender, sacar todos los días (o cerrar antes de
+// abrir) y apagar dejaba el «Guardar» habilitado y el server contestaba «Elige al menos un día» con los
+// días escondidos: el horario guardado seguía limitando los envíos. Apagado se guarda SIEMPRE.
+// PROBADO ROMPIÉNDOLO (10/10/2026, restaurando de memoria; base 8/0): sin la línea del apagado → 7/1;
+// apagando con cualquier cosa que no sea `true` (no un `false` literal) → 7/1.
+test('apagado se guarda SIEMPRE, aunque los días o las horas no cierren; un pedido roto no apaga nada', () => {
+  for (const h of [{ activo: false, desde: 9, hasta: 18, dias: [] }, { activo: false, desde: 20, hasta: 9, dias: [1] }, { activo: false, desde: 'x', dias: [] }]) {
+    const r = horarioParaGuardar(h);
+    assert.equal(r.ok, true, `no se pudo apagar con ${JSON.stringify(h)}`);
+    const leido = r.ok ? sanearHorario(r.valor) : null;
+    assert.equal(leido?.activo, false);
+    // Lo que no cerraba se rellena con lo sugerido (lo mismo que propone la pantalla sin nada guardado).
+    assert.deepEqual(leido, { ...HORARIO_SUGERIDO, activo: false });
+    assert.equal(horarioVigente(r.ok ? r.valor : null), null, 'apagado no limita');
+  }
+  // Lo apagado que SÍ cierra conserva lo elegido (el test de arriba), y lo que no es un `false` literal no apaga.
+  for (const roto of [null, 'apagar', { desde: 9, hasta: 18, dias: [] }, { activo: 'no', desde: 9, hasta: 18, dias: [] }]) {
+    assert.equal(horarioParaGuardar(roto).ok, false, `${JSON.stringify(roto)} apagó el horario`);
+  }
+});
+
 test('la pantalla: Configuraciones › Horario, la monta la fila de tabs y guarda un admin', () => {
   const tabs = sinComentarios(leer('app/configuraciones/ConfigInnerTabs.tsx'));
   assert.match(tabs, /import \{ HorarioEnvioPanel \} from '\.\/HorarioEnvioPanel';/);

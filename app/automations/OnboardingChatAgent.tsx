@@ -39,6 +39,11 @@ import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 import { Icon } from '@/app/_components/icons';
 // La papelera de la casa, roja siempre (sexta tanda, general 9: «ese ícono de basura que no se ve»).
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
+// ⚠️ Los links de este wizard van por el `Link` de la casa, nunca por un `<a href>` crudo: el paso
+// «Tu forma de escribir» se abre desde el lienzo de /automations también mirando a un cliente
+// (`?ws=N`), y un `<a>` nativo abría la pestaña nueva en la cuenta de la cookie (revisión de la sexta
+// tanda, 10/10/2026). `Link` le pega el `?ws=` y pasa `target`/`rel`/`style` tal cual.
+import Link from '@/app/_ui/Link';
 import { Avatar } from '../whatsapp/_shared/Avatar';
 import { GrabadorAudioPaso, type AudioGrabado } from './GrabadorAudioPaso';
 import { audiosDe, defDeClave, PUBLICOS, type PublicoGenero } from '@/lib/audios-paso';
@@ -1270,7 +1275,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
               <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
                 Se conecta pegando un solo token de Meta en Configuraciones → Método; MaKo descubre el resto de los datos solo.
               </div>
-              <a href="/integraciones" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Abrir integraciones ↗</a>
+              <Link href="/integraciones" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Abrir integraciones ↗</Link>
             </div>
           )}
         </div>
@@ -1301,7 +1306,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
       {/* ⑩ EMAIL — conectar */}
       {pasoKey === 'email_conectar' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <a href="/email" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Configurar mi dominio ↗</a>
+          <Link href="/email" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Configurar mi dominio ↗</Link>
         </div>
       )}
 
@@ -1388,11 +1393,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
                         </span>
                       </button>
 
-                      <a href={`/whatsapp?canal=no-oficial&chat=${encodeURIComponent(c.jids[0] ?? '')}`} target="_blank" rel="noreferrer"
+                      <Link href={`/whatsapp?canal=no-oficial&chat=${encodeURIComponent(c.jids[0] ?? '')}`} target="_blank" rel="noreferrer"
                         title="Abrir el chat" aria-label={`Abrir el chat con ${nombre}`}
                         style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)' }}>
                         <Icon name="whatsapp" size={14} />
-                      </a>
+                      </Link>
                       {porOcultar === c.clave ? (
                         <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--dim)', whiteSpace: 'nowrap' }}>
                           ¿Ocultar?
@@ -1527,7 +1532,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
                   abre ahí directo. Éste es el tercer destino que tiene este botón en dos días
                   —/funnel, después /onboarding?tab=funnel— y las dos veces por la misma razón:
                   la pantalla se mudó y el link se quedó apuntando a donde ya no está. */}
-              <a href="/crm?embudo=entradas" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Decir cómo entra mi gente ↗</a>
+              <Link href="/crm?embudo=entradas" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Decir cómo entra mi gente ↗</Link>
             </div>
           ) : (
             <>

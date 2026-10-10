@@ -26,7 +26,7 @@ import { getRolWsEfectivo, getWorkspaceActual, wsSuperAdmin } from '@/lib/worksp
 import { chatCheapCascade, chatCheapTools, provsGratisDePlataforma, CASCADA_DOCS, MODELO_DOCS, errorDeCascada, type ProvName } from '@/lib/ai-cheap';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { parseJsonObject } from '@/lib/json-del-modelo';
-import { getVozGuia } from '@/lib/nutricion-generator';
+import { hayVozGuiaEstricto } from '@/lib/nutricion-generator';
 import { ejecutarOperacion } from '@/lib/api-mako/ejecutar';
 import { canalKeyDe } from '@/lib/api-mako/canal';
 import type { Ctx } from '@/lib/api-mako/tipos';
@@ -69,7 +69,14 @@ export async function POST(req: NextRequest) {
   if (!p) return Response.json({ ok: false, error: 'Cuéntale a MaKo qué quieres lograr.' }, { status: 400 });
 
   const ctx: Ctx = { ws, canal: 'app', canalKey: canalKeyDe('app', `ws${ws}`), alcance: 'lectura', rol: 'admin' };
-  const [{ leido }, voz] = await Promise.all([leer(ctx), getVozGuia().catch(() => null)]);
+  // ⚠️ ¿HAY GUÍA DE VOZ? ESTRICTO (revisión de la sexta tanda, 10/10/2026). Con `sinVoz: true` el panel
+  // ofrece «Que la aprenda MaKo» y «Escribirla yo», y los dos terminan en `setVozGuia`, sin comparar con
+  // lo que había. `getVozGuia` pasa por `getSetting`, que convierte un error de Supabase en null: un
+  // negocio con su guía escrita a mano, ante una lectura caída, veía que no tenía voz y un clic se la
+  // pisaba. «No pude leer» no es un valor (AGENTS.md): `hayVozGuiaEstricto` tira, el `.catch` lo vuelve
+  // `null` y sólo un `false` medido ofrece configurar. Esta lectura sólo decide eso: la voz que llega al
+  // prompt sale del registro (`guia_voz_negocio`, en LECTURAS_REDACTA).
+  const [{ leido }, hayVoz] = await Promise.all([leer(ctx), hayVozGuiaEstricto().catch(() => null)]);
   const system = redactaSystem();
   const user = userDeRedacta(p, leido);
   // Lo que se le dio a leer: de acá pueden salir los links que un mensaje nombra.
@@ -121,6 +128,6 @@ export async function POST(req: NextRequest) {
   const listo = propuesta as PropuestaRedacta;
   return Response.json({
     ok: true, mensajes: listo.mensajes, audio: listo.audio, nota: listo.nota, descartes: listo.descartes,
-    leido: leido.map((l) => l.rotulo), sinVoz: !(voz ?? '').trim(),
+    leido: leido.map((l) => l.rotulo), sinVoz: hayVoz === false,
   });
 }
