@@ -8,13 +8,18 @@
 //
 // El orden, y cada paso tiene su porqué:
 //   1. LA FIRMA, sobre el body CRUDO y antes de parsear: `X-Zernio-Signature` = HMAC-SHA256 hex del
-//      body con `ZERNIO_WEBHOOK_SECRET` (el que MaKo le da a Zernio al registrar el webhook:
-//      `asegurarWebhook`, lib/zernio.ts). Fail-CLOSED: sin secreto o sin firma, 401.
+//      body con el secreto que MaKo le dio a Zernio al registrar el webhook (`asegurarWebhook`,
+//      lib/zernio.ts): el MAESTRO (`ZERNIO_WEBHOOK_SECRET`) en la cuenta de la plataforma, y el de
+//      cada negocio en su cuenta propia, que llega con `?w=<ws>` (lib/zernio-firma.ts). Fail-CLOSED:
+//      sin secreto, sin firma o con un `?w=` roto, 401.
 //   2. DE QUIÉN ES, con la lectura ESTRICTA (AGENTS.md): por el profile (`account.profileId`, lo acuña
 //      el server) y, si el evento no lo trae —un `comment.received` trae SÓLO `account.accountId`—, por
 //      la cuenta conectada (`zernio_cuenta`, la reclama `cuentasConectadas`). «No pude leer» va por
 //      `responderFalloDeRuteo` (503 si reintentar lo arregla); «no es de nadie», 200 y un aviso en el
 //      log: reintentar no lo va a atribuir mejor.
+//      ⚠️ Y LA FIRMA TIENE QUE SER DE ESE NEGOCIO (`aceptaElWorkspace`), ANTES de reclamar el evento:
+//      el secreto de una cuenta propia lo puede leer su dueño, así que sólo vale para eventos suyos, y
+//      el maestro no vale para un negocio con cuenta propia. Si no, 200 y al log.
 //   3. UNA VEZ POR EVENTO: el id del evento (`payload.id`, igual a `X-Zernio-Event-Id` y el mismo en
 //      cada reintento) se reclama en `zernio_eventos` (mig 0242). Zernio entrega «at-least-once» y
 //      reintenta hasta 7 veces: sin esto, una reentrega le manda otro DM al lead.
@@ -30,15 +35,15 @@
 // cada lead ya está en `nutricion_envios.texto_enviado`.
 
 import { after, type NextRequest } from 'next/server';
-import { verificarFirmaZernio } from '@/lib/zernio-firma';
+import { verificarFirmaZernio, wsDelWebhook, secretoParaVerificar, aceptaElWorkspace } from '@/lib/zernio-firma';
 import { envCred } from '@/lib/credenciales';
-import { wsPorIdentificadorEstricto, upsertRouting } from '@/lib/webhook-routing';
+import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { eventoSocialDe } from '@/lib/canal-social';
 import { procesarEventoSocial, dispararEventoSocial, pausarRespuestaSocial } from '@/lib/zernio-entrante';
-import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTOS_WEBHOOK } from '@/lib/zernio';
+import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTOS_WEBHOOK, usaCuentaPropia, cuentasConectadas } from '@/lib/zernio';
 
 export const dynamic = 'force-dynamic';
 // El primer mensaje de la automatización sale en `after`, después de contestar.
@@ -52,6 +57,20 @@ const EVENTOS: ReadonlySet<string> = new Set(EVENTOS_WEBHOOK);
 type Cuerpo = { id?: unknown; event?: unknown; account?: { profileId?: unknown; accountId?: unknown; id?: unknown } | null };
 const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : null);
 
+/**
+ * Después de un `account.connected`: el ruteo de las cuentas que lista la cuenta de Zernio de ESE
+ * negocio (con su key, filtradas por su profile). Nunca tira: corre en `after`, con el evento ya
+ * contestado, y lo que no se reclame acá lo reclama la próxima vez que el editor pida la cuenta.
+ */
+async function reclamarCuentasConectadas(ws: number): Promise<void> {
+  try {
+    const n = (await cuentasConectadas(ws)).length;
+    console.log(`[webhook:zernio] account.connected ws=${ws}: ${n} cuenta(s) reclamada(s)`);
+  } catch (e) {
+    console.error(`[webhook:zernio] account.connected ws=${ws}: no pude listar las cuentas: ${msg(e)}`);
+  }
+}
+
 export async function GET() {
   return Response.json({ ok: true, endpoint: 'zernio webhook', usage: 'POST con X-Zernio-Signature' });
 }
@@ -59,10 +78,13 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const t0 = Date.now();
   const raw = await req.text();
-  const secret = await envCred('ZERNIO_WEBHOOK_SECRET');
+  // `?w=` nombra al negocio cuya cuenta PROPIA de Zernio mandó el evento; sin él, la de la plataforma.
+  const w = wsDelWebhook(req.nextUrl.searchParams.get('w'));
+  const maestro = await envCred('ZERNIO_WEBHOOK_SECRET');
+  const secret = secretoParaVerificar(maestro, w);
   const firma = req.headers.get('x-zernio-signature') ?? req.headers.get('x-late-signature');
-  if (!verificarFirmaZernio(raw, firma, secret)) {
-    console.warn(`[webhook:zernio] firma rechazada (secreto ${secret ? 'configurado' : 'AUSENTE'})`);
+  if (w === 'invalido' || !verificarFirmaZernio(raw, firma, secret)) {
+    console.warn(`[webhook:zernio] firma rechazada (secreto ${maestro ? 'configurado' : 'AUSENTE'}, ?w=${w ?? '—'})`);
     return Response.json({ ok: false, error: 'signature' }, { status: 401 });
   }
 
@@ -86,15 +108,23 @@ export async function POST(req: NextRequest) {
   const perfil = texto(body.account?.profileId);
   const cuenta = texto(body.account?.accountId) ?? texto(body.account?.id);
   let ws: number | null = null;
+  let cuentaPropia = false;
   try {
     if (perfil) ws = await wsPorIdentificadorEstricto(RUTEO_PERFIL, perfil);
     if (ws == null && cuenta) ws = await wsPorIdentificadorEstricto(RUTEO_CUENTA, cuenta);
+    // Sólo con el MAESTRO hace falta saberlo; con el secreto de un negocio alcanza con comparar.
+    if (ws != null && w == null) cuentaPropia = await usaCuentaPropia(ws);
   } catch (err) {
     return responderFalloDeRuteo('zernio', err, perfil ?? cuenta);
   }
   if (ws == null) {
     console.warn(`[webhook:zernio] ${evento} sin workspace (profile ${perfil ?? '—'}, cuenta ${cuenta ?? '—'}): ignorado`);
     return Response.json({ ok: true, event: evento, ignored: 'sin workspace' });
+  }
+  if (!aceptaElWorkspace(w, ws, cuentaPropia)) {
+    // Reintentar no lo arregla: 200, sin reclamar el evento ni marcar el webhook como andando.
+    console.warn(`[webhook:zernio] ${evento} es del ws ${ws} y llegó firmado ${w == null ? 'con el maestro (ese negocio tiene cuenta propia)' : `para el ws ${w}`}: ignorado`);
+    return Response.json({ ok: true, event: evento, ignored: 'workspace distinto' });
   }
   const wsFinal = ws;
 
@@ -117,7 +147,11 @@ export async function POST(req: NextRequest) {
     return await runWithWorkspace(wsFinal, async () => {
       if (evento === 'account.connected') {
         // Una cuenta nueva: se reclama su ruteo, para que sus comentarios tengan de quién ser.
-        if (cuenta) await upsertRouting(RUTEO_CUENTA, cuenta, wsFinal);
+        // ⚠️ NO LA QUE DICE EL CUERPO: con su propio secreto, el dueño de una cuenta propia firma un
+        // `account.connected` con el `accountId` de OTRO negocio, y el primero que reclama gana — los
+        // comentarios de esa cuenta dejaban de tener dueño. Se reclaman las que la cuenta de Zernio de
+        // ESTE negocio lista (`cuentasConectadas`), después de contestar: Zernio corta a los 5 s.
+        after(() => reclamarCuentasConectadas(wsFinal));
         return Response.json({ ok: true, event: evento, accion: 'cuenta_conectada' });
       }
       const ev = eventoSocialDe(body);

@@ -1736,8 +1736,8 @@ interruptor del negocio, grepeá las puertas que deciden si el motor corre**, no
 Medido en producción (09/10/2026): los dos negocios con Zernio (ws11 y ws13) tienen key PROPIA, fila de
 ruteo por profile y `zernio_workspace.webhook_ok = false` desde agosto. No es la firma ni el ruteo: con
 key propia el webhook se registra en la cuenta de Zernio DEL NEGOCIO, y nadie lo registró. Lo registra
-MaKo (`asegurarWebhook`, idempotente, con el secreto de la plataforma) cuando el editor de la tarjeta pide
-la cuenta (POST `/api/zernio`, «estado»).
+MaKo (`asegurarWebhook`, idempotente) cuando el editor de la tarjeta pide la cuenta (POST `/api/zernio`,
+«estado»), con un secreto DE ESE NEGOCIO y no el de la plataforma (ver la entrada siguiente).
 
 Y dos trampas de la forma del evento: **un `comment.received` NO trae el profile** (sólo
 `account.accountId`), así que el ruteo por profile no alcanza y cada cuenta conectada se reclama aparte
@@ -1746,6 +1746,50 @@ automatización en `after`. El dedup es por el id del EVENTO (`zernio_eventos`, 
 en cada uno de los 7 reintentos.
 
 **Vive en:** `lib/zernio.ts` (`asegurarWebhook`, `cuentasConectadas`) · `app/api/webhooks/zernio/route.ts` · `app/api/zernio/route.ts`
+
+### Con key propia, lo que MaKo le da a Zernio lo lee el cliente: el secreto del webhook es por negocio [canales]
+
+Revisión adversarial del 10/10/2026 (hallazgo #4). `asegurarWebhook` escribía el secreto ÚNICO del webhook
+(`ZERNIO_WEBHOOK_SECRET`, el que verifica los eventos de TODOS los negocios) en la cuenta de Zernio del
+cliente. Medido en producción con un GET: **`GET /v1/webhooks/settings` devuelve el `secret` en claro**
+(en la cuenta de la plataforma vino el maestro). O sea que el cliente con su key lo leía y firmaba eventos
+de cualquier otro negocio. No llegó a salir: ws13 tenía 0 webhooks y la cuenta de ws11 contesta 402.
+
+- **Cuenta propia: `secretoDeWorkspace(maestro, ws)` y la URL `?w=<ws>`**; la de la plataforma, el
+  maestro y la URL pelada. El webhook verifica con el que nombra el `?w=` y, ANTES de reclamar el evento,
+  exige que el evento ruteado sea de ese negocio (`aceptaElWorkspace`). El maestro vale sólo para negocios
+  sin cuenta propia, preguntado con la lectura estricta.
+- ⚠️ **El arreglo obvio (`ws === w`) no alcanzaba.** Con SU propio secreto, el dueño de una cuenta propia
+  firma en su `?w=` un `account.connected` con el `accountId` de otro negocio, y el ruteo de una cuenta es
+  del primero que la reclama. `account.connected` ya no le cree al cuerpo: reclama las cuentas que lista
+  la cuenta de Zernio de ese negocio (`cuentasConectadas`).
+- **El parámetro es `w` y no `ws`**: `?ws=` lo lee `proxy.ts`.
+- **Se re-apunta sólo el webhook de la URL exacta.** Si un negocio cargara como «propia» la key de la
+  plataforma, el de la URL pelada es el webhook que comparten todos los negocios sin cuenta propia.
+- Si algún día hay que rotar el maestro, cambian también los secretos de cada negocio: el de la plataforma
+  se re-registra a mano, y el de cada cuenta propia en el próximo «estado» de su editor (hasta entonces,
+  sus eventos dan 401).
+
+**Vive en:** `lib/zernio-firma.ts` (`secretoDeWorkspace`, `webhookDeLaCuenta`, `aceptaElWorkspace`) · `lib/zernio.ts` (`asegurarWebhook`, `usaCuentaPropia`) · `app/api/webhooks/zernio/route.ts` · `tests/zernio-secreto-por-negocio.test.ts`
+
+### El profile guardado puede ser de OTRA cuenta de Zernio: la key cambia después [canales]
+
+Revisión adversarial del 10/10/2026 (hallazgo #3). ws11 nunca podía usar Instagram ni Messenger, y la
+pantalla no decía por qué (decía «Conectar», y conectar contestaba «Zernio no contestó»). La causa no era
+la conexión: `zernio_workspace.profile_id` de ws11 es el `mako_ws_11` que acuñó la rama SIN key propia el
+15/08, en la cuenta de la AGENCIA, y la key propia llegó el 28/08. `profileIdEfectivo` devolvía el guardado
+sin mirar de qué cuenta era, y cada pedido iba a la cuenta de ella con un profile ajeno. ws13 andaba sólo
+porque su fila tenía `null`.
+
+- **Con key propia, el guardado vale si está en el `GET /profiles` de ESA key**; si no, se suelta y se usa
+  el Default de su cuenta (`profileDeLaCuenta`, puro). La fila de ws11 se corrige sola en el primer pedido
+  que conteste su cuenta: no hay que escribirla a mano.
+- **Y al revés:** con la key de la plataforma, un `null` guardado (lo que deja una key propia borrada) se
+  acuña. Antes el negocio quedaba sin profile para siempre.
+- Hoy la cuenta de Zernio de ws11 contesta **402 «Account paused: payment required»** a todo: aunque esto
+  esté arreglado, su canal no anda hasta que pague (ver «Lo que quedó sin hacer»).
+
+**Vive en:** `lib/zernio-profile.ts` · `lib/zernio.ts` (`ensureProfile`, `profileIdEfectivo`) · `tests/zernio-profile-propio.test.ts`
 
 ### Trampas chicas que se pagan caro [canales]
 
@@ -1778,6 +1822,10 @@ en cada uno de los 7 reintentos.
   (sólo `{ soloGrupo: true }`). Una automatización social disparada por un EVENTO anda; una por cohorte
   (antigüedad, residuo) en un negocio que usa sólo Instagram no inscribe a nadie. Decidir si esa rama
   inscribe es de Martín. `app/api/cron/nutricion/route.ts`
+- **Un 402 de Zernio llega a la pantalla como «Zernio no contestó»**: `app/api/zernio/route.ts` convierte
+  todo 4xx en ese texto. A ws11 (cuenta pausada por falta de pago, medido el 10/10/2026) le tendría que
+  decir que es SU cuenta de Zernio la que está pausada y que se arregla pagando ahí
+  (`code: 'PAYMENT_REQUIRED'`, `billingUrl` en el cuerpo), como pide AGENTS.md para el error de un tercero.
 ## Sexta tanda (09/10/2026, parte «whatsapp»): el audio, la grabación, el número y el ✦ por mensaje
 
 ### El audio «que no se escucha» no era el audio: un porcentaje cíclico dejaba el reproductor en 0 px [whatsapp]
