@@ -57,7 +57,7 @@ import { esCanalSocial, logoSocialSvg, VENTANA_META_MS, type CanalSocial } from 
 import { etiquetasDelPaso, textoDeEtiquetas } from './editor-acciones';
 import {
   ANCHO_NODO, ALTO_MIN, GAP_Y, MARGEN, ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, ICONO_MAKO, ICONO_GMAIL,
-  encerrar, aOrigen, centroDeFilas, tieneFilas, posicionDePildora,
+  encerrar, aOrigen, centroDeFilas, tieneFilas, posicionDePildora, anchoPildoraFlecha,
   type NodoFlujo, type AristaFlujo, type GrafoFlujo, type PuertoNodo,
 } from './lienzo-grafo';
 import {
@@ -113,6 +113,15 @@ export const OP_SACAR_ETIQUETA = 'sacar_etiqueta_lead';
 /** Separación entre columnas del árbol. Sin etiquetas sobre las flechas, alcanza para el
  *  ＋ de una salida vacía y el ＋ del medio. */
 const GAP_COLUMNA = 92;
+/**
+ * Lo que una pastilla de espera deja libre a cada lado, contra la tarjeta de antes y la de después.
+ *
+ * ⚠️ EL HUECO DE 92 NO MIDE LA PASTILLA (10/10/2026, la verificación de los restos): «1 h antes de la
+ * reunión» mide 150 px, así que en una automatización con una espera antes de la reunión la pastilla iba
+ * de x=251 a x=401 con el CRON terminando en 280 y la tarjeta siguiente empezando en 372: pisaba las dos.
+ * Una columna cuya flecha lleva pastilla se corre lo que pide la pastilla (`huecoHacia`).
+ */
+export const AIRE_PILDORA = 20;
 /** Entre el árbol del CRON y lo que haya suelto debajo. */
 const GAP_RAICES = 56;
 /*
@@ -975,12 +984,31 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     medidas.set(id, m);
     return m;
   };
+  // Cuánto se separa la columna de los hijos de `id`: el hueco de siempre, o lo que pidan las pastillas de
+  // las esperas que van en sus flechas (ver `AIRE_PILDORA`). Una flecha con N esperas las pone en los
+  // tramos k/(N+1) (`tDePildora`), así que cada tramo tiene que alojar media pastilla de cada lado —y
+  // contra una tarjeta, media pastilla más su aire—: el hueco es N+1 veces el tramo más exigente.
+  const huecoHacia = (id: string, hs: readonly string[]): number => {
+    const ds = id === ID_ENTRADA
+      ? (iIni >= 0 ? puertosDe(pasos, iIni).map((pt) => pt.destino) : [raiz])
+      : puertosDe(pasos, indicePorId(pasos, id)).map((pt) => pt.destino);
+    let hueco = GAP_COLUMNA;
+    for (const d of ds) {
+      const t = tramo(d);
+      if (!t.esperas.length || !t.hasta || !hs.includes(t.hasta)) continue;
+      const w = t.esperas.map((e) => anchoPildoraFlecha(textoDeEspera(e)));
+      let tramoMax = Math.max(w[0] / 2, w[w.length - 1] / 2) + AIRE_PILDORA;
+      for (let k = 1; k < w.length; k++) tramoMax = Math.max(tramoMax, (w[k - 1] + w[k]) / 2 + AIRE_PILDORA / 2);
+      hueco = Math.max(hueco, Math.ceil(tramoMax * (w.length + 1)));
+    }
+    return hueco;
+  };
   const pos = new Map<string, { x: number; y: number }>();
   const colocar = (id: string, x: number, y: number) => {
     pos.set(id, { x, y });
     const hs = hijos.get(id) ?? [];
     if (!hs.length) return;
-    const x2 = x + ANCHO_NODO + GAP_COLUMNA;
+    const x2 = x + ANCHO_NODO + huecoHacia(id, hs);
     if (!esMulti(id)) { colocar(hs[0], x2, y); return; }
     let cur = y + anclaDe(id) - bloque(hs) / 2;
     for (const h of hs) {

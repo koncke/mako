@@ -108,9 +108,10 @@ test('⚠️ el DELAY va EN la flecha: no es una tarjeta, no ocupa columna y la 
   assert.equal(flecha!.hasta, 'm2', 'la flecha se corta en la espera');
   assert.deepEqual(flecha!.esperas, [{ id: 'w', texto: '1 h' }]);
   assert.equal(g.aristas.some((a) => a.desde === 'w' || a.hasta === 'w'), false, 'quedaron flechas a la espera');
-  // m2 va en la columna siguiente a m1, no dos más allá.
+  // m2 va en la columna siguiente a m1, no dos más allá. (Desde el 10/10/2026 la columna se corre lo que
+  // pide la pastilla para no pisar las tarjetas —«1 h» pide 2 px más—, nunca una columna entera: 344 px.)
   const sinEspera = grafoDeSecuencia([msg('m1', { siguiente: 'm2' }), msg('m2')], { disparador: 'X' });
-  assert.equal(nodo(g, 'm2').x, nodo(sinEspera, 'm2').x);
+  assert.ok(nodo(g, 'm2').x - nodo(sinEspera, 'm2').x < 100, 'la espera ocupa una columna');
   // La pastilla está sobre la curva y se mueve con sus puntas.
   const p = posicionDePildora(g, 'w')!;
   assert.ok(p && p.x > nodo(g, 'm1').x + nodo(g, 'm1').ancho && p.x + p.ancho < nodo(g, 'm2').x + 1, 'la pastilla no está entre las dos tarjetas');

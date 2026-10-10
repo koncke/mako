@@ -28,7 +28,7 @@
 // lib/reunion-recordatorio.ts) con sus toques fijos (`TOQUES`); estos pasos no se guardan en ningún lado.
 // =============================================================================
 
-import { grafoDeSecuencia, ID_ENTRADA, type PasoParaGrafo, type DisparadorTarjeta } from './flujo-conversacion';
+import { grafoDeSecuencia, ID_ENTRADA, AIRE_PILDORA, type PasoParaGrafo, type DisparadorTarjeta } from './flujo-conversacion';
 import { anchoPildoraFlecha, posicionDePildora, encerrar, ALTO_PUERTO, type GrafoFlujo, type NodoFlujo, type AristaFlujo } from './lienzo-grafo';
 import { TOQUES, TEXTO_DEFAULT, problemaDelTexto, variablesDesconocidas, type Toque } from './recordatorio-lead';
 
@@ -47,7 +47,8 @@ export const ANTES: Record<Toque, string> = { 1440: '24 h antes', 60: '1 h antes
  * El aire a cada lado de una pastilla, entre ella y la tarjeta: el círculo de la salida asoma 8 px del
  * borde y la pastilla no puede pisarlo.
  */
-export const AIRE_PILDORA = 20;
+// El aire de la pastilla vive en el constructor del árbol desde que éste ensancha sus columnas (10/10/2026).
+export { AIRE_PILDORA };
 
 /** Lo que dice la tarjeta de un toque cuyo texto usa un dato que el emisor no conoce. */
 export const AVISO_DATO_DESCONOCIDO = 'Un dato que no existe';
