@@ -3,7 +3,7 @@
 // =============================================================================
 // Decisión de Martín (08/10/2026), textual: un flujo «que pueda hacer todo, sin
 // limitaciones». El dueño confirmó la acción al CONFIGURAR el paso; cuando el flujo corre,
-// la acción se ejecuta. Vale para los dos lienzos: las secuencias de /chatbot
+// la acción se ejecuta. Vale para los dos lienzos: las secuencias de /automations
 // (lib/nutricion.ts) y los flujos de avisos de /mensajes (lib/flujos.ts).
 //
 // ⚠️ NO HAY UN SEGUNDO CAMINO DE ESCRITURA. Se propone por el MISMO choke point que usa

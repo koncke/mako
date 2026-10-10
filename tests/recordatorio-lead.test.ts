@@ -46,7 +46,7 @@
 //   · `cancelarJuntaEnLead` sin la fecha o sin la hora en el WHERE; escribiendo la hora en null.
 //   · `guardarLinkDeReunion` sin `soloSiInicio`; el webhook borrando el link sin condición.
 //   · Calendly y Cal.com sin pasarle el instante a `cancelarJuntaEnLead`.
-//   · la ruta de /chatbot con el `envioWhatsappHabilitado` que se come el error.
+//   · la ruta de /automations con el `envioWhatsappHabilitado` que se come el error.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -378,7 +378,7 @@ test('CABLEADO: el setting no se hereda del dueño — se lee con el workspace_i
   // Y los dos caminos que COPIAN settings del dueño a otro workspace (clonar la configuración,
   // traer los datos de Mau) no lo pueden llevar: le prenderían el recordatorio a otro negocio.
   for (const r of ['lib/clonar-config.ts', 'lib/datos-mau.ts']) {
-    assert.doesNotMatch(sinComentarios(leer(r)), /chatbot\.recordatorio_reunion|KEY_RECORDATORIO/, `${r} copiaría el interruptor de otro negocio`);
+    assert.doesNotMatch(sinComentarios(leer(r)), /automations\.recordatorio_reunion|KEY_RECORDATORIO/, `${r} copiaría el interruptor de otro negocio`);
   }
 });
 
@@ -444,12 +444,12 @@ test('la migración 0204 existe, agrega las dos columnas y dice su orden de desp
 // entiendo por qué está el "Recordatorio de la reunión" cuando eso debe configurarse en las
 // tarjetas!!!»— y el recordatorio es un ítem de la lista que abre su lienzo (RecordatorioFlujo).
 // Lo que se cuida es lo mismo: que siga montado para el admin y que escriba por la MISMA ruta.
-test('CABLEADO: el recordatorio es un ítem de la lista de /chatbot y guarda por una ruta con guard de admin', () => {
-  const lista = sinComentarios(leer('app/chatbot/SimuladorWhatsApp.tsx'));
+test('CABLEADO: el recordatorio es un ítem de la lista de /automations y guarda por una ruta con guard de admin', () => {
+  const lista = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
   assert.match(lista, /\{selId === ID_RECORDATORIO && rolAdmin \? \(\r?\n\s+<RecordatorioFlujo /);
   assert.match(lista, /const verRecordatorio = rolAdmin\r?\n/);
-  assert.doesNotMatch(sinComentarios(leer('app/chatbot/ChatAgentApp.tsx')), /RecordatorioReunion/);
-  const tarjeta = sinComentarios(leer('app/chatbot/RecordatorioFlujo.tsx'));
+  assert.doesNotMatch(sinComentarios(leer('app/automations/ChatAgentApp.tsx')), /RecordatorioReunion/);
+  const tarjeta = sinComentarios(leer('app/automations/RecordatorioFlujo.tsx'));
   assert.match(tarjeta, /'\/api\/chat-agent\/recordatorio-reunion'/);
   const api = sinComentarios(leer('app/api/chat-agent/recordatorio-reunion/route.ts'));
   assert.match(api, /if \(ws == null \|\| rol !== 'admin'\)/);

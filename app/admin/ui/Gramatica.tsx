@@ -182,7 +182,7 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     titulo: 'Escribí los 5 mensajes de la secuencia «No Show»',
     cuando: 'hace 1 h',
     detalle: 'Están pausados: no sale nada hasta que los prendas.',
-    // NI UN MENSAJE ACÁ. Los cinco se ven y se EDITAN en Chatbot, así que
+    // NI UN MENSAJE ACÁ. Los cinco se ven y se EDITAN en Automations, así que
     // dibujarlos en el modal garantiza que un día digan algo distinto de lo que
     // el usuario ve al lado. El modal dice cuántos son y cómo terminan.
     datos: [

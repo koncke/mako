@@ -1,5 +1,5 @@
 // =============================================================================
-// Mover las tarjetas del lienzo de /chatbot, y el ＋ en cualquier punto de una flecha
+// Mover las tarjetas del lienzo de /automations, y el ＋ en cualquier punto de una flecha
 // =============================================================================
 // Pedido literal de Martín (09/10/2026, quinta tanda, punto 2): «Por alguna razón ya no está la
 // opción de insertar un delay o condición algo en medio de una flecha... Y tampoco se puede mover
@@ -7,7 +7,7 @@
 //
 //   · (a) el ＋ del medio no se había roto: vivía en un cuadrado invisible de 28 px y la flecha no
 //     reaccionaba fuera de él. Ahora la flecha entera es zona de toque (app/_components/Lienzo.tsx).
-//   · (b) /chatbot nunca pudo mover tarjetas: `FlujoLienzo` no le pasaba `onMover` al lienzo. Ahora
+//   · (b) /automations nunca pudo mover tarjetas: `FlujoLienzo` no le pasaba `onMover` al lienzo. Ahora
 //     las posiciones se guardan en `nutricion_secuencias.posiciones` (mig 0233), relativas al CRON
 //     derivado (lib/lienzo-posiciones.ts), por su propia acción (lib/secuencia-posiciones.ts).
 //
@@ -154,25 +154,25 @@ test('guardar: saneado, vacío = null, la columna que falta = `sin_columna` (no 
 
 // ── El cableado: quién guarda qué, y por dónde ──────────────────────────────────
 
-test('el lienzo de /chatbot mueve: `onMover` con `moverRelativo` sobre el DERIVADO, y lo movido se dibuja', () => {
-  const fl = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
+test('el lienzo de /automations mueve: `onMover` con `moverRelativo` sobre el DERIVADO, y lo movido se dibuja', () => {
+  const fl = sinComentarios(leer('../app/automations/FlujoLienzo.tsx'));
   assert.match(fl, /const grafo = conPosiciones\(derivado, posiciones, ID_ENTRADA\);/);
   assert.match(fl, /onMover=\{onPosiciones \? \(id, x, y\) => onPosiciones\(moverRelativo\(derivado, posiciones, id, x, y, ID_ENTRADA\)\) : undefined\}/,
     'FlujoLienzo no le pasa `onMover` al lienzo: las tarjetas no se agarran (lo de antes del punto 2)');
-  const sp = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
+  const sp = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
   assert.match(sp, /usePosicionesLienzo\(secuencia\.id, secuencia\.posiciones, \{ puedeGuardar: rolAdmin, onError: setErr \}\)/);
   assert.match(sp, /posiciones=\{lugares\.posiciones\} onPosiciones=\{rolAdmin \? lugares\.mover : undefined\}/);
 });
 
 test('las posiciones se guardan por SU acción: ni Publicar, ni `setSecuenciaPasos`, ni la estrategia', () => {
-  const sp = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
+  const sp = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
   const publicar = sp.slice(sp.indexOf('const publicar = async'), sp.indexOf('const abrirGuiaSiFalta'));
   assert.ok(publicar.length > 400 && publicar.length < 4000, `el recorte de Publicar mide ${publicar.length}: está mirando otra cosa`);
   assert.doesNotMatch(publicar, /posiciones|lugares/, 'Publicar manda las posiciones: el layout pasaría por `validarGrafo` y por «Sin publicar»');
   for (const f of ['../lib/nutricion.ts', '../lib/setting-estrategia.ts']) {
     assert.doesNotMatch(sinComentarios(leer(f)), /posiciones/, `${f} conoce las posiciones: se perderían en el saneo campo por campo`);
   }
-  const hook = sinComentarios(leer('../app/chatbot/usePosicionesLienzo.ts'));
+  const hook = sinComentarios(leer('../app/automations/usePosicionesLienzo.ts'));
   assert.match(hook, /action: 'posiciones', secuenciaId, posiciones: pos/);
   assert.match(hook, /const guardable = useRef\(opts\.puedeGuardar && inicial != null\);/,
     'sin haberlas leído, guardar un mapa que arrancó vacío pisa lo que la persona ya acomodó');

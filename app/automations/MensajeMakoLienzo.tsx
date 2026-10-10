@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// MensajeMakoLienzo — el lienzo de un Mensaje de MaKo, adentro de /chatbot (quinta tanda, punto 5)
+// MensajeMakoLienzo — el lienzo de un Mensaje de MaKo, adentro de /automations (quinta tanda, punto 5)
 // =============================================================================
 // Pedido de Martín (09/10/2026), textual: «quiero que elimines el lienzo en la tab de
 // "Notificaciones", pero que dejes un enlace para editarlo aquí. Y claro, que traigas todos los
@@ -24,7 +24,7 @@
 //     del lienzo de borde a borde: `alto="100%"` + `marco={false}`, adentro de una caja absoluta
 //     que le da un alto definido (ver el comentario del render).
 //   · lo que flota sobre su borde izquierdo (el título, el zoom, el panel del nodo y el ENCUADRE):
-//     la lista de /chatbot se le apoya encima, así que va `insetIzq` —el mismo de la automatización,
+//     la lista de /automations se le apoya encima, así que va `insetIzq` —el mismo de la automatización,
 //     que sale de `muelles`—. Es la prop que se le sumó al detalle y al lienzo del aviso para esto.
 //   · «Probar» (la vista del chat): el detalle sólo dibuja su botón si recibe `onVerChat`, y acá no
 //     se pasa. La vista del chat se quedó en Notificaciones, que es donde vive (no es el lienzo).

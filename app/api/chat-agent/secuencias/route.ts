@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
 
     /**
      * LOS CRON DE LA AUTOMATIZACIÓN, LA LISTA ENTERA (sexta tanda, CRON punto 10: «agrega la opción de
-     * tener más de un CRON»). Es lo que guarda el editor del CRON (app/chatbot/EditorDisparadores.tsx)
+     * tener más de un CRON»). Es lo que guarda el editor del CRON (app/automations/EditorDisparadores.tsx)
      * para cualquiera de sus tipos: el primero va a las columnas de siempre y la lista a la mig 0241
      * (`guardarDisparadores`). Lo que no se puede guardar —una etapa que no existe, dos CRON iguales,
      * dos o más sin la 0241— contesta 400 con el motivo. `trigger` y `cron` (arriba y abajo) siguen

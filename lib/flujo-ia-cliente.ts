@@ -2,7 +2,7 @@
 // flujo-ia-cliente — lo que la PANTALLA de «Crear con IA» decide con el resultado
 // =============================================================================
 // Módulo PURO, sin imports y sin `server-only`, a propósito: lo importan un `'use client'`
-// (app/chatbot/SecuenciaPerfil.tsx) y la ruta (app/api/chat-agent/secuencias/ia/route.ts). No vive en
+// (app/automations/SecuenciaPerfil.tsx) y la ruta (app/api/chat-agent/secuencias/ia/route.ts). No vive en
 // lib/flujo-ia.ts porque ése lleva los dos prompts enteros, y un `'use client'` que importa un VALOR
 // de ahí se los lleva al navegador (AGENTS.md: `'use client'` es una frontera de DATOS).
 //

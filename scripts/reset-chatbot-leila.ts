@@ -191,7 +191,7 @@ async function main() {
   const quedan = ver ? (typeof ver.value === 'string' ? JSON.parse(ver.value) : ver.value) as Record<string, string> : {};
   if (quedan.voz) throw new Error('El paso `voz` sigue vivo en onboarding.tab.pasos: la tab lo va a dar por hecho igual.');
 
-  log('\nListo. Al entrar a /chatbot va a pedirle declarar cómo entra su gente,');
+  log('\nListo. Al entrar a /automations va a pedirle declarar cómo entra su gente,');
   log('con un link a /funnel. Después de declararlo, le va a pedir 3 audios nuevos:');
   log('  · Le escribes tú primero (en frío)');
   log('  · Te escribieron ellos primero');

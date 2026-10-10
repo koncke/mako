@@ -45,8 +45,8 @@ export default async function WhatsAppPage() {
   // QR para vincular. Con el número vivo, la tab se sirve igual aunque el onboarding se haya
   // reabierto: reemplazarla entera dejaría al cliente sin su bandeja.
   if (faltaOnboarding && !noOficial) return <OnboardingCanalWhatsApp productos={productos} />;
-  // ¿Este usuario puede ABRIR /chatbot? Ahí viven las secuencias, y /chatbot es setter+admin
-  // (app/chatbot/page.tsx). Un closer entra a /whatsapp pero rebota de /chatbot a /crm:
+  // ¿Este usuario puede ABRIR /automations? Ahí viven las secuencias, y /automations es setter+admin
+  // (app/automations/page.tsx). Un closer entra a /whatsapp pero rebota de /automations a /crm:
   // ofrecerle un link allá sería un botón que lo expulsa de la pantalla donde estaba, con el
   // chat abierto perdido.
   const rolWs = await getRolWsEfectivo();

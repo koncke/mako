@@ -34,8 +34,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { grafoDeSecuencia } from '../lib/flujo-conversacion';
 import { encuadreInicial, muelles, type Muelles } from '../lib/lienzo-grafo';
 import { franjaIA, CAJA_IA_ANCHO, BARRA_IA_ANCHO, CAJA_IA_ALTO, RESERVA_ABAJO_CREAR } from '../lib/crear-ia-lugar';
-import { SecuenciaPerfil } from '../app/chatbot/SecuenciaPerfil';
-import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
+import { SecuenciaPerfil } from '../app/automations/SecuenciaPerfil';
+import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -101,7 +101,7 @@ test('la franja sale de los muelles: lista a la izquierda, `derAbajo` a la derec
 });
 
 test('los anchos de la franja son los que dibuja CrearConIA', () => {
-  const src = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
+  const src = sinComentarios(leer('app/automations/CrearConIA.tsx'));
   assert.match(src, new RegExp(`caja: \\{\\n\\s+width: 'min\\(${CAJA_IA_ANCHO}px, 100%\\)'`));
   assert.match(src, new RegExp(`barraWrap: \\{[^}]*width: 'min\\(${BARRA_IA_ANCHO}px, 100%\\)'`));
 });
@@ -128,7 +128,7 @@ test('dibujada: la caja de una automatización vacía flota en la franja, y la c
 });
 
 test('las dos se ESCONDEN con una tarjeta abierta, sin desmontar CrearConIA', () => {
-  const src = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+  const src = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   const crear = src.match(/\{rolAdmin && pasos\.length === 0 && \(\n\s+<div data-crear-ia="crear" style=\{\{ position: 'absolute', \.\.\.franja, display: tarjetaAbierta \? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 \}\}>\n\s+<div style=\{\{ pointerEvents: 'auto', width: `min\(\$\{CAJA_IA_ANCHO\}px, 100%\)` \}\}>\n\s+<CrearConIA modo="crear"/);
   assert.ok(crear, 'la caja de crear no está montada como se espera (o depende de tarjetaAbierta para montarse)');
   const editar = src.match(/\{rolAdmin && editandoIA && pasos\.length > 0 && \(\n\s+<div data-crear-ia="editar" style=\{\{ position: 'absolute', \.\.\.franja, display: tarjetaAbierta \? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 \}\}>\n\s+<div style=\{\{ pointerEvents: 'auto', width: `min\(\$\{BARRA_IA_ANCHO\}px, 100%\)` \}\}>\n\s+<CrearConIA modo="editar"/);
@@ -138,7 +138,7 @@ test('las dos se ESCONDEN con una tarjeta abierta, sin desmontar CrearConIA', ()
 });
 
 test('el lienzo avisa la tarjeta abierta (calculada del dato, antes de pintar) y pasa la reserva', () => {
-  const src = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const src = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   assert.match(src, /const abierta = sel != null && grafo\.nodos\.some\(\(n\) => n\.id === sel\);/);
   assert.match(src, /useLayoutEffect\(\(\) => \{ avisarAbierta\.current\?\.\(abierta\); \}, \[abierta\]\);/);
   assert.match(src, /reservaAbajo=\{reservaAbajo\}/);

@@ -3412,8 +3412,8 @@ puede elegir, así que el token no puede entrar al texto.
 
 ## Lo que FLOTA sobre un lienzo son TRES cosas, y el encuadre es la cuarta (05/10/2026)
 
-**Vive en:** `app/_components/Lienzo.tsx` → `insetIzq` · `app/chatbot/SimuladorWhatsApp.tsx`
-→ `LISTA_ANCHO` / `LISTA_HUECO` · `app/chatbot/FlujoLienzo.tsx` · `app/chatbot/SecuenciaPerfil.tsx`
+**Vive en:** `app/_components/Lienzo.tsx` → `insetIzq` · `app/automations/SimuladorWhatsApp.tsx`
+→ `LISTA_ANCHO` / `LISTA_HUECO` · `app/automations/FlujoLienzo.tsx` · `app/automations/SecuenciaPerfil.tsx`
 
 El pedido era que la lista de secuencias se apoyara ENCIMA del lienzo, con sombra y
 bordes redondos, **y que la cuadrícula pasara por detrás** — o sea que el dibujo no se
@@ -3498,7 +3498,7 @@ con mouse por coordenadas y las dos esperas, Chromium y WebKit dieron idéntico 
 ## eslint-plugin-react-hooks 7: un `eslint-disable` de react-hooks apaga el compilador para TODO el componente (08/10/2026)
 
 **Síntoma:** en el rediseño de /chatbot, al sacar un `eslint-disable-next-line
-react-hooks/exhaustive-deps` de `app/chatbot/SimuladorWhatsApp.tsx`, eslint marcó como ERROR
+react-hooks/exhaustive-deps` de `app/automations/SimuladorWhatsApp.tsx`, eslint marcó como ERROR
 (`react-hooks/set-state-in-effect`) un `useEffect(() => setSelId(...))` que existía sin cambios desde
 antes y nunca había fallado. Y el patrón de la casa para montar un portal, `useEffect(() => {
 setMontado(true); }, [])`, hoy es un error: `app/_components/IdentidadPicker.tsx:84` ya lo tiene, y
@@ -3514,7 +3514,7 @@ pre-push corre sólo `rules-of-hooks` (`scripts/hooks-en-orden.sh`).
 
 - **Un `eslint-disable` de react-hooks no silencia una línea: silencia el compilador para TODO el
   componente.** Antes de sacarlo, o de poner uno, se corre eslint del archivo.
-  `app/chatbot/PanelProbar.tsx` conserva uno a propósito (el efecto de montaje): ese componente no lo
+  `app/automations/PanelProbar.tsx` conserva uno a propósito (el efecto de montaje): ese componente no lo
   analiza el compilador.
 - **Corregir el estado en un efecto se reemplaza por CALCULARLO**:
   `const selId = elegida === '' ? primera : elegida`. Si lo hallado depende de una clave, se guarda
@@ -3526,14 +3526,14 @@ pre-push corre sólo `rules-of-hooks` (`scripts/hooks-en-orden.sh`).
 - **«¿Qué cambió desde el render anterior?»**, o un pedido que llega de afuera, va con el patrón de
   ajustar el estado DURANTE el render (un `setState` condicional contra el valor previo); nunca
   leyendo un ref en el render (`react-hooks/refs`). Molde: la prop `abrir` de
-  `app/chatbot/SimuladorWhatsApp.tsx`, y la animación de `app/whatsapp/_shared/ChatHilo.tsx`.
+  `app/automations/SimuladorWhatsApp.tsx`, y la animación de `app/whatsapp/_shared/ChatHilo.tsx`.
 - **`useEffect(() => { void cargar(); }, [cargar])` con un `cargar` que hace `setState` después de un
   `await` también cae**: el compilador no ve el await. Se inlinea el fetch y el `setState` va en el
   `.then`.
 - Y `const ahora = Date.now()` en el cuerpo de un componente es `react-hooks/purity` (ya anotado en
   [hallazgos-customer-success.md](hallazgos-customer-success.md)).
 
-**Vive en:** `app/chatbot/SimuladorWhatsApp.tsx` · `app/chatbot/PanelProbar.tsx` ·
+**Vive en:** `app/automations/SimuladorWhatsApp.tsx` · `app/automations/PanelProbar.tsx` ·
 `app/whatsapp/_shared/ComposerWhatsApp.tsx` · `app/whatsapp/_shared/ChatHilo.tsx` ·
 `app/_components/etiquetas-cliente.tsx` · `app/_components/IdentidadPicker.tsx` ·
 `app/crm/EtapasModal.tsx` · *2026-10-08 rediseño de /chatbot (partes P, C y E de `wf_8096a9d7-b3f`)*

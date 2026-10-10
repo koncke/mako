@@ -294,7 +294,7 @@ export type DropdownOption = { value: string; label: string; /** Un ícono antes
   /**
    * Una LÍNEA arriba de este renglón: separa dos preguntas adentro de la misma lista.
    *
-   * Existe por el filtro de la lista de /chatbot (quinta tanda, punto 4, pedido literal: «dentro
+   * Existe por el filtro de la lista de /automations (quinta tanda, punto 4, pedido literal: «dentro
    * de la sección canal, luego de WhatsApp y Email, un divider y las opciones "A clientes" y "Al
    * WhatsApp de MaKo"»): por dónde sale y a quién le llega son dos preguntas, y sin la línea se
    * leían como cuatro canales. Es una línea suelta y no un borde del renglón: el renglón sigue
@@ -315,7 +315,7 @@ export type DropdownGroup = { title: string; options: DropdownOption[];
   atajo?: boolean;
   /**
    * Sólo con `secciones`: UN NIVEL MÁS. La sección no lista opciones sino otras secciones, que se
-   * abren igual (con su ‹ para volver). Existe por el disparador del CRON de /chatbot (tercera tanda,
+   * abren igual (con su ‹ para volver). Existe por el disparador del CRON de /automations (tercera tanda,
    * 09/10/2026): «los productos, solo el nombre... al ingresar, 2 opciones: Entrega o Adquisición, y
    * dentro las etapas de cada kanban». Buscar aplana también esto: el rótulo de cada tramo es el
    * camino («Producto · Adquisición de clientes»). Opcional: sin `grupos`, nada cambia.
@@ -325,7 +325,7 @@ export type DropdownGroup = { title: string; options: DropdownOption[];
    * Sólo con `secciones`: lo que la fila de la sección dice a la DERECHA en la raíz, en vez de
    * cuántas opciones tiene. Es el «resumen» del filtro del Plan (app/plan/board/BoardShell.tsx,
    * `FilterMenu`): «Todos», lo que está marcado, o «2 elegidos» — dice qué tiene puesto cada
-   * sección sin tener que entrar. Existe por el filtro de la lista de /chatbot (quinta tanda,
+   * sección sin tener que entrar. Existe por el filtro de la lista de /automations (quinta tanda,
    * punto 4: «Replica el desplegable de Filtro que tenemos en el plan»). Sin esto, el conteo de
    * siempre.
    */

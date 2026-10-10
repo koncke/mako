@@ -1,14 +1,15 @@
-# Hallazgos del Chatbot (/chatbot: el flujo con ramas)
+# Hallazgos de Automations, ex Chatbot (/automations: el flujo con ramas)
 
-Lo que hay que saber antes de tocar el lienzo de /chatbot, su motor, «Probar» o el conversor de
-las secuencias de antes. El área es dónde vive el código:
+Lo que hay que saber antes de tocar el lienzo de /automations (ex /chatbot: la tab se renombró el
+09/10/2026 y la ruta vieja redirige), su motor, «Probar» o el conversor de las secuencias de antes.
+Las entradas fechadas antes del renombre nombran la ruta como era. El área es dónde vive el código:
 
 - el modelo: `lib/flujo-grafo.ts` y `lib/flujo-legado.ts`;
 - el motor: `lib/nutricion.ts`, `lib/nutricion-grafo-motor.ts` y los demás `lib/nutricion-*.ts`;
 - el lienzo: `lib/flujo-conversacion.ts`, `lib/lienzo-grafo.ts`, `app/_components/Lienzo.tsx`,
-  `app/chatbot/FlujoLienzo.tsx` y `app/chatbot/SecuenciaPerfil.tsx`;
-- «Probar» y la página: `lib/simulador-grafo.ts`, `lib/prueba-paso.ts`, `app/chatbot/PanelProbar.tsx`,
-  `app/chatbot/SimuladorWhatsApp.tsx`, `app/chatbot/ChatAgentApp.tsx` y
+  `app/automations/FlujoLienzo.tsx` y `app/automations/SecuenciaPerfil.tsx`;
+- «Probar» y la página: `lib/simulador-grafo.ts`, `lib/prueba-paso.ts`, `app/automations/PanelProbar.tsx`,
+  `app/automations/SimuladorWhatsApp.tsx`, `app/automations/ChatAgentApp.tsx` y
   `app/api/chat-agent/simulador/route.ts`;
 - la biblioteca de archivos: `lib/setting-adjuntos.ts` y `lib/setting-adjuntos-reglas.ts`.
 
@@ -88,7 +89,7 @@ marca en la tarjeta y el motor lo sigue haciendo; si queda en la ESTRATEGIA, se 
 Vale para el lienzo, «Probar» y `scripts/migrar-secuencias-a-grafo.mts`.
 
 **Vive en:** `lib/flujo-legado.ts` (`esFlujoExplicito`, `tieneLegado`) ·
-`app/chatbot/SecuenciaPerfil.tsx` · `lib/simulador-grafo.ts` (`flujoParaProbar`)
+`app/automations/SecuenciaPerfil.tsx` · `lib/simulador-grafo.ts` (`flujoParaProbar`)
 
 ### La LIMPIEZA conserva el logro: `logrado: 'ninguno'` parecía inerte y no lo era [motor-4, motor-8, lienzo-8]
 
@@ -402,7 +403,7 @@ cuando «no viene» separa ausente (`undefined`) de vacío (`[]`), o la persona 
 campo nunca. Esa última mitad NO está hecha (ver abajo).
 
 **Vive en:** `lib/nutricion-canal.ts` (`textoDelPaso`) · `lib/guion-audio.ts` (`pasoAMedia`,
-`pasoAVoz`, `cambiosDePaso`) · `app/chatbot/EditorMensajeWhatsApp.tsx` · `lib/nutricion.ts`
+`pasoAVoz`, `cambiosDePaso`) · `app/automations/EditorMensajeWhatsApp.tsx` · `lib/nutricion.ts`
 (`setSecuenciaPasos`)
 
 ### Las guardas de texto del motor anclaban en la forma del modelo viejo [M]
@@ -451,7 +452,7 @@ que se pinta contra lo que hace el motor. La matriz no caza el valor con el que 
 `agregarCaso` crea con `revisar: true`, como el conversor.
 
 **Vive en:** `lib/flujo-conversacion.ts` (`revisarHeredado`, `agregarCaso`) ·
-`app/chatbot/FlujoLienzo.tsx` · `lib/nutricion-grafo-motor.ts` (`saleSolo`)
+`app/automations/FlujoLienzo.tsx` · `lib/nutricion-grafo-motor.ts` (`saleSolo`)
 
 ### Una tarjeta se nombra con lo que dibuja, y el error abre la tarjeta [L, lienzo-6]
 
@@ -469,7 +470,7 @@ usan el árbol y los errores (`tituloDeTarjeta`). Todo error, propio o del serve
 condición "Condición"»). Y el error ABRE la tarjeta culpable (`tarjetaDelError`).
 
 **Vive en:** `lib/flujo-conversacion.ts` (`faltaEscribir`, `nombreDeTarjeta`, `tituloDeTarjeta`,
-`tarjetaDelError`, `errorLegible`) · `app/chatbot/SecuenciaPerfil.tsx`
+`tarjetaDelError`, `errorLegible`) · `app/automations/SecuenciaPerfil.tsx`
 
 ### Una tarjeta con salidas tiene alto FIJO: se mide por partes [L, costuras-7]
 
@@ -502,8 +503,8 @@ afirma que falta: con `[]` ante un error, la tarjeta diría «Un archivo que ya 
 busca por id para NOMBRARLO se pide incluyendo lo archivado. `GET /api/chat-agent/adjuntos` es sólo
 para admin: un setter ve «Archivo».
 
-**Vive en:** `lib/flujo-conversacion.ts` (`vistaDeArchivo`) · `app/chatbot/FlujoLienzo.tsx` ·
-`app/chatbot/SecuenciaPerfil.tsx`
+**Vive en:** `lib/flujo-conversacion.ts` (`vistaDeArchivo`) · `app/automations/FlujoLienzo.tsx` ·
+`app/automations/SecuenciaPerfil.tsx`
 
 ### Un guard de layout mide el ANCLAJE, no sólo que nada se pise [L]
 
@@ -558,8 +559,8 @@ por tick (una bandera que limpia `queueMicrotask`); un cambio que no pasa por `o
 deshace. «Es tipear» es mismo campo y misma forma (mismo largo de la lista): agregar o quitar una
 variante sí apila (`cambioApila`).
 
-**Vive en:** `app/chatbot/SecuenciaPerfil.tsx` (`onPasos`, `fotoAntes`) · `lib/flujo-conversacion.ts`
-(`cambioApila`) · `app/chatbot/FlujoLienzo.tsx`
+**Vive en:** `app/automations/SecuenciaPerfil.tsx` (`onPasos`, `fotoAntes`) · `lib/flujo-conversacion.ts`
+(`cambioApila`) · `app/automations/FlujoLienzo.tsx`
 
 ---
 
@@ -582,7 +583,7 @@ que pasa en producción. Y prueba lo de la PANTALLA: re-elegir en la lista la mi
 vaciaba la edición local y volvía a lo publicado [lienzo-5].
 
 **Vive en:** `lib/simulador-grafo.ts` (`flujoParaProbar`, `iniciar`, `siguiente`, `elegir`) ·
-`app/chatbot/PanelProbar.tsx` · `app/chatbot/SimuladorWhatsApp.tsx`
+`app/automations/PanelProbar.tsx` · `app/automations/SimuladorWhatsApp.tsx`
 
 ### Todo destino «a mi…» sale de la fila propia de la sesión [P, lienzo-3]
 
@@ -624,7 +625,7 @@ reclama después de los chequeos que pueden cortar, y si el conteo falla no se m
 filas de `app_settings` por destino probado, que nadie limpia.
 
 **Vive en:** `lib/simulador-grafo.ts` (`debeSalirDeVerdad`, `reclamarCupoPrueba`) · `lib/prueba-paso.ts` ·
-`app/chatbot/PanelProbar.tsx`
+`app/automations/PanelProbar.tsx`
 
 ### Un pedido de abrir algo desde afuera baja como OBJETO y se aplica al dibujar [costuras-5, P]
 
@@ -639,7 +640,7 @@ efecto pinta primero la primera de la lista). `tests/chatbot-probar.test.ts` cru
 `linkApp('/chatbot?<param>=')` de `lib/chat-agent-handoff.ts` con el `params.get` de la página: si
 el aviso cambia de parámetro, el test cae.
 
-**Vive en:** `app/chatbot/ChatAgentApp.tsx` · `app/chatbot/SimuladorWhatsApp.tsx` (prop `abrir`) ·
+**Vive en:** `app/automations/ChatAgentApp.tsx` · `app/automations/SimuladorWhatsApp.tsx` (prop `abrir`) ·
 `lib/chat-agent-handoff.ts`
 
 ### La pantalla ofrece lo que el emisor hace, nada más [P]
@@ -654,7 +655,7 @@ recorre siempre los tres toques (1440, 60 y 15 min).
 emisor (un `apagado` por toque en el setting) y después la tarjeta. La pantalla escribe por la MISMA
 ruta y la MISMA clave (`chatbot.recordatorio_reunion`): mudarla de lugar no lo apaga ni lo duplica.
 
-**Vive en:** `app/chatbot/RecordatorioFlujo.tsx` · `lib/recordatorio-lead.ts` ·
+**Vive en:** `app/automations/RecordatorioFlujo.tsx` · `lib/recordatorio-lead.ts` ·
 `lib/reunion-recordatorio.ts`
 
 ### Trampas menores de «Probar»
@@ -686,8 +687,8 @@ salidas huérfanas»): la capacidad queda en un archivo y el call site en el de 
 «notas para integrar» de esta corrida lo hicieron, y por eso se cerró en horas); el integrador
 grepea cada prop nueva y cuenta sus call sites antes del commit.
 
-**Vive en:** `app/chatbot/FlujoLienzo.tsx` (`paraGuion`) · `app/chatbot/SimuladorWhatsApp.tsx`
-(`handoffs`) · `app/chatbot/ChatAgentApp.tsx` (`SecuenciaDto`)
+**Vive en:** `app/automations/FlujoLienzo.tsx` (`paraGuion`) · `app/automations/SimuladorWhatsApp.tsx`
+(`handoffs`) · `app/automations/ChatAgentApp.tsx` (`SecuenciaDto`)
 
 ### Estado de producción (medido con SELECT)
 
@@ -802,7 +803,7 @@ La caja de «Crear con IA» centrada entre los insets caía EXACTAMENTE encima d
 dibuja: el aire transparente también come clics. Lo que tiene un pedido en vuelo se ESCONDE, no se
 desmonta (desmontar cancela la IA).
 
-**Vive en:** `app/chatbot/SecuenciaPerfil.tsx` · `lib/crear-ia-lugar.ts`
+**Vive en:** `app/automations/SecuenciaPerfil.tsx` · `lib/crear-ia-lugar.ts`
 
 ### El panel apaisado llega al rincón de abajo a la derecha y necesita capa propia [modelo, ui]
 
@@ -834,7 +835,7 @@ Sin z-index, la esquina de avisos tapaba «Revisar antes de enviar» del editor 
   (`lib/flujo-ia-cliente.ts`): importar un valor de `lib/flujo-ia.ts` desde un `'use client'` se lleva
   los prompts al navegador.
 
-**Vive en:** `lib/flujo-ia.ts` · `lib/flujo-ia-cliente.ts` · `app/api/chat-agent/secuencias/ia/route.ts` · `app/chatbot/CrearConIA.tsx`
+**Vive en:** `lib/flujo-ia.ts` · `lib/flujo-ia-cliente.ts` · `app/api/chat-agent/secuencias/ia/route.ts` · `app/automations/CrearConIA.tsx`
 
 ### Un estado sembrado de una prop que el SERVER cambia bajo el mismo `key` [ui]
 
@@ -843,7 +844,7 @@ el disparador en el server sin cambiar el id. Se resiembra comparando una firma 
 con la caché de etiquetas: una ruta del SERVER que crea entidades obliga a quien recibe su respuesta a
 invalidar la caché (`avisarCambioEtiquetas`).
 
-**Vive en:** `app/chatbot/SecuenciaPerfil.tsx` · `app/_components/etiquetas-cliente.tsx`
+**Vive en:** `app/automations/SecuenciaPerfil.tsx` · `app/_components/etiquetas-cliente.tsx`
 
 ### Cal.com: las respuestas, el aviso y lo que la pantalla promete [datos]
 
@@ -872,7 +873,7 @@ falta de reunión. Y lo que no tiene un dato que lo registre no se ofrece: «Con
 «Reagendó» no existen en ningún campo; la sección «Plan» tampoco (la unión tarea→lead está puesta en 6
 de 776 tareas, medido).
 
-**Vive en:** `lib/condiciones-catalogo.ts` · `lib/flujo-grafo.ts` (`cumpleFila`) · `lib/nutricion.ts` (`hechosDeLeads`) · `app/chatbot/EditorCondicion.tsx`
+**Vive en:** `lib/condiciones-catalogo.ts` · `lib/flujo-grafo.ts` (`cumpleFila`) · `lib/nutricion.ts` (`hechosDeLeads`) · `app/automations/EditorCondicion.tsx`
 
 ### «+y» que creaba «+o»: agregar y elegir el modo son dos decisiones [condiciones]
 
@@ -881,7 +882,7 @@ que el separador de todas las filas cambiaba con el último tocado. Ahora «＋ 
 desplegable por secciones y la fila nace al elegir; «Todas / Cualquiera» es su propio control. Y una
 rama (o una condición) nueva nace VACÍA: validarGrafo la frena hasta que se elija algo.
 
-**Vive en:** `app/chatbot/EditorCondicion.tsx` · `lib/flujo-conversacion.ts` (`agregarRama`, `nodoNuevo`)
+**Vive en:** `app/automations/EditorCondicion.tsx` · `lib/flujo-conversacion.ts` (`agregarRama`, `nodoNuevo`)
 
 ### Lo que pide una etapa se calcula sobre el embudo REAL, no sobre el pipeline de fábrica [acciones]
 
@@ -914,7 +915,7 @@ lista blanca (`lib/email-html-seguro.ts`). Un `{{nombre}}` adentro de un href (`
 con «Ana Pérez» rompía el link: en el texto va escapado, en un href/src codificado, y la URL se valida
 DESPUÉS de reemplazar. Sin imágenes subidas: falta un almacenamiento público.
 
-**Vive en:** `lib/email-html-seguro.ts` · `lib/email-html.ts` · `app/chatbot/EditorEmailGmail.tsx` · `lib/nutricion.ts` (envío)
+**Vive en:** `lib/email-html-seguro.ts` · `lib/email-html.ts` · `app/automations/EditorEmailGmail.tsx` · `lib/nutricion.ts` (envío)
 
 ### Una fila optimista es un estado aparte, y se sigue por una clave estable [lista]
 
@@ -923,7 +924,7 @@ perdía al llegar el id real. Va calculada sobre la lista del server (`creando:<
 dibujar. Y «Duplicar» no copia la fila entera: inserta una pausada con lista blanca de columnas y cada
 campo con puerta propia pasa por su puerta (pasos → setSecuenciaPasos).
 
-**Vive en:** `app/chatbot/SimuladorWhatsApp.tsx` · `app/chatbot/ChatAgentApp.tsx` · `lib/secuencia-duplicar.ts`
+**Vive en:** `app/automations/SimuladorWhatsApp.tsx` · `app/automations/ChatAgentApp.tsx` · `lib/secuencia-duplicar.ts`
 
 ### Un cambio de contrato de una parte deja «verde por aire» el test de otra [integración]
 
@@ -955,7 +956,7 @@ aparte, no un freno.
 Ver «"Probar" por el "Sí" también escondía los mensajes», más abajo: la decide el motor con un lead
 recién llegado.
 
-**Vive en:** `app/chatbot/PanelProbar.tsx` (el `case 'condicion'`)
+**Vive en:** `app/automations/PanelProbar.tsx` (el `case 'condicion'`)
 
 ### Sacar un tipo de tarjeta del producto = dejar de OFRECERLO, no dejar de dibujarlo [lienzo]
 
@@ -966,7 +967,7 @@ sin que nadie lo viera. Se sacan de lo que se OFRECE (el ＋, el desplegable, el
 `retirada`, `FUERA_DEL_SELECTOR`) y lo que ya existe se sigue dibujando, corriendo y borrando. La
 migración de esas secuencias a lo nuevo es una decisión aparte.
 
-**Vive en:** `lib/flujo-conversacion.ts` (`opcionesDelMas`, la tarjeta CRON) · `lib/condiciones-catalogo.ts` (`retirada`, `seOfrece`) · `lib/editor-acciones.ts` (`FUERA_DEL_SELECTOR`) · `app/chatbot/FlujoLienzo.tsx` (`EditorEspera`)
+**Vive en:** `lib/flujo-conversacion.ts` (`opcionesDelMas`, la tarjeta CRON) · `lib/condiciones-catalogo.ts` (`retirada`, `seOfrece`) · `lib/editor-acciones.ts` (`FUERA_DEL_SELECTOR`) · `app/automations/FlujoLienzo.tsx` (`EditorEspera`)
 
 ### El desplegable de la casa no es un `<select>`: lo puesto que no está en la lista lo dice el botón [cron]
 
@@ -1002,20 +1003,20 @@ todos los clientes, así que sin esa guarda un paso guardado con el mail de otro
 frecuencia (AGENTS.md); el lugar nuevo nombra lo que pisa. Sumar de verdad es un dato nuevo (varios
 remitentes por negocio) y lo decide Martín.
 
-**Vive en:** `lib/email-remitente.ts` · `app/chatbot/EditorEmailGmail.tsx` (`VincularRemitente`,
+**Vive en:** `lib/email-remitente.ts` · `app/automations/EditorEmailGmail.tsx` (`VincularRemitente`,
 `AVISO_REEMPLAZA`) · `app/email/EmailApp.tsx` (`DominioSetup`) · `lib/nutricion.ts` (envío y
 `setSecuenciaPasos`)
 
 ### Una prop nueva del editor con CERO call sites: el «De» se guardaba y no se veía [email]
 
 `EditorEmailGmail` acepta `remitente` y sus tests lo prueban montándolo a mano, pero quien lo monta
-en el lienzo (`EditorEmail`, `app/chatbot/FlujoLienzo.tsx`, de otra parte de la tanda) no se lo pasa:
+en el lienzo (`EditorEmail`, `app/automations/FlujoLienzo.tsx`, de otra parte de la tanda) no se lo pasa:
 elegir otro remitente lo GUARDABA en el paso y la pantalla seguía diciendo el del workspace. Es
 «escribir la salida no es ofrecerla» con la forma del reparto por archivo: la capacidad en un
 archivo y el enchufe en otro que la parte no podía tocar. Se enchufó al unir la tanda, y lo fija
 `tests/chatbot-enchufes.test.ts`.
 
-**Vive en:** `app/chatbot/FlujoLienzo.tsx` (`EditorEmail`)
+**Vive en:** `app/automations/FlujoLienzo.tsx` (`EditorEmail`)
 
 ### El modo HTML: lo que el editor visual no sabe dibujar SALE, y se simplifica al volver a escribir [email]
 
@@ -1026,7 +1027,7 @@ la próxima tecla guarda lo que el editor dibuja, o sea la versión simplificada
 sale de cómo carga ProseMirror un documento. Si un cliente arma un mail en HTML y después toca una
 coma en el visual, pierde lo que el visual no sabe dibujar.
 
-**Vive en:** `app/chatbot/EditorEmailGmail.tsx` (`alCambiarCrudo`, `salirHtml`) · `app/_ui/EditorRico.tsx`
+**Vive en:** `app/automations/EditorEmailGmail.tsx` (`alCambiarCrudo`, `salirHtml`) · `app/_ui/EditorRico.tsx`
 
 ## Cuarta tanda punto 1 y quinta punto 3 (09/10/2026, parte «editores»): el panel por tipo y el DELAY con segundos
 
@@ -1097,7 +1098,7 @@ de cada render: lo que no entra scrollea adentro—: DELAY, TAG y GO TO 140; MAK
 `BOTON_CAMPO_CRON` (44, letra 14,5) —dos «campos grandes» que difieren es el olor de dos piezas
 separándose— y con horario mensual o anual su contenido pasa los 320 y scrollea.
 
-**Vive en:** `lib/lienzo-grafo.ts` (`editorDeTarjeta`, `ALTO_EDITOR_CONTROL`) · `app/_components/Lienzo.tsx` (`campoGrande`, `botonGrande`, `altoFijo`) · `app/chatbot/SecuenciaPerfil.tsx` (`BOTON_CAMPO_CRON`)
+**Vive en:** `lib/lienzo-grafo.ts` (`editorDeTarjeta`, `ALTO_EDITOR_CONTROL`) · `app/_components/Lienzo.tsx` (`campoGrande`, `botonGrande`, `altoFijo`) · `app/automations/SecuenciaPerfil.tsx` (`BOTON_CAMPO_CRON`)
 
 ## Lo que quedó sin hacer
 
@@ -1109,9 +1110,9 @@ separándose— y con horario mensual o anual su contenido pasa los 320 y scroll
 - **De 2 a 59 min sigue dependiendo del cron**: si Martín quiere minutos exactos, hace falta un tick
   frecuente SÓLO para las filas que salen de una espera (el de `flujo-corridas` corre cada 5 min), sin
   multiplicar el tope «por corrida». Y la franja 15-23 UTC deja sin corrida de 17 a 21 de México.
-- `BOTON_CAMPO_CRON` (44 / 14,5) contra `botonGrande` (48 / 16): unificar. `app/chatbot/SecuenciaPerfil.tsx`
+- `BOTON_CAMPO_CRON` (44 / 14,5) contra `botonGrande` (48 / 16): unificar. `app/automations/SecuenciaPerfil.tsx`
   (lo fija `tests/cron-varias-etapas.test.ts`).
-- El selector de la CONDITION sigue siendo el `Dropdown` de fila. `app/chatbot/EditorCondicion.tsx`
+- El selector de la CONDITION sigue siendo el `Dropdown` de fila. `app/automations/EditorCondicion.tsx`
 - Verlo con clics: el panel por tipo, el DELAY con «10 segundos» y su aviso, y una espera de 30 s de
   un lead nuevo de verdad.
 
@@ -1134,7 +1135,7 @@ Con la MISMA función que el motor (`elegirSalida`). Y el bloque `catalogo` de e
 no ausente: ausente, una condición negada del catálogo («No reprodujo el VSL») nunca se cumple, y la
 prueba seguiría por el «Si no» de algo que un lead nuevo sí cumple.
 
-**Vive en:** `lib/simulador-grafo.ts` (`hechosDeLeadNuevo`, `leadNuevoDelCron`, `elegirComoLead`) · `app/chatbot/PanelProbar.tsx` (el `case 'condicion'`) · `tests/probar-lead-nuevo.test.ts`
+**Vive en:** `lib/simulador-grafo.ts` (`hechosDeLeadNuevo`, `leadNuevoDelCron`, `elegirComoLead`) · `app/automations/PanelProbar.tsx` (el `case 'condicion'`) · `tests/probar-lead-nuevo.test.ts`
 
 ### Un dato que pasa a vivir en DOS lugares rompe a quien pregunta «¿quién usa esto?» [modelo]
 
@@ -1167,7 +1168,7 @@ jsonb desde lo que ya tenía (ahí viven el formulario y `notifInApp`). Nunca lo
 workspace: con el super admin mirando a un cliente, ofrecer los números del cliente es un clic de
 distancia de mandarle la prueba a él.
 
-**Vive en:** `lib/simulador-grafo.ts` (`destinosGuardados`, `perfilConDestino`) · `lib/prueba-paso.ts` (`guardarDestinoDeQuienPrueba`) · `app/api/chat-agent/simulador/route.ts` (`guardar-destino`) · `app/chatbot/PanelProbar.tsx` (`MenuDestinos`)
+**Vive en:** `lib/simulador-grafo.ts` (`destinosGuardados`, `perfilConDestino`) · `lib/prueba-paso.ts` (`guardarDestinoDeQuienPrueba`) · `app/api/chat-agent/simulador/route.ts` (`guardar-destino`) · `app/automations/PanelProbar.tsx` (`MenuDestinos`)
 
 ## Quinta tanda punto 2 (09/10/2026, parte «lienzo»): el ＋ en toda la flecha y las tarjetas que se mueven
 
@@ -1198,7 +1199,7 @@ Las posiciones son DESPLAZAMIENTOS desde donde el árbol pone el CRON (lo que no
 antes), viven en `nutricion_secuencias.posiciones` —nunca en `pasos`, que pasan por un saneo campo por
 campo— y se guardan por su propia acción, sin pasar por Publicar ni por la pila de deshacer.
 
-**Vive en:** `lib/lienzo-posiciones.ts` · `lib/secuencia-posiciones.ts` · `app/chatbot/usePosicionesLienzo.ts` ·
+**Vive en:** `lib/lienzo-posiciones.ts` · `lib/secuencia-posiciones.ts` · `app/automations/usePosicionesLienzo.ts` ·
 `app/_components/Lienzo.tsx` (`trasMover`) · `supabase/migrations/0233_secuencia_posiciones.sql`
 
 ### Proceso: lo que costó verificarlo con clics en un worktree [proceso]
@@ -1312,7 +1313,7 @@ camino y reubicar inscripciones. Se dibuja y se edita como condición sobre el m
 «Respuesta» del catálogo con `evento: 'respuesta'`, que no se ofrece en la salida y cuyo `evaluar` dice
 «no sé»). Una fila «Su respuesta trata de» puesta a mano en una condición de la salida no se guarda.
 
-**Vive en:** `lib/condiciones-catalogo.ts` (`respuesta_trata_de`, `seOfrece`) · `lib/flujo-grafo.ts` (`condicionARespuesta`) · `app/chatbot/EditorCondicion.tsx` (`EditorCondicionDeRespuesta`)
+**Vive en:** `lib/condiciones-catalogo.ts` (`respuesta_trata_de`, `seOfrece`) · `lib/flujo-grafo.ts` (`condicionARespuesta`) · `app/automations/EditorCondicion.tsx` (`EditorCondicionDeRespuesta`)
 
 ### GO TO: lo medido en producción y la red de `abrirFlujo` [modelo]
 
@@ -1400,7 +1401,7 @@ es un lugar de la flecha: un padre, una salida que sigue en algo y nada en paral
 padres o que reparte sigue siendo su píldora. Lo que se pierde: una espera del medio ya no ofrece «＋ en
 paralelo» desde ella (no tiene círculo).
 
-**Vive en:** `lib/flujo-conversacion.ts` (`colapsable`, `tramo`) · `lib/lienzo-grafo.ts` (`posicionDePildora`, `puntoDeCurva`) · `app/chatbot/FlujoLienzo.tsx` (`quitarFlecha`, `borrarTarjeta`)
+**Vive en:** `lib/flujo-conversacion.ts` (`colapsable`, `tramo`) · `lib/lienzo-grafo.ts` (`posicionDePildora`, `puntoDeCurva`) · `app/automations/FlujoLienzo.tsx` (`quitarFlecha`, `borrarTarjeta`)
 
 ### El botón derecho armaba un gesto y SELECCIONABA la tarjeta debajo de su menú [lienzo]
 
@@ -1436,7 +1437,7 @@ lienzo 10 minutos en vez de fallar al ver la URL. Un arnés que espera un select
 - **Verlo con clics con datos reales** de un cliente: lo de arriba corrió sobre una automatización
   inyectada. Sin clic quedaron: editar la píldora del DELAY, crear una tarjeta con el botón derecho en un
   punto, Duplicar, la lista «⚡ Cuando…» del CRON y el botón Acomodar.
-- La lista: el reparto la ubicaba en `ChatAgentApp.tsx` y vive en `app/chatbot/SimuladorWhatsApp.tsx`
+- La lista: el reparto la ubicaba en `ChatAgentApp.tsx` y vive en `app/automations/SimuladorWhatsApp.tsx`
   (las divisiones y los íconos del «⋯» son dos hunks ahí). Los íconos del desplegable del FILTRO salen de
   `lib/chatbot-lista-filtro.ts`, que no es de esta parte.
 - Las posiciones (lo movido, la suelta, «Acomodar») siguen afuera de Ctrl+Z: «Acomodar» trae su deshacer
@@ -1548,7 +1549,7 @@ un nivel más adentro: un scratchpad por SESIÓN no es uno por AGENTE.
 - **La tarjeta CRON del lienzo todavía no dibuja la lista**: `FlujoLienzo` ya tiene las props
   (`disparadores`, `onNuevoDisparador`, `onAbrirDisparador`) y SecuenciaPerfil las llena; dibujar una
   fila por CRON con su ícono y «＋ Nuevo CRON», y abrir el panel con ESE CRON, es de la parte «lienzo».
-  `app/chatbot/FlujoLienzo.tsx`
+  `app/automations/FlujoLienzo.tsx`
 - **El panel del Recurrente pide más alto**: `ALTO_EDITOR_CONTROL` de la entrada es 320 y el Recurrente
   con «A quién» mide ~440. `lib/lienzo-grafo.ts`
 - **El barrido no corre sin un canal prendido** (ver arriba): un Recurrente sólo al grupo no sale.
@@ -1585,7 +1586,7 @@ guardarlo y confiar en que viaja es un éxito parcial callado. Los que leen la f
 solo), medidos: `etiquetaDeAccion` (lib/flujo-conversacion.ts), `usoDeEtiqueta` (lib/etiquetas-reglas.ts) y
 lib/flujo-ia.ts (la vuelta a JSON de «Editar con IA», la resolución de las nuevas, `validarIA`).
 
-**Vive en:** `lib/editor-acciones.ts` (`etiquetasDelPaso`, `paramsConEtiquetas`, `unaPorEtiqueta`, `juntarPorEtiqueta`) · `app/chatbot/EditorEtiqueta.tsx` · `app/chatbot/FlujoLienzo.tsx` (`EditorEtiquetaLienzo`)
+**Vive en:** `lib/editor-acciones.ts` (`etiquetasDelPaso`, `paramsConEtiquetas`, `unaPorEtiqueta`, `juntarPorEtiqueta`) · `app/automations/EditorEtiqueta.tsx` · `app/automations/FlujoLienzo.tsx` (`EditorEtiquetaLienzo`)
 
 ### «Mover de etapa» y «Mover en otro producto»: cuál sirve lo decide el LEAD, no el flujo [acciones]
 
@@ -1633,12 +1634,12 @@ Lo que nombra cada negocio (etapas, productos, etiquetas) va con su `color`, no 
 - **El barrido del tacho por toda la app** (general 9): `BotonBorrar` / `IconoBorrar` existen y no los usa
   todavía ninguna pantalla. Los lugares: el 🗑 del panel del lienzo (`app/_components/Lienzo.tsx:1060`, el que
   Martín ve); `Icon name="trash"` (app/admin/ui/CatalogoUI.tsx:193, app/_components/PanelAgencia.tsx:66/363/387,
-  app/chatbot/GrabadorAudioPaso.tsx:168, app/chatbot/OnboardingChatAgent.tsx:1176,
+  app/automations/GrabadorAudioPaso.tsx:168, app/automations/OnboardingChatAgent.tsx:1176,
   app/integraciones/NombrarVideos.tsx:245, app/integraciones/ProbarTracking.tsx:298/677,
   app/integraciones/ServicioConfigForm.tsx:806, app/video-generator/EditorAnuncio.tsx:516,
   app/video-generator/ElegirFoto.tsx:240, app/video-generator/PasoTomas.tsx:411,
   app/ads-manager/BarraAcciones.tsx:369); `IconTrash` del composer (app/whatsapp/_shared/composer-icons.tsx:26,
-  usado en app/chatbot/EditorMensajeWhatsApp.tsx:560, app/whatsapp/_shared/ComposerWhatsApp.tsx:342,
+  usado en app/automations/EditorMensajeWhatsApp.tsx:560, app/whatsapp/_shared/ComposerWhatsApp.tsx:342,
   app/whatsapp/_shared/VoiceRecorder.tsx:179); el 🗑 de app/experimentos/RetroTab.tsx:113/188; los trazos sueltos
   de app/crm/AccionesLoteLeads.tsx:147, app/crm/CrmBoard.tsx:263, app/onboarding/Archivero.tsx:79 y
   app/_ui/EditorRico.tsx:542. Las ✕ que BORRAN (no las que cierran) quedan por contar aparte.
@@ -1748,7 +1749,7 @@ en cada uno de los 7 reintentos.
   `lib/nutricion.ts` · `lib/zernio-entrante.ts`
 - **El tinte de la tarjeta** (`CanalTarjeta` e `identidadDeTarjeta`, de la parte «lienzo») y el rótulo de
   «Probar» con varios canales (`SecuenciaPerfil`). Los colores están en `IDENTIDAD_SOCIAL`.
-  `lib/lienzo-grafo.ts` · `app/_components/Lienzo.tsx` · `app/chatbot/SecuenciaPerfil.tsx`
+  `lib/lienzo-grafo.ts` · `app/_components/Lienzo.tsx` · `app/automations/SecuenciaPerfil.tsx`
 - **El editor del CRON con los doce disparadores** (parte «disparadores»), el QR dibujado y los Ice Breakers
   que pide el `ref` de Instagram. `lib/canal-social.ts` (`DISPARADORES_SOCIALES`, `linkDeReferencia`)
 - **Medir en Messenger si quien comenta y quien contesta son la misma fila** (ver la tabla). Si no, la unión
@@ -1787,7 +1788,7 @@ la fila vacío entre los botones y el mensaje. **El tope de ancho lo pone la FIL
 `max-width: calc(100% - 70px)`), y la burbuja va al 100% de él (`BurbujaHilo` `maxAncho`). Medido en
 Chrome después: 6 px entre la papelera y la burbuja.
 
-**Vive en:** `app/chatbot/EditorMensajeWhatsApp.tsx` (`vista`) · `app/whatsapp/_shared/BurbujaHilo.tsx` (`maxAncho`)
+**Vive en:** `app/automations/EditorMensajeWhatsApp.tsx` (`vista`) · `app/whatsapp/_shared/BurbujaHilo.tsx` (`maxAncho`)
 
 ### «Terminar» no es «mandar», y un MediaRecorder parado no se reanuda [whatsapp]
 
@@ -1823,7 +1824,7 @@ clave (la API, /email, el generador) se conserva la del mismo paso por su id (`l
 pedida que no es del negocio no está en `lineasEvo`: `canalDeLinea` frena el envío con su motivo, sin caer
 a otra (AGENTS.md, «Un negocio tiene VARIAS líneas»).
 
-**Vive en:** `lib/mensaje-partes.ts` (`lineaDelPaso`, `lineaAlGuardar`) · `lib/nutricion.ts` (la línea del envío y `setSecuenciaPasos`) · `app/chatbot/SalidaWhatsApp.tsx` (`lineaElegida`) · `app/chatbot/EditorMensajeWhatsApp.tsx` (`CabeceraWhatsApp`)
+**Vive en:** `lib/mensaje-partes.ts` (`lineaDelPaso`, `lineaAlGuardar`) · `lib/nutricion.ts` (la línea del envío y `setSecuenciaPasos`) · `app/automations/SalidaWhatsApp.tsx` (`lineaElegida`) · `app/automations/EditorMensajeWhatsApp.tsx` (`CabeceraWhatsApp`)
 
 ### La pausa entre los mensajes de una tarjeta duerme ADENTRO de la corrida: por eso es corta [whatsapp]
 
@@ -1851,7 +1852,7 @@ que el área sume `'app'`, entra sola (está en «bloqueantes» del reparto). Do
   filtro del panel no tiene piso (un audio corto es un audio) y sí el techo. El botón «✦ guion» que lo
   disparaba salió de la grabación; el piso sigue vivo para «Escríbeme el guion» del onboarding.
 
-**Vive en:** `lib/mako-redacta.ts` · `app/api/chat-agent/redactar/route.ts` · `app/chatbot/MakoRedacta.tsx`
+**Vive en:** `lib/mako-redacta.ts` · `app/api/chat-agent/redactar/route.ts` · `app/automations/MakoRedacta.tsx`
 
 ### Proceso: un componente del lienzo se verifica sin `next dev`, con esbuild y Chrome [proceso]
 
@@ -1890,7 +1891,7 @@ La regla: antes de dar por cerrada una parte que toca `lib/nutricion.ts` o un pr
 - **El onboarding del Video Generator** (`app/video-generator/OnboardingVideoGen.tsx`) sigue con el grabador
   que entrega al soltar (tiene la barra nueva, no la escucha) y la tarea del alumno
   (`app/compartido/curso/[token]/TareaAlumno.tsx`) tiene su propio MediaRecorder.
-- **El disparador no le llega al ✦** (el `disparador` del lienzo a `EditorDeNodo`, `app/chatbot/FlujoLienzo.tsx`).
+- **El disparador no le llega al ✦** (el `disparador` del lienzo a `EditorDeNodo`, `app/automations/FlujoLienzo.tsx`).
 - **El clon de configuración se lleva la línea POR MENSAJE** (`secuenciaParaElDestino`, `lib/clonar-config.ts`):
   vacía `audio_id` y `media_id` y deja la `linea` del paso, que nombra un número del DUEÑO. En el destino
   `elegirLinea` la rechaza (no es del negocio) y ese mensaje no sale, sin caer a la de por default. Va
@@ -2012,7 +2013,7 @@ recorrido de una vez (`mensajesDelRecorrido`). Lo que sí se sabe (sin agenda, s
 un email detrás de «Agendó» sigue sin llegar, y eso es lo que pasa de verdad.
 
 **Vive en:** `lib/simulador-grafo.ts` (`contactoParaProbar`, `mensajesDelRecorrido`, `hechosDeLeadNuevo`) ·
-`app/chatbot/PanelProbar.tsx` (`arrancarRefs`, el `case 'condicion'`) · `tests/probar-email-canal.test.ts`
+`app/automations/PanelProbar.tsx` (`arrancarRefs`, el `case 'condicion'`) · `tests/probar-email-canal.test.ts`
 
 ### El email que llega (Resend): lo que hay que saber antes de tocarlo [email-entrante]
 
@@ -2047,7 +2048,7 @@ dominio que el del negocio). Uno que no sirve corta con su motivo ANTES del tope
 lugar. Y hoy hay UN remitente por negocio: «Vincular nuevo» del email REEMPLAZA y lo dice.
 
 **Vive en:** `lib/simulador-grafo.ts` (`sanearEmisorPrueba`, `lineaDePrueba`) · `lib/prueba-paso.ts` ·
-`app/chatbot/PanelProbar.tsx` (`MenuDestinos`, `VincularEmisor`, `CANALES_PROBAR`)
+`app/automations/PanelProbar.tsx` (`MenuDestinos`, `VincularEmisor`, `CANALES_PROBAR`)
 
 ### Lo que quedó sin hacer (parte «probar»)
 
@@ -2059,7 +2060,7 @@ lugar. Y hoy hay UN remitente por negocio: «Vincular nuevo» del email REEMPLAZ
 - `email_entrantes` tiene que entrar a `TABLAS_DE_INQUILINO` (`lib/tablas-de-inquilino.ts`) y el
   servicio `'email'` a `ServicioRuteo` (`lib/webhook-ruteo-huella.ts`) para anotar los fallos de ruteo
   en el super admin como los demás webhooks.
-- `app/chatbot/SimuladorEmail.tsx` tiene CERO call sites (lo reemplazó la bandeja de `PanelProbar`).
+- `app/automations/SimuladorEmail.tsx` tiene CERO call sites (lo reemplazó la bandeja de `PanelProbar`).
   *(Borrado en la segunda pasada, parte «datos».)*
 - Nada de esto se vio con clics: el desplegable «De / Para», «Vincular nuevo» en su modal y la bandeja
   con la #226.
@@ -2110,7 +2111,7 @@ por su propia acción (`action: 'borrador'`), con un respiro, y el motor no la l
   roturas de comportamiento (respiro, `sinColumna`, rechazo, despachar al irse, descartar) que un guard
   de cableado no habría visto.
 
-**Vive en:** `app/chatbot/useBorradorSecuencia.ts` · `app/chatbot/SecuenciaPerfil.tsx` ·
+**Vive en:** `app/automations/useBorradorSecuencia.ts` · `app/automations/SecuenciaPerfil.tsx` ·
 `app/api/chat-agent/secuencias/route.ts` · `lib/setting-secuencias.ts` (`getSettingData`) ·
 `lib/secuencia-borrador.ts` · `tests/chatbot-v6b-flujo.test.ts`
 
@@ -2126,7 +2127,7 @@ trata de» en una CONDITION vacía (`condicionARespuesta`, desde `EditorDeNodo`)
 una suelta creada antes quedaba entre el CRON y ella. Va PRIMERA entre lo que no cuelga del CRON
 (`libres` en `grafoDeSecuencia`), y no se marca suelta.
 
-**Vive en:** `lib/flujo-conversacion.ts` (`grafoDeSecuencia`, `tituloDeTarjeta`) · `app/chatbot/FlujoLienzo.tsx`
+**Vive en:** `lib/flujo-conversacion.ts` (`grafoDeSecuencia`, `tituloDeTarjeta`) · `app/automations/FlujoLienzo.tsx`
 (`case 'condicion'`) · `lib/flujo-grafo.ts` (`condicionARespuesta`)
 
 ### El aviso de las 24 h es una aproximación, y lo dice [ventana-meta]
@@ -2150,7 +2151,7 @@ el caso que se puede ver dibujando, nada más.
 - **La tarjeta MAKO ofrece los datos del EQUIPO con lead** (`datosOfrecidos({ destino: 'equipo', conLead:
   true })`), pero PLANOS con el grupo de prefijo: montar el árbol (`SelectorDatos`) dentro de su panel
   dibujaba un segundo «{ }» al lado del de `EditorMensajeGrupo`, que no es de esta parte.
-  `app/chatbot/FlujoLienzo.tsx` (`GRUPOS_MAKO`, `DATOS_MAKO`)
+  `app/automations/FlujoLienzo.tsx` (`GRUPOS_MAKO`, `DATOS_MAKO`)
 - **Quitar dos tests de un archivo deja viejos los números de sus roturas**: la cabecera de
   `tests/flujo-bucle-paralelos.test.ts` decía «4 / 2» y «2 / 4» sobre seis tests que ya eran cuatro. Al
   borrar tests, se re-miden las roturas que quedan.
@@ -2159,12 +2160,12 @@ el caso que se puede ver dibujando, nada más.
 
 - **Nada se vio con clics**: el borrador al recargar, la condición que pasa a escuchar, las filas del
   CRON abriendo cada una su CRON, el aviso de las 24 h, la papelera roja en el panel y en las condiciones.
-- **El árbol de datos en la tarjeta MAKO**: `EditorMensajeGrupo` (app/chatbot/EditorMensajeWhatsApp.tsx)
+- **El árbol de datos en la tarjeta MAKO**: `EditorMensajeGrupo` (app/automations/EditorMensajeWhatsApp.tsx)
   tiene que aceptar `grupos?: GrupoDatos[]` y dibujar `ArbolDeDatos` en su «{ }»; después `EditorMako`
   le pasa `grupos={GRUPOS_MAKO}` y `DATOS_MAKO` se borra.
-- **`IconoBorrar` de app/chatbot/IconosDisparador.tsx** quedó sin call site (todos usan el de
+- **`IconoBorrar` de app/automations/IconosDisparador.tsx** quedó sin call site (todos usan el de
   app/_ui/BotonBorrar.tsx): se borra.
-- **`PasoConLinea`** (app/chatbot/EditorMensajeWhatsApp.tsx) sobra desde que `PasoSecuenciaDto` trae `linea`.
+- **`PasoConLinea`** (app/automations/EditorMensajeWhatsApp.tsx) sobra desde que `PasoSecuenciaDto` trae `linea`.
 - **La mig 0240 sin aplicar no rompe nada** (el GET no trae el borrador y el lienzo no guarda), pero sin
   ella el punto 7 no existe: va antes o junto con el deploy. `supabase/migrations/0240_secuencia_borrador.sql`
 - **Sin ícono a propósito**: los días, meses, ordinales y zonas de `EditorRecurrente`, el operador ≥/≤ de
@@ -2325,14 +2326,14 @@ email, que pasan el texto por `datosParaElLead`. La vía OFICIAL manda la planti
 `{{lead_fecha_r1}}` le llegaba CRUDO al lead.
 
 **Regla:** el «{ }» de un mensaje al lead sale de `datosDelLead(todos)`
-(app/chatbot/EditorMensajeWhatsApp.tsx): el árbol de la casa recortado a lo que el motor resuelve POR ESE
+(app/automations/EditorMensajeWhatsApp.tsx): el árbol de la casa recortado a lo que el motor resuelve POR ESE
 CANAL. Antes de ofrecerle el árbol entero a un canal nuevo, se busca en lib/nutricion.ts con qué `vars`
 sale su envío. Y el test que fija «el editor ofrece sólo lo que el motor resuelve» lee al MOTOR, no al
 editor: el de tests/editor-email-gmail exigía importar de lib/template-vars.ts «porque el envío de
 nutrición no resuelve las de /mensajes», una premisa que la parte «tiempo» volvió falsa el mismo día —
 ahora cruza el editor con el `datosParaElLead` del envío del email.
 
-**Vive en:** `app/chatbot/EditorMensajeWhatsApp.tsx` (`datosDelLead`, `arbolDeVariables`) · `app/chatbot/EditorEmailGmail.tsx` · `app/chatbot/EditorMensajeSocial.tsx` · `lib/nutricion.ts` (los `vars` de cada envío)
+**Vive en:** `app/automations/EditorMensajeWhatsApp.tsx` (`datosDelLead`, `arbolDeVariables`) · `app/automations/EditorEmailGmail.tsx` · `app/automations/EditorMensajeSocial.tsx` · `lib/nutricion.ts` (los `vars` de cada envío)
 
 ### Cambiarle el `tipo` a un nodo para que herede la identidad de otro: grepear quién decide por `tipo` [lienzo]
 
@@ -2382,7 +2383,7 @@ trailers el último párrafo si es TODO trailers. Lo correcto: una línea en bla
 
 ### Lo que quedó sin hacer (parte «datos»)
 
-- **El ✦ / la tarjeta MAKO del Chatbot sigue con la lista plana**: `EditorMako` (app/chatbot/FlujoLienzo.tsx)
+- **El ✦ / la tarjeta MAKO del Chatbot sigue con la lista plana**: `EditorMako` (app/automations/FlujoLienzo.tsx)
   le pasa `variables={DATOS_MAKO}` a `EditorMensajeGrupo`; con `datos={datosOfrecidos({ destino: 'equipo',
   conLead: true })}` recibe el árbol, DESPUÉS de que `textoDelAviso` (lib/api-mako/areas/chatbot.run.ts)
   resuelva el catálogo. Es de la parte «flujo».
@@ -2391,7 +2392,7 @@ trailers el último párrafo si es TODO trailers. Lo correcto: una línea en bla
 - **`VARIABLES_NEGOCIO` (vacía) no se pudo borrar**: la importa lib/mako-redacta.ts (`variablesParaPrompt`).
 - **`app/agencia/EditorMensaje.tsx` se borró**: falta sacarlo del `vive` de configuraciones en
   app/admin/dev/areas.ts (tests/dev-areas en rojo hasta entonces).
-- **Sin llamadores**: `PasoAudioControl` (app/chatbot/PasoAudioControl.tsx; lo leen tests/guion-audio y
+- **Sin llamadores**: `PasoAudioControl` (app/automations/PasoAudioControl.tsx; lo leen tests/guion-audio y
   tests/whatsapp-sexta-tanda) y el botón suelto `SelectorDatos` (app/_components/SelectorDatos.tsx).
 - **El selector de acento del onboarding del Video Generator** (`Select` de app/_ui) no tiene íconos: son
   regiones, y `Select` no pasa `icono`.
@@ -2467,14 +2468,14 @@ Va una línea en blanco antes del bloque, y los dos trailers juntos. Se verifica
 
 - **Los tachos de archivos de otras partes** (la lista vive en `PENDIENTES` del test, que falla cuando
   una se arregla para que se saque): el 🗑 del panel del lienzo (`app/_components/Lienzo.tsx:1355`), el
-  tacho propio de `app/chatbot/IconosDisparador.tsx:101`, `IconTrash` del composer
+  tacho propio de `app/automations/IconosDisparador.tsx:101`, `IconTrash` del composer
   (`app/whatsapp/_shared/composer-icons.tsx:26`, usado en `VoiceRecorder.tsx:477/496/523`,
-  `app/chatbot/EditorMensajeWhatsApp.tsx:677` y `EditorMensajeSocial.tsx:297`) y el de la barra de lote
+  `app/automations/EditorMensajeWhatsApp.tsx:677` y `EditorMensajeSocial.tsx:297`) y el de la barra de lote
   del CRM (`app/crm/AccionesLoteLeads.tsx:147`).
 - **Desplegables de archivos de otras partes, sin íconos:** `app/_components/CamposAccion.tsx:85/105/108/
   122/137/158`, `app/_components/etiquetas-cliente.tsx:251`, `app/agencia/FlujoAviso.tsx:863`,
   `app/agencia/EditorMensaje.tsx:427`, `app/crm/AccionesLoteLeads.tsx:310/320/332`,
-  `app/video-generator/OnboardingVideoGen.tsx:1097` y los de `app/chatbot/**`.
+  `app/video-generator/OnboardingVideoGen.tsx:1097` y los de `app/automations/**`.
 - **Selects nativos que se quedan:** los del menú del curso (`app/customer-success/curso/MenuCurso.tsx:
   327/352/368`, `app/conocimientos/EditorConocimientos.tsx:245`, ver arriba), el rol de
   `app/customer-success/FichaCliente.tsx:870` (tres opciones) y los de `app/api-mako/*` (copian GitHub
@@ -2487,14 +2488,101 @@ Va una línea en blanco antes del bloque, y los dos trailers juntos. Se verifica
 - No se vio con clics: ni el tacho rojo en cada pantalla, ni los menús con su ícono, ni el buscador del
   Quarter.
 
+## Sexta tanda, parte «renombre» (09/10/2026): la tab pasa a llamarse Automations
+
+General 1, textual: «Cambia el nombre de la tab "Chatbot" por "Automations", el nombre en la sidebar, la
+ruta, todo.» La carpeta pasó con `git mv` de `app/chatbot` a `app/automations`, la ruta es
+`/automations` y `/chatbot` quedó como redirect (`app/chatbot/page.tsx`, lo único de esa carpeta).
+
+### «/chatbot» en el repo son TRES cosas, y un reemplazo de texto rompe dos [renombre]
+
+593 líneas en 169 archivos nombraban la carpeta o la ruta, y no todas significan lo mismo:
+
+- **La carpeta** (`app/chatbot/` en imports, en los `readFileSync` de ~60 tests, en los «Vive en:»):
+  se cambia entera. ⚠️ Pero `./chatbot/bitacora` en `app/admin/dev/registros.ts` es el REGISTRO del área
+  (`app/admin/dev/chatbot/`), no la carpeta: un import relativo se cambia sólo si RESUELVE a `app/chatbot`.
+- **La ruta de la pantalla** (`'/chatbot'`, `` `/chatbot?sec=` ``, `linkApp('/chatbot', ws)`): se cambia.
+  ⚠️ Pero `'/chatbot/secuencias'` y las otras 27 de `lib/api-mako/rest.ts` son las rutas REST de
+  `/api/v1` del ÁREA `chatbot` de la API de MaKo: renombrarlas cambia la API pública y su snapshot. El
+  patrón que separa las dos: `/chatbot` que no siga con `/` más ruta.
+- **El nombre de algo que no es la tab**: la división «Chatbot» de la lista (`ROTULO_CHATBOT`, decisión
+  de Martín del mismo día), el interruptor «Chatbot: ON/OFF» de la tab WhatsApp, `chatbot` como concepto
+  en la prosa. Se queda.
+
+**Vive en:** `lib/ruta-automations.ts` · `app/chatbot/page.tsx` · `tests/ruta-automations.test.ts`
+
+### Los alias viejos redirigían SIN la query, y el link de un aviso abría otra automatización [renombre]
+
+`/setting`, `/chat-bot`, `/chat-agent` e `/instagram` hacían `redirect(await rutaConWs('/chatbot'))`
+pelado: el `?ws=` sobrevivía (lo pega `rutaConWs` desde el header) y el resto no. Los avisos de WhatsApp
+ya mandados llevan `/chatbot?sec=<id>` (el hand-off, `lib/chat-agent-handoff.ts`) y `?aviso=<id>` (el link
+de Notificaciones), así que un redirect así abre la tab en la PRIMERA automatización, sin decir nada.
+Ahora todos pasan por `destinoConQuery` (la query entera, valores repetidos incluidos) y van DIRECTO a
+`/automations`; `/instagram` no traduce nada a propósito (su `?conectado=1` era de un OAuth muerto).
+
+### La lista de alias no puede nombrar `/instagram`: la prohíbe otro guard [tests]
+
+`tests/sin-instagram.test.ts` falla con la CADENA `'/instagram'` en cualquier archivo de `app/` y `lib/`.
+Por eso `RUTAS_VIEJAS_AUTOMATIONS` tiene sólo `/chatbot`, `/chat-bot` y `/chat-agent` (las que el nav ya
+marcaba), y `/setting` sigue con su título en `lib/titulo-tab.ts`. Una lista «completa» de alias habría
+roto un guard ajeno por un string correcto.
+
+### Cambiar `AREA_INFO` o una `descripcion` de la API regenera `docs/api-mako.md` [api-mako]
+
+La tab y la ruta del área (`lib/api-mako/tipos.ts`) y cuatro descripciones que decían «/chatbot» salen en
+la referencia generada: sin `node --import tsx scripts/generar-api-doc.mjs`, falla
+`tests/api-mako-registro.test.ts` («la referencia generada está al día»). El snapshot de HTTP no cambia
+(sólo lista ids). El `titulo` del área («Chatbot y secuencias») se quedó: es el nombre del permiso que
+ven los tokens detallados.
+
+### Lo que NO se renombró, a propósito: son CLAVES o historia [renombre]
+
+- La key `setting` del nav (capas, roles por workspace, `onboarding.tab.setting`, la key del catálogo de
+  onboarding y las de sus pasos) y el ícono `chatbot`. Cambiar una reabre el onboarding o apaga la tab.
+- El área `chatbot` de la API de MaKo: ids de operaciones, permisos de los tokens, `/api/v1/chatbot/*`.
+- `/api/chat-agent/*`, los nombres de tablas y settings, las features `chatbot-crear-ia` y
+  `setting-guion-audio` del catálogo de modelos (cambió sólo su `label`).
+- El registro de /admin/dev: slug `chatbot`, carpeta `app/admin/dev/chatbot` y su bitácora (cambió el
+  título del área y el rótulo del sidebar de Dev). El proyecto «Agente: Chatbot» del plan
+  (`lib/plan-proyectos-catalogo.ts`, `proyectos` del área, `loHabilita` del pricing): es una clave del tablero.
+- Los archivos `lib/chatbot-*.ts`, `tests/chatbot-*.test.ts`, `docs/hallazgos-chatbot.md` y
+  `docs/chatbot-*.md` (nombres de archivo, no de la pantalla), las props `puedeChatbot` /
+  `mensajesEnChatbot` / `editarEnChatbot` y el atributo `data-editar-en-chatbot`.
+- La historia: las bitácoras de /admin/dev, `_historial.generado.ts`, las migraciones, `docs/relevo*`,
+  `docs/chats/`, `docs/superpowers/` y `docs/dev-areas.mjs` nombran la ruta como era.
+
+### `git log` de un archivo movido empieza en el renombre [proceso]
+
+`git log -- app/automations/FlujoLienzo.tsx` muestra un solo commit. La historia sale con
+`git log --follow -- app/automations/FlujoLienzo.tsx`, de a un archivo. `scripts/gen-dev-historial.mjs`
+no usa `--follow`; afecta poco porque toma los últimos 12 commits de todo el `vive[]` del área.
+
+### Mover una ruta pide `npx next typegen`, y el build de un worktree de `.claude/` su propia raíz [proceso]
+
+Después del `git mv` va `npx next typegen` antes del typecheck (AGENTS.md): sin eso `.next/types` no
+conoce `app/automations/page.tsx`. Y el `npm run build` del worktree corrió con
+`turbopack.root = resolve(__dirname, '..', '..', '..')` —el clon, que contiene al worktree y al
+`node_modules` del junction—, no con el `'..'` que sirve para un worktree hermano del clon: verde, con
+`/automations` y `/chatbot` las dos como rutas dinámicas. `next.config.ts` restaurado y su diff vacío.
+
+### Lo que quedó sin hacer (parte «renombre»)
+
+- **Comentarios con «/chatbot» en archivos de la parte «plantillas»** (no se tocaron):
+  `lib/avisos-catalogo.ts:752` y `:759`, `lib/flujo-aviso.ts:37`. Son prosa; el guard no los mira.
+- **`app/admin/runway/datos.ts:280` y `:303`** dicen «/chatbot» en prosa (carpeta fuera de esta parte).
+- **Datos en producción** (medido el 09/10/2026, sólo lectura): 4 tareas de `plan_tareas` citan
+  `app/chatbot/<archivo>:<línea>` en su detalle (ChatAgentApp, GrabadorAudioPaso, OnboardingChatAgent ×2):
+  el archivo está en `app/automations/`. No hay links a `/chatbot` guardados en `app_settings`.
+- **No se vio con clics**: ni el redirect con un `?sec=` en el navegador, ni el título de la pestaña.
+
 ## Lo que quedó sin hacer
 
 **De la parte «tiempo» (sexta tanda, 09/10/2026):**
 
 - **Montar el selector en los cinco «{ }»** (las líneas exactas, en el informe de la parte): el composer
-  de WhatsApp (`app/chatbot/EditorMensajeWhatsApp.tsx`, el `MenuWA` de `abierto === 'datos'`), el email
-  (`app/chatbot/EditorEmailGmail.tsx`, los dos `MenuWA` de datos), el editor de avisos
-  (`app/agencia/EditorMensaje.tsx`, el `Dropdown` de secciones), la tarjeta MAKO (`app/chatbot/FlujoLienzo.tsx`,
+  de WhatsApp (`app/automations/EditorMensajeWhatsApp.tsx`, el `MenuWA` de `abierto === 'datos'`), el email
+  (`app/automations/EditorEmailGmail.tsx`, los dos `MenuWA` de datos), el editor de avisos
+  (`app/agencia/EditorMensaje.tsx`, el `Dropdown` de secciones), la tarjeta MAKO (`app/automations/FlujoLienzo.tsx`,
   `DATOS_MAKO`) y los avisos (`app/agencia/FlujoAviso.tsx`, que ya recibe el árbol nuevo). Hasta que se
   monten, el WhatsApp y el email ofrecen los 4 de siempre (sin «Tu negocio») y el aviso, el árbol nuevo
   aplanado en secciones.
@@ -2547,7 +2635,7 @@ dejó marcadas las etapas de reunión (`adf1ca3d`), que es lo que el punto 5 nec
 - El modelo gratis de OpenRouter por default está muerto para TODAS las features y `CASCADA_DOCS` sigue
   con OpenAI y Mistral. `lib/ai-cheap.ts`
 - La red de plataforma en Crear con IA (cliente con una sola key) y Cancelar que no frena la cascada. `lib/ai-cheap.ts`
-- Las props muertas del editor de WhatsApp (`mostrarRevisar`, `revisarHeredado`, `disposicion`). `app/chatbot/EditorMensajeWhatsApp.tsx`
+- Las props muertas del editor de WhatsApp (`mostrarRevisar`, `revisarHeredado`, `disposicion`). `app/automations/EditorMensajeWhatsApp.tsx`
 - **La key de Gemini de la plataforma está bloqueada por Google** (403): lo decide Martín.
 
 **De la segunda tanda (09/10/2026)**
@@ -2560,7 +2648,7 @@ dejó marcadas las etapas de reunión (`adf1ca3d`), que es lo que el punto 5 nec
   existe en el embudo del ws13 y `setTriggerSecuencia` la rechaza. Código Inmobiliario no tiene canal
   hoy.
 - `saveLeadRespuestas` guarda el set entero en UN insert: una fila mala pierde todas. `lib/leads.ts`
-- El «+N» de los avisos de la IA vive en el `title` (no se ve en un teléfono). `app/chatbot/SecuenciaPerfil.tsx`
+- El «+N» de los avisos de la IA vive en el `title` (no se ve en un teléfono). `app/automations/SecuenciaPerfil.tsx`
 - `asignar_closer_setter` salió de la lista blanca de la IA en vez de validar nombres. `lib/flujo-ia.ts`
 - Un override guardado del prompt `chatbot.crear-ia.system` conserva el ejemplo viejo.
 - El editor y «Probar» pintan itálica con `_…_` sin bordes (`lead_nombre_x`). `app/agencia/EditorMensaje.tsx` · `app/_components/TextoMarcas.tsx`
@@ -2594,7 +2682,7 @@ dejó marcadas las etapas de reunión (`adf1ca3d`), que es lo que el punto 5 nec
   `lib/chat-agent-handoff.ts` · `lib/nutricion.ts` (`responderConGrafo`).
 - **Publicar una secuencia convertida no resuelve el hand-off vivo** (la segunda mitad de
   lienzo-1): una inscripción en 'handoff' publicada desde el lienzo antes del script queda sin
-  salida; el script sí lo resuelve. `app/chatbot/SecuenciaPerfil.tsx` · `lib/nutricion.ts`
+  salida; el script sí lo resuelve. `app/automations/SecuenciaPerfil.tsx` · `lib/nutricion.ts`
   (`setSecuenciaPasos`).
 - **El merge de `setSecuenciaPasos` trata `variantes: []` como ausente**
   (`Array.isArray(p.variantes) && p.variantes.length ? … : variantesPrevias.get(…)`): la ✕ de la
@@ -2616,7 +2704,7 @@ dejó marcadas las etapas de reunión (`adf1ca3d`), que es lo que el punto 5 nec
   `opts.estrategia`. `lib/setting-simulador.ts`.
 - **Los hand-offs pendientes**: abrir directo la tarjeta «Si responde» al entrar por el aviso (hoy
   `?sec=` sólo elige la automatización) y resolverlos al publicar un caso nuevo.
-  `app/chatbot/SimuladorWhatsApp.tsx` · `app/chatbot/SecuenciaPerfil.tsx`.
+  `app/automations/SimuladorWhatsApp.tsx` · `app/automations/SecuenciaPerfil.tsx`.
 - **El inbox oficial sigue con su copia del composer** (la tercera). `app/whatsapp/WhatsAppApp.tsx`.
 - **El comentario del `maxWidth` del panel del nodo dice content-box y es border-box**, y el `+ 30`
   sobra. `app/_components/Lienzo.tsx` (cerca de la línea 746).
@@ -2625,10 +2713,10 @@ dejó marcadas las etapas de reunión (`adf1ca3d`), que es lo que el punto 5 nec
   /mensajes no cuentan el uso de una etiqueta (`usoDeEtiqueta`, `lib/etiquetas.ts`). El detalle, en
   [hallazgos-comunicacion.md](hallazgos-comunicacion.md) y [hallazgos-crm.md](hallazgos-crm.md).
 - **El tope de 40 caracteres del nombre vive en dos constantes**: `TOPE_NOMBRE_SECUENCIA`
-  (`lib/setting-estrategia.ts`) y `TOPE_NOMBRE` (`app/chatbot/SimuladorWhatsApp.tsx`).
+  (`lib/setting-estrategia.ts`) y `TOPE_NOMBRE` (`app/automations/SimuladorWhatsApp.tsx`).
 - **La condición «Está en la etapa» ofrece sólo las etapas de venta de los productos con embudo**:
-  no ofrece «la casa» ni las de entrega, porque `HechosLead` no las tiene. `app/chatbot/FlujoLienzo.tsx`.
+  no ofrece «la casa» ni las de entrega, porque `HechosLead` no las tiene. `app/automations/FlujoLienzo.tsx`.
 - **El recordatorio**: lo que se borra queda sin borrador, y cambiar de automatización con textos
-  sin publicar los pierde sin preguntar. `app/chatbot/RecordatorioFlujo.tsx`.
+  sin publicar los pierde sin preguntar. `app/automations/RecordatorioFlujo.tsx`.
 - **El área `chatbot` de `/admin/dev` no apunta a este documento** (le falta `hallazgos:
   'hallazgos-chatbot'`). `app/admin/dev/areas.ts`.

@@ -1,5 +1,5 @@
 // =============================================================================
-// /instagram → /chatbot  (la tab se retiró el 06/10/2026)
+// /instagram → /automations  (la tab se retiró el 06/10/2026)
 // =============================================================================
 // Decisión de Martín (06/10/2026), sobre la pregunta de qué hacer con la tab:
 // «C: sacar la tab» — entera, la bandeja de DMs Y el programador de publicaciones.
@@ -16,10 +16,13 @@
 // Va con `rutaConWs`: un `redirect()` pelado pierde la pestaña del cliente que el
 // super admin está mirando. Ningún parámetro viejo se traduce: el `?conectado=1`
 // era la vuelta de un OAuth que ya no existe.
+//
+// Desde el 09/10/2026 va DIRECTO a /automations (la tab Chatbot se renombró): sin pasar
+// por /chatbot, que también redirige — un salto de más es un redirect más.
 
 import { redirect } from 'next/navigation';
 import { rutaConWs } from '@/lib/workspace';
 
 export default async function InstagramRetirada() {
-  redirect(await rutaConWs('/chatbot'));
+  redirect(await rutaConWs('/automations'));
 }

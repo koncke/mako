@@ -121,7 +121,7 @@ test('⚠️ el ancho del desplegable de la unidad se mide con la más LARGA del
   assert.equal(largo, 'segundos'.length);
   // Geist a 16 px semibold: ~0,6 em por letra. 8 letras ≈ 77 px + 28 de relleno + 18 de la flecha y su aire.
   const necesita = Math.ceil(largo * 16 * 0.6) + 28 + 18;
-  const flujo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const flujo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   const ed = bloque(flujo, 'function EditorEspera(', '\n}\n', 4_200);
   const base = Number(/flex: '1 1 (\d+)px', minWidth: 0 \}\}>\s*<Dropdown value=\{unidad\}/.exec(ed)?.[1]);
   assert.ok(base >= necesita, `el desplegable de la unidad nace con ${base} px y «segundos» pide ${necesita}`);
@@ -184,7 +184,7 @@ test('⛔ ya no hay nada que avisar: ninguna espera dibuja «Sigue a la hora en 
   // cascarones que quedaban (`sinPrecision`, `avisoDePrecision`) se fueron, y nadie los importa.
   const mod = sinComentarios(leer('lib/espera-duracion.ts'));
   assert.doesNotMatch(mod, /export function (sinPrecision|avisoDePrecision)\b/, 'volvió un cascarón del aviso');
-  assert.doesNotMatch(sinComentarios(leer('app/chatbot/FlujoLienzo.tsx')), /sinPrecision|avisoDePrecision/, 'el editor del DELAY volvió a importar el aviso');
+  assert.doesNotMatch(sinComentarios(leer('app/automations/FlujoLienzo.tsx')), /sinPrecision|avisoDePrecision/, 'el editor del DELAY volvió a importar el aviso');
   // Y el texto no vive en el código del módulo (en los comentarios sí: es el porqué).
   assert.doesNotMatch(mod, /hora en punto/i);
 });

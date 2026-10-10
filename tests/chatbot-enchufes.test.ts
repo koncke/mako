@@ -33,8 +33,8 @@ const bloque = (src: string, abre: string, cierra: string, tope: number): string
   return b;
 };
 
-const FLUJO = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
-const PERFIL = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+const FLUJO = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
+const PERFIL = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
 const LIENZO = sinComentarios(leer('app/_components/Lienzo.tsx'));
 
 const msg = (extra: Record<string, unknown>): PasoParaGrafo =>
@@ -86,7 +86,7 @@ test('«✦ MaKo» va en la cabecera del panel, con la MISMA regla que el editor
   const regla = bloque(FLUJO, 'function cabeceraDe(', '\n}\n', 800);
   assert.match(regla, /!rolAdmin/, 'un setter vería el número y el botón sin poder editar');
   // El editor ya no dibuja su propio ✦: lo abre la cabecera (un solo botón).
-  assert.doesNotMatch(sinComentarios(leer('app/chatbot/EditorMensajeWhatsApp.tsx')).slice(0, 2_000), /<BotonMakoWhatsApp/);
+  assert.doesNotMatch(sinComentarios(leer('app/automations/EditorMensajeWhatsApp.tsx')).slice(0, 2_000), /<BotonMakoWhatsApp/);
 });
 
 test('el lienzo dibuja `accionesTitulo` al lado del título, sin reemplazarlo', () => {

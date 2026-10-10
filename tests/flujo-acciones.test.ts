@@ -138,7 +138,7 @@ test('El catálogo lo pide UN lector (EditorAccionMako): los lienzos usan su hoo
   };
   barrer('../app/');
   assert.deepEqual(pidenElCatalogo, ['app/_components/EditorAccionMako.tsx']);
-  for (const lienzo of ['../app/agencia/FlujoAviso.tsx', '../app/chatbot/FlujoLienzo.tsx']) {
+  for (const lienzo of ['../app/agencia/FlujoAviso.tsx', '../app/automations/FlujoLienzo.tsx']) {
     assert.match(sinComentarios(leer(lienzo)), /useTitulosAcciones\(/, `${lienzo} no usa el lector compartido de títulos`);
   }
 });

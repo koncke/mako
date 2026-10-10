@@ -1,5 +1,5 @@
 // =============================================================================
-// El borrador del lienzo de /chatbot: lo incompleto SOBREVIVE sin publicarse (sexta tanda)
+// El borrador del lienzo de /automations: lo incompleto SOBREVIVE sin publicarse (sexta tanda)
 // =============================================================================
 // Pedido de Martín (09/10/2026, punto 7 de «General»): «Que se elimine una flecha no significa que
 // se elimine la tarjeta posterior, sino que queda "flotando". Lo que no se puede es publicar o probar

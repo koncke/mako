@@ -305,7 +305,7 @@ test('resumenPagos y catalogoDeLead', () => {
 // salen «＋ Rama» —«es básicamente lo mismo que "+condición"... Eso eliminalo»— y el «Todas / Cualquiera»
 // que reemplaza la unión por fila. Y el punto 1: el selector de ancho completo, sin un tope propio.
 test('el editor: «＋ Condición» la primera, «＋ y» / «＋ o» las demás, sin «＋ Rama» ni «Todas / Cualquiera»', () => {
-  const src = sinComentarios(leer('../app/chatbot/EditorCondicion.tsx'));
+  const src = sinComentarios(leer('../app/automations/EditorCondicion.tsx'));
   assert.match(src, /seccionesDeCondiciones\(ambito, cat\)/);
   assert.match(src, /＋ Condición/);
   assert.match(src, /texto="＋ y"[^>]*onElegir=\{agregar\('y'\)\}/);

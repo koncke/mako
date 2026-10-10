@@ -3,7 +3,7 @@
 // =============================================================================
 // EditorAccionMako — el paso «⚡ Acción» de un flujo: qué acción de MaKo y con qué datos
 // =============================================================================
-// Lo usan los dos lienzos: las secuencias de /chatbot y los avisos de /mensajes. Una sola
+// Lo usan los dos lienzos: las secuencias de /automations y los avisos de /mensajes. Una sola
 // pieza para los dos (AGENTS.md: si la misma pieza sirve a dos pantallas, se extrae ANTES
 // de la segunda). El catálogo sale de GET /api/flujos/acciones, armado en el server: el
 // registro de la API no se importa desde un componente cliente.

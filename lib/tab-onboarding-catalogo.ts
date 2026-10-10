@@ -107,15 +107,19 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     ],
   },
 
-  // ── Chatbot: la cabeza. Necesita al menos un canal vivo ──
+  // ── Automations (ex Chatbot): la cabeza. Necesita al menos un canal vivo ──
   // ORDEN (regla en .claude/skills/tab-onboarding): lo aburrido al final,
   // EXCEPTO lo que bloquea. El WhatsApp de empresa sí bloquea: el paso de
   // contexto lee las conversaciones reales de ese número, así que sin él no hay
   // nada que leer.
+  //
+  // ⚠️ La KEY `setting` y las de los pasos NO cambian con el nombre (09/10/2026): están
+  // escritas en `onboarding.tab.setting` y en el registro compartido de cada workspace.
+  // Cambiarlas reabre el onboarding de todos los clientes. Lo que cambia es lo que se LEE.
   setting: {
     key: 'setting',
-    titulo: 'Configuración del Chatbot',
-    nombre: 'Chatbot',
+    titulo: 'Configuración de Automations',
+    nombre: 'Automations',
     // ⚠️ UN SOLO PASO, Y ES EL QR. La tab dejó de ser un wizard: es el lienzo donde se
     // dibujan las secuencias, y lo único que hay que tener antes es la línea vinculada
     // (Martín, 05/10: «esa pestaña ya no requeriría un onboarding al menos que no tengas
@@ -133,13 +137,13 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     //    que se intente poner una tarjeta de chat y activar la opción de "IA"». Vuelve a
     //    la lista OPCIONAL —no decide el `status`, así que la tab no vuelve a pedir
     //    onboarding al entrar— y la abre el lienzo con `soloPaso` al tildar «Lo adapta
-    //    MaKo» (app/chatbot/SecuenciaPerfil.tsx). Tiene que estar ACÁ igual: sin la key
+    //    MaKo» (app/automations/SecuenciaPerfil.tsx). Tiene que estar ACÁ igual: sin la key
     //    en la lista, `marcarPasoTab` la rechaza y el paso no se puede cerrar nunca.
     pasos: [
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
       { key: 'contexto', label: 'Tu forma de escribir', opcional: true },
     ],
-    href: '/chatbot',
+    href: '/automations',
   },
 
   // ── Instagram: la tab se RETIRÓ el 06/10/2026 (decisión de Martín) ──

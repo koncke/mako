@@ -1,5 +1,5 @@
 // =============================================================================
-// API: los CATÁLOGOS del editor de la condición (app/chatbot/EditorCondicion.tsx)
+// API: los CATÁLOGOS del editor de la condición (app/automations/EditorCondicion.tsx)
 // =============================================================================
 // GET → { ok, cursos: CursoCondicion[], posts: [{ id, titulo }], campanas: string[], reuniones: ReunionesDeEmbudo[] | null }
 //

@@ -135,7 +135,7 @@ export const ICONO_ACCION = '⚙️';
 export type DisparadorTarjeta = { id: string; texto: string; icono?: string };
 
 /**
- * LAS PIEZAS DE LA TARJETA CRON, en px (las dibuja `TarjetaCron`, app/chatbot/FlujoLienzo.tsx: si
+ * LAS PIEZAS DE LA TARJETA CRON, en px (las dibuja `TarjetaCron`, app/automations/FlujoLienzo.tsx: si
  * cambia una, cambia acá). La tarjeta tiene alto FIJO —lleva su salida al pie— así que se SUMA:
  * cada disparador es una caja de uno o dos renglones, «+ Nuevo CRON» un renglón punteado.
  */
@@ -344,7 +344,7 @@ export type AudioParaAlto = { transcript?: string | null } | null | undefined;
  * se corta, y el texto entero está en el editor.
  *
  * El audio y el archivo se suman POR PARTES con lo mismo que dibuja la tarjeta (`VistaMensaje`
- * en app/chatbot/FlujoLienzo.tsx): el reproductor, el título y el pie. El archivo, con su chip y el
+ * en app/automations/FlujoLienzo.tsx): el reproductor, el título y el pie. El archivo, con su chip y el
  * caption. Un mensaje de VARIAS partes dibuja la primera y un renglón «+N más»
  * (`RENGLON_MAS_PARTES`).
  *
@@ -373,7 +373,7 @@ function altoDeLaPrimera(p: PasoParaGrafo): number {
   }
   if (p.canal === 'email') {
     // ⚠️ UN EMAIL SE DIBUJA COMO UN MAIL, NO COMO UNA BURBUJA (segunda tanda): la caja del correo
-    // (`VistaEmail`, app/chatbot/FlujoLienzo.tsx) con el asunto arriba, la vista previa en gris y
+    // (`VistaEmail`, app/automations/FlujoLienzo.tsx) con el asunto arriba, la vista previa en gris y
     // a lo sumo tres renglones del cuerpo. Se suma por partes con lo mismo que dibuja.
     const asunto = (p.asunto ?? '').trim();
     const pre = (p.preheader ?? '').trim();
@@ -398,7 +398,7 @@ export function altoConFilas(filas: number): number {
 /**
  * LOS TÍTULOS DE LAS TARJETAS, EN INGLÉS (tercera tanda, decisión 5; pedido literal: «todos los
  * títulos de las tarjetas estén en inglés, "CRON - DELAY - WHATSAPP"»). UN lugar: el árbol, los
- * errores y el recordatorio (app/chatbot/RecordatorioFlujo.tsx) leen de acá. Van en mayúsculas
+ * errores y el recordatorio (app/automations/RecordatorioFlujo.tsx) leen de acá. Van en mayúsculas
  * porque así se dibujan, y el error nombra la tarjeta con lo mismo que se lee.
  */
 export const TITULO = {
@@ -1641,7 +1641,7 @@ export function canalesParaProbar(pasos: readonly PasoGrafo[]): Array<'whatsapp'
   const out: Array<'whatsapp' | 'email' | CanalSocial> = [];
   if (mensajes.some((p) => p.canal !== 'email' && !esCanalSocial(p.canal))) out.push('whatsapp');
   if (mensajes.some((p) => p.canal === 'email')) out.push('email');
-  // Instagram y Messenger, después (sexta tanda): cada uno con su simulador (app/chatbot/SimuladorSocial.tsx).
+  // Instagram y Messenger, después (sexta tanda): cada uno con su simulador (app/automations/SimuladorSocial.tsx).
   if (mensajes.some((p) => p.canal === 'instagram')) out.push('instagram');
   if (mensajes.some((p) => p.canal === 'messenger')) out.push('messenger');
   return out.length ? out : ['whatsapp'];

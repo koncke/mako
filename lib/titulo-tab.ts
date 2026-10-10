@@ -26,7 +26,7 @@ const EXTRA: Record<string, string> = {
   '/integraciones': 'Integraciones',
   '/comercial': 'Dashboard',
   '/marketing': 'Dashboard',
-  '/setting': 'Chatbot',
+  '/setting': 'Automations',
   '/metodo': 'Integraciones',
   '/anuncio': 'Anuncio',
   '/equipo': 'Equipo',

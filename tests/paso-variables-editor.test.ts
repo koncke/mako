@@ -58,7 +58,7 @@ test('⚠️ el motor resuelve los tokens del catálogo con dígitos (`{{lead_fe
 // `.replace(/\{\{\s*negocio\s*\}\}/g, …)` de vuelta → 1 rojo; la vista pasándole una clave
 // inventada (`{ marca: n }`) → 1 rojo.
 test('todo token que el lienzo resuelve está en el catálogo del motor', () => {
-  const src = readFileSync(new URL('../app/chatbot/FlujoLienzo.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+  const src = readFileSync(new URL('../app/automations/FlujoLienzo.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
     .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.doesNotMatch(src, /\.replace\(\s*\/\\\{\\\{/, 'volvió un replace de tokens a mano: la vista y el motor pueden separarse');
   // (Desde la tercera tanda importa también VARIABLES_LEAD: los datos que la tarjeta MAKO inserta.)

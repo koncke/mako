@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// EditorCondicion — el editor de la tarjeta CONDITION del lienzo de /chatbot
+// EditorCondicion — el editor de la tarjeta CONDITION del lienzo de /automations
 // =============================================================================
 // Pedido de Martín (09/10/2026, tercera tanda, punto 9): «Haz que el editable del condicional sea
 // mucho más simple de entender, como el resto, no tan ancho que ocupe todo». Y el punto 10: todas las

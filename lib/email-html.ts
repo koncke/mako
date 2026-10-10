@@ -15,7 +15,7 @@
 // ⚠️ `tests/frontera-use-client.test.ts` sólo mira imports DIRECTOS, así que no va
 // a cazar un import transitivo de un módulo server-only. Se cuida a mano: este
 // archivo importa UN solo módulo del repo, `./email-html-seguro` (el saneo del
-// cuerpo HTML de un email de /chatbot, tercera tanda del 09/10/2026), que a su vez
+// cuerpo HTML de un email de /automations, tercera tanda del 09/10/2026), que a su vez
 // importa sólo `./template-vars`, que no importa nada. Ninguno de los dos puede
 // sumar un import con `server-only`: lo fija tests/email-html-seguro.test.ts.
 //
@@ -159,7 +159,7 @@ export type RenderEmailParams = {
   subject: string;
   bodyText: string;        // cuerpo en texto plano, variables ya resueltas
   /**
-   * El cuerpo en HTML (el editor rico de un email de /chatbot), con las variables ya resueltas
+   * El cuerpo en HTML (el editor rico de un email de /automations), con las variables ya resueltas
    * (`aplicarVariablesHtml`). Si está y tiene algo que leer, REEMPLAZA a `bodyText` en el cuerpo
    * del correo; `bodyText` sigue siendo la parte de texto. Se vuelve a pasar por el saneo acá
    * (idempotente): el render es el único lugar que arma el correo, y así ningún llamador puede

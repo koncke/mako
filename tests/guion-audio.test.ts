@@ -342,7 +342,7 @@ test('cuando no sale nada, el motivo se dice: rechazo del filtro o errorDeCascad
   assert.match(esc, /return \{ error: await errorDeCascada\(errores, 'escribir el guion'\) \};/);
   // El pedido del onboarding ya no traga el fallo: viaja como `aviso`.
   assert.match(RUTA, /return Response\.json\(\{ ok: true, bullets, ejemplo, \.\.\.\(aviso && !ejemplo \? \{ aviso \} : \{\}\) \}\);/);
-  assert.match(sinComentarios(leer('app/chatbot/GrabadorAudioPaso.tsx')), /\{!guion\.ejemplo && guion\.aviso && \(/);
+  assert.match(sinComentarios(leer('app/automations/GrabadorAudioPaso.tsx')), /\{!guion\.ejemplo && guion\.aviso && \(/);
 });
 
 test('el pedido de un paso sale ANTES que el del onboarding, y su guion pasa por el filtro', () => {
@@ -360,7 +360,7 @@ test('el pedido de un paso sale ANTES que el del onboarding, y su guion pasa por
 // 6. El control dibuja el guion, y los dos que lo montan se lo pasan
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CONTROL = sinComentarios(leer('app/chatbot/PasoAudioControl.tsx'));
+const CONTROL = sinComentarios(leer('app/automations/PasoAudioControl.tsx'));
 
 // ⟵ ROTURA (9): el bloque «Para leer» movido debajo del ternario del grabador → rojo
 //   (1 fallo). ⟵ ROTURA (15): `paraLeer` sin el `guion` del mensaje → el mismo rojo.
@@ -420,7 +420,7 @@ test('el botón sale sólo con `paraGuion`, y pide desde el MENSAJE (no desde la
 // ⟵ ROTURA (11): sin la `key` del editor en el lienzo → rojo (1 fallo). Y volver a montar
 //   `PasoAudioControl` en el lienzo → rojo (1 fallo).
 test('el lienzo edita el audio con el editor único de WhatsApp, con una key por tarjeta', () => {
-  const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   assert.doesNotMatch(lienzo, /<PasoAudioControl/, 'volvió el control suelto del audio al lienzo');
   const ed = bloque(lienzo, '<EditorMensajeWhatsApp', '/>');
   assert.match(ed, /key=\{`msg-\$\{id\}`\}/, 'el editor es uno: sin key, lo de un mensaje se ve en el siguiente');

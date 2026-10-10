@@ -1,5 +1,5 @@
 // =============================================================================
-// Las etiquetas que crea «Crear con IA» se anuncian (app/chatbot/SecuenciaPerfil.tsx → alListoIA)
+// Las etiquetas que crea «Crear con IA» se anuncian (app/automations/SecuenciaPerfil.tsx → alListoIA)
 // =============================================================================
 // Revisión de la segunda tanda del Chatbot (09/10/2026). La ruta de IA crea las etiquetas en el
 // SERVER (`crearNuevas`) antes de mandar `listo`. `alListoIA` sólo mostraba el toast, y la lista
@@ -24,7 +24,7 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 
 /** El cuerpo de `alListoIA`, hasta su cierre real (`\n  };` a nivel del componente). */
 function alListoIA(): string {
-  const src = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+  const src = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Tolera el tipo de retorno (`): boolean =>`, de otro arreglo de la misma tanda).
   const ini = src.indexOf('const alListoIA = (r: ListoCrearIA)');
   assert.ok(ini >= 0, 'no está alListoIA');
@@ -46,7 +46,7 @@ test('alListoIA anuncia las etiquetas nuevas en los DOS modos, antes de revelar 
 });
 
 test('SecuenciaPerfil importa avisarCambioEtiquetas de la lista compartida', () => {
-  const src = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+  const src = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   assert.match(src, /import \{[^}]*\bavisarCambioEtiquetas\b[^}]*\} from '@\/app\/_components\/etiquetas-cliente';/);
 });
 

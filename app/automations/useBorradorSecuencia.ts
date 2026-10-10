@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// useBorradorSecuencia — lo que el lienzo de /chatbot tiene SIN PUBLICAR, guardado solo
+// useBorradorSecuencia — lo que el lienzo de /automations tiene SIN PUBLICAR, guardado solo
 // =============================================================================
 // Sexta tanda, punto 7 (Martín, 09/10/2026): «Que se elimine una flecha no significa que se elimine la
 // tarjeta posterior, sino que queda "flotando". Lo que no se puede es publicar o probar una
@@ -13,7 +13,7 @@
 // Esto lo guarda en su propia columna (`nutricion_secuencias.pasos_borrador`, mig 0240) por SU acción
 // (POST /api/chat-agent/secuencias, `action: 'borrador'` → `guardarBorradorSecuencia`,
 // lib/secuencia-borrador.ts), que valida sólo lo que rompe el DATO (`validarParaGuardar`). EL MOTOR
-// NO LO LEE NUNCA. Mismo molde que app/chatbot/usePosicionesLienzo.ts:
+// NO LO LEE NUNCA. Mismo molde que app/automations/usePosicionesLienzo.ts:
 //   · CON UN RESPIRO: tipear una frase es UN guardado, con el flujo final.
 //   · AL IRSE (otra automatización, cerrar la pestaña) lo que esperaba su respiro se manda igual.
 //   · SI NO SE LEYÓ (`puedeGuardar` false: el GET no trajo el borrador porque falta la columna o la

@@ -17,7 +17,7 @@
 // ⚠️ EL PASO «Tu forma de escribir» (contexto) LO ABRE EL LIENZO, con `soloPaso`. Produce
 // la GUÍA DE VOZ, que gobierna todo lo que MaKo redacta. Decisión de Martín (05/10): va en
 // el momento en que hace falta — la primera vez que se tilda «Lo adapta MaKo» en una
-// tarjeta de chat (app/chatbot/SecuenciaPerfil.tsx). Vive en la lista 'setting' como
+// tarjeta de chat (app/automations/SecuenciaPerfil.tsx). Vive en la lista 'setting' como
 // OPCIONAL, así que no vuelve a pedir onboarding al entrar a la tab.
 // 'voz', 'ensayo' y 'aprobar' siguen sin pantalla: su código sigue acá y no lo abre nadie.
 // =============================================================================
@@ -1077,7 +1077,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
     <WizardShell
       fullscreen
       embebido={!soloPaso}
-      titulo={def?.titulo ?? 'Chatbot'}
+      titulo={def?.titulo ?? 'Automations'}
       total={def?.pasos.length ?? (soloPaso ? 1 : 5)}
       idx={idx}
       // En la vista de preguntas el título es la PREGUNTA: es lo que hay que
@@ -1102,7 +1102,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
       error={err}
       puedeAvanzar={puedeAvanzar}
       enUltimo={enUltimo}
-      confirmLabel={soloPaso ? 'Listo' : 'Listo, entrar al Chatbot'}
+      confirmLabel={soloPaso ? 'Listo' : 'Listo, entrar a Automations'}
       // En el ensayo el pie no "pasa": CIERRA el caso y lo guarda. Decirlo es lo
       // que evita que se lea como saltearlo.
       siguienteLabel={pasoKey === 'ensayo' && !ensayoTerminado ? labelEnsayo : undefined}
@@ -1154,7 +1154,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
           )}
         </div>
       )}
-      escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chatbot" slides={slides} eyebrow={soloPaso === 'contexto' ? '✦ Para que MaKo escriba' : '✦ Dejemos tu Chatbot listo'} />}
+      escenario={<PanelMarketing servicioKey="whatsapp" nombre="Automations" slides={slides} eyebrow={soloPaso === 'contexto' ? '✦ Para que MaKo escriba' : '✦ Dejemos listas tus automatizaciones'} />}
     >
       {/* WHATSAPP NO OFICIAL — el QR se genera y se escanea en este mismo paso */}
       {pasoKey === 'wa_no_oficial' && (
@@ -1763,12 +1763,12 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
               ))}
 
               <div style={okBox}>
-                Quedaron <strong>pausadas</strong>. No sale nada a ningún lead hasta que las actives desde el Chatbot.
+                Quedaron <strong>pausadas</strong>. No sale nada a ningún lead hasta que las actives desde Automations.
               </div>
 
               {resumen.huecos.length > 0 && (
                 <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.55, textAlign: 'left' }}>
-                  Te faltan secuencias para {resumen.huecos.length === 1 ? 'la etapa' : 'las etapas'} {resumen.huecos.map((h) => h.label).join(', ')}. Las puedes armar desde el Chatbot cuando quieras.
+                  Te faltan secuencias para {resumen.huecos.length === 1 ? 'la etapa' : 'las etapas'} {resumen.huecos.map((h) => h.label).join(', ')}. Las puedes armar desde Automations cuando quieras.
                 </div>
               )}
             </>

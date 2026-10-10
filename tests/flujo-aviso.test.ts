@@ -331,7 +331,7 @@ test('Los nodos montan los controles que YA existían, no copias', () => {
   // FlujoAviso montando otro editor en lugar de `<EditorMensajeGrupo` → 1 fallo acá (y 1 en
   // tests/variables-aviso). Restaurado → verde.
   assert.match(src, /<EditorMensajeGrupo[\s\n]/, 'el nodo dejó de montar el editor de WhatsApp: ¿se copió su control?');
-  assert.match(src, /import \{ EditorMensajeGrupo \} from '@\/app\/chatbot\/EditorMensajeWhatsApp';/);
+  assert.match(src, /import \{ EditorMensajeGrupo \} from '@\/app\/automations\/EditorMensajeWhatsApp';/);
   assert.ok(!/action: 'frecuencia'/.test(src), 'el lienzo escribió la frecuencia por su cuenta');
   assert.ok(!/from '\.\/Disparador'/.test(src), 'volvió el componente que la sección CRON reemplazó');
 });

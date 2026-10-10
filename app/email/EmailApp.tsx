@@ -48,7 +48,7 @@ type Broadcast = {
 };
 type Segmento = { value: string; label: string; descripcion: string };
 type DnsRecord = { record: string; name: string; type: string; value: string; ttl?: string; priority?: number; status?: string };
-/** Lo que contesta GET /api/email/dominio. Exportado para el «Vincular nuevo» del email de /chatbot. */
+/** Lo que contesta GET /api/email/dominio. Exportado para el «Vincular nuevo» del email de /automations. */
 export type DomState = {
   conectado: boolean; envioHabilitado: boolean; sandbox: boolean; resendConfigurado: boolean;
   dominio: string | null; remitente: string; estadoDominio: string | null; records: DnsRecord[];
@@ -752,8 +752,8 @@ function BroadcastEditor(props: {
 // (3) "Verificar" + polling hasta 'verified'; (4) elige el remitente. Mientras
 // no esté conectado, la tab funciona en modo simulado.
 // ⚠️ EXPORTADO (cuarta tanda del Chatbot, 09/10/2026, punto 16): el «Vincular nuevo» del «De» del
-// email de /chatbot monta ESTE MISMO flujo en un modal, sin salir del lienzo
-// (app/chatbot/EditorEmailGmail.tsx, cargado a demanda). Un segundo flujo de conectar el dominio
+// email de /automations monta ESTE MISMO flujo en un modal, sin salir del lienzo
+// (app/automations/EditorEmailGmail.tsx, cargado a demanda). Un segundo flujo de conectar el dominio
 // sería la segunda implementación de lo mismo.
 export function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpdate: (d: DomState) => void; onClose?: () => void }) {
   const { confirm, confirmNode } = useConfirm();

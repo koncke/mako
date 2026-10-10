@@ -1,5 +1,5 @@
 // =============================================================================
-// La revisión adversarial del lienzo de /chatbot (08/10/2026): lo que la pantalla AFIRMA
+// La revisión adversarial del lienzo de /automations (08/10/2026): lo que la pantalla AFIRMA
 // tiene que ser lo que el motor HACE, y lo que frena tiene que poder encontrarse
 // =============================================================================
 // Cada bloque lleva el id del hallazgo (docs/chatbot-flujo-ramas-diseno.md, la revisión).
@@ -52,8 +52,8 @@ const bloque = (src: string, abre: string, cierra: string, tope: number): string
   assert.ok(b.length < tope, `el recorte mide ${b.length}: está mirando otra cosa`);
   return b;
 };
-const LIENZO_FLUJO = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
-const PERFIL = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
+const LIENZO_FLUJO = sinComentarios(leer('../app/automations/FlujoLienzo.tsx'));
+const PERFIL = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
 const LIENZO = sinComentarios(leer('../app/_components/Lienzo.tsx'));
 
 const rndDe = (semilla = 1) => { let s = semilla; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; };
@@ -214,7 +214,7 @@ test('costuras-11: el lienzo pide las archivadas y las nombra «(archivada)», s
   assert.equal(nodo(g, 'c').puertos![0].rotulo, 'Tiene «Cualificado (archivada)»');
   // Sexta tanda (varios CRON): lo que dice cada CRON lo arma `useTextoDisparador` (EditorDisparadores).
   // Verificado con `nombreEtiqueta: null` ahí (09/10/2026, cuatro archivos, base 71 / 0): 70 / 1.
-  assert.match(leer('../app/chatbot/EditorDisparadores.tsx'), /nombreEtiqueta: nombreEtiqueta\(p\.etiquetas, d\.etiqueta_id \?\? null\),/);
+  assert.match(leer('../app/automations/EditorDisparadores.tsx'), /nombreEtiqueta: nombreEtiqueta\(p\.etiquetas, d\.etiqueta_id \?\? null\),/);
   // (Con la tercera tanda el objeto suma `catalogo` y va en varios renglones: el `\s*` lo tolera.)
   assert.match(LIENZO_FLUJO, /const nombres: NombresParaTexto = \{\s*etiqueta: \(id\) => nombreEtiqueta\(etiquetas, id\)/);
 });

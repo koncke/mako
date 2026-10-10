@@ -4139,7 +4139,7 @@ tab Curso, el avance del curso en la API de MaKo, Whop en el roadmap y los video
   nueva del curso (`lib/curso-avance.ts`): no crear secuencias de entrega en el ws1 sin
   decidirlo.
 - Voseo que el guard no caza (homógrafo del pretérito): «Elegí una etapa…» en
-  `app/chatbot/SecuenciaPerfil.tsx` y `lib/setting-secuencias.ts`.
+  `app/automations/SecuenciaPerfil.tsx` y `lib/setting-secuencias.ts`.
 
 ### La segunda tanda: lo que encontró la INTEGRACIÓN, y lo que dejó cada pieza (07/10/2026)
 

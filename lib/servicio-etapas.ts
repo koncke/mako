@@ -315,7 +315,7 @@ export function fraseSecuenciasHuerfanas(sacadas: readonly { label: string; n: n
   const lista = vivas.map((x) => `${x.n} ${x.n === 1 ? 'secuencia' : 'secuencias'} en ${x.label}`).join(' · ');
   const verbo = total === 1 ? 'deja' : 'dejan';
   const reapunta = total === 1 ? 'Reapúntala' : 'Reapúntalas';
-  return `${lista}: al guardar ${verbo} de dispararse. ${reapunta} en Chatbot antes de guardar.`;
+  return `${lista}: al guardar ${verbo} de dispararse. ${reapunta} en Automations antes de guardar.`;
 }
 
 /**

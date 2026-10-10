@@ -8,7 +8,7 @@
 //
 // Módulo PURO y sin `server-only`. Lo leen cuatro lugares que antes tenían cada uno su
 // idea de «cuál es el paso siguiente»: el motor (lib/nutricion.ts), el lienzo
-// (lib/flujo-conversacion.ts + app/chatbot), el simulador de «Probar» y el script que pasa
+// (lib/flujo-conversacion.ts + app/automations), el simulador de «Probar» y el script que pasa
 // las secuencias de antes a tarjetas. Si el dibujo y el motor no leen la MISMA función,
 // se separan en la primera edición (AGENTS.md, «Sólo se dibuja la rama que el motor
 // EJECUTA»).

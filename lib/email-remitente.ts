@@ -1,5 +1,5 @@
 // =============================================================================
-// email-remitente — QUIÉN manda un email de un flujo de /chatbot, y QUIÉN lo firma
+// email-remitente — QUIÉN manda un email de un flujo de /automations, y QUIÉN lo firma
 // =============================================================================
 // Pedido de Martín (09/10/2026, cuarta tanda, punto 16): «En la opción de "De" se debería poder
 // elegir el email remitente, si se tiene vinculado varios email, con el botón de vincular nuevo…
@@ -34,7 +34,7 @@
 //   manda (hoy no: ver el relevo, «Vincular nuevo» que SUME), y si no, el único que hay.
 //
 // ⚠️ PURO Y SIN IMPORTS: lo usan el motor (server, lib/nutricion.ts) y el editor (`'use client'`,
-//    app/chatbot/EditorEmailGmail.tsx). Ninguno de los dos puede importar lib/resend.ts desde el
+//    app/automations/EditorEmailGmail.tsx). Ninguno de los dos puede importar lib/resend.ts desde el
 //    navegador (lleva `server-only` por la API key), por eso el sandbox se reconoce acá con la MISMA
 //    regla que `remitenteEsSandbox` (lo fija tests/email-remitente.test.ts leyendo los dos).
 // =============================================================================

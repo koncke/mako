@@ -220,13 +220,13 @@ test('el paso de la voz vuelve al catálogo como OPCIONAL: no reabre el onboardi
 // editor y «✦ MaKo» en la cabecera del panel (tests/chatbot-enchufes.test.ts). Se fija su cuerpo
 // y que el editor la llame.
 test('la casilla sale sólo donde el saneo conserva el modo, con la MISMA función', () => {
-  const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   // ⚠️ SEXTA TANDA (WhatsApp 3): el ✦ pasó a ser el panel que ayuda a ESCRIBIR, y se ofrece con
   // cualquier contenido del no oficial (un audio también se escribe: MaKo propone el guion). La CASILLA
   // de «adaptarlo a cada persona» (el `tipo: 'ia'`) sigue saliendo sólo con UN texto: `adaptable`.
   assert.match(lienzo, /function permiteIADe\(paso: PasoSecuenciaDto, hayModoIA: boolean\): boolean \{\n  return hayModoIA && paso\.canal === 'whatsapp' && proveedorDelPaso\(paso\) === 'no_oficial';\n\}/);
   assert.match(lienzo, /permiteIA=\{permiteIADe\(paso, !!onModoIA\)\}/);
-  const editor = sinComentarios(leer('app/chatbot/EditorMensajeWhatsApp.tsx'));
+  const editor = sinComentarios(leer('app/automations/EditorMensajeWhatsApp.tsx'));
   assert.match(editor, /const puedeAdaptar = !!permiteIA && adaptable\(paso, varias\);/);
   assert.match(editor, /adaptar=\{puedeAdaptar \? \{/, 'la casilla salía con un audio o con varias partes');
   assert.match(lienzo, /import \{ proveedorDelPaso \} from '@\/lib\/nutricion-canal'/);
@@ -238,7 +238,7 @@ test('la casilla sale sólo donde el saneo conserva el modo, con la MISMA funci�
 // preguntar (sacando `abrirGuiaVoz(j)`) → 1 rojo; y el lienzo sin pasarle el aviso al
 // perfil (`onModoIA?.(on)` fuera de `modoIA`) → 1 rojo.
 test('la primera vez que se tilda, el lienzo PREGUNTA si falta la voz y abre sólo ese paso', () => {
-  const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+  const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   const fn = bloque(perfil, 'const abrirGuiaSiFalta = (on: boolean) => {', '\n  };');
   assert.match(fn, /if \(!on \|\| guiaOfrecida\.enLaVisita\) return;/, 'apagar la IA no tiene por qué abrir nada');
   assert.match(fn, /fetch\('\/api\/chat-agent\/onboarding\?tab=setting'/);
@@ -249,7 +249,7 @@ test('la primera vez que se tilda, el lienzo PREGUNTA si falta la voz y abre só
   assert.match(perfil, /<OnboardingChatAgent soloPaso="contexto" onListo=\{\(\) => setGuiaVoz\(false\)\} \/>/);
   assert.match(perfil, /onModoIA=\{rolAdmin \? abrirGuiaSiFalta : undefined\}/);
   // El lienzo cambia el tipo (un cambio que se deshace) y AVISA al perfil.
-  const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   const modo = bloque(lienzo, 'const modoIA = (on: boolean) => {', '\n  };');
   assert.match(modo, /cambiar\(\{ tipo: on \? 'ia' : 'texto' \}, true\);\s*onModoIA\?\.\(on\);/);
   // Con el tutorial encima, el Ctrl+Z del lienzo de atrás no corre.

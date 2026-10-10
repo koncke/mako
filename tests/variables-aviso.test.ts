@@ -177,10 +177,10 @@ test('⚠️ EL «{ }» INSERTA TEXTO PLANO: el `{{clave}}` donde está el curso
   //
   // PROBADO ROMPIÉNDOLO (09/10/2026, parte «datos»): el composer insertando `k` pelado en vez de
   // `{{k}}` → 1 fallo; el asunto del email con `MenuWA` de vuelta → 1 fallo. Restaurado → verde.
-  const wa = sinComentarios(leer('../app/chatbot/EditorMensajeWhatsApp.tsx'));
+  const wa = sinComentarios(leer('../app/automations/EditorMensajeWhatsApp.tsx'));
   assert.match(wa, /<ArbolDeDatos grupos=\{grupos\} onElegir=\{\(k\) => \{ composer\.current\?\.insertar\(`\{\{\$\{k\}\}\}`, \{ enfocar: true \}\); setAbierto\(null\); \}\} \/>/,
     'el composer dejó de insertar el token como texto');
-  const mail = sinComentarios(leer('../app/chatbot/EditorEmailGmail.tsx'));
+  const mail = sinComentarios(leer('../app/automations/EditorEmailGmail.tsx'));
   assert.match(mail, /<ArbolDeDatos grupos=\{datos\} onElegir=\{\(k\) => \{ insertarEnAsunto\(`\{\{\$\{k\}\}\}`\); setAbierto\(null\); \}\} \/>/, 'el asunto');
   assert.match(mail, /<ArbolDeDatos grupos=\{datos\} onElegir=\{\(k\) => \{ insertarEnCuerpo\(`\{\{\$\{k\}\}\}`\); setAbierto\(null\); \}\} \/>/, 'el cuerpo');
   assert.ok(!/chip/i.test(sinComentarios(leer('../app/_components/SelectorDatos.tsx'))), 'apareció un chip en el selector');

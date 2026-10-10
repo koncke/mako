@@ -921,7 +921,7 @@ export const RUNNERS: Runners = {
       try { metas = await listMetaTemplates(); } catch { return { error: 'Meta no respondió al buscar la plantilla; vuelve a intentarlo en unos minutos.' }; }
       const m = metas.find((t) => t.name === name && t.language === language);
       if (!m?.metaId) return { error: `No hay una plantilla «${name}» (${language}) entre las ${metas.length} que devolvió Meta${metas.length >= 200 ? ' (Meta devuelve hasta 200 por consulta: si tienes más, puede estar entre las que no se leyeron)' : ''}.` };
-      if (m.headerFormat && m.headerFormat !== 'TEXT') return { error: `«${name}» tiene encabezado multimedia: edítala en Chatbot → Plantillas.` };
+      if (m.headerFormat && m.headerFormat !== 'TEXT') return { error: `«${name}» tiene encabezado multimedia: edítala en Automations → Plantillas.` };
       const d = plantillaDeInput(input, { name, language, category: m.category as TemplateCategoria, body: m.body, header: m.header, footer: m.footer, buttons: m.buttons, params: [], status: 'approved' });
       const sinEjemplo = variablesSinEjemplo(d);
       if (sinEjemplo.length) return { error: `Cada variable del cuerpo necesita su entrada en params con un ejemplo: falta ${sinEjemplo.join(', ')}.`, faltan: ['params'] };

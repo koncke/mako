@@ -277,7 +277,7 @@ let moduloEmail: ModuloEmail | null = null;
 
 /**
  * «VINCULAR NUEVO»: el MISMO flujo de /email (`DominioSetup`) en un modal, sin salir del lienzo. Se pide
- * a demanda: es la pantalla entera de Email y no tiene por qué viajar con /chatbot. Va con un portal al
+ * a demanda: es la pantalla entera de Email y no tiene por qué viajar con /automations. Va con un portal al
  * `body`: el panel del editor vive adentro del lienzo, y un `fixed` adentro de una capa transformada o
  * de un `sticky` con z-index no cubre la pantalla (AGENTS.md).
  *
@@ -293,7 +293,7 @@ export const AVISO_REEMPLAZA = 'Reemplaza el remitente de tu negocio.';
 
 /**
  * El modal de «Vincular nuevo» del email: el flujo de /email (`DominioSetup`), cargado a demanda y en un
- * portal. Lo usan el «De» de este editor y el «De» de «Probar» (`VincularEmisor`, app/chatbot/PanelProbar.tsx):
+ * portal. Lo usan el «De» de este editor y el «De» de «Probar» (`VincularEmisor`, app/automations/PanelProbar.tsx):
  * UN modal, para que los dos digan lo mismo (el aviso de que reemplaza incluido).
  */
 export function VincularRemitente({ inicial, reemplaza, onCerrar, onDominio }: { inicial: DomState | null; reemplaza: boolean; onCerrar: () => void; onDominio: (d: DomState) => void }) {

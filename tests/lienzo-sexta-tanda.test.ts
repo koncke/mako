@@ -53,9 +53,9 @@ import { fijarPosicion, conPosiciones } from '../lib/lienzo-posiciones';
 import { ID_INICIO } from '../lib/flujo-grafo';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { SimuladorWhatsApp, ROTULO_CHATBOT, ROTULO_MENSAJES_MAKO, opcionesDeFila } from '../app/chatbot/SimuladorWhatsApp';
+import { SimuladorWhatsApp, ROTULO_CHATBOT, ROTULO_MENSAJES_MAKO, opcionesDeFila } from '../app/automations/SimuladorWhatsApp';
 import { esIconoMenu } from '../app/_ui/iconos-menu';
-import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
+import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 import type { PlantillaVista } from '../lib/plantillas';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -182,8 +182,8 @@ test('`filaDePuerto`: de qué círculo sale cada flecha (la papelera de un círc
 // ── El cableado (fuente sin comentarios) ─────────────────────────────────────────
 
 const LIENZO = sinComentarios(leer('../app/_components/Lienzo.tsx'));
-const FLUJO = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
-const PERFIL = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
+const FLUJO = sinComentarios(leer('../app/automations/FlujoLienzo.tsx'));
+const PERFIL = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
 
 test('⚠️ el lienzo: el gesto es del botón PRINCIPAL, y el click derecho abre su menú', () => {
   const down = tramo(LIENZO, 'function onPointerDown(', 'function onPointerMove(', 3_000);

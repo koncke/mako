@@ -23,7 +23,7 @@ export const VARIABLES_LEAD: VarLead[] = [
  * la fila, y esto lo tiene que PASAR el emisor (una lectura por corrida, no por lead).
  *
  * ⚠️ EXISTE PORQUE EL EDITOR YA LO RESOLVÍA Y EL MOTOR NO. `VistaMensaje`
- * (app/chatbot/FlujoLienzo.tsx) pinta la burbuja con un `replace` de `{{negocio}}`
+ * (app/automations/FlujoLienzo.tsx) pinta la burbuja con un `replace` de `{{negocio}}`
  * propio; el envío pasa por `aplicarVariables` con este catálogo, que tenía cuatro
  * claves y ninguna era ésta — y lo desconocido queda LITERAL. O sea que un paso que
  * dijera «te escribo de {{negocio}}» se veía perfecto en el editor y al lead le

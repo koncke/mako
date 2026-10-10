@@ -1,5 +1,5 @@
 // =============================================================================
-// condiciones-cuarta — la CONDITION de la cuarta tanda de /chatbot (09/10/2026)
+// condiciones-cuarta — la CONDITION de la cuarta tanda de /automations (09/10/2026)
 // =============================================================================
 // Lo que fija, por punto del pedido de Martín (app/admin/dev/chatbot/bitacora.ts, 9 oct 11:02):
 //   · 7. «＋ y» / «＋ o» por FILA: cada fila guarda con qué se une a la de arriba (ausente = el `modo`
@@ -147,7 +147,7 @@ test('7: el saneo de lo que se guarda CONSERVA la unión (si no, el primer guard
 });
 
 test('7: el editor — «＋ Condición» la primera, «＋ y» / «＋ o» guardan la unión de SU fila, el separador se cambia tocándolo', () => {
-  const src = sinComentarios(leer('../app/chatbot/EditorCondicion.tsx'));
+  const src = sinComentarios(leer('../app/automations/EditorCondicion.tsx'));
   const agregar = bloque(src, 'const agregar = (union', 'const setFila', 600);
   assert.match(agregar, /filas: \[\.\.\.filas, filas\.length && union \? \{ \.\.\.f, union \} : f\]/);
   assert.match(src, /texto="＋ Condición"[^>]*onElegir=\{agregar\(null\)\}/);
@@ -387,7 +387,7 @@ test('la ruta del catálogo suma las reuniones APARTE: si fallan, null y lo dem�
 });
 
 test('el editor: el selector de reuniones (varios, vacío = cualquiera) y la cuota opcional', () => {
-  const src = sinComentarios(leer('../app/chatbot/EditorCondicion.tsx'));
+  const src = sinComentarios(leer('../app/automations/EditorCondicion.tsx'));
   assert.match(src, /\{def\?\.reuniones && <SelectorReuniones /);
   const sel = bloque(src, 'function SelectorReuniones(', 'function SelectorDeLista(', 3_000);
   assert.match(sel, /varios=\{elegidas\}/);

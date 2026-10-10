@@ -147,7 +147,7 @@ test('guardar uno: va primero, sin repetir, con tope, y el resto del perfil viaj
 
 test('el panel y la ruta: la condición la decide el lead nuevo, y los guardados son de QUIEN PRUEBA', () => {
   const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-  const panel = sinComentarios(readFileSync(new URL('../app/chatbot/PanelProbar.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n'));
+  const panel = sinComentarios(readFileSync(new URL('../app/automations/PanelProbar.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n'));
   const caso = panel.slice(panel.indexOf("case 'condicion': {"), panel.indexOf("case 'fin':"));
   assert.ok(caso.length > 50 && caso.length < 700, `el recorte mide ${caso.length}`);
   assert.match(caso, /elegirComoLead\(flujoRef\.current, simRef\.current, hechosDeLeadNuevo\(\{/);

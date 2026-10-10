@@ -8,7 +8,7 @@
 // la quinta tanda la decide el MOTOR con un lead RECIÉN LLEGADO (`hechosDeLeadNuevo`, más abajo).
 //
 // Módulo PURO y sin `server-only`: lo ejecutan tests/simulador-grafo.test.ts y
-// tests/simulador-hilos.test.ts, y lo usa el panel (app/chatbot/PanelProbar.tsx). La navegación es
+// tests/simulador-hilos.test.ts, y lo usa el panel (app/automations/PanelProbar.tsx). La navegación es
 // la de lib/flujo-grafo.ts —la MISMA que lee el motor—, así que lo que se prueba es lo que va a
 // pasar, y no un setter libre como antes: la #198 tenía cero casos y en el simulador viejo MaKo
 // contestaba igual, mientras en producción toda respuesta iba a hand-off. Un simulador que no

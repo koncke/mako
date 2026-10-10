@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// SimuladorWhatsApp — la tab /chatbot: la lista de automatizaciones flotando sobre el lienzo
+// SimuladorWhatsApp — la tab /automations: la lista de automatizaciones flotando sobre el lienzo
 // =============================================================================
 // El nombre es de cuando esto era un chat simulado (réplica de PlantillasView de SuperAdmin). Hoy
 // es la pantalla entera: el lienzo de la automatización elegida de borde a borde, la lista
@@ -215,11 +215,11 @@ const ROTULO_GRUPO: CSSProperties = {
 
 /**
  * Un pedido de abrir el LIENZO de una automatización desde afuera (el link del aviso,
- * `/chatbot?sec=<id>`). Es un objeto y no un número a propósito: cada pedido es uno NUEVO, así
+ * `/automations?sec=<id>`). Es un objeto y no un número a propósito: cada pedido es uno NUEVO, así
  * que el mismo id dos veces seguidas (dos avisos de la misma secuencia) vuelve a abrirla.
  */
 export type AbrirSecuencia = { id: number };
-/** Lo mismo para un Mensaje de MaKo (el link de Notificaciones, `/chatbot?aviso=<id>`): un objeto por pedido. */
+/** Lo mismo para un Mensaje de MaKo (el link de Notificaciones, `/automations?aviso=<id>`): un objeto por pedido. */
 export type AbrirAviso = { id: string };
 
 export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, pie, tz, abrir, handoffs, pedidoIA, avisos, abrirAviso, onAvisosCambio }: {
@@ -494,7 +494,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   /**
    * EL LINK DEL AVISO ABRE EL LIENZO (revisión adversarial del 08/10/2026, costuras-5). El aviso
    * de una charla que pasó a una persona dice «súmalo como caso en «Si responde»» con
-   * `/chatbot?sec=<id>`, y ese link abría el wizard de 9 pasos, donde «Si responde» no existe.
+   * `/automations?sec=<id>`, y ese link abría el wizard de 9 pasos, donde «Si responde» no existe.
    * Se aplica AL DIBUJAR y no en un efecto: un efecto pintaría primero la primera de la lista y
    * después la del link. Es también la puerta por la que se abre la fila que se está creando.
    */
@@ -507,7 +507,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     setAvisoSel(null);
   }
   /**
-   * EL LINK DE NOTIFICACIONES ABRE EL LIENZO DE ESE MENSAJE (quinta tanda, punto 5): `/chatbot?aviso=<id>`.
+   * EL LINK DE NOTIFICACIONES ABRE EL LIENZO DE ESE MENSAJE (quinta tanda, punto 5): `/automations?aviso=<id>`.
    * Igual que `abrir`: al DIBUJAR, un objeto por pedido, y sólo si el mensaje está entre los que
    * esta persona ve (quien no es admin no los tiene: el link no abre nada y queda la lista).
    */

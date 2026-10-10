@@ -10,7 +10,7 @@
 // `editorDeTarjeta`):
 //   1. el lienzo le da al panel el alto que le pasan, TAMBIÉN de columna, y el contenido scrollea
 //      adentro (una caja cuyo alto es un tope salta al pasar de tarjeta: AGENTS.md);
-//   2. el lienzo de /chatbot le pasa el tamaño del TIPO de la tarjeta abierta;
+//   2. el lienzo de /automations le pasa el tamaño del TIPO de la tarjeta abierta;
 //   3. DELAY, TAG, ACTION y GO TO llevan el campo grande de la casa (48 de alto), de ancho completo;
 //      MAKO llena el panel con el mensaje;
 //   4. ningún editor de estos tiene un `maxWidth` propio que deje media caja vacía.
@@ -28,7 +28,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EditorEtiqueta } from '../app/chatbot/EditorEtiqueta';
+import { EditorEtiqueta } from '../app/automations/EditorEtiqueta';
 import { ALTO_CAMPO_GRANDE, campoGrande, botonGrande } from '../app/_components/Lienzo';
 
 const leer = (r: string): string => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -44,8 +44,8 @@ const bloque = (src: string, abre: string, cierra: string, tope: number): string
 };
 
 const LIENZO = sinComentarios(leer('app/_components/Lienzo.tsx'));
-const FLUJO = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
-const ETIQUETA = sinComentarios(leer('app/chatbot/EditorEtiqueta.tsx'));
+const FLUJO = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
+const ETIQUETA = sinComentarios(leer('app/automations/EditorEtiqueta.tsx'));
 const ACCION = sinComentarios(leer('app/_components/EditorAccionMako.tsx'));
 const CAMPOS = sinComentarios(leer('app/_components/CamposAccion.tsx'));
 
@@ -60,7 +60,7 @@ test('⚠️ el panel toma el alto que le pasan, TAMBIÉN de columna, y el conte
   assert.match(LIENZO, /: renderEditor\(nodoSel\)\}/);
 });
 
-test('⚠️ el lienzo de /chatbot le pasa el tamaño del TIPO de la tarjeta abierta, no el del editor de WhatsApp', () => {
+test('⚠️ el lienzo de /automations le pasa el tamaño del TIPO de la tarjeta abierta, no el del editor de WhatsApp', () => {
   assert.match(FLUJO, /import \{ editorDeTarjeta,[^}]*type Muelles \} from '@\/lib\/lienzo-grafo';/);
   assert.match(FLUJO, /const talla = editorDeTarjeta\(muelles, sel != null \? grafo\.nodos\.find\(\(n\) => n\.id === sel\)\?\.tipo : null\);/);
   assert.match(FLUJO, /panelAncho=\{talla\.ancho\}/);
@@ -135,7 +135,7 @@ test('GO TO y MAKO: el destino grande; el mensaje llena el panel', () => {
 
 test('⚠️ ningún editor de control deja media caja vacía con un `maxWidth` propio (AGENTS.md)', () => {
   // El único `maxWidth` del diseño vive en el CONTENEDOR (el panel del lienzo). La CONDITION es de la
-  // parte «condiciones» (app/chatbot/EditorCondicion.tsx) y no se mira acá.
+  // parte «condiciones» (app/automations/EditorCondicion.tsx) y no se mira acá.
   for (const [nombre, src] of [['FlujoLienzo', FLUJO], ['EditorEtiqueta', ETIQUETA], ['EditorAccionMako', ACCION], ['CamposAccion', CAMPOS]] as const) {
     assert.doesNotMatch(src, /maxWidth/, `${nombre} tiene un maxWidth propio`);
   }
@@ -150,7 +150,7 @@ test('⚠️ ningún editor de control deja media caja vacía con un `maxWidth` 
 //   M2. el DELAY con 420 de alto                                        → 31 / 1 (lienzo-muelles)
 //   M3. el ancho de control sin topar contra el de mensaje (1366 con «Probar») → 31 / 1 (lienzo-muelles)
 //   M4. el panel de columna sin alto fijo                               → 31 / 1 (acá)
-//   M5. el lienzo de /chatbot pasa el alto de WhatsApp a todas          → 31 / 1 (acá)
+//   M5. el lienzo de /automations pasa el alto de WhatsApp a todas          → 31 / 1 (acá)
 //   M6. la etiqueta sin el campo grande                                 → 31 / 1 (acá)
 //   M7. la acción sin ancho completo                                    → 31 / 1 (acá)
 //   M8. el DELAY sin `key` por tarjeta                                  → 31 / 1 (acá)

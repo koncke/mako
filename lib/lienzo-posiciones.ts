@@ -2,18 +2,18 @@
 // lienzo-posiciones — dónde PUSO la persona cada tarjeta de un lienzo
 // =============================================================================
 // Módulo SIN `server-only` y PURO: lo usan los dos lienzos del producto (el de /mensajes,
-// `app/agencia/FlujoAviso.tsx`, y el de /chatbot, `app/chatbot/FlujoLienzo.tsx`) y el server que
+// `app/agencia/FlujoAviso.tsx`, y el de /automations, `app/automations/FlujoLienzo.tsx`) y el server que
 // las guarda (lib/secuencia-posiciones.ts). Con test (tests/lienzo-posiciones.test.ts).
 //
 // ── EL LAYOUT DERIVADO ES EL DEFAULT; LO GUARDADO, LA EXCEPCIÓN ───────────────────
 // Pedido de Martín (09/10/2026, quinta tanda, punto 2): «tampoco se puede mover las tarjetas
-// libremente por el lienzo». En /chatbot nunca se pudo: el layout se DERIVA del árbol
+// libremente por el lienzo». En /automations nunca se pudo: el layout se DERIVA del árbol
 // (lib/flujo-conversacion.ts) y nadie lo guardaba. Desde acá, una tarjeta que la persona movió va
 // donde la dejó, y TODO lo demás se sigue ubicando como siempre. Un flujo que nadie tocó se dibuja
 // idéntico a antes: sin posiciones, `conPosiciones` devuelve el mismo grafo.
 //
 // ── RELATIVAS AL ANCLA (el CRON), NO ABSOLUTAS ────────────────────────────────────
-// El árbol de /chatbot pasa por `aOrigen` (lib/lienzo-grafo.ts): una rama nueva que abre hacia
+// El árbol de /automations pasa por `aOrigen` (lib/lienzo-grafo.ts): una rama nueva que abre hacia
 // ARRIBA corre el dibujo entero para que su esquina quede en el margen. Una posición absoluta
 // guardada antes de esa rama quedaría corrida respecto de todo lo demás. Guardada como DESPLAZAMIENTO
 // desde donde el árbol pone el ancla (la tarjeta CRON, `entrada`), viaja con el dibujo: si el CRON

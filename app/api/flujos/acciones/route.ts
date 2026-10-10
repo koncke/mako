@@ -1,7 +1,7 @@
 // =============================================================================
 // GET /api/flujos/acciones — las acciones de MaKo que un paso de un flujo puede correr
 // =============================================================================
-// Lo piden los dos lienzos (las secuencias de /chatbot y los avisos de /mensajes) para
+// Lo piden los dos lienzos (las secuencias de /automations y los avisos de /mensajes) para
 // armar el paso «⚡ Acción»: qué operaciones hay, por área, con sus parámetros. Se arma en
 // el server (`accionesParaFlujo`, lib/api-mako/flujo.ts) porque el registro no se importa
 // desde un componente cliente. Sólo el admin del workspace: lo que configura corre solo.

@@ -9,7 +9,7 @@
 // comparten, así que escanear el QR acá lo da por hecho también allá.
 
 import { useState } from 'react';
-import { OnboardingChatAgent } from '../chatbot/OnboardingChatAgent';
+import { OnboardingChatAgent } from '../automations/OnboardingChatAgent';
 import { WhatsAppApp } from './WhatsAppApp';
 import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 

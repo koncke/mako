@@ -10,7 +10,7 @@
 // "Plan", "Llamadas", etc». Y el punto 4: «Elimina lo de "Eventos" (del CRON), todo eso debería ir
 // dentro del editable del CONDICIONAL».
 //
-// Módulo PURO y sin `server-only`: lo leen el editor (app/chatbot/EditorCondicion.tsx), el modelo
+// Módulo PURO y sin `server-only`: lo leen el editor (app/automations/EditorCondicion.tsx), el modelo
 // (`cumpleFila`, `validarGrafo` y `textoFila` de lib/flujo-grafo.ts), el saneo de lo que se guarda
 // (lib/nutricion-grafo-motor.ts) y el motor, que lee en batch SÓLO las fuentes que piden las
 // condiciones del flujo (`fuentesDeFilas` → `hechosDeLeads`, lib/nutricion.ts). Una condición vive

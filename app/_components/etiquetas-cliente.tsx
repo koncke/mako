@@ -6,8 +6,8 @@
 // Una sola lectura y una sola forma de dibujar una etiqueta para las cuatro pantallas que las
 // usan: la ficha del lead (chips), la barra de lote del CRM, el CRUD (app/crm/EtiquetasModal.tsx)
 // y el paso «⚡ Acción» de un flujo (app/_components/EditorAccionMako.tsx). Desde la segunda tanda
-// (08/10/2026) también la tarjeta 🏷️ del lienzo (app/chatbot/EditorEtiqueta.tsx); y el selector LOCAL
-// que tenía app/chatbot/FlujoLienzo.tsx para la condición «tiene la etiqueta» se reemplaza por éste:
+// (08/10/2026) también la tarjeta 🏷️ del lienzo (app/automations/EditorEtiqueta.tsx); y el selector LOCAL
+// que tenía app/automations/FlujoLienzo.tsx para la condición «tiene la etiqueta» se reemplaza por éste:
 // dos selectores de la misma cosa son dos «＋ Nueva» que crean distinto.
 //
 // El dato sale de GET /api/crm/etiquetas; crear va por POST {action:'crear'} (sólo el admin: el
@@ -119,10 +119,10 @@ export function useEtiquetas(): { etiquetas: Etiqueta[] | null; error: string | 
 
 /**
  * TODAS las etiquetas, con las archivadas: para NOMBRAR las que un flujo ya tiene puestas (las
- * tarjetas del lienzo de /chatbot, «Probar»), no para elegir. `null` mientras carga.
+ * tarjetas del lienzo de /automations, «Probar»), no para elegir. `null` mientras carga.
  *
  * ⚠️ SE VUELVE A PEDIR CUANDO ALGUIEN CREA, EDITA O ARCHIVA (`avisarCambioEtiquetas`). Existe para que
- * el lienzo deje su lectura propia (app/chatbot/SecuenciaPerfil.tsx pedía la lista por su cuenta y
+ * el lienzo deje su lectura propia (app/automations/SecuenciaPerfil.tsx pedía la lista por su cuenta y
  * sólo sumaba lo que creaba SU selector): con el SelectorEtiqueta de acá en la condición y en la
  * tarjeta 🏷️, una etiqueta recién creada no tendría nombre en su tarjeta hasta recargar la página.
  */

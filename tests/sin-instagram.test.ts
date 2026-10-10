@@ -27,7 +27,7 @@
 //   · `'/instagram'` en app/stories/StoriesApp.tsx                             → el barrido (la tab).
 //   · la def `instagram` de vuelta en lib/tab-onboarding-catalogo.ts          → «ni el nav, ni el onboarding…».
 //   · el ping `zernio` renombrado en lib/metodo-verificar.ts                  → «Zernio está en los cuatro registros».
-//   · el redirect de /instagram a /whatsapp                                    → «/instagram redirige a /chatbot…».
+//   · el redirect de /instagram a /whatsapp                                    → «/instagram redirige a /automations…».
 //   · un `JSON.parse(raw)` antes de la firma en el webhook                     → «el webhook procesa de nuevo…».
 // Restaurado: 8 / 0.
 import { test } from 'node:test';
@@ -77,7 +77,7 @@ const CABLEADO: Array<[RegExp, string, string[]?]> = [
   [/from ['"](@\/lib\/(ig-chatbot|ig-contenido)|\.{1,2}\/(lib\/)?(ig-chatbot|ig-contenido))['"]/, 'un import de un módulo de la tab que se borró'],
   // Con `../` y no `./`: app/admin/dev/registros.ts importa './instagram/bitacora' (la HISTORIA del área).
   [/from ['"](@\/app\/instagram\/|(\.\.\/)+instagram\/)/, 'un import de la carpeta de la tab retirada'],
-  [/['"`]\/instagram\b/, 'un link a /instagram (redirige a /chatbot: la tab no existe)'],
+  [/['"`]\/instagram\b/, 'un link a /instagram (redirige a /automations: la tab no existe)'],
   [/['"`]\/api\/instagram\//, 'la ruta de envío de DMs de la tab'],
   [/['"`]contenido_posts['"`]/, 'el programador de publicaciones de la tab', ['lib/workspace.ts', 'lib/tablas-de-inquilino.ts']],
   [/ig_auto_respuesta|KEY_IG_AUTO_RESPUESTA/, 'el flag de la respuesta automática de DMs de la tab'],
@@ -119,9 +119,11 @@ test('los módulos de la tab no existen, y de la carpeta sólo queda el redirect
   assert.ok(existsSync(join(RAIZ, 'lib/zernio.ts')));
 });
 
-test('/instagram redirige a /chatbot preservando el workspace de la pestaña', () => {
+test('/instagram redirige a /automations preservando el workspace de la pestaña', () => {
   const page = sinComentarios(leer('app/instagram/page.tsx'));
-  assert.match(page, /redirect\(await rutaConWs\('\/chatbot'\)\)/);
+  // DIRECTO a /automations desde el 09/10/2026 (la tab Chatbot se renombró; /chatbot también
+  // redirige y un salto de más es un redirect más). Roto devolviendo '/chatbot': 7 / 1 (base 8 / 0).
+  assert.match(page, /redirect\(await rutaConWs\('\/automations'\)\)/);
 });
 
 test('el webhook de Zernio procesa de nuevo: firma verificada antes de leer nada', () => {

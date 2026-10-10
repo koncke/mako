@@ -2,7 +2,7 @@
 // CREAR CON IA: los arreglos de la revisión de la segunda tanda (09/10/2026)
 // =============================================================================
 // Cada test persigue UN hallazgo confirmado de la revisión del frente IA (lib/flujo-ia.ts, la ruta
-// app/api/chat-agent/secuencias/ia/route.ts y app/chatbot/CrearConIA.tsx). Lo puro se EJECUTA; lo
+// app/api/chat-agent/secuencias/ia/route.ts y app/automations/CrearConIA.tsx). Lo puro se EJECUTA; lo
 // que es cableado (la ruta, la pantalla) se fija leyendo el fuente sin comentarios y en LF.
 //
 // ⚠️ PROBADO ROMPIENDO CADA ARREGLO, 09/10/2026: el arnés FIXIA-romper.mjs (scratchpad de la sesión)
@@ -260,7 +260,7 @@ test('crear: se PAUSA antes de escribir los pasos, y después de mirar la cancel
 // ── «hasta 1 min» en la espera, cuando la ruta puede tardar ~5 min ──
 // rotura (volver a «hasta 1 min»): 1 fallo de 17, cae éste.
 test('la espera dice el tope REAL: sale de TOPE_CLIENTE_MS y no es menor que el de la ruta', () => {
-  const src = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
+  const src = sinComentarios(leer('app/automations/CrearConIA.tsx'));
   assert.doesNotMatch(src, /hasta 1 min/);
   assert.match(src, /hasta \{Math\.round\(TOPE_CLIENTE_MS \/ 60_000\)\} min/);
   const tope = Number(/const TOPE_CLIENTE_MS = ([\d_]+);/.exec(src)?.[1].replace(/_/g, ''));
@@ -292,7 +292,7 @@ test('ordenarAvisos y resumenAvisos: primero lo que cambia lo que sale, y «(+N)
 test('la ruta manda los avisos ordenados y la pantalla dibuja el resumen, no avisos[0]', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
   assert.equal(ruta.split('avisos: ordenarAvisos(avisos)').length - 1, 2, 'los dos `listo` (crear y editar)');
-  const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+  const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   assert.doesNotMatch(perfil, /r\.avisos\[0\]/);
   assert.match(perfil, /const res = resumenAvisos\(r\.avisos\);/);
   // Y el resto se lee en el `title` del aviso (no ocupa lugar).
@@ -310,13 +310,13 @@ test('edicionVigente: si el lienzo cambió desde que se mandó, el resultado no 
 
 // rotura (CrearConIA llama a `p.onListo` del clic en vez del ref): 2 fallos de 25, éste y el de las etiquetas.
 test('editar: la caja devuelve la foto que mandó y la pantalla la compara antes de aplicar', () => {
-  const caja = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
+  const caja = sinComentarios(leer('app/automations/CrearConIA.tsx'));
   assert.match(caja, /const base = p\.modo === 'editar' \? p\.pasos : undefined;/);
   assert.match(caja, /\.\.\.\(base \? \{ pasos: base \} : \{\}\)/);
   assert.doesNotMatch(caja, /\bp\.onListo\(/, 'el onListo del clic cierra sobre el lienzo viejo');
   assert.match(caja, /useEffect\(\(\) => \{ onListoRef\.current = p\.onListo; \}\);/);
   assert.match(caja, /disparador: ev\.disparador \?\? null, base,/);
-  const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+  const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   const i = perfil.indexOf('if (!edicionVigente(r.base, pasos))');
   assert.ok(i > 0 && i < perfil.indexOf('fotoAntes();', i), 'se compara ANTES de la foto y de aplicar');
 });
@@ -324,7 +324,7 @@ test('editar: la caja devuelve la foto que mandó y la pantalla la compara antes
 // ── Las etiquetas que crea la IA se veían como «Una etiqueta que ya no está» hasta recargar ──
 // rotura (sin avisarCambioEtiquetas en el `listo`): 1 fallo de 25, cae éste.
 test('al terminar con etiquetas nuevas, la caja avisa a las listas ANTES de entregar el flujo', () => {
-  const caja = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
+  const caja = sinComentarios(leer('app/automations/CrearConIA.tsx'));
   assert.match(caja, /import \{ avisarCambioEtiquetas \} from '@\/app\/_components\/etiquetas-cliente';/);
   const listo = caja.slice(caja.indexOf("if (ev.t === 'listo') {"), caja.indexOf("if (ev.t === 'error')"));
   const aviso = listo.indexOf('if (ev.etiquetasNuevas.length) avisarCambioEtiquetas();');
@@ -337,7 +337,7 @@ test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON 
   const ok = ruta.indexOf('puesto = valor;');
   assert.ok(ok > ruta.indexOf('await setTriggerSecuencia(') && ok < ruta.indexOf('} catch (e) {', ok), 'sólo si setTriggerSecuencia no tiró');
   assert.match(ruta, /etiquetasNuevas: creadas, disparador: puesto \}\);/);
-  const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+  const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Sexta tanda (varios CRON): lo puesto se pinta en el PRIMERO de la lista (`useDisparadores`).
   // Verificado sacando el `sembrarPrimero` (09/10/2026, cuatro archivos, base 71 / 0): 70 / 1, cae éste.
   assert.match(perfil, /if \(puesto\) crons\.sembrarPrimero\(disparoDeValor\(puesto, disparo\)\);/);
@@ -346,7 +346,7 @@ test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON 
 // ── Cancelar en «Revisando el flujo» dejaba la automatización guardada y la pantalla sin salida ──
 // rotura (Cancelar también en 'revision'): 1 fallo de 25, cae éste.
 test('la caja no ofrece Cancelar en «Revisando el flujo»: el server ya no lo respeta', () => {
-  const caja = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
+  const caja = sinComentarios(leer('app/automations/CrearConIA.tsx'));
   assert.match(caja, /\{estado\.fase !== 'revision' && <Button variant="tertiary" size="sm" onClick=\{cancelar\}>Cancelar<\/Button>\}/);
 });
 
@@ -357,7 +357,7 @@ test('crear sobre una que ya tiene tarjetas: el 409 trae lo guardado y la caja s
   const bloque = ruta.slice(i, ruta.indexOf('{ status: 409 }', i));
   assert.match(bloque, /pasos: guardados, nombre: String\(s\.nombre \?\? ''\), orden: ordenDeRevelado\(guardados\),/);
   assert.match(bloque, /disparador: valorDisparo\(\{/);
-  const caja = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
+  const caja = sinComentarios(leer('app/automations/CrearConIA.tsx'));
   const j = caja.indexOf("if (p.modo === 'crear' && res.status === 409 && g && Array.isArray(g.pasos) && g.pasos.length) {");
   assert.ok(j > 0, 'falta el camino del 409 con lo guardado');
   assert.match(caja.slice(j, j + 600), /onListoRef\.current\(\{\n\s*modo: 'crear', secuenciaId: p\.secuenciaId, pasos: g\.pasos,/);

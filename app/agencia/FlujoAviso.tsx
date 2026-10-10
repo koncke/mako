@@ -35,7 +35,7 @@ import { TextoMarcas } from '@/app/_components/TextoMarcas';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { Dropdown } from '../components/Dropdown';
-import { EditorMensajeGrupo } from '@/app/chatbot/EditorMensajeWhatsApp';
+import { EditorMensajeGrupo } from '@/app/automations/EditorMensajeWhatsApp';
 import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { EditorCron, SelectorDisparo, useModoDisparo, CRON_DEFAULT, type ModoDisparo } from '@/app/_components/EditorCron';
@@ -100,7 +100,7 @@ export function FlujoAviso({
 }: {
   id: string;
   /**
-   * Lo que tapa una pieza apoyada sobre el borde izquierdo: la lista de /chatbot, que desde la
+   * Lo que tapa una pieza apoyada sobre el borde izquierdo: la lista de /automations, que desde la
    * quinta tanda (punto 5) muestra este lienzo para los Mensajes de MaKo. Va tal cual al
    * `insetIzq` del lienzo. Ausente = 0 (la tab de /mensajes, sin nada encima).
    */

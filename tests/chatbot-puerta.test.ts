@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { abreEnQR, abrirGuiaVoz, marcarWhatsappAlCargar, puertaAlRecargar } from '../lib/chatbot-puerta';
 
 // =============================================================================
-// /chatbot: el dato gana al tilde (#745, #328, #786 — 06/10/2026)
+// /automations: el dato gana al tilde (#745, #328, #786 — 06/10/2026)
 // =============================================================================
 // Los casos son los medidos en producción el 06/10: el ws9 con el tilde de «Tu WhatsApp»
 // y cero líneas; el ws1 conectado y con el tilde; Código Inmobiliario con la línea caída
@@ -13,7 +13,7 @@ import { abreEnQR, abrirGuiaVoz, marcarWhatsappAlCargar, puertaAlRecargar } from
 //
 // Probado rompiéndolo (06/10/2026), una rotura por vez, restaurando de memoria:
 //  (1) abreEnQR sin la regla de 'sin_vincular'  → 1 rojo (el del ws9)
-//  (2) abreEnQR sin la regla de 'conectado'     → 1 rojo (el de quien vinculó desde /chatbot)
+//  (2) abreEnQR sin la regla de 'conectado'     → 1 rojo (el de quien vinculó desde /automations)
 //  (3) abrirGuiaVoz abriendo con guiaVoz null   → 1 rojo (el de la red caída)
 //  (4) la pantalla decidiendo por el tilde      → 1 rojo (el del cableado)
 //  (5) el GET de secuencias sin envioWhatsapp   → 1 rojo (el del envío apagado)
@@ -30,7 +30,7 @@ test('abreEnQR: sin línea abre el QR aunque el tilde diga que está (ws9)', () 
 });
 
 test('abreEnQR: con la línea conectada abre el lienzo aunque falte el tilde', () => {
-  // Quien vinculó desde el mismo /chatbot no tenía tilde: veía «Vincula tu WhatsApp» en cada visita.
+  // Quien vinculó desde el mismo /automations no tenía tilde: veía «Vincula tu WhatsApp» en cada visita.
   assert.equal(abreEnQR({ onboarding: 'pendiente', canal: 'conectado' }), false);
   assert.equal(abreEnQR({ onboarding: 'hecho', canal: 'conectado' }), false);   // ws1
 });
@@ -70,7 +70,7 @@ test('abrirGuiaVoz: sólo si el server CONTESTÓ que no hay guía', () => {
 });
 
 test('la pantalla decide la puerta con abreEnQR y marca el paso al vincular desde ahí', () => {
-  const app = sinComentarios(leer('app/chatbot/ChatAgentApp.tsx'));
+  const app = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   assert.ok(app.includes('const calculada = abreEnQR({ onboarding, canal: estadoCanal });'));
   assert.ok(app.includes('setEnOnboarding((actual) => puertaAlRecargar({ actual, calculada, canal: estadoCanal }));'));
   assert.doesNotMatch(app, /setEnOnboarding\(falta\)/);
@@ -95,17 +95,17 @@ test('la pantalla decide la puerta con abreEnQR y marca el paso al vincular desd
 // flujo-conversacion.ts), que además sabe que un «MaKo contesta» de «Si responde» sin
 // `revisar` deja borrador; lo que hace esa función lo prueba tests/lienzo-revision.test.ts.
 test('«Sale sola» es de cada mensaje («Revisar antes de enviar»), con el valor heredado de la secuencia', () => {
-  const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   assert.match(lienzo, /mostrarRevisar\s+revisarHeredado=\{revisarHeredado\(pasos, id, envioAutoSecuencia\)\}/);
   assert.doesNotMatch(lienzo, /label="Sale sola"|onEnvioAuto/, 'volvió «Sale sola» a la tarjeta del disparador');
-  const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+  const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   assert.match(perfil, /envioAutoSecuencia=\{est\?\.envio_automatico === true\}/);
 });
 
 test('el envío apagado viaja en el GET de secuencias y la pantalla lo avisa (#328)', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/route.ts'));
   assert.ok(ruta.includes('envioWhatsapp: await envioWhatsappHabilitadoEstricto().catch(() => null),'));
-  const app = sinComentarios(leer('app/chatbot/ChatAgentApp.tsx'));
+  const app = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   // Sólo si una secuencia activa manda por WhatsApp: una de puro email no está «sin mandar nada».
   // Y cuentan los MENSAJES: un paso «⚡ Acción» corre con el envío apagado (08/10/2026).
   assert.ok(app.includes("!canalCaido && envioWa === false && (secuencias ?? []).some((s) => s.activa && s.pasos.some((p) => p.canal === 'whatsapp' && !esPasoAccion(p)))"));

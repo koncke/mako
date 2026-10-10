@@ -466,7 +466,7 @@ export const RUNNERS: Runners = {
       // Una tarjeta «Esperar» es la espera misma; una condición o un «Si responde» no esperan nada.
       if (esNodoDeControl(p) && claseDe(p) !== 'esperar') return { error: `El paso ${orden} de «${s.nombre}» es una tarjeta de control, no un paso con espera.` };
       if (claseDe(p) === 'esperar') {
-        if (!(horas > 0)) return { error: 'Una espera de 0 horas no espera nada: para sacarla, bórrala en el lienzo de /chatbot.' };
+        if (!(horas > 0)) return { error: 'Una espera de 0 horas no espera nada: para sacarla, bórrala en el lienzo de /automations.' };
         return { payload: { secuenciaId: id, orden, delayHoras: horas }, resumen: `La espera del paso ${orden} de «${s.nombre}»: de ${Math.round((p.espera?.minutos ?? 0) / 60)} h a ${horas} h` };
       }
       return { payload: { secuenciaId: id, orden, delayHoras: horas }, resumen: `Paso ${orden} de «${s.nombre}»: espera de ${p.delay_horas} h a ${horas} h` };
@@ -694,7 +694,7 @@ export const RUNNERS: Runners = {
         return otras.length ? `${p.label} (también en ${otras.join(', ')})` : null;
       }).filter(Boolean);
       const suelta = compartidos.length ? `; se sueltan del registro compartido: ${compartidos.join('; ')}` : '';
-      return { payload: {}, resumen: `Reabrir desde cero el onboarding del chatbot: /chatbot vuelve a abrir en el recorrido y todos sus pasos se vuelven a pedir${suelta}` };
+      return { payload: {}, resumen: `Reabrir desde cero el onboarding del chatbot: /automations vuelve a abrir en el recorrido y todos sus pasos se vuelven a pedir${suelta}` };
     },
     ejecutar: async () => {
       await reabrirOnboardingTab('setting');
@@ -712,7 +712,7 @@ export const RUNNERS: Runners = {
       // el motor viejo no repita lo que hacen las tarjetas. Escribirlos de nuevo lo reviviría al
       // lado del flujo, con dos cosas decidiendo lo mismo.
       if (tieneTarjetasDeControl(s.pasos) && (input.desenlace != null || str(input, 'modo'))) {
-        return { error: `«${s.nombre}» está armada con tarjetas: cuándo termina y qué pasa cuando el lead responde se cambian en el lienzo de /chatbot (una condición, «Si responde»), no en la estrategia.` };
+        return { error: `«${s.nombre}» está armada con tarjetas: cuándo termina y qué pasa cuando el lead responde se cambian en el lienzo de /automations (una condición, «Si responde»), no en la estrategia.` };
       }
       const actual = parseEstrategia(s.estrategia);
       const objetivo = str(input, 'objetivo');
@@ -792,12 +792,12 @@ export const RUNNERS: Runners = {
       // secuencia con condiciones, «Si responde» o saltos le movería a cada rama su siguiente: no se
       // escribe nada y se dice dónde se edita.
       if (!esLineal(s.pasos)) {
-        return { error: `«${s.nombre}» tiene ramas (condiciones, «Si responde» o «Ir a»): sus pasos no se reescriben por orden. Se editan en el lienzo de /chatbot.` };
+        return { error: `«${s.nombre}» tiene ramas (condiciones, «Si responde» o «Ir a»): sus pasos no se reescriben por orden. Se editan en el lienzo de /automations.` };
       }
       // Una acción o una espera (tarjeta) se conservan en su lugar: el merge es posicional.
       const conAcciones = s.pasos.some((p) => esPasoAccion(p) || esNodoDeControl(p));
       if (conAcciones && entrada.length !== s.pasos.length) {
-        return { error: `«${s.nombre}» tiene pasos «Acción de MaKo» o esperas: por aquí sólo se cambian sus mensajes, con los mismos ${s.pasos.length} pasos en el mismo orden. Para agregar o quitar pasos, el lienzo de /chatbot.` };
+        return { error: `«${s.nombre}» tiene pasos «Acción de MaKo» o esperas: por aquí sólo se cambian sus mensajes, con los mismos ${s.pasos.length} pasos en el mismo orden. Para agregar o quitar pasos, el lienzo de /automations.` };
       }
       const avisos: string[] = [];
       const cambiosDeTexto: string[] = [];
@@ -842,7 +842,7 @@ export const RUNNERS: Runners = {
         // de siempre son su espejo) y las demás se conservan (`partesAlGuardar`). Se dice, para que nadie
         // crea que reescribió el mensaje entero.
         if (previo && partesExplicitas(previo) && (cambiaTexto || e.tipo != null || e.audio_id != null || e.media_id != null)) {
-          avisos.push(`el paso ${i + 1} son ${partesExplicitas(previo)!.length} mensajes seguidos: por aquí cambia sólo el primero, el resto se edita en el lienzo de /chatbot`);
+          avisos.push(`el paso ${i + 1} son ${partesExplicitas(previo)!.length} mensajes seguidos: por aquí cambia sólo el primero, el resto se edita en el lienzo de /automations`);
         }
         // El motor manda sendWhatsappTemplate con template.name: Meta entrega el texto APROBADO, no el cuerpo.
         // No se pone template_wa en null: plantillaDesdePaso (lib/nutricion-plantillas.ts) es idempotente por

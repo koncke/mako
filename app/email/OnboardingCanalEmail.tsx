@@ -8,7 +8,7 @@
 // también lo deja hecho adentro del Chatbot.
 
 import { useRouter } from '@/app/_ui/Link';
-import { OnboardingChatAgent } from '../chatbot/OnboardingChatAgent';
+import { OnboardingChatAgent } from '../automations/OnboardingChatAgent';
 
 export function OnboardingCanalEmail() {
   const router = useRouter();

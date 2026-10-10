@@ -1,7 +1,7 @@
 // =============================================================================
 // El editor de un mensaje de WhatsApp: lo que hace y, sobre todo, lo que NO hace
 // =============================================================================
-// `app/chatbot/EditorMensajeWhatsApp.tsx` (pedido de Martín del 08/10/2026, punto 8): la burbuja
+// `app/automations/EditorMensajeWhatsApp.tsx` (pedido de Martín del 08/10/2026, punto 8): la burbuja
 // como llega arriba, la barra de WhatsApp abajo, el mic al costado y el clip con la biblioteca.
 // Lo que fija este test:
 //   · NO PUBLICA. Antes, grabar o elegir un audio en el lienzo llamaba a `setAudioDePaso`, que hacía
@@ -50,15 +50,15 @@ import {
   EditorMensajeWhatsApp, BotonMakoWhatsApp, CabeceraWhatsApp, mismoPaso, placeholderDe, partesDeLaBarra, enviarALista, makoPosible, adaptable,
   claveDeTarjeta, alternarPanelMako, ALTO_MIN_CHAT, datosDelLead, arbolDeVariables,
   type EditorMensajeWhatsAppProps,
-} from '../app/chatbot/EditorMensajeWhatsApp';
+} from '../app/automations/EditorMensajeWhatsApp';
 import { datosOfrecidos } from '../lib/variables-aviso';
 import { esVariableConocida } from '../lib/template-vars';
 import { pasoSinAdjunto, pasoAMedia, pasoAVozDesde, pasoAVoz, cambiosDePaso } from '../lib/guion-audio';
-import type { PasoSecuenciaDto, AudioSetting } from '../app/chatbot/ChatAgentApp';
+import type { PasoSecuenciaDto, AudioSetting } from '../app/automations/ChatAgentApp';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-const EDITOR = sinComentarios(leer('app/chatbot/EditorMensajeWhatsApp.tsx'));
+const EDITOR = sinComentarios(leer('app/automations/EditorMensajeWhatsApp.tsx'));
 
 const paso = (p: Partial<PasoSecuenciaDto> = {}): PasoSecuenciaDto => ({
   orden: 1, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: 'Hola, ¿cómo vas?', template_wa: null, proveedor: 'no_oficial', ...p,

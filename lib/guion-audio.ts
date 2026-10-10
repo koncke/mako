@@ -2,7 +2,7 @@
 // El guion para LEER mientras se graba la nota de voz de un mensaje (#748)
 // =============================================================================
 // Decisión de Martín (06/10/2026): «c: guion con IA gratis». En el control de grabar
-// un audio de un paso (app/chatbot/PasoAudioControl.tsx, que montan el lienzo y el
+// un audio de un paso (app/automations/PasoAudioControl.tsx, que montan el lienzo y el
 // wizard de secuencias) hay un botón que le pide a MaKo el guion de ESE mensaje, y lo
 // muestra como «Para leer» mientras se graba. Traducir un mensaje escrito a una frase
 // hablada con el micrófono en la mano es justo donde la gente se traba.

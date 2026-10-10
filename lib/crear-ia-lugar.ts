@@ -1,7 +1,7 @@
 // =============================================================================
-// crear-ia-lugar — dónde flotan la caja y la barra de «Crear con IA» sobre el lienzo de /chatbot
+// crear-ia-lugar — dónde flotan la caja y la barra de «Crear con IA» sobre el lienzo de /automations
 // =============================================================================
-// Revisión de la segunda tanda (09/10/2026). Las dos piezas de app/chatbot/CrearConIA.tsx flotaban
+// Revisión de la segunda tanda (09/10/2026). Las dos piezas de app/automations/CrearConIA.tsx flotaban
 // con su propia cuenta y las dos tapaban algo:
 //
 //   · la CAJA de una automatización vacía era `inset: 0` y centrada en el ancho TOTAL: pasaba por

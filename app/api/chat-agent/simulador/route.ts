@@ -1,5 +1,5 @@
 // =============================================================================
-// API: el «Probar» de /chatbot — el panel que recorre el flujo que se está editando
+// API: el «Probar» de /automations — el panel que recorre el flujo que se está editando
 // =============================================================================
 // GET  ?destino=1 → { telefono, email, telefonos, emails }: lo de la PERSONA que mira (su fila de
 //      `usuarios`): su teléfono y su email, y los que guardó para probar (`destinosGuardados`). Sólo admin.

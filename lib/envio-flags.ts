@@ -32,7 +32,7 @@ async function flag(key: string, envDeploy: string | undefined): Promise<boolean
 
 /**
  * Igual que `flag`, pero un error de lectura TIRA en vez de leerse como «apagado».
- * Para la pantalla que AFIRMA el estado (el aviso de /chatbot): `getSetting` convierte un
+ * Para la pantalla que AFIRMA el estado (el aviso de /automations): `getSetting` convierte un
  * 5xx en null, y sin esto «no pude leer» salía como «el envío está apagado».
  */
 async function flagEstricto(key: string, envDeploy: string | undefined): Promise<boolean> {

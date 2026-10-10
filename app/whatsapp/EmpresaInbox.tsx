@@ -710,7 +710,7 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null, productos }: {
               mensajes={msgs.map((m) => ({ saliente: m.fromMe, texto: m.texto }))}
               ventanaAbierta={true}
               onUsar={(t) => setDraft((d) => (d.trim() ? `${d.replace(/\s+$/, '')}\n\n${t}` : t))}
-              onRedactarPlantilla={puedeChatbot ? () => router.push(`/chatbot?stab=plantillas&n=${Date.now()}`) : undefined}
+              onRedactarPlantilla={puedeChatbot ? () => router.push(`/automations?stab=plantillas&n=${Date.now()}`) : undefined}
               quickTemplates={QUICK}
             />
           </>

@@ -347,7 +347,7 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads). Sin él, solo la lista de productos con sus etapas.' }],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB,
   },
-  // Las ETIQUETAS del CRM (mig 0224, punto 12 del rediseño de /chatbot). Salen por HTTP a
+  // Las ETIQUETAS del CRM (mig 0224, punto 12 del rediseño de /automations). Salen por HTTP a
   // propósito: la sesión de la API de MaKo las pidió con sus rutas REST (diseño §3), y no traen
   // conversaciones, transcripts ni datos del equipo.
   {

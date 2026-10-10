@@ -5,7 +5,7 @@
 // Instagram, ya tenemos la integración de Zernio, utiliza eso para poder enviar mensajes por allí» y
 // «También agrega "Messenger", con todo lo que te pedí de Instagram». Instagram había SALIDO del
 // producto el 06/10/2026 (la tab, su bandeja y su programador: commit 8d16c6ff); vuelve como un CANAL
-// de las automatizaciones de /chatbot, no como la tab vieja.
+// de las automatizaciones de /automations, no como la tab vieja.
 //
 // Módulo PURO y sin `server-only`: lo leen el lienzo (las tarjetas INSTAGRAM y MESSENGER), «Probar»,
 // el motor (lib/nutricion.ts, al guardar y al mandar), el webhook de Zernio y los tests. Lo que habla

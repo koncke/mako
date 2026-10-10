@@ -16,7 +16,7 @@
 //   · UNA columna, como redactar en Gmail: Mensaje nuevo, De, Para, Asunto y el cuerpo; SIN «Vista
 //     previa» ni el ojo (el correo como llega se mira en «Probar»), y sin barra abajo del cuerpo;
 //   · el cuerpo es el editor rico de las lecciones (por `editor-rico-perezoso`, nunca con un import
-//     estático que lo meta en el chunk de /chatbot), sin subir adjuntos, con «{ }», el emoji y «</>» en
+//     estático que lo meta en el chunk de /automations), sin subir adjuntos, con «{ }», el emoji y «</>» en
 //     SU barra de formato (`botonesExtra`);
 //   · un cambio del cuerpo trae `cuerpo_html` y el `cuerpo` DERIVADO; el modo HTML pasa cada tecla por
 //     la MISMA lista blanca (`sanearHtmlEmail`) antes de llegar al paso;
@@ -31,13 +31,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EditorEmailGmail, paramsDeVista, nombreDelRemitente, avisoDelRemitente, htmlLegible, AVISO_REEMPLAZA } from '../app/chatbot/EditorEmailGmail';
+import { EditorEmailGmail, paramsDeVista, nombreDelRemitente, avisoDelRemitente, htmlLegible, AVISO_REEMPLAZA } from '../app/automations/EditorEmailGmail';
 import { renderEmailHtml } from '../lib/email-html';
 import { sanearHtmlEmail } from '../lib/email-html-seguro';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
-const GMAIL = sinComentarios(leer('app/chatbot/EditorEmailGmail.tsx'));
+const GMAIL = sinComentarios(leer('app/automations/EditorEmailGmail.tsx'));
 
 const dibujar = (p: Partial<Parameters<typeof EditorEmailGmail>[0]> = {}) => renderToStaticMarkup(createElement(EditorEmailGmail, {
   asunto: 'Tu visita', preheader: 'Te espero el lunes', cuerpo: 'Hola', negocio: 'Inmobiliaria del Valle', onChange: () => {}, ...p,
@@ -102,7 +102,7 @@ test('una sola columna, en el orden de Gmail, SIN «Vista previa», sin el ojo y
 
 test('el cuerpo es el editor rico de las lecciones, cargado a demanda, con «{ }», emoji y «</>» en SU barra', () => {
   assert.match(GMAIL, /import \{ EditorRicoPerezoso \} from '\.\.\/customer-success\/curso\/editor-rico-perezoso';/);
-  assert.doesNotMatch(GMAIL, /from '@\/app\/_ui\/EditorRico'|from '\.\.\/_ui\/EditorRico'/, 'un import estático mete TipTap en el chunk de /chatbot');
+  assert.doesNotMatch(GMAIL, /from '@\/app\/_ui\/EditorRico'|from '\.\.\/_ui\/EditorRico'/, 'un import estático mete TipTap en el chunk de /automations');
   assert.doesNotMatch(GMAIL, /agencia\/EditorMensaje/, 'el editor de marcas de antes ya no es el cuerpo');
   const montaje = GMAIL.slice(GMAIL.indexOf('<EditorRicoPerezoso'), GMAIL.indexOf('/>', GMAIL.indexOf('<EditorRicoPerezoso')));
   assert.ok(montaje.length > 60, 'no encontré el montaje del editor rico');
@@ -202,7 +202,7 @@ test('el De: los vinculados de la ruta, lo elegido con la función del MOTOR, y 
 
 test('«Vincular nuevo» monta el flujo de /email (DominioSetup) a demanda, en un portal; y el paso pasa a usar el nuevo', () => {
   assert.match(GMAIL, /import type \{ DomState \} from '\.\.\/email\/EmailApp';/);
-  assert.doesNotMatch(GMAIL, /import \{[^}]*\} from '\.\.\/email\/EmailApp'/, 'un import estático mete la tab de Email entera en /chatbot');
+  assert.doesNotMatch(GMAIL, /import \{[^}]*\} from '\.\.\/email\/EmailApp'/, 'un import estático mete la tab de Email entera en /automations');
   assert.match(GMAIL, /import\('\.\.\/email\/EmailApp'\)/);
   assert.match(GMAIL, /<Setup dom=\{dom\} onUpdate=\{\(d\) => \{ setDom\(d\); onDominio\(d\); \}\} \/>/);
   assert.match(GMAIL, /return createPortal\(\s*<Modal titulo="Vincular remitente"/, 'sin portal, el modal queda adentro del lienzo');
@@ -236,14 +236,14 @@ test('«Vincular nuevo» es UN modal: el de «Probar» es éste (`VincularRemite
   // su propio flujo de /email en vez de `VincularRemitente` → 2 fallos (éste y «Probar» 2 de
   // tests/panel-probar-ancho); volver a escribir su `RUTA_LINEAS` → 1 fallo. Restaurado → verde.
   assert.match(GMAIL, /^export function VincularRemitente\(/m);
-  const probar = sinComentarios(leer('app/chatbot/PanelProbar.tsx'));
+  const probar = sinComentarios(leer('app/automations/PanelProbar.tsx'));
   assert.match(probar, /if \(canal === 'email'\) return <VincularRemitente inicial=\{dom\} reemplaza=\{reemplaza\} onCerrar=\{onCerrar\} onDominio=\{onDominio\} \/>;/);
   assert.match(probar, /import \{ VincularRemitente \} from '\.\/EditorEmailGmail';/);
   assert.doesNotMatch(probar, /DominioSetup|import\('\.\.\/email\/EmailApp'\)/, 'volvió la copia del modal');
   // Y las líneas del negocio salen de UNA ruta: la de SalidaWhatsApp.
   assert.match(probar, /import \{[^}]*\bRUTA_LINEAS\b[^}]*\} from '\.\/SalidaWhatsApp';/);
   assert.doesNotMatch(probar, /const RUTA_LINEAS\s*=/, 'PanelProbar volvió a escribir su ruta de líneas');
-  assert.match(sinComentarios(leer('app/chatbot/SalidaWhatsApp.tsx')), /^export const RUTA_LINEAS = /m);
+  assert.match(sinComentarios(leer('app/automations/SalidaWhatsApp.tsx')), /^export const RUTA_LINEAS = /m);
 });
 
 test('el correo como llega, con el cuerpo del editor: el HTML y no el texto de respaldo', () => {

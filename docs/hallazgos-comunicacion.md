@@ -2522,19 +2522,19 @@ no la setea), y eso hace que `asistirRespuesta` retorne en silencio — ver
 ### Todo el chatbot falla ABIERTO hacia el funnel del dueño
 
 Cuatro defaults, los cuatro optimistas: `hayReunion` arranca en `true` en el cliente
-(`app/chatbot/OnboardingChatAgent.tsx:315`), `escenariosDe` tiene `hayReunion = true` por
+(`app/automations/OnboardingChatAgent.tsx:315`), `escenariosDe` tiene `hayReunion = true` por
 default (`lib/chat-agent-escenarios.ts:331`), y `getFunnel()` cae a `DEFAULT_PIPELINE` con
 `agenda:'reunion'` tanto si no hay fila como si hubo **error** (`lib/leads.ts:1455,1460` ·
 `lib/pipeline.ts:316,318`). Un cliente sin funnel declarado —o con Supabase caído— recibe el
 funnel de Mauricio y no se entera. Es la misma forma del guard en negativo que AGENTS.md ya
 prohíbe: `null` («no declarado») tiene que ser distinto de un default que afirma algo.
 
-**Vive en:** `app/chatbot/OnboardingChatAgent.tsx:315` · `lib/chat-agent-escenarios.ts:331` ·
+**Vive en:** `app/automations/OnboardingChatAgent.tsx:315` · `lib/chat-agent-escenarios.ts:331` ·
 `lib/leads.ts:1455,1460` · `lib/pipeline.ts:316,318` · *2026-08-10 ~chatbot-funnel-leila*
 
 ### Tres roturas silenciosas más, verificadas a mano
 
-- **`/api/chat-agent/envio` no existía** (ARREGLADO 2026-08-10). `app/chatbot/OnboardingChatAgent.tsx:367`
+- **`/api/chat-agent/envio` no existía** (ARREGLADO 2026-08-10). `app/automations/OnboardingChatAgent.tsx:367`
   la llamaba; `app/api/chat-agent/` tiene solo `audios`, `onboarding`, `secuencias` y
   `simulador`, y no hay rewrite en `next.config.ts`. Medido contra el dev server: esa ruta da
   **404 con HTML**, así que `.json()` reventaba, lo tragaba el catch mudo de `:369`, `canales`
@@ -2560,7 +2560,7 @@ prohíbe: `null` («no declarado») tiene que ser distinto de un default que afi
   `noshow_r3` (`lib/secuencias-huecos.ts:27`), así que a un funnel sin reuniones le reclama
   igual una secuencia de No Show R3.
 
-**Vive en:** `app/chatbot/OnboardingChatAgent.tsx:355-369,1169` · `lib/prompt-registry.ts` ·
+**Vive en:** `app/automations/OnboardingChatAgent.tsx:355-369,1169` · `lib/prompt-registry.ts` ·
 `lib/etapas-contexto.ts:100` · `lib/secuencias-huecos.ts:27` · *2026-08-10 ~chatbot-funnel-leila*
 
 ### El canal declarado no se propaga al funnel cuando el diagnóstico se rehace desde el hub
@@ -2717,7 +2717,7 @@ que le faltaba a `saveFunnelAction`; y el gate de Fathom por conexión viva.
 ## La secuencia decia «Activa» cinco dias con el numero caido, y el motor tiraba el motivo
 
 **Vive en:** `lib/nutricion.ts` (el insert en `nutricion_envios`, `leadsConEnvioReciente`) ·
-`app/api/chat-agent/secuencias/route.ts` · `app/chatbot/ChatAgentApp.tsx`
+`app/api/chat-agent/secuencias/route.ts` · `app/automations/ChatAgentApp.tsx`
 
 **Sintoma:** se prendio la secuencia de post-agenda del ws1 y se pregunto si iba a
 **chocar** con la automatizacion oficial de n8n, que ya le escribe a los agendados. La
@@ -2799,7 +2799,7 @@ dos veces.
 **Vive en:** `lib/evolution.ts` (`sondearSocket`, `estadoEnVivo`) ·
 `app/api/whatsapp/evolution/route.ts` (GET) · `app/whatsapp/EvolutionConnect.tsx` ·
 `app/whatsapp/WhatsAppApp.tsx` · `lib/canal-vigilante.ts` ·
-`app/chatbot/OnboardingChatAgent.tsx`
+`app/automations/OnboardingChatAgent.tsx`
 
 **Sintoma:** el dueno miro la barra de /whatsapp y dijo «aca me dice que esta todo
 conectado», con el numero caido hacia cinco dias y la nutricion fallando en silencio.
@@ -2888,7 +2888,7 @@ quedaron sin arreglar estan listados al final de esta entrada.)*
 
 **Vive en:** `lib/evolution.ts` (`motivoCaida`) · `app/api/whatsapp/evolution/route.ts` ·
 `app/api/chat-agent/secuencias/route.ts` · `app/whatsapp/EvolutionConnect.tsx` ·
-`app/chatbot/ChatAgentApp.tsx`
+`app/automations/ChatAgentApp.tsx`
 
 **Sintoma:** con el aviso ya arreglado y midiendo bien, el dueño contesto: *«no entiendo…
 aca me sigue diciendo que el WhatsApp esta desconectado, pero me voy a la tab de WhatsApp
@@ -5018,7 +5018,7 @@ intentos se cortaron el 10/9 porque el desenlace mató a las 4 inscripciones por
 haberles mandado nada. Las dos cosas, en «La post-agenda "prendida" no podía mandar un solo
 audio, ni con la línea conectada».
 
-**Vive en:** lib/nutricion.ts:962 · lib/secuencias-audios.ts · app/chatbot/ChatAgentApp.tsx · *2026-09-16*
+**Vive en:** lib/nutricion.ts:962 · lib/secuencias-audios.ts · app/automations/ChatAgentApp.tsx · *2026-09-16*
 
 ## «Maco, haz un reporte» se guardaba como una nota: el clasificador solo hablaba rioplatense (08-T13)
 
@@ -6046,7 +6046,7 @@ workspace donde esa pantalla se puede ver es el **ws1, que es un cliente real**.
 
 ### «El flujo de conversación» no existía como pantalla, y elegir cuál era es la decisión cara
 
-**Vive en:** `app/chatbot/FlujoLienzo.tsx` · `lib/flujo-conversacion.ts`
+**Vive en:** `app/automations/FlujoLienzo.tsx` · `lib/flujo-conversacion.ts`
 
 El pedido dijo «los editables del flujo de conversación» como si hubiera uno. Hay
 **siete cosas que modelan pasos** y sólo dos se llaman «flujo» en el código — y la
@@ -6129,7 +6129,7 @@ línea DECIDE?».**
 
 ### `setPointerCapture` retargetea el `pointerup`: el clic se anota al APRETAR
 
-**Vive en:** `onPointerDown` / `onPointerUp` en `app/chatbot/FlujoLienzo.tsx`
+**Vive en:** `onPointerDown` / `onPointerUp` en `app/automations/FlujoLienzo.tsx`
 
 Un lienzo captura el puntero para que el paneo no se corte al salirse del contenedor.
 La captura **retargetea todos los eventos siguientes al elemento que capturó**, así
@@ -6183,7 +6183,7 @@ letras** — `aria-pressed` del elemento no miente y `innerText` sí.
 
 ### El relevo midió bien y eligió mal: QUÉ pantalla lo dice quien pide, no el dato
 
-**Vive en:** `app/agencia/FlujoAviso.tsx` · `app/chatbot/FlujoLienzo.tsx`
+**Vive en:** `app/agencia/FlujoAviso.tsx` · `app/automations/FlujoLienzo.tsx`
 
 «Quiero que los editables del flujo de conversación sea como el editable de
 Manychat» no nombra una pantalla que exista. Cinco relevos midieron el dato y la
@@ -7791,7 +7791,7 @@ restricción que no tenemos, en el único terreno donde somos MÁS capaces que e
 contrario (su AI Step es un paso del lienzo) y para nosotros eso se paga **cinco veces**:
 un tipo de nodo nuevo hay que agregarlo a `lib/lienzo-grafo.ts`, al constructor del grafo
 (`grafoDeSecuencia` en `lib/flujo-conversacion.ts`), al panel (`EditorDeNodo` en
-`app/chatbot/FlujoLienzo.tsx`), al motor (`lib/nutricion.ts`) y a `setSecuenciaPasos`
+`app/automations/FlujoLienzo.tsx`), al motor (`lib/nutricion.ts`) y a `setSecuenciaPasos`
 —que **reconstruye cada paso campo por campo y borra lo que no conoce**—. Un `tipo` nuevo
 adentro del paso de mensaje agrega UNA rama; un nodo nuevo agrega cinco puertas, y la
 quinta ya costó las `variantes` borradas en silencio.
@@ -7896,7 +7896,7 @@ WhatsApp es un bloque que se dibuja y no sale.
 ### Dos contradicciones NUESTRAS que salieron del cruce
 
 1. ⚠️ **EL LIENZO RESUELVE UN TOKEN QUE EL MOTOR NO RESUELVE.** `VistaMensaje`
-   (`app/chatbot/FlujoLienzo.tsx`) hace `.replace(/\{\{\s*negocio\s*\}\}/g, negocio)` para
+   (`app/automations/FlujoLienzo.tsx`) hace `.replace(/\{\{\s*negocio\s*\}\}/g, negocio)` para
    dibujar la burbuja; el envío usa `aplicarVariables` con el catálogo de
    `lib/template-vars.ts`, que tiene CUATRO claves y ninguna es `negocio` — y deja literal
    lo que no conoce. **Un paso que diga «te escribo de {{negocio}}» se ve perfecto en el
@@ -7922,7 +7922,7 @@ Y dos de ManyChat que valen como lección general:
   haga cumplir — y el castigo no es un 429 con backoff: «Manychat may stop processing
   requests for 24 hours».
 
-**Vive en:** `lib/nutricion.ts` · `lib/template-vars.ts` · `app/chatbot/FlujoLienzo.tsx` ·
+**Vive en:** `lib/nutricion.ts` · `lib/template-vars.ts` · `app/automations/FlujoLienzo.tsx` ·
 `lib/flujo-conversacion.ts` · `lib/evolution-envio.ts` · `supabase/migrations/0034_nutricion.sql`
 
 ## El disparador por etapa estaba en la base, sin pantalla y sin evento (05/10/2026)
@@ -8008,7 +8008,7 @@ salir.
 
 **Vive en:** `lib/nutricion-etapa.ts` · `lib/nutricion-ambito.ts` · `lib/leads.ts`
 (`setBoardStageOverride`) · `lib/setting-secuencias.ts` (`productosConEtapas`,
-`setDisparadorEtapa`) · `app/chatbot/SecuenciaPerfil.tsx` ·
+`setDisparadorEtapa`) · `app/automations/SecuenciaPerfil.tsx` ·
 `app/api/chat-agent/secuencias/route.ts` · `scripts/respaldo-disparadores.ts`
 
 ## Las secuencias de la ENTREGA: lo que no se podía reusar del disparador de venta (05/10/2026)
@@ -8099,7 +8099,7 @@ en producción le manda un WhatsApp a una persona. Se prueba con un lead de prue
 
 **Vive en:** `lib/nutricion-etapa.ts` · `lib/nutricion.ts` (`cerrarEntregaDeEtapa`,
 `leadsDeCohorte`) · `lib/cs-mover-etapa.ts` · `lib/setting-secuencias.ts`
-(`productosConEtapas`, `setDisparadorEntrega`) · `app/chatbot/SecuenciaPerfil.tsx` ·
+(`productosConEtapas`, `setDisparadorEntrega`) · `app/automations/SecuenciaPerfil.tsx` ·
 `supabase/migrations/0189_secuencia_producto.sql`
 
 ## Una secuencia disparada POR TIEMPO: el horario, su ancla, y el test que daba verde con el bug (05/10/2026)
@@ -8293,7 +8293,7 @@ el fuente:
 
 **Vive en:** `lib/paso-ia.ts` · `lib/texto-critico.ts` · `lib/nutricion.ts` (`escribirTexto` en la
 rama no oficial, el saneo de `setSecuenciaPasos`, el insert de `nutricion_envios`) ·
-`app/chatbot/FlujoLienzo.tsx` · `app/chatbot/SecuenciaPerfil.tsx` · mig 0197 ·
+`app/automations/FlujoLienzo.tsx` · `app/automations/SecuenciaPerfil.tsx` · mig 0197 ·
 `tests/paso-ia.test.ts`
 
 Pedido de Martín (05/10): *«haz el interruptor de IA»*, y que «Tu forma de escribir» se abra *«la
@@ -8354,7 +8354,7 @@ a `error` aunque el envío salga bien.
 `lineaEstricta`/`lineaSuave`, `upsertInstancia`, `conectar({ nueva })`, `desconectar(linea)`) ·
 `lib/evolution-envio.ts` · `lib/evolution-mensajes.ts` · `lib/nutricion.ts` (`canalDeLinea`,
 `setSecuenciaLinea`) · `app/whatsapp/WhatsAppApp.tsx` · `app/whatsapp/EvolutionConnect.tsx` ·
-`app/whatsapp/EmpresaInbox.tsx` · `app/chatbot/SecuenciaPerfil.tsx` · migs 0198 y 0199 ·
+`app/whatsapp/EmpresaInbox.tsx` · `app/automations/SecuenciaPerfil.tsx` · migs 0198 y 0199 ·
 `tests/lineas-whatsapp.test.ts`
 
 Pedido de Martín (06/10): *«haz que los usuarios puedan escanear varios QR, tener varios
@@ -8548,7 +8548,7 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
 (`cancelarJuntaEnLead`, `guardarLinkDeReunion`, `upsertLeadFromCalendly`, `setFechaJunta2`) ·
 `lib/reagenda-no-show.ts` ·
 `app/api/webhooks/calendly/route.ts` · `app/api/webhooks/calcom/route.ts` ·
-`scripts/backfill-calendly.ts` · `app/chatbot/RecordatorioFlujo.tsx` ·
+`scripts/backfill-calendly.ts` · `app/automations/RecordatorioFlujo.tsx` ·
 `supabase/migrations/0204_link_de_la_reunion.sql`
 
 - ⚠️ **Hoy no hay a quién recordarle en el ws1: el webhook de Calendly está muerto OTRA VEZ**
@@ -8728,7 +8728,7 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
 ### El guion del audio con IA gratis (#748)
 
 **Vive en:** `lib/guion-audio.ts` · `app/api/chat-agent/guion-audio/route.ts` ·
-`app/chatbot/PasoAudioControl.tsx` · `lib/nutricion-canal.ts` (`textoDelPaso`) · `lib/nutricion.ts`
+`app/automations/PasoAudioControl.tsx` · `lib/nutricion-canal.ts` (`textoDelPaso`) · `lib/nutricion.ts`
 (`setSecuenciaPasos`)
 
 - ⚠️ **`setSecuenciaPasos` conserva las variantes por número de orden aunque el paso cambie de
@@ -9072,7 +9072,7 @@ lib/nutricion.ts · lib/meta-ads.ts (`parseInsightsToMetrics`) · *2026-10-07 ta
 **Vive en:** `lib/flujos.ts` (`ejecutarPaso`, rama `accion`) · `lib/flujos-tipos.ts` (`operacionDelPaso`) ·
 `lib/flujo-pasos.ts` (`lineaDeFalloAccion`) · `app/agencia/FlujoAviso.tsx` (`EditorPasoAccion`) ·
 `lib/nutricion.ts` (la rama de la acción en `procesarEnvios`, `setSecuenciaPasos`) ·
-`lib/nutricion-paso-accion.ts` · `lib/flujo-conversacion.ts` · `app/chatbot/FlujoLienzo.tsx` ·
+`lib/nutricion-paso-accion.ts` · `lib/flujo-conversacion.ts` · `app/automations/FlujoLienzo.tsx` ·
 `lib/plantillas.ts` (`leerPar`) · `lib/setting-secuencias.ts` · `lib/nutricion-generator.ts`
 
 **Antes** (medido sobre HEAD en la corrida de la API): el paso ofrecía tres acciones fijas que
@@ -9160,7 +9160,7 @@ objeto, sin migración.
 
 **Vive en:** `app/whatsapp/_shared/ComposerWhatsApp.tsx` · `app/whatsapp/_shared/BurbujaHilo.tsx` ·
 `app/whatsapp/_shared/ChatHilo.tsx` · `app/whatsapp/_shared/VoiceRecorder.tsx` ·
-`app/whatsapp/EmpresaInbox.tsx` · `app/chatbot/EditorMensajeWhatsApp.tsx` · `lib/setting-adjuntos.ts` ·
+`app/whatsapp/EmpresaInbox.tsx` · `app/automations/EditorMensajeWhatsApp.tsx` · `lib/setting-adjuntos.ts` ·
 `lib/setting-adjuntos-reglas.ts` · `app/api/chat-agent/adjuntos/route.ts` ·
 `supabase/migrations/0225_setting_adjuntos.sql` · `lib/borrador-oficial.ts` · `lib/evolution.ts` ·
 `lib/evolution-labels.ts` · `lib/etiquetas.ts` (`sincronizarAfuera`, `jidDelChat`) · `lib/chatwoot.ts`
@@ -9417,7 +9417,7 @@ bandeja sigue siendo MaKo hasta que conecte su propio dominio. Lo decide Martín
 
 **Vive en:** `lib/email-remitente.ts` (`firmaDelPie`) · `lib/nutricion.ts` · `lib/email-marketing.ts`
 (`firmaDelNegocioActual`) · `lib/prueba-paso.ts` · `lib/resend.ts` (`SANDBOX_FROM`) ·
-`app/chatbot/EditorEmailGmail.tsx` (`paramsDeVista`) · `lib/email-html.ts`
+`app/automations/EditorEmailGmail.tsx` (`paramsDeVista`) · `lib/email-html.ts`
 
 *09/10/2026 — cuarta tanda del Chatbot, parte «email» (punto 16), cuenta 2. 8 roturas en
 `tests/email-remitente.test.ts` y `tests/editor-email-gmail.test.ts` en este cierre, todas cazadas.*

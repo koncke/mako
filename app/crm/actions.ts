@@ -3306,7 +3306,7 @@ export async function declararEntradasAction(entradas: string[], evento: unknown
   }
   bust(TAG.pipeline, TAG.leads);
   revalidatePath('/funnel');
-  revalidatePath('/chatbot');
+  revalidatePath('/automations');
   return { ok: true };
 }
 

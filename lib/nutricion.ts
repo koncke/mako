@@ -671,7 +671,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   // y «Si responde» con sus casos: guardar una lista válida no da error. El lienzo manda SIEMPRE
   // los ids de sus tarjetas; quien manda una lista sin ninguno no está editando ESTE flujo.
   if (puedePisarFlujo(antes, pasos) === false) {
-    throw new PasosInvalidosError('No se guardó: esta automatización tiene tarjetas (condiciones, esperas o «Si responde»). Se edita en /chatbot.');
+    throw new PasosInvalidosError('No se guardó: esta automatización tiene tarjetas (condiciones, esperas o «Si responde»). Se edita en /automations.');
   }
   const operaciones = [...new Set(acciones.flatMap((a) => (a?.ok ? [a.accion.operacion] : [])))];
   if (operaciones.length) {

@@ -7,12 +7,12 @@
 // resolvió, y para armar la etiqueta de cada etapa con las del funnel del workspace.
 //
 // ⚠️ NO DUPLICA EL DASHBOARD: monta el MISMO `DashboardChatAgent` que vivía en la cuarta
-// pestaña de /chatbot. Dos pantallas del mismo dato divergen, y la que se queda vieja es
+// pestaña de /automations. Dos pantallas del mismo dato divergen, y la que se queda vieja es
 // la que menos se abre — es la lección del editor de diagramas del funnel.
 
 import { useCallback } from 'react';
-import { DashboardChatAgent } from '@/app/chatbot/DashboardChatAgent';
-import type { SecuenciaDto, Opcion } from '@/app/chatbot/ChatAgentApp';
+import { DashboardChatAgent } from '@/app/automations/DashboardChatAgent';
+import type { SecuenciaDto, Opcion } from '@/app/automations/ChatAgentApp';
 import type { PuntoSerie } from '@/lib/setting-metricas';
 
 // Las mismas etiquetas legacy que el Chatbot: una secuencia vieja cuelga de `nutri` o

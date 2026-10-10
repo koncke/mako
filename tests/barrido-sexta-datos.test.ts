@@ -34,10 +34,10 @@ const sinComentarios = (src: string) => src
 
 /** Los archivos de la parte «datos» que dibujan un «borrar». */
 const CON_BORRAR = [
-  'app/chatbot/EditorMensajeWhatsApp.tsx',
-  'app/chatbot/EditorMensajeSocial.tsx',
-  'app/chatbot/GrabadorAudioPaso.tsx',
-  'app/chatbot/PasoAudioControl.tsx',
+  'app/automations/EditorMensajeWhatsApp.tsx',
+  'app/automations/EditorMensajeSocial.tsx',
+  'app/automations/GrabadorAudioPaso.tsx',
+  'app/automations/PasoAudioControl.tsx',
   'app/whatsapp/_shared/VoiceRecorder.tsx',
   'app/whatsapp/_shared/ComposerWhatsApp.tsx',
   'app/whatsapp/_shared/composer-icons.tsx',
@@ -53,10 +53,10 @@ test('el tacho es UNO, el de la casa, y rojo: ni `IconTrash`, ni `Icon name="tra
     assert.doesNotMatch(src, />\s*🗑/, `${f}: el emoji del tacho`);
   }
   // Y los que borran usan el de la casa.
-  for (const f of ['app/chatbot/EditorMensajeWhatsApp.tsx', 'app/chatbot/EditorMensajeSocial.tsx', 'app/whatsapp/_shared/VoiceRecorder.tsx', 'app/crm/AccionesLoteLeads.tsx']) {
+  for (const f of ['app/automations/EditorMensajeWhatsApp.tsx', 'app/automations/EditorMensajeSocial.tsx', 'app/whatsapp/_shared/VoiceRecorder.tsx', 'app/crm/AccionesLoteLeads.tsx']) {
     assert.match(sinComentarios(leer(f)), /<IconoBorrar size=\{\d+\} \/>/, `${f} dejó de usar IconoBorrar`);
   }
-  assert.match(sinComentarios(leer('app/chatbot/GrabadorAudioPaso.tsx')), /<BotonBorrar onClick=\{\(\) => void borrar\(\)\} title=\{`Borrar el audio de \$\{def\.titulo\}`\} \/>/);
+  assert.match(sinComentarios(leer('app/automations/GrabadorAudioPaso.tsx')), /<BotonBorrar onClick=\{\(\) => void borrar\(\)\} title=\{`Borrar el audio de \$\{def\.titulo\}`\} \/>/);
 });
 
 test('«Agregar» y «Eliminar», nunca «Poner» ni «Sacar», en lo que se lee de una etiqueta', () => {
@@ -87,10 +87,10 @@ test('las opciones de los desplegables llevan su ícono del set, no un emoji peg
     assert.doesNotMatch(f, /label: '[^']*\p{Extended_Pictographic}/u, `un emoji en el nombre: ${f}`);
   }
   assert.match(aviso, /icono: ICONO_EVENTO\[e\.key\]/, 'los eventos del disparador sin ícono');
-  const audio = sinComentarios(leer('app/chatbot/PasoAudioControl.tsx'));
+  const audio = sinComentarios(leer('app/automations/PasoAudioControl.tsx'));
   assert.doesNotMatch(audio, /🎙/);
   assert.match(audio, /label: a\.titulo, icono: 'audio'/);
-  assert.match(sinComentarios(leer('app/chatbot/EditorMensajeWhatsApp.tsx')), /label: rotuloPausa\(x\), icono: 'cronometro'/);
+  assert.match(sinComentarios(leer('app/automations/EditorMensajeWhatsApp.tsx')), /label: rotuloPausa\(x\), icono: 'cronometro'/);
 });
 
 test('los textos del horario dicen lo de ahora: esperas a la hora exacta, horario opcional', () => {

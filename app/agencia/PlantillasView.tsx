@@ -8,7 +8,7 @@
 // detalle (que cubre todo el chat) con edición + activar/desactivar + probar IA.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-// next/link NO: el link a /chatbot tiene que llevarse el `?ws=` de la pestaña.
+// next/link NO: el link a /automations tiene que llevarse el `?ws=` de la pestaña.
 import Link from '@/app/_ui/Link';
 import { Dropdown } from '../components/Dropdown';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
@@ -46,7 +46,7 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas', iniciales, 
   /**
    * DÓNDE SE EDITA, cuando no es acá (quinta tanda, punto 5). Pedido de Martín, textual: «quiero
    * que elimines el lienzo en la tab de "Notificaciones", pero que dejes un enlace para editarlo
-   * aquí» — «aquí» es /chatbot, que desde esa tanda dibuja los mismos flujos en su lista.
+   * aquí» — «aquí» es /automations, que desde esa tanda dibuja los mismos flujos en su lista.
    *
    * Con esto, el LIENZO (el detalle con su chrome flotante: título, «Activar», «Publicar») no se
    * monta: la celda de la derecha es la vista del chat, que ya existía y no es el lienzo, y su
@@ -55,7 +55,7 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas', iniciales, 
    * lienzo).
    *
    * Opcional a propósito: /mensajes (el catálogo entero de la agencia) no lo pasa y sigue editando
-   * en el lugar, y Notificaciones tampoco lo pasa cuando el negocio no tiene /chatbot en su capa —
+   * en el lugar, y Notificaciones tampoco lo pasa cuando el negocio no tiene /automations en su capa —
    * un link a una pantalla que lo rebota deja al mensaje sin ningún lugar donde editarse
    * (AGENTS.md, «Si después de cerrar no queda ningún camino…»). Lo decide quien monta.
    */
@@ -231,7 +231,7 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas', iniciales, 
           mensajes={mensajes}
           typing={typing}
           header={enlaceEditar ? (
-            /* QUINTA TANDA, PUNTO 5: el lienzo se edita en /chatbot. El encabezado dice qué mensaje
+            /* QUINTA TANDA, PUNTO 5: el lienzo se edita en /automations. El encabezado dice qué mensaje
                es y el único control es el LINK que lo abre allá (con el `?ws=` de la pestaña: es el
                Link de la casa). Sin «toca para editar»: tocar el título no hace nada acá, y un
                rótulo que promete un gesto que no existe se lee como un botón roto. */
@@ -243,8 +243,8 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas', iniciales, 
                   <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{LABEL[sel.categoria]}{sel.requiereRespuesta ? ' · espera respuesta' : ''}{sel.enabled ? '' : ' · inactiva'}</div>
                 </div>
               </div>
-              <Link href={enlaceEditar(sel)} title="Editar este mensaje en Chatbot" data-editar-en-chatbot
-                style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, textDecoration: 'none', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Editar en Chatbot ↗</Link>
+              <Link href={enlaceEditar(sel)} title="Editar este mensaje en Automations" data-editar-en-chatbot
+                style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, textDecoration: 'none', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Editar en Automations ↗</Link>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>

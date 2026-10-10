@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// usePosicionesLienzo — dónde quedó cada tarjeta movida en el lienzo de /chatbot
+// usePosicionesLienzo — dónde quedó cada tarjeta movida en el lienzo de /automations
 // =============================================================================
 // Quinta tanda, punto 2 (Martín, 09/10/2026): «tampoco se puede mover las tarjetas libremente
 // por el lienzo». El lienzo (app/_components/Lienzo.tsx) entrega la posición al SOLTAR; acá se

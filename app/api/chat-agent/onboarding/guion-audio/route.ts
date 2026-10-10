@@ -9,7 +9,7 @@
 // Dos pedidos, la misma ruta:
 //   POST { paso: { texto, pie, objetivo, gancho, preguntas } } → { guion }
 //     El de hoy (#748): el guion de UN mensaje de una secuencia, para el botón
-//     «Escríbeme el guion» de app/chatbot/PasoAudioControl.tsx (lienzo y wizard).
+//     «Escríbeme el guion» de app/automations/PasoAudioControl.tsx (lienzo y wizard).
 //   POST { clave } → { bullets, ejemplo, aviso? }
 //     El del paso «Tus audios» del onboarding (GrabadorAudioPaso). Ese paso no está en
 //     ningún catálogo desde el 05/10, pero su pantalla sigue montada en el código.

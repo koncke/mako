@@ -19,7 +19,7 @@
 // VARIAS líneas».)
 //
 // ⚠️ «VINCULAR NUEVO» ES EL MISMO FLUJO DE /whatsapp, NO UNA COPIA: `EvolutionConnect` con `nueva`
-// (el QR de una línea que nace al pedirlo), en un modal y sin salir de /chatbot. Si el modal se cierra
+// (el QR de una línea que nace al pedirlo), en un modal y sin salir de /automations. Si el modal se cierra
 // sin escanear, el propio componente suelta la línea a medio nacer (su limpieza al desmontar). Al
 // quedar vinculada, se elige para esta automatización.
 //

@@ -6,7 +6,7 @@
 //   1. AL DUEÑO: «en media hora entrás a la R1 con X», con el link al resumen del lead.
 //      Itera los workspaces con Calendly conectado. Ver lib/reunion-recordatorio.ts.
 //   2. AL LEAD (06/10/2026): 24 h, 1 h y 15 min antes, con el link de la reunión, a los
-//      negocios que lo PRENDIERON en /chatbot. Recorre TODOS los workspaces activos, no sólo
+//      negocios que lo PRENDIERON en /automations. Recorre TODOS los workspaces activos, no sólo
 //      los de Calendly: Código Inmobiliario agenda por Cal.com, que también deja `junta_X_at`
 //      (app/api/webhooks/calcom/route.ts llama a las mismas funciones). Cada uno corre adentro de
 //      su `runWithWorkspace`, y el apagado sale en una lectura sin tocar los leads.

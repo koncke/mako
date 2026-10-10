@@ -194,7 +194,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const goToPlantilla = (name: string) => {
     setTplToast(null);
-    router.push(`/chatbot?stab=plantillas&tpl=${encodeURIComponent(name)}&n=${Date.now()}`);
+    router.push(`/automations?stab=plantillas&tpl=${encodeURIComponent(name)}&n=${Date.now()}`);
   };
 
   // Preferencias de pop-up/sonido de esta persona. Se recargan cuando las guarda

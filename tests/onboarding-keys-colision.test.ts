@@ -4,7 +4,7 @@
 // `onboarding.tab.pasos` es un registro POR WORKSPACE, no por tab: `marcarPasoTab`
 // anota ahí toda key que se cierra, y `getEstadoTab` da un paso por hecho «si lo
 // marcó ESTA tab o si ya lo hizo otra». Eso es correcto y deliberado — conectar el
-// WhatsApp desde /whatsapp tiene que contar también en /chatbot, porque es el mismo
+// WhatsApp desde /whatsapp tiene que contar también en /automations, porque es el mismo
 // número visto desde dos puertas.
 //
 // Lo que NO es correcto es que dos pasos DISTINTOS compartan nombre. Ahí el cruce
@@ -17,7 +17,7 @@
 // se midió viva en dos clientes: `instagram` usaba `contexto` y `ensayo` a secas,
 // las mismas dos keys del Chat Agent. En el ws11, `instagram.contexto` tiene el
 // timestamp 2026-08-10T20:36:51.948Z y el `contexto` del Chat Agent tiene
-// ...52.603Z — 0,6 s después: lo marcó /chatbot. El ws13, igual.
+// ...52.603Z — 0,6 s después: lo marcó /automations. El ws13, igual.
 //
 // Lo caro es el segundo paso: el ensayo de Instagram previsualiza el borrador de un
 // DM, y saltearlo enciende el auto-respondedor sin que nadie haya leído una sola
@@ -45,9 +45,9 @@ import { TAB_ONBOARDINGS } from '../lib/tab-onboarding-catalogo';
  * lo que falta es un prefijo, no una entrada en esta lista.
  */
 const COMPARTIDAS_A_PROPOSITO: Record<string, string> = {
-  wa_no_oficial: 'El WhatsApp por QR: el mismo número en /whatsapp y en /chatbot.',
+  wa_no_oficial: 'El WhatsApp por QR: el mismo número en /whatsapp y en /automations.',
   // 05/10/2026 — se fueron seis, y las dos razones están en el producto:
-  //  · /chatbot dejó de ser un wizard (#833): su lista quedó en UN paso, el QR, así que
+  //  · /automations dejó de ser un wizard (#833): su lista quedó en UN paso, el QR, así que
   //    `wa_no_oficial_prueba`, `email_conectar` y `email_prueba` ya no las comparte con nadie
   //    (viven en /whatsapp y en /email, cada una en su tab).
   //  · el WhatsApp OFICIAL salió del producto (#832): `wa_oficial`, `wa_oficial_plantilla` y

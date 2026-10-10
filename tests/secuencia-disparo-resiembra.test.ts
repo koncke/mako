@@ -1,5 +1,5 @@
 // =============================================================================
-// Los CRON se vuelven a sembrar cuando el server cambia la lista (app/chatbot/EditorDisparadores.tsx)
+// Los CRON se vuelven a sembrar cuando el server cambia la lista (app/automations/EditorDisparadores.tsx)
 // =============================================================================
 // Revisión de la segunda tanda del Chatbot (09/10/2026). «Crear con IA» crea la automatización con
 // `trigger_tipo: 'manual'` (`crearSecuenciaVacia`) y después guarda el disparador que eligió el
@@ -27,7 +27,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { disparadoresDeSecuencia, type SecuenciaConDisparadores } from '../app/chatbot/EditorDisparadores';
+import { disparadoresDeSecuencia, type SecuenciaConDisparadores } from '../app/automations/EditorDisparadores';
 import { firmaLista } from '../lib/disparadores';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -39,7 +39,7 @@ const firma = (o: Record<string, unknown>) => firmaLista(lista(o));
 
 /** El cuerpo de `useDisparadores`: desde su firma hasta la función que le sigue. */
 function cuerpoDelHook(): string {
-  const src = sinComentarios(leer('app/chatbot/EditorDisparadores.tsx'));
+  const src = sinComentarios(leer('app/automations/EditorDisparadores.tsx'));
   const ini = src.indexOf('export function useDisparadores(');
   assert.ok(ini >= 0, 'no está useDisparadores');
   const fin = src.indexOf('\nexport function useTextoDisparador(', ini);
@@ -51,7 +51,7 @@ function cuerpoDelHook(): string {
 
 /** El cuerpo de SecuenciaPerfil hasta el `return (` que dibuja. */
 function cuerpoDelPerfil(): string {
-  const src = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+  const src = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   const ini = src.indexOf('export function SecuenciaPerfil(');
   assert.ok(ini >= 0, 'no está el componente');
   const fin = src.indexOf('\n  return (', ini);

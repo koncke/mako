@@ -1,7 +1,7 @@
 // =============================================================================
 // api-mako/flujo-params — lo que un PASO de un flujo le pasa a una acción de MaKo
 // =============================================================================
-// Un flujo (el lienzo de /chatbot o el de /mensajes) puede tener un paso «⚡ Acción» que
+// Un flujo (el lienzo de /automations o el de /mensajes) puede tener un paso «⚡ Acción» que
 // corre cualquier ACCIÓN del registro (decisión de Martín, 08/10/2026: «que pueda hacer
 // todo, sin limitaciones»). Esto decide, puro y con test (tests/flujo-acciones.test.ts):
 //   · qué parámetros llegan: los que fijó el paso, y el lead del EVENTO cuando la

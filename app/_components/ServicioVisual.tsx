@@ -59,7 +59,7 @@ export const ICON: Record<string, IconDef> = {
   // dice de quién es la cuenta que se conecta.
   zernio: { letter: 'Z', bg: '#6D4AFF' },
   // Instagram y Messenger: los glifos oficiales (simple-icons 13.21.0) sobre su degradé de marca. Los
-  // usa la cabecera de las tarjetas del lienzo de /chatbot (`IconoNodo` dibuja `SvcIcon` con la clave).
+  // usa la cabecera de las tarjetas del lienzo de /automations (`IconoNodo` dibuja `SvcIcon` con la clave).
   instagram: { sym: 'ic-instagram', bg: 'linear-gradient(45deg, #FEDA75 0%, #FA7E1E 25%, #D62976 50%, #962FBF 75%, #4F5BD5 100%)' },
   messenger: { sym: 'ic-messenger', bg: 'linear-gradient(45deg, #0099FF 0%, #A033FF 60%, #FF5280 90%, #FF7061 100%)' },
   // ⚠️ CLAUDE Y ANTHROPIC SON DOS MARCAS Y LLEVAN DOS LOGOS DISTINTOS.

@@ -13,7 +13,7 @@
 //
 // ⚠️ PURO Y SIN `server-only`, A PROPÓSITO: esto decide qué automatizaciones arrancan con cada evento
 // —o sea a quién le llega un WhatsApp real—, y lo leen el motor (lib/nutricion.ts), la ruta que
-// guarda (app/api/chat-agent/secuencias) y la pantalla (app/chatbot/EditorDisparadores.tsx). Con dos
+// guarda (app/api/chat-agent/secuencias) y la pantalla (app/automations/EditorDisparadores.tsx). Con dos
 // copias de la regla, una se queda vieja. El test es tests/disparadores.test.ts.
 //
 // ── EL MODELO: UNA LISTA, Y EL PRIMERO VIVE EN LAS COLUMNAS DE SIEMPRE ───────────────────────────
@@ -741,7 +741,7 @@ export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
   return n.deSiempre(d);
 }
 
-/** La clave del ícono de cada fila (la dibuja `IconoDisparador`, app/chatbot/IconosDisparador.tsx). */
+/** La clave del ícono de cada fila (la dibuja `IconoDisparador`, app/automations/IconosDisparador.tsx). */
 export function iconoDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): ClaseDisparador | 'otro' {
   return claseDeDisparador(d) ?? 'otro';
 }

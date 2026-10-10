@@ -9,7 +9,7 @@
 // lo que ya hicimos con WhatsApp, ya que Instagram permite casi lo mismo que WhatsApp como chat. Copia
 // la logica, que se envie un mensaje y se pueda editar luego...». Y CRON 7: lo mismo para Messenger.
 //
-// LA LÓGICA ES LA DEL EDITOR DE WHATSAPP (app/chatbot/EditorMensajeWhatsApp.tsx), con sus mismas
+// LA LÓGICA ES LA DEL EDITOR DE WHATSAPP (app/automations/EditorMensajeWhatsApp.tsx), con sus mismas
 // piezas puras: la barra es un BORRADOR, «Enviar» suma la burbuja y vacía la barra; cada burbuja tiene
 // su ✏️ (vuelve a la barra y «Enviar» la devuelve a SU lugar) y su papelera roja con «Deshacer» 5 s; el
 // mensaje es la lista de partes (`partes`, lib/mensaje-partes.ts) que el motor manda en orden.

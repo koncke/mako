@@ -208,7 +208,7 @@ test('⚠️ el «Ir a» no elige destino: se pasa a una flecha o se quita (sext
   // «"Go to" desaparece directamente»: el editor del «Ir a» ya no elige un destino; el que queda se pasa
   // a una flecha (o se quita) con la MISMA conversión que el lienzo al abrir (`quitarIrA`). Hasta la
   // segunda pasada quedaba `tarjetasParaIrA` (a dónde podía saltar): se fue, sin call site.
-  const flujo = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
+  const flujo = sinComentarios(leer('../app/automations/FlujoLienzo.tsx'));
   assert.match(flujo, /onPasos\(\(prev\) => quitarIrA\(prev, \{ solo: id \}\)\.pasos, true\)/);
   assert.doesNotMatch(flujo, /tarjetasParaIrA\(/, 'el editor del «Ir a» vuelve a ofrecer destinos');
   assert.doesNotMatch(sinComentarios(leer('../lib/flujo-conversacion.ts')), /export function tarjetasParaIrA/, 'volvió `tarjetasParaIrA` sin call site');
@@ -326,7 +326,7 @@ test('⚠️ el tinte de las tarjetas de control usa SÓLO tokens que se redefin
 });
 
 test('⚠️ lo no publicado: se pregunta al cambiar de automatización, y cerrar la pestaña también avisa', () => {
-  const perfil = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
+  const perfil = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
   // Lo que la persona cambió (NO `sinPublicar`: una secuencia de antes abre convertida sin que
   // nadie toque nada, y preguntar ahí afirmaría algo falso).
   assert.match(perfil, /const cambiosPropios = rolAdmin && JSON\.stringify\(pasos\) !== visto;/);
@@ -335,7 +335,7 @@ test('⚠️ lo no publicado: se pregunta al cambiar de automatización, y cerra
   // Publicar deja lo visto al día (si no, preguntaría después de publicar).
   const pub = perfil.slice(perfil.indexOf('const publicar = async () => {'), perfil.indexOf('const publicar = async () => {') + 4_000);
   assert.match(pub, /setPublicado\(JSON\.stringify\(pasos\)\);\n\s+setVisto\(JSON\.stringify\(pasos\)\);/);
-  const tab = sinComentarios(leer('../app/chatbot/SimuladorWhatsApp.tsx'));
+  const tab = sinComentarios(leer('../app/automations/SimuladorWhatsApp.tsx'));
   assert.match(tab, /if \(sinPublicar\) \{ setPendiente\(\{ ir: id \}\); return; \}/, 'cambiar de automatización no pregunta');
   // Con el pedido de «Armar una» (que también pasa por esta puerta: tests/chatbot-crear-nueva.test.ts).
   assert.match(tab, /if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva', pedido \}\); return; \}/, '«Nueva secuencia» no pregunta');
@@ -343,8 +343,8 @@ test('⚠️ lo no publicado: se pregunta al cambiar de automatización, y cerra
   assert.match(tab, /onSinPublicar=\{setSinPublicar\}/);
 });
 
-test('el lienzo de /chatbot: sin la tarjeta fantasma ni la fila «Si responde», el editor sigue a `muelles`', () => {
-  const flujo = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
+test('el lienzo de /automations: sin la tarjeta fantasma ni la fila «Si responde», el editor sigue a `muelles`', () => {
+  const flujo = sinComentarios(leer('../app/automations/FlujoLienzo.tsx'));
   assert.doesNotMatch(flujo, /ID_NUEVA_RESPUESTA|function Fantasma/, 'volvió la tarjeta fantasma');
   // Segunda pasada de la sexta tanda: «Si responde» nace de una CONDITION vacía (`onPasarARespuesta`), no
   // del ＋ de una fila del CRON.

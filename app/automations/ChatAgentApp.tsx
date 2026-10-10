@@ -167,7 +167,7 @@ const ETAPA_LABEL: Record<string, string> = {
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
 
 // =============================================================================
-// DEEP LINK: /chatbot?stab=<whatsapp|email|dashboard>&sec=<id>
+// DEEP LINK: /automations?stab=<whatsapp|email|dashboard>&sec=<id>
 // =============================================================================
 // Existe porque MaKo manda acá desde otra pantalla: cuando termina de escribir
 // una secuencia, su tarjeta dice «Ver los 5 mensajes» y NO los dibuja —los
@@ -282,7 +282,7 @@ function ChatAgentInner() {
     try {
       const r = await fetch('/api/chat-agent/secuencias', { cache: 'no-store' });
       const j = await r.json();
-      // ⚠️ SIN `return`: cortar acá dejaba la pantalla en «Abriendo tu Chatbot…» para siempre,
+      // ⚠️ SIN `return`: cortar acá dejaba la pantalla en «Abriendo Automations…» para siempre,
       // porque la puerta se decide más abajo. Con el error puesto, la pantalla lo muestra.
       if (!j.ok) { errorCarga = j.error || 'No se pudieron cargar las secuencias de mensajes.'; throw new Error(errorCarga ?? ''); }
       const lista = j.secuencias as SecuenciaDto[];
@@ -414,7 +414,7 @@ function ChatAgentInner() {
   const params = useSearchParams();
   const anclaAplicada = useRef(false);
   // ⚠️ El ancla se aplicaba UNA sola vez por montaje, y el App Router NO remonta el client
-  // component al cambiar el query: estando ya en /chatbot, el segundo aviso de plantilla
+  // component al cambiar el query: estando ya en /automations, el segundo aviso de plantilla
   // rechazada no hacía nada. Se compara la query entera, como en /whatsapp.
   const ultimaQuery = useRef('');
   useEffect(() => {
@@ -446,7 +446,7 @@ function ChatAgentInner() {
     anclaAplicada.current = true;
   }, [params, secuencias]);
 
-  // ── El ancla del link de Notificaciones: /chatbot?aviso=<id> (quinta tanda, punto 5) ──
+  // ── El ancla del link de Notificaciones: /automations?aviso=<id> (quinta tanda, punto 5) ──
   // Aparte del de `?sec=`: espera a OTRA lista (los mensajes, que llegan por otra ruta y sólo para
   // el admin). Se aplica una vez por query: volver a leer los mensajes después de un cambio no
   // vuelve a abrir el del link encima de lo que la persona eligió después. Un id que no está entre
@@ -479,7 +479,7 @@ function ChatAgentInner() {
       <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
         <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
         <span style={{ width: 34, height: 34, border: '3px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
-        <span style={{ fontSize: 14, color: 'var(--dim)' }}>Abriendo tu Chatbot…</span>
+        <span style={{ fontSize: 14, color: 'var(--dim)' }}>Abriendo Automations…</span>
       </main>
     );
   }
@@ -499,7 +499,7 @@ function ChatAgentInner() {
     return (
       <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px', gap: 16 }}>
         <div>
-          <h1 style={{ fontWeight: 600, fontSize: 34, letterSpacing: '-0.025em', margin: 0, color: 'var(--ink)' }}>Chatbot</h1>
+          <h1 style={{ fontWeight: 600, fontSize: 34, letterSpacing: '-0.025em', margin: 0, color: 'var(--ink)' }}>Automations</h1>
           <p style={{ fontSize: 14, color: 'var(--dim)', margin: '6px 0 0' }}>Vincula tu WhatsApp y esta pantalla pasa a ser el editor de tus secuencias.</p>
         </div>
         <EvolutionConnect inline onEstado={(e) => {

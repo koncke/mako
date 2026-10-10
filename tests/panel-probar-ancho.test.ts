@@ -1,5 +1,5 @@
 // =============================================================================
-// «Probar» de UN canal (app/chatbot/PanelProbar.tsx) — tercera tanda, 09/10/2026
+// «Probar» de UN canal (app/automations/PanelProbar.tsx) — tercera tanda, 09/10/2026
 // =============================================================================
 // Pedido de Martín, punto 14: «al darle probar debería ser un desplegable para probar WhatsApp o
 // Email. No que dentro me salga la interfaz de WhatsApp y a su vez me aparezca un campo de Email,
@@ -25,14 +25,14 @@ import {
   PanelProbar, BandejaGmail, MenuDestinos, cuandoLlega, remitenteVisible, vistaDeFila, destinoLegible, PANEL_PROBAR_ANCHO, PANEL_PROBAR_ALTO,
   canalDelPaso, CANALES_PROBAR, pildoraEnLaBandeja, emisoresDeLineas, emisoresDeRemitentes, emisorAEnviar,
   type CanalProbar, type CorreoRecibido,
-} from '../app/chatbot/PanelProbar';
-import { paramsDeVista } from '../app/chatbot/EditorEmailGmail';
+} from '../app/automations/PanelProbar';
+import { paramsDeVista } from '../app/automations/EditorEmailGmail';
 import { renderEmailHtml } from '../lib/email-html';
-import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
+import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-const PANEL = () => sinComentarios(leer('app/chatbot/PanelProbar.tsx'));
+const PANEL = () => sinComentarios(leer('app/automations/PanelProbar.tsx'));
 
 const SECUENCIA = {
   id: 7, clave: 'bienvenida', nombre: 'Bienvenida', etapa: 'nuevo', trigger_tipo: 'etapa',
@@ -401,7 +401,7 @@ test('el simulador de cada canal se elige en UN lugar (la parte «canales» ench
   assert.match(src, /\{def\.probarEn\}<\/Button>/);
 });
 
-// ROTURAS (09/10/2026), una por vez sobre app/chatbot/PanelProbar.tsx, con un arnés que rompe, corre
+// ROTURAS (09/10/2026), una por vez sobre app/automations/PanelProbar.tsx, con un arnés que rompe, corre
 // este archivo y restaura DE MEMORIA (nunca con git checkout) verificando con md5 que volviera
 // idéntico. Sin romper: 13 pass / 0 fail. Las 13 cayeron:
 //   · P1 sin el filtro de canal (lo del otro canal se dibuja): 12 / 1.

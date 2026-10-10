@@ -3,7 +3,7 @@
 // =============================================================================
 // Pedido de Martín (07/10/2026), para los clientes de Código Inmobiliario que no tienen
 // landing y corren anuncios a formulario: ver las respuestas en la ficha del lead (el
-// pop-up incluido) y un WhatsApp con ellas que nace APAGADO en /chatbot («el whatsapp
+// pop-up incluido) y un WhatsApp con ellas que nace APAGADO en /automations («el whatsapp
 // dejalo como borrador, no activado en chatbot»).
 //
 // Las formas de abajo son las medidas en un workspace real el 07/10/2026 (sin datos
@@ -82,7 +82,7 @@ test('⚠️ el aviso del formulario de Meta nace APAGADO y su texto sale de la 
   const cat = CATALOGO_AVISOS.find((c) => c.id === 'lead-formulario-meta');
   assert.ok(cat, 'falta el aviso en el catálogo');
   // «dejalo como borrador, no activado»: sin porDefecto, ningún negocio lo recibe hasta
-  // prenderlo en /chatbot.
+  // prenderlo en /automations.
   assert.equal(cat!.porDefecto, undefined, 'el aviso tiene que nacer apagado');
   assert.ok(cat!.aporta?.includes('lead'), 'sin `aporta: lead` el editor no ofrece los datos del lead');
   // Todo token del texto por defecto existe en el catálogo de variables: si no, sale crudo.
@@ -92,12 +92,12 @@ test('⚠️ el aviso del formulario de Meta nace APAGADO y su texto sale de la 
   assert.deepEqual(tokens.filter((t) => !conocidas.has(t)), [], 'hay tokens que nadie resuelve');
 });
 
-test('⚠️ el webhook manda los DATOS, no el texto armado (si no, /chatbot no gobierna nada)', () => {
+test('⚠️ el webhook manda los DATOS, no el texto armado (si no, /automations no gobierna nada)', () => {
   const src = sinComentarios(leer('app/api/webhooks/meta-leads/route.ts'));
   const i = src.indexOf("emitirDelCatalogo('lead-formulario-meta'");
   assert.ok(i > 0, 'el webhook ya no emite el aviso');
   const llamada = src.slice(i, src.indexOf('});', i));
-  assert.doesNotMatch(llamada, /\btexto\s*:/, 'con `texto` armado acá, lo escrito en /chatbot no sale nunca');
+  assert.doesNotMatch(llamada, /\btexto\s*:/, 'con `texto` armado acá, lo escrito en /automations no sale nunca');
   assert.match(llamada, /lead:\s*\{\s*id:\s*lead\.id/, 'sin el lead no hay {{link_lead}} ni {{lead_nombre}}');
   assert.match(llamada, /lead_formulario:/, 'lo que contestó viaja en `datos`');
   assert.match(llamada, /lead_telefono:/, 'el teléfono viaja en `datos`, con su «sin teléfono» si falta');

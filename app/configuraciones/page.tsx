@@ -16,11 +16,11 @@ export const revalidate = 0;
 
 export default async function ConfiguracionesPage() {
   await requireRolWs([], { nav: 'configuraciones' });
-  // ¿El negocio tiene /chatbot? (quinta tanda, punto 5). Ahí se edita el lienzo de cada mensaje de
+  // ¿El negocio tiene /automations? (quinta tanda, punto 5). Ahí se edita el lienzo de cada mensaje de
   // Notificaciones, y acá queda un link. Se pregunta con `tabEnCapa('setting', …)`, la MISMA
-  // función con la que el guard de /chatbot (`requireRolWs(['setter'], { nav: 'setting' })`)
+  // función con la que el guard de /automations (`requireRolWs(['setter'], { nav: 'setting' })`)
   // decide si deja entrar: con dos reglas, un link podría aterrizar en un rebote. La de
-  // Configuraciones ya exige admin, y /chatbot deja entrar al admin siempre.
+  // Configuraciones ya exige admin, y /automations deja entrar al admin siempre.
   const mensajesEnChatbot = tabEnCapa('setting', await getCapaActual());
 
   const equipoPanel = (

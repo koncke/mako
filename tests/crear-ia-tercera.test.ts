@@ -36,7 +36,7 @@ import { accionDelFlujo } from '../lib/editor-acciones';
 import { seccionesDisparo } from '../lib/flujo-conversacion';
 import { porId } from '../lib/api-mako/registro';
 import { marcasDeVoseo } from '../lib/puestas-data';
-import { CrearConIA, EJEMPLOS } from '../app/chatbot/CrearConIA';
+import { CrearConIA, EJEMPLOS } from '../app/automations/CrearConIA';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -234,7 +234,7 @@ test('los dos prompts: sin «ir_a», el disparador por clave, y en español neut
 
 // ── 5. La caja ───────────────────────────────────────────────────────────────────
 
-const CAJA = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
+const CAJA = sinComentarios(leer('app/automations/CrearConIA.tsx'));
 const dibujar = (props: Partial<Parameters<typeof CrearConIA>[0]> = {}) => renderToStaticMarkup(createElement(CrearConIA, {
   modo: 'crear', secuenciaId: 7, onListo: () => {}, ...props,
 } as Parameters<typeof CrearConIA>[0]));
@@ -249,7 +249,7 @@ test('dibujada: «Generar con IA», el primer ejemplo genérico en el placeholde
   assert.match(html, new RegExp(`placeholder="${EJEMPLOS[0]}"`));
   assert.doesNotMatch(html, /Nutrición No Show/);
   assert.doesNotMatch(CAJA, /ejemplos\?:/, 'volvió la prop `ejemplos`');
-  for (const f of ['app/chatbot/ChatAgentApp.tsx', 'app/chatbot/SimuladorWhatsApp.tsx', 'app/chatbot/SecuenciaPerfil.tsx']) {
+  for (const f of ['app/automations/ChatAgentApp.tsx', 'app/automations/SimuladorWhatsApp.tsx', 'app/automations/SecuenciaPerfil.tsx']) {
     assert.doesNotMatch(sinComentarios(leer(f)), /ejemplosIA/, `${f}: volvió la cadena de los ejemplos con nombres de etapas`);
   }
   // El micrófono del Plan (el mismo botón, no una copia).

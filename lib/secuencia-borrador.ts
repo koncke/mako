@@ -1,5 +1,5 @@
 // =============================================================================
-// secuencia-borrador — lo que se está armando en el lienzo de /chatbot, SIN publicar
+// secuencia-borrador — lo que se está armando en el lienzo de /automations, SIN publicar
 // =============================================================================
 // Pedido de Martín (09/10/2026, sexta tanda, punto 7 de «General»): «Que se elimine una flecha no
 // significa que se elimine la tarjeta posterior, sino que queda "flotando". Lo que no se puede es
@@ -116,7 +116,7 @@ export type DbBorrador = {
  * Los borradores VIGENTES de las automatizaciones del negocio (`borradorVigente`), por id.
  *
  * ⚠️ `null` = NO SE PUDIERON LEER (la columna falta, o la consulta falló), que no es «ninguno»: la
- * pantalla abre lo publicado y no ofrece guardar borradores. No tira: un error acá dejaba /chatbot sin
+ * pantalla abre lo publicado y no ofrece guardar borradores. No tira: un error acá dejaba /automations sin
  * cargar por algo que es un extra.
  */
 export async function leerBorradoresSecuencias(db: DbBorrador): Promise<Map<number, { pasos: PasoGrafo[]; guardado_at: string }> | null> {

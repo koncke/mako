@@ -45,7 +45,9 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   ads: { titulo: 'Ads (Manager y Analyst)', tab: 'Ads Manager', ruta: '/ads-manager' },
   whatsapp: { titulo: 'WhatsApp', tab: 'WhatsApp', ruta: '/whatsapp' },
   email: { titulo: 'Email', tab: 'Email', ruta: '/email' },
-  chatbot: { titulo: 'Chatbot y secuencias', tab: 'Chatbot', ruta: '/chatbot' },
+  // El ÁREA se sigue llamando `chatbot` (es la clave del registro, de las operaciones y de
+  // los permisos de los tokens); la TAB es Automations desde el 09/10/2026 (ex /chatbot).
+  chatbot: { titulo: 'Chatbot y secuencias', tab: 'Automations', ruta: '/automations' },
   metricas: { titulo: 'Dashboard y análisis', tab: 'Dashboard', ruta: '/marketing' },
   experimentos: { titulo: 'Experiments y Retro', tab: 'Experiments', ruta: '/experimentos' },
   landing: { titulo: 'Landing (Analyst, Generator y tracking)', tab: 'Landing Analyst', ruta: '/landing-analyst' },

@@ -1,5 +1,5 @@
 // =============================================================================
-// API: el recordatorio de la reunión AL LEAD — interruptor y textos (tarjeta de /chatbot)
+// API: el recordatorio de la reunión AL LEAD — interruptor y textos (tarjeta de /automations)
 // =============================================================================
 // GET  → { activo, envioWhatsapp, toques: [{ min, texto, porDefecto, textoDefault }], variables }
 // POST → { activo?: boolean, textos?: { "1440"|"60"|"15": string } }. Lo que no viene se conserva.

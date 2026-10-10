@@ -39,7 +39,7 @@ async function estadoActual(): Promise<Record<string, unknown>> {
   ]);
   return {
     envioHabilitado: habilitado,
-    // Sigue en el contrato porque lo lee el paso 'wa_oficial' de app/chatbot/OnboardingChatAgent.tsx,
+    // Sigue en el contrato porque lo lee el paso 'wa_oficial' de app/automations/OnboardingChatAgent.tsx,
     // que ninguna tab ofrece desde la tarea #832 (pendiente de borrar con el resto del oficial).
     oficialConectado: false,
     evolutionConectado: lineas.some((l) => l.estado === 'conectado'),

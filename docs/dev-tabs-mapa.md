@@ -262,7 +262,7 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
   <sub>app/whatsapp/ChatwootWebhookChip.tsx · lib/chatwoot.ts · app/api/webhooks/chatwoot</sub>
 - 🟢 **WhatsApp Onboarding**  `/whatsapp`  · ícono `onboarding`  
   El tramo Conectar → Contexto → Ensayo de esta tab. Es el mismo wizard del Chat Agent parametrizado: lo que se hace acá queda hecho allá.  
-  <sub>app/whatsapp/OnboardingCanalWhatsApp.tsx · app/chatbot/OnboardingChatAgent.tsx · lib/tab-onboarding-state.ts</sub>
+  <sub>app/whatsapp/OnboardingCanalWhatsApp.tsx · app/automations/OnboardingChatAgent.tsx · lib/tab-onboarding-state.ts</sub>
 
 ### Email
 
@@ -283,7 +283,7 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
   <sub>app/api/email/generar · app/email/EmailApp.tsx</sub>
 - 🟢 **Email Onboarding**  `/email`  · ícono `onboarding`  
   El tramo de email del wizard compartido: conectar el dominio y probar que el correo llega.  
-  <sub>app/email/OnboardingCanalEmail.tsx · app/chatbot/OnboardingChatAgent.tsx · lib/tab-onboarding-state.ts</sub>
+  <sub>app/email/OnboardingCanalEmail.tsx · app/automations/OnboardingChatAgent.tsx · lib/tab-onboarding-state.ts</sub>
 
 ### Instagram
 
@@ -414,9 +414,9 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 - ⚪ **Lead Magnet Generator**  `/lead-magnet-generator`  · ícono `leadmagnet`  
   Producir el lead magnet entregable. ComingSoon sin backend; el CONTENIDO del entregable ya se define en el onboarding (EntregableView), así que esta tab es la que lo materializa.  
   <sub>app/lead-magnet-generator/page.tsx (ComingSoon) · app/_components/nav.ts (comingSoon: true)</sub>
-- 🟢 **Chatbot**  `/chatbot`  · ícono `chatbot`  
+- 🟢 **Automations** (ex Chatbot, renombrada el 09/10/2026)  `/automations`  · ícono `chatbot` · key `setting`  
   El cockpit del agente que conversa: secuencias de mensajes con estrategia, simulación como lead, métricas y hand-off al humano. Su H1 en pantalla todavía dice «Chat Agent».  
-  <sub>app/chatbot/page.tsx · app/chatbot/ChatAgentApp.tsx · app/chat-bot/page.tsx · app/chat-agent/page.tsx · app/setting/page.tsx (redirects) · lib/setting-estrategia.ts</sub>
+  <sub>app/automations/page.tsx · app/automations/ChatAgentApp.tsx · app/chatbot/page.tsx · app/chat-bot/page.tsx · app/chat-agent/page.tsx · app/setting/page.tsx (redirects) · lib/ruta-automations.ts · lib/setting-estrategia.ts</sub>
 - ⚪ **Sales Email**  `/sales-email`  · ícono `salesemail`  
   Escribir los emails de venta. ComingSoon sin backend; distinto de /email (Operate), que es la bandeja de todos los días.  
   <sub>app/sales-email/page.tsx (ComingSoon) · app/_components/nav.ts (comingSoon: true)</sub>
@@ -428,7 +428,7 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
   <sub>app/closing-script/page.tsx (ComingSoon) · app/_components/nav.ts (rolesWs ['closer'], comingSoon: true)</sub>
 - ⚪ **Sales Roleplay**  `/sales-roleplay`  · ícono `roleplay`  
   Entrenar la llamada contra MaKo haciendo de prospecto. ComingSoon; el patrón de «MaKo hace de cliente» ya está resuelto en el paso ④ ensayo del Chatbot y es de donde debería copiarse.  
-  <sub>app/sales-roleplay/page.tsx (ComingSoon) · app/chatbot/OnboardingChatAgent.tsx (el ensayo, como referencia)</sub>
+  <sub>app/sales-roleplay/page.tsx (ComingSoon) · app/automations/OnboardingChatAgent.tsx (el ensayo, como referencia)</sub>
 
 ### Landing Generator
 
@@ -440,25 +440,25 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 
 - 🟢 **Sequences**  · ícono `whatsapp`  
   La vista por defecto: las secuencias de mensajes listadas como CONTACTOS de WhatsApp, con el hilo simulado que se reproduce solo al entrar y un composer real (texto, emoji, nota de voz) contra MaKo-setter.  
-  <sub>app/chatbot/SimuladorWhatsApp.tsx · app/whatsapp/_shared/ChatHilo.tsx · app/api/chat-agent/simulador/</sub>
+  <sub>app/automations/SimuladorWhatsApp.tsx · app/whatsapp/_shared/ChatHilo.tsx · app/api/chat-agent/simulador/</sub>
 - 🟢 **Sequence Profile**  · ícono `chats`  
   El perfil de UNA secuencia, cubriendo el chat: diagrama de cómo juega paso a paso, edición de estrategia (objetivo/gancho/preguntas/desenlace), activar-pausar y prueba real a tu teléfono o mail. El setter la ve en solo lectura.  
-  <sub>app/chatbot/SecuenciaPerfil.tsx · lib/setting-estrategia.ts</sub>
+  <sub>app/automations/SecuenciaPerfil.tsx · lib/setting-estrategia.ts</sub>
 - 🟢 **New Sequence Wizard**  · ícono `hammer`  
   El wizard de 9 pasos que arma una secuencia (a quién → objetivo → ¿lead magnet? → cuál → preguntas → MaKo redacta → desenlace → prueba → activar), con el mismo chrome fullscreen del onboarding.  
-  <sub>app/chatbot/SecuenciaWizard.tsx · app/_components/WizardShell.tsx · app/_components/PanelMarketing.tsx · lib/etapas-contexto.ts</sub>
+  <sub>app/automations/SecuenciaWizard.tsx · app/_components/WizardShell.tsx · app/_components/PanelMarketing.tsx · lib/etapas-contexto.ts</sub>
 - 🟢 **Chatbot Dashboard**  · ícono `graphics`  
   KPIs del agente, serie diaria de envíos/respuestas/aperturas a 30 días y la comparativa por secuencia (recharts, mismo sistema de charts del repo).  
-  <sub>app/chatbot/DashboardChatAgent.tsx · lib/setting-metricas.ts</sub>
+  <sub>app/automations/DashboardChatAgent.tsx · lib/setting-metricas.ts</sub>
 - 🟢 **Handoffs** **A**  · ícono `help`  
   Los casos que MaKo no supo manejar: cuando el lead escribe algo fuera de todo escenario, el agente calla, avisa y deja el mensaje acá para que el dueño le enseñe la respuesta — que queda como escenario nuevo de esa secuencia.  
-  <sub>app/chatbot/HandoffsPanel.tsx · lib/chat-agent-escenarios.ts</sub>
+  <sub>app/automations/HandoffsPanel.tsx · lib/chat-agent-escenarios.ts</sub>
 - 🟢 **Chatbot Onboarding**  · ícono `onboarding`  
   El único onboarding de tab realmente RENDERIZADO del producto: 11 pasos en 3 recorridos elegibles (Todo / Solo WhatsApp / Solo Email) siguiendo Conectar → Contexto → Ensayo; del ensayo salen las secuencias.  
-  <sub>app/chatbot/OnboardingChatAgent.tsx · app/chatbot/ChatAgentApp.tsx (ElegirRecorrido) · lib/tab-onboarding-state.ts (defs 'setting','whatsapp','email') · app/api/chat-agent/onboarding/route.ts</sub>
+  <sub>app/automations/OnboardingChatAgent.tsx · app/automations/ChatAgentApp.tsx (ElegirRecorrido) · lib/tab-onboarding-state.ts (defs 'setting','whatsapp','email') · app/api/chat-agent/onboarding/route.ts</sub>
 - 🟢 **Voice Notes**  · ícono `mic`  
   Texto o nota de voz se decide POR MENSAJE y se graba ahí mismo, dentro del wizard o del perfil. La biblioteca (setting_audios) sigue existiendo por debajo pero ya no es una sub-tab: reutiliza los audios entre secuencias.  
-  <sub>app/chatbot/PasoAudioControl.tsx · app/chatbot/GrabadorAudioPaso.tsx · app/whatsapp/_shared/VoiceRecorder.tsx · lib/audios-paso.ts</sub>
+  <sub>app/automations/PasoAudioControl.tsx · app/automations/GrabadorAudioPaso.tsx · app/whatsapp/_shared/VoiceRecorder.tsx · lib/audios-paso.ts</sub>
 
 ## Content Machine  ·  16 piezas
 
