@@ -101,7 +101,7 @@ test('⚠️ el CRON: SIN filas (ni «Al entrar» ni «Si responde»), su propio
   assert.deepEqual(lugarDesdeLienzo(ID_ENTRADA, 'sig'), { inicio: true });
 });
 
-test('⚠️ las flechas en paralelo del CRON: hijos en la columna 1, apilados sin pisarse; «Si responde» abajo, sin flecha', () => {
+test('⚠️ las flechas en paralelo del CRON: hijos en la columna 1, apilados sin pisarse; «Si responde» el último, con su flecha', () => {
   const pasos = conHilosDelCron();
   assert.deepEqual(validarGrafo(pasos), [], 'el fixture tiene que ser un flujo válido');
   const g = grafoDeSecuencia(pasos, { disparador: 'X' });
@@ -110,18 +110,18 @@ test('⚠️ las flechas en paralelo del CRON: hijos en la columna 1, apilados s
   const col1 = ['m1', 'e1', 'f1'].map((id) => nodo(g, id));
   for (const n of col1) assert.equal(n.x, nodo(g, 'm1').x, `${n.id} no está en la columna 1`);
   assert.ok(col1[0].y < col1[1].y && col1[1].y < col1[2].y, 'el orden es [principal, …paralelos]');
-  // Segunda pasada de la sexta tanda: «Si responde» es la CONDITION que escucha, sin flecha de entrada:
-  // va en la columna del CRON, debajo de su árbol (ya no es su hijo en la columna 1).
-  assert.equal(resp.x, nodo(g, ID_ENTRADA).x, '«Si responde» no va en la columna del CRON');
-  assert.ok(resp.y > Math.max(...col1.map((n) => n.y + n.alto)), '«Si responde» no va debajo del árbol del CRON');
-  assert.equal(g.aristas.some((a) => a.hasta === resp.id), false, 'volvió la flecha a «Si responde»');
+  // Séptima tanda (10/10/2026): «Si responde» vuelve a ser hijo del CRON EN EL DIBUJO —sin flecha se leía
+  // como una condición suelta—: el último de la columna 1, con una flecha punteada que no es del dato.
+  assert.equal(resp.x, nodo(g, 'm1').x, '«Si responde» no va en la columna 1');
+  assert.ok(resp.y > Math.max(...col1.map((n) => n.y + n.alto)), '«Si responde» no va debajo de los otros hijos del CRON');
+  assert.deepEqual(g.aristas.filter((a) => a.hasta === resp.id).map((a) => [a.desde, a.sinMas]), [[ID_ENTRADA, true]], '«Si responde» sin su flecha del CRON');
   // El inicio NO se dibuja: ES el CRON. Una tarjeta por paso (menos el inicio) y el CRON.
   assert.ok(!g.nodos.some((n) => n.id !== ID_ENTRADA && n.titulo === 'CRON'));
   assert.equal(g.nodos.length, pasos.length);
   // Las flechas: todas desde el CRON, de su fila «Al entrar», y las en paralelo con OTRO tono.
   const cron = nodo(g, ID_ENTRADA);
   const yAlEntrar = yDePuerto(cron, 'sig');
-  for (const [hasta, puerto, tono] of [['m1', 'sig', 'normal'], ['e1', 'par:e1', 'condicional'], ['f1', 'par:f1', 'condicional']] as const) {
+  for (const [hasta, puerto, tono] of [['m1', 'sig', 'normal'], ['e1', 'par:e1', 'condicional'], ['f1', 'par:f1', 'condicional'], [resp.id, 'sig', 'condicional']] as const) {
     const a = g.aristas.find((x) => x.hasta === hasta);
     assert.equal(a?.desde, ID_ENTRADA, `${hasta} no sale del CRON`);
     assert.equal(a?.puerto, puerto);

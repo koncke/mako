@@ -114,7 +114,7 @@ import {
   type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba, type DestinosGuardados, type ContactoPrueba, type EmisorPrueba,
 } from '@/lib/simulador-grafo';
 import { partesDe, type ParteMensaje } from '@/lib/mensaje-partes';
-import { ICONOS_MAS } from '@/lib/flujo-conversacion';
+import { ICONOS_MAS, frenoDelFlujo } from '@/lib/flujo-conversacion';
 import { PopoverWA } from '../whatsapp/_shared/ComposerWhatsApp';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
@@ -179,6 +179,8 @@ const API = '/api/chat-agent/simulador';
 const ESCRIBIENDO_MS = 600;
 const ENTRE_MS = 350;
 const PILDORA_MS = 300;
+/** La píldora de un rearranque frenado (séptima tanda). El porqué lo dice el pie, al lado de Publicar. */
+const TEXTO_FRENADO = 'Falta completar';
 /** Entre una parte y la siguiente de un mismo mensaje (el motor deja un respiro parecido). */
 const ENTRE_PARTES_MS = 500;
 
@@ -613,6 +615,17 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const firmaViva = useMemo(() => firmaFlujo(flujoVivo), [flujoVivo]);
   /** La huella del flujo con el que arrancó esta prueba: si cambia, el panel lo dice. */
   const [firmaProbada, setFirmaProbada] = useState(firmaViva);
+  /**
+   * ⚠️ LO QUE FRENA «PROBAR» FRENA TAMBIÉN CADA REARRANQUE (séptima tanda, 10/10/2026). Pedido de Martín:
+   * «una tarjeta sin conexiones puede estar, pero como borrador, al probar o publicar no debería dejar».
+   * El botón «▶ Probar» ya se frenaba (`frenoDelFlujo` en SecuenciaPerfil), pero ↻, «Cambió · ↻» y
+   * «Probar en WhatsApp» rearrancan sobre lo que se edita CON EL PANEL ABIERTO y no miraban nada:
+   * desconectar una tarjeta y apretar ↻ corría —y con «Probar en WhatsApp», MANDABA— un flujo con una
+   * tarjeta suelta. Es la MISMA función (la trae `EdicionLocal.freno`, con lo que le falta a cada
+   * acción); sin edición todavía, la del flujo guardado. Frenar dice el porqué donde lo dice Publicar
+   * y abre la tarjeta (`frenar`); el panel sólo marca que no arrancó.
+   */
+  const freno = useMemo(() => (propia ? propia.freno : frenoDelFlujo(flujoVivo, null)), [propia, flujoVivo]);
 
   const [mensajes, setMensajes] = useState<HiloMsg[]>([]);
   const [typing, setTyping] = useState<{ lado: 'left' | 'right'; autor?: string } | null>(null);
@@ -971,6 +984,18 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     }
   }
 
+  /**
+   * ¿HAY QUE FRENAR ESTE ARRANQUE? (`freno`, arriba.) Si sí, dice el porqué donde lo dice Publicar y abre
+   * la tarjeta que falta; el panel deja la píldora una vez (no una por clic) y no arranca nada.
+   */
+  const frenado = (): boolean => {
+    if (!freno) return false;
+    propia?.frenar(freno);
+    const ultimo = msgsRef.current[msgsRef.current.length - 1];
+    if (ctx.current.canal === 'email' || ultimo?.texto !== TEXTO_FRENADO) sistema(TEXTO_FRENADO, 'bad', true);
+    return true;
+  };
+
   /** Arranca la prueba desde la primera tarjeta, con el flujo que se ve ahora. */
   const arrancarRefs = () => {
     flujoRef.current = flujoVivo;
@@ -986,9 +1011,10 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     luego(150, avanzar);
   };
 
-  // Al abrir: arranca solo. Abrir «Probar» y ver llegar los mensajes ES la prueba.
+  // Al abrir: arranca solo. Abrir «Probar» y ver llegar los mensajes ES la prueba. (El botón que lo
+  // abre ya frenó; esto es la red, por si el flujo cambió en el medio.)
   useEffect(() => {
-    arrancarRefs();
+    if (!frenado()) arrancarRefs();
     return () => cortar();
     // Sólo al montar: reiniciar es ↻, no cada tecla del lienzo. Otro canal es otro panel (`key`).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -996,6 +1022,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
 
   /** Vuelve a empezar. `deVerdad`: este recorrido sale al destino de abajo. ↻ es sin envío. */
   const reiniciar = (deVerdad = false) => {
+    // Lo que se ve tiene una tarjeta suelta o algo sin completar: no se rearranca (y lo de antes queda).
+    if (frenado()) return;
     cortar();
     setMensajes([]); setTyping(null); setOpciones(null);
     setCorreos([]); setAbierto(null); setRecibiendo(false); setTerminado(false); setAviso(null);
@@ -1023,6 +1051,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     const limpio = d.trim();
     if (!limpio) return;
     cerrarMenu();
+    // ⚠️ ANTES DE TOCAR EL DESTINO: frenado, el recorrido de verdad no arranca y nada sale.
+    if (frenado()) return;
     setDestino(limpio);
     // Antes del primer envío: `ctx` se copia después del render, y el recorrido arranca ahora.
     ctx.current = { ...ctx.current, destino: limpio };
@@ -1032,6 +1062,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   /** «Nuevo número» / «Nuevo email»: se valida con la regla del server, se guarda y se prueba. */
   const probarNuevo = (e: FormEvent) => {
     e.preventDefault();
+    if (frenado()) { cerrarMenu(); return; }
     const d = esEmail ? sanearDestinoPrueba({ email: nuevoEmail }).email : sanearDestinoPrueba({ telefono: unirTelefono(lada, numero) }).telefono;
     if (!d) { setErrNuevo(esEmail ? 'Email inválido' : 'Número incompleto'); return; }
     // Se suma a los de QUIEN PRUEBA sin esperar: la prueba no depende de que se guarde.
@@ -1208,7 +1239,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         {/* Sin «Probar en Instagram» de verdad: Meta no deja escribirle primero a nadie (SimuladorSocial). */}
         {rolAdmin && !real && !social && (
           <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu}
-            onClick={() => (menu ? cerrarMenu() : setMenu(true))}>{def.probarEn}</Button>
+            onClick={() => (menu ? cerrarMenu() : !frenado() && setMenu(true))}>{def.probarEn}</Button>
         )}
         <button type="button" onClick={() => reiniciar()} title="Reiniciar" aria-label="Reiniciar" style={iconBtn}>↻</button>
       </div>

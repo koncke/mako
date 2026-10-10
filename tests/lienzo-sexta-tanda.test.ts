@@ -252,13 +252,14 @@ test('⚠️ la lista lleva DOS divisiones: «Chatbot» arriba y «MaKo en Whats
 });
 
 test('⚠️ el CRON de un flujo CON «Si responde» ya no tiene esa fila: su salida va al pie, como todos (punto 12)', () => {
-  // Segunda pasada de la sexta tanda: «Si responde» es la CONDITION que escucha, sin flecha de entrada.
-  // Hasta acá un flujo de antes dibujaba el CRON con dos filas («Al entrar» y «Si responde»).
+  // Segunda pasada de la sexta tanda: «Si responde» es la CONDITION que escucha, no una fila del CRON.
+  // Hasta acá un flujo de antes dibujaba el CRON con dos filas («Al entrar» y «Si responde»). Desde la
+  // séptima la cuelga del CRON una flecha que NO es del dato (`sinMas`).
   const pasos: PasoParaGrafo[] = [msg('m1'), { id: 'r', nodo: 'respuesta', casos: [], si_no: null, canal: 'whatsapp', delay_horas: 0, cuerpo: '' }];
   const g = grafoDeSecuencia(pasos, { disparador: 'X' });
   const e = nodo(g, ID_ENTRADA);
   assert.equal(e.salidaAlPie, true);
   assert.deepEqual(e.puertos!.map((p) => p.id), ['sig'], 'volvió la fila «Si responde» al CRON');
-  assert.equal(g.aristas.some((a) => a.hasta === 'r'), false, 'volvió la flecha del CRON a la que escucha');
+  assert.deepEqual(g.aristas.filter((a) => a.hasta === 'r').map((a) => [a.desde, a.puerto, a.sinMas]), [[ID_ENTRADA, 'sig', true]], 'la que escucha sin su flecha del CRON, o con una que se puede editar');
   void ID_INICIO;
 });

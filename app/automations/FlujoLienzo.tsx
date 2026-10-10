@@ -356,7 +356,9 @@ export function FlujoLienzo({
     const paso = pasoDe(id);
     if (id === ID_ENTRADA || !paso) return [];
     const nodo = grafo.nodos.find((x) => x.id === id);
-    const leLlega = grafo.aristas.some((a) => a.hasta === id && !(a.esperas?.length && nodo?.enFlecha));
+    // ⚠️ LA FLECHA DEL CRON A «SI RESPONDE» NO CUENTA (séptima tanda): es dibujo, no dato (`sinMas`), y
+    // «Desconectar» sobre la que escucha no tiene nada que soltar (`soltar` contestaría que no le llega nada).
+    const leLlega = grafo.aristas.some((a) => a.hasta === id && !a.sinMas && !(a.esperas?.length && nodo?.enFlecha));
     return [
       ...(claseDe(paso) !== 'respuesta' ? [{ id: 'duplicar', label: 'Duplicar', icono: <Icon name="copy" size={16} />, onElegir: () => duplicarTarjeta(id) }] : []),
       ...(leLlega && !nodo?.enFlecha ? [{ id: 'desconectar', label: 'Desconectar', icono: <Icon name="tijera" size={16} />, onElegir: () => aplicar(soltar(pasos, id)) }] : []),

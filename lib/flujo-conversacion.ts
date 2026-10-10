@@ -35,10 +35,11 @@
 //   · arriba a la izquierda, la tarjeta CRON (el disparador; NO es un paso), con su salida al pie
 //     (lo que MaKo manda por su cuenta, `raizSalida`, y las flechas en paralelo del CRON);
 //   · «Si responde» se dibuja como la CONDITION QUE ESCUCHA (segunda pasada de la sexta tanda,
-//     punto 12): sin flecha de entrada —se decide cuando el lead escribe, no es un camino en el
-//     tiempo—, primera de lo que no cuelga del CRON, debajo de su árbol. Hasta acá era una segunda
-//     fila del CRON con su flecha. El DATO no cambia: «Si responde» no tiene padre (`validarGrafo`
-//     lo exige) y es única;
+//     punto 12), COLGADA DEL CRON con una flecha punteada «Si responde» (séptima tanda: sin flecha se
+//     leía como una condición suelta, ver `grafoDeSecuencia`). Es el último hijo del CRON, debajo de
+//     la salida. Hasta la sexta era una segunda fila del CRON con su flecha, y esa fila no vuelve
+//     (cuarta tanda, punto 4). El DATO no cambia: «Si responde» no tiene padre (`validarGrafo` lo
+//     exige), es única y la flecha no se borra ni se le agrega nada en el medio (`sinMas`);
 //   · cada nodo de varias salidas —una condición, «Si responde», el CRON y toda tarjeta con
 //     flechas en paralelo— apila sus hijos ARRIBA y ABAJO de su ancla, cada uno con el alto de
 //     su subárbol, así dos ramas no se pisan nunca;
@@ -64,7 +65,7 @@ import {
   CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS,
   claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, padresDe,
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, textoCasoRespuesta,
-  RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos,
+  RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos, rotuloSiNoDeRespuesta,
 } from './flujo-grafo';
 import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
 import { textoCron, type CronAviso } from './cron-aviso';
@@ -95,11 +96,14 @@ export type PasoParaGrafo = PasoGrafo & {
  * `nuevoId` da `n…` y `normalizar` da `o<índice>`.
  */
 export const ID_ENTRADA = ID_INICIO;
+/** El rótulo de la flecha del CRON a la condición que escucha (séptima tanda). Corto: va sobre la flecha. */
+export const ETIQUETA_FLECHA_ESCUCHA = 'Si responde';
 /*
  * (Hasta la segunda pasada de la sexta tanda el CRON de un flujo con «Si responde» tenía una segunda
  * fila, «Si responde» —el puerto 'resp', `PUERTO_RESPUESTA`—, y su ＋ creaba la tarjeta. «Si responde»
- * se dibuja ahora como la CONDITION que escucha, sin flecha de entrada, y lo nuevo se crea eligiendo
- * «Su respuesta trata de» en una CONDITION vacía (`condicionARespuesta`, lib/flujo-grafo.ts).)
+ * se dibuja ahora como la CONDITION que escucha —colgada de la ÚNICA salida del CRON con la flecha
+ * `ETIQUETA_FLECHA_ESCUCHA` desde la séptima tanda—, y lo nuevo se crea eligiendo «Su respuesta trata
+ * de» en una CONDITION vacía (`condicionARespuesta`, lib/flujo-grafo.ts).)
  */
 
 /** Las dos operaciones que se dibujan como la tarjeta de ETIQUETA (decisión 8). */
@@ -782,12 +786,15 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       // (`textoCasoRespuesta`, la frase del catálogo), y la última «Si no» —lo que antes era «Otra
       // cosa»—. El dato y el motor no cambian (lib/flujo-grafo.ts, «Si responde» es una CONDITION).
       // `tipo` sigue siendo 'respuesta': de ahí salen el alto de su editor y su identidad.
+      //
+      // ⚠️ SIN CASOS, LA ÚNICA FILA ES «Respondió», NO «Si no» (séptima tanda, la #198 del ws1): sin un
+      // «Sí» arriba, «Si no» decía que faltaba algo. Es la misma salida (`si_no`) con el rótulo de lo
+      // que ES, y en verde: no es la rama de lo que no se cumplió (`rotuloSiNoDeRespuesta`, que lee
+      // también el editor de la tarjeta).
       const puertos: PuertoNodo[] = (p.casos ?? []).map((x) => ({ id: x.id, rotulo: textoCasoRespuesta(x), tono: 'buena' as const, vacio: !x.siguiente }));
       const pendientes = Math.max(0, Math.floor(Number(op.pendientesOtraCosa) || 0));
-      // Sin ningún caso, la única fila es «cualquier respuesta»: «Si no» ahí se lee como que falta algo
-      // (Martín, 10/10/2026, sobre la 198: «una condición suelta... incompleta»).
-      const rotuloOtra = (p.casos ?? []).length ? 'Si no' : 'Respondió';
-      puertos.push({ id: 'si_no', rotulo: rotuloOtra, tono: (p.casos ?? []).length ? 'mala' : 'buena', vacio: !p.si_no, ...(pendientes ? { marca: `${pendientes} sin caso` } : {}) });
+      const conCasos = puertos.length > 0;
+      puertos.push({ id: 'si_no', rotulo: rotuloSiNoDeRespuesta(p), tono: conCasos ? 'mala' : 'buena', vacio: !p.si_no, ...(pendientes ? { marca: `${pendientes} sin caso` } : {}) });
       t = { ...base, tipo: 'respuesta', familia: 'control', titulo: TITULO.condicion, icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'ir_a') {
       const d = p.destino;
@@ -889,8 +896,8 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // ⚠️ Y SIN LA FILA «SI RESPONDE» TAMPOCO EN LOS FLUJOS QUE LA TIENEN (segunda pasada de la sexta
   // tanda). Hasta acá un flujo convertido de la primera tanda seguía dibujando las dos filas («Al
   // entrar» y «Si responde») y una flecha del CRON a la tarjeta. «Si responde» es la CONDITION que
-  // escucha: se decide cuando el lead ESCRIBE, así que no tiene flecha de entrada (se dibuja suelta,
-  // debajo del CRON, sin la marca de suelta). Lo que corre no cambió: es el mismo nodo.
+  // escucha: se decide cuando el lead ESCRIBE. Desde la séptima tanda la cuelga del CRON una flecha
+  // desde ESTA salida (abajo, «la flecha de la que escucha»), no una fila. Lo que corre no cambió.
   const textosCron = (op.disparadores?.length ? op.disparadores.map((d) => d.texto) : [op.disparador]);
   const salidaCron = { id: 'sig', vacio: !raiz, ...(raiz && admiteParalelo(iIni) ? { paralelo: true } : {}) };
   tarjetas.set(ID_ENTRADA, {
@@ -903,15 +910,25 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // Con un grafo válido cada nodo tiene un padre; mientras se edita puede no serlo, y un
   // nodo con dos padres se dibuja UNA vez (las dos flechas igual se ven).
   //
-  // Los hijos del CRON son [la salida principal, …sus flechas en paralelo]: en ese orden se apilan.
-  // «Si responde» NO es su hijo (segunda pasada de la sexta tanda): no tiene flecha de entrada, y va
-  // primera entre lo que no cuelga del CRON (abajo, 2.).
+  // Los hijos del CRON son [la salida principal, …sus flechas en paralelo, «Si responde»]: en ese orden
+  // se apilan, así la que escucha queda DEBAJO de la salida, en la columna de al lado del CRON.
+  //
+  // ⚠️ SÉPTIMA TANDA (10/10/2026): «SI RESPONDE» VUELVE A SER HIJO DEL CRON EN EL DIBUJO. Pedido literal
+  // de Martín sobre la #198 del ws1: «hay una condición suelta que no esta conectado a nada... cuando
+  // habíamos dicho que una tarjeta sin conexiones puede estar, pero como borrador». En la segunda pasada
+  // de la sexta tanda se la había sacado del árbol del CRON —sin flecha de entrada, en la columna 0,
+  // debajo de todo— y eso es EXACTAMENTE cómo se ve una tarjeta suelta (sin la marca, pero con el mismo
+  // lugar y la misma falta de flecha). Medido en la base ese día: la #198 no tiene NINGUNA suelta de
+  // verdad (`tarjetasSueltas` vacío, `validarGrafo` vacío), así que Publicar y Probar no tenían nada que
+  // frenar: lo que mentía era el dibujo. En el motor «Si responde» cuelga del CRON (escucha desde que el
+  // lead entra), y eso es lo que ahora se dibuja: su flecha sale de la salida del CRON (la ÚNICA: la
+  // fila «Si responde» del CRON no vuelve, cuarta tanda, punto 4).
   //
   // Una espera que va EN LA FLECHA no ocupa columna: el hijo es lo que viene después de ella (`tramo`).
   const destinosDe = (id: string): Array<string | null> => {
     const visibles = (ds: Array<string | null>) => ds.map((d) => tramo(d).hasta);
     if (id !== ID_ENTRADA) return visibles(puertosDe(pasos, indicePorId(pasos, id)).map((pt) => pt.destino));
-    return visibles(iIni >= 0 ? puertosDe(pasos, iIni).map((pt) => pt.destino) : [raiz]);
+    return [...visibles(iIni >= 0 ? puertosDe(pasos, iIni).map((pt) => pt.destino) : [raiz]), resp];
   };
   const hijos = new Map<string, string[]>();
   const asignado = new Set<string>();
@@ -973,7 +990,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     }
   };
 
-  // 1. El CRON y todo lo que cuelga de él: la salida y sus paralelos (columna 1).
+  // 1. El CRON y todo lo que cuelga de él: la salida, sus paralelos y «Si responde» (columna 1).
   //    Las esperas que van en una flecha no son de nadie: no se colocan (ni abajo, como sueltas).
   for (const e of enFlecha) asignado.add(e);
   asignado.add(ID_ENTRADA); armar(ID_ENTRADA);
@@ -981,10 +998,10 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   colocar(ID_ENTRADA, 0, 0);
   let cursor = mCron.bajo + GAP_RAICES;
 
-  // 2. Lo que no cuelga del CRON, abajo y en columna 0: PRIMERO «Si responde» (la CONDITION que
-  //    escucha, con lo suyo), y después lo demás —el destino de un salto sin padre, una tarjeta
-  //    suelta, un ciclo— en el orden del array. El inicio no: ES el CRON.
-  const libres = resp ? [indicePorId(pasos, resp), ...ids.map((_, i) => i).filter((i) => ids[i] !== resp)] : ids.map((_, i) => i);
+  // 2. Lo que no cuelga del CRON, abajo y en columna 0 —el destino de un salto sin padre, una tarjeta
+  //    suelta, un ciclo— en el orden del array. El inicio no: ES el CRON. («Si responde» ya no está
+  //    acá desde la séptima tanda: es el último hijo del CRON.)
+  const libres = ids.map((_, i) => i);
   for (const i of libres) {
     const id = ids[i];
     if (asignado.has(id) || i === iIni) continue;
@@ -1020,15 +1037,14 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       }
     }
   });
-  // LA FLECHA DEL CRON A LA CONDITION QUE ESCUCHA (10/10/2026). La segunda pasada de la sexta tanda la
-  // había sacado con la fila «Si responde» del CRON, y la tarjeta quedó dibujada SIN flecha de entrada:
-  // Martín la leyó como «una condición suelta que no está conectada a nada» (la 198 del ws1). En el motor
-  // cuelga del CRON —una respuesta del lead pausa la salida y corre esto—, así que se dibuja colgando de
-  // él, punteada y con su etiqueta. NO es una arista del dato (no hay `siguiente` que la escriba): por eso
-  // `sinMas`, que la deja afuera del ＋ del medio y de la papelera de la salida del CRON.
-  const escucha = raizRespuesta(pasos);
-  if (escucha && pos.has(escucha) && pos.has(ID_ENTRADA)) {
-    aristas.push({ desde: ID_ENTRADA, hasta: escucha, puerto: 'sig', etiqueta: 'Si responde', tono: 'condicional', sinMas: true });
+  // ── LA FLECHA DE LA QUE ESCUCHA (séptima tanda): del CRON a «Si responde», desde su salida ──
+  // NO es un dato (en `pasos` «Si responde» no tiene padre): es lo que hace el motor dicho en el dibujo
+  // —escucha desde que el lead entra por el CRON—. Por eso va punteada (`condicional`, como lo que no es
+  // «después» sino «a la vez»), con su rótulo corto, y `sinMas`: sin ＋ en el medio (insertar ahí
+  // escribiría una flecha que el dato no admite) y sin papelera (no hay nada que desconectar; el lienzo
+  // tampoco le ofrece «Desconectar» a la tarjeta, app/automations/FlujoLienzo.tsx).
+  if (resp && pos.has(resp)) {
+    aristas.push({ desde: ID_ENTRADA, hasta: resp, puerto: 'sig', etiqueta: ETIQUETA_FLECHA_ESCUCHA, tono: 'condicional', sinMas: true });
   }
 
   const normal = aOrigen(nodos, MARGEN);

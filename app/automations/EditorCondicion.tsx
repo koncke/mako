@@ -45,7 +45,7 @@ import { Dropdown, type DropdownGroup, type DropdownOption } from '../components
 import { SelectorEtiqueta } from '@/app/_components/etiquetas-cliente';
 import { inpLienzo, botonGrande } from '@/app/_components/Lienzo';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
-import { TOPE_FILAS, TOPE_CASOS, ROTULO_RESPUESTA, unionDe, type FilaCondicion, type RamaCondicion, type CasoRespuesta } from '@/lib/flujo-grafo';
+import { TOPE_FILAS, TOPE_CASOS, ROTULO_RESPUESTA, unionDe, rotuloSiNoDeRespuesta, type FilaCondicion, type RamaCondicion, type CasoRespuesta } from '@/lib/flujo-grafo';
 import {
   condicionPorId, seccionesDeCondiciones, arbolDeOpciones, esArbol, filaNueva, deValorOpcion, valorOpcion, problemaDeFila,
   nombreDeValor, nombresCatalogoDe, cuotaDeFila, SIMBOLO_OP, TOPE_CUOTA, TOPE_REUNIONES, SECCION_RESPUESTA,
@@ -568,7 +568,8 @@ export function EditorCondicionDeRespuesta({ r, busy }: { r: EdicionRespuesta; b
         ＋ o
       </button>
       <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 12, color: 'var(--dim)' }}>Si no</span>
+        {/* Sin casos es «Respondió», como en la tarjeta: la misma función (séptima tanda). */}
+        <span style={{ fontSize: 12, color: 'var(--dim)' }}>{rotuloSiNoDeRespuesta({ casos })}</span>
         {r.onVerSiNo && (
           <button type="button" onClick={r.onVerSiNo}
             style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 0, fontSize: 12, color: 'var(--primary)', cursor: 'pointer', fontFamily: SANS }}>Ver</button>

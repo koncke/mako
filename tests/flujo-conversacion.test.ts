@@ -185,9 +185,9 @@ test('⚠️ «Si responde» se dibuja como la CONDITION QUE ESCUCHA: colgando d
   assert.deepEqual(llegan.map((x) => [x.desde, x.sinMas]), [[ID_ENTRADA, true]], 'la condición que escucha quedó sin su flecha del CRON');
   assert.deepEqual(e.puertos!.map((p) => p.id), ['sig'], 'volvió la fila «Si responde» al CRON');
   assert.equal(e.salidaAlPie, true);
-  assert.equal(resp.x, e.x, 'la que escucha va en la columna del CRON');
-  const arbol = g.nodos.filter((n) => n.id === ID_ENTRADA || n.id === 'a' || n.id === 'b');
-  assert.ok(resp.y >= Math.max(...arbol.map((n) => n.y + n.alto)), 'la que escucha va debajo del árbol del CRON');
+  // Es el último hijo del CRON: en la columna de su salida, debajo de lo que MaKo manda por su cuenta.
+  assert.equal(resp.x, nodo(g, 'a').x, 'la que escucha no va en la columna de la salida del CRON');
+  assert.ok(resp.y >= nodo(g, 'a').y + nodo(g, 'a').alto, 'la que escucha no va debajo de la salida del CRON');
   assert.equal(resp.suelta, undefined, 'la que escucha no es una tarjeta suelta');
   assert.equal(g.nodos.length, pasos.filter((p) => claseDe(p) !== 'inicio').length + 1, 'una tarjeta por paso y el CRON: no hay fantasma');
   // El caso nace con su «MaKo contesta» (un WhatsApp escrito por MaKo, título WHATSAPP) y el «Si no» avisa.

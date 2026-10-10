@@ -1780,7 +1780,9 @@ export function fijarRaiz<P extends PasoGrafo>(pasos: readonly P[]): P[] {
 // Cambia cómo se DIBUJA y cómo se EDITA: una tarjeta CONDITION cuyas filas son de la familia
 // «Respuesta» del catálogo («Su respuesta trata de «Pregunta el precio»») y cuyo «Si no» es lo que
 // antes era «Otra cosa». Es una condición que se evalúa cuando el lead ESCRIBE, no cuando la salida
-// pasa por ahí: por eso no tiene flecha de entrada. El porqué de no convertir los datos, en
+// pasa por ahí: por eso no tiene flecha de entrada EN EL DATO. (En el DIBUJO sí, desde la séptima
+// tanda: la cuelga del CRON una flecha «Si responde», `grafoDeSecuencia` en lib/flujo-conversacion.ts;
+// sin ella se veía como una condición suelta.) El porqué de no convertir los datos, en
 // docs/chatbot-flujo-ramas-diseno.md → «SEXTA TANDA, parte modelo».
 
 /** El rótulo de una fila de la condición de respuesta (el mismo que el catálogo: `respuesta_trata_de`). */
@@ -1793,6 +1795,21 @@ export const esCondicionDeRespuesta = (p: PasoGrafo | null | undefined): boolean
 export function textoCasoRespuesta(c: Pick<CasoRespuesta, 'titulo'>): string {
   const t = c.titulo?.trim();
   return t ? `${ROTULO_RESPUESTA} «${t}»` : `${ROTULO_RESPUESTA}…`;
+}
+
+/** La salida de la condición que escucha cuando NO tiene casos: toda respuesta va por ahí. */
+export const ROTULO_RESPONDIO = 'Respondió';
+
+/**
+ * LA ÚLTIMA FILA DE LA CONDICIÓN QUE ESCUCHA, como la dicen la tarjeta y su editor (séptima tanda,
+ * 10/10/2026). Con casos es «Si no»: lo que no encajó en ninguno (lo que antes era «Otra cosa»). SIN
+ * casos es la ÚNICA salida —el motor manda por ahí TODA respuesta (`responderConGrafo`: sin caso,
+ * `si_no`)—, y «Si no» solo, sin un «Sí» arriba, se leía como una condición a medio armar. Medido con
+ * la #198 del ws1 (la captura de Martín: «hay una condición suelta que no esta conectado a nada»):
+ * cero casos, una fila «Si no» que lleva a «Te escribió algo que no sé contestar».
+ */
+export function rotuloSiNoDeRespuesta(p: { readonly casos?: readonly unknown[] | null } | null | undefined): string {
+  return p?.casos?.length ? 'Si no' : ROTULO_RESPONDIO;
 }
 
 /**

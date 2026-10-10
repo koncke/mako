@@ -17,7 +17,7 @@
 // disparador, el horario, la línea, el nombre y Activar. Lo que se guarda con PUBLICAR:
 // el flujo entero, validado antes (`validarGrafo`).
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
@@ -89,7 +89,20 @@ export type EdicionLocal = {
   nombre: string;
   trigger_tipo: string;
   instance_name: string | null;
+  /**
+   * LO QUE FRENA «PROBAR» SOBRE ESTOS PASOS (séptima tanda): `frenoDelFlujo`, la MISMA función que frena
+   * Publicar y el botón «Probar», con lo que le falta a cada acción. null = se puede probar. Viaja acá
+   * porque el panel REARRANCA la prueba (↻, «Cambió · ↻», «Probar en WhatsApp») sobre lo que se edita
+   * con el panel abierto, y hasta acá no lo miraba: desconectar una tarjeta con «Probar» abierto y
+   * apretar ↻ corría —y mandaba de verdad— un flujo con una tarjeta suelta.
+   */
+  freno: FrenoDelFlujo | null;
+  /** Muestra el freno donde lo muestra Publicar y abre la tarjeta que falta. Identidad fija. */
+  frenar: (f: FrenoDelFlujo) => void;
 };
+
+/** Lo que devuelve `frenoDelFlujo`: el error legible y la tarjeta a abrir. */
+export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
 
 export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, pedidoIA }: {
   secuencia: SecuenciaDto;
@@ -492,10 +505,19 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * baja): lo frena `frenoDelFlujo` en Publicar y en Probar. Se pide sólo si hay una acción.
    */
   const faltanEnAccion = useFaltanEnAcciones(rolAdmin && pasos.some(esPasoAccion));
-  const frenar = (mensaje: string, tarjeta: string | null) => {
+  // Identidad FIJA (sólo usa setters): viaja en `EdicionLocal` y un `frenar` nuevo por render
+  // re-dispararía el efecto que la manda en cada tecla.
+  const frenar = useCallback((mensaje: string, tarjeta: string | null) => {
     setErr(mensaje);
     if (tarjeta) setFoco((f) => ({ id: tarjeta, vez: (f?.vez ?? 0) + 1 }));
-  };
+  }, []);
+  /**
+   * EL FRENO DE LO QUE SE VE, para el panel de «Probar» (séptima tanda): la MISMA `frenoDelFlujo` que
+   * frenan Publicar y el botón «Probar» de abajo. El panel lo mira antes de cada rearranque (ver
+   * `EdicionLocal.freno`).
+   */
+  const frenoLocal = useMemo(() => frenoDelFlujo(pasos, faltanEnAccion), [pasos, faltanEnAccion]);
+  const frenarDesdeProbar = useCallback((f: FrenoDelFlujo) => frenar(f.error, f.tarjeta), [frenar]);
 
   /**
    * PUBLICAR = VALIDAR, PATCH de los pasos y, si la secuencia se convirtió, la estrategia
@@ -703,9 +725,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const cambioLocal = useRef(onCambioLocal);
   useEffect(() => { cambioLocal.current = onCambioLocal; });
   useEffect(() => {
-    // En CADA cambio local, no al publicar: el panel de «Probar» prueba lo que se ve.
-    cambioLocal.current?.({ secuenciaId: secuencia.id, pasos, estrategia: estAPublicar, nombre, trigger_tipo: disparo.trigger_tipo, instance_name: lineaSec });
-  }, [secuencia.id, pasos, estAPublicar, nombre, disparo.trigger_tipo, lineaSec]);
+    // En CADA cambio local, no al publicar: el panel de «Probar» prueba lo que se ve, y con su freno.
+    cambioLocal.current?.({
+      secuenciaId: secuencia.id, pasos, estrategia: estAPublicar, nombre, trigger_tipo: disparo.trigger_tipo, instance_name: lineaSec,
+      freno: frenoLocal, frenar: frenarDesdeProbar,
+    });
+  }, [secuencia.id, pasos, estAPublicar, nombre, disparo.trigger_tipo, lineaSec, frenoLocal, frenarDesdeProbar]);
 
   /** Dónde flotan la caja y la barra de «Crear con IA» (la franja de abajo; ver el render). */
   const franja = franjaIA(muelles, { izq: insetIzq, der: insetDer });
