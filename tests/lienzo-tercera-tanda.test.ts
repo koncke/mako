@@ -37,6 +37,11 @@
 //   S3. «Probar» vuelve a colapsar todo canal a WhatsApp o Email                -> 9 / 1
 //   S4. los datos de la tarjeta MAKO son los del lead y no los del equipo       -> 9 / 1
 //
+// Restos, grupo recordatorio (10/10/2026; base en verde 10 / 0): el recordatorio pasó a armarse con
+// `grafoDeSecuencia` y el test 10 lo EJECUTA. Pasan / fallan:
+//   R1. las esperas del recordatorio vuelven a dibujarse como tarjetas        -> 9 / 1
+//   R2. un título del recordatorio escrito a mano («Mensaje»)                 -> 9 / 1
+//
 // Correr: node --import tsx --test tests/lienzo-tercera-tanda.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -269,10 +274,21 @@ test('⚠️ el emoji se toca en el chrome, se guarda por su acción y el GET lo
   assert.match(mig, /alter table public\.nutricion_secuencias add column if not exists emoji text;/);
 });
 
-test('el recordatorio usa los MISMOS títulos que el lienzo (y la tarjeta de WhatsApp con su identidad)', () => {
-  const r = sinComentarios(leer('../app/automations/RecordatorioFlujo.tsx'));
-  assert.doesNotMatch(r, /titulo: '(Esperar|WhatsApp|CRON)'/, 'un título del recordatorio quedó escrito a mano');
-  assert.match(r, /titulo: TITULO\.whatsapp, icono: 'whatsapp', canal: 'whatsapp'/);
+// Desde el 10/10/2026 el recordatorio no arma sus tarjetas: las arma `grafoDeSecuencia` (vía
+// `grafoRecordatorio`, lib/recordatorio-grafo.ts), así que los títulos son por construcción los del
+// lienzo. Se EJECUTA, y se fija que ninguno de los dos archivos escriba un título a mano.
+test('el recordatorio usa los MISMOS títulos que el lienzo (y la tarjeta de WhatsApp con su identidad)', async () => {
+  const { grafoRecordatorio } = await import('../lib/recordatorio-grafo');
+  for (const f of ['../app/automations/RecordatorioFlujo.tsx', '../lib/recordatorio-grafo.ts']) {
+    assert.doesNotMatch(sinComentarios(leer(f)), /titulo: '/, `${f}: un título del recordatorio quedó escrito a mano`);
+  }
+  const g = grafoRecordatorio({});
+  const tarjetas = g.nodos.filter((n) => !n.enFlecha);
+  assert.equal(nodo(g, ID_ENTRADA).titulo, TITULO.cron);
+  const mensajes = tarjetas.filter((n) => n.id !== ID_ENTRADA);
+  assert.equal(mensajes.length, 3);
+  for (const n of mensajes) assert.deepEqual([n.titulo, n.icono, n.canal], [TITULO.whatsapp, 'whatsapp', 'whatsapp']);
+  for (const n of g.nodos.filter((x) => x.enFlecha)) assert.equal(n.titulo, TITULO.esperar);
 });
 
 test('la tarjeta MAKO entra por el ＋ con su logo, sobre el lead del evento', () => {

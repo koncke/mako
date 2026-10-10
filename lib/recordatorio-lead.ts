@@ -361,6 +361,19 @@ export function variablesDesconocidas(texto: string): string[] {
   return [...new Set(halladas.filter((v) => !conocidas.has(v)))];
 }
 
+/**
+ * Por qué un texto NO se puede publicar, o null. La pregunta es UNA y la hacen los dos lados: la ruta
+ * al guardar (app/api/chat-agent/recordatorio-reunion) y la pantalla antes de mandarlo, para abrir la
+ * tarjeta culpable (`frenoDelRecordatorio`, lib/recordatorio-grafo.ts). Un texto vacío sí se puede:
+ * vuelve al de fábrica.
+ */
+export function problemaDelTexto(texto: string): string | null {
+  const t = String(texto ?? '');
+  if (t.trim().length > TOPE_TEXTO) return `Máximo ${TOPE_TEXTO} caracteres.`;
+  const malas = variablesDesconocidas(t);
+  return malas.length ? `No existe: ${malas.map((m) => `{{${m}}}`).join(', ')}` : null;
+}
+
 /** «en 52 minutos», «en 1 hora»: lo que falta AL SALIR, no lo que faltaba al programarse. */
 export function faltanTexto(minutos: number): string {
   const m = Math.max(0, Math.round(minutos));
@@ -418,13 +431,33 @@ export type ConfigRecordatorio = {
   textos: Record<Toque, string>;
   /** Cuáles escribió el negocio. Los demás siguen al de fábrica si el de fábrica cambia. */
   propios: Toque[];
+  /**
+   * EL NÚMERO DE CADA TOQUE (10/10/2026, sexta tanda, WhatsApp 2 sobre el recordatorio: el desplegable
+   * del número va en la cabecera de cada tarjeta de WhatsApp, y «si más adelante en la automatización
+   * quiero enviar otro mensaje por otro de mis números vinculados en MaKo, se debería poder»). El
+   * `instance_name` de la línea, como el `linea` de un paso. AUSENTE = la de por default, que es lo que
+   * hacía el emisor hasta acá: un setting guardado antes de esto sale igual que siempre.
+   *
+   * ⚠️ Una línea que ya no está NO cae a la de por default: el emisor no manda ese toque y lo anota
+   * (AGENTS.md, «Una línea pedida que no es del negocio, o que ya no está, NO manda»).
+   */
+  lineas: Partial<Record<Toque, string>>;
 };
+
+/** El tope de un `instance_name` guardado: los de la casa miden ~20. Uno más largo es basura, no una línea. */
+export const TOPE_LINEA = 100;
 
 const esToque = (n: unknown): n is Toque => (TOQUES as readonly unknown[]).includes(n);
 
+/** La línea de un toque como se guarda, o null (la de por default). */
+function lineaGuardable(v: unknown): string | null {
+  const l = typeof v === 'string' ? v.trim() : '';
+  return l && l.length <= TOPE_LINEA ? l : null;
+}
+
 /** El setting guardado, saneado. Un JSON roto es «apagado con los textos de fábrica». */
 export function configDeRecordatorio(raw: string | null): ConfigRecordatorio {
-  const out: ConfigRecordatorio = { activo: false, textos: { ...TEXTO_DEFAULT }, propios: [] };
+  const out: ConfigRecordatorio = { activo: false, textos: { ...TEXTO_DEFAULT }, propios: [], lineas: {} };
   if (!raw) return out;
   let o: unknown;
   try { o = JSON.parse(raw); } catch { return out; }
@@ -432,8 +465,12 @@ export function configDeRecordatorio(raw: string | null): ConfigRecordatorio {
   const obj = o as { activo?: unknown; toques?: unknown };
   out.activo = obj.activo === true;
   if (Array.isArray(obj.toques)) {
-    for (const t of obj.toques as Array<{ min?: unknown; texto?: unknown }>) {
-      if (!t || !esToque(t.min) || typeof t.texto !== 'string') continue;
+    for (const t of obj.toques as Array<{ min?: unknown; texto?: unknown; linea?: unknown }>) {
+      if (!t || !esToque(t.min)) continue;
+      // La línea va ANTES del texto: un toque con el texto de fábrica y otro número viaja sin `texto`.
+      const linea = lineaGuardable(t.linea);
+      if (linea) out.lineas[t.min] = linea;
+      if (typeof t.texto !== 'string') continue;
       const texto = t.texto.trim().slice(0, TOPE_TEXTO);
       if (!texto || texto === TEXTO_DEFAULT[t.min]) continue;
       out.textos[t.min] = texto;
@@ -445,13 +482,21 @@ export function configDeRecordatorio(raw: string | null): ConfigRecordatorio {
 
 /**
  * Lo que se guarda. Sólo van los textos PROPIOS: uno igual al de fábrica (o vacío) no se
- * escribe, así una mejora del de fábrica le llega a quien nunca lo tocó.
+ * escribe, así una mejora del de fábrica le llega a quien nunca lo tocó. Y la línea de un toque
+ * va aunque su texto sea el de fábrica (entonces sin `texto`): si no, elegir otro número para un
+ * toque sin tocarle el texto no se guardaba.
  */
-export function serializarConfig(p: { activo: boolean; textos: Partial<Record<Toque, string>> }): string {
-  const toques: Array<{ min: Toque; texto: string }> = [];
+export function serializarConfig(p: {
+  activo: boolean;
+  textos: Partial<Record<Toque, string>>;
+  lineas?: Partial<Record<Toque, string | null>>;
+}): string {
+  const toques: Array<{ min: Toque; texto?: string; linea?: string }> = [];
   for (const min of TOQUES) {
     const texto = String(p.textos[min] ?? '').trim().slice(0, TOPE_TEXTO);
-    if (texto && texto !== TEXTO_DEFAULT[min]) toques.push({ min, texto });
+    const propio = !!texto && texto !== TEXTO_DEFAULT[min];
+    const linea = lineaGuardable(p.lineas?.[min]);
+    if (propio || linea) toques.push({ min, ...(propio ? { texto } : {}), ...(linea ? { linea } : {}) });
   }
   return JSON.stringify({ activo: p.activo === true, toques });
 }

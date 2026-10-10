@@ -84,14 +84,15 @@ test('el recordatorio lee y escribe EXACTAMENTE el mismo setting, por la misma r
   assert.match(r, /const URL_API = '\/api\/chat-agent\/recordatorio-reunion';/);
   // «Activar» = `activo`, en el acto.
   assert.match(r, /const ok = await guardar\(\{ activo: v \}\);/);
-  // Sólo «Publicar» manda los textos, uno por cada toque del emisor.
+  // Sólo «Publicar» manda los textos (y desde el 10/10/2026 el número de cada toque), uno por cada
+  // toque del emisor.
   const publicar = r.slice(r.indexOf('const publicar = async'), r.indexOf('const grafo = useMemo'));
-  assert.match(publicar, /guardar\(\{ textos: Object\.fromEntries\(TOQUES\.map\(\(m\) => \[m, borrador\[m\] \?\? ''\]\)\) \}\)/);
-  assert.equal((r.match(/guardar\(\{ textos/g) ?? []).length, 1, 'los textos se guardan en un solo lugar: Publicar');
+  assert.match(publicar, /const ok = await guardar\(\{\n\s+textos: Object\.fromEntries\(TOQUES\.map\(\(m\) => \[m, edicion\.textos\[m\] \?\? ''\]\)\),\n\s+lineas: /);
+  assert.equal((r.match(/textos: Object\.fromEntries\(TOQUES/g) ?? []).length, 1, 'los textos se guardan en un solo lugar: Publicar');
   assert.match(r, /import \{ TOQUES, type Toque \} from '@\/lib\/recordatorio-lead';/);
   // La ruta escribe la MISMA clave, en el workspace del request (lo fija también recordatorio-lead).
   const api = sinComentarios(leer('app/api/chat-agent/recordatorio-reunion/route.ts'));
-  assert.match(api, /setSetting\(KEY_RECORDATORIO, serializarConfig\(\{ activo, textos \}\)\)/);
+  assert.match(api, /setSetting\(KEY_RECORDATORIO, serializarConfig\(\{ activo, textos, lineas \}\)\)/);
   assert.match(api, /const v = entrantes\[String\(min\)\];/);
   assert.match(sinComentarios(leer('lib/recordatorio-lead.ts')), /export const KEY_RECORDATORIO = 'chatbot\.recordatorio_reunion';/);
 });
@@ -101,13 +102,15 @@ test('el recordatorio ofrece sólo lo que el emisor permite: textos, sin quitar 
   assert.doesNotMatch(r, /onAgregarTras|opcionesAgregar|onMover/, 'un toque no se quita ni se agrega: el emisor manda los tres');
   assert.match(r, /permiteIA=\{false\} permiteAudio=\{false\} permiteAdjuntos=\{false\}/);
   // Las esperas no se abren: sus minutos son fijos en el emisor.
-  assert.match(r, /onSeleccion=\{\(id\) => setSel\(id && \/\^toque-\\d\+\$\/\.test\(id\) \? id : null\)\}/);
-  // El disparador se llama CRON (punto 4) y la cadena es la del emisor: 24 h, 1 h, 15 min. Desde la
-  // tercera tanda los títulos salen del MISMO lugar que los del lienzo de una secuencia (`TITULO`).
-  assert.match(r, /titulo: TITULO\.cron, icono: ICONO_CRON, detalle: 'Agendó una reunión'/);
-  assert.match(r, /titulo: TITULO\.esperar, icono: '⏳'/);
-  assert.match(r, /titulo: TITULO\.whatsapp, icono: 'whatsapp', canal: 'whatsapp'/);
-  assert.match(r, /const ANTES: Record<Toque, string> = \{ 1440: '24 h antes de la reunión', 60: '1 h antes', 15: '15 min antes' \};/);
+  assert.match(r, /onSeleccion=\{\(id\) => setSel\(esTarjetaDeToque\(id\) \? id : null\)\}/);
+  // El disparador se llama CRON (punto 4) y la cadena es la del emisor: 24 h, 1 h, 15 min. Desde el
+  // 10/10/2026 las tarjetas las arma el MISMO constructor que una automatización (`grafoDeSecuencia`,
+  // vía `grafoRecordatorio`): lo EJECUTA tests/recordatorio-lienzo.test.ts.
+  assert.match(r, /grafoRecordatorio\(edicion\.textos\)/);
+  const lib = sinComentarios(leer('lib/recordatorio-grafo.ts'));
+  assert.match(lib, /export const DISPARADOR_RECORDATORIO = 'Agendó una reunión';/);
+  assert.match(lib, /export const ANTES: Record<Toque, string> = \{ 1440: '24 h antes', 60: '1 h antes', 15: '15 min antes' \};/);
+  assert.match(lib, /const base = grafoDeSecuencia\(pasosDelRecordatorio\(textos\), \{/);
 });
 
 // ── Punto 10: «Probar» ─────────────────────────────────────────────────────────
@@ -309,6 +312,13 @@ test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el w
 // pregunta antes de perder lo no publicado). Sin romper: 15 pass / 0 fail:
 //   · «Probar» con un ancho propio (560 fijo) en vez del de `muelles`         -> 14 / 1
 //   · `elegir` cambiando de automatización sin preguntar con cambios sin publicar -> 14 / 1
+
+// RESTOS, GRUPO RECORDATORIO (10/10/2026): el recordatorio pasó al constructor de una automatización
+// y manda el número de cada toque. Base en verde 15 pass / 0 fail; con el mismo arnés:
+//   · Publicar sin los números                                                 -> 14 / 1
+//   · las esperas abriéndose (`setSel(id)`)                                    -> 14 / 1
+//   · la ruta guardando sin los números (`serializarConfig({ activo, textos })`) -> 14 / 1
+// El grafo lo ejecuta tests/recordatorio-lienzo.test.ts.
 
 // TERCERA TANDA (09/10/2026, parte E): «Probar» de un canal, la fila con su «⋯». Se mudaron las
 // aserciones de este archivo sobre PanelProbar y SimuladorWhatsApp (`onProbar(canal)`, ↻ que vacía
