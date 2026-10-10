@@ -27,6 +27,32 @@
 // lib/motor-turno.ts.
 // =============================================================================
 
+// Los tres, puros y sin `server-only` (el saneo de una acción, el modelo del flujo y el canal social).
+import { esPasoAccion } from './nutricion-paso-accion';
+import { esNodoMensaje, type PasoGrafo } from './flujo-grafo';
+import { esCanalSocial } from './canal-social';
+
+/**
+ * ¿Este paso tiene algo que correr con WhatsApp y email APAGADOS en el negocio? Lo preguntan las DOS
+ * rutas del cron antes de decir 'off' (la de cada hora y el tick), con esta misma función.
+ *
+ *   · Un paso «⚡ Acción»: no es un mensaje y el canal apagado no le aplica.
+ *   · Un MENSAJE por Instagram o Messenger (revisión de la sexta tanda, 10/10/2026): no tienen
+ *     interruptor del negocio — el motor los trata como siempre prendidos (`canalOn`,
+ *     lib/nutricion.ts). Sin esto, un negocio que usa sólo Instagram (sin `envio_whatsapp_enabled` ni
+ *     `envio_email_enabled`, como el ws13) mandaba el primer DM por la vía rápida y el segundo, el que
+ *     viene después de «Esperar 1 día», no lo corría nadie: las dos puertas devolvían 'off' sin un
+ *     error, y se perdía la ventana de Meta.
+ *
+ * Por la CLASE del nodo y no sólo por el campo `canal`: una espera o una condición llevan un `canal`
+ * (el de relleno, `RELLENO_CONTROL`, o el que le quedó de cuando era un mensaje) y no mandan nada. Y
+ * el motor corre SIN `simularApagados`, así que un WhatsApp o un email de esas secuencias sigue
+ * esperando u omitiéndose como siempre.
+ */
+export function correSinCanales(p: PasoGrafo): boolean {
+  return esPasoAccion(p) || (esNodoMensaje(p) && esCanalSocial(p.canal));
+}
+
 /** La clave del turno en `app_settings` (por workspace). */
 export const KEY_TURNO_MOTOR = 'mako.nutricion.turno';
 

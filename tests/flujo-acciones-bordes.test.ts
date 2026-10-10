@@ -189,10 +189,14 @@ test('secuencias: sin canales, el cron corre igual las acciones', () => {
   const src = sinComentarios(leer('../app/api/cron/nutricion/route.ts'));
   // (Desde la segunda pasada de la sexta tanda también el Recurrente al grupo de MaKo: ver
   // tests/motor-segunda-pasada.test.ts. 'off' es sólo sin ninguna de las dos cosas.)
-  assert.match(src, /if \(!conAcciones && !conGrupo\) return \{ ws: w\.id, modo: 'off'/);
+  // (Y desde la revisión de esa tanda, 10/10/2026, «lo que corre sin canales» son las acciones Y
+  // los mensajes por Instagram o Messenger: `correSinCanales`, la misma del tick. Lo que hace la
+  // función, ejecutado, en tests/motor-tick.test.ts.)
+  assert.match(src, /const conMotor = activas\.some\(\(s\) => s\.pasos\.some\(correSinCanales\)\);/);
+  assert.match(src, /if \(!conMotor && !conGrupo\) return \{ ws: w\.id, modo: 'off'/);
   // Con el tope de las esperas cortas desde la quinta tanda (tests/espera-duracion.test.ts).
   // (Y desde la sexta tanda, con el turno del negocio y el cupo de la hora: tests/espera-duracion.test.ts.)
-  assert.match(src, /const proc = await conTurno\(w\.id, turnoHastaMs, \(\) => procesarEnvios\(\{ ignorarVentana, esperarHastaMs, cupoPorHora: true \}\)\);\n\s+return \{ ws: w\.id, modo: conGrupo \? 'off \(acciones y el grupo\)' : 'off \(sólo acciones\)'/);
+  assert.match(src, /const proc = await conTurno\(w\.id, turnoHastaMs, \(\) => procesarEnvios\(\{ ignorarVentana, esperarHastaMs, cupoPorHora: true \}\)\);\n\s+return \{ ws: w\.id, modo: conGrupo \? 'off \(acciones o social, y el grupo\)' : 'off \(acciones o social\)'/);
 });
 
 test('las pantallas de /automations cuentan como WhatsApp sólo los MENSAJES', () => {

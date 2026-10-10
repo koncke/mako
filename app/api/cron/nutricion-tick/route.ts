@@ -31,13 +31,12 @@ import { checkCronAuth } from '@/lib/cron-auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
 import { procesarEnvios, getSecuenciasActivas } from '@/lib/nutricion';
-import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { ESPERA_CORRIDA_HASTA_MS, VENTANA_FRESCA_MIN, desdeFresco } from '@/lib/espera-duracion';
 import { KEY_HORARIO_ENVIO, horarioVigente, acabaDeAbrir } from '@/lib/horario-envio';
 import { KEY_TIMEZONE } from '@/lib/timezone';
 import { zonaDelMotor } from '@/lib/nutricion-grafo-motor';
-import { negociosDelTick, type MotivoTick } from '@/lib/motor-tick';
+import { negociosDelTick, correSinCanales, type MotivoTick } from '@/lib/motor-tick';
 import { conTurnoDelMotor } from '@/lib/motor-turno';
 
 export const dynamic = 'force-dynamic';
@@ -104,10 +103,11 @@ export async function GET(request: NextRequest) {
     for (const { ws, motivo } of objetivo) {
       try {
         const r = await runWithWorkspace(ws, () => conTurnoDelMotor(ws, async () => {
-          // Con los dos canales apagados sólo corren los pasos «⚡ Acción» (lo mismo que la corrida de
-          // cada hora): sin ninguno, no hay nada que mover.
+          // Con los dos canales apagados corre lo que no los usa: los pasos «⚡ Acción» y los mensajes
+          // por Instagram o Messenger, que no tienen interruptor del negocio (`correSinCanales`, la
+          // MISMA pregunta que hace la corrida de cada hora). Sin nada de eso, no hay nada que mover.
           const [waOn, emailOn] = await Promise.all([envioWhatsappHabilitado(), envioEmailHabilitado()]);
-          if (!waOn && !emailOn && !(await getSecuenciasActivas()).some((s) => s.pasos.some(esPasoAccion))) return { modo: 'off' };
+          if (!waOn && !emailOn && !(await getSecuenciasActivas()).some((s) => s.pasos.some(correSinCanales))) return { modo: 'off' };
           return procesarEnvios({ esperarHastaMs, cupoPorHora: true, ...(motivo === 'vencio' ? { vencidasDesde: desde } : {}) });
         }));
         resultados.push(r.corrio ? { ws, motivo, ...r.resultado } : { ws, motivo, saltado: r.porque === 'ocupado' ? 'otra corrida tiene el turno' : 'no pude leer el turno' });

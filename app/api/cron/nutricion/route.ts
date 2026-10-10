@@ -15,9 +15,10 @@
 // El envío real se decide por workspace con lib/envio-flags.ts (setting
 // envio_whatsapp_enabled / envio_email_enabled; el dueño hereda el env si no
 // tiene setting). Un workspace SIN ningún canal habilitado no inscribe a nadie ni
-// manda mensajes (modo 'off' — los flags globales de deploy ya no comprometen a
-// todos los clientes a la vez); sólo corren sus acciones y el Recurrente al grupo
-// de MaKo, que no usan los canales del negocio (ver la rama de abajo).
+// manda WhatsApp ni email (modo 'off' — los flags globales de deploy ya no comprometen
+// a todos los clientes a la vez); sólo corren sus acciones, sus mensajes por Instagram
+// o Messenger y el Recurrente al grupo de MaKo, que no usan esos canales (ver la rama
+// de abajo).
 //
 // Modos manuales (para probar la máquina):
 //   ?dry=1[&ws=N]     → dry-run del workspace N (default dueño): lista qué
@@ -37,7 +38,7 @@ import {
   procesarEnvios,
   getSecuenciasActivas,
 } from '@/lib/nutricion';
-import { esPasoAccion } from '@/lib/nutricion-paso-accion';
+import { correSinCanales } from '@/lib/motor-tick';
 import { tieneRecurrenteAlGrupo } from '@/lib/disparadores';
 import { evaluarDesenlaces } from '@/lib/nutricion-desenlace';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
@@ -181,14 +182,20 @@ export async function GET(request: NextRequest) {
             // los canales del negocio no le aplican. `soloGrupo` reclama la ocurrencia y le manda al
             // grupo sin inscribir a nadie de la cohorte. Antes esta rama cortaba antes del barrido y
             // un Recurrente sólo al grupo, en un negocio sin WhatsApp ni email, no salía nunca.
+            //
+            // ⚠️ Y LOS MENSAJES POR INSTAGRAM O MESSENGER TAMBIÉN (revisión de la sexta tanda,
+            // 10/10/2026): no tienen interruptor del negocio y el motor los manda igual. Un negocio
+            // que usa sólo Instagram mandaba el primer DM por la vía rápida y el que viene después de
+            // una espera larga no salía nunca. `correSinCanales` (lib/motor-tick.ts) es la MISMA
+            // pregunta que hace el tick: acciones o mensajes sociales.
             const activas = await getSecuenciasActivas();
-            const conAcciones = activas.some((s) => s.pasos.some(esPasoAccion));
+            const conMotor = activas.some((s) => s.pasos.some(correSinCanales));
             const conGrupo = activas.some(tieneRecurrenteAlGrupo);
-            if (!conAcciones && !conGrupo) return { ws: w.id, modo: 'off', ...(cerradas ?? {}) };
+            if (!conMotor && !conGrupo) return { ws: w.id, modo: 'off', ...(cerradas ?? {}) };
             if (conGrupo) await comprometerInscripciones({ soloGrupo: true });
-            if (!conAcciones) return { ws: w.id, modo: 'off (sólo el grupo)', ...(cerradas ?? {}) };
+            if (!conMotor) return { ws: w.id, modo: 'off (sólo el grupo)', ...(cerradas ?? {}) };
             const proc = await conTurno(w.id, turnoHastaMs, () => procesarEnvios({ ignorarVentana, esperarHastaMs, cupoPorHora: true }));
-            return { ws: w.id, modo: conGrupo ? 'off (acciones y el grupo)' : 'off (sólo acciones)', ...proc, ...(cerradas ?? {}) };
+            return { ws: w.id, modo: conGrupo ? 'off (acciones o social, y el grupo)' : 'off (acciones o social)', ...proc, ...(cerradas ?? {}) };
           }
           const inscriptas = await comprometerInscripciones();
           const proc = await conTurno(w.id, turnoHastaMs, () => procesarEnvios({ ignorarVentana, esperarHastaMs, cupoPorHora: true }));
