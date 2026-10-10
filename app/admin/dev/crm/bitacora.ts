@@ -1706,4 +1706,29 @@ export const BITACORA: Hito[] = [
       'tests/crm-filtro-ads.test.ts — dos roturas, pass 17 / fail 1',
     ],
   },
+  {
+    fecha: '10 oct', hora: '20:25', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sin chips debajo del filtro: limpiar va adentro del menú, como en el Plan',
+    pedido: 'No debe salir los chips de abajo del filtro y el botón de "limpiar" si para eso ya está la notificacion en filtros. Dentro de filtros, de la misma manera que está en el PLAN, sebe aparecer un sutil texto abajo que diga "Limpiar filtros".',
+    puntos: [
+      'Mandó la captura de la fila de chips con «Anuncio: 004. Leads / Agenda…» y su «Limpiar».',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '20:31', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Se fue la fila de chips; «Limpiar filtros» vive abajo del menú',
+    puntos: [
+      'La fila de chips y su «Limpiar» se borraron (no tenían otro uso). El número sobre «Filtrar» dice cuántos filtros hay.',
+      '«Limpiar filtros (N)» abajo del menú ya estaba, idéntico al del Plan: el test los compara contra el mismo molde.',
+      'De paso: el «Limpiar» de los chips no soltaba los anuncios sueltos del árbol; el del menú sí.',
+    ],
+    commits: [{ sha: '0a55645e', msg: 'CRM: sin la fila de chips debajo de «Filtrar»; limpiar es «Limpiar filtros» adentro del menú, como en el Plan', lineas: 114, archivos: 4 }],
+    archivos: [
+      'app/crm/CrmBoard.tsx — sin la fila de chips',
+      'app/crm/CrmToolbar.tsx — FiltroChips borrado',
+      'tests/crm-filtro-ads.test.ts — que no vuelva, y el Limpiar igual al del Plan',
+    ],
+  },
 ];

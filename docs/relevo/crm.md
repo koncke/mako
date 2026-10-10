@@ -142,6 +142,10 @@ el navegador sobre Código Inmobiliario (ws13):
   scroll hacia la derecha»*. El panel pasa a 360 px y su lugar sale de `lugarDelPanel`
   (`app/crm/filtro-panel.ts`): nunca pasa el borde derecho de la ventana y nunca se mete
   debajo de la barra lateral.
+- **`f531a170`** — destildar la campaña la vuelve a plegar (tildarla la despliega).
+- **`0a55645e`** — se fue la fila de chips debajo de «Filtrar» y su «Limpiar»: *«No debe salir
+  los chips de abajo del filtro y el botón de "limpiar" si para eso ya está la notificacion en
+  filtros»*. Limpiar es «Limpiar filtros (N)» abajo del menú, igual que en el Plan.
 - **`bd4251c9`** — la cosecha, en `docs/hallazgos-crm.md` («Campaña y Anuncio pasan a ser UN
   árbol…») y en la bitácora del CRM.
 
