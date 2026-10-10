@@ -40,6 +40,8 @@
 //     no el recuadro con el nombre y una ✕ (`audioPendiente` del composer).
 //   · 11, LA PAUSA ENTRE MENSAJES: entre dos burbujas, la pastilla «1 s» se toca y se elige
 //     (`pausa_s` de la parte; topes en lib/mensaje-partes.ts).
+//   · 10, EL «{ }» ES EL ÁRBOL DE LA CASA (`ArbolDeDatos`, app/_components/SelectorDatos.tsx), con lo
+//     que el motor resuelve por este camino (`datosDelLead`). Sin «Tu negocio».
 //
 // ⚠️ VARIAS PARTES SÓLO DONDE EL MOTOR LAS MANDA: el WhatsApp NO oficial (`permiteAudio ||
 //    permiteAdjuntos`). En el oficial sale UNA plantilla, en el recordatorio de la reunión UN texto y en
@@ -56,8 +58,10 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSPro
 import type { AudioSetting, PasoSecuenciaDto } from './ChatAgentApp';
 import { BurbujaHilo } from '../whatsapp/_shared/BurbujaHilo';
 import { Ticks } from '../whatsapp/_shared/Ticks';
-import { ComposerWhatsApp, PopoverWA, MenuWA, IconVideo, iconComposer, type ComposerHandle, type OpcionMenuWA, type ChipComposer } from '../whatsapp/_shared/ComposerWhatsApp';
-import { IconClip, IconDoc, IconMic, IconTrash } from '../whatsapp/_shared/composer-icons';
+import { ComposerWhatsApp, PopoverWA, IconVideo, iconComposer, type ComposerHandle, type OpcionMenuWA, type ChipComposer } from '../whatsapp/_shared/ComposerWhatsApp';
+import { IconClip, IconDoc, IconMic } from '../whatsapp/_shared/composer-icons';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
+import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
 import { SalidaWhatsApp } from './SalidaWhatsApp';
 import { MakoRedacta } from './MakoRedacta';
@@ -66,7 +70,8 @@ import { SvcIcon } from '@/app/_components/ServicioVisual';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { useWs } from '@/app/_ui/Link';
 import { Spinner, Toast, useToast } from '@/app/_ui';
-import { VARIABLES_LEAD, VARIABLES_NEGOCIO, aplicarVariables } from '@/lib/template-vars';
+import { aplicarVariables, esVariableConocida } from '@/lib/template-vars';
+import { datosOfrecidos, type GrupoDatos } from '@/lib/variables-aviso';
 import { cambiosDePaso } from '@/lib/guion-audio';
 import {
   partesDe, formaGuardada, esUnTexto, TOPE_PARTES, pausaVisible, pausasPosibles, lineaDelPaso, type ParteMensaje,
@@ -77,6 +82,41 @@ import {
 } from '@/lib/setting-adjuntos-reglas';
 
 export type VariableEditor = { key: string; label: string; ejemplo?: string };
+
+/**
+ * EL «{ }» DE UN MENSAJE AL LEAD (sexta tanda, WhatsApp 10: «Faltan datos... Siempre recuerda los
+ * desplegables tipo arbol y con los íconos al lado... Y esto para todos los lugares donde usamos el
+ * botón de {}, siempre lo mismo en todos lados»): el árbol del catálogo (`datosOfrecidos`), con lo que
+ * el MOTOR resuelve por ESE camino (AGENTS.md: «La previsualización de un editor no puede resolver un
+ * token que el motor NO resuelve»):
+ *   · `todos` — el WhatsApp no oficial y el email: el motor pasa el texto por `datosParaElLead`
+ *     (lib/nutricion.ts), que resuelve el catálogo entero.
+ *   · sin `todos` — la vía OFICIAL (la plantilla de Meta registra sus parámetros con
+ *     `valoresVariablesLead`) e Instagram / Messenger (`enviarPasoSocial` recibe lo mismo): sólo los
+ *     datos del lead de siempre (`esVariableConocida`). El resto saldría CRUDO al lead.
+ * Pura y exportada para el test.
+ */
+export function datosDelLead(todos: boolean): GrupoDatos[] {
+  const arbol = datosOfrecidos({ destino: 'lead', conLead: true });
+  if (todos) return arbol;
+  return arbol
+    .map((g) => ({ ...g, items: g.items.filter((v) => esVariableConocida(v.key)) }))
+    .filter((g) => g.items.length > 0);
+}
+
+/**
+ * Las variables PROPIAS de quien monta (el recordatorio de la reunión: `nombre`, `cuando`, `hora`… las
+ * resuelve SU emisor, lib/recordatorio-lead.ts, no el motor), como UNA rama del mismo árbol. Así el
+ * «{ }» se ve igual en todos lados y ofrece lo que ese mensaje puede resolver, ni más ni menos.
+ * Pura y exportada para el test.
+ */
+export function arbolDeVariables(vars: readonly VariableEditor[]): GrupoDatos[] {
+  if (!vars.length) return [];
+  return [{
+    key: 'lead', titulo: 'Datos', icono: 'perfil',
+    items: vars.map((v) => ({ key: v.key, label: v.label, ejemplo: v.ejemplo ?? `{{${v.key}}}`, alcance: 'siempre' as const, grupo: 'lead' as const, fuente: 'nombre' as const })),
+  }];
+}
 
 /** El paso con la línea de ESTA tarjeta (sexta tanda, WhatsApp 2). El campo viaja tal cual en `pasos`. */
 export type PasoConLinea = PasoSecuenciaDto & { linea?: string | null };
@@ -90,8 +130,17 @@ export type EditorMensajeWhatsAppProps = {
   audios: AudioSetting[];
   /** Un audio grabado desde aquí se suma a la biblioteca del padre. */
   onAudioNuevo?: (a: AudioSetting) => void;
-  /** Los datos que se pueden insertar como {{key}}. Default: los del motor (lib/template-vars.ts). */
+  /**
+   * Las variables PROPIAS de quien monta (el recordatorio de la reunión), como una lista: el «{ }» las
+   * dibuja como una rama del árbol (`arbolDeVariables`). Con esto, se usan ÉSTAS y no las del motor.
+   */
   variables?: VariableEditor[];
+  /**
+   * El árbol del «{ }» ya armado (`datosOfrecidos`, lib/variables-aviso.ts): el mensaje de MaKo al
+   * GRUPO (destino «equipo»). Gana sobre `variables`. Sin los dos: lo que el motor resuelve para un
+   * mensaje al lead (`datosDelLead`).
+   */
+  datos?: GrupoDatos[];
   /** ✦ MaKo (el panel que ayuda a escribir y «adaptarlo a cada persona»). Sólo por el no oficial. */
   permiteIA?: boolean;
   /** Abre la guía de voz la primera vez que se prende «adaptarlo a cada persona». */
@@ -329,7 +378,7 @@ function horaDeAhora(): string {
 }
 
 export function EditorMensajeWhatsApp({
-  paso, onChange, audios, onAudioNuevo, variables, permiteIA, onModoIA, permiteAudio = true, permiteAdjuntos = true,
+  paso, onChange, audios, onAudioNuevo, variables, datos, permiteIA, onModoIA, permiteAudio = true, permiteAdjuntos = true,
   negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor,
 }: EditorMensajeWhatsAppProps) {
   const ws = useWs();
@@ -599,13 +648,17 @@ export function EditorMensajeWhatsApp({
   if (permiteAudio) {
     menuClip.push({
       key: 'audios', label: 'Audios guardados', icono: <IconMic />, vacio: 'Sin audios todavía.',
-      submenu: todosLosAudios.map((a) => ({ key: `a${a.id}`, label: a.titulo, detalle: fmtDur(a.duracion_s), onElegir: () => setAdjunto({ tipo: 'audio', audio_id: a.id }) })),
+      submenu: todosLosAudios.map((a) => ({ key: `a${a.id}`, label: a.titulo, icono: <IconMic />, detalle: fmtDur(a.duracion_s), onElegir: () => setAdjunto({ tipo: 'audio', audio_id: a.id }) })),
     });
   }
   if (permiteAdjuntos) {
     menuClip.push({
       key: 'archivos', label: 'Archivos guardados', icono: <IconClip />, vacio: biblioteca === null ? 'Cargando…' : 'Sin archivos todavía.',
-      submenu: (biblioteca ?? []).map((a) => ({ key: `f${a.id}`, label: a.titulo, detalle: pesoLegible(a.tamano), onElegir: () => setAdjunto({ tipo: 'media', media_id: a.id }) })),
+      submenu: (biblioteca ?? []).map((a) => ({
+        key: `f${a.id}`, label: a.titulo, detalle: pesoLegible(a.tamano), onElegir: () => setAdjunto({ tipo: 'media', media_id: a.id }),
+        // El ícono por TIPO de archivo (general 10): el nombre lo puso el negocio, el tipo es estándar.
+        icono: tipoEnvioDeMime(a.media_mime) === 'video' || tipoEnvioDeMime(a.media_mime) === 'image' ? <IconVideo size={18} /> : <IconDoc size={18} />,
+      })),
     });
   }
 
@@ -639,7 +692,13 @@ export function EditorMensajeWhatsApp({
     return <BurbujaHilo maxAncho="100%" {...pieBurbuja} contenido={{ texto: conNegocio(p.cuerpo), ia: esIA }} />;
   };
 
-  const vars = variables ?? [...VARIABLES_LEAD, ...VARIABLES_NEGOCIO].map((v) => ({ key: v.key, label: v.label, ejemplo: v.ejemplo }));
+  // EL «{ }»: el árbol que ESTE mensaje puede resolver (ver `datosDelLead`). El que viene armado gana;
+  // las variables propias (el recordatorio) van como una rama; sin nada, lo del motor por este camino
+  // (`varias` = el no oficial: el oficial manda una plantilla con los datos del lead de siempre).
+  const grupos = useMemo(
+    () => datos ?? (variables ? arbolDeVariables(variables) : datosDelLead(varias)),
+    [datos, variables, varias],
+  );
   // «↻ N» sólo en UN mensaje de texto: las variantes son otras formas de decir ESE texto (costuras-1).
   const unTexto = varias ? esUnTexto(partes) : (!paso.tipo || paso.tipo === 'texto' || paso.tipo === 'ia');
   const variantes = unTexto ? (paso.variantes ?? []) : [];
@@ -654,7 +713,7 @@ export function EditorMensajeWhatsApp({
         <Dropdown value={String(s)} search={false} disabled={ocupado} ariaLabel={`Espera antes del mensaje ${i + 1}`}
           botonLabel={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconReloj /> {rotuloPausa(s)}</span>}
           buttonStyle={{ padding: '2px 9px', fontSize: 11.5, borderRadius: 999, minHeight: 0, background: 'var(--surface)', color: 'var(--dim)' }}
-          options={posibles.map((x) => ({ value: String(x), label: rotuloPausa(x) }))}
+          options={posibles.map((x) => ({ value: String(x), label: rotuloPausa(x), icono: 'cronometro' }))}
           onChange={(v) => { const n = Number(v); if (n > 0) ponerPausa(i, n); }} />
       </div>
     );
@@ -673,8 +732,9 @@ export function EditorMensajeWhatsApp({
           )}
           <button type="button" disabled={ocupado} onClick={() => editar(i)} title="Editar" aria-label={`Editar el mensaje ${i + 1}`}
             style={{ ...accionBurbuja, ...(editando === i ? { border: '1px solid var(--primary)', color: 'var(--primary)' } : {}) }}><IconLapiz /></button>
+          {/* El tacho de la casa (app/_ui/BotonBorrar.tsx, general 9): rojo siempre. */}
           <button type="button" disabled={ocupado} onClick={() => borrar(i)} title="Borrar" aria-label={`Borrar el mensaje ${i + 1}`}
-            style={{ ...accionBurbuja, color: 'var(--bad)', border: '1px solid var(--bad)' }}><IconTrash /></button>
+            style={{ ...accionBurbuja, color: 'var(--bad)', border: '1px solid var(--bad)' }}><IconoBorrar size={16} /></button>
         </div>
         <div style={{ flex: '0 1 auto', minWidth: 0, maxWidth: 'calc(100% - 70px)', display: 'flex', justifyContent: 'flex-end', borderRadius: 16, outline: editando === i ? '2px solid var(--primary)' : 'none', outlineOffset: 2 }}>
           {burbujaDe(p)}
@@ -685,8 +745,9 @@ export function EditorMensajeWhatsApp({
     <BurbujaHilo contenido={{ texto: conNegocio(paso.cuerpo ?? ''), ia: esIA }} vacio={sinEscribir} maxAncho="92%" {...pieBurbuja} />
   );
 
-  // «{ }» EN LA BARRA, AL LADO DEL CLIP (la ranura `trasClip` de ComposerWhatsApp).
-  const botonDatos = (
+  // «{ }» EN LA BARRA, AL LADO DEL CLIP (la ranura `trasClip` de ComposerWhatsApp). Sin datos que
+  // ofrecer no hay botón: un «{ }» que abre un árbol vacío se lee roto (como `SelectorDatos`).
+  const botonDatos = grupos.length === 0 ? null : (
     <button type="button" ref={setBtnDatos} disabled={ocupado} title="Insertar un dato" aria-label="Insertar un dato" aria-expanded={abierto === 'datos'}
       onClick={() => setAbierto((a) => (a === 'datos' ? null : 'datos'))}
       style={{ ...iconComposer, width: 38, height: 38, fontSize: 13.5, fontWeight: 600, fontFamily: "'Geist Mono', monospace", color: abierto === 'datos' ? 'var(--primary)' : 'var(--dim)', opacity: ocupado ? 0.5 : 1 }}>{'{ }'}</button>
@@ -803,10 +864,11 @@ export function EditorMensajeWhatsApp({
       <input ref={inputDoc} type="file" accept={ACEPTA_DOCUMENTO} style={{ display: 'none' }}
         onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; if (f) void subirArchivo(f); }} />
 
-      {abierto === 'datos' && (
+      {/* EL ÁRBOL DE LA CASA (app/_components/SelectorDatos.tsx), adentro del popover del composer. El
+          dato entra como TEXTO PLANO `{{clave}}` donde está el cursor. */}
+      {abierto === 'datos' && grupos.length > 0 && (
         <PopoverWA ancla={btnDatos} etiqueta="Datos" onCerrar={() => setAbierto(null)}>
-          <MenuWA alElegir={() => setAbierto(null)}
-            opciones={vars.map((v) => ({ key: v.key, label: v.label, detalle: `{{${v.key}}}`, onElegir: () => composer.current?.insertar(`{{${v.key}}}`, { enfocar: true }) }))} />
+          <ArbolDeDatos grupos={grupos} onElegir={(k) => { composer.current?.insertar(`{{${k}}}`, { enfocar: true }); setAbierto(null); }} />
         </PopoverWA>
       )}
       {abierto === 'variantes' && (
@@ -836,14 +898,18 @@ export function EditorMensajeWhatsApp({
  * GRUPO del negocio. Es UN texto (el aviso al grupo es un mensaje): la barra es el mensaje, con
  * emojis y «{ }», sin audio ni archivos, y la burbuja la firma MaKo.
  *
- * Lo monta la tarjeta MAKO del lienzo (FlujoLienzo, `EditorMako`) y lo puede montar el lienzo de los
- * Mensajes de MaKo (las «Notificaciones», app/agencia/FlujoAviso.tsx) en lugar de su editor viejo.
+ * Lo montan la tarjeta MAKO del lienzo (FlujoLienzo, `EditorMako`) y el lienzo de los Mensajes de MaKo
+ * (las «Notificaciones», app/agencia/FlujoAviso.tsx, MaKo en WhatsApp 3: «tienen una interfaz vieja,
+ * elimina eso»), con el árbol del «{ }» para el EQUIPO (`datos`).
  */
-export function EditorMensajeGrupo({ texto, onTexto, variables, deshabilitado, placeholder = 'Mensaje para tu equipo' }: {
+export function EditorMensajeGrupo({ texto, onTexto, variables, datos, deshabilitado, placeholder = 'Mensaje para tu equipo' }: {
   texto: string;
   /** El texto nuevo, en cada tecla (tipear no entra a la pila de deshacer del lienzo). */
   onTexto: (v: string) => void;
+  /** Una lista plana (una rama). Mejor `datos`. */
   variables?: VariableEditor[];
+  /** El árbol de lo que ESTE aviso puede resolver (`datosOfrecidos({ destino: 'equipo', … })`). */
+  datos?: GrupoDatos[];
   deshabilitado?: boolean;
   placeholder?: string;
 }) {
@@ -852,7 +918,7 @@ export function EditorMensajeGrupo({ texto, onTexto, variables, deshabilitado, p
   }), [texto]);
   return (
     <EditorMensajeWhatsApp
-      paso={paso} audios={[]} variables={variables} autor="MaKo"
+      paso={paso} audios={[]} variables={variables} datos={datos} autor="MaKo"
       permiteAudio={false} permiteAdjuntos={false} permiteIA={false}
       deshabilitado={deshabilitado} placeholder={placeholder}
       onChange={(patch) => { if (typeof patch.cuerpo === 'string') onTexto(patch.cuerpo); }}

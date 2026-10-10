@@ -34,7 +34,8 @@ import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
 /** Una línea del negocio, como la devuelve `/api/whatsapp/evolution/mensajes?lineas=1`. */
 export type LineaWa = { linea: string; rotulo: string; estado: string; esDefault: boolean };
 
-const RUTA_LINEAS = '/api/whatsapp/evolution/mensajes?lineas=1';
+/** De dónde salen las líneas del negocio. La importan este desplegable y el «De» de «Probar» (PanelProbar). */
+export const RUTA_LINEAS = '/api/whatsapp/evolution/mensajes?lineas=1';
 /** El valor del renglón «Vincular nuevo»: no es una línea y nunca se guarda. */
 export const VINCULAR = '__vincular__';
 /** El valor de «la de por default» (la secuencia guarda null). */

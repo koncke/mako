@@ -32,9 +32,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Lienzo, TarjetaNodo, inpLienzo, rotuloLienzo } from '@/app/_components/Lienzo';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 import { TextoMarcas } from '@/app/_components/TextoMarcas';
-import { BURBUJA_SALIENTE } from '@/app/whatsapp/_shared/BurbujaMaKo';
+import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
+import { MakoLogo } from '@/app/_components/MakoBrand';
 import { Dropdown } from '../components/Dropdown';
-import { EditorMensaje } from './EditorMensaje';
+import { EditorMensajeGrupo } from '@/app/chatbot/EditorMensajeWhatsApp';
 import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { EditorCron, SelectorDisparo, useModoDisparo, CRON_DEFAULT, type ModoDisparo } from '@/app/_components/EditorCron';
@@ -48,6 +49,7 @@ import {
 } from '@/lib/flujos-tipos';
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import type { NodoFlujo } from '@/lib/lienzo-grafo';
+import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
 
@@ -75,6 +77,15 @@ const btnQuitarPaso = {
 type PanelPendiente = { tomar: () => { original: Paso; nuevo: Paso } | null };
 
 const FLUJO_VACIO: Flujo = { version: 1, activo: true, disparador: { tipo: 'manual' }, pasos: [] };
+
+/** El ícono de cada evento que dispara un mensaje (general 10: un ícono en cada opción de un desplegable). */
+const ICONO_EVENTO: Record<(typeof EVENTOS)[number]['key'], NombreIconoMenu> = {
+  'lead.agendo': 'calendario',
+  'lead.cancelo': 'cerrar',
+  'reunion.ocurrio': 'check',
+  'lead.form_meta': 'nota',
+  'lead.wa_entrante': 'whatsapp',
+};
 
 /** Lo que una pasada de deshacer restaura: el tablero entero, no un campo. */
 type FotoTablero = { flujo: Flujo | null; pos: Posiciones };
@@ -380,12 +391,16 @@ export function FlujoAviso({
          *
          * Y la lista va PLANA, con emoji y título: son cuatro opciones.
          */
+        // ⚠️ CON ÍCONOS DEL SET, NO EMOJIS (sexta tanda, general 10: «pon íconos en todos los
+        // desplegables, en todas las opciones»): el campo `icono` del Dropdown acepta un nombre de
+        // app/_ui/iconos-menu.tsx. Y el WhatsApp de este mensaje es el de MaKo al grupo (MaKo en
+        // WhatsApp 3): se llama como su tarjeta.
         opcionesAgregar={[
-          ...(canales.wa ? [] : [{ value: 'wa', label: '💬 WhatsApp' }]),
-          ...(canales.email ? [] : [{ value: 'email', label: '✉️ Email' }]),
-          { value: 'delay', label: '⏳ Delay' },
-          { value: 'condicional', label: '🔀 Condicional' },
-          { value: 'accion', label: '⚡ Acción' },
+          ...(canales.wa ? [] : [{ value: 'wa', label: 'MaKo en WhatsApp', icono: 'mako' as const }]),
+          ...(canales.email ? [] : [{ value: 'email', label: 'Email', icono: 'email' as const }]),
+          { value: 'delay', label: 'Delay', icono: 'reloj' as const },
+          { value: 'condicional', label: 'Condicional', icono: 'condicion' as const },
+          { value: 'accion', label: 'Acción', icono: 'accion' as const },
         ]}
         // Sólo donde el paso va a caer de verdad: `insertarPasoTras` cuelga del
         // MENSAJE todo lo que no sea un `paso-N`, así que el ＋ de la tarjeta del
@@ -403,12 +418,13 @@ export function FlujoAviso({
         sinMarco alto="100%" insetIzq={insetIzq}
         renderNodo={(n, activo) => (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={Boolean(n.advertencia)}>
-            {n.tipo === 'mensaje' && n.id === 'mensaje'
-              ? (
-                <div style={{ ...BURBUJA_SALIENTE, maxWidth: '100%', padding: '9px 11px', fontSize: 12.5, whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>
-                  {texto.trim() ? <TextoMarcas texto={texto} /> : <span style={{ color: 'var(--faint)' }}>Sin escribir</span>}
-                </div>
-              )
+            {/* ⚠️ LA TARJETA DE MaKo EN WHATSAPP (MaKo en WhatsApp 3): el mensaje como le llega al
+                grupo, con la MISMA burbuja que el lienzo del Chatbot y que su editor (`BurbujaHilo`,
+                firmada por MaKo, a la izquierda como la ve el equipo). El id es `mensaje` aunque el
+                tipo sea `mako` (lib/flujo-aviso.ts): las posiciones y el ＋ se buscan por id. */}
+            {n.id === 'mensaje'
+              ? <BurbujaHilo compacta saliente={false} autor="MaKo" contenido={{ texto }}
+                  vacio={<span style={{ color: 'var(--faint)', fontSize: 12.5 }}>Sin escribir</span>} />
               : <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{detalleDe(n)}</div>}
           </TarjetaNodo>
         )}
@@ -572,16 +588,26 @@ function EditorDelAviso({
             en un aviso que no habla de ningún lead sale CRUDO al WhatsApp del cliente:
             el resolvedor deja intacto lo que no sabe, a propósito, y el filtro de acá
             es lo único que evita que llegue ahí. */}
-        <EditorMensaje valor={texto} onChange={onTexto} disabled={guardando}
+        {/* ⚠️ EL MISMO EDITOR QUE «MaKo EN WHATSAPP» DEL CHATBOT (MaKo en WhatsApp 2 y 3: «El editable
+            de MaKo en WhatsApp debe ser lo mismo que el editable de WhatsApp» y «tienen una interfaz
+            vieja, elimina eso»): `EditorMensajeGrupo`, el chat con la burbuja de MaKo, emojis y el
+            árbol del «{ }». Hasta la sexta tanda era el editor de marcas de /mensajes (B / I / S y
+            «＋ Dato de MaKo», app/agencia/EditorMensaje.tsx), que se fue con esto. El ✦ que le pide el
+            texto a MaKo va arriba, a la derecha, como el de la cabecera del WhatsApp. */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, minHeight: 28 }}>
+          <PedirleAMaKo onProbar={onProbar} probando={probando} />
+        </div>
+        <EditorMensajeGrupo texto={texto} onTexto={onTexto} deshabilitado={guardando}
           // ⚠️ LO QUE SE PUEDE RESOLVER NO SALE SÓLO DEL FLUJO. Un cron puede traer el
           // lead en la mano —la cobranza es el caso— y preguntando únicamente por el
           // disparador del flujo, ese mensaje mostraba los datos del CRM apagados
-          // teniendo cómo resolverlos. Lo declara el catálogo (`aporta`).
-          variables={variablesOfrecidas({
+          // teniendo cómo resolverlos. Lo declara el catálogo (`aporta`). Y el destino es el
+          // EQUIPO: el link al portal del curso de un lead no va al grupo.
+          datos={variablesOfrecidas({
+            destino: 'equipo',
             conLead: base.disparador.tipo === 'evento' || aporta.includes('lead'),
             conCuota: aporta.includes('cuota'),
-          })}
-          accion={<PedirleAMaKo onProbar={onProbar} probando={probando} />} />
+          })} />
         {/* ⚠️ LA SUGERENCIA SE APLICA, NO SE MIRA. El botón dejaba un texto en azul
             debajo y no tocaba el mensaje: «no hace nada, me escribe algo abajo pero
             no cambia el texto». Un botón que produce algo y no lo pone donde va es
@@ -862,7 +888,7 @@ function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
       {modo === 'accion' && (
         <Dropdown
           value={evento}
-          options={EVENTOS.map((e) => ({ value: e.key, label: e.label }))}
+          options={EVENTOS.map((e) => ({ value: e.key, label: e.label, icono: ICONO_EVENTO[e.key] }))}
           onChange={(v) => onFlujo({ ...base, activo: true, disparador: { tipo: 'evento', evento: v as typeof EVENTOS[number]['key'] } })}
           width="100%" ariaLabel="Qué acción dispara este mensaje"
         />
@@ -931,7 +957,8 @@ function PedirleAMaKo({ onProbar, probando }: { onProbar: (contexto?: string) =>
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: probando ? 0.5 : 1,
         }}>
-        {probando ? '…' : '✨'}
+        {/* El logo de MaKo, como el ✦ de la cabecera del WhatsApp del Chatbot (un ícono, no un emoji). */}
+        {probando ? '…' : <MakoLogo size={18} animate={false} />}
       </button>
     );
   }
@@ -951,7 +978,7 @@ function PedirleAMaKo({ onProbar, probando }: { onProbar: (contexto?: string) =>
           flex: 'none', padding: '5px 10px', borderRadius: 6, border: 'none',
           background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 600,
           fontFamily: 'inherit', cursor: que.trim() ? 'pointer' : 'default', opacity: que.trim() ? 1 : 0.45,
-        }}>✨</button>
+        }}>Escribir</button>
     </div>
   );
 }

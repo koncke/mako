@@ -23,9 +23,10 @@ export function IconClip() {
 export function IconMic() {
   return <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" {...strokeProps} /><path d="M5.5 11a6.5 6.5 0 0 0 13 0" {...strokeProps} /><path d="M12 17.5V21" {...strokeProps} /></svg>;
 }
-export function IconTrash() {
-  return <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6h17M8 6V4h8v2M6.5 6l1 14h9l1-14M10 10.5v6M14 10.5v6" {...strokeProps} /></svg>;
-}
+// ⛔ Acá vivía `IconTrash`, el tacho de líneas sueltas del composer. Se fue en la segunda pasada de la
+// sexta tanda (general 9: «Cambia el botón de BORRAR con ese ícono de basura que no se ve... Esto en
+// TODOS lados. Y que siempre el ícono de borrar sea rojo»): el de la casa es `IconoBorrar`
+// (app/_ui/BotonBorrar.tsx), y lo usan el composer de WhatsApp, el de Instagram y la barra de grabar.
 export function IconPause() {
   return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2" fill="currentColor" /><rect x="14" y="5" width="4" height="14" rx="1.2" fill="currentColor" /></svg>;
 }

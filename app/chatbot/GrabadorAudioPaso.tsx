@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { useGrabacionVoz, BarraGrabacion } from '../whatsapp/_shared/VoiceRecorder';
 import { Icon } from '@/app/_components/icons';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import type { AudioPasoDef } from '@/lib/audios-paso';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 
@@ -153,13 +154,9 @@ export function GrabadorAudioPaso({ def, grabado, abierto, onToggle, onGrabado, 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {grabado.url && <AudioPlay src={grabado.url} duracion={grabado.duracion_s} style={{ flex: 1, minWidth: 200, width: 'auto' }} />}
               <button type="button" onClick={() => void voz.start()} style={btn}>Grabar de nuevo</button>
-              <button
-                type="button" onClick={() => void borrar()}
-                title="Borrar este audio" aria-label={`Borrar el audio de ${def.titulo}`}
-                style={{ ...btn, border: '1px solid transparent', background: 'transparent', color: 'var(--bad)', padding: '7px 9px' }}
-              >
-                <Icon name="trash" size={15} />
-              </button>
+              {/* El botón de borrar de la casa (sexta tanda, general 9): el tacho rojo, siempre. */}
+              <BotonBorrar onClick={() => void borrar()} title={`Borrar el audio de ${def.titulo}`} />
+
             </div>
           ) : (
             <button type="button" onClick={() => void voz.start()} style={{ ...btnDark, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 8 }}>

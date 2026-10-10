@@ -69,6 +69,7 @@
 import { useState, useTransition } from 'react';
 import type { CSSProperties } from 'react';
 import { Confirm, SANS, MONO } from '@/app/_ui';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Dropdown } from '@/app/components/Dropdown';
 import type { Stage } from '@/lib/pipeline';
 import type { MiembroEquipo } from './actions';
@@ -141,13 +142,6 @@ async function loteEtiqueta(action: 'poner_lote' | 'sacar_lote', leadIds: number
   return r.json() as Promise<LoteEtiqueta>;
 }
 
-function IconoTacho() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
-    </svg>
-  );
-}
 
 /** Lo que se esta por hacer, ya elegido y todavia sin confirmar. */
 type Pendiente =
@@ -190,7 +184,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   const cerrar = () => setPide(null);
 
   /**
-   * Poner una etiqueta a los tildados, AL TOQUE (se deshace desde el aviso). Los que ya la tenían
+   * Agregar una etiqueta a los tildados, AL TOQUE (se deshace desde el aviso). Los que ya la tenían
    * se cuentan aparte, como en producto. Sin disparar nada: ver la cabecera.
    */
   const etiquetar = (e: Etiqueta) => {
@@ -322,7 +316,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               ariaLabel={`Asignar ${campo === 'closer' ? 'Closer' : 'Setter'} a ${cuantos}`}
               icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoPersona /></span>}
               buttonStyle={estiloDrop}
-              options={equipo.map((m) => ({ value: m.nombre, label: m.nombre }))}
+              // Una persona va con su avatar (la foto o sus iniciales), no con un ícono (general 10).
+              options={equipo.map((m) => ({ value: m.nombre, label: m.nombre, avatar: m.foto_url ?? null }))}
               onChange={(v) => { if (v) setPide({ tipo: 'persona', campo, valor: v, pisa: conValor(campo) }); }} />
           ))}
 
@@ -341,8 +336,10 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               }} />
           )}
 
-          {/* Poner una etiqueta: al toque, con Deshacer. «＋ Nueva» la crea de paso. */}
-          <SelectorEtiqueta value={null} accion placeholder="Etiqueta" ariaLabel={`Poner una etiqueta a ${cuantos}`}
+          {/* Agregar una etiqueta: al toque, con Deshacer. «＋ Nueva» la crea de paso. «Agregar» y no
+              «Poner» (sexta tanda, TAG 1: «En lugar de "Poner" y "Sacar", se formal escribiendo
+              siempre... "Agregar" y "Eliminar". Revisa que no esté ese error en otro lado»). */}
+          <SelectorEtiqueta value={null} accion placeholder="Etiqueta" ariaLabel={`Agregar una etiqueta a ${cuantos}`}
             icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoEtiqueta /></span>}
             buttonStyle={estiloDrop} disabled={corriendo}
             onElegir={(e) => { if (!corriendo) etiquetar(e); }} />
@@ -353,7 +350,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
           <button type="button" className="mk-icon-btn" data-tone="bad"
             title={`Eliminar ${cuantos}`} aria-label={`Eliminar ${cuantos}`}
             onClick={() => setPide({ tipo: 'borrar' })} style={btnIcono}>
-            <IconoTacho />
+            {/* El tacho de la casa (app/_ui/BotonBorrar.tsx, general 9): el mismo dibujo y rojo siempre. */}
+            <IconoBorrar size={16} />
           </button>
         </div>
       </div>

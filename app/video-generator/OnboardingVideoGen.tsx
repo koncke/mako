@@ -41,7 +41,7 @@ import type { Puente } from '@/lib/flow-cola';
 import { estadoDelPuente, AvisoPuente } from './puente-avisos';
 import { estadoPuenteAction } from './puente-actions';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
-import { useVoiceRecorder, VoiceRecorderBar } from '@/app/whatsapp/_shared/VoiceRecorder';
+import { useGrabacionVoz, BarraGrabacion } from '@/app/whatsapp/_shared/VoiceRecorder';
 import {
   marcarPasoVideoAction, guardarAcentoAction, guardarMuletillasAction,
   escucharMiVozAction, type PasoVideoGen,
@@ -76,29 +76,32 @@ type Paso = (typeof PASOS)[number];
 /**
  * Grabar la voz acá mismo.
  *
- * Envuelve el grabador del inbox de WhatsApp —`useVoiceRecorder` + la barra con
- * waveform— sin copiarle nada: es el mismo gesto y tiene que verse igual. Lo
- * único propio es el estado de reposo, que acá es un botón grande y allá es un
- * ícono en la barra de escribir.
+ * Envuelve la sesión de voz de la casa —`useGrabacionVoz` + `BarraGrabacion`, la del composer de
+ * WhatsApp y los grabadores del Chatbot— sin copiarle nada: es el mismo gesto y tiene que verse igual.
+ * Lo único propio es el estado de reposo, que acá es un botón grande y allá es un ícono en la barra de
+ * escribir.
+ *
+ * ⚠️ NADA SE GUARDA AL SOLTAR (sexta tanda, WhatsApp 7: «al darle enviar, en cualquier lado, no se debe
+ * enviar, se debe "terminar" de grabar... para escuchar el audio que acabo de grabar. Esto en todos
+ * lados»). Hasta la segunda pasada esto era `useVoiceRecorder`, que entregaba la grabación al apretar
+ * la flecha: la muestra de la voz que clona el avatar se guardaba sin que nadie la escuchara. Ahora ✓
+ * termina, se escucha, 🎤 suma otro tramo, y recién la ➤ verde la usa.
+ *
+ * ⚠️ Y LA BARRA VA A TODO EL ANCHO (`alignSelf: 'stretch'`): con `center`, el contenedor la ajustaba a
+ * su contenido y la onda quedaba amontonada («debería ocupar mucho más espacio, hasta el final del
+ * ancho... esto en todos lados»).
  */
 function GrabadorVoz({ onListo, ocupado }: {
   onListo: (blob: Blob, secs: number) => Promise<void>;
   ocupado: boolean;
 }) {
   const [fallo, setFallo] = useState('');
-  const rec = useVoiceRecorder(onListo, setFallo);
+  const voz = useGrabacionVoz(onListo, setFallo);
 
-  if (rec.recording) {
+  if (voz.fase !== 'quieta') {
     return (
-      <div style={{ alignSelf: 'center' }}>
-        <VoiceRecorderBar
-          paused={rec.paused}
-          secs={rec.secs}
-          sending={ocupado}
-          onCancel={() => rec.stop(true)}
-          onTogglePause={() => (rec.paused ? rec.resume() : rec.pause())}
-          onSend={() => rec.stop(false)}
-        />
+      <div style={{ alignSelf: 'stretch', width: '100%' }}>
+        <BarraGrabacion voz={voz} ocupado={ocupado} rotuloEnviar="Usar esta grabación" />
       </div>
     );
   }
@@ -111,7 +114,7 @@ function GrabadorVoz({ onListo, ocupado }: {
         loading={ocupado}
         disabled={ocupado}
         icon={<Icon name="mic" size={16} />}
-        onClick={() => { setFallo(''); void rec.start(); }}
+        onClick={() => { setFallo(''); void voz.start(); }}
       >
         {ocupado ? 'Guardando…' : 'Grabar mi voz'}
       </Button>

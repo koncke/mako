@@ -18,8 +18,10 @@
 // La lógica vive en `crearGrabadorVoz`, sin React, para que un test la pueda EJECUTAR con un
 // MediaRecorder falso (tests/composer-whatsapp.test.ts). El hook sólo la envuelve.
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { WAVE_CSS, IconTrash, IconPause, IconMic, SendArrow } from './composer-icons';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { WAVE_CSS, IconPause, IconMic, SendArrow } from './composer-icons';
+// El tacho de la casa (app/_ui/BotonBorrar.tsx, sexta tanda, general 9): rojo siempre.
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { AudioPlay } from './AudioPlay';
 
 function fmtDur(s: number) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
@@ -455,7 +457,8 @@ const btnVerde = (apagado: boolean): CSSProperties => ({ ...btnRedondo, width: 4
 
 /**
  * LA BARRA DE LA SESIÓN: la de grabar y la de escuchar antes de mandar. La usan el composer de WhatsApp
- * (el editor del lienzo, /whatsapp y el hilo) y los grabadores de los onboardings.
+ * (el editor del lienzo, /whatsapp y el hilo), los grabadores de los onboardings (el del Chatbot y el del
+ * Video Generator) y la tarea de AUDIO del alumno (app/compartido/curso/[token]/TareaAlumno.tsx).
  *
  * `existente`: WA9 («Si le doy editar a un audio... debería salir la misma barra de sonido, con los
  * botones de reanudar grabación, enviar, borrar, escuchar»): un audio que YA está (su URL) se revisa con
@@ -474,7 +477,7 @@ export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar au
     return (
       <div data-barra-voz="grabando" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
         <style>{WAVE_CSS}</style>
-        <button type="button" onClick={voz.descartar} disabled={cerrando} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconTrash /></button>
+        <button type="button" onClick={voz.descartar} disabled={cerrando} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconoBorrar size={20} /></button>
         <span style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: '#e53935', animation: voz.paused ? 'none' : 'mako-blink 1s steps(1) infinite', opacity: voz.paused ? 0.4 : 1 }}></span>
         <span style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--ink)', minWidth: 38 }}>{fmtDur(voz.secs)}</span>
         <OndaGrabando paused={voz.paused || cerrando} />
@@ -493,7 +496,7 @@ export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar au
   const apagado = ocupado || voz.uniendo;
   return (
     <div data-barra-voz="revisando" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
-      <button type="button" onClick={() => (propia ? voz.descartar() : existente?.onBorrar())} disabled={apagado} title="Borrar el audio" aria-label="Borrar el audio" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconTrash /></button>
+      <button type="button" onClick={() => (propia ? voz.descartar() : existente?.onBorrar())} disabled={apagado} title="Borrar el audio" aria-label="Borrar el audio" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconoBorrar size={20} /></button>
       {/* ▶ DONDE ESTABA EL PUNTO ROJO: el reproductor de la casa, a todo el ancho. */}
       <AudioPlay key={r.url} src={r.url} duracion={r.secs || null} style={{ flex: 1, minWidth: 0, width: 'auto' }} />
       {(propia || existente?.onSeguir) && (
@@ -506,26 +509,8 @@ export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar au
   );
 }
 
-/**
- * La barra del grabador de SIEMPRE (`useVoiceRecorder`), para quien todavía la monta suelta (el
- * onboarding del Video Generator): la misma cara de grabar —la onda a todo el ancho, 🎤 para seguir
- * en pausa—. Sin la revisión: ese grabador entrega al soltar. El pase a `BarraGrabacion` +
- * `useGrabacionVoz` es de quien la monta.
- */
-export function VoiceRecorderBar({ paused, secs, sending, onCancel, onTogglePause, onSend, rotuloListo = 'Enviar audio', iconoListo }: {
-  paused: boolean; secs: number; sending: boolean;
-  onCancel: () => void; onTogglePause: () => void; onSend: () => void;
-  rotuloListo?: string; iconoListo?: ReactNode;
-}) {
-  return (
-    <div data-barra-voz="grabando" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
-      <style>{WAVE_CSS}</style>
-      <button type="button" onClick={onCancel} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconTrash /></button>
-      <span style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: '#e53935', animation: paused ? 'none' : 'mako-blink 1s steps(1) infinite', opacity: paused ? 0.4 : 1 }}></span>
-      <span style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--ink)', minWidth: 38 }}>{fmtDur(secs)}</span>
-      <OndaGrabando paused={paused} />
-      <button type="button" onClick={onTogglePause} title={paused ? 'Seguir grabando' : 'Pausar'} aria-label={paused ? 'Reanudar grabación' : 'Pausar grabación'} style={{ ...btnRedondo, color: 'var(--ink)' }}>{paused ? <IconMic /> : <IconPause />}</button>
-      <button type="button" onClick={onSend} disabled={sending} title={rotuloListo} aria-label={rotuloListo} style={btnVerde(sending)}>{iconoListo ?? <SendArrow />}</button>
-    </div>
-  );
-}
+// ⛔ Acá vivía `VoiceRecorderBar`, la barra del grabador de SIEMPRE (`useVoiceRecorder`, que entrega al
+// soltar). La montaba sólo el onboarding del Video Generator, y en la segunda pasada de la sexta tanda
+// pasó a la sesión de la casa (`useGrabacionVoz` + `BarraGrabacion`, WhatsApp 7: «Esto en todos
+// lados»): quedó con cero llamadores y se fue. `useVoiceRecorder` sigue (el dictado del Plan, que no
+// manda un audio a nadie).

@@ -384,7 +384,9 @@ test('«Probar» 2: los emisores salen de lo vinculado del negocio, y viaja sól
   // «Vincular nuevo» es el flujo de siempre (el QR de una línea nueva; el dominio de /email), y el email
   // dice que REEMPLAZA (hoy hay UN remitente por negocio).
   assert.match(src, /<EvolutionConnect key="nueva-linea" nueva inline panelVisible ocultarChip onLineaCreada=\{onLinea\} \/>/);
-  assert.match(src, /\{reemplaza && <div role="note"[^>]*>\{AVISO_REEMPLAZA\}<\/div>\}/);
+  // El modal del email ES el del editor de Gmail (`VincularRemitente`, que lleva el aviso de que
+  // reemplaza: lo cuida tests/editor-email-gmail.test.ts), no una copia (segunda pasada, parte «datos»).
+  assert.match(src, /<VincularRemitente inicial=\{dom\} reemplaza=\{reemplaza\}/);
   assert.match(src, /<VincularEmisor canal=\{canal\}[^>]*reemplaza=\{vinculados\.length > 0\}/);
 });
 

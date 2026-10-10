@@ -44,7 +44,9 @@
 //   · subir imágenes o archivos: el editor rico sólo acepta adjuntos de un bucket PRIVADO
 //     (`mako-adjunto:<uuid>`), con URLs que vencen, y un correo abierto mañana mostraría la imagen rota.
 //     Sin `subirAdjunto`, sus botones no se dibujan. El saneo sí deja pasar una imagen https.
-//   · otras variables que las del MOTOR (lib/template-vars.ts): lo que el envío no conoce queda literal.
+//   · otros datos que los que el MOTOR resuelve en un email al lead: el «{ }» (asunto y cuerpo) es el
+//     árbol de la casa (`ArbolDeDatos`) con `datosOfrecidos({ destino: 'lead', conLead: true })`, que
+//     es lo que el envío pasa por `datosParaElLead` (lib/nutricion.ts). Lo que no conoce queda literal.
 //
 // El De: los remitentes vinculados salen de GET /api/email/dominio (hoy uno por workspace: ver la
 // cabecera de lib/email-remitente.ts). «Vincular nuevo» abre EL MISMO flujo de conectar el dominio que
@@ -72,7 +74,9 @@ import { Modal } from '@/app/_ui/Modal';
 import { useWs } from '@/app/_ui/Link';
 import { htmlDeCuerpoTexto, type RenderEmailParams } from '@/lib/email-html';
 import { textoDeHtmlEmail, aplicarVariablesHtml, sanearHtmlEmail } from '@/lib/email-html-seguro';
-import { VARIABLES_LEAD, VARIABLES_NEGOCIO, aplicarVariables } from '@/lib/template-vars';
+import { aplicarVariables } from '@/lib/template-vars';
+import { datosOfrecidos } from '@/lib/variables-aviso';
+import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
 import { remitentesVinculados, opcionesDeRemitente, remitenteDelPaso, partesDeRemitente, firmaDelPie } from '@/lib/email-remitente';
 import type { DomState } from '../email/EmailApp';
 
@@ -287,7 +291,12 @@ let moduloEmail: ModuloEmail | null = null;
  */
 export const AVISO_REEMPLAZA = 'Reemplaza el remitente de tu negocio.';
 
-function VincularRemitente({ inicial, reemplaza, onCerrar, onDominio }: { inicial: DomState | null; reemplaza: boolean; onCerrar: () => void; onDominio: (d: DomState) => void }) {
+/**
+ * El modal de «Vincular nuevo» del email: el flujo de /email (`DominioSetup`), cargado a demanda y en un
+ * portal. Lo usan el «De» de este editor y el «De» de «Probar» (`VincularEmisor`, app/chatbot/PanelProbar.tsx):
+ * UN modal, para que los dos digan lo mismo (el aviso de que reemplaza incluido).
+ */
+export function VincularRemitente({ inicial, reemplaza, onCerrar, onDominio }: { inicial: DomState | null; reemplaza: boolean; onCerrar: () => void; onDominio: (d: DomState) => void }) {
   const [m, setM] = useState<ModuloEmail | null>(moduloEmail);
   const [dom, setDom] = useState<DomState | null>(inicial);
   const [error, setError] = useState(false);
@@ -408,7 +417,8 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
     if (recien.length === 1) onChange({ remitente: recien[0] === nuevo.vinculados[0] ? null : recien[0] });
   };
 
-  const variables = [...VARIABLES_LEAD, ...VARIABLES_NEGOCIO];
+  // El «{ }» de un email al LEAD: lo que el envío resuelve (`datosParaElLead`, lib/nutricion.ts).
+  const datos = datosOfrecidos({ destino: 'lead', conLead: true });
 
   const insertarEnAsunto = (texto: string) => {
     const el = campoAsunto.current;
@@ -511,16 +521,15 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
           ]} />
         </PopoverWA>
       )}
+      {/* El «{ }»: el árbol de la casa (app/_components/SelectorDatos.tsx), igual que en WhatsApp. */}
       {abierto === 'datos-asunto' && (
         <PopoverWA ancla={btnDatosAsunto} etiqueta="Datos" onCerrar={() => setAbierto(null)}>
-          <MenuWA alElegir={() => setAbierto(null)}
-            opciones={variables.map((v) => ({ key: v.key, label: v.label, detalle: `{{${v.key}}}`, onElegir: () => insertarEnAsunto(`{{${v.key}}}`) }))} />
+          <ArbolDeDatos grupos={datos} onElegir={(k) => { insertarEnAsunto(`{{${k}}}`); setAbierto(null); }} />
         </PopoverWA>
       )}
       {abierto === 'datos-cuerpo' && (
         <PopoverWA ancla={ancla} etiqueta="Datos" onCerrar={() => setAbierto(null)}>
-          <MenuWA alElegir={() => setAbierto(null)}
-            opciones={variables.map((v) => ({ key: v.key, label: v.label, detalle: `{{${v.key}}}`, onElegir: () => { insertarEnCuerpo(`{{${v.key}}}`); } }))} />
+          <ArbolDeDatos grupos={datos} onElegir={(k) => { insertarEnCuerpo(`{{${k}}}`); setAbierto(null); }} />
         </PopoverWA>
       )}
       {abierto === 'emoji' && (

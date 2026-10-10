@@ -769,10 +769,13 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "Un motor auditable que corre solo todos los días",
         bullets: [
-          "<strong>Un cron corre cada hora (15-23 UTC) e itera todos los workspaces activos:</strong> por corrida inscribe leads nuevos en cada secuencia y procesa los envíos vencidos. Si un workspace falla, se aísla del resto.",
+          // Sexta tanda (09/10/2026): el motor ya no corre «cada hora de 15 a 23 UTC». Un tick cada minuto
+          // cumple las esperas a la hora exacta y la corrida de cada hora barre lo demás, las 24 h; el
+          // horario de envío es opcional (Configuraciones › Horario) y sin límite por defecto.
+          "<strong>El motor corre cada minuto e itera todos los workspaces activos:</strong> cada espera se cumple a la hora exacta, y una corrida por hora inscribe leads nuevos en cada secuencia y barre lo pendiente. El horario de envío es opcional: sin límite por defecto. Si un workspace falla, se aísla del resto.",
           "<strong>Cada intento deja una fila auditable</strong> en el log — estado (enviado / simulado / omitido / borrador / fallo), canal, destino y el proveedor_id de Resend — de donde salen los conteos de inscriptos y enviados por secuencia en la UI.",
           "Máquina de estados real: cada inscripción avanza paso a paso, y las <strong>condiciones terminales (opt-out, sin email) cierran la inscripción</strong> en vez de reintentar para siempre.",
-          "<strong>Prendés email y/o WhatsApp desde la UI</strong>, sin tocar Vercel. Modos de testing incluidos: preview sin escribir (dry), commit forzado marcado \"simulado\", e ignorar ventana horaria.",
+          "<strong>Prendes email y/o WhatsApp desde la UI</strong>, sin tocar Vercel. Modos de testing incluidos: preview sin escribir (dry), commit forzado marcado \"simulado\", e ignorar el horario de envío.",
         ],
       },
     ],

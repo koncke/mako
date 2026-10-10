@@ -447,9 +447,6 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 - 🟢 **New Sequence Wizard**  · ícono `hammer`  
   El wizard de 9 pasos que arma una secuencia (a quién → objetivo → ¿lead magnet? → cuál → preguntas → MaKo redacta → desenlace → prueba → activar), con el mismo chrome fullscreen del onboarding.  
   <sub>app/chatbot/SecuenciaWizard.tsx · app/_components/WizardShell.tsx · app/_components/PanelMarketing.tsx · lib/etapas-contexto.ts</sub>
-- 🟢 **Email Simulator**  · ícono `email`  
-  La bandeja simulada del lead: cada paso de canal email de la secuencia como lo vería él (remitente, asunto, preheader, cuerpo) con el timing anotado.  
-  <sub>app/chatbot/SimuladorEmail.tsx</sub>
 - 🟢 **Chatbot Dashboard**  · ícono `graphics`  
   KPIs del agente, serie diaria de envíos/respuestas/aperturas a 30 días y la comparativa por secuencia (recharts, mismo sistema de charts del repo).  
   <sub>app/chatbot/DashboardChatAgent.tsx · lib/setting-metricas.ts</sub>
