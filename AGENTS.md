@@ -270,6 +270,14 @@ Se copia `next.config.ts` al scratchpad antes, se restaura después y se comprue
 junction se saca con `cmd /c rmdir`: un `Remove-Item -Recurse` de PowerShell 5.1 sobre él borra el
 `node_modules` del clon.
 
+⚠️ **Y el build deja MÁS junctions que el que pusiste: `.next/node_modules/postcss-<hash>` y
+`.next/node_modules/sharp-<hash>` apuntan a los paquetes DEL CLON** (Turbopack los crea, medido el
+10/10/2026). `git worktree remove --force` no los sigue: los deja, y la carpeta del worktree queda a
+medias con un `.next` adentro — que es justo cuando aparece la tentación de un `Remove-Item -Recurse`,
+y ése sí los seguiría y le borraría `postcss` y `sharp` al clon. Antes de borrar lo que quede, se
+listan los enlaces (`Get-ChildItem <ruta> -Recurse -Force -Attributes ReparsePoint`), se saca cada uno
+con `cmd /c rmdir`, y recién con cero enlaces se borra la carpeta.
+
 ⚠️ **Lo que el hook NO hace es correr los tests** (`npm test`), y por eso hay que acordarse
 a mano. Un renombre pasa el typecheck perfecto y rompe una aserción sin que nada avise: al
 renombrar la tab «Guiones» a «Ads Writer» el push salió verde, se desplegó a producción, y
