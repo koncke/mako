@@ -181,7 +181,7 @@ test('5. la cadencia de fábrica de la cobranza: tarjetas de la casa, con su tex
     'los pasos que el cron corre se dibujan «sólo corre con un evento»: la plantilla de fábrica sale rota');
   assert.deepEqual(pasos.map((n) => n.titulo), [TITULO.esperar, TITULO.mako, TITULO.esperar, TITULO.mako]);
   assert.deepEqual(pasos.map((n) => n.tipo), ['espera', 'mako', 'espera', 'mako']);
-  assert.match(pasos[1].detalle ?? '', /^Sigue sin cobrarse/, 'la tarjeta del mensaje al grupo no dice lo que manda');
+  assert.match(pasos[1].detalle ?? '', /^💸 Sigue sin cobrarse/u, 'la tarjeta del mensaje al grupo no dice lo que manda');
   // Sin el id (o en un aviso que el código no corre), la advertencia es cierta y se queda.
   const sinId = grafoDeAviso(aviso).nodos.filter((n) => n.id.startsWith('paso-'));
   assert.equal(sinId.filter((n) => n.advertencia).length, 4);

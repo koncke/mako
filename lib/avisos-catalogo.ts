@@ -845,7 +845,9 @@ https://hola-mako.com/plan — MaKo`,
     // Lo emiten las automatizaciones cuando un lead les contesta (lib/nutricion.ts, tres lugares) y
     // el hand-off (lib/chat-agent-handoff.ts), cada uno con su texto: el ejemplo es la muestra de uno.
     textoDelCodigo: true,
-    disparador: 'Un lead contesta por el WhatsApp del negocio y nadie le respondió todavía.',
+    // Revisión del ws9 (10/10/2026): decía «Un lead contesta por el WhatsApp del negocio», y sólo lo emiten las
+    // respuestas a una AUTOMATIZACIÓN (los tres de lib/nutricion.ts y el hand-off), no cualquier mensaje.
+    disparador: 'Cuando un lead contesta una automatización y MaKo no le contestó solo.',
     // ⚠️ El ejemplo de antes («Lleva 12 min sin respuesta») no se parecía a NINGUNO de los cuatro que
     // salen. Con el texto armado por código el ejemplo es lo único que se ve del mensaje: tiene que
     // ser uno de verdad (el de la charla que se cerró sin respuesta preparada, lib/nutricion.ts).
@@ -960,9 +962,11 @@ https://hola-mako.com/plan — MaKo`,
       disparador: { tipo: 'manual' },
       pasos: [
         { tipo: 'esperar', horas: 48 },
-        { tipo: 'mensaje', canal: 'aviso_dueno', texto: 'Sigue sin cobrarse la cuota {{cuota_numero}} de {{lead_nombre}} — {{cuota_monto}}, vencía el {{cuota_vence}}.' },
+        // Con su emoji, su link a la ficha y la firma, como el de la entrada (revisión del ws9, 10/10/2026):
+        // «márcalo en su ficha» sin el link mandaba a buscarla.
+        { tipo: 'mensaje', canal: 'aviso_dueno', texto: '💸 Sigue sin cobrarse la cuota {{cuota_numero}} de {{lead_nombre}} — {{cuota_monto}}, vencía el {{cuota_vence}}.\n\n👉 {{link_lead}} — MaKo' },
         { tipo: 'esperar', horas: 72 },
-        { tipo: 'mensaje', canal: 'aviso_dueno', texto: 'Último recordatorio por la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}): si ya se cobró, márcalo en su ficha y dejo de insistir.' },
+        { tipo: 'mensaje', canal: 'aviso_dueno', texto: '💸 Último recordatorio por la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}): si ya se cobró, márcalo en su ficha y dejo de insistir.\n\n👉 {{link_lead}} — MaKo' },
       ],
     },
     disparador: 'Cuando una cuota pasa su fecha sin cobrarse, una vez por cuota (se revisa cada día). Lo que viene después —cada cuánto recordarlo y cuántas veces— lo decide el flujo de este mensaje, en el lienzo. Al marcar el pago en la ficha, se corta solo.',

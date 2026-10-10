@@ -4,7 +4,7 @@
 // dispararEvento(evento, ctx) lo llaman los choke points ya cableados (calendly/
 // fathom/meta-leads), al lado del emitirDelCatalogo existente. Lee los
 // flujos ACTIVOS, matchea el evento + filtro, y ejecuta los pasos EN ORDEN hasta
-// el primer 'esperar' (los pasos con espera necesitan el cron drenador — pendiente).
+// el primer 'esperar'; lo que sigue lo retoma el cron drenador (app/api/cron/flujo-corridas, cada 5 min).
 //
 // Pasos:
 //   · mensaje/aviso_dueno  → manda SU texto al grupo de MaKo del dueño, con los datos puestos por
