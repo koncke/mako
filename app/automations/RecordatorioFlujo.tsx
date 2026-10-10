@@ -46,7 +46,6 @@
 // docs/hallazgos-chatbot.md → «Restos de versiones anteriores, grupo recordatorio»):
 //   · el ✦ de MaKo (en el título y en la cabecera del mensaje): el que ayuda a escribir sólo conoce las
 //     variables del motor, y acá escribiría `{{empresa}}` o la hora fija en vez de `{{hora}}`;
-//   · los botones de deshacer y rehacer (el atajo sí anda): `BotonPila` no se exporta;
 //   · mover las tarjetas y «Acomodar»: el guardado de las posiciones es de las automatizaciones;
 //   · «▶ Probar»: el panel prueba una automatización con las variables del motor, no el emisor.
 //
@@ -59,6 +58,7 @@ import { Icon } from '@/app/_components/icons';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { Spinner } from '@/app/_ui';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
+import { BotonPila } from './BotonPila';
 import { EditorMensajeWhatsApp, CabeceraWhatsApp, type VariableEditor } from './EditorMensajeWhatsApp';
 // Las piezas de la tarjeta de una automatización: la del CRON y cuántos renglones del texto entran.
 import { CuerpoCron, renglonesDeTarjeta } from './FlujoLienzo';
@@ -176,9 +176,9 @@ export function RecordatorioFlujo({ negocio, insetIzq, insetDer, muelles, onCamb
   /**
    * LA PILA DE DESHACER (la de la casa, app/_ui/usePilaDeshacer.ts), como en una automatización: la foto
    * es la edición entera y se apila lo que es una DECISIÓN (volver al texto original, cambiar el número).
-   * Tipear no: el Ctrl+Z del texto es del navegador. Los botones esperan a `BotonPila` (ver la cabecera).
+   * Tipear no: el Ctrl+Z del texto es del navegador. Los botones ↶ ↷ son `BotonPila`, el de una automatización.
    */
-  const { apilar } = usePilaDeshacer<Edicion>(
+  const { apilar, deshacer, rehacer, puedeDeshacer, puedeRehacer } = usePilaDeshacer<Edicion>(
     (foto) => { const antes = edicion; setEdicion(foto); return antes; },
     { activa: estado != null },
   );
@@ -268,6 +268,13 @@ export function RecordatorioFlujo({ negocio, insetIzq, insetDer, muelles, onCamb
         insetDerChrome={muelles?.insets.derChrome} insetDerAbajo={muelles?.insets.derAbajo}
         panelForma={formaPanel} panelAncho={talla.ancho} panelAlto={talla.alto}
         seleccion={sel}
+        // Los botones de la pila, pegados al zoom, como en una automatización (restos de versiones anteriores).
+        herramientas={(
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <BotonPila titulo="Deshacer (Ctrl+Z)" onClick={deshacer} activo={puedeDeshacer}>↶</BotonPila>
+            <BotonPila titulo="Rehacer (Ctrl+Y)" onClick={rehacer} activo={puedeRehacer}>↷</BotonPila>
+          </div>
+        )}
         // Sólo los mensajes se abren: el disparador y las esperas no tienen nada que elegir.
         onSeleccion={(id) => setSel(esTarjetaDeToque(id) ? id : null)}
         // El click derecho en el fondo: «Publicar» (el lienzo suma «Centrar»). Crear, duplicar o borrar

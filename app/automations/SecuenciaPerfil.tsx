@@ -17,7 +17,7 @@
 // disparador, el horario, la línea, el nombre y Activar. Lo que se guarda con PUBLICAR:
 // el flujo entero, validado antes (`validarGrafo`).
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
@@ -32,6 +32,7 @@ import { useBorradorSecuencia, ERROR_DESACTUALIZADO } from './useBorradorSecuenc
 import { Dropdown } from '@/app/components/Dropdown';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
+import { BotonPila } from './BotonPila';
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
 import { useFaltanEnAcciones } from '@/app/_components/EditorAccionMako';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
@@ -995,19 +996,3 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   );
 }
 
-/** Los dos botones de la pila, pegados al zoom. Mismo molde que el de /mensajes. */
-function BotonPila({ titulo, onClick, activo, children }: {
-  titulo: string; onClick: () => void; activo: boolean; children: ReactNode;
-}) {
-  return (
-    <button type="button" onClick={onClick} disabled={!activo} title={titulo} aria-label={titulo}
-      style={{
-        width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)',
-        color: activo ? 'var(--dim)' : 'var(--faint)', fontSize: 15, fontFamily: 'inherit',
-        cursor: activo ? 'pointer' : 'default', opacity: activo ? 1 : 0.45,
-      }}>
-      {children}
-    </button>
-  );
-}

@@ -54,6 +54,7 @@ import { EditorMensajeGrupo, CabeceraMakoEnWhatsApp } from '@/app/automations/Ed
 // La tarjeta CRON y los renglones de la burbuja: los MISMOS de una automatización.
 import { CuerpoCron, renglonesDeTarjeta } from '@/app/automations/FlujoLienzo';
 import { EditorRecurrente } from '@/app/automations/EditorRecurrente';
+import { BotonPila } from '@/app/automations/BotonPila';
 import { IconoDisparador } from '@/app/automations/IconosDisparador';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
 import { PopoverWA, insertarEnCursor } from '@/app/whatsapp/_shared/ComposerWhatsApp';
@@ -1230,31 +1231,6 @@ function BotonVolver({ onClick, disabled, titulo }: { onClick: () => void; disab
   return (
     <button type="button" onClick={onClick} disabled={disabled} title={titulo} aria-label={titulo}
       style={{ flex: 'none', width: 34, height: 34, borderRadius: 9, cursor: 'pointer', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 15, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
-  );
-}
-
-/**
- * Un botón de la pila. Apagado cuando no hay nada que deshacer o rehacer, que es lo
- * que lo vuelve honesto: ofrecer un «Deshacer» que no deshace nada es peor que no
- * ofrecerlo — la misma regla que ya está escrita en `app/_ui/Toast.tsx` para su
- * `onUndo` opcional.
- *
- * ⚠️ `data-no-pan` lo pone el envoltorio y no cada botón: un `pointerdown` en los
- * píxeles de separación no encuentra el botón, y el lienzo lo tomaría como un paneo.
- */
-function BotonPila({ titulo, onClick, activo, children }: {
-  titulo: string; onClick: () => void; activo: boolean; children: React.ReactNode;
-}) {
-  return (
-    <button type="button" onClick={onClick} disabled={!activo} title={titulo} aria-label={titulo}
-      style={{
-        width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)',
-        color: activo ? 'var(--dim)' : 'var(--faint)', fontSize: 15, fontFamily: 'inherit',
-        cursor: activo ? 'pointer' : 'default', opacity: activo ? 1 : 0.45,
-      }}>
-      {children}
-    </button>
   );
 }
 
