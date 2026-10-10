@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mapaDeAnuncios, origenAds, opcionesDeFiltro, arbolDeAnuncios, pasaFiltroAnuncio, SIN_ORIGEN_ADS } from '../lib/campana-atribucion';
 import { alternarGrupo, alternarHijo } from '../app/crm/arbol-seleccion';
+import { lugarDelPanel, ANCHO_PANEL, MARGEN_VENTANA } from '../app/crm/filtro-panel';
 import { canalDeLead } from '../app/crm/origen-lead';
 
 const CAMP = '120000000000000001';
@@ -240,4 +241,53 @@ test('UN filtro: el menú no ofrece «Campaña» aparte, y el árbol usa las fun
   assert.match(t, /aplicar\(alternarHijo\(\{ grupos: lista\.sel, hijos: arbol\.sel \}/);
   //   ROTO A PROPÓSITO (2026-10-10): con una lista «Campaña» devuelta al lado de «Anuncio», pass 14 /
   //   fail 1.
+});
+
+// =============================================================================
+// 10/10/2026, tercera vuelta — «1. El botón de desplegar debe estar a la derecha, no a la
+// izquierda, siempre. Para las campañas. 2. Si clickeo una campaña […] quiero que se abra
+// el desplegable cuando clickeo eso. 3. El ancho del desplegable debe ser más grande. Bajo
+// ningún motivo debe tener scroll hacia la derecha.» (Martín)
+// =============================================================================
+
+test('el panel es más ancho y su borde derecho nunca pasa la ventana, en ningún ancho ni posición', () => {
+  assert.ok(ANCHO_PANEL > 262, 'más ancho que el de antes');
+  assert.deepEqual(lugarDelPanel(500, 1600), { ancho: ANCHO_PANEL, izq: 0 }, 'si entra, abre pegado al botón');
+  // Y a la izquierda el tope es el CONTENIDO, no la ventana: la barra lateral mide 68 px y
+  // queda encima (medido a 390 px: corrido hasta x=16, el panel quedaba debajo de ella).
+  for (const ventana of [320, 375, 390, 414, 768, 1024, 1280, 1600, 1920]) {
+    for (const izqMin of [MARGEN_VENTANA, 68 + MARGEN_VENTANA]) {
+      for (let boton = izqMin; boton <= ventana; boton += 7) {
+        const { ancho, izq } = lugarDelPanel(boton, ventana, izqMin);
+        const borde = boton + izq + ancho;
+        assert.ok(borde <= ventana - MARGEN_VENTANA, `ventana ${ventana}, botón en ${boton}: el panel termina en ${borde}`);
+        assert.ok(boton + izq >= izqMin, `ventana ${ventana}, botón en ${boton}: empieza en ${boton + izq}, debajo de la barra`);
+      }
+    }
+  }
+  assert.deepEqual(lugarDelPanel(112, 390, 84), { ancho: 290, izq: -28 }, 'el celular de la medición: de 84 a 374');
+  //   ROTO A PROPÓSITO (2026-10-10): sin correr el panel a la izquierda, pass 16 / fail 1; sin topear el
+  //   ancho a la ventana, pass 16 / fail 1; con el ancho topeado contra la ventana y no contra
+  //   el contenido (el panel debajo de la barra), pass 16 / fail 1.
+});
+
+test('el árbol: chevron a la DERECHA, tocar la campaña la despliega, y el panel no scrollea de costado', () => {
+  const t = sinComentarios(readFileSync('app/crm/CrmToolbar.tsx', 'utf8'));
+  // En la fila de una campaña, el botón que la elige va ANTES que el del chevron.
+  const fila = t.slice(t.indexOf('gruposArbol.map((g) =>'), t.indexOf('{abierto && hijos.map'));
+  assert.ok(fila.length > 300 && fila.length < 3000, `la fila de una campaña mide ${fila.length}`);
+  const elige = fila.indexOf('onClick={() => toggleGrupo(g.value)}');
+  const despliega = fila.indexOf('onClick={() => alternar(g.value)}');
+  assert.ok(elige > 0 && despliega > elige, 'el chevron va a la derecha de la campaña');
+  // Elegir la campaña la abre, y nunca la cierra.
+  const tg = t.slice(t.indexOf('const toggleGrupo'), t.indexOf('const toggleHijo'));
+  assert.match(tg, /if \(!abiertoGrupo\(g\) && hijosDe\(g\)\.length > 0\) alternar\(g\);/);
+  // Sin scroll de costado adentro del panel, y el ancho sale de la cuenta de arriba.
+  assert.match(t, /data-filtro-panel style=\{\{[^}]*left: lugar\.izq[^}]*width: lugar\.ancho[^}]*overflowX: 'hidden'/);
+  assert.match(t, /const rowBtn: CSSProperties = \{[^}]*boxSizing: 'border-box'/, 'una fila con sangría no puede medir más que el panel');
+  assert.match(t, /closest\('main'\)[\s\S]{0,200}lugarDelPanel\(r\.left, document\.documentElement\.clientWidth, Math\.max\(0, contenido\) \+ MARGEN_VENTANA\)/,
+    'el tope izquierdo sale del borde del contenido');
+  //   ROTO A PROPÓSITO (2026-10-10): con el chevron otra vez a la izquierda, sin la línea que despliega,
+  //   sin el overflowX, sin el box-sizing de las filas y sin medir el contenido:
+  //   pass 16 / fail 1 cada una.
 });

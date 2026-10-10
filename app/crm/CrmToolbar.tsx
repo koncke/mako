@@ -22,7 +22,7 @@ import Link, { useRouter, useWs } from '@/app/_ui/Link';
 import { ICONO_VISTA } from '@/app/_ui/iconos-vista';
 import { conWs } from '@/lib/ws-tab';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from '@/lib/pipeline';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 
@@ -38,6 +38,7 @@ import { CANALES } from '@/lib/fase-diagnostico';
 import { ENTRADAS, ENTRADAS_OFRECIDAS, type EntradaId } from '@/lib/pipeline';
 import { crearProductoAction, declararEntradasAction, embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction } from './actions';
 import { alternarGrupo, alternarHijo } from './arbol-seleccion';
+import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
 import { Confirm } from '@/app/_ui/Confirm';
 import { useCrmAuto } from './CrmAutoToggle';
 import { LapizIcon } from './iconos';
@@ -480,15 +481,38 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   // son pocos (con una o dos campañas, cerrarlas sólo esconde los anuncios detrás de un
   // clic) y cerrados si son muchos.
   const [alternados, setAlternados] = useState<Set<string>>(() => new Set());
+  // El panel abre pegado al botón y NUNCA pasa el borde de la ventana: si lo pasara aparece
+  // el scroll lateral de la página. «Bajo ningún motivo debe tener scroll hacia la derecha»
+  // (Martín, 10/10/2026). Se mide al abrir y al cambiar la ventana; la cuenta es pura y con
+  // test (app/crm/filtro-panel.ts). Va en layout effect para que no se pinte primero en el
+  // lugar equivocado.
+  const anclaRef = useRef<HTMLSpanElement>(null);
+  const [lugar, setLugar] = useState<{ ancho: number; izq: number }>({ ancho: ANCHO_PANEL, izq: 0 });
+  useLayoutEffect(() => {
+    if (!open) return;
+    const medir = () => {
+      const r = anclaRef.current?.getBoundingClientRect();
+      // El tope izquierdo es el borde del CONTENIDO: corrido hasta la ventana, el panel
+      // queda debajo de la barra lateral.
+      const contenido = anclaRef.current?.closest('main')?.getBoundingClientRect().left ?? 0;
+      if (r) setLugar(lugarDelPanel(r.left, document.documentElement.clientWidth, Math.max(0, contenido) + MARGEN_VENTANA));
+    };
+    medir();
+    window.addEventListener('resize', medir);
+    return () => window.removeEventListener('resize', medir);
+  }, [open]);
   const toggleEtapa = (k: string) => { const c = new Set(etapas); if (c.has(k)) c.delete(k); else c.add(k); setEtapas(c); };
   const toggleOrigen = (o: string) => { const c = new Set(origen); if (c.has(o)) c.delete(o); else c.add(o); setOrigen(c); };
 
   const check = (on: boolean): CSSProperties => ({ width: 14, height: 14, borderRadius: 4, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' });
-  const rowBtn: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS };
+  const rowBtn: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS };
   const catRow: CSSProperties = { ...rowBtn, justifyContent: 'space-between', padding: '10px 9px' };
-  const resumenTxt = (activo: boolean): CSSProperties => ({ fontSize: 12, color: activo ? 'var(--primary)' : 'var(--faint)', fontWeight: activo ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 118 });
+  const resumenTxt = (activo: boolean): CSSProperties => ({ fontSize: 12, color: activo ? 'var(--primary)' : 'var(--faint)', fontWeight: activo ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 });
   const backBtn: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 6px 10px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, marginBottom: 4 };
   const texto: CSSProperties = { minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+  // El ancho del chevron de una campaña: los anuncios lo dejan libre a su derecha para que
+  // su número quede en la misma columna que el de la campaña.
+  const CHEVRON = 26;
 
   const etapaLabel = (k: string) => stages.find((s) => s.key === k)?.label ?? k;
   const resumen = (sel: Set<string>, label: (v: string) => string) =>
@@ -537,13 +561,17 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   const aplicar = (r: { grupos: Set<string>; hijos: Set<string> }) => { lista?.set(r.grupos); arbol?.set(r.hijos); };
   const toggleGrupo = (g: string) => {
     if (lista && arbol) aplicar(alternarGrupo({ grupos: lista.sel, hijos: arbol.sel }, g, hijosDe(g).map((h) => h.value)));
+    // Tocar la campaña también la DESPLIEGA, nunca la pliega: «Si clickeo una campaña […]
+    // quiero que se abra el desplegable» (Martín, 10/10/2026). Se ven los anuncios que
+    // acaba de elegir, y desde ahí se puede destildar uno.
+    if (!abiertoGrupo(g) && hijosDe(g).length > 0) alternar(g);
   };
   const toggleHijo = (g: string, h: string) => {
     if (lista && arbol) aplicar(alternarHijo({ grupos: lista.sel, hijos: arbol.sel }, g, h, hijosDe(g).map((x) => x.value)));
   };
 
   return (
-    <span style={{ position: 'relative', flex: 'none', display: 'inline-flex' }}>
+    <span ref={anclaRef} style={{ position: 'relative', flex: 'none', display: 'inline-flex' }}>
       <button type="button" onClick={() => setAbierto(open ? null : 'root')} aria-expanded={open}
         title={n > 0 ? `${n} filtro${n === 1 ? '' : 's'} activo${n === 1 ? '' : 's'}` : 'Filtrar por etapa u origen'}
         style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 7, flex: 'none', height: CTRL_H, padding: '0 14px', borderRadius: 10, border: `1px solid ${n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)'}`, background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -557,7 +585,7 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
       </button>
       {open && <>
         <span onClick={cerrar} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-        <div style={{ position: 'absolute', top: 46, left: 0, zIndex: 41, width: 262, maxWidth: 'calc(100vw - 32px)', maxHeight: 420, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8 }}>
+        <div data-filtro-panel style={{ position: 'absolute', top: 46, left: lugar.izq, zIndex: 41, width: lugar.ancho, boxSizing: 'border-box', maxHeight: 420, overflowY: 'auto', overflowX: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8 }}>
           {abierto === 'root' ? (
             <>
               {/* Sin hover propio: el velo global (`.crm-hover button:hover` en
@@ -607,25 +635,26 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
                   const abierto = abiertoGrupo(g.value);
                   return (
                     <div key={g.value}>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        {/* El chevron abre o cierra; la fila elige la campaña entera. Son dos
-                            gestos distintos y no comparten botón: apretar para ver los
-                            anuncios no puede filtrar por accidente. */}
-                        <button type="button" onClick={() => alternar(g.value)} disabled={hijos.length === 0}
-                          aria-label={abierto ? `Cerrar ${g.label}` : `Abrir ${g.label}`} aria-expanded={abierto}
-                          style={{ flex: 'none', width: 22, height: 28, border: 'none', background: 'transparent', cursor: hijos.length ? 'pointer' : 'default', color: 'var(--faint)', fontSize: 13, padding: 0, visibility: hijos.length ? 'visible' : 'hidden' }}>
-                          <span aria-hidden style={{ display: 'inline-block', transform: abierto ? 'rotate(90deg)' : 'none', transition: 'transform .12s' }}>›</span>
-                        </button>
-                        <button type="button" onClick={() => toggleGrupo(g.value)} style={{ ...rowBtn, paddingLeft: 2 }} title={g.label} aria-pressed={entero}>
+                      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                        {/* La fila elige la campaña entera (y la despliega); el chevron, a la
+                            DERECHA siempre («El botón de desplegar debe estar a la derecha»,
+                            Martín, 10/10/2026), sólo abre o cierra. No comparten botón:
+                            plegar para esconder los anuncios no puede filtrar por accidente. */}
+                        <button type="button" onClick={() => toggleGrupo(g.value)} style={{ ...rowBtn, flex: 1 }} title={g.label} aria-pressed={entero}>
                           <span style={check(entero || parcial)}>{entero ? '✓' : parcial ? '–' : ''}</span>
                           <span style={{ ...texto, flex: 1, fontWeight: 600 }}>{g.label}</span>
                           <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{g.n}</span>
+                        </button>
+                        <button type="button" onClick={() => alternar(g.value)} disabled={hijos.length === 0}
+                          aria-label={abierto ? `Cerrar ${g.label}` : `Abrir ${g.label}`} aria-expanded={abierto}
+                          style={{ flex: 'none', width: CHEVRON, height: 28, border: 'none', background: 'transparent', cursor: hijos.length ? 'pointer' : 'default', color: 'var(--faint)', fontSize: 15, padding: 0, visibility: hijos.length ? 'visible' : 'hidden' }}>
+                          <span aria-hidden style={{ display: 'inline-block', transform: abierto ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .12s' }}>›</span>
                         </button>
                       </div>
                       {abierto && hijos.map((h) => {
                         const on = entero || arbol.sel.has(h.value);
                         return (
-                          <button key={h.value} type="button" onClick={() => toggleHijo(g.value, h.value)} style={{ ...rowBtn, paddingLeft: 32 }} title={h.label} aria-pressed={on}>
+                          <button key={h.value} type="button" onClick={() => toggleHijo(g.value, h.value)} style={{ ...rowBtn, paddingLeft: 32, paddingRight: 9 + CHEVRON }} title={h.label} aria-pressed={on}>
                             <span style={check(on)}>{on ? '✓' : ''}</span>
                             <span style={{ ...texto, flex: 1 }}>{h.label}</span>
                             <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{h.n}</span>
