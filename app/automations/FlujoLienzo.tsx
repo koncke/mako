@@ -487,10 +487,13 @@ export function FlujoLienzo({
   /** EL CLICK DERECHO EN UNA TARJETA (punto 2): duplicar, desconectar (le saca lo que le llega) y eliminar. */
   const menuNodo = editable ? (id: string): ItemMenuLienzo[] => {
     // Con el LAZO: lo que se hace es con TODAS las elegidas.
-    if (varios.length > 1 && varios.includes(id)) {
+    // El CRON puede entrar en el lazo, pero no se copia ni se borra como tarjeta: no cuenta.
+    const tarjetasElegidas = varios.filter((x) => x !== ID_ENTRADA);
+    if (tarjetasElegidas.length > 1 && varios.includes(id) && id !== ID_ENTRADA) {
+      const n = tarjetasElegidas.length;
       return [
-        { id: 'copiar-varias', label: `Copiar ${varios.length} tarjetas`, icono: <Icon name="copy" size={16} />, onElegir: () => void copiarTarjetas(varios) },
-        { id: 'eliminar-varias', label: `Eliminar ${varios.length} tarjetas`, grupo: 1, peligro: true, icono: <IconoBorrar size={16} />, onElegir: () => eliminarVarias(varios) },
+        { id: 'copiar-varias', label: `Copiar ${n} tarjetas`, icono: <Icon name="copy" size={16} />, onElegir: () => void copiarTarjetas(tarjetasElegidas) },
+        { id: 'eliminar-varias', label: `Eliminar ${n} tarjetas`, grupo: 1, peligro: true, icono: <IconoBorrar size={16} />, onElegir: () => eliminarVarias(tarjetasElegidas) },
       ];
     }
     if (id === ID_ENTRADA) {
