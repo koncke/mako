@@ -37,7 +37,7 @@ import {
   type PasoParaGrafo, type NodoFlujo,
 } from '../lib/flujo-conversacion';
 import { vistaConPanel, ALTO_PUERTO } from '../lib/lienzo-grafo';
-import { escenariosDeRespuesta, nodoPorId, idDe, validarGrafo } from '../lib/flujo-grafo';
+import { escenariosDeRespuesta, nodoPorId, idDe, validarGrafo, rotuloSiNoDeRespuesta } from '../lib/flujo-grafo';
 import { saleSolo } from '../lib/nutricion-grafo-motor';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -271,7 +271,8 @@ test('lienzo-6: una tarjeta se nombra por lo que DIBUJA (su título y lo que dic
 });
 
 test('lienzo-6: Publicar ABRE la tarjeta culpable, y el lienzo la abre una vez por pedido', () => {
-  const frenar = bloque(PERFIL, 'const frenar = (mensaje: string, tarjeta: string | null) => {', '\n  };', 400);
+  // Séptima tanda: `frenar` tiene identidad fija (viaja en `EdicionLocal` al panel de «Probar»).
+  const frenar = bloque(PERFIL, 'const frenar = useCallback((mensaje: string, tarjeta: string | null) => {', '\n  }, [', 400);
   assert.match(frenar, /setErr\(mensaje\);/);
   assert.match(frenar, /if \(tarjeta\) setFoco\(\(f\) => \(\{ id: tarjeta, vez: \(f\?\.vez \?\? 0\) \+ 1 \}\)\);/);
   const pub = bloque(PERFIL, 'const publicar = async () => {', '\n  };', 2_600);
@@ -304,8 +305,10 @@ test('costuras-5: la fila «Si no» (la «Otra cosa» de antes) marca cuántas r
   assert.equal(fila(2).marca, '2 sin caso');
   assert.equal(fila(0).marca, undefined);
   assert.equal(fila().marca, undefined);
-  // Sexta tanda, segunda pasada: «Si responde» se dibuja como CONDITION y su última fila es «Si no».
-  assert.equal(fila(2).rotulo, 'Si no', 'la marca no reemplaza al rótulo');
+  // Sexta tanda, segunda pasada: «Si responde» se dibuja como CONDITION y su última fila es «Si no»; sin
+  // casos (éste) es «Respondió» desde la séptima (`rotuloSiNoDeRespuesta`).
+  assert.equal(fila(2).rotulo, rotuloSiNoDeRespuesta(nodoPorId(r.pasos, r.id)), 'la marca no reemplaza al rótulo');
+  assert.equal(fila(2).rotulo, 'Respondió');
   // La tarjeta la dibuja, y el perfil cuenta las de ESTA automatización.
   // Hasta `tinteDeControl`, que desde la segunda tanda va entre la tarjeta y `BotonChico`.
   const tarjeta = bloque(LIENZO, 'export function TarjetaNodo(', '\nexport function tinteDeControl', 4_600);
