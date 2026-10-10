@@ -60,8 +60,8 @@ export type CrearConIAProps = {
   secuenciaId: number;
   /** Editar: el borrador LOCAL del lienzo (puede tener cambios sin publicar). */
   pasos?: readonly PasoGrafo[];
-  /** Un pedido ya escrito (el «Armar una» de una etapa sin automatización). */
-  pedidoInicial?: string;
+  // (Acá vivía `pedidoInicial`, el pedido ya escrito que mandaba «Armar una» del pie de la lista de
+  // /automations. Salió el 10/10/2026 con el pie, que era de una versión anterior.)
   /** `false` = no lo aplicó (editar sobre un lienzo que cambió): el pedido queda escrito. */
   onListo: (r: ListoCrearIA) => boolean | void;
   deshabilitado?: boolean;
@@ -149,11 +149,11 @@ function useEjemploQueSeEscribe(activo: boolean): string {
 }
 
 export function CrearConIA(p: CrearConIAProps) {
-  const [pedido, setPedido] = useState(p.pedidoInicial ?? '');
+  const [pedido, setPedido] = useState('');
   const [estado, setEstado] = useState<Estado>({ t: 'quieto' });
   const [ahora, setAhora] = useState(() => Date.now());
-  /** El placeholder ya no se mueve: alguien tocó la caja (o vino un pedido escrito). No vuelve. */
-  const [tocada, setTocada] = useState(() => !!p.pedidoInicial);
+  /** El placeholder ya no se mueve: alguien tocó la caja. No vuelve. */
+  const [tocada, setTocada] = useState(false);
   const ejemplo = useEjemploQueSeEscribe(p.modo === 'crear' && !tocada && !pedido);
   const ctrl = useRef<AbortController | null>(null);
   const capaRef = useRef<HTMLDivElement | null>(null);

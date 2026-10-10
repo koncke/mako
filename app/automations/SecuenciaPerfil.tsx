@@ -91,7 +91,7 @@ export type EdicionLocal = {
   instance_name: string | null;
 };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, pedidoIA }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver un «Ir a» y convertir un «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -160,8 +160,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * cambios»: sin esto, el desmonte lo guardaba como borrador.
    */
   descartarBorrador?: { current: (() => void) | null };
-  /** «Crear con IA»: un pedido ya escrito (el «Armar una» de una etapa sin automatización). */
-  pedidoIA?: string;
+  // (Acá vivía `pedidoIA`, el pedido que «Armar una» del pie de la lista le dejaba a «Crear con IA».
+  // Salió el 10/10/2026 con el pie: era de una versión anterior.)
 }) {
   const est = secuencia.estrategia;
 
@@ -754,7 +754,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       {rolAdmin && pasos.length === 0 && (
         <div data-crear-ia="crear" style={{ position: 'absolute', ...franja, display: tarjetaAbierta ? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 }}>
           <div style={{ pointerEvents: 'auto', width: `min(${CAJA_IA_ANCHO}px, 100%)` }}>
-            <CrearConIA modo="crear" secuenciaId={secuencia.id} pedidoInicial={pedidoIA} onListo={alListoIA} />
+            <CrearConIA modo="crear" secuenciaId={secuencia.id} onListo={alListoIA} />
           </div>
         </div>
       )}

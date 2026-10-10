@@ -5374,9 +5374,9 @@ curl -L \
   "https://hola-mako.com/api/v1/chatbot/metricas"
 ```
 
-### `GET /api/v1/chatbot/etapas/sin-secuencia` — Etapas sin secuencia de mensajes
+### `GET /api/v1/chatbot/etapas/sin-secuencia` — Etapas sin automatización
 
-Las etapas de nutrición del funnel de este negocio que no tienen ninguna secuencia que las cubra. Una secuencia pausada cuenta como cubierta (solo falta prenderla); una archivada no. Úsala para «qué parte de mi funnel está sin nutrir» o antes de proponer crear una secuencia.
+Las etapas de nutrición del funnel de este negocio en las que no arranca ninguna automatización: cuenta todos los CRON de cada una. Una pausada cuenta como cubierta (solo falta prenderla); una archivada no. Úsala para «qué parte de mi funnel está sin nutrir» o antes de proponer crear una automatización.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/huecos_secuencias`
 - **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)

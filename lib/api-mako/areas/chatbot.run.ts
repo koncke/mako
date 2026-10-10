@@ -254,7 +254,7 @@ export const RUNNERS: Runners = {
   huecos_secuencias: {
     leer: async () => {
       const huecos = await huecosDeSecuencias();
-      return json({ huecos, nota: huecos.length ? 'Cada etapa de la lista no tiene ninguna secuencia (ni pausada).' : 'Todas las etapas de nutrición del funnel tienen al menos una secuencia (activa o pausada).' });
+      return json({ huecos, nota: huecos.length ? 'Ninguna automatización (ni pausada) arranca en estas etapas.' : 'Todas las etapas de nutrición del funnel tienen al menos una automatización (activa o pausada).' });
     },
   },
 

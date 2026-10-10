@@ -65,8 +65,8 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'huecos_secuencias', area: 'chatbot', tipo: 'lectura',
-    titulo: 'Etapas sin secuencia de mensajes',
-    descripcion: 'Las etapas de nutrición del funnel de este negocio que no tienen ninguna secuencia que las cubra. Una secuencia pausada cuenta como cubierta (solo falta prenderla); una archivada no. Úsala para «qué parte de mi funnel está sin nutrir» o antes de proponer crear una secuencia.',
+    titulo: 'Etapas sin automatización',
+    descripcion: 'Las etapas de nutrición del funnel de este negocio en las que no arranca ninguna automatización: cuenta todos los CRON de cada una. Una pausada cuenta como cubierta (solo falta prenderla); una archivada no. Úsala para «qué parte de mi funnel está sin nutrir» o antes de proponer crear una automatización.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },

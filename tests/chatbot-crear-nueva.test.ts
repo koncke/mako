@@ -1,5 +1,5 @@
 // =============================================================================
-// «＋ Nueva» y «Armar una» del Chatbot (app/automations/ChatAgentApp.tsx + SimuladorWhatsApp.tsx)
+// «＋ Nueva» del Chatbot (app/automations/ChatAgentApp.tsx + SimuladorWhatsApp.tsx)
 // =============================================================================
 // Revisión de la segunda tanda del Chatbot (09/10/2026), dos hallazgos del mismo botón:
 //
@@ -9,17 +9,22 @@
 //   2. Con cero automatizaciones, un «＋ Nueva» fallido escribía `error` (el de la CARGA), y el
 //      estado vacío se dibuja sólo con `!error`: desaparecían el estado vacío y su botón hasta F5.
 //
-// La puerta de la lista se prueba DIBUJANDO (renderToStaticMarkup): el pie recibe `nueva` y lo que
-// se le pasa llega a `onNueva`. La guarda del doble clic y el estado propio del fallo viven adentro
-// de ChatAgentApp (sin DOM en esta casa): guard del fuente, recortado a `crearNueva`.
+// ⚠️ EL PIE «N etapas sin secuencia · Armar una» SALIÓ EL 10/10/2026 (restos de versiones anteriores,
+// grupo «lista»): era del modelo de UNA secuencia por etapa de nutrición y contaba sólo el primer CRON.
+// Con él se fueron el `pie` de la lista y el `pedido` que «Armar una» le dejaba a Crear con IA. El test
+// de abajo fija que no vuelvan por la puerta de atrás (el GET de los huecos, el `pedidoIA`).
+//
+// La guarda del doble clic y el estado propio del fallo viven adentro de ChatAgentApp (sin DOM en esta
+// casa): guard del fuente, recortado a `crearNueva`.
 //
 // PROBADO ROMPIÉNDOLO (09/10/2026; con 6 tests, antes de sumar el de la puerta):
 //   · sin la guarda (`if (creandoNueva.current) return;`): 1 fallo, 5 pases;
 //   · con «Armar una» llamando a `crearNueva(` otra vez: 1 fallo, 5 pases;
-//   · con el fallo de crear yendo a `setError(` de nuevo: 1 fallo, 5 pases;
-//   · con el pie recibiendo `() => onNueva()` (pierde el pedido): 1 fallo, 5 pases.
-// Y con 7: el pie recibiendo `onNueva` pelado (se saltea la pregunta pero conserva el pedido) dio
-// VERDE en el test dibujado —sin DOM `sinPublicar` nunca es true— y 1 fallo, 6 pases en el del fuente.
+//   · con el fallo de crear yendo a `setError(` de nuevo: 1 fallo, 5 pases.
+// Y el 10/10/2026, con el pie afuera (base 6 pases / 0 fallos, restaurando de memoria):
+//   · la puerta creando sin preguntar (`onNueva()` sin el `if (sinPublicar)`): 1 fallo, 5 pases;
+//   · el GET volviendo a mandar `huecos`: 1 fallo, 5 pases;
+//   · la lista volviendo a aceptar un `pie`: 1 fallo, 5 pases.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -47,7 +52,7 @@ const dibujar = (extra: Record<string, unknown>) => renderToStaticMarkup(createE
 /** El cuerpo de `crearNueva` en ChatAgentApp, hasta su cierre real. */
 function crearNueva(): string {
   const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
-  const ini = src.indexOf('const crearNueva = async (pedido?: string) => {');
+  const ini = src.indexOf('const crearNueva = async () => {');
   assert.ok(ini >= 0, 'no está crearNueva');
   const fin = src.indexOf('\n  };', ini);
   const cuerpo = src.slice(ini, fin);
@@ -55,27 +60,26 @@ function crearNueva(): string {
   return cuerpo;
 }
 
-test('el pie de la lista recibe la PUERTA de crear, y lo que se le pide llega a onNueva', () => {
-  let puerta: ((pedido?: string) => void) | null = null;
-  const pedidos: Array<string | undefined> = [];
-  const html = dibujar({
-    onNueva: (p?: string) => { pedidos.push(p); },
-    pie: (nueva: (pedido?: string) => void) => { puerta = nueva; return createElement('span', null, 'pie-de-prueba'); },
-  });
-  assert.ok(html.includes('pie-de-prueba'), 'el pie como función no se dibujó');
-  assert.ok(puerta, 'el pie no recibió la puerta');
-  // Sin cambios sin publicar, la puerta crea en el acto y con el pedido.
-  (puerta as (p?: string) => void)('Una automatización para quien llega a «Agendado»');
-  assert.deepEqual(pedidos, ['Una automatización para quien llega a «Agendado»']);
+test('el pie de antes («N etapas sin secuencia · Armar una») no vuelve, ni sus datos', () => {
+  const tab = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
+  const lista = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
+  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/route.ts'));
+  assert.doesNotMatch(tab, /huecos|Armar una|sin secuencia/, 'la tab volvió a armar el pie de las etapas');
+  assert.doesNotMatch(lista, /\bpie\b|pedidoIA/, 'la lista volvió a aceptar un pie o un pedido para Crear con IA');
+  // (El import de `lib/secuencias-huecos` se queda: de ahí salen archivar y desarchivar.)
+  assert.doesNotMatch(ruta, /huecosDeSecuencias|[{,\s]huecos[\s,:}]/, 'el GET de la tab volvió a calcular los huecos (nadie los dibuja)');
+  // Y lo que se dibuja: ni el pie ni el texto de «secuencia».
+  const html = dibujar({});
+  assert.ok(!/sin secuencia|Armar una/.test(html), 'la lista dibuja el pie de las etapas');
+  assert.ok(html.includes('aria-label="Tus automatizaciones"'), 'la lista volvió a llamarse «Tus secuencias»');
 });
 
-test('la puerta pregunta por lo no publicado ANTES de crear, y el pedido sobrevive al Confirm', () => {
+test('la puerta pregunta por lo no publicado ANTES de crear', () => {
   // Sin DOM no se puede prender `sinPublicar` (lo emite el lienzo en un efecto): se fija el fuente.
   const src = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
-  assert.match(src, /const nueva = \(pedido\?: string\) => \{\n {4}if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva', pedido \}\); return; \}\n {4}onNueva\(pedido\);\n {2}\};/);
-  assert.match(src, /if \(p\.ir === 'nueva'\) onNueva\(p\.pedido\);/);
-  // El pie y el «＋ Nueva» de la lista reciben ESA puerta, no `onNueva`.
-  assert.match(src, /typeof pie === 'function' \? pie\(nueva\) : pie/);
+  assert.match(src, /const nueva = \(\) => \{\n {4}if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva' \}\); return; \}\n {4}onNueva\(\);\n {2}\};/);
+  assert.match(src, /if \(p\.ir === 'nueva'\) onNueva\(\);/);
+  // El «＋ Nueva» de la lista recibe ESA puerta, no `onNueva`.
   assert.match(src, /onClick=\{\(\) => nueva\(\)\}/);
 });
 
@@ -89,7 +93,7 @@ test('el fallo de crear se dibuja pegado al «＋ Nueva» de la lista', () => {
 
 test('crearNueva ignora los clics mientras hay un POST en vuelo, y se suelta en un finally', () => {
   const c = crearNueva();
-  assert.match(c, /^const crearNueva = async \(pedido\?: string\) => \{\n {4}if \(creandoNueva\.current\) return;\n {4}creandoNueva\.current = true;/);
+  assert.match(c, /^const crearNueva = async \(\) => \{\n {4}if \(creandoNueva\.current\) return;\n {4}creandoNueva\.current = true;/);
   // Tercera tanda: el finally suelta también la fila de «Nueva» (`creando`): si falló, se va.
   assert.match(c, /finally \{ setCreando\(null\); creandoNueva\.current = false; \}/);
   assert.match(sinComentarios(leer('app/automations/ChatAgentApp.tsx')), /const creandoNueva = useRef\(false\);/);
@@ -108,14 +112,5 @@ test('el estado vacío dibuja el fallo de crear al lado de su botón', () => {
   const bloque = src.slice(ini, src.indexOf('</div>\n      )}', ini));
   assert.match(bloque, /onClick=\{\(\) => void crearNueva\(\)\}/);
   assert.match(bloque, /\{errCrear && <span role="alert"/);
-});
-
-test('«Armar una» pasa por la puerta de la lista, no por crearNueva', () => {
-  const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
-  assert.match(src, /pie=\{rolAdmin && huecos\.length > 0 \? \(nueva\) => \(/);
-  const ini = src.indexOf('Armar una');
-  const boton = src.slice(src.lastIndexOf('<button', ini), ini);
-  assert.match(boton, /onClick=\{\(\) => nueva\(`Una automatización para quien llega a/);
-  assert.ok(!/crearNueva\(/.test(boton), '«Armar una» volvió a crear sin preguntar');
-  assert.match(src, /onNueva=\{\(pedido\) => void crearNueva\(pedido\)\}/);
+  assert.match(src, /onNueva=\{\(\) => void crearNueva\(\)\}/);
 });

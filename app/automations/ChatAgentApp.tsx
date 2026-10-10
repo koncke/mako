@@ -209,16 +209,16 @@ function ChatAgentInner() {
   const [etapas, setEtapas] = useState<Opcion[]>([]);
   const [productos, setProductos] = useState<ProductoOpcion[]>([]);
   const [disparadores, setDisparadores] = useState<Opcion[]>([]);
-  // Etapas de nutrición sin ninguna secuencia que las cubra. Reemplaza al viejo
-  // seed: en vez de inventar secuencias con copy de relleno, se avisa qué falta.
-  const [huecos, setHuecos] = useState<Array<{ etapa: string; label: string }>>([]);
+  // ⚠️ ACÁ VIVÍAN LOS «HUECOS» (las etapas de nutrición sin secuencia) y el pedido de «Armar una».
+  // Alimentaban el pie de la lista, «7 etapas sin secuencia · Armar una», que salió el 10/10/2026:
+  // era del modelo de UNA secuencia por etapa de nutrición (el del 5/10), contaba sólo el primer
+  // CRON de cada automatización y le decía «secuencia» a lo que ya es una automatización. Martín, con
+  // la captura de su ws9: «siguen habiendo cosas de versiones anteriores que están mal».
   /** La zona del negocio: la dice el texto del horario, no se adivina. */
   const [tz, setTz] = useState<string | null>(null);
   const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [audios, setAudios] = useState<AudioSetting[]>([]);
-  /** El pedido ya escrito para la automatización recién creada («Armar una» de una etapa). */
-  const [pedidoIA, setPedidoIA] = useState<{ secuenciaId: number; pedido: string } | null>(null);
   /** La automatización que pidió abrir el deep link `?sec=`: se abre en su LIENZO. */
   const [abrirSec, setAbrirSec] = useState<AbrirSecuencia | null>(null);
   /**
@@ -287,13 +287,13 @@ function ChatAgentInner() {
       const j = await r.json();
       // ⚠️ SIN `return`: cortar acá dejaba la pantalla en «Abriendo Automations…» para siempre,
       // porque la puerta se decide más abajo. Con el error puesto, la pantalla lo muestra.
-      if (!j.ok) { errorCarga = j.error || 'No se pudieron cargar las secuencias de mensajes.'; throw new Error(errorCarga ?? ''); }
+      if (!j.ok) { errorCarga = j.error || 'No se pudieron cargar las automatizaciones.'; throw new Error(errorCarga ?? ''); }
       const lista = j.secuencias as SecuenciaDto[];
       setSecuencias(lista); setRolAdmin(Boolean(j.rolAdmin));
       setSinCaso(Array.isArray(j.handoffs) ? (j.handoffs as Array<{ secuenciaId: number | null }>) : []);
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []);
       setProductos(j.productos ?? []); setDisparadores(j.disparadores ?? []);
-      setHuecos(j.huecos ?? []); setTz(j.tz ?? null);
+      setTz(j.tz ?? null);
       setNegocio(j.negocio ?? '');
       setCanal(j.canal ?? { estado: 'desconocido', desde: null });
       estadoCanal = typeof j.canal?.estado === 'string' ? j.canal.estado : 'desconocido';
@@ -375,8 +375,8 @@ function ChatAgentInner() {
 
   /**
    * «NUEVA» (decisión 14 de la segunda tanda): una automatización VACÍA y pausada, y se abre su
-   * lienzo con la caja de «Crear con IA». Empezar de cero es tocar el ＋ del CRON. `pedido` precarga
-   * la caja (el «Armar una» de una etapa sin secuencia).
+   * lienzo con la caja de «Crear con IA». Empezar de cero es tocar el ＋ del CRON. (Hasta el 10/10/2026
+   * recibía un `pedido` que precargaba la caja: lo mandaba «Armar una» del pie, que salió.)
    *
    * ⚠️ AL INSTANTE (tercera tanda, decisión 7). Martín: «al apretarlo… si se tarda en crearlo, un
    * loader... Mejor si se crea automáticamente la tarjeta en la sidebar y se abre el lienzo, y que el
@@ -390,7 +390,7 @@ function ChatAgentInner() {
    * `creando` es un ESTADO aparte y no una fila metida en `secuencias`: un `load()` de otra pantalla
    * en el medio la borraría.
    */
-  const crearNueva = async (pedido?: string) => {
+  const crearNueva = async () => {
     if (creandoNueva.current) return;
     creandoNueva.current = true;
     setErrCrear(null);
@@ -401,7 +401,6 @@ function ChatAgentInner() {
       const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_vacia' }) })).json();
       if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); return; }
       const id = Number(r.secuenciaId);
-      setPedidoIA(pedido ? { secuenciaId: id, pedido } : null);
       setCreando({ temporal, id });
       await load();
     } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
@@ -503,7 +502,7 @@ function ChatAgentInner() {
       <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px', gap: 16 }}>
         <div>
           <h1 style={{ fontWeight: 600, fontSize: 34, letterSpacing: '-0.025em', margin: 0, color: 'var(--ink)' }}>Automations</h1>
-          <p style={{ fontSize: 14, color: 'var(--dim)', margin: '6px 0 0' }}>Vincula tu WhatsApp y esta pantalla pasa a ser el editor de tus secuencias.</p>
+          <p style={{ fontSize: 14, color: 'var(--dim)', margin: '6px 0 0' }}>Vincula tu WhatsApp para armar tus automatizaciones.</p>
         </div>
         <EvolutionConnect inline onEstado={(e) => {
           if (e !== 'conectado') return;
@@ -578,9 +577,6 @@ function ChatAgentInner() {
           Lo que una pantalla sin cabecera SÍ necesita es que el editor diga qué se está
           editando: el nombre vive flotando sobre el lienzo, y es editable. */}
 
-      {/* Qué etapas de nutrición quedaron sin secuencia. MaKo conoce el funnel
-          entero, así que puede decir exactamente qué falta — y eso es más útil
-          que lo que hacía antes, que era rellenarlas con secuencias de mentira. */}
       {/* EL NÚMERO CAÍDO CON LAS SECUENCIAS EN VERDE.
           Una secuencia dice «Activa» y eso se lee como que está enviando. Si el
           WhatsApp del negocio está desconectado, no envía nada: cada paso falla
@@ -596,7 +592,7 @@ function ChatAgentInner() {
           <span style={{ color: 'var(--bad)', display: 'inline-flex' }}><Icon name="alert" size={17} /></span>
           <div style={{ fontSize: '13.5px', color: 'var(--ink)', flex: 1, minWidth: 220 }}>
             {canal.estado === 'sin_vincular' ? (
-              <>Tienes secuencias activas y <strong>todavía no vinculaste tu WhatsApp</strong>. No se está enviando nada.</>
+              <>Tienes automatizaciones activas y <strong>todavía no vinculaste tu WhatsApp</strong>. No se está enviando nada.</>
             ) : (
               canal.desvinculado ? (
                 // ⚠️ EL DUEÑO LEYO «tu WhatsApp esta desconectado», ABRIO WHATSAPP
@@ -605,12 +601,12 @@ function ChatAgentInner() {
                 // nota desde el telefono salvo mirando «Dispositivos vinculados».
                 // Nombrar el hecho —y decir que su telefono esta bien— es la
                 // diferencia entre un aviso que se cree y uno que se descarta.
-                <>Tienes secuencias activas y <strong>WhatsApp cerró la sesión del dispositivo vinculado</strong>
+                <>Tienes automatizaciones activas y <strong>WhatsApp cerró la sesión del dispositivo vinculado</strong>
                   {canal.desde ? <> el {new Date(canal.desde).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}</> : null}.
                   {' '}Tu teléfono está bien: lo que hay que volver a vincular es el dispositivo que usa MaKo.
                   {' '}Mientras tanto no se envía nada.</>
               ) : (
-                <>Tienes secuencias activas y <strong>tu WhatsApp está desconectado</strong>
+                <>Tienes automatizaciones activas y <strong>tu WhatsApp está desconectado</strong>
                   {canal.desde ? <> desde el {new Date(canal.desde).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}</> : null}.
                   {' '}No se está enviando nada: cada mensaje falla y se reintenta al día siguiente.</>
               )
@@ -630,7 +626,7 @@ function ChatAgentInner() {
         <div style={{ flex: 'none', background: 'var(--warn-bg)', border: '1px solid var(--warn)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ color: 'var(--warn)', display: 'inline-flex' }}><Icon name="alert" size={17} /></span>
           <div style={{ fontSize: '13.5px', color: 'var(--ink)', flex: 1, minWidth: 220 }}>
-            <strong>El envío de WhatsApp está apagado.</strong> Tus secuencias activas no mandan nada.
+            <strong>El envío de WhatsApp está apagado.</strong> Tus automatizaciones activas no mandan nada.
             {errEnvio && <span style={{ color: 'var(--bad)' }}> {errEnvio}</span>}
           </div>
           {rolAdmin && (
@@ -645,7 +641,7 @@ function ChatAgentInner() {
         <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', color: 'var(--bad)', fontSize: '13.5px' }}>{error}</div>
       )}
 
-      {secuencias === null && !error && <div style={{ color: 'var(--dim)', fontSize: '14px' }}>Cargando secuencias…</div>}
+      {secuencias === null && !error && <div style={{ color: 'var(--dim)', fontSize: '14px' }}>Cargando automatizaciones…</div>}
 
       {/* Sin automatizaciones PERO con Mensajes de MaKo, va la lista (quinta tanda, punto 5): el link
           de Notificaciones tiene que aterrizar en el lienzo de su mensaje, no en este cartel. */}
@@ -673,8 +669,7 @@ function ChatAgentInner() {
           secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           avisos={avisos} abrirAviso={abrirAviso} onAvisosCambio={() => void cargarAvisos()}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
-          onNueva={(pedido) => void crearNueva(pedido)} errorNueva={errCrear} onReload={() => void load()}
-          pedidoIA={pedidoIA}
+          onNueva={() => void crearNueva()} errorNueva={errCrear} onReload={() => void load()}
           abrir={abrirSec}
           handoffs={sinCaso}
           /* EL HORARIO DE ENVÍO, ahí mismo en la lista (10/10/2026: «haz que se pueda configurar allí
@@ -682,32 +677,12 @@ function ChatAgentInner() {
              Sólo un admin lo abre; el resto ve el estado. Va como nodo y no adentro de la lista: ver
              `horario` en SimuladorWhatsApp. */
           horario={<HorarioLista rolAdmin={rolAdmin} />}
-          /* ⚠️ QUÉ ETAPAS QUEDARON SIN SECUENCIA — ERA UNA FRANJA ARRIBA DEL LIENZO.
-             Primero fue una banda ámbar con las seis etapas enumeradas y un botón negro
-             («haz que sea mucho más sutil»), después un renglón gris, y las dos le
-             comían alto a la pizarra en una pantalla donde el título entero se sacó por
-             eso mismo. Ahora cuelga del pie de la LISTA, que es lo que nombra.
-
-             Lo que el aviso tiene que decir sigue estando —cuántas etapas no reciben
-             nada, y cuáles en el `title`, donde el largo no ocupa lugar—. Un hueco no es
-             un error: es trabajo que falta.
-
-             ⚠️ ES UNA FUNCIÓN QUE RECIBE LA PUERTA DE LA LISTA (`nueva`), no un nodo: «Armar una»
-             llamaba a `crearNueva` directo y se salteaba la pregunta por lo no publicado — creaba la
-             fila primero, el Confirm salía después y «Seguir editando» dejaba una vacía de más. */
-          pie={rolAdmin && huecos.length > 0 ? (nueva) => (
-            <div title={huecos.map((h) => h.label).join(', ')}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--faint)' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
-              <span style={{ minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {huecos.length === 1 ? `${huecos[0].label} no tiene secuencia` : `${huecos.length} etapas sin secuencia`}
-              </span>
-              <button onClick={() => nueva(`Una automatización para quien llega a «${huecos[0].label}»`)}
-                style={{ flex: 'none', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', cursor: 'pointer' }}>
-                Armar una
-              </button>
-            </div>
-          ) : undefined}
+          /* ⚠️ ACÁ IBA EL PIE DE LA LISTA, «N etapas sin secuencia · Armar una», y salió el 10/10/2026
+             (restos de versiones anteriores). Venía del modelo de UNA secuencia por etapa de
+             nutrición, contaba sólo el primer CRON de cada automatización (ni `etapas` ni la lista de
+             CRON de la mig 0241), miraba sólo el embudo por default y hablaba de «secuencias». Si
+             vuelve, se rehace sobre los CRON (`vistasPorDisparador`, lib/disparadores.ts) y pasa por
+             la puerta de crear de la lista (`nueva`), que pregunta por lo no publicado. */
         />
       )}
 

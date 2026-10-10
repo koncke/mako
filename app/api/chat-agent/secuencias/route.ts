@@ -46,7 +46,7 @@ import { chatClaude } from '@/lib/anthropic';
 import { renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { getFunnelDefault } from '@/lib/funnels';
-import { huecosDeSecuencias, archivarSecuencias, desarchivarSecuencia } from '@/lib/secuencias-huecos';
+import { archivarSecuencias, desarchivarSecuencia } from '@/lib/secuencias-huecos';
 import { tzActual } from '@/lib/timezone';
 import { generarVariantes } from '@/lib/secuencias-variantes';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
@@ -87,16 +87,17 @@ export async function GET(req: NextRequest) {
     }
   }
   try {
-    const [{ secuencias, serie }, funnel, leadMagnets, wsRow, huecos, instancia] = await Promise.all([
+    // ⚠️ YA NO VIAJAN LOS «HUECOS» (las etapas de nutrición sin secuencia). Los pintaba el pie de la
+    // lista, «7 etapas sin secuencia · Armar una», que era del modelo de UNA secuencia por etapa de
+    // nutrición y salió el 10/10/2026 (restos de versiones anteriores, grupo «lista»). La pregunta
+    // sigue en la API de MaKo (`huecos_secuencias`), que la lee de `huecosDeSecuencias`.
+    const [{ secuencias, serie }, funnel, leadMagnets, wsRow, instancia] = await Promise.all([
       getSettingData(),
       // DEFAULT hoy: la pantalla trabaja sobre el funnel del negocio. Cuando haya
       // varios, acá entra el desplegable y el funnel elegido.
       getFunnelDefault().catch(() => null),
       getEntregables().catch(() => []),
       getWorkspace(ws).catch(() => null),
-      // Las etapas de nutrición que quedaron sin secuencia. Reemplaza al seed:
-      // antes se creaban solas con copy de relleno; ahora se avisa que faltan.
-      huecosDeSecuencias().catch(() => []),
       // ⚠️ El estado del NÚMERO, que la pantalla de trabajo no miraba nunca.
       // Vivía solo en el onboarding, así que en cuanto el dueño lo terminaba
       // dejaba de verlo — y una secuencia en verde sobre un número caído se
@@ -142,7 +143,7 @@ export async function GET(req: NextRequest) {
       ok: true, secuencias, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas, productos, disparadores: TRIGGERS,
       tz: await tzActual().catch(() => null),
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
-      negocio: wsRow?.nombre ?? '', huecos, handoffs: await handoffsPendientes().catch(() => []),
+      negocio: wsRow?.nombre ?? '', handoffs: await handoffsPendientes().catch(() => []),
       canal,
       // El interruptor del envío REAL (#328). Lo leía sólo /whatsapp, y el comentario de
       // WhatsAppApp ya decía que venía acá: no venía. `null` = no se pudo leer.

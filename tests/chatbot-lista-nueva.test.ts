@@ -96,7 +96,8 @@ test('con la fila que se está creando elegida, el lienzo está abierto con su l
 });
 
 test('crearNueva pone la fila y la abre ANTES de pedirle nada al server; el id real ANTES del load', () => {
-  const c = recorte(APP(), 'const crearNueva = async (pedido?: string) => {', '\n  };', 1500);
+  // Sin `pedido` desde el 10/10/2026: lo mandaba «Armar una» del pie de la lista, que salió.
+  const c = recorte(APP(), 'const crearNueva = async () => {', '\n  };', 1500);
   const iFila = c.indexOf('setCreando({ temporal, id: null });\n    setAbrirSec({ id: temporal });');
   const iPost = c.indexOf("fetch('/api/chat-agent/secuencias'");
   const iReal = c.indexOf('setCreando({ temporal, id });');
