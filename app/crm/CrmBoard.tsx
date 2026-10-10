@@ -2347,18 +2347,18 @@ export function CrmBoard({
                   // para asignar una campaña» (Martín, 05/10/2026). Sólo en la ENTRADA: es la
                   // etapa por la que entra un lead de Meta, y es el mismo lugar donde vive la
                   // sección en el pop-up del embudo.
-                  ...(c.kind === 'entrada' ? [{ value: 'campanas', label: 'Campañas de Meta' }] : []),
+                  ...(c.kind === 'entrada' ? [{ value: 'campanas', label: 'Campañas de Meta', icono: 'anuncio' as const }] : []),
                   // «Automatizar la invitación al curso cuando un lead cae a Ganado... Pero que sea
                   // opcional» (Martín, 07/10/2026). En Ganado, que es donde se ve a quién le llega, y
                   // sólo si el producto tiene clases (sin curso no hay a qué invitar).
                   ...(cursoAlGanar && terminalEstadoFor(c.key) === 'ganado'
-                    ? [{ value: 'curso', label: 'Invitar al curso al ganar', sub: cursoPrendido ? 'Prendido' : 'Apagado' }]
+                    ? [{ value: 'curso', label: 'Invitar al curso al ganar', sub: cursoPrendido ? 'Prendido' : 'Apagado', icono: 'curso' as const }]
                     : []),
-                  { value: 'renombrar', label: 'Cambiar el nombre' },
+                  { value: 'renombrar', label: 'Cambiar el nombre', icono: 'renombrar' },
                   // «En lugar de "Agregar etapa después" simplemente "Agregar etapa"» (Martín,
                   // 29/09/2026). Sigue insertando DESPUÉS de esta: el rótulo explicaba el
                   // mecanismo, y desde el menú de una columna el lugar ya se entiende.
-                  { value: 'agregar', label: 'Agregar etapa' },
+                  { value: 'agregar', label: 'Agregar etapa', icono: 'agregar' },
                   // ⚠️ LA OPCIÓN NO EXISTE CUANDO NO SE PUEDE, en vez de dibujarse apagada:
                   // «si no se puede eliminar, no pongas directamente esa opción, no la dejes en
                   // gris» (Martín, 29/09/2026). Las cuatro terminales están en todos los
@@ -2377,7 +2377,7 @@ export function CrmBoard({
                   // La condición correcta ya estaba escrita arriba, en `colsPropias`, con su
                   // porqué — y la usaba el ARRASTRE (`seArrastraCol`) y no el borrado. Es «una
                   // regla aplicada en un lugar de dos no está implementada, está documentada».
-                  ...(colsBorrables.has(c.key) ? [{ value: 'eliminar', label: 'Eliminar etapa' }] : []),
+                  ...(colsBorrables.has(c.key) ? [{ value: 'eliminar', label: 'Eliminar etapa', icono: 'borrar' as const }] : []),
                 ]}
                 onChange={(v) => {
                   if (v === 'campanas') { setCampanasAbierto(true); return; }

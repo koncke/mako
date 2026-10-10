@@ -38,7 +38,7 @@ import { useCapaModal } from '../_components/pila-modales';
 import { PortadaPicker } from '../_components/PortadaPicker';
 import { IdentidadPicker } from '../_components/IdentidadPicker';
 import { FichaWorkspace } from './FichaWorkspace';
-import { Dropdown } from '../components/Dropdown';
+import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
 import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
@@ -323,7 +323,7 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
   filas: Workspace[];
   onAbrir: (id: number) => void;
   onNuevo: () => void;
-  opcionesDe: (w: Workspace) => { value: string; label: string; disabled?: boolean; color?: string }[];
+  opcionesDe: (w: Workspace) => DropdownOption[];
   /** Quién lleva el chip «Dueño». Ver `wsPlataforma` en PanelClientes. */
   wsPlataforma: number | null;
   elegirAccion: (w: Workspace, v: string) => void;
@@ -739,7 +739,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
     // misma expresión.
     const esDueno = w.id === wsPlataforma;
     return [
-      { value: 'renombrar', label: 'Renombrar…' },
+      { value: 'renombrar', label: 'Renombrar…', icono: 'renombrar' },
       /**
        * ⚠️ UN ÍTEM Y UN MODAL, NO UN ÍTEM POR PLAN. Acá había un «Pasar a <Plan>» por
        * cada capa vendible: «en lugar de muchos "Pasar a…" que sea "Cambiar permisos" y
@@ -751,15 +751,17 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
        * como rótulo y que la decisión no pueda vivir en un menú: lo que sigue le escribe
        * a una persona.
        */
-      ...(esDueno ? [] : [{ value: 'permisos', label: 'Cambiar permisos…' }]),
+      ...(esDueno ? [] : [{ value: 'permisos', label: 'Cambiar permisos…', icono: 'llave' as const }]),
       esDueno
-        ? { value: 'nopausar', label: 'No se puede pausar a la plataforma', disabled: true }
-        : { value: 'estado', label: w.estado === 'pausado' ? 'Activar' : 'Pausar' },
-      /* ⚠️ ROJO Y CON PUNTOS SUSPENSIVOS: los puntos dicen que abre algo y el color que
-         es de otra clase que las de arriba. `DropdownOption` ya soporta `color`.
+        ? { value: 'nopausar', label: 'No se puede pausar a la plataforma', disabled: true, icono: 'pausar' as const }
+        : { value: 'estado', label: w.estado === 'pausado' ? 'Activar' : 'Pausar', icono: w.estado === 'pausado' ? 'activar' as const : 'pausar' as const },
+      /* ⚠️ ROJO Y CON PUNTOS SUSPENSIVOS: los puntos dicen que abre algo y el rojo que
+         es de otra clase que las de arriba. El rojo lo pone el tacho de la casa (`icono:
+         'borrar'`, sexta tanda): antes era un punto `color` al costado, que con el ícono
+         sobraba (dos marcas para lo mismo).
          Y para la plataforma no se ofrece siquiera deshabilitado: un ítem apagado
          invita a preguntarse cómo encenderlo, y acá la respuesta es «nunca». */
-      ...(esDueno ? [] : [{ value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' }]),
+      ...(esDueno ? [] : [{ value: 'eliminar', label: 'Eliminar…', icono: 'borrar' as const }]),
       // ⛔ ACA ESTABA «Convertir en agencia», y se fue el 27/09/2026: ser agencia
       // ES EL PLAN, asi que ya esta arriba como «Pasar a Agencia», con el mismo
       // control que cualquier otro plan. Dos caminos para el mismo hecho es como
@@ -977,8 +979,8 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
                     ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
                     buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
                     options={[
-                      { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
-                      { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
+                      { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso', icono: 'enviar' },
+                      { value: 'eliminar', label: 'Eliminar…', icono: 'borrar' },
                     ]}
                     onChange={(v) => {
                       if (v === 'reinvitar') reenviar(u);
@@ -1473,14 +1475,14 @@ function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onElimi
                 ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
                 buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
                 options={[
-                  { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
-                  { value: 'foto', label: u.foto_url ? 'Cambiar la foto…' : 'Ponerle una foto…' },
+                  { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso', icono: 'enviar' },
+                  { value: 'foto', label: u.foto_url ? 'Cambiar la foto…' : 'Ponerle una foto…', icono: 'imagen' },
                   // ⚠️ SÓLO SI ELIGIÓ UNA. Quitar la de su Gravatar es imposible —no es
                   // nuestra— y un botón que no puede hacer nada se lee como que la app
                   // está rota. Es la misma regla que «Reposicionar» de la portada.
-                  ...(u.foto_url ? [{ value: 'quitarfoto', label: 'Quitar la foto' }] : []),
-                  { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender' },
-                  { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
+                  ...(u.foto_url ? [{ value: 'quitarfoto', label: 'Quitar la foto', icono: 'quitar' as const }] : []),
+                  { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender', icono: u.estado === 'suspendido' ? 'activar' : 'pausar' },
+                  { value: 'eliminar', label: 'Eliminar…', icono: 'borrar' },
                 ]}
                 onChange={(v) => {
                   if (v === 'reinvitar') reenviar(u);

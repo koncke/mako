@@ -120,7 +120,8 @@ test('sin portada (no se pudo leer el estilo) no queda una sección vacía ni un
 test('la ENTRADA del kanban: el interruptor y «Eliminar módulo» se dibujan APAGADOS y dicen por qué', () => {
   const html = dibujarModulo({ entrada: true });
   assert.match(html, /<button[^>]*role="switch"[^>]*aria-checked="true"[^>]*disabled=""/, 'el interruptor de la entrada está prendido y apagado (deshabilitado)');
-  assert.match(html, /<button(?=[^>]*disabled="")(?=[^>]*title="Es la entrada del kanban\.")[^>]*>Eliminar módulo<\/button>/);
+  // Desde la sexta tanda (general 10) el renglón lleva su ícono antes del texto: el tacho de la casa.
+  assert.match(html, /<button(?=[^>]*disabled="")(?=[^>]*title="Es la entrada del kanban\.")[^>]*>(?:<svg[\s\S]*?<\/svg>)?Eliminar módulo<\/button>/);
   assert.ok(html.includes(ERROR_ENTRADA));
   // Un módulo cualquiera, no.
   assert.doesNotMatch(dibujarModulo(), /role="switch"[^>]*disabled=""/);
@@ -220,3 +221,7 @@ test('cada gesto de la estructura ofrece «Deshacer», y deshacer vuelve a escri
 // scratchpad/editor-leccion/romper.mjs. Base 10 / 0:
 //   · la obligatoria en una sección propia (rompe el orden de Martín)              → 8 / 2
 //   · el interruptor sin su motivo (se puede tocar sin tarea) · sin «Deshacer»     → 9 / 1 cada una
+//
+// Sexta tanda, segunda pasada (09/10/2026, parte «barrido»): los renglones llevan su ícono del set de la
+// casa y la aserción de «Eliminar módulo» admite el <svg> antes del texto. Base 10 / 0 con el ícono puesto;
+// sacando el `disabled` de la entrada (el bug que la aserción caza) → 9 / 1, igual que antes del ícono.

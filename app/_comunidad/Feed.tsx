@@ -131,12 +131,12 @@ export function Feed({ inicial, postPedido = null, onPostAbierto, version = 0 }:
   };
 
   const menuDe = (p: PostVista): ItemMenu[] => [
-    ...(p.puedoEditar ? [{ label: 'Editar', onClick: () => void editar(p.id) }] : []),
-    ...(comunidad.puedoFijar && api.fijarPost ? [{ label: p.fijado ? 'Soltar' : 'Fijar arriba', onClick: () => void fijar(p, !p.fijado) }] : []),
+    ...(p.puedoEditar ? [{ label: 'Editar', icono: 'editar' as const, onClick: () => void editar(p.id) }] : []),
+    ...(comunidad.puedoFijar && api.fijarPost ? [{ label: p.fijado ? 'Soltar' : 'Fijar arriba', icono: 'fijar' as const, onClick: () => void fijar(p, !p.fijado) }] : []),
     // Moderación (el equipo): cerrar los comentarios y sacar al autor (un alumno) de la comunidad.
-    ...(comunidad.puedoModerar && api.cerrarComentarios ? [{ label: p.cerrado ? 'Abrir comentarios' : 'Cerrar comentarios', onClick: () => void cerrar(p, !p.cerrado) }] : []),
-    ...(sacar && !p.autor.equipo && p.autor.clave !== comunidad.yo.clave ? [{ label: `Sacar a ${p.autor.nombre}`, onClick: () => sacar(p.autor) }] : []),
-    ...(p.puedoBorrar ? [{ label: 'Borrar', onClick: () => void borrar(p), peligro: true }] : []),
+    ...(comunidad.puedoModerar && api.cerrarComentarios ? [{ label: p.cerrado ? 'Abrir comentarios' : 'Cerrar comentarios', icono: 'candado' as const, onClick: () => void cerrar(p, !p.cerrado) }] : []),
+    ...(sacar && !p.autor.equipo && p.autor.clave !== comunidad.yo.clave ? [{ label: `Sacar a ${p.autor.nombre}`, icono: 'persona-menos' as const, onClick: () => sacar(p.autor) }] : []),
+    ...(p.puedoBorrar ? [{ label: 'Borrar', icono: 'borrar' as const, onClick: () => void borrar(p), peligro: true }] : []),
   ];
   const nombreCategoria = (id: number | null) => (id == null ? null : comunidad.categorias.find((c) => c.id === id)?.nombre ?? null);
 

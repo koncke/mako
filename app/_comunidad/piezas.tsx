@@ -13,6 +13,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useCapaModal } from '@/app/_components/pila-modales';
+import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import type { ApiComunidad } from './api';
 import type { AdjuntoVista, ComunidadVista, EncuestaVista, MiembroVista, VideoVista } from '@/lib/comunidad-tipos';
 import { haceCuanto, type TokenTexto } from '@/lib/comunidad-reglas';
@@ -292,7 +293,9 @@ export function CapaPopover({ caja, onCerrar }: { caja: RefObject<HTMLElement | 
 
 // ── El menú de los tres puntos ──────────────────────────────────────────────────
 
-export type ItemMenu = { label: string; onClick: () => void; peligro?: boolean };
+/** `icono`: uno del set de la casa (app/_ui/iconos-menu.tsx; sexta tanda, general 10: «pon íconos en
+ *  todos los desplegable, en todas las opciones»). `borrar` sale rojo solo. */
+export type ItemMenu = { label: string; onClick: () => void; peligro?: boolean; icono?: NombreIconoMenu };
 
 /**
  * El menú de una tarjeta o un comentario. No se dibuja si no hay nada que ofrecer.
@@ -319,6 +322,7 @@ export function Menu({ items, etiqueta = 'Opciones', boton, arriba = false }: { 
           {items.map((it) => (
             <button key={it.label} type="button" role="menuitem" className={`cmu-menu-item${it.peligro ? ' cmu-menu-item--peligro' : ''}`}
               onClick={() => { setAbierto(false); it.onClick(); }}>
+              {it.icono && <IconoMenu nombre={it.icono} size={16} />}
               {it.label}
             </button>
           ))}
