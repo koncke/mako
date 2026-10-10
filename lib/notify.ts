@@ -9,8 +9,8 @@
 // (lib/reporte-template.ts), y lo que no entraba quedaba 'pendiente' para el cron horario
 // (flushPendientesWhatsapp). Chatwoot se borró con toda la integración (decisión de Martín:
 // «que no exista más»), así que el reporte ya no tiene por dónde salir por WhatsApp:
-// `wa` vuelve 'no' aunque el negocio lo tenga pedido. Pendiente de una decisión de Martín:
-// mandarlo por la línea de MaKo (lib/mako-canal.ts) o sacar la opción de las preferencias.
+// `wa` vuelve 'no' aunque el negocio lo tenga pedido. Decisión de Martín (10/10/2026): «Apagar WhatsApp
+// en los reportes» — salen por email y al feed (`REPORTE_POR_WHATSAPP`, lib/mensaje-canales.ts).
 // =============================================================================
 
 import 'server-only';

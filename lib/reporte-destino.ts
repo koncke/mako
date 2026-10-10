@@ -27,6 +27,8 @@
 //
 // Sin `server-only`: lo importan el cron, el despachador y el test.
 
+import { REPORTE_POR_WHATSAPP } from './mensaje-canales';
+
 export type DestinosReporte = { telefonos: string[]; emails: string[] };
 
 /**
@@ -57,7 +59,8 @@ export function decidirReporte(e: {
   destinos: DestinosReporte;
 }): DecisionReporte {
   if (!e.activo) return { sale: false, motivo: 'apagado' };
-  const wa = e.canal.wa ? e.destinos.telefonos.length : 0;
+  // Un reporte no sale por WhatsApp (decisión de Martín, 10/10/2026: `REPORTE_POR_WHATSAPP`).
+  const wa = REPORTE_POR_WHATSAPP && e.canal.wa ? e.destinos.telefonos.length : 0;
   const email = e.canal.email ? e.destinos.emails.length : 0;
   if (wa + email === 0) return { sale: false, motivo: 'sin_destinatario' };
   return { sale: true, wa, email };

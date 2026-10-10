@@ -67,7 +67,7 @@ import {
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { CRON_DEFAULT } from '@/app/_components/EditorCron';
 import { variablesOfrecidas } from '@/lib/variables-aviso';
-import { guardarCanalDeMensaje } from '@/lib/mensaje-canales';
+import { guardarCanalDeMensaje, claveDeReporte, REPORTE_POR_WHATSAPP } from '@/lib/mensaje-canales';
 import {
   EVENTOS, EVENTOS_SIN_EMISOR, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, sanearInsistir,
   type Flujo, type Paso, type PasoAccion, type EventoFlujo,
@@ -452,7 +452,8 @@ export function FlujoAviso({
     // canal, que sale a la vez. Un paso en paralelo no tiene lugar en una lista.
     const enParalelo = (puerto ?? '').startsWith('par');
     return MENU_MAS
-      .filter((o) => (o.value === 'mako' ? !medio && nodo === cabeza && !canales.wa
+      // Un reporte no ofrece prender WhatsApp: no sale por ahí (`REPORTE_POR_WHATSAPP`).
+      .filter((o) => (o.value === 'mako' ? !medio && nodo === cabeza && !canales.wa && (REPORTE_POR_WHATSAPP || !claveDeReporte(id ?? ''))
         : o.value === 'email' ? !medio && nodo === cabeza && !canales.email
           : OPCIONES_PASO.has(o.value) && !enParalelo))
       .map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });

@@ -94,7 +94,9 @@ test('los reportes diario y horario siguen siendo sólo del dueño (decisión de
 test('decidirReporte: apagado, sin destinatario por los canales elegidos, o sale', () => {
   const destinos = { telefonos: ['5215511112222'], emails: ['dueno@negocio.com'] };
   assert.deepEqual(decidirReporte({ activo: false, canal: { wa: true, email: true }, destinos }), { sale: false, motivo: 'apagado' });
-  assert.deepEqual(decidirReporte({ activo: true, canal: { wa: true, email: true }, destinos }), { sale: true, wa: 1, email: 1 });
+  // ⛔ Un reporte no sale por WhatsApp (decisión de Martín, 10/10/2026, `REPORTE_POR_WHATSAPP`): con los dos
+  // canales pedidos, cuenta sólo el email.
+  assert.deepEqual(decidirReporte({ activo: true, canal: { wa: true, email: true }, destinos }), { sale: true, wa: 0, email: 1 });
   // Un teléfono no cuenta si el WhatsApp está apagado, y al revés.
   assert.deepEqual(
     decidirReporte({ activo: true, canal: { wa: true, email: false }, destinos: { telefonos: [], emails: ['x@y.com'] } }),

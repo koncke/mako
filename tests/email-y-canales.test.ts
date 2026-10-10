@@ -119,7 +119,10 @@ test('El canal de un REPORTE sale de sus prefs, no de su plantilla', () => {
   assert.deepEqual(canalesDeMensaje('reporte-semanal', plantilla, prefs), { wa: false, email: true });
 
   // Y si las prefs no se pudieron leer, NO se inventa un «sí» sobre un canal que no se midió.
-  assert.deepEqual(canalesDeMensaje('reporte-semanal', plantilla, null), { wa: true, email: false });
+  assert.deepEqual(canalesDeMensaje('reporte-semanal', plantilla, null), { wa: false, email: false });
+  // ⛔ Y un reporte NO sale por WhatsApp aunque sus prefs lo pidan (decisión de Martín, 10/10/2026:
+  // «Apagar WhatsApp en los reportes»). Rotura: con `REPORTE_POR_WHATSAPP` en true → 1 fallo.
+  assert.deepEqual(canalesDeMensaje('reporte-semanal', plantilla, { semanal: { wa: true, email: true } }), { wa: false, email: true });
 });
 
 test('El interruptor y el canal son DOS preguntas, y apagar los dos canales apaga', () => {

@@ -35,6 +35,7 @@ import { buildReporteSemanal } from '@/lib/reportes';
 import { despacharReporte } from '@/lib/notify';
 import { idDeMensaje } from '@/lib/disparador-mensaje';
 import { decidirReporte, destinosDelReporte, enmascararDestino } from '@/lib/reporte-destino';
+import { REPORTE_POR_WHATSAPP } from '@/lib/mensaje-canales';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -59,7 +60,7 @@ async function reporteDelWorkspace(ws: number, dry: boolean): Promise<ResultadoW
   if (dry) {
     return {
       ws, modo: 'dry',
-      wa: prefs.semanal.wa ? destinos.telefonos.map(enmascararDestino) : [],
+      wa: REPORTE_POR_WHATSAPP && prefs.semanal.wa ? destinos.telefonos.map(enmascararDestino) : [],
       email: prefs.semanal.email ? destinos.emails.map(enmascararDestino) : [],
       waSinCanal: prefs.semanal.wa ? true : null,
     };

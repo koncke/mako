@@ -25,6 +25,15 @@ export const REPORTES_CON_PREFS: Record<string, 'horario' | 'diario' | 'semanal'
   'reporte-semanal': 'semanal',
 };
 
+/**
+ * ⛔ UN REPORTE NO SALE POR WHATSAPP. Decisión de Martín (10/10/2026), al preguntarle qué hacer con el
+ * reporte semanal, que no tenía por dónde salir desde que se borró Chatwoot: «Apagar WhatsApp en los
+ * reportes» (y no mandarlo al grupo de MaKo). Quedan por email y en el feed. Lo leen el lienzo y el
+ * interruptor de un reporte (`canalesDeMensaje`, `guardarCanalDeMensaje`) y el cron (`decidirReporte`,
+ * lib/reporte-destino.ts): si algún día vuelve, se cambia ACÁ y los tres lo siguen.
+ */
+export const REPORTE_POR_WHATSAPP = false;
+
 export function claveDeReporte(id: string): 'horario' | 'diario' | 'semanal' | null {
   return REPORTES_CON_PREFS[id] ?? null;
 }
@@ -46,7 +55,12 @@ export function canalesDeMensaje(
   prefs: PrefsLeidas | null | undefined,
 ): CanalesLeidos {
   const k = claveDeReporte(id);
-  if (k && prefs?.[k]) return { wa: prefs[k]!.wa, email: prefs[k]!.email };
+  // Un reporte: el email de sus prefs (o el de su plantilla, si no se pudieron leer), y WhatsApp sólo si
+  // `REPORTE_POR_WHATSAPP` lo permite (hoy no).
+  if (k) {
+    const p = prefs?.[k];
+    return { wa: REPORTE_POR_WHATSAPP && (p ? p.wa : plantilla?.canales?.wa ?? true), email: p ? p.email : plantilla?.canales?.email ?? false };
+  }
   return { wa: plantilla?.canales?.wa ?? true, email: plantilla?.canales?.email ?? false };
 }
 
@@ -75,12 +89,14 @@ export async function guardarCanalDeMensaje(
   const k = claveDeReporte(id);
   try {
     if (k) {
+      // Un reporte no sale por WhatsApp (`REPORTE_POR_WHATSAPP`): prenderlo no se ofrece y, si llega, se dice.
+      if (canal === 'wa' && !REPORTE_POR_WHATSAPP) return on ? { ok: false, error: 'Los reportes salen por email.' } : { ok: true };
       const fresco = await (await fetch('/api/perfil')).json();
       if (!fresco?.ok) return { ok: false, error: fresco?.error || 'No se pudieron leer tus preferencias' };
       const prefs = fresco.prefs as Record<string, unknown>;
       const prev = (prefs[k] ?? {}) as { wa?: boolean; email?: boolean };
       const sig = { ...prev, [canal]: on };
-      const next = { ...prefs, [k]: { ...sig, activo: Boolean(sig.wa) || Boolean(sig.email) } };
+      const next = { ...prefs, [k]: { ...sig, activo: (REPORTE_POR_WHATSAPP && Boolean(sig.wa)) || Boolean(sig.email) } };
       const j = await (await fetch('/api/perfil', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'prefs', prefs: next }),
