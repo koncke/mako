@@ -327,7 +327,7 @@ export const TRIGGERS: Opcion[] = [
   // propio y no un valor más de `etapa_actual`: las claves de las dos listas de etapas
   // las edita el cliente y podrían chocar — ver lib/nutricion-etapa.ts.
   { value: 'entrega_actual', label: 'Llegó a una etapa de la ENTREGA del servicio' },
-  // Las ETIQUETAS del CRM (mig 0224, punto 12 del rediseño de /chatbot). El cohorte lo resuelve el
+  // Las ETIQUETAS del CRM (mig 0224, punto 12 del rediseño de /automations). El cohorte lo resuelve el
   // motor (parte M: `nutricion_secuencias.etiqueta_id` + `enrolarPorEvento(…, 'etiqueta')`); este
   // renglón es sólo el nombre en el selector. Literal y no la constante TRIGGER_ETIQUETA: el guard
   // de los tres registros (tests/nutricion-triggers-registros.test.ts) lee el fuente.
@@ -625,7 +625,7 @@ export async function eliminarBroadcast(id: number): Promise<void> {
 
 /**
  * LA FIRMA DEL PIE de un broadcast: el nombre del NEGOCIO del workspace en curso (`firmaDelPie`,
- * lib/email-remitente.ts), la MISMA regla que la nutrición de /chatbot (lib/nutricion.ts).
+ * lib/email-remitente.ts), la MISMA regla que la nutrición de /automations (lib/nutricion.ts).
  *
  * ⚠️ ERA `displayNameDe(getEmailFrom())`, el nombre visible del remitente, y es el mismo bug que
  *    Martín vio en el email de un flujo (cuarta tanda del Chatbot, 09/10/2026, punto 16: «Abajo del

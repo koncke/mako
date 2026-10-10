@@ -1,12 +1,12 @@
 // =============================================================================
 // /api/zernio — la cuenta de Instagram o Messenger de un negocio, para sus automatizaciones
 // =============================================================================
-// Lo usa el editor de las tarjetas INSTAGRAM y MESSENGER (app/chatbot/EditorMensajeSocial.tsx) para
+// Lo usa el editor de las tarjetas INSTAGRAM y MESSENGER (app/automations/EditorMensajeSocial.tsx) para
 // decir desde qué cuenta sale el mensaje —como el número de salida de la de WhatsApp— y ofrecer
 // «Conectar» cuando no hay ninguna. Sólo el admin del workspace.
 //
 //   POST { action: 'estado', plataforma }   → { ok, cuentas: [{ id, usuario, nombre }], webhook }
-//   POST { action: 'conectar', plataforma } → { ok, url }   (el OAuth de Zernio; vuelve a /chatbot)
+//   POST { action: 'conectar', plataforma } → { ok, url }   (el OAuth de Zernio; vuelve a /automations)
 //
 // ⚠️ «ESTADO» TAMBIÉN DEJA ANDANDO LA RECEPCIÓN, a propósito: reclama el ruteo de cada cuenta (un
 // comentario trae sólo la cuenta, no el profile) y registra el webhook en la cuenta de Zernio del
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       });
     }
     if (body.action === 'conectar') {
-      const url = await urlParaConectar(ws, plataforma, linkApp('/chatbot', ws));
+      const url = await urlParaConectar(ws, plataforma, linkApp('/automations', ws));
       return Response.json({ ok: true, url });
     }
     return Response.json({ ok: false, error: 'acción desconocida' }, { status: 400 });

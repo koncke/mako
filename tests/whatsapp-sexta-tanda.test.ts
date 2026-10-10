@@ -27,16 +27,16 @@ import {
   pausaAntesDe, pausasPosibles, pausaVisible, sanearParte, problemaDePartes, formaGuardada, partesAlGuardar, partesExplicitas,
   lineaDelPaso, lineaAlGuardar, PAUSA_ENTRE_PARTES_MS, PAUSA_TOTAL_MAX_S, type ParteMensaje,
 } from '../lib/mensaje-partes';
-import { lineaElegida, type LineaWa } from '../app/chatbot/SalidaWhatsApp';
+import { lineaElegida, type LineaWa } from '../app/automations/SalidaWhatsApp';
 import {
   EditorMensajeWhatsApp, EditorMensajeGrupo, CabeceraMakoEnWhatsApp, propuestaALista, enviarALista, rotuloPausa,
-} from '../app/chatbot/EditorMensajeWhatsApp';
-import { textoMasPartes, renglonesDeTarjeta } from '../app/chatbot/FlujoLienzo';
+} from '../app/automations/EditorMensajeWhatsApp';
+import { textoMasPartes, renglonesDeTarjeta } from '../app/automations/FlujoLienzo';
 import { altoDeMensaje } from '../lib/flujo-conversacion';
 import { pedidoDeRedacta, revisarRedacta, redactaSystem, userDeRedacta, sinVariablesAjenas, LECTURAS_REDACTA } from '../lib/mako-redacta';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO } from '../lib/template-vars';
 import { porId } from '../lib/api-mako/registro';
-import type { PasoSecuenciaDto, AudioSetting } from '../app/chatbot/ChatAgentApp';
+import type { PasoSecuenciaDto, AudioSetting } from '../app/automations/ChatAgentApp';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -193,7 +193,7 @@ test('NINGÚN composer manda al soltar: `audioAlSoltar` no decide nada, y la gra
   const cuerpo = comp.slice(comp.indexOf('export function ComposerWhatsApp('));
   assert.doesNotMatch(cuerpo.slice(cuerpo.indexOf('}: ComposerWhatsAppProps) {')), /audioAlSoltar/, 'el composer vuelve a mirar `audioAlSoltar`');
   assert.match(comp, /useGrabacionVoz\(async \(blob, secs\) => \{ await onAudio\?\.\(blob, secs\); \}, onErrorAudio\)/);
-  for (const r of ['app/chatbot/GrabadorAudioPaso.tsx', 'app/chatbot/PasoAudioControl.tsx']) {
+  for (const r of ['app/automations/GrabadorAudioPaso.tsx', 'app/automations/PasoAudioControl.tsx']) {
     const src = sinComentarios(leer(r));
     assert.match(src, /useGrabacionVoz\(subir, onError\)/, `${r} no usa la sesión de voz`);
     assert.match(src, /<BarraGrabacion voz=\{voz\}/, `${r} no dibuja la barra nueva`);
@@ -306,7 +306,7 @@ test('el selector de un mensaje guarda la de por default con SU nombre, y no dic
   assert.equal(lineaElegida('', lineas, false), null, 'la automatización: null es la de por default');
   assert.equal(lineaElegida('', lineas, true), 'mako_ws9', 'un mensaje: null sería «la de la automatización»');
   assert.equal(lineaElegida('mako_ws9_b', lineas, true), 'mako_ws9_b');
-  assert.doesNotMatch(sinComentarios(leer('app/chatbot/SalidaWhatsApp.tsx')), /Toda la automatización/);
+  assert.doesNotMatch(sinComentarios(leer('app/automations/SalidaWhatsApp.tsx')), /Toda la automatización/);
 });
 
 // ── 4, 5, 6, 9 y 12: el editor y la tarjeta ──────────────────────────────────────────────────
@@ -327,7 +327,7 @@ test('los botones van PEGADOS a la burbuja (la fila pone el tope) y cada burbuja
 });
 
 test('mientras se graba sólo aparece el guion que PROPUSO MaKo; ya no hay botón de pedirlo ahí', () => {
-  const ed = sinComentarios(leer('app/chatbot/EditorMensajeWhatsApp.tsx'));
+  const ed = sinComentarios(leer('app/automations/EditorMensajeWhatsApp.tsx'));
   assert.match(ed, /const mientrasGraba: ReactNode = guionMaKo \? \(/);
   assert.doesNotMatch(ed, /chat-agent\/onboarding\/guion-audio|RUTA_GUION|✦ guion/, 'volvió el «✦ guion» adentro de la grabación');
   // «Grabar con este guion» lo deja para leer y arranca a grabar en el mismo clic.
@@ -337,7 +337,7 @@ test('mientras se graba sólo aparece el guion que PROPUSO MaKo; ya no hay botó
 });
 
 test('editar un audio abre la barra de escucharlo (con 🎤 para seguir), no el chip con una ✕', () => {
-  const ed = sinComentarios(leer('app/chatbot/EditorMensajeWhatsApp.tsx'));
+  const ed = sinComentarios(leer('app/automations/EditorMensajeWhatsApp.tsx'));
   assert.match(ed, /\? \{ url: audioEditado\.url, secs: audioEditado\.duracion_s, seguir: permiteAudio, rotuloUsar: 'Dejar este audio', onDescartar: /);
   assert.match(ed, /audioPendiente=\{audioPendiente\}/);
   const editar = bloque(ed, 'const editar = (i: number) => {', '\n  };', 1_000);
@@ -358,7 +358,7 @@ test('la tarjeta: «+1 mensaje…» abajo a la derecha, y el texto largo termina
       assert.ok(47 + 18 + 6 + lineas * 18.125 + (mas ? 20 : 0) <= alto, `con ${largo} letras y +${mas} los ${lineas} renglones no entran en ${alto}`);
     }
   }
-  const vista = bloque(sinComentarios(leer('app/chatbot/FlujoLienzo.tsx')), 'function VistaMensaje(', '\nfunction VistaEmail(', 4_500);
+  const vista = bloque(sinComentarios(leer('app/automations/FlujoLienzo.tsx')), 'function VistaMensaje(', '\nfunction VistaEmail(', 4_500);
   assert.match(vista, /lineas=\{renglonesDeTarjeta\(paso, mas\)\}/, 'la tarjeta no corta con el alto que estima el árbol');
   assert.match(vista, /textAlign: 'right' \}\}>\{textoMasPartes\(mas\)\}/);
 });
@@ -431,7 +431,7 @@ test('«MaKo en WhatsApp»: el MISMO editor, UN texto, con «{ }», sin mic ni c
   assert.ok(!html.includes('Grabar nota de voz') && !html.includes('Adjuntar archivo'));
   assert.ok(html.includes('>MaKo<'), 'la burbuja no la firma MaKo');
   assert.ok(renderToStaticMarkup(createElement(CabeceraMakoEnWhatsApp)).includes('MaKo en WhatsApp'));
-  const flujo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const flujo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   assert.match(flujo, /if \(paso && esMako\(paso\)\) return <CabeceraMakoEnWhatsApp \/>;/);
   assert.match(bloque(flujo, 'function cabeceraDe(', '\n}\n', 800), /if \(claseDe\(paso\) === 'accion'\) return esMako\(paso\);/);
 });

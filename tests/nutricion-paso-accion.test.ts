@@ -345,7 +345,7 @@ test('el lienzo ofrece «⚡ Acción», la edita con el editor compartido y la a
   // el menú recibe el puerto (la fila «Si responde» del CRON ofrece sólo crear «Si responde»).
   // Roto devolviendo el `puerto` a `_puerto` en FlujoLienzo: 1 falla.
   assert.ok(menu.some((o) => o.value === 'mensaje' && o.label === 'WhatsApp'));
-  const lienzo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   assert.match(lienzo, /opcionesEn=\{\(nodo, puerto, medio\) => opcionesDelMas\(pasos, nodo, medio, puerto\)\}/);
   assert.match(lienzo, /import \{ EditorAccionMako, useTitulosAcciones, type ValorAccion \} from '@\/app\/_components\/EditorAccionMako';/);
   // Los títulos del nodo salen de la MISMA lectura que el desplegable del editor: el lienzo no
@@ -359,7 +359,7 @@ test('el lienzo ofrece «⚡ Acción», la edita con el editor compartido y la a
   const nueva = nodoNuevo('accion', []);
   assert.deepEqual(nueva.accion, { operacion: '', params: {} });
   assert.equal(nueva.delay_horas, 0);
-  const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
+  const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   assert.match(perfil, /const r = insertarDesdeLienzo\(pasos, nodo, puerto, que\);/);
   assert.match(perfil, /onAgregar=\{rolAdmin \? agregarEn : undefined\}/);
   // El simulador muestra lo que le LLEGA al lead: una acción no le llega. ⚠️ MUDADO EL 08/10/2026:

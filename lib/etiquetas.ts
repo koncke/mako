@@ -1,7 +1,7 @@
 // =============================================================================
 // etiquetas — las etiquetas del CRM: el catálogo, las de cada lead, y la ÚNICA puerta de escritura
 // =============================================================================
-// Pedido de Martín (08/10/2026, punto 12 del rediseño de /chatbot), textual: «Deberías agregar
+// Pedido de Martín (08/10/2026, punto 12 del rediseño de /automations), textual: «Deberías agregar
 // todo un sistema de ETIQUETAS... si no respondió, se le pone la etiqueta de seguimiento. Si
 // respondió y está cualificado, se le pone la etiqueta de "Cualificado"... esas etiquetas debería
 // poder editarse, como un CRUD... y si están vinculadas a etapas del CRM... esas mismas etiquetas

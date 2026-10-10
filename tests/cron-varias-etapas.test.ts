@@ -227,11 +227,11 @@ test('el botón dice CUÁLES, o «Cualquier etapa…» si son todas (y el produc
 
 test('el CRON elige VARIAS en el desplegable de la casa, guarda una vez con respiro, y su editor tiene rótulo y campo grande (punto 1)', () => {
   // ⚠️ SEXTA TANDA (varios CRON, 09/10/2026): el desplegable vive en el editor del CRON «Producto»
-  // (app/chatbot/EditorDisparadores.tsx) y lo que se guarda con respiro es la LISTA de CRON
+  // (app/automations/EditorDisparadores.tsx) y lo que se guarda con respiro es la LISTA de CRON
   // (`useDisparadores`). El rótulo «Cuándo arranca» / «A quién» de antes se fue con el par «Por
   // tiempo» / «Por una acción»: la primera pantalla son los seis botones gigantes, y «A quién» es una
   // fila del Recurrente.
-  const editor = sinComentarios(leer('app/chatbot/EditorDisparadores.tsx'));
+  const editor = sinComentarios(leer('app/automations/EditorDisparadores.tsx'));
   assert.match(editor, /varios=\{valor \? valoresDisparo\(actual\) : \[\]\} minimo=\{1\}/);
   assert.match(editor, /onChange=\{tocarEtapa\}/);
   assert.match(editor, /const valor = valorDeVarios\(valoresTrasTocar\(d\.trigger_tipo === 'etapa_actual' \|\| d\.trigger_tipo === 'entrega_actual' \? valoresDisparo\(actual\) : \[\], tocado\)\);/);

@@ -114,7 +114,7 @@ test('la ficha de la API y MaKo leen el mensaje entero; borrar un audio mira tod
 });
 
 test('«Probar»: cada parte en orden, cada una sale de verdad UNA vez, y el audio sin transcripción', () => {
-  const panel = fuente('app/chatbot/PanelProbar.tsx');
+  const panel = fuente('app/automations/PanelProbar.tsx');
   const mostrar = panel.slice(panel.indexOf('const mostrarPaso = ('), panel.indexOf('function avanzar() {'));
   assert.match(mostrar, /const lista = partesDe\(p\);/);
   assert.match(mostrar, /const clave = lista\.length > 1 \? `\$\{nodo\}#\$\{k\}` : nodo;/, 'con la clave de la TARJETA, la segunda parte no salía («Ya salió»)');

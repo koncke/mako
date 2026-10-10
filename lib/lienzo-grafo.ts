@@ -318,7 +318,7 @@ export function yDePuerto(n: NodoFlujo, puerto?: string): number {
 /**
  * DÓNDE ENTRA UNA FLECHA A UNA TARJETA (sexta tanda, punto 5: «Yo puedo soltar en cualquier lugar de
  * la tarjeta la flecha, pero siempre se coloca en el mismo lugar»). Siempre el mismo punto: el borde
- * izquierdo, a la altura del TÍTULO, como en ManyChat. Una tarjeta con salidas (/chatbot) entra en
+ * izquierdo, a la altura del TÍTULO, como en ManyChat. Una tarjeta con salidas (/automations) entra en
  * su cabecera (`Y_ENTRADA`); las de /mensajes (sin `puertos`) siguen con los 44 px de siempre.
  */
 export const Y_ENTRADA = 22;
@@ -429,7 +429,7 @@ export type VistaLienzo = { k: number; tx: number; ty: number };
  * `margenIzq + panelAncho + separacion`.
  *
  * ⚠️ HASTA EL 08/10 ERA `panelAncho + margen × 2` CON `margen = 12 + insetIzq` (revisión,
- * lienzo-4): el inset izquierdo entraba DOS veces. En /chatbot (lista de 304 px, panel de 392)
+ * lienzo-4): el inset izquierdo entraba DOS veces. En /automations (lista de 304 px, panel de 392)
  * el nodo se corría a x = 1024 en vez de 720, y con «Probar» abierto (el teléfono en
  * [924, 1284] de un lienzo de 1300) quedaba DEBAJO del teléfono: se editaba a ciegas justo
  * donde la pantalla promete «se prueba lo que se edita». Sin inset izquierdo (/mensajes) las
@@ -449,7 +449,7 @@ export const MARGEN_ENCUADRE = 24;
  *
  * ⚠️ NUNCA ARRANCA ILEGIBLE (08/10/2026). Hasta acá era «que entre todo»: con las ramas, un
  * flujo de antes convertido a tarjetas (esperas, condiciones, «Si responde») mide diez
- * columnas y quedaba al 30 %. Martín abrió /chatbot y vio un dibujo de tarjetas de tres
+ * columnas y quedaba al 30 %. Martín abrió /automations y vio un dibujo de tarjetas de tres
  * píxeles. Ahora el zoom tiene un piso legible y, si así no entra, se ancla en la ENTRADA (el
  * CRON): se arranca por el principio, como en ManyChat, y lo demás se recorre arrastrando.
  *
@@ -538,7 +538,7 @@ export const CHROME_ALTO = 64;
 /**
  * LAS CAPAS DE LO QUE FLOTA SOBRE EL LIENZO (revisión de la segunda tanda, 09/10/2026).
  *
- * El panel APAISADO llega al rincón de abajo a la derecha de la ventana —el lienzo de /chatbot va
+ * El panel APAISADO llega al rincón de abajo a la derecha de la ventana —el lienzo de /automations va
  * de borde a borde— y ahí pinta, `fixed` y en z 55, la esquina de avisos (EsquinaAvisos), subida a
  * 64 px por el `data-esquina-ocupada` de «Publicar». Sin capa propia (ningún ancestro del lienzo
  * tiene z-index) la pastilla quedaba encima de la última fila del editor de WhatsApp en `fila`, la
@@ -606,7 +606,7 @@ export function vistaConPanelAbajo(
 }
 
 /**
- * LOS NÚMEROS DE LOS MUELLES de /chatbot. Viven acá y no en los componentes por la misma razón
+ * LOS NÚMEROS DE LOS MUELLES de /automations. Viven acá y no en los componentes por la misma razón
  * que `muelles`: con un número en cada lado, el título vuelve a nacer debajo del buscador en
  * cuanto alguien toque uno (ya pasó con el inset contado dos veces, hallazgos-chatbot.md).
  */
@@ -643,7 +643,7 @@ export const MUELLE = {
   editorFraccionAlto: 0.64,
   /**
    * EL ANCHO DE UN EDITOR DE CONTROL (cuarta tanda, punto 1). Con 560 de adentro entra la frase más
-   * larga de una condición (`ANCHO` de app/chatbot/EditorCondicion.tsx) y el desplegable de una
+   * larga de una condición (`ANCHO` de app/automations/EditorCondicion.tsx) y el desplegable de una
    * acción sin cortar los títulos largos; a 840, un DELAY de una frase dejaba media caja vacía.
    */
   editorControlAncho: 600,
@@ -683,7 +683,7 @@ export type Muelles = {
 };
 
 /**
- * DÓNDE VA CADA COSA QUE FLOTA SOBRE EL LIENZO DE /chatbot: la lista, «Probar» y el editor.
+ * DÓNDE VA CADA COSA QUE FLOTA SOBRE EL LIENZO DE /automations: la lista, «Probar» y el editor.
  *
  * Pedido literal (segunda tanda, puntos 3 y 8): «El editor de WhatsApp debes hacerlo más ancho
  * que largo, sino, se amontona todo» y «El "Probar" debe ser más ancho también, no tan largo,
@@ -764,7 +764,7 @@ export const PANEL_COLUMNA_ANCHO = 392;
  *   · ACTION: el desplegable, lo que hace, el lead y dos o tres campos («Mover un lead de etapa»:
  *     producto, etapa y el monto de Ganado) → 400;
  *   · CONDITION: dos o tres filas con sus «＋» → 320; «Si responde», tres casos → 400.
- *   · CRON (segunda pasada de la sexta tanda, medido sumando los estilos de app/chatbot/EditorDisparadores.tsx
+ *   · CRON (segunda pasada de la sexta tanda, medido sumando los estilos de app/automations/EditorDisparadores.tsx
  *     y EditorRecurrente.tsx en el panel apaisado de 600): el «Recurrente» semanal con UN CRON son seis
  *     filas de 36 con 8 de aire (repetir, días, empieza, a las, huso, a quién: 256), «＋ Nuevo CRON» (40)
  *     y el número de salida al pie (~73), con 12 entre bloques → 393 + 62 → 460. Con 320 el panel

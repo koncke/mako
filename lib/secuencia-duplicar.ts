@@ -1,5 +1,5 @@
 // =============================================================================
-// secuencia-duplicar — «Duplicar» de los tres puntos de la lista de /chatbot
+// secuencia-duplicar — «Duplicar» de los tres puntos de la lista de /automations
 // =============================================================================
 // Pedido de Martín (09/10/2026, tercera tanda, punto 6): «en la sidebar donde están todas las
 // secuencias pon los típicos 3 puntos para poder hacer estas acciones, como activarla, eliminarla,

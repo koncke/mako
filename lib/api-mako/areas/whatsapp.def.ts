@@ -20,7 +20,7 @@
 // de los webhooks (infraestructura).
 //
 // Las secuencias de nutrición (listar, ficha, activar, editar pasos, copy) viven en
-// el área `chatbot`: el código es lib/nutricion*.ts y la tab es /chatbot.
+// el área `chatbot`: el código es lib/nutricion*.ts y la tab es /automations.
 // =============================================================================
 
 import type { OperacionDef, Parametro } from '../tipos';

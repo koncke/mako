@@ -98,7 +98,7 @@ test('estando ya en /integraciones, el link vuelve a abrir el modal', () => {
 });
 
 test('⚠️ la esquina NO tapa el «Publicar» del lienzo ni el «Enviar» de un chat, y va debajo de los modales', () => {
-  // La revisión del 06/10/2026 lo midió en Chrome: en /chatbot el lienzo llega al borde de
+  // La revisión del 06/10/2026 lo midió en Chrome: en /automations el lienzo llega al borde de
   // la ventana y su «Publicar» vive a 12 px del rincón; la pastilla, que no se cierra, le
   // caía encima (un clic en «Publicar» abría /integraciones). Y con z 65 quedaba encima de
   // cinco modales de z 60. Medido con la marca puesta: la pastilla sube a 64 px y el centro

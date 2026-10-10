@@ -68,14 +68,15 @@ export const CAPACIDADES: Capacidad[] = [
   },
   {
     // ⚠️ Decía `tab: 'Chatbot', ruta: '/chat-agent'` y las DOS cosas eran
-    // falsas: la tab se llama **Chatbot** en el sidebar (nav.ts:207) y
-    // `/chat-agent` es un redirect a `/chatbot`. O sea que MaKo mandaba al
-    // cliente a una tab con un nombre que no existe y por una URL de rebote.
-    // Es el riesgo de que este archivo sea la fuente de los links: se arregla
-    // una vez acá, o se propaga a cada lugar que lo copie.
-    id: 'nutricion', tab: 'Chatbot', ruta: '/chatbot',
+    // falsas: la tab se llamaba **Chatbot** en el sidebar y `/chat-agent` era un
+    // redirect. O sea que MaKo mandaba al cliente a una tab con un nombre que no
+    // existe y por una URL de rebote. Es el riesgo de que este archivo sea la
+    // fuente de los links: se arregla una vez acá, o se propaga a cada lugar que
+    // lo copie. Desde el 09/10/2026 la tab es **Automations** y su ruta
+    // /automations (ex /chatbot, que redirige): las dos cosas cambiaron juntas.
+    id: 'nutricion', tab: 'Automations', ruta: '/automations',
     que: 'Armar las secuencias de seguimiento y nutrición: qué se manda, cuándo, y a quién.',
-    como: ['Entra a Chatbot', 'Elige la secuencia o crea una nueva', 'MaKo escribe los mensajes en tu voz y tú los apruebas'],
+    como: ['Entra a Automations', 'Elige la secuencia o crea una nueva', 'MaKo escribe los mensajes en tu voz y tú los apruebas'],
   },
   {
     id: 'email', tab: 'Email', ruta: '/email',

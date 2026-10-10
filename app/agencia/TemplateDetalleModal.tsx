@@ -74,7 +74,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
   endpoint?: string;
   alto?: number | string; marco?: boolean;
   /**
-   * Lo que tapa una pieza apoyada sobre el borde IZQUIERDO del lienzo: la lista de /chatbot, que
+   * Lo que tapa una pieza apoyada sobre el borde IZQUIERDO del lienzo: la lista de /automations, que
    * desde la quinta tanda (punto 5) monta este mismo detalle para los Mensajes de MaKo. Va directo
    * al `insetIzq` del lienzo (chrome, zoom, panel del nodo y encuadre: AGENTS.md, «Apoyar algo
    * sobre el borde de un lienzo son CUATRO lugares»). Es un NÚMERO y no un flag `embebido`: cuánto

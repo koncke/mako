@@ -1,7 +1,7 @@
 // =============================================================================
-// secuencia-posiciones — dónde puso la persona cada tarjeta del lienzo de /chatbot
+// secuencia-posiciones — dónde puso la persona cada tarjeta del lienzo de /automations
 // =============================================================================
-// La columna `nutricion_secuencias.posiciones` (mig 0233). La lee el GET de /chatbot
+// La columna `nutricion_secuencias.posiciones` (mig 0233). La lee el GET de /automations
 // (`getSettingData`, lib/setting-secuencias.ts) y la escribe SU PROPIA acción
 // (POST /api/chat-agent/secuencias, `action: 'posiciones'`), nunca el guardado del flujo.
 //
@@ -50,7 +50,7 @@ export type DbPosiciones = {
  * ⚠️ `null` = NO SE PUDIERON LEER (la columna falta, o la consulta falló), y no es lo mismo que
  * «ninguna guardada»: con `{}` la pantalla dejaría mover y el primer guardado pisaría lo que la
  * persona ya había acomodado con UNA sola tarjeta. Con null, mover funciona pero no se guarda.
- * No tira: un error acá dejaba /chatbot sin cargar por algo que es acomodar el dibujo.
+ * No tira: un error acá dejaba /automations sin cargar por algo que es acomodar el dibujo.
  */
 export async function leerPosicionesSecuencias(db: DbPosiciones): Promise<Map<number, Posiciones> | null> {
   const { data, error } = await db.from('nutricion_secuencias').select('id, posiciones').is('archivada_at', null);

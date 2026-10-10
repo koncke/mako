@@ -1,6 +1,6 @@
 // =============================================================================
-// La lista de /chatbot: los tres puntos de cada fila y «Nueva» al instante
-// (app/chatbot/SimuladorWhatsApp.tsx + ChatAgentApp.tsx) — tercera tanda, 09/10/2026
+// La lista de /automations: los tres puntos de cada fila y «Nueva» al instante
+// (app/automations/SimuladorWhatsApp.tsx + ChatAgentApp.tsx) — tercera tanda, 09/10/2026
 // =============================================================================
 // Pedido de Martín, textual:
 //   6. «Me falta un botón para eliminar la secuencia, te pido que en la sidebar donde están todas
@@ -25,13 +25,13 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   SimuladorWhatsApp, filaCreando, listaConCreando, claveCreando, esFilaCreando, opcionesDeFila, NOMBRE_CREANDO,
-} from '../app/chatbot/SimuladorWhatsApp';
-import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
+} from '../app/automations/SimuladorWhatsApp';
+import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-const LISTA = () => sinComentarios(leer('app/chatbot/SimuladorWhatsApp.tsx'));
-const APP = () => sinComentarios(leer('app/chatbot/ChatAgentApp.tsx'));
+const LISTA = () => sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
+const APP = () => sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
 
 /** El bloque de `firma` hasta `hasta` (su cierre real), con un tope de largo que lo delata si se desborda. */
 function recorte(src: string, firma: string, hasta: string, tope = 2500): string {
@@ -107,7 +107,7 @@ test('crearNueva pone la fila y la abre ANTES de pedirle nada al server; el id r
   // La lista que se dibuja es la del server más la que se está creando, en los dos lugares.
   // ⚠️ QUINTA TANDA, PUNTO 5: los dos lugares miran también si hay Mensajes de MaKo (`hayAvisos`):
   // sin automatizaciones pero con mensajes va la lista, para que el link de Notificaciones
-  // (`/chatbot?aviso=<id>`) aterrice en el lienzo de su mensaje y no en «Todavía no hay…».
+  // (`/automations?aviso=<id>`) aterrice en el lienzo de su mensaje y no en «Todavía no hay…».
   const app = APP();
   assert.match(app, /const visibles = secuencias === null \? null : listaConCreando\(secuencias, creando\);/);
   assert.match(app, /\{visibles !== null && visibles\.length === 0 && !hayAvisos && !error && \(/);
@@ -127,7 +127,7 @@ test('la selección SIGUE a la fila cuando toma su id real (por su clave), y si 
 
 test('«Nueva» tiene su animación al pasar el cursor (el ＋ gira), quieta con reduced-motion, y el hover le gana al estilo', () => {
   const lista = LISTA();
-  const css = leer('app/chatbot/SimuladorWhatsApp.tsx').match(/const CSS_LISTA = `([\s\S]*?)`;/)?.[1] ?? '';
+  const css = leer('app/automations/SimuladorWhatsApp.tsx').match(/const CSS_LISTA = `([\s\S]*?)`;/)?.[1] ?? '';
   assert.match(css, /\.chb-nueva:hover \.chb-nueva__mas,\.chb-nueva:focus-visible \.chb-nueva__mas\{transform:rotate\(90deg\) scale\(1\.06\)/);
   assert.match(css, /\.chb-nueva:hover,\.chb-nueva:focus-visible\{opacity:1;color:var\(--primary\);border-color:var\(--primary\);background:var\(--primary-bg\)\}/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)\{\.chb-nueva__mas\{transition:none\}/);

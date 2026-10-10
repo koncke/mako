@@ -813,8 +813,8 @@ skill a cualquier token del workspace y abría el reporte sin trato.
   `?tab=` leída en el server, los links de `app/_ui/Link` y el registro fuera del navegador.
 
 **Y un FLUJO corre acciones por UNA puerta: `ejecutarDesdeFlujo` (`lib/api-mako/flujo.ts`).**
-Decisión de Martín (08/10/2026): un paso «⚡ Acción» de un lienzo —una secuencia de `/chatbot` o
-un aviso de `/mensajes`— «que pueda hacer todo, sin limitaciones»: corre cualquier acción del
+Decisión de Martín (08/10/2026): un paso «⚡ Acción» de un lienzo —una secuencia de `/automations`
+(ex `/chatbot`) o un aviso de `/mensajes`— «que pueda hacer todo, sin limitaciones»: corre cualquier acción del
 registro sin pedir un «sí», porque el dueño la confirmó al configurar el paso. Lo que eso exige al
 escribir código nuevo:
 
@@ -952,7 +952,8 @@ una cuenta distinta.
 
 - **El guard compartido es el que más pega.** `requireRolWs` / `requireCapa` rebotan por
   capa y por rol, así que ese redirect se dispara desde cualquier pantalla. Ahí primero.
-- **Los alias de ruta cuentan.** `/setting → /chatbot`, `/dashboard → /marketing`,
+- **Los alias de ruta cuentan.** `/setting → /automations` (ex `/chatbot`, que también
+  redirige, con la query entera: `lib/ruta-automations.ts`), `/dashboard → /marketing`,
   `/plan → /plan/agencia`: abrir un link viejo de un cliente te sacaba del cliente.
 - **Y un botón que hace su trabajo y después te muestra otra pantalla es
   indistinguible de un botón roto.** El RESET del cliente de prueba vaciaba el workspace
@@ -3827,7 +3828,7 @@ con la versión en 21, contaba como al día para siempre.
 
 La esquina de los avisos (`app/_components/EsquinaAvisos.tsx`) pinta en TODA la app desde el
 06/10/2026, y uno de sus avisos no se cierra. Medido ese día: tapaba el «Publicar» del lienzo
-de /chatbot y el «Enviar» de los chats. Un clic en «Publicar» llevaba a /integraciones y dejaba
+de /automations (ex /chatbot) y el «Enviar» de los chats. Un clic en «Publicar» llevaba a /integraciones y dejaba
 la estrategia sin guardar, y no había forma de destaparlo.
 
 - **Un botón nuevo pegado al rincón de abajo a la derecha de la ventana** (un pie flotante,
@@ -3912,7 +3913,7 @@ temprano; nunca deduce «ya corrí» de un estado que otro puede reabrir.
 
 El corolario del registro compartido. Está bien que dos tabs compartan una key
 cuando es la MISMA configuración vista desde dos puertas (el mismo número de
-WhatsApp en `/whatsapp` y en `/chatbot`). Cuando no lo es, el cruce deja de ser una
+WhatsApp en `/whatsapp` y en `/automations`, ex `/chatbot`). Cuando no lo es, el cruce deja de ser una
 comodidad y pasa a ser un **salteo**: la segunda tab da por hecha una pantalla que
 nadie vio.
 
@@ -3920,7 +3921,7 @@ nadie vio.
 así `instagram` usaba `contexto` y `ensayo` a secas, las mismas dos keys del Chat
 Agent. Medido en dos clientes: en el ws11, `instagram.contexto` tiene el timestamp
 `2026-08-10T20:36:51.948Z` y el `contexto` del Chat Agent `…52.603Z` — 0,6 s
-después. Lo marcó `/chatbot`. Lo caro es el segundo: el ensayo de Instagram
+después. Lo marcó `/automations`. Lo caro es el segundo: el ensayo de Instagram
 previsualiza el borrador de un DM, y saltearlo **enciende el auto-respondedor sin
 que nadie haya leído una sola respuesta**.
 
@@ -4443,7 +4444,7 @@ autoridad de un dato puesto por código.
 
 Decisión de Martín, textual (05/10/2026): **«olvidate de WhatsApp oficial, no entiendo de
 dónde lo sigues sacando, si todo esto es para la no oficial»**. Vale para el editor de
-flujos, los recordatorios, `/chatbot` y todo lo que ese editor produzca.
+flujos, los recordatorios, `/automations` (ex `/chatbot`) y todo lo que ese editor produzca.
 
 El producto habla WhatsApp por DOS caminos y se parecen sólo en el nombre:
 
@@ -4474,7 +4475,7 @@ y el del chatbot no es el oficial.
 **Y la TAB Instagram sigue afuera, pero Instagram y Messenger son CANALES del Chatbot desde el
 09/10/2026.** El 06/10 Martín sacó la tab entera («C: sacar la tab»: 0 DMs y 0 publicaciones en
 toda su historia): su bandeja, su programador, el puente de los DMs al setter y sus 21
-operaciones de la API de MaKo, y `/instagram` redirige a `/chatbot`. El 09/10 (sexta tanda, CRON
+operaciones de la API de MaKo, y `/instagram` redirige a `/automations`. El 09/10 (sexta tanda, CRON
 4-7) decidió que vuelve como CANAL de las automatizaciones, por Zernio, y con Messenger: «ya
 tenemos la integración de Zernio, utiliza eso para poder enviar mensajes por allí». No vuelve la
 tab. Lo que gobierna código nuevo:
@@ -5283,6 +5284,20 @@ una vuelta cada uno y valen para cualquier guard que busque una ruta en el fuent
 - **Y se saltean las líneas de comentario**, porque la convención de la casa es nombrar una
   ruta entre backticks — o sea que el guard se acusa a sí mismo por los comentarios que
   explican que la ruta se retiró.
+
+⚠️ **Y RENOMBRAR una ruta es retirarla con un solo destino, más tres cosas** (medido el
+09/10/2026 al pasar /chatbot a /automations, `docs/hallazgos-chatbot.md` → «parte renombre»):
+
+- **El redirect lleva la query ENTERA**, no sólo el `?ws=`: un link que viaja en un aviso
+  nombra QUÉ abrir (`?sec=`, `?aviso=`), y sin eso la pantalla abre en el primer ítem sin
+  decir nada. Molde: `destinoConQuery` (`lib/ruta-automations.ts`). Y los alias que ya
+  apuntaban a la ruta vieja van DIRECTO a la nueva, no por un doble salto.
+- **Las CLAVES no se renombran con la ruta**: la key del nav, la del onboarding y sus pasos,
+  el área de la API de MaKo, `/api/*`, los nombres de proyecto del tablero. Están escritas en
+  la base; cambiarlas reabre onboardings o apaga la tab. Lo que cambia es lo que se LEE.
+- **Un reemplazo de texto no distingue la pantalla de lo que se llama igual**: la ruta REST
+  de un área (`/api/v1/<área>/…`) o una carpeta homónima de `/admin/dev` (un `./<área>/`
+  relativo que resuelve a otro lado). Se resuelve la ruta antes de cambiarla.
 
 # Una ruta que apunta a la nada no rompe nada, y por eso es cara
 
@@ -6592,11 +6607,11 @@ De ahí las dos reglas de cualquier pantalla tipo flujo en este repo:
 
 1. **La arista ES el dato; el gesto sólo lo escribe.** Lo que conecta dos cosas está
    escrito en lo que el motor ejecuta (`siguiente`, las ramas, `si_no`, los casos, los
-   `paralelos` de /chatbot) y el dibujo SALE de ahí: nunca hay un «dibujo de la flecha»
+   `paralelos` de /automations, ex /chatbot) y el dibujo SALE de ahí: nunca hay un «dibujo de la flecha»
    guardado aparte. Una arista derivada no puede quedar vieja respecto del motor, y una
    dibujada a mano sí.
 
-   ⚠️ **CAMBIÓ EL 09/10/2026 (sexta tanda): en /chatbot SE ARRASTRAN flechas.** Esta regla
+   ⚠️ **CAMBIÓ EL 09/10/2026 (sexta tanda): en /automations SE ARRASTRAN flechas.** Esta regla
    decía «nadie arrastra una flecha» (el editor de flechas del funnel se había borrado
    por rebuscado) y Martín lo pidió con todas las letras, copiando ManyChat: «si apreto y
    mantengo el click en el "+" debería poder arrastrar esa flecha a otra tarjeta», con su
@@ -6628,7 +6643,7 @@ permiso para dibujar la bifurcación muerta. Lo que decidía era un `if` del des
 el `findIndex` que salta al paso siguiente; desde el flujo con ramas (08/10/2026), el
 `switch` de `cumpleFila`.
 
-⚠️ **Y el layout de /chatbot SE GUARDA desde el 09/10/2026 — pero sólo lo que la persona
+⚠️ **Y el layout de /automations SE GUARDA desde el 09/10/2026 — pero sólo lo que la persona
 MOVIÓ, y en su propia columna.** Hasta ese día no se guardaba (el flujo es un ÁRBOL y el
 layout se DERIVA del dato igual que las aristas, `lib/flujo-conversacion.ts`), y Martín lo
 pidió con todas las letras en la quinta tanda: «tampoco se puede mover las tarjetas
@@ -6643,7 +6658,7 @@ libremente por el lienzo». Lo que gobierna el código nuevo:
   ENTERA desde varias pantallas: las dos perderían el layout en silencio.
 - **Se escribe por SU PROPIA acción** (POST /api/chat-agent/secuencias, `action:
   'posiciones'` → `guardarPosicionesSecuencia`, `lib/secuencia-posiciones.ts`), al soltar,
-  con un respiro y optimista (`app/chatbot/usePosicionesLienzo.ts`). Nunca por Publicar ni
+  con un respiro y optimista (`app/automations/usePosicionesLienzo.ts`). Nunca por Publicar ni
   por `validarGrafo`: acomodar el dibujo no cambia qué hace la automatización, no deja «Sin
   publicar» y no entra a la pila de deshacer de los pasos.
 - **Relativa al CRON DERIVADO, no absoluta.** El árbol pasa por `aOrigen`: una rama que abre
@@ -6715,14 +6730,14 @@ Si la afirmación es «esto no vuelve a aparecer», el universo es el archivo en
   que no hace nada». Por dónde sale un mensaje es una propiedad del mensaje. La
   prueba antes de agregar un nodo: **¿esto ocurre, o esto es un campo?** Si es un
   campo, va adentro del nodo al que pertenece — incluida su advertencia. La espera de
-  /chatbot es la prueba al revés: era un campo (`delay_horas`, dibujado sobre la flecha y sin
+  /automations es la prueba al revés: era un campo (`delay_horas`, dibujado sobre la flecha y sin
   forma de quitarla) y el 08/10/2026 pasó a ser la tarjeta «Esperar», porque ocurre.
 - **Todo lo que no es el dibujo FLOTA sobre el lienzo.** Con topbar, cabecera y pie
   en sus propios renglones se le comían ~180 px de 620 y el grafo entraba al 33%:
   tarjetas del tamaño de una uña. Y lo que estaba abajo queda DEBAJO, no al lado —
   el botón de guardar terminó pintado detrás del dibujo. La capa flotante va con
   `pointerEvents: none` y su contenido con `auto`, o la franja se traga el paneo.
-- **Al arrastrar un nodo (en los dos lienzos: /mensajes y, desde el 09/10/2026, /chatbot),
+- **Al arrastrar un nodo (en los dos lienzos: /mensajes y, desde el 09/10/2026, /automations),
   el delta del mouse se DIVIDE POR LA ESCALA.** Al 50%, mover
   el cursor 100 px tiene que mover la tarjeta 200 en coordenadas del grafo. El
   guardado va al soltar y con un respiro (un POST por `pointermove` son sesenta por
@@ -7305,9 +7320,12 @@ es el camino que ya guarda el borrador al desmontar.
 `useState(props.…)`.** Pasar de «se abre» a «siempre visible» no toca una línea del
 componente y le cambia el ciclo de vida entero.
 
-# /chatbot es un FLUJO CON RAMAS: lo que gobierna el código nuevo
+# /automations (ex /chatbot) es un FLUJO CON RAMAS: lo que gobierna el código nuevo
 
-Desde el 08/10/2026 una automatización del Chatbot es un grafo dentro de
+Desde el 08/10/2026 una automatización de la tab Automations (ex Chatbot, renombrada el
+09/10/2026: la pantalla vive en `app/automations/`, /chatbot redirige con la query entera y las
+claves guardadas —la key `setting`, el área `chatbot` de la API, /api/chat-agent/*— no cambiaron)
+es un grafo dentro de
 `nutricion_secuencias.pasos`: el modelo vive en `lib/flujo-grafo.ts`, el porqué en
 `docs/chatbot-flujo-ramas-diseno.md` y lo que costó en `docs/hallazgos-chatbot.md`. Lo leen cuatro
 lugares —el motor, el lienzo, «Probar» y el conversor de las secuencias de antes— y se separan en la
@@ -7383,7 +7401,7 @@ lleve un archivo— la salida que aparece primero es un tipo de
 nodo nuevo. ManyChat eligió eso (su AI Step es un paso del lienzo) y acá se paga cinco
 veces: hay que agregarlo a `lib/lienzo-grafo.ts`, al constructor del grafo
 (`grafoDeSecuencia` en `lib/flujo-conversacion.ts`), al panel (`EditorDeNodo` en
-`app/chatbot/FlujoLienzo.tsx`), al motor (`lib/nutricion.ts`) y a `setSecuenciaPasos`
+`app/automations/FlujoLienzo.tsx`), al motor (`lib/nutricion.ts`) y a `setSecuenciaPasos`
 —que **reconstruye cada paso campo por campo y borra lo que no conoce**—. La quinta puerta
 ya costó las `variantes` borradas en silencio.
 
@@ -7431,7 +7449,7 @@ Tres corolarios, los tres con precedente pagado:
 Un editor que dibuja «cómo le va a llegar» y un motor que manda son dos resolvedores del
 mismo texto, y el día que no coinciden el que miente es el que la persona mira.
 
-Medido el 05/10/2026: `VistaMensaje` (`app/chatbot/FlujoLienzo.tsx`) resolvía
+Medido el 05/10/2026: `VistaMensaje` (`app/automations/FlujoLienzo.tsx`) resolvía
 `{{negocio}}` con un `replace` propio para pintar la burbuja, y el envío usa
 `aplicarVariables` con el catálogo de `lib/template-vars.ts`, que tenía CUATRO claves y
 ninguna era `negocio` — dejando literal lo que no conoce. **Un paso que diga «te escribo

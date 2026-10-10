@@ -58,7 +58,7 @@ test('las keys del Copy Generator no colisionan con las de ninguna otra tab', ()
   // KEY_PASOS_COMPARTIDOS es un registro POR WORKSPACE con las keys peladas: dos tabs
   // que usan la misma key comparten el paso, esté o no pensado. Para los pasos que SON
   // la misma configuración eso es lo correcto (conectar el WhatsApp desde /whatsapp o
-  // desde /chatbot); para los que no, es que terminar uno marque otro como hecho.
+  // desde /automations); para los que no, es que terminar uno marque otro como hecho.
   const mias = new Set(TAB_ONBOARDINGS['ads-writer'].pasos.map((p) => p.key));
   for (const k of mias) {
     assert.ok(k.startsWith('cg_'), `el paso «${k}» del Copy Generator perdió el prefijo cg_`);

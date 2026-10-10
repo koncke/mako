@@ -2,7 +2,7 @@
 // Instagram y Messenger como canales de las automatizaciones (por Zernio)
 // =============================================================================
 // Sexta tanda (09/10/2026), CRON 4-7: Instagram vuelve —salió el 06/10 con su tab— como CANAL de
-// /chatbot, con Messenger. Lo que este archivo fija, y por qué cada cosa:
+// /automations, con Messenger. Lo que este archivo fija, y por qué cada cosa:
 //
 //   · el canal de un paso SE CONSERVA al guardar: hasta hoy todo lo que no era email se guardaba
 //     como WhatsApp, y un paso de Instagram le habría salido al lead POR WHATSAPP, sin un error;

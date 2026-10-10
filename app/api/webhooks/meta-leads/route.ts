@@ -306,7 +306,7 @@ export async function POST(request: NextRequest) {
         // (solo en INSERT, para no re-avisar si Meta reenvía el batch). Best-effort.
         if (created) {
           // ⚠️ VAN LOS DATOS, NO EL TEXTO. Con `texto` armado acá, lo que el negocio
-          // escribiera en /chatbot no salía nunca: el texto es el de la plantilla
+          // escribiera en /automations no salía nunca: el texto es el de la plantilla
           // (lib/avisos-catalogo.ts, que nace APAGADA) y esto le pone los valores. Los
           // que ya están en la mano van en `datos`, que ganan sobre la lectura de la
           // ficha. Y los dos que pueden faltar se dicen: un `{{lead_telefono}}` crudo en

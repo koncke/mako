@@ -29,7 +29,7 @@
 //
 // Dos parejas que conviene no confundir, porque son la razón del reparto:
 //   · Ads Manager (Operate) EJECUTA · Ads Analyst (Analyze) COMPRENDE.
-//   · Chatbot (Create) se configura y se entrena · WhatsApp/Email (Operate)
+//   · Automations (Create) se configura y se entrena · WhatsApp/Email (Operate)
 //     es la conversación de todos los días.
 //
 // ⚠️ Las `key` son contrato: `tabEnCapa()` (lib/capas.ts) y el estado del
@@ -38,6 +38,7 @@
 // el `label`; la key no.
 
 import type { RolWorkspace } from '@/lib/auth-session';
+import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from '@/lib/ruta-automations';
 
 export type NavItem = {
   key: string;
@@ -140,7 +141,7 @@ export const FAMILIAS: NavFamilia[] = [
       ],
       // Las conversaciones. Sin desplegable: son dos, y son de todos los días.
       // Instagram salió el 06/10/2026 (decisión de Martín: 0 DMs en su historia):
-      // /instagram redirige a /chatbot y tests/sin-instagram.test.ts cuida que no vuelva.
+      // /instagram redirige a /automations y tests/sin-instagram.test.ts cuida que no vuelva.
       [
         { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
         { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
@@ -256,7 +257,12 @@ export const FAMILIAS: NavFamilia[] = [
       ],
       // Conversar: lo que le habla al lead una vez que entró.
       [
-        { key: 'setting', label: 'Chatbot', href: '/chatbot', icon: 'chatbot', rolesWs: ['setter'], match: (p) => starts('/chatbot')(p) || starts('/chat-bot')(p) || starts('/chat-agent')(p) },
+        // «Automations» desde el 09/10/2026 (Martín: «Cambia el nombre de la tab "Chatbot" por
+        // "Automations", el nombre en la sidebar, la ruta, todo»). La KEY sigue siendo `setting`
+        // y el ícono `chatbot`: están escritos en la base (capas, roles, onboarding.tab.setting).
+        // Las URLs viejas (/chatbot, /chat-bot, /chat-agent) redirigen y siguen marcando la tab:
+        // salen de UNA lista, la misma que cuida tests/ruta-automations.test.ts.
+        { key: 'setting', label: 'Automations', href: RUTA_AUTOMATIONS, icon: 'chatbot', rolesWs: ['setter'], match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) },
         { key: 'sales-email', label: 'Sales Email', href: '/sales-email', icon: 'salesemail', comingSoon: true, match: starts('/sales-email') },
         { key: 'newsletters', label: 'Newsletters', href: '/newsletters', icon: 'newsletter', comingSoon: true, match: starts('/newsletters') },
       ],
@@ -455,7 +461,9 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-admin', label: 'Admin', href: '/admin/dev/admin', icon: 'admin', match: starts('/admin/dev/admin') },
           { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
           { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
-          { key: 'dev-chatbot', label: 'Chatbot', href: '/admin/dev/chatbot', icon: 'config', match: starts('/admin/dev/chatbot') },
+          // El área se llama como la tab (Automations, desde el 09/10/2026); la key y la ruta
+          // /admin/dev/chatbot siguen: son el slug del registro y su historia.
+          { key: 'dev-chatbot', label: 'Automations', href: '/admin/dev/chatbot', icon: 'config', match: starts('/admin/dev/chatbot') },
           // Se llama como la FEATURE (/ads-writer), no «Ads Generator» ni
           // «Guiones»: adentro viven su roadmap, su historial y las dos
           // bibliotecas globales (Ángulos y Estructuras) que antes colgaban

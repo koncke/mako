@@ -63,7 +63,7 @@ export const CATALOGO: Record<string, FichaDoc> = {
     hace: ['Qué modelo usa cada tarea', 'Prompts editables', 'Topes de salida', 'La cascada barata', 'Gasto', 'El doer'],
   },
   'hallazgos-comunicacion': {
-    grupo: 'Por área', tabs: ['/whatsapp', '/chatbot', '/email', '/agencia'],
+    grupo: 'Por área', tabs: ['/whatsapp', '/automations', '/email', '/agencia'],
     hace: ['WhatsApp no oficial (Evolution)', 'WhatsApp oficial (Chatwoot)', 'Nutrición y secuencias', 'Email (Resend)', 'Avisos'],
   },
   'hallazgos-ads': {
@@ -131,7 +131,7 @@ export const CATALOGO: Record<string, FichaDoc> = {
     hace: ['El snippet del beacon en la landing del cliente'],
   },
   'nutricion-templates': {
-    grupo: 'Referencia', tabs: ['/chatbot', '/whatsapp'],
+    grupo: 'Referencia', tabs: ['/automations', '/whatsapp'],
     hace: ['Las plantillas de WhatsApp de la nutrición'],
   },
   'usuarios-y-acceso': {

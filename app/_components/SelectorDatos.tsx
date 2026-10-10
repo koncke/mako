@@ -19,11 +19,11 @@
 //     ya abre desde su barra.
 //
 // DÓNDE ESTÁ MONTADA (segunda pasada de la sexta tanda): `ArbolDeDatos` en el composer de WhatsApp
-// (app/chatbot/EditorMensajeWhatsApp.tsx, que es también el de «MaKo en WhatsApp» y el de los avisos
+// (app/automations/EditorMensajeWhatsApp.tsx, que es también el de «MaKo en WhatsApp» y el de los avisos
 // de Configuraciones › Notificaciones, app/agencia/FlujoAviso.tsx), en el asunto y el cuerpo del email
-// (app/chatbot/EditorEmailGmail.tsx) y en el de Instagram / Messenger (app/chatbot/EditorMensajeSocial.tsx).
+// (app/automations/EditorEmailGmail.tsx) y en el de Instagram / Messenger (app/automations/EditorMensajeSocial.tsx).
 // El editor de marcas de /mensajes (app/agencia/EditorMensaje.tsx) se fue: lo reemplazó el de WhatsApp.
-// La tarjeta MAKO del lienzo del Chatbot (app/chatbot/FlujoLienzo.tsx, `EditorMako`) usa el mismo
+// La tarjeta MAKO del lienzo del Chatbot (app/automations/FlujoLienzo.tsx, `EditorMako`) usa el mismo
 // editor del grupo, pero todavía le pasa una lista plana (`DATOS_MAKO`): el árbol le llega cuando
 // pase `datos={datosOfrecidos({ destino: 'equipo', conLead: true })}` (después de que el motor de esa
 // tarjeta resuelva el catálogo, `textoDelAviso`). `SelectorDatos` (el botón suelto) no lo monta nadie.

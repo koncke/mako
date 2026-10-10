@@ -23,8 +23,8 @@ export function ConfigInnerTabs({ equipoPanel, mensajesEnChatbot = false }: {
   /** Panel server-rendered embebido (data cargada en page.tsx). */
   equipoPanel: ReactNode;
   /**
-   * El negocio tiene /chatbot: el lienzo de cada mensaje de Notificaciones se edita allá (quinta
-   * tanda, punto 5). Lo decide el server (page.tsx) con la misma función que el guard de /chatbot.
+   * El negocio tiene /automations: el lienzo de cada mensaje de Notificaciones se edita allá (quinta
+   * tanda, punto 5). Lo decide el server (page.tsx) con la misma función que el guard de /automations.
    */
   mensajesEnChatbot?: boolean;
 }) {

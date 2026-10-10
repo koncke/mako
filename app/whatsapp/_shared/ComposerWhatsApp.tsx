@@ -9,7 +9,7 @@
 // cual». Lo que mostró es el composer de /whatsapp (EmpresaInbox), que era una COPIA A MANO del de
 // ChatHilo. Había tres copias; ésta es la pieza, y la montan:
 //   · ChatHilo (simulador, ensayo, plantillas, grupos de MaKo) y EmpresaInbox, en modo `enviar`;
-//   · el editor de un mensaje del lienzo (app/chatbot/EditorMensajeWhatsApp.tsx), en modo `editar`.
+//   · el editor de un mensaje del lienzo (app/automations/EditorMensajeWhatsApp.tsx), en modo `editar`.
 // (El inbox OFICIAL, WhatsAppApp.tsx, todavía tiene la suya.)
 //
 // Es PRESENTACIONAL: el valor vive afuera (el borrador del chat, o el paso del lienzo), y lo único

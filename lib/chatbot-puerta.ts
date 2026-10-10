@@ -1,12 +1,12 @@
 // =============================================================================
-// chatbot-puerta — qué abre /chatbot, y cuándo «Tu forma de escribir» es la primera vez
+// chatbot-puerta — qué abre /automations, y cuándo «Tu forma de escribir» es la primera vez
 // =============================================================================
 // Tarea #745 del plan (06/10/2026). Las dos preguntas se contestaban con un TILDE del
 // onboarding guardado una vez y nunca vuelto a comparar con el dato:
 //
 //  · La puerta del QR leía el tilde de «Tu WhatsApp». Medido: el ws9 tiene el tilde
-//    puesto desde el 05/08 y CERO líneas en evolution_instancias, así que /chatbot le
-//    mostraba el lienzo sin número. Y al revés: quien vinculó desde el mismo /chatbot no
+//    puesto desde el 05/08 y CERO líneas en evolution_instancias, así que /automations le
+//    mostraba el lienzo sin número. Y al revés: quien vinculó desde el mismo /automations no
 //    tenía tilde (nadie lo marcaba) y veía la pantalla de «Vincula tu WhatsApp» en cada
 //    visita mientras el sondeo contestaba.
 //  · La «primera vez» de «Tu forma de escribir» miraba el tilde de ese paso. El ws9 y
@@ -23,7 +23,7 @@
 export type OnboardingChatbot = 'hecho' | 'pendiente' | 'sin_permiso' | 'no_se_pudo';
 
 /**
- * ¿/chatbot abre en el QR (vincular el WhatsApp) en vez del lienzo?
+ * ¿/automations abre en el QR (vincular el WhatsApp) en vez del lienzo?
  *
  * `canal` es el estado de la línea que manda el GET de secuencias (lib/evolution:
  * 'conectado' / 'sin_vincular' / 'desconectado' / 'conectando'; 'desconocido' si no se
@@ -60,7 +60,7 @@ export function puertaAlRecargar(p: { actual: boolean | null; calculada: boolean
 /**
  * ¿Hay que marcar el paso «Tu WhatsApp» porque la línea YA está conectada?
  *
- * Quien vinculó por /whatsapp, o antes de que /chatbot marcara el paso, quedó con la
+ * Quien vinculó por /whatsapp, o antes de que /automations marcara el paso, quedó con la
  * línea conectada y el tilde pendiente. La puerta ya no lo mira, pero sí lo mira el orden
  * del onboarding: «Tu forma de escribir» contestaba «falta completar Tu WhatsApp» al
  * terminarla. Se rellena al cargar, con el mismo POST que usa el QR.

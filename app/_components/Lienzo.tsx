@@ -6,7 +6,7 @@
 // El chrome de una pantalla tipo flujo, sin saber NADA de lo que dibuja. Lo usan
 // los dos flujos del producto y el día que haya un tercero lo hereda gratis:
 //
-//   · `app/chatbot/FlujoLienzo.tsx`  — la conversación con un lead
+//   · `app/automations/FlujoLienzo.tsx`  — la conversación con un lead
 //   · `app/agencia/FlujoAviso.tsx`   — lo que MaKo te dice a vos
 //
 // Nació genérico el 30/09/2026, el mismo día que el segundo: la primera versión
@@ -197,7 +197,7 @@ export function Lienzo({
    * CUÁNTO SE CORREN A LA DERECHA LAS COSAS QUE FLOTAN (el chrome y la fila del zoom),
    * porque la pantalla tiene algo apoyado sobre el borde izquierdo del lienzo.
    *
-   * ⚠️ NO ANGOSTA EL LIENZO, Y ESA ES LA DIFERENCIA QUE IMPORTA. En /chatbot la lista de
+   * ⚠️ NO ANGOSTA EL LIENZO, Y ESA ES LA DIFERENCIA QUE IMPORTA. En /automations la lista de
    * secuencias flota encima porque se pidió que «por atrás pase también la grilla»:
    * si esto fuera un `padding` del lienzo, la cuadrícula volvería a cortarse donde
    * empieza la lista, que es justo lo que se mandó corregir. Lo único que se mueve son
@@ -210,7 +210,7 @@ export function Lienzo({
   insetIzq?: number;
   /**
    * LO MISMO DEL LADO DERECHO: cuánto se corre lo que flota a la derecha cuando la
-   * pantalla apoya algo sobre ese borde (el panel de «Probar» de /chatbot).
+   * pantalla apoya algo sobre ese borde (el panel de «Probar» de /automations).
    *
    * ⚠️ SON CUATRO LUGARES, como el inset izquierdo (AGENTS.md, «apoyar algo sobre el borde
    * de un lienzo»): el chrome (su borde derecho), «Publicar» (`accion`), el ANCHO del
@@ -231,7 +231,7 @@ export function Lienzo({
   insetDerAbajo?: number;
   /**
    * LO QUE EL ENCUADRE DEJA LIBRE ABAJO (revisión de la segunda tanda, 09/10/2026): la caja de
-   * «Crear con IA» de una automatización VACÍA de /chatbot va abajo, y el CRON se encuadra arriba de
+   * «Crear con IA» de una automatización VACÍA de /automations va abajo, y el CRON se encuadra arriba de
    * ella. Centrado en el alto entero, el CRON quedaba DEBAJO de la caja y no se podía tocar. Sólo
    * mueve el encuadre (y «Centrar»): el dibujo, los paneles y lo que flota no cambian. Default 0.
    */
@@ -603,7 +603,7 @@ export function Lienzo({
     /**
      * ⚠️ EL ENCUADRE NUNCA ARRANCA ILEGIBLE (08/10/2026). Con las ramas, un flujo de antes
      * convertido a tarjetas (esperas, condiciones, «Si responde») mide diez columnas, y
-     * «que entre todo» lo dejaba al 30 %: Martín abrió /chatbot y vio un dibujo de
+     * «que entre todo» lo dejaba al 30 %: Martín abrió /automations y vio un dibujo de
      * tarjetas de tres píxeles. El zoom inicial tiene un piso legible y, si así no entra,
      * se ancla en la ENTRADA (el CRON): se arranca por el principio, como en ManyChat, y
      * el resto se recorre arrastrando. «Centrar» vuelve a esta misma vista.
@@ -657,7 +657,7 @@ export function Lienzo({
    *
    * · Se mueve el ENVOLTORIO (`data-envoltorio`), no la tarjeta: adentro van el ＋ de pasar el
    *   cursor, los puntos de las salidas y sus ＋. Hasta la quinta tanda se movía sólo la tarjeta
-   *   (`left`/`top`) y el ＋ a mano; con las salidas de /chatbot, los puntos y sus ＋ se quedaban en
+   *   (`left`/`top`) y el ＋ a mano; con las salidas de /automations, los puntos y sus ＋ se quedaban en
    *   el lugar viejo mientras ella viajaba. `setPointerCapture` retargetea los eventos al contenedor,
    *   así que durante el arrastre no hay enter ni leave en los envoltorios: `encima` queda congelado
    *   en la agarrada y su ＋ viaja con ella.
@@ -1291,7 +1291,7 @@ export function Lienzo({
             style={{
               // Las TRES cosas que flotan llevan el inset, no dos: el chrome, la fila
               // del zoom y ESTE panel, que abre justo abajo a la izquierda — o sea exactamente
-              // donde se apoya la lista de secuencias de /chatbot. Medido con el arnés: la
+              // donde se apoya la lista de secuencias de /automations. Medido con el arnés: la
               // flecha del selector de disparo no se podía apretar («aside … intercepts
               // pointer events»), con el panel dibujado y a la vista.
               position: 'absolute', left: PANEL_MARGEN + insetIzq, bottom: PANEL_MARGEN + ZOOM_ALTO,

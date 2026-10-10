@@ -1,5 +1,5 @@
 // =============================================================================
-// /chatbot: la página y «Probar» (pedido de Martín del 08/10/2026, puntos 1, 2, 3 y 10)
+// /automations: la página y «Probar» (pedido de Martín del 08/10/2026, puntos 1, 2, 3 y 10)
 // =============================================================================
 // Lo que vive en componentes y en archivos `server-only` y no se puede ejecutar acá se fija
 // leyendo el fuente SIN comentarios (la convención de la casa es explicar en el comentario lo
@@ -29,10 +29,10 @@ const RAIZ = join(import.meta.dirname, '..');
 const leer = (p: string): string => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\s*\}/g, '{}');
 
-const APP = () => sinComentarios(leer('app/chatbot/ChatAgentApp.tsx'));
-const LISTA = () => sinComentarios(leer('app/chatbot/SimuladorWhatsApp.tsx'));
-const PANEL = () => sinComentarios(leer('app/chatbot/PanelProbar.tsx'));
-const RECORDATORIO = () => sinComentarios(leer('app/chatbot/RecordatorioFlujo.tsx'));
+const APP = () => sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
+const LISTA = () => sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
+const PANEL = () => sinComentarios(leer('app/automations/PanelProbar.tsx'));
+const RECORDATORIO = () => sinComentarios(leer('app/automations/RecordatorioFlujo.tsx'));
 const RUTA = () => sinComentarios(leer('app/api/chat-agent/simulador/route.ts'));
 const PRUEBA = () => sinComentarios(leer('lib/prueba-paso.ts'));
 
@@ -48,8 +48,8 @@ function bloque(src: string, firma: string): string {
 // ── Puntos 1 y 2: lo que se fue de arriba del lienzo ───────────────────────────
 
 test('se fueron el formulario de hand-offs y el renglón del recordatorio; los avisos de la línea siguen', () => {
-  assert.equal(existsSync(join(RAIZ, 'app/chatbot/HandoffsPanel.tsx')), false, 'el formulario volvió');
-  assert.equal(existsSync(join(RAIZ, 'app/chatbot/RecordatorioReunion.tsx')), false, 'el renglón volvió');
+  assert.equal(existsSync(join(RAIZ, 'app/automations/HandoffsPanel.tsx')), false, 'el formulario volvió');
+  assert.equal(existsSync(join(RAIZ, 'app/automations/RecordatorioReunion.tsx')), false, 'el renglón volvió');
   const app = APP();
   assert.doesNotMatch(app, /HandoffsPanel|RecordatorioReunion|setHandoffs/);
   // Los dos avisos que SÍ se quedan (los fijan además flujo-acciones-bordes y chatbot-puerta).
@@ -136,7 +136,7 @@ test('el panel tiene ↻ «Reiniciar» y ningún «Editar»; el «Cerrar» es el
   const panel = PANEL();
   // Cuarta tanda, punto 3: «el botón de "Cerrar" debería estar donde hoy está el botón de "probar"».
   assert.doesNotMatch(panel, /✕ Cerrar/, 'volvió el «Cerrar» adentro del panel');
-  assert.match(leer('app/chatbot/SecuenciaPerfil.tsx'), /\{probarAbierto \? \(\s*<button onClick=\{\(\) => onCerrarProbar\?\.\(\)\} title="Cerrar la prueba" style=\{estiloProbar\}>✕ Cerrar<\/button>/);
+  assert.match(leer('app/automations/SecuenciaPerfil.tsx'), /\{probarAbierto \? \(\s*<button onClick=\{\(\) => onCerrarProbar\?\.\(\)\} title="Cerrar la prueba" style=\{estiloProbar\}>✕ Cerrar<\/button>/);
   assert.match(panel, /aria-label="Reiniciar"/);
   assert.doesNotMatch(panel, />Editar<|'Editar'|readOnly/);
   // ↻ vacía la prueba (el hilo Y la bandeja) y arranca de nuevo con el flujo de AHORA.
@@ -269,8 +269,8 @@ test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el w
   assert.match(lista, /if \(abrir && abrir !== abrirVisto && secuencias\.some\(\(j\) => j\.id === abrir\.id\)\) \{\n\s+setAbrirVisto\(abrir\);\n\s+elegir\(abrir\.id\);/);
   // El CONTRATO con quien arma el link (el aviso del hand-off): el parámetro es el que lee la página.
   const aviso = sinComentarios(leer('lib/chat-agent-handoff.ts'));
-  const param = aviso.match(/linkApp\(`\/chatbot\?(\w+)=/)?.[1];
-  assert.ok(param, 'el aviso ya no arma un link a /chatbot');
+  const param = aviso.match(/linkApp\(`\/automations\?(\w+)=/)?.[1];
+  assert.ok(param, 'el aviso ya no arma un link a /automations');
   assert.ok(app.includes(`params.get('${param}')`), `el aviso manda ?${param}= y la página no lo lee`);
 });
 

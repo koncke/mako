@@ -87,7 +87,7 @@ cinco partes que lo construyen en paralelo y la referencia para quien toque /cha
 | Qué | Lo escribe | Lo usa |
 |---|---|---|
 | `lib/flujo-grafo.ts`, `lib/flujo-legado.ts` (sólo lectura) | base | todas |
-| `PasoSecuenciaDto & CamposDelFlujo` (app/chatbot/ChatAgentApp.tsx) | base | L, C, P |
+| `PasoSecuenciaDto & CamposDelFlujo` (app/automations/ChatAgentApp.tsx) | base | L, C, P |
 | `SecuenciaPerfil` props `onProbar`, `onCambioLocal(EdicionLocal)`, `insetDer` | base (tipo) / **L** (implementa) | P |
 | `ChatHilo` prop `animarNuevos` | base (tipo) / **C** | P |
 | `EditorMensajeWhatsApp` (props en el archivo) | base (esqueleto) / **C** | L, P |
@@ -151,17 +151,17 @@ Las migraciones van de la 0223 a la 0225: Customer Success reservó de la 0216 a
 - **C — composer**:
   - componentes: app/whatsapp/_shared/ComposerWhatsApp.tsx (nuevo), BurbujaHilo.tsx,
     ChatHilo.tsx, VoiceRecorder.tsx, app/whatsapp/EmojiPicker.tsx, app/whatsapp/EmpresaInbox.tsx,
-    app/chatbot/EditorMensajeWhatsApp.tsx;
+    app/automations/EditorMensajeWhatsApp.tsx;
   - biblioteca: mig 0225, lib/setting-adjuntos.ts, app/api/chat-agent/adjuntos/route.ts,
     lib/datos-mau.ts (remap de `media_id`);
   - tests.
 - **L — lienzo**:
   - lib/lienzo-grafo.ts, lib/flujo-conversacion.ts, app/_components/Lienzo.tsx (compartido con
     /mensajes: todo lo nuevo es opcional), app/_components/EditorCron.tsx;
-  - app/chatbot/FlujoLienzo.tsx, app/chatbot/SecuenciaPerfil.tsx;
+  - app/automations/FlujoLienzo.tsx, app/automations/SecuenciaPerfil.tsx;
   - tests.
 - **P — página y «Probar»**:
-  - pantalla: app/chatbot/ChatAgentApp.tsx (menos el tipo del DTO), SimuladorWhatsApp.tsx,
+  - pantalla: app/automations/ChatAgentApp.tsx (menos el tipo del DTO), SimuladorWhatsApp.tsx,
     PanelProbar.tsx (nuevo), RecordatorioFlujo.tsx (nuevo), HandoffsPanel.tsx y
     RecordatorioReunion.tsx (se borran);
   - simulación y prueba real: lib/simulador-grafo.ts (nuevo), lib/prueba-paso.ts (nuevo),
@@ -389,17 +389,17 @@ export function hiloDe(pasos): Map<string, string>;  // nodo → raíz de su hil
 ## Los editores (parte E) — componentes que monta la integración
 
 ```ts
-// app/chatbot/EditorMensajeWhatsApp.tsx — suma:
+// app/automations/EditorMensajeWhatsApp.tsx — suma:
 disposicion?: 'columna' | 'fila';   // 'fila': chat a la izquierda, composer y herramientas a la derecha
 
-// app/chatbot/EditorEmailGmail.tsx (nuevo)
+// app/automations/EditorEmailGmail.tsx (nuevo)
 export function EditorEmailGmail(p: {
   asunto: string; preheader: string; cuerpo: string;
   onChange: (patch: { asunto?: string; preheader?: string; cuerpo?: string }) => void;
   negocio?: string; deshabilitado?: boolean;
 }): JSX.Element;   // lee el remitente solo (GET /api/email/dominio)
 
-// app/chatbot/EditorEtiqueta.tsx (nuevo)
+// app/automations/EditorEtiqueta.tsx (nuevo)
 export function EditorEtiqueta(p: {
   operacion: 'poner_etiqueta_lead' | 'sacar_etiqueta_lead';
   etiquetaId: number | null;
@@ -453,10 +453,10 @@ Calendly, y el webhook inscribe por evento (`enrolarPorEvento(…,'agenda_nueva'
 |---|---|
 | **0 modelo** | lib/flujo-grafo.ts, lib/flujo-legado.ts, lib/nutricion-grafo-motor.ts (sólo `camposDelFlujo`, `CamposFlujo`, `NODOS`, `esLineal`), supabase/migrations/0228_hilos_paralelos.sql, tests del modelo |
 | **M motor** | lib/nutricion.ts, lib/nutricion-grafo-motor.ts (el resto), lib/nutricion-hilos.ts (nuevo), lib/nutricion-reinscripcion.ts, lib/nutricion-desenlace.ts, lib/evolution-envio.ts, lib/api-mako/areas/chatbot.helpers.ts y chatbot.run.ts (sólo lo de hilos), tests del motor |
-| **L lienzo** | lib/flujo-conversacion.ts, lib/lienzo-grafo.ts, app/_components/Lienzo.tsx, app/chatbot/FlujoLienzo.tsx, app/chatbot/SecuenciaPerfil.tsx, app/chatbot/SimuladorWhatsApp.tsx, tests |
-| **E editores** | app/chatbot/EditorMensajeWhatsApp.tsx, app/chatbot/EditorEmailGmail.tsx, app/chatbot/EditorEtiqueta.tsx, app/_components/EditorAccionMako.tsx, app/_ui/Select.tsx, app/components/Dropdown.tsx (sólo si hace falta), lib/api-mako/tipos.ts (`rotulo?`), app/_components/etiquetas-cliente.tsx, app/agencia/EditorMensaje.tsx (sólo lo que haga falta para reusarlo), tests |
-| **P probar** | lib/simulador-grafo.ts, app/chatbot/PanelProbar.tsx, tests |
-| **I ia** | lib/flujo-ia.ts, app/api/chat-agent/secuencias/ia/route.ts, lib/model-catalogo.ts (una fila), lib/prompt-registry.ts (dos entradas), app/chatbot/CrearConIA.tsx, lib/setting-secuencias.ts (crear vacía), app/api/chat-agent/secuencias/route.ts (la acción de crear vacía), tests |
+| **L lienzo** | lib/flujo-conversacion.ts, lib/lienzo-grafo.ts, app/_components/Lienzo.tsx, app/automations/FlujoLienzo.tsx, app/automations/SecuenciaPerfil.tsx, app/automations/SimuladorWhatsApp.tsx, tests |
+| **E editores** | app/automations/EditorMensajeWhatsApp.tsx, app/automations/EditorEmailGmail.tsx, app/automations/EditorEtiqueta.tsx, app/_components/EditorAccionMako.tsx, app/_ui/Select.tsx, app/components/Dropdown.tsx (sólo si hace falta), lib/api-mako/tipos.ts (`rotulo?`), app/_components/etiquetas-cliente.tsx, app/agencia/EditorMensaje.tsx (sólo lo que haga falta para reusarlo), tests |
+| **P probar** | lib/simulador-grafo.ts, app/automations/PanelProbar.tsx, tests |
+| **I ia** | lib/flujo-ia.ts, app/api/chat-agent/secuencias/ia/route.ts, lib/model-catalogo.ts (una fila), lib/prompt-registry.ts (dos entradas), app/automations/CrearConIA.tsx, lib/setting-secuencias.ts (crear vacía), app/api/chat-agent/secuencias/route.ts (la acción de crear vacía), tests |
 | **C calcom** | lib/calcom.ts, app/api/webhooks/calcom/route.ts, lo mínimo de lib/leads.ts para guardar respuestas, tests |
 | **integración** | los call sites entre partes: montar los editores de E en FlujoLienzo, `CrearConIA` y `revelar` en SecuenciaPerfil/SimuladorWhatsApp, unificar el SelectorEtiqueta local de FlujoLienzo, retirar el wizard como entrada |
 
@@ -548,12 +548,12 @@ del 9 oct 02:05). Martín lo mandó con siete capturas de producción después d
 
 | Parte | Archivos |
 |---|---|
-| **A condiciones** | lib/condiciones-catalogo.ts (nuevo), lib/flujo-grafo.ts (CampoCondicion, FilaCondicion, cumpleFila, textoFila, validación de filas), lib/nutricion-grafo-motor.ts (sanearFila, necesitaHechos), lib/nutricion.ts (sólo hechosDeLeads y lo que lee para las condiciones), lib/simulador-grafo.ts (sólo lo que toque condiciones), app/chatbot/EditorCondicion.tsx (nuevo: el editor de la condición sale de FlujoLienzo), tests |
-| **B lienzo y CRON** | lib/flujo-conversacion.ts, lib/lienzo-grafo.ts, app/_components/Lienzo.tsx, app/_components/EditorCron.tsx, app/chatbot/FlujoLienzo.tsx (todo menos el editor de la condición), app/chatbot/SecuenciaPerfil.tsx, supabase/migrations/0229_secuencia_emoji.sql, app/api/chat-agent/secuencias/route.ts (la acción del emoji), lib/setting-secuencias.ts (el emoji), tests |
-| **C editores de mensaje** | app/chatbot/EditorMensajeWhatsApp.tsx, app/chatbot/EditorEmailGmail.tsx, lib/email-html.ts, lib/nutricion.ts (sólo el saneo y el envío del email con `cuerpo_html`), un saneador de HTML nuevo en lib, tests |
+| **A condiciones** | lib/condiciones-catalogo.ts (nuevo), lib/flujo-grafo.ts (CampoCondicion, FilaCondicion, cumpleFila, textoFila, validación de filas), lib/nutricion-grafo-motor.ts (sanearFila, necesitaHechos), lib/nutricion.ts (sólo hechosDeLeads y lo que lee para las condiciones), lib/simulador-grafo.ts (sólo lo que toque condiciones), app/automations/EditorCondicion.tsx (nuevo: el editor de la condición sale de FlujoLienzo), tests |
+| **B lienzo y CRON** | lib/flujo-conversacion.ts, lib/lienzo-grafo.ts, app/_components/Lienzo.tsx, app/_components/EditorCron.tsx, app/automations/FlujoLienzo.tsx (todo menos el editor de la condición), app/automations/SecuenciaPerfil.tsx, supabase/migrations/0229_secuencia_emoji.sql, app/api/chat-agent/secuencias/route.ts (la acción del emoji), lib/setting-secuencias.ts (el emoji), tests |
+| **C editores de mensaje** | app/automations/EditorMensajeWhatsApp.tsx, app/automations/EditorEmailGmail.tsx, lib/email-html.ts, lib/nutricion.ts (sólo el saneo y el envío del email con `cuerpo_html`), un saneador de HTML nuevo en lib, tests |
 | **D acciones** | app/_components/EditorAccionMako.tsx, lib/editor-acciones.ts, lib/api-mako/flujo.ts (el catálogo de flujo), widgets nuevos de parámetros, tests |
-| **E probar, lista y nueva** | app/chatbot/PanelProbar.tsx, app/chatbot/SimuladorWhatsApp.tsx, app/chatbot/ChatAgentApp.tsx, tests |
-| **F crear con IA** | app/chatbot/CrearConIA.tsx, app/api/chat-agent/secuencias/ia/route.ts, lib/flujo-ia.ts, lib/flujo-ia-cliente.ts, lo mínimo de la cascada si la falla está ahí, tests |
+| **E probar, lista y nueva** | app/automations/PanelProbar.tsx, app/automations/SimuladorWhatsApp.tsx, app/automations/ChatAgentApp.tsx, tests |
+| **F crear con IA** | app/automations/CrearConIA.tsx, app/api/chat-agent/secuencias/ia/route.ts, lib/flujo-ia.ts, lib/flujo-ia-cliente.ts, lo mínimo de la cascada si la falla está ahí, tests |
 
 Contratos entre partes (la integración enchufa lo que falte):
 - `SecuenciaPerfil` (B) llama `onProbar(canal: 'whatsapp' | 'email')`; `SimuladorWhatsApp` (E) se lo pasa a
@@ -720,7 +720,7 @@ editor de CONDITION y el borrador. Lo medido y lo que costó, en
 - **El dibujo** (`lib/flujo-conversacion.ts`): el nodo `respuesta` se dibuja como CONDITION, con una
   fila por caso (`textoCasoRespuesta`) y el «Si no»; el CRON sin «Si responde» como fila. Después de
   `abrirFlujo` no quedan «Ir a» salvo los que retoman desde «Si responde».
-- **La pantalla** (`app/chatbot/SecuenciaPerfil.tsx`): abre con `abrirFlujo(pasos, estrategia, {
+- **La pantalla** (`app/automations/SecuenciaPerfil.tsx`): abre con `abrirFlujo(pasos, estrategia, {
   idDeClave, nombreDeSecuencia })` en vez de `legadoAGrafo`, y limpia la estrategia sólo con
   `limpiarEstrategia`. El borrador: GET con `leerBorradoresSecuencias`, guardado con un respiro por
   POST `{ action: 'borrador', id, pasos }` → `guardarBorradorSecuencia`, y `descartarBorradorSecuencia`

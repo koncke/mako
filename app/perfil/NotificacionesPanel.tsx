@@ -204,9 +204,9 @@ function TileEnLaApp({ prefs, onChange, flash }: {
 // ── Panel ─────────────────────────────────────────────────────────────────────
 export function NotificacionesPanel({ editarEnChatbot = false }: {
   /**
-   * El negocio tiene /chatbot (su capa lo incluye: lo decide el server con la MISMA función que
+   * El negocio tiene /automations (su capa lo incluye: lo decide el server con la MISMA función que
    * el guard de la ruta, `tabEnCapa`). Desde la quinta tanda (punto 5) el lienzo de cada mensaje
-   * se edita allá y acá queda un link; sin /chatbot, el link rebotaría y el mensaje se quedaría
+   * se edita allá y acá queda un link; sin /automations, el link rebotaría y el mensaje se quedaría
    * sin ningún lugar donde editarse, así que se sigue editando acá.
    */
   editarEnChatbot?: boolean;
@@ -358,9 +358,9 @@ export function NotificacionesPanel({ editarEnChatbot = false }: {
           —ver los correos que salieron— no es configurar un mensaje. Si vuelve, vuelve
           por su propia puerta y no como la mitad email de esta pantalla. */}
       {/* ⚠️ QUINTA TANDA, PUNTO 5: «quiero que elimines el lienzo en la tab de "Notificaciones",
-          pero que dejes un enlace para editarlo aquí» (Martín, 09/10/2026, desde /chatbot). Con
+          pero que dejes un enlace para editarlo aquí» (Martín, 09/10/2026, desde /automations). Con
           `enlaceEditar`, la lista, el chat de cada mensaje y el alta se quedan; el lienzo se va y su
-          lugar lo toma un link a /chatbot que abre ESE mensaje (`?aviso=<id>`, lib/chatbot-mensajes-mako.ts). */}
+          lugar lo toma un link a /automations que abre ESE mensaje (`?aviso=<id>`, lib/chatbot-mensajes-mako.ts). */}
       <PlantillasView endpoint={ENDPOINT} enlaceEditar={editarEnChatbot ? (p) => enlaceAMensajeMako(p.id) : undefined} />
     </div>
   );

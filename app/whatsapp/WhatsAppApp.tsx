@@ -46,7 +46,7 @@ type LineaWa = { linea: string; rotulo: string; estado: string; esDefault: boole
 const AGREGAR_LINEA = '__agregar_linea__';
 
 function WhatsAppInner({ puedeChatbot, puedeAgregarLinea, productos }: { puedeChatbot: boolean; puedeAgregarLinea: boolean; productos: ProductoParaAlta[] | null }) {
-  // La tab es SOLO conversaciones: las secuencias viven en /chatbot, que lee las mismas
+  // La tab es SOLO conversaciones: las secuencias viven en /automations, que lee las mismas
   // filas de `nutricion_secuencias`. Tener el mismo tablero en dos pantallas era la
   // forma mas facil de que una quedara vieja.
   const router = useRouter();
@@ -124,7 +124,7 @@ function WhatsAppInner({ puedeChatbot, puedeAgregarLinea, productos }: { puedeCh
   };
 
   // ── Carga inicial: el interruptor del chatbot. Las SECUENCIAS ya no se cargan acá: se
-  // administran en /chatbot, que lee las mismas filas.
+  // administran en /automations, que lee las mismas filas.
   useEffect(() => {
     void (async () => {
       try {
@@ -137,13 +137,13 @@ function WhatsAppInner({ puedeChatbot, puedeAgregarLinea, productos }: { puedeCh
   }, []);
 
   // ── Deep-link viejo: ?stab=plantillas ──
-  // Las plantillas de Meta se mudaron a /chatbot con las secuencias. Los avisos viejos siguen
+  // Las plantillas de Meta se mudaron a /automations con las secuencias. Los avisos viejos siguen
   // mandando a /whatsapp?stab=plantillas: se redirige en vez de dejar al usuario en una
   // pantalla que ya no tiene eso.
   useEffect(() => {
     if (searchParamsWA.get('stab') !== 'plantillas') return;
     const tpl = searchParamsWA.get('tpl');
-    router.replace(`/chatbot?stab=plantillas${tpl ? `&tpl=${encodeURIComponent(tpl)}` : ''}`);
+    router.replace(`/automations?stab=plantillas${tpl ? `&tpl=${encodeURIComponent(tpl)}` : ''}`);
   }, [searchParamsWA, router]);
 
   const lineaPedida = searchParamsWA.get('linea');
@@ -292,7 +292,7 @@ function WhatsAppInner({ puedeChatbot, puedeAgregarLinea, productos }: { puedeCh
         <EmpresaInbox key={`bandeja-${lineaActiva?.linea ?? 'default'}`} puedeChatbot={puedeChatbot} linea={lineaActiva?.linea ?? null} productos={productos} />
       )}
 
-      {/* Las SECUENCIAS y las PLANTILLAS de Meta se mudaron a /chatbot: son las mismas
+      {/* Las SECUENCIAS y las PLANTILLAS de Meta se mudaron a /automations: son las mismas
           filas de `nutricion_secuencias` y tenerlas en dos pantallas garantizaba que una
           quedara vieja. Esta tab quedo con una sola cosa: las conversaciones. */}
     </main>

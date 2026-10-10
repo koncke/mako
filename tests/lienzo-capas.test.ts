@@ -1,5 +1,5 @@
 // =============================================================================
-// Las CAPAS de lo que flota sobre el lienzo de /chatbot, y el error que frena Publicar
+// Las CAPAS de lo que flota sobre el lienzo de /automations, y el error que frena Publicar
 // =============================================================================
 // Revisión de la segunda tanda (09/10/2026, frente modelo). Tres hallazgos con la misma causa: el
 // panel APAISADO del editor (la franja de abajo, nueva en esta tanda) no tenía capa propia y
@@ -40,7 +40,7 @@ const numero = (src: string, re: RegExp, que: string): number => {
 
 test('⚠️ el panel apaisado va encima de la esquina de avisos y de «Crear con IA», debajo de los modales; «Publicar», encima del panel', () => {
   const esquina = numero(sinComentarios(leer('../app/_components/EsquinaAvisos.tsx')), /position: 'fixed', right: 20, bottom: 'var\(--esquina-abajo, 20px\)', zIndex: (\d+)/, 'el z de la esquina de avisos');
-  const perfil = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
+  const perfil = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
   const ini = perfil.indexOf('{rolAdmin && pasos.length === 0 && (');
   const fin = perfil.indexOf('<FlujoLienzo', ini);
   assert.ok(ini >= 0 && fin > ini, 'no encontré las cajas de «Crear con IA»');
@@ -88,7 +88,7 @@ test('⚠️ los errores de los hilos dicen QUÉ pasó, sin el porqué entre par
   ];
   // El error va en una tarjeta de `maxWidth` 380 con 12 de relleno por lado y su borde, a 12,5 px:
   // ~6,4 px por letra en promedio (Geist), o sea ~55 letras por renglón.
-  const perfil = sinComentarios(leer('../app/chatbot/SecuenciaPerfil.tsx'));
+  const perfil = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
   const ancho = numero(perfil, /<span role="alert"[^>]*?style=\{\{ \.\.\.tarjetaChrome, maxWidth: (\d+), fontSize: 12\.5/, 'el ancho del error de Publicar');
   const letras = Math.floor((ancho - 26) / 6.4);
   for (const [pasos, esperado] of casos) {

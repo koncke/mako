@@ -2,7 +2,7 @@
 // Poner y sacar una etiqueta del CRM: idempotencia, espaciado, lote sin disparo y el espejo
 // con la etapa sin bucle (lib/etiquetas-motor.ts, con un supabase de mentira)
 // =============================================================================
-// Pedido de Martín (08/10/2026, punto 12 del rediseño de /chatbot): etiquetas con CRUD, vinculadas
+// Pedido de Martín (08/10/2026, punto 12 del rediseño de /automations): etiquetas con CRUD, vinculadas
 // a etapas del CRM, que disparen automatizaciones y se pongan también en WhatsApp. El contrato
 // está en docs/chatbot-flujo-ramas-diseno.md (§3 y §5).
 //

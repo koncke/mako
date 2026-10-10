@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// FiltroLista — el botón de filtro de la lista de /chatbot (quinta tanda, punto 4)
+// FiltroLista — el botón de filtro de la lista de /automations (quinta tanda, punto 4)
 // =============================================================================
 // Pedido de Martín, textual: «El filtro al lado del buscador en la sidebar, debería ser más chico,
 // con el ícono de filtro como ya lo tenemos en otros lados, así la barra de busqueda tiene más

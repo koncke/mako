@@ -9,7 +9,7 @@
 //
 // ⚠️ PROBADO ROMPIENDO LO QUE PERSIGUE, 08/10/2026 (arnés I-romper-ruta.mjs en el scratchpad de la
 // sesión, que restaura de memoria): 11 roturas, una por vez, sobre la ruta, lib/setting-secuencias.ts,
-// lib/model-catalogo.ts, lib/prompt-registry.ts, la ruta de secuencias y app/chatbot/CrearConIA.tsx.
+// lib/model-catalogo.ts, lib/prompt-registry.ts, la ruta de secuencias y app/automations/CrearConIA.tsx.
 // Las 11 cazadas; cada una, con su número de fallos, al lado del test.
 //
 // Todo lo que se lee se normaliza a LF y se le sacan los comentarios ANTES de buscar (AGENTS.md:
@@ -117,7 +117,7 @@ test('crear vacía: sin pasos de relleno, pausada y con el disparador que no ins
 
 // rotura 9 (el fetch sin signal): 1 fallo. rotura 10 (un tope del cliente menor que el de la ruta): 1 fallo.
 test('la caja: el fetch lleva signal con el tope de la ruta + margen, y Cancelar corta', () => {
-  const src = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
+  const src = sinComentarios(leer('app/automations/CrearConIA.tsx'));
   assert.match(src, /signal: c\.signal,/);
   const tope = Number(/const TOPE_CLIENTE_MS = ([\d_]+);/.exec(src)?.[1].replace(/_/g, ''));
   const max = Number(/export const maxDuration = (\d+);/.exec(RUTA)?.[1]) * 1000;
@@ -128,7 +128,7 @@ test('la caja: el fetch lleva signal con el tope de la ruta + margen, y Cancelar
 
 // rotura 11 (un rótulo propio en vez de GRAMATICA.analizando): 1 fallo.
 test('la caja: el estado de MaKo sale de GRAMATICA, sin <select> nativo', () => {
-  const src = sinComentarios(leer('app/chatbot/CrearConIA.tsx'));
+  const src = sinComentarios(leer('app/automations/CrearConIA.tsx'));
   assert.match(src, /GRAMATICA\.analizando\.rotulo/);
   assert.doesNotMatch(src, /'Revisando'|"Revisando"|>Revisando</);
   assert.doesNotMatch(src, /<select\b/);

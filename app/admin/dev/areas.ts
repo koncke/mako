@@ -287,7 +287,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'instagram', titulo: 'Instagram', familia: 'Operate', grupo: 'Comunicación',
     estado: 'listo',
-    alcance: 'RETIRADA el 06/10/2026 por decisión de Martín («C: sacar la tab»): la bandeja de DMs, el programador de publicaciones y el puente de los DMs al Chatbot salieron del producto. Lo que queda: /instagram redirige a /chatbot (por los links viejos) y el webhook de Zernio contesta 200 sin procesar nada.',
+    alcance: 'RETIRADA el 06/10/2026 por decisión de Martín («C: sacar la tab»): la bandeja de DMs, el programador de publicaciones y el puente de los DMs al Chatbot salieron del producto. Lo que queda: /instagram redirige a /automations (por los links viejos) y el webhook de Zernio contesta 200 sin procesar nada.',
     vive: ['app/instagram/page.tsx', 'app/api/webhooks/zernio/route.ts', 'supabase/migrations/0136_instagram_zernio.sql', 'tests/sin-instagram.test.ts'],
     proyectos: ['Feature: Instagram'],
     hallazgos: 'hallazgos-comunicacion',
@@ -536,10 +536,13 @@ export const AREAS: AreaDev[] = [
 
   // ───────────────────────────────────────────────────── Sales Machine
   {
-    slug: 'chatbot', titulo: 'Chatbot', familia: 'Sales Machine',
-    estado: 'listo', agente: true, verEnApp: '/chatbot',
+    // El TÍTULO es el de la tab desde el 09/10/2026 (Automations, ex Chatbot); el SLUG, la
+    // carpeta app/admin/dev/chatbot y el proyecto «Agente: Chatbot» NO se tocan: son el registro
+    // interno, su historia y una clave del tablero.
+    slug: 'chatbot', titulo: 'Automations', familia: 'Sales Machine',
+    estado: 'listo', agente: true, verEnApp: '/automations',
     alcance: 'El agente que conversa, SÓLO por WhatsApp y por la línea NO oficial del negocio (Evolution: sin ventana de 24 h ni plantillas). Lo primero: recordarle al lead la reunión agendada. Además, secuencias por etapa del CRM para la masa, simulación como lead, métricas y hand-off al humano. Instagram quedó afuera el 06/10/2026 (decisión de Martín: 0 DMs en su historia).',
-    vive: ['app/chatbot/page.tsx', 'app/chatbot/ChatAgentApp.tsx', 'app/chat-bot/page.tsx', 'app/chat-agent/page.tsx', 'app/setting/page.tsx', 'lib/setting-estrategia.ts', 'lib/nutricion.ts', 'app/api/chat-agent/secuencias/route.ts', 'app/chatbot/FlujoLienzo.tsx', 'app/chatbot/SecuenciaPerfil.tsx', 'lib/flujo-conversacion.ts', 'app/_components/Lienzo.tsx', 'lib/lienzo-grafo.ts', 'lib/flujo-grafo.ts', 'lib/flujo-legado.ts', 'lib/nutricion-grafo-motor.ts', 'app/chatbot/EditorMensajeWhatsApp.tsx', 'app/chatbot/PanelProbar.tsx', 'app/chatbot/RecordatorioFlujo.tsx', 'lib/simulador-grafo.ts', 'lib/setting-adjuntos.ts'],
+    vive: ['app/automations/page.tsx', 'app/automations/ChatAgentApp.tsx', 'app/chatbot/page.tsx', 'lib/ruta-automations.ts', 'app/chat-bot/page.tsx', 'app/chat-agent/page.tsx', 'app/setting/page.tsx', 'lib/setting-estrategia.ts', 'lib/nutricion.ts', 'app/api/chat-agent/secuencias/route.ts', 'app/automations/FlujoLienzo.tsx', 'app/automations/SecuenciaPerfil.tsx', 'lib/flujo-conversacion.ts', 'app/_components/Lienzo.tsx', 'lib/lienzo-grafo.ts', 'lib/flujo-grafo.ts', 'lib/flujo-legado.ts', 'lib/nutricion-grafo-motor.ts', 'app/automations/EditorMensajeWhatsApp.tsx', 'app/automations/PanelProbar.tsx', 'app/automations/RecordatorioFlujo.tsx', 'lib/simulador-grafo.ts', 'lib/setting-adjuntos.ts'],
     proyectos: ['Agente: Chatbot'],
     hallazgos: 'hallazgos-chatbot',
   },
@@ -608,7 +611,7 @@ export const AREAS: AreaDev[] = [
     slug: 'sales-roleplay', titulo: 'Sales Roleplay', familia: 'Sales Machine',
     estado: 'por-construir', verEnApp: '/sales-roleplay',
     alcance: 'Entrenar la llamada contra MaKo haciendo de prospecto. ComingSoon; el patrón de «MaKo hace de cliente» ya está resuelto en el paso ④ ensayo del Chatbot y es de donde debería copiarse.',
-    vive: ['app/sales-roleplay/page.tsx', 'app/chatbot/OnboardingChatAgent.tsx'],
+    vive: ['app/sales-roleplay/page.tsx', 'app/automations/OnboardingChatAgent.tsx'],
     proyectos: ['Feature: Sales Roleplay'],
   },
   {
@@ -898,7 +901,7 @@ export const AREAS: AreaDev[] = [
     alcance: 'La cuenta de Instagram propia de MaKo: perfil, bio, reels, historias, destacadas y calendario de publicación. No hay nada en el repo, ni siquiera una sección en el doc de estrategia.',
     vive: [],
     proyectos: ['Vender MaKo: Orgánico Instagram'],
-    nota: 'HOMONIMIA PELIGROSA: app/instagram/page.tsx sí existe, pero era la tab del PRODUCTO (se retiró el 06/10/2026 y hoy redirige a /chatbot), no la cuenta propia — quien busque por nombre va a aterrizar ahí y va a creer que encontró el área. Lo único de MaKo es el proyecto «Vender MaKo: Orgánico Instagram» declarado en lib/plan-proyectos-catalogo.ts:182 y, de refilón, el canal D «Orgánico + Lead Magnet» del doc de estrategia, que es genérico (los mismos creativos de la campaña + ManyChat) y está en la lista de futuros.',
+    nota: 'HOMONIMIA PELIGROSA: app/instagram/page.tsx sí existe, pero era la tab del PRODUCTO (se retiró el 06/10/2026 y hoy redirige a /automations), no la cuenta propia — quien busque por nombre va a aterrizar ahí y va a creer que encontró el área. Lo único de MaKo es el proyecto «Vender MaKo: Orgánico Instagram» declarado en lib/plan-proyectos-catalogo.ts:182 y, de refilón, el canal D «Orgánico + Lead Magnet» del doc de estrategia, que es genérico (los mismos creativos de la campaña + ManyChat) y está en la lista de futuros.',
   },
   {
     slug: 'gtm-youtube', titulo: 'GTM: YouTube', familia: 'Business', grupo: 'Go-to-Market',
@@ -1031,7 +1034,7 @@ export const AREAS: AreaDev[] = [
       'lib/notif-catalogo.ts', 'lib/avisos-catalogo.ts', 'lib/plantillas.ts', 'lib/notif-destinatarios.ts',
       'app/api/perfil/plantillas/route.ts', 'app/api/perfil/destinatarios/route.ts', 'app/api/perfil/notif-inapp/route.ts',
       'lib/disparador-mensaje.ts', 'lib/espaciado.ts', 'lib/cron-aviso.ts', 'lib/avisos-programados.ts', 'app/api/cron/avisos-programados',
-      'app/agencia/FlujoAviso.tsx', 'app/agencia/TemplateDetalleModal.tsx', 'lib/flujo-aviso.ts', 'app/_components/TextoMarcas.tsx', 'app/chatbot/EditorMensajeWhatsApp.tsx',
+      'app/agencia/FlujoAviso.tsx', 'app/agencia/TemplateDetalleModal.tsx', 'lib/flujo-aviso.ts', 'app/_components/TextoMarcas.tsx', 'app/automations/EditorMensajeWhatsApp.tsx',
       'app/_components/Lienzo.tsx', 'lib/lienzo-grafo.ts',
     ],
     proyectos: ['Feature: Configuraciones y equipo'],

@@ -1,7 +1,7 @@
 // =============================================================================
 // El MOTOR de las secuencias como flujo con ramas (08/10/2026, parte M)
 // =============================================================================
-// Pedido de Martín (08/10/2026): una secuencia de /chatbot deja de ser una lista y pasa a ser un
+// Pedido de Martín (08/10/2026): una secuencia de /automations deja de ser una lista y pasa a ser un
 // flujo con tarjetas (condición, espera, «Si responde», «Ir a»). El modelo vive en
 // lib/flujo-grafo.ts; lo que decide el MOTOR, en lib/nutricion-grafo-motor.ts (puro, con test
 // acá); el cableado, en lib/nutricion.ts y compañía (con `server-only`: se lee el FUENTE, sin
@@ -265,7 +265,7 @@ test('(6) un caso nuevo es una RAMA con su «MaKo contesta»; el mismo título l
   // Y el hand-off resuelto con una secuencia de tarjetas pasa por acá y por el guardado que valida.
   const h = sinComentarios(leer('../lib/chat-agent-handoff.ts'));
   assert.match(h, /if \(raizRespuesta\(pasos\) != null\) \{[\s\S]{0,400}agregarCasoAlGrafo\(pasos, escenario\)[\s\S]{0,300}await setSecuenciaPasos\(h\.secuencia_id, r\.pasos\)/);
-  assert.match(h, /linkApp\(`\/chatbot\?sec=\$\{input\.secuenciaId\}`, ws\)/, 'el aviso del hand-off sin link a la automatización');
+  assert.match(h, /linkApp\(`\/automations\?sec=\$\{input\.secuenciaId\}`, ws\)/, 'el aviso del hand-off sin link a la automatización');
 });
 
 // ── 7. «Le ponen la etiqueta» ───────────────────────────────────────────────

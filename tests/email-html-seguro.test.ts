@@ -1,5 +1,5 @@
 // =============================================================================
-// El cuerpo HTML de un email de /chatbot: el saneo, el texto de respaldo y el envío
+// El cuerpo HTML de un email de /automations: el saneo, el texto de respaldo y el envío
 // =============================================================================
 // Tercera tanda (09/10/2026, punto 12 del pedido y decisión 12 del diseño): el editor del email es el
 // editor rico de las lecciones, el paso guarda `cuerpo_html` (saneado con una lista blanca) y el motor

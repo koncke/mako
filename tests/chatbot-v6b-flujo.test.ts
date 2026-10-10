@@ -5,7 +5,7 @@
 // Pedido literal de Martín (09/10/2026, sexta tanda; el entero en app/admin/dev/chatbot/bitacora.ts,
 // hito «9 oct 18:37»). Lo que fija este archivo, cada cosa con su porqué en el fuente:
 //   · El BORRADOR (punto 7): una automatización a medio armar se guarda sola, sin publicar
-//     (`crearBorrador`, app/chatbot/useBorradorSecuencia.ts; se EJECUTA con relojes falsos).
+//     (`crearBorrador`, app/automations/useBorradorSecuencia.ts; se EJECUTA con relojes falsos).
 //   · DELAY > 24 h justo antes de Instagram o Messenger: la tarjeta lo avisa (`esperaAntesDe`).
 //   · TAG 2 («Se debería poder seleccionar multiple»): la tarjeta nombra TODAS las etiquetas.
 //   · CRON 10: una fila por disparador con SU ícono, cada una abre ESE CRON, y «＋ Nuevo CRON».
@@ -49,12 +49,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { crearBorrador, ERROR_BORRADOR, RESPIRO_BORRADOR_MS } from '../app/chatbot/useBorradorSecuencia';
+import { crearBorrador, ERROR_BORRADOR, RESPIRO_BORRADOR_MS } from '../app/automations/useBorradorSecuencia';
 import { grafoDeSecuencia, esperaAntesDe, AVISO_VENTANA_META, etiquetaDeAccion, type PasoParaGrafo, type NodoFlujo } from '../lib/flujo-conversacion';
 import { VENTANA_META_MS } from '../lib/canal-social';
-import { CuerpoCron } from '../app/chatbot/FlujoLienzo';
-import { IconoDisparador } from '../app/chatbot/IconosDisparador';
-import type { PasoSecuenciaDto } from '../app/chatbot/ChatAgentApp';
+import { CuerpoCron } from '../app/automations/FlujoLienzo';
+import { IconoDisparador } from '../app/automations/IconosDisparador';
+import type { PasoSecuenciaDto } from '../app/automations/ChatAgentApp';
 import { condicionARespuesta, type PasoGrafo } from '../lib/flujo-grafo';
 
 const fuente = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -189,7 +189,7 @@ test('al irse sale YA lo que esperaba; publicar lo DESCARTA en el server y lo pu
 });
 
 test('el lienzo guarda el borrador SÓLO si lo leyó, lo abre si hay, y lo descarta al publicar', () => {
-  const sp = codigo('app/chatbot/SecuenciaPerfil.tsx');
+  const sp = codigo('app/automations/SecuenciaPerfil.tsx');
   assert.match(sp, /useBorradorSecuencia\(secuencia\.id, \{\s*puedeGuardar: rolAdmin && secuencia\.borrador !== undefined,/);
   assert.match(sp, /useEffect\(\(\) => \{ borrador\.cambio\(pasos\); \}, \[pasos\]\);/);
   assert.match(sp, /secuencia\.borrador\?\.pasos\?\.length \? renumerar\(normalizar\(secuencia\.borrador\.pasos\)\) : null/);
@@ -285,10 +285,10 @@ test('CRON 10: una fila por disparador con SU ícono, cada una abre ESE CRON, y 
   const soloVer = renderToStaticMarkup(createElement(CuerpoCron, { disparadores: ds }));
   assert.doesNotMatch(soloVer, /Nuevo CRON|data-disparador|<button/);
   // Y cada fila abre la suya: el id viaja hasta `setCronAbierto` (no «el CRON», uno).
-  const fl = codigo('app/chatbot/FlujoLienzo.tsx');
+  const fl = codigo('app/automations/FlujoLienzo.tsx');
   assert.match(fl, /onAbrir=\{disparadores\?\.length && onAbrirDisparador \? \(did\) => \{ setSel\(ID_ENTRADA\); onAbrirDisparador\(did\); \} : undefined\}/);
   assert.match(fl, /onClick=\{\(\) => onAbrir\(d\.id\)\}/);
-  const sp = codigo('app/chatbot/SecuenciaPerfil.tsx');
+  const sp = codigo('app/automations/SecuenciaPerfil.tsx');
   assert.match(sp, /onAbrirDisparador=\{\(id\) => setCronAbierto\(id\)\}/);
   assert.match(sp, /const filasCron = crons\.lista\.map\(\(d\) => \(\{ id: d\.id, texto: textosCron\.texto\(d\), icono: iconoDeDisparador\(d\) \}\)\);/);
 });
@@ -296,7 +296,7 @@ test('CRON 10: una fila por disparador con SU ícono, cada una abre ESE CRON, y 
 // ── Los enchufes que otra parte pidió en los archivos del lienzo ────────────────────────────
 
 test('la condición VACÍA pasa a escuchar desde su editor, y sólo si no hay otra que escuche', () => {
-  const fl = codigo('app/chatbot/FlujoLienzo.tsx');
+  const fl = codigo('app/automations/FlujoLienzo.tsx');
   const caso = tramo(fl, "case 'condicion': {", "case 'respuesta':");
   assert.match(caso, /\(paso\.ramas \?\? \[\]\)\.every\(\(r\) => !r\.filas\?\.length\) && !raizRespuesta\(pr\.pasos\)/);
   assert.match(caso, /condicionARespuesta\(prev, id\)/);
@@ -304,10 +304,10 @@ test('la condición VACÍA pasa a escuchar desde su editor, y sólo si no hay ot
 });
 
 test('el editor del mensaje recibe el disparador; el DTO sabe de Instagram, Messenger y la línea', () => {
-  const fl = codigo('app/chatbot/FlujoLienzo.tsx');
+  const fl = codigo('app/automations/FlujoLienzo.tsx');
   const editorMsg = tramo(fl, '<EditorMensajeWhatsApp', '/>');
   assert.match(editorMsg, /disparador=\{disparador\}/);
-  const app = codigo('app/chatbot/ChatAgentApp.tsx');
+  const app = codigo('app/automations/ChatAgentApp.tsx');
   const dto = tramo(app, 'export type PasoSecuenciaDto', '};');
   assert.match(dto, /canal: 'email' \| 'whatsapp' \| CanalSocial;/);
   assert.match(dto, /linea\?: string \| null;/);
@@ -317,13 +317,13 @@ test('el editor del mensaje recibe el disparador; el DTO sabe de Instagram, Mess
 // ── El barrido: la papelera roja de la casa ─────────────────────────────────────────────────
 
 test('general 9: «borrar» es UNA definición (app/_ui/BotonBorrar.tsx) en los archivos del lienzo', () => {
-  for (const r of ['app/_components/Lienzo.tsx', 'app/chatbot/FlujoLienzo.tsx', 'app/chatbot/EditorDisparadores.tsx', 'app/chatbot/OnboardingChatAgent.tsx', 'app/chatbot/EditorCondicion.tsx']) {
+  for (const r of ['app/_components/Lienzo.tsx', 'app/automations/FlujoLienzo.tsx', 'app/automations/EditorDisparadores.tsx', 'app/automations/OnboardingChatAgent.tsx', 'app/automations/EditorCondicion.tsx']) {
     const c = codigo(r);
     assert.match(c, /from '@\/app\/_ui\/BotonBorrar'/, `${r} no usa la papelera de la casa`);
     assert.doesNotMatch(c, /function IconoBorrar\b/, `${r} define su propia papelera`);
     assert.doesNotMatch(c, /🗑|name="trash"/, `${r} dibuja la papelera vieja`);
   }
-  const quitar = tramo(codigo('app/chatbot/EditorCondicion.tsx'), 'function BotonQuitar(', '\n}');
+  const quitar = tramo(codigo('app/automations/EditorCondicion.tsx'), 'function BotonQuitar(', '\n}');
   assert.match(quitar, /<BotonBorrar talla="sm"/);
   assert.doesNotMatch(quitar, /✕/, 'quitar una fila vuelve a ser la ✕ gris, que se lee como «cerrar»');
 });

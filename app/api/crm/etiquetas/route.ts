@@ -17,7 +17,7 @@
 //     'poner_lote' { leadIds, etiquetaId }                                                    → { ok, cambiados, yaEstaban, sinSincronizar }
 //     'sacar_lote' { leadIds, etiquetaId }  (el Deshacer del lote)
 //
-// El contrato mínimo que usa el lienzo de /chatbot (parte L): GET {etiquetas} y
+// El contrato mínimo que usa el lienzo de /automations (parte L): GET {etiquetas} y
 // POST {action:'crear', nombre, color?} → {etiqueta}. Ver docs/chatbot-flujo-ramas-diseno.md §3.
 //
 // ⚠️ EL CRUD ES DEL ADMIN; poner y sacar, de cualquiera con sesión en el CRM (como el resto de

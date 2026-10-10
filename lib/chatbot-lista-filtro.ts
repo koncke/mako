@@ -1,5 +1,5 @@
 // =============================================================================
-// chatbot-lista-filtro — el filtro de la lista de /chatbot (quinta tanda, punto 4)
+// chatbot-lista-filtro — el filtro de la lista de /automations (quinta tanda, punto 4)
 // =============================================================================
 // Pedido de Martín (09/10/2026), textual:
 //   «El filtro al lado del buscador en la sidebar, debería ser más chico, con el ícono de filtro
@@ -21,7 +21,7 @@
 //   · si una fila PASA el filtro (`pasaFiltroLista`);
 //   · qué SECCIONES ofrece el desplegable y qué dice cada una en la raíz (`seccionesDelFiltro`).
 //
-// SIN 'use client' y sin `server-only`: lo importan la lista (app/chatbot/SimuladorWhatsApp.tsx)
+// SIN 'use client' y sin `server-only`: lo importan la lista (app/automations/SimuladorWhatsApp.tsx)
 // y los tests. El tipo de las secciones es el del Dropdown de la casa, y se trae con `import type`
 // (se borra al compilar: no arrastra el componente).
 // =============================================================================

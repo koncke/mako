@@ -1,6 +1,6 @@
 // =============================================================================
-// El filtro de la lista de /chatbot — quinta tanda, punto 4
-// (lib/chatbot-lista-filtro.ts, app/chatbot/FiltroLista.tsx, app/chatbot/SimuladorWhatsApp.tsx,
+// El filtro de la lista de /automations — quinta tanda, punto 4
+// (lib/chatbot-lista-filtro.ts, app/automations/FiltroLista.tsx, app/automations/SimuladorWhatsApp.tsx,
 // app/components/Dropdown.tsx)
 // =============================================================================
 // Pedido de Martín (09/10/2026), textual: «El filtro al lado del buscador en la sidebar, debería ser
@@ -28,8 +28,8 @@ import {
   enviosDePasos, enviosDeAviso, filaDeMensaje, pasaFiltroLista, seccionesDelFiltro, alternarFiltro, contarFiltros, VALOR, SECCION,
   type FilaFiltrable,
 } from '../lib/chatbot-lista-filtro';
-import { SimuladorWhatsApp, filaDeSecuencia } from '../app/chatbot/SimuladorWhatsApp';
-import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
+import { SimuladorWhatsApp, filaDeSecuencia } from '../app/automations/SimuladorWhatsApp';
+import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 import type { PasoGrafo } from '../lib/flujo-grafo';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -200,7 +200,7 @@ test('el botón es CHICO: sólo el embudo de la casa, cuadrado y del alto del bu
 });
 
 test('el desplegable es el del Plan: el Dropdown de la casa por secciones, con varias marcadas y «Quitar filtros» abajo, abriendo hacia afuera', () => {
-  const f = fuente('app/chatbot/FiltroLista.tsx');
+  const f = fuente('app/automations/FiltroLista.tsx');
   assert.match(f, /value="" varios=\{valores\} onChange=\{\(v\) => onCambio\(alternarFiltro\(valores, v\)\)\}/);
   assert.match(f, /secciones=\{seccionesDelFiltro\(filas, valores\)\} search=\{false\} sinFlecha/);
   assert.match(f, /align="afuera"/);
@@ -208,7 +208,7 @@ test('el desplegable es el del Plan: el Dropdown de la casa por secciones, con v
   // El número arriba a la derecha, que también quita (el molde del Plan y del CRM).
   assert.match(f, /\{n > 0 && \(\n\s+<span aria-hidden onClick=\{\(\) => onCambio\(\[\]\)\} title="Quitar filtros"/);
   // La lista le pasa TODAS sus filas (automatizaciones, recordatorio, mensajes) y filtra con la misma función.
-  const lista = fuente('app/chatbot/SimuladorWhatsApp.tsx');
+  const lista = fuente('app/automations/SimuladorWhatsApp.tsx');
   assert.match(lista, /<FiltroLista filas=\{todasLasFilas\} valores=\{filtros\} onCambio=\{setFiltros\} \/>/);
   const filas = lista.slice(lista.indexOf('const todasLasFilas: FilaFiltrable[] = ['), lista.indexOf('];', lista.indexOf('const todasLasFilas: FilaFiltrable[] = [')));
   assert.match(filas, /\.\.\.filasSec\.values\(\),\n\s+\.\.\.\(rolAdmin \? \[filaDeRecordatorio\(recordatorioActivo\)\] : \[\]\),\n\s+\.\.\.avisosLista\.map\(filaDeMensaje\),/,

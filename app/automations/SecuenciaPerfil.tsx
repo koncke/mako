@@ -265,7 +265,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   /**
    * LOS CRON DE LA AUTOMATIZACIÓN (sexta tanda, CRON punto 10: «agrega la opción de tener más de un
    * CRON»). La lista —optimista, guardada UNA vez por respiro y vuelta a sembrar cuando el server la
-   * cambia sin un guardado en camino— vive en `useDisparadores` (app/chatbot/EditorDisparadores.tsx),
+   * cambia sin un guardado en camino— vive en `useDisparadores` (app/automations/EditorDisparadores.tsx),
    * y el panel en `EditorDisparadores`. Reemplaza al par «Por tiempo» / «Por una acción» (CRON punto
    * 2): el horario es de un CRON «Recurrente», no de la automatización.
    *
@@ -533,7 +533,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
 
   /**
    * DÓNDE QUEDÓ CADA TARJETA MOVIDA (quinta tanda, punto 2; mig 0233). Se guarda al soltar, con su
-   * propia acción y no con Publicar (app/chatbot/usePosicionesLienzo.ts). Sólo el admin mueve: un
+   * propia acción y no con Publicar (app/automations/usePosicionesLienzo.ts). Sólo el admin mueve: un
    * setter mira el flujo como quedó acomodado y panea. Fuera de la pila de deshacer, a propósito: la
    * pila es de lo que hace la automatización, y acomodar el dibujo no lo cambia.
    */
@@ -620,7 +620,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
 
   // ── Lo que dice cada CRON (la tarjeta del lienzo, el texto del primero) ──
   // Con los nombres de las etapas en el kanban de SU ámbito y los de las etiquetas: `useTextoDisparador`
-  // (app/chatbot/EditorDisparadores.tsx). Un disparador por EVENTO de antes se dice como es.
+  // (app/automations/EditorDisparadores.tsx). Un disparador por EVENTO de antes se dice como es.
   const textosCron = useTextoDisparador({ productos, etiquetas, disparadores, etiquetaEtapa, tz });
   const textoDisparo = textosCron.texto(crons.primero);
   /** Las filas de la tarjeta CRON (las dibuja FlujoLienzo, parte «lienzo»): una por CRON, con su ícono. */

@@ -4,7 +4,7 @@
 // Martín, 05/10/2026: «Elimina las pestañas… Y la pestaña de dashboard ponlo en una
 // nueva ruta dentro de "Analysts" de la sidebar».
 //
-// Era la cuarta pestaña de /chatbot y ahí competía con el trabajo: esa tab es para
+// Era la cuarta pestaña de /automations y ahí competía con el trabajo: esa tab es para
 // ARMAR las secuencias, y los números son otra pregunta («¿cómo rinden?»), que es
 // exactamente la que contestan los Analysts. `/chat-analyst` ya existía en la barra
 // marcada «PRONTO» (app/_components/nav.ts) y este es su contenido.

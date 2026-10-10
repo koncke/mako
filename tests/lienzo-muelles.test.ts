@@ -1,5 +1,5 @@
 // =============================================================================
-// Los MUELLES de /chatbot: dónde va «Probar», el editor apaisado y lo que cada cosa deja libre
+// Los MUELLES de /automations: dónde va «Probar», el editor apaisado y lo que cada cosa deja libre
 // =============================================================================
 // Pedido literal de Martín (segunda tanda, 08/10/2026), puntos 3 y 8: «El editor de WhatsApp
 // debes hacerlo más ancho que largo, sino, se amontona todo» y «El "Probar" debe ser más ancho

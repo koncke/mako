@@ -412,7 +412,7 @@ test('el editor de secuencias ofrece también los servicios SIN embudo', () => {
   });
   assert.ok(!secs.some((s) => s.options.some((o) => o.value.startsWith('venta:'))), 'un funnelId null sería la opción «null»');
   assert.ok(secs.some((s) => s.options.some((o) => o.value === 'entrega:11:kick')));
-  const perfil = readFileSync(new URL('../app/chatbot/SecuenciaPerfil.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const perfil = readFileSync(new URL('../app/automations/SecuenciaPerfil.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   assert.match(perfil, /const etapasCond: SeccionEtapas\[\] = productos\.flatMap\(\(pr\) => \(pr\.funnelId == null \|\| !pr\.etapas\.length \? \[\] : \[\{/, 'la condición «Está en la etapa» listaría un producto sin embudo');
 });
 

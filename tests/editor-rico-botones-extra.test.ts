@@ -3,7 +3,7 @@
 // =============================================================================
 // Pedido de Martín (09/10/2026, cuarta tanda del Chatbot, punto 16): «los botones de abajo del todo de
 // "{}" y emoji, deberían estar en algún lugar del editable de texto arriba, donde están las negritas».
-// El email de /chatbot los pone en la barra con `botonesExtra` (app/_ui/EditorRico.tsx), una prop
+// El email de /automations los pone en la barra con `botonesExtra` (app/_ui/EditorRico.tsx), una prop
 // OPCIONAL: las lecciones del curso no la pasan y su barra no puede cambiar.
 //
 // Lo que fija:

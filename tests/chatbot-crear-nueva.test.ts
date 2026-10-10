@@ -1,5 +1,5 @@
 // =============================================================================
-// «＋ Nueva» y «Armar una» del Chatbot (app/chatbot/ChatAgentApp.tsx + SimuladorWhatsApp.tsx)
+// «＋ Nueva» y «Armar una» del Chatbot (app/automations/ChatAgentApp.tsx + SimuladorWhatsApp.tsx)
 // =============================================================================
 // Revisión de la segunda tanda del Chatbot (09/10/2026), dos hallazgos del mismo botón:
 //
@@ -26,8 +26,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { SimuladorWhatsApp } from '../app/chatbot/SimuladorWhatsApp';
-import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
+import { SimuladorWhatsApp } from '../app/automations/SimuladorWhatsApp';
+import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -46,7 +46,7 @@ const dibujar = (extra: Record<string, unknown>) => renderToStaticMarkup(createE
 
 /** El cuerpo de `crearNueva` en ChatAgentApp, hasta su cierre real. */
 function crearNueva(): string {
-  const src = sinComentarios(leer('app/chatbot/ChatAgentApp.tsx'));
+  const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   const ini = src.indexOf('const crearNueva = async (pedido?: string) => {');
   assert.ok(ini >= 0, 'no está crearNueva');
   const fin = src.indexOf('\n  };', ini);
@@ -71,7 +71,7 @@ test('el pie de la lista recibe la PUERTA de crear, y lo que se le pide llega a 
 
 test('la puerta pregunta por lo no publicado ANTES de crear, y el pedido sobrevive al Confirm', () => {
   // Sin DOM no se puede prender `sinPublicar` (lo emite el lienzo en un efecto): se fija el fuente.
-  const src = sinComentarios(leer('app/chatbot/SimuladorWhatsApp.tsx'));
+  const src = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
   assert.match(src, /const nueva = \(pedido\?: string\) => \{\n {4}if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva', pedido \}\); return; \}\n {4}onNueva\(pedido\);\n {2}\};/);
   assert.match(src, /if \(p\.ir === 'nueva'\) onNueva\(p\.pedido\);/);
   // El pie y el «＋ Nueva» de la lista reciben ESA puerta, no `onNueva`.
@@ -92,7 +92,7 @@ test('crearNueva ignora los clics mientras hay un POST en vuelo, y se suelta en 
   assert.match(c, /^const crearNueva = async \(pedido\?: string\) => \{\n {4}if \(creandoNueva\.current\) return;\n {4}creandoNueva\.current = true;/);
   // Tercera tanda: el finally suelta también la fila de «Nueva» (`creando`): si falló, se va.
   assert.match(c, /finally \{ setCreando\(null\); creandoNueva\.current = false; \}/);
-  assert.match(sinComentarios(leer('app/chatbot/ChatAgentApp.tsx')), /const creandoNueva = useRef\(false\);/);
+  assert.match(sinComentarios(leer('app/automations/ChatAgentApp.tsx')), /const creandoNueva = useRef\(false\);/);
 });
 
 test('el fallo de crear NO va a `error` (el de la carga): va a su propio estado', () => {
@@ -102,7 +102,7 @@ test('el fallo de crear NO va a `error` (el de la carga): va a su propio estado'
 });
 
 test('el estado vacío dibuja el fallo de crear al lado de su botón', () => {
-  const src = sinComentarios(leer('app/chatbot/ChatAgentApp.tsx'));
+  const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   const ini = src.indexOf('Todavía no hay automatizaciones.');
   assert.ok(ini >= 0);
   const bloque = src.slice(ini, src.indexOf('</div>\n      )}', ini));
@@ -111,7 +111,7 @@ test('el estado vacío dibuja el fallo de crear al lado de su botón', () => {
 });
 
 test('«Armar una» pasa por la puerta de la lista, no por crearNueva', () => {
-  const src = sinComentarios(leer('app/chatbot/ChatAgentApp.tsx'));
+  const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   assert.match(src, /pie=\{rolAdmin && huecos\.length > 0 \? \(nueva\) => \(/);
   const ini = src.indexOf('Armar una');
   const boton = src.slice(src.lastIndexOf('<button', ini), ini);

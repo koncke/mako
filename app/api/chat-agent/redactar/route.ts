@@ -6,7 +6,7 @@
 //   → { ok: false, error, link? }
 //
 // El pedido, el prompt y el filtro viven en lib/mako-redacta.ts (con test); la pantalla, en
-// app/chatbot/MakoRedacta.tsx. NO GUARDA NADA: lo que MaKo escribe vuelve al editor como una
+// app/automations/MakoRedacta.tsx. NO GUARDA NADA: lo que MaKo escribe vuelve al editor como una
 // propuesta, y la persona la usa o no (sólo «Publicar» publica).
 //
 // ⚠️ EL CONTEXTO SE LEE POR EL REGISTRO DE LA API DE MaKo (`ejecutarOperacion`, AGENTS.md «Una capacidad

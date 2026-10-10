@@ -14,7 +14,7 @@
 //     urlDeAdjunto={(ref) => string} placeholder soloLectura? />
 //
 // Es TipTap 3 (ProseMirror). No es el `contentEditable` + `execCommand` de app/plan/board/RichText.tsx
-// ni el de los mensajes de WhatsApp (app/chatbot/EditorMensajeWhatsApp.tsx): aquellos sirven para tres marcas, y con listas, tareas,
+// ni el de los mensajes de WhatsApp (app/automations/EditorMensajeWhatsApp.tsx): aquellos sirven para tres marcas, y con listas, tareas,
 // títulos, links, imágenes y archivos el DOM de un contentEditable deja de ser un modelo — cada
 // navegador pega, borra y parte las listas distinto. ProseMirror tiene un documento con un esquema,
 // y eso ES una lista blanca: lo que el esquema no conoce no entra al documento.

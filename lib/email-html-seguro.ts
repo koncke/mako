@@ -1,5 +1,5 @@
 // =============================================================================
-// email-html-seguro — el cuerpo HTML de un EMAIL de un flujo de /chatbot: su saneo y su texto
+// email-html-seguro — el cuerpo HTML de un EMAIL de un flujo de /automations: su saneo y su texto
 // =============================================================================
 // Pedido de Martín (09/10/2026, tercera tanda, punto 12): el editor del email copia el de las
 // descripciones de las clases del curso, «donde se puede poner de todo, ya que así funciona un

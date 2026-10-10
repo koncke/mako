@@ -542,7 +542,7 @@ export function emisorAEnviar(canal: CanalProbar, elegido: string | null): Emiso
 /**
  * «Vincular nuevo» del emisor: el MISMO flujo que el resto de la app, en un modal y sin salir de
  * «Probar». WhatsApp: `EvolutionConnect` con `nueva` (el de SalidaWhatsApp y /whatsapp). Email: EL MISMO
- * MODAL del editor de Gmail (`VincularRemitente`, app/chatbot/EditorEmailGmail.tsx), que monta el
+ * MODAL del editor de Gmail (`VincularRemitente`, app/automations/EditorEmailGmail.tsx), que monta el
  * `DominioSetup` de /email y, como HOY un negocio tiene UN remitente, dice que lo REEMPLAZA
  * (`AVISO_REEMPLAZA`). Hasta la segunda pasada de la sexta tanda acá había una copia de ese modal: dos
  * modales para lo mismo son los que dejan de decir lo mismo. Y ése, si el dominio no llegó todavía, lo

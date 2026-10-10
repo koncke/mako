@@ -15,7 +15,7 @@
 //
 // ⚠️ PERO UN HIJO VISIBLE SÍ TAPA, y desde el 06/10 la esquina pinta en TODA la app
 // (antes «A revisar» sólo salía en /crm). Medido por la revisión de ese día: en
-// /chatbot el lienzo llega al borde de la ventana y su «Publicar» vive a 12 px del
+// /automations el lienzo llega al borde de la ventana y su «Publicar» vive a 12 px del
 // rincón, y en cualquier chat el «Enviar» también — la pastilla les caía encima, y
 // como no se cierra, no había forma de publicar sin repegar el Pixel. Dos arreglos:
 //   · SUBE cuando la pantalla tiene un control propio en el rincón. El control se

@@ -23,8 +23,8 @@ import {
   opcionesDeRemitente, remitenteAGuardar, firmaDelPie, partesDeRemitente,
 } from '../lib/email-remitente';
 import { renderEmailHtml } from '../lib/email-html';
-import { paramsDeVista, nombreDelRemitente } from '../app/chatbot/EditorEmailGmail';
-import { remitenteVisible } from '../app/chatbot/PanelProbar';
+import { paramsDeVista, nombreDelRemitente } from '../app/automations/EditorEmailGmail';
+import { remitenteVisible } from '../app/automations/PanelProbar';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');

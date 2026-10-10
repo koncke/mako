@@ -3,7 +3,7 @@
 // =============================================================================
 // Pedido de Martín (08/10/2026, segunda tanda, punto 6): «Falta la tarjeta de etiqueta, para poder
 // colocar una etiqueta al lead.» Decisión 8 del diseño: una PRESENTACIÓN sobre `poner_etiqueta_lead` /
-// `sacar_etiqueta_lead`; el motor no cambia. `app/chatbot/EditorEtiqueta.tsx`.
+// `sacar_etiqueta_lead`; el motor no cambia. `app/automations/EditorEtiqueta.tsx`.
 //
 // Lo que fija este test: la frase (sin rótulos), que la etiqueta se elija con el SelectorEtiqueta
 // EXPORTADO (el de «＋ Nueva» con creación en el lugar) y no con una copia, que las dos operaciones
@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EditorEtiqueta } from '../app/chatbot/EditorEtiqueta';
+import { EditorEtiqueta } from '../app/automations/EditorEtiqueta';
 import { SelectorEtiqueta } from '../app/_components/etiquetas-cliente';
 import {
   OPS_ETIQUETA, esOperacionEtiqueta, VERBO_ETIQUETA, PARAM_ETIQUETAS, etiquetasDelPaso, paramsConEtiquetas, unaPorEtiqueta,
@@ -26,7 +26,7 @@ import { porId } from '../lib/api-mako/registro';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-const ETIQUETA = sinComentarios(leer('app/chatbot/EditorEtiqueta.tsx'));
+const ETIQUETA = sinComentarios(leer('app/automations/EditorEtiqueta.tsx'));
 
 test('la frase: «Agregar» o «Eliminar» (nunca «Poner» / «Sacar»), y las etiquetas al lado, sin rótulos', () => {
   // Sexta tanda, TAG 1: «En lugar de "Poner" y "Sacar", se formal escribiendo siempre... "Agregar" y "Eliminar"».
@@ -98,7 +98,7 @@ test('⚠️ el dato de una tarjeta con varias: la primera en `etiquetaId`, toda
 });
 
 test('⚠️ el lienzo arma el paso con `paramsConEtiquetas` y le pasa al editor TODAS las etiquetas', () => {
-  const flujo = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const flujo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   const ed = flujo.slice(flujo.indexOf('function EditorEtiquetaLienzo('), flujo.indexOf('type Cambiar = '));
   assert.ok(ed.length > 100 && ed.length < 1200, `el recorte mide ${ed.length}`);
   assert.match(ed, /etiquetaIds=\{etiquetasDelPaso\(p\.paso\.accion\?\.params\)\}/, 'el editor recibiría sólo la primera');

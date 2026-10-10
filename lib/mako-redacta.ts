@@ -11,7 +11,7 @@
 //
 // Acá vive lo que se DECIDE sin red: qué se le lee al registro de la API de MaKo, el prompt, el saneo
 // del pedido y el filtro de lo que devuelve el modelo. La llamada vive en la ruta
-// (app/api/chat-agent/redactar/route.ts) y la pantalla en app/chatbot/MakoRedacta.tsx.
+// (app/api/chat-agent/redactar/route.ts) y la pantalla en app/automations/MakoRedacta.tsx.
 //
 // SIN `server-only` a propósito: lo importan la ruta, el panel (los topes) y el test que lo ejecuta.
 //

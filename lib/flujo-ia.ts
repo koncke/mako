@@ -1889,7 +1889,7 @@ export function falloDeIA(errores: readonly string[], hayIA: boolean): FalloIA {
   return { error: `${texto}. Prueba en un rato.` };
 }
 
-// ── El stream de la ruta (lo lee app/chatbot/CrearConIA.tsx) ──────────────────────
+// ── El stream de la ruta (lo lee app/automations/CrearConIA.tsx) ──────────────────────
 
 export type FaseIA = 'contexto' | 'modelo' | 'revision';
 

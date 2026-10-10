@@ -23,7 +23,7 @@ const ENDPOINT = `${API_BASE}/emails`;
 //
 // ⚠️ SIN NOMBRE VISIBLE, A PROPÓSITO (cuarta tanda del Chatbot, 09/10/2026, punto 16). Decía
 // «Mauricio Bustos», que es un CLIENTE (el ws1), y es el remitente de TODO workspace sin dominio: la
-// bandeja de «Probar» (app/chatbot/PanelProbar.tsx, `remitenteVisible`) le mostraba «De: Mauricio
+// bandeja de «Probar» (app/automations/PanelProbar.tsx, `remitenteVisible`) le mostraba «De: Mauricio
 // Bustos» a otro negocio, y la firma de sus mails decía lo mismo hasta que dejó de salir del
 // remitente. Sin nombre, quien lo dibuja cae al nombre del negocio. Lo fija tests/email-remitente.test.ts.
 const SANDBOX_FROM = 'onboarding@resend.dev';

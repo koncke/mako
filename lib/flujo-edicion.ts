@@ -1,9 +1,9 @@
 // =============================================================================
-// flujo-edicion — LA PUERTA de toda edición de flechas del lienzo de /chatbot (sexta tanda)
+// flujo-edicion — LA PUERTA de toda edición de flechas del lienzo de /automations (sexta tanda)
 // =============================================================================
 // Módulo SIN `server-only` y PURO, con test (tests/flujo-edicion.test.ts). Entra el flujo de una
 // automatización (`pasos`, lib/flujo-grafo.ts) y sale el flujo editado, o un motivo corto de por qué
-// no. No guarda nada: quien llama (app/chatbot/FlujoLienzo.tsx) lo sube por `onPasos`, que es lo que
+// no. No guarda nada: quien llama (app/automations/FlujoLienzo.tsx) lo sube por `onPasos`, que es lo que
 // lo vuelve deshacible y lo deja para Publicar.
 //
 // ⚠️ UNA SOLA PUERTA (segunda pasada de la sexta tanda, 09/10/2026). Hasta acá había DOS

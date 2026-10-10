@@ -36,7 +36,7 @@ import {
   ID_INICIO, type PasoGrafo, type HechosLead,
 } from '../lib/flujo-grafo';
 import { abrirFlujo, quitarIrA } from '../lib/flujo-legado';
-import { EditorCondicion, EditorCondicionDeRespuesta } from '../app/chatbot/EditorCondicion';
+import { EditorCondicion, EditorCondicionDeRespuesta } from '../app/automations/EditorCondicion';
 
 const leer = (r: string): string => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -184,13 +184,13 @@ test('⚠️ EDITOR: con una fila, el desplegable principal es el campo grande y
   const j = html.indexOf('＋ o');
   const fila = html.lastIndexOf('display:flex;gap:8px;width:100%', i);
   assert.ok(fila >= 0 && fila < i && i < j, 'los dos placeholders no están en el mismo renglón');
-  const src = sinComentarios(leer('app/chatbot/EditorCondicion.tsx'));
+  const src = sinComentarios(leer('app/automations/EditorCondicion.tsx'));
   assert.match(src, /<FilaFrase[\s\S]{0,400}?\/>/);
   assert.match(src, /buttonStyle=\{botonGrande\}/, 'el desplegable principal no usa el campo grande');
 });
 
 test('⚠️ EDITOR: «Su respuesta trata de» se ofrece SÓLO en una condición vacía y con alguien que la convierta', () => {
-  const src = sinComentarios(leer('app/chatbot/EditorCondicion.tsx'));
+  const src = sinComentarios(leer('app/automations/EditorCondicion.tsx'));
   assert.match(src, /const secciones: SeccionOpciones\[\] = vacia && onPasarARespuesta\s*\?/);
   assert.match(src, /if \(d\?\.id === ID_RESPUESTA\) \{ onPasarARespuesta\?\.\(\); return; \}/, 'elegirla no puede agregar una fila: convierte la tarjeta');
   assert.match(src, /const deLaSalida = secciones\.filter\(\(s\) => s\.title !== SECCION_RESPUESTA\);/, 'después de una fila sólo va lo de la salida');
@@ -213,7 +213,7 @@ test('⚠️ EDITOR de la condición que escucha: una frase grande por caso, «o
 });
 
 test('⚠️ el lienzo edita «Si responde» con el editor de CONDITION y GO TO se pasa a flecha (FlujoLienzo)', () => {
-  const src = sinComentarios(leer('app/chatbot/FlujoLienzo.tsx'));
+  const src = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   const resp = src.slice(src.indexOf('function EditorRespuesta('), src.indexOf('\n}\n', src.indexOf('function EditorRespuesta(')));
   assert.match(resp, /<EditorCondicionDeRespuesta /);
   const ir = src.slice(src.indexOf('function EditorIrA('), src.indexOf('\n}\n', src.indexOf('function EditorIrA(')));

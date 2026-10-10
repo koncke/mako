@@ -1,5 +1,5 @@
 // =============================================================================
-// El panel del CRON, DIBUJADO (app/chatbot/EditorDisparadores.tsx, EditorRecurrente.tsx)
+// El panel del CRON, DIBUJADO (app/automations/EditorDisparadores.tsx, EditorRecurrente.tsx)
 // =============================================================================
 // Sexta tanda del Chatbot (09/10/2026), FEEDBACK DE CRON (literal en app/admin/dev/chatbot/bitacora.ts):
 //   1-2. la primera pantalla con botones GIGANTES «Producto», «Recurrente», «Etiqueta», «Instagram»,
@@ -22,8 +22,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EditorDisparadores, EventosDeCanal } from '../app/chatbot/EditorDisparadores';
-import { CalendarioMini } from '../app/chatbot/EditorRecurrente';
+import { EditorDisparadores, EventosDeCanal } from '../app/automations/EditorDisparadores';
+import { CalendarioMini } from '../app/automations/EditorRecurrente';
 import { textoCohorte, type Disparador, type EstadoCanales } from '../lib/disparadores';
 
 const PRODUCTOS = [

@@ -1,5 +1,5 @@
 // =============================================================================
-// «Duplicar» de los tres puntos de la lista de /chatbot (lib/secuencia-duplicar.ts)
+// «Duplicar» de los tres puntos de la lista de /automations (lib/secuencia-duplicar.ts)
 // =============================================================================
 // Tercera tanda (09/10/2026), punto 6 / decisión 6: Duplicar crea una automatización PAUSADA con los
 // mismos pasos y el mismo disparador. La función recibe la base y los setters por parámetro, así que

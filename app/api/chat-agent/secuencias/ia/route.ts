@@ -80,7 +80,7 @@ export const revalidate = 0;
 /**
  * El tope de la función. Gemini Flash escribe un flujo de 3-5k tokens en 10-40 s; con un respaldo
  * de proveedor, el pedido de «copia como JSON válido» y un reintento con los errores, 300 da aire.
- * El cliente corta a 300 + margen (`AbortSignal.timeout`, app/chatbot/CrearConIA.tsx).
+ * El cliente corta a 300 + margen (`AbortSignal.timeout`, app/automations/CrearConIA.tsx).
  */
 export const maxDuration = 300;
 

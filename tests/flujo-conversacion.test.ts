@@ -78,7 +78,7 @@ const bloque = (src: string, abre: string, cierra: string, tope: number): string
   assert.ok(b.length < tope, `el recorte mide ${b.length}: está mirando otra cosa`);
   return b;
 };
-const PERFIL = '../app/chatbot/SecuenciaPerfil.tsx';
+const PERFIL = '../app/automations/SecuenciaPerfil.tsx';
 
 /** Un rnd determinista: los ids nuevos no dependen de la suerte. */
 const rndDe = (semilla = 1) => { let s = semilla; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; };
@@ -425,14 +425,14 @@ test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / E
   assert.equal(pedidoDisparo('entrega::kick', 7), null, 'una entrega sin producto no se manda');
   // Y la pantalla: un desplegable, sin el botón, sin los rótulos de antes.
   // ⚠️ SEXTA TANDA (varios CRON, 09/10/2026): el desplegable de producto se mudó al editor del CRON
-  // «Producto» (app/chatbot/EditorDisparadores.tsx), y se guarda la LISTA entera (`action:
+  // «Producto» (app/automations/EditorDisparadores.tsx), y se guarda la LISTA entera (`action:
   // 'disparadores'`), no un `pedidoDisparo` por CRON. Las etiquetas salieron de este desplegable
   // (CRON punto 3: son un CRON aparte), así que los pasos se arman SIN etiquetas.
   // PROBADO ROMPIÉNDOLO (09/10/2026; este archivo + cron-varias-etapas + flujo-ia-arreglos +
   // lienzo-revision, base 71 / 0): sin `BOTON_CAMPO_CRON` → 70 / 1; con las etiquetas adentro del
   // desplegable → 70 / 1; guardando con `action: 'trigger'` → 70 / 1. Cae éste las tres veces.
   const perfil = sinComentarios(leer(PERFIL));
-  const editor = sinComentarios(leer('../app/chatbot/EditorDisparadores.tsx'));
+  const editor = sinComentarios(leer('../app/automations/EditorDisparadores.tsx'));
   for (const src of [perfil, editor]) {
     assert.doesNotMatch(src, /Cambiar a una etapa|setCambiandoAEtapa|Cuándo se dispara|Qué lo dispara|Solo a leads recientes|Sale sola/);
   }
@@ -488,10 +488,10 @@ test('⚠️ `CONDICIONES_VIVAS` es lo que el motor EVALÚA, medido en el `switc
   assert.deepEqual([...CONDICIONES_VIVAS].sort(), [...casos].sort());
   // Cada una se dice como frase, en positivo y negada.
   for (const c of CONDICIONES_VIVAS) assert.ok(FRASE_CONDICION[c]?.[0] && FRASE_CONDICION[c]?.[1], `${c} sin frase`);
-  // El editor es el de la tercera tanda (app/chatbot/EditorCondicion.tsx, con el catálogo de
+  // El editor es el de la tercera tanda (app/automations/EditorCondicion.tsx, con el catálogo de
   // lib/condiciones-catalogo.ts, que trae estas 9 y las nuevas): FlujoLienzo sólo lo monta, sin una
   // lista propia de condiciones que se quede vieja.
-  const lienzo = sinComentarios(leer('../app/chatbot/FlujoLienzo.tsx'));
+  const lienzo = sinComentarios(leer('../app/automations/FlujoLienzo.tsx'));
   assert.match(lienzo, /from '\.\/EditorCondicion'/);
   assert.doesNotMatch(lienzo, /OPCIONES_CAMPO|CONDICIONES_VIVAS/);
   // Con el ámbito del CRON (adquisición o entrega: qué condiciones se ofrecen) y los nombres del

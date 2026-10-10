@@ -1,5 +1,5 @@
 // =============================================================================
-// quitar-ir-a — los «Ir a» de las automatizaciones de /chatbot, a flecha o afuera (sexta tanda)
+// quitar-ir-a — los «Ir a» de las automatizaciones de /automations, a flecha o afuera (sexta tanda)
 // =============================================================================
 // Pedido de Martín (09/10/2026, punto 12 de «General»): «"Go to" desaparece directamente... Porque
 // justamente existen las etiquetas y/o los cambios de etapa en el CRM con una acción... Y si eso

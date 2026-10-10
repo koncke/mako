@@ -1,5 +1,5 @@
 // =============================================================================
-// El MOTOR después de la revisión adversarial del rediseño de /chatbot (08/10/2026, parte M)
+// El MOTOR después de la revisión adversarial del rediseño de /automations (08/10/2026, parte M)
 // =============================================================================
 // Lo que fija cada test, con el id del hallazgo de la revisión (cada arreglo lleva su porqué en el
 // comentario del código que fija):

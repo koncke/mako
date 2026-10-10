@@ -1,7 +1,7 @@
 // =============================================================================
 // «Es una reunión»: qué etapa del CRM puede serlo y qué cambia al marcarla
 // =============================================================================
-// Pedido de Martín (09/10/2026, punto 5 de su cuarta tanda sobre /chatbot, vía el chat de
+// Pedido de Martín (09/10/2026, punto 5 de su cuarta tanda sobre /automations, vía el chat de
 // Chatbot): «dentro del editor de etapas en el CRM, debería poder seleccionarse qué etapas
 // hacen referencia a una REUNIÓN». El Chatbot deja de decir «R1» y «R2» y tiene UNA condición,
 // «Asistió / No asistió a la reunión», sobre las etapas que el negocio marque.

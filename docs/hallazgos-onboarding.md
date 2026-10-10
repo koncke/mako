@@ -1539,7 +1539,7 @@ importar `tabDeUrl` del componente —**el bug real**—, un `'use client'` impo
 
 ## El onboarding de /chatbot se comía el primer clic de la tab (05/10/2026)
 
-**Vive en:** `app/chatbot/ChatAgentApp.tsx` · `app/chatbot/OnboardingChatAgent.tsx` ·
+**Vive en:** `app/automations/ChatAgentApp.tsx` · `app/automations/OnboardingChatAgent.tsx` ·
 `lib/tab-onboarding-catalogo.ts`
 
 Tarjeta #833. Ese onboarding se escribió cuando `/chatbot` era una pantalla que **presentaba**
@@ -1578,8 +1578,8 @@ importa. Su encabezado ahora dice quién lo monta y quién no.
 
 ## «Tu forma de escribir» volvió, sólo, y el wizard recortado a un paso disparaba el del QR (06/10/2026)
 
-**Vive en:** `app/chatbot/OnboardingChatAgent.tsx` (`soloPaso`) · `lib/tab-onboarding-catalogo.ts`
-(`setting`) · `app/chatbot/SecuenciaPerfil.tsx` (`setModoIA`)
+**Vive en:** `app/automations/OnboardingChatAgent.tsx` (`soloPaso`) · `lib/tab-onboarding-catalogo.ts`
+(`setting`) · `app/automations/SecuenciaPerfil.tsx` (`setModoIA`)
 
 La entrada del 05/10 dejaba la guía de voz sin pantalla hasta que existiera el interruptor de IA.
 Ya existe: tildar «Lo adapta MaKo» en una tarjeta de chat pregunta al server si el paso

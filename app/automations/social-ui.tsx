@@ -33,7 +33,7 @@ export function LogoSocial({ canal, size = 22, radio }: { canal: CanalSocial; si
 
 /**
  * Los `<symbol>` de las dos marcas, para el ícono de la cabecera de la tarjeta (`IconoNodo` en
- * app/_components/Lienzo.tsx dibuja `SvcIcon`, que hace `<use href="#ic-instagram">`). /chatbot no
+ * app/_components/Lienzo.tsx dibuja `SvcIcon`, que hace `<use href="#ic-instagram">`). /automations no
  * monta `BrandDefs`: sin esto el ícono queda como un cuadrado de color liso. Montarlos dos veces es
  * inocuo (los `<use>` toman el primero, y son idénticos).
  */

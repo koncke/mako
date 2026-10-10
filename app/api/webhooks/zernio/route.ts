@@ -3,7 +3,7 @@
 // =============================================================================
 // Historia: hasta el 06/10/2026 era el receptor de la tab Instagram (DMs, posts, cuentas); ese día
 // Instagram salió del producto y esta ruta pasó a contestar 200 sin procesar nada. El 09/10/2026
-// Martín decidió que vuelve como CANAL de /chatbot, con Messenger (sexta tanda, CRON 4-7): esta ruta
+// Martín decidió que vuelve como CANAL de /automations, con Messenger (sexta tanda, CRON 4-7): esta ruta
 // vuelve a procesar, ahora para disparar automatizaciones.
 //
 // El orden, y cada paso tiene su porqué:

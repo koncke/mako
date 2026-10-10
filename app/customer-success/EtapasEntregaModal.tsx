@@ -56,7 +56,7 @@
 // `<main>` de la ruta, acá no hay nada arriba que lo ponga, así que lo pone el envoltorio.
 //
 // ⚠️ SIN TABS. Lo único que hay de las secuencias es CUÁNTAS apuntan a cada etapa, y ese
-// número vive donde decide algo: en el aviso de la ✕. Las secuencias se editan en Chatbot.
+// número vive donde decide algo: en el aviso de la ✕. Las secuencias se editan en Automations.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // LAS DECISIONES QUE NO SE VEN, cada una con lo que rompía

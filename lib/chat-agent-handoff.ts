@@ -130,9 +130,9 @@ export async function registrarHandoff(input: {
     const ws = await getWorkspaceActual();
     // ⚠️ CON LINK A LA AUTOMATIZACIÓN, armado por `linkApp` (la quinta forma de navegar: lleva el
     // `?ws=`). El aviso decía «agrégalo a la secuencia» sin decir dónde, y desde el 08/10/2026 el
-    // formulario de arriba de /chatbot ya no existe: un caso nuevo es una rama de «Si responde».
+    // formulario de arriba de /automations ya no existe: un caso nuevo es una rama de «Si responde».
     const { linkApp } = await import('./app-url');
-    const link = input.secuenciaId != null ? linkApp(`/chatbot?sec=${input.secuenciaId}`, ws) : null;
+    const link = input.secuenciaId != null ? linkApp(`/automations?sec=${input.secuenciaId}`, ws) : null;
     await emitirDelCatalogo('wa-mensaje-entrante', {
       ws: ws ?? undefined,
       texto: [
