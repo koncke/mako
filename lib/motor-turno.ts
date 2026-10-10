@@ -3,10 +3,13 @@
 // =============================================================================
 // El porqué entero está en lib/motor-tick.ts. Acá se lee y se escribe la fila.
 //
-// ⚠️ LO TOMAN LAS DOS RUTAS DEL CRON (la de cada hora y el tick), no la vía rápida de un evento: la
-// vía rápida mira UN lead, corre adentro de un webhook que tiene que contestar ya y no puede esperar
-// a que se libere un turno. Lo que ella y una corrida del cron puedan pisarse es lo de antes de la
-// sexta tanda, sin cambios.
+// ⚠️ LO TOMAN LAS DOS RUTAS DEL CRON (la de cada hora y el tick) Y LA VÍA RÁPIDA DE UN LEAD
+// (`viaRapidaConTurno`, lib/nutricion.ts). La vía rápida no lo ESPERA (`esperarMs` 0): corre adentro
+// de un webhook que tiene que contestar ya, y si el turno está tomado no manda nada — la fila queda
+// vencida y la manda el tick del minuto siguiente. La primera versión la dejaba afuera «como antes
+// de la sexta tanda, sin cambios», y no era sin cambios: con el tick mirando cada minuto lo que acaba
+// de vencer, la vía rápida y el tick leían la misma fila mientras el WhatsApp seguía con el HTTP
+// abierto, y el lead lo recibía dos veces (revisión de la sexta tanda, 10/10/2026).
 //
 // ⚠️ «NO PUDE LEER» CUENTA COMO «TOMADO»: sin saber si otra corrida está mandando, no se manda (la
 // fila sigue vencida para el minuto siguiente). Y soltar es best-effort: si falla, el turno vence

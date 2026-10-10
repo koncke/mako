@@ -263,7 +263,9 @@ test('⚠️ la VÍA RÁPIDA cumple la espera corta DESPUÉS de contestar (after
   const seg = bloque(nutri, 'async function seguirDespuesDeResponder(', '\n}\n', 2_000);
   assert.match(seg, /after\(seguir\);/);
   assert.match(seg, /\} catch \{/, 'fuera de un pedido `after` tira: no puede tirar la vía rápida');
-  assert.match(seg, /runWithWorkspace\(ws, \(\) => procesarEnvios\(\{ soloLeadId: leadId, esperarHastaMs: Date\.now\(\) \+ ESPERA_CORRIDA_HASTA_MS \}\)\)/);
+  // Con el turno del negocio desde la revisión de la sexta tanda (`viaRapidaConTurno`, que llama a
+  // `procesarEnvios({ soloLeadId, esperarHastaMs })` adentro de `conTurnoDelMotor`: tests/motor-tick).
+  assert.match(seg, /runWithWorkspace\(ws, \(\) => viaRapidaConTurno\(leadId, Date\.now\(\) \+ ESPERA_CORRIDA_HASTA_MS\)\)/);
   assert.match(seg, /colaDespuesDeResponder\.then\(/, 'las continuaciones corren el motor de a una');
   assert.match(seg, /if \(falta > 0\) await new Promise<void>\(\(listo\) => setTimeout\(listo, falta\)\);/);
   assert.match(nutri, /import \{ after \} from 'next\/server';/);
@@ -294,7 +296,7 @@ test('⚠️ `procesarEnvios` duerme las esperas cortas AL FINAL de la vuelta, e
   // ⚠️ El anti-ban sigue: lo que viene después de la espera pasa por TODAS las guardas de la vuelta.
   assert.match(proc, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioReciente, enviadoEnCorrida\)/);
   // La vía rápida (un evento) no da tope: no duerme ADENTRO del webhook (sigue después: el test de abajo).
-  assert.match(nutri, /try \{ await procesarEnvios\(\{ soloLeadId: leadId \}\); \}/);
+  assert.match(nutri, /try \{ await viaRapidaConTurno\(leadId\); \}/);
 });
 
 // ── Roturas (09/10/2026) ─────────────────────────────────────────────────────────────────────

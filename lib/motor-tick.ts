@@ -17,7 +17,8 @@
 // corrida que tarda más de un minuto (manda varios WhatsApps, duerme una espera corta) se pisa con
 // la siguiente. El turno es una fila de `app_settings` por negocio con «tomado hasta», escrita con
 // compare-and-set (`cambiarSettingSi`): de dos corridas, entra UNA; la otra saltea ese negocio, y lo
-// que venció lo toma la que tiene el turno o el tick siguiente.
+// que venció lo toma la que tiene el turno o el tick siguiente. La vía rápida de un lead también lo
+// toma, sin esperarlo (lib/motor-turno.ts): sin él, se pisaba con el tick.
 //
 // ⚠️ El turno VENCE solo (`TURNO_MS`, más que el `maxDuration` de las rutas): una función que Vercel
 // mata a la mitad no deja al negocio trabado.

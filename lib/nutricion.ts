@@ -102,6 +102,9 @@ import {
 import { esCanalSocial, canalAGuardar, type CanalSocial } from '@/lib/canal-social';
 import { enviarPasoSocial } from '@/lib/canal-zernio';
 import { partesDe } from '@/lib/mensaje-partes';
+// El TURNO del motor por negocio (sexta tanda): lo toman las dos rutas del cron y, desde la
+// revisión de esa tanda, también la vía rápida de un lead (`viaRapidaConTurno`).
+import { conTurnoDelMotor } from '@/lib/motor-turno';
 
 export type CanalNutricion = 'email' | 'whatsapp' | CanalSocial;
 
@@ -2020,8 +2023,9 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     }
     if (!arrancadas) return 0;
 
-    // Vía rápida: intentamos mandar el primer paso ahora mismo, solo de este lead.
-    try { await procesarEnvios({ soloLeadId: leadId }); }
+    // Vía rápida: intentamos mandar el primer paso ahora mismo, solo de este lead, con el turno
+    // del negocio (si lo tiene otra corrida, lo manda el tick: `viaRapidaConTurno`).
+    try { await viaRapidaConTurno(leadId); }
     catch (e) { console.error(`[nutricion] envío inmediato lead ${leadId} falló:`, e); }
     return arrancadas;
   } catch (e) {
@@ -2053,8 +2057,9 @@ export type InscripcionManual =
  *   · reinicio → la fila que ya terminó se reactiva con compare-and-set, y lo de la corrida vieja
  *                deja de colgar de ella (lib/nutricion-reinscripcion.ts). La decisión se fecha
  *                ANTES de leer la fila (ver `Reactivacion.ahora`).
- * Después, la vía rápida de siempre: `procesarEnvios` de este lead, que respeta la ventana, el
- * tope diario y la pausa de 20 h (salvo `sinEnvioInmediato`: ver abajo).
+ * Después, la vía rápida de siempre (`viaRapidaConTurno`): `procesarEnvios` de este lead con el
+ * turno del negocio, que respeta la ventana, el tope diario y la pausa de 20 h (salvo
+ * `sinEnvioInmediato`: ver abajo).
  *
  * `soloVer` decide SIN escribir: lo llama el `preparar()` del registro, que no puede escribir. Sin
  * él vuelve a decidir contra la base, porque entre el «sí» y ahora pudo cambiar todo.
@@ -2145,7 +2150,7 @@ export async function inscribirEnSecuencia(
   // corre ADENTRO de procesarEnvios: volver a llamarlo para el mismo lead levantaría la inscripción
   // que todavía no avanzó de paso, y la acción correría dos veces. Ahí lo manda el cron.
   if (!opts?.sinEnvioInmediato) {
-    try { await procesarEnvios({ soloLeadId: leadId }); }
+    try { await viaRapidaConTurno(leadId); }
     catch (e) { console.error(`[nutricion] envío inmediato lead ${leadId} falló:`, e); }
   }
   return hecho;
@@ -2913,11 +2918,41 @@ async function repartirAlEntrar(
 }
 
 /**
+ * LA VÍA RÁPIDA DE UN LEAD, CON EL TURNO DEL NEGOCIO Y SIN ESPERARLO (revisión de la sexta tanda,
+ * 10/10/2026). Es el motor de UN lead en el acto: el primer paso de un evento (`enrolarPorEvento`),
+ * una inscripción a mano (`inscribirEnSecuencia`) y lo que sigue a una espera corta
+ * (`seguirDespuesDeResponder`). Las tres pasan por acá: no hay otro `procesarEnvios({ soloLeadId })`
+ * (tests/motor-tick.test.ts lo cuenta).
+ *
+ * ⚠️ SIN EL TURNO, EL MISMO WHATSAPP SALÍA DOS VECES. Un mensaje no se reclama antes de salir (el
+ * avance es `modo: 'fila'` y el anti-ban se lee por lote), y el no oficial tiene el HTTP abierto de 1
+ * a 11 s por el tipeo antes de que se escriba `nutricion_envios`. El tick de cada minuto mira justo lo
+ * que acaba de vencer: si leía la cola en esa ventana, veía la fila en el mismo paso, tomaba el turno
+ * (nadie lo tenía) y la mandaba otra vez. Con 9 corridas por día casi no pasaba; con 1.440, una vía
+ * rápida de cada pocas. Instagram y Messenger los frenaba la clave de Zernio; el WhatsApp, nada.
+ *
+ * No espera (`esperarMs` 0): corre adentro de un webhook o después de contestar. Si otra corrida tiene
+ * el turno, o no se pudo leer, NO SE MANDA NADA y no se pierde nada: la fila ya está vencida con su
+ * hora, adentro de `VENTANA_FRESCA_MIN`, y la manda el tick del minuto siguiente. Lo mismo si la vía
+ * rápida se dispara ADENTRO de una corrida que ya tiene el turno (una acción del flujo que dispara un
+ * evento de otro lead): el motor no se corre adentro de sí mismo, y eso además evita levantar una
+ * inscripción que todavía no avanzó de paso.
+ */
+async function viaRapidaConTurno(leadId: number, esperarHastaMs?: number): Promise<void> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  // Sin negocio, el motor no ve ninguna fila (`getTenantDb` filtra por -1): no había nada que correr.
+  if (ws == null) return;
+  const r = await conTurnoDelMotor(ws, () => procesarEnvios({ soloLeadId: leadId, esperarHastaMs }));
+  if (!r.corrio) console.log(`[nutricion] lead ${leadId}: lo inmediato queda para el tick (${r.porque === 'ocupado' ? 'otra corrida tiene el turno' : 'no pude leer el turno'})`);
+}
+
+/**
  * Las continuaciones de la vía rápida, EN FILA: duermen en paralelo (cada una lo suyo) y corren el
  * motor de a una. Un sondeo que trae 30 leads de golpe deja 30 esperas de 30 s que vencen juntas, y
  * 30 `procesarEnvios` a la vez leerían el tope diario y el de la corrida antes de que ninguno escriba
  * (la vía rápida de siempre los corre de a uno, en el `for` de quien la llama). Es por proceso: dos
- * invocaciones en máquinas distintas no se ven, y para eso está el compare-and-set de cada fila.
+ * invocaciones en máquinas distintas no se ven, y para eso están el turno del negocio
+ * (`viaRapidaConTurno`) y el compare-and-set de cada fila.
  */
 let colaDespuesDeResponder: Promise<void> = Promise.resolve();
 
@@ -2951,7 +2986,7 @@ async function seguirDespuesDeResponder(leadId: number, venceMs: number): Promis
     const falta = venceMs - Date.now();
     if (falta > 0) await new Promise<void>((listo) => setTimeout(listo, falta));
     const turno = colaDespuesDeResponder.then(() =>
-      runWithWorkspace(ws, () => procesarEnvios({ soloLeadId: leadId, esperarHastaMs: Date.now() + ESPERA_CORRIDA_HASTA_MS })));
+      runWithWorkspace(ws, () => viaRapidaConTurno(leadId, Date.now() + ESPERA_CORRIDA_HASTA_MS)));
     colaDespuesDeResponder = turno.then(() => undefined, () => undefined);
     try {
       await turno;

@@ -1945,10 +1945,27 @@ mensaje es `modo: 'fila'` y el freno anti-ban se lee por lote: dos corridas que 
 vencida a la vez mandan las dos. Con una corrida por hora casi no pasaba; con un tick por minuto, una
 corrida que tarda más de 60 s (varios WhatsApp con su tipeo, una espera corta durmiendo) se pisa con la
 siguiente. Va el TURNO del negocio (`conTurnoDelMotor`, compare-and-set sobre `mako.nutricion.turno`,
-vence solo a los 6 min); la corrida de la hora lo espera hasta 60 s en total. La vía rápida no lo toma
-(lo de antes, sin cambios).
+vence solo a los 6 min); la corrida de la hora lo espera hasta 60 s en total.
 
-**Vive en:** `lib/motor-turno.ts` · `lib/motor-tick.ts` · `app/api/cron/nutricion/route.ts` (`conTurno`)
+⚠️ **Y la vía rápida TAMBIÉN lo toma, sin esperarlo** (corrección del 10/10/2026, revisión de la
+sexta tanda). La primera versión la dejó afuera diciendo «lo de antes, sin cambios», y era falso:
+la carrera es entre DOS lectores de la misma fila, y uno de los dos pasó de 9 a 1.440 corridas por
+día. La vía rápida (el primer paso de un evento, una inscripción a mano, lo que sigue a una espera
+corta) manda un WhatsApp no oficial con el HTTP abierto 1 a 11 s por el tipeo, y recién después
+escribe `nutricion_envios` y avanza la fila. Si el tick leía la cola en esa ventana, veía la fila
+fresca en el mismo paso, tomaba el turno (nadie lo tenía) y la mandaba otra vez: el lead recibía el
+mismo mensaje dos veces, una de cada pocas veces. Instagram y Messenger los frenaba la clave de
+Zernio; el WhatsApp, nada. Ahora las tres pasan por `viaRapidaConTurno` (`lib/nutricion.ts`): con el
+turno tomado no manda nada y la fila, vencida y fresca, la manda el tick al minuto siguiente. De paso
+cubre a la vía rápida que se dispara ADENTRO de una corrida que ya tiene el turno: el motor no se
+corre adentro de sí mismo. El guard (`tests/motor-tick.test.ts`) cuenta los llamadores de
+`procesarEnvios(` en todo `lib/` y `app/`.
+
+La regla que queda: **cambiar la CADENCIA de un proceso cambia la exposición de todo lo que corre al
+lado, aunque ese código no se toque.** «Sin cambios» sobre un código que no cambió es una afirmación
+sobre el código; sobre una carrera, es una afirmación sobre los DOS lados, y hay que medirla.
+
+**Vive en:** `lib/motor-turno.ts` · `lib/motor-tick.ts` · `app/api/cron/nutricion/route.ts` (`conTurno`) · `lib/nutricion.ts` (`viaRapidaConTurno`)
 
 ### «No pude leer el horario» no es «sin horario» [motor]
 

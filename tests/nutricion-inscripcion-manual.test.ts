@@ -161,7 +161,9 @@ test('soloVer decide sin escribir: es lo que llama el preparar() del registro', 
   assert.ok(corte > 0, 'falta la salida de soloVer');
   assert.ok(corte < FN.indexOf('.insert('), 'soloVer tiene que salir antes del insert');
   assert.ok(corte < FN.indexOf('await reactivarInscripcion('), 'soloVer tiene que salir antes del reinicio');
-  assert.ok(corte < FN.indexOf('procesarEnvios('), 'soloVer tiene que salir antes de la vía rápida');
+  // La vía rápida pasa por `viaRapidaConTurno` desde la revisión de la sexta tanda (10/10/2026):
+  // el turno del negocio, sin esperarlo (tests/motor-tick.test.ts).
+  assert.ok(corte < FN.indexOf('viaRapidaConTurno('), 'soloVer tiene que salir antes de la vía rápida');
   assert.match(FN, /const v = decidirInscripcionManual\(\{/, 'la decisión sale del módulo puro');
 });
 
@@ -179,7 +181,7 @@ test('lo que el motor vuelve a mirar al mandar se pregunta con SUS funciones, y 
   assert.match(FN, /const proximo = proximoDeEntrada\(pasos, \(p\) => proximoEnvioDePaso\(p, lead\)\);/);
   // El unique (lead_id, secuencia_id) que choca no es un error de la base: otra corrida ganó.
   assert.match(FN, /if \(error\?\.code === '23505'\) return \{ inscribe: false, porque: 'carrera'/);
-  assert.match(FN, /try \{ await procesarEnvios\(\{ soloLeadId: leadId \}\); \}/, 'la vía rápida de enrolarPorEvento');
+  assert.match(FN, /try \{ await viaRapidaConTurno\(leadId\); \}/, 'la vía rápida de enrolarPorEvento, con el turno');
 });
 
 // ── 4. El runner ─────────────────────────────────────────────────────────────
@@ -208,8 +210,9 @@ test('preparar() no escribe: pregunta con soloVer; ejecutar() vuelve a decidir y
 test('⚠️ desde un flujo no hay vía rápida: el paso puede estar corriendo ADENTRO de procesarEnvios', () => {
   // Volver a llamar a procesarEnvios para el mismo lead levantaría la inscripción del paso que
   // todavía no avanzó, y la acción correría dos veces. Lo que ya toca lo manda el cron.
-  assert.match(FN, /if \(!opts\?\.sinEnvioInmediato\) \{\s*try \{ await procesarEnvios\(\{ soloLeadId: leadId \}\); \}/);
-  assert.equal((FN.match(/procesarEnvios\(/g) ?? []).length, 1, 'una sola llamada al motor, y detrás de la guarda');
+  assert.match(FN, /if \(!opts\?\.sinEnvioInmediato\) \{\s*try \{ await viaRapidaConTurno\(leadId\); \}/);
+  assert.equal((FN.match(/viaRapidaConTurno\(/g) ?? []).length, 1, 'una sola llamada al motor, y detrás de la guarda');
+  assert.equal((FN.match(/procesarEnvios\(/g) ?? []).length, 0, 'el motor sin el turno del negocio, por al lado de la vía rápida');
   assert.match(RUN, /const desdeUnFlujo = \(ctx: Ctx\): boolean => ctx\.canalKey\.startsWith\(PREFIJO_FLUJO\);/, 'el flujo se reconoce por su clave de scope');
 });
 
