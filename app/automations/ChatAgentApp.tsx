@@ -1,11 +1,11 @@
 'use client';
 
 // =============================================================================
-// ChatAgentApp — la tab /setting: simulador de secuencias de mensajes + dashboard
+// ChatAgentApp — la tab /automations (ex Chatbot, ex /setting)
 // =============================================================================
-// Tres sub-tabs: WhatsApp (secuencias como CONTACTOS + chat simulado con
-// MaKo-setter, réplica del diseño de Plantillas en SuperAdmin), Email (bandeja
-// simulada del lead) y Dashboard (KPIs + gráficos).
+// UNA pantalla: la lista de automatizaciones (y los mensajes de «MaKo en WhatsApp») flotando sobre
+// el lienzo de la elegida (SimuladorWhatsApp). Las sub-tabs de antes (WhatsApp, Email, Plantillas,
+// Dashboard) se fueron el 05/10/2026 — ver el comentario del <main> de abajo.
 //
 // NO hay sub-tab de audios, y es a propósito: grabar una nota de voz es parte de
 // armar el mensaje, no un trámite aparte. Se decide y se graba DENTRO de cada
