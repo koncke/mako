@@ -2928,6 +2928,49 @@ evento: lo decide Martín.
 - **Verlo con clics**: el lienzo de la cobranza con sus editores, un mensaje que arma el código
   (sin editor y con ＋), y las semillas abriendo sin «Sin publicar».
 
+## Sexta tanda, parte «horario» (10/10/2026): el horario de envío ahí mismo en Automations
+
+Pedido literal: «El horario de oficina si se configura en la tab de configuraciones, pero haz que se
+pueda configurar allí mismo, sin redirigir.» Rama `wip-v6e-horario`. Un botón con el reloj en el renglón
+de «Chatbot» de la lista abre el MISMO `HorarioEnvioPanel` en un panel anclado, con las mismas acciones;
+Configuraciones › Horario se queda. Lo fija `tests/automations-horario.test.ts` (10 roturas, las 10 en rojo).
+
+### Lo que usa una acción de Configuraciones no se importa en la lista: entra como nodo [horario]
+
+**Síntoma (medido antes de escribir):** `import('./app/configuraciones/HorarioEnvioPanel.tsx')` bajo
+`node --import tsx` tira «This module cannot be imported from a Client Component module»: `horario-actions.ts`
+arrastra `server-only` (lib/tab-access, lib/settings). Cinco tests dibujan `SimuladorWhatsApp` con
+`renderToStaticMarkup`, así que importado ahí caían los cinco AL IMPORTAR, no en una aserción.
+**La regla:** lo que llame a una server action entra a la lista como NODO desde la tab (`horario`, como el
+`pie`), y lo monta ChatAgentApp, que ningún test importa en runtime. Lo que se puede dibujar (el botón, la
+cuenta de dónde cae el panel) va en un archivo sin las acciones (`HorarioBoton.tsx`), que sí se prueba.
+
+**Vive en:** `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `app/automations/SimuladorWhatsApp.tsx`
+
+### Un popover con un `Dropdown` de la casa adentro: el clic y el Escape del desplegable caen «afuera» [horario]
+
+**Leído en el código, no visto con clics:** el menú del `Dropdown` va por portal al `body`, AFUERA del
+panel, así que un «clic afuera» que mira `panel.contains(target)` cerraría el panel al elegir una hora. Y
+los dos Escape viven en `document` y en captura, que corren en orden de REGISTRO: el del panel (al abrir)
+corre antes que el del desplegable (al desplegar), y con `stopImmediatePropagation` el desplegable no se
+entera. **La regla:** con un `[aria-expanded="true"]` adentro del panel, el panel no contesta ni el clic
+ni el Escape (`hayMenuAbiertoEn`). Y `capa.visible` de `useCapaModal` es false en el PRIMER render (la
+capa se registra en un efecto): un `display` atado a eso deja el panel en `display:none` justo cuando se
+lo mide y se le da el foco.
+
+**Vive en:** `app/automations/HorarioBoton.tsx` · `app/components/Dropdown.tsx` · `app/_components/pila-modales.ts`
+
+### Lo que quedó sin hacer (parte «horario»)
+
+- **`onGuardado` en `HorarioEnvioPanel`**, que esta parte no podía tocar (otra corrida lo arreglaba). Hasta
+  entonces el botón se pone al día al guardar mirando que aparezca «Guardado» adentro del panel
+  (`AVISO_GUARDADO` + un `MutationObserver` en `HorarioLista`, con su test de contrato), y siempre al cerrar.
+  Con el prop: `HorarioEnvioPanel({ onGuardado }: { onGuardado?: (h: HorarioEnvio) => void })`, llamarlo
+  después de `setAviso('Guardado')`, y en `HorarioLista` pasar `onGuardado={() => leer()}` y borrar el puente.
+- **Verlo con clics**: no se levantó la app (bootear local escribe en prod).
+- Sin ninguna automatización la lista no se dibuja (va «Todavía no hay automatizaciones») y el botón
+  tampoco: ahí el horario queda sólo en Configuraciones.
+
 ## Lo que quedó sin hacer
 
 **De la parte «tiempo» (sexta tanda, 09/10/2026):**

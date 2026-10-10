@@ -22,6 +22,7 @@ import { Icon } from '@/app/_components/icons';
 // en vez del que está mirando.
 import Link from '@/app/_ui/Link';
 import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type AbrirAviso, type Creando } from './SimuladorWhatsApp';
+import { HorarioLista } from './HorarioLista';
 // Los Mensajes de MaKo (los flujos de Configuraciones › Notificaciones, quinta tanda punto 5): el
 // endpoint y el parámetro del link son los de allá (lib/chatbot-mensajes-mako.ts).
 import { ENDPOINT_MENSAJES_MAKO, PARAM_AVISO, mensajePedido } from '@/lib/chatbot-mensajes-mako';
@@ -673,6 +674,11 @@ function ChatAgentInner() {
           pedidoIA={pedidoIA}
           abrir={abrirSec}
           handoffs={sinCaso}
+          /* EL HORARIO DE ENVÍO, ahí mismo en la lista (10/10/2026: «haz que se pueda configurar allí
+             mismo, sin redirigir»): el editor de Configuraciones › Horario adentro de un panel anclado.
+             Sólo un admin lo abre; el resto ve el estado. Va como nodo y no adentro de la lista: ver
+             `horario` en SimuladorWhatsApp. */
+          horario={<HorarioLista rolAdmin={rolAdmin} />}
           /* ⚠️ QUÉ ETAPAS QUEDARON SIN SECUENCIA — ERA UNA FRANJA ARRIBA DEL LIENZO.
              Primero fue una banda ámbar con las seis etapas enumeradas y un botón negro
              («haz que sea mucho más sutil»), después un renglón gris, y las dos le
