@@ -222,7 +222,7 @@ export type AbrirSecuencia = { id: number };
 /** Lo mismo para un Mensaje de MaKo (el link de Notificaciones, `/automations?aviso=<id>`): un objeto por pedido. */
 export type AbrirAviso = { id: string };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, pie, tz, abrir, handoffs, pedidoIA, avisos, abrirAviso, onAvisosCambio }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, pie, horario, tz, abrir, handoffs, pedidoIA, avisos, abrirAviso, onAvisosCambio }: {
   /**
    * Los Mensajes de MaKo (los flujos de Configuraciones › Notificaciones, quinta tanda punto 5), como
    * los lee su propio endpoint. `null`/ausente = no se leyeron (quien no es admin no los ve: el
@@ -261,6 +261,14 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    *  porque el dato es del workspace, no de esta pieza. Como función recibe `nueva`, la puerta
    *  de crear: su «Armar una» pregunta por lo no publicado igual que «＋ Nueva». */
   pie?: ReactNode | ((nueva: (pedido?: string) => void) => ReactNode);
+  /**
+   * EL HORARIO DE ENVÍO DEL NEGOCIO, en la cabecera de la lista (pedido de Martín, 10/10/2026: «haz
+   * que se pueda configurar allí mismo, sin redirigir»). Va en el renglón de «Chatbot», arriba de
+   * «＋ Nueva»: es del negocio y vale para todas las automatizaciones, no para una. Lo arma la tab
+   * (`HorarioLista`, con el editor y las acciones de Configuraciones) y llega como nodo, como el
+   * `pie`: importado acá, las acciones arrastrarían `server-only` a los tests que dibujan esta lista.
+   */
+  horario?: ReactNode;
   /** La zona del negocio, para el texto del horario. */
   tz: string | null;
   /** Abrir esta automatización en su lienzo (el deep link `?sec=`). */
@@ -631,7 +639,13 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
           {/* La PRIMERA división (sexta tanda, punto 3): las automatizaciones. Arriba de todo, sin
               filete (no la separa nada de arriba). */}
-          <div data-grupo-chatbot style={{ ...ROTULO_GRUPO, borderTop: 'none', marginTop: 0, padding: '4px 12px 6px' }}>{ROTULO_CHATBOT}</div>
+          {/* EL HORARIO va en este renglón, a la derecha del rótulo (10/10/2026): es de todo lo que
+              cuelga de «Chatbot», y su panel abre hacia AFUERA de la lista, sin tapar «＋ Nueva» ni
+              los «⋯». El rótulo queda igual: el renglón es un envoltorio. */}
+          <div data-cabecera-chatbot style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingRight: 4, marginBottom: horario ? 2 : 0 }}>
+            <div data-grupo-chatbot style={{ ...ROTULO_GRUPO, borderTop: 'none', marginTop: 0, padding: '4px 12px 6px' }}>{ROTULO_CHATBOT}</div>
+            {horario}
+          </div>
           {rolAdmin && (
             <button type="button" onClick={() => nueva()} className="chb-nueva"
               style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center', padding: '10px', borderRadius: 12, cursor: 'pointer', marginBottom: 6, fontFamily: 'inherit' }}>
