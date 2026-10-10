@@ -344,6 +344,16 @@ const LISTA_COLS =
   'monto_cierre_usd, total_cobrado_usd, closer, setter, fathom_links, motivo_perdida, visitor_id, ' +
   'venta_tipo, suscripcion_monto_usd, suscripcion_meses, ' +
   'meta_ad_name, meta_campaign_name, meta_lead_id, meta_ad_id, utm_campaign, ' +
+  // ⚠️ Estas cuatro las LEEN los mappers y no se pedían: `origenAds` (el filtro por
+  // campaña y por anuncio) necesita `utm_content`, que es donde la landing guarda el
+  // anuncio, y `meta_campaign_id`/`adset_id_origen` para la campaña; `canalDeLead` y
+  // `origenLegible` necesitan `origen_lead`. Sin ellas no fallaba nada: el filtro de
+  // anuncios no se ofrecía nunca para un lead de landing, y la tarjeta decía «Sin
+  // origen» sobre leads que sí tienen origen. Medido el 10/10/2026 en Código
+  // Inmobiliario: 44 de 52 leads con el id del anuncio en `utm_content` y 50 de 52 con
+  // `origen_lead`, y el tablero no veía ninguno de los dos. `funnel_id` sigue AFUERA a
+  // propósito (ver su comentario en el tipo `Lead`).
+  'utm_content, meta_campaign_id, adset_id_origen, origen_lead, ' +
   'respuesta_objetivo, respuesta_facturacion, respuesta_colaboradores, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor';
 
 export const listLeads = cachedRead('listLeads', _listLeads, { tags: [TAG.leads], revalidate: TTL.user });

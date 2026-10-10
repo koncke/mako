@@ -132,9 +132,14 @@ export type CrmLead = {
   name: string;
   email: string;
   company: string;
+  /** Lo más específico que se sabe de dónde vino (anuncio › campaña › canal): lo dibuja la
+   *  TARJETA. No alimenta el filtro de origen — ése es `canal`. */
   origin: string;
-  /** De qué campaña y de qué creativo vino (lib/campana-atribucion.ts → `origenAds`). La
-   *  clave es el id; `null` = no se sabe. Alimentan los filtros «Campaña» y «Creativo». */
+  /** Por dónde entró (landing, Cal.com, formulario de Meta…): lo que lista el filtro
+   *  «Origen». Si fuera `origin`, repetiría la lista de campañas (crm-map → `canalDeLead`). */
+  canal: string;
+  /** De qué campaña y de qué anuncio vino (lib/campana-atribucion.ts → `origenAds`). La
+   *  clave es el id; `null` = no se sabe. Alimentan los filtros «Campaña» y «Anuncio». */
   campanaKey?: string | null;
   campanaNombre?: string | null;
   anuncioKey?: string | null;
@@ -1575,14 +1580,14 @@ export function CrmBoard({
     // la regla vive en lib/buscar-texto, no acá — ver «Una cosa, un lugar».
     if (!coincideBusqueda([l.id, l.name, l.company, l.email, l.phone], search)) return false;
     if (stageFilter.size > 0 && !stageFilter.has(effStage(l))) return false;
-    if (originFilter.size > 0 && !originFilter.has(l.origin)) return false;
+    if (originFilter.size > 0 && !originFilter.has(l.canal)) return false;
     // `null` entra por la opción «Sin campaña» / «Sin creativo», que tiene su clave propia.
     if (salvo !== 'campana' && campanaFilter.size > 0 && !campanaFilter.has(l.campanaKey ?? SIN_ORIGEN_ADS)) return false;
     if (salvo !== 'creativo' && creativoFilter.size > 0 && !creativoFilter.has(l.anuncioKey ?? SIN_ORIGEN_ADS)) return false;
     return true;
   };
   const filtered = leads.filter((l) => matches(l));
-  const originOptions = useMemo(() => [...new Set(leads.map((l) => l.origin))].filter(Boolean).sort((a, b) => a.localeCompare(b)), [leads]);
+  const originOptions = useMemo(() => [...new Set(leads.map((l) => l.canal))].filter(Boolean).sort((a, b) => a.localeCompare(b)), [leads]);
   // Las opciones salen de los leads de ESTE tablero, con cuántos tiene cada una: una
   // campaña que no trajo a nadie acá no es una opción que filtre algo.
   //
@@ -1603,12 +1608,12 @@ export function CrmBoard({
     return op;
   };
   const opcionesCampana = facetas('campana', campanaFilter, 'Sin campaña');
-  const opcionesCreativo = facetas('creativo', creativoFilter, 'Sin creativo');
+  const opcionesCreativo = facetas('creativo', creativoFilter, 'Sin anuncio');
   // ⚠️ Si TODOS caen en «Sin …» (un negocio sin Meta), la categoría no se ofrece: una sola
   // opción que es todo el tablero no filtra nada.
   const listasFiltro: ListaFiltro[] = [
     { cat: 'campana', label: 'Campaña', todas: 'Todas', opciones: opcionesCampana.some((o) => o.value !== SIN_ORIGEN_ADS) ? opcionesCampana : [], sel: campanaFilter, set: setCampanaFilter },
-    { cat: 'creativo', label: 'Creativo', todas: 'Todos', opciones: opcionesCreativo.some((o) => o.value !== SIN_ORIGEN_ADS) ? opcionesCreativo : [], sel: creativoFilter, set: setCreativoFilter },
+    { cat: 'creativo', label: 'Anuncio', todas: 'Todos', opciones: opcionesCreativo.some((o) => o.value !== SIN_ORIGEN_ADS) ? opcionesCreativo : [], sel: creativoFilter, set: setCreativoFilter },
   ];
   const hayFiltros = stageFilter.size > 0 || originFilter.size > 0 || campanaFilter.size > 0 || creativoFilter.size > 0 || search.trim().length > 0;
   const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setCampanaFilter(new Set()); setCreativoFilter(new Set()); setSearch(''); setOrdenElegido(null); };

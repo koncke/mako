@@ -89,3 +89,26 @@ export function origenLista(origen: string | null | undefined): string {
   // a la pantalla en cuanto alguien escribiera un valor nuevo.
   return (ORIGEN_LEAD as Record<string, OrigenLeadDef | undefined>)[id]?.lista ?? SIN_ORIGEN_LISTA;
 }
+
+/**
+ * POR DÓNDE ENTRÓ el lead: landing, Cal.com, formulario de Meta, importado… Es lo que lista
+ * el filtro «Origen» del tablero.
+ *
+ * ⚠️ NO ES `origenLegible` (crm-map.ts). Ésa contesta lo más específico que se sepa —el
+ * nombre del anuncio, si no el de la campaña, y recién al final el canal— y está bien para
+ * la TARJETA. Pero desde que existen los filtros «Campaña» y «Anuncio» (06/10), usarla para
+ * el filtro de origen repetía la lista de campañas: «en campaña, y en Origen, aparece lo
+ * mismo» (Martín, 10/10/2026). Medido en Código Inmobiliario: los 44 leads de anuncios
+ * caían en el origen con el nombre de su campaña, y el canal real —`origen_lead`, 45
+ * «landing» y 5 «calcom»— no aparecía en ningún lado del filtro.
+ *
+ * Vive acá y no en crm-map.ts porque ése importa `lib/queries` y no se puede cargar en un
+ * test; este módulo es puro.
+ */
+export function canalDeLead(lead: { origen_lead?: string | null; meta_lead_id?: string | null }): string {
+  if (lead.origen_lead?.trim()) return origenLista(lead.origen_lead);
+  // Un lead del formulario de Meta viejo puede no tener la columna: el id del lead de Meta
+  // dice por dónde entró aunque nadie haya estampado el canal.
+  if (lead.meta_lead_id) return origenLista('instant_form');
+  return SIN_ORIGEN_LISTA;
+}

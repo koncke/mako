@@ -7,7 +7,7 @@
 import { resolverNombreCampana } from '@/lib/queries';
 import { deriveStageKey } from '@/lib/pipeline';
 import type { Lead } from '@/lib/leads';
-import { origenLista, SIN_ORIGEN_LISTA } from './origen-lead';
+import { origenLista, SIN_ORIGEN_LISTA, canalDeLead } from './origen-lead';
 import type { CrmLead } from './CrmBoard';
 import { origenAds, type Anuncio } from '@/lib/campana-atribucion';
 import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
@@ -132,6 +132,7 @@ export function mapToCrmLead(
     email: l.email ?? '',
     company: l.empresa ?? 'Sin empresa',
     origin: origenLegible(l, campMap),
+    canal: canalDeLead(l),
     ...(atrib ? origenAds(l, atrib.anuncios, campMap, atrib.adMap) : { campanaKey: null, campanaNombre: null, anuncioKey: null, anuncioNombre: null }),
     stage,
     created: fmtDay(l.created_at) ?? '—',

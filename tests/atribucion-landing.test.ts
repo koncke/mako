@@ -176,9 +176,21 @@ test('⚠️ el `fbclid` se escribe en TODOS los lugares donde se escribe un utm
     // cualquiera de los cuatro escritores (el alta del opt-in, el insert, el setIfEmpty o
     // el extraUpdates), falla. La regex de sólo-claves que se probó antes se perdía dos de
     // esas cuatro formas.
+    // ⚠️ Y SE DESCUENTAN LAS LISTAS DE COLUMNAS DE UN SELECT (10/10/2026). El tercer falso
+    // positivo de la misma familia: el tablero del CRM pasó a PEDIR `utm_content` en su
+    // `LISTA_COLS` (lib/leads.ts) para el filtro por anuncio, y una columna en un select es
+    // una lectura que no escribe nada. Se reconoce por la forma del literal —sólo minúsculas,
+    // dígitos, guion bajo, espacios y al menos una coma—, que no la tiene ninguna de las
+    // cuatro escrituras: `setIfEmpty('utm_content', …)` es un literal SIN coma y sigue
+    // contando. Medido al cambiarlo: sano, 10/10; y sigue cazando lo que tiene que cazar —
+    // sacando el fbclid del insert, 9/1; sacando el `setIfEmpty('fbclid', …)`, 9/1—.
+    const enListas = (k: string) =>
+      (t.match(/'[a-z0-9_ ,]*,[a-z0-9_ ,]*'/g) ?? [])
+        .reduce((n, lit) => n + (lit.match(new RegExp(`\\b${k}\\b`, 'g')) ?? []).length, 0);
     const escrituras = (k: string) =>
       (t.match(new RegExp(`\\b${k}\\b`, 'g')) ?? []).length
-      - (t.match(new RegExp(`\\.${k}\\b(?!\\s*=(?!=))`, 'g')) ?? []).length;
+      - (t.match(new RegExp(`\\.${k}\\b(?!\\s*=(?!=))`, 'g')) ?? []).length
+      - enListas(k);
     const utms = escrituras('utm_content');
     const fbs = escrituras('fbclid');
     assert.ok(
