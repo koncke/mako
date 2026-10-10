@@ -41,7 +41,7 @@ import type { Puente } from '@/lib/flow-cola';
 import { estadoDelPuente, AvisoPuente } from './puente-avisos';
 import { estadoPuenteAction } from './puente-actions';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
-import { useGrabacionVoz, BarraGrabacion } from '@/app/whatsapp/_shared/VoiceRecorder';
+import { useGrabacionVoz, BarraGrabacion, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
 import {
   marcarPasoVideoAction, guardarAcentoAction, guardarMuletillasAction,
   escucharMiVozAction, type PasoVideoGen,
@@ -90,13 +90,25 @@ type Paso = (typeof PASOS)[number];
  * ⚠️ Y LA BARRA VA A TODO EL ANCHO (`alignSelf: 'stretch'`): con `center`, el contenedor la ajustaba a
  * su contenido y la onda quedaba amontonada («debería ocupar mucho más espacio, hasta el final del
  * ancho... esto en todos lados»).
+ *
+ * ⚠️ SI LA MUESTRA NO SE PUEDE USAR, VUELVE A LA BARRA DE ESCUCHAR (revisión de la sexta tanda,
+ * 10/10/2026). La sesión vacía la grabación ANTES de entregarla (un doble clic no la manda dos veces),
+ * así que un piso de 20 s que rechaza o una subida que falla se llevaban hasta 90 s leídos en voz alta,
+ * y con menos de 20 s no quedaba ni el 🎤 para sumar el tramo que faltaba. `onListo` dice si sirvió; si
+ * no, se devuelve con `revisarExistente` (el molde de TareaAlumno). Va el blob de la sesión, no el mp3:
+ * el próximo ➤ lo vuelve a convertir.
  */
 function GrabadorVoz({ onListo, ocupado }: {
-  onListo: (blob: Blob, secs: number) => Promise<void>;
+  onListo: (blob: Blob, secs: number) => Promise<boolean>;
   ocupado: boolean;
 }) {
   const [fallo, setFallo] = useState('');
-  const voz = useGrabacionVoz(onListo, setFallo);
+  const vozViva = useRef<GrabacionVoz | null>(null);
+  const usar = async (blob: Blob, secs: number) => {
+    if (!(await onListo(blob, secs))) void vozViva.current?.revisarExistente({ blob, secs });
+  };
+  const voz = useGrabacionVoz(usar, setFallo);
+  useEffect(() => { vozViva.current = voz; });
 
   if (voz.fase !== 'quieta') {
     return (
@@ -718,13 +730,18 @@ export function OnboardingVideoGen({
    * El conversor es el MISMO que usa el inbox de WhatsApp. Se importa en el
    * momento porque arrastra el encoder de mp3, que no tiene por qué viajar en el
    * bundle de quien nunca va a grabar nada.
+   *
+   * ⚠️ DEVUELVE SI SIRVIÓ: con `false`, `GrabadorVoz` devuelve la grabación a la
+   * barra de escuchar (la sesión ya la soltó antes de entregarla). Toda salida
+   * que no guarda devuelve `false`.
    */
-  const subirGrabacion = useCallback(async (blob: Blob, secs: number) => {
+  const subirGrabacion = useCallback(async (blob: Blob, secs: number): Promise<boolean> => {
     // ⚠️ El piso está medido en el propio repo: un clon hecho con poco material
-    // sale plano. Se avisa ANTES de gastar la subida, no después.
+    // sale plano. Se avisa ANTES de gastar la subida, no después — y la grabación
+    // vuelve a la barra, donde el 🎤 suma el tramo que falta.
     if (secs < 20) {
-      setError('La grabación quedó muy corta. Necesitamos al menos 20 segundos, y con 90 sale bastante mejor.');
-      return;
+      setError(`Quedó en ${Math.round(secs)} s. Suma otro tramo con el micrófono: necesitamos al menos 20.`);
+      return false;
     }
     setSubiendoVoz(true); setError(null);
     try {
@@ -734,9 +751,10 @@ export function OnboardingVideoGen({
       fd.append('file', new File([mp3], `grabacion-${Date.now()}.mp3`, { type: 'audio/mpeg' }));
       const j = (await (await fetch('/api/onboarding/voz', { method: 'POST', body: fd })).json()) as
         { ok: boolean; error?: string; motivo?: string; muestras?: { id: string; nombre: string }[] };
-      if (!j.ok) { contarFalloEleven(j, 'No se pudo guardar la grabación.'); return; }
+      if (!j.ok) { contarFalloEleven(j, 'No se pudo guardar la grabación.'); return false; }
       setMuestras(j.muestras ?? []);
-    } catch { setError('No se pudo procesar la grabación. Prueba subiendo un archivo.'); }
+      return true;
+    } catch { setError('No se pudo procesar la grabación. Prueba de nuevo o sube un archivo.'); return false; }
     finally { setSubiendoVoz(false); }
   }, []);
 

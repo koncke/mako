@@ -330,9 +330,22 @@ test('el onboarding del Video Generator y la tarea de audio del alumno graban co
   const vg = sinComentarios(leer('app/video-generator/OnboardingVideoGen.tsx'));
   const grabador = vg.slice(vg.indexOf('function GrabadorVoz('), vg.indexOf('const COLUMNAS_ACENTO'));
   assert.ok(grabador.length > 0 && grabador.length < 2500, `el recorte del grabador mide ${grabador.length}`);
-  assert.match(grabador, /const voz = useGrabacionVoz\(onListo, setFallo\);/, 'el onboarding volvió a entregar al soltar');
+  assert.match(grabador, /const voz = useGrabacionVoz\(usar, setFallo\);/, 'el onboarding volvió a entregar al soltar');
   assert.doesNotMatch(vg, /useVoiceRecorder|VoiceRecorderBar/);
   assert.match(grabador, /<div style=\{\{ alignSelf: 'stretch', width: '100%' \}\}>\s*<BarraGrabacion voz=\{voz\}/, 'la barra no ocupa el ancho');
+  // Revisión de la sexta tanda (10/10/2026, hallazgo 10): la muestra que no se pudo usar (menos de 20 s, o
+  // una subida que falló) VUELVE a la barra de escuchar; la sesión ya la había soltado. Molde: TareaAlumno.
+  // PROBADO ROMPIÉNDOLO (10/10/2026, restaurando de memoria; base 32/0): `usar` sin el `revisarExistente`
+  // → 31/1; el piso de 20 s devolviendo `true` → 31/1; la subida que falla devolviendo `true` → 31/1; la
+  // que sale bien devolviendo `false` (volvería a la barra lo ya guardado) → 31/1. El compilador no caza
+  // ninguna de las tres: son un `boolean` bien tipado con el valor al revés.
+  assert.match(grabador, /if \(!\(await onListo\(blob, secs\)\)\) void vozViva\.current\?\.revisarExistente\(\{ blob, secs \}\);/, 'una muestra rechazada se perdía: hasta 90 s leídos en voz alta');
+  const subir = bloque(vg, 'const subirGrabacion = useCallback(', '}, []);', 2_000);
+  assert.match(subir, /async \(blob: Blob, secs: number\): Promise<boolean> =>/);
+  assert.match(subir, /if \(secs < 20\) \{[\s\S]{0,200}?return false;\s*\}/, 'con menos de 20 s no quedaba ni el 🎤 para sumar el tramo que faltaba');
+  assert.match(subir, /contarFalloEleven\(j, 'No se pudo guardar la grabación\.'\); return false; \}/);
+  assert.match(subir, /setMuestras\(j\.muestras \?\? \[\]\);\s*return true;/);
+  assert.match(subir, /catch \{[^}]*return false; \}/);
   const tarea = sinComentarios(leer('app/compartido/curso/[token]/TareaAlumno.tsx'));
   assert.match(tarea, /return p\.campo\.tipo === 'audio' \? <CampoGrabacionAudio \{\.\.\.p\} \/> : <CampoGrabacionVideo \{\.\.\.p\} \/>;/);
   const audio = tarea.slice(tarea.indexOf('function CampoGrabacionAudio('), tarea.indexOf('function CampoGrabacionVideo('));
