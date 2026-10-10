@@ -16,7 +16,8 @@
 //      de los dos resultados de cada condición (el diagnóstico de «no puedo abrir 2 flechas»);
 //   4. la raíz no se mueve a una suelta (`fijarRaiz` antes de toda edición) y «volver al principio»
 //      con una flecha sigue teniendo raíz;
-//   5. `conectar` / `desconectar` / `crearSuelta` / `destinosConectables` / `borrarNodo` con varios padres;
+//   5. `borrarNodo` con varios padres (las ediciones de flechas —conectar, desconectar, la suelta— se
+//      mudaron con su puerta a tests/flujo-edicion.test.ts en la segunda pasada: lib/flujo-edicion.ts);
 //   6. guardar (`validarParaGuardar`) deja pasar lo incompleto y publicar (`validarGrafo`) no;
 //   7. los ayudantes del motor miran TODOS los padres y no cuentan la flecha que vuelve.
 //
@@ -30,13 +31,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   validarGrafo, validarParaGuardar, contarParalelos, totalDeParalelos, raizSalida, padresDe, descendientes,
-  cruces, conectar, desconectar, crearSuelta, destinosConectables, borrarNodo, tarjetasSueltas, fijarRaiz,
-  conectarPuerto, aristasDeVuelta, claveArista, hiloDe, idDe, normalizar, ID_INICIO, TOPE_HILOS,
+  cruces, borrarNodo, fijarRaiz,
+  aristasDeVuelta, claveArista, hiloDe, idDe, normalizar, ID_INICIO, TOPE_HILOS,
   type PasoGrafo, type RamaCondicion,
 } from '../lib/flujo-grafo';
 import { esPrimerPaso, minutosAntesDeReunion } from '../lib/nutricion-grafo-motor';
 import { mensajeAnteriorDe } from '../lib/nutricion-hilos';
-import { iniciar } from '../lib/simulador-grafo';
 
 const leer = (r: string): string => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
@@ -116,79 +116,6 @@ test('el tope de caminos SIGUE frenando lo que de verdad corre a la vez', () => 
   assert.equal(contarParalelos(pasos), 6);
   assert.ok(1 + contarParalelos(pasos) > TOPE_HILOS);
   assert.ok(validarParaGuardar(pasos).includes(`una automatización corre como mucho ${TOPE_HILOS} caminos a la vez`), 'un tope frena hasta el borrador');
-});
-
-test('⚠️ una tarjeta SUELTA: se crea sin mover la raíz, no publica (nombrada) y el motor no la corre', () => {
-  const r = crearSuelta([msg('a', 'b'), msg('b')], msg('s'));
-  assert.equal(r.id, 's');
-  assert.equal(raizSalida(r.pasos), 'a', 'la suelta no pasa a ser la entrada');
-  assert.deepEqual(tarjetasSueltas(r.pasos), ['s']);
-  assert.ok(validarGrafo(r.pasos).includes('tarjetas sueltas: s'));
-  assert.deepEqual(validarParaGuardar(r.pasos), []);
-  assert.deepEqual(iniciar(r.pasos).hilos.map((h) => h.cursor), ['a'], '«Probar» arranca por la raíz, no por la suelta');
-  // Un id que ya existe se cambia.
-  const otra = crearSuelta(r.pasos, msg('a'));
-  assert.notEqual(otra.id, 'a');
-});
-
-test('⚠️ conectar una suelta a la PRIMERA tarjeta no la vuelve la entrada (con conectarPuerto pelado, sí)', () => {
-  const sin = [msg('a', 'b'), msg('b'), msg('s')];
-  // Sin fijar la raíz: la suelta «s» apunta a «a» → «a» queda apuntada y la raíz pasa a ser «s».
-  assert.equal(raizSalida(conectarPuerto(sin, 's', 'sig', 'a')), 's');
-  const r = conectar(sin, 's', 'sig', 'a');
-  assert.equal(r.hecho, 'principal');
-  assert.equal(raizSalida(r.pasos), 'a');
-  assert.equal(padresDe(r.pasos, 'a').length, 2, 'el CRON y la suelta');
-  assert.ok(validarGrafo(r.pasos).includes('tarjetas sueltas: s'), 'la suelta sigue suelta: nadie llega a ella');
-});
-
-test('⚠️ conectar: salida vacía → principal; ocupada → EN PARALELO (también de un resultado de una condición)', () => {
-  const base = [msg('a', 'b'), msg('b'), msg('c'), ini('a')];
-  const p1 = conectar(base, 'b', 'sig', 'c');
-  assert.equal(p1.hecho, 'principal');
-  assert.equal(pid(p1.pasos, 'b').siguiente, 'c');
-  const p2 = conectar(base, 'a', 'sig', 'c');
-  assert.equal(p2.hecho, 'paralelo');
-  assert.deepEqual(pid(p2.pasos, 'a').paralelos, ['c']);
-  // Desde el «Sí» ocupado de una condición: una flecha en paralelo DE ESE resultado.
-  const conC = [cond('k', [rama('r1', 'A')], 'B'), msg('A'), msg('B'), msg('C'), ini('k')];
-  const p3 = conectar(conC, 'k', 'r1', 'C');
-  assert.equal(p3.hecho, 'paralelo');
-  assert.deepEqual(pid(p3.pasos, 'k').ramas![0].paralelos, ['C']);
-  const p4 = conectar(conC, 'k', 'si_no', 'C');
-  assert.deepEqual(pid(p4.pasos, 'k').paralelos_si_no, ['C']);
-});
-
-test('conectar NO: a sí misma, al CRON, a «Si responde», ni pisar un caso ocupado; el tope lo dice', () => {
-  const resp = { id: 'R', nodo: 'respuesta', casos: [{ id: 'c1', titulo: 'Precio', cuando: 'pregunta el precio', siguiente: 'm' }], si_no: null } as PasoGrafo;
-  const base = [msg('a', 'b'), msg('b'), resp, msg('m'), msg('n'), ini('a')];
-  assert.equal(conectar(base, 'a', 'sig', 'a').hecho, null);
-  assert.equal(conectar(base, 'a', 'sig', ID_INICIO).motivo, 'Nada sigue en el CRON');
-  assert.equal(conectar(base, 'a', 'sig', 'R').hecho, null);
-  assert.equal(conectar(base, 'R', 'c1', 'n').motivo, 'Esa salida ya va a otra tarjeta');
-  const lleno = [msg('a', 'b', ['c', 'd', 'e']), msg('b'), msg('c'), msg('d'), msg('e'), msg('f'), ini('a')];
-  const r = conectar(lleno, 'a', 'sig', 'f');
-  assert.equal(r.hecho, null);
-  assert.match(r.motivo ?? '', /más de 3 flechas en paralelo/);
-  // Lo que se ofrece al arrastrar sale de la MISMA regla.
-  const d = destinosConectables(base, 'b', 'sig');
-  assert.ok(d.has('m') && d.has('n') && d.has('a'));
-  assert.ok(!d.has('b') && !d.has(ID_INICIO) && !d.has('R'));
-});
-
-test('⚠️ desconectar deja la tarjeta FLOTANDO (no la borra); sin flecha del CRON, «el CRON no lleva a ninguna tarjeta»', () => {
-  const base = [msg('a', 'b'), msg('b'), ini('a')];
-  const r = desconectar(base, 'a', 'sig');
-  assert.equal(r.length, 3);
-  assert.deepEqual(tarjetasSueltas(r), ['b']);
-  assert.deepEqual(validarParaGuardar(r), []);
-  const sinCron = desconectar(base, ID_INICIO, 'sig');
-  assert.equal(validarGrafo(sinCron)[0], 'el CRON no lleva a ninguna tarjeta', 'va PRIMERO: lo demás es consecuencia');
-  assert.equal(validarGrafo([ini(null)]).length, 0, 'una automatización vacía no tiene nada que correr');
-  // Una flecha en paralelo, por su puerto.
-  const par = desconectar([msg('a', 'b', ['c']), msg('b'), msg('c'), ini('a')], 'a', 'par:c');
-  assert.equal(pid(par, 'a').paralelos, undefined);
-  assert.deepEqual(tarjetasSueltas(par), ['c']);
 });
 
 test('⚠️ borrarNodo con VARIOS PADRES: todos siguen en lo que seguía', () => {
@@ -284,8 +211,8 @@ test('⚠️ PUBLICAR valida con validarGrafo (lo único que lee el motor): una 
 //   M1. `contarParalelos` vuelve a SUMAR los dos resultados de cada condición          → 19 / 1
 //   M2. `cruces` sin contexto (todo lo que llega por dos caminos choca)                 → 19 / 1
 //   M3. `raizSalida` sin la regla de «volver al principio»                              → 19 / 1
-//   M4. `conectar` sin `fijarRaiz`                                                      → 19 / 1
-//   M5. `conectar` pisa la salida ocupada en vez de abrir una en paralelo               → 18 / 2
+//   M4, M5 (`conectar` sin `fijarRaiz`, y pisando la salida ocupada): sus tests se mudaron a
+//       tests/flujo-edicion.test.ts con la puerta (segunda pasada); ahí están sus roturas.
 //   M6. `borrarNodo` reconecta sólo el PRIMER padre                                     → 19 / 1
 //   M7. borrar una condición se lleva `descendientes` en vez de `soloDe`                → 19 / 1
 //   M8. `validarParaGuardar` valida como Publicar                                       → 14 / 6

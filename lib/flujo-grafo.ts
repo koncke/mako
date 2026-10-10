@@ -112,8 +112,8 @@
 //     suelta nunca corre.
 //   · LA RAÍZ EXPLÍCITA. Con tarjetas sueltas, «la primera que nadie apunta» deja de alcanzar (una
 //     suelta podría pasar a ser la raíz). Toda edición que conecta, desconecta o crea una suelta
-//     FIJA la raíz antes (`fijarRaiz`: el nodo `inicio`, el CRON), y para eso están `conectar`,
-//     `desconectar` y `crearSuelta`: el lienzo edita por acá, no con `conectarPuerto` a mano.
+//     FIJA la raíz antes (`fijarRaiz`: el nodo `inicio`, el CRON). Esas ediciones tienen UNA puerta,
+//     lib/flujo-edicion.ts: el lienzo edita por ahí, nunca con `conectarPuerto` a mano.
 //   · «IR A» NO SE CREA: los que hay se pasan a flechas (`quitarIrA`, lib/flujo-legado.ts). El motor
 //     y «Probar» los siguen sabiendo correr mientras no se conviertan.
 // =============================================================================
@@ -1751,14 +1751,11 @@ function promoverResultados<P extends PasoGrafo>(q: P): P {
   return out;
 }
 
-// ── SEXTA TANDA: flechas a una tarjeta que ya existe, flechas que se borran, tarjetas sueltas ────
-// Pedido literal (puntos 5, 6, 7 y 13 de «General»): arrastrar la flecha del «+» a OTRA tarjeta, la
-// papelera de cada flecha («que se elimine una flecha no significa que se elimine la tarjeta
-// posterior, sino que queda "flotando"»), «crear pasos sueltos en cualquier momento y lugar del
-// tablero con el click derecho» y «si quiero luego de una condición abrir 2 flechas... Debería
-// poderse». El lienzo (lib/flujo-edicion.ts, de la parte «lienzo») edita POR ACÁ: estas funciones
-// saben lo que `conectarPuerto` no sabe —fijar la raíz antes, que una salida ocupada abre una flecha
-// en paralelo, y no dejar guardar lo que rompe el dato—.
+// ── SEXTA TANDA: el CRON como dato ───────────────────────────────────────────────────────────
+// Las ediciones de flechas del lienzo (arrastrar el «+», la papelera de una flecha, la tarjeta suelta
+// del click derecho) viven en UNA puerta: lib/flujo-edicion.ts, que arranca cada una con esto. Hasta
+// la segunda pasada de la sexta tanda había acá una segunda implementación (`conectar`,
+// `desconectar`, `crearSuelta`, `destinosConectables`) sin un solo call site: se fue.
 
 /**
  * FIJA LA RAÍZ: si la automatización no tiene el nodo `inicio` (el CRON), lo crea al FINAL del array
@@ -1776,113 +1773,6 @@ export function fijarRaiz<P extends PasoGrafo>(pasos: readonly P[]): P[] {
   if (indiceInicio(pasos) >= 0 || pasos.some((p, i) => idDe(p, i) === ID_INICIO)) return [...pasos];
   return [...pasos, { id: ID_INICIO, nodo: 'inicio', siguiente: raizSalida(pasos) } as unknown as P];
 }
-
-export type ResultadoConexion<P> = {
-  pasos: P[];
-  /** 'principal': la salida estaba vacía. 'paralelo': estaba ocupada y la flecha nueva corre A LA VEZ. null: no se conectó. */
-  hecho: 'principal' | 'paralelo' | null;
-  /** Por qué no se conectó, en palabras (para el lienzo). Ausente = no había nada que hacer (ya iba ahí). */
-  motivo?: string;
-};
-
-/**
- * UNA FLECHA DESDE UNA SALIDA HASTA UNA TARJETA QUE YA EXISTE (el arrastre del «+», punto 5).
- *
- *   · Una salida vacía (`sig`, una rama, el «Si no», un caso) pasa a ir ahí.
- *   · UNA SALIDA OCUPADA ABRE UNA FLECHA EN PARALELO (punto 13): desde una tarjeta, `par`; desde un
- *     resultado de una condición, `par@<resultado>`. Las dos corren A LA VEZ, como ya corría el ＋ en
- *     paralelo. Una salida que no admite paralelos (un caso de «Si responde») no se pisa: se dice.
- *   · `puerto` puede ser ya una flecha en paralelo: `par` / `par@<resultado>` agrega una, y
- *     `par:<id>` (o `par:<id>@<resultado>`) la cambia de destino.
- *   · La tarjeta de llegada puede tener otros padres (VARIOS PADRES, sexta tanda). Nunca el CRON, ni
- *     «Si responde» (es un evento: no tiene padre), ni la misma tarjeta.
- *
- * Fija la raíz antes (`fijarRaiz`). Y lo que rompe el DATO no se hace: si el resultado suma un error
- * de `validarParaGuardar` que antes no estaba (un tope, una flecha en paralelo adentro de «Si
- * responde»), vuelve sin cambios y con ese motivo. Lo incompleto (un ciclo sin espera, dos caminos que
- * se juntan) SÍ se conecta: es un borrador, y Publicar lo dice.
- */
-export function conectar<P extends PasoGrafo>(pasosIn: readonly P[], origen: string, puerto: string, destino: string): ResultadoConexion<P> {
-  const base = normalizar(pasosIn);
-  const no = (motivo?: string): ResultadoConexion<P> => ({ pasos: base, hecho: null, ...(motivo ? { motivo } : {}) });
-  if (origen === destino) return no('Una tarjeta no sigue en sí misma');
-  const pasos = normalizar(fijarRaiz(base));
-  const oi = indicePorId(pasos, origen);
-  const di = indicePorId(pasos, destino);
-  if (oi < 0 || di < 0) return no('Esa tarjeta ya no está');
-  const dc = claseDe(pasos[di]);
-  if (dc === 'inicio') return no('Nada sigue en el CRON');
-  if (dc === 'respuesta') return no('Esa condición escucha las respuestas: no lleva flechas de entrada');
-  let out: P[];
-  let hecho: 'principal' | 'paralelo';
-  if (leerPuertoParalelo(puerto)) {
-    out = conectarPuerto(pasos, origen, puerto, destino);
-    hecho = 'paralelo';
-  } else {
-    const pt = puertosDe(pasos, oi).find((x) => x.puerto === puerto);
-    if (!pt) return no('Esa salida no existe');
-    if (pt.destino === destino) return no();
-    if (pt.destino == null) {
-      out = conectarPuerto(pasos, origen, puerto, destino);
-      hecho = 'principal';
-    } else {
-      const par = claseDe(pasos[oi]) === 'condicion' ? puertoParalelo(null, puerto) : puerto === 'sig' && puedeTenerParalelos(pasos[oi]) ? 'par' : null;
-      if (!par) return no('Esa salida ya va a otra tarjeta');
-      out = conectarPuerto(pasos, origen, par, destino);
-      hecho = 'paralelo';
-    }
-  }
-  out = normalizar(out);
-  if (JSON.stringify(out) === JSON.stringify(pasos)) return no();
-  const antes = new Set(validarParaGuardar(pasos));
-  const nuevo = validarParaGuardar(out).find((e) => !antes.has(e));
-  if (nuevo) return no(nuevo);
-  return { pasos: out, hecho };
-}
-
-/**
- * A QUÉ TARJETAS SE PUEDE SOLTAR una flecha que sale de esta salida (para el arrastre: se iluminan
- * esas). Es `conectar` sobre cada una: lo que se ofrece sale de la MISMA regla que lo hace.
- */
-export function destinosConectables(pasos: readonly PasoGrafo[], origen: string, puerto: string): Set<string> {
-  const out = new Set<string>();
-  pasos.forEach((p, i) => {
-    const id = idDe(p, i);
-    if (conectar(pasos, origen, puerto, id).hecho) out.add(id);
-  });
-  return out;
-}
-
-/**
- * BORRA UNA FLECHA (la papelera al lado del «+», punto 6). La tarjeta de llegada NO se borra: queda
- * suelta si no tenía otro padre («queda "flotando"», punto 7), y Publicar lo frena hasta que se
- * conecte o se borre. `puerto` es el de la flecha: `sig`, una rama, `si_no`, un caso, o una en
- * paralelo (`par:<id>`, `par:<id>@<resultado>`). Desde el CRON (`ID_INICIO`) también. Fija la raíz
- * antes (`fijarRaiz`).
- */
-export function desconectar<P extends PasoGrafo>(pasosIn: readonly P[], origen: string, puerto: string): P[] {
-  const base = normalizar(pasosIn);
-  const pp = leerPuertoParalelo(puerto);
-  if (pp && pp.destino == null) return base;
-  const pasos = normalizar(fijarRaiz(base));
-  if (indicePorId(pasos, origen) < 0) return base;
-  return normalizar(conectarPuerto(pasos, origen, puerto, null));
-}
-
-/**
- * UNA TARJETA SUELTA, sin flechas (el click derecho en el lienzo, punto 7: «crear pasos sueltos en
- * cualquier momento y lugar del tablero»). Va al final del array y sin salida; fija la raíz antes
- * (`fijarRaiz`), así la suelta no pasa a ser la entrada de nadie. Un id que ya existe se cambia.
- */
-export function crearSuelta<P extends PasoGrafo>(pasosIn: readonly P[], nuevo: P, rnd: () => number = Math.random): { pasos: P[]; id: string } {
-  const base = normalizar(fijarRaiz(normalizar(pasosIn)));
-  const id = typeof nuevo.id === 'string' && RX_ID_TARJETA.test(nuevo.id) && indicePorId(base, nuevo.id) < 0 && nuevo.id !== ID_INICIO ? nuevo.id : nuevoId(base, rnd);
-  const n = sinSalida(normalizar([{ ...nuevo, id }])[0]);
-  return { pasos: normalizar([...base, n]), id };
-}
-
-/** Los ids que se guardan (el saneo de `setSecuenciaPasos`, lib/nutricion-grafo-motor.ts). */
-const RX_ID_TARJETA = /^[A-Za-z0-9_-]{1,60}$/;
 
 // ── «Si responde» es una CONDITION (sexta tanda, punto 12) ─────────────────────────────────────
 // Pedido literal: «Reply ya te dije que tiene que estar dentro de CONDITION». El dato y el motor NO
