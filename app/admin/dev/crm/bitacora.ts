@@ -1548,5 +1548,56 @@ export const BITACORA: Hito[] = [
       "app/crm/revisar/[id]/acciones.ts — los aplica al confirmar",
       "app/api/track/optin/route.ts — la propuesta guarda los productos"
     ]
+  },
+  {
+    "fecha": "9 oct",
+    "hora": "22:40",
+    "chat": "Integraciones",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "correccion",
+    "titulo": "«¿Qué hacer ahora?» volvía a no abrir nada",
+    "puntos": [
+      "Se vio grabando el video de la verificación de Google: el diálogo estaba montado y escondido. El tablero registraba una capa propia encima del wizard, que ya registra la suya, y la pila apagaba al wizard.",
+      "La capa del tablero existe ahora sólo con el resultado del reagendado, el único overlay que dibuja él."
+    ],
+    "commits": [
+      {
+        "sha": "b57a53ba",
+        "msg": "CRM: «¿Qué hacer ahora?» volvía a no abrir nada (dos capas en la pila para una pantalla)",
+        "lineas": 58,
+        "archivos": 2
+      }
+    ],
+    "archivos": [
+      "app/crm/CrmBoard.tsx — `capaQueHacer`",
+      "tests/crm-que-hacer-capa.test.ts — 1 rotura"
+    ]
+  },
+  {
+    "fecha": "10 oct",
+    "hora": "01:18",
+    "chat": "Integraciones",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "correccion",
+    "titulo": "Reagendar ya no mueve un evento del dueño sólo porque está a la hora vieja",
+    "puntos": [
+      "Grabando el video, reagendar un lead de prueba movió el «Sprint 4» del jueves 8 de Martín al domingo 12 (se restauró a mano). La hora sola no dice de quién es un evento, y un lead con el email del dueño figuraba «invitado» a todo.",
+      "Ahora prueba el lead invitado de verdad o un título parecido que no sea una reunión con otra persona; la hora sólo desempata. Sin prueba, el CRM crea un evento nuevo y MaKo dice que no la encontró."
+    ],
+    "commits": [
+      {
+        "sha": "98860f7e",
+        "msg": "Agenda: reagendar ya no mueve un evento del dueño sólo porque está a la hora vieja",
+        "lineas": 267,
+        "archivos": 3
+      }
+    ],
+    "archivos": [
+      "lib/calendario-reunion.ts — qué evento es la reunión de un lead",
+      "lib/google-calendar.ts — los tres lectores la usan",
+      "tests/calendario-reunion.test.ts — 3 roturas"
+    ]
   }
 ];

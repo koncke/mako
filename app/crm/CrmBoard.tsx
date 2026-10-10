@@ -1071,7 +1071,14 @@ export function CrmBoard({
   //
   // `useCapaModal` le da a cada uno el z que le toca y lo esconde con
   // `display:none` cuando deja de ser el de arriba, que es el contrato del kit.
-  const capaQueHacer = useCapaModal(!!queHacer);
+  // ⚠️ SÓLO MIENTRAS SE VE EL RESULTADO DEL REAGENDADO (`reagOut`), que es el único overlay
+  // propio de «¿Qué hacer ahora?». Las preguntas las dibuja el `WizardShell`, que registra SU
+  // capa; con `!!queHacer` acá había DOS capas para una pantalla, y React corre el efecto del
+  // hijo antes que el del padre: el wizard quedaba abajo de la pila, en `display:none`, y arriba
+  // una capa que no dibujaba nada. Medido en producción el 09/10/2026: el diálogo montado, con
+  // su texto, en un contenedor `display:none` z 130 — o sea que el botón «¿Qué hacer ahora?» no
+  // abría nada. Lo fija tests/crm-que-hacer-capa.test.ts.
+  const capaQueHacer = useCapaModal(!!queHacer && !!reagOut);
   const capaMeeting = useCapaModal(!!meetingChoice);
 
   const qhEtapaActual = queHacer?.etapa ?? 'agenda';

@@ -30,6 +30,9 @@ import {
   DURACION_DEFECTO_MIN,
   type Ocupado, type RangoGrilla, type SlotAgenda,
 } from '../app/crm/horarios-respuesta';
+// Qué evento ES la reunión de un lead: la regla que decide a qué evento se le pega un
+// PATCH con aviso a los invitados. Vive en un módulo puro para tener test.
+import { elegirEventoDeReunion, leadInvitado, titulosParecidos } from './calendario-reunion';
 
 export const GCAL_SCOPE_LECTURA = 'https://www.googleapis.com/auth/calendar.readonly';
 /**
@@ -240,7 +243,7 @@ type EventoCrudo = {
   status?: string;
   start?: { dateTime?: string; date?: string };
   end?: { dateTime?: string; date?: string };
-  attendees?: Array<{ email?: string; displayName?: string; resource?: boolean }>;
+  attendees?: Array<{ email?: string; displayName?: string; resource?: boolean; self?: boolean }>;
   organizer?: { email?: string; self?: boolean };
 };
 
@@ -307,21 +310,8 @@ export async function buscarEventosGoogle(email: string | null, timeMin: string,
 /** Un invitado del calendario: el email y el nombre que puso quien creó el evento. */
 export type InvitadoCal = { email: string; nombre: string };
 
-const normTxt = (s: string): string =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim();
-
-/**
- * ¿El título del evento y el que traemos hablan de lo mismo? `includes` en las
- * dos direcciones porque uno suele contener al otro («Juan Pérez» dentro de
- * «Llamada con Juan Pérez»). Pide 4 caracteres: con menos, cualquier evento
- * matchea con cualquier cosa.
- */
-function titulosParecidos(a: string, b: string): boolean {
-  const x = normTxt(a);
-  const y = normTxt(b);
-  if (x.length < 4 || y.length < 4) return false;
-  return x.includes(y) || y.includes(x);
-}
+// `titulosParecidos` vive en lib/calendario-reunion.ts, junto con la regla que elige el
+// evento a mover: allá tiene test, y acá (server-only) no lo podía tener nadie.
 
 /**
  * LOS INVITADOS DE UNA REUNIÓN, buscando por CUÁNDO fue (y opcionalmente cómo se
@@ -502,10 +492,10 @@ async function leerFallo(res: Response): Promise<{ codigo: CodigoCalendario; mot
  * al dueño. Ante la duda preferimos no encontrar nada (el caller crea uno nuevo,
  * que es recuperable) antes que mover algo ajeno.
  *
- * Acepta el candidato solo si pasa alguna de estas tres:
- *   · el lead está invitado al evento (prueba directa),
- *   · el título se parece al que traemos, o
- *   · arranca prácticamente a la misma hora que la reunión vieja (±10 min).
+ * Qué cuenta como prueba lo decide `elegirEventoDeReunion` (lib/calendario-reunion.ts):
+ * el lead invitado (no como el dueño de la agenda) o un título parecido sobre un evento
+ * que no es con otra persona. La hora sola ya NO alcanza: el 09/10/2026 movió la
+ * instancia de una serie del dueño que no tenía nada que ver (detalle allá).
  */
 async function buscarEventoDeReunion(at: string, p: AnclaEvento): Promise<EventoCrudo | null> {
   const email = (p.emailInvitado ?? '').trim().toLowerCase();
@@ -527,31 +517,7 @@ async function buscarEventoDeReunion(at: string, p: AnclaEvento): Promise<Evento
   });
   if (!items.length) return null;
 
-  const invitadoEsta = (e: EventoCrudo): boolean =>
-    !!email && (e.attendees ?? []).some((a) => (a.email ?? '').trim().toLowerCase() === email);
-  const distancia = (e: EventoCrudo): number => {
-    const st = Date.parse(inicioDe(e) ?? '');
-    return Number.isFinite(st) ? Math.abs(st - t0) : ventana * 2;
-  };
-
-  const evaluados = items.map((e) => {
-    const porInvitado = invitadoEsta(e);
-    const porTitulo = !!p.titulo && titulosParecidos(e.summary ?? '', p.titulo);
-    // La hora sola alcanza SOLO si el ancla es una hora real. Si el ancla es "ese
-    // día" (mediodía inventado), la cercanía no prueba nada y por sí sola movería
-    // cualquier reunión del mediodía.
-    const casiExacto = tieneHora && distancia(e) <= 10 * 60 * 1000;
-    return {
-      e,
-      sirve: porInvitado || porTitulo || casiExacto,
-      // El invitado manda sobre todo lo demás; después el título; y a igualdad,
-      // el que arranca más cerca de la hora vieja.
-      score: (porInvitado ? 1e12 : 0) + (porTitulo ? 1e9 : 0) - distancia(e),
-    };
-  }).filter((x) => x.sirve);
-
-  if (!evaluados.length) return null;
-  return evaluados.sort((a, b) => b.score - a.score)[0].e;
+  return elegirEventoDeReunion(items, { email, titulo: p.titulo, t0 });
 }
 
 /** Cuánto duraba el evento original, en ms. null si es de día completo o no se puede leer. */
@@ -794,7 +760,9 @@ export async function proximasReunionesCon(email: string, dias = 60): Promise<Re
       max: 20,
     });
     return items
-      .filter((e) => (e.attendees ?? []).some((a) => (a.email ?? '').trim().toLowerCase() === quien))
+      // Invitado y NO como el dueño de la agenda: con el email del dueño, todo lo suyo con
+      // invitados lo lista con `self: true` (lib/calendario-reunion.ts).
+      .filter((e) => leadInvitado(e, quien))
       .filter((e) => !!e.start?.dateTime) // las de día completo no tienen hora que mover
       .map((e) => {
         const d = duracionMs(e);
@@ -883,7 +851,7 @@ async function eventoExacto(at: string, p: EventoElegido): Promise<EventoCrudo |
     const st = Date.parse(e.start?.dateTime ?? '');
     if (!Number.isFinite(st) || Math.abs(st - t0) >= 60_000) return false;
     const mismoTitulo = !!titulo && (e.summary ?? '').trim() === titulo;
-    const conElLead = !!email && (e.attendees ?? []).some((a) => (a.email ?? '').trim().toLowerCase() === email);
+    const conElLead = leadInvitado(e, email);
     return mismoTitulo || conElLead;
   }) ?? null;
 }
