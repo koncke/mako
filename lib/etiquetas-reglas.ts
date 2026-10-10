@@ -12,6 +12,9 @@
 // lib/etiquetas-motor.ts (también puro, con puertos), y la base en lib/etiquetas.ts.
 // =============================================================================
 
+// Las etiquetas de una tarjeta TAG (una o VARIAS) se leen por UNA función: la del editor (también pura).
+import { etiquetasDelPaso, paramsConEtiquetas, PARAM_ETIQUETAS } from './editor-acciones';
+
 /** El tope del nombre. El mismo número lo exige el CHECK de la mig 0224. */
 export const TOPE_NOMBRE_ETIQUETA = 40;
 
@@ -162,8 +165,12 @@ const OPS_ETIQUETA = new Set(['poner_etiqueta_lead', 'sacar_etiqueta_lead']);
 /**
  * Cuántas condiciones y cuántos pasos «⚡ Acción» de UNA secuencia nombran la etiqueta. Mira la
  * forma de lib/flujo-grafo.ts (ramas → filas con `campo: 'etiqueta'`) y la del paso de acción
- * (`accion.operacion` + `accion.params.etiquetaId`). Es lo que hay que contar ANTES de archivar:
+ * (`accion.operacion` + sus etiquetas). Es lo que hay que contar ANTES de archivar:
  * una condición que apunta a una etiqueta archivada nunca más se cumple, sin un aviso.
+ *
+ * ⚠️ UNA TARJETA TAG PUEDE LLEVAR VARIAS (sexta tanda, TAG 2): la primera en `etiquetaId` y todas en
+ * `etiquetaIds` (`etiquetasDelPaso`, lib/editor-acciones.ts). Mirando sólo `etiquetaId`, archivar la
+ * 2.ª o la 3.ª de una tarjeta contaba «nada la usa» y no preguntaba, y la tarjeta seguía corriéndola.
  */
 export function usoEnPasos(pasos: unknown, etiquetaId: number): UsoEnPasos {
   const out: UsoEnPasos = { condiciones: 0, acciones: 0 };
@@ -178,8 +185,8 @@ export function usoEnPasos(pasos: unknown, etiquetaId: number): UsoEnPasos {
         if (filas.some((f) => (f as { campo?: unknown })?.campo === 'etiqueta' && Number((f as { valor?: unknown }).valor) === etiquetaId)) out.condiciones++;
       }
     }
-    const a = paso.accion as { operacion?: unknown; params?: { etiquetaId?: unknown } } | undefined;
-    if (a && typeof a.operacion === 'string' && OPS_ETIQUETA.has(a.operacion) && Number(a.params?.etiquetaId) === etiquetaId) out.acciones++;
+    const a = paso.accion as { operacion?: unknown; params?: Record<string, unknown> } | undefined;
+    if (a && typeof a.operacion === 'string' && OPS_ETIQUETA.has(a.operacion) && etiquetasDelPaso(a.params).includes(etiquetaId)) out.acciones++;
   }
   return out;
 }
@@ -285,7 +292,14 @@ export function traducirEtiquetasEnSecuencia(pasos: unknown, etiquetaId: unknown
       });
     }
     const a = paso.accion as { params?: Record<string, unknown> } | undefined;
-    if (a && typeof a === 'object' && a.params && typeof a.params === 'object' && 'etiquetaId' in a.params) {
+    if (a && typeof a === 'object' && a.params && typeof a.params === 'object' && Array.isArray(a.params[PARAM_ETIQUETAS])) {
+      // ⚠️ UNA TARJETA TAG CON VARIAS (sexta tanda, TAG 2): la lista entera se traduce, no sólo la primera.
+      // Traduciendo sólo `etiquetaId`, la 2.ª y la 3.ª llegaban con los ids del DUEÑO y el ejecutor
+      // (`unaPorEtiqueta`) las corría en el destino: «No existe la etiqueta», o por casualidad OTRA.
+      // Lo que no está en el mapa sale de la lista; la que queda primera vuelve a `etiquetaId`.
+      const traducidas = etiquetasDelPaso(a.params).map((id) => tr(id)).filter((id): id is number => id != null);
+      paso.accion = { ...a, params: paramsConEtiquetas(traducidas, a.params) };
+    } else if (a && typeof a === 'object' && a.params && typeof a.params === 'object' && 'etiquetaId' in a.params) {
       const params = { ...a.params };
       const nuevo = tr(params.etiquetaId);
       if (nuevo == null) delete params.etiquetaId; else params.etiquetaId = nuevo;

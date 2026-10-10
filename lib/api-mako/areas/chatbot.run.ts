@@ -23,13 +23,18 @@ import { getAdjunto } from '@/lib/setting-adjuntos';
 import { emitirAviso } from '@/lib/avisos';
 import { linkApp } from '@/lib/app-url';
 import { aplicarVariables, valoresVariablesLead } from '@/lib/template-vars';
+import { conVariables } from '@/lib/variables-resolver';
+import { prepararDisparadores, guardarDisparadores } from '@/lib/disparadores-guardar';
+import { firmaLista, eventosDe, claseDeDisparador, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { textoCron } from '@/lib/cron-aviso';
+import { TRIGGERS } from '@/lib/email-marketing';
 import { getTenantDb } from '@/lib/workspace';
 import { logLeadEvent } from '@/lib/leads';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { PREFIJO_FLUJO } from '../canal';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { partesExplicitas, pasosUsanAudio } from '@/lib/mensaje-partes';
-import { getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia, muestraParaCriterio } from '@/lib/setting-secuencias';
+import { getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia, muestraParaCriterio, TriggerInvalidoError } from '@/lib/setting-secuencias';
 import { parseEstrategia, OBJETIVOS, type Estrategia, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import { huecosDeSecuencias, archivarSecuencias } from '@/lib/secuencias-huecos';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
@@ -116,31 +121,61 @@ async function leadDelAviso(leadId: number): Promise<{ id: number; nombre: strin
 }
 
 /**
- * Las variables del lead en el mensaje y el título de un aviso (la tarjeta MAKO del lienzo ofrece «＋ Dato
- * del lead»: `VARIABLES_LEAD`). Con la función del MOTOR (`aplicarVariables`): lo que no conoce queda
- * crudo, igual que en un WhatsApp al lead. Sin lead, nada que reemplazar. (Las dos funciones del motor
- * tienen su test en tests/template-vars; acá se fija el cableado en tests/lienzo-tercera-tanda.test.ts.)
+ * Los datos «{ }» en el mensaje y el título de un aviso al EQUIPO (la tarjeta MAKO EN WHATSAPP del lienzo).
+ *
+ * ⚠️ DESDE LA SEXTA TANDA, CON EL CATÁLOGO ENTERO (`conVariables`, lib/variables-resolver.ts, destino
+ * 'equipo'): la tarjeta ofrece el árbol de `datosOfrecidos({ destino: 'equipo' })` —la etapa, la reunión,
+ * los links al CRM, la campaña— y hasta acá resolvía sólo los cinco del motor: todo lo demás llegaba
+ * CRUDO al grupo. Es la regla de AGENTS.md («La previsualización de un editor no puede resolver un token
+ * que el motor NO resuelve»), del otro lado: lo que se ofrece se tiene que poder resolver. Con el
+ * workspace del ctx (nunca el de las cookies: un flujo corre en un cron).
+ *
+ * Lo del motor que ya estaba en la mano (el nombre partido y la empresa de la fila que se acaba de leer)
+ * va como `datos` y GANA; y después `aplicarVariables` cubre lo de antes con UNA llave (`{nombre}`), que
+ * el catálogo nuevo no lee. Lo que no se puede resolver queda crudo: se nota.
  */
-function textoDelAviso(texto: string, lead: { nombreCrudo: string | null; empresa: string | null } | null): string {
+async function textoDelAviso(texto: string, lead: { id: number; nombreCrudo: string | null; empresa: string | null } | null, ws: number): Promise<string> {
   const t = texto.trim();
-  if (!lead) return t;
-  return aplicarVariables(t, valoresVariablesLead({ nombre: lead.nombreCrudo, empresa: lead.empresa })).trim();
+  if (!t) return t;
+  const base = lead ? valoresVariablesLead({ nombre: lead.nombreCrudo, empresa: lead.empresa }) : {};
+  const conDatos = await conVariables(t, { ws, leadId: lead?.id ?? null, leadNombre: lead?.nombreCrudo ?? null, destino: 'equipo' }, base);
+  return (lead ? aplicarVariables(conDatos, base) : conDatos).trim();
 }
 
 /** ¿Lo pide un paso «⚡ Acción» de un flujo? La clave de scope lo dice (lib/api-mako/canal.ts). */
 const desdeUnFlujo = (ctx: Ctx): boolean => ctx.canalKey.startsWith(PREFIJO_FLUJO);
 
-/** Cuándo sale el primer paso, en la zona del negocio. El motor manda de 9 a 21 y con un tope
- *  diario: es «desde», no «a las». Desde un flujo no hay vía rápida (lib/nutricion.ts →
- *  inscribirEnSecuencia): lo que ya toca lo manda la próxima vuelta del cron. */
+/** Cuándo sale el primer paso, en la zona del negocio. Desde la sexta tanda (09/10/2026) el motor manda
+ *  a cualquier hora salvo el horario de envío que el NEGOCIO ponga en Configuraciones (apagado por
+ *  defecto), y con un tope diario: es «desde», no «a las». Desde un flujo no hay vía rápida
+ *  (lib/nutricion.ts → inscribirEnSecuencia): lo que ya toca lo levanta el tick de cada minuto
+ *  (app/api/cron/nutricion-tick). Antes decía «de 9 a 21» y «cada hora», que ya no es así. */
 async function cuandoSale(iso: string, ws: number, porElCron: boolean): Promise<string> {
   if (Date.parse(iso) <= Date.now() + 60_000) {
-    return porElCron ? 'el primer mensaje sale en la próxima vuelta del motor (cada hora, en horario de envío)' : 'el primer mensaje sale ya, si es horario de envío';
+    return porElCron
+      ? 'el primer mensaje sale en el próximo minuto (o al abrir el horario de envío, si el negocio puso uno)'
+      : 'el primer mensaje sale ya (o al abrir el horario de envío, si el negocio puso uno)';
   }
   const tz = await tzDeWorkspace(ws).catch(() => TZ_DEFAULT);
   let cuando = iso;
   try { cuando = new Date(iso).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }); } catch { /* el ISO tal cual */ }
   return `el primer mensaje sale desde el ${cuando}`;
+}
+
+/**
+ * Un CRON en una línea, para el resumen de `cambiar_crons_secuencia` (lo lee la persona en la pantalla
+ * de revisión). El nombre del disparador sale del catálogo (`TRIGGERS`), el evento de su lista, el
+ * horario de `textoCron` con la zona que el horario eligió (sin ella, la del negocio).
+ */
+function textoDeUnCron(d: Disparador): string {
+  const nombre = TRIGGERS.find((t) => t.value === d.trigger_tipo)?.label ?? d.trigger_tipo;
+  if (d.cron) return `${textoCron(d.cron, d.cron.tz ?? null)}${d.grupo ? ' · al grupo de MaKo' : ''}${d.trigger_tipo !== TRIGGER_SOLO_GRUPO && d.trigger_tipo !== 'manual' ? ` · ${nombre}` : ''}`;
+  const clase = claseDeDisparador(d);
+  const evento = clase === 'instagram' || clase === 'messenger' || clase === 'email' ? eventosDe(clase).find((e) => e.subtipo === d.subtipo)?.label : null;
+  if (evento) return evento;
+  if (d.etapa) return `${nombre}: ${[...new Set([d.etapa, ...(d.etapas ?? [])])].join(', ')}`;
+  if (d.etiqueta_id) return `${nombre} (#${d.etiqueta_id})`;
+  return nombre;
 }
 
 /** El detector de copy sin terminar del motor (RX_RELLENO en lib/nutricion.ts, que no lo exporta):
@@ -363,7 +398,7 @@ export const RUNNERS: Runners = {
       return json({
         inscribiria: { total: ins.length, mostrados: Math.min(ins.length, TOPE), filas: ins.slice(0, TOPE) },
         enviaria: { total: env.length, mostrados: Math.min(env.length, TOPE), filas: env.slice(0, TOPE) },
-        nota: 'Simulación: no aplica el tope diario configurado, la pausa de 20 h por lead, la ventana de 9 a 21 (hora de México) ni si el envío del canal está habilitado. Lo que sale de verdad puede ser menos.',
+        nota: 'Simulación: no aplica el tope diario configurado, la pausa de 20 h por lead, el horario de envío del negocio (si puso uno en Configuraciones) ni si el envío del canal está habilitado. Lo que sale de verdad puede ser menos.',
         avisos: [] as string[],
       });
     },
@@ -610,9 +645,9 @@ export const RUNNERS: Runners = {
       const respuesta = String(payload.respuesta ?? '').trim();
       const lead = leadId != null ? await leadDelAviso(leadId) : null;
       if (leadId != null && !lead) return { ok: false, resumen: `El lead #${leadId} ya no existe en este negocio.` };
-      // Las variables del lead (la tarjeta MAKO las ofrece): sin esto, «{{nombre}}» salía crudo al grupo.
-      const mensaje = textoDelAviso(mensajeCrudo, lead);
-      const titulo = textoDelAviso(String(payload.titulo ?? ''), lead) || (lead ? `${lead.nombre}: hay que verlo` : 'Una automatización te avisa');
+      // Los datos «{ }» (la tarjeta MAKO EN WHATSAPP los ofrece): sin esto, «{{nombre}}» salía crudo al grupo.
+      const mensaje = await textoDelAviso(mensajeCrudo, lead, ctx.ws);
+      const titulo = (await textoDelAviso(String(payload.titulo ?? ''), lead, ctx.ws)) || (lead ? `${lead.nombre}: hay que verlo` : 'Una automatización te avisa');
       const r = await emitirAviso({
         ws: ctx.ws,
         tipo: 'chatbot-aviso-equipo',
@@ -834,6 +869,43 @@ export const RUNNERS: Runners = {
       if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La secuencia ya no existe o se archivó.' };
       await setSecuenciaPasos(id, payload.pasos as PasoSecuencia[]);
       return { ok: true, resumen: `Pasos de la secuencia #${id} guardados.` };
+    },
+  },
+
+  // Los CRON de una automatización, por la MISMA puerta que la pantalla (lib/disparadores-guardar.ts).
+  // `preparar` chequea TODO lo que se puede saber sin escribir (la etapa, el producto, la etiqueta, el
+  // evento): un rechazo al confirmar consumiría la pendiente.
+  cambiar_crons_secuencia: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      // `ignorar` y `cron.dias` llegan como textos (el validador no tiene listas de números): el saneador
+      // del CRON (`sanearDisparador` / `sanearCron`) ya los convierte, como con lo que manda la pantalla.
+      try {
+        const { lista, previos } = await prepararDisparadores(id, input.crons);
+        if (firmaLista(lista) === firmaLista(previos)) return { error: `«${s.nombre}» ya arranca por esos CRON.`, yaEstaba: true };
+        // Sin leer la zona del negocio: `tzDeWorkspace` la ESCRIBE si falta, y preparar() no escribe.
+        const textos = lista.map(textoDeUnCron);
+        return {
+          payload: { secuenciaId: id, crons: lista },
+          resumen: `Cambiar los CRON de «${s.nombre}» (${previos.length} → ${lista.length}): ${textos.join(' · ')}.${s.activa ? ' Está ACTIVA: la próxima corrida inscribe con los CRON nuevos.' : ''}`,
+        };
+      } catch (e) {
+        if (e instanceof TriggerInvalidoError) return { error: e.message };
+        throw e;
+      }
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId);
+      if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
+      try {
+        const quedo = await guardarDisparadores(id, payload.crons);
+        return { ok: true, resumen: `Listo: la automatización #${id} arranca por ${quedo.length} CRON.`, datos: { disparadores: quedo } };
+      } catch (e) {
+        if (e instanceof TriggerInvalidoError) return { ok: false, resumen: e.message };
+        throw e;
+      }
     },
   },
 

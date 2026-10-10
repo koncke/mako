@@ -620,7 +620,7 @@ export const RUNNERS: Runners = {
       if (!labelId) return { payload: { etapa, labelId: null }, resumen: `Quitar la etiqueta automática de la etapa «${etapa}».` };
       const label = (await getCatalogoLabels()).find((l) => l.labelId === labelId);
       if (!label) return { error: `La etiqueta «${labelId}» no está en el catálogo. Revisa listar_etiquetas_whatsapp o propone sincronizar_etiquetas_whatsapp.` };
-      return { payload: { etapa, labelId }, resumen: `Poner la etiqueta «${label.name ?? labelId}» a los leads que entren en la etapa «${etapa}».` };
+      return { payload: { etapa, labelId }, resumen: `Agregar la etiqueta «${label.name ?? labelId}» a los leads que entren en la etapa «${etapa}».` };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
       await setMapeoEtapaLabel(String(payload.etapa), payload.labelId ? String(payload.labelId) : null);

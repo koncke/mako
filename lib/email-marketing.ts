@@ -21,6 +21,7 @@ import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { enTandas } from '@/lib/ids-con-filas';
 import { COLS_RESIDUO, RESIDUO_DIAS, SEGMENTO_RESIDUO, esResiduoFormulario, type LeadResiduo } from '@/lib/nutricion-residuo';
 import { etiquetaDeSegmento, PREFIJO_SEGMENTO_ETIQUETA, TRIGGER_ETIQUETA } from '@/lib/etiquetas-reglas';
+import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from '@/lib/disparadores';
 
 const ahoraISO = () => new Date().toISOString();
 const haceDiasISO = (d: number) => new Date(Date.now() - d * 86400 * 1000).toISOString();
@@ -224,6 +225,8 @@ async function fijarDisparadorEtiqueta(id: number, etiquetaId: unknown): Promise
 
 // Crea una secuencia de email nueva (pausada) con un paso vacío.
 export async function crearEmailSecuencia(nombre: string, etapa: string, trigger: string, etiquetaId?: unknown): Promise<number> {
+  // Un evento de un canal o el Recurrente al grupo se eligen en el CRON: por acá quedarían mudos.
+  if (SOLO_DESDE_EL_CRON.has(trigger)) throw new DisparadorEmailError(MOTIVO_SOLO_DESDE_EL_CRON);
   const porEtiqueta = trigger === TRIGGER_ETIQUETA;
   // Lo que se puede saber sin escribir, antes de escribir: una secuencia creada a medias quedaría
   // en la lista sin disparador.
@@ -257,6 +260,7 @@ export async function crearEmailSecuencia(nombre: string, etapa: string, trigger
 // Actualiza metadata de una secuencia (nombre / etapa / trigger). Solo toca los
 // campos provistos. El disparador por etiqueta exige `etiqueta_id` (ver `fijarDisparadorEtiqueta`).
 export async function actualizarMetaEmailSecuencia(id: number, patch: { nombre?: string; etapa?: string; trigger_tipo?: string; etiqueta_id?: unknown }): Promise<void> {
+  if (typeof patch.trigger_tipo === 'string' && SOLO_DESDE_EL_CRON.has(patch.trigger_tipo)) throw new DisparadorEmailError(MOTIVO_SOLO_DESDE_EL_CRON);
   const supabase = (await getTenantDb());
   const upd: Record<string, unknown> = { updated_at: ahoraISO() };
   if (typeof patch.nombre === 'string') upd.nombre = patch.nombre;
@@ -328,6 +332,17 @@ export const TRIGGERS: Opcion[] = [
   // renglón es sólo el nombre en el selector. Literal y no la constante TRIGGER_ETIQUETA: el guard
   // de los tres registros (tests/nutricion-triggers-registros.test.ts) lee el fuente.
   { value: 'etiqueta_puesta', label: 'Se le puso una etiqueta' },
+  // Los SEIS del CRON de la sexta tanda (lib/disparadores.ts, `TRIGGERS_NUEVOS`). Acá van por su
+  // NOMBRE: sin el renglón, `labelDe(TRIGGERS, …)` (la API de email) devolvía el slug crudo y
+  // `setTriggerSecuencia` los rechazaba. ⚠️ Cuatro necesitan un dato que este selector no tiene (el
+  // evento del canal, o el horario): se eligen en el CRON y las puertas de /email los rechazan
+  // (`SOLO_DESDE_EL_CRON`). Literales, como el de arriba: el guard de los tres registros lee el fuente.
+  { value: 'etiqueta_agregada', label: 'Se agrega etiqueta a un lead' },
+  { value: 'etiqueta_quitada', label: 'Se elimina etiqueta a un lead' },
+  { value: 'instagram', label: 'Un evento de Instagram' },
+  { value: 'messenger', label: 'Un evento de Messenger' },
+  { value: 'email_recibido', label: 'Recibes un email' },
+  { value: 'grupo_mako', label: 'Recurrente al grupo de MaKo' },
 ];
 
 // ── Segmentos para broadcasts ─────────────────────────────────────────────────

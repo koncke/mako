@@ -22,6 +22,8 @@ import { CLAVES_AUDIO } from '@/lib/audios-paso';
 // Puro también (lib/setting-estrategia.ts no importa nada): el tope del nombre es UNO para la
 // pantalla, el servidor y esto.
 import { TOPE_NOMBRE_SECUENCIA } from '@/lib/setting-estrategia';
+// Puro y sin imports: las unidades de un horario son las del saneador del motor (`sanearCron`).
+import { UNIDADES } from '@/lib/cron-aviso';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
@@ -176,7 +178,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'plan_nutricion_hoy', area: 'chatbot', tipo: 'lectura',
     titulo: 'A quién le escribiría el chatbot',
-    descripcion: 'Simulación del motor sin escribir nada: qué leads entrarían hoy a cada secuencia activa (con el horario del primer paso) y qué envíos están vencidos para la próxima corrida (lead, secuencia, paso, canal). No aplica el tope diario configurado, la pausa de 20 horas por lead, la ventana de 9 a 21 ni si el envío del canal está habilitado: lo que de verdad sale puede ser menos. Una fila con reactiva: true no es un alta: es una inscripción que ya terminó y vuelve a correr porque el lead volvió a agendar. Úsala para «a quién le va a escribir el chatbot».',
+    descripcion: 'Simulación del motor sin escribir nada: qué leads entrarían hoy a cada secuencia activa (con el horario del primer paso) y qué envíos están vencidos para la próxima corrida (lead, secuencia, paso, canal). No aplica el tope diario configurado, la pausa de 20 horas por lead, el horario de envío del negocio (si puso uno en Configuraciones; sin él, el motor manda a cualquier hora) ni si el envío del canal está habilitado: lo que de verdad sale puede ser menos. Una fila con reactiva: true no es un alta: es una inscripción que ya terminó y vuelve a correr porque el lead volvió a agendar. Úsala para «a quién le va a escribir el chatbot».',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', lenta: true, gating: { tab: TAB, rolMinimo: 'admin' },
   },
@@ -384,6 +386,52 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     reversible: false, escribe: 'reemplaza nutricion_secuencias.pasos (sin historial de versiones)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // LOS CRON DE UNA AUTOMATIZACIÓN (sexta tanda, segunda pasada, 09/10/2026): hasta acá la API los
+  // LEÍA (`ficha_secuencia_mensajes` trae `disparadores`) y no había cómo cambiarlos sin la pantalla.
+  // De PANTALLA y no de chat: cambiar qué la dispara cambia A QUIÉN le escribe, y en una activa la
+  // próxima corrida inscribe a la cohorte nueva (el mismo criterio que el trigger de email, diseño §3).
+  // SIN http: exponerlo a un token es otra decisión (el snapshot). Se guarda por la MISMA puerta que
+  // la pantalla (`guardarDisparadores`, lib/disparadores-guardar.ts). `ignorar` y `cron.dias` van como
+  // TEXTOS porque el validador no tiene listas de números; el runner los convierte.
+  {
+    id: 'cambiar_crons_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
+    titulo: 'Cambiar los CRON de una automatización',
+    descripcion: 'PROPONE reemplazar la lista de CRON de una automatización (lo que la hace arrancar: una etapa de un producto, una etiqueta, un evento de Instagram, Messenger o el email que llega, o un Recurrente con su horario) y devuelve un link para revisarla. La lista que pases REEMPLAZA a la actual y arranca por CUALQUIERA de sus CRON; el primero es el principal. Cambia a quién le escribe: en una automatización activa, la próxima corrida inscribe con los CRON nuevos. Lee antes ficha_secuencia_mensajes (su campo disparadores tiene la forma de cada CRON: pasa el mismo id para conservar la próxima ocurrencia de un horario que no cambia). Un evento de Instagram o Messenger necesita su subtipo; «grupo_mako» sólo vale con horario. Hasta 10 CRON.',
+    parametros: [
+      pSecuenciaId,
+      {
+        nombre: 'crons', tipo: 'object[]', obligatorio: true, max: 10, descripcion: 'los CRON, el principal primero (hasta 10).',
+        campos: [
+          { nombre: 'id', tipo: 'string', max: 24, descripcion: 'opcional: el id del CRON (de ficha_secuencia_mensajes), para conservar la próxima ocurrencia de su horario.' },
+          { nombre: 'trigger_tipo', tipo: 'string', obligatorio: true, max: 60, descripcion: 'qué lo dispara: etapa_actual, entrega_actual, etiqueta_puesta, etiqueta_agregada, etiqueta_quitada, instagram, messenger, email_recibido, grupo_mako, o un trigger de listar_triggers_email (área email).' },
+          { nombre: 'etapa', tipo: 'string', max: 60, descripcion: 'con etapa_actual o entrega_actual: la clave de la etapa (de etapas_para_secuencia).' },
+          { nombre: 'etapas', tipo: 'string[]', max: 20, descripcion: 'opcional: varias etapas del mismo kanban (la primera es la de etapa).' },
+          { nombre: 'funnel_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'con etapa_actual: el embudo del producto (sin él, la etapa de cualquier producto).' },
+          { nombre: 'producto_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'con entrega_actual: el producto cuya entrega se mira.' },
+          { nombre: 'etiqueta_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'con etiqueta_puesta: la etiqueta (de listar_etiquetas, área crm).' },
+          { nombre: 'ignorar', tipo: 'string[]', max: 50, descripcion: 'con etiqueta_agregada o etiqueta_quitada: los ids de las etiquetas que NO la disparan, como textos ("12", "15").' },
+          { nombre: 'subtipo', tipo: 'string', max: 30, descripcion: 'con instagram, messenger o email_recibido: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido.' },
+          { nombre: 'grupo', tipo: 'boolean', descripcion: 'con horario: además (o en vez) de la cohorte, le escribe al grupo de WhatsApp de MaKo del negocio.' },
+          {
+            nombre: 'cron', tipo: 'object', descripcion: 'opcional: el horario de un Recurrente. Con horario, el CRON no arranca por el evento: sale en cada ocurrencia, a los que están en la cohorte.',
+            campos: [
+              { nombre: 'unidad', tipo: 'string', obligatorio: true, enum: UNIDADES.map((u) => u.key), descripcion: 'cada cuánto: hora, dia, semana, mes o anio.' },
+              { nombre: 'cada', tipo: 'number', entero: true, minimo: 1, maximo: 99, descripcion: 'cada cuántas unidades (default 1).' },
+              { nombre: 'hora', tipo: 'number', entero: true, minimo: 0, maximo: 23, descripcion: 'la hora, en la zona del negocio (default 9).' },
+              { nombre: 'minuto', tipo: 'number', entero: true, minimo: 0, maximo: 59, descripcion: 'el minuto (default 0).' },
+              { nombre: 'diaSemana', tipo: 'number', entero: true, minimo: 0, maximo: 6, descripcion: 'con semana: el día (0 = domingo).' },
+              { nombre: 'dias', tipo: 'string[]', max: 7, descripcion: 'con semana: varios días, como textos ("2", "4" = martes y jueves).' },
+              { nombre: 'diaMes', tipo: 'number', entero: true, minimo: 1, maximo: 31, descripcion: 'con mes o anio: el día del mes.' },
+              { nombre: 'mes', tipo: 'number', entero: true, minimo: 1, maximo: 12, descripcion: 'con anio: el mes.' },
+              { nombre: 'desde', tipo: 'string', max: 10, descripcion: 'opcional: desde qué día sale (AAAA-MM-DD).' },
+            ],
+          },
+        ],
+      },
+    ],
+    reversible: false, escribe: 'reemplaza nutricion_secuencias.disparadores y las columnas del CRON principal (trigger_tipo, etapa, funnel_id, producto_id, etiqueta_id, cron); en una automatización activa, la próxima corrida inscribe con los CRON nuevos',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'agregar_escenario_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',

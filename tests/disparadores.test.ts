@@ -169,11 +169,13 @@ test('lo que le falta: dos iguales, un segundo sin elegir, el grupo sin horario,
   assert.equal(problemaDeDisparador({ id: 'd1', trigger_tipo: 'entrega_actual', etapa: 'onb' }, { unico: true }), 'Elige el producto');
 });
 
-test('los eventos de ManyChat: seis de Instagram y seis de Messenger, con el del anuncio APAGADO', () => {
+test('los eventos de ManyChat: seis de Instagram y seis de Messenger, con el del anuncio APAGADO (y la tienda, que Zernio no avisa)', () => {
   assert.equal(EVENTOS_INSTAGRAM.length, 6);
   assert.equal(EVENTOS_MESSENGER.length, 6);
   assert.deepEqual(EVENTOS_INSTAGRAM.filter((e) => e.apagado).map((e) => e.subtipo), ['anuncio']);
-  assert.deepEqual(EVENTOS_MESSENGER.filter((e) => e.apagado).map((e) => e.subtipo), ['anuncio']);
+  // La tienda de Facebook, apagada desde la segunda pasada (09/10/2026): Zernio no la avisa
+  // (`DISPARADORES_SOCIALES` la marca `disponible: false`, tests/disparadores-canal-social.test.ts).
+  assert.deepEqual(EVENTOS_MESSENGER.filter((e) => e.apagado).map((e) => e.subtipo), ['anuncio', 'tienda']);
   assert.deepEqual(CLASES_DISPARADOR.map((c) => c.label), ['Producto', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email']);
 });
 

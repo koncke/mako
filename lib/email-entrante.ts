@@ -17,7 +17,7 @@
 //      puede no dejar rastro»). Se abre DESPUÉS del chequeo que puede cortar (el ruteo), y sin la
 //      tabla no se dispara nada: sin fila no hay cómo deduplicar, y un reintento dispararía dos veces.
 //   4. EL LEAD, dentro de su workspace (`runWithWorkspace`), por su email EXACTO.
-//   5. EL DISPARO, por UNA función (`enrolarPorEmailRecibido`), la del cast de INTEGRACIÓN.
+//   5. EL DISPARO, por UNA función (`enrolarPorEmailRecibido`).
 //
 // ⚠️ NO MANDA NADA NI TOCA LA FICHA DEL LEAD: inscribe en las automatizaciones de ese evento, y lo que
 // salga después lo manda el motor con sus frenos. Que un email del lead PAUSE una automatización que
@@ -27,8 +27,10 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace } from './workspace';
-import { enrolarPorEvento, type CtxEvento, type EventoNutricion } from './nutricion';
+import { enrolarPorEvento, type CtxEvento } from './nutricion';
 import { esErrorTransitorio, mensajeDeError } from './calendly-error';
+import { responderFalloDeRuteo } from './webhook-fallo-ruteo';
+import { EVENTOS_EMAIL } from './disparadores';
 import {
   leerEmailRecibido, workspaceDelEmail, leadDelEmail, esRemitenteAutomatico, escaparIlike, yaProcesado,
   EVENTO_EMAIL_RECIBIDO, type EmailRecibido, type DominioReclamado, type EstadoEntrante,
@@ -38,17 +40,17 @@ const TABLA = 'email_entrantes';
 const LOG = '[email-entrante]';
 
 /**
- * EL DISPARO: UNA puerta, para que el día que el evento exista haya un solo lugar que cambiar.
+ * EL DISPARO: UNA puerta. El `ctx` es el que lee `disparaPorEvento` (lib/disparadores.ts): para el email
+ * alcanza con el evento —el CRON «Recibes un email» no filtra por casilla ni por asunto—, y el subtipo
+ * va igual, en las palabras del CRON (`EVENTOS_EMAIL`), por si mañana el email tiene más de uno.
  *
- * ⚠️ INTEGRACIÓN (sexta tanda): `'email_recibido'` lo suma a `EventoNutricion` y a
- * `TRIGGERS_POR_EVENTO` (lib/nutricion.ts) la parte «disparadores», en paralelo. Hasta que entre, el
- * cast compila y `enrolarPorEvento` devuelve 0: `TRIGGERS_POR_EVENTO['email_recibido']` no existe y
- * no inscribe a nadie. Al integrar: sacar los dos `as` y, si «disparadores» filtra por casilla o por
- * asunto, leerlos de `ctx.email` (o renombrarlo a lo que ella use).
+ * (Hasta la segunda pasada de la sexta tanda, 09/10/2026, iba con dos casts y un `ctx.email` que no
+ * leía nadie: lo de la casilla y el asunto, si algún día filtra, se suma a `CtxEvento` y a
+ * `disparaPorEvento` juntos.)
  */
-export async function enrolarPorEmailRecibido(leadId: number, email: EmailRecibido): Promise<number> {
-  const ctx = { email: { de: email.de, para: email.para, asunto: email.asunto } } as unknown as CtxEvento;
-  return enrolarPorEvento(leadId, EVENTO_EMAIL_RECIBIDO as EventoNutricion, ctx);
+export async function enrolarPorEmailRecibido(leadId: number): Promise<number> {
+  const ctx: CtxEvento = { subtipo: EVENTOS_EMAIL[0].subtipo };
+  return enrolarPorEvento(leadId, EVENTO_EMAIL_RECIBIDO, ctx);
 }
 
 /**
@@ -113,6 +115,16 @@ function fallo(donde: string, e: unknown): RespuestaEntrante {
     : responder(200, { ok: false, error: donde, reintentar: false, message: mensaje });
 }
 
+/**
+ * «No pude leer de quién es» pasa por el MISMO clasificador que los demás webhooks
+ * (`responderFalloDeRuteo`, lib/webhook-fallo-ruteo.ts): 503 sólo si reintentar lo arregla, y SIEMPRE
+ * anotado en el super admin (`webhooks.fallos_ruteo`). Antes iba sólo al log, que a la hora no existe.
+ */
+async function falloDeRuteo(e: unknown, identificador: string | null): Promise<RespuestaEntrante> {
+  const r = await responderFalloDeRuteo('email', e, identificador);
+  return responder(r.status, (await r.json()) as Record<string, unknown>);
+}
+
 /** Un `email.received` ya verificado: de quién es, de qué lead, y el disparo. */
 export async function recibirEmailEntrante(raw: unknown): Promise<RespuestaEntrante> {
   const email = leerEmailRecibido(raw);
@@ -120,7 +132,7 @@ export async function recibirEmailEntrante(raw: unknown): Promise<RespuestaEntra
 
   // 2. De quién es.
   let reclamados: DominioReclamado[];
-  try { reclamados = await dominiosReclamados(); } catch (e) { return fallo('ruteo', e); }
+  try { reclamados = await dominiosReclamados(); } catch (e) { return falloDeRuteo(e, email.para[0] ?? null); }
   const destino = workspaceDelEmail(email.para, reclamados);
 
   // 3. La fila: la deduplicación y el rastro. Sin workspace también queda escrita, con su motivo.
@@ -155,7 +167,7 @@ export async function recibirEmailEntrante(raw: unknown): Promise<RespuestaEntra
         await marcar(email.emailId, { estado: lead.motivo, motivo: lead.motivo === 'ambiguo' ? 'varios leads con ese email' : 'ningún lead con ese email' });
         return responder(200, { ok: true, ignorado: lead.motivo });
       }
-      const inscripciones = await enrolarPorEmailRecibido(lead.leadId, email);
+      const inscripciones = await enrolarPorEmailRecibido(lead.leadId);
       await marcar(email.emailId, { estado: 'disparado', lead_id: lead.leadId, inscripciones });
       return responder(200, { ok: true, leadId: lead.leadId, inscripciones });
     });

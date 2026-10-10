@@ -4671,6 +4671,17 @@ existe devuelve error, y el bucle de reintentos lo trata igual que a un choque d
 pasadas y un aviso críptico al final. Ahora se distingue el `42P01` («esa tabla no existe,
 sacala de la lista») del `23503`.
 
+⚠️ **Re-medido el 09/10/2026 (sexta tanda del Chatbot, segunda pasada, parte «motor»), y ese
+distingo no se dispara nunca: por PostgREST una tabla que no existe contesta `PGRST205`, no
+`42P01`.** Medido en producción en sólo lectura con `email_entrantes` (mig 0245) y `zernio_eventos`
+(mig 0242), las dos en la lista y sin aplicar: `PGRST205 · Could not find the table 'public.…' in the
+schema cache`. `noExiste` en `lib/reset-workspace.ts` mira sólo `42P01`, así que mientras falte una
+migración el reset y el borrado de un cliente reintentan esa tabla tres pasadas y la avisan cruda,
+como si fuera una FK. No frena nada (los avisos no cortan), pero dice otra cosa. La línea:
+`const noExiste = ['42P01', 'PGRST205'].includes(String((error as { code?: string }).code));`
+(lib/email-entrante.ts ya lo hace así: `esTablaQueFalta`). Y el `head: true` de más arriba sigue
+mintiendo: sobre esas dos tablas contestó `status 204, count null` y SIN error.
+
 **La regla que queda: una lista de nombres de tablas se mide contra
 `information_schema`, no contra las migraciones** — hay migraciones escritas que nunca se
 aplicaron, y este repo tiene el caso documentado (`0157_meta_campaign_drafts_workspace`).

@@ -16,16 +16,23 @@
 // de un teléfono ni de un nombre. Un IGSID es un número de ~17 dígitos y el matcheo telefónico de la
 // casa lo confundiría con un teléfono real. El lead se une por la fila de la persona, y nada más.
 //
-// ⚠️ UNA RESPUESTA POR INSTAGRAM NO PAUSA LA SALIDA (todavía). `pausarPorRespuesta` (lib/nutricion.ts)
-// pausa y además contesta —el modo asistido, «Si responde», la charla— POR WHATSAPP, al teléfono del
-// lead: llamarla desde acá le contestaría por otro canal a quien escribió por Instagram. Hasta que el
-// motor sepa contestar por el canal por donde le escribieron, la respuesta se guarda y dispara lo que
-// escuche «Te envía un mensaje», y la salida sigue. Está en el relevo como pendiente.
+// ⚠️ UNA RESPUESTA POR INSTAGRAM O MESSENGER PAUSA LA SALIDA, SIN CONTESTAR (segunda pasada de la
+// sexta tanda, 09/10/2026). Un mensaje o una respuesta a una historia de alguien que YA es un lead
+// es una respuesta: lo que le estaban escribiendo se pausa, igual que con una de WhatsApp
+// (`pausarPorRespuesta`, lib/nutricion.ts, con `origen: canal`). Lo que esa función hace además con
+// una de WhatsApp —el borrador del modo asistido, «Si responde», la charla del setter— contesta POR
+// WHATSAPP, al teléfono del lead, y por eso con lo social NO corre: le contestaría por otro canal a
+// quien escribió por Instagram. La respuesta la ve el negocio en su Instagram.
+//
+// ⚠️ Y LA PAUSA VA ANTES DEL DISPARO, en el mismo `after` (app/api/webhooks/zernio/route.ts): el
+// mismo DM puede arrancar una automatización de «Te envía un mensaje», y pausar después pausaría la
+// que ese mensaje acaba de arrancar.
 
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { createLead } from './leads';
 import { plataformaDe, ventanaDesde, nombreDeParticipante, type CanalSocial, type EventoSocial } from './canal-social';
+import { escuchaElEvento, subtipoDelEvento } from './disparadores';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -34,33 +41,47 @@ export type ResultadoEntrante = {
   leadId: number | null;
   /** Hay que disparar las automatizaciones de este evento (fuera del pedido: `after`). */
   disparar: boolean;
+  /**
+   * Es una RESPUESTA de alguien que ya era un lead (un mensaje o una respuesta a una historia): lo que
+   * le estaban escribiendo se pausa (`pausarRespuestaSocial`), antes del disparo.
+   */
+  pausar: boolean;
 };
 
+/** Los eventos que son una respuesta de la persona (no un clic ni un comentario público). */
+const ES_RESPUESTA: ReadonlySet<EventoSocial['subtipo']> = new Set(['mensaje', 'historia']);
+
 /**
- * ¿Alguna automatización ACTIVA escucha este canal? INTEGRACIÓN: la parte «disparadores» de la sexta
- * tanda define los `trigger_tipo` de Instagram y Messenger; acá se asume que NOMBRAN el canal
- * (`instagram…` / `messenger…`). Si eligen otro nombre, cambiarlo acá y en `dispararEventoSocial`.
+ * ¿Alguna automatización ACTIVA arranca con ESTE evento? Por CADA uno de sus CRON y con el subtipo
+ * (`escuchaElEvento`, lib/disparadores.ts): la misma pregunta que hace el motor al inscribir. Un CRON
+ * «comenta tu publicación» crea el lead de quien comenta, y no el de quien manda un DM.
  */
-export async function hayQuienEscuche(canal: CanalSocial): Promise<boolean> {
+export async function hayQuienEscuche(canal: CanalSocial, subtipo: EventoSocial['subtipo']): Promise<boolean> {
+  const sub = subtipoDelEvento(canal, subtipo);
+  if (!sub) return false;
   const { getSecuenciasActivas } = await import('./nutricion');
-  const secs = await getSecuenciasActivas();
-  return secs.some((s) => (s.trigger_tipo ?? '').toLowerCase().includes(canal));
+  return escuchaElEvento(await getSecuenciasActivas(), canal, { subtipo: sub });
 }
 
 /**
- * LA ÚNICA LLAMADA AL MOTOR desde un evento de Instagram o Messenger.
- *
- * ⚠️ INTEGRACIÓN: la parte disparadores agrega el evento. `enrolarPorEvento` (lib/nutricion.ts) hoy
- * conoce `lead_nuevo | agenda_nueva | etapa | entrega | etiqueta`; la parte «disparadores» suma
- * `'instagram' | 'messenger'` a `EventoNutricion` y a `TRIGGERS_POR_EVENTO`, con este `ctx`. Mientras
- * tanto el cast compila y `TRIGGERS_POR_EVENTO[evento] ?? []` contesta 0: no inscribe a nadie.
+ * LA ÚNICA LLAMADA AL MOTOR desde un evento de Instagram o Messenger. El `ctx` es el que lee
+ * `disparaPorEvento` (lib/disparadores.ts): el subtipo, en las palabras del CRON (`subtipoDelEvento`).
+ * Un evento que ningún CRON escucha (una mención en una historia) no inscribe a nadie.
  */
-export async function dispararEventoSocial(leadId: number, canal: CanalSocial, ctx: {
-  subtipo: EventoSocial['subtipo']; texto: string | null; ref: string | null; anuncioId: string | null; postId: string | null; comentarioId: string | null;
-}): Promise<number> {
+export async function dispararEventoSocial(leadId: number, canal: CanalSocial, subtipo: EventoSocial['subtipo']): Promise<number> {
+  const sub = subtipoDelEvento(canal, subtipo);
+  if (!sub) return 0;
   const { enrolarPorEvento } = await import('./nutricion');
-  type Enrolar = (leadId: number, evento: string, ctx?: Record<string, unknown>) => Promise<number>;
-  return (enrolarPorEvento as unknown as Enrolar)(leadId, canal, ctx);
+  return enrolarPorEvento(leadId, canal, { subtipo: sub });
+}
+
+/**
+ * La respuesta por Instagram o Messenger de alguien que ya es un lead: pausa lo que le estaban
+ * escribiendo, SIN contestarle (ver la cabecera). Devuelve cuántas inscripciones pausó.
+ */
+export async function pausarRespuestaSocial(leadId: number, canal: CanalSocial): Promise<number> {
+  const { pausarPorRespuesta } = await import('./nutricion');
+  return pausarPorRespuesta(leadId, { origen: canal });
 }
 
 type Fila = { id: number; lead_id: number | null };
@@ -114,19 +135,24 @@ export async function procesarEventoSocial(e: EventoSocial, body: unknown): Prom
     if (eMsg) throw new Error(`ig_mensajes (insert): ${eMsg.message}`);
   }
 
+  // Alguien que YA era un lead y escribió: es una respuesta, y lo que le estaban escribiendo se pausa
+  // (también si otra app atiende la charla: pausar es lo que no le manda nada a nadie).
+  const yaEraLead = fila.lead_id == null ? null : Number(fila.lead_id);
+  const pausar = yaEraLead != null && ES_RESPUESTA.has(e.subtipo);
+
   // Otra app de la página atiende la charla (handover de Meta): se guarda y no se dispara nada,
   // como hace Zernio con sus propias automatizaciones (`metadata.standby`).
-  if (e.standby) return { accion: `${accion}_standby`, leadId: fila.lead_id, disparar: false };
+  if (e.standby) return { accion: `${accion}_standby`, leadId: yaEraLead, disparar: false, pausar };
   // Una mención en una historia no la escucha ningún disparador (lib/canal-social.ts).
-  if (e.subtipo === 'mencion_historia') return { accion, leadId: fila.lead_id, disparar: false };
+  if (e.subtipo === 'mencion_historia') return { accion, leadId: yaEraLead, disparar: false, pausar };
 
-  let leadId = fila.lead_id == null ? null : Number(fila.lead_id);
+  let leadId = yaEraLead;
   if (leadId == null) {
-    if (!(await hayQuienEscuche(e.canal))) return { accion: `${accion}_sin_automatizacion`, leadId: null, disparar: false };
+    if (!(await hayQuienEscuche(e.canal, e.subtipo))) return { accion: `${accion}_sin_automatizacion`, leadId: null, disparar: false, pausar: false };
     leadId = await crearLeadDe(e, fila.id);
     accion = `${accion}_lead_nuevo`;
   }
-  return { accion, leadId, disparar: leadId != null };
+  return { accion, leadId, disparar: leadId != null, pausar };
 }
 
 /**

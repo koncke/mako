@@ -1722,7 +1722,7 @@ curl -L \
 
 ### `GET /api/v1/crm/etiquetas` — Etiquetas del CRM
 
-Las etiquetas del CRM del negocio (las que se le ponen a un lead: «Seguimiento», «Cualificado»…) con su id, nombre, color, la etapa del CRM a la que está vinculada (si la hay), a qué etiqueta del WhatsApp del celular corresponde y cuántos leads la tienen. De aquí sale el etiquetaId que piden poner_etiqueta_lead, sacar_etiqueta_lead, editar_etiqueta y archivar_etiqueta. Las archivadas no se pueden poner y solo vienen si se piden.
+Las etiquetas del CRM del negocio (las que se le agregan a un lead: «Seguimiento», «Cualificado»…) con su id, nombre, color, la etapa del CRM a la que está vinculada (si la hay), a qué etiqueta del WhatsApp del celular corresponde y cuántos leads la tienen. De aquí sale el etiquetaId que piden poner_etiqueta_lead, sacar_etiqueta_lead, editar_etiqueta y archivar_etiqueta. Las archivadas no se pueden agregar y solo vienen si se piden.
 
 - **Ruta por operación:** `GET /api/v1/crm/listar_etiquetas`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -1745,7 +1745,7 @@ curl -L \
 
 ### `GET /api/v1/crm/leads/{leadId}/etiquetas` — Etiquetas de un lead
 
-Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le puso cada una y quién (una persona, MaKo o una automatización; por la API HTTP no se dice QUÉ persona: sale «una persona»). Úsala antes de poner o sacar una etiqueta, o para contestar «¿este lead está cualificado?». Una archivada viene con archivada en true: ya no cuenta en las automatizaciones. Pide el leadId (de buscar_leads).
+Las etiquetas que tiene UN lead, con su id, nombre y color, cuándo se le agregó cada una y quién (una persona, MaKo o una automatización; por la API HTTP no se dice QUÉ persona: sale «una persona»). Úsala antes de agregar o eliminar una etiqueta, o para contestar «¿este lead está cualificado?». Una archivada viene con archivada en true: ya no cuenta en las automatizaciones. Pide el leadId (de buscar_leads).
 
 - **Ruta por operación:** `GET /api/v1/crm/etiquetas_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -2197,7 +2197,7 @@ curl -L \
 
 ### `PATCH /api/v1/crm/etiquetas/{etiquetaId}` — Editar una etiqueta del CRM
 
-PROPONE cambiar el nombre, el color, el emoji, la etapa vinculada o la etiqueta del WhatsApp del celular de una etiqueta del CRM (queda pendiente hasta el «sí»). Cambiar la etapa vale desde ahora: no les pone ni les saca la etiqueta a los que ya están en esa etapa. Para desvincular, sinEtapa o sinWhatsApp en true. Si no cambia nada, lo dice.
+PROPONE cambiar el nombre, el color, el emoji, la etapa vinculada o la etiqueta del WhatsApp del celular de una etiqueta del CRM (queda pendiente hasta el «sí»). Cambiar la etapa vale desde ahora: no les agrega ni les elimina la etiqueta a los que ya están en esa etapa. Para desvincular, sinEtapa o sinWhatsApp en true. Si no cambia nada, lo dice.
 
 - **Ruta por operación:** `POST /api/v1/crm/editar_etiqueta`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2233,7 +2233,7 @@ curl -L \
 
 ### `PUT /api/v1/crm/etiquetas/{etiquetaId}/archivado` — Archivar una etiqueta del CRM
 
-PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»). Archivarla la APAGA: deja de ofrecerse y de poder ponerse, no dispara más las automatizaciones que arrancan con ella y las condiciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen conservan la fila como historia (su ficha la muestra «archivada»), y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.
+PROPONE archivar una etiqueta del CRM (queda pendiente hasta el «sí»). Archivarla la APAGA: deja de ofrecerse y de poder agregarse, no dispara más las automatizaciones que arrancan con ella y las condiciones que la nombran dejan de cumplirse. Nunca se borra: los leads que la tienen conservan la fila como historia (su ficha la muestra «archivada»), y con archivar en false se recupera. Antes del «sí» dice cuántas automatizaciones y cuántos leads la usan.
 
 - **Ruta por operación:** `POST /api/v1/crm/archivar_etiqueta`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2260,16 +2260,16 @@ curl -L \
   "https://hola-mako.com/api/v1/crm/etiquetas/ETIQUETA_ID/archivado"
 ```
 
-### `PUT /api/v1/crm/leads/{leadId}/etiquetas/{etiquetaId}` — Ponerle una etiqueta a un lead
+### `PUT /api/v1/crm/leads/{leadId}/etiquetas/{etiquetaId}` — Agregarle una etiqueta a un lead
 
-PROPONE ponerle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). Si la etiqueta está vinculada a una etapa, lo pasa a esa etapa (salvo un cierre, que se mueve a mano). Dispara las automatizaciones que arrancan con esa etiqueta y la pone también en su chat de WhatsApp y en Chatwoot si están conectados. Si ya la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (listar_etiquetas).
+PROPONE agregarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). Si la etiqueta está vinculada a una etapa, lo pasa a esa etapa (salvo un cierre, que se mueve a mano). Dispara las automatizaciones que arrancan con esa etiqueta (y las de «Se agrega etiqueta a un lead») y la agrega también en su chat de WhatsApp y en Chatwoot si están conectados. Si ya la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (listar_etiquetas).
 
 - **Ruta por operación:** `POST /api/v1/crm/poner_etiqueta_lead`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** una fila en crm_lead_etiquetas y una línea en el historial del lead; puede mover al lead a la etapa vinculada, inscribirlo en las automatizaciones de esa etiqueta y ponerla en WhatsApp y Chatwoot
+- **Escribe:** una fila en crm_lead_etiquetas y una línea en el historial del lead; puede mover al lead a la etapa vinculada, inscribirlo en las automatizaciones de esa etiqueta y agregarla en WhatsApp y Chatwoot
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** crm
@@ -2288,16 +2288,16 @@ curl -L \
   "https://hola-mako.com/api/v1/crm/leads/LEAD_ID/etiquetas/ETIQUETA_ID"
 ```
 
-### `DELETE /api/v1/crm/leads/{leadId}/etiquetas/{etiquetaId}` — Sacarle una etiqueta a un lead
+### `DELETE /api/v1/crm/leads/{leadId}/etiquetas/{etiquetaId}` — Eliminarle una etiqueta a un lead
 
-PROPONE sacarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). No lo mueve de etapa ni dispara nada; la saca también de su chat de WhatsApp y de Chatwoot si estaba ahí. Si no la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (etiquetas_lead).
+PROPONE eliminarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). No lo mueve de etapa; dispara las automatizaciones de «Se elimina etiqueta a un lead», y la elimina también de su chat de WhatsApp y de Chatwoot si estaba ahí. Si no la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (etiquetas_lead).
 
 - **Ruta por operación:** `POST /api/v1/crm/sacar_etiqueta_lead`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** borra la fila de crm_lead_etiquetas y deja una línea en el historial del lead; la saca de WhatsApp y Chatwoot
+- **Escribe:** borra la fila de crm_lead_etiquetas y deja una línea en el historial del lead; puede inscribirlo en las automatizaciones de «Se elimina etiqueta a un lead» y la elimina de WhatsApp y Chatwoot
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** crm

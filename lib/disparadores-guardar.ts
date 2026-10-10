@@ -2,7 +2,8 @@
 // disparadores-guardar — guardar los CRON de una automatización (la lista entera)
 // =============================================================================
 // Lo llama POST /api/chat-agent/secuencias `{ action: 'disparadores', secuenciaId, disparadores }`
-// (sexta tanda del Chatbot, CRON punto 10). El modelo y las reglas puras viven en
+// (sexta tanda del Chatbot, CRON punto 10), y la API de MaKo (`cambiar_crons_secuencia`, con
+// `prepararDisparadores` para chequear sin escribir). El modelo y las reglas puras viven en
 // lib/disparadores.ts; acá se valida contra el NEGOCIO (que la etapa, el producto y la etiqueta
 // existan) y se escribe:
 //   · el PRIMERO en las columnas de siempre (`columnasDeDisparador`): las leen quince lugares que no
@@ -89,18 +90,41 @@ async function validarContraElNegocio(nuevos: readonly Disparador[]): Promise<vo
   }
 }
 
-/**
- * GUARDA LA LISTA ENTERA DE CRON y devuelve la que quedó (con la próxima ocurrencia de cada horario).
- * Sin la 0241, guarda UNO (el primero, en las columnas) y con dos o más contesta «Aún no se pueden
- * varios CRON»: guardar sólo el primero sería guardar otra cosa que lo elegido, en silencio.
- */
-export async function guardarDisparadores(secuenciaId: number, entrada: unknown): Promise<Disparador[]> {
+/** La lista que llegó, saneada y con lo que le falta dicho (sin leer la base). */
+function listaValida(entrada: unknown): Disparador[] {
   if (!Array.isArray(entrada)) throw new TriggerInvalidoError('Falta la lista de CRON.');
   if (entrada.length > TOPE_DISPARADORES) throw new TriggerInvalidoError(`Hasta ${TOPE_DISPARADORES} CRON.`);
   const lista = sanearDisparadores(entrada);
   if (lista.length !== entrada.length) throw new TriggerInvalidoError('Hay un CRON que no se entiende.');
   const problema = problemaDeDisparadores(lista);
   if (problema) throw new TriggerInvalidoError(problema);
+  return lista;
+}
+
+/**
+ * TODO LO QUE `guardarDisparadores` CHEQUEA, SIN ESCRIBIR (segunda pasada de la sexta tanda, 09/10/2026).
+ * Lo usa la API de MaKo (`cambiar_crons_secuencia`, lib/api-mako/areas/chatbot.run.ts) en su
+ * `preparar()`: AGENTS.md, «todo lo que se pueda saber sin escribir falla en preparar()» — una
+ * propuesta con una etapa que no existe se rechazaría recién al confirmar, con la pendiente ya
+ * consumida. Devuelve la lista saneada y la de antes (para decir qué cambia y si cambia algo).
+ */
+export async function prepararDisparadores(secuenciaId: number, entrada: unknown): Promise<{ lista: Disparador[]; previos: Disparador[] }> {
+  const lista = listaValida(entrada);
+  const fila = await leerFila(await getTenantDb(), secuenciaId);
+  if (!fila) throw new TriggerInvalidoError('Esa automatización no existe en este negocio.');
+  const previos = disparadoresDe(fila.row);
+  await validarContraElNegocio(nuevosOCambiados(lista, previos));
+  if (fila.rev == null && lista.length > 1) throw new TriggerInvalidoError('Aún no se pueden varios CRON.');
+  return { lista, previos };
+}
+
+/**
+ * GUARDA LA LISTA ENTERA DE CRON y devuelve la que quedó (con la próxima ocurrencia de cada horario).
+ * Sin la 0241, guarda UNO (el primero, en las columnas) y con dos o más contesta «Aún no se pueden
+ * varios CRON»: guardar sólo el primero sería guardar otra cosa que lo elegido, en silencio.
+ */
+export async function guardarDisparadores(secuenciaId: number, entrada: unknown): Promise<Disparador[]> {
+  const lista = listaValida(entrada);
 
   const db = await getTenantDb();
   const tz = await tzActual().catch(() => TZ_DEFAULT);

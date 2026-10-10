@@ -55,6 +55,7 @@ import {
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { aplicarVariables, valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
+import { valoresDeEjemplo } from './variables-aviso';
 // El HTML de un email (parte C de la tercera tanda): puro y sin `server-only`, como este módulo.
 import { aplicarVariablesHtml, sanearHtmlEmail, htmlEmailVacio, TOPE_HTML_EMAIL } from './email-html-seguro';
 // El remitente de la prueba real (sexta tanda): puro y sin imports, como este módulo.
@@ -275,9 +276,27 @@ export function elegirComoLead(pasos: readonly PasoGrafo[], estado: EstadoSim, h
 const ejemplo = (key: string): string => VARIABLES_LEAD.find((v) => v.key === key)?.ejemplo ?? '';
 export const LEAD_DE_EJEMPLO = { nombre: ejemplo('nombre_completo'), empresa: ejemplo('empresa') };
 
+/**
+ * LOS DATOS «{ }» DE UNA PRUEBA, en UN lugar: los EJEMPLOS del catálogo entero (`valoresDeEjemplo`,
+ * lib/variables-aviso.ts) debajo, y el lead de la prueba encima (gana: es lo que la prueba sabe).
+ *
+ * ⚠️ DESDE LA SEXTA TANDA EL MOTOR RESUELVE EL CATÁLOGO ENTERO (`datosParaElLead`), y «Probar» seguía con
+ * los cinco de antes: la etapa, la reunión o el curso salían CRUDOS en el simulador y en la prueba real,
+ * y se leía como que el dato no funcionaba. Lo usan `textoDeEjemplo` (el simulador) y `probarSecuencia`
+ * (lib/setting-secuencias.ts, la prueba real).
+ *
+ * El NOMBRE DEL NEGOCIO no sale de un ejemplo: es el real o queda crudo, como en el motor (un nombre de
+ * negocio inventado en la burbuja se leería como el del cliente).
+ */
+export function datosDeEjemplo(lead: { nombre?: string | null; empresa?: string | null }, negocio?: string | null): Record<string, string> {
+  const { negocio: _sinNegocio, ...ejemplos } = valoresDeEjemplo();
+  void _sinNegocio;
+  return { ...ejemplos, ...valoresVariablesLead(lead, { negocio }) };
+}
+
 /** El texto tal como le llegaría al lead de ejemplo. Lo desconocido queda CRUDO, como en el motor. */
 export function textoDeEjemplo(texto: string, negocio?: string | null): string {
-  return aplicarVariables(texto ?? '', valoresVariablesLead(LEAD_DE_EJEMPLO, { negocio }));
+  return aplicarVariables(texto ?? '', datosDeEjemplo(LEAD_DE_EJEMPLO, negocio));
 }
 
 /**
@@ -301,7 +320,7 @@ export function correoDeEjemplo(
     asunto: textoDeEjemplo(p.asunto ?? '', negocio).trim(),
     vistaPrevia: textoDeEjemplo(p.preheader ?? '', negocio).trim(),
     cuerpo: textoDeEjemplo(p.cuerpo ?? '', negocio),
-    html: p.cuerpo_html ? aplicarVariablesHtml(p.cuerpo_html, valoresVariablesLead(LEAD_DE_EJEMPLO, { negocio })) : '',
+    html: p.cuerpo_html ? aplicarVariablesHtml(p.cuerpo_html, datosDeEjemplo(LEAD_DE_EJEMPLO, negocio)) : '',
   };
 }
 

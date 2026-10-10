@@ -418,7 +418,7 @@ function puertos(): PuertosEtiquetas<Etiqueta> {
       const { data, error } = await db.from('crm_lead_etiquetas')
         .upsert([{ lead_id: leadId, etiqueta_id: etiquetaId, puesta_por: autor, puesta_at: new Date().toISOString() }], { onConflict: 'lead_id,etiqueta_id', ignoreDuplicates: true })
         .select('id');
-      if (error) throw new Error(`No se pudo poner la etiqueta: ${error.message}`);
+      if (error) throw new Error(`No se pudo agregar la etiqueta: ${error.message}`);
       return ((data ?? []) as unknown[]).length > 0;
     },
     insertarLote: async (leadIds, etiquetaId, autor) => {
@@ -435,7 +435,7 @@ function puertos(): PuertosEtiquetas<Etiqueta> {
         const { data, error } = await db.from('crm_lead_etiquetas')
           .upsert(ids.map((lead_id) => ({ lead_id, etiqueta_id: etiquetaId, puesta_por: autor, puesta_at: ahora })), { onConflict: 'lead_id,etiqueta_id', ignoreDuplicates: true })
           .select('lead_id');
-        if (error) throw new Error(`No se pudo poner la etiqueta: ${error.message}`);
+        if (error) throw new Error(`No se pudo agregar la etiqueta: ${error.message}`);
         out.push(...((data ?? []) as Array<{ lead_id: number }>).map((r) => Number(r.lead_id)));
       }
       return out;
@@ -443,7 +443,7 @@ function puertos(): PuertosEtiquetas<Etiqueta> {
     borrar: async (leadId, etiquetaId) => {
       const db = await getTenantDb();
       const { data, error } = await db.from('crm_lead_etiquetas').delete().eq('lead_id', leadId).eq('etiqueta_id', etiquetaId).select('id');
-      if (error) throw new Error(`No se pudo sacar la etiqueta: ${error.message}`);
+      if (error) throw new Error(`No se pudo eliminar la etiqueta: ${error.message}`);
       return ((data ?? []) as unknown[]).length > 0;
     },
     borrarLote: async (leadIds, etiquetaId) => {
@@ -451,7 +451,7 @@ function puertos(): PuertosEtiquetas<Etiqueta> {
       const out: number[] = [];
       for (let i = 0; i < leadIds.length; i += 200) {
         const { data, error } = await db.from('crm_lead_etiquetas').delete().eq('etiqueta_id', etiquetaId).in('lead_id', leadIds.slice(i, i + 200)).select('lead_id');
-        if (error) throw new Error(`No se pudo sacar la etiqueta: ${error.message}`);
+        if (error) throw new Error(`No se pudo eliminar la etiqueta: ${error.message}`);
         out.push(...((data ?? []) as Array<{ lead_id: number }>).map((r) => Number(r.lead_id)));
       }
       return out;
@@ -656,7 +656,7 @@ export type ResultadoConciliacion = {
 
 /**
  * Por lead, las etiquetas (por su clave de nombre) que alguien tocó desde `desde`: el historial
- * del lead dice «Se puso «X»», «Se sacó «X»», ««X» no se puso en WhatsApp…». El barrido no las
+ * del lead dice «Se agregó «X»», «Se eliminó «X»», ««X» no se agregó en WhatsApp…». El barrido no las
  * vuelve a poner ni a sacar: o el gancho del movimiento ya lo hizo, o una PERSONA decidió otra cosa
  * después — y una red no deshace una decisión. Por NOMBRE porque es lo que el historial guarda:
  * una etiqueta renombrada en el medio no se reconoce y el barrido la espeja igual.

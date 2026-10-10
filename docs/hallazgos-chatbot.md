@@ -2170,6 +2170,143 @@ el caso que se puede ver dibujando, nada más.
   la condición y las líneas de WhatsApp (son del negocio, con su punto de color). Si Martín los quiere,
   es una fila por desplegable.
 - `repartenEnBucle` sigue exportada sólo para sus tests y `admiteParalelo`. `lib/flujo-grafo.ts`
+## Sexta tanda, segunda pasada, parte «motor» (09/10/2026): los enchufes del motor, los webhooks y la API
+
+Las ocho partes dejaron salidas con cero call sites; esta pasada las enchufó (rama `wip-v6b-motor`).
+De las listas «sin hacer» de arriba quedaron CERRADOS: la pausa por una respuesta de Instagram o
+Messenger, el email que llega por el webhook de siempre de Resend, `email_entrantes` en
+`TABLAS_DE_INQUILINO` y `'email'` en `ServicioRuteo`, el Recurrente al grupo con los canales apagados,
+una operación de la API para cambiar los CRON (`cambiar_crons_secuencia`), los seis tipos en
+`TRIGGERS`, la tarjeta MAKO con el catálogo entero del «{ }», «Probar» con los datos nuevos y los
+textos de la API con «de 9 a 21». Lo que sigue es lo que ahorra tiempo después.
+
+### Sacar un cast de «INTEGRACIÓN» no integra: el webhook y el CRON hablaban dos idiomas [canales, motor]
+
+El diagnóstico obvio del bloqueante era «falta el evento en `EventoNutricion`; cuando esté, se saca el
+cast». Se sacó, compiló perfecto, y un CRON «El usuario envía un mensaje» no iba a arrancar NUNCA: el
+lector del webhook (`eventoSocialDe`, parte «canales») dice `mensaje`, `comentario_vivo`, `referencia`,
+y el CRON (`EVENTOS_INSTAGRAM` / `EVENTOS_MESSENGER`, parte «disparadores») guarda `dm`, `en_vivo`,
+`ref`. `disparaPorEvento` compara exacto. 3 de los 11 eventos que llegan no coincidían, y la tienda de
+Facebook se ofrecía encendida en el CRON con Zernio sin avisarla.
+
+**La regla:** cuando un productor y un consumidor se escriben en paralelo, el cast que los une esconde
+también los VALORES, no sólo el tipo. Al sacarlo, un test que CRUCE las dos tablas en las dos
+direcciones (todo lo que llega cae en algo del CRON; todo lo que el CRON ofrece encendido llega). La
+traducción vive en UN lugar (`subtipoDelEvento`).
+
+**Vive en:** `lib/disparadores.ts` (`subtipoDelEvento`, `EVENTOS_MESSENGER`) · `lib/zernio-entrante.ts` · `tests/disparadores-canal-social.test.ts`
+
+### «¿Hay quién escuche?» preguntaba otra cosa que «¿a quién inscribo?»: un lead por cada DM [canales]
+
+`hayQuienEscuche` decide si se CREA un lead para alguien que escribió por Instagram, y preguntaba
+`trigger_tipo.includes(canal)`: el PRIMER CRON y cualquier evento del canal. Con un CRON «comenta tu
+publicación», cada persona que mandaba un DM quedaba como lead del CRM, y un segundo CRON de Instagram
+no contaba. Ahora es la MISMA pregunta que al inscribir (`escuchaElEvento`: `disparaPorEvento` sobre
+`vistasPorDisparador`). Dos funciones que contestan «¿esto arranca algo?» con dos criterios terminan
+creando leads que nada inscribe.
+
+**Vive en:** `lib/disparadores.ts` (`escuchaElEvento`) · `lib/zernio-entrante.ts` (`hayQuienEscuche`)
+
+### Una respuesta por Instagram pausa SIN contestar, y la pausa va ANTES del disparo [motor]
+
+Llamar a `pausarPorRespuesta` desde el webhook de Zernio, tal cual, le contestaba por WhatsApp a quien
+escribió por Instagram (el destrabe, el asistido y la charla contestan). Con `origen: canal` corta
+después de pausar lo activo y lo terminado, y antes de todo lo que contesta. Y el orden en el `after`
+importa: el mismo DM puede arrancar una automatización de «Te envía un mensaje», así que pausar DESPUÉS
+del disparo pausaba la que ese mensaje acababa de arrancar. El negocio ve la respuesta en su Instagram
+(MaKo no tiene bandeja de Instagram desde el 06/10).
+
+**Vive en:** `lib/nutricion.ts` (`pausarPorRespuesta`, `soloPausa`) · `app/api/webhooks/zernio/route.ts` · `lib/zernio-entrante.ts` (`pausarRespuestaSocial`)
+
+### Con los canales apagados, el Recurrente al grupo NO puede ser «correr el barrido» [motor]
+
+El bloqueante pedía llamar `comprometerInscripciones()` cuando alguna automatización tuviera un
+Recurrente al grupo. Hecho así, un negocio con los dos canales apagados (modo 'off') pasaba a inscribir
+a TODAS sus cohortes, y el día que prendiera un canal le salían semanas de mensajes juntos. Va
+`soloGrupo`: reclama la ocurrencia y le manda al grupo (que sale por la línea de MaKo, no por la del
+negocio) sin inscribir a nadie. Un Recurrente mixto (cohorte + grupo) pierde esa ocurrencia para la
+cohorte, que es lo que ya pasaba con los canales apagados.
+
+**Vive en:** `lib/nutricion.ts` (`comprometerInscripciones({ soloGrupo })`) · `app/api/cron/nutricion/route.ts` · `lib/disparadores.ts` (`tieneRecurrenteAlGrupo`)
+
+### Nombrar un disparador no es poder elegirlo por cualquier puerta [motor]
+
+Sumar los seis tipos a `TRIGGERS` (para que la API no diga el slug crudo) los ofrece también en el
+selector de /email y en la API de email, que escriben SÓLO `trigger_tipo`: un «instagram» sin su evento,
+un «email_recibido» sin subtipo o un «grupo_mako» sin horario quedaban como una automatización que no
+arranca nunca. `SOLO_DESDE_EL_CRON` los rechaza en esas puertas; las dos de etiqueta («Se agrega / se
+elimina») sí pasan (su «Ignorar» es opcional). ⚠️ Queda abierta la de `setTriggerSecuencia`
+(lib/setting-secuencias.ts, de otra parte): ver «sin hacer».
+
+**Vive en:** `lib/disparadores.ts` (`SOLO_DESDE_EL_CRON`) · `lib/email-marketing.ts` · `lib/api-mako/areas/email.run.ts`
+
+### Un campo que pasa de UNO a una LISTA: los lectores no fallan, miran la primera [etiquetas]
+
+La tarjeta TAG guarda la primera en `etiquetaId` y todas en `etiquetaIds`. Un `grep` de `etiquetaId`
+dio cinco lectores que miraban sólo la primera, cada uno con su síntoma mudo: el ejecutor corría UNA
+(el validador del registro tira lo no declarado), archivar la 2.ª contaba «nada la usa», la copia a un
+workspace de prueba llevaba la 2.ª con el id del DUEÑO, y Crear con IA guardaba NEGATIVO el ref de una
+etiqueta nueva en la 2.ª posición. ⚠️ Medido: «Editar con IA» NO perdía las demás (sólo agrega,
+`deIAEdicion`), pero su contexto (`aIA`) decía una sola. Y `etiquetasDelPaso` no sirve en flujo-ia: tira
+los ids negativos, que ahí son etiquetas por crear (`etiquetasDeAccion`).
+
+**Vive en:** `lib/api-mako/flujo.ts` (`ejecutarDesdeFlujo`) · `lib/etiquetas-reglas.ts` (`usoEnPasos`, `traducirEtiquetasEnSecuencia`) · `lib/flujo-ia.ts` · `tests/etiquetas-varias-lectores.test.ts`
+
+### La copia a un workspace de prueba llevaba la línea por mensaje y los archivos de las partes [motor]
+
+`secuenciaParaElDestino` vaciaba el audio y el archivo del PASO, no los de sus partes (cuarta tanda), y
+no conocía la `linea` por mensaje (sexta): en el destino `elegirLinea` no encuentra la línea del dueño y
+ese mensaje no sale, sin caer a la de por default. Ahora es una función pura con test
+(`pasosParaElDestino`). ⚠️ `lib/datos-mau.ts` copia secuencias por otro camino y no la usa.
+
+**Vive en:** `lib/clonar-pasos.ts` · `lib/clonar-config.ts`
+
+### Los datos «{ }»: lo que se ofrece se resuelve, en la tarjeta MAKO y en «Probar» [motor]
+
+La tarjeta MAKO EN WHATSAPP resolvía los cinco del motor y la parte «flujo» le monta el árbol del equipo:
+ahora `conVariables` con destino 'equipo' y el workspace del ctx, con lo del motor como `datos` (gana) y
+`aplicarVariables` después para lo de antes con UNA llave (`{nombre}`), que el catálogo no lee.
+«Probar» y la prueba real resuelven con los ejemplos del catálogo (`datosDeEjemplo`), salvo el nombre
+del negocio: es el real o queda crudo, como en el motor (uno inventado se leería como el del cliente).
+
+**Vive en:** `lib/api-mako/areas/chatbot.run.ts` (`textoDelAviso`) · `lib/simulador-grafo.ts` (`datosDeEjemplo`) · `lib/setting-secuencias.ts` (`probarSecuencia`)
+
+### La API: cambiar los CRON, y las dos lecturas del curso por la app [api]
+
+`cambiar_crons_secuencia` es de PANTALLA y SIN http (cambia a quién le escribe; exponerlo a un token es
+la decisión del snapshot), y se guarda por la MISMA puerta que la pantalla. `prepararDisparadores`
+chequea contra el negocio sin escribir: un rechazo al confirmar consumiría la pendiente. `ignorar` y
+`cron.dias` viajan como TEXTOS (el validador no tiene listas de números) y el saneador del CRON ya los
+convierte. ⚠️ En un `preparar()` no va `tzDeWorkspace`: si la zona falta, la averigua y la ESCRIBE.
+`listar_cursos` y `ver_curso` salen también por la app (el ✦ las pedía y contestaban 404): son la
+estructura del curso, sin una sola persona.
+
+**Vive en:** `lib/api-mako/areas/chatbot.def.ts` / `.run.ts` · `lib/disparadores-guardar.ts` · `lib/api-mako/areas/curso.def.ts` · `tests/api-mako-crons.test.ts`
+
+### Medido en producción (sólo lectura, 09/10/2026) [entorno]
+
+Sin aplicar: `email_entrantes` (0245), `zernio_eventos` (0242), `nutricion_secuencias.disparadores`
+(0241) y `.pasos_borrador` (0240). `ig_conversaciones` e `ig_mensajes` SÍ existen (no medí si con las
+columnas nuevas). Hasta aplicar la 0242 el webhook de Zernio contesta 500 en cada evento (el reclamo del
+dedup no tiene tabla): fail-closed, pero ⚠️ con el webhook ya registrado (lo registra el editor al pedir
+la cuenta, `asegurarWebhook`) Zernio apaga el endpoint a los 3 días sin una entrega buena. La 0242 va
+ANTES del deploy. La tabla que falta contesta `PGRST205`, no `42P01`: ver
+[hallazgos-infra.md](hallazgos-infra.md) → «Borrar un inquilino entero».
+
+### Lo que quedó sin hacer (parte «motor»)
+
+- **`setTriggerSecuencia` acepta los seis por `TRIGGERS`**: hay que rechazar `SOLO_DESDE_EL_CRON` ahí
+  también (`lib/setting-secuencias.ts`, otra parte). Hoy lo llaman /email (cerrado en su puerta), la API
+  de email (cerrada) y la ruta del CRON de antes (`action: 'trigger'`).
+- **Un email del lead no pausa** lo que le escriben (una respuesta de WhatsApp sí). Es una decisión de
+  producto: con `origen: 'email'` sería una línea en `recibirEmailEntrante`. `lib/email-entrante.ts`
+- **`cambiar_crons_secuencia` por HTTP**: es una decisión (el snapshot y su fila en `lib/api-mako/rest.ts`).
+- **La copia de `lib/datos-mau.ts`** no usa `pasosParaElDestino`.
+- **El clon no copia `disparadores`** (la lista de CRON): una automatización con varios llega con uno, y
+  un primer CRON de Instagram llega sin su evento. `lib/clonar-config.ts` (`TABLAS`, la fila de
+  `nutricion_secuencias`).
+- **`noExiste` de `lib/reset-workspace.ts` mira sólo `42P01`** (ver infra).
+- **Verlo con clics y con un evento real**: nada de esto recibió un webhook de verdad.
 
 ## Lo que quedó sin hacer
 

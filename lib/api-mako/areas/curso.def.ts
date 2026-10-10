@@ -13,7 +13,8 @@
 //
 // Decisiones, y por qué:
 //   · SÓLO POR HTTP. Es la puerta de la migración; por WhatsApp nadie arma un curso de cien clases,
-//     y sumarlo al doer es otra decisión.
+//     y sumarlo al doer es otra decisión. (Salvo las dos lecturas de la estructura, que también salen
+//     por la app desde la sexta tanda: ver `LECTURA_APP`.)
 //   · UN ÁREA PROPIA y no `cs`: un token para migrar un curso no tiene por qué ver la cartera de
 //     clientes. El permiso «Curso» se da solo.
 //   · LOS MÓDULOS NUEVOS NACEN SUELTOS. Un módulo VINCULADO es una etapa del kanban de clientes:
@@ -36,6 +37,15 @@
 import type { OperacionDef, Parametro } from '../tipos';
 
 const HTTP = ['http'] as const;
+/**
+ * LAS DOS LECTURAS DE LA ESTRUCTURA, TAMBIÉN POR LA APP (segunda pasada de la sexta tanda, 09/10/2026):
+ * el ✦ de MaKo que redacta un mensaje en el lienzo (lib/mako-redacta.ts, `LECTURAS_REDACTA`) pide
+ * `listar_cursos` para escribir sobre el curso, y por la app contestaba 404 y se salteaba. Son lecturas
+ * SIN DATOS DE PERSONAS —el nombre del producto, cuántos módulos y clases, los títulos y los links de
+ * los videos—: ni alumnos, ni avance, ni accesos (eso es del área `cs`). Por WhatsApp, no: sumarlo al
+ * doer es otra decisión. Escribir el curso sigue SÓLO por HTTP.
+ */
+const LECTURA_APP = ['app', 'http'] as const;
 /** La tab del curso vive en Customer Success: la misma capa. Y editar el curso es del admin. */
 const GATING = { tab: 'customer-success', rolMinimo: 'admin' } as const;
 
@@ -126,14 +136,14 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Listar los cursos',
     descripcion: 'Los productos de este negocio que pueden tener curso (los mismos que muestra Customer Success › Curso), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.',
     parametros: [],
-    salida: 'json', canales: HTTP, costo: 'gratis', gating: GATING,
+    salida: 'json', canales: LECTURA_APP, costo: 'gratis', gating: GATING,
   },
   {
     id: 'ver_curso', area: 'curso', tipo: 'lectura',
     titulo: 'Ver un curso',
     descripcion: 'El curso de un producto: sus módulos en orden (clave, nombre, si es una etapa del kanban de clientes) y, adentro de cada uno, sus clases en orden (id, título, video, minutos, si tiene descripción y tarea). Las clases sin módulo vienen aparte. Para la descripción entera de una clase, ver_clase_curso.',
     parametros: [productoId],
-    salida: 'json', canales: HTTP, costo: 'gratis', gating: GATING,
+    salida: 'json', canales: LECTURA_APP, costo: 'gratis', gating: GATING,
   },
   {
     id: 'ver_clase_curso', area: 'curso', tipo: 'lectura',

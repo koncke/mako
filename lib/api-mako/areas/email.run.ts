@@ -41,6 +41,7 @@ import {
 } from '@/lib/email-marketing';
 import { etiquetaPorId } from '@/lib/etiquetas';
 import { TRIGGER_ETIQUETA } from '@/lib/etiquetas-reglas';
+import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from '@/lib/disparadores';
 import { setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { getEmailFrom, remitenteEsSandbox, emailConectado, displayNameDe, verifyResendDomain, getResendDomain } from '@/lib/resend';
@@ -117,6 +118,11 @@ function primerTurnoCron(ms: number): number {
 function errorEtapaTrigger(etapa: string | undefined, trigger: string | undefined): Preparado | null {
   if (trigger !== undefined && !TRIGGERS.some((t) => t.value === trigger)) {
     return { error: `El trigger «${trigger}» no existe.`, disponibles: TRIGGERS.map((t) => t.value) };
+  }
+  // Un evento de Instagram, Messenger o el email que llega, y el Recurrente al grupo, necesitan su
+  // evento o su horario: por esta puerta quedarían como una secuencia que no arranca nunca.
+  if (trigger !== undefined && SOLO_DESDE_EL_CRON.has(trigger)) {
+    return { error: `${MOTIVO_SOLO_DESDE_EL_CRON} El trigger «${labelDe(TRIGGERS, trigger)}» pide el evento o el horario, y esta operación no los tiene.`, disponibles: TRIGGERS.filter((t) => !SOLO_DESDE_EL_CRON.has(t.value)).map((t) => t.value) };
   }
   if (etapa !== undefined && trigger !== 'etapa_actual' && !ETAPAS.some((e) => e.value === etapa)) {
     return { error: `La etapa «${etapa}» no existe (solo con el trigger etapa_actual se usa una clave del funnel).`, disponibles: ETAPAS.map((e) => e.value) };
@@ -229,7 +235,10 @@ export const RUNNERS: Runners = {
   },
 
   listar_triggers_email: {
-    leer: async () => json({ triggers: TRIGGERS.map((t) => ({ value: t.value, label: t.label })), nota: '«manual» no inscribe a nadie solo.' }),
+    leer: async () => json({
+      triggers: TRIGGERS.map((t) => ({ value: t.value, label: t.label, ...(SOLO_DESDE_EL_CRON.has(t.value) ? { solo_desde_el_cron: true } : {}) })),
+      nota: '«manual» no inscribe a nadie solo. Los que dicen solo_desde_el_cron necesitan el evento o el horario: se eligen en el CRON de la automatización, no al crear ni al cambiar una secuencia de email.',
+    }),
   },
 
   listar_broadcasts: {

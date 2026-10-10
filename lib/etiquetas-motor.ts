@@ -115,7 +115,7 @@ const nada = (yaEstaba: boolean): ResultadoPoner => ({ ok: true, yaEstaba, dispa
 async function anotarSync<E extends EtiquetaMotor>(p: PuertosEtiquetas<E>, leadId: number, e: E, accion: 'poner' | 'sacar', sync: ResultadoSync[]): Promise<void> {
   for (const s of sync) {
     if (s.ok) continue;
-    await p.historial(leadId, `«${e.nombre}» no se ${accion === 'poner' ? 'puso' : 'sacó'} en ${s.destino}: ${s.error ?? 'sin respuesta'}`.slice(0, 300), 'MaKo');
+    await p.historial(leadId, `«${e.nombre}» no se ${accion === 'poner' ? 'agregó' : 'eliminó'} en ${s.destino}: ${s.error ?? 'sin respuesta'}`.slice(0, 300), 'MaKo');
   }
 }
 
@@ -130,7 +130,7 @@ export async function ponerEtiquetaCon<E extends EtiquetaMotor>(p: PuertosEtique
   if (!(await p.insertar(leadId, etiquetaId, o.autor))) return nada(true);
 
   // 2. El historial.
-  await p.historial(leadId, `Se puso «${e.nombre}»`, o.autor);
+  await p.historial(leadId, `Se agregó «${e.nombre}»`, o.autor);
 
   // 3. El espejo hacia la etapa. Nunca si la puso entrar a esa misma etapa.
   let movio = false;
@@ -174,7 +174,7 @@ export async function sacarEtiquetaCon<E extends EtiquetaMotor>(p: PuertosEtique
   if (!e) return { ok: false, error: 'Esa etiqueta no existe en este negocio.' };
   if (!(await p.leadExiste(leadId))) return { ok: false, error: 'Ese lead no existe en este negocio.' };
   if (!(await p.borrar(leadId, etiquetaId))) return nada(true);
-  await p.historial(leadId, `Se sacó «${e.nombre}»`, o.autor);
+  await p.historial(leadId, `Se eliminó «${e.nombre}»`, o.autor);
   let disparo: 'si' | 'espaciado' | 'no' = 'no';
   if (o.origen !== 'etapa') {
     disparo = 'espaciado';
@@ -273,7 +273,7 @@ async function syncGrupos<E extends EtiquetaMotor>(p: PuertosEtiquetas<E>, grupo
     quedan -= ahora.length;
     for (const id of ahora) await anotarSync(p, id, e, accion, await p.sincronizar(id, e, accion));
     sincronizados += ahora.length;
-    if (resto.length) await p.historialLote(resto, `«${e.nombre}» no se ${accion === 'poner' ? 'puso' : 'sacó'} en ${destinos.join(' ni ')}: eran más de ${tope} a la vez`, 'MaKo');
+    if (resto.length) await p.historialLote(resto, `«${e.nombre}» no se ${accion === 'poner' ? 'agregó' : 'eliminó'} en ${destinos.join(' ni ')}: eran más de ${tope} a la vez`, 'MaKo');
     sinSincronizar += resto.length;
   }
   return { sincronizados, sinSincronizar };
@@ -294,7 +294,7 @@ export async function ponerLoteCon<E extends EtiquetaMotor>(p: PuertosEtiquetas<
   if (e.archivada_at) return { ok: false, error: `«${e.nombre}» está archivada.` };
   const ids = [...new Set(leadIds.filter((n) => Number.isInteger(n) && n > 0))];
   const puestos = await p.insertarLote(ids, etiquetaId, autor);
-  if (puestos.length) await p.historialLote(puestos, `Se puso «${e.nombre}» (en lote)`, autor);
+  if (puestos.length) await p.historialLote(puestos, `Se agregó «${e.nombre}» (en lote)`, autor);
   const sinSincronizar = await syncLote(p, puestos, e, 'poner');
   return { ok: true, cambiados: puestos, yaEstaban: ids.length - puestos.length, sinSincronizar };
 }
@@ -305,7 +305,7 @@ export async function sacarLoteCon<E extends EtiquetaMotor>(p: PuertosEtiquetas<
   if (!e) return { ok: false, error: 'Esa etiqueta no existe en este negocio.' };
   const ids = [...new Set(leadIds.filter((n) => Number.isInteger(n) && n > 0))];
   const sacados = await p.borrarLote(ids, etiquetaId);
-  if (sacados.length) await p.historialLote(sacados, `Se sacó «${e.nombre}» (en lote)`, autor);
+  if (sacados.length) await p.historialLote(sacados, `Se eliminó «${e.nombre}» (en lote)`, autor);
   const sinSincronizar = await syncLote(p, sacados, e, 'sacar');
   return { ok: true, cambiados: sacados, yaEstaban: ids.length - sacados.length, sinSincronizar };
 }

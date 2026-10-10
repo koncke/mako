@@ -22,9 +22,12 @@
 //      Zernio corta a los 5 s, y disparar una automatización manda el primer mensaje en el acto. Si lo
 //      rápido falla, se SUELTA el reclamo y se contesta 500: el reintento lo vuelve a intentar entero.
 //
-// Lo que NO hace, a propósito: pausar la salida cuando la persona contesta (ver lib/zernio-entrante.ts)
-// ni guardar lo que manda el negocio (`message.sent`): lo que le llegó a cada lead ya está en
-// `nutricion_envios.texto_enviado`.
+//   5. UNA RESPUESTA PAUSA (segunda pasada, 09/10/2026): un mensaje o una respuesta a una historia de
+//      alguien que ya era un lead pausa lo que le estaban escribiendo, sin contestarle por WhatsApp
+//      (lib/zernio-entrante.ts, `pausarRespuestaSocial`). Va en el mismo `after`, ANTES del disparo.
+//
+// Lo que NO hace, a propósito: guardar lo que manda el negocio (`message.sent`): lo que le llegó a
+// cada lead ya está en `nutricion_envios.texto_enviado`.
 
 import { after, type NextRequest } from 'next/server';
 import { verificarFirmaZernio } from '@/lib/zernio-firma';
@@ -34,7 +37,7 @@ import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { eventoSocialDe } from '@/lib/canal-social';
-import { procesarEventoSocial, dispararEventoSocial } from '@/lib/zernio-entrante';
+import { procesarEventoSocial, dispararEventoSocial, pausarRespuestaSocial } from '@/lib/zernio-entrante';
 import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTOS_WEBHOOK } from '@/lib/zernio';
 
 export const dynamic = 'force-dynamic';
@@ -120,13 +123,24 @@ export async function POST(req: NextRequest) {
       const ev = eventoSocialDe(body);
       if ('ignorar' in ev) return Response.json({ ok: true, event: evento, ignored: ev.ignorar });
       const r = await procesarEventoSocial(ev.evento, body);
-      if (r.disparar && r.leadId != null) {
+      if (r.leadId != null && (r.pausar || r.disparar)) {
         const leadId = r.leadId;
-        const { canal, subtipo, texto: t, ref, anuncioId, postId, comentarioId } = ev.evento;
+        const { canal, subtipo } = ev.evento;
         // `after` corre FUERA del contexto del pedido: el workspace se vuelve a fijar adentro.
+        // ⚠️ LA PAUSA PRIMERO, Y DESPUÉS EL DISPARO: el mismo DM puede arrancar una automatización de
+        // «Te envía un mensaje», y pausar después pausaría la que este mensaje acaba de arrancar.
         after(async () => {
+          if (r.pausar) {
+            try {
+              const n = await runWithWorkspace(wsFinal, () => pausarRespuestaSocial(leadId, canal));
+              console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: respondió, ${n} pausada(s)`);
+            } catch (e) {
+              console.error(`[webhook:zernio] pausar ${canal}/${subtipo} lead ${leadId}: ${msg(e)}`);
+            }
+          }
+          if (!r.disparar) return;
           try {
-            const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, { subtipo, texto: t, ref, anuncioId, postId, comentarioId }));
+            const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, subtipo));
             console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: ${n} automatización(es)`);
           } catch (e) {
             console.error(`[webhook:zernio] disparar ${canal}/${subtipo} lead ${leadId}: ${msg(e)}`);

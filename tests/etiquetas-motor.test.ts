@@ -38,6 +38,10 @@
 //   7. `espejarEtapaCon` sincronizando aunque le pidan que no (`const sincronizar = true`);
 //   8. el tope de `syncGrupos` sin compartir entre grupos (sin `quedan -= ahora.length`);
 //   9. lo que no tiene destino gastando el tope (sin el `if (!destinos.length) continue`).
+//
+// ⚠️ Y TAG 1 DE LA SEXTA TANDA («Agregar» y «Eliminar», nunca «Poner» / «Sacar»: segunda pasada,
+// 09/10/2026): el historial del lead dice «Se agregó «X»» / «Se eliminó «X»» / ««X» no se agregó en…».
+// Con todo puesto: 11 pass / 0 fail; la rotura (el historial de vuelta a «Se puso») → 10 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -181,7 +185,10 @@ test('ESPEJO sin bucle: poner una vinculada mueve a la etapa UNA vez, y el ganch
   assert.deepEqual(n.log.movimientos, ['10:calificado'], 'un solo movimiento: el espejo no rebota');
   assert.equal(n.filas.size, 1);
   assert.equal(n.log.disparos.length, 1, 'dispara una vez (por el poner directo)');
-  assert.equal(n.log.historial.filter((h) => h.includes('Se puso')).length, 1);
+  // TAG 1 (sexta tanda): el historial dice «Se agregó», nunca «Se puso».
+  assert.equal(n.log.historial.filter((h) => h.includes('Se agregó')).length, 1);
+  // Límites por Unicode, no `\b` (AGENTS.md: `\b` es ASCII y no corta después de una «ó»).
+  assert.equal(n.log.historial.filter((h) => /(?<!\p{L})[Ss]e (?:puso|sacó)(?!\p{L})/u.test(h)).length, 0, 'volvió el «Poner» / «Sacar» al historial del lead');
 });
 
 test('ESPEJO desde la etapa: entrar la pone (sin disparar), salir la saca', async () => {
@@ -221,7 +228,7 @@ test('LOTE DE ETAPA: el espejo no le pega a WhatsApp lead por lead; al final se 
   assert.deepEqual(s, { sincronizados: 4, sinSincronizar: 2 });
   assert.deepEqual(n.log.sync, ['sacar:10:5', 'sacar:11:5', 'sacar:12:5', 'poner:10:4']);
   const rastro = n.log.historial.filter((h) => h.includes('eran más de 4 a la vez'));
-  assert.deepEqual(rastro, ['11:«Llamar» no se puso en WhatsApp: eran más de 4 a la vez', '12:«Llamar» no se puso en WhatsApp: eran más de 4 a la vez']);
+  assert.deepEqual(rastro, ['11:«Llamar» no se agregó en WhatsApp: eran más de 4 a la vez', '12:«Llamar» no se agregó en WhatsApp: eran más de 4 a la vez']);
 });
 
 test('lo que no tiene a dónde ir no gasta el tope, y el lote de etiquetas topa por el MISMO camino', async () => {
@@ -255,7 +262,7 @@ test('lo que falla afuera queda en el historial del lead, con el destino', async
   n.p.sincronizar = async () => [{ destino: 'WhatsApp', ok: false, error: 'WhatsApp no confirmó el cambio' }];
   const r = await ponerEtiquetaCon(n.p, 10, 1, O);
   assert.ok(r.ok);
-  assert.ok(n.log.historial.some((h) => h.includes('no se puso en WhatsApp: WhatsApp no confirmó el cambio')), n.log.historial.join(' | '));
+  assert.ok(n.log.historial.some((h) => h.includes('no se agregó en WhatsApp: WhatsApp no confirmó el cambio')), n.log.historial.join(' | '));
 });
 
 // ── La única puerta ──────────────────────────────────────────────────────────

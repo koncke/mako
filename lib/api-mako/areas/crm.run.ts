@@ -658,7 +658,7 @@ export const RUNNERS: Runners = {
       ]);
       return json({
         etiquetas: etiquetas.map((e) => vistaEtiqueta(e, productos, conteo ? (conteo.get(e.id) ?? 0) : null)),
-        nota: 'etiquetaId = id. Vinculada a una etapa: ponerla mueve al lead ahí, y entrar o salir de la etapa la pone o la saca.',
+        nota: 'etiquetaId = id. Vinculada a una etapa: agregarla mueve al lead ahí, y entrar o salir de la etapa la agrega o la elimina.',
       });
     },
   },
@@ -1247,21 +1247,21 @@ export const RUNNERS: Runners = {
       if (!lead) return { error: noExiste(input.leadId) };
       const e = await etiquetaDeInput(input.etiquetaId);
       if (!e) return { error: noExisteEtiqueta(input.etiquetaId) };
-      if (e.archivada_at) return { error: `«${e.nombre}» está archivada: no se puede poner.` };
+      if (e.archivada_at) return { error: `«${e.nombre}» está archivada: no se puede agregar.` };
       const suyas = await etiquetasDeLead(lead.id).catch(() => null);
       if (!suyas) return { error: 'No se pudieron leer las etiquetas del lead.' };
       if (suyas.some((x) => x.id === e.id)) return { error: `${lead.nombre} ya tiene «${e.nombre}».`, yaEstaba: true };
       return {
         payload: { leadId: lead.id, etiquetaId: e.id },
-        resumen: `Ponerle «${e.nombre}» a ${lead.nombre}${e.etapa_key ? ' (está vinculada a una etapa: lo pasa ahí)' : ''}.`,
+        resumen: `Agregarle «${e.nombre}» a ${lead.nombre}${e.etapa_key ? ' (está vinculada a una etapa: lo pasa ahí)' : ''}.`,
       };
     },
-    ejecutar: (payload, ctx) => seguro('poner la etiqueta', async () => {
+    ejecutar: (payload, ctx) => seguro('agregar la etiqueta', async () => {
       const r = await ponerEtiqueta(Number(payload.leadId), Number(payload.etiquetaId), { autor: autorDe(ctx) });
-      if (!r.ok) return { ok: false, resumen: `No se pudo poner la etiqueta: ${r.error}` };
+      if (!r.ok) return { ok: false, resumen: `No se pudo agregar la etiqueta: ${r.error}` };
       if (r.yaEstaba) return { ok: true, resumen: 'Ya la tenía: no cambió nada.' };
       invalidar('leads');
-      return { ok: true, resumen: `Listo: etiqueta puesta${r.movio ? ', y pasó a la etapa vinculada' : ''}.${fallosSync(r)}` };
+      return { ok: true, resumen: `Listo: etiqueta agregada${r.movio ? ', y pasó a la etapa vinculada' : ''}.${fallosSync(r)}` };
     }),
   },
   sacar_etiqueta_lead: {
@@ -1273,14 +1273,14 @@ export const RUNNERS: Runners = {
       const suyas = await etiquetasDeLead(lead.id).catch(() => null);
       if (!suyas) return { error: 'No se pudieron leer las etiquetas del lead.' };
       if (!suyas.some((x) => x.id === e.id)) return { error: `${lead.nombre} no tiene «${e.nombre}».`, yaEstaba: true };
-      return { payload: { leadId: lead.id, etiquetaId: e.id }, resumen: `Sacarle «${e.nombre}» a ${lead.nombre}.` };
+      return { payload: { leadId: lead.id, etiquetaId: e.id }, resumen: `Eliminarle «${e.nombre}» a ${lead.nombre}.` };
     },
-    ejecutar: (payload, ctx) => seguro('sacar la etiqueta', async () => {
+    ejecutar: (payload, ctx) => seguro('eliminar la etiqueta', async () => {
       const r = await sacarEtiqueta(Number(payload.leadId), Number(payload.etiquetaId), { autor: autorDe(ctx) });
-      if (!r.ok) return { ok: false, resumen: `No se pudo sacar la etiqueta: ${r.error}` };
+      if (!r.ok) return { ok: false, resumen: `No se pudo eliminar la etiqueta: ${r.error}` };
       if (r.yaEstaba) return { ok: true, resumen: 'Ya no la tenía: no cambió nada.' };
       invalidar('leads');
-      return { ok: true, resumen: `Listo: etiqueta sacada.${fallosSync(r)}` };
+      return { ok: true, resumen: `Listo: etiqueta eliminada.${fallosSync(r)}` };
     }),
   },
 
