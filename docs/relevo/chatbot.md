@@ -1,6 +1,25 @@
 # Retomar: Automations (ex Chatbot)
 
-**Dónde quedó:** 10/10/2026 ~12:45, cuenta `claude2` (cuota semanal 76 %). La SÉPTIMA tanda (los pedidos de
+**Dónde quedó (10/10/2026 ~19:00, `claude2`, cuota semanal 79 %):** el RECORDATORIO ya es una automatización y está
+en producción (`c309b390`, Ready) con su fila en los 10 negocios (ws1 #228 PRENDIDA desde la automatización —
+verificado: el emisor lee `fuente: 'automatizacion'`—; los otros 9 pausados). Y la OCTAVA TANDA (el feedback grande
+de la tarde: copiar/pegar flujos, lazo y paneo con el derecho, horario de oficina, CRON en recuadros, CONDITION con
+contenedores, «Si responde» como condición normal, tarjeta de WhatsApp con dos burbujas, modal de «Nueva
+automatización») está COMMITEADA en `chatbot-v6` (`b8af255e`), con la suite en verde (6.823) y los tipos.
+**NO está pusheada ni vista con clics**: falta el build (raíz temporal), mirarla en el navegador (el lazo, el
+derecho que panea, Ctrl+C/Ctrl+V, el modal, el panel del CRON, el horario) y recién ahí pushear. El detalle de cada
+punto, en el mensaje de `b8af255e`.
+
+**Lo que quedó sin hacer, con su archivo:**
+- La galería no tiene «Recordatorio de la reunión» (lib/plantillas-automatizaciones.ts: su CRON es fijo,
+  `reunion_recordatorio`, y la galería sólo sabe pedir una etapa). Un negocio NUEVO no tiene fila: hasta que la
+  tenga, el emisor usa la configuración de antes y no se ve en la lista.
+- «Pídesela a MaKo» del modal crea la vacía y abre la caja de Crear con IA; el pedido no se escribe en el modal.
+- El delay de MINUTOS entre mensajes parte la tarjeta con una espera (el motor no duerme minutos adentro de una
+  corrida): es una decisión mía, a confirmar con Martín.
+- El lazo elige y copia/borra junto; arrastrar lo elegido junto NO está (cada tarjeta se mueve sola).
+
+**Antes (12:45):** 10/10/2026 ~12:45, cuenta `claude2` (cuota semanal 76 %). La SÉPTIMA tanda (los pedidos de
 la mañana del 10/10: «no están todas las plantillas de Mauricio», «revisa las de mi workspace», «una condición
 suelta… me deja probarlo», «también en Código Inmobiliario») está en la rama `chatbot-v6`, con la suite en
 verde (6.817), los tipos y el build. El pedido literal y lo hecho, en `app/admin/dev/chatbot/bitacora.ts`
