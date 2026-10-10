@@ -47,6 +47,10 @@
 //     correcta de la que erró: esas correctas sí viajan (`revelarCorrectas`, ./tarea-valores.ts).
 //   · GRABAR: `MediaRecorder` con permiso, contador y tope (para solo al llegar), escuchar o ver antes
 //     de usarla, y regrabar. Si el navegador no graba, o no dio permiso, se ofrece subir un archivo.
+//     Desde la sexta tanda del Chatbot (WhatsApp 7, «Esto en todos lados») el AUDIO es la sesión de voz
+//     de la casa (`useGrabacionVoz` + `BarraGrabacion`, la del composer de WhatsApp): ✓ termina, se
+//     escucha, 🎤 suma otro tramo y la ➤ verde la usa. El VIDEO sigue con su grabador (la sesión es de
+//     audio). Lo que se ve en una tarea YA entregada (`FilaArchivo`) no cambió.
 //   · UN LINK, UNA ESCALA, «YA AGENDÉ» Y «LO HICE» cuentan con la MISMA regla que el server
 //     (`campoLleno`): un link que no es un link no es una respuesta.
 //
@@ -90,6 +94,7 @@ import { HtmlSeguro } from '@/app/_ui/HtmlSeguro';
 import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
 import { filasDeTabla, filaVacia, queFalta, fraseQueFalta, fraseDeBytes, reloj, estadoDeQuiz, quizCerrado, revisionDeQuiz } from './tarea-valores';
 import { useVistaPrevia } from './vista-previa';
+import { useGrabacionVoz, BarraGrabacion, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
 
 const URL_TAREA = '/api/compartido/curso/tarea';
 const URL_ENTREGA = '/api/compartido/curso/entrega';
@@ -1326,7 +1331,7 @@ function tipoDeGrabacion(video: boolean): string | undefined {
   return candidatos.find((t) => typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(t));
 }
 
-const EXT_GRABACION: Record<string, string> = { 'audio/webm': 'weba', 'audio/mp4': 'm4a', 'audio/ogg': 'ogg', 'video/webm': 'webm', 'video/mp4': 'mp4' };
+const EXT_GRABACION: Record<string, string> = { 'audio/webm': 'weba', 'audio/mp4': 'm4a', 'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'video/webm': 'webm', 'video/mp4': 'mp4' };
 
 /** Lo que se dice cuando el navegador no dejó grabar, según por qué. */
 function motivoSinGrabar(e: unknown, video: boolean): string {
@@ -1336,11 +1341,125 @@ function motivoSinGrabar(e: unknown, video: boolean): string {
   return 'No se pudo grabar.';
 }
 
+/** Un campo de grabar: el audio con la sesión de voz de la casa, el video con su grabador. Sin hooks acá. */
+function CampoGrabacion(p: { campo: Campo; valor: ValorCampo | undefined; soloLectura: boolean; h: Herramientas }) {
+  return p.campo.tipo === 'audio' ? <CampoGrabacionAudio {...p} /> : <CampoGrabacionVideo {...p} />;
+}
+
 /**
- * Grabar en el navegador (practicar un pitch): permiso, contador con tope, escuchar o ver antes de
- * usarla, regrabar, y subirla con su barra. Si el navegador no graba o no dio permiso, subir un archivo.
+ * GRABAR UN AUDIO (practicar un pitch) con la sesión de voz de la casa: la MISMA barra que el composer de
+ * WhatsApp y los grabadores del Chatbot (WhatsApp 7: «al darle enviar, en cualquier lado, no se debe
+ * enviar, se debe "terminar" de grabar... para escuchar el audio que acabo de grabar. Esto en todos
+ * lados»). ✓ termina (no sube nada), ▶ se escucha, 🎤 suma otro tramo, 🗑 la tira, ➤ la usa.
+ *
+ *   · EL TOPE se cumple como antes («para solo al llegar»): llegado el tope, la grabación TERMINA y queda
+ *     para escuchar. Cuenta lo grabado en TODOS los tramos.
+ *   · VARIOS TRAMOS se unen en un WAV (`unirAudios`): ~5,6 MB por minuto, diez minutos serían 57 MB. Se
+ *     pasa a MP3 antes de subir (`blobToMp3`, el del composer: ~1 MB por minuto). Un tramo solo sube como
+ *     se grabó (webm u m4a), igual que antes.
+ *   · SI LA SUBIDA FALLA, la grabación vuelve a la barra de escuchar (`revisarExistente`) para reintentar:
+ *     la sesión la suelta ANTES de entregarla (para que un doble clic no la mande dos veces), y antes la
+ *     tarea volvía a «grabado».
+ *   · LO QUE SE VE EN UNA TAREA ENTREGADA (`FilaArchivo`) NO CAMBIA: es el archivo guardado.
  */
-function CampoGrabacion({ campo, valor, soloLectura, h }: {
+function CampoGrabacionAudio({ campo, valor, soloLectura, h }: {
+  campo: Campo; valor: ValorCampo | undefined; soloLectura: boolean; h: Herramientas;
+}) {
+  const tope = campo.maxSeg ?? MAX_SEG_DEFAULT;
+  const guardada = archivosDe(valor)[0] ?? null;
+  const soporta = useSyncExternalStore(sinSuscripcion, puedeGrabar, () => null);
+  const [error, setError] = useState<string | null>(null);
+  const [pct, setPct] = useState<number | null>(null);
+  const archivo = useRef<HTMLInputElement>(null);
+  const vozViva = useRef<GrabacionVoz | null>(null);
+
+  async function subirArchivo(f: File, dur?: number): Promise<boolean> {
+    setError(null);
+    setPct(0);
+    try {
+      const a = await h.subir(campo, f, setPct);
+      h.archivos(campo.id, () => [dur ? { ...a, seg: Math.round(dur) } : a]);
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo subir.');
+      return false;
+    } finally {
+      setPct(null);
+    }
+  }
+
+  // Lo que la ➤ verde MANDA (ya escuchado).
+  const usar = async (blob: Blob, secs: number) => {
+    let b = blob;
+    try {
+      if (mimeBase(b.type) === 'audio/wav') {
+        const { blobToMp3 } = await import('@/app/whatsapp/audio');
+        b = await blobToMp3(b);
+      }
+    } catch { /* si no se pudo convertir, sube el WAV: también se acepta */ }
+    const mime = mimeBase(b.type) || 'audio/webm';
+    const f = new File([b], `grabacion.${EXT_GRABACION[mime] ?? 'weba'}`, { type: mime });
+    if (!(await subirArchivo(f, secs))) void vozViva.current?.revisarExistente({ blob: b, secs });
+  };
+  const voz = useGrabacionVoz(usar, (m) => setError(m));
+  useEffect(() => { vozViva.current = voz; });
+
+  // El tope: llegado, TERMINA (se escucha antes de usarla). `terminar` es la de la sesión (estable).
+  const { fase: faseVoz, secs: segVoz, terminar } = voz;
+  useEffect(() => {
+    if (faseVoz === 'grabando' && segVoz >= tope) terminar();
+  }, [faseVoz, segVoz, tope, terminar]);
+
+  async function elegirArchivo(files: FileList | null) {
+    const f = files?.[0];
+    if (archivo.current) archivo.current.value = '';
+    if (f) await subirArchivo(f);
+  }
+
+  if (soloLectura) {
+    return guardada
+      ? <ul className="cpt-archivos"><FilaArchivo a={guardada} h={h} /></ul>
+      : <p className="cpt-meta">Sin grabar.</p>;
+  }
+
+  const quieta = voz.fase === 'quieta' && pct == null;
+  return (
+    <div className="cpt-col">
+      {quieta && guardada && (
+        <ul className="cpt-archivos"><FilaArchivo a={guardada} h={h} onQuitar={() => h.archivos(campo.id, () => [])} /></ul>
+      )}
+      {quieta && (
+        <div className="cpt-fila">
+          {soporta && <Button variant={guardada ? 'secondary' : 'primary'} size="sm" onClick={() => { setError(null); void voz.start(); }}>{guardada ? 'Regrabar' : 'Grabar'}</Button>}
+          {soporta && <span className="cpt-meta">Hasta {reloj(tope)}</span>}
+          {soporta === false && <span className="cpt-meta">Este navegador no graba.</span>}
+          <input ref={archivo} type="file" hidden accept={aceptaDeCampo(campo.tipo)} onChange={(e) => void elegirArchivo(e.target.files)} />
+          <Button variant="tertiary" size="sm" onClick={() => archivo.current?.click()}>Subir un archivo</Button>
+        </div>
+      )}
+      {voz.fase !== 'quieta' && (
+        <div className="cpt-col" data-grabar-audio>
+          <BarraGrabacion voz={voz} ocupado={pct != null} rotuloEnviar="Usar esta grabación" />
+          {voz.fase === 'grabando' && <span className="cpt-meta">Hasta {reloj(tope)}</span>}
+        </div>
+      )}
+      {pct != null && (
+        <div className="cpt-col">
+          <Progress value={pct} label="Subiendo" />
+          <span className="cpt-meta">Subiendo… {pct} %</span>
+        </div>
+      )}
+      {error && <p className="cp-aviso cp-aviso--error">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Grabar un VIDEO en el navegador (practicar un pitch): permiso, contador con tope, ver antes de usarlo,
+ * regrabar, y subirlo con su barra. Si el navegador no graba o no dio permiso, subir un archivo. (El
+ * audio va por `CampoGrabacionAudio`; este componente todavía sabe grabar audio, y no se lo usa para eso.)
+ */
+function CampoGrabacionVideo({ campo, valor, soloLectura, h }: {
   campo: Campo; valor: ValorCampo | undefined; soloLectura: boolean; h: Herramientas;
 }) {
   const esVideo = campo.tipo === 'video';

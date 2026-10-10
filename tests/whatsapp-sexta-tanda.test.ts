@@ -202,6 +202,29 @@ test('NINGÚN composer manda al soltar: `audioAlSoltar` no decide nada, y la gra
   assert.match(hilo, /key=\{draftKey \?\? 'hilo'\}/, 'una escucha a medias viajaría al chat de al lado');
 });
 
+// «Esto en todos lados» (WhatsApp 7): los dos grabadores que faltaban (segunda pasada, parte «datos»).
+// PROBADO ROMPIÉNDOLO (09/10/2026, arnés w2-datos/romper.mjs, restaurado de memoria): el onboarding del
+// Video Generator de vuelta a `useVoiceRecorder` → 1 fallo; su barra con `alignSelf: 'center'` → 1 fallo;
+// la tarea de audio del alumno con el grabador de video (`CampoGrabacionVideo`) → 1 fallo; sin el tope
+// que termina la grabación → 1 fallo. Restaurado → verde.
+test('el onboarding del Video Generator y la tarea de audio del alumno graban con la sesión: nada se guarda al soltar', () => {
+  const vg = sinComentarios(leer('app/video-generator/OnboardingVideoGen.tsx'));
+  const grabador = vg.slice(vg.indexOf('function GrabadorVoz('), vg.indexOf('const COLUMNAS_ACENTO'));
+  assert.ok(grabador.length > 0 && grabador.length < 2500, `el recorte del grabador mide ${grabador.length}`);
+  assert.match(grabador, /const voz = useGrabacionVoz\(onListo, setFallo\);/, 'el onboarding volvió a entregar al soltar');
+  assert.doesNotMatch(vg, /useVoiceRecorder|VoiceRecorderBar/);
+  assert.match(grabador, /<div style=\{\{ alignSelf: 'stretch', width: '100%' \}\}>\s*<BarraGrabacion voz=\{voz\}/, 'la barra no ocupa el ancho');
+  const tarea = sinComentarios(leer('app/compartido/curso/[token]/TareaAlumno.tsx'));
+  assert.match(tarea, /return p\.campo\.tipo === 'audio' \? <CampoGrabacionAudio \{\.\.\.p\} \/> : <CampoGrabacionVideo \{\.\.\.p\} \/>;/);
+  const audio = tarea.slice(tarea.indexOf('function CampoGrabacionAudio('), tarea.indexOf('function CampoGrabacionVideo('));
+  assert.match(audio, /const voz = useGrabacionVoz\(usar, \(m\) => setError\(m\)\);/);
+  assert.match(audio, /<BarraGrabacion voz=\{voz\} ocupado=\{pct != null\} rotuloEnviar="Usar esta grabación" \/>/);
+  assert.match(audio, /if \(faseVoz === 'grabando' && segVoz >= tope\) terminar\(\);/, 'el tope dejó de terminar la grabación');
+  assert.match(audio, /void vozViva\.current\?\.revisarExistente\(\{ blob: b, secs \}\)/, 'una subida que falla perdería la grabación');
+  // Y el grabador que entrega al soltar queda sólo donde no se manda un audio a nadie (el dictado del Plan).
+  assert.doesNotMatch(sinComentarios(leer('app/whatsapp/_shared/VoiceRecorder.tsx')), /export function VoiceRecorderBar/);
+});
+
 // ── 11: la pausa entre los mensajes de una tarjeta ───────────────────────────────────────────
 
 test('la pausa: la elegida (acotada a 10 s) o la de siempre (1 s), y el total de la tarjeta topeado', () => {
