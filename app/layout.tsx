@@ -141,15 +141,37 @@ export default async function RootLayout({
             que correr ANTES del primer pintado o la app parpadea del tema viejo
             al nuevo en cada navegación. No pinta nada cuando no hay tema. */}
         {esAdmin && <TemaCandidato />}
-        {/* El `?ws=` de la pestaña, leído UNA vez acá adentro del Suspense y
-            repartido por contexto: es lo que hace que <Link> y router.push no
-            te saquen del cliente que estás mirando. */}
-        <Suspense fallback={null}>
+        {/* El `?ws=` de la pestaña, leído UNA vez acá y repartido por contexto: es
+            lo que hace que <Link> y router.push no te saquen del cliente que estás
+            mirando.
+
+            ⚠️ SIN <Suspense> ALREDEDOR, y es a propósito (10/10/2026). Acá había un
+            `<Suspense fallback={null}>` que envolvía la app ENTERA «por el
+            useSearchParams del WsProvider», y React escribe aparte —en un
+            `<div hidden id="S:0">`, visible sólo cuando corre JavaScript— todo bloque
+            de Suspense de más de 500 bytes una vez que lo ya escrito pasa los ~12.800
+            (la cuenta es ACUMULATIVA), aunque el bloque ya esté listo. O sea que toda
+            pantalla grande llegaba VACÍA a quien no ejecuta JS: Meta rechazó dos veces
+            la verificación del negocio por la portada, y /privacidad (la política que
+            revisa Google para la verificación de la agenda) mostraba 19 caracteres.
+
+            El Suspense no protegía nada: `useSearchParams` sólo lo exige en una ruta
+            que se prerenderiza ESTÁTICA, y acá ninguna lo es — el `await
+            getSesionAdmin()` de arriba lee las cookies en cada request, y esa línea es
+            la que hace dinámicas a las 61 páginas que no lo declaran. Si se mueve, el
+            build se cae con «useSearchParams() should be wrapped in a suspense
+            boundary». Lo que no se ve tiene su propio Suspense chico (el Sidebar, el
+            título, el banner), y /crm su `loading.tsx`. Lo fija
+            tests/layout-sin-suspense.test.ts, que también frena un `loading.tsx` nuevo
+            que no esté en su lista: envuelve la página en un Suspense y la vuelve a
+            esconder. */}
         <WsProvider>
         <NotificationsProvider>
           <div style={rootStyle}>
-            {/* Sidebar usa useSearchParams (propaga el filtro de fecha); Suspense
-                evita el error de prerender en cualquier ruta estática.
+            {/* Sidebar usa useSearchParams (propaga el filtro de fecha). Su Suspense
+                ya no lo exige el build (ninguna ruta es estática): se queda porque deja
+                la barra —18 KB— fuera de lo que se lee sin JavaScript en las páginas
+                que la dibujan, como /privacidad.
                 Va DENTRO del gate: a alguien de afuera con un link compartido no
                 se le muestran los nombres de las tabs internas. /vsl lo escondía
                 por CSS desde la landing; ahora no hace falta el hack. */}
@@ -197,7 +219,6 @@ export default async function RootLayout({
           </div>
         </NotificationsProvider>
         </WsProvider>
-        </Suspense>
       </body>
     </html>
   );

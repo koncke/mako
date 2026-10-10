@@ -3,9 +3,10 @@
 // =============================================================================
 // LoginForm — el botón de Google, y nada más
 // =============================================================================
-// Vive aparte de page.tsx porque usa useSearchParams (lee ?next= y ?error=), y
-// eso obliga a un boundary de Suspense: /login se prerenderiza, y sin el
-// boundary el build falla con "missing-suspense-with-csr-bailout".
+// Vive aparte de page.tsx porque usa useSearchParams (lee ?next= y ?error=). Nació
+// con un boundary de Suspense porque /login se prerenderizaba; hoy es dinámica
+// (`force-dynamic` en page.tsx, y el layout lee la sesión en cada request), así que
+// el boundary ya no lo exige el build.
 //
 // Acá había además un login con contraseña compartida. Se fue, y no por prolijo:
 // abría una sesión de admin sin pasar por la tabla usuarios, y la cookie que

@@ -60,10 +60,17 @@ export default function Home() {
     <>
       {/* JSON.stringify de strings propios, sin «<»: no hay HTML que escapar. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(NEGOCIO) }} />
-      {/* ⚠️ LA LANDING VA EN SU PROPIO SUSPENSE, con un fallback que se ve. Sin esto,
-          toda la portada viajaba OCULTA hasta que corre JavaScript (el porqué, medido,
-          en app/vsl/PortadaSinJs.tsx): quien no ejecuta JS —el verificador de Meta—
-          veía una página vacía y rechazaba la verificación del negocio. */}
+      {/* ⚠️ LA LANDING VA EN SU PROPIO SUSPENSE, con un fallback que se ve. Nació el
+          08/10/2026 para esquivar el Suspense que envolvía la app entera en el layout:
+          con él, toda la portada viajaba OCULTA hasta que corre JavaScript, y el
+          verificador de Meta —que no lo ejecuta— rechazaba la verificación del negocio.
+
+          Desde el 10/10/2026 ese Suspense del layout ya no existe, así que ESTE es el
+          único que esconde la landing: sin él, quien no ejecuta JS leería la landing
+          entera (con la razón social en el pie) en vez de PortadaSinJs. Se dejó a
+          propósito: es la vista con la que Meta aprobó el negocio, y cambiarla con una
+          verificación de Meta todavía abierta es un riesgo que no compra nada. Sacarlo
+          es una línea, y obliga a ajustar tests/razon-social-sitio.test.ts. */}
       <Suspense fallback={<PortadaSinJs />}>
         <Landing />
       </Suspense>

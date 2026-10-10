@@ -3898,12 +3898,14 @@ fragmento de 175 KB sale entero y visible; envuelto en `<html><body>`, sale ocul
 producción. `tests/razon-social-sitio.test.ts` renderiza así y además exige que haya un segmento
 oculto, para no dar verde el día que deje de reproducir la condición.
 
-**Lo que quedó sin hacer.** `/privacidad` sigue llegando vacía sin JavaScript, y es la URL de
-política que revisan Meta y Google. Partirla en bloques chicos NO sirve (medido: de 30 bloques
-de 3 KB, 26 salen ocultos igual, porque el umbral se mide sobre lo ya escrito). El arreglo de
-fondo es que `{children}` no viva adentro del Suspense del layout, y eso toca toda la app: hay
-que probarlo con un `npm run build` en el clon (el `useSearchParams` sin Suspense rompe el build
-en cualquier ruta estática).
+**Hecho el 10/10/2026: el Suspense del layout se sacó.** `/privacidad` pasó de 19 a 16.029 caracteres
+visibles sin JavaScript, con todas las rutas dinámicas y el build en verde. Partirla en bloques chicos
+NO servía (medido: de 30 bloques de 3 KB, 26 salen ocultos igual, porque el umbral se mide sobre lo ya
+escrito: un bloque de más de 500 B se oculta cuando lo anterior pasó los ~12.800). Las mediciones, la
+revisión adversarial y las guardas, en `docs/hallazgos-infra.md` → «NINGUNA página de MaKo llegaba
+con HTML». ⚠️ **La portada conserva su Suspense propio a propósito**: sin JavaScript se sigue leyendo
+`PortadaSinJs`, que es lo que aprobó Meta; sacarlo serviría la landing entera, y se decide sin una
+verificación de Meta abierta.
 
 **De paso, en la misma tanda:** `/robots.txt` no existía (el gate lo mandaba a `/login`): ahora
 es `app/robots.ts`, público y sin `disallow`. Y la portada tiene su propia vista previa

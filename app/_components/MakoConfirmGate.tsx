@@ -266,9 +266,11 @@ function Tarjeta() {
 /**
  * El `<Suspense>` es por `useSearchParams()`: sin un boundary, Next corta el prerender de
  * cualquier ruta estática con «useSearchParams() should be wrapped in a suspense boundary».
- * Hoy el layout ya lo envuelve (`app/layout.tsx:145`), pero eso es una propiedad de DONDE
- * está montado y no de este archivo: el día que alguien lo mueve, el build se rompe en otra
- * pantalla. `fallback={null}` porque la tarjeta plegada no reserva lugar.
+ * Hoy ninguna ruta es estática (el layout lee la sesión en cada request), así que no hace
+ * falta para el build; se queda porque eso es una propiedad de DONDE está montado y no de
+ * este archivo. Y el layout ya NO envuelve la app en un Suspense desde el 10/10/2026 (ver
+ * app/layout.tsx): este boundary es el único que tiene. `fallback={null}` porque la
+ * tarjeta plegada no reserva lugar.
  */
 export function MakoConfirmGate() {
   return (

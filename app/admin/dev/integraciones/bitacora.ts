@@ -833,4 +833,43 @@ export const BITACORA: Hito[] = [
       'docs/verificacion-google.md · docs/hallazgos-crm.md · docs/hallazgos.md',
     ],
   },
+  {
+    fecha: '10 oct', hora: '09:50', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que /privacidad se lea sin JavaScript',
+    pedido: 'Si, solucionalo',
+    puntos: [
+      'Era la respuesta a «¿lo arreglo ahora o lo dejamos hasta ver qué contesta Google?»: medido esa mañana, /privacidad llegaba con 19 caracteres visibles a quien no ejecuta JavaScript, con la verificación de Google recién enviada.',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '10:33', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Sin el Suspense que envolvía la app entera, /privacidad se lee sin JavaScript',
+    puntos: [
+      'El layout envolvía toda la app en un Suspense que no protegía nada (ninguna ruta es estática), y React escondía detrás todo bloque grande. /privacidad pasó de 19 a 16.029 caracteres visibles; build verde con las 70 páginas dinámicas.',
+      'Antes de commitear, una revisión de 8 agentes con refutador: no rompe nada, y de rebote los 404 y los redirects pasan a ser de verdad. El costo es que en las pantallas pesadas el primer byte espera a los datos.',
+      '⚠️ **La portada conserva su Suspense propio a propósito**: sin JavaScript se lee lo que aprobó Meta. Sacarlo es una línea, y se decide sin una verificación de Meta abierta.',
+    ],
+    commits: [
+      { sha: 'd08375f6', msg: 'Layout: sin el Suspense que envolvía la app entera, /privacidad se lee sin JavaScript', lineas: 281, archivos: 8 },
+    ],
+    archivos: [
+      'app/layout.tsx — sin el Suspense arriba de WsProvider, con el porqué',
+      'tests/layout-sin-suspense.test.ts — cuatro guardas, cada una probada rompiéndola',
+      'tests/razon-social-sitio.test.ts — la portada como sale hoy',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '10:40', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: 'La regla del Suspense, reescrita donde la leen todos',
+    puntos: [
+      'AGENTS.md: ningún Suspense grande en una página pública, la cuenta acumulativa del umbral, la línea del layout que vuelve dinámicas a todas las rutas, y que un loading.tsx también es un Suspense.',
+      'docs/hallazgos-infra.md (la entrada principal, cerrada), docs/hallazgos-landing.md (lo que quedó sin hacer, hecho), docs/estado-del-arte.md (el ítem 39) y el índice.',
+    ],
+    archivos: [
+      'AGENTS.md · docs/hallazgos-infra.md · docs/hallazgos-landing.md · docs/estado-del-arte.md · docs/hallazgos.md',
+    ],
+  },
 ];

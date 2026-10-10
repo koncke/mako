@@ -1954,7 +1954,7 @@ webhooks de cuenta es de uso o gasto.
 
 **Vive en:** pendiente: /api/cron/vercel-usage + tarjeta en /integraciones · *2026-07-23 vercel-costo-auditoria*
 
-### ⚠️ NINGUNA página de MaKo llega con HTML: un `<Suspense fallback={null}>` envuelve la app entera
+### ✅ NINGUNA página de MaKo llegaba con HTML: un `<Suspense fallback={null}>` envolvía la app entera (resuelto el 10/10/2026)
 
 **Síntoma:** `curl https://hola-mako.com/vsl/costos` devuelve **200 con 17 KB y sin una palabra del
 contenido** — solo
@@ -1979,12 +1979,62 @@ que lea el body, un test de humo con `curl`— ve una página en blanco.
 **parece** que la página está rota o que el deploy no salió. No lo está. La comprobación correcta es
 grepear el contenido en `.next/static/chunks` (o abrirla en el navegador), no en el HTML.
 
-**Cómo se arreglaría** (no se hizo: toca el layout raíz y con él las 111 páginas, hay que medirlo
-aparte): bajar el `<Suspense>` para que envuelva **solo** al consumidor de `useSearchParams`, no al
-árbol entero. El comentario de `Link.tsx:39` ya dice que `WsProvider` «es el único que llama a
-useSearchParams» — la intención estaba bien, el boundary quedó demasiado arriba.
+**Cómo se arregló (10/10/2026).** Se SACÓ el `<Suspense>` del layout; no se lo «bajó». Lo destrabó
+que `/privacidad` —la política que revisa Google para verificar la app de la agenda, y Meta para la
+del negocio— mostraba **19 caracteres** sin JavaScript, con la verificación de Google ya enviada.
 
-**Vive en:** app/layout.tsx:75-76 · app/_ui/Link.tsx:42 · *2026-08-13 informe-costos-mauricio*
+⚠️ **El diagnóstico de agosto ya no era el mecanismo.** En agosto había rutas que se prerenderizaban y
+ahí `useSearchParams()` sí hacía bailout. En octubre ninguna lo hacía: el contenido SÍ estaba en el
+HTML, pero adentro de un `<div hidden id="S:0">`. React saca aparte todo bloque de Suspense de más de
+500 bytes cuando lo ya escrito pasa los ~12.800 (cuenta acumulativa,
+`react-dom-server.node.production.js`: `flushedByteSize + boundary.byteSize > progressiveChunkSize`).
+«Bajar el Suspense para que envuelva sólo a `WsProvider`» no se podía: `{children}` cuelga del
+contexto del provider, así que tiene que estar adentro.
+
+**Por qué sacarlo es seguro, medido:** `useSearchParams` sólo exige el boundary en una ruta que se
+prerenderiza ESTÁTICA, y `getUsuarioActual` (`lib/auth.ts`) hace `await cookies()` sin condición
+desde el `await getSesionAdmin()` del layout. Build en un worktree: verde, 70 páginas, todas
+dinámicas, `/_not-found` incluida. En `next start` (sin claves de Supabase, para que el arranque no
+escriba en producción), lo visible sin JavaScript pasó de 19 a 16.029 caracteres en `/privacidad`, a
+6.518 en `/terminos` y a 4.449 en `/privacidad/extension`. Suite completa: 6.399 en verde.
+
+**Lo que encontró la revisión adversarial** (8 agentes, cada hallazgo con su refutador):
+
+- **No se rompe nada.** Los 15 `next/dynamic` son `ssr: false` y traen su Suspense, no hay `use()`
+  sobre promesas ni SWR, y en un request dinámico `useSearchParams` no lanza.
+- **Rebote bueno:** un `notFound()` o un `redirect()` de una página ahora devuelve 404 o 307 de
+  verdad. Antes la respuesta ya estaba comprometida en 200 y Next inyectaba un meta `noindex` o un
+  meta refresh de 1 s (`make-get-server-inserted-html.js`). En `/crm`, que tiene `loading.tsx`,
+  sigue como antes.
+- **Rebote que cambia un código:** un error de render fuera de un boundary chico da 500 con
+  `app/error.tsx` dibujado en el cliente; antes daba 200 con lo mismo. La persona ve lo mismo.
+- **El costo:** en las pantallas pesadas el primer byte espera a los datos (/integraciones ~13-16
+  consultas en serie más Meta, /general ~9 tandas y un GET a Meta sin timeout, /customer-success ~15,
+  /analisis 4 lecturas paginadas, /plan ~10). El contenido aparece en el mismo momento que antes —con
+  `fallback={null}` no se veía nada mientras tanto—; lo que se pierde es que el navegador baje CSS y
+  JS mientras el server trabaja. Si molesta: paralelizar esas consultas, o un `loading.tsx` en ESE
+  segmento privado.
+
+**Las guardas** (`tests/layout-sin-suspense.test.ts`, cada una probada rompiéndola): ningún Suspense
+arriba de `{children}` en el layout (leído con el parser de TypeScript, no con una regex); el layout
+lee la sesión antes del return (es lo que vuelve dinámicas a 61 páginas que no lo declaran); ningún
+`loading.tsx` fuera de una lista blanca (un `loading.tsx` ES un Suspense alrededor de su página); y
+`/privacidad` y `/terminos` renderizadas en streaming adentro de un documento, con un control que
+prueba que el test reproduce la condición real.
+
+**Lo que quedó sin hacer, a propósito:**
+- La portada (`app/page.tsx`) conserva su Suspense propio: sin JavaScript se lee
+  `app/vsl/PortadaSinJs.tsx`, con la que Meta aprobó el negocio. Sacarlo es una línea (y ajustar
+  `tests/razon-social-sitio.test.ts`); se decide sin una verificación de Meta abierta.
+- `app/login/page.tsx` envuelve `LoginForm` en un Suspense que ya no exige nadie: chico, inofensivo.
+- La barra lateral escribe «MB» como iniciales por defecto antes de cargar el perfil
+  (`app/_components/Sidebar.tsx:145`), también para un visitante anónimo de `/privacidad` o `/login`
+  (queda oculta sin JavaScript, por su Suspense propio). Es un placeholder con las iniciales de un
+  cliente, y la casa dice que un ejemplo de UI es ficticio.
+
+**Vive en:** app/layout.tsx (el comentario arriba de `<WsProvider>`) · app/_ui/Link.tsx (`WsProvider`) ·
+lib/auth.ts (`getUsuarioActual`) · tests/layout-sin-suspense.test.ts · *2026-08-13 informe-costos-mauricio;
+resuelto 2026-10-10 verificación de Google*
 
 ### Migrar de plataforma: lo que se evaluó y por qué NO (para no volver a investigarlo)
 
@@ -2979,9 +3029,10 @@ montó primero. El código de arriba de un módulo `'use client'` corre al carga
 antes de renderizar nada.
 
 Corolario del mismo trabajo: **`useSearchParams()` obliga a envolver en `<Suspense>` a todo
-componente que lo use**, o el build se cae en las rutas estáticas. Con 27 archivos serían
-27 fronteras nuevas. Se lee UNA vez en un provider que ya vive adentro de un Suspense y se
-reparte por contexto.
+componente que lo use EN UNA RUTA ESTÁTICA**, o el build se cae. Se lee UNA vez en un provider y se
+reparte por contexto. ⚠️ Desde el 10/10/2026 ese provider ya NO vive adentro de un Suspense (escondía
+toda pantalla grande sin JavaScript): anda porque ninguna ruta es estática. Ver la entrada «NINGUNA
+página de MaKo llegaba con HTML».
 
 **Vive en:** app/_components/WsFetch.tsx · app/_ui/Link.tsx (`WsProvider`) · *2026-08-08*
 

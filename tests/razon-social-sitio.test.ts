@@ -13,7 +13,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Writable } from 'node:stream';
-import { createElement, Suspense, type ReactElement } from 'react';
+import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup, renderToPipeableStream } from 'react-dom/server';
 import Landing from '../app/vsl/Landing';
 import Privacidad from '../app/privacidad/page';
@@ -25,14 +25,21 @@ import { RAZON_SOCIAL_MAKO } from '../lib/titular-mako';
 
 // ── Lo que ve quien NO ejecuta JavaScript ─────────────────────────────────────────────
 // El segundo rechazo (08/10) pasó con el nombre YA en el HTML: estaba adentro de un
-// `<div hidden id="S:0">`. El layout raíz envuelve toda la app en un <Suspense>, y React
-// escribe aparte —oculto hasta que un script lo inserta— todo bloque de más de 12.800 bytes,
-// aunque ya esté listo. renderToStaticMarkup NO reproduce eso (no hace streaming), así que
-// este test renderiza en streaming, adentro de un Suspense como el del layout, y busca el
-// nombre en lo que queda VISIBLE después de sacar los segmentos ocultos.
+// `<div hidden id="S:0">`. El layout raíz envolvía toda la app en un <Suspense>, y React
+// escribe aparte —oculto hasta que un script lo inserta— todo bloque de Suspense de más de
+// 500 bytes una vez que lo ya escrito pasa los ~12.800, aunque ya esté listo.
+// renderToStaticMarkup NO reproduce eso (no hace streaming), así que este test renderiza en
+// streaming y busca el nombre en lo que queda VISIBLE después de sacar los segmentos ocultos.
 //
-// Verificado rompiéndolo: sacar el <Suspense> propio de la landing en app/page.tsx → 1 fallo
-// (todo vuelve a quedar oculto); sacar la razón social del fallback (PortadaSinJs) → 1 fallo.
+// Desde el 10/10/2026 el layout ya no tiene ese Suspense (tests/layout-sin-suspense.test.ts),
+// así que se renderiza la portada como sale hoy: sin envoltorio. El segmento oculto que queda
+// es el del Suspense PROPIO de la landing (app/page.tsx), que se dejó a propósito; lo que se lee
+// sin JavaScript es su fallback, PortadaSinJs, que es lo que aprobó Meta.
+//
+// Verificado rompiéndolo (10/10/2026), sobre una base en verde: sacar la razón social del
+// fallback (PortadaSinJs) → 1 fallo; sacar el <Suspense> propio de la landing → 1 fallo (la
+// condición «hay un segmento oculto» deja de cumplirse: el test avisa que hay que reescribirlo
+// en vez de dar verde sobre otra pantalla).
 function streamear(el: ReactElement): Promise<string> {
   return new Promise((ok, mal) => {
     let html = '';
@@ -65,15 +72,13 @@ function quitarOcultos(html: string): string {
   }
 }
 
-test('sin JavaScript, la portada muestra la razón social aunque viva adentro del Suspense del layout', async () => {
+test('sin JavaScript, la portada muestra la razón social (la landing va en su propio Suspense)', async () => {
   // ⚠️ Con <html><body> o no reproduce nada: React sólo escribe bloques aparte cuando
   // renderiza un DOCUMENTO. Un fragmento suelto de 175 KB sale entero y visible (medido).
-  const html = await streamear(
-    createElement('html', null, createElement('body', null,
-      createElement(Suspense, { fallback: null }, createElement(Home)))),
-  );
-  // Si no hay ningún segmento oculto, la prueba no está reproduciendo la condición de producción.
-  assert.ok(html.includes('<div hidden id="S:'), 'no hay segmento oculto: el test dejó de reproducir producción');
+  const html = await streamear(createElement('html', null, createElement('body', null, createElement(Home))));
+  // El segmento oculto es el del Suspense propio de la landing. Si desaparece, se lo sacó a
+  // propósito: el test tiene que pasar a pedir la razón social del PIE de la landing.
+  assert.ok(html.includes('<div hidden id="S:'), 'la landing ya no va en su propio Suspense: reescribí este test');
   const visible = quitarOcultos(html);
   assert.ok(visible.includes(`Razón social: ${RAZON_SOCIAL_MAKO}`), 'la razón social quedó solo en lo oculto');
 });
