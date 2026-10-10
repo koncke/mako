@@ -18,7 +18,12 @@
 // =============================================================================
 
 import { Suspense, useCallback, useEffect, useState, type CSSProperties } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+// ⚠️ El router de la casa, no el de Next (AGENTS.md, «Hay CINCO formas de navegar»): le pega el `?ws=`
+// de la pestaña al destino. Con el de Next, el rebote de `/whatsapp?ws=9&stab=plantillas` a /automations
+// salía sin el `ws` y abría Automations en la cuenta de la cookie, no la del cliente que se miraba
+// (revisión de la sexta tanda, 10/10/2026). `irALinea` ya copiaba la query: `conWs` no duplica el `ws`.
+import { useRouter } from '@/app/_ui/Link';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../_components/icons';
 import { EvolutionConnect } from './EvolutionConnect';

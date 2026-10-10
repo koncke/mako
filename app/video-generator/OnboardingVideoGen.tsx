@@ -42,6 +42,8 @@ import { estadoDelPuente, AvisoPuente } from './puente-avisos';
 import { estadoPuenteAction } from './puente-actions';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { useGrabacionVoz, BarraGrabacion, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
+import { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
 import {
   marcarPasoVideoAction, guardarAcentoAction, guardarMuletillasAction,
   escucharMiVozAction, type PasoVideoGen,
@@ -518,6 +520,8 @@ export function OnboardingVideoGen({
    */
   const [errorAccion, setErrorAccion] = useState<{ texto: string; onClick: () => void } | null>(null);
   const [busy, setBusy] = useState(false);
+  // La pestaña del cliente que se mira (`?ws=`): un `window.location.href` pelado la pierde (AGENTS.md).
+  const ws = useWs();
 
   // ── La cara ──
   const [misFotos, setMisFotos] = useState(fotos);
@@ -1504,7 +1508,7 @@ export function OnboardingVideoGen({
               variant="mako"
               size="lg"
               icon={<Icon name="descargar" size={17} />}
-              onClick={() => { window.location.href = '/extension/instalar'; }}
+              onClick={() => { window.location.href = conWs('/extension/instalar', ws); }}
               style={{ alignSelf: 'center' }}
             >
               Descargar la extensión
