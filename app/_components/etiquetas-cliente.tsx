@@ -162,8 +162,10 @@ export function ChipEtiqueta({ e, onSacar, ocupado, chico }: { e: Pick<Etiqueta,
       <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: e.color, flex: 'none' }} />
       {e.emoji && <span aria-hidden>{e.emoji}</span>}
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre}</span>
+      {/* «Eliminar», no «Sacar» (sexta tanda, TAG 1): es lo que se lee al pasar el cursor por la ✕, en
+          la tarjeta TAG del lienzo, la ficha del lead y el CRUD de etiquetas. */}
       {onSacar && (
-        <button type="button" onClick={onSacar} disabled={ocupado} aria-label={`Sacar ${nombre}`} title="Sacar"
+        <button type="button" onClick={onSacar} disabled={ocupado} aria-label={`Eliminar ${nombre}`} title="Eliminar"
           style={{ border: 'none', background: 'transparent', color: 'var(--dim)', cursor: ocupado ? 'default' : 'pointer', padding: 0, marginLeft: 2, fontSize: 13, lineHeight: 1 }}>×</button>
       )}
     </span>
@@ -186,7 +188,7 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
   disabled?: boolean;
   ariaLabel?: string;
   buttonStyle?: CSSProperties;
-  /** Un desplegable de ACCIÓN («Poner etiqueta»): no refleja lo elegido. */
+  /** Un desplegable de ACCIÓN («Agregar etiqueta»): no refleja lo elegido. */
   accion?: boolean;
   icono?: ReactNode;
 }) {

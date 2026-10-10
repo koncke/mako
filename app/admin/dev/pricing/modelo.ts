@@ -1319,7 +1319,10 @@ export const BASE_PROPIA = {
       'ESCRIBE MARTÍN, desde su número personal, a mano, uno por uno. No MaKo, no Evolution, no plantilla, no lote.',
       'EL CANAL SE PARTE EN DOS: a los que ya le escribieron alguna vez (hay hilo bidireccional), WhatsApp. A los demás, EMAIL primero por Resend desde hola@hola-mako.com, y WhatsApp solo si contestan.',
       'EL TEXTO nombra el vínculo concreto en la primera línea y ofrece salida en el mismo mensaje. Un texto que sirve para los 1.000 iguales ES un broadcast, y lo que mata no es una revisión humana: es la tasa de bloqueo.',
-      'EL RITMO: máximo 40 por día, ventana 9-21, nunca dos canales a la misma persona en la misma semana.',
+      // Sexta tanda (09/10/2026): decía «ventana 9-21», que era la del motor de entonces. El motor ya no
+      // tiene ventana (el horario de envío es opcional, en Configuraciones) y esto lo escribe una
+      // persona a mano: el ritmo es suyo, en horas de trabajo de quien lo recibe.
+      'EL RITMO: máximo 40 por día, en horas de trabajo de quien lo recibe, nunca dos canales a la misma persona en la misma semana.',
       '⛔ COLOMBIA NO: la Ley 2300/2023, ampliada en 2024, cubre mensajería web con WhatsApp explícito.',
     ],
     origen: 'publicado' as Origen,

@@ -92,7 +92,9 @@ export function EtiquetasDelLead({ leadId, version }: { leadId: number; version?
         {(suyas ?? []).map((e) => (
           <ChipEtiqueta key={e.id} e={e} ocupado={ocupada === e.id} onSacar={() => void escribir('sacar', e)} />
         ))}
-        <SelectorEtiqueta value={null} accion placeholder="Etiqueta" ariaLabel="Ponerle una etiqueta"
+        {/* «Agregar», no «Ponerle» (sexta tanda, TAG 1: «se formal escribiendo siempre... "Agregar" y
+            "Eliminar"»). */}
+        <SelectorEtiqueta value={null} accion placeholder="Etiqueta" ariaLabel="Agregar una etiqueta"
           excluir={puestas} disabled={suyas == null || ocupada != null} width={150}
           icono={<span aria-hidden style={{ color: 'var(--dim)', fontWeight: 600 }}>＋</span>}
           buttonStyle={{ height: 30, padding: '0 10px', borderRadius: 999, fontSize: 12.5 }}

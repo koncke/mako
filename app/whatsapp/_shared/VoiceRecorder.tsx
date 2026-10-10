@@ -19,7 +19,9 @@
 // MediaRecorder falso (tests/composer-whatsapp.test.ts). El hook sólo la envuelve.
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { WAVE_CSS, IconTrash, IconPause, IconMic, SendArrow } from './composer-icons';
+import { WAVE_CSS, IconPause, IconMic, SendArrow } from './composer-icons';
+// El tacho de la casa (app/_ui/BotonBorrar.tsx, sexta tanda, general 9): rojo siempre.
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { AudioPlay } from './AudioPlay';
 
 function fmtDur(s: number) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
@@ -474,7 +476,7 @@ export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar au
     return (
       <div data-barra-voz="grabando" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
         <style>{WAVE_CSS}</style>
-        <button type="button" onClick={voz.descartar} disabled={cerrando} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconTrash /></button>
+        <button type="button" onClick={voz.descartar} disabled={cerrando} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconoBorrar size={20} /></button>
         <span style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: '#e53935', animation: voz.paused ? 'none' : 'mako-blink 1s steps(1) infinite', opacity: voz.paused ? 0.4 : 1 }}></span>
         <span style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--ink)', minWidth: 38 }}>{fmtDur(voz.secs)}</span>
         <OndaGrabando paused={voz.paused || cerrando} />
@@ -493,7 +495,7 @@ export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar au
   const apagado = ocupado || voz.uniendo;
   return (
     <div data-barra-voz="revisando" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
-      <button type="button" onClick={() => (propia ? voz.descartar() : existente?.onBorrar())} disabled={apagado} title="Borrar el audio" aria-label="Borrar el audio" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconTrash /></button>
+      <button type="button" onClick={() => (propia ? voz.descartar() : existente?.onBorrar())} disabled={apagado} title="Borrar el audio" aria-label="Borrar el audio" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconoBorrar size={20} /></button>
       {/* ▶ DONDE ESTABA EL PUNTO ROJO: el reproductor de la casa, a todo el ancho. */}
       <AudioPlay key={r.url} src={r.url} duracion={r.secs || null} style={{ flex: 1, minWidth: 0, width: 'auto' }} />
       {(propia || existente?.onSeguir) && (
@@ -520,7 +522,7 @@ export function VoiceRecorderBar({ paused, secs, sending, onCancel, onTogglePaus
   return (
     <div data-barra-voz="grabando" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
       <style>{WAVE_CSS}</style>
-      <button type="button" onClick={onCancel} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconTrash /></button>
+      <button type="button" onClick={onCancel} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconoBorrar size={20} /></button>
       <span style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: '#e53935', animation: paused ? 'none' : 'mako-blink 1s steps(1) infinite', opacity: paused ? 0.4 : 1 }}></span>
       <span style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--ink)', minWidth: 38 }}>{fmtDur(secs)}</span>
       <OndaGrabando paused={paused} />

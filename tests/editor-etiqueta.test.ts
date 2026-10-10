@@ -120,9 +120,12 @@ test('ENCHUFE: `ejecutarDesdeFlujo` corre una vez por etiqueta (`unaPorEtiqueta`
 // `ChipEtiqueta`, que no es de la parte «editores») dice «Sacar» en su `title` y su `aria-label`, y es lo
 // que se lee al pasar el cursor en la tarjeta TAG, en la ficha del lead y en el CRUD (TAG 1: «Revisa que
 // no esté ese error en otro lado»).
-test('ENCHUFE: el ✕ del chip de una etiqueta dice «Eliminar», no «Sacar»', { todo: 'lo cambia la integración: app/_components/etiquetas-cliente.tsx' }, () => {
+// ENCHUFADO en la segunda pasada (09/10/2026, parte «datos»). PROBADO ROMPIÉNDOLO: devolverle «Sacar» al
+// `title` del ✕ de `ChipEtiqueta` → 1 fallo acá (y 1 en tests/barrido-sexta-datos). Restaurado → verde.
+test('ENCHUFE: el ✕ del chip de una etiqueta dice «Eliminar», no «Sacar»', () => {
   const html = renderToStaticMarkup(createElement(EditorEtiqueta, { operacion: 'poner_etiqueta_lead', etiquetaIds: [7], onChange: () => {} }));
   assert.doesNotMatch(html, /Sacar/);
+  assert.match(html, /<button type="button" aria-label="Eliminar [^"]*" title="Eliminar"/, 'el ✕ dejó de decir qué hace');
 });
 
 test('las dos operaciones existen con lead y etiqueta: el motor corre la ⚡ Acción de siempre', () => {
