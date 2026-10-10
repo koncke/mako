@@ -6,16 +6,33 @@
 // obliga a un componente 'use client' para algo que no se mueve. El «hover» de cada
 // porción es el <title> nativo del SVG, y el dato entero está igual en la leyenda.
 //
+// ⚠️ CADA SECCIÓN ES UN DESPLEGABLE NATIVO (`<details>`), numerado y con la pregunta
+// que contesta. Pedido de Martín (10/10/2026), textual: «utiliza más desplegables,
+// que se separen bien las secciones, no se entiende, son muchas cosas todas juntas.
+// Quiero tener claridad de qué estoy leyendo en todo momento». Cerradas, las doce se
+// leen como el índice de la página; abierta, su renglón queda PEGADO arriba mientras
+// se scrollea (sticky, estrategia.css). Abre y cierra sin JavaScript.
+//
+// ⚠️ LO QUE SE ACORTA SE ACORTA, NO SE ESCONDE EN UN `title`. La primera versión dejó
+// en el hover los seis ejes de la llamada, lo que se mira para el Loom, lo que se le
+// dice sobre su anuncio y los canales a futuro, y sacó la intro, el cliente ideal y la
+// propuesta a Jan. Martín, el mismo día: «eliminaste cosas de la antigua tab de
+// estrategia que estaban buenas, como la intro, que decía el avatar». Un `title` no
+// se ve en el celular ni sin el mouse encima. Con los desplegables, el largo ya no
+// tapa nada: lo que no se quiere leer, se deja cerrado.
+//
 // ⚠️ EL TEXTO QUE SE DIBUJA ES CORTO (regla de la casa): título, rótulos y números.
 // El porqué de cada cuenta va en `datos.ts`, al lado de la cuenta.
 //
 // ⚠️ COPY EN ESPAÑOL NEUTRO (tú o impersonal): esta carpeta está dentro del guard de
 // voseo (tests/puente-panel-copy.test.ts). El imperativo de los verbos en -ir no lo
 // ve el guard: se revisa a mano.
+//
+// La hoja (`estrategia.css`) la importa page.tsx y no este archivo: así el componente
+// se puede dibujar en un test (tests/estrategia-tab.test.ts) sin un cargador de CSS.
 
 import type { CSSProperties, ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
-import './estrategia.css';
 import {
   DESDE, HITOS, dia, pct, anclaje, faltan, num, usd,
   HITO_ANUNCIOS, HITO_PLATA, HITO_FIN, CAPITAL, VENTANA, OBJETIVO_MES_USD,
@@ -26,7 +43,7 @@ import {
   COSTO_REFERIDO, COMISION_GRUPAL, COMISION_GRUPAL_PCT, DESCUENTO_MAX_97,
   PASOS, CANALES, DIAG, DIAG_PASOS, LOOM_PASOS, LOOM_MIRA, LOOM_DICE, ANALISIS, DUDA,
   ASISTE, CIERRA, AGENDADAS, EFECTIVAS, VENTAS, PAUTA, FACTURADO, NETO, COBRADO_EN_EL_MES,
-  VENTAS_OBJETIVO, AGENDAS_OBJETIVO, COSTO_POR_AGENDA, FUTURO,
+  VENTAS_OBJETIVO, AGENDAS_OBJETIVO, COSTO_POR_AGENDA, FUTURO, JAN_GANA, JAN_GANO, type FilaJan,
 } from './datos';
 
 // ── Iconos mínimos (trazo, 24×24) ────────────────────────────────────────────
@@ -46,6 +63,8 @@ const I = {
   barras: ['M3 21h18', 'M6 17v-5', 'M12 17v-10', 'M18 17v-7'],
   cruz: ['M18 6l-12 12', 'M6 6l12 12'],
   igual: ['M5 10h14', 'M5 14h14'],
+  capas: ['M12 4l-8 4l8 4l8 -4l-8 -4', 'M4 12l8 4l8 -4', 'M4 16l8 4l8 -4'],
+  objetivo: ['M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0', 'M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0', 'M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0'],
 } as const;
 
 function Ic({ d, size = 18 }: { d: readonly string[]; size?: number }) {
@@ -59,16 +78,71 @@ function Ic({ d, size = 18 }: { d: readonly string[]; size?: number }) {
 
 const minCol = (px: number) => ({ ['--min' as string]: `${px}px` }) as CSSProperties;
 
-function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) {
+// ── El armazón: grupos y desplegables ────────────────────────────────────────
+/**
+ * Una sección: el número, el título, la pregunta que contesta y —si lo hay— su dato
+ * de cabecera, que se lee con la sección cerrada. El número es GLOBAL (01-12), no
+ * por grupo: «la 9» es una sola en toda la página.
+ */
+function Seccion({ n, titulo, pregunta, dato, abierta, children }: {
+  n: number; titulo: string; pregunta: string; dato?: string; abierta?: boolean; children: ReactNode;
+}) {
   return (
-    <section className="est-sec">
-      <h2 className="est-h2">{titulo}</h2>
+    <details className="est-det" open={abierta}>
+      <summary className="est-det-cab">
+        <span className="est-det-n est-num">{String(n).padStart(2, '0')}</span>
+        <h2 className="est-det-t">{titulo}</h2>
+        <span className="est-det-q">{pregunta}</span>
+        {dato && <span className="est-det-dato est-num">{dato}</span>}
+        <span className="est-det-chev"><Ic d={I.chev} size={18} /></span>
+      </summary>
+      <div className="est-det-cuerpo">{children}</div>
+    </details>
+  );
+}
+
+/** Un grupo de secciones con su rótulo: dice de qué parte de la página es lo que se lee. */
+function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <section className="est-grupo">
+      <p className="est-grupo-t">{titulo}</p>
       {children}
     </section>
   );
 }
 
-// ── a. Las cifras ────────────────────────────────────────────────────────────
+/** Una lista de chequeos cortos, con su rótulo. */
+function Lista({ titulo, items, verde }: { titulo: string; items: readonly string[]; verde?: boolean }) {
+  return (
+    <div className="est-lista">
+      <span className="est-lista-t">{titulo}</span>
+      <ul>
+        {items.map((x) => (
+          <li key={x}>
+            <span className={`est-lista-ic${verde ? ' est-lista-ic--A' : ''}`}><Ic d={I.check} size={12} /></span>
+            <span>{x}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ── La intro (página vieja, :238-246) ────────────────────────────────────────
+function Intro() {
+  return (
+    <header className="est-hero">
+      <p className="est-hero-h">Cómo vamos a vender <span className="est-oro">MaKo</span></p>
+      <p className="est-hero-p">
+        El software para vender high ticket con <b>VSL Funnel</b>. Tres ofertas para que <b>cualquier lead
+        compre algo</b>, empujadas por dos canales: <b>prospección</b> a costo cero y <b>campaña de
+        mensajes</b> a WhatsApp.
+      </p>
+    </header>
+  );
+}
+
+// ── Las cifras ───────────────────────────────────────────────────────────────
 function Cifras({ hoy }: { hoy: string }) {
   const aAnuncios = faltan(HITO_ANUNCIOS.fecha, hoy);
   const aPlata = faltan(HITO_PLATA.fecha, hoy);
@@ -99,7 +173,243 @@ function Cifras({ hoy }: { hoy: string }) {
   );
 }
 
-// ── b. El calendario ─────────────────────────────────────────────────────────
+// ── 01. El producto y el cliente ideal (página vieja, :248-266) ──────────────
+function Producto() {
+  return (
+    <div className="est-grid" style={minCol(280)}>
+      <Link href="/" className="est-caja est-link est-producto">
+        <span className="est-quien-ic"><Ic d={I.capas} /></span>
+        <span className="est-producto-t"><span className="est-eyebrow">El producto</span><b>¿Qué es MaKo? Verlo en la landing</b></span>
+        <Ic d={I.flecha} />
+      </Link>
+      <div className="est-caja est-icp">
+        <div className="est-quien-hd"><span className="est-quien-ic"><Ic d={I.objetivo} /></span><h3 className="est-h3">El cliente ideal</h3></div>
+        <ul className="est-icp-l">
+          <li><span className="est-lista-ic"><Ic d={I.check} size={12} /></span><span>Corre <b>o quiere correr</b> un VSL Funnel con anuncios: coach, consultor o agencia con oferta validada.</span></li>
+          <li><span className="est-lista-ic"><Ic d={I.check} size={12} /></span><span>Ya no se exige facturar US$10-20k: la base a la que se le puede escribir mañana casi no corre VSL Funnel todavía.</span></li>
+          <li><span className="est-lista-ic"><Ic d={I.check} size={12} /></span><span>Puede invertir en anuncios, aunque sea desde <b>~US$20 por día</b>.</span></li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+// ── 02. La oferta ────────────────────────────────────────────────────────────
+function Oferta() {
+  const cuota = PRECIO_GRUPAL / CUOTAS_GRUPAL;
+  return (
+    <div className="est-grid" style={minCol(250)}>
+      <div className="est-plan">
+        <span className="est-eyebrow">Software</span>
+        <div className="est-precio"><b className="est-num">{usd(PRECIO_PRO)}</b><span>/ mes</span></div>
+        <div className="est-arbol">
+          <span className="est-nodo est-nodo--padre est-nodo--solo"><Ic d={I.persona} size={14} /> Tu negocio · {num(PRECIO_PRO)}</span>
+        </div>
+        <p className="est-pie">Un workspace: el tuyo</p>
+      </div>
+
+      <div className="est-plan est-plan--97">
+        <span className="est-eyebrow">Software + agencia</span>
+        <div className="est-precio"><b className="est-num">{usd(PRECIO_GROWTH)}</b><span>/ mes</span></div>
+        <div className="est-arbol">
+          <span className="est-nodo est-nodo--padre">Tu cuenta · {num(PRECIO_GROWTH)}</span>
+          <div className="est-hijos">
+            <span className="est-nodo">Cliente · {num(PRECIO_PRO)}</span>
+            <span className="est-nodo">Cliente · {num(PRECIO_GROWTH)}</span>
+          </div>
+        </div>
+        <p className="est-pie">Cada workspace de cliente paga su plan</p>
+      </div>
+
+      <div className="est-plan est-plan--grupal">
+        <span className="est-eyebrow">Programa grupal</span>
+        <div className="est-precio"><b className="est-num">{usd(PRECIO_GRUPAL)}</b><span>{CUOTAS_GRUPAL} meses de entrega</span></div>
+        <div className="est-cuotas">
+          {Array.from({ length: CUOTAS_GRUPAL }, (_, i) => (
+            <div key={i} className="est-cuota">
+              <b className="est-num">{usd(cuota)}</b>
+              <span>Cuota {i + 1}</span>
+            </div>
+          ))}
+        </div>
+        <p className="est-pie">Renueva: {usd(RENOVACION_GRUPAL_USD)} cada 3 meses · o {usd(PRECIO_GROWTH)}/mes sólo software</p>
+      </div>
+    </div>
+  );
+}
+
+// ── 03. Los dos canales ──────────────────────────────────────────────────────
+function Canales() {
+  // La MISMA escala para los dos embudos: si no, 400 y 1.000 se dibujan del mismo largo.
+  const maxEmbudo = Math.max(...CANALES.flatMap((c) => c.embudo.map((e) => e.n)));
+  return (
+    <>
+      <div className="est-flujo">
+        {PASOS.map((p, i) => (
+          <div key={p.n} style={{ display: 'contents' }}>
+            {i > 0 && <div className="est-flecha"><Ic d={I.chev} size={24} /></div>}
+            <div className={`est-paso${i === PASOS.length - 1 ? ' est-paso--fin' : ''}`}>
+              <div className="est-paso-ic"><Ic d={I[p.icono]} size={24} /></div>
+              <span className="est-paso-n">{p.n}</span>
+              <h3>{p.t}</h3>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="est-grid" style={{ ...minCol(300), marginTop: 14 }}>
+        {CANALES.map((c) => (
+          <div key={c.id} className={`est-caja est-canal est-canal--${c.id}`}>
+            <div className="est-canal-hd">
+              <span className="est-canal-id">{c.id}</span>
+              <div>
+                <h3 className="est-h3">{c.nombre}</h3>
+                <span className="est-canal-sub">{c.sub}</span>
+              </div>
+              <span className={`est-chip ${c.inversion ? 'est-chip--azul' : 'est-chip--verde'}`}>
+                {c.inversion ? usd(c.inversion) : 'Costo cero'}
+              </span>
+            </div>
+            {c.hechos.map((h) => <div key={h} className="est-hecho"><b>{h}</b></div>)}
+            {c.fases && (
+              <>
+                <div className="est-fases" role="img" aria-label={c.fases.map((f) => `${f.t} ${usd(f.usd)}`).join(', ')}>
+                  {c.fases.map((f, i) => (
+                    <div key={f.t} className={`est-fase est-num${i ? ' est-fase--2' : ''}`} style={{ flex: `${f.usd} 1 0` }}>
+                      {usd(f.usd)}
+                    </div>
+                  ))}
+                </div>
+                <div className="est-fases-rot" aria-hidden="true">
+                  {c.fases.map((f, i) => (
+                    <span key={f.t} style={{ flex: `${f.usd} 1 0` }}><b>Fase {i + 1}</b> · {f.t}</span>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="est-embudo">
+              {c.embudo.map((e, i) => (
+                <div key={e.l} className={`est-escalon${i === c.embudo.length - 1 ? ' est-escalon--fin' : ''}`}>
+                  <div className="est-escalon-hd">
+                    <span>{e.l}</span>
+                    {e.tasa && <small>{e.tasa}</small>}
+                    <b className="est-num">{num(e.n)}</b>
+                  </div>
+                  <div className="est-carril"><div className="est-barra" style={{ width: ancho(e.n, maxEmbudo) }} /></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ── 04. El lead magnet y el Loom (página vieja, :361-437) ────────────────────
+/** Los tres pasos, uno al lado del otro. */
+function Mini({ pasos, verde }: { pasos: readonly string[]; verde?: boolean }) {
+  return (
+    <div className={`est-mini${verde ? ' est-mini--A' : ''}`}>
+      {pasos.map((s, i) => (
+        <div key={s} className="est-mini-i">
+          <b className="est-num">{i + 1}</b><span>{s}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LeadMagnet() {
+  return (
+    <div className="est-grid" style={minCol(300)}>
+      <div className="est-caja est-canal est-canal--B">
+        <div>
+          <span className="est-chip est-chip--azul">Campaña de mensajes</span>
+          <h3 className="est-h3" style={{ marginTop: 8 }}>Diagnóstico de anuncios</h3>
+          <p className="est-regla">Un solo anuncio: fácil de vender en frío y se entrega en minutos, en el mismo chat.</p>
+        </div>
+        <Mini pasos={DIAG_PASOS} />
+        <Lista titulo="Qué se le dice sobre su anuncio" items={DIAG} />
+        <div className="est-puente"><span>Su anuncio</span><Ic d={I.flecha} size={16} /><span>Su funnel completo, en la llamada</span></div>
+      </div>
+      <div className="est-caja est-canal est-canal--A">
+        <div>
+          <span className="est-chip est-chip--verde">Prospección</span>
+          <h3 className="est-h3" style={{ marginTop: 8 }}>Un Loom VSL por cada lead</h3>
+          <p className="est-regla">Sin recurso gratis: se entra por lo consultivo, con el análisis ya hecho.</p>
+        </div>
+        <Mini pasos={LOOM_PASOS} verde />
+        <Lista titulo="Qué se mira antes de grabar" items={LOOM_MIRA} verde />
+        <Lista titulo="Qué se le dice" items={LOOM_DICE} verde />
+      </div>
+    </div>
+  );
+}
+
+// ── 05. Por qué agenda la llamada ────────────────────────────────────────────
+function PorQueAgenda() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="est-caja" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <p className="est-cita">«Sales de la llamada con toda tu estrategia para conseguir clientes con anuncios pagados, armada para tu negocio.»</p>
+        <span className="est-lista-t">Qué se analiza</span>
+        <div className="est-ejes">
+          {ANALISIS.map((a) => (
+            <div key={a.t} className="est-eje">
+              <span className="est-eje-ic"><Ic d={I[a.icono]} size={20} /></span>
+              <strong>{a.t}</strong>
+              <span className="est-eje-w">{a.w}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="est-caja" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <h3 className="est-h3">No es una llamada de diagnóstico: es una llamada de venta</h3>
+        <div className="est-que-como">
+          <div className="est-que"><b>Se dice el QUÉ</b><p>Qué está mal, qué le falta y qué hay que hacer, sobre su negocio.</p></div>
+          <div className="est-como"><b>Nunca el CÓMO</b><p>Cómo se ejecuta es lo que se compra. Si se regala, no queda nada que vender.</p></div>
+        </div>
+        <p className="est-pie" style={{ fontSize: 13.5 }}>«Esto es lo que hay que hacer; puedes intentarlo por tu cuenta, o lo hacemos juntos.»</p>
+      </div>
+    </div>
+  );
+}
+
+// ── 06. ¿Conviene hacerlo personalizado? ─────────────────────────────────────
+/** La duda como matriz: un criterio por fila, con ✓ / ✕ / = en cada lado. */
+function DudaMatriz() {
+  const marca = (lado: 'con' | 'sin', gana: 'con' | 'sin' | 'empate') =>
+    gana === 'empate' ? { cls: 'est-marca--igual', d: I.igual, txt: 'empate' }
+      : gana === lado ? { cls: 'est-marca--si', d: I.check, txt: 'mejor' }
+        : { cls: 'est-marca--no', d: I.cruz, txt: 'peor' };
+  const cuenta = (lado: 'con' | 'sin') => DUDA.filter((f) => f.gana === lado).length;
+  return (
+    <div className="est-caja est-duda" role="table" aria-label="Con personalización contra sin personalización">
+      <div className="est-duda-fila est-duda-fila--cab" role="row">
+        <span role="columnheader" />
+        <span role="columnheader" className="est-duda-cab est-duda-cab--con">Con personalización <b className="est-num">{cuenta('con')}</b></span>
+        <span role="columnheader" className="est-duda-cab">Sin personalización <b className="est-num">{cuenta('sin')}</b></span>
+      </div>
+      {DUDA.map((f) => (
+        <div key={f.criterio} className="est-duda-fila" role="row" title={f.detalle}>
+          <span role="rowheader" className="est-duda-crit">{f.criterio}</span>
+          {(['con', 'sin'] as const).map((lado) => {
+            const m = marca(lado, f.gana);
+            return (
+              <span key={lado} role="cell" className="est-duda-celda">
+                <span className={`est-marca ${m.cls}`} role="img" aria-label={m.txt}><Ic d={m.d} size={13} /></span>
+                <span>{f[lado]}</span>
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── 07. El calendario ────────────────────────────────────────────────────────
 function Riel({ hoy }: { hoy: string }) {
   const pHoy = pct(hoy);
   const hoyEnRiel = pHoy >= 0 && pHoy <= 100;
@@ -165,51 +475,7 @@ function Riel({ hoy }: { hoy: string }) {
   );
 }
 
-// ── c. La oferta ─────────────────────────────────────────────────────────────
-function Oferta() {
-  const cuota = PRECIO_GRUPAL / CUOTAS_GRUPAL;
-  return (
-    <div className="est-grid" style={minCol(250)}>
-      <div className="est-plan">
-        <span className="est-eyebrow">Software</span>
-        <div className="est-precio"><b className="est-num">{usd(PRECIO_PRO)}</b><span>/ mes</span></div>
-        <div className="est-arbol">
-          <span className="est-nodo est-nodo--padre est-nodo--solo"><Ic d={I.persona} size={14} /> Tu negocio · {num(PRECIO_PRO)}</span>
-        </div>
-        <p className="est-pie">Un workspace: el tuyo</p>
-      </div>
-
-      <div className="est-plan est-plan--97">
-        <span className="est-eyebrow">Software + agencia</span>
-        <div className="est-precio"><b className="est-num">{usd(PRECIO_GROWTH)}</b><span>/ mes</span></div>
-        <div className="est-arbol">
-          <span className="est-nodo est-nodo--padre">Tu cuenta · {num(PRECIO_GROWTH)}</span>
-          <div className="est-hijos">
-            <span className="est-nodo">Cliente · {num(PRECIO_PRO)}</span>
-            <span className="est-nodo">Cliente · {num(PRECIO_GROWTH)}</span>
-          </div>
-        </div>
-        <p className="est-pie">Cada workspace de cliente paga su plan</p>
-      </div>
-
-      <div className="est-plan est-plan--grupal">
-        <span className="est-eyebrow">Programa grupal</span>
-        <div className="est-precio"><b className="est-num">{usd(PRECIO_GRUPAL)}</b><span>{CUOTAS_GRUPAL} meses de entrega</span></div>
-        <div className="est-cuotas">
-          {Array.from({ length: CUOTAS_GRUPAL }, (_, i) => (
-            <div key={i} className="est-cuota">
-              <b className="est-num">{usd(cuota)}</b>
-              <span>Cuota {i + 1}</span>
-            </div>
-          ))}
-        </div>
-        <p className="est-pie">Renueva: {usd(RENOVACION_GRUPAL_USD)} cada 3 meses · o {usd(PRECIO_GROWTH)}/mes sólo software</p>
-      </div>
-    </div>
-  );
-}
-
-// ── d. A dónde va cada dólar ─────────────────────────────────────────────────
+// ── 08. A dónde va cada dólar ────────────────────────────────────────────────
 const COLOR: Record<ClavePorcion, string> = {
   ganancia: 'var(--est-s-ganancia)',
   conseguir: 'var(--est-s-conseguir)',
@@ -285,7 +551,7 @@ function Dona({ t }: { t: Torta }) {
   );
 }
 
-// ── e. Lo que cuesta conseguir un cliente ────────────────────────────────────
+// ── 09. Lo que cuesta conseguir un cliente ───────────────────────────────────
 /** El tope de una escala: el múltiplo de 50 de arriba. */
 const tope = (...v: number[]) => Math.ceil(Math.max(...v) / 50) * 50;
 /** ⚠️ Recortado al 100%: un valor por encima del tope desborda la PÁGINA, no la barra. */
@@ -363,165 +629,7 @@ function Ltv() {
   );
 }
 
-// ── f. Estrategia de adquisición ─────────────────────────────────────────────
-/**
- * Los tres pasos, uno al lado del otro. `detalle[i]` va en el `title` del paso: las
- * viñetas de la página vieja (qué se mira, qué se le dice) quedan a un hover y no
- * se dibujan — poco texto, pedido del 10/10.
- */
-function Mini({ pasos, verde, detalle = [] }: { pasos: readonly string[]; verde?: boolean; detalle?: readonly (readonly string[] | undefined)[] }) {
-  return (
-    <div className={`est-mini${verde ? ' est-mini--A' : ''}`}>
-      {pasos.map((s, i) => (
-        <div key={s} className="est-mini-i" title={detalle[i]?.join(' · ')}>
-          <b className="est-num">{i + 1}</b><span>{s}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Adquisicion() {
-  // La MISMA escala para los dos embudos: si no, 400 y 1.000 se dibujan del mismo largo.
-  const maxEmbudo = Math.max(...CANALES.flatMap((c) => c.embudo.map((e) => e.n)));
-  return (
-    <>
-      <div className="est-flujo">
-        {PASOS.map((p, i) => (
-          <div key={p.n} style={{ display: 'contents' }}>
-            {i > 0 && <div className="est-flecha"><Ic d={I.chev} size={24} /></div>}
-            <div className={`est-paso${i === PASOS.length - 1 ? ' est-paso--fin' : ''}`}>
-              <div className="est-paso-ic"><Ic d={I[p.icono]} size={24} /></div>
-              <span className="est-paso-n">{p.n}</span>
-              <h3>{p.t}</h3>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="est-grid" style={{ ...minCol(300), marginTop: 14 }}>
-        {CANALES.map((c) => (
-          <div key={c.id} className={`est-caja est-canal est-canal--${c.id}`}>
-            <div className="est-canal-hd">
-              <span className="est-canal-id">{c.id}</span>
-              <div>
-                <h3 className="est-h3">{c.nombre}</h3>
-                <span className="est-canal-sub">{c.sub}</span>
-              </div>
-              <span className={`est-chip ${c.inversion ? 'est-chip--azul' : 'est-chip--verde'}`}>
-                {c.inversion ? usd(c.inversion) : 'Costo cero'}
-              </span>
-            </div>
-            {c.hechos.map((h) => <div key={h} className="est-hecho"><b>{h}</b></div>)}
-            {c.fases && (
-              <>
-                <div className="est-fases" role="img" aria-label={c.fases.map((f) => `${f.t} ${usd(f.usd)}`).join(', ')}>
-                  {c.fases.map((f, i) => (
-                    <div key={f.t} className={`est-fase est-num${i ? ' est-fase--2' : ''}`} style={{ flex: `${f.usd} 1 0` }}>
-                      {usd(f.usd)}
-                    </div>
-                  ))}
-                </div>
-                <div className="est-fases-rot" aria-hidden="true">
-                  {c.fases.map((f, i) => (
-                    <span key={f.t} style={{ flex: `${f.usd} 1 0` }}><b>Fase {i + 1}</b> · {f.t}</span>
-                  ))}
-                </div>
-              </>
-            )}
-            <div className="est-embudo">
-              {c.embudo.map((e, i) => (
-                <div key={e.l} className={`est-escalon${i === c.embudo.length - 1 ? ' est-escalon--fin' : ''}`}>
-                  <div className="est-escalon-hd">
-                    <span>{e.l}</span>
-                    {e.tasa && <small>{e.tasa}</small>}
-                    <b className="est-num">{num(e.n)}</b>
-                  </div>
-                  <div className="est-carril"><div className="est-barra" style={{ width: ancho(e.n, maxEmbudo) }} /></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <p className="est-sub">El lead magnet y el Loom</p>
-      <div className="est-grid" style={minCol(300)}>
-        <div className="est-caja est-canal est-canal--B">
-          <div>
-            <span className="est-chip est-chip--azul">Campaña de mensajes</span>
-            <h3 className="est-h3" style={{ marginTop: 8 }}>Diagnóstico de anuncios</h3>
-          </div>
-          <Mini pasos={DIAG_PASOS} detalle={[undefined, undefined, DIAG]} />
-          <div className="est-puente"><span>Su anuncio</span><Ic d={I.flecha} size={16} /><span>Su funnel completo, en la llamada</span></div>
-        </div>
-        <div className="est-caja est-canal est-canal--A">
-          <div>
-            <span className="est-chip est-chip--verde">Prospección</span>
-            <h3 className="est-h3" style={{ marginTop: 8 }}>Un Loom VSL por cada lead</h3>
-          </div>
-          <Mini pasos={LOOM_PASOS} verde detalle={[LOOM_MIRA, LOOM_DICE]} />
-        </div>
-      </div>
-
-      <p className="est-sub">Por qué agenda la llamada</p>
-      <div className="est-caja" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <p className="est-cita">«Sales de la llamada con toda tu estrategia para conseguir clientes con anuncios pagados, armada para tu negocio.»</p>
-        {/* Sólo el título y su ícono; la frase de cada eje va en el title. */}
-        <div className="est-ejes">
-          {ANALISIS.map((a) => (
-            <div key={a.t} className="est-eje" title={a.w}>
-              <span className="est-eje-ic"><Ic d={I[a.icono]} size={20} /></span>
-              <strong>{a.t}</strong>
-            </div>
-          ))}
-        </div>
-        <div className="est-que-como">
-          <div className="est-que"><b>Se dice el QUÉ</b><p>Qué está mal, qué le falta y qué hay que hacer, sobre su negocio.</p></div>
-          <div className="est-como"><b>Nunca el CÓMO</b><p>Cómo se ejecuta es lo que se compra. Si se regala, no queda nada que vender.</p></div>
-        </div>
-        <p className="est-pie" style={{ fontSize: 13.5 }}>«Esto es lo que hay que hacer; puedes intentarlo por tu cuenta, o lo hacemos juntos.»</p>
-      </div>
-
-      <p className="est-sub">¿Realmente conviene hacerlo personalizado?</p>
-      <DudaMatriz />
-    </>
-  );
-}
-
-/** La duda como matriz: un criterio por fila, con ✓ / ✕ / = en cada lado. */
-function DudaMatriz() {
-  const marca = (lado: 'con' | 'sin', gana: 'con' | 'sin' | 'empate') =>
-    gana === 'empate' ? { cls: 'est-marca--igual', d: I.igual, txt: 'empate' }
-      : gana === lado ? { cls: 'est-marca--si', d: I.check, txt: 'mejor' }
-        : { cls: 'est-marca--no', d: I.cruz, txt: 'peor' };
-  const cuenta = (lado: 'con' | 'sin') => DUDA.filter((f) => f.gana === lado).length;
-  return (
-    <div className="est-caja est-duda" role="table" aria-label="Con personalización contra sin personalización">
-      <div className="est-duda-fila est-duda-fila--cab" role="row">
-        <span role="columnheader" />
-        <span role="columnheader" className="est-duda-cab est-duda-cab--con">Con personalización <b className="est-num">{cuenta('con')}</b></span>
-        <span role="columnheader" className="est-duda-cab">Sin personalización <b className="est-num">{cuenta('sin')}</b></span>
-      </div>
-      {DUDA.map((f) => (
-        <div key={f.criterio} className="est-duda-fila" role="row" title={f.detalle}>
-          <span role="rowheader" className="est-duda-crit">{f.criterio}</span>
-          {(['con', 'sin'] as const).map((lado) => {
-            const m = marca(lado, f.gana);
-            return (
-              <span key={lado} role="cell" className="est-duda-celda">
-                <span className={`est-marca ${m.cls}`} role="img" aria-label={m.txt}><Ic d={m.d} size={13} /></span>
-                <span>{f[lado]}</span>
-              </span>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── g. Proyección ────────────────────────────────────────────────────────────
+// ── 10. Proyección ───────────────────────────────────────────────────────────
 function Proyeccion() {
   const deCanal = CANALES.map((c) => `${c.embudo.at(-1)?.n ?? 0} de ${c.nombre.toLowerCase()}`).join(' + ');
   const escalones = [
@@ -586,7 +694,7 @@ function Brecha() {
   );
 }
 
-// ── h. Referidos ─────────────────────────────────────────────────────────────
+// ── 11. Referidos ────────────────────────────────────────────────────────────
 function Referidos() {
   const max = tope(...COSTO_REFERIDO.flatMap((c) => [c.usd, c.techo]));
   const cuota = COMISION_GRUPAL / CUOTAS_GRUPAL;
@@ -662,63 +770,133 @@ function Referidos() {
   );
 }
 
-// ── i. Canales a futuro ──────────────────────────────────────────────────────
+// ── 12. Canales a futuro ─────────────────────────────────────────────────────
 const TONO_FUTURO = { ok: 'est-chip--verde', caja: 'est-chip--azul', palanca: 'est-chip--oro' } as const;
 
 function Futuro() {
   return (
-    <div className="est-grid" style={minCol(200)}>
-      {/* Letra, chip y título: el párrafo de cada canal va en el title (poco texto). */}
-      {FUTURO.map((c) => (
-        <div key={c.id} className={`est-caja est-futuro${c.tono === 'palanca' ? ' est-futuro--palanca' : ''}`} title={c.que}>
-          <div className="est-futuro-hd">
-            <span className="est-futuro-id">{c.id}</span>
-            <span className={`est-chip ${TONO_FUTURO[c.tono]}`}>{c.costo}</span>
+    <>
+      <p className="est-regla" style={{ marginTop: 0 }}>Todos son válidos y ninguno está descartado.</p>
+      <div className="est-grid" style={minCol(220)}>
+        {FUTURO.map((c) => (
+          <div key={c.id} className={`est-caja est-futuro${c.tono === 'palanca' ? ' est-futuro--palanca' : ''}`}>
+            <div className="est-futuro-hd">
+              <span className="est-futuro-id">{c.id}</span>
+              <span className={`est-chip ${TONO_FUTURO[c.tono]}`}>{c.costo}</span>
+            </div>
+            <h3 className="est-h3" style={{ fontSize: 15 }}>{c.nombre}</h3>
+            <p className="est-futuro-que">{c.que}</p>
           </div>
-          <h3 className="est-h3" style={{ fontSize: 15 }}>{c.nombre}</h3>
+        ))}
+      </div>
+
+      {/* La propuesta a Jan es el detalle del canal G: un desplegable adentro del desplegable. */}
+      <details className="est-det est-det--hijo">
+        <summary className="est-det-cab">
+          <span className="est-det-n est-num">G</span>
+          <h3 className="est-det-t">Propuesta concreta: Jan</h3>
+          <span className="est-det-q">Qué gana él y qué gano yo</span>
+          <span className="est-det-chev"><Ic d={I.chev} size={18} /></span>
+        </summary>
+        <div className="est-det-cuerpo">
+          <div className="est-grid" style={minCol(280)}>
+            <ColJan titulo="Qué gana Jan" filas={JAN_GANA} />
+            <ColJan titulo="Qué gano yo" filas={JAN_GANO} />
+          </div>
         </div>
-      ))}
+      </details>
+    </>
+  );
+}
+
+/** Una columna de la propuesta. Lo que choca con los referidos va marcado, no corregido (datos.ts). */
+function ColJan({ titulo, filas }: { titulo: string; filas: FilaJan[] }) {
+  return (
+    <div className="est-caja est-lista">
+      <span className="est-lista-t">{titulo}</span>
+      <ul>
+        {filas.map((f) => (
+          <li key={f.t} className={f.choca ? 'est-jan--choca' : undefined}>
+            <span className="est-lista-ic"><Ic d={f.choca ? I.cruz : I.check} size={12} /></span>
+            <span>
+              {f.t}
+              {f.choca && <span className="est-jan-choca"><b>Choca con referidos.</b> {f.choca}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
 // ── La página ────────────────────────────────────────────────────────────────
 export default function Estrategia({ hoy }: { hoy: string }) {
+  const aAnuncios = faltan(HITO_ANUNCIOS.fecha, hoy);
   return (
     <div className="est">
+      <Intro />
       <Cifras hoy={hoy} />
 
-      <Seccion titulo="Calendario"><Riel hoy={hoy} /></Seccion>
+      <Grupo titulo="La estrategia">
+        {/* Abierta: es el «a quién» que Martín reclamó, y le da contexto a todo lo de abajo. */}
+        <Seccion n={1} titulo="El producto y el cliente ideal" pregunta="¿Qué vendemos y a quién?" abierta>
+          <Producto />
+        </Seccion>
+        <Seccion n={2} titulo="La oferta" pregunta="¿Cuánto cuesta cada cosa?"
+          dato={`${usd(PRECIO_PRO)} · ${usd(PRECIO_GROWTH)} · ${usd(PRECIO_GRUPAL)}`}>
+          <Oferta />
+        </Seccion>
+        <Seccion n={3} titulo="Los dos canales" pregunta="¿De dónde salen las llamadas?" dato={`${num(AGENDADAS)} agendas al mes`}>
+          <Canales />
+        </Seccion>
+        <Seccion n={4} titulo="El lead magnet y el Loom" pregunta="¿Con qué se engancha a cada lead?">
+          <LeadMagnet />
+        </Seccion>
+        <Seccion n={5} titulo="Por qué agenda la llamada" pregunta="¿Qué se lleva el que agenda?">
+          <PorQueAgenda />
+        </Seccion>
+        <Seccion n={6} titulo="¿Conviene hacerlo personalizado?" pregunta="¿Cuánto sube el cierre por hacerlo a medida?" dato="Duda abierta">
+          <DudaMatriz />
+        </Seccion>
+      </Grupo>
 
-      <Seccion titulo="La oferta"><Oferta /></Seccion>
+      <Grupo titulo="Los números">
+        <Seccion n={7} titulo="Calendario" pregunta="¿Cuándo pasa cada cosa?"
+          dato={aAnuncios > 0 ? `Anuncios en ${aAnuncios} días` : 'Anuncios en curso'}>
+          <Riel hoy={hoy} />
+        </Seccion>
+        <Seccion n={8} titulo="A dónde va cada dólar" pregunta="¿Cuánto deja cada venta?">
+          {/* 280 y no 250: con tres columnas de ~250 la leyenda partía «Captación» y «reembolso». */}
+          <div className="est-grid" style={minCol(280)}>
+            {TORTAS.map((t) => <Dona key={t.clave} t={t} />)}
+          </div>
+        </Seccion>
+        {/* Dos gráficos, uno por lo que se vende y cada uno contra SU techo: el grupal es lo
+            que venden los canales A y B de esta página; el 47 solo es lo que modela CAC_CANALES. */}
+        <Seccion n={9} titulo="Lo que cuesta conseguir un cliente" pregunta="¿Cuánto se puede pagar por un cliente?">
+          <p className="est-sub" style={{ marginTop: 0 }}>Un alumno del grupal</p>
+          <CostoContraTecho filas={CAC_GRUPAL} techo={DEJA_GRUPAL} rotuloTecho="Lo que deja" />
+          <p className="est-sub">Un cliente del plan de {num(PRECIO_PRO)}, vendido solo</p>
+          <CostoContraTecho filas={CAC_PRO} techo={TECHO_PRO} rotuloTecho="Techo" />
+          <p className="est-sub">Lo que deja un cliente</p>
+          <Ltv />
+        </Seccion>
+        <Seccion n={10} titulo="Proyección del mes" pregunta="¿Cuánto entra y cuánto falta?"
+          dato={`${usd(FACTURADO)} de ${usd(OBJETIVO_MES_USD)}`}>
+          <Proyeccion />
+        </Seccion>
+      </Grupo>
 
-      <Seccion titulo="A dónde va cada dólar">
-        {/* 280 y no 250: con tres columnas de ~250 la leyenda partía «Captación» y «reembolso». */}
-        <div className="est-grid" style={minCol(280)}>
-          {TORTAS.map((t) => <Dona key={t.clave} t={t} />)}
-        </div>
-      </Seccion>
+      <Grupo titulo="Lo que sigue">
+        <Seccion n={11} titulo="Referidos" pregunta="¿Qué gana el que trae a otro?" dato={`${usd(COMISION_GRUPAL)} por grupal`}>
+          <Referidos />
+        </Seccion>
+        <Seccion n={12} titulo="Canales a futuro" pregunta="¿Qué entra cuando los de hoy den señal?">
+          <Futuro />
+        </Seccion>
+      </Grupo>
 
-      {/* Dos gráficos, uno por lo que se vende y cada uno contra SU techo: el grupal es lo
-          que venden los canales A y B de esta página; el 47 solo es lo que modela CAC_CANALES. */}
-      <Seccion titulo="Lo que cuesta conseguir un cliente">
-        <p className="est-sub" style={{ marginTop: 0 }}>Un alumno del grupal</p>
-        <CostoContraTecho filas={CAC_GRUPAL} techo={DEJA_GRUPAL} rotuloTecho="Lo que deja" />
-        <p className="est-sub">Un cliente del plan de {num(PRECIO_PRO)}, vendido solo</p>
-        <CostoContraTecho filas={CAC_PRO} techo={TECHO_PRO} rotuloTecho="Techo" />
-        <p className="est-sub">Lo que deja un cliente</p>
-        <Ltv />
-      </Seccion>
-
-      <Seccion titulo="Estrategia de adquisición"><Adquisicion /></Seccion>
-
-      <Seccion titulo="Proyección del mes"><Proyeccion /></Seccion>
-
-      <Seccion titulo="Referidos"><Referidos /></Seccion>
-
-      <Seccion titulo="Canales a futuro"><Futuro /></Seccion>
-
-      <section className="est-sec">
+      <section className="est-grupo">
         <div className="est-grid" style={minCol(260)}>
           <Link href="/admin/runway" className="est-caja est-link">
             <span><span className="est-eyebrow">Avance del producto</span><br /><b>Runway</b></span>

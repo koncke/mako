@@ -299,6 +299,30 @@ prospección (18/10 y 19/10), y la «ventana de 45 días» son 29-30 días con p
 interno bajo `/vsl`; su cabecera decía «igual que /vsl/estrategia», que dejó de ser cierto.
 **Decisión de Martín.**
 
+### Y la segunda vuelta, el mismo día: «poco texto» no es «esconder en un hover»
+
+**Síntoma.** Martín abrió la tab y la devolvió: «eliminaste cosas de la antigua tab de
+estrategia que estaban buenas, como la intro, que decía el avatar» y «son muchas cosas todas
+juntas; quiero tener claridad de qué estoy leyendo en todo momento».
+
+**Causa.** Para cumplir «gráfico, simple, no tanto texto», la primera versión tomó dos atajos
+que se leen como acortar y no lo son: sacó lo que no era un número (la intro, el cliente
+ideal, la propuesta a Jan) y mandó al `title` de cada tarjeta lo que era una lista (los seis
+ejes de la llamada, qué se mira para el Loom, qué se le dice sobre su anuncio, los canales a
+futuro). Un `title` no se ve en el celular ni sin el mouse encima: el texto seguía en el
+código y para quien lee no existía. Y el «muchas cosas juntas» no era el largo: eran nueve
+secciones seguidas sin nada que dijera dónde empieza una y termina la otra.
+
+**La regla que queda.** Cuando una página interna tiene que ser corta Y completa, el recorte
+es estructural, no de contenido: cada sección es un `<details>` numerado con la pregunta que
+contesta (cerradas, se leen como el índice) y su renglón queda pegado arriba mientras está
+abierta. El largo ya no tapa nada, porque lo que no se quiere leer se deja cerrado. Lo que
+se saca por chocar con una decisión posterior (la propuesta a Jan contra el programa de
+referidos) no se borra: vuelve **marcado**, porque decidir qué se le ofrece a alguien no es
+trabajo de la pantalla. **Vive en:** `app/admin/estrategia/Estrategia.tsx` (`Seccion`,
+`ColJan`), `app/admin/estrategia/datos.ts` (`JAN_GANA`, `JAN_GANO`), y lo fija
+`tests/estrategia-tab.test.ts`, que dibuja la página y busca el texto **sin los `title`**.
+
 ---
 
 ## Lo que quedó SIN hacer, con el archivo donde vive

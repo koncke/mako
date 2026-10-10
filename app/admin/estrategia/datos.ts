@@ -319,8 +319,10 @@ export const LOOM_DICE = [
 ];
 
 /**
- * Estrategia.tsx:99-106 — los seis ejes de la llamada. En pantalla va sólo el
- * título con su ícono; la frase `w` queda en el `title` (poco texto, pedido del 10/10).
+ * Estrategia.tsx:99-106 — los seis ejes de la llamada, con su frase `w` A LA VISTA.
+ * La primera versión de la tab la dejó en el `title` (poco texto) y Martín la
+ * reclamó el mismo 10/10: «eliminaste cosas de la antigua tab que estaban buenas».
+ * Un `title` no se ve en el celular ni sin pasar el mouse: es esconder, no acortar.
  */
 export const ANALISIS = [
   { t: 'Anuncios y creativos', icono: 'megafono', w: 'Qué corre hoy y por qué no le trae agendas.' },
@@ -445,9 +447,7 @@ export const CAC_PRO: FilaCac[] = [
 
 // ── Canales a futuro (Estrategia.tsx:128-164) ───────────────────────────────
 // C (Referidos) ya no va acá: tiene programa decidido y su propia sección arriba.
-// G pierde el detalle de la propuesta a Jan («licencia de reventa», «prueba
-// gratuita extendida», «% de ganancias»): choca con las reglas decididas el 10/10.
-// `que` NO se dibuja: va en el `title` de la tarjeta (poco texto, pedido del 10/10).
+// `que` se dibuja (como `w` en ANALISIS: el `title` lo escondía, y Martín lo reclamó).
 export const FUTURO = [
   { id: 'D', nombre: 'Orgánico + Lead Magnet', costo: 'Casi cero', tono: 'ok',
     que: 'Los creativos de la campaña, en orgánico. «Comenta [palabra]» → ManyChat → diagnóstico → Calendly → CRM.' },
@@ -458,3 +458,30 @@ export const FUTURO = [
   { id: 'G', nombre: 'Asociarse con infoproductores', costo: 'Mayor palanca', tono: 'palanca',
     que: 'Un solo sí abre acceso a cientos de dueños que ya corren ads. Caso concreto: Jan.' },
 ] as const;
+
+/**
+ * La propuesta a Jan (Estrategia.tsx:563-585 de la página vieja, 28/07/2026), el caso
+ * concreto del canal G. La primera versión de la tab la sacó por chocar con los
+ * referidos decididos el 10/10; Martín la reclamó ese mismo día («eliminaste cosas…
+ * que estaban buenas»), así que vuelve TAL CUAL y lo que choca va MARCADO, no
+ * corregido: qué se le ofrece a Jan lo decide él, no la tab.
+ * `choca` dice la regla del 10/10 contra la que choca (docs/referidos.md, «EL
+ * PROGRAMA DECIDIDO»), en un renglón: se dibuja debajo de la viñeta.
+ */
+export type FilaJan = { t: string; choca?: string };
+export const JAN_GANA: FilaJan[] = [
+  { t: 'Acceso personal de por vida a MaKo y a todas sus versiones futuras' },
+  { t: 'Licencia de reventa para todos sus clientes: sube el valor de su oferta',
+    choca: 'Decidido: cada cliente paga su plan; el revendedor cobra primero en descuento y lo que sobra, en efectivo' },
+  { t: 'Sus clientes acceden a una prueba gratuita extendida',
+    choca: `Decidido: el que llega tiene el 1er mes gratis en el ${num(PRECIO_PRO)} y hasta ${num(DESCUENTO_MAX_97 * 100)}% en el ${num(PRECIO_GROWTH)}` },
+  { t: 'Cobra una recurrencia a sus clientes sin mover un dedo, sólo sumando MaKo' },
+  { t: 'Su metodología implementada en el software, para vender lo que él ofrece' },
+  { t: 'Trabajo para que MaKo se use al 100% en sus productos' },
+];
+export const JAN_GANO: FilaJan[] = [
+  { t: 'Jan me ayuda 1 a 1 con mis ads (RECON)' },
+  { t: 'Me recomienda ya con 3 o más de sus clientes; lo cobrado va 100% a los ads que él recomiende' },
+  { t: 'Un % de las ganancias a futuro con todos sus clientes que usen MaKo',
+    choca: 'Decidido: MaKo cobra el plan de cada cliente y el que refiere recibe el premio, no al revés' },
+];

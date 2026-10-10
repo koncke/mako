@@ -16,6 +16,9 @@ import { getSesionAdmin } from '@/lib/auth';
 import { Pagina, PageHeader } from '@/app/_ui';
 import Estrategia from './Estrategia';
 import { MEDIDO, hoyAR } from './datos';
+// La hoja va acá y no en Estrategia.tsx: así el componente se dibuja en un test sin
+// un cargador de CSS (tests/estrategia-tab.test.ts).
+import './estrategia.css';
 
 export const dynamic = 'force-dynamic';
 

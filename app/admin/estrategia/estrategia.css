@@ -76,16 +76,125 @@ html:not([data-tema="oscuro"]):not([data-tema-candidato]) .est { --est-on-verde:
   color: var(--faint);
 }
 
-/* ── secciones ─────────────────────────────────────────────────────────────── */
-.est-sec { margin-top: 52px; min-width: 0; }
-.est-h2 {
-  margin: 0 0 16px;
-  font-size: clamp(21px, 2.3vw, 27px);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  font-weight: 600;
+/* ── la intro ──────────────────────────────────────────────────────────────── */
+.est-hero { margin: 2px 0 24px; display: flex; flex-direction: column; gap: 10px; }
+.est-hero-h {
+  margin: 0;
+  font-size: clamp(28px, 3.4vw, 40px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-weight: 700;
   color: var(--ink);
 }
+/* --mako-ink y no --mako: el dorado de relleno da ~2:1 sobre el blanco (en oscuro, los
+   tokens ya lo devuelven al dorado de siempre). */
+.est-oro { color: var(--mako-ink); }
+.est-hero-p { margin: 0; max-width: 680px; font-size: 16.5px; line-height: 1.6; color: var(--dim); }
+.est-hero-p b { color: var(--ink); font-weight: 600; }
+
+/* ── grupos y desplegables ─────────────────────────────────────────────────────
+   Cada sección es un <details>: cerradas, las doce se leen como el índice; abierta,
+   su renglón (número · título · pregunta) queda PEGADO arriba mientras se scrollea,
+   para saber qué se está leyendo en todo momento (pedido de Martín, 10/10).
+   ⚠️ El sticky funciona porque la página scrollea en la ventana y ningún ancestro
+   recorta (overflow): si un día la tab se monta dentro de una caja con overflow,
+   el renglón deja de pegarse sin un error. */
+.est-grupo { margin-top: 36px; min-width: 0; }
+.est-grupo-t {
+  margin: 0 0 10px;
+  display: flex; align-items: center; gap: 12px;
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--faint);
+}
+.est-grupo-t::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+.est-det { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); min-width: 0; }
+.est-det + .est-det { margin-top: 10px; }
+.est-det-cab {
+  list-style: none;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "n t d c" "n q d c";
+  column-gap: 14px;
+  row-gap: 2px;
+  align-items: center;
+  padding: 13px 16px 13px 14px;
+  border-radius: 15px;
+  background: var(--surface);
+}
+.est-det-cab::-webkit-details-marker { display: none; }
+.est-det-cab::marker { content: ''; }
+.est-det-cab:hover .est-det-t { color: var(--primary); }
+.est-det-cab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.est-det-n {
+  grid-area: n;
+  width: 34px; height: 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px; font-weight: 600;
+  background: var(--surface-2); color: var(--dim);
+}
+.est-det-t {
+  grid-area: t; align-self: end;
+  margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: var(--ink);
+}
+.est-det-q { grid-area: q; align-self: start; font-size: 13px; line-height: 1.35; color: var(--dim); }
+.est-det-dato {
+  grid-area: d;
+  font-size: 12px; font-weight: 600; color: var(--dim);
+  background: var(--surface-2); padding: 4px 10px; border-radius: 7px; white-space: nowrap;
+}
+.est-det-chev { grid-area: c; display: flex; color: var(--faint); transition: transform 0.15s ease; }
+.est-det[open] > .est-det-cab .est-det-chev { transform: rotate(90deg); color: var(--primary); }
+.est-det[open] > .est-det-cab .est-det-n { background: var(--primary); color: var(--on-primary); }
+.est-det[open] > .est-det-cab {
+  position: sticky; top: 0; z-index: 3;
+  border-bottom: 1px solid var(--border);
+  border-radius: 15px 15px 0 0;
+}
+/* El cuerpo va sobre el fondo de la página: las cajas de adentro (var(--surface)) se
+   recortan contra él, igual que antes de los desplegables. */
+.est-det-cuerpo { padding: 18px; background: var(--bg); border-radius: 0 0 15px 15px; min-width: 0; }
+/* Un desplegable adentro de otro (la propuesta a Jan) no se pega: se pegaría ENCIMA del
+   renglón de su sección, que ya dice dónde se está. */
+.est-det--hijo { margin-top: 14px; }
+.est-det--hijo[open] > .est-det-cab { position: static; }
+
+/* ── listas de chequeos ────────────────────────────────────────────────────── */
+.est-lista { display: flex; flex-direction: column; gap: 8px; }
+.est-lista-t {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);
+}
+.est-lista ul, .est-icp-l {
+  margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px;
+}
+.est-lista li, .est-icp-l li {
+  display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 9px; align-items: start;
+  font-size: 13.5px; line-height: 1.45;
+}
+.est-lista-ic {
+  width: 20px; height: 20px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--est-azul-bg); color: var(--primary);
+}
+.est-lista-ic--A { background: var(--est-verde-bg); color: var(--good); }
+.est-regla { margin: 8px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--dim); }
+
+/* ── el producto y el cliente ideal ────────────────────────────────────────── */
+.est-producto { justify-content: flex-start; gap: 14px; }
+.est-producto > svg:last-child { margin-left: auto; flex: none; }
+.est-producto-t { display: flex; flex-direction: column; gap: 4px; }
+.est-producto-t b { font-size: 16px; }
+.est-icp { display: flex; flex-direction: column; gap: 14px; }
+.est-icp-l li { font-size: 14.5px; }
+.est-icp-l b { font-weight: 600; }
+
+/* ── la propuesta a Jan ─────────────────────────────────────────────────────── */
+.est-jan--choca .est-lista-ic { background: var(--est-rojo-bg); color: var(--bad); }
+.est-jan-choca { display: block; margin-top: 4px; font-size: 12.5px; line-height: 1.4; color: var(--bad); }
+
 .est-h3 {
   margin: 0;
   font-size: 17px;
@@ -377,8 +486,6 @@ html:not([data-tema="oscuro"]):not([data-tema-candidato]) .est { --est-on-verde:
 }
 .est-mini--A .est-mini-i { background: var(--est-verde-bg); }
 .est-mini--A .est-mini-i b { background: var(--good); color: var(--est-on-verde); }
-/* El paso que trae detalle en el title lo avisa con el cursor. */
-.est-mini-i[title] { cursor: help; }
 .est-puente { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 600; }
 .est-puente span { padding: 7px 11px; border-radius: 9px; }
 .est-puente span:first-child { background: var(--surface-2); color: var(--dim); }
@@ -393,13 +500,14 @@ html:not([data-tema="oscuro"]):not([data-tema-candidato]) .est { --est-on-verde:
 .est-ejes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
 .est-eje {
   display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0;
-  padding: 14px; border-radius: 12px; background: var(--surface-2); cursor: help;
+  padding: 14px; border-radius: 12px; background: var(--surface-2);
 }
 .est-eje-ic {
   width: 36px; height: 36px; border-radius: 10px; flex: none;
   display: flex; align-items: center; justify-content: center; background: var(--est-azul-bg); color: var(--primary);
 }
 .est-eje strong { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.est-eje-w { font-size: 12.5px; line-height: 1.4; color: var(--dim); }
 
 /* El QUÉ y el CÓMO. */
 .est-que-como { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; border-radius: 16px; overflow: hidden; }
@@ -508,7 +616,7 @@ html:not([data-tema="oscuro"]):not([data-tema-candidato]) .est { --est-on-verde:
   width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 700; background: var(--surface-2); color: var(--dim);
 }
-.est-futuro[title] { cursor: help; }
+.est-futuro-que { margin: 0; font-size: 13px; line-height: 1.45; color: var(--dim); }
 .est-futuro--palanca { border-color: color-mix(in srgb, var(--mako) 60%, var(--border)); }
 
 /* ── j. el pie ─────────────────────────────────────────────────────────────── */
@@ -543,6 +651,19 @@ html:not([data-tema="oscuro"]):not([data-tema-candidato]) .est { --est-on-verde:
   .est-cuenta-i { flex: none; }
   .est-op { line-height: 1; }
   .est-precio b { font-size: 34px; }
+  /* El renglón de cada sección en tres filas: el dato baja debajo de la pregunta. */
+  .est-det-cab {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "n t c" "n q c" "n d c";
+    column-gap: 12px;
+    padding: 12px;
+  }
+  .est-det-dato { justify-self: start; margin-top: 5px; white-space: normal; }
+  .est-det-cuerpo { padding: 14px 12px; }
+  .est-hero-p { font-size: 15.5px; }
+  /* Los seis ejes de a dos: de a uno eran seis cajas apiladas, una pantalla entera. */
+  .est-ejes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .est-eje { padding: 12px; }
 }
 .est-hito {
   display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 10px; align-items: center;

@@ -33,12 +33,19 @@
 //   · el canal a WhatsApp con el Free adentro (CAC_CANALES crudo, 176) → 10 pases, 1 fallo.
 //   · una familia de clientes (FAMILIAS) con un item a /admin/estrategia → 10 pases, 1 fallo.
 //   · «2 · Plata» de vuelta en el tramo del revendedor → 10 pases, 1 fallo.
+//
+// Tercera tanda (10/10/2026, «eliminaste cosas… que estaban buenas» y «utiliza más
+// desplegables»): la página DIBUJADA, no el fuente. Probada rompiéndola sobre una
+// base de 14/14 en verde, restaurando de memoria entre una y otra (el resultado de
+// cada rotura, en el comentario de su test).
 // =============================================================================
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import {
   TORTAS, porcentajes, CONTRIB_PRO, LTV_PRO, TECHO_PRO, TECHO_GROWTH, COSTO_REFERIDO,
   VIDA_PRO, VIDA_GROWTH, COMISION_GRUPAL,
@@ -46,7 +53,9 @@ import {
   AGENDADAS, EFECTIVAS, VENTAS, PAUTA, FACTURADO, NETO, OBJETIVO_MES_USD, PRECIO_GRUPAL,
   VENTAS_OBJETIVO, AGENDAS_OBJETIVO, COBRADO_EN_EL_MES,
   CAC_GRUPAL, CAC_PRO, CAC_CAMPANA_GRUPAL, DEJA_GRUPAL, LOOMS_POR_VENTA, CANALES,
+  ANALISIS, FUTURO, DIAG, LOOM_MIRA, LOOM_DICE, JAN_GANA, JAN_GANO,
 } from '../app/admin/estrategia/datos';
+import Estrategia from '../app/admin/estrategia/Estrategia';
 import { ADMIN_FAMILIAS, FAMILIAS, itemsDe } from '../app/_components/nav';
 
 const RAIZ = join(__dirname, '..');
@@ -174,4 +183,52 @@ test('la tab es sólo para el super admin, y /vsl/estrategia redirige a ella', (
   assert.equal(admin?.href, '/admin/estrategia');
   const deClientes = FAMILIAS.flatMap(itemsDe).filter((i) => i.href.startsWith('/admin/estrategia'));
   assert.deepEqual(deClientes.map((i) => i.key), []);
+});
+
+// ── La página dibujada ───────────────────────────────────────────────────────
+const HTML = renderToStaticMarkup(createElement(Estrategia, { hoy: '2026-10-10' }));
+/** Lo que se LEE: sin los `title` (un hover no se ve en el celular) y con las entidades resueltas. */
+const VISIBLE = HTML.replace(/ title="[^"]*"/g, '')
+  .replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+/** Los desplegables de primer nivel: los que no llevan el modificador de hijo. */
+const SECCIONES = [...HTML.matchAll(/<details class="est-det"( open="")?>([\s\S]*?)<\/summary>/g)];
+
+test('cada sección es un desplegable numerado 01-12 con la pregunta que contesta, y sólo la 01 abre sola', () => {
+  // Rota: sacar el `abierta` de la 01 → 13 pases, 1 fallo; la 08 numerada 07 → 13 pases,
+  // 1 fallo. Una sección sin pregunta no compila (la prop es obligatoria): ésa es la otra red.
+  assert.equal(SECCIONES.length, 12, `secciones: ${SECCIONES.length}`);
+  const numeros = SECCIONES.map((m) => /est-det-n[^>]*>(\d\d)</.exec(m[2])?.[1]);
+  assert.deepEqual(numeros, Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')));
+  for (const [i, m] of SECCIONES.entries()) {
+    const q = /est-det-q">([^<]*)</.exec(m[2])?.[1] ?? '';
+    assert.ok(q.trim().length > 3, `la sección ${i + 1} no dice qué contesta`);
+  }
+  assert.deepEqual(SECCIONES.map((m) => !!m[1]), SECCIONES.map((_, i) => i === 0), 'abierta de entrada: sólo la 01');
+  // Y los tres grupos, para saber de qué parte de la página es lo que se lee.
+  for (const g of ['La estrategia', 'Los números', 'Lo que sigue']) assert.match(HTML, new RegExp(`est-grupo-t">${g}<`));
+});
+
+test('lo que Martín reclamó vuelve A LA VISTA: la intro, el cliente ideal y lo que estaba en un hover', () => {
+  // Rota: los ejes sin su renglón (o sea, sólo en el `title`) → 13 pases, 1 fallo; sin «Qué
+  // se mira antes de grabar» → 13/1; sin la intro → 13/1. Un `title` DE MÁS con el renglón
+  // a la vista da verde, y está bien: lo que se pide es que se vea, no que no haya hover.
+  assert.match(VISIBLE, /Cómo vamos a vender <span[^>]*>MaKo<\/span>/);
+  assert.match(VISIBLE, /El cliente ideal/);
+  assert.match(VISIBLE, /quiere correr/);
+  assert.match(VISIBLE, /~US\$20 por día/);
+  const faltan = [
+    ...ANALISIS.map((a) => a.w), ...FUTURO.map((c) => c.que),
+    ...DIAG, ...LOOM_MIRA, ...LOOM_DICE, ...JAN_GANA.map((f) => f.t), ...JAN_GANO.map((f) => f.t),
+  ].filter((t) => !VISIBLE.includes(t));
+  assert.deepEqual(faltan, [], 'se dibujan sólo en un title, o no se dibujan');
+});
+
+test('la propuesta a Jan marca lo que choca con los referidos, al lado de la viñeta', () => {
+  // Rota: sin el renglón de `choca` → 13 pases, 1 fallo. Lo que choca se MARCA y no se corrige:
+  // qué se le ofrece a Jan lo decide Martín (datos.ts, JAN_GANA).
+  const chocan = [...JAN_GANA, ...JAN_GANO].filter((f) => f.choca);
+  assert.equal(chocan.length, 3);
+  assert.equal(VISIBLE.match(/Choca con referidos\./g)?.length ?? 0, chocan.length);
+  for (const f of chocan) assert.ok(VISIBLE.includes(f.choca!), `no se ve por qué choca: ${f.t}`);
+  assert.match(HTML, /<details class="est-det est-det--hijo">/, 'Jan va en su propio desplegable');
 });
