@@ -136,6 +136,8 @@ export type SecuenciaDto = {
    * que no vio.
    */
   borrador?: { pasos: PasoSecuenciaDto[]; guardado_at: string } | null;
+  /** La huella de lo publicado que trajo el GET (`getSettingData`): el borrador la manda con cada guardado. */
+  base?: string;
   /**
    * EL HORARIO con el que inscribe (mig 0192). `null`/ausente = se dispara por una
    * ACCIÓN, que es lo que hacen hoy todas las filas. Ver lib/nutricion-agenda.ts.

@@ -81,13 +81,6 @@ const tarjetaChrome: CSSProperties = {
  */
 const guiaOfrecida = { enLaVisita: false };
 
-/**
- * La huella de lo publicado que trae el GET (`base`, `getSettingData` en lib/setting-secuencias.ts), que el
- * borrador manda con cada guardado. Va acá y no en `SecuenciaDto` porque ese tipo vive en ChatAgentApp.tsx
- * (otra parte de la tanda): cuando el campo se sume allá, esto se va.
- */
-type SecuenciaConBase = SecuenciaDto & { base?: string };
-
 /** La edición en curso de una automatización, tal como la ve el lienzo. */
 export type EdicionLocal = {
   secuenciaId: number;
@@ -254,7 +247,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const borrador = useBorradorSecuencia(secuencia.id, {
     puedeGuardar: rolAdmin && secuencia.borrador !== undefined,
     inicial: inicial.pasos,
-    base: (secuencia as SecuenciaConBase).base,
+    base: secuencia.base,
     onGuardado: (json) => setVisto(json),
     onError: (m) => setErr(m),
     onSalir: () => onCambio(),

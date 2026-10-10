@@ -398,7 +398,7 @@ test('⚠️ la base viaja de punta a punta: el GET la calcula, el lienzo la man
   // mismo `if` que el borrador (ver el test de arriba).
   const sp = codigo('app/automations/SecuenciaPerfil.tsx');
   const llamada = tramo(sp, 'useBorradorSecuencia(secuencia.id, {', '});');
-  assert.match(llamada, /base: \(secuencia as SecuenciaConBase\)\.base,/);
+  assert.match(llamada, /base: secuencia\.base,/);
   assert.match(llamada, /onSalir: \(\) => onCambio\(\),/, 'sin releer la lista al irse, volver acá abre lo de la entrada');
   // La ruta pasa la base y contesta 409 cuando ya no es lo publicado.
   const rama = tramo(codigo('app/api/chat-agent/secuencias/route.ts'), "if (body.action === 'borrador' || body.action === 'descartar-borrador')", 'status: 404');
@@ -431,11 +431,21 @@ test('⚠️ «Volver a lo publicado» y «Descartar cambios»: los dos BORRAN e
   assert.match(reg, /descartarBorrador\.current = \(\) => \{ void borrador\.descartar\(\); \};/);
   assert.match(reg, /return \(\) => \{ descartarBorrador\.current = null; \};/);
 });
-// ⚠️ EL ENCHUFE DE «DESCARTAR CAMBIOS» VIVE EN UN ARCHIVO DE OTRA PARTE (app/automations/SimuladorWhatsApp.tsx,
-// revisión del 10/10/2026): hasta que se enchufe, la ref de arriba tiene CERO call sites y «Descartar cambios»
-// sigue guardando lo descartado. Quien lo enchufe suma acá el guard de su lado (la ref creada con `useRef`,
-// `descartarBorrador.current?.()` en `descartar()` ANTES de `cambiarA` / `onNueva` / `abrirAvisoYa`, y la
-// prop pasada a `<SecuenciaPerfil key={sel.id} …>`), probado rompiéndolo.
+// ⚠️ EL ENCHUFE DE «DESCARTAR CAMBIOS» VIVE EN LA LISTA (app/automations/SimuladorWhatsApp.tsx; revisión del
+// 10/10/2026, hallazgo #6): sin él, la ref de arriba tenía CERO call sites y «Descartar cambios» GUARDABA lo
+// descartado. Probado rompiéndolo en la integración (base del archivo en verde): sin la llamada en
+// `descartar()` → 1 fallo; con la llamada DESPUÉS de `cambiarA` → 1 fallo; sin la prop → 1 fallo.
+test('«Descartar cambios» de la lista borra el borrador ANTES de irse (el enchufe del hallazgo #6)', () => {
+  const sim = codigo('app/automations/SimuladorWhatsApp.tsx');
+  assert.match(sim, /const descartarBorrador = useRef<\(\(\) => void\) \| null>\(null\);/);
+  const desc = tramo(sim, 'const descartar = () => {', 'const recibirEdicion');
+  const i = desc.indexOf('descartarBorrador.current?.();');
+  assert.ok(i > 0, '«Descartar cambios» no borra el borrador');
+  for (const despues of ['cambiarA(p.ir)', 'onNueva(p.pedido)', 'abrirAvisoYa(p.aviso)']) {
+    assert.ok(desc.indexOf(despues) > i, `el borrado va DESPUÉS de ${despues}: el desmonte ya habría guardado`);
+  }
+  assert.match(sim, /<SecuenciaPerfil key=\{sel\.id\}[\s\S]{0,1500}descartarBorrador=\{descartarBorrador\}/);
+});
 
 // ── El aviso de las 24 h ────────────────────────────────────────────────────────────────────
 

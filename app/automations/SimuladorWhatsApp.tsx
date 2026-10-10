@@ -368,6 +368,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    */
   const [sinPublicar, setSinPublicar] = useState(false);
   const [pendiente, setPendiente] = useState<{ ir: number | typeof ID_RECORDATORIO | 'nueva' | 'aviso'; pedido?: string; aviso?: string } | null>(null);
+  /** El descarte del borrador del lienzo abierto (lo deja SecuenciaPerfil): «Descartar cambios» lo BORRA, no lo guarda. */
+  const descartarBorrador = useRef<(() => void) | null>(null);
   const elegir = (id: number | typeof ID_RECORDATORIO) => {
     if (id === selId) return;
     if (sinPublicar) { setPendiente({ ir: id }); return; }
@@ -405,6 +407,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     const p = pendiente;
     setPendiente(null);
     if (!p) return;
+    // ANTES de irse: sin esto, el desmonte del lienzo GUARDABA lo descartado como borrador (revisión del
+    // 10/10/2026, hallazgo #6). La lista se relee sola al desmontarse, después del borrado.
+    descartarBorrador.current?.();
     setSinPublicar(false);
     if (p.ir === 'nueva') onNueva(p.pedido);
     else if (p.ir === 'aviso') { if (p.aviso) abrirAvisoYa(p.aviso); }
@@ -579,6 +584,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             insetDer={m.insets.der || undefined}
             muelles={m}
             onSinPublicar={setSinPublicar}
+            descartarBorrador={descartarBorrador}
             handoffs={handoffs}
             onAudioNuevo={onAudioNuevo}
             productos={productos} disparadores={disparadores}
