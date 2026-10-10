@@ -199,6 +199,57 @@ no después.
 
 ---
 
+## Referidos (10/10/2026): lo que vuelve a morder al diseñar un premio
+
+Sale de la corrida `wf_28690687-a62` sobre el audio del 10/10. La propuesta entera está en
+[referidos.md](referidos.md); acá queda sólo lo que no se deduce de leerla.
+
+**El diagnóstico obvio era el equivocado: «5 × 47 = 235 contra 3 meses de agencia regalados».**
+La cuenta del audio compara UN mes de ingreso contra TRES meses de regalo. Los 5 clientes
+pagan 235 **por mes** durante ~8,7 meses: US$1.256 de contribución con la IA de hoy. Contra
+eso, 3 meses del plan agencia a 97 cuestan US$273 netos si esa persona igual iba a pagar, y
+US$115 (3 × 38,18 de servirla) si no. A 97 el miedo no es real; a 200 sí (US$562).
+**La regla:** un premio se compara contra el LTV de lo que trae, no contra su primer mes.
+
+**«Meses gratis» no cuesta lo mismo en todos los casos.** Un mes regalado a alguien que
+igual iba a pagar es ingreso NETO perdido (43,77 en el Pro); a alguien que no iba a pagar
+(un amigo con cuenta de cortesía) cuesta sólo servirlo (14,90 con la IA de hoy). Los tres
+diseños de la corrida mezclaron las dos cosas en algún lado; el crítico las separó.
+
+**El escalón «cada N clientes» se cae solo con la retención del Pro.** Con un 11,5% de bajas
+por mes (r = 0,23^(1/12) = 0,8847), la probabilidad de seguir teniendo los 5 en el mes
+siguiente es 54%, y los 10, 29%. Un premio todo-o-nada por hito se pierde casi siempre en el
+mes 2. Ninguno de los 12 programas verificados premia «cada N»: todos por cliente activo.
+
+**Lo que Martín describió como «lo que hace Claude» no es lo que hace Claude.** Claude da 7
+días de Pro con tarjeta, sólo a quien nunca pagó, con pases escasos, y premia al que invita
+recién cuando el invitado paga (support.claude.com, artículo 13456702). El «un mes para cada
+uno» es Superhuman, y la versión segura es la de YNAB: el mes gratis se agrega DESPUÉS de pagar.
+
+**La cuenta del runway supone que cierra el 100% de los que se presentan.**
+`app/admin/runway/datos.ts` (`CUENTA`) hace 20 agendas × 50% de show = 10 llamadas = **10
+clientes**: no hay tasa de cierre en el medio. La corrida del 04/10 (arriba, «la cuenta del
+runway NO está rota») verificó CONTRA QUÉ producto estaba medida, no esto. Con el 20% de
+cierre de `modelo.ts:1711` el anuncio cuesta ~US$1.000 por grupal, no 200; con el 40% que
+Martín proyectaba en julio, ~US$500. Por eso un referido del grupal a US$300 es el canal más
+barato que tiene MaKo en la ventana del 1/11 al 15/12.
+
+**Cuatro trampas del modelo de precios que un diseño de premios pisa:**
+- `modelo.ts:1439` dice que el techo de CAC del Pro con la IA de hoy es US$81,50; su propia
+  fórmula (28,87 × 8,7 / 3) da 83,72. Se usó el 81,50 por conservador.
+- El plan Agencia de US$297 (`modelo.ts:598`) existe sólo en `PRECIOS` y en la `UNIT` vieja,
+  no en `UNIT_V2`. Con «hasta 10 clientes» adentro es una venta mayorista a US$29,70 por
+  workspace: una agencia con 10 clientes pagaría 297 en vez de 470.
+- El plan de 97 «no se vende hasta el mes 13» (`modelo.ts:1445`): todo referido de software
+  que se modele hoy es Pro.
+- Paddle no acepta el grupal (AUP, `embudo-y-high-ticket.md:547`): la comisión del grupal no
+  puede pasar por la pasarela de las suscripciones.
+
+**Herramientas:** Rewardful sólo se integra con Paddle Classic, no con Paddle Billing; Tolt
+sí (US$69/mes con pagos manuales). Verificarlo en el trial antes de prometer nada.
+
+---
+
 ## Lo que quedó SIN hacer, con el archivo donde vive
 
 | Qué | Dónde |
@@ -210,6 +261,7 @@ no después.
 | Separar el gasto de Claude del ws1 | `modelo.ts:145` |
 | `funnel_id` en el motor de nutrición y en el CRM automático | mig 0170, `lib/nutricion*.ts`, `lib/crm-auto.ts` |
 | Contraseña o segundo proveedor de login | `app/api/auth/callback/google/route.ts` |
+| Atribución de referidos (`workspaces.origen = 'referido:<ws>'`), sólo con Paddle cobrando y 5+ referidos pagando | `embudo-y-high-ticket.md:401`, [referidos.md](referidos.md) § 6 |
 
 *Corrida del 04/10/2026, 12 agentes. Las refutaciones dieron vuelta nueve afirmaciones; las
 tres que más cambiaron el plan están arriba (la cuenta del runway, el margen del 47 y el
