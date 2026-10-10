@@ -316,7 +316,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               ariaLabel={`Asignar ${campo === 'closer' ? 'Closer' : 'Setter'} a ${cuantos}`}
               icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoPersona /></span>}
               buttonStyle={estiloDrop}
-              options={equipo.map((m) => ({ value: m.nombre, label: m.nombre }))}
+              // Una persona va con su avatar (la foto o sus iniciales), no con un ícono (general 10).
+              options={equipo.map((m) => ({ value: m.nombre, label: m.nombre, avatar: m.foto_url ?? null }))}
               onChange={(v) => { if (v) setPide({ tipo: 'persona', campo, valor: v, pisa: conValor(campo) }); }} />
           ))}
 

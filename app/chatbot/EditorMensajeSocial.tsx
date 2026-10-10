@@ -317,7 +317,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
     { key: 'subir', label: 'Subir foto, video o PDF', icono: <IconClip />, onElegir: () => inputArchivo.current?.click() },
     {
       key: 'archivos', label: 'Archivos guardados', icono: <IconDoc size={18} />, vacio: biblioteca === null ? 'Cargando…' : 'Sin archivos todavía.',
-      submenu: elegibles.map((a) => ({ key: `f${a.id}`, label: a.titulo, detalle: pesoLegible(a.tamano), onElegir: () => setAdjunto(a.id) })),
+      submenu: elegibles.map((a) => ({ key: `f${a.id}`, label: a.titulo, icono: <IconDoc size={18} />, detalle: pesoLegible(a.tamano), onElegir: () => setAdjunto(a.id) })),
     },
   ];
 

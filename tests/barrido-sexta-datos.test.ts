@@ -74,6 +74,25 @@ test('«Agregar» y «Eliminar», nunca «Poner» ni «Sacar», en lo que se lee
   }
 });
 
+test('las opciones de los desplegables llevan su ícono del set, no un emoji pegado al nombre (general 10)', () => {
+  // PROBADO ROMPIÉNDOLO (09/10/2026): devolverle «⏳ Delay» al ＋ de Notificaciones → 1 fallo (éste);
+  // el «🎙» de vuelta en los audios guardados del paso → 1 fallo (éste). Restaurado → verde.
+  const aviso = sinComentarios(leer('app/agencia/FlujoAviso.tsx'));
+  const agregar = aviso.slice(aviso.indexOf('opcionesAgregar={['), aviso.indexOf(']}', aviso.indexOf('opcionesAgregar={[')));
+  assert.ok(agregar.length > 0 && agregar.length < 900, `el recorte del ＋ mide ${agregar.length}`);
+  const filas = agregar.match(/\{ value: '[a-z]+', label: '[^']*'[^}]*\}/g) ?? [];
+  assert.equal(filas.length, 5, 'las cinco opciones del ＋');
+  for (const f of filas) {
+    assert.match(f, /icono: '[a-z]+'/, `sin ícono: ${f}`);
+    assert.doesNotMatch(f, /label: '[^']*\p{Extended_Pictographic}/u, `un emoji en el nombre: ${f}`);
+  }
+  assert.match(aviso, /icono: ICONO_EVENTO\[e\.key\]/, 'los eventos del disparador sin ícono');
+  const audio = sinComentarios(leer('app/chatbot/PasoAudioControl.tsx'));
+  assert.doesNotMatch(audio, /🎙/);
+  assert.match(audio, /label: a\.titulo, icono: 'audio'/);
+  assert.match(sinComentarios(leer('app/chatbot/EditorMensajeWhatsApp.tsx')), /label: rotuloPausa\(x\), icono: 'cronometro'/);
+});
+
 test('los textos del horario dicen lo de ahora: esperas a la hora exacta, horario opcional', () => {
   const landing = sinComentarios(leer('app/vsl/_detalle/features.ts'));
   assert.doesNotMatch(landing, /15-23 UTC/, 'la landing dice que el motor corre de 15 a 23 UTC');

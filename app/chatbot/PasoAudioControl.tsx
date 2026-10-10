@@ -27,6 +27,7 @@ import { useCallback, useState, type CSSProperties } from 'react';
 import { useGrabacionVoz, BarraGrabacion } from '../whatsapp/_shared/VoiceRecorder';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '@/app/_components/icons';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Spinner } from '@/app/_ui';
 import { guionVigente } from '@/lib/guion-audio';
 import type { AudioSetting } from './ChatAgentApp';
@@ -128,10 +129,11 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+        {/* Íconos de línea del set, no emojis (sexta tanda, general 10). */}
         <button type="button" disabled={disabled} onClick={() => { onElegir(null); setGrabando(false); }}
-          style={audioId ? btn : btnOn}>💬 Texto</button>
+          style={{ ...(audioId ? btn : btnOn), display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconoMenu nombre="nota" size={15} /> Texto</button>
         <button type="button" disabled={disabled} onClick={() => setGrabando(true)}
-          style={audioId || grabando ? btnOn : btn}>🎙 Nota de voz</button>
+          style={{ ...(audioId || grabando ? btnOn : btn), display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconoMenu nombre="audio" size={15} /> Nota de voz</button>
       </div>
 
       {(audioId || grabando) && (
@@ -144,7 +146,8 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
               onChange={(v) => onElegir(v ? Number(v) : null)}
               width="100%" ariaLabel={`Audio del mensaje ${orden}`}
               buttonStyle={{ padding: '7px 11px', fontSize: 12.5 }}
-              options={[{ value: '', label: 'Grabar uno nuevo…' }, ...audios.map((a) => ({ value: String(a.id), label: `🎙 ${a.titulo}` }))]}
+              // Íconos del set y no un emoji pegado al nombre (sexta tanda, general 10).
+              options={[{ value: '', label: 'Grabar uno nuevo…', icono: 'agregar' }, ...audios.map((a) => ({ value: String(a.id), label: a.titulo, icono: 'audio' }))]}
             />
           )}
 

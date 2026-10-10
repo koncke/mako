@@ -49,6 +49,7 @@ import {
 } from '@/lib/flujos-tipos';
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import type { NodoFlujo } from '@/lib/lienzo-grafo';
+import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
 
@@ -76,6 +77,15 @@ const btnQuitarPaso = {
 type PanelPendiente = { tomar: () => { original: Paso; nuevo: Paso } | null };
 
 const FLUJO_VACIO: Flujo = { version: 1, activo: true, disparador: { tipo: 'manual' }, pasos: [] };
+
+/** El ícono de cada evento que dispara un mensaje (general 10: un ícono en cada opción de un desplegable). */
+const ICONO_EVENTO: Record<(typeof EVENTOS)[number]['key'], NombreIconoMenu> = {
+  'lead.agendo': 'calendario',
+  'lead.cancelo': 'cerrar',
+  'reunion.ocurrio': 'check',
+  'lead.form_meta': 'nota',
+  'lead.wa_entrante': 'whatsapp',
+};
 
 /** Lo que una pasada de deshacer restaura: el tablero entero, no un campo. */
 type FotoTablero = { flujo: Flujo | null; pos: Posiciones };
@@ -381,12 +391,16 @@ export function FlujoAviso({
          *
          * Y la lista va PLANA, con emoji y título: son cuatro opciones.
          */
+        // ⚠️ CON ÍCONOS DEL SET, NO EMOJIS (sexta tanda, general 10: «pon íconos en todos los
+        // desplegables, en todas las opciones»): el campo `icono` del Dropdown acepta un nombre de
+        // app/_ui/iconos-menu.tsx. Y el WhatsApp de este mensaje es el de MaKo al grupo (MaKo en
+        // WhatsApp 3): se llama como su tarjeta.
         opcionesAgregar={[
-          ...(canales.wa ? [] : [{ value: 'wa', label: '💬 WhatsApp' }]),
-          ...(canales.email ? [] : [{ value: 'email', label: '✉️ Email' }]),
-          { value: 'delay', label: '⏳ Delay' },
-          { value: 'condicional', label: '🔀 Condicional' },
-          { value: 'accion', label: '⚡ Acción' },
+          ...(canales.wa ? [] : [{ value: 'wa', label: 'MaKo en WhatsApp', icono: 'mako' as const }]),
+          ...(canales.email ? [] : [{ value: 'email', label: 'Email', icono: 'email' as const }]),
+          { value: 'delay', label: 'Delay', icono: 'reloj' as const },
+          { value: 'condicional', label: 'Condicional', icono: 'condicion' as const },
+          { value: 'accion', label: 'Acción', icono: 'accion' as const },
         ]}
         // Sólo donde el paso va a caer de verdad: `insertarPasoTras` cuelga del
         // MENSAJE todo lo que no sea un `paso-N`, así que el ＋ de la tarjeta del
@@ -874,7 +888,7 @@ function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
       {modo === 'accion' && (
         <Dropdown
           value={evento}
-          options={EVENTOS.map((e) => ({ value: e.key, label: e.label }))}
+          options={EVENTOS.map((e) => ({ value: e.key, label: e.label, icono: ICONO_EVENTO[e.key] }))}
           onChange={(v) => onFlujo({ ...base, activo: true, disparador: { tipo: 'evento', evento: v as typeof EVENTOS[number]['key'] } })}
           width="100%" ariaLabel="Qué acción dispara este mensaje"
         />

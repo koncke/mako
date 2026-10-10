@@ -648,13 +648,17 @@ export function EditorMensajeWhatsApp({
   if (permiteAudio) {
     menuClip.push({
       key: 'audios', label: 'Audios guardados', icono: <IconMic />, vacio: 'Sin audios todavía.',
-      submenu: todosLosAudios.map((a) => ({ key: `a${a.id}`, label: a.titulo, detalle: fmtDur(a.duracion_s), onElegir: () => setAdjunto({ tipo: 'audio', audio_id: a.id }) })),
+      submenu: todosLosAudios.map((a) => ({ key: `a${a.id}`, label: a.titulo, icono: <IconMic />, detalle: fmtDur(a.duracion_s), onElegir: () => setAdjunto({ tipo: 'audio', audio_id: a.id }) })),
     });
   }
   if (permiteAdjuntos) {
     menuClip.push({
       key: 'archivos', label: 'Archivos guardados', icono: <IconClip />, vacio: biblioteca === null ? 'Cargando…' : 'Sin archivos todavía.',
-      submenu: (biblioteca ?? []).map((a) => ({ key: `f${a.id}`, label: a.titulo, detalle: pesoLegible(a.tamano), onElegir: () => setAdjunto({ tipo: 'media', media_id: a.id }) })),
+      submenu: (biblioteca ?? []).map((a) => ({
+        key: `f${a.id}`, label: a.titulo, detalle: pesoLegible(a.tamano), onElegir: () => setAdjunto({ tipo: 'media', media_id: a.id }),
+        // El ícono por TIPO de archivo (general 10): el nombre lo puso el negocio, el tipo es estándar.
+        icono: tipoEnvioDeMime(a.media_mime) === 'video' || tipoEnvioDeMime(a.media_mime) === 'image' ? <IconVideo size={18} /> : <IconDoc size={18} />,
+      })),
     });
   }
 
@@ -709,7 +713,7 @@ export function EditorMensajeWhatsApp({
         <Dropdown value={String(s)} search={false} disabled={ocupado} ariaLabel={`Espera antes del mensaje ${i + 1}`}
           botonLabel={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconReloj /> {rotuloPausa(s)}</span>}
           buttonStyle={{ padding: '2px 9px', fontSize: 11.5, borderRadius: 999, minHeight: 0, background: 'var(--surface)', color: 'var(--dim)' }}
-          options={posibles.map((x) => ({ value: String(x), label: rotuloPausa(x) }))}
+          options={posibles.map((x) => ({ value: String(x), label: rotuloPausa(x), icono: 'cronometro' }))}
           onChange={(v) => { const n = Number(v); if (n > 0) ponerPausa(i, n); }} />
       </div>
     );
