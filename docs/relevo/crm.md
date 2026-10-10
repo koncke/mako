@@ -1,5 +1,34 @@
 # Relevo — CRM
 
+## 📌 PEDIDO NUEVO de Martín (10/10/2026), sin empezar — dejado por el chat de Ads Manager
+
+No había un chat de CRM abierto en la cuenta 2, así que el pedido queda acá. Textual:
+
+> «Acá al filtrar, en campaña, y en Origen, aparece lo mismo. Y falta el filtro de ANUNCIO,
+> para filtrar por un ad específico. Mandale esta tarea al CRM»
+
+La captura que mandó (el menú «Filtrar» del tablero, con Etapa / Origen / Campaña / Ordenar, y
+tarjetas «VSL FUNNEL inmobiliarios CI» — o sea, muy probablemente Código Inmobiliario, ws13):
+`C:\Users\marti\.claude\uploads\b1c92d31-61a4-43c0-b089-2f07f6ef8d51\241e1994-image.jpg`
+
+**Lo que se leyó del código el 10/10 a las ~16:50, para no arrancar de cero (sin medir datos):**
+
+- **El filtro por anuncio YA EXISTE**: es la categoría «Creativo» (`app/crm/CrmBoard.tsx`,
+  `listasFiltro` ~línea 1615; pedido de Martín del 06/10, commit `117ea2bd`). **Sólo se ofrece si algún
+  lead del tablero tiene `anuncioKey`** —«una categoría sin opciones no se ofrece»,
+  `CrmToolbar.tsx:449`—. En la captura no aparece, así que en esa cuenta ningún lead cargado
+  trae el anuncio. La pregunta no es «falta el filtro» sino **por qué esos leads llegan sin
+  `anuncioKey`**: si es el camino de entrada de ese workspace (la landing/VSL, que no trae el
+  `ad_id` como trae un formulario de Meta) o el mapeo. Y además el rótulo dice «Creativo» y él
+  lo busca como «Anuncio».
+- **Campaña y Origen «iguales»**: Origen son los valores distintos de `l.origin`; Campaña,
+  `campanaKey`/`campanaNombre`. Si en ese workspace el `origin` guarda el nombre de la campaña,
+  las dos listas salen idénticas. **Hipótesis, no medida**: lo primero es mirar en la base qué
+  traen esos dos campos para los leads de ws13.
+
+*Dejado el 10/10/2026 por el chat de Ads Manager (claude2), a pedido de Martín.*
+
+
 ## ⚡ Actualización del 09/10/2026, 15:10 — sesión CRM, cuenta claude2
 
 Commit `5a4e3f04` (pusheado en esta misma tanda). Dos cosas, las dos sin decisión pendiente:
