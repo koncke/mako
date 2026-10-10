@@ -167,7 +167,7 @@ test('⚠️ el árbol: dos ramas no se pisan, se apilan ARRIBA y ABAJO del puer
   }
 });
 
-test('⚠️ «Si responde» se dibuja como la CONDITION QUE ESCUCHA: sin flecha de entrada, debajo del CRON, una fila por caso y «Si no»', () => {
+test('⚠️ «Si responde» se dibuja como la CONDITION QUE ESCUCHA: colgando del CRON, debajo de su árbol, una fila por caso y «Si no»', () => {
   // Sexta tanda, punto 12, literal: «Reply ya te dije que tiene que estar dentro de CONDITION». Hasta la
   // segunda pasada era la segunda fila del CRON («Si responde»), con su flecha y el título REPLY.
   const r = conRespuesta([msg('a', { siguiente: 'b' }), msg('b')]);
@@ -179,7 +179,10 @@ test('⚠️ «Si responde» se dibuja como la CONDITION QUE ESCUCHA: sin flecha
   assert.equal(resp.titulo, 'CONDITION', 'volvió el título REPLY');
   assert.equal(resp.familia, 'control');
   assert.deepEqual(resp.puertos!.map((p) => p.rotulo), ['Su respuesta trata de «Pregunta el precio»', 'Si no']);
-  assert.equal(g.aristas.some((x) => x.hasta === r.id), false, 'volvió la flecha del CRON a la condición que escucha');
+  // Con una flecha del CRON, sin fila propia y sin ＋ ni papelera (10/10/2026: sin flecha, Martín la leyó como
+  // «una condición suelta que no esta conectado a nada»; lo fija tests/automations-escucha.test.ts).
+  const llegan = g.aristas.filter((x) => x.hasta === r.id);
+  assert.deepEqual(llegan.map((x) => [x.desde, x.sinMas]), [[ID_ENTRADA, true]], 'la condición que escucha quedó sin su flecha del CRON');
   assert.deepEqual(e.puertos!.map((p) => p.id), ['sig'], 'volvió la fila «Si responde» al CRON');
   assert.equal(e.salidaAlPie, true);
   assert.equal(resp.x, e.x, 'la que escucha va en la columna del CRON');

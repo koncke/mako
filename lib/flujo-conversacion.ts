@@ -784,7 +784,10 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       // `tipo` sigue siendo 'respuesta': de ahí salen el alto de su editor y su identidad.
       const puertos: PuertoNodo[] = (p.casos ?? []).map((x) => ({ id: x.id, rotulo: textoCasoRespuesta(x), tono: 'buena' as const, vacio: !x.siguiente }));
       const pendientes = Math.max(0, Math.floor(Number(op.pendientesOtraCosa) || 0));
-      puertos.push({ id: 'si_no', rotulo: 'Si no', tono: 'mala', vacio: !p.si_no, ...(pendientes ? { marca: `${pendientes} sin caso` } : {}) });
+      // Sin ningún caso, la única fila es «cualquier respuesta»: «Si no» ahí se lee como que falta algo
+      // (Martín, 10/10/2026, sobre la 198: «una condición suelta... incompleta»).
+      const rotuloOtra = (p.casos ?? []).length ? 'Si no' : 'Respondió';
+      puertos.push({ id: 'si_no', rotulo: rotuloOtra, tono: (p.casos ?? []).length ? 'mala' : 'buena', vacio: !p.si_no, ...(pendientes ? { marca: `${pendientes} sin caso` } : {}) });
       t = { ...base, tipo: 'respuesta', familia: 'control', titulo: TITULO.condicion, icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'ir_a') {
       const d = p.destino;
@@ -1017,8 +1020,16 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       }
     }
   });
-  // (Acá iba la flecha del CRON a «Si responde», desde su fila. Se fue con la fila: la CONDITION que
-  // escucha no tiene flecha de entrada, ni dibujada ni en el dato.)
+  // LA FLECHA DEL CRON A LA CONDITION QUE ESCUCHA (10/10/2026). La segunda pasada de la sexta tanda la
+  // había sacado con la fila «Si responde» del CRON, y la tarjeta quedó dibujada SIN flecha de entrada:
+  // Martín la leyó como «una condición suelta que no está conectada a nada» (la 198 del ws1). En el motor
+  // cuelga del CRON —una respuesta del lead pausa la salida y corre esto—, así que se dibuja colgando de
+  // él, punteada y con su etiqueta. NO es una arista del dato (no hay `siguiente` que la escriba): por eso
+  // `sinMas`, que la deja afuera del ＋ del medio y de la papelera de la salida del CRON.
+  const escucha = raizRespuesta(pasos);
+  if (escucha && pos.has(escucha) && pos.has(ID_ENTRADA)) {
+    aristas.push({ desde: ID_ENTRADA, hasta: escucha, puerto: 'sig', etiqueta: 'Si responde', tono: 'condicional', sinMas: true });
+  }
 
   const normal = aOrigen(nodos, MARGEN);
   // Las esperas de las flechas, como nodos `enFlecha` en el lugar de su pastilla: no se dibujan como
