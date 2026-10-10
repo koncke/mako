@@ -1241,4 +1241,30 @@ export const BITACORA: Hito[] = [
       "El recordatorio: pasa a ser una automatización como cualquier otra (su fila, el lienzo, el ✦, mover, Acomodar, Probar), y la manda el MISMO emisor de siempre, que ya resuelve la R1 y la R2, las reagendas y la tolerancia. Plan en docs/relevo/chatbot.md.",
     ],
   },
+  {
+    fecha: "10 oct", hora: "14:00", chat: "—", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El feedback grande de la tarde: copiar flujos, lazo, horario de oficina, CRON, CONDITION y WhatsApp",
+    pedido: "1. También quiero que agregues un botón con la funcionalidad de \"copiar flujo\". Que esté en los 3 puntos de cada flujo en la sidebar... Esto sirve por si un usuario de MaKo le quiere compartir un flujo que creó a otro... Entonces al entrar a la tab de automations, si detecta que tenes copiado un flujo nuevo, que te proponga crearlo. Pero también que se pueda pegar con crtl v en el flujo actual... 3. Para que esto funcione, el arrastre por el lienzo debería ser ahora manteniendo el click derecho, y si mantengo el click izquierdo, se debería seleccionar, el tipico lazo de selección... 4. En lugar de \"Limitar horario\", que el título sea \"Horario de oficina\"... Las horas debes ponerlas de media en media hora... elimina el botón de guardar... 12. También fijate que si le doy zoom se le va la calidad de resolución. Eso no debería pasar nunca... 15. En muchos flujos aparece luego del cron una flecha punteada que dice \"Si responde\"... No tiene sentido eso. (Más los bloques NUEVA AUTOMATIZACIÓN, CRON, CONDITION y WHATSAPP del mismo mensaje.)",
+    puntos: [
+      "Sus respuestas a las tres preguntas: el recordatorio se aplica a los 10 negocios; «Si responde» es una condición normal; lo que no existe en el negocio que pega se pega vacío y en rojo.",
+    ],
+  },
+  {
+    fecha: "10 oct", hora: "15:47", chat: "—", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Octava tanda: copiar y pegar, lazo y paneo con el derecho, horario de oficina, CRON en recuadros",
+    puntos: [
+      "Copiar y pegar flujos y tarjetas (lib/flujo-copia.ts, lib/flujo-copia-negocio.ts): el «⋯», Ctrl+C / Ctrl+V, el click derecho del CRON, el aviso al entrar y «Pegar lo copiado» del modal.",
+      "El lienzo: el derecho panea, el izquierdo hace el lazo, la punta de una flecha se lleva a otra tarjeta o al vacío, soltar en el vacío abre el menú, una sola papelera por flecha, sacar una flecha no mueve nada, el zoom ya no se ve borroso.",
+      "«Si responde» con flecha normal que se borra y se reconecta (la marca «suelta»); CONDITION con un contenedor por condición; CRON en recuadros con su clase marcada; modal de «Nueva automatización» con los seis CRON, MaKo, pegar y las plantillas.",
+      "Horario de oficina con interruptor, medias horas, huso en la misma fila y guardado solo; tarjeta de WhatsApp con dos burbujas y sus ✓✓; delay en minutos que parte la tarjeta.",
+      "Visto en el navegador (dev local, ws9, sin guardar nada): paneo con el derecho sin menú, lazo con 3 elegidas y la cuarta atenuada, el menú del CRON, el modal (6 CRON, 7 plantillas), el panel del CRON (2 recuadros) y el horario. Lo vio el navegador: el menú del lazo contaba el CRON.",
+    ],
+    commits: [
+      { sha: "b8af255e", msg: "Automations, octava tanda: copiar y pegar flujos, lazo, horario de oficina, CRON y tarjetas", lineas: 2648, archivos: 43 },
+      { sha: "37727baa", msg: "Lienzo: el menú del lazo no cuenta el CRON (no se copia ni se borra como tarjeta)", lineas: 9, archivos: 1 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «Octava tanda»", "docs/relevo/chatbot.md"],
+  },
 ];

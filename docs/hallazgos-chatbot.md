@@ -3434,3 +3434,45 @@ dejó marcadas las etapas de reunión (`adf1ca3d`), que es lo que el punto 5 nec
   `app/automations/RecordatorioFlujo.tsx`.
 - **El área `chatbot` de `/admin/dev` no apunta a este documento** (le falta `hallazgos:
   'hallazgos-chatbot'`). `app/admin/dev/areas.ts`.
+
+## Octava tanda (10/10/2026, tarde): copiar y pegar, el lazo, el horario de oficina y el recordatorio en el motor
+
+Lo hecho está en `b8af255e`, `37727baa` (el lienzo) y `c309b390` (el recordatorio). Acá lo que no se ve en el diff.
+
+- **Un zoom borroso no era la resolución de nada: era `willChange: 'transform'` en la capa del lienzo.** Con esa
+  pista Chrome pinta la capa una vez y estira el bitmap al cambiar la escala, así que al acercar el texto se
+  ve lavado. Sin ella vuelve a pintar a la escala nueva. **Vive en:** `app/_components/Lienzo.tsx` (la capa).
+- **El desplegable de la casa se salía de la pantalla por el costado** (el «Probar» pegado al borde): abría
+  siempre desde el borde izquierdo del botón. Ahora, con el ancho MEDIDO en el segundo cuadro, si no entra se
+  ancla al borde derecho. Arregla a todos los desplegables, no sólo a ése. **Vive en:**
+  `app/components/Dropdown.tsx` (`place`).
+- **«Si responde» no tiene padre en el dato, así que borrar su flecha no tenía qué borrar.** La flecha del
+  CRON se DIBUJA (es lo que hace el motor), no es un puerto. Borrarla tuvo que ser una marca en el nodo
+  (`suelta`): `raizRespuesta` la saltea, así que el motor deja de escuchar y Publicar la frena como a
+  cualquier suelta; conectarla desde el CRON la saca. Y es la SEXTA puerta de `setSecuenciaPasos`: sin la línea
+  en `camposDelFlujo`, guardar le devolvía la flecha. **Vive en:** `lib/flujo-grafo.ts`, `lib/flujo-edicion.ts`,
+  `lib/nutricion-grafo-motor.ts`.
+- **«Sacar una flecha no mueve nada» no se resuelve guardando posiciones relativas.** Las posiciones van
+  relativas al CRON del árbol, y sacar una flecha puede correr el CRON mismo (`aOrigen`). Se fija cada tarjeta
+  que CAMBIARÍA de lugar, contra el ancla del árbol NUEVO (`congelarPosiciones`); las que no cambian siguen
+  acomodándose solas. **Vive en:** `lib/lienzo-posiciones.ts`.
+- **Minutos entre dos mensajes no se pueden dormir.** El motor duerme las pausas adentro de la corrida (tope
+  10 s): elegir minutos PARTE la tarjeta con una espera en el medio (`partirConEspera`). Es un default mío, a
+  confirmar con Martín. **Vive en:** `lib/flujo-edicion.ts`, `app/automations/EditorMensajeWhatsApp.tsx`.
+- **Un menú que cuenta lo elegido tiene que contar lo que la acción hace.** El CRON entra en el lazo pero no
+  se copia ni se borra como tarjeta: el menú decía «Eliminar 3 tarjetas» y borraba 2. Lo vio el navegador, no
+  un test. **Vive en:** `app/automations/FlujoLienzo.tsx` (`menuNodo`).
+- **⚠️ La primera medición del lazo dio CERO y el lazo andaba.** El arrastre arrancaba en el rincón de abajo a
+  la derecha, encima de «Publicar» (`data-no-pan`): el lienzo no lo toma, a propósito. Repetido desde el fondo
+  vacío: lazo visible, 3 elegidas, la cuarta atenuada. Antes de diagnosticar un gesto, se mira DÓNDE empezó.
+- **`next dev` en un worktree tropieza igual que el build** con el junction de `node_modules` («Symlink … points
+  out of the filesystem root»): la misma raíz temporal en `next.config.ts`, y restaurarla después.
+- **Leer el portapapeles pide permiso** (el aviso «Copiaste un flujo» al entrar y «Pegar lo copiado» del modal):
+  sin permiso no aparece nada, y no se insiste. El «Ahora no» se recuerda por firma de la copia, en este
+  navegador. Ctrl+C / Ctrl+V del lienzo usan los eventos `copy` / `paste`, que no piden nada.
+
+Lo que quedó sin hacer, con su archivo:
+- La galería no tiene «Recordatorio de la reunión» (`lib/plantillas-automatizaciones.ts`: su CRON es fijo y la
+  galería sólo sabe pedir una etapa). Un negocio NUEVO no tiene la fila: el emisor usa la configuración de antes.
+- Arrastrar lo elegido con el lazo JUNTO (`app/_components/Lienzo.tsx`): hoy se mueve de a una.
+- «Pídesela a MaKo» del modal no lleva el pedido escrito: crea la vacía y abre la caja (`app/automations/GaleriaPlantillas.tsx`).
