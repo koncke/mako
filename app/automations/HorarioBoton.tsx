@@ -125,16 +125,43 @@ export function alScrollear(ancla: Caja | null, franja: Franja, retener: boolean
  * automatizaciones, `overflowY: auto`), recortada a la ventana. Sin un contenedor así (el cartel de
  * «Todavía no hay automatizaciones»), la ventana.
  */
-function franjaDe(el: HTMLElement): Franja {
-  const ventana = { top: 0, bottom: window.innerHeight };
-  for (let p = el.parentElement; p; p = p.parentElement) {
-    const oy = getComputedStyle(p).overflowY;
+export type Ancestro = { overflowY: string; scrollHeight: number; clientHeight: number; rect: Franja };
+
+/**
+ * La decisión de `franjaDe`, pura para que el test la ejecute (revisión del 10/10/2026: rota, el panel no
+ * se cerraba nunca con el botón tapado por la lista y todos los tests en verde). Los ancestros van del
+ * más cercano al más lejano: gana el primero que scrollea de verdad, recortado a la ventana.
+ */
+export function franjaVisible(ancestros: readonly Ancestro[], altoVentana: number): Franja {
+  for (const p of ancestros) {
+    const oy = p.overflowY;
     if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && p.scrollHeight > p.clientHeight) {
-      const r = p.getBoundingClientRect();
-      return { top: Math.max(r.top, ventana.top), bottom: Math.min(r.bottom, ventana.bottom) };
+      return { top: Math.max(p.rect.top, 0), bottom: Math.min(p.rect.bottom, altoVentana) };
     }
   }
-  return ventana;
+  return { top: 0, bottom: altoVentana };
+}
+
+function franjaDe(el: HTMLElement): Franja {
+  const ancestros: Ancestro[] = [];
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const r = p.getBoundingClientRect();
+    ancestros.push({ overflowY: getComputedStyle(p).overflowY, scrollHeight: p.scrollHeight, clientHeight: p.clientHeight, rect: { top: r.top, bottom: r.bottom } });
+  }
+  return franjaVisible(ancestros, window.innerHeight);
+}
+
+/**
+ * LA SEÑA DE «HAY CAMBIOS SIN GUARDAR»: el panel se sacude apenas cuando retiene un clic afuera. Sin la
+ * seña, un clic que no hace nada se lee como que la app está rota. Sin movimiento si la persona lo pidió.
+ */
+function sacudir(el: HTMLElement | null) {
+  if (!el || typeof el.animate !== 'function') return;
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  el.animate([
+    { transform: 'translateX(0)' }, { transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' },
+    { transform: 'translateX(-3px)' }, { transform: 'translateX(0)' },
+  ], { duration: 260, easing: 'ease-out' });
 }
 
 /**
@@ -259,6 +286,9 @@ export function PanelAnclado({ ancla, etiqueta, onCerrar, retener, children }: {
     // El alto cambia al prender «Limitar el horario» (aparecen las horas y los días): se vuelve a ubicar.
     const ro = new ResizeObserver(recolocar);
     if (panel.current) ro.observe(panel.current);
+    // Y el BOTÓN: su rótulo cambia de largo al guardar («9 a 21» → «Sin horario»), y sin una lista al lado
+    // (el cartel vacío) el panel se ubica desde su borde derecho: sin esto, le tapaba el final del rótulo.
+    if (ancla) ro.observe(ancla);
     // EN CAPTURA: lo que scrollea es la lista, y un `scroll` de un contenedor no burbujea a `window`.
     // Lo que scrollea ADENTRO del panel es del panel. Si el botón salió de la vista, se cierra (ver
     // `alScrollear`), salvo con cambios sin guardar.
@@ -280,14 +310,32 @@ export function PanelAnclado({ ancla, etiqueta, onCerrar, retener, children }: {
 
   // Clic afuera: la salida de un popover. El ANCLA queda exceptuada —es un interruptor y se cierra
   // sola— y, con un desplegable abierto adentro, el clic es de él. En `pointerdown`: el lienzo de
-  // atrás captura el puntero, y un `mousedown` puede no llegar. Con cambios sin guardar no cierra, y el
-  // clic sigue su camino: el panel no es modal, lo de atrás contesta igual.
+  // atrás captura el puntero, y un `mousedown` puede no llegar.
+  //
+  // ⚠️ CON CAMBIOS SIN GUARDAR, el clic de afuera NO LLEGA a la página (revisión del 10/10/2026). Retener
+  // el panel dejando pasar el clic no protegía nada: «＋ Nueva» del cartel vacío crea la primera
+  // automatización, el cartel se desmonta, y con él el panel y lo que se estaba editando. Se frenan el
+  // `pointerdown` y el `click` que lo sigue, y el panel se sacude para decir por qué.
   useEffect(() => {
+    const retenido = (e: PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const tragar = (ev: MouseEvent) => {
+        const tt = ev.target as Node | null;
+        if (tt && (panel.current?.contains(tt) || ancla?.contains(tt))) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+      };
+      document.addEventListener('click', tragar, { capture: true, once: true });
+      // Un arrastre no termina en `click`: el freno se suelta solo y no se come el clic siguiente.
+      window.setTimeout(() => document.removeEventListener('click', tragar, true), 700);
+      sacudir(panel.current);
+    };
     const fuera = (e: PointerEvent) => {
       const t = e.target as Node | null;
       if (!t || panel.current?.contains(t) || ancla?.contains(t)) return;
       if (hayMenuAbiertoEn(panel.current)) return;
-      if (retenerRef.current?.()) return;
+      if (retenerRef.current?.()) { retenido(e); return; }
       cerrarRef.current();
     };
     document.addEventListener('pointerdown', fuera, true);
@@ -304,11 +352,19 @@ export function PanelAnclado({ ancla, etiqueta, onCerrar, retener, children }: {
       // El desplegable de adentro se registró DESPUÉS que esto: sin cortar acá, su Escape no llega.
       if (hayMenuAbiertoEn(panel.current)) return;
       if (!arriba()) return;
+      if (retenerRef.current?.()) {
+        // Con cambios sin guardar no cierra. La tecla se FRENA sólo si nace en el panel, en su botón o
+        // sin foco (si la soltara, la contestaría la capa de abajo y se cerraría lo de atrás). Si nace en
+        // otra cosa —un menú o un renombre que se abrió antes—, es de esa cosa: frenarla dejaba el Escape
+        // muerto en toda la pantalla (revisión del 10/10/2026).
+        const t = e.target instanceof Node ? e.target : null;
+        if (t && t !== document.body && !panel.current?.contains(t) && !ancla?.contains(t)) return;
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        return;
+      }
       e.stopImmediatePropagation();
       e.preventDefault();
-      // Con cambios sin guardar, la tecla se FRENA igual pero no cierra: si la soltara, la contestaría
-      // la capa de abajo y se cerraría lo de atrás con el panel todavía abierto.
-      if (retenerRef.current?.()) return;
       cerrarRef.current();
     };
     document.addEventListener('keydown', onKey, true);

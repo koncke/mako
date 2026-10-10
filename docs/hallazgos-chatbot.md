@@ -2977,6 +2977,15 @@ La revisión adversarial (sólo lectura) dejó dos reglas. Se arreglaron en la r
   esa razón, y el borde no: no cambiaba al pasar el cursor ni con el panel abierto, y su transición no
   corría nunca. El test dibuja el botón y falla si el `style` pone una propiedad que el hover cambia, o su
   atajo (`border` pisa `border-color`).
+- ⚠️ **Y retener el panel DEJANDO PASAR el clic no protegía nada** (segunda revisión, al integrar). El clic
+  seguía su camino: «＋ Nueva» del cartel vacío creaba la primera automatización, el cartel se desmontaba
+  y con él el panel y lo editado. Con cambios sin guardar se frenan el `pointerdown` y el `click` que lo
+  sigue, y el panel se sacude como seña (sin movimiento si la persona lo pidió). La pregunta antes de
+  retener algo: **¿el clic que dejo pasar puede desmontar al dueño de lo que retengo?**
+- ⚠️ **`stopImmediatePropagation` corta a los listeners que se registraron DESPUÉS**, y ésos son justo los
+  de lo que la persona abrió con el panel ya abierto (un «⋯», un renombre): con el panel sucio, el Escape
+  quedaba muerto en toda la pantalla. El retenido frena sólo la tecla que nace en el panel, en su botón o
+  sin foco. Las dos cosas las fija `tests/automations-horario.test.ts` (roturas C1-C8).
 
 **Vive en:** `app/configuraciones/HorarioEnvioPanel.tsx` · `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `tests/automations-horario.test.ts`
 

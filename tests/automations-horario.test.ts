@@ -33,7 +33,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { SimuladorWhatsApp } from '../app/automations/SimuladorWhatsApp';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 import {
-  BotonHorario, alScrollear, describirHorario, fueraDeVista, rotuloHorario, ubicarAfuera, SEPARACION_AFUERA, type EstadoHorario,
+  BotonHorario, alScrollear, describirHorario, franjaVisible, fueraDeVista, rotuloHorario, ubicarAfuera, SEPARACION_AFUERA, type EstadoHorario,
 } from '../app/automations/HorarioBoton';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -143,7 +143,8 @@ test('el panel anclado: anidado en la pila, Escape que no cierra lo de atrás, p
   assert.ok(ini > 0);
   const panel = src.slice(ini);
   assert.match(panel, /useCapaModal\(true, \{ anidada: true \}\)/);
-  assert.match(panel, /if \(e\.key !== 'Escape'\) return;\s*if \(hayMenuAbiertoEn\(panel\.current\)\) return;\s*if \(!arriba\(\)\) return;\s*e\.stopImmediatePropagation\(\);/);
+  assert.match(panel, /if \(e\.key !== 'Escape'\) return;\s*if \(hayMenuAbiertoEn\(panel\.current\)\) return;\s*if \(!arriba\(\)\) return;/);
+  assert.match(panel, /\}\s*e\.stopImmediatePropagation\(\);\s*e\.preventDefault\(\);\s*cerrarRef\.current\(\);/, 'el Escape que cierra no frena la tecla');
   assert.match(panel, /document\.addEventListener\('keydown', onKey, true\)/, 'los Escape de la casa viven en document y en captura');
   assert.match(panel, /return createPortal\(/);
   assert.match(panel, /document\.body,\s*\);/);
@@ -208,12 +209,21 @@ test('la lista lleva «sucio» en un ref, y el panel anclado no se cierra mientr
   assert.match(p, /const retenerRef = useRef\(retener\);\s*useEffect\(\(\) => \{ retenerRef\.current = retener; \}, \[retener\]\);/);
   // El clic afuera: con cambios sin guardar, no cierra.
   const fuera = bloque(p, 'const fuera = (e: PointerEvent) => {', "document.addEventListener('pointerdown'");
-  assert.match(fuera, /if \(hayMenuAbiertoEn\(panel\.current\)\) return;\s*if \(retenerRef\.current\?\.\(\)\) return;\s*cerrarRef\.current\(\);/,
+  assert.match(fuera, /if \(hayMenuAbiertoEn\(panel\.current\)\) return;\s*if \(retenerRef\.current\?\.\(\)\) \{ retenido\(e\); return; \}\s*cerrarRef\.current\(\);/,
     'el clic afuera cierra con cambios sin guardar');
+  // Y el clic retenido NO LLEGA a la página (si llegara, «＋ Nueva» desmontaba el panel con lo editado).
+  const ret = bloque(p, 'const retenido = (e: PointerEvent) => {', 'const fuera = (e: PointerEvent) => {');
+  assert.match(ret, /e\.preventDefault\(\);\s*e\.stopPropagation\(\);/, 'el pointerdown retenido sigue su camino');
+  assert.match(ret, /document\.addEventListener\('click', tragar, \{ capture: true, once: true \}\);/, 'el click que sigue llega a la página');
+  assert.match(ret, /sacudir\(panel\.current\);/, 'el clic retenido no da ninguna seña');
+  assert.match(p, /if \(ancla\) ro\.observe\(ancla\);/, 'el panel no sigue al botón cuando cambia su rótulo');
   // El Escape: se FRENA igual (si no, lo contesta la capa de abajo) y no cierra.
   const esc = bloque(p, 'const onKey = (e: KeyboardEvent) => {', "document.addEventListener('keydown'");
-  assert.match(esc, /e\.stopImmediatePropagation\(\);\s*e\.preventDefault\(\);\s*if \(retenerRef\.current\?\.\(\)\) return;\s*cerrarRef\.current\(\);/,
+  assert.match(esc, /if \(retenerRef\.current\?\.\(\)\) \{[\s\S]*?e\.stopImmediatePropagation\(\);\s*e\.preventDefault\(\);\s*return;\s*\}/,
     'el Escape cierra con cambios sin guardar, o los suelta a la capa de abajo');
+  // Pero sólo la tecla que nace en el panel, en su botón o sin foco: la de un menú abierto antes es de él.
+  assert.match(esc, /if \(t && t !== document\.body && !panel\.current\?\.contains\(t\) && !ancla\?\.contains\(t\)\) return;/,
+    'con cambios sin guardar, el Escape queda muerto en toda la pantalla');
 });
 
 // ── (revisión) El borde del botón va en la CLASE ──────────────────────────────────────────
@@ -255,6 +265,14 @@ test('al scrollear: si el botón salió de la vista se cierra, salvo cambios sin
   assert.equal(alScrollear(boton(40), franja, true), 'recolocar', 'con cambios sin guardar, el scroll tiró lo escrito');
   // Sin ancla (el botón se desmontó): no se decide nada por el scroll.
   assert.equal(alScrollear(null, franja, false), 'recolocar');
+
+  // LA FRANJA (revisión del 10/10/2026: sin test, `return ventana` al principio daba 12 / 0 y el panel no
+  // se cerraba nunca con el botón tapado por la lista). Gana el primer ancestro que scrollea DE VERDAD.
+  const lista = { overflowY: 'auto', scrollHeight: 900, clientHeight: 400, rect: { top: 120, bottom: 520 } };
+  const quieto = { overflowY: 'hidden', scrollHeight: 400, clientHeight: 400, rect: { top: 0, bottom: 900 } };
+  assert.deepEqual(franjaVisible([quieto, lista], 800), { top: 120, bottom: 520 }, 'no mide la lista que scrollea');
+  assert.deepEqual(franjaVisible([{ ...lista, scrollHeight: 400 }, quieto], 800), { top: 0, bottom: 800 }, 'una lista que no scrollea no es la franja');
+  assert.deepEqual(franjaVisible([{ ...lista, rect: { top: -40, bottom: 1200 } }], 800), { top: 0, bottom: 800 }, 'la franja no se recorta a la ventana');
 
   // Y el listener del scroll le pregunta a esa función, con «sucio» y por los refs.
   const src = fuente('app/automations/HorarioBoton.tsx');
@@ -312,4 +330,15 @@ test('sin ninguna automatización: el cartel monta el control del horario al lad
 //   B16. el scroll sólo recoloca (como antes)                                          → 11 / 1
 //   B17. el scroll no le pasa «sucio» a la decisión                                    → 11 / 1
 //   B18. el cartel vacío sin el control del horario                                    → 11 / 1
+// Restaurado: 12 / 0.
+//
+// ── ROTURAS de la segunda revisión (10/10/2026, al integrar), base 12 / 0 ───────────────────
+//   C1. `franjaVisible` devuelve la ventana siempre                                     → 11 / 1
+//   C2. la franja sin recortar a la ventana                                            → 11 / 1
+//   C3. el pointerdown retenido sigue su camino (el «＋ Nueva» desmontaba el panel)      → 11 / 1
+//   C4. sin frenar el click que sigue al pointerdown                                   → 11 / 1
+//   C5. el clic retenido sin la seña (el panel no se sacude)                            → 11 / 1
+//   C6. el clic afuera con cambios vuelve a dejar pasar sin `retenido`                  → 11 / 1
+//   C7. el Escape retenido frena la tecla de cualquier lado                            → 11 / 1
+//   C8. el panel no observa al botón (le tapa el rótulo al cambiar)                     → 11 / 1
 // Restaurado: 12 / 0.
