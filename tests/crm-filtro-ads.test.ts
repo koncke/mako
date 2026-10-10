@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { mapaDeAnuncios, origenAds, opcionesDeFiltro, arbolDeAnuncios, pasaFiltroAnuncio, SIN_ORIGEN_ADS } from '../lib/campana-atribucion';
 import { alternarGrupo, alternarHijo, conGrupoAbierto } from '../app/crm/arbol-seleccion';
 import { lugarDelPanel, ANCHO_PANEL, MARGEN_VENTANA } from '../app/crm/filtro-panel';
+import { claveFiltros, escribirFiltros, leerFiltros, SIN_FILTROS } from '../app/crm/filtros-guardados';
 import { canalDeLead } from '../app/crm/origen-lead';
 
 const CAMP = '120000000000000001';
@@ -324,4 +325,33 @@ test('sin fila de chips debajo del filtro: el número sobre «Filtrar» y «Limp
   assert.match(t, estilo, 'el del CRM, igual al del Plan');
   //   ROTO A PROPÓSITO (2026-10-10): con `FiltroChips` de vuelta en el tablero, pass 18 / fail 1; con el
   //   «Limpiar filtros» del menú en otro peso que el del Plan, pass 18 / fail 1.
+});
+
+// «Si refresco o me voy de pestaña y vuelvo, se deben mantener siempre los filtros» (Martín,
+// 10/10/2026).
+test('los filtros guardados: ida y vuelta, por cliente y embudo, y lo ajeno no entra', () => {
+  const f = { etapas: ['nuevo', 'ganado'], origenes: ['Landing'], campanas: ['A'], anuncios: ['a1'], orden: 'llegada' as const };
+  assert.deepEqual(leerFiltros(escribirFiltros(f), new Set(['nuevo', 'ganado'])), f);
+  // Una etapa que ya no existe en el embudo no vuelve: dejaría el tablero vacío sin casilla.
+  assert.deepEqual(leerFiltros(escribirFiltros(f), new Set(['nuevo'])).etapas, ['nuevo']);
+  // Lo roto o con otra forma se descarta entero o campo por campo.
+  assert.deepEqual(leerFiltros('{no es json', new Set()), SIN_FILTROS);
+  assert.deepEqual(leerFiltros(null, new Set()), SIN_FILTROS);
+  assert.deepEqual(leerFiltros(JSON.stringify({ origenes: [1, null, 'Cal.com', 'Cal.com'], orden: 'otro' }), new Set()),
+    { ...SIN_FILTROS, origenes: ['Cal.com'] });
+  // Una clave por cliente y por embudo.
+  assert.equal(new Set([claveFiltros(null, null), claveFiltros(13, null), claveFiltros(13, 7), claveFiltros(14, 7)]).size, 4);
+  //   ROTO A PROPÓSITO (2026-10-10): con las etapas que ya no existen volviendo, pass 20 / fail 1.
+});
+
+test('el tablero restaura al entrar y guarda después, sin pisar lo guardado con los filtros vacíos', () => {
+  const b = sinComentarios(readFileSync('app/crm/CrmBoard.tsx', 'utf8'));
+  const i = b.indexOf('const claveGuardado = claveFiltros(wsTab, funnelActivo);');
+  const bloque = b.slice(i, b.indexOf('const ordenFiltro = vista', i));
+  assert.ok(i > 0 && bloque.length > 600 && bloque.length < 2600, `el bloque mide ${bloque.length}`);
+  assert.match(bloque, /useLayoutEffect\(\(\) => \{[\s\S]*localStorage\.getItem\(claveGuardado\)[\s\S]*recienRestaurado\.current = true;[\s\S]*\}, \[claveGuardado\]\);/);
+  assert.match(bloque, /useEffect\(\(\) => \{\s*if \(recienRestaurado\.current\) \{ recienRestaurado\.current = false; return; \}/, 'el guardado se saltea el commit de la restauración');
+  assert.match(bloque, /localStorage\.setItem\(claveGuardado, escribirFiltros\(/);
+  //   ROTO A PROPÓSITO (2026-10-10): sin el salteo (el guardado del commit de la restauración pisaba lo
+  //   guardado con los filtros vacíos), pass 20 / fail 1.
 });

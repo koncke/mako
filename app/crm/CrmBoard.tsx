@@ -11,10 +11,12 @@
 import { useSearchParams, usePathname } from 'next/navigation';
 import { empujeDeColumna } from './arrastre-columna';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
-import { useRouter } from '@/app/_ui/Link';
+import { useRouter, useWs } from '@/app/_ui/Link';
+import { claveFiltros, escribirFiltros, leerFiltros } from './filtros-guardados';
 import { Fragment,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1832,6 +1834,38 @@ export function CrmBoard({
    */
   const [ordenElegido, setOrdenElegido] = useState<{ funnel: number | null; valor: OrdenKanban } | null>(null);
   const ordenBase: OrdenKanban = hayOrdenManual ? 'manual' : 'llegada';
+
+  // ── Los filtros sobreviven a un F5 y a irse de la tab ──
+  // «Si refresco o me voy de pestaña y vuelvo, se deben mantener siempre los filtros»
+  // (Martín, 10/10/2026). Se guardan en el navegador por CLIENTE y por EMBUDO (las etapas son
+  // de cada embudo); qué se guarda y cómo se sanea vive en app/crm/filtros-guardados.ts, con
+  // test. El buscador no se guarda: no es un filtro del menú y no suma al número de «Filtrar».
+  const wsTab = useWs();
+  const claveGuardado = claveFiltros(wsTab, funnelActivo);
+  // ⚠️ Restaurar y guardar corren en el MISMO commit: el guardado de ese commit todavía ve los
+  // filtros de ANTES (vacíos al entrar, los del embudo anterior al cambiar) y pisaría lo
+  // guardado. Se saltea esa una vez; el render siguiente ya trae lo restaurado.
+  const recienRestaurado = useRef(false);
+  useLayoutEffect(() => {
+    let f = leerFiltros(null, new Set());
+    try { f = leerFiltros(window.localStorage.getItem(claveGuardado), new Set(stages.map((s) => s.key))); } catch { /* sin almacenamiento: arranca sin filtros */ }
+    setStageFilter(new Set(f.etapas));
+    setOriginFilter(new Set(f.origenes));
+    setCampanaFilter(new Set(f.campanas));
+    setCreativoFilter(new Set(f.anuncios));
+    setOrdenElegido(f.orden ? { funnel: funnelActivo, valor: f.orden } : null);
+    recienRestaurado.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- se restaura al cambiar de cliente o de embudo, no en cada render
+  }, [claveGuardado]);
+  useEffect(() => {
+    if (recienRestaurado.current) { recienRestaurado.current = false; return; }
+    const orden = ordenElegido && ordenElegido.funnel === funnelActivo ? ordenElegido.valor : null;
+    try {
+      window.localStorage.setItem(claveGuardado, escribirFiltros({
+        etapas: [...stageFilter], origenes: [...originFilter], campanas: [...campanaFilter], anuncios: [...creativoFilter], orden,
+      }));
+    } catch { /* sin almacenamiento: los filtros duran lo que dure la pantalla */ }
+  }, [claveGuardado, stageFilter, originFilter, campanaFilter, creativoFilter, ordenElegido, funnelActivo]);
   const ordenKanban: OrdenKanban = ordenElegido && ordenElegido.funnel === funnelActivo ? ordenElegido.valor : ordenBase;
   const elegirOrden = (v: OrdenKanban) => setOrdenElegido(v === ordenBase ? null : { funnel: funnelActivo, valor: v });
   /** «Ordenar» del menú, sólo en el kanban: la tabla se ordena por sus columnas. */
