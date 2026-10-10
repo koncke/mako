@@ -309,7 +309,10 @@ export async function mandarRecordatoriosAlLead(
         const gano = await cambiarSettingSi(v.clave, estado === 'libre' ? null : marca, reclamo).catch(() => false);
         if (!gano) { res.yaEnviados += 1; continue; }
 
-        const r = await enviarYEspejar({ telefono, texto, leadId: lead.id })
+        // Por el número de ESE toque (el que se eligió en su tarjeta); sin elegir, el de por default,
+        // como siempre. Uno que ya no está no cae al de por default: `enviarTexto` no manda y el
+        // error queda abajo, en `fallo:` (lib/recordatorio-lead.ts, `ConfigRecordatorio.lineas`).
+        const r = await enviarYEspejar({ telefono, texto, leadId: lead.id, linea: cfg.lineas[v.min as Toque] ?? null })
           .catch((e): { ok: false; error: string } => ({ ok: false, error: msgErr(e) }));
         if (r.ok) {
           // La marca de ENVIADO va después del envío ok, nunca antes.

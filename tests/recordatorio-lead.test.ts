@@ -47,6 +47,15 @@
 //   · `guardarLinkDeReunion` sin `soloSiInicio`; el webhook borrando el link sin condición.
 //   · Calendly y Cal.com sin pasarle el instante a `cancelarJuntaEnLead`.
 //   · la ruta de /automations con el `envioWhatsappHabilitado` que se come el error.
+//
+// EL NÚMERO DE CADA TOQUE (10/10/2026, grupo «recordatorio»), con el mismo tipo de arnés (restaura de
+// memoria y verifica md5). Sin romper: 34 pass / 0 fail. Las 9 roturas cayeron, 33 / 1 cada una:
+//   · el emisor sin pasarle `linea` a `enviarYEspejar`; la ruta guardando una línea sin `elegirLinea`;
+//     el GET sin el número de cada toque; «Activar» (un POST sin `lineas`) borrándole el número a todos.
+//   · la ruta con su propia validación del texto en vez de `problemaDelTexto`.
+//   · `configDeRecordatorio` leyendo la línea después del `continue` del texto (el de fábrica la pierde);
+//     `serializarConfig` sin guardar un toque que sólo cambió de número; una línea de cualquier largo.
+//   · `problemaDelTexto` sin el tope de caracteres.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -56,7 +65,7 @@ import {
   TOQUES, TOLERANCIA_MIN, TEXTO_DEFAULT, KEY_RECORDATORIO, toquesVencidos, juntasDe, leadAbierto, claveToque,
   isoCanonico, estadoDeLaMarca, linkDeReunion, juntaQueSeCancela, configDeRecordatorio, serializarConfig,
   variablesDesconocidas, textoDelToque, faltanTexto, fechaEnZona, fechaCoincide, juntaACancelar, envioIncierto,
-  TZ_FECHA_AGENDA, type Junta,
+  problemaDelTexto, TOPE_TEXTO, TOPE_LINEA, TZ_FECHA_AGENDA, type Junta,
 } from '../lib/recordatorio-lead';
 import { marcasDeVoseo } from '../lib/puestas-data';
 
@@ -334,6 +343,33 @@ test('los textos propios se conservan; los vacíos, iguales al de fábrica o de 
   assert.deepEqual(configDeRecordatorio(s), c);
 });
 
+// 10/10/2026: el número de cada toque (sexta tanda, WhatsApp 2 sobre el recordatorio).
+test('el NÚMERO de cada toque se guarda aunque su texto sea el de fábrica, y sin elegir es la de por default', () => {
+  // Un setting de antes (sin `linea`) no cambia: todos por la de por default.
+  assert.deepEqual(configDeRecordatorio(JSON.stringify({ activo: true, toques: [{ min: 60, texto: 'Hola' }] })).lineas, {});
+  const s = serializarConfig({
+    activo: true,
+    textos: { 1440: TEXTO_DEFAULT[1440], 60: 'Hola {{nombre}}', 15: '' },
+    lineas: { 1440: 'mako_ws9_b', 60: null, 15: '   ' },
+  });
+  // El de 1440 viaja SIN texto (es el de fábrica) y CON su número; el de 60, con su texto y sin número.
+  assert.deepEqual(JSON.parse(s), { activo: true, toques: [{ min: 1440, linea: 'mako_ws9_b' }, { min: 60, texto: 'Hola {{nombre}}' }] });
+  const c = configDeRecordatorio(s);
+  assert.deepEqual(c.lineas, { 1440: 'mako_ws9_b' });
+  assert.equal(c.textos[1440], TEXTO_DEFAULT[1440]);
+  assert.deepEqual(c.propios, [60]);
+  // Una línea rara (no un texto, o más larga que cualquier nombre de la casa) no se guarda.
+  const raro = configDeRecordatorio(JSON.stringify({ activo: true, toques: [{ min: 15, linea: 7 }, { min: 60, linea: 'x'.repeat(TOPE_LINEA + 1) }] }));
+  assert.deepEqual(raro.lineas, {});
+});
+
+test('un texto que no se puede publicar dice por qué; uno vacío sí se puede (vuelve al de fábrica)', () => {
+  assert.equal(problemaDelTexto(''), null);
+  assert.equal(problemaDelTexto(TEXTO_DEFAULT[1440]), null);
+  assert.equal(problemaDelTexto('Hola {{negocio}} y {{x}}'), 'No existe: {{negocio}}, {{x}}');
+  assert.equal(problemaDelTexto('x'.repeat(TOPE_TEXTO + 1)), `Máximo ${TOPE_TEXTO} caracteres.`);
+});
+
 // ── Guards sobre lo server-only ──────────────────────────────────────────────
 
 const EMISOR = sinComentarios(leer('lib/reunion-recordatorio.ts'));
@@ -368,6 +404,19 @@ test('CABLEADO: el emisor le pasa la zona del negocio a toquesVencidos (la hora 
   const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
   assert.match(b, /toquesVencidos\(\{ leadId: lead\.id, juntas: juntasDe\(lead\), ahora: t, tz \}\)/);
   assert.ok(b.indexOf('const tz = ') >= 0 && b.indexOf('const tz = ') < b.indexOf('toquesVencidos('), 'la zona se resuelve ANTES de decidir');
+});
+
+test('CABLEADO: cada toque sale por SU número, y la ruta lo valida con la regla del envío', () => {
+  const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
+  assert.match(b, /enviarYEspejar\(\{ telefono, texto, leadId: lead\.id, linea: cfg\.lineas\[v\.min as Toque\] \?\? null \}\)/,
+    'sin `linea`, el número elegido en la tarjeta se guarda y el toque sale por la de por default');
+  const api = sinComentarios(leer('app/api/chat-agent/recordatorio-reunion/route.ts'));
+  // La línea pedida se valida contra las del NEGOCIO (en su workspace), con `elegirLinea`.
+  assert.match(api, /delNegocio \?\?= await runWithWorkspace\(g\.ws, \(\) => listarLineas\(\)\);/);
+  assert.match(api, /const e = elegirLinea\(delNegocio, v, g\.ws\);\s+if \(!e\.ok\) return Response\.json\(\{ ok: false, error: e\.motivo \}, \{ status: 400 \}\);\s+lineas\[min\] = e\.instance;/);
+  // Lo que no viene se conserva: «Activar» no le borra el número a nadie.
+  assert.match(api, /const lineas: Partial<Record<Toque, string \| null>> = \{ \.\.\.actual\.lineas \};/);
+  assert.match(api, /linea: cfg\.lineas\[min\] \?\? null,/, 'el GET no devuelve el número: la tarjeta mostraría la de por default sobre uno elegido');
 });
 
 test('CABLEADO: el setting no se hereda del dueño — se lee con el workspace_id explícito', () => {
@@ -454,7 +503,9 @@ test('CABLEADO: el recordatorio es un ítem de la lista de /automations y guarda
   const api = sinComentarios(leer('app/api/chat-agent/recordatorio-reunion/route.ts'));
   assert.match(api, /if \(ws == null \|\| rol !== 'admin'\)/);
   assert.match(api, /runWithWorkspace\(g\.ws, \(\) => setSetting\(KEY_RECORDATORIO,/, 'se escribe en el workspace del request, explícito');
-  assert.match(api, /variablesDesconocidas\(v\)/, 'una variable que no existe se rechaza al guardar');
+  // (Desde el 10/10/2026 por `problemaDelTexto`, la misma pregunta que hace la pantalla antes de mandar.)
+  assert.match(api, /const problema = problemaDelTexto\(v\);\s+if \(problema\) return Response\.json/, 'una variable que no existe se rechaza al guardar');
+  assert.match(sinComentarios(leer('lib/recordatorio-lead.ts')), /const malas = variablesDesconocidas\(t\);/);
   // «No pude leer» no se dibuja «envío apagado»: el no-estricto se come el error y el catch no corre.
   assert.match(api, /runWithWorkspace\(ws, \(\) => envioWhatsappHabilitadoEstricto\(\)\)\.catch\(\(\) => null\)/);
   assert.doesNotMatch(api, /envioWhatsappHabilitado\(\)/);

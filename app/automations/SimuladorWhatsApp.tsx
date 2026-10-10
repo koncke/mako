@@ -562,7 +562,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       ) : (
       <div style={ESTILO_LIENZO}>
         {selId === ID_RECORDATORIO && rolAdmin ? (
-          <RecordatorioFlujo negocio={negocio} insetIzq={m.insets.izq} onCambio={setRecordatorioActivo} />
+          <RecordatorioFlujo negocio={negocio} insetIzq={m.insets.izq} muelles={m} onSinPublicar={setSinPublicar} onCambio={setRecordatorioActivo} />
         ) : !sel ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>
             Elige una automatización
