@@ -1,12 +1,59 @@
-# Dos cuentas de Claude sobre este repo
+# Varias cuentas de Claude sobre este repo
 
 El límite del desarrollo no lo ponen las ideas: lo pone la cuota. Con una cuenta sola,
-el trabajo se corta a mitad de semana y queda parado hasta el reset. Con dos cuentas
+el trabajo se corta a mitad de semana y queda parado hasta el reset. Con cuentas
 **desfasadas** hay capacidad los 7 días.
 
-Este documento es el protocolo. Está versionado a propósito: es lo único que las dos
+Este documento es el protocolo. Está versionado a propósito: es lo único que **todas** las
 cuentas ven igual, porque **la memoria y el login no se comparten por defecto** (ver
 abajo qué sí y qué no).
+
+> **Al 10/10/2026 hay dos cuentas y está entrando una tercera.** El documento se escribe
+> para N, no para dos: **ningún nombre de titular vive en el código**. La tabla está en
+> `~\.claude\cuentas.tsv` y sumar una cuenta es agregarle una línea.
+
+## Sumar una cuenta: los cuatro pasos
+
+Ninguno es opcional, y el que más duele olvidar es el tercero.
+
+1. **Anotala en la tabla de titulares**, `~\.claude\cuentas.tsv`, una línea
+   `<cuenta>\t<Nombre <email>>` separada por un TAB de verdad:
+
+   ```
+   claude3	Fulano de Tal <fulano@ejemplo.com>
+   ```
+
+   El hook `~\.claude\bitacora-sesion.sh` la lee de ahí. Si falta, cada sesión arranca
+   diciendo `SIN IDENTIFICAR` — que es a propósito: prefiere avisar antes que inventar un
+   titular y hacer que los commits salgan mal atribuidos.
+
+2. **Declará cuál está activa** al entrar, porque del disco **no se deduce**:
+
+   ```sh
+   echo claude3 > ~/.claude/cuenta-activa.txt
+   ```
+
+   Es lo que el hook lee para decirle a cada chat quién es y con qué trailer firmar
+   (`Claude-Cuenta: claude3`).
+
+3. ⚠️ **Si la cuenta nueva usa un config dir PROPIO, recreá el junction de la memoria.**
+   Las memorias viven en una sola carpeta física y las demás rutas son junctions (ver
+   «Qué comparten y qué no»). Un config dir nuevo nace **sin** ese enlace: la cuenta
+   arranca con la memoria vacía y, peor, **empieza a escribir memorias propias** que nadie
+   más va a ver. En dos semanas hay dos verdades y ninguna forma de saber cuál es.
+
+   ```powershell
+   cmd /c mklink /J "<config dir nuevo>\projects\C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main\memory" "$HOME\.claude\projects\C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main\memory"
+   ```
+
+   Si en cambio entra por el **mismo** `~\.claude` (logout y login en la misma app), no hay
+   que hacer nada: la memoria y las transcripciones ya están ahí.
+
+4. **Mostrale dónde está el trabajo.** La cuenta nueva abre la barra lateral y la ve
+   **vacía**: los chats están indexados por cuenta. El índice que reemplaza a esa barra es
+   [`relevo/chats.md`](relevo/chats.md) — qué chat tocó qué, cuándo fue la última vez y qué
+   briefing le corresponde. Lo primero que va a preguntar es «¿en qué chats estuve
+   trabajando?», y ésa es la respuesta.
 
 ---
 

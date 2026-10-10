@@ -29,15 +29,22 @@ falsa: proponer `mauricio@hola-mako.com` como remitente de MaKo.
 
 # LO PRIMERO AL ABRIR: si te preguntan «¿en qué quedamos?», leé `docs/relevo.md`
 
-Martín trabaja con **dos cuentas de Claude** y se pasa de una a la otra cuando se le acaban
+Martín trabaja con **varias cuentas de Claude** y se pasa de una a otra cuando se le acaban
 los tokens. Al entrar, abre un chat y pregunta **«en qué quedamos»** — y el 100% del trabajo
-intermedio lo hizo la otra cuenta, no vos. Contestar desde lo que viviste en ESTA sesión es
+intermedio lo hizo otra cuenta, no vos. Contestar desde lo que viviste en ESTA sesión es
 contestar sobre el 0%.
 
 **`docs/relevo.md` es la respuesta.** Se pisa en cada traspaso y siempre describe la ventana
 que acaba de cerrar: qué se hizo, qué quedó a medio hacer y con qué archivo, y qué espera una
 decisión suya. Al lado, `docs/relevo/` tiene un briefing por área o por chat, y su
 `README.md` dice cuál le toca a cada uno.
+
+**Y si lo que pregunta es «¿en qué CHATS estuve trabajando?», la respuesta es
+[`docs/relevo/chats.md`](docs/relevo/chats.md)** — no la barra lateral. La lista de chats de
+la app está **partida por cuenta**: una cuenta nueva la ve VACÍA, aunque las transcripciones
+de todas estén juntas en `~/.claude/projects/<clave>/*.jsonl`. Ese archivo es el índice que
+la barra no puede dar: qué chat tocó qué, cuándo fue su última actividad y qué briefing le
+toca a cada uno.
 
 ⚠️ **Esta regla existe porque faltaba y se pagó.** El 05/10/2026 la cuenta 2 dejó el relevo
 escrito y avisado; aun así, la sesión que entró tuvo que **descubrirlo sola** mirando fechas
