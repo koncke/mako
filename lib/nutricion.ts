@@ -4835,7 +4835,9 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
       : sinBorrador ? `\n\nNo pude dejarte un borrador: ${sinBorrador}` : '';
   await emitirDelCatalogo('wa-mensaje-entrante', {
     ws: (await getWorkspaceActual()) ?? undefined,
-    texto: `💬 *${quien} respondió* a la secuencia de mensajes «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${borrador}${alertaDescalifica}\n\n— MaKo`,
+    // «a la automatización» desde el 10/10/2026 (restos de versiones anteriores): decía «a la secuencia
+    // de mensajes», el nombre de antes de la tab.
+    texto: `💬 *${quien} respondió* a la automatización «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${borrador}${alertaDescalifica}\n\n— MaKo`,
   });
   return true;
 }

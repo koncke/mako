@@ -45,9 +45,12 @@
 //
 // ⚠️ VARIAS PARTES SÓLO DONDE EL MOTOR LAS MANDA: el WhatsApp NO oficial (`permiteAudio ||
 //    permiteAdjuntos`). En el oficial sale UNA plantilla, en el recordatorio de la reunión UN texto y en
-//    «MaKo en WhatsApp» UN aviso al grupo: ahí la barra ES el mensaje (modo `editar`).
+//    «MaKo en WhatsApp» UN aviso al grupo: ahí va UN mensaje, con la MISMA interfaz (la burbuja con ✏️ y
+//    🗑, la barra vacía y la ➤: `enviarUnico`). Hasta el 10/10/2026 la barra ERA el mensaje (modo
+//    `editar`) y el texto se veía dos veces, en la burbuja y en la barra.
 // ⚠️ LO ESCRITO SIN ENVIAR NO SE PIERDE AL TOCAR OTRA TARJETA: el borrador de la barra vive en un
-//    mapa del módulo por tarjeta (como el borrador de un chat). No viaja a la secuencia.
+//    mapa del módulo por tarjeta (como el borrador de un chat). No viaja a la secuencia. Salvo en el de
+//    UN mensaje, que no tiene identidad propia en «MaKo en WhatsApp» (ver `recordarBarra`).
 // ⚠️ NADA DE ACÁ PUBLICA. `onChange` es un cambio LOCAL (sólo «Publicar» publica). Lo único que este
 //    editor escribe en el server es la BIBLIOTECA (un audio o un archivo nuevo), que no cambia ninguna
 //    secuencia. Lo fija tests/editor-mensaje-whatsapp.test.ts.
@@ -330,6 +333,18 @@ export function enviarALista(lista: readonly ParteMensaje[], nuevas: readonly Pa
 }
 
 /**
+ * «Enviar» con UN solo mensaje (el recordatorio, «MaKo en WhatsApp», la vía oficial): lo de la barra pasa
+ * a ser EL mensaje. Editándolo (✏️), lo reemplaza; sin editar y con un mensaje ya escrito, no entra
+ * (`'lleno'`: va uno solo, y pisarlo en silencio perdería el que estaba); una barra vacía no manda nada.
+ * Pura y exportada para el test.
+ */
+export function enviarUnico(actual: string, barra: string, editando: boolean): { cuerpo: string } | 'vacio' | 'lleno' {
+  if (!barra.trim()) return 'vacio';
+  if (!editando && actual.trim()) return 'lleno';
+  return { cuerpo: barra };
+}
+
+/**
  * Lo que propuso MaKo, sobre la lista: «reemplazar» deja sólo sus textos; «agregar» los suma al final.
  * Con el tope de partes. Pura y exportada para el test.
  */
@@ -384,7 +399,16 @@ export function EditorMensajeWhatsApp({
   const varias = permiteAudio || permiteAdjuntos;
   const clavePaso = `${paso.id ?? ''}|${paso.orden}`;
   const claveBorrador = claveDeTarjeta(ws, paso);
-  const [barra, setBarra] = useState(() => borradores.get(claveBorrador) ?? '');
+  /**
+   * ⚠️ LA BARRA DE UN SOLO MENSAJE NO SE RECUERDA POR TARJETA (restos de versiones anteriores,
+   * 10/10/2026). Desde que el editor de un texto también es «enviar» (ver `enviarUnico`), su barra es
+   * un borrador como el de varias partes. Pero «MaKo en WhatsApp» (`EditorMensajeGrupo`) se monta con un
+   * paso SIN identidad propia (`mako-grupo`, orden 1): recordada en `borradores`, lo que se tipeó en la
+   * barra de un mensaje aparecía en la del siguiente, y su ➤ lo mandaba ahí. Cada montaje es de UN
+   * mensaje (todos los que lo montan le ponen `key`), así que vive en el estado del componente.
+   */
+  const recordarBarra = varias;
+  const [barra, setBarra] = useState(() => (recordarBarra ? borradores.get(claveBorrador) ?? '' : ''));
   const [adjunto, setAdjunto] = useState<Pendiente | null>(null);
   const [editando, setEditando] = useState<number | null>(null);
   const [fase, setFase] = useState<string | null>(null);
@@ -414,7 +438,7 @@ export function EditorMensajeWhatsApp({
     setClaveVista(clavePaso);
     setError(null); setAbierto(null); setAdjunto(null); setEditando(null);
     setGuionMaKo(guionesDeMaKo.get(claveBorrador) ?? null);
-    setBarra(borradores.get(claveBorrador) ?? '');
+    setBarra(recordarBarra ? borradores.get(claveBorrador) ?? '' : '');
   }
 
   const biblioteca = adjuntos ?? bibLocal;
@@ -438,6 +462,7 @@ export function EditorMensajeWhatsApp({
   const avisar = (m: string) => { setError(m); onError?.(m); };
   const escribir = (v: string) => {
     setBarra(v);
+    if (!recordarBarra) return;
     if (v) borradores.set(claveBorrador, v); else borradores.delete(claveBorrador);
   };
   const limpiarBarra = () => { escribir(''); setAdjunto(null); setEditando(null); };
@@ -507,6 +532,38 @@ export function EditorMensajeWhatsApp({
     if (editando === i) limpiarBarra();
     else if (editando != null && editando > i) setEditando(editando - 1);
     show('Mensaje borrado', () => { if (mismoPaso(pasoVivo.current, deQuien)) aplicarPartes(antes); });
+  };
+
+  // ── UN SOLO MENSAJE (el recordatorio, «MaKo en WhatsApp», la vía oficial): la MISMA interfaz ────
+  // (MaKo en WhatsApp 2: «El editable de MaKo en WhatsApp debe ser lo mismo que el editable de
+  // WhatsApp. La misma interfaz»). La burbuja con ✏️ y 🗑, y la barra VACÍA: ✏️ sube el texto a la barra
+  // y la ➤ lo devuelve. Hasta el 10/10/2026 la barra era el mensaje mismo (`modo="editar"`) y el texto se
+  // dibujaba DOS veces, en la burbuja y abajo (la captura de Martín del recordatorio, en su ws9).
+  /** ➤ con un solo mensaje (`enviarUnico`, la regla pura de abajo). */
+  const enviarElUnico = () => {
+    const r = enviarUnico(pasoVivo.current.cuerpo ?? '', barra, editando != null);
+    if (r === 'vacio') return;
+    if (r === 'lleno') { avisar('Va un solo mensaje'); return; }
+    setError(null);
+    onChange({ cuerpo: r.cuerpo });
+    limpiarBarra();
+  };
+  /** ✏️ con un solo mensaje: el texto sube a la barra. */
+  const editarElUnico = () => {
+    if (barra.trim() && editando == null) { avisar('Primero envía lo escrito'); return; }
+    setError(null);
+    setEditando(0);
+    escribir(pasoVivo.current.cuerpo ?? '');
+    composer.current?.enfocar();
+  };
+  /** 🗑 con un solo mensaje: queda sin escribir, con «Deshacer» 5 s. */
+  const borrarElUnico = () => {
+    const antes = pasoVivo.current.cuerpo ?? '';
+    if (!antes) return;
+    const deQuien = pasoVivo.current;
+    onChange({ cuerpo: '' });
+    if (editando != null) limpiarBarra();
+    show('Mensaje borrado', () => { if (mismoPaso(pasoVivo.current, deQuien)) onChange({ cuerpo: antes }); });
   };
 
   /** La pausa antes de la parte `i` (WhatsApp 11). */
@@ -716,31 +773,38 @@ export function EditorMensajeWhatsApp({
     );
   };
 
+  /**
+   * UNA BURBUJA CON SUS BOTONES. LOS BOTONES PEGADOS A LA BURBUJA (WhatsApp 4): la fila se acomoda del
+   * lado de la burbuja y la burbuja no lleva un tope propio — lo pone la fila (`maxWidth` del
+   * envoltorio). Firmado por otro («MaKo»), la burbuja llega a la IZQUIERDA y los botones van a su
+   * derecha (`row-reverse`): el espejo de la de salida.
+   */
+  const filaDeBurbuja = (i: number, burbuja: ReactNode, alEditar: () => void, alBorrar: () => void, conVariantes: boolean) => (
+    <div key={`p-${i}`} data-parte={i} style={{ display: 'flex', flexDirection: saliente ? 'row' : 'row-reverse', alignItems: 'center', justifyContent: 'flex-end', gap: 6, alignSelf: 'stretch', minWidth: 0 }}>
+      <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
+        {conVariantes && variantes.length > 0 && (
+          <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
+            onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={{ ...chip, height: 28 }}>↻ {variantes.length}</button>
+        )}
+        <button type="button" disabled={ocupado} onClick={alEditar} title="Editar" aria-label={`Editar el mensaje ${i + 1}`}
+          style={{ ...accionBurbuja, ...(editando === i ? { border: '1px solid var(--primary)', color: 'var(--primary)' } : {}) }}><IconLapiz /></button>
+        {/* El tacho de la casa (app/_ui/BotonBorrar.tsx, general 9): rojo siempre. */}
+        <button type="button" disabled={ocupado} onClick={alBorrar} title="Borrar" aria-label={`Borrar el mensaje ${i + 1}`}
+          style={{ ...accionBurbuja, color: 'var(--bad)', border: '1px solid var(--bad)' }}><IconoBorrar size={16} /></button>
+      </div>
+      <div style={{ flex: '0 1 auto', minWidth: 0, maxWidth: 'calc(100% - 70px)', display: 'flex', justifyContent: saliente ? 'flex-end' : 'flex-start', borderRadius: 16, outline: editando === i ? '2px solid var(--primary)' : 'none', outlineOffset: 2 }}>
+        {burbuja}
+      </div>
+    </div>
+  );
   const vista: ReactNode = varias ? (
     partes.length ? partes.flatMap((p, i) => [
       pastillaPausa(i),
-      // LOS BOTONES PEGADOS A LA BURBUJA (WhatsApp 4): la fila se acomoda a la derecha y la burbuja no
-      // lleva un tope propio — lo pone la fila (`maxWidth` del envoltorio).
-      <div key={`p-${i}`} data-parte={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, alignSelf: 'stretch', minWidth: 0 }}>
-        <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
-          {unTexto && variantes.length > 0 && (
-            <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
-              onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={{ ...chip, height: 28 }}>↻ {variantes.length}</button>
-          )}
-          <button type="button" disabled={ocupado} onClick={() => editar(i)} title="Editar" aria-label={`Editar el mensaje ${i + 1}`}
-            style={{ ...accionBurbuja, ...(editando === i ? { border: '1px solid var(--primary)', color: 'var(--primary)' } : {}) }}><IconLapiz /></button>
-          {/* El tacho de la casa (app/_ui/BotonBorrar.tsx, general 9): rojo siempre. */}
-          <button type="button" disabled={ocupado} onClick={() => borrar(i)} title="Borrar" aria-label={`Borrar el mensaje ${i + 1}`}
-            style={{ ...accionBurbuja, color: 'var(--bad)', border: '1px solid var(--bad)' }}><IconoBorrar size={16} /></button>
-        </div>
-        <div style={{ flex: '0 1 auto', minWidth: 0, maxWidth: 'calc(100% - 70px)', display: 'flex', justifyContent: 'flex-end', borderRadius: 16, outline: editando === i ? '2px solid var(--primary)' : 'none', outlineOffset: 2 }}>
-          {burbujaDe(p)}
-        </div>
-      </div>,
+      filaDeBurbuja(i, burbujaDe(p), () => editar(i), () => borrar(i), unTexto),
     ]) : sinEscribir
-  ) : (
-    <BurbujaHilo contenido={{ texto: conNegocio(paso.cuerpo ?? ''), ia: esIA }} vacio={sinEscribir} maxAncho="92%" {...pieBurbuja} />
-  );
+  ) : (paso.cuerpo ?? '').trim() ? (
+    filaDeBurbuja(0, <BurbujaHilo maxAncho="100%" {...pieBurbuja} contenido={{ texto: conNegocio(paso.cuerpo ?? ''), ia: esIA }} />, editarElUnico, borrarElUnico, true)
+  ) : sinEscribir;
 
   // «{ }» EN LA BARRA, AL LADO DEL CLIP (la ranura `trasClip` de ComposerWhatsApp). Sin datos que
   // ofrecer no hay botón: un «{ }» que abre un árbol vacío se lee roto (como `SelectorDatos`).
@@ -755,7 +819,7 @@ export function EditorMensajeWhatsApp({
       <Spinner size={12} /> {fase}
     </div>
   ) : null;
-  const editandoNodo = varias && editando != null && !editandoAudio ? (
+  const editandoNodo = editando != null && !editandoAudio ? (
     <div style={{ flex: 'none', padding: '6px 12px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 7 }}>
       <IconLapiz /> <span style={{ flex: 1 }}>Editando</span>
       <button type="button" onClick={limpiarBarra} aria-label="Cancelar edición" title="Cancelar"
@@ -782,13 +846,17 @@ export function EditorMensajeWhatsApp({
       trasClip={botonDatos}
     />
   ) : (
+    // UN SOLO MENSAJE: también `enviar` (ver `enviarElUnico`). La barra NO es el mensaje: arranca
+    // vacía y lo enviado no se queda escrito, como en la de varias partes.
     <ComposerWhatsApp
       ref={composer}
-      modo="editar"
-      valor={paso.cuerpo ?? ''}
-      onValor={(v) => onChange({ cuerpo: v })}
+      modo="enviar"
+      valor={barra}
+      onValor={escribir}
+      onEnviar={enviarElUnico}
       placeholder={placeholderDe(paso.tipo, placeholder)}
       ocupado={ocupado}
+      maxAlto={168}
       trasClip={botonDatos}
     />
   );
@@ -813,8 +881,9 @@ export function EditorMensajeWhatsApp({
   const textoActual = (varias ? partes.flatMap((p) => (p.tipo === 'texto' ? [p.cuerpo] : p.tipo === 'media' && p.cuerpo ? [p.cuerpo] : [])) : [paso.cuerpo ?? '']).join('\n\n');
   const puedeAdaptar = !!permiteIA && adaptable(paso, varias);
 
-  // LA FILA DE ARRIBA: sólo las variantes del mensaje de un texto (el número y el ✦ van en la cabecera).
-  const conVariantes = !varias && variantes.length > 0;
+  // LA FILA DE ARRIBA: las variantes de un solo mensaje SIN texto (con texto, el «↻ N» va al lado de su
+  // burbuja, como en el de varias partes). El número y el ✦ van en la cabecera.
+  const conVariantes = !varias && variantes.length > 0 && !(paso.cuerpo ?? '').trim();
   const arriba = conVariantes ? (
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 8, minWidth: 0 }}>
       <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}

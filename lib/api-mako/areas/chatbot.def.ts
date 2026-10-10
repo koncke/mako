@@ -65,8 +65,8 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'huecos_secuencias', area: 'chatbot', tipo: 'lectura',
-    titulo: 'Etapas sin secuencia de mensajes',
-    descripcion: 'Las etapas de nutrición del funnel de este negocio que no tienen ninguna secuencia que las cubra. Una secuencia pausada cuenta como cubierta (solo falta prenderla); una archivada no. Úsala para «qué parte de mi funnel está sin nutrir» o antes de proponer crear una secuencia.',
+    titulo: 'Etapas sin automatización',
+    descripcion: 'Las etapas de nutrición del funnel de este negocio en las que no arranca ninguna automatización: cuenta todos los CRON de cada una. Una pausada cuenta como cubierta (solo falta prenderla); una archivada no. Úsala para «qué parte de mi funnel está sin nutrir» o antes de proponer crear una automatización.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -520,7 +520,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'armar_secuencias_de_audios', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Armar secuencias desde los audios',
-    descripcion: 'PROPONE crear o rearmar las secuencias automáticas del onboarding (bienvenida y post-agenda) a partir de los audios grabados y del link de video guardado, y devuelve un link para confirmarlo. Solo usa los audios de bienvenida, agenda_con_bienvenida y agenda_primer_contacto. Las nuevas nacen pausadas. Las que ya existían se reescriben con los pasos de los audios actuales, pierden los cambios de texto y variantes que tuvieran y NO cambian de estado: si estaban activas mandan los pasos nuevos en el acto, y si estaban archivadas se desarchivan (y vuelven a enviar si estaban prendidas). La bienvenida solo inscribe leads de formularios de Meta.',
+    descripcion: 'PROPONE crear o rearmar las secuencias automáticas del onboarding (bienvenida y post-agenda) a partir de los audios grabados y del link de video guardado, y devuelve un link para confirmarlo. Solo usa los audios de bienvenida, agenda_con_bienvenida y agenda_primer_contacto. Las nuevas nacen pausadas. Las que ya existían NO cambian de estado y se rearman con los audios actuales: si ya son de tarjetas sólo cambia el audio de cada tarjeta (el texto, las ramas y las variantes quedan); si todavía son una lista de antes se reescriben y pierden sus cambios de texto y variantes. Sobre el estado: si estaban activas mandan los pasos nuevos en el acto, y si estaban archivadas se desarchivan (y vuelven a enviar si estaban prendidas). La bienvenida solo inscribe leads de formularios de Meta.',
     parametros: [],
     reversible: false, escribe: 'inserta o reescribe pasos de las secuencias chat-agent-* en nutricion_secuencias y archiva la post-agenda vieja',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },

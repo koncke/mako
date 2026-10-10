@@ -47,7 +47,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  EditorMensajeWhatsApp, BotonMakoWhatsApp, CabeceraWhatsApp, mismoPaso, placeholderDe, partesDeLaBarra, enviarALista, makoPosible, adaptable,
+  EditorMensajeWhatsApp, BotonMakoWhatsApp, CabeceraWhatsApp, mismoPaso, placeholderDe, partesDeLaBarra, enviarALista, enviarUnico, makoPosible, adaptable,
   claveDeTarjeta, alternarPanelMako, ALTO_MIN_CHAT, datosDelLead, arbolDeVariables,
   type EditorMensajeWhatsAppProps,
 } from '../app/automations/EditorMensajeWhatsApp';
@@ -118,16 +118,46 @@ test('«Enviar» suma al final; editando, la burbuja vuelve a SU lugar', () => {
   assert.deepEqual(enviarALista([a, b], [n], 9), [a, b, n], 'un índice que ya no está suma al final');
 });
 
-test('la barra de varias partes es un BORRADOR (modo `enviar`); el oficial y el recordatorio, el de siempre', () => {
-  const varias = EDITOR.slice(EDITOR.indexOf('const composerNodo = varias ?'), EDITOR.indexOf('const arriba ='));
+// ⚠️ CAMBIÓ EL 10/10/2026 (restos de versiones anteriores): el de UN mensaje (el recordatorio, «MaKo en
+// WhatsApp», la vía oficial) era `modo="editar"` —la barra ERA el mensaje— y el texto se dibujaba dos
+// veces, en la burbuja y en la barra (la captura del recordatorio en el ws9 de Martín). Ahora es la misma
+// interfaz que el de varias partes. Probado rompiéndolo con el arnés del scratchpad (base 28 / 0):
+//   · el de un mensaje de vuelta en `modo="editar"` con `valor={paso.cuerpo ?? ''}` → 2 fallos;
+//   · `enviarUnico` pisando el mensaje sin estar editando                         → 1 fallo;
+//   · la barra de un mensaje recordada por tarjeta (`recordarBarra = true`)       → 1 fallo;
+//   · la burbuja de un mensaje sin su ✏️ (la burbuja sola de antes)               → 1 fallo.
+test('la barra es un BORRADOR (modo `enviar`) con varias partes Y con un solo mensaje', () => {
+  const varias = EDITOR.slice(EDITOR.indexOf('const composerNodo = varias ?'), EDITOR.indexOf('const usarPropuesta ='));
   assert.ok(varias.length > 200, 'no encontré el composer');
   const [conPartes, unaSola] = varias.split(') : (');
   assert.match(conPartes, /modo="enviar"/);
   assert.match(conPartes, /onEnviar=\{enviar\}/);
   assert.match(conPartes, /valor=\{barra\}/, 'la barra NO es el mensaje: lo enviado no se queda escrito');
-  assert.match(unaSola, /modo="editar"/);
+  assert.match(unaSola, /modo="enviar"/, 'el de un mensaje volvió a tener la barra como el mensaje (el texto dos veces)');
+  assert.match(unaSola, /valor=\{barra\}/);
+  assert.match(unaSola, /onEnviar=\{enviarElUnico\}/);
   assert.match(EDITOR, /const varias = permiteAudio \|\| permiteAdjuntos;/, 'varias partes sólo por el no oficial');
   assert.match(EDITOR, /limpiarBarra\(\);\s*\};/, '«Enviar» vacía la barra');
+});
+
+test('«Enviar» con un solo mensaje: editando lo reemplaza; sin editar y con uno escrito, no lo pisa', () => {
+  assert.deepEqual(enviarUnico('', 'Hola', false), { cuerpo: 'Hola' }, 'sin mensaje, la barra es el mensaje');
+  assert.deepEqual(enviarUnico('Viejo', 'Nuevo', true), { cuerpo: 'Nuevo' }, 'editando, reemplaza');
+  assert.equal(enviarUnico('Viejo', 'Nuevo', false), 'lleno', 'pisaría el mensaje sin que nadie lo pidiera');
+  assert.equal(enviarUnico('Viejo', '   ', true), 'vacio', 'una barra vacía no manda nada');
+});
+
+test('el de un solo mensaje: la burbuja con ✏️ y 🗑, y la barra VACÍA (el texto no se dibuja dos veces)', () => {
+  const html = dibujar({ paso: paso({ cuerpo: 'Te recuerdo la reunión de mañana', proveedor: 'oficial' }), permiteAudio: false, permiteAdjuntos: false });
+  assert.equal(html.split('Te recuerdo la reunión de mañana').length - 1, 1, 'el texto aparece en la burbuja Y en la barra');
+  assert.ok(html.includes('aria-label="Editar el mensaje 1"'), 'falta el ✏️ de la burbuja');
+  assert.ok(html.includes('aria-label="Borrar el mensaje 1"'), 'falta la papelera de la burbuja');
+  const vacio = dibujar({ paso: paso({ cuerpo: '' }), permiteAudio: false, permiteAdjuntos: false });
+  assert.ok(vacio.includes('Sin escribir') && !vacio.includes('aria-label="Editar el mensaje 1"'));
+  // Lo tipeado en la barra de UN mensaje no se recuerda por tarjeta: «MaKo en WhatsApp» se monta con un
+  // paso sin identidad propia (`mako-grupo`), y lo de un aviso aparecía en la barra del siguiente.
+  assert.match(EDITOR, /const recordarBarra = varias;/);
+  assert.match(EDITOR, /useState\(\(\) => \(recordarBarra \? borradores\.get\(claveBorrador\) \?\? '' : ''\)\)/);
 });
 
 test('cada burbuja tiene ✏️ y una papelera VISIBLE (roja); borrar ofrece «Deshacer» con el toast de la casa', () => {

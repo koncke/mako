@@ -19,7 +19,7 @@
 // el momento en que hace falta — la primera vez que se tilda «Lo adapta MaKo» en una
 // tarjeta de chat (app/automations/SecuenciaPerfil.tsx). Vive en la lista 'setting' como
 // OPCIONAL, así que no vuelve a pedir onboarding al entrar a la tab.
-// 'voz', 'ensayo' y 'aprobar' siguen sin pantalla: su código sigue acá y no lo abre nadie.
+// 'voz' y 'ensayo' siguen sin pantalla: su código sigue acá y no lo abre nadie ('aprobar' salió, abajo).
 // =============================================================================
 // Aplica la metodología de .claude/skills/tab-onboarding (Conectar → Contexto →
 // Ensayo) con el MISMO chrome que el onboarding global (WizardShell fullscreen +
@@ -29,7 +29,12 @@
 // ② contexto — cómo vendés: se lee de tus chats reales, filtrando el soporte
 // ③ voz      — los 3 audios, grabados acá mismo con el guion en tu voz
 // ④ ensayo   — MaKo hace de CLIENTE y vos respondés: de ahí salen las secuencias de mensajes
-// ⑤ aprobar  — se revisa lo que quedó, se prueba y se activa
+//
+// ⚠️ SALIERON EL 10/10/2026 (restos de versiones anteriores) los pasos que ya no abría nadie y que
+// hablaban de lo que se fue: «aprobar» (armaba las secuencias de los audios y decía «te faltan
+// secuencias para las etapas…», el pie de la lista que también salió) y los tres de la línea OFICIAL
+// (`wa_oficial`, `wa_oficial_plantilla`, `wa_oficial_prueba`: la «sub-tab Plantillas», #832). Ninguna
+// lista de lib/tab-onboarding-catalogo.ts los nombraba. Quedan 'voz' y 'ensayo', sin pantalla (arriba).
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { WizardShell } from '@/app/_components/WizardShell';
@@ -70,9 +75,8 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type PasoKey =
-  | 'contexto' | 'voz' | 'ensayo' | 'aprobar'
+  | 'contexto' | 'voz' | 'ensayo'
   | 'wa_no_oficial' | 'wa_no_oficial_prueba'
-  | 'wa_oficial' | 'wa_oficial_plantilla' | 'wa_oficial_prueba'
   | 'email_conectar' | 'email_prueba';
 type Estado = { status: 'pendiente' | 'done'; steps: Record<string, { done: boolean }> };
 type Def = { key: string; titulo: string; pasos: Array<{ key: string; label: string; opcional?: boolean }> };
@@ -94,11 +98,6 @@ type Conversacion = {
 /** Un bloque de la voz que SÍ se pudo deducir, con las citas que lo respaldan. */
 type BloqueVoz = { key: string; titulo: string; estado: string; texto: string; citas: string[] };
 type PreguntaVoz = { key: string; pregunta: string; opciones: string[] };
-type PasoResumen = { orden: number; cuando: string; que: string; transcript: string | null; condicion: string | null; pie: string | null };
-type ResumenFinal = {
-  secuencias: Array<{ id: number; nombre: string; activa: boolean; pasos: PasoResumen[] }>;
-  huecos: Array<{ etapa: string; label: string }>;
-};
 type VozResultado = {
   deducido: BloqueVoz[];
   /** Los bloques sin evidencia. Se preguntan; no se inventan. */
@@ -113,15 +112,13 @@ type VozResultado = {
 // en una línea — qué se busca, no cómo funciona. Todo lo demás va en la caja de
 // contexto, ABAJO de la acción, para no interrumpir.
 const PREGUNTA: Record<PasoKey, { q: string; sub?: string }> = {
-  wa_no_oficial: { q: 'Tu WhatsApp: Método NO Oficial' },
+  // «Tu WhatsApp» a secas desde el 10/10/2026: el método oficial salió del producto (#832, y la
+  // integración se borró el 09/10), así que «Método NO Oficial» nombraba una alternativa que ya no existe.
+  wa_no_oficial: { q: 'Tu WhatsApp' },
   wa_no_oficial_prueba: { q: 'Verificación de seguridad' },
   contexto: { q: 'Tu forma de escribir', sub: 'Analizo tus conversaciones para aprender tu tono, tus preguntas y tu forma de cerrar.' },
   voz: { q: 'Tus audios' },
   ensayo: { q: 'Ensayo de conversación' },
-  aprobar: { q: 'Tus secuencias de mensajes' },
-  wa_oficial: { q: 'Tu WhatsApp: Método Oficial' },
-  wa_oficial_plantilla: { q: 'Tu primera plantilla' },
-  wa_oficial_prueba: { q: 'Verificación del canal oficial' },
   email_conectar: { q: 'Tu email' },
   email_prueba: { q: 'Verificación del email' },
 };
@@ -150,39 +147,39 @@ type AyudaDef = {
 };
 
 const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
+  // ⚠️ SIN EL MÉTODO OFICIAL (10/10/2026, restos de versiones anteriores): salió del producto (#832) y
+  // esta ayuda lo seguía comparando —«Ventajas frente al método oficial», «Para qué sirve entonces el
+  // oficial»—. Y prometía «solo entre las 9 y las 21»: el horario de envío ahora es OPCIONAL y lo pone
+  // el negocio (Configuraciones › Horario, o el reloj de la lista de Automations).
   wa_no_oficial: {
-    titulo: '¿Por qué el método no oficial?',
+    titulo: '¿Cómo se conecta tu WhatsApp?',
     intro: 'Es tu propio número de WhatsApp, vinculado mediante un código QR. MaKo escribe desde ahí igual que lo harías tú: sin plantillas que aprobar y sin costo por mensaje. A cambio, es un número común y WhatsApp puede restringirlo si detecta un patrón de spam; abajo está qué se hace para evitarlo.',
     secciones: [
       {
-        titulo: 'Ventajas frente al método oficial',
+        titulo: 'Lo que permite',
         puntos: [
           'Escribes con libertad: ningún mensaje necesita la aprobación previa de Meta.',
-          'Puedes enviar notas de voz, un formato que el método oficial no admite.',
+          'Puedes enviar notas de voz.',
           'El destinatario ve tu foto y tu nombre. Le escribe una persona, no una marca.',
           'Se conecta en dos minutos escaneando un código QR, sin verificación de empresa ni Business Manager.',
           'No se paga por conversación.',
         ],
       },
       {
-        titulo: 'Para qué sirve entonces el oficial',
-        texto: 'El método oficial usa un número verificado por Meta, pensado para volumen alto y campañas de tráfico frío. A cambio exige plantillas aprobadas para cada mensaje de apertura, no admite notas de voz y se cobra por conversación. Los dos conviven: el oficial para escalar, este para conversar.',
-      },
-      {
         titulo: 'El riesgo de bloqueo, y cómo se reduce',
-        texto: 'Conviene decirlo claro: este método usa un número común, y WhatsApp puede restringirlo o bloquearlo si detecta un patrón que le parece spam. No hay forma de eliminar ese riesgo — solo de reducirlo, y eso es lo que hace el sistema:',
+        texto: 'Conviene decirlo claro: este número es un número común, y WhatsApp puede restringirlo o bloquearlo si detecta un patrón que le parece spam. No hay forma de eliminar ese riesgo — solo de reducirlo, y eso es lo que hace el sistema:',
         puntos: [
           'Un tope de mensajes por día y un máximo por tanda, para evitar ráfagas.',
           'Una espera mínima entre dos mensajes al mismo contacto.',
-          'Ventana horaria: solo entre las 9 y las 21 de tu zona horaria.',
+          'Si pones un horario de envío, solo se manda dentro de ese horario.',
           'Cada mensaje se redacta distinto, en lugar de repetir el mismo texto.',
-          'Si el contacto responde, la secuencia se detiene automáticamente.',
+          'Si el contacto responde, la automatización se detiene sola.',
           'Si a un mensaje le queda un dato sin completar, no se envía y recibes un aviso.',
         ],
       },
       {
         titulo: 'Qué pasa si aun así lo bloquean',
-        texto: 'La mayoría de los bloqueos empiezan con una restricción temporal, no con la baja definitiva: durante unas horas el número no puede enviar y después se recupera. Se puede apelar desde la propia aplicación de WhatsApp. Lo que no se recupera es la antigüedad del número, así que conviene no forzar el volumen los primeros días y dejar que el historial de conversaciones crezca solo. El método oficial existe justamente para el caso en que necesites volumen alto sin exponer un número común.',
+        texto: 'La mayoría de los bloqueos empiezan con una restricción temporal, no con la baja definitiva: durante unas horas el número no puede enviar y después se recupera. Se puede apelar desde la propia aplicación de WhatsApp. Lo que no se recupera es la antigüedad del número, así que conviene no forzar el volumen los primeros días y dejar que el historial de conversaciones crezca solo.',
       },
     ],
     recomendacion: {
@@ -207,25 +204,6 @@ const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
     ],
   },
 
-  wa_oficial: {
-    titulo: '¿Por qué el método oficial?',
-    intro: 'Es un número verificado por Meta (WhatsApp Business). Está pensado para volumen alto y para campañas donde el número propio quedaría expuesto.',
-    secciones: [
-      {
-        titulo: 'Qué aporta',
-        puntos: [
-          'Un número verificado, con tilde de empresa y nombre comercial.',
-          'Límites de envío que suben a medida que se mantiene una buena calificación de calidad.',
-          'Aislamiento: si algo sale mal, no compromete tu número personal ni el de la empresa.',
-        ],
-      },
-      {
-        titulo: 'Qué exige a cambio',
-        texto: 'Cada mensaje de apertura debe ser una plantilla aprobada por Meta, y la revisión puede tardar horas o días. No admite notas de voz, el número no puede estar activo en la aplicación de WhatsApp y se cobra por conversación según el país. Puedes omitir este paso por ahora: con tu número de empresa es suficiente para empezar.',
-      },
-    ],
-  },
-
   email_conectar: {
     titulo: 'Por qué también email',
     intro: 'Es el canal para quien no responde por WhatsApp: permite insistir sin desgastar el número y llegar a bases antiguas donde escribir por WhatsApp sería arriesgado.',
@@ -242,9 +220,8 @@ const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
 // sus credenciales, el resto trae sus secuencias y su voz.
 const AMBITO_DEL_PASO: Record<PasoKey, string> = {
   wa_no_oficial: 'integraciones', wa_no_oficial_prueba: 'integraciones',
-  wa_oficial: 'integraciones', wa_oficial_plantilla: 'integraciones', wa_oficial_prueba: 'integraciones',
   email_conectar: 'integraciones', email_prueba: 'integraciones',
-  contexto: 'setting', voz: 'setting', ensayo: 'setting', aprobar: 'setting',
+  contexto: 'setting', voz: 'setting', ensayo: 'setting',
 };
 
 const btn: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
@@ -295,10 +272,8 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
   const [busy, setBusy] = useState(false);
 
   // ── Paso canales ──
-  const [canales, setCanales] = useState<{ oficialConectado: boolean; evolutionConectado: boolean; envioHabilitado: boolean } | null>(null);
-  // Separado de `canales` a propósito: sin esto, «no pudimos preguntar» y «no
-  // está conectado» son el mismo `null` y la pantalla afirma lo segundo.
-  const [canalesErr, setCanalesErr] = useState<string | null>(null);
+  // (Acá vivían `canales` y `canalesErr`, el estado del paso del WhatsApp OFICIAL, que salió el
+  // 10/10/2026: lo leía sólo ese paso.)
   // WhatsApp de empresa: el QR se genera y se escanea ACÁ, sin mandar a otra tab.
   const [evo, setEvo] = useState<{ estado: string; numero: string | null } | null>(null);
   // Estado propio: `busy` es el del wizard (marcar el paso y avanzar), y
@@ -358,9 +333,6 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
   const [canalVenta, setCanalVenta] = useState<CanalId | null>(null);
   const [publico, setPublico] = useState<PublicoGenero>('mixto');
 
-  // ── Paso final: qué secuencias quedaron armadas con los audios ──
-  const [resumen, setResumen] = useState<ResumenFinal | null>(null);
-
   // ── Paso ensayo ──
   const [msgs, setMsgs] = useState<HiloMsg[]>([]);
   const [typing, setTyping] = useState<{ lado: 'left' | 'right' } | null>(null);
@@ -403,37 +375,6 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
     } catch { setErr('Sin conexión — recarga la página.'); }
   }, []);
   useEffect(() => { void cargar(); }, [cargar]);
-
-  // Estado de los canales al entrar al paso del WhatsApp oficial — es el único
-  // que lo usa (para saber si ya está conectado).
-  //
-  // Antes comparaba contra 'canales', una clave que NO existe en PasoKey: quedó
-  // de una versión previa del wizard. El fetch no corría nunca, `canales` se
-  // quedaba en null y el paso wa_oficial mostraba SIEMPRE "no está conectado",
-  // aunque lo estuviera.
-  //
-  // ⚠️ Y el arreglo de arriba tampoco alcanzó, porque `/api/chat-agent/envio`
-  // NO EXISTE: el 404 devuelve HTML, `.json()` tira, el catch se lo comía sin
-  // decir nada y el síntoma volvía a ser exactamente el mismo. El estado del
-  // envío lo sirve `/api/whatsapp/envio`, con estas tres claves. Por eso el
-  // catch de acá ya no puede ser mudo: era lo único que separaba «no está
-  // conectado» de «no pudimos preguntarlo», y afirmar lo primero cuando pasó
-  // lo segundo es una mentira en pantalla. Ojo: ese GET exige rol admin del
-  // workspace, así que un miembro cae siempre en la rama de abajo.
-  useEffect(() => {
-    if (def?.pasos[idx]?.key !== 'wa_oficial' || canales || canalesErr) return;
-    void (async () => {
-      try {
-        const r = await fetch('/api/whatsapp/envio', { cache: 'no-store' });
-        const j = await r.json();
-        if (j.ok) setCanales({ oficialConectado: j.oficialConectado, evolutionConectado: j.evolutionConectado, envioHabilitado: j.envioHabilitado });
-        else setCanalesErr(j.error || `Error ${r.status}`);
-      } catch (e) {
-        console.error('[chatbot] no se pudo leer el estado del envío de WhatsApp:', e);
-        setCanalesErr('Sin conexión con el servidor.');
-      }
-    })();
-  }, [def, idx, canales, canalesErr]);
 
   // ⚠️ Mientras `def` no llegó, el paso es `soloPaso` y no el del QR. Con el default del
   // recorrido entero, abrir «Tu forma de escribir» desde el lienzo disparaba en la primera
@@ -645,18 +586,6 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
       });
     } catch { /* se reintenta al volver a salir del campo */ }
   }
-
-  // El paso final ARMA las secuencias con los audios grabados y devuelve lo que
-  // quedó. Antes era texto fijo prometiendo unas secuencias que nadie creaba.
-  useEffect(() => {
-    if (pasoKeyRef.current !== 'aprobar' || resumen !== null) return;
-    void (async () => {
-      try {
-        const j = await (await fetch('/api/chat-agent/onboarding/resumen', { cache: 'no-store' })).json();
-        setResumen(j.ok ? { secuencias: j.secuencias ?? [], huecos: j.huecos ?? [] } : { secuencias: [], huecos: [] });
-      } catch { setResumen({ secuencias: [], huecos: [] }); }
-    })();
-  });
 
   // ── Paso contexto: primero la lista de chats, después el análisis ──
   const cargarConvs = useCallback(async () => {
@@ -1260,49 +1189,6 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
         </div>
       )}
 
-      {/* ⑦ WHATSAPP OFICIAL — conectar */}
-      {pasoKey === 'wa_oficial' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {canales?.oficialConectado ? (
-            <div style={okBox}>✓ El oficial ya está conectado.</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {canalesErr && (
-                <div style={{ padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-                  No pudimos verificar si el WhatsApp oficial está conectado ({canalesErr}). Si ya lo conectaste, sigue de largo.
-                </div>
-              )}
-              <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-                Se conecta pegando un solo token de Meta en Configuraciones → Método; MaKo descubre el resto de los datos solo.
-              </div>
-              <Link href="/integraciones" target="_blank" rel="noreferrer" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Abrir integraciones ↗</Link>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ⑧ WHATSAPP OFICIAL — plantilla */}
-      {pasoKey === 'wa_oficial_plantilla' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Meta revisa cada mensaje de apertura antes de dejarte usarlo (tarda de minutos a unas horas). Como ya escribiste tus secuencias de mensajes, mando una de esas a aprobar en vez de inventar una nueva.
-          </div>
-          <div style={{ padding: '12px 14px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Se manda desde la sub-tab <strong style={{ color: 'var(--ink)' }}>Plantillas</strong> de esta misma tab, o desde el paso de MaKo de cada secuencia de mensajes. Mientras Meta no apruebe, el motor no manda ese paso — nunca sale un mensaje que Meta rechazaría.
-          </div>
-        </div>
-      )}
-
-      {/* ⑨ WHATSAPP OFICIAL — prueba */}
-      {pasoKey === 'wa_oficial_prueba' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Con la plantilla aprobada, prueba una secuencia de mensajes desde su perfil («Probar de verdad»): te llega exactamente igual que al lead.
-          </div>
-          <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>Si aún está en revisión puedes continuar: el resto de la sección funciona igual.</div>
-        </div>
-      )}
-
       {/* ⑩ EMAIL — conectar */}
       {pasoKey === 'email_conectar' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1735,51 +1621,6 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
         </div>
       )}
 
-      {/* ⑤ APROBAR — el resumen de lo que quedó armado, no una promesa */}
-      {pasoKey === 'aprobar' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {resumen === null ? (
-            <Cargando texto="Armando tus secuencias de mensajes…" />
-          ) : resumen.secuencias.length === 0 ? (
-            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center' }}>
-              Todavía no hay audios grabados, así que no armé ninguna secuencia. Vuelve al paso de los audios cuando quieras.
-            </div>
-          ) : (
-            <>
-              <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', textAlign: 'left' }}>
-                Esto quedó armado
-              </div>
-              {resumen.secuencias.map((s, i) => (
-                <SeccionCard
-                  key={s.id}
-                  s={{
-                    titulo: s.nombre,
-                    texto: s.pasos.map((p) => {
-                      const cond = p.condicion ? ` — ${p.condicion}` : '';
-                      const pie = p.pie ? `\n   Y le llega por escrito: «${p.pie}»` : '';
-                      const dice = p.transcript ? `\n   Dice: «${p.transcript.slice(0, 160)}${p.transcript.length > 160 ? '…' : ''}»` : '';
-                      return `${p.orden}. ${p.cuando}: ${p.que}${cond}${pie}${dice}`;
-                    }).join('\n\n'),
-                  }}
-                  abiertoDefault={i === 0}
-                  icono="💬"
-                  size="sm"
-                />
-              ))}
-
-              <div style={okBox}>
-                Quedaron <strong>pausadas</strong>. No sale nada a ningún lead hasta que las actives desde Automations.
-              </div>
-
-              {resumen.huecos.length > 0 && (
-                <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.55, textAlign: 'left' }}>
-                  Te faltan secuencias para {resumen.huecos.length === 1 ? 'la etapa' : 'las etapas'} {resumen.huecos.map((h) => h.label).join(', ')}. Las puedes armar desde Automations cuando quieras.
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
       {/* El contexto va SIEMPRE al final: explica sin interrumpir la acción. */}
 
       <Ayuda paso={pasoKey} />

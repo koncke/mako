@@ -254,7 +254,7 @@ export const RUNNERS: Runners = {
   huecos_secuencias: {
     leer: async () => {
       const huecos = await huecosDeSecuencias();
-      return json({ huecos, nota: huecos.length ? 'Cada etapa de la lista no tiene ninguna secuencia (ni pausada).' : 'Todas las etapas de nutrición del funnel tienen al menos una secuencia (activa o pausada).' });
+      return json({ huecos, nota: huecos.length ? 'Ninguna automatización (ni pausada) arranca en estas etapas.' : 'Todas las etapas de nutrición del funnel tienen al menos una automatización (activa o pausada).' });
     },
   },
 
@@ -1092,7 +1092,10 @@ export const RUNNERS: Runners = {
       });
       const vieja = cubiertas.some((k) => k.startsWith('agenda_')) && porClaveSec.get('chat-agent-post-agenda') && !porClaveSec.get('chat-agent-post-agenda')!.archivada_at
         ? '. Además se archiva y pausa la post-agenda vieja' : '';
-      return { payload: {}, resumen: `Armar o rearmar las secuencias del onboarding. ${detalle.join('; ')}${vieja}. Las reescritas pierden sus cambios de texto y variantes.` };
+      // ⚠️ «PIERDEN SUS CAMBIOS DE TEXTO» YA NO ES CIERTO PARA UNA DE TARJETAS (desde el 08/10/2026): sobre
+      // un flujo, rearmar sólo le cambia el audio a su tarjeta (`audiosDeLaListaEnElFlujo`,
+      // lib/secuencias-audios.ts). Lo de perder el texto y las variantes vale sólo para una lista de antes.
+      return { payload: {}, resumen: `Armar o rearmar las automatizaciones del onboarding. ${detalle.join('; ')}${vieja}. Una de tarjetas sólo cambia sus audios; una lista de antes se reescribe y pierde sus cambios de texto y variantes.` };
     },
     ejecutar: async () => {
       const link = await getSetting(KEY_LINK_VIDEO).catch(() => null);

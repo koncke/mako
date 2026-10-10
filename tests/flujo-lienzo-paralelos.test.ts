@@ -337,8 +337,9 @@ test('⚠️ lo no publicado: se pregunta al cambiar de automatización, y cerra
   assert.match(pub, /setPublicado\(JSON\.stringify\(pasos\)\);\n\s+setVisto\(JSON\.stringify\(pasos\)\);/);
   const tab = sinComentarios(leer('../app/automations/SimuladorWhatsApp.tsx'));
   assert.match(tab, /if \(sinPublicar\) \{ setPendiente\(\{ ir: id \}\); return; \}/, 'cambiar de automatización no pregunta');
-  // Con el pedido de «Armar una» (que también pasa por esta puerta: tests/chatbot-crear-nueva.test.ts).
-  assert.match(tab, /if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva', pedido \}\); return; \}/, '«Nueva secuencia» no pregunta');
+  // «＋ Nueva» también pasa por esta puerta (tests/chatbot-crear-nueva.test.ts). Sin pedido desde el
+  // 10/10/2026: lo mandaba «Armar una» del pie de la lista, que salió.
+  assert.match(tab, /if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva' \}\); return; \}/, '«Nueva secuencia» no pregunta');
   assert.match(tab, /<Confirm\n\s+message="Tienes cambios sin publicar"\n\s+confirmLabel="Descartar cambios" cancelLabel="Seguir editando"/);
   assert.match(tab, /onSinPublicar=\{setSinPublicar\}/);
 });

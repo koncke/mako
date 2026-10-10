@@ -3167,6 +3167,60 @@ en 720 (`DELAY_MAX_HORAS`). Una espera vieja de un año se dibuja «30 días», 
 - **`CRON_DEFAULT` sigue en `app/_components/EditorCron.tsx`** porque lo importa `EditorDisparadores`; su
   lugar es `lib/cron-aviso.ts`.
 
+## Restos de versiones anteriores, grupo «lista» (10/10/2026)
+
+Martín abrió /automations en su ws9: «Pero no están todas las plantillas de Mauricio y siguen habiendo
+cosas de versiones anteriores que están mal». Rama `wip-v7-lista`. Salió el pie «N etapas sin secuencia ·
+Armar una» (y su `huecos` y el pedido de «Armar una»), las filas marcan lo sin publicar, la tab dice
+«automatizaciones», el editor de UN mensaje dejó de dibujar el texto dos veces, y «Probar», los avisos que
+arma el código y el wizard del onboarding (sin la línea oficial ni «aprobar») hablan como la tab.
+
+### «MaKo en WhatsApp» no tiene identidad de tarjeta: lo que se guarda POR TARJETA se comparte [whatsapp]
+
+`EditorMensajeGrupo` monta el editor de WhatsApp con un paso fijo (`id: 'mako-grupo'`, orden 1), así que
+`claveDeTarjeta` da LA MISMA clave para todas las tarjetas MAKO de un lienzo y para todos los mensajes de
+Notificaciones. Mientras la barra de un mensaje era el mensaje (`modo="editar"`) no importaba; al pasarla a
+borrador (la misma interfaz que el de varias partes), el mapa del módulo `borradores` llevaba lo tipeado en
+un aviso a la barra del siguiente, y su ➤ lo mandaba ahí. **La regla:** antes de guardar algo por tarjeta
+en un mapa del módulo, mirá si TODOS los que montan el editor le dan una identidad; el de un mensaje no
+recuerda la barra (`recordarBarra`), y cada montaje es de un mensaje porque los tres que lo montan le ponen
+`key`. ⚠️ El panel de MaKo (`usePanelMako`) y el guion (`guionesDeMaKo`) usan la misma clave: hoy no muerde
+porque «MaKo en WhatsApp» va sin ✦; el día que lo lleve, `EditorMensajeGrupo` necesita una `clave` propia.
+
+**Vive en:** `app/automations/EditorMensajeWhatsApp.tsx` (`claveDeTarjeta`, `recordarBarra`, `EditorMensajeGrupo`)
+
+### «No están todas las plantillas de Mauricio»: lo medido, para preguntarlo bien [plantillas]
+
+Leído en producción (sólo lectura, 10/10/2026): el ws9 (la plataforma) no tiene ninguna automatización viva
+(11 archivadas) ni store de mensajes; el ws1 (Mauricio) tiene vivas #198, #212 y #213, pausadas #220, #221 y
+#226, y un store de 6 entradas: `ad-fatiga` (flujo), `reporte-semanal` (flujo y borrador),
+`meta-cuenta-frenada` (flujo), `plan-proyecto-vence` (borrador), `lead-formulario-meta` (apagado) y
+`lead-no-confirmo` (flujo). Cuatro de esas seis no están en `AVISOS_DEL_CLIENTE`, así que la lista de
+/automations no las muestra en NINGÚN negocio: «MaKo en WhatsApp» lee `/api/perfil/plantillas` (vista
+cliente, 7 mensajes) y el catálogo de la agencia (65) vive sólo en /mensajes. Las tres lecturas posibles, para
+preguntarle a Martín con opciones (no se tocó nada):
+1. el catálogo de la AGENCIA en la lista del ws9 (la pregunta abierta del relevo: «¿/mensajes también se muda?»):
+   pide el endpoint de admin en `MensajeMakoLienzo` y en `ChatAgentApp.cargarAvisos`;
+2. los flujos que armó en el store del ws1 cuando la base de la herencia era el ws1 (157a302a la pasó a la
+   plataforma): pasarlos al ws9 es escribir en la base;
+3. las automatizaciones de Mauricio (las de `docs/relevo/chatbot-secuencias.json`) como plantillas para
+   «＋ Nueva»: hoy no hay un catálogo de plantillas de automatización.
+
+**Vive en:** `lib/plantillas.ts` (`listarPlantillas`) · `lib/avisos-catalogo.ts` (`AVISOS_DEL_CLIENTE`) · `app/automations/ChatAgentApp.tsx` (`cargarAvisos`)
+
+### Lo que quedó sin hacer (grupo «lista»)
+
+- **El panel grande, el `insetDer` y lo no publicado para el recordatorio y los mensajes de MaKo**: la lista
+  ya tiene `muelles` y `setSinPublicar`; faltan las props del otro lado (`RecordatorioFlujo`,
+  `MensajeMakoLienzo` → `TemplateDetalleModal` → `FlujoAviso`). La marca de «sin publicar» de un mensaje de
+  MaKo sale de lo GUARDADO: aparece al volver a leer la lista (publicar, prender, recargar). En vivo hace
+  falta que `TemplateDetalleModal` avise (`onSinPublicar`, o `onCambio` después de guardar el borrador).
+- **`/api/chat-agent/onboarding/resumen` quedó sin llamadores** (lo llamaba el paso «aprobar»). Es un GET
+  que ARMA automatizaciones: borrarlo es retirar una ruta (`npx next typegen` en el clon).
+- **El ✦ en la tarjeta MAKO**: el redactor (`/api/chat-agent/redactar`) escribe para el LEAD; para el
+  equipo hace falta otro contexto y la `clave` de arriba.
+- **Verlo con clics**: nada de esto se vio en un navegador.
+
 ## Lo que quedó sin hacer
 
 **De la parte «tiempo» (sexta tanda, 09/10/2026):**

@@ -161,6 +161,18 @@ const EMOJI_RECORDATORIO = '⏰';
 export const filaDeSecuencia = (j: Pick<SecuenciaDto, 'activa' | 'emoji' | 'estrategia' | 'pasos'>): FilaFiltrable => ({
   activa: j.activa, emoji: emojiSecuencia(j), envios: enviosDePasos(j.pasos),
 });
+/**
+ * ¿LA FILA MARCA «SIN PUBLICAR»? (restos de versiones anteriores, grupo «lista», 10/10/2026). En
+ * Configuraciones › Notificaciones la fila de un mensaje de MaKo en WhatsApp con borrador llevaba un
+ * punto ámbar (PlantillasView), y el detalle (`TemplateDetalleModal`) sacó su «¿Publicar los cambios?»
+ * de salida CONTANDO con esa marca: al mudarse la lista acá, la marca no vino y lo sin publicar quedó
+ * sin rastro. Va también en las automatizaciones, que guardan su borrador (mig 0240): es la misma
+ * pregunta —¿todavía sale lo de antes?—. Para la automatización abierta cuenta además lo que el lienzo
+ * tiene sin publicar AHORA (`abierta`, el `onSinPublicar` del lienzo), que todavía puede no estar
+ * guardado. `null`/ausente = no hay borrador (o no se pudo leer: no se afirma nada).
+ */
+export const sinPublicarDe = (x: { borrador?: unknown }, abierta = false): boolean => abierta || x.borrador != null;
+
 /** El recordatorio de la reunión le escribe al LEAD por WhatsApp (lib/reunion-recordatorio.ts). */
 const filaDeRecordatorio = (activo: boolean | null): FilaFiltrable => ({
   activa: activo, emoji: EMOJI_RECORDATORIO, envios: [{ canal: 'whatsapp', destino: 'clientes' }],
@@ -222,7 +234,7 @@ export type AbrirSecuencia = { id: number };
 /** Lo mismo para un Mensaje de MaKo (el link de Notificaciones, `/automations?aviso=<id>`): un objeto por pedido. */
 export type AbrirAviso = { id: string };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, pie, horario, tz, abrir, handoffs, pedidoIA, avisos, abrirAviso, onAvisosCambio }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, horario, tz, abrir, handoffs, avisos, abrirAviso, onAvisosCambio }: {
   /**
    * Los Mensajes de MaKo (los flujos de Configuraciones › Notificaciones, quinta tanda punto 5), como
    * los lee su propio endpoint. `null`/ausente = no se leyeron (quien no es admin no los ve: el
@@ -248,25 +260,22 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   onAudioNuevo: (a: AudioSetting) => void;
   /**
    * «Nueva»: crea una automatización VACÍA y pausada y la abre con la caja de «Crear con IA»
-   * (decisión 14 de la segunda tanda). `pedido` precarga la caja («Armar una»). Se llama SIEMPRE
-   * por `nueva`, la puerta que pregunta por lo no publicado ANTES de crear.
+   * (decisión 14 de la segunda tanda). Se llama SIEMPRE por `nueva`, la puerta que pregunta por lo
+   * no publicado ANTES de crear.
    */
-  onNueva: (pedido?: string) => void;
+  onNueva: () => void;
   /** Por qué no se pudo crear la última («＋ Nueva»): se dibuja pegado al botón. */
   errorNueva?: string | null;
-  /** Un pedido ya escrito para la automatización recién creada («Armar una»). */
-  pedidoIA?: { secuenciaId: number; pedido: string } | null;
   onReload: () => void;
-  /** El pie de la LISTA (hoy: qué etapas quedaron sin secuencia). Viene de la tab
-   *  porque el dato es del workspace, no de esta pieza. Como función recibe `nueva`, la puerta
-   *  de crear: su «Armar una» pregunta por lo no publicado igual que «＋ Nueva». */
-  pie?: ReactNode | ((nueva: (pedido?: string) => void) => ReactNode);
+  // ⚠️ ACÁ VIVÍAN `pie` (el de «N etapas sin secuencia · Armar una») y `pedidoIA` (el pedido que «Armar
+  // una» le dejaba a la caja de Crear con IA). Salieron el 10/10/2026 con el pie: era de una versión
+  // anterior (ver el comentario del montaje en ChatAgentApp).
   /**
    * EL HORARIO DE ENVÍO DEL NEGOCIO, en la cabecera de la lista (pedido de Martín, 10/10/2026: «haz
    * que se pueda configurar allí mismo, sin redirigir»). Va en el renglón de «Chatbot», arriba de
    * «＋ Nueva»: es del negocio y vale para todas las automatizaciones, no para una. Lo arma la tab
-   * (`HorarioLista`, con el editor y las acciones de Configuraciones) y llega como nodo, como el
-   * `pie`: importado acá, las acciones arrastrarían `server-only` a los tests que dibujan esta lista.
+   * (`HorarioLista`, con el editor y las acciones de Configuraciones) y llega como nodo: importado
+   * acá, las acciones arrastrarían `server-only` a los tests que dibujan esta lista.
    */
   horario?: ReactNode;
   /** La zona del negocio, para el texto del horario. */
@@ -375,7 +384,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * botón; «Nueva secuencia» pasa por la misma puerta.
    */
   const [sinPublicar, setSinPublicar] = useState(false);
-  const [pendiente, setPendiente] = useState<{ ir: number | typeof ID_RECORDATORIO | 'nueva' | 'aviso'; pedido?: string; aviso?: string } | null>(null);
+  const [pendiente, setPendiente] = useState<{ ir: number | typeof ID_RECORDATORIO | 'nueva' | 'aviso'; aviso?: string } | null>(null);
   /** El descarte del borrador del lienzo abierto (lo deja SecuenciaPerfil): «Descartar cambios» lo BORRA, no lo guarda. */
   const descartarBorrador = useRef<(() => void) | null>(null);
   const elegir = (id: number | typeof ID_RECORDATORIO) => {
@@ -405,11 +414,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     if (sinPublicar) { setPendiente({ ir: 'aviso', aviso: id }); return; }
     abrirAvisoYa(id);
   };
-  // ⚠️ La pregunta va ANTES de crear, también para «Armar una» del pie (revisión de la segunda
-  // tanda, 09/10/2026): creaba la fila primero y «Seguir editando» dejaba una vacía de más.
-  const nueva = (pedido?: string) => {
-    if (sinPublicar) { setPendiente({ ir: 'nueva', pedido }); return; }
-    onNueva(pedido);
+  // ⚠️ La pregunta va ANTES de crear (revisión de la segunda tanda, 09/10/2026): el «Armar una» del pie
+  // de antes creaba la fila primero y «Seguir editando» dejaba una vacía de más.
+  const nueva = () => {
+    if (sinPublicar) { setPendiente({ ir: 'nueva' }); return; }
+    onNueva();
   };
   const descartar = () => {
     const p = pendiente;
@@ -419,7 +428,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     // 10/10/2026, hallazgo #6). La lista se relee sola al desmontarse, después del borrado.
     descartarBorrador.current?.();
     setSinPublicar(false);
-    if (p.ir === 'nueva') onNueva(p.pedido);
+    if (p.ir === 'nueva') onNueva();
     else if (p.ir === 'aviso') { if (p.aviso) abrirAvisoYa(p.aviso); }
     else cambiarA(p.ir);
   };
@@ -506,7 +515,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
 
   /**
    * EL LINK DEL AVISO ABRE EL LIENZO (revisión adversarial del 08/10/2026, costuras-5). El aviso
-   * de una charla que pasó a una persona dice «súmalo como caso en «Si responde»» con
+   * de una charla que pasó a una persona dice «súmalo como «Su respuesta trata de…»» con
    * `/automations?sec=<id>`, y ese link abría el wizard de 9 pasos, donde «Si responde» no existe.
    * Se aplica AL DIBUJAR y no en un efecto: un efecto pintaría primero la primera de la lista y
    * después la del link. Es también la puerta por la que se abre la fila que se está creando.
@@ -609,7 +618,6 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             onProbar={(canal: CanalProbar) => setProbando(canal)}
             probarAbierto={probarVisible} onCerrarProbar={() => setProbando(null)}
             onCambioLocal={recibirEdicion}
-            pedidoIA={pedidoIA?.secuenciaId === sel.id ? pedidoIA.pedido : undefined}
             onCambio={onReload} />
         )}
       </div>
@@ -622,7 +630,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           clickeando los íconos del menú de la izquierda creyendo que eran secuencias.
           Y lleva su `overflowY` con la barra teñida de la casa: el scroll es del
           CONTENIDO —sus secuencias—, no de la navegación de la app, así que se ve. */}
-      <aside aria-label="Tus secuencias" style={{
+      <aside aria-label="Tus automatizaciones" style={{
         position: 'absolute', left: LISTA_HUECO, top: LISTA_HUECO, bottom: LISTA_HUECO, width: LISTA_ANCHO, zIndex: 3,
         display: 'flex', flexDirection: 'column', minHeight: 0,
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18,
@@ -666,6 +674,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             return (
               <div key={creando ? j.clave : j.id}>
                 <ItemLista on={!aviso && j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={j.nombre} creando={creando}
+                  sinPublicar={sinPublicarDe(j, !aviso && j.id === selId && sinPublicar)}
                   onClick={() => elegirDeLaLista(j.id)}
                   menu={rolAdmin && !creando ? (
                     /* ⚠️ VA EL `Dropdown` DE LA CASA y no un menú propio: la lista scrollea
@@ -687,7 +696,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               emisor de siempre; la lista sólo lo abre en su lienzo. Sin «⋯»: no se duplica ni
               se archiva (no es una fila de secuencias), y se prende en su propio lienzo. */}
           {verRecordatorio && (
-            <ItemLista on={!aviso && selId === ID_RECORDATORIO} activa={recordatorioActivo === true} emoji={EMOJI_RECORDATORIO} nombre={NOMBRE_RECORDATORIO} onClick={() => elegirDeLaLista(ID_RECORDATORIO)} />
+            <ItemLista on={!aviso && selId === ID_RECORDATORIO} activa={recordatorioActivo === true} emoji={EMOJI_RECORDATORIO} nombre={NOMBRE_RECORDATORIO} onClick={() => elegirDeLaLista(ID_RECORDATORIO)}
+              // Sin borrador guardado (sus textos viven en su emisor): sólo lo que el lienzo avise abierto.
+              sinPublicar={!aviso && selId === ID_RECORDATORIO && sinPublicar} />
           )}
           {/* LOS MENSAJES DE MAKO (quinta tanda, punto 5): los flujos de Configuraciones ›
               Notificaciones, cada uno una fila con su emoji, su nombre y su punto de prendido. Bajo
@@ -699,13 +710,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           )}
           {avisosVisibles.map((a) => (
             <ItemLista key={`aviso:${a.id}`} on={aviso?.id === a.id} activa={mensajeActivo(a)} emoji={emojiDeMensaje(a)} nombre={a.titulo}
+              sinPublicar={sinPublicarDe(a)}
               onClick={() => elegirAviso(a.id)} />
           ))}
         </div>
-        {/* El pie de la lista: lo que antes era una franja arriba del lienzo y le comía
-            alto a la pizarra. Acá cuelga de lo que nombra —las secuencias— y no ocupa
-            un renglón de la tab. */}
-        {pie && <div style={{ flex: 'none', borderTop: '1px solid var(--border)', padding: '9px 14px' }}>{typeof pie === 'function' ? pie(nueva) : pie}</div>}
+        {/* (Acá iba el pie de la lista, «N etapas sin secuencia · Armar una». Salió el 10/10/2026: era
+            de una versión anterior. Ver el comentario del montaje en ChatAgentApp.) */}
       </aside>
 
       {/* «PROBAR», EN SU MUELLE (decisión 11): ancho y bajo, arriba a la derecha y debajo del
@@ -760,12 +770,14 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
  *
  * La fila es un <div> con DOS botones (abrir y el menú): un botón adentro de otro no es HTML.
  */
-function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando }: {
+function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar }: {
   on: boolean; activa: boolean; emoji: string; nombre: string; onClick: () => void;
   /** El «⋯» de la fila. Sin él (el recordatorio, la que se está creando, quien no es admin), nada. */
   menu?: ReactNode;
   /** La fila que el server está creando: en vez del emoji, el giro. */
   creando?: boolean;
+  /** Tiene cambios sin publicar (`sinPublicarDe`): un punto ámbar al final del nombre. */
+  sinPublicar?: boolean;
 }) {
   return (
     <div className={`chb-fila${on ? ' is-on' : ''}`}
@@ -779,6 +791,11 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando }: {
           <span title={activa ? 'Activa' : 'Pausada'} style={{ position: 'absolute', right: -1, bottom: -1, width: 10, height: 10, borderRadius: '50%', background: activa ? 'var(--good)' : 'var(--border-strong)', boxShadow: `0 0 0 2px ${on ? 'var(--surface-2)' : 'var(--surface)'}` }} />
         </span>
         <span style={{ minWidth: 0, flex: 1, fontWeight: 600, fontSize: 13.5, lineHeight: 1.3, color: 'var(--ink)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>{nombre}</span>
+        {/* El punto ámbar de PlantillasView: un ESTADO, que sobrevive a cambiar de fila y al reload. */}
+        {sinPublicar && (
+          <span data-sin-publicar role="img" aria-label="Sin publicar" title="Tiene cambios sin publicar: todavía sale lo de antes"
+            style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
+        )}
       </button>
       {menu && <span className="chb-menu" style={{ flex: 'none', marginRight: 4, display: 'inline-flex' }}>{menu}</span>}
     </div>

@@ -68,8 +68,10 @@ test('la lista muestra SÓLO el nombre, entero en dos renglones, y busca por nom
   assert.match(item, /WebkitLineClamp: 2/);
   assert.match(item, /\}\}>\{nombre\}<\/span>/);
   // Tercera tanda (decisión 6): el emoji (con su giro mientras se crea y el punto de estado
-  // encima), el nombre y la columna del «⋯». El único TEXTO sigue siendo el nombre.
-  assert.equal((item.match(/<span /g) ?? []).length, 5, 'el emoji, el giro, el punto, el nombre y el «⋯»: nada más');
+  // encima), el nombre y la columna del «⋯». El único TEXTO sigue siendo el nombre. Desde el 10/10/2026
+  // (restos de versiones anteriores) también el punto ámbar de «sin publicar», que no tiene texto
+  // (tests/automations-lista-sin-publicar.test.ts).
+  assert.equal((item.match(/<span /g) ?? []).length, 6, 'el emoji, el giro, el punto, el nombre, «sin publicar» y el «⋯»: nada más');
   assert.deepEqual([...item.matchAll(/>\{([a-zA-Z.]+)\}</g)].map((m) => m[1]).sort(), ['menu', 'nombre'], 'un texto más que el nombre en la fila');
   assert.doesNotMatch(lista, /slice\(0, 42\)|estrategia\?\.gancho|pasosQueLlegan/);
   // El buscador busca por lo que se ve.

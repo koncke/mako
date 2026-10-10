@@ -441,7 +441,7 @@ test('«Descartar cambios» de la lista borra el borrador ANTES de irse (el ench
   const desc = tramo(sim, 'const descartar = () => {', 'const recibirEdicion');
   const i = desc.indexOf('descartarBorrador.current?.();');
   assert.ok(i > 0, '«Descartar cambios» no borra el borrador');
-  for (const despues of ['cambiarA(p.ir)', 'onNueva(p.pedido)', 'abrirAvisoYa(p.aviso)']) {
+  for (const despues of ['cambiarA(p.ir)', 'onNueva()', 'abrirAvisoYa(p.aviso)']) {
     assert.ok(desc.indexOf(despues) > i, `el borrado va DESPUÉS de ${despues}: el desmonte ya habría guardado`);
   }
   assert.match(sim, /<SecuenciaPerfil key=\{sel\.id\}[\s\S]{0,1500}descartarBorrador=\{descartarBorrador\}/);

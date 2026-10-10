@@ -60,12 +60,13 @@ test('12: el rebote de /whatsapp?stab=plantillas a /automations sale por el rout
   assert.match(app, /router\.replace\(`\/automations\?stab=plantillas/);
 });
 
-test('13: los links del wizard compartido van por `Link` (los cuatro), y el del Video Generator por `conWs`', () => {
+// (Eran cuatro: el cuarto, «Abrir integraciones ↗», era del paso del WhatsApp OFICIAL, que salió del
+// wizard el 10/10/2026 con la línea oficial. El barrido de arriba sigue mirando el archivo entero.)
+test('13: los links del wizard compartido van por `Link` (los tres), y el del Video Generator por `conWs`', () => {
   const wiz = sinLineas(leer('app/automations/OnboardingChatAgent.tsx'));
   assert.match(wiz, /import Link from '@\/app\/_ui\/Link';/);
   assert.match(wiz, /<Link href=\{`\/whatsapp\?canal=no-oficial&chat=\$\{encodeURIComponent\(c\.jids\[0\] \?\? ''\)\}`\} target="_blank" rel="noreferrer"/, '«Tu forma de escribir»: el chat abría en la cuenta propia');
   assert.match(wiz, /<Link href="\/email" target="_blank" rel="noreferrer"/, '«Configurar mi dominio» abría /email en la cuenta propia');
-  assert.match(wiz, /<Link href="\/integraciones" target="_blank"/);
   assert.match(wiz, /<Link href="\/crm\?embudo=entradas"/);
   const vg = sinLineas(leer('app/video-generator/OnboardingVideoGen.tsx'));
   assert.match(vg, /window\.location\.href = conWs\('\/extension\/instalar', ws\);/);

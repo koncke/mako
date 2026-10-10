@@ -21,6 +21,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { getFunnelDefault } from './funnels';
 import { ETAPAS_SIN_SECUENCIA } from './pipeline';
+import { etapasCubiertas, type FilaCobertura } from './secuencias-cobertura';
 
 // ⚠️ SE MUDÓ A `lib/pipeline.ts` (30/09/2026). El mismo catálogo lo necesita la pantalla
 // que lista las nutriciones del embudo, y este módulo tiene `server-only`: con la copia
@@ -55,11 +56,13 @@ export type HuecoSecuencia = {
 
 /**
  * Las etapas de nutrición del funnel de ESTE workspace que no tienen ninguna
- * secuencia que las cubra. Es lo que alimenta el aviso de la pantalla.
+ * automatización que las cubra. La lee la API de MaKo (`huecos_secuencias`); la
+ * pantalla ya no (el pie «N etapas sin secuencia» de /automations salió el 10/10/2026).
  *
- * Cuenta como cubierta si hay una secuencia con esa `etapa`, o con un trigger
- * legacy que la cubra. Una secuencia PAUSADA cuenta igual: existe y está
- * escrita, solo hace falta prenderla — decir que falta armarla sería mentir.
+ * Cuenta como cubierta si alguno de los CRON de una automatización arranca en esa
+ * etapa, o con un trigger legacy que la cubra (`etapasCubiertas`). Una PAUSADA
+ * cuenta igual: existe y está escrita, solo hace falta prenderla — decir que
+ * falta armarla sería mentir.
  */
 export async function huecosDeSecuencias(): Promise<HuecoSecuencia[]> {
   const supabase = await getTenantDb();
@@ -71,15 +74,13 @@ export async function huecosDeSecuencias(): Promise<HuecoSecuencia[]> {
   const etapasNutri = funnel.stages.filter((s) => s.band === 'nutricion' && !SIN_SECUENCIA.has(s.key));
   if (!etapasNutri.length) return [];
 
-  const { data } = await supabase.from('nutricion_secuencias').select('etapa, trigger_tipo, archivada_at');
-  const rows = (data ?? []) as Array<{ etapa: string | null; trigger_tipo: string; archivada_at: string | null }>;
-
-  const cubiertas = new Set<string>();
-  for (const r of rows) {
-    if (r.archivada_at) continue; // archivada = el dueño la sacó de en medio; su etapa vuelve a ser un hueco
-    if (r.etapa) cubiertas.add(r.etapa);
-    for (const k of LEGACY_TRIGGER_CUBRE[r.trigger_tipo] ?? []) cubiertas.add(k);
-  }
+  // ⚠️ TODOS LOS CRON, NO SÓLO EL PRIMERO (10/10/2026): `etapas` (0230) y `disparadores` (0241) viajan,
+  // y la cuenta la hace `etapasCubiertas` (lib/secuencias-cobertura.ts, con test).
+  // ⚠️ Y UNA LECTURA QUE FALLA TIRA: con `data` en null, todas las etapas salían como huecos —«no pude
+  // leer» dicho como «no tienes ninguna»—.
+  const { data, error } = await supabase.from('nutricion_secuencias').select('etapa, etapas, trigger_tipo, disparadores, archivada_at');
+  if (error) throw new Error(`huecosDeSecuencias: ${error.message}`);
+  const cubiertas = etapasCubiertas((data ?? []) as FilaCobertura[], LEGACY_TRIGGER_CUBRE);
 
   return etapasNutri
     .filter((s) => !cubiertas.has(s.key))
