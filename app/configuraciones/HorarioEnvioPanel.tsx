@@ -12,7 +12,7 @@
 // lib/horario-envio.ts; esto sólo las dibuja. El texto que se dibuja es corto a propósito
 // (AGENTS.md, «La pantalla dice QUÉ pasó»).
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '@/app/components/Dropdown';
 import { getHorarioEnvioAction, saveHorarioEnvioAction } from './horario-actions';
 import { DIAS_PANTALLA, horaTexto, type HorarioEnvio, type DiaSemana } from '@/lib/horario-envio';
@@ -24,28 +24,47 @@ const primaryBtn: CSSProperties = { padding: '9px 16px', borderRadius: 10, borde
 const DESDE = Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: horaTexto(h) }));
 const HASTA = Array.from({ length: 24 }, (_, i) => ({ value: String(i + 1), label: horaTexto(i + 1) }));
 
-export function HorarioEnvioPanel() {
+/**
+ * Las dos props son OPCIONALES y Configuraciones › Horario no pasa ninguna: ahí el panel es la pantalla
+ * y se queda idéntico. Las usa quien lo monta ADENTRO de otra cosa (el panel anclado de Automations,
+ * app/automations/HorarioLista.tsx):
+ *   · `onGuardado` — justo después de guardar bien, con el horario guardado: el botón de afuera se pone
+ *     al día sin esperar a que se cierre el panel (antes miraba que apareciera «Guardado» en el DOM);
+ *   · `onSucio` — si hay cambios sin guardar: un panel anclado que se cierra con un clic afuera tiraba lo
+ *     que se estaba editando, y con esto se queda abierto.
+ */
+export function HorarioEnvioPanel({ onGuardado, onSucio }: {
+  onGuardado?: (h: HorarioEnvio) => void;
+  onSucio?: (sucio: boolean) => void;
+}) {
   const [h, setH] = useState<HorarioEnvio | null>(null);
   const [zona, setZona] = useState('');
   const [puedeEditar, setPuedeEditar] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState('');
   // Lo guardado, para saber si hay cambios. Un «Guardar» que se puede apretar sobre lo mismo que ya
-  // está guardado no dice nada de si hay algo por hacer.
-  const guardado = useRef('');
+  // está guardado no dice nada de si hay algo por hacer. Es ESTADO y no un ref (10/10/2026): «sucio» se
+  // calcula al dibujar y alimenta el efecto de `onSucio`, y un ref leído al dibujar no hace redibujar
+  // (react-hooks/refs). Se escribe en el mismo tick que `h`, así que React los junta en un render.
+  const [guardado, setGuardado] = useState('');
 
   useEffect(() => {
     let vivo = true;
     getHorarioEnvioAction()
-      .then((d) => { if (!vivo) return; setH(d.horario); setZona(d.zona); setPuedeEditar(d.puedeEditar); guardado.current = JSON.stringify(d.horario); })
+      .then((d) => { if (!vivo) return; setH(d.horario); setZona(d.zona); setPuedeEditar(d.puedeEditar); setGuardado(JSON.stringify(d.horario)); })
       .catch(() => { if (vivo) setAviso('No pude leer el horario.'); });
     return () => { vivo = false; };
   }, []);
 
+  // ⚠️ ANTES DEL `return` de abajo, con el horario todavía sin leer: un hook detrás de un return temprano
+  // se llama en unos renders y en otros no (AGENTS.md, el «Minified React error #300»). Sin leer no hay
+  // nada que perder, así que no está sucio.
+  const sucio = h != null && JSON.stringify(h) !== guardado;
+  useEffect(() => { onSucio?.(sucio); }, [sucio, onSucio]);
+
   if (!h) return <p style={{ fontSize: 13.5, color: aviso ? 'var(--bad)' : 'var(--dim)', fontFamily: SANS }}>{aviso || 'Cargando…'}</p>;
 
   const cambiar = (patch: Partial<HorarioEnvio>) => { setH({ ...h, ...patch }); setAviso(''); };
-  const sucio = JSON.stringify(h) !== guardado.current;
   const invalido = h.activo && (h.hasta <= h.desde || !h.dias.length);
   const alternarDia = (d: DiaSemana) => cambiar({ dias: h.dias.includes(d) ? h.dias.filter((x) => x !== d) : [...h.dias, d].sort((a, b) => a - b) });
 
@@ -56,8 +75,11 @@ export function HorarioEnvioPanel() {
     const r = await saveHorarioEnvioAction(h).catch(() => ({ ok: false, error: 'No se pudo guardar.' } as const));
     setGuardando(false);
     if (!r.ok) { setAviso(r.error || 'No se pudo guardar.'); return; }
-    if ('horario' in r && r.horario) { setH(r.horario); guardado.current = JSON.stringify(r.horario); } else guardado.current = JSON.stringify(h);
+    const quedo = ('horario' in r && r.horario) ? r.horario : h;
+    setH(quedo);
+    setGuardado(JSON.stringify(quedo));
     setAviso('Guardado');
+    onGuardado?.(quedo);
   }
 
   const off = !puedeEditar;

@@ -10,25 +10,30 @@
 // UNA FUENTE: el mismo setting (`mako.horario_envio`), las mismas acciones
 // (app/configuraciones/horario-actions.ts) y el MISMO editor (HorarioEnvioPanel, importado tal cual).
 // Configuraciones › Horario se queda. El estado del botón sale de la misma lectura que el panel
-// (`getHorarioEnvioAction`) y se vuelve a pedir al guardar y al cerrar.
+// (`getHorarioEnvioAction`) y se vuelve a pedir al guardar (`onGuardado` del panel) y al cerrar.
 //
 // ⚠️ VIVE APARTE DE LA LISTA (SimuladorWhatsApp) Y SE LE PASA COMO `horario`, como el `pie`: las
 // acciones arrastran `server-only`, y los tests que dibujan la lista la importan bajo tsx, donde ese
-// paquete tira al importarse. La tab (ChatAgentApp) es la que lo monta.
+// paquete tira al importarse. La tab (ChatAgentApp) es la que lo monta: en el renglón de «Chatbot» de
+// la lista y, sin ninguna automatización, al lado del «＋ Nueva» del cartel vacío.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { HorarioEnvioPanel } from '@/app/configuraciones/HorarioEnvioPanel';
 import { getHorarioEnvioAction } from '@/app/configuraciones/horario-actions';
-import { AVISO_GUARDADO, BotonHorario, PanelAnclado, type EstadoHorario } from './HorarioBoton';
+import { BotonHorario, PanelAnclado, type EstadoHorario } from './HorarioBoton';
 
 export function HorarioLista({ rolAdmin }: { rolAdmin: boolean }) {
   const [estado, setEstado] = useState<EstadoHorario>({ t: 'cargando' });
   /** El botón que abrió el panel; `null` = cerrado. Es el NODO (el ancla), no un ref leído al dibujar. */
   const [ancla, setAncla] = useState<HTMLElement | null>(null);
-  /** Lo que el panel tiene adentro, para ver cuándo confirma que guardó (ver `AVISO_GUARDADO`). */
-  const [cuerpo, setCuerpo] = useState<HTMLDivElement | null>(null);
   /** La última lectura pedida: una respuesta vieja que llega tarde no pisa a la nueva. */
   const pedido = useRef(0);
+  /**
+   * ¿El editor tiene cambios sin guardar? Lo avisa el propio panel (`onSucio`). En un REF y no en un
+   * estado: lo lee el panel anclado en el momento del clic afuera o del Escape (`retener`), y no hace
+   * falta redibujar nada cuando cambia.
+   */
+  const sucio = useRef(false);
 
   const leer = useCallback(() => {
     const n = ++pedido.current;
@@ -44,37 +49,19 @@ export function HorarioLista({ rolAdmin }: { rolAdmin: boolean }) {
   }, [leer]);
 
   /** Cerrar vuelve a leer: lo guardado adentro es lo que el botón tiene que decir. */
-  const cerrar = useCallback(() => { setAncla(null); leer(); }, [leer]);
-  const alternar = (boton: HTMLElement) => { if (ancla) cerrar(); else setAncla(boton); };
-
-  /**
-   * ⚠️ PUENTE HASTA QUE EL PANEL TENGA `onGuardado`: cuando aparece «Guardado» adentro, se vuelve a
-   * leer, y el botón cambia al guardar sin esperar a que se cierre el panel. Un `MutationObserver` y
-   * no un efecto sobre `abierto`: el cuerpo vive en un portal, y se observa desde que EXISTE (callback
-   * ref + estado), no desde que se pidió abrir. Lo que no ve esto (otra palabra en el panel) lo cubre
-   * la lectura al cerrar.
-   */
-  useEffect(() => {
-    if (!cuerpo) return;
-    let visto = (cuerpo.textContent ?? '').includes(AVISO_GUARDADO);
-    const mo = new MutationObserver(() => {
-      const ahora = (cuerpo.textContent ?? '').includes(AVISO_GUARDADO);
-      if (ahora && !visto) leer();
-      visto = ahora;
-    });
-    mo.observe(cuerpo, { subtree: true, childList: true, characterData: true });
-    return () => mo.disconnect();
-  }, [cuerpo, leer]);
+  const cerrar = useCallback(() => { sucio.current = false; setAncla(null); leer(); }, [leer]);
+  const alternar = (boton: HTMLElement) => { if (ancla) cerrar(); else { sucio.current = false; setAncla(boton); } };
+  /** Identidades FIJAS: el panel las tiene en las dependencias de un efecto. */
+  const retener = useCallback(() => sucio.current, []);
+  const alSucio = useCallback((s: boolean) => { sucio.current = s; }, []);
 
   return (
     <>
       <BotonHorario estado={estado} editable={rolAdmin} abierto={ancla != null} onAlternar={alternar} />
       {/* Sólo un admin: el panel de Configuraciones es sólo admin, y guardar lo exige en el server. */}
       {rolAdmin && ancla && (
-        <PanelAnclado ancla={ancla} etiqueta="Horario de envío" onCerrar={cerrar}>
-          <div ref={setCuerpo}>
-            <HorarioEnvioPanel />
-          </div>
+        <PanelAnclado ancla={ancla} etiqueta="Horario de envío" onCerrar={cerrar} retener={retener}>
+          <HorarioEnvioPanel onGuardado={leer} onSucio={alSucio} />
         </PanelAnclado>
       )}
     </>

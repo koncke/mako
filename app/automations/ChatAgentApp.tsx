@@ -655,6 +655,9 @@ function ChatAgentInner() {
           {rolAdmin && (
             <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <button onClick={() => void crearNueva()} style={btnDark}>＋ Nueva</button>
+              {/* EL HORARIO TAMBIÉN ACÁ: sin ninguna automatización la lista no se dibuja, y un negocio
+                  nuevo no tenía dónde ponerlo «allí mismo». El panel, sin la lista, cuelga del botón. */}
+              <HorarioLista rolAdmin={rolAdmin} />
               {errCrear && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{errCrear}</span>}
             </div>
           )}
