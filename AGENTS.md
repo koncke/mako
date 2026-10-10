@@ -3659,29 +3659,54 @@ a dos escalones del fondo, nunca un gris claro bajado de `opacity`.
 El detalle, con las mediciones, en
 [docs/hallazgos-second-brain.md](docs/hallazgos-second-brain.md).
 
-# Una página pública de más de ~12 KB llega VACÍA a quien no ejecuta JavaScript
+# Ningún <Suspense> grande en una página pública: React lo esconde a quien no ejecuta JavaScript
 
-El layout raíz envuelve toda la app en un `<Suspense fallback={null}>` (por el
-`useSearchParams` del `WsProvider`), y React escribe aparte —en un `<div hidden id="S:0">`,
-hasta que un script lo inserta— **todo bloque de Suspense de más de 12.800 bytes, aunque ya
-esté listo**. O sea que cualquier página pública grande se lee VACÍA sin JavaScript: el
-verificador de Meta, las vistas previas de WhatsApp, cualquier crawler que no lo corra.
+React escribe aparte —en un `<div hidden id="S:0">`, hasta que un script lo inserta— **todo
+bloque de Suspense de más de 500 bytes una vez que lo ya escrito pasa los ~12.800**, aunque el
+bloque ya esté listo. La cuenta es ACUMULATIVA (lo de afuera de todo Suspense también suma), así
+que en una página grande cualquier Suspense con contenido se lee VACÍO sin JavaScript: el
+verificador de Meta, el revisor de Google, las vistas previas de WhatsApp, cualquier crawler.
 
-Medido el 08/10/2026: Meta rechazó la verificación del negocio dos veces por «la razón social
-debe aparecer en el sitio web», la segunda con el nombre ya en el HTML. Con Chromium sin
-JavaScript, `/` tenía 0 caracteres visibles. Detalle en
-[docs/hallazgos-landing.md](docs/hallazgos-landing.md) → «La portada viajaba VACÍA…».
+Medido dos veces. El 08/10/2026 Meta rechazó la verificación del negocio por «la razón social debe
+aparecer en el sitio web» con el nombre ya en el HTML: `/` tenía 0 caracteres visibles sin
+JavaScript. Y el 10/10, con la verificación de Google enviada, `/privacidad` —la política que
+revisan los dos— mostraba **19 caracteres**. La causa era la misma: un `<Suspense fallback={null}>`
+en `app/layout.tsx` que envolvía la app ENTERA «por el useSearchParams del WsProvider».
 
-- **Lo que una página pública TIENE que mostrar sin JavaScript va fuera del bloque grande**: lo
-  grande en su propio `<Suspense>`, con un fallback CHICO que se vea (molde:
-  `app/vsl/PortadaSinJs.tsx` en `app/page.tsx`).
+**Ese Suspense se SACÓ el 10/10/2026, y no tiene que volver.** `useSearchParams` sólo exige el
+boundary en una ruta que se prerenderiza ESTÁTICA, y acá ninguna lo es: el `await getSesionAdmin()`
+del layout lee las cookies en cada request. Medido: build verde, 70 páginas, todas dinámicas
+(incluida `/_not-found`); `/privacidad` pasó de 19 a 16.029 caracteres visibles.
+
+- **Esa línea del layout es la que sostiene todo.** 61 páginas no declaran `force-dynamic` y son
+  dinámicas sólo por ella. Si la lectura de la sesión se mueve detrás de un return, a un hijo o a un
+  componente cliente, el build de Vercel se cae con «useSearchParams() should be wrapped in a
+  suspense boundary» y producción se queda en la versión anterior.
+- **Un `loading.tsx` ES un Suspense** alrededor de la página de su segmento: uno en `app/` o en
+  un segmento público vuelve a esconder esas páginas. Sólo va en segmentos privados, y la lista
+  blanca vive en el test (hoy, sólo `app/crm/loading.tsx`).
+- **Partir la página en bloques chicos NO sirve** (medido: de 30 bloques de 3 KB, 26 salen
+  ocultos): el umbral se mide sobre lo ya escrito.
+- **Lo que no tiene que verse sin JavaScript sí puede ir en su Suspense**: la barra lateral (18
+  KB) queda oculta en las páginas legales, y está bien.
 - **Se verifica leyendo como sin JavaScript**, nunca con `grep`: un texto oculto aparece en el
   HTML igual que uno visible. Sacar los `<div hidden id="S:…">` cerrando por profundidad, o
   Chromium con `javaScriptEnabled: false`.
 - **El test renderiza en streaming y adentro de `<html><body>`.** `renderToStaticMarkup` no
-  reproduce nada, y React sólo saca bloques aparte cuando renderiza un documento.
-- ⚠️ `/privacidad` sigue así: el arreglo de fondo (sacar `{children}` del Suspense del layout)
-  toca toda la app y pide un `npm run build` en el clon.
+  reproduce nada, y React sólo saca bloques aparte cuando renderiza un documento. Lo fija
+  `tests/layout-sin-suspense.test.ts`: el layout leído con el parser de TypeScript, la lectura de
+  la sesión antes del return, la lista de `loading.tsx`, y las páginas legales en streaming.
+- ⚠️ **La portada (`/`) sigue con su Suspense propio, a propósito**: sin JavaScript se lee
+  `app/vsl/PortadaSinJs.tsx`, que es la vista con la que Meta aprobó el negocio. Sacarlo es una
+  línea y serviría la landing entera; se decide cuando no haya una verificación de Meta abierta.
+- **Y el efecto de rebote, que es bueno:** sin el Suspense, un `notFound()` o un `redirect()` de
+  una página devuelve un 404 o un 307 de verdad (antes, 200 con un meta). El costo es que en las
+  pantallas pesadas (/integraciones, /general, /customer-success) el primer byte espera a los
+  datos: si eso molesta, se paralelizan sus consultas o se les pone un `loading.tsx` — que es
+  privado, nunca público.
+
+El detalle, con las mediciones y lo que se revisó, en
+[docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «NINGUNA página de MaKo llega con HTML».
 
 # Una ruta con auth propia va en `lib/rutas-publicas.ts`, o no existe en producción
 
