@@ -43,7 +43,7 @@ import { Confirm } from '@/app/_ui/Confirm';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
-import { RecordatorioFlujo, NOMBRE_RECORDATORIO } from './RecordatorioFlujo';
+import { RecordatorioFlujo, NOMBRE_RECORDATORIO, EMOJI_RECORDATORIO } from './RecordatorioFlujo';
 import { FiltroLista, LADO_FILTRO } from './FiltroLista';
 import { MensajeMakoLienzo } from './MensajeMakoLienzo';
 import type { ProductoOpcion } from './ChatAgentApp';
@@ -146,8 +146,7 @@ export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'dupl
 export const emojiSecuencia = (j: Pick<SecuenciaDto, 'emoji' | 'estrategia'>): string =>
   j.emoji || (j.estrategia ? (EMOJI_OBJETIVO[j.estrategia.objetivo as Objetivo] ?? '🎯') : '⚑');
 
-/** El emoji del recordatorio de la reunión en la lista (es una fila más, y también se filtra). */
-const EMOJI_RECORDATORIO = '⏰';
+// (El emoji del recordatorio en la lista es `EMOJI_RECORDATORIO`, de RecordatorioFlujo: uno, no dos.)
 
 // ⚠️ ACÁ VIVÍAN `opcionesDeFiltro` Y `QUITAR_FILTRO` (cuarta tanda, punto 13): un Dropdown de un
 // valor —estado o un emoji— con «Quitar filtro» como el PRIMER renglón. La quinta tanda (punto 4) lo
