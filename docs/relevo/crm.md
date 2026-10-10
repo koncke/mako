@@ -1,8 +1,8 @@
 # Relevo — CRM
 
-## 📌 PEDIDO NUEVO de Martín (10/10/2026), sin empezar — dejado por el chat de Ads Manager
+## ✅ PEDIDO de Martín (10/10/2026) — HECHO por el chat de Ads Manager (`686c51be`)
 
-No había un chat de CRM abierto en la cuenta 2, así que el pedido queda acá. Textual:
+No había un chat de CRM abierto en la cuenta 2; Martín dijo «Entonces soluciona eso tu mismo» y se hizo desde Ads Manager. **Tocó archivos de este chat**: `lib/leads.ts` (`LISTA_COLS`), `app/crm/origen-lead.ts` (`canalDeLead`, nueva), `app/crm/crm-map.ts`, `app/crm/CrmBoard.tsx` y el guard del fbclid en `tests/atribucion-landing.test.ts`. El detalle está en `docs/hallazgos-crm.md` → «El filtro de anuncios existía y no tenía datos». Lo que pidió, textual:
 
 > «Acá al filtrar, en campaña, y en Origen, aparece lo mismo. Y falta el filtro de ANUNCIO,
 > para filtrar por un ad específico. Mandale esta tarea al CRM»
@@ -11,7 +11,7 @@ La captura que mandó (el menú «Filtrar» del tablero, con Etapa / Origen / Ca
 tarjetas «VSL FUNNEL inmobiliarios CI» — o sea, muy probablemente Código Inmobiliario, ws13):
 `C:\Users\marti\.claude\uploads\b1c92d31-61a4-43c0-b089-2f07f6ef8d51\241e1994-image.jpg`
 
-**Lo que se leyó del código el 10/10 a las ~16:50, para no arrancar de cero (sin medir datos):**
+**Lo que se leyó antes de arreglarlo (queda como historia; las hipótesis se confirmaron con los datos):**
 
 - **El filtro por anuncio YA EXISTE**: es la categoría «Creativo» (`app/crm/CrmBoard.tsx`,
   `listasFiltro` ~línea 1615; pedido de Martín del 06/10, commit `117ea2bd`). **Sólo se ofrece si algún

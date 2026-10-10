@@ -7722,3 +7722,50 @@ veces; el ejecutor de flujos ya reclama antes). El camino del REPETIDO (Duplicar
 lead con email al que duplicar sin tocar datos reales.
 
 **Vive en:** `app/crm/revisar/[id]/propuesta-lead.ts` (puro) · `app/crm/revisar/[id]/page.tsx` · `app/crm/revisar/[id]/RevisarLead.tsx` · `app/crm/revisar/[id]/acciones.ts` · `app/crm/actions.ts` (`ImportLeadsResult.ids`) · `app/api/track/optin/route.ts` (`datos.funnels`) · `tests/crm-revisar-propuesta.test.ts` · *2026-10-09*
+
+## El filtro de anuncios existía y no tenía datos: el select del tablero no pedía la columna (10/10)
+
+**Síntoma.** Martín: *«en campaña, y en Origen, aparece lo mismo. Y falta el filtro de
+ANUNCIO»*. En la captura (Código Inmobiliario, ws13) el menú «Filtrar» tenía Etapa,
+Origen, Campaña y Ordenar.
+
+**El diagnóstico obvio era el equivocado: «falta construir el filtro».** Existía desde el
+06/10 (`117ea2bd`, la categoría «Creativo»), con su atribución pura y un test que pasaba —
+el de la landing, que lee el anuncio de `utm_content`—. Lo que faltaba era el DATO: el
+tablero arma sus filas con `LISTA_COLS` (`lib/leads.ts`), una lista de columnas escrita a
+mano, y esa lista traía `utm_campaign` pero **no `utm_content`**. La función entendía el id
+del anuncio y nunca le llegaba; la categoría se escondía sola porque «una sin opciones no se
+ofrece». Medido en ws13: 44 de 52 leads con el anuncio en `utm_content`, 13 anuncios
+distintos, los 13 con nombre en `marketing_metrics_daily` — y el tablero no veía ninguno.
+
+Y la misma lista dejaba afuera otras tres que los mappers leen: `meta_campaign_id` y
+`adset_id_origen` (la campaña) y **`origen_lead`**, por la que la tarjeta decía «Sin origen»
+sobre 50 leads que sí lo tienen («landing», «calcom»).
+
+**El otro síntoma tenía otra causa.** El filtro «Origen» listaba `origenLegible`, que
+contesta lo más específico que se sepa —el anuncio, si no la campaña, y recién al final el
+canal—. Eso está bien para la TARJETA y mal para un filtro que desde el 06/10 tiene a
+«Campaña» y «Anuncio» al lado: los 44 leads de anuncios caían en el origen con el nombre de
+su campaña. Ahora el filtro lista `canalDeLead` (`app/crm/origen-lead.ts`); la tarjeta no
+cambió.
+
+**La regla que queda: una lista de columnas escrita a mano se queda vieja en cuanto un
+mapper empieza a leer un campo nuevo, y no falla — el campo llega `undefined`.** El test de
+la función no lo ve, porque le pasa el campo a mano. Lo que lo ve es un guard del CABLEADO:
+`tests/crm-filtro-ads.test.ts` deriva las columnas que hacen falta del tipo
+`LeadAtribuible` y del cuerpo real de `origenLegible` y `canalDeLead`, y exige que estén en
+`LISTA_COLS`. Rompiéndolo con el bug original (sin `utm_content`): pass 9 / fail 1.
+
+⚠️ **Y agregar una LECTURA hizo saltar un guard que cuenta ESCRITURAS.** El de la landing
+(`tests/atribucion-landing.test.ts`) cuenta las menciones de `utm_content` contra las de
+`fbclid` en `lib/leads.ts`, para que todo lugar que escribe un utm escriba también el fbclid.
+Ya descontaba dos formas de lectura (líneas con backtick y `x.campo`); una columna en la
+lista de un select era la tercera. Se descuenta por la forma del literal —sólo minúsculas,
+guion bajo, espacios y una coma—, y no metiendo `fbclid` en el select para emparejar la
+cuenta, que habría sido engañar al guard. Sigue cazando lo suyo: sin el fbclid del insert o
+del `setIfEmpty`, 9/1.
+
+**Vive en:** `lib/leads.ts` (`LISTA_COLS`) · `app/crm/origen-lead.ts` (`canalDeLead`) ·
+`app/crm/crm-map.ts` · `app/crm/CrmBoard.tsx` (el filtro y el rótulo «Anuncio») ·
+`tests/crm-filtro-ads.test.ts` · `tests/atribucion-landing.test.ts` · *686c51be — 2026-10-10,
+hecho por el chat de Ads Manager a pedido de Martín*

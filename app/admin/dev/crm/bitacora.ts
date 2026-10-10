@@ -1599,5 +1599,32 @@ export const BITACORA: Hito[] = [
       "lib/google-calendar.ts — los tres lectores la usan",
       "tests/calendario-reunion.test.ts — 3 roturas"
     ]
-  }
+  },
+  {
+    fecha: '10 oct', hora: '16:55', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Origen repite Campaña, y falta filtrar por anuncio',
+    pedido: 'Acá al filtrar, en campaña, y en Origen, aparece lo mismo. Y falta el filtro de ANUNCIO, para filtrar por un ad específico. Mandale esta tarea al CRM',
+    puntos: [
+      'Lo pidió mandar al CRM y no había un chat de CRM abierto en la cuenta 2; quedó en su relevo, y enseguida: «Entonces soluciona eso tu mismo».',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '17:50', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El filtro de anuncios existía y no tenía datos: el select no pedía la columna',
+    puntos: [
+      'El diagnóstico obvio —falta construirlo— era el equivocado: existía desde el 06/10 y su test pasaba. El tablero no pedía `utm_content`, donde la landing guarda el anuncio: en Código Inmobiliario 44 de 52 leads lo tienen, con 13 anuncios con nombre, y el filtro se escondía por no tener opciones.',
+      'Origen repetía las campañas porque listaba lo que dibuja la tarjeta (anuncio › campaña › canal). Ahora lista el canal —landing, Cal.com, formulario de Meta—; la tarjeta no cambió. Y «Creativo» pasa a «Anuncio».',
+      'De paso: la tarjeta decía «Sin origen» sobre 50 leads que sí lo tienen, porque `origen_lead` tampoco se pedía.',
+      'El guard que faltaba mira el cableado: que el select traiga todo lo que leen los mappers. Con el bug original de vuelta, pass 9 / fail 1.',
+    ],
+    commits: [{ sha: '686c51be', msg: 'CRM: el filtro «Anuncio» aparece, y «Origen» lista el canal y no la campaña', lineas: 147, archivos: 6 }],
+    archivos: [
+      'lib/leads.ts — LISTA_COLS, las cuatro columnas que faltaban',
+      'app/crm/origen-lead.ts — canalDeLead',
+      'app/crm/CrmBoard.tsx — el filtro de origen sobre el canal y el rótulo «Anuncio»',
+      'tests/crm-filtro-ads.test.ts — el guard del cableado',
+    ],
+  },
 ];
