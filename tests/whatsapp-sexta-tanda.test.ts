@@ -541,6 +541,23 @@ test('el contexto sale del REGISTRO de la API de MaKo (lecturas que existen), y 
   assert.match(ruta, /errorDeCascada\(errores, 'escribir el mensaje'\)/, 'los errores de la red eligieran el texto del cliente');
 });
 
+// Revisión de la sexta tanda (10/10/2026, hallazgo 9): con `sinVoz: true` el panel ofrece «Que la aprenda
+// MaKo» y «Escribirla yo», y los dos terminan en `setVozGuia` sin comparar con lo que había. La ruta leía
+// con `getVozGuia` (vía `getSetting`, que vuelve null un error de Supabase) + `.catch(() => null)`: un
+// negocio con su guía escrita a mano, ante una lectura caída, veía que no tenía voz y un clic se la pisaba.
+// PROBADO ROMPIÉNDOLO (10/10/2026, restaurando de memoria; base 32/0): `sinVoz: !hayVoz` (null = «no hay»)
+// → 31/1; la lectura estricta sin su `.catch` (una lectura caída tira el ✦ entero) → 31/1;
+// `hayVozGuiaEstricto` leyendo con `getSetting` → 31/1.
+test('el ✦ ofrece configurar la voz sólo si SE MIDIÓ que no hay: «no pude leer» no es «no tienes voz»', () => {
+  const ruta = sinComentarios(leer('app/api/chat-agent/redactar/route.ts'));
+  assert.match(ruta, /hayVozGuiaEstricto\(\)\.catch\(\(\) => null\)/, 'una lectura caída tumbaría la propuesta entera');
+  assert.match(ruta, /sinVoz: hayVoz === false,/, 'con la lectura caída el panel ofrece pisar la guía');
+  assert.doesNotMatch(ruta, /getVozGuia\(/, 'la lectura tolerante convierte «no pude leer» en «no hay voz»');
+  // Y la estricta TIRA de verdad: lee con `getSettingEstricto`, no con `getSetting`.
+  const est = bloque(sinComentarios(leer('lib/nutricion-generator.ts')), 'export async function hayVozGuiaEstricto(', '\n}\n', 400);
+  assert.match(est, /await getSettingEstricto\(KEY_VOZ\)/);
+});
+
 // ── MaKo en WhatsApp 1 y 2 ───────────────────────────────────────────────────────────────────
 
 test('«MaKo en WhatsApp»: el MISMO editor, UN texto, con «{ }», sin mic ni clip, firmado por MaKo', () => {
