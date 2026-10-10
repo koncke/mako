@@ -1,0 +1,473 @@
+// =============================================================================
+// La galería de plantillas de Automations (lib/plantillas-automatizaciones.ts, lib/plantilla-crear.ts,
+// app/automations/GaleriaPlantillas.tsx y la acción `crear_desde_plantilla` de la ruta)
+// =============================================================================
+// Pedido de Martín (10/10/2026): «Si, hagamos la galería de las más comunes... Pero entonces revisa las
+// automatizaciones que hay en mi workspace, que estan viejas y no estan bien», y después «no estan
+// todas las plantillas de Mauricio y siguen habiendo cosas de versiones anteriores que estan mal».
+//
+// Lo que se fija, por capas (cada una con su test, para que un rojo diga cuál):
+//   1. el catálogo: cada plantilla se PUEDE PUBLICAR (`validarGrafo` y el freno de Publicar del lienzo,
+//      con lo obligatorio de cada acción según el registro de la API), es del modelo de la sexta tanda
+//      (sin «Ir a» ni campos de la lista de antes), no trae datos de un cliente real, y lo que prepara
+//      una reunión vuelve a mirar, después de cada espera, que siga por delante (la guarda del motor
+//      decide por el trigger de antes, y una plantilla arranca por una etapa);
+//   2. lo que la pantalla pide (la etapa): las opciones salen del desplegable del CRON y lo elegido se
+//      guarda sólo si es del kanban que la plantilla pide;
+//   3. crear: apagada, los pasos por su puerta, el CRON por la suya, y lo que falla no deja nada a medias
+//      (se EJECUTA con una base de mentira);
+//   4. la ruta: la acción existe detrás de la guarda de admin y enchufa las puertas de verdad;
+//   5. la pantalla: la galería dibuja las dos formas de empezar y todas las plantillas.
+//
+// PROBADO ROMPIÉNDOLO: ver «ROTURAS» al pie (27, todas en rojo).
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  PLANTILLAS, plantillaPorId, pasosDePlantilla, nombreLibre, seccionesParaCron, rotuloDeEleccion, disparadorDeEleccion,
+  TOPE_LINEA, TRIGGER_DE_PIDE, SIN_ETAPA, type PasoDePlantilla,
+} from '../lib/plantillas-automatizaciones';
+import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '../lib/plantilla-crear';
+import { validarGrafo, validarParaGuardar, normalizar, claseDe, raizSalida, padresDe, descendientes, type FilaCondicion } from '../lib/flujo-grafo';
+import { frenoDelFlujo, emojiDeSecuencia, type ProductoParaDisparo } from '../lib/flujo-conversacion';
+import { problemaDeDisparadores } from '../lib/disparadores';
+import { condicionPorId, problemaDeFila } from '../lib/condiciones-catalogo';
+import { datoDe, valePara } from '../lib/variables-aviso';
+import { marcasDeVoseo } from '../lib/puestas-data';
+import { OP_AVISAR } from '../lib/flujo-legado';
+import { LEAD_DEL_EVENTO, faltanEnPaso } from '../lib/api-mako/flujo-params';
+import { porId } from '../lib/api-mako/registro';
+import { esAccion } from '../lib/api-mako/tipos';
+import { TOPE_NOMBRE_SECUENCIA } from '../lib/setting-estrategia';
+import { GaleriaPlantillas, preguntaEtapa, EMPEZAR, TITULO_GALERIA, ROTULO_PLANTILLAS } from '../app/automations/GaleriaPlantillas';
+
+const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+/** Lo obligatorio que le falta a una acción, según el registro de la API (lo mismo que mira `setSecuenciaPasos`). */
+const faltanEnAccion = (op: string, params: Record<string, unknown>): string[] => {
+  const d = porId(op);
+  return d ? faltanEnPaso(d.parametros, params, { leadId: 1 }) : [`«${op}» no está en el registro`];
+};
+
+/** Todos los textos de una plantilla (los de las tarjetas, los casos, los avisos, el nombre y la línea). */
+function textos(x: unknown, out: string[] = []): string[] {
+  if (typeof x === 'string') out.push(x);
+  else if (Array.isArray(x)) for (const y of x) textos(y, out);
+  else if (x && typeof x === 'object') for (const [k, v] of Object.entries(x)) { if (k !== 'origen' && k !== 'id') textos(v, out); }
+  return out;
+}
+
+/**
+ * Gente, negocios y datos REALES de los clientes de los que salieron las plantillas (medidos en
+ * producción el 10/10/2026). Caza LOS CONOCIDOS, que es lo automatizable: el link del video de
+ * confirmación, la agenda de un cliente, sus nombres y su firma.
+ */
+const REALES = [
+  'Mauricio', 'Bustos', 'Leila', 'Martín', 'Joan', 'Juan Francisco',
+  'Código Inmobiliario', 'Negocio que Escala', 'MasteryHaus', 'Vértice', 'AvatarHype', 'Francisco Ramos', 'Dental Ramos',
+  'lovable', 'cal.com', 'Bendiciones', 'auditoría', 'inmobiliari', 'captaciones', 'metodología',
+];
+const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+// ── 1. El catálogo ───────────────────────────────────────────────────────────────
+
+test('la galería tiene entre 5 y 8 plantillas, con id, nombre, línea y emoji que se pueden guardar', () => {
+  assert.ok(PLANTILLAS.length >= 5 && PLANTILLAS.length <= 8, `son ${PLANTILLAS.length}`);
+  assert.equal(new Set(PLANTILLAS.map((p) => p.id)).size, PLANTILLAS.length, 'ids repetidos');
+  assert.equal(new Set(PLANTILLAS.map((p) => p.nombre)).size, PLANTILLAS.length, 'nombres repetidos');
+  for (const p of PLANTILLAS) {
+    assert.ok(p.nombre.trim() && p.nombre.length <= TOPE_NOMBRE_SECUENCIA, `${p.id}: el nombre mide ${p.nombre.length}`);
+    assert.ok(p.linea.trim() && p.linea.length <= TOPE_LINEA, `${p.id}: la línea mide ${p.linea.length}`);
+    assert.equal(emojiDeSecuencia(p.emoji), p.emoji, `${p.id}: «${p.emoji}» no se guarda como emoji`);
+    assert.ok(p.cron.pide in TRIGGER_DE_PIDE, `${p.id}: pide «${p.cron.pide}»`);
+    assert.ok(p.cron.ayuda.trim(), `${p.id}: sin ayuda para elegir la etapa`);
+    assert.equal(plantillaPorId(p.id), p);
+  }
+  assert.equal(plantillaPorId('no-existe'), null);
+  assert.equal(plantillaPorId(7), null);
+});
+
+test('cada plantilla se PUEDE PUBLICAR: pasa lo que frena guardar, Publicar y el lienzo', () => {
+  for (const p of PLANTILLAS) {
+    const pasos = normalizar(pasosDePlantilla(p));
+    assert.deepEqual(validarParaGuardar(pasos), [], `${p.id}: no se guarda`);
+    assert.deepEqual(validarGrafo(pasos), [], `${p.id}: no se publica`);
+    assert.equal(frenoDelFlujo(pasos, faltanEnAccion), null, `${p.id}: el lienzo frena Publicar`);
+    assert.ok(raizSalida(pasos), `${p.id}: el CRON no lleva a ninguna tarjeta`);
+  }
+});
+
+test('cada acción existe en el registro, es una acción y lleva lo obligatorio (lo que mira setSecuenciaPasos)', () => {
+  for (const p of PLANTILLAS) {
+    for (const x of p.pasos) {
+      if (claseDe(x) !== 'accion') continue;
+      const a = x.accion!;
+      const d = porId(a.operacion);
+      assert.ok(d && esAccion(d), `${p.id}/${x.id}: «${a.operacion}» no es una acción de MaKo`);
+      assert.deepEqual(faltanEnAccion(a.operacion, a.params), [], `${p.id}/${x.id}: le falta un dato`);
+    }
+  }
+});
+
+test('es del modelo de la sexta tanda: sin «Ir a», sin campos de la lista de antes y con «Sale sola» explícito', () => {
+  const CLASES = new Set(['mensaje', 'accion', 'esperar', 'condicion', 'respuesta']);
+  for (const p of PLANTILLAS) {
+    for (const x of p.pasos as readonly PasoDePlantilla[]) {
+      const c = claseDe(x);
+      const donde = `${p.id}/${x.id}`;
+      assert.ok(CLASES.has(c), `${donde}: una tarjeta «${c}»`);
+      assert.ok(typeof x.id === 'string' && /^[a-z]{2}_[a-z0-9_]+$/.test(x.id), `${donde}: sin id estable`);
+      assert.ok(!x.delay_horas, `${donde}: espera en delay_horas (va una tarjeta de espera)`);
+      for (const k of ['requiere', 'ancla', 'audio_id', 'media_id', 'variantes', 'partes', 'destino'] as const) {
+        assert.equal((x as Record<string, unknown>)[k], undefined, `${donde}: trae «${k}»`);
+      }
+      assert.equal(x.template_wa ?? null, null, `${donde}: plantilla del oficial`);
+      if (c === 'mensaje') {
+        assert.ok(x.tipo === undefined || x.tipo === 'ia', `${donde}: tipo «${x.tipo}»`);
+        assert.ok(x.canal === 'whatsapp' || x.canal === 'email', `${donde}: canal «${x.canal}»`);
+        if (x.tipo === 'ia') assert.equal(x.canal, 'whatsapp', `${donde}: «MaKo lo adapta» sólo sale por WhatsApp`);
+        assert.equal(typeof x.revisar, 'boolean', `${donde}: «Sale sola» queda al default de la automatización`);
+      }
+      if (c === 'accion') {
+        assert.equal(x.accion!.operacion, OP_AVISAR, `${donde}: una acción que no es el aviso al equipo`);
+        assert.equal(x.accion!.params.leadId, LEAD_DEL_EVENTO, `${donde}: el aviso no es sobre el lead del evento`);
+      }
+      if (c === 'esperar') assert.ok(Number(x.espera?.minutos) > 0, `${donde}: espera sin cuánto`);
+    }
+  }
+});
+
+/**
+ * ¿Lo que sale en `id` vuelve a mirar, después de la última espera, que la reunión siga por delante? Sube
+ * por TODOS los padres (una tarjeta puede tener varios): cada camino desde una espera «por tiempo» tiene
+ * que cruzar una condición con «Próxima reunión en». Una espera «antes de la reunión» ya la mira el motor.
+ */
+function miraLaReunion(pasos: readonly PasoDePlantilla[], id: string, vistos = new Set<string>()): boolean {
+  if (vistos.has(id)) return true;
+  vistos.add(id);
+  const padres = padresDe(pasos, id);
+  if (!padres.length) return false;
+  return padres.every((pa) => {
+    const p = pasos.find((x) => x.id === pa.id)!;
+    if (claseDe(p) === 'condicion' && (p.ramas ?? []).some((r) => r.id === pa.puerto && r.filas.some((f) => f.campo === 'reunion_en'))) return true;
+    if (claseDe(p) === 'esperar') return p.espera?.modo === 'antes_reunion' ? true : false;
+    return miraLaReunion(pasos, pa.id, vistos);
+  });
+}
+
+test('lo que arranca en una etapa de reunión vuelve a mirar, después de cada espera, que la reunión siga por delante', () => {
+  // `preparaUnaReunion` (el «la reunión ya pasó» del motor) decide por el trigger de antes, y una
+  // plantilla arranca por una ETAPA: la guarda va en el flujo.
+  // Las que PREPARAN una reunión (las post-agenda de #212, #213 y #221). Escritas a mano y no
+  // deducidas: deducirlas de la condición que se quiere fijar daría verde sobre la que la perdió.
+  const PREPARAN = ['agendo-con-bienvenida', 'agendo-sin-hablar', 'agendo-confirmar'];
+  const conReunion = PREPARAN.map((id) => plantillaPorId(id)!);
+  assert.ok(conReunion.every(Boolean));
+  for (const p of conReunion) {
+    const resp = p.pasos.find((x) => claseDe(x) === 'respuesta')!;
+    const deRespuesta = descendientes(p.pasos, resp.id!);
+    for (const x of p.pasos) {
+      const c = claseDe(x);
+      if ((c !== 'mensaje' && c !== 'accion') || deRespuesta.has(x.id!)) continue;
+      assert.ok(miraLaReunion(p.pasos, x.id!), `${p.id}/${x.id}: sale después de una espera sin mirar si la reunión sigue por delante`);
+    }
+  }
+});
+
+test('ninguna condición necesita un dato del negocio (una etiqueta, una etapa, un curso) ni es de las retiradas', () => {
+  for (const p of PLANTILLAS) {
+    for (const x of p.pasos) {
+      if (claseDe(x) !== 'condicion') continue;
+      for (const r of x.ramas ?? []) {
+        for (const f of r.filas as FilaCondicion[]) {
+          const def = condicionPorId(f.campo);
+          const donde = `${p.id}/${x.id}: «${String(f.campo)}»`;
+          assert.ok(def, `${donde} no está en el catálogo`);
+          assert.ok(!def!.retirada, `${donde} está retirada`);
+          assert.equal(problemaDeFila(f), null, `${donde} está incompleta`);
+          assert.notEqual(def!.valor.t, 'lista', `${donde} se elige de una lista del negocio`);
+          assert.ok(f.campo !== 'etiqueta' && f.campo !== 'etapa', `${donde} nombra algo del negocio`);
+          assert.ok(!(def as { valor: { ref?: unknown } }).valor.ref, `${donde} necesita elegir un curso`);
+        }
+      }
+    }
+  }
+});
+
+test('no trae datos de un cliente real: ni nombres, ni links, ni números, ni su firma', () => {
+  for (const p of PLANTILLAS) {
+    for (const t of textos(p)) {
+      assert.doesNotMatch(t, /https?:\/\/|www\./i, `${p.id}: un link «${t.slice(0, 60)}»`);
+      assert.doesNotMatch(t, /\d{5,}/, `${p.id}: un número largo «${t.slice(0, 60)}»`);
+      for (const real of REALES) assert.ok(!sinAcentos(t).includes(sinAcentos(real)), `${p.id}: «${real}» en «${t.slice(0, 60)}»`);
+    }
+  }
+});
+
+test('los datos del «{ }» son de los que se le mandan a un LEAD y el motor resuelve', () => {
+  for (const p of PLANTILLAS) {
+    for (const t of textos(p.pasos)) {
+      for (const m of t.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi)) {
+        const v = datoDe(m[1]);
+        assert.ok(v, `${p.id}: «{{${m[1]}}}» no está en el catálogo del «{ }»`);
+        assert.ok(valePara(v!, 'lead') && !v!.oculta, `${p.id}: «{{${m[1]}}}» no se ofrece para un lead`);
+      }
+      assert.doesNotMatch(t, /\{(?!\{)[a-z_]+\}(?!\})/i, `${p.id}: una variable con una llave «${t.slice(0, 60)}»`);
+    }
+  }
+});
+
+test('el texto que le llega al lead (y al equipo) va con tuteo neutro, sin voseo', () => {
+  for (const p of PLANTILLAS) {
+    for (const t of textos(p)) assert.deepEqual(marcasDeVoseo(t), [], `${p.id}: voseo en «${t.slice(0, 80)}»`);
+  }
+});
+
+test('pasosDePlantilla da una COPIA con el orden de lectura: crear no toca el catálogo', () => {
+  const p = PLANTILLAS[0];
+  const a = pasosDePlantilla(p);
+  assert.deepEqual(a.map((x) => x.orden), a.map((_, i) => i + 1));
+  a[0].cuerpo = 'cambiado';
+  (a[0].ramas ?? [])[0]?.filas.push({ campo: 'pago' });
+  assert.notEqual(p.pasos[0].cuerpo, 'cambiado');
+  assert.equal(pasosDePlantilla(p)[0].ramas?.[0]?.filas.length, p.pasos[0].ramas?.[0]?.filas.length);
+});
+
+test('nombreLibre: el de la plantilla, y con un número si ya hay una con ese nombre', () => {
+  assert.equal(nombreLibre('No asistió: reagendar', []), 'No asistió: reagendar');
+  assert.equal(nombreLibre('No asistió: reagendar', ['no asistió:  reagendar']), 'No asistió: reagendar 2');
+  assert.equal(nombreLibre('No asistió: reagendar', ['No asistió: reagendar', 'No asistió: reagendar 2']), 'No asistió: reagendar 3');
+  const largo = 'Bienvenida — dejó sus datos y no agendó';
+  const r = nombreLibre(largo, [largo]);
+  assert.ok(r.length <= TOPE_NOMBRE_SECUENCIA && r.endsWith(' 2'), r);
+});
+
+// ── 2. La etapa que pide la pantalla ─────────────────────────────────────────────
+
+const UN_PRODUCTO: ProductoParaDisparo[] = [{
+  funnelId: 5, productoId: 9, nombre: 'Mentoría',
+  etapas: [{ value: 'nuevo', label: 'Nuevo' }, { value: 'agendado', label: 'Agendado' }],
+  etapasEntrega: [{ value: 'clase1', label: 'Clase 1' }],
+}];
+const DOS_PRODUCTOS: ProductoParaDisparo[] = [
+  ...UN_PRODUCTO,
+  { funnelId: null, productoId: 11, nombre: 'Taller', etapas: [], etapasEntrega: [{ value: 'modulo1', label: 'Módulo 1' }] },
+];
+
+test('las etapas que se ofrecen son las del CRON, sólo del kanban que la plantilla pide y sin etiquetas', () => {
+  assert.deepEqual(seccionesParaCron('etapa_venta', UN_PRODUCTO).map((s) => s.options.map((o) => o.value)), [['venta:5:nuevo', 'venta:5:agendado']]);
+  assert.deepEqual(seccionesParaCron('etapa_entrega', UN_PRODUCTO).map((s) => s.options.map((o) => o.value)), [['entrega:9:clase1']]);
+  // Con varios productos, un paso por producto; el que no tiene ese kanban no está.
+  assert.deepEqual(seccionesParaCron('etapa_venta', DOS_PRODUCTOS).map((s) => s.title), ['Mentoría']);
+  assert.deepEqual(seccionesParaCron('etapa_entrega', DOS_PRODUCTOS).map((s) => [s.title, s.options.map((o) => o.value)]), [['Mentoría', ['entrega:9:clase1']], ['Taller', ['entrega:11:modulo1']]]);
+  assert.deepEqual(seccionesParaCron('etapa_venta', []), []);
+});
+
+test('el botón dice la etapa elegida como el editor del CRON', () => {
+  const s1 = seccionesParaCron('etapa_venta', UN_PRODUCTO);
+  assert.equal(rotuloDeEleccion('etapa_venta', s1, ''), SIN_ETAPA);
+  assert.equal(rotuloDeEleccion('etapa_venta', s1, 'venta:5:agendado'), 'Llega a «Agendado»');
+  const s2 = seccionesParaCron('etapa_entrega', DOS_PRODUCTOS);
+  assert.equal(rotuloDeEleccion('etapa_entrega', s2, 'entrega:11:modulo1'), 'Taller · Llega a «Módulo 1»');
+});
+
+test('lo elegido se guarda sólo si es del kanban que la plantilla pide, y como un CRON completo', () => {
+  const v = disparadorDeEleccion('etapa_venta', 'venta:5:agendado');
+  assert.deepEqual(v, { id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'agendado', etapas: null, funnel_id: 5 });
+  assert.equal(problemaDeDisparadores([v!]), null);
+  const e = disparadorDeEleccion('etapa_entrega', 'entrega:9:clase1');
+  assert.deepEqual(e, { id: 'd1', trigger_tipo: 'entrega_actual', etapa: 'clase1', etapas: null, producto_id: 9 });
+  assert.equal(problemaDeDisparadores([e!]), null);
+  // Otro kanban, una etiqueta, basura: no.
+  assert.equal(disparadorDeEleccion('etapa_venta', 'entrega:9:clase1'), null);
+  assert.equal(disparadorDeEleccion('etapa_entrega', 'venta:5:agendado'), null);
+  assert.equal(disparadorDeEleccion('etapa_venta', 'etiqueta:3'), null);
+  assert.equal(disparadorDeEleccion('etapa_venta', 'venta:5:'), null);
+  assert.equal(disparadorDeEleccion('etapa_venta', 42), null);
+});
+
+// ── 3. Crear ─────────────────────────────────────────────────────────────────────
+
+type Llamada = { op: string; args: unknown[] };
+function baseDeMentira(o: { vivas?: string[]; errIns?: string } = {}) {
+  const llamadas: Llamada[] = [];
+  const db: DbPlantilla = {
+    from: () => ({
+      select: (cols) => ({
+        is: async (c, v) => { llamadas.push({ op: 'select', args: [cols, c, v] }); return { data: (o.vivas ?? []).map((nombre) => ({ nombre })), error: null }; },
+      }),
+      insert: (fila) => ({
+        select: () => ({
+          single: async () => {
+            llamadas.push({ op: 'insert', args: [fila] });
+            return o.errIns ? { data: null, error: { message: o.errIns } } : { data: { id: 700 }, error: null };
+          },
+        }),
+      }),
+      delete: () => ({ eq: async (c, v) => { llamadas.push({ op: 'delete', args: [c, v] }); return { data: null, error: null }; } }),
+    }),
+  };
+  return { db, llamadas };
+}
+const ops = (ll: Llamada[]) => ll.map((l) => l.op);
+
+test('crear: nace APAGADA, con el CRON a elegir, los pasos por su puerta y sin tocar el CRON si no se eligió', async () => {
+  const { db, llamadas } = baseDeMentira();
+  const pasos: Array<[number, unknown]> = [];
+  const crones: unknown[] = [];
+  const r = await crearDesdePlantilla('agendo-confirmar', {
+    db, clave: () => 'plantilla-x',
+    setPasos: async (id, ps) => { pasos.push([id, ps]); },
+    setDisparadores: async (id, l) => { crones.push([id, l]); },
+  });
+  assert.deepEqual(r, { id: 700, nombre: 'Agendó: confirmar y preparar', pide: 'etapa_venta', aviso: null });
+  assert.deepEqual(ops(llamadas), ['select', 'insert']);
+  assert.deepEqual(llamadas[1].args[0], {
+    clave: 'plantilla-x', nombre: 'Agendó: confirmar y preparar', etapa: 'manual', trigger_tipo: 'manual', activa: false, pasos: [], emoji: '📅',
+  });
+  assert.equal(pasos.length, 1);
+  assert.equal(pasos[0][0], 700);
+  assert.deepEqual(pasos[0][1], pasosDePlantilla(plantillaPorId('agendo-confirmar')!));
+  assert.equal(crones.length, 0, 'sin etapa elegida no se escribe ningún CRON');
+});
+
+test('crear con la etapa elegida: el CRON va por guardarDisparadores y ya no pide nada', async () => {
+  const { db } = baseDeMentira();
+  const crones: Array<[number, unknown]> = [];
+  const r = await crearDesdePlantilla('no-asistio', {
+    db, setPasos: async () => {}, setDisparadores: async (id, l) => { crones.push([id, l]); },
+  }, { disparador: 'venta:5:noshow' });
+  assert.equal(r.pide, null);
+  assert.deepEqual(crones, [[700, [{ id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'noshow', etapas: null, funnel_id: 5 }]]]);
+});
+
+test('crear: una plantilla que no existe o una etapa de otro kanban no crean NADA', async () => {
+  for (const [id, disparador] of [['no-existe', null], ['felicitacion-clase', 'venta:5:agendado'], ['no-asistio', 'etiqueta:2']] as const) {
+    const { db, llamadas } = baseDeMentira();
+    await assert.rejects(
+      crearDesdePlantilla(id, { db, setPasos: async () => {}, setDisparadores: async () => {} }, { disparador }),
+      (e: unknown) => e instanceof PlantillaInvalidaError,
+    );
+    assert.deepEqual(ops(llamadas), [], `${id}: tocó la base`);
+  }
+});
+
+test('crear: si los pasos no se guardan, la automatización a medias se BORRA y el motivo sube', async () => {
+  const { db, llamadas } = baseDeMentira();
+  const crones: unknown[] = [];
+  await assert.rejects(
+    crearDesdePlantilla('bienvenida-sin-agenda', {
+      db, setPasos: async () => { throw new Error('No se guardó: algo'); }, setDisparadores: async (_, l) => { crones.push(l); },
+    }, { disparador: 'venta:5:nuevo' }),
+    /No se guardó: algo/,
+  );
+  assert.deepEqual(ops(llamadas), ['select', 'insert', 'delete']);
+  assert.deepEqual(llamadas[2].args, ['id', 700]);
+  assert.equal(crones.length, 0);
+});
+
+test('crear: una etapa que el negocio no tiene NO tumba la automatización (aviso); un error de la base, sí', async () => {
+  class Motivo extends Error {}
+  const deps = (err: Error) => {
+    const b = baseDeMentira();
+    return { b, deps: { db: b.db, setPasos: async () => {}, setDisparadores: async () => { throw err; }, motivoDeCron: (e: unknown) => (e instanceof Motivo ? e.message : null) } };
+  };
+  const a = deps(new Motivo('«x» no es una etapa de Mentoría.'));
+  const r = await crearDesdePlantilla('agendo-sin-hablar', a.deps, { disparador: 'venta:5:x' });
+  assert.equal(r.pide, 'etapa_venta');
+  assert.match(r.aviso ?? '', /no es una etapa de Mentoría/);
+  assert.deepEqual(ops(a.b.llamadas), ['select', 'insert']);
+
+  const b = deps(new Error('se cayó la base'));
+  await assert.rejects(crearDesdePlantilla('agendo-sin-hablar', b.deps, { disparador: 'venta:5:x' }), /se cayó la base/);
+  assert.deepEqual(ops(b.b.llamadas), ['select', 'insert', 'delete']);
+});
+
+test('crear: si ya hay una automatización con ese nombre, nace con un número', async () => {
+  const { db, llamadas } = baseDeMentira({ vivas: ['No asistió: reagendar', 'Otra'] });
+  const r = await crearDesdePlantilla('no-asistio', { db, setPasos: async () => {}, setDisparadores: async () => {} });
+  assert.equal(r.nombre, 'No asistió: reagendar 2');
+  assert.equal((llamadas[1].args[0] as { nombre: string }).nombre, 'No asistió: reagendar 2');
+  assert.deepEqual(llamadas[0].args, ['nombre', 'archivada_at', null], 'los nombres se miran sólo entre las vigentes');
+});
+
+// ── 4. La ruta ───────────────────────────────────────────────────────────────────
+
+test('la ruta: «crear_desde_plantilla» va detrás de la guarda de admin y enchufa las puertas de siempre', () => {
+  const src = sinComentarios(leer('app/api/chat-agent/secuencias/route.ts'));
+  const post = src.indexOf('export async function POST');
+  const guarda = src.indexOf("rol !== 'admin'", post);
+  const accion = src.indexOf("body.action === 'crear_desde_plantilla'", post);
+  assert.ok(post > 0 && guarda > post && accion > guarda, 'la acción no está detrás de la guarda de admin del POST');
+  const bloque = src.slice(accion, src.indexOf("body.action === 'crear'", accion));
+  assert.ok(bloque.length > 100 && bloque.length < 1500, `el bloque mide ${bloque.length}`);
+  assert.match(bloque, /crearDesdePlantilla\(body\.plantilla/);
+  assert.match(bloque, /db:\s*\(await getTenantDb\(\)\)/);
+  assert.match(bloque, /setPasos:\s*setSecuenciaPasos\b/);
+  assert.match(bloque, /setDisparadores:\s*guardarDisparadores\b/);
+  assert.match(bloque, /e instanceof TriggerInvalidoError \? e\.message : null/);
+  assert.match(bloque, /PlantillaInvalidaError[\s\S]*status:\s*400/);
+});
+
+// ── 5. La pantalla ───────────────────────────────────────────────────────────────
+
+const dibujar = (productos: ProductoParaDisparo[] = []) => renderToStaticMarkup(createElement(GaleriaPlantillas, {
+  productos, onCerrar: () => {}, onEmpezar: () => {}, onCreada: () => {},
+}));
+
+test('la galería dibuja las dos formas de empezar y TODAS las plantillas, con su emoji, nombre y línea', () => {
+  const html = dibujar(UN_PRODUCTO);
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+  assert.ok(html.includes(TITULO_GALERIA) && html.includes(ROTULO_PLANTILLAS));
+  for (const e of EMPEZAR) assert.ok(html.includes(`data-empezar="${e.que}"`) && html.includes(esc(e.nombre)), e.nombre);
+  for (const p of PLANTILLAS) {
+    assert.ok(html.includes(`data-plantilla="${p.id}"`), p.id);
+    for (const t of [p.emoji, p.nombre, p.linea]) assert.ok(html.includes(esc(t)), `${p.id}: falta «${t}»`);
+  }
+  assert.ok(!html.includes('data-galeria-paso="etapa"'), 'arranca preguntando la etapa');
+});
+
+test('la etapa se pregunta sólo si hay etapas de ese kanban para ofrecer', () => {
+  const venta = plantillaPorId('agendo-confirmar')!;
+  const entrega = plantillaPorId('felicitacion-clase')!;
+  assert.equal(preguntaEtapa(venta, UN_PRODUCTO), true);
+  assert.equal(preguntaEtapa(entrega, UN_PRODUCTO), true);
+  assert.equal(preguntaEtapa(venta, []), false);
+  assert.equal(preguntaEtapa(entrega, [{ ...UN_PRODUCTO[0], etapasEntrega: [] }]), false);
+});
+
+// ROTURAS, medidas el 10/10/2026 contra la base en verde (0 fallos, 23 pases), cada una aplicada y
+// restaurada DE MEMORIA por un arnés (nunca con `git checkout`), y el archivo vuelto a 0 fallos al final:
+//
+//   R1  un mensaje con `delay_horas: 2`                         → 1 fallo  (modelo de la sexta tanda)
+//   R2  una condición que sigue en una tarjeta que no existe    → 1 fallo  (se puede publicar)
+//   R3  una tarjeta suelta (se le saca la flecha que le llega)  → 1 fallo  (se puede publicar)
+//   R4  la tarjeta MaKo sin mensaje                             → 2 fallos (publicar + lo obligatorio de la acción)
+//   R5  el link del video de confirmación de un cliente         → 1 fallo  (datos de un cliente)
+//   R6  «soy Mauricio» en el mensaje de reactivación            → 1 fallo  (datos de un cliente)
+//   R7  `{{link_crm}}` (sólo para el equipo) en un mensaje      → 1 fallo  (el «{ }» de un lead)
+//   R8  «¿Querés…?»                                             → 1 fallo  (voseo)
+//   R9  una condición «Tiene la etiqueta» con un id del negocio → 1 fallo  (condiciones sin datos del negocio)
+//   R10 un «Ir a» a otra automatización (validarGrafo lo acepta) → 1 fallo (modelo de la sexta tanda)
+//   R11 un email sin `revisar`                                  → 1 fallo  (modelo: «Sale sola» explícito)
+//   R12 la condición retirada «R1 agendada a futuro»            → 2 fallos (condiciones retiradas + la reunión por delante)
+//   R13 `pasosDePlantilla` devuelve el catálogo mismo           → 1 fallo  (la copia)
+//   R14 `nombreLibre` devuelve siempre el de la plantilla       → 2 fallos (nombreLibre + crear con un nombre usado)
+//   R15 las etapas sin filtrar por kanban                       → 2 fallos (las etapas + cuándo se pregunta)
+//   R16 lo elegido sin mirar el kanban                          → 2 fallos (lo elegido + crear con otro kanban)
+//   R17 la fila nace con `activa: true`                         → 1 fallo  (nace apagada)
+//   R18 los pasos que fallan no borran la a medias              → 1 fallo  (se borra)
+//   R19 cualquier error del CRON pasa a aviso                   → 1 fallo  (la etapa que no está / la base)
+//   R20 una etapa de otro kanban no frena antes de crear        → 1 fallo  (no crean NADA)
+//   R21 la ruta pasa un `setPasos` de mentira                   → 1 fallo  (la ruta)
+//   R22 la ruta toma cualquier error como motivo del CRON       → 1 fallo  (la ruta)
+//   R23 la galería deja una plantilla afuera                    → 1 fallo  (la galería)
+//   R24 la galería no ofrece «Con MaKo»                         → 1 fallo  (la galería)
+//   R25 la etapa se pregunta aunque no haya ninguna             → 1 fallo  (cuándo se pregunta)
+//   R26 la post-agenda manda el «¿me confirmas?» sin volver a mirar la reunión → 1 fallo (la reunión por delante)
+//   R27 la confirmación mira la reunión ANTES de la primera espera            → 1 fallo (la reunión por delante)
+

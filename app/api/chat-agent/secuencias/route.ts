@@ -6,6 +6,11 @@
 // POST → admin-only:
 //        { action:'crear', etapa, nombre }                → secuencia nueva (wizard paso 1)
 //        { action:'crear_vacia', nombre? }                → automatización VACÍA y pausada → { secuenciaId, nombre }
+//        { action:'crear_desde_plantilla', plantilla, disparador? }
+//                                                          → una de la GALERÍA (lib/plantillas-automatizaciones.ts),
+//                                                            APAGADA → { secuenciaId, nombre, pide, aviso? }
+//                                                            (`disparador` = la etapa elegida, el valor del desplegable
+//                                                             del CRON; sin él, `pide` dice qué falta elegir)
 //        { action:'sugerir-gancho'|'sugerir-preguntas', objetivo, etapa } → { sugerencias }
 //        { action:'guardar-estrategia', secuenciaId, estrategia }         → { ok }
 //        { action:'probar', secuenciaId }                 → prueba en vivo al admin
@@ -63,6 +68,9 @@ import { guardarBorradorSecuencia, descartarBorradorSecuencia, type DbBorrador }
 // VARIOS CRON (sexta tanda, mig 0241): guardar la lista y saber qué canales se pueden ofrecer.
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
 import { estadoCanalesDisparo } from '@/lib/disparadores-canales';
+// LA GALERÍA (10/10/2026): crear una automatización desde una plantilla. Los pasos van por
+// `setSecuenciaPasos` y el CRON por `guardarDisparadores`, las puertas de siempre (lib/plantilla-crear.ts).
+import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -186,6 +194,8 @@ export async function POST(req: NextRequest) {
     emoji?: unknown; etapas?: unknown[]; posiciones?: unknown; disparadores?: unknown; pasos?: unknown;
     /** La huella de lo publicado que abrió la pestaña (sólo `action: 'borrador'`). */
     base?: unknown;
+    /** `crear_desde_plantilla`: el id de la plantilla y la etapa elegida (opcional). */
+    plantilla?: unknown; disparador?: unknown;
   };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -342,6 +352,27 @@ export async function POST(req: NextRequest) {
     if (body.action === 'crear_vacia') {
       const r = await crearSecuenciaVacia(body.nombre == null ? null : String(body.nombre));
       return Response.json({ ok: true, secuenciaId: r.id, nombre: r.nombre });
+    }
+
+    /**
+     * «DESDE UNA PLANTILLA» (10/10/2026, Martín: «hagamos la galería de las más comunes»): una de la
+     * galería, en ESTE workspace, APAGADA y sin un envío (lib/plantilla-crear.ts). Lo que no se puede
+     * crear —una plantilla que no existe, una etapa de otro kanban, pasos que no pasan— contesta 400 con
+     * el motivo; la etapa que el negocio no tiene no tumba la automatización: vuelve en `aviso`.
+     */
+    if (body.action === 'crear_desde_plantilla') {
+      try {
+        const r = await crearDesdePlantilla(body.plantilla, {
+          db: (await getTenantDb()) as unknown as DbPlantilla,
+          setPasos: setSecuenciaPasos,
+          setDisparadores: guardarDisparadores,
+          motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
+        }, { disparador: body.disparador });
+        return Response.json({ ok: true, secuenciaId: r.id, nombre: r.nombre, pide: r.pide, ...(r.aviso ? { aviso: r.aviso } : {}) });
+      } catch (e) {
+        if (e instanceof PlantillaInvalidaError || e instanceof PasosInvalidosError) return Response.json({ ok: false, error: e.message }, { status: 400 });
+        throw e;
+      }
     }
 
     if (body.action === 'crear') {
