@@ -16,6 +16,8 @@ import { type as tipo } from '@/app/_ui/tokens';
 import { CATEGORIAS_AVISO, esAvisoDelCliente, seEditaElTexto, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { ICONO_CATEGORIA } from './categoria-icono';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
+import type { Muelles } from '@/lib/lienzo-grafo';
 
 // El tipo NO se copia: se re-exporta del store, que es quien lo define. Escrito a
 // mano acá se quedo viejo al primer campo nuevo (`canales`) y el compilador no podia
@@ -61,7 +63,7 @@ async function api(endpoint: string, body: unknown): Promise<{ ok: boolean; erro
  * scroll anidado. Son dos props y no un `embebido` porque son dos decisiones: el
  * alto lo manda la fila del grid, y el marco, quién lo dibuja.
  */
-export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, endpoint = ENDPOINT_AGENCIA, alto = 620, marco = true, insetIzq }: {
+export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, endpoint = ENDPOINT_AGENCIA, alto = 620, marco = true, insetIzq, muelles }: {
   plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void;
   /**
    * Abre la vista de PROBAR (el chat). Opcional a propósito: el que no la implementa
@@ -81,6 +83,12 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
    * tapa lo decide quien apoya la pieza (`muelles`), no este componente. Ausente = 0, como siempre.
    */
   insetIzq?: number;
+  /**
+   * DÓNDE FLOTA CADA COSA en /automations (`muelles`, lib/lienzo-grafo.ts): con esto el panel de cada tarjeta
+   * tiene el tamaño de una automatización (`editorDeTarjeta`) y no los 460 px fijos de Configuraciones.
+   * Llega desde la lista (SimuladorWhatsApp → MensajeMakoLienzo). Ausente = como siempre.
+   */
+  muelles?: Muelles | null;
 }) {
   const crear = plantilla === null;
   const [titulo, setTitulo] = useState(plantilla?.titulo ?? '');
@@ -306,6 +314,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
         <FlujoAviso
           id={id}
           insetIzq={insetIzq}
+          muelles={muelles}
           disparador={plantilla.disparador}
           frecuenciaMin={plantilla.frecuenciaMin}
           texto={texto}
@@ -396,32 +405,6 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
                   </div>
                 </div>
 
-                {/* ⚠️ «ACTIVAR» VIVE EN SU PROPIA TARJETA, A LA DERECHA DEL TÍTULO.
-                    Pasó por tres lugares en un día y gana el último, con la captura
-                    delante: estaba arriba a la derecha («el botón de Activa debería estar
-                    arriba a la derecha»), se mudó ADENTRO de la tarjeta del título («pasa
-                    a estar donde hoy están las categorías»), y ahí se veía mal —el
-                    interruptor debajo del nombre hacía la tarjeta de dos renglones y
-                    apretaba el título—. Queda al lado: «el botón de activar sería bueno
-                    que esté aparte, a la derecha del título».
-
-                    Y se muda CON su rama `fijo`: un mensaje fijo no ofrece switch, y
-                    mover sólo el `else` lo dejaría sin ningún rótulo de estado. */}
-                <div style={{ ...tarjetaChrome, flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    {plantilla.fijo ? (
-                      <span title="Este avisa que MaKo dejó de recibir datos: si se apaga, el resto de los números miente sin que nadie se entere."
-                        style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Siempre activa</span>
-                    ) : (
-                      <>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: enabled ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
-                        <button onClick={toggle} disabled={busy === 'toggle'} aria-pressed={enabled} title={enabled ? 'Desactivar' : 'Activar'}
-                          style={{ width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, background: enabled ? 'var(--good)' : 'var(--border-strong)', cursor: 'pointer', flex: 'none', transition: 'background .15s' }}>
-                          <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: enabled ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
-                        </button>
-                      </>
-                    )}
-                </div>
-
                 {id && <PrefsDeMensaje id={id} estilo={tarjetaChrome} />}
 
                 {/* ⚠️ ACÁ ESTABA LA ✕, Y SE FUE CON EL MODAL. Pedido el 04/10/2026: el
@@ -444,8 +427,8 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
                     cosa — «✨ Que lo escriba MaKo», que paga IA. */}
                 <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                   {plantilla.esCustom && (
-                    <button onClick={eliminar} disabled={busy === 'del'} title="Eliminar este mensaje"
-                      style={{ ...tarjetaChrome, color: 'var(--bad)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Eliminar</button>
+                    // El tacho rojo de la casa (sexta tanda, General 9), no un texto rojo.
+                    <BotonBorrar onClick={() => void eliminar()} disabled={busy === 'del'} title="Eliminar este mensaje" />
                   )}
                   {onVerChat && (
                     <button onClick={onVerChat} title="Ver cómo le llega este mensaje"
@@ -480,11 +463,30 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
              que además sobrevive a cambiar de mensaje y al reload. */
           // «Publicar» publica el TEXTO: sin texto que se pueda editar, no hay qué publicar (el flujo se
           // guarda solo, en el acto).
-          pie={(puedeEditarElMensaje || flash) ? (
+          // ⚠️ «ACTIVAR» VIVE AL LADO DE «PUBLICAR» (sexta tanda, General 8, literal: «Activar pasa a estar al
+          // lado de "Publicar"»), como en una automatización. Antes iba en su tarjeta a la derecha del título
+          // (tres mudanzas el 04/10, y ganaba la última); la de la sexta tanda es más nueva. Se muda con su rama
+          // `fijo`: un mensaje fijo no ofrece switch y dice «Siempre activa». Por eso el pie existe siempre que
+          // haya un mensaje: el interruptor no depende de que el texto se pueda editar.
+          pie={id ? (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               {flash && (
                 <span style={{ ...tarjetaChrome, fontSize: tipo.meta, fontWeight: 600, color: flash.mal ? 'var(--bad)' : 'var(--good)' }}>{flash.txt}</span>
               )}
+                    <div style={{ ...tarjetaChrome, flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        {plantilla.fijo ? (
+                          <span title="Este avisa que MaKo dejó de recibir datos: si se apaga, el resto de los números miente sin que nadie se entere."
+                            style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Siempre activa</span>
+                        ) : (
+                          <>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: enabled ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
+                            <button onClick={toggle} disabled={busy === 'toggle'} aria-pressed={enabled} title={enabled ? 'Desactivar' : 'Activar'}
+                              style={{ width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, background: enabled ? 'var(--good)' : 'var(--border-strong)', cursor: 'pointer', flex: 'none', transition: 'background .15s' }}>
+                              <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: enabled ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
+                            </button>
+                          </>
+                        )}
+                    </div>
               {puedeEditarElMensaje && (
                 <button onClick={() => void publicar()} disabled={busy === 'pub' || !sinPublicar}
                   title={sinPublicar ? 'Publicar: MaKo empieza a usar este texto' : 'No hay cambios sin publicar'}

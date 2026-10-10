@@ -34,11 +34,14 @@
 
 import { TemplateDetalleModal, type PlantillaVista } from '../agencia/TemplateDetalleModal';
 import { ENDPOINT_MENSAJES_MAKO } from '@/lib/chatbot-mensajes-mako';
+import type { Muelles } from '@/lib/lienzo-grafo';
 
-export function MensajeMakoLienzo({ plantilla, insetIzq, onCambio, onCerrar }: {
+export function MensajeMakoLienzo({ plantilla, insetIzq, muelles, onCambio, onCerrar }: {
   plantilla: PlantillaVista;
   /** Lo que tapa la lista a la izquierda (`muelles(...).insets.izq`). */
   insetIzq: number;
+  /** Dónde flota cada cosa: el panel de cada tarjeta con el tamaño de una automatización (`editorDeTarjeta`). */
+  muelles?: Muelles | null;
   /** Cambió algo del mensaje (nombre, interruptor, texto publicado): la lista lo vuelve a leer. */
   onCambio: () => void;
   /** El mensaje se fue (eliminar uno propio): se vuelve a la lista. */
@@ -55,7 +58,7 @@ export function MensajeMakoLienzo({ plantilla, insetIzq, onCambio, onCerrar }: {
         <TemplateDetalleModal
           plantilla={plantilla}
           endpoint={ENDPOINT_MENSAJES_MAKO}
-          alto="100%" marco={false} insetIzq={insetIzq}
+          alto="100%" marco={false} insetIzq={insetIzq} muelles={muelles}
           onCambio={onCambio}
           onClose={onCerrar}
         />

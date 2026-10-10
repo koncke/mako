@@ -565,7 +565,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           tanda, punto 5), el suyo: el MISMO editor de Notificaciones, con el inset de la lista. */}
       {aviso ? (
         <div style={ESTILO_LIENZO}>
-          <MensajeMakoLienzo key={aviso.id} plantilla={aviso} insetIzq={m.insets.izq}
+          <MensajeMakoLienzo key={aviso.id} plantilla={aviso} insetIzq={m.insets.izq} muelles={m}
             onCambio={() => onAvisosCambio?.()} onCerrar={() => setAvisoSel(null)} />
         </div>
       ) : (
