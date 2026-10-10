@@ -7396,6 +7396,11 @@ mig 0228). Lo que eso exige al escribir código nuevo:
   `trigger_tipo` solo ve el primer CRON y se pierde los demás.
 - **Guardar no es publicar**: un borrador o una edición del lienzo pasa por `validarParaGuardar` (lo que
   rompe el DATO); `validarGrafo` es la vara de Publicar y rechaza lo que está a medio armar.
+- **Un flujo que arranca por una ETAPA no hereda «la reunión ya pasó»** (10/10/2026): esa guarda del
+  motor decide por el `trigger_tipo` (`preparaUnaReunion`, los eventos `agendado_*` de antes). Quien
+  arme un flujo así —una plantilla (`lib/plantillas-automatizaciones.ts`), Crear con IA, la API— pone
+  «Próxima reunión en ≤ 720 h» después de CADA espera por tiempo, antes de lo que habla de la reunión.
+  Y «Agendó» es «tiene una reunión cargada», pasada o futura: a quien faltó a una, también.
 
 # Un TIPO DE NODO nuevo son CINCO puertas; un CAMPO del nodo es UNA rama
 

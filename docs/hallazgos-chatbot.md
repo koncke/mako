@@ -3000,6 +3000,70 @@ La revisión adversarial (sólo lectura) dejó dos reglas. Se arreglaron en la r
 - En el cartel vacío, «＋ Nueva» con el panel abierto y sucio crea la primera automatización y el cartel se
   desmonta con el panel: lo no guardado se pierde ahí.
 
+## La galería de plantillas (10/10/2026, parte «galeria»): arrancar de una automatización hecha
+
+Martín, al preguntarle si quería las automatizaciones de los clientes como galería o copiadas: «Si,
+hagamos la galería de las más comunes...», y después «no estan todas las plantillas de Mauricio».
+Rama `wip-v7-galeria`. El catálogo es `lib/plantillas-automatizaciones.ts` (siete plantillas, una por
+cada automatización de Mauricio y la de no-show de ws13, generalizadas); lo fija
+`tests/plantillas-automatizaciones.test.ts` (27 roturas, las 27 en rojo).
+
+### Una automatización colgada de una ETAPA no hereda «la reunión ya pasó» del motor [plantillas, motor]
+
+**Síntoma (leído en el código, antes de que pase):** las post-agenda de origen (#212, #213, #221)
+dicen «¿me confirmas que nos vemos en la reunión?» a las 25 h. Bien colgadas de un evento; colgadas
+de la etapa «Agendado», ese mensaje le llega a quien agendó para dentro de 20 h con la reunión ya
+pasada, y al prender la automatización el CRON inscribe a TODOS los que están en la etapa, también al
+que la tuvo hace un mes.
+
+**Causa:** la guarda del motor que cierra sin mandar («la reunión ya pasó») decide por el
+`trigger_tipo` —`preparaUnaReunion`, la familia `agendado_*`, los eventos que la tercera tanda sacó del
+CRON— y una etapa es `etapa_actual`. Una espera `antes_reunion` sí se cuida sola (sin reunión por
+delante, el motor corta con `sin_reunion`); una espera por tiempo, no.
+
+**La regla:** en un flujo que arranca por una etapa, cada mensaje que habla de la reunión va detrás de
+una condición «Próxima reunión en ≤ 720 h» DESPUÉS de cada espera por tiempo (no sólo al entrar). Lo
+fija `miraLaReunion` en el test. ⚠️ Vale igual para Crear con IA, que hoy no lo sabe.
+
+**Vive en:** `lib/plantillas-automatizaciones.ts` (`REUNION_POR_DELANTE`) · `lib/nutricion-familias.ts` (`preparaUnaReunion`)
+
+### «Agendó» es «tiene una reunión cargada», pasada o futura: en un flujo de no-show no sirve [motor, datos]
+
+`agendoLead` (lib/nutricion-grafo-motor.ts) mira las cuatro fechas de junta, sin preguntar si pasaron.
+Para quien faltó a una reunión es siempre verdadero: la reunión a la que faltó cuenta. Medido en
+producción (sólo lectura): **#224 de ws13** («No asistió: reagendar», pausada) espera 2 días y su
+primera rama es «Agendó → termina», así que a quien faltó a una reunión cargada en su ficha no le
+saldría nunca el email de los 2 días. La plantilla usa «Próxima reunión en ≤ 720 h». #224 no se tocó:
+lo decide Martín.
+
+### Medido en producción (10/10/2026, sólo lectura) [entorno]
+
+Las diez vivas: #198 todavía tiene dos «Ir a» a la #212 (los pasa `scripts/quitar-ir-a.mts`, en
+simulacro); #221 tiene uno de tarjeta a tarjeta y pone la etiqueta 1 del ws1; #226 cuelga de las
+nueve etapas de entrega del producto 1 y pone la etiqueta 2. Todo lo de los clientes es suyo: los
+audios, el link del video de confirmación (`confirmar.lovable.app`) y la agenda de Cal.com de ws13.
+
+### Proceso: el Chromium de Playwright no arranca acá; el Chrome del sistema sí [proceso]
+
+`spawn UNKNOWN` al lanzar `ms-playwright/chromium-*/chrome.exe`, también sin sandbox y con
+`spawnSync(… ['--version'])` pelado: no es Playwright. Con `executablePath` al Chrome del sistema,
+headless y `--mute-audio`, el banco de esbuild (ver «un componente del lienzo se verifica sin `next
+dev`») abre por `file://` y se recorre con clics. La galería se vio así: los dos pasos, el desplegable
+con productos, «Elegir después», «Volver», Escape y un teléfono de 390 px sin desborde.
+
+### Lo que quedó sin hacer (parte «galeria»)
+
+- **El enchufe**: «＋ Nueva» abre la galería. Vive en `app/automations/SimuladorWhatsApp.tsx` y
+  `app/automations/ChatAgentApp.tsx`, que eran de otra corrida: el cambio exacto, en el informe de la
+  parte (bloqueantes). Hasta entonces la galería tiene cero call sites.
+- **«En blanco» y «Con MaKo» hacen hoy lo mismo**: la vacía de «＋ Nueva» abre siempre con la caja
+  de Crear con IA. Para que se distingan, «En blanco» sin la caja (o «Con MaKo» con el foco en ella)
+  es un cambio de `app/automations/SecuenciaPerfil.tsx`. Lo decide Martín.
+- **Crear desde una plantilla no está en el registro de la API** (tampoco «Duplicar» ni «＋ Nueva»):
+  existe para la pantalla y no para MaKo por WhatsApp. `lib/api-mako/areas/chatbot.def.ts`
+- **Crear con IA no pone la guarda de la reunión** en un flujo colgado de una etapa. `lib/flujo-ia.ts`
+- **Verlo con clics en la app real**: crear una de cada en el ws3 y abrirla en el lienzo.
+
 ## Lo que quedó sin hacer
 
 **De la parte «tiempo» (sexta tanda, 09/10/2026):**
