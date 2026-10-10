@@ -262,7 +262,10 @@ Turbopack aborta con «Symlink [project]/node_modules is invalid, it points out 
 root» (`turbopack.root = __dirname`). **Corre si la raíz apunta, SÓLO para ese build, a una carpeta
 que contenga a los DOS** (el worktree y el clon al que apunta el junction): medido el 09/10/2026, con
 `root: require('path').resolve(__dirname, '..')` en `next.config.ts` el build del worktree salió
-verde. Se copia `next.config.ts` al scratchpad antes, se restaura después y se comprueba con
+verde. ⚠️ Ese `'..'` vale para un worktree HERMANO del clon; uno de `.claude/worktrees/<id>` vive
+ADENTRO del clon, y ahí la carpeta que contiene a los dos es el clon mismo:
+`resolve(__dirname, '..', '..', '..')` (medido el 09/10/2026: build verde, 3,2 min de compilación).
+Se copia `next.config.ts` al scratchpad antes, se restaura después y se comprueba con
 `git diff -- next.config.ts` vacío: ese cambio NO se commitea. Y antes de `git worktree remove`, el
 junction se saca con `cmd /c rmdir`: un `Remove-Item -Recurse` de PowerShell 5.1 sobre él borra el
 `node_modules` del clon.
