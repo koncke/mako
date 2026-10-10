@@ -28,10 +28,12 @@ import type { PasoSecuenciaDto } from './ChatAgentApp';
 import { useWs } from '@/app/_ui/Link';
 import { Spinner, Toast, useToast } from '@/app/_ui';
 import { PopoverWA, MenuWA, type OpcionMenuWA } from '../whatsapp/_shared/ComposerWhatsApp';
-import { IconClip, IconTrash } from '../whatsapp/_shared/composer-icons';
+import { IconClip, IconDoc } from '../whatsapp/_shared/composer-icons';
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
+import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
-import { partesDeLaBarra, enviarALista, mismoPaso } from './EditorMensajeWhatsApp';
-import { VARIABLES_LEAD, VARIABLES_NEGOCIO, aplicarVariables } from '@/lib/template-vars';
+import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead } from './EditorMensajeWhatsApp';
+import { aplicarVariables } from '@/lib/template-vars';
 import { cambiosDePaso } from '@/lib/guion-audio';
 import { partesDe, formaGuardada, esUnTexto, TOPE_PARTES, type ParteMensaje } from '@/lib/mensaje-partes';
 import { validarArchivoWA, archivoConTipoWA, tituloDeArchivo, pesoLegible, type AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
@@ -253,7 +255,11 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
 
   const conNegocio = (t: string) => aplicarVariables(t, negocio?.trim() ? { negocio: negocio.trim() } : {});
   const ocupado = !!deshabilitado || !!subida;
-  const vars = [...VARIABLES_LEAD, ...VARIABLES_NEGOCIO];
+  // EL «{ }» DE LA CASA (el árbol, como en WhatsApp y el email), con lo que el motor resuelve POR ESTE
+  // CANAL: `enviarPasoSocial` (lib/nutricion.ts) recibe `valoresVariablesLead`, los datos del lead de
+  // siempre, y no el catálogo entero. Ofrecer el resto sería mandarle el `{{token}}` crudo por
+  // Instagram. Cuando ese envío pase por `datosParaElLead`, esto es `datosDelLead(true)`.
+  const datos = datosDelLead(false);
 
   const burbujaDe = (p: ParteMensaje): ReactNode => {
     if (p.tipo === 'media') {
@@ -294,7 +300,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         <button type="button" disabled={ocupado} onClick={() => editar(i)} title="Editar" aria-label={`Editar el mensaje ${i + 1}`}
           style={{ ...accionBurbuja, ...(editando === i ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : {}) }}><IconLapiz /></button>
         <button type="button" disabled={ocupado} onClick={() => borrar(i)} title="Borrar" aria-label={`Borrar el mensaje ${i + 1}`}
-          style={{ ...accionBurbuja, color: 'var(--bad)', borderColor: 'var(--bad)' }}><IconTrash /></button>
+          style={{ ...accionBurbuja, color: 'var(--bad)', borderColor: 'var(--bad)' }}><IconoBorrar size={16} /></button>
       </div>
       <div style={{ minWidth: 0, display: 'flex', justifyContent: 'flex-end', borderRadius: 20, outline: editando === i ? '2px solid var(--primary)' : 'none', outlineOffset: 2 }}>
         {burbujaDe(p)}
@@ -310,7 +316,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   const menuClip: OpcionMenuWA[] = [
     { key: 'subir', label: 'Subir foto, video o PDF', icono: <IconClip />, onElegir: () => inputArchivo.current?.click() },
     {
-      key: 'archivos', label: 'Archivos guardados', vacio: biblioteca === null ? 'Cargando…' : 'Sin archivos todavía.',
+      key: 'archivos', label: 'Archivos guardados', icono: <IconDoc size={18} />, vacio: biblioteca === null ? 'Cargando…' : 'Sin archivos todavía.',
       submenu: elegibles.map((a) => ({ key: `f${a.id}`, label: a.titulo, detalle: pesoLegible(a.tamano), onElegir: () => setAdjunto(a.id) })),
     },
   ];
@@ -356,7 +362,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
 
       {abierto === 'datos' && (
         <PopoverWA ancla={btnDatos} etiqueta="Datos" onCerrar={() => setAbierto(null)}>
-          <MenuWA alElegir={() => setAbierto(null)} opciones={vars.map((v) => ({ key: v.key, label: v.label, detalle: `{{${v.key}}}`, onElegir: () => insertar(`{{${v.key}}}`) }))} />
+          <ArbolDeDatos grupos={datos} onElegir={(k) => { insertar(`{{${k}}}`); setAbierto(null); }} />
         </PopoverWA>
       )}
       {abierto === 'clip' && (

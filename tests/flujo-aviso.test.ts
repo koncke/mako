@@ -20,7 +20,8 @@ import {
   type AvisoParaGrafo,
 } from '../lib/flujo-aviso';
 import type { Paso } from '../lib/flujos-tipos';
-import { ANCHO_NODO } from '../lib/lienzo-grafo';
+import { ANCHO_NODO, ICONO_MAKO } from '../lib/lienzo-grafo';
+import { identidadDeTarjeta } from '../app/_components/Lienzo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -52,16 +53,27 @@ test('UNA TARJETA POR CANAL PRENDIDO, y el título es el canal', () => {
   // la tarjeta de "Mensaje" por "WhatsApp" y agrega la tarjeta de "Email"». Las dos
   // se DERIVAN de `canales`, el campo del mensaje: el canal no volvió a ser un nodo
   // (ver el test de abajo), lo que hay es un mensaje por cada lado por el que sale.
+  //
+  // ⚠️ Y LA DE WHATSAPP ES LA TARJETA DE MaKo (sexta tanda, MaKo en WhatsApp 3: «Revisa que todas las
+  // "Notificaciones" están configuradas con la tarjeta de WhatsApp en lugar de la de MaKo... Eso está
+  // mal»): este mensaje lo manda MaKo al grupo, y en el Chatbot ese mensaje es «MaKo en WhatsApp».
+  // PROBADO ROMPIÉNDOLO (09/10/2026, parte «datos», arnés w2-datos/romper.mjs): devolverle
+  // `tipo: 'mensaje'` → 1 fallo (éste); el título 'WHATSAPP' → 2 fallos (éste y el de abajo).
+  // Restaurado → verde.
   const soloWa = grafoDeAviso(aviso({ canales: { wa: true, email: false } }));
   assert.deepEqual(soloWa.nodos.map((n) => n.id), ['entrada', 'mensaje']);
-  assert.deepEqual(soloWa.nodos.map((n) => n.titulo), ['CRON', 'WHATSAPP']);
+  assert.deepEqual(soloWa.nodos.map((n) => n.titulo), ['CRON', 'MAKO EN WHATSAPP']);
+  const deMaKo = soloWa.nodos.find((n) => n.id === 'mensaje')!;
+  assert.equal(deMaKo.tipo, 'mako', 'la identidad de MaKo la pinta `identidadDeTarjeta` por el tipo');
+  assert.equal(deMaKo.icono, ICONO_MAKO, 'el ícono es el logo de MaKo, no el de WhatsApp');
+  assert.deepEqual(identidadDeTarjeta(deMaKo), identidadDeTarjeta({ tipo: 'mako' }), 'la tarjeta no se pinta como la de MaKo del Chatbot');
 
   const soloMail = grafoDeAviso(aviso({ canales: { wa: false, email: true } }));
   assert.deepEqual(soloMail.nodos.map((n) => n.id), ['entrada', 'mensaje-email']);
   assert.deepEqual(soloMail.nodos.map((n) => n.titulo), ['CRON', 'EMAIL']);
 
   const losDos = grafoDeAviso(aviso({ canales: { wa: true, email: true } }));
-  assert.deepEqual(losDos.nodos.map((n) => n.titulo), ['CRON', 'WHATSAPP', 'EMAIL']);
+  assert.deepEqual(losDos.nodos.map((n) => n.titulo), ['CRON', 'MAKO EN WHATSAPP', 'EMAIL']);
   // ⚠️ El id de WhatsApp sigue siendo `mensaje` A PROPÓSITO: las posiciones guardadas
   // se podan por id, y `FlujoAviso.tsx` pregunta `n.id === 'mensaje'` en tres lugares
   // para decidir dónde se puede agregar un paso. Renombrarlo borraba la coordenada de
@@ -86,12 +98,12 @@ test('⚠️ «Te llega al grupo» NO es un nodo: un nodo es algo que OCURRE', (
   // el NOMBRE de cada tarjeta. Lo que el test cuida no es dónde está: es que el dato
   // no se pueda ir sin que nada falle. Por eso pide los dos canales por su nombre.
   const titulos = g.nodos.map((n) => n.titulo);
-  assert.ok(titulos.includes('WHATSAPP'), 'el destino tiene que leerse en la tarjeta');
+  assert.ok(titulos.includes('MAKO EN WHATSAPP'), 'el destino tiene que leerse en la tarjeta');
   assert.ok(titulos.includes('EMAIL'), 'el destino tiene que leerse en la tarjeta');
   // Y sigue siendo un CAMPO, no un nodo: apagar un canal saca su tarjeta, no agrega
   // una que diga «por acá no». Un nodo es algo que ocurre.
   const unaSola = grafoDeAviso(aviso({ canales: { wa: true, email: false } }));
-  assert.equal(unaSola.nodos.filter((n) => n.tipo === 'mensaje').length, 1);
+  assert.equal(unaSola.nodos.filter((n) => n.id === 'mensaje' || n.id === 'mensaje-email').length, 1);
 });
 
 test('⚠️ El recordatorio se lee EN el mensaje, y no tiene nodo propio', () => {
@@ -313,7 +325,13 @@ test('Los nodos montan los controles que YA existían, no copias', () => {
   // `Disparador` salió de esta lista porque el componente YA NO EXISTE: la sección
   // CRON lo reemplazó, y de él quedó lo único que tenía de propio —que guardar al
   // elegir revierta si falla—, perseguido en tests/disparador-frecuencia.test.ts.
-  assert.match(src, /<EditorMensaje[\s\n]/, 'el nodo dejó de montar EditorMensaje: ¿se copió su control?');
+  // ⚠️ El editor que se monta es el de WhatsApp en modo grupo (`EditorMensajeGrupo`, sexta tanda,
+  // MaKo en WhatsApp 2 y 3), el mismo de la tarjeta «MaKo en WhatsApp» del Chatbot: el de marcas de
+  // /mensajes (app/agencia/EditorMensaje.tsx) se fue. PROBADO ROMPIÉNDOLO (09/10/2026, parte «datos»):
+  // FlujoAviso montando otro editor en lugar de `<EditorMensajeGrupo` → 1 fallo acá (y 1 en
+  // tests/variables-aviso). Restaurado → verde.
+  assert.match(src, /<EditorMensajeGrupo[\s\n]/, 'el nodo dejó de montar el editor de WhatsApp: ¿se copió su control?');
+  assert.match(src, /import \{ EditorMensajeGrupo \} from '@\/app\/chatbot\/EditorMensajeWhatsApp';/);
   assert.ok(!/action: 'frecuencia'/.test(src), 'el lienzo escribió la frecuencia por su cuenta');
   assert.ok(!/from '\.\/Disparador'/.test(src), 'volvió el componente que la sección CRON reemplazó');
 });

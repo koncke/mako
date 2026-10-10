@@ -95,8 +95,8 @@ import { createPortal } from 'react-dom';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { Button, Modal } from '@/app/_ui';
 import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
-import { opcionesDeSalida, valorDeSalida, type LineaWa } from './SalidaWhatsApp';
-import { AVISO_REEMPLAZA } from './EditorEmailGmail';
+import { opcionesDeSalida, valorDeSalida, RUTA_LINEAS, type LineaWa } from './SalidaWhatsApp';
+import { VincularRemitente } from './EditorEmailGmail';
 import { remitentesVinculados, partesDeRemitente } from '@/lib/email-remitente';
 import type { DomState } from '../email/EmailApp';
 import { useTitulosAcciones } from '@/app/_components/EditorAccionMako';
@@ -539,53 +539,27 @@ export function emisorAEnviar(canal: CanalProbar, elegido: string | null): Emiso
   return canal === 'email' ? { remitente: elegido } : { linea: elegido };
 }
 
-const RUTA_LINEAS = '/api/whatsapp/evolution/mensajes?lineas=1';
-
-/** El flujo de conectar el dominio de /email, cuando ya llegó (se pide a demanda, como el editor). */
-type ModuloEmail = typeof import('../email/EmailApp');
-let moduloEmail: ModuloEmail | null = null;
-
 /**
  * «Vincular nuevo» del emisor: el MISMO flujo que el resto de la app, en un modal y sin salir de
- * «Probar». WhatsApp: `EvolutionConnect` con `nueva` (el de SalidaWhatsApp y /whatsapp). Email: el
- * `DominioSetup` de /email (el de EditorEmailGmail), y como HOY un negocio tiene UN remitente, si ya
- * hay uno el modal dice que lo REEMPLAZA (`AVISO_REEMPLAZA`): cambia el «De» de todos sus emails.
+ * «Probar». WhatsApp: `EvolutionConnect` con `nueva` (el de SalidaWhatsApp y /whatsapp). Email: EL MISMO
+ * MODAL del editor de Gmail (`VincularRemitente`, app/chatbot/EditorEmailGmail.tsx), que monta el
+ * `DominioSetup` de /email y, como HOY un negocio tiene UN remitente, dice que lo REEMPLAZA
+ * (`AVISO_REEMPLAZA`). Hasta la segunda pasada de la sexta tanda acá había una copia de ese modal: dos
+ * modales para lo mismo son los que dejan de decir lo mismo. Y ése, si el dominio no llegó todavía, lo
+ * lee él mismo (la copia decía «No se pudo abrir»).
  */
 function VincularEmisor({ canal, dom, reemplaza, onCerrar, onLinea, onDominio }: {
   canal: CanalProbar; dom: DomState | null; reemplaza: boolean;
   onCerrar: () => void; onLinea: (linea: string) => void; onDominio: (d: DomState) => void;
 }) {
-  const [m, setM] = useState<ModuloEmail | null>(moduloEmail);
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    if (canal !== 'email' || m) return;
-    let vivo = true;
-    import('../email/EmailApp').then((x) => { moduloEmail = x; if (vivo) setM(x); }).catch(() => { if (vivo) setError(true); });
-    return () => { vivo = false; };
-  }, [canal, m]);
+  if (canal === 'email') return <VincularRemitente inicial={dom} reemplaza={reemplaza} onCerrar={onCerrar} onDominio={onDominio} />;
   // Al `body`: el panel vive en un muelle con z-index, y un `fixed` adentro de un contexto de
   // apilamiento queda debajo de lo que tenga un z mayor (AGENTS.md, el `sticky` con z-index).
-  if (canal === 'whatsapp') {
-    return createPortal(
-      <Modal titulo="Vincular número" onCerrar={onCerrar} ancho={440}>
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 420 }}>
-          <EvolutionConnect key="nueva-linea" nueva inline panelVisible ocultarChip onLineaCreada={onLinea} />
-        </div>
-      </Modal>,
-      document.body,
-    );
-  }
-  const Setup = m?.DominioSetup;
   return createPortal(
-    <Modal titulo="Vincular remitente" onCerrar={onCerrar} ancho={680}>
-      {reemplaza && <div role="note" style={{ marginBottom: 12, fontSize: 13, color: 'var(--ink)' }}>{AVISO_REEMPLAZA}</div>}
-      {error || !dom ? (
-        <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>No se pudo abrir.</div>
-      ) : Setup ? (
-        <Setup dom={dom} onUpdate={onDominio} />
-      ) : (
-        <div role="status" style={{ fontSize: 13, color: 'var(--faint)' }}>Cargando…</div>
-      )}
+    <Modal titulo="Vincular número" onCerrar={onCerrar} ancho={440}>
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 420 }}>
+        <EvolutionConnect key="nueva-linea" nueva inline panelVisible ocultarChip onLineaCreada={onLinea} />
+      </div>
     </Modal>,
     document.body,
   );

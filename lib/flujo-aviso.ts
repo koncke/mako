@@ -29,7 +29,7 @@
 // nace en su lugar calculado en vez de encimarse en el origen.
 
 import {
-  ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y, MARGEN, encerrar,
+  ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y, MARGEN, ICONO_MAKO, encerrar,
   type NodoFlujo, type AristaFlujo, type GrafoFlujo,
 } from './lienzo-grafo';
 import { EVENTOS, describirPaso, type Disparador, type Paso } from './flujos-tipos';
@@ -38,6 +38,9 @@ import { textoCron, type CronAviso } from './cron-aviso';
 // viven en lib/lienzo-posiciones.ts y se re-exportan acá para los que ya las importaban de este módulo.
 import { podarPosiciones, type Posiciones } from './lienzo-posiciones';
 export { podarPosiciones, type Posiciones };
+
+/** El título de la tarjeta del mensaje al grupo (MaKo en WhatsApp 1: «El título debe ser ese»). */
+export const TITULO_MAKO_EN_WHATSAPP = 'MAKO EN WHATSAPP';
 
 export type AvisoParaGrafo = {
   /** Qué lo hace salir, en palabras. Sale del catálogo: es un hecho, no una opción. */
@@ -191,8 +194,16 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
     if (a.canales.wa) {
       const lineas = recordatorio ? [recordatorio] : [];
       const alto = altoDe(Math.max(1, lineas.length));
+      /**
+       * ⚠️ ES LA TARJETA DE MaKo, NO LA DE UN WHATSAPP (sexta tanda, MaKo en WhatsApp 3: «Revisa que
+       * todas las "Notificaciones" están configuradas con la tarjeta de WhatsApp en lugar de la de
+       * MaKo... Eso está mal»). Este mensaje lo manda MaKo al GRUPO del negocio, y en el lienzo del
+       * Chatbot ese mensaje es la tarjeta «MaKo en WhatsApp». La identidad la pone `tipo: 'mako'`: es
+       * lo que `identidadDeTarjeta` (app/_components/Lienzo.tsx) pinta con el dorado de MaKo, y
+       * `ICONO_MAKO` es su logo. El ID sigue siendo `mensaje` (ver arriba): las posiciones y el ＋.
+       */
       nodos.push({
-        id: 'mensaje', tipo: 'mensaje', titulo: 'WHATSAPP', icono: 'whatsapp', orden: 1,
+        id: 'mensaje', tipo: 'mako', titulo: TITULO_MAKO_EN_WHATSAPP, icono: ICONO_MAKO, orden: 1,
         detalle: lineas.join(NL_TXT),
         ...en('mensaje', col(1), yMensaje), ancho: ANCHO_NODO, alto,
       });

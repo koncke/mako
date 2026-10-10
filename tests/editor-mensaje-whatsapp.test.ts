@@ -48,9 +48,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   EditorMensajeWhatsApp, BotonMakoWhatsApp, CabeceraWhatsApp, mismoPaso, placeholderDe, partesDeLaBarra, enviarALista, makoPosible, adaptable,
-  claveDeTarjeta, alternarPanelMako, ALTO_MIN_CHAT,
+  claveDeTarjeta, alternarPanelMako, ALTO_MIN_CHAT, datosDelLead, arbolDeVariables,
   type EditorMensajeWhatsAppProps,
 } from '../app/chatbot/EditorMensajeWhatsApp';
+import { datosOfrecidos } from '../lib/variables-aviso';
+import { esVariableConocida } from '../lib/template-vars';
 import { pasoSinAdjunto, pasoAMedia, pasoAVozDesde, pasoAVoz, cambiosDePaso } from '../lib/guion-audio';
 import type { PasoSecuenciaDto, AudioSetting } from '../app/chatbot/ChatAgentApp';
 
@@ -354,4 +356,44 @@ test('el chat LLENA el alto que haya y es lo único que se achica; nada de heigh
   const barra = /<div data-barra="true" style="([^"]*)"/.exec(html)?.[1] ?? '';
   assert.match(barra, /flex:none/, 'la barra no se achica: en un panel bajo se recortaba la de grabar');
   assert.doesNotMatch(EDITOR, /height:\s*'100%'|height: 100%/, 'contra un alto indefinido Safari da cero (AGENTS.md)');
+});
+
+// ── El «{ }» (sexta tanda, segunda pasada, parte «datos») ─────────────────────────────────────
+// WhatsApp 10: «Faltan datos que se pueden poner en el botón de "{}"... Siempre recuerda los
+// desplegables tipo arbol y con los íconos al lado... Y esto para todos los lugares donde usamos el
+// botón de {}, siempre lo mismo en todos lados». El árbol es el de la casa (SelectorDatos), y ofrece
+// sólo lo que el motor resuelve POR ESE CAMINO.
+//
+// PROBADO ROMPIÉNDOLO (09/10/2026, arnés del scratchpad w2-datos, restaurado de memoria; base de este
+// archivo en verde):
+//   X1. `datosDelLead` devolviendo el árbol entero también sin `todos` → 1 fallo (el oficial).
+//   X2. el editor ignorando `variables` (el recordatorio) y usando el del motor → 1 fallo.
+//   X3. el editor con `datos` sin ganarle a `variables` → 1 fallo.
+//   X4. el popover con `MenuWA` de vuelta (sin el árbol) → 2 fallos (éste y el de texto plano de
+//       tests/variables-aviso).
+
+test('el «{ }»: por el no oficial, el árbol entero del lead; por el oficial y lo social, sólo los datos de siempre', () => {
+  const claves = (g: ReturnType<typeof datosDelLead>) => g.flatMap((x) => x.items.map((i) => i.key));
+  assert.deepEqual(claves(datosDelLead(true)), claves(datosOfrecidos({ destino: 'lead', conLead: true })));
+  assert.ok(claves(datosDelLead(true)).length > 20, 'el árbol del no oficial tiene que ser el catálogo, no la lista de cinco');
+  const basicos = claves(datosDelLead(false));
+  assert.deepEqual(basicos, ['nombre', 'nombre_completo', 'apellido', 'empresa'], 'la plantilla de Meta registra sólo éstos');
+  assert.ok(basicos.every(esVariableConocida));
+  assert.ok(!basicos.includes('negocio'), '«Tu negocio» volvió al «{ }» (WhatsApp 10: «eliminalo»)');
+  assert.ok(datosDelLead(false).every((g) => g.items.length > 0), 'una rama vacía promete algo que no está');
+});
+
+test('el «{ }» de quien pasa SUS variables (el recordatorio) es una rama con ésas, ni una más', () => {
+  const g = arbolDeVariables([{ key: 'cuando', label: 'Cuándo', ejemplo: 'mañana' }, { key: 'hora', label: 'Hora' }]);
+  assert.equal(g.length, 1);
+  assert.deepEqual(g[0]!.items.map((i) => [i.key, i.label, i.ejemplo]), [['cuando', 'Cuándo', 'mañana'], ['hora', 'Hora', '{{hora}}']]);
+  assert.deepEqual(arbolDeVariables([]), [], 'sin variables no hay rama (ni botón)');
+  // Y el editor elige en ese orden: `datos` > `variables` > lo del motor.
+  const elige = EDITOR.slice(EDITOR.indexOf('const grupos = useMemo('), EDITOR.indexOf('[datos, variables, varias],'));
+  assert.match(elige, /datos \?\? \(variables \? arbolDeVariables\(variables\) : datosDelLead\(varias\)\)/);
+  assert.match(EDITOR, /<ArbolDeDatos grupos=\{grupos\} onElegir=/, 'el popover del «{ }» no es el árbol de la casa');
+  assert.doesNotMatch(EDITOR, /<MenuWA\b|\bVARIABLES_NEGOCIO\b|\bVARIABLES_LEAD\b/, 'volvió la lista plana del motor viejo');
+  // El botón se dibuja en la barra (con datos), y sin datos no hay botón.
+  assert.ok(dibujar({}).includes('aria-label="Insertar un dato"'));
+  assert.ok(!dibujar({ variables: [] }).includes('aria-label="Insertar un dato"'), 'un «{ }» que abre un árbol vacío se lee roto');
 });

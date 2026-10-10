@@ -32,7 +32,6 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { EditorEmailGmail, paramsDeVista, nombreDelRemitente, avisoDelRemitente, htmlLegible, AVISO_REEMPLAZA } from '../app/chatbot/EditorEmailGmail';
-import { EditorMensaje } from '../app/agencia/EditorMensaje';
 import { renderEmailHtml } from '../lib/email-html';
 import { sanearHtmlEmail } from '../lib/email-html-seguro';
 
@@ -162,10 +161,22 @@ test('un dato y un emoji entran donde está el cursor: en el editor rico (PEGÁN
   const enCuerpo = GMAIL.slice(GMAIL.indexOf('const insertarEnCuerpo = '), GMAIL.indexOf('const abrirEn = '));
   assert.match(enCuerpo, /if \(modo === 'visual'\) \{ insertarEnEditorRico\(cajaCuerpo\.current, texto\); return; \}/);
   assert.match(enCuerpo, /insertarEnCursor\(crudo, el\?\.selectionStart, el\?\.selectionEnd, texto\);\s*alCambiarCrudo\(r\.valor\);/, 'en el modo HTML el dato no pasa por el saneo');
-  assert.match(GMAIL, /onElegir: \(\) => \{ insertarEnCuerpo\(`\{\{\$\{v\.key\}\}\}`\); \}/);
+  assert.match(GMAIL, /onElegir=\{\(k\) => \{ insertarEnCuerpo\(`\{\{\$\{k\}\}\}`\); setAbierto\(null\); \}\}/);
   assert.match(GMAIL, /onPick=\{\(em\) => \{ insertarEnCuerpo\(em\); \}\}/);
-  assert.match(GMAIL, /from '@\/lib\/template-vars'/, 'las variables son las del motor');
-  assert.doesNotMatch(GMAIL, /variables-aviso/, 'las de /mensajes no las resuelve el envío de nutrición');
+  // ⚠️ LA PREMISA DE ANTES YA NO VALE (sexta tanda): «las de /mensajes no las resuelve el envío de
+  // nutrición» era cierto con el motor de los 5 datos. Hoy el envío del email pasa el asunto y el
+  // cuerpo por `datosParaElLead` (lib/nutricion.ts), que resuelve el catálogo entero de
+  // lib/variables-aviso.ts. Lo que se cuida ahora es que el «{ }» sea el ÁRBOL de la casa con los
+  // datos de un mensaje al LEAD (no los del equipo: los links al CRM no son para él).
+  // PROBADO ROMPIÉNDOLO (09/10/2026, parte «datos»): `destino: 'equipo'` → 1 fallo; el envío del email
+  // sin `datosParaElLead` → 1 fallo. Restaurado → verde.
+  assert.match(GMAIL, /const datos = datosOfrecidos\(\{ destino: 'lead', conLead: true \}\);/, 'el «{ }» del email no es el del lead');
+  assert.match(GMAIL, /import \{ ArbolDeDatos \} from '@\/app\/_components\/SelectorDatos';/);
+  assert.doesNotMatch(GMAIL, /VARIABLES_LEAD|VARIABLES_NEGOCIO|<MenuWA alElegir=\{\(\) => setAbierto\(null\)\}\s*opciones=\{variables/, 'volvió la lista plana del motor viejo');
+  const motor = leer('lib/nutricion.ts');
+  const envio = motor.slice(motor.indexOf("// Los datos del «{ }», como el WhatsApp de arriba (`datosParaElLead`)."));
+  assert.match(envio.slice(0, 1200), /const vars = await datosParaElLead\(/, 'el envío del email dejó de resolver el árbol');
+  assert.match(envio.slice(0, 1200), /const asunto = aplicarVariables\(paso\.asunto \?\? '', vars\)/, 'el asunto no pasa por los mismos datos');
 });
 
 // ── El De ────────────────────────────────────────────────────────────────────────────────────
@@ -214,10 +225,25 @@ test('«Vincular nuevo» hoy REEMPLAZA (no suma): si ya hay un remitente, el mod
   assert.match(AVISO_REEMPLAZA, /^Reemplaza /);
 });
 
-test('el EditorMensaje (el de /mensajes) no cambió: sus defaults', () => {
-  const html = renderToStaticMarkup(createElement(EditorMensaje, { valor: 'Hola', onChange: () => {} }));
-  assert.ok(html.includes('aria-label="El mensaje"'));
-  assert.match(html, /max-height:430px/);
+// ⛔ Acá vivía «el EditorMensaje (el de /mensajes) no cambió: sus defaults». Ese editor (el de marcas,
+// app/agencia/EditorMensaje.tsx) se fue en la segunda pasada de la sexta tanda: los avisos al grupo
+// usan el editor de WhatsApp (MaKo en WhatsApp 2 y 3). Lo cuida tests/variables-aviso.test.ts.
+
+test('«Vincular nuevo» es UN modal: el de «Probar» es éste (`VincularRemitente`, exportado)', () => {
+  // Hasta la segunda pasada de la sexta tanda `VincularEmisor` (PanelProbar) tenía su propia copia del
+  // modal con DominioSetup: dos modales para lo mismo son los que dejan de decir lo mismo.
+  // PROBADO ROMPIÉNDOLO (09/10/2026, parte «datos», arnés w2-datos/romper.mjs): PanelProbar cargando
+  // su propio flujo de /email en vez de `VincularRemitente` → 2 fallos (éste y «Probar» 2 de
+  // tests/panel-probar-ancho); volver a escribir su `RUTA_LINEAS` → 1 fallo. Restaurado → verde.
+  assert.match(GMAIL, /^export function VincularRemitente\(/m);
+  const probar = sinComentarios(leer('app/chatbot/PanelProbar.tsx'));
+  assert.match(probar, /if \(canal === 'email'\) return <VincularRemitente inicial=\{dom\} reemplaza=\{reemplaza\} onCerrar=\{onCerrar\} onDominio=\{onDominio\} \/>;/);
+  assert.match(probar, /import \{ VincularRemitente \} from '\.\/EditorEmailGmail';/);
+  assert.doesNotMatch(probar, /DominioSetup|import\('\.\.\/email\/EmailApp'\)/, 'volvió la copia del modal');
+  // Y las líneas del negocio salen de UNA ruta: la de SalidaWhatsApp.
+  assert.match(probar, /import \{[^}]*\bRUTA_LINEAS\b[^}]*\} from '\.\/SalidaWhatsApp';/);
+  assert.doesNotMatch(probar, /const RUTA_LINEAS\s*=/, 'PanelProbar volvió a escribir su ruta de líneas');
+  assert.match(sinComentarios(leer('app/chatbot/SalidaWhatsApp.tsx')), /^export const RUTA_LINEAS = /m);
 });
 
 test('el correo como llega, con el cuerpo del editor: el HTML y no el texto de respaldo', () => {

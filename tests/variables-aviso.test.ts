@@ -85,12 +85,24 @@ test('⚠️ LA BURBUJA DIBUJA EL TOKEN ENTERO, sin partirlo en itálica', () =>
   assert.ok(conNegrita.includes('{{lead_nombre}}'));
 });
 
-test('Y el EDITOR pinta con la misma regla', () => {
-  // Es el otro renderer, y el que decide qué se GUARDA: si el editor parte el token, el
-  // navegador reparenta las etiquetas cruzadas y el serializador devuelve un texto
-  // distinto del que se escribió, sin que nada falle.
-  assert.match(sinComentarios(leer('../app/agencia/EditorMensaje.tsx')), /tramosConVariables\(l\)/,
-    'el editor pinta los tokens con las marcas encima');
+test('Y el EDITOR de los avisos es el de WhatsApp: escribe en una caja de texto y la burbuja pinta con la misma regla', () => {
+  // Hasta la sexta tanda el otro renderer era el editor de marcas de /mensajes
+  // (app/agencia/EditorMensaje.tsx, un contentEditable que partía el token si no usaba
+  // `tramosConVariables`). Martín (MaKo en WhatsApp 2 y 3): «El editable de MaKo en WhatsApp
+  // debe ser lo mismo que el editable de WhatsApp» y «tienen una interfaz vieja, elimina eso».
+  // El editor ahora es el composer de WhatsApp (una caja de texto: lo que se tipea es lo que se
+  // guarda, sin serializador que pueda partir un token) y lo único que PINTA es la burbuja, que
+  // va por `TextoMarcas` — el renderer que el test de arriba cuida.
+  //
+  // PROBADO ROMPIÉNDOLO (09/10/2026, segunda pasada, parte «datos», arnés w2-datos/romper.mjs,
+  // restaurado de memoria): FlujoAviso montando otro editor en lugar de `<EditorMensajeGrupo` → 2
+  // fallos (éste y «Los nodos montan…» de tests/flujo-aviso); la burbuja de la tarjeta como saliente
+  // (la del negocio, no la de MaKo) → 1 fallo. Restaurado → en verde.
+  const flujo = sinComentarios(leer('../app/agencia/FlujoAviso.tsx'));
+  assert.match(flujo, /<EditorMensajeGrupo texto=\{texto\} onTexto=\{onTexto\}/, 'el aviso volvió a otro editor que el de WhatsApp');
+  assert.doesNotMatch(flujo, /<EditorMensaje\b|from '\.\/EditorMensaje'/, 'volvió el editor de marcas de /mensajes');
+  assert.match(flujo, /<BurbujaHilo compacta saliente=\{false\} autor="MaKo" contenido=\{\{ texto \}\}/, 'la tarjeta dejó de ser la burbuja de MaKo');
+  assert.match(sinComentarios(leer('../app/whatsapp/_shared/BurbujaHilo.tsx')), /<TextoMarcas texto=\{texto!\} \/>/, 'la burbuja pinta por otro lado');
 });
 
 // ── el catálogo ─────────────────────────────────────────────────────────────
@@ -157,16 +169,21 @@ test('Todo lo del catálogo tiene un ejemplo con el que dibujar la previa', () =
 
 // ── el editor inserta TEXTO, no un chip ─────────────────────────────────────
 
-test('⚠️ EL BOTÓN INSERTA TEXTO PLANO: un chip lo borra el serializador', () => {
-  // `domAMarcas` —la mitad que decide qué se GUARDA— aplana todo lo que no sea b/i/s y
-  // NO avisa: un `<span>` que dijera «Nombre del lead» se serializa como ese texto y la
-  // variable desaparece entera, sin un error y sin que nada quede rojo.
-  const src = sinComentarios(leer('../app/agencia/EditorMensaje.tsx'));
-  assert.match(src, /insertarVariable/, 'se fue el camino que mete el dato');
-  assert.match(src, /execCommand\('insertText', false, `\{\{\$\{key\}\}\}`\)/, 'el token dejó de insertarse como texto');
-  // Y el serializador sigue conociendo sólo las tres etiquetas: si alguien le agrega el
-  // span del chip, este assert es el que lo cuenta.
-  assert.ok(!/chip/i.test(src), 'apareció un chip en el editor');
+test('⚠️ EL «{ }» INSERTA TEXTO PLANO: el `{{clave}}` donde está el cursor, en los tres editores', () => {
+  // El token es TEXTO y no un chip (lib/variables-aviso.ts: un `<span>` lo borra cualquier
+  // serializador). Desde la segunda pasada de la sexta tanda el «{ }» es UNO —el árbol de
+  // app/_components/SelectorDatos.tsx— y cada editor escribe lo que el árbol le da: el composer
+  // de WhatsApp (que también es el de los avisos al grupo) y los dos campos del email.
+  //
+  // PROBADO ROMPIÉNDOLO (09/10/2026, parte «datos»): el composer insertando `k` pelado en vez de
+  // `{{k}}` → 1 fallo; el asunto del email con `MenuWA` de vuelta → 1 fallo. Restaurado → verde.
+  const wa = sinComentarios(leer('../app/chatbot/EditorMensajeWhatsApp.tsx'));
+  assert.match(wa, /<ArbolDeDatos grupos=\{grupos\} onElegir=\{\(k\) => \{ composer\.current\?\.insertar\(`\{\{\$\{k\}\}\}`, \{ enfocar: true \}\); setAbierto\(null\); \}\} \/>/,
+    'el composer dejó de insertar el token como texto');
+  const mail = sinComentarios(leer('../app/chatbot/EditorEmailGmail.tsx'));
+  assert.match(mail, /<ArbolDeDatos grupos=\{datos\} onElegir=\{\(k\) => \{ insertarEnAsunto\(`\{\{\$\{k\}\}\}`\); setAbierto\(null\); \}\} \/>/, 'el asunto');
+  assert.match(mail, /<ArbolDeDatos grupos=\{datos\} onElegir=\{\(k\) => \{ insertarEnCuerpo\(`\{\{\$\{k\}\}\}`\); setAbierto\(null\); \}\} \/>/, 'el cuerpo');
+  assert.ok(!/chip/i.test(sinComentarios(leer('../app/_components/SelectorDatos.tsx'))), 'apareció un chip en el selector');
 });
 
 // ── dónde se resuelve ───────────────────────────────────────────────────────
@@ -294,20 +311,25 @@ test('⚠️ y el EDITOR no dibuja NADA apagado en ese selector', () => {
   // Un guard de cableado: el test de arriba prueba el catálogo, no la barra. Si la barra
   // volviera a pasar `disabled`, se vería el gris que Martín mandó sacar; si dejara de
   // preguntarle al catálogo, se vería de más.
-  const src = leer('../app/agencia/EditorMensaje.tsx');
-  // ⚠️ POR SECCIONES, no por columnas: el 05/10/2026 el selector pasó al patrón del
-  // filtro del plan («copia el estilo del desplegable del filtro del plan, que
-  // justamente se abren secciones dentro del desplegable»). Son 42 datos en 8 grupos.
-  const i = src.indexOf('secciones={grupos.map(');
-  const bloque = src.slice(i, src.indexOf('onChange=', i));
-  assert.ok(i > 0 && bloque.length < 900, `el recorte del selector mide ${bloque.length}: mira otra cosa`);
-  assert.ok(!/disabled:/.test(bloque), 'el selector volvió a dibujar opciones apagadas');
-  assert.match(bloque, /sub: v\.ejemplo/, 'el renglón dejó de mostrar el valor de ejemplo');
-  // Y el que lo monta pregunta por las DOS cosas que deciden qué se puede resolver.
+  //
+  // ⚠️ Segunda pasada de la sexta tanda: el selector ya no es el desplegable por secciones del
+  // editor de /mensajes (que se fue) sino el ÁRBOL de la casa (app/_components/SelectorDatos.tsx).
+  // Lo que se cuida es lo mismo: cada dato con su valor de ejemplo, ninguno apagado.
+  //
+  // PROBADO ROMPIÉNDOLO (09/10/2026, parte «datos»): el árbol sin el `ejemplo` en la hoja → 1
+  // fallo; FlujoAviso sin `destino: 'equipo'` → 1 fallo; sin `conCuota` → 1 fallo. Restaurado → verde.
+  const src = sinComentarios(leer('../app/_components/SelectorDatos.tsx'));
+  const hoja = src.slice(src.indexOf('function Dato('), src.indexOf('export function ArbolDeDatos('));
+  assert.ok(hoja.length > 0 && hoja.length < 1600, `el recorte de la hoja mide ${hoja.length}: mira otra cosa`);
+  assert.ok(!/disabled/.test(hoja), 'el selector volvió a dibujar opciones apagadas');
+  assert.match(hoja, /\{ejemplo\.split\('\\n'\)\[0\]\}/, 'el renglón dejó de mostrar el valor de ejemplo');
+  // Y el que lo monta pregunta por las cosas que deciden qué se puede resolver: el lead, la cuota
+  // y el DESTINO (el aviso va al grupo: el link al portal de un alumno no se ofrece ahí).
   const flujo = leer('../app/agencia/FlujoAviso.tsx');
-  const i2 = flujo.indexOf('variables={variablesOfrecidas(');
+  const i2 = flujo.indexOf('datos={variablesOfrecidas(');
   assert.ok(i2 > 0, 'el lienzo dejó de pasarle los datos al editor');
   const llamada = flujo.slice(i2, flujo.indexOf('})}', i2));
+  assert.match(llamada, /destino: 'equipo'/, 'el aviso al grupo dejó de pedir los datos del EQUIPO');
   assert.match(llamada, /conLead:/, 'el selector dejó de preguntar por el lead');
   assert.match(llamada, /conCuota: aporta\.includes\('cuota'\)/, 'los datos de cobranza no se ofrecen en ningún mensaje');
   assert.match(llamada, /aporta\.includes\('lead'\)/, 'un cron que trae el lead volvería a esconder el CRM');

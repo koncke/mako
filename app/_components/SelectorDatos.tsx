@@ -14,10 +14,19 @@
 // catálogo es UNO (lib/variables-aviso.ts, `datosOfrecidos`).
 //
 // Dos formas de montarla, según el editor tenga o no su propio popover:
-//   · `<SelectorDatos grupos onElegir />` — el botón «{ }» y su panel (el editor de avisos, la
-//     tarjeta MAKO, el email);
+//   · `<SelectorDatos grupos onElegir />` — el botón «{ }» y su panel, para un editor sin barra propia;
 //   · `<ArbolDeDatos grupos onElegir />` — sólo el panel, para adentro de un `PopoverWA` que el editor
-//     ya abre desde su barra (el composer de WhatsApp).
+//     ya abre desde su barra.
+//
+// DÓNDE ESTÁ MONTADA (segunda pasada de la sexta tanda): `ArbolDeDatos` en el composer de WhatsApp
+// (app/chatbot/EditorMensajeWhatsApp.tsx, que es también el de «MaKo en WhatsApp» y el de los avisos
+// de Configuraciones › Notificaciones, app/agencia/FlujoAviso.tsx), en el asunto y el cuerpo del email
+// (app/chatbot/EditorEmailGmail.tsx) y en el de Instagram / Messenger (app/chatbot/EditorMensajeSocial.tsx).
+// El editor de marcas de /mensajes (app/agencia/EditorMensaje.tsx) se fue: lo reemplazó el de WhatsApp.
+// La tarjeta MAKO del lienzo del Chatbot (app/chatbot/FlujoLienzo.tsx, `EditorMako`) usa el mismo
+// editor del grupo, pero todavía le pasa una lista plana (`DATOS_MAKO`): el árbol le llega cuando
+// pase `datos={datosOfrecidos({ destino: 'equipo', conLead: true })}` (después de que el motor de esa
+// tarjeta resuelva el catálogo, `textoDelAviso`). `SelectorDatos` (el botón suelto) no lo monta nadie.
 //
 // Lo que dibuja, y por qué así:
 //   · CADA GRUPO ES UNA RAMA con su ícono, su nombre y cuántos datos tiene; se abre y se cierra.
