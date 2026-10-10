@@ -1852,7 +1852,65 @@ que el área sume `'app'`, entra sola (está en «bloqueantes» del reparto). Do
   filtro del panel no tiene piso (un audio corto es un audio) y sí el techo. El botón «✦ guion» que lo
   disparaba salió de la grabación; el piso sigue vivo para «Escríbeme el guion» del onboarding.
 
+- **`sinVoz` se decide con la lectura ESTRICTA** (revisión, 10/10/2026): con `sinVoz: true` el panel
+  ofrece «Que la aprenda MaKo» y «Escribirla yo», y los dos terminan en `setVozGuia` sin comparar. Leído
+  con `getVozGuia` (vía `getSetting`, que vuelve null un error de Supabase), una lectura caída ofrecía
+  pisar una guía escrita a mano. Va `hayVozGuiaEstricto().catch(() => null)` y `sinVoz: hayVoz === false`.
+
 **Vive en:** `lib/mako-redacta.ts` · `app/api/chat-agent/redactar/route.ts` · `app/automations/MakoRedacta.tsx`
+
+### Revisión (10/10/2026): lo que se graba es del chat donde se grabó — el composer que MANDA lleva `key` [whatsapp]
+
+Síntoma (hallazgo 7, el más grave de la parte «pantalla»): en /whatsapp, grabar en el chat de A, ✓, tocar
+a B y ➤ mandaba la nota a A con la pantalla mostrando a B. La sesión guarda el `onSend` del render en que
+se apretó el 🎤, y ése lee el `sel` de ESE render. ChatHilo ya llevaba `key={draftKey}`; EmpresaInbox no.
+
+⚠️ **Lo que engañó: «el archivo que la pasa no se tocó» (la entrada de arriba) se leyó como inocuo**,
+porque `audioAlSoltar` ya no hacía nada. Lo que la bandeja necesitaba no era perder esa prop sino la `key`:
+el contrato del composer CAMBIÓ (antes no había un rato entre grabar y mandar; ahora el ✓ abre justo el
+momento de mirar y cambiar de chat). Cuando un componente compartido cambia de contrato, quien lo monta
+se revisa aunque «siga compilando». Va `key={selConv.chatJid}`; `audioAlSoltar` se borró del tipo.
+
+**Vive en:** `app/whatsapp/EmpresaInbox.tsx` · `app/whatsapp/_shared/ComposerWhatsApp.tsx` · `app/whatsapp/_shared/VoiceRecorder.tsx` (`useGrabacionVoz`) · `tests/whatsapp-sexta-tanda.test.ts`
+
+### Revisión (10/10/2026): la barra de grabar aparece ANTES de que el navegador entregue el micrófono [whatsapp]
+
+Hallazgo 8. `crearSesionVoz.start` pone «grabando» y dibuja 🗑 ⏸ ✓ antes del `await` que pide el permiso.
+Con el cartel del navegador puesto, `stop`/`soltar` no encontraban grabador y al dar Permitir el
+MediaRecorder arrancaba igual: 🗑 dejaba el micrófono grabando sin barra; ✓ dejaba la barra en `uniendo`
+con todo apagado. **La regla:** un pedido de un recurso del navegador que puede tardar (micrófono, cámara,
+pantalla) lleva un número de intento y se cancela; y la UI que se dibuja antes sabe que el recurso no
+llegó (`pidiendoMic`: ⏸ y ✓ apagados, 🗑 prendido porque es lo que cancela). Afecta a todo lo que monta
+`useGrabacionVoz`. Se prueba con un `pedirMicrofono` que se contesta A MANO.
+
+**Vive en:** `app/whatsapp/_shared/VoiceRecorder.tsx` (`crearGrabadorVoz`, `crearSesionVoz`, `BarraGrabacion`) · `tests/whatsapp-sexta-tanda.test.ts` (`armarMicPendiente`)
+
+### Proceso: un arnés de roturas que restaura en `finally` no restaura si lo matan, y un test con un timer vivo no termina [proceso, tests]
+
+La primera corrida de las roturas del hallazgo 8 se colgó: un recorder falso que quedó «grabando» (porque la
+rotura lo dejaba arrancar) mantiene vivo el `setInterval` del grabador, y `node --test` espera para siempre.
+Peor: la salida del arnés iba por un pipe y la línea de la rotura anterior no había llegado, así que parecía
+colgada la R8a cuando en el disco estaba aplicada la R8b. Matar el arnés no corre su `finally`: el archivo
+quedó roto y se restauró a mano, contando cuántas veces aparecía cada `buscar` y cada `reemplazo`.
+
+- **El arnés corre cada test con `timeout` y `--test-force-exit`** (Node 24 lo tiene).
+- **Un test que arranca algo con timer lo suelta en un `finally`**, pase o falle: la rotura que el test
+  caza es justo la que deja el timer vivo.
+- **Después de matar un arnés, la última línea impresa no dice qué rotura quedó en el disco**: se cuenta.
+
+**Vive en:** `tests/whatsapp-sexta-tanda.test.ts` (los tests con `armarMicPendiente`)
+
+### Proceso: el `sinComentarios` de los tests se come el JSX que sigue a un `accept="image/*"` [tests]
+
+El helper que usan decenas de tests (`/\/\*[\s\S]*?\*\//g` después de sacar las líneas `//`) toma el `/*`
+de un MIME con comodín ADENTRO DE UN STRING como el inicio de un comentario. Medido en
+app/whatsapp/EmpresaInbox.tsx: el `acceptArchivo="image/*,…"` del composer se come 11 líneas (509
+caracteres, hasta el próximo `*/` del archivo), con el `/>` del `<ComposerWhatsApp>` adentro. Un guard que
+corte el bloque del composer con `sinComentarios` mira otro texto. Es distinto de lo de AGENTS.md (un `text/*`
+en un comentario `//`): acá está en el código. Sobre un archivo con un `accept=` se sacan sólo las líneas
+`//`, y la regex pide la FORMA del código para que la prosa no la dispare.
+
+**Vive en:** `tests/whatsapp-sexta-tanda.test.ts` (el test de la `key` de /whatsapp) · `tests/pantalla-links-ws.test.ts`
 
 ### Proceso: un componente del lienzo se verifica sin `next dev`, con esbuild y Chrome [proceso]
 
@@ -1888,9 +1946,9 @@ La regla: antes de dar por cerrada una parte que toca `lib/nutricion.ts` o un pr
   `EditorMensajeGrupo` para montarlo; los cambios exactos están en «bloqueantes» del reparto.
 - **El título de la TARJETA MAKO** en el lienzo sigue «MAKO» (`TITULO.mako`, `lib/flujo-conversacion.ts`); la
   cabecera del panel ya dice «MaKo en WhatsApp».
-- **El onboarding del Video Generator** (`app/video-generator/OnboardingVideoGen.tsx`) sigue con el grabador
-  que entrega al soltar (tiene la barra nueva, no la escucha) y la tarea del alumno
-  (`app/compartido/curso/[token]/TareaAlumno.tsx`) tiene su propio MediaRecorder.
+- ~~**El onboarding del Video Generator** sigue con el grabador que entrega al soltar y la tarea del alumno
+  tiene su propio MediaRecorder~~: cerrado en la segunda pasada (parte «datos»), y desde la revisión del
+  10/10 la muestra rechazada vuelve a la barra (ver «La sesión de voz suelta la grabación ANTES…»).
 - **El disparador no le llega al ✦** (el `disparador` del lienzo a `EditorDeNodo`, `app/automations/FlujoLienzo.tsx`).
 - **El clon de configuración se lleva la línea POR MENSAJE** (`secuenciaParaElDestino`, `lib/clonar-config.ts`):
   vacía `audio_id` y `media_id` y deja la `linea` del paso, que nombra un número del DUEÑO. En el destino
@@ -1960,6 +2018,18 @@ siguiente. Y «sale al abrir» lo cumple el tick: en los primeros minutos del ho
 vencido de ese negocio (`acabaDeAbrir`), no sólo lo fresco.
 
 **Vive en:** `lib/horario-envio.ts` · `lib/nutricion.ts` (`horarioDeEnvio`, `dentroDeVentana`) · `app/configuraciones/HorarioEnvioPanel.tsx`
+
+### Revisión (10/10/2026): el server no puede rechazar lo que la pantalla ESCONDE — apagado se guarda siempre [motor, ui]
+
+Hallazgo 11. Prender, sacar todos los días (o cerrar antes de abrir) y apagar: la pantalla valida sólo
+prendido (`invalido` mira `activo`) y el «Guardar» quedaba habilitado, pero `horarioParaGuardar` sanea con
+las reglas de lectura, que no miran `activo`, y contestaba «Elige al menos un día» con los días ocultos. Lo
+guardado prendido seguía limitando. El arreglo obvio —validar en la pantalla sin mirar `activo`— pinta el
+error rojo con los controles escondidos. Va en el server: con un `false` LITERAL y lo elegido que no
+cierra, se guarda apagado con `HORARIO_SUGERIDO`; un pedido roto sigue siendo error. **La regla:** si la
+pantalla esconde un campo en un estado, el server no rechaza ese estado por ese campo.
+
+**Vive en:** `lib/horario-envio.ts` (`horarioParaGuardar`) · `app/configuraciones/HorarioEnvioPanel.tsx` · `tests/horario-envio.test.ts`
 
 ### El motor dejaba CRUDO todo token con dígitos: el «{ }» no podía ofrecer más de cinco datos [motor, ui]
 
@@ -2360,7 +2430,16 @@ saberlo.
 **Regla:** al montar `useGrabacionVoz` donde lo que se hace con el audio puede fallar, el fallo vuelve a
 la barra de escuchar; y si se SUBE, el WAV no viaja.
 
-**Vive en:** `app/whatsapp/_shared/VoiceRecorder.tsx` (`crearSesionVoz`, `unirAudios`) · `app/compartido/curso/[token]/TareaAlumno.tsx` (`CampoGrabacionAudio`) · `app/video-generator/OnboardingVideoGen.tsx` (`GrabadorVoz`)
+⚠️ **La regla nombraba OnboardingVideoGen y sólo TareaAlumno la cumplía** (revisión, 10/10/2026, hallazgo
+10). Ahí se perdía hasta 90 s leídos en voz alta, y el caso común no es una subida que falla sino el piso
+de 20 s: con 15 s grabados la sesión ya se había vaciado y no quedaba ni el 🎤 para sumar el tramo. Y el
+diagnóstico del revisor culpaba a ElevenLabs, que no está en este camino: la rama multipart de
+/api/onboarding/voz sube a Storage (`subirMuestra`); ElevenLabs falla en `clonar`, sin grabación en juego.
+`subirGrabacion` devuelve si sirvió y `GrabadorVoz` llama a `revisarExistente` con el blob de la sesión.
+Siguen sin cumplirla `GrabadorAudioPaso.subir` y `EditorMensajeWhatsApp.usarAudio` (app/automations) y el
+`enviarAudioBlob` de /whatsapp (una nota cuyo envío falla se pierde).
+
+**Vive en:** `app/whatsapp/_shared/VoiceRecorder.tsx` (`crearSesionVoz`, `unirAudios`) · `app/compartido/curso/[token]/TareaAlumno.tsx` (`CampoGrabacionAudio`) · `app/video-generator/OnboardingVideoGen.tsx` (`GrabadorVoz`, `subirGrabacion`)
 
 ### Borrar un archivo sin llamadores pone en rojo tests/dev-areas, y `areas.ts` no es de ninguna parte [proceso]
 
@@ -2564,6 +2643,20 @@ conoce `app/automations/page.tsx`. Y el `npm run build` del worktree corrió con
 `turbopack.root = resolve(__dirname, '..', '..', '..')` —el clon, que contiene al worktree y al
 `node_modules` del junction—, no con el `'..'` que sirve para un worktree hermano del clon: verde, con
 `/automations` y `/chatbot` las dos como rutas dinámicas. `next.config.ts` restaurado y su diff vacío.
+
+### Revisión (10/10/2026): el renombre TOCÓ las líneas que perdían el `?ws=` y no las arregló [renombre]
+
+Hallazgos 12 y 13. Al pasar `/chatbot` a `/automations` se reescribieron dos navegaciones que ya estaban
+mal en main: el rebote de `/whatsapp?stab=plantillas` (WhatsAppApp, con el `useRouter` de
+`next/navigation`) y los `<a href>` crudos del wizard compartido (OnboardingChatAgent, R099 en el `git mv`).
+Las dos dejaban al super admin mirando SU cuenta. Un reemplazo de ruta es el momento barato de pasar la
+línea por `app/_ui/Link`, y nadie lo miró porque el diff era de una palabra. **La regla:** al tocar una
+línea que navega (aunque sea para cambiarle la ruta), se mira por cuál de las cinco formas sale.
+`tests/pantalla-links-ws.test.ts` barre las pantallas de la parte «pantalla»; en `app/` quedan 40
+`<a href="/…">` crudos en 25 archivos (medido el 10/10/2026: un `<a` cuyo `href` arranca en `/`), y
+`app/video-generator/VideoGeneratorApp.tsx` sigue con el `useRouter` de Next.
+
+**Vive en:** `app/whatsapp/WhatsAppApp.tsx` · `app/automations/OnboardingChatAgent.tsx` · `app/video-generator/OnboardingVideoGen.tsx` (`/extension/instalar`) · `tests/pantalla-links-ws.test.ts`
 
 ### Lo que quedó sin hacer (parte «renombre»)
 
