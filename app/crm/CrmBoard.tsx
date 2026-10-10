@@ -100,12 +100,10 @@ import {
   SelectorFunnel,
   CrmFilterMenu,
   CrmToolbarStyles,
-  FiltroChips,
   SinResultados,
   VistaSelector,
   type CrmVista,
   type FiltroAbierto,
-  type FiltroCat,
   type ListaFiltro,
 } from './CrmToolbar';
 import { arbolDeAnuncios, pasaFiltroAnuncio, SIN_ORIGEN_ADS } from '@/lib/campana-atribucion';
@@ -1673,7 +1671,6 @@ export function CrmBoard({
   const elegidos = useMemo(() => leads.filter((l) => selLeads.has(l.id)), [leads, selLeads]);
   const idsVisibles = filtered.map((l) => l.id);
   const todosSel = idsVisibles.length > 0 && idsVisibles.every((id) => selLeads.has(id));
-  const abrirFiltro = (cat: FiltroCat) => setFiltroAbierto(cat);
 
   // ── worklist "datos sin marcar" ──
   const marcarPending = marcar.length;
@@ -2653,17 +2650,10 @@ export function CrmBoard({
         {vista !== 'pendientes' && <SelectorFunnel funnels={funnels} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />}
       </div>
 
-      {/* Fila 2 — solo si hay filtros activos (el buscador no genera chip). */}
-      {vista !== 'pendientes' && (
-        <FiltroChips
-          stages={stages}
-          etapas={stageFilter} setEtapas={setStageFilter}
-          origen={originFilter} setOrigen={setOriginFilter}
-          listas={listasFiltro}
-          orden={ordenFiltro}
-          onAbrir={abrirFiltro}
-        />
-      )}
+      {/* Sin fila de chips debajo de la barra: «No debe salir los chips de abajo del filtro y
+          el botón de "limpiar" si para eso ya está la notificacion en filtros» (Martín,
+          10/10/2026). Cuántos filtros hay lo dice el número sobre «Filtrar», y limpiarlos es
+          el «Limpiar filtros» de abajo del menú, igual que en el Plan. */}
 
       {/* LA BARRA DE LOTE: UNA, ARRIBA DE LAS DOS VISTAS.
           La seleccion vive en el tablero y SOBREVIVE al cambio de vista (ver `selLeads`),

@@ -110,14 +110,14 @@ const TOOLBAR = sinComentarios(leer('app/crm/CrmToolbar.tsx'));
 test('«Ordenar» cuenta como filtro sólo si se apartó de la base, y «Limpiar» vuelve a ella', () => {
   assert.match(TOOLBAR, /const ordenOn = !!orden && orden\.valor !== orden\.base;/);
   assert.match(TOOLBAR, /\+ \(ordenOn \? 1 : 0\);/);
-  // El «Limpiar filtros» del menú y el «Limpiar» de la fila de chips, los dos.
-  assert.equal((TOOLBAR.match(/orden\?\.elegir\(orden\.base\)/g) ?? []).length, 2);
-  assert.match(TOOLBAR, /if \(orden && orden\.valor !== orden\.base\) \{/, 'el chip');
+  // El «Limpiar filtros» del menú. La fila de chips, que tenía su propio «Limpiar», se sacó el
+  // 10/10/2026 (tests/crm-filtro-ads.test.ts).
+  assert.equal((TOOLBAR.match(/orden\?\.elegir\(orden\.base\)/g) ?? []).length, 1);
 });
 
-test('el tablero le pasa «Ordenar» al menú y a los chips, sólo en el kanban', () => {
+test('el tablero le pasa «Ordenar» al menú, sólo en el kanban', () => {
   assert.match(BOARD, /const ordenFiltro = vista === 'kanban'/);
-  assert.equal((BOARD.match(/orden=\{ordenFiltro\}/g) ?? []).length, 2);
+  assert.equal((BOARD.match(/orden=\{ordenFiltro\}/g) ?? []).length, 1);
 });
 
 // ── La base y la acción ───────────────────────────────────────────────────────

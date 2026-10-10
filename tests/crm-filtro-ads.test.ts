@@ -74,7 +74,7 @@ test('el tablero filtra por campaña Y anuncio con UNA regla, y las ofrece en el
   const b = sinComentarios(readFileSync('app/crm/CrmBoard.tsx', 'utf8'));
   // Las dos selecciones del árbol pasan por la misma función (que es «O»: ver su test).
   assert.match(b, /salvo !== 'ads' && !pasaFiltroAnuncio\(l, campanaFilter, creativoFilter\)\) return false/);
-  assert.match(b, /listas=\{listasFiltro\}[\s\S]*listas=\{listasFiltro\}/, 'el menú y los chips reciben las listas');
+  assert.match(b, /listas=\{listasFiltro\}/, 'el menú recibe las listas');
   // Y limpiar todo también las limpia: un filtro que «Limpiar» no saca es invisible.
   assert.match(b, /const limpiarTodo = \(\) => \{[^}]*setCampanaFilter\(new Set\(\)\);[^}]*setCreativoFilter\(new Set\(\)\);/);
   // La página le pasa la atribución al mapper: sin esto los cuatro campos van en null y el
@@ -307,4 +307,21 @@ test('conGrupoAbierto FIJA abierta o cerrada, con cualquier default', () => {
   assert.deepEqual([...conGrupoAbierto(new Set(['B']), 'A', true, true)], ['B'], 'no toca las otras campañas');
   //   ROTO A PROPÓSITO (2026-10-10): alternando a ciegas en vez de fijar, pass 17 / fail 1; y en el
   //   menú, con destildar abriendo igual (siempre `true`), pass 17 / fail 1.
+});
+
+// «No debe salir los chips de abajo del filtro y el botón de "limpiar" si para eso ya está la
+// notificacion en filtros. Dentro de filtros, de la misma manera que está en el PLAN, sebe
+// aparecer un sutil texto abajo que diga "Limpiar filtros".» (Martín, 10/10/2026)
+test('sin fila de chips debajo del filtro: el número sobre «Filtrar» y «Limpiar filtros» adentro del menú', () => {
+  const b = sinComentarios(readFileSync('app/crm/CrmBoard.tsx', 'utf8'));
+  const t = sinComentarios(readFileSync('app/crm/CrmToolbar.tsx', 'utf8'));
+  assert.doesNotMatch(b + t, /FiltroChips/, 'volvió la fila de chips');
+  // El número sobre el botón, y abajo del menú el mismo «Limpiar filtros» que el Plan.
+  assert.match(t, /\{n > 0 && \(\s*<span onClick=\{\(e\) => \{ e\.stopPropagation\(\); limpiar\(\); \}\}/);
+  const plan = sinComentarios(readFileSync('app/plan/board/BoardShell.tsx', 'utf8'));
+  const estilo = /\{n > 0 && \(\s*<button[^>]*\s+style=\{\{ \.\.\.rowBtn, justifyContent: 'center', marginTop: 4, borderTop: '1px solid var\(--border\)', paddingTop: 10, color: 'var\(--primary\)', fontWeight: 600 \}\}>\s*Limpiar filtros \(\{n\}\)/;
+  assert.match(plan, estilo, 'el del Plan, que es el molde');
+  assert.match(t, estilo, 'el del CRM, igual al del Plan');
+  //   ROTO A PROPÓSITO (2026-10-10): con `FiltroChips` de vuelta en el tablero, pass 18 / fail 1; con el
+  //   «Limpiar filtros» del menú en otro peso que el del Plan, pass 18 / fail 1.
 });

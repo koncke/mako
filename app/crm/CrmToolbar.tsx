@@ -701,68 +701,11 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   );
 }
 
-// ── chips de filtros activos: UNO POR CATEGORÍA ──────────────────────────────
-// Un chip por VALOR se desbordaba con cinco etapas elegidas y empujaba el tablero
-// media pantalla para abajo. El cuerpo del chip reabre el menú en esa categoría;
-// la × limpia la categoría entera.
-export function FiltroChips({ stages, etapas, setEtapas, origen, setOrigen, listas = [], orden, onAbrir }: {
-  stages: Stage[];
-  etapas: Set<string>;
-  setEtapas: (s: Set<string>) => void;
-  origen: Set<string>;
-  setOrigen: (s: Set<string>) => void;
-  listas?: ListaFiltro[];
-  /** «Ordenar»: hace chip sólo si se apartó de la base (ver `OrdenFiltro`). */
-  orden?: OrdenFiltro;
-  onAbrir: (cat: FiltroCat) => void;
-}) {
-  const etapaLabel = (k: string) => stages.find((s) => s.key === k)?.label ?? k;
-  const chips: Array<{ cat: FiltroCat; titulo: string; texto: string; completo: string; limpiar: () => void }> = [];
-  if (etapas.size > 0) {
-    const vals = [...etapas].map(etapaLabel);
-    chips.push({ cat: 'etapa', titulo: 'Etapa', texto: vals[0] + (vals.length > 1 ? ` +${vals.length - 1}` : ''), completo: vals.join(', '), limpiar: () => setEtapas(new Set()) });
-  }
-  if (origen.size > 0) {
-    const vals = [...origen];
-    chips.push({ cat: 'origen', titulo: 'Origen', texto: vals[0] + (vals.length > 1 ? ` +${vals.length - 1}` : ''), completo: vals.join(', '), limpiar: () => setOrigen(new Set()) });
-  }
-  for (const l of listas) {
-    if (!l.sel.size && !l.hijos?.sel.size) continue;
-    const hojas = Object.values(l.hijos?.de ?? {}).flat();
-    const vals = [
-      ...[...l.sel].map((v) => l.opciones.find((o) => o.value === v)?.label ?? v),
-      ...[...(l.hijos?.sel ?? [])].map((v) => hojas.find((h) => h.value === v)?.label ?? v),
-    ];
-    chips.push({ cat: l.cat, titulo: l.label, texto: vals[0] + (vals.length > 1 ? ` +${vals.length - 1}` : ''), completo: vals.join(', '), limpiar: () => { l.set(new Set()); l.hijos?.set(new Set()); } });
-  }
-  if (orden && orden.valor !== orden.base) {
-    const texto = orden.opciones[orden.valor] ?? orden.valor;
-    chips.push({ cat: 'orden', titulo: 'Orden', texto, completo: texto, limpiar: () => orden.elegir(orden.base) });
-  }
-  if (chips.length === 0) return null;
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-      {chips.map((c) => (
-        <span key={c.cat} style={{ display: 'inline-flex', alignItems: 'center', maxWidth: 300, borderRadius: 999, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', overflow: 'hidden' }}>
-          <button type="button" onClick={() => onAbrir(c.cat)} title={`${c.titulo}: ${c.completo}`}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0, padding: '5px 4px 5px 12px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, color: 'var(--primary)' }}>
-            <span style={{ fontWeight: 500, opacity: 0.8, flex: 'none' }}>{c.titulo}:</span>
-            <span style={{ fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.texto}</span>
-          </button>
-          <button type="button" onClick={c.limpiar} aria-label={`Quitar el filtro de ${c.titulo.toLowerCase()}`} title={`Quitar el filtro de ${c.titulo.toLowerCase()}`}
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 24, flex: 'none', border: 'none', background: 'transparent', color: 'var(--primary)', fontSize: 14, lineHeight: 1, cursor: 'pointer', fontFamily: SANS }}>
-            ×
-          </button>
-        </span>
-      ))}
-      <button type="button" onClick={() => { setEtapas(new Set()); setOrigen(new Set()); for (const l of listas) l.set(new Set()); orden?.elegir(orden.base); }}
-        style={{ padding: '5px 10px', borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
-        Limpiar
-      </button>
-    </div>
-  );
-}
+// ── Sin chips de filtros activos ──────────────────────────────────────────────
+// Hubo una fila de chips (uno por categoría) debajo de la barra, con su «Limpiar». Se sacó el
+// 10/10/2026 a pedido de Martín: el número sobre «Filtrar» ya dice que hay filtros, y el
+// «Limpiar filtros» vive abajo del menú, como en el Plan. tests/crm-filtro-ads.test.ts frena
+// que vuelva.
 
 // ── Qué funnel dibuja el tablero ─────────────────────────────────────────────
 // Acá vivía «1.142 de 1.142», que repetía los conteos de las bandas que están al
