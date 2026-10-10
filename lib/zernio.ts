@@ -24,11 +24,12 @@
 // lib/webhook-routing.ts.
 
 import 'server-only';
-import { credWs, envCred } from './credenciales';
+import { credWs, credWsEstricta, envCred } from './credenciales';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './workspace';
 import { upsertRouting } from './webhook-routing';
 import { linkApp } from './app-url';
+import { webhookDeLaCuenta } from './zernio-firma';
 import { profileDeLaCuenta } from './zernio-profile';
 
 const ZERNIO_BASE = 'https://zernio.com/api/v1';
@@ -89,6 +90,17 @@ async function cfg(ws: number): Promise<ZernioCfg> {
 /** ¿Este workspace puede hablar con Zernio? Sin tirar. */
 export async function zernioConfigurado(ws: number): Promise<boolean> {
   try { await cfg(ws); return true; } catch { return false; }
+}
+
+/**
+ * ¿Este workspace habla con Zernio con su key PROPIA? La misma pregunta que `cfg`, con la lectura
+ * ESTRICTA: la hace el webhook para decidir si un evento firmado con el secreto MAESTRO le toca
+ * (`aceptaElWorkspace`, lib/zernio-firma.ts), y ahí «no pude leer» no puede contestarse «no tiene»:
+ * tira, y el webhook lo manda por `responderFalloDeRuteo`.
+ */
+export async function usaCuentaPropia(ws: number): Promise<boolean> {
+  if (ws === OWNER_WS) return false;
+  return (await credWsEstricta('ZERNIO_API_KEY', ws)) != null;
 }
 
 async function zFetch<T>(apiKey: string, path: string, init?: RequestInit & { headers?: Record<string, string> }): Promise<T> {
@@ -234,15 +246,23 @@ type ZernioWebhook = { _id: string; url?: string; events?: string[]; isActive?: 
  * ⚠️ SIN ESTO NO LLEGA NADA, Y NO DA ERROR. Medido el 09/10/2026 en producción: los dos workspaces
  * con Zernio (ws11 y ws13) tienen key PROPIA y `zernio_workspace.webhook_ok = false` desde agosto —
  * el webhook nunca les entregó un evento. Con key propia, el webhook vive en SU cuenta de Zernio y lo
- * tiene que registrar alguien: lo registra MaKo, con el secreto de la plataforma
- * (`ZERNIO_WEBHOOK_SECRET`), que es el que verifica la firma (app/api/webhooks/zernio).
+ * tiene que registrar alguien: lo registra MaKo.
+ *
+ * ⚠️ Y EN ESA CUENTA NO VA EL SECRETO MAESTRO (`ZERNIO_WEBHOOK_SECRET`): lo que se le da a Zernio ahí lo
+ * lee quien tenga la key de la cuenta (`GET /webhooks/settings` devuelve el `secret`, medido el
+ * 10/10/2026), y con el maestro un cliente firmaba eventos de cualquier otro negocio. Va el secreto de
+ * ESE negocio y la URL que lo nombra (`?w=<ws>`); el maestro, sólo a la cuenta de la plataforma.
+ * El webhook verifica con el que nombra la URL (lib/zernio-firma.ts).
  */
 export async function asegurarWebhook(ws: number): Promise<'creado' | 'actualizado' | 'sin_secreto'> {
-  const secret = await envCred('ZERNIO_WEBHOOK_SECRET');
-  if (!secret) return 'sin_secreto';
+  const maestro = await envCred('ZERNIO_WEBHOOK_SECRET');
+  if (!maestro) return 'sin_secreto';
   const c = await cfg(ws);
-  const url = linkApp('/api/webhooks/zernio', null);
+  const { ruta, secret } = webhookDeLaCuenta(maestro, ws, c.byok);
+  const url = linkApp(ruta, null);
   const r = await zFetch<{ webhooks?: ZernioWebhook[] }>(c.apiKey, '/webhooks/settings');
+  // Sólo la URL EXACTA. No se re-apunta uno a la URL pelada: si la key «propia» de un negocio fuera la
+  // de la plataforma, ése es el webhook que comparten todos los negocios sin cuenta propia.
   const nuestro = (r.webhooks ?? []).find((w) => (w.url ?? '').trim() === url);
   const events = [...EVENTOS_WEBHOOK];
   if (nuestro) {
