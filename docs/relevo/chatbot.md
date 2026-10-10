@@ -13,20 +13,31 @@ Los arreglos de DATOS ya están en producción (Martín los aprobó a las 11:25 
 la etiqueta también por email y el saludo corregido. Releídos con las funciones de la app: los cinco pasan
 Publicar.
 
+## Lo que Martín decidió a las 13:07 (y está hecho, salvo el recordatorio)
+
+- **La 224**: «Agendó» → «Próxima reunión en ≤ 720 h» (escrito y releído; sigue pausada).
+- **Los reportes salen por email**, sin WhatsApp (`REPORTE_POR_WHATSAPP`, lib/mensaje-canales.ts).
+- **La base de la plataforma, separada** (`mako.plantillas.base`; la edita sólo /mensajes en el ws9).
+- **El recordatorio, «mudarlo al motor»** — EN CURSO, con este plan:
+  1. Un CRON propio, «Agendó una reunión» (`reunion_recordatorio`), registrado en TRIGGERS, la glosa y el
+     selector del CRON. El motor de nutrición NO lo inscribe: lo manda el emisor de siempre
+     (`mandarRecordatoriosAlLead`), que ya resuelve la R1 y la R2, las reagendas, `fechaCoincide` y no repite
+     un toque (`claveToque`). Así la mudanza no cambia QUÉ sale ni CUÁNDO.
+  2. La forma que el emisor sabe mandar: CRON → (espera antes de la reunión → WhatsApp) × N, en fila. Publicar
+     rechaza con ese CRON lo que no sabría mandar (condiciones, acciones, email, esperas por tiempo).
+  3. El emisor lee los toques de esa fila (minutos, texto, número) y su `activa`, en vez de
+     `chatbot.recordatorio_reunion`, que queda como respaldo.
+  4. Los datos del recordatorio ({{cuando}}, {{hora}}, {{faltan}}, {{link}}) en el «{ }», el ✦ y «Probar».
+  5. Migración por negocio (ws1 prendido, ws11 apagado): la fila con sus textos y números, y el mismo
+     interruptor. Las marcas de lo ya mandado siguen valiendo: es el mismo emisor.
+  6. Sale la fila especial de la lista y `RecordatorioFlujo`; la galería suma «Recordatorio de la reunión».
+
 ## Lo que decide Martín (séptima tanda)
 
-- **La 224 (ws13)**: «Agendó» también cuenta la reunión a la que faltó, así que el email de reagendar no le
-  sale a nadie. ¿Se cambia por «Próxima reunión en ≤ 720 h», como la plantilla?
-- **El recordatorio**: ¿se muda al motor de las automatizaciones? Con eso vienen solos el ✦, mover tarjetas,
-  «Acomodar» y «Probar». Con el emisor prendido en el ws1, mudarlo puede mandar todo dos veces. Y que no tenga
-  «＋ Nuevo CRON» es un default (sólo dispara por la agenda).
 - **Los mensajes de MaKo en WhatsApp**: el flujo (pasos, CRON) se guarda en el acto y «Publicar» publica sólo
   el texto; en una automatización todo sale con Publicar.
-- **Del ws9**: el store de tus mensajes es el default de todos los clientes (¿se avisa en la pantalla o se separa
-  la base de la plataforma?); el reporte semanal no sale por WhatsApp desde que se borró Chatwoot (¿al grupo de
-  MaKo, o se apaga WhatsApp para los reportes?); el CRON «Agendó una reunión» no ve las reuniones cargadas a mano
-  sin hora; `{{hora}}` sale en la zona del negocio; los títulos de 6 mensajes (los del catálogo de
-  notificaciones son más cortos).
+- **Del ws9**: el CRON «Agendó una reunión» no ve las reuniones cargadas a mano sin hora; `{{hora}}` sale en la
+  zona del negocio; los títulos de 6 mensajes (los del catálogo de notificaciones son más cortos).
 - **El aviso de 30 minutos al dueño** sólo corre con Calendly: ¿se extiende a todos (Código Inmobiliario usa
   Cal.com)? Es mandar avisos nuevos a clientes.
 - **Activar** no frena una automatización con la línea desconectada (ws13) ni una nueva con el CRON viejo de la

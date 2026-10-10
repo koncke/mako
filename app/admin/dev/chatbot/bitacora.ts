@@ -1229,4 +1229,16 @@ export const BITACORA: Hito[] = [
       { sha: "ea84bfec", msg: "Lienzos: un solo BotonPila, y el recordatorio con sus botones de deshacer y rehacer", lineas: 115, archivos: 5 },
     ],
   },
+  {
+    fecha: "10 oct", hora: "13:07", chat: "—", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Cuatro decisiones: la 224, el recordatorio al motor, los reportes sin WhatsApp y la base separada",
+    pedido: "224: «Sí, cambiala». Recordatorio: «Mudarlo al motor». Reporte: «Apagar WhatsApp en los reportes». Default ws9: «Separar la base».",
+    puntos: [
+      "La 224 (ws13): «Agendó» pasó a «Próxima reunión en ≤ 720 h» (escrito y releído; sigue pausada).",
+      "Los reportes salen por email: una constante, REPORTE_POR_WHATSAPP, la leen el lienzo, el interruptor y el cron (90c5e313).",
+      "La base de la plataforma vive en mako.plantillas.base y sólo la edita /mensajes desde el workspace de la plataforma; el ws9 hereda como cualquiera (7ad16c8a). Las dos claves estaban vacías.",
+      "El recordatorio: pasa a ser una automatización como cualquier otra (su fila, el lienzo, el ✦, mover, Acomodar, Probar), y la manda el MISMO emisor de siempre, que ya resuelve la R1 y la R2, las reagendas y la tolerancia. Plan en docs/relevo/chatbot.md.",
+    ],
+  },
 ];
