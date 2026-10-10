@@ -247,4 +247,76 @@ export const BITACORA: Hito[] = [
       'AGENTS.md — `app/vsl/landing-html.ts` es GENERADO y no se edita a mano: la sección nueva se monta desde `Landing.tsx`',
     ],
   },
+  {
+    fecha: '10 oct', hora: '16:15', chat: 'Estrategia de ventas MaKo', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Bajar a tierra un programa de referidos atractivo y rentable',
+    pedido: 'Teniendo en cuenta todo esto\n\nhttps://hola-mako.com/admin/runway\nhttps://hola-mako.com/vsl/estrategia\nY el proyecto de "Referidos" en el Plan...\nY sobre todo, lo último que habiamos quedado, todo el contexto...\n\nQuiero que me ayudes a bajar a tierra el sistema de referidos que sea atractivo realmente y que me salga rentable... Estoy medio perdido como escucharás en el audios... Tal vez si investigas también como lo hacen otras apps',
+    puntos: [
+      'Vino con un audio de WhatsApp (transcripto con Groq). Después, en el chat: «quién preferiría $10 antes que $47» (se descartó el «modo cuenta»), «lo más fácil es descontar su suscripción si trae a 2 de 47, o 1 de 97», «300 por grupal está bien» y la agencia dentro del 97.',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '17:37', chat: 'Estrategia de ventas MaKo', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'El programa de referidos decidido, con su costo contra el techo de cada plan',
+    puntos: [
+      'Cada cliente nuevo descuenta su primer mes de la suscripción del que lo refirió, una vez (2 × 47 o 1 × 97 = su mes de 97 gratis), y cuenta cuando ya pagó 2 meses. El grupal paga US$300 en efectivo (20% de cada cuota, sin comisión si hay reembolso). La agencia vive dentro del 97.',
+      'Costo esperado contra techo: el referido del 47 cuesta 78,23 (techo 81,50); el del revendedor pagado en efectivo, 80,56; el del 97, 130,46 (techo 158,07).',
+      'Descartado, con su porqué en `docs/referidos.md`: el «modo cuenta», «gratis mientras sigan activos» (−US$33,13 por mes por referidor) y el plan de agencia de 200.',
+    ],
+    commits: [
+      { sha: '72dac4fb', msg: 'Referidos: la propuesta bajada a tierra, y lo que vuelve a morder al diseñar un premio', lineas: 401, archivos: 4 },
+      { sha: '72272c6d', msg: 'Referidos: un solo número para todos (Martín descartó el «modo cuenta»)', lineas: 69, archivos: 2 },
+      { sha: '29a3ef18', msg: 'Referidos: el programa decidido (cada cliente nuevo descuenta un mes, agencia dentro del 97)', lineas: 61, archivos: 2 },
+    ],
+    archivos: ['docs/referidos.md — «EL PROGRAMA DECIDIDO», la tabla de costos y la síntesis de cómo lo hacen otras apps'],
+  },
+  {
+    fecha: '10 oct', hora: '17:46', chat: 'Estrategia de ventas MaKo', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Juntar la estrategia, el runway y los costos en UNA tab de super admin',
+    pedido: 'Lo que pienso es... Gratis el primer mes para el que llega, solo el plan de 47, en el de 97 de última 50% de descuento, sino, no es rentable.\nY para los revendedores, primero se descuenta de su suscripción y luego recién se comienza a pagarles.\n\nAntes de la pagina para los revendedores me gustaría unificar toda esta info... Todo en una sola tab de MaKo... En la de estrategia me gustaría...\nPorque tenemos runway, tenemos una de análisis de costos, y mucha info desparramada.\n\nRecuerda que al diseñarlo, siempre que se vea grafico, simple, no tanto texto. Como está la de estrategia.\n\nY haz privada solo para superadmin esa tab.\n\n(a mitad del trabajo) Haz los graficos de torta... Y en general utiliza graficos cuando veas necesario.\n\nTodo que sea bien visual',
+    puntos: [],
+  },
+  {
+    fecha: '10 oct', hora: '18:59', chat: 'Estrategia de ventas MaKo', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tab Strategy: estrategia, runway, costos y referidos en una sola pantalla',
+    puntos: [
+      '`/admin/estrategia`, sólo super admin (`getSesionAdmin`), con los números IMPORTADOS del runway y de `modelo.ts`. Tres tortas (47, 97 y grupal 1.500) que suman al centavo. `/vsl/estrategia` redirige ahí.',
+      'Lo que no coincidía entre las fuentes al juntarlas, en `docs/hallazgos-planes-y-cobro.md`: el objetivo de 10.000 salía de un 1 a 1 que ya no está en la oferta (5 ventas son 7.500), la pauta de noviembre dice 1.000 en la estrategia y 2.000 en el runway, y `CAC_CANALES` mide el 47 con usuarios Free que hoy no existen.',
+    ],
+    commits: [
+      { sha: '9862c146', msg: 'Strategy: la estrategia, el runway, los costos y los referidos en UNA tab de super admin', lineas: 3052, archivos: 16 },
+    ],
+    archivos: [
+      'app/admin/estrategia/datos.ts — toda cuenta de la tab, al lado de su porqué',
+      'tests/estrategia-tab.test.ts — las tortas al centavo, las decisiones del 10/10 y el guard de super admin',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '19:47', chat: 'Estrategia de ventas MaKo', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Devolver la intro y el cliente ideal, y partir la tab en desplegables',
+    pedido: 'Eliminaste cosas de la antigua tab de estrategia que estaban buenas... Como la intro, que decía el avatar, etc...\nY utiliza mas desplegables, que se separen bien las secciones, no se entiende son muchas cosas todas juntas. Quiero tener claridad de que estoy leyendo en todo momento.',
+    puntos: [],
+  },
+  {
+    fecha: '10 oct', hora: '20:08', chat: 'Estrategia de ventas MaKo', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Doce secciones en desplegables, y lo que estaba en un hover, a la vista',
+    puntos: [
+      'Vuelven arriba la intro («Cómo vamos a vender MaKo») y el cliente ideal. Cada sección es un `<details>` numerado con la pregunta que contesta, en tres grupos; la abierta deja su renglón pegado arriba al scrollear.',
+      '⚠️ **El atajo de la primera versión era esconder, no acortar:** los seis ejes de la llamada, el Loom y los canales a futuro estaban en un `title`, que no se ve en el celular ni sin el mouse. Ahora se ven, y el test busca el texto en la página dibujada SIN los `title`.',
+      'La propuesta a Jan vuelve con los tres puntos que chocan con los referidos MARCADOS, no corregidos: qué se le ofrece lo decide Martín.',
+    ],
+    commits: [
+      { sha: 'c7796466', msg: 'Strategy: vuelven la intro y el cliente ideal, y cada sección es un desplegable', lineas: 952, archivos: 6 },
+    ],
+    archivos: [
+      'app/admin/estrategia/Estrategia.tsx — `Seccion` (el desplegable), `Grupo`, `Intro`, `Producto`, `ColJan`',
+      'app/admin/estrategia/datos.ts — `JAN_GANA` / `JAN_GANO`, con `choca` en lo que no coincide con el programa decidido',
+    ],
+  },
 ];

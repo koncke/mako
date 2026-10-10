@@ -17,23 +17,20 @@ semanal.
 - **La cosecha** — `docs/hallazgos-planes-y-cobro.md`: «Referidos (10/10)» y «La tab
   /admin/estrategia (10/10/2026)».
 
-## Lo que estaba EN CURSO cuando se cortó
+## La segunda vuelta de la tab (HECHA el 10/10, después del corte)
 
 Martín (10/10, después de verla): «eliminaste cosas de la antigua tab de estrategia que
 estaban buenas, como la intro, que decía el avatar» y «usa más desplegables, que se separen
 bien las secciones, no se entiende, son muchas cosas todas juntas. Quiero tener claridad de
 qué estoy leyendo en todo momento».
 
-Lo que hay que hacer en `app/admin/estrategia/Estrategia.tsx`:
-1. **Devolver la intro**: «Cómo vamos a vender MaKo» + el párrafo, y «El producto y a quién
-   se le vende» (el link a la landing y el cliente ideal: corre o quiere correr un VSL Funnel
-   pago; ya no se exige facturar US$10-20k; puede invertir desde ~US$20/día). La versión
-   vieja está en git: `git show 9862c146^:app/vsl/estrategia/Estrategia.tsx`.
-2. **Cada sección en un desplegable** (`<details>` nativo, la página es server-rendered),
-   numerada, con un renglón que diga qué contesta. Un índice arriba.
-3. **Devolver lo que se escondió en hover**: las descripciones de los 6 puntos que se
-   analizan en la llamada, la propuesta a Jan (dentro de «Canales a futuro», en un
-   desplegable).
+Lo que quedó: la intro y el cliente ideal de vuelta arriba; doce secciones numeradas, cada
+una un desplegable con la pregunta que contesta, en tres grupos (La estrategia · Los
+números · Lo que sigue); el renglón de la sección abierta queda pegado arriba al scrollear;
+lo que estaba en un hover (los seis ejes, el Loom, el diagnóstico, los canales a futuro) se
+ve; y la propuesta a Jan vuelve en su propio desplegable, con los tres puntos que chocan
+con los referidos MARCADOS, no corregidos. El porqué, en `docs/hallazgos-planes-y-cobro.md`
+→ «Y la segunda vuelta, el mismo día».
 
 ## Lo que espera a Martín
 
@@ -41,5 +38,8 @@ Lo que hay que hacer en `app/admin/estrategia/Estrategia.tsx`:
    de 10.000 pide 7 ventas (~22 agendas).
 2. ¿La pauta de noviembre es **US$1.000 o US$2.000**? (estrategia vs. runway)
 3. ¿**`/vsl/costos`** se hace privada? Hoy es pública, con los costos de la empresa.
-4. Después: el acuerdo de una página y los mensajes para los referidores del grupal (Jan,
+4. **La propuesta a Jan** choca en tres puntos con los referidos decididos (licencia de
+   reventa, prueba gratuita extendida, % de ganancias): ¿se le ofrece lo de julio, o se
+   reescribe con el programa del 10/10? La tab la muestra marcada (`datos.ts`, `JAN_GANA`).
+5. Después: el acuerdo de una página y los mensajes para los referidores del grupal (Jan,
    Juanfran, su hermana).
