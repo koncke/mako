@@ -21,13 +21,31 @@ export type EventoFlujo =
   | 'lead.form_meta'     // webhooks/meta-leads (INSERT)
   | 'lead.wa_entrante';  // ⚠️ sin emisor desde el 09/10/2026 (ver arriba)
 
+/**
+ * Los eventos que se pueden ELEGIR en el CRON de un mensaje: cada uno tiene su emisor.
+ *
+ * ⚠️ «Un lead escribe por WhatsApp» SALIÓ DE ACÁ el 09/10/2026 (sexta tanda, General 15: plantillas
+ * «con configuraciones viejas obsoletas»): se ofrecía en el desplegable y un mensaje que lo eligiera
+ * no salía nunca, porque nada lo emite (ver arriba). Vive en `EVENTOS_SIN_EMISOR`, para que un flujo
+ * guardado con él se siga NOMBRANDO —y diga que ya no se dispara— en vez de quedar en blanco.
+ * Medido ese día: ningún store de plantillas lo usa.
+ */
 export const EVENTOS: Array<{ key: EventoFlujo; label: string }> = [
   { key: 'lead.agendo', label: 'Un lead agenda una reunión' },
   { key: 'lead.cancelo', label: 'Un lead cancela la reunión' },
   { key: 'reunion.ocurrio', label: 'Terminó una reunión (Fathom)' },
   { key: 'lead.form_meta', label: 'Entra un lead por formulario de Meta' },
-  { key: 'lead.wa_entrante', label: 'Un lead escribe por WhatsApp' },
 ];
+
+/** Los eventos que quedaron sin emisor: se nombran para leer lo guardado, no se ofrecen. */
+export const EVENTOS_SIN_EMISOR: Array<{ key: EventoFlujo; label: string }> = [
+  { key: 'lead.wa_entrante', label: 'Un lead escribe por WhatsApp (ya no se dispara)' },
+];
+
+/** El rótulo de un evento, también de uno sin emisor. null = no es un evento conocido. */
+export function rotuloDeEvento(key: string): string | null {
+  return [...EVENTOS, ...EVENTOS_SIN_EMISOR].find((e) => e.key === key)?.label ?? null;
+}
 
 export type FiltroEvento = { reunion?: 'R1' | 'R2' };
 
@@ -203,7 +221,7 @@ export function flujoVacio(): Flujo {
 /** Descripción legible del disparador (para la card del flujo). */
 export function describirDisparador(d: Disparador): string {
   if (d.tipo === 'manual') return 'Manual (lo disparas tú)';
-  const ev = EVENTOS.find((e) => e.key === d.evento)?.label ?? d.evento;
+  const ev = rotuloDeEvento(d.evento) ?? d.evento;
   const f = d.filtro?.reunion ? ` (solo ${d.filtro.reunion})` : '';
   return `${ev}${f}`;
 }

@@ -2574,6 +2574,133 @@ conoce `app/automations/page.tsx`. Y el `npm run build` del worktree corrió con
   `app/chatbot/<archivo>:<línea>` en su detalle (ChatAgentApp, GrabadorAudioPaso, OnboardingChatAgent ×2):
   el archivo está en `app/automations/`. No hay links a `/chatbot` guardados en `app_settings`.
 - **No se vio con clics**: ni el redirect con un `?sec=` en el navegador, ni el título de la pestaña.
+## Sexta tanda, parte «plantillas» (09/10/2026, noche): las plantillas que quedaron viejas
+
+General 15, literal: «Hay plantillas que quedaron viejas con todos los cambios, incluso que no tienen
+sentido porque quedaron con configuraciones viejas obsoletas... Cuando termines de implementar todo,
+revisalas». Rama `wip-v6c-plantillas`. Lo guardado se mira con `scripts/plantillas-viejas.mts`
+(simulacro por default); lo que lo mantiene al día, `tests/plantillas-viejas.test.ts`.
+
+### «Las plantillas» son dos cosas, y en el código se llaman igual sólo una [plantillas]
+
+En el código, una plantilla es un mensaje de MaKo en WhatsApp: el catálogo (`lib/avisos-catalogo.ts`),
+el store por negocio (`mako.plantillas.store`, `lib/plantillas.ts`) y su ruta (`/api/perfil/plantillas`),
+que la tab dibuja como la división «MaKo en WhatsApp». En boca de Martín es eso y además lo que la
+plataforma trae hecho: «la plantilla por defecto» de la cobranza (04/10) y las automatizaciones que
+siembra (las tres del onboarding y el esqueleto de la API). Se revisaron las dos, y las dos tenían lo
+mismo: estaban escritas para un modelo que la tanda cambió y nada falla cuando eso pasa.
+
+**Vive en:** `lib/avisos-catalogo.ts` · `lib/plantillas.ts` · `lib/setting-semillas.ts`
+
+### Siete de los ocho mensajes que edita un cliente no mandaban lo que se editaba [plantillas]
+
+**Síntoma:** el editor de MaKo en WhatsApp (el mismo del WhatsApp, MaKo en WhatsApp 2) dejaba escribir
+el texto del reporte semanal, del recordatorio de reunión, de «Terminó la reunión», del mensaje
+entrante y de la línea caída/volvió. Se publicaba, decía «Publicado ✓», y lo que llegaba no cambiaba.
+
+**Causa:** cada emisor le pasa a `emitirDelCatalogo` un `texto` armado con lo que midió (o lo manda
+`despacharReporte`), y entonces la plantilla no se lee. Sólo `cuota-vencida` usa la suya. Ya estaba
+anotado como «cola» para el reporte («El texto de un REPORTE no llega al mail», /admin/dev/configuraciones)
+y eran siete. En ws1 eso dejó un `texto` y un borrador de prueba («…$12.800 ZZZ QQQ») que no salen nunca.
+
+⚠️ **El diagnóstico obvio —«hacerlos editables de verdad»— es el caro:** cada emisor arma su texto con
+datos exactos (montos, links, la línea) y pasarlo por la plantilla es cambiar lo que le llega a cada
+negocio. Lo que se hizo es lo seguro: el catálogo DECLARA `textoDelCodigo` y la ruta y el editor
+preguntan lo mismo (`seEditaElTexto`). Lo decide Martín si alguno pasa a usar el texto del cliente.
+
+⚠️ **Y `editable` eran dos preguntas en un booleano:** apagar el texto apagaba también el ＋ del
+lienzo. El flujo de esos mensajes (su CRON por evento, sus pasos) sigue siendo del cliente:
+`FlujoAviso` recibe `textoEditable` aparte. El guard cruza la marca contra los EMISORES en las dos
+direcciones: un emisor que pase a mandar su texto obliga a poner la marca, y uno que pase a usar la
+plantilla, a sacarla.
+
+**Vive en:** `lib/avisos-catalogo.ts` (`textoDelCodigo`, `seEditaElTexto`) · `app/api/perfil/plantillas/route.ts` · `app/agencia/TemplateDetalleModal.tsx` · `app/agencia/FlujoAviso.tsx` (`textoEditable`)
+
+### La plantilla de fábrica de la cobranza: dibujada rota, sin editor, y sus textos no salían [plantillas]
+
+Tres capas, y ninguna daba error:
+
+1. **Rota:** sus cuatro pasos —que el cron de cobranza corre con `correrFlujoDe`— llevaban «Este paso
+   sólo corre cuando el mensaje lo dispara un evento», y una tarjeta con advertencia se pinta como rota.
+   El grafo no sabía qué avisos corre el código: `correSuFlujo` en el catálogo, cruzado en el test contra
+   el único llamador.
+2. **Sin editor:** la espera, la condición y el mensaje al grupo caían al `return` del final de
+   `EditorDelAviso`: una línea de texto, ni un campo ni «Quitar este paso». Un DELAY o un CONDITION
+   agregados con el ＋ quedaban para siempre. Ahora tienen editor, con el mismo guardado diferido que la
+   acción (`usePasoDiferido`: `panelPendiente`, desmonte, pestaña oculta).
+3. **No salían:** la rama del mensaje al grupo (`lib/flujos.ts`) le pedía a la IA que reescribiera la
+   plantilla PRINCIPAL (`generarMensajeAviso` lee `referenciaPlantilla(flujoId)`), no el paso. O sea que
+   a las 48 h salía otra vez el mismo aviso, con `{{cuota_dias}}` crudo, en vez de «Sigue sin
+   cobrarse…». Ahora sale el texto del paso con los datos por código y sin IA, como el mensaje de
+   entrada. Medido: `flujo_corridas` vacía, no le cambió un mensaje a nadie.
+
+Y los títulos de los pasos eran los de antes («Hace algo», «Espera», «Si pasa esto», «Te lo recuerda»):
+son los de la casa (`TITULO`), y el mensaje al grupo es la tarjeta de MaKo con su texto.
+
+**Vive en:** `lib/flujo-aviso.ts` (`corren`, `recorteDeTarjeta`) · `lib/flujos.ts` (rama `aviso_dueno`) · `app/agencia/FlujoAviso.tsx` (`EditorPasoEspera`, `EditorPasoCondicion`, `EditorPasoAlGrupo`)
+
+### Las semillas escribían el modelo de antes, y el lienzo las abría «Sin publicar» [semillas]
+
+`armarSecuenciasDeAudios` y `crearSecuenciaDesdeEtapa` escribían una LISTA (la espera en
+`delay_horas`, la condición en `requiere`, el modo asistido, un «sigue con» que es un GO TO, y un
+relleno que mandaba al «paso de redacción» de un wizard que no existe). Nacen por la MISMA conversión
+que hace el lienzo al abrirlas (`abrirFlujo`) y con la limpieza que pone Publicar
+(`estrategiaConLimpieza`): lo que nace es lo que se habría publicado, y el motor manda lo mismo.
+
+⚠️ **La trampa de al lado:** sobre un flujo de tarjetas sin estrategia, re-grabar un audio sembraba la
+estrategia de la LISTA (modo asistido, fallo por silencio), y el motor viejo volvía a hacer por su lado
+lo que ya hacen las tarjetas. Una estrategia sembrada va con la forma de los pasos.
+
+**Vive en:** `lib/setting-semillas.ts` (`planosDeAudios`, `comoNace`, `pasosDeEsqueleto`) · `lib/secuencias-audios.ts` · `lib/setting-secuencias.ts`
+
+### Un evento sin emisor se ofrecía, y un mensaje propio con un evento no sale nunca [motor]
+
+«Un lead escribe por WhatsApp» quedó sin emisor el 09/10 y seguía en el desplegable del CRON de los
+mensajes: salió de `EVENTOS` y vive en `EVENTOS_SIN_EMISOR` para nombrar lo guardado. Y algo que no se
+arregló: `dispararEvento` corre los PASOS del flujo de un aviso, nunca su mensaje. Un mensaje propio del
+negocio (`custom`) con un evento —el ws13 tiene uno, apagado— no sale nunca, aunque el lienzo dibuje
+CRON → MaKo en WhatsApp. Mandarlo también duplicaría los del catálogo que su código ya emite en ese
+evento: lo decide Martín.
+
+**Vive en:** `lib/flujos-tipos.ts` · `lib/flujos.ts` (`dispararEvento`)
+
+### Medido en producción (09/10/2026, sólo lectura) [entorno]
+
+- Store de mensajes en ws1 (6 entradas), ws3 (1), ws4 (2) y ws13 (5); el de la plataforma, vacío. Cero
+  overrides de prompts (`mako.prompt-overrides` no existe): el prompt de Crear con IA es el del código.
+- 69 automatizaciones, 10 no archivadas. #212 y #213 (ws1, en vivo): nada viejo, no se tocaron.
+- Lo idéntico que el script escribiría: 4 flujos vacíos y un paso «⚡ Acción» de antes en ws1, 2 flujos
+  vacíos en ws4. Lo que es de Martín: el texto «ZZZ» del reporte de ws1, el mensaje propio con evento de
+  ws13, #221 (ws1: «Agendó pero no confirmó» al lado de la post-agenda nueva, o sea dos audios si se
+  activa, y un GO TO), #210 (ws4, la post-agenda vieja del onboarding) y #224 (ws13, manual: no la
+  arranca nada).
+
+### Proceso [proceso]
+
+- `tests/sin-chatwoot.test.ts` barre `scripts/` también: un script nuevo que nombre la integración
+  borrada lo pone en rojo. Se escribe «la línea oficial».
+- En un worktree aislado, un `node -e` con el programa en la línea lo puede rechazar el aislamiento del
+  agente: las ediciones van por la herramienta de editar o por un archivo.
+
+### Lo que quedó sin hacer (parte «plantillas»)
+
+- **El DELAY de un mensaje de MaKo sigue siendo tarjeta** en su lienzo (DELAY 1 se hizo en el de las
+  automatizaciones). `lib/flujo-aviso.ts` (`grafoDeAviso` → `AristaFlujo.esperas`) · `app/agencia/FlujoAviso.tsx`
+- **El CRON de un mensaje sigue con «Por tiempo / Por una acción»** (CRON 2 era del de las
+  automatizaciones). `app/_components/EditorCron.tsx` (`SelectorDisparo`)
+- **Los textos que arma el código dicen «secuencia» y «Si responde»**: «Secuencia: X» y «súmalo como
+  caso en «Si responde»» (`lib/chat-agent-handoff.ts`), «respondió a la secuencia de mensajes»
+  (`lib/nutricion.ts`, rama protegida), «la secuencia está pausada» (`lib/setter-conversacion.ts`).
+- **La API dice que re-armar las del onboarding «pierde sus cambios de texto y variantes»**: desde el
+  08/10 una de tarjetas sólo cambia el audio. `lib/api-mako/areas/chatbot.run.ts` (`armar_secuencias_de_audios`)
+- **El onboarding de la tab arrastra los pasos de la línea oficial** (y «la sub-tab Plantillas»), que el
+  catálogo ya no tiene: código muerto. `app/chatbot/OnboardingChatAgent.tsx`
+- **En /mensajes (agencia) se siguen editando los textos que arma el código**: lo decide Martín.
+- **`usePasoDiferido` y `EditorPasoAccion` repiten el mismo guardado diferido**: pasar la acción al hook.
+  `app/agencia/FlujoAviso.tsx`
+- **Correr `scripts/plantillas-viejas.mts --aplicar`**: lo decide Martín (escribe sólo lo idéntico).
+- **Verlo con clics**: el lienzo de la cobranza con sus editores, un mensaje que arma el código
+  (sin editor y con ＋), y las semillas abriendo sin «Sin publicar».
 
 ## Lo que quedó sin hacer
 

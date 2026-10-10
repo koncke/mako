@@ -13,7 +13,7 @@ import { FlujoAviso } from './FlujoAviso';
 import { PrefsDeMensaje } from '../perfil/PrefsDeMensaje';
 import { Confirm } from '@/app/_ui/Confirm';
 import { type as tipo } from '@/app/_ui/tokens';
-import { CATEGORIAS_AVISO, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import { CATEGORIAS_AVISO, esAvisoDelCliente, seEditaElTexto, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { ICONO_CATEGORIA } from './categoria-icono';
 
@@ -179,6 +179,12 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
   // protege nada— pero un textarea que rechaza todo lo que se escriba es peor que
   // no tenerlo: se lee como que la app está rota, no como que no te corresponde.
   const puedeEditarTexto = endpoint === ENDPOINT_AGENCIA || (id != null && esAvisoDelCliente(id));
+  // ⚠️ Y EL TEXTO DE UN AVISO DEL CLIENTE CUYO TEXTO ARMA EL CÓDIGO TAMPOCO (sexta tanda, 09/10/2026):
+  // el guardado no sale nunca (`textoDelCodigo`, lib/avisos-catalogo.ts). Es OTRA pregunta que la de
+  // arriba: el flujo de ese aviso (su CRON por evento, sus pasos) sigue siendo del cliente y sigue
+  // editable; lo que no se ofrece es escribir un mensaje que nadie manda. La pregunta es la MISMA que
+  // hace la ruta (`seEditaElTexto`). La agencia sigue editando todo en /mensajes: lo decide Martín.
+  const puedeEditarElMensaje = endpoint === ENDPOINT_AGENCIA || (id != null && seEditaElTexto(id));
 
   // ⚠️ El `else` no es decoración: la ruta del cliente contesta 403 para todo aviso
   // que redacta MaKo, y sin esta rama «Guardar» no decía NADA — el síntoma exacto que
@@ -310,6 +316,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
           posiciones={plantilla.posiciones}
           endpoint={endpoint}
           editable={puedeEditarTexto}
+          textoEditable={puedeEditarElMensaje}
           guardando={busy === 'pub'}
           onTexto={escribir}
           onCambio={onCambio}
@@ -471,12 +478,14 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
              El aviso que esa rama protegía no se perdió: se mudó a la LISTA, que marca
              toda plantilla con borrador sin publicar. Es un estado y no un evento, así
              que además sobrevive a cambiar de mensaje y al reload. */
-          pie={(puedeEditarTexto || flash) ? (
+          // «Publicar» publica el TEXTO: sin texto que se pueda editar, no hay qué publicar (el flujo se
+          // guarda solo, en el acto).
+          pie={(puedeEditarElMensaje || flash) ? (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               {flash && (
                 <span style={{ ...tarjetaChrome, fontSize: tipo.meta, fontWeight: 600, color: flash.mal ? 'var(--bad)' : 'var(--good)' }}>{flash.txt}</span>
               )}
-              {puedeEditarTexto && (
+              {puedeEditarElMensaje && (
                 <button onClick={() => void publicar()} disabled={busy === 'pub' || !sinPublicar}
                   title={sinPublicar ? 'Publicar: MaKo empieza a usar este texto' : 'No hay cambios sin publicar'}
                   style={{ ...btn, padding: '9px 18px', opacity: busy === 'pub' || !sinPublicar ? 0.45 : 1 }}>

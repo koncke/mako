@@ -7,7 +7,9 @@
 // el primer 'esperar' (los pasos con espera necesitan el cron drenador — pendiente).
 //
 // Pasos:
-//   · mensaje/aviso_dueno  → lo manda al grupo de MaKo del dueño (IA adapta el texto).
+//   · mensaje/aviso_dueno  → manda SU texto al grupo de MaKo del dueño, con los datos puestos por
+//     código (desde el 09/10/2026; antes la IA reescribía la plantilla principal y el texto del
+//     paso no salía). Sin texto propio, lo redacta MaKo como antes.
 //   · mensaje/wa_lead      → NO SE MANDA (decisión de Martín, 06/10/2026: «C: nada al
 //     cliente»). Hasta ese día este comentario decía que iba por la cola de confirmación
 //     y que el dueño lo confirmaba con un «sí»: la pendiente se creaba, y al confirmarla
@@ -22,6 +24,7 @@
 import 'server-only';
 import { listarFlujosActivos } from './plantillas';
 import { generarMensajeAviso } from './plantillas';
+import { conVariables } from './variables-resolver';
 import { enviarAlGrupoMaKo } from './mako-grupo';
 import { abrirInsistencia } from './insistencias';
 import { runWithWorkspace } from './workspace';
@@ -238,9 +241,23 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
   }
   if (paso.tipo === 'mensaje') {
     if (paso.canal === 'aviso_dueno') {
-      // MaKo adapta el texto (referencia) con el contexto y lo manda al grupo del dueño.
+      // ⚠️ SALE EL TEXTO DEL PASO, con los datos puestos por CÓDIGO (sexta tanda, General 15: «hay
+      // plantillas que quedaron viejas… que no tienen sentido»). Hasta el 09/10/2026 esta rama le
+      // pedía a la IA que reescribiera la plantilla PRINCIPAL del aviso (`generarMensajeAviso` lee
+      // `referenciaPlantilla(flujoId)`, no el paso), así que el texto del paso salía sólo si la IA
+      // tiraba —y no tira: se traga su error—. En la cadencia de fábrica de la cobranza eso era
+      // mandar dos veces más el MISMO aviso, con `{{cuota_dias}}` crudo (la corrida lleva sólo los
+      // datos estables), en vez de «Sigue sin cobrarse…» y «Último recordatorio…», que es lo que se
+      // dibuja en el lienzo. Y sin IA, a propósito: es el mismo camino que el mensaje de entrada de
+      // ese aviso (`referenciaResuelta`), y un monto que pasa por un modelo deja de ser exacto.
+      // Medido en producción ese día: cero corridas (`flujo_corridas` vacía), así que no le cambia un
+      // mensaje a nadie. Un paso SIN texto sigue como antes (lo redacta MaKo con el contexto).
+      const propio = (paso.texto ?? '').trim();
       const contexto = [ctx.leadNombre && `Lead: ${ctx.leadNombre}`, ctx.reunion && `Reunión: ${ctx.reunion}`, ctx.texto].filter(Boolean).join(' · ');
-      const texto = await generarMensajeAviso(flujoId, contexto, { leadId: ctx.leadId, leadNombre: ctx.leadNombre }, ctx.datos).catch(() => paso.texto) || paso.texto;
+      const texto = propio
+        ? await conVariables(propio, { ws, leadId: ctx.leadId ?? null, leadNombre: ctx.leadNombre ?? null }, ctx.datos).catch(() => propio)
+        : await generarMensajeAviso(flujoId, contexto, { leadId: ctx.leadId, leadNombre: ctx.leadNombre }, ctx.datos).catch(() => '');
+      if (!texto.trim()) return;
       await enviarAlGrupoMaKo(ws, texto);
       return;
     }
