@@ -27,8 +27,11 @@
 //   · EL AUDIO, IGUAL EN LOS DOS Y EN TODOS LADOS (sexta tanda, WhatsApp 7): ✓ TERMINA la grabación
 //     (no manda), la barra pasa a escucharla (▶ donde estaba el punto rojo, 🎤 para seguir grabando) y
 //     recién la ➤ verde la manda (`onAudio`). La sesión vive en `useGrabacionVoz` (VoiceRecorder.tsx).
-//     `audioAlSoltar` ya no hace nada: «por motivos de seguridad que no se escape nunca un audio
-//     indeseado» — EmpresaInbox lo sigue pasando y ahora también escucha antes de mandar.
+//     «Por motivos de seguridad que no se escape nunca un audio indeseado»: la prop `audioAlSoltar`
+//     (EmpresaInbox mandaba al soltar) se borró del tipo el 10/10/2026, así que no puede volver.
+//   ⚠️ QUIEN MONTA LA BARRA EN MODO `enviar` LA MONTA POR DESTINO (`key` con el chat): la sesión
+//     guarda el `onAudio` del render en que se apretó el 🎤, y ése manda a donde apuntaba ESE render.
+//     Sin la key, una nota escuchada en un chat salía al de antes (ChatHilo y EmpresaInbox la llevan).
 //   · UN AUDIO QUE YA EXISTE (`audioPendiente`, WhatsApp 9): editar una nota de voz del lienzo la abre
 //     en ESTA misma barra para escucharla, borrarla o grabarle algo más, no en un recuadro con una ✕.
 //
@@ -257,12 +260,6 @@ export type ComposerWhatsAppProps = {
   /** Mic: lo que se MANDA (con la ➤ verde, después de escucharlo). Sin esto, no hay micrófono. */
   onAudio?: (blob: Blob, secs: number) => void | Promise<void>;
   onErrorAudio?: (m: string) => void;
-  /**
-   * SIN EFECTO desde la sexta tanda (WhatsApp 7): mandaba la nota de voz al soltar la grabación. Ahora
-   * en todos lados se termina, se escucha y se manda con la ➤. Queda en el tipo para que quien la pasa
-   * (EmpresaInbox) siga compilando.
-   */
-  audioAlSoltar?: boolean;
   /** Arriba de la barra de grabación, MIENTRAS se graba (el guion que sugirió MaKo, si sugirió uno). */
   mientrasGraba?: ReactNode;
   /**

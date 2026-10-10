@@ -187,8 +187,12 @@ export function IconListo() {
 //     flechas iguales una al lado de la otra (el ▶ de reproducir, el ▶ de reanudar y la ➤ de mandar).
 //
 // ⚠️ NADA SALE AL SOLTAR, EN NINGÚN LADO. `audioAlSoltar` (EmpresaInbox) mandaba la nota de voz al
-//    apretar la flecha de la grabación; ahora esa prop no hace nada (ComposerWhatsApp). La única forma
-//    de que un audio salga es apretar ➤ después de haberlo podido escuchar.
+//    apretar la flecha de la grabación; la prop se borró (ComposerWhatsApp). La única forma de que un
+//    audio salga es apretar ➤ después de haberlo podido escuchar.
+// ⚠️ Y LA ESCUCHA ES DEL DESTINO DONDE SE GRABÓ, Y NO VIAJA. La sesión guarda el `onSend` del 🎤 (el
+//    de ESE render), así que quien la monta para mandarle a alguien la remonta al cambiar de destino
+//    (`key` con el chat, en ChatHilo y EmpresaInbox): cambiar de chat descarta lo grabado. Sin la key,
+//    la nota escuchada en el chat B salía al lead A.
 // ⚠️ LA LÓGICA VIVE SIN REACT (`crearSesionVoz`) y con el navegador inyectado, como el grabador: un
 //    test la ejecuta con un MediaRecorder falso y una unión falsa (tests/composer-whatsapp.test.ts).
 // ⚠️ EL GRABADOR DE ABAJO NO CAMBIA DE CONTRATO: `useVoiceRecorder` sigue entregando al soltar (lo usa
@@ -416,7 +420,8 @@ export function useGrabacionVoz(onSend: (blob: Blob, secs: number) => void | Pro
   useEffect(() => () => sesion.soltar(), [sesion]);
   return {
     ...estado,
-    // `onSend` el de ESTE render, como el grabador: el audio va a donde se empezó a grabar.
+    // `onSend` el de ESTE render, como el grabador. Lo que se grabó NO viaja a otro destino: quien
+    // monta esto para mandar remonta al cambiar de chat (`key`), y el desmontaje lo descarta.
     start: () => sesion.start(onSend, onError),
     revisarExistente: (base) => sesion.revisarExistente(base, onSend, onError),
     terminar: sesion.terminar, seguir: sesion.seguir, enviar: sesion.enviar, descartar: sesion.descartar,

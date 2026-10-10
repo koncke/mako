@@ -360,10 +360,12 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null, productos }: {
     setAdjunto(f);
   }
 
-  // Nota de voz con el grabador COMPARTIDO (idéntico al oficial). Transcodifica a
-  // MP3 (formato universal, reusa audio.ts del oficial) y lo manda como 'audio'.
-  // Sale AL SOLTAR, sin escucharla antes: es lo de esta bandeja desde siempre, y el
-  // composer lo respeta con `audioAlSoltar`.
+  // Nota de voz con la sesión de voz COMPARTIDA (la del composer). Transcodifica a
+  // MP3 (formato universal) y la manda como 'audio'. Desde la sexta tanda NO sale al
+  // soltar: ✓ termina, se escucha y recién la ➤ verde la manda (WhatsApp 7).
+  // ⚠️ Esta función es la del render en que se apretó el 🎤 (la sesión guarda ese
+  // `onSend`), y lee `sel` de ese render: por eso el composer va con `key` por chat
+  // (abajo), o la nota escuchada en un chat salía al de antes.
   const enviarAudioBlob = async (blob: Blob) => {
     setSending(true); setSendErr(null); setAudioFase('Procesando audio…');
     let mp3: Blob;
@@ -646,7 +648,13 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null, productos }: {
             {selConv.bloqueado ? (
               <div style={{ padding: '16px', borderTop: '1px solid var(--border)', fontSize: '13px', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' }}><IconBan size={14} /> Contacto bloqueado. <button onClick={() => void setBloqueo(false)} disabled={blocking} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Desbloquear</button> para volver a escribir.</div>
             ) : (
+              // ⚠️ POR CONVERSACIÓN (`key`), como en ChatHilo. La sesión de voz guarda el `onSend`
+              // del render en que se apretó el 🎤, y ése manda al `sel` de ESE render: sin la key,
+              // grabar en A, terminar, tocar a B y apretar la ➤ mandaba la nota al lead A con la
+              // pantalla mostrando el chat de B. Cambiar de chat la descarta (revisión de la sexta
+              // tanda, 10/10/2026). El texto no se pierde: `draft` vive acá, no en el composer.
               <ComposerWhatsApp
+                key={selConv.chatJid}
                 modo="enviar"
                 valor={draft}
                 onValor={setDraft}
@@ -657,7 +665,6 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null, productos }: {
                 acceptArchivo="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx"
                 onAudio={enviarAudioBlob}
                 onErrorAudio={setSendErr}
-                audioAlSoltar
                 chip={adjunto ? { imagen: adjuntoPreview, icono: 'doc', titulo: adjunto.name, detalle: `${(adjunto.size / 1024).toFixed(0)} KB`, onQuitar: () => setAdjunto(null) } : null}
               />
             )}

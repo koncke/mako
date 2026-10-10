@@ -202,6 +202,21 @@ test('NINGÚN composer manda al soltar: `audioAlSoltar` no decide nada, y la gra
   assert.match(hilo, /key=\{draftKey \?\? 'hilo'\}/, 'una escucha a medias viajaría al chat de al lado');
 });
 
+// Revisión de la sexta tanda (10/10/2026, hallazgo 7): en /whatsapp, grabar en el chat A, terminar, tocar
+// al lead B y apretar la ➤ mandaba la nota al lead A con la pantalla mostrando a B (la sesión guarda el
+// `onSend` del render del 🎤, y ése lee el `sel` de A). ChatHilo ya llevaba la key; EmpresaInbox no.
+// ⚠️ Acá SÓLO se sacan los comentarios de LÍNEA: el `acceptArchivo="image/*,…"` del composer abre un
+// «bloque» para el regex de `sinComentarios` que se come el JSX hasta el próximo `*/` del archivo.
+// PROBADO ROMPIÉNDOLO (10/10/2026, de a una y restaurando de memoria; base 28/0): sin la `key` → 27/1;
+// devolviendo `audioAlSoltar` a la bandeja → 27/1; devolviéndolo al tipo del composer → 27/1.
+test('/whatsapp: el composer va POR CONVERSACIÓN (`key`), y `audioAlSoltar` no existe más', () => {
+  const sinLineas = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '');
+  const inbox = sinLineas(leer('app/whatsapp/EmpresaInbox.tsx'));
+  assert.match(inbox, /<ComposerWhatsApp\s+key=\{selConv\.chatJid\}\s+modo="enviar"/, 'una nota escuchada en el chat B salía al lead A');
+  assert.doesNotMatch(inbox, /audioAlSoltar/, 'la bandeja vuelve a pedir que el audio salga al soltar');
+  assert.doesNotMatch(sinLineas(leer('app/whatsapp/_shared/ComposerWhatsApp.tsx')), /audioAlSoltar/, 'la prop volvió al tipo del composer');
+});
+
 // «Esto en todos lados» (WhatsApp 7): los dos grabadores que faltaban (segunda pasada, parte «datos»).
 // PROBADO ROMPIÉNDOLO (09/10/2026, arnés w2-datos/romper.mjs, restaurado de memoria): el onboarding del
 // Video Generator de vuelta a `useVoiceRecorder` → 1 fallo; su barra con `alignSelf: 'center'` → 1 fallo;
