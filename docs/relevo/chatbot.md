@@ -1,6 +1,68 @@
-# Retomar: Chatbot
+# Retomar: Automations (ex Chatbot)
 
-**Dónde quedó:** 09/10/2026 ~15:30, cuenta `claude2` (cuota semanal 33 %). La CUARTA y la QUINTA tanda
+**Dónde quedó:** 10/10/2026 ~10:00, cuenta `claude2` (cuota semanal 67 %). La SEXTA tanda está ENTERA en
+`main` (el push de la rama `chatbot-v6`), con las migraciones 0240, 0241, 0242 y 0245 aplicadas. La tab se
+llama **Automations** y vive en `app/automations` (`/automations`; `/chatbot` redirige con la query). El
+pedido literal está en `app/admin/dev/chatbot/bitacora.ts` (hitos del 9 oct 18:37 y 23:40); lo hecho, en
+el hito de implementación del 10 oct; lo que costó, en las secciones «Sexta tanda» de
+`docs/hallazgos-chatbot.md`. **Nada se vio con clics** salvo una recorrida en sólo lectura sobre el ws1
+(todas las pantallas se dibujaron sin errores de consola).
+
+Antes del push, una revisión adversarial confirmó 13 defectos y se arreglaron todos (el mismo WhatsApp dos
+veces por la vía rápida y el tick de cada minuto, el secreto del webhook de Zernio en la cuenta del cliente,
+el borrador que pisaba lo publicado, una nota de voz al chat anterior en /whatsapp, y nueve menores).
+
+## Qué hay
+
+Lienzo como ManyChat (círculo «Entonces», arrastrar flechas, papelera por flecha, click derecho, Acomodar,
+DELAY sobre la flecha) · varias flechas que entran y salen, tarjetas sueltas con borrador (0240) · «Si
+responde» como CONDITION y sin GO TO · varios CRON (0241) con Producto, Recurrente, Etiqueta, Instagram,
+Messenger y Email · Instagram y Messenger por Zernio (0242) · el email que llega como disparador (0245, sin
+prender) · el editor de WhatsApp a fondo (audio arreglado, número por mensaje, ✦ para redactar, grabar →
+escuchar → mandar, palomitas, pausa entre mensajes) · MaKo en WhatsApp con el mismo editor · esperas a la
+hora exacta y el horario opcional (Configuraciones o el reloj de la lista) · el «{ }» en árbol · el tacho
+rojo y los íconos en los desplegables de toda la app · «Probar» del email arreglado, con emisor y
+destinatario · las plantillas de fábrica al día.
+
+## Lo que falta (no espera a nadie)
+
+- **Verlo con clics** en producción, sobre todo: arrastrar una flecha, el borrador al recargar, el CRON
+  Recurrente, el ✦ de redactar con las keys de un cliente, grabar y escuchar en Safari, el reloj del horario.
+- Íconos en los desplegables de `app/automations` que quedaron sin (la lista exacta, en la sección «barrido»
+  de los hallazgos) y 40 `<a href>` crudos en 25 archivos de `app/` que pierden el `?ws=`.
+- «Si la subida falla, la grabación vuelve a la barra» falta en `GrabadorAudioPaso`, en el `usarAudio` del
+  editor de WhatsApp y en `/whatsapp` (una nota cuyo envío falla se pierde).
+- Publicar no compara la base: con dos pestañas gana la última que publica (`app/api/whatsapp/secuencias`).
+- El 402 de Zernio llega como «Zernio no contestó» (`app/api/zernio/route.ts`); el CRON de un mensaje de
+  MaKo sigue con «Por tiempo / Por una acción» (`app/_components/EditorCron.tsx`) y su DELAY es tarjeta.
+- Crear con IA elige un solo CRON; la copia de configuración no copia la lista de CRON; las ramas de la línea
+  oficial del onboarding (`OnboardingChatAgent.tsx`) son código muerto; `cambiar_crons_secuencia` no sale
+  por HTTP.
+- Cerrar la #350 del plan (el reproductor de audios: era CSS) cuando se vea con clics.
+
+## Lo que decide Martín
+
+- **Los dos scripts de datos, en simulacro:** `scripts/quitar-ir-a.mts` (ws1 #198: saca 2 «Ir a #212», que
+  arranca por su CRON; #221 pasa a flecha) y `scripts/plantillas-viejas.mts` (ws1: 4 flujos manuales vacíos
+  y un paso «⚡ Acción» viejo; ws4: 2 flujos vacíos). ¿Se corren con `--aplicar`?
+- Los 7 mensajes de MaKo que arma el código (reporte semanal, recordatorio de reunión, Fathom, mensaje
+  entrante, línea caída y volvió): hoy se ven como ejemplo y no se editan. ¿Pasan a mandar lo que escribe el
+  cliente? Y en /mensajes (la agencia) todavía se editan.
+- ws1 #221 duplica la post-agenda nueva (¿archivarla?), ws4 #210 es la post-agenda vieja del onboarding,
+  ws13 #224 no tiene disparador, y ws13 «Nueva Agenda VSL» (un mensaje propio con evento) nunca sale.
+- El email que llega: prender «Receiving» en Resend, que el cliente cargue el MX y el secreto del webhook.
+- ws11 tiene su cuenta de Zernio pausada por falta de pago (402).
+- Sin horario, las post-agendas en vivo del ws1 (de Mauricio) pueden salir de noche: ¿se le pone uno?
+- Los recordatorios de clases (9 a 21) y las insistencias al grupo (8 a 21) siguen con su ventana fija:
+  ¿pasan a seguir el horario del negocio?
+- Sin WhatsApp ni email, una automatización social por cohorte no inscribe a nadie (por evento sí anda).
+- Un email del lead no pausa la automatización que le escribe (una respuesta por WhatsApp sí).
+- El panel del horario con cambios sin guardar no se cierra solo con un clic afuera (default seguro).
+- Una sola «Mover de etapa» que elija por lead el producto principal o uno agregado.
+
+## La cuarta y la quinta tanda (para contexto)
+
+**Dónde había quedado:** 09/10/2026 ~15:30, cuenta `claude2` (cuota semanal 33 %). La CUARTA y la QUINTA tanda
 están ENTERAS en `main` (el push de la rama `chatbot-v2` de esta tarde), con las migraciones 0230 y
 0233 aplicadas. El pedido literal de las dos está en `app/admin/dev/chatbot/bitacora.ts` (hitos del
 9 oct 11:02 y 12:09); lo que costó, en `docs/hallazgos-chatbot.md`. **Nada se vio con clics** salvo el
