@@ -12,10 +12,11 @@ import { Button, Input, Modal, Select } from '@/app/_ui';
 import type { CategoriaVista } from '@/lib/comunidad-tipos';
 import { MAX_CATEGORIAS, ORDENES_FEED, ROTULO_ORDEN, TOPE_CATEGORIA, type OrdenFeed, type PermisoCategoria } from '@/lib/comunidad-reglas';
 import { Ico, useComunidad } from './piezas';
+import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
-const PERMISOS: Array<{ value: PermisoCategoria; label: string }> = [
-  { value: 'todos', label: 'Publican todos' },
-  { value: 'equipo', label: 'Solo el equipo' },
+const PERMISOS: Array<{ value: PermisoCategoria; label: string; icono: NombreIconoMenu }> = [
+  { value: 'todos', label: 'Publican todos', icono: 'equipo' },
+  { value: 'equipo', label: 'Solo el equipo', icono: 'candado' },
 ];
 
 export function EditorCategorias({ onCerrar }: { onCerrar: () => void }) {

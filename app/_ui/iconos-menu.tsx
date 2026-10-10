@@ -121,6 +121,7 @@ const TRAZOS = {
   abajo: <><path d="M12 4.5V19" /><path d="m6.5 13.5 5.5 5.5 5.5-5.5" /></>,
   abrir: <><path d="M13.5 4.5h6v6" /><path d="M19.5 4.5 11 13" /><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10" /></>,
   color: <path d="M12 3.5c3.6 4 6 7 6 10a6 6 0 0 1-12 0c0-3 2.4-6 6-10Z" />,
+  pregunta: <><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7" /><path d="M12 17h.01" /></>,
 } satisfies Record<string, ReactNode>;
 
 export type NombreIconoMenu = keyof typeof TRAZOS;

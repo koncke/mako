@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { MakoLogo } from '../_components/MakoBrand';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
-import { Dropdown } from '../components/Dropdown';
+import { Dropdown, type DropdownOption } from '../components/Dropdown';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -29,12 +29,13 @@ type Entry = {
 };
 type Curado = { clave: string; curso: string; autor: string; area: string; descripcion: string; cantidad: number; importado: boolean };
 
-const AREAS = [
-  { value: 'mensajes', label: 'Mensajes (WhatsApp / DM)' },
-  { value: 'ads', label: 'Anuncios / creativos' },
-  { value: 'general', label: 'General (todo el dashboard)' },
+// Cada una con su ícono del set de la casa (sexta tanda, general 10): son las mismas para todos.
+const AREAS: DropdownOption[] = [
+  { value: 'mensajes', label: 'Mensajes (WhatsApp / DM)', icono: 'whatsapp' },
+  { value: 'ads', label: 'Anuncios / creativos', icono: 'anuncio' },
+  { value: 'general', label: 'General (todo el dashboard)', icono: 'grafico' },
   // Producto: cómo se construye ESTA app. Fuera del RAG que ve un cliente.
-  { value: 'producto', label: 'Producto (cómo construir la app)' },
+  { value: 'producto', label: 'Producto (cómo construir la app)', icono: 'configurar' },
 ];
 const areaLabel = (a: string) => AREAS.find((x) => x.value === a)?.label ?? a;
 const AREA_COLOR: Record<string, { bg: string; fg: string }> = {

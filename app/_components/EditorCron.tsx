@@ -121,7 +121,8 @@ export function EditorCron({ cron, tz, disabled, onCron, nota }: {
         <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>Cada</span>
         {num(cron.cada, 1, CADA_MAX, (n) => set({ cada: n }), 'Cada cuántos')}
         <Dropdown value={cron.unidad} width="100%" ariaLabel="Unidad"
-          options={UNIDADES.map((u) => ({ value: u.key, label: cron.cada === 1 ? u.label : u.plural }))}
+          /* Reloj para las horas, calendario de ahí para arriba: lo mismo que las unidades del DELAY. */
+          options={UNIDADES.map((u) => ({ value: u.key, label: cron.cada === 1 ? u.label : u.plural, icono: u.key === 'hora' ? 'reloj' : 'calendario' }))}
           onChange={(v) => set({ unidad: v as CronAviso['unidad'] })} />
       </div>
       {cron.unidad === 'semana' && (

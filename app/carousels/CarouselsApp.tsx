@@ -22,6 +22,7 @@ import Link from '@/app/_ui/Link';
 import { Pagina, Button } from '@/app/_ui';
 import { MakoLogo } from '../_components/MakoBrand';
 import { Dropdown } from '../components/Dropdown';
+import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { CAPTION_MAX, CAPTION_VISIBLE, LIMITES_CARRUSEL, LIMITES_IMAGEN } from '@/lib/ig-formatos';
 // `import type` de un módulo server-only: se borra al compilar, no arrastra nada.
 import type { PiezaCarrusel } from '@/lib/ig-writer';
@@ -34,10 +35,10 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)' };
 const areaTexto: CSSProperties = { width: '100%', padding: '12px 14px', fontSize: 14, fontFamily: SANS, lineHeight: 1.55, border: '1px solid var(--border-strong)', borderRadius: 10, background: 'var(--surface)', color: 'var(--ink)', resize: 'vertical' };
 
-const TIPOS: Array<{ value: TipoCarrusel; label: string; sub: string }> = [
-  { value: 'educativo', label: 'Educativo', sub: 'Enseña una sola cosa; la respuesta va al final' },
-  { value: 'storytelling', label: 'Storytelling', sub: 'Historia escena a escena con personaje consistente' },
-  { value: 'venta', label: 'Venta', sub: 'Problema → solución ligada a tu oferta, CTA al cierre' },
+const TIPOS: Array<{ value: TipoCarrusel; label: string; sub: string; icono: NombreIconoMenu }> = [
+  { value: 'educativo', label: 'Educativo', sub: 'Enseña una sola cosa; la respuesta va al final', icono: 'curso' },
+  { value: 'storytelling', label: 'Storytelling', sub: 'Historia escena a escena con personaje consistente', icono: 'cita' },
+  { value: 'venta', label: 'Venta', sub: 'Problema → solución ligada a tu oferta, CTA al cierre', icono: 'dinero' },
 ];
 
 /** Rol de la slide según su posición (la portada es el gancho; la última cierra). */

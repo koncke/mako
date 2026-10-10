@@ -1241,7 +1241,7 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], av
                     <Dropdown value={periodo} onChange={setPeriodo} ariaLabel="Período" width="100%" options={[{ value: 'todo', label: 'Todo el histórico' }, { value: '90', label: 'Activos · 90 días' }, { value: '30', label: 'Activos · 30 días' }, { value: '7', label: 'Activos · 7 días' }]} />
                   </FiltroCampo>
                   <FiltroCampo label="Tipo">
-                    <Dropdown value={tipo} onChange={(t) => setTipo(t as 'todos' | 'video' | 'imagen')} ariaLabel="Tipo" width="100%" options={[{ value: 'todos', label: 'Video e imagen' }, { value: 'video', label: 'Solo video' }, { value: 'imagen', label: 'Solo imagen' }]} />
+                    <Dropdown value={tipo} onChange={(t) => setTipo(t as 'todos' | 'video' | 'imagen')} ariaLabel="Tipo" width="100%" options={[{ value: 'todos', label: 'Video e imagen', icono: 'archivo' }, { value: 'video', label: 'Solo video', icono: 'video' }, { value: 'imagen', label: 'Solo imagen', icono: 'imagen' }]} />
                   </FiltroCampo>
                   <FiltroCampo label="Ángulo">
                     <Dropdown value={angulo} onChange={setAngulo} ariaLabel="Ángulo" width="100%" options={[{ value: 'todos', label: 'Todos' }, ...Object.keys(ANGLE).map((k) => ({ value: k, label: ANGLE[k].label, color: ANGLE[k].c }))]} />

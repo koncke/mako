@@ -13,7 +13,9 @@ import Link from '@/app/_ui/Link';
 import { Dropdown } from '../components/Dropdown';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { TemplateDetalleModal, type PlantillaVista } from './TemplateDetalleModal';
-import { EMOJI_CATEGORIA, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import type { CategoriaAviso } from '@/lib/avisos-catalogo';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { ICONO_CATEGORIA } from './categoria-icono';
 
 const ORDEN: CategoriaAviso[] = ['reporte', 'aviso', 'accion', 'pregunta'];
 const LABEL: Record<CategoriaAviso, string> = { reporte: 'Reportes', aviso: 'Avisos', accion: 'Acciones', pregunta: 'Preguntas' };
@@ -156,7 +158,7 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas', iniciales, 
           <div style={{ marginTop: 10 }}>
             <Dropdown value={filtro} onChange={(v) => setFiltro(v as CategoriaAviso | 'todas')} width={172} ariaLabel="Filtrar por categoría"
               buttonStyle={{ padding: '8px 11px', fontSize: 13 }}
-              options={[{ value: 'todas', label: `Todas · ${conteo('todas')}` }, ...ORDEN.map((k) => ({ value: k, label: `${EMOJI_CATEGORIA[k]} ${LABEL[k]} · ${conteo(k)}` }))]} />
+              options={[{ value: 'todas', label: `Todas · ${conteo('todas')}` }, ...ORDEN.map((k) => ({ value: k, label: `${LABEL[k]} · ${conteo(k)}`, icono: ICONO_CATEGORIA[k] }))]} />
           </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
@@ -173,7 +175,7 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas', iniciales, 
             return (
               <button key={a.id} type="button" onClick={() => elegir(a.id)}
                 style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2, opacity: a.enabled ? 1 : 0.5 }}>
-                <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{EMOJI_CATEGORIA[a.categoria]}</span>
+                <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dim)' }}><IconoMenu nombre={ICONO_CATEGORIA[a.categoria]} size={19} /></span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.titulo}{!a.enabled && <span style={{ color: 'var(--faint)', fontWeight: 500 }}> · inactiva</span>}</div>
                   <div style={{ fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.ejemplo.replace(/[*_\n]/g, ' ').slice(0, 40)}</div>
@@ -235,10 +237,10 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas', iniciales, 
                rótulo que promete un gesto que no existe se lee como un botón roto. */
             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0 }}>
-                <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{EMOJI_CATEGORIA[sel.categoria]}</div>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dim)' }}><IconoMenu nombre={ICONO_CATEGORIA[sel.categoria]} size={18} /></div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.titulo}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[sel.categoria]} {LABEL[sel.categoria]}{sel.requiereRespuesta ? ' · espera respuesta' : ''}{sel.enabled ? '' : ' · inactiva'}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{LABEL[sel.categoria]}{sel.requiereRespuesta ? ' · espera respuesta' : ''}{sel.enabled ? '' : ' · inactiva'}</div>
                 </div>
               </div>
               <Link href={enlaceEditar(sel)} title="Editar este mensaje en Chatbot" data-editar-en-chatbot
@@ -247,10 +249,10 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas', iniciales, 
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
               <button type="button" onClick={() => setVista('editar')} title="Ver detalle / editar" style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-                <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{EMOJI_CATEGORIA[sel.categoria]}</div>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dim)' }}><IconoMenu nombre={ICONO_CATEGORIA[sel.categoria]} size={18} /></div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.titulo}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[sel.categoria]} {LABEL[sel.categoria]}{sel.requiereRespuesta ? ' · espera respuesta' : ''}{sel.enabled ? '' : ' · inactiva'} · toca para editar</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{LABEL[sel.categoria]}{sel.requiereRespuesta ? ' · espera respuesta' : ''}{sel.enabled ? '' : ' · inactiva'} · toca para editar</div>
                 </div>
               </button>
               <button type="button" onClick={() => setVista('editar')} title="Editar plantilla"

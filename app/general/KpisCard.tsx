@@ -394,7 +394,7 @@ function EditorKpi({ kpi, objetivos, objetivoPrincipalId, onCerrar }: {
           placeholder="Contenido publicado" maxLength={60} />
 
         <Select label="Quién carga el número" value={fuente} onChange={setFuente}
-          options={[{ value: 'auto', label: 'MaKo lo mide solo' }, { value: 'manual', label: 'Lo registro yo' }]}
+          options={[{ value: 'auto', label: 'MaKo lo mide solo', icono: 'mako' }, { value: 'manual', label: 'Lo registro yo', icono: 'editar' }]}
           hint={fuente === 'auto'
             ? 'Si un día no puede leerlo, lo dice — no cuenta cero.'
             : 'Lo cargas tocando el número en el tablero.'} />
@@ -407,7 +407,7 @@ function EditorKpi({ kpi, objetivos, objetivoPrincipalId, onCerrar }: {
 
         {fuente === 'manual' && (
           <Select label="Unidad" value={unidad} onChange={setUnidad}
-            options={[{ value: 'cantidad', label: 'Cantidad' }, { value: 'usd', label: 'Dólares' }]} />
+            options={[{ value: 'cantidad', label: 'Cantidad', icono: 'numero' }, { value: 'usd', label: 'Dólares', icono: 'dinero' }]} />
         )}
 
         <Select label="Cada cuánto se cuenta" value={cadencia} onChange={setCadencia}

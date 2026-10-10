@@ -148,9 +148,9 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
                       width="100%"
                       buttonStyle={{ padding: '11px 13px', borderRadius: 11, fontSize: 15, fontWeight: 400 }}
                       options={[
-                        { value: 'text', label: 'Texto' },
-                        { value: 'number', label: 'Número' },
-                        { value: 'textarea', label: 'Párrafo' },
+                        { value: 'text', label: 'Texto', icono: 'renombrar' },
+                        { value: 'number', label: 'Número', icono: 'numero' },
+                        { value: 'textarea', label: 'Párrafo', icono: 'texto' },
                       ]}
                     />
                     <input style={input} value={f.placeholder ?? ''} placeholder="Placeholder (opcional)" onChange={(e) => setField(gi, fi, { placeholder: e.target.value })} />

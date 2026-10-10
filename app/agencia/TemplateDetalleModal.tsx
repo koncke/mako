@@ -13,7 +13,9 @@ import { FlujoAviso } from './FlujoAviso';
 import { PrefsDeMensaje } from '../perfil/PrefsDeMensaje';
 import { Confirm } from '@/app/_ui/Confirm';
 import { type as tipo } from '@/app/_ui/tokens';
-import { CATEGORIAS_AVISO, EMOJI_CATEGORIA, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import { CATEGORIAS_AVISO, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { ICONO_CATEGORIA } from './categoria-icono';
 
 // El tipo NO se copia: se re-exporta del store, que es quien lo define. Escrito a
 // mano acá se quedo viejo al primer campo nuevo (`canales`) y el compilador no podia
@@ -272,7 +274,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título (ej. Recordar renovación)" style={inp} />
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <Dropdown value={categoria} onChange={(v) => setCategoria(v as CategoriaAviso)} width={180} ariaLabel="Categoría" options={ORDEN.map((k) => ({ value: k, label: `${EMOJI_CATEGORIA[k]} ${LABEL[k]}` }))} />
+                  <Dropdown value={categoria} onChange={(v) => setCategoria(v as CategoriaAviso)} width={180} ariaLabel="Categoría" options={ORDEN.map((k) => ({ value: k, label: LABEL[k], icono: ICONO_CATEGORIA[k] }))} />
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={requiereResp} onChange={(e) => setRequiereResp(e.target.checked)} /> Espera respuesta
                   </label>
@@ -356,9 +358,9 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
                     <div style={{ flex: 'none', display: 'flex' }}>
                       <Dropdown value={categoria} onChange={(v) => void guardarCategoria(v as CategoriaAviso)}
                         ariaLabel="Categoría del mensaje"
-                        buttonStyle={{ padding: 0, border: 'none', background: 'none', fontSize: 19, lineHeight: 1 }}
-                        sinFlecha botonLabel={EMOJI_CATEGORIA[categoria]}
-                        options={ORDEN.map((k) => ({ value: k, label: `${EMOJI_CATEGORIA[k]} ${LABEL[k]}` }))} />
+                        buttonStyle={{ padding: 0, border: 'none', background: 'none', fontSize: 19, lineHeight: 1, color: 'var(--dim)' }}
+                        sinFlecha botonLabel={<IconoMenu nombre={ICONO_CATEGORIA[categoria]} size={20} />}
+                        options={ORDEN.map((k) => ({ value: k, label: LABEL[k], icono: ICONO_CATEGORIA[k] }))} />
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
                   {/* El nombre se cambia HACIENDO CLICK EN ÉL, como en el resto de la
