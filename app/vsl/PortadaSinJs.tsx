@@ -19,9 +19,15 @@
 // el script de React lo reemplaza por la landing en cuanto llega, que trae la misma
 // razón social en su pie (`PieLegal`, app/vsl/Landing.tsx).
 //
-// ⚠️ TIENE QUE QUEDAR CHICO. Si este bloque engordara hasta pasar el umbral, el
-// bloque del layout vuelve a pasarlo y todo vuelve a quedar oculto: lo fija
-// tests/razon-social-sitio.test.ts renderizando en streaming, como en producción.
+// ⚠️ DESDE EL 10/10/2026 EL LAYOUT YA NO TIENE ESE SUSPENSE (se sacó para que
+// /privacidad se leyera sin JavaScript; ver app/layout.tsx). Lo de arriba es la
+// historia: hoy el Suspense de app/page.tsx es el ÚNICO que esconde la landing, y
+// este fallback sigue siendo lo que lee el verificador porque así lo aprobó Meta
+// (el porqué de no tocarlo, en app/page.tsx).
+//
+// ⚠️ TIENE QUE QUEDAR CHICO igual: lo que lee quien no ejecuta JS es este bloque, y
+// tests/razon-social-sitio.test.ts lo fija renderizando en streaming, como en
+// producción.
 //
 // Con JavaScript puede verse un instante mientras baja la página, por eso lleva el
 // fondo y la letra de la landing: se lee como su arranque, no como otra pantalla.

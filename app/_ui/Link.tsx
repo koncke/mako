@@ -14,11 +14,12 @@
 //
 //     import Link from '@/app/_ui/Link';
 //
-// ⚠️ POR QUÉ HAY UN CONTEXTO Y NO `useSearchParams()` ACÁ ADENTRO. Ese hook
-// obliga a envolver en <Suspense> a todo componente que lo use, o el build se
-// cae en las rutas estáticas. Con 27 archivos usándolo serían 27 fronteras
-// nuevas. Se lee UNA vez, en el provider del layout (que ya vive adentro de un
-// Suspense), y de ahí baja por contexto: los demás solo consumen un número.
+// ⚠️ POR QUÉ HAY UN CONTEXTO Y NO `useSearchParams()` ACÁ ADENTRO. Se lee UNA vez,
+// en el provider del layout, y de ahí baja por contexto: los demás solo consumen un
+// número. El provider NO tiene un <Suspense> encima, a propósito (10/10/2026: escondía
+// toda pantalla grande a quien no ejecuta JavaScript, ver app/layout.tsx). Funciona
+// porque ninguna ruta se prerenderiza estática —el layout lee la sesión (cookies) en
+// cada request— y `useSearchParams` sólo exige el boundary en una ruta estática.
 //
 // Sin provider el contexto vale null y todo se comporta como el Link de Next.
 
@@ -35,8 +36,8 @@ export function useWs(): number | null {
 }
 
 /**
- * Lee el `?ws=` una sola vez y lo reparte. Va en el layout, adentro de un
- * <Suspense> (es el único que llama a useSearchParams).
+ * Lee el `?ws=` una sola vez y lo reparte. Va en el layout, SIN <Suspense> encima: el
+ * layout es dinámico, así que `useSearchParams` no lo necesita (ver app/layout.tsx).
  */
 export function WsProvider({ children }: { children: React.ReactNode }) {
   const sp = useSearchParams();
