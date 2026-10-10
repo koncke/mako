@@ -1713,6 +1713,24 @@ decidir que es WhatsApp.
 
 **Vive en:** `lib/nutricion.ts` (`setSecuenciaPasos`, `procesarEnvios`, `responderConGrafo`)
 
+### Sin WhatsApp ni email, el cron decía 'off' y el DM que sigue a una espera no salía nunca [canales, motor]
+
+(Revisión de la sexta tanda, 10/10/2026.) Lo engañoso es que **el primer DM sale**: va por la vía
+rápida del evento, que no mira los interruptores del negocio, y el motor trata Instagram y Messenger
+como siempre prendidos (`canalOn`). Una prueba con un mensaje inmediato da verde. Lo que no salía era
+lo que viene después de «Esperar 1 día»: eso lo despierta el cron, y sus DOS puertas (el tick y la
+corrida de cada hora) devolvían `modo: 'off'` en un negocio sin `envio_whatsapp_enabled` ni
+`envio_email_enabled` —el caso de un negocio que usa sólo Instagram, como el ws13— porque la única
+excepción que conocían eran los pasos «⚡ Acción». Sin un error, y con la ventana de Meta corriendo.
+
+Es la tercera puerta de la misma familia que la entrada de arriba: un lugar que decide «¿hay algo que
+mandar?» con la lista de canales de ANTES. Ahora las dos puertas preguntan con `correSinCanales`
+(`lib/motor-tick.ts`, pura y ejecutada en `tests/motor-tick.test.ts`): una acción, o un MENSAJE (por la
+clase del nodo, no por el campo `canal`) por Instagram o Messenger. La regla: **al sumar un canal sin
+interruptor del negocio, grepeá las puertas que deciden si el motor corre**, no sólo el motor.
+
+**Vive en:** `lib/motor-tick.ts` (`correSinCanales`) · `app/api/cron/nutricion-tick/route.ts` · `app/api/cron/nutricion/route.ts`
+
 ### El webhook de Zernio nunca entregó un evento: con key propia, el webhook vive en SU cuenta [canales]
 
 Medido en producción (09/10/2026): los dos negocios con Zernio (ws11 y ws13) tienen key PROPIA, fila de
@@ -1755,6 +1773,11 @@ en cada uno de los 7 reintentos.
 - **Medir en Messenger si quien comenta y quien contesta son la misma fila** (ver la tabla). Si no, la unión
   sale del eco de la respuesta privada (`message.sent`), que hoy no se escucha. `lib/zernio-entrante.ts`
 - **Verlo con clics y un evento real**: nada de esto recibió un webhook de verdad.
+- **Sin WhatsApp ni email, nadie se INSCRIBE por cohorte** (revisión del 10/10/2026): la rama 'off' de
+  la corrida de cada hora corre el motor para lo social pero no llama a `comprometerInscripciones()`
+  (sólo `{ soloGrupo: true }`). Una automatización social disparada por un EVENTO anda; una por cohorte
+  (antigüedad, residuo) en un negocio que usa sólo Instagram no inscribe a nadie. Decidir si esa rama
+  inscribe es de Martín. `app/api/cron/nutricion/route.ts`
 ## Sexta tanda (09/10/2026, parte «whatsapp»): el audio, la grabación, el número y el ✦ por mensaje
 
 ### El audio «que no se escucha» no era el audio: un porcentaje cíclico dejaba el reproductor en 0 px [whatsapp]
@@ -1945,10 +1968,27 @@ mensaje es `modo: 'fila'` y el freno anti-ban se lee por lote: dos corridas que 
 vencida a la vez mandan las dos. Con una corrida por hora casi no pasaba; con un tick por minuto, una
 corrida que tarda más de 60 s (varios WhatsApp con su tipeo, una espera corta durmiendo) se pisa con la
 siguiente. Va el TURNO del negocio (`conTurnoDelMotor`, compare-and-set sobre `mako.nutricion.turno`,
-vence solo a los 6 min); la corrida de la hora lo espera hasta 60 s en total. La vía rápida no lo toma
-(lo de antes, sin cambios).
+vence solo a los 6 min); la corrida de la hora lo espera hasta 60 s en total.
 
-**Vive en:** `lib/motor-turno.ts` · `lib/motor-tick.ts` · `app/api/cron/nutricion/route.ts` (`conTurno`)
+⚠️ **Y la vía rápida TAMBIÉN lo toma, sin esperarlo** (corrección del 10/10/2026, revisión de la
+sexta tanda). La primera versión la dejó afuera diciendo «lo de antes, sin cambios», y era falso:
+la carrera es entre DOS lectores de la misma fila, y uno de los dos pasó de 9 a 1.440 corridas por
+día. La vía rápida (el primer paso de un evento, una inscripción a mano, lo que sigue a una espera
+corta) manda un WhatsApp no oficial con el HTTP abierto 1 a 11 s por el tipeo, y recién después
+escribe `nutricion_envios` y avanza la fila. Si el tick leía la cola en esa ventana, veía la fila
+fresca en el mismo paso, tomaba el turno (nadie lo tenía) y la mandaba otra vez: el lead recibía el
+mismo mensaje dos veces, una de cada pocas veces. Instagram y Messenger los frenaba la clave de
+Zernio; el WhatsApp, nada. Ahora las tres pasan por `viaRapidaConTurno` (`lib/nutricion.ts`): con el
+turno tomado no manda nada y la fila, vencida y fresca, la manda el tick al minuto siguiente. De paso
+cubre a la vía rápida que se dispara ADENTRO de una corrida que ya tiene el turno: el motor no se
+corre adentro de sí mismo. El guard (`tests/motor-tick.test.ts`) cuenta los llamadores de
+`procesarEnvios(` en todo `lib/` y `app/`.
+
+La regla que queda: **cambiar la CADENCIA de un proceso cambia la exposición de todo lo que corre al
+lado, aunque ese código no se toque.** «Sin cambios» sobre un código que no cambió es una afirmación
+sobre el código; sobre una carrera, es una afirmación sobre los DOS lados, y hay que medirla.
+
+**Vive en:** `lib/motor-turno.ts` · `lib/motor-tick.ts` · `app/api/cron/nutricion/route.ts` (`conTurno`) · `lib/nutricion.ts` (`viaRapidaConTurno`)
 
 ### «No pude leer el horario» no es «sin horario» [motor]
 

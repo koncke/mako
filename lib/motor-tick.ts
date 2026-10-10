@@ -17,7 +17,8 @@
 // corrida que tarda más de un minuto (manda varios WhatsApps, duerme una espera corta) se pisa con
 // la siguiente. El turno es una fila de `app_settings` por negocio con «tomado hasta», escrita con
 // compare-and-set (`cambiarSettingSi`): de dos corridas, entra UNA; la otra saltea ese negocio, y lo
-// que venció lo toma la que tiene el turno o el tick siguiente.
+// que venció lo toma la que tiene el turno o el tick siguiente. La vía rápida de un lead también lo
+// toma, sin esperarlo (lib/motor-turno.ts): sin él, se pisaba con el tick.
 //
 // ⚠️ El turno VENCE solo (`TURNO_MS`, más que el `maxDuration` de las rutas): una función que Vercel
 // mata a la mitad no deja al negocio trabado.
@@ -25,6 +26,32 @@
 // Sin `server-only`: tests/motor-tick.test.ts lo ejecuta. La lectura y la escritura viven en
 // lib/motor-turno.ts.
 // =============================================================================
+
+// Los tres, puros y sin `server-only` (el saneo de una acción, el modelo del flujo y el canal social).
+import { esPasoAccion } from './nutricion-paso-accion';
+import { esNodoMensaje, type PasoGrafo } from './flujo-grafo';
+import { esCanalSocial } from './canal-social';
+
+/**
+ * ¿Este paso tiene algo que correr con WhatsApp y email APAGADOS en el negocio? Lo preguntan las DOS
+ * rutas del cron antes de decir 'off' (la de cada hora y el tick), con esta misma función.
+ *
+ *   · Un paso «⚡ Acción»: no es un mensaje y el canal apagado no le aplica.
+ *   · Un MENSAJE por Instagram o Messenger (revisión de la sexta tanda, 10/10/2026): no tienen
+ *     interruptor del negocio — el motor los trata como siempre prendidos (`canalOn`,
+ *     lib/nutricion.ts). Sin esto, un negocio que usa sólo Instagram (sin `envio_whatsapp_enabled` ni
+ *     `envio_email_enabled`, como el ws13) mandaba el primer DM por la vía rápida y el segundo, el que
+ *     viene después de «Esperar 1 día», no lo corría nadie: las dos puertas devolvían 'off' sin un
+ *     error, y se perdía la ventana de Meta.
+ *
+ * Por la CLASE del nodo y no sólo por el campo `canal`: una espera o una condición llevan un `canal`
+ * (el de relleno, `RELLENO_CONTROL`, o el que le quedó de cuando era un mensaje) y no mandan nada. Y
+ * el motor corre SIN `simularApagados`, así que un WhatsApp o un email de esas secuencias sigue
+ * esperando u omitiéndose como siempre.
+ */
+export function correSinCanales(p: PasoGrafo): boolean {
+  return esPasoAccion(p) || (esNodoMensaje(p) && esCanalSocial(p.canal));
+}
 
 /** La clave del turno en `app_settings` (por workspace). */
 export const KEY_TURNO_MOTOR = 'mako.nutricion.turno';
