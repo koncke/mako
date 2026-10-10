@@ -73,6 +73,14 @@ export function crearGrabadorVoz(alEstado: (e: EstadoGrabacion) => void, entorno
   // quedaba nulo en toda la biblioteca de audios).
   let secs = 0;
   let pausado = false;
+  // ⚠️ EL PEDIDO DEL MICRÓFONO SE PUEDE CANCELAR (revisión de la sexta tanda, 10/10/2026). La primera
+  // vez el navegador muestra su cartel de permiso y `pedirMicrofono` queda pendiente; un `stop` o un
+  // `soltar` en ese rato no encontraban grabador (`rec` null) y, al dar Permitir, el MediaRecorder
+  // arrancaba igual: el micrófono grabando sin ninguna barra, o con la barra trabada. Cada pedido lleva
+  // su número de intento; si al volver ya no es el vigente, se sueltan las pistas y NO se arranca.
+  let intento = 0;
+  let pidiendo = false;
+  const cancelarPedido = () => { if (pidiendo) { intento++; pidiendo = false; } };
 
   const avisar = () => alEstado({ recording: activo, paused: pausado, secs });
   const pararTimer = () => { if (timer) { clearInterval(timer); timer = null; } };
@@ -84,9 +92,18 @@ export function crearGrabadorVoz(alEstado: (e: EstadoGrabacion) => void, entorno
   return {
     async start(onSend, onError) {
       if (activo) return;
+      const mio = ++intento;
+      pidiendo = true;
       let s: MediaStream;
       try { s = await entorno.pedirMicrofono(); }
-      catch { onError?.('No se pudo acceder al micrófono. Revisa los permisos.'); return; }
+      catch {
+        // Cancelado mientras se pedía: la persona ya se fue, no es un error que mostrar.
+        if (mio === intento) { pidiendo = false; onError?.('No se pudo acceder al micrófono. Revisa los permisos.'); }
+        return;
+      }
+      // Se canceló mientras el navegador pedía el permiso: se suelta el micrófono y NO se arranca.
+      if (mio !== intento) { s.getTracks().forEach((t) => t.stop()); return; }
+      pidiendo = false;
       let r: MediaRecorder;
       try { r = entorno.crearRecorder(s); }
       catch { s.getTracks().forEach((t) => t.stop()); onError?.('Tu navegador no permite grabar audio.'); return; }
@@ -115,6 +132,7 @@ export function crearGrabadorVoz(alEstado: (e: EstadoGrabacion) => void, entorno
       arrancarTimer();
     },
     stop(cancel) {
+      cancelarPedido();
       cancelado = cancel;
       pararTimer();
       try { rec?.stop(); } catch { /* ya estaba parado */ }
@@ -132,6 +150,7 @@ export function crearGrabadorVoz(alEstado: (e: EstadoGrabacion) => void, entorno
       avisar();
     },
     soltar() {
+      cancelarPedido();
       pararTimer();
       // GRABANDO (o en pausa) = se cancela. Ya parado por la persona = se deja terminar: el
       // `onstop` todavía no corrió y lo que se entrega es lo que ella pidió mandar.
@@ -210,6 +229,11 @@ export type EstadoVoz = {
   revision: { url: string; secs: number } | null;
   /** Uniendo los tramos (al terminar uno o al mandar). */
   uniendo: boolean;
+  /**
+   * El navegador todavía no entregó el micrófono (su cartel de permiso, o el dispositivo abriendo). La
+   * barra ya dice «grabando», pero ⏸ y ✓ no hacen nada todavía; 🗑 cancela el pedido.
+   */
+  pidiendoMic: boolean;
 };
 
 /** Lo que la sesión necesita del navegador, además del grabador. */
@@ -239,7 +263,7 @@ export type SesionVoz = {
   soltar: () => void;
 };
 
-export const ESTADO_VOZ_INICIAL: EstadoVoz = { fase: 'quieta', paused: false, secs: 0, revision: null, uniendo: false };
+export const ESTADO_VOZ_INICIAL: EstadoVoz = { fase: 'quieta', paused: false, secs: 0, revision: null, uniendo: false, pidiendoMic: false };
 
 /**
  * La sesión, sin React. Encima de `crearGrabadorVoz`: cada «terminar» es un `stop(false)` del grabador
@@ -256,11 +280,16 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
   let avisarError: ((m: string) => void) | undefined;
   // Cada `start` del grabador vale para UN tramo: si mientras tanto se descartó, lo que llega se tira.
   let vuelta = 0;
+  // ⚠️ La fase pasa a «grabando» ANTES de que el navegador entregue el micrófono (la barra tiene que
+  // aparecer al tocar el 🎤). Mientras tanto ✓ y ⏸ no hacen nada —no hay tramo que cerrar— y 🗑 cancela
+  // el PEDIDO (el grabador suelta las pistas al volver). Antes, un ✓ en ese rato dejaba la barra con
+  // `uniendo` puesto y todo apagado, con el micrófono abierto y sin salida (revisión, 10/10/2026).
+  let pidiendoMic = false;
 
   const secsPrevios = () => tramos.reduce((s, t) => s + t.secs, 0);
   const avisar = () => alEstado({
     fase, paused, secs: fase === 'grabando' ? secsPrevios() + secsTramo : (revision?.secs ?? secsPrevios()),
-    revision: revision ? { url: revision.url, secs: revision.secs } : null, uniendo,
+    revision: revision ? { url: revision.url, secs: revision.secs } : null, uniendo, pidiendoMic,
   });
   const soltarRevision = () => { if (revision) { entorno.soltarUrl(revision.url); revision = null; } };
 
@@ -284,19 +313,25 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
 
   async function grabarTramo() {
     const mia = ++vuelta;
-    await grabador.start((blob, secs) => {
-      if (mia !== vuelta) return;   // se descartó mientras el navegador cerraba el tramo
-      tramos.push({ blob, secs });
-      secsTramo = 0;
-      void armarRevision();
-    }, (m) => {
-      // Sin micrófono o grabación vacía: si había algo grabado, se vuelve a escucharlo.
-      avisarError?.(m);
-      if (mia !== vuelta) return;
-      uniendo = false;
-      fase = tramos.length ? 'revisando' : 'quieta'; paused = false; secsTramo = 0;
-      if (fase === 'revisando' && !revision) void armarRevision(); else avisar();
-    });
+    pidiendoMic = true; avisar();
+    try {
+      await grabador.start((blob, secs) => {
+        if (mia !== vuelta) return;   // se descartó mientras el navegador cerraba el tramo
+        tramos.push({ blob, secs });
+        secsTramo = 0;
+        void armarRevision();
+      }, (m) => {
+        // Sin micrófono o grabación vacía: si había algo grabado, se vuelve a escucharlo.
+        avisarError?.(m);
+        if (mia !== vuelta) return;
+        uniendo = false; pidiendoMic = false;
+        fase = tramos.length ? 'revisando' : 'quieta'; paused = false; secsTramo = 0;
+        if (fase === 'revisando' && !revision) void armarRevision(); else avisar();
+      });
+    } finally {
+      // Con la vuelta ya descartada, quien la descartó apagó `pidiendoMic` (y puede haber otra pidiendo).
+      if (mia === vuelta && pidiendoMic) { pidiendoMic = false; avisar(); }
+    }
   }
 
   return {
@@ -308,7 +343,8 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
       await grabarTramo();
     },
     terminar() {
-      if (fase !== 'grabando') return;
+      // Con el micrófono pendiente no hay tramo que cerrar: un ✓ acá dejaba la barra trabada.
+      if (fase !== 'grabando' || pidiendoMic) return;
       // La fase queda «grabando» hasta que llega el blob (el `onstop` del navegador viene después):
       // `uniendo` dice que se está cerrando.
       uniendo = true; avisar();
@@ -321,6 +357,7 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
     },
     async revisarExistente(base, onSend, onError) {
       vuelta++;
+      pidiendoMic = false;
       grabador.soltar();
       entregar = onSend; avisarError = onError;
       soltarRevision();
@@ -338,13 +375,15 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
     },
     descartar() {
       vuelta++;
+      // `stop(true)` también cancela un pedido de micrófono pendiente (el grabador suelta las pistas al volver).
       if (fase === 'grabando') grabador.stop(true);
-      soltarRevision(); tramos = []; secsTramo = 0; paused = false; uniendo = false; fase = 'quieta'; avisar();
+      soltarRevision(); tramos = []; secsTramo = 0; paused = false; uniendo = false; pidiendoMic = false; fase = 'quieta'; avisar();
     },
-    pause() { if (fase === 'grabando') grabador.pause(); },
-    resume() { if (fase === 'grabando') grabador.resume(); },
+    pause() { if (fase === 'grabando' && !pidiendoMic) grabador.pause(); },
+    resume() { if (fase === 'grabando' && !pidiendoMic) grabador.resume(); },
     soltar() {
       vuelta++;
+      pidiendoMic = false;
       grabador.soltar();
       soltarRevision();
       tramos = []; fase = 'quieta';
@@ -479,19 +518,21 @@ export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar au
   const grabando = voz.fase === 'grabando';
   if (grabando) {
     const cerrando = voz.uniendo;
+    // Con el micrófono pendiente no hay nada que pausar ni que terminar todavía; el 🗑 sí: cancela el pedido.
+    const sinMic = voz.pidiendoMic;
     return (
       <div data-barra-voz="grabando" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
         <style>{WAVE_CSS}</style>
         <button type="button" onClick={voz.descartar} disabled={cerrando} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconoBorrar size={20} /></button>
-        <span style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: '#e53935', animation: voz.paused ? 'none' : 'mako-blink 1s steps(1) infinite', opacity: voz.paused ? 0.4 : 1 }}></span>
+        <span style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: '#e53935', animation: voz.paused || sinMic ? 'none' : 'mako-blink 1s steps(1) infinite', opacity: voz.paused || sinMic ? 0.4 : 1 }}></span>
         <span style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--ink)', minWidth: 38 }}>{fmtDur(voz.secs)}</span>
-        <OndaGrabando paused={voz.paused || cerrando} />
+        <OndaGrabando paused={voz.paused || cerrando || sinMic} />
         {voz.paused ? (
           <button type="button" onClick={voz.resume} title="Seguir grabando" aria-label="Seguir grabando" style={{ ...btnRedondo, color: 'var(--ink)' }}><IconMic /></button>
         ) : (
-          <button type="button" onClick={voz.pause} disabled={cerrando} title="Pausar" aria-label="Pausar grabación" style={{ ...btnRedondo, color: 'var(--ink)' }}><IconPause /></button>
+          <button type="button" onClick={voz.pause} disabled={cerrando || sinMic} title="Pausar" aria-label="Pausar grabación" style={{ ...btnRedondo, color: 'var(--ink)' }}><IconPause /></button>
         )}
-        <button type="button" onClick={voz.terminar} disabled={cerrando} title="Terminar grabación" aria-label="Terminar grabación" style={btnVerde(cerrando)}><IconListo /></button>
+        <button type="button" onClick={voz.terminar} disabled={cerrando || sinMic} title="Terminar grabación" aria-label="Terminar grabación" style={btnVerde(cerrando || sinMic)}><IconListo /></button>
       </div>
     );
   }

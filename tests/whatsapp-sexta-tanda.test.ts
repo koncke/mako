@@ -162,6 +162,97 @@ test('editar un audio que ya existe (WhatsApp 9): se revisa, 🎤 le suma, y lo 
   assert.equal(await t.entregas[0]!.texto, 'base+tramo1');
 });
 
+// Revisión de la sexta tanda (10/10/2026, hallazgo 8): la sesión pone «grabando» y dibuja la barra ANTES
+// de que el navegador entregue el micrófono (su cartel de permiso). Un 🗑 en ese rato dejaba, al dar
+// Permitir, el MediaRecorder grabando sin ninguna barra; un ✓ dejaba la barra con `uniendo` y todo apagado,
+// con el micrófono abierto y sin salida. Acá el permiso se contesta A MANO (`permitir`).
+// PROBADO ROMPIÉNDOLO (10/10/2026, de a una y restaurando de memoria; base 31/0):
+//   R8a el grabador arranca aunque el pedido se haya cancelado (sin el `mio !== intento`) → 29/2
+//   R8b `terminar` sin mirar `pidiendoMic`                                                → 30/1
+//   R8c `descartar` sin apagar `pidiendoMic`                                              → 30/1
+//   R8d el ✓ de la barra sin apagarse mientras se pide el micrófono                        → 30/1
+//   R8e el 🗑 también apagado mientras se pide (no habría cómo cancelar el pedido)         → 30/1
+//   R8f el `stop` del grabador sin cancelar el pedido                                      → 30/1
+//   R8g el `soltar` del grabador sin cancelar el pedido                                    → 30/1
+// Restaurado: 31/0. (R8a y R8b también sin `--test-force-exit`: ningún proceso queda colgado.)
+function armarMicPendiente() {
+  const pedidos: Array<() => void> = [];
+  const recs: RecFalso[] = [];
+  let pistasParadas = 0;
+  const estados: EstadoVoz[] = [];
+  const entregas: number[] = [];
+  const s = crearSesionVoz((e) => estados.push(e), {
+    pedirMicrofono: () => new Promise<MediaStream>((res) => {
+      pedidos.push(() => res({ getTracks: () => [{ stop: () => { pistasParadas++; } }] } as unknown as MediaStream));
+    }),
+    crearRecorder: () => { const r = new RecFalso(`tramo${recs.length + 1}`); recs.push(r); return r as unknown as MediaRecorder; },
+    unir: async (bs) => new Blob(bs),
+    crearUrl: (b) => `blob:${b.size}`,
+    soltarUrl: () => {},
+  });
+  return {
+    s, recs, entregas, onSend: (_b: Blob, secs: number) => { entregas.push(secs); },
+    /** El navegador contesta el pedido más viejo con «Permitir». */
+    permitir: async () => {
+      const p = pedidos.shift();
+      assert.ok(p, 'no había un pedido de micrófono pendiente');
+      p!();
+      await new Promise((r) => setTimeout(r, 0));
+    },
+    pistasParadas: () => pistasParadas,
+    ultimo: () => estados[estados.length - 1] ?? ESTADO_VOZ_INICIAL,
+  };
+}
+
+// ⚠️ Cada test SUELTA su sesión al final, pase o falle: un recorder falso que quedó «grabando» deja vivo
+// el `setInterval` del grabador y el proceso del test no termina nunca (la primera corrida de las roturas
+// se colgó así, con el archivo roto en el disco hasta que se mató el arnés y se restauró a mano).
+test('🗑 mientras el navegador pide el micrófono CANCELA el pedido: al permitir no graba nada, y el siguiente 🎤 anda', async () => {
+  const t = armarMicPendiente();
+  try {
+    const p = t.s.start(t.onSend);
+    assert.equal(t.ultimo().fase, 'grabando');
+    assert.equal(t.ultimo().pidiendoMic, true, 'la barra no sabe que el micrófono todavía no llegó');
+    t.s.descartar();
+    assert.equal(t.ultimo().fase, 'quieta');
+    assert.equal(t.ultimo().pidiendoMic, false);
+    await t.permitir(); await p;
+    assert.equal(t.recs.length, 0, 'el micrófono quedó grabando sin ninguna barra');
+    assert.equal(t.pistasParadas(), 1, 'el micrófono quedó abierto');
+    assert.equal(t.ultimo().fase, 'quieta');
+    // El siguiente 🎤 graba de verdad y su ✓ termina (antes el grabador viejo seguía «activo» y la barra se trababa).
+    const p2 = t.s.start(t.onSend);
+    await t.permitir(); await p2;
+    assert.equal(t.recs.length, 1);
+    assert.equal(t.ultimo().pidiendoMic, false);
+    t.s.terminar(); await esperar();
+    assert.equal(t.ultimo().fase, 'revisando');
+    assert.equal(t.entregas.length, 0, '✓ termina, no manda');
+  } finally { t.s.soltar(); }
+});
+
+test('✓ mientras se pide el micrófono no hace nada; al permitir se graba, y el ✓ termina. Desmontar en el medio lo suelta', async () => {
+  const t = armarMicPendiente();
+  const u = armarMicPendiente();
+  try {
+    const p = t.s.start(t.onSend);
+    t.s.terminar();
+    assert.equal(t.ultimo().uniendo, false, 'el ✓ dejaba la barra «cerrando» con todo apagado y el micrófono abierto');
+    await t.permitir(); await p;
+    assert.equal(t.ultimo().fase, 'grabando');
+    assert.equal(t.ultimo().pidiendoMic, false);
+    assert.equal(t.recs[0]?.state, 'recording');
+    t.s.terminar(); await esperar();
+    assert.equal(t.ultimo().fase, 'revisando');
+    // Cerrar el panel (o cambiar de chat) mientras se pide: al volver, el micrófono se suelta y no graba.
+    const pu = u.s.start(u.onSend);
+    u.s.soltar();
+    await u.permitir(); await pu;
+    assert.equal(u.recs.length, 0);
+    assert.equal(u.pistasParadas(), 1);
+  } finally { t.s.soltar(); u.s.soltar(); }
+});
+
 test('el WAV de la unión es un WAV de verdad, y la onda cuenta barras con el ancho', () => {
   const w = wavDe([new Float32Array([0, 0.5]), new Float32Array([-1])], 48_000);
   assert.equal(w.type, 'audio/wav');
@@ -186,6 +277,19 @@ test('la barra: grabando con el ✓ (nunca una ➤), revisando con ▶, 🎤 y l
   const rev = renderToStaticMarkup(createElement(BarraGrabacion, { voz: voz({ fase: 'revisando', revision: { url: 'blob:1', secs: 4 } }) }));
   for (const r of ['aria-label="Escuchar audio"', 'aria-label="Seguir grabando"', 'aria-label="Enviar audio"', 'aria-label="Borrar el audio"']) assert.ok(rev.includes(r), `falta ${r}`);
   assert.ok(!rev.includes('Terminar grabación'));
+});
+
+// Hallazgo 8 (ver el arnés `armarMicPendiente`, arriba): la barra mientras el navegador pide el micrófono.
+test('la barra con el micrófono pendiente: ⏸ y ✓ apagados, 🗑 prendido (es lo que cancela el pedido)', () => {
+  const html = renderToStaticMarkup(createElement(BarraGrabacion, { voz: voz({ fase: 'grabando', pidiendoMic: true }) }));
+  const boton = (rotulo: string) => new RegExp(`<button[^>]*aria-label="${rotulo}"[^>]*>`).exec(html)?.[0] ?? '';
+  assert.match(boton('Terminar grabación'), /disabled=""/, 'un ✓ sin tramo que cerrar trababa la barra');
+  assert.match(boton('Pausar grabación'), /disabled=""/);
+  assert.ok(boton('Eliminar grabación'), 'falta el 🗑');
+  assert.doesNotMatch(boton('Eliminar grabación'), /disabled=""/, 'sin el 🗑 no hay cómo cancelar el pedido del micrófono');
+  // Y sin pedido pendiente, el ✓ vuelve a andar (no quedó apagado para siempre).
+  const listo = renderToStaticMarkup(createElement(BarraGrabacion, { voz: voz({ fase: 'grabando' }) }));
+  assert.doesNotMatch(new RegExp('<button[^>]*aria-label="Terminar grabación"[^>]*>').exec(listo)?.[0] ?? 'disabled=""', /disabled=""/);
 });
 
 test('NINGÚN composer manda al soltar: `audioAlSoltar` no decide nada, y la grabación es la sesión', () => {
