@@ -27,7 +27,7 @@ export const REPORTES_CON_PREFS: Record<string, 'horario' | 'diario' | 'semanal'
 
 /**
  * ⛔ UN REPORTE NO SALE POR WHATSAPP. Decisión de Martín (10/10/2026), al preguntarle qué hacer con el
- * reporte semanal, que no tenía por dónde salir desde que se borró Chatwoot: «Apagar WhatsApp en los
+ * reporte semanal, que no tenía por dónde salir desde que se borró el WhatsApp oficial: «Apagar WhatsApp en los
  * reportes» (y no mandarlo al grupo de MaKo). Quedan por email y en el feed. Lo leen el lienzo y el
  * interruptor de un reporte (`canalesDeMensaje`, `guardarCanalDeMensaje`) y el cron (`decidirReporte`,
  * lib/reporte-destino.ts): si algún día vuelve, se cambia ACÁ y los tres lo siguen.

@@ -144,11 +144,28 @@ test('el drenador de corridas descubre las de TODOS los workspaces y ejecuta cad
 //
 // Probado rompiéndolo: devolviendo `leerStoreDe(OWNER_WS)` como base, este test cae
 // nombrando la herencia de un cliente.
+test('la BASE de la plataforma la edita sólo /mensajes en el workspace de la plataforma', () => {
+  // «Separar la base» (Martín, 10/10/2026). Roturas: guardarStore sin la rama de la base → 1 fallo;
+  // la ruta de /mensajes sin `enSuStore` → 1 fallo.
+  const src = sinComentarios(leer('lib/plantillas.ts'));
+  const guardar = bloque(src, 'async function guardarStore(', 'function aVista(');
+  assert.match(guardar, /if \(enLaBase\(\)\) \{[\s\S]*?runWithWorkspace\(base, \(\) => setSetting\(KEY_BASE, /, 'editando la base se escribe el store del ws9');
+  const ruta = sinComentarios(leer('app/api/admin/plantillas/route.ts'));
+  assert.match(ruta, /return ws === base \? conLaBaseDeLaPlataforma\(fn\) : fn\(\);/);
+  assert.match(ruta, /return enSuStore\(\(\) => getEnSuStore\(req\)\);/);
+  assert.match(ruta, /return enSuStore\(\(\) => postEnSuStore\(req\)\);/);
+  // Y la ruta del NEGOCIO («MaKo en WhatsApp» de Automations) nunca edita la base.
+  assert.doesNotMatch(sinComentarios(leer('app/api/perfil/plantillas/route.ts')), /conLaBaseDeLaPlataforma/);
+});
+
 test('los clientes heredan los mensajes de la PLATAFORMA, nunca de otro cliente', () => {
   const src = sinComentarios(leer('lib/plantillas.ts'));
   const par = bloque(src, 'async function leerPar(', 'async function leerStore(');
   assert.match(par, /wsSuperAdmin\(\)/, 'la base de la herencia tiene que ser el workspace de la plataforma');
-  assert.match(par, /leerStoreDe\(base\)/, 'se hereda del store de la base resuelta, no de un número');
+  // Desde el 10/10/2026 la base es SU PROPIA CLAVE en el workspace de la plataforma (decisión de Martín:
+  // «Separar la base»), no el store del ws9: lo que él cambia en su negocio ya no lo heredan los demás.
+  assert.match(par, /leerStoreDe\(base, KEY_BASE\)/, 'se hereda de la BASE de la plataforma, no del store del ws9');
+  assert.doesNotMatch(par, /if \(ws === base\)/, 'el ws9 volvió a ser la base: lo que cambia en su negocio lo heredan todos');
   assert.doesNotMatch(par, /OWNER_WS/, 'la base volvió a ser el ws1, que es un CLIENTE: sus textos le llegan a todos los demás');
   // Y el borrador sigue sin heredarse (lo fija también tests/flujo-aviso.test.ts).
   assert.match(par, /borrador: _sinHeredar/, 'el borrador de la base no se hereda nunca');

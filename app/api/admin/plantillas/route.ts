@@ -11,10 +11,11 @@ import {
   listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla, setPosicionesPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo,
   setTituloPlantilla, setAsuntoPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
+  conLaBaseDeLaPlataforma,
 } from '@/lib/plantillas';
 import { getProgramado, setProgramado, NoAgendable } from '@/lib/avisos-programados';
 import { acusesDe, setAcuses } from '@/lib/insistencias';
-import { getWorkspaceActual } from '@/lib/workspace';
+import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 import { CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
@@ -23,8 +24,22 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const maxDuration = 60;
 
+/**
+ * EN EL WORKSPACE DE LA PLATAFORMA, /mensajes edita la BASE que heredan todos los negocios (decisión de Martín,
+ * 10/10/2026: «Separar la base», lib/plantillas.ts → `KEY_BASE`); en el de un cliente que el super admin está
+ * mirando, el store de ése, como siempre. El «MaKo en WhatsApp» del ws9 (/api/perfil/plantillas) edita su store.
+ */
+async function enSuStore<T>(fn: () => Promise<T>): Promise<T> {
+  const [ws, base] = await Promise.all([getWorkspaceActual(), wsSuperAdmin()]);
+  return ws === base ? conLaBaseDeLaPlataforma(fn) : fn();
+}
+
 export async function GET(req: NextRequest) {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
+  return enSuStore(() => getEnSuStore(req));
+}
+
+async function getEnSuStore(req: NextRequest) {
   const id = new URL(req.url).searchParams.get('id');
   if (id) { const p = await getPlantilla(id); return p ? NextResponse.json({ ok: true, plantilla: p }) : NextResponse.json({ ok: false, error: 'no existe' }, { status: 404 }); }
   return NextResponse.json({ ok: true, plantillas: await listarPlantillas({ vista: 'agencia' }) });
@@ -41,6 +56,10 @@ type Body = {
 
 export async function POST(req: NextRequest) {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
+  return enSuStore(() => postEnSuStore(req));
+}
+
+async function postEnSuStore(req: NextRequest) {
   let b: Body;
   try { b = (await req.json()) as Body; } catch { return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 

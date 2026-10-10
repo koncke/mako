@@ -10,6 +10,7 @@
 // libre de adaptarla. generarMensajeAviso() hace justamente eso.
 
 import 'server-only';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { getSetting, setSetting } from './settings';
 import { runWithWorkspace, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { chatClaude } from './anthropic';
@@ -19,6 +20,24 @@ import { sanearFrecuencia } from './disparador-mensaje';
 import { conVariables } from './variables-resolver';
 
 const KEY_STORE = 'mako.plantillas.store';
+/**
+ * LA BASE DE LA PLATAFORMA: lo que heredan TODOS los negocios (el ws9 incluido), en el workspace de la
+ * plataforma (`wsSuperAdmin()`) pero en SU propia clave.
+ *
+ * ⚠️ HASTA EL 10/10/2026 LA BASE ERA EL STORE DEL WS9 (`KEY_STORE` de `wsSuperAdmin()`), así que lo que
+ * Martín cambiaba en «MaKo en WhatsApp» de SU negocio —prender, apagar, un texto, una cadencia— lo heredaba
+ * todo cliente que no había tocado ese mensaje, sin que la pantalla lo dijera (revisión del ws9). Decisión de
+ * Martín: «Separar la base». La edita SÓLO /mensajes desde el workspace de la plataforma
+ * (`conLaBaseDeLaPlataforma`, app/api/admin/plantillas); su «MaKo en WhatsApp» edita su store, como cualquiera.
+ * Medido ese día: las dos claves vacías, así que no hubo nada que mudar.
+ */
+const KEY_BASE = 'mako.plantillas.base';
+const editandoLaBase = new AsyncLocalStorage<true>();
+/** Corre `fn` editando (y leyendo) la BASE de la plataforma en vez del store del workspace actual. */
+export function conLaBaseDeLaPlataforma<T>(fn: () => Promise<T>): Promise<T> {
+  return editandoLaBase.run(true, fn);
+}
+const enLaBase = (): boolean => editandoLaBase.getStore() === true;
 
 type EntradaStore = {
   texto?: string;      // referencia editada (pisa el ejemplo del catálogo)
@@ -138,14 +157,16 @@ export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boole
  *
  * Al dueño no se le hereda nada (su store ES el default), y eso evita el ciclo.
  */
-async function leerStoreDe(ws: number | null): Promise<Store> {
-  const raw = ws == null ? await getSetting(KEY_STORE) : await runWithWorkspace(ws, () => getSetting(KEY_STORE));
+async function leerStoreDe(ws: number | null, key: string = KEY_STORE): Promise<Store> {
+  const raw = ws == null ? await getSetting(key) : await runWithWorkspace(ws, () => getSetting(key));
   if (!raw) return {};
   try { return (JSON.parse(raw) as Store) ?? {}; } catch { return {}; }
 }
 
 /** Lo propio del workspace actual, sin herencia. Es lo que se muta. */
 async function leerStorePropio(): Promise<Store> {
+  // Editando la base, lo «propio» ES la base (en el workspace de la plataforma).
+  if (enLaBase()) return leerStoreDe(await wsSuperAdmin(), KEY_BASE);
   return leerStoreDe(null);
 }
 
@@ -183,12 +204,16 @@ async function leerPar(): Promise<{ propio: Store; efectivo: Store }> {
   // que los clientes pasan a heredar el catálogo de fábrica, que es lo que dice el código.
   //
   // El ws1 queda como un inquilino más: sus ediciones son suyas y de nadie más.
-  const [ws, base] = await Promise.all([getWorkspaceActual(), wsSuperAdmin()]);
-  if (ws === base) {
+  //
+  // ⚠️ Y DESDE EL 10/10/2026 LA BASE ES SU PROPIA CLAVE (`KEY_BASE`), NO EL STORE DEL WS9: el ws9 hereda como
+  // cualquier negocio, y la base sólo la edita /mensajes (`conLaBaseDeLaPlataforma`). Editando la base no se
+  // hereda nada: lo que se ve es la base misma.
+  if (enLaBase()) {
     const propio = await leerStorePropio();
-    return { propio, efectivo: propio };   // a la plataforma no se le hereda nada: su store ES el default
+    return { propio, efectivo: propio };
   }
-  const [propio, baseStore] = await Promise.all([leerStorePropio(), leerStoreDe(base)]);
+  const base = await wsSuperAdmin();
+  const [propio, baseStore] = await Promise.all([leerStorePropio(), leerStoreDe(base, KEY_BASE)]);
   const efectivo: Store = {};
   for (const id of new Set([...Object.keys(baseStore), ...Object.keys(propio)])) {
     // ⚠️ EL BORRADOR NO SE HEREDA, y es el único campo con esa excepción. Lo del
@@ -223,6 +248,12 @@ async function leerStore(): Promise<Store> {
 
 /** Escribe SIEMPRE en el workspace actual: nadie edita el default de otro. */
 async function guardarStore(s: Store): Promise<void> {
+  // Editando la base, se escribe la base, en el workspace de la plataforma (`conLaBaseDeLaPlataforma`).
+  if (enLaBase()) {
+    const base = await wsSuperAdmin();
+    await runWithWorkspace(base, () => setSetting(KEY_BASE, JSON.stringify(s)));
+    return;
+  }
   await setSetting(KEY_STORE, JSON.stringify(s));
 }
 
