@@ -11,7 +11,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { mapaDeAnuncios, origenAds, opcionesDeFiltro, SIN_ORIGEN_ADS } from '../lib/campana-atribucion';
+import { mapaDeAnuncios, origenAds, opcionesDeFiltro, arbolDeAnuncios, pasaFiltroAnuncio, SIN_ORIGEN_ADS } from '../lib/campana-atribucion';
+import { alternarGrupo, alternarHijo } from '../app/crm/arbol-seleccion';
 import { canalDeLead } from '../app/crm/origen-lead';
 
 const CAMP = '120000000000000001';
@@ -67,11 +68,11 @@ test('las opciones van de la que más leads tiene a la que menos, y «Sin …» 
 
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-// PROBADO ROMPIÉNDOLO: con la línea del filtro de creativo borrada de `matches`, cae.
-test('el tablero filtra por las DOS claves, con «Sin …» para el null, y las ofrece en el menú', () => {
+// PROBADO ROMPIÉNDOLO: con la línea del filtro borrada de `matches`, cae.
+test('el tablero filtra por campaña Y anuncio con UNA regla, y las ofrece en el menú', () => {
   const b = sinComentarios(readFileSync('app/crm/CrmBoard.tsx', 'utf8'));
-  assert.match(b, /campanaFilter\.size > 0 && !campanaFilter\.has\(l\.campanaKey \?\? SIN_ORIGEN_ADS\)/);
-  assert.match(b, /creativoFilter\.size > 0 && !creativoFilter\.has\(l\.anuncioKey \?\? SIN_ORIGEN_ADS\)/);
+  // Las dos selecciones del árbol pasan por la misma función (que es «O»: ver su test).
+  assert.match(b, /salvo !== 'ads' && !pasaFiltroAnuncio\(l, campanaFilter, creativoFilter\)\) return false/);
   assert.match(b, /listas=\{listasFiltro\}[\s\S]*listas=\{listasFiltro\}/, 'el menú y los chips reciben las listas');
   // Y limpiar todo también las limpia: un filtro que «Limpiar» no saca es invisible.
   assert.match(b, /const limpiarTodo = \(\) => \{[^}]*setCampanaFilter\(new Set\(\)\);[^}]*setCreativoFilter\(new Set\(\)\);/);
@@ -154,8 +155,89 @@ test('canalDeLead: por dónde entró, con el formulario de Meta aunque falte la 
 
 test('el filtro por anuncio se llama «Anuncio», la palabra de Martín y del Ads Manager', () => {
   const b = sinComentarios(readFileSync('app/crm/CrmBoard.tsx', 'utf8'));
-  assert.match(b, /\{ cat: 'creativo', label: 'Anuncio'/);
-  assert.match(b, /facetas\('creativo', creativoFilter, 'Sin anuncio'\)/);
+  assert.match(b, /cat: 'creativo', label: 'Anuncio'/);
   assert.doesNotMatch(b, /label: 'Creativo'/);
   //   ROTO A PROPÓSITO (2026-10-10): con el rótulo otra vez «Creativo», pass 9 / fail 1.
+});
+
+// =============================================================================
+// 10/10/2026, más tarde — «No separes el filtro de Campaña y Anuncio... Que dentro del
+// filtro de "Anuncio" estén las campañas primero como arbol y dentro se pueda seleccionar
+// anuncios de esas camapañas» (Martín)
+// =============================================================================
+// Eran dos categorías del menú, y qué anuncio era de qué campaña había que adivinarlo por
+// el nombre. Ahora es UNA: la lista «Anuncio» trae las campañas (lo que elige
+// `campanaFilter`) y, colgados de cada una, sus anuncios (lo que elige `creativoFilter`).
+
+const ANA = { campKey: 'A', campNombre: 'Campaña A', adKey: 'a1', adNombre: 'Video 1' };
+const PARES = [
+  ANA, ANA,
+  { campKey: 'A', campNombre: 'Campaña A', adKey: 'a2', adNombre: 'Carrusel' },
+  { campKey: 'A', campNombre: 'Campaña A', adKey: null, adNombre: null },
+  { campKey: 'B', campNombre: 'Campaña B', adKey: 'b1', adNombre: 'Foto' },
+  { campKey: null, campNombre: null, adKey: null, adNombre: null },
+];
+
+test('arbolDeAnuncios: cada campaña con SUS anuncios, contando leads (no la suma de los hijos)', () => {
+  const r = arbolDeAnuncios(PARES);
+  assert.deepEqual(r.map((x) => [x.value, x.n]), [['A', 4], ['B', 1], [SIN_ORIGEN_ADS, 1]]);
+  // La campaña A cuenta 4: también el lead sin anuncio conocido es de ella.
+  assert.deepEqual(r[0].hijos, [{ value: 'a1', label: 'Video 1', n: 2 }, { value: 'a2', label: 'Carrusel', n: 1 }]);
+  assert.deepEqual(r[1].hijos.map((h) => h.value), ['b1'], 'el anuncio de B no aparece bajo A');
+  assert.deepEqual(r[2].hijos, [], '«Sin campaña» no inventa anuncios');
+  //   ROTO A PROPÓSITO (2026-10-10): sin el filtro por campaña de los hijos (todos los anuncios bajo cada
+  //   campaña), pass 14 / fail 1.
+});
+
+test('arbolDeAnuncios: lo elegido que hoy cuenta cero sigue en la lista, para poder destildarlo', () => {
+  const r = arbolDeAnuncios(PARES.slice(0, 2), { campanas: new Set(['Z']), anuncios: new Set(['b1']) });
+  assert.ok(r.some((x) => x.value === 'Z' && x.n === 0), 'la campaña elegida que no trae a nadie');
+  assert.ok(r.some((x) => x.hijos.some((h) => h.value === 'b1' && h.n === 0)), 'el anuncio elegido que no trae a nadie');
+  //   ROTO A PROPÓSITO (2026-10-10): sin el bucle de los anuncios elegidos, pass 14 / fail 1.
+});
+
+test('pasaFiltroAnuncio: campaña entera O anuncio suelto — «O», no «Y»', () => {
+  const lead = (campanaKey: string | null, anuncioKey: string | null) => ({ campanaKey, anuncioKey });
+  const todo = [lead('A', 'a1'), lead('A', null), lead('B', 'b1'), lead('B', 'b2'), lead(null, null)];
+  const pasan = (c: string[], a: string[]) => todo.filter((l) => pasaFiltroAnuncio(l, new Set(c), new Set(a))).length;
+  assert.equal(pasan([], []), 5, 'sin nada elegido no filtra');
+  // La campaña A entera (con su lead sin anuncio) MÁS el anuncio b1 de la campaña B.
+  assert.equal(pasan(['A'], ['b1']), 3);
+  assert.equal(pasan([], ['b1']), 1);
+  assert.equal(pasan([SIN_ORIGEN_ADS], []), 1, '«Sin campaña» es elegible');
+  //   ROTO A PROPÓSITO (2026-10-10): con «Y» (la campaña Y el anuncio a la vez), pass 14 / fail 1 — elegir A
+  //   y b1 daba 0.
+});
+
+test('el árbol del menú: tildar una campaña la elige ENTERA; destildar un anuncio suyo deja los otros', () => {
+  const vacio = { grupos: new Set<string>(), hijos: new Set<string>() };
+  // Elegir la campaña suelta sus anuncios tildados: ya los cubre.
+  const g = alternarGrupo({ grupos: new Set(), hijos: new Set(['a1', 'b1']) }, 'A', ['a1', 'a2']);
+  assert.deepEqual([[...g.grupos], [...g.hijos]], [['A'], ['b1']]);
+  // Con la campaña entera, destildar a1 es «todos menos a1».
+  const h = alternarHijo(g, 'A', 'a1', ['a1', 'a2']);
+  assert.deepEqual([[...h.grupos], [...h.hijos].sort()], [[], ['a2', 'b1']]);
+  // Un anuncio suelto se tilda y se destilda.
+  const t = alternarHijo(vacio, 'A', 'a1', ['a1', 'a2']);
+  assert.deepEqual([...t.hijos], ['a1']);
+  assert.deepEqual([...alternarHijo(t, 'A', 'a1', ['a1', 'a2']).hijos], []);
+  // Y destildar la campaña la saca.
+  assert.deepEqual([...alternarGrupo(g, 'A', ['a1', 'a2']).grupos], []);
+  //   ROTO A PROPÓSITO (2026-10-10): con `alternarHijo` sacando el anuncio de `hijos` aunque la campaña
+  //   esté entera (la casilla no se destildaba nunca), pass 14 / fail 1.
+});
+
+test('UN filtro: el menú no ofrece «Campaña» aparte, y el árbol usa las funciones de arriba', () => {
+  const b = sinComentarios(readFileSync('app/crm/CrmBoard.tsx', 'utf8'));
+  const i = b.indexOf('const listasFiltro');
+  const listas = b.slice(i, b.indexOf('const limpiarTodo', i));
+  assert.ok(i > 0 && listas.length < 1500, `las listas del menú miden ${listas.length}`);
+  assert.equal((listas.match(/cat: '/g) ?? []).length, 1, 'una sola lista: «Anuncio»');
+  assert.match(listas, /hijos: \{ de: /, 'los anuncios cuelgan de su campaña');
+  assert.doesNotMatch(listas, /label: 'Campaña'/);
+  const t = sinComentarios(readFileSync('app/crm/CrmToolbar.tsx', 'utf8'));
+  assert.match(t, /aplicar\(alternarGrupo\(\{ grupos: lista\.sel, hijos: arbol\.sel \}/);
+  assert.match(t, /aplicar\(alternarHijo\(\{ grupos: lista\.sel, hijos: arbol\.sel \}/);
+  //   ROTO A PROPÓSITO (2026-10-10): con una lista «Campaña» devuelta al lado de «Anuncio», pass 14 /
+  //   fail 1.
 });

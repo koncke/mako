@@ -37,6 +37,7 @@ import { Icon } from '@/app/_components/icons';
 import { CANALES } from '@/lib/fase-diagnostico';
 import { ENTRADAS, ENTRADAS_OFRECIDAS, type EntradaId } from '@/lib/pipeline';
 import { crearProductoAction, declararEntradasAction, embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction } from './actions';
+import { alternarGrupo, alternarHijo } from './arbol-seleccion';
 import { Confirm } from '@/app/_ui/Confirm';
 import { useCrmAuto } from './CrmAutoToggle';
 import { LapizIcon } from './iconos';
@@ -46,7 +47,7 @@ const SANS = "'Geist', sans-serif";
 /** Vista del tablero. "pendientes" (datos sin marcar) es UNA VISTA: reemplaza el board entero. */
 export type CrmVista = 'kanban' | 'tabla' | 'pendientes';
 /** Categorías del menú de filtros. El buscador NO es una categoría (no genera chip). */
-export type FiltroCat = 'etapa' | 'origen' | 'campana' | 'creativo' | 'orden';
+export type FiltroCat = 'etapa' | 'origen' | 'creativo' | 'orden';
 
 /**
  * «Ordenar» (mig 0200): UNA opción a la vez, y su BASE. Con un orden manual guardado la base
@@ -76,6 +77,16 @@ export type ListaFiltro = {
   opciones: { value: string; label: string; n: number }[];
   sel: Set<string>;
   set: (s: Set<string>) => void;
+  /**
+   * Si está, la lista se dibuja como ÁRBOL: cada opción es un grupo (una campaña) y adentro
+   * van sus hijos (sus anuncios), con su propia selección. `sel` es la del grupo ENTERO.
+   * Lo pidió Martín el 10/10/2026: campaña y anuncio en un solo filtro, como árbol.
+   */
+  hijos?: {
+    de: Record<string, { value: string; label: string; n: number }[]>;
+    sel: Set<string>;
+    set: (s: Set<string>) => void;
+  };
 };
 /** Estado del panel de filtros: null = cerrado; 'root' = las categorías; el resto = drill-down. */
 export type FiltroAbierto = 'root' | FiltroCat | null;
@@ -462,8 +473,13 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   // dibuja (p. ej. un negocio sin Meta no tiene campañas).
   const vivas = listas.filter((l) => l.opciones.length > 0);
   const ordenOn = !!orden && orden.valor !== orden.base;
-  const n = etapas.size + origen.size + listas.reduce((a, l) => a + l.sel.size, 0) + (ordenOn ? 1 : 0);
-  const limpiar = () => { setEtapas(new Set()); setOrigen(new Set()); for (const l of listas) l.set(new Set()); orden?.elegir(orden.base); };
+  const elegidosDe = (l: ListaFiltro) => l.sel.size + (l.hijos?.sel.size ?? 0);
+  const n = etapas.size + origen.size + listas.reduce((a, l) => a + elegidosDe(l), 0) + (ordenOn ? 1 : 0);
+  const limpiar = () => { setEtapas(new Set()); setOrigen(new Set()); for (const l of listas) { l.set(new Set()); l.hijos?.set(new Set()); } orden?.elegir(orden.base); };
+  // Los grupos del árbol que la persona abrió o cerró a mano. Por defecto van ABIERTOS si
+  // son pocos (con una o dos campañas, cerrarlas sólo esconde los anuncios detrás de un
+  // clic) y cerrados si son muchos.
+  const [alternados, setAlternados] = useState<Set<string>>(() => new Set());
   const toggleEtapa = (k: string) => { const c = new Set(etapas); if (c.has(k)) c.delete(k); else c.add(k); setEtapas(c); };
   const toggleOrigen = (o: string) => { const c = new Set(origen); if (c.has(o)) c.delete(o); else c.add(o); setOrigen(c); };
 
@@ -481,10 +497,15 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   const cats: Array<{ key: FiltroCat; label: string; resumen: string; activo: boolean }> = [
     { key: 'etapa', label: 'Etapa', resumen: resumen(etapas, etapaLabel), activo: etapas.size > 0 },
     { key: 'origen', label: 'Origen', resumen: origen.size === 0 ? 'Todos' : origen.size === 1 ? [...origen][0] : `${origen.size} elegidos`, activo: origen.size > 0 },
-    ...vivas.map((l) => ({
-      key: l.cat, label: l.label, activo: l.sel.size > 0,
-      resumen: l.sel.size === 0 ? l.todas : l.sel.size === 1 ? (l.opciones.find((o) => o.value === [...l.sel][0])?.label ?? '1 elegida') : `${l.sel.size} elegidas`,
-    })),
+    ...vivas.map((l) => {
+      const total = elegidosDe(l);
+      const unico = total === 1
+        ? (l.sel.size === 1
+          ? l.opciones.find((o) => o.value === [...l.sel][0])?.label
+          : Object.values(l.hijos?.de ?? {}).flat().find((h) => l.hijos?.sel.has(h.value))?.label)
+        : undefined;
+      return { key: l.cat, label: l.label, activo: total > 0, resumen: total === 0 ? l.todas : total === 1 ? (unico ?? '1 elegida') : `${total} elegidas` };
+    }),
     ...(orden ? [{ key: 'orden' as const, label: 'Ordenar', resumen: orden.opciones[orden.valor] ?? orden.valor, activo: ordenOn }] : []),
   ];
   const lista = vivas.find((l) => l.cat === abierto) ?? null;
@@ -497,6 +518,28 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
     const c = new Set(lista.sel);
     if (c.has(v)) c.delete(v); else c.add(v);
     lista.set(c);
+  };
+
+  // ── el ÁRBOL (una lista con hijos) ──
+  const arbol = lista?.hijos ?? null;
+  const hijosDe = (g: string) => arbol?.de[g] ?? [];
+  const totalHijos = arbol ? Object.values(arbol.de).reduce((a, h) => a + h.length, 0) : 0;
+  const coincide = (label: string, value: string) => !textoBuscar || label.toLowerCase().includes(textoBuscar) || value.includes(textoBuscar);
+  // Con búsqueda, un grupo se ve si él o alguno de sus hijos coincide; y si coincide él,
+  // se ven todos sus hijos (buscar la campaña es querer ver sus anuncios).
+  const gruposArbol = arbol && lista
+    ? lista.opciones.filter((g) => coincide(g.label, g.value) || hijosDe(g.value).some((h) => coincide(h.label, h.value)))
+    : [];
+  const abiertoGrupo = (g: string) => !!textoBuscar || ((lista?.opciones.length ?? 0) <= 3) !== alternados.has(g);
+  const alternar = (g: string) => setAlternados((prev) => { const c = new Set(prev); if (c.has(g)) c.delete(g); else c.add(g); return c; });
+  // Qué tildar y destildar en el árbol lo decide app/crm/arbol-seleccion.ts (puro y con test):
+  // acá sólo se lee el estado y se escribe lo que devuelve.
+  const aplicar = (r: { grupos: Set<string>; hijos: Set<string> }) => { lista?.set(r.grupos); arbol?.set(r.hijos); };
+  const toggleGrupo = (g: string) => {
+    if (lista && arbol) aplicar(alternarGrupo({ grupos: lista.sel, hijos: arbol.sel }, g, hijosDe(g).map((h) => h.value)));
+  };
+  const toggleHijo = (g: string, h: string) => {
+    if (lista && arbol) aplicar(alternarHijo({ grupos: lista.sel, hijos: arbol.sel }, g, h, hijosDe(g).map((x) => x.value)));
   };
 
   return (
@@ -550,12 +593,49 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
                 </button>
               ))}
               {/* Con muchas campañas o anuncios, buscar es lo que hace usable la lista. */}
-              {lista && lista.opciones.length > 8 && (
+              {lista && lista.opciones.length + totalHijos > 8 && (
                 <input autoFocus value={buscar} onChange={(e) => setBuscar(e.target.value)}
                   placeholder={`Buscar ${lista.label.toLowerCase()}`} aria-label={`Buscar ${lista.label.toLowerCase()}`}
                   style={{ width: '100%', boxSizing: 'border-box', margin: '2px 0 6px', padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, outline: 'none' }} />
               )}
-              {lista && (opcionesLista.length === 0
+              {lista && arbol && (gruposArbol.length === 0
+                ? <div style={{ padding: '10px 9px', fontSize: 12.5, color: 'var(--faint)' }}>Ninguna con esa búsqueda.</div>
+                : gruposArbol.map((g) => {
+                  const hijos = hijosDe(g.value).filter((h) => !textoBuscar || coincide(g.label, g.value) || coincide(h.label, h.value));
+                  const entero = lista.sel.has(g.value);
+                  const parcial = !entero && hijosDe(g.value).some((h) => arbol.sel.has(h.value));
+                  const abierto = abiertoGrupo(g.value);
+                  return (
+                    <div key={g.value}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        {/* El chevron abre o cierra; la fila elige la campaña entera. Son dos
+                            gestos distintos y no comparten botón: apretar para ver los
+                            anuncios no puede filtrar por accidente. */}
+                        <button type="button" onClick={() => alternar(g.value)} disabled={hijos.length === 0}
+                          aria-label={abierto ? `Cerrar ${g.label}` : `Abrir ${g.label}`} aria-expanded={abierto}
+                          style={{ flex: 'none', width: 22, height: 28, border: 'none', background: 'transparent', cursor: hijos.length ? 'pointer' : 'default', color: 'var(--faint)', fontSize: 13, padding: 0, visibility: hijos.length ? 'visible' : 'hidden' }}>
+                          <span aria-hidden style={{ display: 'inline-block', transform: abierto ? 'rotate(90deg)' : 'none', transition: 'transform .12s' }}>›</span>
+                        </button>
+                        <button type="button" onClick={() => toggleGrupo(g.value)} style={{ ...rowBtn, paddingLeft: 2 }} title={g.label} aria-pressed={entero}>
+                          <span style={check(entero || parcial)}>{entero ? '✓' : parcial ? '–' : ''}</span>
+                          <span style={{ ...texto, flex: 1, fontWeight: 600 }}>{g.label}</span>
+                          <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{g.n}</span>
+                        </button>
+                      </div>
+                      {abierto && hijos.map((h) => {
+                        const on = entero || arbol.sel.has(h.value);
+                        return (
+                          <button key={h.value} type="button" onClick={() => toggleHijo(g.value, h.value)} style={{ ...rowBtn, paddingLeft: 32 }} title={h.label} aria-pressed={on}>
+                            <span style={check(on)}>{on ? '✓' : ''}</span>
+                            <span style={{ ...texto, flex: 1 }}>{h.label}</span>
+                            <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{h.n}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                }))}
+              {lista && !arbol && (opcionesLista.length === 0
                 ? <div style={{ padding: '10px 9px', fontSize: 12.5, color: 'var(--faint)' }}>Ninguna con esa búsqueda.</div>
                 : opcionesLista.map((o) => (
                   <button key={o.value} type="button" onClick={() => toggleLista(o.value)} style={rowBtn} title={o.label}>
@@ -613,9 +693,13 @@ export function FiltroChips({ stages, etapas, setEtapas, origen, setOrigen, list
     chips.push({ cat: 'origen', titulo: 'Origen', texto: vals[0] + (vals.length > 1 ? ` +${vals.length - 1}` : ''), completo: vals.join(', '), limpiar: () => setOrigen(new Set()) });
   }
   for (const l of listas) {
-    if (!l.sel.size) continue;
-    const vals = [...l.sel].map((v) => l.opciones.find((o) => o.value === v)?.label ?? v);
-    chips.push({ cat: l.cat, titulo: l.label, texto: vals[0] + (vals.length > 1 ? ` +${vals.length - 1}` : ''), completo: vals.join(', '), limpiar: () => l.set(new Set()) });
+    if (!l.sel.size && !l.hijos?.sel.size) continue;
+    const hojas = Object.values(l.hijos?.de ?? {}).flat();
+    const vals = [
+      ...[...l.sel].map((v) => l.opciones.find((o) => o.value === v)?.label ?? v),
+      ...[...(l.hijos?.sel ?? [])].map((v) => hojas.find((h) => h.value === v)?.label ?? v),
+    ];
+    chips.push({ cat: l.cat, titulo: l.label, texto: vals[0] + (vals.length > 1 ? ` +${vals.length - 1}` : ''), completo: vals.join(', '), limpiar: () => { l.set(new Set()); l.hijos?.set(new Set()); } });
   }
   if (orden && orden.valor !== orden.base) {
     const texto = orden.opciones[orden.valor] ?? orden.valor;

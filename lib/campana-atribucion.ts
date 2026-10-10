@@ -275,3 +275,76 @@ export function opcionesDeFiltro(
 
 /** La clave de «Sin campaña» / «Sin creativo». No es un id de Meta ni empieza con `n:`. */
 export const SIN_ORIGEN_ADS = '__sin';
+
+/** Un anuncio dentro de su campaña, en el filtro «Anuncio» del CRM. */
+export type HojaAnuncio = { value: string; label: string; n: number };
+/** Una campaña del árbol: cuántos leads trajo y, adentro, sus anuncios. */
+export type RamaCampana = HojaAnuncio & { hijos: HojaAnuncio[] };
+
+/**
+ * El filtro «Anuncio» del CRM como ÁRBOL: las campañas arriba y, adentro de cada una, sus
+ * anuncios.
+ *
+ * Pedido de Martín (10/10/2026): «No separes el filtro de Campaña y Anuncio... Que dentro
+ * del filtro de "Anuncio" estén las campañas primero como arbol y dentro se pueda
+ * seleccionar anuncios de esas campañas». Eran dos categorías del menú, y la relación entre
+ * las dos —qué anuncio es de qué campaña— había que adivinarla por el nombre.
+ *
+ * - La campaña sale de `campanaKey` y el anuncio de `anuncioKey` (ver `origenAds`): el
+ *   árbol se arma con los PARES que trae cada lead, así que un anuncio cae bajo la campaña
+ *   de sus leads y no bajo una adivinada.
+ * - El conteo de una campaña es de LEADS, no la suma de sus anuncios: los leads de una
+ *   campaña sin anuncio conocido también son de ella.
+ * - El orden es el de `opcionesDeFiltro` —de la que más leads tiene a la que menos—, con
+ *   «Sin campaña» al final.
+ * - Lo ya elegido se queda aunque cuente cero, o quedaría tildado sin forma de destildarlo
+ *   (la misma regla que el filtro plano).
+ */
+export function arbolDeAnuncios(
+  pares: { campKey: string | null; campNombre: string | null; adKey: string | null; adNombre: string | null }[],
+  elegidas: { campanas: Set<string>; anuncios: Set<string> } = { campanas: new Set(), anuncios: new Set() },
+  sinCampana = 'Sin campaña',
+): RamaCampana[] {
+  const ramas = opcionesDeFiltro(pares.map((p) => ({ key: p.campKey, nombre: p.campNombre })), sinCampana)
+    .map((o) => ({ ...o, hijos: [] as HojaAnuncio[] }));
+  const deCampana = (k: string | null) => k ?? SIN_ORIGEN_ADS;
+  for (const r of ramas) {
+    // Sólo los anuncios CONOCIDOS son hijos: «sin anuncio» dentro de una campaña ya lo cubre
+    // elegir la campaña entera, y como hoja sería una opción que no se puede nombrar.
+    r.hijos = opcionesDeFiltro(
+      pares.filter((p) => deCampana(p.campKey) === r.value && p.adKey).map((p) => ({ key: p.adKey, nombre: p.adNombre })),
+      '',
+    );
+  }
+  // Lo elegido que hoy no cuenta nada vuelve igual, con 0, para poder destildarlo.
+  for (const v of elegidas.campanas) {
+    if (!ramas.some((r) => r.value === v)) ramas.push({ value: v, label: v === SIN_ORIGEN_ADS ? sinCampana : v, n: 0, hijos: [] });
+  }
+  for (const v of elegidas.anuncios) {
+    if (ramas.some((r) => r.hijos.some((h) => h.value === v))) continue;
+    const par = pares.find((p) => p.adKey === v);
+    const rama = ramas.find((r) => r.value === deCampana(par?.campKey ?? null))
+      ?? ramas[ramas.push({ value: SIN_ORIGEN_ADS, label: sinCampana, n: 0, hijos: [] }) - 1];
+    rama.hijos.push({ value: v, label: par?.adNombre ?? v, n: 0 });
+  }
+  return ramas;
+}
+
+/**
+ * ¿Pasa este lead el filtro «Anuncio»? Con algo elegido, pasa si su CAMPAÑA está elegida
+ * entera O si su ANUNCIO está elegido.
+ *
+ * ⚠️ ES «O», NO «Y». Con las dos categorías separadas se cruzaban con «Y» —elegir una
+ * campaña y un anuncio daba los anuncios de esa campaña—. En el árbol las dos selecciones
+ * son de la MISMA lista: tildar la campaña A entera y además un anuncio de la campaña B
+ * tiene que mostrar las dos cosas, como en cualquier árbol con casillas.
+ */
+export function pasaFiltroAnuncio(
+  l: { campanaKey?: string | null; anuncioKey?: string | null },
+  campanas: Set<string>,
+  anuncios: Set<string>,
+): boolean {
+  if (campanas.size === 0 && anuncios.size === 0) return true;
+  if (campanas.has(l.campanaKey ?? SIN_ORIGEN_ADS)) return true;
+  return !!l.anuncioKey && anuncios.has(l.anuncioKey);
+}
