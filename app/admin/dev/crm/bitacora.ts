@@ -1681,4 +1681,29 @@ export const BITACORA: Hito[] = [
       'tests/crm-filtro-ads.test.ts — ocho roturas, cada una pass 16 / fail 1',
     ],
   },
+  {
+    fecha: '10 oct', hora: '20:01', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Destildar la campaña la vuelve a plegar',
+    pedido: 'Si aprieto seleccionar una campaña se despliega, pero si deselecciono se debe volver a plegar.',
+    puntos: [
+      'Llegó con el despliegue al tocar recién desplegado (8a39bb02), que abría y nunca cerraba.',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '20:07', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tildar la campaña la despliega y destildarla la pliega',
+    puntos: [
+      'Lo que se fija es lo que el toque HIZO: tildada, abierta; destildada, plegada. El chevron sigue abriendo y cerrando sin filtrar.',
+      'Se fija el estado, no se alterna: con el buscador abierto todo se ve desplegado, y alternar a ciegas dejaba el registro al revés de lo que se veía.',
+      'Verificado en Código Inmobiliario tildando y destildando dos veces seguidas: 15 filas abierta, 2 plegada.',
+    ],
+    commits: [{ sha: 'f531a170', msg: 'CRM: destildar una campaña del árbol la vuelve a plegar', lineas: 67, archivos: 3 }],
+    archivos: [
+      'app/crm/arbol-seleccion.ts — conGrupoAbierto',
+      'app/crm/CrmToolbar.tsx — la fila de la campaña',
+      'tests/crm-filtro-ads.test.ts — dos roturas, pass 17 / fail 1',
+    ],
+  },
 ];
