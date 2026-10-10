@@ -1,7 +1,7 @@
 # Referidos de MaKo — la propuesta (10/10/2026)
 
-> **Estado: PROPUESTA, con cinco respuestas de Martín del mismo 10/10** (la sección «Lo que
-> decidió Martín», justo abajo, manda sobre el resto). Nada está aplicado ni prometido a nadie. El proyecto «Vender MaKo: Referidos» (P68) sigue
+> **Estado: DECIDIDO por Martín el 10/10/2026, sin aplicar todavía** (la sección «El programa
+> decidido», justo abajo, manda sobre el resto). Nada está prometido a nadie. El proyecto «Vender MaKo: Referidos» (P68) sigue
 > **tachado** en el Plan desde el 20/09: reabrirlo es parte de esa decisión.
 
 **De dónde sale.** Del audio del 10/10/2026 (28 min, Martín y su socio discutiendo
@@ -22,7 +22,54 @@ no tiene código. Entre paréntesis, la IA barata.
 
 ---
 
-## ✅ Lo que decidió Martín el mismo 10/10 — manda sobre todo lo de abajo
+## ✅ EL PROGRAMA DECIDIDO (10/10/2026) — manda sobre todo lo de abajo
+
+Martín cerró las decisiones el mismo día, en tres vueltas. Lo que sigue es el programa; las
+secciones de más abajo son el camino y quedan como respaldo de las cuentas.
+
+### Las tres reglas
+
+| | Regla |
+|---|---|
+| **Suscripción: qué gana el que refiere** | **Cada cliente nuevo que trae le descuenta su primer mes de la suscripción, una sola vez.** Con un plan de 97: 2 clientes nuevos de 47, o 1 de 97, y ese mes no paga. Con un plan de 47: 1 de 47. Si sobra, **se acumula** para los meses siguientes: el que trae 6 de 47 en un mes tiene ~3 meses gratis por delante. Si al mes siguiente no trae a nadie, paga. |
+| **Cuándo cuenta un referido** | Desde su **2º pago**. El que entra y se va al mes no le descuenta nada a nadie. |
+| **Qué gana el que entra** | El **2º mes gratis**. Paga el 1º. |
+| **Grupal** | **US$300 en plata** por grupal de US$1.500 (decidido), el **20% de cada cuota cobrada**: en 3 cuotas de 500, son 100 por cuota. Si el comprador pide el reembolso de la garantía, no hay comisión. Lo puede referir cualquiera, tenga MaKo o no. Por transferencia local. |
+| **Plan agencia** | **Va dentro del de 97.** Cualquier cuenta de 97 puede dar de alta workspaces para sus clientes (`agencia_clientes`, mig 0175), y **cada workspace paga su plan** (47 o 97). Cada workspace nuevo es un referido de la agencia: con 2 clientes de 47, su 97 de ese mes es gratis. No hay plan de 200. |
+| **Reglas comunes** | Las de la sección 1: registro previo, el origen que vale es el primero, sólo clientes nuevos, precio de lista, prohibido pautar con la palabra «MaKo». **Todo se cobra**, también a los amigos. |
+
+### Por qué cierra (IA de hoy)
+
+- **Un Pro referido le cuesta a MaKo ~US$73** en valor esperado: el descuento al que refiere
+  (47 de lista = 44,03 netos sobre un plan de 97) por 0,7827 de llegar al 2º pago = 34,46, más
+  el 2º mes gratis del referido, 43,77 × 0,8847 = 38,72. Techo: **US$81,50**.
+- **El costo es por cliente, sin tope:** el que trae 30 cuesta 30 × 73 y deja 30 × 251 de LTV.
+  Por eso no hace falta limitar el saldo acumulado.
+- **El grupal deja ~US$890** después de la comisión y de la hora de entrega por cabeza
+  (1.290 de caja − 100 − 300). Por anuncio, el mismo grupal cuesta entre ~US$500 y ~US$1.000.
+
+### Lo que se descartó en el camino, para que no vuelva
+
+- **El «modo cuenta»** (US$10 por mes menos por cada cliente activo): «¿quién preferiría US$10
+  antes que US$47?». Un premio que necesita una cuenta para entenderse no mueve a nadie.
+- **«Gratis mientras tus 2 referidos sigan pagando»:** con 2 de 47 activos MaKo pierde
+  US$33,13 por mes por referidor (cobra 87,54 netos, gasta 29,80 en servirlos y deja de cobrar
+  90,87). Para que esa versión no pierda plata hacen falta 4 de 47 activos.
+- **Pagar plata por los referidos de suscripción:** en suscripción el premio es descuento, sin
+  transferencias. La plata queda sólo para el grupal.
+- **Un plan agencia de 200** y **un plan agencia con N workspaces adentro** (el de 297 con 10
+  clientes es venta mayorista a US$29,70 por workspace).
+
+### Defaults puestos sin preguntar (cambiarlos es una línea)
+
+- El saldo **no se cambia por plata** y se pierde si el que refiere cancela.
+- **Sin vencimiento** mientras sea cliente: un vencimiento castigaría justo al que trae mucho.
+- Alguien **sin suscripción** que trae un cliente de software no gana nada por ese cliente: su
+  canal es el grupal. Si aparece el caso (tu hermana trayendo suscriptores), se decide ahí.
+
+---
+
+## Primera vuelta de respuestas (10/10) — superada por «El programa decidido»
 
 **Contestó las decisiones de la sección 8:**
 
@@ -77,9 +124,9 @@ los dos números que ve, y un premio que necesita una cuenta para entenderse no 
 - **Lo que NO se hace:** un plan de agencia con N workspaces adentro. Es venta mayorista y
   pierde plata (el de 297 con 10 clientes es US$29,70 por workspace; ver los hallazgos).
 
-### Lo que sigue abierto
-- **200 o 300 por grupal**: el documento propone 300 (20%); Martín no lo cerró.
-- **Si el plan agencia va dentro del de 97**: es la recomendación, no la decisión.
+### Lo que seguía abierto (CERRADO arriba)
+- 300 por grupal: decidido.
+- El plan agencia va dentro del de 97: decidido.
 
 ---
 
