@@ -3,7 +3,7 @@
 // =============================================================================
 // La ESTRATEGIA (lib/setting-estrategia.ts) vive en nutricion_secuencias.estrategia.
 // Acá: getSecuencias (secuencias + estrategia + métricas 30d), guardarEstrategia,
-// crearSecuenciaDesdeEtapa (wizard paso 1) y probarSecuencia (paso 6 — manda TODOS
+// crearSecuenciaDesdeEtapa (la de la API, colgada de una etapa) y probarSecuencia (manda TODOS
 // los pasos al contacto del admin, marcados [PRUEBA], SIN tocar inscripciones
 // ni nutricion_envios: cero contaminación de KPIs y del guard anti-ban).
 
@@ -37,6 +37,7 @@ import type { Posiciones } from './lienzo-posiciones';
 import { leerBorradoresSecuencias, type DbBorrador } from './secuencia-borrador';
 import type { PasoGrafo } from './flujo-grafo';
 import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from './disparadores';
+import { pasosDeEsqueleto } from './setting-semillas';
 
 export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
@@ -145,23 +146,23 @@ export async function guardarEstrategia(secuenciaId: number, estrategia: Estrate
 }
 
 /**
- * Wizard paso 1: secuencia nueva colgada de una etapa del funnel (funnel-
- * agnóstica, trigger 'etapa_actual'). Nace PAUSADA con 2 pasos de esqueleto que
- * MaKo escribe en el paso 5; aprobar la prende.
+ * Secuencia nueva colgada de una etapa del funnel (funnel-agnóstica, trigger 'etapa_actual'). La
+ * crea la operación `crear_secuencia_mensajes` de la API de MaKo. Nace PAUSADA con 2 mensajes de
+ * esqueleto que se escriben en el lienzo; activarla la prende.
+ *
+ * ⚠️ NACE COMO TARJETAS (sexta tanda, 09/10/2026, General 15: plantillas «con configuraciones viejas
+ * obsoletas»). Era una LISTA de antes —la espera de 48 h como campo del segundo mensaje, que desde el
+ * 08/10 es una tarjeta DELAY (y desde la sexta, la pastilla sobre la flecha)— con un relleno que
+ * remitía al «paso de redacción» de un wizard que ya no existe. El lienzo la abría convertida y
+ * «Sin publicar» sin que nadie la tocara. La conversión es la MISMA que hace el lienzo al abrirla
+ * (`abrirFlujo`); sin estrategia, no hay nada que limpiar (ver `estrategiaConLimpieza`).
  */
 export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): Promise<number> {
   const supabase = await getTenantDb();
   const clave = `secuencia-${etapa}-${Date.now().toString(36)}`;
-  // ⚠️ EL PRIMERO SIN ESPERA (08/10/2026, punto 7: «Por defecto entre el CRON y la siguiente
-  // tarjeta ponés siempre un delay, cuando no debe ser así»). Una espera la pone quien arma el
-  // flujo, como tarjeta; el esqueleto no la inventa.
-  const pasos = [
-    { orden: 1, canal: 'email', delay_horas: 0, asunto: '[MaKo lo escribe]', cuerpo: '[MaKo lo escribe en el paso de redacción]', template_wa: null },
-    { orden: 2, canal: 'whatsapp', delay_horas: 48, asunto: null, cuerpo: '[MaKo lo escribe en el paso de redacción]', proveedor: 'no_oficial', template_wa: null },
-  ];
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .insert({ clave, nombre: nombreDeSecuencia(nombre), etapa, trigger_tipo: 'etapa_actual', activa: false, pasos })
+    .insert({ clave, nombre: nombreDeSecuencia(nombre), etapa, trigger_tipo: 'etapa_actual', activa: false, pasos: pasosDeEsqueleto() })
     .select('id')
     .single();
   if (error) throw new Error(`crearSecuenciaDesdeEtapa: ${error.message}`);
@@ -176,7 +177,7 @@ export const NOMBRE_PROVISORIO = 'Nueva automatización';
  * docs/chatbot-flujo-ramas-diseno.md). Abre el lienzo con sólo el CRON y la caja de crear con IA.
  *
  * ⚠️ SIN PASOS DE RELLENO, a propósito: `crearSecuenciaDesdeEtapa` (arriba) siembra dos pasos con
- * «[MaKo lo escribe…]», y ese corchete hace que el paso no salga NUNCA (`RX_RELLENO`,
+ * «[Escribe este mensaje…]», y ese corchete hace que el paso no salga NUNCA (`RX_RELLENO`,
  * lib/nutricion.ts). Crear con IA exige una automatización VACÍA para escribir encima, y una que
  * se arme a mano empieza tocando el ＋ del CRON.
  *

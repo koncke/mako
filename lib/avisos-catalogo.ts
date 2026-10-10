@@ -39,8 +39,26 @@ export type AvisoCatalogo = {
   yaImplementado: EstadoImplementacion;
   /** disparador (evento/cron/umbral) que lo genera. */
   disparador: string;
-  /** ejemplo con datos de muestra, en la voz de MaKo (rioplatense). */
+  /**
+   * Ejemplo con datos de muestra, en la voz de MaKo: español NEUTRO y con tú (decía «rioplatense»,
+   * y ningún ejemplo vosea: el detector de voseo los barre). FICTICIO por regla: se dibuja en la
+   * pantalla de todos (tests/variables-aviso.test.ts).
+   */
   ejemplo: string;
+  /**
+   * EL TEXTO LO ARMA EL CÓDIGO (sexta tanda, General 15: «Hay plantillas que quedaron viejas…
+   * que no tienen sentido»). `true` = TODO emisor de este aviso le pasa a `emitirDelCatalogo` un
+   * `texto` armado con lo que midió (o lo manda `despacharReporte`, en los reportes), así que el
+   * texto guardado de la plantilla NO SALE NUNCA: el `ejemplo` es una muestra de lo que llega.
+   *
+   * ⚠️ Medido el 09/10/2026: de los ocho avisos que edita un cliente («MaKo en WhatsApp» en
+   * /chatbot), SIETE eran así, y la pantalla les ofrecía el editor de WhatsApp sobre un mensaje que
+   * nunca se manda como está escrito. Sólo `cuota-vencida` usa la plantilla (`referenciaResuelta`).
+   * Lo lee `seEditaElTexto` (la ruta del cliente y el editor), y lo fija
+   * tests/plantillas-viejas.test.ts contra los emisores: un emisor que pase a usar la plantilla
+   * tiene que sacar la marca, y uno que pase a mandar su texto tiene que ponerla.
+   */
+  textoDelCodigo?: true;
   /**
    * QUÉ ENTIDADES TRAE EL DISPARADOR DE ESTE AVISO. Ausente = ninguna.
    *
@@ -66,6 +84,14 @@ export type AvisoCatalogo = {
    * hereda en vez de materializarse.
    */
   flujoPorDefecto?: Flujo;
+  /**
+   * EL CÓDIGO QUE EMITE ESTE AVISO CORRE TAMBIÉN SU FLUJO (`correrFlujoDe`, lib/flujos.ts), así que
+   * sus pasos corren sin que nadie le elija un evento. Hoy, sólo la cobranza (app/api/cron/cobranza:
+   * los dos avisos de `disparosDeCobranza`). Lo lee el lienzo (`grafoDeAviso`) para no dibujar como
+   * rotos —«sólo corre con un evento»— los pasos que sí corren; lo fija tests/plantillas-viejas.test.ts
+   * contra el único llamador.
+   */
+  correSuFlujo?: true;
   /**
    * CON QUÉ NACE UNA CUENTA NUEVA. Ausente = 'off'.
    *
@@ -204,7 +230,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'landing-cambio': 'landing',
   'prueba-recibida': 'landing',
   'wa-desconectado': 'sistema', 'wa-reconectado': 'sistema',
-  'plantilla-estado': 'sistema', 'nutricion-frenada': 'sistema',
+  'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
   'lead-no-confirmo': 'lead',
@@ -247,7 +273,14 @@ export function encabezadoAviso(id: string): string {
  */
 export const AVISOS_DEL_CLIENTE: readonly string[] = [
   'reporte-semanal',        // el lunes, cómo le fue la semana
-  'lead-no-confirmo',       // agendó, no confirmó: hay que llamarlo
+  // ⛔ `lead-no-confirmo` («agendó, no confirmó: hay que llamarlo») SALIÓ el 09/10/2026 (sexta tanda,
+  // General 15). Lo emite el desenlace de una automatización de ANTES (lista) con «que llegue
+  // preparado» y un fallo por silencio, y desde el 08/10 no queda ninguna: las de tarjetas avisan
+  // con su propia tarjeta MaKo en WhatsApp («no confirmó la reunión», `avisar_al_equipo`), que es
+  // lo que corre en la post-agenda de hoy. Medido en producción (09/10/2026): de las 69
+  // automatizaciones, la única con un fallo por silencio es una ARCHIVADA (la post-agenda vieja del
+  // ws1), que el motor no corre. Era un interruptor que no prendía ni apagaba nada. Lo decide Martín
+  // si vuelve: es una línea.
   'reunion-recordatorio',   // la reunión se viene
   'reunion-ocurrio-fathom', // terminó y quedó la grabación
   'wa-mensaje-entrante',    // alguien escribió y nadie contestó
@@ -259,6 +292,23 @@ export const AVISOS_DEL_CLIENTE: readonly string[] = [
 ];
 
 export const esAvisoDelCliente = (id: string): boolean => AVISOS_DEL_CLIENTE.includes(id);
+
+/** ¿El texto de este aviso lo arma el código? (`textoDelCodigo`). Un aviso propio del negocio, nunca. */
+export const textoLoArmaElCodigo = (id: string): boolean =>
+  CATALOGO_AVISOS.find((c) => c.id === id)?.textoDelCodigo === true;
+
+/**
+ * ¿Un CLIENTE puede editar el texto de este aviso? Sólo si es suyo (`AVISOS_DEL_CLIENTE`) y su texto
+ * sale de la plantilla. UNA respuesta para las dos puntas: la ruta (`/api/perfil/plantillas`, que
+ * contesta 403) y el editor (`TemplateDetalleModal`, que no ofrece el campo). Con dos copias, la
+ * pantalla ofrecería un editor que la ruta rechaza — o al revés, que es lo que pasaba: un editor que
+ * la ruta ACEPTABA sobre un texto que nadie manda.
+ */
+export const seEditaElTexto = (id: string): boolean => esAvisoDelCliente(id) && !textoLoArmaElCodigo(id);
+
+/** ¿El código que emite este aviso corre también su flujo? (`correSuFlujo`). */
+export const correSuFlujo = (id: string): boolean =>
+  CATALOGO_AVISOS.find((c) => c.id === id)?.correSuFlujo === true;
 
 export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   // ⚠️ DOS QUE SE DISPARAN DE VERDAD Y NO ESTABAN ACÁ. Los avisos en vivo
@@ -306,7 +356,13 @@ Nada urgente, por eso esperaron. — MaKo`,
   {
     id: 'reporte-semanal', titulo: 'Reporte semanal (lunes)', categoria: 'reporte', porDefecto: 'on',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'Cron los lunes a la mañana (hora local del workspace): ads, cierres, CAC, cash, ritmo a la meta.',
+    // El cuerpo lo arma `buildReporteSemanal` (lib/reportes.ts) con los números de la semana y lo
+    // manda `despacharReporte`: no lee esta plantilla (era la «cola» «El texto de un REPORTE no
+    // llega al mail» de /admin/dev/configuraciones).
+    textoDelCodigo: true,
+    // La primera oración es lo que dibuja la tarjeta CRON («Hoy sale solo: …», `disparadorCorto`):
+    // decía «Cron los lunes…», o sea el nombre de la pieza y no el momento.
+    disparador: 'Los lunes a la mañana, en la hora del negocio: ads, cierres, CAC, cash y ritmo a la meta.',
     ejemplo: `🗓️ *Reporte semanal* — 07/07 al 13/07\n\n*Ads:* $640 · 92 leads · CPL $6,9 · 4 cierres · CAC $160\n*Cash de la semana:* $12.800\n*Objetivo:* 8/12 cierres · ~6 semanas para la meta\n\nVienes bien. — MaKo`,
   },
   {
@@ -389,7 +445,8 @@ https://hola-mako.com/integraciones
     id: 'meta-token-vencido', titulo: 'Token de Meta vencido (integración caída)', categoria: 'aviso',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'graphGet() code 190 → MetaHealthTokenError.',
-    ejemplo: `🔴 *Se venció tu token de Meta*. Dejé de poder leer tus campañas y el semáforo quedó ciego. Reconecta la integración en /configuraciones para que todo vuelva a funcionar. — MaKo`,
+    // Mandaba a /configuraciones: las integraciones viven en /integraciones («Conectar con Meta»).
+    ejemplo: `🔴 *Se venció tu conexión con Meta*. Dejé de poder leer tus campañas y el semáforo quedó ciego. Vuelve a conectarla en /integraciones para que todo vuelva a funcionar. — MaKo`,
   },
   {
     id: 'meta-anuncio-rechazado', titulo: 'Anuncio rechazado por políticas de Meta', categoria: 'aviso',
@@ -530,8 +587,14 @@ https://hola-mako.com/integraciones
   },
   {
     id: 'lead-no-confirmo', titulo: 'Agendó, no confirmó y hay que llamarlo', categoria: 'accion', porDefecto: 'on',
-    prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'La secuencia de post-agenda le mandó el audio, le insistió a las 24 h y el lead no contestó ninguna de las dos veces. Sale cuando la secuencia se da por fallida (desenlace), no antes: avisar apenas agenda sería llamarlo sin darle la chance de responder solo. Uno por lead cada 24 h.',
+    // ⚠️ 'parcial' desde el 09/10/2026: sólo lo emite una automatización de ANTES (una lista, con el
+    // objetivo «que llegue preparado» y un fallo por silencio), y no queda ninguna viva. Las de
+    // tarjetas avisan lo mismo con su tarjeta MaKo en WhatsApp (`avisar_al_equipo`, «no confirmó la
+    // reunión»): es lo que hace la post-agenda de hoy. Por eso salió de `AVISOS_DEL_CLIENTE`.
+    prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'parcial',
+    // El texto lo arma lib/nutricion-desenlace.ts con lo que SALIÓ de verdad.
+    textoDelCodigo: true,
+    disparador: 'Una automatización de antes (una lista) le escribió para confirmar la reunión y el lead no contestó a tiempo. Las de tarjetas lo avisan con su propia tarjeta MaKo en WhatsApp. Uno por lead cada 24 h.',
     ejemplo: `🟡 *Oswaldo Iturbide* agendó para el martes 12 de agosto, 20:00 y no confirmó.
 
 Le mandé el audio y le insistí al día siguiente: no contestó ninguna de las dos veces.
@@ -601,7 +664,11 @@ Conviene que le marques tú: +52 55 4874 2149
   {
     id: 'reunion-recordatorio', titulo: 'Recordatorio de reunión próxima', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'Cron reunion-recordatorio (cada 10 min): junta_1_at/junta_2_at a menos de 30 minutos, con el lead abierto y la asistencia sin marcar. Una marca por reunión evita repetirlo.',
+    // El texto lo arma `textoAvisoPreLlamada` (lib/lead-resumen.ts) con la reunión y el link.
+    textoDelCodigo: true,
+    // ⚠️ La primera oración la dibuja la tarjeta CRON: decía «Cron reunion-recordatorio», el nombre
+    // interno de la pieza (AGENTS.md: el nombre interno de una cosa no es el nombre de la cosa).
+    disparador: 'Media hora antes de una reunión con un lead, si el lead sigue abierto y la asistencia no está marcada. Se revisa cada 10 minutos y sale una vez por reunión.',
     // ⚠️ FICTICIO POR REGLA. Nombraba a un lead real de un cliente, y un agendado por
     // tiempo se lo mandó al grupo de OTRO cuatro días seguidos (06/10/2026). Hoy un
     // ejemplo no puede salir por tiempo (`motivoNoAgendable`), pero se sigue dibujando
@@ -705,7 +772,10 @@ https://hola-mako.com/crm/482/resumen
     // instante del webhook: en ese momento el análisis todavía no había corrido,
     // así que no había resumen que pasar, y la respuesta del dueño no la escuchaba
     // nadie. El link reemplaza la pregunta — ver app/api/webhooks/fathom/route.ts.
-    disparador: 'Webhook Fathom, dentro del after(): cuando el Closing Analyst terminó de analizar la llamada y MaKo dejó el follow-up como borrador.',
+    // El texto lo arma `textoAvisoPostLlamada` (lib/lead-resumen.ts) con la llamada.
+    textoDelCodigo: true,
+    // ⚠️ Decía «Webhook Fathom, dentro del after()»: la tarjeta CRON dibujaba «after()».
+    disparador: 'Cuando Fathom entrega la grabación de una llamada con un lead y MaKo terminó de analizarla (el seguimiento queda como borrador).',
     ejemplo: `━━ 🗓️ REUNIÓN ━━
 ✅ Terminó la *R1 con Sergio Esquer* (42 min).
 
@@ -769,8 +839,14 @@ https://hola-mako.com/plan — MaKo`,
   {
     id: 'wa-mensaje-entrante', titulo: 'Mensaje de WhatsApp entrante (al dueño)', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'parcial',
+    // Lo emiten las automatizaciones cuando un lead les contesta (lib/nutricion.ts, tres lugares) y
+    // el hand-off (lib/chat-agent-handoff.ts), cada uno con su texto: el ejemplo es la muestra de uno.
+    textoDelCodigo: true,
     disparador: 'Un lead contesta por el WhatsApp del negocio y nadie le respondió todavía.',
-    ejemplo: `💬 *Mensaje nuevo* de Carla (+52 686 399…): "Hola, ¿sigue disponible la promo?". Lleva 12 min sin respuesta. — MaKo`,
+    // ⚠️ El ejemplo de antes («Lleva 12 min sin respuesta») no se parecía a NINGUNO de los cuatro que
+    // salen. Con el texto armado por código el ejemplo es lo único que se ve del mensaje: tiene que
+    // ser uno de verdad (el de la charla que se cerró sin respuesta preparada, lib/nutricion.ts).
+    ejemplo: `💬 *Carla te escribió.*\n\n_"Hola, ¿sigue disponible la promo?"_\n\nNo le preparé respuesta: la charla ya se había cerrado. Contéstale tú.\n\n— MaKo`,
   },
   {
     /**
@@ -785,7 +861,8 @@ https://hola-mako.com/plan — MaKo`,
      */
     id: 'wa-desconectado', titulo: 'WhatsApp de empresa desconectado', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'El cron de alertas (cada 10 min) prueba cada línea de WhatsApp por QR del negocio. Si dos pruebas seguidas la dan caída, avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó, o que el negocio desvinculó, no avisa.',
+    textoDelCodigo: true,   // `textoCaida` (lib/linea-vigilancia.ts): sale de lo que se midió
+    disparador: 'Cuando una línea de WhatsApp del negocio queda caída dos pruebas seguidas (se prueba cada 10 minutos). Avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó, o que el negocio desvinculó, no avisa.',
     ejemplo: `🔴 *Se desconectó tu WhatsApp* (+52 55 1234 5678). WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR: https://hola-mako.com/whatsapp — MaKo`,
   },
   {
@@ -797,7 +874,8 @@ https://hola-mako.com/plan — MaKo`,
      */
     id: 'wa-reconectado', titulo: 'WhatsApp de empresa reconectado', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'El cron de alertas (cada 10 min) ve viva una línea cuya caída ya se había avisado. Sale una vez y deja de insistir.',
+    textoDelCodigo: true,   // `textoVolvio` (lib/linea-vigilancia.ts)
+    disparador: 'Cuando vuelve una línea cuya caída ya se había avisado (se prueba cada 10 minutos). Sale una vez y deja de insistir.',
     ejemplo: `🟢 *Volvió tu WhatsApp* (+52 55 1234 5678). Por ese número ya entran y salen mensajes otra vez. — MaKo`,
   },
   {
@@ -806,23 +884,26 @@ https://hola-mako.com/plan — MaKo`,
     disparador: 'Conversaciones con último entrante sin respuesta > umbral.',
     ejemplo: `🟡 *3 conversaciones sin responder* hace más de 2 horas. La más caliente: Juan, que preguntó precio. Cada hora que pasa baja la chance de cierre.\n\n¿Te dejo borradores de respuesta para que apruebes? — MaKo`,
   },
+  // ⚠️ ACÁ ESTABA `plantilla-estado` («Plantilla aprobada/rechazada por Meta»), y se fue el 09/10/2026
+  // (sexta tanda, General 15: plantillas «con configuraciones viejas obsoletas»). Avisaba el veredicto de
+  // Meta sobre una plantilla de la línea OFICIAL, que salió del producto ese mismo día, y su ejemplo
+  // prometía «abrir conversación fuera de la ventana de 24h», que en el WhatsApp de empresa no existe.
+  // Medido antes de sacarlo: ningún emisor, ningún store que lo nombre, ningún link.
+  //
+  // Los dos de abajo conservan el id (`nutricion-*` es una clave estable, la del feed y el dedup) y
+  // cambian lo que se lee: la «nutrición» y la «secuencia» son las AUTOMATIZACIONES desde el 05/10, y
+  // un WhatsApp de empresa no tiene token ni ventana que se venzan.
   {
-    id: 'plantilla-estado', titulo: 'Plantilla aprobada/rechazada por Meta', categoria: 'aviso',
-    prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'parcial',
-    disparador: 'Poll de estado de plantillas de WhatsApp.',
-    ejemplo: `✅ Meta *aprobó* tu plantilla "nutricion_bienvenida". Ya la puedes usar para abrir conversación fuera de la ventana de 24h. — MaKo`,
-  },
-  {
-    id: 'nutricion-agotada', titulo: 'Nutrición agotada → lead frío', categoria: 'pregunta',
+    id: 'nutricion-agotada', titulo: 'Automatización terminada sin respuesta → lead frío', categoria: 'pregunta',
     prioridad: 'baja', semaforo: 'amarillo', requiereRespuesta: true, yaImplementado: 'no',
-    disparador: 'Lead completó todos los toques sin responder/agendar.',
-    ejemplo: `🟡 Carla terminó la secuencia de nutrición (5 toques) sin responder ni agendar. La marco como *fría*, salvo que quieras un último intento manual con un mensaje distinto. ¿La dejo o le doy una más? — MaKo`,
+    disparador: 'Un lead recorrió una automatización entera sin responder ni agendar.',
+    ejemplo: `🟡 Carla recorrió la automatización «Bienvenida» entera (5 mensajes) sin responder ni agendar. La marco como *fría*, salvo que quieras un último intento manual con un mensaje distinto. ¿La dejo o le doy una más? — MaKo`,
   },
   {
-    id: 'nutricion-frenada', titulo: 'Nutrición frenada por error técnico', categoria: 'aviso',
+    id: 'nutricion-frenada', titulo: 'Automatizaciones frenadas por un error', categoria: 'aviso',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'no',
-    disparador: 'Cola de nutrición con mensajes sin salir (token/ventana).',
-    ejemplo: `🔴 La nutrición se *frenó sola*: 8 mensajes quedaron en cola sin salir (parece que expiró el token de WhatsApp). Nadie está recibiendo follow-up ahora. Revisa la conexión en /configuraciones. — MaKo`,
+    disparador: 'Mensajes de las automatizaciones que no salen: la línea de WhatsApp caída o el email sin configurar.',
+    ejemplo: `🔴 Tus automatizaciones se *frenaron*: 8 mensajes no salieron porque tu WhatsApp está desconectado. Nadie está recibiendo seguimiento ahora. Vuelve a vincularlo en /whatsapp. — MaKo`,
   },
 
   {
@@ -849,6 +930,7 @@ https://hola-mako.com/plan — MaKo`,
     // ahora», o sea la misma promesa muerta del «¿Le escribo el recordatorio?» (abajo).
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     aporta: ['lead', 'cuota'],
+    correSuFlujo: true,   // el cron de cobranza corre la cadencia (`correrFlujoDe`)
     /**
      * ⚠️ LA CADENCIA POR DEFECTO, Y SE EDITA EN EL LIENZO. Martín, 04/10/2026: «Para eso
      * estamos configurando el chatbot, que cada usuario lo pueda editar! Y en la
@@ -880,7 +962,7 @@ https://hola-mako.com/plan — MaKo`,
         { tipo: 'mensaje', canal: 'aviso_dueno', texto: 'Último recordatorio por la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}): si ya se cobró, márcalo en su ficha y dejo de insistir.' },
       ],
     },
-    disparador: 'El cron de cobranza (cada día) ve una cuota pasada de fecha en `pagos` y avisa UNA vez por cuota. Lo que viene después —cada cuántos días insistir y cuántas veces— lo decide el FLUJO de este mensaje, que se edita en el lienzo. Al marcar el pago en la ficha, la secuencia se corta sola.',
+    disparador: 'Cuando una cuota pasa su fecha sin cobrarse, una vez por cuota (se revisa cada día). Lo que viene después —cada cuánto recordarlo y cuántas veces— lo decide el flujo de este mensaje, en el lienzo. Al marcar el pago en la ficha, se corta solo.',
     // ⚠️ EL EJEMPLO ES FICTICIO, A PROPÓSITO. Acá decía «la cuota 2 de Vértice», que es
     // una cuenta REAL del tablero: quien abre esta pantalla ve la cobranza de otro, y
     // quien lo cuenta en una reunión lo cuenta como propio — pasó, y está medido en
@@ -897,7 +979,8 @@ https://hola-mako.com/plan — MaKo`,
     id: 'cuota-por-vencer', titulo: 'Cuota por vencer (recordatorio proactivo)', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     aporta: ['lead', 'cuota'],
-    disparador: 'El cron de cobranza, el día antes del vencimiento. Una vez por cuota.',
+    correSuFlujo: true,   // el mismo cron de cobranza corre su flujo, si se le arma uno
+    disparador: 'El día antes de que venza una cuota, una vez por cuota.',
     ejemplo: `🟡 Mañana vence la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}). Avisarle hoy sale más barato que perseguirlo después. — MaKo`,
   },
   {
@@ -982,7 +1065,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'saldo-ia-bajo', titulo: 'Saldo de IA de MaKo bajo', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Saldo prepago de IA bajo (se lleva manual).',
-    ejemplo: `🟡 Tu *saldo de IA* de MaKo está en $4. Cuando se agote dejo de poder generar reportes, nutrición y análisis. Recarga cuando puedas para no cortar el servicio. — MaKo`,
+    ejemplo: `🟡 Tu *saldo de IA* de MaKo está en $4. Cuando se agote dejo de poder generar reportes, mensajes de tus automatizaciones y análisis. Recarga cuando puedas para no cortar el servicio. — MaKo`,
   },
   {
     id: 'accion-confirmada', titulo: 'Confirmación tras ejecutar una acción aprobada', categoria: 'aviso',

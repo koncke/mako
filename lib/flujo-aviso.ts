@@ -32,15 +32,29 @@ import {
   ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y, MARGEN, ICONO_MAKO, encerrar,
   type NodoFlujo, type AristaFlujo, type GrafoFlujo,
 } from './lienzo-grafo';
-import { EVENTOS, describirPaso, type Disparador, type Paso } from './flujos-tipos';
+import { rotuloDeEvento, describirPaso, type Disparador, type Paso } from './flujos-tipos';
 import { textoCron, type CronAviso } from './cron-aviso';
 // Las posiciones y su poda son de los DOS lienzos (éste y el de /chatbot, desde la quinta tanda):
 // viven en lib/lienzo-posiciones.ts y se re-exportan acá para los que ya las importaban de este módulo.
 import { podarPosiciones, type Posiciones } from './lienzo-posiciones';
+// Los títulos de las tarjetas de la casa (CRON · DELAY · CONDITION · ACTION · MAKO EN WHATSAPP): UN
+// lugar para los dos lienzos. Este módulo no lo importa nadie de los que importa ése: no hay ciclo.
+import { TITULO } from './flujo-conversacion';
+import { correSuFlujo } from './avisos-catalogo';
 export { podarPosiciones, type Posiciones };
 
 /** El título de la tarjeta del mensaje al grupo (MaKo en WhatsApp 1: «El título debe ser ese»). */
-export const TITULO_MAKO_EN_WHATSAPP = 'MAKO EN WHATSAPP';
+export const TITULO_MAKO_EN_WHATSAPP = TITULO.mako;
+
+/**
+ * Lo que dice la tarjeta de un mensaje al grupo: su texto, en una línea y cortado con «…» (WhatsApp
+ * 12, sexta tanda: «si el mensaje es muy largo, que termine con "..." en lugar de mostrarlo todo,
+ * así no se rompe el diseño»). La tarjeta de un paso tiene alto fijo.
+ */
+export function recorteDeTarjeta(texto: string | null | undefined, tope = 90): string {
+  const t = String(texto ?? '').replace(/\s+/g, ' ').trim();
+  return t.length > tope ? `${t.slice(0, tope - 1).trimEnd()}…` : t;
+}
 
 export type AvisoParaGrafo = {
   /** Qué lo hace salir, en palabras. Sale del catálogo: es un hecho, no una opción. */
@@ -66,6 +80,12 @@ export type AvisoParaGrafo = {
   cron?: CronAviso | null;
   /** La zona con la que se agendó. Va al texto: «a la mañana» no dice a qué hora. */
   tz?: string | null;
+  /**
+   * El id del aviso. Con él el grafo sabe si el código que emite el aviso CORRE TAMBIÉN su flujo
+   * (`correSuFlujo` del catálogo: la cobranza), y entonces sus pasos corren sin elegir un evento.
+   * Ausente = no se sabe, y vale lo de siempre (sólo con un evento).
+   */
+  id?: string;
 };
 
 
@@ -94,7 +114,9 @@ export function textoDisparador(a: Pick<AvisoParaGrafo, 'disparador' | 'evento' 
   const partes: string[] = [];
   if (a.cron) partes.push(textoCron(a.cron, a.tz));
   const d = a.evento;
-  const ev = d && d.tipo === 'evento' ? EVENTOS.find((e) => e.key === d.evento)?.label : null;
+  // `rotuloDeEvento` y no `EVENTOS`: un flujo guardado con un evento que quedó sin emisor tiene que
+  // seguir diciéndolo («… (ya no se dispara)») en vez de desaparecer de la tarjeta.
+  const ev = d && d.tipo === 'evento' ? rotuloDeEvento(d.evento) : null;
   if (ev) partes.push(`Cuando ${ev.toLowerCase()}.`);
   // ⚠️ EL HECHO NATIVO VA ÚLTIMO Y ROTULADO, o se lee como una PRECONFIGURACIÓN.
   //
@@ -123,6 +145,16 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
 
   const sinCanal = !a.canales.wa && !a.canales.email;
   const conEvento = a.evento?.tipo === 'evento';
+  /**
+   * ¿Los pasos CORREN? Con un evento elegido, sí (`dispararEvento`). Y también cuando el código que
+   * emite el aviso corre su flujo (`correSuFlujo`, la cobranza: `correrFlujoDe`).
+   *
+   * ⚠️ SIN ESTO LA PLANTILLA DE FÁBRICA DE LA COBRANZA SE DIBUJABA ROTA (sexta tanda, General 15):
+   * sus cuatro pasos —que el cron corre— salían con «Este paso sólo corre cuando el mensaje lo
+   * dispara un evento», y una tarjeta con advertencia se pinta como rota (`TarjetaNodo roto`). Era
+   * falso en las cuatro, y es la plantilla que Martín pidió editable el 04/10.
+   */
+  const corren = conEvento || (a.id != null && correSuFlujo(a.id));
 
   // ── Qué lo dispara. El hecho nativo es un hecho; lo que se ELIGE son los
   // eventos que lo disparan ADEMÁS, y ésos el motor sí los corre.
@@ -253,9 +285,10 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
   // El estado del recordatorio no se pierde: va en el `detalle` del nodo del mensaje
   // (arriba) y su interruptor, en el panel de ese mismo nodo.
   // ── Lo que pasa DESPUÉS del aviso. Son los pasos del flujo, y corren por el
-  // camino del EVENTO: `dispararEvento` es lo único que los ejecuta. Sin un
-  // evento elegido quedan dibujados y quietos — y eso lo dice el nodo, porque un
-  // paso que no corre y no lo avisa es el control que se dibuja y no hace nada.
+  // camino del EVENTO (`dispararEvento`) o, en los avisos que el código emite Y
+  // corre (`correSuFlujo`: la cobranza), por `correrFlujoDe`. Si no, quedan
+  // dibujados y quietos — y eso lo dice el nodo, porque un paso que no corre y no
+  // lo avisa es el control que se dibuja y no hace nada.
   let previo = 'mensaje';
   let x = col(2);
   a.pasos.forEach((p, i) => {
@@ -273,16 +306,26 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
     // Martín pidió— se veía como tres mensajes al cliente. Un diagrama que dice a quién
     // le escribe y se equivoca es peor que uno que no lo dice: nadie audita una flecha.
     // Lo delató el navegador, no el código.
-    const rotulo = p.tipo === 'accion' ? ['accion', 'Hace algo', '⚙️']
-      : p.tipo === 'esperar' ? ['espera', 'Espera', '⏳']
-      : p.tipo === 'condicional' ? ['condicion', 'Si pasa esto', '🔀']
-      : p.tipo === 'mensaje' && p.canal === 'aviso_dueno' ? ['recordatorio', 'Te lo recuerda', '🔔']
+    // ⚠️ LOS TÍTULOS SON LOS DE LA CASA (sexta tanda, General 15 y MaKo en WhatsApp 2: «El editable de
+    // MaKo en WhatsApp debe ser lo mismo que el editable de WhatsApp»). Decían «Hace algo», «Espera»,
+    // «Si pasa esto» y «Te lo recuerda» —el «Recordatorios» que Martín sacó el 04/10— al lado de
+    // tarjetas CRON y MAKO EN WHATSAPP, en la misma lista que las automatizaciones, donde la misma
+    // cosa se llama ACTION, DELAY y CONDITION (`TITULO`, lib/flujo-conversacion.ts, UN lugar).
+    //
+    // Y el mensaje al GRUPO es la tarjeta de MaKo (`tipo: 'mako'`, su dorado y su logo): es lo que
+    // es, otro «MaKo en WhatsApp». Su detalle es SU TEXTO —lo que sale (lib/flujos.ts)— y no
+    // «Avisar al dueño»: una tarjeta de mensaje que no dice qué manda hay que abrirla para saberlo.
+    const alGrupo = p.tipo === 'mensaje' && p.canal === 'aviso_dueno';
+    const rotulo = p.tipo === 'accion' ? ['accion', TITULO.accion, '⚙️']
+      : p.tipo === 'esperar' ? ['espera', TITULO.esperar, '⏳']
+      : p.tipo === 'condicional' ? ['condicion', TITULO.condicion, '🔀']
+      : alGrupo ? ['mako', TITULO_MAKO_EN_WHATSAPP, ICONO_MAKO]
       : ['mensaje-lead', 'Le escribe al lead', '📤'];
     nodos.push({
       id, tipo: rotulo[0] as NodoFlujo['tipo'], orden: i,
       titulo: rotulo[1], icono: rotulo[2],
-      detalle: describirPaso(p),
-      advertencia: conEvento ? undefined : 'Este paso sólo corre cuando el mensaje lo dispara un evento, y todavía no elegiste ninguno.',
+      detalle: alGrupo ? recorteDeTarjeta(p.texto) || describirPaso(p) : describirPaso(p),
+      advertencia: corren ? undefined : 'Este paso sólo corre cuando el mensaje lo dispara un evento, y todavía no elegiste ninguno.',
       ...en(id, x, MARGEN), ancho: ANCHO_NODO, alto: ALTO_MIN + 8,
     });
     // ⚠️ LA ETIQUETA DE LA FLECHA SALE DEL PASO ANTERIOR, no de una decisión aparte.
@@ -297,7 +340,7 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
       desde: previo, hasta: id, etiqueta,
       // Punteada: es la rama que puede no ocurrir. El tono existe para eso y es lo que
       // distingue «esto sigue» de «esto sigue SI».
-      tono: trasCondicional ? 'condicional' : conEvento ? 'buena' : 'normal',
+      tono: trasCondicional ? 'condicional' : corren ? 'buena' : 'normal',
     });
     // ⚠️ Y LA OTRA RAMA SE DIBUJA, porque el motor la corre: `decidir` contesta
     // `paso + 2` cuando la condición no se cumple, o sea que SALTEA el de al lado. Sin

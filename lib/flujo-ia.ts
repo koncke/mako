@@ -1740,12 +1740,19 @@ export function userDeEditar(ctx: CtxIA, d: DatosPedido, pasos: readonly PasoGra
 //
 // ⚠️ TERCERA TANDA (09/10/2026): sin «ir_a» (decisión 3), el disparador por su clave corta (`d1`) y
 // el texto achicado — cada token del system también le resta salida a Groq (`salidaParaIA`).
+//
+// ⚠️ SEXTA TANDA (09/10/2026, General 15: plantillas «con configuraciones viejas obsoletas»): la regla
+// 2 le ofrecía al modelo `{{negocio}}`, que es «Tu negocio» — el dato que Martín sacó de TODOS los
+// «{ }» («si ya está el de "Empresa", el de "Tu negocio" eliminalo»). El motor lo sigue resolviendo
+// para lo ya guardado (`CLAVES_SIN_OFRECER`, lib/template-vars.ts), pero una automatización nueva no
+// nace con un dato que la pantalla ya no ofrece, y que sin el nombre del negocio cargado le llega
+// CRUDO al lead. Y la tarjeta de etiqueta acepta varias (TAG 2): `deIA` ya lo resolvía.
 
 const TARJETAS_Y_REGLAS = `LAS TARJETAS (no hay otras):
 - "mensaje": lo que le llega al lead. "canal": "whatsapp" (2 a 4 líneas, como escribe una persona) o "email" ("asunto" de 4 a 8 palabras, "vista_previa" opcional, párrafos cortos y una sola llamada a la acción). Opcional: "audio" o "archivo" (un id de la lista, sólo por WhatsApp) y "link" (una clave de LINKS).
 - "esperar": "horas" o "dias". Con "antes_de_reunion": true, espera hasta ese tiempo antes de la reunión del lead.
 - "condicion": "ramas": [{"si": [filas], "sigue": id}] y "si_no" para lo demás. Gana la primera rama que se cumple.
-- "etiqueta": "poner" o "sacar" una etiqueta, por su nombre.
+- "etiqueta": "poner" o "sacar" una etiqueta o varias (una lista), por su nombre.
 - "accion": "operacion" (una de ACCIONES) y "datos".
 - "si_responde": lo que pasa cuando el lead contesta. Una sola y sin padre: escucha desde que entra y pausa lo demás. "casos": [{"titulo", "cuando", "sigue"}] y "otra_cosa" para lo que no encaja.
 
@@ -1755,7 +1762,7 @@ CÓMO SE CONECTAN: cada tarjeta tiene un "id" corto ("t1", "t2"…) y "sigue" di
 
 REGLAS (el código las comprueba y saca lo que no cumpla):
 1. Usa SÓLO lo de las listas. Una etiqueta que no existe va por su nombre en "etiquetas_nuevas". Nunca inventes un id.
-2. En los textos, ni links, ni corchetes, ni llaves: un link va en "link", y sin LINKS no se promete. Las únicas variables son {{nombre}} y {{negocio}}.
+2. En los textos, ni links, ni corchetes, ni llaves: un link va en "link", y sin LINKS no se promete. La única variable es {{nombre}}.
 3. Entre dos WhatsApp va un "esperar" de 20 horas o más, salvo que preparen una reunión.
 4. Debajo de "si_responde": sin "esperar", sin email y nada a la vez. Ahí un mensaje con "ia": true es una GUÍA para que MaKo conteste (sin días ni horarios: MaKo no ve la agenda; para agendar, el "link" de agenda); sin "ia", un texto fijo.
 5. Hasta ${TOPE_TARJETAS_IA} tarjetas, ${TOPE_PARALELOS} caminos a la vez por tarjeta, ${TOPE_RAMAS} ramas por condición y ${TOPE_FILAS} filas por rama.

@@ -203,7 +203,12 @@ test('⚠️ la tarjeta de un recordatorio al GRUPO no dice «le escribe al lead
   });
   const alGrupo = g.nodos.find((n) => n.id === 'paso-0');
   const alLead = g.nodos.find((n) => n.id === 'paso-1');
-  assert.equal(alGrupo?.tipo, 'recordatorio', 'un mensaje al grupo se dibuja como un mensaje al lead');
+  // ⚠️ Desde la sexta tanda (09/10/2026) el mensaje al grupo es la tarjeta de MaKo (`tipo: 'mako'`,
+  // «MAKO EN WHATSAPP»: lo que es) y no «Te lo recuerda»; y dice SU texto, que es lo que sale.
+  // PROBADO ROMPIÉNDOLO: devolverle `tipo: 'recordatorio'` → 1 fallo de 13 (cae acá); devolverle el
+  // detalle «Avisar al dueño» → 1 fallo de 13 (cae acá).
+  assert.equal(alGrupo?.tipo, 'mako', 'un mensaje al grupo no se dibuja como la tarjeta de MaKo');
+  assert.equal(alGrupo?.detalle, 'al grupo', 'la tarjeta del mensaje al grupo no dice qué manda');
   assert.ok(!/lead/i.test(alGrupo?.titulo ?? ''), `el título dice «${alGrupo?.titulo}» sobre un mensaje al grupo`);
   assert.equal(alLead?.tipo, 'mensaje-lead', 'y el que SÍ va al lead dejó de decirlo');
   assert.match(alLead?.titulo ?? '', /lead/i);

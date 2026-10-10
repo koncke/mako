@@ -42,12 +42,15 @@ import { EditorCron, SelectorDisparo, useModoDisparo, CRON_DEFAULT, type ModoDis
 import { variablesOfrecidas } from '@/lib/variables-aviso';
 import { guardarCanalDeMensaje } from '@/lib/mensaje-canales';
 import {
-  EVENTOS, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, sanearInsistir,
+  EVENTOS, EVENTOS_SIN_EMISOR, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, sanearInsistir,
   type Flujo, type Paso, type PasoAccion,
   operacionDelPaso, pasoDeAccion, rotuloOperacion, SIN_ACCION,
   ACUSES, UNIDADES_RECORDATORIO, cadaDeMin, aMinutos, type UnidadRecordatorio,
 } from '@/lib/flujos-tipos';
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
+// Las condiciones que el motor SABE evaluar, y sus rótulos: el editor del CONDITION ofrece ésas y
+// ninguna otra (tests/flujo-condicional.test.ts cruza las dos listas).
+import { CONDICIONES_FLUJO, ROTULO_CONDICION } from '@/lib/flujo-pasos';
 import type { NodoFlujo } from '@/lib/lienzo-grafo';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
@@ -94,7 +97,7 @@ type FotoTablero = { flujo: Flujo | null; pos: Posiciones };
  *  caso que más se pidió y el que no necesita ningún campo más. */
 
 export function FlujoAviso({
-  id, disparador, frecuenciaMin, texto, canales, posiciones, endpoint, editable, guardando,
+  id, disparador, frecuenciaMin, texto, canales, posiciones, endpoint, editable, textoEditable, guardando,
   asunto, onAsunto, onAsuntoGuardar, tituloMensaje, aporta = [],
   onTexto, onCambio, probando, prueba, onProbar, chrome, pie, insetIzq,
 }: {
@@ -121,6 +124,13 @@ export function FlujoAviso({
   endpoint: string;
   /** Los avisos que redacta MaKo no dejan editar su TEXTO: son hechos exactos. */
   editable: boolean;
+  /**
+   * ¿Se puede escribir el MENSAJE? Ausente = lo mismo que `editable`. Es otra pregunta (sexta tanda,
+   * 09/10/2026): en un aviso del cliente cuyo texto arma el código (`textoDelCodigo`) el flujo sigue
+   * siendo suyo —el ＋, el CRON por evento, los pasos— y lo que no se ofrece es escribir un mensaje
+   * que nunca se manda así. Con un solo booleano, apagar el texto apagaba también el ＋.
+   */
+  textoEditable?: boolean;
   guardando: boolean;
   onTexto: (v: string) => void;
   onCambio?: () => void;
@@ -262,6 +272,9 @@ export function FlujoAviso({
   };
 
   const aviso: AvisoParaGrafo = {
+    // El id: con él el grafo sabe si el código corre los pasos de este aviso (la cobranza) y no los
+    // dibuja como rotos por «no tener un evento» (`correSuFlujo`, lib/avisos-catalogo.ts).
+    id,
     disparador, frecuenciaMin, texto, canales, posiciones: pos, cron, tz,
     // El asunto va al grafo para que la tarjeta EMAIL lo muestre: una tarjeta que no
     // dice qué asunto sale es una tarjeta que hay que abrir para saber qué hace.
@@ -431,7 +444,7 @@ export function FlujoAviso({
         renderEditor={(n) => (
           <EditorDelAviso
             nodo={n} id={id} disparador={disparador} frecuenciaMin={frecuenciaMin}
-            texto={texto} endpoint={endpoint} editable={editable} guardando={guardando || busy}
+            texto={texto} endpoint={endpoint} editable={editable} textoEditable={textoEditable ?? editable} guardando={guardando || busy}
             asunto={asunto} onAsunto={onAsunto} onAsuntoGuardar={onAsuntoGuardar}
             aporta={aporta}
             canales={canales} flujo={flujo} insistir={insistir} cron={cron} tz={tz} onCron={guardarCron}
@@ -457,13 +470,13 @@ export function FlujoAviso({
 // ── El editor de cada nodo ──────────────────────────────────────────────────
 
 function EditorDelAviso({
-  nodo, id, disparador, frecuenciaMin, texto, endpoint, editable, guardando, canales,
+  nodo, id, disparador, frecuenciaMin, texto, endpoint, editable, textoEditable, guardando, canales,
   asunto, onAsunto, onAsuntoGuardar, aporta,
   flujo, insistir, cron, tz, onCron, acusesTxt, onAcuses, onTexto, onCambio, onFlujo, onQuitarPaso, probando, prueba, onProbar,
   panelPendiente,
 }: {
   nodo: NodoFlujo; id: string; disparador: string; frecuenciaMin: number; texto: string;
-  endpoint: string; editable: boolean; guardando: boolean; canales: { wa: boolean; email: boolean };
+  endpoint: string; editable: boolean; textoEditable: boolean; guardando: boolean; canales: { wa: boolean; email: boolean };
   asunto?: string; onAsunto?: (v: string) => void; onAsuntoGuardar?: () => void;
   aporta: ReadonlyArray<'lead' | 'cuota'>;
   flujo: Flujo | null;
@@ -572,12 +585,16 @@ function EditorDelAviso({
     // coma, y escribir en la base a mitad de una deja «ok, gr» en la lista del negocio.
     const onAcusesLocal = (v: string) => onAcuses(v, true);
 
-    if (!editable) {
+    // ⚠️ `textoEditable`, no `editable` (sexta tanda): en un aviso cuyo texto arma el código el flujo
+    // se sigue editando y el mensaje no. Y la nota sirve para los dos casos —el aviso técnico de la
+    // agencia y el del cliente que se arma con lo que pasó (el reporte, la reunión, la línea)—: lo que
+    // se ve es un ejemplo, y escribir encima no cambiaría lo que llega.
+    if (!textoEditable) {
       return (
         <>
           <div style={{ fontSize: 12.5, color: 'var(--ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}><TextoMarcas texto={texto} /></div>
           <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, marginTop: 9, marginBottom: 0 }}>
-            Este lo redacta MaKo: informa algo técnico y tiene que decir exactamente lo que pasó.
+            Lo redacta MaKo con lo que pasa cada vez: esto es un ejemplo.
           </p>
         </>
       );
@@ -625,8 +642,16 @@ function EditorDelAviso({
     );
   }
 
-  // Un paso agregado: acción o mensaje al lead.
-  if (nodo.tipo === 'accion' || nodo.tipo === 'mensaje-lead') {
+  // Un paso agregado: acción, espera, condición, mensaje al grupo o mensaje al lead.
+  //
+  // ⚠️ LA ESPERA, LA CONDICIÓN Y EL MENSAJE AL GRUPO CAÍAN AL `return` DEL FINAL (sexta tanda,
+  // General 15: «hay plantillas que quedaron viejas… que no tienen sentido»): el panel mostraba una
+  // línea y nada más — ni un campo, ni «Quitar este paso». La plantilla de fábrica de la cobranza son
+  // EXACTAMENTE esos tres tipos (dos esperas y dos mensajes al grupo), así que la cadencia que Martín
+  // pidió editable el 04/10 («que cada usuario lo pueda editar») no se podía tocar, y un DELAY o un
+  // CONDITION agregados con el ＋ quedaban para siempre. La pregunta es por el ID (`paso-N`), no por
+  // el tipo: el mensaje al grupo es `tipo: 'mako'`, igual que el mensaje principal.
+  if (/^paso-\d+$/.test(nodo.id)) {
     const i = nodo.orden ?? 0;
     const vivos = pasosDibujados(base.pasos);
     const paso = vivos[i];
@@ -641,6 +666,29 @@ function EditorDelAviso({
         <EditorPasoAccion key={nodo.id} paso={paso} onGuardar={reemplazar}
           onQuitar={() => onQuitarPaso(i)} guardando={guardando} advertencia={advertencia}
           panelPendiente={panelPendiente} />
+      );
+    }
+    if (paso?.tipo === 'esperar') {
+      return (
+        <EditorPasoEspera key={nodo.id} paso={paso} onGuardar={reemplazar} onQuitar={() => onQuitarPaso(i)}
+          guardando={guardando} advertencia={advertencia} panelPendiente={panelPendiente} />
+      );
+    }
+    if (paso?.tipo === 'condicional') {
+      return (
+        <EditorPasoCondicion key={nodo.id} paso={paso} onGuardar={reemplazar} onQuitar={() => onQuitarPaso(i)}
+          guardando={guardando} advertencia={advertencia} panelPendiente={panelPendiente} />
+      );
+    }
+    if (paso?.tipo === 'mensaje' && paso.canal === 'aviso_dueno') {
+      return (
+        <EditorPasoAlGrupo key={nodo.id} paso={paso} onGuardar={reemplazar} onQuitar={() => onQuitarPaso(i)}
+          guardando={guardando} advertencia={advertencia} panelPendiente={panelPendiente}
+          datos={variablesOfrecidas({
+            destino: 'equipo',
+            conLead: base.disparador.tipo === 'evento' || aporta.includes('lead'),
+            conCuota: aporta.includes('cuota'),
+          })} />
       );
     }
     return (
@@ -771,6 +819,130 @@ function EditorPasoAccion({ paso, onGuardar, onQuitar, guardando, advertencia, p
   );
 }
 
+/**
+ * EL GUARDADO DIFERIDO DE UN PASO, para los editores de la espera, la condición y el mensaje al
+ * grupo (sexta tanda). Es el MISMO contrato que `EditorPasoAccion` (arriba, y por las mismas
+ * razones): lo escrito espera 700 ms, se registra en `panelPendiente` para que el tablero lo TOME
+ * antes de cambiar el flujo por otro camino (un ＋, un deshacer), se manda al desmontar y al ocultar
+ * la pestaña, y quitar el paso lo DESCARTA (armado sobre el flujo de antes, lo devolvería).
+ * `enElActo` es para lo que se elige de una vez (una opción de un desplegable).
+ */
+function usePasoDiferido<V>(paso: Paso, inicial: () => V, aPaso: (v: V) => Paso, onGuardar: (nuevo: Paso) => void,
+  panelPendiente: React.MutableRefObject<PanelPendiente | null>) {
+  const [valor, setValor] = useState<V>(inicial);
+  const guardarRef = useRef(onGuardar);
+  useEffect(() => { guardarRef.current = onGuardar; });
+  const aPasoRef = useRef(aPaso);
+  useEffect(() => { aPasoRef.current = aPaso; });
+  const pasoRef = useRef(paso);
+  useEffect(() => { pasoRef.current = paso; });
+  const pendiente = useRef<{ v: V } | null>(null);
+  const reloj = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const parar = () => { if (reloj.current) { clearTimeout(reloj.current); reloj.current = null; } };
+  const soltar = useCallback(() => {
+    if (reloj.current) { clearTimeout(reloj.current); reloj.current = null; }
+    const p = pendiente.current;
+    pendiente.current = null;
+    if (p) guardarRef.current(aPasoRef.current(p.v));
+  }, []);
+  useEffect(() => soltar, [soltar]);
+  useEffect(() => {
+    const yo: PanelPendiente = {
+      tomar: () => {
+        if (reloj.current) { clearTimeout(reloj.current); reloj.current = null; }
+        const p = pendiente.current;
+        pendiente.current = null;
+        return p ? { original: pasoRef.current, nuevo: aPasoRef.current(p.v) } : null;
+      },
+    };
+    panelPendiente.current = yo;
+    return () => { if (panelPendiente.current === yo) panelPendiente.current = null; };
+  }, [panelPendiente]);
+  useEffect(() => {
+    const alOcultar = () => { if (document.visibilityState === 'hidden') soltar(); };
+    document.addEventListener('visibilitychange', alOcultar);
+    return () => document.removeEventListener('visibilitychange', alOcultar);
+  }, [soltar]);
+  const cambiar = (v: V, enElActo = false) => {
+    setValor(v);
+    pendiente.current = { v };
+    parar();
+    if (enElActo) soltar();
+    else reloj.current = setTimeout(soltar, 700);
+  };
+  const descartar = () => { parar(); pendiente.current = null; };
+  return { valor, cambiar, descartar };
+}
+
+type PropsPaso<P extends Paso> = {
+  paso: P;
+  onGuardar: (nuevo: Paso) => void;
+  onQuitar: () => void;
+  guardando: boolean;
+  advertencia?: React.ReactNode;
+  panelPendiente: React.MutableRefObject<PanelPendiente | null>;
+};
+
+/** El tope de una espera: un año, como el de las automatizaciones (`366 * 1440` min en lib/flujo-ia.ts). */
+const HORAS_MAX_ESPERA = 8760;
+
+/** DELAY: cuántas horas espera antes del paso siguiente (el motor lee `horas`, lib/flujo-pasos.ts). */
+function EditorPasoEspera({ paso, onGuardar, onQuitar, guardando, advertencia, panelPendiente }: PropsPaso<Extract<Paso, { tipo: 'esperar' }>>) {
+  const { valor, cambiar, descartar } = usePasoDiferido<string>(paso, () => String(paso.horas),
+    (v) => ({ tipo: 'esperar', horas: Math.max(1, Math.min(HORAS_MAX_ESPERA, Math.round(Number(v) || 1))) }),
+    onGuardar, panelPendiente);
+  return (
+    <>
+      <label style={rotuloLienzo}>Cuántas horas espera</label>
+      <input type="number" inputMode="numeric" min={1} max={HORAS_MAX_ESPERA} step={1} value={valor}
+        onChange={(e) => cambiar(e.target.value)} style={inpLienzo} aria-label="Horas de espera" />
+      {advertencia}
+      <button onClick={() => { descartar(); onQuitar(); }} disabled={guardando} style={btnQuitarPaso}>
+        Quitar este paso
+      </button>
+    </>
+  );
+}
+
+/** CONDITION: el único dato que este motor ve es si alguien contestó en el grupo (`CONDICIONES_FLUJO`). */
+function EditorPasoCondicion({ paso, onGuardar, onQuitar, guardando, advertencia, panelPendiente }: PropsPaso<Extract<Paso, { tipo: 'condicional' }>>) {
+  const { valor, cambiar, descartar } = usePasoDiferido<string>(paso, () => paso.condicion,
+    (v) => ({ tipo: 'condicional', condicion: v }), onGuardar, panelPendiente);
+  return (
+    <>
+      <label style={rotuloLienzo}>Sigue si</label>
+      <Dropdown value={valor} onChange={(v) => cambiar(String(v), true)} ariaLabel="Condición"
+        options={CONDICIONES_FLUJO.map((c) => ({ value: c, label: ROTULO_CONDICION[c], icono: ICONO_CONDICION[c] }))} />
+      {advertencia}
+      <button onClick={() => { descartar(); onQuitar(); }} disabled={guardando} style={btnQuitarPaso}>
+        Quitar este paso
+      </button>
+    </>
+  );
+}
+const ICONO_CONDICION: Record<(typeof CONDICIONES_FLUJO)[number], NombreIconoMenu> = { contestaron: 'check', no_contestaron: 'silenciar' };
+
+/**
+ * MAKO EN WHATSAPP, un paso más: lo que sale al grupo, con el MISMO editor que el mensaje principal
+ * (`EditorMensajeGrupo`, MaKo en WhatsApp 2) y lo que ESTE aviso puede resolver en el «{ }». Sale
+ * tal cual, con los datos puestos por código (lib/flujos.ts).
+ */
+function EditorPasoAlGrupo({ paso, onGuardar, onQuitar, guardando, advertencia, panelPendiente, datos }: PropsPaso<Extract<Paso, { tipo: 'mensaje' }>> & {
+  datos: ReturnType<typeof variablesOfrecidas>;
+}) {
+  const { valor, cambiar, descartar } = usePasoDiferido<string>(paso, () => paso.texto,
+    (v) => ({ ...paso, texto: v }), onGuardar, panelPendiente);
+  return (
+    <>
+      <EditorMensajeGrupo texto={valor} onTexto={(v) => cambiar(v)} datos={datos} />
+      {advertencia}
+      <button onClick={() => { descartar(); onQuitar(); }} disabled={guardando} style={btnQuitarPaso}>
+        Quitar este paso
+      </button>
+    </>
+  );
+}
+
 function Opcion({ activa, onClick, disabled, children }: {
   activa: boolean; onClick: () => void; disabled?: boolean; children: React.ReactNode;
 }) {
@@ -888,7 +1060,10 @@ function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
       {modo === 'accion' && (
         <Dropdown
           value={evento}
-          options={EVENTOS.map((e) => ({ value: e.key, label: e.label, icono: ICONO_EVENTO[e.key] }))}
+          // Un evento que quedó sin emisor no se OFRECE, pero si ya está elegido se muestra marcado:
+          // un desplegable cuyo valor no está entre sus opciones no muestra nada (AGENTS.md).
+          options={[...EVENTOS, ...EVENTOS_SIN_EMISOR.filter((e) => e.key === evento)]
+            .map((e) => ({ value: e.key, label: e.label, icono: ICONO_EVENTO[e.key] }))}
           onChange={(v) => onFlujo({ ...base, activo: true, disparador: { tipo: 'evento', evento: v as typeof EVENTOS[number]['key'] } })}
           width="100%" ariaLabel="Qué acción dispara este mensaje"
         />

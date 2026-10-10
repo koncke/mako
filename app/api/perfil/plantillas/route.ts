@@ -27,7 +27,7 @@ import { acusesDe, setAcuses } from '@/lib/insistencias';
 
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
-import { esAvisoDelCliente, CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import { seEditaElTexto, CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -79,9 +79,12 @@ export async function POST(req: NextRequest) {
    *
    * Prender y apagar SÍ es suyo: elige qué recibe, no qué dice.
    */
-  const esAdministrativo = (id: string) => !esAvisoDelCliente(id);
+  // ⚠️ Y TAMPOCO EL DE UN AVISO CUYO TEXTO ARMA EL CÓDIGO (sexta tanda, 09/10/2026): siete de los ocho
+  // del cliente mandan un texto armado con lo que se midió y no leen la plantilla, así que editarla
+  // no cambiaba nada de lo que llega. `seEditaElTexto` es la MISMA pregunta que hace el editor.
+  const esAdministrativo = (id: string) => !seEditaElTexto(id);
   const noEditable = () => NextResponse.json(
-    { ok: false, error: 'Este aviso lo redacta MaKo y no se puede editar: informa algo técnico y tiene que decir exactamente lo que pasó.' },
+    { ok: false, error: 'Este aviso lo redacta MaKo con lo que pasa cada vez: su texto no se edita.' },
     { status: 403 },
   );
   try {
