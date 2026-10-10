@@ -125,43 +125,29 @@ pila de modales para una sola pantalla (`b57a53ba`).
 
 ## 3. Lo que quedó a medio hacer o sin verificar, con el archivo donde vive
 
-### ⚠️ EN CURSO AHORA MISMO, por OTRA sesión — leé esto antes de tocar el tablero
+### ✅ El filtro «Anuncio» como ÁRBOL — TERMINADO y desplegado (lo escribe el chat de Ads Manager, que lo hizo)
 
-Hay trabajo **sin commitear** en archivos de esta área, y **no es mío**. Lo medí dos veces,
-con siete minutos de diferencia, y conviene leer las dos lecturas porque es el ejemplo
-perfecto de que el árbol de este clon no tiene un estado, tiene una hora:
+A las 19:04 y 19:11 esta sección lo describía como trabajo sin commitear de otra sesión: era
+el chat de **Ads Manager** (cuenta `claude2`) y ya está todo en `main`, desplegado y probado en
+el navegador sobre Código Inmobiliario (ws13):
 
-| | 19:04 | 19:11 |
-|---|---|---|
-| `app/crm/CrmBoard.tsx` | ` M` (58 líneas) | ` M` |
-| `app/crm/CrmToolbar.tsx` | ` M` (121 líneas) | ` M` |
-| `lib/campana-atribucion.ts` | ` M` (73 líneas, puras adiciones) | ` M` |
-| `tests/crm-filtro-ads.test.ts` | limpio | ` M` (el guard, mudado) |
-| `app/crm/arbol-seleccion.ts` | no existía | `??` (nuevo) |
-| `tests/crm-filtro-ads.test.ts` | **1 fail** | **15 pass / 0 fail** |
+- **`bdbf3707`** — el árbol. Martín: *«No separes el filtro de Campaña y Anuncio... Que dentro
+  del filtro de "Anuncio" estén las campañas primero como arbol y dentro se pueda seleccionar
+  anuncios de esas camapañas»*. Una sola lista «Anuncio»: cada campaña con sus anuncios
+  colgados (`arbolDeAnuncios`), cruce «O» entre los dos niveles (`pasaFiltroAnuncio`), y
+  tildar/destildar en `app/crm/arbol-seleccion.ts` (puro, con test).
+- **`8a39bb02`** — tres ajustes que pidió al verlo: *«El botón de desplegar debe estar a la
+  derecha, no a la izquierda, siempre»*, *«quiero que se abra el desplegable cuando clickeo»*
+  la campaña, y *«El ancho del desplegable debe ser más grande. Bajo ningún motivo debe tener
+  scroll hacia la derecha»*. El panel pasa a 360 px y su lugar sale de `lugarDelPanel`
+  (`app/crm/filtro-panel.ts`): nunca pasa el borde derecho de la ventana y nunca se mete
+  debajo de la barra lateral.
+- **`bd4251c9`** — la cosecha, en `docs/hallazgos-crm.md` («Campaña y Anuncio pasan a ser UN
+  árbol…») y en la bitácora del CRM.
 
-Es un pedido **nuevo de Martín del 10/10**, posterior a `686c51be`, citado textual en el
-comentario que esa sesión está escribiendo: *«No separes el filtro de Campaña y Anuncio… Que
-dentro del filtro de "Anuncio" estén las campañas primero como arbol y dentro se pueda
-seleccionar anuncios de esas campañas»*. El filtro pasa a ser un ÁRBOL campaña › anuncio:
-`arbolDeAnuncios` y `pasaFiltroAnuncio` en `lib/campana-atribucion.ts`, `alternarGrupo` /
-`alternarHijo` en el `app/crm/arbol-seleccion.ts` nuevo, y el cruce entre los dos niveles es
-**«O», no «Y»** (antes eran dos categorías que se cruzaban con «Y», o sea que elegir una
-campaña y un anuncio de otra no devolvía nada). Casi con seguridad es el chat de **Ads
-Manager**, que es el que hizo `686c51be`.
-
-**No se toca nada de esos cinco archivos.** Y si lo ves rojo, antes de buscar un bug:
-
-- A las 19:04 `tests/crm-filtro-ads.test.ts` fallaba pidiendo
-  `facetas('creativo', creativoFilter, 'Sin anuncio')`, que el árbol ya no usa. **En HEAD
-  estaba y está todo bien** (`git show HEAD:app/crm/CrmBoard.tsx`, líneas 1611 y 1616): era
-  una ventana, no una regresión.
-- A las 19:11 el guard ya estaba mudado y el archivo da 15/15 en disco. O sea que esa sesión
-  está cerrando bien: mudó el test en vez de borrarlo.
-- **Nada de esto está commiteado todavía**, así que para Martín todavía no existe: si abre la
-  app, el filtro sigue siendo el de `686c51be` (dos categorías separadas). Si entrás y
-  pregunta «¿no cambió nada el filtro?», la respuesta se da con `git log` y `vercel ls`, no
-  leyendo el código.
+`tests/crm-filtro-ads.test.ts`: 17/17, cada guard probado rompiéndolo. Lo que NO se tocó: a
+390 px de ancho la página del CRM ya tiene 55 px de scroll lateral ANTES de abrir el filtro
+(medido el 10/10 con el panel cerrado); no es del filtro, y nadie lo pidió todavía.
 
 ### Lo demás, con su archivo
 

@@ -1655,4 +1655,30 @@ export const BITACORA: Hito[] = [
       'tests/crm-filtro-ads.test.ts — cinco guards, cada uno probado rompiéndolo',
     ],
   },
+  {
+    fecha: '10 oct', hora: '19:44', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Árbol de anuncios: chevron a la derecha, desplegar al tocar, panel más ancho',
+    pedido: '1. El botón de desplegar debe estar a la derecha, no a la izquierda, siempre. Para las campañas. 2. Si clickeo una capaña, se seleccionan todos sus anuncios, eso ya lo hace. Pero quiero que se abra el desplegable cuando clickeo eso. 3. El ancho del desplegable debe ser más grande. Bajo ningún motivo debe tener scroll hacia la derecha.',
+    puntos: [
+      'Llegó al ver el árbol recién desplegado (bdbf3707).',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '19:54', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chevron a la derecha, la campaña se despliega al tocarla y el panel crece sin scroll lateral',
+    puntos: [
+      'El chevron va después del número de la campaña; tocar la campaña la elige y la despliega, y sólo el chevron la pliega.',
+      'El panel pasa de 262 a 360 px y nunca pasa el borde de la ventana: si no entra, se corre a la izquierda lo justo.',
+      'Ese corrimiento topa en el borde del contenido, no en el de la ventana: la primera versión, a 390 px, metía el panel debajo de la barra lateral. Lo vio la captura.',
+      'Verificado a 1600 y 390 px sobre Código Inmobiliario: sin scroll lateral en el panel ni agregado a la página.',
+    ],
+    commits: [{ sha: '8a39bb02', msg: 'CRM: el árbol de «Anuncio» con el chevron a la derecha, tocar la campaña la despliega y el panel más ancho sin scroll lateral', lineas: 144, archivos: 3 }],
+    archivos: [
+      'app/crm/CrmToolbar.tsx — el chevron, el despliegue al tocar y el lugar del panel',
+      'app/crm/filtro-panel.ts — dónde y de qué ancho se abre el panel',
+      'tests/crm-filtro-ads.test.ts — ocho roturas, cada una pass 16 / fail 1',
+    ],
+  },
 ];

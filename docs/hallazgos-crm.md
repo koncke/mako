@@ -7803,7 +7803,21 @@ dibujó con `padding` + `paddingLeft`.** El navegador funde las dos en el atajo 
 selector por texto de estilo contesta «no hay ninguno» sobre trece filas a la vista. Se busca
 por el texto del botón.
 
+**Y al agrandar el panel, el borde que importa a la IZQUIERDA no es el de la ventana.**
+Martín pidió el panel más ancho y *«Bajo ningún motivo debe tener scroll hacia la derecha»*.
+Más ancho y pegado al botón pasa el borde derecho en un celular, así que el lugar se calcula
+(`lugarDelPanel`, `app/crm/filtro-panel.ts`): si no entra, se corre a la izquierda lo justo. La
+primera versión topaba ese corrimiento en el borde de la VENTANA y, medido a 390 px, el panel
+quedaba con su primer tercio debajo de la barra lateral (68 px, fija y por encima de todo).
+El tope es el borde del contenido (`closest('main')`), y el test barre anchos de ventana y
+posiciones de botón con los dos topes. Lo encontró la captura, no el test: el primer test
+afirmaba exactamente la regla equivocada y daba verde.
+
+⚠️ **Y a 390 px la página del CRM YA scrollea 55 px de costado con el filtro cerrado.** No es
+del panel —medido antes y después de abrirlo, el mismo número— y quedó sin tocar: si alguien
+reporta «scroll lateral en el CRM desde el celular», no es el filtro.
+
 **Vive en:** `lib/campana-atribucion.ts` (`arbolDeAnuncios`, `pasaFiltroAnuncio`) ·
 `app/crm/arbol-seleccion.ts` · `app/crm/CrmToolbar.tsx` (el árbol del menú y los chips) ·
-`app/crm/CrmBoard.tsx` (una sola lista) · `tests/crm-filtro-ads.test.ts` · *bdbf3707 —
-2026-10-10, hecho por el chat de Ads Manager a pedido de Martín*
+`app/crm/CrmBoard.tsx` (una sola lista) · `app/crm/filtro-panel.ts` · `tests/crm-filtro-ads.test.ts` ·
+*bdbf3707 y 8a39bb02 — 2026-10-10, hecho por el chat de Ads Manager a pedido de Martín*
