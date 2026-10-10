@@ -36,6 +36,15 @@ test('«Eliminar» es el tacho rojo de la casa', () => {
   assert.doesNotMatch(MODAL, />Eliminar</, 'volvió el «Eliminar» de texto');
 });
 
+test('un REPORTE dibuja los canales por los que sale de verdad (las preferencias), no los de su plantilla', () => {
+  // Revisión del ws9 (10/10/2026): el reporte semanal dibujaba WhatsApp (el default) y no Email, que es por
+  // donde sale. La pregunta la contesta `canalesDeMensaje`, la misma de la bandeja de correo.
+  // Rotura (10/10/2026): con `canales={plantilla.canales}` de vuelta → 3 / 1.
+  assert.match(MODAL, /const canales = canalesDeMensaje\(id \?\? '', plantilla, prefs\);/);
+  assert.match(MODAL, /<FlujoAviso[\s\S]*?canales=\{canales\}/);
+  assert.doesNotMatch(MODAL, /canales=\{plantilla\.canales\}/, 'volvieron los canales de la plantilla');
+});
+
 test('el panel de cada tarjeta recibe `muelles` desde la lista, de punta a punta', () => {
   assert.match(codigo('app/automations/SimuladorWhatsApp.tsx'), /<MensajeMakoLienzo key=\{aviso\.id\} plantilla=\{aviso\} insetIzq=\{m\.insets\.izq\} muelles=\{m\}/);
   assert.match(codigo('app/automations/MensajeMakoLienzo.tsx'), /<TemplateDetalleModal[\s\S]*?muelles=\{muelles\}/);

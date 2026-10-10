@@ -18,6 +18,7 @@ import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { ICONO_CATEGORIA } from './categoria-icono';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import type { Muelles } from '@/lib/lienzo-grafo';
+import { canalesDeMensaje, claveDeReporte } from '@/lib/mensaje-canales';
 
 // El tipo NO se copia: se re-exporta del store, que es quien lo define. Escrito a
 // mano acá se quedo viejo al primer campo nuevo (`canales`) y el compilador no podia
@@ -127,6 +128,22 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
   const flashOk = (m: string) => { setFlash({ txt: m, mal: false }); setTimeout(() => setFlash(null), 2200); };
   const flashMal = (m: string) => { setFlash({ txt: m, mal: true }); setTimeout(() => setFlash(null), 4000); };
   const id = plantilla?.id;
+  /**
+   * POR DÓNDE SALE DE VERDAD. Un REPORTE (horario, diario, semanal) sale por lo que dicen las preferencias
+   * de notificaciones (`notification_prefs`), no por los canales de su plantilla: el lienzo del reporte
+   * semanal dibujaba la tarjeta de WhatsApp (el default de la plantilla) y no la de Email, que es por donde
+   * sale (revisión del ws9, 10/10/2026). La pregunta la contesta UNA función, `canalesDeMensaje`, la misma
+   * que usa la bandeja de correo. Mientras las preferencias no llegan, los de la plantilla.
+   */
+  const [prefs, setPrefs] = useState<Parameters<typeof canalesDeMensaje>[2]>(null);
+  const esReporte = !!(id && claveDeReporte(id));
+  useEffect(() => {
+    if (!esReporte) return;
+    let vivo = true;
+    void fetch('/api/perfil').then((r) => r.json()).catch(() => null).then((jp) => { if (vivo && jp?.ok) setPrefs(jp.prefs); });
+    return () => { vivo = false; };
+  }, [esReporte]);
+  const canales = canalesDeMensaje(id ?? '', plantilla, prefs);
   const sinPublicar = !crear && texto !== orig;
 
   // El POST del borrador con un respiro: uno por tecla serían sesenta por segundo.
@@ -318,7 +335,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
           disparador={plantilla.disparador}
           frecuenciaMin={plantilla.frecuenciaMin}
           texto={texto}
-          canales={plantilla.canales}
+          canales={canales}
           asunto={asunto} onAsunto={setAsunto} onAsuntoGuardar={() => void guardarAsunto()}
           tituloMensaje={titulo || plantilla.titulo}
           aporta={plantilla.aporta ?? []}

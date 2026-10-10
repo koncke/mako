@@ -150,6 +150,27 @@ export function fechaCoincide(fecha: string, inicioIso: string, tzNegocio?: stri
   return !!tzNegocio && fechaEnZona(inicioIso, tzNegocio) === f;
 }
 
+/**
+ * LA REUNIÓN DE LA QUE SE LE AVISA AL DUEÑO (el «En 30 min tienes la R1», `mandarRecordatoriosDeReunion`):
+ * la que arranca en `[ahora − tolerancia, ahora + antes]`, sin asistencia marcada y con la FECHA de su hora.
+ *
+ * ⚠️ MIRABA SÓLO LA HORA (revisión del ws9, 10/10/2026). Una cancelación de Calendly pone `fecha_junta_X` en
+ * null y deja `junta_X_at`, así que el aviso al dueño habría dicho «En 30 min tienes la R1» sobre una reunión
+ * cancelada (medido: 0 de 130 filas con hora y sin fecha, o sea que todavía no salió ninguno). Pasa por lo
+ * mismo que el recordatorio al lead: `juntasDe` + `fechaCoincide`. Si caen las dos, gana la R2 (la de después).
+ */
+export function reunionParaElDueno(l: FilaJuntas, ahoraMs: number, antesMin: number, toleranciaMin: number, tz?: string | null): { cual: CualReunion; inicio: string } | null {
+  let elegida: { cual: CualReunion; inicio: string } | null = null;
+  for (const j of juntasDe(l)) {
+    if (!j.inicio || !j.fecha || j.asistio != null) continue;
+    const t = Date.parse(j.inicio);
+    if (!Number.isFinite(t) || t < ahoraMs - toleranciaMin * 60_000 || t > ahoraMs + antesMin * 60_000) continue;
+    if (!fechaCoincide(j.fecha, j.inicio, tz)) continue;
+    elegida = { cual: j.cual, inicio: j.inicio };
+  }
+  return elegida;
+}
+
 export type ToqueVencido = {
   cual: CualReunion;
   /** El ISO canónico de la reunión. */

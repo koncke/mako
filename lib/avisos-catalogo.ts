@@ -362,7 +362,10 @@ Nada urgente, por eso esperaron. — MaKo`,
     textoDelCodigo: true,
     // La primera oración es lo que dibuja la tarjeta CRON («Hoy sale solo: …», `disparadorCorto`):
     // decía «Cron los lunes…», o sea el nombre de la pieza y no el momento.
-    disparador: 'Los lunes a la mañana, en la hora del negocio: ads, cierres, CAC, cash y ritmo a la meta.',
+    // ⚠️ NO «EN LA HORA DEL NEGOCIO» (revisión del ws9, 10/10/2026): el cron corre a las 14:20 UTC para todos
+    // (vercel.json, `20 14 * * 1`) y `buildReporteSemanal` corta la semana con la hora de Tijuana. En Buenos
+    // Aires llega 11:20. Si el reporte pasa a la zona de cada negocio (`tzDeWorkspace`), esto se cambia.
+    disparador: 'Los lunes a la mañana, hora de Tijuana: ads, cierres, CAC, cash y ritmo a la meta.',
     ejemplo: `🗓️ *Reporte semanal* — 07/07 al 13/07\n\n*Ads:* $640 · 92 leads · CPL $6,9 · 4 cierres · CAC $160\n*Cash de la semana:* $12.800\n*Objetivo:* 8/12 cierres · ~6 semanas para la meta\n\nVienes bien. — MaKo`,
   },
   {
@@ -736,7 +739,7 @@ Escríbele hoy o agenda una sesión.`,
     id: 'reunion-agenda-dia', titulo: 'Agenda del día (juntas de hoy)', categoria: 'aviso',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Cron matutino: reuniones del día desde junta_at.',
-    ejemplo: `🗓️ *Tu día*: 3 reuniones.\n10:00 R1 Ana López\n12:30 R2 BG Trucking\n16:00 R1 Sergio Esquer\nTodas con link cargado. — MaKo`,
+    ejemplo: `🗓️ *Tu día*: 3 reuniones.\n10:00 R1 Ana López\n12:30 R2 Grupo Delta\n16:00 R1 Laura Gil\nTodas con link cargado. — MaKo`,
   },
   {
     id: 'reunion-nuevo-agendado', titulo: 'Nuevo lead que agendó reunión', categoria: 'aviso', porDefecto: 'on',
@@ -777,7 +780,7 @@ https://hola-mako.com/crm/482/resumen
     // ⚠️ Decía «Webhook Fathom, dentro del after()»: la tarjeta CRON dibujaba «after()».
     disparador: 'Cuando Fathom entrega la grabación de una llamada con un lead y MaKo terminó de analizarla (el seguimiento queda como borrador).',
     ejemplo: `━━ 🗓️ REUNIÓN ━━
-✅ Terminó la *R1 con Sergio Esquer* (42 min).
+✅ Terminó la *R1 con Laura Gil* (42 min).
 
 👉 Mira el resumen de la llamada:
 https://hola-mako.com/crm/482/resumen
@@ -788,7 +791,7 @@ https://hola-mako.com/crm/482/resumen
     id: 'reunion-compromisos-tareas', titulo: 'Compromisos de la reunión → cargar tareas', categoria: 'accion',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'parcial',
     disparador: 'plan-fathom extrae action items del transcript (G3).',
-    ejemplo: `📝 De la reunión con BG Trucking saqué *3 compromisos tuyos*:\n1. Enviar propuesta antes del viernes\n2. Mandar caso de éxito de logística\n3. Agendar R2\n\n¿Los cargo como tareas en tu tablero? — MaKo`,
+    ejemplo: `📝 De la reunión con Grupo Delta saqué *3 compromisos tuyos*:\n1. Enviar propuesta antes del viernes\n2. Mandar caso de éxito de logística\n3. Agendar R2\n\n¿Los cargo como tareas en tu tablero? — MaKo`,
   },
   {
     id: 'reunion-tareas-al-plan', titulo: 'Reunión de equipo nueva → tareas esperando confirmación', categoria: 'accion',
@@ -987,13 +990,13 @@ https://hola-mako.com/plan — MaKo`,
     id: 'pago-recibido', titulo: 'Pago recibido / cash collected', categoria: 'aviso',
     prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Se registra un pago (cierre o cuota cobrada).',
-    ejemplo: `💰 *Entró plata*: pago de Aspro por *$2.300*. Cash del mes: $14.600 — vas 68% de la meta. Bien ahí. — MaKo`,
+    ejemplo: `💰 *Entró plata*: pago de Grupo Delta por *$2.300*. Cash del mes: $14.600 — vas 68% de la meta. Bien ahí. — MaKo`,
   },
   {
     id: 'cierre-venta', titulo: 'Cierre de venta nuevo', categoria: 'aviso',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Motor CRM marca un lead como ganado.',
-    ejemplo: `🎉 *Cierre nuevo*: BG Trucking firmó por *$4.500*. Van 4 cierres este mes, te falta 1 para la meta. Fenómeno. — MaKo`,
+    ejemplo: `🎉 *Cierre nuevo*: Grupo Delta firmó por *$4.500*. Van 4 cierres este mes, te falta 1 para la meta. Fenómeno. — MaKo`,
   },
 
   // ── METAS / RETRO / INSIGHTS ───────────────────────────────────────────────

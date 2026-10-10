@@ -33,7 +33,7 @@ import { estaBloqueado } from './evolution-block';
 import { normalizarTelefono } from './leads';
 import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
 import {
-  KEY_RECORDATORIO, TOQUES, TOLERANCIA_MIN as TOLERANCIA_LEAD_MIN, configDeRecordatorio, juntasDe, leadAbierto,
+  KEY_RECORDATORIO, TOQUES, TOLERANCIA_MIN as TOLERANCIA_LEAD_MIN, configDeRecordatorio, juntasDe, leadAbierto, reunionParaElDueno,
   toquesVencidos, estadoDeLaMarca, envioIncierto, textoDelToque, type ConfigRecordatorio, type CualReunion, type Toque,
 } from './recordatorio-lead';
 
@@ -65,6 +65,8 @@ type FilaReunion = {
   nombre: string;
   junta_1_at: string | null;
   junta_2_at: string | null;
+  fecha_junta_1: string | null;
+  fecha_junta_2: string | null;
   asistio_j1: boolean | null;
   asistio_j2: boolean | null;
   estado_lead: string | null;
@@ -87,7 +89,7 @@ export async function mandarRecordatoriosDeReunion(ws: number): Promise<Resultad
   // 200 leads y deja de funcionar sin avisar.
   const { data, error } = await supabase
     .from('leads')
-    .select('id, nombre, junta_1_at, junta_2_at, asistio_j1, asistio_j2, estado_lead')
+    .select('id, nombre, junta_1_at, junta_2_at, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, estado_lead')
     .or(
       `and(junta_1_at.gte.${desde},junta_1_at.lte.${hasta}),` +
       `and(junta_2_at.gte.${desde},junta_2_at.lte.${hasta})`,
@@ -98,27 +100,24 @@ export async function mandarRecordatoriosDeReunion(ws: number): Promise<Resultad
     return out;
   }
 
-  const dentro = (iso: string | null): boolean => {
-    if (!iso) return false;
-    const t = Date.parse(iso);
-    return Number.isFinite(t) && t >= ahora - TOLERANCIA_MIN * 60_000 && t <= ahora + MINUTOS_ANTES * 60_000;
-  };
+  // La FECHA de cada reunión se compara contra su hora en la zona de la agenda o la del negocio
+  // (`reunionParaElDueno`, lib/recordatorio-lead.ts). Sólo se pide la zona si hay a quién mirar.
+  const filas = (data ?? []) as FilaReunion[];
+  const tz = filas.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
 
-  for (const lead of (data ?? []) as FilaReunion[]) {
-    // Una reunión por lead por corrida: si las dos cayeran en la misma ventana
-    // (no debería), gana la R2, que es la que viene después.
-    const cual: 'R1' | 'R2' | null = dentro(lead.junta_2_at) ? 'R2' : dentro(lead.junta_1_at) ? 'R1' : null;
-    if (!cual) continue;
-    const iso = (cual === 'R2' ? lead.junta_2_at : lead.junta_1_at) as string;
+  for (const lead of filas) {
+    // Una reunión por lead por corrida, sin asistencia marcada y con su fecha (una cancelación de
+    // Calendly deja la hora y borra la fecha). Si caen las dos en la ventana, gana la R2.
+    const r = reunionParaElDueno(lead, ahora, MINUTOS_ANTES, TOLERANCIA_MIN, tz);
+    if (!r) continue;
+    const { cual, inicio: iso } = r;
 
     // Un lead que ya se cerró o se perdió sigue teniendo la fecha cargada: la
     // reunión no se borra al mover la etapa. Sin este filtro, el recordatorio de
     // una R1 vieja sale igual el día que alguien corrige una fecha a mano.
     if (lead.estado_lead && lead.estado_lead !== 'abierto') continue;
-    // Y si la asistencia YA está marcada, la reunión ocurrió: lo que sigue es el
-    // aviso post-llamada, no éste.
-    if (cual === 'R1' && lead.asistio_j1 != null) continue;
-    if (cual === 'R2' && lead.asistio_j2 != null) continue;
+    // (La asistencia YA marcada —la reunión ocurrió, lo que sigue es el aviso post-llamada— la descarta
+    // `reunionParaElDueno`.)
 
     out.miradas += 1;
     const key = keyMarca(lead.id, cual, iso);

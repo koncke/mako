@@ -41,6 +41,8 @@ const REALES = [
   // Un lead de un cliente: el ejemplo de `reunion-recordatorio` lo nombraba, y un agendado
   // se lo mandó al grupo de otro (06/10/2026).
   'Francisco Ramos', 'Dental Ramos',
+  // Clientes de Mauricio que nombraban los ejemplos del catálogo de mensajes (revisión del ws9, 10/10/2026).
+  'Sergio Esquer', 'BG Trucking', 'Aspro',
 ];
 const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 
