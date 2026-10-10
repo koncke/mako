@@ -43,13 +43,42 @@
 //   P2. quitar una fila de la condición vuelve a ser la ✕                             -> 13 / 1
 //   R1. la que escucha va en el orden del array (después de las sueltas)              -> 13 / 1
 //
+// REVISIÓN DEL 10/10/2026 (hallazgos #5 y #6: la base del borrador la pone la pestaña; «Descartar
+// cambios» y «Volver a lo publicado» borran el borrador). Base en verde: 22 pasan, 0 fallan. Mismo arnés:
+//  M1. el guardado no lleva la base                                                  -> 17 / 5
+//  M2. `desactualizado` se trata como un rechazo cualquiera                          -> 21 / 1
+//  M3. `antesDePublicar` no cierra la compuerta (sale con la base vieja)             -> 20 / 2
+//  M4. `publicado` no toma la base nueva                                             -> 20 / 2
+//  M5. `antesDePublicar` escucha lo que estaba en vuelo (cartel falso)               -> 21 / 1
+//  M6. `noPublicado` no abre la compuerta (el guardado espera para siempre)          -> 21 / 1
+//  M7. el borrado no espera lo que ya salió (un guardado lento lo resucita)          -> 21 / 1
+//  M8. `descartar` adopta la base del server                                         -> 21 / 1
+//  M9. `descartar` no suelta lo pendiente («Descartar cambios» lo guarda)            -> 21 / 1
+// M10. un guardado no espera el borrado en vuelo (Ctrl+Z quedaría borrado)            -> 21 / 1
+// M11. el respiro no vuelve a mirar lo ya guardado (lo publicado vuelve como borrador) -> 21 / 1
+// M12. `cerrar` no espera lo que salió                                                -> 21 / 1
+//  H1. el desmonte sólo despacha (no relee la lista)                                 -> 21 / 1
+//  S1. Publicar sin cerrar la compuerta                                              -> 21 / 1
+//  S2. Publicar con el descarte de antes (sin la base nueva)                         -> 21 / 1
+//  S3. el lienzo no le pasa la base al motor                                         -> 21 / 1
+//  S4. «Volver a lo publicado» sin borrar el borrador                                -> 21 / 1
+//  S5. la ref de «Descartar cambios» no descarta                                     -> 21 / 1
+//  S6. «Crear con IA» sin tomar la base nueva                                        -> 21 / 1
+//  S7. el lienzo no relee la lista al irse                                           -> 21 / 1
+//  X1. la ruta no pasa la base                                                       -> 21 / 1
+//  X2. `desactualizado` sale 200                                                     -> 21 / 1
+//  G1. el GET no trae la base                                                        -> 21 / 1
+// (La primera versión del test de descartar dejaba pasar M8 y M9 en 22 / 0: llamaba a `yaGuardado`
+// antes del desmonte —que suelta lo pendiente igual— y miraba la base del guardado que sale ANTES de
+// que `descartar` termine. Se partió en los dos momentos.)
+//
 // Correr: node --import tsx --test tests/chatbot-v6b-flujo.test.ts
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { crearBorrador, ERROR_BORRADOR, RESPIRO_BORRADOR_MS } from '../app/automations/useBorradorSecuencia';
+import { crearBorrador, ERROR_BORRADOR, ERROR_DESACTUALIZADO, RESPIRO_BORRADOR_MS } from '../app/automations/useBorradorSecuencia';
 import { grafoDeSecuencia, esperaAntesDe, AVISO_VENTANA_META, etiquetaDeAccion, type PasoParaGrafo, type NodoFlujo } from '../lib/flujo-conversacion';
 import { VENTANA_META_MS } from '../lib/canal-social';
 import { CuerpoCron } from '../app/automations/FlujoLienzo';
@@ -82,13 +111,37 @@ function armar(opts: { puedeGuardar?: boolean; respuesta?: unknown; tira?: boole
     post: async (body) => {
       posts.push(body);
       if (opts.tira) throw new Error('sin red');
-      return { json: async () => opts.respuesta ?? { ok: true } };
+      return { json: async () => opts.respuesta ?? (body.action === 'descartar-borrador' ? { ok: true, base: 'B1' } : { ok: true }) };
     },
     inicial: flujo('hola'),
     puedeGuardar: opts.puedeGuardar ?? true,
+    base: 'B0',
     avisos: () => ({ onGuardado: (j) => guardados.push(j), onError: (m) => errores.push(m) }),
   });
   return { motor, posts, guardados, errores };
+}
+
+/**
+ * Como `armar`, pero cada pedido queda EN VUELO hasta que el test lo contesta (`contestar(n, json)`, n en
+ * el orden en que salieron): así se prueba el orden entre un guardado lento, Publicar y un borrado.
+ */
+function armarEnVuelo() {
+  const posts: Record<string, unknown>[] = [];
+  const respuestas: Array<(j: unknown) => void> = [];
+  const guardados: string[] = [];
+  const errores: string[] = [];
+  const motor = crearBorrador({
+    post: (body) => {
+      posts.push(body);
+      return new Promise((res) => { respuestas.push((j) => res({ json: async () => j })); });
+    },
+    inicial: flujo('hola'),
+    puedeGuardar: true,
+    base: 'B0',
+    avisos: () => ({ onGuardado: (j) => guardados.push(j), onError: (m) => errores.push(m) }),
+  });
+  const contestar = async (n: number, j: unknown) => { respuestas[n](j); await drenar(); };
+  return { motor, posts, guardados, errores, contestar };
 }
 
 test('el borrador se guarda UNA vez por respiro, con el flujo FINAL, y avisa qué quedó guardado', async (t) => {
@@ -106,6 +159,7 @@ test('el borrador se guarda UNA vez por respiro, con el flujo FINAL, y avisa qu�
   assert.equal(posts.length, 1, 'tipear una frase tiene que ser UN guardado');
   assert.equal(posts[0].action, 'borrador');
   assert.deepEqual(posts[0].pasos, flujo('hola Lu'));
+  assert.equal(posts[0].base, 'B0', 'el guardado tiene que llevar la base de lo que abrió la pestaña');
   assert.deepEqual(guardados, [JSON.stringify(flujo('hola Lu'))]);
   motor.cambio(flujo('hola Lu'));              // lo mismo que lo guardado: nada
   mock.timers.tick(RESPIRO_BORRADOR_MS);
@@ -177,8 +231,8 @@ test('al irse sale YA lo que esperaba; publicar lo DESCARTA en el server y lo pu
 
   const pub = armar();
   pub.motor.cambio(flujo('listo'));
-  pub.motor.descartar();
-  pub.motor.yaGuardado(flujo('listo'));
+  pub.motor.antesDePublicar();
+  await pub.motor.publicado(flujo('listo'));
   mock.timers.tick(RESPIRO_BORRADOR_MS);
   await drenar();
   assert.deepEqual(pub.posts.map((p) => p.action), ['descartar-borrador'], 'publicar dejó un borrador vivo, o lo volvió a guardar');
@@ -188,13 +242,145 @@ test('al irse sale YA lo que esperaba; publicar lo DESCARTA en el server y lo pu
   assert.equal(pub.posts.length, 1, 'lo recién publicado volvió a guardarse como borrador');
 });
 
+// ── La base (revisión de la sexta tanda, 10/10/2026, hallazgos #5 y #6) ─────────────────────────
+
+test('⚠️ `desactualizado`: lo publicado cambió desde que se abrió; no se guarda más y se dice', async (t) => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  const { motor, posts, guardados, errores } = armar({ respuesta: { ok: false, desactualizado: true } });
+  motor.cambio(flujo('sobre lo viejo'));
+  mock.timers.tick(RESPIRO_BORRADOR_MS);
+  await drenar();
+  assert.deepEqual(errores, [ERROR_DESACTUALIZADO]);
+  assert.deepEqual(guardados, [], 'un rechazo no es «guardado»: salir no preguntaría y se perdería');
+  motor.cambio(flujo('otra cosa'));
+  mock.timers.tick(RESPIRO_BORRADOR_MS);
+  motor.despachar();
+  await drenar();
+  assert.equal(posts.length, 1, 'siguió guardando sobre un publicado que ya no es el que abrió');
+});
+
+test('⚠️ publicar: lo que sale de su respiro mientras el PATCH viaja ESPERA, y sale con la base NUEVA detrás del borrado', async (t) => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  const { motor, posts, errores, contestar } = armarEnVuelo();
+  motor.antesDePublicar();
+  motor.cambio(flujo('tocado mientras publicaba'));
+  mock.timers.tick(RESPIRO_BORRADOR_MS);
+  await drenar();
+  assert.equal(posts.length, 0, 'salió con la base vieja mientras se publicaba: el server diría que otro publicó');
+  const listo = motor.publicado(flujo('publicado'));
+  await drenar();
+  assert.deepEqual(posts.map((p) => p.action), ['descartar-borrador']);
+  await contestar(0, { ok: true, base: 'B1' });
+  await listo;
+  await drenar();
+  assert.deepEqual(posts.map((p) => p.action), ['descartar-borrador', 'borrador']);
+  assert.equal(posts[1].base, 'B1', 'después de publicar, la base es la de lo publicado');
+  assert.deepEqual(posts[1].pasos, flujo('tocado mientras publicaba'));
+  assert.deepEqual(errores, []);
+});
+
+test('⚠️ lo que estaba en vuelo ANTES de publicar ya no se escucha: su rechazo no dice «Cambió lo publicado»', async (t) => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  const { motor, posts, errores, contestar } = armarEnVuelo();
+  motor.cambio(flujo('a'));
+  mock.timers.tick(RESPIRO_BORRADOR_MS);
+  await drenar();
+  assert.equal(posts.length, 1);
+  motor.antesDePublicar();
+  // El PATCH ya entró: el guardado lento llega después y el server lo rechaza con la base de antes.
+  await contestar(0, { ok: false, desactualizado: true });
+  const listo = motor.publicado(flujo('a'));
+  await drenar();
+  await contestar(1, { ok: true, base: 'B1' });
+  await listo;
+  assert.deepEqual(errores, [], 'la propia pestaña publicó: el cartel acusaría a otro');
+  motor.cambio(flujo('b'));
+  mock.timers.tick(RESPIRO_BORRADOR_MS);
+  await drenar();
+  assert.equal(posts.length, 3, 'el rechazo viejo apagó el guardado');
+  assert.equal(posts[2].base, 'B1');
+});
+
+test('si el PATCH falla, lo que esperaba sale con la base de siempre', async (t) => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  const { motor, posts } = armar();
+  motor.antesDePublicar();
+  motor.cambio(flujo('a'));
+  mock.timers.tick(RESPIRO_BORRADOR_MS);
+  await drenar();
+  assert.equal(posts.length, 0);
+  motor.noPublicado();
+  await drenar();
+  assert.equal(posts.length, 1, 'el guardado quedó esperando para siempre');
+  assert.equal(posts[0].base, 'B0');
+});
+
+test('⚠️ descartar («Volver a lo publicado», «Descartar cambios»): lo pendiente NO sale, el borrado va DETRÁS de lo que está en vuelo, y la base no cambia', async (t) => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  const { motor, posts, contestar } = armarEnVuelo();
+  motor.cambio(flujo('D1'));
+  mock.timers.tick(RESPIRO_BORRADOR_MS);
+  await drenar();
+  assert.equal(posts.length, 1, 'D1 en vuelo');
+  motor.cambio(flujo('D2'));                   // lo que «Descartar cambios» tiene que tirar
+  const fin = motor.descartar();               // lo que llama la ref de «Descartar cambios», sin más
+  motor.despachar();                           // el desmonte de SecuenciaPerfil
+  mock.timers.tick(RESPIRO_BORRADOR_MS);
+  await drenar();
+  assert.equal(posts.length, 1, 'el borrado salió antes de que volviera D1 (o se mandó D2): un D1 lento lo resucitaba');
+  await contestar(0, { ok: true });
+  assert.deepEqual(posts.map((p) => p.action), ['borrador', 'descartar-borrador']);
+  // Ctrl+Z después de «Volver a lo publicado» (que anota lo publicado como guardado): el guardado sale
+  // DETRÁS del borrado, con la base de siempre.
+  motor.yaGuardado(flujo('hola'));
+  motor.cambio(flujo('D1'));
+  mock.timers.tick(RESPIRO_BORRADOR_MS);
+  await drenar();
+  assert.equal(posts.length, 2, 'el guardado llegó antes que el borrado: quedaría borrado');
+  await contestar(1, { ok: true, base: 'OTRA' });
+  await fin;
+  await drenar();
+  assert.deepEqual(posts.map((p) => p.action), ['borrador', 'descartar-borrador', 'borrador']);
+  assert.equal(posts[2].base, 'B0');
+  // Y después del borrado tampoco: descartar no publicó nada, y adoptar la base del server es volver al bug.
+  motor.cambio(flujo('D3'));
+  mock.timers.tick(RESPIRO_BORRADOR_MS);
+  await drenar();
+  assert.equal(posts[3]?.base, 'B0', 'descartar adoptó la base que contestó el server');
+  assert.ok(!posts.some((p) => JSON.stringify(p.pasos) === JSON.stringify(flujo('D2'))), '«Descartar cambios» guardó lo descartado');
+});
+
+test('al irse (`cerrar`): espera lo que salió y dice si el server quedó distinto del GET', async (t) => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  assert.equal(await armar().motor.cerrar(), false, 'sin escribir nada no hay por qué releer la lista');
+  const { motor, posts } = armar();
+  motor.cambio(flujo('a medio armar'));
+  assert.equal(await motor.cerrar(), true);
+  assert.equal(posts.length, 1, 'cerrar no despachó lo que esperaba');
+  const d = armar();
+  void d.motor.descartar();
+  assert.equal(await d.motor.cerrar(), true, 'un borrado también deja la lista vieja');
+});
+
 test('el lienzo guarda el borrador SÓLO si lo leyó, lo abre si hay, y lo descarta al publicar', () => {
   const sp = codigo('app/automations/SecuenciaPerfil.tsx');
   assert.match(sp, /useBorradorSecuencia\(secuencia\.id, \{\s*puedeGuardar: rolAdmin && secuencia\.borrador !== undefined,/);
   assert.match(sp, /useEffect\(\(\) => \{ borrador\.cambio\(pasos\); \}, \[pasos\]\);/);
   assert.match(sp, /secuencia\.borrador\?\.pasos\?\.length \? renumerar\(normalizar\(secuencia\.borrador\.pasos\)\) : null/);
-  const publicar = tramo(sp, 'borrador.descartar();', 'if (convertida && limpiar)');
-  assert.match(publicar, /borrador\.yaGuardado\(pasos\);/);
+  // Publicar: la compuerta ANTES del PATCH, abierta en las dos salidas que fallan, y la base nueva después.
+  const publicar = tramo(sp, 'const publicar = async () => {', 'if (convertida && limpiar)');
+  const iPatch = publicar.indexOf("fetch('/api/whatsapp/secuencias'");
+  assert.ok(iPatch > 0);
+  assert.ok(publicar.indexOf('borrador.antesDePublicar();') > 0 && publicar.indexOf('borrador.antesDePublicar();') < iPatch, 'la compuerta tiene que cerrarse ANTES del PATCH');
+  assert.match(tramo(publicar, 'if (!rp.ok) {', 'setBusy(null); return;'), /borrador\.noPublicado\(\);/);
+  assert.match(tramo(publicar, '} catch {', 'return; }'), /borrador\.noPublicado\(\);/);
+  assert.ok(publicar.indexOf('void borrador.publicado(pasos);') > iPatch, 'publicar no descarta el borrador ni toma la base nueva');
   // La ruta lo guarda por SU acción (nunca por `setSecuenciaPasos`, que es lo que lee el motor).
   const ruta = codigo('app/api/chat-agent/secuencias/route.ts');
   const rama = tramo(ruta, "if (body.action === 'borrador' || body.action === 'descartar-borrador')", 'status: 404');
@@ -204,8 +390,52 @@ test('el lienzo guarda el borrador SÓLO si lo leyó, lo abre si hay, y lo desca
   // El GET lo trae, tolerante: AUSENTE cuando no se pudo leer (no «ninguno»).
   const gsd = codigo('lib/setting-secuencias.ts');
   assert.match(gsd, /leerBorradoresSecuencias\(supabase as unknown as DbBorrador\)/);
-  assert.match(gsd, /\.\.\.\(borradores \? \{ borrador: borradores\.get\(s\.id\) \?\? null \} : \{\}\)/);
+  assert.match(gsd, /\.\.\.\(borradores \? \{ borrador: borradores\.get\(s\.id\) \?\? null, base: firmaPublicado\(s\.pasos\) \} : \{\}\)/);
 });
+
+test('⚠️ la base viaja de punta a punta: el GET la calcula, el lienzo la manda, la ruta la exige', () => {
+  // El GET la calcula sobre la columna CRUDA (la misma que lee `guardarBorradorSecuencia`), dentro del
+  // mismo `if` que el borrador (ver el test de arriba).
+  const sp = codigo('app/automations/SecuenciaPerfil.tsx');
+  const llamada = tramo(sp, 'useBorradorSecuencia(secuencia.id, {', '});');
+  assert.match(llamada, /base: \(secuencia as SecuenciaConBase\)\.base,/);
+  assert.match(llamada, /onSalir: \(\) => onCambio\(\),/, 'sin releer la lista al irse, volver acá abre lo de la entrada');
+  // La ruta pasa la base y contesta 409 cuando ya no es lo publicado.
+  const rama = tramo(codigo('app/api/chat-agent/secuencias/route.ts'), "if (body.action === 'borrador' || body.action === 'descartar-borrador')", 'status: 404');
+  assert.match(rama, /guardarBorradorSecuencia\(db, id, body\.pasos, body\.base\)/);
+  assert.match(rama, /r\.motivo === 'desactualizado'\) return Response\.json\(\{ ok: false, desactualizado: true \}, \{ status: 409 \}\)/);
+  assert.match(rama, /'base' in r \? \{ base: r\.base \} : \{\}/, 'descartar no devuelve la base nueva');
+  // El hook: el motor nace con la base y al irse relee la lista si el server quedó distinto.
+  const hook = codigo('app/automations/useBorradorSecuencia.ts');
+  assert.match(hook, /puedeGuardar: opts\.puedeGuardar, base: opts\.base,/);
+  assert.match(tramo(hook, 'return () => {', '}, [m]);'), /m\.cerrar\(\)\.then\(\(cambio\) => \{ if \(cambio\) avisos\.current\.onSalir\?\.\(\); \}\)/);
+  // «Crear con IA» (crear) también cambia lo publicado: toma la base nueva, como Publicar.
+  assert.match(tramo(sp, "if (r.modo === 'crear') {", '} else {'), /void borrador\.publicado\(nuevos\);/);
+});
+
+test('⚠️ «Volver a lo publicado» y «Descartar cambios»: los dos BORRAN el borrador, y lo pendiente no sale', () => {
+  const sp = codigo('app/automations/SecuenciaPerfil.tsx');
+  // El botón: sólo con un borrador abierto, para quien edita, y cuando el lienzo no es lo publicado.
+  assert.match(sp, /const ofrecerVolver = rolAdmin && deBorrador && JSON\.stringify\(pasos\) !== JSON\.stringify\(inicial\.abierto\);/);
+  assert.match(sp, /\{ofrecerVolver && \(\s*<button type="button" onClick=\{volverAPublicado\}/);
+  assert.match(sp, />\s*Volver a lo publicado\s*</);
+  const volver = tramo(sp, 'const volverAPublicado = () => {', '};');
+  assert.match(volver, /fotoAntes\(\);/, 'sin foto, Ctrl+Z no devuelve el borrador');
+  assert.match(volver, /setPasos\(inicial\.abierto\);/);
+  assert.match(volver, /void borrador\.descartar\(\)\.then\(\(\) => onCambio\(\)\);/, 'sin releer la lista DESPUÉS del borrado, volver acá reabre el borrador');
+  assert.match(volver, /borrador\.yaGuardado\(inicial\.abierto\);/);
+  // Publicar lo apaga (ya no hay borrador).
+  assert.match(tramo(sp, 'const publicar = async () => {', 'if (convertida && limpiar)'), /setDeBorrador\(false\);/);
+  // «Descartar cambios» (la pregunta vive en SimuladorWhatsApp): el lienzo deja en la ref su descarte.
+  const reg = tramo(sp, 'if (!descartarBorrador) return;', '}, [descartarBorrador]);');
+  assert.match(reg, /descartarBorrador\.current = \(\) => \{ void borrador\.descartar\(\); \};/);
+  assert.match(reg, /return \(\) => \{ descartarBorrador\.current = null; \};/);
+});
+// ⚠️ EL ENCHUFE DE «DESCARTAR CAMBIOS» VIVE EN UN ARCHIVO DE OTRA PARTE (app/automations/SimuladorWhatsApp.tsx,
+// revisión del 10/10/2026): hasta que se enchufe, la ref de arriba tiene CERO call sites y «Descartar cambios»
+// sigue guardando lo descartado. Quien lo enchufe suma acá el guard de su lado (la ref creada con `useRef`,
+// `descartarBorrador.current?.()` en `descartar()` ANTES de `cambiarA` / `onNueva` / `abrirAvisoYa`, y la
+// prop pasada a `<SecuenciaPerfil key={sel.id} …>`), probado rompiéndolo.
 
 // ── El aviso de las 24 h ────────────────────────────────────────────────────────────────────
 

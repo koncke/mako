@@ -28,7 +28,7 @@ import { disparoActualDe, iconoDeDisparador } from '@/lib/disparadores';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
 import { usePosicionesLienzo } from './usePosicionesLienzo';
-import { useBorradorSecuencia } from './useBorradorSecuencia';
+import { useBorradorSecuencia, ERROR_DESACTUALIZADO } from './useBorradorSecuencia';
 import { Dropdown } from '@/app/components/Dropdown';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
@@ -81,6 +81,13 @@ const tarjetaChrome: CSSProperties = {
  */
 const guiaOfrecida = { enLaVisita: false };
 
+/**
+ * La huella de lo publicado que trae el GET (`base`, `getSettingData` en lib/setting-secuencias.ts), que el
+ * borrador manda con cada guardado. Va acá y no en `SecuenciaDto` porque ese tipo vive en ChatAgentApp.tsx
+ * (otra parte de la tanda): cuando el campo se sume allá, esto se va.
+ */
+type SecuenciaConBase = SecuenciaDto & { base?: string };
+
 /** La edición en curso de una automatización, tal como la ve el lienzo. */
 export type EdicionLocal = {
   secuenciaId: number;
@@ -91,7 +98,7 @@ export type EdicionLocal = {
   instance_name: string | null;
 };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, pedidoIA }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, pedidoIA }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver un «Ir a» y convertir un «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -154,6 +161,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * componente y lo no publicado se perdía sin aviso (medido, R1/R3).
    */
   onSinPublicar?: (hay: boolean) => void;
+  /**
+   * Lo llena este componente con «descartar lo no publicado» (lo pendiente no sale y el borrador se
+   * borra). Lo llama la tab ANTES de cambiar de automatización cuando la persona elige «Descartar
+   * cambios»: sin esto, el desmonte lo guardaba como borrador.
+   */
+  descartarBorrador?: { current: (() => void) | null };
   /** «Crear con IA»: un pedido ya escrito (el «Armar una» de una etapa sin automatización). */
   pedidoIA?: string;
 }) {
@@ -199,7 +212,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       nombreDeSecuencia: (id) => secuencias.find((s) => s.id === id)?.nombre ?? null,
     });
     const borrador = secuencia.borrador?.pasos?.length ? renumerar(normalizar(secuencia.borrador.pasos)) : null;
-    return { ...r, pasos: borrador ?? renumerar(r.pasos), publicado: JSON.stringify(renumerar(normalizar(ordenados))) };
+    // `abierto`: lo publicado tal como el lienzo lo abriría sin borrador («Volver a lo publicado» vuelve ahí).
+    const abierto = renumerar(r.pasos);
+    return { ...r, pasos: borrador ?? abierto, abierto, deBorrador: !!borrador, publicado: JSON.stringify(renumerar(normalizar(ordenados))) };
   });
   const [pasos, setPasos] = useState<PasoSecuenciaDto[]>(inicial.pasos);
   const [convertida, setConvertida] = useState(inicial.convertida);
@@ -217,6 +232,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * pierde nada: la conversión se vuelve a hacer al abrirla.
    */
   const [visto, setVisto] = useState(() => JSON.stringify(inicial.pasos));
+  /**
+   * Se abrió un BORRADOR (no lo publicado): mientras el lienzo no sea lo publicado, se ofrece «Volver a lo
+   * publicado» (revisión del 10/10/2026: un borrador no se podía borrar de ninguna forma salvo publicándolo,
+   * y la pila de deshacer no sobrevive a la recarga). Publicar lo apaga: ya no hay borrador.
+   */
+  const [deBorrador, setDeBorrador] = useState(inicial.deBorrador);
 
   /**
    * EL BORRADOR (sexta tanda, punto 7; mig 0240, lib/secuencia-borrador.ts): cada cambio del flujo se
@@ -225,15 +246,36 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * null): si no, guardarlo pisaría uno que la pantalla no vio. Lo guardado pasa a ser lo «visto»:
    * desde ahí salir no pierde nada, y la tab deja de preguntar.
    */
+  //
+  // ⚠️ CON LA BASE DE LO QUE ESTA PESTAÑA ABRIÓ (`secuencia.base`, revisión del 10/10/2026): si mientras
+  // tanto se publicó otra cosa, el server no lo guarda y el error lo dice (useBorradorSecuencia.ts). Y al
+  // irse, si algo cambió en el server, se relee la lista (`onSalir`): volver acá en la misma visita abría
+  // lo que trajo el GET de la entrada.
   const borrador = useBorradorSecuencia(secuencia.id, {
     puedeGuardar: rolAdmin && secuencia.borrador !== undefined,
     inicial: inicial.pasos,
+    base: (secuencia as SecuenciaConBase).base,
     onGuardado: (json) => setVisto(json),
     onError: (m) => setErr(m),
+    onSalir: () => onCambio(),
   });
   // `borrador` lee refs: lo único que cambia algo es el flujo.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { borrador.cambio(pasos); }, [pasos]);
+  /**
+   * «DESCARTAR CAMBIOS» DE LA TAB (revisión del 10/10/2026): la pregunta «Tienes cambios sin publicar» vive
+   * en SimuladorWhatsApp, y cambiar de automatización DESMONTA este lienzo, cuyo desmonte despacha lo que
+   * esperaba su respiro. O sea que «Descartar» lo GUARDABA como borrador, y al volver se abría lo que se
+   * había descartado. Quien pregunta llama a esto ANTES de cambiar: lo pendiente no sale y el borrador se
+   * borra (la lista se relee sola al irse: `onSalir`).
+   */
+  useEffect(() => {
+    if (!descartarBorrador) return;
+    descartarBorrador.current = () => { void borrador.descartar(); };
+    return () => { descartarBorrador.current = null; };
+    // `borrador` es el mismo motor durante todo el montaje.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [descartarBorrador]);
 
   /**
    * «CREAR CON IA» (punto 11, decisión 14). Crear ya GUARDÓ la automatización (pausada) en el server:
@@ -358,8 +400,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       setVisto(JSON.stringify(nuevos));
       setConvertida(false);
       setLimpiar(false);
-      // Ya lo guardó el server (publicado y pausado): no es un borrador.
-      borrador.yaGuardado(nuevos);
+      // Ya lo guardó el server (publicado y pausado): no es un borrador, y lo publicado cambió. Como en
+      // Publicar: el borrador de antes se borra y la base pasa a ser ésta (sin eso, el próximo cambio se
+      // rechazaba con «Cambió lo publicado»). Un rechazo que llegó mientras la IA trabajaba ya no vale.
+      void borrador.publicado(nuevos);
+      setDeBorrador(false);
+      setErr((e) => (e === ERROR_DESACTUALIZADO ? null : e));
       if (r.nombre) setNombre(r.nombre);
       // El disparador que quedó puesto (revisión, 09/10/2026): `disparo` se siembra al montar, y sin
       // esto la tarjeta CRON seguía diciendo el de antes («manual») hasta recargar.
@@ -426,6 +472,23 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   // responde» nace de una CONDITION vacía, en su editor.)
 
   /**
+   * «VOLVER A LO PUBLICADO»: el lienzo vuelve a lo que se abriría sin borrador y el borrador se borra en
+   * el server (después de lo que esté en vuelo, para que un guardado lento no lo resucite). Con su foto:
+   * Ctrl+Z devuelve el borrador, que se vuelve a guardar solo. Al terminar se relee la lista, o volver a
+   * esta automatización en la misma visita abría el borrador que trajo el GET de la entrada.
+   */
+  const volverAPublicado = () => {
+    fotoAntes();
+    setPasos(inicial.abierto);
+    setVisto(JSON.stringify(inicial.abierto));
+    // Un «Cambió lo publicado» se queda: lo que se abrió tampoco es lo de hoy, y sigue sin guardarse.
+    setErr((e) => (e === ERROR_DESACTUALIZADO ? e : null));
+    void borrador.descartar().then(() => onCambio());
+    borrador.yaGuardado(inicial.abierto);
+  };
+  const ofrecerVolver = rolAdmin && deBorrador && JSON.stringify(pasos) !== JSON.stringify(inicial.abierto);
+
+  /**
    * ⚠️ UN ERROR QUE FRENA PUBLICAR ABRE LA TARJETA CULPABLE (revisión, lienzo-6). El texto
    * sólo no alcanzaba: nombraba «Mensaje 4» y ninguna tarjeta lleva número. `vez` cambia en
    * cada pedido, así el mismo error dos veces la vuelve a abrir.
@@ -457,6 +520,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     const freno = frenoDelFlujo(pasos, faltanEnAccion);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
     setBusy('save');
+    // ⚠️ PUBLICAR CAMBIA LA BASE DEL BORRADOR (revisión, 10/10/2026): lo que salga de su respiro mientras
+    // el PATCH viaja espera, o saldría con la base vieja y el server diría que otro publicó.
+    borrador.antesDePublicar();
     try {
       const rp = await (await fetch('/api/whatsapp/secuencias', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -464,16 +530,18 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       })).json();
       // El server valida con la MISMA función y rechaza con su primer error, que trae ids.
       if (!rp.ok) {
+        borrador.noPublicado();
         const e = rp.error ? String(rp.error) : '';
         frenar(e ? errorLegible(e, pasos) : 'No se pudo publicar.', e ? tarjetaDelError(e, pasos) : null);
         setBusy(null); return;
       }
-    } catch { setErr('Sin conexión — prueba de nuevo.'); setBusy(null); return; }
+    } catch { borrador.noPublicado(); setErr('Sin conexión — prueba de nuevo.'); setBusy(null); return; }
     setPublicado(JSON.stringify(pasos));
     setVisto(JSON.stringify(pasos));
-    // Lo publicado ya no es un borrador: se borra (sin esto tampoco se abriría: cambió la base).
-    borrador.descartar();
-    borrador.yaGuardado(pasos);
+    setDeBorrador(false);
+    // Lo publicado ya no es un borrador: se borra, y la base pasa a ser lo que se acaba de publicar (la
+    // devuelve el server: el navegador no la puede calcular, ver lib/secuencia-borrador.ts).
+    void borrador.publicado(pasos);
     // ⚠️ LA ESTRATEGIA SE LIMPIA SÓLO SI SE CONVIRTIÓ UNA LISTA DE ANTES (`limpiar`, de `abrirFlujo`).
     // Un flujo al que sólo se le sacó un «Ir a» también abre «convertido», y limpiarle la estrategia
     // apagaba lo que el motor todavía hace por su lado.
@@ -816,6 +884,15 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             ) : flash ? (
               <span style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>
             ) : null)}
+            {/* «VOLVER A LO PUBLICADO» (revisión del 10/10/2026): sólo con un borrador abierto. Antes de
+                «Activar», que va pegado a «Publicar» (punto 8). Se deshace con Ctrl+Z. */}
+            {ofrecerVolver && (
+              <button type="button" onClick={volverAPublicado} disabled={busy === 'save'}
+                title="Borra el borrador y abre lo publicado"
+                style={{ ...tarjetaChrome, flex: 'none', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: busy === 'save' ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+                Volver a lo publicado
+              </button>
+            )}
             {/* «ACTIVAR», AL LADO DE «PUBLICAR» (sexta tanda, punto 8: «Activar pasa a estar al lado de
                 "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
             <div style={{ ...tarjetaChrome, flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>

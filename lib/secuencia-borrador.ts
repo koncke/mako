@@ -23,6 +23,19 @@
 // habla de un flujo que ya no está: abrirlo y publicarlo pisaría lo nuevo. Ahí no se abre
 // (`borradorVigente`). Así publicar no tiene que acordarse de borrarlo para que no vuelva.
 //
+// ⚠️ Y LA BASE LA PONE LA PESTAÑA, NO EL MOMENTO DE GUARDAR (revisión de la sexta tanda, 10/10/2026).
+// Hasta acá `guardarBorradorSecuencia` leía lo publicado AL GUARDAR y lo anotaba como base: una pestaña
+// que abrió X, mientras otra (o MaKo por WhatsApp, o un hand-off que suma un caso a «Si responde»)
+// publicaba Y, guardaba su X-más-un-cambio con base Y. Al recargar, en TODAS las pestañas, se abría ese
+// borrador encima de Y como si se hubiera armado sobre lo de hoy, y Publicar revertía Y sin aviso. La
+// regla de arriba se cumplía sobre el dato equivocado: la base decía «lo de hoy» y era «lo de cuando
+// se guardó». Ahora la base es la huella de lo que la pestaña ABRIÓ (la calcula el server en el GET,
+// `getSettingData`, sobre la misma columna cruda que lee esto) y viaja en cada guardado: si ya no es lo
+// publicado, no se guarda nada y vuelve `desactualizado` (la ruta contesta 409). La huella NO la calcula
+// el navegador: `setSecuenciaPasos` reconstruye cada paso campo por campo y le mergea las variantes, así
+// que la firma de lo que el lienzo mandó a publicar no es la de lo que quedó guardado. Después de
+// publicar, la pestaña toma la base nueva de la respuesta de `descartar-borrador`.
+//
 // SIN `server-only`: recibe la base por parámetro (como lib/secuencia-posiciones.ts), para que el
 // test pruebe la columna que falta con una base falsa.
 
@@ -108,7 +121,7 @@ export type DbBorrador = {
       is(col: string, v: null): Resp<Array<{ id: number; pasos: unknown; pasos_borrador: unknown }>>;
       eq(col: string, v: number): { maybeSingle(): Resp<{ id: number; pasos: unknown }> };
     };
-    update(fila: Record<string, unknown>): { eq(col: string, v: number): { select(cols: string): Resp<Array<{ id: number }>> } };
+    update(fila: Record<string, unknown>): { eq(col: string, v: number): { select(cols: string): Resp<Array<{ id: number; pasos?: unknown }>> } };
   };
 };
 
@@ -137,22 +150,29 @@ export async function leerBorradoresSecuencias(db: DbBorrador): Promise<Map<numb
 
 export type ResultadoBorrador =
   | { ok: true; guardado_at: string | null }
-  | { ok: false; motivo: 'sin_columna' | 'no_existe' | 'invalido'; error?: string };
+  | { ok: false; motivo: 'sin_columna' | 'no_existe' | 'invalido' | 'desactualizado'; error?: string };
 
 /**
  * Guarda el borrador de una automatización (lo que tiene el lienzo, ENTERO). Saneado acá también:
- * lo que llega por HTTP no se cree. La `base` es lo publicado de AHORA, leído acá. Un borrador igual a
- * lo publicado se guarda como null (no queda nada sin publicar: `guardado_at` null).
+ * lo que llega por HTTP no se cree. Un borrador igual a lo publicado se guarda como null (no queda nada
+ * sin publicar: `guardado_at` null).
+ *
+ * ⚠️ `baseCliente` ES LA HUELLA DE LO QUE LA PESTAÑA ABRIÓ (ver la cabecera), y tiene que ser lo publicado
+ * de AHORA, leído acá: si no lo es —o no vino—, el borrador se armó sobre otro flujo y NO se escribe nada
+ * (`desactualizado`). Guardarlo con la base de ahora lo haría abrirse encima de lo nuevo y pisarlo al
+ * publicar; guardarlo con la del cliente lo dejaría guardado y sin abrirse nunca, que es perderlo sin
+ * aviso. La única salida honesta es que la pantalla lo diga.
  *
  * No toca `updated_at` ni `pasos`: guardar un borrador no es editar la automatización que corre.
  */
-export async function guardarBorradorSecuencia(db: DbBorrador, secuenciaId: number, raw: unknown): Promise<ResultadoBorrador> {
+export async function guardarBorradorSecuencia(db: DbBorrador, secuenciaId: number, raw: unknown, baseCliente: unknown): Promise<ResultadoBorrador> {
   const s = sanearBorrador(raw);
   if (!s.ok) return { ok: false, motivo: 'invalido', error: s.error };
   const { data: fila, error: eLeer } = await db.from('nutricion_secuencias').select('id, pasos').eq('id', secuenciaId).maybeSingle();
   if (eLeer) throw new Error(`guardarBorradorSecuencia: ${eLeer.message ?? eLeer.code}`);
   if (!fila) return { ok: false, motivo: 'no_existe' };
   const base = firmaPublicado(fila.pasos);
+  if (typeof baseCliente !== 'string' || baseCliente !== base) return { ok: false, motivo: 'desactualizado' };
   const guardado_at = new Date().toISOString();
   const valor: BorradorGuardado | null = firmaPublicado(s.pasos) === base ? null : { pasos: s.pasos, base, guardado_at };
   const { data, error } = await db.from('nutricion_secuencias').update({ pasos_borrador: valor }).eq('id', secuenciaId).select('id');
@@ -167,13 +187,21 @@ export async function guardarBorradorSecuencia(db: DbBorrador, secuenciaId: numb
   return { ok: true, guardado_at: valor ? guardado_at : null };
 }
 
-/** Descarta el borrador (al publicar, o «descartar los cambios»). Sin la columna, no hay nada que descartar. */
-export async function descartarBorradorSecuencia(db: DbBorrador, secuenciaId: number): Promise<{ ok: true } | { ok: false; motivo: 'sin_columna' | 'no_existe' }> {
-  const { data, error } = await db.from('nutricion_secuencias').update({ pasos_borrador: null }).eq('id', secuenciaId).select('id');
+/**
+ * Descarta el borrador (al publicar, «Volver a lo publicado», «Descartar cambios»). Sin la columna, no hay
+ * nada que descartar.
+ *
+ * Devuelve la `base` de lo publicado que quedó (la huella de la fila, calculada acá): es la que la pestaña
+ * toma DESPUÉS DE PUBLICAR para seguir guardando borradores encima de lo suyo (ver la cabecera: el
+ * navegador no puede calcularla). Las otras dos no la toman: no publicaron nada, y adoptarla dejaría a
+ * una pestaña con lo publicado viejo guardando sobre lo nuevo.
+ */
+export async function descartarBorradorSecuencia(db: DbBorrador, secuenciaId: number): Promise<{ ok: true; base: string } | { ok: false; motivo: 'sin_columna' | 'no_existe' }> {
+  const { data, error } = await db.from('nutricion_secuencias').update({ pasos_borrador: null }).eq('id', secuenciaId).select('id, pasos');
   if (error) {
     if (esColumnaInexistente(error)) return { ok: false, motivo: 'sin_columna' };
     throw new Error(`descartarBorradorSecuencia: ${error.message ?? error.code}`);
   }
   if (!data?.length) return { ok: false, motivo: 'no_existe' };
-  return { ok: true };
+  return { ok: true, base: firmaPublicado(data[0].pasos) };
 }

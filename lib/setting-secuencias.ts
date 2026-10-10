@@ -34,7 +34,7 @@ import { partesDe } from './mensaje-partes';
 import { emojiDeSecuencia } from './flujo-conversacion';
 import { leerPosicionesSecuencias, type DbPosiciones } from './secuencia-posiciones';
 import type { Posiciones } from './lienzo-posiciones';
-import { leerBorradoresSecuencias, type DbBorrador } from './secuencia-borrador';
+import { leerBorradoresSecuencias, firmaPublicado, type DbBorrador } from './secuencia-borrador';
 import type { PasoGrafo } from './flujo-grafo';
 import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from './disparadores';
 import { pasosDeEsqueleto } from './setting-semillas';
@@ -55,6 +55,12 @@ export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
    * o falló la consulta): la pantalla abre lo publicado y no guarda borradores.
    */
   borrador?: { pasos: PasoGrafo[]; guardado_at: string } | null;
+  /**
+   * La huella de lo publicado que trae este GET (`firmaPublicado`, lib/secuencia-borrador.ts): la pestaña
+   * la manda con cada borrador, y si ya no es lo publicado el server no lo guarda (`desactualizado`). Va
+   * JUNTO con `borrador`: ausente los dos cuando no se pudieron leer (y la pantalla no guarda).
+   */
+  base?: string;
 };
 
 /**
@@ -125,7 +131,12 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
     posiciones: posiciones ? (posiciones.get(s.id) ?? {}) : null,
     // Sin poder leerlos, la clave NO va: la pantalla distingue «no hay» (null) de «no sé» (ausente) y
     // en el segundo caso no guarda, para no pisar un borrador que no vio.
-    ...(borradores ? { borrador: borradores.get(s.id) ?? null } : {}),
+    //
+    // ⚠️ Y LA BASE VA CON ÉL, CALCULADA ACÁ (revisión, 10/10/2026): es la huella de lo que la pestaña
+    // ABRE, y el server compara contra ella al guardar. `s.pasos` es la columna cruda
+    // (`getSecuenciasConStats`), la misma que lee `guardarBorradorSecuencia`: con dos lecturas distintas,
+    // ningún borrador se guardaría nunca.
+    ...(borradores ? { borrador: borradores.get(s.id) ?? null, base: firmaPublicado(s.pasos) } : {}),
   }));
   return { secuencias, serie: serieDiaria(filasEnvio, filasInsc, new Date().toISOString()) };
 }

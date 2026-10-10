@@ -15,10 +15,11 @@
 //        { action:'duplicar', secuenciaId }               → { secuenciaId, nombre } (la copia nace PAUSADA)
 //        { action:'posiciones', secuenciaId, posiciones } → dónde quedó cada tarjeta del lienzo (mig 0233)
 //                                                          → { ok, posiciones } | { ok:false, sinColumna }
-//        { action:'borrador', secuenciaId, pasos }        → lo que el lienzo tiene SIN publicar (mig 0240)
+//        { action:'borrador', secuenciaId, pasos, base }  → lo que el lienzo tiene SIN publicar (mig 0240)
 //                                                          → { ok, guardado_at } | { ok:false, sinColumna }
-//                                                            (400 si rompe el dato: `validarParaGuardar`)
-//        { action:'descartar-borrador', secuenciaId }     → lo borra (al publicar) → { ok } | { ok:false, sinColumna }
+//                                                            (400 si rompe el dato: `validarParaGuardar`;
+//                                                             409 { desactualizado } si `base` ya no es lo publicado)
+//        { action:'descartar-borrador', secuenciaId }     → lo borra → { ok, base } | { ok:false, sinColumna }
 //        { action:'disparadores', secuenciaId, disparadores: Disparador[] }
 //                                                          → los CRON de la automatización, la lista
 //                                                            entera (mig 0241) → { ok, disparadores }
@@ -183,6 +184,8 @@ export async function POST(req: NextRequest) {
     handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown; cron?: unknown;
     id?: unknown; trigger_tipo?: unknown; producto_id?: unknown; funnel_id?: unknown; etiqueta_id?: unknown;
     emoji?: unknown; etapas?: unknown[]; posiciones?: unknown; disparadores?: unknown; pasos?: unknown;
+    /** La huella de lo publicado que abrió la pestaña (sólo `action: 'borrador'`). */
+    base?: unknown;
   };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -279,16 +282,21 @@ export async function POST(req: NextRequest) {
      * `setSecuenciaPasos`, y el motor no lo lee nunca (lib/secuencia-borrador.ts). Valida sólo lo que
      * rompe el dato (`validarParaGuardar`): lo incompleto se guarda. La columna que falta contesta
      * `sinColumna` (200: no es un error de la persona) y la pantalla deja de mandar.
+     *
+     * ⚠️ `base` ES LA HUELLA DE LO QUE LA PESTAÑA ABRIÓ (revisión, 10/10/2026): si ya no es lo publicado,
+     * no se guarda y contesta 409 `desactualizado` (lib/secuencia-borrador.ts, la cabecera). Descartar
+     * devuelve la base de lo publicado que quedó: la pestaña que acaba de publicar sigue con ésa.
      */
     if (body.action === 'borrador' || body.action === 'descartar-borrador') {
       const id = Number(body.secuenciaId);
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
       const db = (await getTenantDb()) as unknown as DbBorrador;
       const r = body.action === 'borrador'
-        ? await guardarBorradorSecuencia(db, id, body.pasos)
+        ? await guardarBorradorSecuencia(db, id, body.pasos, body.base)
         : await descartarBorradorSecuencia(db, id);
-      if (r.ok) return Response.json({ ok: true, ...('guardado_at' in r ? { guardado_at: r.guardado_at } : {}) });
+      if (r.ok) return Response.json({ ok: true, ...('guardado_at' in r ? { guardado_at: r.guardado_at } : {}), ...('base' in r ? { base: r.base } : {}) });
       if (r.motivo === 'sin_columna') return Response.json({ ok: false, sinColumna: true });
+      if (r.motivo === 'desactualizado') return Response.json({ ok: false, desactualizado: true }, { status: 409 });
       if (r.motivo === 'invalido') return Response.json({ ok: false, error: r.error ?? 'Borrador inválido.' }, { status: 400 });
       return Response.json({ ok: false, error: 'Esa automatización no existe en este negocio.' }, { status: 404 });
     }
