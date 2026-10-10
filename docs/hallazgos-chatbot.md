@@ -3000,6 +3000,60 @@ La revisión adversarial (sólo lectura) dejó dos reglas. Se arreglaron en la r
 - En el cartel vacío, «＋ Nueva» con el panel abierto y sucio crea la primera automatización y el cartel se
   desmonta con el panel: lo no guardado se pierde ahí.
 
+## Restos de versiones anteriores, grupo recordatorio (10/10/2026)
+
+Martín, con la captura del recordatorio en producción: «siguen habiendo cosas de versiones anteriores que
+estan mal..». Rama `wip-v7-recordatorio`. Lo fijan `tests/recordatorio-lienzo.test.ts` y
+`tests/recordatorio-lead.test.ts` (las roturas, en sus cabeceras).
+
+### Un lienzo que arma sus nodos a mano no hereda los arreglos del lienzo [recordatorio]
+
+**Síntoma:** después de la sexta tanda el recordatorio seguía con las esperas como tarjetas DELAY, el CRON
+sin su cajita ni su «Entonces» y las tarjetas creciendo con el texto. **Causa:** `grafoRecordatorio` ponía
+sus nodos con un `poner({ … })` propio, así que cada cambio de `grafoDeSecuencia` (la pastilla en la
+flecha, `altoCron`, `salidaAlPie`, el alto fijo) le pasaba de largo. **La regla:** lo que se dibuja «como
+una automatización más» se arma como PASOS del modelo (lib/flujo-grafo.ts) y pasa por `grafoDeSecuencia`;
+lo propio se aplica ENCIMA de su salida. Lo que mejore el constructor le llega solo.
+
+**Vive en:** `lib/recordatorio-grafo.ts` · `app/automations/RecordatorioFlujo.tsx`
+
+### El hueco entre columnas no mide la pastilla del DELAY [lienzo]
+
+**Estimado con los estilos, no visto en un navegador:** `grafoDeSecuencia` separa las columnas 92 px
+(`GAP_COLUMNA`) y el lienzo dibuja la pastilla con `nowrap` y sin ancho: «1 h antes de la reunión» mide
+~180 px y queda encima de las dos tarjetas y del círculo de la salida. `anchoPildoraFlecha` topea en 150,
+así que la estimación también se queda corta. Pasa con toda espera `antes_reunion` colapsada en la flecha
+de una automatización (las de antes). En el recordatorio se resolvió con la pastilla corta («24 h antes») y
+cada flecha ensanchada (`AIRE_PILDORA`); en el constructor, no.
+
+**Vive en:** `lib/flujo-conversacion.ts` (`GAP_COLUMNA`) · `lib/lienzo-grafo.ts` (`anchoPildoraFlecha`)
+
+### El ✦ de MaKo no se puede prender sobre un emisor con variables propias [whatsapp]
+
+`MakoRedacta` arma el prompt y el filtro (`sinVariablesAjenas`, lib/mako-redacta.ts) con las variables del
+MOTOR. Sobre el recordatorio escribiría `{{empresa}}` —que `problemaDelTexto` rechaza al publicar— o la hora
+escrita a mano, y nunca `{{cuando}}`, `{{hora}}`, `{{faltan}}` ni `{{link}}`. **La regla:** un ✦ que escribe
+para un emisor propio recibe SU lista de variables, y la usan el prompt y el filtro. Hasta entonces el
+recordatorio va con `conMako={false}`.
+
+**Vive en:** `lib/mako-redacta.ts` · `app/api/chat-agent/redactar/route.ts` · `app/automations/MakoRedacta.tsx`
+
+### Lo que quedó sin hacer (grupo recordatorio)
+
+- **Los botones de deshacer y rehacer**: `BotonPila` es privada (y está dos veces: SecuenciaPerfil.tsx y
+  FlujoAviso.tsx). El atajo ya anda. `app/automations/RecordatorioFlujo.tsx` (`herramientas`)
+- **Mover las tarjetas y «Acomodar»**: `usePosicionesLienzo` guarda sólo en `nutricion_secuencias`.
+  `app/automations/usePosicionesLienzo.ts`
+- **«▶ Probar»**: el panel prueba una automatización con las variables del motor; el recordatorio tendría
+  que resolver con `textoDelToque`. `app/automations/PanelProbar.tsx` · `app/automations/SimuladorWhatsApp.tsx`
+- **El borrador en el server**: lo no publicado ya pregunta antes de perderse, pero no se guarda.
+- **El texto repetido del editor de un solo texto** (la burbuja y la barra con lo mismo): es del editor.
+  `app/automations/EditorMensajeWhatsApp.tsx`
+- **`EMOJI_RECORDATORIO` vive en dos lugares** (el título y la fila): un test los ata hasta que la lista lo
+  importe. `app/automations/SimuladorWhatsApp.tsx`
+- **`lib/recordatorio-grafo.ts` falta en el `vive[]` del área chatbot.** `app/admin/dev/areas.ts`
+- **Verlo con clics.**
+
 ## Lo que quedó sin hacer
 
 **De la parte «tiempo» (sexta tanda, 09/10/2026):**
@@ -3141,7 +3195,8 @@ dejó marcadas las etapas de reunión (`adf1ca3d`), que es lo que el punto 5 nec
   (`lib/setting-estrategia.ts`) y `TOPE_NOMBRE` (`app/automations/SimuladorWhatsApp.tsx`).
 - **La condición «Está en la etapa» ofrece sólo las etapas de venta de los productos con embudo**:
   no ofrece «la casa» ni las de entrega, porque `HechosLead` no las tiene. `app/automations/FlujoLienzo.tsx`.
-- **El recordatorio**: lo que se borra queda sin borrador, y cambiar de automatización con textos
-  sin publicar los pierde sin preguntar. `app/automations/RecordatorioFlujo.tsx`.
+- **El recordatorio**: lo que se borra queda sin borrador. (Cambiar de automatización con textos sin
+  publicar ya pregunta desde el 10/10: «Restos de versiones anteriores, grupo recordatorio».)
+  `app/automations/RecordatorioFlujo.tsx`.
 - **El área `chatbot` de `/admin/dev` no apunta a este documento** (le falta `hallazgos:
   'hallazgos-chatbot'`). `app/admin/dev/areas.ts`.
