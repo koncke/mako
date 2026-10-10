@@ -152,7 +152,10 @@ test('⚠️ `insetDer`: lo que flota a la derecha se corre, en los CUATRO lugar
 test('la papelera de la cabecera del panel borra la tarjeta (y cierra el panel)', () => {
   const cab = tramo('{onBorrar && (puedeBorrar?.(nodoSel.id) ?? true) && (', '{renderEditor(nodoSel)}', 1_600);
   assert.match(cab, /onClick=\{\(\) => \{ const id = nodoSel\.id; onSeleccion\(null\); onBorrar\(id\); \}\}/);
-  assert.match(cab, /aria-label="Borrar esta tarjeta"/);
+  // Desde la segunda pasada de la sexta tanda es la papelera ROJA de la casa (`BotonBorrar`, app/_ui):
+  // su `title` es también el `aria-label` (lo fija tests/dropdown-reglas.test.ts sobre el componente).
+  assert.match(cab, /<BotonBorrar talla="sm" title="Borrar esta tarjeta"/);
+  assert.doesNotMatch(cab, /🗑/, 'el 🗑 gris de antes no vuelve');
 });
 
 test('⚠️ con puertos la tarjeta tiene ALTO FIJO y las filas pegadas al pie', () => {

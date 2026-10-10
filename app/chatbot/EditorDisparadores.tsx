@@ -32,7 +32,9 @@ import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import Link from '@/app/_ui/Link';
 import { botonGrande } from '@/app/_components/Lienzo';
 import { EditorRecurrente } from './EditorRecurrente';
-import { IconoDisparador, IconoEvento, IconoBorrar } from './IconosDisparador';
+import { IconoDisparador, IconoEvento } from './IconosDisparador';
+// La papelera de la casa, roja siempre (sexta tanda, general 9): UNA definición para toda la app.
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { CRON_DEFAULT } from '@/app/_components/EditorCron';
 import {
   CLASES_DISPARADOR, claseDeDisparador, eventosDe, triggerDeCanal, borradorDeClase, conDisparo, disparoActualDe,
@@ -410,13 +412,13 @@ export function EditorDisparadores(p: PropsEditorDisparadores) {
           {lista.length > 1 && editando !== 'nuevo' && actual && lista.some((x) => x.id === actual.id) && (
             <button type="button" onClick={() => quitar(actual.id)} disabled={busy} title="Eliminar este CRON" aria-label="Eliminar este CRON"
               style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-              <IconoBorrar />
+              <IconoBorrar size={16} />
             </button>
           )}
           {editando === 'nuevo' && (
             <button type="button" onClick={() => onEditar(null)} title="Descartar el CRON nuevo" aria-label="Descartar el CRON nuevo"
               style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-              <IconoBorrar />
+              <IconoBorrar size={16} />
             </button>
           )}
         </div>

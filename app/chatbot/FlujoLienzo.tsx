@@ -34,8 +34,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import {
-  Lienzo, TarjetaNodo, IconoNodo, IconoBorrar, IconoAcomodar, inpLienzo, campoGrande, botonGrande, type ItemMenuLienzo,
+  Lienzo, TarjetaNodo, IconoNodo, IconoAcomodar, inpLienzo, campoGrande, botonGrande, type ItemMenuLienzo,
 } from '@/app/_components/Lienzo';
+// La papelera de la casa, roja siempre (sexta tanda, general 9): la del menú de una tarjeta.
+import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Icon } from '@/app/_components/icons';
 import { Toast, useToast } from '@/app/_ui';
 import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, type Edicion } from '@/lib/flujo-edicion';
@@ -358,7 +360,7 @@ export function FlujoLienzo({
     return [
       ...(claseDe(paso) !== 'respuesta' ? [{ id: 'duplicar', label: 'Duplicar', icono: <Icon name="copy" size={16} />, onElegir: () => duplicarTarjeta(id) }] : []),
       ...(leLlega && !nodo?.enFlecha ? [{ id: 'desconectar', label: 'Desconectar', icono: <Icon name="tijera" size={16} />, onElegir: () => aplicar(soltar(pasos, id)) }] : []),
-      { id: 'eliminar', label: 'Eliminar', grupo: 1, peligro: true, icono: <IconoBorrar />, onElegir: () => { if (sel === id) setSel(null); borrarTarjeta(id); } },
+      { id: 'eliminar', label: 'Eliminar', grupo: 1, peligro: true, icono: <IconoBorrar size={16} />, onElegir: () => { if (sel === id) setSel(null); borrarTarjeta(id); } },
     ];
   } : undefined;
   /** El botón «Acomodar», pegado al deshacer (donde estaba el ✦ de MaKo, punto 14). */

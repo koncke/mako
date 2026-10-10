@@ -40,6 +40,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
+import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
 import { RecordatorioFlujo, NOMBRE_RECORDATORIO } from './RecordatorioFlujo';
@@ -121,20 +122,17 @@ export function listaConCreando(lista: readonly SecuenciaDto[], creando: Creando
 
 /**
  * Los íconos del «⋯» de una fila (sexta tanda, punto 10: «en los desplegables de los 3 puntos en la
- * sidebar... pon íconos en todos los desplegable»). Un SVG como `data:` (lo que dibuja el `Dropdown`),
- * del trazo de los de la casa; la papelera, en rojo (punto 9: «que siempre el ícono de borrar sea rojo»).
+ * sidebar... pon íconos en todos los desplegable»), por NOMBRE del set de la casa (app/_ui/iconos-menu.tsx):
+ * el mismo dibujo que el resto de los menús, y la papelera es la de la casa, roja siempre (`'borrar'`,
+ * punto 9: «que siempre el ícono de borrar sea rojo»). Hasta la segunda pasada eran SVG propios en
+ * `data:`, con la papelera en un rojo copiado a mano.
  */
-const svgFila = (cuerpo: string, color = '#4C5363') =>
-  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${cuerpo}</svg>`)}`;
 export const ICONOS_FILA = {
-  activar: svgFila('<path d="M8 5.5v13l11-6.5-11-6.5Z"/>'),
-  pausar: svgFila('<path d="M9 5.5v13M15 5.5v13"/>'),
-  duplicar: svgFila('<rect x="9" y="9" width="11" height="11" rx="2.4"/><path d="M5.5 15.5A2 2 0 0 1 4 13.6V6a2 2 0 0 1 2-2h7.6a2 2 0 0 1 1.9 1.5"/>'),
-  eliminar: svgFila('<path d="M4 6.5h16"/><path d="M9.5 6.5V5a1.3 1.3 0 0 1 1.3-1.3h2.4A1.3 1.3 0 0 1 14.5 5v1.5"/><path d="M6.6 6.5l.85 12.6a1.8 1.8 0 0 0 1.8 1.7h5.5a1.8 1.8 0 0 0 1.8-1.7l.85-12.6"/><path d="M10.4 10.5v6M13.6 10.5v6"/>', '#D0504A'),
-} as const;
+  activar: 'activar', pausar: 'pausar', duplicar: 'duplicar', eliminar: 'borrar',
+} as const satisfies Record<string, NombreIconoMenu>;
 
 /** Lo que ofrece el «⋯» de una fila. Activar o Pausar según cómo esté. Cada una con su ícono. */
-export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'duplicar' | 'eliminar'; label: string; icono: string }> {
+export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'duplicar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
   return [
     { value: 'activa', label: activa ? 'Pausar' : 'Activar', icono: activa ? ICONOS_FILA.pausar : ICONOS_FILA.activar },
     { value: 'duplicar', label: 'Duplicar', icono: ICONOS_FILA.duplicar },

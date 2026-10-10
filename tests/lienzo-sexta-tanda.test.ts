@@ -50,6 +50,7 @@ import { ID_INICIO } from '../lib/flujo-grafo';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { SimuladorWhatsApp, ROTULO_CHATBOT, ROTULO_MENSAJES_MAKO, opcionesDeFila } from '../app/chatbot/SimuladorWhatsApp';
+import { esIconoMenu } from '../app/_ui/iconos-menu';
 import type { SecuenciaDto } from '../app/chatbot/ChatAgentApp';
 import type { PlantillaVista } from '../lib/plantillas';
 
@@ -238,8 +239,12 @@ test('⚠️ la lista lleva DOS divisiones: «Chatbot» arriba y «MaKo en Whats
   const iMako = html.indexOf(`>${ROTULO_MENSAJES_MAKO}</div>`);
   const iAviso = html.indexOf('>Reporte semanal</span>');
   assert.ok(iChatbot >= 0 && iChatbot < iSec && iSec < iMako && iMako < iAviso, 'las divisiones no van en orden: Chatbot, sus automatizaciones, MaKo en WhatsApp, sus mensajes');
-  assert.ok(opcionesDeFila(true).every((o) => o.icono.startsWith('data:image/svg+xml')), 'una opción del «⋯» sin ícono');
-  assert.match(decodeURIComponent(opcionesDeFila(false).find((o) => o.value === 'eliminar')!.icono), /stroke="#D0504A"/, 'la papelera no es roja');
+  // Segunda pasada: los íconos del «⋯» son NOMBRES del set de la casa (app/_ui/iconos-menu.tsx), no
+  // `data:` propios; y «borrar» es rojo SIEMPRE porque lo pinta `IconoMenu`, no la fila.
+  for (const activa of [true, false]) {
+    assert.ok(opcionesDeFila(activa).every((o) => esIconoMenu(o.icono)), 'una opción del «⋯» sin ícono del set');
+  }
+  assert.equal(opcionesDeFila(false).find((o) => o.value === 'eliminar')!.icono, 'borrar', 'la papelera no es la roja de la casa');
 });
 
 test('⚠️ el CRON de un flujo CON «Si responde» ya no tiene esa fila: su salida va al pie, como todos (punto 12)', () => {
