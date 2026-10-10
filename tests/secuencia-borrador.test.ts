@@ -10,6 +10,9 @@
 //      lo que rompe el dato (ids repetidos, una flecha a una tarjeta que no existe);
 //   2. la `base` es la huella de lo PUBLICADO de ahora: un borrador armado sobre otro publicado no se
 //      abre, y uno igual a lo publicado se guarda como null;
+//   2b. (revisión, 10/10/2026) la base la pone la PESTAÑA, con lo que abrió: si ya no es lo publicado,
+//      no se escribe nada (`desactualizado`). Guardar con la base de AHORA abría el borrador viejo encima
+//      de lo nuevo; descartar devuelve la base que quedó, para la pestaña que acaba de publicar;
 //   3. la columna que falta degrada (lectura null, escritura `sin_columna`) y cualquier otro error
 //      NO se traga;
 //   4. guardar un borrador no toca `pasos` ni `updated_at`.
@@ -34,6 +37,8 @@ const msg = (id: string, siguiente: string | null = null, cuerpo = `hola ${id}`)
 // Publicado: CRON → a → b. Borrador: además una tarjeta SUELTA «c».
 const PUBLICADO: PasoGrafo[] = [msg('a', 'b'), msg('b'), ini('a')];
 const CON_SUELTA: PasoGrafo[] = [msg('a', 'b'), msg('b'), msg('c'), ini('a')];
+/** Lo que el GET le dio a la pestaña que abrió PUBLICADO. */
+const BASE = firmaPublicado(PUBLICADO);
 
 type Err = { code?: string; message?: string } | null;
 type Fila = { id: number; pasos: unknown; pasos_borrador: unknown };
@@ -60,7 +65,7 @@ function dbFalsa(o: { filas?: Fila[]; errLista?: Err; errLeer?: Err; errUpdate?:
             if (!f) return Promise.resolve({ data: [], error: null });
             updates.push({ id: v, fila });
             f.pasos_borrador = fila.pasos_borrador;
-            return Promise.resolve({ data: [{ id: v }], error: null });
+            return Promise.resolve({ data: [{ id: v, pasos: f.pasos }], error: null });
           },
         }),
       }),
@@ -121,9 +126,9 @@ test('⚠️ un borrador se abre SÓLO si se armó sobre lo publicado de hoy, y 
   assert.equal(borradorVigente(null, PUBLICADO), null);
 });
 
-test('⚠️ guardar escribe SÓLO pasos_borrador (ni pasos ni updated_at) con la base de AHORA', async () => {
+test('⚠️ guardar escribe SÓLO pasos_borrador (ni pasos ni updated_at) con la base de lo que se ABRIÓ', async () => {
   const { db, updates, filas } = dbFalsa({ filas: [{ id: 7, pasos: PUBLICADO, pasos_borrador: null }] });
-  const r = await guardarBorradorSecuencia(db, 7, CON_SUELTA);
+  const r = await guardarBorradorSecuencia(db, 7, CON_SUELTA, BASE);
   assert.equal(r.ok, true);
   assert.equal(updates.length, 1);
   assert.deepEqual(Object.keys(updates[0].fila), ['pasos_borrador']);
@@ -135,9 +140,33 @@ test('⚠️ guardar escribe SÓLO pasos_borrador (ni pasos ni updated_at) con l
   assert.equal(m?.get(7)?.pasos.length, 4);
 });
 
+test('⚠️ un borrador armado sobre lo publicado de ANTES no se guarda: `desactualizado`, sin escribir nada', async () => {
+  // El caso del verificador (10/10/2026): la pestaña A abrió X; mientras tanto se publicó Y por otro lado
+  // (MaKo corrigió el texto de «a» y un hand-off le sumó la tarjeta «c»). A manda X + su cambio con la
+  // base de X. Antes se guardaba con la base de Y y se abría encima de Y al recargar: Publicar revertía Y.
+  const X = PUBLICADO;
+  const Y: PasoGrafo[] = [msg('a', 'b', 'Hola, corregido'), msg('b', 'c'), msg('c'), ini('a')];
+  const D: PasoGrafo[] = [msg('a', 'b', 'Hola!!'), msg('b', null, 'Chau'), ini('a')];
+  const { db, updates, filas } = dbFalsa({ filas: [{ id: 212, pasos: Y, pasos_borrador: null }] });
+  assert.deepEqual(await guardarBorradorSecuencia(db, 212, D, firmaPublicado(X)), { ok: false, motivo: 'desactualizado' });
+  // Sin base (una pestaña de antes del arreglo) tampoco: no se sabe sobre qué se armó.
+  assert.deepEqual(await guardarBorradorSecuencia(db, 212, D, undefined), { ok: false, motivo: 'desactualizado' });
+  assert.equal(updates.length, 0, 'escribió un borrador armado sobre otro publicado');
+  assert.equal(filas[0].pasos_borrador, null);
+  assert.equal((await leerBorradoresSecuencias(db))?.has(212), false, 'el borrador viejo se abriría encima de Y');
+  // Con la base de Y (una pestaña que abrió Y), sí.
+  assert.equal((await guardarBorradorSecuencia(db, 212, D, firmaPublicado(Y))).ok, true);
+});
+
+test('descartar devuelve la base de lo publicado que quedó (la toma la pestaña que acaba de publicar)', async () => {
+  const { db, filas } = dbFalsa({ filas: [{ id: 7, pasos: CON_SUELTA, pasos_borrador: { pasos: PUBLICADO, base: 'x', guardado_at: 'y' } }] });
+  assert.deepEqual(await descartarBorradorSecuencia(db, 7), { ok: true, base: firmaPublicado(CON_SUELTA) });
+  assert.equal(filas[0].pasos_borrador, null);
+});
+
 test('un borrador IGUAL a lo publicado se guarda como null (guardado_at null)', async () => {
   const { db, filas } = dbFalsa({ filas: [{ id: 7, pasos: PUBLICADO, pasos_borrador: { pasos: CON_SUELTA, base: 'x', guardado_at: 'y' } }] });
-  const r = await guardarBorradorSecuencia(db, 7, PUBLICADO);
+  const r = await guardarBorradorSecuencia(db, 7, PUBLICADO, BASE);
   assert.deepEqual(r, { ok: true, guardado_at: null });
   assert.equal(filas[0].pasos_borrador, null);
 });
@@ -146,16 +175,16 @@ test('⚠️ la columna que falta degrada; cualquier otro error NO se traga', as
   const sinCol = { code: '42703', message: 'column nutricion_secuencias.pasos_borrador does not exist' };
   assert.equal(await leerBorradoresSecuencias(dbFalsa({ errLista: sinCol }).db), null, 'sin columna: null, no «ninguno»');
   assert.equal(await leerBorradoresSecuencias(dbFalsa({ errLista: { code: '57014', message: 'timeout' } }).db), null);
-  assert.deepEqual(await guardarBorradorSecuencia(dbFalsa({ filas: [{ id: 1, pasos: PUBLICADO, pasos_borrador: null }], errUpdate: sinCol }).db, 1, CON_SUELTA), { ok: false, motivo: 'sin_columna' });
-  await assert.rejects(guardarBorradorSecuencia(dbFalsa({ filas: [{ id: 1, pasos: PUBLICADO, pasos_borrador: null }], errUpdate: { code: '57014', message: 'timeout' } }).db, 1, CON_SUELTA), /timeout/);
+  assert.deepEqual(await guardarBorradorSecuencia(dbFalsa({ filas: [{ id: 1, pasos: PUBLICADO, pasos_borrador: null }], errUpdate: sinCol }).db, 1, CON_SUELTA, BASE), { ok: false, motivo: 'sin_columna' });
+  await assert.rejects(guardarBorradorSecuencia(dbFalsa({ filas: [{ id: 1, pasos: PUBLICADO, pasos_borrador: null }], errUpdate: { code: '57014', message: 'timeout' } }).db, 1, CON_SUELTA, BASE), /timeout/);
   assert.deepEqual(await descartarBorradorSecuencia(dbFalsa({ errUpdate: sinCol }).db, 1), { ok: false, motivo: 'sin_columna' });
 });
 
 test('una automatización que no existe (o de otro negocio) contesta no_existe', async () => {
   const { db } = dbFalsa({ filas: [] });
-  assert.deepEqual(await guardarBorradorSecuencia(db, 99, CON_SUELTA), { ok: false, motivo: 'no_existe' });
+  assert.deepEqual(await guardarBorradorSecuencia(db, 99, CON_SUELTA, BASE), { ok: false, motivo: 'no_existe' });
   assert.deepEqual(await descartarBorradorSecuencia(db, 99), { ok: false, motivo: 'no_existe' });
-  const inval = await guardarBorradorSecuencia(db, 99, [msg('a', 'zz'), ini('a')]);
+  const inval = await guardarBorradorSecuencia(db, 99, [msg('a', 'zz'), ini('a')], BASE);
   assert.equal(inval.ok, false);
   assert.equal((inval as { motivo: string }).motivo, 'invalido');
 });
@@ -168,3 +197,6 @@ test('una automatización que no existe (o de otro negocio) contesta no_existe',
 //   B4. `guardarBorradorSecuencia` guarda también `updated_at`                    → 8 / 1
 //   B5. la escritura se traga cualquier error como `sin_columna`                  → 8 / 1
 //   B6. sin sanear el HTML del email                                              → 8 / 1
+// Revisión del 10/10/2026 (la base la pone la pestaña). Base: 11 / 0.
+//   B7. `guardarBorradorSecuencia` no compara la base del cliente (guarda con la de AHORA) → 10 / 1
+//   B8. `descartarBorradorSecuencia` no devuelve la base de lo publicado               → 10 / 1
