@@ -43,6 +43,15 @@
 //  22. con UN producto, el paso del producto igual está                            -> 14 / 1
 //  23. `frenoDelFlujo` sin `validarGrafo` (sólo mira lo vacío)                     -> 14 / 1
 //
+// Sexta tanda, segunda pasada (09/10/2026, parte «flujo»; base en verde 15 / 0). Pasan / fallan:
+//   S1. «Si responde» vuelve a titularse REPLY                                  -> 14 / 1
+//   S2. su última fila vuelve a decir «Otra cosa» y no «Si no»                  -> 14 / 1
+//   S3. los casos sin la frase del catálogo (`textoCasoRespuesta`)              -> 14 / 1
+//   S4. la tarjeta MAKO vuelve a llamarse «MAKO»                                -> 14 / 1
+//   S5. vuelve la fila «Si responde» al CRON                                    -> 14 / 1
+//   S6. Publicar limpia la estrategia de todo lo que abrió «convertido»         -> 14 / 1
+//   S7. SecuenciaPerfil abre con `legadoAGrafo` y no con `abrirFlujo`          -> 14 / 1
+//
 // Correr: node --import tsx --test tests/flujo-conversacion.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -32,6 +32,10 @@
 //  11. eliminar una tarjeta vuelve a ser `borrarNodo`                               -> 12 / 1
 //  12. sin la suelta marcada                                                        -> 12 / 1
 //  13. la lista sin la división «Chatbot»                                           -> 12 / 1
+// Segunda pasada (09/10/2026, parte «flujo»: los íconos del «⋯» por nombre del set). Base 13 / 0:
+//  14. «Eliminar» con un ícono que no es la papelera (`cerrar`)                     -> 12 / 1
+//  15. una opción con un `data:` propio en vez de un nombre del set                 -> 12 / 1
+//  16. vuelve la fila «Si responde» al CRON de un flujo que la tiene                -> 12 / 1
 //
 // Correr: node --import tsx --test tests/lienzo-sexta-tanda.test.ts
 import { test } from 'node:test';

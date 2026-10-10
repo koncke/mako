@@ -29,6 +29,10 @@
 //  10. el alto de «Probar» deja de descontar el del editor (se pisan en medianas)   -> 6 / 4
 //  11. `vistaConPanelAbajo` ignora `panelDer` (corre lo que está al lado del panel) -> 9 / 1
 //
+// Sexta tanda, segunda pasada (09/10/2026, parte «flujo»; base en verde 14 / 0). Pasan / fallan:
+//   S1. el panel del CRON a 300 px (no entra el Recurrente)                     -> 13 / 1
+//   S2. el panel de la etiqueta a 260 px (vuelve el aire)                        -> 13 / 1
+//
 // Correr: node --import tsx --test tests/lienzo-muelles.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

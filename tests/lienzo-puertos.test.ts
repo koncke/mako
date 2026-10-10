@@ -30,6 +30,8 @@
 //  14. el ＋ del círculo agrega sin el puerto                                  -> 6 / 1
 //  15. el ＋ del círculo sin el paralelo con la salida ocupada                 -> 6 / 1
 //  16. la suelta sin borde punteado                                            -> 6 / 1
+// Sexta tanda, segunda pasada (09/10/2026, parte «flujo»: la papelera roja de la casa). 7 / 0:
+//  17. la cabecera vuelve a un botón propio, sin `BotonBorrar`                 -> 6 / 1
 //
 // Correr: node --import tsx --test tests/lienzo-puertos.test.ts
 import { test } from 'node:test';

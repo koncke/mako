@@ -17,9 +17,11 @@
 //
 // PROBADO ROMPIÉNDOLO (09/10/2026; con todo puesto: 4 pasan, 0 fallan, desde la segunda pasada). Cada rotura de a una,
 // aplicada y restaurada DE MEMORIA por un arnés (nunca con git). Pasan / fallan:
-//   1. `admiteParalelo` sin `!enBucle.has(ids[i])`                              -> 4 / 2
-//   4. `nodosEnBucle` sin seguir los saltos de un «Ir a»                         -> 2 / 4
-//      (y 1 fallo en tests/flujo-grafo-paralelos.test.ts: la regla de validar lee la misma función)
+//   1. `admiteParalelo` sin `!enBucle.has(ids[i])`                              -> 2 / 2
+//   2. `nodosEnBucle` sin seguir los saltos de un «Ir a»                         -> 2 / 2
+//      (y 25 / 1 en tests/flujo-grafo-paralelos.test.ts: la regla de validar lee la misma función)
+//   (Re-medidas el 09/10 en la segunda pasada de la sexta tanda, parte «flujo»: con los dos tests de
+//   `tarjetasParaIrA` fuera, los números de antes —de seis tests— ya no eran los de este archivo.)
 //
 // Correr: node --import tsx --test tests/flujo-bucle-paralelos.test.ts
 import { test } from 'node:test';

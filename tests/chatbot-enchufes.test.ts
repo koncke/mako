@@ -9,6 +9,9 @@
 //   · «✦ MaKo» al lado del título del panel: sin `accionesTitulo` seguía en la fila de arriba;
 //   · la tarjeta: dibujaba la transcripción del audio y sólo la primera parte de un mensaje.
 //
+// PROBADO ROMPIÉNDOLO. Sexta tanda, segunda pasada (09/10/2026, parte «flujo»; base en verde 7 / 0), restaurada DE MEMORIA. Pasan / fallan:
+//   S1. `onLinea` vuelve con el cast (`as Partial<PasoGrafo>`)                  -> 6 / 1
+//
 // Correr: node --import tsx --test tests/chatbot-enchufes.test.ts
 // Probado rompiéndolo (09/10/2026, base 7/0): ver el pie del archivo.
 // =============================================================================

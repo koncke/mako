@@ -29,6 +29,10 @@
 //  13. SecuenciaPerfil sin el `beforeunload`                                        -> 11 / 1
 //  14. la tab cambia de automatización sin preguntar con cambios sin publicar       -> 11 / 1
 //
+// Sexta tanda, segunda pasada (09/10/2026, parte «flujo»; base en verde 12 / 0). Pasan / fallan:
+//   S1. vuelve `tarjetasParaIrA` exportada sin call site                        -> 11 / 1
+//   S2. el editor de la condición vuelve a recibir `onCrearRespuesta`           -> 11 / 1
+//
 // Correr: node --import tsx --test tests/flujo-lienzo-paralelos.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

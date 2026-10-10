@@ -20,6 +20,9 @@
 //     lectura falló) NO se guarda: guardarlo pisaría un borrador que la pantalla no vio. Y si el server
 //     contesta `sinColumna`, se deja de intentar sin cartel (no es nada que la persona pueda arreglar).
 //   · `guardado(json)` avisa con el flujo que quedó guardado: desde ahí, salir no pierde nada.
+//
+// La lógica vive en `crearBorrador`, sin React, para que un test la EJECUTE con relojes falsos
+// (tests/chatbot-v6b-flujo.test.ts); el hook sólo la monta una vez y le engancha la salida.
 
 import { useEffect, useRef } from 'react';
 import type { PasoSecuenciaDto } from './ChatAgentApp';
@@ -27,90 +30,115 @@ import type { PasoSecuenciaDto } from './ChatAgentApp';
 /** El respiro entre el último cambio y el guardado. Más largo que el de las posiciones: acá se tipea. */
 export const RESPIRO_BORRADOR_MS = 1200;
 
-export function useBorradorSecuencia(
-  secuenciaId: number,
-  opts: {
-    /** El borrador se leyó (hay o no hay) y quien mira puede editar. */
-    puedeGuardar: boolean;
-    /** El flujo con el que se abrió (lo publicado o el borrador): ése no se vuelve a mandar. */
-    inicial: PasoSecuenciaDto[];
-    /** Quedó guardado ESTE flujo (su JSON). */
-    onGuardado?: (json: string) => void;
-    onError?: (m: string) => void;
-  },
-): {
+/** El cartel cuando el server no lo guardó (corto: es un error de pantalla). */
+export const ERROR_BORRADOR = 'No se guardó el borrador';
+
+export type MotorBorrador = {
   /** El flujo de ahora: se guarda después del respiro, si cambió desde lo último guardado. */
   cambio: (pasos: PasoSecuenciaDto[]) => void;
   /** Esto ya está guardado por otro camino (se publicó, lo creó la IA): no se manda. */
   yaGuardado: (pasos: PasoSecuenciaDto[]) => void;
   /** Se publicó: el borrador se borra en el server (sin él tampoco se abriría: cambió la base). */
   descartar: () => void;
-} {
-  const guardable = useRef(opts.puedeGuardar);
-  const ultimo = useRef(JSON.stringify(opts.inicial));
-  const pendiente = useRef<{ t: ReturnType<typeof setTimeout>; pasos: PasoSecuenciaDto[] } | null>(null);
-  const avisos = useRef({ onGuardado: opts.onGuardado, onError: opts.onError });
-  useEffect(() => { avisos.current = { onGuardado: opts.onGuardado, onError: opts.onError }; });
+  /** Lo que esperaba su respiro sale YA (al irse de la vista). */
+  despachar: () => void;
+};
 
-  const post = (body: Record<string, unknown>) => fetch('/api/chat-agent/secuencias', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-    body: JSON.stringify({ secuenciaId, ...body }),
-  });
+/**
+ * EL GUARDADO DEL BORRADOR, sin React. `post` manda el cuerpo a la ruta (el hook le pone el
+ * `secuenciaId` y `keepalive`); `avisos()` se lee en cada respuesta, así un aviso nuevo del
+ * componente llega aunque el motor se haya creado en el primer render.
+ */
+export function crearBorrador(dep: {
+  post: (body: Record<string, unknown>) => Promise<{ json: () => Promise<unknown> }>;
+  /** El flujo con el que se abrió (lo publicado o el borrador): ése no se vuelve a mandar. */
+  inicial: PasoSecuenciaDto[];
+  /** El borrador se leyó (hay o no hay) y quien mira puede editar. */
+  puedeGuardar: boolean;
+  avisos: () => { onGuardado?: (json: string) => void; onError?: (m: string) => void };
+  respiroMs?: number;
+}): MotorBorrador {
+  const respiro = dep.respiroMs ?? RESPIRO_BORRADOR_MS;
+  let guardable = dep.puedeGuardar;
+  let ultimo = JSON.stringify(dep.inicial);
+  let pendiente: { t: ReturnType<typeof setTimeout>; pasos: PasoSecuenciaDto[] } | null = null;
 
-  const mandar = useRef(async (pasos: PasoSecuenciaDto[]) => {
+  const mandar = async (pasos: PasoSecuenciaDto[]) => {
     const json = JSON.stringify(pasos);
     try {
-      const r = await post({ action: 'borrador', pasos });
+      const r = await dep.post({ action: 'borrador', pasos });
       const j = await r.json().catch(() => null) as { ok?: boolean; sinColumna?: boolean } | null;
-      if (j?.sinColumna) { guardable.current = false; return; }
-      if (!j?.ok) { avisos.current.onError?.('No se guardó el borrador'); return; }
-      avisos.current.onGuardado?.(json);
+      if (j?.sinColumna) { guardable = false; return; }
+      if (!j?.ok) { dep.avisos().onError?.(ERROR_BORRADOR); return; }
+      dep.avisos().onGuardado?.(json);
     } catch {
-      avisos.current.onError?.('No se guardó el borrador');
+      dep.avisos().onError?.(ERROR_BORRADOR);
     }
-  }).current;
-
-  const despachar = () => {
-    const p = pendiente.current;
-    if (!p) return;
-    clearTimeout(p.t);
-    pendiente.current = null;
-    ultimo.current = JSON.stringify(p.pasos);
-    void mandar(p.pasos);
   };
 
-  const cambio = (pasos: PasoSecuenciaDto[]) => {
-    if (!guardable.current) return;
-    const json = JSON.stringify(pasos);
-    if (json === ultimo.current) {
-      if (pendiente.current) { clearTimeout(pendiente.current.t); pendiente.current = null; }
-      return;
-    }
-    if (pendiente.current) clearTimeout(pendiente.current.t);
-    const t = setTimeout(() => { pendiente.current = null; ultimo.current = json; void mandar(pasos); }, RESPIRO_BORRADOR_MS);
-    pendiente.current = { t, pasos };
-  };
+  const soltar = () => { if (pendiente) { clearTimeout(pendiente.t); pendiente = null; } };
 
-  const yaGuardado = (pasos: PasoSecuenciaDto[]) => {
-    if (pendiente.current) { clearTimeout(pendiente.current.t); pendiente.current = null; }
-    ultimo.current = JSON.stringify(pasos);
+  return {
+    cambio(pasos) {
+      if (!guardable) return;
+      const json = JSON.stringify(pasos);
+      // Volvió a lo último guardado (deshacer hasta ahí): lo que esperaba ya no hace falta.
+      if (json === ultimo) { soltar(); return; }
+      soltar();
+      const t = setTimeout(() => { pendiente = null; ultimo = json; void mandar(pasos); }, respiro);
+      pendiente = { t, pasos };
+    },
+    yaGuardado(pasos) {
+      soltar();
+      ultimo = JSON.stringify(pasos);
+    },
+    descartar() {
+      soltar();
+      if (!guardable) return;
+      void dep.post({ action: 'descartar-borrador' }).catch(() => { /* sin red: no se abriría igual (cambió la base) */ });
+    },
+    despachar() {
+      const p = pendiente;
+      if (!p) return;
+      soltar();
+      ultimo = JSON.stringify(p.pasos);
+      void mandar(p.pasos);
+    },
   };
+}
 
-  const descartar = () => {
-    if (pendiente.current) { clearTimeout(pendiente.current.t); pendiente.current = null; }
-    if (!guardable.current) return;
-    void post({ action: 'descartar-borrador' }).catch(() => { /* sin red: no se abriría igual (cambió la base) */ });
-  };
+export function useBorradorSecuencia(
+  secuenciaId: number,
+  opts: {
+    puedeGuardar: boolean;
+    inicial: PasoSecuenciaDto[];
+    onGuardado?: (json: string) => void;
+    onError?: (m: string) => void;
+  },
+): Omit<MotorBorrador, 'despachar'> {
+  const avisos = useRef({ onGuardado: opts.onGuardado, onError: opts.onError });
+  useEffect(() => { avisos.current = { onGuardado: opts.onGuardado, onError: opts.onError }; });
+  // UNA vez por montaje: SecuenciaPerfil se monta con `key={sel.id}`, así que otra automatización es
+  // otro motor (y el desmonte de la anterior ya despachó lo suyo).
+  const motor = useRef<MotorBorrador | null>(null);
+  if (!motor.current) {
+    motor.current = crearBorrador({
+      post: (body) => fetch('/api/chat-agent/secuencias', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ secuenciaId, ...body }),
+      }),
+      inicial: opts.inicial, puedeGuardar: opts.puedeGuardar, avisos: () => avisos.current,
+    });
+  }
+  const m = motor.current;
 
   // Al irse, y al esconder la pestaña (el desmonte no corre al cerrarla): lo que esperaba su respiro
   // sale ya, con `keepalive` para que sobreviva al cierre.
   useEffect(() => {
-    const alEsconder = () => { if (document.visibilityState === 'hidden') despachar(); };
+    const alEsconder = () => { if (document.visibilityState === 'hidden') m.despachar(); };
     document.addEventListener('visibilitychange', alEsconder);
-    return () => { document.removeEventListener('visibilitychange', alEsconder); despachar(); };
-    // `despachar` lee refs: no cambia nada entre renders que importe acá.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => { document.removeEventListener('visibilitychange', alEsconder); m.despachar(); };
+  }, [m]);
 
-  return { cambio, yaGuardado, descartar };
+  return { cambio: m.cambio, yaGuardado: m.yaGuardado, descartar: m.descartar };
 }

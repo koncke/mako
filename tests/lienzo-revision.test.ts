@@ -23,6 +23,9 @@
 //  12. `estrategiaConLimpieza(null)` vuelve a inventar `objetivo: 'agendar'`      -> 11 / 1
 //  13. la fila «Otra cosa» sin su marca de pendientes                            -> 11 / 1
 //
+// Sexta tanda, segunda pasada (09/10/2026, parte «flujo»; base en verde 12 / 0). Pasan / fallan:
+//   S1. la última fila de la que escucha vuelve a decir «Otra cosa»             -> 11 / 1
+//
 // Correr: node --import tsx --test tests/lienzo-revision.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -23,6 +23,9 @@
 // PROBADO ROMPIÉNDOLO (09/10/2026), una rotura por vez y restaurada DE MEMORIA (arnés en el
 // scratchpad, nunca `git checkout`). Con todo puesto: ver el pie del archivo.
 //
+// Sexta tanda, segunda pasada (09/10/2026, parte «flujo»; base en verde 13 / 0). Pasan / fallan:
+//   S1. vuelve un cascarón exportado (`sinPrecision`)                           -> 12 / 1
+//
 // Correr: npx tsx --test tests/espera-duracion.test.ts
 // =============================================================================
 

@@ -31,6 +31,12 @@
 //   9. el editor de la tarjeta MAKO no se monta (cae al de una Acción)               -> 9 / 1
 //  10. el recordatorio con su título en castellano                                   -> 9 / 1
 //
+// Sexta tanda, segunda pasada (09/10/2026, parte «flujo»; base en verde 10 / 0). Pasan / fallan:
+//   S1. «Si responde» vuelve a titularse REPLY                                  -> 9 / 1
+//   S2. la tarjeta MAKO vuelve a llamarse «MAKO»                                -> 8 / 2
+//   S3. «Probar» vuelve a colapsar todo canal a WhatsApp o Email                -> 9 / 1
+//   S4. los datos de la tarjeta MAKO son los del lead y no los del equipo       -> 9 / 1
+//
 // Correr: node --import tsx --test tests/lienzo-tercera-tanda.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

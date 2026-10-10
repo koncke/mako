@@ -599,7 +599,7 @@ export function subarbolRespuesta(pasos: readonly PasoGrafo[]): Set<string> {
  * (`decidirSalida`). Hasta acá no se decía en ningún lado antes de que pasara. Corto: es el ⚠ de la
  * tarjeta, y el porqué es este comentario.
  */
-export const AVISO_VENTANA_META = 'Tras 24 h de espera no sale';
+export const AVISO_VENTANA_META = 'Tras 24 h no sale';
 
 /**
  * CUÁNTOS MINUTOS SE ESPERA JUSTO ANTES DE UNA TARJETA: la espera (por tiempo) que la apunta, sumada a
