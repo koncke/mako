@@ -23,6 +23,7 @@ import { Icon } from '@/app/_components/icons';
 import Link from '@/app/_ui/Link';
 import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type AbrirAviso, type Creando } from './SimuladorWhatsApp';
 import { HorarioLista } from './HorarioLista';
+import { GaleriaPlantillas, type CreadaGaleria } from './GaleriaPlantillas';
 // Los Mensajes de MaKo (los flujos de Configuraciones › Notificaciones, quinta tanda punto 5): el
 // endpoint y el parámetro del link son los de allá (lib/chatbot-mensajes-mako.ts).
 import { ENDPOINT_MENSAJES_MAKO, PARAM_AVISO, mensajePedido } from '@/lib/chatbot-mensajes-mako';
@@ -244,6 +245,8 @@ function ChatAgentInner() {
    * dibuja pegado al botón que lo produjo.
    */
   const [errCrear, setErrCrear] = useState<string | null>(null);
+  /** «＋ Nueva» abre la GALERÍA (10/10/2026: «hagamos la galería de las más comunes»): en blanco o desde una plantilla. */
+  const [galeria, setGaleria] = useState(false);
   /**
    * El onboarding de esta tab es UNA pregunta: ¿hay un WhatsApp vinculado?
    *
@@ -404,6 +407,15 @@ function ChatAgentInner() {
       setCreando({ temporal, id });
       await load();
     } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
+  };
+  /** «＋ Nueva»: la galería. «En blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia). */
+  const abrirGaleria = () => { setErrCrear(null); setGaleria(true); };
+  /** Una creada desde una plantilla: se trae la lista y se abre su lienzo. El aviso (la etapa no se pudo guardar) va pegado al botón. */
+  const alCrearDePlantilla = async (r: CreadaGaleria) => {
+    setGaleria(false);
+    setErrCrear(r.aviso);
+    await load();
+    setAbrirSec({ id: r.secuenciaId });
   };
   /** La lista que se dibuja: la del server más la fila que se está creando (`listaConCreando`). */
   const visibles = secuencias === null ? null : listaConCreando(secuencias, creando);
@@ -650,7 +662,7 @@ function ChatAgentInner() {
           Todavía no hay automatizaciones.
           {rolAdmin && (
             <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <button onClick={() => void crearNueva()} style={btnDark}>＋ Nueva</button>
+              <button onClick={abrirGaleria} style={btnDark}>＋ Nueva</button>
               {/* EL HORARIO TAMBIÉN ACÁ: sin ninguna automatización la lista no se dibuja, y un negocio
                   nuevo no tenía dónde ponerlo «allí mismo». El panel, sin la lista, cuelga del botón. */}
               <HorarioLista rolAdmin={rolAdmin} />
@@ -669,7 +681,7 @@ function ChatAgentInner() {
           secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           avisos={avisos} abrirAviso={abrirAviso} onAvisosCambio={() => void cargarAvisos()}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
-          onNueva={() => void crearNueva()} errorNueva={errCrear} onReload={() => void load()}
+          onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
           abrir={abrirSec}
           handoffs={sinCaso}
           /* EL HORARIO DE ENVÍO, ahí mismo en la lista (10/10/2026: «haz que se pueda configurar allí
@@ -684,6 +696,12 @@ function ChatAgentInner() {
              vuelve, se rehace sobre los CRON (`vistasPorDisparador`, lib/disparadores.ts) y pasa por
              la puerta de crear de la lista (`nueva`), que pregunta por lo no publicado. */
         />
+      )}
+
+      {/* LA GALERÍA de «＋ Nueva» (sólo un admin crea). «En blanco» es la vacía de siempre. */}
+      {galeria && rolAdmin && (
+        <GaleriaPlantillas productos={productos} onCerrar={() => setGaleria(false)}
+          onEmpezar={() => { setGaleria(false); void crearNueva(); }} onCreada={(r) => void alCrearDePlantilla(r)} />
       )}
 
     </main>

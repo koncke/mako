@@ -25,6 +25,9 @@
 //   · la puerta creando sin preguntar (`onNueva()` sin el `if (sinPublicar)`): 1 fallo, 5 pases;
 //   · el GET volviendo a mandar `huecos`: 1 fallo, 5 pases;
 //   · la lista volviendo a aceptar un `pie`: 1 fallo, 5 pases.
+// Y con la galería enchufada (10/10/2026, base 7 / 0):
+//   · «En blanco» sin `crearNueva` (sólo cierra la galería): 1 fallo, 6 pases;
+//   · la creada desde una plantilla abierta ANTES de `load()`: 1 fallo, 6 pases.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -110,7 +113,16 @@ test('el estado vacío dibuja el fallo de crear al lado de su botón', () => {
   const ini = src.indexOf('Todavía no hay automatizaciones.');
   assert.ok(ini >= 0);
   const bloque = src.slice(ini, src.indexOf('</div>\n      )}', ini));
-  assert.match(bloque, /onClick=\{\(\) => void crearNueva\(\)\}/);
+  // «＋ Nueva» abre la galería (10/10/2026); «En blanco» de la galería es `crearNueva`, la de siempre.
+  assert.match(bloque, /onClick=\{abrirGaleria\}/);
   assert.match(bloque, /\{errCrear && <span role="alert"/);
-  assert.match(src, /onNueva=\{\(\) => void crearNueva\(\)\}/);
+  assert.match(src, /onNueva=\{abrirGaleria\}/);
+});
+
+test('«＋ Nueva» abre la galería, y «En blanco» crea la vacía de siempre', () => {
+  const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
+  assert.match(src, /const abrirGaleria = \(\) => \{ setErrCrear\(null\); setGaleria\(true\); \};/);
+  assert.match(src, /\{galeria && rolAdmin && \(\s*<GaleriaPlantillas productos=\{productos\} onCerrar=\{\(\) => setGaleria\(false\)\}\s*onEmpezar=\{\(\) => \{ setGaleria\(false\); void crearNueva\(\); \}\}/, 'la galería no está montada, o «En blanco» no crea la vacía');
+  // La creada desde una plantilla se abre DESPUÉS de traer la lista (antes no está para elegirla).
+  assert.match(src, /await load\(\);\n {4}setAbrirSec\(\{ id: r\.secuenciaId \}\);/);
 });

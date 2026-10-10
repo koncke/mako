@@ -32,7 +32,10 @@ const codigo = (r: string) => sinComentarios(leer(r));
 
 test('«Probar» anuncia la rama con las palabras de la tarjeta, no «Si responde · Otra cosa»', () => {
   const p = codigo('app/automations/PanelProbar.tsx');
-  assert.match(p, /sistema\(e\.caso\?\.id \? textoCasoRespuesta\(e\.caso\) : 'Si no'\);/);
+  // Sin casos dice «Respondió», como la tarjeta: la misma función, no un literal (un literal fijaba el
+  // «Si no» de antes cuando la tarjeta ya decía otra cosa).
+  assert.match(p, /sistema\(e\.caso\?\.id \? textoCasoRespuesta\(e\.caso\) : rotuloSiNoDeRespuesta\(nodoPorId\(flujoRef\.current, raizRespuesta\(flujoRef\.current\)\)\)\);/);
+  assert.doesNotMatch(p, /'Si no'/, 'volvió un «Si no» escrito a mano');
   assert.doesNotMatch(p, /Si responde · /, 'volvió el rótulo de la tarjeta de antes');
 });
 

@@ -17,7 +17,7 @@
 //      (`seccionesParaCron` sale de `pasosDisparo`). «Elegir después» la crea con el CRON a elegir,
 //      que es lo que dice la tarjeta CRON de una recién creada («Elige qué la dispara»).
 //
-// ⚠️ «EN BLANCO» Y «CON MaKo» SON DE QUIEN MONTA ESTO (`onEmpezar`): crean la automatización vacía
+// ⚠️ «EN BLANCO» ES DE QUIEN MONTA ESTO (`onEmpezar`; «Con MaKo» se fue: hacía lo mismo): crea la automatización vacía
 // de «＋ Nueva» (`crearNueva`, app/automations/ChatAgentApp.tsx), que es la que abre la caja de Crear
 // con IA. Esta pantalla no tiene su propio camino para eso: sería la segunda copia de «Nueva».
 //
@@ -55,10 +55,14 @@ const API = '/api/chat-agent/secuencias';
 /** El tope del pedido: crear son tres escrituras; si no contesta en esto, algo está mal y se dice. */
 const TOPE_MS = 30_000;
 
-/** Las dos tarjetas de arriba. El texto es corto a propósito: el nombre ya dice casi todo. */
+/**
+ * La tarjeta de arriba. ERAN DOS, «En blanco» y «Con MaKo», y hacían LO MISMO (10/10/2026, al enchufarla):
+ * una automatización vacía se abre siempre con la caja de Crear con IA abajo y el ＋ del CRON arriba, así
+ * que «Con MaKo» no tenía nada propio que hacer. Dos botones con el mismo resultado se leen como que uno
+ * está roto: queda una, que dice las dos cosas. El texto es corto a propósito.
+ */
 export const EMPEZAR: ReadonlyArray<{ que: QueNueva; nombre: string; linea: string; icono: 'agregar' | 'mako' }> = [
-  { que: 'blanco', nombre: 'En blanco', linea: 'Arma el flujo tarjeta por tarjeta.', icono: 'agregar' },
-  { que: 'mako', nombre: 'Con MaKo', linea: 'Dile qué necesitas y MaKo la arma.', icono: 'mako' },
+  { que: 'blanco', nombre: 'En blanco', linea: 'Tarjeta por tarjeta, o pídesela a MaKo.', icono: 'agregar' },
 ];
 
 export const TITULO_GALERIA = 'Nueva automatización';

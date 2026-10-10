@@ -106,7 +106,7 @@ import { useCatalogosCondicion, catalogosDe } from './EditorCondicion';
 import { nombresCatalogoDe } from '@/lib/condiciones-catalogo';
 import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion, SecuenciaDto } from './ChatAgentApp';
 import type { EdicionLocal } from './SecuenciaPerfil';
-import { claseDe, raizRespuesta, textoCasoRespuesta } from '@/lib/flujo-grafo';
+import { claseDe, raizRespuesta, textoCasoRespuesta, rotuloSiNoDeRespuesta, nodoPorId } from '@/lib/flujo-grafo';
 import {
   flujoParaProbar, firmaFlujo, iniciar, siguiente, pausarPorRespuesta, entrarEnRespuesta,
   escenarioParaRedactar, textoDeEjemplo, correoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
@@ -1105,8 +1105,9 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     // ⚠️ CON LAS PALABRAS DE LA TARJETA (restos de versiones anteriores, 10/10/2026): «Si responde» se
     // DIBUJA como la CONDITION que escucha (sexta tanda, punto 12), con una fila «Su respuesta trata de
     // «…»» por caso y «Si no» al final. Acá seguía diciendo «Si responde · Otra cosa», los nombres de
-    // antes. (El título del caso que viaja al redactor sigue siendo «Otra cosa»: es el del motor.)
-    sistema(e.caso?.id ? textoCasoRespuesta(e.caso) : 'Si no');
+    // antes. (El título del caso que viaja al redactor sigue siendo «Otra cosa»: es el del motor.) Y sin
+    // casos, «Respondió», como la tarjeta: la MISMA función (séptima tanda).
+    sistema(e.caso?.id ? textoCasoRespuesta(e.caso) : rotuloSiNoDeRespuesta(nodoPorId(flujoRef.current, raizRespuesta(flujoRef.current))));
     luego(PILDORA_MS, avanzar);
     return typeof j.transcript === 'string' ? j.transcript : null;
   };
