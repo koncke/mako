@@ -52,7 +52,7 @@ export type AvisoCatalogo = {
    * texto guardado de la plantilla NO SALE NUNCA: el `ejemplo` es una muestra de lo que llega.
    *
    * ⚠️ Medido el 09/10/2026: de los ocho avisos que edita un cliente («MaKo en WhatsApp» en
-   * /chatbot), SIETE eran así, y la pantalla les ofrecía el editor de WhatsApp sobre un mensaje que
+   * /automations), SIETE eran así, y la pantalla les ofrecía el editor de WhatsApp sobre un mensaje que
    * nunca se manda como está escrito. Sólo `cuota-vencida` usa la plantilla (`referenciaResuelta`).
    * Lo lee `seEditaElTexto` (la ruta del cliente y el editor), y lo fija
    * tests/plantillas-viejas.test.ts contra los emisores: un emisor que pase a usar la plantilla
@@ -819,14 +819,14 @@ https://hola-mako.com/plan — MaKo`,
   // ── LEADS / WHATSAPP / NUTRICIÓN ───────────────────────────────────────────
   {
     // ⚠️ NACE APAGADO, Y ES UNA DECISIÓN: sin `porDefecto` no sale para nadie hasta que el
-    // negocio lo prenda en /chatbot. Martín, 07/10/2026: «el whatsapp dejalo como
+    // negocio lo prenda en /automations. Martín, 07/10/2026: «el whatsapp dejalo como
     // borrador, no activado en chatbot». Es el equivalente del aviso de la landing
     // (`lead-de-landing`) para quien no tiene landing y corre anuncios a formulario —los
     // clientes de Código Inmobiliario—, y prenderlo para todos le mandaría un WhatsApp por
     // cada uno de los ~1.000 leads de Meta que entran al ws1.
     //
     // ⚠️ Y EL TEXTO SALE DE ACÁ, NO DEL WEBHOOK. Hasta el 07/10 el webhook le pasaba el
-    // texto armado en código, así que lo que el negocio escribiera en /chatbot no se mandaba
+    // texto armado en código, así que lo que el negocio escribiera en /automations no se mandaba
     // nunca, y decía «¿Le disparo la nutrición de bienvenida?» sobre un lead al que la línea
     // siguiente ya inscribía en la nutrición. Ahora manda los DATOS (`aporta: ['lead']` y
     // los `datos` del webhook) y el texto es éste o el que el negocio escriba.

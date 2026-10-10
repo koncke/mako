@@ -34,7 +34,7 @@ import {
 } from './lienzo-grafo';
 import { rotuloDeEvento, describirPaso, type Disparador, type Paso } from './flujos-tipos';
 import { textoCron, type CronAviso } from './cron-aviso';
-// Las posiciones y su poda son de los DOS lienzos (éste y el de /chatbot, desde la quinta tanda):
+// Las posiciones y su poda son de los DOS lienzos (éste y el de /automations, desde la quinta tanda):
 // viven en lib/lienzo-posiciones.ts y se re-exportan acá para los que ya las importaban de este módulo.
 import { podarPosiciones, type Posiciones } from './lienzo-posiciones';
 // Los títulos de las tarjetas de la casa (CRON · DELAY · CONDITION · ACTION · MAKO EN WHATSAPP): UN
