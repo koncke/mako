@@ -1627,4 +1627,32 @@ export const BITACORA: Hito[] = [
       'tests/crm-filtro-ads.test.ts — el guard del cableado',
     ],
   },
+  {
+    fecha: '10 oct', hora: '19:01', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Campaña y Anuncio en un solo filtro, como árbol',
+    pedido: 'No separes el filtro de Campaña y Anuncio... Que dentro del filtro de "Anuncio" estén las campañas primero como arbol y dentro se pueda seleccionar anuncios de esas camapañas',
+    puntos: [
+      'Llegó con el filtro «Anuncio» recién arreglado (686c51be): el menú tenía «Campaña» y «Anuncio» como dos listas sueltas.',
+    ],
+  },
+  {
+    fecha: '10 oct', hora: '19:18', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El filtro «Anuncio» es un árbol: las campañas arriba y sus anuncios adentro',
+    puntos: [
+      'Una sola lista en «Filtrar»: cada campaña con cuántos leads trajo y, colgados de ella, sus anuncios. Se tilda la campaña entera o anuncios sueltos.',
+      'El cruce pasó de «Y» a «O»: la campaña A entera más un anuncio de la B muestra las dos cosas (con las dos listas separadas daba cero).',
+      'Destildar un anuncio de una campaña tildada entera deja tildados los otros, como cualquier árbol con casillas. Esa lógica vive aparte y con test.',
+      'Verificado en Código Inmobiliario: «VSL FUNNEL inmobiliarios CI» (44) con sus 13 anuncios; tildar «Pablo 25/09» deja la campaña en parcial y el tablero con sus 2 leads.',
+    ],
+    commits: [{ sha: 'bdbf3707', msg: 'CRM: el filtro «Anuncio» es UN árbol — las campañas arriba y sus anuncios adentro', lineas: 390, archivos: 5 }],
+    archivos: [
+      'lib/campana-atribucion.ts — arbolDeAnuncios y pasaFiltroAnuncio',
+      'app/crm/arbol-seleccion.ts — tildar y destildar en el árbol',
+      'app/crm/CrmToolbar.tsx — el árbol del menú',
+      'app/crm/CrmBoard.tsx — una sola lista',
+      'tests/crm-filtro-ads.test.ts — cinco guards, cada uno probado rompiéndolo',
+    ],
+  },
 ];

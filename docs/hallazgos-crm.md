@@ -7769,3 +7769,41 @@ del `setIfEmpty`, 9/1.
 `app/crm/crm-map.ts` · `app/crm/CrmBoard.tsx` (el filtro y el rótulo «Anuncio») ·
 `tests/crm-filtro-ads.test.ts` · `tests/atribucion-landing.test.ts` · *686c51be — 2026-10-10,
 hecho por el chat de Ads Manager a pedido de Martín*
+
+## Campaña y Anuncio pasan a ser UN árbol, y con eso el cruce pasa de «Y» a «O» (10/10)
+
+**El pedido.** Martín, sobre el menú que había quedado con «Campaña» y «Anuncio» al lado:
+*«No separes el filtro de Campaña y Anuncio... Que dentro del filtro de "Anuncio" estén las
+campañas primero como arbol y dentro se pueda seleccionar anuncios de esas camapañas»*. Qué
+anuncio era de qué campaña había que adivinarlo por el nombre.
+
+**Lo que no se ve al juntar dos listas en un árbol: el cruce cambia de signo.** Dos
+categorías del menú se cruzan con «Y» (etapa Y origen), y así se cruzaban campaña y anuncio:
+elegir la campaña A y un anuncio de la campaña B daba **cero** leads. En un árbol las dos
+selecciones son de la MISMA lista, y lo que espera cualquiera que tilde dos casillas es «lo
+uno O lo otro». La regla vive en una función (`pasaFiltroAnuncio`) y el tablero la llama; con
+«Y» de vuelta el test cae (14/1).
+
+**Y la casilla de un hijo, con su padre tildado entero, no se podía destildar.** Tildar la
+campaña la elige ENTERA (también sus leads sin anuncio conocido) y no tilda sus anuncios uno
+por uno: los cubre. Destildar uno de esos anuncios, escrito de la forma obvia —sacarlo de la
+lista de anuncios sueltos—, no cambia nada, porque nunca estuvo ahí y la campaña lo sigue
+cubriendo. Lo correcto es lo de cualquier árbol con casillas: «todos menos éste» (se suelta
+la campaña y quedan tildados sus otros anuncios). Esa lógica salió del componente a un módulo
+puro (`app/crm/arbol-seleccion.ts`) para que un test la EJECUTE; adentro del menú sólo se la
+podía leer.
+
+**El número de una campaña cuenta LEADS, no la suma de sus anuncios.** Un lead que vino por
+la campaña sin anuncio conocido es de la campaña y no de ningún anuncio: en Código
+Inmobiliario la campaña dice 44 y sus 13 anuncios suman menos. Y los anuncios cuelgan de la
+campaña de SUS leads (el par que trae cada lead), no de una adivinada por el nombre.
+
+⚠️ **Para la verificación: un `[style*="padding-left: 32px"]` no encuentra lo que React
+dibujó con `padding` + `paddingLeft`.** El navegador funde las dos en el atajo `padding`, y el
+selector por texto de estilo contesta «no hay ninguno» sobre trece filas a la vista. Se busca
+por el texto del botón.
+
+**Vive en:** `lib/campana-atribucion.ts` (`arbolDeAnuncios`, `pasaFiltroAnuncio`) ·
+`app/crm/arbol-seleccion.ts` · `app/crm/CrmToolbar.tsx` (el árbol del menú y los chips) ·
+`app/crm/CrmBoard.tsx` (una sola lista) · `tests/crm-filtro-ads.test.ts` · *bdbf3707 —
+2026-10-10, hecho por el chat de Ads Manager a pedido de Martín*
