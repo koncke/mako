@@ -1387,4 +1387,14 @@ FEEDBACK PROBAR:
       "Con capturas: el lienzo de «Bienvenida» (CRON con un evento viejo, AI Step con sólo «Otra cosa»), el panel del CRON con el paso 2 sin desplegable y los seis recuadros desbordando, CONDITION con dos filas y scroll lateral, el editor de WhatsApp con la sugerencia como burbuja, y Probar con el remitente cortado.",
     ],
   },
+  {
+    fecha: "11 oct", hora: "04:50", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Grupos de WhatsApp: la tarjeta, el medio del AI Step y sus condiciones",
+    pedido: "También agrega la tarjeta de \"Grupo de WhatsApp\", para poder mandar mensajes a uno o más grupos que el usuario quiera... Y claro, en AI Step la opción de \"Grupo de WhatsApp\"... Y como vamos a trabajar con grupos de WhatsApp, también puedes agregar condiciones de estos... Por ejemplo, que esté dentro de X grupo... O que haya enviado un mensaje, o que se haya recibido cualquier mensaje en ese grupo, o que se haya enviado un mensaje con una palabra específica... Etc etc...",
+    puntos: [
+      "Llegó con la décima tanda corriendo (wf_0a9d0973-480): va DESPUÉS, porque toca los mismos archivos (motor, lienzo, AI Step v2, condiciones).",
+      "Ojo al diseñarlo: `fetchAllGroups` de Evolution no termina en una línea grande (AGENTS.md, «Una sonda se valida en los DOS estados»): la lista de grupos y «está dentro del grupo X» no pueden colgar de esa llamada en cada envío.",
+    ],
+  },
 ];

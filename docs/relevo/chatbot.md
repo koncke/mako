@@ -6,6 +6,9 @@
 > (`docs/diseno-ai-step-v2.md`, `docs/diseno-automations-configuraciones.md`, `docs/diseno-automations-galeria-v2.md`)
 > → UI → funciones → revisión de motor → cierre con cosecha en hallazgos-chatbot.md. Si el chat se corta: retomar con
 > `resumeFromRunId` o seguir desde los diseños; los scripts de datos quedan en SIMULACRO hasta desplegar.
+> **EN COLA, después de la décima:** «Grupos de WhatsApp» (la tarjeta para mandar a uno o más grupos, el grupo como
+> medio del AI Step, y condiciones de grupo: está en el grupo X, mandó un mensaje, llegó cualquier mensaje, mandó
+> una palabra). Pedido textual en el hito siguiente de la bitácora.
 >
 > **HECHO (11/10/2026 ~04:15, `56581a3f`):** lo de abajo está en producción; lo aprendido en
 > `docs/hallazgos-chatbot.md` → «"MaKo en WhatsApp" = una automatización más». Sin ver con clics (lo mira Martín).
