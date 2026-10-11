@@ -27,12 +27,15 @@ import { generarMensajeAviso } from './plantillas';
 import { conVariables } from './variables-resolver';
 import { enviarAlGrupoMaKo } from './mako-grupo';
 import { abrirInsistencia } from './insistencias';
-import { runWithWorkspace } from './workspace';
+import { runWithWorkspace, getTenantDb } from './workspace';
 import { CATALOGO_AVISOS } from './avisos-catalogo';
 import { operacionDelPaso, rotuloOperacion, type EventoFlujo, type Paso } from './flujos-tipos';
-import { decidir, lineaDeFalloAccion } from './flujo-pasos';
+import { decidir, lineaDeFalloAccion, reintentoDeHechos, TOPE_REINTENTOS_HECHOS } from './flujo-pasos';
 import { abrirCorrida, avanzar, cerrarCorrida } from './flujo-corridas';
 import { reclamarEspaciado } from './espaciado';
+import { AVISOS_POR_EVENTO, ESTADO_EVENTO, filaDeIdCorrida, pasosParaRetomar, type FilaParaRetomar } from './aviso-evento';
+import { CLAVE_MENSAJE_MAKO } from './variables-aviso';
+import type { HechosLead } from './flujo-grafo';
 
 export type CtxFlujo = {
   ws?: number; leadId?: number; leadNombre?: string; reunion?: 'R1' | 'R2'; texto?: string;
@@ -53,6 +56,19 @@ export type CtxFlujo = {
    * Cal.com: «salía 2 y 3 veces… 9 s, 25 s, 38 s y 41 s»).
    */
   dedupKey?: string;
+  /**
+   * SÓLO EN LA CORRIDA DE UN EVENTO DE MAKO (11/10/2026, lib/aviso-evento.ts): el aviso que emite cada tarjeta
+   * «MaKo en WhatsApp» (su `tipo`, del que cuelgan el rótulo y el feed) y el nombre de la automatización. Con
+   * esto, la tarjeta sale por `emitirAviso` como el aviso de siempre, no como una línea suelta al grupo.
+   */
+  aviso?: { id: string; titulo: string };
+  /**
+   * SÓLO EN LA CORRIDA DE UN EVENTO DE MAKO: qué tarjeta es cada paso (`TraduccionEvento.firma`). Una corrida guarda
+   * una POSICIÓN; con esto, al despertar se sabe si esa posición sigue siendo la misma tarjeta (`pasosParaRetomar`).
+   */
+  firma?: string;
+  /** Cuántas veces se volvió a preguntar por el lead en una CONDITION que no lo pudo leer (`reintentoDeHechos`). */
+  reintentos?: number;
 };
 
 /**
@@ -121,6 +137,10 @@ export async function dispararEvento(evento: EventoFlujo, ctx: CtxFlujo & { ws: 
  * le toca. Lo que sí respeta es `activo`, que es el interruptor del flujo.
  */
 export async function correrFlujoDe(avisoId: string, ws: number, ctx: CtxFlujo = {}): Promise<boolean> {
+  // ⛔ UN EVENTO DE MAKO NO CORRE EL FLUJO DEL STORE (11/10/2026): su cadencia es la de la automatización del
+  // negocio, y ya corrió adentro de `emitirDelCatalogo` (lib/aviso-evento.ts). Corriendo también ésta, la
+  // cadencia de fábrica de la cobranza saldría ADEMÁS de la fila. Queda para `cuota-por-vencer` (agencia).
+  if (AVISOS_POR_EVENTO.has(avisoId)) return false;
   try {
     const flujos = await runWithWorkspace(ws, () => listarFlujosActivos());
     const vivo = flujos.find((f) => f.id === avisoId);
@@ -145,7 +165,7 @@ export async function correrFlujoDe(avisoId: string, ws: number, ctx: CtxFlujo =
  * avanzan sin ejecutar nada, asi que un flujo mal armado podria girar: el tope lo
  * corta y lo DICE, en vez de colgar el webhook en silencio.
  */
-async function ejecutarPasos(
+export async function ejecutarPasos(
   flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo,
   corrida?: { id: number; paso: number; desdeAt: Date; respondioAt: Date | null },
 ): Promise<void> {
@@ -153,9 +173,32 @@ async function ejecutarPasos(
   let desde = corrida?.desdeAt ?? new Date();
   const respondioAt = corrida?.respondioAt ?? null;
   let corridaId = corrida?.id ?? null;
+  // Los hechos del lead, para la CONDITION de un evento de MaKo: se leen UNA vez, al llegar a la primera (y
+  // en cada despertar, que es otra corrida del drenador: la de hoy, no la de hace 48 h).
+  let hechos: HechosLead | null | undefined;
 
   for (let vuelta = 0; vuelta < pasos.length + 2; vuelta++) {
-    const d = decidir(pasos, { paso: i, desde, respondioAt, ahora: new Date() });
+    if (pasos[i]?.tipo === 'condicion' && hechos === undefined) {
+      const leidos = await hechosDeLaCorrida(pasos, ws, ctx);
+      if (leidos === 'ilegible') {
+        // ⚠️ «NO PUDE LEER» NO TERMINA LA CORRIDA (revisión del 11/10/2026): el dedup del evento ya se reclamó, y
+        // terminar acá es perder el aviso por toda la ventana (120 días en la cobranza). Se duerme en ESTA misma
+        // CONDITION y se vuelve a preguntar, con tope (`reintentoDeHechos`). Sin corrida (la primera vuelta, adentro
+        // del emisor) se abre una con el contexto ENTERO (`reintento`: la entrada puede venir después).
+        const r = reintentoDeHechos(ctx.reintentos, new Date());
+        if (r.que === 'rendirse') {
+          console.error(`[flujos] ${flujoId}: no pude leer al lead #${ctx.leadId} en ${TOPE_REINTENTOS_HECHOS} intentos — la corrida se corta sin decidir la condición`);
+          if (corridaId) await cerrarCorrida(ws, corridaId, 'cortada');
+          return;
+        }
+        const ctxR: CtxFlujo = { ...ctx, reintentos: r.reintentos };
+        if (corridaId) await avanzar(ws, corridaId, i, i, r.hasta, ctxR);
+        else await abrirCorrida(ws, flujoId, i, r.hasta, ctxR, { reintento: true });
+        return;
+      }
+      hechos = leidos;
+    }
+    const d = decidir(pasos, { paso: i, desde, respondioAt, ahora: new Date(), hechos: hechos ?? null });
 
     if (d.que === 'terminar') {
       if (corridaId) await cerrarCorrida(ws, corridaId, 'hecha');
@@ -203,6 +246,27 @@ async function ejecutarPasos(
 }
 
 /**
+ * LOS HECHOS DEL LEAD DE LA CORRIDA (11/10/2026), con las fuentes que piden sus condiciones: la MISMA lectura
+ * que el motor de las automatizaciones (`hechosDeUnLead`, lib/nutricion.ts). Sin lead (o un lead que ya no está),
+ * null: lo que no se sabe NUNCA se cumple, y la corrida termina en esa CONDITION.
+ *
+ * ⚠️ UN ERROR NO ES null: es `'ilegible'` (revisión del 11/10/2026). Hasta ese día el `catch` devolvía null, y un bache
+ * de la base terminaba la corrida como «hecha» con el dedup del evento ya reclamado. «No pude leer» es un tercer
+ * estado (AGENTS.md), y quien llama lo reintenta (`reintentoDeHechos`).
+ */
+async function hechosDeLaCorrida(pasos: Paso[], ws: number, ctx: CtxFlujo): Promise<HechosLead | null | 'ilegible'> {
+  if (!ctx.leadId) return null;
+  try {
+    const filas = pasos.flatMap((p) => (p.tipo === 'condicion' ? p.rama.filas ?? [] : []));
+    const { hechosDeUnLead } = await import('./nutricion');
+    return await hechosDeUnLead(ws, ctx.leadId, filas);
+  } catch (e) {
+    console.error(`[flujos] los hechos del lead #${ctx.leadId}:`, e instanceof Error ? e.message : String(e));
+    return 'ilegible';
+  }
+}
+
+/**
  * Retoma una corrida dormida. La llama el cron drenador.
  *
  * ⚠️ RELEE EL FLUJO. Entre que se durmio y ahora, el dueno pudo editarlo o apagar el
@@ -214,6 +278,22 @@ export async function retomarCorrida(
   ws: number, c: { id: number; avisoId: string; paso: number; desdeAt: Date; respondioAt: Date | null; ctx: CtxFlujo },
 ): Promise<void> {
   try {
+    // UNA FILA DE EVENTO (`sec:<id>`, 11/10/2026): se relee la AUTOMATIZACIÓN, no el store. Archivada, pausada
+    // o sin una forma que el emisor sepa correr → se corta, como hoy un flujo apagado. Si no, sigue con sus
+    // pasos de AHORA (lo publicado después de dormirse es lo que el negocio quiere que salga)…
+    // ⚠️ …SÓLO SI SIGUE SIENDO LA MISMA FORMA (revisión del 11/10/2026): `c.paso` es una POSICIÓN, y con una tarjeta
+    // sumada, sacada o movida apunta a otra (la entrada de la cobranza salía de nuevo). Lo decide `pasosParaRetomar`.
+    const filaId = filaDeIdCorrida(c.avisoId);
+    if (filaId != null) {
+      const r = pasosParaRetomar(await runWithWorkspace(ws, () => filaParaRetomar(filaId)), c.ctx.firma);
+      if ('corta' in r) {
+        if (r.corta !== 'apagada') console.warn(`[flujos] corrida ${c.id} (${c.avisoId}): se corta — ${r.corta === 'cambio' ? 'la automatización cambió de forma mientras dormía' : 'la automatización ya no se puede correr'}`);
+        await cerrarCorrida(ws, c.id, 'cortada');
+        return;
+      }
+      await runWithWorkspace(ws, () => ejecutarPasos(c.avisoId, r.pasos, ws, c.ctx, c));
+      return;
+    }
     const flujos = await runWithWorkspace(ws, () => listarFlujosActivos());
     const vivo = flujos.find((f) => f.id === c.avisoId);
     if (!vivo) { await cerrarCorrida(ws, c.id, 'cortada'); return; }
@@ -221,6 +301,18 @@ export async function retomarCorrida(
   } catch (e) {
     console.error('[flujos] retomar:', e instanceof Error ? e.message : String(e));
   }
+}
+
+/**
+ * La fila de evento de una corrida dormida, como la mira `pasosParaRetomar` (lib/aviso-evento.ts, pura: ahí se decide
+ * si sigue); null = ya no está. Corre adentro del workspace de la corrida. Un error de lectura TIRA: el drenador la
+ * vuelve a mirar en el próximo tick, en vez de cortar una cadencia por un bache de la base.
+ */
+async function filaParaRetomar(filaId: number): Promise<FilaParaRetomar | null> {
+  const { data, error } = await (await getTenantDb()).from('nutricion_secuencias')
+    .select('id, activa, archivada_at, pasos, trigger_tipo, disparadores').eq('id', filaId).maybeSingle();
+  if (error) throw new Error(`la automatización #${filaId}: ${error.message}`);
+  return (data as FilaParaRetomar | null) ?? null;
 }
 
 async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlujo): Promise<void> {
@@ -253,6 +345,8 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
       // Medido en producción ese día: cero corridas (`flujo_corridas` vacía), así que no le cambia un
       // mensaje a nadie. Un paso SIN texto sigue como antes (lo redacta MaKo con el contexto).
       const propio = (paso.texto ?? '').trim();
+      // La tarjeta «MaKo en WhatsApp» de un EVENTO DE MAKO sale como el aviso de siempre (ver la función).
+      if (ctx.aviso) { await emitirTarjetaDelEvento(flujoId, propio, ws, ctx, ctx.aviso); return; }
       const contexto = [ctx.leadNombre && `Lead: ${ctx.leadNombre}`, ctx.reunion && `Reunión: ${ctx.reunion}`, ctx.texto].filter(Boolean).join(' · ');
       const texto = propio
         ? await conVariables(propio, { ws, leadId: ctx.leadId ?? null, leadNombre: ctx.leadNombre ?? null }, ctx.datos).catch(() => propio)
@@ -321,6 +415,30 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
       await enviarAlGrupoMaKo(ws, lineaDeFalloAccion(def?.titulo ?? rotuloOperacion(operacion), nombre, r.resumen));
     }
   }
+}
+
+/**
+ * ⚠️ LA TARJETA «MaKo en WhatsApp» DE UN EVENTO DE MAKO (11/10/2026, lib/aviso-evento.ts) SALE POR
+ * `emitirAviso`, como el aviso de siempre: su `tipo` es el id del aviso (el rótulo, el feed y el turno del doer,
+ * igual que hoy), sin dedup propio (lo reclamó el emisor UNA vez por evento, y la segunda fila del mismo evento
+ * no la frena la primera) y con `ESTADO_EVENTO` (no lee el store ni abre una insistencia). `{{mensaje_mako}}` es
+ * el texto que armó el código del aviso: con él, sale EXACTAMENTE lo de siempre. Por `enviarAlGrupoMaKo` sería
+ * una línea suelta, sin rótulo y sin que el doer sepa a qué le contestan.
+ */
+async function emitirTarjetaDelEvento(flujoId: string, propio: string, ws: number, ctx: CtxFlujo, aviso: { id: string; titulo: string }): Promise<void> {
+  if (!propio) return;
+  const datos = { ...(ctx.datos ?? {}), ...(ctx.texto ? { [CLAVE_MENSAJE_MAKO]: ctx.texto } : {}) };
+  const texto = await conVariables(propio, { ws, leadId: ctx.leadId ?? null, leadNombre: ctx.leadNombre ?? null }, datos).catch(() => propio);
+  if (!texto.trim()) return;
+  const cat = CATALOGO_AVISOS.find((c) => c.id === aviso.id);
+  const { emitirAviso } = await import('./avisos');
+  const r = await emitirAviso({
+    tipo: aviso.id, titulo: aviso.titulo, texto,
+    categoria: cat?.categoria, semaforo: cat?.semaforo, ws,
+    ...(ctx.leadId ? { lead: { id: ctx.leadId, nombre: ctx.leadNombre ?? null } } : {}),
+    estado: ESTADO_EVENTO,
+  });
+  if (!r.ok) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió`);
 }
 
 /**

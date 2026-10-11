@@ -26,6 +26,13 @@
 // dejaría en la tarjeta una fila que no hace nada. Mientras tanto vive en el editor (`borrador`). Lo
 // mismo al cambiarle el TIPO a uno que ya existe: el de antes sigue guardado hasta que el nuevo
 // tenga lo suyo — «elegir otra cosa» no apaga nada por sí solo.
+//
+// ⚠️ UN CRON DEL EMISOR VA SOLO Y NO SE CAMBIA (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md): el
+// recordatorio de la reunión y el «Evento de MaKo» (`esDelEmisor`, lib/disparadores.ts) los manda su emisor,
+// no el motor. Con uno de ésos el panel no ofrece «＋ Nuevo CRON» (un segundo CRON lo inscribiría el motor
+// ADEMÁS) ni la «←» (cambiarle la clase dejaba la fila sin lo que su emisor lee): dice lo que lo dispara y
+// nada más. El server lo frena igual (`problemaDeDisparadores` / `problemaDeCambio`): esto es para no ofrecer
+// un control que va a contestar que no.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
@@ -38,7 +45,7 @@ import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NuevoPlaceholder } from './NuevoPlaceholder';
 import { CRON_DEFAULT } from '@/app/_components/EditorCron';
 import {
-  CLASES_DISPARADOR, claseDeDisparador, eventosDe, triggerDeCanal, borradorDeClase, conDisparo, disparoActualDe,
+  CLASES_DISPARADOR, claseDeDisparador, eventosDe, triggerDeCanal, borradorDeClase, conDisparo, disparoActualDe, esDelEmisor,
   disparadoresDe, sanearDisparadores, firmaLista, nuevoIdDisparador, problemaDeDisparador, textoDeDisparador,
   valoresQuien, quienTrasTocar, valorEtiqueta, conValorEtiqueta, alternarIgnorar, textoQuien, VALOR_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA, TEXTO_GRUPO,
@@ -367,6 +374,8 @@ export function EditorDisparadores(p: PropsEditorDisparadores) {
   const actual = borrador?.d ?? abierto;
   const clase = borrador?.clase ?? (actual ? claseDeDisparador(actual) : null);
   const unico = lista.length <= 1 && editando !== 'nuevo';
+  /** El CRON es del EMISOR (el recordatorio, un evento de MaKo): va solo y no se cambia (ver la cabecera). */
+  const fijo = esDelEmisor(lista[0]);
   const elegirTipo = eligiendo || !actual || clase === null;
   const estadoCanales = useEstadoCanales(clase === 'instagram' || clase === 'messenger' || clase === 'email');
 
@@ -461,7 +470,7 @@ export function EditorDisparadores(p: PropsEditorDisparadores) {
             </div>
           );
         })}
-        {editando === 'nuevo' ? (
+        {fijo ? null : editando === 'nuevo' ? (
           <div data-cron-recuadro="nuevo" style={recuadro(true)}>
             <BotonBorrar talla="xs" title="Descartar el CRON nuevo" onClick={() => onEditar(null)} style={esquina} />
             {rotulo('Nuevo CRON')}
@@ -481,6 +490,10 @@ function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, 
   productos: readonly ProductoOpcion[]; etiquetas: readonly EtiquetaLienzo[]; disparadores: readonly Opcion[]; tz: string | null; busy?: boolean;
   onCambiar: (d: Disparador) => void; onVolver: () => void;
 }) {
+  // UN CRON DEL EMISOR (el recordatorio, un evento de MaKo) se dice como es y SIN la «←»: no se cambia.
+  if (esDelEmisor(d)) {
+    return <div data-cron-fijo style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', fontFamily: SANS, lineHeight: 1.4 }}>{textos.texto(d)}</div>;
+  }
   const actual = disparoActualDe(d);
   /** El desplegable de producto: producto → «Adquisición» / «Entrega» → la etapa, SIN «Etiquetas» (CRON punto 3). */
   const pasos = pasosDisparo({ disparadores, productos, etiquetas: [], actual, textoActual: textos.deSiempre({ ...d, cron: null }) });

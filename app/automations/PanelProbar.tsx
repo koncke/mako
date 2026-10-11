@@ -116,6 +116,10 @@ import {
 import { partesDe, type ParteMensaje } from '@/lib/mensaje-partes';
 import { ICONOS_MAS, frenoDelFlujo } from '@/lib/flujo-conversacion';
 import { TRIGGER_RECORDATORIO, EJEMPLOS_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
+import { TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
+import { datosDelEvento, avisoDeEvento, eventoDeFila } from '@/lib/aviso-evento';
+import { VARIABLES_AVISO, CLAVE_MENSAJE_MAKO } from '@/lib/variables-aviso';
+import { CATALOGO_AVISOS } from '@/lib/avisos-catalogo';
 import { PopoverWA } from '../whatsapp/_shared/ComposerWhatsApp';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
@@ -172,6 +176,23 @@ export function canalDelPaso(p: { canal?: string | null }): CanalProbar {
  * 3: «En Email, elimina el texto de "Fin" que aparece abajo del todo»): la bandeja dice cuándo llega
  * cada mail y un renglón suelto abajo se lee como un mail que no llegó. En el teléfono van todas.
  */
+/**
+ * LOS DATOS DE EJEMPLO DE UNA FILA DE «MaKo EN WHATSAPP» (11/10/2026): con qué se prueba lo que ESE evento trae
+ * (`datosDelEvento`, lib/aviso-evento.ts). «Lo que arma MaKo» (`{{mensaje_mako}}`) es el `ejemplo` del aviso en el
+ * catálogo —una muestra de lo que llega—, y los de la cuota, los `ejemplo` del catálogo de datos. El lead es el de
+ * ejemplo de siempre (`textoDeEjemplo`). Un evento que no existe no trae nada.
+ */
+export function ejemplosDelEvento(sub: unknown): Record<string, string> {
+  const ctx = datosDelEvento(sub);
+  const out: Record<string, string> = {};
+  if (ctx.conCuota) for (const v of VARIABLES_AVISO) if (v.alcance === 'cuota') out[v.key] = v.ejemplo;
+  if (ctx.conMensaje) {
+    const cat = CATALOGO_AVISOS.find((c) => c.id === avisoDeEvento(sub));
+    if (cat) out[CLAVE_MENSAJE_MAKO] = cat.ejemplo;
+  }
+  return out;
+}
+
 export function pildoraEnLaBandeja(tono: 'ok' | 'bad' | null, forzar = false): boolean {
   return forzar || tono === 'bad';
 }
@@ -788,8 +809,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const contactoDe = (f: typeof flujoVivo): ContactoPrueba =>
     contactoParaProbar(f, (p) => canalDelPaso(p) === canal, CANALES_PROBAR[canal].contacto, leadRef.current, ctx.current.nombres);
   const emisorReal = emisorAEnviar(canal, emisor);
-  // El recordatorio de la reunión se prueba con SUS datos (lib/recordatorio-automatizacion.ts).
-  const datosExtra = (propia?.trigger_tipo ?? secuencia.trigger_tipo) === TRIGGER_RECORDATORIO ? EJEMPLOS_RECORDATORIO : undefined;
+  // El recordatorio de la reunión se prueba con SUS datos (lib/recordatorio-automatizacion.ts), y una fila de
+  // «MaKo en WhatsApp», con los de su evento (`ejemplosDelEvento`, 11/10/2026).
+  const triggerProbado = propia?.trigger_tipo ?? secuencia.trigger_tipo;
+  const datosExtra = triggerProbado === TRIGGER_RECORDATORIO ? EJEMPLOS_RECORDATORIO
+    : triggerProbado === TRIGGER_AVISO_MAKO ? ejemplosDelEvento(eventoDeFila(secuencia as SecuenciaDto & { disparadores?: unknown })) : undefined;
   const ctx = useRef({ nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal, datosExtra });
   useEffect(() => {
     ctx.current = { nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal, datosExtra };

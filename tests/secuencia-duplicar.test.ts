@@ -11,11 +11,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  duplicarSecuencia, filaDeCopia, nombreDeCopia, COPIA, NO_SE_COPIA, type DbDuplicar, type FilaOriginal,
+  duplicarSecuencia, filaDeCopia, nombreDeCopia, COPIA, COPIA_SI_ES_DEL_EMISOR, NO_SE_COPIA, type DbDuplicar, type FilaOriginal,
 } from '../lib/secuencia-duplicar';
 
-/** Las 18 columnas de `nutricion_secuencias`, medidas el 09/10/2026 contra information_schema, más el emoji (mig 0229) y las posiciones del lienzo (mig 0233). */
-const COLUMNAS = ['id', 'clave', 'nombre', 'etapa', 'etapas', 'trigger_tipo', 'activa', 'pasos', 'created_at', 'updated_at', 'workspace_id', 'estrategia', 'archivada_at', 'funnel_id', 'producto_id', 'cron', 'cron_proxima_at', 'instance_name', 'etiqueta_id', 'emoji', 'posiciones'];
+/**
+ * Las 18 columnas de `nutricion_secuencias`, medidas el 09/10/2026 contra information_schema, más el emoji (mig 0229),
+ * las posiciones del lienzo (mig 0233) y la lista de CRON (mig 0241, la que lleva el evento de MaKo).
+ */
+const COLUMNAS = ['id', 'clave', 'nombre', 'etapa', 'etapas', 'trigger_tipo', 'activa', 'pasos', 'created_at', 'updated_at', 'workspace_id', 'estrategia', 'archivada_at', 'funnel_id', 'producto_id', 'cron', 'cron_proxima_at', 'instance_name', 'etiqueta_id', 'emoji', 'posiciones', 'disparadores'];
 
 const ORIGINAL: FilaOriginal = {
   id: 198, clave: 'bienvenida', nombre: 'Bienvenida para quien agenda una llamada', etapa: 'agendado', etapas: ['agendado', 'facturando'], trigger_tipo: 'etapa',
@@ -119,7 +122,7 @@ test('el nombre: «Copia de …» con el tope de la lista, cortando el FINAL y n
 });
 
 test('cada columna medida está decidida: o se copia, o no (y la fila que se inserta sólo trae las copiables)', () => {
-  const decididas = new Set<string>([...COPIA, ...NO_SE_COPIA]);
+  const decididas = new Set<string>([...COPIA, ...COPIA_SI_ES_DEL_EMISOR, ...NO_SE_COPIA]);
   assert.deepEqual(COLUMNAS.filter((c) => !decididas.has(c)), [], 'una columna sin decidir');
   assert.deepEqual([...decididas].filter((c) => !COLUMNAS.includes(c)), [], 'una columna que ya no existe');
   const fila = filaDeCopia(ORIGINAL, 'k');
@@ -133,7 +136,38 @@ test('cada columna medida está decidida: o se copia, o no (y la fila que se ins
 test('el módulo no importa nada del servidor (lo enchufa la ruta): el test lo ejecuta entero', () => {
   const src = readFileSync(new URL('../lib/secuencia-duplicar.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   assert.doesNotMatch(src, /^import 'server-only'/m);
-  assert.deepEqual([...src.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]), ['./setting-estrategia']);
+  // lib/disparadores es puro (sin `server-only`): de ahí sale qué fila es del emisor.
+  assert.deepEqual([...src.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]), ['./setting-estrategia', './disparadores']);
+});
+
+test('⚠️ duplicar un EVENTO DE MAKO conserva su lista de CRON (sin ella, la copia queda «Elige el evento» y no sale nunca)', () => {
+  // 11/10/2026: «MaKo en WhatsApp» = automatizaciones (docs/diseno-mako-en-whatsapp-unificado.md §1). CUÁL evento
+  // vive en `disparadores[0].subtipo`, y `COPIA` no la trae. Va en el MISMO insert, antes de los pasos: el
+  // freno de `setSecuenciaPasos` lee el evento.
+  const evento: FilaOriginal = {
+    id: 300, nombre: 'Cobranza de cuotas vencidas', etapa: 'manual', trigger_tipo: 'aviso_mako', activa: true,
+    pasos: [{ id: 'mk', cuerpo: '' }], cron: null, disparadores: [{ id: 'd1', trigger_tipo: 'aviso_mako', subtipo: 'cuota_vencida' }],
+  };
+  assert.deepEqual(filaDeCopia(evento, 'k').disparadores, evento.disparadores);
+  // El recordatorio también es del emisor (su lista, aunque hoy sea null, viaja tal cual).
+  assert.ok('disparadores' in filaDeCopia({ ...evento, trigger_tipo: 'reunion_recordatorio', disparadores: null }, 'k'));
+  // Una fila del MOTOR sigue sin copiarla: su lista lleva la próxima ocurrencia de cada horario.
+  const motor = filaDeCopia({ ...ORIGINAL, disparadores: [{ id: 'd1', trigger_tipo: 'etapa', etapa: 'agendado' }] }, 'k');
+  assert.ok(!('disparadores' in motor), 'copió la lista de una fila del motor');
+});
+
+test('y la copia del evento entra ENTERA: la lista en el insert, y los pasos después por su puerta', async () => {
+  const evento: FilaOriginal = {
+    id: 300, nombre: 'Aviso antes de cada reunión', etapa: 'manual', trigger_tipo: 'aviso_mako', activa: true,
+    pasos: [{ id: 'mr', cuerpo: '' }], cron: null, disparadores: [{ id: 'd1', trigger_tipo: 'aviso_mako', subtipo: 'reunion_pronto' }],
+  };
+  const { db, llamadas } = baseDeMentira({ original: evento });
+  const orden: string[] = [];
+  await duplicarSecuencia(300, { db, clave: () => 'k', setPasos: async () => { orden.push('pasos'); }, setCron: async () => { orden.push('cron'); } });
+  const insert = llamadas.find((l) => l.op === 'insert')!.args[0] as Record<string, unknown>;
+  assert.deepEqual(insert.disparadores, evento.disparadores);
+  assert.equal(insert.activa, false);
+  assert.deepEqual(orden, ['pasos'], 'sin horario: el CRON del emisor no pasa por setCronSecuencia');
 });
 
 test('la ruta ENCHUFA la acción con las puertas de verdad (sin esto, el «⋯» contesta «action inválida»)', () => {
@@ -154,3 +188,5 @@ test('la ruta ENCHUFA la acción con las puertas de verdad (sin esto, el «⋯»
 //   · D3 la copia a medias se queda: 6 / 1.
 //   · D4 copia `cron_proxima_at` de la original: 6 / 1.
 //   · D5 el nombre «… (copia)», que al cortar pierde la marca: 4 / 3.
+// Y el 11/10/2026 («MaKo en WhatsApp» = automatizaciones), con tests/aviso-evento.test.ts al lado (base 40 / 0):
+//   · D6 `filaDeCopia` sin `COPIA_SI_ES_DEL_EMISOR` (la copia de un evento queda sin su evento): 38 / 2.

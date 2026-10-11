@@ -345,6 +345,9 @@ export const TRIGGERS: Opcion[] = [
   { value: 'messenger', label: 'Un evento de Messenger' },
   { value: 'email_recibido', label: 'Recibes un email' },
   { value: 'grupo_mako', label: 'Recurrente al grupo de MaKo' },
+  // «MaKo en WhatsApp» como automatización (11/10/2026, `TRIGGER_AVISO_MAKO`): lo emite el código de cada
+  // aviso (lib/aviso-evento.ts), no el motor. Nace de la galería con su evento: /email lo rechaza.
+  { value: 'aviso_mako', label: 'Evento de MaKo' },
 ];
 
 // ── Segmentos para broadcasts ─────────────────────────────────────────────────

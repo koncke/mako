@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import { DISPARADORES_SOCIALES } from '../lib/canal-social';
 import {
   subtipoDelEvento, escuchaElEvento, tieneRecurrenteAlGrupo, eventosDe, disparaPorEvento,
-  TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_SOLO_GRUPO, TRIGGER_ETIQUETA_AGREGADA, SOLO_DESDE_EL_CRON, TRIGGERS_NUEVOS,
+  TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_SOLO_GRUPO, TRIGGER_ETIQUETA_AGREGADA, SOLO_DESDE_EL_CRON, TRIGGERS_NUEVOS, TRIGGERS_DEL_EMISOR,
   type SecuenciaConDisparo, type Disparador,
 } from '../lib/disparadores';
 
@@ -78,8 +78,10 @@ test('el Recurrente al grupo de MaKo: con horario y el grupo marcado, en cualqui
 });
 
 test('los que sólo se eligen en el CRON: los que piden el evento o el horario, y ninguno más', () => {
-  assert.deepEqual([...SOLO_DESDE_EL_CRON].sort(), ['email_recibido', 'grupo_mako', 'instagram', 'messenger']);
-  for (const t of SOLO_DESDE_EL_CRON) assert.ok(TRIGGERS_NUEVOS.includes(t), t);
+  // (11/10/2026: y los dos del EMISOR —el recordatorio y el evento de MaKo—, que nacen de la galería con su
+  // CRON fijo: tests/aviso-evento.test.ts.)
+  assert.deepEqual([...SOLO_DESDE_EL_CRON].sort(), ['aviso_mako', 'email_recibido', 'grupo_mako', 'instagram', 'messenger', 'reunion_recordatorio']);
+  for (const t of SOLO_DESDE_EL_CRON) assert.ok(TRIGGERS_NUEVOS.includes(t) || TRIGGERS_DEL_EMISOR.has(t), t);
 });
 
 // ── ROTURAS (09/10/2026) ───────────────────────────────────────────────────────────────────────

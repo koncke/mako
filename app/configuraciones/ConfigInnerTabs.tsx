@@ -19,14 +19,11 @@ const SANS = "'Geist', sans-serif";
 
 type TabKey = 'notif' | 'fiscal' | 'equipo' | 'criterio' | 'horario';
 
-export function ConfigInnerTabs({ equipoPanel, mensajesEnChatbot = false }: {
+// (Acá vivía `mensajesEnChatbot`, para el link «Editar en Automations» de cada mensaje de Notificaciones.
+// Se fue el 11/10/2026 con esa lista: los mensajes de MaKo son automatizaciones de la tab Automations.)
+export function ConfigInnerTabs({ equipoPanel }: {
   /** Panel server-rendered embebido (data cargada en page.tsx). */
   equipoPanel: ReactNode;
-  /**
-   * El negocio tiene /automations: el lienzo de cada mensaje de Notificaciones se edita allá (quinta
-   * tanda, punto 5). Lo decide el server (page.tsx) con la misma función que el guard de /automations.
-   */
-  mensajesEnChatbot?: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>('notif');
   const [esAdmin, setEsAdmin] = useState(false);
@@ -39,7 +36,7 @@ export function ConfigInnerTabs({ equipoPanel, mensajesEnChatbot = false }: {
   }, []);
 
   const TABS: Array<{ key: TabKey; label: string; panel: ReactNode }> = [
-    { key: 'notif', label: 'Notificaciones', panel: <NotificacionesPanel editarEnChatbot={mensajesEnChatbot} /> },
+    { key: 'notif', label: 'Notificaciones', panel: <NotificacionesPanel /> },
     { key: 'fiscal', label: 'Identidades fiscales', panel: <IdentidadesFiscalesPanel /> },
     { key: 'equipo', label: 'Equipo', panel: equipoPanel },
     // El criterio gobierna QUE ENTRA al tablero de todo el workspace, asi que solo lo

@@ -24,7 +24,8 @@ import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
 import { EditorDisparadores, useDisparadores, useTextoDisparador, type SecuenciaConDisparadores } from './EditorDisparadores';
-import { disparoActualDe, iconoDeDisparador, type ClaseDisparador } from '@/lib/disparadores';
+import { disparoActualDe, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO, type ClaseDisparador } from '@/lib/disparadores';
+import { frenoDelEvento } from '@/lib/aviso-evento';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
 import { usePosicionesLienzo } from './usePosicionesLienzo';
@@ -532,11 +533,19 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * EL FRENO DE ESTA AUTOMATIZACIÓN: el de Publicar (`frenoDelFlujo`) y, con el CRON del recordatorio de la
    * reunión, lo que su emisor sabe mandar (`frenoDelRecordatorio`, lib/recordatorio-automatizacion.ts). Lo usan
    * Publicar, «Probar» y sus rearranques (`EdicionLocal.freno`): los tres frenan lo mismo que el server.
+   *
+   * Con el CRON «Evento de MaKo» (11/10/2026, «MaKo en WhatsApp»), lo que el emisor de ESE evento sabe correr
+   * (`frenoDelEvento`, lib/aviso-evento.ts): sólo tarjetas MaKo, DELAY por tiempo y CONDITION de una rama —
+   * nada al lead—. Es la misma función con la que frena el server (`setSecuenciaPasos`).
    */
   const esRecordatorio = disparo.trigger_tipo === TRIGGER_RECORDATORIO;
+  const esEvento = disparo.trigger_tipo === TRIGGER_AVISO_MAKO;
+  /** CUÁL evento (el `subtipo` de su CRON), sólo si es uno que existe. null = una automatización de las de siempre. */
+  const eventoMako = esEvento ? (EVENTOS_MAKO.find((e) => e.subtipo === crons.primero?.subtipo)?.subtipo ?? null) : null;
   const frenoDeEsta = useCallback(
-    (ps: typeof pasos) => frenoDelFlujo(ps, faltanEnAccion) ?? (esRecordatorio ? frenoDelRecordatorio(ps) : null),
-    [faltanEnAccion, esRecordatorio],
+    (ps: typeof pasos) => frenoDelFlujo(ps, faltanEnAccion)
+      ?? (esRecordatorio ? frenoDelRecordatorio(ps) : esEvento ? frenoDelEvento(ps, eventoMako) : null),
+    [faltanEnAccion, esRecordatorio, esEvento, eventoMako],
   );
   // Identidad FIJA (sólo usa setters): viaja en `EdicionLocal` y un `frenar` nuevo por render
   // re-dispararía el efecto que la manda en cada tecla.
@@ -828,10 +837,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       <FlujoLienzo
         pasos={pasos}
         disparador={textoDisparo}
-        secuencias={secuencias.filter((s) => s.id !== secuencia.id).map((s) => ({ id: s.id, nombre: s.nombre }))}
+        // Sin las filas del EMISOR (el recordatorio, los eventos de MaKo, 11/10/2026): no se puede «ir a» una de
+        // ésas — su emisor no inscribe leads (`inscribirEnSecuencia` las rechaza).
+        secuencias={secuencias.filter((s) => s.id !== secuencia.id && !esDelEmisor(s)).map((s) => ({ id: s.id, nombre: s.nombre }))}
         audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy != null}
         envioAutoSecuencia={est?.envio_automatico === true}
-        etiquetas={etiquetas} etapas={etapasCond} triggerTipo={disparo.trigger_tipo} productos={productos}
+        etiquetas={etiquetas} etapas={etapasCond} triggerTipo={disparo.trigger_tipo} eventoMako={eventoMako} productos={productos}
         paraGuion={paraGuion} foco={foco} pendientesOtraCosa={pendientesOtraCosa}
         onPasos={onPasos}
         onAgregar={rolAdmin ? agregarEn : undefined}
@@ -971,7 +982,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           </div>
         )}
         disparadores={filasCron}
-        onNuevoDisparador={rolAdmin ? () => setCronAbierto('nuevo') : undefined}
+        // Un CRON del EMISOR (el recordatorio, un evento de MaKo) va SOLO: sin «＋ Nuevo CRON» en la tarjeta (11/10/2026).
+        onNuevoDisparador={rolAdmin && !esDelEmisor(crons.primero) ? () => setCronAbierto('nuevo') : undefined}
         onAbrirDisparador={(id) => setCronAbierto(id)}
         editorEntrada={(
           /**

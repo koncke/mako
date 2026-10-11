@@ -28,7 +28,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   VARIABLES_AVISO, GRUPOS_VARIABLES, datosOfrecidos, variablesPara, fuentesQueNombra, buscarDatos,
-  RUTA_DE_LINK, valoresDeEjemplo, type FuenteDato,
+  RUTA_DE_LINK, valoresDeEjemplo, CLAVE_MENSAJE_MAKO, type FuenteDato,
 } from '../lib/variables-aviso';
 import {
   valoresDelNombre, valoresDelLead, valoresConZona, valoresDelProducto, valoresDeEtiquetas, valoresDePagos,
@@ -80,7 +80,9 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     momento: set(valoresDelMomento(Date.parse('2026-10-09T15:00:00Z'), 'America/Mexico_City')),
     negocio: new Set(['negocio']),
     links: new Set(Object.keys(RUTA_DE_LINK)),
-    evento: new Set(['link_lead']),
+    // «Lo que arma MaKo» (11/10/2026) lo pone el emisor de un evento de MaKo (`ejecutarPaso`, lib/flujos.ts),
+    // como la cuota la pone el cron de cobranza: lo fija tests/aviso-evento.test.ts leyendo ese fuente.
+    evento: new Set(['link_lead', CLAVE_MENSAJE_MAKO]),
     cuota: new Set(CLAVES_DE_CUOTA),
   };
 }

@@ -86,8 +86,9 @@ export type AvisoCatalogo = {
   flujoPorDefecto?: Flujo;
   /**
    * EL CÓDIGO QUE EMITE ESTE AVISO CORRE TAMBIÉN SU FLUJO (`correrFlujoDe`, lib/flujos.ts), así que
-   * sus pasos corren sin que nadie le elija un evento. Hoy, sólo la cobranza (app/api/cron/cobranza:
-   * los dos avisos de `disparosDeCobranza`). Lo lee el lienzo (`grafoDeAviso`) para no dibujar como
+   * sus pasos corren sin que nadie le elija un evento. Hoy, sólo `cuota-por-vencer` (app/api/cron/cobranza;
+   * `cuota-vencida` lo tuvo hasta el 11/10/2026, cuando pasó a ser un evento de MaKo: lo que sale lo dice la
+   * automatización del negocio, lib/aviso-evento.ts). Lo lee el lienzo (`grafoDeAviso`) para no dibujar como
    * rotos —«sólo corre con un evento»— los pasos que sí corren; lo fija tests/plantillas-viejas.test.ts
    * contra el único llamador.
    */
@@ -270,23 +271,23 @@ export function encabezadoAviso(id: string): string {
  * Lo que NO está en esta lista se sigue emitiendo igual — lo gobierna la agencia
  * desde /mensajes, que ve el catálogo completo. Lo que desaparece es la fila que
  * el cliente tendría que configurar, no el aviso.
+ *
+ * ⛔ DESDE EL 11/10/2026 ESTÁ VACÍA, y es la decisión, no un olvido. Martín: «Te pedí que la parte de
+ * WhatsApp de MaKo sea exactamente igual y siguen muchas cosas diferentes… quedaron cosas muy viejas
+ * que quiero que las depreques. Todo ahora es lo mismo». Los tres mensajes que un cliente veía acá
+ * («media hora antes de la reunión», «un lead te escribió» y «cuota vencida») son AUTOMATIZACIONES de
+ * la tab Automations: una fila de `nutricion_secuencias` con el CRON «Evento de MaKo» (`aviso_mako`),
+ * que el negocio agrega desde la GALERÍA (lib/plantillas-automatizaciones.ts, `esPlantillaMako`) y que
+ * nace vacía para todos («Todos arrancan vacíos»). Los emite `emitirPorEvento` (lib/aviso-evento.ts):
+ * su store ya no se lee. El diseño entero, en docs/diseno-mako-en-whatsapp-unificado.md.
+ *   · `reporte-semanal` NO se mudó: sale sólo por email (`notification_prefs`, decisión del 10/10:
+ *     «Apagar WhatsApp en los reportes») y pasó a `AVISOS_SOLO_SUPERADMIN`, abajo.
+ *   · `lead-no-confirmo` había salido el 09/10/2026 (lo emite el desenlace de una automatización de
+ *     ANTES, que ya no corre ninguna); la grabación de Fathom y los dos de la línea de WhatsApp, el
+ *     10/10/2026, a `AVISOS_SOLO_SUPERADMIN`.
+ * Si algún día vuelve un mensaje del cliente que NO sea un evento, se agrega acá: es una línea.
  */
-export const AVISOS_DEL_CLIENTE: readonly string[] = [
-  'reporte-semanal',        // el lunes, cómo le fue la semana
-  // ⛔ `lead-no-confirmo` («agendó, no confirmó: hay que llamarlo») SALIÓ el 09/10/2026 (sexta tanda,
-  // General 15). Lo emite el desenlace de una automatización de ANTES (lista) con «que llegue
-  // preparado» y un fallo por silencio, y desde el 08/10 no queda ninguna: las de tarjetas avisan
-  // con su propia tarjeta MaKo en WhatsApp («no confirmó la reunión», `avisar_al_equipo`), que es
-  // lo que corre en la post-agenda de hoy. Medido en producción (09/10/2026): de las 69
-  // automatizaciones, la única con un fallo por silencio es una ARCHIVADA (la post-agenda vieja del
-  // ws1), que el motor no corre. Era un interruptor que no prendía ni apagaba nada. Lo decide Martín
-  // si vuelve: es una línea.
-  'reunion-recordatorio',   // la reunión se viene
-  'wa-mensaje-entrante',    // alguien escribió y nadie contestó
-  'cuota-vencida',          // hay plata por cobrar
-  // ⛔ La grabación de Fathom y los dos de la línea de WhatsApp SALIERON el 10/10/2026: son de
-  // `AVISOS_SOLO_SUPERADMIN`, abajo.
-];
+export const AVISOS_DEL_CLIENTE: readonly string[] = [];
 
 export const esAvisoDelCliente = (id: string): boolean => AVISOS_DEL_CLIENTE.includes(id);
 
@@ -309,6 +310,10 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'wa-desconectado',        // se cayó su WhatsApp
   'wa-reconectado',         // y volvió
   'reunion-ocurrio-fathom', // terminó la reunión y quedó la grabación
+  // El reporte de los lunes (11/10/2026): NO se mudó a «MaKo en WhatsApp» porque no sale por WhatsApp
+  // (`REPORTE_POR_WHATSAPP = false`, decisión del 10/10) y sale como siempre, por email, según
+  // `notification_prefs`. Sale de la lista del cliente y lo configura la agencia (docs/diseno-mako-en-whatsapp-unificado.md).
+  'reporte-semanal',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -323,6 +328,8 @@ export const textoLoArmaElCodigo = (id: string): boolean =>
  * contesta 403) y el editor (`TemplateDetalleModal`, que no ofrece el campo). Con dos copias, la
  * pantalla ofrecería un editor que la ruta rechaza — o al revés, que es lo que pasaba: un editor que
  * la ruta ACEPTABA sobre un texto que nadie manda.
+ * Desde el 11/10/2026 `AVISOS_DEL_CLIENTE` está vacía, así que contesta `false` para todo aviso del
+ * catálogo: lo que el negocio escribe de «MaKo en WhatsApp» vive en las tarjetas de sus automatizaciones.
  */
 export const seEditaElTexto = (id: string): boolean => esAvisoDelCliente(id) && !textoLoArmaElCodigo(id);
 
@@ -955,41 +962,17 @@ https://hola-mako.com/plan — MaKo`,
     // ahora», o sea la misma promesa muerta del «¿Le escribo el recordatorio?» (abajo).
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     aporta: ['lead', 'cuota'],
-    correSuFlujo: true,   // el cron de cobranza corre la cadencia (`correrFlujoDe`)
-    /**
-     * ⚠️ LA CADENCIA POR DEFECTO, Y SE EDITA EN EL LIENZO. Martín, 04/10/2026: «Para eso
-     * estamos configurando el chatbot, que cada usuario lo pueda editar! Y en la
-     * plantilla por defecto, haz lo que te parezca mejor». Elegido: la entrada el día
-     * que vence, y dos recordatorios más —a las 48 h y 72 h después— o sea tres toques
-     * repartidos en cinco días. Deja margen para el que paga tarde sin volverse
-     * insistente, y el tope existe porque insistir para siempre lo apaga entero.
-     *
-     * ⚠️ LOS DOS SALEN AL GRUPO DE MaKo (`aviso_dueno`), no al cliente, y desde el
-     * 06/10/2026 es una DECISIÓN y no una limitación: Martín, «C: nada al cliente» — la
-     * cobranza le avisa sólo al grupo del dueño. Hasta ese día este comentario decía que
-     * era «lo único que hoy funciona», porque el paso `wa_lead` dejaba una pendiente
-     * `flujo_wa_lead` que `confirmarPendiente` cerraba como «operación desconocida». Con
-     * la decisión, ese paso ya no crea nada (lib/flujos.ts) y no queda un mensaje al
-     * cliente que arreglar.
-     *
-     * ⚠️ Y NO USAN `{{cuota_dias}}`: ese dato es la FOTO del día de la entrada y viaja
-     * con la corrida, así que tres días después diría «1 día» sobre un atraso de cuatro.
-     * Los que no envejecen son el número, el monto y la fecha de vencimiento.
-     */
-    flujoPorDefecto: {
-      version: 1,
-      activo: true,
-      disparador: { tipo: 'manual' },
-      pasos: [
-        { tipo: 'esperar', horas: 48 },
-        // Con su emoji, su link a la ficha y la firma, como el de la entrada (revisión del ws9, 10/10/2026):
-        // «márcalo en su ficha» sin el link mandaba a buscarla.
-        { tipo: 'mensaje', canal: 'aviso_dueno', texto: '💸 Sigue sin cobrarse la cuota {{cuota_numero}} de {{lead_nombre}} — {{cuota_monto}}, vencía el {{cuota_vence}}.\n\n👉 {{link_lead}} — MaKo' },
-        { tipo: 'esperar', horas: 72 },
-        { tipo: 'mensaje', canal: 'aviso_dueno', texto: '💸 Último recordatorio por la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}): si ya se cobró, márcalo en su ficha y dejo de insistir.\n\n👉 {{link_lead}} — MaKo' },
-      ],
-    },
-    disparador: 'Cuando una cuota pasa su fecha sin cobrarse, una vez por cuota (se revisa cada día). Lo que viene después —cada cuánto recordarlo y cuántas veces— lo decide el flujo de este mensaje, en el lienzo. Al marcar el pago en la ficha, se corta solo.',
+    // ⛔ ACÁ IBAN `correSuFlujo` Y `flujoPorDefecto` (la cadencia de fábrica: esperar 48 h, el
+    // «💸 Sigue sin cobrarse…», esperar 72 h, el «💸 Último recordatorio…»). Salieron el 11/10/2026: desde
+    // ese día este aviso es un EVENTO de MaKo (`cuota_vencida`, lib/disparadores.ts) y lo que sale lo dice la
+    // automatización «Cobranza de cuotas vencidas» que el negocio agrega desde la galería
+    // (lib/plantillas-automatizaciones.ts, `mako-cobranza`), con la MISMA entrada y los MISMOS dos
+    // recordatorios, copiados literales. Sin fila, no sale nada («Todos arrancan vacíos», decisión de
+    // Martín). Las decisiones que la cadencia traía viajaron con ella: los recordatorios van al GRUPO de MaKo
+    // y nunca al cliente («C: nada al cliente», 06/10/2026), y no usan `{{cuota_dias}}`, que es la foto del
+    // día de la entrada. Con la cadencia acá, el cron la habría corrido además de la fila del negocio.
+    // El diseño, en docs/diseno-mako-en-whatsapp-unificado.md.
+    disparador: 'Cuando una cuota pasa su fecha sin cobrarse, una vez por cuota (se revisa cada día). Sale por la automatización de cobranza del negocio; al marcar el pago en la ficha, se corta.',
     // ⚠️ EL EJEMPLO ES FICTICIO, A PROPÓSITO. Acá decía «la cuota 2 de Vértice», que es
     // una cuenta REAL del tablero: quien abre esta pantalla ve la cobranza de otro, y
     // quien lo cuenta en una reunión lo cuenta como propio — pasó, y está medido en
@@ -1000,6 +983,8 @@ https://hola-mako.com/plan — MaKo`,
     // pregunta no había nada que escuchara la respuesta: el dueño contestaba «sí» y no
     // pasaba nada. Con la decisión del 06/10/2026 —nada al cliente— la pregunta no tiene
     // ninguna respuesta posible, así que se fue. Lo mismo en `cuota-por-vencer`.
+    // ⚠️ Desde el 11/10/2026 este texto es la ENTRADA de la plantilla «Cobranza de cuotas vencidas»
+    // (`mk_entrada`, lib/plantillas-automatizaciones.ts), copiado literal: es lo que salía hasta ese día.
     ejemplo: `💸 *Cobranza*: la cuota {{cuota_numero}} de {{lead_nombre}} venció hace {{cuota_dias}} — *{{cuota_monto}} sin cobrar*. Si ya se cobró, márcalo en su ficha. — MaKo`,
   },
   {

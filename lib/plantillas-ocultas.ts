@@ -28,6 +28,14 @@
 
 import type { EntradaStore } from './plantillas';
 
+/**
+ * El parámetro del GET que lista los ocultos (`?ocultos=1`). Desde el 11/10/2026 lo lee SÓLO la ruta de la
+ * agencia (/mensajes, app/api/admin/plantillas/route.ts): «MaKo en WhatsApp» pasó a ser automatizaciones de la
+ * tab Automations (docs/diseno-mako-en-whatsapp-unificado.md), y el negocio ya no oculta ni recupera mensajes.
+ * Vivía en lib/chatbot-mensajes-mako.ts, que se borró con la lista vieja.
+ */
+export const PARAM_OCULTOS = 'ocultos';
+
 /** ¿Este negocio lo eliminó de su lista? */
 export const estaOculta = (e: Pick<EntradaStore, 'oculto'> | undefined): boolean => e?.oculto === true;
 

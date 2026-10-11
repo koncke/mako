@@ -19,6 +19,7 @@ import { esFlujoValido, type Flujo } from './flujos-tipos';
 import { sanearFrecuencia } from './disparador-mensaje';
 import { conVariables } from './variables-resolver';
 import { estaOculta, ocultar, restaurar, conInterruptor, porOculto, queOcultos } from './plantillas-ocultas';
+import { AVISOS_POR_EVENTO } from './aviso-evento';
 
 const KEY_STORE = 'mako.plantillas.store';
 /**
@@ -433,11 +434,10 @@ export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: 
  *
  * Las 'parcial' sí entran: esas salen, aunque no en todos los casos.
  *
- * El cliente ve SOLO los de `AVISOS_DEL_CLIENTE` (lib/avisos-catalogo.ts): cuatro,
- * elegidos a mano (eran ocho; `lead-no-confirmo` salió el 09/10/2026 porque ya no lo
- * emite nada vivo, y la grabación de Fathom y la caída y vuelta del WhatsApp el 10/10,
- * a `AVISOS_SOLO_SUPERADMIN`). El resto se sigue emitiendo —lo gobierna la agencia desde
- * /mensajes— pero no le ocupa una fila que tendría que entender y decidir.
+ * El cliente ve SOLO los de `AVISOS_DEL_CLIENTE` (lib/avisos-catalogo.ts), que desde el
+ * 11/10/2026 está VACÍA: tres pasaron a ser automatizaciones de la tab Automations y el reporte
+ * de los lunes, a `AVISOS_SOLO_SUPERADMIN`. Quedan sus mensajes PROPIOS (`custom`). El resto se
+ * sigue emitiendo —lo gobierna la agencia desde /mensajes— pero no le ocupa una fila.
  *
  * `vista: 'agencia'` es para el panel del super-admin, que sí quiere el mapa
  * completo: es su catálogo de trabajo, no la pantalla de un cliente.
@@ -446,11 +446,17 @@ export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: 
  * la marca, y `ocultos: true` contesta sólo esos (lo que se recupera desde «Nueva automatización»), con el
  * MISMO universo de la vista: el cliente recupera sólo lo que su lista podía mostrarle. Quién ve qué lo
  * decide `queOcultos` (lib/plantillas-ocultas.ts, con test).
+ *
+ * ⛔ Y LOS TRES QUE SON EVENTOS DE MaKo (`AVISOS_POR_EVENTO`, lib/aviso-evento.ts: «media hora antes», «un lead
+ * te escribió» y «cuota vencida») no salen en NINGUNA de las dos vistas desde el 11/10/2026: lo que sale lo dice
+ * la automatización del negocio (docs/diseno-mako-en-whatsapp-unificado.md), y su store ya no se lee. En
+ * /mensajes serían un interruptor que no prende ni apaga nada.
  */
 export async function listarPlantillas(opts: { vista?: 'cliente' | 'agencia'; ocultos?: boolean } = {}): Promise<PlantillaVista[]> {
   const store = await leerStore();
   const agencia = opts.vista === 'agencia';
-  const base = agencia ? CATALOGO_AVISOS : CATALOGO_AVISOS.filter((c) => esAvisoDelCliente(c.id));
+  const base = (agencia ? CATALOGO_AVISOS : CATALOGO_AVISOS.filter((c) => esAvisoDelCliente(c.id)))
+    .filter((c) => !AVISOS_POR_EVENTO.has(c.id));
   const built = base.map((c) => aVista(c, store[c.id], false));
   const custom = Object.entries(store)
     .filter(([, e]) => e.custom)
@@ -463,6 +469,8 @@ export async function getPlantilla(id: string): Promise<PlantillaVista | null> {
   // un aviso que ya se está emitiendo. Filtrar acá lo dejaría sin plantilla. Tampoco
   // los ocultos: uno eliminado tiene que encontrarse para saber que está APAGADO
   // (`estaPrendida`); sin plantilla, `plantillaActiva` contestaría «prendido».
+  // ⚠️ Los tres eventos de MaKo (`AVISOS_POR_EVENTO`) sí faltan acá, y a propósito: `emitirDelCatalogo` los desvía
+  // a `emitirPorEvento` ANTES de llamar a esto (lib/avisos.ts), así que su store no lo lee nadie (11/10/2026).
   return (await listarPlantillas({ vista: 'agencia' })).find((p) => p.id === id) ?? null;
 }
 

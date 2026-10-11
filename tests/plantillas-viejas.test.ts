@@ -22,6 +22,8 @@
 // una rotura por vez, y el número es el de este archivo:
 //   · sacarle `textoDelCodigo` a `reunion-recordatorio` → 1 fallo (test 1);
 //   · ponerle `textoDelCodigo` a `cuota-vencida` → 2 fallos (tests 1 y 2: deja de ser editable);
+//     (desde el 11/10/2026 la lista del cliente está vacía y `cuota-vencida` es un EVENTO de MaKo: el test 1 la
+//     cruza igual —su marca decide si su fila ofrece «Lo que arma MaKo»— y el test 2 ya no la ofrece editable);
 //   · pasarle un `texto` al `emitirDelCatalogo(d.avisoId` del cron de cobranza → 1 fallo (test 1);
 //   · cambiarle la pregunta a la ruta (`!seEditaElTexto(id) && false`) → 1 fallo (test 2);
 //   · devolver el editor del mensaje a `if (!editable)` → 1 fallo (test 2);
@@ -46,6 +48,8 @@ import { join } from 'node:path';
 import {
   CATALOGO_AVISOS, AVISOS_DEL_CLIENTE, seEditaElTexto, textoLoArmaElCodigo, correSuFlujo,
 } from '../lib/avisos-catalogo';
+import { AVISOS_POR_EVENTO } from '../lib/aviso-evento';
+import type { Flujo } from '../lib/flujos-tipos';
 import { grafoDeAviso, disparadorCorto } from '../lib/flujo-aviso';
 import { EVENTOS, EVENTOS_SIN_EMISOR, rotuloDeEvento, describirDisparador } from '../lib/flujos-tipos';
 import { planosDeAudios, comoNace, pasosDeEsqueleto, RELLENO_ESQUELETO } from '../lib/setting-semillas';
@@ -97,7 +101,11 @@ const CRON_COBRANZA = 'app/api/cron/cobranza/route.ts';
 const IDS_COBRANZA = [...new Set([...leer('lib/cobranza.ts').matchAll(/avisoId: '([a-z0-9-]+)'/g)].map((m) => m[1]))].sort();
 
 // ── 1. El texto que se ofrece para editar es el que sale ─────────────────────────────
-test('1. un mensaje del cliente se edita sólo si su texto sale de la plantilla (cruzado contra sus emisores)', () => {
+// ⚠️ Desde el 11/10/2026 `AVISOS_DEL_CLIENTE` está vacía: los que cruza este test son los EVENTOS de MaKo
+// (`AVISOS_POR_EVENTO`), cuya marca `textoDelCodigo` decide si su fila ofrece «Lo que arma MaKo»
+// (`{{mensaje_mako}}`, lib/aviso-evento.ts), y el reporte semanal, que lo sigue armando el código.
+const CRUZADOS = [...new Set([...AVISOS_DEL_CLIENTE, ...AVISOS_POR_EVENTO, 'reporte-semanal'])];
+test('1. el texto que arma el código (`textoDelCodigo`) es el que sale, cruzado contra sus emisores', () => {
   assert.ok(EMISORES.size > 20, `se leyeron ${EMISORES.size} avisos emitidos: el barrido quedó viejo`);
   assert.deepEqual(IDS_COBRANZA, ['cuota-por-vencer', 'cuota-vencida'], 'lib/cobranza.ts cambió sus avisos: revisá este test');
   const src = FUENTES.get(CRON_COBRANZA)!;
@@ -105,7 +113,8 @@ test('1. un mensaje del cliente se edita sólo si su texto sale de la plantilla 
   assert.ok(i > 0, 'el cron de cobranza ya no emite con `emitirDelCatalogo(d.avisoId`: el barrido quedó viejo');
   const cobranzaPasaTexto = pasaTexto(llamada(src, i));
 
-  for (const id of AVISOS_DEL_CLIENTE) {
+  assert.ok(CRUZADOS.length >= 4, `se cruzan ${CRUZADOS.length}: el universo quedó vacío`);
+  for (const id of CRUZADOS) {
     const em = [...(EMISORES.get(id) ?? []), ...(IDS_COBRANZA.includes(id) ? [{ archivo: CRON_COBRANZA, texto: cobranzaPasaTexto }] : [])];
     if (id === 'reporte-semanal') {
       // El reporte no pasa por `emitirDelCatalogo`: lo arma `buildReporteSemanal` y lo manda `despacharReporte`.
@@ -129,7 +138,9 @@ test('1. un mensaje del cliente se edita sólo si su texto sale de la plantilla 
 
 // ── 2. La ruta y el editor preguntan lo mismo, y el flujo sigue siendo del cliente ──────
 test('2. `seEditaElTexto` es la pregunta de la ruta Y del editor; el ＋ del flujo no cuelga de ella', () => {
-  assert.equal(seEditaElTexto('cuota-vencida'), true, 'la cobranza lee su plantilla: tiene que poder editarse');
+  // Desde el 11/10/2026 la lista del cliente está vacía: lo que dice la cobranza lo escribe el negocio en las
+  // tarjetas de su automatización (la plantilla «Cobranza de cuotas vencidas»), no en el store.
+  assert.equal(seEditaElTexto('cuota-vencida'), false, 'la cobranza volvió a editarse en el store: es un evento de MaKo');
   assert.equal(seEditaElTexto('reporte-semanal'), false);
   assert.equal(seEditaElTexto('meta-cuenta-frenada'), false, 'un aviso de la agencia no es del cliente');
   assert.equal(seEditaElTexto('custom-1-abc'), false, 'uno que no es del catálogo tampoco es de la lista del cliente');
@@ -162,20 +173,37 @@ test('3. la línea del CRON («Hoy sale solo: …») de un mensaje del cliente s
 test('4. `correSuFlujo` es exactamente lo que corre el único llamador de `correrFlujoDe`', () => {
   const llamadores = [...FUENTES].filter(([f, s]) => f !== 'lib/flujos.ts' && /correrFlujoDe\(/.test(s)).map(([f]) => f);
   assert.deepEqual(llamadores, [CRON_COBRANZA], 'hay otro código que corre el flujo de un aviso: sumá sus avisos a `correSuFlujo`');
-  assert.deepEqual(CATALOGO_AVISOS.filter((c) => c.correSuFlujo).map((c) => c.id).sort(), IDS_COBRANZA);
-  assert.equal(correSuFlujo('cuota-vencida'), true);
+  // `cuota-vencida` NO, desde el 11/10/2026: es un evento de MaKo y su cadencia es la fila del negocio. Con su
+  // flujo corriendo, la cadencia de fábrica saldría ADEMÁS de la de la plantilla.
+  assert.deepEqual(CATALOGO_AVISOS.filter((c) => c.correSuFlujo).map((c) => c.id).sort(), IDS_COBRANZA.filter((id) => !AVISOS_POR_EVENTO.has(id)));
+  assert.equal(correSuFlujo('cuota-vencida'), false);
+  assert.equal(correSuFlujo('cuota-por-vencer'), true);
   assert.equal(correSuFlujo('reunion-recordatorio'), false);
 });
 
-// ── 5. La plantilla de fábrica de la cobranza, dibujada ──────────────────────────────
-test('5. la cadencia de fábrica de la cobranza: tarjetas de la casa, con su texto, y ninguna «rota»', () => {
-  const cat = CATALOGO_AVISOS.find((c) => c.id === 'cuota-vencida')!;
-  const f = cat.flujoPorDefecto!;
+// ── 5. Un flujo que el código corre, dibujado ────────────────────────────────────────
+// ⚠️ Hasta el 11/10/2026 esto dibujaba la cadencia de FÁBRICA de `cuota-vencida` (`flujoPorDefecto`). Ese día la
+// cadencia pasó a ser la plantilla «Cobranza de cuotas vencidas» (lib/plantillas-automatizaciones.ts, sus textos
+// literales los fija tests/automations-mako-en-whatsapp.test.ts) y el catálogo la soltó. Lo que este test fija del
+// lienzo de /mensajes sigue: un aviso cuyo flujo corre el código (`cuota-por-vencer`) no se dibuja «roto».
+test('5. un flujo que corre el código (`correSuFlujo`): tarjetas de la casa, con su texto, y ninguna «rota»', () => {
+  assert.equal(CATALOGO_AVISOS.find((c) => c.id === 'cuota-vencida')!.flujoPorDefecto, undefined,
+    'volvió la cadencia de fábrica de la cobranza al catálogo: correría ADEMÁS de la automatización del negocio');
+  const cat = CATALOGO_AVISOS.find((c) => c.id === 'cuota-por-vencer')!;
+  const f: Flujo = {
+    version: 1, activo: true, disparador: { tipo: 'manual' },
+    pasos: [
+      { tipo: 'esperar', horas: 48 },
+      { tipo: 'mensaje', canal: 'aviso_dueno', texto: '💸 Sigue sin cobrarse la cuota {{cuota_numero}} de {{lead_nombre}}.' },
+      { tipo: 'esperar', horas: 72 },
+      { tipo: 'mensaje', canal: 'aviso_dueno', texto: '💸 Último recordatorio por la cuota {{cuota_numero}}.' },
+    ],
+  };
   const aviso = {
     disparador: cat.disparador, frecuenciaMin: 0, texto: cat.ejemplo,
     canales: { wa: true, email: false }, insistir: null, evento: f.disparador, pasos: f.pasos,
   };
-  const pasos = grafoDeAviso({ ...aviso, id: 'cuota-vencida' }).nodos.filter((n) => n.id.startsWith('paso-'));
+  const pasos = grafoDeAviso({ ...aviso, id: 'cuota-por-vencer' }).nodos.filter((n) => n.id.startsWith('paso-'));
   assert.equal(pasos.length, 4);
   assert.deepEqual(pasos.filter((n) => n.advertencia).map((n) => n.id), [],
     'los pasos que el cron corre se dibujan «sólo corre con un evento»: la plantilla de fábrica sale rota');

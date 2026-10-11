@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  enviosDePasos, enviosDeAviso, filaDeMensaje, pasaFiltroLista, seccionesDelFiltro, alternarFiltro, contarFiltros, VALOR, SECCION,
+  enviosDePasos, pasaFiltroLista, seccionesDelFiltro, alternarFiltro, contarFiltros, VALOR, SECCION,
   type FilaFiltrable,
 } from '../lib/chatbot-lista-filtro';
 import { SimuladorWhatsApp, filaDeSecuencia } from '../app/automations/SimuladorWhatsApp';
@@ -66,15 +66,8 @@ test('lo que NO manda nada no cuenta, aunque traiga `canal`: las tarjetas de con
   assert.deepEqual(enviosDePasos([]), []);
 });
 
-test('un Mensaje de MaKo le escribe al NEGOCIO: por WhatsApp, «Al WhatsApp de MaKo»; por email, a ninguno de los dos destinos', () => {
-  assert.deepEqual(enviosDeAviso({ wa: true, email: false }), [{ canal: 'whatsapp', destino: 'mako' }]);
-  assert.deepEqual(enviosDeAviso({ wa: false, email: true }), [{ canal: 'email', destino: 'negocio' }]);
-  assert.deepEqual(enviosDeAviso({ wa: true, email: true }).length, 2);
-  assert.deepEqual(enviosDeAviso(null), []);
-  // La fila: un fijo cuenta como activo aunque su interruptor diga otra cosa, y el emoji es el de su categoría.
-  assert.deepEqual(filaDeMensaje({ categoria: 'reporte', enabled: false, fijo: true, canales: { wa: true, email: false } }),
-    { activa: true, emoji: '📊', envios: [{ canal: 'whatsapp', destino: 'mako' }] });
-});
+// (Acá iba el test de `enviosDeAviso` / `filaDeMensaje`: la fila de un Mensaje de MaKo de los de antes. Se fue el
+// 11/10/2026 con ellos: un mensaje de «MaKo en WhatsApp» es una automatización y su fila sale de sus pasos.)
 
 test('la fila de una automatización: el emoji que se VE y los envíos de SUS pasos', () => {
   const j = { activa: false, emoji: '🧲', estrategia: null, pasos: [mail(), mako()] } as unknown as SecuenciaDto;
@@ -122,10 +115,6 @@ test('«Canal»: por dónde y a quién se contestan sobre el MISMO envío, y la 
   // Sólo al lead: no pasa «Al WhatsApp de MaKo». Sin envíos (nada armado): no pasa ningún canal.
   assert.equal(pasaFiltroLista(FILA(true, '📅', WA_LEAD), [VALOR.mako]), false);
   assert.equal(pasaFiltroLista(FILA(true, '📅'), [VALOR.whatsapp]), false);
-  // Un Mensaje de MaKo sólo por email pasa «Email» y no «Al WhatsApp de MaKo» (le llega al correo).
-  const soloMail = filaDeMensaje({ categoria: 'aviso', enabled: true, fijo: false, canales: { wa: false, email: true } });
-  assert.equal(pasaFiltroLista(soloMail, [VALOR.email]), true);
-  assert.equal(pasaFiltroLista(soloMail, [VALOR.mako]), false);
 });
 
 // ── Qué ofrece el desplegable ───────────────────────────────────────────────────
@@ -207,15 +196,14 @@ test('el desplegable es el del Plan: el Dropdown de la casa por secciones, con v
   assert.match(f, /pie=\{n > 0 \? \{ label: 'Quitar filtros', onClick: \(\) => onCambio\(\[\]\) \} : undefined\}/);
   // El número arriba a la derecha, que también quita (el molde del Plan y del CRM).
   assert.match(f, /\{n > 0 && \(\n\s+<span aria-hidden onClick=\{\(\) => onCambio\(\[\]\)\} title="Quitar filtros"/);
-  // La lista le pasa TODAS sus filas (automatizaciones —el recordatorio es una más desde el 10/10/2026— y
-  // mensajes) y filtra con la misma función.
+  // La lista le pasa TODAS sus filas (automatizaciones: el recordatorio desde el 10/10/2026 y las de «MaKo en
+  // WhatsApp» desde el 11/10) y filtra con la misma función. Las dos divisiones salen de lo que pasa.
   const lista = fuente('app/automations/SimuladorWhatsApp.tsx');
   assert.match(lista, /<FiltroLista filas=\{todasLasFilas\} valores=\{filtros\} onCambio=\{setFiltros\} \/>/);
-  const filas = lista.slice(lista.indexOf('const todasLasFilas: FilaFiltrable[] = ['), lista.indexOf('];', lista.indexOf('const todasLasFilas: FilaFiltrable[] = [')));
-  assert.match(filas, /\.\.\.filasSec\.values\(\),\n\s+\.\.\.avisosLista\.map\(filaDeMensaje\),/,
+  assert.match(lista, /const todasLasFilas: FilaFiltrable\[\] = \[\.\.\.filasSec\.values\(\)\];/,
     'el desplegable no cuenta todas las filas de la lista');
   assert.match(lista, /pasaFiltroLista\(filasSec\.get\(j\.id\) \?\? filaDeSecuencia\(j\), filtros\)/);
-  assert.match(lista, /avisosLista\.filter\(\(a\) => pasaFiltroLista\(filaDeMensaje\(a\), filtros\)/);
+  assert.match(lista, /const divisiones = useMemo\(\(\) => partirLista\(lista\), \[lista\]\);/, 'las divisiones no salen de lo que pasa el filtro');
 });
 
 test('el Dropdown aprendió lo que le faltaba del filtro del Plan: el resumen de la sección, la línea y el pie que no cierra', () => {
@@ -248,7 +236,7 @@ test('el Dropdown aprendió lo que le faltaba del filtro del Plan: el resumen de
 //     versión del test daba VERDE: sólo probaba «Activas», y `null` caía del lado de «Pausadas»)
 //   · F6 sin la línea antes de «A clientes»: 32 / 1 · F7 la raíz dice «Todas» en Emojis: 32 / 1
 //   · F8 un email al negocio cuenta como «Al WhatsApp de MaKo»: 31 / 2 · F9 un fijo apagado cuenta
-//     como pausado: 31 / 2
+//     como pausado: 31 / 2 (F8 y F9 eran de `filaDeMensaje`, que se fue el 11/10/2026)
 //   · U1 sin «Quitar filtros»: 32 / 1 · U2 «Quitar filtros» cierra el menú: 32 / 1 · U3 la sección del
 //     Dropdown sin resumen: 32 / 1 · U4 el botón con texto: 32 / 1 · U5 el desplegable sin contar los
 //     mensajes: 32 / 1

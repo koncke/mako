@@ -214,6 +214,8 @@ export const COHORTE_GLOSS: Record<string, string> = {
   // El disparador por ETIQUETA (mig 0223). La etiqueta la puso una persona o una automatización
   // y su nombre dice para qué: la glosa no puede inventar la situación, sólo decir de dónde viene.
   etiqueta_puesta: 'Le acaban de poner una etiqueta en el CRM (la que dispara esta secuencia): alguien del equipo o una automatización lo clasificó así. Escríbele según lo que esa etiqueta dice de él, sin nombrar la etiqueta.',
+  // «MaKo en WhatsApp» como automatización (11/10/2026): no le escribe al lead, le avisa al EQUIPO en su grupo.
+  aviso_mako: 'No le escribes al lead: es un aviso al EQUIPO del negocio en su grupo de WhatsApp, cuando pasa algo con un lead (una reunión que se viene, un lead que contestó, una cuota sin cobrar). Corto, con el dato y qué hacer.',
 };
 
 // Extrae el primer objeto JSON balanceado (tolera prosa alrededor y llaves {{...}}

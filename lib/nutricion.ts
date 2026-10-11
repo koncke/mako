@@ -48,9 +48,10 @@ import { decidirAgenda } from '@/lib/nutricion-agenda';
 import {
   disparadoresDe, vistasPorDisparador, unaPorSecuencia, disparaPorEvento, barreElDisparador, textosParaElGrupo,
   TRIGGERS_SOLO_EVENTO, TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER,
-  TRIGGER_EMAIL_RECIBIDO,
+  TRIGGER_EMAIL_RECIBIDO, TRIGGERS_DEL_EMISOR, TRIGGER_AVISO_MAKO,
   type Disparador,
 } from '@/lib/disparadores';
+import { frenoDelEvento, eventoDeFila } from '@/lib/aviso-evento';
 import { tzActual, TZ_DEFAULT, KEY_TIMEZONE } from '@/lib/timezone';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar, crearBorrador, tieneBorradorNutriPendiente, tieneBorradorPendienteDePaso } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
@@ -602,6 +603,22 @@ function problemaDeMedia(p: PasoSecuencia): string | null {
   return null;
 }
 
+/**
+ * EL FRENO DE UN EVENTO DE MAKO (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md): con el CRON «Evento de
+ * MaKo», sólo lo que su emisor sabe correr (`frenoDelEvento`, lib/aviso-evento.ts): «MaKo en WhatsApp», DELAY por
+ * tiempo y CONDITION de una salida, en fila. Lo demás se publicaría y no saldría. CUÁL evento vive en la lista de
+ * CRON (`disparadores`, mig 0241): se lee SÓLO para una fila de evento, así la lectura de siempre de
+ * `setSecuenciaPasos` (las variantes, el recordatorio) no depende de esa columna. Un error de lectura TIRA.
+ */
+async function frenoDeFilaEvento(
+  supabase: Awaited<ReturnType<typeof getTenantDb>>, id: number, previo: unknown, grafo: readonly PasoGrafo[],
+): Promise<{ error: string; tarjeta: string | null } | null> {
+  if ((previo as { trigger_tipo?: string } | null)?.trigger_tipo !== TRIGGER_AVISO_MAKO) return null;
+  const { data, error } = await supabase.from('nutricion_secuencias').select('disparadores').eq('id', id).maybeSingle();
+  if (error) throw new Error(`setSecuenciaPasos (el evento): ${error.message}`);
+  return frenoDelEvento(grafo, eventoDeFila({ trigger_tipo: TRIGGER_AVISO_MAKO, disparadores: (data as { disparadores?: unknown } | null)?.disparadores }));
+}
+
 export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: { soloValidar?: boolean }): Promise<void> {
   const supabase = (await getTenantDb());
 
@@ -793,6 +810,9 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
     const r = toquesDeLaAutomatizacion(grafo);
     if (r.problema) throw new PasosInvalidosError(`No se guardó: ${r.problema}`);
   }
+  // Un EVENTO DE MAKO: sólo lo que su emisor sabe correr (`frenoDeFilaEvento`).
+  const delEvento = await frenoDeFilaEvento(supabase, id, previo, grafo);
+  if (delEvento) throw new PasosInvalidosError(`No se guardó: ${delEvento.error}`);
   // Activar valida lo mismo que Publicar, sin escribir (`setSecuenciaActiva`).
   if (o?.soloValidar) return;
   const { error } = await supabase
@@ -1013,6 +1033,10 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
   // Su automatización la lee el emisor de siempre (`toquesDelNegocio`, lib/reunion-recordatorio.ts), que ya
   // resuelve la R1 y la R2, las reagendas y la tolerancia: inscribirla también acá mandaría todo dos veces.
   if (triggerTipo === 'reunion_recordatorio') return [];
+  // ⛔ NI EL EVENTO DE MAKO (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md): «MaKo en WhatsApp» como
+  // automatización la corre el emisor de cada aviso (`emitirPorEvento`, lib/aviso-evento.ts) cuando el hecho
+  // pasa. Acá no hay cohorte: inscribirla le mandaría al grupo un aviso por cada lead, sin que pase nada.
+  if (triggerTipo === 'aviso_mako') return [];
   const desde = haceDiasISO(VENTANA_DIAS);          // timestamp ISO, para created_at
   const hoy = ahoraISO().slice(0, 10);              // YYYY-MM-DD (UTC), para fechas futuras
   const fechaDesde45 = haceDiasISO(45).slice(0, 10); // YYYY-MM-DD, ventana de hitos recientes
@@ -2111,6 +2135,10 @@ export async function inscribirEnSecuencia(
   const quien = lead ? { id: Number(lead.id), nombre: lead.nombre?.trim() || `el lead #${lead.id}` } : null;
   if (!s) return { inscribe: false, porque: 'secuencia_no_existe', secuencia: null, lead: quien };
   const ref = { id: Number(s.id), nombre: s.nombre };
+  // ⛔ EL RECORDATORIO Y LOS EVENTOS DE MAKO NO SE INSCRIBEN (11/10/2026): los manda SU emisor
+  // (`TRIGGERS_DEL_EMISOR`, lib/disparadores.ts). Un «Ir a» o la acción `inscribir_nutricion` le metían un
+  // lead al motor, que corría tarjetas armadas para el emisor (al recordatorio, además, los toques dos veces).
+  if (TRIGGERS_DEL_EMISOR.has(s.trigger_tipo)) return { inscribe: false, porque: 'del_emisor', secuencia: ref, lead: quien };
   if (!lead || !quien) return { inscribe: false, porque: 'lead_no_existe', secuencia: ref, lead: null };
 
   const pasos = Array.isArray(s.pasos) ? (s.pasos as PasoSecuencia[]) : [];
@@ -2514,6 +2542,15 @@ async function leadIdsDe(
  * Cualquier otro error TIRA: decidir una rama sin el dato es mandarle al lead lo que no le toca.
  */
 const FUENTES_DE_ANTES: ReadonlySet<Fuente> = new Set<Fuente>(['lead', 'etiquetas', 'productos', 'contacto', 'respondio']);
+
+/**
+ * LOS HECHOS DE UN LEAD, para la CONDITION de un evento de MaKo (11/10/2026, lib/flujos.ts `ejecutarPasos`):
+ * la MISMA lectura que el motor (`hechosDeLeads`), en el workspace del evento y sólo con las fuentes que
+ * piden sus filas. Un error TIRA: quien llama lo convierte en «no se sabe», que NUNCA cumple.
+ */
+export async function hechosDeUnLead(ws: number, leadId: number, filas?: readonly FilaCondicion[]): Promise<HechosLead | null> {
+  return runWithWorkspace(ws, async () => (await hechosDeLeads(await getTenantDb(), [leadId], filas)).get(leadId) ?? null);
+}
 
 async function hechosDeLeads(
   db: Awaited<ReturnType<typeof getTenantDb>>,
@@ -3523,6 +3560,20 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     for (const insc of due) {
       const sec = porId.get(insc.secuencia_id);
       const lead = leadMap.get(insc.lead_id);
+      // ⛔ UNA FILA DEL EMISOR NO LLEVA LEADS, Y EL MOTOR NO LE CORRE NADA (revisión del 11/10/2026). El recordatorio
+      // y el «Evento de MaKo» los manda su propio emisor (`TRIGGERS_DEL_EMISOR`); el freno de la entrada vivía en dos
+      // puertas (`cohorteDeTrigger`, `inscribirEnSecuencia`) y quedaban otras: el encadenamiento del desenlace
+      // (lib/nutricion-desenlace.ts, `encadenar`) inserta la inscripción sin preguntar, y la API acepta cualquier clave
+      // vigente como «secuencia que sigue». Corrida acá, la tarjeta «MaKo en WhatsApp» es una ⚡ Acción que pasa
+      // incluso con el cupo lleno, y mandaba al grupo `{{mensaje_mako}}` o `{{cuota_numero}}` crudos, por lead. Va
+      // ANTES de los hilos y del cupo: es el único lugar por el que pasan todas las puertas, las de hoy y las que vengan.
+      // Se cancela (no se completa): «cancelada» no es un desenlace, y el evaluador no le mueve la etapa al lead.
+      if (sec && TRIGGERS_DEL_EMISOR.has(sec.trigger_tipo)) {
+        await escribir(insc, { estado: 'cancelada', proximo_envio_at: null }, { modo: 'fila', alcance: 'inscripcion' });
+        res.omitidos += 1;
+        res.detalle.push({ lead_id: insc.lead_id, canal: '—', estado: 'omitido', nota: 'la automatización la manda su propio emisor: no lleva leads' });
+        continue;
+      }
       // ── LOS HILOS (segunda tanda): una fila nueva con varias raíces se reparte; con hilos, se
       // toma UNO —el vencido más antiguo que no se miró en esta corrida en esa tarjeta— y se lo
       // trata como el cursor de siempre. Si quedan otros vencidos, la fila vuelve a la cola.
@@ -4603,6 +4654,8 @@ async function seguirCharla(
   const quien = charla.nombre?.trim() || `lead ${leadId}`;
   await emitirDelCatalogo('wa-mensaje-entrante', {
     ws: (await getWorkspaceActual()) ?? undefined,
+    // El lead (11/10/2026): lo nombran las automatizaciones del evento de MaKo y lo mira su CONDITION.
+    lead: { id: leadId, nombre: charla.nombre },
     dedupKey: `lead:${leadId}:charla-cerrada`,
     dedupTtlMin: 60 * 12,
     texto: `💬 *${quien} te escribió.*${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\nNo le preparé respuesta: ${v.motivo}. Contéstale tú.\n\n— MaKo`,
@@ -4853,6 +4906,7 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
       : sinBorrador ? `\n\nNo pude dejarte un borrador: ${sinBorrador}` : '';
   await emitirDelCatalogo('wa-mensaje-entrante', {
     ws: (await getWorkspaceActual()) ?? undefined,
+    lead: { id: leadId, nombre: lead?.nombre ?? null },
     // «a la automatización» desde el 10/10/2026 (restos de versiones anteriores): decía «a la secuencia
     // de mensajes», el nombre de antes de la tab.
     texto: `💬 *${quien} respondió* a la automatización «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${borrador}${alertaDescalifica}\n\n— MaKo`,
@@ -5024,6 +5078,7 @@ async function responderConGrafo(c: CtxRespuesta): Promise<boolean> {
     const quien = lead?.nombre?.trim() || `lead ${leadId}`;
     await emitirDelCatalogo('wa-mensaje-entrante', {
       ws: (await getWorkspaceActual()) ?? undefined,
+      lead: { id: leadId, nombre: lead?.nombre ?? null },
       texto: `💬 *${quien} respondió* a «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\n${caso ? `Caso «${caso.titulo}».` : 'No encajó en ningún caso.'}${hecho.length ? `\n${hecho.join('\n')}` : ' No hice nada más.'}\n\n— MaKo`,
     });
   }

@@ -21,15 +21,14 @@ import { Icon } from '@/app/_components/icons';
 // next/link NO: perdería el ?ws= y mandaría al super admin a SU propio WhatsApp
 // en vez del que está mirando.
 import Link from '@/app/_ui/Link';
-import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type AbrirAviso, type Creando } from './SimuladorWhatsApp';
+import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type Creando } from './SimuladorWhatsApp';
 import { HorarioLista } from './HorarioLista';
-import { GaleriaPlantillas, type CreadaGaleria } from './GaleriaPlantillas';
+import { GaleriaPlantillas, type CreadaGaleria, type SeccionGaleria } from './GaleriaPlantillas';
 import { leerCopia, firmaDeCopia } from '@/lib/flujo-copia';
 import type { ClaseDisparador } from '@/lib/disparadores';
-// Los Mensajes de MaKo (los flujos de Configuraciones › Notificaciones, quinta tanda punto 5): el
-// endpoint y el parámetro del link son los de allá (lib/chatbot-mensajes-mako.ts).
-import { ENDPOINT_MENSAJES_MAKO, ENDPOINT_MENSAJES_OCULTOS, PARAM_AVISO, mensajePedido } from '@/lib/chatbot-mensajes-mako';
-import type { PlantillaVista } from '@/lib/plantillas';
+// (Acá se importaba lib/chatbot-mensajes-mako.ts: el endpoint de Notificaciones y el link `?aviso=` de los
+// Mensajes de MaKo de antes. Se fue el 11/10/2026: «MaKo en WhatsApp» son automatizaciones de esta misma lista,
+// con el CRON «Evento de MaKo» — docs/diseno-mako-en-whatsapp-unificado.md.)
 import type { CronAviso } from '@/lib/cron-aviso';
 // ⚠️ ACÁ SE IMPORTABAN `HandoffsPanel` Y `RecordatorioReunion`, y se fueron el 08/10/2026 con
 // el pedido de Martín: «Elimina completamente lo de arriba ese form que ocupa toda la pantalla,
@@ -229,15 +228,6 @@ function ChatAgentInner() {
   /** La automatización que pidió abrir el deep link `?sec=`: se abre en su LIENZO. */
   const [abrirSec, setAbrirSec] = useState<AbrirSecuencia | null>(null);
   /**
-   * LOS MENSAJES DE MAKO (quinta tanda, punto 5): los flujos de Configuraciones › Notificaciones,
-   * leídos por SU endpoint, que tiene guard de admin del workspace. Se piden sólo con `rolAdmin`:
-   * a un setter el endpoint le contesta 403, y la lista no puede ofrecerle filas que no puede
-   * abrir. `null` = no se leyeron (o no se pudieron leer): la lista no dibuja el grupo.
-   */
-  const [avisos, setAvisos] = useState<PlantillaVista[] | null>(null);
-  /** El mensaje que pidió abrir el link de Notificaciones (`?aviso=`). */
-  const [abrirAviso, setAbrirAviso] = useState<AbrirAviso | null>(null);
-  /**
    * «＋ Nueva» en vuelo: un doble clic mandaba dos `crear_vacia` y dejaba dos filas vacías. Es un
    * ref y no un estado porque el segundo clic llega antes de que el primero vuelva a dibujar.
    */
@@ -251,8 +241,11 @@ function ChatAgentInner() {
    * dibuja pegado al botón que lo produjo.
    */
   const [errCrear, setErrCrear] = useState<string | null>(null);
-  /** «＋ Nueva» abre la GALERÍA (10/10/2026: «hagamos la galería de las más comunes»): en blanco o desde una plantilla. */
-  const [galeria, setGaleria] = useState(false);
+  /**
+   * «＋ Nueva» abre la GALERÍA (10/10/2026: «hagamos la galería de las más comunes»): en blanco o desde una plantilla.
+   * `seccion: 'mako'` = la abrió «＋ Nuevo mensaje» y va a la sección «MaKo en WhatsApp» (11/10/2026).
+   */
+  const [galeria, setGaleria] = useState<false | { seccion?: SeccionGaleria }>(false);
   /**
    * El onboarding de esta tab es UNA pregunta: ¿hay un WhatsApp vinculado?
    *
@@ -368,51 +361,11 @@ function ChatAgentInner() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  /**
-   * Los Mensajes de MaKo, aparte de `load()`: son de OTRA pantalla y otra ruta, y un fallo de acá
-   * no puede dejar la tab con el cartel de error de las automatizaciones. Si no se pueden leer, la
-   * lista sigue con sus automatizaciones y sin el grupo — no se afirma que no haya ninguno.
-   */
-  const cargarAvisos = useCallback(async () => {
-    try {
-      const r = await fetch(ENDPOINT_MENSAJES_MAKO, { cache: 'no-store' });
-      const j = await r.json().catch(() => null);
-      if (r.ok && j?.ok && Array.isArray(j.plantillas)) setAvisos(j.plantillas as PlantillaVista[]);
-    } catch { /* sin red: la lista queda con las automatizaciones */ }
-  }, []);
-  useEffect(() => { if (rolAdmin) void cargarAvisos(); }, [rolAdmin, cargarAvisos]);
-
-  /**
-   * LOS MENSAJES QUE ESTE NEGOCIO ELIMINÓ (novena tanda, 10/10/2026): el «⋯» de su fila los OCULTA, y se
-   * recuperan desde «Nueva automatización» (la galería). Los lee el MISMO endpoint, con `?ocultos=1`, y sólo
-   * para el admin, como los otros. Se leen al entrar y cada vez que se elimina o se recupera uno. Si no se
-   * pueden leer, la galería no dibuja la sección: no se afirma que no haya ninguno.
-   */
-  const [ocultos, setOcultos] = useState<PlantillaVista[] | null>(null);
-  const cargarOcultos = useCallback(async () => {
-    try {
-      const r = await fetch(ENDPOINT_MENSAJES_OCULTOS, { cache: 'no-store' });
-      const j = await r.json().catch(() => null);
-      if (r.ok && j?.ok && Array.isArray(j.plantillas)) setOcultos(j.plantillas as PlantillaVista[]);
-    } catch { /* sin red: la galería sigue sin la sección */ }
-  }, []);
-  useEffect(() => { if (rolAdmin) void cargarOcultos(); }, [rolAdmin, cargarOcultos]);
-  /**
-   * RECUPERAR UNO desde la galería: vuelve a la lista PRENDIDO (`restaurar`, lib/plantillas-ocultas.ts), la
-   * galería se cierra y se abre su lienzo — cuando la lista ya lo trae, que es lo que `abrirAviso` espera
-   * (sólo abre un mensaje que esté entre los que se ven). Devuelve por qué no se pudo, para la galería.
-   */
-  const restaurarMensaje = async (id: string): Promise<string | null> => {
-    try {
-      const r = await fetch(ENDPOINT_MENSAJES_MAKO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'restaurar', id }) });
-      const j = await r.json().catch(() => null) as { ok?: boolean; error?: string } | null;
-      if (!r.ok || !j?.ok) return j?.error || 'No se pudo recuperar';
-      await Promise.all([cargarAvisos(), cargarOcultos()]);
-      setGaleria(false);
-      setAbrirAviso({ id });
-      return null;
-    } catch { return 'Sin conexión — prueba de nuevo.'; }
-  };
+  // ⛔ ACÁ SE LEÍAN LOS MENSAJES DE MAKO DE ANTES (`cargarAvisos`, quinta tanda), los que el negocio había
+  // «eliminado» (`cargarOcultos`, novena tanda) y se recuperaban desde la galería (`restaurarMensaje`), todo por
+  // el endpoint de Configuraciones › Notificaciones. Se fueron el 11/10/2026: un mensaje de «MaKo en WhatsApp» es
+  // una fila más de `/api/chat-agent/secuencias` (lo trae `load()`), nace de la galería y se archiva como
+  // cualquier automatización. Un setter lo ve como a las demás.
 
   /**
    * «NUEVA» (decisión 14 de la segunda tanda): una automatización VACÍA y pausada, y se abre su
@@ -448,8 +401,11 @@ function ChatAgentInner() {
       await load();
     } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
   };
-  /** «＋ Nueva»: la galería. «En blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia). */
-  const abrirGaleria = () => { setErrCrear(null); setGaleria(true); };
+  /**
+   * «＋ Nueva»: la galería. «En blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia).
+   * «＋ Nuevo mensaje» la abre en la sección «MaKo en WhatsApp» (`seccion: 'mako'`).
+   */
+  const abrirGaleria = (seccion?: SeccionGaleria) => { setErrCrear(null); setGaleria({ seccion }); };
   /** La que se acaba de crear con un tipo de CRON elegido: su lienzo abre ese CRON (SecuenciaPerfil, `arranque`). */
   const [arranque, setArranque] = useState<{ id: number; clase: ClaseDisparador } | null>(null);
   /**
@@ -547,21 +503,9 @@ function ChatAgentInner() {
     anclaAplicada.current = true;
   }, [params, secuencias]);
 
-  // ── El ancla del link de Notificaciones: /automations?aviso=<id> (quinta tanda, punto 5) ──
-  // Aparte del de `?sec=`: espera a OTRA lista (los mensajes, que llegan por otra ruta y sólo para
-  // el admin). Se aplica una vez por query: volver a leer los mensajes después de un cambio no
-  // vuelve a abrir el del link encima de lo que la persona eligió después. Un id que no está entre
-  // los que esta persona ve no abre nada (quien no es admin, o un mensaje que ya no existe).
-  const ultimaQueryAviso = useRef<string | null>(null);
-  useEffect(() => {
-    const id = mensajePedido(avisos, params.get(PARAM_AVISO));
-    if (!id) return;
-    const q = params.toString();
-    if (ultimaQueryAviso.current === q) return;
-    ultimaQueryAviso.current = q;
-    setAbrirAviso({ id });
-  }, [params, avisos]);
-  const hayAvisos = rolAdmin && (avisos?.length ?? 0) > 0;
+  // (Acá iba el ancla del link de Notificaciones, `/automations?aviso=<id>`, que abría el lienzo de un Mensaje
+  // de MaKo de antes. Se fue el 11/10/2026: ese link ya no lo arma nadie, y uno viejo abre la lista de siempre.
+  // Un mensaje de «MaKo en WhatsApp» es una automatización y se abre con `?sec=`, como todas.)
 
   const etiquetaEtapa = useCallback(
     (key: string) => etapas.find((e) => e.value === key)?.label ?? ETAPA_LABEL[key] ?? key,
@@ -590,13 +534,9 @@ function ChatAgentInner() {
   // /whatsapp —ahí viven el sondeo, el QR y la recuperación de una sesión caída— y en modo
   // `inline` se dibuja sola y desaparece en cuanto engancha.
   //
-  // ⚠️ SALVO QUE SE VENGA A EDITAR UN MENSAJE DE MAKO (quinta tanda, punto 5): el link de
-  // Notificaciones (`?aviso=<id>`) es el ÚNICO lugar donde ese mensaje se edita desde que su lienzo
-  // salió de allá, y un mensaje de MaKo no sale por la línea del negocio (va al grupo de MaKo o al
-  // correo). Detrás del QR, un negocio sin WhatsApp vinculado se quedaba sin ningún lugar donde
-  // editarlo (AGENTS.md, «Si después de cerrar no queda ningún camino…»).
-  const vieneAUnMensaje = params.get(PARAM_AVISO) != null;
-  if (enOnboarding && !vieneAUnMensaje) {
+  // (Hasta el 11/10/2026 el link `?aviso=<id>` de Notificaciones pasaba por encima del QR: era el único lugar
+  // donde se editaba un Mensaje de MaKo. Esos mensajes son hoy automatizaciones de esta lista, y el link se fue.)
+  if (enOnboarding) {
     return (
       <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px', gap: 16 }}>
         <div>
@@ -742,14 +682,12 @@ function ChatAgentInner() {
 
       {secuencias === null && !error && <div style={{ color: 'var(--dim)', fontSize: '14px' }}>Cargando automatizaciones…</div>}
 
-      {/* Sin automatizaciones PERO con Mensajes de MaKo, va la lista (quinta tanda, punto 5): el link
-          de Notificaciones tiene que aterrizar en el lienzo de su mensaje, no en este cartel. */}
-      {visibles !== null && visibles.length === 0 && !hayAvisos && !error && (
+      {visibles !== null && visibles.length === 0 && !error && (
         <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
           Todavía no hay automatizaciones.
           {rolAdmin && (
             <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <button onClick={abrirGaleria} style={btnDark}>＋ Nueva</button>
+              <button onClick={() => abrirGaleria()} style={btnDark}>＋ Nueva</button>
               {/* EL HORARIO TAMBIÉN ACÁ: sin ninguna automatización la lista no se dibuja, y un negocio
                   nuevo no tenía dónde ponerlo «allí mismo». El panel, sin la lista, cuelga del botón. */}
               <HorarioLista rolAdmin={rolAdmin} />
@@ -763,11 +701,9 @@ function ChatAgentInner() {
       {/* EL QUE ESTIRA, Y PEGADO A LOS BORDES. Todo lo de arriba es `flex: none` con su
           propio padding; esto se lleva el alto que sobra y llega hasta el borde de la
           tab, que es lo que significa «que ocupe TODA la tab». */}
-      {visibles !== null && (visibles.length > 0 || hayAvisos) && (
+      {visibles !== null && visibles.length > 0 && (
         <SimuladorWhatsApp
           secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
-          avisos={avisos} abrirAviso={abrirAviso} onAvisosCambio={() => void cargarAvisos()}
-          onOcultosCambio={() => void cargarOcultos()}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
           abrir={abrirSec}
@@ -789,15 +725,13 @@ function ChatAgentInner() {
 
       {/* LA GALERÍA de «＋ Nueva» (sólo un admin crea). «En blanco» es la vacía de siempre. */}
       {galeria && rolAdmin && (
-        <GaleriaPlantillas productos={productos} onCerrar={() => setGaleria(false)}
+        <GaleriaPlantillas productos={productos} onCerrar={() => setGaleria(false)} seccion={galeria.seccion}
           onEmpezar={() => { setGaleria(false); void crearNueva(); }}
           onCron={(clase) => { setGaleria(false); void crearNueva(clase); }}
           onPegar={(t) => { setGaleria(false); void crearDesdeCopia(t); }}
           onCreada={(r) => void alCrearDePlantilla(r)}
           // El recordatorio de la reunión es UNO por negocio: si ya está en la lista, su plantilla se dibuja apagada.
-          triggersVivos={(secuencias ?? []).map((s) => s.trigger_tipo)}
-          // Los Mensajes de MaKo que este negocio eliminó: tocar uno lo recupera y abre su lienzo (novena tanda).
-          ocultos={ocultos ?? []} onRestaurar={restaurarMensaje} />
+          triggersVivos={(secuencias ?? []).map((s) => s.trigger_tipo)} />
       )}
 
       {/* «COPIASTE UN FLUJO»: arriba al centro, sobre el lienzo, hasta que se conteste. */}

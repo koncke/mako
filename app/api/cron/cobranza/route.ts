@@ -70,12 +70,18 @@ export async function GET(req: NextRequest) {
             // modelo deja de ser exacto, y acá el dato exacto es plata que alguien debe.
             datos: d.datos,
             dedupKey: d.dedupKey, dedupTtlMin: TTL_UNA_POR_CUOTA_MIN,
+            // La cuota (11/10/2026): desde que `cuota-vencida` es un evento de MaKo (lib/aviso-evento.ts),
+            // su cadencia corre en la automatización del negocio, y una corrida dormida se CORTA al marcar
+            // el pago por esta clave (`cerrarCorridasDeCuota`, lib/flujo-corridas.ts).
+            cuotaId: d.cuota.pago_id,
           });
           // `deduped` no es un fallo: es «esta cuota ya entró», que es el caso normal
           // de todos los días siguientes al primero.
           if (r.ok && !r.deduped) {
             hechos.push(`${d.avisoId}:${d.cuota.pago_id}`);
-            // Y recién acá arranca la CADENCIA que el dueño editó en el lienzo. Va
+            // Y recién acá arranca la CADENCIA que el dueño editó en el lienzo (sólo la de un aviso que no
+            // es un evento de MaKo: `cuota-por-vencer`; la de `cuota-vencida` ya corrió adentro de la
+            // entrada, y `correrFlujoDe` contesta false para ella). Va
             // después de la entrada y sólo si la entrada salió: un flujo que corre
             // sobre un aviso que el dedup descartó insistiría sobre un mensaje que
             // nadie recibió. El `cuotaId` viaja en el ctx porque es lo que permite

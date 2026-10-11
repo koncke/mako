@@ -13,6 +13,7 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
 import type { CtxFlujo } from './flujos';
+import { ctxParaDormir } from './flujo-pasos';
 
 export type Corrida = {
   id: number;
@@ -49,13 +50,20 @@ export async function abrirCorrida(
   paso: number,
   proximaAt: Date | null,
   ctx: CtxFlujo,
+  o?: { reintento?: boolean },
 ): Promise<number | null> {
   try {
     return await runWithWorkspace(ws, async () => {
       const db = await getTenantDb();
+      // ⚠️ SE GUARDA SIN LO QUE ENVEJECE (`ctxParaDormir`, 11/10/2026): la corrida despierta días después,
+      // y un «hace 1 día» guardado hoy sería falso al salir. La entrada ya salió con los datos completos.
+      // ⚠️ SALVO UN REINTENTO (`reintento`, revisión del 11/10/2026): ahí no se durmió en un DELAY sino porque no se
+      // pudo leer al lead en una CONDITION, y lo que viene puede ser la ENTRADA, que usa `{{cuota_dias}}` (antes de un
+      // DELAY va: es el dato de hoy). Es el mismo momento unos minutos después (`reintentoDeHechos` tiene tope): sacarle
+      // el dato la mandaría con la variable cruda. Lo de después de un DELAY no lo puede usar igual (`pasosDelEvento`).
       const { data, error } = await db.from('flujo_corridas').insert({
         aviso_id: avisoId, paso, proxima_at: proximaAt?.toISOString() ?? null,
-        desde_at: new Date().toISOString(), ctx,
+        desde_at: new Date().toISOString(), ctx: o?.reintento ? ctx : ctxParaDormir(ctx),
       }).select('id').single();
       if (error) { console.error('[corridas] abrir:', error.message); return null; }
       return (data as { id: number }).id;
@@ -108,6 +116,8 @@ export async function corridasVencidas(limite = 50): Promise<Array<Corrida & { w
  */
 export async function avanzar(
   ws: number, id: number, pasoViejo: number, pasoNuevo: number, proximaAt: Date | null,
+  /** Sólo el reintento de una CONDITION (`reintentoDeHechos`): la cuenta de vueltas viaja en el contexto. */
+  ctx?: CtxFlujo,
 ): Promise<boolean> {
   try {
     return await runWithWorkspace(ws, async () => {
@@ -120,6 +130,7 @@ export async function avanzar(
           // mide desde que se DURMIÓ, no desde que arrancó la corrida.
           desde_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          ...(ctx ? { ctx } : {}),
         })
         .eq('id', id).eq('paso', pasoViejo).eq('estado', 'pendiente')
         .select('id');

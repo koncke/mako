@@ -70,6 +70,23 @@
 // automatización desde la galería (0 filas con clave `plantilla-%`, medido en producción el 10/10/2026),
 // así que los ids viejos (`agendo-con-bienvenida`, `agendo-sin-hablar`) no los nombra ningún dato.
 //
+// ── LOS MENSAJES DE «MaKo EN WHATSAPP» TAMBIÉN SON PLANTILLAS (11/10/2026) ────────────────────────────
+// Martín: «Te pedí que la parte de WhatsApp de MaKo sea exactamente igual y siguen muchas cosas
+// diferentes… Todo ahora es lo mismo». Los tres mensajes que el negocio veía en «MaKo en WhatsApp»
+// («media hora antes de la reunión», «un lead te escribió» y «cuota vencida») son automatizaciones con el
+// CRON «Evento de MaKo» (`cron.fijo: TRIGGER_AVISO_MAKO` + `cron.evento`, lib/disparadores.ts), y NADIE
+// nace con una: se agregan desde acá (decisión de Martín: «Todos arrancan vacíos»). La galería las dibuja en
+// su propia sección, «MaKo en WhatsApp» (`esPlantillaMako`, app/automations/GaleriaPlantillas.tsx).
+//   · Las dos que hoy arma el código dicen `{{mensaje_mako}}` y nada más: sale EXACTAMENTE el texto de antes
+//     (el dato «Lo que arma MaKo», lib/variables-aviso.ts).
+//   · La cobranza es la cadencia de fábrica que vivía en el catálogo (`flujoPorDefecto` de `cuota-vencida`,
+//     lib/avisos-catalogo.ts), con las tarjetas de siempre —MaKo, DELAY 48 h, MaKo, DELAY 72 h, MaKo— y los
+//     textos LITERALES de entonces. Nada «nuevo en la pantalla» (decisión de Martín: «Solo debes readaptar
+//     esas plantillas»): «cada cuánto» e «insistir» se arman con DELAY y CONDITION.
+//   · De un EVENTO se permiten varias (dos filas del mismo evento salen las dos): «Ya la tienes» es sólo del
+//     recordatorio de la reunión (`yaLaTiene`, `crearDesdePlantilla`).
+// El diseño entero, en docs/diseno-mako-en-whatsapp-unificado.md.
+//
 // ⚠️ PURO Y SIN `server-only`: lo importan la pantalla (la galería), el server (lib/plantilla-crear.ts,
 // que la crea) y el test (tests/plantillas-automatizaciones.test.ts, que valida CADA plantilla con
 // `validarGrafo` y con el freno de Publicar, y que no traiga datos de un cliente real).
@@ -82,7 +99,7 @@ import {
   pasosDisparo, pedidoDisparo, rotuloDisparo, PASO_PRODUCTOS, KANBAN_ADQUISICION, KANBAN_ENTREGA,
   type ProductoParaDisparo, type SeccionDisparo,
 } from './flujo-conversacion';
-import type { Disparador } from './disparadores';
+import { TRIGGER_AVISO_MAKO, type Disparador, type SubtipoMako } from './disparadores';
 import { TOPE_NOMBRE_SECUENCIA } from './setting-estrategia';
 import { TRIGGER_RECORDATORIO, NOMBRE_RECORDATORIO_AUTOMATIZACION, pasosDeLaConfig } from './recordatorio-automatizacion';
 import { TEXTO_DEFAULT } from './recordatorio-lead';
@@ -110,7 +127,13 @@ export type CronDePlantilla =
    * no es una etapa del negocio. Nace con ese `trigger_tipo` en la fila, así `setSecuenciaPasos` le aplica
    * desde el primer guardado la forma que su emisor sabe mandar (`toquesDeLaAutomatizacion`).
    */
-  | { fijo: typeof TRIGGER_RECORDATORIO; pide?: undefined; ayuda?: undefined };
+  | { fijo: typeof TRIGGER_RECORDATORIO; pide?: undefined; ayuda?: undefined; evento?: undefined }
+  /**
+   * UN EVENTO DE MaKo (11/10/2026): el CRON «Evento de MaKo» con CUÁL evento (`disparadores[0].subtipo`). Nace
+   * en la fila, como el recordatorio, porque `setSecuenciaPasos` lee el evento para frenar lo que su emisor no
+   * sabe mandar (`frenoDelEvento`, lib/aviso-evento.ts).
+   */
+  | { fijo: typeof TRIGGER_AVISO_MAKO; evento: SubtipoMako; pide?: undefined; ayuda?: undefined };
 
 /** Un paso de una plantilla: una tarjeta del lienzo, como la arma el ＋ (`nodoNuevo`). */
 export type PasoDePlantilla = PasoGrafo & {
@@ -135,6 +158,17 @@ export type PlantillaAutomatizacion = {
 
 /** El tope de la línea de una tarjeta: el de una fila de una lista de N (AGENTS.md, «La pantalla dice QUÉ pasó»). */
 export const TOPE_LINEA = 110;
+
+/**
+ * EL NOMBRE DE LA SECCIÓN de los mensajes de MaKo: el de la lista de /automations y el de la galería, que son la
+ * MISMA cosa (sexta tanda, punto 3: «MaKo en WhatsApp», no sólo «MaKo», que se confunde con la IA). Vive acá y
+ * no en la lista para que la galería no cargue la pantalla entera (app/automations/SimuladorWhatsApp.tsx lo
+ * reexporta).
+ */
+export const ROTULO_MENSAJES_MAKO = 'MaKo en WhatsApp';
+
+/** ¿Es una plantilla de «MaKo en WhatsApp»? (un evento de MaKo: va en su sección de la galería y nace con ese CRON). */
+export const esPlantillaMako = (p: Pick<PlantillaAutomatizacion, 'cron'>): boolean => p.cron.fijo === TRIGGER_AVISO_MAKO;
 
 // ── Las piezas (lo mismo que nace del ＋ del lienzo, `nodoNuevo` en lib/flujo-conversacion.ts) ────
 
@@ -405,6 +439,45 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       whatsapp('fc_wa', '¡Felicitaciones, {{nombre}}! 🎉 Terminaste una clase más. Sigue así: cada paso cuenta.', null, { revisar: false }),
       email('fc_mail', '¡Felicitaciones por tu avance!', 'Terminaste una clase más.',
         'Hola {{nombre}}:\n\n¡Felicitaciones por terminar la clase! Cada paso que das te acerca a tu objetivo.\n\nSigue así.', null, { revisar: false }),
+    ],
+  },
+  // ── «MaKo en WhatsApp» (11/10/2026): los tres eventos de MaKo, en su sección de la galería ──────────────
+  {
+    id: 'mako-reunion',
+    nombre: 'Aviso antes de cada reunión',
+    emoji: '🗓️',
+    linea: 'Te avisa en el grupo media hora antes de cada reunión, con el link al lead.',
+    origen: 'el aviso «Recordatorio de reunión próxima» (reunion-recordatorio), que armaba el código',
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reunion_pronto' },
+    pasos: [mako('mr_aviso', '{{mensaje_mako}}', null)],
+  },
+  {
+    id: 'mako-charla',
+    nombre: 'Aviso cuando un lead te escribe',
+    emoji: '💬',
+    linea: 'Te avisa en el grupo cuando un lead contesta y MaKo no le respondió solo.',
+    origen: 'el aviso «Mensaje de WhatsApp entrante» (wa-mensaje-entrante), que armaba el código',
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_contesta' },
+    pasos: [mako('mc_aviso', '{{mensaje_mako}}', null)],
+  },
+  {
+    // LA CADENCIA DE FÁBRICA DE `cuota-vencida`, con los textos LITERALES de antes (los fija el test): la entrada
+    // es el `ejemplo` del catálogo (lo que salía) y los dos recordatorios, el `flujoPorDefecto` que se fue. Al GRUPO
+    // y nunca al cliente («C: nada al cliente», 06/10/2026), y sin `{{cuota_dias}}` después de una espera: es la
+    // foto del día de la entrada y tres días después diría «1 día» sobre un atraso de cuatro. Al marcar el pago se
+    // corta sola (`cerrarCorridasDeCuota`, lib/flujo-corridas.ts).
+    id: 'mako-cobranza',
+    nombre: 'Cobranza de cuotas vencidas',
+    emoji: '💸',
+    linea: 'Te avisa cuando vence una cuota sin cobrar y te lo recuerda a las 48 h y 72 h. Se corta al marcar el pago.',
+    origen: 'el aviso «Cuota vencida → cobrar» (cuota-vencida) y su cadencia de fábrica',
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'cuota_vencida' },
+    pasos: [
+      mako('mk_entrada', '💸 *Cobranza*: la cuota {{cuota_numero}} de {{lead_nombre}} venció hace {{cuota_dias}} — *{{cuota_monto}} sin cobrar*. Si ya se cobró, márcalo en su ficha. — MaKo', 'mk_e48'),
+      esperar('mk_e48', 48 * 60, 'mk_48'),
+      mako('mk_48', '💸 Sigue sin cobrarse la cuota {{cuota_numero}} de {{lead_nombre}} — {{cuota_monto}}, vencía el {{cuota_vence}}.\n\n👉 {{link_lead}} — MaKo', 'mk_e72'),
+      esperar('mk_e72', 72 * 60, 'mk_72'),
+      mako('mk_72', '💸 Último recordatorio por la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}): si ya se cobró, márcalo en su ficha y dejo de insistir.\n\n👉 {{link_lead}} — MaKo', null),
     ],
   },
 ];

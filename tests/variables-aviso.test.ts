@@ -295,10 +295,11 @@ test('⚠️ sin lead, los datos del CRM NO SE MUESTRAN', () => {
   const conLead = variablesOfrecidas({ conLead: true }).flatMap((g) => g.items);
   assert.ok(conLead.some((f) => f.alcance === 'lead'), 'con lead tiene que haber datos del CRM');
   assert.ok(!conLead.some((f) => f.alcance === 'cuota'), 'ofreció datos de una cuota en un mensaje que no la tiene');
+  // (11/10/2026: «Lo que arma MaKo» pide además el texto del código: `conMensaje`, sólo un evento de MaKo.)
   assert.equal(
-    variablesOfrecidas({ conLead: true, conCuota: true }).flatMap((g) => g.items).length,
+    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true }).flatMap((g) => g.items).length,
     VARIABLES_AVISO.filter((v) => !v.oculta && v.soloPara !== 'lead').length,
-    'con lead y cuota se puede resolver TODO lo del equipo',
+    'con lead, cuota y el texto del código se puede resolver TODO lo del equipo',
   );
   // Y los grupos vacíos no se dibujan: un título sin filas promete algo que no está.
   assert.ok(gs.every((g) => g.items.length > 0), 'quedó un grupo vacío en el desplegable');

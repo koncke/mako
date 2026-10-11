@@ -33,9 +33,19 @@
 // `duplicar`) es la que enchufa las de verdad.
 
 import { TOPE_NOMBRE_SECUENCIA } from './setting-estrategia';
+import { TRIGGERS_DEL_EMISOR } from './disparadores';
 
 /** Las columnas que la copia trae tal cual de la original. */
 export const COPIA = ['etapa', 'etapas', 'trigger_tipo', 'estrategia', 'funnel_id', 'producto_id', 'instance_name', 'etiqueta_id', 'emoji', 'posiciones'] as const;
+
+/**
+ * LAS QUE SE COPIAN SÓLO SI LA FILA ES DEL EMISOR (`TRIGGERS_DEL_EMISOR`: el recordatorio y los eventos de
+ * MaKo, 11/10/2026). Su CRON es UNO y no se cambia, y CUÁL evento vive en `disparadores[0].subtipo`: sin la
+ * lista, la copia de un evento de MaKo quedaba «Elige el evento» y no salía nunca. Va en el MISMO insert,
+ * antes de los pasos: `setSecuenciaPasos` frena según el evento. La de una fila del motor sigue sin copiarse
+ * (su lista lleva la próxima ocurrencia de cada horario, que siembra su puerta).
+ */
+export const COPIA_SI_ES_DEL_EMISOR = ['disparadores'] as const;
 
 /**
  * Las que NO se copian, cada una por algo: la identidad (`id`, `clave`, `workspace_id`, que pone
@@ -60,6 +70,9 @@ export function nombreDeCopia(nombre: unknown): string {
 export function filaDeCopia(original: FilaOriginal, clave: string): Record<string, unknown> {
   const fila: Record<string, unknown> = { clave, nombre: nombreDeCopia(original.nombre), activa: false, pasos: [], cron: null };
   for (const k of COPIA) if (k in original) fila[k] = original[k] ?? null;
+  if (typeof original.trigger_tipo === 'string' && TRIGGERS_DEL_EMISOR.has(original.trigger_tipo)) {
+    for (const k of COPIA_SI_ES_DEL_EMISOR) if (k in original) fila[k] = original[k] ?? null;
+  }
   return fila;
 }
 

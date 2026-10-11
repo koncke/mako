@@ -15,12 +15,14 @@ import { crearNotificacion, type NotifSeveridad } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
 import { reclamarEspaciado, salioReciente } from './espaciado';
 import { frecuenciaEfectiva } from './disparador-mensaje';
-import { estadoAviso, resumenAvisosActivo } from './perfil';
+import { estadoAviso, resumenAvisosActivo, type EstadoAviso } from './perfil';
 import { puedeEsperar } from './avisos-agrupables';
 import { encolarAviso } from './avisos-cola';
 import { runWithWorkspace, getWorkspaceActual, wsSuperAdmin, OWNER_WS } from './workspace';
 import type { CategoriaAviso, SemaforoAviso, AvisoCatalogo } from './avisos-catalogo';
 import { CATALOGO_AVISOS, encabezadoAviso } from './avisos-catalogo';
+import { AVISOS_POR_EVENTO, emitirPorEvento, type DepsEvento, type FilaEvento } from './aviso-evento';
+import { TRIGGER_AVISO_MAKO } from './disparadores';
 
 const SEV_POR_SEMAFORO: Record<SemaforoAviso, NotifSeveridad> = {
   rojo: 'urgente', amarillo: 'warn', verde: 'ok', na: 'info',
@@ -77,6 +79,12 @@ export type EmitirAvisoInput = {
    * El `nombre` viaja aparte porque el evento lo tiene y es más nuevo que la fila.
    */
   lead?: { id: number; nombre?: string | null };
+  /**
+   * EL ESTADO YA DECIDIDO (11/10/2026): lo pasa la tarjeta «MaKo en WhatsApp» de un evento de MaKo
+   * (`ESTADO_EVENTO`, lib/aviso-evento.ts) y su apagado (`APAGADO`). Presente, NO se lee el store
+   * (`estadoAviso`) ni se abre una insistencia: el interruptor de esos avisos es la automatización.
+   */
+  estado?: EstadoAviso;
 };
 
 // `wa:false` con `waError` = el aviso NO llegó a WhatsApp (línea desconectada, grupo
@@ -92,6 +100,8 @@ export type EmitirAvisoResult = {
   apagado?: boolean;
   /** no salió ahora: espera en `avisos_cola` al resumen de la mañana (mig 0161). */
   agrupado?: boolean;
+  /** Un evento de MaKo: cuántas automatizaciones del negocio corrieron (lib/aviso-evento.ts). */
+  filas?: number;
 };
 
 // El reclamo ATÓMICO de «¿ya salió hace poco?» vive en lib/espaciado.ts: lo usan los
@@ -143,7 +153,8 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // `wa`/`email` es «por dónde me llega». Estaban fundidas en un booleano, y por eso
     // «éste sí, pero sólo por mail» no existía: el único camino era apagarlo entero.
     // Apagar los DOS canales equivale a apagarlo — y conserva su texto y su flujo.
-    const canal = await estadoAviso(ws, a.tipo);
+    // Un evento de MaKo trae el estado decidido (`a.estado`): de esos avisos el store ya no se lee.
+    const canal = a.estado ?? await estadoAviso(ws, a.tipo);
     if (!canal.activo || (!canal.wa && !canal.email)) {
       return { ok: true, feedId, wa: false, deduped: false, apagado: true };
     }
@@ -249,7 +260,8 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       // Sólo con env.ok: insistir sobre un mensaje que no salió es empezar a contar
       // repeticiones de algo que nadie vio. Y sólo para el grupo del CLIENTE: los
       // avisos `alDueno` van al grupo de la agencia, que no es de quien configuró esto.
-      if (a.alDueno !== true) {
+      // Ni para un evento de MaKo (`a.estado`): su «insistir» sería una tarjeta, y no la hay (diseño §8).
+      if (a.alDueno !== true && !a.estado) {
         try {
           const { getFlujo } = await import('./plantillas');
           const flujo = await runWithWorkspace(ws, () => getFlujo(a.tipo));
@@ -338,6 +350,32 @@ export function avisoDelCatalogo(id: string): AvisoCatalogo | undefined {
 }
 
 /**
+ * LAS PIEZAS DE VERDAD DEL EMISOR DE UN EVENTO DE MAKO (lib/aviso-evento.ts es puro y las recibe). El runner
+ * se importa dinámico: lib/flujos.ts importa este módulo, y estático sería un ciclo.
+ *
+ * Las filas se leen con el `workspace_id` EXPLÍCITO (el molde es `toquesDelNegocio`,
+ * lib/reunion-recordatorio.ts): un cron que itera inquilinos no está adentro del contexto de cada uno, y un
+ * error TIRA — «no pude leer las automatizaciones» no es «no tiene».
+ */
+async function depsDelEvento(): Promise<DepsEvento> {
+  const [{ ejecutarPasos }, { getSupabaseServer }] = await Promise.all([import('./flujos'), import('./supabase')]);
+  return {
+    leerFilas: async (ws) => {
+      const { data, error } = await getSupabaseServer()
+        .from('nutricion_secuencias').select('id, nombre, activa, pasos, trigger_tipo, disparadores')
+        .eq('workspace_id', ws).eq('trigger_tipo', TRIGGER_AVISO_MAKO).is('archivada_at', null)
+        .order('id', { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as FilaEvento[];
+    },
+    emitirAviso,
+    reclamar: reclamarEspaciado,
+    correr: (flujoId, pasos, ws, ctx) => runWithWorkspace(ws, () => ejecutarPasos(flujoId, pasos, ws, ctx)),
+    log: (m) => console.error(m),
+  };
+}
+
+/**
  * Emite un aviso a partir de una entrada del catálogo (usa su `ejemplo` como
  * texto por defecto, o el `texto` provisto cuando hay datos reales).
  */
@@ -358,11 +396,15 @@ export async function emitirDelCatalogo(
      * exacto, y acá el dato exacto es plata que alguien debe.
      */
     datos?: Record<string, string>;
+    /**
+     * La cuota de la que habla (la pasa la cobranza, 11/10/2026). Viaja en el contexto de la corrida de un
+     * evento de MaKo, y es lo que la CORTA al marcar el pago (`cerrarCorridasDeCuota`).
+     */
+    cuotaId?: number;
   } = {},
 ): Promise<EmitirAvisoResult> {
   const cat = avisoDelCatalogo(id);
   if (!cat) return { ok: false, feedId: null, wa: false, deduped: false };
-  const { getPlantilla, referenciaResuelta, generarMensajeAviso } = await import('./plantillas');
   // ⚠️ EL WORKSPACE SE RESUELVE ANTES DE LEER LA PLANTILLA. Esta línea leía el store
   // del contexto AMBIENTE, no el de `opts.ws`: un cron que pasa el workspace explícito
   // sin estar adentro de un `runWithWorkspace` —así llaman los que iteran inquilinos—
@@ -370,6 +412,11 @@ export async function emitirDelCatalogo(
   // `estadoAviso(ws, …)`. O sea: un aviso que el dueño tenía apagado moría acá para
   // todos sus clientes, sin importar lo que cada uno hubiera configurado.
   const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
+  // ⚠️ UN EVENTO DE MAKO NO LEE EL STORE (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md): estos tres
+  // salen SÓLO por las automatizaciones del negocio («Todos arrancan vacíos», decisión de Martín). El desvío
+  // va ANTES de `getPlantilla`: leído el store, su interruptor y su texto volverían a decidir algo.
+  if (AVISOS_POR_EVENTO.has(id)) return emitirPorEvento(cat, ws, opts, await depsDelEvento());
+  const { getPlantilla, referenciaResuelta, generarMensajeAviso } = await import('./plantillas');
   // UNA lectura de la plantilla, y trae las cuatro respuestas que hacen falta: si está
   // prendida, cómo la llamó ESTE negocio, qué asunto le puso al correo y —vía
   // `referenciaResuelta`— qué texto manda. Eran tres lecturas del mismo store.

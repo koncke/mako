@@ -25,7 +25,7 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import {
-  sanearDisparadores, problemaDeDisparadores, disparadoresDe, columnasDeDisparador, conProximas, nuevosOCambiados,
+  sanearDisparadores, problemaDeDisparadores, problemaDeCambio, disparadoresDe, columnasDeDisparador, conProximas, nuevosOCambiados,
   TRIGGERS_NUEVOS, TOPE_DISPARADORES, type Disparador, type FilaDisparadores,
 } from './disparadores';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA, etapasDe } from './nutricion-etapa';
@@ -113,6 +113,8 @@ export async function prepararDisparadores(secuenciaId: number, entrada: unknown
   const fila = await leerFila(await getTenantDb(), secuenciaId);
   if (!fila) throw new TriggerInvalidoError('Esa automatización no existe en este negocio.');
   const previos = disparadoresDe(fila.row);
+  const cambio = problemaDeCambio(previos, lista);
+  if (cambio) throw new TriggerInvalidoError(`${cambio}.`);
   await validarContraElNegocio(nuevosOCambiados(lista, previos));
   if (fila.rev == null && lista.length > 1) throw new TriggerInvalidoError('Aún no se pueden varios CRON.');
   return { lista, previos };
@@ -134,6 +136,11 @@ export async function guardarDisparadores(secuenciaId: number, entrada: unknown)
     const fila = await leerFila(db, secuenciaId);
     if (!fila) throw new TriggerInvalidoError('Esa automatización no existe en este negocio.');
     const previos = disparadoresDe(fila.row);
+    // ⚠️ EL CRON DEL EMISOR NO SE CAMBIA (11/10/2026, `problemaDeCambio`): se mira en CADA vuelta, contra la
+    // fila recién leída, porque es lo que decide qué lee el emisor. Hasta hoy el recordatorio aceptaba un
+    // segundo CRON (el motor le inscribía leads además del emisor) y la «←» lo pasaba a otra clase.
+    const cambio = problemaDeCambio(previos, lista);
+    if (cambio) throw new TriggerInvalidoError(`${cambio}.`);
     if (intento === 0) await validarContraElNegocio(nuevosOCambiados(lista, previos));
     const ahora = new Date();
     const conProxima = conProximas(lista, previos, ahora, tz);

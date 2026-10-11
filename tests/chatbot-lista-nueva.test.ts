@@ -106,13 +106,12 @@ test('crearNueva pone la fila y la abre ANTES de pedirle nada al server; el id r
   assert.ok(iReal > iPost && iLoad > iReal, 'el id real tiene que llegar antes del load');
   assert.match(c, /const temporal = -Date\.now\(\);/);
   // La lista que se dibuja es la del server más la que se está creando, en los dos lugares.
-  // ⚠️ QUINTA TANDA, PUNTO 5: los dos lugares miran también si hay Mensajes de MaKo (`hayAvisos`):
-  // sin automatizaciones pero con mensajes va la lista, para que el link de Notificaciones
-  // (`/automations?aviso=<id>`) aterrice en el lienzo de su mensaje y no en «Todavía no hay…».
+  // (Desde la quinta tanda hasta el 11/10/2026 los dos lugares miraban también si había Mensajes de MaKo de los
+  // de antes, `hayAvisos`. Hoy un mensaje de «MaKo en WhatsApp» es una automatización: viene en `visibles`.)
   const app = APP();
   assert.match(app, /const visibles = secuencias === null \? null : listaConCreando\(secuencias, creando\);/);
-  assert.match(app, /\{visibles !== null && visibles\.length === 0 && !hayAvisos && !error && \(/);
-  assert.match(app, /\{visibles !== null && \(visibles\.length > 0 \|\| hayAvisos\) && \(\n\s+<SimuladorWhatsApp\n\s+secuencias=\{visibles\}/);
+  assert.match(app, /\{visibles !== null && visibles\.length === 0 && !error && \(/);
+  assert.match(app, /\{visibles !== null && visibles\.length > 0 && \(\n\s+<SimuladorWhatsApp\n\s+secuencias=\{visibles\}/);
 });
 
 test('la selección SIGUE a la fila cuando toma su id real (por su clave), y si falla vuelve la de antes', () => {

@@ -36,6 +36,8 @@ import {
 } from '../lib/cobranza';
 import { VARIABLES_AVISO, variablesOfrecidas } from '../lib/variables-aviso';
 import { CATALOGO_AVISOS } from '../lib/avisos-catalogo';
+import { plantillaPorId } from '../lib/plantillas-automatizaciones';
+import { claseDe } from '../lib/flujo-grafo';
 import { grafoDeAviso } from '../lib/flujo-aviso';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -134,21 +136,27 @@ test('⚠️ el cron NO cablea la cadencia: la corre desde el flujo editable', (
   assert.match(sinComentarios, /cuotaId: d\.cuota\.pago_id/, 'la corrida no sabe de qué cuota habla');
 });
 
-test('⚠️ la cadencia por defecto existe, sale al GRUPO y no usa el dato que envejece', () => {
-  const cat = CATALOGO_AVISOS.find((c) => c.id === 'cuota-vencida');
-  assert.ok(cat?.flujoPorDefecto, 'el mensaje de cobranza nace sin cadencia: el lienzo abre vacío');
-  const f = cat.flujoPorDefecto;
-  assert.equal(f.activo, true, 'la cadencia nace apagada: el recordatorio no insistiría nunca');
-  const esperas = f.pasos.filter((p) => p.tipo === 'esperar');
-  const mensajes = f.pasos.filter((p) => p.tipo === 'mensaje');
-  assert.ok(esperas.length >= 1 && mensajes.length >= 1, 'el default no tiene ni una espera y un mensaje');
+// ⚠️ Desde el 11/10/2026 la cadencia NO vive en el catálogo (`flujoPorDefecto` de `cuota-vencida`): la cobranza es
+// un evento de MaKo y la cadencia es la plantilla «Cobranza de cuotas vencidas» de la galería, que el negocio
+// agrega (docs/diseno-mako-en-whatsapp-unificado.md). Las reglas de la cadencia de fábrica se fijan sobre ELLA.
+test('⚠️ la cadencia de la plantilla de cobranza sale al GRUPO, no insiste de más y no usa el dato que envejece', () => {
+  assert.equal(CATALOGO_AVISOS.find((c) => c.id === 'cuota-vencida')?.flujoPorDefecto, undefined,
+    'volvió la cadencia al catálogo: correría ADEMÁS de la automatización del negocio');
+  const p = plantillaPorId('mako-cobranza');
+  assert.ok(p, 'no está la plantilla de cobranza en la galería: la cobranza no tiene cómo salir');
+  const esperas = p.pasos.filter((x) => claseDe(x) === 'esperar');
+  const mensajes = p.pasos.filter((x) => claseDe(x) !== 'esperar');
+  assert.ok(esperas.length >= 1 && mensajes.length >= 1, 'la plantilla no tiene ni una espera y un mensaje');
   assert.ok(mensajes.length <= 3, 'insistir más de tres veces es lo que hace que alguien apague el aviso entero');
   for (const m of mensajes) {
-    assert.equal(m.tipo === 'mensaje' && m.canal, 'aviso_dueno',
-      'un paso del default le escribe al LEAD: la cobranza no le escribe al cliente (decisión del 06/10/2026)');
-    // ⚠️ El dato que envejece no puede estar en un paso que sale días después.
-    assert.ok(m.tipo === 'mensaje' && !m.texto.includes(`{{${CLAVE_QUE_ENVEJECE}}}`),
-      'un recordatorio diría los días de atraso del día de la entrada');
+    // Al GRUPO: todas son la tarjeta MaKo (`avisar_al_equipo`). La cobranza no le escribe al cliente (06/10/2026).
+    assert.equal(m.accion?.operacion, 'avisar_al_equipo', `«${m.id}» no es un aviso al grupo: la cobranza no le escribe al cliente`);
+  }
+  // ⚠️ El dato que envejece no puede estar en una tarjeta que sale DESPUÉS de una espera.
+  const primeraEspera = p.pasos.findIndex((x) => claseDe(x) === 'esperar');
+  for (const m of p.pasos.slice(primeraEspera)) {
+    assert.ok(!String(m.accion?.params?.mensaje ?? '').includes(`{{${CLAVE_QUE_ENVEJECE}}}`),
+      `«${m.id}»: un recordatorio diría los días de atraso del día de la entrada`);
   }
 });
 

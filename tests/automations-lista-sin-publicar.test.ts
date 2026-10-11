@@ -7,6 +7,8 @@
 // lista se mudó a /automations (quinta tanda, punto 5) la marca no vino: un mensaje a medio editar se veía
 // igual que uno publicado, y MaKo seguía mandando el texto de antes sin que nada lo dijera. Va también en
 // las automatizaciones, que guardan su borrador desde la mig 0240.
+// Desde el 11/10/2026 las filas de «MaKo en WhatsApp» SON automatizaciones (el CRON «Evento de MaKo»): llevan el
+// punto por la MISMA fila (`filaDeLista`), con su borrador de automatización.
 //
 // PROBADO ROMPIÉNDOLO (10/10/2026, restaurando de memoria; base 3 pases / 0 fallos):
 //   · la fila sin dibujar el punto (`{false && (`)                      → 2 fallos, 1 pase;
@@ -19,18 +21,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { SimuladorWhatsApp, sinPublicarDe } from '../app/automations/SimuladorWhatsApp';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
-import type { PlantillaVista } from '../lib/plantillas';
 
-const sec = (id: number, nombre: string, borrador: SecuenciaDto['borrador']): SecuenciaDto => ({
-  id, clave: `s${id}`, nombre, etapa: 'nuevo', trigger_tipo: 'etapa_actual', activa: true, pasos: [], inscriptos: 0,
+const sec = (id: number, nombre: string, borrador: SecuenciaDto['borrador'], trigger_tipo = 'etapa_actual'): SecuenciaDto => ({
+  id, clave: `s${id}`, nombre, etapa: 'nuevo', trigger_tipo, activa: true, pasos: [], inscriptos: 0,
   enviados: 0, estrategia: null, metricas: {}, borrador,
 } as unknown as SecuenciaDto);
-
-const aviso = (id: string, titulo: string, borrador: string | null): PlantillaVista => ({
-  id, titulo, categoria: 'aviso', prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
-  disparador: 'Cuando pasa algo', ejemplo: `Texto de ${titulo}`,
-  enabled: true, esCustom: false, fijo: false, canales: { wa: true, email: false }, frecuenciaMin: 0, posiciones: {}, borrador, asunto: '',
-} as PlantillaVista);
 
 const dibujar = (extra: Record<string, unknown>) => renderToStaticMarkup(createElement(SimuladorWhatsApp, {
   objetivos: [], etiquetaEtapa: (k: string) => k, negocio: 'Mi negocio',
@@ -60,11 +55,14 @@ test('sinPublicarDe: hay borrador (aunque sea un texto vacío) o el lienzo abier
 
 test('las filas de MaKo en WhatsApp con borrador llevan el punto, y las demás no', () => {
   const html = dibujar({
-    secuencias: [sec(7, 'Bienvenida', null)],
-    avisos: [aviso('reporte-semanal', 'Reporte semanal', 'Lo nuevo'), aviso('cuota-vencida', 'Cuota vencida', null)],
+    secuencias: [
+      sec(7, 'Bienvenida', null),
+      sec(8, 'Aviso antes de cada reunión', { pasos: [], guardado_at: '2026-10-11T10:00:00Z' }, 'aviso_mako'),
+      sec(9, 'Cobranza de cuotas vencidas', null, 'aviso_mako'),
+    ],
   });
-  assert.equal(marcada(html, 'Reporte semanal'), true, 'el mensaje a medio editar se ve igual que uno publicado');
-  assert.equal(marcada(html, 'Cuota vencida'), false);
+  assert.equal(marcada(html, 'Aviso antes de cada reunión'), true, 'el mensaje a medio editar se ve igual que uno publicado');
+  assert.equal(marcada(html, 'Cobranza de cuotas vencidas'), false);
 });
 
 test('una automatización con borrador guardado también lo dice en su fila', () => {

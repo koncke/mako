@@ -324,8 +324,9 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   // Tercera tanda (decisión 13): la forma y lo que falta escribir los decide UNA función,
   // `frenoDelFlujo`, que también frena «Probar». El error ABRE la tarjeta (`frenar`, con su id).
   // (Integración: el freno recibe además lo que le falta a cada «⚡ Acción» según su formulario.)
-  // (Desde el 10/10/2026 va por `frenoDeEsta`, que es `frenoDelFlujo` más la regla del recordatorio.)
-  assert.match(perfil, /const frenoDeEsta = useCallback\(\s*\(ps: typeof pasos\) => frenoDelFlujo\(ps, faltanEnAccion\) \?\? \(esRecordatorio \? frenoDelRecordatorio\(ps\) : null\),/);
+  // (Desde el 10/10/2026 va por `frenoDeEsta`, que es `frenoDelFlujo` más la regla del recordatorio, y desde el
+  // 11/10/2026 la del evento de MaKo: `frenoDelEvento`, lo que el emisor de ese evento sabe correr.)
+  assert.match(perfil, /const frenoDeEsta = useCallback\(\s*\(ps: typeof pasos\) => frenoDelFlujo\(ps, faltanEnAccion\)\s*\?\? \(esRecordatorio \? frenoDelRecordatorio\(ps\) : esEvento \? frenoDelEvento\(ps, eventoMako\) : null\),/);
   const valida = pub.indexOf('frenoDeEsta(pasos)');
   assert.ok(valida >= 0 && valida < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda sin validar');
   assert.match(pub, /const freno = frenoDeEsta\(pasos\);\s*if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);

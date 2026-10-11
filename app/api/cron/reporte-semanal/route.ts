@@ -8,6 +8,8 @@
 // corría UNA vez y fuera de todo `runWithWorkspace`: `getWorkspaceActual()` caía al ws1
 // (lib/notify.ts, lib/settings.ts), así que salía el de Mauricio y nadie más — con el
 // semanal en la lista que ve cada cliente (AVISOS_DEL_CLIENTE) y prendido por defecto.
+// (Desde el 11/10/2026 esa lista está vacía y el semanal es de AVISOS_SOLO_SUPERADMIN: el cliente
+// ya no lo configura en su pantalla, y le sigue llegando igual, por email según sus prefs.)
 // Decisión de Martín: «b: solo el semanal para los clientes». Los crons diario y horario
 // NO se tocan: siguen siendo sólo del dueño, a propósito.
 //

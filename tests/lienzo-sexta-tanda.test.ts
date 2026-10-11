@@ -56,7 +56,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { SimuladorWhatsApp, ROTULO_CHATBOT, ROTULO_MENSAJES_MAKO, opcionesDeFila } from '../app/automations/SimuladorWhatsApp';
 import { esIconoMenu } from '../app/_ui/iconos-menu';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
-import type { PlantillaVista } from '../lib/plantillas';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -235,13 +234,13 @@ test('⚠️ la lista lleva DOS divisiones: «Chatbot» arriba y «MaKo en Whats
     id: 7, clave: 'bienvenida', nombre: 'Bienvenida', etapa: 'nuevo', trigger_tipo: 'etapa',
     activa: true, pasos: [], inscriptos: 0, enviados: 0, estrategia: null, metricas: {},
   } as unknown as SecuenciaDto;
+  // Desde el 11/10/2026 un mensaje de «MaKo en WhatsApp» es una automatización con el CRON «Evento de MaKo».
   const aviso = {
-    id: 'reporte-semanal', titulo: 'Reporte semanal', categoria: 'reporte', prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false,
-    yaImplementado: 'si', disparador: 'x', ejemplo: 'x', enabled: true, esCustom: false, fijo: false, canales: { wa: true, email: false },
-    frecuenciaMin: 0, posiciones: {}, borrador: null, asunto: '',
-  } as unknown as PlantillaVista;
+    id: 8, clave: 'plantilla-mako-cobranza-x', nombre: 'Cobranza de cuotas vencidas', etapa: 'manual', trigger_tipo: 'aviso_mako',
+    activa: true, pasos: [], inscriptos: 0, enviados: 0, estrategia: null, metricas: {},
+  } as unknown as SecuenciaDto;
   const html = renderToStaticMarkup(createElement(SimuladorWhatsApp, {
-    secuencias: [secuencia], objetivos: [], etiquetaEtapa: (k: string) => k, negocio: 'Mi negocio', avisos: [aviso],
+    secuencias: [secuencia, aviso], objetivos: [], etiquetaEtapa: (k: string) => k, negocio: 'Mi negocio',
     rolAdmin: true, audios: [], canalCaido: false, onAudioNuevo: () => {}, onNueva: () => {}, onReload: () => {},
     productos: [], disparadores: [], tz: null,
   } as Parameters<typeof SimuladorWhatsApp>[0]));
@@ -250,7 +249,7 @@ test('⚠️ la lista lleva DOS divisiones: «Chatbot» arriba y «MaKo en Whats
   const iChatbot = html.indexOf(`>${ROTULO_CHATBOT}</div>`);
   const iSec = html.indexOf('>Bienvenida</span>');
   const iMako = html.indexOf(`>${ROTULO_MENSAJES_MAKO}</div>`);
-  const iAviso = html.indexOf('>Reporte semanal</span>');
+  const iAviso = html.indexOf('>Cobranza de cuotas vencidas</span>');
   assert.ok(iChatbot >= 0 && iChatbot < iSec && iSec < iMako && iMako < iAviso, 'las divisiones no van en orden: Chatbot, sus automatizaciones, MaKo en WhatsApp, sus mensajes');
   // Segunda pasada: los íconos del «⋯» son NOMBRES del set de la casa (app/_ui/iconos-menu.tsx), no
   // `data:` propios; y «borrar» es rojo SIEMPRE porque lo pinta `IconoMenu`, no la fila.

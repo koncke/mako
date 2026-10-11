@@ -41,12 +41,14 @@
 // (3) las plantillas. El modal es ANCHO (cubre casi todo) y el viejo «En blanco» se fue: era lo mismo
 // que «Pídesela a MaKo» sin decirlo.
 //
-// ── NOVENA TANDA (10/10/2026): (4) LOS MENSAJES DE MAKO ELIMINADOS ──────────────────────────────
-// El «⋯» de un Mensaje de MaKo en la lista los ELIMINA = los oculta de la lista de este negocio y los
-// apaga (lib/plantillas-ocultas.ts). Se recuperan ACÁ, que es donde se va a buscar lo que se quiere tener
-// en la lista: una sección al pie, «Mensajes de MaKo», con una tarjeta por cada uno. Tocarla lo devuelve
-// a la lista PRENDIDO y abre su lienzo (lo hace quien monta: `onRestaurar`). Sin ninguno eliminado, la
-// sección no se dibuja: un rótulo con nada abajo se lee como que falta algo.
+// ── 11/10/2026: (4) «MaKo EN WHATSAPP», LAS PLANTILLAS DE LOS EVENTOS DE MaKo ────────────────────────
+// Martín: «Todo ahora es lo mismo... debe ser IDENTICO» (docs/diseno-mako-en-whatsapp-unificado.md). Los
+// mensajes de MaKo son automatizaciones con el CRON «Evento de MaKo», y NADIE nace con una: se agregan
+// desde ACÁ, en su propia sección al pie (`esPlantillaMako`, lib/plantillas-automatizaciones.ts), con la
+// MISMA tarjeta que las demás. «＋ Nuevo mensaje» de la lista abre esta galería con `seccion="mako"`, que
+// la lleva hasta esa sección. De un evento se pueden tener VARIAS: no se apagan con «Ya la tienes».
+//   ⛔ Hasta acá iba (novena tanda) la sección de los Mensajes de MaKo que el negocio había «eliminado», para
+//   recuperarlos. Se fue con ellos: una automatización se archiva, como cualquiera.
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Modal } from '@/app/_ui/Modal';
@@ -54,15 +56,14 @@ import { Button } from '@/app/_ui/Button';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Dropdown } from '@/app/components/Dropdown';
 import {
-  PLANTILLAS, seccionesParaCron, rotuloDeEleccion, type PlantillaAutomatizacion, type PideCron,
+  PLANTILLAS, seccionesParaCron, rotuloDeEleccion, esPlantillaMako, ROTULO_MENSAJES_MAKO, type PlantillaAutomatizacion, type PideCron,
 } from '@/lib/plantillas-automatizaciones';
 import type { ProductoParaDisparo } from '@/lib/flujo-conversacion';
 import { ElegirClase } from './EditorDisparadores';
 import type { ClaseDisparador } from '@/lib/disparadores';
 import { leerCopia } from '@/lib/flujo-copia';
 import { MakoStar } from '@/app/_components/MakoBrand';
-import type { PlantillaVista } from '@/lib/plantillas';
-import { emojiDeMensaje } from '@/lib/chatbot-mensajes-mako';
+import { TRIGGER_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
 
 /** Las dos formas de empezar sin plantilla (las de «＋ Nueva»). */
 export type QueNueva = 'blanco' | 'mako';
@@ -96,9 +97,8 @@ export const ROTULO_CRON = '¿Qué la dispara?';
 export const ROTULO_OTRAS = 'O empieza así';
 export const ROTULO_PLANTILLAS = 'Desde una plantilla';
 export const PREGUNTA_ETAPA = '¿En qué etapa arranca?';
-/** La sección de los Mensajes de MaKo que este negocio eliminó (novena tanda): tocar uno lo recupera. */
-export const ROTULO_OCULTOS = 'Mensajes de MaKo';
-export const LINEA_OCULTO = 'Lo eliminaste. Tócalo para recuperarlo.';
+/** A qué sección de la galería se va al abrirla: `mako` = «MaKo en WhatsApp» (el «＋ Nuevo mensaje» de la lista). */
+export type SeccionGaleria = 'mako';
 
 /**
  * ¿Al elegirla hay que preguntar la etapa? Sólo si arranca en una etapa y hay etapas para ofrecer: si no, nace
@@ -112,13 +112,18 @@ export function preguntaEtapa(p: PlantillaAutomatizacion, productos: readonly Pr
 export const YA_LA_TIENES = 'Ya la tienes en tu lista.';
 
 /**
- * ¿El negocio ya tiene esta plantilla? Sólo cuenta para las de CRON fijo, que son UNA por negocio (el
- * recordatorio: con dos, su emisor manda la primera activa y la lista no dice cuál). El server lo vuelve a mirar
+ * ¿El negocio ya tiene esta plantilla? Sólo cuenta para el RECORDATORIO de la reunión, que es UNO por negocio
+ * (con dos, su emisor manda la primera activa y la lista no dice cuál). De un evento de MaKo se permiten varias
+ * (11/10/2026: salen todas), así que su CRON fijo no las apaga. El server lo vuelve a mirar
  * (`crearDesdePlantilla`): esto es para no ofrecer un clic que va a contestar que no.
  */
 export function yaLaTiene(p: PlantillaAutomatizacion, triggersVivos: readonly string[]): boolean {
-  return !!p.cron.fijo && triggersVivos.includes(p.cron.fijo);
+  return p.cron.fijo === TRIGGER_RECORDATORIO && triggersVivos.includes(TRIGGER_RECORDATORIO);
 }
+
+/** Cada cuánto y cuántas veces se mira si la sección ya se ve, para llevar la galería hasta ella (≈1 s). */
+const CADA_MS = 16;
+const INTENTOS_MAX = 60;
 
 const CSS = `
 .gal-grilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:12px}
@@ -155,13 +160,8 @@ export function GaleriaPlantillas(p: {
   onPegar?: (texto: string) => void;
   /** La que se creó desde una plantilla: quien monta la abre. */
   onCreada: (r: CreadaGaleria) => void;
-  /** Los Mensajes de MaKo que este negocio eliminó (`GET ?ocultos=1`). Vacío o ausente = sin sección. */
-  ocultos?: readonly Pick<PlantillaVista, 'id' | 'titulo' | 'categoria'>[];
-  /**
-   * Recuperar uno: quien monta lo devuelve a la lista, cierra esto y abre su lienzo. Devuelve por qué no se
-   * pudo (se dibuja acá) o `null`. Sin esto la sección no se dibuja: tocar una tarjeta no haría nada.
-   */
-  onRestaurar?: (id: string) => Promise<string | null>;
+  /** Abrir yendo a esta sección (`mako` = «MaKo en WhatsApp»). Ausente = arriba de todo. */
+  seccion?: SeccionGaleria;
 }) {
   // LO COPIADO, si hay (copiar flujo, 10/10/2026: «al momento de crear un nuevo flujo que te aparezca la
   // opción de pegar»). Leer el portapapeles puede pedir permiso: si no lo dan, la opción no aparece.
@@ -181,10 +181,29 @@ export function GaleriaPlantillas(p: {
   const [valor, setValor] = useState('');
   const [creando, setCreando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** El mensaje que se está recuperando, y por qué no se pudo (pegado a su sección). */
-  const [restaurando, setRestaurando] = useState<string | null>(null);
-  const [errorOculto, setErrorOculto] = useState<string | null>(null);
+  /** El error es de una de «MaKo en WhatsApp»: se dibuja en SU sección, que es donde está mirando quien la tocó. */
+  const [errorEnMako, setErrorEnMako] = useState(false);
   const enVuelo = useRef(false);
+  /**
+   * «＋ NUEVO MENSAJE» LLEVA HASTA «MaKo EN WHATSAPP» (`seccion`): una vez, al abrir. Se espera a que la sección
+   * SE VEA: la primera vez que se dibuja, la caja del Modal está escondida (`display:none`, la pila de modales) y
+   * un `scrollIntoView` ahí no mueve nada — la misma trampa que el `autoFocus` (AGENTS.md, «Todo `<Modal>`…»).
+   */
+  const seccionMako = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (p.seccion !== 'mako') return;
+    let intentos = 0;
+    let t = 0;
+    const intentar = () => {
+      const el = seccionMako.current;
+      if (el && el.getClientRects().length > 0) { el.scrollIntoView({ block: 'start' }); return; }
+      if (++intentos < INTENTOS_MAX) t = window.setTimeout(intentar, CADA_MS);
+    };
+    t = window.setTimeout(intentar, 0);
+    return () => window.clearTimeout(t);
+    // Una vez, al abrir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Las props de AHORA, sin cambiarle la identidad al `onCerrar` del Modal (ver la cabecera).
   const props = useRef(p);
@@ -194,7 +213,7 @@ export function GaleriaPlantillas(p: {
   const crear = async (pl: PlantillaAutomatizacion, disparador: string | null) => {
     if (enVuelo.current) return;
     enVuelo.current = true;
-    setCreando(pl.id); setError(null);
+    setCreando(pl.id); setError(null); setErrorEnMako(esPlantillaMako(pl));
     try {
       const r = await fetch(API, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(TOPE_MS),
@@ -221,20 +240,6 @@ export function GaleriaPlantillas(p: {
     setError(null);
     if (preguntaEtapa(pl, p.productos)) { setElegida(pl); setValor(''); return; }
     void crear(pl, null);
-  };
-
-  /** Recuperar un mensaje eliminado. Comparte el candado de crear: dos cosas a la vez no. */
-  const recuperar = async (id: string) => {
-    if (enVuelo.current || !props.current.onRestaurar) return;
-    enVuelo.current = true;
-    setRestaurando(id); setErrorOculto(null);
-    try {
-      const motivo = await props.current.onRestaurar(id);
-      if (motivo) setErrorOculto(motivo);
-    } finally {
-      enVuelo.current = false;
-      setRestaurando(null);
-    }
   };
 
   // ── 2. ¿En qué etapa arranca? ── (sólo se elige una que arranca en una etapa: `preguntaEtapa`)
@@ -264,8 +269,21 @@ export function GaleriaPlantillas(p: {
   }
 
   // ── 1. ¿Cómo empiezas? ──
-  const ocupado = creando != null || restaurando != null;
-  const ocultos = p.onRestaurar ? (p.ocultos ?? []) : [];
+  const ocupado = creando != null;
+  /** La tarjeta de una plantilla: la MISMA para las del Chatbot y las de «MaKo en WhatsApp». */
+  const tarjeta = (pl: PlantillaAutomatizacion) => {
+    const tiene = yaLaTiene(pl, p.triggersVivos ?? []);
+    return (
+      <button key={pl.id} type="button" className="gal-tarjeta" data-plantilla={pl.id} data-ya-la-tiene={tiene || undefined}
+        disabled={tiene || (ocupado && creando !== pl.id)} aria-busy={creando === pl.id || undefined}
+        onClick={() => elegir(pl)}>
+        <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{pl.emoji}</span>
+        <span style={NOMBRE}>{pl.nombre}</span>
+        <span style={LINEA}>{tiene ? YA_LA_TIENES : pl.linea}</span>
+        {creando === pl.id && <span className="mk-spin" style={{ width: 14, height: 14, marginTop: 'auto' }} aria-label="Creando" />}
+      </button>
+    );
+  };
   return (
     <Modal titulo={TITULO_GALERIA} onCerrar={cerrar} ancho={980} sinFiletes>
       <style>{CSS}</style>
@@ -298,43 +316,20 @@ export function GaleriaPlantillas(p: {
           )}
         </div>
         <div style={ROTULO}>{ROTULO_PLANTILLAS}</div>
-        {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)', marginBottom: 10 }}>{error}</div>}
+        {error && !errorEnMako && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)', marginBottom: 10 }}>{error}</div>}
+        {/* Las del Chatbot. Las de «MaKo en WhatsApp» van en su sección, abajo (`esPlantillaMako`). */}
         <div className="gal-grilla">
-          {PLANTILLAS.map((pl) => {
-            const tiene = yaLaTiene(pl, p.triggersVivos ?? []);
-            return (
-              <button key={pl.id} type="button" className="gal-tarjeta" data-plantilla={pl.id} data-ya-la-tiene={tiene || undefined}
-                disabled={tiene || (ocupado && creando !== pl.id)} aria-busy={creando === pl.id || undefined}
-                onClick={() => elegir(pl)}>
-                <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{pl.emoji}</span>
-                <span style={NOMBRE}>{pl.nombre}</span>
-                <span style={LINEA}>{tiene ? YA_LA_TIENES : pl.linea}</span>
-                {creando === pl.id && <span className="mk-spin" style={{ width: 14, height: 14, marginTop: 'auto' }} aria-label="Creando" />}
-              </button>
-            );
-          })}
+          {PLANTILLAS.filter((pl) => !esPlantillaMako(pl)).map(tarjeta)}
         </div>
-        {/* (4) LOS MENSAJES DE MAKO ELIMINADOS (novena tanda): tocar uno lo recupera y abre su lienzo. Sin
-            ninguno, no hay sección. */}
-        {ocultos.length > 0 && (
-          <div data-galeria-ocultos>
-            <div style={ROTULO}>{ROTULO_OCULTOS}</div>
-            {errorOculto && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)', marginBottom: 10 }}>{errorOculto}</div>}
-            <div className="gal-grilla">
-              {ocultos.map((m) => (
-                <button key={m.id} type="button" className="gal-tarjeta" data-oculto={m.id}
-                  disabled={ocupado && restaurando !== m.id} aria-busy={restaurando === m.id || undefined}
-                  title={`Recuperar «${m.titulo}»`}
-                  onClick={() => void recuperar(m.id)}>
-                  <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{emojiDeMensaje(m)}</span>
-                  <span style={NOMBRE}>{m.titulo}</span>
-                  <span style={LINEA}>{LINEA_OCULTO}</span>
-                  {restaurando === m.id && <span className="mk-spin" style={{ width: 14, height: 14, marginTop: 'auto' }} aria-label="Recuperando" />}
-                </button>
-              ))}
-            </div>
+        {/* (4) «MaKo EN WHATSAPP» (11/10/2026): los eventos de MaKo, con la MISMA tarjeta. A esta sección lleva
+            «＋ Nuevo mensaje» de la lista (`seccion="mako"`). */}
+        <div data-galeria-mako ref={seccionMako}>
+          <div style={ROTULO}>{ROTULO_MENSAJES_MAKO}</div>
+          {error && errorEnMako && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)', marginBottom: 10 }}>{error}</div>}
+          <div className="gal-grilla">
+            {PLANTILLAS.filter(esPlantillaMako).map(tarjeta)}
           </div>
-        )}
+        </div>
       </div>
     </Modal>
   );

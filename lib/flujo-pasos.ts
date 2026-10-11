@@ -31,6 +31,7 @@
 // agrega OTRA condición — no se le cambia el texto a ésta.
 
 import { type Paso } from './flujos-tipos';
+import { cumpleRama, type HechosLead } from './flujo-grafo';
 
 /**
  * Las condiciones que el motor SABE evaluar. Es la lista que el lienzo puede dibujar.
@@ -57,6 +58,12 @@ export type EstadoCorrida = {
   /** Cuándo alguien acusó recibo, si pasó. Es la señal del condicional. */
   respondioAt: Date | null;
   ahora: Date;
+  /**
+   * Los hechos del LEAD de la corrida, para la `condicion` de un evento de MaKo (11/10/2026). Los lee
+   * `ejecutarPasos` una vez, al llegar a la primera; null o ausente = no se saben, y una condición que no se
+   * sabe NUNCA se cumple (la regla de `cumpleFila`).
+   */
+  hechos?: HechosLead | null;
 };
 
 export type Decision =
@@ -136,5 +143,55 @@ export function decidir(pasos: Paso[], est: EstadoCorrida): Decision {
     return { que: 'saltar', siguiente: cumple(paso.condicion as CondicionFlujo, est) ? est.paso + 1 : est.paso + 2 };
   }
 
+  // LA CONDITION DE UN EVENTO DE MAKO: una sola salida. Se cumple con los hechos del lead → sigue; no, o sin
+  // hechos → termina. «No sé» no es «sí»: mandarle al grupo lo de una rama que no se pudo decidir sería
+  // afirmar algo del lead que nadie miró.
+  if (paso.tipo === 'condicion') {
+    return est.hechos && cumpleRama(paso.rama, est.hechos) ? { que: 'saltar', siguiente: est.paso + 1 } : { que: 'terminar' };
+  }
+
   return { que: 'ejecutar', paso, siguiente: est.paso + 1 };
+}
+
+/**
+ * «NO PUDE LEER AL LEAD» NO ES «NO SE CUMPLE» (revisión del 11/10/2026): la CONDITION de un evento de MaKo, cuando la
+ * lectura de los hechos FALLA, se duerme y se vuelve a preguntar en vez de terminar.
+ *
+ * ⚠️ POR QUÉ NO ALCANZA CON TERMINAR: el emisor reclama el dedup del evento ANTES de correr (`emitirPorEvento`), así
+ * que una corrida que termina por un bache de la base gasta la ventana sin haber dicho nada — en la cobranza son 120
+ * días: el cron vuelve a ofrecer la cuota los días siguientes y recibe `deduped`. «Sin lead» (o un lead que ya no
+ * está) sigue terminando: eso sí es «no se sabe», y lo que no se sabe NUNCA se cumple (`decidir`).
+ *
+ * ⚠️ Y TIENE TOPE, CORTO: cada reintento es la MISMA corrida un rato después, con el mismo texto armado en la mano
+ * («⏰ En 30 min tienes la R1…» si la tarjeta va antes de cualquier DELAY). Tres vueltas de 5 minutos: un bache de la
+ * base se cura en ese rato, y más tarde el mensaje ya habla de otro momento. Agotado, la corrida se corta y lo dice.
+ */
+export const REINTENTO_HECHOS_MIN = 5;
+export const TOPE_REINTENTOS_HECHOS = 3;
+
+export function reintentoDeHechos(
+  reintentos: unknown, ahora: Date,
+): { que: 'reintentar'; hasta: Date; reintentos: number } | { que: 'rendirse' } {
+  const n = typeof reintentos === 'number' && Number.isFinite(reintentos) && reintentos > 0 ? Math.floor(reintentos) : 0;
+  if (n >= TOPE_REINTENTOS_HECHOS) return { que: 'rendirse' };
+  return { que: 'reintentar', hasta: new Date(ahora.getTime() + REINTENTO_HECHOS_MIN * 60_000), reintentos: n + 1 };
+}
+
+/**
+ * LO QUE ENVEJECE: las claves de `datos` que son la FOTO del momento en que el evento pasó (AGENTS.md, «Un dato
+ * EXACTO que viaja con un trabajo diferido es la FOTO de cuando se guardó»). `cuota_dias` es «hace cuánto
+ * venció» HOY: dormida 48 h diría «1 día» sobre un atraso de tres. Es la `CLAVE_QUE_ENVEJECE` de lib/cobranza.ts
+ * (el test lo cruza). Una tarjeta después de un DELAY no la puede usar (`pasosDelEvento`, lib/aviso-evento.ts).
+ */
+export const QUE_ENVEJECEN: readonly string[] = ['cuota_dias'];
+
+/**
+ * EL CONTEXTO QUE GUARDA UNA CORRIDA AL DORMIRSE (`abrirCorrida`, lib/flujo-corridas.ts): el mismo, sin lo que
+ * envejece. Lo que viene después del DELAY sale con los datos estables (el número, el monto, el vencimiento);
+ * el mensaje de entrada ya salió con todos.
+ */
+export function ctxParaDormir<C extends { datos?: Record<string, string> }>(ctx: C): C {
+  if (!ctx.datos) return ctx;
+  const datos = Object.fromEntries(Object.entries(ctx.datos).filter(([k]) => !QUE_ENVEJECEN.includes(k)));
+  return { ...ctx, datos };
 }

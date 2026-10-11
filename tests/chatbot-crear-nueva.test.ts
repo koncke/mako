@@ -81,8 +81,9 @@ test('el pie de antes («N etapas sin secuencia · Armar una») no vuelve, ni su
 test('la puerta pregunta por lo no publicado ANTES de crear', () => {
   // Sin DOM no se puede prender `sinPublicar` (lo emite el lienzo en un efecto): se fija el fuente.
   const src = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
-  assert.match(src, /const nueva = \(\) => \{\n {4}if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva' \}\); return; \}\n {4}setCreandoMensaje\(false\);\n {4}onNueva\(\);\n {2}\};/);
-  assert.match(src, /if \(p\.ir === 'nueva'\) onNueva\(\);/);
+  // Desde el 11/10/2026 la puerta lleva la sección de la galería («＋ Nuevo mensaje» abre en «MaKo en WhatsApp»).
+  assert.match(src, /const nueva = \(seccion\?: SeccionGaleria\) => \{\n {4}if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva', seccion \}\); return; \}\n {4}onNueva\(seccion\);\n {2}\};/);
+  assert.match(src, /if \(p\.ir === 'nueva'\) onNueva\(p\.seccion\);/);
   // El «＋ Nueva» de la lista recibe ESA puerta, no `onNueva`.
   assert.match(src, /onClick=\{\(\) => nueva\(\)\}/);
 });
@@ -115,15 +116,15 @@ test('el estado vacío dibuja el fallo de crear al lado de su botón', () => {
   assert.ok(ini >= 0);
   const bloque = src.slice(ini, src.indexOf('</div>\n      )}', ini));
   // «＋ Nueva» abre la galería (10/10/2026); «En blanco» de la galería es `crearNueva`, la de siempre.
-  assert.match(bloque, /onClick=\{abrirGaleria\}/);
+  assert.match(bloque, /onClick=\{\(\) => abrirGaleria\(\)\}/);
   assert.match(bloque, /\{errCrear && <span role="alert"/);
   assert.match(src, /onNueva=\{abrirGaleria\}/);
 });
 
 test('«＋ Nueva» abre la galería, y «En blanco» crea la vacía de siempre', () => {
   const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
-  assert.match(src, /const abrirGaleria = \(\) => \{ setErrCrear\(null\); setGaleria\(true\); \};/);
-  assert.match(src, /\{galeria && rolAdmin && \(\s*<GaleriaPlantillas productos=\{productos\} onCerrar=\{\(\) => setGaleria\(false\)\}\s*onEmpezar=\{\(\) => \{ setGaleria\(false\); void crearNueva\(\); \}\}/, 'la galería no está montada, o «En blanco» no crea la vacía');
+  assert.match(src, /const abrirGaleria = \(seccion\?: SeccionGaleria\) => \{ setErrCrear\(null\); setGaleria\(\{ seccion \}\); \};/);
+  assert.match(src, /\{galeria && rolAdmin && \(\s*<GaleriaPlantillas productos=\{productos\} onCerrar=\{\(\) => setGaleria\(false\)\} seccion=\{galeria\.seccion\}\s*onEmpezar=\{\(\) => \{ setGaleria\(false\); void crearNueva\(\); \}\}/, 'la galería no está montada, o «En blanco» no crea la vacía');
   // La creada desde una plantilla se abre DESPUÉS de traer la lista (antes no está para elegirla).
   assert.match(src, /await load\(\);\n {4}setAbrirSec\(\{ id: r\.secuenciaId \}\);/);
 });

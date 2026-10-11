@@ -8,8 +8,8 @@
 //
 //   1. Dentro de la app → pop-up y sonido. Es de la PERSONA: pasa en SU navegador,
 //      no se manda a ningún lado, y no cambia nada para el resto del equipo.
-//   2. Los canales      → del NEGOCIO. Cada tile abre SU canal: a quién le llega
-//      y qué dicen los mensajes que salen por ahí, todo en el mismo recuadro.
+//   2. Los canales      → del NEGOCIO. Cada tile abre SU canal: a quién le llega.
+//      (Qué DICE cada mensaje de MaKo se arma en Automations › «MaKo en WhatsApp».)
 //
 // ── Por qué quedó así ────────────────────────────────────────────────────────
 // Antes era una matriz evento × canal: ~35 filas de interruptores, con el texto
@@ -27,7 +27,8 @@
 // mismo (ver el chip de `PrefsDeMensaje`).
 //
 // La lista de qué existe NO se escribe acá: viene de lib/notif-catalogo.ts (lo de
-// la app) y del store de plantillas (lo que sale por WhatsApp y por email).
+// la app). Lo que DICE cada mensaje de MaKo ya no se edita acá (11/10/2026): son
+// automatizaciones de la tab Automations, sección «MaKo en WhatsApp».
 
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { NOTIF_IN_APP, inAppActivo, type NotifInApp, type NotifInAppDef } from '@/lib/notif-catalogo';
@@ -36,14 +37,9 @@ import { Icon } from '../_components/icons';
 import { CanalToggle } from '../_components/CanalToggle';
 import { type Destinatarios } from './DestinatariosLista';
 import { DestinatariosCanal } from './DestinatariosCanal';
-import { PlantillasView } from '../agencia/PlantillasView';
-import { enlaceAMensajeMako } from '@/lib/chatbot-mensajes-mako';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
-
-/** El endpoint del CLIENTE: mismo protocolo que el de la agencia, otro guard. */
-const ENDPOINT = '/api/perfil/plantillas';
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
@@ -202,15 +198,9 @@ function TileEnLaApp({ prefs, onChange, flash }: {
 }
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
-export function NotificacionesPanel({ editarEnChatbot = false }: {
-  /**
-   * El negocio tiene /automations (su capa lo incluye: lo decide el server con la MISMA función que
-   * el guard de la ruta, `tabEnCapa`). Desde la quinta tanda (punto 5) el lienzo de cada mensaje
-   * se edita allá y acá queda un link; sin /automations, el link rebotaría y el mensaje se quedaría
-   * sin ningún lugar donde editarse, así que se sigue editando acá.
-   */
-  editarEnChatbot?: boolean;
-} = {}) {
+// ⛔ ACÁ VIVÍA LA PROP `editarEnChatbot` (quinta tanda, punto 5: con /automations, el lienzo de cada
+// mensaje se editaba allá y acá quedaba un link). Se fue el 11/10/2026 con la lista de mensajes de abajo.
+export function NotificacionesPanel() {
   const [inApp, setInApp] = useState<NotifInApp | null>(null);
   const [dest, setDest] = useState<Destinatarios | null>(null);
   const [tieneGrupo, setTieneGrupo] = useState(false);
@@ -343,25 +333,13 @@ export function NotificacionesPanel({ editarEnChatbot = false }: {
         </div>
       </div>
 
-      {/* Los mensajes, SIEMPRE a la vista y UNO para los dos canales. Van FUERA del
-          recuadro de arriba porque contestan otra pregunta —qué dicen, no a quién
-          llegan— y porque miden 560px: adentro, el recuadro dejaría de leerse como
-          una caja.
-
-          ⚠️ ANTES ERAN DOS TABLEROS Y SE ELEGÍA CON EL TILE. Lo cortó el dueño el
-          04/10/2026: «las secuencias de email o WhatsApp es lo mismo, no se gestiona
-          aparte». Por dónde sale un mensaje es un CAMPO del mensaje (`canales`), no
-          una pantalla — que es la misma regla por la que el canal no es un nodo del
-          lienzo. El canal se prende ahora en el tablero, con la tarjeta de cada uno.
-
-          `BandejaEmail` sigue existiendo y ya no se monta acá: lo que hacía de más
-          —ver los correos que salieron— no es configurar un mensaje. Si vuelve, vuelve
-          por su propia puerta y no como la mitad email de esta pantalla. */}
-      {/* ⚠️ QUINTA TANDA, PUNTO 5: «quiero que elimines el lienzo en la tab de "Notificaciones",
-          pero que dejes un enlace para editarlo aquí» (Martín, 09/10/2026, desde /automations). Con
-          `enlaceEditar`, la lista, el chat de cada mensaje y el alta se quedan; el lienzo se va y su
-          lugar lo toma un link a /automations que abre ESE mensaje (`?aviso=<id>`, lib/chatbot-mensajes-mako.ts). */}
-      <PlantillasView endpoint={ENDPOINT} enlaceEditar={editarEnChatbot ? (p) => enlaceAMensajeMako(p.id) : undefined} />
+      {/* ⛔ ACÁ IBA LA LISTA DE «LOS MENSAJES» (`PlantillasView` con el endpoint del cliente: qué dice cada
+          mensaje de MaKo y por dónde sale). Se fue el 11/10/2026: Martín, «Esto pasa porque "MaKo en WhatsApp"
+          lo comenzamos a hacer hace tiempo en la tab de notificaciones y quedaron cosas muy viejas que quiero que
+          las depreques. Todo ahora es lo mismo». Los mensajes del cliente son AUTOMATIZACIONES de la tab
+          Automations (sección «MaKo en WhatsApp», docs/diseno-mako-en-whatsapp-unificado.md): de esta lista no
+          quedaban más que los mensajes PROPIOS del negocio (`AVISOS_DEL_CLIENTE = []`), que siguen en /mensajes.
+          Esta pantalla contesta sólo A QUIÉN le llega. */}
     </div>
   );
 }

@@ -35,6 +35,7 @@ import { valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoD
 import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
 import { partesExplicitas } from './mensaje-partes';
+import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
 
 // ── Los tipos de disparador nuevos ──────────────────────────────────────────────────────────────
 
@@ -53,13 +54,34 @@ export const TRIGGER_EMAIL_RECIBIDO = 'email_recibido';
 export const TRIGGER_SOLO_GRUPO = 'grupo_mako';
 
 /**
+ * «EVENTO DE MAKO» (11/10/2026): el CRON de una automatización que es un mensaje de «MaKo en WhatsApp».
+ * Martín: «Todo ahora es lo mismo... debe ser IDENTICO» (docs/diseno-mako-en-whatsapp-unificado.md). CUÁL
+ * evento lo dice `subtipo` (`EVENTOS_MAKO`, abajo), como el de Instagram. NO lo inscribe el motor de
+ * nutrición: lo lee el emisor de siempre (`emitirDelCatalogo` → `emitirPorEvento`, lib/aviso-evento.ts),
+ * igual que el recordatorio de la reunión.
+ */
+export const TRIGGER_AVISO_MAKO = 'aviso_mako';
+
+/**
  * LOS QUE DISPARAN SÓLO POR SU EVENTO: no tienen cohorte (no hay «quien está parado en…»), así que
  * el barrido horario no los mira. Los llama el choke point de cada uno: las etiquetas
- * (lib/etiquetas-motor.ts) y los webhooks de Instagram, Messenger y el email (parte «canales»).
+ * (lib/etiquetas-motor.ts), los webhooks de Instagram, Messenger y el email (parte «canales») y el
+ * emisor de los avisos (`aviso_mako`). Con horario contestan «Un evento no se repite por horario».
  */
 export const TRIGGERS_SOLO_EVENTO: ReadonlySet<string> = new Set([
-  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO,
+  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO,
 ]);
+
+/**
+ * LOS CRON QUE MANDA SU PROPIO EMISOR, no el motor: el recordatorio de la reunión y el evento de MaKo.
+ * Con uno de éstos la lista es de UNO (`problemaDeDisparadores`: «Este CRON va solo») y no se cambia
+ * (`problemaDeCambio`). Sin esto, un segundo CRON de Producto sobre el recordatorio inscribía leads en
+ * el motor ADEMÁS del emisor, y la «←» lo pasaba a otra clase sin que el emisor se enterara.
+ */
+export const TRIGGERS_DEL_EMISOR: ReadonlySet<string> = new Set([TRIGGER_RECORDATORIO, TRIGGER_AVISO_MAKO]);
+export const esDelEmisor = (d: Pick<Disparador, 'trigger_tipo'> | null | undefined): boolean => !!d && TRIGGERS_DEL_EMISOR.has(d.trigger_tipo);
+export const MOTIVO_CRON_SOLO = 'Este CRON va solo';
+export const MOTIVO_CRON_FIJO = 'Este CRON no se cambia';
 
 /** Todos los que este módulo agrega al catálogo de siempre (`TRIGGERS`, lib/email-marketing.ts). */
 export const TRIGGERS_NUEVOS: readonly string[] = [...TRIGGERS_SOLO_EVENTO, TRIGGER_SOLO_GRUPO];
@@ -72,8 +94,14 @@ export const TRIGGERS_NUEVOS: readonly string[] = [...TRIGGERS_SOLO_EVENTO, TRIG
  * (`disparaPorEvento` exige el subtipo; el grupo sin horario no barre). Los rechazan
  * `crearEmailSecuencia` / `actualizarMetaEmailSecuencia` (lib/email-marketing.ts) y la API de email.
  * Las dos de etiqueta («Se agrega / se elimina») no están: su «Ignorar» es opcional.
+ *
+ * Los dos del EMISOR (11/10/2026) tampoco se eligen ahí: nacen de la galería con su CRON fijo. Puesto
+ * desde /email, el recordatorio convertía en «recordatorio» cualquier automatización (la lee su emisor)
+ * y el evento de MaKo quedaba sin evento.
  */
-export const SOLO_DESDE_EL_CRON: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_SOLO_GRUPO]);
+export const SOLO_DESDE_EL_CRON: ReadonlySet<string> = new Set([
+  TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_SOLO_GRUPO, ...TRIGGERS_DEL_EMISOR,
+]);
 export const MOTIVO_SOLO_DESDE_EL_CRON = 'Ese disparador se elige en el CRON de la automatización.';
 
 /** Cuántos CRON puede tener una automatización. ManyChat no topea; diez es más de lo que se usa. */
@@ -83,7 +111,11 @@ export const TOPE_IGNORAR = 50;
 
 // ── Las seis clases de la primera pantalla ──────────────────────────────────────────────────────
 
-export type ClaseDisparador = 'producto' | 'recurrente' | 'etiqueta' | 'instagram' | 'messenger' | 'email';
+/**
+ * `mako` = «Evento de MaKo» (11/10/2026). NO es un botón de la primera pantalla (`CLASES_DISPARADOR` sigue
+ * en seis): una fila de evento nace de la galería con su CRON puesto, y no se cambia.
+ */
+export type ClaseDisparador = 'producto' | 'recurrente' | 'etiqueta' | 'instagram' | 'messenger' | 'email' | 'mako';
 
 /** Los botones gigantes de la primera pantalla del CRON (CRON puntos 1, 2, 6, 7 y 8), en ese orden. */
 export const CLASES_DISPARADOR: ReadonlyArray<{ clase: ClaseDisparador; label: string }> = [
@@ -133,11 +165,31 @@ export const EVENTOS_EMAIL: readonly EventoCanal[] = [
   { subtipo: 'recibido', label: 'Recibes un email' },
 ];
 
+/** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
+export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida';
+
+/**
+ * LOS EVENTOS DE MAKO (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md §1): cada uno es un aviso del
+ * catálogo que hasta hoy salía solo y desde ahora sale por las automatizaciones que el negocio agrega de la
+ * galería. `aviso` es el id que se EMITE (de él cuelgan el dedup, el rótulo y el feed: no se cambia). El id
+ * crudo no va en `subtipo`: su regex (`/^[a-z_]{1,30}$/`) rechaza el guion de `cuota-vencida`.
+ *
+ * `trae`: lo que el código que lo emite tiene en la mano. `mensaje` = el texto que arma (lo que sale con
+ * `{{mensaje_mako}}`); `cuota` = los datos de la cuota (`{{cuota_monto}}`…). El lead, los tres.
+ */
+export type EventoMako = EventoCanal & { subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota'> };
+export const EVENTOS_MAKO: readonly EventoMako[] = [
+  { subtipo: 'reunion_pronto', aviso: 'reunion-recordatorio', label: 'Falta media hora para una reunión', trae: ['lead', 'mensaje'] },
+  { subtipo: 'lead_contesta', aviso: 'wa-mensaje-entrante', label: 'Un lead contesta y MaKo no le respondió', trae: ['lead', 'mensaje'] },
+  { subtipo: 'cuota_vencida', aviso: 'cuota-vencida', label: 'Una cuota vence sin cobrarse', trae: ['lead', 'cuota'] },
+];
+
 /** Los eventos de una clase de canal (vacío para las demás). */
 export function eventosDe(clase: ClaseDisparador | 'otro' | null): readonly EventoCanal[] {
   if (clase === 'instagram') return EVENTOS_INSTAGRAM;
   if (clase === 'messenger') return EVENTOS_MESSENGER;
   if (clase === 'email') return EVENTOS_EMAIL;
+  if (clase === 'mako') return EVENTOS_MAKO;
   return [];
 }
 
@@ -231,8 +283,8 @@ const fechaIso = (v: unknown): string | null => (typeof v === 'string' && v && !
 const DE_ETAPA: ReadonlySet<string> = new Set([TRIGGER_ETAPA, TRIGGER_ENTREGA]);
 /** Las que llevan `ignorar`. */
 const CON_IGNORAR: ReadonlySet<string> = new Set([TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA]);
-/** Las que llevan `subtipo`. */
-const CON_SUBTIPO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO]);
+/** Las que llevan `subtipo` (el evento de MaKo también: cuál de `EVENTOS_MAKO`). */
+const CON_SUBTIPO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO]);
 
 /**
  * CADA DISPARADOR LLEVA SÓLO LOS CAMPOS DE SU TIPO. Un campo de otro tipo que sobrevive a un cambio
@@ -419,6 +471,7 @@ export function claseDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>):
   if (t === TRIGGER_INSTAGRAM) return 'instagram';
   if (t === TRIGGER_MESSENGER) return 'messenger';
   if (t === TRIGGER_EMAIL_RECIBIDO) return 'email';
+  if (t === TRIGGER_AVISO_MAKO) return 'mako';
   if (t === TRIGGER_SOLO_GRUPO) return 'recurrente';
   return 'otro';
 }
@@ -492,6 +545,9 @@ export function problemaDeDisparador(d: Disparador, o: { unico: boolean }): stri
 export function problemaDeDisparadores(lista: readonly Disparador[]): string | null {
   if (!lista.length) return 'Falta el CRON';
   if (lista.length > TOPE_DISPARADORES) return `Hasta ${TOPE_DISPARADORES} CRON`;
+  // El recordatorio y el evento de MaKo los manda SU emisor: un segundo CRON al lado lo inscribiría el motor
+  // además (los mismos mensajes dos veces), o sería un CRON dibujado que nadie corre.
+  if (lista.length > 1 && lista.some(esDelEmisor)) return MOTIVO_CRON_SOLO;
   const firmas = new Set<string>();
   for (const d of lista) {
     const f = firmaDisparador(d);
@@ -501,6 +557,28 @@ export function problemaDeDisparadores(lista: readonly Disparador[]): string | n
     if (p) return p;
   }
   return null;
+}
+
+/**
+ * ¿SE PUEDE PASAR DE `previos` A `lista`? (11/10/2026). Un CRON del EMISOR (`TRIGGERS_DEL_EMISOR`) es la
+ * identidad de la fila —qué lee el emisor y qué le pide a sus tarjetas—, así que:
+ *   · de uno del emisor a otro (u otro evento de MaKo), o a cualquier otra clase → «Este CRON no se cambia»;
+ *   · de otra clase a uno del emisor → tampoco: la fila no nació para eso y sus tarjetas no lo saben;
+ *   · de «a elegir» (`manual`, sin horario) a uno del emisor, SÍ: es pegar un flujo copiado
+ *     (lib/flujo-copia-negocio.ts, que crea la fila «manual» y después guarda su CRON);
+ *   · el mismo de antes (guardar sin cambiar nada), sí.
+ * null = se puede. Lo llaman `guardarDisparadores` y `prepararDisparadores` (lib/disparadores-guardar.ts).
+ */
+export function problemaDeCambio(previos: readonly Disparador[], lista: readonly Disparador[]): string | null {
+  const antes = previos.filter(esDelEmisor);
+  const ahora = lista.filter(esDelEmisor);
+  if (!antes.length && !ahora.length) return null;
+  if (antes.length) {
+    const igual = previos.length === lista.length && previos.every((d, i) => firmaDisparador(d) === firmaDisparador(lista[i]));
+    return igual ? null : MOTIVO_CRON_FIJO;
+  }
+  const deNada = previos.every((d) => d.trigger_tipo === 'manual' && !d.cron);
+  return deNada ? null : MOTIVO_CRON_FIJO;
 }
 
 // ── Cuándo dispara un evento ────────────────────────────────────────────────────────────────────

@@ -133,7 +133,9 @@ export async function mandarRecordatoriosDeReunion(ws: number): Promise<Resultad
       const minutos = Math.max(0, Math.round((Date.parse(iso) - ahora) / 60_000));
       const texto = await textoAvisoPreLlamada({ leadId: lead.id, cual, minutos });
       if (!texto) { out.errores += 1; continue; }
-      const aviso = await emitirDelCatalogo('reunion-recordatorio', { ws, texto });
+      // El lead viaja (11/10/2026): desde que este aviso es un evento de MaKo (lib/aviso-evento.ts), sus
+      // automatizaciones lo nombran y su CONDITION mira los hechos de ESTE lead.
+      const aviso = await emitirDelCatalogo('reunion-recordatorio', { ws, texto, lead: { id: lead.id, nombre: lead.nombre } });
       // La marca se escribe DESPUÉS del envío y solo si el aviso se procesó — el
       // candado se escribe después del efecto que protege (misma disciplina que
       // lib/reunion-auto.ts, donde escribirlo antes perdía las tareas para

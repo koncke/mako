@@ -38,6 +38,7 @@ import { KEY_TIMEZONE, TZ_DEFAULT, esTzValida, setTimezoneWorkspace } from '@/li
 import { getPerfil, getNotifPrefs, setNotifPrefs, avisoWaActivo, getNotifInApp, DEFAULT_PERFIL, type NotifPrefs } from '@/lib/perfil';
 import { AVISOS_WA_EN_VIVO, NOTIF_IN_APP, soloDigitos, telefonoValido, emailValido, inAppActivo } from '@/lib/notif-catalogo';
 import { CATALOGO_AVISOS, esAvisoSoloSuperAdmin } from '@/lib/avisos-catalogo';
+import { AVISOS_POR_EVENTO } from '@/lib/aviso-evento';
 import { getDestinatarios, setDestinatarios, type ResultadoGuardar } from '@/lib/notif-destinatarios';
 import { getGrupoJidMaKo, getEstadoVerificacionContacto } from '@/lib/mako-grupo';
 import { buildReporteDiario, buildReporteHorario, buildReporteSemanal } from '@/lib/reportes';
@@ -119,6 +120,9 @@ const tituloAviso = (id: string): string =>
 const esReporteDelCatalogo = (id: string) => CATALOGO_AVISOS.some((a) => a.id === id && a.categoria === 'reporte');
 const avisoSilenciable = (id: string) =>
   !esReporteDelCatalogo(id) && (AVISOS_WA_EN_VIVO.some((a) => a.id === id) || CATALOGO_AVISOS.some((a) => a.id === id));
+
+/** Lo que contesta MaKo si le piden prender o apagar uno de los tres eventos de MaKo (11/10/2026). */
+const MENSAJE_ES_AUTOMATIZACION = 'Ese mensaje es una automatización: se prende en Automations.';
 
 type Reporte = 'horario' | 'diario' | 'semanal';
 type CampoReporte = 'activo' | 'wa' | 'email';
@@ -421,6 +425,10 @@ export const RUNNERS: Runners = {
       const aviso = str(input, 'aviso')!;
       const valor = bool(input, 'valor')!;
       if (esReporteDelCatalogo(aviso)) return { error: `«${aviso}» es un reporte, no un aviso: usa configurar_reporte.` };
+      // Los tres que son EVENTOS de MaKo («media hora antes», «un lead te escribió», «cuota vencida») son
+      // automatizaciones desde el 11/10/2026: los prende la fila del negocio, no `notification_prefs`, así que
+      // prenderlos acá sería un interruptor que no hace nada (docs/diseno-mako-en-whatsapp-unificado.md).
+      if (AVISOS_POR_EVENTO.has(aviso)) return { error: MENSAJE_ES_AUTOMATIZACION };
       if (!avisoSilenciable(aviso)) return { error: `No existe el aviso «${aviso}». Pide listar_avisos_disponibles.`, faltan: ['aviso'] };
       // Los que configura SÓLO el super admin (la caída y la vuelta del WhatsApp, la grabación de Fathom):
       // Martín, 10/10/2026. Ni por MaKo: se cambian desde /mensajes (lib/avisos-catalogo.ts, AVISOS_SOLO_SUPERADMIN).
@@ -432,6 +440,8 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async (payload) => escribir(async () => {
       const aviso = String(payload.aviso ?? '');
+      // Una pendiente propuesta ANTES del 11/10/2026 sobre uno de los tres eventos no se aplica al confirmarla.
+      if (AVISOS_POR_EVENTO.has(aviso)) return { ok: false, resumen: MENSAJE_ES_AUTOMATIZACION };
       if (!avisoSilenciable(aviso)) return { ok: false, resumen: `El aviso «${aviso}» ya no existe.` };
       // Una pendiente propuesta ANTES del 10/10/2026 sobre uno del super admin no se aplica al confirmarla.
       if (esAvisoSoloSuperAdmin(aviso)) return { ok: false, resumen: `El aviso «${tituloAviso(aviso)}» lo configura la agencia.` };

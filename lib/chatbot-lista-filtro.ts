@@ -15,7 +15,7 @@
 // Lo que vive acá son las decisiones que se pueden equivocar sin que nada se vea roto, como
 // funciones PURAS con test que las EJECUTA (tests/chatbot-lista-filtro.test.ts):
 //
-//   · POR DÓNDE Y A QUIÉN escribe una fila (`enviosDePasos`, `enviosDeAviso`): se DERIVA de los
+//   · POR DÓNDE Y A QUIÉN escribe una fila (`enviosDePasos`): se DERIVA de los
 //     pasos, nunca se guarda. Un campo «canal» guardado al lado de los pasos se queda viejo en la
 //     primera edición del lienzo (AGENTS.md, «Lo que está OCULTO se deriva de lo que se DIBUJA»).
 //   · si una fila PASA el filtro (`pasaFiltroLista`);
@@ -30,23 +30,20 @@ import type { DropdownGroup, DropdownOption } from '@/app/components/Dropdown';
 import { alternarValor } from '@/app/components/dropdown-varios';
 import { claseDe, expandirPasoIA, type PasoGrafo } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
-import type { PlantillaVista } from './plantillas';
-import { emojiDeMensaje, mensajeActivo } from './chatbot-mensajes-mako';
 
 /** Por dónde sale un mensaje. */
 export type CanalEnvio = 'whatsapp' | 'email';
 /**
- * A quién le escribe: al LEAD («A clientes»), al grupo del negocio con MaKo («Al WhatsApp de
- * MaKo»: la tarjeta MAKO, que es la ⚡ Acción `avisar_al_equipo`, y los Mensajes de MaKo por
- * WhatsApp) o al correo del NEGOCIO (un Mensaje de MaKo por email). El filtro ofrece los dos
- * primeros —son los que pidió Martín—; el tercero existe para no meter un email al dueño en
- * ninguno de los dos.
+ * A quién le escribe: al LEAD («A clientes») o al grupo del negocio con MaKo («Al WhatsApp de MaKo»:
+ * la tarjeta MAKO, que es la ⚡ Acción `avisar_al_equipo`). Los dos que pidió Martín. (Hasta el
+ * 11/10/2026 había un tercero, el correo del NEGOCIO, para un Mensaje de MaKo de los de antes que salía
+ * por email: esos mensajes son hoy automatizaciones, y su tarjeta MaKo sale por WhatsApp.)
  */
-export type DestinoEnvio = 'clientes' | 'mako' | 'negocio';
+export type DestinoEnvio = 'clientes' | 'mako';
 /** Un envío que la fila puede hacer: un canal Y un destino juntos (ver `pasaFiltroLista`). */
 export type Envio = { canal: CanalEnvio; destino: DestinoEnvio };
 
-/** Lo que el filtro necesita de cada fila de la lista: automatización, recordatorio o mensaje de MaKo. */
+/** Lo que el filtro necesita de cada fila de la lista: una automatización (las de «MaKo en WhatsApp» también). */
 export type FilaFiltrable = {
   /** null = no se sabe todavía (el recordatorio antes de leer su interruptor): ningún «Estado» lo deja pasar. */
   activa: boolean | null;
@@ -91,24 +88,10 @@ export function enviosDePasos(pasos: readonly PasoGrafo[]): Envio[] {
   return sinRepetir(out);
 }
 
-/**
- * Los envíos de un Mensaje de MaKo (los flujos de «Notificaciones», punto 5): le escribe al
- * NEGOCIO, nunca al lead. Por WhatsApp va al grupo de MaKo («Al WhatsApp de MaKo»); por email,
- * al correo del negocio — que no es ninguno de los dos destinos del filtro, así que un mensaje
- * que sólo sale por email pasa «Email» y no pasa «Al WhatsApp de MaKo». Literal a propósito: el
- * filtro dice A QUIÉN le llega, y un email no le llega al WhatsApp de nadie.
- */
-export function enviosDeAviso(canales: { wa: boolean; email: boolean } | null | undefined): Envio[] {
-  const out: Envio[] = [];
-  if (canales?.wa) out.push({ canal: 'whatsapp', destino: 'mako' });
-  if (canales?.email) out.push({ canal: 'email', destino: 'negocio' });
-  return out;
-}
-
-/** La fila del filtro de un Mensaje de MaKo: su emoji, si está prendido y por dónde le llega al negocio. */
-export const filaDeMensaje = (p: Pick<PlantillaVista, 'categoria' | 'enabled' | 'fijo' | 'canales'>): FilaFiltrable => ({
-  activa: mensajeActivo(p), emoji: emojiDeMensaje(p), envios: enviosDeAviso(p.canales),
-});
+// ⛔ ACÁ VIVÍAN `enviosDeAviso` y `filaDeMensaje` (quinta tanda): la fila del filtro de un Mensaje de MaKo de
+// los de antes, que venía del endpoint de Notificaciones. Se fueron el 11/10/2026: un mensaje de «MaKo en
+// WhatsApp» es una automatización, y su fila sale de sus pasos como cualquiera (`enviosDePasos`: la tarjeta MaKo
+// es «Al WhatsApp de MaKo»).
 
 // ── El filtro ────────────────────────────────────────────────────────────────────
 

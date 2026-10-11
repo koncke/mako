@@ -68,6 +68,7 @@ import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { TRIGGER_RECORDATORIO, DATOS_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
 import { aplicarVariables } from '@/lib/template-vars';
 import { datosOfrecidos } from '@/lib/variables-aviso';
+import { datosDelEvento } from '@/lib/aviso-evento';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
   claseDe, idDe, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS,
@@ -99,7 +100,7 @@ import { VistaMensajeSocial } from './VistaMensajeSocial';
 import { EditorMensajeSocial } from './EditorMensajeSocial';
 // El ícono de cada CRON de la tarjeta (sexta tanda, CRON 10): el de su clase, como en el panel.
 import { IconoDisparador } from './IconosDisparador';
-import type { ClaseDisparador } from '@/lib/disparadores';
+import type { ClaseDisparador, SubtipoMako } from '@/lib/disparadores';
 
 const SANS = "'Geist', sans-serif";
 
@@ -127,7 +128,7 @@ export function FlujoLienzo({
   etiquetas, etapas, paraGuion, foco, pendientesOtraCosa,
   onPasos, onAgregar, onBorrar, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
-  onTarjetaAbierta, reservaAbajo, triggerTipo, productos, posiciones, onPosiciones, linea,
+  onTarjetaAbierta, reservaAbajo, triggerTipo, eventoMako, productos, posiciones, onPosiciones, linea,
   disparadores, onNuevoDisparador, onAbrirDisparador, onPublicar, puedePublicar = false, accionesTodo,
 }: {
   /**
@@ -241,6 +242,13 @@ export function FlujoLienzo({
    * componente. Opcionales: sin ellos, lo de siempre.
    */
   triggerTipo?: string;
+  /**
+   * EL EVENTO DE MaKo de una fila de «MaKo en WhatsApp» (11/10/2026: su CRON es `aviso_mako` y esto es
+   * cuál, `disparadores[0].subtipo`). Con él, el «{ }» de la tarjeta MaKo ofrece lo que ESE evento trae
+   * (`datosDelEvento`, lib/aviso-evento.ts: «Lo que arma MaKo», los datos de la cuota). null/ausente = una
+   * automatización de las de siempre.
+   */
+  eventoMako?: SubtipoMako | null;
   productos?: ProductoOpcion[];
 }) {
   const [sel, setSel] = useState<string | null>(null);
@@ -638,7 +646,7 @@ export function FlujoLienzo({
         <EditorDeNodo
           nodo={n} paso={pasoDe(n.id)} pasos={pasos} secuencias={secuencias}
           audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy} envioAutoSecuencia={envioAutoSecuencia}
-          etiquetas={etiquetas} etapas={etapas} triggerTipo={triggerTipo} productos={productos}
+          etiquetas={etiquetas} etapas={etapas} triggerTipo={triggerTipo} eventoMako={eventoMako} productos={productos}
           nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
           editorEntrada={editorEntrada} formaPanel={formaPanel} linea={linea}
@@ -717,7 +725,8 @@ export function CuerpoCron({ disparadores, onAbrir, onNuevo }: {
 }
 
 /** Las claves que da `iconoDeDisparador` (lib/disparadores.ts): las dibuja `IconoDisparador`. */
-const CLASES_ICONO_CRON: ReadonlySet<string> = new Set<ClaseDisparador | 'otro'>(['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email', 'otro']);
+// `mako` («Evento de MaKo», 11/10/2026) dibuja el rayo, como `otro`: `IconoDisparador` cae ahí para lo que no tiene dibujo propio.
+const CLASES_ICONO_CRON: ReadonlySet<string> = new Set<ClaseDisparador | 'otro'>(['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email', 'mako', 'otro']);
 const esClaseDeIcono = (s: string): s is ClaseDisparador | 'otro' => CLASES_ICONO_CRON.has(s);
 
 /**
@@ -882,6 +891,8 @@ type PropsEditor = {
   etiquetas: EtiquetaLienzo[]; etapas: SeccionEtapas[];
   /** Para el editor de la condición de la parte A (ver FlujoLienzo). */
   triggerTipo?: string; productos?: ProductoOpcion[];
+  /** El evento de una fila de «MaKo en WhatsApp» (ver FlujoLienzo): lo que ofrece el «{ }» de la tarjeta MaKo. */
+  eventoMako?: SubtipoMako | null;
   nombres: NombresParaTexto;
   paraGuion?: ParaGuion;
   /** La biblioteca de archivos ya leída (undefined = el editor la pide solo). */
@@ -925,7 +936,7 @@ function EditorDeNodo(pr: PropsEditor) {
       // La etiqueta es una ⚡ Acción dibujada como lo que hace (decisión 8): tiene su propio editor.
       if (etiquetaDeAccion(paso)) return <EditorEtiquetaLienzo paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
       // La tarjeta MAKO (tercera tanda, decisión 11): el aviso al grupo del negocio, con su editor.
-      if (esMako(paso)) return <EditorMako key={`mako-${id}`} paso={paso} busy={pr.busy} cambiar={cambiar} />;
+      if (esMako(paso)) return <EditorMako key={`mako-${id}`} paso={paso} busy={pr.busy} cambiar={cambiar} evento={pr.eventoMako ?? null} />;
       return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
     // La `key` va por tarjeta: el editor recuerda la unidad elegida (`useState` sembrado de props).
     case 'esperar': return <EditorEspera key={`espera-${id}`} espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
@@ -1042,14 +1053,18 @@ const GRUPOS_MAKO = datosOfrecidos({ destino: 'equipo', conLead: true });
  *
  * Tipear no apila (el Ctrl+Z del texto es del navegador). La `key` va por tarjeta.
  */
-function EditorMako({ paso, busy, cambiar }: { paso: PasoSecuenciaDto; busy: boolean; cambiar: Cambiar }) {
+function EditorMako({ paso, busy, cambiar, evento }: { paso: PasoSecuenciaDto; busy: boolean; cambiar: Cambiar; evento: SubtipoMako | null }) {
   const m = makoDeAccion(paso) ?? { mensaje: '', titulo: '' };
+  // EN UNA FILA DE EVENTO (11/10/2026) el «{ }» ofrece lo que ESE evento trae (`datosDelEvento`: el lead, «Lo que
+  // arma MaKo» si el código arma el texto, la cuota si es la cobranza), no los de un lead de una automatización.
+  // Ofrecer de más es prometer un dato que sale crudo (AGENTS.md, el catálogo de variables).
+  const datos = useMemo(() => (evento ? datosOfrecidos(datosDelEvento(evento)) : GRUPOS_MAKO), [evento]);
   const params = paso.accion?.params ?? {};
   const poner = (mensaje: string) => {
     const sig: Record<string, unknown> = { ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO, mensaje };
     cambiar({ accion: { operacion: paso.accion?.operacion ?? '', params: sig } }, false);
   };
-  return <EditorMensajeGrupo texto={m.mensaje} onTexto={poner} datos={GRUPOS_MAKO} deshabilitado={busy} />;
+  return <EditorMensajeGrupo texto={m.mensaje} onTexto={poner} datos={datos} deshabilitado={busy} />;
 }
 
 function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto | null }) {

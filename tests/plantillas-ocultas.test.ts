@@ -1,29 +1,26 @@
 // =============================================================================
 // «Eliminar» un Mensaje de MaKo = OCULTARLO de la lista de ESE negocio, y recuperarlo — novena tanda
-// (lib/plantillas-ocultas.ts, lib/plantillas.ts, app/api/perfil/plantillas/route.ts,
-// app/api/admin/plantillas/route.ts, lib/chatbot-mensajes-mako.ts, app/automations/ChatAgentApp.tsx,
-// app/automations/GaleriaPlantillas.tsx)
+// (lib/plantillas-ocultas.ts, lib/plantillas.ts, app/api/admin/plantillas/route.ts)
 // =============================================================================
 // Martín, 10/10/2026: «No aparecen los 3 puntos para eliminar una automatización de "MaKo en WhatsApp"...
-// Las cosas de "MaKo en WhatsApp" deben ser EXACTAMENTE igual al resto». Y del «Reporte semanal»: «yo lo
-// elimino cuando agregues los tres puntos». Una automatización eliminada se ARCHIVA y se recupera; un mensaje
-// eliminado se OCULTA (sale de la lista de este negocio, apagado) y se recupera desde «Nueva automatización».
+// Las cosas de "MaKo en WhatsApp" deben ser EXACTAMENTE igual al resto». Una automatización eliminada se ARCHIVA
+// y se recupera; un mensaje eliminado se OCULTA (sale de la lista, apagado) y se recupera.
+//
+// ⚠️ DESDE EL 11/10/2026 SÓLO LO HACE /mensajes (la agencia). «MaKo en WhatsApp» son automatizaciones de la tab
+// Automations (docs/diseno-mako-en-whatsapp-unificado.md): el negocio ya no oculta ni recupera mensajes, y se
+// fueron de acá los tests de su ruta (`/api/perfil/plantillas`: `?ocultos=1`, `ocultar`, `restaurar`) y de la
+// galería que los recuperaba. Lo que esa ruta YA NO hace lo fija tests/automations-mako-en-whatsapp.test.ts.
 //
 // Lo PURO se ejecuta (la regla «oculto ⇒ apagado», quién ve qué). lib/plantillas.ts es `server-only` y lee
-// la base: su cableado se fija en el fuente sin comentarios, cada pieza por su bloque. La galería se dibuja.
-// El «⋯» de la fila y su confirmación, en tests/chatbot-mensajes-mako.test.ts.
+// la base: su cableado se fija en el fuente sin comentarios, cada pieza por su bloque.
 //
 // PROBADO ROMPIÉNDOLO: ver `ROTURAS` al pie.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { estaOculta, ocultar, restaurar, conInterruptor, porOculto, queOcultos } from '../lib/plantillas-ocultas';
-import { ENDPOINT_MENSAJES_MAKO, ENDPOINT_MENSAJES_OCULTOS, PARAM_OCULTOS, emojiDeMensaje } from '../lib/chatbot-mensajes-mako';
-import { GaleriaPlantillas, ROTULO_OCULTOS, LINEA_OCULTO } from '../app/automations/GaleriaPlantillas';
-import type { EntradaStore, PlantillaVista } from '../lib/plantillas';
+import { estaOculta, ocultar, restaurar, conInterruptor, porOculto, queOcultos, PARAM_OCULTOS } from '../lib/plantillas-ocultas';
+import type { EntradaStore } from '../lib/plantillas';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -119,30 +116,7 @@ test('las escrituras pasan por las funciones de la regla: ocultar, restaurar y e
   assert.match(bloque(STORE, 'export async function restaurarPlantilla(', 'export async function setCanalesPlantilla('), /await mutar\(id, restaurar\);/);
 });
 
-// ── 3. Las rutas: las acciones nuevas, detrás de los mismos guards ─────────────
-
-test('/api/perfil/plantillas: ocultar y restaurar detrás del guard de admin Y del de los avisos del super admin', () => {
-  const ruta = fuente('app/api/perfil/plantillas/route.ts');
-  const post = ruta.slice(ruta.indexOf('export async function POST'));
-  const iGuardAdmin = post.indexOf('const no = await denegado();');
-  const iGuardSuper = post.indexOf('await soloDelSuperAdmin(b.id)');
-  const iSwitch = post.indexOf('switch (b.action)');
-  assert.ok(iGuardAdmin > 0 && iGuardAdmin < iGuardSuper && iGuardSuper < iSwitch, 'los guards no van antes del switch');
-  const casos = bloque(post, "      case 'borrar':", "      case 'probar':", 1500);
-  // Del lado del negocio nada destruye: el tacho de la bandeja de correo (`borrar`) también oculta.
-  assert.match(casos, /case 'borrar':\n\s+case 'ocultar':\n\s+if \(!b\.id\) return faltaId\(\);\n\s+if \(!\(await ocultarPlantilla\(b\.id\)\)\) return NextResponse\.json\(\{ ok: false, error: '[^']+' \}, \{ status: 400 \}\);/);
-  assert.match(casos, /case 'restaurar':\n\s+if \(!b\.id\) return faltaId\(\);\n\s+await restaurarPlantilla\(b\.id\);/);
-  assert.doesNotMatch(ruta, /borrarPlantilla/, 'el cliente volvió a poder borrar de verdad');
-});
-
-test('/api/perfil/plantillas: el GET de los ocultos es la vista del CLIENTE (lo que su lista podía mostrar), detrás del guard', () => {
-  const get = bloque(fuente('app/api/perfil/plantillas/route.ts'), 'export async function GET', 'export async function POST');
-  const iGuard = get.indexOf('if (no) return no;');
-  const iOcultos = get.indexOf('params.get(PARAM_OCULTOS)');
-  assert.ok(iGuard > 0 && iOcultos > iGuard, 'los ocultos se leen sin el guard de admin');
-  assert.ok(iOcultos > get.indexOf('if (ajeno) return ajeno;'), 'los ocultos se leen antes del guard del super admin');
-  assert.match(get, /if \(params\.get\(PARAM_OCULTOS\) === '1'\) return NextResponse\.json\(\{ ok: true, plantillas: await listarPlantillas\(\{ ocultos: true \}\) \}\);/);
-});
+// ── 3. La ruta de /mensajes: las acciones, detrás de su guard ─────────────────
 
 test('/api/admin/plantillas: el mismo protocolo (paridad), adentro de `enSuStore`, y `borrar` sigue borrando en /mensajes', () => {
   const ruta = fuente('app/api/admin/plantillas/route.ts');
@@ -155,72 +129,20 @@ test('/api/admin/plantillas: el mismo protocolo (paridad), adentro de `enSuStore
   assert.match(bloque(ruta, 'async function getEnSuStore', 'type Body'), /if \(params\.get\(PARAM_OCULTOS\) === '1'\) return NextResponse\.json\(\{ ok: true, plantillas: await listarPlantillas\(\{ vista: 'agencia', ocultos: true \}\) \}\);/);
 });
 
-test('el pedido de los ocultos: /automations lo arma y las dos rutas lo leen con la MISMA constante', () => {
-  const u = new URL(ENDPOINT_MENSAJES_OCULTOS, 'https://app.local');
-  assert.equal(u.pathname, ENDPOINT_MENSAJES_MAKO);
-  assert.equal(u.searchParams.get(PARAM_OCULTOS), '1');
-  for (const r of ['app/api/perfil/plantillas/route.ts', 'app/api/admin/plantillas/route.ts']) {
-    assert.match(fuente(r), /import \{ PARAM_OCULTOS \} from '@\/lib\/chatbot-mensajes-mako';/, `${r} no lee la constante`);
-  }
-  assert.match(fuente('app/automations/ChatAgentApp.tsx'), /const r = await fetch\(ENDPOINT_MENSAJES_OCULTOS, \{ cache: 'no-store' \}\);/);
-});
-
-// ── 4. Recuperar: la galería de «Nueva automatización» ─────────────────────────
-
-const OCULTOS: Pick<PlantillaVista, 'id' | 'titulo' | 'categoria'>[] = [
-  { id: 'reporte-semanal', titulo: 'Reporte semanal', categoria: 'reporte' },
-  { id: 'custom-1-abc', titulo: 'Recordar la renovación', categoria: 'aviso' },
-];
-const galeria = (extra: Record<string, unknown> = {}) => renderToStaticMarkup(createElement(GaleriaPlantillas, {
-  productos: [], onCerrar: () => {}, onEmpezar: () => {}, onCreada: () => {}, ...extra,
-} as Parameters<typeof GaleriaPlantillas>[0]));
-
-test('la galería dibuja «Mensajes de MaKo» con una tarjeta por cada eliminado (emoji, nombre y cómo se recupera)', () => {
-  const html = galeria({ ocultos: OCULTOS, onRestaurar: async () => null });
-  const iSeccion = html.indexOf('data-galeria-ocultos');
-  assert.ok(iSeccion > 0, 'no está la sección');
-  assert.ok(html.indexOf(`>${ROTULO_OCULTOS}</div>`, iSeccion) > iSeccion, 'la sección sin su rótulo');
-  for (const o of OCULTOS) {
-    const tarjeta = html.match(new RegExp(`<button[^>]*data-oculto="${o.id}"[^>]*>[\\s\\S]*?</button>`))?.[0] ?? '';
-    assert.ok(tarjeta, `«${o.titulo}» sin tarjeta`);
-    assert.ok(tarjeta.includes(emojiDeMensaje(o)) && tarjeta.includes(`>${o.titulo}<`) && tarjeta.includes(LINEA_OCULTO), `la tarjeta de «${o.titulo}» está incompleta`);
-    assert.doesNotMatch(tarjeta, /disabled/, `«${o.titulo}» no se puede tocar`);
-  }
-  // Va al pie, después de las plantillas: es lo menos frecuente del modal.
-  assert.ok(iSeccion > html.lastIndexOf('data-plantilla='), 'la sección no va al pie');
-});
-
-test('sin ninguno eliminado (o sin quién lo recupere) la sección no se dibuja', () => {
-  assert.doesNotMatch(galeria({ ocultos: [], onRestaurar: async () => null }), /data-galeria-ocultos|data-oculto=/);
-  assert.doesNotMatch(galeria(), /data-galeria-ocultos/);
-  assert.doesNotMatch(galeria({ ocultos: OCULTOS }), /data-galeria-ocultos/, 'una tarjeta que al tocarla no haría nada');
-});
-
-test('/automations le pasa los ocultos a la galería, y recuperar relee la lista ANTES de abrir el lienzo', () => {
-  const app = fuente('app/automations/ChatAgentApp.tsx');
-  assert.match(app, /ocultos=\{ocultos \?\? \[\]\} onRestaurar=\{restaurarMensaje\} \/>/);
-  assert.match(app, /useEffect\(\(\) => \{ if \(rolAdmin\) void cargarOcultos\(\); \}, \[rolAdmin, cargarOcultos\]\);/);
-  assert.match(app, /onOcultosCambio=\{\(\) => void cargarOcultos\(\)\}/);
-  const rest = bloque(app, 'const restaurarMensaje = async', '\n  };\n', 1500);
-  assert.match(rest, /body: JSON\.stringify\(\{ action: 'restaurar', id \}\)/);
-  // `abrirAviso` sólo abre un mensaje que esté entre los que la lista ya trae: primero se relee.
-  const iRelee = rest.indexOf('await Promise.all([cargarAvisos(), cargarOcultos()]);');
-  assert.ok(iRelee > 0 && iRelee < rest.indexOf('setAbrirAviso({ id });'), 'el lienzo se pide abrir antes de que la lista lo traiga');
-  assert.ok(rest.indexOf('setGaleria(false);') > iRelee);
+test('el pedido de los ocultos: la ruta de /mensajes lee `PARAM_OCULTOS` de lib/plantillas-ocultas.ts', () => {
+  // Vivía en lib/chatbot-mensajes-mako.ts, que se borró el 11/10/2026 con la lista vieja de /automations.
+  assert.equal(PARAM_OCULTOS, 'ocultos');
+  assert.match(fuente('app/api/admin/plantillas/route.ts'), /import \{ PARAM_OCULTOS \} from '@\/lib\/plantillas-ocultas';/);
+  // Y la ruta del NEGOCIO ya no lo lee: el negocio no oculta nada.
+  assert.doesNotMatch(fuente('app/api/perfil/plantillas/route.ts'), /PARAM_OCULTOS/);
 });
 
 // ROTURAS (10/10/2026), una por vez, con un arnés (scratchpad `ocultos-romper.mjs`) que rompe, corre ESTE
-// archivo y tests/chatbot-mensajes-mako.test.ts (30 tests entre los dos), y restaura DE MEMORIA (nunca con
-// git checkout) verificando con md5 que cada archivo volviera idéntico. Base: 30 pass / 0 fail; al final, igual.
-// Las de este archivo (pass / fail):
+// archivo y el de la lista vieja, y restaura DE MEMORIA (nunca con git checkout) verificando con md5 que cada
+// archivo volviera idéntico. Las que siguen vigentes (pass / fail sobre los 30 de entonces):
 //   · R1 `ocultar` sin apagar: 29 / 1 · R2 `restaurar` deja la marca: 28 / 2 · R3 prender no restaura: 29 / 1
 //   · R4 el cliente ve todo: 29 / 1 · R5 el recorte al revés: 29 / 1 · R6 la base hereda la marca: 29 / 1
 //   · R7 `estaPrendida` sin la marca: 29 / 1 · R8 la lista sin recortar: 29 / 1 · R9 el interruptor sin
 //     `conInterruptor`: 29 / 1 · R10 se oculta un fijo: 29 / 1 · R11 la vista sin la marca: 29 / 1
-//   · R12 perfil sin `restaurar`: 29 / 1 · R13 perfil: `borrar` vuelve a borrar de verdad: 29 / 1 · R14 perfil:
-//     los ocultos con la vista de la agencia: 29 / 1 · R15 admin sin `ocultar`: 29 / 1 · R16 admin: los ocultos
-//     sin la vista de la agencia: 29 / 1 · R17 /automations arma el pedido a mano: 29 / 1
-//   · R18 recuperar abre el lienzo antes de releer la lista: 29 / 1 · R19 la galería sin los ocultos: 29 / 1
-//   · R20 la sección sin quién recupere: 29 / 1 · R21 la sección aunque no haya ninguno: 29 / 1 · R22 la
-//     tarjeta apagada: 29 / 1
-// Las del «⋯» (R23-R34), al pie de tests/chatbot-mensajes-mako.test.ts.
+//   · R15 admin sin `ocultar`: 29 / 1 · R16 admin: los ocultos sin la vista de la agencia: 29 / 1
+// (R12-R14 y R17-R22 eran de la ruta del negocio y de la galería, que se fueron el 11/10/2026.)

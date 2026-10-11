@@ -1,9 +1,12 @@
-// El marco de «MaKo en WhatsApp» (el lienzo de un Mensaje de MaKo adentro de /automations) con lo de la sexta
-// tanda, como una automatización. La verificación de los restos (10/10/2026) lo encontró con lo de antes:
+// El marco del lienzo de un aviso (`TemplateDetalleModal`, el de /mensajes) con lo de la sexta tanda, como una
+// automatización. La verificación de los restos (10/10/2026) lo encontró con lo de antes:
 //   · «Activar» al lado del título. Martín, General 8: «Activar pasa a estar al lado de "Publicar"».
 //   · «Eliminar» como un texto rojo. General 9: el tacho rojo de la casa, «en TODOS lados».
 //   · el panel de cada tarjeta en 460 px fijos: `muelles` no llegaba desde la lista, así que el
 //     `editorDeTarjeta(muelles, …)` de FlujoAviso (y su test) era un camino que nunca corría.
+// ⚠️ Desde el 11/10/2026 este lienzo ya no se monta en /automations: «MaKo en WhatsApp» son automatizaciones con
+// el lienzo de siempre (docs/diseno-mako-en-whatsapp-unificado.md). Sigue siendo el de /mensajes, y lo de
+// abajo vale ahí; se fue lo que fijaba su montaje en la lista (`MensajeMakoLienzo`, borrado).
 //
 // ROTURAS (10/10/2026), restaurando de memoria, base 3 / 0:
 //   M1. «Activar» de vuelta en el chrome (al lado del título)        → 2 / 1
@@ -45,8 +48,6 @@ test('un REPORTE dibuja los canales por los que sale de verdad (las preferencias
   assert.doesNotMatch(MODAL, /canales=\{plantilla\.canales\}/, 'volvieron los canales de la plantilla');
 });
 
-test('el panel de cada tarjeta recibe `muelles` desde la lista, de punta a punta', () => {
-  assert.match(codigo('app/automations/SimuladorWhatsApp.tsx'), /<MensajeMakoLienzo key=\{aviso\.id\} plantilla=\{aviso\} insetIzq=\{m\.insets\.izq\} muelles=\{m\}/);
-  assert.match(codigo('app/automations/MensajeMakoLienzo.tsx'), /<TemplateDetalleModal[\s\S]*?muelles=\{muelles\}/);
+test('el panel de cada tarjeta recibe `muelles` de quien monta el detalle', () => {
   assert.match(MODAL, /<FlujoAviso[\s\S]*?muelles=\{muelles\}/);
 });

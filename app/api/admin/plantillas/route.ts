@@ -20,7 +20,7 @@ import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 import { CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
-import { PARAM_OCULTOS } from '@/lib/chatbot-mensajes-mako';
+import { PARAM_OCULTOS } from '@/lib/plantillas-ocultas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

@@ -14,6 +14,8 @@
 // guardados que lo nombran (pendiente: emitirlo desde la respuesta del número de empresa o
 // sacarlo junto con esos flujos).
 
+import type { RamaCondicion } from './flujo-grafo';
+
 export type EventoFlujo =
   | 'lead.agendo'        // webhooks/calendly invitee.created (R1 y R2)
   | 'lead.cancelo'       // webhooks/calendly invitee.canceled
@@ -97,7 +99,14 @@ export type Paso =
    * consumidores; quien decide es el saneo y el guard.
    */
   | { tipo: 'condicional'; condicion: string }
-  | { tipo: 'insistir'; texto: string; cadaMin: number; veces: number };
+  | { tipo: 'insistir'; texto: string; cadaMin: number; veces: number }
+  /**
+   * LA CONDITION DE UN EVENTO DE MAKO (11/10/2026, lib/aviso-evento.ts `pasosDelEvento`): la rama de la tarjeta
+   * CONDITION del lienzo de las automatizaciones, sobre los hechos del LEAD (`cumpleRama`). Se cumple, sigue;
+   * no —o no se sabe—, la corrida termina (`decidir`, lib/flujo-pasos.ts). SÓLO la arma la traducción de una
+   * fila de evento: en el store de /mensajes no entra (`esFlujoValido`).
+   */
+  | { tipo: 'condicion'; rama: RamaCondicion };
 
 // ── EL PASO «⚡ ACCIÓN»: qué corre, y cómo se escribe ────────────────────────
 
@@ -253,14 +262,22 @@ export function describirPaso(p: Paso): string {
   if (p.tipo === 'condicional') {
     return p.condicion === 'contestaron' ? 'Si alguien contestó en el grupo' : 'Si nadie contestó';
   }
+  if (p.tipo === 'condicion') return 'Si se cumple la condición';
   return `Esperar ${p.horas}h`;
 }
 
-/** Valida la forma de un Flujo (defensivo: viene del store/JSON). */
+/**
+ * Valida la forma de un Flujo (defensivo: viene del store/JSON).
+ *
+ * ⚠️ UNA `condicion` NO ENTRA AL STORE (11/10/2026): sólo la arma la traducción de un evento de MaKo, que corre
+ * con los hechos del lead. Guardada en /mensajes, `decidir` la evaluaría sin hechos y cortaría siempre: el
+ * lienzo de /mensajes no la dibuja ni la ofrece.
+ */
 export function esFlujoValido(x: unknown): x is Flujo {
   if (!x || typeof x !== 'object') return false;
   const f = x as Flujo;
-  return f.version === 1 && typeof f.activo === 'boolean' && !!f.disparador && Array.isArray(f.pasos);
+  return f.version === 1 && typeof f.activo === 'boolean' && !!f.disparador && Array.isArray(f.pasos)
+    && !f.pasos.some((p) => (p as { tipo?: unknown } | null)?.tipo === 'condicion');
 }
 
 // ── CADA CUÁNTO INSISTE, EN UNIDADES QUE ALGUIEN PUEDE ELEGIR ──────────────

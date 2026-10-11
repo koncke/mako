@@ -181,7 +181,9 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   const flujo = sinComentarios(leer('../app/automations/FlujoLienzo.tsx'));
   assert.match(flujo, /if \(esMako\(paso\)\) return <EditorMako key=\{`mako-\$\{id\}`\} /);
   const ed = bloque(flujo, 'function EditorMako(', '\n}\n', 3_200);
-  assert.match(ed, /<EditorMensajeGrupo texto=\{m\.mensaje\} onTexto=\{poner\} datos=\{GRUPOS_MAKO\}/);
+  // Desde el 11/10/2026, en una fila de «MaKo en WhatsApp» el «{ }» es lo que trae SU evento (`datosDelEvento`).
+  assert.match(ed, /const datos = useMemo\(\(\) => \(evento \? datosOfrecidos\(datosDelEvento\(evento\)\) : GRUPOS_MAKO\), \[evento\]\);/);
+  assert.match(ed, /<EditorMensajeGrupo texto=\{m\.mensaje\} onTexto=\{poner\} datos=\{datos\}/);
   assert.match(ed, /\.\.\.params, leadId: params\.leadId \?\? LEAD_DEL_EVENTO, mensaje/, 'el aviso perdió el lead del evento o el título guardado');
   // Segunda pasada: el catálogo de lo que un mensaje AL EQUIPO sobre un lead puede resolver, no los 4
   // datos del motor (MaKo en WhatsApp 4: «falta muchísimos datos posibles»).

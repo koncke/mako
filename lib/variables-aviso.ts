@@ -116,8 +116,10 @@ export type VariableAviso = {
    * · `cuota`   — necesita la cuota de la que habla el aviso. La trae el emisor en
    *               `datos`, que es lo que el cron de cobranza ya tiene en la mano: no
    *               hay lectura extra, y por eso puede estar acá.
+   * · `mensaje` — necesita el TEXTO que arma el código del aviso (11/10/2026: un evento de MaKo cuyo
+   *               aviso es `textoDelCodigo`). Lo pone el emisor (`ejecutarPaso`, lib/flujos.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje';
   /** En qué grupo (rama del árbol) lo muestra el selector. El orden lo fija `GRUPOS_VARIABLES`. */
   grupo: GrupoVariable;
   /** De qué entidad sale (ver `FuenteDato`). */
@@ -175,6 +177,15 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
 //
 // ⚠️ Y UN NOMBRE DE EJEMPLO NO PUEDE SER UN VERBO VOSEADO. «Tomás» duró un minuto: el
 // guard del voseo lo leyó como la conjugación de «tomar» y frenó los tests.
+/**
+ * «LO QUE ARMA MAKO» (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md §2): el texto que el código de un
+ * aviso arma con lo que tiene en la mano —la reunión con su link, lo que contestó el lead y qué le dejó
+ * preparado—. En un evento de MaKo con ese texto (`datosDelEvento`, lib/aviso-evento.ts) la tarjeta «MaKo en
+ * WhatsApp» lo pone con este dato, así sale EXACTAMENTE lo de siempre. Lo pone el emisor (`ejecutarPaso`,
+ * lib/flujos.ts), no una lectura: es del evento, como el link a la ficha.
+ */
+export const CLAVE_MENSAJE_MAKO = 'mensaje_mako';
+
 export const VARIABLES_AVISO: VariableAviso[] = [
   // ── Lead. El nombre lo trae el evento (o la fila del motor); el resto, la fila de `leads`.
   //    `nombre`, `nombre_completo`, `apellido` y `empresa` son los del motor de siempre
@@ -187,6 +198,8 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'empresa', label: 'Empresa', ejemplo: 'Inmobiliaria del Valle', alcance: 'lead', grupo: 'lead', fuente: 'ficha' },
   { key: 'lead_web', label: 'Web', ejemplo: 'inmobiliariadelvalle.com', alcance: 'lead', grupo: 'lead', fuente: 'ficha' },
   { key: 'lead_alta', label: 'Cuándo entró', ejemplo: '02/10', alcance: 'lead', grupo: 'lead', fuente: 'ficha', formato: 'fecha' },
+  // Lo que arma MaKo: sólo en un evento de MaKo con texto del código (`ContextoDatos.conMensaje`).
+  { key: CLAVE_MENSAJE_MAKO, label: 'Lo que arma MaKo', ejemplo: '⏰ En 30 min tienes la R1 con Laura Gil.', alcance: 'mensaje', grupo: 'lead', fuente: 'evento', soloPara: 'equipo' },
   // Los nombres viejos de los avisos: se resuelven, no se ofrecen (ya están arriba).
   { key: 'lead_nombre', label: 'Nombre completo', ejemplo: 'Sofía Contreras', alcance: 'lead', grupo: 'lead', fuente: 'nombre', oculta: true },
   { key: 'lead_empresa', label: 'Empresa', ejemplo: 'Inmobiliaria del Valle', alcance: 'lead', grupo: 'lead', fuente: 'ficha', oculta: true },
@@ -339,8 +352,11 @@ export const RUTA_DE_LINK: Readonly<Record<string, string>> = {
   link_configuraciones: '/configuraciones',
 };
 
-/** Para qué mensaje se arma el selector. Sin `destino`, el equipo (los avisos de siempre). */
-export type ContextoDatos = { conLead: boolean; conCuota?: boolean; destino?: DestinoMensaje };
+/**
+ * Para qué mensaje se arma el selector. Sin `destino`, el equipo (los avisos de siempre). `conMensaje`: el
+ * mensaje tiene el texto que arma el código del aviso (`{{mensaje_mako}}`, sólo un evento de MaKo).
+ */
+export type ContextoDatos = { conLead: boolean; conCuota?: boolean; conMensaje?: boolean; destino?: DestinoMensaje };
 
 /** ¿Este dato vale para un mensaje a este destino? (las claves `oculta` se resuelven igual). */
 export const valePara = (v: VariableAviso, destino: DestinoMensaje): boolean => !v.soloPara || v.soloPara === destino;
@@ -349,10 +365,20 @@ export const valePara = (v: VariableAviso, destino: DestinoMensaje): boolean => 
  *  que no existe — y lo que sale al WhatsApp del cliente es el `{{token}}` crudo. */
 export function variablesPara(opts: ContextoDatos): VariableAviso[] {
   const destino = opts.destino ?? 'equipo';
-  return VARIABLES_AVISO.filter((v) => (
-    !v.oculta && valePara(v, destino)
-    && (v.alcance === 'siempre' || (v.alcance === 'lead' ? opts.conLead : opts.conCuota === true))
-  ));
+  return VARIABLES_AVISO.filter((v) => !v.oculta && valePara(v, destino) && alcanzaPara(v.alcance, opts));
+}
+
+/**
+ * ¿Ese mensaje trae lo que el dato necesita? UNA rama por alcance y en positivo: hasta el 11/10/2026 todo lo
+ * que no era `lead` caía en `conCuota`, así que un alcance nuevo se ofrecía en cualquier cobranza sin que
+ * nadie lo decidiera.
+ */
+function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean {
+  if (a === 'siempre') return true;
+  if (a === 'lead') return opts.conLead;
+  if (a === 'cuota') return opts.conCuota === true;
+  if (a === 'mensaje') return opts.conMensaje === true;
+  return false;
 }
 
 /** Una rama del árbol que dibuja el selector. */

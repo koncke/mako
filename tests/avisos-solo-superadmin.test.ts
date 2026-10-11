@@ -34,8 +34,10 @@ function bloque(src: string, desde: string, hasta: string): string {
   return src.slice(i, j);
 }
 
-test('las listas: los tres son del super admin, existen en el catálogo y NO están en la del cliente', () => {
-  for (const id of ['wa-desconectado', 'wa-reconectado', 'reunion-ocurrio-fathom']) {
+// El reporte de los lunes se sumó el 11/10/2026: no se mudó a «MaKo en WhatsApp» (sale sólo por email, según
+// `notification_prefs`) y salió de la lista del cliente (docs/diseno-mako-en-whatsapp-unificado.md).
+test('las listas: los cuatro son del super admin, existen en el catálogo y NO están en la del cliente', () => {
+  for (const id of ['wa-desconectado', 'wa-reconectado', 'reunion-ocurrio-fathom', 'reporte-semanal']) {
     assert.ok(esAvisoSoloSuperAdmin(id), `«${id}» no es del super admin`);
   }
   for (const id of AVISOS_SOLO_SUPERADMIN) {

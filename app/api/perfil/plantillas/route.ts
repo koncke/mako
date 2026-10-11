@@ -19,7 +19,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import {
   listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla, setPosicionesPlantilla,
-  ocultarPlantilla, restaurarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
+  crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
   setTituloPlantilla, setAsuntoPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
 } from '@/lib/plantillas';
 import { getProgramado, setProgramado, NoAgendable } from '@/lib/avisos-programados';
@@ -29,7 +29,6 @@ import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
 import { seEditaElTexto, esAvisoSoloSuperAdmin, CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
 import { getSesionAdmin } from '@/lib/auth';
-import { PARAM_OCULTOS } from '@/lib/chatbot-mensajes-mako';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -66,10 +65,9 @@ export async function GET(req: NextRequest) {
     const ajeno = await soloDelSuperAdmin(id);
     if (ajeno) return ajeno;
     if (id) return NextResponse.json({ ok: true, plantilla: await getPlantilla(id) });
-    // LO QUE ESTE NEGOCIO ELIMINÓ (novena tanda, 10/10/2026), para recuperarlo desde «Nueva automatización».
-    // La vista del CLIENTE —la misma de su lista—, así que trae sólo lo que su lista podía mostrarle: los de
-    // `AVISOS_DEL_CLIENTE` y los propios. Los del super admin no están ahí (tests/avisos-solo-superadmin).
-    if (params.get(PARAM_OCULTOS) === '1') return NextResponse.json({ ok: true, plantillas: await listarPlantillas({ ocultos: true }) });
+    // ⛔ ACÁ IBA `?ocultos=1` (novena tanda: lo que el negocio «eliminó» de su lista, para recuperarlo desde la
+    // galería). Salió el 11/10/2026: «MaKo en WhatsApp» son automatizaciones de la tab Automations
+    // (docs/diseno-mako-en-whatsapp-unificado.md) y se archivan como cualquiera; el negocio ya no oculta nada.
     return NextResponse.json({ ok: true, plantillas: await listarPlantillas() });
   } catch (e) {
     console.error(`[api:perfil/plantillas GET] ${msg(e)}`);
@@ -232,21 +230,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, acuses: await setAcuses(ws, b.acuses) });
       }
       /**
-       * «ELIMINAR» Y «RECUPERAR» (novena tanda, 10/10/2026: el «⋯» de los Mensajes de MaKo en /automations).
-       * Eliminar OCULTA: sale de la lista de este negocio, queda apagado y se recupera — la paridad con la
-       * automatización, que archiva. Del lado del negocio nada destruye, así que `borrar` (el tacho de la
-       * bandeja de correo) es lo mismo; el borrado de verdad queda en /mensajes (`borrarPlantilla`). Pasan por
-       * el guard de arriba como toda acción con id: un aviso del super admin no se oculta ni se recupera acá.
+       * ⛔ ACÁ IBAN «ELIMINAR» Y «RECUPERAR» (`borrar` / `ocultar` / `restaurar`, novena tanda: el «⋯» de los
+       * Mensajes de MaKo en /automations los OCULTABA del negocio). Salieron el 11/10/2026: «MaKo en WhatsApp» son
+       * automatizaciones (docs/diseno-mako-en-whatsapp-unificado.md), con el «⋯» de siempre, que ARCHIVA. Ninguna
+       * pantalla del negocio monta ya este endpoint con un tacho. `borrar` sale con `ocultar` porque eran el
+       * MISMO caso: dejarlo solo lo hacía caer al `case` de abajo. Del lado del negocio no queda cómo borrar
+       * (ni ocultar) un mensaje; el borrado de verdad sigue en /mensajes (`borrarPlantilla`).
        */
-      case 'borrar':
-      case 'ocultar':
-        if (!b.id) return faltaId();
-        if (!(await ocultarPlantilla(b.id))) return NextResponse.json({ ok: false, error: 'Este mensaje no se puede eliminar.' }, { status: 400 });
-        return NextResponse.json({ ok: true, borrada: false, plantilla: await getPlantilla(b.id) });
-      case 'restaurar':
-        if (!b.id) return faltaId();
-        await restaurarPlantilla(b.id);
-        return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
       case 'probar':
         if (!b.id) return faltaId();
         return NextResponse.json({ ok: true, texto: await generarMensajeAviso(b.id, b.contexto || 'Usa datos de ejemplo realistas.') });

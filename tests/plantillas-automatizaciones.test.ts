@@ -36,7 +36,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   PLANTILLAS, plantillaPorId, pasosDePlantilla, nombreLibre, seccionesParaCron, rotuloDeEleccion, disparadorDeEleccion,
-  TOPE_LINEA, TRIGGER_DE_PIDE, SIN_ETAPA, type PasoDePlantilla,
+  TOPE_LINEA, TRIGGER_DE_PIDE, SIN_ETAPA, esPlantillaMako, type PasoDePlantilla,
 } from '../lib/plantillas-automatizaciones';
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '../lib/plantilla-crear';
 import {
@@ -56,6 +56,8 @@ import { esAccion } from '../lib/api-mako/tipos';
 import { TOPE_NOMBRE_SECUENCIA } from '../lib/setting-estrategia';
 import { GaleriaPlantillas, preguntaEtapa, yaLaTiene, EMPEZAR, TITULO_GALERIA, ROTULO_PLANTILLAS, YA_LA_TIENES } from '../app/automations/GaleriaPlantillas';
 import { TRIGGER_RECORDATORIO, toquesDeLaAutomatizacion, frenoDelRecordatorio } from '../lib/recordatorio-automatizacion';
+import { TRIGGER_AVISO_MAKO, EVENTOS_MAKO } from '../lib/disparadores';
+import { datosDelEvento } from '../lib/aviso-evento';
 import { TOQUES, TEXTO_DEFAULT, VARIABLES } from '../lib/recordatorio-lead';
 
 /** La plantilla del recordatorio de la reunión: la única con el CRON fijo (decisión de Martín, 10/10/2026). */
@@ -92,16 +94,26 @@ const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, 
 
 // ── 1. El catálogo ───────────────────────────────────────────────────────────────
 
-test('la galería tiene entre 5 y 8 plantillas, con id, nombre, línea y emoji que se pueden guardar', () => {
-  assert.ok(PLANTILLAS.length >= 5 && PLANTILLAS.length <= 8, `son ${PLANTILLAS.length}`);
+// Desde el 11/10/2026 la galería suma su sección «MaKo en WhatsApp» (`esPlantillaMako`): los TRES eventos de MaKo,
+// aparte de las del Chatbot (docs/diseno-mako-en-whatsapp-unificado.md). El tope de 5 a 8 es de las del Chatbot.
+test('la galería tiene entre 5 y 8 plantillas del Chatbot y las 3 de «MaKo en WhatsApp», con id, nombre, línea y emoji que se pueden guardar', () => {
+  const delChatbot = PLANTILLAS.filter((p) => !esPlantillaMako(p));
+  assert.ok(delChatbot.length >= 5 && delChatbot.length <= 8, `son ${delChatbot.length}`);
+  assert.deepEqual(PLANTILLAS.map((p) => (p.cron.fijo === TRIGGER_AVISO_MAKO ? p.cron.evento : null)).filter(Boolean).sort(), EVENTOS_MAKO.map((e) => e.subtipo).sort(),
+    'no hay UNA plantilla por evento de MaKo');
   assert.equal(new Set(PLANTILLAS.map((p) => p.id)).size, PLANTILLAS.length, 'ids repetidos');
   assert.equal(new Set(PLANTILLAS.map((p) => p.nombre)).size, PLANTILLAS.length, 'nombres repetidos');
   for (const p of PLANTILLAS) {
     assert.ok(p.nombre.trim() && p.nombre.length <= TOPE_NOMBRE_SECUENCIA, `${p.id}: el nombre mide ${p.nombre.length}`);
     assert.ok(p.linea.trim() && p.linea.length <= TOPE_LINEA, `${p.id}: la línea mide ${p.linea.length}`);
     assert.equal(emojiDeSecuencia(p.emoji), p.emoji, `${p.id}: «${p.emoji}» no se guarda como emoji`);
-    if (p.cron.fijo) {
-      // El CRON fijo es SÓLO el del recordatorio: cualquier otro necesitaría su propia forma de Publicar.
+    if (p.cron.fijo === TRIGGER_AVISO_MAKO) {
+      // Un evento de MaKo: su forma de Publicar es `frenoDelEvento` (tests/automations-mako-en-whatsapp.test.ts).
+      const evento = p.cron.evento;
+      assert.ok(EVENTOS_MAKO.some((e) => e.subtipo === evento), `${p.id}: evento «${evento}»`);
+    } else if (p.cron.fijo) {
+      // Fuera de los eventos de MaKo, el CRON fijo es SÓLO el del recordatorio: cualquier otro necesitaría su propia
+      // forma de Publicar.
       assert.equal(p.cron.fijo, TRIGGER_RECORDATORIO, `${p.id}: CRON fijo «${p.cron.fijo}»`);
       assert.equal(p.id, RECORDATORIO);
     } else {
@@ -371,6 +383,17 @@ test('los datos del «{ }» son de los que se le mandan a un LEAD y el motor res
         // del motor saldría crudo (Publicar lo rechaza: `problemaDelTexto`).
         if (p.cron.fijo === TRIGGER_RECORDATORIO) {
           assert.ok((VARIABLES as readonly string[]).includes(m[1]), `${p.id}: «{{${m[1]}}}» no lo resuelve el emisor del recordatorio`);
+          continue;
+        }
+        // Un evento de MaKo le escribe al EQUIPO (su grupo) y resuelve lo que ESE evento trae (`datosDelEvento`): el
+        // lead, la cuota de la cobranza, «Lo que arma MaKo». Los ocultos se resuelven igual (`lead_nombre`).
+        if (p.cron.fijo === TRIGGER_AVISO_MAKO) {
+          const v = datoDe(m[1]);
+          const ctx = datosDelEvento(p.cron.evento);
+          assert.ok(v, `${p.id}: «{{${m[1]}}}» no está en el catálogo del «{ }»`);
+          assert.ok(valePara(v!, 'equipo'), `${p.id}: «{{${m[1]}}}» no se le manda al equipo`);
+          const trae = v!.alcance === 'siempre' || (v!.alcance === 'lead' ? ctx.conLead : v!.alcance === 'cuota' ? ctx.conCuota === true : ctx.conMensaje === true);
+          assert.ok(trae, `${p.id}: «{{${m[1]}}}» (${v!.alcance}) no lo trae el evento «${p.cron.evento}»: saldría crudo`);
           continue;
         }
         const v = datoDe(m[1]);

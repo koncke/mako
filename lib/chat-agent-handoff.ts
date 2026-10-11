@@ -135,6 +135,8 @@ export async function registrarHandoff(input: {
     const link = input.secuenciaId != null ? linkApp(`/automations?sec=${input.secuenciaId}`, ws) : null;
     await emitirDelCatalogo('wa-mensaje-entrante', {
       ws: ws ?? undefined,
+      // El lead (11/10/2026): lo nombran las automatizaciones del evento y lo mira su CONDITION.
+      lead: { id: input.leadId, nombre: input.leadNombre ?? null },
       texto: [
         `🖐 *${quien} escribió algo que no tengo previsto.*`,
         // Con los nombres de la tab (restos de versiones anteriores, 10/10/2026): «Automatización» y la

@@ -119,7 +119,9 @@ export function decidirInscripcionManual(p: {
  * (la secuencia o el lead: se leen con `getTenantDb`, así que el de otro negocio no existe acá),
  * o la fila que otra corrida movió entre la lectura y la escritura.
  */
-export type PorQueNoSeInscribio = PorQueNoInscribe | 'secuencia_no_existe' | 'lead_no_existe' | 'carrera';
+export type PorQueNoSeInscribio = PorQueNoInscribe | 'secuencia_no_existe' | 'lead_no_existe' | 'carrera'
+  /** El recordatorio de la reunión o un evento de MaKo: los manda su emisor, no el motor (11/10/2026). */
+  | 'del_emisor';
 
 /**
  * El motivo, en una frase que lee la persona (y el modelo). Un Record y no un switch: un
@@ -129,6 +131,7 @@ const MOTIVOS: Record<PorQueNoSeInscribio, (s: string, lead: string, ids: { secu
   secuencia_no_existe: (_s, _l, ids) => `No existe la secuencia #${ids.secuenciaId} en este negocio. Pide el id con listar_secuencias_nutricion.`,
   lead_no_existe: (_s, _l, ids) => `No existe el lead #${ids.leadId} en este negocio. Búscalo con buscar_leads.`,
   carrera: (s, lead) => `La inscripción de ${lead} en «${s}» cambió mientras tanto: no se tocó nada. Revisa inscripciones_lead.`,
+  del_emisor: (s) => `«${s}» no se inscribe: sale sola cuando pasa su evento (la reunión, la respuesta, la cuota), no por lead.`,
   archivada: (s) => `La secuencia «${s}» está archivada: hay que desarchivarla (desarchivar_secuencia) y activarla antes.`,
   pausada: (s) => `La secuencia «${s}» está pausada, y el motor cierra sin mandar lo que le toca a una secuencia pausada. Actívala antes (proponer_toggle_nutricion).`,
   sin_pasos: (s) => `La secuencia «${s}» no tiene pasos: no hay nada que mandar.`,

@@ -36,7 +36,7 @@ import { leerPosicionesSecuencias, type DbPosiciones } from './secuencia-posicio
 import type { Posiciones } from './lienzo-posiciones';
 import { leerBorradoresSecuencias, firmaPublicado, type DbBorrador } from './secuencia-borrador';
 import type { PasoGrafo } from './flujo-grafo';
-import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from './disparadores';
+import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON, TRIGGERS_DEL_EMISOR, MOTIVO_CRON_FIJO } from './disparadores';
 import { pasosDeEsqueleto } from './setting-semillas';
 
 export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
@@ -238,6 +238,7 @@ export async function setCronSecuencia(secuenciaId: number, cron: unknown): Prom
   const c = cron == null ? null : sanearCron(cron);
   if (cron != null && !c) throw new Error('Ese horario no se entiende: elige la unidad de la lista.');
   const supabase = await getTenantDb();
+  await exigirQueNoSeaDelEmisor(supabase, secuenciaId, 'setCronSecuencia');
   const ahora = new Date();
   const tz = c ? await tzActual().catch(() => TZ_DEFAULT) : TZ_DEFAULT;
   const { error } = await supabase
@@ -411,6 +412,21 @@ export async function setDisparadorEtapa(secuenciaId: number, etapa: string | re
 }
 
 /**
+ * ⚠️ UNA FILA DEL EMISOR (el recordatorio de la reunión, un evento de MaKo: `TRIGGERS_DEL_EMISOR`) NO SE
+ * TOCA POR ACÁ (11/10/2026). Su CRON es lo que lee su emisor: cambiarle el disparador o ponerle un horario
+ * la dejaría muda para el emisor y la convertiría en una automatización del motor con tarjetas que el motor
+ * no sabe correr. Lo mismo que `problemaDeCambio` para la lista de CRON (lib/disparadores-guardar.ts). Las
+ * puertas de acá son tres (`setTriggerSecuencia`, `setDisparadorEtapa`, `setDisparadorEntrega`: las tres
+ * escriben por `escribirDisparador`) más `setCronSecuencia`.
+ */
+async function exigirQueNoSeaDelEmisor(supabase: Awaited<ReturnType<typeof getTenantDb>>, secuenciaId: number, quien: string): Promise<void> {
+  const { data, error } = await supabase.from('nutricion_secuencias').select('trigger_tipo').eq('id', secuenciaId).maybeSingle();
+  if (error) throw new Error(`${quien}: ${error.message}`);
+  const t = (data as { trigger_tipo?: string | null } | null)?.trigger_tipo;
+  if (t && TRIGGERS_DEL_EMISOR.has(t)) throw new TriggerInvalidoError(`${MOTIVO_CRON_FIJO}.`);
+}
+
+/**
  * ESCRIBE UN DISPARADOR CON SUS ETAPAS: `etapa` = la primera (para los lectores viejos) y `etapas` =
  * la lista si son dos o más, o null si es una (null = «una sola, la de `etapa`», que es lo que dicen
  * todas las filas de antes). Para los disparadores sin etapa (`keys` vacío) limpia `etapas` y NO toca
@@ -430,6 +446,7 @@ async function escribirDisparador(
   quien: string,
 ): Promise<void> {
   const supabase = await getTenantDb();
+  await exigirQueNoSeaDelEmisor(supabase, secuenciaId, quien);
   const conEtapa = keys.length ? { etapa: keys[0] } : {};
   const upd = { ...base, ...conEtapa, updated_at: new Date().toISOString() };
   const { error } = await supabase.from('nutricion_secuencias').update({ ...upd, etapas: keys.length > 1 ? [...keys] : null }).eq('id', secuenciaId);
