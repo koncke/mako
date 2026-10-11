@@ -5310,3 +5310,30 @@ un argumento calculado (`$(...)`, una variable en el bucle): lo que haga falta s
 del scratchpad y se corre `node <script>` con rutas literales.
 
 **Vive en:** el mensaje de cada commit · *2026-10-09 /chatbot, sexta tanda, segunda pasada*
+
+## Verificar con la máquina llena: el vigía mata el `next dev` y el build, y `next start` + una cookie firmada sí entra (11/10/2026)
+
+Con varios chats abiertos, el vigía de RAM (`~/.claude/guardia/`) mató un `next dev` a los 5,6 y 6 GB
+(con 320 MB libres en la máquina) y dos `npm run build` (5,4 GB, «zona roja» con ~850 MB libres): no son
+errores del código, y el build sale con código 1 sin decir nada. Lo que anduvo:
+
+- **`npm run build` cuando hubo lugar, y `next start -p <puerto>`**, que consume una fracción del dev.
+- **`/api/auth/dev-login` es INERTE en modo producción** (devuelve 404 con `NODE_ENV=production`). La
+  sesión se firma con `crearToken` de `lib/auth-session.ts` (sin `server-only`) desde un script y se
+  pone como cookie `mako_session` en Playwright: la misma sesión que arma dev-login.
+- **El hook de la guardia reconoce un comando pesado por el TEXTO**: un `grep` sobre un archivo cuyo
+  nombre contiene «tsc» se trata como un typecheck («esto necesita 2,5 GB»). Un archivo de salida no se
+  nombra con «tsc».
+
+## El próximo número de migración tampoco se ve en los worktrees hermanos (11/10/2026)
+
+La 0246 estaba tomada por `0246_editor_landing.sql` en `../wt-gamma`, sin commitear: invisible para
+`ls supabase/migrations` y para `git ls-tree` de cualquier rama. Se encontró con
+`find .. -maxdepth 6 -path '*/supabase/migrations/024*'`. Antes de nombrar una migración, se mira también
+ahí. (El Dashboard tomó la 0247.)
+
+## El reset del cliente de prueba no barre el bucket `portadas` (11/10/2026, leído, no medido)
+
+`lib/reset-workspace.ts` no nombra `portadas` en su lista de buckets, y además barre por el prefijo
+`<N>/`, mientras portadas usa `ws<N>/`. Las portadas del plan y las imágenes del Dashboard
+(`ws<N>/dashboard/…`) sobreviven a un reset. **Vive en:** `lib/reset-workspace.ts`. · *2026-10-11 Graphics*

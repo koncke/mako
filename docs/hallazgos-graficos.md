@@ -1,177 +1,241 @@
 # Hallazgos — el Dashboard (el editor de informes)
 
-La tab Dashboard es un editor de informes copiado de Looker Studio: hojas, 41 tipos de gráfico,
-estilo editable, control de período y los 24 conjuntos de datos de MaKo. **El editor es de Looker; los
-gráficos son de MaKo** (Martín, 11/10: «que los graficos editables se parezcan más a esos» — los de
-las tabs viejas): tarjetas con los tokens de la app, la KPI de 44 px con su rótulo en mono, el embudo
-de trapecios. El informe inicial es la réplica de las tabs viejas de Marketing y Comercial. Lo que se hizo está en el
-commit; acá va lo que hay que saber **antes** de tocarlo.
+La tab Dashboard es un editor de informes copiado de Looker Studio: hojas, 41 tipos de gráfico, estilo
+por página, controles (filtros) y los conjuntos de datos de MaKo. **El editor es de Looker; los gráficos
+son de MaKo** (Martín, 11/10: «que los graficos editables se parezcan más a esos» — los de las tabs
+viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Comercial; las tabs de
+Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
+el commit; acá va lo que hay que saber **antes** de tocarlo.
 
 ## Cómo está armado, en una tabla
 
 | Pieza | Vive en | Qué decide |
 |---|---|---|
-| El catálogo | `lib/graficos-catalogo.ts` | Conjuntos de datos, tipos, estilo, hojas, período e informe inicial. Sin `server-only`: lo leen la pantalla, el server y los tests |
-| El agregador | `lib/graficos-agregar.ts` | De filas a lo que se dibuja: grupos, razones, distintos, «Otros», desglose, relleno del tiempo |
-| Los lectores | `lib/graficos-datos.ts` (`LECTORES`) | Uno por conjunto: lee la tabla, paginado y con el workspace explícito |
-| El informe de cada persona | `lib/graficos-tablero.ts` | Un setting `graficos.tablero.<usuario>` en el workspace de la pestaña |
-| La ruta | `app/api/graficos/route.ts` | `datos` (con el período de cada gráfico) y `guardar`; la misma puerta que la página |
-| La pantalla | `app/dashboard/` | `EditorInforme.tsx` (el editor) y `Grafico.tsx` (cómo se dibuja cada tipo) |
-| Las rutas viejas | `app/marketing/page.tsx`, `app/comercial/page.tsx`, `app/graficos/page.tsx` | Redirigen a `/dashboard?hoja=…`, con `rutaConWs` |
+| El modelo | `lib/graficos-catalogo.ts` | Conjuntos, tipos, hojas (emoji, subtítulo, tema, controles), `efectivoDe` (la precedencia de filtros), los campos COMPARTIDOS. Sin `server-only` |
+| Las plantillas | `lib/graficos-plantillas.ts` (+ `-analysts`, `-generales`) | El informe inicial con ids FIJOS y la galería de «Nueva hoja» |
+| El estilo de la página | `lib/graficos-temas.ts`, `app/dashboard/PanelEstilo.tsx` | 6 plantillas de estilo; las tarjetas leen `--dash-*` |
+| El agregador | `lib/graficos-agregar.ts` | De filas a lo que se dibuja; también `tramosDeDias` |
+| Los lectores | `lib/graficos-datos.ts`, `lib/graficos-datos-extra.ts`, `lib/graficos-lectura.ts` | Uno por conjunto, con el workspace explícito; `leer` trae un instante en tramos a la vez |
+| Los bloques | `lib/graficos-bloques*.ts`, `app/dashboard/bloques/` | Lo que no es un gráfico del catálogo: Revenue, A quién cobrarle, cohortes, los de Analysts |
+| La audiencia y el mapa | `lib/graficos-audiencia.ts`, `lib/meta-desgloses.ts`, `app/dashboard/MapaMexico.tsx` | Meta EN VIVO; el mapa también lo usa el Ads Manager |
+| Los controles | `app/dashboard/BarraControles.tsx`, `valores.ts`, `lib/graficos-controles-texto.ts` | La barra pegada arriba del lienzo y los chips de cada gráfico |
+| La pantalla | `app/dashboard/EditorInforme.tsx` (+ `Grafico`, `Detalle`, `Elemento`, `NuevaHoja`, `Propiedades`) | El editor; `editor-css.ts` es su hoja de estilos (sólo tokens) |
+| Exportar | `app/dashboard/exportar.ts` | El CSV de la hoja, el PDF (`window.print`), y lo que viaja a MaKo sin nombres |
+| AI Analyst | `lib/graficos-analisis*.ts`, `app/dashboard/PanelAnalista.tsx`, mig 0247, `/api/cron/dashboard-analisis` | El análisis a mano o programado |
+| El informe de cada persona | `lib/graficos-tablero.ts` | `graficos.tablero.<usuario>` en el workspace de la pestaña |
 
 ## El informe se guarda por PERSONA y por workspace, no por workspace
 
 **Vive en:** `lib/graficos-tablero.ts`
 
-El super admin mira a cada cliente con `?ws=N` y la agencia ws13 mira a sus clientes. Guardado por
-workspace, armar un gráfico mirando a otro le cambiaba la vista al dueño de esa cuenta (el mismo
-agujero de `docs/hallazgos-ui.md` → «Una preferencia de vista guardada por workspace la pisa quien
-mira con ?ws=»). La clave lleva el `sub` de la sesión y vive en `app_settings` del workspace de la
-pestaña, que no hereda entre workspaces. Sin migración.
+El super admin mira a cada cliente con `?ws=N`: guardado por workspace, armar un gráfico mirando a otro
+le cambiaba la vista al dueño de esa cuenta. La clave lleva el `sub` de la sesión.
 
-⚠️ **«No pude leer» no es «no armó ninguno».** Con la lectura caída se dibuja el informe inicial y NO
-se deja guardar (el botón Editar se apaga): el primer cambio pisaría el informe real.
+⚠️ **«No pude leer» no es «no armó ninguno».** Con la lectura caída se dibuja el inicial y NO se deja
+guardar: el primer cambio pisaría el informe real.
 
 ⚠️ **Verificar la pantalla ESCRIBE, y la limpieza se acota al usuario de PRUEBA, nunca al prefijo.**
-El guardado es automático: recorrer el editor con `dev-login` deja un `graficos.tablero.dev`. El
-11/10 la limpieza borraba `graficos.tablero.%` de las últimas horas y se llevó también
-`graficos.tablero.2` — el informe de Mauricio, que lo había abierto en producción 40 minutos antes.
-Pesaba 1.652 bytes, lo mismo que el inicial sin tocar, así que casi seguro no tenía cambios suyos;
-pero no hay forma de saberlo. La limpieza borra sólo `graficos.tablero.dev`.
+El 11/10 una limpieza por `graficos.tablero.%` se llevó `graficos.tablero.2`, el de Mauricio. La
+limpieza borra sólo `graficos.tablero.dev` y las filas de `dashboard_analisis` con `usuario = 'dev'`.
 
 ## Mirar el Dashboard lo GUARDABA, y una copia guardada no recibe las mejoras del inicial
 
 **Vive en:** `alMoverGrilla` en `app/dashboard/EditorInforme.tsx`
 
-react-grid-layout avisa `onLayoutChange` también al MONTAR, cuando compacta lo que le llegó. Ese aviso
-cambiaba el estado, y el autoguardado (700 ms) lo escribía: **abrir la tab, sin tocar nada, congelaba
-una copia del informe inicial**. Así reapareció `graficos.tablero.2` (Mauricio) a las 01:59 del 11/10,
-con los 20 gráficos del inicial de entonces sin un cambio suyo. El daño no se ve: el informe se dibuja
-igual. Lo que se pierde es que, de ahí en más, cambiar `tableroInicial()` no le llega a esa persona.
+react-grid-layout avisa `onLayoutChange` también al MONTAR: abrir la tab congelaba una copia del inicial.
+La grilla sólo escribe editando (`if (!editando) return`, con guard). ⚠️ **Al cambiar el informe inicial,
+mirá quién ya tiene uno guardado** (`key like 'graficos.tablero.%'`): a esa gente no le llega. Y un
+informe NUEVO se le escribe a alguien **después** del deploy: la versión anterior desplegada lo leería
+con su propio saneo.
 
-La grilla ahora sólo escribe mientras se edita (`if (!editando) return`, con guard en
-`tests/graficos.test.ts`). Medido en el navegador: mirar las dos hojas no deja fila; arrastrar una
-tarjeta, sí. ⚠️ **Al cambiar el informe inicial, mirá quién ya tiene uno guardado**
-(`app_settings` con `key like 'graficos.tablero.%'`): a esa gente no le llega. El 11/10 había uno,
-el de Mauricio, igual al inicial viejo; se reemplazó por la réplica y se releyó con `sanearTablero`.
+## La barra de filtros «pegada» no pegaba, y los tests estaban en verde
 
-## Un informe del v1 se migra a UNA hoja
+**Vive en:** `app/dashboard/page.tsx` (el `<Pagina>`), `.lk-controles` en `app/dashboard/editor-css.ts`
 
-**Vive en:** `sanearTablero` en `lib/graficos-catalogo.ts`
+La barra es `position: sticky` contra `.lk-lienzo` (`overflow-y: auto`), y tres aserciones lo fijaban.
+Medido en Chrome el 11/10: tras la rueda la barra quedaba en **y = −1079**. El sticky estaba bien; lo que
+fallaba es que `.lk-lienzo` **nunca scrolleaba**: `Pagina` trae `flex: 1` (base 0%), que en la columna
+del layout ANULA el `height: 100vh`, así que el `<main>` crecía a su contenido (2405 px) y el que
+scrolleaba era el documento. Va `flex: 'none'` + `height: '100dvh'` + `overflow: 'hidden'` (las
+Automations ya lo tenían escrito en `ChatAgentApp.tsx`), y el `@media print` lo desarma para el PDF.
+**Un sticky se verifica scrolleando; un `overflow: auto` sólo scrollea si alguien le da ALTO.**
 
-El v1 («Mis gráficos», 10/10) guardaba `{ graficos: [] }`; el v2 guarda `{ hojas: [{ componentes }] }`.
-Un v1 guardado se lee como una sola «Página 1», sin las hojas Marketing y Comercial del informe nuevo.
-Al 11/10 no quedó ninguno guardado (ver arriba), así que nadie lo ve; si aparece, «Restablecer» trae
-el informe inicial.
+## Los filtros: el control del gráfico REEMPLAZA al de la hoja
+
+**Vive en:** `efectivoDe` en `lib/graficos-catalogo.ts`; `nuevoControlPara` en `lib/graficos-controles-texto.ts`
+
+- El período: control del gráfico > período propio > control de la hoja > 30 días. En el MISMO campo, el
+  control del gráfico reemplaza al de la hoja aunque esté en «todos»; campos distintos se suman (AND).
+- ⚠️ **Diagnóstico obvio equivocado:** «un control nuevo arranca en sus defaults». Agregar una lista
+  vacía a un gráfico le SACABA el filtro de la página. El control nuevo copia lo que el gráfico ya mostraba.
+- Lo elegido MIRANDO es estado de la vista: no pasa por `mutar`, no se guarda. Cambiar lo de ENTRADA de
+  un control (barra o panel del gráfico) olvida lo elegido mirando en él (`olvidarVista`).
+- **Los campos COMPARTIDOS son una lista POSITIVA y no avisan:** un conjunto nuevo con «Página» o
+  «Closer» no lo filtra el control de la hoja hasta sumarlo al `en` del campo. Sin eso, la hoja Closing
+  con su control «Closer» no filtraba ningún gráfico y cada tarjeta decía «no filtra por Closer».
+- Una lista y una búsqueda sobre el mismo campo comparten clave: el saneo tira la segunda (`claveControl`).
+- Con 300 valores, «todos menos uno» pasa `MAX_VALORES` (50) y el saneo lo recortaría: tildar desde
+  «todos» deja SÓLO ese valor.
+- `valoresDeCampo` traga el error de cada lector y contesta `[]`: la lista dice «No llegó ningún valor»,
+  no «No hay valores». SIN HACER: que la ruta distinga los dos.
+
+## Todo pop-up desde una tarjeta va por portal, y el portal no aísla
+
+**Vive en:** `Capa` en `app/dashboard/bloques/piezas.tsx`; `Elemento.tsx`
+
+- La grilla ubica las tarjetas con `transform` y `.lk-comp` lleva `overflow: hidden`: un `position:
+  fixed` de adentro (un modal, un toast) queda pegado a la tarjeta y recortado, sin error. Va con
+  `createPortal`, y la grilla usa `absoluteStrategy`.
+- Un portal de React sigue burbujeando por el árbol de REACT: un clic seleccionaba la tarjeta y un
+  mousedown la arrastraba. La envoltura frena mousedown, pointerdown, touchstart y click, y lleva
+  `lk-no-arrastrar`. Las teclas se frenan con `stopImmediatePropagation` sobre el evento nativo.
+- Un texto editable adentro de la grilla necesita tres cosas o se rompe callado: el `cancel` de la grilla,
+  frenar el keydown (si no, Retroceso borra la TARJETA) y una marca `abierto` (un blur tardío guardaría lo
+  descartado con Escape). Un `<img>` adentro lleva `draggable={false}`.
+- Las formas se dibujan en píxeles midiendo la celda (`clientWidth`, no `getBoundingClientRect`, que trae
+  el zoom), y el color va con `currentColor` + `color` en el style: un `var()` en un atributo SVG no está
+  garantizado.
+
+## La audiencia de Meta: lo que Meta da y lo que no
+
+**Vive en:** `lib/graficos-audiencia.ts`, `lib/meta-desgloses.ts`, `app/dashboard/MapaMexico.tsx`
+
+Medido el 11/10/2026 (Graph v25.0, cuenta del ws1):
+- **Con `breakdowns=region` Meta no manda ninguna conversión de afuera** (ni la agenda ni
+  `landing_page_view`): 0 de 33 filas. Las filas de región van SIN la clave `agendas`, no en 0. Por eso un
+  cuadro de resultados de la audiencia (sin dimensión) lee **edad y género**, no la región: el KPI de
+  agendas salía en 0.
+- **Los nombres:** «Distrito Federal», «State of Mexico», «Coahuila de Zaragoza», «Michoacán de Ocampo»,
+  «Querétaro Arteaga», «San Luis Potosi», «Unknown». Diccionario explícito → código ISO; corrige
+  [hallazgos-ads.md](hallazgos-ads.md) («Mexico City» no apareció).
+- **El mapa no se recorta al límite** (10 por defecto): pintaba 10 estados y 22 «Sin datos» teniendo
+  datos. El diagnóstico obvio (los nombres) no era la causa de ESE síntoma.
+- **La edad se ordena por tramo**, no por la métrica (`ordenEtiqueta` en la dimensión): salía 45-54,
+  55-64, 18-24.
+- **Un `since` a más de 37 meses es un ERROR** (#3018), no un recorte: «Todo» pide desde hoy −37 meses.
+- **Sin `limit`, /insights devuelve 25 filas y un `paging.next` sin avisar** (limit 500 + paginado).
+- **`credWs` sin workspace cae al ws1**, un cliente: un lector en vivo va con workspace explícito y
+  `credWsEstricta` (la ruta vieja `/api/account-insights` tenía esa fuga; se cerró).
+
+## «Marcar cobrada» y Comercial: la fecha y tres cuentas que estaban mal
+
+**Vive en:** `lib/graficos-bloques.ts`, `app/dashboard/bloques/`
+
+- **La fecha de cobro era distinta en cada camino** (CobrarTable el vencimiento, la API de MaKo y
+  PayModal hoy). Con el vencimiento, marcar una cuota atrasada no movía el Cash del período mirado. Va
+  HOY en la zona del negocio.
+- Tres cuentas de la vieja Comercial que estaban mal sin error: «todo el pipeline» con `desde <= 2025-11-01`
+  (choca con «Últimos 12 meses»); las cohortes con `limit` ANTES de filtrar (un período pasado salía
+  vacío); las semanas desde el día 1 del mes. Y la barra cobrado/pendiente con 0 y 0 pintaba 100% rojo.
+- **El Outstanding es el total de `getOutstandingDetalle` con la MISMA ventana**, no
+  `getRevenuePeriod().outstanding_usd` (otro número). Una cuota vencida antes del período no aparece:
+  igual que la tab vieja; para ver toda la deuda, «Todo».
+- Deshacer «Marcar cobrada» devuelve el dato pero NO reabre los recordatorios que `marcarPago` cerró
+  (`lib/pagos.ts`). Ver [hallazgos-crm.md](hallazgos-crm.md).
+
+## Lo que se manda a un modelo: una lista POSITIVA, y la anonimización en el borde
+
+**Vive en:** `dimensionPublica` / `etiquetaSegura` en `lib/graficos-analisis.ts`
+
+- ⚠️ **Diagnóstico obvio equivocado: «el chat de MaKo ya oculta las personas».** Había una lista
+  NEGATIVA en `exportar.ts`, y las dimensiones con nombres que sumaron después (`leads.lead`,
+  `entrega.cliente`, `llamadas.llamada`, `tareas.tarea`, un «Cliente: …») viajaban al modelo. Una sola
+  lista, POSITIVA: un conjunto nuevo viaja anónimo hasta que alguien declara pública una dimensión.
+- Anonimizar ANTES de calcular una firma que se compara con la del dato real da un «cambió» para
+  siempre. Los alias se aplican sólo en el borde hacia el modelo.
+- `sanearGrafico` corrige EN SILENCIO (un tipo que no existe pasa a barras). Sobre salida de IA eso dibuja
+  un gráfico que nadie pidió: `lib/graficos-ia.ts` descarta lo que no tiene arreglo y compara lo pedido
+  con lo saneado. Los ids de lo que entra de afuera salen de `nuevoId`, nunca del dato.
+- **El catálogo que lee el modelo creció en vivo** (8,9k → 11k caracteres) y dejaba a Groq fuera de la
+  cascada sin error. Va en niveles que se aprietan solos, con un test que mide el techo.
+- El AI Analyst no entra en `/api/graficos` (tope 60 s con las esperas de la cascada): ruta propia con
+  `after()`. En un cron no hay sesión: la fila congela `que_tablero` al programar.
+
+## La hoja Landing tardaba 51 s en abrir (el tope de la ruta es 60)
+
+**Vive en:** `leer` en `lib/graficos-lectura.ts`, `tramosDeDias` en `lib/graficos-agregar.ts`
+
+Medido el 11/10 desde la máquina local (ws1, 30 días): `vsl` 34 s (45.122 eventos) y `retencion_vsl`
+47 s; el resto ≤ 8 s. ⚠️ **No era la base**: la consulta tarda 14 ms (`explain analyze`); es
+`leerTodo`, que pagina EN SERIE (46 páginas de ~466 KB, ~21 MB). Desde Vercel, al lado de Supabase, es
+menos, pero igual se paga en serie. `leer` ahora parte el período en 6 tramos de días contiguos que van a
+la vez: mismas filas exactas (comparadas fuente por fuente), la mitad del tiempo. La tabla VSL se lee dos
+veces por hoja (`vsl` y `retencion_vsl`) y otra para el bloque de la curva. SIN HACER: una vista
+agregada por día.
+
+## Productivity Analyst salió de la sidebar: lo que eso deja colgado
+
+**Vive en:** `app/_components/nav.ts`, `lib/capas.ts`, `app/productivity-analyst/page.tsx`
+
+- Sacar una tab deja CAPAS sin pantalla en silencio: `pm` y `superadmin` no tenían `graphics`, así que
+  el redirect al Dashboard los rebotaba. Se sumó.
+- `?hoja=<id>` sólo resuelve ids FIJOS: una hoja de «Nueva hoja» lleva ids nuevos. Las hojas de Analysts
+  del informe de Mauricio se escribieron con los ids de la plantilla.
+- Ads, Landing y Closing siguen en la sidebar: tienen TAREAS (analizar un guion, una URL, una llamada)
+  que Martín se va a llevar a otras tabs.
+
+## Cómo se verifica cuando el `next dev` no sobrevive
+
+El 11/10 el vigía de RAM mató el `next dev` (6 GB con 320 MB libres) y dos builds (5,4 GB). Lo que sí
+anduvo: `npm run build` cuando hubo lugar, `next start -p 3100` (mucho más liviano) y la cookie de sesión
+firmada con `crearToken` de `lib/auth-session.ts` (`/api/auth/dev-login` es inerte en producción). Dos
+trampas de la verificación: una sesión `admin` sin impersonar ve el tablero del DUEÑO (Productividad
+del ws1 en 0 sin ser un bug: Mauricio ve el suyo), y el ws3 no tiene key de Gemini (el AI Analyst se
+probó en el ws9).
 
 ## La pauta de Meta (y el resumen del negocio) terminan AYER
 
 **Vive en:** `hastaDeFuente` en `lib/graficos-datos.ts`
 
-Toda serie de gasto terminaba en un desplome a cero el último día: la pauta llega por cron y el día en
-curso no está. El resumen del negocio cruza la pauta con el CRM y corta igual, porque con el gasto de
-hoy en cero el CAC de hoy saldría regalado.
+La pauta llega por cron y el día en curso no está. ⚠️ El Resultado agregado no trae el `hasta` efectivo:
+cualquier consumidor fuera de la pantalla (el CSV, la IA) recalcula con `hastaDeFuente`, o lee «hoy
+hubo gasto cero».
 
 ## Una razón se calcula sobre lo SUMADO; los distintos se cuentan en el grupo
 
 **Vive en:** `lib/graficos-agregar.ts`
 
-- El CTR de una campaña es sus clics ÷ sus impresiones, no el promedio de los CTR diarios. «Otros»
-  suma las bases y recalcula, igual que cualquier grupo.
-- Las personas de una semana no son la suma de las personas de cada día: una métrica `distinto`
-  guarda el conjunto de claves por grupo (`Fila.u`) y cuenta su tamaño.
-- Lo que sólo se suma (circular, rectángulos, sankey, embudos, al 100%) no acepta razones: un costo
-  por lead en porciones no suma 100% de nada.
-- El tiempo se RELLENA: un día sin filas es un cero dibujado.
-- El DESGLOSE arma un cruce sobre la PRIMERA métrica, con hasta 8 columnas y el resto en «Otros».
+- El CTR de una campaña es sus clics ÷ sus impresiones, no el promedio de los CTR diarios.
+- Las personas de una semana no son la suma de las de cada día (`Fila.u`, métrica `distinto`).
+- Lo que sólo se suma (circular, embudos, al 100%) no acepta razones. El tiempo se RELLENA.
 
 ## «Cerraron» es una cuarta definición de cierre, y excluye los «sin cobro»
 
 **Vive en:** `gano` en `lib/graficos-datos.ts`
 
-La app ya contaba el cierre de tres formas (cohortes por el mes de la reunión con `cerro`, Tendencias
-por `fecha_cierre` con `estado_lead = 'ganado'`, y el objetivo de /general). El Dashboard cuenta
-`cerro || estado_lead === 'ganado'`, menos `venta_tipo = 'sin_cobro'` (los becados), por la fecha que
-elija la persona. El guard de `tests/venta-sin-cobro.test.ts` no lo ve —busca `.select('…monto_cierre_usd…')`
-literal y acá la lista de columnas es una constante—, así que la exclusión se puso a mano. Antes de
-«arreglar» un número que no coincide con /comercial, mirá cuál de las cuatro definiciones es.
+El Dashboard cuenta `cerro || estado_lead === 'ganado'`, menos `venta_tipo = 'sin_cobro'`. Antes de
+«arreglar» un número que no coincide con otra pantalla, mirá cuál de las cuatro definiciones es.
 
-## Los 24 conjuntos de datos: qué tabla y qué cuidar
+## La réplica de las tabs viejas: cómo se calcula cada número de antes
 
-Medido el 11/10 contra la base (`information_schema` + filas por workspace). 21 tienen datos en el ws1.
+**Vive en:** `lib/graficos-plantillas.ts`; el dibujo, en `app/dashboard/Grafico.tsx`
 
-| Área | Conjuntos | Tablas |
-|---|---|---|
-| Negocio | Resumen del negocio | `marketing_metrics_daily` + `leads` + `pagos` |
-| Marketing | Anuncios, presupuestos, visitas, VSL, grabaciones, creativos | `marketing_metrics_daily`, `adset_budget_daily`, `landing_visits`, `vsl_events`, `replay_sesiones`, `script_analyses` |
-| CRM y ventas | Leads, cambios, formularios, pagos, llamadas | `leads`, `lead_audit`, `lead_respuestas`, `pagos`, `closing_analyses` |
-| Comunicación | WhatsApp, conversaciones con MaKo | `wa_mensajes`, `mako_doer_conv` |
-| Automations | Personas, envíos | `nutricion_inscripciones`, `nutricion_envios` |
-| Plan | Tareas | `plan_tareas` o `experimento_tareas`, según `tableroActual()` |
-| Customer Success | Entrega, avance en cursos | `cliente_entrega`, `curso_progreso` |
-| Second Brain | Conocimiento, archivero | `mako_knowledge`, `archivero_files` |
-| Onboarding | Pasos | `app_settings` (`onboarding.tab.<tab>`) |
-| IA y contenido | Uso de IA, Flow | `anthropic_usage`, `flow_trabajos` |
-
-- **Toda lectura lleva el workspace EXPLÍCITO** (`eq workspace_id`) además de `getTenantDb()`: varias de
-  estas tablas no están en TENANT_TABLES y para ellas el cliente de tenant es passthrough.
-- **El contenido de una conversación no se lee nunca** (WhatsApp, MaKo): sólo se cuentan filas.
-- **`adset_budget_daily.daily_budget_mxn` está en la moneda de la cuenta** y casi siempre en null (las
-  campañas con presupuesto a nivel campaña): el presupuesto sale en cero aunque haya gasto.
-- **El VSL del ws1 son 48 mil eventos en 30 días**: un gráfico de esa fuente tarda unos segundos (48
-  páginas de 1000). Con «Todo» son 78 mil. Si molesta, la salida es una vista agregada por día.
-- **Un id con guion bajo no es un id**: el saneo pide `[a-z0-9-]` y reemplaza el resto, así que la
-  respuesta vuelve con otro id. Le pasó a la prueba de las 24 fuentes, no al editor (que acuña los suyos).
-
-## La réplica de las tabs viejas: qué es igual y qué no
-
-**Vive en:** `tableroInicial` en `lib/graficos-catalogo.ts`; el dibujo, en `app/dashboard/Grafico.tsx`
-
-Los bloques están en el orden y el lugar de antes (KPI estrella, Salud del Funnel con sus cuatro de
-eficiencia, Tendencias; Revenue, A cobrar, Tendencia mensual, Salud del Funnel comercial, SCL, cohortes).
-Para que los números fueran los mismos hubo que sumar métricas, y cada una se calcula como la calculaba
-la pantalla vieja — no como sonaría lógico:
-
-- **Vistas del VSL = YouTube (el video marcado `vsl` + el VSL de prueba) + los plays de Panda**, de
-  `marketing_metrics_daily`, igual que `lib/queries.ts`. Contar los `play` de `vsl_events` da otro número.
-- **El SCL (ciclo de venta) va de `fecha_agenda` a `fecha_primer_pago`**, no de la reunión al cierre
-  (`_getSCL` en `lib/queries.ts`). Se promedia sobre los que tienen las dos fechas (`con_ciclo`): dividir
-  por todos los cierres lo achica con los que nunca tuvieron reunión.
-- **No-show = agendó y no asistió.**
-- **El chip «↑ 1,3×»** (`estilo.comparar`) lee el período ANTERIOR del mismo largo, que termina el día
-  antes (`periodoAnterior`, en `lib/graficos-agregar.ts` para que tenga test). Es una lectura más por
-  gráfico que lo pide.
-- **El tope de la tabla pasó de 6 a 8 métricas**: las cohortes tienen ocho columnas y el saneo, en
-  silencio, tiraba las dos últimas. El de componentes por página, de 40 a 50: con 41 tipos no entraba
-  uno de cada uno.
-- **Una tarjeta de número lleva SIEMPRE su filete** (gris si no se eligió color) y el número toma el
-  color del filete sólo cuando es mayor que cero: un «US$0» no va en verde, como antes.
-- **El blanco de fábrica (`#ffffff`) se pinta como `var(--surface)`**, y ejes, grilla y tooltips usan
-  tokens: las tarjetas se dan vuelta en el tema oscuro. El relleno del embudo es claro en los dos temas,
-  así que su tinta es fija.
+- **Vistas del VSL = YouTube + los plays de Panda**, de `marketing_metrics_daily`, como `lib/queries.ts`.
+- **El SCL va de `fecha_agenda` a `fecha_primer_pago`**, promediado sobre los que tienen las dos.
+- **El chip «↑ 1,3×»** lee el período ANTERIOR del mismo largo (`periodoAnterior`).
+- Una tarjeta de número lleva SIEMPRE su filete; el número toma su color sólo si es mayor que cero.
 
 ## Por qué react-grid-layout y no otro
 
-Se buscó un constructor de tableros ya hecho. No hay uno embebible en Next con licencia libre:
-Metabase y Grafana son AGPL y aplicaciones enteras, Superset es Python. Lo que sí sirve son las piezas:
-`react-grid-layout` (MIT) para arrastrar y agrandar, y `recharts`, que ya estaba. Se fijó la **2.2.4**;
-la 2.3.0 tenía 5 días.
+No hay un constructor de tableros embebible en Next con licencia libre (Metabase y Grafana son AGPL,
+Superset es Python). `react-grid-layout` 2.2.4 (MIT) + `recharts`.
 
 ## Lo que quedó sin hacer
 
-- **Lo que la réplica no pudo copiar:** «Audiencia y alcance» (plataformas y el mapa de México: se
-  leía EN VIVO de la API de Meta, no está en la base — en su lugar quedó la tabla de anuncios), el
-  desglose clickeable de cada número hasta el nombre de los leads, el chat con MaKo por gráfico, los
-  anuncios ganadores con su veredicto, el MRR, la barra cobrado/pendiente, el selector de métricas de
-  Tendencias y el «aún sin datos» (ahora sale «—» o «0x»). Las cohortes y el Outstanding sí volvieron.
-  El código está en el historial de git (`app/marketing/page.tsx` y `app/comercial/page.tsx` antes del
-  11/10/2026).
-- **El onboarding de la tab:** /marketing mostraba un panel de activación sin Meta conectado
-  (`tabActivacion('marketing')`). El Dashboard no lo muestra: con el CRM solo ya hay qué ver.
-- **Mapas, cronología por fechas propias y velas**: no hay datos geográficos ni de rango por fila.
-- **Filtros, campos calculados y combinar fuentes**: no se copiaron de Looker a propósito.
-- **El tema oscuro del CROMO**: la barra, los paneles y la galería tienen los valores de Looker limitados
-  a `.lk` (como el de GitHub en `/api-mako`); en oscuro se ven como una isla clara. Las tarjetas sí se dan vuelta.
-- **`app/ads-manager/AdsManagerView.tsx`** tira un rango que termina después de hoy (`docs/hallazgos-ads.md`).
+- **Lecturas de Comercial sin paginar** (`lib/pagos.ts`, `lib/queries.ts`): la primera que va a cortar en
+  1000 filas sin avisar es `getOutstandingDetalle` (lee TODA la tabla pagos; el ws1 tiene 34).
+- **Las cohortes de Comercial con «Últimos 30 días»** miran sólo las del último mes; la tab vieja mostraba
+  todas las maduras. Reproducirlo es `periodo: 'todo'` en esos bloques, y el filtro de fecha deja de
+  aplicarles: **lo decide Martín**.
+- **`marcarPagoAction` sin guarda de rol** (`app/crm/actions.ts`): ver [hallazgos-crm.md](hallazgos-crm.md).
+- **El GeoJSON del mapa** se baja de `raw.githubusercontent.com` en el navegador del cliente.
+- **`sniffImagen` tiene tres copias** (`app/api/perfil/avatar`, `app/api/portadas`,
+  `app/api/graficos/imagen`): va a un módulo de `lib/`.
+- **`useEjemplo` de `app/dashboard/NuevaHoja.tsx`** es una copia del de `app/automations/CrearConIA.tsx`
+  (no exportado todavía).
+- **El AI Analyst no analiza los bloques** y no dice qué modelo contestó (falta `respondioOut` en
+  `chatCheapCascade`, [hallazgos-ia.md](hallazgos-ia.md)).
+- **El onboarding de la tab**, mapas de otros países, velas y campos calculados: no se hicieron.
 
-*10-11/10/2026, chat «Graphics». La réplica y el diseño de MaKo, 11/10 de madrugada.*
+*10-11/10/2026, chat «Graphics». El v3 (feedback de veinte puntos, Exportar, Analysts, AI Analyst):
+corrida de 9 agentes `wf_57bc1bc0-b52` + integración, commit `623ff3cd`.*

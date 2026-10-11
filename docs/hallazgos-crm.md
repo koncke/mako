@@ -7843,3 +7843,21 @@ De paso: los 433 `closing_analyses` de ws9 son llamadas de Martín (146 internas
 79 de prueba, 17 de venta) y **ninguna tiene `lead_id`**: no se cruzan con el CRM de MaKo.
 
 **Vive en:** `pagos` (ws11) · `closing_analyses` (ws9). *Corrida `wf_01c22b1b-91a`, 10/10/2026.*
+
+## «Marcar cobrada»: la action no tiene guarda de rol, no mira de quién es la cuota, y deshacer no reabre la cobranza (11/10/2026)
+
+Salió al cablear «Marcar cobrada» en el Dashboard (`app/dashboard/bloques/BloqueCobranza.tsx`):
+
+- **`marcarPagoAction` (`app/crm/actions.ts`) no tiene guarda de rol propia.** En el Dashboard la protege
+  la puerta admin de la página; por la ficha del CRM y por el doer (`marcar_pago_cobrado`, sin
+  `rolMinimo`) la puede usar cualquiera con CRM. Si la regla es «sólo admin marca cobrado», va adentro de
+  la action, no en el botón. **Lo decide Martín.**
+- **Y no comprueba que la cuota sea del lead que recibe.** Por eso el Dashboard saca el par (pago, lead)
+  de la MISMA fila del server (`Fila.r` del lector de pagos) y nunca lo arma en el navegador.
+- **Deshacer «Marcar cobrada» devuelve el dato pero no la secuencia:** `marcarPago(true)` cierra los
+  recordatorios de cobranza (`lib/pagos.ts`) y el deshacer no los reabre. Previo al Dashboard.
+- **Las lecturas de pagos de Comercial no paginan:** `getOutstandingDetalle` (`lib/pagos.ts`) lee TODA la
+  tabla del workspace (medido: ws1 = 34, ws11 = 21 cuotas). Cuando alguien pase las 1000, el
+  Outstanding y «A quién cobrarle» van a dar de menos sin un error.
+
+**Vive en:** `app/crm/actions.ts` (`marcarPagoAction`) · `lib/pagos.ts`. *2026-10-11 Graphics.*

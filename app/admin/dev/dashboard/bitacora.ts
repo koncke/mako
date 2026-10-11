@@ -125,4 +125,34 @@ export const BITACORA: Hito[] = [
     pedido: 'Y también agrega el botón de "Exportar" para poder exportar los datos como csv, o incluso como PDF con los gráficos bien colocados.',
     puntos: ['Llegó en medio del feedback de veinte puntos; va como el punto 21.'],
   },
+  {
+    fecha: '11 oct', hora: '—', chat: CH, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las tabs de Analysts como plantillas, y el AI Analyst con CRON',
+    pedido: "También: 1. Implementa como TEMPLATE, y en el caso de Mauricio, como tabs, todas las tabs de la sidebar en la sección de \"analysts\". Excepto las partes donde se ejecuta tareas, no análisis... Por ejemplo en la parte de \"Analizar nuevo guion\", esas cosas me las voy a llevar para sus respectivas tabs de \"Copy Generator\"... O la funcionalidad de analizar una web en \"Landing Analyst\"... Pero si puedes poner un template de landing con la cantidad de datos que tenemos, de clicks, retención, mapa de calor, grabaciones, etc... 2. También agrega un botón en la topbar del editable que sea \"AI Analyst\", que justamente sea MaKo analizando ese o esos gráficos... Y que se pueda configurar CRON para que lo analice cada X tiempo, o cuando se le da a actualizar análisis... Ya que en varias tabs, como \"Ads Analyst\" tenemos mucho análisis de IA de MaKo. 3. Y en este caso elimina las tabs que ya hayas puesto como tamplate de la sidebar.",
+    puntos: ['Llegó en medio del feedback de veinte puntos: van como los puntos 22, 23 y 24.'],
+  },
+  {
+    fecha: '11 oct', hora: '10:55', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Dashboard v3: los veinticuatro puntos, en producción',
+    puntos: [
+      'Arriba: el ícono de la tab, las hojas con «Nueva hoja» y su menú (clic derecho y ⋮ también mirando), sin «Guardado»; la barra de edición debajo, así las hojas no se mueven. Propiedades sólo con algo elegido; sin panel Datos ni riel.',
+      'Estilo por PÁGINA con seis plantillas, una sola superficie y modo oscuro; cabecera con emoji, título y subtítulo; insertar texto, imagen, formas y flechas.',
+      'Filtros en una barra pegada arriba del lienzo y en cada gráfico, sin pisarse: el del gráfico reemplaza al de la página en su campo. Lo elegido mirando no se guarda.',
+      'Lo de Mauricio de vuelta: filtro de fecha, clic en un número para ver el detalle y «Filtrar la página por esto», el mapa de México con los nombres que manda Meta, «A quién cobrarle» desplegable con «Marcar cobrada» y el cobrado total.',
+      '«Nueva hoja» con «Pídeselo a MaKo» (gratis) y plantillas; recorrido como el de Curso; Exportar a CSV y a PDF con los gráficos en su lugar.',
+      'Ads Analyst, Landing, Closing y Productividad como plantillas, y como hojas del informe de Mauricio. Productivity Analyst salió de la sidebar; Ads, Landing y Closing se quedan por sus tareas.',
+      'AI Analyst: MaKo lee los gráficos de la hoja (sin nombres de personas) y dice qué pasa y qué hacer, a mano o cada día, semana o mes (mig 0247).',
+      'Arreglos medidos en Chrome al integrar: la barra de filtros no quedaba pegada, el AI Analyst tapaba una columna, la edad salía desordenada y la hoja Landing tardaba 51 s.',
+    ],
+    commits: [{ sha: '623ff3c', msg: 'Dashboard v3: hojas en la fila del logo, estilo por página, filtros pegados, Exportar, AI Analyst y las tabs de Analysts como plantillas', lineas: 18697, archivos: 88 }],
+    archivos: ['app/dashboard/EditorInforme.tsx', 'lib/graficos-catalogo.ts', 'lib/graficos-plantillas-analysts.ts', 'lib/graficos-analisis-server.ts', 'supabase/migrations/0247_dashboard_analisis.sql'],
+  },
+  {
+    fecha: '11 oct', hora: '—', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'cosecha',
+    titulo: 'Lo que dejó el v3: la barra que no pegaba, lo que Meta no da por región y la key de Gemini del ws1',
+    puntos: [
+      'docs/hallazgos-graficos.md reescrito con lo del v3; correcciones en hallazgos-ads (el mapa, medido), hallazgos-ia (Google le bloqueó el proyecto a la key de Gemini del ws1), hallazgos-crm («Marcar cobrada» sin guarda de rol) y hallazgos-infra (verificar con la máquina llena).',
+      'AGENTS.md: un overflow que scrollea tiene que TENER alto (Pagina con flex 1 lo anula).',
+    ],
+  },
 ];

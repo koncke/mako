@@ -1,71 +1,49 @@
 # Relevo — chat «Graphics» (la tab Dashboard)
 
-<sub>Escrito el 11/10/2026 ~05:20 por la cuenta 3, desde el chat que hizo el trabajo. Se pisa en cada relevo.</sub>
+<sub>Escrito el 11/10/2026 ~11:30 por la cuenta 3, desde el chat que hizo el trabajo. Se pisa en cada relevo.</sub>
 
 ## Dónde está
 
 La tab Dashboard es un editor de informes estilo Looker Studio (el EDITOR es de Looker, los GRÁFICOS
-con el diseño de MaKo). En producción: `6967b29c` (Marketing y Comercial como hojas, réplica de las
-tabs viejas). Lo que sigue es la versión 3, **a medio hacer y SIN commitear** (vive en el árbol de
-este clon).
+con el diseño de MaKo). **En producción: `623ff3cd` (el v3), Ready el 11/10 ~10:58.** Cubre los 24
+puntos del feedback de Martín del 11/10 (textuales en `app/admin/dev/dashboard/bitacora.ts`): hojas al
+lado del logo, estilo por página, filtros pegados y por gráfico, lo de Mauricio de vuelta (mapa,
+cobranza, interactividad), insertar elementos, Nueva hoja con IA y plantillas, recorrido, Exportar
+(CSV/PDF), las tabs de Analysts como plantillas y el AI Analyst con horario (mig 0247, aplicada).
 
-## El pedido en curso
+El informe guardado de Mauricio (`graficos.tablero.2`, ws1) se reescribió DESPUÉS del deploy con
+Marketing, Comercial, Ads Analyst, Landing, Closing y Productividad (ids fijos), releído con el lector
+del producto. Respaldo del anterior: `tablero2-respaldo-v3.json` en el scratchpad de la sesión.
 
-El feedback de Martín del 11/10 de madrugada, 24 puntos, textual en
-`app/admin/dev/dashboard/bitacora.ts` (los últimos cuatro hitos `prompt`): logo de la sidebar arriba,
-las hojas al lado con «Nueva hoja», sin «Guardado», volver a poner lo de Mauricio (filtro de fecha,
-gráficos interactivos, mapa de México, «A quién cobrarle» desplegable con «Marcar cobrada», el
-cobrado total) y botones de acción, menú de hoja con clic derecho, estilo por PÁGINA con plantillas
-(como Cursos), sin paneles fijos, controles (filtros) en una barra pegada arriba y también por
-gráfico sin que se pisen, cabecera con emoji y subtítulo, una sola superficie, modo oscuro, insertar
-texto/imagen/formas/flechas, «Nueva hoja» con «Pídeselo a MaKo» y plantillas, tutorial tipo
-recorrido, **Exportar** (CSV y PDF), las tabs de **Analysts** como plantillas (y como hojas para
-Mauricio), un botón **AI Analyst** con análisis programado, y sacar de la sidebar lo que quede cubierto.
+## Lo que hay que saber antes de tocarlo
 
-## Lo que ya está escrito (base del v3, en el árbol, tests en verde)
+`docs/hallazgos-graficos.md` (reescrito con el v3). Lo más caro: la barra de filtros sólo queda pegada
+si el `<main>` tiene alto (`app/dashboard/page.tsx`); el control de un gráfico REEMPLAZA al de la hoja
+en su campo; los campos compartidos son una lista positiva; lo que viaja a un modelo pasa por
+`dimensionPublica`; todo pop-up desde una tarjeta va por portal y el portal no aísla.
 
-- El modelo: `lib/graficos-catalogo.ts` (hojas con emoji/subtítulo/tema/controles, `efectivoDe` =
-  la precedencia de filtros, CAMPOS compartidos, bloques, elementos, migración del v2),
-  `lib/graficos-temas.ts` (6 plantillas de estilo), `lib/graficos-plantillas.ts` (informe inicial con
-  ids FIJOS y el filtro de fecha arriba), filtrado en `lib/graficos-agregar.ts`/`lib/graficos-datos.ts`,
-  acciones `bloques` y `valores` en `app/api/graficos/route.ts`.
-- Tests: `tests/graficos-modelo.test.ts` y `tests/graficos.test.ts` (uno rojo A PROPÓSITO: el lector de
-  la audiencia, que lo pone en verde el agente que la implementa).
-- Los contratos de lo que falta: `CONTRATOS-v3.md` en el scratchpad de la sesión (copiado abajo en
-  sustancia) y un archivo stub por pieza.
+## Lo que espera una decisión de Martín
 
-## Lo que está corriendo
+- **La key de Gemini del ws1 (Mauricio) está bloqueada por Google** («Your project has been denied
+  access», desde ~06:52 UTC del 11/10): toda la IA del ws1 que pase por Gemini cae a otros proveedores o
+  falla. Hay que avisarle o cargar otra key. Detalle en `docs/hallazgos-ia.md`.
+- `marcarPagoAction` no tiene guarda de rol (cualquiera con CRM marca cobrado): ¿sólo admin?
+- Las cohortes de Comercial con «Últimos 30 días» miran sólo el último mes; la tab vieja mostraba todas.
 
-Una corrida de 9 agentes (Workflow `wf_57bc1bc0-b52`, script en la carpeta de la sesión) con archivos
-disjuntos: la pantalla (`app/dashboard/EditorInforme.tsx`), los controles (`BarraControles.tsx`), la
-audiencia y el mapa (`lib/graficos-audiencia.ts`, `MapaMexico.tsx`), los bloques de Comercial
-(`lib/graficos-bloques.ts`, `app/dashboard/bloques/`), la interactividad (`Grafico.tsx`, `Detalle.tsx`),
-Nueva hoja con IA (`NuevaHoja.tsx`, `app/api/graficos/ia/`), los elementos (`Elemento.tsx`), el AI
-Analyst (`PanelAnalista.tsx`, migración 0246, cron) y las plantillas de Analysts. Se cortó una vez
-(la sesión se cerró) y se relanzó a las 05:15; a las ~06:00 cinco agentes cayeron por el límite de uso.
-A las 12:32 se retomó (mismo script, `resumeFromRunId: 'wf_57bc1bc0-b52'`): TERMINADOS y en caché
-audiencia, bloques, nueva hoja y elementos; RETOMANDO pantalla, controles, interactividad, analista y
-analysts (con una nota de que hay trabajo suyo a medias en sus archivos). Los resultados de cada agente
-quedan en el `journal.jsonl` de la carpeta de la corrida.
+## Lo que quedó sin hacer (y dónde)
 
-Pendientes que ya dejó la audiencia (enchufar al integrar): el mapa no se recorta a `g.limite`
-(lib/graficos-agregar.ts: `g.tipo === 'mapa'` como el histograma); el lector de la audiencia con
-dimensión vacía lee edad y género (`g?.dimension ?? ''`); Meta NO da agendas por región (marcarlo en el
-catálogo para no dibujar ceros); la edad se ordena por la etiqueta, no por el valor.
+- Verificar en el navegador, después del último build, el panel del AI Analyst como columna (antes
+  tapaba la cuarta columna de tarjetas): el arreglo está con test, pero la máquina no dejó rearmar el
+  build para mirarlo. Lo puede mirar Martín.
+- El modelo de OpenRouter por defecto ya no es gratis (`lib/ai-cheap.ts`), y un 403 de Gemini merece su
+  causa propia en `lib/fallo-ia-texto.ts`.
+- Lecturas de Comercial sin paginar (`lib/pagos.ts`, `lib/queries.ts`); el GeoJSON del mapa desde
+  GitHub; `sniffImagen` en tres copias; `respondioOut` en `chatCheapCascade`. Todo en
+  `docs/hallazgos-graficos.md` → «Lo que quedó sin hacer».
 
-## Lo que falta después de la corrida
+## Decisiones tomadas sin preguntar
 
-Integrar (enchufar lo que cada agente deja en `pendientes`), aplicar la migración 0246, verificar en
-Chrome (ws1 con dev-login, limpiar SÓLO `graficos.tablero.dev`), revisión adversarial de filtros/datos,
-`npm test` + `npm run build`, rearmar el informe guardado de Mauricio (`graficos.tablero.2`, ws1) con
-Marketing + Comercial + las hojas de Analysts, commit por ruta, push, `vercel ls`, cosecha en
-`docs/hallazgos-graficos.md`.
-
-## Decisiones tomadas sin preguntar (decirlas en el cierre)
-
-- Sólo **Productivity Analyst** sale de la sidebar: Ads, Landing y Closing tienen TAREAS (analizar un
-  guion nuevo, analizar una URL, revisar una llamada) que Martín dijo que se va a llevar a otras tabs.
-- Lo que alguien elige en un filtro MIRANDO no se guarda (como Looker); lo que se guarda es lo que el
-  filtro muestra de entrada.
-- «Marcar cobrada» pone la fecha de HOY, no el vencimiento.
-- El AI Analyst no manda WhatsApp (un aviso nuevo de MaKo lo decide Martín): marca en pantalla.
+- Sólo **Productivity Analyst** salió de la sidebar: Ads, Landing y Closing tienen TAREAS.
+- Lo que alguien elige en un filtro MIRANDO no se guarda (como Looker).
+- «Marcar cobrada» pone la fecha de HOY en la zona del negocio.
+- El AI Analyst no manda WhatsApp: marca en pantalla. Corre gratis (Gemini y la cascada), nunca Claude.

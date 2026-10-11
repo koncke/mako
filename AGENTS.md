@@ -4282,6 +4282,12 @@ con eso la barra lateral de una pantalla se iba con el scroll. Medido a 1920x880
   igual que antes, **con el `position: sticky` puesto y sin un solo error**. Antes de
   escribirlo, caminá los ancestros hasta el primero con `overflow-y` en `auto`/`scroll` y
   preguntá si ÉSE es el que la persona scrollea.
+- ⚠️ **Y ese que scrollea tiene que TENER ALTO.** Un `overflow-y: auto` sin alto definido crece
+  con su contenido y no scrollea nunca: scrollea el documento y el sticky se va con la página.
+  En esta casa la trampa es `Pagina`: trae `flex: 1` (base 0%), que en la columna del layout
+  ANULA el `height: 100vh` que le pongas en el `style`. Una pantalla de alto completo va con
+  `flex: 'none'` + `height: '100dvh'` + `overflow: 'hidden'` (molde: `app/dashboard/page.tsx`).
+  Medido el 11/10/2026: tres asserts del sticky en verde y la barra en y = −1079.
 - **Y verificalo SCROLLEANDO.** Con `scrollY = 0` un sticky roto se ve igual que uno sano,
   asi que cualquier chequeo que no mueva la pagina da verde sobre algo roto. Esto se pago
   cinco veces seguidas sobre la misma pantalla.
