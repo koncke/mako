@@ -1,5 +1,12 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **RETOMADA (11/10/2026 ~17:20, cuota en 9 %) EN EL WORKTREE `C:/dev/wt-undecima` (rama `undecima`, sobre origin/main con
+> el CRON «Pagos»).** El clon compartido no se puede poner al día: más de cien archivos que origin/main cambia tienen
+> trabajo sin commitear de otra sesión (Gráficos/Dashboard), y un rebase con autostash los rompería. La corrida
+> `wf_b4e3948d-3dc` sigue con los relevos del caché y escribe SÓLO en el worktree; se pushea desde ahí
+> (`git push origin undecima:main` tras rebasear). node_modules es un junction: antes de `git worktree remove`, sacarlo
+> con `cmd /c rmdir` (AGENTS.md).
+>
 > **FRENADA CON EL DISEÑO HECHO (11/10/2026 ~15:47, `claude3` al 92 % semanal): la UNDÉCIMA tanda** (13 puntos con
 > capturas, pedido literal en el último hito de la bitácora, + las decisiones 2, 3 y 4 de la décima; la 1 la reemplaza
 > el punto 11). El diseño COMPLETO está en `docs/diseno-undecima-tanda.md`: los flujos de prod antes/después tarjeta
