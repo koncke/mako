@@ -1,7 +1,7 @@
 import { PitchShifter } from "soundtouchjs";
 import { clampRetimeRate, shouldMaintainPitch } from "@/app/video-editor/_opencut/retime/rate";
 import type { RetimeConfig } from "@/app/video-editor/_opencut/timeline";
-import { getSourceTimeAtClipTime } from "./resolve";
+import { curvaDeRetime, getSourceTimeAtClipTime } from "./resolve";
 
 const RATE_EPSILON = 1e-6;
 
@@ -55,8 +55,11 @@ function buildResampledBuffer({
 
 		for (let i = 0; i < outputLength; i++) {
 			const clipTime = i / targetSampleRate;
+			// Con curva, la duración del clip (en segundos, como clipTime) es lo
+			// que ubica cada muestra en la curva.
 			const sourceTime =
-				trimStart + getSourceTimeAtClipTime({ clipTime, retime });
+				trimStart +
+				getSourceTimeAtClipTime({ clipTime, retime, clipDuration });
 			outputData[i] = sampleLinear({
 				channelData: sourceData,
 				position: sourceTime * sourceBuffer.sampleRate,
@@ -157,7 +160,10 @@ export async function renderRetimedBuffer({
 }): Promise<AudioBuffer> {
 	const targetSampleRate = audioContext.sampleRate;
 	const rate = clampRetimeRate({ rate: retime?.rate ?? 1 });
+	// Con curva el tono no se conserva: SoundTouch estira con un tempo fijo y
+	// la curva cambia la velocidad muestra a muestra (ver retime/presets.ts).
 	const usePitchPreservation =
+		!curvaDeRetime(retime) &&
 		shouldMaintainPitch({ rate, maintainPitch }) &&
 		Math.abs(rate - 1) > RATE_EPSILON;
 

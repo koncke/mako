@@ -3,6 +3,7 @@ import { getElementLocalTime } from "@/app/video-editor/_opencut/animation";
 import { aplicarGanchosVisual } from "./ganchos-ce";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { resolveEffectParamsAtTime } from "@/app/video-editor/_opencut/animation/effect-param-channel";
+import { resolveGraphicParamsAtTime } from "@/app/video-editor/_opencut/animation/graphic-param-channel";
 import {
 	buildGaussianBlurPasses,
 	intensityToSigma,
@@ -113,6 +114,16 @@ function resolveEffectPassGroups({
 }): EffectPass[][] {
 	return (effects ?? [])
 		.filter((effect) => effect.enabled)
+		// Un efecto de un tipo que no está registrado (un proyecto de otra versión)
+		// se salta: tirar acá deja el cuadro entero en negro.
+		.filter((effect) => effectsRegistry.has(effect.type))
+		// El Chroma key va primero, sobre el cuadro crudo: el color se eligió con el
+		// cuentagotas sobre el original, no sobre el ajustado o filtrado.
+		.sort(
+			(a, b) =>
+				Number(effectsRegistry.get(b.type).clase === "croma") -
+				Number(effectsRegistry.get(a.type).clase === "croma"),
+		)
 		.map((effect) => {
 			const resolvedParams = resolveEffectParamsAtTime({
 				effectId: effect.id,
@@ -123,11 +134,14 @@ function resolveEffectPassGroups({
 			const definition = effectsRegistry.get(effect.type);
 			return resolveEffectPasses({
 				definition,
-				effectParams: resolvedParams,
+				// Los efectos que se mueven (Glitch, Sacudida, el grano…) leen el
+				// tiempo local en segundos de `__tiempo` (effects/glsl.ts).
+				effectParams: { ...resolvedParams, __tiempo: localTime / TICKS_PER_SECOND },
 				width,
 				height,
 			});
-		});
+		})
+		.filter((passes) => passes.length > 0);
 }
 
 function resolveVisualState({
@@ -213,6 +227,8 @@ async function resolveVideoNode({
 		getSourceTimeAtClipTime({
 			clipTime,
 			retime: node.params.retime,
+			// La curva de velocidad está en el 0–1 del clip (retime/resolve.ts).
+			clipDuration: node.params.duration,
 		});
 	const frame = await videoCache.getFrameAt({
 		mediaId: node.params.mediaId,
@@ -449,6 +465,7 @@ async function resolveBackdropSource({
 			getSourceTimeAtClipTime({
 				clipTime,
 				retime: node.params.retime,
+				clipDuration: node.params.duration,
 			});
 		const frame = await videoCache.getFrameAt({
 			mediaId: node.params.mediaId,
@@ -489,10 +506,26 @@ function resolveEffectLayerNode({
 		return null;
 	}
 
+	if (!effectsRegistry.has(node.params.effectType)) {
+		return null;
+	}
 	const definition = effectsRegistry.get(node.params.effectType);
+	// Los parámetros de un efecto-capa se animan en `params.<clave>` (como los de
+	// una forma; ver timeline/animation-targets.ts), y los que se mueven leen el
+	// tiempo desde el inicio de la capa en `__tiempo`.
+	const localTime = Math.max(0, time - node.params.timeOffset);
+	const effectParams = {
+		...resolveGraphicParamsAtTime({
+			params: node.params.effectParams,
+			definitions: definition.params,
+			animations: node.params.animations,
+			localTime,
+		}),
+		__tiempo: localTime / TICKS_PER_SECOND,
+	};
 	const passes = resolveEffectPasses({
 		definition,
-		effectParams: node.params.effectParams,
+		effectParams,
 		width: context.renderer.width,
 		height: context.renderer.height,
 	});

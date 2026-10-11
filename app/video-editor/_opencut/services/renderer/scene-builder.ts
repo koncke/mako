@@ -54,6 +54,7 @@ function buildTrackNodes({
 						effectParams: element.params,
 						timeOffset: element.startTime,
 						duration: element.duration,
+						animations: element.animations,
 					}),
 				);
 				continue;

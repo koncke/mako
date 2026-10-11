@@ -82,8 +82,20 @@ export interface SceneTracks {
 }
 
 export interface RetimeConfig {
+	/** Velocidad constante («Estándar»). Con curva es la velocidad MEDIA de la
+	 *  curva: así lo que sólo lee `rate` (duración, audio por streaming) acierta
+	 *  en los extremos del clip. */
 	rate: number;
 	maintainPitch?: boolean;
+	/** «Curva» de CapCut (retime/curva.ts). `mode: "curve"` lo lee también el
+	 *  audio-manager para pasar el clip por el búfer preparado. */
+	mode?: "constant" | "curve";
+	curva?: {
+		/** El ajuste predefinido elegido («montaje», «heroe»… o «personalizado»). */
+		preset: string;
+		/** x: 0–1 a lo largo del clip; y: velocidad (0,1×–10×). */
+		puntos: Array<{ x: number; y: number }>;
+	};
 }
 
 interface BaseAudioElement extends BaseTimelineElement {

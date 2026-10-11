@@ -306,6 +306,14 @@ export async function borrarVoz(voiceId: string): Promise<Salida<true>> {
 // ── Hablar ──────────────────────────────────────────────────────────────────
 
 /**
+ * Cuántos caracteres viajan en un pedido de texto a voz. Lo usa `decirConVoz` y lo
+ * lee la ruta del Video Editor (`/api/video-editor/tts`) para RECHAZAR un texto
+ * más largo en vez de cortarlo callado: un audio que termina a mitad de frase
+ * se cobra igual y no sirve.
+ */
+export const TOPE_TTS = 400;
+
+/**
  * Que la voz clonada DIGA una línea. Devuelve el mp3.
  *
  * ⚠️ ES LA ÚNICA FORMA DE COMPROBAR UN CLON, y por eso existe. Hasta acá el
@@ -333,7 +341,7 @@ export async function decirConVoz(
   // en un onboarding, o sea en el momento en que más gente lo toca. Una frase de
   // anuncio son ~120 caracteres; 400 deja aire de sobra y pone un techo a lo que
   // puede costar un click.
-  const linea = (texto || '').trim().slice(0, 400);
+  const linea = (texto || '').trim().slice(0, TOPE_TTS);
   if (!linea) return { ok: false, motivo: 'nuestra', error: 'No hay ninguna línea que decir.' };
 
   const r = await pedir(
@@ -419,4 +427,53 @@ export async function convertirVoz(
     };
   }
   return { ok: true, valor: { mp3: buf } };
+}
+
+// ── Las voces de la cuenta ──────────────────────────────────────────────────
+
+export type VozEleven = {
+  id: string;
+  nombre: string;
+  /** `premade` (las de ElevenLabs), `cloned`, `generated`, `professional`. */
+  categoria: string;
+  genero: string | null;
+  acento: string | null;
+  /** Un mp3 de muestra que aloja ElevenLabs. Escucharlo no consume cuota. */
+  muestra: string | null;
+};
+
+/**
+ * Las voces que tiene la cuenta DEL CLIENTE: las de ElevenLabs y sus clones.
+ *
+ * Es una lectura: no consume caracteres. La grilla de «Texto a voz» del Video
+ * Editor sale de acá y no de una lista fija de ids, porque las voces de catálogo
+ * cambian por cuenta (ElevenLabs retira voces viejas de las cuentas nuevas) y un
+ * id que la cuenta no tiene falla recién al generar, con el pedido ya cobrado o
+ * rechazado por un motivo que no se entiende.
+ */
+export async function listarVoces(): Promise<Salida<VozEleven[]>> {
+  const key = await elevenKey();
+  if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
+  const r = await pedir('/voices', { headers: { accept: 'application/json' } }, key);
+  const txt = await r.text();
+  if (!r.ok) return { ok: false, ...clasificar(r.status, txt) };
+  type Cruda = {
+    voice_id?: string; name?: string; category?: string; preview_url?: string | null;
+    labels?: Record<string, string | undefined> | null;
+  };
+  let voces: Cruda[] = [];
+  try { voces = ((JSON.parse(txt) as { voices?: Cruda[] }).voices ?? []); } catch { /* abajo */ }
+  return {
+    ok: true,
+    valor: voces
+      .filter((v) => v.voice_id && v.name)
+      .map((v) => ({
+        id: String(v.voice_id),
+        nombre: String(v.name),
+        categoria: String(v.category ?? ''),
+        genero: v.labels?.gender ?? null,
+        acento: v.labels?.accent ?? null,
+        muestra: v.preview_url ?? null,
+      })),
+  };
 }

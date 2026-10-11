@@ -13,5 +13,8 @@
 import '../_opencut/timeline/components/herramientas-ce';
 import '../_opencut/components/editor/panels/properties/registry';
 import '../_opencut/components/editor/panels/assets/registro';
+import '../_opencut/commands/timeline/element/operaciones-clip';
+import '../_opencut/effects/registro-ce';
+import '../_opencut/subtitles/registro';
 
 export {};

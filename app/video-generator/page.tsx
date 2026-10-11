@@ -21,6 +21,8 @@ import { onboardingRequeridoPara, getEstadoTab } from '@/lib/tab-onboarding-stat
 import { puentearPasosCopyGen } from '@/lib/copygen-puente';
 import { redirect } from 'next/navigation';
 import { PuertaVideoGen } from './PuertaVideoGen';
+import { EditorVideoDisponible } from './editor-video';
+import { veEditorVideo } from '@/app/video-editor/acceso';
 // El interruptor del tema, en el HTML del servidor: corre antes del primer
 // pintado y evita el fogonazo blanco. Ver TemaOscuroScript.
 import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
@@ -36,7 +38,7 @@ export default async function Page() {
   // sirve (las actions cortan con su propio error si intenta operar).
   if (ws == null) return <><TemaOscuroScript /><VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} guiones={[]} anuncios={[]} saldo={{ creditos: null, at: null, tier: '' }} costoClip={{ creditos: 15, medido: false }} /></>;
 
-  const [historial, contexto, puente, guiones, anuncios, saldo, costoClip] = await Promise.all([
+  const [historial, contexto, puente, guiones, anuncios, saldo, costoClip, editorVideo] = await Promise.all([
     leerHistorial(),
     estadoContextoVideo(),
     // Estado VIVO: si el cliente desconecta el navegador, el panel lo dice sola
@@ -54,6 +56,9 @@ export default async function Page() {
     // cambió. La pantalla lo refresca sola cuando hace falta.
     leerSaldoGuardado().catch(() => ({ creditos: null, at: null, tier: '' })),
     costoPorClip().catch(() => ({ creditos: 15, medido: false })),
+    // «Editar en el editor» se ofrece con la MISMA pregunta que el guard del
+    // Video Editor: hoy, sólo el super admin (app/video-editor/acceso.ts).
+    veEditorVideo().catch(() => false),
   ]);
 
   // La tab abre en su onboarding mientras no esté hecho, pero NO lo reemplaza
@@ -105,15 +110,17 @@ export default async function Page() {
     .split(/(?<=[.!?])\s+/)[0]?.trim().slice(0, 120) ?? '';
 
   const app = (
-    <VideoGeneratorApp
-      historialInicial={historial}
-      contexto={contexto}
-      puente={puente}
-      guiones={guiones}
-      anuncios={anuncios}
-      saldo={saldo}
-      costoClip={costoClip}
-    />
+    <EditorVideoDisponible si={editorVideo}>
+      <VideoGeneratorApp
+        historialInicial={historial}
+        contexto={contexto}
+        puente={puente}
+        guiones={guiones}
+        anuncios={anuncios}
+        saldo={saldo}
+        costoClip={costoClip}
+      />
+    </EditorVideoDisponible>
   );
 
   /**

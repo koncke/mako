@@ -54,6 +54,7 @@ import { PARTES as WAMAKO_PARTES, BITACORA as WAMAKO_BITACORA } from './whatsapp
 import { PARTES as WEBHOOKS_PARTES, BITACORA as WEBHOOKS_BITACORA } from './webhook-gateway/bitacora';
 import { PARTES as APIMAKO_PARTES, BITACORA as APIMAKO_BITACORA } from './api-mako/bitacora';
 import { PARTES as DASHBOARD_PARTES, BITACORA as DASHBOARD_BITACORA } from './dashboard/bitacora';
+import { PARTES as VIDEOEDITOR_PARTES, BITACORA as VIDEOEDITOR_BITACORA } from './video-editor/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
   admin: { partes: ADMIN_PARTES, bitacora: ADMIN_BITACORA },
@@ -102,6 +103,7 @@ const REGISTROS: Record<string, Registro> = {
   'whatsapp-de-mako': { partes: WAMAKO_PARTES, bitacora: WAMAKO_BITACORA },
   'webhook-gateway': { partes: WEBHOOKS_PARTES, bitacora: WEBHOOKS_BITACORA },
   'api-mako': { partes: APIMAKO_PARTES, bitacora: APIMAKO_BITACORA },
+  'video-editor': { partes: VIDEOEDITOR_PARTES, bitacora: VIDEOEDITOR_BITACORA },
 };
 
 /** Un área sin registro devuelve vacío: la pantalla muestra sus estados vacíos. */

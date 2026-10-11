@@ -143,16 +143,16 @@ export function FontPicker({
 				</div>
 				{status === "loading" && (
 					<div className="py-8 text-center text-sm text-muted-foreground">
-						Loading fonts...
+						Cargando…
 					</div>
 				)}
 				{status === "error" && (
 					<div className="flex flex-col items-center gap-3 py-8 px-4">
 						<p className="text-sm text-muted-foreground text-center">
-							Failed to load font previews.
+							Error al cargar
 						</p>
 						<Button variant="outline" size="sm" onClick={handleRetry}>
-							Retry
+							Intenta de nuevo
 						</Button>
 					</div>
 				)}

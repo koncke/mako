@@ -1,4 +1,8 @@
 import type { DragEvent } from "react";
+import { toast } from "sonner";
+import { effectsRegistry } from "@/app/video-editor/_opencut/effects";
+import type { ParamValues } from "@/app/video-editor/_opencut/params";
+import { findTrackInSceneTracks } from "@/app/video-editor/_opencut/timeline/track-element-update";
 import { processMediaAssets } from "@/app/video-editor/_opencut/media/processing";
 import { showMediaUploadToast } from "@/app/video-editor/_opencut/media/upload-toast";
 import {
@@ -58,6 +62,7 @@ export interface DragDropConfig {
 		trackId: string;
 		elementId: string;
 		effectType: string;
+		params?: ParamValues;
 	}) => void;
 }
 
@@ -464,11 +469,20 @@ export class DragDropController {
 		dragData: Extract<TimelineDragData, { type: "effect" }>;
 	}): void {
 		if (target.targetElement) {
-			this.config.addClipEffect({
-				trackId: target.targetElement.trackId,
-				elementId: target.targetElement.elementId,
+			const { trackId, elementId } = target.targetElement;
+			const aviso = avisoAlAplicarFiltro({
+				tracks: this.config.getSceneTracks(),
+				trackId,
+				elementId,
 				effectType: dragData.effectType,
 			});
+			this.config.addClipEffect({
+				trackId,
+				elementId,
+				effectType: dragData.effectType,
+				params: dragData.params,
+			});
+			if (aviso) toast(aviso);
 			return;
 		}
 
@@ -476,6 +490,8 @@ export class DragDropController {
 			effectType: dragData.effectType,
 			startTime: target.xPosition,
 		});
+		// Una LUT o un predefinido traen sus params en la tarjeta.
+		if (dragData.params) element.params = { ...element.params, ...dragData.params };
 
 		const existingEffectTrack = orderedTracks({
 			sceneTracks: this.config.getSceneTracks(),
@@ -582,4 +598,34 @@ export class DragDropController {
 			},
 		});
 	}
+}
+
+/** Los avisos de CapCut al soltar un FILTRO sobre un clip: el clip tiene uno solo,
+ *  así que el nuevo se agrega o reemplaza al que había (addClipEffect, grupoUnico).
+ *  Los efectos y ajustes no avisan. */
+function avisoAlAplicarFiltro({
+	tracks,
+	trackId,
+	elementId,
+	effectType,
+}: {
+	tracks: SceneTracks;
+	trackId: string;
+	elementId: string;
+	effectType: string;
+}): string | null {
+	if (!effectsRegistry.has(effectType)) return null;
+	const definicion = effectsRegistry.get(effectType);
+	if (definicion.clase !== "filtro") return null;
+	const element = findTrackInSceneTracks({ tracks, trackId })?.elements.find(
+		(e) => e.id === elementId,
+	);
+	const efectos = element && "effects" in element ? (element.effects ?? []) : [];
+	const yaTiene = efectos.some(
+		(e) =>
+			effectsRegistry.has(e.type) &&
+			effectsRegistry.get(e.type).grupoUnico !== undefined &&
+			effectsRegistry.get(e.type).grupoUnico === definicion.grupoUnico,
+	);
+	return yaTiene ? "Se reemplazó el filtro" : "Filtro agregado";
 }

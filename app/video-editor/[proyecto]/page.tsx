@@ -1,22 +1,34 @@
 // =============================================================================
 // /video-editor/<id> — el editor de un proyecto
 // =============================================================================
-// Mismo guard que el inicio. El id es el del proyecto en el almacenamiento
-// local del motor; si no existe, el EditorProvider crea uno nuevo y reemplaza
-// la URL (ver _opencut/components/providers/editor-provider.tsx).
+// Mismo guard que el inicio (../acceso.ts: hoy, sólo el super admin). El id es el
+// del proyecto en el almacenamiento local del motor; si no existe, el
+// EditorProvider crea uno nuevo y reemplaza la URL (ver
+// _opencut/components/providers/editor-provider.tsx).
+//
+// `?desde=<ref>` es «Editar en el editor» de Video Generator
+// (`/video-editor/nuevo?desde=montaje:12`). La ref se resuelve ACÁ, en el
+// workspace de la sesión, y al cliente baja sólo `{ titulo, archivo, url }`: la
+// url la arma el server, nunca viene del navegador (../desde/desde.ts).
 
-import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { VideoEditorCliente } from '../VideoEditorCliente';
+import { requireEditorVideo } from '../acceso';
+import { resolverDesde } from '../desde/resolver';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function VideoEditorProyectoPage({ params }: { params: Promise<{ proyecto: string }> }) {
-  await requireRolWs([], { nav: 'video-editor' });
+export default async function VideoEditorProyectoPage({ params, searchParams }: {
+  params: Promise<{ proyecto: string }>;
+  searchParams: Promise<{ desde?: string | string[] }>;
+}) {
+  await requireEditorVideo();
   // El workspace de la pestaña, validado por el proxy: separa el almacenamiento
   // local del motor por cliente (ver espacio.ts).
   const ws = await getWorkspaceActual();
   const { proyecto } = await params;
-  return <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} />;
+  const { desde } = await searchParams;
+  const origen = typeof desde === 'string' && desde ? await resolverDesde(desde) : undefined;
+  return <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} />;
 }

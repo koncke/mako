@@ -30,13 +30,13 @@ const defaultTextBackground = {
 
 const defaultTextElement: Omit<TextElement, "id"> = {
 	type: "text",
-	name: "Text",
+	name: "Texto predeterminado",
 	duration: DEFAULT_NEW_ELEMENT_DURATION,
 	startTime: ZERO_MEDIA_TIME,
 	trimStart: ZERO_MEDIA_TIME,
 	trimEnd: ZERO_MEDIA_TIME,
 	params: {
-		content: "Default text",
+		content: "Texto predeterminado",
 		fontSize: 15,
 		fontFamily: "Arial",
 		color: "#ffffff",

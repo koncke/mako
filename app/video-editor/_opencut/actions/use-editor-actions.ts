@@ -49,6 +49,11 @@ import {
 	type ScopeEntry,
 } from "@/app/video-editor/_opencut/selection/scope";
 import { useCommittedRef } from "@/app/video-editor/_opencut/hooks/use-committed-ref";
+import { useImportarArchivos } from "@/app/video-editor/_opencut/media/importar";
+import {
+	SECCION_IMPORTAR_MEDIOS,
+	useAssetsPanelStore,
+} from "@/app/video-editor/_opencut/components/editor/panels/assets/assets-panel-store";
 import {
 	alternarReproduccion,
 	busquedaRapida,
@@ -76,6 +81,7 @@ let colorMarcador = 0;
 export function useEditorActions() {
 	const editor = useEditor();
 	const router = useRouter();
+	const { importar } = useImportarArchivos();
 	const { selectedElements, setElementSelection } = useElementSelection();
 	const { selectedKeyframes, clearKeyframeSelection } = useKeyframeSelection();
 	const selectedMaskPointSelection = useEditor((e) =>
@@ -672,6 +678,27 @@ export function useEditorActions() {
 		"redo",
 		() => {
 			editor.command.redo();
+		},
+		undefined,
+	);
+
+	// Ctrl+I «Importar archivos multimedia»: el mismo selector que Multimedia ›
+	// Importar (el keydown cuenta como gesto del usuario, así que el navegador
+	// deja abrirlo), y la biblioteca va a Multimedia para que se vea lo que entra.
+	useActionHandler(
+		"importar-multimedia",
+		() => {
+			const input = document.createElement("input");
+			input.type = "file";
+			input.multiple = true;
+			input.accept = "image/*,video/*,audio/*";
+			input.onchange = () => {
+				const files = Array.from(input.files ?? []);
+				if (files.length === 0) return;
+				useAssetsPanelStore.getState().irA({ categoria: "multimedia", seccion: SECCION_IMPORTAR_MEDIOS });
+				void importar({ files });
+			};
+			input.click();
 		},
 		undefined,
 	);

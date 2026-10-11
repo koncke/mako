@@ -64,7 +64,11 @@ export async function cuadroPrincipalEn({
 	const enClip = Math.max(0, (tiempo - clip.startTime) / TICKS_PER_SECOND);
 	const fuente =
 		clip.trimStart / TICKS_PER_SECOND +
-		getSourceTimeAtClipTime({ clipTime: enClip, retime: clip.retime });
+		getSourceTimeAtClipTime({
+			clipTime: enClip,
+			retime: clip.retime,
+			clipDuration: clip.duration / TICKS_PER_SECOND,
+		});
 	return cuadroGrande({
 		mediaId: asset.id,
 		file: asset.file,

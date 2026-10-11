@@ -297,7 +297,10 @@ export const FAMILIAS: NavFamilia[] = [
           { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
           { key: 'image-generator', label: 'Image Generator', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
           { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
-          { key: 'video-editor', label: 'Video Editor', href: '/video-editor', icon: 'videogen', match: starts('/video-editor') },
+          // ⚠️ `adminOnly` HASTA QUE MARTÍN LO VALIDE: es una copia de CapCut que se arma
+          // por tandas. Esto sólo la esconde de la barra; quien la cierra de verdad es el
+          // guard de app/video-editor/acceso.ts (la URL tecleada también rebota).
+          { key: 'video-editor', label: 'Video Editor', href: '/video-editor', icon: 'tijera', adminOnly: true, match: starts('/video-editor') },
         ],
       },
       {
@@ -529,6 +532,8 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           // reescribe con ese dato. Hoy la pantalla es un ComingSoon; el registro
           // existe igual, que es justamente para no volver a arrancar de cero.
           { key: 'dev-vsl-generator', label: 'VSL Generator', href: '/admin/dev/vsl-generator', icon: 'video', match: starts('/admin/dev/vsl-generator') },
+          // La copia de CapCut (11/10/2026): el pedido textual y las tandas del port.
+          { key: 'dev-video-editor', label: 'Video Editor', href: '/admin/dev/video-editor', icon: 'tijera', match: starts('/admin/dev/video-editor') },
           { key: 'dev-credentials-vault-byok', label: 'Credentials Vault (BYOK)', href: '/admin/dev/credentials-vault-byok', icon: 'config', match: starts('/admin/dev/credentials-vault-byok') },
           // Los dos formatos de Content Machine con registro escrito. Stories ya
           // está construida; Thumbnails sigue siendo un ComingSoon y su registro

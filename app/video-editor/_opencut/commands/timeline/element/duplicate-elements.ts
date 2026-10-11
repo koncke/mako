@@ -113,6 +113,7 @@ export class DuplicateElementsCommand extends Command {
 	}
 }
 
+// La copia se llama igual que el original, como en CapCut.
 function buildDuplicateElement({
 	element,
 	id,
@@ -125,7 +126,6 @@ function buildDuplicateElement({
 	return {
 		...element,
 		id,
-		name: `${element.name} (copy)`,
 		startTime,
 		animations: cloneAnimations({
 			animations: element.animations,

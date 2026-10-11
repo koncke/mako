@@ -17,9 +17,13 @@
 import type { ElementType } from "@/app/video-editor/_opencut/timeline";
 import type { ElementParamDefinition } from "@/app/video-editor/_opencut/params/registry";
 
+import { paramsReflejo } from "./reflejo";
+import { paramsRecorte } from "./recorte";
+import { paramsSubtitulos } from "./subtitulos";
+
 type ParamsPorTipo = Partial<Record<ElementType, ElementParamDefinition[]>>;
 
-const FUENTES: ParamsPorTipo[] = [];
+const FUENTES: ParamsPorTipo[] = [paramsReflejo, paramsRecorte, paramsSubtitulos];
 
 export function paramsExtra(tipo: ElementType): ElementParamDefinition[] {
 	return FUENTES.flatMap((f) => f[tipo] ?? []);

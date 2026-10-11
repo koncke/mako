@@ -2259,6 +2259,12 @@ export type EstadoMontaje =
   | { fase: 'montando'; id: number; desde: string | null }
   | {
     fase: 'listo'; url: string; segundosAntes?: number; segundosDespues?: number;
+    /**
+     * El id del trabajo (`montaje_trabajos.id`): con él se arma `montaje:<id>`, la
+     * ref con la que «Editar en el editor» abre ESTE video en el Video Editor. La
+     * url no sirve para eso: el editor la vuelve a derivar en el server.
+     */
+    id: number;
     /** Los cortes que produjeron ESTE video. Es lo que el editor edita. */
     plan?: Plan | null;
   }
@@ -2388,6 +2394,7 @@ export async function estadoMontajeAction(
       estado: {
         fase: 'listo',
         url,
+        id: Number(data.id),
         segundosAntes: typeof r.segundosAntes === 'number' ? r.segundosAntes : undefined,
         segundosDespues: typeof r.segundosDespues === 'number' ? r.segundosDespues : undefined,
         // Los cortes que produjeron este video. Sin esto el editor no tendría

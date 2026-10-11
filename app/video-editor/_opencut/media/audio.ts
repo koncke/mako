@@ -68,7 +68,11 @@ export async function decodeAudioToFloat32({
 }): Promise<DecodedAudio> {
 	const audioContext = createAudioContext({ sampleRate });
 	const arrayBuffer = await audioBlob.arrayBuffer();
-	const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+	// Se cierra al decodificar: un AudioContext abierto por llamada se acumula
+	// (Chrome limita cuántos puede haber vivos a la vez).
+	const audioBuffer = await audioContext
+		.decodeAudioData(arrayBuffer)
+		.finally(() => void audioContext.close().catch(() => {}));
 
 	// mix down to mono
 	const numChannels = audioBuffer.numberOfChannels;
@@ -844,8 +848,15 @@ function mixAudioChannels({
 			if (outputIndex >= outputLength) break;
 
 			const clipTime = i / sampleRate;
+			// Con curva de velocidad, la duración del clip (segundos) ubica la
+			// muestra en la curva (retime/resolve.ts).
 			const sourceTime =
-				trimStart + getSourceTimeAtClipTime({ clipTime, retime });
+				trimStart +
+				getSourceTimeAtClipTime({
+					clipTime,
+					retime,
+					clipDuration: elementDuration,
+				});
 			const sourceIndex = sourceTime * buffer.sampleRate;
 			if (sourceIndex >= sourceData.length) break;
 

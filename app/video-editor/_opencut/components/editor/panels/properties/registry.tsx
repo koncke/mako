@@ -65,11 +65,14 @@ pestanasInspector.registrar({
 });
 
 // ── Respaldos ────────────────────────────────────────────────────────────────
+// Van en el orden de la pestaña que reemplazan: la primera de la fila es la que
+// se abre al elegir el elemento, y un texto o un audio tienen que abrir en
+// «Texto» / «Básico» (no en «Texto a voz» o «Velocidad», que llegaron antes).
 
 pestanasInspector.registrar({
 	id: "respaldo-texto",
 	etiqueta: "Texto",
-	orden: 900,
+	orden: 10,
 	aplica: ({ element }) => element.type === "text",
 	Contenido: RespaldoTexto,
 });
@@ -78,7 +81,7 @@ marcarRespaldo("respaldo-texto", { reemplazadaPor: ["Texto"] });
 pestanasInspector.registrar({
 	id: "respaldo-audio",
 	etiqueta: "Básico",
-	orden: 900,
+	orden: 10,
 	aplica: ({ element }) => element.type === "audio",
 	Contenido: RespaldoAudio,
 });

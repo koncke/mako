@@ -59,7 +59,11 @@ import { WizardAnuncio, Estudio, textoCosto } from './WizardAnuncio';
 import { PreviaVolante } from './PreviaVolante';
 import { TemaOscuro } from '../_components/TemaOscuro';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
-import { useRouter } from 'next/navigation';
+// El router de la casa y no el de `next/navigation`: acá sólo se usa `refresh()`,
+// que pasa derecho, pero así el archivo entra en el barrido de
+// tests/pantalla-links-ws.test.ts y un `push` futuro no pierde el `?ws=`.
+import { useRouter } from '@/app/_ui/Link';
+import { BotonEditarEnEditor } from './editor-video';
 
 /**
  * ⚠️ `ejemplo` ES UNA VISTA DE LA TAB, no un paso del anuncio.
@@ -1674,6 +1678,9 @@ export function VideoGeneratorApp({
             >
               Descargar el anuncio
             </Button>
+            {/* Este anuncio en el Video Editor. La ref nombra la fila del setting
+                (`anuncio:<id>`), no la url: el editor la vuelve a leer del workspace. */}
+            <BotonEditarEnEditor refVideo={`anuncio:${verAnuncio.id}`} />
             {/* Sólo cuando falla: un mensaje debajo de un botón que está trabajando
                 es ruido, y el estado ya lo cuenta el propio botón. */}
             {fallaAnuncio && (

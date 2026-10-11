@@ -109,6 +109,25 @@ function buildGraphicParamDescriptor({
 	element: TimelineElement;
 	paramKey: string;
 }): AnimationPathDescriptor | null {
+	// Un efecto-capa (Filtro, Ajuste, Efecto en su pista) anima sus parámetros
+	// en la misma ruta `params.<clave>` que una forma; la definición la da el
+	// efecto. Lo resuelve services/renderer/resolve.ts (resolveEffectLayerNode).
+	if (element.type === "effect") {
+		registerDefaultEffects();
+		if (!effectsRegistry.has(element.effectType)) {
+			return null;
+		}
+		const param = effectsRegistry
+			.get(element.effectType)
+			.params.find((candidate) => candidate.key === paramKey);
+		return param
+			? buildParamDescriptor({
+					param,
+					baseParams: element.params,
+					setParams: (params) => ({ ...element, params }),
+				})
+			: null;
+	}
 	if (element.type !== "graphic") {
 		return null;
 	}

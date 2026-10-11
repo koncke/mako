@@ -24,11 +24,15 @@ import { TemaOscuro } from '@/app/_components/TemaOscuro';
 import { ID_PORTAL_CE } from './portal';
 import { fijarEspacio } from './espacio';
 import { useRef } from 'react';
+import type { DesdeEditor } from './desde/desde';
 
 const EditorPage = dynamic(() => import('./_opencut/editor-page').then((m) => m.EditorPage), { ssr: false });
 const ProjectsPage = dynamic(() => import('./_opencut/inicio/projects-page').then((m) => m.ProjectsPage), { ssr: false });
+// «Editar en el editor» de Video Generator (`?desde=`): baja el anuncio, arma el
+// proyecto y recién ahí reemplaza la URL por la del proyecto (desde/ImportarDesde.tsx).
+const ImportarDesde = dynamic(() => import('./desde/ImportarDesde').then((m) => m.ImportarDesde), { ssr: false });
 
-export function VideoEditorCliente({ vista, proyectoId, ws }: { vista: 'inicio' | 'editor'; proyectoId?: string; ws: number | null }) {
+export function VideoEditorCliente({ vista, proyectoId, ws, desde }: { vista: 'inicio' | 'editor'; proyectoId?: string; ws: number | null; desde?: DesdeEditor }) {
   const editor = vista === 'editor' && !!proyectoId;
   // El espacio local se fija ANTES de que el motor abra una sola base: el render
   // de este componente corre antes que el import dinámico de abajo. Y si la
@@ -51,7 +55,7 @@ export function VideoEditorCliente({ vista, proyectoId, ws }: { vista: 'inicio' 
       <TemaOscuro />
       <TooltipProvider>
         <Toaster />
-        {editor ? <EditorPage projectId={proyectoId} /> : <ProjectsPage />}
+        {editor ? (desde ? <ImportarDesde desde={desde} /> : <EditorPage projectId={proyectoId} />) : <ProjectsPage />}
       </TooltipProvider>
       <div id={ID_PORTAL_CE} />
     </div>

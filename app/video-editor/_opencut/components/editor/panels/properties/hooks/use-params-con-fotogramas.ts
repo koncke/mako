@@ -47,7 +47,7 @@ import {
 	writeElementParamValue,
 	type ElementParamDefinition,
 } from "@/app/video-editor/_opencut/params/registry";
-import type { TimelineElement } from "@/app/video-editor/_opencut/timeline";
+import type { TimelineElement, VisualElement } from "@/app/video-editor/_opencut/timeline";
 import { useElementPreview } from "@/app/video-editor/_opencut/timeline/hooks/use-element-preview";
 import { addMediaTime, mediaTime, type MediaTime } from "@/app/video-editor/_opencut/wasm";
 import { useElementPlayhead } from "./use-element-playhead";
@@ -208,6 +208,11 @@ export function useParamsConFotogramas({
 			base = writeElementParamValue({ element: base, param, value: param.default });
 		}
 		const patch: Partial<TimelineElement> = { params: base.params };
+		// Un param de un efecto del clip (su `write` escribe en `effects[i].params`)
+		// cambia `effects`, no `params`: sin esto el ↺ no restablecía nada.
+		if ("effects" in base && base.effects !== (element as VisualElement).effects) {
+			(patch as Partial<VisualElement>).effects = base.effects;
+		}
 		if (element.animations && animables.length > 0) {
 			const resto = { ...element.animations };
 			for (const param of animables) delete resto[ruta(param.key)];

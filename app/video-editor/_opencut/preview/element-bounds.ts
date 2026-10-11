@@ -8,6 +8,7 @@ import {
 } from "@/app/video-editor/_opencut/animation";
 import { resolveTransformAtTime } from "@/app/video-editor/_opencut/rendering/animation-values";
 import { buildTransformFromParams } from "@/app/video-editor/_opencut/rendering";
+import { dimensionesRecortadas } from "@/app/video-editor/_opencut/recorte/geometria";
 
 export interface ElementBounds {
 	cx: number;
@@ -128,8 +129,13 @@ function getElementBounds({
 			animations: element.animations,
 			localTime,
 		});
-		const sourceWidth = mediaAsset?.width ?? canvasWidth;
-		const sourceHeight = mediaAsset?.height ?? canvasHeight;
+		// Con «Recortar», la fuente que se encaja es el rectángulo recortado
+		// (recorte/ganchos.ts): el marco de selección tiene que medir eso.
+		const { width: sourceWidth, height: sourceHeight } = dimensionesRecortadas({
+			params: element.params,
+			width: mediaAsset?.width ?? canvasWidth,
+			height: mediaAsset?.height ?? canvasHeight,
+		});
 		return getVisualElementBounds({
 			canvasWidth,
 			canvasHeight,

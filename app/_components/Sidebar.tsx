@@ -424,9 +424,14 @@ export function Sidebar() {
   //  · ROL  — closer/setter solo ven las tabs anotadas con su rol en nav.ts.
   //  · CAPA — qué compró el cliente (lib/capas.ts). Aplica a TODOS, incluido el
   //           admin-cliente: no es un permiso, es lo que contrató.
+  // Y `adminOnly` en una tab de PRODUCTO (el Video Editor mientras se valida): sólo
+  // el super admin, también mirando un cliente con `?ws=`, que es donde la prueba.
+  // Antes `adminOnly` sólo lo leía el menú de la foto (USER_NAV): puesto en una
+  // familia no escondía nada. Es cosmético; el cierre real es el guard de la page.
   const rolCliente = rolWs === 'closer' || rolWs === 'setter';
   const puedeVer = (it: NavItem) =>
-    (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true)
+    (!it.adminOnly || rol === 'admin')
+    && (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true)
     && tabEnCapa(it.key, capa || undefined);
 
   const familiasProducto = FAMILIAS

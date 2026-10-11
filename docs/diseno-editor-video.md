@@ -100,9 +100,13 @@ el proyecto. Una función nueva declara sus claves en `params/extra/<funcion>.ts
 - **Pases `ce-*`**: un `EffectDefinition` cuyos pases usan un shader registrado con
   `registrarPase({ id: 'ce-…', fragment })` se aplica solo, en el mismo punto, antes del WASM.
   Contrato del fragment shader en la cabecera de `pases-ce.ts`.
-- ⚠️ Los efectos de **capa** (elemento `effect` en una pista de efectos = «Filtros»/«Ajuste» como
-  capa en CapCut) los aplica el WASM sobre el cuadro compuesto (`sceneEffect`). Un pase `ce-*` ahí
-  NO corre solo: hay que repartirlo a las capas visuales que tiene debajo en ese instante.
+- Los efectos de **capa** (elemento `effect` en una pista de efectos = «Filtros»/«Ajuste»/«Efectos»
+  como capa en CapCut) el WASM los aplica sobre el cuadro compuesto (`sceneEffect`), pero un pase
+  `ce-*` ahí no corre: `compositor/repartir-ce.ts` lo reparte a las capas que tiene debajo en ese
+  instante, en el **espacio del lienzo** (`u_capa`/`u_giro`/`u_lienzo`, ver `effects/glsl.ts`), así
+  una viñeta o una sacudida quedan una sola vez sobre el cuadro. Un shader `ce-*` nuevo arranca con
+  `CABECERA` de `effects/glsl.ts` y no declara uniforms con esos nombres (lo frena
+  `tests/video-editor-color.test.ts`). El tiempo local llega en `params.__tiempo` (segundos).
 
 ### 2.4 Tiempos
 
@@ -153,10 +157,17 @@ dividir, texto, exportar MP4 y medir el archivo con ffprobe).
 
 | Contrato | Lo define | Lo usa |
 |---|---|---|
-| Efecto `croma` (pase `ce-croma`), params `color` (hex), `intensidad`, `sombra`, `borde`, `limpiarBorde` (0–100) | F | M (la UI del Chroma key) |
-| Efecto `ajuste` (pase `ce-ajuste`), params `brillo`, `contraste`, `saturacion`, `exposicion`, `nitidez`, `resaltados`, `sombras`, `temperatura`, `matiz`, `desvanecer`, `vineta`, `grano` (−100…100 o 0…100) | F | C (no dibuja Ajustar: lo registra F) |
+| Efecto `croma` (pase `ce-croma`), params `color` (hex), `intensidad`, `sombra`, `borde`, `limpiarBorde` (0–100, intensidad 0 por defecto como CapCut); uno por clip y corre PRIMERO en la cadena. Filas listas: `origenEfecto` (`effects/capas.ts`) + `FilaParam` (`effects/components/panel-color.tsx`) | F | M (la UI del Chroma key) |
+| Efecto `ajuste` (pase `ce-ajuste`), params `temperatura` (Temp), `matiz` (Tinte), `saturacion`, `brillo`, `contraste`, `exposicion`, `luminosidad`, `resaltados` (Iluminar), `sombras`, `blancos`, `negros`, `claridad` en −50…50; `nitidez` (Enfocar), `grano`, `desvanecer`, `vineta` en 0…100; `lut` (id de la biblioteca) + `lutIntensidad`; `hsl.<color>.<matiz\|saturacion\|claridad>` en −100…100. Todo en 0 = sin pase | F | C (no dibuja Ajustar: lo registra F) |
 | Params de audio `audio.fundidoEntrada` / `audio.fundidoSalida` (segundos) | J | D (dibuja los círculos de fundido en el clip y los arrastra) |
 | `commands/timeline/element/atributos.ts`: `cortarSeleccion(editor)`, `copiarAtributos(editor)`, `pegarAtributos(editor)` | I | D (atajos Ctrl+X, Ctrl+Shift+C/V y menú contextual) |
 | Param `transicion.id` / `transicion.duracion` en el clip de la IZQUIERDA del corte | G | D (dibuja el marcador ⧓ sobre el corte si existe) |
 | Param `subtitulo` (booleano) en los textos que son subtítulos | K | D (pista «Subtítulos»), H (estilos) |
 | Pestañas del panel derecho: Video›Básico/Máscara + «Detalles» (C) · Velocidad (I) · Animación y Texto (H) · Ajustar (F) · Audio (J) · Video›Eliminar fondo (M) · Texto a voz y Subtítulos (K) · Transición (G) | cada uno | C dibuja la cáscara |
+| `media/importar.ts`: `importarArchivos({ editor, files, onProgress })` (procesa y guarda en el proyecto activo) | B | L («Editar en el editor»: el anuncio de Video Generator entra por el MISMO camino que «Importar») |
+| `app/video-editor/acceso.ts`: `requireEditorVideo()` en TODA page del editor (hoy sólo el super admin) · nada en `app/video-editor` navega sin el `?ws=` · ningún módulo del server importa de `_opencut/` ni `ce/` (`tests/video-editor-integracion.test.ts` barre el árbol entero) | L | todos |
+| `RetimeConfig` (`timeline/types.ts`): `mode: 'curve'` + `curva {preset, puntos x 0–1 / y 0,1–10}`; con curva, `rate` es la velocidad MEDIA. Las funciones de `retime/` (`getSourceTimeAtClipTime`, `getClipTimeAtSourceTime`, `getSourceSpanAtClipTime`, `splitRetimeAtClipTime`…) piden `clipDuration` en la misma unidad que el instante: sin ella la curva se lee como constante. Velocidad 0,1×–100× | I | G (transiciones), J (audio), K (subtítulos), D (rótulo «2.0x»/curva sobre el clip, ya dibujado) |
+| Ganchos: recorte = gancho de FUENTE orden 10 (quien venga después recibe el cuadro recortado); reflejo = gancho VISUAL orden 1000, el último (un gancho que toque la escala conserva el signo de `scaleX/scaleY`). Un gancho de fuente no devuelve el MISMO lienzo en cuadros seguidos de un video: el compositor no re-sube una textura si el objeto es el mismo. `recorte/geometria.ts → dimensionesRecortadas` da el tamaño de la fuente recortada | I | M (quitar fondo, orden > 10), G y H (ganchos visuales), E |
+| `params.tts = true` en el audio de Texto a voz (`PARAM_TTS`, `subtitles/texto-a-voz.ts`); sin declarar, no es un control | K | D (vinculación, `ripple/iman.ts`) |
+| Arrastrar efectos: `EffectDragData.params?` (una LUT, un predefinido) viaja en el arrastre; `editor.timeline.addClipEffect({ …, params? })` los aplica sobre los de la definición, y al soltar un FILTRO sobre un clip avisa «Filtro agregado» / «Se reemplazó el filtro» | F + D | — |
+| Respaldos del panel derecho (`properties/registry.tsx`): van en el MISMO orden que la pestaña que reemplazan (Texto 10, Básico del audio 10, Audio del video 20), porque la primera de la fila es la que se abre al elegir. Se ocultan solos cuando el dueño registra una pestaña con ese rótulo | C | H (Texto), J (Básico/Audio) |

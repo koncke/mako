@@ -186,7 +186,7 @@ const textElementParams: ElementParamDefinition[] = [
 		key: "content",
 		label: "Texto",
 		type: "text",
-		default: "Default text",
+		default: "Texto predeterminado",
 		keyframable: false,
 	},
 	{

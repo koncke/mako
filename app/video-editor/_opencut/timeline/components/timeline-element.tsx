@@ -49,6 +49,7 @@ import type {
 	VideoElement,
 	ImageElement,
 	AudioElement,
+	RetimeConfig,
 } from "@/app/video-editor/_opencut/timeline";
 import { mediaSupportsAudio } from "@/app/video-editor/_opencut/media/media-utils";
 import {
@@ -76,7 +77,9 @@ import { buildGraphicPreviewUrl } from "@/app/video-editor/_opencut/graphics";
 import Image from "next/image";
 import { KeyframeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Sparkles, WandSparkles } from "lucide-react";
+import { Gauge, Sparkles, WandSparkles } from "lucide-react";
+import { PRESETS_CURVA } from "@/app/video-editor/_opencut/retime/curva";
+import { efectosListables } from "@/app/video-editor/_opencut/effects/components/panel-color";
 import { useMemo, type ComponentProps, type ReactNode } from "react";
 import type { SelectedKeyframeRef, ElementKeyframe } from "@/app/video-editor/_opencut/animation/types";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
@@ -1062,6 +1065,25 @@ function GraphicElementContent({
 }
 
 /** La franja del nombre arriba del clip (20 px en la captura → 16). */
+/** La velocidad sobre el clip, como CapCut: «2.0x» con velocidad constante, el
+ *  nombre de la curva con una curva (retime/curva.ts). A 1× no se dibuja. */
+function RotuloVelocidad({ retime }: { retime: RetimeConfig | undefined }) {
+	if (!retime) return null;
+	let texto: string | null = null;
+	if (retime.mode === "curve" && retime.curva) {
+		texto = PRESETS_CURVA.find((p) => p.id === retime.curva?.preset)?.etiqueta ?? "Curva";
+	} else if (Math.abs(retime.rate - 1) > 1e-3) {
+		texto = `${retime.rate >= 10 ? retime.rate.toFixed(0) : retime.rate.toFixed(1)}x`;
+	}
+	if (!texto) return null;
+	return (
+		<span className="flex shrink-0 items-center gap-0.5 rounded-[3px] bg-black/35 px-1 py-px text-[10px] leading-none text-white/90">
+			<Gauge className="size-2.5" aria-hidden />
+			{texto}
+		</span>
+	);
+}
+
 function FranjaNombre({
 	nombre,
 	duracion,
@@ -1137,6 +1159,7 @@ function AudioElementContent({
 				nombre={mediaLabel}
 				duracion={formatoDuracion(element.duration, fpsNum)}
 				claseFondo="bg-(--cc-clip-audio-name)"
+				inicio={<RotuloVelocidad retime={element.retime} />}
 			/>
 			<div className="relative min-h-0 flex-1 overflow-hidden">
 				{(audioBuffer || audioUrl || sourceFile) && (
@@ -1180,7 +1203,13 @@ function EffectsButton({
 		editor.selection.setSelectedElements({
 			elements: [{ trackId: track.id, elementId: element.id }],
 		});
-		setActiveTab({ elementType: element.type, tabId: "effects" });
+		// Las pestañas las registra el paquete de color (effects/registro-ce.ts):
+		// «Efectos» lista filtros y efectos del clip; si sólo tiene ajuste o croma,
+		// lo que hay para tocar está en «Ajustar».
+		setActiveTab({
+			elementType: element.type,
+			tabId: efectosListables(element.effects).length > 0 ? "efectos-clip" : "ajustar-basico",
+		});
 	};
 
 	return (
@@ -1238,9 +1267,12 @@ function MediaClipContent({
 				duracion={formatoDuracion(element.duration, fpsNum)}
 				claseFondo="bg-(--cc-clip-video-name)"
 				inicio={
-					hasElementEffects({ element }) ? (
-						<EffectsButton element={element} track={track} />
-					) : null
+					<>
+						{hasElementEffects({ element }) ? (
+							<EffectsButton element={element} track={track} />
+						) : null}
+						<RotuloVelocidad retime={retime} />
+					</>
 				}
 			/>
 			<div className="relative w-full shrink-0" style={{ height: Math.max(0, altoTira) }}>

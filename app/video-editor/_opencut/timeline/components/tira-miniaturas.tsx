@@ -130,7 +130,11 @@ export function TiraMiniaturas({
 				const enClip = Math.min(c.clipDurationSec, x / c.pixelsPerSecond);
 				const crudo =
 					c.sourceStartSec +
-					getSourceTimeAtClipTime({ clipTime: enClip, retime: c.retime });
+					getSourceTimeAtClipTime({
+						clipTime: enClip,
+						retime: c.retime,
+						clipDuration: c.clipDurationSec,
+					});
 				const t = Math.max(0, Math.round(crudo / paso) * paso);
 				imagen = cuadroCacheado({ mediaId: c.mediaId, alto: ALTO_DECODIFICADO, tiempo: t });
 				if (!imagen) pedir.push(t);

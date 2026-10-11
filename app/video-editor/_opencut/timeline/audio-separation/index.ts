@@ -94,12 +94,9 @@ export function buildSeparatedAudioElement({
 					: DEFAULTS.element.volume,
 			muted: sourceElement.params.muted === true,
 		},
-		retime: sourceElement.retime
-			? {
-					rate: sourceElement.retime.rate,
-					maintainPitch: sourceElement.retime.maintainPitch,
-				}
-			: undefined,
+		// El retime entero: con la curva de velocidad, el audio separado sigue
+		// la misma rampa que el video.
+		retime: sourceElement.retime ? { ...sourceElement.retime } : undefined,
 		animations: cloneVolumeAnimations({
 			animations: sourceElement.animations,
 		}),

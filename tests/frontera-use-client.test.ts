@@ -69,6 +69,14 @@ const leer = (f: string): string => {
 /** ¿Este módulo se envía al navegador? La directiva va en las primeras líneas. */
 const esCliente = (src: string): boolean => /^\s*['"]use client['"]/m.test(src.slice(0, 400));
 
+/**
+ * Carpetas que son cliente por su ÚNICA puerta de entrada, no por la directiva. El guard
+ * de la otra mitad (tests/video-editor-integracion.test.ts) LEE esta línea —no la
+ * importa: importar un test lo vuelve a correr— y vigila esa puerta: si una carpeta se
+ * suma acá sin que nadie la vigile, la excepción tapa justo el bug que este test caza.
+ */
+const CLIENTE_POR_FRONTERA = ['app/video-editor/_opencut/', 'app/video-editor/ce/'];
+
 /** ¿Este módulo está marcado como exclusivo del server? */
 const esServerOnly = (src: string): boolean => /^\s*import\s+['"]server-only['"]/m.test(src);
 
@@ -148,6 +156,12 @@ test('⚠️ ningún módulo del server importa un VALOR de un «use client»', 
   for (const f of todos) {
     const t = src(f);
     if (esCliente(t)) continue;          // cliente → cliente es legítimo
+    // El motor del Video Editor (OpenCut portado) es cliente ENTERO aunque sus módulos
+    // no lleven la directiva: entra sólo por VideoEditorCliente ('use client', con
+    // `dynamic(..., { ssr: false })`). Dio 12 falsos positivos el 11/10/2026 (hooks y
+    // stores importados entre sí). La otra mitad —que ningún módulo del server importe
+    // un valor del motor— la fija tests/video-editor-integracion.test.ts.
+    if (CLIENTE_POR_FRONTERA.some((d) => f.startsWith(d))) continue;
     for (const imp of importsDe(t)) {
       const destino = resolver(f, imp.desde, set);
       if (!destino || !esCliente(src(destino))) continue;

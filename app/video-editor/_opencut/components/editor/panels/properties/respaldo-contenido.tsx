@@ -20,6 +20,7 @@ import {
 } from "@/app/video-editor/_opencut/params/registry";
 import type { TimelineElement } from "@/app/video-editor/_opencut/timeline";
 import type { ContextoInspector } from "@/app/video-editor/ce/ranuras";
+import { PARAM_SUBTITULO } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import { CampoParam, SeccionCe, paramsVisibles } from "./components/kit";
 import { SeccionMezcla, SeccionTransformacion } from "./video/basico";
 
@@ -55,7 +56,11 @@ function ListaParams({
 }
 
 export function RespaldoTexto({ element, track }: ContextoInspector) {
-	const params = getElementParams({ element }).filter((p) => !CLAVES_VISUALES.has(p.key));
+	// `subtitulo` es una MARCA (params/extra/subtitulos.ts), no un control: como
+	// interruptor dejaría convertir cualquier texto en subtítulo a mano.
+	const params = getElementParams({ element }).filter(
+		(p) => !CLAVES_VISUALES.has(p.key) && p.key !== PARAM_SUBTITULO,
+	);
 	return (
 		<div className="flex flex-col pt-1">
 			<SeccionCe titulo="Básico" clave="ce:respaldo:texto">
@@ -67,8 +72,15 @@ export function RespaldoTexto({ element, track }: ContextoInspector) {
 	);
 }
 
+/** Lo que es de AUDIO: volumen, silencio y lo que sume params/extra con `audio.`.
+ *  El clip de video trae además reflejo, recorte, animaciones…, que no van acá. */
+const esParamDeAudio = (key: string) =>
+	key === "volume" || key === "muted" || key.startsWith("audio.");
+
 export function RespaldoAudio({ element, track }: ContextoInspector) {
-	const params = getElementParams({ element }).filter((p) => !CLAVES_VISUALES.has(p.key));
+	const params = getElementParams({ element }).filter(
+		(p) => !CLAVES_VISUALES.has(p.key) && esParamDeAudio(p.key),
+	);
 	return (
 		<div className="flex flex-col pt-1">
 			<SeccionCe titulo="Audio" plegable={false}>

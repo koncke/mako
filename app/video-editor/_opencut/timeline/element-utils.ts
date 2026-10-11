@@ -24,7 +24,7 @@ import {
 } from "@/app/video-editor/_opencut/timeline";
 import { DEFAULTS } from "@/app/video-editor/_opencut/timeline/defaults";
 import type { MediaType } from "@/app/video-editor/_opencut/media/types";
-import { buildDefaultEffectInstance } from "@/app/video-editor/_opencut/effects";
+import { buildDefaultEffectInstance, effectsRegistry } from "@/app/video-editor/_opencut/effects";
 import { buildDefaultGraphicInstance } from "@/app/video-editor/_opencut/graphics";
 import type { ParamValues } from "@/app/video-editor/_opencut/params";
 import {
@@ -32,7 +32,7 @@ import {
 	getBuiltInElementParams,
 } from "@/app/video-editor/_opencut/params/registry";
 import { capitalizeFirstLetter } from "@/app/video-editor/_opencut/utils/string";
-import { type MediaTime, ZERO_MEDIA_TIME } from "@/app/video-editor/_opencut/wasm";
+import { type MediaTime, mediaTime, TICKS_PER_SECOND, ZERO_MEDIA_TIME } from "@/app/video-editor/_opencut/wasm";
 
 export function canElementHaveAudio(
 	element: TimelineElement,
@@ -131,12 +131,15 @@ export function buildEffectElement({
 	duration?: MediaTime;
 }): CreateEffectElement {
 	const instance = buildDefaultEffectInstance({ effectType });
+	// El clip lleva el nombre del efecto («Vívido», «Glitch»), como CapCut.
+	const nombre = effectsRegistry.has(effectType) ? effectsRegistry.get(effectType).name : null;
 	return {
 		type: "effect",
-		name: capitalizeFirstLetter({ string: instance.type }),
+		name: nombre ?? capitalizeFirstLetter({ string: instance.type }),
 		effectType,
 		params: instance.params,
-		duration: duration ?? DEFAULT_NEW_ELEMENT_DURATION,
+		// CapCut: un efecto, filtro o ajuste nuevo dura 3 s (soltado o con ⊕).
+		duration: duration ?? mediaTime({ ticks: 3 * TICKS_PER_SECOND }),
 		startTime,
 		trimStart: ZERO_MEDIA_TIME,
 		trimEnd: ZERO_MEDIA_TIME,

@@ -23,6 +23,16 @@
 // Orientación: la imagen se sube con UNPACK_FLIP_Y y el ÚLTIMO pase dibuja en el
 // framebuffer del canvas, así la salida queda derecha. Los intermedios van en
 // framebuffers con la misma convención.
+//
+// El ESPACIO (effects/glsl.ts): cada pase recibe además `u_capa` (vec4: centro y
+// tamaño con signo de la capa en px del lienzo, y hacia arriba), `u_giro`
+// (radianes) y `u_lienzo` (vec2). Si el pase no los trae, van los de identidad
+// (la capa ES el lienzo). Los pone distinto el reparto de un efecto-capa a las
+// capas de abajo (compositor/repartir-ce.ts).
+//
+// LUT 3D: un pase con el uniform numérico `u_lut` (el número que da
+// `registrarLut`) recibe esa LUT como `uniform highp sampler3D u_lutTex` en la
+// unidad 2, y su lado en `u_lutTamano`. `u_lut = 0` es la identidad (2³).
 
 import type { EffectPass } from "@/app/video-editor/_opencut/effects/types";
 
@@ -39,16 +49,76 @@ void main() {
 }`;
 
 const shaders = new Map<string, string>();
+/** Los pases que MUEVEN el contenido (zoom, sacudida, espejo…): ver compositor/repartir-ce.ts. */
+const desplazan = new Set<string>();
 
-/** Registra el fragment shader de un pase. El id tiene que empezar con `ce-`. */
-export function registrarPase({ id, fragment }: { id: string; fragment: string }): void {
+// ── LUT 3D ──────────────────────────────────────────────────────────────────
+// Los datos viven acá (no en el contexto): si el contexto se pierde, las
+// texturas se rehacen desde estos datos en el próximo uso.
+
+type DatosLut = { tamano: number; rgba: Uint8Array; version: number };
+const luts = new Map<number, DatosLut>();
+const numeroDeClave = new Map<string, number>();
+let proximoNumeroLut = 1;
+const texturasLut = new Map<number, { tex: WebGLTexture; version: number }>();
+
+// La identidad de 2×2×2: lo que se muestrea cuando no hay LUT elegida o se perdió.
+luts.set(0, {
+	tamano: 2,
+	rgba: new Uint8Array([
+		0, 0, 0, 255, 255, 0, 0, 255, 0, 255, 0, 255, 255, 255, 0, 255,
+		0, 0, 255, 255, 255, 0, 255, 255, 0, 255, 255, 255, 255, 255, 255, 255,
+	]),
+	version: 0,
+});
+
+/**
+ * Registra (o reemplaza) una LUT 3D y devuelve el número que el pase pasa en
+ * `u_lut`. `rgba` va con R variando más rápido, después G, después B (el orden
+ * de un .cube), 4 bytes por punto.
+ */
+export function registrarLut({ clave, tamano, rgba }: { clave: string; tamano: number; rgba: Uint8Array }): number {
+	let n = numeroDeClave.get(clave);
+	if (n === undefined) {
+		n = proximoNumeroLut++;
+		numeroDeClave.set(clave, n);
+	}
+	const anterior = luts.get(n);
+	luts.set(n, { tamano, rgba, version: (anterior?.version ?? 0) + 1 });
+	return n;
+}
+
+/** El número de una LUT registrada, o 0 (identidad) si no está. */
+export function numeroLut(clave: string | null | undefined): number {
+	if (!clave) return 0;
+	return numeroDeClave.get(clave) ?? 0;
+}
+
+/**
+ * Registra el fragment shader de un pase. El id tiene que empezar con `ce-`.
+ * `desplaza`: el pase lleva contenido de un lugar a otro del cuadro (o lee
+ * vecinos lejanos): puesto como capa, cada capa de abajo se pasa antes a una
+ * textura del tamaño del lienzo para que lo movido pueda salir de su recuadro.
+ */
+export function registrarPase({ id, fragment, desplaza = false }: { id: string; fragment: string; desplaza?: boolean }): void {
 	if (!id.startsWith(PREFIJO_PASE_CE)) {
 		throw new Error(`El pase «${id}» tiene que empezar con «${PREFIJO_PASE_CE}»`);
 	}
+	if (desplaza) desplazan.add(id);
+	else desplazan.delete(id);
 	if (shaders.get(id) !== fragment) {
 		shaders.set(id, fragment);
 		programas.delete(id);
 	}
+}
+
+/** Los shaders registrados (id → fragment). Para revisar que compilen fuera del navegador. */
+export function shadersRegistrados(): ReadonlyMap<string, string> {
+	return shaders;
+}
+
+export function paseDesplaza(shader: string): boolean {
+	return desplazan.has(shader);
 }
 
 export function esPaseCe(shader: string): boolean {
@@ -83,6 +153,7 @@ function contexto(): WebGL2RenderingContext | null {
 	programas.clear();
 	texturas.length = 0;
 	fbos.length = 0;
+	texturasLut.clear();
 	quad = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, quad);
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -167,6 +238,25 @@ function fbo(g: WebGL2RenderingContext, i: number, w: number, h: number) {
 	return f;
 }
 
+function texturaLut(g: WebGL2RenderingContext, n: number): { tex: WebGLTexture; tamano: number } {
+	const datos = luts.get(n) ?? luts.get(0)!;
+	const numero = luts.has(n) ? n : 0;
+	const ya = texturasLut.get(numero);
+	if (ya && ya.version === datos.version) return { tex: ya.tex, tamano: datos.tamano };
+	const tex = ya?.tex ?? (g.createTexture() as WebGLTexture);
+	g.bindTexture(g.TEXTURE_3D, tex);
+	g.pixelStorei(g.UNPACK_FLIP_Y_WEBGL, false);
+	g.pixelStorei(g.UNPACK_ALIGNMENT, 1);
+	g.texImage3D(g.TEXTURE_3D, 0, g.RGBA8, datos.tamano, datos.tamano, datos.tamano, 0, g.RGBA, g.UNSIGNED_BYTE, datos.rgba);
+	g.texParameteri(g.TEXTURE_3D, g.TEXTURE_MIN_FILTER, g.LINEAR);
+	g.texParameteri(g.TEXTURE_3D, g.TEXTURE_MAG_FILTER, g.LINEAR);
+	g.texParameteri(g.TEXTURE_3D, g.TEXTURE_WRAP_S, g.CLAMP_TO_EDGE);
+	g.texParameteri(g.TEXTURE_3D, g.TEXTURE_WRAP_T, g.CLAMP_TO_EDGE);
+	g.texParameteri(g.TEXTURE_3D, g.TEXTURE_WRAP_R, g.CLAMP_TO_EDGE);
+	texturasLut.set(numero, { tex, version: datos.version });
+	return { tex, tamano: datos.tamano };
+}
+
 function ponerUniform(g: WebGL2RenderingContext, ubic: WebGLUniformLocation | null, valor: number | number[]) {
 	if (!ubic) return;
 	if (typeof valor === "number") g.uniform1f(ubic, valor);
@@ -206,6 +296,9 @@ export function aplicarPasesCe({
 	try {
 		canvas.width = width;
 		canvas.height = height;
+		// La subida de la textura usa la unidad activa: que sea la 0 (la LUT o la
+		// fuente B de la vuelta anterior pudieron dejar otra).
+		g.activeTexture(g.TEXTURE0);
 		let entrada = subir(g, 0, source);
 		const texB = fuenteB ? subir(g, 1, fuenteB) : null;
 		g.bindBuffer(g.ARRAY_BUFFER, quad);
@@ -231,7 +324,23 @@ export function aplicarPasesCe({
 				g.uniform1i(loc("u_texturaB"), 1);
 			}
 			ponerUniform(g, loc("u_resolucion"), [width, height]);
-			for (const [nombre, valor] of Object.entries(pase.uniforms)) ponerUniform(g, loc(nombre), valor);
+			// El espacio identidad; el reparto de un efecto-capa los pisa con los de la capa.
+			ponerUniform(g, loc("u_capa"), [width / 2, height / 2, width, height]);
+			ponerUniform(g, loc("u_giro"), 0);
+			ponerUniform(g, loc("u_lienzo"), [width, height]);
+			const nLut = pase.uniforms.u_lut;
+			if (typeof nLut === "number") {
+				// La unidad 2 ANTES de crear/subir: texturaLut enlaza en la unidad activa.
+				g.activeTexture(g.TEXTURE2);
+				const lut = texturaLut(g, nLut);
+				g.bindTexture(g.TEXTURE_3D, lut.tex);
+				g.uniform1i(loc("u_lutTex"), 2);
+				ponerUniform(g, loc("u_lutTamano"), lut.tamano);
+				g.activeTexture(g.TEXTURE0);
+			}
+			for (const [nombre, valor] of Object.entries(pase.uniforms)) {
+				if (nombre !== "u_lut") ponerUniform(g, loc(nombre), valor);
+			}
 			g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
 			if (destino) entrada = destino.tex;
 		});

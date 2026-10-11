@@ -41,6 +41,13 @@ const PANTALLAS = [
   'app/video-generator/OnboardingVideoGen.tsx',
   'app/configuraciones/HorarioEnvioPanel.tsx',
   'app/email/OnboardingCanalEmail.tsx',
+  // «Editar en el editor» (11/10/2026): los dos lugares de Video Generator que abren el
+  // Video Editor, el botón y la pantalla del editor que importa el anuncio y reemplaza
+  // la URL. El resto de app/video-editor lo barre entero tests/video-editor-integracion.test.ts.
+  'app/video-generator/PasoMontaje.tsx',
+  'app/video-generator/VideoGeneratorApp.tsx',
+  'app/video-generator/editor-video.tsx',
+  'app/video-editor/desde/ImportarDesde.tsx',
 ];
 
 test('ninguna pantalla de esta parte navega sin el `?ws=`: ni `<a href="/…">` crudo, ni el router de Next, ni un `window.location` pelado', () => {

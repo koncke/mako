@@ -28,11 +28,14 @@ class EffectPreviewService {
 		params,
 		targetCanvas,
 		uniformDimensions,
+		fuente,
 	}: {
 		effectType: string;
 		params: ParamValues;
 		targetCanvas: HTMLCanvasElement;
 		uniformDimensions?: { width: number; height: number };
+		/** Otra imagen de muestra (los filtros usan un paisaje: el retrato es casi gris). */
+		fuente?: OffscreenCanvas | null;
 	}): void {
 		const size = PREVIEW_SIZE;
 		const targetCtx = targetCanvas.getContext(
@@ -45,7 +48,7 @@ class EffectPreviewService {
 		targetCanvas.width = size;
 		targetCanvas.height = size;
 
-		const source = this.getTestSource({ width: size, height: size });
+		const source = fuente ?? this.getTestSource({ width: size, height: size });
 		if (!source) {
 			targetCtx.clearRect(0, 0, size, size);
 			return;

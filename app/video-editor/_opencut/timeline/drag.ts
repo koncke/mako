@@ -35,6 +35,8 @@ export interface EffectDragData extends BaseDragData {
 	type: "effect";
 	effectType: string;
 	targetElementTypes: VisualElement["type"][];
+	/** Params propios de la tarjeta (una LUT, un predefinido): se aplican al soltar. */
+	params?: ParamValues;
 }
 
 export type TimelineDragData =

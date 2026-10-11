@@ -65,14 +65,19 @@ function parseIntensity(effectParams: Record<string, unknown>): number {
 	return typeof raw === "number" ? raw : Number.parseFloat(String(raw));
 }
 
+// «Desenfoque»: el único efecto que corre en el WASM de OpenCut (shader
+// `gaussian-blur`). El tipo `blur` y la clave `intensity` se conservan: hay
+// proyectos y otros módulos (el fondo desenfocado) que los usan.
 export const blurEffectDefinition: EffectDefinition = {
 	type: "blur",
-	name: "Blur",
-	keywords: ["blur", "soft", "defocus"],
+	name: "Desenfoque",
+	keywords: ["desenfoque", "desenfocar", "borroso", "blur"],
+	clase: "efecto",
+	categoria: "Lente",
 	params: [
 		{
 			key: "intensity",
-			label: "Intensity",
+			label: "Intensidad",
 			type: "number",
 			default: 15,
 			min: 0,

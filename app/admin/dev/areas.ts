@@ -674,6 +674,17 @@ export const AREAS: AreaDev[] = [
     hallazgos: 'hallazgos-generativa',
   },
   {
+    slug: 'video-editor', titulo: 'Video Editor', familia: 'Content Machine', grupo: 'Ads',
+    estado: 'parcial', verEnApp: '/video-editor',
+    alcance: 'Un editor de video copiado de CapCut Desktop 9.3 (estructura, proporciones, colores medidos y los rótulos de su instalación en español), armado sobre el motor de OpenCut classic portado (MIT): línea de tiempo, keyframes, render WebGPU, exportar con WebCodecs. Proyectos y medios locales al navegador, separados por workspace. Recibe los anuncios de Video Generator con «Editar en el editor». Hasta que Martín lo valide, lo ve sólo el super admin.',
+    // ⚠️ Sin nav.ts ni Sidebar.tsx, aunque el editor los toque: son de los archivos
+    // más calientes del repo y desplazarían el Change History propio (ver `reels`).
+    // El botón de Video Generator vive en su área.
+    vive: ['app/video-editor', 'public/ve', 'docs/diseno-editor-video.md', 'docs/editor-video', 'tests/video-editor-integracion.test.ts'],
+    proyectos: ['Feature: Video Editor'],
+    hallazgos: 'hallazgos-video-editor',
+  },
+  {
     slug: 'reels', titulo: 'Reels', familia: 'Content Machine', grupo: 'Instagram',
     estado: 'parcial', verEnApp: '/reels',
     alcance: 'El GUION del reel de Instagram, construido el 15/08: pedido (tema + objetivo + duración) → guion tipado (gancho con frase, título en pantalla y visual · escenas con locución e indicación de cámara · moraleja · CTA con palabra clave · caption) → «Copiar el guion». Hasta el 06/10/2026 además lo dejaba como borrador en /instagram; salió con esa tab. Falta historial durable y que los prompts sean editables desde /configuraciones.',

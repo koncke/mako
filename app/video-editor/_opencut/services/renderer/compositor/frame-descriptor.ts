@@ -8,6 +8,9 @@ import { BlurBackgroundNode } from "../nodes/blur-background-node";
 import { ColorNode } from "../nodes/color-node";
 import { EffectLayerNode } from "../nodes/effect-layer-node";
 import { aplicarGanchosFuente, preaplicarPasesCe } from "../ganchos-ce";
+import { esPaseCe } from "../pases-ce";
+import { envolverDibujo, firmaPases, repartirPasesCe, separarPasesCe } from "./repartir-ce";
+import type { EffectPass } from "@/app/video-editor/_opencut/effects/types";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import {
 	GraphicNode,
@@ -126,10 +129,22 @@ async function collectNode({
 		if (!node.resolved || node.resolved.passes.length === 0) {
 			return;
 		}
-		items.push({
-			type: "sceneEffect",
-			effectPassGroups: [node.resolved.passes],
+		// Los `ce-*` (filtros, ajuste, efectos de CapCut) no los corre el WASM: se
+		// reparten a las capas de abajo (./repartir-ce.ts). El resto (el
+		// desenfoque) sigue como efecto de escena.
+		const { ce, resto } = separarPasesCe(node.resolved.passes);
+		repartirPasesCe({
+			pases: ce,
+			items,
+			textures,
+			lienzo: { width: renderer.width, height: renderer.height },
 		});
+		if (resto.length > 0) {
+			items.push({
+				type: "sceneEffect",
+				effectPassGroups: [resto],
+			});
+		}
 		return;
 	}
 
@@ -322,15 +337,22 @@ function collectTextNode({
 		params: node.params,
 		resolved: node.resolved,
 	})}`;
+	// Un filtro o efecto de CapCut (`ce-*`) arrastrado sobre un texto: el WASM no
+	// lo conoce, así que se aplica al dibujar la textura del texto.
+	const { ce: pasesCe, resto: gruposWasm } = separarGruposCe(node.resolved.effectPasses);
+	const dibujarTexto: TextureCanvasDrawFn = (ctx) => {
+		renderTextToContext({ node, ctx });
+	};
 	textures.set(textureId, {
 		kind: "rendered",
 		id: textureId,
-		contentHash,
+		contentHash: pasesCe.length > 0 ? `${contentHash}|ce:${firmaPases(pasesCe)}` : contentHash,
 		width,
 		height,
-		draw: (ctx) => {
-			renderTextToContext({ node, ctx });
-		},
+		draw:
+			pasesCe.length > 0
+				? envolverDibujo({ draw: dibujarTexto, width, height, pases: pasesCe })
+				: dibujarTexto,
 	});
 	items.push({
 		type: "layer",
@@ -338,9 +360,19 @@ function collectTextNode({
 		transform: fullCanvasTransform(renderer),
 		opacity: node.resolved.opacity,
 		blendMode: node.params.blendMode ?? "normal",
-		effectPassGroups: node.resolved.effectPasses,
+		effectPassGroups: gruposWasm,
 		mask: null,
 	});
+}
+
+/** Saca de los grupos los pases `ce-*` (en orden) y deja los del WASM. */
+function separarGruposCe(grupos: EffectPass[][]): { ce: EffectPass[]; resto: EffectPass[][] } {
+	const ce = grupos.flat().filter((p) => esPaseCe(p.shader));
+	if (ce.length === 0) return { ce, resto: grupos };
+	const resto = grupos
+		.map((g) => g.filter((p) => !esPaseCe(p.shader)))
+		.filter((g) => g.length > 0);
+	return { ce, resto };
 }
 
 function computeVisualTransform({

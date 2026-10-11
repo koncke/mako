@@ -8,7 +8,10 @@ import { generateUUID } from "@/app/video-editor/_opencut/utils/id";
 import { EditorCore } from "@/app/video-editor/_opencut/core";
 import { isRetimableElement } from "@/app/video-editor/_opencut/timeline";
 import { splitAnimationsAtTime } from "@/app/video-editor/_opencut/animation";
-import { getSourceSpanAtClipTime } from "@/app/video-editor/_opencut/retime";
+import {
+	getSourceSpanAtClipTime,
+	splitRetimeAtClipTime,
+} from "@/app/video-editor/_opencut/retime";
 import {
 	addMediaTime,
 	type MediaTime,
@@ -96,17 +99,27 @@ export class SplitElementsCommand extends Command {
 				// would let a 1-tick rounding error desynchronise them, breaking the
 				// invariant `leftSourceSpan + rightSourceSpan == totalSourceSpan`.
 				// See the same discipline in `compute-resize.ts` (snap-once comment).
+				// Con curva de velocidad, la fuente hasta el corte depende de dónde
+				// cae en la curva: hace falta la duración del clip (retime/resolve.ts).
 				const leftSourceSpan = roundMediaTime({
 					time: getSourceSpanAtClipTime({
 						clipTime: leftVisibleDuration,
 						retime: retimeRef,
+						clipDuration: element.duration,
 					}),
 				});
 				const totalSourceSpan = roundMediaTime({
 					time: getSourceSpanAtClipTime({
 						clipTime: element.duration,
 						retime: retimeRef,
+						clipDuration: element.duration,
 					}),
+				});
+				// Cada mitad se lleva su tramo de la curva (con velocidad constante, la misma).
+				const { left: leftRetime, right: rightRetime } = splitRetimeAtClipTime({
+					retime: retimeRef,
+					splitClipTime: relativeTime,
+					clipDuration: element.duration,
 				});
 				const rightSourceSpan = subMediaTime({
 					a: totalSourceSpan,
@@ -128,15 +141,16 @@ export class SplitElementsCommand extends Command {
 					b: leftSourceSpan,
 				});
 
+				// Las dos mitades conservan el nombre, como en CapCut (OpenCut le sumaba
+				// «(left)»/«(right)», que se leía en inglés sobre el clip de un efecto).
 				if (this.retainSide === "left") {
 					splitResult = [
 						{
 							...element,
 							duration: leftVisibleDuration,
 							trimEnd: leftTrimEnd,
-							name: `${element.name} (left)`,
 							animations: leftAnimations,
-							...(retimeRef !== undefined ? { retime: retimeRef } : {}),
+							...(leftRetime !== undefined ? { retime: leftRetime } : {}),
 						},
 					];
 				} else if (this.retainSide === "right") {
@@ -152,9 +166,8 @@ export class SplitElementsCommand extends Command {
 							startTime: this.splitTime,
 							duration: rightVisibleDuration,
 							trimStart: rightTrimStart,
-							name: `${element.name} (right)`,
 							animations: rightAnimations,
-							...(retimeRef !== undefined ? { retime: retimeRef } : {}),
+							...(rightRetime !== undefined ? { retime: rightRetime } : {}),
 						},
 					];
 				} else {
@@ -168,9 +181,8 @@ export class SplitElementsCommand extends Command {
 							...element,
 							duration: leftVisibleDuration,
 							trimEnd: leftTrimEnd,
-							name: `${element.name} (left)`,
 							animations: leftAnimations,
-							...(retimeRef !== undefined ? { retime: retimeRef } : {}),
+							...(leftRetime !== undefined ? { retime: leftRetime } : {}),
 						},
 						{
 							...element,
@@ -178,9 +190,8 @@ export class SplitElementsCommand extends Command {
 							startTime: this.splitTime,
 							duration: rightVisibleDuration,
 							trimStart: rightTrimStart,
-							name: `${element.name} (right)`,
 							animations: rightAnimations,
-							...(retimeRef !== undefined ? { retime: retimeRef } : {}),
+							...(rightRetime !== undefined ? { retime: rightRetime } : {}),
 						},
 					];
 				}

@@ -22,6 +22,7 @@ import { montarAnuncioAction, estadoMontajeAction, type EstadoMontaje } from './
 import { descargarComo } from './descargar';
 import { nombreDeAnuncio } from './video-pedido';
 import { EditorAnuncio } from './EditorAnuncio';
+import { BotonEditarEnEditor } from './editor-video';
 import type { Plan } from './plan-montaje';
 
 /** `70.04` → `1:10`. Sin decimales: nadie lee un anuncio en centésimas. */
@@ -179,6 +180,11 @@ export function PasoMontaje({ planId, titulo, clips, segundosPorToma }: {
                 Ajustar los cortes
               </Button>
             )}
+            {/* El anuncio ENTERO en el Video Editor (la copia de CapCut): textos,
+                música, transiciones, lo que los cortes no alcanzan. Abre un proyecto
+                nuevo con este video en la pista principal. Hoy sólo lo ve el super
+                admin (editor-video.tsx). */}
+            <BotonEditarEnEditor refVideo={`montaje:${estado.id}`} size="lg" />
           </div>
         </>
       )}

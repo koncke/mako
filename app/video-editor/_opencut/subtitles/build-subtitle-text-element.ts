@@ -1,348 +1,302 @@
+// =============================================================================
+// Un subtítulo = un texto con `subtitulo: true`, partido en líneas y ubicado
+// =============================================================================
+// El motor de texto no parte líneas solo: dibuja los `\n` del contenido. Por eso
+// el subtítulo se arma con los saltos ya puestos (midiendo con la MISMA cuenta
+// que usa el render, text/measure-element.ts) y se ubica con el borde de abajo a
+// una altura fija, centrado. Cuando cambia el estilo (una plantilla, «Aplicar en
+// todos los subtítulos») se vuelve a partir y a ubicar con `reacomodarSubtitulo`.
+//
+// Los parámetros salen de TODOS los declarados para el texto (registry + extra),
+// no de los defaults de OpenCut a mano: así un subtítulo nace con los parámetros
+// que sumen los demás paquetes (animaciones, contorno…) en su valor por defecto.
+
 import { FONT_SIZE_SCALE_REFERENCE } from "@/app/video-editor/_opencut/text/typography";
 import {
-	getTextVisualRect,
-	measureTextBlock,
-	setCanvasLetterSpacing,
-} from "@/app/video-editor/_opencut/text/layout";
-import { DEFAULTS } from "@/app/video-editor/_opencut/timeline/defaults";
-import { mediaTimeFromSeconds } from "@/app/video-editor/_opencut/wasm";
-import type { CreateTextElement } from "@/app/video-editor/_opencut/timeline";
-import type { TextBackground } from "@/app/video-editor/_opencut/text/background";
-import type {
-	TextAlign,
-	TextDecoration,
-	TextFontStyle,
-	TextFontWeight,
-} from "@/app/video-editor/_opencut/text/primitives";
+	buildTextLayoutParamsFromElement,
+	getTextMeasurementContext,
+	measureTextElement,
+} from "@/app/video-editor/_opencut/text/measure-element";
+import { resolveTextLayout } from "@/app/video-editor/_opencut/text/primitives";
+import { setCanvasLetterSpacing } from "@/app/video-editor/_opencut/text/layout";
+import {
+	buildDefaultParamValues,
+	getBuiltInElementParams,
+} from "@/app/video-editor/_opencut/params/registry";
+import type { ParamValue, ParamValues } from "@/app/video-editor/_opencut/params";
+import { mediaTimeFromSeconds, ZERO_MEDIA_TIME } from "@/app/video-editor/_opencut/wasm";
+import type { CreateTextElement, TextElement } from "@/app/video-editor/_opencut/timeline";
+import { PARAM_SUBTITULO } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import type { SubtitleCue, SubtitleStyleOverrides } from "./types";
+import { anchoMaximo, margenInferior, type Lienzo } from "./estilos";
 
-const SUBTITLE_MAX_WIDTH_RATIO = 0.8;
-const SUBTITLE_BOTTOM_MARGIN_RATIO = 0.05;
-const SUBTITLE_FONT_SIZE = 5;
-const MEASUREMENT_CANVAS_SIZE = 4096;
+type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-function quoteFontFamily({ fontFamily }: { fontFamily: string }): string {
-	return `"${fontFamily.replace(/"/g, '\\"')}"`;
+/** Un TextElement de mentira para medir con las funciones del render. */
+function comoTexto(params: ParamValues): TextElement {
+	return {
+		id: "medir",
+		type: "text",
+		name: "",
+		duration: ZERO_MEDIA_TIME,
+		startTime: ZERO_MEDIA_TIME,
+		trimStart: ZERO_MEDIA_TIME,
+		trimEnd: ZERO_MEDIA_TIME,
+		params,
+	} as TextElement;
 }
 
-function createMeasurementContext(): CanvasRenderingContext2D | null {
-	const canvas = document.createElement("canvas");
-	canvas.width = MEASUREMENT_CANVAS_SIZE;
-	canvas.height = MEASUREMENT_CANVAS_SIZE;
-	return canvas.getContext("2d");
-}
-
-function measureLineWidth({
+/** Parte cada párrafo en líneas que entran en `anchoPx` (por palabras). */
+function partirEnLineas({
 	ctx,
-	text,
+	texto,
+	anchoPx,
 }: {
-	ctx: CanvasRenderingContext2D;
-	text: string;
-}): number {
-	return ctx.measureText(text).width;
-}
-
-function wrapSubtitleText({
-	ctx,
-	text,
-	maxWidth,
-}: {
-	ctx: CanvasRenderingContext2D;
-	text: string;
-	maxWidth: number;
+	ctx: Ctx;
+	texto: string;
+	anchoPx: number;
 }): string {
-	const normalized = text.trim().replace(/\r\n/g, "\n");
-	const paragraphs = normalized.split("\n");
-	const wrappedParagraphs: string[] = [];
-
-	for (const paragraph of paragraphs) {
-		const trimmedParagraph = paragraph.trim();
-		if (!trimmedParagraph) {
-			wrappedParagraphs.push("");
-			continue;
-		}
-
-		const words = trimmedParagraph.split(/\s+/);
-		let currentLine = words[0] ?? "";
-		const lines: string[] = [];
-
-		for (let i = 1; i < words.length; i++) {
-			const nextLine = `${currentLine} ${words[i]}`;
-			if (measureLineWidth({ ctx, text: nextLine }) <= maxWidth) {
-				currentLine = nextLine;
-				continue;
+	return texto
+		.replace(/\r\n/g, "\n")
+		.split("\n")
+		.map((parrafo) => {
+			const palabras = parrafo.trim().split(/\s+/).filter(Boolean);
+			if (palabras.length === 0) return "";
+			const lineas: string[] = [];
+			let linea = palabras[0];
+			for (let i = 1; i < palabras.length; i++) {
+				const candidata = `${linea} ${palabras[i]}`;
+				if (ctx.measureText(candidata).width <= anchoPx) {
+					linea = candidata;
+				} else {
+					lineas.push(linea);
+					linea = palabras[i];
+				}
 			}
-
-			lines.push(currentLine);
-			currentLine = words[i];
-		}
-
-		lines.push(currentLine);
-		wrappedParagraphs.push(lines.join("\n"));
-	}
-
-	return wrappedParagraphs.join("\n");
+			lineas.push(linea);
+			return equilibrar({ ctx, lineas });
+		})
+		.join("\n");
 }
 
-function measureWrappedTextBlock({
-	ctx,
-	content,
-	canvasHeight,
-	textAlign,
-	background,
-	fontSize,
-	lineHeight,
-}: {
-	ctx: CanvasRenderingContext2D;
-	content: string;
-	canvasHeight: number;
-	textAlign: TextAlign;
-	background: TextBackground;
-	fontSize: number;
-	lineHeight: number;
-}) {
-	const scaledFontSize = fontSize * (canvasHeight / FONT_SIZE_SCALE_REFERENCE);
-	const lineHeightPx = lineHeight * scaledFontSize;
-	const lines = content.split("\n");
-	const lineMetrics = lines.map((line) => ctx.measureText(line));
+/**
+ * Dos líneas desparejas («Esto es lo que vas a ver en / esto») se leen peor que
+ * dos parejas: si la segunda quedó con menos de un tercio, se pasa una palabra.
+ */
+function equilibrar({ ctx, lineas }: { ctx: Ctx; lineas: string[] }): string {
+	if (lineas.length !== 2) return lineas.join("\n");
+	let [a, b] = lineas;
+	const ancho = (s: string) => ctx.measureText(s).width;
+	while (ancho(b) < ancho(a) / 3) {
+		const corte = a.lastIndexOf(" ");
+		if (corte <= 0) break;
+		const nuevaA = a.slice(0, corte);
+		const nuevaB = `${a.slice(corte + 1)} ${b}`;
+		if (ancho(nuevaB) > ancho(a)) break;
+		a = nuevaA;
+		b = nuevaB;
+	}
+	return `${a}\n${b}`;
+}
 
-	const block = measureTextBlock({
-		lineMetrics,
-		lineHeightPx,
+export type Ubicacion = {
+	/** Dónde va: abajo (lo común), arriba o al medio (sólo lo piden los ASS). */
+	vertical?: "top" | "middle" | "bottom";
+	/** Margen vertical en px; por defecto, `margenInferior(lienzo)`. */
+	margenPx?: number;
+	/** Márgenes laterales (ASS), proporción del ancho. */
+	margenIzquierdo?: number;
+	margenDerecho?: number;
+	/** Mantener el borde de abajo donde está (en px desde el centro del lienzo). */
+	bordeInferior?: number;
+};
+
+/**
+ * Parte el contenido en líneas y lo ubica. Devuelve los parámetros nuevos
+ * (contenido y posición); el resto queda como estaba.
+ */
+export function partirYUbicar({
+	params,
+	lienzo,
+	ubicacion = {},
+	repartir = false,
+}: {
+	params: ParamValues;
+	lienzo: Lienzo;
+	ubicacion?: Ubicacion;
+	/** Juntar los saltos que ya había antes de partir (al cambiar de estilo). */
+	repartir?: boolean;
+}): Pick<ParamValues, "content" | "transform.positionX" | "transform.positionY"> {
+	let ctx: Ctx;
+	try {
+		ctx = getTextMeasurementContext();
+	} catch {
+		return {
+			content: params.content ?? "",
+			"transform.positionX": params["transform.positionX"] ?? 0,
+			"transform.positionY": params["transform.positionY"] ?? 0,
+		};
+	}
+	const original = String(params.content ?? "");
+	const texto = repartir ? original.replace(/\s*\n\s*/g, " ") : original;
+
+	const layout = resolveTextLayout({
+		text: buildTextLayoutParamsFromElement({ element: comoTexto(params) }),
+		canvasHeight: lienzo.height,
 	});
-	const visualRect = getTextVisualRect({
-		textAlign,
-		block,
-		background,
-		fontSizeRatio: fontSize / 15,
+	const izquierdo = (ubicacion.margenIzquierdo ?? 0) * lienzo.width;
+	const derecho = (ubicacion.margenDerecho ?? 0) * lienzo.width;
+	const anchoDisponible =
+		izquierdo > 0 || derecho > 0 ? lienzo.width - izquierdo - derecho : anchoMaximo(lienzo);
+	const escalaX = Math.abs(Number(params["transform.scaleX"] ?? 1)) || 1;
+	const escalaY = Math.abs(Number(params["transform.scaleY"] ?? 1)) || 1;
+
+	ctx.save();
+	ctx.font = layout.fontString;
+	setCanvasLetterSpacing({ ctx, letterSpacingPx: layout.letterSpacing });
+	const content = partirEnLineas({ ctx, texto, anchoPx: anchoDisponible / escalaX });
+	ctx.restore();
+
+	const medido = measureTextElement({
+		element: comoTexto({ ...params, content }),
+		canvasHeight: lienzo.height,
+		localTime: 0,
+		ctx,
 	});
+	const r = medido.visualRect;
+
+	// X: centrado en el espacio disponible (o pegado a un margen si el texto se
+	// alinea a un lado, como en los ASS).
+	const alineacion = String(params.textAlign ?? "center");
+	const centroX = lienzo.width / 2;
+	let x: number;
+	if (alineacion === "left" && izquierdo > 0) x = izquierdo - r.left * escalaX - centroX;
+	else if (alineacion === "right" && derecho > 0)
+		x = lienzo.width - derecho - (r.left + r.width) * escalaX - centroX;
+	else x = izquierdo + (lienzo.width - izquierdo - derecho) / 2 - (r.left + r.width / 2) * escalaX - centroX;
+
+	// Y: el borde de abajo a la altura pedida (o donde ya estaba).
+	const centroY = lienzo.height / 2;
+	const abajoRel = (r.top + r.height) * escalaY;
+	let y: number;
+	if (ubicacion.bordeInferior != null) {
+		y = ubicacion.bordeInferior - abajoRel;
+	} else if (ubicacion.vertical === "top") {
+		y = (ubicacion.margenPx ?? lienzo.height * 0.05) - r.top * escalaY - centroY;
+	} else if (ubicacion.vertical === "middle") {
+		y = -(r.top + r.height / 2) * escalaY;
+	} else {
+		y = lienzo.height - (ubicacion.margenPx ?? margenInferior(lienzo)) - abajoRel - centroY;
+	}
 
 	return {
-		block,
-		visualRect,
+		content,
+		"transform.positionX": Math.round(x * 10) / 10,
+		"transform.positionY": Math.round(y * 10) / 10,
 	};
 }
 
-function resolveSubtitleStyle({
-	style,
+/** Dónde está hoy el borde de abajo de un subtítulo (px desde el centro del lienzo). */
+export function bordeInferiorDe({
+	params,
+	lienzo,
 }: {
-	style: SubtitleStyleOverrides | undefined;
-}): {
-	fontFamily: string;
-	fontSize: number;
-	color: string;
-	textAlign: TextAlign;
-	fontWeight: TextFontWeight;
-	fontStyle: TextFontStyle;
-	textDecoration: TextDecoration;
-	letterSpacing: number;
-	lineHeight: number;
-	background: TextBackground;
-	placement: NonNullable<SubtitleStyleOverrides["placement"]>;
-} {
-	const fontSize =
-		style?.fontSizeRatioOfPlayHeight != null
-			? style.fontSizeRatioOfPlayHeight * FONT_SIZE_SCALE_REFERENCE
-			: (style?.fontSize ?? SUBTITLE_FONT_SIZE);
-
-	return {
-		fontFamily: style?.fontFamily ?? "Arial",
-		fontSize,
-		color: style?.color ?? "#ffffff",
-		textAlign: style?.textAlign ?? "center",
-		fontWeight: style?.fontWeight ?? "bold",
-		fontStyle: style?.fontStyle ?? "normal",
-		textDecoration: style?.textDecoration ?? "none",
-		letterSpacing: style?.letterSpacing ?? DEFAULTS.text.letterSpacing,
-		lineHeight: style?.lineHeight ?? DEFAULTS.text.lineHeight,
-		background: {
-			...DEFAULTS.text.background,
-			enabled: false,
-			...(style?.background ?? {}),
-		},
-		placement: {
-			verticalAlign: style?.placement?.verticalAlign ?? "bottom",
-			marginLeftRatio: style?.placement?.marginLeftRatio,
-			marginRightRatio: style?.placement?.marginRightRatio,
-			marginVerticalRatio: style?.placement?.marginVerticalRatio,
-		},
-	};
+	params: ParamValues;
+	lienzo: Lienzo;
+}): number | null {
+	try {
+		const ctx = getTextMeasurementContext();
+		const r = measureTextElement({
+			element: comoTexto(params),
+			canvasHeight: lienzo.height,
+			localTime: 0,
+			ctx,
+		}).visualRect;
+		const escalaY = Math.abs(Number(params["transform.scaleY"] ?? 1)) || 1;
+		return Number(params["transform.positionY"] ?? 0) + (r.top + r.height) * escalaY;
+	} catch {
+		return null;
+	}
 }
 
-function resolveTargetWidth({
-	canvasWidth,
-	placement,
-}: {
-	canvasWidth: number;
-	placement: ReturnType<typeof resolveSubtitleStyle>["placement"];
-}): number {
-	const leftRatio = placement.marginLeftRatio ?? 0;
-	const rightRatio = placement.marginRightRatio ?? 0;
-	const hasExplicitMargins = leftRatio > 0 || rightRatio > 0;
-	if (!hasExplicitMargins) {
-		return canvasWidth * SUBTITLE_MAX_WIDTH_RATIO;
+/** Los parámetros de estilo que trae un SRT/ASS importado (sus `style`). */
+function paramsDeOverrides(style: SubtitleStyleOverrides | undefined): ParamValues {
+	if (!style) return {};
+	const p: ParamValues = {};
+	if (style.fontSizeRatioOfPlayHeight != null) {
+		p.fontSize = style.fontSizeRatioOfPlayHeight * FONT_SIZE_SCALE_REFERENCE;
+	} else if (style.fontSize != null) {
+		p.fontSize = style.fontSize;
 	}
-
-	const availableWidth = canvasWidth * (1 - leftRatio - rightRatio);
-	return Math.max(0, availableWidth);
+	if (style.fontFamily) p.fontFamily = style.fontFamily;
+	if (style.color) p.color = style.color;
+	if (style.textAlign) p.textAlign = style.textAlign;
+	if (style.fontWeight) p.fontWeight = style.fontWeight;
+	if (style.fontStyle) p.fontStyle = style.fontStyle;
+	if (style.textDecoration) p.textDecoration = style.textDecoration;
+	if (style.letterSpacing != null) p.letterSpacing = style.letterSpacing;
+	if (style.lineHeight != null) p.lineHeight = style.lineHeight;
+	if (style.background) {
+		p["background.enabled"] = style.background.enabled;
+		p["background.color"] = style.background.color;
+		const b = style.background;
+		if (b.cornerRadius != null) p["background.cornerRadius"] = b.cornerRadius;
+		if (b.paddingX != null) p["background.paddingX"] = b.paddingX;
+		if (b.paddingY != null) p["background.paddingY"] = b.paddingY;
+		if (b.offsetX != null) p["background.offsetX"] = b.offsetX;
+		if (b.offsetY != null) p["background.offsetY"] = b.offsetY;
+	}
+	return p;
 }
 
-function resolvePositionX({
-	canvasWidth,
-	textAlign,
-	placement,
-	visualRect,
-}: {
-	canvasWidth: number;
-	textAlign: TextAlign;
-	placement: ReturnType<typeof resolveSubtitleStyle>["placement"];
-	visualRect: { left: number; width: number };
-}): number {
-	const leftMargin = canvasWidth * (placement.marginLeftRatio ?? 0);
-	const rightMargin = canvasWidth * (placement.marginRightRatio ?? 0);
-	const canvasCenterX = canvasWidth / 2;
-
-	if (textAlign === "left") {
-		return leftMargin - visualRect.left - canvasCenterX;
-	}
-
-	if (textAlign === "right") {
-		return (
-			canvasWidth -
-			rightMargin -
-			(visualRect.left + visualRect.width) -
-			canvasCenterX
-		);
-	}
-
-	const availableWidth = canvasWidth - leftMargin - rightMargin;
-	const targetCenterX = leftMargin + availableWidth / 2;
-	return (
-		targetCenterX - (visualRect.left + visualRect.width / 2) - canvasCenterX
-	);
-}
-
-function resolvePositionY({
-	canvasHeight,
-	placement,
-	visualRect,
-}: {
-	canvasHeight: number;
-	placement: ReturnType<typeof resolveSubtitleStyle>["placement"];
-	visualRect: { top: number; height: number };
-}): number {
-	const margin =
-		canvasHeight *
-		(placement.marginVerticalRatio ?? SUBTITLE_BOTTOM_MARGIN_RATIO);
-	const canvasCenterY = canvasHeight / 2;
-
-	if (placement.verticalAlign === "top") {
-		return margin - visualRect.top - canvasCenterY;
-	}
-
-	if (placement.verticalAlign === "middle") {
-		const targetCenterY = canvasHeight / 2;
-		return (
-			targetCenterY - (visualRect.top + visualRect.height / 2) - canvasCenterY
-		);
-	}
-
-	return (
-		canvasHeight - margin - (visualRect.top + visualRect.height) - canvasCenterY
-	);
-}
-
+/**
+ * Arma el texto-subtítulo de un cue: los parámetros por defecto de TODO texto,
+ * el estilo (la plantilla elegida), lo que traiga el archivo importado, y la
+ * marca `subtitulo`.
+ */
 export function buildSubtitleTextElement({
 	index,
 	caption,
 	canvasSize,
+	estilo = {},
 }: {
 	index: number;
 	caption: SubtitleCue;
-	canvasSize: { width: number; height: number };
+	canvasSize: Lienzo;
+	estilo?: Record<string, ParamValue>;
 }): CreateTextElement {
-	const ctx = createMeasurementContext();
-	const style = resolveSubtitleStyle({
-		style: caption.style,
+	const base = buildDefaultParamValues(getBuiltInElementParams({ type: "text" }));
+	const params: ParamValues = {
+		...base,
+		...estilo,
+		...paramsDeOverrides(caption.style),
+		content: caption.text,
+		[PARAM_SUBTITULO]: true,
+	};
+	const placement = caption.style?.placement;
+	const ubicado = partirYUbicar({
+		params,
+		lienzo: canvasSize,
+		ubicacion: placement
+			? {
+					vertical: placement.verticalAlign,
+					margenPx:
+						placement.marginVerticalRatio != null
+							? placement.marginVerticalRatio * canvasSize.height
+							: undefined,
+					margenIzquierdo: placement.marginLeftRatio,
+					margenDerecho: placement.marginRightRatio,
+				}
+			: {},
 	});
-	const fontFamily = quoteFontFamily({
-		fontFamily: style.fontFamily,
-	});
-	const fontWeight = style.fontWeight;
-	const fontStyle = style.fontStyle === "italic" ? "italic" : "normal";
-	const scaledFontSize =
-		style.fontSize * (canvasSize.height / FONT_SIZE_SCALE_REFERENCE);
-	const fontString = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${fontFamily}, sans-serif`;
-	const maxWidth = resolveTargetWidth({
-		canvasWidth: canvasSize.width,
-		placement: style.placement,
-	});
-
-	let content = caption.text;
-	let positionX = 0;
-	let positionY = 0;
-
-	if (ctx) {
-		ctx.font = fontString;
-		setCanvasLetterSpacing({ ctx, letterSpacingPx: style.letterSpacing });
-		content = wrapSubtitleText({
-			ctx,
-			text: caption.text,
-			maxWidth,
-		});
-		const measurement = measureWrappedTextBlock({
-			ctx,
-			content,
-			canvasHeight: canvasSize.height,
-			textAlign: style.textAlign,
-			background: style.background,
-			fontSize: style.fontSize,
-			lineHeight: style.lineHeight,
-		});
-		positionX = resolvePositionX({
-			canvasWidth: canvasSize.width,
-			textAlign: style.textAlign,
-			placement: style.placement,
-			visualRect: measurement.visualRect,
-		});
-		positionY = resolvePositionY({
-			canvasHeight: canvasSize.height,
-			placement: style.placement,
-			visualRect: measurement.visualRect,
-		});
-	}
 
 	return {
-		...DEFAULTS.text.element,
-		name: `Caption ${index + 1}`,
+		type: "text",
+		name: `Subtítulo ${index + 1}`,
 		duration: mediaTimeFromSeconds({ seconds: caption.duration }),
 		startTime: mediaTimeFromSeconds({ seconds: caption.startTime }),
-		params: {
-			...DEFAULTS.text.element.params,
-			content,
-			fontSize: style.fontSize,
-			fontFamily: style.fontFamily,
-			color: style.color,
-			textAlign: style.textAlign,
-			fontWeight: style.fontWeight,
-			fontStyle: style.fontStyle,
-			textDecoration: style.textDecoration,
-			letterSpacing: style.letterSpacing,
-			lineHeight: style.lineHeight,
-			"background.enabled": style.background.enabled,
-			"background.color": style.background.color,
-			"background.cornerRadius":
-				style.background.cornerRadius ?? DEFAULTS.text.background.cornerRadius,
-			"background.paddingX":
-				style.background.paddingX ?? DEFAULTS.text.background.paddingX,
-			"background.paddingY":
-				style.background.paddingY ?? DEFAULTS.text.background.paddingY,
-			"background.offsetX":
-				style.background.offsetX ?? DEFAULTS.text.background.offsetX,
-			"background.offsetY":
-				style.background.offsetY ?? DEFAULTS.text.background.offsetY,
-			"transform.positionX": positionX,
-			"transform.positionY": positionY,
-		},
+		trimStart: ZERO_MEDIA_TIME,
+		trimEnd: ZERO_MEDIA_TIME,
+		params: { ...params, ...ubicado },
 	};
 }

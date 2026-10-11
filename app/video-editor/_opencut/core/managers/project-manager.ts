@@ -120,7 +120,7 @@ export class ProjectManager {
 
 			return newProject.metadata.id;
 		} catch (error) {
-			toast.error("Failed to save new project");
+			toast.error("No se pudo guardar");
 			throw error;
 		}
 	}
@@ -325,9 +325,7 @@ export class ProjectManager {
 		try {
 			const result = await storageService.loadProject({ id });
 			if (!result) {
-				toast.error("Project not found", {
-					description: "Please try again",
-				});
+				toast.error("Proyecto perdido");
 				return;
 			}
 
@@ -350,10 +348,7 @@ export class ProjectManager {
 			this.updateMetadata(updatedProject);
 		} catch (error) {
 			console.error("Failed to rename project:", error);
-			toast.error("Failed to rename project", {
-				description:
-					error instanceof Error ? error.message : "Please try again",
-			});
+			toast.error("No se pudo renombrar. Intenta de nuevo.");
 		}
 	}
 
@@ -381,17 +376,7 @@ export class ProjectManager {
 				.map((result) => result.projectId);
 
 			if (missingProjectIds.length > 0) {
-				toast.error(
-					missingProjectIds.length === 1
-						? "Project not found"
-						: "Projects not found",
-					{
-						description:
-							missingProjectIds.length === 1
-								? "Please try again"
-								: "Some projects could not be found",
-					},
-				);
+				toast.error("Proyecto perdido");
 				throw new Error(`Projects not found: ${missingProjectIds.join(", ")}`);
 			}
 
@@ -475,10 +460,7 @@ export class ProjectManager {
 			return duplicationPlans.map((plan) => plan.newProjectId);
 		} catch (error) {
 			console.error("Failed to duplicate projects:", error);
-			toast.error("Failed to duplicate projects", {
-				description:
-					error instanceof Error ? error.message : "Please try again",
-			});
+			toast.error("No se pudo copiar");
 			throw error;
 		}
 	}
