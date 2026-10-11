@@ -1,13 +1,16 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
-> **EN CURSO (11/10/2026 ~13:15, `claude3`): las CUATRO DECISIONES de Martín sobre la décima** (pedido literal en el
-> último hito de la bitácora): objetivos a TODOS los AI Step («nunca puede quedar una tarjeta en una versión vieja»),
-> el editor de «MaKo en WhatsApp» con audio (la VOZ DE MaKo de los VSL: ElevenLabs «David»), archivos, varios mensajes
-> y ✦; ningún negocio manda email con el remitente de MaKo (ws1 incluido); y TODO en la zona del negocio, detectada
-> por la ubicación de sus usuarios. Suma la fase 1 y 2 del CRON de antes y un censo de versiones viejas. La corre el
-> workflow `wf_e8db65f3-71f` (relevo → diseño en `docs/diseno-decisiones-decima.md` → olas → revisión → cierre). Si
-> el chat se corta: `Workflow({scriptPath: …/workflows/scripts/decisiones-decima-automations-wf_e8db65f3-71f.js,
-> resumeFromRunId: "wf_e8db65f3-71f"})`. Los scripts de datos quedan en SIMULACRO hasta desplegar.
+> **EN CURSO (11/10/2026 ~14:45, `claude3`): la UNDÉCIMA tanda** (13 puntos con capturas; pedido literal en el
+> último hito de la bitácora) + las cuatro decisiones de la décima (la 1 la reemplaza el punto 11). Lo central: REHACER
+> los flujos de prod con las piezas de hoy (nada «(de antes)», nada de {{mensaje_mako}}, condiciones juntas en una
+> tarjeta), «Un Lead Agendó Llamada» = Agendó + Recordatorio + Aviso de nuevo agendado, UN AI Step por objetivo con
+> escenarios adentro, el catálogo de datos completo y clickeable al editar, el editor de «MaKo en WhatsApp» con audio
+> en la voz de MaKo (ElevenLabs «David»), email sin remitente de MaKo, zona por ubicación, barra lateral sin
+> secciones y plantillas por categoría. La corre el workflow `wf_b4e3948d-3dc` (relevo → diseño en
+> `docs/diseno-undecima-tanda.md` → olas → revisión → cierre). Si el chat se corta: `Workflow({scriptPath:
+> …/workflows/scripts/undecima-tanda-automations-wf_b4e3948d-3dc.js, resumeFromRunId: "wf_b4e3948d-3dc"})`. La
+> corrida anterior (`wf_e8db65f3-71f`, sólo las cuatro decisiones) se FRENÓ en el relevo sin escribir nada. Los
+> scripts de datos quedan en SIMULACRO hasta desplegar.
 >
 > **HECHA (11/10/2026 ~12:20, `claude3`): la DÉCIMA tanda, `4e2ebc7d`, desplegada (Ready).** AI Step v2 (un caso
 > por tarjeta, objetivo, «✦ Armar el resto», ensayo, respuesta en audio), Configuraciones (horario + límites),
