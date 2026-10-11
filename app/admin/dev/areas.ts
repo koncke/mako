@@ -356,9 +356,12 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'experiments', titulo: 'Experiments', familia: 'Analyze',
     estado: 'listo', verEnApp: '/experimentos',
-    alcance: 'El shell de tres tabs (Retro · Experiments · Conclusions) con el estado de datos, el toast y el modo demo local sin Supabase. Gateado por PanelActivacion si Meta no está conectado, porque la Retro necesita métricas contra qué medir.',
-    vive: ['app/experimentos/page.tsx', 'app/experimentos/ExperimentosApp.tsx', 'app/experimentos/ui.tsx', 'app/experimentos/_demo.ts', 'lib/experimentos.ts', 'app/api/experimentos/route.ts'],
+    alcance: 'El shell de cuatro tabs (Retro · Experiments · Conclusions · Análisis) con el estado de datos, el toast y el modo demo local sin Supabase. Sin Meta, el PanelActivacion ocupa Retro, Experiments y Conclusions (miden contra Meta); Análisis —el informe en cascada que hasta el 11/10/2026 era la tab /analisis— sale del CRM y anda igual.',
+    vive: ['app/experimentos/page.tsx', 'app/experimentos/ExperimentosApp.tsx', 'app/experimentos/ui.tsx', 'app/experimentos/_demo.ts', 'lib/experimentos.ts', 'app/api/experimentos/route.ts',
+      'app/experimentos/tabs.ts', 'app/experimentos/VistaAnalisis.tsx', 'lib/analisis-negocio.ts', 'lib/analisis-modelo.ts',
+      'app/analisis/page.tsx', 'app/analisis/trimestre/page.tsx'],
     proyectos: ['Feature: Experiments'],
+    nota: 'La tab se lee en el SERVER (?tab=, con tabDeUrl de app/experimentos/tabs.ts, un módulo puro: nunca un valor de ExperimentosApp, que es use client) porque analisisNegocio es lenta y sólo corre cuando la URL pide Análisis. /analisis redirige a ?tab=analisis con su query; /analisis/trimestre (el informe congelado del ws1) se quedó en su ruta a propósito.',
   },
   {
     slug: 'retro', titulo: 'Retro', familia: 'Analyze',
@@ -393,11 +396,19 @@ export const AREAS: AreaDev[] = [
     proyectos: ['Feature: Closing Analyst'],
   },
   {
-    slug: 'offer-analyst', titulo: 'Offer Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'por-construir', verEnApp: '/offer-analyst',
-    alcance: 'Analizar la oferta del cliente (precio, promesa, garantía, qué la hace comprable). Hoy es ComingSoon puro: la page solo monta el placeholder.',
-    vive: ['app/offer-analyst/page.tsx', 'app/_components/ComingSoon.tsx'],
-    proyectos: ['Feature: Offer Analyst'],
+    // El slug se queda 'offer-analyst' aunque el título ya sea «Offer»: es la URL del registro
+    // y la clave del historial generado. Sin grupo: desde el 11/10/2026 Offer es un ítem suelto
+    // de Analyze (salió de los Analysts), igual que en app/_components/nav.ts.
+    slug: 'offer-analyst', titulo: 'Offer', familia: 'Analyze',
+    estado: 'parcial', verEnApp: '/offer',
+    alcance: 'Offer Analyst y Offer Generator en UNA tab: un chat donde MaKo pregunta por las piezas de la oferta, la diagnostica con una rúbrica y escribe la oferta nueva, descargable en PDF; cada cambio propuesto se puede probar como experimento.',
+    vive: ['app/offer/page.tsx', 'app/offer/OfferApp.tsx', 'app/api/offer/route.ts', 'app/api/offer/pdf/route.ts',
+      'lib/offer-marco.ts', 'lib/offer-reglas.ts', 'lib/offer-ia.ts', 'lib/offer-sesiones.ts', 'lib/offer-contexto.ts',
+      'lib/offer-pdf.ts', 'lib/pdf-escritor.ts', 'lib/pdf-helvetica.ts', 'app/offer-analyst/page.tsx', 'docs/offer-marco.md'],
+    // Los DOS proyectos se quedan (decisión del 25/09; ver lib/plan-proyectos-catalogo.ts):
+    // la tab es una, el trabajo pendiente sigue repartido entre los dos.
+    proyectos: ['Feature: Offer Analyst', 'Feature: Offer Generator'],
+    nota: 'Hay dos claves que NO cambiaron con el nombre: la key del nav sigue siendo \'offer\' (contrato con la base: capas y onboarding, pasos of_contar y of_conclusion) y la ruta vieja /offer-analyst redirige a /offer. En Offer no hay wizard delante: el chat ES el onboarding.',
   },
   {
     slug: 'vsl-analyst', titulo: 'VSL Analyst', familia: 'Analyze', grupo: 'Analysts',

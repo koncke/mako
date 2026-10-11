@@ -26,13 +26,16 @@ export type ToolId =
 export const TOOL_LABEL: Record<ToolId, string> = {
   market: 'Market Analyst', crm: 'CRM', closing: 'Closing Analyst', script: 'Ads Analyst',
   graphics: 'Graphics', crosses: 'Cruces', vsl: 'VSL Analyst', landing: 'Landing Analyst',
-  offer: 'Offer Analyst', cs: 'CS Analyst', todo: 'To-do', chats: 'Chats (WA, Email, IG)',
+  // «Offer» a secas desde el 11/10/2026: Offer Analyst y Offer Generator viven en UNA tab
+  // (/offer). El id `offer` no cambia — está escrito en los reportes ya guardados en
+  // retros.reporte, y un id nuevo los dejaría apuntando a nada.
+  offer: 'Offer', cs: 'CS Analyst', todo: 'To-do', chats: 'Chats (WA, Email, IG)',
 };
 
 /** Ruta real de la app para "Ver en {tab} →" (null = todavía no existe la tab). */
 export const TOOL_HREF: Partial<Record<ToolId, string>> = {
   market: '/dashboard?hoja=marketing', crm: '/crm', closing: '/closing', script: '/ads-analyst',
-  graphics: '/dashboard', todo: '/plan', landing: '/landing-analyst',
+  graphics: '/dashboard', todo: '/plan', landing: '/landing-analyst', offer: '/offer',
 };
 
 // ── Evidencia (el bloque visual del modal de hallazgo) ───────────────────────

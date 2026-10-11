@@ -169,6 +169,10 @@ const TENANT_TABLES = new Set<string>([
   // El funnel y la oferta, desde el día uno de su migración (0169-0171). `funnels`
   // reemplaza a `funnel_config`, que era singleton y por eso quedaba afuera.
   'funnels', 'ofertas', 'oferta_productos', 'funnel_ofertas', 'lead_magnets',
+  // Las conversaciones de la tab Offer (mig 0254): N filas por negocio, con lo que el dueño contó de
+  // su oferta y el texto de sus documentos. Sin esta línea `getTenantDb()` es PASSTHROUGH y la lista
+  // de conversaciones de un negocio mostraría las de todos (lib/offer-sesiones.ts).
+  'offer_sesiones',
   // Grabación de sesión (mig 0191). Las DOS, y acá no hay margen: son las filas más
   // sensibles del producto —la pantalla de un visitante— y `getTenantDb()` sin esta
   // línea es PASSTHROUGH, así que la ficha de un lead listaría las grabaciones de

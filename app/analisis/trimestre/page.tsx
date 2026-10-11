@@ -1,10 +1,17 @@
 // =============================================================================
 // /analisis/trimestre — el informe del trimestre junio–agosto 2026
 // =============================================================================
-// Vive colgado de /analisis y no en una tab propia a propósito. /analisis
-// contesta «¿cómo venimos?» con la base en vivo; esto contesta «¿qué pasó en
+// Vive colgado de /analisis y no en una tab propia a propósito. El análisis en
+// vivo contesta «¿cómo venimos?» con la base de hoy; esto contesta «¿qué pasó en
 // ESTE trimestre y qué hago con eso?» con los números congelados el 09/09/2026.
 // Es la misma pregunta en dos escalas de tiempo, no dos módulos.
+//
+// El 11/10/2026 el análisis en vivo se mudó ADENTRO de Experiments (su cuarta
+// tab, /experimentos?tab=analisis; /analisis redirige ahí) y esta ruta se QUEDÓ
+// donde estaba, a propósito: tests/informe-congelado.test.ts fija /analisis/trimestre
+// y el link ya salió por WhatsApp. Por eso el guard de capa es 'experimentos'
+// (en las cuatro capas da exactamente lo mismo que 'analisis', y es la tab que
+// la barra marca acá) y el link de vuelta va a la tab, no a la ruta vieja.
 //
 // ⚠️ EL GUARD VA EN POSITIVO: solo el workspace dueño. Los números están
 // escritos en ./datos y son de Mauricio — un `ws !== otro` acá sería servirle
@@ -38,7 +45,7 @@ export async function generateMetadata() {
 }
 
 export default async function TrimestrePage() {
-  await requireRolWs([], { nav: 'analisis' });
+  await requireRolWs([], { nav: 'experimentos' });
   if (!(await esWorkspaceDueno())) notFound();
 
   return (
@@ -47,7 +54,7 @@ export default async function TrimestrePage() {
         titulo="Dónde se rompió el trimestre"
         proposito={`${PERIODO.etiqueta}. Todo el embudo pagado, desde la impresión en Meta hasta el dólar cobrado, reconstruido desde la base de MaKo.`}
         acciones={
-          <Link href="/analisis" style={{ fontSize: 'var(--fs-sm)', color: 'var(--accent)', textDecoration: 'none' }}>
+          <Link href="/experimentos?tab=analisis" style={{ fontSize: 'var(--fs-sm)', color: 'var(--accent)', textDecoration: 'none' }}>
             ← Análisis en vivo
           </Link>
         }

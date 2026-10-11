@@ -3,8 +3,17 @@
 // =============================================================================
 // ExperimentsTab — experimentos en curso + creación guiada (método SIMPLE)
 // =============================================================================
+// `hipotesisInicial` (desde el 11/10/2026): un link que PROMETE un control tiene
+// que aterrizar en él. La tab Offer enlaza /experimentos?tab=experiments&hipotesis=…
+// desde cada cambio que propone (el botón «Probarlo»); si esta tab abriera la
+// lista y dejara a la persona buscar «+ Nuevo experimento» y volver a tipear la
+// hipótesis, el link sería un «ir a la tab». Así que abre el alta con la
+// hipótesis ya escrita, UNA vez: después avisa (`onHipotesisAbierta`) para que
+// el shell la suelte —volver a esta tab la desmonta y la monta de nuevo— y saca
+// el `hipotesis` de la URL, para que un F5 no la vuelva a abrir.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from '@/app/_ui/Link';
 import type { ExperimentosView, ExperimentoConMedicion, Experimento, Propuesta } from '@/lib/experimentos';
 import { MakoStar, MakoWord } from '@/app/_components/MakoBrand';
 import type { Toast } from './ExperimentosApp';
@@ -13,9 +22,37 @@ import {
   Pill, Spark, MakoLoading, Empty, fmtVal, fmtFechaCorta, dirLabel,
 } from './ui';
 
-export function ExperimentsTab({ view, refreshExp, notify, demo }: { view: ExperimentosView; refreshExp: () => Promise<void>; notify: Toast; demo: boolean }) {
-  const [modal, setModal] = useState(false);
+export function ExperimentsTab({ view, refreshExp, notify, demo, hipotesisInicial, onHipotesisAbierta }: {
+  view: ExperimentosView; refreshExp: () => Promise<void>; notify: Toast; demo: boolean;
+  hipotesisInicial?: string | null; onHipotesisAbierta?: () => void;
+}) {
+  // Con una hipótesis en el link, el alta nace ABIERTA (inicializador perezoso,
+  // no un efecto): se dibuja en el primer render, sin un parpadeo de la lista.
+  const [modal, setModal] = useState(() => !!hipotesisInicial);
+  const [hipModal, setHipModal] = useState(() => hipotesisInicial ?? '');
   const [busyId, setBusyId] = useState<number | null>(null);
+
+  // Una sola vez por montaje (el ref aguanta el doble efecto del modo estricto):
+  // se avisa al shell y se limpia la URL. Los demás parámetros —el ?ws= sobre
+  // todo— quedan como estaban.
+  const router = useRouter();
+  const hipotesisUsada = useRef(false);
+  useEffect(() => {
+    if (!hipotesisInicial || hipotesisUsada.current) return;
+    hipotesisUsada.current = true;
+    onHipotesisAbierta?.();
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.has('hipotesis')) {
+        u.searchParams.delete('hipotesis');
+        // Con el router (no history.replaceState): si no, el árbol del router y el bfcache de esta
+        // entrada siguen con la hipótesis y volver atrás reabre el alta (revisión del 11/10).
+        router.replace(u.pathname + u.search, { scroll: false });
+      }
+    } catch { /* sin URL que limpiar */ }
+  }, [hipotesisInicial, onHipotesisAbierta, router]);
+
+  const nuevo = () => { setHipModal(''); setModal(true); };
 
   const accion = async (action: 'iniciar' | 'cerrar' | 'descartar', id: number) => {
     setBusyId(id);
@@ -32,13 +69,13 @@ export function ExperimentsTab({ view, refreshExp, notify, demo }: { view: Exper
         <p style={{ margin: 0, fontSize: 14, color: 'var(--dim)', maxWidth: 560, lineHeight: 1.55 }}>
           Cada experimento es una hipótesis puesta a prueba contra el <b>dato real</b>. MaKo la configura; tú la sigues día a día y la cierras con un aprendizaje.
         </p>
-        <button type="button" onClick={() => setModal(true)} style={btnPrimary}>+ Nuevo experimento</button>
+        <button type="button" onClick={nuevo} style={btnPrimary}>+ Nuevo experimento</button>
       </div>
 
       {view.activos.length === 0 && view.propuestos.length === 0 ? (
         <Empty titulo="No hay experimentos corriendo"
           sub="Cuéntale a MaKo una hipótesis (“¿y si filtro más el formulario?”, “¿y si cambio el hook del VSL?”) y la convierte en una prueba medible que arranca hoy.">
-          <button type="button" onClick={() => setModal(true)} style={{ ...btnDark, marginTop: 6 }}>Diseñar mi primer experimento</button>
+          <button type="button" onClick={nuevo} style={{ ...btnDark, marginTop: 6 }}>Diseñar mi primer experimento</button>
         </Empty>
       ) : (
         <>
@@ -59,7 +96,7 @@ export function ExperimentsTab({ view, refreshExp, notify, demo }: { view: Exper
         </>
       )}
 
-      {modal && <NuevoExperimentoModal onClose={() => setModal(false)} refreshExp={refreshExp} demo={demo} />}
+      {modal && <NuevoExperimentoModal onClose={() => setModal(false)} refreshExp={refreshExp} demo={demo} hipotesisInicial={hipModal} />}
     </div>
   );
 }
@@ -134,9 +171,10 @@ function PropuestaGuardada({ e, onIniciar, onDescartar, busy }: { e: Experimento
 // ── Modal de creación guiada (hipótesis → MaKo configura → revisión) ──
 type Step = 'hipotesis' | 'armando' | 'revision' | 'listo';
 
-function NuevoExperimentoModal({ onClose, refreshExp, demo }: { onClose: () => void; refreshExp: () => Promise<void>; demo: boolean }) {
+function NuevoExperimentoModal({ onClose, refreshExp, demo, hipotesisInicial = '' }: { onClose: () => void; refreshExp: () => Promise<void>; demo: boolean; hipotesisInicial?: string }) {
   const [step, setStep] = useState<Step>('hipotesis');
-  const [hip, setHip] = useState('');
+  // Arranca con la hipótesis del link, si la hubo (ver la cabecera); si no, vacía.
+  const [hip, setHip] = useState(hipotesisInicial);
   const [ctx, setCtx] = useState('');
   const [showCtx, setShowCtx] = useState(false);
   const [p, setP] = useState<Propuesta | null>(null);

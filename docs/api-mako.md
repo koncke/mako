@@ -10522,7 +10522,7 @@ El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: por cada capacidad, 
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `id` | string (ads-publicar \\| creativos \\| copy-ads \\| landing-diagnosticar \\| landing-escribir \\| crm-lead \\| wa-conversar \\| nutricion \\| email \\| metricas \\| llamadas \\| guiones-ads \\| experimento \\| contexto \\| conectar \\| funnel \\| objetivo \\| equipo) | no | id de UNA capacidad para traer solo esa. Sin id, trae todas. |
+| `id` | string (ads-publicar \\| creativos \\| copy-ads \\| oferta-revisar \\| landing-diagnosticar \\| landing-escribir \\| crm-lead \\| wa-conversar \\| nutricion \\| email \\| metricas \\| llamadas \\| guiones-ads \\| experimento \\| contexto \\| conectar \\| funnel \\| objetivo \\| equipo) | no | id de UNA capacidad para traer solo esa. Sin id, trae todas. |
 
 ```bash
 curl -L \

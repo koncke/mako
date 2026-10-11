@@ -43,6 +43,11 @@ import {
 import { LANDING_ANALYZE_SYSTEM_TEMPLATE, LANDING_ANALYZE_USER_TEMPLATE } from './landing-analyst';
 import { PRODUCTOS_SYSTEM_TEMPLATE, PRODUCTOS_USER_TEMPLATE } from './productos-ia';
 import { OFERTAS_SYSTEM_TEMPLATE, OFERTAS_USER_TEMPLATE } from './ofertas-ia';
+import {
+  OFFER_TURNO_SYSTEM_TEMPLATE, OFFER_TURNO_USER_TEMPLATE,
+  OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE, OFFER_DIAGNOSTICO_USER_TEMPLATE,
+  OFFER_PROPUESTA_SYSTEM_TEMPLATE, OFFER_PROPUESTA_USER_TEMPLATE,
+} from './offer-ia';
 import { EMAIL_GEN_SYSTEM_TEMPLATE } from '@/app/api/email/generar/route';
 import {
   LANDING_SUGGEST_SYSTEM_TEMPLATE,
@@ -1103,6 +1108,60 @@ export const REGISTRY: Group[] = [
         label: 'Verificador del reporte (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
         default: RETRO3_VERIF_SYSTEM,
         context: 'El verificador que contrasta el borrador del reporte contra los números medidos antes de publicarlo. Conserva el esquema JSON de salida.',
+      },
+    ],
+  },
+  // La tab Offer (11/10/2026): Offer Analyst + Offer Generator en un chat. El MARCO viaja por el slot
+  // {{marco}} y no pegado en el texto, a propósito: un override guardado desde /configuraciones no
+  // congela una versión vieja del marco (lib/offer-marco.ts es la única fuente). Lo que el código
+  // corrige sobre la salida (una pregunta por turno, el total, el cuello, lo que el dueño no dio) vive
+  // en lib/offer-reglas.ts: aunque el texto se edite, esa segunda capa no se apaga.
+  {
+    group: 'Offer (MaKo conversa, diagnostica y arma la oferta)',
+    icon: '🎯',
+    blurb: 'La tab Offer: MaKo le pregunta al dueño por su oferta de a una pregunta, la diagnostica con la rúbrica de 9 dimensiones y escribe la oferta nueva para el PDF.',
+    entries: [
+      {
+        key: 'offer.turno.system', source: 'override',
+        label: 'La conversación: cómo pregunta MaKo (system)', kind: 'system', dynamic: true,
+        variables: [v('marco', 'el marco de oferta entero: piezas, rúbrica y reglas (lib/offer-marco.ts)'), v('guia', 'las preguntas de la guía, en orden de prioridad')], scope: 'static-only', sensitive: true,
+        default: OFFER_TURNO_SYSTEM_TEMPLATE,
+        context: 'Cada turno del chat de Offer. Reglas que no se tocan: UNA pregunta por mensaje, nunca re-preguntar lo que ya se sabe, opciones cerradas a medida del negocio, «sin dato» cuando el dueño no sabe, y el JSON exacto. El código corta una segunda pregunta y decide solo cuándo ofrecer «Armar mi oferta» (lib/offer-reglas.ts). Conserva los slots {{marco}} y {{guia}}. Y no lo pases a voseo: lo lee el cliente.',
+      },
+      {
+        key: 'offer.turno.user', source: 'override',
+        label: 'La conversación: lo que MaKo lee en cada turno (user)', kind: 'user', dynamic: true,
+        variables: [v('contexto', 'lo que el negocio ya tenía cargado (perfil, Archivero, ofertas, productos, fase)'), v('piezas', 'lo que ya se sabe de cada pieza'), v('faltan', 'las piezas que faltan'), v('documentos', 'el texto de los documentos que subió el dueño'), v('conversacion', 'los últimos 30 mensajes, con quién dijo qué')], scope: 'full', sensitive: false,
+        default: OFFER_TURNO_USER_TEMPLATE,
+        context: 'Los datos del turno, cada uno envuelto como dato no confiable. Conserva los cinco slots y la orden del JSON del final: un modelo chico pesa más lo último que lee.',
+      },
+      {
+        key: 'offer.diagnostico.system', source: 'override',
+        label: 'El diagnóstico de la oferta actual (system)', kind: 'system', dynamic: true,
+        variables: [v('marco', 'el marco de oferta entero: piezas, rúbrica y reglas (lib/offer-marco.ts)')], scope: 'static-only', sensitive: true,
+        default: OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE,
+        context: 'Las 9 notas con su porqué citando al dueño, la tesis, lo más fuerte y de 1 a 3 cambios como HIPÓTESIS para probar en Experiments. El total, el cuello de botella y si está lista los calcula el código, no el modelo. Conserva la forma EXACTA del JSON (las 9 dimensiones) o el diagnóstico se descarta.',
+      },
+      {
+        key: 'offer.diagnostico.user', source: 'override',
+        label: 'El diagnóstico: lo que MaKo lee (user)', kind: 'user', dynamic: true,
+        variables: [v('contexto', 'lo que el negocio ya tenía cargado'), v('embudo', 'el embudo de los últimos 90 días'), v('piezas', 'lo que se sabe de cada pieza'), v('documentos', 'el texto de los documentos'), v('conversacion', 'los últimos 30 mensajes')], scope: 'full', sensitive: false,
+        default: OFFER_DIAGNOSTICO_USER_TEMPLATE,
+        context: 'Los datos del diagnóstico. El embudo va para que MaKo diga primero dónde se corta antes de culpar a la oferta. Conserva los cinco slots y la orden del JSON del final.',
+      },
+      {
+        key: 'offer.propuesta.system', source: 'override',
+        label: 'La oferta nueva (system)', kind: 'system', dynamic: true,
+        variables: [v('marco', 'el marco de oferta entero: piezas, rúbrica y reglas (lib/offer-marco.ts)')], scope: 'static-only', sensitive: true,
+        default: OFFER_PROPUESTA_SYSTEM_TEMPLATE,
+        context: 'La plantilla de la oferta, sección por sección, con «[completar]» donde falte un dato que el dueño no dio. La regla que NO se toca: nunca inventar testimonios, cifras de casos, valores de bonos, cupos ni fechas. El código igual pasa a «[completar]» la urgencia, las cifras de prueba y los valores de bonos que el dueño no dio. Conserva la forma EXACTA del JSON o la pantalla y el PDF no pueden leerla.',
+      },
+      {
+        key: 'offer.propuesta.user', source: 'override',
+        label: 'La oferta nueva: lo que MaKo lee (user)', kind: 'user', dynamic: true,
+        variables: [v('contexto', 'lo que el negocio ya tenía cargado'), v('piezas', 'lo que dio el dueño de cada pieza'), v('diagnostico', 'el diagnóstico con el cálculo del sistema'), v('documentos', 'el texto de los documentos'), v('conversacion', 'los últimos 30 mensajes')], scope: 'full', sensitive: false,
+        default: OFFER_PROPUESTA_USER_TEMPLATE,
+        context: 'Los datos para escribir la oferta nueva, con el diagnóstico de la actual. Conserva los cinco slots y la orden del JSON del final.',
       },
     ],
   },

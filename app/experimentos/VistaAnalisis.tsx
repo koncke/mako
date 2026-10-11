@@ -1,11 +1,37 @@
 // =============================================================================
 // VistaAnalisis — el informe, en el orden en que se pregunta
 // =============================================================================
+// La tab «Análisis» de Experiments (/experimentos?tab=analisis). Hasta el
+// 11/10/2026 era su propia tab de la barra, /analisis (que hoy redirige acá con
+// su query); Martín pidió llevarla adentro de Experiments. La calcula
+// app/experimentos/page.tsx sólo cuando esta tab está abierta, y llega a
+// ExperimentosApp (client) como un ReactNode ya dibujado en el server.
+//
+// Sale de la reunión Mau <> Martín del 31/07/2026: tres horas mirando los datos
+// en vivo, de las cuales **media fue aritmética con la calculadora del celular**.
+// Esta vista es esa aritmética resuelta, en el mismo orden en que se pregunta.
+//
+// POR QUÉ NO ES OTRO DASHBOARD, y es la decisión que gobierna el diseño: un
+// dashboard muestra métricas y deja que la persona arme la historia. Acá el orden
+// ES la historia — primero qué pasó, después dónde se va la plata escalón por
+// escalón, después la fuga barata (los que asistieron sin calificar), después qué
+// replicar y al final qué haría falta para la meta. Un informe que arranca por los
+// creativos invita a optimizar el anuncio cuando el agujero está en el show rate.
+//
+// Y LAS ADVERTENCIAS VAN ARRIBA DE TODO. Si el 46% de las asistencias no tiene la
+// calificación marcada, eso hay que saberlo ANTES de leer el número — no después
+// de haber sacado una conclusión. Es la misma razón por la que el rango de fechas
+// se dice en el encabezado y no se esconde: el «histórico» sin fecha de inicio fue
+// lo que en la reunión dejó todos los costos unitarios 33% abajo.
+//
 // Server component a propósito: no hay estado que manejar (el rango viaja en la
 // URL, para que un análisis se pueda compartir y volver a abrir igual) y así el
 // tipo `AnalisisNegocio` nunca cruza la frontera al bundle del navegador.
 //
-// El orden de las secciones ES el argumento — ver la cabecera de page.tsx.
+// Los links de rango llevan `tab=analisis`: sin él, /experimentos abre en Retro
+// y el rango nuevo se calcula para nadie. Navegan en suave (el Link de la casa,
+// que además conserva el ?ws=) y ExperimentosApp no se desmonta, así que la tab
+// sigue en Análisis y sólo llega el informe del rango nuevo.
 // =============================================================================
 
 import Link from '@/app/_ui/Link';
@@ -52,7 +78,7 @@ export function VistaAnalisis({ datos, error }: { datos: AnalisisNegocio | null;
         {RANGOS.map((r) => {
           const { desde, hasta } = hace(r.dias);
           return (
-            <Link key={r.label} href={`/analisis?desde=${desde}&hasta=${hasta}`}
+            <Link key={r.label} href={`/experimentos?tab=analisis&desde=${desde}&hasta=${hasta}`} scroll={false}
               style={{ fontSize: 12.5, color: 'var(--accent)', textDecoration: 'none' }}>
               {r.label}
             </Link>

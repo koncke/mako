@@ -337,6 +337,15 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 
 ### Analyze
 
+> **Nota del 11/10/2026** (escrita a mano sobre este relevamiento del 08/08): Offer dejó de ser
+> un ítem del grupo Analysts y es un ítem SUELTO de Analyze, en el lugar que dejó Análisis
+> (entre Second Brain y Dashboard). Análisis se mudó adentro de Experiments como su cuarta tab.
+> Las fichas de Offer y de Experiments están al día con eso; el resto del documento sigue siendo
+> la foto del 08/08.
+
+- 🟡 **Offer**  `/offer`  · ícono `tag`  
+  Offer Analyst y Offer Generator en UNA tab: un chat donde MaKo pregunta por las piezas de la oferta, la diagnostica con una rúbrica y escribe la oferta nueva, descargable en PDF; cada cambio propuesto se puede probar como experimento («Probarlo» abre el alta en Experiments con la hipótesis escrita). La key del nav sigue siendo `offer` y `/offer-analyst` redirige a `/offer`. Los dos proyectos del tablero (Offer Analyst y Offer Generator) siguen separados.  
+  <sub>app/offer/page.tsx · app/offer/OfferApp.tsx · app/api/offer/route.ts · app/api/offer/pdf/route.ts · lib/offer-marco.ts · lib/offer-ia.ts · lib/offer-pdf.ts</sub>
 - ⚪ **Competitor Spy**  `/competitor-spy`  · ícono `spy`  
   Vigilar lo que hacen los demás (anuncios y ofertas de la competencia); es la única de Analyze que no analiza un activo propio. Hoy es ComingSoon; /market-analyst es la ruta vieja que redirige y la nav key sigue siendo 'market-an'.  
   <sub>app/competitor-spy/page.tsx · app/market-analyst/page.tsx · app/_components/ComingSoon.tsx</sub>
@@ -344,8 +353,8 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 ### Experiments
 
 - 🟢 **Experiments**  `/experimentos`  · ícono `experiments`  
-  El shell de tres tabs (Retro · Experiments · Conclusions) con el estado de datos, el toast y el modo demo local sin Supabase. Gateado por PanelActivacion si Meta no está conectado, porque la Retro necesita métricas contra qué medir.  
-  <sub>app/experimentos/page.tsx · app/experimentos/ExperimentosApp.tsx · app/experimentos/ui.tsx · app/experimentos/_demo.ts</sub>
+  El shell de cuatro tabs (Retro · Experiments · Conclusions · Análisis) con el estado de datos, el toast y el modo demo local sin Supabase. Sin Meta, el PanelActivacion ocupa Retro, Experiments y Conclusions (miden contra Meta) y Análisis sigue andando: sale del CRM. *(11/10/2026: antes eran tres tabs, y sin Meta el panel tapaba la pantalla entera.)*  
+  <sub>app/experimentos/page.tsx · app/experimentos/ExperimentosApp.tsx · app/experimentos/tabs.ts · app/experimentos/ui.tsx · app/experimentos/_demo.ts</sub>
 - 🟢 **Retro** **A**  `/experimentos`  · ícono `mako`  
   El agente que corre 8 fases (memoria → recolección → auditoría → diagnóstico paralelo por área → cruces → cerebro → verificación → redacción) sobre un período y devuelve el reporte v3 (Overview · Plan · Detail) con hallazgos, plan encadenado a experimentos y tareas, gate del Perro y ejecución en vivo por stream NDJSON.  
   <sub>app/experimentos/RetroTab.tsx · app/experimentos/RetroReport.tsx · lib/retro.ts · lib/retro-pipeline.ts</sub>
@@ -355,12 +364,12 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 - 🟢 **Conclusions**  `/experimentos`  · ícono `check`  
   Las verdades del negocio ya validadas: experimentos cerrados con veredicto (validada / refutada / no concluyente), su serie de datos y el filtro por veredicto. Es el único lugar del producto donde se declara una verdad.  
   <sub>app/experimentos/ConclusionsTab.tsx · lib/experimentos.ts</sub>
+- 🟢 **Análisis**  `/experimentos?tab=analisis`  · ícono `analytics`  
+  *(Entra el 11/10/2026: hasta ese día era su propia tab, `/analisis`, que hoy redirige acá con su query.)* El informe del período en el orden en que se pregunta: advertencias arriba, la cascada de costos, los que asistieron sin calificar, los creativos y qué haría falta para la meta. El rango viaja en la URL para poder compartirlo. `/analisis/trimestre` (el informe congelado del ws1) se quedó en su ruta.  
+  <sub>app/experimentos/VistaAnalisis.tsx · lib/analisis-negocio.ts · lib/analisis-modelo.ts · app/analisis/page.tsx · app/analisis/trimestre/page.tsx</sub>
 
 ### Analysts
 
-- ⚪ **Offer Analyst**  `/offer-analyst`  · ícono `tag`  
-  Analizar la oferta del cliente (precio, promesa, garantía, qué la hace comprable). Hoy es ComingSoon puro: la page solo monta el placeholder.  
-  <sub>app/offer-analyst/page.tsx · app/_components/ComingSoon.tsx</sub>
 - 🟢 **Ads Analyst**  `/ads-analyst`  · ícono `notepencil`  
   Cruza el análisis cualitativo de Claude sobre el guion (ángulo, gancho, beats) con las métricas Meta×CRM de todo el histórico del anuncio; arriba viven Patrones (ganadores/a cortar/de proceso) y el Cuadrante de Retención. Sin filtro de fecha y gateado por Meta.  
   <sub>app/ads-analyst/page.tsx · app/ads-analyst/ScriptsBrowser.tsx · lib/ads-analyst.ts · lib/script-angles.ts</sub>

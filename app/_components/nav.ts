@@ -23,7 +23,7 @@
 //
 // Dentro de una familia hay dos niveles, y la diferencia importa:
 //   · `items`  — lo que se abre TODOS LOS DÍAS. Siempre a la vista.
-//   · `grupos` — colecciones que se consultan de a una (los siete Analysts, los
+//   · `grupos` — colecciones que se consultan de a una (los Analysts, los
 //     tres canales de chat, los writers). Abren un desplegable al costado. Sin
 //     esto, Analyze eran nueve filas y la barra se volvía una lista de todo.
 //
@@ -197,27 +197,39 @@ export const FAMILIAS: NavFamilia[] = [
         // encuentra qué mover». Va primero porque es de donde sale el criterio
         // con el que se leen los otros tres.
         { key: 'second-brain', label: 'Second Brain', href: '/second-brain', icon: 'cerebro', match: starts('/second-brain') },
-        // Va PEGADO al Dashboard y no adentro de los Analysts: el Dashboard
-        // muestra métricas y deja que vos armes la historia; éste ya la arma —
-        // la cascada de costos, la fuga de los que no calificaban y qué replicar,
-        // en el orden en que se pregunta. Son la misma familia de pregunta con
-        // dos niveles de digestión.
-        { key: 'analisis', label: 'Análisis', href: '/analisis', icon: 'analytics', match: starts('/analisis') },
+        // OFFER va SUELTA, en el lugar que dejó Análisis, y no adentro de los Analysts. Desde el
+        // 11/10/2026 une Offer Analyst y Offer Generator en UNA tab (pedido de Martín: «todo en
+        // una misma tab que se llame "Offer"»): es un chat que diagnostica la oferta Y ADEMÁS la
+        // ESCRIBE de nuevo (con su PDF), así que ya no es «un analista más» — y la oferta es
+        // anterior a todo lo demás que se analiza (el anuncio, la landing y la llamada venden
+        // ESA oferta). Ocupar el hueco de Análisis hace que la barra no crezca: «La sidebar se
+        // puede scrollear, eso NO debe ser posible NUNCA» (AGENTS.md).
+        //
+        // ⚠️ La key 'offer' es la de siempre (contrato con la base: capas y onboarding). El
+        // match acepta /offer-analyst porque esa ruta vieja redirige acá y sigue escrita en
+        // links que ya salieron.
+        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) },
+        // Análisis ya no es un ítem: el 11/10/2026 se mudó ADENTRO de Experiments, como su cuarta
+        // tab (/experimentos?tab=analisis). /analisis redirige ahí con su query, y
+        // /analisis/trimestre —el informe congelado, que se mandó por WhatsApp— vive donde
+        // estaba: por eso el match de Experiments acepta las dos rutas, para que la barra marque
+        // la tab y el título de la pestaña no caiga a «MaKo - Analisis» sin tilde.
         { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) },
-        // Salió de los Analysts: los otros seis analizan un activo PROPIO (una
-        // oferta, un anuncio, una landing); éste vigila lo que hacen los demás.
+        // Salió de los Analysts: los demás analizan un activo PROPIO (un anuncio,
+        // una landing, una llamada); éste vigila lo que hacen los demás.
         { key: 'market-an', label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', comingSoon: true, match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
-        { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
+        { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: (p) => starts('/experimentos')(p) || starts('/analisis')(p) },
       ],
     ],
     grupos: [
       {
         // Ordenados por el CAMINO del negocio, no alfabético ni por antigüedad:
-        // primero la oferta, después lo que la trae (anuncio → landing → VSL) y
-        // al final lo que pasa con la persona (la llamada, el cliente).
+        // primero lo que trae a la gente (anuncio → landing → VSL) y al final lo
+        // que pasa con la persona (la conversación, la llamada, el cliente). La
+        // oferta, que iba primera, salió el 11/10/2026 a su propia tab suelta
+        // («Offer», arriba): ya no sólo analiza, también la escribe.
         key: 'analysts', label: 'Analysts', icon: 'search',
         items: [
-          { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
           { key: 'script', label: 'Ads Analyst', href: '/ads-analyst', icon: 'notepencil', match: starts('/ads-analyst') },
           { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', match: starts('/landing-analyst') },
           { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },

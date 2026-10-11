@@ -36,7 +36,8 @@
 /**
  * Las tablas de inquilino (119 al 08/10/2026: las dos de etiquetas de la mig 0224 y la biblioteca
  * de archivos de la mig 0225; 120 el 09/10/2026 con `email_entrantes`, mig 0245; 121 el 11/10/2026 con
- * `dashboard_analisis`, mig 0247), en orden alfabético.
+ * `dashboard_analisis`, mig 0247; 122 el mismo día con las conversaciones de la tab Offer,
+ * `offer_sesiones`, mig 0254), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -70,7 +71,7 @@ export const TABLAS_DE_INQUILINO = [
   'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv',
   'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily', 'meta_campaign_drafts',
   'montaje_trabajos', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias',
-  'objectives', 'oferta_productos', 'ofertas', 'pagos',
+  'objectives', 'oferta_productos', 'ofertas', 'offer_sesiones', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',
   'plan_reprios', 'plan_tareas', 'producto_entrega', 'productos',
   'propuestas', 'retros', 'review_queue', 'script_analyses',

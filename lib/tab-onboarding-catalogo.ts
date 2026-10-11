@@ -309,6 +309,30 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     href: '/landing-generator',
   },
 
+  // ── Offer: se prende USÁNDOLA (patrón landing-an), y el chat ES el onboarding ──
+  // Desde el 11/10/2026: Offer Analyst + Offer Generator en una sola tab (/offer). No hay
+  // wizard delante: el primer paso se cierra contándole a MaKo qué se vende, y el segundo
+  // cuando la oferta queda armada. Los marca el MOTOR (app/api/offer/route.ts) con
+  // marcarPasoTab('offer', 'of_contar' | 'of_conclusion'), en ese orden — marcarPasoTab
+  // no deja cerrar el segundo antes que el primero.
+  //
+  // ⚠️ La key es la del nav ('offer', la de siempre: contrato con capas). Las de los pasos
+  // llevan el prefijo of_ a propósito: «contar» o «conclusion» a secas podrían colisionar
+  // por KEY_PASOS_COMPARTIDOS con otra tab y darle por hecho un paso que nadie vio
+  // (tests/onboarding-keys-colision.test.ts). Y como cualquier tab de este catálogo, la
+  // pendiente aparece en la lista de «falta configurar» del cierre del onboarding global y
+  // en el resumen que lee MaKo: con href /offer, que es justo donde se configura.
+  offer: {
+    key: 'offer',
+    titulo: 'Configuración de Offer',
+    nombre: 'Offer',
+    pasos: [
+      { key: 'of_contar', label: 'Contar qué vendes' },
+      { key: 'of_conclusion', label: 'Ver la oferta armada' },
+    ],
+    href: '/offer',
+  },
+
   // ── Clientes (Customer Success): la cartera y la entrega de cada servicio ──
   //
   // ⚠️ LOS TRES PASOS SE DERIVAN DE LOS DATOS, como los del Curso (#109, 06/10/2026). El ws1

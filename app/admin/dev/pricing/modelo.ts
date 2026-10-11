@@ -365,7 +365,9 @@ export type AccionNueva = { id: string; familia: 'Analyze' | 'Sales' | 'Content'
 
 export const ACCIONES_NUEVAS: AccionNueva[] = [
   { id: 'competitor', familia: 'Analyze', label: 'Competitor Spy — un competidor', usd: 0.0086 },
-  { id: 'offer', familia: 'Analyze', label: 'Offer Analyst', usd: 0.0076 },
+  // «Offer» desde el 11/10/2026: Analyst y Generator son UNA tab (/offer). El costo por acción
+  // sigue siendo la estimación de antes de construirla; no se re-midió con el chat real.
+  { id: 'offer', familia: 'Analyze', label: 'Offer', usd: 0.0076 },
   { id: 'vsl-an', familia: 'Analyze', label: 'VSL Analyst', usd: 0.0108 },
   { id: 'chat-an', familia: 'Analyze', label: 'Chat Analyst — una conversación', usd: 0.0060 },
   { id: 'cs-an', familia: 'Analyze', label: 'CS Analyst', usd: 0.0076 },
@@ -600,7 +602,10 @@ export const PRECIOS: Precio[] = [
 
 /** ⚠️ Lo que NO puede entrar a la grilla porque todavía no existe. */
 export const FUERA_DE_GRILLA = {
-  porConstruir: 'Image Generator, Video Generator, Reels, Carousels, Stories, Thumbnails, YouTube Writer, Ideas, Competitor Spy, Offer/VSL/Chat/CS/YouTube Analyst, VSL Generator, Lead Magnet, Sales Email, Newsletters, Closing Script, Sales Roleplay, Instagram, Foco, Mindset y Ads Optimizer Bot — 38 de las 122 áreas.',
+  // Offer salió de esta lista el 11/10/2026: ya existe (/offer). El «38 de las 122» es la foto
+  // del relevamiento de pricing y NO se recalculó — ese día areas.ts contaba 30 áreas
+  // «por-construir». Si se vuelve a usar el número, se cuenta de AREAS, no de acá.
+  porConstruir: 'Image Generator, Video Generator, Reels, Carousels, Stories, Thumbnails, YouTube Writer, Ideas, Competitor Spy, VSL/Chat/CS/YouTube Analyst, VSL Generator, Lead Magnet, Sales Email, Newsletters, Closing Script, Sales Roleplay, Instagram, Foco, Mindset y Ads Optimizer Bot — 38 de las 122 áreas.',
   trampas: [
     { que: 'Second Brain', por: 'figura `listo` pero su propio alcance dice que todavía no conecta señales ni saca conclusiones. No venderlo como «conecta las señales de tu negocio».' },
     { que: 'Nutrition Writer y Post-Call Follow-up', por: 'escriben el borrador, NO mandan. Falta el go-live del envío. No venderlo como «responde solo».' },

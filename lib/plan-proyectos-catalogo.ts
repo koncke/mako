@@ -143,11 +143,18 @@ const CRUDO: ProyectoCatalogo[] = [
   { nombre: 'Landing Analyst', emoji: '🌐', familia: 'producto', que: 'El analista de landing pages: qué convierte y qué no en la página, heatmaps y grabaciones de sesión, dónde se cae el visitante. Es una tab del PRODUCTO — no confundir con «Vender MaKo: Landing y VSL», que es la landing propia de MaKo.' },
   { nombre: 'Landing Generator', emoji: '🧱', familia: 'producto', que: 'El generador de landing pages: estructura, secciones y copy de una landing para el cliente.' },
   { nombre: 'Competitor Spy', emoji: '🕵️', familia: 'producto', que: 'El análisis de competencia: qué anuncia la competencia, qué ofertas hay en el mercado. (Se llamaba Market Analyst.)' },
-  { nombre: 'Offer Analyst', emoji: '🏷️', familia: 'producto', que: 'El analista de la oferta del cliente: precio, promesa, garantía y qué la hace comprable.' },
   // Offer ANALYST y Offer GENERATOR son dos features distintas, igual que Landing Analyst y
   // Landing Generator: una mira la oferta que YA existe y la otra la PRODUCE. Decisión de
   // Martín del 25/09/2026, y entra en la fase 1.2.
-  { nombre: 'Offer Generator', emoji: '📜', familia: 'producto', que: 'El generador de la oferta del cliente: entrega un DOCUMENTO con la promesa, el paquete, el precio, la garantía y para quién es — que se lee dentro de MaKo y se puede descargar. No es el Offer Analyst: aquél puntúa la oferta que ya existe, éste la escribe.' },
+  //
+  // ⚠️ Desde el 11/10/2026 las dos viven en UNA tab, «Offer» (/offer): Martín pidió
+  // «todo en una misma tab que se llame "Offer"». Los PROYECTOS se quedan dos, a
+  // propósito: la decisión del 25/09 los separó y fundirlos o renombrarlos es suya, no de
+  // una mudanza de pantalla. Lo que cambió es dónde se ve el trabajo, y eso es lo que dice
+  // cada `que` — el Perro rutea leyendo esto, y con «es una tab aparte» mandaría las
+  // tareas de la pantalla nueva a un lugar que ya no existe.
+  { nombre: 'Offer Analyst', emoji: '🏷️', familia: 'producto', que: 'El analista de la oferta del cliente: precio, promesa, garantía y qué la hace comprable. Desde el 11/10/2026 vive en la tab «Offer» junto con el Offer Generator: el chat que pregunta por la oferta y entrega el DIAGNÓSTICO es esta mitad.' },
+  { nombre: 'Offer Generator', emoji: '📜', familia: 'producto', que: 'El generador de la oferta del cliente: entrega un DOCUMENTO con la promesa, el paquete, el precio, la garantía y para quién es — que se lee dentro de MaKo y se puede descargar. Desde el 11/10/2026 vive en la tab «Offer» (chat → diagnóstico → oferta nueva → PDF): la oferta nueva y su PDF son esta mitad; el diagnóstico es del Offer Analyst.' },
   { nombre: 'Chat Analyst', emoji: '💭', familia: 'producto', que: 'El analista de las conversaciones: dónde se caen los chats, qué objeción aparece, qué responde mejor.' },
   // Estaba en el tablero con 5 tareas y NO en el catálogo: un proyecto huérfano al que
   // el ruteo no puede mandar nada, así que su trabajo se iba a desparramar solo.

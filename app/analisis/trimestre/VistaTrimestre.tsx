@@ -8,7 +8,7 @@
 // quiebres en orden de cuánto cuestan, lo que sí funcionó, el VSL, el ritmo
 // semanal, la caja, y recién al final qué haría. Un informe que arranca por los
 // creativos invita a optimizar el anuncio cuando el agujero está en el show rate
-// — la misma razón que gobierna /analisis.
+// — la misma razón que gobierna la tab Análisis de Experiments (antes /analisis).
 //
 // ⚠️ TODO SE LEE EN DÓLARES Y NINGÚN MONTO ESTÁ ESCRITO A MANO. La fuente
 // (Meta) cobra en pesos mexicanos; el tipo de cambio del control de arriba

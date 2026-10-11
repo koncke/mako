@@ -47,6 +47,15 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entra a Content Machine', 'En Anuncios, abre el que quieres atacar (avatar × razón)', 'Pídele el guion: MaKo elige el ángulo y la estructura solo', 'En Guiones los ves todos, los filtras y los vas marcando grabado y publicado'],
   },
   {
+    // Desde el 11/10/2026 la oferta tiene SU tab: Offer Analyst y Offer Generator juntos en
+    // /offer. Va antes que las de landing porque es anterior a todo lo que la vende: una
+    // tarea de «mejorar la oferta» o «armar el documento de la oferta» se hace acá, y sin
+    // esta entrada el Perro la dejaba como deber suelto teniendo la pantalla al lado.
+    id: 'oferta-revisar', tab: 'Offer', ruta: '/offer',
+    que: 'Revisar y mejorar la oferta conversando con MaKo; entrega un diagnóstico y una oferta nueva en PDF.',
+    como: ['Entra a Offer', 'Cuéntale a MaKo qué vendes, a quién y a qué precio', 'Lee el diagnóstico y la oferta nueva que arma', 'Descarga el PDF; lo que quieras probar, llévalo a Experiments'],
+  },
+  {
     id: 'landing-diagnosticar', tab: 'Landing Analyst', ruta: '/landing-analyst',
     que: 'Diagnosticar una landing: MaKo la abre, le lee el mensaje y lo cruza con lo que hace la gente que llega (visitas, retención del video, agendas) para decir qué cambiar primero.',
     como: ['Entra a Landing Analyst', 'Pega la dirección de tu página y toca Analizar', 'Mira los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],

@@ -102,6 +102,34 @@ export const BITACORA: Hito[] = [
     ],
     commits: [{ sha: '8a38d2c', msg: 'Los conteos contra prod, y el bug que no tiene víctima', lineas: 26, archivos: 2 }],
   },
+  {
+    fecha: '11 oct', hora: '07:55', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Offer Analyst y Offer Generator en UNA tab, con un chat de IA y un PDF',
+    pedido: 'Implementa completamente la funcionalidad de "Offer Analyst" y "Offer Generator" Pero todo en una mista tab que se llame "Offer"...\nElimina la tab de "Análisis", llevala dentro de "Experiments"...\n\nY para la implementación de "Offer", revisa las transcripciones de los cursos que tenemos en CONOCIMIENTOS... Hay muchos que hablan justamente de esto, de la oferta, e incluso tienen templates sobre como crear una.\nRevisa lo de Sofia Contreras, Marcos Razzetti, Ramiro Cubria, Juan Carrizo, y todos los que hablen de oferta para basarte en esta tab...\n\nQuiero que esta tab sea muy de "IA", es decir, que en lugar de formularios larguisimos para entender lo que vende el usuario, prefiero algo simple como un chat con una IA, donde el usuario pueda escribir o mandar audio o adjuntar como en el "Archivero" como ya hacemos en muchos lugares...\n\nDiseñalo bien, revisa que sea entendible, que no tenga mucho texto la tab y que el "resultado final" sea que te de un PDF con la conclusión... Y claro que se pueda visualizar allí también la conclusión.',
+    puntos: [
+      'Revive la etapa P2 que se había eliminado el 03/10. Los deadlines que Martín sacó a mano del tablero NO se reponen.',
+      'Confirma la decisión que ya estaba escrita el 25/09: si el Analyst terminaba siendo un chat que dice qué mejorar, se fusionaba con el Generator en una tab con dos modos.',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '13:30', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tab Offer: chat → diagnóstico de 9 dimensiones → oferta nueva → PDF; Análisis pasa a Experiments',
+    puntos: [
+      'El marco salió de leer los cursos: 6 investigadores (MasteryHaus, BlueHacker, Sell Your Knowledge, ATV, Hormozi/Maffia/Escala 100k y un barrido de 12 más) y una síntesis con atribución por autor en docs/offer-marco.md.',
+      'Un chat donde el dueño escribe, dicta o adjunta; MaKo ya trae lo que sabe del negocio (Archivero, oferta, productos, fase) y pregunta de a una pieza. Con las 5 piezas mínimas ofrece «Armar mi oferta»: diagnóstico (lo calcula el código: puntaje, cuello, lista para vender) y la oferta nueva con «[completar]» donde falta un dato, nunca inventado.',
+      'Cada cambio propuesto lleva «Probarlo», que abre el alta de experimento con la hipótesis escrita: fuera de /experimentos MaKo no declara verdades.',
+      'El PDF se escribe a mano (lib/pdf-escritor.ts) para no hacer un npm install sobre un lockfile con cambios ajenos. La prueba por rotura destapó que pdf.js repara en silencio un xref corrido.',
+      'Análisis es la cuarta tab de Experiments (/analisis redirige con su query) y ya no la esconde el corte de Meta.',
+      'IA gratis por la cascada del cliente (gemini, groq, openrouter) con la red de plataforma; sin Claude.',
+    ],
+    archivos: [
+      'docs/offer-marco.md — el marco de oferta destilado de los cursos',
+      'docs/hallazgos-offer.md — lo que costó y lo que quedó sin hacer',
+      'lib/offer-marco.ts — el contrato: piezas, rúbrica, tipos',
+      'app/offer/OfferApp.tsx — la pantalla (chat, generando, conclusión)',
+      'app/api/offer/route.ts — la API (turno, leer, diagnosticar, generar, guardar)',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
