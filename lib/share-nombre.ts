@@ -34,11 +34,28 @@ export const TODOS_LOS_CURSOS = 'Todos los cursos';
 export const SIN_NOMBRE = 'Material de MaKo';
 
 /**
+ * El recurso del INFORME del Dashboard (11/10/2026, «Compartir» de la tab Dashboard). Vive acá, en el
+ * módulo sin dependencias, para que lib/shares.ts, la ruta, la página pública y los tests nombren la
+ * MISMA cadena: con dos copias, una se escribe «informe» un día y el share deja de servirse sin error.
+ *
+ * Su `recurso_id` es el `sub` de la persona dueña del informe (el informe es POR PERSONA:
+ * `graficos.tablero.<sub>`, lib/graficos-tablero.ts), y por eso NUNCA se usa como nombre: un id de
+ * usuario en la lista de «quién tiene acceso» no le dice nada a nadie.
+ */
+export const RECURSO_INFORME = 'dashboard';
+
+/** El nombre de un informe que no trae ninguno: el mismo que el inicial (NOMBRE_INICIAL del catálogo). */
+export const INFORME_SIN_NOMBRE = 'Dashboard';
+
+/**
  * Qué comparte esta fila, con el nombre de HOY.
  *
  * `tituloDeCurso` resuelve un slug a su título actual — en este repo es `buscarCurso`,
  * que además salta los slugs REEMPLAZADOS, así que un share emitido con el nombre viejo
  * de un curso se sigue nombrando bien.
+ *
+ * `nombreDeInforme` es el nombre de HOY del informe del Dashboard al que apunta la fila (lo lee la
+ * ruta del informe guardado de esa persona). Sólo cuenta para `recurso: 'dashboard'`.
  *
  * El orden es el de la confianza: la clave primero, la foto después, el id crudo al final.
  * Nunca devuelve cadena vacía — una fila sin nombre en una lista es una fila que no se
@@ -47,7 +64,12 @@ export const SIN_NOMBRE = 'Material de MaKo';
 export function nombreDeShare(
   s: ShareParaNombrar,
   tituloDeCurso: (slug: string) => string | undefined,
+  nombreDeInforme?: string | null,
 ): string {
+  // El informe: su nombre de hoy, si no la foto del día que se emitió, si no el del inicial. NUNCA el
+  // `recurso_id`, que es el id de una persona.
+  if (s.recurso === RECURSO_INFORME) return nombreDeInforme?.trim() || s.etiqueta?.trim() || INFORME_SIN_NOMBRE;
+
   // La tab entera no apunta a ninguna cosa: su `recurso_id` es null en las 17 filas de
   // producción, así que no hay nada que resolver y el nombre es una constante. Se decide
   // por `recurso` y NO por `alcance: 'todo'`, que es lo que primero viene a la mano: el

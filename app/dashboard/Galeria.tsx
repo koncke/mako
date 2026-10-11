@@ -11,23 +11,35 @@
 // (app/dashboard/ElementoInsertado.tsx). El menú va en tres grupos: lo que se lee, lo que se mira y las formas.
 //
 // Acá viven también el `Flotante` (el panel anclado a un botón que usan todos los menús del editor) y los
-// íconos de la barra, para que la fila de arriba (./Cabecera.tsx), el panel (./Propiedades.tsx) y el
-// editor los compartan sin importarse entre sí.
+// íconos de la barra, para que la topbar (./Cabecera.tsx), el panel (./Propiedades.tsx) y el editor los
+// compartan sin importarse entre sí.
+//
+// Tanda de la topbar (11/10/2026), punto 8: «El tema de formas, flechas, texto, fijate como lo posiciona
+// Looker, que sea igual.» En la barra de Looker lo que se inserta va SUELTO, un ícono por cosa (código,
+// imagen, texto, línea, formas), y la línea y las formas abren su menú. `BARRA_INSERTAR` es ese orden, con
+// lo nuestro que Looker no tiene al lado de su pariente (el video junto a lo insertado, el enlace junto al
+// texto). En el celular no entran: va un solo «Insertar ▾» (`MenuInsertar`, los nueve en tres grupos).
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { BLOQUES, GRUPOS, TIPOS, TIPOS_ELEMENTO, type BloqueId, type GrupoElemento, type TipoElemento } from '@/lib/graficos-catalogo';
 import { PALETA_MAKO } from '@/lib/graficos-temas';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { useCapaModal } from '@/app/_components/pila-modales';
 import { IconoElemento } from './Elemento';
 
 /**
  * Un panel anclado a un botón, PORTALEADO al body y ubicado por cuenta: el panel de propiedades y el
- * lienzo scrollean, y un menú adentro se cortaría. Se cierra tocando afuera o con Escape, y el Escape no
- * le llega a nadie más (`stopImmediatePropagation`: los Escape de la casa viven en `document`, en captura).
+ * lienzo scrollean, y un menú adentro se cortaría. Se cierra tocando afuera o con Escape.
+ * ⚠️ Es una CAPA: se registra en la pila (`useCapaModal`, anidada: no tapa lo de abajo) y contesta al
+ *    Escape sólo si es la de arriba, frenando a los demás con `stopImmediatePropagation` (los Escape de la
+ *    casa viven en `document`, en captura). Sin la pila, el Escape de un menú abierto encima de un modal
+ *    cerraba también el modal.
  * z-index 580: arriba del recorrido (400) y abajo del toast (600).
  */
 export function Flotante({ ancla, onCerrar, ancho, children }: { ancla: HTMLElement; onCerrar: () => void; ancho: number; children: ReactNode }) {
+  const capa = useCapaModal(true, { anidada: true });
+  const esArriba = capa.esElDeArriba;
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; alto: number } | null>(null);
   const cerrar = useRef(onCerrar);
@@ -53,11 +65,11 @@ export function Flotante({ ancla, onCerrar, ancho, children }: { ancla: HTMLElem
   }, [ancla, ancho]);
   useEffect(() => {
     const fuera = (e: MouseEvent) => { const t = e.target as Node; if (ref.current?.contains(t) || ancla.contains(t)) return; cerrar.current(); };
-    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); cerrar.current(); } };
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape' && esArriba()) { e.stopImmediatePropagation(); e.preventDefault(); cerrar.current(); } };
     document.addEventListener('mousedown', fuera, true);
     document.addEventListener('keydown', tecla, true);
     return () => { document.removeEventListener('mousedown', fuera, true); document.removeEventListener('keydown', tecla, true); };
-  }, [ancla]);
+  }, [ancla, esArriba]);
   return createPortal(
     <div ref={ref} className="lk lk-flotante" style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999, width: Math.min(ancho, typeof window === 'undefined' ? ancho : window.innerWidth - 16), maxHeight: pos?.alto ?? 400, visibility: pos ? 'visible' : 'hidden' }}>
       {children}
@@ -120,6 +132,39 @@ export function MenuInsertar({ onElegir }: { onElegir: (t: TipoElemento) => void
             </button>
           ))}
         </div>
+      ))}
+    </div>
+  );
+}
+
+/** Un lugar de la barra de inserción: un tipo suelto, o un menú con los suyos (la línea y las formas). */
+export type LugarInsertar =
+  | { clase: 'suelto'; tipo: TipoElemento }
+  | { clase: 'menu'; menu: 'lineas' | 'formas'; nombre: string; tipos: readonly TipoElemento[] };
+
+/**
+ * La barra de inserción en el ORDEN de Looker (código, imagen, texto, línea, formas), con el video junto a
+ * lo insertado y el enlace junto al texto. Cada tipo de `TIPOS_ELEMENTO` aparece UNA vez: lo fija
+ * tests/dashboard-topbar.test.ts, así un tipo nuevo del catálogo no queda sin lugar en la barra.
+ */
+export const BARRA_INSERTAR: readonly LugarInsertar[] = [
+  { clase: 'suelto', tipo: 'insertado' },
+  { clase: 'suelto', tipo: 'video' },
+  { clase: 'suelto', tipo: 'imagen' },
+  { clase: 'suelto', tipo: 'texto' },
+  { clase: 'suelto', tipo: 'enlace' },
+  { clase: 'menu', menu: 'lineas', nombre: 'Línea', tipos: ['linea', 'flecha'] },
+  { clase: 'menu', menu: 'formas', nombre: 'Formas', tipos: ['rectangulo', 'circulo'] },
+];
+
+/** El menú de la línea o de las formas: cada opción con su dibujo y su nombre. */
+export function MenuElementos({ tipos, onElegir }: { tipos: readonly TipoElemento[]; onElegir: (t: TipoElemento) => void }) {
+  return (
+    <div className="lk-lista" role="menu">
+      {tipos.map((id) => (
+        <button key={id} type="button" role="menuitem" className="lk-opcion" onClick={() => onElegir(id)}>
+          <IconoElemento tipo={id} size={17} /> <span>{TIPOS_ELEMENTO.find((t) => t.id === id)?.nombre ?? id}</span>
+        </button>
       ))}
     </div>
   );
@@ -192,5 +237,4 @@ export const SvgFlecha = ({ arriba }: { arriba?: boolean }) => <svg viewBox="0 0
 export const SvgOjo = () => svg(<><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>);
 export const SvgLapiz = () => svg(<><path d="M4 20h4L19 9l-4-4L4 16v4Z" /><path d="m13.5 6.5 4 4" /></>);
 export const SvgLupa = () => svg(<><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></>);
-export const SvgExportar = () => svg(<><path d="M12 4v11" /><path d="m7.5 10.5 4.5 4.5 4.5-4.5" /><path d="M5 19h14" /></>);
 export const SvgCalendario = () => <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden style={{ flex: 'none' }}><rect x="3.5" y="5" width="17" height="15" rx="1.5" /><path d="M3.5 9.5h17M8 3v4M16 3v4" /></svg>;

@@ -28,6 +28,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
+import { BotonMako } from '@/app/_ui/BotonMako';
 import Link from '@/app/_ui/Link';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
@@ -253,7 +254,9 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
             ) : (
               <>
                 <span />
-                <Button type="submit" variant="mako" disabled={!pedido.trim()}>Crear</Button>
+                {/* El botón de MaKo CHICO: sólo el logo sobre negro (tanda de la topbar, punto 3). Enter
+                    también crea (el `onKeyDown` del campo). */}
+                <BotonMako lado={36} title="Crear la hoja con MaKo" deshabilitado={!pedido.trim()} onClick={() => { void enviar(); }} />
               </>
             )}
           </div>

@@ -12,9 +12,10 @@
 //    sin la página blanca con sombra, sin el borde entre las hojas y el lienzo.
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni en un comentario (la parte a
 //    la mitad y la pantalla contesta 200 sin estilos), y el signo de pesos seguido de llave tampoco.
-// ⚠️ La barra de CONTROLES es position: sticky contra .lk-lienzo, que es el que scrollea: entre los dos
-//    no puede haber ningún ancestro con overflow (AGENTS.md, «un eje en hidden…»). Y .lk-lienzo sólo
-//    scrollea si el <main> tiene ALTO: lo fija app/dashboard/page.tsx (sin eso scrollea el documento).
+// ⚠️ Los FILTROS viven en la topbar (.lk-top, tanda del 11/10: «Los botones de filtro también en la
+//    topbar»), que NO scrollea: queda arriba siempre, sin sticky. Lo que scrollea es .lk-lienzo, y sólo
+//    si el <main> tiene ALTO: lo fija app/dashboard/page.tsx (sin eso scrollea el documento y la topbar
+//    se va con la página).
 // ⚠️ Las tarjetas leen el TEMA de la hoja por variables (--dash-*, varsDeTema en
 //    lib/graficos-temas.ts) con su respaldo: una hoja sin tema se ve como la de MaKo.
 
@@ -23,50 +24,81 @@ export const CSS = `
 .lk button { font-family: inherit; }
 .lk-app { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
 
-/* La fila de arriba: el ícono de la tab, las hojas, la de «Nueva hoja» y las acciones. */
-.lk-fila { display: flex; align-items: center; gap: 8px; padding: 8px 16px 0; flex: none; flex-wrap: wrap; min-width: 0; }
-.lk-logo { display: grid; place-items: center; width: 32px; height: 32px; flex: none; color: var(--ink); }
-.lk-hojas { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; min-width: 0; flex: 1 1 240px; }
-.lk-hoja-tab { display: inline-flex; align-items: center; position: relative; min-width: 0; max-width: 240px; }
-.lk-hoja-btn { display: inline-flex; align-items: center; gap: 6px; min-width: 0; border: none; background: transparent; padding: 8px 8px 7px 10px; font-size: 14px; color: var(--dim); cursor: pointer; border-bottom: 2px solid transparent; }
-.lk-hoja-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lk-hoja-btn:hover { color: var(--ink); }
-.lk-hoja-tab[data-activa] .lk-hoja-btn { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
-.lk-hoja-mas { flex: none; border: none; background: transparent; width: 24px; height: 28px; border-radius: 8px; color: var(--dim); cursor: pointer; font-size: 16px; opacity: 0; transition: opacity .12s; }
-.lk-hoja-tab:hover .lk-hoja-mas, .lk-hoja-tab[data-activa] .lk-hoja-mas, .lk-hoja-mas:focus-visible { opacity: 1; }
-.lk-hoja-mas:hover { background: var(--velo-hover); color: var(--ink); }
-.lk-hoja-input { font: inherit; font-size: 14px; border: 1px solid var(--primary); border-radius: 6px; padding: 5px 8px; width: 160px; max-width: 60vw; outline: none; background: var(--surface); color: var(--ink); }
-.lk-hoja-nueva { display: inline-flex; margin-left: 6px; flex: none; }
-.lk-acciones { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
-.lk-analista { display: inline-flex; flex: none; }
-.lk-pill { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+/* La TOPBAR, como la de Looker (tanda del 11/10): a la izquierda el emoji y, apilados, el título de la hoja
+   (con su ▾) y el subtítulo, donde Looker pone «Archivo · Vista · Página · Ayuda»; a la derecha los
+   filtros, Compartir, Editar y el ⋮. Sin filete abajo: una sola superficie con el lienzo (punto 16). No
+   scrollea (está afuera de .lk-lienzo), así que los filtros quedan siempre a la vista. El título NO lleva
+   nowrap: uno largo baja de renglón, no se corta (es un contentEditable, mide lo que dice). Y el título
+   editable no lleva el par padding / margin negativo «para que el foco respire»: si el padre se mide por
+   el hijo, el margen negativo se descuenta dos veces (AGENTS.md, «Un ancho que sale de una métrica
+   tipográfica…»). */
+.lk-top { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding: 12px 16px 10px 20px; flex: none; min-width: 0; background: var(--bg); }
+.lk-top-izq { flex: 1 1 280px; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.lk-top-emoji { flex: none; display: grid; place-items: center; width: 42px; height: 42px; font-size: 28px; line-height: 1; }
+.lk-top-emoji--btn { border: none; border-radius: 10px; background: transparent; cursor: pointer; padding: 0; color: var(--faint); }
+.lk-top-emoji--btn:hover, .lk-top-emoji--btn[aria-expanded="true"] { background: var(--velo-hover); }
+.lk-top-emoji--btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.lk-top-textos { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lk-top-fila { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.lk-top-tit { margin: 0; min-width: 0; font-size: 21px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.25; color: var(--ink); overflow-wrap: anywhere; }
+.lk-top-tit .edin { padding: 1px 4px; border-radius: 6px; }
+.lk-top-tit .edin:hover { background: var(--velo-hover); }
+.lk-top-tit-btn { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; border: none; background: transparent; padding: 1px 4px; border-radius: 6px; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.lk-top-tit-btn > span { min-width: 0; overflow-wrap: anywhere; }
+.lk-top-tit-btn:hover, .lk-top-tit-btn[aria-expanded="true"] { background: var(--velo-hover); }
+.lk-top-hojas { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none; border-radius: 8px; background: transparent; color: var(--dim); cursor: pointer; padding: 0; }
+.lk-top-hojas:hover, .lk-top-hojas[aria-expanded="true"] { background: var(--velo-hover); color: var(--ink); }
+.lk-top-hojas:focus-visible, .lk-top-tit-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.lk-top-sub { margin: 0; min-width: 0; font-size: 13px; color: var(--dim); line-height: 1.4; overflow-wrap: anywhere; }
+.lk-top-sub .edin { padding: 0 4px; border-radius: 5px; }
+.lk-top-sub .edin:hover { background: var(--velo-hover); }
+.lk-top-der { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-left: auto; min-width: 0; }
+.lk-top-filtros { display: flex; min-width: 0; }
+.lk-top-filtros:empty { display: none; }
+.lk-cab-periodo { margin: 4px 0 0; font-size: 13px; color: var(--dim); }
+.lk-pill { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .lk-pill:hover:not(:disabled) { background: var(--surface-2); }
 .lk-pill:disabled { opacity: .5; cursor: default; }
 .lk-pill--azul { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .lk-pill--azul:hover:not(:disabled) { background: var(--primary-strong); border-color: var(--primary-strong); }
 .lk-pill--icono { width: 36px; padding: 0; justify-content: center; }
 .lk-pill--rojo { color: var(--bad); }
+.lk-mas { position: relative; font-size: 18px; line-height: 1; }
 
-/* La barra de edición: DEBAJO de las hojas (punto 7), así las hojas no se mueven al apretar Editar. */
-.lk-barra { display: flex; align-items: center; gap: 2px; background: var(--surface-2); border-radius: 12px; padding: 4px 8px; margin: 6px 16px 0; flex-wrap: wrap; flex: none; }
+/* El desplegable de las hojas (en un Flotante): «Nueva hoja» primera, y las hojas con su ⋮. */
+.lk-hoja-nueva { display: block; padding: 4px 10px 6px; }
+.lk-hoja-fila { display: flex; align-items: center; gap: 2px; padding-right: 8px; min-width: 0; }
+.lk-hoja-op { flex: 1 1 auto; min-width: 0; gap: 8px; }
+.lk-hoja-marca { flex: none; display: inline-flex; width: 16px; justify-content: center; color: var(--primary); }
+.lk-hoja-nombre { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lk-hoja-mas { flex: none; border: none; background: transparent; width: 26px; height: 28px; border-radius: 8px; color: var(--dim); cursor: pointer; font-size: 16px; opacity: 0; transition: opacity .12s; }
+.lk-hoja-fila:hover .lk-hoja-mas, .lk-hoja-fila[data-activa] .lk-hoja-mas, .lk-hoja-mas:focus-visible { opacity: 1; }
+.lk-hoja-mas:hover { background: var(--velo-hover); color: var(--ink); }
+.lk-hoja-input { font: inherit; font-size: 14px; border: 1px solid var(--primary); border-radius: 6px; padding: 6px 8px; margin: 2px 10px; width: calc(100% - 20px); outline: none; background: var(--surface); color: var(--ink); box-sizing: border-box; }
+.lk-hojas-cab { display: flex; align-items: center; gap: 8px; padding: 4px 12px 6px; font-weight: 600; font-size: 14px; min-width: 0; }
+.lk-hojas-volver { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--dim); cursor: pointer; }
+.lk-hojas-volver:hover { background: var(--surface-2); color: var(--ink); }
+.lk-hojas-vacio { padding: 8px 16px; font-size: 13px; color: var(--dim); }
+
+/* La barra de edición: DEBAJO de la topbar, así la topbar no se mueve al apretar Editar. En el orden de
+   la de Looker; lo que se inserta va suelto (un ícono por cosa) y «Estilo de la hoja» a la derecha. */
+.lk-barra { display: flex; align-items: center; gap: 2px; background: var(--surface-2); border-radius: 12px; padding: 4px 8px; margin: 0 16px; flex-wrap: wrap; flex: none; }
 .lk-herr { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: none; border-radius: 10px; background: transparent; color: var(--ink); font-size: 13.5px; cursor: pointer; white-space: nowrap; }
 .lk-herr:hover:not(:disabled), .lk-herr[aria-expanded="true"] { background: var(--velo-hover); }
 .lk-herr:disabled { color: var(--faint); cursor: default; }
+.lk-herr:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .lk-herr--icono { width: 34px; padding: 0; justify-content: center; }
+.lk-herr--menu { gap: 0; padding: 0 2px 0 8px; }
+.lk-herr--fin { margin-left: auto; }
 .lk-sep { width: 1px; height: 22px; background: var(--border); margin: 0 6px; }
+.lk-insertar { display: inline-flex; align-items: center; }
+.lk-ins-sueltos { display: inline-flex; align-items: center; gap: 2px; }
+.lk-ins-menu { display: none; }
 
 /* El cuerpo: el lienzo (lo único que scrollea) y, con algo elegido, el panel de propiedades. */
 .lk-cuerpo { flex: 1; min-height: 0; display: flex; align-items: stretch; min-width: 0; }
 .lk-lienzo { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; background: var(--bg); }
-.lk-cab-hoja { padding: 18px 24px 4px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.lk-cab-fila { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.lk-cab-emoji { font-size: 26px; line-height: 1; flex: none; }
-.lk-cab-tit { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; color: var(--ink); font-family: var(--dash-letra, 'Geist', system-ui, sans-serif); min-width: 0; overflow-wrap: anywhere; }
-.lk-cab-sub { margin: 0; font-size: 14px; color: var(--dim); line-height: 1.45; overflow-wrap: anywhere; }
-.lk-cab-periodo { margin: 4px 0 0; font-size: 13px; color: var(--dim); }
-.lk-controles { position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 24px; }
-.lk-controles:empty { display: none; }
-.lk-pagina { padding: 6px 24px 40px; box-sizing: border-box; min-width: 0; }
+.lk-pagina { padding: 14px 24px 40px; box-sizing: border-box; min-width: 0; }
 .lk-vacio { display: grid; place-items: center; gap: 12px; padding: 120px 0; color: var(--dim); font-size: 14px; text-align: center; }
 .lk-vacio p { margin: 0; }
 .lk-pila { display: flex; flex-direction: column; gap: 12px; }
@@ -153,6 +185,7 @@ export const CSS = `
 .lk-opcion:disabled { color: var(--faint); cursor: default; }
 .lk-opcion[aria-selected="true"], .lk-opcion[aria-checked="true"] { background: var(--primary-bg); color: var(--primary); }
 .lk-opcion--peligro { color: var(--bad); }
+.lk-opcion--mako { position: relative; font-weight: 600; }
 .lk-opcion-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .lk-opcion-linea { font-size: 12px; color: var(--dim); }
 .lk-opcion .lk-agg, .lk-opcion .lk-tipo-campo { width: 30px; color: var(--dim); }
@@ -226,18 +259,20 @@ export const CSS = `
 
 /* Celular: 16 px de margen y nada de scroll de costado. El panel de propiedades sube desde abajo. */
 @media (max-width: 760px) {
-  .lk-fila { padding: 8px 16px 0; }
-  .lk-barra { margin: 6px 16px 0; }
-  .lk-cab-hoja { padding: 14px 16px 4px; }
-  .lk-cab-tit { font-size: 21px; }
-  .lk-controles { padding: 8px 16px; }
-  .lk-pagina { padding: 6px 16px 32px; }
+  .lk-top { padding: 10px 16px 8px; }
+  .lk-top-tit { font-size: 19px; }
+  .lk-top-emoji { width: 36px; height: 36px; font-size: 24px; }
+  .lk-top-der { margin-left: 0; justify-content: flex-start; }
+  .lk-barra { margin: 0 16px; }
+  .lk-ins-sueltos { display: none; }
+  .lk-ins-menu { display: inline-flex; }
+  .lk-pagina { padding: 10px 16px 32px; }
   .lk-props { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: 62vh; border-left: none; border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; z-index: 50; box-shadow: 0 -10px 30px rgba(0,0,0,.18); }
-  .lk-hoja-tab { max-width: 180px; }
 }
 
-/* El PDF (punto 21): window.print() con todo el cromo escondido. Quedan la cabecera de la hoja, el
-   período y los gráficos EN SU LUGAR: la grilla se imprime como una grilla CSS con las mismas columnas
+/* El PDF (punto 21): window.print() con todo el cromo escondido. Quedan el título de la hoja (la mitad
+   izquierda de la topbar, sin el ▾ ni el placeholder de lo vacío), el período y los gráficos EN SU LUGAR:
+   la grilla se imprime como una grilla CSS con las mismas columnas
    y filas que react-grid-layout (12 columnas, filas de 30 px, 16 px de espacio), para que cada tarjeta
    pueda no partirse entre dos páginas (break-inside no vale para lo que va en posición absoluta). Antes
    de imprimir la pantalla pasa el lienzo a 1040 px (lk--imprimir), el ancho útil de una A4 apaisada,
@@ -258,9 +293,11 @@ export const CSS = `
   html, body { height: auto !important; overflow: visible !important; background: var(--bg) !important; }
   main:has(> .lk-app) { height: auto !important; overflow: visible !important; }
   .lk-app { position: absolute; left: 0; top: 0; width: 1040px; height: auto !important; display: block !important; }
-  .lk-fila, .lk-barra, .lk-props, .lk-controles, .lk-comp-acciones, .lk-sin-imprimir, .lk-cuerpo > .an { display: none !important; }
+  .lk-top-der, .lk-top-hojas, .lk-barra, .lk-props, .lk-comp-acciones, .lk-sin-imprimir, .lk-cuerpo > .an { display: none !important; }
   .lk-cuerpo, .lk-lienzo { display: block !important; overflow: visible !important; height: auto !important; }
-  .lk-cab-hoja { padding: 0 0 10px; }
+  .lk-top { padding: 0 0 10px; }
+  .lk-top-emoji--vacio { display: none !important; }
+  .lk-top .edin[data-vacio]::before { content: '' !important; }
   .lk-solo-imprimir { display: block !important; }
   .lk-solo-imprimir.lk-imp-caja { display: flex !important; }
   .lk-comp--elemento iframe, .lk-comp--elemento video { display: none !important; }

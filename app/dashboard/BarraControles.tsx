@@ -12,10 +12,21 @@
 //       revisa que eso no produzca bugs. Como por ejemplo, que se pisen los filtros sin sentido.»
 //   14. «Ahí vi que "Control" se agrega abajo del todo... Eso está mal, siempre arriba como en una topbar.»
 //
+// Y la tanda de la topbar (11/10/2026), punto 7, textual: «Los botones de filtro también en la topbar, y
+// mejora el diseño... Teniamos un lindo diseño de filtro de fecha, y ahora está muy confuso. Y que
+// siempre esté disponible el botón de filtro con la barra de busqueda en la topbar, que siempre estén
+// allí, solo que en edición puedo elegir agregar o quitar filtros. Y no se debería poder agregar filtros
+// desde la vista que no sea edición.» De ahí:
+//   · La fila vive en la TOPBAR (./Cabecera.tsx, a la derecha del título), mirando y editando.
+//   · «＋ Filtro» y «Quitar» sólo EDITANDO. Mirando, los filtros que la hoja tiene se usan y nada más.
+//   · El período vuelve al diseño de FechaFiltro (app/_components/FechaFiltro.tsx, el de las tabs viejas
+//     de Marketing y Comercial): los presets como pastillas en dos columnas y abajo «Personalizado» con
+//     Desde → Hasta y «Aplicar rango». El botón dice SÓLO el período («Últimos 30 días»): con el rango
+//     al lado («Todo 1 ene 2020 – 11 oct 2026») se leía como dos filtros. El rango va en el `title`.
+//
 // Tres piezas, las tres con el MISMO popover por control:
 //   · `BarraControles`: la fila de la página. Un botón por control con su resumen («Últimos 7 días»,
-//     «Campaña · 2»), «＋ Filtro» al final y «Restablecer» si hay algo elegido. La pega arriba del lienzo
-//     la pantalla (EditorInforme.tsx): esto es sólo la fila.
+//     «Campaña · 2»), «＋ Filtro» al final (editando) y «Restablecer» si hay algo elegido.
 //   · `ChipsControles`: en la cabecera de una tarjeta, los controles PROPIOS del gráfico como chips
 //     chicos, y dos avisos tenues: «Período propio» y «No filtra por X». Un número sin filtrar que se lee
 //     como filtrado es peor que ningún filtro.
@@ -33,6 +44,10 @@
 //    sticky con z-index le clampea el z-index a todo lo que nace adentro (AGENTS.md). Y como un portal de
 //    React sigue BURBUJEANDO por el árbol de React, el popover frena el mousedown y el click: si no, un
 //    clic en una casilla arrastraba la tarjeta de atrás (react-grid-layout escucha el mousedown).
+// ⚠️ EN UN INFORME COMPARTIDO (`compartido`, el link sin sesión) los valores de una lista NO se piden a
+//    /api/graficos sino a /api/compartido/graficos, con el token, la hoja y el control
+//    (./lectura-compartida.ts). Lo hace `useValoresCompartidos`, acá abajo, porque ./valores.ts no es de
+//    este paquete: cuando ese hook acepte la ruta, éste se borra (está en los pendientes).
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as KeyboardEventReact, type ReactNode, type SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
@@ -50,11 +65,15 @@ import {
   nuevoControlPara, opcionesAgregar, opcionesDeLista, parcheDeEntrada, periodoDePagina, pintaActivo, rangoCorto, rangoDelControl,
   resumenControl, tituloControl, TOPE_VALORES_RUTA, type Nivel,
 } from '@/lib/graficos-controles-texto';
-import { useValoresCampo } from './valores';
+import { useValoresCampo, type EstadoValores } from './valores';
+import { pedidoDeLectura, type Compartido } from './lectura-compartida';
+import type { ValorDeCampo } from '@/lib/graficos-datos';
 
 type Modo = 'vista' | 'entrada';
-/** Lo que una lista necesita para pedir sus valores: el período que mira y en qué conjuntos contar. */
-type Contexto = { desde: string; hasta: string; fuentes?: string[] };
+/** De dónde lee una lista en un informe compartido: el link, la hoja y (si es de una tarjeta) el componente. */
+type LecturaLista = { compartido: Compartido; hojaId: string; componenteId?: string };
+/** Lo que una lista necesita para pedir sus valores: el período que mira, en qué conjuntos contar y, compartido, de dónde. */
+type Contexto = { desde: string; hasta: string; fuentes?: string[]; lectura?: LecturaLista };
 
 const ICONO: Record<TipoControl, NombreIconoMenu> = { periodo: 'calendario', lista: 'filtro', texto: 'buscar', agrupar: 'grafico' };
 const norm = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
@@ -166,48 +185,98 @@ function Marca({ si }: { si: boolean }) {
 
 // ── Los paneles: cada uno sólo ELIGE. A dónde va lo elegido lo decide `BotonControl` ─────────────
 
+/**
+ * El período, con el diseño de FechaFiltro (el de las tabs viejas, punto 7): los presets como
+ * pastillas en dos columnas —el rango de cada uno va en su `title`: una columna de fechas al lado de
+ * cada nombre era lo «muy confuso»— y abajo, siempre a la vista, «Personalizado» con Desde → Hasta y
+ * «Aplicar rango».
+ */
 function PanelPeriodo({ c, hoy, onElegir, onListo }: { c: ControlVista; hoy: string; onElegir: (v: ValorControl) => void; onListo: () => void }) {
   const r = rangoDelControl(c, hoy);
-  const [abierto, setAbierto] = useState(c.preset === 'personalizado');
   const [desde, setDesde] = useState(r.desde);
   const [hasta, setHasta] = useState(r.hasta);
   const valido = esFechaValida(desde) && esFechaValida(hasta) && desde <= hasta;
   const esPers = c.preset === 'personalizado';
   return (
-    <div className="bc-cuerpo" role="radiogroup" aria-label="Período">
-      <div className="bc-nota bc-nota--arriba">{rangoCorto(r.desde, r.hasta, hoy)}</div>
-      {PRESETS.filter((p) => p.id !== 'personalizado').map((p) => {
-        const rp = rangoDe(p.id, hoy);
-        const actual = c.preset === p.id;
-        return (
-          <button key={p.id} type="button" role="radio" aria-checked={actual} className="bc-opcion" data-foco={actual || undefined}
-            onClick={() => { onElegir({ preset: p.id, desde: null, hasta: null }); onListo(); }}>
-            <Marca si={actual} />
-            <span className="bc-opcion-txt">{p.nombre}</span>
-            <span className="bc-dim">{rangoCorto(rp.desde, rp.hasta, hoy)}</span>
-          </button>
-        );
-      })}
-      <button type="button" aria-pressed={esPers} aria-expanded={abierto} className="bc-opcion" data-actual={esPers || undefined} data-foco={esPers || undefined} onClick={() => setAbierto((x) => !x)}>
-        <Marca si={esPers} />
-        <span className="bc-opcion-txt">Personalizado</span>
-        <Chevron />
-      </button>
-      {abierto && (
-        <div className="bc-fechas">
-          <label className="bc-fecha">Desde<input type="date" value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)} /></label>
-          <label className="bc-fecha">Hasta<input type="date" value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)} /></label>
-          <button type="button" className="bc-aplicar" disabled={!valido} onClick={() => { onElegir({ preset: 'personalizado', desde, hasta }); onListo(); }}>Aplicar</button>
+    <div className="bc-cuerpo bc-periodo">
+      <div className="bc-presets" role="radiogroup" aria-label="Período">
+        {PRESETS.filter((p) => p.id !== 'personalizado').map((p) => {
+          const rp = rangoDe(p.id, hoy);
+          const actual = c.preset === p.id;
+          return (
+            <button key={p.id} type="button" role="radio" aria-checked={actual} className="bc-preset" data-foco={actual || undefined}
+              title={rangoCorto(rp.desde, rp.hasta, hoy)}
+              onClick={() => { onElegir({ preset: p.id, desde: null, hasta: null }); onListo(); }}>
+              {p.nombre}
+            </button>
+          );
+        })}
+      </div>
+      <div className="bc-pers" data-actual={esPers || undefined}>
+        <div className="bc-pers-tit">Personalizado</div>
+        <div className="bc-pers-fila">
+          <input type="date" aria-label="Desde" value={desde} max={hasta || hoy} onChange={(e) => setDesde(e.target.value)} data-foco={esPers || undefined} />
+          <span aria-hidden className="bc-pers-flecha">→</span>
+          <input type="date" aria-label="Hasta" value={hasta} min={desde || undefined} max={hoy} onChange={(e) => setHasta(e.target.value)} />
         </div>
-      )}
+        <button type="button" className="bc-aplicar" disabled={!valido} onClick={() => { onElegir({ preset: 'personalizado', desde, hasta }); onListo(); }}>Aplicar rango</button>
+      </div>
     </div>
   );
+}
+
+/** El tope del pedido de valores: el de la ruta (60 s) más un margen, como ./valores.ts. */
+const TOPE_VALORES_MS = 65_000;
+
+/**
+ * Los valores de una lista en un informe COMPARTIDO: el mismo pedido que ./valores.ts pero a la ruta del
+ * link, con el token, la hoja y el control (`pedidoDeLectura`). Sin caché entre listas (un informe
+ * compartido se mira, no se edita) y con abort al irse y un tope: un `fetch` sin `signal` con la conexión
+ * caída deja un giro eterno. Con `campo` o `lectura` en null no pide nada.
+ * ⚠️ Es una COPIA del pedido de ./valores.ts, que no es de este paquete: cuando ese hook acepte la ruta
+ *    (pendiente anotado), esto se borra.
+ */
+function useValoresCompartidos(campo: string | null, desde: string, hasta: string, fuentes: readonly string[] | undefined, controlId: string, lectura: LecturaLista | undefined): EstadoValores {
+  const clave = campo && lectura ? [campo, desde, hasta, (fuentes ?? []).join(','), controlId, lectura.componenteId ?? ''].join('|') : '';
+  const [intento, setIntento] = useState(0);
+  const [res, setRes] = useState<{ clave: string; intento: number; valores?: ValorDeCampo[]; error?: string } | null>(null);
+  useEffect(() => {
+    if (!campo || !lectura) return;
+    const ctrl = new AbortController();
+    let vencido = false;
+    const corte = setTimeout(() => { vencido = true; ctrl.abort(); }, TOPE_VALORES_MS);
+    const { ruta, cuerpo } = pedidoDeLectura({ accion: 'valores', hojaId: lectura.hojaId, controlId, componenteId: lectura.componenteId, campo, desde, hasta, fuentes }, lectura.compartido);
+    fetch(ruta, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: ctrl.signal })
+      .then(async (r) => {
+        const j = (await r.json().catch(() => null)) as { valores?: unknown; error?: unknown } | null;
+        if (!r.ok || !j || !Array.isArray(j.valores)) throw new Error(typeof j?.error === 'string' ? j.error : 'No se pudo leer');
+        const valores = (j.valores as unknown[])
+          .filter((x): x is ValorDeCampo => !!x && typeof x === 'object' && typeof (x as ValorDeCampo).valor === 'string' && Number.isFinite((x as ValorDeCampo).filas))
+          .map((x) => ({ valor: x.valor, filas: x.filas }));
+        setRes({ clave, intento, valores });
+      })
+      .catch((e: unknown) => {
+        if (ctrl.signal.aborted && !vencido) return;
+        setRes({ clave, intento, error: vencido ? 'Tardó demasiado' : e instanceof Error ? e.message : 'No se pudo leer' });
+      })
+      .finally(() => clearTimeout(corte));
+    return () => { clearTimeout(corte); ctrl.abort(); };
+    // `fuentes` y `lectura` entran por `clave` (un objeto nuevo por render no es otra pregunta).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clave, intento]);
+  const reintentar = () => setIntento((i) => i + 1);
+  if (!clave) return { cargando: false, error: null, valores: [], reintentar };
+  if (res && res.clave === clave && res.intento === intento) return { cargando: false, error: res.error ?? null, valores: res.valores ?? [], reintentar };
+  return { cargando: true, error: null, valores: [], reintentar };
 }
 
 function PanelLista({ c, ctx, onElegir }: { c: ControlVista; ctx: Contexto; onElegir: (v: ValorControl) => void }) {
   const [q, setQ] = useState('');
   const [aviso, setAviso] = useState<string | null>(null);
-  const est = useValoresCampo(c.campo, ctx.desde, ctx.hasta, ctx.fuentes);
+  // Uno de los dos pide y el otro queda quieto (con el campo en null): un hook no se llama a medias.
+  const conSesion = useValoresCampo(ctx.lectura ? null : c.campo, ctx.desde, ctx.hasta, ctx.fuentes);
+  const delLink = useValoresCompartidos(ctx.lectura ? c.campo : null, ctx.desde, ctx.hasta, ctx.fuentes, c.id, ctx.lectura);
+  const est = ctx.lectura ? delLink : conSesion;
   const { opciones, ocultos } = opcionesDeLista(est.valores, c.valores, q);
   const todos = !c.valores || !c.valores.length;
   const alternar = (valor: string) => {
@@ -383,15 +452,17 @@ function BotonControl({ c, vista, hoy, ctx, chico, editando, soloEntrada, onVist
       <button ref={btn} type="button" className={chico ? 'bc-btn bc-btn--chico' : 'bc-btn'} data-activo={pintaActivo(visto) || undefined}
         aria-haspopup="dialog" aria-expanded={!!ancla} title={detalleControl(visto, hoy)} onClick={abrir}>
         <IconoMenu nombre={ICONO[c.tipo]} size={chico ? 12 : 14} />
+        {/* SÓLO el período («Últimos 30 días»): con el rango al lado se leía como dos filtros (punto 7).
+            El rango exacto va en el `title` (`detalleControl`) y arriba del panel. */}
         <span className="bc-btn-txt">{resumenControl(visto, hoy)}</span>
-        {!chico && c.tipo === 'periodo' && visto.preset !== 'personalizado' && (() => { const r = rangoDelControl(visto, hoy); return <span className="bc-rango">{rangoCorto(r.desde, r.hasta, hoy)}</span>; })()}
         {cambiado && <span className="bc-punto" aria-hidden title="Distinto de lo que muestra de entrada" />}
         <Chevron />
       </button>
       {ancla && (
-        <Popover ancla={ancla} etiqueta={titulo} ancho={c.tipo === 'lista' ? 300 : c.tipo === 'periodo' ? 290 : 250} onCerrar={cerrar}>
+        <Popover ancla={ancla} etiqueta={titulo} ancho={c.tipo === 'lista' ? 300 : c.tipo === 'periodo' ? 320 : 250} onCerrar={cerrar}>
           <div className="bc-pop-cab">
             <span className="bc-pop-tit">{titulo}</span>
+            {c.tipo === 'periodo' && (() => { const r = rangoDelControl(enPanel, hoy); return <span className="bc-dim">{rangoCorto(r.desde, r.hasta, hoy)}</span>; })()}
             {modo === 'entrada' && <span className="bc-pop-modo">De entrada</span>}
           </div>
           {panel}
@@ -413,7 +484,7 @@ function BotonControl({ c, vista, hoy, ctx, chico, editando, soloEntrada, onVist
 
 // ── «＋ Filtro» / «Agregar control a este gráfico» ─────────────────────────────────────────────
 
-function MenuAgregar({ nivel, texto, clase, onAgregar }: { nivel: Nivel; texto: string; clase: string; onAgregar: (c: ControlVista) => void }) {
+function MenuAgregar({ nivel, texto, clase, onAgregar, recorrido }: { nivel: Nivel; texto: string; clase: string; onAgregar: (c: ControlVista) => void; recorrido?: string }) {
   const btn = useRef<HTMLButtonElement>(null);
   const [ancla, setAncla] = useState<HTMLElement | null>(null);
   const [paso, setPaso] = useState<'lista' | 'texto' | null>(null);
@@ -441,7 +512,7 @@ function MenuAgregar({ nivel, texto, clase, onAgregar }: { nivel: Nivel; texto: 
 
   return (
     <>
-      <button ref={btn} type="button" className={clase} aria-haspopup="dialog" aria-expanded={!!ancla} onClick={abrir}
+      <button ref={btn} type="button" className={clase} aria-haspopup="dialog" aria-expanded={!!ancla} onClick={abrir} data-recorrido={recorrido}
         title={lleno ? `Hasta ${MAX_CONTROLES} por ${enHoja ? 'página' : 'gráfico'}` : undefined}>
         <IconoMenu nombre="agregar" size={14} /> <span>{texto}</span>
       </button>
@@ -501,12 +572,13 @@ function MenuAgregar({ nivel, texto, clase, onAgregar }: { nivel: Nivel; texto: 
 // ── Las tres piezas que se exportan ─────────────────────────────────────────────────────────
 
 /**
- * La fila de controles de la página. Lo elegido llama `onVista` (no se guarda); «＋ Filtro» llama
- * `onAgregar` (eso SÍ cambia el informe, y sólo se ofrece si se puede guardar); «Restablecer» limpia la
- * vista. Editando, cada control suma «Lo que muestra de entrada» (`onCambiar`) y «Quitar» (`onQuitar`).
- * La pantalla la pega arriba del lienzo (sticky) y le pone el fondo: esto es sólo la fila.
+ * La fila de controles de la página, en la TOPBAR (./Cabecera.tsx). Lo elegido llama `onVista` (no se
+ * guarda); «Restablecer» limpia la vista. EDITANDO (y sólo si se puede guardar) suma «＋ Filtro»
+ * (`onAgregar`, eso SÍ cambia el informe) y, en cada control, «Lo que muestra de entrada» (`onCambiar`) y
+ * «Quitar» (`onQuitar`). Mirando no se agrega nada (punto 7: «no se debería poder agregar filtros desde
+ * la vista que no sea edición»). `compartido`: el link sin sesión, que lee los valores por su ruta.
  */
-export function BarraControles({ hoja, vista, editando, guardable, hoy, onVista, onAgregar, onCambiar, onQuitar, onRestablecer }: {
+export function BarraControles({ hoja, vista, editando, guardable, hoy, onVista, onAgregar, onCambiar, onQuitar, onRestablecer, compartido = null }: {
   hoja: Hoja;
   vista: VistaValores;
   editando: boolean;
@@ -517,23 +589,26 @@ export function BarraControles({ hoja, vista, editando, guardable, hoy, onVista,
   onCambiar: (id: string, parche: Partial<ControlVista>) => void;
   onQuitar: (id: string) => void;
   onRestablecer: () => void;
+  compartido?: Compartido | null;
 }) {
   const [abrirId, setAbrirId] = useState<string | null>(null);
   const soltarAbrir = useCallback(() => setAbrirId(null), []);
   const elegido = hayVistaElegida(hoja, vista);
-  if (!hoja.controles.length && !guardable && !elegido) return null;
+  const agrega = editando && guardable;
+  if (!hoja.controles.length && !agrega && !elegido) return null;
   const rango = periodoDePagina(hoja, vista, hoy);
+  const lectura = compartido ? { compartido, hojaId: hoja.id } : undefined;
   return (
     <div className="bc-barra" role="toolbar" aria-label="Filtros de la página" data-bc="">
       <EstilosControles />
       {hoja.controles.map((c) => (
         <BotonControl key={c.id} c={c} vista={vista} hoy={hoy}
-          ctx={{ desde: rango.desde, hasta: rango.hasta, fuentes: c.campo ? fuentesDelCampoEnHoja(hoja, c.campo) : undefined }}
-          editando={editando && guardable} onVista={onVista} onCambiar={onCambiar} onQuitar={onQuitar}
+          ctx={{ desde: rango.desde, hasta: rango.hasta, fuentes: c.campo ? fuentesDelCampoEnHoja(hoja, c.campo) : undefined, lectura }}
+          editando={agrega} onVista={onVista} onCambiar={onCambiar} onQuitar={onQuitar}
           autoAbrir={abrirId === c.id} onAutoAbierto={soltarAbrir} />
       ))}
-      {guardable && (
-        <MenuAgregar nivel={{ nivel: 'hoja', hoja }} texto="Filtro" clase="bc-btn bc-agregar"
+      {agrega && (
+        <MenuAgregar nivel={{ nivel: 'hoja', hoja }} texto="Filtro" clase="bc-btn bc-agregar" recorrido="dash-filtro"
           onAgregar={(c) => { onAgregar(c); setAbrirId(c.id); }} />
       )}
       {elegido && (
@@ -551,9 +626,9 @@ export function BarraControles({ hoja, vista, editando, guardable, hoy, onVista,
  * por X» por cada filtro de la página que su conjunto no puede aplicar. Sin nada que decir, no dibuja
  * nada (un contenedor vacío en la cabecera se ve como un hueco).
  */
-export function ChipsControles({ comp, vista, efectivo, hoy, editando, onVista, onCambiarComp }: {
+export function ChipsControles({ comp, hoja, vista, efectivo, hoy, editando, onVista, onCambiarComp, compartido = null }: {
   comp: Grafico | Bloque;
-  /** La hoja de la tarjeta (el contrato la pasa; hoy los chips no la necesitan: `efectivo` ya la resolvió). */
+  /** La hoja de la tarjeta: `efectivo` ya la resolvió; acá sólo da su id al pedido de un link compartido. */
   hoja: Hoja;
   vista: VistaValores;
   efectivo: Efectivo;
@@ -561,18 +636,20 @@ export function ChipsControles({ comp, vista, efectivo, hoy, editando, onVista, 
   editando: boolean;
   onVista: (id: string, valor: ValorControl) => void;
   onCambiarComp: (parche: { controles: ControlVista[] }) => void;
+  compartido?: Compartido | null;
 }) {
   const propios = comp.controles;
   const periodoPropio = efectivo.propio.periodo && !propios.some((c) => c.tipo === 'periodo');
   if (!propios.length && !periodoPropio && !efectivo.noAplica.length) return null;
   const fuentes = comp.clase === 'grafico' ? [comp.fuente] : undefined;
+  const lectura = compartido ? { compartido, hojaId: hoja.id, componenteId: comp.id } : undefined;
   const cambiar = (id: string, parche: Partial<ControlVista>) => onCambiarComp({ controles: propios.map((x) => (x.id === id ? { ...x, ...parche } : x)) });
   const quitar = (id: string) => onCambiarComp({ controles: propios.filter((x) => x.id !== id) });
   return (
     <div className="bc-chips" data-bc="" onMouseDown={parar} onPointerDown={parar} onTouchStart={parar} onClick={parar}>
       <EstilosControles />
       {propios.map((c) => (
-        <BotonControl key={c.id} chico c={c} vista={vista} hoy={hoy} ctx={{ desde: efectivo.desde, hasta: efectivo.hasta, fuentes }}
+        <BotonControl key={c.id} chico c={c} vista={vista} hoy={hoy} ctx={{ desde: efectivo.desde, hasta: efectivo.hasta, fuentes, lectura }}
           editando={editando} onVista={onVista} onCambiar={cambiar} onQuitar={quitar} />
       ))}
       {periodoPropio && (
@@ -641,7 +718,7 @@ function EstilosControles() {
 const CSS = `
 .bc-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-sm); color: var(--ink); }
 .bc-chips { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
-.bc-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; max-width: 280px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); line-height: 1; cursor: pointer; white-space: nowrap; transition: background .14s ease, border-color .14s ease, color .14s ease; }
+.bc-btn { display: inline-flex; align-items: center; gap: 7px; height: 34px; max-width: 260px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); font-weight: 500; line-height: 1; cursor: pointer; white-space: nowrap; transition: background .14s ease, border-color .14s ease, color .14s ease; }
 .bc-btn:hover { background: var(--surface-2); border-color: var(--faint); }
 .bc-btn:focus-visible, .bc-opcion:focus-visible, .bc-pie-btn:focus-visible, .bc-solo:focus-visible, .bc-link:focus-visible, .bc-volver:focus-visible, .bc-x:focus-visible, .bc-aplicar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .bc-btn[aria-expanded="true"] { border-color: var(--primary); }
@@ -650,7 +727,6 @@ const CSS = `
 .bc-btn > svg { flex: none; color: var(--dim); }
 .bc-btn[data-activo] > svg { color: inherit; }
 .bc-btn-txt { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.bc-rango { flex: none; color: var(--faint); font-size: var(--fs-meta); }
 .bc-punto { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
 .bc-chev { flex: none; color: var(--faint); }
 .bc-btn--chico { height: 22px; max-width: 200px; gap: 4px; padding: 0 7px; font-size: var(--fs-meta); border-radius: 6px; }
@@ -708,14 +784,25 @@ const CSS = `
 .bc-solo:hover { background: var(--primary-bg); }
 @media (hover: none) { .bc-solo { opacity: 1; } }
 
-.bc-fechas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 4px 12px 8px 36px; }
-.bc-fecha { display: flex; flex-direction: column; gap: 3px; color: var(--dim); font-size: var(--fs-meta); }
-.bc-fecha input { height: 30px; padding: 0 6px; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); color-scheme: light; }
-html[data-tema="oscuro"] .bc-fecha input { color-scheme: dark; }
-.bc-fecha input:focus { outline: none; border-color: var(--primary); }
-.bc-aplicar { grid-column: 1 / -1; justify-self: end; height: 30px; padding: 0 14px; border: 0; border-radius: var(--r-sm); background: var(--primary); color: var(--on-primary); font: inherit; font-weight: 600; cursor: pointer; }
+/* El período con el diseño de FechaFiltro (app/_components/FechaFiltro.tsx): pastillas en dos columnas y
+   «Personalizado» abajo, separado por un filete. */
+.bc-periodo { padding: 2px 12px 12px; }
+.bc-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.bc-preset { min-height: 34px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; transition: border-color .14s ease, background .14s ease; }
+.bc-preset:hover { border-color: var(--border-strong); }
+.bc-preset[aria-checked="true"] { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-strong); font-weight: 600; }
+.bc-preset:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.bc-pers { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.bc-pers-tit { margin-bottom: 8px; color: var(--dim); font-size: var(--fs-meta); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.bc-pers[data-actual] .bc-pers-tit { color: var(--primary-strong); }
+.bc-pers-fila { display: flex; align-items: center; gap: 8px; }
+.bc-pers-fila input { flex: 1 1 0; min-width: 0; height: 34px; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: var(--fs-sm); color-scheme: light; }
+html[data-tema="oscuro"] .bc-pers-fila input { color-scheme: dark; }
+.bc-pers-fila input:focus { outline: none; border-color: var(--primary); }
+.bc-pers-flecha { flex: none; color: var(--faint); }
+.bc-aplicar { display: block; width: 100%; height: 36px; margin-top: 8px; padding: 0 14px; border: 0; border-radius: 9px; background: var(--primary); color: var(--on-primary); font: inherit; font-weight: 600; cursor: pointer; }
 .bc-aplicar:hover:not(:disabled) { background: var(--primary-strong); }
-.bc-aplicar:disabled { opacity: .5; cursor: default; }
+.bc-aplicar:disabled { opacity: .45; cursor: default; }
 .bc-volver { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--dim); cursor: pointer; }
 .bc-volver:hover { background: var(--surface-2); color: var(--ink); }
 

@@ -54,6 +54,9 @@
 //   · destinoDeClosing pierde el ?ws=                                        -> 21 / 1 «?llamada= abre la ficha…»
 //   · hojaDestino sin el tope de hojas                                       -> 21 / 1 «…con el informe lleno se avisa»
 //   · el video con mínimo 1 × 1                                              -> 21 / 1 (C4)
+//   Y la tanda de la TOPBAR (11/10/2026, corrido junto con tests/dashboard-topbar.test.ts, base 35 / 0):
+//   · `guardable` sin `!compartido`                                         -> 33 / 2 «…enchufado» y el del link
+//   · el detalle de un número con `soloLectura` en vez de `soloMirar`         -> 33 / 2 los mismos dos
 // ⚠️ La primera pasada del arnés NO pudo restaurar la segunda rotura (el fragmento roto
 // `icon: 'graphics', match:` ya estaba en otros ítems del nav) y las trece siguientes corrieron sobre una
 // base rota, con un fallo de más cada una. Se restauró a mano y se volvieron a correr: los números de
@@ -460,11 +463,14 @@ test('el modo closer está enchufado: la página, la ruta y la pantalla (leyendo
   // El closer sólo llega a lo de Closing ANTES de cualquier acción: el chequeo va antes del primer `accion ===`.
   assert.ok(ruta.indexOf('closerPuedePedir(body)') < ruta.indexOf("body.accion === 'guardar'"), 'el chequeo del closer va después de guardar');
   const ed = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
-  assert.match(ed, /const guardable = !lecturaFallo && !soloLectura;/, 'el closer podría guardar');
-  assert.match(ed, /\{!soloLectura && \(\s*<span className="lk-analista"/, 'el closer ve el AI Analyst');
-  assert.match(ed, /\{!soloLectura && \(\s*<button type="button" className="lk-pill lk-pill--azul" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/, 'el closer ve Editar');
-  assert.match(ed, /onDetalle=\{editando \|\| soloLectura \? undefined :/, 'el closer abre el detalle de un número (403)');
-  assert.match(ed, /\{est\.resultado && !soloLectura && \(/, 'el closer ve el chat de MaKo de cada gráfico');
+  // Desde la tanda de la topbar (11/10/2026) el closer y el link compartido comparten `soloMirar`, y el AI
+  // Analyst es una opción del ⋮ (no un botón suelto).
+  assert.match(ed, /const guardable = !lecturaFallo && !soloLectura && !compartido;/, 'el closer podría guardar');
+  assert.match(ed, /const soloMirar = soloLectura \|\| !!compartido;/, 'el closer dejó de ser «sólo mirar»');
+  assert.match(ed, /\{!soloMirar && \(\s*<>\s*<button type="button" role="menuitem" className="lk-opcion lk-opcion--mako"/, 'el closer ve el AI Analyst');
+  assert.match(ed, /\{!soloMirar && \(\s*<button type="button" className="lk-pill" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/, 'el closer ve Editar');
+  assert.match(ed, /onDetalle=\{editando \|\| soloMirar \? undefined :/, 'el closer abre el detalle de un número (403)');
+  assert.match(ed, /\{est\.resultado && !soloMirar && \(/, 'el closer ve el chat de MaKo de cada gráfico');
 });
 
 test('?llamada= abre la ficha: un entero positivo o nada, y /closing?call= se traduce', () => {
@@ -486,7 +492,7 @@ test('?llamada= abre la ficha: un entero positivo o nada, y /closing?call= se tr
   // Y la pantalla la monta: page.tsx la valida con la misma función y EditorInforme abre FichaLlamada.
   assert.match(sinComentarios(leer('app/dashboard/page.tsx')), /const llamada = llamadaDeUrl\(p\.llamada\);/);
   const ed = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
-  assert.match(ed, /\{llamada != null && <FichaLlamada recordingId=\{llamada\} onCerrar=\{cerrarLlamada\}/);
+  assert.match(ed, /\{llamada != null && !compartido && <FichaLlamada recordingId=\{llamada\} onCerrar=\{cerrarLlamada\}/);
   assert.match(ed, /qs\.delete\('llamada'\);[\s\S]{0,120}window\.history\.replaceState\(null, '', conWs\(/, 'al cerrar, la llamada no se va de la URL');
 });
 

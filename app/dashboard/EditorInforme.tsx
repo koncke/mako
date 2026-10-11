@@ -5,19 +5,23 @@
 // =============================================================================
 // Pedidos de Martín (10-11/10/2026): «Puedes copiar la app de Google Data Studio para esto», «Todo la tab
 // de Dashboard debe ser el editable, no lo pongas como un recuadro abajo», y el feedback de veinticuatro
-// puntos del 11/10 (el texto literal está en app/admin/dev/dashboard/bitacora.ts). Cómo quedó, de arriba
+// puntos del 11/10 (el texto literal está en app/admin/dev/dashboard/bitacora.ts) y la tanda de la TOPBAR
+// del mismo día (nueve puntos: «La topbar se tiene que ver igual a la de looker»). Cómo quedó, de arriba
 // abajo:
 //
-//   · LA FILA DE ARRIBA (./Cabecera.tsx): el ícono de la tab (el de la sidebar), las HOJAS con su menú
-//     (⋮ y clic derecho, también mirando), la pestaña «Nueva hoja» y a la derecha el «?», AI Analyst,
-//     Exportar, Editar/Ver y el ⋯ (Restablecer el informe). Sin «Dashboard» y sin «Guardado»: un
-//     guardado que falla avisa con un toast.
-//   · LA BARRA DE EDICIÓN, sólo editando, DEBAJO de las hojas (punto 7: las hojas no se mueven al apretar
-//     Editar): deshacer, rehacer, Añadir un gráfico (con los bloques de MaKo), Insertar, Añadir datos y
-//     Estilo (el de TODA la hoja, ./PanelEstilo.tsx).
-//   · EL LIENZO, que es lo único que scrollea: la cabecera de la hoja (emoji, título, subtítulo), la barra
-//     de CONTROLES pegada arriba (sticky, ./BarraControles.tsx: los filtros de la vista, que andan también
-//     mirando) y la grilla. Una sola superficie: var(--bg) de punta a punta (./editor-css.ts).
+//   · LA TOPBAR (./Cabecera.tsx, `BarraSuperior`), como la de Looker: el emoji, el TÍTULO de la hoja con
+//     su ▾ (el desplegable de las hojas, con «Nueva hoja» primera) y debajo el SUBTÍTULO, donde Looker
+//     pone «Archivo · Vista · Página · Ayuda»; los tres se editan con un clic, también mirando. A la
+//     derecha: los FILTROS de la hoja (./BarraControles.tsx, siempre a la vista; agregarlos o quitarlos,
+//     sólo editando), Compartir (./CompartirInforme.tsx, del paquete «Compartir»), Editar/Ver y el ⋮ con
+//     AI Analyst, Exportar (CSV y PDF) y la guía. Sin pestañas, sin el ícono de la tab, sin «Restablecer
+//     el informe» y sin «Guardado»: un guardado que falla avisa con un toast.
+//   · LA BARRA DE EDICIÓN, sólo editando, DEBAJO de la topbar (la topbar no se mueve al apretar Editar),
+//     en el orden de la de Looker: deshacer, rehacer · Añadir datos · Añadir un gráfico (con los bloques
+//     de MaKo) · lo que se inserta, un ícono por cosa (`BARRA_INSERTAR`, ./Galeria.tsx) · y a la derecha
+//     Estilo de la hoja (./PanelEstilo.tsx).
+//   · EL LIENZO, que es lo único que scrollea: la grilla. Una sola superficie: var(--bg) de punta a punta
+//     (./editor-css.ts), sin filete entre la topbar y el lienzo.
 //   · EL PANEL DE PROPIEDADES, sólo con algo elegido (./Propiedades.tsx): el CONTENIDO del componente.
 //   · EL AI ANALYST, un panel del costado en la misma fila que el lienzo (./PanelAnalista.tsx): es un
 //     `aside` de alto completo, no un modal.
@@ -52,48 +56,58 @@
 //     Exportar sí. ⚠️ La pantalla sólo esconde: lo que cierra es /api/graficos (`closerPuedePedir`).
 //   · `llamadaInicial` (`?llamada=`): abre la ficha de esa llamada (./bloques/extra/FichaLlamada.tsx);
 //     al cerrarla se saca de la URL con el mismo replaceState que usa la hoja.
+//
+// `compartido` (punto 9, el link que arma el paquete «Compartir»): quien lo abre NO tiene sesión. Sin
+// Editar, sin Compartir, sin AI Analyst, sin «Nueva hoja» ni el menú de una hoja, sin el chat de MaKo de
+// cada gráfico, sin el DETALLE de un número (son listas de personas: el endpoint público lo contesta 403,
+// así que el clic no lo ofrece), sin guía y sin guardar nunca; el ⋮ sólo con Exportar. Y TODO lo que se
+// LEE va a /api/compartido/graficos con el token, el id de la hoja y el de cada componente
+// (`pedidoDeLectura`, ./lectura-compartida.ts, que es el contrato con ese endpoint). Igual que con el
+// closer: la pantalla sólo esconde; lo que cierra es el endpoint.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
 import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } from 'react-grid-layout';
 import { absoluteStrategy } from 'react-grid-layout/core';
 import 'react-grid-layout/css/styles.css';
-import { Banner, Modal, Toast, useConfirm, useToast } from '@/app/_ui';
+import { Banner, Modal, Toast, useToast } from '@/app/_ui';
 import { useWs } from '@/app/_ui/Link';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
-import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
-import { BotonRecorrido, Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
-import { MakoButton } from '@/app/_components/ChartIA';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
+import { EmojiPicker } from '@/app/whatsapp/EmojiPicker';
 import { useHojasDeFuentes } from '@/app/_cursos/SelectorFuente';
 import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
 import {
-  AREAS, COLS, FUENTES, MAX_COMPONENTES, MAX_CONTROLES, MAX_HOJAS,
+  AREAS, COLS, FUENTES, MAX_COMPONENTES, MAX_CONTROLES, MAX_HOJAS, TIPOS_ELEMENTO,
   campoDe, efectivoDe, esBloque, esElemento, esGrafico, minimoDeElemento, nuevoBloque, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
   sanearComponente, sanearControlVista, sanearControles, tituloDe, tonoDe,
   type BloqueId, type Componente, type ControlVista, type Efectivo, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
 import { colorDeTono, estiloEfectivo, letrasDe, paletaDe, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
-import { conHojaAgregada, tableroInicial } from '@/lib/graficos-plantillas';
+import { conHojaAgregada } from '@/lib/graficos-plantillas';
 import type { Resultado } from '@/lib/graficos-agregar';
 import type { DatosGrafico } from '@/lib/graficos-datos';
 import type { DatosBloque } from '@/lib/graficos-bloques';
 import type { SelDetalle } from '@/lib/graficos-acciones';
 import { CuerpoGrafico, esTarjetaNumero, type EstadoDatos } from './Grafico';
 import { CuerpoBloque, type EstadoBloque } from './bloques/CuerpoBloque';
-import { CuerpoElemento, PropsElemento } from './Elemento';
+import { CuerpoElemento, IconoElemento, PropsElemento } from './Elemento';
 import { NuevaHoja } from './NuevaHoja';
-import { BotonAnalista, PanelAnalista } from './PanelAnalista';
+import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
 import { BarraControles, ChipsControles } from './BarraControles';
 import { DetalleModal } from './Detalle';
 import { FichaLlamada } from './bloques/extra/FichaLlamada';
-import { CabeceraHoja, FilaHojas } from './Cabecera';
+import { BarraSuperior, MenuHojas } from './Cabecera';
+import { BotonCompartir } from './CompartirInforme';
 import { PropsBloque, PropsGrafico } from './Propiedades';
 import { PanelEstilo } from './PanelEstilo';
 import {
-  Flotante, Galeria, MenuInsertar, SvgAgregarDatos, SvgAgregarGrafico, SvgDeshacer, SvgEstilo, SvgExportar, SvgFlecha, SvgInsertar, SvgLapiz, SvgLupa, SvgOjo,
+  BARRA_INSERTAR, Flotante, Galeria, MenuElementos, MenuInsertar, SvgAgregarDatos, SvgAgregarGrafico, SvgDeshacer, SvgEstilo, SvgFlecha, SvgInsertar, SvgLapiz, SvgLupa, SvgOjo,
 } from './Galeria';
 import { CSS } from './editor-css';
 import { contextoDeGrafico, csvDeHoja, enOrden, loQueSeVeDe, nombreArchivo, pedidosDeHoja, periodoDeHoja, type PedidosHoja } from './exportar';
+import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
@@ -110,9 +124,9 @@ const minimoDe = (c: Componente): { w: number; h: number } => (esElemento(c) ? m
 const RESPIRO_GUARDAR_MS = 700;
 const RESPIRO_DATOS_MS = 250;
 
+/** Los flotantes del editor: uno a la vez. `hojas` es el desplegable del título; `mas`, el ⋮ de la topbar. */
 type Menu =
-  | { ancla: HTMLElement; tipo: 'graficos' | 'cambiarTipo' | 'insertar' | 'estilo' | 'exportar' | 'mas' }
-  | { ancla: HTMLElement; tipo: 'hoja'; hojaId: string }
+  | { ancla: HTMLElement; tipo: 'graficos' | 'cambiarTipo' | 'insertar' | 'lineas' | 'formas' | 'estilo' | 'mas' | 'hojas' | 'emoji' }
   | null;
 
 function aEstado(d: DatosGrafico | undefined): EstadoDatos {
@@ -135,6 +149,8 @@ function conIdsNuevos(c: Componente): Componente {
   return { ...c, id: nuevoId(), controles: c.controles.map((k) => ({ ...k, id: nuevoId() })) };
 }
 const altoDe = (h: number) => h * FILA + (h - 1) * MARGEN;
+/** El `title` de un ícono suelto de la barra de inserción: la acción y su objeto («Insertar imagen»). */
+const etiquetaInsertar = (t: TipoElemento) => (t === 'insertado' ? 'Insertar una página o un código' : `Insertar ${(TIPOS_ELEMENTO.find((x) => x.id === t)?.nombre ?? t).toLowerCase()}`);
 function descargar(texto: string, nombre: string, tipo: string) {
   const url = URL.createObjectURL(new Blob([texto], { type: tipo }));
   const a = document.createElement('a');
@@ -148,7 +164,7 @@ function descargar(texto: string, nombre: string, tipo: string) {
 
 export function EditorInforme({
   inicial, datosIniciales, bloquesIniciales, lecturaFallo, hoy, hojaInicial,
-  hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null,
+  hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -164,6 +180,8 @@ export function EditorInforme({
   soloLectura?: boolean;
   /** `?llamada=`: el recording_id de la llamada cuya ficha se abre al entrar. */
   llamadaInicial?: number | null;
+  /** El link compartido (sin sesión): se mira y se exporta; lo que se lee va por la ruta del link. */
+  compartido?: Compartido | null;
 }) {
   // El informe del primer render: el que vino, más la hoja que pidió el link si no estaba.
   const [arranque] = useState<Tablero>(() => conHojaAgregada(inicial, hojaAgregada));
@@ -179,7 +197,6 @@ export function EditorInforme({
   const [nuevaHoja, setNuevaHoja] = useState(false);
   const [analista, setAnalista] = useState(false);
   const [detalle, setDetalle] = useState<{ id: string; sel: SelDetalle } | null>(null);
-  const [renombrando, setRenombrando] = useState<string | null>(null);
   const [vista, setVista] = useState<VistaValores>({});
   const [version, setVersion] = useState(0);
   const [imprimiendo, setImprimiendo] = useState(false);
@@ -194,11 +211,13 @@ export function EditorInforme({
     return o;
   });
   const { toast, show, clear } = useToast(6000);
-  const { confirm, confirmNode } = useConfirm();
   const { width, containerRef, mounted } = useContainerWidth();
   const ws = useWs();
-  // Mirando sin poder guardar: la lectura falló (el primer cambio pisaría el informe real) o es el closer.
-  const guardable = !lecturaFallo && !soloLectura;
+  // Mirando sin poder guardar: la lectura falló (el primer cambio pisaría el informe real), es el closer o
+  // es un link compartido.
+  const guardable = !lecturaFallo && !soloLectura && !compartido;
+  // Sólo mirar, sin nada de lo que es del admin (Editar, AI Analyst, el chat de MaKo, el detalle de un número).
+  const soloMirar = soloLectura || !!compartido;
 
   const hoja = tablero.hojas.find((h) => h.id === hojaId) ?? tablero.hojas[0];
   const sel = editando ? hoja.componentes.find((c) => c.id === selId) ?? null : null;
@@ -206,8 +225,11 @@ export function EditorInforme({
   // ── El recorrido: uno para mirar y otro para editar (el «?» abre el del lugar) ─────────────────
   // No se abre solo con un menú o un modal abierto: los flotantes del editor van por encima del velo.
   const capaAbierta = !!menu || modalDatos || nuevaHoja || analista || !!detalle || llamada != null;
-  const recorrido = useRecorrido(RECORRIDO_DASHBOARD, { autoabrir: !editando && !capaAbierta });
-  const recorridoEdicion = useRecorrido(RECORRIDO_DASHBOARD_EDICION, { autoabrir: editando && !recorrido.abierto && !capaAbierta });
+  // En un link compartido no hay guía: quien entra no tiene sesión (`soloLocal`: no le pregunta nada al
+  // server) y el ⋮ es sólo Exportar.
+  const conGuia = !compartido;
+  const recorrido = useRecorrido(RECORRIDO_DASHBOARD, { autoabrir: conGuia && !editando && !capaAbierta, soloLocal: !conGuia });
+  const recorridoEdicion = useRecorrido(RECORRIDO_DASHBOARD_EDICION, { autoabrir: conGuia && editando && !recorrido.abierto && !capaAbierta, soloLocal: !conGuia });
   const enRecorrido = recorrido.abierto || recorridoEdicion.abierto;
 
   // ── El tema de la hoja: su letra se baja, sus variables pintan el lienzo ─────────────────────
@@ -244,12 +266,15 @@ export function EditorInforme({
     for (const x of p0.bloques) if (bloquesIniciales[x.b.id]) f[x.b.id] = x.firma;
     firmaPedida.current = f;
   }
+  // El link compartido por el que se entró (o nadie): decide a qué ruta van las LECTURAS (./lectura-compartida.ts).
+  const tokenLink = compartido?.token ?? null;
   useEffect(() => {
     const firmas = firmaPedida.current!;
     const p = pedidosDeHoja(hoja, vista, hoy, version);
     const graficos = p.graficos.filter((x) => firmas[x.g.id] !== x.firma);
     const bloques = p.bloques.filter((x) => firmas[x.b.id] !== x.firma);
     if (!graficos.length && !bloques.length) return;
+    const link = tokenLink ? { token: tokenLink } : null;
 
     const pedirGraficos = async (lista: PedidosHoja['graficos']) => {
       setDatos((prev) => {
@@ -260,9 +285,12 @@ export function EditorInforme({
       let respuesta: Record<string, DatosGrafico> = {};
       let fallo = false;
       try {
-        const r = await fetch('/api/graficos', {
+        // Con sesión, /api/graficos con el cuerpo de siempre; en un link compartido, la ruta del link con
+        // el token, la hoja y el id de cada gráfico.
+        const { ruta, cuerpo } = pedidoDeLectura({ accion: 'datos', hojaId: hoja.id, pedidos: lista.map((x) => ({ id: x.g.id, pedido: x.pedido })) }, link);
+        const r = await fetch(ruta, {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ accion: 'datos', pedidos: lista.map((x) => x.pedido) }),
+          body: JSON.stringify(cuerpo),
           signal: AbortSignal.timeout(65_000),
         });
         if (!r.ok) fallo = true; else respuesta = (await r.json()).datos ?? {};
@@ -286,9 +314,10 @@ export function EditorInforme({
       let respuesta: Record<string, DatosBloque> = {};
       let fallo = false;
       try {
-        const r = await fetch('/api/graficos', {
+        const { ruta, cuerpo } = pedidoDeLectura({ accion: 'bloques', hojaId: hoja.id, pedidos: lista.map((x) => ({ id: x.b.id, pedido: x.pedido })) }, link);
+        const r = await fetch(ruta, {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ accion: 'bloques', pedidos: lista.map((x) => x.pedido) }),
+          body: JSON.stringify(cuerpo),
           signal: AbortSignal.timeout(65_000),
         });
         if (!r.ok) fallo = true; else respuesta = (await r.json()).datos ?? {};
@@ -311,7 +340,7 @@ export function EditorInforme({
       if (bloques.length) void pedirBloques(bloques);
     }, RESPIRO_DATOS_MS);
     return () => clearTimeout(t);
-  }, [hoja, vista, hoy, version]);
+  }, [hoja, vista, hoy, version, tokenLink]);
   /** Después de una acción que cambia los datos (una cuota cobrada): todo lo de la hoja se vuelve a pedir. */
   const refrescar = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -464,17 +493,7 @@ export function EditorInforme({
     agregarComponente(nuevoGrafico('tabla', hoja.componentes, id));
   };
   const fuenteParaNuevo = () => (sel && esGrafico(sel) ? sel.fuente : 'negocio');
-  const restablecer = async () => {
-    setMenu(null);
-    const ok = await confirm('Vuelve al informe inicial de MaKo, con sus dos hojas. Puedes deshacerlo.', { title: '¿Restablecer el informe?', confirmLabel: 'Restablecer' });
-    if (!ok) return;
-    const ini = tableroInicial();
-    mutar(() => ini);
-    setVista({});
-    setSelId(null);
-    irAHoja(ini.hojas[0].id);
-    show('Informe restablecido', () => pila.deshacer());
-  };
+  // «Restablecer el informe» se fue (punto 2 de la tanda de la topbar: «eso no tiene sentido, eliminalo»).
 
   // ── Los controles de la hoja (la barra de arriba) y los de cada gráfico (su cabecera) ─────────
   /**
@@ -548,9 +567,11 @@ export function EditorInforme({
   // ── Los modales: onCerrar con identidad FIJA (AGENTS.md: si no, el foco salta en cada tecla) ──────
   const cerrarNuevaHoja = useCallback(() => setNuevaHoja(false), []);
   const cerrarAnalista = useCallback(() => setAnalista(false), []);
-  const alternarAnalista = useCallback(() => setAnalista((v) => !v), []);
+  const alternarAnalista = useCallback(() => { setMenu(null); setAnalista((v) => !v); }, []);
   const cerrarModalDatos = useCallback(() => setModalDatos(false), []);
   const loQueSeVe = useMemo(() => (analista ? loQueSeVeDe(hoja, resultados, efectivos) : []), [analista, hoja, resultados, efectivos]);
+  // El punto de «hay un análisis nuevo», en el ⋮ y en su opción. Al closer y a un link, nada: no tienen AI Analyst.
+  const analisisNuevo = useAnalisisNuevo(hoja.id, analista, !soloMirar);
 
   // ── Exportar ─────────────────────────────────────────────────────────────────────────────────
   const exportarCsv = () => {
@@ -617,9 +638,14 @@ export function EditorInforme({
   // que puede ser el último que se agregó y estar abajo de todo.
   const primerGrafico = enOrden(hoja.componentes).find(esGrafico)?.id ?? null;
   const alternarEdicion = () => { setEditando((v) => !v); setSelId(null); setMenu(null); setDetalle(null); };
-  const abrirMenu = (tipo: Exclude<NonNullable<Menu>['tipo'], 'hoja'>) => (e: ReactMouseEvent<HTMLElement>) => {
+  const puedeNuevaHoja = guardable && tablero.hojas.length < MAX_HOJAS;
+  /** Un elemento de la barra de inserción (o de su menú), agregado a la hoja. */
+  const insertar = (t: TipoElemento) => { setMenu(null); agregarComponente(nuevoElemento(t, hoja.componentes)); };
+  /** Abre (o cierra, si ya estaba abierto) un flotante anclado a `ancla`. */
+  const alternarMenu = (tipo: NonNullable<Menu>['tipo'], ancla: HTMLElement) => setMenu((m) => (m && m.tipo === tipo ? null : { ancla, tipo }));
+  const abrirMenu = (tipo: NonNullable<Menu>['tipo']) => (e: ReactMouseEvent<HTMLElement>) => {
     const ancla = e.currentTarget;
-    setMenu((m) => (m && m.tipo === tipo ? null : { ancla, tipo }));
+    alternarMenu(tipo, ancla);
   };
 
   /** Una tarjeta de la grilla (o de la pila del celular). */
@@ -637,7 +663,7 @@ export function EditorInforme({
     }
     const ef = efectivos[c.id] ?? efectivoDe(c, hoja, vista, hoy);
     const chips = (
-      <ChipsControles comp={c} hoja={hoja} vista={vista} efectivo={ef} hoy={hoy} editando={editando} onVista={onVista} onCambiarComp={(p) => cambiar(c.id, p)} />
+      <ChipsControles comp={c} hoja={hoja} vista={vista} efectivo={ef} hoy={hoy} editando={editando} onVista={onVista} onCambiarComp={(p) => cambiar(c.id, p)} compartido={compartido} />
     );
     if (esBloque(c)) {
       const est = datosBloque[c.id] ?? { cargando: true };
@@ -672,18 +698,21 @@ export function EditorInforme({
           </div>
           <div className="lk-comp-acciones lk-no-arrastrar" onClick={(e) => e.stopPropagation()}>
             {chips}
-            {/* El chat de MaKo de cada gráfico (el de las tabs viejas), también mirando. Sin personas: ./exportar.ts.
-                Al closer no: su tab de antes no lo tenía, y es IA que gasta en una vista de sólo lectura. */}
-            {est.resultado && !soloLectura && (
+            {/* El chat de MaKo de cada gráfico (el de las tabs viejas), también mirando, con el botón CHICO (sólo
+                el logo sobre negro, punto 3). Sin personas: ./exportar.ts. Al closer y a un link no: su tab de
+                antes no lo tenía, es IA que gasta en una vista de sólo lectura, y sin sesión no hay chat. */}
+            {est.resultado && !soloMirar && (
               <span className="lk-mako" data-recorrido={c.id === primerGrafico ? 'dash-mako' : undefined}>
-                <MakoButton chartKey={`dashboard:${hoja.id}:${c.id}`} titulo={tituloDe(c)} contexto={contextoDeGrafico(c, est.resultado, ef)} />
+                <ChatMakoGrafico chartKey={`dashboard:${hoja.id}:${c.id}`} titulo={tituloDe(c)} contexto={contextoDeGrafico(c, est.resultado, ef)} />
               </span>
             )}
           </div>
         </div>
         {!kpi && c.subtitulo && <div className="lk-comp-sub" title={c.subtitulo}>{c.subtitulo}</div>}
-        {/* El detalle de un número pide `detalle` a /api/graficos, que al closer le contesta 403: no se ofrece. */}
-        <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloLectura ? undefined : (s) => setDetalle({ id: c.id, sel: s })} />
+        {/* El detalle de un número pide `detalle` a /api/graficos: al closer le contesta 403, y en un link
+            compartido no se ofrece (son listas de personas; el endpoint del link también lo contesta 403).
+            Sin `onDetalle`, el clic en un número no hace nada y no se pinta como clicable. */}
+        <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : (s) => setDetalle({ id: c.id, sel: s })} />
       </div>
     );
   };
@@ -694,56 +723,74 @@ export function EditorInforme({
     <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}`}>
       {lecturaFallo && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local">No pude leer tu informe. Los cambios no se guardan.</Banner></div>}
 
-      {/* ── La fila de arriba: el ícono, las hojas y las acciones ── */}
-      <FilaHojas
-        hojas={tablero.hojas} activa={hoja.id} guardable={guardable} renombrando={renombrando}
-        puedeNueva={guardable && tablero.hojas.length < MAX_HOJAS}
-        onIr={irAHoja}
-        onMenu={(ancla, id) => setMenu({ ancla, tipo: 'hoja', hojaId: id })}
-        onRenombrar={renombrarHoja}
-        onFinRenombre={() => setRenombrando(null)}
-        onNueva={() => setNuevaHoja(true)}
-        acciones={(
+      {/* ── La topbar, como la de Looker: el título de la hoja (con su desplegable) y a la derecha los
+             filtros, Compartir, Editar y el ⋮ ── */}
+      <BarraSuperior
+        hoja={hoja} editable={guardable} conHojas={puedeNuevaHoja || tablero.hojas.length > 1}
+        hojasAbierto={menu?.tipo === 'hojas'} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hoja, vista, hoy)}
+        onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
+        derecha={(
           <>
-            <BotonRecorrido objetivo="dash-ayuda" titulo={editando ? 'Ver la guía de edición' : 'Ver la guía del Dashboard'} onClick={editando ? recorridoEdicion.reabrir : recorrido.reabrir} />
-            {/* El botón de MaKo de la casa, con el punto de «hay un análisis nuevo» (./PanelAnalista.tsx).
-                Al closer no: /api/graficos/analisis es sólo del admin. */}
-            {!soloLectura && (
-              <span className="lk-analista" data-recorrido="dash-analista">
-                <BotonAnalista hojaId={hoja.id} abierto={analista} onClick={alternarAnalista} />
-              </span>
-            )}
-            <button type="button" className="lk-pill" data-recorrido="dash-exportar" aria-haspopup="menu" aria-expanded={menu?.tipo === 'exportar'} onClick={abrirMenu('exportar')}>
-              <SvgExportar /> Exportar <SvgFlecha />
-            </button>
-            {!soloLectura && (
-              <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={alternarEdicion}>
+            {/* Los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando. */}
+            <div className="lk-top-filtros" data-recorrido="dash-controles">
+              <BarraControles
+                hoja={hoja} vista={vista} editando={editando} guardable={guardable} hoy={hoy} compartido={compartido}
+                onVista={onVista} onAgregar={agregarControl} onCambiar={cambiarControl} onQuitar={quitarControl} onRestablecer={restablecerVista}
+              />
+            </div>
+            {/* Compartir (punto 9): lo implementa el paquete «Compartir» con esta misma firma. Sólo quien puede
+                guardar comparte: el closer no, y desde un link no se re-comparte. */}
+            {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} />}
+            {!soloMirar && (
+              <button type="button" className="lk-pill" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={alternarEdicion}>
                 {editando ? <><SvgOjo /> Ver</> : <><SvgLapiz /> Editar</>}
               </button>
             )}
-            {guardable && (
-              <button type="button" className="lk-pill lk-pill--icono" aria-label="Más opciones" aria-haspopup="menu" aria-expanded={menu?.tipo === 'mas'} onClick={abrirMenu('mas')}>⋯</button>
-            )}
+            {/* El ⋮ (punto 4): el AI Analyst, Exportar y la guía. «Restablecer el informe» se fue (punto 2). */}
+            <button type="button" className="lk-pill lk-pill--icono lk-mas" data-recorrido="dash-ayuda" aria-label={analisisNuevo ? 'Más opciones: hay un análisis nuevo' : 'Más opciones'}
+              title="Más opciones" aria-haspopup="menu" aria-expanded={menu?.tipo === 'mas'} onClick={abrirMenu('mas')}>
+              <span aria-hidden>⋮</span>
+              {analisisNuevo && <PuntoNuevo />}
+            </button>
           </>
         )}
       />
 
-      {/* ── La barra de edición: DEBAJO de las hojas, así las hojas no se mueven al apretar Editar ── */}
+      {/* ── La barra de edición: DEBAJO de la topbar (la topbar no se mueve al apretar Editar), en el orden
+             de la de Looker. Agregar un filtro está en la topbar, al lado de los filtros (sólo editando). ── */}
       {editando && (
         <div className="lk-barra" role="toolbar" aria-label="Herramientas de la hoja">
           <button type="button" className="lk-herr lk-herr--icono" data-recorrido="dash-deshacer" onClick={pila.deshacer} disabled={!pila.puedeDeshacer} title="Deshacer (Ctrl+Z)" aria-label="Deshacer"><SvgDeshacer /></button>
           <button type="button" className="lk-herr lk-herr--icono" onClick={pila.rehacer} disabled={!pila.puedeRehacer} title="Rehacer (Ctrl+Y)" aria-label="Rehacer"><SvgDeshacer espejo /></button>
           <span className="lk-sep" />
+          <button type="button" className="lk-herr" data-recorrido="dash-datos" onClick={() => setModalDatos(true)}><SvgAgregarDatos /> Añadir datos</button>
+          <span className="lk-sep" />
           <button type="button" className="lk-herr" data-recorrido="dash-anadir-grafico" aria-haspopup="menu" aria-expanded={menu?.tipo === 'graficos'} onClick={abrirMenu('graficos')}>
             <SvgAgregarGrafico /> Añadir un gráfico <SvgFlecha />
           </button>
-          <button type="button" className="lk-herr" data-recorrido="dash-insertar" aria-haspopup="menu" aria-expanded={menu?.tipo === 'insertar'} onClick={abrirMenu('insertar')}>
-            <SvgInsertar /> Insertar <SvgFlecha />
-          </button>
-          <button type="button" className="lk-herr" data-recorrido="dash-datos" onClick={() => setModalDatos(true)}><SvgAgregarDatos /> Añadir datos</button>
           <span className="lk-sep" />
-          <button type="button" className="lk-herr" data-recorrido="dash-estilo" aria-haspopup="dialog" aria-expanded={menu?.tipo === 'estilo'} onClick={abrirMenu('estilo')}>
-            <SvgEstilo /> Estilo <SvgFlecha />
+          {/* Lo que se inserta, un ícono por cosa y en el orden de Looker (código, imagen, texto, línea,
+              formas: `BARRA_INSERTAR`). En el celular no entran: un solo «Insertar ▾» con los nueve. */}
+          <div className="lk-insertar" role="group" aria-label="Insertar" data-recorrido="dash-insertar">
+            <span className="lk-ins-sueltos">
+              {BARRA_INSERTAR.map((l) => (l.clase === 'suelto' ? (
+                <button key={l.tipo} type="button" className="lk-herr lk-herr--icono" title={etiquetaInsertar(l.tipo)} aria-label={etiquetaInsertar(l.tipo)}
+                  onClick={() => insertar(l.tipo)}>
+                  <IconoElemento tipo={l.tipo} size={19} />
+                </button>
+              ) : (
+                <button key={l.menu} type="button" className="lk-herr lk-herr--menu" title={l.nombre} aria-label={l.nombre} aria-haspopup="menu"
+                  aria-expanded={menu?.tipo === l.menu} onClick={abrirMenu(l.menu)}>
+                  <IconoElemento tipo={l.tipos[0]} size={19} /> <SvgFlecha />
+                </button>
+              )))}
+            </span>
+            <button type="button" className="lk-herr lk-ins-menu" aria-haspopup="menu" aria-expanded={menu?.tipo === 'insertar'} onClick={abrirMenu('insertar')}>
+              <SvgInsertar /> Insertar <SvgFlecha />
+            </button>
+          </div>
+          <button type="button" className="lk-herr lk-herr--fin" data-recorrido="dash-estilo" aria-haspopup="dialog" aria-expanded={menu?.tipo === 'estilo'} onClick={abrirMenu('estilo')}>
+            <SvgEstilo /> Estilo de la hoja <SvgFlecha />
           </button>
         </div>
       )}
@@ -751,21 +798,13 @@ export function EditorInforme({
       {/* ── El lienzo (lo único que scrollea) y el panel de propiedades ── */}
       <div className="lk-cuerpo">
         <div className="lk-lienzo" style={varsTema} onClick={() => { if (editando) setSelId(null); }}>
-          <CabeceraHoja hoja={hoja} editando={editando} periodo={periodoDeHoja(hoja, vista, hoy)} onCambiar={cambiarCabecera} />
-          {/* Pegada arriba al scrollear: hija DIRECTA del que scrollea, sin nada con overflow en el medio. */}
-          <div className="lk-controles" data-recorrido="dash-controles" onClick={(e) => e.stopPropagation()}>
-            <BarraControles
-              hoja={hoja} vista={vista} editando={editando} guardable={guardable} hoy={hoy}
-              onVista={onVista} onAgregar={agregarControl} onCambiar={cambiarControl} onQuitar={quitarControl} onRestablecer={restablecerVista}
-            />
-          </div>
           <div className="lk-pagina" ref={containerRef}>
             {!hoja.componentes.length ? (
               <div className="lk-vacio">
                 <p>Esta hoja no tiene gráficos.</p>
                 {editando ? (
                   <button type="button" className="lk-pill lk-pill--azul" onClick={(e) => { e.stopPropagation(); setMenu({ ancla: e.currentTarget, tipo: 'graficos' }); }}>Añadir un gráfico</button>
-                ) : !soloLectura && (
+                ) : !soloMirar && (
                   <button type="button" className="lk-pill lk-pill--azul" onClick={alternarEdicion} disabled={!guardable}>Editar</button>
                 )}
               </div>
@@ -775,7 +814,7 @@ export function EditorInforme({
               <div className="lk-pila">{enOrden(hoja.componentes).map((c) => tarjeta(c, true))}</div>
             ) : mounted && (
               // ⚠️ `absoluteStrategy` (top/left) y NO el transform de siempre: un ancestro con `transform`
-              // vuelve a un `position: fixed` relativo a ÉL. El modal del chat de MaKo (MakoButton), el
+              // vuelve a un `position: fixed` relativo a ÉL. El modal del chat de MaKo (antes MakoButton), el
               // toast de «Marcar cobrada» y los menús que no van en portal se dibujaban ADENTRO de la
               // tarjeta, recortados por su overflow.
               <ReactGridLayout
@@ -832,7 +871,12 @@ export function EditorInforme({
       ) : null}
       {menu?.tipo === 'insertar' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={220}>
-          <MenuInsertar onElegir={(t: TipoElemento) => { setMenu(null); agregarComponente(nuevoElemento(t, hoja.componentes)); }} />
+          <MenuInsertar onElegir={insertar} />
+        </Flotante>
+      )}
+      {(menu?.tipo === 'lineas' || menu?.tipo === 'formas') && (
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={200}>
+          <MenuElementos tipos={BARRA_INSERTAR.flatMap((l) => (l.clase === 'menu' && l.menu === menu.tipo ? l.tipos : []))} onElegir={insertar} />
         </Flotante>
       )}
       {menu?.tipo === 'estilo' && (
@@ -840,45 +884,48 @@ export function EditorInforme({
           <PanelEstilo tema={hoja.tema} onCambiar={cambiarTema} />
         </Flotante>
       )}
-      {menu?.tipo === 'exportar' && (
-        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={220}>
-          <div className="lk-lista" role="menu">
-            <button type="button" role="menuitem" className="lk-opcion" onClick={exportarCsv}><IconoMenu nombre="descargar" size={17} /> <span>Datos (CSV)</span></button>
-            <button type="button" role="menuitem" className="lk-opcion" onClick={exportarPdf}><IconoMenu nombre="archivo" size={17} /> <span>PDF</span></button>
-          </div>
-        </Flotante>
-      )}
+      {/* El ⋮: AI Analyst (no al closer ni a un link), Exportar y la guía (no en un link). */}
       {menu?.tipo === 'mas' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={240}>
           <div className="lk-lista" role="menu">
-            <button type="button" role="menuitem" className="lk-opcion" onClick={() => { void restablecer(); }}><IconoMenu nombre="restaurar" size={17} /> <span>Restablecer el informe</span></button>
+            {!soloMirar && (
+              <>
+                <button type="button" role="menuitem" className="lk-opcion lk-opcion--mako" data-abierto={analista || undefined} onClick={alternarAnalista}
+                  title="MaKo analiza los gráficos de esta hoja">
+                  <LogoMako lado={22} /> <span>AI Analyst</span>
+                  {analisisNuevo && <PuntoNuevo enMenu />}
+                </button>
+                <div className="lk-sep-h" />
+              </>
+            )}
+            <div className="lk-lista-grupo">Exportar</div>
+            <button type="button" role="menuitem" className="lk-opcion" onClick={exportarCsv}><IconoMenu nombre="descargar" size={17} /> <span>Datos (CSV)</span></button>
+            <button type="button" role="menuitem" className="lk-opcion" onClick={exportarPdf}><IconoMenu nombre="archivo" size={17} /> <span>PDF</span></button>
+            {conGuia && (
+              <>
+                <div className="lk-sep-h" />
+                <button type="button" role="menuitem" className="lk-opcion" onClick={() => { setMenu(null); (editando ? recorridoEdicion.reabrir : recorrido.reabrir)(); }}>
+                  <IconoMenu nombre="pregunta" size={17} /> <span>{editando ? 'Guía de edición' : 'Guía del Dashboard'}</span>
+                </button>
+              </>
+            )}
           </div>
         </Flotante>
       )}
-      {menu?.tipo === 'hoja' && (
-        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={230}>
-          <div className="lk-lista" role="menu">
-            {(() => {
-              const id = menu.hojaId;
-              const i = tablero.hojas.findIndex((h) => h.id === id);
-              const op = (texto: string, icono: NombreIconoMenu, fn: () => void, deshabilitada = false, peligro = false) => (
-                <button type="button" role="menuitem" className={`lk-opcion${peligro ? ' lk-opcion--peligro' : ''}`} disabled={deshabilitada || !guardable}
-                  onClick={() => { setMenu(null); fn(); }}>
-                  <IconoMenu nombre={icono} size={17} /> <span>{texto}</span>
-                </button>
-              );
-              return (
-                <>
-                  {op('Renombrar', 'renombrar', () => setRenombrando(id))}
-                  {op('Duplicar', 'duplicar', () => duplicarHoja(id), tablero.hojas.length >= MAX_HOJAS)}
-                  {op('Mover a la izquierda', 'mover', () => moverHoja(id, -1), i <= 0)}
-                  {op('Mover a la derecha', 'mover', () => moverHoja(id, 1), i >= tablero.hojas.length - 1)}
-                  <div className="lk-sep-h" />
-                  {op('Eliminar', 'borrar', () => eliminarHoja(id), tablero.hojas.length <= 1, true)}
-                </>
-              );
-            })()}
-          </div>
+      {/* El desplegable del título: «Nueva hoja» primera, y las hojas (punto 1). */}
+      {menu?.tipo === 'hojas' && (
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300}>
+          <MenuHojas
+            hojas={tablero.hojas} activa={hoja.id} puedeNueva={puedeNuevaHoja}
+            acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onMover: moverHoja, onEliminar: eliminarHoja } : null}
+            onIr={(id) => { setMenu(null); irAHoja(id); }}
+            onNueva={() => { setMenu(null); setNuevaHoja(true); }}
+          />
+        </Flotante>
+      )}
+      {menu?.tipo === 'emoji' && (
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={320}>
+          <EmojiPicker embebido onPick={(e) => { setMenu(null); cambiarCabecera({ emoji: e }); }} onClose={() => setMenu(null)} />
         </Flotante>
       )}
 
@@ -891,8 +938,7 @@ export function EditorInforme({
       )}
       {/* La llamada del link (`?llamada=`). Sus tareas (re-analizar, revisar) son también del closer:
           la ficha no va en sólo lectura. Después de una, los bloques se vuelven a pedir. */}
-      {llamada != null && <FichaLlamada recordingId={llamada} onCerrar={cerrarLlamada} onCambio={refrescar} />}
-      {confirmNode}
+      {llamada != null && !compartido && <FichaLlamada recordingId={llamada} onCerrar={cerrarLlamada} onCambio={refrescar} />}
 
       <Recorrido id={RECORRIDO_DASHBOARD} pasos={PASOS_DASHBOARD} abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />
       <Recorrido id={RECORRIDO_DASHBOARD_EDICION} pasos={PASOS_DASHBOARD_EDICION} abierto={recorridoEdicion.abierto} onCerrar={recorridoEdicion.onCerrar} />

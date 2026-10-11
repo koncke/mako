@@ -111,6 +111,16 @@ test('meter un lead se puede; el resto de /api/agente/lead no se hereda', () => 
   assert.equal(esPublicaDeEscritura('/api/agente/lead/borrar'), false, 'match exacto: nada colgado abajo hereda el POST');
 });
 
+test('los datos del informe del Dashboard compartido: la ruta EXACTA acepta POST, y nada colgado abajo', () => {
+  // Es POST aunque sólo lea, para que el token del link viaje en el CUERPO (como la comunidad). La
+  // credencial entera es ese token y la ruta no lee la cookie (tests/dashboard-compartir-fuente.test.ts).
+  // Probado rompiéndolo (11/10/2026): sacando la entrada de PUBLICOS_ESCRITURA, 11 pass / 1 fail (cae éste).
+  assert.equal(esPublicaDeEscritura('/api/compartido/graficos'), true);
+  assert.equal(esPublica('/api/compartido/graficos'), true);
+  assert.equal(esPublicaDeEscritura('/api/compartido/graficos/detalle'), false, 'match exacto: nada colgado abajo hereda el POST');
+  assert.equal(esPublicaSoloLectura('/api/compartido/graficos/detalle'), true);
+});
+
 test('los datos vivos son de LECTURA: entran sin sesión pero no pueden escribir', () => {
   // Las dos devuelven datos del negocio (inversión, visitas, reuniones, leads) y
   // ninguna tiene POST. Que estén en PUBLICOS y no en PUBLICOS_DE_ESCRITURA es lo

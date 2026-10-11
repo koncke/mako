@@ -31,6 +31,9 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import { cifrar, descifrar } from './cripto-credenciales';
+import { RECURSO_INFORME } from './share-nombre';
+
+export { RECURSO_INFORME };
 
 export type ShareAlcance = 'todo' | 'seccion' | 'grupo' | 'item';
 export type ShareModo = 'link' | 'invitados';
@@ -153,6 +156,86 @@ export function filtrarPorShare<T extends { id: string; seccion: string; grupo: 
   return assets.filter((a) => puedeVer(share, a));
 }
 
+// ── El INFORME del Dashboard (11/10/2026) ───────────────────────────────────
+// Martín: «Agrega el botón de "Compartir" que funcione exactamente igual que lo que ya tenemos en
+// "Compartir" en la vista de CONOCIMIENTOS de SuperAdmin, que se pueda crear un link de acceso a esos
+// graficos y también invitar por email». Es el primer recurso que NO administra el super admin: lo
+// comparte el admin de cada negocio, y sólo SU informe (el informe es por persona y por workspace).
+//
+// ⚠️ `puedeVer` decide por ALCANCE y NO MIRA `recurso` (está escrito en la página pública). Por eso el
+//    informe tiene su propia pregunta, que pregunta por el recurso PRIMERO y recién ahí delega en
+//    `puedeVer`: un share de branding con `alcance: 'item'` no puede abrir el informe de nadie.
+
+/** Los recursos que administra el SUPER ADMIN, como siempre: viven en el workspace de la plataforma. */
+export const RECURSOS_PLATAFORMA: readonly string[] = ['curso', 'branding', 'conocimientos'];
+
+/**
+ * Quién administra shares en un pedido. Son DOS puertas y no se derivan una de la otra:
+ *   · `plataforma`: el super admin, sobre los recursos de la plataforma, en el workspace de siempre.
+ *   · `informe`: el admin de un negocio con la tab Dashboard, sobre SU informe (`sub`) en SU workspace.
+ */
+export type Administrador =
+  | { tipo: 'plataforma'; ws: number }
+  | { tipo: 'informe'; ws: number; sub: string };
+
+/** Lo que hace falta saber de una sesión para decidir si puede compartir su informe. */
+export type QuienComparteInforme = {
+  rolWs: string | null | undefined;
+  /** `tabEnCapa('graphics', capa)` del workspace en curso. */
+  tabDashboard: boolean;
+  ws: number | null | undefined;
+  sub: string | null | undefined;
+};
+
+/**
+ * ¿Esta sesión puede compartir SU informe del Dashboard?
+ *
+ * EN POSITIVO (AGENTS.md, «Un guard sobre algo destructivo se escribe en POSITIVO»): las CUATRO
+ * condiciones tienen que darse TODAS. Es la misma puerta que /api/graficos para guardar: admin del
+ * workspace (no un closer ni un setter: el closer mira un informe en memoria que no es suyo), la tab en
+ * la capa, un workspace en curso y una persona con id. Una capa nueva o un rol nuevo no entran solos.
+ */
+export function puedeCompartirInforme(q: QuienComparteInforme): boolean {
+  if (q.rolWs !== 'admin') return false;
+  if (q.tabDashboard !== true) return false;
+  if (typeof q.ws !== 'number' || !Number.isInteger(q.ws) || q.ws <= 0) return false;
+  return typeof q.sub === 'string' && q.sub.trim().length > 0;
+}
+
+/**
+ * ¿Este administrador puede tocar ESTA fila (listarla, copiar su link, rotarlo, sumarle gente,
+ * revocarla)? Lo llaman TODAS las acciones de /api/compartir que reciben un id: las funciones de abajo
+ * filtran sólo por workspace, y en un workspace conviven los informes de varias personas.
+ *
+ * En positivo: el workspace es el del administrador Y la fila es de lo que ese administrador maneja —
+ * su informe (recurso y `sub` exactos) o uno de los recursos de la plataforma. Cualquier otra cosa, no.
+ */
+export function administraShare(adm: Administrador, s: Pick<Share, 'workspace_id' | 'recurso' | 'recurso_id'>): boolean {
+  if (Number(s.workspace_id) !== adm.ws) return false;
+  if (adm.tipo === 'informe') return s.recurso === RECURSO_INFORME && !!s.recurso_id && s.recurso_id === adm.sub;
+  if (adm.tipo === 'plataforma') return RECURSOS_PLATAFORMA.includes(s.recurso);
+  return false;
+}
+
+/**
+ * ¿Este share deja VER el informe de `sub`? Lo llaman la página pública Y el endpoint de datos
+ * (`app/compartido/[token]/informe-compartido.ts`): si sólo lo llamara la página, el endpoint serviría
+ * datos con cualquier token vivo de otro recurso.
+ *
+ * En positivo: es un share del informe, de alcance `item` (UNA persona, su informe entero), de un
+ * workspace válido, que sólo deja VER (`permisoDe`: lo que no declaró escribir no escribe), y `puedeVer`
+ * — el punto de autorización de siempre — dice que alcanza para el informe de ESA persona.
+ */
+export function puedeVerInforme(share: Share, sub: string | null | undefined): boolean {
+  if (share.recurso !== RECURSO_INFORME) return false;
+  if (share.alcance !== 'item') return false;
+  const ws = Number(share.workspace_id);
+  if (!Number.isInteger(ws) || ws <= 0) return false;
+  if (permisoDe(share) !== 'ver') return false;
+  if (typeof sub !== 'string' || !sub) return false;
+  return puedeVer(share, { id: sub, seccion: '', grupo: '' });
+}
+
 // ── El punto de autorización de ESCRITURA ───────────────────────────────────
 // Mismo criterio que `puedeVer`: uno solo, y lo llaman TODOS los que escriben.
 // Si lo llamara la página y no el endpoint, cualquiera mandaría un POST con otro
@@ -228,12 +311,25 @@ export async function getShare(ws: number, id: number): Promise<Share | null> {
   return (data as Share) ?? null;
 }
 
-export async function listarShares(ws: number, recurso: string) {
-  const { data, error } = await getSupabaseServer().from('shares')
-    .select('id,recurso,alcance,recurso_id,modo,permiso,etiqueta,token_prefijo,expira_at,revocado_at,visitas,ultima_visita,created_at')
-    .eq('workspace_id', ws).eq('recurso', recurso).order('created_at', { ascending: false });
+/** Los shares de un recurso en un workspace. Con `recursoId`, sólo los de esa cosa (el informe de UNA
+ *  persona: en un workspace conviven los de varias, y el filtro va en la consulta, no en la pantalla). */
+export async function listarShares(ws: number, recurso: string, recursoId?: string) {
+  let q = getSupabaseServer().from('shares')
+    .select('id,workspace_id,recurso,alcance,recurso_id,modo,permiso,etiqueta,token_prefijo,expira_at,revocado_at,visitas,ultima_visita,created_at')
+    .eq('workspace_id', ws).eq('recurso', recurso);
+  if (recursoId !== undefined) q = q.eq('recurso_id', recursoId);
+  const { data, error } = await q.order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+/** El share al que pertenece un invitado, o null. Lo usa la ruta para preguntar `administraShare` ANTES
+ *  de tocar a un invitado: las funciones de abajo filtran sólo por workspace. */
+export async function shareDeInvitado(id: number): Promise<number | null> {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const { data } = await getSupabaseServer().from('share_invitados').select('share_id').eq('id', id).maybeSingle();
+  const sid = Number((data as { share_id?: unknown } | null)?.share_id);
+  return Number.isInteger(sid) && sid > 0 ? sid : null;
 }
 
 export async function revocarShare(ws: number, id: number): Promise<void> {

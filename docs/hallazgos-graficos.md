@@ -18,8 +18,10 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 | Los lectores | `lib/graficos-datos.ts`, `lib/graficos-datos-extra.ts`, `lib/graficos-lectura.ts` | Uno por conjunto, con el workspace explícito; `leer` trae un instante en tramos a la vez |
 | Los bloques | `lib/graficos-bloques*.ts`, `app/dashboard/bloques/` | Lo que no es un gráfico del catálogo: Revenue, A quién cobrarle, cohortes, los de Analysts |
 | La audiencia y el mapa | `lib/graficos-audiencia.ts`, `lib/meta-desgloses.ts`, `app/dashboard/MapaMexico.tsx` | Meta EN VIVO; el mapa también lo usa el Ads Manager |
-| Los controles | `app/dashboard/BarraControles.tsx`, `valores.ts`, `lib/graficos-controles-texto.ts` | La barra pegada arriba del lienzo y los chips de cada gráfico |
+| Los controles | `app/dashboard/BarraControles.tsx`, `valores.ts`, `lib/graficos-controles-texto.ts` | La fila de filtros de la topbar y los chips de cada gráfico |
+| La topbar | `app/dashboard/Cabecera.tsx` | Título, emoji y subtítulo editables en el lugar, el desplegable de hojas, los filtros, Compartir, Editar y el ⋮ |
 | La pantalla | `app/dashboard/EditorInforme.tsx` (+ `Grafico`, `Detalle`, `Elemento`, `NuevaHoja`, `Propiedades`) | El editor; `editor-css.ts` es su hoja de estilos (sólo tokens) |
+| Compartir por link | `app/dashboard/CompartirInforme.tsx` (el modal es el de `app/conocimientos/Compartir.tsx`), `app/compartido/[token]/informe-*.ts`, `app/api/compartido/graficos` | Qué ve quien abre el link, sin sesión y en sólo lectura |
 | Exportar | `app/dashboard/exportar.ts` | El CSV de la hoja, el PDF (`window.print`), y lo que viaja a MaKo sin nombres |
 | AI Analyst | `lib/graficos-analisis*.ts`, `app/dashboard/PanelAnalista.tsx`, mig 0247, `/api/cron/dashboard-analisis` | El análisis a mano o programado |
 | El informe de cada persona | `lib/graficos-tablero.ts` | `graficos.tablero.<usuario>` en el workspace de la pestaña |
@@ -50,9 +52,13 @@ con su propio saneo.
 
 ## La barra de filtros «pegada» no pegaba, y los tests estaban en verde
 
-**Vive en:** `app/dashboard/page.tsx` (el `<Pagina>`), `.lk-controles` en `app/dashboard/editor-css.ts`
+**Vive en:** `app/dashboard/page.tsx` (el `<Pagina>`), `.lk-lienzo` en `app/dashboard/editor-css.ts`
 
-La barra es `position: sticky` contra `.lk-lienzo` (`overflow-y: auto`), y tres aserciones lo fijaban.
+⚠️ **Desde la topbar (11/10, a la tarde) la fila de filtros ya no es sticky:** vive en `.lk-top`, que está
+fuera de lo que scrollea, y `.lk-controles` no existe más (`tests/dashboard-pantalla.test.ts` frena que
+vuelva adentro del lienzo). Lo de abajo sigue valiendo para `.lk-lienzo`, que es lo único que scrollea.
+
+La barra era `position: sticky` contra `.lk-lienzo` (`overflow-y: auto`), y tres aserciones lo fijaban.
 Medido en Chrome el 11/10: tras la rueda la barra quedaba en **y = −1079**. El sticky estaba bien; lo que
 fallaba es que `.lk-lienzo` **nunca scrolleaba**: `Pagina` trae `flex: 1` (base 0%), que en la columna
 del layout ANULA el `height: 100vh`, así que el `<main>` crecía a su contenido (2405 px) y el que
@@ -269,8 +275,59 @@ botón seguía apagado para un negocio sin IA propia: la RUTA preguntaba `docsIA
 llamar a la lib, en el POST y en el GET que habilita el botón. Al cambiar quién puede algo, se buscan
 TODAS las preguntas por esa capacidad, no la función que la ejecuta.
 
+## La topbar de Looker: lo que no se ve en el diff (11/10/2026)
+
+**Vive en:** `app/dashboard/Cabecera.tsx`, `app/dashboard/EditorInforme.tsx`, `app/dashboard/editor-css.ts`
+
+- **El desplegable de hojas son DOS botones.** Editando, el título es un `contentEditable` y el ▾ va
+  aparte (`.lk-top-hojas`); mirando, el título entero es el botón (`.lk-top-tit-btn`). La verificación
+  buscó el segundo con permiso de edición y dio «no abre» sobre un desplegable sano. Los dos llevan
+  `data-recorrido="dash-hojas"`: se apunta a eso.
+- **Un placeholder dibujado con `::before` se IMPRIME.** El subtítulo vacío dice «Agrega un subtítulo»
+  por CSS (`.edin[data-vacio]::before`) y el PDF (`window.print`) lo habría sacado en la hoja. El
+  `@media print` lo vacía, y `tests/dashboard-pantalla.test.ts` lo fija.
+- **Reusar un componente de otra área trae SUS tests.** «Compartir» es el modal de Conocimientos; darle
+  el azul de Looker puso rojo `tests/conocimientos-compartir.test.ts`, que fija la clase del disparador
+  con un regex exacto — y un barrido de los tests `dashboard-*` no lo ve. Va una prop opcional
+  (`claseBoton`) con el default de siempre, y el test sigue exigiendo ese default.
+- **Los filtros se usan mirando y se agregan sólo editando.** Lo elegido mirando va a la vista y no se
+  guarda; «＋ Filtro» y «Quitar», sólo con Editar. El período volvió al diseño de `FechaFiltro`, y el
+  botón dice sólo el período: con el rango al lado se leía como dos filtros.
+- **«Restablecer el informe» salió de la pantalla, no del producto:** queda en la API de MaKo
+  (`restablecer_informe_dashboard`), que propone y confirma una persona.
+
+## Compartir un informe: el link no confía en lo que pide (11/10/2026)
+
+**Vive en:** `app/compartido/[token]/informe-reglas.ts` (puro, con test), `informe-compartido.ts`,
+`app/api/compartido/graficos/route.ts`
+
+Quien abre el link no tiene sesión y ve el informe de OTRA persona. Las cuatro decisiones, en positivo:
+
+1. **Cada consulta se rearma desde el componente GUARDADO** (hoja + id). Del cuerpo sólo vale lo que la
+   vista puede mover: el período, el «agrupar por» y filtros sobre controles que la hoja ya tiene. El
+   `grafico` que viaja en el cuerpo no se lee: si no, un link consultaba cualquier conjunto del negocio.
+2. **Las personas no salen:** las etiquetas pasan por `sinPersonas`, la misma lista positiva del AI
+   Analyst.
+3. **Un filtro sobre un campo no público no se mueve:** sus valores serían nombres, y una búsqueda por
+   texto, un oráculo letra por letra. Lo que el dueño dejó elegido filtra igual y viaja como alias.
+4. **Un bloque sale sólo si está en `BLOQUES_COMPARTIBLES`:** los que muestran personas o tienen una
+   acción («Marcar cobrada», «Editar lead») dicen «No se comparte en un link».
+
+El detalle de un número contesta 403. Medido en Chrome (ws9): 15 componentes sin Editar ni Compartir,
+detalle 403, revocar 200 y el link revocado 404. Las puertas (por qué POST, los topes, el 404 que no
+distingue) están en [hallazgos-seguridad.md](hallazgos-seguridad.md).
+
 ## Lo que quedó sin hacer
 
+- **Un link abierto CON sesión de MaKo** lee el tablero de Tareas según la sesión de quien lo abre
+  (`queTableroLeer`, `lib/graficos-lectura.ts`), no según la capa del share: no trae datos de otro
+  negocio, pero puede leer la tabla vacía. Lo anota `app/compartido/[token]/informe-compartido.ts`.
+- **Los bloques no saben que están en un link** (no hay `soloLectura` en `CuerpoBloque` ni en
+  `BloqueCobranza`). Hoy no hace falta: los que tienen una acción no se sirven. Un bloque compartible que
+  sume un botón lo dibujaría en el link.
+- **`useValoresCompartidos` vive en `app/dashboard/BarraControles.tsx`** porque `valores.ts` no aceptaba
+  otra ruta; va a `valores.ts`. Y `controlParaHttp` (API de MaKo) y `controlParaLink` (el link) hacen lo
+  mismo dos veces.
 - **Dos escritores del mismo tablero**: el autoguardado del editor hace un upsert sin versión y la API
   usa compare-and-set (`guardarTableroSi`). Gana el último que escribe. Que el editor mande la versión.
 - **El control «Closer» de la hoja Closing no filtra los bloques** (`PedidoBloque` no recibe filtros); la
@@ -290,4 +347,5 @@ TODAS las preguntas por esa capacidad, no la función que la ejecuta.
 corrida de 9 agentes `wf_57bc1bc0-b52` + integración, commit `623ff3cd`. El v4 (las seis decisiones y la
 API): seis agentes en paralelo (P1 elementos, P2a Closing, P2b modo closer, P3 Ads, P4 Landing, P5 API) +
 integración, commit `6e85d8d7`. Las cohortes en «Todo» y la guarda de «Marcar cobrada» se cerraron ahí
-(decisiones 3 y 2).*
+(decisiones 3 y 2). La topbar de Looker y Compartir (feedback de nueve puntos, 11/10 a la tarde): dos
+agentes en paralelo (TOPBAR y COMPARTIR) + integración en un worktree limpio.*

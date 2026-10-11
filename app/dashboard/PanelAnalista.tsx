@@ -7,8 +7,10 @@
 // Analyst", que justamente sea MaKo analizando ese o esos gráficos... Y que se pueda configurar CRON
 // para que lo analice cada X tiempo, o cuando se le da a actualizar análisis».
 //
-// Dos piezas: `BotonAnalista` (va en la barra de arriba, con un punto si hay un análisis nuevo sin
-// ver) y `PanelAnalista` (el panel del costado). El trabajo lo hace el server
+// Dos piezas: `useAnalisisNuevo` (el punto de «hay un análisis nuevo sin ver»; desde la tanda de la
+// topbar, 11/10/2026, el AI Analyst se abre desde el ⋮ de la topbar y el punto va ahí) y `PanelAnalista`
+// (el panel del costado). Acá viven también los botones de MaKo de la tab en su versión CHICA (sólo el
+// logo sobre negro, punto 3 de esa tanda): `ChatMakoGrafico` y `LogoMako`. El trabajo lo hace el server
 // (app/api/graficos/analisis → lib/graficos-analisis-server.ts): acá no se serializa nada para el
 // modelo, a propósito. Lo único que se usa de `loQueSeVe` es la FIRMA de lo que se ve ahora, para
 // decir si la hoja cambió desde el análisis.
@@ -24,10 +26,14 @@
 //     programado, los valores guardados de la hoja.
 //   · Sin avisos por WhatsApp: un aviso nuevo de MaKo es decisión de Martín. El aviso es el punto.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Button, Mako, Spinner } from '@/app/_ui';
-import { MakoStar } from '@/app/_components/MakoBrand';
-import { RADIO_CAJA } from '@/app/_ui/BotonBorrar';
+import { MakoLogo, MakoStar } from '@/app/_components/MakoBrand';
+import { MakoChat } from '@/app/_components/MakoChat';
+import { useCapaModal } from '@/app/_components/pila-modales';
+import { BotonMako } from '@/app/_ui/BotonMako';
+import { BotonCerrar, RADIO_CAJA } from '@/app/_ui/BotonBorrar';
+import { Capa } from './bloques/piezas';
 import { Dropdown } from '@/app/components/Dropdown';
 import { esGrafico, tituloDe, type Hoja, type VistaValores } from '@/lib/graficos-catalogo';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
@@ -446,23 +452,19 @@ function periodoDe(rangos: Record<string, { desde: string; hasta: string }>): st
   return iguales ? `Del ${ddmm(rs[0].desde)} al ${ddmm(rs[0].hasta)}` : 'Períodos distintos por gráfico';
 }
 
-// ── El botón de la barra de arriba ────────────────────────────────────────────────────────
+// ── «Hay un análisis nuevo», y los botones de MaKo de la tab ──────────────────────────────────
 
 /**
- * «AI Analyst», con un punto si hay un análisis de ESTA hoja que la persona todavía no vio (uno
- * programado que terminó, o uno a mano que terminó con el panel cerrado). Lo monta la barra del
- * editor, en Ver y en Editar.
- *
- * El negro con la estrella dorada es el de `BotonMako` (app/_ui/BotonMako.tsx): el botón de MaKo de la
- * casa. Con `className`, el estilo lo pone quien lo monta y acá sólo se agrega el punto: así la barra
- * del editor lo monta como una pastilla más (`lk-pill`), con su ícono (`icono`) y el ancla del
- * recorrido (`recorrido`, que sale como `data-recorrido`).
+ * ¿Hay un análisis de ESTA hoja que la persona todavía no vio? (uno programado que terminó, o uno a mano
+ * que terminó con el panel cerrado). Desde la tanda de la topbar (11/10/2026, punto 4) el AI Analyst vive
+ * en el ⋮ de la topbar y no tiene botón propio: el punto se dibuja en el ⋮ y en su opción
+ * (./EditorInforme.tsx). Con `activo` en false no pregunta nada: el closer y un informe compartido no
+ * tienen AI Analyst, y /api/graficos/analisis es sólo del admin.
  */
-export function BotonAnalista({ hojaId, abierto, onClick, className, icono, recorrido }: {
-  hojaId: string; abierto: boolean; onClick: () => void; className?: string; icono?: ReactNode; recorrido?: string;
-}) {
+export function useAnalisisNuevo(hojaId: string, abierto: boolean, activo: boolean): boolean {
   const [nuevos, setNuevos] = useState<string[]>([]);
   useEffect(() => {
+    if (!activo) return;
     let vivo = true;
     let vigilando: ReturnType<typeof setInterval> | null = null;
     const cargar = () => {
@@ -493,28 +495,104 @@ export function BotonAnalista({ hojaId, abierto, onClick, className, icono, reco
       clearInterval(t);
       if (vigilando) clearInterval(vigilando);
     };
-  }, []);
-  const nuevo = !abierto && nuevos.includes(hojaId);
+  }, [activo]);
+  return activo && !abierto && nuevos.includes(hojaId);
+}
+
+/**
+ * El punto dorado de «hay un análisis nuevo», en lo que lo lleva (que va `position: relative`): arriba a
+ * la derecha de un botón, o al final del renglón de una opción de menú (`enMenu`).
+ */
+export function PuntoNuevo({ enMenu = false }: { enMenu?: boolean }) {
+  return <span aria-hidden style={enMenu ? { ...PUNTO, top: '50%', right: 14, transform: 'translateY(-50%)' } : PUNTO} />;
+}
+
+/**
+ * El logo de MaKo para una OPCIÓN de menú (el AI Analyst en el ⋮): el mismo cuadrado negro con la estrella
+ * dorada que `BotonMako` (app/_ui/BotonMako.tsx), pero como dibujo: un botón no va adentro de otro.
+ */
+export function LogoMako({ lado = 22 }: { lado?: number }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={abierto} className={className} data-recorrido={recorrido}
-      title="MaKo analiza los gráficos de esta hoja" aria-label={nuevo ? 'AI Analyst: hay un análisis nuevo' : 'AI Analyst'}
-      style={className ? { position: 'relative' } : { ...BOTON, boxShadow: abierto ? '0 0 0 2px var(--mako)' : BOTON.boxShadow }}>
-      {icono ?? <MakoStar size={14} animate={false} />}
-      <span>AI Analyst</span>
-      {nuevo && <span aria-hidden style={PUNTO} />}
-    </button>
+    <span aria-hidden style={{ ...CUADRO_MAKO, width: lado, height: lado }}>
+      <MakoStar size={Math.round(lado * 0.5)} animate={false} />
+    </span>
   );
 }
 
-const BOTON: CSSProperties = {
-  position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 7, height: 36, padding: '0 14px', boxSizing: 'border-box',
-  borderRadius: RADIO_CAJA, border: '1px solid rgba(201,162,74,.45)', background: 'linear-gradient(135deg, #2A251C, #171511)',
-  color: '#fff', fontFamily: "'Geist', system-ui, sans-serif", fontSize: 14, fontWeight: 500, cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,.18)',
-};
+/**
+ * El chat de MaKo de un gráfico (el de las tabs viejas), con el botón CHICO: sólo el logo sobre negro
+ * (`BotonMako`), sin texto — punto 3 de la tanda de la topbar: «Los botones de MaKo deben ser más pequeños
+ * y sutiles, solo el logo con el fondo negro, nada más». Lo que hace va en el `title` y el `aria-label`.
+ *
+ * ⚠️ Es una VARIANTE LOCAL, no un cambio a `MakoButton` (app/_components/ChartIA.tsx): ése lo usan el Ads
+ *    Manager y Marketing, que no pidieron nada. El modal es el mismo: el chat con el gráfico aislado.
+ * ⚠️ La capa va por PORTAL (`Capa`, ./bloques/piezas.tsx): la tarjeta recorta (`overflow: hidden`) y un
+ *    portal de React sigue burbujeando hasta la tarjeta (un clic la seleccionaría y un mousedown la
+ *    arrastraría): `Capa` frena los eventos y lleva la clase de no arrastrar.
+ */
+export function ChatMakoGrafico({ chartKey, titulo, contexto }: { chartKey: string; titulo: string; contexto: string }) {
+  const [abierto, setAbierto] = useState(false);
+  const cerrar = useCallback(() => setAbierto(false), []);
+  return (
+    <>
+      <BotonMako lado={26} title="Conclusiones con MaKo" encendido={abierto} onClick={() => setAbierto(true)} />
+      {abierto && <Capa><CapaChatMako chartKey={chartKey} titulo={titulo} contexto={contexto} onCerrar={cerrar} /></Capa>}
+    </>
+  );
+}
+
+/** El modal del chat: en la pila de capas (su z y su Escape, que frena a los demás). */
+function CapaChatMako({ chartKey, titulo, contexto, onCerrar }: { chartKey: string; titulo: string; contexto: string; onCerrar: () => void }) {
+  const capa = useCapaModal(true);
+  const esArriba = capa.esElDeArriba;
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || !esArriba()) return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      onCerrar();
+    };
+    document.addEventListener('keydown', tecla, true);
+    return () => document.removeEventListener('keydown', tecla, true);
+  }, [esArriba, onCerrar]);
+  return (
+    <div role="dialog" aria-modal="true" aria-label={`Conclusiones con MaKo: ${titulo}`} onClick={onCerrar}
+      style={{ ...FONDO_CHAT, zIndex: capa.z, display: capa.visible ? 'flex' : 'none' }}>
+      <div onClick={(e) => e.stopPropagation()} style={CAJA_CHAT}>
+        <div style={CAB_CHAT}>
+          <MakoLogo size={30} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: 'var(--dim)' }}>Conclusiones con MaKo</div>
+            <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{titulo}</div>
+          </div>
+          <BotonCerrar onClick={onCerrar} />
+        </div>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <MakoChat chartKey={chartKey} titulo={titulo} contexto={contexto} sidebar />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const PUNTO: CSSProperties = {
   position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: '50%',
   background: 'var(--mako)', border: '2px solid var(--surface)', boxSizing: 'border-box',
 };
+// El negro del logo (el de `BotonMako` y `MakoLogo`): no es un token porque no se da vuelta en oscuro.
+const CUADRO_MAKO: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxSizing: 'border-box',
+  borderRadius: RADIO_CAJA, border: '1px solid rgba(201,162,74,.45)', background: 'linear-gradient(135deg, #2A251C, #171511)',
+};
+const FONDO_CHAT: CSSProperties = {
+  position: 'fixed', inset: 0, alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto',
+  background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', fontFamily: "'Geist', system-ui, sans-serif",
+};
+const CAJA_CHAT: CSSProperties = {
+  width: '100%', maxWidth: 940, height: 'calc(100dvh - 80px)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)',
+};
+const CAB_CHAT: CSSProperties = { flex: 'none', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderBottom: '1px solid var(--border)' };
 const CAMPO: CSSProperties = { height: 32, padding: '0 10px', borderRadius: 8, gap: 6, fontSize: 13 };
 
 // ⚠️ EN LA COMPU ES UNA COLUMNA DE LA FILA DEL LIENZO (`.lk-cuerpo`, un flex en FILA), como el panel de

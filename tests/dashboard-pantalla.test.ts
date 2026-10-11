@@ -46,6 +46,14 @@
 //   · el <main> sin `flex: 'none'` (scrollea la página) -> 19 / 1  «el que scrollea es el lienzo…»
 //   · el panel del gráfico con `cambiar` pelado         -> 20 / 1  «cambiar lo de ENTRADA de un control…»
 //   · el AI Analyst fixed en la compu (tapa tarjetas)   -> 20 / 1  «el AI Analyst es un panel del costado…»
+//
+// ── Y la tanda de la TOPBAR (11/10/2026, scratchpad/romper-topbar.mjs, mismo método). Las pestañas, la
+//    barra de controles pegada en el lienzo y el botón suelto del AI Analyst se fueron: sus tests se
+//    reescribieron sobre la topbar. Base: 21 pasan / 0 fallan:
+//   · los filtros de vuelta adentro del lienzo           -> 20 / 1  «los filtros van en la topbar…»
+//   · el PDF que imprime «Agrega un subtítulo»           -> 20 / 1  «el PDF: …»
+//   · las acciones de una hoja sin poder guardar         -> 20 / 1  «las hojas: …»
+//   · el AI Analyst preguntándole al server por el closer -> 20 / 1  «el AI Analyst es un panel del costado…»
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -280,9 +288,10 @@ test('lo que alguien elige en un control MIRANDO no pasa por mutar ni se guarda'
   // Y el autoguardado mira el INFORME, nunca la vista.
   const guardado = bloque(EDITOR, 'const json = JSON.stringify(tablero);', '}, [tablero, mandar]);');
   assert.doesNotMatch(guardado, /vista/);
-  // El pedido de datos sí la mira (con la versión de refrescar()).
+  // El pedido de datos sí la mira (con la versión de refrescar() y, desde la topbar, el token del link
+  // compartido, que decide la RUTA del pedido y no lo que se pide).
   assert.match(EDITOR, /const p = pedidosDeHoja\(hoja, vista, hoy, version\);/);
-  assert.match(EDITOR, /\}, \[hoja, vista, hoy, version\]\);/);
+  assert.match(EDITOR, /\}, \[hoja, vista, hoy, version, tokenLink\]\);/);
 });
 
 test('cambiar lo de ENTRADA de un control olvida lo elegido mirando en él (la barra y el panel del gráfico)', () => {
@@ -301,12 +310,12 @@ test('mirar no guarda: la grilla sólo escribe el informe editando', () => {
   assert.match(EDITOR, /onLayoutChange=\{alMoverGrilla\}/);
 });
 
-test('la barra de edición se dibuja DEBAJO de las hojas (punto 7): las hojas no se mueven al apretar Editar', () => {
+test('la barra de edición se dibuja DEBAJO de la topbar (punto 7): la topbar no se mueve al apretar Editar', () => {
   const vuelta = EDITOR.slice(EDITOR.indexOf('return (\n    <div className={`lk lk-app'));
-  const iHojas = vuelta.indexOf('<FilaHojas');
+  const iTop = vuelta.indexOf('<BarraSuperior');
   const iBarra = vuelta.indexOf('className="lk-barra"');
-  assert.ok(iHojas > 0 && iBarra > 0, 'no encuentro la fila de hojas o la barra');
-  assert.ok(iHojas < iBarra, 'la barra de edición está ARRIBA de las hojas');
+  assert.ok(iTop > 0 && iBarra > 0, 'no encuentro la topbar o la barra');
+  assert.ok(iTop < iBarra, 'la barra de edición está ARRIBA de la topbar');
   assert.equal((vuelta.match(/className="lk-barra"/g) ?? []).length, 1);
 });
 
@@ -326,13 +335,18 @@ test('una sola superficie y el modo oscuro: el CSS del cromo no tiene un solo co
   }
 });
 
-test('la barra de controles va pegada arriba del lienzo: sticky e hija directa del que scrollea', async () => {
+// Desde la tanda de la topbar (11/10/2026, punto 7: «Los botones de filtro también en la topbar… que
+// siempre estén allí») los filtros viven en la TOPBAR, que está AFUERA del lienzo que scrollea: quedan
+// arriba siempre sin necesitar sticky (el sticky de antes se rompía en silencio si .lk-lienzo no scrolleaba).
+test('los filtros van en la topbar: afuera del lienzo que scrolla, y una sola vez', async () => {
   const { CSS } = await import('../app/dashboard/editor-css');
-  assert.match(CSS, /\.lk-controles \{ position: sticky; top: 0;/);
   assert.match(CSS, /\.lk-lienzo \{[^}]*overflow-y: auto/);
-  // En el JSX: el lienzo, la cabecera de la hoja y la barra, sin nada que la envuelva en el medio.
-  // (El `{}` es lo que deja un comentario de JSX al sacarle el comentario.)
-  assert.match(EDITOR, /<div className="lk-lienzo"[\s\S]*?>\s*<CabeceraHoja [^>]*\/>\s*(?:\{\}\s*)?<div className="lk-controles"/);
+  assert.doesNotMatch(CSS, /\.lk-controles\b/, 'volvió la fila de controles adentro del lienzo');
+  const vuelta = EDITOR.slice(EDITOR.indexOf('return (\n    <div className={`lk lk-app'));
+  const top = bloque(vuelta, '<BarraSuperior', '<div className="lk-cuerpo">');
+  assert.match(top, /derecha=\{\([\s\S]*<BarraControles\b/, 'los filtros no están en la topbar');
+  assert.equal((vuelta.match(/<BarraControles\b/g) ?? []).length, 1, 'los filtros se dibujan dos veces');
+  assert.doesNotMatch(bloque(vuelta, '<div className="lk-lienzo"', '{sel && ('), /<BarraControles\b/, 'los filtros volvieron al lienzo');
 });
 
 // Las tres aserciones de arriba daban VERDE con la barra yéndose con la página (medido en Chrome el
@@ -361,14 +375,19 @@ test('lo que se fue (puntos 9, 10 y 11): el panel Datos, el arrastre de campos, 
   assert.match(EDITOR, /show\('No se guardó'/);
 });
 
-test('las hojas: el ícono de la tab, el menú con clic derecho y ⋮ también mirando, y cambiar de hoja sin volver al server', () => {
+// Desde la tanda de la topbar (11/10/2026, puntos 1 y 6): sin pestañas y sin el ícono de la tab; las hojas
+// son el desplegable del título. Lo que se sigue fijando de antes: el menú de una hoja también mirando (con
+// clic derecho), sólo si se puede guardar, y cambiar de hoja sin volver al server.
+test('las hojas: sin pestañas ni ícono, el menú de cada hoja también mirando, y cambiar de hoja sin volver al server', () => {
   const cab = sinComentarios(leer('app/dashboard/Cabecera.tsx'));
-  assert.match(cab, /<Icon name="graphics"/);
-  const fila = bloque(cab, 'export function FilaHojas(', 'export function CabeceraHoja(');
-  assert.match(fila, /onContextMenu=/);
-  assert.doesNotMatch(fila, /editando/, 'el menú de la hoja volvió a depender de estar editando (punto 6)');
-  assert.match(fila, /\{guardable && renombrando !== h\.id && \(/, 'el ⋮ sin la guarda de guardable: el cambio se perdería sin aviso');
-  assert.match(fila, /<NuevoPlaceholder /);
+  assert.doesNotMatch(cab, /<Icon name="graphics"|role="tablist"/, 'volvió el ícono de la tab o las pestañas (puntos 1 y 6)');
+  const menu = bloque(cab, 'export function MenuHojas(', '\n}\n');
+  assert.match(menu, /onContextMenu=/);
+  assert.doesNotMatch(menu, /editando/, 'el menú de la hoja volvió a depender de estar editando');
+  assert.match(menu, /\{acciones && \(\s*<button type="button" className="lk-hoja-mas"/, 'el ⋮ sin la guarda: el cambio se perdería sin aviso');
+  assert.match(menu, /<NuevoPlaceholder /);
+  // Y las acciones de una hoja llegan sólo si se puede guardar.
+  assert.match(EDITOR, /acciones=\{guardable \? \{ onRenombrar: renombrarHoja,/);
   // replaceState con el ?ws= de la pestaña; nunca router.replace (vuelve a correr la página del server).
   const ir = bloque(EDITOR, 'const irAHoja = useCallback(', '}, [ws]);');
   assert.match(ir, /window\.history\.replaceState\(null, '', conWs\(/);
@@ -387,8 +406,12 @@ test('el AI Analyst es un panel del costado: va en la fila del lienzo (no al fin
   assert.ok(iCuerpo < iPanel && iPanel < iMenus, 'el AI Analyst salió de la fila del lienzo');
   assert.equal((vuelta.match(/<PanelAnalista /g) ?? []).length, 1);
   assert.match(vuelta, /<PanelAnalista [^>]*vista=\{vista\}/, 'el análisis a mano miraría lo guardado y no lo que la persona eligió');
-  // Y el botón es el de la casa (con el punto de «análisis nuevo»), con su marca del recorrido.
-  assert.match(vuelta, /data-recorrido="dash-analista">\s*<BotonAnalista hojaId=\{hoja\.id\} abierto=\{analista\}/);
+  // Desde la tanda de la topbar (punto 4) se abre desde el ⋮, con el logo chico y el punto de «análisis
+  // nuevo» (que también va en el ⋮). Al closer y a un link, ni la opción ni la pregunta al server.
+  const mas = bloque(vuelta, "{menu?.tipo === 'mas' && (", '</Flotante>');
+  assert.match(mas, /\{!soloMirar && \(\s*<>\s*<button type="button" role="menuitem" className="lk-opcion lk-opcion--mako"[^>]*onClick=\{alternarAnalista\}/);
+  assert.match(mas, /<LogoMako /);
+  assert.match(EDITOR, /const analisisNuevo = useAnalisisNuevo\(hoja\.id, analista, !soloMirar\);/);
   // En la compu es una COLUMNA de esa fila (el lienzo se achica): fixed tapaba la cuarta columna de
   // tarjetas (medido en Chrome el 11/10/2026). Fixed sólo en el celular, donde al lado no entra.
   const css = leer('app/dashboard/PanelAnalista.tsx');
@@ -403,7 +426,9 @@ test('el PDF: la impresión esconde el cromo y deja cada tarjeta entera en su lu
   const { CSS } = await import('../app/dashboard/editor-css');
   const imprimir = CSS.slice(CSS.indexOf('@media print'));
   assert.match(imprimir, /aside\[data-sidebar\] \{ display: none !important; \}/);
-  assert.match(imprimir, /\.lk-fila, \.lk-barra, \.lk-props, \.lk-controles, \.lk-comp-acciones, \.lk-sin-imprimir, \.lk-cuerpo > \.an \{ display: none !important; \}/);
+  // De la topbar se imprime el título (la mitad izquierda); los filtros, Compartir, Editar, el ⋮ y el ▾ no.
+  assert.match(imprimir, /\.lk-top-der, \.lk-top-hojas, \.lk-barra, \.lk-props, \.lk-comp-acciones, \.lk-sin-imprimir, \.lk-cuerpo > \.an \{ display: none !important; \}/);
+  assert.match(imprimir, /\.lk-top \.edin\[data-vacio\]::before \{ content: '' !important; \}/, 'el PDF imprimiría «Agrega un subtítulo»');
   assert.match(imprimir, /grid-column: var\(--lk-col\); grid-row: var\(--lk-fila\); break-inside: avoid; page-break-inside: avoid;/);
   // Y cada tarjeta lleva su lugar en la grilla de papel.
   assert.match(EDITOR, /'--lk-col': `\$\{c\.x \+ 1\} \/ span \$\{c\.w\}`, '--lk-fila': `\$\{c\.y \+ 1\} \/ span \$\{c\.h\}`/);
