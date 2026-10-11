@@ -1414,4 +1414,15 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/hallazgos-chatbot.md — «Décima tanda»", "docs/diseno-ai-step-v2.md", "docs/diseno-automations-configuraciones.md", "docs/diseno-automations-galeria-v2.md", "docs/relevo/chatbot.md"],
   },
+  {
+    fecha: "11 oct", hora: "12:38", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Las cuatro decisiones de la décima tanda: objetivos, editor de MaKo con audio, email y zona horaria",
+    pedido: "1. Ponle los objetivos a los que ya existian... Recuerda, nunca puede quedar una tarjeta en una version \"vieja\"\n2. Si, agregale esas opciones. Pero en audios, que se pueda configurar con ElevenLabs que salga la voz de MaKo. La que usamos para crear los VSL de la landing.\n3. Quitale a Mauricio que pueda mandar email con MaKo. Nadie debería poder.\n4. Si, siempre por ubicación que se maneje por defecto. Detectando la ubicacion del usuario.",
+    puntos: [
+      "Contesta a las cuatro preguntas del cierre de la décima: (1) los AI Step migrados quedaron sin objetivo; (2) el editor de «MaKo en WhatsApp» sin audio, archivos ni varios mensajes; (3) ws1 tenía resend_from = MaKo <equipo@hola-mako.com>; (4) el motor mandaba en hora de Ciudad de México a un negocio de Baja California.",
+      "La voz de MaKo de los VSL es «David» de ElevenLabs (eleven_multilingual_v2, stability 0.35, style 0.5, speed 1.08; MaKo-VSL/funnel/funnel.md).",
+      "Reglas nuevas en la memoria: nunca-version-vieja, email-negocio-nunca-con-mako, zona-horaria-por-ubicacion.",
+    ],
+  },
 ];
