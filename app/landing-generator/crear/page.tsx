@@ -2,7 +2,7 @@
 // /landing-generator/crear — «Crear con IA» (el generador de Gamma)
 // =============================================================================
 // La pantalla (crear/CrearConIA.tsx) recibe del server lo que no puede pedir sola: las
-// landings que ya pasaron por el Landing Analyst (para «Sobre cuál» y para validar el
+// landings que ya pasaron por el Diagnóstico (/landing-generator/analizar) (para «Sobre cuál» y para validar el
 // deep link `?url=`), los temas propios del negocio y la query cruda. Diseño:
 // docs/diseno-editor-landing.md (D5, D9).
 //

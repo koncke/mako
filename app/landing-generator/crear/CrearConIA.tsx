@@ -24,7 +24,7 @@
 //             (las mismas `tandasDe` de la ruta, ia-reglas.ts), las va mostrando a medida
 //             que llegan con el render público, guarda TODO al final y abre el editor.
 // Lo propio de MaKo, que Gamma no tiene: «Objetivo de la página» (OBJETIVOS_LANDING) y
-// «Sobre cuál» (una landing que ya pasó por el Landing Analyst: su diagnóstico entra al
+// «Sobre cuál» (una landing que ya pasó por el Diagnóstico (/landing-generator/analizar): su diagnóstico entra al
 // prompt, D5). El deep link del Analyst (`?url=`) preselecciona esa landing — sólo si
 // está entre las analizadas de ESTE negocio: una URL cualquiera en la query no puede
 // meter un diagnóstico ajeno.
@@ -72,7 +72,7 @@ import { SelectorTemaCrear, temaSugerido } from './SelectorTemaCrear';
 export type LandingAnalizada = { url: string; veredicto: string | null; score: number | null };
 
 /**
- * La landing de base que pide el deep link del Landing Analyst (`?url=`), sólo si es una de
+ * La landing de base que pide el deep link del Diagnóstico (`?url=`), sólo si es una de
  * las analizadas de este negocio. Comparación exacta (la URL viaja tal cual la guarda el
  * Analyst): un parecido no es una clave.
  */
@@ -542,6 +542,8 @@ export function CrearConIA(props: PropsCrear) {
         ancho={340}
       />
       {errorAnalizadas && <span className="gp-nota-error">No se pudieron leer las landings analizadas.</span>}
+      {/* Sin analizadas el desplegable queda apagado: esto dice dónde se analiza (el ex Landing Analyst). */}
+      <Link href="/landing-generator/analizar" className="gp-enlace-boton">Analizar una página</Link>
     </div>
   );
 

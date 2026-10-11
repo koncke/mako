@@ -418,6 +418,8 @@ export function Inicio(props: PropsInicio) {
           {itemNav('mias', 'Creadas por mí', 'usuario')}
           {itemNav('favoritos', 'Favoritos', 'estrella')}
           {itemNav('publicadas', 'Publicadas', 'globo')}
+          {/* Cambia de RUTA (el diagnóstico de una landing, ex Landing Analyst): va como Link y no por itemNav. */}
+          <Link href="/landing-generator/analizar" className="gp-nav-item"><Ico n="reporte" t={16} /><span>Diagnóstico</span></Link>
         </nav>
         <div className="gp-nav-seccion">
           <span>Carpetas</span>

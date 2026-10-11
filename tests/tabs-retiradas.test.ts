@@ -76,14 +76,6 @@ const NO_SON_LINKS: ReadonlyArray<{ re: RegExp; por: string }> = [
  * archivo: la línea tiene que contener ESE fragmento.
  */
 const TOLERADOS: ReadonlyArray<{ archivo: string; fragmento: string; desde: string; por: string }> = [
-  {
-    archivo: 'app/landing-generator/editor/dialogos/DialogoAnalitica.tsx', fragmento: '<Link href="/landing-analyst"', desde: '2026-10-11',
-    // El redirect lo lleva a /landing-generator/analizar, así que no rebota a la nada. El archivo es del
-    // editor copiado de Gamma (c27d4f82, sesión «Landing Generator»), que llegó a main con este link el
-    // mismo día en que se retiró la tab; el cambio (y su rótulo «Abrir el Landing Analyst») se le pidió
-    // a esa sesión. Antes lo tenía LandingWriterApp.tsx, que ese mismo editor borró.
-    por: 'lo cambia la sesión Landing Generator; sacar la excepción cuando lo haga',
-  },
 ];
 
 /** Dónde está enlazada una ruta retirada (archivo:línea), salteando lo de arriba. */
@@ -205,4 +197,4 @@ test('MaKo en WhatsApp manda el link nuevo de una llamada, y el texto de Equipo 
 //   · /closing redirige sin rutaConWs                                         -> 4 / 1
 //   · Configuraciones vuelve a decir «Closing Analyst»                       -> 4 / 1
 //   · el guard sin la salida de lib/api-mako/rest.ts                         -> 4 / 1 (las rutas REST SÍ calzan: la salida hace falta)
-//   · el guard sin la excepción fechada (hoy DialogoAnalitica.tsx)           -> 4 / 1 (el link sigue ahí: la excepción hace falta)
+//   · el guard sin la excepción fechada (era DialogoAnalitica.tsx; desde el 11/10 sin excepciones)

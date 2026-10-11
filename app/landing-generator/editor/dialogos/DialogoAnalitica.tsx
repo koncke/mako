@@ -5,7 +5,7 @@
 // =============================================================================
 // Pedido de Martín (11/10/2026): «Replica por completo a Gamma». Diseño:
 // docs/diseno-editor-landing.md (D8: visitas, visitantes y leads de 30 días de las URLs
-// publicadas, el alcance por sección si el Pixel lo midió y el link al Landing Analyst).
+// publicadas, el alcance por sección si el Pixel lo midió y el link a la hoja Landing del Dashboard).
 // Gamma (relevo gamma-ui §5.12.4): el modal «Análisis» con el gráfico de barras celeste de los
 // últimos 30 días y la interacción por sección («% visualizada»). Lo que se mide acá es lo que
 // mide el Pixel de MaKo en la página publicada (`analitica` de lib/editor-landing/server.ts), no
@@ -143,7 +143,7 @@ export function DialogoAnalitica({ onCerrar }: { onCerrar?: () => void } = {}) {
             </section>
 
             <div className="gma-an-pie">
-              <Link href="/landing-analyst" className="gma-pb-boton" data-v="contorno"><Ico n="grafico" t={14} /> Abrir el Landing Analyst</Link>
+              <Link href="/dashboard?hoja=landing" className="gma-pb-boton" data-v="contorno"><Ico n="grafico" t={14} /> Ver en el Dashboard</Link>
             </div>
           </>
         )}
