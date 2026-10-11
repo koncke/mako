@@ -1073,7 +1073,7 @@ export async function savePlanPagosAction(
   await savePlanPagos(leadId, plan);
   bust(TAG.pagos, TAG.leads);
   revalidatePath(`/crm/${leadId}`);
-  revalidatePath('/comercial');
+  revalidatePath('/dashboard');
   revalidatePath('/general');
 }
 
@@ -1096,7 +1096,7 @@ export async function marcarPagoAction(
   );
   bust(TAG.pagos, TAG.leads);
   revalidatePath(`/crm/${leadId}`);
-  revalidatePath('/comercial');
+  revalidatePath('/dashboard');
   revalidatePath('/general');
 }
 

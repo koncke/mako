@@ -297,7 +297,7 @@ export async function saveCuotasAction(leadId: number, cuotas: CuotaInput[]): Pr
   await logLeadEvent(leadId, 'Plan de pagos', `Cuotas actualizadas desde Deal Details (${nuevas.length} sin pagar)`, autor);
   bust(TAG.pagos, TAG.leads);
   revalidarLead(leadId);
-  revalidatePath('/comercial');
+  revalidatePath('/dashboard');
   revalidatePath('/general');
 }
 
@@ -328,6 +328,6 @@ export async function marcarPagoManualAction(pagoId: number, leadId: number, dat
   await logLeadEvent(leadId, 'Pago registrado', nota, await autorActual());
   bust(TAG.pagos, TAG.leads);
   revalidarLead(leadId);
-  revalidatePath('/comercial');
+  revalidatePath('/dashboard');
   revalidatePath('/general');
 }

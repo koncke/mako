@@ -335,8 +335,8 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'dashboard', titulo: 'Dashboard', familia: 'Analyze',
     estado: 'listo', verEnApp: '/dashboard',
-    alcance: 'Graphics: /dashboard redirige a /marketing y la barra GraphicsTabs conmuta entre Marketing, Comercial y Mis gráficos (el editor de informes estilo Looker Studio, por persona) conservando el filtro de fecha (?desde&hasta).',
-    vive: ['app/dashboard/page.tsx', 'app/_components/GraphicsTabs.tsx', 'app/_components/FechaFiltro.tsx', 'app/graficos/', 'app/api/graficos/', 'lib/graficos-catalogo.ts', 'lib/graficos-agregar.ts', 'lib/graficos-datos.ts', 'lib/graficos-tablero.ts', 'tests/graficos.test.ts'],
+    alcance: 'La tab Dashboard es un editor de informes copiado de Looker Studio: hojas (Marketing y Comercial son las dos del informe inicial), 40 tipos de gráfico, estilo editable, control de período y los 24 conjuntos de datos de MaKo. Por persona y workspace.',
+    vive: ['app/dashboard/', 'app/graficos/', 'app/marketing/page.tsx', 'app/comercial/page.tsx', 'app/api/graficos/', 'lib/graficos-catalogo.ts', 'lib/graficos-agregar.ts', 'lib/graficos-datos.ts', 'lib/graficos-tablero.ts', 'tests/graficos.test.ts'],
     proyectos: ['Feature: Dashboard'],
   },
   {

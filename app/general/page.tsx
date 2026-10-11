@@ -227,7 +227,7 @@ export default async function GeneralPage() {
       nivel: 'rojo',
       titulo: `${n} cuota${n === 1 ? '' : 's'} VENCIDA${n === 1 ? '' : 'S'} — cobrar URGENTE (${fmtUSD(tot)})`,
       detalle: `Pagos vencidos sin cobrar (ej: ${cuotas.vencidas[0].lead_nombre}, ${Math.abs(cuotas.vencidas[0].dias)}d de atraso). Cóbralos cuanto antes.`,
-      href: '/comercial', hrefLabel: 'Comercial',
+      href: '/dashboard?hoja=comercial', hrefLabel: 'Comercial',
       desglose: { label: 'Cuotas vencidas', value: fmtUSD(tot), color: 'var(--bad)', items: cuotaItems(cuotas.vencidas), emptyText: 'Sin cuotas vencidas.' },
     });
   }
@@ -238,7 +238,7 @@ export default async function GeneralPage() {
       nivel: 'ambar',
       titulo: `${n} cuota${n === 1 ? '' : 's'} por cobrar pronto`,
       detalle: `Vencen en los próximos días (ej: ${cuotas.porVencer[0].lead_nombre}, en ${cuotas.porVencer[0].dias}d). Ten listo el seguimiento de cobro.`,
-      href: '/comercial', hrefLabel: 'Comercial',
+      href: '/dashboard?hoja=comercial', hrefLabel: 'Comercial',
       desglose: { label: 'Cuotas por vencer', value: fmtUSD(tot), color: 'var(--warn-fill)', items: cuotaItems(cuotas.porVencer), emptyText: 'Sin cuotas por vencer.' },
     });
   }
@@ -247,7 +247,7 @@ export default async function GeneralPage() {
       nivel: 'ambar',
       titulo: `Los deals se enfrían entre R1 y R2 (${tramo.promedio.toFixed(1)} días prom.)`,
       detalle: 'Cuanto más tarda la R2, más cae la intención. Agenda la R2 en la misma R1, en vivo.',
-      href: '/comercial', hrefLabel: 'Comercial',
+      href: '/dashboard?hoja=comercial', hrefLabel: 'Comercial',
     });
   }
   for (const a of fatiga) {
@@ -255,7 +255,7 @@ export default async function GeneralPage() {
       nivel: 'ambar',
       titulo: `Posible fatiga de creativo · ${a.adset_name}`,
       detalle: `Frecuencia 7d ${a.frequency_7d.toFixed(1)} y el costo por lead subió (${fmtUSD(a.cpl_7d_usd)} vs ${fmtUSD(a.cpl_28d_usd)} a 28 días). Rota el creativo.`,
-      href: '/marketing', hrefLabel: 'Marketing',
+      href: '/dashboard?hoja=marketing', hrefLabel: 'Marketing',
     });
   }
   if (maduras && maduras.tasa_cierre_madura !== null && maduras.limpias >= 3) {
@@ -264,14 +264,14 @@ export default async function GeneralPage() {
         nivel: 'verde',
         titulo: 'El sistema de venta está sano',
         detalle: 'El ratio de cierre maduro es saludable. Para más cierres, el foco es marketing: más volumen o mejor calidad.',
-        href: '/comercial', hrefLabel: 'Comercial',
+        href: '/dashboard?hoja=comercial', hrefLabel: 'Comercial',
       });
     } else if (maduras.tasa_cierre_madura < 20) {
       alertas.push({
         nivel: 'rojo',
         titulo: `Tasa de cierre baja: ${maduras.tasa_cierre_madura.toFixed(0)}% en cohortes maduras`,
         detalle: 'Califican pero no cierran. Revisa la oferta y el manejo de objeciones en la R2.',
-        href: '/comercial', hrefLabel: 'Comercial',
+        href: '/dashboard?hoja=comercial', hrefLabel: 'Comercial',
       });
     }
   }

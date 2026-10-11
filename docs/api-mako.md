@@ -6070,7 +6070,7 @@ curl -L \
 
 ## Dashboard y análisis — `metricas`
 
-Tab **Dashboard** (`/marketing`). 20 lecturas · 0 acciones.
+Tab **Dashboard** (`/dashboard`). 20 lecturas · 0 acciones.
 
 ### `GET /api/v1/metricas/numeros` — Números del negocio por período
 

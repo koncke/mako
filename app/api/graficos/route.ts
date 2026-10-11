@@ -1,5 +1,5 @@
 // =============================================================================
-// /api/graficos — datos y guardado de «Mis gráficos» (Graphics › Mis gráficos)
+// /api/graficos — datos y guardado del Dashboard (el editor de informes)
 // =============================================================================
 // Una ruta y no server actions: el editor pide los datos de varios gráficos a la vez, y las
 // server actions se ENCOLAN de a una (AGENTS.md, «Antes de optimizar una consulta…»). El
@@ -9,15 +9,15 @@
 // workspace y la tab en su capa. Sin eso, un closer leía por acá la plata que su pantalla le
 // esconde.
 //
-//   POST { accion: 'datos', graficos: Grafico[], desde, hasta } → { datos: Record<id, DatosGrafico> }
-//   POST { accion: 'guardar', tablero }                          → { tablero }
+//   POST { accion: 'datos', pedidos: [{ grafico, desde, hasta }] } → { datos: Record<id, DatosGrafico> }
+//   POST { accion: 'guardar', tablero }                             → { tablero }
 
 import { NextResponse } from 'next/server';
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { esFechaValida, hoyEnTijuana } from '@/lib/date-utils';
-import { MAX_GRAFICOS, sanearGrafico, type Grafico } from '@/lib/graficos-catalogo';
-import { datosDeTablero } from '@/lib/graficos-datos';
+import { MAX_COMPONENTES } from '@/lib/graficos-catalogo';
+import { datosDeGraficos, type PedidoDatos } from '@/lib/graficos-datos';
 import { guardarTablero } from '@/lib/graficos-tablero';
 
 export const dynamic = 'force-dynamic';
@@ -43,16 +43,18 @@ export async function POST(req: Request) {
   }
 
   if (body.accion === 'datos') {
-    const desde = String(body.desde ?? '');
-    let hasta = String(body.hasta ?? '');
-    if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) return err(400, 'Rango inválido');
-    // Un rango que termina después de hoy se acota a hoy; no se descarta (/comercial volvía
-    // a 30 días sin avisar: docs/hallazgos-ads.md).
     const hoy = hoyEnTijuana();
-    if (hasta > hoy) hasta = hoy < desde ? desde : hoy;
-    const lista = Array.isArray(body.graficos) ? body.graficos.slice(0, MAX_GRAFICOS) : [];
-    const graficos = lista.map(sanearGrafico).filter((g): g is Grafico => !!g);
-    return NextResponse.json({ datos: await datosDeTablero(graficos, desde, hasta) });
+    const lista = Array.isArray(body.pedidos) ? body.pedidos.slice(0, MAX_COMPONENTES) : [];
+    const pedidos: PedidoDatos[] = [];
+    for (const p of lista as Array<Record<string, unknown>>) {
+      const desde = String(p?.desde ?? '');
+      let hasta = String(p?.hasta ?? '');
+      if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) continue;
+      // Un período que termina después de hoy se acota a hoy; no se descarta.
+      if (hasta > hoy) hasta = hoy < desde ? desde : hoy;
+      pedidos.push({ grafico: p.grafico, desde, hasta });
+    }
+    return NextResponse.json({ datos: await datosDeGraficos(pedidos) });
   }
 
   return err(400, 'Acción desconocida');

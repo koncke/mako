@@ -14,8 +14,9 @@ const CH = 'Graphics';
 
 /** Las fases del área y en qué anda cada una. */
 export const PARTES: Parte[] = [
-  { titulo: 'Marketing y Comercial', detalle: 'Los dos tableros de números con el filtro de fecha compartido', estado: 'hecha' },
-  { titulo: 'Mis gráficos', detalle: 'Cada persona arma su informe como en Looker Studio: tipo de gráfico, fuente, dimensión y métricas', estado: 'hecha' },
+  { titulo: 'El editor de informes', detalle: 'La tab entera es un Looker Studio: hojas, 40 tipos de gráfico, estilo editable y control de período', estado: 'hecha' },
+  { titulo: 'Todos los datos de MaKo', detalle: '24 conjuntos en 10 áreas: negocio, marketing, CRM, comunicación, automations, plan, CS, second brain, onboarding e IA', estado: 'hecha' },
+  { titulo: 'Lo que las tabs viejas tenían y el editor no', detalle: 'Cohortes, el desglose clickeable de cada número, el chat con MaKo por gráfico y los anuncios ganadores', estado: 'cola' },
   { titulo: 'Números de MaKo', detalle: 'Graphics mirando el workspace de MaKo para la ventana del 1/11 al 15/12 · espera conectar sus datos', estado: 'cola' },
 ];
 
@@ -64,8 +65,29 @@ export const BITACORA: Hito[] = [
       'lib/graficos-agregar.ts — de filas a lo que se dibuja (puro, con test)',
       'lib/graficos-datos.ts — el lector de cada fuente',
       'lib/graficos-tablero.ts — el informe de cada persona',
-      'app/graficos/EditorGraficos.tsx — el editor',
-      'app/graficos/Grafico.tsx — cómo se dibuja cada tipo',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '01:00', chat: CH, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'El Dashboard entero es el editor, con hojas, todos los gráficos y todos los datos',
+    pedido: 'Elimina las tab de Marketing y Comercial que hay por defecto... Todo la tab de Dashboard debe ser el editable, no lo pongas como un recuadro abajo. Elimina la topbar, el título de la tab, el filtro de fecha (que eso cada uno lo va a agregar si quiere...) Y justamente falta la opción de nueva "hoja" que eso sería lo que hoy es la tab de comercial y marketing. Y faltan un montón de gráficos que puedes agregar, como en la captura y más... También rediseña más simple la parte de "Agregar datos", ya que Data Studio lo hace más complicado porque tiene muchas fuentes... Pero nosotros solo tenemos la fuente de la propia app de MaKo y de todos los datos que viven dentro. También revisa que se pueda editar el estilo de cada gráfico... Porque hoy no se puede. Por último, revisa todos los datos de MaKo que se podrían poner allí... Absolutamente todos del CRM, del Second Brain, del Onboarding, de Customer Success, de todo... Para eso también tenemos una API documentada.',
+    puntos: ['Mandó dos capturas de la galería «Añadir un gráfico» de Looker Studio, de la Tabla a los Embudos de conversión.'],
+  },
+  {
+    fecha: '11 oct', hora: '—', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Dashboard como editor de informes: hojas, 40 tipos, estilo y 24 conjuntos de datos',
+    puntos: [
+      '/dashboard ES el editor, sin topbar ni filtro de fecha; /marketing y /comercial traen a sus hojas del informe inicial, y /graficos al Dashboard.',
+      'Hojas (añadir, renombrar, duplicar, mover, eliminar), control de período como componente de la hoja, y el período de cada gráfico: «Automático» sigue al control.',
+      'La galería de Looker con 40 tipos en 17 grupos: tablas, cuadros de resultados, series, columnas y barras (apiladas y al 100%), histograma, circular, combinados, áreas, dispersión, tabla dinámica, bala, rectángulos, sankey, indicadores, cascada, cronología y embudos. Faltan los mapas: no hay datos geográficos.',
+      'ESTILO editable: título, colores por serie, etiquetas de datos, leyenda, ejes, cuadrícula, fondo, borde, esquinas, números compactos, objetivo y máximo.',
+      '«Añadir datos» es una lista simple: la fuente es una, MaKo, con 24 conjuntos en 10 áreas medidos contra la base (21 con datos en el ws1).',
+    ],
+    archivos: [
+      'app/dashboard/EditorInforme.tsx — el editor',
+      'app/dashboard/Grafico.tsx — cómo se dibuja cada tipo',
+      'lib/graficos-catalogo.ts — conjuntos, tipos, estilo, hojas y período',
+      'lib/graficos-datos.ts — los 24 lectores',
     ],
   },
 ];

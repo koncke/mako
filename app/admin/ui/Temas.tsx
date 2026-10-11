@@ -26,7 +26,7 @@ const PRUEBAS: { href: string; label: string; porque: string }[] = [
   { href: '/crm', label: 'CRM', porque: 'la prueba dura: cientos de tarjetas, chips de estado y columnas' },
   { href: '/general', label: 'Inicio', porque: 'KPIs grandes y el hero del Norte' },
   { href: '/plan', label: 'Plan', porque: 'tablero denso con prioridad por color' },
-  { href: '/marketing', label: 'Marketing', porque: 'gráficos de gasto — donde el color carga dato' },
+  { href: '/dashboard', label: 'Dashboard', porque: 'gráficos de gasto — donde el color carga dato' },
   { href: '/whatsapp', label: 'WhatsApp', porque: 'burbujas: tres colores que significan quién habla' },
   { href: '/second-brain', label: 'Second Brain', porque: 'la única pantalla que YA era oscura' },
 ];

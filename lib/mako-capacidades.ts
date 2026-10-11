@@ -84,9 +84,9 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entra a Email', 'Elige a quién le va', 'Revisa el texto que escribe MaKo y envíalo'],
   },
   {
-    // La tab se llama Dashboard en el sidebar, pero `/dashboard` es un redirect
-    // a `/marketing`: la ruta va directo al destino real, así el link no rebota.
-    id: 'metricas', tab: 'Dashboard', ruta: '/marketing',
+    // Desde el 11/10/2026 `/dashboard` ES la pantalla (el editor de informes); /marketing y
+    // /comercial son redirects a sus hojas.
+    id: 'metricas', tab: 'Dashboard', ruta: '/dashboard',
     que: 'Ver los números de marketing y comercial: gasto, costo por lead, agendas, show rate, cierres y facturación.',
     como: ['Abre el Dashboard', 'Elige el período', 'Pregúntale a MaKo qué cambió y por qué'],
   },

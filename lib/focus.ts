@@ -167,7 +167,7 @@ function destinoDeKpi(k: KpiParaFoco): { href: string; label: string } {
   const cap = capacidad(CAPACIDAD_POR_FUENTE[k.fuenteId ?? ''] ?? '');
   // Sin capacidad conocida se cae al Dashboard, que es donde se ven los números de
   // cualquier fuente. Nunca a una ruta inventada.
-  return cap ? { href: cap.ruta, label: cap.tab } : { href: '/marketing', label: 'Dashboard' };
+  return cap ? { href: cap.ruta, label: cap.tab } : { href: '/dashboard', label: 'Dashboard' };
 }
 
 const fmt = (n: number, unidad: 'usd' | 'cantidad'): string =>
