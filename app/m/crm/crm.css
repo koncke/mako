@@ -157,9 +157,11 @@
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .mc-burbuja--ella { align-self: flex-start; background: var(--surface-2); border-bottom-left-radius: 6px; }
-.mc-burbuja--yo { align-self: flex-end; background: var(--wa-noof-bubble); border-bottom-right-radius: 6px; }
+/* --primary-bg, no --wa-noof-bubble: ése es del WhatsApp de escritorio, no se redefine en modo oscuro y
+   dejaba el texto claro sobre lila claro (ilegible, visto en producción el 11/10/2026). */
+.mc-burbuja--yo { align-self: flex-end; background: var(--primary-bg); color: var(--ink); border-bottom-right-radius: 6px; }
 .mc-burbuja--sin { font-style: italic; color: var(--dim); }
-.mc-burbuja__hora { display: block; margin-top: 2px; text-align: right; font-size: 11.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.mc-burbuja__hora { display: block; margin-top: 2px; text-align: right; font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .mc-composer {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
   padding: 8px calc(var(--m-gutter) + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(var(--m-gutter) + env(safe-area-inset-left, 0px));

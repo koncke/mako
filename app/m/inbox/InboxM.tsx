@@ -71,6 +71,8 @@ export function InboxM({ items, fallas, avisos, avisosFalla, marcarHasta, conAvi
   const ahora = useAhora();
 
   const visibles = useMemo(() => items.filter((i) => !resueltos.has(i.key)), [items, resueltos]);
+  const enTelefono = useMemo(() => visibles.filter((i) => i.accionMovil !== 'computadora'), [visibles]);
+  const enCompu = useMemo(() => visibles.filter((i) => i.accionMovil === 'computadora'), [visibles]);
   const sel = visibles.find((i) => i.key === abierta) ?? null;
   const falla = fraseDeFallas(fallas);
 
@@ -91,15 +93,31 @@ export function InboxM({ items, fallas, avisos, avisosFalla, marcarHasta, conAvi
     <>
       <SeccionM titulo="Para decidir" id="decidir">
         {falla && <ErrorM frase={falla} />}
-        {visibles.length > 0 ? (
+        {enTelefono.length > 0 ? (
           <div className="m-lista">
-            {visibles.map((it) => (
+            {enTelefono.map((it) => (
               <FilaDecision key={it.key} item={it} ahora={ahora} onAbrir={() => setAbierta(it.key)} />
             ))}
           </div>
         ) : !falla ? (
           <VacioM frase="Nada para decidir." />
         ) : null}
+        {/* Lo que se revisa en la computadora (borradores del plan, contactos) no compite con
+            lo que se aprueba acá: en el ws 9 eran 68 filas que el teléfono no puede resolver
+            (medido el 11/10/2026). Va plegado en UNA fila, y sigue a mano. */}
+        {enCompu.length > 0 && (
+          <details className="mi-compu">
+            <summary className="mi-compu-sum">
+              <Icon name="web" size={20} />
+              <span>{enCompu.length === 1 ? '1 para revisar en la computadora' : `${enCompu.length} para revisar en la computadora`}</span>
+            </summary>
+            <div className="m-lista">
+              {enCompu.map((it) => (
+                <FilaDecision key={it.key} item={it} ahora={ahora} onAbrir={() => setAbierta(it.key)} />
+              ))}
+            </div>
+          </details>
+        )}
       </SeccionM>
 
       {conAvisos && <SeccionM titulo="Avisos" id="avisos">

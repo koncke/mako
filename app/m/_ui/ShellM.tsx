@@ -22,7 +22,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { usePathname } from 'next/navigation';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
-import { modoPreferido } from '@/app/_components/InterruptorModo';
 import { ATTR_MODO, LS_MODO } from '@/lib/temas-candidatos';
 import { HOME_MOVIL, destinoActivo, type DestinoMovil } from '@/lib/movil-rutas';
 import { iniciarCapturaInstalacion } from '@/lib/movil-instalar';
@@ -121,7 +120,10 @@ export function ShellM({
   useEffect(() => {
     const d = document.documentElement;
     const aplicar = () => {
-      const oscuro = modoPreferido();
+      // Claro por defecto: oscuro SÓLO si la persona lo eligió (Martín, 11/10/2026: «por defecto es
+      // white mode»). modoPreferido() sigue al sistema cuando no hay elección, y eso es del escritorio.
+      let oscuro = false;
+      try { oscuro = localStorage.getItem(LS_MODO) === 'oscuro'; } catch { /* incógnito: claro */ }
       const puesto = d.getAttribute(ATTR_MODO) === 'oscuro';
       if (oscuro) {
         if (!puesto) d.setAttribute(ATTR_MODO, 'oscuro');

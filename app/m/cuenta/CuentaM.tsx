@@ -60,8 +60,8 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
         <div className="m-lista">
           <FilaM
             titulo={datos.nombre || datos.email}
-            segunda={[datos.rol, datos.negocio].filter(Boolean).join(' en ')}
-            riel={datos.nombre ? <span className="mc-email">{datos.email}</span> : undefined}
+            // El email va en la segunda línea, entero: en el riel se cortaba a «martinkoncke@gm…».
+            segunda={[datos.nombre ? datos.email : null, [datos.rol, datos.negocio].filter(Boolean).join(' en ')].filter(Boolean).join(' · ')}
           />
         </div>
         {datos.vista && (

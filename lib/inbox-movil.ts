@@ -279,5 +279,12 @@ export async function contarParaDecidir(quien?: QuienMira): Promise<ConteoParaDe
   };
   const porTipo: Partial<Record<TipoDecision, number | null>> = {};
   for (const t of tipos) porTipo[t] = valor[t];
-  return { total: sumarConteos(porTipo, tipos), porTipo };
+  // El número (badge, frase de Today) cuenta SÓLO lo que se decide en el teléfono. Los
+  // borradores del plan y los contactos propuestos se revisan en la computadora: medido en
+  // producción el 11/10/2026, eran 68 de 68 en el ws 9 y casi todos los 138 del ws 1, y el
+  // badge decía 99+ sobre cosas que el teléfono no puede resolver.
+  return { total: sumarConteos(porTipo, tipos.filter((t) => DECIDIBLES_EN_TELEFONO.has(t))), porTipo };
 }
+
+/** Lo que se aprueba desde el teléfono. El resto (borradores, contactos) es de la computadora. */
+export const DECIDIBLES_EN_TELEFONO: ReadonlySet<TipoDecision> = new Set<TipoDecision>(['pendiente', 'accion', 'confirmacion']);

@@ -23,5 +23,7 @@ export const MARCA_TEMA_M = 'data-m-tema';
  */
 export const TEMA_ANTES_DE_PINTAR =
   `(function(){try{var d=document.documentElement,g=localStorage.getItem('${LS_MODO}');` +
-  `var o=g?g==='oscuro':window.matchMedia('(prefers-color-scheme: dark)').matches;` +
+  // Claro por defecto (pedido de Martín, 11/10/2026: «por defecto es white mode»): oscuro SÓLO si la
+  // persona lo eligió. Seguir al sistema ponía oscuro a quien tiene Windows o iOS en oscuro.
+  `var o=g==='oscuro';` +
   `if(o){d.setAttribute('${ATTR_MODO}','oscuro');d.setAttribute('${MARCA_TEMA_M}','1');}}catch(e){}})()`;

@@ -3,7 +3,44 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
-## ⚠️ LA DEVOLUCIÓN DE MARTÍN (11/10, 15:16) — arrancá por acá
+## ⚠️⚠️ EL REDISEÑO PEDIDO (11/10, ~16:30) — ESTO MANDA SOBRE TODO LO DE ABAJO
+
+Martín vio /m en producción (recorrida a ancho de teléfono, las seis tabs andan) y la RECHAZÓ, textual:
+«Todo eso se ve bastante mal... Ese no es el icono de MaKo... Tampoco quiero que ese icono tenga tanto
+protagonismo... MaKo no es una app de un chat con una IA... Decidiste sacar muchas cosas que tal vez si
+sería bueno tenerlas... Pusiste por defecto blackmode, cuando por defecto es white mode. Hay una cantidad
+de texto en esas capturas, y otros que estan flotando... No se ve para nada como lo que es MaKo, se ve
+bastante feo.»
+
+Y contestó (decisiones, no se rediscuten):
+- **Estilo: «Estilo app nativa, pero sin perder el diseño que ya hicimos en MaKo».** Estructura de app de
+  iPhone (títulos grandes, listas agrupadas, sheets) con la identidad de MaKo de escritorio: CLARO, la
+  paleta Nord + el azul de acción, Geist, las tarjetas de la casa, el dorado sólo para la marca.
+- **Secciones que van al teléfono, además de Today, Inbox, CRM y Plan:** Dashboard, Ads Manager,
+  Customer Success, Automations, **el editor de video estilo CapCut** (/video-generator, el editor de
+  anuncios) y **el constructor de landings estilo Gamma** (/landing-generator), aunque sea en versión
+  reducida. (WhatsApp no lo marcó.)
+- **El ícono de MaKo:** el del destino central de la barra NO es el logo de MaKo (era una chispa genérica
+  del set de íconos). Va el logo real (app/_components/MakoBrand.tsx / Marca.tsx) y SIN protagonismo:
+  MaKo no es «una app de chat con una IA», así que el chat deja de ser un destino central de la barra
+  (va dentro de «Más» o como acción secundaria).
+- **Claro por defecto:** ya arreglado (app/m/_ui/tema.ts y ShellM: oscuro SÓLO si la persona lo eligió;
+  antes seguía al sistema operativo).
+- **Menos texto y nada flotando:** sacar la «Actualizado hh:mm» flotando al lado del título, los
+  subtítulos, las segundas líneas largas, las pills que no deciden nada. Un paso por pantalla, cosas
+  grandes (memoria un-paso-por-pantalla).
+
+La barra con más de cinco secciones: cinco destinos máximo (Today · CRM · Inbox · Plan · Más) y «Más»
+abre la lista de las demás (Dashboard, Ads Manager, Customer Success, Automations, Video, Landing, MaKo,
+Cuenta) — o la composición que se decida con él viendo un prototipo.
+
+`MOVIL_ACTIVO` sigue en `false` hasta que Martín apruebe el rediseño.
+
+Ya arreglado en esta tanda (commit de la tarde): el Inbox cuenta y muestra sólo lo que se decide en el
+teléfono (los 68 borradores del plan van plegados en «N para revisar en la computadora»), Today corta
+«Para hoy» en 5, el globo propio del chat de WhatsApp era ilegible en oscuro, el email de Cuenta.
+
+## LA DEVOLUCIÓN DE MARTÍN (11/10, 15:16)
 
 Abrió MaKo en su teléfono y vio **el escritorio** (/general con el Sidebar en miniatura y botones
 chicos): «Se ve bastante mal... Realmente no tiene mucho de app mobile eso... Revisalo bien y vuelvelo

@@ -16,7 +16,7 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { useRouter, useWs } from '@/app/_ui/Link';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { Icon } from './icons';
 import { decidirDesvio } from '@/lib/movil-desvio';
@@ -49,7 +49,13 @@ export function DesvioMovil({ telefono }: { telefono: boolean }) {
   if (desvio.tipo === 'nada') return null;
 
   if (desvio.tipo === 'ir') {
-    return <div style={cubierta} aria-busy="true" aria-label="Abriendo MaKo Mobile" />;
+    // Con JavaScript, el efecto de arriba lleva solo; el link es la salida si tarda o falla
+    // (sin él, la cubierta sería una pantalla vacía sin forma de seguir).
+    return (
+      <div style={{ ...cubierta, alignItems: 'center' }} aria-busy="true">
+        <Link href={desvio.destino} style={{ fontSize: 18, fontWeight: 600, color: 'var(--primary)', padding: 12 }}>Abrir MaKo Mobile</Link>
+      </div>
+    );
   }
 
   return (

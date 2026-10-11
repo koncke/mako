@@ -96,7 +96,7 @@ export default async function InboxPagina() {
 
   return (
     <PantallaM
-      titulo={fraseHeroe(decidir.items.length, fallas.length > 0) ?? undefined}
+      titulo={fraseHeroe(decidir.items.filter((i) => i.accionMovil !== 'computadora').length, fallas.length > 0) ?? undefined}
       actualizado={new Date()}
       refrescable
     >

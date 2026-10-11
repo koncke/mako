@@ -19,9 +19,9 @@ import { esRutaMovil, rutaMovil } from './movil-rutas';
 
 /**
  * EL INTERRUPTOR de MaKo Mobile: si un teléfono entra solo a /m (por /inicio) y si las pantallas
- * de escritorio se le tapan (<DesvioMovil> en el layout raíz). Apagado hasta ver /m dibujada en
- * un teléfono de verdad: ninguna pantalla de /m se pudo renderizar antes del deploy (sin RAM para
- * un next dev), y prenderlo manda a los teléfonos de TODOS los clientes ahí.
+ * de escritorio se le tapan (<DesvioMovil> en el layout raíz). APAGADO: Martín vio /m el 11/10/2026
+ * y la rechazó («No se ve para nada como lo que es MaKo, se ve bastante feo»; modo oscuro por
+ * defecto, ícono de MaKo equivocado y al centro, demasiado texto). Se prende después del rediseño.
  */
 export const MOVIL_ACTIVO = false;
 

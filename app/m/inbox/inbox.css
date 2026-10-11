@@ -32,3 +32,9 @@
 [data-m] .mi-consecuencia { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--ink); }
 [data-m] .mi-error { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--bad); font-weight: 600; }
 [data-m] .mi-aviso { margin: 0; font-size: var(--fs-sm); color: var(--dim); }
+
+/* Lo que se revisa en la computadora: UNA fila plegada al final de «Para decidir». */
+[data-m] .mi-compu { margin-top: 12px; }
+[data-m] .mi-compu-sum { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--surface-2); color: var(--dim); font-size: 16px; font-weight: 600; cursor: pointer; list-style: none; }
+[data-m] .mi-compu-sum::-webkit-details-marker { display: none; }
+[data-m] .mi-compu[open] .mi-compu-sum { margin-bottom: 8px; }

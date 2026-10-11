@@ -43,7 +43,9 @@ export default async function HoyPage() {
 
   const conteo = hoy.decidir.estado === 'ok' ? hoy.decidir.dato : null;
   const bloquean = conteo ? sumaDe(conteo.porTipo, TIPOS_QUE_BLOQUEAN) : null;
-  const revisar = conteo ? sumaDe(conteo.porTipo, ['lead', 'borrador']) : null;
+  // Los borradores del plan y los contactos se revisan en la computadora: no van a la frase del
+  // teléfono (eran «68 cosas para revisar» que desde acá no se pueden resolver, 11/10/2026).
+  const revisar: number | null = null;
   const pulso = hoy.pulso.estado === 'ok' ? hoy.pulso.dato : null;
   const plan = hoy.plan.estado === 'ok' ? hoy.plan.dato : null;
   const reuniones = hoy.reuniones.estado === 'ok' ? hoy.reuniones.dato : null;
@@ -271,6 +273,9 @@ function carga(f: { abiertas: number; recurrentes: number }): string {
   return 'Sin trabajo con fin';
 }
 
+/** Cuántas de «Para hoy» entran en Today; el resto, en /m/plan. */
+const TOPE_HOY = 5;
+
 function Plan({ p, conVencimientos }: { p: PlanHoy; conVencimientos: boolean }) {
   const venc = conVencimientos ? [...p.alertas.proyectosAtrasados, ...p.alertas.proyectosPorVencer] : [];
   const borradores = conVencimientos ? p.borradores : [];
@@ -282,9 +287,14 @@ function Plan({ p, conVencimientos }: { p: PlanHoy; conVencimientos: boolean }) 
         </SeccionM>
       )}
 
+      {/* Today es un vistazo, no el plan: se ven las primeras y el resto vive en /m/plan.
+          Sin tope, el Today del dueño medía 9.352 px con todas las vencidas (11/10/2026). */}
       {conVencimientos && p.hoy.length > 0 && (
-        <SeccionM titulo="Para hoy">
-          <FilasPlan items={p.hoy} />
+        <SeccionM
+          titulo="Para hoy"
+          accion={p.hoy.length > TOPE_HOY ? <Link href="/m/plan" className="m-hoy-ver">{`Ver las ${p.hoy.length}`}</Link> : undefined}
+        >
+          <FilasPlan items={p.hoy.slice(0, TOPE_HOY)} />
         </SeccionM>
       )}
 
