@@ -1,5 +1,12 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **EN CURSO (11/10/2026 ~04:40, `claude3`): la DÉCIMA tanda** (el pedido textual, en el último hito de
+> `app/admin/dev/chatbot/bitacora.ts`). La corre el workflow `wf_0a9d0973-480` (script en
+> `~/.claude/projects/…-dashboard-marketing/<sesión>/workflows/scripts/decima-tanda-automations-*.js`): diseño
+> (`docs/diseno-ai-step-v2.md`, `docs/diseno-automations-configuraciones.md`, `docs/diseno-automations-galeria-v2.md`)
+> → UI → funciones → revisión de motor → cierre con cosecha en hallazgos-chatbot.md. Si el chat se corta: retomar con
+> `resumeFromRunId` o seguir desde los diseños; los scripts de datos quedan en SIMULACRO hasta desplegar.
+>
 > **HECHO (11/10/2026 ~04:15, `56581a3f`):** lo de abajo está en producción; lo aprendido en
 > `docs/hallazgos-chatbot.md` → «"MaKo en WhatsApp" = una automatización más». Sin ver con clics (lo mira Martín).
 >
