@@ -1397,4 +1397,21 @@ FEEDBACK PROBAR:
       "Ojo al diseñarlo: `fetchAllGroups` de Evolution no termina en una línea grande (AGENTS.md, «Una sonda se valida en los DOS estados»): la lista de grupos y «está dentro del grupo X» no pueden colgar de esa llamada en cada envío.",
     ],
   },
+  {
+    fecha: "11 oct", hora: "12:17", chat: "chatbot", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Décima tanda hecha: AI Step v2, Configuraciones, galería nueva y editores",
+    puntos: [
+      "AI Step v2: un caso por tarjeta, objetivo, «✦ Armar el resto», ensayo de objeciones y respuesta en audio con ElevenLabs (mig 0251). Los AI Step que ya existían se parten SIN objetivo: ponérselo cambiaba lo que MaKo le contesta a los leads de la #213.",
+      "Configuraciones de la tab: horario de envío y límites por canal en un panel. «Contesta sola» se mide en la zona del negocio.",
+      "Galería: «Lienzo en blanco» primero, buscador y filtro, plantillas de MaKo y de Instagram. «Nuevo agendado» pasa a ser un evento de MaKo: ws1 (#239) y ws13 (#240) lo tienen prendido desde antes del deploy.",
+      "«Pídeselo a MaKo» por la API, por la misma puerta que la caja del modal; sale crear_secuencia_mensajes (0 usos).",
+      "Editores: el medio se conecta desde la tarjeta, recorrido de la tab, «MaKo en WhatsApp» del mismo tamaño que WhatsApp (todavía sin audio, archivos ni varios mensajes: decisión pendiente).",
+      "Revisión del motor y los datos: tests/decima-revision.test.ts, cada guard probado rompiéndolo.",
+    ],
+    commits: [
+      { sha: "4e2ebc7d", msg: "Automations, décima tanda: AI Step v2, Configuraciones, galería nueva y editores al pedido de Martín", lineas: 13713, archivos: 137 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «Décima tanda»", "docs/diseno-ai-step-v2.md", "docs/diseno-automations-configuraciones.md", "docs/diseno-automations-galeria-v2.md", "docs/relevo/chatbot.md"],
+  },
 ];

@@ -1,14 +1,19 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
-> **EN CURSO (11/10/2026 ~04:40, `claude3`): la DÉCIMA tanda** (el pedido textual, en el último hito de
-> `app/admin/dev/chatbot/bitacora.ts`). La corre el workflow `wf_0a9d0973-480` (script en
-> `~/.claude/projects/…-dashboard-marketing/<sesión>/workflows/scripts/decima-tanda-automations-*.js`): diseño
-> (`docs/diseno-ai-step-v2.md`, `docs/diseno-automations-configuraciones.md`, `docs/diseno-automations-galeria-v2.md`)
-> → UI → funciones → revisión de motor → cierre con cosecha en hallazgos-chatbot.md. Si el chat se corta: retomar con
-> `resumeFromRunId` o seguir desde los diseños; los scripts de datos quedan en SIMULACRO hasta desplegar.
-> **Coordinación (11/10 ~12:40):** la sesión «Integración Mercado Pago y Stripe» suma un CRON «Pagos» como 7º botón
-> (decisión de Martín: «Botón propio "Pagos"», grilla 4+3) DESPUÉS del commit de la décima: al pushearla, mandarle el
-> hash por SendMessage (from `uds:\\.\pipe\LOCAL\cc-msg-b4184de1f7adb8c75534ec808472560f`).
+> **HECHA (11/10/2026 ~12:20, `claude3`): la DÉCIMA tanda, `4e2ebc7d`, desplegada (Ready).** AI Step v2 (un caso
+> por tarjeta, objetivo, «✦ Armar el resto», ensayo, respuesta en audio), Configuraciones (horario + límites),
+> galería v2 y editores. Diseños: `docs/diseno-ai-step-v2.md`, `docs/diseno-automations-configuraciones.md`,
+> `docs/diseno-automations-galeria-v2.md`. Lo aprendido: `docs/hallazgos-chatbot.md` → «Décima tanda». Datos, medidos
+> después: mig 0251 aplicada; «Aviso de nuevo agendado» creado y prendido en ws1 (#239) y ws13 (#240) antes del deploy;
+> AI Step v2 aplicado (#198 y #213 del ws1, respaldo en `backups/ai-step-v2-2026-10-11T15-20-50-160Z.json`; volver a un
+> deploy anterior es DESTRUCTIVO, §8.5). `scripts/migrar-cron-de-antes.mts` sigue SIN aplicar: falta la fase 1 del motor.
+> **Decisiones pendientes de Martín:** (1) lo migrado quedó SIN objetivo (los sugeridos se imprimen, no se escriben);
+> (2) el editor de «MaKo en WhatsApp» tiene el tamaño del de WhatsApp pero sin audio, archivos ni varios mensajes;
+> (3) el email de MaKo ya no sale desde el motor (lo pidió él: «No permitas enviar emails con los email de MaKo»);
+> medido 11/10: ninguna automatización prendida tiene pasos de email, así que hoy no corta nada; (4) el resto del motor
+> manda en hora de Ciudad de México al ws1, que es de Baja California («Contesta sola» ya usa la del negocio).
+> **Coordinación:** el hash `4e2ebc7d` ya se le mandó a la sesión «Integración Mercado Pago y Stripe» (CRON «Pagos»,
+> 7º botón, grilla 4+3).
 > **EN COLA, después de la décima:** «Grupos de WhatsApp» (la tarjeta para mandar a uno o más grupos, el grupo como
 > medio del AI Step, y condiciones de grupo: está en el grupo X, mandó un mensaje, llegó cualquier mensaje, mandó
 > una palabra). Pedido textual en el hito siguiente de la bitácora.
