@@ -1,5 +1,12 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **Actualización del 11/10/2026 ~01:00 (chat «chatbot», `claude3`): la NOVENA tanda** (`f2d4f25a` + `18369310`):
+> tarjeta **AI Step** (una forma del «Si responde» con los casos adentro), **«⋯» en los Mensajes de MaKo** (Activar/
+> Pausar y Eliminar = ocultar, recuperable desde «Nueva automatización»), **«Agendó» unificado** en la galería y en
+> Mauricio, y **arrastrar con el botón del medio**. Los datos de Mauricio van con `scripts/novena-tanda-ws1.mts`
+> (deja respaldo). Sin decidir: el texto propio del aviso de cada caso se pierde al plegar, y un caso que contesta y
+> avisa manda dos avisos. Todo en `docs/hallazgos-chatbot.md` → «Novena tanda».
+>
 > **Actualización del 10/10/2026 a las 21:40 (chat «chatbot», cuenta `claude3`), medida y no copiada:**
 > - **Decididas las dos de la octava tanda (§6):** la espera en minutos que parte la tarjeta **queda así**; y el
 >   recordatorio de un negocio nuevo va **como plantilla de la galería**, no creado al alta: «Ningún negocio tiene

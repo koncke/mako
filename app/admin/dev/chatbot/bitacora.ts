@@ -1313,4 +1313,14 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ["docs/hallazgos-chatbot.md — «El recordatorio como plantilla»"],
   },
+  {
+    fecha: "10 oct", hora: "23:40", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Novena tanda: AI Step, el «⋯» de MaKo en WhatsApp, «Agendó» unificado y el botón del medio",
+    pedido: "1. Las dos automatizaciones de agendó se podrían unificar ya que se tiene justamente la tarjeta de CONDITION 2. No aparecen los 3 puntos para eliminar una automatización de \"MaKo en WhatsApp\"... Las cosas de \"MaKo en WhatsApp\" deben ser EXACTAMENTE igual al resto, no tienen diferencia... Revisa eso. 3. Elimina el recordatorio semanal. 4. Todo lo que hiciste de una cantidad impresionante de flujos y tarjetas eso justamente debería estar en una nueva tarjeta que sea \"AI Step\". Configuralo allí. 5. También debería poder arrastrar el lienzo si mantengo apretado la tuerca de scroll del ratón.",
+    puntos: [
+      "AI Step: «Una tarjeta con sus casos adentro». El reporte semanal: «Dejalo así, yo lo elimino cuando agregues los tres puntos».",
+      "Lo hecho y sus trampas, en docs/hallazgos-chatbot.md → «Novena tanda». Commits f2d4f25a (botón del medio) y 18369310 (el resto).",
+    ],
+  },
 ];

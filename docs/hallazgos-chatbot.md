@@ -3525,3 +3525,61 @@ Medido en producción (sólo lectura, 10/10 ~21:20):
 - **Todavía no salió ni un recordatorio por el camino nuevo**: en toda la historia hay 3 marcas, las tres del ws1 y
   anteriores a la mudanza, y desde entonces no hubo reuniones. El primero real es el toque de 24 h de la reunión
   del 13/10 17:00 UTC (lead 2593): sale el **12/10 a las 17:00 UTC**. Ésa es la prueba de que el emisor lee la fila.
+
+## Novena tanda (10-11/10/2026, claude3): el AI Step, el «⋯» de MaKo en WhatsApp y «Agendó» unificado
+
+Pedidos de Martín: «Todo lo que hiciste de una cantidad impresionante de flujos y tarjetas eso justamente debería
+estar en una nueva tarjeta que sea "AI Step". Configuralo allí» (eligió «una tarjeta con sus casos adentro»); «No
+aparecen los 3 puntos para eliminar una automatización de "MaKo en WhatsApp"... deben ser EXACTAMENTE igual al
+resto»; «Las dos automatizaciones de agendó se podrían unificar ya que se tiene justamente la tarjeta de CONDITION»;
+y arrastrar el lienzo con el botón del medio. Código en `f2d4f25a` (botón del medio) y `18369310` (el resto).
+
+- **El AI Step NO es una clase de nodo: es una FORMA del «Si responde»** (`paso_ia: true`, casos con
+  `responder`/`sola`/`avisar`, `instrucciones`, `otra_aviso`). Una clase nueva tocaba ~15 archivos y duplicaba las
+  reglas de «una por automatización, sin padre, sin esperas, sin paralelos»; como forma, `claseDe` sigue diciendo
+  'respuesta' y las hereda. **El motor no se reescribió**: `expandirPasoIA` (pura, idempotente) lo devuelve a la
+  forma de siempre en las puertas que RECORREN la respuesta (`responderConGrafo`, el simulador), así el
+  clasificador, el borrador, la guarda de la plata y la charla de varios mensajes son los mismos. Lo que se GUARDA
+  es la forma compacta. **Vive en:** `lib/flujo-grafo.ts`, `lib/nutricion.ts`, `lib/simulador-grafo.ts`,
+  `app/automations/EditorPasoIA.tsx`, `lib/paso-ia-convertir.ts` (el «Pasar a AI Step»).
+- **Los ids de la expansión llevan `~` a propósito** (`<nodo>~<caso>~r`, `~a`, `<nodo>~otra`): quedan fuera de
+  `RX_ID`, así un flujo expandido guardado por error pierde sus flechas y Publicar falla RUIDOSO en vez de guardar
+  tarjetas fantasma. Y son fijos: el motor guarda `nodo_id` y la clave del reclamo con ellos.
+- **⚠️ La forma de siempre deja publicar un caso que no lleva a nada, y el motor se come la respuesta en silencio.**
+  Sólo el AI Step exige que el caso conteste o avise (`faltaEnCaso`). Por eso **volver a un deploy anterior a
+  `18369310` después de convertir datos es destructivo**: el motor viejo lee los casos sin nada debajo (MaKo deja
+  de contestar y sólo avisa), y el primer guardado con el `camposDelFlujo` viejo borra `paso_ia` y las guías sin un
+  error. Antes de un rollback, el respaldo que deja el script (`backups/novena-tanda-ws1-*.json`).
+- **Un id de caso repetido era inofensivo y expandido es dañino**: la expansión deriva las tarjetas del id del caso,
+  y el segundo contestaba con la guía del primero. Nace solo (un id inválido queda en '' y su `<nodo>c<k>` choca).
+  El diagnóstico obvio —frenar al guardar— era el equivocado: el lienzo no muestra ids y nadie podría arreglarlo.
+  Se desempatan solos (`idsDeCasos`). **Vive en:** `lib/flujo-grafo.ts`.
+- **Proponer aceptaba y ejecutar fallaba**: enseñarle a un AI Step un caso sin guía (API `agregar_escenario_secuencia`
+  o `resolverHandoff`) pasaba `preparar` y explotaba al confirmar. Ahora frena en `preparar` (AGENTS.md: lo que se
+  puede saber sin escribir falla antes de la pendiente). **Vive en:** `lib/nutricion-grafo-motor.ts`
+  (`agregarCasoAlGrafo`).
+- **SIN DECIDIR (Martín):** plegar a AI Step pierde el texto PROPIO del aviso de cada caso (sale el título del caso +
+  «Te escribió sobre esto.»): en la galería eran 5, p.ej. «coordina el nuevo horario». Y un caso que contesta Y
+  avisa manda dos avisos (el del redactor y el del caso). Guardar el texto haría falta un campo más en el caso.
+- **«⋯» de MaKo: Eliminar = OCULTAR + apagar, en ese negocio** (`oculto` en el store, `lib/plantillas-ocultas.ts`), y
+  se recupera desde «Nueva automatización». ⚠️ **`oculto` no se hereda de la base y `enabled` sí**: ocultar o
+  recuperar EN la base de la plataforma apagaría o prendería el mensaje para todos los clientes; está frenado en
+  `ocultarPlantilla`/`restaurarPlantilla`. Duplicar y Copiar no se ofrecen para un mensaje (la copia de uno de
+  fábrica no sale por el mismo evento). **Vive en:** `lib/plantillas.ts`, `app/automations/SimuladorWhatsApp.tsx`.
+- **«Agendó» unificado:** en la galería, una plantilla con la condición «Ya le escribiste». En Mauricio, la #212 se
+  archiva y la #213 pasa a tener los dos CRON de antes (`agendado_primer_contacto` en la columna y
+  `agendado_ya_contactado`). ⚠️ **El ORDEN importa: archivar ANTES de sumar el CRON.** Con el CRON puesto y la #212
+  viva, `enrolarPorEvento` inscribe al lead en las dos (la exclusión de familia se pregunta antes de insertar) y le
+  llegan dos audios. Y la pantalla no ofrece los eventos de antes como CRON: si alguien borra el segundo, vuelve
+  sólo por la API (`cambiar_crons_secuencia`) o el script.
+- **Las escrituras de una secuencia no tienen compare-and-set** (`setSecuenciaPasos`, `renombrarSecuencia`,
+  `archivarSecuencias`: update por id): un Publicar en paralelo a un script pisa sin error. Por eso el script de
+  datos escribe con supabase-js y compare-and-set sobre `updated_at`, validando con las funciones puras.
+  **Vive en:** `scripts/novena-tanda-ws1.mts`.
+- **Una inscripción sin `nodo_actual` depende del ÍNDICE del array** (la 199 de la #198: `paso_actual` 1). Meter una
+  tarjeta antes de ese índice la mueve de tarjeta sin error; los nodos nuevos van SIEMPRE al final.
+- **El botón del medio**: cancelar el `pointerdown` no frena el auto-scroll de Windows (cuelga del `mousedown`), y
+  el `pointerup` del medio tiene que salir antes del «clic quieto», que cerraba el panel abierto.
+  **Vive en:** `app/_components/Lienzo.tsx`.
+- Sin ver en el navegador: los altos de la tarjeta AI STEP y su panel, el «⋯» de los mensajes y el botón del medio
+  con un mouse real (el auto-scroll no se dibuja en headless). Lo mira Martín.
