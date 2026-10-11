@@ -62,14 +62,16 @@ Corrida del 11/10/2026 (relevo de 7 agentes + 11 de implementación + 1 revisió
   tumbó la app de Claude con 7 chats** (el diagnóstico, en docs/hallazgos-infra.md). Desde entonces el
   vigía mata los `next dev` grandes; al reintentar, mató el mío a los 4 GB compilando `/m/hoy` con
   750 MB libres. Consecuencia: **ninguna pantalla de /m se renderizó antes del deploy**, y salió con el
-  reparto de teléfonos apagado (`MOBILE_AL_ENTRAR = false` en app/inicio/page.tsx).
+  reparto de teléfonos apagado (`MOVIL_ACTIVO = false` en lib/movil-desvio.ts).
 - **tsc salta todo el chequeo de tipos si cualquier archivo tiene un error de SINTAXIS** (TS1005):
   «los errores son de otro archivo» no prueba que lo tuyo compile. Con errores semánticos (TS2304) el
   resto sí se chequea.
 
 ## Lo que quedó sin hacer
 
-- **Ver /m funcionando en producción y prender `MOBILE_AL_ENTRAR`** (app/inicio/page.tsx). Ninguna
+- **Un teléfono que abre una pantalla de escritorio la ve con el Sidebar en miniatura** (la captura de Martín del 11/10): eso es lo que tapa <DesvioMovil>, inerte hasta prender MOVIL_ACTIVO. Y antes de prenderlo, la revisión tab por tab de /m en un teléfono.
+
+- **Ver /m funcionando en producción y prender `MOVIL_ACTIVO`** (lib/movil-desvio.ts). Ninguna
   pantalla se miró en un navegador; tampoco /general, /plan/agencia y /mako/pendientes después de las
   extracciones (revisadas por diff, no por pantalla).
 - **Medir en un iPhone y un Android reales**: la voz (SpeechRecognition en una PWA standalone), el push

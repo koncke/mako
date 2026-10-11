@@ -13,7 +13,7 @@
 // ⚠️ EL LEÍDO ES POR PERSONA: una marca de agua en `usuarios.perfil.notifVistoHasta`
 // (lib/perfil.ts). El booleano `leido` de la tabla quedó muerto (era uno por fila y lo
 // compartía todo el equipo). También murió la cola de WhatsApp (`canal_wa`), que leía las
-// filas de TODOS los workspaces: se borró con Chatwoot.
+// filas de TODOS los workspaces: se borró con el WhatsApp oficial.
 //
 // Nunca rompe al caller (un fallo del feed no tumba un cron), pero tampoco calla: una tabla
 // AUSENTE se loguea fuerte y distinto de un error cualquiera.

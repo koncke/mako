@@ -16,6 +16,9 @@ import { PuenteEnlace } from './video-generator/PuenteEnlace';
 import { getSesionAdmin } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
+import { DesvioMovil } from './_components/DesvioMovil';
+import { prefiereMovil } from '@/lib/movil-guard';
+import { MOVIL_ACTIVO } from '@/lib/movil-desvio';
 
 // Título por defecto de las pantallas internas — es lo que se lee en la pestaña
 // del navegador, al lado del favicon. El producto es MaKo: acá decía "Marketing
@@ -98,6 +101,10 @@ export default async function RootLayout({
   // escribe el navegador y no sabe de sesiones: cualquier cliente que abra la app en un
   // browser donde alguien probó paletas se lleva el tema puesto.
   const esAdmin = !!(await getSesionAdmin());
+  // MaKo Mobile: un TELÉFONO no ve el escritorio (lib/movil-desvio.ts). Lo decide el server
+  // (UA + la cookie de «Versión completa»); <DesvioMovil> tapa la pantalla desde el primer
+  // pintado y lleva a /m, o dice que esa pantalla se usa en la computadora.
+  const telefono = MOVIL_ACTIVO && (await prefiereMovil());
   return (
     <html lang="es" className="h-full antialiased">
       <body>
@@ -166,6 +173,7 @@ export default async function RootLayout({
             que no esté en su lista: envuelve la página en un Suspense y la vuelve a
             esconder. */}
         <WsProvider>
+        <DesvioMovil telefono={telefono} />
         <NotificationsProvider>
           <div style={rootStyle}>
             {/* Sidebar usa useSearchParams (propaga el filtro de fecha). Su Suspense

@@ -7625,5 +7625,5 @@ están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md); lo que cost�
   `linkApp` — salvo al workspace de plataforma, que va sin `?ws=` (para un admin global es impersonación).
 - **Primitivas de `app/m/_ui`** (FilaM, SheetM, PantallaM, useToastM…), nunca `Pagina`, `Modal`, `Tooltip` ni
   `.mk-btn--sm` (son de escritorio). Sólo `var(--token)`; el header es oscuro siempre (`black-translucent`).
-- **El reparto de teléfonos de `/inicio` se prende con `MOBILE_AL_ENTRAR`** (app/inicio/page.tsx): salió apagado
+- **MaKo Mobile se prende con UN interruptor, `MOVIL_ACTIVO` (lib/movil-desvio.ts)**: el reparto de /inicio y el desvío de las pantallas de escritorio en un teléfono (<DesvioMovil>). Salió apagado
   porque ninguna pantalla se pudo renderizar antes del deploy.

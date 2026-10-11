@@ -3,9 +3,10 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
 import { onboardingPendiente } from '@/lib/onboarding-state';
 import { prefiereMovil } from '@/lib/movil-guard';
+import { MOVIL_ACTIVO } from '@/lib/movil-desvio';
 
 /** Si un teléfono que entra por /inicio va solo a MaKo Mobile (/m). Ver la nota de abajo. */
-const MOBILE_AL_ENTRAR = false;
+const MOBILE_AL_ENTRAR = MOVIL_ACTIVO;
 
 export const dynamic = 'force-dynamic';
 
