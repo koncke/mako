@@ -1436,4 +1436,15 @@ FEEDBACK PROBAR:
       "Da vuelta la décima: «1 caso por tarjeta de AI Step» pasa a ser UN AI Step por objetivo, con los casos como escenarios u objeciones adentro.",
     ],
   },
+  {
+    fecha: "11 oct", hora: "16:10", chat: "graphics", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Automations configura y consume el Dashboard (pedido reenviado por el chat Graphics)",
+    pedido: "«Revisa que todo esto se pueda consumir en la API de MaKo, absolutamente todo. Y también mandale tarea al chat de chatbot para que se pueda configurar en automations y consumir esto tambien». («Esto» = el Dashboard: hojas, gráficos, bloques, AI Analyst con horario, Exportar.)",
+    puntos: [
+      "Graphics ya puso 22 operaciones del Dashboard en la API (área metricas, commit 6e85d8d7). Lo de Automations: un Evento de MaKo «El AI Analyst terminó» (aviso dashboard_analisis_listo), las acciones del Dashboard en el selector de ⚡ Acción con selectores persona → hoja → componente, y más adelante la salida de una acción al paso siguiente y un evento de umbral.",
+      "Ajuste al llegar: el mensaje NO va con {{mensaje_mako}} (Martín lo rechazó en la undécima, punto 4); se arma con datos citables en una tarjeta «MaKo en WhatsApp».",
+      "En cola DESPUÉS de la undécima (toca lib/disparadores.ts, avisos-catalogo y plantillas); la cuenta está al 92 % semanal.",
+    ],
+  },
 ];

@@ -27,6 +27,19 @@
 > manda en hora de Ciudad de México al ws1, que es de Baja California («Contesta sola» ya usa la del negocio).
 > **Coordinación:** el hash `4e2ebc7d` ya se le mandó a la sesión «Integración Mercado Pago y Stripe» (CRON «Pagos»,
 > 7º botón, grilla 4+3).
+> **EN COLA (11/10 ~16:10, pedido de Martín reenviado por el chat Graphics): Automations CONFIGURA y CONSUME el
+> Dashboard.** Martín: «mandale tarea al chat de chatbot para que se pueda configurar en automations y consumir esto
+> tambien». Graphics ya puso 22 operaciones en la API (área metricas, `lib/api-mako/areas/dashboard.*`, commit
+> 6e85d8d7). Lo nuestro: (1) un Evento de MaKo «El AI Analyst terminó» (`analisis_listo`, aviso
+> `dashboard_analisis_listo`, datos `{ hoja, hojaId, persona, link }`) — ⚠️ SIN `{{mensaje_mako}}` ni textoDelCodigo
+> (rechazado en la undécima, punto 4): el mensaje se arma con datos citables (hoja, resumen, hallazgos, link) en una
+> tarjeta «MaKo en WhatsApp»; avisarle el id a Graphics, que agrega la emisión en `lib/graficos-analisis-server.ts`;
+> (2) las acciones del Dashboard que tengan sentido en un flujo en el selector de ⚡ Acción (`lib/editor-acciones.ts`),
+> con selectores persona → hoja → componente y conjuntos (`app/api/flujos/opciones/route.ts`,
+> `app/_components/CamposAccion.tsx`); ofrecerlas sólo con disparadores que no son de un lead es decisión de Martín;
+> (3) más adelante, junto con Grupos de WhatsApp: la salida de una acción al paso siguiente y un evento
+> `numero_umbral`. Va DESPUÉS de la undécima (toca lib/disparadores.ts, avisos-catalogo y plantillas). El mensaje
+> completo de Graphics, con líneas, está en la transcripción de este chat (11/10 ~16:10 hora local).
 > **EN COLA, después de la décima:** «Grupos de WhatsApp» (la tarjeta para mandar a uno o más grupos, el grupo como
 > medio del AI Step, y condiciones de grupo: está en el grupo X, mandó un mensaje, llegó cualquier mensaje, mandó
 > una palabra). Pedido textual en el hito siguiente de la bitácora.
