@@ -166,7 +166,7 @@ export const EVENTOS_EMAIL: readonly EventoCanal[] = [
 ];
 
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
-export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida';
+export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo';
 
 /**
  * LOS EVENTOS DE MAKO (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md §1): cada uno es un aviso del
@@ -182,6 +182,11 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   { subtipo: 'reunion_pronto', aviso: 'reunion-recordatorio', label: 'Falta media hora para una reunión', trae: ['lead', 'mensaje'] },
   { subtipo: 'lead_contesta', aviso: 'wa-mensaje-entrante', label: 'Un lead contesta y MaKo no le respondió', trae: ['lead', 'mensaje'] },
   { subtipo: 'cuota_vencida', aviso: 'cuota-vencida', label: 'Una cuota vence sin cobrarse', trae: ['lead', 'cuota'] },
+  // GENERAL 7 de la décima tanda (11/10/2026), textual: «Vuelve a poner la automatización que avisa que se agendó un
+  // nuevo lead en Mauricio y Código». El aviso nunca se dejó de mandar (sale de los webhooks de Calendly y Cal.com);
+  // lo que no se veía era la AUTOMATIZACIÓN. Desde acá sale sólo por la fila de este evento (docs/diseno-automations-
+  // galeria-v2.md §5), y la mudanza de ws1 y ws13 la crea antes del deploy (scripts/mudanza-nuevo-agendado.mts).
+  { subtipo: 'lead_agendo', aviso: 'reunion-nuevo-agendado', label: 'Un lead agenda una reunión', trae: ['lead', 'mensaje'] },
 ];
 
 /** Los eventos de una clase de canal (vacío para las demás). */
@@ -461,11 +466,8 @@ export function nuevosOCambiados(lista: readonly Disparador[], previos: readonly
 
 // ── Qué es cada uno ─────────────────────────────────────────────────────────────────────────────
 
-/** La clase de un disparador. `null` = todavía no se eligió nada (`manual`); `otro` = uno de antes. */
-export function claseDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): ClaseDisparador | 'otro' | null {
-  if (d.cron) return 'recurrente';
-  const t = d.trigger_tipo;
-  if (t === 'manual' || !t) return null;
+/** La clase de las seis (o `mako`) que tiene un `trigger_tipo`, sin mirar el horario. null = ninguna. */
+function claseDelTipo(t: string): ClaseDisparador | null {
   if (DE_ETAPA.has(t)) return 'producto';
   if (t === TRIGGER_ETIQUETA || CON_IGNORAR.has(t)) return 'etiqueta';
   if (t === TRIGGER_INSTAGRAM) return 'instagram';
@@ -473,7 +475,38 @@ export function claseDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>):
   if (t === TRIGGER_EMAIL_RECIBIDO) return 'email';
   if (t === TRIGGER_AVISO_MAKO) return 'mako';
   if (t === TRIGGER_SOLO_GRUPO) return 'recurrente';
-  return 'otro';
+  return null;
+}
+
+/**
+ * ¿ES UN EVENTO DE ANTES? Un CRON que arranca por un evento del catálogo (`TRIGGERS`: «dejó el formulario
+ * sin agendar», «agendó», «no asistió»…) que el panel ya no ofrece: los eventos pasaron a las condiciones
+ * en la tercera tanda («Elimina lo de "Eventos" todo eso debería ir dentro del editable del CONDICIONAL»).
+ * Medido el 11/10/2026: 6 de las 8 automatizaciones vivas arrancan así (docs/diseno-automations-configuraciones.md
+ * §4). Con horario no cuenta: ése es un Recurrente y su «A quién» ya lo dice. Y los del EMISOR (el
+ * recordatorio de la reunión) tampoco: no son de antes, son de otro motor (`TRIGGERS_DEL_EMISOR`).
+ */
+export function esEventoDeAntes(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): boolean {
+  const t = d.trigger_tipo;
+  return !d.cron && !!t && t !== 'manual' && !TRIGGERS_DEL_EMISOR.has(t) && claseDelTipo(t) == null;
+}
+
+/**
+ * La clase de un disparador. `null` = todavía no se eligió nada (`manual`).
+ *
+ * ⚠️ UN EVENTO DE ANTES ES «PRODUCTO» (décima tanda, CRON 2, 11/10/2026: «al editar el segundo paso no me
+ * aparece ningún desplegable... O que no se selecciona los pasos que elegí... Nunca nada debe quedar en una
+ * versión vieja»). Era `otro`: la primera pantalla no marcaba ninguna de las seis y el editor lo dibujaba como
+ * un texto con «←», sin desplegable. Ahora abre el de Producto con lo puesto en el botón, «(de antes)»
+ * (`textoDeDisparador`), y elegir una etapa lo reemplaza. Lo que es de antes lo dice `esEventoDeAntes`.
+ * `otro` queda para el recordatorio de la reunión (su emisor lo dice como es, sin editor) y para el ícono de
+ * lo que todavía no se eligió (`iconoDeDisparador`).
+ */
+export function claseDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): ClaseDisparador | 'otro' | null {
+  if (d.cron) return 'recurrente';
+  const t = d.trigger_tipo;
+  if (t === 'manual' || !t) return null;
+  return claseDelTipo(t) ?? (esEventoDeAntes(d) ? 'producto' : 'otro');
 }
 
 /** ¿Tiene una cohorte de leads? (el grupo solo y «a mano» no). */
@@ -816,8 +849,14 @@ export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
     const ev = eventosDe(claseDeDisparador({ trigger_tipo: t, cron: null })).find((e) => e.subtipo === d.subtipo);
     return ev?.label ?? 'Elige el evento';
   }
+  // Un evento de antes se dice como es y se MARCA (décima tanda, CRON 2): en la tarjeta y en el botón del
+  // desplegable de Producto, que es donde se cambia. Hasta que se migre (scripts/migrar-cron-de-antes.mts).
+  if (esEventoDeAntes(d)) return `${n.deSiempre(d)} ${MARCA_DE_ANTES}`;
   return n.deSiempre(d);
 }
+
+/** Lo que se le pega a un evento de antes donde se dice (la tarjeta, el botón del desplegable). */
+export const MARCA_DE_ANTES = '(de antes)';
 
 /** La clave del ícono de cada fila (la dibuja `IconoDisparador`, app/automations/IconosDisparador.tsx). */
 export function iconoDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): ClaseDisparador | 'otro' {

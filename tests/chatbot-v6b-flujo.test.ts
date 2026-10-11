@@ -372,7 +372,8 @@ test('el lienzo guarda el borrador SÓLO si lo leyó, lo abre si hay, y lo desca
   const sp = codigo('app/automations/SecuenciaPerfil.tsx');
   assert.match(sp, /useBorradorSecuencia\(secuencia\.id, \{\s*puedeGuardar: rolAdmin && secuencia\.borrador !== undefined,/);
   assert.match(sp, /useEffect\(\(\) => \{ borrador\.cambio\(pasos\); \}, \[pasos\]\);/);
-  assert.match(sp, /secuencia\.borrador\?\.pasos\?\.length \? renumerar\(normalizar\(secuencia\.borrador\.pasos\)\) : null/);
+  // AI Step v2 (décima tanda): un borrador de antes también abre con una tarjeta por caso (`separarPasosIA`).
+  assert.match(sp, /secuencia\.borrador\?\.pasos\?\.length \? renumerar\(normalizar\(separarPasosIA\(normalizar\(secuencia\.borrador\.pasos\)\)\.pasos\)\) : null/);
   // Publicar: la compuerta ANTES del PATCH, abierta en las dos salidas que fallan, y la base nueva después.
   const publicar = tramo(sp, 'const publicar = async () => {', 'if (convertida && limpiar)');
   const iPatch = publicar.indexOf("fetch('/api/whatsapp/secuencias'");
@@ -413,23 +414,26 @@ test('⚠️ la base viaja de punta a punta: el GET la calcula, el lienzo la man
   assert.match(tramo(sp, "if (r.modo === 'crear') {", '} else {'), /void borrador\.publicado\(nuevos\);/);
 });
 
-test('⚠️ «Volver a lo publicado» y «Descartar cambios»: los dos BORRAN el borrador, y lo pendiente no sale', () => {
+// ⚠️ DÉCIMA TANDA (general 5, 11/10/2026: «Elimina el botón de "Volver a lo publicado"... Y en todo caso, en los 3
+// puntitos de la sidebar, a los que tienen cambios sin guardar, que aparezca la opción "Descartar cambios"»): el
+// botón se fue y su función pasó a ser `descartarCambios`, que llama el «⋯» de la lista por la misma ref.
+test('⚠️ «Descartar cambios» (el «⋯» y la pregunta al cambiar): BORRA el borrador, vuelve a lo publicado y lo pendiente no sale', () => {
   const sp = codigo('app/automations/SecuenciaPerfil.tsx');
-  // El botón: sólo con un borrador abierto, para quien edita, y cuando el lienzo no es lo publicado.
-  assert.match(sp, /const ofrecerVolver = rolAdmin && deBorrador && JSON\.stringify\(pasos\) !== JSON\.stringify\(inicial\.abierto\);/);
-  assert.match(sp, /\{ofrecerVolver && \(\s*<button type="button" onClick=\{volverAPublicado\}/);
-  assert.match(sp, />\s*Volver a lo publicado\s*</);
-  const volver = tramo(sp, 'const volverAPublicado = () => {', '};');
-  assert.match(volver, /fotoAntes\(\);/, 'sin foto, Ctrl+Z no devuelve el borrador');
-  assert.match(volver, /setPasos\(inicial\.abierto\);/);
-  assert.match(volver, /void borrador\.descartar\(\)\.then\(\(\) => onCambio\(\)\);/, 'sin releer la lista DESPUÉS del borrado, volver acá reabre el borrador');
-  assert.match(volver, /borrador\.yaGuardado\(inicial\.abierto\);/);
-  // Publicar lo apaga (ya no hay borrador).
-  assert.match(tramo(sp, 'const publicar = async () => {', 'if (convertida && limpiar)'), /setDeBorrador\(false\);/);
-  // «Descartar cambios» (la pregunta vive en SimuladorWhatsApp): el lienzo deja en la ref su descarte.
+  // El botón de al lado de «Activar» no vuelve.
+  assert.doesNotMatch(sp, />\s*Volver a lo publicado\s*</, 'volvió el botón «Volver a lo publicado»');
+  assert.doesNotMatch(sp, /ofrecerVolver|volverAPublicado/);
+  const desc = tramo(sp, 'const descartarCambios = () => {', '};');
+  assert.match(desc, /fotoAntes\(\);/, 'sin foto, Ctrl+Z no devuelve el borrador');
+  assert.match(desc, /setPasos\(abiertoPublicado\);/);
+  assert.match(desc, /void borrador\.descartar\(\)\.then\(\(\) => onCambio\(\)\);/, 'sin releer la lista DESPUÉS del borrado, volver acá reabre el borrador');
+  assert.match(desc, /borrador\.yaGuardado\(abiertoPublicado\);/);
+  // Lo publicado al que se vuelve se pone al día al publicar (y con «Crear con IA»).
+  assert.match(tramo(sp, 'const publicar = async () => {', 'if (convertida && limpiar)'), /setAbiertoPublicado\(pasos\);/);
+  // La ref que llama la lista lee la función del render de ahora (no la del primero).
   const reg = tramo(sp, 'if (!descartarBorrador) return;', '}, [descartarBorrador]);');
-  assert.match(reg, /descartarBorrador\.current = \(\) => \{ void borrador\.descartar\(\); \};/);
+  assert.match(reg, /descartarBorrador\.current = \(\) => descartarRef\.current\(\);/);
   assert.match(reg, /return \(\) => \{ descartarBorrador\.current = null; \};/);
+  assert.match(sp, /useEffect\(\(\) => \{ descartarRef\.current = descartarCambios; \}\);/);
 });
 // ⚠️ EL ENCHUFE DE «DESCARTAR CAMBIOS» VIVE EN LA LISTA (app/automations/SimuladorWhatsApp.tsx; revisión del
 // 10/10/2026, hallazgo #6): sin él, la ref de arriba tenía CERO call sites y «Descartar cambios» GUARDABA lo

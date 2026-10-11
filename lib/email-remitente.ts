@@ -95,33 +95,104 @@ export function partesDeRemitente(r: string): { nombre: string; mail: string } {
   return { nombre: r.trim(), mail: r.trim() };
 }
 
+// ── DÉCIMA TANDA, EMAIL 1 (11/10/2026): EL EMAIL DE MaKo NO ES EL DE UN CLIENTE ──────────────────
+// Pedido literal de Martín: «No permitas enviar emails con los email de MaKo, ellos deben poner sus
+// propios email». Medido en la base (ver arriba): el ws1 —Mauricio, un CLIENTE— tiene como remitente
+// «MaKo <equipo@hola-mako.com>», así que el «De» de sus emails y el emisor de «Probar» le ofrecían el
+// email de la PLATAFORMA (la captura de «Probar» decía «MaKo <equipo@hola-mako.com> → …»).
+//   · Un remitente de un dominio de MaKo NO se ofrece como vinculado (`remitentesVinculados`), un paso no
+//     lo usa (`remitenteDelPaso`) y no se guarda en un paso (`remitenteAGuardar`). La pantalla dice
+//     «Usa tu propio email» (`AVISO_EMAIL_DE_MAKO`) donde se mira quién manda.
+//   · LA EXCEPCIÓN ES LA PLATAFORMA (`plataforma`: el workspace del super admin, `wsSuperAdmin()`): ahí el
+//     email de MaKo ES el suyo. La decide el SERVER (GET /api/email/dominio la manda); este módulo sólo la lee.
+//     Aun así un PASO no lleva NUNCA un remitente de MaKo (`remitenteDelPaso` no lo devuelve) ni lo guarda
+//     (`remitenteAGuardar`): la plataforma manda sin `from`, con el suyo de siempre.
+//   · EL CORTE DE VERDAD ESTÁ EN EL ENVÍO (décima tanda, segunda pasada): `sendEmail` SIN `from` (lib/resend.ts)
+//     se niega si el remitente que resuelve es de MaKo y el workspace no es la plataforma
+//     (`remitenteDeMakoFrenado`). Por ahí pasan el motor, la prueba, los broadcasts y el «Probar» de antes. Los
+//     mails de la PLATAFORMA pasan `from: REMITENTE_MAKO` explícito y no cambian. Consecuencia, medida el
+//     11/10/2026: el ws1 (Mauricio, un cliente, con `resend_from` = el de MaKo) no manda emails de flujos hasta
+//     que vincule su dominio — hoy 0 pasos con remitente propio, 0 emails de nutrición en 30 días y su única
+//     automatización de email pausada.
+
+/**
+ * Los dominios de MaKo. `EMAIL_MAKO` (lib/app-url.ts) tiene que ser de uno de éstos: lo fija
+ * tests/email-remitente.test.ts (si la plataforma cambia de dominio, la lista se queda vieja y el test lo dice).
+ */
+export const DOMINIOS_MAKO: readonly string[] = ['hola-mako.com', 'makodigital.app'];
+
+/** ¿Es un dominio de MaKo (o un subdominio, como `send.hola-mako.com`)? */
+export function esDominioDeMako(dominio: string | null | undefined): boolean {
+  if (typeof dominio !== 'string') return false;
+  const d = dominio.trim().toLowerCase().replace(/\.$/, '');
+  return !!d && DOMINIOS_MAKO.some((m) => d === m || d.endsWith(`.${m}`));
+}
+
+/** ¿Este remitente es un email de MaKo? Uno ilegible no lo es (tampoco se puede usar: `sanearRemitente`). */
+export function esRemitenteDeMako(r: unknown): boolean {
+  return esDominioDeMako(dominioDe(r));
+}
+
+/** Lo que dice la pantalla cuando el remitente del negocio es el de MaKo (el chip del «De», el emisor de «Probar»). */
+export const AVISO_EMAIL_DE_MAKO = 'Usa tu propio email';
+
 /**
  * EL `From` DE UN PASO: el remitente que eligió el paso, si se puede usar; si no, null (= el del
  * workspace, como siempre). Se usa sólo si (1) se puede leer, (2) el del workspace no es el sandbox,
- * y (3) es del MISMO dominio que el del workspace. Lo llaman el motor al mandar y el editor al
- * mostrar cuál queda elegido: si el dominio del negocio cambió, los dos dicen lo mismo (el del
- * workspace), sin que una pantalla prometa un remitente que el envío ya no usa.
+ * (3) es del MISMO dominio que el del workspace y (4) NO es un email de MaKo (décima tanda, EMAIL 1). Lo
+ * llaman el motor al mandar y el editor al mostrar cuál queda elegido: si el dominio del negocio cambió,
+ * los dos dicen lo mismo (el del workspace), sin que una pantalla prometa un remitente que el envío ya no usa.
  */
 export function remitenteDelPaso(delPaso: unknown, delWorkspace: string | null | undefined): string | null {
   const paso = sanearRemitente(delPaso);
   if (!paso || !delWorkspace || esRemitenteSandbox(delWorkspace) || esRemitenteSandbox(paso)) return null;
+  // ⚠️ UN EMAIL DE MaKo, NUNCA, ni siquiera el del workspace mismo. Era «sólo si es EXACTAMENTE el del
+  // workspace (la plataforma eligiendo el suyo)», y eso abría un costado: en el ws1 —un cliente cuyo remitente
+  // ES el de MaKo— un paso guardado con él salía con `from` EXPLÍCITO, y el corte de `sendEmail` (que mira
+  // sólo lo que se manda SIN `from`) no lo veía. Con null, el paso sale con el del workspace: el mismo `From`
+  // para la plataforma (que pasa el corte) y frenado para un cliente.
+  if (esRemitenteDeMako(paso)) return null;
   const dPaso = dominioDe(paso);
   const dWs = dominioDe(delWorkspace);
   return dPaso && dWs && dPaso === dWs ? paso : null;
 }
 
-/** Lo que contesta GET /api/email/dominio y este módulo lee. */
-export type EstadoDominioEmail = { remitente?: unknown; remitentes?: unknown; sandbox?: unknown } | null | undefined;
+/**
+ * Lo que contesta GET /api/email/dominio y este módulo lee. `plataforma`: el workspace es el de la
+ * PLATAFORMA (el del super admin), el único que puede mandar con un email de MaKo (EMAIL 1).
+ */
+export type EstadoDominioEmail = { remitente?: unknown; remitentes?: unknown; sandbox?: unknown; plataforma?: unknown } | null | undefined;
+
+/**
+ * ¿El remitente del NEGOCIO es un email de MaKo y este negocio no es la plataforma? Es lo que la pantalla
+ * dice con `AVISO_EMAIL_DE_MAKO` (y por lo que `remitentesVinculados` no ofrece nada).
+ */
+export function remitenteDeMakoAjeno(e: EstadoDominioEmail): boolean {
+  return !!e && e.plataforma !== true && esRemitenteDeMako(e.remitente);
+}
+
+/**
+ * EL CORTE DEL ENVÍO (décima tanda, EMAIL 1): ¿`sendEmail` SIN `from` se niega a mandar con este remitente
+ * RESUELTO? Sí si es un email de MaKo y el workspace no es la plataforma. Lo llama lib/resend.ts (que lleva
+ * `server-only` y no se puede testear), y vive acá para que la regla tenga test. `plataforma` lo decide quien
+ * llama, y «no pude saberlo» es `false`: lo que se cierra es el email de MaKo, nunca el del negocio.
+ */
+export function remitenteDeMakoFrenado(resuelto: unknown, plataforma: boolean): boolean {
+  return !plataforma && esRemitenteDeMako(resuelto);
+}
 
 /**
  * Los remitentes VINCULADOS que ofrece el «De»: el del workspace primero, y los demás que mande la
  * ruta (`remitentes`), sin repetidos y sólo los de su mismo dominio. Con el sandbox no hay ninguno
- * vinculado: el sandbox no le entrega a nadie, ofrecerlo sería ofrecer un remitente que no manda.
+ * vinculado: el sandbox no le entrega a nadie, ofrecerlo sería ofrecer un remitente que no manda. Y
+ * con un email de MaKo tampoco, salvo en la plataforma (décima tanda, EMAIL 1): ofrecerlo era ofrecerle
+ * a un cliente el email de otro.
  */
 export function remitentesVinculados(e: EstadoDominioEmail): string[] {
   if (!e || e.sandbox === true) return [];
   const principal = sanearRemitente(e.remitente);
   if (!principal || esRemitenteSandbox(principal)) return [];
+  if (remitenteDeMakoAjeno(e)) return [];
   const dominio = dominioDe(principal);
   const otros = Array.isArray(e.remitentes) ? e.remitentes : [];
   const out: string[] = [principal];
@@ -149,7 +220,10 @@ export function opcionesDeRemitente(vinculados: readonly string[], delPaso: unkn
  * se BORRA (la «quinta puerta», AGENTS.md). Un `null` o un '' explícitos lo sacan (= el del workspace).
  */
 export function remitenteAGuardar(entrante: unknown, previo: unknown): string | null {
-  return sanearRemitente(entrante === undefined ? previo : entrante);
+  const r = sanearRemitente(entrante === undefined ? previo : entrante);
+  // Un email de MaKo no se guarda en un paso (décima tanda, EMAIL 1): `remitenteDelPaso` no lo usaría nunca,
+  // y guardado se leería como un remitente elegido. Queda la ausencia (= el del workspace).
+  return r && !esRemitenteDeMako(r) ? r : null;
 }
 
 /**

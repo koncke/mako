@@ -30,7 +30,7 @@ import { join } from 'node:path';
 import {
   type PasoGrafo, type CasoRespuesta,
   expandirPasoIA, escenariosDeRespuesta, validarGrafo, normalizar, nodoPorId, idsDeCasos, guiaDeCaso, faltaEnCaso,
-  idRespuestaDeCaso, TOPE_GUIA, TOPE_RESPONDER, TOPE_INSTRUCCIONES,
+  idRespuestaDeCaso, TOPE_GUIA, TOPE_RESPONDER, TOPE_INSTRUCCIONES, separarPasosIA,
 } from '../lib/flujo-grafo';
 import { camposDelFlujo, agregarCasoAlGrafo } from '../lib/nutricion-grafo-motor';
 import { enviosDePasos } from '../lib/chatbot-lista-filtro';
@@ -84,7 +84,8 @@ test('con guía entra; y un caso que YA contesta o avisa se puede re-enseñar si
   ]);
   const nuevo = agregarCasoAlGrafo(pasos, { titulo: 'Horario', cuando: 'pregunta el horario', comoResponder: 'De 9 a 18' }, rndDe());
   assert.ok('pasos' in nuevo);
-  assert.equal(nodoPorId(nuevo.pasos, 'R')!.casos!.at(-1)!.responder, 'De 9 a 18');
+  // AI Step v2: el caso nuevo es una TARJETA nueva (al final del array), no un caso más de R.
+  assert.equal(nuevo.pasos.at(-1)!.casos![0].responder, 'De 9 a 18');
   // Mismo título, sin guía: conserva su `responder` (y `sola` se reescribe con lo enseñado: ausente = a revisar).
   const precio = agregarCasoAlGrafo(pasos, { titulo: 'precio', cuando: 'otra vez el precio', comoResponder: '' }, rndDe());
   assert.ok('pasos' in precio, 'un caso que ya contesta no se pudo re-enseñar sin guía');
@@ -95,7 +96,8 @@ test('con guía entra; y un caso que YA contesta o avisa se puede re-enseñar si
   // Un caso que sólo avisa sigue avisando: re-enseñarlo sin guía tampoco lo deja sin qué hacer.
   const enojo = agregarCasoAlGrafo(pasos, { titulo: 'Se enoja', cuando: 'insulta', comoResponder: '' }, rndDe());
   assert.ok('pasos' in enojo, 'un caso que avisa no se pudo re-enseñar sin guía');
-  assert.deepEqual(validarGrafo(enojo.pasos), []);
+  // (R tiene dos casos —forma v1—: se publica separado, una tarjeta por caso.)
+  assert.deepEqual(validarGrafo(separarPasosIA(enojo.pasos, rndDe()).pasos), []);
 });
 
 test('la forma de siempre no cambia: ahí un caso sin guía sigue colgando un «MaKo contesta»', () => {
@@ -226,10 +228,11 @@ const CLAVES_DEL_PASO_IA: Record<ClavesDelPasoIA, true> = { paso_ia: true, instr
 
 test('el lienzo edita el AI Step sobre el DTO, sin castear a `PasoGrafo`', () => {
   assert.equal(Object.keys(CLAVES_DEL_PASO_IA).length, 4);
-  const ia = bloque(fuente('app/automations/FlujoLienzo.tsx'), 'if (esPasoIA(paso)) {', "return <EditorRespuesta", 600);
+  // AI Step v2: el bloque suma «＋ Otro AI Step» (crea otra tarjeta del medio y la abre): mide más.
+  const ia = bloque(fuente('app/automations/FlujoLienzo.tsx'), 'if (esPasoIA(paso)) {', "return <EditorRespuesta", 1000);
   // El tipo explícito NO es un cast: sin él, TypeScript infiere el paso del PARCHE (`PasoIAEditable`).
   assert.match(ia, /pr\.onPasos\(\(prev\) => cambiarNodo<PasoSecuenciaDto>\(prev, id, patch\), apilar\);/);
-  assert.match(ia, /<EditorPasoIA key=\{`ia-\$\{id\}`\} paso=\{paso\} /);
+  assert.match(ia, /<EditorPasoIA key=\{`ia-\$\{id\}`\} id=\{id\} paso=\{paso\} /);
   assert.doesNotMatch(ia, /\bas Paso(Grafo|SecuenciaDto)\b/, 'volvió el cast');
 });
 

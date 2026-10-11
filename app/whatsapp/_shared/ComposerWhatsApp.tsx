@@ -49,7 +49,7 @@ import {
 import { createPortal } from 'react-dom';
 import { EmojiPicker } from '../EmojiPicker';
 import { SendArrow, IconSmiley, IconClip, IconMic, IconDoc } from './composer-icons';
-import { useGrabacionVoz, BarraGrabacion } from './VoiceRecorder';
+import { useGrabacionVoz, BarraGrabacion, type BorradorDeVoz } from './VoiceRecorder';
 import { useCapaModal } from '@/app/_components/pila-modales';
 
 // ── Lo que se decide sin DOM (lo ejecuta tests/composer-whatsapp.test.ts) ────────────────────
@@ -260,6 +260,12 @@ export type ComposerWhatsAppProps = {
   /** Mic: lo que se MANDA (con la ➤ verde, después de escucharlo). Sin esto, no hay micrófono. */
   onAudio?: (blob: Blob, secs: number) => void | Promise<void>;
   onErrorAudio?: (m: string) => void;
+  /**
+   * EL BORRADOR DEL AUDIO (décima tanda del Chatbot, WhatsApp 3): lo grabado y sin mandar, a cada segundo
+   * mientras se graba y al pasar a escucharlo; `null` si se tiró. No manda nada (`onAudio` sigue siendo lo
+   * único que sale). Lo usa el editor del lienzo para no perder un audio al cerrar el panel o recargar.
+   */
+  onBorradorVoz?: BorradorDeVoz;
   /** Arriba de la barra de grabación, MIENTRAS se graba (el guion que sugirió MaKo, si sugirió uno). */
   mientrasGraba?: ReactNode;
   /**
@@ -282,7 +288,7 @@ export type ComposerWhatsAppProps = {
 
 export function ComposerWhatsApp({
   modo, valor, onValor, placeholder, ocupado, soloLectura, onEnviar, onArchivo, acceptArchivo, menuClip,
-  onAudio, onErrorAudio, mientrasGraba, audioPendiente, chip, ref, maxAlto, trasClip,
+  onAudio, onErrorAudio, onBorradorVoz, mientrasGraba, audioPendiente, chip, ref, maxAlto, trasClip,
 }: ComposerWhatsAppProps) {
   const editar = modo === 'editar';
   const campo = useRef<HTMLTextAreaElement | null>(null);
@@ -293,7 +299,7 @@ export function ComposerWhatsApp({
   const valorVivo = useRef(valor);
   const cursorPendiente = useRef<number | null>(null);
 
-  const voz = useGrabacionVoz(async (blob, secs) => { await onAudio?.(blob, secs); }, onErrorAudio);
+  const voz = useGrabacionVoz(async (blob, secs) => { await onAudio?.(blob, secs); }, onErrorAudio, onBorradorVoz);
   const [bajando, setBajando] = useState(false);
   /** 🎤 sobre un audio que ya existe: se baja, se entra a la sesión con él y se graba lo que sigue. */
   const seguirExistente = async () => {

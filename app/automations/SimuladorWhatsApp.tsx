@@ -58,7 +58,7 @@ import { PanelProbar, type CanalProbar } from './PanelProbar';
 import { FiltroLista, LADO_FILTRO } from './FiltroLista';
 import { disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
 import { copiaDeFlujo, textoDeCopia, type PasoCopiado } from '@/lib/flujo-copia';
-import { TRIGGER_AVISO_MAKO, type ClaseDisparador } from '@/lib/disparadores';
+import { TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
 import { ROTULO_MENSAJES_MAKO } from '@/lib/plantillas-automatizaciones';
 import type { SeccionGaleria } from './GaleriaPlantillas';
 import type { ProductoOpcion } from './ChatAgentApp';
@@ -142,21 +142,27 @@ export function listaConCreando(lista: readonly SecuenciaDto[], creando: Creando
  * `data:`, con la papelera en un rojo copiado a mano.
  */
 export const ICONOS_FILA = {
-  activar: 'activar', pausar: 'pausar', duplicar: 'duplicar', copiar: 'copiar', eliminar: 'borrar',
+  activar: 'activar', pausar: 'pausar', duplicar: 'duplicar', copiar: 'copiar', descartar: 'restaurar', eliminar: 'borrar',
 } as const satisfies Record<string, NombreIconoMenu>;
 
 /**
  * Lo que ofrece el «⋯» de una fila. Activar o Pausar según cómo esté. Cada una con su ícono.
  * Una fila de «MaKo en WhatsApp» lleva ÉSTA, tal cual (11/10/2026: «Los 3 puntos de "MaKo en WhatsApp" no
  * tienen los botones de duplicar o copiar»): es una automatización más.
+ *
+ * `conCambios` (décima tanda, general 5, 11/10/2026: «en los 3 puntitos de la sidebar, a los que tienen cambios
+ * sin guardar, que aparezca la opción "Descartar cambios"»): la fila tiene algo sin publicar (`sinPublicarDe`, el
+ * mismo punto ámbar del nombre). Sólo ahí aparece «Descartar cambios», antes de «Eliminar». Reemplaza al botón
+ * «Volver a lo publicado» que había al lado de «Activar».
  */
-export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'duplicar' | 'copiar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
+export function opcionesDeFila(activa: boolean, conCambios = false): Array<{ value: 'activa' | 'duplicar' | 'copiar' | 'descartar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
   return [
     { value: 'activa', label: activa ? 'Pausar' : 'Activar', icono: activa ? ICONOS_FILA.pausar : ICONOS_FILA.activar },
     { value: 'duplicar', label: 'Duplicar', icono: ICONOS_FILA.duplicar },
     // «COPIAR FLUJO» (10/10/2026: «que esté en los 3 puntos de cada flujo en la sidebar... por si un usuario
     // de MaKo le quiere compartir un flujo que creó a otro»). Va al portapapeles (lib/flujo-copia.ts).
     { value: 'copiar', label: 'Copiar flujo', icono: ICONOS_FILA.copiar },
+    ...(conCambios ? [{ value: 'descartar' as const, label: 'Descartar cambios', icono: ICONOS_FILA.descartar }] : []),
     { value: 'eliminar', label: 'Eliminar', icono: ICONOS_FILA.eliminar },
   ];
 }
@@ -269,10 +275,15 @@ export type AbrirSecuencia = { id: number };
 // (Acá vivía `AbrirAviso`, el pedido de abrir un Mensaje de MaKo desde el link de Notificaciones,
 // `/automations?aviso=<id>`. Se fue el 11/10/2026 con esos mensajes: un mensaje de MaKo se abre con `?sec=`.)
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, horario, tz, abrir, handoffs, arranque, onArranqueUsado }: {
-  /** La recién creada con un tipo de CRON elegido en el modal: su lienzo abre ese CRON (una vez). */
-  arranque?: { id: number; clase: ClaseDisparador } | null;
-  onArranqueUsado?: () => void;
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, horario, tz, abrir, handoffs, onElegida }: {
+  // (Acá iban `arranque` y `onArranqueUsado`: la recién creada con un tipo de CRON elegido en «¿Qué la dispara?» del
+  // modal abría su CRON en ese tipo. Se fueron con esos botones en la décima tanda: «eso ya lo hacemos dentro en el CRON».)
+  /**
+   * LA QUE SE ESTÁ VIENDO, para que la URL la diga (décima tanda, NUEVA AUTOMATIZACIÓN 9: «cada automatización nueva,
+   * debe tener una URL que se pueda abrir»). `/automations?sec=<id>` ya la abría (el deep link); faltaba escribirla al
+   * elegir: si sólo se lee, el link que se copia no es la que se está viendo. Quien monta hace el `router.replace`.
+   */
+  onElegida?: (id: number) => void;
   // (Acá iban `avisos`, `abrirAviso`, `onAvisosCambio` y `onOcultosCambio`: los Mensajes de MaKo de antes,
   // que venían de otro endpoint. Se fueron el 11/10/2026: son filas de `secuencias` con el CRON del evento.)
   /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
@@ -302,11 +313,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   // una» le dejaba a la caja de Crear con IA). Salieron el 10/10/2026 con el pie: era de una versión
   // anterior (ver el comentario del montaje en ChatAgentApp).
   /**
-   * EL HORARIO DE ENVÍO DEL NEGOCIO, en la cabecera de la lista (pedido de Martín, 10/10/2026: «haz
-   * que se pueda configurar allí mismo, sin redirigir»). Va en el renglón de «Chatbot», arriba de
-   * «＋ Nueva»: es del negocio y vale para todas las automatizaciones, no para una. Lo arma la tab
-   * (`HorarioLista`, con el editor y las acciones de Configuraciones) y llega como nodo: importado
-   * acá, las acciones arrastrarían `server-only` a los tests que dibujan esta lista.
+   * «CONFIGURACIONES» DEL NEGOCIO (el horario de oficina y los límites), en la cabecera de la lista (el
+   * horario desde el 10/10/2026: «haz que se pueda configurar allí mismo, sin redirigir»; los límites, décima
+   * tanda). Va en el renglón de «Chatbot», arriba de «＋ Nueva»: es del negocio y vale para todas las
+   * automatizaciones, no para una. Lo arma la tab (`ConfiguracionesBoton`, con los editores y las acciones)
+   * y llega como nodo: importado acá, las acciones arrastrarían `server-only` a los tests que dibujan esta lista.
    */
   horario?: ReactNode;
   /** La zona del negocio, para el texto del horario. */
@@ -340,6 +351,19 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    */
   const existe = (id: number | ''): boolean => id !== '' && secuencias.some((j) => j.id === id);
   const selId = existe(elegidaViva) ? elegidaViva : existe(volverA) ? volverA : (secuencias[0]?.id ?? '');
+  /**
+   * LA URL DICE LA ELEGIDA (`onElegida`, ver la prop), pero recién DESPUÉS de la primera elección (un clic, el link del
+   * aviso, la recién creada): la que se elige sola al abrir la tab —la primera de la lista— no se escribe, porque en
+   * ese mismo render el deep link (`?sec=`) todavía no llegó y la pisaría. Desde ahí, todo cambio de la elegida
+   * (también la fila nueva que toma su id real, o la que queda al eliminar) se escribe una vez.
+   */
+  const eligio = useRef(false);
+  const escrita = useRef<number | null>(null);
+  useEffect(() => {
+    if (!eligio.current || typeof selId !== 'number' || selId <= 0 || selId === escrita.current) return;
+    escrita.current = selId;
+    onElegida?.(selId);
+  }, [selId, onElegida]);
   /** El panel de «Probar» abierto, y de qué canal. El lienzo NO se desmonta: se prueba lo que se edita. */
   const [probando, setProbando] = useState<CanalProbar | null>(null);
   /** Lo que el lienzo tiene sin publicar (`onCambioLocal`): es lo que prueba el panel. */
@@ -376,6 +400,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    */
   const cambiarA = (id: number) => {
     setSelId(id); setProbando(null); setEdicion(null);
+    // Desde acá la URL dice la elegida (`onElegida`, décima tanda): una elección de verdad, no la primera de la lista.
+    eligio.current = true;
     // Abrir la fila que se está creando recuerda de dónde se vino (si el server falla, se vuelve).
     if (typeof id === 'number' && id < 0) setVolverA(selId);
   };
@@ -458,9 +484,38 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       setErrFila({ id: j.id, texto: 'No se pudo copiar' });
     }
   };
+  /**
+   * «DESCARTAR CAMBIOS» DEL «⋯» (décima tanda, general 5). La ABIERTA vuelve a lo publicado en el lienzo y su
+   * borrador se borra (`descartarBorrador`, lo deja SecuenciaPerfil: `descartarCambios`), con su foto: Ctrl+Z
+   * lo devuelve, así que no se pregunta. Una CERRADA no tiene deshacer —su borrador vive sólo en el server—:
+   * pasa por la confirmación de la casa (`aDescartar`) y se borra con la acción de siempre
+   * (`descartar-borrador`, app/api/chat-agent/secuencias).
+   */
+  const [aDescartar, setADescartar] = useState<SecuenciaDto | null>(null);
+  const [descartando, setDescartando] = useState(false);
+  const descartarCerrada = async () => {
+    const j = aDescartar;
+    if (!j) return;
+    setDescartando(true);
+    try {
+      const r = await pedir(API_SECUENCIAS, 'POST', { action: 'descartar-borrador', secuenciaId: j.id });
+      if (!r.ok) { setErrFila({ id: j.id, texto: r.error || 'No se pudo descartar' }); return; }
+      onReload();
+    } catch {
+      setErrFila({ id: j.id, texto: 'Sin conexión' });
+    } finally {
+      setDescartando(false); setADescartar(null);
+    }
+  };
   const accionFila = async (j: SecuenciaDto, accion: string) => {
     if (accion === 'eliminar') { setErrFila(null); setAEliminar(j); return; }
     if (accion === 'copiar') { setErrFila(null); await copiarFlujo(j); return; }
+    if (accion === 'descartar') {
+      setErrFila(null);
+      if (j.id === selId && descartarBorrador.current) { descartarBorrador.current(); setSinPublicar(false); return; }
+      setADescartar(j);
+      return;
+    }
     if (accion !== 'activa' && accion !== 'duplicar') return;
     setErrFila(null); setOcupada(j.id);
     try {
@@ -558,7 +613,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             <Dropdown value="" placeholder="⋯" align="afuera" resetAfterSelect sinFlecha search={false}
               ariaLabel={`Opciones de ${j.nombre}`} disabled={ocupada === j.id}
               buttonStyle={ESTILO_BOTON_MENU}
-              options={opcionesDeFila(j.activa)}
+              options={opcionesDeFila(j.activa, sinPublicarDe(j, j.id === selId && sinPublicar))}
               onChange={(v) => void accionFila(j, v)} />
           ) : undefined} />
         {errFila?.id === j.id && <div role="alert" style={{ padding: '0 12px 8px 56px', fontSize: 12.5, color: 'var(--bad)' }}>{errFila.texto}</div>}
@@ -635,7 +690,6 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             probarAbierto={probarVisible} onCerrarProbar={() => setProbando(null)}
             onCambioLocal={recibirEdicion}
             onAccionTodo={rolAdmin ? (a) => void accionFila(sel, a) : undefined}
-            arranque={arranque?.id === sel.id ? arranque.clase : undefined} onArranqueUsado={onArranqueUsado}
             onCambio={onReload} />
         )}
       </div>
@@ -740,6 +794,15 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           message={`«${aEliminar.nombre}» deja de enviar y sale de la lista.`}
           confirmLabel="Eliminar automatización" cancelLabel="No eliminar" tone="danger" loading={eliminando}
           onConfirm={() => void eliminar()} onCancel={() => setAEliminar(null)}
+        />
+      )}
+
+      {/* «Descartar cambios» de una CERRADA (décima tanda, general 5): sin deshacer, se pregunta. */}
+      {aDescartar && (
+        <Confirm
+          message={`Vuelve a lo publicado de «${aDescartar.nombre}».`}
+          confirmLabel="Descartar cambios" cancelLabel="No descartar" tone="danger" loading={descartando}
+          onConfirm={() => void descartarCerrada()} onCancel={() => setADescartar(null)}
         />
       )}
     </div>

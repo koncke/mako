@@ -25,7 +25,7 @@
 import {
   type PasoGrafo, type RamaCondicion, type CasoRespuesta, type DestinoIrA,
   claseDe, idDe, normalizar, nuevoId, nodoPorId, indicePorId, hiloDe, raizSalida, fijarRaiz, padresDe,
-  conectarPuerto, validarGrafo, HILO_RESPUESTA,
+  conectarPuerto, validarGrafo, HILO_RESPUESTA, separarPasosIA,
 } from './flujo-grafo';
 
 export type EstrategiaLegada = {
@@ -535,10 +535,16 @@ export function abrirFlujo<P extends PasoGrafo>(
   // (Medido sobre la forma de las tres de producción: ninguna cae acá; es la red, no el camino.)
   const sePodia = s.erroresNuevos.length > 0 && validarGrafo(r.pasos).length === 0;
   const sinSaltos = sePodia ? null : s;
+  // AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §1): UNA TARJETA POR CASO. Un AI Step de antes, con N
+  // casos y su tono, se abre partido en N tarjetas con el tono plegado en cada respuesta (`separarPasosIA`: las
+  // nuevas al final del array). Lo publicado sigue contestando igual mientras tanto (la expansión cuenta cada
+  // caso como una tarjeta); Publicar guarda la forma nueva. Cuenta como convertida: hay algo que publicar.
+  const base = sinSaltos ? sinSaltos.pasos : r.pasos;
+  const separado = separarPasosIA(base);
   return {
-    pasos: sinSaltos ? sinSaltos.pasos : r.pasos,
+    pasos: separado.pasos,
     notas: [...r.notas, ...(sinSaltos ? sinSaltos.notas : [])],
-    convertida: r.convertida || !!sinSaltos?.convertida,
+    convertida: r.convertida || !!sinSaltos?.convertida || separado.cambio,
     limpiarEstrategia: r.convertida,
   };
 }

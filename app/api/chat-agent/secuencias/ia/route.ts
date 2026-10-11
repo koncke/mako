@@ -6,7 +6,7 @@
 // creando...». Decisión 14 de docs/chatbot-flujo-ramas-diseno.md; el diseño completo, en el
 // relevo R5 de esa tanda.
 //
-// POST { pedido, secuenciaId, modo: 'crear' | 'editar', pasos? } → STREAM NDJSON de `EventoIA`
+// POST { pedido, secuenciaId?, modo: 'crear' | 'editar', pasos? } → STREAM NDJSON de `EventoIA`
 // (lib/flujo-ia.ts): fases REALES, que es lo que exige `GRAMATICA.analizando`:
 //   {t:'fase', fase:'contexto', leyendo, texto}  — lo que se leyó («tu perfil · 4 etapas · 3 audios»)
 //   {t:'fase', fase:'modelo'}                     — el modelo está escribiendo
@@ -14,25 +14,17 @@
 //   {t:'listo', …} | {t:'error', error}
 // Los errores de ANTES del stream (403, 400, 409) salen como JSON plano.
 //
-//   · CREAR exige que la automatización esté VACÍA (la de «＋ Nueva», `crear_vacia`) y la deja
-//     GUARDADA y PAUSADA: `setSecuenciaPasos` + el disparador + el nombre. Guardar en vez de dejar
-//     un borrador local es a propósito: lo no publicado se pierde al cambiar de automatización.
+//   · CREAR, desde la décima tanda (11/10/2026), vive en lib/flujo-ia-crear.ts (`crearFlujoConIA`): la MISMA función
+//     que llama la API de MaKo («Pídeselo a MaKo» por WhatsApp). Esta ruta convierte sus fases en el stream.
+//     SIN `secuenciaId` (la caja «Pídeselo a MaKo» del modal «Nueva automatización») la fila nace AL GUARDAR, pausada:
+//     un «Cancelar» o un fallo no deja una vacía huérfana. CON `secuenciaId` exige que esté VACÍA y PAUSADA, y escribe
+//     encima (la caja del lienzo vacío, que desde la décima tanda no se dibuja: docs/diseno-automations-galeria-v2.md §1).
 //   · EDITAR sólo AGREGA (v1) y NO guarda: devuelve los pasos para el borrador local del lienzo
 //     (UNA foto de deshacer y Publicar, como cualquier cambio). `pasos` es ese borrador, que puede
 //     tener cambios sin publicar; sin él, se parte de lo guardado.
 //
-// ⚠️ NUNCA POR CLAUDE, NI POR NADA QUE COBRE. La llamada es `chatCheapCascade` sobre
-// `PROVS_CREAR_IA` (gemini → groq → openrouter, lib/flujo-ia.ts), con el pin de /modelos-ia PRIMERO
-// si es un proveedor gratis. `chatClaude` sin `fallback: []` caería a Sonnet PAGO, y la feature no
-// tiene fila en CLAUDE_PERMITIDO.
-//
-// ⚠️ LA FALLA DE PRODUCCIÓN DEL 09/10/2026 (ws1, «Hay un problema de configuración de MaKo…»), medida
-// con las keys reales (scratchpad F-diag.mts): Gemini 403 (Google bloqueó el proyecto de la key),
-// OpenRouter 404 (el modelo ya no es gratis), Mistral 429 (siempre), OpenAI en la lista (cobra) y
-// Groq —que contesta 200 con un flujo válido en 3,4 s— SALTEADO: la cascada suma prompt + maxTokens
-// contra su techo (7k) y el pedido pesaba ~10k. Arreglo: el contexto compacto, la salida que entra
-// (`salidaParaIA`), la lista sin pagos ni rebotes crónicos, un modelo gratis vivo para OpenRouter
-// (`MODELOS_CREAR_IA`), y el motivo por proveedor (`falloDeIA`) en vez de la bolsa entera.
+// ⚠️ NUNCA POR CLAUDE, NI POR NADA QUE COBRE: la cascada gratis vive en lib/flujo-ia-crear.ts (`generar`), con su
+// historia (la falla de producción del 09/10/2026).
 //
 // ⚠️ LAS ETIQUETAS NUEVAS SE CREAN RECIÉN CUANDO TODO VALIDÓ, y antes se mira que la persona no
 // haya cancelado (`req.signal`): un pedido cancelado MIENTRAS EL MODELO ESCRIBE no deja nada
@@ -43,37 +35,17 @@
 
 import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
-import { chatCheapCascade, MODELO_DOCS, provsDe, tokensAprox, techoDeEntrada, type ProvName } from '@/lib/ai-cheap';
-import { overrideDeFeature } from '@/lib/model-registry';
 import { getPromptText } from '@/lib/prompt-render';
-import { parseJsonObject } from '@/lib/json-del-modelo';
-import { perfilNegocioTexto } from '@/lib/onboarding';
-import { getVozGuia } from '@/lib/nutricion-generator';
-import { setSecuenciaPasos, setSecuenciaActiva, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
-import {
-  productosConEtapas, renombrarSecuencia, nombreDeSecuencia, setTriggerSecuencia, TriggerInvalidoError,
-} from '@/lib/setting-secuencias';
-import { listarEtiquetas, crearEtiqueta } from '@/lib/etiquetas';
-import { listAudios } from '@/lib/setting-audios';
-import { listarAdjuntos } from '@/lib/setting-adjuntos';
-import { accionesParaFlujo } from '@/lib/api-mako/flujo';
-import { getEntregables } from '@/lib/entregable';
-import { getSetting } from '@/lib/settings';
-import { KEY_LINK_VIDEO } from '@/lib/audios-paso';
-import { eventTypeDeReunion } from '@/lib/calendly-agenda';
-import { TRIGGERS } from '@/lib/email-marketing';
-import { seccionesDisparo, pedidoDisparo, valorDisparo } from '@/lib/flujo-conversacion';
+import { valorDisparo } from '@/lib/flujo-conversacion';
 import { ordenarAvisos } from '@/lib/flujo-ia-cliente';
-import { validarGrafo, type PasoGrafo } from '@/lib/flujo-grafo';
 import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
-import { marcasDeVoseo } from '@/lib/puestas-data';
 import {
-  FEATURE_CREAR_IA, LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE,
-  PROVS_CREAR_IA, PROVS_GRATIS_PIN, MODELOS_CREAR_IA, salidaParaIA, falloDeIA,
-  deIA, deIAEdicion, disparadoresParaIA, numerosEn, validarIA, erroresNuevos, ordenDeRevelado, conEtiquetasReales, disparadorReal, refsSinResolver,
-  userDeCrear, userDeEditar, leyendoDe, leyendoTexto, normNombre,
-  type CtxIA, type EventoIA, type ResultadoIA, type ResultadoEdicion, type LinkIA, type GuardadoIA, type FalloIA,
+  EDITAR_IA_SYSTEM_TEMPLATE, deIAEdicion, validarIA, erroresNuevos, ordenDeRevelado, conEtiquetasReales, refsSinResolver,
+  userDeEditar, leyendoDe, leyendoTexto,
+  type EventoIA, type ResultadoEdicion, type GuardadoIA,
 } from '@/lib/flujo-ia';
+import type { PasoGrafo } from '@/lib/flujo-grafo';
+import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -86,229 +58,10 @@ export const maxDuration = 300;
 
 /** Lo que tiene la cascada para contestar (deja ~60 s para reparar, guardar y cerrar el stream). */
 const PLAZO_MODELO_MS = 220_000;
-/** Lo mínimo que tiene que quedar para intentar un escalón más (reparar o corregir). */
-const MIN_PARA_OTRO_MS = 45_000;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 type Body = { pedido?: unknown; secuenciaId?: unknown; modo?: unknown; pasos?: unknown };
-type Traducido = { r: ResultadoIA | ResultadoEdicion; errores: string[] };
-
-// ── El contexto: lo que el negocio tiene configurado ─────────────────────────────
-
-/**
- * El link de AGENDA: el del event type de la R1 de Calendly (`CALENDLY_EVENT_TYPE_J1`), que es lo
- * que el negocio configuró para que lo agenden. Medido el 08/10/2026: no hay otro link de agenda
- * guardado en ningún workspace. Sin Calendly, o si tarda más de 5 s, no hay link de agenda y la IA
- * no lo promete (`LINKS` va sin esa clave).
- */
-async function linkDeAgenda(): Promise<string | null> {
-  try {
-    const et = await Promise.race([
-      eventTypeDeReunion('R1'),
-      new Promise<null>((r) => setTimeout(() => r(null), 5_000)),
-    ]);
-    const u = (et?.schedulingUrl ?? '').trim();
-    return /^https?:\/\//i.test(u) ? u : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Arma `CtxIA`. ⚠️ LAS ETIQUETAS SE LEEN ESTRICTAS (AGENTS.md: una lectura que cae al default sirve
- * para dibujar, nunca para decidir): con la lectura caída, `deIA` las tomaría a todas por NUEVAS y
- * crearía duplicados. Lo demás puede faltar: lo que no está se saca del flujo y queda en `avisos`.
- * (Las otras automatizaciones ya no se leen: sólo servían para un «Ir a», que la IA no arma más.)
- */
-async function armarContexto(ws: number, pedido: string): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
-  const [etiquetas, productos, audios, archivos, accionesWs, entregables, video, agenda, perfil, voz] = await Promise.all([
-    listarEtiquetas({ incluirArchivadas: true }),
-    productosConEtapas().catch(() => []),
-    listAudios().catch(() => []),
-    listarAdjuntos().catch(() => []),
-    accionesParaFlujo(ws).catch(() => []),
-    getEntregables().catch(() => []),
-    getSetting(KEY_LINK_VIDEO).catch(() => null),
-    linkDeAgenda(),
-    perfilNegocioTexto().catch(() => ''),
-    getVozGuia().catch(() => null),
-  ]);
-
-  // LOS LINKS: clave → URL. La URL NO viaja al modelo (`userDeCrear` manda la clave y el «para»).
-  const links: Record<string, LinkIA> = {};
-  if (agenda) links.agenda = { url: agenda, para: 'el link para que agende la llamada' };
-  const v = (video ?? '').trim();
-  if (/^https?:\/\//i.test(v)) links.video = { url: v, para: 'el video que conviene ver antes de hablar' };
-  entregables.filter((e) => /^https?:\/\//i.test((e.enlace ?? '').trim())).forEach((e, k) => {
-    links[`material:${k + 1}`] = { url: e.enlace!.trim(), para: `${e.nombre}${e.tipo ? ` (${e.tipo})` : ''}` };
-  });
-
-  const prods = productos.map((p) => ({
-    funnelId: p.funnelId, productoId: p.productoId, nombre: p.nombre, esDefault: p.esDefault,
-    etapas: p.etapas, etapasEntrega: p.etapasEntrega,
-  }));
-  // EL DISPARADOR: el mismo catálogo cerrado que el desplegable del CRON, aplanado CON EL PRODUCTO
-  // en el rótulo (`disparadoresParaIA`: con dos productos con la misma etapa, el rótulo pelado
-  // elegía el embudo equivocado). `manual` no inscribe a nadie: se saca (la secuencia vacía nace
-  // con él y la sección «La que tiene puesta» lo trae).
-  const disparadores = disparadoresParaIA(seccionesDisparo({
-    disparadores: TRIGGERS, productos: prods, etiquetas: etiquetas.map((e) => ({ id: e.id, nombre: e.nombre, archivada_at: e.archivada_at })),
-    actual: { trigger_tipo: 'manual' }, textoActual: 'manual',
-  })).filter((o) => o.value !== 'trigger:manual');
-
-  // LA LISTA BLANCA, cruzada con lo que la capa del workspace ve, y otra vez contra gratis y
-  // reversible por si el registro cambia (el test lo cruza también).
-  const acciones = accionesWs
-    .filter((a) => LISTA_BLANCA_IA.includes(a.id) && a.costo === 'gratis' && a.reversible)
-    .map((a) => ({ id: a.id, titulo: a.titulo, parametros: a.parametros }));
-
-  const ctx: CtxIA = {
-    etiquetas: etiquetas.map((e) => ({ id: e.id, nombre: e.nombre, archivada: !!e.archivada_at })),
-    productos: prods,
-    disparadores,
-    audios: audios.map((a) => ({ id: a.id, titulo: a.titulo, transcript: a.transcript })),
-    archivos: archivos.map((a) => ({ id: a.id, titulo: a.titulo, mime: a.media_mime })),
-    acciones,
-    links,
-    usaVoseo: !!voz && marcasDeVoseo(voz).length > 0,
-    // Un MONTO de una acción sólo vale si lo escribió una persona: en el perfil o en el pedido.
-    numerosPermitidos: numerosEn(`${perfil}\n${pedido}`),
-    // La segunda capa de «un alumno → todas las etapas de la entrega» (cuarta tanda, punto 14).
-    pedido,
-  };
-  return { ctx, perfil, voz };
-}
-
-// ── Las etiquetas nuevas, recién al final ─────────────────────────────────────────
-
-/**
- * Crea las etiquetas nuevas y devuelve ref → id real. Si una ya existe con ese nombre (otra
- * pestaña la creó en el medio), se usa ésa: lo que se buscaba era la etiqueta, no crear una.
- */
-async function crearNuevas(nuevas: ResultadoIA['etiquetasNuevas']): Promise<{ ids: Map<number, number>; creadas: Array<{ id: number; nombre: string }> }> {
-  const ids = new Map<number, number>();
-  const creadas: Array<{ id: number; nombre: string }> = [];
-  for (const n of nuevas) {
-    try {
-      const { etiqueta } = await crearEtiqueta({ nombre: n.nombre });
-      ids.set(n.ref, etiqueta.id);
-      creadas.push({ id: etiqueta.id, nombre: etiqueta.nombre });
-    } catch (e) {
-      const ya = (await listarEtiquetas({ incluirArchivadas: false })).find((x) => normNombre(x.nombre) === normNombre(n.nombre));
-      if (!ya) throw new Error(`No pude crear la etiqueta «${n.nombre}»: ${msg(e)}`);
-      ids.set(n.ref, ya.id);
-    }
-  }
-  return { ids, creadas };
-}
-
-// ── La llamada al modelo, con sus tres escalones ──────────────────────────────────
-
-/**
- * UNA pasada por la cascada GRATIS. `traducir` es la segunda capa (parsea + `deIA` + `validarIA` +
- * `validarGrafo`) y va como `validar`: una salida inservible prueba el proveedor siguiente en vez
- * de llegar a la pantalla. Devuelve el resultado bueno, o lo que hace falta para el escalón
- * siguiente: los textos que no parsearon y los errores de la última salida que sí.
- */
-async function pasada(p: {
-  system: string; user: string; motivo: string; hastaMs: number;
-  traducir: (obj: Record<string, unknown>) => Traducido;
-  provs: ProvName[]; modelos: Partial<Record<ProvName, string>>; errores: string[];
-}): Promise<{ bueno: ResultadoIA | ResultadoEdicion | null; crudos: string[]; ultimo: string[] | null }> {
-  const out: { bueno: ResultadoIA | ResultadoEdicion | null; crudos: string[]; ultimo: string[] | null } = { bueno: null, crudos: [], ultimo: null };
-  // ⚠️ LA SALIDA SE DIMENSIONA PARA QUE GROQ ENTRE (`salidaParaIA`): con 6000 fijos la cascada lo
-  // salteaba siempre, y era el único proveedor que le contestaba al ws1.
-  const maxTokens = salidaParaIA(tokensAprox(p.system) + tokensAprox(p.user), techoDeEntrada('groq'));
-  await chatCheapCascade({
-    system: p.system, user: p.user, json: true, maxTokens, temperature: 0.4,
-    feature: FEATURE_CREAR_IA, motivo: p.motivo,
-    provs: p.provs, modelos: p.modelos, timeoutMs: 100_000, hastaMs: p.hastaMs,
-    erroresOut: p.errores,
-    validar: (t) => {
-      let obj: Record<string, unknown>;
-      try { obj = parseJsonObject(t); } catch { out.crudos.push(t); return false; }
-      const tr = p.traducir(obj);
-      if (tr.errores.length) { out.ultimo = tr.errores; return false; }
-      out.bueno = tr.r;
-      return true;
-    },
-  }).catch((e) => { p.errores.push(msg(e)); return ''; });
-  return out;
-}
-
-/**
- * Los TRES escalones (molde: `objetoDelPlan` de lib/video-planner.ts, más el reintento con los
- * errores del relevo R5):
- *   1. la cascada, con `parseJsonObject` (repara sin red) adentro del `validar`;
- *   2. si algún proveedor escribió un JSON que no se pudo leer, la cascada lo COPIA como JSON
- *      válido (no se le pide que piense) y se vuelve a traducir;
- *   3. si lo que se leyó tenía errores de validación, UN reintento listándolos («corrige esto»).
- * Si nada sirve, el error honesto: `falloDeIA` (el motivo por proveedor, en una línea) cuando nadie
- * contestó, o qué quedó mal.
- */
-async function generar(p: {
-  system: string; user: string; inicio: number;
-  traducir: (obj: Record<string, unknown>) => Traducido;
-}): Promise<{ r: ResultadoIA | ResultadoEdicion } | FalloIA> {
-  // El pin de /modelos-ia va PRIMERO y el resto de la lista atrás: con el pin solo, una key de ese
-  // proveedor bloqueada dejaba la feature sin nadie a quien caer. Un pin pago (Claude, OpenAI) no se
-  // usa: esta feature no cobra nunca.
-  const pin = await overrideDeFeature(FEATURE_CREAR_IA).catch(() => null);
-  const pinGratis = pin != null && PROVS_GRATIS_PIN.includes(pin.provider as ProvName) ? pin : null;
-  const provs: ProvName[] = pinGratis
-    ? [pinGratis.provider as ProvName, ...PROVS_CREAR_IA.filter((x) => x !== pinGratis.provider)]
-    : [...PROVS_CREAR_IA];
-  const modelos: Partial<Record<ProvName, string>> = {
-    ...MODELO_DOCS, ...MODELOS_CREAR_IA,
-    ...(pinGratis ? { [pinGratis.provider]: pinGratis.model } : {}),
-  };
-  const hastaMs = p.inicio + PLAZO_MODELO_MS;
-  const quedan = () => hastaMs - Date.now();
-  const errores: string[] = [];
-
-  const uno = await pasada({ ...p, motivo: 'Crear una automatización con IA', hastaMs, provs, modelos, errores });
-  if (uno.bueno) return { r: uno.bueno };
-  let ultimo = uno.ultimo;
-
-  // 2. Un JSON que no se pudo leer: que la cascada lo copie bien.
-  if (uno.crudos.length && quedan() > MIN_PARA_OTRO_MS) {
-    const crudo = uno.crudos[uno.crudos.length - 1];
-    console.error('[secuencias/ia] JSON inválido del modelo (2000):', crudo.slice(0, 2000));
-    const copia = await chatCheapCascade({
-      system: 'Recibes un texto que pretende ser un JSON pero tiene errores de sintaxis. Devuelve EXACTAMENTE el mismo contenido como JSON válido: mismas claves, mismos valores, mismo orden. No agregues, no quites, no comentes. Solo el JSON.',
-      user: crudo.slice(0, 60_000), json: true, maxTokens: 8000, temperature: 0,
-      feature: FEATURE_CREAR_IA, motivo: 'reparar el JSON de la automatización', provs, modelos, hastaMs, erroresOut: errores,
-      validar: (t) => { try { parseJsonObject(t); return true; } catch { return false; } },
-    }).catch((e) => { errores.push(msg(e)); return ''; });
-    if (copia) {
-      try {
-        const tr = p.traducir(parseJsonObject(copia));
-        if (!tr.errores.length) return { r: tr.r };
-        ultimo = tr.errores;
-      } catch { /* sigue al reintento o al error */ }
-    }
-  }
-
-  // 3. Lo que se leyó tenía errores: un reintento diciéndole cuáles.
-  if (ultimo && quedan() > MIN_PARA_OTRO_MS) {
-    const corregir = `${p.user}\n\nTU RESPUESTA ANTERIOR TENÍA ESTOS PROBLEMAS. Corrígelos y devuelve el JSON COMPLETO:\n${ultimo.slice(0, 12).map((e) => `- ${e}`).join('\n')}`;
-    const dos = await pasada({ ...p, user: corregir, motivo: 'Corregir la automatización con IA', hastaMs, provs, modelos, errores });
-    if (dos.bueno) return { r: dos.bueno };
-    if (dos.ultimo) ultimo = dos.ultimo;
-  }
-
-  if (ultimo) {
-    // ⚠️ EL DETALLE VA AL LOG, NO A LA PANTALLA (revisión, 09/10/2026): los errores de
-    // `validarGrafo` traen ids internos («tarjetas sueltas: m2»), que no le dicen nada a nadie.
-    console.error('[secuencias/ia] la salida no pasó la revisión:', ultimo.join(' | '));
-    return { error: 'MaKo armó el flujo pero quedó mal. Prueba de nuevo o cambia una palabra del pedido.' };
-  }
-  if (uno.crudos.length) return { error: 'MaKo escribió el flujo pero se cortó al leerlo. Prueba de nuevo.' };
-  console.error('[secuencias/ia] ningún proveedor armó el flujo:', errores.join(' | '));
-  const hayIA = (await Promise.all(provs.map((x) => provsDe(x).catch(() => [])))).some((l) => l.length > 0);
-  return falloDeIA(errores, hayIA);
-}
 
 // ── La ruta ───────────────────────────────────────────────────────────────────────
 
@@ -322,24 +75,31 @@ export async function POST(req: NextRequest) {
   try { body = ((await req.json()) ?? {}) as Body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   const pedido = typeof body.pedido === 'string' ? body.pedido.trim().slice(0, 2000) : '';
-  const secuenciaId = Number(body.secuenciaId);
   const modo = body.modo === 'editar' ? 'editar' : body.modo === 'crear' ? 'crear' : null;
+  // CREAR sin `secuenciaId` (décima tanda): la fila nace al guardar. Editar siempre lo necesita.
+  const sinId = modo === 'crear' && (body.secuenciaId == null || body.secuenciaId === '');
+  const secuenciaId = sinId ? null : Number(body.secuenciaId);
   if (!pedido) return Response.json({ ok: false, error: 'Escribe qué quieres que haga.' }, { status: 400 });
-  if (!Number.isInteger(secuenciaId) || secuenciaId <= 0) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
+  if (secuenciaId != null && (!Number.isInteger(secuenciaId) || secuenciaId <= 0)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
   if (!modo) return Response.json({ ok: false, error: 'modo inválido' }, { status: 400 });
 
   const db = await getTenantDb();
-  // Con `etapas` (mig 0230, punto 14) y sin ella si todavía no está: es para decir el disparador del
-  // 409, y una columna que falta no puede tirar la creación entera (`esColumnaInexistente`).
-  const leerSec = async (cols: string) => {
-    const r = await db.from('nutricion_secuencias').select(cols).eq('id', secuenciaId).maybeSingle();
-    return { data: r.data as unknown as Record<string, unknown> | null, error: r.error };
-  };
-  let { data: sec, error: errSec } = await leerSec('id, nombre, pasos, activa, trigger_tipo, etapa, etapas, funnel_id, producto_id, etiqueta_id');
-  if (errSec && esColumnaInexistente(errSec)) ({ data: sec, error: errSec } = await leerSec('id, nombre, pasos, activa, trigger_tipo, etapa, funnel_id, producto_id, etiqueta_id'));
-  if (errSec) return Response.json({ ok: false, error: `No pude leer la automatización: ${errSec.message}` }, { status: 500 });
-  if (!sec) return Response.json({ ok: false, error: 'Esa automatización no existe en este negocio.' }, { status: 404 });
-  const guardados = (Array.isArray((sec as { pasos?: unknown }).pasos) ? (sec as { pasos: PasoGrafo[] }).pasos : []);
+  let sec: Record<string, unknown> | null = null;
+  let guardados: PasoGrafo[] = [];
+  if (secuenciaId != null) {
+    // Con `etapas` (mig 0230, punto 14) y sin ella si todavía no está: es para decir el disparador del
+    // 409, y una columna que falta no puede tirar la creación entera (`esColumnaInexistente`).
+    const leerSec = async (cols: string) => {
+      const r = await db.from('nutricion_secuencias').select(cols).eq('id', secuenciaId).maybeSingle();
+      return { data: r.data as unknown as Record<string, unknown> | null, error: r.error };
+    };
+    let { data, error: errSec } = await leerSec('id, nombre, pasos, activa, trigger_tipo, etapa, etapas, funnel_id, producto_id, etiqueta_id');
+    if (errSec && esColumnaInexistente(errSec)) ({ data, error: errSec } = await leerSec('id, nombre, pasos, activa, trigger_tipo, etapa, funnel_id, producto_id, etiqueta_id'));
+    if (errSec) return Response.json({ ok: false, error: `No pude leer la automatización: ${errSec.message}` }, { status: 500 });
+    if (!data) return Response.json({ ok: false, error: 'Esa automatización no existe en este negocio.' }, { status: 404 });
+    sec = data;
+    guardados = Array.isArray((sec as { pasos?: unknown }).pasos) ? (sec as { pasos: PasoGrafo[] }).pasos : [];
+  }
   // CREAR escribe encima: sólo sobre una VACÍA. Pisar un flujo con leads adentro no es crear.
   // ⚠️ Y EL 409 TRAE LO GUARDADO (`GuardadoIA`, revisión 09/10/2026): si la pantalla pide crear sobre
   // una que ya tiene tarjetas es porque su copia quedó vieja (Cancelar en «Revisando» llega tarde y
@@ -361,7 +121,7 @@ export async function POST(req: NextRequest) {
   // 09/10/2026). Una secuencia lineal de antes, activa, a la que le borraron todas las tarjetas y
   // publicaron, queda con `pasos: []` y ACTIVA: crear le escribía encima un flujo de la IA con
   // acciones que corren sin confirmación.
-  if (modo === 'crear' && (sec as { activa?: unknown }).activa === true) {
+  if (modo === 'crear' && (sec as { activa?: unknown } | null)?.activa === true) {
     return Response.json({ ok: false, error: 'Pausa esta automatización primero.' }, { status: 409 });
   }
   // EDITAR parte del borrador local de la pantalla (puede tener cambios sin publicar).
@@ -372,23 +132,26 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const send = (o: EventoIA) => { try { controller.enqueue(enc.encode(JSON.stringify(o) + '\n')); } catch { /* cerrado */ } };
       try {
+        if (modo === 'crear') {
+          // UNA función para las dos puertas (lib/flujo-ia-crear.ts): sus fases son el stream. Cancelado mientras el
+          // modelo escribía (`req.signal`): no escribió nada y no hay a quién contestarle.
+          const r = await crearFlujoConIA({ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req.signal, alFase: send });
+          if (!r.ok) {
+            if (!r.cancelado) send({ t: 'error', error: r.error, ...(r.link ? { link: r.link } : {}) });
+            return;
+          }
+          send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador });
+          return;
+        }
+
         const { ctx, perfil, voz } = await armarContexto(ws, pedido);
         const leyendo = leyendoDe(ctx, perfil);
         send({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });
 
         // Sin slots: lo variable va en el `user` (un override guardado no conoce bloques nuevos).
-        const system = modo === 'crear'
-          ? await getPromptText('chatbot.crear-ia.system', CREAR_IA_SYSTEM_TEMPLATE)
-          : await getPromptText('chatbot.editar-ia.system', EDITAR_IA_SYSTEM_TEMPLATE);
-        const datos = { perfil, voz, pedido };
-        const user = modo === 'crear' ? userDeCrear(ctx, datos) : userDeEditar(ctx, datos, base);
-        const traducir = (obj: Record<string, unknown>): Traducido => {
-          if (modo === 'crear') {
-            const r = deIA(obj, ctx);
-            const errores = [...validarIA(r.pasos, ctx), ...validarGrafo(r.pasos)];
-            if (!r.pasos.some((x) => !x.nodo)) errores.unshift('el flujo quedó sin ningún mensaje ni acción');
-            return { r, errores };
-          }
+        const system = await getPromptText('chatbot.editar-ia.system', EDITAR_IA_SYSTEM_TEMPLATE);
+        const user = userDeEditar(ctx, { perfil, voz, pedido }, base);
+        const traducir = (obj: Record<string, unknown>): { r: ResultadoEdicion; errores: string[] } => {
           const r = deIAEdicion(obj, base, ctx);
           const errores = [...validarIA(r.pasos, ctx, new Set(r.agregadas)), ...erroresNuevos(base, r.pasos)];
           if (!r.agregadas.length) errores.unshift('no agregó ninguna tarjeta');
@@ -396,7 +159,7 @@ export async function POST(req: NextRequest) {
         };
 
         send({ t: 'fase', fase: 'modelo' });
-        const g = await generar({ system, user, inicio, traducir });
+        const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir });
         if ('error' in g) { send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) }); return; }
         const r = g.r;
         send({ t: 'fase', fase: 'revision', reparadas: r.avisos.length });
@@ -408,69 +171,11 @@ export async function POST(req: NextRequest) {
         const pasos = conEtiquetasReales(r.pasos, ids);
         if (refsSinResolver(pasos).length) throw new Error('Quedó una etiqueta sin crear.');
         const avisos = [...r.avisos];
-
-        if (modo === 'editar') {
-          const agregadas = new Set((r as ResultadoEdicion).agregadas);
-          send({
-            t: 'listo', modo, secuenciaId, pasos, nombre: String((sec as { nombre?: unknown }).nombre ?? ''),
-            orden: ordenDeRevelado(pasos).filter((id) => agregadas.has(id)), avisos: ordenarAvisos(avisos), etiquetasNuevas: creadas,
-          });
-          return;
-        }
-
-        // CREAR: guardar PAUSADA. Se vuelve a mirar que siga vacía (otra pestaña pudo escribir).
-        const { data: otra } = await db.from('nutricion_secuencias').select('pasos').eq('id', secuenciaId).maybeSingle();
-        if (Array.isArray((otra as { pasos?: unknown } | null)?.pasos) && (otra as { pasos: unknown[] }).pasos.length) {
-          send({ t: 'error', error: 'Alguien le puso tarjetas mientras tanto: no la pisé.' });
-          return;
-        }
-        // ⚠️ PRIMERO PAUSAR, DESPUÉS ESCRIBIR (revisión, 09/10/2026). Al revés, si pausar fallaba
-        // después de guardar, el flujo de la IA quedaba guardado y ACTIVO. Así, si lo que sigue
-        // falla, queda pausada y vacía, que no hace daño.
-        await setSecuenciaActiva(secuenciaId, false);
-        try {
-          await setSecuenciaPasos(secuenciaId, pasos as unknown as PasoSecuencia[]);
-        } catch (e) {
-          if (e instanceof PasosInvalidosError) { send({ t: 'error', error: `No pude guardar el flujo: ${e.message}` }); return; }
-          throw e;
-        }
-
-        const valor = disparadorReal((r as ResultadoIA).disparador, ids);
-        const pedidoTrigger = valor ? pedidoDisparo(valor, secuenciaId) : null;
-        // El que quedó PUESTO viaja en `listo` para que la tarjeta CRON lo dibuje sin recargar.
-        let puesto: string | null = null;
-        if (pedidoTrigger) {
-          try {
-            await setTriggerSecuencia(secuenciaId, {
-              trigger_tipo: String(pedidoTrigger.trigger_tipo ?? ''),
-              etapa: pedidoTrigger.etapa == null ? null : String(pedidoTrigger.etapa),
-              // VARIAS etapas (punto 14): las del alumno, o las que pidió el modelo en una lista.
-              etapas: Array.isArray(pedidoTrigger.etapas) ? (pedidoTrigger.etapas as unknown[]).map(String) : null,
-              producto_id: pedidoTrigger.producto_id == null ? null : Number(pedidoTrigger.producto_id),
-              etiqueta_id: pedidoTrigger.etiqueta_id == null ? null : Number(pedidoTrigger.etiqueta_id),
-              // Ausente = no toca el embudo (`setTriggerSecuencia`); sólo una etapa de venta lo trae.
-              ...('funnel_id' in pedidoTrigger ? { funnel_id: pedidoTrigger.funnel_id == null ? null : Number(pedidoTrigger.funnel_id) } : {}),
-            });
-            puesto = valor;
-          } catch (e) {
-            if (!(e instanceof TriggerInvalidoError)) throw e;
-            avisos.push(`No pude poner qué la dispara (${e.message}): elígelo en el CRON`);
-          }
-        } else {
-          avisos.push('Elige qué la dispara en el CRON');
-        }
-
-        let nombre = String((sec as { nombre?: unknown }).nombre ?? '');
-        const propuesto = nombreDeSecuencia((r as ResultadoIA).nombre ?? '');
-        if (propuesto) { await renombrarSecuencia(secuenciaId, propuesto); nombre = propuesto; }
-
-        // Lo que quedó GUARDADO, no lo que se mandó: `setSecuenciaPasos` normaliza (ids, campos del
-        // flujo), y el lienzo tiene que dibujar lo mismo que va a leer el motor.
-        const { data: final } = await db.from('nutricion_secuencias').select('pasos').eq('id', secuenciaId).maybeSingle();
-        const guardado = Array.isArray((final as { pasos?: unknown } | null)?.pasos) ? (final as { pasos: PasoGrafo[] }).pasos : pasos;
-        // Los avisos van ORDENADOS por lo que cambian en lo que sale (`ordenarAvisos`): la pantalla
-        // muestra el primero, y «Elige qué la dispara» se agrega recién acá, al final.
-        send({ t: 'listo', modo, secuenciaId, pasos: guardado, nombre, orden: ordenDeRevelado(guardado), avisos: ordenarAvisos(avisos), etiquetasNuevas: creadas, disparador: puesto });
+        const agregadas = new Set(r.agregadas);
+        send({
+          t: 'listo', modo, secuenciaId: secuenciaId!, pasos, nombre: String((sec as { nombre?: unknown } | null)?.nombre ?? ''),
+          orden: ordenDeRevelado(pasos).filter((id) => agregadas.has(id)), avisos: ordenarAvisos(avisos), etiquetasNuevas: creadas,
+        });
       } catch (err) {
         console.error(`[api:secuencias/ia] ${msg(err)}`);
         send({ t: 'error', error: msg(err) });

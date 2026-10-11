@@ -4,7 +4,8 @@
 // Pedido de Martín (11/10/2026): «Todo ahora es lo mismo... Las tarjetas cambian, cambia el CRON, cambia la
 // tarjeta de "MaKo en WhatsApp" cambia todo, y NO debería... debe ser IDENTICO». Diseño:
 // docs/diseno-mako-en-whatsapp-unificado.md (§6, los tests de la parte A). Lo que se fija, y por qué:
-//   1. la tabla `EVENTOS_MAKO`: tres, cada uno un aviso del catálogo, y sus avisos son `AVISOS_POR_EVENTO`;
+//   1. la tabla `EVENTOS_MAKO`: cuatro (el nuevo agendado desde la décima tanda), cada uno un aviso del catálogo, y sus
+//      avisos son `AVISOS_POR_EVENTO`;
 //   2. el CRON: clase `mako`, su texto, «Este CRON va solo», «Este CRON no se cambia» (también el recordatorio);
 //   3. `pasosDelEvento`: las tres plantillas traducen y cada tarjeta que el runner no sabe correr se rechaza
 //      CON su tarjeta (Publicar la abre);
@@ -70,6 +71,7 @@ const A_72 = '💸 Último recordatorio por la cuota {{cuota_numero}} de {{lead_
 /** Las tres plantillas de la galería (diseño §4). */
 const REUNION = [mako('mr_aviso', '{{mensaje_mako}}', null)];
 const CHARLA = [mako('mc_aviso', '{{mensaje_mako}}', null)];
+const AGENDADO = [mako('ma_aviso', '{{mensaje_mako}}', null)];
 const COBRANZA = [
   mako('mk_entrada', ENTRADA, 'mk_e48'), esperar('mk_e48', 2880, 'mk_48'), mako('mk_48', A_48, 'mk_e72'),
   esperar('mk_e72', 4320, 'mk_72'), mako('mk_72', A_72, null),
@@ -79,9 +81,11 @@ const FIRMA_COBRANZA = 'mk_entrada:mensaje>mk_e48:esperar>mk_48:mensaje>mk_e72:e
 
 // ── 1. La tabla ──────────────────────────────────────────────────────────────────────────────────
 
-test('EVENTOS_MAKO: tres, cada subtipo se guarda, cada aviso existe y es UNO de `AVISOS_POR_EVENTO`', () => {
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida']);
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida']);
+// Desde la décima tanda (GENERAL 7, 11/10/2026) son CUATRO: el aviso de nuevo agendado (`lead_agendo`) pasó a ser un
+// evento (docs/diseno-automations-galeria-v2.md §5).
+test('EVENTOS_MAKO: cuatro, cada subtipo se guarda, cada aviso existe y es UNO de `AVISOS_POR_EVENTO`', () => {
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo']);
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado']);
   for (const e of EVENTOS_MAKO) {
     // El subtipo pasa el saneo del CRON (el id crudo, con guion, no pasaría).
     assert.equal(sanearDisparador({ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: e.subtipo })?.subtipo, e.subtipo, e.subtipo);
@@ -99,8 +103,10 @@ test('los datos del «{ }»: el lead en los tres, la cuota en la cobranza y «Lo
   assert.deepEqual(datosDelEvento('reunion_pronto'), { conLead: true, conCuota: false, conMensaje: true, destino: 'equipo' });
   assert.deepEqual(datosDelEvento('lead_contesta'), { conLead: true, conCuota: false, conMensaje: true, destino: 'equipo' });
   assert.deepEqual(datosDelEvento('cuota_vencida'), { conLead: true, conCuota: true, conMensaje: false, destino: 'equipo' });
-  // «Lo que arma MaKo» sale de `textoDelCodigo`: los dos que lo tienen, y la cobranza no.
+  assert.deepEqual(datosDelEvento('lead_agendo'), { conLead: true, conCuota: false, conMensaje: true, destino: 'equipo' });
+  // «Lo que arma MaKo» sale de `textoDelCodigo`: los tres que lo tienen (el agendado desde la décima tanda), y la cobranza no.
   assert.ok(textoLoArmaElCodigo('reunion-recordatorio') && textoLoArmaElCodigo('wa-mensaje-entrante') && !textoLoArmaElCodigo('cuota-vencida'));
+  assert.ok(textoLoArmaElCodigo('reunion-nuevo-agendado'), 'el agendado no ofrecería «Lo que arma MaKo» y su plantilla no se publicaría');
   const claves = (o: Parameters<typeof variablesPara>[0]) => variablesPara(o).map((v) => v.key);
   assert.ok(claves(datosDelEvento('reunion_pronto')).includes(CLAVE_MENSAJE_MAKO));
   assert.ok(!claves(datosDelEvento('cuota_vencida')).includes(CLAVE_MENSAJE_MAKO), 'la cobranza no trae un texto armado');
@@ -165,6 +171,9 @@ test('las tres plantillas traducen: la cobranza a mensaje, esperar 48, mensaje, 
   const r = pasosDelEvento(REUNION, 'reunion_pronto');
   assert.deepEqual(r, { pasos: [{ tipo: 'mensaje', canal: 'aviso_dueno', texto: '{{mensaje_mako}}' }], problema: null, tarjeta: null, firma: 'mr_aviso:mensaje' });
   assert.equal(pasosDelEvento(CHARLA, 'lead_contesta').problema, null);
+  // La plantilla `mako-agendado` (décima tanda): el texto lo arman los webhooks de la agenda (`textoDelCodigo`).
+  assert.deepEqual(pasosDelEvento(AGENDADO, 'lead_agendo'), { pasos: [{ tipo: 'mensaje', canal: 'aviso_dueno', texto: '{{mensaje_mako}}' }], problema: null, tarjeta: null, firma: 'ma_aviso:mensaje' });
+  assert.equal(frenoDelEvento(AGENDADO, 'lead_agendo'), null);
   const c = pasosDelEvento(COBRANZA, 'cuota_vencida');
   assert.equal(c.problema, null);
   assert.deepEqual(c.pasos, [
@@ -434,6 +443,19 @@ test('los cinco llamadores de la reunión y la charla pasan el LEAD, y la cobran
   assert.match(sinComentarios(leer('app/api/cron/cobranza/route.ts')), /dedupKey: d\.dedupKey, dedupTtlMin: TTL_UNA_POR_CUOTA_MIN,\n\s*cuotaId: d\.cuota\.pago_id,/);
 });
 
+// GENERAL 7 de la décima tanda (docs/diseno-automations-galeria-v2.md §5): sin el lead, la CONDITION de la automatización
+// no ve nada y `{{lead_nombre}}` o `{{link_lead}}` salen crudos. Son CUATRO: la R1 y la R2 de Calendly y de Cal.com.
+test('los cuatro llamadores del nuevo agendado (Calendly y Cal.com, R1 y R2) pasan el LEAD y su texto', () => {
+  for (const ruta of ['app/api/webhooks/calendly/route.ts', 'app/api/webhooks/calcom/route.ts']) {
+    const llamadas = [...sinComentarios(leer(ruta)).matchAll(/emitirDelCatalogo\('reunion-nuevo-agendado', \{([\s\S]*?)\n\s*\}\);/g)].map((m) => m[1]);
+    assert.equal(llamadas.length, 2, `${ruta}: no emite el agendado en dos lugares (R1 y R2)`);
+    for (const c of llamadas) {
+      assert.match(c, /\n\s*lead: \{ id: lead\.id, nombre(: | \})/, `${ruta}: uno de los dos no pasa el lead`);
+      assert.match(c, /\n\s*texto: /, `${ruta}: uno de los dos no arma su texto («Lo que arma MaKo»)`);
+    }
+  }
+});
+
 test('el motor: no inscribe una fila del emisor, Publicar frena el evento y el CRON del emisor no se toca', () => {
   const ins = bloque(NUT, 'export async function inscribirEnSecuencia(', '\n}\n');
   assert.match(ins, /if \(TRIGGERS_DEL_EMISOR\.has\(s\.trigger_tipo\)\) return \{ inscribe: false, porque: 'del_emisor'/);
@@ -476,3 +498,6 @@ test('el motor: no inscribe una fila del emisor, Publicar frena el evento y el C
 //   R8. «Lo que arma MaKo» después de un DELAY pasa                                                → 20 / 1
 //   R9. el motor corre la inscripción de una fila del emisor (la condición de la guarda, apagada)  → 20 / 1
 //   R10. un error leyendo al lead vuelve a ser null (la corrida termina «hecha» con el dedup gastado) → 20 / 1
+// Roturas de la décima tanda (11/10/2026, arnés galeria10-roturas.mjs, sólo este archivo). Base: 22 / 0. Restaurado: 22 / 0.
+//   R11. `reunion-nuevo-agendado` sin `textoDelCodigo` (lib/avisos-catalogo.ts)                     → 20 / 2 (los datos del
+//        «{ }» y las plantillas que traducen: sin la marca, `{{mensaje_mako}}` no se ofrece y el freno rechaza la plantilla)

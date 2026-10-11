@@ -771,7 +771,12 @@ Escríbele hoy o agenda una sesión.`,
   {
     id: 'reunion-nuevo-agendado', titulo: 'Nuevo lead que agendó reunión', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'Webhook Calendly invitee.created.',
+    // Los cuatro emisores (Calendly y Cal.com, R1 y R2) arman su texto: el de Cal.com con el teléfono y lo
+    // completado («un único WhatsApp», Código Inmobiliario). Desde el 11/10/2026 es un EVENTO de MaKo
+    // (`lead_agendo`, lib/disparadores.ts): sin esta marca la fila no ofrecería «Lo que arma MaKo» y su
+    // plantilla (`mako-agendado`, `{{mensaje_mako}}`) no pasaría el freno de Publicar.
+    textoDelCodigo: true,
+    disparador: 'Webhook de Calendly (invitee.created) o de Cal.com (BOOKING_CREATED): un lead reserva una reunión.',
     // Decía «la ficha ya quedó armada en el CRM» y no daba el link: mandaba a
     // buscarla a mano justo cuando el dato recién llegó y es más fácil de mirar.
     ejemplo: `🎯 *Nuevo agendado*: Juan Pérez reservó una *R1 para el jueves 16 a las 11:00*. Vino del anuncio "VSL testimonios".

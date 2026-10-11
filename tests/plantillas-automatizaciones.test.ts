@@ -36,16 +36,18 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   PLANTILLAS, plantillaPorId, pasosDePlantilla, nombreLibre, seccionesParaCron, rotuloDeEleccion, disparadorDeEleccion,
-  TOPE_LINEA, TRIGGER_DE_PIDE, SIN_ETAPA, esPlantillaMako, type PasoDePlantilla,
+  TOPE_LINEA, TRIGGER_DE_PIDE, SIN_ETAPA, SIN_ETIQUETA, esPlantillaMako, canalesDe, filtrarPlantillas, filtroDeValores,
+  alternarFiltroGaleria, filtroDeSeccion, gruposDelFiltroGaleria, seccionesDeEtiquetas, OBJETIVOS_PLANTILLA, CANALES_PLANTILLA,
+  type PasoDePlantilla, type CanalPlantilla,
 } from '../lib/plantillas-automatizaciones';
-import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '../lib/plantilla-crear';
+import { crearDesdePlantilla, filaDePlantilla, PlantillaInvalidaError, type DbPlantilla } from '../lib/plantilla-crear';
 import {
   validarGrafo, validarParaGuardar, normalizar, claseDe, raizSalida, padresDe, descendientes, nodoPorId,
   esPasoIA, expandirPasoIA, faltaEnCaso, AVISO_OTRA_COSA, type FilaCondicion,
 } from '../lib/flujo-grafo';
 import { camposDelFlujo } from '../lib/nutricion-grafo-motor';
 import { frenoDelFlujo, emojiDeSecuencia, type ProductoParaDisparo } from '../lib/flujo-conversacion';
-import { problemaDeDisparadores } from '../lib/disparadores';
+import { problemaDeDisparadores, sanearDisparadores, eventosDe, claseDeDisparador, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO } from '../lib/disparadores';
 import { condicionPorId, problemaDeFila } from '../lib/condiciones-catalogo';
 import { datoDe, valePara } from '../lib/variables-aviso';
 import { marcasDeVoseo } from '../lib/puestas-data';
@@ -54,7 +56,8 @@ import { LEAD_DEL_EVENTO, faltanEnPaso } from '../lib/api-mako/flujo-params';
 import { porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
 import { TOPE_NOMBRE_SECUENCIA } from '../lib/setting-estrategia';
-import { GaleriaPlantillas, preguntaEtapa, yaLaTiene, EMPEZAR, TITULO_GALERIA, ROTULO_PLANTILLAS, YA_LA_TIENES } from '../app/automations/GaleriaPlantillas';
+import { GaleriaPlantillas, preguntaEtapa, yaLaTiene, BLANCO, TITULO_GALERIA, YA_LA_TIENES } from '../app/automations/GaleriaPlantillas';
+import { TITULO_GALERIA_IA } from '../app/automations/CrearConIA';
 import { TRIGGER_RECORDATORIO, toquesDeLaAutomatizacion, frenoDelRecordatorio } from '../lib/recordatorio-automatizacion';
 import { TRIGGER_AVISO_MAKO, EVENTOS_MAKO } from '../lib/disparadores';
 import { datosDelEvento } from '../lib/aviso-evento';
@@ -94,11 +97,12 @@ const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, 
 
 // ── 1. El catálogo ───────────────────────────────────────────────────────────────
 
-// Desde el 11/10/2026 la galería suma su sección «MaKo en WhatsApp» (`esPlantillaMako`): los TRES eventos de MaKo,
-// aparte de las del Chatbot (docs/diseno-mako-en-whatsapp-unificado.md). El tope de 5 a 8 es de las del Chatbot.
-test('la galería tiene entre 5 y 8 plantillas del Chatbot y las 3 de «MaKo en WhatsApp», con id, nombre, línea y emoji que se pueden guardar', () => {
+// Desde el 11/10/2026 la galería suma las de «MaKo en WhatsApp» (`esPlantillaMako`): UNA por evento de MaKo
+// (docs/diseno-mako-en-whatsapp-unificado.md). Y desde la décima tanda (docs/diseno-automations-galeria-v2.md §3) las
+// típicas de cada canal: Instagram, Messenger, Email y WhatsApp. Eran de 5 a 8; con las típicas, de 15 a 30.
+test('la galería tiene entre 15 y 30 plantillas del Chatbot y una por evento de MaKo, con id, nombre, línea y emoji que se pueden guardar', () => {
   const delChatbot = PLANTILLAS.filter((p) => !esPlantillaMako(p));
-  assert.ok(delChatbot.length >= 5 && delChatbot.length <= 8, `son ${delChatbot.length}`);
+  assert.ok(delChatbot.length >= 15 && delChatbot.length <= 30, `son ${delChatbot.length}`);
   assert.deepEqual(PLANTILLAS.map((p) => (p.cron.fijo === TRIGGER_AVISO_MAKO ? p.cron.evento : null)).filter(Boolean).sort(), EVENTOS_MAKO.map((e) => e.subtipo).sort(),
     'no hay UNA plantilla por evento de MaKo');
   assert.equal(new Set(PLANTILLAS.map((p) => p.id)).size, PLANTILLAS.length, 'ids repetidos');
@@ -111,9 +115,18 @@ test('la galería tiene entre 5 y 8 plantillas del Chatbot y las 3 de «MaKo en 
       // Un evento de MaKo: su forma de Publicar es `frenoDelEvento` (tests/automations-mako-en-whatsapp.test.ts).
       const evento = p.cron.evento;
       assert.ok(EVENTOS_MAKO.some((e) => e.subtipo === evento), `${p.id}: evento «${evento}»`);
+    } else if (p.cron.fijo === TRIGGER_INSTAGRAM || p.cron.fijo === TRIGGER_MESSENGER || p.cron.fijo === TRIGGER_EMAIL_RECIBIDO) {
+      // El evento de un CANAL (décima tanda): uno que el CRON ofrece y que NO está apagado («Todavía no»): uno apagado
+      // nacería con una automatización que no arranca nunca.
+      const clase = claseDeDisparador({ trigger_tipo: p.cron.fijo, cron: null });
+      // Afuera de la flecha: adentro de un callback, TypeScript pierde el estrechamiento de `p.cron` (TS2339).
+      const evento = p.cron.evento;
+      const ev = eventosDe(clase === 'otro' ? null : clase).find((e) => e.subtipo === evento);
+      assert.ok(ev, `${p.id}: el evento «${p.cron.evento}» no es de ${p.cron.fijo}`);
+      assert.equal(ev!.apagado, undefined, `${p.id}: el evento «${p.cron.evento}» está apagado`);
     } else if (p.cron.fijo) {
-      // Fuera de los eventos de MaKo, el CRON fijo es SÓLO el del recordatorio: cualquier otro necesitaría su propia
-      // forma de Publicar.
+      // Fuera de los eventos (de MaKo o de un canal), el CRON fijo es SÓLO el del recordatorio: cualquier otro
+      // necesitaría su propia forma de Publicar.
       assert.equal(p.cron.fijo, TRIGGER_RECORDATORIO, `${p.id}: CRON fijo «${p.cron.fijo}»`);
       assert.equal(p.id, RECORDATORIO);
     } else {
@@ -175,7 +188,10 @@ test('es del modelo de la sexta tanda: sin «Ir a», sin campos de la lista de a
       if (c === 'mensaje') {
         // `texto` es lo mismo que ausente (lo escribe la mudanza del recordatorio, `pasosDeLaConfig`).
         assert.ok(x.tipo === undefined || x.tipo === 'texto' || x.tipo === 'ia', `${donde}: tipo «${x.tipo}»`);
-        assert.ok(x.canal === 'whatsapp' || x.canal === 'email', `${donde}: canal «${x.canal}»`);
+        // Instagram y Messenger desde la décima tanda (salen por Zernio, sólo texto).
+        assert.ok(['whatsapp', 'email', 'instagram', 'messenger'].includes(String(x.canal)), `${donde}: canal «${x.canal}»`);
+        // Un DM de Instagram o Messenger sólo puede salir por el canal de su CRON (la ventana de 24 h es de esa charla).
+        if (x.canal === 'instagram' || x.canal === 'messenger') assert.equal(p.cron.fijo, x.canal, `${donde}: un ${x.canal} con otro CRON`);
         if (x.tipo === 'ia') assert.equal(x.canal, 'whatsapp', `${donde}: «MaKo lo adapta» sólo sale por WhatsApp`);
         assert.equal(typeof x.revisar, 'boolean', `${donde}: «Sale sola» queda al default de la automatización`);
       }
@@ -211,12 +227,14 @@ test('lo que arranca en una etapa de reunión vuelve a mirar, después de cada e
   // plantilla arranca por una ETAPA: la guarda va en el flujo.
   // Las que PREPARAN una reunión (las post-agenda de #212 y #213, unificadas, y la de #221). Escritas a mano
   // y no deducidas: deducirlas de la condición que se quiere fijar daría verde sobre la que la perdió.
-  const PREPARAN = ['agendo-preparar', 'agendo-confirmar'];
+  // Y desde la décima tanda, el recordatorio por email (su espera es «antes de la reunión», que ya la mira el motor).
+  const PREPARAN = ['agendo-preparar', 'agendo-confirmar', 'email-recordatorio-reunion'];
   const conReunion = PREPARAN.map((id) => plantillaPorId(id)!);
   assert.ok(conReunion.every(Boolean));
   for (const p of conReunion) {
-    const resp = p.pasos.find((x) => claseDe(x) === 'respuesta')!;
-    const deRespuesta = descendientes(p.pasos, resp.id!);
+    // (El recordatorio por email no tiene AI Step: no hay nada que colgar de una respuesta.)
+    const resp = p.pasos.find((x) => claseDe(x) === 'respuesta');
+    const deRespuesta = resp ? descendientes(p.pasos, resp.id!) : new Set<string>();
     for (const x of p.pasos) {
       const c = claseDe(x);
       if ((c !== 'mensaje' && c !== 'accion') || deRespuesta.has(x.id!)) continue;
@@ -281,6 +299,11 @@ const DECISIONES: Readonly<Record<string, ReadonlyArray<readonly [titulo: string
   ],
   'no-asistio': [['Quiere reagendar', 'sola', true], ['No le interesa', 'revisar', false]],
   'reactivar-sin-cierre': [['Quiere retomarlo', 'revisar', true], ['Pregunta el precio', 'revisar', false], ['No le interesa', 'revisar', false]],
+  // Las típicas de la décima tanda, escritas a mano desde lo que se decidió al armarlas (docs/diseno-automations-galeria-v2.md
+  // §3): la plata y lo que contesta un lead frío quedan para revisar; agradecer un «sí» o un «ahora no» sale solo.
+  'pago-pendiente': [['Dice que ya pagó', 'revisar', true], ['Tiene un problema para pagar', 'revisar', true], ['Ya no quiere comprar', 'no contesta', true]],
+  'pedir-testimonio': [['Acepta dejar el testimonio', 'sola', true], ['Tiene una queja', 'no contesta', true], ['No puede ahora', 'sola', false]],
+  'ultimo-intento': [['Quiere agendar', 'sola', true], ['Pregunta el precio', 'revisar', false], ['No le interesa', 'revisar', false]],
 };
 
 test('cada caso conserva su decisión de antes, medida sobre lo que CORRE (la expansión del motor y «Probar»)', () => {
@@ -643,20 +666,51 @@ test('la ruta: «crear_desde_plantilla» va detrás de la guarda de admin y ench
 
 // ── 5. La pantalla ───────────────────────────────────────────────────────────────
 
-const dibujar = (productos: ProductoParaDisparo[] = [], triggersVivos?: string[]) => renderToStaticMarkup(createElement(GaleriaPlantillas, {
-  productos, triggersVivos, onCerrar: () => {}, onEmpezar: () => {}, onCreada: () => {},
+const dibujar = (productos: ProductoParaDisparo[] = [], triggersVivos?: string[], extra: Record<string, unknown> = {}) => renderToStaticMarkup(createElement(GaleriaPlantillas, {
+  productos, triggersVivos, onCerrar: () => {}, onBlanco: () => {}, onCreada: () => {}, ...extra,
 }));
 
-test('la galería dibuja las dos formas de empezar y TODAS las plantillas, con su emoji, nombre y línea', () => {
+// La galería v2 (décima tanda): «Pídeselo a MaKo» arriba, el buscador y el filtro, y la grilla con «Lienzo en blanco»
+// PRIMERA. Sin rótulos de sección ni «¿Qué la dispara?».
+test('la galería dibuja «Pídeselo a MaKo», el buscador, «Lienzo en blanco» PRIMERA y TODAS las plantillas, con su emoji, nombre y línea', () => {
   const html = dibujar(UN_PRODUCTO);
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
-  assert.ok(html.includes(TITULO_GALERIA) && html.includes(ROTULO_PLANTILLAS));
-  for (const e of EMPEZAR) assert.ok(html.includes(`data-empezar="${e.que}"`) && html.includes(esc(e.nombre)), e.nombre);
+  assert.ok(html.includes(TITULO_GALERIA));
+  // 1. La caja de MaKo, adentro del modal (con el micrófono de siempre), ANTES de la búsqueda y de la grilla.
+  const iIA = html.indexOf('data-galeria-ia');
+  assert.ok(iIA > 0 && html.includes(`>${esc(TITULO_GALERIA_IA)}<`), 'falta «Pídeselo a MaKo»');
+  assert.ok(html.indexOf('data-crear-ia-caja="galeria"', iIA) > iIA, 'la caja no es la de la galería');
+  assert.ok(html.includes('aria-label="Dictar el pedido"'), 'sin el micrófono');
+  // 2. El buscador y el filtro, después.
+  const iBuscar = html.indexOf('data-galeria-busqueda');
+  assert.ok(iBuscar > iIA, 'el buscador no va debajo de «Pídeselo a MaKo»');
+  // 3. «Lienzo en blanco» es lo PRIMERO de la grilla.
+  const iGrilla = html.indexOf('data-galeria-grilla');
+  assert.ok(iGrilla > iBuscar);
+  const iBlanco = html.indexOf('data-empezar="blanco"');
+  assert.ok(iBlanco > iGrilla && iBlanco < html.indexOf('data-plantilla='), '«Lienzo en blanco» no es la primera');
+  assert.ok(html.includes(esc(BLANCO.nombre)));
   for (const p of PLANTILLAS) {
     assert.ok(html.includes(`data-plantilla="${p.id}"`), p.id);
     for (const t of [p.emoji, p.nombre, p.linea]) assert.ok(html.includes(esc(t)), `${p.id}: falta «${t}»`);
   }
   assert.ok(!html.includes('data-galeria-paso="etapa"'), 'arranca preguntando la etapa');
+  // Se fueron «¿Qué la dispara?» (los seis botones del CRON) y los rótulos de sección.
+  assert.doesNotMatch(html, /¿Qué la dispara\?|O empieza así|Desde una plantilla|data-galeria-cron|data-galeria-mako/);
+});
+
+// Rotura sugerida por el diseño (§7): «Lienzo en blanco» filtrada. Va AFUERA de lo que filtra: ningún texto ni filtro la saca.
+test('«Lienzo en blanco» no pasa por el filtro: con el filtro puesto sigue primera, y sin resultados queda sola con su línea', () => {
+  const html = dibujar(UN_PRODUCTO, undefined, { seccion: 'mako' });
+  const iBlanco = html.indexOf('data-empezar="blanco"');
+  assert.ok(iBlanco > 0 && iBlanco < html.indexOf('data-plantilla='), 'con el filtro de MaKo, «Lienzo en blanco» no va primera');
+  // En el fuente: es el primer hijo de la grilla, sin condición, y las plantillas salen de `filtrarPlantillas`.
+  const gal = sinComentarios(leer('app/automations/GaleriaPlantillas.tsx'));
+  assert.match(gal, /<div className="gal-grilla" data-galeria-grilla>\n\s*<button type="button" className="gal-tarjeta mk-nuevo" data-empezar="blanco"/);
+  assert.match(gal, /const visibles = useMemo\(\(\) => filtrarPlantillas\(PLANTILLAS, \{ texto, canal: filtro\.canal, objetivo: filtro\.objetivo \}\)/);
+  assert.match(gal, /\{!visibles\.length && <div data-galeria-vacia style=\{LINEA\}>\{SIN_RESULTADOS\}<\/div>\}/);
+  // «Lienzo en blanco» es la vacía de siempre (`onBlanco`), no una copia.
+  assert.match(gal, /onClick=\{\(\) => props\.current\.onBlanco\(\)\}/);
 });
 
 test('la etapa se pregunta sólo si hay etapas de ese kanban para ofrecer', () => {
@@ -683,6 +737,107 @@ test('el recordatorio que el negocio ya tiene se dibuja APAGADO y lo dice; los d
   assert.ok(tarjeta(RECORDATORIO).includes(YA_LA_TIENES), 'no dice que ya la tiene');
   assert.ok(!tarjeta('no-asistio').includes('disabled'), 'apagó una plantilla de etapa');
   assert.ok(!dibujar(UN_PRODUCTO, ['etapa_actual']).match(new RegExp(`data-plantilla="${RECORDATORIO}"[^>]*disabled`)), 'apagado sin tenerlo');
+});
+
+// ── 6. La galería v2 (décima tanda, 11/10/2026: docs/diseno-automations-galeria-v2.md §1 y §3) ──────────────────
+
+/**
+ * POR DÓNDE SALE CADA UNA, escrito A MANO leyendo sus tarjetas (rotura sugerida por el diseño, §7: cambiarle el canal a
+ * una tarjeta). Deducido de `canalesDe` daría verde sobre la función rota; una plantilla nueva falla hasta que alguien
+ * escriba la suya.
+ */
+const CANALES: Readonly<Record<string, readonly CanalPlantilla[]>> = {
+  'recordatorio-reunion': ['whatsapp'], 'bienvenida-sin-agenda': ['whatsapp'], 'agendo-preparar': ['whatsapp'], 'agendo-confirmar': ['whatsapp'],
+  'no-asistio': ['whatsapp', 'email'], 'reactivar-sin-cierre': ['whatsapp'], 'felicitacion-clase': ['whatsapp', 'email'],
+  'cliente-bienvenida': ['whatsapp', 'email'], 'pago-pendiente': ['whatsapp'], 'seguimiento-reunion': ['whatsapp'], 'pedir-testimonio': ['whatsapp'],
+  'ultimo-intento': ['whatsapp'], 'email-newsletter': ['email'], 'email-recordatorio-reunion': ['email'], 'email-respuesta-auto': ['email'],
+  'ig-comentario-dm': ['instagram'], 'ig-historia-dm': ['instagram'], 'ig-bienvenida-dm': ['instagram'], 'ig-ref-dm': ['instagram'], 'ig-en-vivo-dm': ['instagram'],
+  'ms-bienvenida': ['messenger'], 'ms-qr': ['messenger'], 'ms-ref': ['messenger'], 'ms-comentario': ['messenger'],
+  'mako-reunion': ['mako'], 'mako-charla': ['mako'], 'mako-cobranza': ['mako'], 'mako-agendado': ['mako'],
+};
+
+test('canalesDe: por dónde sale cada plantilla, contra la tabla escrita a mano (y cada canal tiene alguna)', () => {
+  for (const p of PLANTILLAS) assert.deepEqual(canalesDe(p), CANALES[p.id] ?? ['(falta en la tabla)'], `${p.id}: sus canales`);
+  for (const c of CANALES_PLANTILLA) assert.ok(PLANTILLAS.some((p) => canalesDe(p).includes(c.id)), `ninguna plantilla de «${c.label}»`);
+  for (const o of OBJETIVOS_PLANTILLA) assert.ok(PLANTILLAS.some((p) => p.objetivo === o.id), `ninguna plantilla para «${o.label}»`);
+  // El relleno de una tarjeta de control dice `canal: 'whatsapp'` y no sale por ningún lado: no cuenta.
+  assert.deepEqual(canalesDe({ cron: { pide: 'etapa_venta', ayuda: 'x' }, pasos: [{ ...pasosDePlantilla(plantillaPorId('email-newsletter')!)[1] }] }), []);
+});
+
+test('filtrarPlantillas: cada palabra, sin acentos ni mayúsculas; canal y objetivo se SUMAN; nada es nada', () => {
+  const ids = (f: Parameters<typeof filtrarPlantillas>[1]) => filtrarPlantillas(PLANTILLAS, f).map((p) => p.id);
+  assert.equal(ids({}).length, PLANTILLAS.length);
+  assert.deepEqual(ids({ texto: 'REUNION email' }), ['email-recordatorio-reunion'], 'sin acentos, sin mayúsculas, cada palabra');
+  assert.deepEqual(ids({ texto: '  reunión   POR   email ' }), ['email-recordatorio-reunion'], 'los espacios de más');
+  assert.ok(ids({ texto: 'reel' }).includes('ig-comentario-dm'), 'busca también en la línea');
+  assert.deepEqual(ids({ canal: 'mako' }), PLANTILLAS.filter(esPlantillaMako).map((p) => p.id));
+  assert.deepEqual(ids({ canal: 'instagram', objetivo: 'cobrar' }), [], 'las dos a la vez');
+  assert.deepEqual(ids({ canal: 'whatsapp', objetivo: 'cobrar' }), ['pago-pendiente']);
+  assert.deepEqual(ids({ objetivo: 'cobrar' }), ['pago-pendiente', 'mako-cobranza']);
+  assert.deepEqual(ids({ texto: 'no existe nada asi' }), []);
+});
+
+test('el filtro: dos grupos con todas las opciones, UNO de cada grupo, y «＋ Nuevo mensaje» abre con Canal = MaKo', () => {
+  const g = gruposDelFiltroGaleria();
+  assert.deepEqual(g.map((x) => x.title), ['Canal', 'Objetivo']);
+  assert.deepEqual(g[0].options.map((o) => o.value), CANALES_PLANTILLA.map((c) => `canal:${c.id}`));
+  assert.deepEqual(g[1].options.map((o) => o.value), OBJETIVOS_PLANTILLA.map((o) => `objetivo:${o.id}`));
+  let v: string[] = [];
+  v = alternarFiltroGaleria(v, 'canal:email');
+  v = alternarFiltroGaleria(v, 'objetivo:captar');
+  assert.deepEqual(filtroDeValores(v), { canal: 'email', objetivo: 'captar' });
+  v = alternarFiltroGaleria(v, 'canal:instagram');
+  assert.deepEqual(v, ['objetivo:captar', 'canal:instagram'], 'prender otro canal saca el de antes');
+  v = alternarFiltroGaleria(v, 'canal:instagram');
+  assert.deepEqual(filtroDeValores(v), { canal: null, objetivo: 'captar' }, 'tocar el prendido lo apaga');
+  assert.deepEqual(alternarFiltroGaleria(['canal:email'], 'basura'), ['canal:email']);
+  assert.deepEqual(filtroDeValores(['canal:otro']), { canal: null, objetivo: null });
+  // Rotura sugerida por el diseño (§7): «＋ Nuevo mensaje» sin el filtro puesto.
+  assert.deepEqual(filtroDeSeccion('mako'), ['canal:mako']);
+  assert.deepEqual(filtroDeSeccion(undefined), []);
+});
+
+test('crear una de un CANAL: nace con su CRON en la fila (con el evento), sin preguntar nada y sin la lista de CRON', async () => {
+  for (const [id, trigger, evento] of [['ig-comentario-dm', TRIGGER_INSTAGRAM, 'comentario'], ['ms-qr', TRIGGER_MESSENGER, 'qr'], ['email-respuesta-auto', TRIGGER_EMAIL_RECIBIDO, 'recibido']] as const) {
+    const p = plantillaPorId(id)!;
+    const fila = filaDePlantilla(p, 'k', p.nombre);
+    assert.equal(fila.trigger_tipo, trigger, id);
+    assert.deepEqual(fila.disparadores, [{ id: 'd1', trigger_tipo: trigger, subtipo: evento }], id);
+    // Lo que nace en la fila es un CRON que el saneo conserva y que Publicar acepta.
+    assert.equal(problemaDeDisparadores(sanearDisparadores(fila.disparadores)), null, `${id}: el CRON no se publica`);
+    assert.equal(preguntaEtapa(p, UN_PRODUCTO), false, `${id}: pregunta una etapa`);
+    const { db, llamadas } = baseDeMentira();
+    const crones: unknown[] = [];
+    const r = await crearDesdePlantilla(id, { db, setPasos: async () => {}, setDisparadores: async (_, l) => { crones.push(l); } });
+    assert.equal(r.pide, null, id);
+    assert.equal((llamadas[1].args[0] as { activa: boolean }).activa, false, `${id}: nace prendida`);
+    assert.equal(crones.length, 0, `${id}: el CRON del canal fue por la lista de CRON`);
+  }
+  // El recordatorio sigue sin lista de CRON en la fila (su CRON es la columna).
+  assert.equal(filaDePlantilla(plantillaPorId(RECORDATORIO)!, 'k', 'x').disparadores, undefined);
+});
+
+test('crear la del newsletter: pide UNA ETIQUETA del negocio, con las mismas opciones que el CRON', async () => {
+  const p = plantillaPorId('email-newsletter')!;
+  assert.equal(p.cron.pide, 'etiqueta');
+  const ETIQUETAS = [{ id: 3, nombre: 'Suscriptor' }, { id: 4, nombre: 'Vieja', archivada_at: '2026-01-01' }];
+  const s = seccionesDeEtiquetas(ETIQUETAS);
+  assert.deepEqual(s.flatMap((x) => x.options.map((o) => o.value)), ['etiqueta:3'], 'ofrece una archivada');
+  assert.equal(rotuloDeEleccion('etiqueta', s, ''), SIN_ETIQUETA);
+  assert.equal(rotuloDeEleccion('etiqueta', s, 'etiqueta:3'), 'Se le puso «Suscriptor»');
+  assert.equal(preguntaEtapa(p, UN_PRODUCTO, ETIQUETAS), true);
+  assert.equal(preguntaEtapa(p, UN_PRODUCTO, []), false, 'sin etiquetas pregunta igual');
+  assert.deepEqual(seccionesParaCron('etiqueta', UN_PRODUCTO), [], 'una etiqueta no es una etapa');
+  const d = disparadorDeEleccion('etiqueta', 'etiqueta:3');
+  assert.deepEqual(d, { id: 'd1', trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3 });
+  assert.equal(problemaDeDisparadores([d!]), null);
+  assert.equal(disparadorDeEleccion('etiqueta', 'venta:5:agendado'), null, 'una etapa no es una etiqueta');
+  assert.equal(disparadorDeEleccion('etapa_venta', 'etiqueta:3'), null);
+  const { db } = baseDeMentira();
+  const crones: unknown[] = [];
+  const r = await crearDesdePlantilla('email-newsletter', { db, setPasos: async () => {}, setDisparadores: async (_, l) => { crones.push(l); } }, { disparador: 'etiqueta:3' });
+  assert.equal(r.pide, null);
+  assert.deepEqual(crones, [[{ id: 'd1', trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3 }]]);
 });
 
 // ROTURAS, medidas el 10/10/2026 contra la base en verde (0 fallos, 23 pases), cada una aplicada y
@@ -754,4 +909,9 @@ test('el recordatorio que el negocio ya tiene se dibuja APAGADO y lo dice; los d
 // por eso este archivo pregunta por el AI Step en su propio test y no confía en el de Publicar.
 // La parte del test de decisiones que mira que el aviso EXPANDIDO esté completo (`faltanEnAccion`) no se puede
 // romper desde la galería: lo arma `expandirPasoIA`, y su rotura vive en tests/automations-paso-ia.test.ts.
-
+//
+// Y las de la GALERÍA v2 (décima tanda, 11/10/2026, base en verde: 0 fallos, 37 pases; arnés `galeria10-roturas.mjs`
+// del scratchpad, que restaura de memoria y compara sha1):
+//
+//   R48 «Lienzo en blanco» envuelta en `!nFiltros &&` (se esconde con un filtro puesto) → 1 fallo («Lienzo en blanco»
+//       no pasa por el filtro)

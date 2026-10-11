@@ -36,7 +36,13 @@ const funcion = (src: string, nombre: string) => {
   return src.slice(i, fin < 0 ? undefined : i + nombre.length + fin);
 };
 
-const RUTA = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+// ⚠️ DESDE LA DÉCIMA TANDA (11/10/2026) EL CUERPO DE LA RUTA VIVE EN DOS MÓDULOS: lib/flujo-ia-crear.ts (la cascada,
+// el contexto y las dependencias de verdad; server-only) y lib/flujo-ia-crear-core.ts (el orden de crear, puro), porque
+// los llama también la API de MaKo (`crear_automatizacion_con_ia`). «La ruta» de estos guards son los tres juntos.
+const RUTA_SOLA = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+const CREAR = sinComentarios(leer('lib/flujo-ia-crear.ts'));
+const CORE = sinComentarios(leer('lib/flujo-ia-crear-core.ts'));
+const RUTA = `${RUTA_SOLA}\n${CREAR}\n${CORE}`;
 
 // rotura 1 (chatClaude en vez de la cascada): 1 fallo. rotura 2 (CASCADA_GRATIS, sin Gemini): 1 fallo.
 // TERCERA TANDA (09/10/2026): la lista es `PROVS_CREAR_IA` (sin OpenAI, que cobra y estaba en
@@ -66,18 +72,30 @@ test('la salida se dimensiona con la MISMA cuenta que usa la cascada para saltea
 
 // rotura 3 (crear etiquetas antes de mirar la cancelación): 1 fallo.
 test('un pedido cancelado no escribe nada: se mira la señal ANTES de crear etiquetas y guardar', () => {
-  const i = RUTA.indexOf('if (req.signal.aborted) return;');
-  const j = RUTA.indexOf('await crearNuevas(');
-  const k = RUTA.indexOf('await setSecuenciaPasos(');
-  assert.ok(i > 0 && j > i && k > j, `señal ${i} · etiquetas ${j} · guardar ${k}`);
+  // Editar (la ruta): la señal antes de las etiquetas.
+  const i = RUTA_SOLA.indexOf('if (req.signal.aborted) return;');
+  const j = RUTA_SOLA.indexOf('await crearNuevas(');
+  assert.ok(i > 0 && j > i, `editar: señal ${i} · etiquetas ${j}`);
+  // Crear (el orden, lib/flujo-ia-crear-core.ts): la señal antes de las etiquetas, de la fila nueva y de los pasos. Lo
+  // EJECUTA tests/flujo-ia-crear.test.ts con dependencias de mentira; esto fija que la ruta le pase la señal.
+  const a = CORE.indexOf('if (o.signal?.aborted) return');
+  const b = CORE.indexOf('await deps.crearEtiquetas(');
+  const c = CORE.indexOf('await deps.insertar(');
+  const d = CORE.indexOf('await deps.guardarPasos(');
+  assert.ok(a > 0 && b > a && c > b && d > c, `crear: señal ${a} · etiquetas ${b} · fila ${c} · guardar ${d}`);
+  assert.match(RUTA_SOLA, /crearFlujoConIA\(\{ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send \}\)/);
 });
 
 // rotura 4 (crear sin exigir la vacía): 1 fallo.
 test('crear exige la automatización VACÍA, la vuelve a mirar antes de guardar, y la deja PAUSADA', () => {
   // Desde la revisión del 09/10/2026 el 409 trae lo guardado (`guardado`): ver tests/flujo-ia-arreglos.test.ts.
   assert.match(RUTA, /if \(modo === 'crear' && guardados\.length\) \{[^}]*\{[\s\S]*?return Response\.json\(\{ ok: false, error: '[^']+', guardado \}, \{ status: 409 \}\);/);
-  assert.match(RUTA, /await setSecuenciaActiva\(secuenciaId, false\);/);
-  assert.match(RUTA, /select\('pasos'\)\.eq\('id', secuenciaId\)/);
+  // Con id: se vuelve a mirar que siga vacía y se PAUSA antes de escribir (el orden, en el core; las piezas, en lib).
+  assert.match(CORE, /const ya = await deps\.filaDe\(o\.secuenciaId\);[\s\S]*?if \(ya\.pasos\.length\) return \{ ok: false,[\s\S]*?await deps\.pausar\(id\);/);
+  assert.match(CREAR, /pausar: \(id\) => setSecuenciaActiva\(id, false\),/);
+  assert.match(CREAR, /select\('pasos, nombre'\)\.eq\('id', id\)/);
+  // Sin id: la fila nace con `crearSecuenciaVacia` (pausada), recién al guardar.
+  assert.match(CREAR, /insertar: \(nombre\) => crearSecuenciaVacia\(nombre\),/);
 });
 
 // rotura 5 (la key del call site distinta de la del registro): 1 fallo.
@@ -90,7 +108,7 @@ test('los dos prompts: registrados con la MISMA key y el MISMO default que el ca
     const fila = reg.slice(i, reg.indexOf('},', i));
     assert.match(fila, new RegExp(`default: ${def},`));
     assert.match(fila, /variables: \[\],/);
-    assert.match(RUTA, new RegExp(`getPromptText\\('${key.replace(/\./g, '\\.')}', ${def}\\)`));
+    assert.match(RUTA, new RegExp(`getPromptText\\('${key.replace(/\./g, '\\.')}', ${def}\\)`), `${key}: el call site no usa la key del registro`);
   }
 });
 

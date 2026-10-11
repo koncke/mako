@@ -56,6 +56,7 @@ import {
   conectarPuerto, puedeTenerParalelos, validarGrafo, contarParalelos, esPasoIA,
 } from './flujo-grafo';
 import { faltanEnPaso, LEAD_DEL_EVENTO } from './api-mako/flujo-params';
+import { respuestaAPasoIA } from './paso-ia-convertir';
 import { accionDelFlujo, PARAM_ETIQUETAS } from './editor-acciones';
 import type { Parametro } from './api-mako/tipos';
 import { esVariableConocida } from './template-vars';
@@ -1206,6 +1207,14 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
     if (extra.length < raices.length - 1) pasos = podarSueltas(pasos);
   }
   pasos = podarSueltas(pasos);
+  // AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §1): «solo permitir 1 caso por tarjeta de AI Step». El
+  // «Si responde» que arma el modelo se PLIEGA a AI Step —una tarjeta por caso— cuando se puede sin cambiar lo que
+  // hace (`respuestaAPasoIA`: cada caso es un «MaKo contesta» y/o un aviso). Si algo no entra (una condición, un
+  // texto fijo), queda como «Si responde» de los de siempre. Antes se juntaban varias en una («junté sus casos»).
+  if (pasos.some((p) => claseDe(p) === 'respuesta')) {
+    const comoIA = respuestaAPasoIA(pasos);
+    if (!('error' in comoIA)) pasos = comoIA.pasos;
+  }
   // ⚠️ EL DISPARADOR SE RESUELVE ANTES DE ELEGIR LAS ETIQUETAS NUEVAS: «etiqueta:Lista» CREA la
   // etiqueta (un ref), y resuelto después quedaba `etiqueta:-2` con la -2 afuera de
   // `etiquetasNuevas` — la ruta no la creaba y el disparador se perdía (medido con el test).

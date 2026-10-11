@@ -296,7 +296,8 @@ test('NINGÚN composer manda al soltar: `audioAlSoltar` no decide nada, y la gra
   const comp = sinComentarios(leer('app/whatsapp/_shared/ComposerWhatsApp.tsx'));
   const cuerpo = comp.slice(comp.indexOf('export function ComposerWhatsApp('));
   assert.doesNotMatch(cuerpo.slice(cuerpo.indexOf('}: ComposerWhatsAppProps) {')), /audioAlSoltar/, 'el composer vuelve a mirar `audioAlSoltar`');
-  assert.match(comp, /useGrabacionVoz\(async \(blob, secs\) => \{ await onAudio\?\.\(blob, secs\); \}, onErrorAudio\)/);
+  // Décima tanda (WhatsApp 3): más el borrador de lo grabado (`onBorradorVoz`), que NO manda nada.
+  assert.match(comp, /useGrabacionVoz\(async \(blob, secs\) => \{ await onAudio\?\.\(blob, secs\); \}, onErrorAudio, onBorradorVoz\)/);
   for (const r of ['app/automations/GrabadorAudioPaso.tsx', 'app/automations/PasoAudioControl.tsx']) {
     const src = sinComentarios(leer(r));
     assert.match(src, /useGrabacionVoz\(subir, onError\)/, `${r} no usa la sesión de voz`);

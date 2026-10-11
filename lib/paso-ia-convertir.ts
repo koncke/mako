@@ -29,7 +29,7 @@
 
 import {
   type PasoGrafo, type CasoRespuesta,
-  claseDe, esPasoIA, indicePorId, nodoPorId, normalizar, padresDe, OP_AVISO_EQUIPO, AVISO_OTRA_COSA,
+  claseDe, esPasoIA, indicePorId, nodoPorId, normalizar, padresDe, separarPasosIA, OP_AVISO_EQUIPO, AVISO_OTRA_COSA,
 } from './flujo-grafo';
 
 export type ConversionPasoIA<P> = { pasos: P[] } | { error: string };
@@ -109,5 +109,7 @@ export function respuestaAPasoIA<P extends PasoGrafo>(pasosIn: readonly P[], idR
 
   const ia = { ...r, paso_ia: true as const, casos, si_no: null, ...(otra ? { otra_aviso: otra } : {}) } as P;
   const out = base.filter((q) => !quitar.has(q.id!)).map((q) => (q.id === r.id ? ia : q));
-  return { pasos: normalizar(out) };
+  // AI STEP v2 (décima tanda): UNA TARJETA POR CASO. El primero se queda con el id del nodo; los demás van al
+  // final del array (`separarPasosIA`), y un «Si responde» sin casos queda «Cualquier respuesta» + «Sólo te avisa».
+  return { pasos: normalizar(separarPasosIA(normalizar(out)).pasos) };
 }

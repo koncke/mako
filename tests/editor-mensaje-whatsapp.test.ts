@@ -82,7 +82,9 @@ test('el editor no publica: no le habla a la ruta de las secuencias ni hace PATC
 });
 
 test('la nota de voz se manda con la ➤ (ya escuchada), sube a la biblioteca y se suma al chat, en local', () => {
-  const usar = EDITOR.slice(EDITOR.indexOf('async function usarAudio(blob: Blob, secs: number)'), EDITOR.indexOf('const mientrasGraba'));
+  // Décima tanda (WhatsApp 3): `usarAudio` recibe además a dónde iba y si es la salida del editor; lo de
+  // después (el audio que vuelve, la salida) va en tests/decima-tanda-whatsapp.test.ts.
+  const usar = EDITOR.slice(EDITOR.indexOf('async function usarAudio(blob: Blob, secs: number,'), EDITOR.indexOf('function devolverVoz('));
   assert.ok(usar.length > 200 && usar.length < 3000, `no encontré usarAudio (${usar.length})`);
   assert.match(usar, /fetch\('\/api\/chat-agent\/audios'/);
   assert.match(usar, /if \(!mismoPaso\(pasoVivo\.current, deQuien\)\) return;/, 'el paso cambia sólo si sigue siendo el mismo');

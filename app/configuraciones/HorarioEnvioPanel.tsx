@@ -63,10 +63,11 @@ function Interruptor({ on, disabled, onCambio, etiqueta }: { on: boolean; disabl
 
 /**
  * Las dos props son OPCIONALES y Configuraciones › Horario no pasa ninguna: ahí el panel es la pantalla.
- * Las usa quien lo monta ADENTRO de otra cosa (el panel anclado de Automations, app/automations/HorarioLista.tsx):
- *   · `onGuardado` — justo después de guardar bien, con el horario guardado: el botón de afuera se pone
- *     al día sin esperar a que se cierre el panel;
- *   · `onSucio` — si hay un guardado pendiente: el panel anclado no se cierra con un clic afuera mientras tanto.
+ * Las usa quien lo monta ADENTRO de otra cosa (el modal «Configuraciones» de Automations,
+ * app/automations/ConfiguracionesBoton.tsx, que reemplazó al panel anclado del horario en la décima tanda):
+ *   · `onGuardado` — justo después de guardar bien, con el horario guardado (lo usaba el botón del horario
+ *     para ponerse al día; el de Configuraciones no muestra el horario y no lo pasa);
+ *   · `onSucio` — si hay un guardado pendiente: el modal no se cierra mientras tanto.
  */
 export function HorarioEnvioPanel({ onGuardado, onSucio }: {
   onGuardado?: (h: HorarioEnvio) => void;
@@ -150,7 +151,9 @@ export function HorarioEnvioPanel({ onGuardado, onSucio }: {
               <Dropdown value={zona} options={opcionesDeZona(zona)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
             </div>
           </div>
-          <div role="group" aria-label="Días" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {/* Los días CENTRADOS en el recuadro (décima tanda de Automations, general 3, 11/10/2026: «En "Horarios
+              de Oficina" pon los días centrado en el recuadro, no alineado a la izquierda»). */}
+          <div role="group" aria-label="Días" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
             {DIAS_PANTALLA.map((d) => {
               const on = h.dias.includes(d.dia);
               return (

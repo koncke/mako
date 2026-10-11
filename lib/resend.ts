@@ -12,9 +12,11 @@
 import 'server-only';
 import { verificarFirmaSvix } from './standard-webhooks';
 import crypto from 'node:crypto';
-import { credWs, envCred } from './credenciales';
+import { credWs, credDelCliente, envCred } from './credenciales';
 import { getSetting } from './settings';
 import { APP_BASE_URL } from './app-url';
+import { getWorkspaceActual, wsSuperAdmin } from './workspace';
+import { esRemitenteDeMako, remitenteDeMakoFrenado, AVISO_EMAIL_DE_MAKO } from './email-remitente';
 
 const API_BASE = 'https://api.resend.com';
 const ENDPOINT = `${API_BASE}/emails`;
@@ -48,11 +50,18 @@ async function resendKey(): Promise<string | null> {
   return compartida && compartida.trim() ? compartida : null;
 }
 
-/** Remitente del workspace actual: setting resend_from → credencial → sandbox. */
+/**
+ * Remitente del workspace actual: setting resend_from → credencial DEL CLIENTE → sandbox.
+ *
+ * ⚠️ `credDelCliente` Y NO `credWs` (décima tanda, EMAIL 1, 11/10/2026): `credWs` le da al ws1 —`OWNER_WS`,
+ * que es Mauricio, un CLIENTE— el `RESEND_FROM` del env de la PLATAFORMA, o sea el email de MaKo como si fuera
+ * el suyo (AGENTS.md, «OWNER_WS NO es la plataforma»). Hoy no cambia nada (su setting `resend_from` gana
+ * antes), y es lo que hace que borrar ese setting lo deje en el sandbox y no en el email de otro.
+ */
 export async function getEmailFrom(): Promise<string> {
   const setting = await getSetting('resend_from');
   if (setting && setting.trim()) return setting.trim();
-  const cred = await credWs('RESEND_FROM'); // dueño → env RESEND_FROM; cliente → su fila
+  const cred = await credDelCliente('RESEND_FROM'); // la fila del workspace; nunca el env de la plataforma
   if (cred && cred.trim()) return cred.trim();
   return SANDBOX_FROM;
 }
@@ -67,10 +76,35 @@ export async function remitenteEsSandbox(): Promise<boolean> {
   return /@resend\.dev>?\s*$/i.test(await getEmailFrom());
 }
 
-/** Email "conectado" para este workspace: hay key y el remitente no es sandbox. */
+/**
+ * ¿El workspace del CONTEXTO es el de la plataforma (el del super admin)? Es el único que manda con un
+ * email de MaKo sin pasarlo explícito. Si no se puede saber (sin contexto, la base caída), NO lo es: lo que
+ * se cierra es el email de MaKo, nunca el del negocio.
+ */
+async function enLaPlataforma(): Promise<boolean> {
+  try {
+    const [ws, plataforma] = await Promise.all([getWorkspaceActual(), wsSuperAdmin()]);
+    return ws != null && ws === plataforma;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * true si el remitente del workspace es un email de MaKo y el workspace NO es la plataforma (décima tanda,
+ * EMAIL 1: «No permitas enviar emails con los email de MaKo, ellos deben poner sus propios email»). Es el
+ * preflight de quien manda muchos de golpe (un broadcast): sin él, cada destinatario quedaría registrado
+ * como un fallo de `sendEmail`.
+ */
+export async function remitenteEsDeMako(): Promise<boolean> {
+  const from = await getEmailFrom();
+  return esRemitenteDeMako(from) && !(await enLaPlataforma());
+}
+
+/** Email "conectado" para este workspace: hay key, el remitente no es sandbox ni un email de MaKo ajeno. */
 export async function emailConectado(): Promise<boolean> {
-  const [key, sandbox] = await Promise.all([resendKey(), remitenteEsSandbox()]);
-  return !!key && !sandbox;
+  const [key, sandbox, deMako] = await Promise.all([resendKey(), remitenteEsSandbox(), remitenteEsDeMako()]);
+  return !!key && !sandbox && !deMako;
 }
 
 /** Display name de un remitente "Nombre <email>" (o '' si no tiene). */
@@ -126,8 +160,19 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
   const key = await resendKey();
   if (!key) return { ok: false, error: 'RESEND_API_KEY no configurada' };
 
+  // ⚠️ EL CORTE DEL EMAIL DE MaKo (décima tanda, EMAIL 1, 11/10/2026): sin `from`, el remitente es el del
+  // workspace, y el del ws1 —un cliente— es «MaKo <equipo@hola-mako.com>». Un mail de un cliente (un paso de
+  // un flujo, un broadcast, una prueba) no sale con él; los de la PLATAFORMA pasan `from: REMITENTE_MAKO`
+  // explícito y no llegan acá. La regla, con test, es `remitenteDeMakoFrenado` (lib/email-remitente.ts).
+  let from = params.from;
+  if (!from) {
+    from = await getEmailFrom();
+    // El primer término evita preguntar por la plataforma en cada mail de un negocio con su propio dominio.
+    if (esRemitenteDeMako(from) && remitenteDeMakoFrenado(from, await enLaPlataforma())) return { ok: false, error: AVISO_EMAIL_DE_MAKO };
+  }
+
   const payload: Record<string, unknown> = {
-    from: params.from || (await getEmailFrom()),
+    from,
     to: params.to,
     subject: params.subject,
     html: params.html,

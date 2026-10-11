@@ -38,8 +38,8 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb, getWorkspace } from './workspace';
-import { firmaDelPie, remitenteDelPaso } from './email-remitente';
+import { getTenantDb, getWorkspace, wsSuperAdmin } from './workspace';
+import { firmaDelPie, remitenteDelPaso, esRemitenteDeMako, AVISO_EMAIL_DE_MAKO } from './email-remitente';
 import { getSupabaseServer } from './supabase';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar } from './evolution-envio';
@@ -101,9 +101,20 @@ export async function enviarPasoDePrueba(p: {
   if (mensaje.canal === 'email' && await remitenteEsSandbox()) {
     return { ok: false, error: 'Verifica tu dominio para mandar emails' };
   }
+  // EL EMAIL DE MaKo NO ES EL DEL NEGOCIO (décima tanda, EMAIL 1: «No permitas enviar emails con los email de
+  // MaKo, ellos deben poner sus propios email»). Ni el pedido ni, sin pedido, el del negocio (el ws1 tiene el de
+  // MaKo): sólo la PLATAFORMA manda con él. Si no se puede saber si es la plataforma, no lo es.
+  if (mensaje.canal === 'email') {
+    const pedido = p.emisor?.remitente;
+    const deMako = pedido ? esRemitenteDeMako(pedido) : esRemitenteDeMako(await getEmailFrom());
+    if (deMako && !(await wsSuperAdmin().then((w) => w === p.ws).catch(() => false))) return { ok: false, error: AVISO_EMAIL_DE_MAKO };
+  }
   // El remitente pedido: sólo uno del dominio del negocio. Si ya no lo es, se dice (nunca sale por otro).
   let from: string | undefined;
-  if (mensaje.canal === 'email' && p.emisor?.remitente) {
+  // Un remitente de MaKo que llegó hasta acá es la PLATAFORMA eligiendo el suyo (a cualquier otro lo frena el
+  // chequeo de arriba): sale sin `from`, con el del negocio. `remitenteDelPaso` ya no devuelve nunca uno de MaKo,
+  // y sin esta excepción le contestaría «ya no es de tu negocio» al único que sí puede usarlo.
+  if (mensaje.canal === 'email' && p.emisor?.remitente && !esRemitenteDeMako(p.emisor.remitente)) {
     const usable = remitenteDelPaso(p.emisor.remitente, await getEmailFrom());
     if (!usable) return { ok: false, error: 'Ese remitente ya no es de tu negocio' };
     from = usable;

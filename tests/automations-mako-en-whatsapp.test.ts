@@ -12,7 +12,8 @@
 //   1. La lista: «MaKo en WhatsApp» son las filas con el CRON «Evento de MaKo» (`partirLista`), con la MISMA fila y el
 //      MISMO «⋯» (cuatro opciones, Duplicar y Copiar flujo incluidos). `opcionesDeMensaje` ya no existe.
 //   2. Nada en app/automations importa la lista vieja (MensajeMakoLienzo, TemplateDetalleModal, chatbot-mensajes-mako).
-//   3. «＋ Nuevo mensaje» abre la galería en su sección; las tres plantillas van bajo «MaKo en WhatsApp».
+//   3. «＋ Nuevo mensaje» abre la galería con el filtro «MaKo en WhatsApp»; las plantillas de MaKo (cuatro desde la décima
+//      tanda) van mezcladas con las del Chatbot, con la misma tarjeta.
 //   4. Las tres plantillas se pueden publicar (`validarGrafo`, `frenoDelFlujo`, `frenoDelEvento`), la cobranza trae
 //      los textos de antes LITERALES, y de un evento se crean varias (el recordatorio sigue siendo uno).
 //   5. Lo que se depreca: `{{mensaje_mako}}` sólo con `conMensaje`, la lista vieja fuera de `listarPlantillas`, MaKo no
@@ -29,7 +30,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as Lista from '../app/automations/SimuladorWhatsApp';
 import { SimuladorWhatsApp, partirLista, opcionesDeFila, ROTULO_CHATBOT, ROTULO_MENSAJES_MAKO } from '../app/automations/SimuladorWhatsApp';
-import { GaleriaPlantillas, yaLaTiene, ROTULO_PLANTILLAS } from '../app/automations/GaleriaPlantillas';
+import { GaleriaPlantillas, yaLaTiene, BLANCO } from '../app/automations/GaleriaPlantillas';
 import { EditorDisparadores } from '../app/automations/EditorDisparadores';
 import { ejemplosDelEvento } from '../app/automations/PanelProbar';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
@@ -111,7 +112,8 @@ test('1. el «⋯» de una fila de «MaKo en WhatsApp» es `opcionesDeFila`: los
   const src = fuente('app/automations/SimuladorWhatsApp.tsx');
   assert.match(src, /\{divisiones\.chatbot\.map\(filaDeLista\)\}/);
   assert.match(src, /\{divisiones\.mako\.map\(filaDeLista\)\}/);
-  assert.match(bloque(src, 'const filaDeLista = (j: SecuenciaDto) => {', '\n  };\n'), /options=\{opcionesDeFila\(j\.activa\)\}\n\s+onChange=\{\(v\) => void accionFila\(j, v\)\}/);
+  // Con «Descartar cambios» cuando tiene algo sin publicar (décima tanda, general 5): el mismo punto ámbar del nombre.
+  assert.match(bloque(src, 'const filaDeLista = (j: SecuenciaDto) => {', '\n  };\n'), /options=\{opcionesDeFila\(j\.activa, sinPublicarDe\(j, j\.id === selId && sinPublicar\)\)\}\n\s+onChange=\{\(v\) => void accionFila\(j, v\)\}/);
 });
 
 // ── 2. La lista vieja, fuera ─────────────────────────────────────────────────────
@@ -134,8 +136,10 @@ test('2. nada en app/automations importa la lista vieja, y sus dos archivos se b
 // ── 3. «＋ Nuevo mensaje» y la galería ────────────────────────────────────────────
 
 const galeria = (extra: Record<string, unknown> = {}) => renderToStaticMarkup(createElement(GaleriaPlantillas, {
-  productos: [], onCerrar: () => {}, onEmpezar: () => {}, onCreada: () => {}, ...extra,
+  productos: [], onCerrar: () => {}, onBlanco: () => {}, onCreada: () => {}, ...extra,
 } as Parameters<typeof GaleriaPlantillas>[0]));
+/** Las plantillas dibujadas, en el orden de la grilla. */
+const dibujadas = (html: string) => [...html.matchAll(/data-plantilla="([^"]+)"/g)].map((m) => m[1]);
 
 test('3. «＋ Nuevo mensaje» abre la galería en la sección «MaKo en WhatsApp», por la MISMA puerta que «＋ Nueva»', () => {
   const lista = fuente('app/automations/SimuladorWhatsApp.tsx');
@@ -148,28 +152,28 @@ test('3. «＋ Nuevo mensaje» abre la galería en la sección «MaKo en WhatsAp
   assert.match(app, /const abrirGaleria = \(seccion\?: SeccionGaleria\) => \{ setErrCrear\(null\); setGaleria\(\{ seccion \}\); \};/);
   assert.match(app, /onNueva=\{abrirGaleria\}/);
   assert.match(app, /<GaleriaPlantillas productos=\{productos\} onCerrar=\{\(\) => setGaleria\(false\)\} seccion=\{galeria\.seccion\}/);
-  // La galería espera a que la sección SE VEA antes de llevar hasta ella (la caja del Modal nace escondida).
+  // ⚠️ DESDE LA DÉCIMA TANDA (11/10/2026, docs/diseno-automations-galeria-v2.md §1) YA NO LLEVA CON SCROLL a una sección:
+  // abre con el FILTRO Canal = «MaKo en WhatsApp» puesto. Lo que se ve: «Lienzo en blanco» y sólo las de MaKo.
   const gal = fuente('app/automations/GaleriaPlantillas.tsx');
-  assert.match(gal, /if \(p\.seccion !== 'mako'\) return;/);
-  assert.match(gal, /if \(el && el\.getClientRects\(\)\.length > 0\) \{ el\.scrollIntoView\(\{ block: 'start' \}\); return; \}/);
+  assert.match(gal, /useState<string\[\]>\(\(\) => filtroDeSeccion\(p\.seccion\)\)/);
+  assert.doesNotMatch(gal, /scrollIntoView|CADA_MS|INTENTOS_MAX/, 'volvió el scroll a la sección');
+  const html = galeria({ seccion: 'mako' });
+  assert.deepEqual(dibujadas(html).sort(), PLANTILLAS.filter(esPlantillaMako).map((p) => p.id).sort(), 'con «＋ Nuevo mensaje» no se ven sólo las de MaKo');
+  assert.ok(html.indexOf('data-empezar="blanco"') > 0 && html.indexOf('data-empezar="blanco"') < html.indexOf('data-plantilla='), '«Lienzo en blanco» no va primera');
 });
 
-test('3. las tres van bajo «MaKo en WhatsApp» y NO en «Desde una plantilla»; las del Chatbot, al revés', () => {
+// Décima tanda: sin rótulos de sección, las de «MaKo en WhatsApp» van MEZCLADAS con las del Chatbot, con la MISMA tarjeta.
+test('3. las cuatro de «MaKo en WhatsApp» van mezcladas con las del Chatbot, con la misma tarjeta y sin rótulos', () => {
   const html = galeria();
-  const iPlantillas = html.indexOf(`>${ROTULO_PLANTILLAS}</div>`);
-  const iMako = html.indexOf('data-galeria-mako');
-  assert.ok(iPlantillas > 0 && iMako > iPlantillas, 'la sección «MaKo en WhatsApp» no va después de «Desde una plantilla»');
-  assert.ok(html.indexOf(`>${ROTULO_MENSAJES_MAKO}</div>`, iMako) > iMako, 'la sección sin su rótulo');
   const mako = PLANTILLAS.filter(esPlantillaMako);
-  assert.deepEqual(mako.map((p) => p.id).sort(), ['mako-charla', 'mako-cobranza', 'mako-reunion']);
-  for (const p of PLANTILLAS) {
-    const i = html.indexOf(`data-plantilla="${p.id}"`);
-    assert.ok(i > 0, `«${p.id}» no se dibuja`);
-    if (esPlantillaMako(p)) assert.ok(i > iMako, `«${p.id}» quedó en «Desde una plantilla»`);
-    else assert.ok(i < iMako, `«${p.id}» quedó en «MaKo en WhatsApp»`);
-  }
-  // Ya no está la sección de los «eliminados» de antes.
+  assert.deepEqual(mako.map((p) => p.id).sort(), ['mako-agendado', 'mako-charla', 'mako-cobranza', 'mako-reunion']);
+  assert.deepEqual(dibujadas(html), PLANTILLAS.map((p) => p.id), 'no se dibujan todas, en el orden del catálogo');
+  for (const p of PLANTILLAS) assert.match(html, new RegExp(`<button type="button" class="gal-tarjeta" data-plantilla="${p.id}"`), `«${p.id}» con otra tarjeta`);
+  // Ni la sección aparte, ni los rótulos de antes, ni la sección de los «eliminados».
+  assert.doesNotMatch(html, /data-galeria-mako|Desde una plantilla|O empieza así|¿Qué la dispara\?/);
+  assert.doesNotMatch(html, new RegExp(`>${ROTULO_MENSAJES_MAKO}</div>`));
   assert.doesNotMatch(html, /data-galeria-ocultos|data-oculto=/);
+  assert.ok(html.includes(BLANCO.nombre));
 });
 
 // ── 4. Las plantillas ────────────────────────────────────────────────────────────
@@ -190,7 +194,8 @@ test('4. las tres se pueden publicar: `validarGrafo`, `frenoDelFlujo` y lo que s
     assert.equal(frenoDelEvento(pasos, evento), null, `${p.id}: el emisor de «${evento}» no la sabe correr`);
   }
   // Las dos cuyo texto arma el código dicen «Lo que arma MaKo» y nada más: sale EXACTAMENTE el texto de antes.
-  for (const id of ['mako-reunion', 'mako-charla']) {
+  // El nuevo agendado (décima tanda) también: el texto lo arman los webhooks de la agenda.
+  for (const id of ['mako-reunion', 'mako-charla', 'mako-agendado']) {
     const p = plantillaPorId(id)!;
     assert.deepEqual(p.pasos.map((x) => x.accion?.params.mensaje), [`{{${CLAVE_MENSAJE_MAKO}}}`], `${id}: no es «Lo que arma MaKo»`);
   }
@@ -279,7 +284,8 @@ test('5. `listarPlantillas` deja afuera los tres eventos en las dos vistas, y la
   const listar = bloque(fuente('lib/plantillas.ts'), 'export async function listarPlantillas(', 'export async function getPlantilla(');
   assert.match(listar, /const base = \(agencia \? CATALOGO_AVISOS : CATALOGO_AVISOS\.filter\(\(c\) => esAvisoDelCliente\(c\.id\)\)\)\n\s+\.filter\(\(c\) => !AVISOS_POR_EVENTO\.has\(c\.id\)\);/,
     'los eventos de MaKo volvieron a listarse (en /mensajes serían un interruptor que no hace nada)');
-  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'reunion-recordatorio', 'wa-mensaje-entrante']);
+  // El nuevo agendado es un evento desde la décima tanda: tampoco se lista en /mensajes.
+  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'reunion-nuevo-agendado', 'reunion-recordatorio', 'wa-mensaje-entrante']);
   assert.deepEqual(AVISOS_DEL_CLIENTE, [], '«Todos arrancan vacíos»: un mensaje de MaKo del cliente es una automatización');
   // El reporte de los lunes no se mudó: es del super admin y sale como siempre (sólo email).
   assert.ok(AVISOS_SOLO_SUPERADMIN.includes('reporte-semanal'));

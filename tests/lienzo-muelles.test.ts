@@ -232,13 +232,18 @@ test('⚠️ una flecha en paralelo sale de la fila que la admite, y de «sig» 
 // renglón arriba, porque todos medían lo del editor de WhatsApp. Y el punto 16: «haz más grande el
 // editable de Email y WhatsApp». Rotura con todo puesto: ver el pie de tests/editores-control.test.ts.
 
-const CONTROL: TipoNodo[] = ['espera', 'etiqueta', 'ir-a', 'accion', 'mako', 'condicion', 'entrada', 'respuesta'];
+// «MaKo en WhatsApp» NO es de control desde la décima tanda (WHATSAPP 6: «el mismo tamaño de modal» que el editor
+// de WhatsApp): mide lo de un mensaje, abajo. Rotura (cierre de la décima, 11/10/2026): devolver `mako: 280` a la
+// tabla y sacar `tipo === 'mako'` de `editorDeTarjeta` → este archivo 14 / 0 → 13 / 1 (cae este test, por el assert
+// de «mako»); restaurado con sha1 igual (`cierre10-roturas.mjs`, R6).
+const CONTROL: TipoNodo[] = ['espera', 'etiqueta', 'ir-a', 'accion', 'condicion', 'entrada', 'respuesta'];
 
 test('⚠️ el editor de un MENSAJE es más grande que antes (punto 16) y el de control mide lo suyo', () => {
   const m = muelles({ w: 1850, h: 900 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
   const msg = editorDeTarjeta(m, 'mensaje');
   assert.ok(msg.ancho > 720 && msg.alto > 420, `el de WhatsApp/Email mide ${msg.ancho} × ${msg.alto}, no más que los 720 × 420 de antes`);
   assert.deepEqual(msg, { ancho: m.editorAncho, alto: m.editorAlto }, 'el de mensaje es el rectángulo de `muelles`');
+  assert.deepEqual(editorDeTarjeta(m, 'mako'), msg, 'mako: el editor de «MaKo en WhatsApp» no mide lo mismo que el de WhatsApp');
   for (const t of CONTROL) {
     const c = editorDeTarjeta(m, t);
     assert.equal(c.alto, ALTO_EDITOR_CONTROL[t], `${t}: no mide lo de su tipo`);

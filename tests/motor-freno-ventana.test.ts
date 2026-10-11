@@ -79,7 +79,8 @@ test('la lectura de la base parte el freno en dos: WhatsApp (con la reunión cer
   assert.match(f, /\.eq\('canal', canal\)/, 'la nutrición se cuenta por canal');
   assert.match(f, /porVentana\(fuera, desde, qNutri\('whatsapp'\), 'nutricion_envios'\)/);
   assert.match(f, /porVentana\(enPrep, desdeCorto, qNutri\('whatsapp'\), 'nutricion_envios'\)/, 'la excepción de la reunión cercana es del WhatsApp');
-  assert.match(f, /porVentana\(leadIds, desde, qNutri\('email'\), 'nutricion_envios'\)/);
+  // El email frena con SUS horas (Configuraciones › Límites, décima tanda).
+  assert.match(f, /porVentana\(leadIds, desdeEmail, qNutri\('email'\), 'nutricion_envios'\)/);
   // El masivo cuenta SÓLO para el email: el bloque del WhatsApp no lo nombra.
   const wa = f.slice(f.indexOf('const resultados = await Promise.all(['));
   assert.doesNotMatch(wa, /email_broadcast_envios/, 'un email masivo frenaba al WhatsApp');
@@ -89,14 +90,16 @@ test('la lectura de la base parte el freno en dos: WhatsApp (con la reunión cer
 test('los topes: el diario y el de la corrida son de WhatsApp; el email, con el suyo', () => {
   // Probado rompiéndolo (08/10/2026): `cupoLleno` contando `res.enviados + res.simulados` (los dos
   // canales, lo de antes) → 8 pasan / 1 falla (éste).
-  assert.match(PROC, /const presupuesto = MAX_POR_DIA - \(await enviosUltimas24h\('whatsapp'\)\);/);
-  assert.match(PROC, /MAX_EMAIL_POR_DIA - \(await enviosUltimas24h\('email'\)\)/);
+  // Desde la décima tanda (11/10/2026) los topes son del negocio (Configuraciones › Límites, `limites`):
+  // lo cuida tests/automations-configuraciones.test.ts. Acá sigue lo de los canales.
+  assert.match(PROC, /const presupuesto = limites\.wa\.dia - \(await enviosUltimas24h\('whatsapp'\)\);/);
+  assert.match(PROC, /limites\.email\.dia - \(await enviosUltimas24h\('email'\)\)/);
   assert.match(PROC, /const cupoLleno = \(\): boolean => waEnCorrida >= cupo;/);
   assert.match(PROC, /if \(paso\.canal === 'email'\) emailsEnCorrida \+= 1; else waEnCorrida \+= 1;/);
   assert.match(PROC, /paso\.canal === 'email' && emailLleno\(\)/, 'un email que se pasa de su tope diario sale igual');
   const tope = cuerpo(NUTRI, 'async function enviosUltimas24h(', '\n}');
   assert.match(tope, /\.eq\('canal', canal\)/);
-  assert.match(NUTRI, /const MAX_EMAIL_POR_DIA = Number\(process\.env\.NUTRICION_MAX_EMAIL_POR_DIA \?\? '\d+'\);/);
+  // El tope de email de fábrica (100, o el env NUTRICION_MAX_EMAIL_POR_DIA) vive en lib/limites-envio.ts.
 });
 
 // ── La ventana, en la zona del negocio ──────────────────────────────────────
@@ -175,7 +178,7 @@ test('⚠️ el cupo de WhatsApp de las corridas del cron es el de la HORA de re
   // Con el tick de cada minuto, 6 por corrida serían 360 por hora desde la línea del cliente.
   // Probado rompiéndolo (09/10/2026): el cupo sin `- enLaHora` → cae éste.
   assert.match(PROC, /const enLaHora = opts\?\.cupoPorHora \? await enviosEnLaHora\('whatsapp'\) : 0;/);
-  assert.match(PROC, /const cupo = Math\.max\(0, Math\.min\(MAX_POR_CORRIDA - enLaHora, presupuesto\)\);/);
+  assert.match(PROC, /const cupo = Math\.max\(0, Math\.min\(limites\.wa\.hora - enLaHora, presupuesto\)\);/);
   const hora = cuerpo(NUTRI, 'async function enviosEnLaHora(', '\n}');
   assert.match(hora, /Math\.floor\(Date\.now\(\) \/ 3_600_000\) \* 3_600_000/, 'la hora de RELOJ, no 60 minutos móviles');
   assert.match(hora, /\.eq\('estado', 'enviado'\)/);

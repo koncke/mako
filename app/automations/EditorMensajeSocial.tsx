@@ -26,7 +26,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import type { PasoSecuenciaDto } from './ChatAgentApp';
 import { useWs } from '@/app/_ui/Link';
-import { Spinner, Toast, useToast } from '@/app/_ui';
+import { Toast, useToast } from '@/app/_ui';
 import { PopoverWA, MenuWA, type OpcionMenuWA } from '../whatsapp/_shared/ComposerWhatsApp';
 import { IconClip, IconDoc } from '../whatsapp/_shared/composer-icons';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
@@ -39,6 +39,9 @@ import { partesDe, formaGuardada, esUnTexto, TOPE_PARTES, type ParteMensaje } fr
 import { validarArchivoWA, archivoConTipoWA, tituloDeArchivo, pesoLegible, type AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import { IDENTIDAD_SOCIAL, NOMBRE_CANAL, problemaDeAdjunto, plataformaDe, TOPE_TEXTO_SOCIAL, type CanalSocial } from '@/lib/canal-social';
 import { BurbujaSocial, ArchivoSocial, CabeceraSocial, LogoSocial } from './social-ui';
+// «Conectar» AHÍ MISMO (décima tanda, GENERAL 6): el OAuth de Zernio en una ventana emergente y el sondeo de la
+// cuenta, en el modal de la tab (antes se abría una pestaña nueva y el editor no se enteraba de la vuelta).
+import { ConectarMedio, useAlConectarMedio } from './ConectarMedio';
 
 export type EditorMensajeSocialProps = {
   paso: PasoSecuenciaDto;
@@ -89,7 +92,11 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   const [subida, setSubida] = useState<{ nombre: string; pct: number; cancelar: () => void } | null>(null);
   const [bibLocal, setBibLocal] = useState<AdjuntoDto[] | null>(() => cacheBiblioteca.get(String(ws ?? ''))?.lista ?? null);
   const [cuenta, setCuenta] = useState<Cuenta | null>(() => cacheCuenta.get(`${ws ?? ''}|${canal}`)?.v ?? null);
+  /** El modal de «Conectar» abierto (ConectarMedio). */
   const [conectando, setConectando] = useState(false);
+  /** Sube cuando algo se conectó (acá o en otra pantalla de la tab): la cuenta se vuelve a pedir. */
+  const [vueltaCuenta, setVueltaCuenta] = useState(0);
+  useAlConectarMedio(() => { cacheCuenta.delete(`${ws ?? ''}|${canal}`); setVueltaCuenta((v) => v + 1); });
   const { toast, show, clear } = useToast();
   const area = useRef<HTMLTextAreaElement | null>(null);
   const inputArchivo = useRef<HTMLInputElement>(null);
@@ -121,18 +128,10 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
       })
       .catch(() => { if (vivo) setCuenta({ estado: 'error', error: 'Sin conexión' }); });
     return () => { vivo = false; };
-  }, [ws, canal]);
+  }, [ws, canal, vueltaCuenta]);
 
-  const conectar = async () => {
-    setConectando(true);
-    try {
-      const r = await fetch('/api/zernio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'conectar', plataforma: plataformaDe(canal) }), signal: AbortSignal.timeout(65_000) });
-      const j = await r.json().catch(() => null) as { ok?: boolean; url?: string; error?: string } | null;
-      if (!j?.ok || !j.url) { avisar(j?.error ?? 'No se pudo conectar'); return; }
-      cacheCuenta.delete(`${ws ?? ''}|${canal}`);
-      window.open(j.url, '_blank', 'noopener');
-    } catch { avisar('Sin conexión'); } finally { setConectando(false); }
-  };
+  // (Acá vivía `conectar`: pedía la URL del OAuth y la abría en una pestaña nueva con `noopener`, sin forma de
+  // saber cuándo volvía. Desde la décima tanda lo hace el modal de la tab, ConectarMedio.)
 
   // ── La biblioteca de archivos (la misma del WhatsApp) ──
   const biblioteca = adjuntos ?? bibLocal;
@@ -283,9 +282,9 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
       derecha={(
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           {cuenta?.estado === 'ok' && !usuario && (
-            <button type="button" onClick={() => void conectar()} disabled={conectando || ocupado}
+            <button type="button" onClick={() => setConectando(true)} disabled={conectando || ocupado} aria-haspopup="dialog"
               style={{ height: 28, padding: '0 12px', borderRadius: 14, border: 'none', background: ident.burbuja, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {conectando ? <Spinner size={12} /> : 'Conectar'}
+              Conectar
             </button>
           )}
           <LogoSocial canal={canal} size={22} />
@@ -370,6 +369,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         </PopoverWA>
       )}
       <Toast state={toast} onClose={clear} />
+      {conectando && <ConectarMedio medio={canal} onCerrar={() => setConectando(false)} onConectado={() => setConectando(false)} />}
     </div>
   );
 }

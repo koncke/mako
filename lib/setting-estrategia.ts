@@ -133,6 +133,17 @@ export type EscenarioSecuencia = {
    * un link sin completar o pase el tope por lead y por horario.
    */
   contestaSolo?: boolean;
+  // ── AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §7): lo del caso que viaja desde su tarjeta
+  //    (`extrasDeCaso`, lib/flujo-grafo.ts). NO se guardan en `estrategia.escenarios` (`escenariosDe` no los
+  //    lee): salen del flujo en cada respuesta. Los lee el redactor (`bloqueEscenario`). ──
+  /** Qué tiene que lograr ESTE caso. Se SUMA al objetivo de la automatización, no lo reemplaza. */
+  objetivo?: string;
+  /** Cómo contestó la persona en el ensayo: ejemplos de estilo para el redactor. */
+  ejemplos?: Array<{ lead: string; tu: string }>;
+  /** Contesta con una nota de voz ('propia' o un voiceId): el redactor escribe para ser dicho. */
+  audio?: { voz: string };
+  /** 'una': después de esta respuesta, la charla pasa a una persona. */
+  hasta?: 'una';
 };
 
 const escenariosDe = (raw: unknown): EscenarioSecuencia[] => {

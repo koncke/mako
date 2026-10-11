@@ -449,6 +449,9 @@ export async function POST(request: NextRequest) {
               // para que un REAGENDADO (que sí hay que avisar) no quede tapado.
               dedupTtlMin: 180, dedupKey: `calendly:${payload.scheduled_event?.uri ?? emailJ2}|${startTimeIso}`,
               texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\n— MaKo`,
+              // El lead del evento (11/10/2026: es un Evento de MaKo, `lead_agendo`): sin él la CONDITION de la
+              // automatización no ve nada y `{{lead_nombre}}` o `{{link_lead}}` salen crudos.
+              lead: { id: lead.id, nombre: lead.nombre },
             });
             // Flujos configurados por el dueño: disparar 'lead.agendo' (R2).
             // La MISMA clave que el aviso de arriba: Calendly reentrega, y una reentrega no repite los pasos.
@@ -609,6 +612,8 @@ export async function POST(request: NextRequest) {
           // Ver la nota de la R2: dedup por reserva + horario.
           dedupTtlMin: 180, dedupKey: `calendly:${payload.scheduled_event?.uri ?? email}|${startTimeIso}`,
           texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraLocal(startTimeIso, tzWs)}*.${anuncio}\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\n— MaKo`,
+          // El lead del evento: ver la nota de la R2.
+          lead: { id: lead.id, nombre },
         });
         // Flujos configurados por el dueño: disparar 'lead.agendo' (R1).
         await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: nombre, reunion: 'R1', dedupKey: `calendly:${payload.scheduled_event?.uri ?? email}|${startTimeIso}` });

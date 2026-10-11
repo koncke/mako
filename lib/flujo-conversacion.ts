@@ -66,7 +66,8 @@ import {
   claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, padresDe,
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, textoCasoRespuesta,
   RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos, rotuloSiNoDeRespuesta,
-  esPasoIA, faltaEnCaso, ROTULO_OTRA_COSA,
+  esPasoIA, faltaEnCaso, contestaElCaso, medioDe, raicesRespuesta, puedeSumarAIStep,
+  type CasoRespuesta, type MedioAIStep,
 } from './flujo-grafo';
 import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
 import { textoCron, type CronAviso } from './cron-aviso';
@@ -75,7 +76,7 @@ import { LEAD_DEL_EVENTO } from './api-mako/flujo-params';
 import { etapasDe, normalizarEtapas } from './nutricion-etapa';
 import { alternarValor } from '../app/components/dropdown-varios';
 // Puro (sólo importa ./nutricion-canal): cuántas partes tiene un mensaje, para su alto (`altoDeMensaje`).
-import { partesExplicitas } from './mensaje-partes';
+import { partesExplicitas, partesDe, type ParteMensaje } from './mensaje-partes';
 export type { TipoNodo, TonoArista, NodoFlujo, AristaFlujo, GrafoFlujo, PuertoNodo, FamiliaNodo } from './lienzo-grafo';
 export { curvaEntre, medioDeCurva, ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y } from './lienzo-grafo';
 
@@ -193,66 +194,74 @@ export const ANCHO_ETIQUETA = 210;
  */
 export const ALTO_MAKO = 47 + 3 * 18 + 8;
 
-// ── LA TARJETA AI STEP (novena tanda) ──────────────────────────────────────────────────────────
-// Pedido de Martín: «una tarjeta con sus casos adentro». UNA tarjeta, sin puertos por caso (sus casos
-// no tienen flechas: lo de cada uno va adentro, lib/flujo-grafo.ts «EL AI STEP»): una fila por caso
-// —el nombre con «sola»/«revisa» y la campanita si avisa, y debajo cómo responde— y al pie «Otra cosa →
-// te aviso». Cuelga del CRON como «Si responde» (`grafoDeSecuencia`, la flecha de la que escucha).
+// ── LA TARJETA AI STEP (novena tanda; v2 en la décima) ─────────────────────────────────────────
+// v2 (docs/diseno-ai-step-v2.md §3, «solo permitir 1 caso por tarjeta»): ALTO FIJO y UN caso. El nombre en
+// negrita, «→ objetivo» en una línea (o «Sin objetivo», tenue) y al pie los chips —«avisa» / «aprueba» /
+// «sola», 🎙 si contesta en audio, «1 vez» con `hasta: 'una'`—. El MEDIO va como una franja de 3 px arriba y
+// su logo a la derecha de la cabecera (`CuerpoPasoIA`, app/automations/EditorPasoIA.tsx). Cuelga del CRON
+// como «Si responde» (`grafoDeSecuencia`: una flecha por AI Step que escucha). `CASOS_EN_TARJETA_IA` y
+// «+N casos» se fueron: un AI Step de antes con N casos lo separa el lienzo al abrir (`separarPasosIA`).
 //
-// ⚠️ LOS NÚMEROS SON LOS DE `CuerpoPasoIA` (app/automations/EditorPasoIA.tsx), que dibuja cada fila con
-// ESTE alto exacto: la tarjeta tiene alto fijo (no tiene puertos, pero el lienzo la mide antes de pintar
-// para el layout) y lo que no entra se corta.
+// ⚠️ LOS NÚMEROS SON LOS DE `CuerpoPasoIA`, que dibuja cada renglón con ESTE alto exacto: la tarjeta tiene alto
+// fijo (no tiene puertos, pero el lienzo la mide antes de pintar para el layout) y lo que no entra se corta.
 
-/** Una fila de un caso: dos renglones (el nombre y cómo responde). */
-export const FILA_CASO_IA = 40;
-/** La fila «+N casos» cuando no entran todos. */
-export const FILA_MAS_CASOS_IA = 22;
-/** La fila de «Otra cosa → te aviso». */
-export const FILA_OTRA_IA = 28;
-/**
- * Cuántos casos se dibujan en la tarjeta. Con el tope de 30 (`TOPE_CASOS`), una fila por caso era una
- * tarjeta de 1.300 px: el resto lo dice «+N casos» y está entero en el editor (AGENTS.md: un layout se
- * prueba con el valor MÁS LARGO del conjunto).
- */
-export const CASOS_EN_TARJETA_IA = 6;
-/** Lo que dice cómo responde, cortado (la fila es de un renglón). */
+/** El renglón del nombre del caso. */
+export const FILA_NOMBRE_IA = 20;
+/** El renglón de «→ objetivo». */
+export const FILA_OBJETIVO_IA = 18;
+/** El pie con los chips. */
+export const FILA_CHIPS_IA = 28;
+/** Lo que dice el objetivo, cortado (el renglón es uno). */
 const RESUMEN_IA = 60;
 
-/** Lo que dibuja una fila de un caso del AI Step. */
-export type FilaPasoIA = {
-  id: string;
+/** Cuánta libertad tiene el AI Step (§2.4): sólo avisa · deja para aprobar · sale sola. */
+export type LibertadTarjeta = 'avisa' | 'aprueba' | 'sola';
+
+/** Lo que dibuja la tarjeta AI Step: su caso en una mirada. */
+export type ResumenPasoIA = {
   titulo: string;
-  /** Cómo responde, en una línea; o lo que hace si no contesta. */
-  resumen: string;
-  /** «sola» o «revisa» si contesta; null si no contesta. */
-  chip: 'sola' | 'revisa' | null;
+  /** «→ objetivo» cortado a un renglón; null = sin objetivo (se dibuja «Sin objetivo», tenue). */
+  objetivo: string | null;
+  libertad: LibertadTarjeta;
+  /** Contesta en audio (🎙). */
+  audio: boolean;
+  /** «1 vez» (`hasta: 'una'`). */
+  unaVez: boolean;
+  /** Te avisa cada vez (la campanita), además de lo que diga la libertad. */
   avisa: boolean;
+  /** «Cualquier respuesta». */
+  cualquiera: boolean;
   /** Le falta algo para publicar (`faltaEnCaso`, la MISMA regla que el freno de Publicar). */
   falta: boolean;
+  medio: MedioAIStep;
 };
 
-/** Las filas de la tarjeta AI Step: los casos que entran, cuántos quedan afuera y la de «Otra cosa». */
-export function filasDePasoIA(p: PasoGrafo): { casos: FilaPasoIA[]; mas: number; otra: string } {
-  const todos = p.casos ?? [];
-  const casos = todos.slice(0, CASOS_EN_TARJETA_IA).map((c): FilaPasoIA => {
-    const r = (c.responder ?? '').replace(/\s+/g, ' ').trim();
-    const avisa = c.avisar === true;
-    return {
-      id: c.id,
-      titulo: (c.titulo ?? '').trim() || 'Sin nombre',
-      resumen: r ? (r.length > RESUMEN_IA ? `${r.slice(0, RESUMEN_IA - 1).trimEnd()}…` : r) : avisa ? 'Te aviso' : 'Sin respuesta',
-      chip: r ? (c.sola === true ? 'sola' : 'revisa') : null,
-      avisa,
-      falta: faltaEnCaso(c) != null,
-    };
-  });
-  return { casos, mas: Math.max(0, todos.length - casos.length), otra: `${ROTULO_OTRA_COSA} → te aviso` };
+/** La LIBERTAD de un caso, como la dice la tarjeta y el paso 4 del editor (la MISMA lectura de los campos). */
+export function libertadDeCaso(c: Pick<CasoRespuesta, 'responder' | 'no_contesta' | 'sola'> | null | undefined): LibertadTarjeta {
+  if (!c || !contestaElCaso(c)) return 'avisa';
+  return c.sola === true ? 'sola' : 'aprueba';
 }
 
-/** El alto de la tarjeta AI Step: la cabecera, una fila por caso que entra, «+N», «Otra cosa» y el pie. */
-export function altoPasoIA(p: PasoGrafo): number {
-  const f = filasDePasoIA(p);
-  return Math.ceil(CABECERA_TARJETA + f.casos.length * FILA_CASO_IA + (f.mas ? FILA_MAS_CASOS_IA : 0) + FILA_OTRA_IA + PIE_PUERTOS + BORDE_NODO);
+/** El resumen de la tarjeta AI Step: su (primer) caso. */
+export function resumenPasoIA(p: PasoGrafo): ResumenPasoIA {
+  const c = p.casos?.[0] ?? null;
+  const obj = (c?.objetivo ?? '').replace(/\s+/g, ' ').trim();
+  return {
+    titulo: (c?.titulo ?? '').trim() || 'Sin nombre',
+    objetivo: obj ? (obj.length > RESUMEN_IA ? `${obj.slice(0, RESUMEN_IA - 1).trimEnd()}…` : obj) : null,
+    libertad: libertadDeCaso(c),
+    audio: !!c?.audio,
+    unaVez: c?.hasta === 'una',
+    avisa: c?.avisar === true,
+    cualquiera: c?.cualquiera === true,
+    falta: !c || faltaEnCaso(c) != null,
+    medio: medioDe(p),
+  };
+}
+
+/** El alto de la tarjeta AI Step: FIJO (la cabecera, el nombre, el objetivo, los chips y el pie). */
+export function altoPasoIA(): number {
+  return Math.ceil(CABECERA_TARJETA + FILA_NOMBRE_IA + FILA_OBJETIVO_IA + FILA_CHIPS_IA + PIE_PUERTOS + BORDE_NODO);
 }
 
 /** El ancho de la píldora de una espera: el de su texto, con piso y techo. */
@@ -442,8 +451,10 @@ export type AudioParaAlto = { transcript?: string | null } | null | undefined;
  * abajo. `_audio` queda en la firma porque el árbol se lo pasa (`audioDe`).
  */
 export function altoDeMensaje(p: PasoParaGrafo, _audio?: AudioParaAlto): number {
-  const partes = partesExplicitas(p);
   const conPalomitas = p.canal !== 'email' && !esCanalSocial(p.canal);
+  // Las burbujas que DIBUJA la tarjeta (`burbujasDeTarjeta`, la misma función que `VistaMensaje`); fuera de
+  // WhatsApp, las explícitas de siempre (el renglón «+N más» del email y de Instagram/Messenger).
+  const partes = conPalomitas ? burbujasDeTarjeta(p) : partesExplicitas(p);
   // VARIOS MENSAJES: hasta dos burbujas y el recuadro «+N mensajes…» (WhatsApp 1, 10/10/2026).
   if (conPalomitas && partes && partes.length > 1) {
     const vis = partes.slice(0, PARTES_EN_TARJETA);
@@ -457,6 +468,22 @@ export function altoDeMensaje(p: PasoParaGrafo, _audio?: AudioParaAlto): number 
   if (!conPalomitas) return mas > 0 ? Math.min(TOPE_MENSAJE, base + SEP_BURBUJA + RENGLON_MAS_PARTES) : base;
   // La fila de las palomitas comparte renglón con el ✦ de «MaKo lo adapta»: con hora, ese renglón ya está.
   return Math.min(TOPE_MENSAJE, base + ALTO_PALOMITAS - (p.tipo === 'ia' ? 18 : 0));
+}
+
+/**
+ * LAS BURBUJAS DE UN WHATSAPP EN SU TARJETA, o null si es UNA (décima tanda, WhatsApp 1, 11/10/2026: «la tarjeta
+ * del lienzo, donde aparece el mensaje con el fondo gris, con las palomitas... que cada mensaje sea un recuadro de
+ * fondo gris, como si fueran mensajes diferentes, porque lo son. No que estén todo junto»).
+ *
+ * ⚠️ `partesDe` Y NO `partesExplicitas`: un audio con su texto guardado como se guardaba antes (`tipo: 'audio'` +
+ * `cuerpo`, sin `partes`) son DOS mensajes —así le llegan al lead y así los muestra el editor—, y la tarjeta los
+ * dibujaba en UNA burbuja gris, el audio y el texto juntos. `partesExplicitas` devuelve null para esa forma; ésta
+ * los parte como el editor. La usan la tarjeta (`VistaMensaje`, app/automations/FlujoLienzo.tsx) y su alto
+ * (`altoDeMensaje`): con dos cuentas, la tarjeta cortaría la segunda burbuja.
+ */
+export function burbujasDeTarjeta(p: PasoParaGrafo): ParteMensaje[] | null {
+  const lista = partesDe(p);
+  return lista.length > 1 ? lista : null;
 }
 
 /** El alto de UNA burbuja de la tarjeta (una parte), con su fila de palomitas. */
@@ -824,7 +851,9 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // salto. Lo demás es una tarjeta suelta (la misma regla que `validarGrafo`): se dibuja igual
   // —esconderla la haría imposible de borrar— y con su marca.
   const alcanzable = new Set<string>();
-  const raices = [...raicesSalida(pasos), resp, ...pasos.flatMap((p) => (claseDe(p) === 'ir_a' && p.destino && 'nodo' in p.destino ? [p.destino.nodo] : []))];
+  // Las que escuchan: con AI Step v2 son varias tarjetas (`raicesRespuesta`), cada una colgada del CRON.
+  const escuchan = raicesRespuesta(pasos);
+  const raices = [...raicesSalida(pasos), ...escuchan, ...pasos.flatMap((p) => (claseDe(p) === 'ir_a' && p.destino && 'nodo' in p.destino ? [p.destino.nodo] : []))];
   for (const x of raices) if (x && existe.has(x)) { alcanzable.add(x); for (const d of descendientes(pasos, x)) alcanzable.add(d); }
 
   // ── Las flechas en paralelo que todavía se pueden sacar (decisión 2) ──
@@ -893,6 +922,11 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   }
   const textoDeEspera = (id: string) => textoEspera(nodoPorId(pasos, id)?.espera).replace(/^Esperar /, '');
 
+  // ── Dónde van los hand-offs pendientes (AI Step v2, §3): la tarjeta «Cualquier respuesta» de WhatsApp que
+  //    escucha, o la primera que escucha. Una sola: «2 sin caso» repetido en cada tarjeta contaría de más. ──
+  const iasQueEscuchan = escuchan.filter((x) => esPasoIA(nodoPorId(pasos, x)));
+  const tarjetaDeHandoffs = iasQueEscuchan.find((x) => nodoPorId(pasos, x)?.casos?.[0]?.cualquiera === true) ?? iasQueEscuchan[0] ?? null;
+
   // ── La tarjeta de cada paso (sin posición todavía) ──
   type Tarjeta = Omit<NodoFlujo, 'x' | 'y'>;
   const tarjetas = new Map<string, Tarjeta>();
@@ -914,17 +948,17 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       puertos.push({ id: RESULTADO_SI_NO, rotulo: 'Si no', tono: 'mala', vacio: !p.si_no, ...enParalelo(RESULTADO_SI_NO) });
       t = { ...base, tipo: 'condicion', familia: 'control', titulo: TITULO.condicion, icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
     } else if (c === 'respuesta' && esPasoIA(p)) {
-      // EL AI STEP (novena tanda): UNA tarjeta sin puertos —`puertos: []`, como un «Ir a»: sin puntos ni
-      // ＋— y con sus casos adentro (`filasDePasoIA`, los dibuja `CuerpoPasoIA`). La flecha que le llega
-      // es la del CRON, la de «Si responde» (abajo). El ✦ de MaKo: la escribe MaKo.
-      // Los hand-offs pendientes salieron por «Otra cosa»: van en ESA fila (`detalle`), como la marca de la
-      // fila «Si no» de la forma de siempre.
-      const falta = (p.casos ?? []).some((x) => faltaEnCaso(x) != null);
+      // EL AI STEP: UNA tarjeta sin puertos —`puertos: []`, como un «Ir a»: sin puntos ni ＋— con SU caso
+      // adentro (v2: uno por tarjeta, `resumenPasoIA`; lo dibuja `CuerpoPasoIA`). La flecha que le llega es
+      // la del CRON (abajo, una por AI Step que escucha). El ✦ de MaKo: la escribe MaKo.
+      // Los hand-offs pendientes salieron por «Otra cosa»: van en la tarjeta «Cualquier respuesta» del medio
+      // (`detalle`), o en la primera si no hay una (§3).
+      const falta = resumenPasoIA(p).falta;
       const pendientes = Math.max(0, Math.floor(Number(op.pendientesOtraCosa) || 0));
       t = {
         ...base, tipo: 'paso-ia', familia: 'contenido', titulo: TITULO.paso_ia, icono: ICONO_MAKO, puertos: [],
-        alto: altoPasoIA(p), ...(pendientes ? { detalle: `${pendientes} sin caso` } : {}),
-        ...(falta ? { advertencia: 'Falta completar un caso' } : {}),
+        alto: altoPasoIA(), ...(pendientes && id === tarjetaDeHandoffs ? { detalle: `${pendientes} sin caso` } : {}),
+        ...(falta ? { advertencia: 'Falta completar el caso' } : {}),
       };
     } else if (c === 'respuesta') {
       // «SI RESPONDE» SE DIBUJA COMO LA CONDITION QUE ESCUCHA (sexta tanda, punto 12: «Reply ya te dije
@@ -1074,7 +1108,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   const destinosDe = (id: string): Array<string | null> => {
     const visibles = (ds: Array<string | null>) => ds.map((d) => tramo(d).hasta);
     if (id !== ID_ENTRADA) return visibles(puertosDe(pasos, indicePorId(pasos, id)).map((pt) => pt.destino));
-    return [...visibles(iIni >= 0 ? puertosDe(pasos, iIni).map((pt) => pt.destino) : [raiz]), resp];
+    return [...visibles(iIni >= 0 ? puertosDe(pasos, iIni).map((pt) => pt.destino) : [raiz]), ...escuchan];
   };
   const hijos = new Map<string, string[]>();
   const asignado = new Set<string>();
@@ -1213,8 +1247,9 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // ya tenemos la tarjeta de condición»; y eligió «Una condición normal». Borrarla deja «Si responde»
   // SUELTA (`suelta`, lib/flujo-grafo.ts: el motor deja de escuchar y Publicar la frena como a cualquier
   // suelta); se vuelve a conectar arrastrando desde el CRON (`conectar`, lib/flujo-edicion.ts).
-  if (resp && pos.has(resp)) {
-    aristas.push({ desde: ID_ENTRADA, hasta: resp, puerto: 'sig', tono: 'normal', sinMas: true, quitable: true });
+  // AI Step v2: una flecha por CADA tarjeta que escucha (las AI Step son varias).
+  for (const r of escuchan) {
+    if (pos.has(r)) aristas.push({ desde: ID_ENTRADA, hasta: r, puerto: 'sig', tono: 'normal', sinMas: true, quitable: true });
   }
 
   const normal = aOrigen(nodos, MARGEN);
@@ -1292,29 +1327,24 @@ export const ICONOS_MAS = {
  * · «Si responde» y «Ir a» NO se ofrecen (cuarta tanda, puntos 4 y 12: «Elimina las tarjetas de
  *   "Reply" y "Go to"... si alguien quiere configurar que la automatización se detenga cuando alguien
  *   contesta, ya lo puede hacer con CONDITION»). Los que ya existen se dibujan, corren y se borran.
- * · «AI Step» (novena tanda) SÍ: es «Si responde» con sus casos adentro, y se ofrece con sus mismas
- *   reglas —una por automatización (`hayQueEscucha`), nunca adentro de la rama de la respuesta— desde
- *   cualquier ＋. NO se engancha en esa salida: nace colgada del CRON, como «Si responde» (no tiene
+ * · «AI Step» (novena tanda) SÍ: es «Si responde» con su caso adentro, y se ofrece con sus mismas
+ *   reglas —desde v2 VARIAS, una por caso (`puedeSumarAIStep`: no con un «Si responde» de los de siempre y
+ *   debajo del tope del medio), nunca adentro de la rama de la respuesta— desde cualquier ＋. NO se engancha en esa salida: nace colgada del CRON, como «Si responde» (no tiene
  *   padre: es un evento), y la salida queda como estaba (`insertarDesdeLienzo`).
  */
 export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, medio: boolean, puerto?: string): OpcionMas[] {
   void medio; void puerto;
   const resp = raizRespuesta(pasos);
   const enRespuesta = nodoLienzo !== ID_ENTRADA && (nodoLienzo === resp || subarbolRespuesta(pasos).has(nodoLienzo));
-  const sinAIStep = hayQueEscucha(pasos);
+  const sinAIStep = !puedeSumarAIStep(pasos);
   return MENU_MAS
     .filter((o) => !(enRespuesta && o.fueraDeRespuesta) && !(sinAIStep && o.value === 'ai_step'))
     .map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
 }
 
-/**
- * ¿Ya hay una tarjeta que escucha las respuestas («Si responde» o un AI Step), conectada o SUELTA? Hay
- * una por automatización (`validarGrafo`, y ya al GUARDAR un borrador: `validarParaGuardar`), así que con
- * una el ＋ y el click derecho no ofrecen «AI Step»: ofrecerla sería un borrador que no se guarda.
- */
-function hayQueEscucha(pasos: readonly PasoGrafo[]): boolean {
-  return pasos.some((p) => p && claseDe(p) === 'respuesta');
-}
+// (Acá vivía `hayQueEscucha`: «una tarjeta que escucha por automatización». Desde AI Step v2 hay VARIAS AI
+// Step —una por caso— y la regla es `puedeSumarAIStep` (lib/flujo-grafo.ts): no con un «Si responde» de los de
+// siempre, y debajo del tope del medio. La misma que `validarParaGuardar`.)
 
 /**
  * LO QUE SE PUEDE CREAR, una fila por tipo de tarjeta: lo leen el ＋ de cada salida
@@ -1334,8 +1364,8 @@ export const MENU_MAS: ReadonlyArray<OpcionMas & { fueraDeRespuesta?: boolean }>
   { value: 'esperar', label: 'Esperar', icono: ICONOS_MAS.esperar, grupo: 1, fueraDeRespuesta: true },
   { value: 'condicion', label: 'Condición', icono: ICONOS_MAS.condicion, grupo: 1 },
   // Novena tanda: la tarjeta que contesta cuando el lead escribe, con sus casos adentro. Va con la lógica:
-  // es la condición que escucha. No adentro de su propia rama (`fueraDeRespuesta`), y una sola
-  // (`hayQueEscucha`).
+  // es la condición que escucha. No adentro de su propia rama (`fueraDeRespuesta`); desde v2, una por caso
+  // (`puedeSumarAIStep`).
   { value: 'ai_step', label: 'AI Step', icono: ICONOS_MAS.ai_step, grupo: 1, fueraDeRespuesta: true },
   { value: 'etiqueta', label: 'Etiqueta', icono: ICONOS_MAS.etiqueta, grupo: 2 },
   { value: 'accion', label: 'Acción', icono: ICONOS_MAS.accion, grupo: 2 },
@@ -1348,9 +1378,9 @@ export const MENU_MAS: ReadonlyArray<OpcionMas & { fueraDeRespuesta?: boolean }>
  * cuelga de nada todavía) y sin «Si responde» (no se ofrece desde la cuarta tanda).
  */
 export function opcionesSueltas(pasos: readonly PasoGrafo[] = []): OpcionMas[] {
-  // «AI Step» sólo si todavía no hay una que escuche (`hayQueEscucha`): una segunda no se guarda ni como
-  // borrador. Sin `pasos`, lo de siempre (la lista entera).
-  const sinAIStep = hayQueEscucha(pasos);
+  // «AI Step» sólo si se puede sumar otra (`puedeSumarAIStep`): con un «Si responde» de los de siempre, o con
+  // el tope del medio, no se guarda ni como borrador. Sin `pasos`, lo de siempre (la lista entera).
+  const sinAIStep = !puedeSumarAIStep(pasos);
   return MENU_MAS.filter((o) => !(sinAIStep && o.value === 'ai_step')).map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
 }
 
@@ -1448,7 +1478,8 @@ export function insertarDesdeLienzo<P extends PasoParaGrafo>(
   // de ella. Nace al FINAL del array (no corre el índice de nadie), colgada del CRON, y la salida queda
   // como estaba. Una sola por automatización: si ya hay una, no se crea (el menú tampoco la ofrece).
   if (que === 'ai_step') {
-    if (base.some((p) => claseDe(p) === 'respuesta')) return { pasos: base, id: null };
+    // AI Step v2: VARIAS (una por caso). No con un «Si responde» de los de siempre ni pasado el tope del medio.
+    if (!puedeSumarAIStep(base)) return { pasos: base, id: null };
     const n = nodoNuevo('ai_step', base, rnd) as unknown as P;
     return { pasos: renumerar(normalizar([...base, n])), id: n.id! };
   }

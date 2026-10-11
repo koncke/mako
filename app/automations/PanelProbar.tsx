@@ -91,13 +91,13 @@
 // píldora son 1-4 palabras. El porqué de cada cosa vive acá, no en la pantalla.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
-import { Button, Modal } from '@/app/_ui';
-import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
+import { Button, Toast, useToast } from '@/app/_ui';
+// «Conectar» y «Vincular nuevo» (décima tanda, GENERAL 6): el modal de cada medio, uno solo para toda la tab.
+import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
+import { estadoDe, type Medio } from '@/lib/medios-automatizacion';
 import { opcionesDeSalida, valorDeSalida, RUTA_LINEAS, type LineaWa } from './SalidaWhatsApp';
-import { VincularRemitente } from './EditorEmailGmail';
-import { remitentesVinculados, partesDeRemitente } from '@/lib/email-remitente';
+import { remitentesVinculados, partesDeRemitente, remitenteDeMakoAjeno, AVISO_EMAIL_DE_MAKO } from '@/lib/email-remitente';
 import type { DomState } from '../email/EmailApp';
 import { useTitulosAcciones } from '@/app/_components/EditorAccionMako';
 import { renderEmailHtml } from '@/lib/email-html';
@@ -154,15 +154,32 @@ type DefCanalProbar = {
   contacto: keyof ContactoPrueba;
   /** El destino es un email (si no, un teléfono con su bandera). */
   destinoEsEmail: boolean;
+  /**
+   * El aviso cuando la prueba de verdad SALIÓ (décima tanda, «Probar» 1: «Si envío una prueba real... debería
+   * saltar un aviso de que ya se envió y que revise la casilla de mensajes»). El toast de la casa: 3-4 palabras.
+   */
+  enviado: string;
 };
 export const CANALES_PROBAR: Record<CanalProbar, DefCanalProbar> = {
-  whatsapp: { logo: ICONOS_MAS.whatsapp, nombre: 'WhatsApp', probarEn: 'Probar en WhatsApp', contacto: 'tieneTelefono', destinoEsEmail: false },
-  email: { logo: ICONOS_MAS.email, nombre: 'Email', probarEn: 'Probar en Email', contacto: 'tieneEmail', destinoEsEmail: true },
+  whatsapp: { logo: ICONOS_MAS.whatsapp, nombre: 'WhatsApp', probarEn: 'Probar en WhatsApp', contacto: 'tieneTelefono', destinoEsEmail: false, enviado: 'Enviado · revisa tu WhatsApp' },
+  email: { logo: ICONOS_MAS.email, nombre: 'Email', probarEn: 'Probar en Email', contacto: 'tieneEmail', destinoEsEmail: true, enviado: 'Enviado · revisa tu bandeja' },
   // Instagram y Messenger (parte «canales»): sólo el simulador, sin prueba de verdad (`probarEn` no se dibuja).
-  // Su dato de contacto no es ni teléfono ni email: se toma el del WhatsApp para elegir el camino.
-  instagram: { logo: logoSocialSvg('instagram'), nombre: NOMBRE_CANAL.instagram, probarEn: '', contacto: 'tieneTelefono', destinoEsEmail: false },
-  messenger: { logo: logoSocialSvg('messenger'), nombre: NOMBRE_CANAL.messenger, probarEn: '', contacto: 'tieneTelefono', destinoEsEmail: false },
+  // Su dato de contacto no es ni teléfono ni email: se toma el del WhatsApp para elegir el camino. Su `enviado`
+  // queda escrito para el día que tengan prueba de verdad (hoy Meta no deja escribirle primero a nadie).
+  instagram: { logo: logoSocialSvg('instagram'), nombre: NOMBRE_CANAL.instagram, probarEn: '', contacto: 'tieneTelefono', destinoEsEmail: false, enviado: 'Enviado · revisa tu Instagram' },
+  messenger: { logo: logoSocialSvg('messenger'), nombre: NOMBRE_CANAL.messenger, probarEn: '', contacto: 'tieneTelefono', destinoEsEmail: false, enviado: 'Enviado · revisa tu Messenger' },
 };
+
+/**
+ * EL RENGLÓN DE «DESDE DÓNDE → A DÓNDE» de la prueba de verdad (décima tanda, «Probar» 2: «se corta el mensaje
+ * de "MaKo <equipo@hola-mako.com> → martinkoncke@gmail.com", no debería pasar»). Antes era un renglón con
+ * `text-overflow: ellipsis` en una cabecera de una línea: con un remitente y un email largos, el destino —lo
+ * que más importa leer— era lo que se cortaba. Ahora el renglón ENVUELVE, y la flecha va PEGADA al destino con
+ * un espacio duro, así nunca queda sola al final de una línea y el destino arranca la siguiente. Pura (test).
+ */
+export function lineaDeEnvio(emisor: string | null, destino: string): string {
+  return emisor ? `${emisor} →\u00a0${destino}` : `Llega a\u00a0${destino}`;
+}
 
 /** De qué canal es un mensaje del flujo. Un paso sin canal es un WhatsApp, como en el motor. */
 export function canalDelPaso(p: { canal?: string | null }): CanalProbar {
@@ -439,6 +456,11 @@ export type EmisorDelMenu = {
   onVincular: () => void;
   /** «Vincular nuevo» no se puede (sin permiso): la fila no se dibuja. */
   puedeVincular?: boolean;
+  /**
+   * Por qué no hay ninguno, si no es «no hay» (décima tanda, EMAIL 1: el remitente del negocio es el email de
+   * MaKo y no se ofrece). Se dibuja en ámbar en lugar de «Sin remitente».
+   */
+  motivoVacio?: string;
 };
 
 const rotuloSeccion: CSSProperties = { padding: '6px 10px 2px', fontSize: 11.5, fontWeight: 600, color: 'var(--faint)' };
@@ -491,7 +513,9 @@ export function MenuDestinos({ refCaja, esEmail, guardados, onElegir, nuevo, onN
           {emisor.opciones === null && <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--faint)' }}>Cargando…</div>}
           {emisor.opciones === 'error' && <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--dim)' }}>{esEmail ? 'No pude leer tu remitente' : 'No pude leer tus números'}</div>}
           {Array.isArray(emisor.opciones) && emisor.opciones.length === 0 && (
-            <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--faint)' }}>{esEmail ? 'Sin remitente' : 'Sin números'}</div>
+            <div style={{ padding: '7px 10px', fontSize: 13, color: emisor.motivoVacio ? 'var(--warn)' : 'var(--faint)', fontWeight: emisor.motivoVacio ? 600 : undefined }}>
+              {emisor.motivoVacio ?? (esEmail ? 'Sin remitente' : 'Sin números')}
+            </div>
           )}
           {Array.isArray(emisor.opciones) && emisor.opciones.map((o) => (
             <button key={o.valor || '__default'} type="button" role="menuitemradio" aria-checked={o.valor === emisor.elegido} className="pp-destino"
@@ -563,31 +587,9 @@ export function emisorAEnviar(canal: CanalProbar, elegido: string | null): Emiso
   return canal === 'email' ? { remitente: elegido } : { linea: elegido };
 }
 
-/**
- * «Vincular nuevo» del emisor: el MISMO flujo que el resto de la app, en un modal y sin salir de
- * «Probar». WhatsApp: `EvolutionConnect` con `nueva` (el de SalidaWhatsApp y /whatsapp). Email: EL MISMO
- * MODAL del editor de Gmail (`VincularRemitente`, app/automations/EditorEmailGmail.tsx), que monta el
- * `DominioSetup` de /email y, como HOY un negocio tiene UN remitente, dice que lo REEMPLAZA
- * (`AVISO_REEMPLAZA`). Hasta la segunda pasada de la sexta tanda acá había una copia de ese modal: dos
- * modales para lo mismo son los que dejan de decir lo mismo. Y ése, si el dominio no llegó todavía, lo
- * lee él mismo (la copia decía «No se pudo abrir»).
- */
-function VincularEmisor({ canal, dom, reemplaza, onCerrar, onLinea, onDominio }: {
-  canal: CanalProbar; dom: DomState | null; reemplaza: boolean;
-  onCerrar: () => void; onLinea: (linea: string) => void; onDominio: (d: DomState) => void;
-}) {
-  if (canal === 'email') return <VincularRemitente inicial={dom} reemplaza={reemplaza} onCerrar={onCerrar} onDominio={onDominio} />;
-  // Al `body`: el panel vive en un muelle con z-index, y un `fixed` adentro de un contexto de
-  // apilamiento queda debajo de lo que tenga un z mayor (AGENTS.md, el `sticky` con z-index).
-  return createPortal(
-    <Modal titulo="Vincular número" onCerrar={onCerrar} ancho={440}>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 420 }}>
-        <EvolutionConnect key="nueva-linea" nueva inline panelVisible ocultarChip onLineaCreada={onLinea} />
-      </div>
-    </Modal>,
-    document.body,
-  );
-}
+// ⚠️ ACÁ VIVÍA `VincularEmisor` (el modal de «Vincular nuevo»: el QR de una línea nueva y el dominio de
+// /email). Se mudó a app/automations/ConectarMedio.tsx en la décima tanda (GENERAL 6): lo montan además la
+// tarjeta, Publicar y el CRON, y dos modales para lo mismo son los que dejan de decir lo mismo.
 
 async function postar(body: Record<string, unknown>): Promise<Record<string, unknown> & { ok?: boolean; error?: string }> {
   try {
@@ -663,6 +665,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   /** La prueba DE VERDAD de este recorrido, y su destino (precargado, NO se guarda). */
   const [real, setReal] = useState(false);
   const [destino, setDestino] = useState('');
+  /** El aviso de que la prueba de verdad salió («Enviado · revisa tu bandeja»): el toast de la casa. */
+  const { toast: avisoEnviado, show: mostrarAviso, clear: cerrarAviso } = useToast();
 
   // Nombres que las píldoras necesitan: las etiquetas, los títulos de las acciones y los archivos
   // de la biblioteca. Se piden sólo si el flujo los usa.
@@ -730,7 +734,17 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
 
   /** El emisor que ELIGIÓ quien prueba (null = el de siempre: la línea de la automatización / el remitente del negocio). */
   const [emisor, setEmisor] = useState<string | null>(null);
-  const [vinculando, setVinculando] = useState(false);
+  /** «Vincular nuevo» (otro emisor, del menú) o «Conectar» (el medio de la automatización, décima tanda, GENERAL 6). */
+  const [vinculando, setVinculando] = useState<false | 'nuevo' | 'conectar'>(false);
+  /**
+   * ¿EL MEDIO DE ESTA PRUEBA ESTÁ CONECTADO? (décima tanda, GENERAL 6: «al momento de probarlo también»). La
+   * misma lectura que el chip de la tarjeta (`useEstadoMedios`), con la línea de la automatización. Sin
+   * conectar, «Probar en WhatsApp/Email» pasa a «Conectar», que abre el modal ahí mismo. «No pude comprobarlo»
+   * (`conectado: null`) deja el botón de siempre: probar dirá lo que pase.
+   */
+  const medioProbar: Medio | null = canal === 'email' ? 'email' : canal === 'whatsapp' ? 'whatsapp' : null;
+  const estadoMedio = useEstadoMedios(medioProbar ? [medioProbar] : [], rolAdmin && medioProbar != null);
+  const sinConectar = medioProbar != null && estadoDe(estadoMedio ?? null, medioProbar, secuencia.instance_name ?? null)?.conectado === false;
   const vinculados = dom && dom !== 'error' ? remitentesVinculados(dom) : [];
   const opcionesEmisor: OpcionEmisor[] | 'error' | null = canal === 'email'
     ? (dom === 'error' ? 'error' : dom === null ? null : emisoresDeRemitentes(vinculados))
@@ -868,7 +882,9 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       if (!j.ok) {
         if (primero) yaSalioUno.current = false;
         if (run.current === r0) sistema(`No salió · ${j.error ?? 'error'}`, 'bad');
-      }
+      // EL AVISO DE QUE SALIÓ («Probar» 1, décima tanda): UNO por prueba, con el PRIMERO que sale de verdad (si el
+      // primero falla, `yaSalioUno` vuelve a false y el aviso lo da el siguiente que salga).
+      } else if (primero && run.current === r0) mostrarAviso(CANALES_PROBAR[c.canal].enviado, undefined, 'good');
     });
   };
 
@@ -1171,7 +1187,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const social = esCanalSocial(canal) ? canal : null;
 
   /** «Vincular nuevo» del emisor: se cierra el desplegable y se abre el flujo de siempre. */
-  const abrirVincular = () => { cerrarMenu(); setVinculando(true); };
+  const abrirVincular = () => { cerrarMenu(); setVinculando('nuevo'); };
   /** La línea recién vinculada pasa a ser el emisor, y el desplegable vuelve a abrirse para elegir «Para». */
   const alVincularLinea = (linea: string) => {
     setVinculando(false);
@@ -1253,10 +1269,12 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         <img src={def.logo} alt={def.nombre} width={22} height={22} style={{ flex: 'none', display: 'block' }} />
         <div style={{ flex: 1, minWidth: 0, display: 'flex' }}>
           {rolAdmin && real && (
-            <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--dim)', ...recorte }}>
-              <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)', flex: 'none' }} />
+            // ENVUELVE, NO SE CORTA (décima tanda, «Probar» 2): el renglón puede pasar a dos líneas y la
+            // cabecera crece con él. `lineaDeEnvio` pega la flecha al destino.
+            <div role="status" data-linea-envio style={{ display: 'flex', alignItems: 'flex-start', gap: 7, minWidth: 0, fontSize: 12.5, lineHeight: 1.35, color: 'var(--dim)', whiteSpace: 'normal' }}>
+              <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)', flex: 'none', marginTop: 5 }} />
               {/* Desde dónde y a dónde (sexta tanda, «Probar» 2). Sin emisor leído, sólo a dónde. */}
-              {rotuloEmisor ? `${rotuloEmisor} → ${destinoLegible(destino, esEmail)}` : `Llega a ${destinoLegible(destino, esEmail)}`}
+              <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{lineaDeEnvio(rotuloEmisor, destinoLegible(destino, esEmail))}</span>
             </div>
           )}
         </div>
@@ -1269,8 +1287,10 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         {/* «PROBAR EN WHATSAPP» AL LADO DE ↻, y el emisor y el destino en un DESPLEGABLE que abre el
             botón (quinta tanda, punto 1; sexta, «Probar» 2). Sólo el admin manda de verdad. */}
         {/* Sin «Probar en Instagram» de verdad: Meta no deja escribirle primero a nadie (SimuladorSocial). */}
-        {rolAdmin && !real && !social && (
-          <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu}
+        {rolAdmin && !real && !social && (sinConectar
+          // SIN CONECTAR, «Conectar» (GENERAL 6): el modal del medio ahí mismo, sin salir de la pestaña.
+          ? <Button size="sm" data-conectar-medio={medioProbar ?? undefined} aria-haspopup="dialog" onClick={() => { cerrarMenu(); setVinculando('conectar'); }}>Conectar</Button>
+          : <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu}
             onClick={() => (menu ? cerrarMenu() : !frenado() && setMenu(true))}>{def.probarEn}</Button>
         )}
         <button type="button" onClick={() => reiniciar()} title="Reiniciar" aria-label="Reiniciar" style={iconBtn}>↻</button>
@@ -1289,13 +1309,19 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
                 aria-label="Nuevo email" placeholder="nombre@correo.com" style={inpReal} />
             )}
             puedeProbarNuevo={esEmail ? !!nuevoEmail.trim() : !!numero.trim()}
-            emisor={{ opciones: opcionesEmisor, elegido: emisorVisible, onElegir: setEmisor, onVincular: abrirVincular }}
+            emisor={{
+              opciones: opcionesEmisor, elegido: emisorVisible, onElegir: setEmisor, onVincular: abrirVincular,
+              // El email de MaKo no es el del negocio (EMAIL 1): no se ofrece, y se dice por qué.
+              motivoVacio: canal === 'email' && dom && dom !== 'error' && remitenteDeMakoAjeno(dom) ? AVISO_EMAIL_DE_MAKO : undefined,
+            }}
           />
         </PopoverWA>
       )}
-      {vinculando && rolAdmin && (
-        <VincularEmisor canal={canal} dom={dom && dom !== 'error' ? dom : null} reemplaza={vinculados.length > 0}
-          onCerrar={() => setVinculando(false)} onLinea={alVincularLinea} onDominio={alVincularDominio} />
+      {vinculando && rolAdmin && medioProbar && (
+        <ConectarMedio medio={medioProbar} nueva={vinculando === 'nuevo'} linea={secuencia.instance_name ?? null}
+          dom={dom && dom !== 'error' ? dom : null} reemplaza={vinculados.length > 0}
+          onCerrar={() => setVinculando(false)} onLinea={alVincularLinea} onDominio={alVincularDominio}
+          onConectado={vinculando === 'conectar' ? () => setVinculando(false) : undefined} />
       )}
 
       {/* El cuerpo va en una caja ABSOLUTA: `ChatHilo` se mide con `height: 100%`, y contra un
@@ -1311,6 +1337,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           <span role="status" style={{ fontSize: 12.5, color: aviso.tono === 'bad' ? 'var(--bad)' : 'var(--dim)', ...recorte }}>{aviso.texto}</span>
         </div>
       )}
+      <Toast state={avisoEnviado} onClose={cerrarAviso} />
     </section>
   );
 }

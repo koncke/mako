@@ -34,6 +34,9 @@
 //                                                            (400 con el motivo si no se puede)
 // GET ?canales=1 → { ok, canales } — ¿están conectados Instagram, Messenger y el email? (el CRON los
 //                  ofrece sólo si lo están: lib/disparadores-canales.ts)
+// GET ?medios=whatsapp,email,… → { ok, medios } — ¿están conectados los medios por los que SALE una
+//                  automatización? (décima tanda, GENERAL 6: el chip «Sin conectar» de la tarjeta y el
+//                  «Conectar» de Probar). Sólo los pedidos: Zernio tarda. lib/medios-automatizacion.ts
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -70,7 +73,8 @@ import { guardarPosicionesSecuencia, type DbPosiciones } from '@/lib/secuencia-p
 import { guardarBorradorSecuencia, descartarBorradorSecuencia, type DbBorrador } from '@/lib/secuencia-borrador';
 // VARIOS CRON (sexta tanda, mig 0241): guardar la lista y saber qué canales se pueden ofrecer.
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
-import { estadoCanalesDisparo } from '@/lib/disparadores-canales';
+import { estadoCanalesDisparo, estadoMedios } from '@/lib/disparadores-canales';
+import { mediosDeConsulta } from '@/lib/medios-automatizacion';
 // LA GALERÍA (10/10/2026): crear una automatización desde una plantilla. Los pasos van por
 // `setSecuenciaPasos` y el CRON por `guardarDisparadores`, las puertas de siempre (lib/plantilla-crear.ts).
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
@@ -93,6 +97,15 @@ export async function GET(req: NextRequest) {
   }
   // ¿Están conectados Instagram, Messenger y el email? Aparte del GET de siempre, a propósito: le
   // pregunta a Meta (hasta 6 s) y sólo lo necesita el editor del CRON al abrir uno de esos canales.
+  // Los MEDIOS de una automatización (GENERAL 6): sólo los que se piden. Aparte de `canales`, que le pregunta
+  // a Meta por la página (lo que ESCUCHA un CRON); esto mide lo que MANDA un paso.
+  const pedidos = req.nextUrl?.searchParams.get('medios');
+  if (pedidos != null) {
+    try { return Response.json({ ok: true, medios: await estadoMedios(mediosDeConsulta(pedidos)) }); } catch (e) {
+      console.error(`[api:setting/secuencias GET medios] ${msg(e)}`);
+      return Response.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
+  }
   if (req.nextUrl?.searchParams.get('canales') === '1') {
     try { return Response.json({ ok: true, canales: await estadoCanalesDisparo() }); } catch (e) {
       console.error(`[api:setting/secuencias GET canales] ${msg(e)}`);

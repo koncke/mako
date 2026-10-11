@@ -17,7 +17,7 @@ import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
 import { motivoNoInscribe } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA } from '@/lib/flujo-grafo';
+import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe } from '@/lib/flujo-grafo';
 import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo, AVISO_REPETIDO } from '@/lib/nutricion-grafo-motor';
 import { getAdjunto } from '@/lib/setting-adjuntos';
 import { emitirAviso } from '@/lib/avisos';
@@ -34,7 +34,9 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { PREFIJO_FLUJO } from '../canal';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { partesExplicitas, pasosUsanAudio } from '@/lib/mensaje-partes';
-import { getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia, muestraParaCriterio, TriggerInvalidoError } from '@/lib/setting-secuencias';
+import { getSettingData, guardarEstrategia, probarSecuencia, muestraParaCriterio, TriggerInvalidoError } from '@/lib/setting-secuencias';
+import { crearFlujoConIA, hayIAParaCrear } from '@/lib/flujo-ia-crear';
+import { falloDeIA } from '@/lib/flujo-ia';
 import { parseEstrategia, OBJETIVOS, type Estrategia, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import { huecosDeSecuencias, archivarSecuencias } from '@/lib/secuencias-huecos';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
@@ -186,10 +188,16 @@ function textoDeUnCron(d: Disparador): string {
 function fichaPasoIA(p: PasoSecuencia) {
   return {
     paso_ia: true as const,
+    // AI Step v2 (décima tanda): por dónde escucha, y un caso por tarjeta con lo nuevo (objetivo, «Cualquier
+    // respuesta», «Sólo te avisa», hasta cuándo, audio, ejemplos del ensayo).
+    medio: medioDe(p),
+    suelta: p.suelta === true,
     instrucciones: p.instrucciones ?? null,
     otra_aviso: p.otra_aviso ?? null,
     casos: (p.casos ?? []).map((c) => ({
       id: c.id, titulo: c.titulo, cuando: c.cuando, responder: c.responder ?? null, sola: c.sola === true, avisar: c.avisar === true,
+      objetivo: c.objetivo ?? null, cualquiera: c.cualquiera === true, no_contesta: c.no_contesta === true,
+      hasta: c.hasta === 'una' ? 'una' : 'objetivo', audio: c.audio ?? null, ejemplos: (c.ejemplos ?? []).length,
     })),
   };
 }
@@ -242,7 +250,7 @@ export const RUNNERS: Runners = {
         metricas_30d: { ventana: ventana30(), ...s.metricas },
         historico: { inscriptos: s.inscriptos, enviados: s.enviados },
         notas: [
-          'Un «Si responde» con paso_ia=true (AI Step) contesta adentro: cada caso dice cómo responde (responder, con el tono de instrucciones arriba), si sale solo (sola) y si te avisa (avisar); lo que no encaja va a «Otra cosa», que avisa con otra_aviso.',
+          'Un «Si responde» con paso_ia=true (AI Step) contesta adentro, UNA tarjeta por caso (puede haber varias, cada una con su medio): el caso dice qué tiene que lograr (objetivo), cuándo entra (cuando, o cualquiera=true para lo que no encaja en otra), cómo responde (responder), si sale solo (sola), si sólo avisa sin contestar (no_contesta), hasta cuándo (hasta) y si te avisa (avisar). Sin un «cualquiera», lo que no encaja avisa con otra_aviso.',
           'Un paso con sin_terminar=true no sale nunca: el motor lo reprograma cada 24 h.',
           'Los [tu link …] salen literales al lead: nada los reemplaza.',
           'activa=true no garantiza envíos: mira estado_canal_whatsapp_chatbot.',
@@ -461,18 +469,38 @@ export const RUNNERS: Runners = {
     ejecutar: (payload, ctx) => ejecutarAccion(ctx.ws, 'nutricion_toggle', payload),
   },
 
-  crear_secuencia_mensajes: {
-    preparar: async (input) => {
-      const etapa = str(input, 'etapa');
-      const nombre = str(input, 'nombre');
-      const etapas = await etapasParaSecuencia();
-      const e = etapas.find((x) => x.value === etapa);
-      if (!e) return { error: `«${etapa}» no es una etapa de este funnel donde se pueda colgar una secuencia.`, disponibles: etapas };
-      return { payload: { etapa, nombre }, resumen: `Crear la secuencia «${nombre}» en la etapa «${e.label}» (nace pausada y sin texto)` };
+  // «Pídeselo a MaKo» por la API (décima tanda; la def explica el porqué de cada decisión). Reemplaza a
+  // `crear_secuencia_mensajes`, que se retiró.
+  crear_automatizacion_con_ia: {
+    preparar: async (input, ctx) => {
+      // ⚠️ UN FLUJO NO LA CORRE: `ctxDeFlujo` usa el canal `app`, así que toda acción `app` aparece sola como «⚡ Acción»
+      // en los lienzos. Una automatización que crea automatizaciones con IA cada vez que alguien entra es un lazo que gasta
+      // la IA del negocio. Además se saca de la lista del lienzo (`NO_EN_FLUJOS`, lib/api-mako/flujo.ts).
+      if (desdeUnFlujo(ctx)) return { error: 'Una automatización no puede crear automatizaciones: pídeselo a MaKo por el grupo o en Automations.' };
+      const pedido = str(input, 'pedido');
+      if (!pedido) return { error: 'Falta qué tiene que hacer la automatización.', faltan: ['pedido'] };
+      // Todo lo que se puede saber sin escribir falla ACÁ (AGENTS.md): confirmar reclama la pendiente y no vuelve.
+      // El link a donde se arregla lo escribe el código y va a la persona (`paraLaPersona`), nunca por el modelo.
+      if (!(await hayIAParaCrear())) {
+        const f = falloDeIA([], false);
+        return { error: f.error, ...(f.link ? { paraLaPersona: `${f.error} Conéctala aquí 👉 ${linkApp(f.link, ctx.ws)}` } : {}) };
+      }
+      return { payload: { pedido }, resumen: `Crear con IA: «${pedido.length > 120 ? `${pedido.slice(0, 119)}…` : pedido}» (nace pausada)` };
     },
-    ejecutar: async (payload) => {
-      const id = await crearSecuenciaDesdeEtapa(String(payload.etapa), String(payload.nombre));
-      return { ok: true, resumen: `Secuencia «${String(payload.nombre)}» creada (#${id}), pausada y con dos pasos sin texto.`, datos: { secuenciaId: id } };
+    ejecutar: async (payload, ctx) => {
+      // 170 s: el turno del doer corre en un `after()` con `maxDuration` 300 y ya gastó lo suyo.
+      const r = await crearFlujoConIA({ ws: ctx.ws, pedido: String(payload.pedido ?? ''), plazoMs: 170_000 });
+      if (!r.ok) return { ok: false, resumen: r.error, ...(r.link ? { paraLaPersona: `${r.error} 👉 ${linkApp(r.link, ctx.ws)}` } : {}) };
+      // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser
+      // exacto). `/automations?sec=<id>` abre el lienzo de esa automatización, y `linkApp` le pega el `?ws=`.
+      const link = linkApp(`/automations?sec=${r.secuenciaId}`, ctx.ws);
+      const falta = r.disparador ? '' : ' Le falta elegir qué la dispara.';
+      return {
+        ok: true,
+        resumen: `Automatización «${r.nombre}» creada (#${r.secuenciaId}), pausada.${falta}`,
+        datos: { secuenciaId: r.secuenciaId },
+        paraLaPersona: `🧩 «${r.nombre}» quedó pausada.${falta} Ábrela y actívala 👉 ${link}`,
+      };
     },
   },
 

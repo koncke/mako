@@ -310,7 +310,9 @@ test('el prompt dice la regla (la primera capa) y la ruta le pasa el pedido y la
   assert.match(CREAR_IA_SYSTEM_TEMPLATE, /Si el pedido habla de un alumno .* van TODAS las claves de «Entrega» de ese producto/);
   // El bloque DISPARADORES sigue diciendo qué es cada línea (Etapa / Entrega por producto).
   assert.match(bloqueDisparadores(ctxIA().disparadores), /- Entrega · Curso \(llega a\): d\d+ Bienvenida · d\d+ Módulo 1/);
-  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+  // «La ruta» son dos archivos desde la décima tanda (11/10/2026): el contexto y el CRON de crear se mudaron a
+  // lib/flujo-ia-crear.ts, que llama también la API de MaKo («Pídeselo a MaKo» por WhatsApp).
+  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts') + '\n' + leer('lib/flujo-ia-crear.ts'));
   assert.match(ruta, /numerosPermitidos: numerosEn\(`\$\{perfil\}\\n\$\{pedido\}`\),\n\s*pedido,/);
   assert.match(ruta, /etapas: Array\.isArray\(pedidoTrigger\.etapas\) \? \(pedidoTrigger\.etapas as unknown\[\]\)\.map\(String\) : null,/);
 });

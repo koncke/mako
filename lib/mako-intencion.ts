@@ -96,6 +96,34 @@ export type VeredictoIntencion = {
 /** Lo que dice un pedido de agenda para el presupuesto: pone primero las de agenda. */
 export const RELEVANCIA_AGENDA = 'agendar reagendar mover cambiar cancelar reunion visita cita agenda evento';
 
+// ── EL PEDIDO DE CREAR UNA AUTOMATIZACIÓN («Pídeselo a MaKo» por WhatsApp) ─────────────────────────
+// Décima tanda (11/10/2026), Martín: «por el grupo de WhatsApp con MaKo si escribo o envio un audio pidiendo que cree
+// una automatización, lo haga llamando justamente a esta función» (`crear_automatizacion_con_ia`). Medido ese día con el
+// turno que CORRE (`clasificarIntencion` → `herramientasDelTurno`): «creame una automatización que…» caía en `capturar`
+// (material para anotar, dudosa) y «Crea una automatización para los que no vinieron…» llegaba como `actuar` pero con la
+// acción AFUERA del presupuesto de 12.000 caracteres — las del CRM y de closing nombraban más palabras del mensaje. Como
+// la agenda: el clasificador lo reconoce, le pone el área y la relevancia que pone primero su herramienta.
+//   · Es un IMPERATIVO o un «quiero / necesito una…» con la automatización (o el flujo) a pocas palabras del verbo. El
+//     INFINITIVO («Crear automatización de cobranza») NO: así se dicta una tarea del plan, y lo toma antes el dictado.
+//   · Una pregunta («¿cómo funciona la automatización…?») tampoco: la frena `ARRANCA_PREGUNTANDO`.
+export const RELEVANCIA_AUTOMATIZACION = 'crear automatizacion con ia flujo pedido';
+const VERBO_CREAR_AUTOMATIZACION = /\b(?:crea(?:me|nos|la)?|arma(?:me|nos|la)?|hace(?:me|nos|la)?|haz(?:me|nos|la)?|genera(?:me|nos|la)?|configura(?:me|nos|la)?|monta(?:me|nos|la)?|programa(?:me|nos|la)?|(?:puedes|podes|podrias|quiero que|necesito que)\s+(?:me\s+|nos\s+)?(?:crear|armar|hacer|generar|configurar|montar|programar|crees|armes|hagas|generes|configures)|(?:quiero|necesito|quisiera)\s+(?:un|una|otra|otro))\b/;
+// ⚠️ REVISIÓN DE LA DÉCIMA TANDA (11/10/2026, corrido contra `clasificarIntencion`): «Quiero una reunión sobre el
+// flujo de ventas mañana a las 10» y «Haz el flujo de caja de octubre» salían como pedido de crear una automatización,
+// y el primero llegaba SIN las herramientas de la agenda. Dos cortes: «flujo de caja / efectivo / fondos / dinero» es
+// plata, no un flujo de mensajes; y entre el verbo y el sustantivo no puede haber OTRO objeto de agenda (una reunión,
+// una llamada…): «créame una reunión del flujo» es de la agenda.
+const SUSTANTIVO_AUTOMATIZACION = /(?:automatizacion(?:es)?|automations?|flujos?\b(?!\s+de\s+(?:caja|efectivo|fondos|dinero)\b))\b/;
+const OTRO_OBJETO = /(?:reunion|reuniones|llamada|llamadas|videollamada|cita|citas|junta|evento|visita)\b/;
+const PEDIDO_AUTOMATIZACION = new RegExp(`${VERBO_CREAR_AUTOMATIZACION.source}\\s+(?:(?!${OTRO_OBJETO.source})\\S+\\s+){0,3}?${SUSTANTIVO_AUTOMATIZACION.source}`);
+
+/** ¿Le pide a MaKo que CREE una automatización? (sobre el texto normalizado: sin tildes y en minúsculas). */
+export function esPedidoAutomatizacion(n: string): boolean {
+  const t = n.replace(PRELUDIO, '').trim();
+  if (!t || t.length > 1500 || ARRANCA_PREGUNTANDO.test(t)) return false;
+  return PEDIDO_AUTOMATIZACION.test(t);
+}
+
 // ── EL PEDIDO SOBRE UN LEAD DEL CRM ─────────────────────────────────────────────
 // EL CASO (08/10/2026, ws15). Joan, por audio, en el grupo de MaKo de una inmobiliaria: «Macu,
 // anotá en el lead que llegó Nicolás lo que dijo Bright… Anotá en el lead Nicolás como una nota
@@ -651,7 +679,18 @@ export function clasificarIntencion(
     return { intencion: 'capturar', dudosa: false, porque: 'links sin instrucción: material para guardar' };
   }
 
-  // 6-bis) Un pedido de agenda: crear, mover, cambiar o cancelar una reunión (ver
+  // 6-bis) Un pedido de CREAR una automatización («Pídeselo a MaKo» por WhatsApp, décima tanda; ver
+  //        `esPedidoAutomatizacion`). Mismo lugar que la agenda y por lo mismo: «¿me podés armar un flujo…?» termina en
+  //        «?» y «creame una automatización» caía en el default. Lleva el área y la relevancia de su herramienta.
+  //        ⚠️ VA ANTES DE LA AGENDA (medido el 11/10/2026 con el turno que corre): «créame una automatización que le
+  //        escriba a los que no vinieron a la REUNIÓN» es un verbo de crear + «reunión», y la agenda se lo llevaba —
+  //        llegaba con las herramientas de Google Calendar y sin la de crear—. El pedido de automatización exige el
+  //        sustantivo a tres palabras del verbo, así que «créame una reunión» sigue siendo de la agenda.
+  if (esPedidoAutomatizacion(nPersona)) {
+    return { intencion: 'actuar', dudosa: false, porque: 'pedido de crear una automatización', areas: ['chatbot'], relevancia: RELEVANCIA_AUTOMATIZACION };
+  }
+
+  // 6-ter) Un pedido de agenda: crear, mover, cambiar o cancelar una reunión (ver
   //        `esPedidoAgenda`). Va DESPUÉS del dictado —una lista o un «Idea:» siguen siendo
   //        material— y ANTES de la pregunta y del imperativo: «¿me podés agendar…?» termina
   //        en «?» y «agendame…» es un imperativo, y los dos se iban sin poder escribir.
@@ -765,7 +804,10 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   ads: /\b(campa[ñn]as?|anuncios?|ads\b|meta ads|presupuesto|adsets?|conjuntos?|creativos?|pauta|cpl|cpm|ctr|guion(es)? de anuncio)/i,
   whatsapp: /\b(whatsapp|plantillas?|borrador(es)?|conversaci[oó]n|chat con|mensaje a)/i,
   email: /\b(e-?mails?|correos?|mails?|broadcasts?|newsletter|remitente|dominio de env)/i,
-  chatbot: /\b(secuencias?|nutrici[oó]n|chatbot|bot\b|seguimiento autom|handoff)/i,
+  // `automatización`, `automations` y `flujo` (décima tanda, 11/10/2026): desde el renombre de la tab a Automations,
+  // «créame una automatización que…» no traía NINGUNA herramienta del área, y «Pídeselo a MaKo» por WhatsApp
+  // (`crear_automatizacion_con_ia`) no llegaba al turno.
+  chatbot: /\b(secuencias?|nutrici[oó]n|chatbot|bot\b|seguimiento autom|handoff|automatizaci[oó]n(es)?|automations?|flujos?\b)/i,
   metricas: /\b(m[eé]tricas?|n[uú]meros|inversi[oó]n|gast[oóé]|cac\b|roas|dashboard|ingresos?|facturaci|cu[aá]nto (vend|invert|gast|cobr)|cascada)/i,
   experimentos: /\b(experimentos?|hip[oó]tesis|retro\b|retrospectiva|conclusi[oó]n)/i,
   landing: /\b(landing|p[aá]gina|p[ií]xel|pixel|tracking|vsl)/i,

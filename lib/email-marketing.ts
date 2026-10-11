@@ -14,7 +14,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import type { PasoSecuencia } from '@/lib/nutricion';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
-import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox } from '@/lib/resend';
+import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, remitenteEsDeMako } from '@/lib/resend';
 import { firmaDelPie } from '@/lib/email-remitente';
 import { getWorkspace, getWorkspaceActual } from '@/lib/workspace';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
@@ -726,6 +726,12 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
   const emailOn = await envioEmailHabilitado();
   if (emailOn && (await remitenteEsSandbox())) {
     return vacio('remitente sandbox: verifica tu dominio de envío antes de enviar');
+  }
+  // Y el email de MaKo tampoco (décima tanda, EMAIL 1): `sendEmail` se niega a mandar con él, y sin este corte
+  // cada destinatario quedaba anotado como un fallo — o sea como ya intentado, que es lo que el reanudable
+  // saltea: conectar después el dominio propio no les mandaba el broadcast.
+  if (emailOn && (await remitenteEsDeMako())) {
+    return vacio('el remitente es el email de MaKo: conecta tu propio email antes de enviar');
   }
 
   const todos = await leadsDeSegmento(b.segmento);

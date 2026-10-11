@@ -41,13 +41,16 @@ const numero = (src: string, re: RegExp, que: string): number => {
 test('⚠️ el panel apaisado va encima de la esquina de avisos y de «Crear con IA», debajo de los modales; «Publicar», encima del panel', () => {
   const esquina = numero(sinComentarios(leer('../app/_components/EsquinaAvisos.tsx')), /position: 'fixed', right: 20, bottom: 'var\(--esquina-abajo, 20px\)', zIndex: (\d+)/, 'el z de la esquina de avisos');
   const perfil = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
-  const ini = perfil.indexOf('{rolAdmin && pasos.length === 0 && (');
+  // Desde la décima tanda (11/10/2026) queda UNA caja: la barra «Pídele un cambio» (editar). La del lienzo vacío
+  // («Generar con IA», modo crear) se fue al modal «Nueva automatización» (docs/diseno-automations-galeria-v2.md §1).
+  assert.ok(!perfil.includes('{rolAdmin && pasos.length === 0 && ('), 'volvió la caja «Generar con IA» del lienzo vacío');
+  const ini = perfil.indexOf('{rolAdmin && editandoIA && pasos.length > 0 && (');
   const fin = perfil.indexOf('<FlujoLienzo', ini);
-  assert.ok(ini >= 0 && fin > ini, 'no encontré las cajas de «Crear con IA»');
+  assert.ok(ini >= 0 && fin > ini, 'no encontré la caja de «Crear con IA»');
   const cajas = perfil.slice(ini, fin);
   assert.ok(cajas.length < 1_200, `el recorte mide ${cajas.length}: está mirando otra cosa`);
   const zIA = [...cajas.matchAll(/zIndex: (\d+)/g)].map((m) => Number(m[1]));
-  assert.equal(zIA.length, 2, 'las dos cajas de «Crear con IA» (crear y editar) declaran su capa');
+  assert.equal(zIA.length, 1, 'la caja de «Crear con IA» (editar) declara su capa');
   const modales = numero(leer('../app/_components/pila-modales.ts'), /const Z_BASE = (\d+);/, 'la base de la pila de modales');
   assert.ok(Z_EDITOR_APAISADO > esquina, `el panel (${Z_EDITOR_APAISADO}) no le gana a la esquina de avisos (${esquina}): tapa «Revisar antes de enviar»`);
   for (const z of zIA) assert.ok(Z_EDITOR_APAISADO > z, `el panel (${Z_EDITOR_APAISADO}) no le gana a la caja de «Crear con IA» (${z})`);

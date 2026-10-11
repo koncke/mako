@@ -198,7 +198,8 @@ test('el motor manda con el remitente del paso (si es del dominio) y firma con e
   assert.match(llamada, /^const r = await sendEmail\(\{\s*to: lead\.email,\s*\.\.\.\(fromPaso \? \{ from: fromPaso \} : \{\}\),/, 'el From del paso no llega a sendEmail');
   assert.match(llamada, /fromName: firmaDelPie\(negocio\),/, 'la firma del pie no es el negocio');
   // El `remitente` que compara es el del WORKSPACE (getEmailFrom), el mismo que decide el sandbox.
-  assert.match(MOTOR, /const \[waOn, emailOn, sandbox, remitente, lineasEvo\] = await Promise\.all\(\[\s*envioWhatsappHabilitado\(\),\s*envioEmailHabilitado\(\),\s*remitenteEsSandbox\(\),\s*getEmailFrom\(\),/);
+  // (Décima tanda, EMAIL 1: la tupla suma `remitenteDeMako` al final; lo fija tests/decima-remitente-mako.test.ts.)
+  assert.match(MOTOR, /const \[waOn, emailOn, sandbox, remitente, lineasEvo, remitenteDeMako\] = await Promise\.all\(\[\s*envioWhatsappHabilitado\(\),\s*envioEmailHabilitado\(\),\s*remitenteEsSandbox\(\),\s*getEmailFrom\(\),/);
   assert.doesNotMatch(MOTOR, /displayNameDe\(/, 'volvió la firma con el nombre visible del remitente');
 });
 

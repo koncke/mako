@@ -65,6 +65,10 @@ const CANAL: Record<string, string> = {
   'lib/zernio-entrante.ts': 'la persona, su mensaje y el disparador de un evento',
   'app/api/webhooks/zernio/route.ts': 'el webhook (firma, ruteo, dedup)',
   'app/api/zernio/route.ts': 'la cuenta de salida del editor y «Conectar»',
+  // Décima tanda (11/10/2026, GENERAL 6): «una automatización que usa un medio que aún no conectó, en la tarjeta
+  // lo debe decir... y no dejar publicarlo». Es la MISMA pregunta que la ruta de arriba (¿hay una cuenta?), hecha
+  // por el server para el chip, Publicar y Activar (`estadoMedios`). Sólo lee: no manda nada.
+  'lib/disparadores-canales.ts': '¿está conectada la cuenta de Instagram o Messenger? (`estadoMedios`)',
   'lib/metodo-verificar.ts': 'el ping de la integración (GET /profiles)',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',

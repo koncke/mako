@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// GaleriaPlantillas — «＋ Nueva»: en blanco, con MaKo o desde una plantilla
+// GaleriaPlantillas — «＋ Nueva»: pedírsela a MaKo, en blanco o desde una plantilla
 // =============================================================================
 // Pedido de Martín (10/10/2026), al preguntarle si quería las automatizaciones de los clientes como
 // galería al crear o copiadas a su workspace: «Si, hagamos la galería de las más comunes...». La
@@ -9,64 +9,56 @@
 // server (POST /api/chat-agent/secuencias `crear_desde_plantilla`, lib/plantilla-crear.ts): APAGADA,
 // en este workspace y sin un envío.
 //
-// UNA PREGUNTA POR PANTALLA (la regla de la casa, «un paso por pantalla»):
-//   1. ¿Cómo empiezas? Dos tarjetas grandes —«En blanco» y «Con MaKo», lo de «＋ Nueva»— y debajo
-//      la galería: emoji, nombre y una línea. Elegir una la crea y la abre.
-//   2. ¿En qué etapa arranca? Sólo si la plantilla arranca en una etapa del negocio Y el negocio tiene
-//      etapas de ese kanban: el desplegable de la casa con LAS MISMAS opciones que el editor del CRON
-//      (`seccionesParaCron` sale de `pasosDisparo`). «Elegir después» la crea con el CRON a elegir,
-//      que es lo que dice la tarjeta CRON de una recién creada («Elige qué la dispara»).
+// ── LA GALERÍA v2 (décima tanda, 11/10/2026: docs/diseno-automations-galeria-v2.md §1 y §2) ──────────────
+// Martín, textual: «elimina los pasos de "¿Qué la dispara?", eso ya lo hacemos dentro en el CRON», «Elimina los
+// títulos... Como el de "O empieza así" o el de "Desde una plantilla"», «Que la primera "plantilla" sea siempre
+// "Lienzo en blanco"», «Agrega una barra de busqueda y filtro para buscar plantillas. No importa la busqueda o filtro,
+// la primera siempre "Lienzo en blanco"» y «La opción de "Pideselo a MaKo"... allí mismo ya debería poder escribir y
+// grabar audio». De arriba abajo, sin rótulos de sección (queda sólo el título del Modal):
+//   1. «Pídeselo a MaKo»: la caja de Crear con IA en `modo: 'galeria'` (app/automations/CrearConIA.tsx), con el
+//      micrófono de siempre. La fila nace AL GUARDAR (lib/flujo-ia-crear.ts): cancelar no deja nada.
+//   2. El buscador y el filtro (Canal y Objetivo) en una fila. Lo que filtra es puro y con test
+//      (`filtrarPlantillas`, `alternarFiltroGaleria`).
+//   3. La grilla: «Lienzo en blanco» PRIMERA SIEMPRE (ningún texto ni filtro la saca), «Pegar lo copiado» si hay algo
+//      copiado, y las plantillas que pasan el filtro — las del Chatbot y las de «MaKo en WhatsApp» MEZCLADAS, con la
+//      misma tarjeta. Sin resultados: «Lienzo en blanco» y una línea.
+//   · «＋ Nuevo mensaje» de la lista (`seccion="mako"`) ya no lleva con scroll: abre con el filtro Canal = «MaKo en
+//     WhatsApp» puesto (`filtroDeSeccion`).
+//   ⛔ Se fueron «¿Qué la dispara?» (los seis botones del CRON, `ElegirClase`) y su consumidor (`arranque`, que abría el
+//   CRON de la recién creada en ese tipo), los rótulos de sección y el scroll a la sección de MaKo.
 //
-// ⚠️ «EN BLANCO» ES DE QUIEN MONTA ESTO (`onEmpezar`; «Con MaKo» se fue: hacía lo mismo): crea la automatización vacía
-// de «＋ Nueva» (`crearNueva`, app/automations/ChatAgentApp.tsx), que es la que abre la caja de Crear
-// con IA. Esta pantalla no tiene su propio camino para eso: sería la segunda copia de «Nueva».
+// UNA PREGUNTA POR PANTALLA (la regla de la casa, «un paso por pantalla»): elegir una plantilla que arranca en una etapa
+// (o una etiqueta) del negocio pregunta CUÁL, con LAS MISMAS opciones que el editor del CRON (`seccionesParaCron`,
+// `seccionesDeEtiquetas`). «Elegir después» la crea con el CRON a elegir.
+//
+// ⚠️ «LIENZO EN BLANCO» ES DE QUIEN MONTA ESTO (`onBlanco`): crea la automatización vacía de «＋ Nueva» (`crearNueva`,
+// app/automations/ChatAgentApp.tsx). Esta pantalla no tiene su propio camino para eso: sería la segunda copia de «Nueva».
 //
 // ⚠️ EL `onCerrar` DEL MODAL VA CON IDENTIDAD FIJA (AGENTS.md: el efecto de foco del Modal depende
 // de él, y una flecha nueva por render le devuelve el foco atrás en cada cambio). Y mientras se crea
-// no se cierra: lo único no interrumpible es una operación en curso.
+// —una plantilla o con MaKo— no se cierra: lo único no interrumpible es una operación en curso.
 //
 // ⚠️ EL HOVER VA EN LA CLASE, NUNCA EN EL `style` (docs/hallazgos-chatbot.md, parte «horario»: un
 // `border` en línea anula el `:hover` de la clase).
-//
-// ── DESDE EL 10/10/2026: LA PRIMERA PANTALLA ES «¿QUÉ LA DISPARA?» ──────────────────────────────
-// Pedido de Martín, textual: «Que automáticamente al crear, me salte el desplegable de "Nuevo cron" con
-// las opciones... Pero como es una nueva automatización, que este desplegable esté en el medio esta
-// vez, que cubra todo. Y que abajo de las 6 opciones, estén los "templates" de casos típicos de flujos,
-// y si apreto esos, que se cree solo. Y que en ese mismo modal esté la opción de pedirle a la IA...
-// Revisa como acomodar bien estas 3 cosas para que no esté todo un bulto que no se entienda».
-// El acomodo, de arriba abajo y cada cosa con su rótulo: (1) los SEIS botones del CRON, los mismos del
-// panel (`ElegirClase`, app/automations/EditorDisparadores.tsx) — elegir uno crea la automatización y
-// abre su CRON en ese tipo; (2) una fila con dos salidas, «Pídesela a MaKo» (la crea vacía y abre la
-// caja de Crear con IA) y, si hay algo copiado, «Pegar lo copiado» (copiar flujo, lib/flujo-copia.ts);
-// (3) las plantillas. El modal es ANCHO (cubre casi todo) y el viejo «En blanco» se fue: era lo mismo
-// que «Pídesela a MaKo» sin decirlo.
-//
-// ── 11/10/2026: (4) «MaKo EN WHATSAPP», LAS PLANTILLAS DE LOS EVENTOS DE MaKo ────────────────────────
-// Martín: «Todo ahora es lo mismo... debe ser IDENTICO» (docs/diseno-mako-en-whatsapp-unificado.md). Los
-// mensajes de MaKo son automatizaciones con el CRON «Evento de MaKo», y NADIE nace con una: se agregan
-// desde ACÁ, en su propia sección al pie (`esPlantillaMako`, lib/plantillas-automatizaciones.ts), con la
-// MISMA tarjeta que las demás. «＋ Nuevo mensaje» de la lista abre esta galería con `seccion="mako"`, que
-// la lleva hasta esa sección. De un evento se pueden tener VARIAS: no se apagan con «Ya la tienes».
-//   ⛔ Hasta acá iba (novena tanda) la sección de los Mensajes de MaKo que el negocio había «eliminado», para
-//   recuperarlos. Se fue con ellos: una automatización se archiva, como cualquiera.
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
-import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { Dropdown } from '@/app/components/Dropdown';
+import { Icon } from '@/app/_components/icons';
 import {
-  PLANTILLAS, seccionesParaCron, rotuloDeEleccion, esPlantillaMako, ROTULO_MENSAJES_MAKO, type PlantillaAutomatizacion, type PideCron,
+  PLANTILLAS, seccionesParaCron, seccionesDeEtiquetas, rotuloDeEleccion, filtrarPlantillas, filtroDeValores, alternarFiltroGaleria,
+  gruposDelFiltroGaleria, filtroDeSeccion,
+  type PlantillaAutomatizacion, type PideCron, type EtiquetaParaPlantilla,
 } from '@/lib/plantillas-automatizaciones';
 import type { ProductoParaDisparo } from '@/lib/flujo-conversacion';
-import { ElegirClase } from './EditorDisparadores';
-import type { ClaseDisparador } from '@/lib/disparadores';
 import { leerCopia } from '@/lib/flujo-copia';
-import { MakoStar } from '@/app/_components/MakoBrand';
 import { TRIGGER_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
-
-/** Las dos formas de empezar sin plantilla (las de «＋ Nueva»). */
-export type QueNueva = 'blanco' | 'mako';
+import { useEtiquetasTodas } from '@/app/_components/etiquetas-cliente';
+import { CrearConIA, type ListoCrearIA } from './CrearConIA';
+import { CSS_NUEVO } from './NuevoPlaceholder';
+import { IconoDisparador } from './IconosDisparador';
 
 /** Lo que contesta el server al crear una desde una plantilla. */
 export type CreadaGaleria = {
@@ -78,34 +70,31 @@ export type CreadaGaleria = {
   aviso: string | null;
 };
 
+/** La que creó MaKo desde la caja: ya guardada y pausada. */
+export type CreadaConIAGaleria = Pick<ListoCrearIA, 'secuenciaId' | 'nombre' | 'avisos'>;
+
 const API = '/api/chat-agent/secuencias';
 /** El tope del pedido: crear son tres escrituras; si no contesta en esto, algo está mal y se dice. */
 const TOPE_MS = 30_000;
 
-/**
- * La tarjeta de arriba. ERAN DOS, «En blanco» y «Con MaKo», y hacían LO MISMO (10/10/2026, al enchufarla):
- * una automatización vacía se abre siempre con la caja de Crear con IA abajo y el ＋ del CRON arriba, así
- * que «Con MaKo» no tenía nada propio que hacer. Dos botones con el mismo resultado se leen como que uno
- * está roto: queda una, que dice las dos cosas. El texto es corto a propósito.
- */
-export const EMPEZAR: ReadonlyArray<{ que: QueNueva; nombre: string; linea: string; icono: 'agregar' | 'mako' }> = [
-  { que: 'mako', nombre: 'Pídesela a MaKo', linea: 'Cuéntale qué quieres y la arma.', icono: 'mako' },
-];
-
 export const TITULO_GALERIA = 'Nueva automatización';
-export const ROTULO_CRON = '¿Qué la dispara?';
-export const ROTULO_OTRAS = 'O empieza así';
-export const ROTULO_PLANTILLAS = 'Desde una plantilla';
 export const PREGUNTA_ETAPA = '¿En qué etapa arranca?';
-/** A qué sección de la galería se va al abrirla: `mako` = «MaKo en WhatsApp» (el «＋ Nuevo mensaje» de la lista). */
+export const PREGUNTA_ETIQUETA = '¿Con qué etiqueta arranca?';
+/** «Lienzo en blanco»: la primera tarjeta, SIEMPRE (`data-empezar="blanco"`). */
+export const BLANCO = { nombre: 'Lienzo en blanco', linea: 'Empieza de cero.' } as const;
+export const PLACEHOLDER_BUSCAR = 'Buscar plantillas';
+/** Lo que se lee cuando ninguna plantilla pasa el filtro (queda «Lienzo en blanco»). */
+export const SIN_RESULTADOS = 'Ninguna plantilla con eso';
+/** A qué filtro se abre la galería: `mako` = «MaKo en WhatsApp» (el «＋ Nuevo mensaje» de la lista). */
 export type SeccionGaleria = 'mako';
 
 /**
- * ¿Al elegirla hay que preguntar la etapa? Sólo si arranca en una etapa y hay etapas para ofrecer: si no, nace
- * con el CRON a elegir. Una con el CRON fijo (el recordatorio de la reunión) no pregunta nada.
+ * ¿Al elegirla hay que preguntar la etapa (o la etiqueta)? Sólo si arranca en una y hay para ofrecer: si no, nace con
+ * el CRON a elegir. Una con el CRON fijo (el recordatorio, un evento) no pregunta nada.
  */
-export function preguntaEtapa(p: PlantillaAutomatizacion, productos: readonly ProductoParaDisparo[]): boolean {
-  return p.cron.pide ? seccionesParaCron(p.cron.pide, productos).length > 0 : false;
+export function preguntaEtapa(p: PlantillaAutomatizacion, productos: readonly ProductoParaDisparo[], etiquetas: readonly EtiquetaParaPlantilla[] = []): boolean {
+  if (!p.cron.pide) return false;
+  return (p.cron.pide === 'etiqueta' ? seccionesDeEtiquetas(etiquetas) : seccionesParaCron(p.cron.pide, productos)).length > 0;
 }
 
 /** Lo que dice la tarjeta de una plantilla de CRON fijo que el negocio ya tiene. */
@@ -121,30 +110,34 @@ export function yaLaTiene(p: PlantillaAutomatizacion, triggersVivos: readonly st
   return p.cron.fijo === TRIGGER_RECORDATORIO && triggersVivos.includes(TRIGGER_RECORDATORIO);
 }
 
-/** Cada cuánto y cuántas veces se mira si la sección ya se ve, para llevar la galería hasta ella (≈1 s). */
-const CADA_MS = 16;
-const INTENTOS_MAX = 60;
+/**
+ * EL ÍCONO DE CADA OPCIÓN DEL FILTRO (la regla de la casa: cada opción de un desplegable lleva el suyo). Instagram y
+ * Messenger con sus logos (`IconoDisparador`, los del CRON); el resto, del set de la casa.
+ */
+const ICONO_FILTRO: Readonly<Record<string, NombreIconoMenu | ReactElement>> = {
+  'canal:whatsapp': 'whatsapp', 'canal:email': 'email', 'canal:mako': 'mako',
+  'canal:instagram': <IconoDisparador tipo="instagram" tam={18} />, 'canal:messenger': <IconoDisparador tipo="messenger" tam={18} />,
+  'objetivo:captar': 'persona', 'objetivo:agendar': 'calendario', 'objetivo:reunion': 'cita', 'objetivo:recuperar': 'repetir',
+  'objetivo:vender': 'producto', 'objetivo:clientes': 'cliente', 'objetivo:cobrar': 'dinero',
+};
 
 const CSS = `
 .gal-grilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:12px}
-.gal-grilla--empezar{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
 .gal-tarjeta{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;padding:16px;min-height:124px;border-radius:14px;border:1.5px solid var(--border);background:var(--surface);color:var(--ink);font-family:inherit;cursor:pointer;transition:border-color .14s ease,box-shadow .14s ease,transform .14s ease}
 .gal-tarjeta:hover:not(:disabled),.gal-tarjeta:focus-visible{border-color:var(--primary);box-shadow:0 2px 12px rgba(18,21,27,.08);outline:none}
 .gal-tarjeta:active:not(:disabled){transform:scale(.98)}
 .gal-tarjeta:disabled{cursor:default;opacity:.55}
 .gal-tarjeta[aria-busy="true"]{opacity:1;border-color:var(--primary)}
-.gal-tarjeta--empezar{min-height:104px}
-.gal-tarjeta--empezar .gal-icono{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--dim)}
-.gal-tarjeta--empezar:hover:not(:disabled) .gal-icono,.gal-tarjeta--empezar:focus-visible .gal-icono{color:var(--primary);background:var(--primary-bg)}
+.gal-icono{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--dim)}
+.gal-tarjeta:hover:not(:disabled) .gal-icono,.gal-tarjeta:focus-visible .gal-icono{color:var(--primary);background:var(--primary-bg)}
+.gal-buscar{flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;box-sizing:border-box;border-radius:10px;border:1px solid var(--border-strong);background:var(--surface);color:var(--dim)}
+.gal-buscar:focus-within{border-color:var(--primary)}
+.gal-buscar input{flex:1;min-width:0;border:none;outline:none;background:transparent;color:var(--ink);font:inherit;font-size:14px}
 @media (prefers-reduced-motion: reduce){.gal-tarjeta{transition:none}.gal-tarjeta:active:not(:disabled){transform:none}}
 `;
 
 const NOMBRE: CSSProperties = { fontSize: 15, fontWeight: 700, lineHeight: 1.25 };
 const LINEA: CSSProperties = { fontSize: 13, color: 'var(--dim)', lineHeight: 1.4 };
-const ROTULO: CSSProperties = {
-  fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase',
-  color: 'var(--faint)', margin: '22px 0 10px',
-};
 
 export function GaleriaPlantillas(p: {
   /** Los productos con sus etapas (los mismos que lee el editor del CRON). */
@@ -152,15 +145,15 @@ export function GaleriaPlantillas(p: {
   /** El `trigger_tipo` de las automatizaciones de la lista (sin archivar): apaga la plantilla de CRON fijo que ya tiene. */
   triggersVivos?: readonly string[];
   onCerrar: () => void;
-  /** «Pídesela a MaKo»: quien monta crea la vacía de «＋ Nueva» (que abre la caja de Crear con IA). */
-  onEmpezar: (como: QueNueva) => void;
-  /** Uno de los seis del CRON: quien monta la crea y abre su CRON en ese tipo. */
-  onCron?: (clase: ClaseDisparador) => void;
+  /** «Lienzo en blanco»: quien monta crea la vacía de «＋ Nueva». */
+  onBlanco: () => void;
   /** «Pegar lo copiado»: el texto del portapapeles (lib/flujo-copia.ts). Quien monta la crea. */
   onPegar?: (texto: string) => void;
   /** La que se creó desde una plantilla: quien monta la abre. */
   onCreada: (r: CreadaGaleria) => void;
-  /** Abrir yendo a esta sección (`mako` = «MaKo en WhatsApp»). Ausente = arriba de todo. */
+  /** La que creó MaKo desde «Pídeselo a MaKo» (ya guardada y pausada): quien monta la abre. */
+  onCreadaIA?: (r: CreadaConIAGaleria) => void;
+  /** Abrir con un filtro puesto (`mako` = Canal «MaKo en WhatsApp»). Ausente = sin filtro. */
   seccion?: SeccionGaleria;
 }) {
   // LO COPIADO, si hay (copiar flujo, 10/10/2026: «al momento de crear un nuevo flujo que te aparezca la
@@ -177,43 +170,33 @@ export function GaleriaPlantillas(p: {
     // Una vez, al abrir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Las etiquetas del negocio: las pide «Bienvenida al newsletter» (arranca con «Se le puso [una etiqueta]»).
+  const etiquetas: EtiquetaParaPlantilla[] = useEtiquetasTodas() ?? [];
+  const [texto, setTexto] = useState('');
+  /** El filtro (`canal:…`, `objetivo:…`). «＋ Nuevo mensaje» abre con Canal = «MaKo en WhatsApp» puesto. */
+  const [filtros, setFiltros] = useState<string[]>(() => filtroDeSeccion(p.seccion));
   const [elegida, setElegida] = useState<PlantillaAutomatizacion | null>(null);
   const [valor, setValor] = useState('');
   const [creando, setCreando] = useState<string | null>(null);
+  /** MaKo está armando una (la caja de arriba): no se cierra ni se elige otra cosa. */
+  const [conMaKo, setConMaKo] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** El error es de una de «MaKo en WhatsApp»: se dibuja en SU sección, que es donde está mirando quien la tocó. */
-  const [errorEnMako, setErrorEnMako] = useState(false);
   const enVuelo = useRef(false);
-  /**
-   * «＋ NUEVO MENSAJE» LLEVA HASTA «MaKo EN WHATSAPP» (`seccion`): una vez, al abrir. Se espera a que la sección
-   * SE VEA: la primera vez que se dibuja, la caja del Modal está escondida (`display:none`, la pila de modales) y
-   * un `scrollIntoView` ahí no mueve nada — la misma trampa que el `autoFocus` (AGENTS.md, «Todo `<Modal>`…»).
-   */
-  const seccionMako = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (p.seccion !== 'mako') return;
-    let intentos = 0;
-    let t = 0;
-    const intentar = () => {
-      const el = seccionMako.current;
-      if (el && el.getClientRects().length > 0) { el.scrollIntoView({ block: 'start' }); return; }
-      if (++intentos < INTENTOS_MAX) t = window.setTimeout(intentar, CADA_MS);
-    };
-    t = window.setTimeout(intentar, 0);
-    return () => window.clearTimeout(t);
-    // Una vez, al abrir.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const ocupadoIA = useRef(false);
+  useEffect(() => { ocupadoIA.current = conMaKo; }, [conMaKo]);
 
   // Las props de AHORA, sin cambiarle la identidad al `onCerrar` del Modal (ver la cabecera).
   const props = useRef(p);
   useEffect(() => { props.current = p; });
-  const cerrar = useCallback(() => { if (!enVuelo.current) props.current.onCerrar(); }, []);
+  const cerrar = useCallback(() => { if (!enVuelo.current && !ocupadoIA.current) props.current.onCerrar(); }, []);
+
+  const filtro = filtroDeValores(filtros);
+  const visibles = useMemo(() => filtrarPlantillas(PLANTILLAS, { texto, canal: filtro.canal, objetivo: filtro.objetivo }), [texto, filtro.canal, filtro.objetivo]);
 
   const crear = async (pl: PlantillaAutomatizacion, disparador: string | null) => {
-    if (enVuelo.current) return;
+    if (enVuelo.current || ocupadoIA.current) return;
     enVuelo.current = true;
-    setCreando(pl.id); setError(null); setErrorEnMako(esPlantillaMako(pl));
+    setCreando(pl.id); setError(null);
     try {
       const r = await fetch(API, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(TOPE_MS),
@@ -224,7 +207,7 @@ export function GaleriaPlantillas(p: {
       enVuelo.current = false;
       props.current.onCreada({
         secuenciaId: Number(j.secuenciaId), nombre: String(j.nombre ?? pl.nombre),
-        pide: j.pide === 'etapa_venta' || j.pide === 'etapa_entrega' ? j.pide : null,
+        pide: j.pide === 'etapa_venta' || j.pide === 'etapa_entrega' || j.pide === 'etiqueta' ? j.pide : null,
         aviso: typeof j.aviso === 'string' && j.aviso ? j.aviso : null,
       });
     } catch {
@@ -236,16 +219,17 @@ export function GaleriaPlantillas(p: {
   };
 
   const elegir = (pl: PlantillaAutomatizacion) => {
-    if (enVuelo.current) return;
+    if (enVuelo.current || ocupadoIA.current) return;
     setError(null);
-    if (preguntaEtapa(pl, p.productos)) { setElegida(pl); setValor(''); return; }
+    if (preguntaEtapa(pl, p.productos, etiquetas)) { setElegida(pl); setValor(''); return; }
     void crear(pl, null);
   };
 
-  // ── 2. ¿En qué etapa arranca? ── (sólo se elige una que arranca en una etapa: `preguntaEtapa`)
+  // ── 2. ¿En qué etapa (o con qué etiqueta) arranca? ── (sólo se elige una que arranca así: `preguntaEtapa`)
   const pideElegida = elegida?.cron.pide;
   if (elegida && pideElegida) {
-    const secciones = seccionesParaCron(pideElegida, p.productos);
+    const secciones = pideElegida === 'etiqueta' ? seccionesDeEtiquetas(etiquetas) : seccionesParaCron(pideElegida, p.productos);
+    const pregunta = pideElegida === 'etiqueta' ? PREGUNTA_ETIQUETA : PREGUNTA_ETAPA;
     const ocupado = creando != null;
     return (
       <Modal titulo={`${elegida.emoji} ${elegida.nombre}`} onCerrar={cerrar} ancho={560}
@@ -257,10 +241,10 @@ export function GaleriaPlantillas(p: {
           </>
         }>
         <div data-galeria-paso="etapa" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 17, fontWeight: 700 }}>{PREGUNTA_ETAPA}</div>
+          <div style={{ fontSize: 17, fontWeight: 700 }}>{pregunta}</div>
           <Dropdown value={valor} secciones={secciones} search width="100%" variante="principal"
             botonLabel={rotuloDeEleccion(pideElegida, secciones, valor)}
-            onChange={setValor} ariaLabel={PREGUNTA_ETAPA} disabled={ocupado} />
+            onChange={setValor} ariaLabel={pregunta} disabled={ocupado} />
           <div style={LINEA}>{elegida.cron.ayuda}</div>
           {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</div>}
         </div>
@@ -268,8 +252,8 @@ export function GaleriaPlantillas(p: {
     );
   }
 
-  // ── 1. ¿Cómo empiezas? ──
-  const ocupado = creando != null;
+  // ── 1. La galería ──
+  const ocupado = creando != null || conMaKo;
   /** La tarjeta de una plantilla: la MISMA para las del Chatbot y las de «MaKo en WhatsApp». */
   const tarjeta = (pl: PlantillaAutomatizacion) => {
     const tiene = yaLaTiene(pl, p.triggersVivos ?? []);
@@ -284,52 +268,61 @@ export function GaleriaPlantillas(p: {
       </button>
     );
   };
+  const nFiltros = filtros.length;
+  const grupos = gruposDelFiltroGaleria().map((g) => ({ ...g, options: g.options.map((o) => ({ ...o, icono: ICONO_FILTRO[o.value] })) }));
+  const rotuloFiltro = nFiltros ? grupos.flatMap((g) => g.options).filter((o) => filtros.includes(o.value)).map((o) => o.label).join(' · ') : 'Filtrar';
+  // La creada por MaKo: ya está guardada (pausada) y la abre quien monta.
+  const alListoIA = (r: ListoCrearIA) => {
+    props.current.onCreadaIA?.({ secuenciaId: r.secuenciaId, nombre: r.nombre, avisos: r.avisos });
+  };
   return (
     <Modal titulo={TITULO_GALERIA} onCerrar={cerrar} ancho={980} sinFiletes>
       <style>{CSS}</style>
-      <div data-galeria-paso="lista">
-        {p.onCron && (
-          <>
-            <div style={{ ...ROTULO, marginTop: 0 }}>{ROTULO_CRON}</div>
-            <div data-galeria-cron>
-              <ElegirClase disabled={ocupado} onElegir={(c) => props.current.onCron?.(c)} />
-            </div>
-          </>
-        )}
-        <div style={ROTULO}>{ROTULO_OTRAS}</div>
-        <div className="gal-grilla gal-grilla--empezar">
-          {EMPEZAR.map((e) => (
-            <button key={e.que} type="button" className="gal-tarjeta gal-tarjeta--empezar" data-empezar={e.que} disabled={ocupado}
-              onClick={() => props.current.onEmpezar(e.que)}>
-              <span className="gal-icono gal-icono--mako" aria-hidden><MakoStar size={20} animate={false} /></span>
-              <span style={NOMBRE}>{e.nombre}</span>
-              <span style={LINEA}>{e.linea}</span>
-            </button>
-          ))}
+      <style>{CSS_NUEVO}</style>
+      <div data-galeria-paso="lista" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* 1. «Pídeselo a MaKo», a lo ancho: escribir o dictar, y la crea (punto 6). */}
+        <div data-galeria-ia>
+          <CrearConIA modo="galeria" onListo={alListoIA} onOcupado={setConMaKo} deshabilitado={creando != null} />
+        </div>
+
+        {/* 2. El buscador y el filtro, en una fila (punto 5). */}
+        <div data-galeria-busqueda style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <label className="gal-buscar">
+            <Icon name="search" size={16} />
+            <input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={PLACEHOLDER_BUSCAR}
+              aria-label={PLACEHOLDER_BUSCAR} disabled={ocupado} />
+          </label>
+          <span style={{ flex: 'none', display: 'inline-flex' }} data-galeria-filtro>
+            <Dropdown value="" varios={filtros} onChange={(v) => setFiltros((f) => alternarFiltroGaleria(f, v))}
+              columns={[grupos]} alContenido search={false} align="right" disabled={ocupado}
+              ariaLabel={nFiltros ? `Filtrar (${nFiltros})` : 'Filtrar'}
+              icono={<Icon name="funnel" size={16} />} botonLabel={rotuloFiltro}
+              pie={nFiltros ? { label: 'Quitar filtros', onClick: () => setFiltros([]) } : undefined}
+              buttonStyle={{ height: 38, borderRadius: 10, color: nFiltros ? 'var(--primary)' : 'var(--dim)', borderColor: nFiltros ? 'var(--primary-weak)' : 'var(--border-strong)' }} />
+          </span>
+        </div>
+
+        {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</div>}
+
+        {/* 3. La grilla: «Lienzo en blanco» PRIMERA SIEMPRE, lo copiado y las plantillas que pasan el filtro. */}
+        <div className="gal-grilla" data-galeria-grilla>
+          <button type="button" className="gal-tarjeta mk-nuevo" data-empezar="blanco" disabled={ocupado}
+            onClick={() => props.current.onBlanco()}>
+            <span className="gal-icono" aria-hidden><span className="mk-nuevo__mas" style={{ fontSize: 20, lineHeight: 1 }}>＋</span></span>
+            <span style={NOMBRE}>{BLANCO.nombre}</span>
+            <span style={LINEA}>{BLANCO.linea}</span>
+          </button>
           {copiado && p.onPegar && (
-            <button type="button" className="gal-tarjeta gal-tarjeta--empezar" data-pegar disabled={ocupado}
+            <button type="button" className="gal-tarjeta" data-pegar disabled={ocupado}
               onClick={() => props.current.onPegar?.(copiado.texto)}>
               <span className="gal-icono" aria-hidden><IconoMenu nombre="copiar" size={20} /></span>
               <span style={NOMBRE}>Pegar lo copiado</span>
               <span style={LINEA}>«{copiado.nombre}»</span>
             </button>
           )}
+          {visibles.map(tarjeta)}
         </div>
-        <div style={ROTULO}>{ROTULO_PLANTILLAS}</div>
-        {error && !errorEnMako && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)', marginBottom: 10 }}>{error}</div>}
-        {/* Las del Chatbot. Las de «MaKo en WhatsApp» van en su sección, abajo (`esPlantillaMako`). */}
-        <div className="gal-grilla">
-          {PLANTILLAS.filter((pl) => !esPlantillaMako(pl)).map(tarjeta)}
-        </div>
-        {/* (4) «MaKo EN WHATSAPP» (11/10/2026): los eventos de MaKo, con la MISMA tarjeta. A esta sección lleva
-            «＋ Nuevo mensaje» de la lista (`seccion="mako"`). */}
-        <div data-galeria-mako ref={seccionMako}>
-          <div style={ROTULO}>{ROTULO_MENSAJES_MAKO}</div>
-          {error && errorEnMako && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)', marginBottom: 10 }}>{error}</div>}
-          <div className="gal-grilla">
-            {PLANTILLAS.filter(esPlantillaMako).map(tarjeta)}
-          </div>
-        </div>
+        {!visibles.length && <div data-galeria-vacia style={LINEA}>{SIN_RESULTADOS}</div>}
       </div>
     </Modal>
   );

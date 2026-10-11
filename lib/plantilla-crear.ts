@@ -34,6 +34,13 @@
 //     CRON (`guardarDisparadores`) no puede: un CRON del emisor no se cambia (`problemaDeCambio`). Y de un
 //     evento se permiten VARIAS: «uno por negocio» es sólo del recordatorio (dos filas del mismo evento salen
 //     las dos, como dos automatizaciones del mismo CRON).
+//   · EL EVENTO DE UN CANAL (`cron.fijo` Instagram, Messenger o «Recibes un email», décima tanda, 11/10/2026:
+//     docs/diseno-automations-galeria-v2.md §3) NACE EN LA FILA igual que el de MaKo, con su lista de CRON puesta
+//     (`subtipo` = el evento). A diferencia del de MaKo, NO es del emisor: el CRON se cambia después como cualquiera.
+//     Va en la fila y no por `guardarDisparadores` porque no hay nada que elegir: es la plantilla la que lo trae.
+//   · «SE LE PUSO [UNA ETIQUETA]» (`cron.pide: 'etiqueta'`, la bienvenida al newsletter): la etiqueta es del
+//     negocio y la elige la pantalla; entra por `guardarDisparadores` como una etapa (`disparadorDeEleccion`). Sin
+//     elegir, nace con el CRON a elegir.
 //
 // ⚠️ SIN `server-only` Y SIN IMPORTS DEL SERVIDOR, a propósito: la base y los dos setters entran por
 // parámetro, así el test (tests/plantillas-automatizaciones.test.ts) ejecuta la función entera con
@@ -43,7 +50,7 @@ import {
   plantillaPorId, pasosDePlantilla, nombreLibre, disparadorDeEleccion,
   type PlantillaAutomatizacion, type PideCron,
 } from './plantillas-automatizaciones';
-import { TRIGGER_AVISO_MAKO, type Disparador } from './disparadores';
+import { TRIGGER_AVISO_MAKO, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, type Disparador } from './disparadores';
 import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
 import { emojiDeSecuencia } from './flujo-conversacion';
 
@@ -99,10 +106,13 @@ const claveNueva = (p: PlantillaAutomatizacion) => `plantilla-${p.id}-${Date.now
  */
 export function filaDePlantilla(p: PlantillaAutomatizacion, clave: string, nombre: string): Record<string, unknown> {
   const fila: Record<string, unknown> = { clave, nombre, etapa: 'manual', trigger_tipo: p.cron.fijo ?? 'manual', activa: false, pasos: [], emoji: emojiDeSecuencia(p.emoji) };
-  // El evento de MaKo: CUÁL evento va en la lista de CRON (mig 0241), y nace con ella (ver la cabecera).
-  if (p.cron.fijo === TRIGGER_AVISO_MAKO) fila.disparadores = [{ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: p.cron.evento }];
+  // El evento de MaKo o de un canal: CUÁL evento va en la lista de CRON (mig 0241), y nace con ella (ver la cabecera).
+  if (p.cron.fijo && CON_EVENTO.has(p.cron.fijo) && p.cron.evento) fila.disparadores = [{ id: 'd1', trigger_tipo: p.cron.fijo, subtipo: p.cron.evento }];
   return fila;
 }
+
+/** Los CRON fijos que traen CUÁL evento (el `subtipo`): el de MaKo y los de un canal. El recordatorio, no. */
+const CON_EVENTO: ReadonlySet<string> = new Set([TRIGGER_AVISO_MAKO, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO]);
 
 /** Crea la automatización de la plantilla `plantillaId`. Devuelve la creada, o tira con el motivo. */
 export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlantilla, o: { disparador?: unknown } = {}): Promise<CreadaDesdePlantilla> {

@@ -2946,7 +2946,7 @@ arrastra `server-only` (lib/tab-access, lib/settings). Cinco tests dibujan `Simu
 `pie`), y lo monta ChatAgentApp, que ningún test importa en runtime. Lo que se puede dibujar (el botón, la
 cuenta de dónde cae el panel) va en un archivo sin las acciones (`HorarioBoton.tsx`), que sí se prueba.
 
-**Vive en:** `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `app/automations/SimuladorWhatsApp.tsx`
+**Vive en:** `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `app/automations/SimuladorWhatsApp.tsx` · desde la décima tanda (11/10/2026) los dos de Horario se borraron: los reemplaza `app/automations/ConfiguracionesBoton.tsx` (`tests/automations-configuraciones.test.ts`)
 
 ### Un popover con un `Dropdown` de la casa adentro: el clic y el Escape del desplegable caen «afuera» [horario]
 
@@ -2959,7 +2959,7 @@ ni el Escape (`hayMenuAbiertoEn`). Y `capa.visible` de `useCapaModal` es false e
 capa se registra en un efecto): un `display` atado a eso deja el panel en `display:none` justo cuando se
 lo mide y se le da el foco.
 
-**Vive en:** `app/automations/HorarioBoton.tsx` · `app/components/Dropdown.tsx` · `app/_components/pila-modales.ts`
+**Vive en:** `app/automations/HorarioBoton.tsx` · `app/components/Dropdown.tsx` · `app/_components/pila-modales.ts` · desde la décima tanda (11/10/2026) los dos de Horario se borraron: los reemplaza `app/automations/ConfiguracionesBoton.tsx` (`tests/automations-configuraciones.test.ts`)
 
 ### Revisión: el panel anclado tiraba lo no guardado, y el borde en línea anulaba el hover [horario]
 
@@ -2987,7 +2987,7 @@ La revisión adversarial (sólo lectura) dejó dos reglas. Se arreglaron en la r
   quedaba muerto en toda la pantalla. El retenido frena sólo la tecla que nace en el panel, en su botón o
   sin foco. Las dos cosas las fija `tests/automations-horario.test.ts` (roturas C1-C8).
 
-**Vive en:** `app/configuraciones/HorarioEnvioPanel.tsx` · `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `tests/automations-horario.test.ts`
+**Vive en:** `app/configuraciones/HorarioEnvioPanel.tsx` · `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `tests/automations-horario.test.ts` · desde la décima tanda (11/10/2026) los dos de Horario se borraron: los reemplaza `app/automations/ConfiguracionesBoton.tsx` (`tests/automations-configuraciones.test.ts`)
 
 ### Lo que quedó sin hacer (parte «horario»)
 
@@ -3616,3 +3616,64 @@ que hicimos de CONDITIONS y DELAY… Solo debes readaptar esas plantillas»). El
   queda contada. El dry-run la muestra como «acción».
 - **Consecuencia que se avisó:** desde el deploy, «aviso antes de la reunión», «un lead te escribió» y «cuota vencida»
   dejan de salir en los 10 negocios hasta que cada uno agregue su plantilla. El ws1 recibía 7 y 3 en 30 días.
+
+## Décima tanda (11/10/2026, claude3)
+
+Siete partes en paralelo, una revisión adversarial de motor y datos y el cierre. El pedido, textual, en
+`app/admin/dev/chatbot/bitacora.ts` (11/10, 04:30). Lo que no se ve en el diff:
+
+- **Un freno de «no cambia lo que se contesta» compara lo que lee el REDACTOR, no sólo el clasificador.** La migración
+  del AI Step ponía en cada caso el objetivo de la tabla de §8.4 y `loQueContesta` daba igual (nombre, «cuándo», guía,
+  «sale sola»), pero el objetivo viaja aparte al redactor (`bloqueEscenario`): con `--aplicar`, la #213 del ws1 (activa,
+  dos casos que salen solos) contestaba otra cosa. El diseño se contradecía (§8.4 contra §10-A). Lo migrado NO lleva
+  objetivo (se imprime como sugerencia) y el freno compara objetivo, ejemplos, audio y «hasta». **Vive en:**
+  `lib/ai-step-migrar.ts`, `scripts/ai-step-v2.mts`.
+- **El repo tiene DOS zonas por defecto:** `ZONA_SIN_CONFIGURAR` (Ciudad de México, `lib/nutricion-grafo-motor.ts`) y
+  `TZ_DEFAULT` (Tijuana, `lib/timezone.ts`). Al sumar el horario de oficina, «Contesta sola» saltó de una a la otra y en
+  el ws1 (sin `mako.timezone`, horario 9-21 prendido) la ventana se corrió una hora, dos desde el 1/11. El diagnóstico
+  obvio era «el horario está mal»: estaba bien. Volvió a `tz` (`tzActual`). **Vive en:** `lib/nutricion.ts` («4.5) ¿SALE
+  SOLA?»). ⚠️ SIN DECIDIR: el resto del motor ya manda con el horario en hora de Ciudad de México al ws1, que es de Baja
+  California: o se guarda su `mako.timezone`, o se unifican los dos defaults.
+- **Lo de fábrica no se valida contra el rango de lo que se ELIGE.** `limitesDeFabrica` respeta un env fuera de rango
+  a propósito y `limitesParaGuardar` lo rechazaba igual: con `NUTRICION_MAX_POR_DIA` > 150 no pasaba ningún guardado
+  (el env de prod no se pudo medir). **Vive en:** `lib/limites-envio.ts`.
+- **Dos clasificadores sobre las mismas palabras: el arreglo de uno rompe al otro.** La agenda se llevaba «créame una
+  automatización que le escriba a los que no vinieron a la reunión»; la regla nueva, puesta antes, se llevó «Quiero una
+  reunión sobre el flujo de ventas» y «Haz el flujo de caja». Entre el verbo y el sustantivo no puede haber otro objeto
+  de agenda, y «flujo de caja / efectivo / fondos / dinero» no es un flujo. **Vive en:** `lib/mako-intencion.ts`.
+- **El typecheck acotado a «mis archivos» no ve los tests de otro:** quedaron cuatro errores de la tanda —
+  `useState<función>(() => (b) => …)` deja `b` sin tipo, un `rol: 'setter'` que `Rol` no tiene, el estrechamiento de
+  `p.cron` perdido en un callback, un `gating` opcional—. Y un enchufe del reparto por archivo: «MaKo en WhatsApp» seguía
+  en el panel de control de 280 (`editorDeTarjeta`, `lib/lienzo-grafo.ts`; /mensajes ya lo medía como un mensaje).
+- **Filtrar el selector no corta un remitente.** El ws1 tiene guardados el remitente y el dominio de MaKo: el corte real
+  va en el motor (`procesarEnvios`, junto al sandbox: «remitente de MaKo: conecta tu email», un reintento por día) y en
+  /integraciones, que seguía diciendo «Conectada». **Vive en:** `lib/nutricion.ts`, `lib/integraciones.ts`.
+- **La propuesta para el CRON de antes cerraba un círculo** en 24 de 32: un paso sin `siguiente` sigue por el de abajo
+  del array, y la entrada se agregaba al final de una lista vieja. Se normaliza ANTES. **Vive en:** `lib/cron-de-antes.ts`.
+- **Lienzo y editores, medido:** `flex: 1` con `minHeight` deja encoger el recuadro bajo su contenido (va `flex: 1 0
+  auto`); un tacho que cuelga 9 px en una caja `overflow: auto` da scroll lateral (`AIRE_ESQUINA`); la rueda hacía zoom
+  en los paneles porque el listener no pasivo del lienzo hace `preventDefault` de todo (`queHaceLaRueda`); el cleanup de
+  un efecto ve el primer render (va por refs); la grabación se perdía al recargar (`VoiceRecorder.tsx`, por trozos).
+- **Herramientas que mintieron:** `sed -i` de Git Bash pasó dos archivos CRLF a LF; un argumento que empieza con `//`
+  se reescribe (TS1161); un heredoc con comillas dobles ejecutó backticks; Edit escribe ` ` como espacio duro; los
+  guards con `git ls-files` no ven lo nuevo (índice temporal: `GIT_INDEX_FILE` + `git add -N`).
+
+**SIN HACER:**
+- Datos, en orden: la mig `0251_setting_audios_origen.sql` ANTES del deploy (verificar el número contra las 0249/0250
+  de otras sesiones); `scripts/mudanza-nuevo-agendado.mts --aplicar` antes del push (sin eso ws1 y ws13 se quedan sin
+  «nuevo agendado»); deploy; `scripts/ai-step-v2.mts` simulacro y `--aplicar` DESPUÉS (volver atrás luego es
+  destructivo). `scripts/migrar-cron-de-antes.mts` se niega a `--aplicar`: falta la fase 1 del motor.
+- Al commitear, `git rm` de `HorarioBoton.tsx`, `HorarioLista.tsx` y `tests/automations-horario.test.ts`: si no,
+  `funnel-estructura` y `motor-tick` dan ENOENT (leen el índice).
+- `app/_ui/BotonMako.tsx` (la estrella chica del ✦), `EditorCondicionDeRespuesta` sin el layout nuevo
+  (`app/automations/EditorCondicion.tsx`), el chip «Sin conectar» del CRON (`FlujoLienzo.tsx`, `CuerpoCron`), el AI Step
+  por Instagram/Messenger (§6), «Escuchar» en `PanelProbar.tsx`, `armar_ai_step` en la API, el filtro por medio
+  (`lib/chatbot-lista-filtro.ts`), las props muertas `claseInicial` (`EditorDisparadores.tsx`) y `graphify update`.
+  Nada se abrió en el navegador: lo revisa Martín.
+
+**DECISIONES TOMADAS POR MARTÍN, a confirmar:** lo migrado sin objetivo (§10-A); «Contesta sola» en `tzActual`; el
+editor de «MaKo en WhatsApp» con el tamaño del de WhatsApp pero **sin audio, archivos, varios mensajes ni ✦** (el pedido
+dice «las mismas opciones»); el email de MaKo no sale y /integraciones del ws1 dice «falta» (Mauricio sin emails hasta
+vincular su dominio); al salir del editor la barra pasa a burbuja; «Descartar cambios» sin preguntar si está abierta;
+0 en «por persona» = siempre borrador; Publicar frena aunque esté pausada; el tutorial se abre solo a un admin la
+primera vez que ve un lienzo; Instagram y Messenger sin AI Step en la galería; el evento de antes no se ofrece en el CRON.

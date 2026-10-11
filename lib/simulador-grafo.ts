@@ -51,6 +51,7 @@ import {
   type PasoGrafo, type NombresParaTexto, type HechosLead,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
   textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida, expandirPasoIA,
+  extrasDeCaso,
 } from './flujo-grafo';
 
 /**
@@ -576,11 +577,16 @@ export function entrarEnRespuesta(
  * es la guía, como en el motor (`escenariosDeRespuesta`). La forma es la del clasificador y el
  * redactor de siempre (`EscenarioSecuencia`).
  */
-export function escenarioParaRedactar(estado: EstadoSim, paso: PasoGrafo): { titulo: string; cuando: string; comoResponder: string } {
+export function escenarioParaRedactar(estado: EstadoSim, paso: PasoGrafo): { titulo: string; cuando: string; comoResponder: string } & ReturnType<typeof extrasDeCaso> {
+  // AI Step v2 (décima tanda): lo del caso que viaja en su «MaKo contesta» (`paso.ia`: objetivo, ejemplos, audio,
+  // «1 vez»), el MISMO que lee el motor (`responderConGrafo`). Con «Cualquier respuesta» no hay caso del
+  // clasificador: el título es el de su tarjeta.
+  const ia = paso.ia;
   return {
-    titulo: estado.caso?.titulo ?? 'Otra cosa',
-    cuando: estado.caso?.cuando ?? '',
+    titulo: (estado.caso?.id ? estado.caso.titulo : ia?.titulo) || estado.caso?.titulo || 'Otra cosa',
+    cuando: (estado.caso?.id ? estado.caso.cuando : ia?.cuando) || estado.caso?.cuando || '',
     comoResponder: String(paso.cuerpo ?? ''),
+    ...extrasDeCaso(ia),
   };
 }
 

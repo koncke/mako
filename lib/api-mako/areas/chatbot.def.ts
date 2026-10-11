@@ -19,9 +19,6 @@
 import type { OperacionDef, Parametro } from '../tipos';
 // Catálogo PURO (sin server-only, ni él ni lo que importa): el enum sale de ahí para no desincronizarse.
 import { CLAVES_AUDIO } from '@/lib/audios-paso';
-// Puro también (lib/setting-estrategia.ts no importa nada): el tope del nombre es UNO para la
-// pantalla, el servidor y esto.
-import { TOPE_NOMBRE_SECUENCIA } from '@/lib/setting-estrategia';
 // Puro y sin imports: las unidades de un horario son las del saneador del motor (`sanearCron`).
 import { UNIDADES } from '@/lib/cron-aviso';
 
@@ -94,7 +91,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'etapas_para_secuencia', area: 'chatbot', tipo: 'lectura',
     titulo: 'Etapas donde colgar una secuencia',
-    descripcion: 'Las etapas del funnel de este negocio donde se puede colgar una secuencia de mensajes (nutrición y pipeline; se excluyen las de salida), con su clave y su nombre. Úsala antes de crear_secuencia_mensajes: la etapa se pasa por su clave, que cambia de un negocio a otro.',
+    descripcion: 'Las etapas del funnel de este negocio donde se puede colgar una secuencia de mensajes (nutrición y pipeline; se excluyen las de salida), con su clave y su nombre. La etapa se pasa por su clave, que cambia de un negocio a otro.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -209,16 +206,26 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'cambia nutricion_secuencias.activa de la secuencia',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // ⛔ ACÁ IBA `crear_secuencia_mensajes` (dos pasos de esqueleto sin texto, el modelo lineal de antes; 0 usos medidos
+  // por HTTP y 0 pendientes al 11/10/2026). Se RETIRÓ con la décima tanda (docs/diseno-automations-galeria-v2.md §4):
+  // con las dos, el doer elige por relevancia y podía crear el esqueleto viejo. La reemplaza la de abajo.
+  //
+  // «PÍDESELO A MaKo» POR LA API (décima tanda, NUEVA AUTOMATIZACIÓN 8 y 9, 11/10/2026). Martín: «quiero que lo guardes
+  // en la API... por el grupo de WhatsApp con MaKo si escribo o envio un audio pidiendo que cree una automatización, lo
+  // haga llamando justamente a esta función» y «cada automatización nueva, debe tener una URL que se pueda abrir». La MISMA
+  // función que la caja del modal (`crearFlujoConIA`, lib/flujo-ia-crear.ts).
+  //   · `chat` y no `pantalla`: crea algo PAUSADO y gratis; la automatización misma es la pantalla editable.
+  //   · SIN `http`: tarda minutos y /api/v1 corta a 60 s (AGENTS.md, regla 3), y gasta la IA del negocio.
+  //   · Un flujo NO la corre (`preparar` lo rechaza y `accionesParaFlujo` la saca del lienzo).
   {
-    id: 'crear_secuencia_mensajes', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Crear una secuencia de mensajes',
-    descripcion: 'PROPONE crear una secuencia de mensajes nueva colgada de una etapa del funnel. Nace PAUSADA y con dos pasos de esqueleto sin texto: no le escribe a nadie hasta que se redacte y se active. Pide antes la clave de la etapa con etapas_para_secuencia (y revisa huecos_secuencias).',
+    id: 'crear_automatizacion_con_ia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una automatización con IA',
+    descripcion: 'PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations). Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción.',
     parametros: [
-      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 60, descripcion: 'clave de la etapa del funnel (de etapas_para_secuencia).' },
-      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: TOPE_NOMBRE_SECUENCIA, descripcion: `nombre de la secuencia, como lo va a ver el dueño (hasta ${TOPE_NOMBRE_SECUENCIA} caracteres).` },
+      { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'qué tiene que hacer, con las palabras de la persona.' },
     ],
-    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias',
-    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con el flujo que arma la IA (y las etiquetas nuevas que nombre)',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'cambiar_espera_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',

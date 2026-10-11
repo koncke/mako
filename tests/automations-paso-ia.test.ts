@@ -25,17 +25,18 @@ import {
   expandirPasoIA, escenariosDeRespuesta, validarGrafo, validarParaGuardar, normalizar, claseDe, esPasoIA, raizRespuesta,
   guiaDeCaso, faltaEnCaso, idRespuestaDeCaso, idAvisoDeCaso, idOtraCosa, nodoPorId, padreDe,
   OP_AVISO_EQUIPO, AVISO_OTRA_COSA, AVISO_DE_CASO, ROTULO_OTRA_COSA, TOPE_RESPONDER, rotuloSiNoDeRespuesta,
+  separarPasosIA,
 } from '../lib/flujo-grafo';
 import { camposDelFlujo, agregarCasoAlGrafo } from '../lib/nutricion-grafo-motor';
 import { respuestaAPasoIA } from '../lib/paso-ia-convertir';
 import { OP_AVISAR } from '../lib/flujo-legado';
 import { LEAD_DEL_EVENTO } from '../lib/api-mako/flujo-params';
 import {
-  grafoDeSecuencia, filasDePasoIA, altoPasoIA, opcionesDelMas, opcionesSueltas, insertarDesdeLienzo, nodoNuevo,
-  frenoDelFlujo, tarjetasIncompletas, nombreDeTarjeta, ID_ENTRADA, CASOS_EN_TARJETA_IA, TITULO, type PasoParaGrafo,
+  grafoDeSecuencia, resumenPasoIA, altoPasoIA, opcionesDelMas, opcionesSueltas, insertarDesdeLienzo, nodoNuevo,
+  frenoDelFlujo, tarjetasIncompletas, nombreDeTarjeta, ID_ENTRADA, TITULO, type PasoParaGrafo,
 } from '../lib/flujo-conversacion';
 import { crearSuelta } from '../lib/flujo-edicion';
-import { ICONO_MAKO, editorDeTarjeta } from '../lib/lienzo-grafo';
+import { ICONO_MAKO, editorDeTarjeta, ALTO_EDITOR_CONTROL } from '../lib/lienzo-grafo';
 import { iniciar, siguiente, pausarPorRespuesta, entrarEnRespuesta, escenarioParaRedactar } from '../lib/simulador-grafo';
 import { deIAEdicion, LISTA_BLANCA_IA, type CtxIA } from '../lib/flujo-ia';
 import { porId } from '../lib/api-mako/registro';
@@ -181,7 +182,10 @@ test('camposDelFlujo CONSERVA el AI Step: la marca, el tono, el aviso y lo de ad
 // ── La validación, en la forma COMPACTA ────────────────────────────────────────────────
 
 test('Publicar frena un caso sin nombre, sin «cuándo» o que no hace nada, y abre la tarjeta del AI Step', () => {
-  assert.deepEqual(validarGrafo(conIA()), [], 'un AI Step completo no se publicaba');
+  // AI Step v2 (décima tanda): UN caso por tarjeta para publicar. El de tres casos (v1) se separa antes
+  // (`separarPasosIA`: el lienzo al abrir, `setSecuenciaPasos` al escribir) y así se publica.
+  assert.deepEqual(validarGrafo(conIA()), ['la tarjeta R tiene más de un caso']);
+  assert.deepEqual(validarGrafo(separarPasosIA(conIA(), rndDe()).pasos), [], 'un AI Step completo no se publicaba');
   const sinNombre = conIA({ casos: [caso('A', { titulo: ' ', responder: 'x' })] });
   assert.deepEqual(validarGrafo(sinNombre), ['la tarjeta R tiene un caso sin nombre']);
   const sinCuando = conIA({ casos: [caso('A', { titulo: 'Precio', cuando: '', responder: 'x' })] });
@@ -206,9 +210,12 @@ test('debajo de un AI Step no van tarjetas: ni un caso con flecha ni un «Otra c
   assert.ok(validarParaGuardar(conFlecha).includes('debajo de la tarjeta R no van tarjetas'), 'se guardaba un caso con tarjeta');
   const conOtra = [...conIA({ si_no: 'm9' }), msg({ id: 'm9', siguiente: null })];
   assert.ok(validarParaGuardar(conOtra).includes('debajo de la tarjeta R no van tarjetas'));
-  // Y sigue siendo «Si responde»: una por automatización, sin padre.
+  // AI Step v2: VARIOS AI Step sí (uno por caso); un «Si responde» de los de siempre, uno, y sin mezclar.
   const dos = [...conIA(), { ...msg(), id: 'R2', nodo: 'respuesta' as const, paso_ia: true as const, casos: [], si_no: null }];
-  assert.ok(validarParaGuardar(dos).includes('hay más de una tarjeta «Si responde»'));
+  assert.ok(!validarParaGuardar(dos).includes('hay más de una tarjeta «Si responde»'));
+  const mezcla = [...conIA(), { ...msg(), id: 'R2', nodo: 'respuesta' as const, casos: [], si_no: null }];
+  assert.ok(validarParaGuardar(mezcla).includes('un AI Step no va con un «Si responde»'));
+  // Y sin padre: cuelga del CRON.
   const conPadre = conIA().map((p) => (p.id === 'm1' ? { ...p, siguiente: 'R' } : p));
   assert.ok(validarGrafo(conPadre).includes('«Si responde» cuelga del CRON: ninguna tarjeta puede seguir en él'));
 });
@@ -234,17 +241,20 @@ test('el conversor pliega cada caso adentro, conserva los ids y contesta IGUAL q
   const r = respuestaAPasoIA(clasico());
   assert.ok('pasos' in r, `no convirtió: ${'error' in r ? r.error : ''}`);
   const p = r.pasos;
-  // Las tarjetas plegadas se fueron; el nodo y la salida quedan con sus ids.
-  assert.deepEqual(p.map((x) => x.id), ['m1', 'R']);
+  // Las tarjetas plegadas se fueron; el nodo y la salida quedan con sus ids. AI Step v2: UNA TARJETA POR CASO —la
+  // primera conserva el id del nodo y su primer caso; las demás van al FINAL del array—.
+  assert.deepEqual(p.slice(0, 2).map((x) => x.id), ['m1', 'R']);
+  assert.equal(p.length, 4);
   const ia = p[1];
   assert.ok(esPasoIA(ia));
   assert.equal(ia.si_no, null);
   assert.equal(ia.otra_aviso, 'Mira lo que escribió');
-  assert.deepEqual(ia.casos, [
-    { id: 'A', titulo: 'Precio', cuando: 'cuando A', siguiente: null, responder: 'Dile que lo ve en la llamada', sola: true },
-    { id: 'B', titulo: 'Fecha', cuando: 'cuando B', siguiente: null, responder: 'Ofrécele otro día', avisar: true },
-    { id: 'C', titulo: 'Enojo', cuando: 'cuando C', siguiente: null, avisar: true },
+  assert.deepEqual(p.slice(1).map((x) => x.casos), [
+    [{ id: 'A', titulo: 'Precio', cuando: 'cuando A', siguiente: null, responder: 'Dile que lo ve en la llamada', sola: true }],
+    [{ id: 'B', titulo: 'Fecha', cuando: 'cuando B', siguiente: null, responder: 'Ofrécele otro día', avisar: true }],
+    [{ id: 'C', titulo: 'Enojo', cuando: 'cuando C', siguiente: null, avisar: true }],
   ]);
+  assert.ok(p.slice(2).every((x) => esPasoIA(x) && x.otra_aviso === undefined), 'el aviso de «Otra cosa» va sólo en la primera');
   // LA EQUIVALENCIA: los casos del clasificador (guía y «sale sola») son los MISMOS antes y después.
   const ver = (ps: PasoGrafo[]) => escenariosDeRespuesta(ps).map((e) => [e.casoId, e.comoResponder, e.contestaSolo === true]);
   assert.deepEqual(ver(p), ver(clasico()));
@@ -280,10 +290,16 @@ test('el conversor NO convierte nada si un caso o «Otra cosa» tiene algo que n
 test('un caso enseñado entra ADENTRO del AI Step, sin colgarle una tarjeta', () => {
   const r = agregarCasoAlGrafo(conIA(), { titulo: 'Horario', cuando: 'pregunta el horario', comoResponder: 'De 9 a 18', contestaSolo: true }, rndDe());
   assert.ok('pasos' in r);
-  assert.equal(r.pasos.length, 2, 'colgó una tarjeta');
-  const nuevo = r.pasos[1].casos!.at(-1)!;
+  // AI Step v2: un caso nuevo es una TARJETA AI Step nueva (colgada del CRON, al final), no un caso más de R ni
+  // un «MaKo contesta» colgado.
+  assert.equal(r.pasos.length, 3, 'colgó una tarjeta o lo sumó a R');
+  assert.equal(r.pasos[1].casos!.length, 3);
+  const tarjeta = r.pasos[2];
+  assert.ok(esPasoIA(tarjeta));
+  assert.equal(padreDe(r.pasos, tarjeta.id!), null);
+  const nuevo = tarjeta.casos![0];
   assert.deepEqual({ ...nuevo, id: 'x' }, { id: 'x', titulo: 'Horario', siguiente: null, cuando: 'pregunta el horario', responder: 'De 9 a 18', sola: true });
-  assert.deepEqual(validarGrafo(r.pasos), []);
+  assert.deepEqual(validarGrafo(separarPasosIA(r.pasos, rndDe()).pasos), []);
   // Mismo título = el mismo caso: se actualiza adentro, y `sola` lo dice el caso enseñado.
   const r2 = agregarCasoAlGrafo(conIA(), { titulo: 'precio', cuando: 'otra vez el precio', comoResponder: 'Nueva guía' });
   assert.ok('pasos' in r2);
@@ -317,31 +333,23 @@ test('la tarjeta AI STEP: una sola, sin puertos, con el ✦, colgada del CRON y 
   assert.equal(n.titulo, 'AI STEP');
   assert.equal(n.icono, ICONO_MAKO);
   assert.deepEqual(n.puertos, [], 'dibujó puertos por caso');
-  assert.equal(n.alto, altoPasoIA(conIA()[1]));
+  // AI Step v2: ALTO FIJO (un caso por tarjeta), no el de sus casos.
+  assert.equal(n.alto, altoPasoIA());
   // La flecha del CRON, y ninguna que salga de ella.
   assert.ok(g.aristas.some((a) => a.desde === ID_ENTRADA && a.hasta === 'R'));
   assert.ok(!g.aristas.some((a) => a.desde === 'R'));
-  // Las filas: el nombre, «sola»/«revisa», la campanita, cómo responde y «Otra cosa → te aviso».
-  const f = filasDePasoIA(conIA()[1]);
-  assert.deepEqual(f.casos.map((c) => [c.titulo, c.chip, c.avisa, c.resumen, c.falta]), [
-    ['Precio', 'sola', true, 'Dile que lo ve en la llamada', false],
-    ['Cambia el día', 'revisa', false, 'Ofrécele otro horario', false],
-    ['Se enoja', null, true, 'Te aviso', false],
-  ]);
-  assert.equal(f.otra, `${ROTULO_OTRA_COSA} → te aviso`);
+  // Lo que dice: el nombre del caso, «→ objetivo» y la libertad («sola» / «aprueba» / «avisa»).
+  const r = resumenPasoIA(conIA()[1]);
+  assert.deepEqual([r.titulo, r.libertad, r.avisa, r.objetivo, r.falta, r.medio], ['Precio', 'sola', true, null, false, 'whatsapp']);
+  assert.equal(resumenPasoIA(conIA({ casos: [caso('C', { avisar: true })] })[1]).libertad, 'avisa');
+  assert.equal(resumenPasoIA(conIA({ casos: [caso('B', { responder: 'x' })] })[1]).libertad, 'aprueba');
   assert.equal(rotuloSiNoDeRespuesta(conIA()[1]), ROTULO_OTRA_COSA);
-  // Un caso a medio llenar se marca en su fila y en la tarjeta (la regla de Publicar, `faltaEnCaso`).
+  // Un caso a medio llenar se marca en la tarjeta (la regla de Publicar, `faltaEnCaso`).
   const amedias = conIA({ casos: [caso('A', { titulo: 'Precio' })] });
-  assert.equal(filasDePasoIA(amedias[1]).casos[0].falta, true);
-  assert.equal(filasDePasoIA(amedias[1]).casos[0].resumen, 'Sin respuesta');
-  assert.equal(grafoDeSecuencia(amedias as PasoParaGrafo[], { disparador: 'Llega' }).nodos.find((x) => x.id === 'R')!.advertencia, 'Falta completar un caso');
-  // Con muchos casos, la tarjeta no crece sin fin: «+N casos».
-  const muchos = conIA({ casos: Array.from({ length: CASOS_EN_TARJETA_IA + 3 }, (_, k) => caso(`k${k}`, { responder: 'x' })) })[1];
-  assert.equal(filasDePasoIA(muchos).casos.length, CASOS_EN_TARJETA_IA);
-  assert.equal(filasDePasoIA(muchos).mas, 3);
-  assert.ok(altoPasoIA(muchos) > altoPasoIA(conIA()[1]));
+  assert.equal(resumenPasoIA(amedias[1]).falta, true);
+  assert.equal(grafoDeSecuencia(amedias as PasoParaGrafo[], { disparador: 'Llega' }).nodos.find((x) => x.id === 'R')!.advertencia, 'Falta completar el caso');
   // Su editor tiene su alto (no el de «Si responde»).
-  assert.equal(editorDeTarjeta({ editorForma: 'apaisado', editorAncho: 720, editorAlto: 900 }, 'paso-ia').alto, 460);
+  assert.equal(editorDeTarjeta({ editorForma: 'apaisado', editorAncho: 720, editorAlto: 900 }, 'paso-ia').alto, ALTO_EDITOR_CONTROL['paso-ia']);
 });
 
 test('el ＋ ofrece «AI Step» donde puede ir y lo crea colgado del CRON, con un caso para completar', () => {
@@ -349,9 +357,9 @@ test('el ＋ ofrece «AI Step» donde puede ir y lo crea colgado del CRON, con u
   const vals = (o: ReturnType<typeof opcionesDelMas>) => o.map((x) => x.value as string);
   assert.ok(vals(opcionesDelMas(solo, 'm1', false)).includes('ai_step'));
   assert.ok(vals(opcionesSueltas(solo)).includes('ai_step'));
-  // Una por automatización: con una (o un «Si responde» de siempre), ni el ＋ ni el click derecho la ofrecen.
-  assert.ok(!vals(opcionesDelMas(conIA(), ID_ENTRADA, false)).includes('ai_step'));
-  assert.ok(!vals(opcionesSueltas(conIA())).includes('ai_step'));
+  // AI Step v2: con un AI Step se ofrece OTRO (uno por caso); con un «Si responde» de los de siempre, no (no se mezclan).
+  assert.ok(vals(opcionesDelMas(conIA(), ID_ENTRADA, false)).includes('ai_step'));
+  assert.ok(vals(opcionesSueltas(conIA())).includes('ai_step'));
   assert.ok(!vals(opcionesSueltas(clasico())).includes('ai_step'));
   // Creada desde el ＋ de m1: al final, SIN padre, y m1 sigue como estaba.
   const r = insertarDesdeLienzo(solo, 'm1', 'sig', 'ai_step', rndDe());
@@ -367,9 +375,14 @@ test('el ＋ ofrece «AI Step» donde puede ir y lo crea colgado del CRON, con u
   assert.deepEqual(validarGrafo(r.pasos), [`la tarjeta ${r.id} tiene un caso sin nombre`]);
   assert.deepEqual(validarParaGuardar(r.pasos), []);
   assert.equal(nodoNuevo('ai_step', solo, rndDe()).casos!.length, 1);
-  // Una segunda no se crea, ni por el ＋ ni por el click derecho.
-  assert.equal(insertarDesdeLienzo(r.pasos, 'm1', 'sig', 'ai_step').id, null);
-  assert.equal(crearSuelta(r.pasos, 'ai_step').id, '');
+  // AI Step v2: una segunda SÍ se crea (otra tarjeta, colgada del CRON), por el ＋ y por el click derecho; con un
+  // «Si responde» de los de siempre, no.
+  const otra = insertarDesdeLienzo(r.pasos, 'm1', 'sig', 'ai_step', rndDe());
+  assert.ok(otra.id && otra.id !== r.id);
+  assert.equal(padreDe(otra.pasos, otra.id!), null);
+  assert.ok(crearSuelta(r.pasos, 'ai_step').id);
+  assert.equal(insertarDesdeLienzo(clasico() as PasoParaGrafo[], 'm1', 'sig', 'ai_step').id, null);
+  assert.equal(crearSuelta(clasico(), 'ai_step').id, '');
 });
 
 // ── «Probar» y el motor: los dos recorren lo EXPANDIDO ──────────────────────────────────
@@ -398,7 +411,8 @@ test('el motor y la ruta de «Probar» recorren el flujo EXPANDIDO (guard de cab
   const i = nut.indexOf('async function responderConGrafo(');
   assert.ok(i >= 0);
   const motor = nut.slice(i, nut.indexOf('\nasync function ', i + 10));
-  assert.match(motor, /const pasos = expandirPasoIA\(secuencia\.pasos\);\n\s+const escenarios = escenariosDeRespuesta\(pasos\);/);
+  // AI Step v2: expandido por el MEDIO del mensaje (`{ medio }`).
+  assert.match(motor, /const pasos = expandirPasoIA\(secuencia\.pasos, \{ medio \}\);\n\s+const escenarios = escenariosDeRespuesta\(pasos\);/);
   // Lo que camina la rama lee ESE `pasos`, nunca los de la secuencia sin expandir.
   assert.doesNotMatch(motor.slice(motor.indexOf('const escenarios')), /secuencia\.pasos/);
   // La ruta clasifica con `escenariosDeRespuesta`, que expande adentro; el simulador expande al caminar.
@@ -408,8 +422,8 @@ test('el motor y la ruta de «Probar» recorren el flujo EXPANDIDO (guard de cab
   assert.match(sim, /export function entrarEnRespuesta\([\s\S]*?const pasos = recorrido\(pasosIn\);/);
   // El lienzo: la tarjeta con su cuerpo y su editor.
   const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
-  assert.match(lienzo, /n\.tipo === 'paso-ia' && paso\s*\? <CuerpoPasoIA paso=\{paso\} pendientes=\{n\.detalle\} \/>/);
-  assert.match(lienzo, /if \(esPasoIA\(paso\)\) \{[\s\S]*?<EditorPasoIA key=\{`ia-\$\{id\}`\}/);
+  assert.match(lienzo, /n\.tipo === 'paso-ia' && paso\s*\? <CuerpoPasoIA paso=\{paso\} pendientes=\{n\.detalle\} advertencia=\{!!n\.advertencia\} \/>/);
+  assert.match(lienzo, /if \(esPasoIA\(paso\)\) \{[\s\S]*?<EditorPasoIA key=\{`ia-\$\{id\}`\} id=\{id\}/);
 });
 
 // ── ROTURAS (10/10/2026) ─────────────────────────────────────────────────────────────────

@@ -23,7 +23,7 @@ import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { datosParaElLead } from '@/lib/variables-resolver';
 import { sanearHtmlEmail, textoDeHtmlEmail, aplicarVariablesHtml, cuerpoHtmlAGuardar, cuerpoHtmlEntrante, problemaDeCuerpoHtml } from '@/lib/email-html-seguro';
-import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom } from '@/lib/resend';
+import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, remitenteEsDeMako, getEmailFrom } from '@/lib/resend';
 import { remitenteDelPaso, remitenteAGuardar, firmaDelPie } from '@/lib/email-remitente';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { listarLineas, sondearSocket, type LineaRow } from '@/lib/evolution';
@@ -66,6 +66,7 @@ import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
+  separarPasosIA, escuchaPor, extrasDeCaso, type MedioAIStep,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
@@ -83,6 +84,7 @@ import {
 import { hoyEnTz } from '@/lib/date-utils';
 import { getSetting, getSettingEstricto } from '@/lib/settings';
 import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
+import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
   hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
@@ -227,6 +229,12 @@ export type PasoSecuencia = {
   paso_ia?: PasoGrafo['paso_ia'];
   instrucciones?: string;
   otra_aviso?: string;
+  /** AI Step v2 (décima tanda): por dónde escucha y contesta. Ausente = WhatsApp. */
+  medio?: PasoGrafo['medio'];
+  /** «Si responde» / AI Step soltado del CRON (no escucha). Lo guarda `camposDelFlujo`; la ficha de la API lo dice. */
+  suelta?: PasoGrafo['suelta'];
+  /** Sólo en la EXPANSIÓN (nunca se guarda): lo del caso para el redactor (`DatosCasoIA`). */
+  ia?: PasoGrafo['ia'];
   si_no?: string | null;
   /** Condición (cuarta tanda, punto 8): las flechas en paralelo del «Si no» (las de cada rama van en la rama). */
   paralelos_si_no?: string[];
@@ -361,22 +369,21 @@ export const UMBRAL_VSL_PCT = 50;
 // No inscribir leads más viejos que esto (días) — evita revivir cohortes muertas.
 const VENTANA_DIAS = 30;
 
-// ── Rate-limiter / anti-baneo de WhatsApp (defaults conservadores; override por env) ──
+// ── Rate-limiter / anti-baneo de WhatsApp ──
 // El envío REAL de cada canal se decide POR WORKSPACE (lib/envio-flags.ts): un
 // canal apagado deja sus pasos ESPERANDO (reintento en 24h, sin enviar ni avanzar).
-// ⚠️ LOS DOS TOPES SON DE WHATSAPP, NO DE «LOS MENSAJES» (decisión 5 de la segunda tanda,
+// ⚠️ LOS TOPES SE CONFIGURAN POR NEGOCIO DESDE EL 11/10/2026 (décima tanda, GENERAL 4: «que todo eso sea
+// configurable»): `mako.limites_envio`, lib/limites-envio.ts, Automations › Configuraciones › Límites. Acá
+// vivían `MAX_POR_DIA` (40, env NUTRICION_MAX_POR_DIA), `MAX_POR_CORRIDA` (6, env NUTRICION_MAX_POR_CORRIDA),
+// `MAX_EMAIL_POR_DIA` (100, env NUTRICION_MAX_EMAIL_POR_DIA) y `HS_MIN_ENTRE_MSGS` (20 h): son lo de
+// FÁBRICA (`limitesDeFabrica`) y el motor los lee UNA vez por corrida, ESTRICTO (`limitesDeEnvio`).
+// ⚠️ LOS DOS TOPES DE LA LÍNEA SON DE WHATSAPP, NO DE «LOS MENSAJES» (decisión 5 de la segunda tanda,
 // 08/10/2026). Son el presupuesto anti-ban de la LÍNEA: un email no la quema, y contándolos
 // juntos, una secuencia de email en paralelo se comía el cupo del WhatsApp del mismo negocio.
-const MAX_POR_DIA = Number(process.env.NUTRICION_MAX_POR_DIA ?? '40');        // tope en 24h móviles (por workspace)
-const MAX_POR_CORRIDA = Number(process.env.NUTRICION_MAX_POR_CORRIDA ?? '6'); // tope por corrida del cron
 // El tope DIARIO del email, aparte. Su porqué no es el ban de una línea: el email de nutrición
 // sale por Resend con el remitente del negocio, y un envío masivo de golpe es lo que hunde la
 // reputación de ese dominio (los mails empiezan a caer en spam, incluidos los transaccionales).
-// 100 por día por negocio es holgado para una nutrición (medido el 08/10/2026: nunca salió un
-// email por nutrición) y corta un bucle o una cohorte mal puesta antes de que dañe el dominio.
-const MAX_EMAIL_POR_DIA = Number(process.env.NUTRICION_MAX_EMAIL_POR_DIA ?? '100');
-const HS_MIN_ENTRE_MSGS = 20;     // no mandar 2 mensajes al mismo lead en <20h (prospección fría)
-// Excepción del guard anterior (reunión 31/07): con una reunión encima, la
+// Excepción del freno a la misma persona (reunión 31/07): con una reunión encima, la
 // cadencia de preparación exige toques cercanos ("si chateo dos veces y le mando
 // un audio, ya no falta"). El presupuesto anti-ban de una CONVERSACIÓN abierta o
 // de un lead con reunión próxima no es el de la prospección fría.
@@ -515,7 +522,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
  */
 export async function validarActivacion(id: number): Promise<void> {
   const supabase = (await getTenantDb());
-  const { data, error: eLeer } = await supabase.from('nutricion_secuencias').select('pasos').eq('id', id).maybeSingle();
+  const { data, error: eLeer } = await supabase.from('nutricion_secuencias').select('pasos, instance_name').eq('id', id).maybeSingle();
   if (eLeer) throw new Error(`validarActivacion: ${eLeer.message}`);
   const guardados = (data as { pasos?: unknown } | null)?.pasos;
   try {
@@ -524,6 +531,29 @@ export async function validarActivacion(id: number): Promise<void> {
     if (e instanceof PasosInvalidosError) throw new PasosInvalidosError(e.message.replace(/^No se guardó:/, 'No se activó:'));
     throw e;
   }
+  // UN MEDIO SIN CONECTAR NO SE ACTIVA (décima tanda, GENERAL 6: «no dejar publicarlo hasta que no lo
+  // configure»). Acá y no en `setSecuenciaPasos`: guardar no es publicar (la galería, duplicar y los scripts
+  // crean un borrador sin el medio). Por acá pasan todos los que prenden: la pantalla, /email y MaKo.
+  // «No pude comprobarlo» no frena (lib/medios-automatizacion.ts).
+  const { medioSinConectar } = await import('@/lib/disparadores-canales');
+  const linea = (data as { instance_name?: string | null } | null)?.instance_name ?? null;
+  const falta = await medioSinConectar(Array.isArray(guardados) ? (guardados as PasoSecuencia[]) : [], linea).catch(() => null);
+  if (falta) throw new PasosInvalidosError(`No se activó: ${falta.error}.`);
+  // Y LA VOZ de un AI Step que contesta en audio (AI Step v2, §1): sin ella no hay audio que mandar.
+  const sinVoz = await vozDeAIStepQueFalta(Array.isArray(guardados) ? (guardados as PasoSecuencia[]) : []).catch(() => null);
+  if (sinVoz) throw new PasosInvalidosError(`No se activó: ${sinVoz}.`);
+}
+
+/**
+ * EL FRENO ASYNC DE PUBLICAR Y ACTIVAR POR LA VOZ DE UN AI STEP (AI Step v2, docs/diseno-ai-step-v2.md §1: «que la
+ * voz exista no es puro»). Un caso que contesta en audio con «Tu voz» sin clon, o con otra voz que ya no está, no se
+ * publica: el motor mandaría el texto y avisaría cada vez. La regla, pura: `vozQueFalta` (lib/ai-step-voz.ts).
+ */
+export async function vozDeAIStepQueFalta(pasos: readonly PasoGrafo[]): Promise<string | null> {
+  if (!pasos.some((p) => p && (p.casos ?? []).some((c) => c && c.audio))) return null;
+  const [{ getVozCliente }, { vozQueFalta }] = await Promise.all([import('@/app/video-generator/voz-cliente'), import('@/lib/ai-step-voz')]);
+  const v = await getVozCliente();
+  return vozQueFalta(pasos, { propia: !!v.clon, otras: (v.otras ?? []).map((o) => o.voiceId) });
 }
 
 /**
@@ -617,6 +647,18 @@ async function frenoDeFilaEvento(
   const { data, error } = await supabase.from('nutricion_secuencias').select('disparadores').eq('id', id).maybeSingle();
   if (error) throw new Error(`setSecuenciaPasos (el evento): ${error.message}`);
   return frenoDelEvento(grafo, eventoDeFila({ trigger_tipo: TRIGGER_AVISO_MAKO, disparadores: (data as { disparadores?: unknown } | null)?.disparadores }));
+}
+
+/**
+ * LO QUE `setSecuenciaPasos` GUARDA: los pasos saneados, NORMALIZADOS (ids y `siguiente` explícitos) y con UN CASO
+ * POR TARJETA AI Step (AI Step v2, décima tanda: `separarPasosIA`). Por acá pasan todos los escritores —la API,
+ * «Crear con IA», «Pasar a AI Step», los que arman `pasos` a mano—: un AI Step de N casos se parte en N tarjetas
+ * (las nuevas al final del array, con su `orden`) y el tono se pliega adentro de cada respuesta. Lo que el lienzo
+ * publica ya viene separado (`abrirFlujo`) y no cambia. Aparte de la función para que su bloque no crezca.
+ */
+function grafoAGuardar(limpio: PasoSecuencia[]): PasoSecuencia[] {
+  const separado = separarPasosIA(normalizar(limpio));
+  return normalizar(separado.cambio ? separado.pasos.map((p, i) => ({ ...p, orden: i + 1 })) : separado.pasos);
 }
 
 export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: { soloValidar?: boolean }): Promise<void> {
@@ -801,7 +843,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
     });
   // Ids y `siguiente` EXPLÍCITOS en cada guardado (insertar o borrar un elemento del array ya no
   // le cambia a nadie el paso siguiente), y lo que no es un flujo no se guarda.
-  const grafo = normalizar(limpio);
+  const grafo = grafoAGuardar(limpio);
   const errores = validarGrafo(grafo);
   if (errores.length) throw new PasosInvalidosError(`No se guardó: ${errores[0]}.`);
   // EL RECORDATORIO DE LA REUNIÓN (10/10/2026): con su CRON, sólo la fila que su emisor sabe mandar
@@ -2281,6 +2323,26 @@ async function horarioDeEnvio(): Promise<HorarioEnvio | null | 'ilegible'> {
 }
 
 /**
+ * Los LÍMITES de envío del negocio (décima tanda, GENERAL 4), una vez por corrida: lo que guardó en
+ * Configuraciones › Límites encima de lo de fábrica (lib/limites-envio.ts). `'ilegible'` = la base no contestó.
+ *
+ * ⚠️ «NO PUDE LEER» NO ES «LO DE FÁBRICA», como el horario: un negocio que bajó el tope a 10 por prospectar
+ * en frío recibiría 40 con la base caída. Se lee ESTRICTO y, si falla, la corrida no manda nada.
+ */
+async function limitesDeEnvio(): Promise<LimitesEnvio | 'ilegible'> {
+  try { return limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), limitesDeFabrica(process.env)); } catch { return 'ilegible'; }
+}
+
+/**
+ * Lo que ya salió en la ventana de cada tope, con los MISMOS contadores que el motor (para la línea
+ * «24 h: 6 de 40» de Configuraciones › Límites). Tira si la base no contesta: la pantalla dice que no pudo.
+ */
+export async function usoDelCupo(): Promise<{ waDia: number; waHora: number; emailDia: number }> {
+  const [waDia, waHora, emailDia] = await Promise.all([enviosUltimas24h('whatsapp'), enviosEnLaHora('whatsapp'), enviosUltimas24h('email')]);
+  return { waDia, waHora, emailDia };
+}
+
+/**
  * ¿Es hora de escribirle a alguien? Sin horario, siempre. Con horario, en la zona del negocio.
  * Era «entre las 9 y las 21» para todos y sin forma de apagarlo (ver `VENTANA_*`, arriba). La zona
  * se lee sólo si hay horario, UNA vez por corrida y sin salir a la red (`zonaDelMotor`).
@@ -2361,7 +2423,7 @@ async function residuoYaUsado(idsResiduo: readonly number[]): Promise<number> {
 }
 
 // Set de lead_ids que ya recibieron un envío (nutrición o broadcast) en las
-// últimas HS_MIN_ENTRE_MSGS horas — calculado en 2 queries batch para TODOS los
+// últimas `personaHoras` (Configuraciones › Límites) — calculado en 2 queries batch para TODOS los
 // leads de la corrida (antes eran 2 count-queries POR lead dentro del loop: N+1).
 /**
  * Leads a los que el negocio YA les habló alguna vez por nutrición.
@@ -2425,12 +2487,15 @@ async function leadsYaContactados(leadIds: number[]): Promise<Set<number>> {
  * Se lee UNA vez por lote: lo que el lote acaba de mandar lo sabe `enviadoEnCorrida`, en memoria
  * (`frenadoPorAntiBan` mira las dos cosas).
  */
-async function leadsConEnvioReciente(leadIds: number[]): Promise<RecientesPorCanal> {
+async function leadsConEnvioReciente(leadIds: number[], personaHoras: { whatsapp: number; email: number }): Promise<RecientesPorCanal> {
   const set = new Set<number>();
   const email = new Set<number>();
   if (leadIds.length === 0) return { whatsapp: set, email };
   const supabase = (await getTenantDb());
-  const desde = haceHorasISO(HS_MIN_ENTRE_MSGS);
+  // Las horas entre dos mensajes a la misma persona, POR CANAL (Configuraciones › Límites, décima tanda;
+  // eran 20 h cableadas, `HS_MIN_ENTRE_MSGS`). La excepción de la reunión cercana no se configura.
+  const desde = haceHorasISO(personaHoras.whatsapp);
+  const desdeEmail = haceHorasISO(personaHoras.email);
   const desdeCorto = haceHorasISO(HS_MIN_PREPARACION);
   // Leads con reunión FUTURA cercana: están en cadencia de preparación. Va
   // PRIMERO porque parte a los leads en dos ventanas distintas (abajo).
@@ -2462,11 +2527,11 @@ async function leadsConEnvioReciente(leadIds: number[]): Promise<RecientesPorCan
     .in('lead_id', pend).in('estado', ['enviado', 'simulado']).eq('canal', canal).gte('created_at', d);
   const qEspejo = (pend: number[], d: string) => supabase.from('wa_mensajes').select('lead_id')
     .in('lead_id', pend).eq('from_me', true).gte('wa_timestamp', d);
-  // EL EMAIL, CON SU PROPIO FRENO: la nutrición por email y el masivo, 20 h, sin la excepción de
-  // la reunión cercana (esa es la cadencia de preparación de una conversación por WhatsApp).
+  // EL EMAIL, CON SU PROPIO FRENO: la nutrición por email y el masivo, con SUS horas (20 de fábrica), sin
+  // la excepción de la reunión cercana (esa es la cadencia de preparación de una conversación por WhatsApp).
   const [eNutri, eMasivo] = await Promise.all([
-    porVentana(leadIds, desde, qNutri('email'), 'nutricion_envios'),
-    porVentana(leadIds, desde, (pend, d) => supabase.from('email_broadcast_envios').select('lead_id')
+    porVentana(leadIds, desdeEmail, qNutri('email'), 'nutricion_envios'),
+    porVentana(leadIds, desdeEmail, (pend, d) => supabase.from('email_broadcast_envios').select('lead_id')
       .in('lead_id', pend).in('estado', ['enviado', 'simulado']).gte('created_at', d), 'email_broadcast_envios'),
   ]);
   for (const r of [eNutri, eMasivo]) for (const id of r) email.add(id);
@@ -3171,13 +3236,15 @@ async function enviarPartesDelPaso(a: {
 //     lib/espera-duracion.ts). Lo más viejo es algo frenado, y lo barre la corrida de cada hora.
 export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number; esperarHastaMs?: number; cupoPorHora?: boolean; vencidasDesde?: string }): Promise<ResultadoProceso> {
   const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, esperando: 0, borradores: 0, fallos: 0, acciones: 0, detalle: [] };
-  const [waOn, emailOn, sandbox, remitente, lineasEvo] = await Promise.all([
+  const [waOn, emailOn, sandbox, remitente, lineasEvo, remitenteDeMako] = await Promise.all([
     envioWhatsappHabilitado(),
     envioEmailHabilitado(),
     remitenteEsSandbox(),
     getEmailFrom(),
     // `null` = no se pudo leer: ninguna línea se da por lista, y el motivo lo dice.
     listarLineas().catch((): LineaRow[] | null => null),
+    // ¿El remitente del negocio es un email de MaKo y el negocio no es la plataforma? (décima tanda, EMAIL 1).
+    remitenteEsDeMako(),
   ]);
   // ⚠️ LA FIRMA DEL PIE YA NO ES EL NOMBRE VISIBLE DEL REMITENTE (cuarta tanda, punto 16). Era
   // `displayNameDe(remitente)`: en el ws1 eso firmaba «MaKo» los mails que le manda a SUS leads, y en
@@ -3229,7 +3296,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     if (horario === 'ilegible') return { ...res, saltado: 'horario-ilegible' };
     if (!(await dentroDeVentana(horario))) return { ...res, saltado: 'fuera-de-horario' };
   }
-  const presupuesto = MAX_POR_DIA - (await enviosUltimas24h('whatsapp'));
+  // LOS LÍMITES DEL NEGOCIO (décima tanda, GENERAL 4), una vez por corrida y estrictos: sin leerlos no se
+  // manda nada (lo vencido sigue ahí para la próxima), como con el horario.
+  const limites = await limitesDeEnvio();
+  if (limites === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };
+  const presupuesto = limites.wa.dia - (await enviosUltimas24h('whatsapp'));
   // Lo que ya salió en esta HORA, sólo para las corridas del cron (`cupoPorHora`).
   const enLaHora = opts?.cupoPorHora ? await enviosEnLaHora('whatsapp') : 0;
 
@@ -3239,7 +3310,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // EL EMAIL, CON SU PROPIO TOPE (decisión 5): las secuencias que mandan algún email siguen con el
   // cupo de WhatsApp cumplido, como las acciones, mientras quede tope de email.
   const conEmail = secuencias.filter((s) => s.pasos.some((p) => claseDe(p) === 'mensaje' && !esPasoAccion(p) && p.canal === 'email')).map((s) => s.id);
-  const presupuestoEmail = conEmail.length ? MAX_EMAIL_POR_DIA - (await enviosUltimas24h('email')) : 0;
+  const presupuestoEmail = conEmail.length ? limites.email.dia - (await enviosUltimas24h('email')) : 0;
   let emailsEnCorrida = 0;
   const emailLleno = (): boolean => emailsEnCorrida >= presupuestoEmail;
   /**
@@ -3254,7 +3325,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // Lo que puede seguir con el cupo de WHATSAPP cumplido: las acciones y, con tope de email, los emails.
   const sinTopeWa = [...new Set([...conAcciones, ...(presupuestoEmail > 0 ? conEmail : [])])];
   if (presupuesto <= 0 && !sinTopeWa.length) return { ...res, saltado: 'tope-diario' };
-  const cupo = Math.max(0, Math.min(MAX_POR_CORRIDA - enLaHora, presupuesto));
+  const cupo = Math.max(0, Math.min(limites.wa.hora - enLaHora, presupuesto));
   // El cupo cuenta SÓLO WhatsApp (decisión 5): `waEnCorrida`, no `res.enviados`, que suma el email.
   let waEnCorrida = 0;
   const cupoLleno = (): boolean => waEnCorrida >= cupo;
@@ -3416,7 +3487,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // el cupo o drenar la cola de vencidas.
   // Con el cupo de mensajes ya en cero sólo quedan acciones por correr: el lote no puede
   // ser `0 × 3`, o el `.limit(0)` no traería ninguna.
-  const LOTE = (cupo > 0 ? cupo : MAX_POR_CORRIDA) * 3;
+  const LOTE = (cupo > 0 ? cupo : limites.wa.hora) * 3;
   const vistos = new Set<number>();
   // Los hilos ya mirados en esta corrida, por fila, hilo y TARJETA: uno que se movió a otra
   // tarjeta ya vencida (una condición, una espera) se vuelve a mirar; uno frenado, no.
@@ -3543,7 +3614,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null; email: string | null; email_opt_out: boolean | null; created_at: string | null } & JuntasLead>).map((l) => [l.id, l]),
     );
     // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop).
-    const conEnvioReciente = await leadsConEnvioReciente(leadIds);
+    const conEnvioReciente = await leadsConEnvioReciente(leadIds, { whatsapp: limites.wa.personaHoras, email: limites.email.personaHoras });
     // Quién ya recibió algo alguna vez → decide cuál de los dos pasos de
     // apertura sale (presentarse o retomar). También en batch.
     const yaContactados = await leadsYaContactados(leadIds);
@@ -3603,6 +3674,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // cuenta: la inscripción queda ACTIVA y sin próximo envío, esperando que el lead
         // escriba (`pausarPorRespuesta` la toma de ahí). Cerrarla la dejaría sorda.
         if (sec && raizSalida(sec.pasos) == null && raizRespuesta(sec.pasos) != null) {
+          // (Con AI Step v2 alcanza con que escuche por ALGÚN medio: la inscripción espera igual.)
           await escribir(insc, { proximo_envio_at: null }, { modo: 'activa' });
           continue;
         }
@@ -4314,6 +4386,18 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // Con otros hilos vivos, esto cierra SÓLO el hilo del email (decisión 7): un email que no
           // puede salir no mata el WhatsApp ni deja la inscripción sin terminar nunca.
           terminal = hayOtrosHilos(sanearHilos(insc.hilos), insc.h ?? null);
+        } else if (remitenteDeMako) {
+          // ⚠️ EL EMAIL DE MaKo NO MANDA LOS CORREOS DE UN CLIENTE (décima tanda, EMAIL 1, 11/10/2026: «No
+          // permitas enviar emails con los email de MaKo, ellos deben poner sus propios email»). `sendEmail`
+          // ya se niega (lib/resend.ts), pero sin esta rama cada intento era un fallo genérico con reintento
+          // a las 4 h: una fila 'fallo' cada cuatro horas por lead, para siempre. Es la rama del sandbox:
+          // un error de configuración, 1 reintento por día, y con otros hilos vivos cierra sólo el del email.
+          // Medido el 11/10/2026: el ws1 (un cliente, con `resend_from` = el de MaKo) no tiene ningún paso
+          // con remitente propio y su única automatización de email está pausada.
+          estado = 'fallo';
+          nota = 'remitente de MaKo: conecta tu email';
+          backoffHoras = 24;
+          terminal = hayOtrosHilos(sanearHilos(insc.hilos), insc.h ?? null);
         } else {
           // Los datos del «{ }», como el WhatsApp de arriba (`datosParaElLead`).
           const vars = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead, { negocio }), { ws: wsCorrida, leadId: insc.lead_id });
@@ -4618,7 +4702,8 @@ async function charlaDelLead(leadId: number): Promise<{ inscs: InscCharla[]; nom
         // Una archivada no está en `secs`: no es asistida de nadie.
         // CONTESTA cuando el lead escribe: en modo asistido (lo de antes) o porque tiene la
         // tarjeta «Si responde» (el flujo con ramas). Una con 'automatico' y sin la tarjeta sólo pausa.
-        asistida: !!sec && (parse(sec.estrategia)?.modo === 'asistido' || raizRespuesta(sec.pasos) != null),
+        // Por WhatsApp, que es por donde llega lo que esto atiende: un AI Step sólo de Instagram no contesta acá.
+        asistida: !!sec && (parse(sec.estrategia)?.modo === 'asistido' || escuchaPor(sec.pasos, 'whatsapp')),
         pausada: !sec || !sec.activa,
         reunionFutura: sec && preparaUnaReunion(sec.trigger_tipo) ? hayReunion : null,
       };
@@ -4641,7 +4726,11 @@ async function seguirCharla(
   texto: string | undefined, linea: string | null, origen: 'no_oficial' | 'oficial',
 ): Promise<void> {
   if (!charla.inscs.length) return;
-  const v = conversacionAbierta(charla.inscs, Date.now());
+  // Los días que la charla sigue abierta son del negocio (Configuraciones › Límites, décima tanda). Sin
+  // poder leerlos, los de fábrica: abierta, el setter sólo deja un BORRADOR (que salga solo se decide aparte,
+  // y con los límites ilegibles no sale: `asistirRespuesta`).
+  const lim = await limitesDeEnvio();
+  const v = conversacionAbierta(charla.inscs, Date.now(), lim === 'ilegible' ? undefined : lim.mako.diasCharla);
   if (v.abierta) {
     await asistirRespuesta(leadId, [v.insc.secuencia_id], texto, linea);
     return;
@@ -4721,14 +4810,18 @@ async function hayMensajeMasNuevo(c: CtxRespuesta): Promise<boolean> {
  *     `estrategia.escenarios`, el hand-off si no encaja, y `redactarRespuesta` si encaja.
  * Devuelve false (sin hacer nada) si ninguna de las secuencias contesta.
  */
-async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string, lineaEntrante: string | null = null): Promise<boolean> {
+async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string, lineaEntrante: string | null = null, op: { medio?: MedioAIStep } = {}): Promise<boolean> {
   const { parseEstrategia } = await import('@/lib/setting-estrategia');
   const secs = await getSecuenciasConStats();
-  // La secuencia que contesta: la que tiene «Si responde» o, si no, la asistida de antes.
-  const secuencia = secs.find((s) => secuenciaIds.includes(s.id) && (raizRespuesta(s.pasos) != null || parseEstrategia(s.estrategia)?.modo === 'asistido'));
+  // AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §1): ¿contesta por ESTE medio? Se decide sobre la
+  // EXPANSIÓN del medio (`escuchaPor`), no sobre lo guardado: una automatización con AI Step sólo de
+  // Instagram no le contesta un WhatsApp. Ausente = WhatsApp, que es por donde llega todo lo de hoy.
+  const medio = op.medio ?? 'whatsapp';
+  // La secuencia que contesta: la que escucha por el medio o, si no, la asistida de antes.
+  const secuencia = secs.find((s) => secuenciaIds.includes(s.id) && (escuchaPor(s.pasos, medio) || parseEstrategia(s.estrategia)?.modo === 'asistido'));
   if (!secuencia) return false;
   const c = await contextoDeRespuesta(leadId, secuencia, texto, lineaEntrante);
-  if (raizRespuesta(secuencia.pasos) != null) return responderConGrafo(c);
+  if (escuchaPor(secuencia.pasos, medio)) return responderConGrafo(c, medio);
   const { supabase, lead, descartarViejo } = c;
 
   // 0) HAND-OFF, y va PRIMERO: antes de redactar nada hay que saber si esto es
@@ -4802,6 +4895,20 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   // más nuevo se sale sin tocar nada — la redacción de ese mensaje se encarga, y avisa ella.
   if (sugerida && await hayMensajeMasNuevo(c)) return true;
 
+  // 1.5) CONTESTA EN AUDIO (AI Step v2, docs/diseno-ai-step-v2.md §5): la voz dice el texto (sin los links,
+  //      que van debajo como texto) y queda como una nota de voz de la biblioteca con `origen: 'ai_step'` (no
+  //      la ve la biblioteca del dueño). Si la voz falla o el texto no entra, NO se manda un audio a medias ni
+  //      sale sola: queda el borrador en TEXTO y el aviso dice por qué (nunca un respaldo en silencio).
+  let audioId: number | null = null;
+  let pieAudio = '';
+  let sinAudio: string | null = null;
+  if (sugerida && lead?.telefono && clas.escenario.audio) {
+    const r = await notaDeVozDeRespuesta(clas.escenario.audio.voz, sugerida)
+      .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message.slice(0, 160) : 'falló la voz' }));
+    if (r.ok) { audioId = r.audioId; pieAudio = r.pie; }
+    else sinAudio = r.error;
+  }
+
   // 2) UN borrador por lead para aprobar con un clic (misma bandeja que el resto): si ya
   //    había uno pendiente, se reemplaza (#788).
   let borradorOk = false;
@@ -4809,7 +4916,9 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   if (sugerida && lead?.telefono) {
     const { guardarBorradorSetter } = await import('@/lib/evolution-envio');
     const g = await guardarBorradorSetter({
-      leadId, telefono: lead.telefono, texto: sugerida, secuenciaId: secuencia.id,
+      // Con nota de voz, el texto del borrador es sólo lo que va DEBAJO (los links): el audio dice el resto.
+      leadId, telefono: lead.telefono, texto: audioId ? pieAudio : sugerida, secuenciaId: secuencia.id,
+      ...(audioId ? { audioId } : {}),
       // Por la línea a la que escribió el lead; si no se sabe (vino por el oficial), la de la
       // secuencia. Sin esto salía por la de por default: un número que ese lead no conoce.
       linea,
@@ -4824,6 +4933,16 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   // 3) LA CHARLA TERMINÓ (#360): el lead aceptó, dijo que no, o repitió por tercera vez la
   //    misma objeción. Se anota y no se vuelve a abrir sola: el próximo mensaje de este lead
   //    lo contesta una persona (y el aviso lo explica).
+  // 3.5) HASTA «UNA RESPUESTA» (AI Step v2, §2.4): MaKo contestó (o dejó el borrador) y la charla PASA A UNA
+  //      PERSONA, como el hand-off: fecha de cierre sin motivo (`cerradaPorUnaPersona`). El borrador NO se
+  //      descarta: es la respuesta de esta vez. Si el redactor ya cerró la charla, gana su cierre.
+  const unaVez = !cierre && borradorOk && clas.escenario.hasta === 'una';
+  if (unaVez) {
+    const { error: eUna } = await supabase.from('nutricion_inscripciones')
+      .update({ conversacion_cerrada_at: ahoraISO(), conversacion_cierre: null })
+      .eq('lead_id', leadId).eq('secuencia_id', secuencia.id);
+    if (eUna) console.error(`[nutricion] «una respuesta» del lead ${leadId}: ${eUna.message}`);
+  }
   if (cierre) {
     await supabase.from('nutricion_inscripciones')
       .update({ conversacion_cierre: cierre, conversacion_cerrada_at: ahoraISO() })
@@ -4869,23 +4988,37 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   //      reclama de forma atómica): si el setter lo aprueba a mano en paralelo, sale uno solo.
   let contestado = false;
   let porQueNoSolo: string | null = null;
-  if (borradorOk && borradorId != null && sugerida && lead?.telefono && clas.escenario.contestaSolo === true && !alertaDescalifica) {
+  // Sin el audio que el caso pedía, no sale sola (§5): una persona mira el texto antes.
+  if (sinAudio) porQueNoSolo = `no salió en audio: ${sinAudio}`;
+  if (!sinAudio && borradorOk && borradorId != null && sugerida && lead?.telefono && clas.escenario.contestaSolo === true && !alertaDescalifica) {
     try {
       const { puedeContestarSolo } = await import('@/lib/setter-conversacion');
       const desde = new Date(Date.now() - 24 * 3_600_000).toISOString();
-      const [envioOn, bloqueado, automaticas, tz] = await Promise.all([
+      const [envioOn, bloqueado, automaticas, tz, limites, horario] = await Promise.all([
         envioWhatsappHabilitado().catch(() => false),
         estaBloqueado(lead.telefono).catch(() => true),
         supabase.from('wa_borradores').select('id', { count: 'exact', head: true })
           .eq('lead_id', leadId).eq('enviado_por', 'mako-auto').gte('enviado_at', desde)
           .then((r) => (r.error ? Number.POSITIVE_INFINITY : (r.count ?? 0))),
         tzActual().catch(() => TZ_DEFAULT),
+        // EL TOPE Y EL HORARIO DEL NEGOCIO (décima tanda, GENERAL 4): el tope de Configuraciones › Límites,
+        // y el horario de oficina si está prendido (si no, 9 a 21 como siempre). «No pude leer» no sale solo.
+        limitesDeEnvio(),
+        horarioDeEnvio(),
       ]);
       const hora = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: tz }).format(new Date()));
-      const d = puedeContestarSolo({
-        escenario: clas.escenario, texto: sugerida, cierre, envioHabilitado: envioOn,
-        automaticasUltimas24h: automaticas, horaLocal: hora, bloqueado,
-      });
+      const d = limites === 'ilegible' || horario === 'ilegible'
+        ? { ok: false as const, motivo: 'no pude leer tus límites' }
+        : puedeContestarSolo({
+          escenario: clas.escenario, texto: sugerida, cierre, envioHabilitado: envioOn,
+          automaticasUltimas24h: automaticas, horaLocal: hora, bloqueado,
+          tope: limites.mako.solasPor24h,
+          // Con horario de oficina, ése, en la MISMA zona en que «Contesta sola» medía su 9 a 21 (`tz`, de
+          // `tzActual`). ⚠️ NO `dentroDeVentana`: ésa usa la zona del motor (`zonaDelMotor`, Ciudad de México sin
+          // `mako.timezone`) y `tzActual` cae a Tijuana; en el ws1 (sin zona guardada) corría la ventana una hora
+          // (dos desde el 1/11) sin que nadie lo decidiera (revisión de la décima tanda, 11/10/2026).
+          enHorario: horario ? dentroDelHorario(Date.now(), tz, horario) : undefined,
+        });
       if (d.ok) {
         const { enviarBorrador } = await import('@/lib/evolution-envio');
         const env = await enviarBorrador(borradorId, 'mako-auto');
@@ -4899,19 +5032,47 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
     }
   }
 
+  const enAudio = audioId ? ' con una nota de voz' : '';
   const borrador = contestado && sugerida
-    ? `\n\nLe contesté solo (caso «${clas.escenario.titulo}»):\n${sugerida.slice(0, 300)}`
+    ? `\n\nLe contesté solo${enAudio} (caso «${clas.escenario.titulo}»):\n${sugerida.slice(0, 300)}`
     : borradorOk && sugerida
-      ? `\n\n${cierre === 'insistencia' || cierre === 'fin_mal' ? 'Te dejé la despedida lista para aprobar' : 'Te dejé un borrador listo para aprobar'}${porQueNoSolo ? ` (no lo mandé solo: ${porQueNoSolo})` : ''}:\n${sugerida.slice(0, 300)}`
+      ? `\n\n${cierre === 'insistencia' || cierre === 'fin_mal' ? 'Te dejé la despedida lista para aprobar' : audioId ? 'Te dejé una nota de voz lista para aprobar' : 'Te dejé un borrador listo para aprobar'}${porQueNoSolo ? ` (no lo mandé solo: ${porQueNoSolo})` : ''}:\n${sugerida.slice(0, 300)}`
       : sinBorrador ? `\n\nNo pude dejarte un borrador: ${sinBorrador}` : '';
+  // «Una respuesta» (AI Step v2): lo dice el aviso, o el próximo mensaje del lead se lee como un MaKo mudo.
+  const trasUna = unaVez ? '\n\nContestó una vez: lo que siga lo contestas tú.' : '';
   await emitirDelCatalogo('wa-mensaje-entrante', {
     ws: (await getWorkspaceActual()) ?? undefined,
     lead: { id: leadId, nombre: lead?.nombre ?? null },
     // «a la automatización» desde el 10/10/2026 (restos de versiones anteriores): decía «a la secuencia
     // de mensajes», el nombre de antes de la tab.
-    texto: `💬 *${quien} respondió* a la automatización «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${borrador}${alertaDescalifica}\n\n— MaKo`,
+    texto: `💬 *${quien} respondió* a la automatización «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${borrador}${trasUna}${alertaDescalifica}\n\n— MaKo`,
   });
   return true;
+}
+
+/**
+ * LA RESPUESTA DE UN AI STEP DICHA CON UNA VOZ (AI Step v2, docs/diseno-ai-step-v2.md §5). `voz`: 'propia'
+ * (el clon VIGENTE de `video.voz`: re-clonar no deja tarjetas apuntando a una voz borrada) o el voiceId de
+ * otra. Los links NO se leen: van debajo como texto (`pie`). Con `tope` (`TOPE_TEXTO_AUDIO`) un texto que no
+ * entra NO se corta a mitad de frase: vuelve el error y la respuesta sale en texto (`decirConVoz`).
+ */
+async function notaDeVozDeRespuesta(voz: string, texto: string): Promise<{ ok: true; audioId: number; pie: string } | { ok: false; error: string }> {
+  const { partirTextoParaVoz, TOPE_TEXTO_AUDIO } = await import('@/lib/ai-step-voz');
+  const { hablado, pie } = partirTextoParaVoz(texto);
+  if (!hablado) return { ok: false, error: 'no quedó nada que decir sin los links' };
+  const { getVozCliente } = await import('@/app/video-generator/voz-cliente');
+  const v = await getVozCliente();
+  const voiceId = voz === 'propia' ? (v.clon?.voiceId ?? '') : ((v.otras ?? []).some((o) => o.voiceId === voz) ? voz : '');
+  if (!voiceId) return { ok: false, error: voz === 'propia' ? 'todavía no clonaste tu voz' : 'esa voz ya no está' };
+  const { decirConVoz } = await import('@/lib/elevenlabs');
+  const r = await decirConVoz(voiceId, hablado, { tope: TOPE_TEXTO_AUDIO });
+  if (!r.ok) return { ok: false, error: r.error.slice(0, 160) };
+  const { crearAudio } = await import('@/lib/setting-audios');
+  const a = await crearAudio({
+    titulo: 'Respuesta de MaKo', base64: r.valor.mp3.toString('base64'), mime: 'audio/mpeg',
+    transcript: hablado, origen: 'ai_step',
+  });
+  return { ok: true, audioId: a.id, pie };
 }
 
 /**
@@ -4935,14 +5096,17 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
  * produjo una respuesta de MaKo, cierra la CHARLA (`charlaPasaAUnaPersona`, revisión del
  * 08/10/2026) y los mensajes siguientes los contesta una persona.
  */
-async function responderConGrafo(c: CtxRespuesta): Promise<boolean> {
+async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp'): Promise<boolean> {
   const { leadId, secuencia, texto, supabase, lead } = c;
   // ⚠️ EL AI STEP SE RECORRE EXPANDIDO (novena tanda, `expandirPasoIA`): lo que en la tarjeta va adentro
   // de cada caso —cómo responder, si sale sola, si te avisa, el aviso de «Otra cosa»— pasa a ser el «MaKo
   // contesta» y el «avisar al equipo» de siempre, con ids derivados del nodo y del caso. Así corre por el
   // MISMO redactor, el mismo borrador, la misma guarda de la plata (`puedeContestarSolo`) y el mismo
   // hand-off que un «Si responde» de antes. Sin AI Step es el mismo flujo. Lo guardado no cambia.
-  const pasos = expandirPasoIA(secuencia.pasos);
+  // AI STEP v2 (décima tanda): las tarjetas del MEDIO por el que escribió se juntan en una (`{ medio }`); las
+  // de otro medio quedan inertes. Los datos nuevos de cada caso (objetivo, ejemplos, audio, «1 vez») viajan
+  // en su «MaKo contesta» (`p.ia`) y llegan al redactor con el escenario.
+  const pasos = expandirPasoIA(secuencia.pasos, { medio });
   const escenarios = escenariosDeRespuesta(pasos);
   const lista: EscenarioSecuencia[] = escenarios.map((e) => ({
     titulo: e.titulo, cuando: e.cuando, comoResponder: e.comoResponder, ...(e.contestaSolo ? { contestaSolo: true } : {}),
@@ -5035,10 +5199,13 @@ async function responderConGrafo(c: CtxRespuesta): Promise<boolean> {
     if (p.tipo === 'ia') {
       redacto = true;
       contesto = true;
+      // Con «Cualquier respuesta» (AI Step v2) no hay caso del clasificador: el título es el de su tarjeta.
+      const ia = p.ia;
       await redactarRespuesta(c, {
         escenario: {
-          titulo: caso?.titulo ?? 'Otra cosa', cuando: caso?.cuando ?? 'no encajó en ningún caso',
+          titulo: ia?.titulo || caso?.titulo || 'Otra cosa', cuando: ia?.cuando || caso?.cuando || 'no encajó en ningún caso',
           comoResponder: p.cuerpo, ...(p.revisar === false ? { contestaSolo: true } : {}),
+          ...extrasDeCaso(ia),
         },
       });
     } else {

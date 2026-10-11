@@ -267,7 +267,8 @@ test('los ejemplos son genéricos: ni etapas, ni productos, ni nombres, y en tú
 
 // rotura (la animación vuelve cuando se vacía el campo: `!pedido` sin `!tocada`): 1 fallo.
 test('el placeholder para del todo al tocar la caja, y no vuelve', () => {
-  assert.match(CAJA, /useEjemploQueSeEscribe\(p\.modo === 'crear' && !tocada && !pedido\)/);
+  // Desde la décima tanda también en la galería («Pídeselo a MaKo»): el placeholder se escribe en todo lo que no es editar.
+  assert.match(CAJA, /useEjemploQueSeEscribe\(p\.modo !== 'editar' && !tocada && !pedido\)/);
   assert.match(CAJA, /onPointerDownCapture=\{parar\}/);
   assert.match(CAJA, /onFocusCapture=\{parar\}/);
   assert.doesNotMatch(CAJA, /setTocada\(false\)/, 'nada la vuelve a prender');

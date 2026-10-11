@@ -61,6 +61,15 @@ export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
   };
 }
 
+/**
+ * LAS ACCIONES QUE UN FLUJO NO PUEDE CORRER, aunque su canal (`app`) las vea. `ctxDeFlujo` usa el canal `app`, así que
+ * toda acción con `app` aparece SOLA como «⚡ Acción» en los lienzos (`accionesParaFlujo` filtra por `visible`):
+ *   · `crear_automatizacion_con_ia` (décima tanda, docs/diseno-automations-galeria-v2.md §4): una automatización que crea
+ *     automatizaciones con IA cada vez que entra un lead es un lazo que gasta la IA del negocio. Su `preparar` también la
+ *     rechaza desde un flujo (la clave de scope con `PREFIJO_FLUJO`): esto la saca de la lista, aquello frena un paso viejo.
+ */
+export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia']);
+
 /** Las operaciones de pantalla PROPIA del plan: todas dejan un borrador de `plan_propuestas`. */
 const DEL_PLAN = new Set(['proponer_tareas_plan', 'proponer_cierre_tareas', 'proponer_ampliar_tareas', 'proponer_tareas_proyecto_vacio']);
 
@@ -218,7 +227,7 @@ export type AccionEditor = {
 export async function accionesParaFlujo(ws: number): Promise<AccionEditor[]> {
   const vista = await vistaDe(ctxDeFlujo(ws, 'catalogo', 'catálogo'));
   const orden = new Map(ACCIONES_DEL_FLUJO.map((a, i) => [a.id, i]));
-  return REGISTRO.filter((d) => esAccion(d) && visible(d, vista)).map((d): AccionEditor => {
+  return REGISTRO.filter((d) => esAccion(d) && visible(d, vista) && !NO_EN_FLUJOS.has(d.id)).map((d): AccionEditor => {
     const lista = accionDelFlujo(d.id);
     return {
       id: d.id, area: d.area, areaTitulo: AREA_INFO[d.area]?.titulo ?? d.area, titulo: lista?.titulo ?? d.titulo, descripcion: d.descripcion,

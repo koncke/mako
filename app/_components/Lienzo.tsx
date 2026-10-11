@@ -66,7 +66,7 @@ import { Dropdown, IconoOpcion, type DropdownOption } from '../components/Dropdo
 import {
   curvaEntre, curvaPuntos, medioDeCurva, puntoDeCurva, tDePildora, posicionDePildora, puntoDeEntrada, puntoDePuerto, filaDePuerto,
   vistaConPanel, vistaConPanelAbajo, vistaAlCerrarPanel, yDePuerto, tieneFilas, rotuloDeFila, encuadreInicial,
-  nodoRevelado, aristaRevelada,
+  nodoRevelado, aristaRevelada, tocadosPorLazo, queHaceLaRueda, filaALaDerecha, type CapaRueda,
   ALTO_PUERTO, PIE_PUERTOS, BORDE_NODO, PANEL_MARGEN, ZOOM_ALTO, CHROME_ALTO, Z_EDITOR_APAISADO, Z_ACCION_LIENZO, ALTO_PILDORA_FLECHA,
   REVELAR_DURACION_MS, REVELAR_SUBE_PX, REVELAR_PASO_MS, ICONO_MAKO, ICONO_GMAIL, type VistaLienzo,
   type GrafoFlujo, type NodoFlujo, type TonoArista, type AristaFlujo, type PuertoNodo,
@@ -136,6 +136,8 @@ const ATENUADO = 0.28;
 const DESVIO_MEDIO = 22;
 /** El círculo de una salida: su diámetro, y cuánto asoma la flecha al tocarlo (con el menú en la punta). */
 const CIRCULO = 16;
+/** Lo que cuelga el tacho chico de la esquina de una fila (`top/right: -9`): el aire que le deja el editor. */
+const AIRE_ESQUINA = 9;
 const ASOMA_FLECHA = 118;
 /** Sin tarjetas elegidas con el lazo (una constante: un `[]` en el default sería otro en cada render). */
 const SIN_VARIOS: readonly string[] = [];
@@ -364,6 +366,20 @@ export function Lienzo({
   /** Se acaba de panear con el botón derecho: el `contextmenu` que llega después no abre nada. */
   const paneoDerecho = useRef(false);
   const hayVarios = varios.length > 0;
+  /**
+   * LO QUE EL LAZO TOCA MIENTRAS SE ARRASTRA (décima tanda, general 2, 11/10/2026: «Si le doy click... y
+   * mantengo para selección múltiple, automáticamente se debe poner opaco todo, no solo al soltar la
+   * selección»). null = no hay lazo en curso. Con lazo, lo que no está acá se atenúa como lo no elegido
+   * (`atenuar`), desde que el gesto pasa a ser un arrastre: con `[]`, todo opaco.
+   *
+   * ⚠️ ESTADO, PERO NO POR PÍXEL: se escribe sólo cuando CAMBIA el conjunto (`lazoClave`), o sea cuando el
+   * rectángulo entra o sale de una tarjeta. Un setState por `pointermove` redibujaría el lienzo 60 veces
+   * por segundo (la trampa 3); el rectángulo sigue yendo por el DOM.
+   */
+  const [lazoVivo, setLazoVivo] = useState<string[] | null>(null);
+  const lazoClave = useRef<string | null>(null);
+  /** Lo que se ve iluminado: lo que toca el lazo en curso o, sin lazo, lo elegido. null = nada atenuado. */
+  const atenuar: readonly string[] | null = lazoVivo ?? (hayVarios ? varios : null);
   /** Dónde está el cursor sobre el lienzo, en coordenadas de PANTALLA: ahí se pega con Ctrl+V. */
   const cursor = useRef<{ x: number; y: number } | null>(null);
   /** Lo que se está moviendo AHORA, para pintarlo sin pasar por el estado. */
@@ -756,10 +772,34 @@ export function Lienzo({
   // La rueda va con un listener NO PASIVO puesto a mano: React los registra
   // pasivos, así que un `onWheel` de JSX no puede llamar a preventDefault y la
   // página scrollea detrás del zoom.
+  //
+  // ⚠️ Y LA RUEDA ADENTRO DE UN PANEL NO ES DEL LIENZO (décima tanda, WhatsApp 4, 11/10/2026: «El Scroll no
+  // funciona dentro del modal editable... se hace zoom atrás en el lienzo... Y no solo en WhatsApp, en ningún
+  // lado»). El editor de cada tarjeta vive ADENTRO de esta caja, así que este `preventDefault` le robaba el
+  // scroll a cualquier panel y lo convertía en zoom. Lo decide `queHaceLaRueda` (lib/lienzo-grafo.ts, con
+  // test): si algo que desborda puede moverse, scrollea el navegador; adentro de un panel sin para dónde,
+  // nada; sobre el dibujo, zoom. Sólo se mira la cadena cuando la rueda cae en algo marcado `data-no-pan`
+  // (el panel, sus controles): sobre el dibujo no se pide ni un `getComputedStyle`.
   useEffect(() => {
     const c = caja.current;
     if (!c) return;
     const onWheel = (e: WheelEvent) => {
+      const t = e.target instanceof Element ? e.target : null;
+      if (t && t !== c && t.closest('[data-no-pan]') && c.contains(t)) {
+        const cadena: CapaRueda[] = [];
+        for (let el: Element | null = t; el && el !== c; el = el.parentElement) {
+          const cs = getComputedStyle(el);
+          cadena.push({
+            panel: el.hasAttribute('data-panel-lienzo'), overflowX: cs.overflowX, overflowY: cs.overflowY,
+            scrollLeft: el.scrollLeft, scrollTop: el.scrollTop, scrollWidth: el.scrollWidth, scrollHeight: el.scrollHeight,
+            clientWidth: el.clientWidth, clientHeight: el.clientHeight,
+          });
+        }
+        const que = queHaceLaRueda(cadena, e.deltaX, e.deltaY);
+        if (que === 'nativo') return;
+        e.preventDefault();
+        if (que === 'nada') return;
+      }
       e.preventDefault();
       const r = c.getBoundingClientRect();
       const px = e.clientX - r.left, py = e.clientY - r.top;
@@ -902,6 +942,10 @@ export function Lienzo({
         el.style.top = `${Math.min(g.y0, e.clientY) - r.top}px`;
         el.style.width = `${Math.abs(dx)}px`;
         el.style.height = `${Math.abs(dy)}px`;
+        // Lo que toca AHORA, con la MISMA función que elige al soltar; al estado sólo si cambió (general 2).
+        const ids = tocadosPorLazo(grafo.nodos, aGrafo(g.x0, g.y0), aGrafo(e.clientX, e.clientY));
+        const clave = ids.join('\n');
+        if (clave !== lazoClave.current) { lazoClave.current = clave; setLazoVivo(ids); }
       }
       return;
     }
@@ -943,14 +987,13 @@ export function Lienzo({
     }
     if (g.modo === 'lazo') {
       if (lazoRef.current) lazoRef.current.style.display = 'none';
+      // El lazo en curso se termina: desde acá manda lo ELEGIDO (`varios`), en este mismo render.
+      lazoClave.current = null;
+      setLazoVivo(null);
       try { caja.current?.releasePointerCapture(e.pointerId); } catch { /* ya se soltó */ }
       if (g.movido <= ARRASTRE2) { onSeleccion(null); onVarios?.([]); return; }
-      // Lo que TOCA el rectángulo queda elegido (como en Figma o ManyChat: no hace falta encerrarlo entero).
-      const a = aGrafo(Math.min(g.x0, e.clientX), Math.min(g.y0, e.clientY));
-      const b = aGrafo(Math.max(g.x0, e.clientX), Math.max(g.y0, e.clientY));
-      const ids = grafo.nodos
-        .filter((n) => !n.enFlecha && n.x < b.x && n.x + n.ancho > a.x && n.y < b.y && n.y + n.alto > a.y)
-        .map((n) => n.id);
+      // Lo que TOCA el rectángulo queda elegido (`tocadosPorLazo`: lo mismo que se veía iluminado al arrastrar).
+      const ids = tocadosPorLazo(grafo.nodos, aGrafo(g.x0, g.y0), aGrafo(e.clientX, e.clientY));
       onSeleccion(null);
       onVarios?.(ids);
       return;
@@ -1110,7 +1153,7 @@ export function Lienzo({
               // La que se está llevando desde su punta no se dibuja (la lleva la flecha temporal); con el
               // lazo, las que no unen dos tarjetas elegidas van atenuadas, como el resto.
               const llevada = arrastreFlecha?.indice === i;
-              const fuera = arrastreFlecha?.indice != null ? true : hayVarios && !(varios.includes(a.desde) && varios.includes(a.hasta));
+              const fuera = arrastreFlecha?.indice != null ? true : atenuar != null && !(atenuar.includes(a.desde) && atenuar.includes(a.hasta));
               return (
                 <path key={i} data-arista={i} d={curvaEntre(d, h, a.puerto)} fill="none" stroke={COLOR_TONO[a.tono]}
                   strokeWidth={tocada ? 2.4 : 1.6} strokeDasharray={a.tono === 'condicional' ? '5 4' : undefined}
@@ -1346,7 +1389,8 @@ export function Lienzo({
                 ...(arrastreFlecha && n.id !== arrastreFlecha.desde && n.id !== sobreFlecha
                   ? { opacity: ATENUADO, transition: 'opacity .12s ease' }
                   : arrastreFlecha ? { transition: 'opacity .12s ease' }
-                  : hayVarios ? { opacity: varios.includes(n.id) ? 1 : ATENUADO, transition: 'opacity .12s ease' } : {}),
+                  // Lo elegido con el lazo, y MIENTRAS se arrastra el lazo, lo que toca (general 2).
+                  : atenuar ? { opacity: atenuar.includes(n.id) ? 1 : ATENUADO, transition: 'opacity .12s ease' } : {}),
               }}
               onPointerEnter={() => setEncima(n.id)}
               /**
@@ -1362,7 +1406,7 @@ export function Lienzo({
             >
               {/* La de abajo del cursor mientras se arrastra una flecha va resaltada como elegida: es
                   donde va a entrar. */}
-              {renderNodo(n, seleccion === n.id || sobreFlecha === n.id || (hayVarios && varios.includes(n.id)))}
+              {renderNodo(n, seleccion === n.id || sobreFlecha === n.id || (atenuar != null && atenuar.includes(n.id)))}
               {/* Un nodo CON puertos agrega desde sus puntos (abajo), no desde el ＋ de
                   pasar el cursor: dos ＋ en la misma tarjeta prometerían dos lugares. */}
               {onAgregarTras && !n.puertos && encima === n.id && (puedeAgregarTras?.(n.id) ?? true) && (
@@ -1516,6 +1560,8 @@ export function Lienzo({
         {nodoSel && (
           <div
             data-no-pan
+            // Un PANEL: la rueda adentro nunca hace zoom (`queHaceLaRueda`, décima tanda, WhatsApp 4).
+            data-panel-lienzo
             data-panel-forma={apaisado ? 'apaisado' : 'columna'}
             style={{
               // Las TRES cosas que flotan llevan el inset, no dos: el chrome, la fila
@@ -1598,7 +1644,16 @@ export function Lienzo({
             {altoFijo
               // En COLUMNA flex: los editores anchos (WhatsApp en fila, el email tipo Gmail) estiran
               // con `flex: 1` + `min-height: 0`. Nunca `height: 100%`, que Safari resuelve a cero.
-              ? <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>{renderEditor(nodoSel)}</div>
+              //
+              // ⚠️ CON 9 PX DE AIRE ARRIBA Y A LA DERECHA, DEVUELTOS CON MARGEN (décima tanda, CONDITION 2:
+              // «al crear una segunda CONDITION se bugea... salta un scroll hacia la derecha... El botón de
+              // basura, para eliminar una condition queda escondido»). El tacho chico de una fila cuelga de
+              // la ESQUINA de su contenedor (`top: -9; right: -9`, `BotonQuitar`): pegado al borde de esta
+              // caja que scrollea, esos 9 px desbordaban a la derecha —el scroll lateral— y arriba quedaban
+              // cortados. Con el relleno, la esquina cae ADENTRO de la caja; con el margen negativo, el
+              // contenido queda donde estaba. Vale para todo editor con el tacho en la esquina (la condición,
+              // los casos), no sólo para el que se reportó.
+              ? <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: `${AIRE_ESQUINA}px ${AIRE_ESQUINA}px 0 0`, margin: `-${AIRE_ESQUINA}px -${AIRE_ESQUINA}px 0 0` }}>{renderEditor(nodoSel)}</div>
               : renderEditor(nodoSel)}
           </div>
         )}
@@ -1801,19 +1856,23 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
         // al círculo que dibuja el lienzo sobre el borde, y sin filete (no es una rama: es la salida).
         const alPie = p.rotulo == null && nodo.salidaAlPie;
         const texto = rotuloDeFila(nodo, p);
+        // A LA DERECHA, pegado a su círculo: la salida al pie y, desde la décima tanda (CONDITION 3), cada
+        // fila de una CONDITION («Ya le escribiste» junto al ＋ verde, «Si no» junto al rojo). `filaALaDerecha`.
+        const derecha = filaALaDerecha(nodo, p);
         return (
-          <div key={p.id} title={texto} data-fila-salida={p.id}
+          <div key={p.id} title={texto} data-fila-salida={p.id} data-fila-derecha={derecha || undefined}
             style={{
               flex: 'none', height: ALTO_PUERTO, boxSizing: 'border-box', borderTop: alPie ? 'none' : '1px solid var(--border)',
-              display: 'flex', alignItems: 'center', justifyContent: alPie ? 'flex-end' : undefined, paddingRight: alPie ? 12 : 6,
+              display: 'flex', alignItems: 'center', justifyContent: derecha ? 'flex-end' : undefined, paddingRight: derecha ? 12 : 6,
               fontSize: 11.5, fontWeight: alPie ? 600 : undefined,
               color: alPie ? (p.vacio ? 'var(--faint)' : 'var(--dim)') : p.tono === 'mala' ? 'var(--dim)' : 'var(--ink)',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{texto}</span>
-            {/* La marca CEDE último: el rótulo se corta con «…» antes que ella (flex: none). */}
+            {/* La marca CEDE último: el rótulo se corta con «…» antes que ella (flex: none). A la derecha va
+                pegada al rótulo: con `marginLeft: auto` se llevaría el aire y el rótulo volvería a la izquierda. */}
             {p.marca && (
-              <span style={{ marginLeft: 'auto', flex: 'none', padding: '1px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: 'var(--warn)', border: '1px solid var(--warn)', background: 'var(--surface)' }}>{p.marca}</span>
+              <span style={{ marginLeft: derecha ? 6 : 'auto', flex: 'none', padding: '1px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: 'var(--warn)', border: '1px solid var(--warn)', background: 'var(--surface)' }}>{p.marca}</span>
             )}
           </div>
         );

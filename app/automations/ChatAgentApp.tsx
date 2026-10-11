@@ -20,12 +20,14 @@ import { useSearchParams } from 'next/navigation';
 import { Icon } from '@/app/_components/icons';
 // next/link NO: perdería el ?ws= y mandaría al super admin a SU propio WhatsApp
 // en vez del que está mirando.
-import Link from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
 import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type Creando } from './SimuladorWhatsApp';
-import { HorarioLista } from './HorarioLista';
-import { GaleriaPlantillas, type CreadaGaleria, type SeccionGaleria } from './GaleriaPlantillas';
+// «Configuraciones» (décima tanda, GENERAL 4): el horario de oficina y los límites, en un modal. Reemplaza al
+// botón del horario (HorarioLista) en los mismos dos lugares.
+import { ConfiguracionesBoton } from './ConfiguracionesBoton';
+import { GaleriaPlantillas, type CreadaGaleria, type CreadaConIAGaleria, type SeccionGaleria } from './GaleriaPlantillas';
 import { leerCopia, firmaDeCopia } from '@/lib/flujo-copia';
-import type { ClaseDisparador } from '@/lib/disparadores';
+import { resumenAvisos } from '@/lib/flujo-ia-cliente';
 // (Acá se importaba lib/chatbot-mensajes-mako.ts: el endpoint de Notificaciones y el link `?aviso=` de los
 // Mensajes de MaKo de antes. Se fue el 11/10/2026: «MaKo en WhatsApp» son automatizaciones de esta misma lista,
 // con el CRON «Evento de MaKo» — docs/diseno-mako-en-whatsapp-unificado.md.)
@@ -41,6 +43,8 @@ import type { CronAviso } from '@/lib/cron-aviso';
 // La misma pieza que /whatsapp: el QR, su sondeo y la recuperación de una sesión caída.
 import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
 import { abreEnQR, marcarWhatsappAlCargar, puertaAlRecargar, type OnboardingChatbot } from '@/lib/chatbot-puerta';
+// El recorrido guiado de la tab (décima tanda, GENERAL 8), montado como el de CURSO.
+import { AyudaAutomations, RecorridoAutomations, useRecorridoAutomations } from './RecorridoAutomations';
 
 /** Cuánto se conserva la URL firmada de un audio ya cargado: la firma dura 12 h (lib/setting-audios.ts). */
 const URL_AUDIO_VIGENTE_MS = 10 * 3_600_000;
@@ -111,7 +115,8 @@ export type PasoSecuenciaDto = {
  * (JavaScript no borra lo que TypeScript no declara), pero el lienzo tenía que castear para editarlos.
  */
 export type CamposDelFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar' | 'media_id'
-  | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'suelta'>;
+  // AI Step v2 (décima tanda): el MEDIO de la tarjeta (los campos nuevos del caso viajan en `casos`).
+  | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'suelta' | 'medio'>;
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
@@ -384,7 +389,7 @@ function ChatAgentInner() {
    * `creando` es un ESTADO aparte y no una fila metida en `secuencias`: un `load()` de otra pantalla
    * en el medio la borraría.
    */
-  const crearNueva = async (clase?: ClaseDisparador) => {
+  const crearNueva = async () => {
     if (creandoNueva.current) return;
     creandoNueva.current = true;
     setErrCrear(null);
@@ -394,20 +399,28 @@ function ChatAgentInner() {
     try {
       const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_vacia' }) })).json();
       if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); return; }
-      const id = Number(r.secuenciaId);
-      // Con uno de los seis del CRON elegido en el modal, se abre su CRON en ese tipo (10/10/2026).
-      if (clase) setArranque({ id, clase });
-      setCreando({ temporal, id });
+      // (Acá se guardaba `arranque`: el tipo de CRON elegido en «¿Qué la dispara?» del modal, que abría su CRON en
+      // ese tipo. Se fue con esos botones en la décima tanda: «eso ya lo hacemos dentro en el CRON».)
+      setCreando({ temporal, id: Number(r.secuenciaId) });
       await load();
     } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
   };
   /**
-   * «＋ Nueva»: la galería. «En blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia).
-   * «＋ Nuevo mensaje» la abre en la sección «MaKo en WhatsApp» (`seccion: 'mako'`).
+   * «＋ Nueva»: la galería. «Lienzo en blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia).
+   * «＋ Nuevo mensaje» la abre con el filtro «MaKo en WhatsApp» puesto (`seccion: 'mako'`).
    */
   const abrirGaleria = (seccion?: SeccionGaleria) => { setErrCrear(null); setGaleria({ seccion }); };
-  /** La que se acaba de crear con un tipo de CRON elegido: su lienzo abre ese CRON (SecuenciaPerfil, `arranque`). */
-  const [arranque, setArranque] = useState<{ id: number; clase: ClaseDisparador } | null>(null);
+  /**
+   * LA QUE ARMÓ MaKo DESDE «PÍDESELO A MaKo» (décima tanda, punto 6): ya está GUARDADA y pausada (la fila nació al
+   * guardar, lib/flujo-ia-crear.ts). Se cierra el modal, se trae la lista y se abre; el aviso que más importa («Elige
+   * qué la dispara en el CRON») queda pegado al botón, como el de una plantilla.
+   */
+  const alCrearConIA = async (r: CreadaConIAGaleria) => {
+    setGaleria(false);
+    setErrCrear(resumenAvisos(r.avisos)?.texto ?? null);
+    await load();
+    setAbrirSec({ id: r.secuenciaId });
+  };
   /**
    * CREAR DESDE LO COPIADO (copiar flujo, 10/10/2026): el aviso al entrar a la tab y «Pegar lo copiado» del
    * modal. Nace APAGADA (lib/flujo-copia-negocio.ts); lo que no existe en este negocio queda vacío y en rojo.
@@ -462,6 +475,13 @@ function ChatAgentInner() {
   };
   /** La lista que se dibuja: la del server más la fila que se está creando (`listaConCreando`). */
   const visibles = secuencias === null ? null : listaConCreando(secuencias, creando);
+  /**
+   * EL RECORRIDO DE LA TAB (décima tanda, GENERAL 8: «tal como lo tenemos en el tutorial de "CURSO"»),
+   * ./RecorridoAutomations.tsx. Se abre solo, a quien arma (un admin, como el de CURSO), la primera vez que ve la
+   * lista con su lienzo: nunca con el cartel vacío, con la galería encima ni mientras se crea una. El «?» es de
+   * todos. Va antes de los `return` de abajo (AGENTS.md: ningún hook detrás de un return).
+   */
+  const recorrido = useRecorridoAutomations(rolAdmin && enOnboarding === false && visibles !== null && visibles.length > 0 && creando === null && !galeria);
 
   // ── El ancla del deep link ────────────────────────────────────────────────
   // Se aplica UNA sola vez. Sin el ref, cada render volvería a forzar la sub-tab
@@ -469,6 +489,19 @@ function ChatAgentInner() {
   // en la URL, así que el efecto lo re-aplicaría para siempre. Es el mismo
   // cuidado que `lastSearchRef` en /whatsapp.
   const params = useSearchParams();
+  /**
+   * Y LA URL DICE LA QUE SE ESTÁ VIENDO (décima tanda, NUEVA AUTOMATIZACIÓN 9). La lista avisa la elegida
+   * (`onElegida`, SimuladorWhatsApp) y acá se escribe `?sec=` con el router de app/_ui/Link (conserva el `?ws=`) y
+   * `scroll: false`, sin tocar el resto de la query. El ancla de abajo lo lee como un cambio y vuelve a pedir la misma:
+   * la lista no hace nada (`elegir` ignora la que ya está elegida).
+   */
+  const router = useRouter();
+  const escribirSec = useCallback((id: number) => {
+    const q = new URLSearchParams(params.toString());
+    if (q.get('sec') === String(id)) return;
+    q.set('sec', String(id));
+    router.replace(`/automations?${q.toString()}`, { scroll: false });
+  }, [params, router]);
   const anclaAplicada = useRef(false);
   // ⚠️ El ancla se aplicaba UNA sola vez por montaje, y el App Router NO remonta el client
   // component al cambiar el query: estando ya en /automations, el segundo aviso de plantilla
@@ -688,9 +721,10 @@ function ChatAgentInner() {
           {rolAdmin && (
             <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <button onClick={() => abrirGaleria()} style={btnDark}>＋ Nueva</button>
-              {/* EL HORARIO TAMBIÉN ACÁ: sin ninguna automatización la lista no se dibuja, y un negocio
-                  nuevo no tenía dónde ponerlo «allí mismo». El panel, sin la lista, cuelga del botón. */}
-              <HorarioLista rolAdmin={rolAdmin} />
+              {/* CONFIGURACIONES TAMBIÉN ACÁ (era el horario): sin ninguna automatización la lista no se dibuja,
+                  y un negocio nuevo no tenía dónde ponerlo «allí mismo». */}
+              <ConfiguracionesBoton />
+              <AyudaAutomations onClick={recorrido.reabrir} />
               {errCrear && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{errCrear}</span>}
             </div>
           )}
@@ -706,14 +740,19 @@ function ChatAgentInner() {
           secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
-          abrir={abrirSec}
-          arranque={arranque} onArranqueUsado={() => setArranque(null)}
+          abrir={abrirSec} onElegida={escribirSec}
           handoffs={sinCaso}
-          /* EL HORARIO DE ENVÍO, ahí mismo en la lista (10/10/2026: «haz que se pueda configurar allí
-             mismo, sin redirigir»): el editor de Configuraciones › Horario adentro de un panel anclado.
-             Sólo un admin lo abre; el resto ve el estado. Va como nodo y no adentro de la lista: ver
-             `horario` en SimuladorWhatsApp. */
-          horario={<HorarioLista rolAdmin={rolAdmin} />}
+          /* CONFIGURACIONES, ahí mismo en la lista (décima tanda, GENERAL 4; era el botón del horario, 10/10/2026:
+             «haz que se pueda configurar allí mismo, sin redirigir»): un modal con el horario de oficina y los
+             límites. El admin edita; el resto ve. Va como nodo y no adentro de la lista: ver `horario` en
+             SimuladorWhatsApp (las acciones arrastran `server-only`). */
+          horario={(
+            // El «?» del recorrido va al lado del horario: los dos son de la tab entera, no de una automatización.
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <ConfiguracionesBoton />
+              <AyudaAutomations onClick={recorrido.reabrir} />
+            </span>
+          )}
           /* ⚠️ ACÁ IBA EL PIE DE LA LISTA, «N etapas sin secuencia · Armar una», y salió el 10/10/2026
              (restos de versiones anteriores). Venía del modelo de UNA secuencia por etapa de
              nutrición, contaba sólo el primer CRON de cada automatización (ni `etapas` ni la lista de
@@ -723,13 +762,13 @@ function ChatAgentInner() {
         />
       )}
 
-      {/* LA GALERÍA de «＋ Nueva» (sólo un admin crea). «En blanco» es la vacía de siempre. */}
+      {/* LA GALERÍA de «＋ Nueva» (sólo un admin crea). «Lienzo en blanco» es la vacía de siempre. */}
       {galeria && rolAdmin && (
         <GaleriaPlantillas productos={productos} onCerrar={() => setGaleria(false)} seccion={galeria.seccion}
-          onEmpezar={() => { setGaleria(false); void crearNueva(); }}
-          onCron={(clase) => { setGaleria(false); void crearNueva(clase); }}
+          onBlanco={() => { setGaleria(false); void crearNueva(); }}
           onPegar={(t) => { setGaleria(false); void crearDesdeCopia(t); }}
           onCreada={(r) => void alCrearDePlantilla(r)}
+          onCreadaIA={(r) => void alCrearConIA(r)}
           // El recordatorio de la reunión es UNO por negocio: si ya está en la lista, su plantilla se dibuja apagada.
           triggersVivos={(secuencias ?? []).map((s) => s.trigger_tipo)} />
       )}
@@ -747,6 +786,8 @@ function ChatAgentInner() {
         </div>
       )}
 
+      {/* EL RECORRIDO (GENERAL 8): su capa y sus marcas. Va adentro del <main>: busca lo que señala acá adentro. */}
+      <RecorridoAutomations abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />
     </main>
   );
 }

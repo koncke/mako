@@ -76,7 +76,9 @@ test('crear: el ejemplo del prompt se traduce entero y pasa las dos capas', () =
   const ctx = ctxBase();
   const r = deIA(EJEMPLO, ctx, rndDe());
   ok(r.pasos, ctx);
-  assert.equal(r.pasos.length, 7);
+  // AI Step v2 (décima tanda): el «MaKo contesta» de «Si responde» se pliega ADENTRO de su tarjeta (`respuestaAPasoIA`):
+  // eran 7 tarjetas, son 6.
+  assert.equal(r.pasos.length, 6);
   assert.equal(r.nombre, 'Bienvenida a quien dejó sus datos');
   assert.equal(r.disparador, 'trigger:instant_form_sin_agenda');
   assert.deepEqual(r.avisos, []);
@@ -102,9 +104,13 @@ test('«Si responde» no tiene padre: cuelga del CRON, y una flecha que la apunt
   const resp = porClase(r.pasos, 'respuesta')[0];
   assert.equal(padreDe(r.pasos, resp.id!), null);
   assert.equal(raizRespuesta(r.pasos), resp.id);
-  const ia = mensajes(r.pasos).find((p) => p.tipo === 'ia')!;
-  assert.equal(resp.casos![0].siguiente, ia.id);
-  assert.equal(ia.revisar, true, '«MaKo contesta» nace como borrador explícito');
+  // AI Step v2 (décima tanda): «Crear con IA» pliega «Si responde» a AI Step, UNA tarjeta por caso, y el «MaKo
+  // contesta» queda ADENTRO del caso (sin tarjeta hija). Nace a revisar: sin `sola`.
+  assert.equal(resp.paso_ia, true);
+  assert.equal(resp.casos!.length, 1);
+  assert.equal(resp.casos![0].siguiente, null);
+  assert.ok((resp.casos![0].responder ?? '').trim(), 'el caso contesta');
+  assert.notEqual(resp.casos![0].sola, true, '«MaKo contesta» nace como borrador');
 
   const conFlecha = structuredClone(EJEMPLO);
   conFlecha.tarjetas[4] = { id: 't5', tipo: 'etiqueta', poner: 'Seguimiento', sigue: 'r1' } as never;

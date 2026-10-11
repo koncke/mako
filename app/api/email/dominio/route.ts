@@ -18,7 +18,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
+import { getWorkspaceActual, getRolWsEfectivo, wsSuperAdmin } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getSetting, setSetting } from '@/lib/settings';
 import {
@@ -28,6 +28,7 @@ import {
 } from '@/lib/resend';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import { EMAIL_MAKO } from '@/lib/app-url';
+import { esDominioDeMako } from '@/lib/email-remitente';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,7 +73,19 @@ async function reclamadoPorOtroWs(dominio: string, ws: number): Promise<boolean>
   return ((data ?? []) as unknown[]).length > 0;
 }
 
-async function estadoActual(): Promise<Record<string, unknown>> {
+/**
+ * ¿ESTE workspace es el de la PLATAFORMA (el del super admin)? Es el único que puede mandar con un email de
+ * MaKo (décima tanda, EMAIL 1: «No permitas enviar emails con los email de MaKo, ellos deben poner sus propios
+ * email»). Si no se puede saber, NO lo es: lo que se cierra es el email de MaKo, nunca el del negocio.
+ */
+async function esPlataforma(ws: number): Promise<boolean> {
+  try { return ws === await wsSuperAdmin(); } catch { return false; }
+}
+
+/** El dominio de MaKo, en un negocio que no es la plataforma: no se conecta ni se usa de remitente. */
+const NO_ES_TUYO = 'Ese dominio es de MaKo. Usa el de tu negocio.';
+
+async function estadoActual(ws: number): Promise<Record<string, unknown>> {
   const [dominio, dominioId, remitente, conectado, envio, sandbox, keyOk] = await Promise.all([
     getSetting('resend_domain'),
     getSetting('resend_domain_id'),
@@ -82,6 +95,8 @@ async function estadoActual(): Promise<Record<string, unknown>> {
     remitenteEsSandbox(),
     resendConfigurado(),
   ]);
+  // Lo lee el «De» del editor de email y el emisor de «Probar» (`remitentesVinculados`, lib/email-remitente.ts).
+  const plataforma = await esPlataforma(ws);
   const id = dominioId?.trim() || null;
   let vivo: ResendDomain | null = null;
   if (id) {
@@ -97,6 +112,7 @@ async function estadoActual(): Promise<Record<string, unknown>> {
     remitente,
     estadoDominio: vivo?.status ?? null,
     records: vivo?.records ?? [],
+    plataforma,
   };
 }
 
@@ -104,7 +120,7 @@ export async function GET() {
   const g = await guard();
   if ('error' in g) return g.error;
   try {
-    return Response.json({ ok: true, ...(await estadoActual()) });
+    return Response.json({ ok: true, ...(await estadoActual(g.ws)) });
   } catch (e) {
     console.error(`[api:email/dominio GET] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
@@ -122,6 +138,8 @@ export async function POST(req: NextRequest) {
     if (body.action === 'crear') {
       const dominio = normalizarDominio(String(body.dominio ?? ''));
       if (!dominio) return Response.json({ ok: false, error: 'Dominio inválido. Pon solo el dominio (ej: minegocio.com), sin https:// ni @.' }, { status: 400 });
+      // El dominio de MaKo no lo conecta un cliente (EMAIL 1): sus emails salen desde el suyo.
+      if (esDominioDeMako(dominio) && !(await esPlataforma(g.ws))) return Response.json({ ok: false, error: NO_ES_TUYO }, { status: 403 });
       // Anti-spoofing: un dominio reclamado por otro workspace no se puede adoptar.
       if (await reclamadoPorOtroWs(dominio, g.ws)) {
         return Response.json({ ok: false, error: `Ese dominio ya está conectado en otro workspace. Si es tuyo, escríbenos a ${EMAIL_MAKO}.` }, { status: 403 });
@@ -130,7 +148,7 @@ export async function POST(req: NextRequest) {
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
       await setSetting('resend_domain', r.domain.name);
       await setSetting('resend_domain_id', r.domain.id);
-      return Response.json({ ok: true, ...(await estadoActual()) });
+      return Response.json({ ok: true, ...(await estadoActual(g.ws)) });
     }
 
     if (body.action === 'verificar') {
@@ -138,13 +156,16 @@ export async function POST(req: NextRequest) {
       if (!id) return Response.json({ ok: false, error: 'Primero agrega tu dominio.' }, { status: 400 });
       const v = await verifyResendDomain(id);
       if (!v.ok) return Response.json({ ok: false, error: v.error }, { status: 502 });
-      return Response.json({ ok: true, ...(await estadoActual()) });
+      return Response.json({ ok: true, ...(await estadoActual(g.ws)) });
     }
 
     if (body.action === 'remitente') {
       const dominio = (await getSetting('resend_domain'))?.trim();
       const dominioId = (await getSetting('resend_domain_id'))?.trim();
       if (!dominio || !dominioId) return Response.json({ ok: false, error: 'Primero verifica tu dominio.' }, { status: 400 });
+      // Y si el dominio cargado es el de MaKo (el ws1 lo tiene de cuando era el de la plataforma), tampoco se
+      // arma un remitente con él (EMAIL 1).
+      if (esDominioDeMako(dominio) && !(await esPlataforma(g.ws))) return Response.json({ ok: false, error: NO_ES_TUYO }, { status: 403 });
       // El remitente exige el dominio VERIFICADO en vivo (no alcanza con tenerlo cargado).
       const vivo = await getResendDomain(dominioId);
       if (!vivo.ok || vivo.domain.status !== 'verified') {
@@ -157,7 +178,7 @@ export async function POST(req: NextRequest) {
       if (!/^[a-z0-9._%+-]+$/.test(local)) return Response.json({ ok: false, error: 'La parte antes del @ solo puede tener letras, números y . _ -' }, { status: 400 });
       if (!nombre) return Response.json({ ok: false, error: 'Pon el nombre que van a ver tus leads.' }, { status: 400 });
       await setSetting('resend_from', `${nombre} <${local}@${dominio}>`);
-      return Response.json({ ok: true, ...(await estadoActual()) });
+      return Response.json({ ok: true, ...(await estadoActual(g.ws)) });
     }
 
     if (body.action === 'envio') {
@@ -167,7 +188,7 @@ export async function POST(req: NextRequest) {
         return Response.json({ ok: false, error: 'Primero verifica tu dominio y configura el remitente.' }, { status: 400 });
       }
       await setEnvioEmail(body.on === true);
-      return Response.json({ ok: true, ...(await estadoActual()) });
+      return Response.json({ ok: true, ...(await estadoActual(g.ws)) });
     }
 
     if (body.action === 'desconectar') {
@@ -177,7 +198,7 @@ export async function POST(req: NextRequest) {
       await setSetting('resend_domain_id', '');
       await setSetting('resend_from', '');
       await setEnvioEmail(false);
-      return Response.json({ ok: true, ...(await estadoActual()) });
+      return Response.json({ ok: true, ...(await estadoActual(g.ws)) });
     }
 
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });

@@ -279,6 +279,19 @@ export function rotuloDeFila(n: { salidaAlPie?: boolean }, p: Pick<PuertoNodo, '
 }
 
 /**
+ * ¿EL TEXTO DE ESTA FILA VA A LA DERECHA, PEGADO A SU CÍRCULO? (décima tanda, CONDITION 3, 11/10/2026:
+ * «En la tarjeta del lienzo, quiero que la condición y "Si no" quede alineado a la derecha y alineado a los
+ * botones de "+" verde y rojo, respectivamente»). La salida al pie ya iba así (sexta tanda, punto 4); desde
+ * la décima, también cada fila de una CONDITION —la de la salida y la que escucha las respuestas—: el rótulo
+ * se lee al lado del círculo del que sale su flecha. Las demás (los casos del AI Step, el CRON) siguen a la
+ * izquierda. La altura ya estaba alineada: la fila y su círculo leen `yDePuerto`.
+ */
+export function filaALaDerecha(n: Pick<NodoFlujo, 'tipo'> & { salidaAlPie?: boolean }, p: Pick<PuertoNodo, 'rotulo'>): boolean {
+  if (p.rotulo == null && n.salidaAlPie === true) return true;
+  return n.tipo === 'condicion' || n.tipo === 'respuesta';
+}
+
+/**
  * LA FILA DE LA QUE SALE UNA FLECHA: el puerto de la arista (`sig`, una rama, `par:<id>`,
  * `par:<id>@<resultado>`) leído como la FILA de la tarjeta donde se dibuja su círculo. Lo usan
  * `yDePuerto` (de dónde sale la curva) y el lienzo (qué flechas borra la papelera de un círculo).
@@ -533,6 +546,101 @@ export function vistaAlCerrarPanel(
   return antes;
 }
 
+// ── El lazo, la rueda y el scroll de una lista (décima tanda, 11/10/2026) ──────────────
+
+/**
+ * LO QUE TOCA EL LAZO: las tarjetas que el rectángulo toca, aunque sea con un borde (como en Figma o
+ * ManyChat: no hace falta encerrarlas enteras). `a` y `b` son dos esquinas opuestas en coordenadas del
+ * GRAFO, en cualquier orden. Una espera dibujada en una flecha (`enFlecha`) no es una tarjeta: no entra.
+ *
+ * ⚠️ UNA FUNCIÓN PARA LOS DOS MOMENTOS (general 2: «Si le doy click... y mantengo para selección múltiple,
+ * automáticamente se debe poner opaco todo, no solo al soltar la selección»): mientras se arrastra, el lienzo
+ * atenúa lo que queda afuera; al soltar, lo de adentro queda elegido. Con dos cuentas, lo que se ve iluminado
+ * al arrastrar y lo que queda elegido al soltar se separarían.
+ */
+export function tocadosPorLazo(
+  nodos: readonly Pick<NodoFlujo, 'id' | 'x' | 'y' | 'ancho' | 'alto' | 'enFlecha'>[],
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): string[] {
+  const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
+  const y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+  return nodos
+    .filter((n) => !n.enFlecha && n.x < x1 && n.x + n.ancho > x0 && n.y < y1 && n.y + n.alto > y0)
+    .map((n) => n.id);
+}
+
+/** Lo que importa de UN elemento entre el que recibió la rueda y el lienzo (de adentro hacia afuera). */
+export type CapaRueda = {
+  /** Es un panel del lienzo (el editor de una tarjeta): la rueda nunca hace zoom adentro. */
+  panel: boolean;
+  overflowX: string; overflowY: string;
+  scrollLeft: number; scrollTop: number;
+  scrollWidth: number; scrollHeight: number;
+  clientWidth: number; clientHeight: number;
+};
+
+/**
+ * QUÉ HACE LA RUEDA DEL MOUSE SOBRE EL LIENZO (décima tanda, WhatsApp 4: «El Scroll no funciona dentro del
+ * modal editable... Si le doy a scroll con la rueda del mouse, se hace zoom atrás en el lienzo. Eso no
+ * debería pasar. Y no solo en WhatsApp, en ningún lado»).
+ *
+ * El lienzo escucha la rueda en su caja, con un listener NO pasivo que hace `preventDefault()` (si no, la
+ * página scrollea detrás del zoom), y el panel del editor vive ADENTRO de esa caja: el scroll de cualquier
+ * panel se lo comía el zoom. `cadena` va del elemento que recibió la rueda hacia afuera, hasta el lienzo
+ * (sin incluirlo):
+ *   · 'nativo' — algo de la cadena que DESBORDA puede moverse en esa dirección: lo scrollea el navegador
+ *     (el lienzo no toca el evento).
+ *   · 'nada'   — se está adentro de un panel (o de algo que desborda) pero ya no hay para dónde: ni zoom ni
+ *     scroll de la página (el lienzo hace `preventDefault()` y nada más). Así no salta al zoom al llegar
+ *     al final de una lista.
+ *   · 'zoom'   — el lienzo: una tarjeta, una flecha, el fondo.
+ *
+ * ⚠️ «DESBORDA» Y NO «TIENE overflow auto»: una caja con `overflow: auto` que no desborda (un cuerpo de
+ * tarjeta, un textarea corto) no es un panel. Contarla dejaría sin zoom la rueda sobre esa tarjeta.
+ */
+export function queHaceLaRueda(cadena: readonly CapaRueda[], dx: number, dy: number): 'nativo' | 'nada' | 'zoom' {
+  const vertical = Math.abs(dy) >= Math.abs(dx);
+  const d = vertical ? dy : dx;
+  let enPanel = false;
+  for (const c of cadena) {
+    const ov = vertical ? c.overflowY : c.overflowX;
+    const max = vertical ? c.scrollHeight - c.clientHeight : c.scrollWidth - c.clientWidth;
+    if ((ov === 'auto' || ov === 'scroll') && max > 1) {
+      enPanel = true;
+      const pos = vertical ? c.scrollTop : c.scrollLeft;
+      if ((d > 0 && pos < max - 1) || (d < 0 && pos > 0)) return 'nativo';
+    }
+    if (c.panel) enPanel = true;
+  }
+  return enPanel ? 'nada' : 'zoom';
+}
+
+/**
+ * CUÁNTO SCROLLEAR UNA LISTA PARA QUE SE VEA UNO DE SUS RECUADROS (décima tanda, CRON 3: «Si le doy a "Nuevo
+ * CRON" me debe desplazar con el scroll hacia allí para editarlo. Lo mismo que si estoy editando un CRON y
+ * selecciono el de arriba o de abajo, siempre me debe desplazar hacia donde esté parado»).
+ *
+ * `el`: su borde de arriba y su alto, medidos desde el arriba del CONTENIDO de la lista (o sea, ya sumado el
+ * `scrollTop`). Devuelve el `scrollTop` nuevo, o null si ya se ve entero. Si no entra entero —o queda arriba
+ * de lo visible— manda su ARRIBA, que es donde está su editor.
+ *
+ * ⚠️ Se escribe el `scrollTop` de ESA lista y nunca con `scrollIntoView`: aquél scrollea TODOS los
+ * ancestros, incluida la caja del lienzo, que tiene `overflow: hidden` y se desincroniza del dibujo
+ * (app/_components/Lienzo.tsx, el `onScroll` de la caja).
+ */
+export function scrollParaVer(
+  el: { top: number; alto: number },
+  lista: { scrollTop: number; alto: number },
+  margen = 10,
+): number | null {
+  const arriba = el.top - margen;
+  const abajo = el.top + el.alto + margen;
+  if (arriba >= lista.scrollTop - 0.5 && abajo <= lista.scrollTop + lista.alto + 0.5) return null;
+  if (abajo - arriba > lista.alto || arriba < lista.scrollTop) return Math.max(0, Math.round(arriba));
+  return Math.max(0, Math.round(abajo - lista.alto));
+}
+
 // ── El panel APAISADO y los muelles (segunda tanda, decisiones 10 y 11) ───────────────
 
 /** El margen con el que el panel del nodo (y lo que flota) se despega del borde del lienzo. */
@@ -770,10 +878,16 @@ export const PANEL_COLUMNA_ANCHO = 392;
  * renglón del título y su aire). Cada número es su contenido TÍPICO, medido sobre los editores:
  *   · DELAY y GO TO: una frase o un campo grande (56) y una línea debajo → 140 (el DELAY ya no lleva el
  *     aviso de precisión: sexta tanda, DELAY 2);
- *   · MAKO: el título, el mensaje con ~5 renglones y «＋ Dato del lead» → 280;
+ *   · MAKO: ya no está acá. Desde la décima tanda (WHATSAPP 6, 11/10/2026: «El editor de "MaKo en WhatsApp"
+ *     debería ser exactamente igual que el editor de WhatsApp… El mismo tamaño de modal») mide lo de un MENSAJE
+ *     (`editorDeTarjeta`), como ya hacía /mensajes (`tallaDe`, app/agencia/FlujoAviso.tsx). Hasta acá, 280;
  *   · ACTION: el desplegable, lo que hace, el lead y dos o tres campos («Mover un lead de etapa»:
  *     producto, etapa y el monto de Ganado) → 400;
- *   · CONDITION: dos o tres filas con sus «＋» → 320; «Si responde», tres casos → 400.
+ *   · CONDITION: 420 desde la décima tanda (CONDITION 1, 11/10/2026: «que quepan 2 en el recuadro sin hacer
+ *     scroll»): con DOS condiciones, «＋ y / ＋ o» arriba (48 + 10), dos recuadros de 120
+ *     (`ALTO_CONDICION_VARIAS`, app/automations/EditorCondicion.tsx: la pregunta de 48 y lo que pide, de 38),
+ *     la «y» del medio (~23 + 2 × 10) y el aire de arriba del tacho (9): 340 de 358 de adentro. Con UNA, su
+ *     recuadro llena el panel. Hasta acá era 320: dos con su valor ya scrolleaban. «Si responde», tres casos → 400.
  *   · CRON (segunda pasada de la sexta tanda, medido sumando los estilos de app/automations/EditorDisparadores.tsx
  *     y EditorRecurrente.tsx en el panel apaisado de 600): el «Recurrente» semanal con UN CRON son seis
  *     filas de 36 con 8 de aire (repetir, días, empieza, a las, huso, a quién: 256), «＋ Nuevo CRON» (40)
@@ -791,14 +905,17 @@ export const PANEL_COLUMNA_ANCHO = 392;
  */
 export const ALTO_EDITOR_CONTROL: Readonly<Partial<Record<TipoNodo, number>>> = {
   espera: 140, etiqueta: 200, 'ir-a': 140,
-  mako: 280,
   accion: 400,
-  condicion: 320, entrada: 460, respuesta: 400,
+  condicion: 420, entrada: 460, respuesta: 400,
   // AI STEP (novena tanda): el tono (2 renglones, ~70), UN caso entero —nombre 40, cuándo 2 renglones 56,
   // cómo responder 3 renglones 76 y los dos interruptores 44, con 8 de aire: ~250 con su caja—, «＋ Caso»
   // (48) y «Otra cosa» con su aviso (~84), con 12 entre bloques → ~490. Con 460 el caso recién creado
   // entra entero y «Otra cosa» asoma abajo; desde el segundo caso scrollea, como «Si responde».
-  'paso-ia': 460,
+  // AI STEP v2 (décima tanda): CINCO PASOS, uno abierto (EditorPasoIA): las cuatro líneas cerradas (~38 c/u,
+  // 152), el más alto abierto —«Cómo responde»: la guía de 4 renglones ~96, «Responde con» 30, la voz 36, «Tu
+  // forma de escribir» 26 y el chip de ejemplos 26, con sus rótulos y 8 de aire: ~290— y «＋ Otro AI Step» (30),
+  // con 8 entre bloques → ~510. 540 deja entrar el más alto sin scroll; lo que no entra scrollea adentro.
+  'paso-ia': 540,
 };
 const ALTO_EDITOR_CONTROL_OTRO = 320;
 
@@ -810,7 +927,8 @@ export type TallaEditor = { ancho: number; alto: number };
  * mejora el diseño»). Las capturas: DELAY, ACTION y CONDITION en un panel de ~720 × 420 con un renglón
  * arriba y el resto vacío, porque TODOS medían lo del editor de WhatsApp.
  *
- *   · Un MENSAJE (WhatsApp o Email): el grande de `muelles` (`editorAncho` × `editorAlto`, punto 16).
+ *   · Un MENSAJE (WhatsApp o Email) y «MaKo en WhatsApp» (décima tanda): el grande de `muelles`
+ *     (`editorAncho` × `editorAlto`, punto 16).
  *   · Lo demás: `ALTO_EDITOR_CONTROL` de su tipo y `MUELLE.editorControlAncho` de ancho, nunca más
  *     que el de un mensaje (los dos comparten la esquina de abajo a la izquierda, así que si el
  *     grande no pisa a «Probar», el chico tampoco).
@@ -826,7 +944,7 @@ export function editorDeTarjeta(
   const apaisado = m?.editorForma === 'apaisado';
   const anchoMensaje = m && apaisado ? m.editorAncho : PANEL_COLUMNA_ANCHO;
   const altoMensaje = Math.max(0, m?.editorAlto ?? 0);
-  if (!tipo || tipo === 'mensaje') return { ancho: anchoMensaje, alto: altoMensaje };
+  if (!tipo || tipo === 'mensaje' || tipo === 'mako') return { ancho: anchoMensaje, alto: altoMensaje };
   return {
     ancho: apaisado ? Math.min(MUELLE.editorControlAncho, anchoMensaje) : anchoMensaje,
     alto: Math.min(ALTO_EDITOR_CONTROL[tipo] ?? ALTO_EDITOR_CONTROL_OTRO, altoMensaje),

@@ -28,11 +28,30 @@ export type AudioSetting = {
 
 const COLS = 'id, titulo, media_path, media_mime, duracion_s, transcript, created_at';
 
+/**
+ * La BIBLIOTECA del dueño: sólo lo que él subió (`origen = 'biblioteca'`, mig 0251). Las notas de voz con que
+ * un AI Step contesta a cada lead (`origen: 'ai_step'`, AI Step v2) también viven en esta tabla —el borrador y
+ * `enviarBorrador` las buscan por id— pero NO son de la biblioteca: sin el filtro, cada respuesta en audio
+ * le llenaba la lista de audios al dueño.
+ *
+ * ⚠️ SIN LA COLUMNA (la migración todavía no se aplicó: 42703) se lee como antes, sin filtro: no hay
+ * respuestas en audio que esconder, porque guardarlas exige la columna (`crearAudio` con `origen`).
+ */
 export async function listAudios(): Promise<AudioSetting[]> {
   const supabase = await getTenantDb();
-  const { data, error } = await supabase.from('setting_audios').select(COLS).order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('setting_audios').select(COLS).eq('origen', 'biblioteca').order('created_at', { ascending: false });
+  if (error && esColumnaQueFalta(error)) {
+    const viejo = await supabase.from('setting_audios').select(COLS).order('created_at', { ascending: false });
+    if (viejo.error) throw new Error(`listAudios: ${viejo.error.message}`);
+    return (viejo.data ?? []) as AudioSetting[];
+  }
   if (error) throw new Error(`listAudios: ${error.message}`);
   return (data ?? []) as AudioSetting[];
+}
+
+/** La columna que no existe (Postgres 42703, PostgREST PGRST204): NO la tabla que falta. */
+function esColumnaQueFalta(e: { code?: string; message?: string }): boolean {
+  return e.code === '42703' || e.code === 'PGRST204' || /column .*origen.* does not exist/i.test(e.message ?? '');
 }
 
 /**
@@ -40,7 +59,13 @@ export async function listAudios(): Promise<AudioSetting[]> {
  * MaKo sepa QUÉ dice el audio (lo usa el generador y el simulador: sin esto, un
  * paso de audio es una caja negra para la IA).
  */
-export async function crearAudio(input: { titulo: string; base64: string; mime?: string; duracionS?: number | null }): Promise<AudioSetting> {
+export async function crearAudio(input: {
+  titulo: string; base64: string; mime?: string; duracionS?: number | null;
+  /** Lo que dice el audio, si ya se sabe (la respuesta de un AI Step: es el texto que leyó la voz). Sin STT. */
+  transcript?: string | null;
+  /** De dónde sale: la biblioteca del dueño (default) o una respuesta de un AI Step (no se lista). */
+  origen?: 'biblioteca' | 'ai_step';
+}): Promise<AudioSetting> {
   const mime = input.mime || 'audio/ogg';
   const b64 = input.base64.includes(',') ? input.base64.split(',').pop()! : input.base64;
   const buf = Buffer.from(b64, 'base64');
@@ -53,13 +78,18 @@ export async function crearAudio(input: { titulo: string; base64: string; mime?:
   const { error: upErr } = await supabase.storage.from(MEDIA_BUCKET).upload(path, buf, { contentType: mime, upsert: false });
   if (upErr) throw new Error(`No se pudo guardar el audio: ${upErr.message}`);
 
-  // Transcripción best-effort: si falla, el audio igual queda usable.
-  let transcript: string | null = null;
-  try { transcript = (await transcribirAudio(b64, mime)).trim() || null; } catch { transcript = null; }
+  // Transcripción best-effort: si falla, el audio igual queda usable. Si ya se sabe lo que dice, no se paga el STT.
+  let transcript: string | null = input.transcript?.trim() || null;
+  if (!transcript) { try { transcript = (await transcribirAudio(b64, mime)).trim() || null; } catch { transcript = null; } }
 
+  // `origen` va SÓLO si no es la biblioteca: así subir un audio a la biblioteca no depende de la mig 0251, y una
+  // respuesta de un AI Step sin la columna FALLA (y sale en texto) en vez de caer en la lista del dueño.
   const { data, error } = await supabase
     .from('setting_audios')
-    .insert({ titulo: input.titulo.trim() || 'Audio sin título', media_path: path, media_mime: mime, duracion_s: input.duracionS ?? null, transcript })
+    .insert({
+      titulo: input.titulo.trim() || 'Audio sin título', media_path: path, media_mime: mime, duracion_s: input.duracionS ?? null, transcript,
+      ...(input.origen && input.origen !== 'biblioteca' ? { origen: input.origen } : {}),
+    })
     .select(COLS)
     .single();
   if (error) throw new Error(`crearAudio: ${error.message}`);

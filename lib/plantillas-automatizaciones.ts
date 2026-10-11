@@ -87,33 +87,81 @@
 //     recordatorio de la reunión (`yaLaTiene`, `crearDesdePlantilla`).
 // El diseño entero, en docs/diseno-mako-en-whatsapp-unificado.md.
 //
+// ── LA GALERÍA v2 (décima tanda, 11/10/2026: docs/diseno-automations-galeria-v2.md §1 y §3) ──────────────
+// Martín: «Agrega una barra de busqueda y filtro para buscar plantillas» y «Agrega más plantillas típicas,
+// teniendo en cuenta que ahora agregamos más canales como Instagram... Y templates de Email también».
+//   · Cada plantilla gana `objetivo` (A MANO: para qué sirve no se deduce de las tarjetas). El CANAL, en
+//     cambio, se DERIVA (`canalesDe`): escrito a mano se desincroniza de los mensajes que trae.
+//   · `filtrarPlantillas` busca en el nombre y la línea sin acentos ni mayúsculas; «Lienzo en blanco» no es una
+//     plantilla y lo pone primero la pantalla, pase lo que pase con el filtro.
+//   · Dos formas nuevas de CRON: `fijo` de un CANAL (Instagram, Messenger o «Recibes un email», con su evento),
+//     escrito en la fila como el de MaKo pero que SÍ se puede cambiar después (no es del emisor); y
+//     `pide: 'etiqueta'` («Se le puso [Suscriptor]»: la etiqueta es del negocio, se elige al crear).
+//   · ⚠️ LAS DE INSTAGRAM Y MESSENGER NO LLEVAN AI STEP: hoy un AI Step contesta por WhatsApp (`expandirPasoIA`
+//     arma la respuesta con el canal de WhatsApp), así que en un flujo de Instagram le contestaría al lead por
+//     otro canal. Atar el AI Step a un medio es docs/diseno-ai-step-v2.md (§6); cuando esté, se les suma.
+//   · Lo que §3 marca «No» no se arma: «Comenta la palabra X en un Reel» (el texto del comentario no llega al
+//     motor), el DM con palabra clave, el clic en un anuncio, el newsletter semanal (un lead entra UNA vez a cada
+//     automatización), el carrito abandonado y el cumpleaños. Tampoco «Etiquetar a quien dice que le interesa»:
+//     necesita una etiqueta del negocio elegida (no se publicaría) y colgar una tarjeta de un AI Step.
+//
 // ⚠️ PURO Y SIN `server-only`: lo importan la pantalla (la galería), el server (lib/plantilla-crear.ts,
 // que la crea) y el test (tests/plantillas-automatizaciones.test.ts, que valida CADA plantilla con
 // `validarGrafo` y con el freno de Publicar, y que no traiga datos de un cliente real).
 // =============================================================================
 
-import type { PasoGrafo, FilaCondicion, CasoRespuesta, Espera } from './flujo-grafo';
+import { claseDe, type PasoGrafo, type FilaCondicion, type CasoRespuesta, type Espera } from './flujo-grafo';
 import { LEAD_DEL_EVENTO } from './api-mako/flujo-params';
 import { OP_AVISAR } from './flujo-legado';
 import {
   pasosDisparo, pedidoDisparo, rotuloDisparo, PASO_PRODUCTOS, KANBAN_ADQUISICION, KANBAN_ENTREGA,
   type ProductoParaDisparo, type SeccionDisparo,
 } from './flujo-conversacion';
-import { TRIGGER_AVISO_MAKO, type Disparador, type SubtipoMako } from './disparadores';
+import {
+  TRIGGER_AVISO_MAKO, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO,
+  type Disparador, type SubtipoMako,
+} from './disparadores';
 import { TOPE_NOMBRE_SECUENCIA } from './setting-estrategia';
 import { TRIGGER_RECORDATORIO, NOMBRE_RECORDATORIO_AUTOMATIZACION, pasosDeLaConfig } from './recordatorio-automatizacion';
 import { TEXTO_DEFAULT } from './recordatorio-lead';
+import { objetivoDeCaso } from './ai-step-objetivos';
 
 // ── El dato ─────────────────────────────────────────────────────────────────────────────────────
 
-/** De qué kanban es la etapa que arranca la plantilla: la VENTA (el embudo) o la ENTREGA del servicio. */
-export type PideCron = 'etapa_venta' | 'etapa_entrega';
+/**
+ * Lo que la pantalla pide al crearla: una etapa de la VENTA (el embudo), una de la ENTREGA del servicio, o una
+ * ETIQUETA del negocio («Se le puso [Suscriptor]», décima tanda).
+ */
+export type PideCron = 'etapa_venta' | 'etapa_entrega' | 'etiqueta';
 
-/** El `trigger_tipo` de cada una (lib/nutricion-etapa.ts: `TRIGGER_ETAPA` y `TRIGGER_ENTREGA`). */
+/** El `trigger_tipo` de cada una (lib/nutricion-etapa.ts: `TRIGGER_ETAPA`, `TRIGGER_ENTREGA` y `TRIGGER_ETIQUETA`). */
 export const TRIGGER_DE_PIDE: Readonly<Record<PideCron, string>> = {
   etapa_venta: 'etapa_actual',
   etapa_entrega: 'entrega_actual',
+  etiqueta: 'etiqueta_puesta',
 };
+
+/** Los CRON de un CANAL que una plantilla puede traer puestos (décima tanda). No son del emisor: se cambian después. */
+export type FijoDeCanal = typeof TRIGGER_INSTAGRAM | typeof TRIGGER_MESSENGER | typeof TRIGGER_EMAIL_RECIBIDO;
+
+// ── El objetivo y el canal: el filtro de la galería (décima tanda) ──────────────────────────────────
+
+/** Para qué sirve una plantilla. A MANO en cada una: no se deduce. */
+export type ObjetivoPlantilla = 'captar' | 'agendar' | 'reunion' | 'recuperar' | 'vender' | 'clientes' | 'cobrar';
+
+/** El grupo «Objetivo» del filtro, en este orden (el del embudo: de captar a cobrar). */
+export const OBJETIVOS_PLANTILLA: ReadonlyArray<{ id: ObjetivoPlantilla; label: string }> = [
+  { id: 'captar', label: 'Captar' },
+  { id: 'agendar', label: 'Agendar' },
+  { id: 'reunion', label: 'Reunión' },
+  { id: 'recuperar', label: 'Recuperar' },
+  { id: 'vender', label: 'Vender' },
+  { id: 'clientes', label: 'Clientes' },
+  { id: 'cobrar', label: 'Cobrar' },
+];
+
+/** Por dónde sale una plantilla. `mako` = «MaKo en WhatsApp» (el grupo del negocio). */
+export type CanalPlantilla = 'whatsapp' | 'email' | 'instagram' | 'messenger' | 'mako';
 
 export type CronDePlantilla =
   | {
@@ -133,7 +181,13 @@ export type CronDePlantilla =
    * en la fila, como el recordatorio, porque `setSecuenciaPasos` lee el evento para frenar lo que su emisor no
    * sabe mandar (`frenoDelEvento`, lib/aviso-evento.ts).
    */
-  | { fijo: typeof TRIGGER_AVISO_MAKO; evento: SubtipoMako; pide?: undefined; ayuda?: undefined };
+  | { fijo: typeof TRIGGER_AVISO_MAKO; evento: SubtipoMako; pide?: undefined; ayuda?: undefined }
+  /**
+   * EL EVENTO DE UN CANAL (décima tanda): Instagram, Messenger o «Recibes un email», con CUÁL evento (el `subtipo`
+   * del CRON). Nace en la fila (`filaDePlantilla`) como el de MaKo, pero NO es del emisor: el CRON se puede cambiar
+   * después como cualquiera.
+   */
+  | { fijo: FijoDeCanal; evento: string; pide?: undefined; ayuda?: undefined };
 
 /** Un paso de una plantilla: una tarjeta del lienzo, como la arma el ＋ (`nodoNuevo`). */
 export type PasoDePlantilla = PasoGrafo & {
@@ -152,6 +206,8 @@ export type PlantillaAutomatizacion = {
   linea: string;
   /** De qué automatización real salió. Para el que la mantenga: no se dibuja. */
   origen: string;
+  /** Para qué sirve (el filtro «Objetivo»). El canal NO va acá: se deriva (`canalesDe`). */
+  objetivo: ObjetivoPlantilla;
   cron: CronDePlantilla;
   pasos: readonly PasoDePlantilla[];
 };
@@ -183,6 +239,14 @@ function email(id: string, asunto: string, vistaPrevia: string, cuerpo: string, 
   return { ...RELLENO, id, canal: 'email', asunto, preheader: vistaPrevia, cuerpo, siguiente, revisar: o.revisar };
 }
 
+/**
+ * Un DM de Instagram o un mensaje de Messenger: el mismo paso con su canal, como lo arma el ＋ (`nodoNuevo`). Sale por
+ * Zernio y SÓLO texto: la respuesta privada a un comentario es una y sin archivos (lib/canal-social.ts).
+ */
+function social(canal: 'instagram' | 'messenger', id: string, cuerpo: string, siguiente: string | null, o: { revisar: boolean }): PasoDePlantilla {
+  return { ...RELLENO, id, canal, cuerpo, siguiente, revisar: o.revisar };
+}
+
 function esperar(id: string, minutos: number, siguiente: string | null, modo: Espera['modo'] = 'tiempo'): PasoDePlantilla {
   return { ...RELLENO, id, nodo: 'esperar', espera: { modo, minutos }, siguiente };
 }
@@ -203,9 +267,17 @@ function mako(id: string, mensaje: string, siguiente: string | null, titulo?: st
  * flecha ni un «Otra cosa» con flecha: `validarGrafo` no lo deja guardar— y con el aviso de «Otra cosa» de
  * por default (ver «LO QUE CONTESTA VA EN UN AI STEP», arriba). Sin tono general (`instrucciones`): las de
  * origen no tenían, y uno inventado le cambiaría la voz al negocio que la elija.
+ *
+ * ⚠️ AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §8.2): UNA TARJETA POR CASO, de WhatsApp (`medio`
+ * ausente), cada una colgada del CRON. La primera conserva el id (`<id>`), las demás `<id>_2`, `<id>_3`… Y cada
+ * caso con su OBJETIVO: el suyo (`caso(…, objetivo)`) o el de la tabla de §8.4 por su nombre (`objetivoDeCaso`,
+ * la MISMA que usa la migración). `postAgenda`: el lead ya agendó (cambia el de «Pregunta el precio»).
  */
-function aiStep(id: string, casos: CasoRespuesta[]): PasoDePlantilla {
-  return { ...RELLENO, id, nodo: 'respuesta', paso_ia: true, casos, si_no: null };
+function aiStep(id: string, casos: CasoRespuesta[], o: { postAgenda?: boolean } = {}): PasoDePlantilla[] {
+  return casos.map((c, k) => {
+    const obj = c.objetivo ?? objetivoDeCaso(c.titulo, { postAgenda: o.postAgenda === true })?.objetivo ?? null;
+    return { ...RELLENO, id: k ? `${id}_${k + 1}` : id, nodo: 'respuesta', paso_ia: true, casos: [{ ...c, ...(obj ? { objetivo: obj } : {}) }], si_no: null };
+  });
 }
 
 /** Lo que hace un caso del AI Step: lo que en la forma de siempre eran sus tarjetas hijas. */
@@ -221,12 +293,15 @@ const yAvisa = (h: HaceCaso): HaceCaso => ({ ...h, avisar: true });
 /** Sólo te avisa: no contesta, y la charla pasa a una persona (lo que era una tarjeta MaKo sola). */
 const SOLO_AVISA: HaceCaso = { avisar: true };
 
-const caso = (id: string, titulo: string, cuando: string, hace: HaceCaso): CasoRespuesta => ({ id, titulo, cuando, siguiente: null, ...hace });
+/** Un caso del AI Step. `objetivo`: el suyo, escrito a mano (sin él, el de la tabla de §8.4 por su nombre). */
+const caso = (id: string, titulo: string, cuando: string, hace: HaceCaso, objetivo?: string): CasoRespuesta => ({ id, titulo, cuando, siguiente: null, ...hace, ...(objetivo ? { objetivo } : {}) });
 
 // Las filas que se repiten. Ninguna necesita un dato del negocio (ni una etiqueta ni una etapa).
 const NO_AGENDO: FilaCondicion = { campo: 'agendo', no: true };
 const YA_LE_ESCRIBISTE: FilaCondicion = { campo: 'ya_contactado' };
 const NO_PAGO: FilaCondicion = { campo: 'pago', no: true };
+/** «Nunca te escribió» (el lead no contestó nunca: `respondio` negada). */
+const NUNCA_TE_ESCRIBIO: FilaCondicion = { campo: 'respondio', no: true };
 const TIENE_WHATSAPP: FilaCondicion = { campo: 'tiene_telefono' };
 /** «Llegó hace menos de 72 h» (el «Solo a leads recientes» de #198: la PRIMERA tarjeta, `antiguedadDeEntrada`). */
 const RECIENTE: FilaCondicion = { campo: 'antiguedad', valor: 72 };
@@ -285,6 +360,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     emoji: '⏰',
     linea: 'Le recuerda la reunión al lead 24 h, 1 h y 15 min antes, con la hora y el link.',
     origen: 'la mudanza del 10/10/2026 (#228-#237), con los textos de fábrica',
+    objetivo: 'reunion',
     cron: { fijo: TRIGGER_RECORDATORIO },
     pasos: pasosRecordatorio('rr'),
   },
@@ -294,6 +370,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     emoji: '👋',
     linea: 'Saluda a quien dejó sus datos y lo invita a agendar una llamada.',
     origen: '#198 (ws1) y #209 (ws4)',
+    objetivo: 'agendar',
     cron: { pide: 'etapa_venta', ayuda: 'La etapa donde entran los leads nuevos.' },
     pasos: [
       condicion('bv_reciente', [RECIENTE], 'bv_espera_1h', null),
@@ -303,7 +380,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       esperar('bv_espera_1d', 1440, 'bv_sigue_sin_agenda'),
       condicion('bv_sigue_sin_agenda', [NO_AGENDO], 'bv_recordatorio', null),
       whatsapp('bv_recordatorio', '{{nombre}}, ¿pudiste ver mi mensaje? Si quieres, respóndeme por aquí y te ayudo a encontrar un horario.', null, { revisar: false, ia: true }),
-      aiStep('bv_si_responde', [
+      ...aiStep('bv_si_responde', [
         caso('bv_c_agendar', 'Quiere agendar', 'Dice que sí, que quiere agendar, pide horarios o pregunta cómo seguimos.',
           yAvisa(contesta('Agradece en una línea y dile que con gusto lo ayudamos a agendar. Pregúntale qué día y horario le quedan mejor. No propongas horarios ni mandes links.', 'sola'))),
         C_PRECIO('bv_c_precio', contesta(R_PRECIO_LLAMADA, 'revisar')),
@@ -321,6 +398,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     emoji: '🤝',
     linea: 'Prepara la reunión de quien agendó: le pregunta qué quiere resolver y te avisa si no confirma.',
     origen: '#212 y #213 (ws1), unidas con una condición',
+    objetivo: 'reunion',
     cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien agendó una reunión.' },
     pasos: [
       esperar('ap_espera_1h', 60, 'ap_filtro'),
@@ -337,12 +415,12 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       esperar('ap_espera_12h', 720, 'ap_sigue_2'),
       condicion('ap_sigue_2', [REUNION_POR_DELANTE], 'ap_aviso', null),
       mako('ap_aviso', NO_CONFIRMO.mensaje, null, NO_CONFIRMO.titulo),
-      aiStep('ap_si_responde', [
+      ...aiStep('ap_si_responde', [
         C_CONFIRMA('ap_c_confirma', contesta(R_CONFIRMA, 'sola')),
         C_PRECIO('ap_c_precio', contesta(R_PRECIO_REUNION, 'revisar')),
         C_REUNION('ap_c_reunion', contesta(R_PREGUNTA_REUNION, 'revisar')),
         C_CAMBIAR('ap_c_cambiar', yAvisa(contesta(R_CAMBIAR, 'sola'))),
-      ]),
+      ], { postAgenda: true }),
     ],
   },
   {
@@ -351,6 +429,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     emoji: '📅',
     linea: 'Confirma la reunión, insiste antes del día y te avisa si no confirma.',
     origen: '#221 (ws1), #210 (ws4) y #223 (ws13)',
+    objetivo: 'reunion',
     cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien agendó una reunión.' },
     pasos: [
       esperar('cp_espera_1h', 60, 'cp_filtro'),
@@ -369,14 +448,14 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       // Sin reunión por delante, esta espera corta sola (el motor: `sin_reunion`).
       esperar('cp_antes_4h', 240, 'cp_ultimo', 'antes_reunion'),
       whatsapp('cp_ultimo', '{{nombre}}, todavía no tengo tu confirmación para la reunión de hoy. ¿Sigue en pie? Si no puedes, la cambiamos para cuando te quede mejor.', null, { revisar: true }),
-      aiStep('cp_si_responde', [
+      ...aiStep('cp_si_responde', [
         C_CONFIRMA('cp_c_confirma', contesta(R_CONFIRMA, 'sola')),
         C_PRECIO('cp_c_precio', contesta(R_PRECIO_REUNION, 'revisar')),
         C_REUNION('cp_c_reunion', contesta(R_PREGUNTA_REUNION, 'revisar')),
         C_CAMBIAR('cp_c_cambiar', yAvisa(contesta(R_CAMBIAR, 'sola'))),
         // No se le contesta nada: lo decide una persona antes de la reunión (en #221 era sólo el aviso).
         caso('cp_c_no_califica', 'Puede no calificar', 'Cuenta que no es quien decide o que no puede invertir en este momento.', SOLO_AVISA),
-      ]),
+      ], { postAgenda: true }),
     ],
   },
   {
@@ -385,6 +464,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     emoji: '🔁',
     linea: 'Le escribe a quien faltó a la reunión para buscar otro horario.',
     origen: '#224 (ws13)',
+    objetivo: 'recuperar',
     cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien no asistió a la reunión.' },
     pasos: [
       condicion('na_canal', [TIENE_WHATSAPP], 'na_wa', 'na_mail'),
@@ -396,7 +476,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       whatsapp('na_wa_2', '{{nombre}}, ¿lo reagendamos? Respóndeme por aquí y buscamos un horario que te quede bien.', null, { revisar: true }),
       email('na_mail', '¿Reprogramamos tu reunión?', 'Buscamos otro horario en un minuto.',
         'Hola {{nombre}}:\n\nTe esperábamos en la reunión y no pudimos conectarnos.\n\nSi todavía te interesa, responde este correo y buscamos un nuevo horario.', null, { revisar: false }),
-      aiStep('na_si_responde', [
+      ...aiStep('na_si_responde', [
         caso('na_c_reagendar', 'Quiere reagendar', 'Pide disculpas, cuenta por qué no pudo, dice que quiere reprogramar o pregunta por otro horario.',
           yAvisa(contesta(R_CAMBIAR, 'sola'))),
         C_NO_INTERESA('na_c_no', contesta(R_NO_INTERESA, 'revisar')),
@@ -409,6 +489,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     emoji: '🔥',
     linea: 'Retoma la charla 45 días después con quien tuvo la reunión y no compró.',
     origen: '#220 (ws1)',
+    objetivo: 'recuperar',
     cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien tuvo la reunión y no compró.' },
     pasos: [
       // Los 45 días del evento de origen («Tuvo reunión hace +45 días y no cerró»), contados desde que
@@ -419,7 +500,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       esperar('rc_espera_3d', 3 * 1440, 'rc_puerta'),
       whatsapp('rc_puerta', '{{nombre}}, te dejo la puerta abierta: cuando quieras retomarlo, respóndeme por aquí y lo vemos.', null, { revisar: true }),
       // Quien no compró es de lo sensible: los tres casos quedan para revisar, como en #220.
-      aiStep('rc_si_responde', [
+      ...aiStep('rc_si_responde', [
         caso('rc_c_retomar', 'Quiere retomarlo', 'Dice que sí, que le interesa retomarlo, pregunta cómo seguimos o pide horarios.',
           yAvisa(contesta('Agradece en una línea y dile que con gusto lo retoman. Pregúntale qué día y horario le quedan mejor esta semana. No menciones precios.', 'revisar'))),
         C_PRECIO('rc_c_precio', contesta(R_PRECIO_LLAMADA, 'revisar')),
@@ -433,6 +514,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     emoji: '🎉',
     linea: 'Felicita al alumno cada vez que avanza a la próxima etapa de su curso.',
     origen: '#226 (ws1)',
+    objetivo: 'clientes',
     cron: { pide: 'etapa_entrega', ayuda: 'Las etapas de la entrega que marcan una clase terminada.' },
     pasos: [
       condicion('fc_canal', [TIENE_WHATSAPP], 'fc_wa', 'fc_mail'),
@@ -441,13 +523,255 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
         'Hola {{nombre}}:\n\n¡Felicitaciones por terminar la clase! Cada paso que das te acerca a tu objetivo.\n\nSigue así.', null, { revisar: false }),
     ],
   },
-  // ── «MaKo en WhatsApp» (11/10/2026): los tres eventos de MaKo, en su sección de la galería ──────────────
+  // ── Las típicas de la décima tanda (11/10/2026, docs/diseno-automations-galeria-v2.md §3) ───────────────
+  // Martín: «Agrega más plantillas típicas... Y agrega todas las plantillas que se te ocurran que sea comunes».
+  // Sólo las que se arman con los CRON y las tarjetas que existen HOY (la tabla de §3, columna «¿Hoy?» = Sí).
+  {
+    id: 'cliente-bienvenida',
+    nombre: 'Bienvenida al cliente',
+    emoji: '🎁',
+    linea: 'Le da la bienvenida a quien compró y al día siguiente le confirma por email que tiene todo.',
+    origen: 'galería v2 (décima tanda): post-compra',
+    objetivo: 'clientes',
+    cron: { pide: 'etapa_entrega', ayuda: 'La primera etapa de la entrega.' },
+    pasos: [
+      condicion('cb_canal', [TIENE_WHATSAPP], 'cb_wa', 'cb_mail'),
+      whatsapp('cb_wa', '¡Te damos la bienvenida, {{nombre}}! 🎉 Gracias por confiar en nosotros. Cualquier duda que tengas, escríbeme por aquí.', 'cb_espera_1d', { revisar: false }),
+      esperar('cb_espera_1d', 1440, 'cb_mail'),
+      // Dos padres (sexta tanda): sin WhatsApp llega directo; con WhatsApp, un día después.
+      email('cb_mail', 'Todo listo para empezar', 'Tus accesos y cómo seguir.',
+        'Hola {{nombre}}:\n\nTe escribimos para confirmar que ya tienes todo para empezar. Si no encuentras tus accesos o algo no te funciona, responde este correo y te ayudamos.', null, { revisar: false }),
+    ],
+  },
+  {
+    id: 'pago-pendiente',
+    nombre: 'Pago pendiente después de confirmar',
+    emoji: '💳',
+    linea: 'Le escribe a quien confirmó la compra y a las 24 h todavía no pagó, y te avisa lo que conteste.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'cobrar',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien confirmó la compra.' },
+    pasos: [
+      esperar('pp_espera_24h', 1440, 'pp_sin_pago'),
+      condicion('pp_sin_pago', [NO_PAGO], 'pp_wa', null),
+      // La plata es de lo sensible: el mensaje y cada respuesta quedan para revisar.
+      whatsapp('pp_wa', 'Hola {{nombre}}, ¿pudiste completar el pago? Si tuviste algún problema, cuéntame y te ayudo.', null, { revisar: true }),
+      ...aiStep('pp_si_responde', [
+        caso('pp_c_pago', 'Dice que ya pagó', 'Dice que ya pagó, manda un comprobante o pregunta si llegó el pago.',
+          yAvisa(contesta('Agradece en una línea y dile que lo confirmas en un rato. No confirmes el pago tú.', 'revisar')), 'Que sepa que su pago se está revisando'),
+        caso('pp_c_problema', 'Tiene un problema para pagar', 'Cuenta que no le funciona el pago, que no tiene los datos o que le rebotó la tarjeta.',
+          yAvisa(contesta('Pregúntale qué pasó, en una línea. No des datos de cuentas ni montos.', 'revisar')), 'Que pueda completar el pago'),
+        caso('pp_c_no', 'Ya no quiere comprar', 'Dice que se arrepintió, que ya no le interesa o que no es el momento.', SOLO_AVISA),
+      ]),
+    ],
+  },
+  {
+    id: 'seguimiento-reunion',
+    nombre: 'Seguimiento después de la reunión',
+    emoji: '📝',
+    linea: 'Dos horas después de la reunión le pregunta si le quedó alguna duda para avanzar.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'vender',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien asistió a la reunión.' },
+    pasos: [
+      esperar('sr_espera_2h', 120, 'sr_sin_pago'),
+      condicion('sr_sin_pago', [NO_PAGO], 'sr_wa', null),
+      whatsapp('sr_wa', 'Hola {{nombre}}, gracias por tu tiempo en la reunión 🙌 ¿Te quedó alguna duda para avanzar?', null, { revisar: true, ia: true }),
+    ],
+  },
+  {
+    id: 'pedir-testimonio',
+    nombre: 'Pedir un testimonio',
+    emoji: '⭐',
+    linea: 'Una semana después le pide un testimonio corto, y te avisa si acepta o si tiene una queja.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'clientes',
+    cron: { pide: 'etapa_entrega', ayuda: 'Una etapa avanzada de la entrega, cuando ya vio resultados.' },
+    pasos: [
+      esperar('pt_espera_7d', 7 * 1440, 'pt_canal'),
+      condicion('pt_canal', [TIENE_WHATSAPP], 'pt_wa', null),
+      whatsapp('pt_wa', 'Hola {{nombre}} 🙌 ¿Cómo te está yendo? Si te sirvió lo que hicimos juntos, ¿nos dejarías un testimonio corto? Nos ayuda muchísimo.', null, { revisar: false }),
+      ...aiStep('pt_si_responde', [
+        caso('pt_c_si', 'Acepta dejar el testimonio', 'Dice que sí, que con gusto, o pregunta cómo hacerlo.',
+          yAvisa(contesta('Agradece en una línea y pregúntale si prefiere grabar un video corto o escribirlo. No mandes links.', 'sola')), 'Que deje su testimonio'),
+        caso('pt_c_queja', 'Tiene una queja', 'Cuenta algo que no le gustó, un problema o que no ve resultados.', SOLO_AVISA),
+        caso('pt_c_no', 'No puede ahora', 'Dice que no tiene tiempo o que lo hace más adelante.',
+          contesta('Agradece y dile que no hay apuro, en una línea. No insistas.', 'sola'), 'Que lo deje para cuando pueda, sin presión'),
+      ]),
+    ],
+  },
+  {
+    id: 'ultimo-intento',
+    nombre: 'Último intento a un lead frío',
+    emoji: '🧊',
+    linea: 'Una semana después le escribe por última vez a quien nunca te escribió ni agendó.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'recuperar',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa donde entran los leads nuevos.' },
+    pasos: [
+      esperar('ui_espera_7d', 7 * 1440, 'ui_frio'),
+      condicion('ui_frio', [NUNCA_TE_ESCRIBIO, NO_AGENDO], 'ui_wa', null),
+      // A quien nunca escribió no se le manda solo ni el mismo texto a todos (AGENTS.md: lo que protege una línea no
+      // oficial es el ritmo y el contenido): MaKo lo adapta y queda para revisar.
+      whatsapp('ui_wa', '{{nombre}}, te escribo por última vez para no molestarte: ¿sigue en tus planes? Si quieres, respóndeme por aquí y lo vemos.', null, { revisar: true, ia: true }),
+      ...aiStep('ui_si_responde', [
+        caso('ui_c_agendar', 'Quiere agendar', 'Dice que sí, que quiere agendar, pide horarios o pregunta cómo seguimos.',
+          yAvisa(contesta('Agradece en una línea y dile que con gusto lo ayudamos a agendar. Pregúntale qué día y horario le quedan mejor. No propongas horarios ni mandes links.', 'sola'))),
+        C_PRECIO('ui_c_precio', contesta(R_PRECIO_LLAMADA, 'revisar')),
+        C_NO_INTERESA('ui_c_no', contesta(R_NO_INTERESA, 'revisar')),
+      ]),
+    ],
+  },
+  // Email (décima tanda). El newsletter SEMANAL no está: un lead entra UNA vez a cada automatización (mig 0034), así que
+  // un Recurrente semanal le llegaría una sola vez a cada suscriptor. Lo que existe es el envío masivo de /email.
+  {
+    id: 'email-newsletter',
+    nombre: 'Bienvenida al newsletter',
+    emoji: '📰',
+    linea: 'Tres correos de bienvenida a quien se suscribe: el saludo, a los 2 días y a los 5.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'captar',
+    cron: { pide: 'etiqueta', ayuda: 'La etiqueta que le pones a quien se suscribe.' },
+    pasos: [
+      email('nl_1', '¡Gracias por suscribirte!', 'Esto es lo que vas a recibir.',
+        'Hola {{nombre}}:\n\nGracias por suscribirte. Cada tanto te vamos a escribir con ideas y novedades que te pueden servir.\n\nSi tienes una pregunta, responde este correo: lo leemos.', 'nl_espera_2d', { revisar: false }),
+      esperar('nl_espera_2d', 2 * 1440, 'nl_2'),
+      email('nl_2', 'Lo que más nos preguntan', 'Una respuesta corta a la duda más común.',
+        'Hola {{nombre}}:\n\nLa pregunta que más nos hacen es por dónde empezar. Nuestra respuesta: con un paso chico y concreto, hoy.\n\n¿Cuál es el tuyo? Responde este correo y te leemos.', 'nl_espera_3d', { revisar: false }),
+      esperar('nl_espera_3d', 3 * 1440, 'nl_3'),
+      email('nl_3', '¿Hablamos?', 'Si quieres, lo vemos juntos.',
+        'Hola {{nombre}}:\n\nSi quieres que veamos tu caso, responde este correo y coordinamos una llamada corta.', null, { revisar: false }),
+    ],
+  },
+  {
+    id: 'email-recordatorio-reunion',
+    nombre: 'Recordatorio de la reunión por email',
+    emoji: '📧',
+    linea: 'Le recuerda la reunión por email 24 h antes.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'reunion',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien agendó una reunión.' },
+    pasos: [
+      condicion('er_filtro', [REUNION_POR_DELANTE], 'er_antes', null),
+      // Sin reunión por delante, esta espera corta sola (el motor: `sin_reunion`).
+      esperar('er_antes', 1440, 'er_mail', 'antes_reunion'),
+      email('er_mail', 'Mañana es tu reunión', 'Te esperamos.',
+        'Hola {{nombre}}:\n\nTe recordamos que mañana es tu reunión con nosotros. Si necesitas cambiar el horario, responde este correo y lo coordinamos.', null, { revisar: false }),
+    ],
+  },
+  {
+    id: 'email-respuesta-auto',
+    nombre: 'Respuesta automática a un email',
+    emoji: '↩️',
+    linea: 'Le contesta solo a quien te escribe por email, para que sepa que lo recibiste.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'captar',
+    cron: { fijo: TRIGGER_EMAIL_RECIBIDO, evento: 'recibido' },
+    pasos: [
+      email('ra_mail', 'Recibimos tu mensaje', 'Te respondemos a la brevedad.',
+        'Hola {{nombre}}:\n\nGracias por escribirnos. Recibimos tu mensaje y te respondemos a la brevedad.', null, { revisar: false }),
+    ],
+  },
+  // Instagram y Messenger (décima tanda): salen por Zernio, dentro de la ventana de 24 h o como la respuesta privada a un
+  // comentario. SIN AI Step (ver la cabecera: hoy contestaría por WhatsApp).
+  {
+    id: 'ig-comentario-dm',
+    nombre: 'Instagram: comentario → DM',
+    emoji: '💬',
+    linea: 'Le escribe por DM a quien comenta una publicación o un Reel.',
+    origen: 'galería v2 (décima tanda): el «comenta y te escribo» de ManyChat, con cualquier comentario',
+    objetivo: 'captar',
+    cron: { fijo: TRIGGER_INSTAGRAM, evento: 'comentario' },
+    pasos: [social('instagram', 'ic_dm', 'Hola {{nombre}} 👋 ¡Gracias por tu comentario! ¿Quieres que te cuente más por aquí?', null, { revisar: false })],
+  },
+  {
+    id: 'ig-historia-dm',
+    nombre: 'Instagram: respuesta a tu historia',
+    emoji: '📸',
+    linea: 'Le contesta por DM a quien responde una de tus historias.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'captar',
+    cron: { fijo: TRIGGER_INSTAGRAM, evento: 'historia' },
+    pasos: [social('instagram', 'ih_dm', 'Hola {{nombre}}, ¡gracias por responder mi historia! 🙌 ¿Te puedo ayudar en algo?', null, { revisar: false })],
+  },
+  {
+    id: 'ig-bienvenida-dm',
+    nombre: 'Instagram: bienvenida por DM',
+    emoji: '👋',
+    linea: 'Saluda a quien te escribe por primera vez por Instagram y le pregunta en qué lo ayudas.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'captar',
+    cron: { fijo: TRIGGER_INSTAGRAM, evento: 'dm' },
+    pasos: [social('instagram', 'ib_dm', '¡Hola {{nombre}}! 👋 Gracias por escribirnos. Cuéntame en qué te puedo ayudar y te respondo por aquí.', null, { revisar: false })],
+  },
+  {
+    id: 'ig-ref-dm',
+    nombre: 'Instagram: link de referencia',
+    emoji: '🔗',
+    linea: 'Saluda por DM a quien llega desde tu link de Instagram (ig.me).',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'captar',
+    cron: { fijo: TRIGGER_INSTAGRAM, evento: 'ref' },
+    pasos: [social('instagram', 'ir_dm', 'Hola {{nombre}} 👋 Gracias por escribirnos desde el link. ¿En qué te puedo ayudar?', null, { revisar: false })],
+  },
+  {
+    id: 'ig-en-vivo-dm',
+    nombre: 'Instagram: comentario en tu En vivo',
+    emoji: '🎥',
+    linea: 'Le escribe por DM a quien comenta durante tu En vivo.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'captar',
+    cron: { fijo: TRIGGER_INSTAGRAM, evento: 'en_vivo' },
+    pasos: [social('instagram', 'iv_dm', 'Hola {{nombre}}, ¡gracias por comentar en el En vivo! 🙌 ¿Te quedó alguna pregunta? Respóndeme por aquí.', null, { revisar: false })],
+  },
+  {
+    id: 'ms-bienvenida',
+    nombre: 'Messenger: bienvenida',
+    emoji: '💭',
+    linea: 'Saluda a quien te escribe por Messenger y le pregunta en qué lo ayudas.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'captar',
+    cron: { fijo: TRIGGER_MESSENGER, evento: 'dm' },
+    pasos: [social('messenger', 'mb_msg', '¡Hola {{nombre}}! 👋 Gracias por escribirnos. Cuéntame en qué te puedo ayudar y te respondo por aquí.', null, { revisar: false })],
+  },
+  {
+    id: 'ms-qr',
+    nombre: 'Messenger: escaneó tu QR',
+    emoji: '📱',
+    linea: 'Saluda por Messenger a quien escanea tu código QR.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'captar',
+    cron: { fijo: TRIGGER_MESSENGER, evento: 'qr' },
+    pasos: [social('messenger', 'mq_msg', 'Hola {{nombre}} 👋 Gracias por escanear nuestro código. ¿En qué te puedo ayudar?', null, { revisar: false })],
+  },
+  {
+    id: 'ms-ref',
+    nombre: 'Messenger: link de referencia',
+    emoji: '🧭',
+    linea: 'Saluda por Messenger a quien llega desde tu link de referencia.',
+    origen: 'galería v2 (décima tanda)',
+    objetivo: 'captar',
+    cron: { fijo: TRIGGER_MESSENGER, evento: 'ref' },
+    pasos: [social('messenger', 'mf_msg', 'Hola {{nombre}} 👋 Gracias por escribirnos desde el link. ¿En qué te puedo ayudar?', null, { revisar: false })],
+  },
+  {
+    id: 'ms-comentario',
+    nombre: 'Facebook: comentario → mensaje',
+    emoji: '📣',
+    linea: 'Le escribe por Messenger a quien comenta una publicación de tu página.',
+    origen: 'galería v2 (décima tanda): como el de Instagram, con cualquier comentario',
+    objetivo: 'captar',
+    cron: { fijo: TRIGGER_MESSENGER, evento: 'comentario' },
+    pasos: [social('messenger', 'mc_msg', 'Hola {{nombre}}, ¡gracias por tu comentario! ¿Quieres que te cuente más por aquí?', null, { revisar: false })],
+  },
+  // ── «MaKo en WhatsApp» (11/10/2026): los eventos de MaKo, en su sección de la galería ──────────────
   {
     id: 'mako-reunion',
     nombre: 'Aviso antes de cada reunión',
     emoji: '🗓️',
     linea: 'Te avisa en el grupo media hora antes de cada reunión, con el link al lead.',
     origen: 'el aviso «Recordatorio de reunión próxima» (reunion-recordatorio), que armaba el código',
+    objetivo: 'reunion',
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reunion_pronto' },
     pasos: [mako('mr_aviso', '{{mensaje_mako}}', null)],
   },
@@ -457,6 +781,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     emoji: '💬',
     linea: 'Te avisa en el grupo cuando un lead contesta y MaKo no le respondió solo.',
     origen: 'el aviso «Mensaje de WhatsApp entrante» (wa-mensaje-entrante), que armaba el código',
+    objetivo: 'vender',
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_contesta' },
     pasos: [mako('mc_aviso', '{{mensaje_mako}}', null)],
   },
@@ -471,6 +796,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     emoji: '💸',
     linea: 'Te avisa cuando vence una cuota sin cobrar y te lo recuerda a las 48 h y 72 h. Se corta al marcar el pago.',
     origen: 'el aviso «Cuota vencida → cobrar» (cuota-vencida) y su cadencia de fábrica',
+    objetivo: 'cobrar',
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'cuota_vencida' },
     pasos: [
       mako('mk_entrada', '💸 *Cobranza*: la cuota {{cuota_numero}} de {{lead_nombre}} venció hace {{cuota_dias}} — *{{cuota_monto}} sin cobrar*. Si ya se cobró, márcalo en su ficha. — MaKo', 'mk_e48'),
@@ -480,12 +806,120 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       mako('mk_72', '💸 Último recordatorio por la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}): si ya se cobró, márcalo en su ficha y dejo de insistir.\n\n👉 {{link_lead}} — MaKo', null),
     ],
   },
+  {
+    // GENERAL 7 de la décima tanda: «Vuelve a poner la automatización que avisa que se agendó un nuevo lead en
+    // Mauricio y Código... Y esa por ejemplo falta en las plantillas». El texto lo arman los webhooks de Calendly y
+    // Cal.com (el de Cal.com con el teléfono y lo completado): sale EXACTAMENTE el de antes. Por qué un EVENTO y no una
+    // etapa: al prenderla, un CRON de etapa inscribe a todos los que YA están en «Agendado» y el grupo recibiría un
+    // aviso por cada agendado viejo (docs/diseno-automations-galeria-v2.md §3).
+    id: 'mako-agendado',
+    nombre: 'Aviso de nuevo agendado',
+    emoji: '🎯',
+    linea: 'Te avisa en el grupo cuando alguien agenda, con su contacto y el link.',
+    origen: 'el aviso «Nuevo lead que agendó reunión» (reunion-nuevo-agendado), que arman los webhooks de la agenda',
+    objetivo: 'agendar',
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_agendo' },
+    pasos: [mako('ma_aviso', '{{mensaje_mako}}', null)],
+  },
 ];
 
 // ── Lo que se lee de la galería ─────────────────────────────────────────────────────────────────
 
 export function plantillaPorId(id: unknown): PlantillaAutomatizacion | null {
   return typeof id === 'string' ? PLANTILLAS.find((p) => p.id === id) ?? null : null;
+}
+
+/** El grupo «Canal» del filtro, en este orden. «MaKo en WhatsApp» es el nombre de la sección de la lista. */
+export const CANALES_PLANTILLA: ReadonlyArray<{ id: CanalPlantilla; label: string }> = [
+  { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'email', label: 'Email' },
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'messenger', label: 'Messenger' },
+  { id: 'mako', label: ROTULO_MENSAJES_MAKO },
+];
+
+/**
+ * POR DÓNDE SALE UNA PLANTILLA, DERIVADO (décima tanda, §1): el `canal` de cada MENSAJE que trae, el CRON de un canal
+ * (Instagram, Messenger, «Recibes un email») y `mako` si es un evento de MaKo. Escrito a mano al lado de las tarjetas,
+ * el día que alguien cambia un mensaje de canal la galería lo filtraría por el de antes.
+ *
+ * Sólo los MENSAJES: el relleno de una tarjeta de control (una espera, una condición) dice `canal: 'whatsapp'` y no
+ * sale por ningún lado; el aviso al grupo de una plantilla del Chatbot («no confirmó») es un aviso, no el canal de la
+ * plantilla. En el orden de `CANALES_PLANTILLA`.
+ */
+export function canalesDe(p: Pick<PlantillaAutomatizacion, 'cron' | 'pasos'>): CanalPlantilla[] {
+  const hay = new Set<CanalPlantilla>();
+  if (p.cron.fijo === TRIGGER_AVISO_MAKO) hay.add('mako');
+  if (p.cron.fijo === TRIGGER_INSTAGRAM) hay.add('instagram');
+  if (p.cron.fijo === TRIGGER_MESSENGER) hay.add('messenger');
+  if (p.cron.fijo === TRIGGER_EMAIL_RECIBIDO) hay.add('email');
+  for (const x of p.pasos) {
+    if (claseDe(x) !== 'mensaje') continue;
+    const c = x.canal;
+    hay.add(c === 'email' || c === 'instagram' || c === 'messenger' ? c : 'whatsapp');
+  }
+  return CANALES_PLANTILLA.map((c) => c.id).filter((c) => hay.has(c));
+}
+
+/** Sin acentos ni mayúsculas, con los espacios colapsados: así se compara lo que se busca. */
+const plano = (s: string): string => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * LA BÚSQUEDA Y EL FILTRO DE LA GALERÍA (décima tanda, punto 5), puros y con test. `texto` busca en el nombre y la línea
+ * sin acentos ni mayúsculas, y CADA palabra tiene que estar («reunion email» encuentra «Recordatorio de la reunión por
+ * email»); `canal` y `objetivo` se suman (las dos a la vez). Devuelve las que pasan en el orden del catálogo.
+ * «Lienzo en blanco» no es una plantilla: lo pone primero la pantalla, pase lo que pase acá.
+ */
+export function filtrarPlantillas<P extends Pick<PlantillaAutomatizacion, 'nombre' | 'linea' | 'objetivo' | 'cron' | 'pasos'>>(
+  lista: readonly P[], f: { texto?: string | null; canal?: CanalPlantilla | null; objetivo?: ObjetivoPlantilla | null },
+): P[] {
+  const palabras = plano(f.texto ?? '').split(' ').filter(Boolean);
+  return lista.filter((p) => {
+    if (f.canal && !canalesDe(p).includes(f.canal)) return false;
+    if (f.objetivo && p.objetivo !== f.objetivo) return false;
+    if (!palabras.length) return true;
+    const donde = plano(`${p.nombre} ${p.linea}`);
+    return palabras.every((w) => donde.includes(w));
+  });
+}
+
+// ── El desplegable del filtro (dos grupos, uno de cada) ──────────────────────────────────────────
+
+const PRE_CANAL = 'canal:';
+const PRE_OBJETIVO = 'objetivo:';
+
+/** Los dos grupos del filtro de la galería, «Canal» y «Objetivo», con el valor de cada opción (`canal:…`, `objetivo:…`). */
+export function gruposDelFiltroGaleria(): Array<{ title: string; options: Array<{ value: string; label: string }> }> {
+  return [
+    { title: 'Canal', options: CANALES_PLANTILLA.map((c) => ({ value: `${PRE_CANAL}${c.id}`, label: c.label })) },
+    { title: 'Objetivo', options: OBJETIVOS_PLANTILLA.map((o) => ({ value: `${PRE_OBJETIVO}${o.id}`, label: o.label })) },
+  ];
+}
+
+/** Lo marcado en el desplegable, como lo lee `filtrarPlantillas`. Un valor que no es de la tabla no filtra nada. */
+export function filtroDeValores(valores: readonly string[]): { canal: CanalPlantilla | null; objetivo: ObjetivoPlantilla | null } {
+  const canal = CANALES_PLANTILLA.find((c) => valores.includes(`${PRE_CANAL}${c.id}`))?.id ?? null;
+  const objetivo = OBJETIVOS_PLANTILLA.find((o) => valores.includes(`${PRE_OBJETIVO}${o.id}`))?.id ?? null;
+  return { canal, objetivo };
+}
+
+/**
+ * Tocar una opción: la prende o la apaga, y prender una SACA la otra de su grupo (un canal y un objetivo a la vez, no
+ * dos canales: «WhatsApp o Email» mezclaría dos preguntas en un filtro que las suma).
+ */
+export function alternarFiltroGaleria(valores: readonly string[], v: string): string[] {
+  if (valores.includes(v)) return valores.filter((x) => x !== v);
+  const grupo = v.startsWith(PRE_CANAL) ? PRE_CANAL : v.startsWith(PRE_OBJETIVO) ? PRE_OBJETIVO : null;
+  if (!grupo) return [...valores];
+  return [...valores.filter((x) => !x.startsWith(grupo)), v];
+}
+
+/**
+ * EL FILTRO CON QUE ABRE LA GALERÍA (décima tanda, §1): «＋ Nuevo mensaje» de la lista (`mako`) abre con Canal = «MaKo
+ * en WhatsApp» puesto. Sin sección, sin filtro.
+ */
+export function filtroDeSeccion(seccion: 'mako' | null | undefined): string[] {
+  return seccion === 'mako' ? [`${PRE_CANAL}mako`] : [];
 }
 
 /**
@@ -517,10 +951,26 @@ export function nombreLibre(base: string, usados: Iterable<string>): string {
 // ── El CRON que la pantalla pide ────────────────────────────────────────────────────────────────
 
 /** El kanban de cada `pide`, con el nombre con que lo ofrece el CRON (lib/flujo-conversacion.ts). */
-const KANBAN_DE_PIDE: Readonly<Record<PideCron, string>> = { etapa_venta: KANBAN_ADQUISICION, etapa_entrega: KANBAN_ENTREGA };
+const KANBAN_DE_PIDE: Readonly<Record<Exclude<PideCron, 'etiqueta'>, string>> = { etapa_venta: KANBAN_ADQUISICION, etapa_entrega: KANBAN_ENTREGA };
 
 /** Lo que dice el botón del desplegable mientras no se eligió nada. */
 export const SIN_ETAPA = 'Elige la etapa';
+/** Lo mismo, cuando lo que se pide es una etiqueta (`pide: 'etiqueta'`). */
+export const SIN_ETIQUETA = 'Elige la etiqueta';
+
+/** Una etiqueta del negocio, como la ofrece el CRON (`EtiquetaParaDisparo`, lib/flujo-conversacion.ts). */
+export type EtiquetaParaPlantilla = { id: number; nombre: string; archivada_at?: string | null };
+
+/**
+ * LAS ETIQUETAS QUE SE PUEDEN ELEGIR para una plantilla que arranca con una (`pide: 'etiqueta'`): las vivas, con el
+ * MISMO valor y rótulo que el desplegable del CRON (`etiqueta:<id>`, «Se le puso «X»»). Vacío = el negocio no tiene
+ * etiquetas, y nace con el CRON a elegir.
+ */
+export function seccionesDeEtiquetas(etiquetas: readonly EtiquetaParaPlantilla[]): SeccionDisparo[] {
+  const pasos = pasosDisparo({ disparadores: [], productos: [], etiquetas, actual: { trigger_tipo: 'manual' }, textoActual: '' });
+  const s = pasos.find((x) => x.options.some((o) => o.value.startsWith('etiqueta:')));
+  return s ? [{ title: s.title, options: s.options.filter((o) => o.value.startsWith('etiqueta:')) }] : [];
+}
 
 /**
  * LAS ETAPAS QUE SE PUEDEN ELEGIR para una plantilla: las del desplegable del CRON (`pasosDisparo`,
@@ -530,6 +980,8 @@ export const SIN_ETAPA = 'Elige la etapa';
  * y la plantilla nace con el CRON a elegir.
  */
 export function seccionesParaCron(pide: PideCron, productos: readonly ProductoParaDisparo[]): SeccionDisparo[] {
+  // Una etiqueta no es una etapa: sus opciones salen de `seccionesDeEtiquetas`.
+  if (pide === 'etiqueta') return [];
   const pasos = pasosDisparo({ disparadores: [], productos, etiquetas: [], actual: { trigger_tipo: 'manual' }, textoActual: '' });
   const deProductos = pasos.find((s) => s.title === PASO_PRODUCTOS)?.grupos ?? [];
   const kanban = KANBAN_DE_PIDE[pide];
@@ -553,6 +1005,7 @@ export function seccionesParaCron(pide: PideCron, productos: readonly ProductoPa
  * kanban no se dibuja (hay uno solo), así que se le devuelve antes de preguntar.
  */
 export function rotuloDeEleccion(pide: PideCron, secciones: readonly SeccionDisparo[], valor: string): string {
+  if (pide === 'etiqueta') return secciones.flatMap((s) => s.options).find((o) => o.value === valor)?.label ?? SIN_ETIQUETA;
   if (!valor) return SIN_ETAPA;
   const kanban = KANBAN_DE_PIDE[pide];
   const unSolo = secciones.length === 1 && secciones[0].title === kanban;
@@ -573,6 +1026,11 @@ export function disparadorDeEleccion(pide: PideCron, valor: unknown): Disparador
   if (typeof valor !== 'string' || !valor) return null;
   const p = pedidoDisparo(valor, 0);
   if (!p || p.trigger_tipo !== TRIGGER_DE_PIDE[pide]) return null;
+  // «Se le puso [la etiqueta]» (décima tanda): el CRON de la etiqueta, como lo arma el desplegable del CRON.
+  if (pide === 'etiqueta') {
+    const etiqueta = Number(p.etiqueta_id);
+    return Number.isInteger(etiqueta) && etiqueta > 0 ? { id: 'd1', trigger_tipo: String(p.trigger_tipo), etiqueta_id: etiqueta } : null;
+  }
   const etapa = typeof p.etapa === 'string' && p.etapa ? p.etapa : null;
   if (!etapa) return null;
   const etapas = Array.isArray(p.etapas) ? (p.etapas as unknown[]).map(String) : null;

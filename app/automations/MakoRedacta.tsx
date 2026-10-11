@@ -7,10 +7,13 @@
 // app/api/chat-agent/redactar/route.ts. Acá: la caja para contarle a MaKo qué se quiere lograr (con el
 // dictado en vivo de «Crear con IA», `BotonDictar`), lo que leyó, lo que propone y la voz.
 //
-//   · Lo que MaKo escribe es una PROPUESTA: «Usar» reemplaza los mensajes de la tarjeta, «Agregar» los
-//     suma al final. Nada se publica (sólo «Publicar» publica).
-//   · Si propone una NOTA DE VOZ, «Grabar con este guion» lo deja para leer mientras se graba (WhatsApp 6:
-//     «está bien que aparezcan los guiones que sugirió MaKo, pero solo si sugirió algo»).
+//   · Lo que MaKo escribe es una PROPUESTA, y ya NO se dibuja acá (décima tanda, WhatsApp 5: «Las sugerencias de
+//     MaKo, no deberían aparecer como un mensaje enviado, sino como un recuadro diferente arriba del recuadro
+//     donde uno escribe»): se entrega por `onPropuesta` y el editor la pone en su recuadro arriba de la barra
+//     (`SugerenciaMaKo`, EditorMensajeWhatsApp.tsx), con «Usar» (reemplaza los mensajes de la tarjeta),
+//     «Agregar» (los suma al final) y, si propone una NOTA DE VOZ, «Grabar con este guion». Hasta el 11/10 eran
+//     burbujas de WhatsApp con «Agregar» y «Usar» adentro de este panel, y se leían como mensajes ya enviados.
+//     Nada se publica (sólo «Publicar» publica).
 //   · SIN VOZ: «si no la tiene configurada, pedirsela y que se pueda configurar allí mismo». Aprenderla
 //     (la destila MaKo de lo que hay, POST /api/mako/voz `destilar`) o escribirla a mano (`save`).
 //   · «MaKo lo adapta a cada persona» (el `tipo: 'ia'` del paso, que antes era el botón ✦ del título)
@@ -20,8 +23,6 @@ import { useState, type CSSProperties } from 'react';
 import { Spinner } from '@/app/_ui';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
-import { BurbujaHilo } from '../whatsapp/_shared/BurbujaHilo';
-import { IconMic } from '../whatsapp/_shared/composer-icons';
 
 const SANS = "'Geist', sans-serif";
 /** La ruta corta a los 90 s (`maxDuration`); el navegador espera un poco más y no para siempre. */
@@ -33,7 +34,10 @@ const caja: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '
 const btn: CSSProperties = { height: 32, padding: '0 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 };
 const btnMako: CSSProperties = { ...btn, border: '1px solid var(--mako-border)', background: 'var(--mako-bg)', color: 'var(--mako-ink)' };
 
-export function MakoRedacta({ contexto, permiteAudio, adaptar, onUsar, onGuion, onCerrar, deshabilitado, datos = 'motor' }: {
+/** Lo que propuso MaKo, para el recuadro de la sugerencia del editor. `sinVoz`: además pidió la voz del negocio. */
+export type PropuestaRedacta = { mensajes: string[]; audio: string | null; nota: string | null; sinVoz: boolean };
+
+export function MakoRedacta({ contexto, permiteAudio, adaptar, onPropuesta, onCerrar, deshabilitado, datos = 'motor' }: {
   /** Qué datos resuelve quien manda (lib/mako-redacta.ts, `PedidoRedacta.datos`): el recordatorio tiene los suyos. */
   datos?: 'motor' | 'recordatorio';
   /** Lo que el mensaje ya dice y lo de la automatización (el disparador, el objetivo). */
@@ -42,10 +46,11 @@ export function MakoRedacta({ contexto, permiteAudio, adaptar, onUsar, onGuion, 
   permiteAudio: boolean;
   /** «MaKo lo adapta a cada persona». Sin esto (varias partes, un audio), no se ofrece. */
   adaptar?: { activo: boolean; onCambiar: (on: boolean) => void } | null;
-  /** Lo que propuso MaKo: reemplaza los mensajes de la tarjeta o se suma al final. */
-  onUsar: (textos: string[], modo: 'reemplazar' | 'agregar') => void;
-  /** El guion de la nota de voz que propuso, para leerlo mientras se graba. */
-  onGuion: (texto: string) => void;
+  /**
+   * Lo que propuso MaKo (mensajes y/o el guion de una nota de voz): el editor lo pone en su recuadro arriba de la
+   * barra (WhatsApp 5 de la décima tanda). Sólo si propuso algo.
+   */
+  onPropuesta: (p: PropuestaRedacta) => void;
   onCerrar: () => void;
   deshabilitado?: boolean;
 }) {
@@ -68,7 +73,9 @@ export function MakoRedacta({ contexto, permiteAudio, adaptar, onUsar, onGuion, 
       });
       const j = await r.json().catch(() => null) as ({ ok?: boolean; error?: string } & Partial<Respuesta>) | null;
       if (!j?.ok) { setEstado({ t: 'error', error: j?.error || 'MaKo no pudo escribirlo. Prueba de nuevo.' }); return; }
-      setEstado({ t: 'listo', r: { mensajes: j.mensajes ?? [], audio: j.audio ?? null, nota: j.nota ?? null, leido: j.leido ?? [], sinVoz: !!j.sinVoz, descartes: j.descartes ?? [] } });
+      const lista: Respuesta = { mensajes: j.mensajes ?? [], audio: j.audio ?? null, nota: j.nota ?? null, leido: j.leido ?? [], sinVoz: !!j.sinVoz, descartes: j.descartes ?? [] };
+      setEstado({ t: 'listo', r: lista });
+      if (lista.mensajes.length || lista.audio) onPropuesta({ mensajes: lista.mensajes, audio: lista.audio, nota: lista.nota, sinVoz: lista.sinVoz });
     } catch (e) {
       setEstado({ t: 'error', error: e instanceof Error && e.name === 'TimeoutError' ? 'MaKo tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.' });
     }
@@ -124,26 +131,14 @@ export function MakoRedacta({ contexto, permiteAudio, adaptar, onUsar, onGuion, 
       {r && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {r.leido.length > 0 && <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Leí {r.leido.join(' · ')}</div>}
-          {r.mensajes.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--mako-ink)' }}>✦ {GRAMATICA.recomienda.rotulo}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                {r.mensajes.map((m, i) => <BurbujaHilo key={i} contenido={{ texto: m }} maxAncho="92%" />)}
-              </div>
-              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                <button type="button" style={btn} disabled={deshabilitado} onClick={() => onUsar(r.mensajes, 'agregar')}>Agregar</button>
-                <button type="button" style={{ ...btn, border: 'none', background: 'var(--wa)', color: '#fff' }} disabled={deshabilitado} onClick={() => onUsar(r.mensajes, 'reemplazar')}>Usar</button>
-              </div>
+          {/* LA PROPUESTA YA ESTÁ EN SU RECUADRO, arriba de la barra (WhatsApp 5): acá sólo se avisa, si el panel
+              sigue abierto (MaKo pidió la voz del negocio, más abajo). */}
+          {(r.mensajes.length > 0 || r.audio) && (
+            <div data-sugerencia-lista style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, background: 'var(--mako-bg)', border: '1px solid var(--mako-border)' }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--mako-ink)' }}>✦ {GRAMATICA.recomienda.rotulo}</span>
+              <button type="button" style={{ ...btn, marginLeft: 'auto' }} onClick={onCerrar}>Verla</button>
             </div>
           )}
-          {r.audio && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--mako-border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: 'var(--mako-ink)' }}><IconMic /> Mejor como nota de voz</div>
-              <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{r.audio}</div>
-              <button type="button" style={{ ...btnMako, alignSelf: 'flex-end' }} disabled={deshabilitado} onClick={() => onGuion(r.audio!)}>Grabar con este guion</button>
-            </div>
-          )}
-          {r.nota && <div style={{ fontSize: 12, color: 'var(--dim)' }}>{r.nota}</div>}
           {r.sinVoz && voz.t !== 'lista' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: 10, borderRadius: 12, border: '1px dashed var(--border-strong)' }}>
               <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>MaKo todavía no sabe cómo escribes</div>

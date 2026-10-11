@@ -28,6 +28,13 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 const sinComentarios = (src: string) => src
   .replace(/^[ \t]*\/\/.*$/gm, '')
   .replace(/\/\*[\s\S]*?\*\//g, '');
+/**
+ * «LA RUTA» DE ESTOS GUARDS. Desde la décima tanda (11/10/2026) su cuerpo vive también en lib/flujo-ia-crear.ts (la
+ * cascada y las dependencias de verdad) y lib/flujo-ia-crear-core.ts (el orden de crear), porque lo llama también la API
+ * de MaKo: son los tres, en ese orden.
+ */
+const rutaIA = () => ['app/api/chat-agent/secuencias/ia/route.ts', 'lib/flujo-ia-crear.ts', 'lib/flujo-ia-crear-core.ts']
+  .map((f) => sinComentarios(leer(f))).join('\n');
 
 const acciones = LISTA_BLANCA_IA.map((id) => {
   const d = porId(id);
@@ -159,7 +166,7 @@ test('editar: «Otra cosa» ocupada no se pisa; lo de antes queda igual y no hay
 
 // rotura (volver a interpolar `ultimo[0]` en el error): 1 fallo de 9, cae éste.
 test('la ruta no muestra los errores de la revisión con ids internos: van al log', () => {
-  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+  const ruta = rutaIA();
   const i = ruta.indexOf('if (ultimo) {');
   assert.ok(i > 0);
   const bloque = ruta.slice(i, ruta.indexOf('}', ruta.indexOf('return {', i)));
@@ -200,7 +207,7 @@ test('un rótulo que coincide con varias opciones no elige ninguna: queda «elí
   const d = disparadoresParaIA(seccionesDosProductos());
   assert.equal(deIA({ disparador: 'Llega a «Agendado»', inicio: 't1', tarjetas: [{ id: 't1', tipo: 'mensaje', texto: 'Hola' }] }, ctxBase({ disparadores: d }), rndDe()).disparador, null);
   // Y la ruta aplana con la función, no a mano.
-  assert.match(sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts')), /disparadoresParaIA\(seccionesDisparo\(\{/);
+  assert.match(rutaIA(), /disparadoresParaIA\(seccionesDisparo\(\{/);
 });
 
 // ── Un `monto` inventado por el modelo se guardaba sin ninguna capa ──
@@ -234,26 +241,30 @@ test('validarIA rechaza un monto que no está en el pedido', () => {
   const mal = r.pasos.map((p) => (p.accion ? { ...p, accion: { ...p.accion, params: { ...p.accion.params, monto: 4999 } } } : p));
   assert.ok(validarIA(mal, conPrecio).some((e) => e.includes('monto')));
   // Y la ruta arma los permitidos con el perfil y el pedido.
-  assert.match(sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts')), /numerosPermitidos: numerosEn\(`\$\{perfil\}\\n\$\{pedido\}`\)/);
+  assert.match(rutaIA(), /numerosPermitidos: numerosEn\(`\$\{perfil\}\\n\$\{pedido\}`\)/);
 });
 
 // ── CREAR aceptaba una automatización ACTIVA con pasos [] y escribía los pasos antes de pausarla ──
 // rotura (sin el 409 de la activa): 1 fallo de 24 (con flujo-ia-ruta), cae éste.
 test('crear: una automatización ACTIVA no se crea con IA (409, «Pausa esta automatización primero»)', () => {
-  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+  const ruta = rutaIA();
   // Desde la cuarta tanda (punto 14) la lectura pasa por `leerSec(cols)`, que vuelve a pedir sin
   // `etapas` si la 0230 no está: lo que se cuida es lo mismo, que `activa` se lea.
   assert.match(ruta, /leerSec\('id, nombre, pasos, activa[^']*'\)/);
-  assert.match(ruta, /if \(modo === 'crear' && \(sec as \{ activa\?: unknown \}\)\.activa === true\) \{\n\s*return Response\.json\(\{ ok: false, error: '[^']+' \}, \{ status: 409 \}\);/);
+  // Desde la décima tanda `sec` puede ser null (crear sin id: la fila nace al guardar).
+  assert.match(ruta, /if \(modo === 'crear' && \(sec as \{ activa\?: unknown \} \| null\)\?\.activa === true\) \{\n\s*return Response\.json\(\{ ok: false, error: '[^']+' \}, \{ status: 409 \}\);/);
 });
 
 // rotura (pausar DESPUÉS de guardar, como estaba): 1 fallo de 24 (con flujo-ia-ruta), cae éste.
+// Desde la décima tanda el ORDEN vive en lib/flujo-ia-crear-core.ts (`crearConIA`) y la pausa de verdad en
+// lib/flujo-ia-crear.ts (`pausar`): el core la llama después de mirar la señal y antes de guardar los pasos.
 test('crear: se PAUSA antes de escribir los pasos, y después de mirar la cancelación', () => {
-  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
-  const senal = ruta.indexOf('if (req.signal.aborted)');
-  const pausa = ruta.indexOf('await setSecuenciaActiva(secuenciaId, false);');
-  const guarda = ruta.indexOf('await setSecuenciaPasos(');
+  const core = sinComentarios(leer('lib/flujo-ia-crear-core.ts'));
+  const senal = core.indexOf('if (o.signal?.aborted)');
+  const pausa = core.indexOf('await deps.pausar(id);');
+  const guarda = core.indexOf('await deps.guardarPasos(');
   assert.ok(senal > 0 && pausa > senal && guarda > pausa, `señal ${senal} · pausa ${pausa} · guardar ${guarda}`);
+  const ruta = rutaIA();
   assert.equal(ruta.split('setSecuenciaActiva(').length - 1, 1, 'una sola pausa');
 });
 
@@ -290,7 +301,7 @@ test('ordenarAvisos y resumenAvisos: primero lo que cambia lo que sale, y «(+N)
 
 // rotura (SecuenciaPerfil vuelve a `setErr(r.avisos[0])`): 1 fallo de 25, cae éste.
 test('la ruta manda los avisos ordenados y la pantalla dibuja el resumen, no avisos[0]', () => {
-  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+  const ruta = rutaIA();
   assert.equal(ruta.split('avisos: ordenarAvisos(avisos)').length - 1, 2, 'los dos `listo` (crear y editar)');
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   assert.doesNotMatch(perfil, /r\.avisos\[0\]/);
@@ -333,10 +344,12 @@ test('al terminar con etiquetas nuevas, la caja avisa a las listas ANTES de entr
 
 // rotura (la pantalla no siembra el disparador puesto): 1 fallo de 25, cae éste.
 test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON lo dibuja sin recargar', () => {
-  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+  const ruta = rutaIA();
   const ok = ruta.indexOf('puesto = valor;');
   assert.ok(ok > ruta.indexOf('await setTriggerSecuencia(') && ok < ruta.indexOf('} catch (e) {', ok), 'sólo si setTriggerSecuencia no tiró');
-  assert.match(ruta, /etiquetasNuevas: creadas, disparador: puesto \}\);/);
+  // El core lo devuelve (`disparador: puesto`) y la ruta lo manda en `listo` (décima tanda).
+  assert.match(ruta, /etiquetasNuevas: creadas, disparador: puesto,\n\s*\};/);
+  assert.match(ruta, /etiquetasNuevas: r\.etiquetasNuevas, disparador: r\.disparador \}\);/);
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Sexta tanda (varios CRON): lo puesto se pinta en el PRIMERO de la lista (`useDisparadores`).
   // Verificado sacando el `sembrarPrimero` (09/10/2026, cuatro archivos, base 71 / 0): 70 / 1, cae éste.
@@ -352,7 +365,7 @@ test('la caja no ofrece Cancelar en «Revisando el flujo»: el server ya no lo r
 
 // rotura (la caja ignora el `guardado` del 409): 1 fallo de 25, cae éste.
 test('crear sobre una que ya tiene tarjetas: el 409 trae lo guardado y la caja se lo pasa al lienzo', () => {
-  const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+  const ruta = rutaIA();
   const i = ruta.indexOf("if (modo === 'crear' && guardados.length) {");
   const bloque = ruta.slice(i, ruta.indexOf('{ status: 409 }', i));
   assert.match(bloque, /pasos: guardados, nombre: String\(s\.nombre \?\? ''\), orden: ordenDeRevelado\(guardados\),/);
@@ -368,5 +381,6 @@ test('el ejemplo de crear se traduce entero y pasa validarGrafo y validarIA', ()
   const r = deIA(ejemploDe(CREAR_IA_SYSTEM_TEMPLATE), ctx, rndDe());
   assert.deepEqual(validarGrafo(r.pasos), []);
   assert.deepEqual(validarIA(r.pasos, ctx), []);
-  assert.equal(r.pasos.length, 7);
+  // AI Step v2 (décima tanda): el «MaKo contesta» de «Si responde» se pliega adentro de su tarjeta AI Step: 7 → 6.
+  assert.equal(r.pasos.length, 6);
 });

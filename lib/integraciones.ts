@@ -8,7 +8,8 @@
 
 import 'server-only';
 import { credWs } from './credenciales';
-import { remitenteEsSandbox } from './resend';
+import { remitenteEsSandbox, remitenteEsDeMako } from './resend';
+import { AVISO_EMAIL_DE_MAKO } from './email-remitente';
 import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
@@ -193,6 +194,19 @@ export async function getIntegraciones(): Promise<Integracion[]> {
         key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
         estado: 'falta' as EstadoIntegracion,
         detalle: 'Falta el remitente: tus correos solo te llegan a ti.',
+        tieneDetalle: d.tieneDetalle,
+        ...delMetodo(d.key),
+      };
+    }
+    // ⚠️ Y CON EL EMAIL DE MaKo TAMPOCO (décima tanda, EMAIL 1, 11/10/2026: «No permitas enviar emails con los
+    // email de MaKo, ellos deben poner sus propios email»). `sendEmail` y el motor ya no mandan con él fuera de
+    // la plataforma (lib/resend.ts), así que «Conectada» sería mentira. Medido ese día: es el ws1, que heredó
+    // «MaKo <equipo@hola-mako.com>» como remitente. Lectura para DIBUJAR, igual que la de arriba.
+    if (d.key === 'email' && !faltan.length && await remitenteEsDeMako().catch(() => false)) {
+      return {
+        key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
+        estado: 'falta' as EstadoIntegracion,
+        detalle: `${AVISO_EMAIL_DE_MAKO}.`,
         tieneDetalle: d.tieneDetalle,
         ...delMetodo(d.key),
       };

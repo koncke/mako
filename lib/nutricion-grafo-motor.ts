@@ -21,9 +21,11 @@
 
 import {
   CAMPOS_CONDICION, TOPE_CASOS, TOPE_NODOS, TOPE_RESPONDER, TOPE_INSTRUCCIONES, TOPE_OTRA_AVISO,
+  TOPE_OBJETIVO, TOPE_EJEMPLOS, TOPE_EJEMPLO, TOPE_AI_STEP_POR_MEDIO, MEDIOS_AI_STEP,
   claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida, esPasoIA, faltaEnCaso,
-  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta,
+  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta, medioDe,
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
+  type EjemploCaso, type MedioAIStep,
 } from './flujo-grafo';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { condicionPorId, reunionesDeFila, TOPE_REUNIONES, type HechosCatalogo } from './condiciones-catalogo';
@@ -864,8 +866,43 @@ function sanearCaso(x: unknown, deIA = false): CasoRespuesta | null {
     if (r) caso.responder = r;
     if (o.sola === true) caso.sola = true;
     if (o.avisar === true) caso.avisar = true;
+    // ── AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §1): la QUINTA PUERTA para los campos nuevos.
+    //    Sin estas líneas el primer guardado los borraba en silencio (AGENTS.md: un campo nuevo de un paso
+    //    pasa por `camposDelFlujo`/`sanearCaso`). Ausente = lo de antes, y sólo un valor literal prende. ──
+    const obj = typeof o.objetivo === 'string' ? o.objetivo.trim().slice(0, TOPE_OBJETIVO) : '';
+    if (obj) caso.objetivo = obj;
+    if (o.cualquiera === true) caso.cualquiera = true;
+    if (o.no_contesta === true) caso.no_contesta = true;
+    if (o.hasta === 'una') caso.hasta = 'una';
+    const audio = sanearAudioCaso(o.audio);
+    if (audio) caso.audio = audio;
+    const ejemplos = sanearEjemplos(o.ejemplos);
+    if (ejemplos.length) caso.ejemplos = ejemplos;
   }
   return caso;
+}
+
+/** La voz de un caso que contesta en audio: 'propia' o un voiceId de ElevenLabs (alfanumérico). */
+function sanearAudioCaso(x: unknown): { voz: string } | null {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  const voz = (x as Record<string, unknown>).voz;
+  if (voz === 'propia') return { voz: 'propia' };
+  return typeof voz === 'string' && /^[A-Za-z0-9]{8,64}$/.test(voz) ? { voz } : null;
+}
+
+/** Los ejemplos del ensayo: pares con los dos lados escritos, recortados y sin pasar el tope. */
+function sanearEjemplos(x: unknown): EjemploCaso[] {
+  if (!Array.isArray(x)) return [];
+  const out: EjemploCaso[] = [];
+  for (const e of x) {
+    if (!e || typeof e !== 'object' || Array.isArray(e)) continue;
+    const o = e as Record<string, unknown>;
+    const lead = typeof o.lead === 'string' ? o.lead.trim().slice(0, TOPE_EJEMPLO) : '';
+    const tu = typeof o.tu === 'string' ? o.tu.trim().slice(0, TOPE_EJEMPLO) : '';
+    if (lead && tu) out.push({ lead, tu });
+    if (out.length >= TOPE_EJEMPLOS) break;
+  }
+  return out;
 }
 
 /**
@@ -897,7 +934,7 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 }
 
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
-export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar' | 'paso_ia' | 'instrucciones' | 'otra_aviso'>;
+export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar' | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'medio'>;
 
 /**
  * Las flechas en paralelo, saneadas: ids válidos, sin repetidos. Sólo en las clases que las
@@ -948,6 +985,8 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
       if (tono) out.instrucciones = tono;
       const aviso = typeof o.otra_aviso === 'string' ? o.otra_aviso.trim().slice(0, TOPE_OTRA_AVISO) : '';
       if (aviso) out.otra_aviso = aviso;
+      // El MEDIO (AI Step v2): sólo uno de los conocidos, y WhatsApp no se escribe (ausente = WhatsApp).
+      if (typeof o.medio === 'string' && (MEDIOS_AI_STEP as readonly string[]).includes(o.medio) && o.medio !== 'whatsapp') out.medio = o.medio as MedioAIStep;
     }
   }
   if (nodo === 'ir_a') out.destino = sanearDestino(o.destino);
@@ -1040,24 +1079,38 @@ export function agregarCasoAlGrafo<P extends PasoGrafo>(
     // YA estaba y ya contesta o avisa conserva lo suyo: sólo se le reescribe el «cuándo».
     const sinQueHacer = (c: CasoRespuesta): { error: string } | null =>
       faltaEnCaso(c) === 'que_hace' ? { error: 'en un AI Step el caso necesita «cómo responder»' } : null;
-    if (k >= 0) {
+    // ⚠️ AI STEP v2 (décima tanda): UN CASO POR TARJETA. El mismo título se busca en TODAS las tarjetas AI
+    // Step (no sólo en la primera), y un caso nuevo es una TARJETA nueva colgada del CRON, del medio de la
+    // primera, al FINAL del array (no corre el índice de nadie).
+    for (let i = 0; i < pasos.length; i++) {
+      if (!esPasoIA(pasos[i])) continue;
+      const cs = pasos[i].casos ?? [];
+      const j = cs.findIndex((c) => c.titulo.trim().toLowerCase() === titulo.toLowerCase());
+      if (j < 0) continue;
       // `sola` se reescribe con lo que dice el caso enseñado (ausente = a revisar, como siempre).
-      const { sola: _antes, ...resto } = casos[k];
+      const { sola: _antes, ...resto } = cs[j];
       void _antes;
       const nuevo = { ...resto, ...adentro };
       const falta = sinQueHacer(nuevo);
       if (falta) return falta;
       const out = [...pasos];
-      out[ri] = { ...r, casos: casos.map((c, j) => (j === k ? nuevo : c)) };
+      out[i] = { ...pasos[i], casos: cs.map((c, m) => (m === j ? nuevo : c)) };
       return { pasos: normalizar(out) };
     }
-    if (casos.length >= TOPE_CASOS) return { error: `«Si responde» ya tiene ${TOPE_CASOS} casos, el máximo` };
-    const nuevo = { id: nuevoId(pasos, rnd), titulo, siguiente: null, ...adentro };
+    void k;
+    const medio = medioDe(r);
+    if (pasos.filter((p) => esPasoIA(p) && medioDe(p) === medio).length >= TOPE_AI_STEP_POR_MEDIO) {
+      return { error: `ya hay ${TOPE_AI_STEP_POR_MEDIO} AI Step, el máximo` };
+    }
+    const idTarjeta = nuevoId(pasos, rnd);
+    const nuevo = { id: nuevoId([...pasos, { id: idTarjeta }], rnd), titulo, siguiente: null, ...adentro };
     const falta = sinQueHacer(nuevo);
     if (falta) return falta;
-    const out = [...pasos];
-    out[ri] = { ...r, casos: [...casos, nuevo] };
-    return { pasos: normalizar(out) };
+    const tarjeta = {
+      ...RELLENO_CONTROL, proveedor: 'no_oficial', id: idTarjeta, nodo: 'respuesta', paso_ia: true,
+      ...(medio !== 'whatsapp' ? { medio } : {}), casos: [nuevo], si_no: null,
+    } as unknown as P;
+    return { pasos: normalizar([...pasos, tarjeta]) };
   }
   const nuevoMensaje = (siguiente: string | null): P => ({
     ...RELLENO_CONTROL, proveedor: 'no_oficial', tipo: 'ia', cuerpo: guia, revisar: caso.contestaSolo !== true,

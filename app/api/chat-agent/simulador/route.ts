@@ -32,7 +32,7 @@ import { transcribirAudio } from '@/lib/ai-cheap';
 import { clasificarEscenario } from '@/lib/chat-agent-handoff';
 import { getUsuarioActual } from '@/lib/auth';
 import { buscarUsuarioPorEmail } from '@/lib/usuarios';
-import { escenariosDeRespuesta, normalizar, TOPE_NODOS, TOPE_GUIA, type PasoGrafo } from '@/lib/flujo-grafo';
+import { escenariosDeRespuesta, normalizar, TOPE_NODOS, TOPE_GUIA, TOPE_OBJETIVO, TOPE_EJEMPLO, TOPE_EJEMPLOS, type PasoGrafo } from '@/lib/flujo-grafo';
 import { destinoDelQueMira, destinosGuardados, sanearDestinoPrueba, sanearMensajePrueba, sanearEmisorPrueba } from '@/lib/simulador-grafo';
 import { enviarPasoDePrueba, guardarDestinoDeQuienPrueba } from '@/lib/prueba-paso';
 import type { EscenarioSecuencia } from '@/lib/setting-estrategia';
@@ -142,6 +142,10 @@ export async function POST(req: NextRequest) {
         // El tope es el de la guía de un AI Step (`TOPE_GUIA`): con 2000 «Probar» le cortaba la respuesta
         // del caso a un tono largo y contestaba distinto que el motor (revisión de la novena tanda).
         comoResponder: String(e.comoResponder ?? '').slice(0, TOPE_GUIA),
+        // AI Step v2 (décima tanda): lo del caso que el redactor del motor también recibe (`escenarioParaRedactar`).
+        ...(typeof e.objetivo === 'string' && e.objetivo.trim() ? { objetivo: e.objetivo.trim().slice(0, TOPE_OBJETIVO) } : {}),
+        ...(Array.isArray(e.ejemplos) ? { ejemplos: (e.ejemplos as Array<Record<string, unknown>>).flatMap((x) => (typeof x?.lead === 'string' && typeof x?.tu === 'string' ? [{ lead: x.lead.slice(0, TOPE_EJEMPLO), tu: x.tu.slice(0, TOPE_EJEMPLO) }] : [])).slice(0, TOPE_EJEMPLOS) } : {}),
+        ...(e.audio && typeof e.audio === 'object' ? { audio: { voz: 'propia' } } : {}),
       };
       // ⚠️ `responderSimulador` lee de lo GUARDADO el nombre, el objetivo, el gancho y las
       // preguntas de la secuencia; lo que se edita en el lienzo (el caso y su guía) viaja acá.

@@ -55,7 +55,8 @@ test('⚠️ el panel toma el alto que le pasan, TAMBIÉN de columna, y el conte
   const columna = bloque(LIENZO, "maxWidth: `calc(100% - ${PANEL_MARGEN * 2 + insetIzq + insetDer}px)`,", 'padding: 14, borderRadius: 14', 700);
   assert.match(columna, /\.\.\.\(altoFijo\s*\? \{ height: panelAlto, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' \}\s*: \{ overflowY: 'auto' as const \}\)/);
   // El contenido estira y scrollea con `flex: 1` + `minHeight: 0` (nunca `height: 100%`, que Safari da 0).
-  assert.match(LIENZO, /\{altoFijo\s*\? <div style=\{\{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' \}\}>\{renderEditor\(nodoSel\)\}<\/div>/);
+  // Desde la décima tanda (CONDITION 2) con el aire del tacho de la esquina, devuelto con margen negativo.
+  assert.match(LIENZO, /\{altoFijo\s*\? <div style=\{\{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: `\$\{AIRE_ESQUINA\}px \$\{AIRE_ESQUINA\}px 0 0`, margin: `-\$\{AIRE_ESQUINA\}px -\$\{AIRE_ESQUINA\}px 0 0` \}\}>\{renderEditor\(nodoSel\)\}<\/div>/);
   // Sin alto (el lienzo de /mensajes), el alto libre de siempre.
   assert.match(LIENZO, /: renderEditor\(nodoSel\)\}/);
 });

@@ -77,7 +77,10 @@ import { textoDeHtmlEmail, aplicarVariablesHtml, sanearHtmlEmail } from '@/lib/e
 import { aplicarVariables } from '@/lib/template-vars';
 import { datosOfrecidos } from '@/lib/variables-aviso';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
-import { remitentesVinculados, opcionesDeRemitente, remitenteDelPaso, partesDeRemitente, firmaDelPie } from '@/lib/email-remitente';
+import {
+  remitentesVinculados, opcionesDeRemitente, remitenteDelPaso, partesDeRemitente, firmaDelPie,
+  esRemitenteDeMako, remitenteDeMakoAjeno, AVISO_EMAIL_DE_MAKO,
+} from '@/lib/email-remitente';
 import type { DomState } from '../email/EmailApp';
 
 export type CambioEmail = {
@@ -115,8 +118,12 @@ const MONO = "'Geist Mono', monospace";
 /** Un botón de la barra del editor rico, con el tipo que declara el editor (sin importarlo estático). */
 type BotonBarra = NonNullable<ComponentProps<typeof EditorRicoPerezoso>['botonesExtra']>[number];
 
-/** Lo que el editor usa de GET /api/email/dominio, ya leído. `dom` es la respuesta entera, para el modal. */
-type EstadoRemitente = { remitente: string; sandbox: boolean; envioHabilitado: boolean; vinculados: string[]; dom: DomState };
+/**
+ * Lo que el editor usa de GET /api/email/dominio, ya leído. `dom` es la respuesta entera, para el modal.
+ * `deMako`: el remitente del negocio es un email de MaKo y el negocio no es la plataforma (décima tanda,
+ * EMAIL 1): no se ofrece, y el chip del «De» lo dice.
+ */
+type EstadoRemitente = { remitente: string; sandbox: boolean; envioHabilitado: boolean; vinculados: string[]; dom: DomState; deMako?: boolean };
 
 // El remitente se pide UNA vez por pestaña y cliente (5 min): la ruta le pregunta a Resend en vivo, y
 // el editor se monta cada vez que se toca una tarjeta de email.
@@ -131,6 +138,7 @@ function estadoDe(d: DomState): EstadoRemitente {
     envioHabilitado: d.envioHabilitado === true,
     vinculados: remitentesVinculados(d),
     dom: d,
+    deMako: remitenteDeMakoAjeno(d),
   };
 }
 
@@ -152,9 +160,14 @@ export function nombreDelRemitente(remitente: string): string {
   return m ? m[1].trim().replace(/^"|"$/g, '') : '';
 }
 
-/** Qué avisa el chip del De, o nada. El sandbox primero: con él no sale aunque el envío esté prendido. */
-export function avisoDelRemitente(e: Pick<EstadoRemitente, 'sandbox' | 'envioHabilitado'> | null): string | null {
+/**
+ * Qué avisa el chip del De, o nada. El email de MaKo primero (décima tanda, EMAIL 1: «No permitas enviar
+ * emails con los email de MaKo, ellos deben poner sus propios email»), después el sandbox: con él no sale
+ * aunque el envío esté prendido.
+ */
+export function avisoDelRemitente(e: Pick<EstadoRemitente, 'sandbox' | 'envioHabilitado' | 'deMako'> | null): string | null {
   if (!e) return null;
+  if (e.deMako) return AVISO_EMAIL_DE_MAKO;
   if (e.sandbox) return 'No sale · dominio sin verificar';
   if (!e.envioHabilitado) return 'Email apagado';
   return null;
@@ -400,6 +413,8 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
   /** El del workspace es la AUSENCIA del campo: así sigue al del negocio si cambia en /email. */
   const elegirRemitente = (r: string) => {
     if (r === elegido) return;
+    // Un email de MaKo no se elige en un paso (EMAIL 1): las opciones ya no lo traen; esto es la red.
+    if (esRemitenteDeMako(r)) return;
     onChange({ remitente: r === vinculados[0] ? null : r });
   };
 
@@ -517,7 +532,8 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
         <PopoverWA ancla={btnDe ?? ancla} etiqueta="Remitente" onCerrar={() => setAbierto(null)}>
           <MenuWA alElegir={() => setAbierto(null)} opciones={[
             ...opciones.map((r) => ({ key: r, label: etiquetaRemitente(r), icono: <IconTilde visible={r === elegido} />, onElegir: () => elegirRemitente(r) })),
-            { key: '__vincular', label: 'Vincular nuevo', icono: <IconMas />, onElegir: () => setVincular(true) },
+            // Sin ninguno propio (el del negocio es el de MaKo, o no hay), se vincula EL SUYO (EMAIL 1).
+            { key: '__vincular', label: vinculados.length ? 'Vincular nuevo' : 'Vincular tu email', icono: <IconMas />, onElegir: () => setVincular(true) },
           ]} />
         </PopoverWA>
       )}

@@ -79,10 +79,9 @@ import {
   revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, makoDeAccion, errorLegible,
   ID_ENTRADA, tarjetasIncompletas, PARTES_EN_TARJETA, RENGLONES_CON_DOS, SEP_BURBUJAS_TARJETA, ALTO_MAS_PARTES, ALTO_PALOMITAS,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES, altoDeMensaje,
-  MARCO_DISPARO, RENGLON_DISPARO, SEP_DISPARO, ALTO_NUEVO_DISPARO,
+  MARCO_DISPARO, RENGLON_DISPARO, SEP_DISPARO, ALTO_NUEVO_DISPARO, burbujasDeTarjeta,
   type NodoFlujo, type QueAgregar, type DisparadorTarjeta, type AristaFlujo,
 } from '@/lib/flujo-conversacion';
-import { partesExplicitas } from '@/lib/mensaje-partes';
 import { editorDeTarjeta, Y_ENTRADA, type Muelles } from '@/lib/lienzo-grafo';
 import {
   UNIDADES_ESPERA, SEGUNDOS_DE, rotuloUnidad, segundosDeMinutos, minutosDeSegundos, unidadMostrada,
@@ -101,6 +100,9 @@ import { EditorMensajeSocial } from './EditorMensajeSocial';
 // El ícono de cada CRON de la tarjeta (sexta tanda, CRON 10): el de su clase, como en el panel.
 import { IconoDisparador } from './IconosDisparador';
 import type { ClaseDisparador, SubtipoMako } from '@/lib/disparadores';
+// El chip «Sin conectar» de una tarjeta (décima tanda, GENERAL 6) y el modal que conecta ahí mismo.
+import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
+import { chipDeTarjeta, lineaDePaso, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
 
 const SANS = "'Geist', sans-serif";
 
@@ -129,8 +131,13 @@ export function FlujoLienzo({
   onPasos, onAgregar, onBorrar, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
   onTarjetaAbierta, reservaAbajo, triggerTipo, eventoMako, productos, posiciones, onPosiciones, linea,
-  disparadores, onNuevoDisparador, onAbrirDisparador, onPublicar, puedePublicar = false, accionesTodo,
+  disparadores, onNuevoDisparador, onAbrirDisparador, onPublicar, puedePublicar = false, accionesTodo, secuenciaId,
 }: {
+  /**
+   * LA AUTOMATIZACIÓN que se edita (AI Step v2, décima tanda): el ensayo de un AI Step deja contestar a MaKo con
+   * la estrategia de ESTA automatización (`responderSimulador`). Sin esto, el ensayo es sólo «Respondes tú».
+   */
+  secuenciaId?: number;
   /**
    * EL CLICK DERECHO EN LA TARJETA CRON (10/10/2026, general 11: «Si le doy click derecho al cron, no me
    * salen las opciones en desplegable, debería... si es "Eliminar" es "Eliminar todo" o "Duplicar
@@ -255,6 +262,14 @@ export function FlujoLienzo({
   /** Las tarjetas elegidas con el LAZO (general 3). Se copian, se eliminan y se pegan juntas. */
   const [varios, setVarios] = useState<string[]>([]);
   /**
+   * LOS MEDIOS SIN CONECTAR (décima tanda, GENERAL 6: «en la tarjeta lo debe decir»). Una lectura de los
+   * medios que usa el flujo (`useEstadoMedios`, la misma de «Probar»), y la tarjeta que sale por uno sin
+   * conectar lleva el chip «Sin conectar» (`chipDeTarjeta`). Tocarlo abre el modal ahí mismo (`ConectarMedio`).
+   */
+  const usaMedios = useMemo(() => mediosQueUsa(pasos), [pasos]);
+  const medios = useEstadoMedios(usaMedios);
+  const [conectarMedio, setConectarMedio] = useState<{ medio: Medio; linea: string | null } | null>(null);
+  /**
    * LAS TARJETAS QUE YA SE ABRIERON Y SE CERRARON (10/10/2026, condición 4: «Si cierro una condición, como
    * cualquier cosa, sin completar, debe remarcarse con rojo para identificar donde falta»). Una recién
    * creada no se pinta de rojo mientras se la está llenando: recién al cerrarla, si le falta algo.
@@ -348,8 +363,8 @@ export function FlujoLienzo({
     onPosiciones?.(fijarPosicion(derivado, posiciones, id, Math.round(x), Math.round(y), ID_ENTRADA));
   };
   const crearSueltaEn = (que: QueAgregar, punto: { x: number; y: number }) => {
-    // Sólo lo que el menú ofrece ahora: un segundo AI Step no (hay una que escucha por automatización, y
-    // `crearSuelta` devuelve el flujo igual con el id vacío).
+    // Sólo lo que el menú ofrece ahora: un AI Step pasado el tope del medio, o con un «Si responde» de los de
+    // siempre, no (`puedeSumarAIStep`; `crearSuelta` devuelve el flujo igual con el id vacío).
     if (!opcionesSueltas(pasos).some((o) => o.value === que)) return;
     const r = crearSuelta(pasos, que);
     onPasos(() => r.pasos, true);
@@ -620,11 +635,13 @@ export function FlujoLienzo({
             </TarjetaNodo>
           );
         }
+        const chip = paso ? chipDeTarjeta(paso, medios, linea?.actual ?? null) : null;
         return (
+          <>
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={(n.tipo === 'ir-a' && Boolean(n.advertencia)) || (cerradas.has(n.id) && incompletas.has(n.id))}>
             {/* EL AI STEP (novena tanda): sus casos adentro, una fila cada uno, y «Otra cosa» al pie. */}
             {n.tipo === 'paso-ia' && paso
-              ? <CuerpoPasoIA paso={paso} pendientes={n.detalle} />
+              ? <CuerpoPasoIA paso={paso} pendientes={n.detalle} advertencia={!!n.advertencia} />
               : n.tipo === 'mensaje' && paso && esCanalSocial(paso.canal)
               ? <VistaMensajeSocial paso={paso} canal={paso.canal} negocio={negocio} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : null} />
               : n.tipo === 'mensaje' && paso
@@ -640,6 +657,11 @@ export function FlujoLienzo({
                 }}>{n.detalle}</div>
                 : null}
           </TarjetaNodo>
+          {chip && (
+            <ChipMedio nodo={n} texto={chip.texto} frena={chip.frena} motivo={MOTIVO_MEDIO[chip.medio]}
+              onConectar={rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
+          )}
+          </>
         );
       }}
       renderEditor={(n) => (
@@ -650,7 +672,7 @@ export function FlujoLienzo({
           nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
           editorEntrada={editorEntrada} formaPanel={formaPanel} linea={linea}
-          disparador={disparador}
+          disparador={disparador} secuenciaId={secuenciaId ?? null}
           onAbrir={(id) => setSel(id)}
         />
       )}
@@ -672,7 +694,39 @@ export function FlujoLienzo({
     />
     {/* El aviso de «Acomodado», con su deshacer (las posiciones no viven en la pila de los pasos). */}
     <Toast state={toast} onClose={limpiarAviso} />
+    {/* CONECTAR AHÍ MISMO (GENERAL 6), desde el chip de una tarjeta. Al conectar, el chip se apaga solo
+        (`avisarMedioConectado` vacía la lectura). */}
+    {conectarMedio && rolAdmin && (
+      <ConectarMedio medio={conectarMedio.medio} linea={conectarMedio.linea}
+        onCerrar={() => setConectarMedio(null)} onConectado={() => setConectarMedio(null)} />
+    )}
     </>
+  );
+}
+
+/**
+ * EL CHIP «SIN CONECTAR» DE UNA TARJETA (décima tanda, GENERAL 6: «en la tarjeta lo debe decir»). Cuelga de la
+ * esquina de arriba a la derecha, SOBRE el borde, como una insignia: la tarjeta tiene alto fijo y adentro no
+ * hay lugar que no se corte. Va en el mismo envoltorio que la tarjeta (lo que devuelve `renderNodo`), así que
+ * se mueve con ella al arrastrarla.
+ *
+ * Rojo si se SABE sin conectar (Publicar y Activar lo frenan); ámbar si no se pudo comprobar (avisa y no frena).
+ * Con `onConectar` (un admin) es un botón con `data-no-pan`: el lienzo no arma un gesto y el clic le llega.
+ */
+export function ChipMedio({ nodo, texto, frena, motivo, onConectar }: {
+  nodo: { x: number; y: number; ancho: number }; texto: string; frena: boolean; motivo: string; onConectar?: () => void;
+}) {
+  const color = frena ? 'var(--bad)' : 'var(--warn)';
+  const estilo: CSSProperties = {
+    position: 'absolute', left: nodo.x + nodo.ancho - 10, top: nodo.y - 9, transform: 'translateX(-100%)', zIndex: 2,
+    display: 'inline-flex', alignItems: 'center', height: 19, padding: '0 8px', boxSizing: 'border-box', borderRadius: 999,
+    border: `1px solid ${color}`, background: 'var(--surface)', color, fontFamily: SANS, fontSize: 10.5, fontWeight: 700,
+    whiteSpace: 'nowrap', lineHeight: 1,
+  };
+  if (!onConectar) return <span data-chip-medio title={frena ? motivo : texto} style={estilo}>{texto}</span>;
+  return (
+    <button type="button" data-chip-medio data-no-pan title={frena ? motivo : texto}
+      onClick={(e) => { e.stopPropagation(); onConectar(); }} style={{ ...estilo, cursor: 'pointer' }}>{texto}</button>
   );
 }
 
@@ -767,7 +821,10 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
   // La hora de las burbujas: la de cuando se abrió el lienzo, como en el editor (`horaDeAhora`).
   const [hora] = useState(horaDeAhora);
   if (paso.canal === 'email') return <VistaEmail paso={paso} texto={texto} negocio={n} />;
-  const partes = partesExplicitas(paso);
+  // ⚠️ CADA MENSAJE EN SU BURBUJA (décima tanda, WhatsApp 1: «que cada mensaje sea un recuadro de fondo gris,
+  // como si fueran mensajes diferentes, porque lo son. No que estén todo junto»): `burbujasDeTarjeta` parte
+  // también el audio con su texto guardado como antes, que se dibujaba en una sola burbuja.
+  const partes = burbujasDeTarjeta(paso as unknown as Parameters<typeof burbujasDeTarjeta>[0]);
   /**
    * ⚠️ COMO UN WHATSAPP (10/10/2026, WhatsApp 1: «los mensajes deben estar separados, como en el editable, y
    * que se vean como máximo 2 mensajes en la tarjeta del lienzo, para no romper diseño. Que se vea las
@@ -904,6 +961,8 @@ type PropsEditor = {
   /** La forma del panel donde se dibuja este editor (apaisado = la franja de abajo, ancha y baja). */
   formaPanel: 'apaisado' | 'columna';
   onAbrir: (id: string) => void;
+  /** La automatización (ver FlujoLienzo): el ensayo de un AI Step. */
+  secuenciaId?: number | null;
   /** El número de salida de la automatización (ver FlujoLienzo). */
   linea?: EditorMensajeWhatsAppProps['linea'];
   /**
@@ -960,12 +1019,20 @@ function EditorDeNodo(pr: PropsEditor) {
       );
     }
     case 'respuesta': {
-      // EL AI STEP (novena tanda): la misma clase, con sus casos adentro y su propio editor. Sus campos
-      // (`paso_ia`, el tono, el aviso de «Otra cosa») están en `PasoSecuenciaDto` (`CamposDelFlujo`, en
+      // EL AI STEP (novena tanda; v2 en la décima): la misma clase, con SU caso adentro y su propio editor de cinco
+      // pasos. Sus campos (`paso_ia`, el medio, los del caso) están en `PasoSecuenciaDto` (`CamposDelFlujo`, en
       // ChatAgentApp), así que el cambio va por `cambiarNodo` sobre el DTO, sin castear.
+      // «＋ Otro AI Step» (v2: una tarjeta por caso): otra del mismo medio, colgada del CRON, y se abre.
       if (esPasoIA(paso)) {
         const cambiarIA: CambioPasoIA = (patch, apilar) => pr.onPasos((prev) => cambiarNodo<PasoSecuenciaDto>(prev, id, patch), apilar);
-        return <EditorPasoIA key={`ia-${id}`} paso={paso} pasos={pr.pasos} busy={pr.busy} cambiar={cambiarIA} />;
+        const otro = () => {
+          const r = crearSuelta(pr.pasos, 'ai_step');
+          if (!r.id) return;
+          const medio = paso.medio;
+          pr.onPasos(() => (medio ? r.pasos.map((q) => (q.id === r.id ? { ...q, medio } : q)) : r.pasos), true);
+          pr.onAbrir(r.id);
+        };
+        return <EditorPasoIA key={`ia-${id}`} id={id} paso={paso} pasos={pr.pasos} busy={pr.busy} cambiar={cambiarIA} onOtro={otro} secuenciaId={pr.secuenciaId ?? null} onError={pr.onError} />;
       }
       return <EditorRespuesta {...pr} paso={paso} id={id} cambiar={cambiar} />;
     }

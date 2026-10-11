@@ -24,7 +24,7 @@ import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
 import { EditorDisparadores, useDisparadores, useTextoDisparador, type SecuenciaConDisparadores } from './EditorDisparadores';
-import { disparoActualDe, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO, type ClaseDisparador } from '@/lib/disparadores';
+import { disparoActualDe, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
 import { frenoDelEvento } from '@/lib/aviso-evento';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
@@ -38,21 +38,24 @@ import { TRIGGER_RECORDATORIO, frenoDelRecordatorio } from '@/lib/recordatorio-a
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
 import { useFaltanEnAcciones } from '@/app/_components/EditorAccionMako';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { franjaIA, CAJA_IA_ANCHO, BARRA_IA_ANCHO, RESERVA_ABAJO_CREAR } from '@/lib/crear-ia-lugar';
+import { franjaIA, BARRA_IA_ANCHO } from '@/lib/crear-ia-lugar';
 import { resumenAvisos, edicionVigente } from '@/lib/flujo-ia-cliente';
 import type { Objetivo } from '@/lib/setting-estrategia';
-import { normalizar, esNodoMensaje } from '@/lib/flujo-grafo';
+import { normalizar, esNodoMensaje, separarPasosIA } from '@/lib/flujo-grafo';
 import { eliminar } from '@/lib/flujo-edicion';
-import { BotonMako } from '@/app/_ui/BotonMako';
+import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { Muelles } from '@/lib/lienzo-grafo';
 import { abrirFlujo } from '@/lib/flujo-legado';
 import {
   insertarDesdeLienzo, renumerar, errorLegible, tarjetaDelError, estrategiaConLimpieza,
-  disparoDeValor, canalesParaProbar, frenoDelFlujo, ID_ENTRADA,
+  disparoDeValor, canalesParaProbar, frenoDelFlujo,
   type QueAgregar,
 } from '@/lib/flujo-conversacion';
 import { EmojiPickerMini } from '@/app/plan/board/EmojiPicker';
 import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
+// Un medio sin conectar frena Publicar (409) y Activar (décima tanda, GENERAL 6): el modal de la tab lo conecta ahí mismo.
+import { ConectarMedio } from './ConectarMedio';
+import { medioDelError, type Medio } from '@/lib/medios-automatizacion';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
 // se tilda la IA): no tiene por qué viajar en el bundle de cada apertura del lienzo.
@@ -78,6 +81,29 @@ const tarjetaChrome: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
   padding: '7px 12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)',
 };
+
+/**
+ * EL BOTÓN DE «PEDIRLE UN CAMBIO A MaKo», AL LADO DEL TÍTULO: ES EL LOGO (décima tanda, general 1, 11/10/2026:
+ * «El botón de IA que está al lado del título debe ser del mismo tamaño del recuadro del título y estar
+ * alineado... Y que sea el logo de MaKo, que es una estrella en el centro, sin la estrella chiquita arriba»).
+ *
+ * `MakoLogo` dibuja el recuadro negro con la chispa dorada SOLA y centrada; el `BotonMako` de la casa
+ * (app/_ui/BotonMako.tsx) lleva `MakoStar`, que suma el punto chico arriba a la derecha. El lado es el alto
+ * del título (`ALTO_ACCION`), así los dos miden lo mismo en la misma fila. Encendido (la barra abierta), el
+ * aro dorado de siempre, con el radio del logo (13 de 48).
+ */
+export function BotonLogoMako({ onClick, title, encendido = false, lado }: { onClick: () => void; title: string; encendido?: boolean; lado: number }) {
+  return (
+    <button type="button" data-no-pan data-boton-logo-mako onClick={onClick} aria-pressed={encendido} title={title} aria-label={title}
+      style={{
+        flex: 'none', width: lado, height: lado, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box',
+        borderRadius: Math.round((lado * 13) / 48), boxShadow: encendido ? '0 0 0 2px var(--mako)' : '0 1px 2px rgba(0,0,0,.18)',
+      }}>
+      <MakoLogo size={lado} animate={false} />
+    </button>
+  );
+}
 
 /**
  * «Tu forma de escribir» se ofrece UNA vez por visita: quien la cierra sin escribir guía no
@@ -110,13 +136,9 @@ export type EdicionLocal = {
 /** Lo que devuelve `frenoDelFlujo`: el error legible y la tarjeta a abrir. */
 export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, arranque, onArranqueUsado }: {
-  /**
-   * RECIÉN CREADA CON UN TIPO DE CRON ELEGIDO (el modal de «＋ Nueva automatización», 10/10/2026): el lienzo
-   * abre su CRON con ese tipo ya elegido. Se usa UNA vez (`onArranqueUsado`).
-   */
-  arranque?: ClaseDisparador;
-  onArranqueUsado?: () => void;
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo }: {
+  // (Acá iban `arranque` y `onArranqueUsado`: la recién creada con un tipo de CRON elegido en «¿Qué la dispara?» del
+  // modal abría su CRON en ese tipo. Se fueron con esos botones en la décima tanda, 11/10/2026.)
   /** Lo de la AUTOMATIZACIÓN ENTERA desde el click derecho del CRON (copiar, duplicar, eliminar): lo hace la lista. */
   onAccionTodo?: (accion: 'copiar' | 'duplicar' | 'eliminar') => void;
   secuencia: SecuenciaDto;
@@ -231,10 +253,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       idDeClave: (clave) => secuencias.find((s) => s.clave === clave)?.id ?? null,
       nombreDeSecuencia: (id) => secuencias.find((s) => s.id === id)?.nombre ?? null,
     });
-    const borrador = secuencia.borrador?.pasos?.length ? renumerar(normalizar(secuencia.borrador.pasos)) : null;
-    // `abierto`: lo publicado tal como el lienzo lo abriría sin borrador («Volver a lo publicado» vuelve ahí).
+    // Un borrador de antes del AI Step v2 también se abre con una tarjeta por caso (`separarPasosIA`, como `abrirFlujo`).
+    const borrador = secuencia.borrador?.pasos?.length ? renumerar(normalizar(separarPasosIA(normalizar(secuencia.borrador.pasos)).pasos)) : null;
+    // `abierto`: lo publicado tal como el lienzo lo abriría sin borrador («Descartar cambios» vuelve ahí).
     const abierto = renumerar(r.pasos);
-    return { ...r, pasos: borrador ?? abierto, abierto, deBorrador: !!borrador, publicado: JSON.stringify(renumerar(normalizar(ordenados))) };
+    return { ...r, pasos: borrador ?? abierto, abierto, publicado: JSON.stringify(renumerar(normalizar(ordenados))) };
   });
   const [pasos, setPasos] = useState<PasoSecuenciaDto[]>(inicial.pasos);
   const [convertida, setConvertida] = useState(inicial.convertida);
@@ -253,11 +276,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const [visto, setVisto] = useState(() => JSON.stringify(inicial.pasos));
   /**
-   * Se abrió un BORRADOR (no lo publicado): mientras el lienzo no sea lo publicado, se ofrece «Volver a lo
-   * publicado» (revisión del 10/10/2026: un borrador no se podía borrar de ninguna forma salvo publicándolo,
-   * y la pila de deshacer no sobrevive a la recarga). Publicar lo apaga: ya no hay borrador.
+   * LO PUBLICADO, TAL COMO EL LIENZO LO ABRE (`inicial.abierto` al montar; lo que se publicó, después). Es a lo
+   * que vuelve «Descartar cambios» (`descartarCambios`). Hasta la décima tanda era `deBorrador`, que encendía el
+   * botón «Volver a lo publicado» al lado de «Activar»; Martín lo sacó (general 5, 11/10/2026: «Elimina el botón
+   * de "Volver a lo publicado"... para eso ya tenemos el CTRL Z... Y en todo caso, en los 3 puntitos de la
+   * sidebar, a los que tienen cambios sin guardar, que aparezca la opción "Descartar cambios"»). El «⋯» de la
+   * lista llama a esto por la ref `descartarBorrador` (app/automations/SimuladorWhatsApp.tsx).
    */
-  const [deBorrador, setDeBorrador] = useState(inicial.deBorrador);
+  const [abiertoPublicado, setAbiertoPublicado] = useState<PasoSecuenciaDto[]>(inicial.abierto);
 
   /**
    * EL BORRADOR (sexta tanda, punto 7; mig 0240, lib/secuencia-borrador.ts): cada cambio del flujo se
@@ -288,12 +314,17 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * esperaba su respiro. O sea que «Descartar» lo GUARDABA como borrador, y al volver se abría lo que se
    * había descartado. Quien pregunta llama a esto ANTES de cambiar: lo pendiente no sale y el borrador se
    * borra (la lista se relee sola al irse: `onSalir`).
+   *
+   * ⚠️ DESDE LA DÉCIMA TANDA ES TAMBIÉN «DESCARTAR CAMBIOS» DEL «⋯» DE LA LISTA SOBRE LA QUE ESTÁ ABIERTA (general
+   * 5), que no se va: el lienzo vuelve a lo publicado (`descartarCambios`, con su foto: Ctrl+Z lo devuelve) y el
+   * borrador se borra. Por una ref (`descartarRef`): el efecto corre una vez y la función cambia en cada render.
    */
+  const descartarRef = useRef<() => void>(() => { void borrador.descartar(); });
   useEffect(() => {
     if (!descartarBorrador) return;
-    descartarBorrador.current = () => { void borrador.descartar(); };
+    descartarBorrador.current = () => descartarRef.current();
     return () => { descartarBorrador.current = null; };
-    // `borrador` es el mismo motor durante todo el montaje.
+    // La función de verdad la lee de la ref en el momento del clic.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [descartarBorrador]);
 
@@ -381,6 +412,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  /**
+   * EL MEDIO QUE FRENÓ PUBLICAR O ACTIVAR (décima tanda, GENERAL 6: «no dejar publicarlo hasta que no lo
+   * configure. Y esas configuraciones siempre allí mismo»). El server contesta 409 con el `medio` al publicar,
+   * y «No se activó: Conecta tu …» al activar (`medioDelError`): las dos abren el mismo modal (ConectarMedio).
+   */
+  const [conectarMedio, setConectarMedio] = useState<Medio | null>(null);
   const flashOk = (m: string) => { setFlash(m); setTimeout(() => setFlash(null), 2600); };
 
   /**
@@ -424,7 +461,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       // Publicar: el borrador de antes se borra y la base pasa a ser ésta (sin eso, el próximo cambio se
       // rechazaba con «Cambió lo publicado»). Un rechazo que llegó mientras la IA trabajaba ya no vale.
       void borrador.publicado(nuevos);
-      setDeBorrador(false);
+      setAbiertoPublicado(nuevos);
       setErr((e) => (e === ERROR_DESACTUALIZADO ? null : e));
       if (r.nombre) setNombre(r.nombre);
       // El disparador que quedó puesto (revisión, 09/10/2026): `disparo` se siembra al montar, y sin
@@ -492,21 +529,24 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   // responde» nace de una CONDITION vacía, en su editor.)
 
   /**
-   * «VOLVER A LO PUBLICADO»: el lienzo vuelve a lo que se abriría sin borrador y el borrador se borra en
-   * el server (después de lo que esté en vuelo, para que un guardado lento no lo resucite). Con su foto:
-   * Ctrl+Z devuelve el borrador, que se vuelve a guardar solo. Al terminar se relee la lista, o volver a
-   * esta automatización en la misma visita abría el borrador que trajo el GET de la entrada.
+   * «DESCARTAR CAMBIOS» (era «Volver a lo publicado», el botón al lado de «Activar»; décima tanda, general 5: ahora
+   * vive en el «⋯» de la lista, sólo en las que tienen cambios sin publicar): el lienzo vuelve a lo publicado
+   * (`abiertoPublicado`) y el borrador se borra en el server (después de lo que esté en vuelo, para que un
+   * guardado lento no lo resucite). Con su foto: Ctrl+Z devuelve el borrador, que se vuelve a guardar solo. Al
+   * terminar se relee la lista, o volver a esta automatización en la misma visita abría el borrador que trajo el
+   * GET de la entrada. Si la tab está por irse (la pregunta de cambiar de automatización), lo mismo: el lienzo se
+   * desmonta enseguida y lo que importa es que el borrador se borre.
    */
-  const volverAPublicado = () => {
+  const descartarCambios = () => {
     fotoAntes();
-    setPasos(inicial.abierto);
-    setVisto(JSON.stringify(inicial.abierto));
+    setPasos(abiertoPublicado);
+    setVisto(JSON.stringify(abiertoPublicado));
     // Un «Cambió lo publicado» se queda: lo que se abrió tampoco es lo de hoy, y sigue sin guardarse.
     setErr((e) => (e === ERROR_DESACTUALIZADO ? e : null));
     void borrador.descartar().then(() => onCambio());
-    borrador.yaGuardado(inicial.abierto);
+    borrador.yaGuardado(abiertoPublicado);
   };
-  const ofrecerVolver = rolAdmin && deBorrador && JSON.stringify(pasos) !== JSON.stringify(inicial.abierto);
+  useEffect(() => { descartarRef.current = descartarCambios; });
 
   /**
    * ⚠️ UN ERROR QUE FRENA PUBLICAR ABRE LA TARJETA CULPABLE (revisión, lienzo-6). El texto
@@ -514,16 +554,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * cada pedido, así el mismo error dos veces la vuelve a abrir.
    */
   const [foco, setFoco] = useState<{ id: string; vez: number } | null>(null);
-  /** El tipo de CRON con que arranca (ver `arranque`): lo lee el panel del CRON al abrirse. */
-  const [claseArranque, setClaseArranque] = useState<ClaseDisparador | null>(arranque ?? null);
-  useEffect(() => {
-    if (!arranque) return;
-    setCronAbierto(null);
-    setFoco((f) => ({ id: ID_ENTRADA, vez: (f?.vez ?? 0) + 1 }));
-    onArranqueUsado?.();
-    // Una vez, al montar la recién creada.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   /**
    * Lo que le falta a cada «⚡ Acción» según su formulario (el monto al mover a Ganado, el motivo de una
    * baja): lo frena `frenoDelFlujo` en Publicar y en Probar. Se pide sólo si hay una acción.
@@ -589,13 +619,17 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       if (!rp.ok) {
         borrador.noPublicado();
         const e = rp.error ? String(rp.error) : '';
+        // Un 409 trae el `medio` (GENERAL 6): se abre «Conectar» ahí mismo en vez de señalar una tarjeta.
+        const medio = rp.medio ? medioDelError(e) : null;
+        if (medio) { setErr(e); setConectarMedio(medio); setBusy(null); return; }
         frenar(e ? errorLegible(e, pasos) : 'No se pudo publicar.', e ? tarjetaDelError(e, pasos) : null);
         setBusy(null); return;
       }
     } catch { borrador.noPublicado(); setErr('Sin conexión — prueba de nuevo.'); setBusy(null); return; }
     setPublicado(JSON.stringify(pasos));
     setVisto(JSON.stringify(pasos));
-    setDeBorrador(false);
+    // «Descartar cambios» vuelve, desde ahora, a esto.
+    setAbiertoPublicado(pasos);
     // Lo publicado ya no es un borrador: se borra, y la base pasa a ser lo que se acaba de publicar (la
     // devuelve el server: el navegador no la puede calcular, ver lib/secuencia-borrador.ts).
     void borrador.publicado(pasos);
@@ -738,7 +772,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             : 'Pausada ✓',
         );
         onCambio();
-      } else setErr(r.error || 'No se pudo cambiar.');
+      } else {
+        setErr(r.error || 'No se pudo cambiar.');
+        const medio = medioDelError(r.error ? String(r.error) : null);
+        if (medio) setConectarMedio(medio);
+      }
     } catch { setErr('Sin conexión — prueba de nuevo.'); }
     setBusy(null);
   };
@@ -820,13 +858,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           ⚠️ CON UNA TARJETA ABIERTA SE ESCONDEN, SIN DESMONTARSE: el panel del nodo abre en esa
           misma franja y quedaban encima de sus botones (el emoji y el 🔗 del editor tipo Gmail).
           Desmontar `CrearConIA` cortaría un pedido en vuelo de hasta un minuto. */}
-      {rolAdmin && pasos.length === 0 && (
-        <div data-crear-ia="crear" style={{ position: 'absolute', ...franja, display: tarjetaAbierta ? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 }}>
-          <div style={{ pointerEvents: 'auto', width: `min(${CAJA_IA_ANCHO}px, 100%)` }}>
-            <CrearConIA modo="crear" secuenciaId={secuencia.id} onListo={alListoIA} />
-          </div>
-        </div>
-      )}
+      {/* ⛔ LA CAJA «GENERAR CON IA» DEL LIENZO VACÍO SE FUE (décima tanda, 11/10/2026; docs/diseno-automations-galeria-v2.md
+          §1, «decisión tomada, a confirmar»): pedirle a MaKo vive en el modal «Nueva automatización» («Pídeselo a MaKo»), y
+          «Lienzo en blanco» con una caja de IA abajo es el botón doble que ya se sacó una vez. Si Martín la quiere de vuelta,
+          es volver a montar `<CrearConIA modo="crear" secuenciaId={secuencia.id} onListo={alListoIA} />` con
+          `pasos.length === 0` en esta franja (y `reservaAbajo={RESERVA_ABAJO_CREAR}` en el lienzo): el modo sigue vivo. */}
       {rolAdmin && editandoIA && pasos.length > 0 && (
         <div data-crear-ia="editar" style={{ position: 'absolute', ...franja, display: tarjetaAbierta ? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 }}>
           <div style={{ pointerEvents: 'auto', width: `min(${BARRA_IA_ANCHO}px, 100%)` }}>
@@ -835,7 +871,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         </div>
       )}
       <FlujoLienzo
-        pasos={pasos}
+        pasos={pasos} secuenciaId={secuencia.id}
         disparador={textoDisparo}
         // Sin las filas del EMISOR (el recordatorio, los eventos de MaKo, 11/10/2026): no se puede «ir a» una de
         // ésas — su emisor no inscribe leads (`inscribirEnSecuencia` las rechaza).
@@ -853,14 +889,17 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         onTarjetaAbierta={setTarjetaAbierta}
         posiciones={lugares.posiciones} onPosiciones={rolAdmin ? lugares.mover : undefined}
         linea={rolAdmin ? { actual: lineaSec, onElegir: elegirLineaDesdeEditor } : undefined}
-        reservaAbajo={rolAdmin && pasos.length === 0 ? RESERVA_ABAJO_CREAR : 0}
         chrome={(
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
             {/* El ancho es FIJO por lo mismo que en /mensajes: en modo edición el
                 contenido es un `<input>`, que NO mide su texto —mide `size` por el
                 avance del «0» de la fuente— así que con `maxWidth` la tarjeta encoge al
                 hacer click. Con el ancho puesto, los dos estados miden lo mismo. */}
-            <div style={{ ...tarjetaChrome, minWidth: 0, width: 400, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* ⚠️ DE ALTO FIJO (`ALTO_ACCION`), el mismo que el botón de MaKo de al lado y que «Probar»
+                (décima tanda, general 1: «El botón de IA que está al lado del título debe ser del mismo tamaño
+                del recuadro del título y estar alineado»). Medía lo que su contenido (el emoji de 34 + el
+                relleno: 50) y el botón, 38: dos alturas en la misma fila. */}
+            <div data-titulo-lienzo style={{ ...tarjetaChrome, minWidth: 0, width: 400, height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 12px 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
               {/* EL EMOJI SE TOCA Y SE CAMBIA (tercera tanda, decisión 8; pedido literal: «No puedo
                   editar el emoji del título, y si debería... Dejame poner cualquier emoji, ya tenemos
                   un desplegable al respecto»). El selector es el de la casa (el de los proyectos del
@@ -891,10 +930,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 "Pedirle un cambio a MaKo" ponlo al lado del cuadro del título, donde hoy está
                 "activar"»). Vivía en la fila del zoom, como un ✦ más entre el deshacer; ahí quedó
                 «Acomodar» (punto 14). Abre y cierra la barra de «Crear con IA» de abajo. */}
-            {/* Negro, como el logo de MaKo (10/10/2026: «debe ser negro, como el logo de MaKo»), y del
-                alto de la tarjeta del título. */}
+            {/* ⚠️ ES EL LOGO DE MaKo (`MakoLogo`, app/_components/MakoBrand.tsx), del alto del título (décima
+                tanda, general 1: «Y que sea el logo de MaKo, que es una estrella en el centro, sin la estrella
+                chiquita arriba»). El `BotonMako` de la casa lleva `MakoStar`, que dibuja la chispa CON el punto
+                chico de arriba; el logo es la chispa sola, centrada en su recuadro negro. */}
             {rolAdmin && pasos.length > 0 && (
-              <BotonMako lado={38} encendido={editandoIA} onClick={() => setEditandoIA((v) => !v)} title="Pedirle un cambio a MaKo" />
+              <BotonLogoMako lado={ALTO_ACCION} encendido={editandoIA} onClick={() => setEditandoIA((v) => !v)} title="Pedirle un cambio a MaKo" />
             )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
@@ -946,15 +987,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             ) : flash ? (
               <span style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>
             ) : null)}
-            {/* «VOLVER A LO PUBLICADO» (revisión del 10/10/2026): sólo con un borrador abierto. Antes de
-                «Activar», que va pegado a «Publicar» (punto 8). Se deshace con Ctrl+Z. */}
-            {ofrecerVolver && (
-              <button type="button" onClick={volverAPublicado} disabled={busy === 'save'}
-                title="Borra el borrador y abre lo publicado"
-                style={{ ...tarjetaChrome, flex: 'none', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: busy === 'save' ? 'default' : 'pointer', fontFamily: 'inherit' }}>
-                Volver a lo publicado
-              </button>
-            )}
+            {/* ⛔ ACÁ VIVÍA «VOLVER A LO PUBLICADO» (revisión del 10/10/2026). Se fue en la décima tanda (general 5:
+                «Elimina el botón de "Volver a lo publicado" que aparece al lado de "Activar", para eso ya tenemos
+                el CTRL Z»): lo mismo es «Descartar cambios» en el «⋯» de la lista (`descartarCambios`). */}
             {/* «ACTIVAR», AL LADO DE «PUBLICAR» (sexta tanda, punto 8: «Activar pasa a estar al lado de
                 "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
             <div style={{ ...tarjetaChrome, flex: 'none', height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
@@ -994,7 +1029,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
            * Lo que mide el PANEL (que no quede aire debajo) es del lienzo (`MUELLE`, lib/lienzo-grafo.ts).
            */
           <EditorDisparadores
-            claseInicial={claseArranque} onClaseInicialUsada={() => setClaseArranque(null)}
             lista={crons.lista} editando={cronAbierto} onEditar={setCronAbierto} onGuardar={crons.guardar}
             productos={productos} etiquetas={etiquetas} disparadores={disparadores} etiquetaEtapa={etiquetaEtapa}
             tz={tz} busy={busy != null} rolAdmin={rolAdmin}
@@ -1036,6 +1070,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       {guiaVoz && typeof document !== 'undefined' && createPortal(
         <OnboardingChatAgent soloPaso="contexto" onListo={() => setGuiaVoz(false)} />,
         document.body,
+      )}
+      {/* CONECTAR AHÍ MISMO lo que frenó Publicar o Activar (GENERAL 6). Conectado, el aviso se va. */}
+      {conectarMedio && rolAdmin && (
+        <ConectarMedio medio={conectarMedio} linea={secuencia.instance_name ?? null}
+          onCerrar={() => setConectarMedio(null)} onConectado={() => { setConectarMedio(null); setErr(null); }} />
       )}
     </div>
   );

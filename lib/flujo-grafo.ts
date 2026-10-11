@@ -138,6 +138,19 @@
 //   · LO QUE SE GUARDA ES LA FORMA COMPACTA. Lo expandido no se guarda nunca: sus ids llevan `~`, que el
 //     saneo de `setSecuenciaPasos` no acepta (`[A-Za-z0-9_-]`), así que un expandido guardado por error
 //     perdería las flechas de sus casos y Publicar lo frenaría por tarjetas sueltas: falla ruidoso.
+//
+// ── DÉCIMA TANDA (11/10/2026): AI STEP v2 (docs/diseno-ai-step-v2.md) ─────────────────────────
+// Martín: «solo permitir 1 caso por tarjeta de AI Step, y si quieren pueden crear otra tarjeta» y «si elijo
+// el AI Step, siempre va a estar vinculado a un medio».
+//   · UNA TARJETA = UN CASO, VARIAS TARJETAS (hasta `TOPE_AI_STEP_POR_MEDIO` por medio). Cada una sigue
+//     siendo la forma `paso_ia` del nodo `respuesta`, colgada del CRON (`raicesRespuesta`: todas las que
+//     escuchan). «Si responde» de los de siempre sigue siendo uno y no se mezcla con AI Step.
+//   · EL MOTOR SIGUE VIENDO UNA: `expandirPasoIA(pasos, { medio })` junta las del medio en la primera y
+//     deja a las demás inertes EN SU ÍNDICE (los índices no se corren). Lo viejo (N casos) se lee igual:
+//     cada caso cuenta como una tarjeta. `separarPasosIA` lo parte (el lienzo, `setSecuenciaPasos`, el script).
+//   · CAMPOS NUEVOS del caso (`objetivo`, `cualquiera`, `no_contesta`, `hasta`, `audio`, `ejemplos`) y del
+//     nodo (`medio`), todos opcionales y por `camposDelFlujo`/`sanearCaso`. El tono y el aviso de «Otra
+//     cosa» se LEEN y no se escriben más.
 // =============================================================================
 
 // El catálogo de condiciones importa sólo TIPOS de acá: el ciclo no existe en runtime.
@@ -237,6 +250,42 @@ export type CasoRespuesta = {
   sola?: boolean;
   /** Te avisa al grupo con el título del caso (lo que era la tarjeta «MaKo en WhatsApp» debajo). */
   avisar?: boolean;
+  // ── AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §1): UN caso por tarjeta. Todos opcionales y
+  //    ausente = lo de antes, así lo guardado sigue leyéndose igual. Pasan por `sanearCaso`. ──
+  /** Qué tiene que lograr (≤ `TOPE_OBJETIVO`). Ausente = el de la automatización. NO frena Publicar (§10-A). */
+  objetivo?: string;
+  /** «Cualquier respuesta»: entra con todo lo que no encaja en otro AI Step del medio. `cuando` no se lee. */
+  cualquiera?: boolean;
+  /** «Sólo te avisa»: no contesta aunque `responder` tenga texto (se guarda para cuando vuelva a contestar). */
+  no_contesta?: boolean;
+  /** Hasta cuándo contesta: 'una' = después de la primera respuesta, la charla pasa a una persona. */
+  hasta?: 'una';
+  /** Contesta con una nota de voz: `'propia'` (el clon VIGENTE al mandar) o el voiceId de otra voz. */
+  audio?: { voz: string };
+  /** Cómo contestó la persona en el ensayo (≤ `TOPE_EJEMPLOS`): ejemplos para el redactor. */
+  ejemplos?: EjemploCaso[];
+};
+
+/** Un par del ensayo de objeciones: lo que dijo el lead y cómo contestó la persona (§4). */
+export type EjemploCaso = { lead: string; tu: string };
+
+/** Por dónde escucha y contesta un AI Step (§6). Ausente = WhatsApp: todo lo guardado hasta v2 lo es. */
+export type MedioAIStep = 'whatsapp' | 'instagram' | 'messenger';
+export const MEDIOS_AI_STEP: readonly MedioAIStep[] = ['whatsapp', 'instagram', 'messenger'];
+
+/**
+ * LO QUE VIAJA EN EL «MaKo contesta» DE LA EXPANSIÓN (`expandirPasoIA`): los datos del caso que el redactor
+ * necesita y que la forma de siempre no tenía dónde llevar. NUNCA se guarda (no está en `CamposFlujo`, y un
+ * expandido no se guarda: sus ids llevan `~`).
+ */
+export type DatosCasoIA = {
+  titulo: string;
+  cuando: string;
+  medio: MedioAIStep;
+  objetivo?: string;
+  ejemplos?: EjemploCaso[];
+  audio?: { voz: string };
+  hasta?: 'una';
 };
 
 export type Espera =
@@ -290,10 +339,18 @@ export type PasoGrafo = {
    * siempre, con una tarjeta hija por caso. La clase sigue siendo 'respuesta' (`claseDe`).
    */
   paso_ia?: true;
-  /** Sólo AI Step: el tono general, que se suma a la guía de cada caso. Opcional. */
+  /**
+   * Sólo AI Step: el tono general, que se suma a la guía de cada caso. Desde v2 (décima tanda) se LEE y no
+   * se escribe más: `separarPasosIA` lo pliega adentro de cada `responder` (el bloque «TU TONO» de la guía
+   * de voz lo reemplaza). Queda en una tarjeta sólo si plegarlo no entraba en `TOPE_RESPONDER`.
+   */
   instrucciones?: string;
-  /** Sólo AI Step: el aviso al equipo de «Otra cosa». Vacío = `AVISO_OTRA_COSA`. */
+  /** Sólo AI Step: el aviso al equipo de «Otra cosa». Vacío = `AVISO_OTRA_COSA`. Se LEE (el primero no vacío del medio). */
   otra_aviso?: string;
+  /** Sólo AI Step v2: por dónde escucha y contesta (`medioDe`). Ausente = WhatsApp. */
+  medio?: MedioAIStep;
+  /** Sólo en la EXPANSIÓN (nunca se guarda): los datos del caso para el redactor (`DatosCasoIA`). */
+  ia?: DatosCasoIA;
   /** condicion: «si no» · respuesta: «otra cosa». */
   si_no?: string | null;
   /**
@@ -362,6 +419,10 @@ export const esNodoMensaje = (p: PasoGrafo): boolean => claseDe(p) === 'mensaje'
 
 /** ¿Es un AI STEP? Un «Si responde» con sus casos adentro (`paso_ia`, novena tanda). */
 export const esPasoIA = (p: PasoGrafo | null | undefined): boolean => !!p && claseDe(p) === 'respuesta' && p.paso_ia === true;
+
+/** El medio de un AI Step: el suyo, o WhatsApp si no dice (todo lo guardado antes de v2). */
+export const medioDe = (p: Pick<PasoGrafo, 'medio'> | null | undefined): MedioAIStep =>
+  (p?.medio === 'instagram' || p?.medio === 'messenger' ? p.medio : 'whatsapp');
 
 // Por SALIDA: una tarjeta de una salida, o cada RESULTADO de una condición (cuarta tanda, punto 8:
 // «varias si se cumple y varias si no se cumple»).
@@ -662,8 +723,8 @@ export function hiloDe(pasos: readonly PasoGrafo[]): Map<string, string> {
   const ini = indiceInicio(pasos);
   if (ini >= 0) pila.push([idDe(pasos[ini], ini), HILO_PRINCIPAL]);
   else { const r = raizSalida(pasos); if (r) pila.push([r, HILO_PRINCIPAL]); }
-  const resp = raizRespuesta(pasos);
-  if (resp) pila.push([resp, HILO_RESPUESTA]);
+  // Todas las que escuchan (AI Step v2: varias tarjetas, `raicesRespuesta`); en la forma de siempre, una.
+  for (const resp of raicesRespuesta(pasos)) pila.push([resp, HILO_RESPUESTA]);
   while (pila.length) {
     const [id, h] = pila.pop()!;
     if (hilo.has(id)) continue;
@@ -683,11 +744,24 @@ export function hiloDe(pasos: readonly PasoGrafo[]): Map<string, string> {
   return hilo;
 }
 
-/** El nodo «Si responde», si la automatización tiene uno. */
+/** El nodo «Si responde», si la automatización tiene uno (con varios AI Step, el PRIMERO: `raicesRespuesta`). */
 export function raizRespuesta(pasos: readonly PasoGrafo[]): string | null {
   // Una «Si responde» SUELTA (le borraron la flecha del CRON) no escucha: no es raíz de nada.
   const i = pasos.findIndex((p) => claseDe(p) === 'respuesta' && p.suelta !== true);
   return i >= 0 ? idDe(pasos[i], i) : null;
+}
+
+/**
+ * TODAS LAS TARJETAS QUE ESCUCHAN, conectadas al CRON, en el orden del array (AI Step v2, décima tanda:
+ * «solo permitir 1 caso por tarjeta de AI Step, y si quieren pueden crear otra tarjeta»). En la forma de
+ * siempre es una sola (`validarGrafo` no deja dos «Si responde»), así que es `[raizRespuesta]`. Lo que
+ * pregunta «¿esto cuelga del CRON por escuchar?» —los hilos, las sueltas, los cruces, el dibujo— mira
+ * ésta; el motor y «Probar» recorren la EXPANSIÓN (`expandirPasoIA`), donde vuelve a haber una.
+ */
+export function raicesRespuesta(pasos: readonly PasoGrafo[]): string[] {
+  const out: string[] = [];
+  pasos.forEach((p, i) => { if (p && claseDe(p) === 'respuesta' && p.suelta !== true) out.push(idDe(p, i)); });
+  return out;
 }
 
 /**
@@ -747,8 +821,7 @@ export function aristasDeVuelta(pasos: readonly PasoGrafo[]): Set<string> {
   const ini = indiceInicio(pasos);
   if (ini >= 0) recorrer(ids[ini]);
   else { const r = raizSalida(pasos); if (r) recorrer(r); }
-  const resp = raizRespuesta(pasos);
-  if (resp) recorrer(resp);
+  for (const resp of raicesRespuesta(pasos)) recorrer(resp);
   const ap = apuntados(pasos);
   for (const id of ids) if (!ap.has(id)) recorrer(id);
   for (const id of ids) recorrer(id);
@@ -963,11 +1036,12 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
   const err: string[] = [];
   const ids = pasos.map((p, i) => idDe(p, i));
   const ini = indiceInicio(pasos);
-  const r = raizRespuesta(pasos);
+  // Las que escuchan, conectadas (con AI Step v2 pueden ser varias: `raicesRespuesta`).
+  const rs = raicesRespuesta(pasos);
   // ── Sin ningún camino: hay tarjetas y el CRON no lleva a ninguna (y no hay «Si responde»). Va
   // PRIMERO: con el CRON desconectado, todo lo demás es consecuencia. Una automatización VACÍA no lo
   // es: no tiene nada que correr, y los escritores que la vacían (la API) siguen pudiendo.
-  if (publicar && pasos.some((p) => p && claseDe(p) !== 'inicio') && !raicesSalida(pasos).length && !r) {
+  if (publicar && pasos.some((p) => p && claseDe(p) !== 'inicio') && !raicesSalida(pasos).length && !rs.length) {
     err.push('el CRON no lleva a ninguna tarjeta');
   }
   if (pasos.length > TOPE_NODOS) err.push(`una automatización tiene como mucho ${TOPE_NODOS} tarjetas`);
@@ -1015,7 +1089,24 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
       if (pt.destino && !existe.has(pt.destino)) err.push(`la tarjeta ${ids[i]} sigue en ${pt.destino}, que no existe`);
     }
   });
-  if (respuestas > 1) err.push('hay más de una tarjeta «Si responde»');
+  // ⚠️ AI STEP v2 (décima tanda): VARIOS AI STEP SÍ, pero «Si responde» de los de siempre sigue siendo UNO
+  // y no se mezcla con AI Step (las dos formas escuchan el mismo mensaje: el motor no sabría cuál contesta).
+  // Hasta `TOPE_AI_STEP_POR_MEDIO` por medio (la expansión los junta en uno: `expandirPasoIA`).
+  const ias = pasos.filter((p) => p && esPasoIA(p));
+  const clasicas = respuestas - ias.length;
+  if (clasicas > 1) err.push('hay más de una tarjeta «Si responde»');
+  if (clasicas > 0 && ias.length > 0) err.push('un AI Step no va con un «Si responde»');
+  for (const m of MEDIOS_AI_STEP) {
+    if (ias.filter((p) => medioDe(p) === m).length > TOPE_AI_STEP_POR_MEDIO) err.push(`hay más de ${TOPE_AI_STEP_POR_MEDIO} AI Step de ${ROTULO_MEDIO[m]}`);
+  }
+  // Al publicar: como mucho UN «Cualquier respuesta» por medio (es «lo que no encaja en otro»: con dos, la
+  // expansión tomaría el primero y el segundo no contestaría nunca). Sólo los que ESCUCHAN (no sueltos).
+  if (publicar) {
+    for (const m of MEDIOS_AI_STEP) {
+      const cualquiera = ias.filter((p) => p.suelta !== true && medioDe(p) === m && (p.casos ?? []).some((x) => x.cualquiera === true));
+      if (cualquiera.length > 1) err.push(`hay dos AI Step con «${ROTULO_CUALQUIERA}» en ${ROTULO_MEDIO[m]}`);
+    }
+  }
   // ⚠️ SEXTA TANDA: VARIAS FLECHAS PUEDEN LLEGAR A UNA TARJETA. Hasta la quinta, «la tarjeta X cuelga
   // de N lugares (para juntar ramas se usa «Ir a»)» era un error, y era lo que hacía que «poner más de
   // una flecha a una tarjeta» no funcionara (punto 13). Lo que sí se mira: que el ciclo que formen
@@ -1023,7 +1114,7 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
   if (publicar) {
     // Lo que cuelga de «Si responde» corre EN EL MOMENTO de la respuesta: una espera ahí
     // dejaría al lead esperando una contestación horas. No se puede.
-    if (r) for (const d of descendientes(pasos, r)) if (claseDe(pasos[indicePorId(pasos, d)]) === 'esperar') err.push('«Si responde» no puede tener esperas: se contesta en el momento');
+    for (const r of rs) for (const d of descendientes(pasos, r)) if (claseDe(pasos[indicePorId(pasos, d)]) === 'esperar') err.push('«Si responde» no puede tener esperas: se contesta en el momento');
     // Un CICLO sin una espera en el medio —por flechas (sexta tanda) o por un «Ir a» de antes— es un
     // bucle que el motor daría vueltas en la misma corrida (`ciclosSinEspera`).
     const ciclo = ciclosSinEspera(pasos);
@@ -1035,7 +1126,7 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
         : `la tarjeta ${nombrar} vuelve atrás sin ninguna espera en el medio`);
     }
   }
-  err.push(...reglasDeHilos(pasos, ids, r, publicar));
+  err.push(...reglasDeHilos(pasos, ids, rs, publicar));
   if (publicar) {
     for (const x of cruces(pasos)) {
       err.push(x.conRespuesta
@@ -1059,9 +1150,9 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
  */
 export function tarjetasSueltas(pasos: readonly PasoGrafo[]): string[] {
   const ids = pasos.map((p, i) => idDe(p, i));
-  const r = raizRespuesta(pasos);
   const alcanzable = new Set<string>();
-  const raices = [...raicesSalida(pasos), ...(r ? [r] : [])];
+  // Cada AI Step conectado al CRON es una raíz (AI Step v2: varias tarjetas que escuchan).
+  const raices = [...raicesSalida(pasos), ...raicesRespuesta(pasos)];
   const ini = indiceInicio(pasos);
   if (ini >= 0) raices.push(ids[ini]);
   for (const x of raices) { alcanzable.add(x); for (const d of descendientes(pasos, x)) alcanzable.add(d); }
@@ -1183,7 +1274,7 @@ function llegadasPorTarjeta(pasos: readonly PasoGrafo[], conCtx: boolean): Map<s
   const ini = indiceInicio(pasos);
   if (ini >= 0) empujar(idDe(pasos[ini], ini), HILO_PRINCIPAL, new Map(), false);
   else empujar(raizSalida(pasos), HILO_PRINCIPAL, new Map(), false);
-  empujar(raizRespuesta(pasos), HILO_RESPUESTA, new Map(), true);
+  for (const resp of raicesRespuesta(pasos)) empujar(resp, HILO_RESPUESTA, new Map(), true);
   while (pila.length) {
     if (conCtx && vistos.size > TOPE_ESTADOS_CRUCES) return null;
     const { id, camino, ctx, enResp } = pila.pop()!;
@@ -1283,7 +1374,7 @@ export function repartenEnBucle(pasos: readonly PasoGrafo[]): Set<string> {
  * (revisión de la segunda tanda, 09/10/2026). AGENTS.md: «La pantalla dice QUÉ pasó; el PORQUÉ va
  * al código».
  */
-function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp: string | null, publicar: boolean): string[] {
+function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resps: readonly string[], publicar: boolean): string[] {
   const err: string[] = [];
   // ── El inicio: uno solo, con su id, y nadie sigue en él ──
   const inicios = pasos.map((p, i) => (claseDe(p) === 'inicio' ? i : -1)).filter((i) => i >= 0);
@@ -1298,7 +1389,7 @@ function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp
   // ── «Si responde» no tiene padre: cuelga del CRON (pedido literal, punto 1) ──
   // Es un EVENTO (el lead contestó), no un paso del camino: una flecha hacia él lo convertiría en
   // «después de este mensaje, si responde», que es otro modelo (un oyente con alcance) y no éste.
-  if (resp && padreDe(pasos, resp)) err.push('«Si responde» cuelga del CRON: ninguna tarjeta puede seguir en él');
+  for (const resp of resps) if (padreDe(pasos, resp)) err.push('«Si responde» cuelga del CRON: ninguna tarjeta puede seguir en él');
   // ── Las flechas en paralelo ──
   // Una lista de flechas (la de una tarjeta o la de un resultado de una condición): repetidas, ids
   // reservados y el tope por salida. Las dos pasan por las MISMAS reglas.
@@ -1332,7 +1423,7 @@ function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp
   // Adentro de «Si responde» todo corre EN EL MOMENTO de la respuesta y retoma UN hilo (diseño,
   // decisión 4): repartir ahí no tiene a qué hilo volver. Tampoco desde un resultado de una
   // condición que cuelga de ella.
-  if (resp) for (const d of [resp, ...descendientes(pasos, resp)]) {
+  for (const resp of resps) for (const d of [resp, ...descendientes(pasos, resp)]) {
     if (todosLosParalelos(pasos[indicePorId(pasos, d)]).length) err.push('«Si responde» no puede sacar flechas en paralelo');
   }
   // Una tarjeta con paralelos DENTRO DE UN BUCLE de «Ir a» abre hilos nuevos en cada vuelta, sin
@@ -1514,6 +1605,11 @@ export type EscenarioDeGrafo = {
   comoResponder: string;
   contestaSolo?: boolean;
   siguiente: string | null;
+  // ── AI Step v2: lo del caso que viaja en su «MaKo contesta» (`DatosCasoIA`). Ausente = lo de antes. ──
+  objetivo?: string;
+  ejemplos?: EjemploCaso[];
+  audio?: { voz: string };
+  hasta?: 'una';
 };
 
 /**
@@ -1523,8 +1619,8 @@ export type EscenarioDeGrafo = {
  * acción `clasificar` de «Probar», que recibe los pasos del lienzo— lea lo mismo que el motor. El
  * `siguiente` que devuelve es del flujo EXPANDIDO: quien recorre la rama, recorre `expandirPasoIA(pasos)`.
  */
-export function escenariosDeRespuesta(pasosIn: readonly PasoGrafo[]): EscenarioDeGrafo[] {
-  const pasos = expandirPasoIA(pasosIn);
+export function escenariosDeRespuesta(pasosIn: readonly PasoGrafo[], op: { medio?: MedioAIStep } = {}): EscenarioDeGrafo[] {
+  const pasos = expandirPasoIA(pasosIn, op);
   const r = nodoPorId(pasos, raizRespuesta(pasos));
   if (!r) return [];
   return (r.casos ?? []).map((c) => {
@@ -1535,8 +1631,20 @@ export function escenariosDeRespuesta(pasosIn: readonly PasoGrafo[]): EscenarioD
       comoResponder: contesta?.cuerpo ?? '',
       ...(contesta && contesta.revisar === false ? { contestaSolo: true } : {}),
       siguiente: c.siguiente ?? null,
+      ...extrasDeCaso(contesta?.ia),
     };
   });
+}
+
+/** Lo de un caso v2 que el redactor usa (`DatosCasoIA` → los campos opcionales del escenario), sin vacíos. */
+export function extrasDeCaso(d: DatosCasoIA | null | undefined): Pick<EscenarioDeGrafo, 'objetivo' | 'ejemplos' | 'audio' | 'hasta'> {
+  if (!d) return {};
+  return {
+    ...(d.objetivo ? { objetivo: d.objetivo } : {}),
+    ...(d.ejemplos?.length ? { ejemplos: d.ejemplos } : {}),
+    ...(d.audio ? { audio: d.audio } : {}),
+    ...(d.hasta === 'una' ? { hasta: 'una' as const } : {}),
+  };
 }
 
 // ── Editar (lienzo) ───────────────────────────────────────────────────────────────
@@ -1980,12 +2088,26 @@ export const AVISO_DE_CASO = 'Te escribió sobre esto.';
 export const TOPE_RESPONDER = 2000;
 export const TOPE_INSTRUCCIONES = 1000;
 export const TOPE_OTRA_AVISO = 1000;
+// AI Step v2 (décima tanda, docs/diseno-ai-step-v2.md §1).
+export const TOPE_OBJETIVO = 300;
+export const TOPE_EJEMPLOS = 6;
+export const TOPE_EJEMPLO = 500;
+/** Cuántas tarjetas AI Step por medio en una automatización (la expansión las junta en una: hasta 10 casos). */
+export const TOPE_AI_STEP_POR_MEDIO = 10;
+/** El nombre de un caso: lo que muestra la tarjeta en negrita y el título del aviso. */
+export const TOPE_TITULO_CASO = 40;
+
+/** Cómo se nombra cada medio en una frase («2 AI Step de WhatsApp»). */
+export const ROTULO_MEDIO: Readonly<Record<MedioAIStep, string>> = { whatsapp: 'WhatsApp', instagram: 'Instagram', messenger: 'Messenger' };
+/** La opción de «Cuándo entra» que toma todo lo que no encaja en otro AI Step del medio. */
+export const ROTULO_CUALQUIERA = 'Cualquier respuesta';
 
 /**
  * LOS IDS DE LA EXPANSIÓN, derivados del nodo y del caso: DETERMINÍSTICOS (expandir dos veces, o el
  * motor y «Probar», dan las mismas tarjetas) y con `~`, que no entra en un id guardado (`[A-Za-z0-9_-]`):
  * nunca chocan con una tarjeta de verdad. El motor los deja en `nutricion_envios.nodo_id` y en la clave del
  * reclamo de la acción (una vez por respuesta), así que también tienen que ser ESTABLES entre corridas.
+ * Desde v2 el nodo es la TARJETA de cada caso (la primera conserva los suyos: los de antes no cambian).
  */
 export const idRespuestaDeCaso = (nodo: string, caso: string): string => `${nodo}~${caso}~r`;
 export const idAvisoDeCaso = (nodo: string, caso: string): string => `${nodo}~${caso}~a`;
@@ -2013,6 +2135,30 @@ const ROTULO_TONO = 'Tono: ';
  */
 export const TOPE_GUIA = ROTULO_TONO.length + TOPE_INSTRUCCIONES + 1 + TOPE_RESPONDER;
 
+/**
+ * ¿LA AUTOMATIZACIÓN CONTESTA POR ESTE MEDIO? Con AI Step v2, una que sólo tiene AI Step de Instagram no
+ * contesta un WhatsApp (§1): la pregunta se hace sobre la EXPANSIÓN del medio, no sobre lo guardado. Un
+ * «Si responde» de los de siempre escucha por WhatsApp, como siempre.
+ */
+export function escuchaPor(pasos: readonly PasoGrafo[], medio: MedioAIStep = 'whatsapp'): boolean {
+  return raizRespuesta(expandirPasoIA(pasos, { medio })) != null;
+}
+
+/**
+ * ¿SE PUEDE SUMAR UN AI STEP de este medio? (AI Step v2, décima tanda: una tarjeta por caso). No si hay un
+ * «Si responde» de los de siempre (no se mezclan) ni si el medio ya tiene `TOPE_AI_STEP_POR_MEDIO`. La
+ * misma regla que `validarParaGuardar`: ofrecerla sería un borrador que no se guarda. La leen el ＋ y el
+ * click derecho (lib/flujo-conversacion.ts) y las ediciones (lib/flujo-edicion.ts).
+ */
+export function puedeSumarAIStep(pasos: readonly PasoGrafo[], medio: MedioAIStep = 'whatsapp'): boolean {
+  if (pasos.some((p) => p && claseDe(p) === 'respuesta' && !esPasoIA(p))) return false;
+  return pasos.filter((p) => p && esPasoIA(p) && medioDe(p) === medio).length < TOPE_AI_STEP_POR_MEDIO;
+}
+
+/** ¿Este caso CONTESTA? Tiene cómo responder y no es «Sólo te avisa». La MISMA regla para expandir, dibujar y frenar. */
+export const contestaElCaso = (c: Pick<CasoRespuesta, 'responder' | 'no_contesta'>): boolean =>
+  !!(c.responder ?? '').trim() && c.no_contesta !== true;
+
 /** Los campos que todo paso tiene (lo de `RELLENO_CONTROL` del motor), para las tarjetas de la expansión. */
 const RELLENO_EXPANSION = { canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null } as const;
 
@@ -2025,49 +2171,101 @@ function avisoAlEquipo<P extends PasoGrafo>(id: string, params: { titulo?: strin
   } as unknown as P;
 }
 
+/** Lo que viaja del caso a su «MaKo contesta» (`DatosCasoIA`). El audio, sólo por WhatsApp (§5). */
+function datosDeCaso(c: CasoRespuesta, medio: MedioAIStep): DatosCasoIA {
+  return {
+    titulo: c.titulo, cuando: c.cuando, medio,
+    ...((c.objetivo ?? '').trim() ? { objetivo: (c.objetivo ?? '').trim() } : {}),
+    ...(c.ejemplos?.length ? { ejemplos: c.ejemplos } : {}),
+    ...(c.audio && medio === 'whatsapp' ? { audio: c.audio } : {}),
+    ...(c.hasta === 'una' ? { hasta: 'una' as const } : {}),
+  };
+}
+
+/** Un AI Step que ya no escucha en la expansión: en su índice, sin casos y suelto (inerte para todos). */
+function inerte<P extends PasoGrafo>(p: P): P {
+  const q = { ...p, casos: [], si_no: null, suelta: true } as P;
+  delete q.paso_ia;
+  delete q.instrucciones;
+  delete q.otra_aviso;
+  return q;
+}
+
 /**
- * EL FLUJO CON EL AI STEP EXPANDIDO a la forma de siempre de «Si responde». PURA e IDEMPOTENTE: lo
- * expandido ya no tiene `paso_ia`, así que expandirlo otra vez no hace nada. Un flujo sin AI Step vuelve
- * igual (una copia del array).
+ * EL FLUJO CON LOS AI STEP DE UN MEDIO EXPANDIDOS A UN «SI RESPONDE» de los de siempre (AI Step v2,
+ * docs/diseno-ai-step-v2.md §1). PURA e IDEMPOTENTE: lo expandido ya no tiene `paso_ia`, así que expandirlo
+ * otra vez no hace nada. Un flujo sin AI Step vuelve igual (una copia del array).
  *
- * Por cada caso, al FINAL del array (no corre el índice de nadie: `paso_actual`, `paso` de los envíos):
- *   · si tiene guía (`guiaDeCaso`): un mensaje de WhatsApp no oficial `tipo: 'ia'` —el «MaKo contesta»
- *     de siempre— con la guía de cuerpo y `revisar = !sola` (ausente = borrador, como todo caso nuevo);
- *   · si avisa: una acción «avisar al equipo» con el título del caso, DESPUÉS del mensaje (o sola, si el
- *     caso no contesta: ahí la charla pasa a una persona, como en la forma de siempre);
- *   · si no hace ninguna de las dos, el caso queda sin salida (Publicar no lo deja: `erroresDelPasoIA`).
- * Y «Otra cosa» es una acción «avisar al equipo» con `otra_aviso` (o `AVISO_OTRA_COSA`).
+ *   · Junta los AI Step NO sueltos del `medio` (ausente = WhatsApp) en el PRIMERO del array, con un caso
+ *     por caso de cada tarjeta (una tarjeta v1 de N casos cuenta como N: lo publicado antes de separar
+ *     sigue contestando igual). Los demás AI Step —los del medio que se juntaron, los de otro medio y los
+ *     sueltos— quedan EN SU ÍNDICE, sin casos y sueltos (`inerte`): `raizRespuesta` los saltea. NO se sacan
+ *     del array: `responderConGrafo` escribe `paso_actual` con el índice EXPANDIDO al retomar con «Ir a».
+ *     Sin AI Step del medio, no queda ninguno que escuche: la automatización no contesta por ahí.
+ *   · Por cada caso, al FINAL del array (no corre el índice de nadie), con ids de SU tarjeta:
+ *       – si contesta (`contestaElCaso`): un mensaje de WhatsApp no oficial `tipo: 'ia'` —el «MaKo
+ *         contesta» de siempre— con la guía de cuerpo, `revisar = !sola` y `ia` (lo que el redactor usa);
+ *       – si avisa: una acción «avisar al equipo» con el título del caso, DESPUÉS del mensaje (o sola).
+ *   · `cualquiera` NO es un caso del clasificador: es el destino de «Otra cosa» (`si_no`). Sin uno, «Otra
+ *     cosa» es el aviso de siempre con el primer `otra_aviso` no vacío del medio (o `AVISO_OTRA_COSA`).
  *
  * Lo que la lee: el motor (`responderConGrafo`, lib/nutricion.ts), «Probar» (lib/simulador-grafo.ts) y
  * `escenariosDeRespuesta`. NUNCA lo que se GUARDA ni lo que se DIBUJA: eso es la forma compacta.
  */
-export function expandirPasoIA<P extends PasoGrafo>(pasos: readonly P[]): P[] {
+export function expandirPasoIA<P extends PasoGrafo>(pasos: readonly P[], op: { medio?: MedioAIStep } = {}): P[] {
   if (!pasos.some((p) => esPasoIA(p))) return [...pasos];
+  const medio = op.medio ?? 'whatsapp';
+  const delMedio = pasos.map((p, i) => i).filter((i) => esPasoIA(pasos[i]) && pasos[i].suelta !== true && medioDe(pasos[i]) === medio);
   const extra: P[] = [];
-  const out = pasos.map((p, i) => {
-    if (!esPasoIA(p)) return p;
-    const nodo = idDe(p, i);
+  const casos: CasoRespuesta[] = [];
+  const usados = new Set<string>();
+  let siNo: string | null | undefined;
+  let otraAviso = '';
+  for (const i of delMedio) {
+    const p = pasos[i];
+    const tarjeta = idDe(p, i);
+    if (!otraAviso) otraAviso = (p.otra_aviso ?? '').trim().slice(0, TOPE_OTRA_AVISO);
     // El id de cada caso, como lo pone `normalizar` (si falta, o si se repite): el clasificador devuelve
     // ESTE id, y de él salen las tarjetas del caso. Un flujo sin normalizar (los pasos del lienzo que
     // llegan a «Probar») nombra igual que uno guardado.
-    const idsCasos = idsDeCasos(nodo, p.casos ?? []);
-    const casos: CasoRespuesta[] = (p.casos ?? []).map((c, k) => {
+    const idsCasos = idsDeCasos(tarjeta, p.casos ?? []);
+    (p.casos ?? []).forEach((c, k) => {
       const id = idsCasos[k];
-      const guia = guiaDeCaso(p, c);
-      const aviso = c.avisar === true ? idAvisoDeCaso(nodo, id) : null;
-      const contesta = guia ? idRespuestaDeCaso(nodo, id) : null;
+      const guia = contestaElCaso(c) ? guiaDeCaso(p, c) : '';
+      const contesta = guia ? idRespuestaDeCaso(tarjeta, id) : null;
+      const aviso = c.avisar === true ? idAvisoDeCaso(tarjeta, id) : null;
       if (contesta) {
         extra.push({
           ...RELLENO_EXPANSION, proveedor: 'no_oficial', id: contesta, tipo: 'ia', cuerpo: guia,
-          revisar: c.sola !== true, siguiente: aviso,
+          revisar: c.sola !== true, siguiente: aviso, ia: datosDeCaso(c, medio),
         } as unknown as P);
       }
-      if (aviso) extra.push(avisoAlEquipo<P>(aviso, { titulo: c.titulo, mensaje: AVISO_DE_CASO }));
-      return { id, titulo: c.titulo, cuando: c.cuando, siguiente: contesta ?? aviso };
+      // El aviso de un «Cualquier respuesta» que NO contesta dice lo que es: algo que MaKo no sabe contestar.
+      const mensaje = c.cualquiera === true && !contesta ? (otraAviso || AVISO_OTRA_COSA) : AVISO_DE_CASO;
+      if (aviso) extra.push(avisoAlEquipo<P>(aviso, { titulo: c.titulo, mensaje }));
+      const destino = contesta ?? aviso;
+      if (c.cualquiera === true) {
+        // El primero gana (`validarGrafo` no deja publicar dos por medio).
+        if (siNo === undefined) siNo = destino;
+        return;
+      }
+      // Dos tarjetas con el mismo id de caso (sólo por la API): el segundo se desempata como `idsDeCasos`.
+      let unico = id;
+      for (let n = 2; usados.has(unico); n++) unico = `${id}_${n}`;
+      usados.add(unico);
+      casos.push({ id: unico, titulo: c.titulo, cuando: c.cuando, siguiente: destino });
     });
-    const otra = idOtraCosa(nodo);
-    extra.push(avisoAlEquipo<P>(otra, { mensaje: (p.otra_aviso ?? '').trim().slice(0, TOPE_OTRA_AVISO) || AVISO_OTRA_COSA }));
-    const q = { ...p, casos, si_no: otra };
+  }
+  const primero = delMedio[0] ?? -1;
+  if (primero >= 0 && siNo === undefined) {
+    const otra = idOtraCosa(idDe(pasos[primero], primero));
+    extra.push(avisoAlEquipo<P>(otra, { mensaje: otraAviso || AVISO_OTRA_COSA }));
+    siNo = otra;
+  }
+  const out = pasos.map((p, i) => {
+    if (!esPasoIA(p)) return p;
+    if (i !== primero) return inerte(p);
+    const q = { ...p, casos, si_no: siNo ?? null };
     delete q.paso_ia;
     delete q.instrucciones;
     delete q.otra_aviso;
@@ -2083,19 +2281,23 @@ export function expandirPasoIA<P extends PasoGrafo>(pasos: readonly P[]): P[] {
  *   · Al guardar: un caso con `siguiente` o un «Otra cosa» con flecha. En un AI Step lo de debajo va
  *     ADENTRO del caso; una tarjeta colgada la pisaría la expansión, y el lead recibiría otra cosa que
  *     lo que se dibuja. Lo escribe sólo quien arma `pasos` a mano (la API); el lienzo no lo ofrece.
- *   · Al publicar: cada caso con nombre y «cuándo» (es lo que lee el clasificador) y que haga algo
- *     (contestar o avisar): un caso que no hace nada se come la respuesta en silencio.
+ *   · Al publicar (v2): UN caso por tarjeta (la API y el lienzo separan antes: `separarPasosIA`), con
+ *     nombre, «cuándo» salvo «Cualquier respuesta», y que haga algo (contestar o avisar): un caso que no
+ *     hace nada se come la respuesta en silencio. Y el audio, sólo por WhatsApp. El OBJETIVO no frena (§10-A).
  */
 function erroresDelPasoIA(p: PasoGrafo, id: string, publicar: boolean): string[] {
   const err: string[] = [];
   if ((p.casos ?? []).some((x) => x.siguiente) || p.si_no) err.push(`debajo de la tarjeta ${id} no van tarjetas`);
   if (!publicar) return err;
-  for (const x of p.casos ?? []) {
+  const casos = p.casos ?? [];
+  if (casos.length !== 1) err.push(casos.length ? `la tarjeta ${id} tiene más de un caso` : `la tarjeta ${id} no tiene caso`);
+  for (const x of casos) {
     const t = (x.titulo ?? '').trim();
     const falta = faltaEnCaso(x);
     if (falta === 'nombre') err.push(`la tarjeta ${id} tiene un caso sin nombre`);
     else if (falta === 'cuando') err.push(`en la tarjeta ${id}, «${t}» no dice cuándo`);
     else if (falta === 'que_hace') err.push(`en la tarjeta ${id}, «${t}» no contesta ni avisa`);
+    if (x.audio && medioDe(p) !== 'whatsapp') err.push(`en la tarjeta ${id}, el audio sale sólo por WhatsApp`);
   }
   return err;
 }
@@ -2103,13 +2305,73 @@ function erroresDelPasoIA(p: PasoGrafo, id: string, publicar: boolean): string[]
 /**
  * LO PRIMERO QUE LE FALTA A UN CASO DE UN AI STEP para publicar, o null. UNA función para el freno de
  * Publicar (`erroresDelPasoIA`) y para lo que se marca en rojo en la tarjeta y en su editor: con dos
- * copias, la tarjeta diría «completo» de algo que Publicar frena.
+ * copias, la tarjeta diría «completo» de algo que Publicar frena. «Cuándo» no se pide con «Cualquier
+ * respuesta»; «Sólo te avisa» (`no_contesta`) necesita el aviso prendido.
  */
-export function faltaEnCaso(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 'responder' | 'avisar'>): 'nombre' | 'cuando' | 'que_hace' | null {
+export function faltaEnCaso(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 'responder' | 'avisar' | 'cualquiera' | 'no_contesta'>): 'nombre' | 'cuando' | 'que_hace' | null {
   if (!(c.titulo ?? '').trim()) return 'nombre';
-  if (!(c.cuando ?? '').trim()) return 'cuando';
-  if (!(c.responder ?? '').trim() && c.avisar !== true) return 'que_hace';
+  if (c.cualquiera !== true && !(c.cuando ?? '').trim()) return 'cuando';
+  if (!contestaElCaso(c) && c.avisar !== true) return 'que_hace';
   return null;
+}
+
+/**
+ * UNA PUERTA PARA LO VIEJO (AI Step v2, §1 y §8): parte cada AI Step de N casos en N TARJETAS de un caso.
+ * PURA. La aplican el lienzo al abrir (como `quitarIrA`), `setSecuenciaPasos` al escribir (la API, «Crear
+ * con IA», «Pasar a AI Step»), y scripts/ai-step-v2.mts sobre lo guardado.
+ *
+ *   · La PRIMERA tarjeta conserva el id del nodo y su primer caso; las nuevas van AL FINAL del array (no
+ *     corren el índice de nadie: `paso_actual`), con ids nuevos que no chocan con el flujo ni con `evitar`
+ *     (los de la historia: `nodo_actual`, `hilos`, `nodo_id`). Heredan el medio.
+ *   · EL TONO SE PLIEGA adentro de cada `responder` como hoy lo pega `guiaDeCaso` («Tono: …\n…»): el
+ *     redactor recibe el MISMO texto. Si no entra en `TOPE_RESPONDER`, esa tarjeta CONSERVA `instrucciones`
+ *     (`guiaDeCaso` lo sigue pegando: nada se corta) y el caso sale en `noEntra` (el script frena esa fila).
+ *   · `otra_aviso` queda en la primera (la expansión lee el primero no vacío del medio).
+ *   · Un AI Step SIN casos («Otra cosa → te aviso», la #198) = una tarjeta «Cualquier respuesta» + «Sólo
+ *     te avisa»: el mismo aviso y la misma charla que pasa a una persona.
+ */
+export function separarPasosIA<P extends PasoGrafo>(
+  pasos: readonly P[], rnd: () => number = Math.random, op: { evitar?: Iterable<string> } = {},
+): { pasos: P[]; cambio: boolean; noEntra: string[] } {
+  const noEntra: string[] = [];
+  const nuevas: P[] = [];
+  const usados: PasoGrafo[] = [...pasos, ...[...(op.evitar ?? [])].map((id) => ({ id }))];
+  const idNuevo = (): string => { const id = nuevoId([...usados, ...nuevas], rnd); usados.push({ id }); return id; };
+  let cambio = false;
+  const out = pasos.map((p) => {
+    if (!esPasoIA(p)) return p;
+    const casos = p.casos ?? [];
+    const tono = (p.instrucciones ?? '').trim();
+    if (casos.length === 1 && !tono) return p;
+    cambio = true;
+    // Cada caso, con el tono plegado (o la tarjeta conservándolo si no entra).
+    const plegar = (c: CasoRespuesta): { caso: CasoRespuesta; tono?: string } => {
+      const r = (c.responder ?? '').trim();
+      if (!tono || !r) return { caso: c };
+      const junto = `${ROTULO_TONO}${tono}\n${r}`;
+      if (junto.length > TOPE_RESPONDER) { noEntra.push((c.titulo ?? '').trim() || c.id); return { caso: c, tono }; }
+      return { caso: { ...c, responder: junto } };
+    };
+    const base = { ...p } as P;
+    delete base.instrucciones;
+    if (!casos.length) {
+      const q = { ...base, casos: [{ id: idNuevo(), titulo: ROTULO_CUALQUIERA, cuando: '', siguiente: null, cualquiera: true, no_contesta: true, avisar: true }] } as P;
+      return q;
+    }
+    const [primero, ...resto] = casos.map(plegar);
+    for (const x of resto) {
+      const { otra_aviso: _o, ...sinOtra } = base as P & { otra_aviso?: string };
+      void _o;
+      nuevas.push({
+        ...sinOtra, id: idNuevo(), casos: [x.caso], si_no: null, orden: undefined,
+        ...(x.tono ? { instrucciones: x.tono } : {}),
+      } as unknown as P);
+    }
+    return { ...base, casos: [primero.caso], ...(primero.tono ? { instrucciones: primero.tono } : {}) } as P;
+  });
+  // `orden` lo vuelve a poner quien renumera: una tarjeta nueva sin él no se queda con el de la original.
+  for (const q of nuevas) delete (q as { orden?: number }).orden;
+  return { pasos: cambio ? [...out, ...nuevas] : [...pasos], cambio, noEntra };
 }
 
 // ── Textos que dibuja la tarjeta (cortos: AGENTS.md, el texto que se DIBUJA) ────────

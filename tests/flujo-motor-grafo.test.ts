@@ -214,7 +214,9 @@ test('(5) setSecuenciaPasos normaliza, VALIDA y rechaza con PasosInvalidosError;
   assert.match(g, /if \(esNodoDeControl\(flujo\)\) return \{ orden: i \+ 1, \.\.\.RELLENO_CONTROL, \.\.\.flujo \}/);
   assert.match(g, /\.\.\.flujo,\n/, 'los campos del flujo de un mensaje se pierden en el saneo');
   const valida = g.indexOf('const errores = validarGrafo(grafo);');
-  assert.ok(g.indexOf('const grafo = normalizar(limpio);') >= 0 && valida > 0, 'se guarda sin validar el flujo');
+  // AI Step v2 (décima tanda): entre normalizar y validar, la puerta de «un caso por tarjeta» (`separarPasosIA`).
+  assert.ok(g.indexOf('const grafo = grafoAGuardar(limpio);') >= 0 && valida > 0, 'se guarda sin validar el flujo');
+  assert.match(fn(NUTRI, 'function grafoAGuardar('), /const separado = separarPasosIA\(normalizar\(limpio\)\);\n\s+return normalizar\(/);
   assert.match(g, /if \(errores\.length\) throw new PasosInvalidosError\(/);
   assert.ok(valida < g.indexOf('.update({ pasos: grafo,'), 'la validación va ANTES de escribir');
   assert.match(NUTRI, /export class PasosInvalidosError extends Error/);
@@ -326,7 +328,8 @@ test('(7) un archivo de la biblioteca sale con su forma, y un documento nunca si
 
 test('(8) «Si responde» despacha a responderConGrafo, y «MaKo contesta» usa el MISMO redactor', () => {
   const asistir = fn(NUTRI, 'async function asistirRespuesta(');
-  const despacho = asistir.indexOf('if (raizRespuesta(secuencia.pasos) != null) return responderConGrafo(c);');
+  // AI Step v2 (décima tanda): contesta si escucha por el MEDIO del mensaje (`escuchaPor`: la expansión de ese medio).
+  const despacho = asistir.indexOf('if (escuchaPor(secuencia.pasos, medio)) return responderConGrafo(c, medio);');
   assert.ok(despacho > 0, 'una secuencia con «Si responde» cae al hand-off de antes');
   assert.ok(despacho < asistir.indexOf("update({ estado: 'handoff'"), 'el despacho va ANTES del hand-off');
   const grafo = fn(NUTRI, 'async function responderConGrafo(');

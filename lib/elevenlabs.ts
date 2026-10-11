@@ -324,6 +324,7 @@ export async function borrarVoz(voiceId: string): Promise<Salida<true>> {
 export async function decirConVoz(
   voiceId: string,
   texto: string,
+  op: { tope?: number } = {},
 ): Promise<Salida<{ mp3: Buffer }>> {
   const key = await elevenKey();
   if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
@@ -333,7 +334,13 @@ export async function decirConVoz(
   // en un onboarding, o sea en el momento en que más gente lo toca. Una frase de
   // anuncio son ~120 caracteres; 400 deja aire de sobra y pone un techo a lo que
   // puede costar un click.
-  const linea = (texto || '').trim().slice(0, 400);
+  //
+  // ⚠️ CON `tope` NO SE CORTA: SE RECHAZA (AI Step v2, décima tanda). El `slice(0, 400)` cortaba EN SILENCIO,
+  // a mitad de frase: para una prueba de voz da igual, para una respuesta a un lead es un audio que termina
+  // en el medio de una palabra. Quien pasa `tope` (la respuesta del AI Step) recibe el error y manda el texto.
+  const crudo = (texto || '').trim();
+  if (op.tope != null && crudo.length > op.tope) return { ok: false, motivo: 'nuestra', error: `El texto (${crudo.length} caracteres) no entra en una nota de voz de ${op.tope}.` };
+  const linea = op.tope != null ? crudo : crudo.slice(0, 400);
   if (!linea) return { ok: false, motivo: 'nuestra', error: 'No hay ninguna línea que decir.' };
 
   const r = await pedir(

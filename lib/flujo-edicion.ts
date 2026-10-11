@@ -51,6 +51,7 @@ import {
   claseDe, idDe, normalizar, puertosDe, raizRespuesta, descendientes, puedeTenerParalelos,
   indicePorId, nuevoId, conectarPuerto, leerPuertoParalelo, puertoParalelo, paralelosDeResultado,
   contarParalelos, fijarRaiz, validarParaGuardar, cruces, ciclosSinEspera,
+  esPasoIA, medioDe, raicesRespuesta, TOPE_AI_STEP_POR_MEDIO, puedeSumarAIStep,
 } from './flujo-grafo';
 import { nodoNuevo, type QueAgregar } from './flujo-conversacion';
 // Puro: las partes de un mensaje y cómo se guardan (partirConEspera).
@@ -79,6 +80,7 @@ export const MOTIVO = {
   cronNo: 'El CRON no se elimina',
   noSeDuplica: 'Esta tarjeta no se duplica',
   sinFlechas: 'No le llega ninguna flecha',
+  topeAIStep: `Ya hay ${TOPE_AI_STEP_POR_MEDIO} AI Step`,
 } as const;
 
 const listo = <P>(pasos: P[], id?: string): Edicion<P> => ({ ok: true, pasos, ...(id ? { id } : {}) });
@@ -163,7 +165,9 @@ export function conectar<P extends PasoGrafo>(pasosIn: readonly P[], desde: stri
   if (claseDe(fijo[j]) === 'respuesta') {
     // «Si responde» sólo cuelga del CRON. Si la persona le había borrado esa flecha (`suelta`), conectarla
     // desde el CRON se la devuelve (10/10/2026, «Una condición normal»).
-    if (desde === ID_INICIO && fijo[j].suelta === true && raizRespuesta(fijo) == null) {
+    // AI Step v2: un AI Step suelto vuelve aunque haya otros escuchando (hay varios); un «Si responde» de
+    // los de siempre, sólo si no hay otra que escuche.
+    if (desde === ID_INICIO && fijo[j].suelta === true && (esPasoIA(fijo[j]) ? !fijo.some((q) => claseDe(q) === 'respuesta' && !esPasoIA(q) && q.suelta !== true) : raizRespuesta(fijo) == null)) {
       return listo(normalizar(fijo.map((q, k) => (k === j ? sinSuelta(q) : q))));
     }
     return no(base, MOTIVO.aRespuesta);
@@ -215,7 +219,7 @@ export function desconectar<P extends PasoGrafo>(pasosIn: readonly P[], desde: s
   const { base, fijo } = paraEditar(pasosIn);
   // LA FLECHA DEL CRON A «SI RESPONDE» (10/10/2026): no es un puerto del dato, así que borrarla es soltar
   // la tarjeta (`suelta`): deja de escuchar y Publicar la frena hasta que se vuelva a conectar.
-  if (desde === ID_INICIO && hacia === raizRespuesta(fijo)) return listo(conSuelta(fijo, hacia));
+  if (desde === ID_INICIO && raicesRespuesta(fijo).includes(hacia)) return listo(conSuelta(fijo, hacia));
   const i = indicePorId(fijo, desde);
   if (i < 0) return no(base, MOTIVO.noConectadas);
   const pt = puertosDe(fijo, i).find((x) => x.destino === hacia && (x.puerto === puerto || filaDe(x.puerto) === filaDe(puerto)));
@@ -232,7 +236,7 @@ export function soltar<P extends PasoGrafo>(pasosIn: readonly P[], id: string): 
   const i = indicePorId(fijo, id);
   if (id === ID_INICIO || i < 0 || claseDe(fijo[i]) === 'inicio') return no(base, i < 0 ? MOTIVO.noExiste : MOTIVO.sinFlechas);
   // «Desconectar» sobre «Si responde» le saca la única flecha que tiene: la del CRON.
-  if (claseDe(fijo[i]) === 'respuesta') return id === raizRespuesta(fijo) ? listo(conSuelta(fijo, id)) : no(base, MOTIVO.sinFlechas);
+  if (claseDe(fijo[i]) === 'respuesta') return raicesRespuesta(fijo).includes(id) ? listo(conSuelta(fijo, id)) : no(base, MOTIVO.sinFlechas);
   const out = soltarDe(fijo, id);
   if (out === fijo || JSON.stringify(out) === JSON.stringify(fijo)) return no(base, MOTIVO.sinFlechas);
   return listo(out);
@@ -312,11 +316,10 @@ const sinPausa = (x: ParteMensaje): ParteMensaje => {
  */
 export function crearSuelta<P extends PasoGrafo>(pasosIn: readonly P[], que: QueAgregar, rnd: () => number = Math.random): { pasos: P[]; id: string } {
   const { base, fijo } = paraEditar(pasosIn);
-  // El AI STEP (novena tanda) es la que escucha: una por automatización. Con una ya puesta (conectada o
-  // suelta) no se crea otra —un flujo con dos no se guarda ni como borrador—, y `id` vacío lo dice. Nace
-  // colgada del CRON (sin `suelta`): «Si responde» no tiene flechas que le lleguen, así que «sin flechas»
-  // ya es su forma de siempre.
-  if (que === 'ai_step' && base.some((p) => claseDe(p) === 'respuesta')) return { pasos: base, id: '' };
+  // El AI STEP: desde v2 (décima tanda) hay VARIOS, uno por caso (`puedeSumarAIStep`: sin mezclarlo con un
+  // «Si responde» de los de siempre y debajo del tope del medio). Si no se puede, `id` vacío lo dice. Nace
+  // colgado del CRON (sin `suelta`): no tiene flechas que le lleguen, así que «sin flechas» ya es su forma.
+  if (que === 'ai_step' && !puedeSumarAIStep(base)) return { pasos: base, id: '' };
   const n = { ...nodoNuevo(que, fijo, rnd), siguiente: null } as unknown as P;
   const id = n.id!;
   return { pasos: normalizar([...fijo, n]), id };
@@ -333,12 +336,31 @@ export function duplicar<P extends PasoGrafo>(pasosIn: readonly P[], id: string,
   const i = indicePorId(fijo, id);
   if (i < 0) return no(base, MOTIVO.noExiste);
   const c = claseDe(fijo[i]);
-  if (c === 'inicio' || c === 'respuesta') return no(base, MOTIVO.noSeDuplica);
+  // Un AI STEP sí (AI Step v2: «Duplicar» deja de excluirlo), con su caso y un id de caso nuevo; un «Si
+  // responde» de los de siempre no (hay uno solo), y el CRON tampoco.
+  const ia = esPasoIA(fijo[i]);
+  if (c === 'inicio' || (c === 'respuesta' && !ia)) return no(base, MOTIVO.noSeDuplica);
+  if (ia && !puedeSumarAIStep(fijo, medioDe(fijo[i]))) return no(base, MOTIVO.topeAIStep);
   const copia = JSON.parse(JSON.stringify(fijo[i])) as P;
   const nid = nuevoId(fijo, rnd);
   copia.id = nid;
   delete copia.paralelos;
   delete copia.paralelos_si_no;
+  if (ia) {
+    // SUELTA como toda copia (se conecta desde el CRON), con su caso de id nuevo y sin «Cualquier respuesta»:
+    // dos por medio no se publican.
+    const usados = [...fijo, { id: nid }];
+    copia.casos = (copia.casos ?? []).map((x) => {
+      const cid = nuevoId(usados, rnd);
+      usados.push({ id: cid });
+      const caso = { ...x, id: cid, siguiente: null };
+      delete caso.cualquiera;
+      return caso;
+    });
+    copia.si_no = null;
+    copia.suelta = true;
+    return listo([...fijo, copia], nid);
+  }
   if (c === 'condicion') {
     const usados: PasoGrafo[] = [...fijo, { id: nid }];
     copia.ramas = (copia.ramas ?? []).map((r) => {

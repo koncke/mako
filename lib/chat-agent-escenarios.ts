@@ -416,10 +416,18 @@ export const escenarioPorId = (id: string): Escenario | null => ESCENARIOS.find(
  * suelto: el último renglón de `evolucion` ES el turno de cierre, así que tope y
  * guion no pueden contradecirse.
  */
-export const maxTurnosDe = (e: Escenario): number => e.evolucion.length;
+/**
+ * UN ESCENARIO SIN AUDIO (AI Step v2, décima tanda: el ensayo de objeciones de un AI Step, lib/ai-step-ensayo.ts).
+ * El del onboarding arranca de una nota de voz del negocio; el de un AI Step, de un mensaje del LEAD. Reusar
+ * `bloqueEscenario` con `audio` obligatorio le decía al modelo «el negocio te mandó una nota de voz» cuando no
+ * se la mandó nadie (docs/diseno-ai-step-v2.md §11). Un `Escenario` del catálogo entra igual.
+ */
+export type EscenarioEnsayo = Omit<Escenario, 'audio'> & { audio?: ClaveAudio };
+
+export const maxTurnosDe = (e: EscenarioEnsayo): number => e.evolucion.length;
 
 /** El renglón del guion que toca en este turno (0-based). El último se sostiene. */
-export const guionDelTurno = (e: Escenario, turno: number): string =>
+export const guionDelTurno = (e: EscenarioEnsayo, turno: number): string =>
   e.evolucion[Math.min(Math.max(turno, 0), e.evolucion.length - 1)];
 
 /**
@@ -452,12 +460,14 @@ export function escenariosDe(hayVideo: boolean, entradas: EntradaId[], canal: Ca
  * guion y, en el último, la orden de cerrar. Sin esto el modelo releía la misma
  * instrucción para siempre y la conversación no avanzaba nunca.
  */
-export function bloqueEscenario(e: Escenario, turno: number, avatar: string): string {
-  const audio = defDeClave(e.audio);
+export function bloqueEscenario(e: EscenarioEnsayo, turno: number, avatar: string): string {
+  const audio = e.audio ? defDeClave(e.audio) : null;
   const ultimo = turno >= maxTurnosDe(e) - 1;
-  const partes = [
+  // La primera línea SÓLO si el escenario arranca de una nota de voz (los del onboarding). Uno de un AI Step
+  // (sin `audio`) arranca de un mensaje del lead: decirle que le mandaron un audio le mentía al modelo.
+  const partes = e.audio ? [
     `LO QUE ACABA DE PASAR: el negocio te mandó una nota de voz. ${audio ? `Es su audio de «${audio.titulo}»: ${audio.situacion}` : ''}`,
-  ];
+  ] : [];
 
   // El perfil real ancla las CIFRAS. Sin esto el modelo inventaba una
   // facturación cualquiera (salió un lead de 3.000 USD al mes para un negocio

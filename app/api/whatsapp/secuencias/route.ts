@@ -3,15 +3,17 @@
 // =============================================================================
 // GET   → todas las secuencias (activas y pausadas) + inscriptos/enviados.
 // PATCH → activar/pausar una secuencia, sus pasos o su línea. Body: { id, activa?, pasos?, linea? }.
+//         Con `pasos` (Publicar), un medio sin conectar contesta 409 { error: 'Conecta tu WhatsApp', medio }.
 //         Los pasos llevan los campos del flujo con ramas (id, siguiente, nodo, espera, ramas,
 //         casos, si_no, destino, revisar, media_id): `setSecuenciaPasos` los sanea, normaliza y
 //         valida (`validarGrafo`). Un flujo que no se puede guardar contesta 400 con el motivo.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, vozDeAIStepQueFalta, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
+import { lineaDeSecuencia, medioSinConectar } from '@/lib/disparadores-canales';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +52,17 @@ export async function PATCH(req: NextRequest) {
   }
   try {
     if (Array.isArray(body.pasos)) {
+      // PUBLICAR NO DEJA UN MEDIO SIN CONECTAR (décima tanda, GENERAL 6: «no dejar publicarlo hasta que no lo
+      // configure»): 409 con el medio, que la pantalla usa para abrir «Conectar» ahí mismo. Sólo acá, que es
+      // Publicar: guardar un borrador no pasa por esta ruta. «No pude comprobarlo» no frena.
+      const linea = 'linea' in body
+        ? (typeof body.linea === 'string' && body.linea.trim() ? body.linea.trim() : null)
+        : await lineaDeSecuencia(id).catch(() => null);
+      const falta = await medioSinConectar(body.pasos as PasoSecuencia[], linea).catch(() => null);
+      if (falta) return Response.json({ ok: false, error: falta.error, medio: falta.medio }, { status: 409 });
+      // Y la voz de un AI Step que contesta en audio (AI Step v2, §1). «No pude comprobarlo» no frena.
+      const sinVoz = await vozDeAIStepQueFalta(body.pasos as PasoSecuencia[]).catch(() => null);
+      if (sinVoz) return Response.json({ ok: false, error: `No se guardó: ${sinVoz}.` }, { status: 400 });
       await setSecuenciaPasos(id, body.pasos as PasoSecuencia[]);
     }
     if (typeof body.activa === 'boolean') {
