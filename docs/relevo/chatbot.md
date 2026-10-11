@@ -1,5 +1,19 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **Actualización del 10/10/2026 a las 21:40 (chat «chatbot», cuenta `claude3`), medida y no copiada:**
+> - **Decididas las dos de la octava tanda (§6):** la espera en minutos que parte la tarjeta **queda así**; y el
+>   recordatorio de un negocio nuevo va **como plantilla de la galería**, no creado al alta: «Ningún negocio tiene
+>   que arrancar con ninguna automatización creada, para eso ya tenemos los templates». **Hecho** en `9755da4c`
+>   (CRON fijo «Agendó una reunión», uno por negocio). El pendiente de la galería de la §4 ya no está.
+> - **Verificado lo que la §4 marcaba «SIN VERIFICAR»:** las 10 filas del recordatorio están (#228 del ws1
+>   prendida, #229-#237 pausadas), ninguna tocada desde la mudanza; y las 198/221/223/224/226 tienen sus cambios
+>   del 10/10.
+> - **Nuevo, para Martín:** esas 9 pausadas son automatizaciones que esos negocios no crearon (sólo el ws11 tenía
+>   una configuración de antes, apagada). Con la regla de arriba, ¿se archivan? No cambia ningún envío.
+> - **Todavía no salió ningún recordatorio por el camino nuevo** (no hubo reuniones desde la mudanza). El primero
+>   real: el toque de 24 h del lead 2593, el **12/10 a las 17:00 UTC**.
+> - Sigue sin verse con clics en producción ninguna de las ocho tandas (§4).
+
 **Área:** la tab **Automations** y el motor de secuencias (nutrición). **Ventana de este relevo:
 05/10/2026 → 10/10/2026.** Escrito el 10/10/2026 a la noche, cuenta `claude2`.
 

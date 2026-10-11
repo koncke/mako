@@ -3457,8 +3457,8 @@ Lo hecho está en `b8af255e`, `37727baa` (el lienzo) y `c309b390` (el recordator
   que CAMBIARÍA de lugar, contra el ancla del árbol NUEVO (`congelarPosiciones`); las que no cambian siguen
   acomodándose solas. **Vive en:** `lib/lienzo-posiciones.ts`.
 - **Minutos entre dos mensajes no se pueden dormir.** El motor duerme las pausas adentro de la corrida (tope
-  10 s): elegir minutos PARTE la tarjeta con una espera en el medio (`partirConEspera`). Es un default mío, a
-  confirmar con Martín. **Vive en:** `lib/flujo-edicion.ts`, `app/automations/EditorMensajeWhatsApp.tsx`.
+  10 s): elegir minutos PARTE la tarjeta con una espera en el medio (`partirConEspera`). Martín lo confirmó el
+  10/10 a la noche: **queda así**. **Vive en:** `lib/flujo-edicion.ts`, `app/automations/EditorMensajeWhatsApp.tsx`.
 - **Un menú que cuenta lo elegido tiene que contar lo que la acción hace.** El CRON entra en el lazo pero no
   se copia ni se borra como tarjeta: el menú decía «Eliminar 3 tarjetas» y borraba 2. Lo vio el navegador, no
   un test. **Vive en:** `app/automations/FlujoLienzo.tsx` (`menuNodo`).
@@ -3472,7 +3472,42 @@ Lo hecho está en `b8af255e`, `37727baa` (el lienzo) y `c309b390` (el recordator
   navegador. Ctrl+C / Ctrl+V del lienzo usan los eventos `copy` / `paste`, que no piden nada.
 
 Lo que quedó sin hacer, con su archivo:
-- La galería no tiene «Recordatorio de la reunión» (`lib/plantillas-automatizaciones.ts`: su CRON es fijo y la
-  galería sólo sabe pedir una etapa). Un negocio NUEVO no tiene la fila: el emisor usa la configuración de antes.
+- ~~La galería no tiene «Recordatorio de la reunión»~~ HECHO el 10/10 a la noche: ver «El recordatorio como
+  plantilla», abajo.
 - Arrastrar lo elegido con el lazo JUNTO (`app/_components/Lienzo.tsx`): hoy se mueve de a una.
 - «Pídesela a MaKo» del modal no lleva el pedido escrito: crea la vacía y abre la caja (`app/automations/GaleriaPlantillas.tsx`).
+
+## El recordatorio como plantilla (10/10/2026, noche, claude3)
+
+Decisión de Martín, a la pregunta de qué hacer con el recordatorio de un negocio nuevo (la opción recomendada era
+crearla sola al dar de alta, pausada): **«Ningún negocio tiene que arrancar con ninguna automatización creada, para
+eso ya tenemos los templates. Solo ponlo como template.»** Y la espera en minutos que parte la tarjeta: «queda así».
+
+- **Un CRON fijo NO puede entrar por `guardarDisparadores`, como las etapas: va en la FILA al insertar.**
+  `setSecuenciaPasos` lee el `trigger_tipo` de la fila para decidir si exige la forma que el emisor del recordatorio
+  sabe mandar (`toquesDeLaAutomatizacion`). Con el CRON puesto DESPUÉS de los pasos —que es como entra la etapa de
+  las otras plantillas—, los pasos se guardan sin esa vara. Por eso `filaDePlantilla` escribe `cron.fijo` y la lista
+  de CRON no se toca (roturas R28 y R33). **Vive en:** `lib/plantilla-crear.ts`.
+- **Uno por negocio, y lo frenan los dos lados.** Con dos filas el emisor manda «la primera activa por cada minuto»
+  (las marcas `claveToque` evitan el doble envío), pero la lista muestra dos recordatorios sin decir cuál sale. El
+  server rechaza crear otro si hay uno sin archivar, y la galería lo dibuja apagado con «Ya la tienes en tu lista»
+  (`yaLaTiene`, con el `trigger_tipo` de la lista que ya tiene la pantalla). Uno ARCHIVADO no cuenta: la lista no lo
+  muestra. **Vive en:** `lib/plantilla-crear.ts`, `app/automations/GaleriaPlantillas.tsx`.
+- **Sus datos del «{ }» no son los del motor.** `{{cuando}}`, `{{hora}}`, `{{faltan}}` y `{{link}}` los resuelve su
+  emisor (`VARIABLES`, `lib/recordatorio-lead.ts`); el guard de la galería que mira el catálogo del motor los daba
+  por inexistentes. Ahora los mira contra `VARIABLES` cuando el CRON es el del recordatorio, y uno del motor
+  (`{{lead_nombre}}`) da rojo en tres tests (R31). **Vive en:** `tests/plantillas-automatizaciones.test.ts`.
+- **Los pasos salen de la MISMA función que la mudanza** (`pasosDeLaConfig`, con los textos de fábrica y un prefijo
+  de ids `rr_`): una segunda escritura de la forma del recordatorio se separaría de la que lee el emisor.
+- **Nada del alta de un negocio crea automatizaciones** (medido con `grep` de los `insert` a
+  `nutricion_secuencias`): los únicos son la galería, Duplicar, copiar entre negocios, la API de MaKo y
+  `armarSecuenciasDeAudios`, que sólo llama `/api/chat-agent/onboarding/resumen` (sin llamadores) y la API.
+
+Medido en producción (sólo lectura, 10/10 ~21:20):
+- Las 10 filas del recordatorio están (#228 del ws1 PRENDIDA, #229-#237 pausadas) y **ninguna se tocó desde que la
+  creó la mudanza**. De las 9 pausadas, sólo el ws11 tenía una configuración de antes, y estaba apagada y sin textos
+  propios: **son 9 automatizaciones que esos negocios no crearon**, justo lo que la decisión de arriba dice que no
+  tiene que pasar. Archivarlas no cambia ningún envío (están pausadas). Lo decide Martín.
+- **Todavía no salió ni un recordatorio por el camino nuevo**: en toda la historia hay 3 marcas, las tres del ws1 y
+  anteriores a la mudanza, y desde entonces no hubo reuniones. El primero real es el toque de 24 h de la reunión
+  del 13/10 17:00 UTC (lead 2593): sale el **12/10 a las 17:00 UTC**. Ésa es la prueba de que el emisor lee la fila.

@@ -29,6 +29,10 @@
 export const CUENTAS = {
   claude1: { n: 1, nombre: 'Mauricio', ventana: 'miércoles a viernes', config: '~\\.claude' },
   claude2: { n: 2, nombre: 'Leandro Tejado', ventana: 'sábado a martes', config: '~\\.claude-martin' },
+  // La 3 es la de Martín (`~/.claude/cuentas.tsv`, desde el 10/10/2026). Su ventana y su carpeta no están
+  // medidas: van «—» en vez de inventarlas. Sin esta fila, un hito firmado `claude3` rompía la pantalla
+  // (`CUENTAS[h.cuenta].n` sobre undefined).
+  claude3: { n: 3, nombre: 'Martín Koncke', ventana: '—', config: '—' },
 } as const;
 
 export type Cuenta = keyof typeof CUENTAS;

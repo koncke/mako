@@ -1267,4 +1267,27 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ["docs/hallazgos-chatbot.md — «Octava tanda»", "docs/relevo/chatbot.md"],
   },
+  {
+    fecha: "10 oct", hora: "21:25", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Las dos decisiones de la octava tanda: la espera en minutos y el recordatorio de un negocio nuevo",
+    pedido: "Espera en minutos: «Queda así». Recordatorio de un negocio nuevo: «Ningún negocio tiene que arrancar con ninguna automatización creada, para eso ya tenemos los templates. Solo ponlo como template.»",
+    puntos: [
+      "Se descartó la recomendada («crearla sola al dar de alta, pausada»): lo de fábrica va a la galería, nunca a la lista de un negocio.",
+    ],
+  },
+  {
+    fecha: "10 oct", hora: "21:35", chat: "chatbot", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El recordatorio de la reunión es una plantilla más, con su CRON fijo",
+    puntos: [
+      "La galería suma «Recordatorio de la reunión» (primera), sin preguntar etapa: su CRON «Agendó una reunión» va en la fila al crearla, porque setSecuenciaPasos lo lee para exigir la forma que su emisor sabe mandar.",
+      "Uno por negocio: el server no crea otro si hay uno sin archivar, y la galería lo dibuja apagado con «Ya la tienes en tu lista».",
+      "Medido antes: las 10 filas de la mudanza están (ws1 prendida, 9 pausadas, ninguna tocada) y todavía no salió ni un recordatorio por el camino nuevo; el primero real es el 12/10 a las 17:00 UTC.",
+    ],
+    commits: [
+      { sha: "9755da4c", msg: "Automations: el recordatorio de la reunión es una plantilla de la galería", lineas: 275, archivos: 6 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «El recordatorio como plantilla»"],
+  },
 ];
