@@ -189,6 +189,23 @@ export function valoresDePagos(pagos: ReadonlyArray<Pick<Pago, 'numero' | 'monto
   return out;
 }
 
+/** Lo que dice `{{link_pago}}` cuando el lead no tiene ningún cobro pendiente. */
+export const SIN_LINK_DE_PAGO = 'sin link de pago pendiente';
+
+/**
+ * Su LINK PARA PAGAR: el de su cobro PENDIENTE más nuevo (`cobroPendienteDelLead` + `linkDelCobro`,
+ * lib/cobros.ts), que el resolvedor busca en la tabla y nunca en la pasarela.
+ *
+ * ⚠️ SIN COBRO PENDIENTE NO QUEDA CRUDO, a diferencia de un dato de la ficha en null: «no tiene un
+ * link para pagar» es un HECHO (como «ninguna» en las etiquetas), y un `{{link_pago}}` crudo le
+ * llegaría a la persona que tiene que pagar con pinta de mensaje roto. Lo que no se pudo LEER sí
+ * queda crudo (el resolvedor no llama a esta función): eso no es un hecho.
+ */
+export function valoresDelCobro(link: string | null | undefined): Record<string, string> {
+  const l = typeof link === 'string' ? link.trim() : '';
+  return { link_pago: l || SIN_LINK_DE_PAGO };
+}
+
 /**
  * Su CURSO: el avance con la MISMA regla que abre las clases en el portal (`claseCompleta`,
  * lib/curso-bloqueo.ts: con tarea, la envió; sin tarea, la marcó hecha o vio el video). Con una

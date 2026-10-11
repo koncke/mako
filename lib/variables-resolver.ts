@@ -36,7 +36,7 @@ import { etapaVigenteDe } from './funnel-etapas';
 import { nombreVisible } from './lead-funnel-reglas';
 import {
   valoresDelLead, valoresDelNombre, valoresConZona, valoresDelProducto, valoresDeEtiquetas, valoresDePagos,
-  valoresDelCurso, valoresDelPerfil, valoresDelLeadMagnet, valoresDelMomento,
+  valoresDelCurso, valoresDelPerfil, valoresDelLeadMagnet, valoresDelMomento, valoresDelCobro,
 } from './variables-del-lead';
 import type { Lead } from './leads';
 
@@ -190,6 +190,15 @@ export async function valoresDeVariables(ctx: CtxVariables, texto?: string, dato
         lecturas.push(intentar('las cuotas del lead', async () => {
           const { getPagosByLead } = await import('./pagos');
           return valoresDePagos(await getPagosByLead(ctx.leadId!));
+        }));
+      }
+      // El link para pagar: el cobro PENDIENTE más nuevo, de la tabla `cobros` (una lectura, cero
+      // pasarelas: un mensaje no espera a Stripe). Si no se puede leer, `intentar` lo deja crudo.
+      if (ctx.leadId && f.has('cobro')) {
+        lecturas.push(intentar('el link de pago del lead', async () => {
+          const { cobroPendienteDelLead, linkDelCobro } = await import('./cobros');
+          const c = await cobroPendienteDelLead(ctx.ws, ctx.leadId!);
+          return valoresDelCobro(c ? linkDelCobro(c.token) : null);
         }));
       }
       if (f.has('perfil')) {

@@ -33,7 +33,7 @@ import type { Permisos } from './permisos';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'integraciones', 'equipo', 'cs', 'curso', 'mako',
+  'integraciones', 'equipo', 'cs', 'curso', 'cobros', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -59,6 +59,10 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Configuraciones', ruta: '/configuraciones' },
   cs: { titulo: 'Customer Success', tab: 'Customer Success', ruta: '/customer-success' },
   curso: { titulo: 'Curso (módulos y clases)', tab: 'Customer Success › Curso', ruta: '/customer-success/curso' },
+  // La pasarela de pagos (11/10/2026, docs/diseno-pasarela-pagos.md). Área PROPIA y no `crm`, a
+  // propósito: un token detallado con escritura en el CRM no crea links de pago ni reembolsa, y los
+  // tokens que ya existen no la tienen. Vive en la ficha del lead (tab Pagos), por eso la tab es el CRM.
+  cobros: { titulo: 'Cobros (Stripe y Mercado Pago)', tab: 'CRM', ruta: '/crm' },
   mako: { titulo: 'MaKo (pendientes, propuestas, chats)', tab: 'Pregúntale a MaKo', ruta: '/mako' },
 };
 

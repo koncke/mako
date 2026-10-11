@@ -12,14 +12,17 @@
 // super-admin cae al dueño (OWNER_WS), el resto es 403 (fail-closed).
 //
 // GET  ?servicio=<key> → catálogo + estado por campo (configurado/origen/máscara).
-// POST { action:'guardar', servicio, valores } → whitelist estricta por campos.
+// POST { action:'guardar', servicio, valores } → whitelist estricta por campos (sin los derivados).
+// POST { action:'descubrir-pago', servicio, valores? } → Stripe / Mercado Pago (lib/cobros-conexion).
 // POST { action:'borrar', env }                → elimina la fila cifrada.
 // POST { action:'verificar', servicio, valores } → "Probar conexión".
 // POST { action:'revelar', env }               → texto plano de UNA credencial.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
-import { auditarCredencial, credWs, eliminarCredencial, estadoCampo, guardarCredencial, IdentificadorOcupadoError, KeyDePlataformaError } from '@/lib/credenciales';
+import { auditarCredencial, credDelCliente, credWs, eliminarCredencial, estadoCampo, guardarCredencial, IdentificadorOcupadoError, KeyDePlataformaError } from '@/lib/credenciales';
+import { CLAVE_PASARELA, descubrirPasarela } from '@/lib/cobros-conexion';
+import { esPasarela, NOMBRE_PASARELA } from '@/lib/cobros-tipos';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, wsSuperAdmin } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
@@ -189,6 +192,8 @@ async function estadoServicio(servicioKey: string, ctx: Contexto) {
       host: !!c.host,
       // true → no se pide como campo: lo completa la app (ver CampoCredencial.auto).
       auto: !!c.auto,
+      // true → ni «Prefiero cargarlos a mano» lo vuelve editable (ver CampoCredencial.derivado).
+      derivado: !!c.derivado,
       // Nº de cuenta de una key que admite varias (1 = la de siempre). La UI pliega
       // las de la 2 en adelante: tres inputs de entrada convertían "pegá tu key" en
       // un formulario.
@@ -255,10 +260,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 400 });
       }
       const valores = body.valores && typeof body.valores === 'object' ? body.valores : {};
-      const envsDelServicio = new Set(servicio.campos.map((c) => c.env));
+      // ⚠️ Los DERIVADOS no entran por aquí (lib/metodo-catalogo.ts → `derivado`): el id de la
+      // cuenta de Stripe o de Mercado Pago lo escribe SÓLO el descubrimiento, a partir de la clave.
+      // Aceptarlo tipeado dejaba que un POST a mano reclamara el acct_ de otro negocio — y con eso
+      // le bloqueaba la conexión o se quedaba con sus avisos de pago.
+      const envsDelServicio = new Set(servicio.campos.filter((c) => !c.derivado).map((c) => c.env));
       let guardadas = 0;
       for (const [env, valor] of Object.entries(valores)) {
-        if (!envsDelServicio.has(env)) continue; // whitelist estricta: ignora envs ajenas
+        if (!envsDelServicio.has(env)) continue; // whitelist estricta: ignora envs ajenas y derivadas
         let v = typeof valor === 'string' ? valor.trim() : '';
         if (!v) continue; // input vacío nunca pisa una guardada
         // ⚠️ La cuenta de Meta se guarda NORMALIZADA. La regla es general:
@@ -368,6 +377,36 @@ export async function POST(req: NextRequest) {
           pixeles: d.pixeles.length > 1 ? d.pixeles : [],
         },
         avisos: [...d.avisos, ...conflictos],
+      });
+    }
+
+    // La pasarela de pagos (Stripe y Mercado Pago): con la clave pegada —o la guardada, para volver
+    // a conectar—, MaKo lee la cuenta, reclama su id, guarda la clave y, en Stripe, registra el
+    // aviso de pagos. Lo que se guarda vive en lib/cobros-conexion.ts, como el de Meta en
+    // lib/meta-conexion.ts. Si el proveedor no acepta la clave, no se guarda NADA: por eso el
+    // formulario manda la clave AQUÍ y no por 'verificar' + 'guardar', que con los derivados vacíos
+    // la guardaba sin probar.
+    if (body.action === 'descubrir-pago') {
+      const pasarela = servicioDelContexto(body.servicio ?? '', ctx)?.key;
+      if (!esPasarela(pasarela)) return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 400 });
+      const env = CLAVE_PASARELA[pasarela];
+      const crudo = body.valores?.[env];
+      const pegado = typeof crudo === 'string' ? crudo.trim() : '';
+      // credDelCliente y NUNCA credWs: para el ws1 (Mauricio, un cliente) credWs cae a process.env,
+      // y volver a conectar podría registrar el aviso con una clave que no es la suya.
+      const usar = pegado || (await credDelCliente(env, ctx.ws)) || '';
+      if (!usar) {
+        return NextResponse.json({ ok: false, error: `Pega primero tu clave de ${NOMBRE_PASARELA[pasarela]}.`, nadaGuardado: true }, { status: 400 });
+      }
+      const r = await descubrirPasarela(pasarela, ctx.ws, usar, ctx.autor, { guardarClave: !!pegado });
+      if (!r.ok) return NextResponse.json({ ok: false, error: r.error, nadaGuardado: r.nadaGuardado }, { status: r.status });
+      return NextResponse.json({
+        ok: true,
+        completa: r.completa,
+        mensaje: r.mensaje,
+        guardadas: r.guardadas,
+        facts: r.facts,
+        servicio: await estadoServicio(pasarela, ctx),
       });
     }
 

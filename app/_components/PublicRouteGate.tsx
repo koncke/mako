@@ -26,7 +26,9 @@ export function isPublicLandingPath(pathname: string | null | undefined): boolea
   // `/mi-curso` es el cliente de un negocio mirando SU curso con la cookie de alumno
   // (lib/alumno-sesion.ts): no tiene `mako_session`, así que es «alguien de afuera» igual
   // que un link de /compartido — sin sidebar y sin los pollers del WhatsApp del negocio.
-  return p === '/' || p === '/vsl' || p.startsWith('/vsl/') || p === '/compartido' || p.startsWith('/compartido/') || p === RUTA_ALUMNO;
+  // `/pagar/<token>` es el comprador volviendo de Stripe o Mercado Pago (la página de retorno de un
+  // cobro, app/pagar): no tiene sesión, y los pollers de la app le darían 401 en bucle.
+  return p === '/' || p === '/vsl' || p.startsWith('/vsl/') || p === '/compartido' || p.startsWith('/compartido/') || p === RUTA_ALUMNO || p.startsWith('/pagar/');
 }
 
 /**

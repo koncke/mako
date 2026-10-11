@@ -47,6 +47,15 @@ export const REGLAS: Regla[] = [
   { nombre: 'github', re: /\bgh[pousr]_[A-Za-z0-9]{20,}/g, con: '«token de GitHub tapado»' },
   { nombre: 'slack', re: /\bxox[baprs]-[A-Za-z0-9-]{10,}/g, con: '«token de Slack tapado»' },
   { nombre: 'stripe', re: /\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{20,}/g, con: '«clave de Stripe tapada»' },
+  // La firma de un aviso (webhook): la de Stripe y la de Svix/Fathom empiezan igual. Con ella
+  // cualquiera puede FIRMAR un aviso de pago falso para ese workspace. La de Svix es base64,
+  // de ahí el `+/=`.
+  { nombre: 'webhook-secreto', re: /\bwhsec_[A-Za-z0-9+/=]{20,}/g, con: '«firma de webhook tapada»' },
+  // El access token de Mercado Pago (11/10/2026, la pasarela de pagos): `APP_USR-<app>-<fecha>-
+  // <hex>-<usuario>`, y `TEST-` en las credenciales viejas de prueba. Laxo a propósito, como el de
+  // Google: la forma exacta no está documentada, y la Public Key (`APP_USR-` + un UUID) cae
+  // también — no es secreta, pero ante la duda se tapa de más.
+  { nombre: 'mercadopago', re: /\b(?:APP_USR|TEST)-[A-Za-z0-9-]{30,}/g, con: '«token de Mercado Pago tapado»' },
   // Meta: tokens largos que arrancan con EAA. Es el que más aparece en este producto.
   { nombre: 'meta', re: /\bEAA[A-Za-z0-9]{40,}/g, con: '«token de Meta tapado»' },
   // JWT: tres bloques base64 separados por puntos.

@@ -112,7 +112,9 @@ test('Y el EDITOR de los avisos es el de WhatsApp: escribe en una caja de texto 
 test('Cada link del catálogo tiene su ruta, y cada ruta su link', () => {
   // Un link ofrecido sin ruta sale como `{{link_x}}` crudo al WhatsApp del cliente; una
   // ruta sin link es código que no ofrece nadie. Se cruzan en las dos direcciones.
-  const delCatalogo = VARIABLES_AVISO.filter((v) => v.key.startsWith('link_') && v.key !== 'link_lead').map((v) => v.key).sort();
+  // `link_lead` (lleva el id del evento) y `link_pago` (el /pagar/<token> de su cobro, 11/10/2026) no
+  // son una pantalla de MaKo: no tienen ruta fija.
+  const delCatalogo = VARIABLES_AVISO.filter((v) => v.key.startsWith('link_') && v.key !== 'link_lead' && v.key !== 'link_pago').map((v) => v.key).sort();
   assert.deepEqual(delCatalogo, Object.keys(RUTA_DE_LINK).sort());
   for (const r of Object.values(RUTA_DE_LINK)) assert.match(r, /^\/[a-z-]+$/, `ruta rara: ${r}`);
 });

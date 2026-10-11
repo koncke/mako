@@ -18,6 +18,7 @@ import { renderToStaticMarkup, renderToPipeableStream } from 'react-dom/server';
 import Landing from '../app/vsl/Landing';
 import Privacidad from '../app/privacidad/page';
 import Terminos from '../app/terminos/page';
+import Reembolsos from '../app/reembolsos/page';
 import Home from '../app/page';
 import robots from '../app/robots';
 import { esPublica } from '../lib/rutas-publicas';
@@ -119,6 +120,21 @@ test('/privacidad nombra a la razón social como responsable del tratamiento', (
 test('/terminos nombra a la razón social como responsable del servicio', () => {
   const html = renderToStaticMarkup(createElement(Terminos));
   assert.match(html, new RegExp(`Responsable del servicio: <strong>${RAZON_SOCIAL_MAKO} \\(MaKo\\)</strong>`));
+});
+
+// /reembolsos (11/10/2026): la piden Stripe y Mercado Pago para aprobar la cuenta, y la razón social
+// tiene que estar ahí igual que en las otras dos. Probado rompiéndolo: RESPONSABLE vuelto a 'MaKo' en
+// app/reembolsos/page.tsx → 1 fallo (éste), 7 pases; sacar '/reembolsos' de PUBLICOS → 1 fallo, 7
+// pases; sacar su link del pie de la landing (PieLegal) → 1 / 7; sacarlo de PortadaSinJs → 1 / 7.
+// Restaurado: 8 pases.
+test('/reembolsos nombra a la razón social como responsable, y se abre sin cuenta', async () => {
+  const html = renderToStaticMarkup(createElement(Reembolsos));
+  assert.match(html, new RegExp(`Responsable: <strong>${RAZON_SOCIAL_MAKO} \\(MaKo\\)</strong>`));
+  assert.equal(esPublica('/reembolsos'), true, 'el revisor de la pasarela la abre sin cuenta de MaKo');
+  // Y se llega desde la portada, con y sin JavaScript (el pie de la landing y PortadaSinJs).
+  assert.ok(renderToStaticMarkup(createElement(Landing)).includes('href="/reembolsos"'), 'el pie de la landing no linkea /reembolsos');
+  const portada = quitarOcultos(await streamear(createElement('html', null, createElement('body', null, createElement(Home)))));
+  assert.ok(portada.includes('href="/reembolsos"'), 'sin JavaScript, la portada no linkea /reembolsos');
 });
 
 test('la razón social se escribe como en la verificación de Meta: apellido primero', () => {

@@ -56,6 +56,9 @@ const PUBLICAS: Array<{ ruta: string; porque: string }> = [
   // con la tab Instagram: ya no hay quien arme esa URL, y una excusa sin dueño termina
   // tapando un link futuro que empiece igual.
   { ruta: '/replay/', porque: 'un asset estático que baja el navegador de un visitante de la landing de un cliente.' },
+  // 11/10/2026, con la pasarela de pagos: `linkDelCobro` / `linkDeRetorno` (lib/cobros.ts). Sin esta
+  // fila: 1 fallo / 2 pases, nombrando `lib/cobros.ts:56 → /pagar/${token}`; restaurada, 3 pases.
+  { ruta: '/pagar/', porque: 'el link de pago y su retorno: los abre un COMPRADOR sin sesión ni workspace (el cliente de un negocio, o quien compra un plan de MaKo), y se autentican con el token del cobro. Un `?ws=` sólo lo honra proxy.ts para un admin firmado: acá no le aporta nada.' },
 ];
 
 /**

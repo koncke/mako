@@ -16,12 +16,18 @@ test('los TRES puntos de alta mandan el mail', () => {
   // hasta que un cliente pregunta por qué su vendedor no puede entrar. Ya pasó: la acción
   // de /api/equipo se llamaba literalmente 'invitar' y no invitaba a nadie.
   for (const ruta of [
-    '../app/api/admin/workspaces/route.ts',  // cliente nuevo
+    // Cliente nuevo: el alta vive en lib/alta-cliente.ts desde el 11/10/2026 (la llaman el panel y
+    // el pago de un plan de MaKo), así que el mail se busca ahí y la ruta tiene que llamarla.
+    '../lib/alta-cliente.ts',
     '../app/api/admin/usuarios/route.ts',    // usuario suelto de /admin
     '../app/api/equipo/route.ts',            // el equipo que suma el propio cliente
   ]) {
     assert.ok(/invitarPorEmail\(/.test(leer(ruta)), `${ruta} da de alta a alguien sin avisarle`);
   }
+  // Y el panel no puede volver a tener un alta propia que se salte la compartida (sin mail, o sin
+  // el rollback). Roto a propósito el 11/10/2026 (la ruta sin darDeAltaCliente): 11 pass / 1 fail;
+  // restaurado: 12 pass / 0 fail.
+  assert.ok(/darDeAltaCliente\(/.test(leer('../app/api/admin/workspaces/route.ts')), 'el panel da de alta clientes por fuera de lib/alta-cliente.ts');
 });
 
 test('el mail NO promete una contraseña: en MaKo se entra solo con Google', () => {
@@ -133,7 +139,7 @@ test('a nadie se le manda un mail sin decirle de qué negocio le hablan', () => 
   // que no pidió. Sin el nombre del negocio, lo más razonable que puede hacer es tratarlo
   // como spam — y el alta queda «hecha» con la persona afuera igual que antes.
   for (const ruta of [
-    '../app/api/admin/workspaces/route.ts',
+    '../lib/alta-cliente.ts', // el alta de un cliente vive ahí desde el 11/10/2026 (la ruta ya no invita)
     '../app/api/admin/usuarios/route.ts',
     '../app/api/equipo/route.ts',
   ]) {

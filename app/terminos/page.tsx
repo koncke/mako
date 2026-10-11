@@ -23,7 +23,7 @@ export const metadata = {
   description: 'Las condiciones de uso de MaKo: qué hace, qué esperamos de ti y qué no prometemos.',
 };
 
-const ACTUALIZADO = '8 de octubre de 2026';
+const ACTUALIZADO = '11 de octubre de 2026';
 
 // ⚠️ Los mismos tres datos que en /privacidad, y por el mismo motivo: no salen
 // del código. Si cambian, cambian en los dos lugares. El responsable sale de la
@@ -156,12 +156,40 @@ export default function Page() {
         para construir un producto competidor.
       </p>
 
-      <H id="precio">8. Precio</H>
+      {/* ⚠️ BORRADOR (11/10/2026) para que Martín lo revise: la sección 8 se reescribió el día que
+          MaKo empezó a cobrar con Stripe y Mercado Pago. Decía «No hay cobros automáticos dentro del
+          producto», que con la pasarela viva es falso (docs/hallazgos-planes-y-cobro.md, «Los términos
+          publicados dicen que no cobrás»). Está escrita de mínima: no promete nada que el producto no
+          haga hoy. La política de devoluciones vive en /reembolsos (app/reembolsos/page.tsx). */}
+      <H id="precio">8. Precio, pagos y cancelación</H>
       <p>
-        MaKo está hoy en <strong>acceso temprano</strong> y las condiciones económicas se acuerdan
-        de forma directa con cada cliente. <strong>No hay cobros automáticos dentro del producto</strong>{' '}
-        ni se te va a cobrar nada sin que lo hayas acordado antes. Cuando existan planes con
-        precio, se avisan con antelación y nunca se aplican de forma retroactiva.
+        El precio de cada plan es el que ves al pagar, o el que acordamos contigo por escrito. Los
+        pagos se procesan con <strong>Stripe</strong> o con <strong>Mercado Pago</strong>: los datos
+        de tu tarjeta los recibe la pasarela, no MaKo.
+      </p>
+      <ul>
+        <li>
+          <strong>Los planes mensuales son una suscripción</strong>: se cobran por adelantado y se
+          renuevan solos cada mes, con el mismo medio de pago, hasta que los canceles.
+        </li>
+        <li>
+          <strong>Puedes cancelar cuando quieras</strong>, escribiéndonos a{' '}
+          <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>. Cancelar corta el cobro siguiente: no se
+          te vuelve a cobrar.
+        </li>
+        <li>
+          Lo que ya pagaste se devuelve sólo en los casos de la{' '}
+          <a href="/reembolsos">política de reembolsos</a>.
+        </li>
+        <li>
+          Si cambia el precio de tu plan, te avisamos antes del cobro siguiente, y el cambio nunca se
+          aplica a lo que ya pagaste.
+        </li>
+      </ul>
+      <p>
+        Si usas MaKo para cobrarles a <strong>tus clientes</strong> con tu propia cuenta de Stripe o
+        de Mercado Pago, esos cobros son entre tú y ellos: los procesa tu cuenta, según tu contrato
+        con ese proveedor, y las devoluciones las decides tú.
       </p>
       <p>
         Distinto es el consumo de <strong>tus propias cuentas</strong> conectadas —la publicidad en

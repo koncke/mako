@@ -67,10 +67,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 400 });
       }
       const valores = body.valores && typeof body.valores === 'object' ? body.valores : {};
-      const envsDelServicio = new Set(servicio.campos.map((c) => c.env));
+      // Sin los DERIVADOS (lib/metodo-catalogo.ts → `derivado`): el id de la cuenta de Stripe o de
+      // Mercado Pago lo escribe sólo el descubrimiento (lib/cobros-conexion.ts). Tipeado aquí,
+      // reclamaba el de otro negocio — es la misma whitelist que la de /api/integraciones/credencial,
+      // y cerrar una deja la otra abierta.
+      const envsDelServicio = new Set(servicio.campos.filter((c) => !c.derivado).map((c) => c.env));
       let guardadas = 0;
       for (const [env, valor] of Object.entries(valores)) {
-        if (!envsDelServicio.has(env)) continue; // whitelist estricta
+        if (!envsDelServicio.has(env)) continue; // whitelist estricta (y sin derivados)
         const v = typeof valor === 'string' ? valor.trim() : '';
         if (!v) continue;
         // Sin excepciones para el dueño: guardar SIEMPRE escribe en la base, y la

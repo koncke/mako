@@ -32,7 +32,12 @@ const fmtAuditDate = (iso: string, tz: string) => {
 const ESTADO_LABEL: Record<string, string> = {
   abierto: 'Abierto', ganado: 'Ganado', perdido: 'Perdido', descalificado: 'Descalificado', no_responde: 'No responde',
 };
-const sysColor = (a: string) => (a === 'Fathom' ? '#0E8E7E' : a === 'Calendly' ? '#2F6DDB' : '#8A6D3B');
+// El color de cada sistema que firma el historial. Stripe y Mercado Pago (11/10/2026) firman los
+// cobros de la pasarela («Pago registrado», «Pago reembolsado»…) con su nombre, sin '@'.
+const SYS_COLOR: ReadonlyMap<string, string> = new Map([
+  ['Fathom', '#0E8E7E'], ['Calendly', '#2F6DDB'], ['Stripe', '#635BFF'], ['Mercado Pago', '#009EE3'],
+]);
+const sysColor = (a: string) => SYS_COLOR.get(a) ?? '#8A6D3B';
 
 /** Campos que cuentan como cambio de STATUS (el resto es INFORMACIÓN). */
 const STATUS_FIELDS = new Set(['Etapa', 'Estado', 'Nutrición manual', 'Auditoría']);

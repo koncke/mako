@@ -95,9 +95,11 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  *   · `negocio`   — el nombre del negocio.
  *   · `links`     — una ruta de MaKo más la base. · `evento` — el link a la ficha (con el id).
  *   · `cuota`     — la cuota de la que habla el aviso: la trae el emisor en `datos`.
+ *   · `cobro`     — su cobro PENDIENTE más nuevo de Stripe o Mercado Pago (`cobros`, mig 0250): el
+ *                   link de pago. De la tabla, nunca de la pasarela.
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
-  | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota';
+  | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro';
 
 /** A quién le llega el mensaje: al lead (las automatizaciones) o al equipo (MaKo en WhatsApp). */
 export type DestinoMensaje = 'lead' | 'equipo';
@@ -238,6 +240,13 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'lead_dia_de_pago', label: 'Qué día del mes paga', ejemplo: '10', alcance: 'lead', grupo: 'pagos', fuente: 'ficha' },
   { key: 'lead_fecha_cierre', label: 'Cuándo cerró', ejemplo: '28/09', alcance: 'lead', grupo: 'pagos', fuente: 'ficha', formato: 'fecha' },
   { key: 'lead_suscripcion', label: 'Suscripción mensual', ejemplo: 'US$ 500', alcance: 'lead', grupo: 'pagos', fuente: 'ficha', formato: 'plata' },
+  // El LINK PARA PAGAR (11/10/2026, la pasarela de pagos): el /pagar/<token> de su cobro PENDIENTE
+  // más nuevo, el que dejó «Cobrar con link» en la ficha o un paso «⚡ Acción» de crear un link de
+  // pago. Sale de la tabla `cobros` y de nada más (la regla de admisión: cero proveedores al
+  // resolver). Para los dos destinos: no es una llave como el portal del curso, cualquiera que lo
+  // tenga sólo puede pagar. Sin cobro pendiente NO queda crudo: dice que no hay
+  // (`valoresDelCobro`, lib/variables-del-lead.ts), como «ninguna» en las etiquetas.
+  { key: 'link_pago', label: 'Link para pagar', ejemplo: 'https://hola-mako.com/pagar/…', alcance: 'lead', grupo: 'pagos', fuente: 'cobro' },
   // La CUOTA de la que habla el aviso. Las trae el emisor en `datos`: el cron de cobranza ya
   // leyó la fila de `pagos` para decidir que hay que avisar, así que pasarlas no cuesta una
   // lectura. Y van por CÓDIGO y no por el modelo, que es la regla de la casa para un dato

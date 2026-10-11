@@ -32,7 +32,7 @@ import {
 } from '../lib/variables-aviso';
 import {
   valoresDelNombre, valoresDelLead, valoresConZona, valoresDelProducto, valoresDeEtiquetas, valoresDePagos,
-  valoresDelCurso, valoresDelPerfil, valoresDelLeadMagnet, valoresDelMomento,
+  valoresDelCurso, valoresDelPerfil, valoresDelLeadMagnet, valoresDelMomento, valoresDelCobro,
 } from '../lib/variables-del-lead';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO, esVariableConocida } from '../lib/template-vars';
 import { CLAVES_DE_CUOTA } from '../lib/cobranza';
@@ -84,6 +84,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     // como la cuota la pone el cron de cobranza: lo fija tests/aviso-evento.test.ts leyendo ese fuente.
     evento: new Set(['link_lead', CLAVE_MENSAJE_MAKO]),
     cuota: new Set(CLAVES_DE_CUOTA),
+    // El link para pagar (11/10/2026): su cobro pendiente más nuevo, de la tabla `cobros`.
+    cobro: set(valoresDelCobro('https://x/pagar/abc')),
   };
 }
 
@@ -131,7 +133,7 @@ test('⚠️ TODO lo que el árbol ofrece tiene quien lo PONGA: cada clave sale 
   assert.deepEqual(faltan, [], `el «{ }» ofrece datos que nadie resuelve: ${faltan.join(', ')}`);
   // Y cada fuente tiene su lectura en el resolvedor (una lectura por entidad nombrada).
   const res = sinComentarios(leer('lib/variables-resolver.ts'));
-  for (const f of ['ficha', 'zona', 'producto', 'curso', 'etiquetas', 'pagos', 'perfil', 'lead_magnet'] as const) {
+  for (const f of ['ficha', 'zona', 'producto', 'curso', 'etiquetas', 'pagos', 'cobro', 'perfil', 'lead_magnet'] as const) {
     assert.match(res, new RegExp(`f\\.has\\('${f}'\\)`), `el resolvedor no lee «${f}»`);
   }
   assert.match(res, /if \(pide\('negocio'\)\)/);

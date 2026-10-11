@@ -6,22 +6,17 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { actualizarWorkspace, crearWorkspace, listarWorkspaces, runWithWorkspace, getWorkspace, wsSuperAdmin, getWorkspaceActual } from '@/lib/workspace';
-import { crearUsuario, listarUsuarios } from '@/lib/usuarios';
+import { actualizarWorkspace, listarWorkspaces, runWithWorkspace, getWorkspace, wsSuperAdmin, getWorkspaceActual } from '@/lib/workspace';
+import { listarUsuarios } from '@/lib/usuarios';
 import { getSupabaseServer } from '@/lib/supabase';
 import { leerTodo } from '@/lib/supabase-paginado';
-import { setSetting } from '@/lib/settings';
-import { estadoInicial, setEstadoOnboarding } from '@/lib/onboarding-state';
-import { hoyEnTijuana } from '@/lib/date-utils';
             // Un cliente nuevo ya NO arranca con secuencias sembradas.
-import { CAPA_DEFAULT, capaDef, esCapaValida, CAPAS_VENDIBLES, type CapaId } from '@/lib/capas';
+import { CAPA_DEFAULT, esCapaValida, CAPAS_VENDIBLES, type CapaId } from '@/lib/capas';
 import { avisarCambioDePlan } from '@/lib/aviso-plan';
-import { invitarPorEmail, type ResultadoInvitacion } from '@/lib/invitaciones';
+import { darDeAltaCliente } from '@/lib/alta-cliente';
 import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 
 export const dynamic = 'force-dynamic';
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function GET() {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
@@ -78,68 +73,18 @@ export async function POST(req: NextRequest) {
   try {
     switch (body.action) {
       case 'crear': {
-        const nombre = (body.nombre ?? '').trim();
-        if (nombre.length < 2) return NextResponse.json({ ok: false, error: 'Pon un nombre de cliente.' }, { status: 400 });
-        const adminEmail = (body.adminEmail ?? '').trim().toLowerCase();
-        // ⚠️ EL EMAIL ES OBLIGATORIO DESDE EL 27/09/2026: «el email NO puede ser
-        // opcional… si justamente le llega la invitación por ahí». Sin él, esto
-        // creaba un workspace SIN UNA SOLA FILA en `usuarios`: un cliente al que
-        // nadie podía entrar, que no recibía nada, y que sólo se podía usar
-        // entrando como él desde acá. Un alta que no da acceso no es un alta.
-        //
-        // Y borra una asimetría: las otras dos puertas —/api/admin/usuarios y
-        // /api/equipo— ya lo exigían. Era ésta la rara.
-        if (!adminEmail) return NextResponse.json({ ok: false, error: 'Pon el email de su admin: por ahí le llega el acceso.' }, { status: 400 });
-        if (!EMAIL_RE.test(adminEmail)) return NextResponse.json({ ok: false, error: 'Email del admin inválido.' }, { status: 400 });
-        // Se chequea ANTES de crear el workspace: evita dejar uno huérfano por un
-        // email duplicado, que es un alta a medias que nadie limpia.
-        {
-          const existe = (await listarUsuarios()).some((u) => u.email === adminEmail);
-          if (existe) return NextResponse.json({ ok: false, error: 'Ya existe un usuario con ese email.' }, { status: 400 });
-        }
-        const capa = (body.capa ?? CAPA_DEFAULT).trim();
-        if (!esCapaValida(capa)) return NextResponse.json({ ok: false, error: 'Elige un tipo de cliente válido.' }, { status: 400 });
-        const def = capaDef(capa);
-        const ws = await crearWorkspace(nombre, capa);
-        // Seed inicial del workspace, SEGÚN LA CAPA: solo se siembra lo que el
-        // cliente compró. A uno de Project Manager no le sirve una secuencia de
-        // nutrición ni un objetivo de cierres — no tiene ni ads ni CRM.
-        try {
-          await runWithWorkspace(ws.id, async () => {
-            await setEstadoOnboarding(estadoInicial('pending'));
-            if (def.integracionesRequeridas.includes('meta')) {
-              // objetivo_desde ancla el progreso del objetivo en /general; sin
-              // esto usaría la fecha de arranque del dueño.
-              await setSetting('objetivo_desde', hoyEnTijuana());
-            }
-          });
-        } catch (e) {
-          console.error('[admin/workspaces] seed onboarding falló (no fatal):', e);
-        }
-        // Crear el usuario admin-del-cliente en el mismo paso. Si falla, revertir
-        // el workspace para no dejar basura.
-        let invitacion: ResultadoInvitacion | null = null;
-        if (adminEmail) {
-          const invitadoPor = admin.legacy ? 'admin' : (admin.email || 'admin');
-          try {
-            await crearUsuario({ email: adminEmail, nombre: body.adminNombre, rol: 'usuario', rol_ws: 'admin', workspace_id: ws.id, invitado_por: invitadoPor });
-          } catch (e) {
-            await getSupabaseServer().from('workspaces').delete().eq('id', ws.id);
-            return NextResponse.json({ ok: false, error: `No se pudo crear el admin del cliente: ${e instanceof Error ? e.message : e}` }, { status: 500 });
-          }
-          // ⚠️ EL MAIL VA DESPUÉS DEL ALTA Y NO LA PUEDE DESHACER. Si Resend falla, el
-          // cliente YA existe y su fila YA lo autoriza a entrar: revertir un alta buena
-          // por un mail que no salió es peor que el mail que no salió. Lo que sí tiene
-          // que pasar es que quien lo dio de alta se entere EN LA PANTALLA y pueda pasar
-          // el link a mano — un aviso que solo va a los logs no frena nada.
-          invitacion = await invitarPorEmail({
-            email: adminEmail,
-            nombre: body.adminNombre,
-            workspace: ws.nombre,
-            rolWs: 'admin',
-          });
-        }
-        return NextResponse.json({ ok: true, workspace: ws, invitacion });
+        // El alta vive en lib/alta-cliente.ts desde el 11/10/2026: la llaman este panel y el pago de
+        // un plan de MaKo (lib/cobros.ts). El orden ya pagado (email único antes de escribir, seed en
+        // runWithWorkspace, rollback del usuario, mail no fatal) está escrito allá, con su porqué.
+        const r = await darDeAltaCliente({
+          nombre: body.nombre ?? '',
+          capa: (body.capa ?? CAPA_DEFAULT).trim(),
+          adminEmail: body.adminEmail ?? '',
+          adminNombre: body.adminNombre,
+          invitadoPor: admin.legacy ? 'admin' : (admin.email || 'admin'),
+        });
+        if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: r.status });
+        return NextResponse.json({ ok: true, workspace: r.workspace, invitacion: r.invitacion });
       }
       case 'nombre': {
         if (typeof body.id !== 'number') return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });

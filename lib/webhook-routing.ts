@@ -40,6 +40,16 @@ export const ROUTING_CREDS: Record<string, string> = {
   CALCOM_EVENT_TYPE_J1: 'calcom',
   CALCOM_EVENT_TYPE_J2: 'calcom',
   META_PAGE_ID: 'meta',
+  // La pasarela de pagos (11/10/2026). ⚠️ ESTOS DOS SE DERIVAN DE LA CLAVE Y NUNCA SE TIPEAN:
+  // los escribe sólo el descubrimiento (lib/cobros-conexion.ts, con GET /v1/account y GET
+  // /users/me) y las dos rutas de «guardar» los rechazan aunque vengan en el body (`derivado` en
+  // lib/metodo-catalogo.ts). Un acct_ o un user_id no son secretos: si se pudieran escribir a
+  // mano, el primero que pegara el de otro le bloquearía la conexión o se quedaría con sus avisos
+  // de pago (docs/hallazgos-customer-success.md → «Un identificador de ruteo que se pregunta…»).
+  // El de Stripe viaja en la URL del aviso (`?acct=`) porque un evento de una cuenta directa, sin
+  // Connect, no trae `account`; el de Mercado Pago viene como `user_id` en el cuerpo.
+  STRIPE_ACCOUNT_ID: 'stripe',
+  MERCADOPAGO_USER_ID: 'mercadopago',
   // 'zernio' NO va acá a propósito: su única credencial era la API key (secreta —
   // un secreto jamás se espeja en claro a webhook_routing) y el identificador de
   // ruteo era el profileId, que acuñaba el server. Desde el 06/10/2026 Instagram
@@ -186,6 +196,30 @@ export async function borrarRoutingDeWs(servicio: string, ws: number): Promise<v
       .eq('workspace_id', ws);
   } catch (e) {
     console.error('[webhook-routing] borrarRoutingDeWs falló:', e);
+  }
+}
+
+/**
+ * Suelta UN identificador de un workspace (y sólo si es suyo). Best-effort (no lanza).
+ *
+ * Existe porque `guardarCredencial` sólo AGREGA filas: si un workspace cambia de cuenta de Stripe
+ * o de Mercado Pago, el descubrimiento pisa la credencial con el id nuevo y la fila del viejo
+ * seguía apuntando acá — esa cuenta quedaba reclamada para siempre por quien ya no la usa, y sus
+ * avisos llegaban a un workspace que ya no tiene su secreto. `borrarRoutingDeWs` no sirve para
+ * esto: se lleva TODAS las filas del servicio, incluida la que se acaba de reclamar.
+ */
+export async function soltarIdentificador(servicio: string, id: string, ws: number): Promise<void> {
+  if (!id || !id.trim()) return;
+  try {
+    const { error } = await getSupabaseServer()
+      .from('webhook_routing')
+      .delete()
+      .eq('servicio', servicio)
+      .eq('identificador', normalizar(id))
+      .eq('workspace_id', ws);
+    if (error) throw new Error(error.message);
+  } catch (e) {
+    console.error('[webhook-routing] soltarIdentificador falló:', e);
   }
 }
 

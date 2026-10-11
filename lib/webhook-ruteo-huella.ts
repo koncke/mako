@@ -26,8 +26,8 @@ export const TOPE_FALLOS_RUTEO = 30;
 // ~51 h y deshabilita el endpoint tras 3 días sin una entrega buena: el 503 sólo para lo transitorio.
 // `email`: el email que LLEGA (Resend `email.received`, lib/email-entrante.ts; sexta tanda). Resend
 // reintenta con Svix y apaga el endpoint si falla días seguidos: el mismo criterio que Fathom.
-export type ServicioRuteo = 'calcom' | 'fathom' | 'meta' | 'landing' | 'zernio' | 'email';
-const SERVICIOS: ReadonlySet<string> = new Set(['calcom', 'fathom', 'meta', 'landing', 'zernio', 'email']);
+export type ServicioRuteo = 'calcom' | 'fathom' | 'meta' | 'landing' | 'zernio' | 'email' | 'stripe' | 'mercadopago';
+const SERVICIOS: ReadonlySet<string> = new Set(['calcom', 'fathom', 'meta', 'landing', 'zernio', 'email', 'stripe', 'mercadopago']);
 
 export type FalloRuteo = {
   cuando: string;

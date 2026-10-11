@@ -43,6 +43,7 @@ import { PARTES as INSTAGRAM_PARTES, BITACORA as INSTAGRAM_BITACORA } from './in
 import { PARTES as INTEGRACIONES_PARTES, BITACORA as INTEGRACIONES_BITACORA } from './integraciones/bitacora';
 import { PARTES as MAKODOER_PARTES, BITACORA as MAKODOER_BITACORA } from './mako-doer/bitacora';
 import { PARTES as PLANSENTITLEME_PARTES, BITACORA as PLANSENTITLEME_BITACORA } from './plans-entitlements/bitacora';
+import { PARTES as PAYGW_PARTES, BITACORA as PAYGW_BITACORA } from './payment-gateway/bitacora';
 import { PARTES as RATELIMITING_PARTES, BITACORA as RATELIMITING_BITACORA } from './rate-limiting/bitacora';
 import { PARTES as REELS_PARTES, BITACORA as REELS_BITACORA } from './reels/bitacora';
 import { PARTES as SELFHEALINGDEV_PARTES, BITACORA as SELFHEALINGDEV_BITACORA } from './self-healing-dev-agent/bitacora';
@@ -96,6 +97,7 @@ const REGISTROS: Record<string, Registro> = {
   'integraciones': { partes: INTEGRACIONES_PARTES, bitacora: INTEGRACIONES_BITACORA },
   'mako-doer': { partes: MAKODOER_PARTES, bitacora: MAKODOER_BITACORA },
   'plans-entitlements': { partes: PLANSENTITLEME_PARTES, bitacora: PLANSENTITLEME_BITACORA },
+  'payment-gateway': { partes: PAYGW_PARTES, bitacora: PAYGW_BITACORA },
   'rate-limiting': { partes: RATELIMITING_PARTES, bitacora: RATELIMITING_BITACORA },
   'reels': { partes: REELS_PARTES, bitacora: REELS_BITACORA },
   'self-healing-dev-agent': { partes: SELFHEALINGDEV_PARTES, bitacora: SELFHEALINGDEV_BITACORA },

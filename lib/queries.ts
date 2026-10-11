@@ -40,6 +40,7 @@ import {
   type RolesComerciales,
 } from './funnel-comercial';
 import { leerTodo, leerPorPaginas, type OrdenPaginado, type ConsultaPaginada } from './supabase-paginado';
+import { faltaComprobante } from './pago-comprobante';
 
 /**
  * Orden de TODO barrido de `marketing_metrics_daily` en este archivo.
@@ -2294,19 +2295,22 @@ async function _getPendientesDeMarcar(
   // sin leads no hay worklist que valga.
   const avisos: string[] = [];
 
-  // Plan de pagos + comprobantes faltantes (cuotas pagadas sin comprobante) por lead.
-  const pagosRows = await leerTodo<{ lead_id: number; pagado: boolean; comprobante_path: string | null }>(
-    supabase, 'pagos', 'lead_id, pagado, comprobante_path',
+  // Plan de pagos + comprobantes faltantes (cuotas pagadas sin comprobante) por lead. `proveedor`
+  // (mig 0250) viaja porque un cobro confirmado por la pasarela NO pide comprobante
+  // (lib/pago-comprobante.ts): sin la columna, cada lead que pagó por link quedaba para siempre en
+  // «Datos sin marcar: Comprobante de pago».
+  const pagosRows = await leerTodo<{ lead_id: number; pagado: boolean; comprobante_path: string | null; proveedor: string | null }>(
+    supabase, 'pagos', 'lead_id, pagado, comprobante_path, proveedor',
   ).catch((e) => {
     console.error(`[pendientes] no se pudo leer pagos: ${e instanceof Error ? e.message : String(e)}`);
     avisos.push('el plan de pagos');
-    return [] as Array<{ lead_id: number; pagado: boolean; comprobante_path: string | null }>;
+    return [] as Array<{ lead_id: number; pagado: boolean; comprobante_path: string | null; proveedor: string | null }>;
   });
   const conPlan = new Set<number>();
   const comprobFaltPorLead = new Map<number, number>();
   for (const p of pagosRows) {
     conPlan.add(p.lead_id);
-    if (p.pagado && !p.comprobante_path) comprobFaltPorLead.set(p.lead_id, (comprobFaltPorLead.get(p.lead_id) ?? 0) + 1);
+    if (faltaComprobante(p)) comprobFaltPorLead.set(p.lead_id, (comprobFaltPorLead.get(p.lead_id) ?? 0) + 1);
   }
   // El historial de la etapa DERIVADA se cierra ACÁ, y no en un cron, porque esta
   // es la única pasada del sistema que ya tiene TODOS los leads en memoria. La

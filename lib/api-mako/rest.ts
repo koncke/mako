@@ -432,6 +432,15 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/curso/clases/{claseId}', 'borrar_clase_curso'],
   ['PUT', '/curso/clases/{claseId}/lugar', 'mover_clase_curso'],
   ['PUT', '/curso/clases/{claseId}/restauracion', 'restaurar_clase_curso'],
+  // ── cobros (11/10/2026: la pasarela de pagos, Stripe y Mercado Pago) ──────────
+  // Un link de pago ES un cobro pendiente: se crea por su propio recurso (lo que pide quien
+  // llama) y se anula sobre él; reembolsar y cancelar son estados del cobro ya pagado.
+  ['GET', '/cobros/cobros', 'listar_cobros'],
+  ['GET', '/cobros/cobros/{cobroId}', 'ver_cobro'],
+  ['POST', '/cobros/cobros/{cobroId}/reembolsos', 'reembolsar_cobro'],
+  ['PUT', '/cobros/cobros/{cobroId}/cancelacion-suscripcion', 'cancelar_suscripcion'],
+  ['POST', '/cobros/links-pago', 'crear_link_pago'],
+  ['PUT', '/cobros/links-pago/{cobroId}/anulacion', 'anular_link_pago'],
   // ── mako ──────────────────────────────────────────────────────────────────
   ['GET', '/mako/bandejas', 'resumen_bandejas_confirmacion'],
   ['GET', '/mako/capacidades', 'listar_capacidades_mako'],

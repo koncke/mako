@@ -41,6 +41,7 @@ const TITULOS: Record<string, string> = {
   'scores-mensuales': 'Scores mensuales',
   'segundo-cerebro': 'Second Brain',
   'lead-magnets': 'Lead magnets',
+  'links-pago': 'Links de pago',
   cac: 'CAC',
   kpis: 'KPIs',
   mrr: 'MRR',

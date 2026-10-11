@@ -63,6 +63,16 @@ export const DEFS: Def[] = [
   // sirve para leer la agenda y es opcional, mientras que sin secret no entra una sola
   // reserva. La tarjeta tiene que medir lo que hace funcionar la integración.
   { key: 'calcom', nombre: 'Cal.com', categoria: 'Reuniones', descripcion: 'Cada reserva de tu calendario entra sola al CRM, y si la cancelan se marca sola.', envs: ['CALCOM_WEBHOOK_SECRET'] },
+  // La pasarela de pagos (11/10/2026, docs/diseno-pasarela-pagos.md). BYOK: cada negocio pega SU
+  // clave, y MaKo se vende con la del workspace de la plataforma, pegada aquí como la de cualquiera.
+  // Las `envs` son lo que hace FUNCIONAR el cobro, no sólo la clave: sin la cuenta (el ruteo) y sin
+  // la firma del aviso, un link se crea bien y su pago no vuelve nunca al CRM — que es lo mismo que
+  // dice `credStripe` en lib/cobros.ts. La firma del aviso de Mercado Pago no está: es opcional
+  // (la relectura del pago con el token es lo que protege; ver lib/metodo-catalogo.ts).
+  // Son ALTERNATIVAS y opcionales: sin configurar no piden atención ni bajan el medidor
+  // (app/integraciones/IntegracionesBoard.tsx).
+  { key: 'stripe', nombre: 'Stripe', categoria: 'Pagos', descripcion: 'Cobra con un link de pago y cada pago entra solo a tu CRM.', envs: ['STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET'] },
+  { key: 'mercadopago', nombre: 'Mercado Pago', categoria: 'Pagos', descripcion: 'Cobra en tu moneda con un link de Mercado Pago y cada pago entra solo a tu CRM.', envs: ['MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID'] },
   // Google Calendar: no se mide por env — GOOGLE_CLIENT_ID/SECRET son la app
   // OAuth de la agencia (siempre puesta), así que chequearlos diría "conectada"
   // para todos sin que nadie haya autorizado su agenda. Se mide por señal REAL

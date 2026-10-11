@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useSearchParams } from 'next/navigation';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
+import { esPasarela } from '@/lib/cobros-tipos';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
 import type { RechazoGracias } from '@/lib/landing-gracias-reglas';
@@ -137,7 +138,9 @@ const capMono: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: 
 // mapea sobre esta lista, así que una categoría que no esté acá NO se pinta aunque tenga
 // integraciones. GitHub quedó invisible por eso: existía, pasaba todos los filtros, y
 // 'Desarrollo' no estaba en la lista.
-const CAT_ORDER = ['Publicidad', 'Mensajería', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'];
+// 'Pagos' (Stripe y Mercado Pago, 11/10/2026) va después de Mensajería: es lo que cierra la venta
+// que las dos de arriba empezaron.
+const CAT_ORDER = ['Publicidad', 'Mensajería', 'Pagos', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'];
 
 // Servicios sintéticos: no están en el catálogo de integraciones pero tienen modal
 // propio (Groq es gratis y aparece en Costo de MaKo → su tile abre este modal).
@@ -300,7 +303,6 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   }, []);
 
   const metaSev = health?.account.severidad ?? null;
-  const total = integraciones.length;
 
   // Severidad efectiva de un servicio: Meta usa su semáforo en vivo (o 'bad' si el
   // token está presente pero la lectura en vivo falló); Google, su PERMISO real; el
@@ -324,7 +326,17 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     return i.estado === 'conectada' ? 'good' : 'warn';
   };
   const dotColor = (s: 'good' | 'warn' | 'bad') => (s === 'good' ? 'var(--good)' : s === 'warn' ? 'var(--warn-fill)' : 'var(--bad)');
-  const conectadas = integraciones.filter((i) => sevOf(i) === 'good').length;
+  // ⚠️ LAS PASARELAS DE PAGO SON OPCIONALES Y ALTERNATIVAS (Stripe O Mercado Pago, y la mayoría
+  // de los negocios cobra por fuera). Sin configurar no son un pendiente: contarlas en el medidor
+  // le bajaba el «N/M conectados» a TODOS los clientes el día que aparecieron, y pedirlas en
+  // «Requiere tu atención» empujaba a conectar las dos. Conectadas sí suman. A medias (la clave
+  // puesta y el aviso sin registrar) tampoco se cuentan acá: eso se ve y se arregla adentro del
+  // modal, que es donde está la persona cuando pasa (lib/cobros-conexion.ts lo dice al guardar).
+  // La grilla las sigue mostrando «Por configurar», que es la verdad.
+  const opcionalSinConectar = (i: Integracion) => esPasarela(i.key) && sevOf(i) !== 'good';
+  const medidas = integraciones.filter((i) => !opcionalSinConectar(i));
+  const total = medidas.length;
+  const conectadas = medidas.filter((i) => sevOf(i) === 'good').length;
   // Resuelve un servicio por key incluyendo entradas sintéticas (Groq tiene tile en
   // Costo de MaKo pero no está en el catálogo de integraciones → su modal usa esto).
   const svcByKey = (key: string): Integracion | null => integraciones.find((x) => x.key === key) ?? SYNTHETIC[key] ?? null;
@@ -341,6 +353,8 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     // pendiente que haya que resolver → no lo empujamos a "Requiere tu atención"
     // (sería ruido para un cliente que ni programa).
     if (i.key === 'agente') continue;
+    // Stripe y Mercado Pago, por lo mismo (ver `opcionalSinConectar`, más arriba).
+    if (opcionalSinConectar(i)) continue;
     let motivo = i.estado === 'falta' ? i.detalle : 'Requiere atención';
     let accion: string | undefined;
     if (i.key === 'meta') {
@@ -369,8 +383,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     .map((cat) => ({ cat, items: integraciones.filter((i) => i.categoria === cat).slice().sort((a, b) => ordenIA(a.key) - ordenIA(b.key)) }))
     .filter((g) => g.items.length > 0);
 
-  // Medidor: una barra por servicio, verde las conectadas, roja/ámbar el resto.
-  const bars = integraciones.map((i) => dotColor(sevOf(i)));
+  // Medidor: una barra por servicio, verde las conectadas, roja/ámbar el resto (sin las pasarelas
+  // sin conectar: son opcionales).
+  const bars = medidas.map((i) => dotColor(sevOf(i)));
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '30px 42px 90px' }}>

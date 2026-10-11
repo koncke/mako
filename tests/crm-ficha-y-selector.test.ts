@@ -198,9 +198,11 @@ test('las DOS fichas hablan el mismo idioma y muestran lo mismo', () => {
     assert.ok(!/label: 'Chat'/.test(f), `${ruta}: la pestaña Chat se sacó`);
   }
 
-  // Y Pagos es condicional en las dos que la dibujan como tab de datos.
-  assert.ok(/\.\.\.\(\(esVenta \|\| tienePlan\) \? \[\{ key: 'cobranza'/.test(leer('../app/crm/[id]/page.tsx')), 'Pagos condicional en la ruta');
-  assert.ok(/\.\.\.\(pagos\.length \? \[\{ key: 'cobranza'/.test(leer('../app/crm/LeadSheet.tsx')), 'Pagos condicional en el modal');
+  // Y Pagos es condicional en las dos que la dibujan como tab de datos, y desde el 11/10/2026 con
+  // LA MISMA regla (lib/muestra-pagos.ts; antes la ruta pedía «venta o plan» y el modal «cuotas»).
+  // Lo que decide la regla lo fija tests/muestra-pagos.test.ts.
+  assert.ok(/\.\.\.\(verPagos \? \[\{ key: 'cobranza'/.test(leer('../app/crm/[id]/page.tsx')), 'Pagos condicional en la ruta');
+  assert.ok(/\.\.\.\(verPagos \? \[\{ key: 'cobranza'/.test(leer('../app/crm/LeadSheet.tsx')), 'Pagos condicional en el modal');
 });
 
 test('las notas y el recorrido están en las DOS fichas, y en el mismo lugar', () => {

@@ -151,9 +151,11 @@ export async function aplicarEnElActo(
         return { ok: e.ok, resumen: e.ok ? 'Mensaje enviado por el WhatsApp de empresa.' : (e.error ?? 'No se pudo enviar el mensaje.'), via: 'propia' };
       }
       if (def.id === 'proponer_lead' || def.id === 'proponer_leads') return await crearLeadsDePropuesta(opts.ws, id, ctx);
-      // La pantalla genérica: se aplica con el mismo `preparar()` + `ejecutar()` de siempre.
+      // La pantalla genérica: se aplica con el mismo `preparar()` + `ejecutar()` de siempre. Con sus
+      // `datos`, como la rama de la pendiente: sin ellos, un token detallado que escribe en el acto una
+      // acción de pantalla recibía 200 sin el id de lo que creó (relevo de la pasarela, 11/10/2026).
       const e = await aplicarPropuestaGenerica(id, null, ctx);
-      return { ok: e.ok, resumen: e.resumen, via: 'propuesta' };
+      return { ok: e.ok, resumen: e.resumen, via: 'propuesta', ...(e.datos ? { datos: e.datos } : {}) };
     }
 
     return { ok: true, resumen: 'Hecho.', via: 'ninguna' };

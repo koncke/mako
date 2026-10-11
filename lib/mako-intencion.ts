@@ -209,9 +209,88 @@ export function esPedidoSobreLead(texto: string): PedidoSobreLead | null {
   return { tipo: 'etapa' };
 }
 
+// ── EL PEDIDO DE UN COBRO (Stripe y Mercado Pago) ───────────────────────────────
+// La pasarela de pagos (11/10/2026, docs/diseno-pasarela-pagos.md) sumó el área `cobros` al
+// registro. Medido ese día con tsx sobre este clasificador, ANTES de esta regla: «mandale un link
+// de pago a Ana», «reembolsale el pago a Carlos» y «creá un checkout de Mercado Pago para Laura»
+// salían `capturar`, dudosas y sin ningún área; «generá el link de pago… para Juan» igual; y
+// «cancelá la suscripción de Pedro» salía `actuar` (por la tilde de «cancelá») pero sin áreas.
+// Ninguna llegaba con su herramienta.
+//
+// Es la lección del pedido sobre un lead: LA SEÑAL ES EL OBJETO (un link de pago, un checkout,
+// un reembolso, una suscripción) más un verbo de pedido, con la misma regla para la tercera
+// persona (la forma suelta sólo si ARRANCA el mensaje). Lo comparten las tres puertas: este
+// clasificador, el router (lib/mako-router.ts) y `esCargaDePlan` (lib/mako-doer-in.ts).
+
+/** El objeto «link de pago»: un link, un checkout, cobrar por una pasarela. */
+const OBJETO_LINK_PAGO = /\blinks? (?:de|para) (?:pago|cobro|pagar)\b|\bcheckout\b|\blinks? de (?:stripe|mercado ?pago)\b/;
+const NOMBRA_PASARELA = /\b(?:stripe|mercado ?pago)\b/;
+/** Devolver plata: «reembolsale», «el reembolso», «devolvele la plata», «hacele la devolución». */
+const OBJETO_REEMBOLSO = /\breembols\w*|\bdevolucion(?:es)?\b|\b(?:devolve|devuelve)\w* (?:el|la|su|los|sus) (?:pagos?|cobros?|plata|dinero)\b/;
+const OBJETO_SUSCRIPCION = /\bsuscripci(?:on|ones)\b/;
+/** Dar de baja: «cancelá», «dale de baja», «cortale», «anulá». */
+const VERBO_BAJA = /\b(?:cancel\w*|de baja|cort\w*|anul\w*|deten\w*|fren\w*)\b/;
+const VERBO_ANULAR = /\banul\w*/;
+/** Verbo con pronombre pegado: imperativo sí o sí. */
+const VERBO_COBRO_PEGADO = /\b(?:manda|envia|pasa|carga|genera|crea|arma|hace|reembolsa|devolve|devuelve|cancela|anula|corta|cobra)(?:le|les|me|selo|sela|selos|melo|mela|lo|la)\b|\bhazle\b|\bdale de baja\b/;
+/** Voseo con tilde (en el texto CRUDO): «mandá», «generá», «creá», «cancelá». */
+const VERBO_COBRO_TILDE = /(?:^|[\s,.;:!¡¿?"'(])(?:mandá|enviá|pasá|cargá|generá|creá|armá|hacé|reembolsá|devolvé|cancelá|anulá|cortá|cobrá)(?=[\s,.;:!?"')]|$)/i;
+/** La forma suelta (tuteo o voseo sin tilde): sólo si es lo PRIMERO del mensaje. */
+const VERBO_COBRO_SUELTO = /^(?:manda|envia|pasa|carga|genera|crea|arma|haz|hace|reembolsa|devuelve|devolve|cancela|anula|corta|cobra|da de baja)\b/;
+/** Con un modal: «necesito mandarle un link de pago», «¿me puedes generar el checkout?». */
+const MODAL_COBRO = /\b(?:puedes|podes|podrias|quiero|queria|necesito|hay que|vamos a|tenes que|tienes que)\s+(?:me\s+|le\s+|nos\s+)?(?:mandar|enviar|pasar|generar|crear|armar|hacer|reembolsar|devolver|cancelar|anular|cortar|cobrar|dar de baja)(?:le|les|me|selo|sela|lo|la)?\b/;
+/** La segunda persona de quien no usa el imperativo: «¿le mandas el link de pago a Ana?». */
+const SEGUNDA_COBRO = /\b(?:le|les|me)\s+(?:mandas|envias|pasas|generas|creas|armas|haces|reembolsas|devolves|devuelves|cancelas|anulas)\b/;
+/** Lo que es del PLAN aunque nombre un cobro. Sin «pendiente», a diferencia de `ES_DEL_PLAN`:
+ *  «anulá el link de pago pendiente de Ana» es un cobro, no una tarea. */
+const DEL_PLAN_COBRO = /\b(?:(?:al|el|mi|en el) plan|a la lista|tareas?|recordame|recuerdame|anotame|apuntame|no me olvide)\b/;
+
+export type PedidoDeCobro = { tipo: 'link' | 'anular' | 'reembolso' | 'suscripcion' };
+
+/** Lo que suma cada tipo a la relevancia del presupuesto: pone primero su herramienta (y, en
+ *  un link, `listar_productos`, que da el productoId). */
+export const RELEVANCIA_COBROS: Readonly<Record<PedidoDeCobro['tipo'], string>> = {
+  link: 'crear link pago cobro listar productos catalogo ofertas precio',
+  anular: 'anular link pago cobro listar cobros',
+  reembolso: 'reembolsar cobro listar cobros pagado devolver',
+  suscripcion: 'cancelar suscripcion cobro listar cobros',
+};
+
+/** Las áreas de cada tipo. Un link necesita además el CRM: el productoId sale de
+ *  `listar_productos` (área crm), y sin ella el modelo no tiene con qué pedirlo. */
+export const AREAS_COBROS: Readonly<Record<PedidoDeCobro['tipo'], Area[]>> = {
+  link: ['cobros', 'crm'],
+  anular: ['cobros'],
+  reembolso: ['cobros'],
+  suscripcion: ['cobros'],
+};
+
+/**
+ * ¿Le pide a MaKo un cobro por Stripe o Mercado Pago (un link de pago, anularlo, un reembolso,
+ * cancelar una suscripción)? Puro: lo usan el clasificador, el router y `esCargaDePlan`. Recibe
+ * el texto crudo; null si no es un pedido de cobro.
+ */
+export function esPedidoDeCobro(texto: string): PedidoDeCobro | null {
+  const crudo = sinPrefijoDeLote(texto || '').trim();
+  if (!crudo || crudo.length > 600) return null;
+  const n = norm(crudo);
+  if (DEL_PLAN_COBRO.test(n)) return null;
+  // Un volcado sigue siendo material: «Idea: links de pago automáticos», una lista de cosas.
+  if (ENCABEZADO_VOLCADO.test(crudo) || INFINITIVO_TITULO.test(crudo) || esLista(crudo)) return null;
+  const arranque = n.replace(PRELUDIO_CRM, '');
+  const verbo = VERBO_COBRO_PEGADO.test(n) || VERBO_COBRO_TILDE.test(crudo) || VERBO_COBRO_SUELTO.test(arranque) || MODAL_COBRO.test(n) || SEGUNDA_COBRO.test(n);
+  if (!verbo) return null;
+  if (OBJETO_REEMBOLSO.test(n)) return { tipo: 'reembolso' };
+  if (OBJETO_SUSCRIPCION.test(n) && VERBO_BAJA.test(n)) return { tipo: 'suscripcion' };
+  const link = OBJETO_LINK_PAGO.test(n) || (NOMBRA_PASARELA.test(n) && /\bcobr/.test(n));
+  if (link && VERBO_ANULAR.test(n)) return { tipo: 'anular' };
+  if (link || OBJETO_SUSCRIPCION.test(n)) return { tipo: 'link' };
+  return null;
+}
+
 // ── Señales ──────────────────────────────────────────────────────────────────
 
-const norm = (s: string): string => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const norm =(s: string): string => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /** Pedido EXPLÍCITO de anotar. No hay nada que interpretar. */
 const PEDIDO_ANOTAR = /\b(anota|apunta|anotame|apuntame)\b|\bal plan\b|\ba la lista\b|\bcarga(lo|las|los)? al plan\b|\brecordame\b|\bno me olvide/i;
@@ -539,6 +618,7 @@ export function clasificarIntencion(
   const nPersona = norm(sinPrefijoDeLote(t));
   const pedidoAgenda = esPedidoAgenda(nPersona) || corrigeAgenda(nPersona, !!ctx.hayPendienteDeAgenda);
   const pedidoLead = esPedidoSobreLead(t);
+  const pedidoCobro = esPedidoDeCobro(t);
 
   // 0) COMPARTIÓ UN CONTACTO. Va antes que todo porque no admite lectura: nadie
   //    comparte una tarjeta de contacto para que quede anotada como una idea.
@@ -558,7 +638,7 @@ export function clasificarIntencion(
   //    y «no, movela al viernes a las 10» arrancan con una palabra de CONFIRMACION, y con
   //    una pendiente abierta se leían como un «no» — el turno llegaba sin las herramientas
   //    de agenda y corregir una propuesta sólo la cancelaba (08/10/2026).
-  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !pedidoAgenda && !pedidoLead) {
+  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !pedidoAgenda && !pedidoLead && !pedidoCobro) {
     return { intencion: 'confirmar', dudosa: false, porque: 'confirmación con pendiente vigente' };
   }
 
@@ -593,6 +673,16 @@ export function clasificarIntencion(
       const v = clasificarIntencion(resto, ctx);
       return { ...v, porque: `${v.porque} (saludo adelante)` };
     }
+  }
+
+  // 3-bis-cobro) UN PEDIDO DE COBRO: un link de pago, anularlo, un reembolso, cancelar una
+  //              suscripción (ver `esPedidoDeCobro`, que ya descarta los volcados y lo del plan).
+  //              Va antes que lo que sigue: «sí, mandale el link de pago a Ana» después de una
+  //              pregunta de MaKo y «cancelá la suscripción de Pedro» con una pendiente abierta son
+  //              el pedido, no un «sí» ni un «no» (la regla 1 también lo deja pasar). Lleva sus
+  //              áreas y su relevancia: ninguna de esas frases nombra al CRM ni a `listar_productos`.
+  if (pedidoCobro) {
+    return { intencion: 'actuar', dudosa: false, porque: `pedido de cobro (${pedidoCobro.tipo})`, areas: AREAS_COBROS[pedidoCobro.tipo], relevancia: RELEVANCIA_COBROS[pedidoCobro.tipo] };
   }
 
   // 3-bis) SIGUE UN PEDIDO DE AGENDA. El código le acaba de mostrar a la persona
@@ -821,6 +911,10 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // El área «curso» sale SÓLO por HTTP (lib/api-mako/areas/curso.def.ts): nombrarla no le suma
   // ninguna herramienta al doer. Está para que la tabla cubra todas las áreas.
   curso: /\b(m[oó]dulos? del curso|clases? del curso|armar (el|un) curso|migrar (el|un) curso)/i,
+  // La pasarela de pagos (11/10/2026). Sin «pago» suelto, a propósito: «los pagos de Ana» son sus
+  // CUOTAS del CRM (cobranza_lead, área crm), y sumar esta área a cada pregunta de cobranza gastaría
+  // presupuesto en herramientas que no son.
+  cobros: /\b(cobros?\b|cobrar|links? (de|para) (pago|cobro|pagar)|checkout|stripe|mercado ?pago|reembols|devoluci[oó]n|suscripci[oó]n(es)?|pasarelas? de pago)/i,
   mako: /\b(pendientes?|propuestas?|qu[eé] (pod[eé]s|puedes) hacer|capacidades)/i,
 };
 

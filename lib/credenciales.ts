@@ -447,7 +447,27 @@ export async function hidratarCredenciales(): Promise<void> {
  * disfrazada de conexión propia de Mauricio. Es exactamente el caso de Zernio
  * que ya está contado arriba.
  */
-const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set(['ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET', 'ELEVENLABS_API_KEY']);
+/**
+ * ⚠️ Las SEIS de la pasarela de pagos (11/10/2026) están por otro motivo, y es más grave:
+ * acá no se copia una cuenta que gasta, se copia una cuenta que COBRA.
+ *
+ *  · El boot: si alguien carga `STRIPE_SECRET_KEY` como env de Vercel «para la plataforma», la
+ *    migración la escribiría en la fila del ws1 —Mauricio, un cliente— y sus links de pago
+ *    cobrarían en la cuenta de MaKo con cara de conexión propia. La Stripe de MaKo vive en la fila
+ *    de `wsSuperAdmin()`, pegada desde /integraciones como la de cualquier cliente.
+ *  · «Datos de Mau» (lib/datos-mau.ts) copia las credenciales del ws1 a un workspace de prueba:
+ *    sin esto, un clic dejaba la clave de cobro de Mauricio adentro de otro espacio.
+ *
+ * Los ids derivados (`STRIPE_ACCOUNT_ID`, `MERCADOPAGO_USER_ID`) igual rebotarían por
+ * `IdentificadorOcupadoError`, pero van también: una lista que deja pasar la mitad de una
+ * conexión es una lista que hay que pensar cada vez. tests/pasarela-sin-env.test.ts cuida el
+ * otro lado: que ningún código lea estas claves de `process.env`.
+ */
+const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set([
+  'ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET', 'ELEVENLABS_API_KEY',
+  'STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET',
+  'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_WEBHOOK_SECRET',
+]);
 
 /** Para que otros módulos pregunten en vez de repetir la lista. */
 export function esCredencialDeLaCasa(clave: string): boolean {

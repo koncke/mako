@@ -119,6 +119,8 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
+import { faltaComprobante } from '@/lib/pago-comprobante';
+import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { urlGravatar } from '@/lib/gravatar';
 import { type VisitasMap } from './crm-map';
@@ -198,6 +200,12 @@ export type LeadFullData = {
    *  null sin email. La cadena WhatsApp → email → iniciales la arma el cliente
    *  (app/_components/foto-contacto.ts). */
   fotoEmail: string | null;
+  /**
+   * Lo que la pasarela de pagos aporta a «¿se dibuja la tab Pagos?» (lib/muestra-pagos.ts): si el
+   * negocio puede cobrar con un link y si el lead ya tiene cobros. Los MISMOS datos que lee la ruta
+   * /crm/[id] (`senalesDeCobroAction`), para que las dos puertas de la ficha no difieran.
+   */
+  cobro: { pasarelaConectada: boolean; hayCobros: boolean };
 };
 
 /**
@@ -237,7 +245,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // calor del proyecto), y se fueron el 06/10/2026 con Clarity entero: la grabación
   // la hace MaKo y se dibuja adentro de la ficha. Nunca rompe la ficha:
   // `replayDeLead` no tira y distingue «no pude leer».
-  const [respuestas, insightGen, equipo, grabable, replay, funnels] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => [])]);
+  const [respuestas, insightGen, equipo, grabable, replay, funnels, cobro] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => []), senalesDeCobroAction(id)]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
@@ -247,14 +255,15 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const adNombre = resolverNombreAd(adIdCand, lead.meta_ad_name ?? utmC, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
-  const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
+  // Un cobro confirmado por la pasarela no pide comprobante (lib/pago-comprobante.ts).
+  const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   // El NOMBRE DEL PRODUCTO, no el del embudo: «Funnel principal» es el que puso la migración
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail };
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail, cobro };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

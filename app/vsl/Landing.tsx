@@ -641,6 +641,8 @@ function PieLegal() {
     }}>
       <a href="/privacidad" style={link}>Privacidad</a>
       <a href="/terminos" style={link}>Términos</a>
+      {/* La política que piden Stripe y Mercado Pago para aprobar la cuenta (11/10/2026). */}
+      <a href="/reembolsos" style={link}>Reembolsos</a>
       <a href={`mailto:${EMAIL_MAKO}`} style={link}>{EMAIL_MAKO}</a>
       {/* Meta rechazó la verificación del negocio porque la razón social no estaba en el
           sitio (08/10/2026): ver lib/titular-mako.ts. */}

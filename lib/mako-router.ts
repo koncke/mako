@@ -11,7 +11,7 @@
 //   · ante la duda se ESCALA (a Sonnet/Opus), nunca se degrada.
 // El resultado queda en `motivo` (router:tier) para auditar en el Saldo de IA.
 
-import { esPedidoSobreLead } from './mako-intencion';
+import { esPedidoSobreLead, esPedidoDeCobro } from './mako-intencion';
 
 export type Tier = 'cheap' | 'sonnet' | 'opus';
 export type RutaDoer = { tier: Tier; needsTools: boolean; model: string; effort: 'low' | 'medium' | 'high'; motivo: string };
@@ -62,7 +62,9 @@ export function rutearDoer(texto: string, ctx: { hayMedia?: boolean; hayPendient
   // ⚠️ «Anotá en el lead Nicolás que…» nombra «anotá» y NO es del plan: es una nota del CRM
   // (lib/mako-intencion.ts, `esPedidoSobreLead`). Con `(plan)` en la ruta, el doer exigía un
   // borrador del plan y, si la IA fallaba, guardaba el pedido como una tarea (08/10/2026).
-  if (esPedidoSobreLead(t)) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (dato/acción)' };
+  // Lo mismo un pedido de cobro (`esPedidoDeCobro`, 11/10/2026): «cargale el link de pago a Ana»
+  // nombra «carg…» y es un cobro, no una tarea.
+  if (esPedidoSobreLead(t) || esPedidoDeCobro(t)) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (dato/acción)' };
 
   if (PLAN.test(t) || LISTA_TAREAS(t)) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (plan)' };
 

@@ -23,6 +23,7 @@ import { getFunnelDefault, getFunnelDeLead, saveFunnelDefault, listarFunnels } f
 import { etapasDeProducto } from '@/lib/lead-funnel';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { getPagosByLead } from '@/lib/pagos';
+import { faltaComprobante } from '@/lib/pago-comprobante';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { stageMetaOpt, parseEntradas, MAKO_SETTER, type Stage } from '@/lib/pipeline';
@@ -106,7 +107,8 @@ export async function faltantesDeUnLead(lead: Lead): Promise<Step[]> {
     etapasDelFunnelDeLead(lead),
     encuentroGrabable(),
   ]);
-  const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
+  // Un cobro confirmado por la pasarela no pide comprobante (lib/pago-comprobante.ts).
+  const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
   return faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
 }
 

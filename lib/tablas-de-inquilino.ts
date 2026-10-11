@@ -37,7 +37,8 @@
  * Las tablas de inquilino (119 al 08/10/2026: las dos de etiquetas de la mig 0224 y la biblioteca
  * de archivos de la mig 0225; 120 el 09/10/2026 con `email_entrantes`, mig 0245; 121 el 11/10/2026 con
  * `dashboard_analisis`, mig 0247; 123 el mismo día con `notificaciones`, mig 0250, y las conversaciones
- * de la tab Offer, `offer_sesiones`, mig 0254), en orden alfabético.
+ * de la tab Offer, `offer_sesiones`, mig 0254; 126 con `cobros` y `pasarela_eventos` de la pasarela, mig
+ * 0255), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -48,7 +49,7 @@ export const TABLAS_DE_INQUILINO = [
   'ad_transcripts', 'adset_budget_daily', 'agente_consentimiento', 'agente_sesiones',
   'anthropic_usage', 'api_llamadas', 'app_settings', 'archivero_files',
   'avisos_cola', 'branding_assets', 'chart_chats', 'chart_sessions',
-  'chat_agent_handoffs', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs',
+  'chat_agent_handoffs', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs', 'cobros',
   'comunidad_ajustes', 'comunidad_baneos', 'comunidad_categorias', 'comunidad_comentarios',
   'comunidad_evento_avisos', 'comunidad_eventos', 'comunidad_likes', 'comunidad_notificaciones',
   'comunidad_perfiles', 'comunidad_posts', 'comunidad_seguimientos', 'comunidad_votos',
@@ -72,6 +73,9 @@ export const TABLAS_DE_INQUILINO = [
   'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily', 'meta_campaign_drafts',
   'montaje_trabajos', 'notificaciones', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias',
   'objectives', 'oferta_productos', 'ofertas', 'offer_sesiones', 'pagos',
+  // Los avisos de Stripe y Mercado Pago (mig 0255): `workspace_id` admite null, como email_entrantes.
+  // No va en TENANT_TABLES: nadie la lee con getTenantDb. `cobros` sí está en las dos.
+  'pasarela_eventos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',
   'plan_reprios', 'plan_tareas', 'producto_entrega', 'productos',
   'propuestas', 'retros', 'review_queue', 'script_analyses',

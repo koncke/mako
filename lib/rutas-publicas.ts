@@ -65,6 +65,26 @@ export const PUBLICOS = [
   // Los términos del servicio. Google los EXIGE junto con la política para
   // verificar la app OAuth de Calendar, y su revisor los abre sin cuenta.
   '/terminos',
+  // La política de reembolsos (11/10/2026, con la pasarela de pagos). Stripe y Mercado Pago la
+  // piden para aprobar la cuenta ANTES del primer cobro, y la lee quien está por pagar: las dos
+  // la abren sin cuenta de MaKo. Es una página: sólo GET (`esPublicaSoloLeer`).
+  '/reembolsos',
+  // ── El comprador de un link de pago (11/10/2026) ──────────────────────────────
+  // `/pagar/<token>` (route handler: redirige al checkout de Stripe o Mercado Pago) y
+  // `/pagar/<token>/listo` (adonde vuelve desde la pasarela). Las abre un COMPRADOR, que no tiene
+  // ni va a tener sesión de MaKo: el cliente de un negocio que le mandó el link, o alguien que está
+  // comprando un plan de MaKo y todavía no tiene cuenta. Se autentican con el token de la URL (32
+  // caracteres al azar, lib/cobros-reglas.ts) y NO leen ninguna cookie. Va como PREFIJO porque el
+  // token es un segmento de la ruta; abajo de `/pagar` no vive nada más, y por no ser `/api/` es
+  // sólo GET/HEAD/OPTIONS (`esPublicaSoloLeer`): lo que escribe va por `/api/pagar/email`.
+  '/pagar',
+  // Lo único que ESCRIBE del comprador: cambiar el email con el que va a entrar a MaKo después de
+  // pagar un plan (el login es sólo Google, y paga con el email que tenga a mano). Exacta, no
+  // `/api/pagar`. Se autentica con el token del cobro en el CUERPO —la misma credencial que el
+  // link— y no lee la cookie: sin el token no escribe nada, así que el Origin que el early-return
+  // saltea no protegía nada. Las condiciones (pagado, alta hecha, nunca entró, menos de 3 cambios)
+  // viven en app/pagar/cambio-email.ts, con test.
+  '/api/pagar/email',
   // El robots.txt (app/robots.ts). Sin esto el gate lo mandaba a /login: un crawler que
   // pedía reglas recibía una página de login.
   '/robots.txt',
@@ -174,6 +194,9 @@ export const PUBLICOS_ESCRITURA = [
   '/api/compartido/curso/entrega',
   '/api/compartido/comunidad',
   '/api/agente/lead',
+  // El comprador cambia el email de su acceso a MaKo (11/10/2026): el token del cobro viaja en el
+  // CUERPO y es la credencial entera (ver su entrada en PUBLICOS).
+  '/api/pagar/email',
 ] as const;
 
 const matchea = (lista: readonly string[], pathname: string) =>

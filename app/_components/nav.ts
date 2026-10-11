@@ -402,6 +402,10 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // referidos. Sólo super admin: vive bajo /admin y abre con getSesionAdmin. La key
         // NO lleva el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros).
         { key: 'admin-estrategia', label: 'Strategy', href: '/admin/estrategia', icon: 'analytics', match: starts('/admin/estrategia') },
+        // Martín vendiendo MaKo (11/10/2026: «Lo voy a utilizar yo como superadmin para vender
+        // MaKo»): el link de pago de un plan y lo que se cobró, con el alta de cada cuenta. Sólo
+        // super admin, mismo guard que Strategy; la key tampoco lleva el prefijo 'dev-'.
+        { key: 'admin-cobros', label: 'Cobros', href: '/admin/cobros', icon: 'tag', match: starts('/admin/cobros') },
       ],
       // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
       // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar
@@ -519,6 +523,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-meta-platform', label: 'Meta Platform', href: '/admin/dev/meta-platform', icon: 'config', match: starts('/admin/dev/meta-platform') },
           { key: 'dev-plan', label: 'Plan', href: '/admin/dev/plan', icon: 'todo', match: starts('/admin/dev/plan') },
           { key: 'dev-plans-entitlements', label: "Plans & Entitlements", href: '/admin/dev/plans-entitlements', icon: 'config', match: starts('/admin/dev/plans-entitlements') },
+          { key: 'dev-payment-gateway', label: 'Payment Gateway', href: '/admin/dev/payment-gateway', icon: 'tag', match: starts('/admin/dev/payment-gateway') },
           { key: 'dev-rate-limiting', label: "Rate Limiting", href: '/admin/dev/rate-limiting', icon: 'config', match: starts('/admin/dev/rate-limiting') },
           { key: 'dev-reels', label: "Reels", href: '/admin/dev/reels', icon: 'config', match: starts('/admin/dev/reels') },
           { key: 'dev-self-healing-dev-agent', label: "Self-Healing Dev Agent", href: '/admin/dev/self-healing-dev-agent', icon: 'config', match: starts('/admin/dev/self-healing-dev-agent') },
