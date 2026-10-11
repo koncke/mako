@@ -3583,3 +3583,36 @@ y arrastrar el lienzo con el botón del medio. Código en `f2d4f25a` (botón del
   **Vive en:** `app/_components/Lienzo.tsx`.
 - Sin ver en el navegador: los altos de la tarjeta AI STEP y su panel, el «⋯» de los mensajes y el botón del medio
   con un mouse real (el auto-scroll no se dibuja en headless). Lo mira Martín.
+
+## «MaKo en WhatsApp» = una automatización más (11/10/2026, claude3, `56581a3f`)
+
+Martín, con enojo y después de pedirlo en varias tandas: «debe ser IDENTICO… quedaron cosas muy viejas que quiero que
+las depreques. Todo ahora es lo mismo». Decidió «Todos arrancan vacíos» y nada de opciones nuevas («ya existe con lo
+que hicimos de CONDITIONS y DELAY… Solo debes readaptar esas plantillas»). El diseño entero, en
+`docs/diseno-mako-en-whatsapp-unificado.md`.
+
+- **⚠️ El diagnóstico de fondo: se igualaba POR FUERA.** Tres tandas seguidas (quinta, novena, ésta) le agregaron a
+  los mensajes un botón o un «⋯» de dos opciones encima de OTRO modelo (el store de plantillas, el lienzo de
+  Notificaciones, su motor). Por eso «sigue todo distinto». La cura fue mudarlos al modelo de la automatización, no
+  más paridad. Regla en la memoria (`mako-en-whatsapp-es-una-automatizacion`).
+- **El molde es el del recordatorio de la reunión:** una fila con un CRON que el motor de nutrición NO inscribe
+  (`aviso_mako`, el evento en el subtipo; `TRIGGERS_DEL_EMISOR`) y que corre su emisor de siempre
+  (`emitirDelCatalogo` → `emitirPorEvento`, lib/aviso-evento.ts). Los 45 lugares que emiten avisos no cambiaron.
+- **El `tipo` que se emite NO se puede cambiar:** el dedup (la cobranza: 120 días por cuota), el rótulo, el resumen
+  y el feed cuelgan de él. Con otro tipo, el día del cambio se reenvían todas las cuotas vencidas.
+- **Dos filas del mismo evento:** el dedup se reclama UNA vez por evento y cada tarjeta emite sin ventana propia; si
+  no, la segunda fila la frena la ventana de la primera.
+- **Una corrida dormida guarda una POSICIÓN, no una tarjeta.** Al editar el flujo mientras duerme, al despertar
+  ejecutaba otra tarjeta (repetía la entrada de la cobranza con `{{cuota_dias}}` sin resolver). Ahora guarda una
+  firma de los pasos y se corta si cambiaron. ⚠️ Las corridas de los flujos del STORE (p.ej. `cuota-por-vencer`)
+  tienen el mismo problema y no se tocaron (hoy hay 0 corridas). **Vive en:** `lib/flujos.ts` (`retomarCorrida`).
+- **«No pude leer al lead» gastaba el dedup** (la CONDITION lo leía como «no cumple» y la corrida terminaba): ahora
+  reintenta 3 veces cada 5 min sin gastar la ventana. Y «Lo que arma MaKo» (`{{mensaje_mako}}`) no va después de un
+  DELAY: es la foto de ese momento.
+- **Duplicar perdía los CRON** (la lista blanca `COPIA` no incluía `disparadores`): arreglado para las filas del
+  emisor. **Vive en:** `lib/secuencia-duplicar.ts`.
+- **SIN HACER:** `lib/nutricion-desenlace.ts` (`encadenar`) y `lib/api-mako/areas/chatbot.run.ts` (~785) todavía
+  dejan apuntar a una fila del emisor como siguiente automatización; el motor la cancela en el tick siguiente, pero
+  queda contada. El dry-run la muestra como «acción».
+- **Consecuencia que se avisó:** desde el deploy, «aviso antes de la reunión», «un lead te escribió» y «cuota vencida»
+  dejan de salir en los 10 negocios hasta que cada uno agregue su plantilla. El ws1 recibía 7 y 3 en 30 días.

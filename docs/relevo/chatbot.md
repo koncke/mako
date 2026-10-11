@@ -1,6 +1,9 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
-> **EN CURSO (11/10/2026 ~01:45, chat «chatbot», `claude3`): «MaKo en WhatsApp» = una automatización más.** Martín
+> **HECHO (11/10/2026 ~04:15, `56581a3f`):** lo de abajo está en producción; lo aprendido en
+> `docs/hallazgos-chatbot.md` → «"MaKo en WhatsApp" = una automatización más». Sin ver con clics (lo mira Martín).
+>
+> **(Era) EN CURSO (11/10/2026 ~01:45, chat «chatbot», `claude3`): «MaKo en WhatsApp» = una automatización más.** Martín
 > (con enojo, pedido varias veces): «debe ser IDENTICO… quedaron cosas muy viejas que quiero que las depreques. Todo
 > ahora es lo mismo». Decisiones: **todos los negocios arrancan VACÍOS** (los mensajes de MaKo del cliente dejan de
 > salir hasta que cada negocio los agrega desde la galería) y **nada de opciones nuevas**: cada cuánto / insistir se
