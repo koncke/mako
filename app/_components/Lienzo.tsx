@@ -356,6 +356,8 @@ export function Lienzo({
     modo: 'pan' | 'lazo' | 'nodo';
     /** Con el botón derecho: si se movió, al soltar NO se abre el menú del click derecho. */
     derecho: boolean;
+    /** Con el botón del MEDIO (la rueda): sólo panea. Al soltar no selecciona, no cierra el panel ni toca el lazo. */
+    medio?: boolean;
   } | null>(null);
   /** El rectángulo del lazo (se escribe en el DOM, nunca con setState: es la trampa 3). */
   const lazoRef = useRef<HTMLDivElement | null>(null);
@@ -855,6 +857,16 @@ export function Lienzo({
       try { caja.current?.setPointerCapture(e.pointerId); } catch { /* el gesto sigue sin captura */ }
       return;
     }
+    // EL BOTÓN DEL MEDIO TAMBIÉN MUEVE EL LIENZO (10/10/2026, novena tanda, Martín: «También debería poder
+    // arrastrar el lienzo si mantengo apretado la tuerca de scroll del ratón»). Sólo panea: con `medio` y no con
+    // `derecho`, porque al soltar quieto el derecho abre el menú y el medio no tiene nada que abrir. El
+    // auto-scroll del navegador (el ícono de flechas de Windows) lo frenan `onMouseDown` y `onAuxClick` de la caja.
+    if (e.button === 1) {
+      e.preventDefault();
+      gesto.current = { x0: e.clientX, y0: e.clientY, tx0: v.tx, ty0: v.ty, movido: 0, nodo: null, nx0: 0, ny0: 0, arrastrandoNodo: false, modo: 'pan', derecho: false, medio: true };
+      try { caja.current?.setPointerCapture(e.pointerId); } catch { /* el gesto sigue sin captura */ }
+      return;
+    }
     if (e.button !== 0) return;
     // ⚠️ EL NODO SE ANOTA ACÁ, EN EL POINTERDOWN, Y NO AL SOLTAR. `setPointerCapture`
     // RETARGETEA todos los eventos siguientes al elemento que capturó: en el
@@ -893,8 +905,8 @@ export function Lienzo({
       }
       return;
     }
-    // Paneando con el derecho, el menú que pudo abrirse al apretar (en Mac llega al bajar) se cierra.
-    if (g.derecho && g.movido > ARRASTRE2 && menu) cerrarMenu();
+    // Paneando con el derecho (o el del medio), el menú que pudo abrirse al apretar (en Mac llega al bajar) se cierra.
+    if ((g.derecho || g.medio) && g.movido > ARRASTRE2 && menu) cerrarMenu();
     if (g.arrastrandoNodo && g.nodo) {
       // ⚠️ EL DELTA SE DIVIDE POR EL ZOOM. Al 50%, mover el mouse 100 px tiene que
       // mover la tarjeta 200 en coordenadas del grafo, o el dibujo se despega del
@@ -920,6 +932,12 @@ export function Lienzo({
     if (g.derecho) {
       // Movido: fue un paneo, y el `contextmenu` que viene no abre nada. Quieto: es el click derecho.
       paneoDerecho.current = g.movido > ARRASTRE2;
+      try { caja.current?.releasePointerCapture(e.pointerId); } catch { /* ya se soltó */ }
+      return;
+    }
+    // ⚠️ El del medio sale ACÁ: si siguiera de largo, el «clic quieto» de abajo haría `onSeleccion(null)` —cerraba
+    // el panel abierto— y el del lazo vaciaba lo elegido.
+    if (g.medio) {
       try { caja.current?.releasePointerCapture(e.pointerId); } catch { /* ya se soltó */ }
       return;
     }
@@ -1030,6 +1048,10 @@ export function Lienzo({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        // El botón del medio panea (ver `onPointerDown`): cancelar el `pointerdown` no alcanza para frenar el
+        // auto-scroll de Windows, que cuelga del `mousedown`; y el `auxclick` abriría un link de una burbuja.
+        onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
+        onAuxClick={(e) => { if (e.button === 1) e.preventDefault(); }}
         onContextMenu={onContextMenu}
         // ⚠️ `overflow: hidden` NO impide que el contenedor se scrollee POR CÓDIGO, y
         // eso desincroniza el dibujo de la vista: el `transform` sigue diciendo una
