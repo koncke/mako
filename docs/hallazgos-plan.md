@@ -6366,3 +6366,38 @@ reciente con `actor: 'user'`.
 ⚠️ **Y la pista que lo delata en dos segundos: cinco filas con el MISMO timestamp al
 milisegundo no las tocó una persona.** Nadie edita cinco tarjetas en el mismo milisegundo; eso
 es un `update` en lote. Vale para cualquier auditoría del tablero, no sólo para este caso.
+
+## Una depuración de prioridades dura hasta que alguien cierra una tarjeta: la del 25/09 duró seis días (10/10/2026)
+
+**Vive en:** `app/plan/board/BoardShell.tsx` (`rePriorizar`, el efecto de `planSig`) ·
+`app/plan/board/useBoard.ts` (`applyGuardian`) · `lib/mako-guardian.ts` (`puntuarPlan`)
+
+Al depurar «Feature: Onboarding» el 10/10, tres tarjetas que el barrido del 25/09 había
+mandado abajo a propósito estaban otra vez arriba:
+
+| | 25/09 (barrido) | 01/10 22:34 (Perro) |
+|---|---|---|
+| #614 | 40 → 20, «Queda APARTADA» | «Priorizó · score 79» |
+| #652 | 40 → 20, «Queda APARTADA» | «Priorizó · score 63» |
+| #706 | 40 → 20, «Queda APARTADA» | «Priorizó · score 39» |
+
+**El diagnóstico obvio era el reparto diario, y era el equivocado.** `recurvarPlanOwner` no
+escribe historial, y lo que aparece el 01/10 es «Priorizó · score N»: lo escribe
+`applyGuardian` (`app/plan/board/useBoard.ts:229`), la re-priorización que corre EN EL
+NAVEGADOR 2,5 s después de que cambia el conjunto de tarjetas abiertas (crear, borrar o
+completar una con /plan abierto, `BoardShell.tsx:804-812`). Manda TODAS las abiertas al Perro
+y pisa `score` **y** `score_base` de cada una que vuelve. Escribir la base protege del reparto
+de la mañana (ya estaba escrito acá); no protege de que alguien cierre una tarjeta.
+
+⚠️ **Y por la misma puerta parece pisar también las fijadas a mano**, que es peor y no se
+midió en el navegador: el pedido no manda `scoreManual` (`BoardShell.tsx:775`), `puntuarPlan`
+no lo lee y `applyGuardian` no lo mira antes de escribir. El único que lo respeta, leído en el
+código, es `recurvarPlanOwner` (`lib/plan-board.ts:885`). Si se confirma, una prioridad que
+Martín ganó discutiendo se pierde la próxima vez que completa cualquier tarjeta.
+
+La depuración del 10/10 escribió `score` y `score_base` sin `score_manual` (la regla de
+AGENTS.md) y dejó el veredicto en `score_razon` y en el historial de cada tarjeta.
+**Sin hacer:** que `applyGuardian` saltee las fijadas, y que el Perro reciba el veredicto de
+una depuración (hoy recibe `scoreActual` y nada del porqué).
+
+*Corrida del 10/10/2026 · chat «Onboarding» · leído en el código y en el historial de la base.*

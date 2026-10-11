@@ -364,3 +364,69 @@ export const CS_TE_TOCA: Pendiente[] = [
   { t: '**Prende la purga de archivos** con CURSO_PURGA_BORRAR=1 en Vercel, después de leer una corrida en modo prueba.' },
   { t: '**Contesta las decisiones abiertas**: el PAS, el Calendly de las sesiones, la baja en el kanban, «pausado», el becado en el CAC y /cs-analyst. Están en una tarjeta del borrador.' },
 ]
+
+// =============================================================================
+// El Onboarding — la depuración del proyecto (10/10/2026)
+// =============================================================================
+// Pedido de Martín (10/10): «Revisa el proyecto del plan "ONBOARDING" y ponlo todo en
+// Runway... Revisa según nuestro criterio si no hay que repriorizar o eliminar
+// directamente tareas innecesarias».
+//
+// ⚠️ EL MISMO REPARTO QUE EL CRM: título, prioridad y «Hecha» salen del tablero en cada
+// carga, y acá vive sólo el veredicto, con la misma regla de qué contesta cada motivo
+// (ver el comentario de CRM_VEREDICTOS). Las «se va» se cerraron en el tablero el mismo
+// día, con la evidencia en el historial de cada tarjeta: por eso llevan `hecho`.
+//
+// El criterio: la etapa 3 del plan vigente («Onboarding + el video», que vencía el 9/10)
+// y la poda del 03/10 (P2 y P4 eliminados). Lo que sólo servía a la versión gratis se
+// pospone, no se borra: la versión gratis se postergó, no se descartó. Las prioridades
+// se escribieron en la BASE (`score_base`), que es de donde arranca el reparto diario.
+// El detalle, en docs/hallazgos-onboarding.md → «La depuración del proyecto».
+
+export const ONB_MEDIDO = '10 de octubre de 2026';
+
+export const ONB_VEREDICTOS: Record<number, { que: Veredicto; motivo: string; hecho?: string }> = {
+  // ── Se queda: qué se rompe sin esto ──
+  734: { que: 'queda', motivo: 'Sin esto, quien paga y entra solo se traba en el paso 2 cuando se le acaba la cuota de Gemini' },
+  171: { que: 'queda', motivo: 'Sin esto ningún cliente nuevo trae su histórico de leads de Meta, y nada lo avisa' },
+  737: { que: 'queda', motivo: 'Es «el video» de la etapa: sin el tutorial, cada llamada grupal se va en «¿qué es esto?»' },
+  801: { que: 'queda', motivo: 'El Ads Manager abre sin decir qué falta conectar: no tiene onboarding ni panel' },
+  201: { que: 'queda', motivo: 'Una cuenta de Instagram figura «leída» con el perfil vacío, y el cliente cree que MaKo la entendió' },
+
+  // ── Se va: por qué ya no queda nada que hacer ──
+  372: { que: 'va', motivo: 'Ya está: Automations mira la línea en vivo', hecho: 'Automations abre con el QR si no hay WhatsApp y avisa si la línea se cae: nunca pide lo que ya está' },
+  309: { que: 'va', motivo: 'Ya pasó lo que pedía', hecho: 'A Leila le llegó el código el 03/08, y que la línea esté viva lo dice el QR' },
+  706: { que: 'va', motivo: 'Lo resuelve el plan que escribe MaKo', hecho: 'El plan ya no viene igual para todos: lo escribe MaKo con lo que el cliente contestó, y él lo revisa antes' },
+  707: { que: 'va', motivo: 'Lo resuelve el plan que escribe MaKo', hecho: 'El plan que MaKo escribe al terminar ya sale del diagnóstico: la fase y el cuello' },
+
+  // ── Se pospone: cómo se sobrevive sin eso ──
+  614: { que: 'pospone', motivo: 'El arranque ya muestra el diagnóstico al terminar. El PDF por WhatsApp era para la versión gratis' },
+  652: { que: 'pospone', motivo: 'Ya son 6 pasos, y Meta y el teléfono se dejan para después. Lo que falta era para la versión gratis' },
+  607: { que: 'pospone', motivo: 'La bienvenida animada ya está. El video de 1 a 2 minutos era para la versión gratis' },
+  608: { que: 'pospone', motivo: 'Era para que un usuario gratis quiera pagar, y la versión gratis se postergó' },
+  532: { que: 'pospone', motivo: 'Los clientes que abandonaron se trabaron al conectar, no por no entender un paso' },
+  164: { que: 'pospone', motivo: 'La Retro ya no es un paso del arranque: es una opción al final, que el cliente elige' },
+  699: { que: 'pospone', motivo: 'Es del Copy Generator, no del arranque. En el Ads Writer cada guion ya se borra o se edita suelto' },
+  214: { que: 'pospone', motivo: 'Quien agenda y no asiste ya cae en «se caen los leads», y el CRM separa los no-show' },
+  213: { que: 'pospone', motivo: 'No frena a nadie: el resultado se lee, aunque la letra sea chica' },
+  743: { que: 'pospone', motivo: 'Ninguna automatización de Leila usa esos audios. Se borran cuando ella vaya a regrabar' },
+};
+
+/**
+ * Las que se BORRARON del tablero: ya no tienen fila de la que leer el título, así que va
+ * escrito acá y se dibuja al pie, como CRM_NUEVA. El respaldo de la fila entera está en
+ * dashboard-marketing-main/backups/onboarding-depuracion-2026-10-10.json (fuera del repo).
+ */
+export const ONB_ELIMINADAS = [
+  {
+    num: 625,
+    titulo: 'Reiniciar el onboarding de Leila para pruebas, sin perder su CRM ni su plan',
+    motivo: 'El arranque se prueba en el Cliente de Prueba, que está sin empezar: no hace falta tocar la cuenta de Leila',
+  },
+];
+
+/** Lo que le queda a Martín de este proyecto. */
+export const ONB_TE_TOCA: Pendiente[] = [
+  { t: '**Ponle fecha a las 5 que quedan**: la etapa vencía el 9/10. Primero #734 y #171, que son las que traban a un cliente.' },
+  { t: '**Graba el video tutorial** (#737): es lo único de la etapa que no es código.' },
+]

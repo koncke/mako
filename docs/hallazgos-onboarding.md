@@ -1604,3 +1604,62 @@ ese paso corre en la primera pasada: abrir «Tu forma de escribir» mandaba un `
 El default es `soloPaso` cuando lo hay. **Lo encontró el arnés porque ABORTABA toda request que
 no fuera GET** y las listaba: una verificación que sólo mira la pantalla no lo ve, porque la
 pantalla se dibuja perfecta.
+
+## La depuración del proyecto del tablero (10/10/2026)
+
+**Vive en:** `app/admin/runway/datos.ts` (`ONB_VEREDICTOS`) · `app/admin/runway/page.tsx`
+(`TablaVeredictos`) · el proyecto «Feature: Onboarding» (`arranque-del-cliente`, ws9)
+
+Pedido de Martín: revisar el proyecto con el criterio de la casa, repriorizar o borrar lo
+innecesario, y dejarlo en Runway. De 20 abiertas: **5 se quedan** (#734, #171, #737, #801,
+#201), **10 se posponen**, **4 se cerraron** con su prueba en el historial (#372, #309, #706,
+#707) y **1 se borró** (#625). Cada veredicto, con su motivo, en `/admin/runway#onboarding`.
+El respaldo de las 20 filas y del proyecto, antes de tocar nada:
+`dashboard-marketing-main/backups/onboarding-depuracion-2026-10-10.json` (fuera del repo).
+
+El criterio: la etapa 3 del plan vigente («Onboarding + el video», que vencía el 9/10), la
+poda del 03/10 (P2 y P4 eliminados) y la pregunta de Leila, «¿es indispensable para que el
+negocio esté corriendo?».
+
+### El «Qué falta» del proyecto nombraba tarjetas que ya eran de otro
+
+El detalle del proyecto lo escribió el Perro una vez y nadie lo volvió a leer: su «Qué falta»
+listaba #33, #34 y #35 (los tableros del funnel, ya en el CRM), #5 (cerrada) y #6 (en el CRM).
+**Mover una tarjeta de proyecto no toca el detalle del proyecto que la nombra**, así que el
+documento que alguien abre para saber qué falta mentía sobre cinco de sus siete renglones.
+Se reescribió con las cinco que quedan. La regla: al mover o cerrar tarjetas en lote, se
+relee el detalle de cada proyecto que las nombra, en la misma pasada.
+
+### Cuatro tarjetas eran para la versión gratis, y se posponen: no se borran
+
+#614 (el diagnóstico por WhatsApp con PDF), #652 (el arranque mínimo de tres pasos), #607 (el
+video de bienvenida) y #608 (el grafo en vivo) nacieron para que un usuario gratis quiera
+pagar. La versión gratis se postergó al «VSL Funnel 2.0», no se descartó. Borrarlas habría
+mezclado DESCARTADO con POSTERGADO, que es justo como vuelve después el trabajo que se sacó.
+
+### #734: la red de plataforma existe, y no cubre el onboarding
+
+El diagnóstico obvio —«el onboarding está roto por la cuota de Gemini» (01/10)— está a medias.
+Desde agosto se arreglaron dos cosas: `errorDeCascada` dice de quién es el fallo y una
+saturación cae a otro modelo del mismo proveedor (`chatCheapCascade`). Lo que falta es la RED
+DE PLATAFORMA: medido el 10/10, `provsGratisDePlataforma()` tiene tres llamadores (el audio en
+`lib/ai-cheap.ts`, el doer en `lib/mako-doer-in.ts` y `app/api/chat-agent/redactar`), y
+ninguno es del arranque. El Archivero lee con `leerDocumentoIA` y los productos con
+`chatCheapCascade` sobre `CASCADA_DOCS`, las dos sólo con las keys del cliente. Y
+`ProductosView.tsx:242` sigue pintando el error sin el botón para sumar otra key.
+
+### Lo que quedó SIN hacer
+
+- **Las cinco que se quedan**, sin fecha (la etapa vencía el 9/10). #171 es una línea:
+  `lib/onboarding-extract.ts:67` sigue leyendo `getSetting('meta_page_id')`, que no escribe
+  nadie, en vez de `credWs('META_PAGE_ID')`.
+- **La verificación de la tab /whatsapp verifica la línea de MaKo, no la del cliente.** Se
+  cerró #309 porque su «listo» ya pasó y porque el QR mide la línea en vivo, pero el paso
+  `wa_no_oficial_prueba` (`app/api/chat-agent/onboarding/prueba/route.ts`) sigue mandando el
+  código por `enviarAlGrupoMaKo`. Si alguien vuelve a confiar en ese paso como «la línea del
+  cliente manda», se equivoca.
+- **Las prioridades nuevas duran hasta que alguien crea, borra o completa una tarjeta con
+  /plan abierto**: ahí el Perro re-puntúa el tablero entero (ver `docs/hallazgos-plan.md`, la
+  entrada del 10/10). No se fijaron a mano, a propósito.
+
+*Corrida del 10/10/2026 · chat «Onboarding», sin subagentes · medido contra el código y la base.*

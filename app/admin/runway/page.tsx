@@ -27,6 +27,7 @@ import {
   CRM_VEREDICTOS, CRM_NUEVA, CRM_DECISIONES, VEREDICTO_LABEL,
   CHATBOT_MEDIDO, CHATBOT_TAREAS, CHATBOT_EN_PRODUCCION, CHATBOT_TE_TOCA,
   CS_MEDIDO, CS_TAREAS, CS_EN_PRODUCCION, CS_TE_TOCA,
+  ONB_MEDIDO, ONB_VEREDICTOS, ONB_ELIMINADAS, ONB_TE_TOCA,
   type Veredicto, type EstadoChatbot, type TareaApartado, type Pendiente,
 } from './datos';
 // El chip de prioridad es EL MISMO del tablero: la banda y el color salen de
@@ -36,7 +37,7 @@ import { prioFromScore, PCOLOR } from '@/app/plan/board/types';
 // Las tareas salen del tablero, ABIERTAS Y CERRADAS: una terminada tiene que poder
 // verse marcada, y el lector de /admin/dev las filtra en la consulta.
 import { wsDelBoard } from '@/app/admin/dev/roadmap';
-import { tareasDelCrm, tareasDelProyecto, PROYECTO_CHATBOT, PROYECTO_CS, type TareaCrm } from './tareas';
+import { tareasDelCrm, tareasDelProyecto, PROYECTO_CHATBOT, PROYECTO_CS, PROYECTO_ONBOARDING, type TareaCrm } from './tareas';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,25 +103,148 @@ const TONO: Record<Veredicto, { fg: string; bg: string }> = {
   va: { fg: 'var(--primary)', bg: 'color-mix(in srgb, var(--primary) 11%, transparent)' },
 };
 
-function Decision({ v, hecha }: { v: Veredicto | null; hecha?: boolean }) {
-  // ⚠️ «Hecha» gana sobre el veredicto, y no lo reemplaza en los datos: el veredicto
-  // dice qué se decidió el 03/10 y esto dice qué pasó después. Pintar «Se queda» sobre
-  // algo que ya se entregó manda a trabajar dos veces.
-  if (hecha) {
-    return (
-      <span style={{
-        display: 'inline-block', whiteSpace: 'nowrap', padding: '3px 10px', borderRadius: 999,
-        fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'var(--good)',
-      }}>✓ Hecha</span>
-    );
-  }
-  if (!v) return <span style={{ color: 'var(--faint)', fontSize: 12.5 }}>sin revisar</span>;
-  const t = TONO[v];
+function Chip({ t, fg, bg }: { t: string; fg: string; bg: string }) {
   return (
     <span style={{
       display: 'inline-block', whiteSpace: 'nowrap', padding: '3px 10px', borderRadius: 999,
-      fontSize: 12.5, fontWeight: 700, color: t.fg, background: t.bg,
-    }}>{VEREDICTO_LABEL[v]}</span>
+      fontSize: 12.5, fontWeight: 700, color: fg, background: bg,
+    }}>{t}</span>
+  );
+}
+
+/**
+ * `etiquetas` pisa el rótulo de un veredicto para UNA tabla: en el CRM `va` fue «se funde»
+ * (eran duplicadas), en el Onboarding es «se va» (ya no queda nada que hacer). El tono y
+ * el significado del chip son los mismos; cambia la palabra.
+ */
+function Decision({ v, hecha, etiquetas }: { v: Veredicto | null; hecha?: boolean; etiquetas?: Partial<Record<Veredicto, string>> }) {
+  // ⚠️ «Hecha» gana sobre el veredicto, y no lo reemplaza en los datos: el veredicto
+  // dice qué se decidió el 03/10 y esto dice qué pasó después. Pintar «Se queda» sobre
+  // algo que ya se entregó manda a trabajar dos veces.
+  if (hecha) return <Chip t="✓ Hecha" fg="#fff" bg="var(--good)" />;
+  if (!v) return <span style={{ color: 'var(--faint)', fontSize: 12.5 }}>sin revisar</span>;
+  const t = TONO[v];
+  return <Chip t={etiquetas?.[v] ?? VEREDICTO_LABEL[v]} fg={t.fg} bg={t.bg} />;
+}
+
+type FilaVeredicto = {
+  num: number; titulo: string; score: number; hecha: boolean;
+  que: Veredicto | null; motivo: string; hecho?: string;
+};
+/** Una fila que NO está en el tablero (la que no se creó, la que se borró): va al pie. */
+type FilaExtra = { clave: string; marca: React.ReactNode; titulo: string; decision: React.ReactNode; motivo: string };
+type Tramo = { k: string; n: number; bg: string; ink: string };
+
+/**
+ * La tabla de una depuración: el reparto arriba y una fila por tarea con su veredicto.
+ * Nació para el CRM (03/10) y la reusa el Onboarding (10/10): una sola pieza, para que las
+ * dos se lean igual y la regla de «Hecha gana» viva en un lugar.
+ */
+function TablaVeredictos({ reparto, filas, extras = [], etiquetas }: {
+  reparto: Tramo[]; filas: FilaVeredicto[]; extras?: FilaExtra[]; etiquetas?: Partial<Record<Veredicto, string>>;
+}) {
+  const celda: React.CSSProperties = { padding: '11px 14px', borderTop: '1px solid var(--border)' };
+  const pie: React.CSSProperties = { padding: '11px 14px', borderTop: '1px solid var(--border-strong)' };
+  return (
+    <>
+      <div style={caja}>
+        <div style={{ display: 'flex', height: 30, borderRadius: 8, overflow: 'hidden', gap: 2 }}>
+          {reparto.map((r) => (
+            <div key={r.k} style={{
+              flex: Math.max(r.n, 1), background: r.bg, color: r.ink, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: 13, fontWeight: 700, minWidth: 0, fontVariantNumeric: 'tabular-nums',
+            }}>{r.n}</div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 11, fontSize: 13, color: 'var(--dim)' }}>
+          {reparto.map((r) => (
+            <span key={r.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              <span aria-hidden style={{ width: 12, height: 12, borderRadius: 4, background: r.bg, display: 'inline-block' }} />
+              <strong style={{ color: 'var(--ink)' }}>{r.n}</strong> {r.k}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ ...caja, padding: 0, overflow: 'hidden', marginTop: 14 }}>
+        <div className="mk-scroll-x" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 760 }}>
+            <thead>
+              <tr>
+                {[
+                  { t: 'Tarea', w: '36%' }, { t: 'Prioridad', w: '1%' },
+                  { t: 'Qué hacemos', w: '1%' }, { t: 'Por qué', w: '' },
+                ].map((c) => (
+                  <th key={c.t} style={{
+                    ...rotulo, textAlign: 'left', padding: '11px 14px', fontWeight: 600,
+                    borderBottom: '1px solid var(--border)', width: c.w || undefined, whiteSpace: 'nowrap',
+                  }}>{c.t}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((f) => (
+                <tr key={f.num} style={f.hecha ? { color: 'var(--dim)' } : undefined}>
+                  <td style={{ ...celda, lineHeight: 1.4 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>#{f.num}</span>{' '}
+                    {f.titulo}
+                  </td>
+                  <td style={celda}>
+                    <span style={{
+                      display: 'inline-block', padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+                      fontVariantNumeric: 'tabular-nums', color: PCOLOR[prioFromScore(f.score)],
+                      border: `1px solid ${PCOLOR[prioFromScore(f.score)]}`,
+                      background: `color-mix(in srgb, ${PCOLOR[prioFromScore(f.score)]} 10%, transparent)`,
+                    }}>{f.score}</span>
+                  </td>
+                  <td style={celda}>
+                    <Decision v={f.que} hecha={f.hecha} etiquetas={etiquetas} />
+                  </td>
+                  <td style={{ ...celda, color: 'var(--dim)', lineHeight: 1.4 }}>
+                    {/* Cerrada: el porque de la decision ya es historia, y el de una
+                        pospuesta se contradice con el «Hecha» de al lado. */}
+                    {(f.hecha && f.hecho) || f.motivo}
+                  </td>
+                </tr>
+              ))}
+              {extras.map((x) => (
+                <tr key={x.clave}>
+                  <td style={{ ...pie, lineHeight: 1.4 }}>{x.marca}{' '}{x.titulo}</td>
+                  <td style={{ ...pie, color: 'var(--faint)' }}>—</td>
+                  <td style={pie}>{x.decision}</td>
+                  <td style={{ ...pie, color: 'var(--dim)', lineHeight: 1.4 }}>{x.motivo}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Lo que le toca a Martín: una lista, y el link al lado cuando hay adónde ir. */
+function ListaPendientes({ items }: { items: Pendiente[] }) {
+  return (
+    <div style={caja}>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
+        {items.map((x) => (
+          <li key={x.t} style={{ position: 'relative', paddingLeft: 17, fontSize: 14, lineHeight: 1.5 }}>
+            <span aria-hidden style={{
+              position: 'absolute', left: 0, top: 8, width: 6, height: 6, borderRadius: '50%', background: 'var(--faint)',
+            }} />
+            <Marcado t={x.t} />
+            {/* Un `<a>` y no el Link de la casa: esta pantalla no manda JavaScript, y el
+                `?ws=` ya viaja escrito en el destino. */}
+            {x.href && (
+              <a href={x.href} style={{
+                marginLeft: 10, whiteSpace: 'nowrap', fontSize: 13, fontWeight: 600, color: 'var(--primary)',
+              }}>{x.boton ?? 'Abrir'} →</a>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -253,25 +377,7 @@ function Apartado({ id, titulo, filas, enProduccion, teToca, deQuien }: {
       <div style={caja}><Lista items={enProduccion} /></div>
 
       <h2 style={h2}>Lo que te toca {deQuien}</h2>
-      <div style={caja}>
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
-          {teToca.map((x) => (
-            <li key={x.t} style={{ position: 'relative', paddingLeft: 17, fontSize: 14, lineHeight: 1.5 }}>
-              <span aria-hidden style={{
-                position: 'absolute', left: 0, top: 8, width: 6, height: 6, borderRadius: '50%', background: 'var(--faint)',
-              }} />
-              <Marcado t={x.t} />
-              {/* Un `<a>` y no el Link de la casa: esta pantalla no manda JavaScript, y el
-                  `?ws=` ya viaja escrito en el destino. */}
-              {x.href && (
-                <a href={x.href} style={{
-                  marginLeft: 10, whiteSpace: 'nowrap', fontSize: 13, fontWeight: 600, color: 'var(--primary)',
-                }}>{x.boton ?? 'Abrir'} →</a>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <ListaPendientes items={teToca} />
     </>
   );
 }
@@ -324,12 +430,33 @@ export default async function RunwayPage() {
   // El título, la prioridad y si está cerrada salen del tablero; lo que se hizo, de
   // `datos.ts`. Entran las tarjetas que se trabajaron y las abiertas que aparezcan
   // después (marcadas «sin revisar»): las cerradas de antes no son de esta foto.
-  const [tareasBot, tareasCs] = await Promise.all([
+  const [tareasBot, tareasCs, tareasOnb] = await Promise.all([
     tareasDelProyecto(wsDelBoard(admin.ws), PROYECTO_CHATBOT),
     tareasDelProyecto(wsDelBoard(admin.ws), PROYECTO_CS),
+    tareasDelProyecto(wsDelBoard(admin.ws), PROYECTO_ONBOARDING),
   ]);
   const BOT = filasDeApartado(tareasBot, CHATBOT_TAREAS);
   const CS = filasDeApartado(tareasCs, CS_TAREAS);
+
+  // ── El Onboarding (10/10): el mismo reparto que el CRM ──
+  // Entran las que la depuración juzgó —abiertas o ya cerradas— y las abiertas que
+  // aparezcan después, marcadas «sin revisar». Las cerradas de antes no son de esta foto.
+  const ONB: FilaVeredicto[] = tareasOnb
+    .filter((t) => ONB_VEREDICTOS[t.num] || t.progreso < 100)
+    .map((t) => ({
+      num: t.num, titulo: t.titulo, score: t.score, hecha: t.progreso >= 100,
+      ...(ONB_VEREDICTOS[t.num] ?? { que: null, motivo: 'Entró después de la depuración' }),
+    }));
+  const cuentaOnb = (v: Veredicto) => ONB.filter((f) => !f.hecha && f.que === v).length;
+  const REPARTO_ONB: Tramo[] = [
+    { k: 'cerradas', n: ONB.filter((f) => f.hecha).length, bg: 'var(--good)', ink: '#fff' },
+    { k: 'se quedan', n: cuentaOnb('queda'), bg: 'var(--bad)', ink: '#fff' },
+    { k: 'se posponen', n: cuentaOnb('pospone'), bg: 'var(--surface-2)', ink: 'var(--ink)' },
+    // Una «se va» que alguien reabrió en el tablero vuelve a contar acá, no como cerrada.
+    { k: 'se van', n: cuentaOnb('va'), bg: 'var(--primary)', ink: '#fff' },
+    { k: ONB_ELIMINADAS.length === 1 ? 'borrada' : 'borradas', n: ONB_ELIMINADAS.length, bg: 'var(--border-strong)', ink: 'var(--ink)' },
+    { k: 'sin revisar', n: ONB.filter((f) => !f.hecha && f.que === null).length, bg: 'var(--border)', ink: 'var(--ink)' },
+  ].filter((r) => r.n > 0);
 
   return (
     <Pagina ancho="completo">
@@ -505,82 +632,14 @@ export default async function RunwayPage() {
 
       {/* ── la depuración del CRM: UNA tabla, como la del tablero ── */}
       <h2 style={h2}>El CRM · qué se hace con cada tarea</h2>
-      <div style={caja}>
-        <div style={{ display: 'flex', height: 30, borderRadius: 8, overflow: 'hidden', gap: 2 }}>
-          {REPARTO.map((r) => (
-            <div key={r.k} style={{
-              flex: Math.max(r.n, 1), background: r.bg, color: r.ink, display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontSize: 13, fontWeight: 700, minWidth: 0, fontVariantNumeric: 'tabular-nums',
-            }}>{r.n}</div>
-          ))}
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 11, fontSize: 13, color: 'var(--dim)' }}>
-          {REPARTO.map((r) => (
-            <span key={r.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-              <span aria-hidden style={{ width: 12, height: 12, borderRadius: 4, background: r.bg, display: 'inline-block' }} />
-              <strong style={{ color: 'var(--ink)' }}>{r.n}</strong> {r.k}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ ...caja, padding: 0, overflow: 'hidden', marginTop: 14 }}>
-        <div className="mk-scroll-x" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 760 }}>
-            <thead>
-              <tr>
-                {[
-                  { t: 'Tarea', w: '36%' }, { t: 'Prioridad', w: '1%' },
-                  { t: 'Qué hacemos', w: '1%' }, { t: 'Por qué', w: '' },
-                ].map((c) => (
-                  <th key={c.t} style={{
-                    ...rotulo, textAlign: 'left', padding: '11px 14px', fontWeight: 600,
-                    borderBottom: '1px solid var(--border)', width: c.w || undefined, whiteSpace: 'nowrap',
-                  }}>{c.t}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {FILAS.map((f) => (
-                <tr key={f.num} style={f.hecha ? { color: 'var(--dim)' } : undefined}>
-                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', lineHeight: 1.4 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>#{f.num}</span>{' '}
-                    {f.titulo}
-                  </td>
-                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)' }}>
-                    <span style={{
-                      display: 'inline-block', padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700,
-                      fontVariantNumeric: 'tabular-nums', color: PCOLOR[prioFromScore(f.score)],
-                      border: `1px solid ${PCOLOR[prioFromScore(f.score)]}`,
-                      background: `color-mix(in srgb, ${PCOLOR[prioFromScore(f.score)]} 10%, transparent)`,
-                    }}>{f.score}</span>
-                  </td>
-                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)' }}>
-                    <Decision v={f.que} hecha={f.hecha} />
-                  </td>
-                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', color: 'var(--dim)', lineHeight: 1.4 }}>
-                    {/* Cerrada: el porque de la decision ya es historia, y el de una
-                        pospuesta se contradice con el «Hecha» de al lado. */}
-                    {(f.hecha && f.hecho) || f.motivo}
-                  </td>
-                </tr>
-              ))}
-              {/* La que no existe todavía: sin número, y por eso al pie. */}
-              <tr>
-                <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)', lineHeight: 1.4 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--bad)', fontWeight: 700 }}>NUEVA</span>{' '}
-                  {CRM_NUEVA.titulo}
-                </td>
-                <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)', color: 'var(--faint)' }}>—</td>
-                <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)' }}><Decision v="queda" hecha={CRM_NUEVA.hecha} /></td>
-                <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)', color: 'var(--dim)', lineHeight: 1.4 }}>
-                  {CRM_NUEVA.motivo}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <TablaVeredictos reparto={REPARTO} filas={FILAS} extras={[{
+        // La que no existe todavía: sin número, y por eso al pie.
+        clave: 'crm-nueva',
+        marca: <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--bad)', fontWeight: 700 }}>NUEVA</span>,
+        titulo: CRM_NUEVA.titulo,
+        decision: <Decision v="queda" hecha={CRM_NUEVA.hecha} />,
+        motivo: CRM_NUEVA.motivo,
+      }]} />
       <p style={{ margin: '14px 0 0', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>
         Lo que se pospone <strong>no se descarta</strong>: queda con su motivo escrito. Mezclar las dos
         cosas es como vuelve el trabajo que se sacó. La prioridad sale del tablero al abrir esta pantalla.
@@ -597,6 +656,19 @@ export default async function RunwayPage() {
       {/* ── Customer Success: el cierre del proyecto, 06-07/10 ── */}
       <Apartado id="customer-success" titulo={`Customer Success · lo que se hizo el ${CS_MEDIDO}`} filas={CS}
         enProduccion={CS_EN_PRODUCCION} teToca={CS_TE_TOCA} deQuien="de Customer Success" />
+
+      {/* ── el Onboarding: la depuración del proyecto, 10/10 ── */}
+      <h2 id="onboarding" style={{ ...h2, margin: '56px 0 14px' }}>El Onboarding · qué se hace con cada tarea, al {ONB_MEDIDO}</h2>
+      <TablaVeredictos reparto={REPARTO_ONB} filas={ONB} etiquetas={{ va: 'Se va' }}
+        extras={ONB_ELIMINADAS.map((e) => ({
+          clave: `onb-${e.num}`,
+          marca: <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>#{e.num}</span>,
+          titulo: e.titulo,
+          decision: <Chip t="Borrada" fg="var(--dim)" bg="var(--surface-2)" />,
+          motivo: e.motivo,
+        }))} />
+      <h2 style={h2}>Lo que te toca del Onboarding</h2>
+      <ListaPendientes items={ONB_TE_TOCA} />
 
     </Pagina>
   );
