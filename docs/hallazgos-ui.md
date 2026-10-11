@@ -3537,3 +3537,14 @@ pre-push corre sólo `rules-of-hooks` (`scripts/hooks-en-orden.sh`).
 `app/whatsapp/_shared/ComposerWhatsApp.tsx` · `app/whatsapp/_shared/ChatHilo.tsx` ·
 `app/_components/etiquetas-cliente.tsx` · `app/_components/IdentidadPicker.tsx` ·
 `app/crm/EtapasModal.tsx` · *2026-10-08 rediseño de /chatbot (partes P, C y E de `wf_8096a9d7-b3f`)*
+
+## Una preferencia de vista guardada por workspace la pisa quien mira con `?ws=` (10/10/2026)
+
+Para el selector de gráficos, guardar la selección en `app_settings` del workspace parece alcanzar
+porque hay un usuario por workspace. Pero el super admin abre cada cliente con `?ws=N` y la agencia
+ws13 mira a ws15 y ws17 (`lib/workspace.ts:193-224`): fijar un gráfico mientras se mira la cuenta
+de otro le cambia la vista a ese cliente. Una preferencia de vista va por **usuario + workspace**,
+o no se escribe mientras se mira la cuenta de otro.
+
+**Vive en:** `lib/workspace.ts:193-224` · `app/_components/TendenciasSection.tsx:38` (hoy la
+selección vive en `useState`). *Corrida `wf_01c22b1b-91a`, 10/10/2026.*

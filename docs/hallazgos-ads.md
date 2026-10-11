@@ -3924,3 +3924,17 @@ se puede sin Zernio». Lo que toca a la app, en cuatro renglones:
   **Instagram → API setup with Facebook login**.
 
 *09/10/2026 — investigación, sin tocar código.*
+
+## `/comercial` ignora un rango que termina después de hoy, y el CAC acumulado no tiene «desde» (10/10/2026)
+
+- **El rango con fin futuro se descarta en silencio.** `filtroActivo` exige `hastaParam <= hoyReal`
+  (`app/comercial/page.tsx:164-170`); si no se cumple, la página vuelve a los últimos 30 días SIN
+  AVISAR. Un rango de campaña con fecha de cierre (la ventana 1/11-15/12) no anda hasta que
+  termina, y lo que se ve es otro período con cara del pedido.
+- **El CAC acumulado es de todo el histórico.** `getCACAcumulado(hastaFecha?)` no recibe `desde`
+  (`lib/queries.ts:701`): divide toda la pauta por todos los `cerro=true`. Un workspace con
+  ganados que no vinieron por anuncios (ws9: 3 clientes cargados a mano, 0 pauta) muestra **CAC
+  US$0** como dato. Y no saca los sin cobro, a diferencia de `lib/objectives-fuentes.ts`.
+
+**Vive en:** `app/comercial/page.tsx:164-177,215` · `lib/queries.ts:701-739`.
+*Corrida `wf_01c22b1b-91a`, 10/10/2026.*

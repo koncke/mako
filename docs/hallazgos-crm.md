@@ -7829,3 +7829,17 @@ embudo no vuelve (dejaría el tablero vacío sin casilla para destildarla).
 `app/crm/arbol-seleccion.ts` · `app/crm/CrmToolbar.tsx` (el árbol del menú y los chips) ·
 `app/crm/CrmBoard.tsx` (una sola lista) · `app/crm/filtro-panel.ts` · `tests/crm-filtro-ads.test.ts` ·
 *bdbf3707 y 8a39bb02 — 2026-10-10, hecho por el chat de Ads Manager a pedido de Martín*
+
+## ws11: 12 cuotas de US$4.235,29 de una sola persona, casi seguro pesos (10/10/2026)
+
+De los US$51.098,77 pendientes de ws11, 50.823,48 son 12 cuotas de un mismo lead (del 08/11/2026
+al 08/10/2027, cargadas el 08/10, sin `monto_cierre_usd`). Casi seguro es un monto en pesos
+cargado como dólares, y todo lo que suma lo pendiente (Outstanding, MRR, una torta) lo infla. No
+se tocó: es un dato del cliente. Y el «pendiente» de cualquier gráfico se filtra por
+`fecha_esperada` dentro del rango, como ya hace el Outstanding de `/comercial`; `pagado = false`
+a secas incluye las cuotas futuras.
+
+De paso: los 433 `closing_analyses` de ws9 son llamadas de Martín (146 internas, 144 de entrega,
+79 de prueba, 17 de venta) y **ninguna tiene `lead_id`**: no se cruzan con el CRM de MaKo.
+
+**Vive en:** `pagos` (ws11) · `closing_analyses` (ws9). *Corrida `wf_01c22b1b-91a`, 10/10/2026.*

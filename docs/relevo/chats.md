@@ -23,7 +23,7 @@ medir cuánto pesa un chat, no cuánto hizo.
 
 | Última actividad | Chat | De qué se trata | Su briefing |
 |---|---|---|---|
-| **10/10 21:37** | **MaKo Pricing** (cuenta 3) | Sigue a «Pricing MaKo»: las cuatro decisiones de la tab **Strategy** aplicadas (la ventana en vez del mes, objetivo de 15.000, el 1 a 1 a 10.000, Jan reescrito, `/vsl/costos` privada), `a5cf1407` | `vender-mako-estrategia.md` |
+| **10/10 22:39** | **MaKo Pricing** (cuenta 3) | Sigue a «Pricing MaKo»: las cuatro decisiones de la tab **Strategy** aplicadas (la ventana en vez del mes, objetivo de 15.000, el 1 a 1 a 10.000, Jan reescrito, `/vsl/costos` privada), `a5cf1407`; y la propuesta de partir Strategy en tabs reales (`docs/propuesta-tabs-strategy.md`), esperando sus respuestas | `vender-mako-estrategia.md` |
 | **10/10 19:02** | **Ads Manager** | Campañas de Meta: crear, pausar, presupuesto, renombrar, creativos. Y la conexión con Meta e Instagram | `ads-manager.md` |
 | **10/10 19:02** | **Estrategia N cuentas Claude** | El chat orquestador: el traspaso entre cuentas, el relevo y esta tabla | `estrategia-2-cuentas.md` |
 | **10/10 19:01** | **Pricing MaKo** | Precios, costos, runway, proyección y el programa de **referidos** (decidido el 10/10). Salió la tab **Strategy** del super admin (`9862c146`) | `super-admin.md` + `docs/referidos.md` |

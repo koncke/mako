@@ -4079,3 +4079,14 @@ barre esos archivos sin comentarios.
 
 _09/10/2026 — agente en worktree + revisión adversarial de la rama (cada guard probado rompiéndolo, restaurando de memoria);
 integrado y medido en producción por quien integró._
+
+## La landing de MaKo no le manda sus visitas a MaKo (10/10/2026)
+
+ws9 tiene su fila de ruteo `landing` en `webhook_routing` (creada el 23/07), pero `landing_visits`
+de ws9 tiene 0 filas y ninguna visita trae una URL de hola-mako: `app/vsl/Landing.tsx` carga el
+Pixel de Meta y el Calendly embebido, no el snippet de `/api/track`. Sin eso, el embudo visitas →
+agenda de `/marketing` de ws9 queda vacío aunque se conecte Meta. Y el embed de Calendly no
+reenvía los UTM de la página: separar la prospección de la campaña pide un link con
+`utm_source` por canal.
+
+**Vive en:** `app/vsl/Landing.tsx`. *Corrida `wf_01c22b1b-91a`, 10/10/2026.*

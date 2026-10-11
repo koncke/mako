@@ -47,6 +47,17 @@ En producción con `a5cf1407`. El pedido textual, en la bitácora de `gtm-oferta
 4. **La propuesta a Jan se reescribió** con el programa de referidos. Chocaba en cinco
    filas, no en tres: también «acceso de por vida» y «recurrencia sin mover un dedo».
 
+## Partir Strategy en tabs: la propuesta (10/10, 22:39) — ESPERA A MARTÍN
+
+Pidió sacar de Strategy las tabs que merecen la suya, «funcionales, reales». Está en
+[`docs/propuesta-tabs-strategy.md`](../propuesta-tabs-strategy.md) (corrida `wf_01c22b1b-91a`).
+No se construyó nada. Lo central: las pantallas ya existen (`/comercial`, `/analisis`,
+`/general`) y lo que falta son los datos de MaKo en su propio workspace (ws9). Ahora van
+**Números de MaKo**, **¿Qué es MaKo?** (sólo super admin) y el **Runway** en la barra; después,
+Objetivos (en `/general`), Referidos, el selector de gráficos y el margen por oferta. Las seis
+preguntas para Martín están al final del documento; la primera es si se cargan las ventas de
+MaKo en su CRM y se conectan su Calendly, el Pixel de su landing y su cuenta publicitaria.
+
 ## Lo que espera a Martín
 
 1. **Qué incluye el 1 a 1 de US$10.000** («que realmente valga mucho la pena»). Lo define él.

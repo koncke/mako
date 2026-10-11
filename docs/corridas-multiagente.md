@@ -27,6 +27,8 @@ Los journals siguen en disco, en
 
 | Fecha | Corrida | Agentes | Qué se fue a buscar | |
 |---|---|---|---|---|
+| 2026-10-10 | `tabs-desde-strategy` | 10 | Qué secciones de la tab Strategy merecen tab propia con datos reales: 6 lectores (secciones, tabs y proyectos, datos reales, referidos, ¿qué es MaKo?, objetivos), 1 diseñador y 3 refutadores (dato real, duplicado, audiencia y poda). De 11 tabs propuestas: 3 ahora, 4 después y 3 no; el bloqueo es el CRM vacío de ws9 | ya escrita |
+
 | 2026-09-23 | `depurar-plan-fase2` | 44 | Segunda poda con el criterio de los audios del 22/09 (tres fases con fecha): clasificar las 436 abiertas, refutar cada baja, y convertir el feedback de producto sobre el Plan y el Perro en tareas grandes. 195 borradas, 64 veredictos corregidos, 12 tareas nuevas | **cosechada** |
 | 2026-09-24 | `contexto-customer-success-mauricio` | 10 | Estado real del Customer Success de Mauricio (Whop, curso, formularios, seguimiento) desde el código, producción, las reuniones de las dos cuentas de Fathom, y Drive/Gmail/Calendar; consolidar y refutar 20 afirmaciones contra la fuente. El curso no llegó, y Whop no está listo para recibirlo | **cosechada** |
 | 2026-09-21 | `depurar-plan-superadmin` | 56 | Depurar el board del super admin contra la sesión del 20/09: clasificar las 553 tareas abiertas contra la sesión y el código, cazar duplicados, cruzar los 110 accionables, refutar cada baja y cada cierre, y ordenar los 71 proyectos. 114 borradas, 50 movidas, 118 enriquecidas | **cosechada** |

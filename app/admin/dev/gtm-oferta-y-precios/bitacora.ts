@@ -345,4 +345,25 @@ export const BITACORA: Hito[] = [
       'tests/estrategia-tab.test.ts — la proyección de la ventana, el 1 a 1, Jan sin las cinco promesas y el guard de los costos',
     ],
   },
+  {
+    fecha: '10 oct', hora: '22:39', chat: 'MaKo Pricing', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sacar de Strategy las tabs que merecen la suya, funcionales y con datos reales',
+    pedido: 'Dentro de la tab de estrategia, hay muchas tabs que podrían tener su propia tab, pero bien diseñada y funcionales... Y entonces consumimos la info como lo que dice: ¿Qué es MaKo?...\n\nBueno, ahí dentro de MaKo, me imagino que están los precios, con las tipicas columnas de precio de apps.\nMe imagino otra tab del Sistema de Referidos, que lo puedan ver todos los usuarios...\nOtra tab de "Objetivos" que ya tenemos un proyecto de una tab así... Para ponernos objetivos de dinero y tiempo...\nOtra que podría estar en "Graphics" para ver los graficos más importantes, como ese gráfico de torta, pero con datos reales de cuanto es el % que se va en cada cosa... (Esto es un proyecto aparte, que justamente quiero poder personalizar los graficos para todos los usuarios, que tengan una herramienta de selector de gráficos para elegir los que quieran)\nIdentifica que otras tabs más, importante que sean funcionales, reales...',
+    puntos: [],
+  },
+  {
+    fecha: '10 oct', hora: '22:39', chat: 'MaKo Pricing', cuenta: 'claude3',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Once tabs propuestas, y el bloqueo no es de pantallas: el CRM de MaKo está vacío',
+    puntos: [
+      'Corrida `wf_01c22b1b-91a` (10 agentes, sólo lectura, contra el código y la base). **Las pantallas que harían reales las secciones de Strategy ya existen** (`/comercial`, `/analisis` con tasas medidas, `/general`); lo que falta son los datos de MaKo en su propio workspace: 3 ganados sin monto, 0 pagos, 0 pauta, 0 visitas, 0 agendas y la línea de WhatsApp sin conectar.',
+      'Ahora: **Números de MaKo** (Graphics y Análisis en ws9, sin tab nueva), **¿Qué es MaKo?** (la 01 y la 02 con la grilla de columnas, para el super admin) y el **Runway** en la barra, con las fechas del tablero. Después: Objetivos (es `/general`, con un rango «del … al …»), Referidos, el selector de gráficos y el margen por oferta. No: el experimento del Loom, «Mi plan» del cliente y los precios públicos.',
+      '⚠️ **El diseñador volvió a preguntar precios que se habían decidido ese mismo día**; lo cazaron los refutadores leyendo esta bitácora. Y «clientes por plan» no sale de la capa: la capa es acceso, no lo que se paga.',
+    ],
+    archivos: [
+      'docs/propuesta-tabs-strategy.md — la propuesta entera, con lo que tiene que decidir Martín',
+      'docs/hallazgos-planes-y-cobro.md — «Partir Strategy en tabs»; y una entrada en objectives, ads, landing, crm y ui',
+    ],
+  },
 ];

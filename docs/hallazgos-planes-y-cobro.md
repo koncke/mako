@@ -355,6 +355,52 @@ que tenía Mauricio (un cliente) deja de abrir.
 **Lo que sigue sin coincidir con el runway:** la pauta y el objetivo ya son los mismos, pero las
 tasas no (el runway dice US$100 por agenda y 50% de asistencia con cierre implícito de 100%; la
 tab, US$125, 80% y 40%). La tab usa las que Martín aprobó y no dibuja la diferencia.
+## Partir Strategy en tabs (10/10/2026): el bloqueo es el CRM vacío de MaKo, no las pantallas
+
+**Síntoma.** Martín pidió sacar de Strategy lo que «podría tener su propia tab, bien diseñada y
+funcional»: ¿Qué es MaKo? con precios en columnas, Referidos para todos, Objetivos de dinero y
+tiempo, la torta con datos reales en Graphics. La lectura obvia era una tab nueva por sección.
+
+**Lo que se midió.** Las pantallas que volverían reales esas secciones ya existen y andan con los
+clientes: `/comercial`, `/analisis` (la proyección con tasas MEDIDAS) y `/general`. Lo que no
+existe son los datos de MaKo en su propio workspace (ws9): 3 ganados sin monto ni producto, 0
+pagos, 0 filas de Meta (falta `META_AD_ACCOUNT_ID` y el token no trae `ads_read`), 0
+`landing_visits`, 0 agendas (el Calendly `koncke/asesoria` no está conectado), la línea de
+WhatsApp `mako_ws9` nunca conectó, 0 objetivos. **MaKo vende un método que no usa con su propio
+negocio**, y por eso Strategy tuvo que escribir sus números a mano. Y lo medido en los clientes
+desmiente los supuestos de la tab: en ws1 asiste el 50,8% (la tab dice 80%), cada R1 cuesta unos
+US$98 (la tab, 125), y la IA de octubre es US$0 en casi todos (la torta usa 10,90). La propuesta
+entera, con lo que va ahora y lo que no: [propuesta-tabs-strategy.md](propuesta-tabs-strategy.md).
+
+**Tres trampas para quien construya esas tabs:**
+
+- **La capa no es el plan pagado.** `workspaces.capa` dice qué tabs ve una cuenta y la escribe el
+  super admin a mano (`app/api/admin/workspaces/route.ts:180`). Cinco clientes reales están en
+  `completo` y ninguno paga 47; `completo` y `agencia` tienen `navKeys: null`
+  (`lib/capas.ts:183`, `:251`), así que «las tabs del 47» y «las del 97» salen idénticas. Contar
+  clientes por plan desde la capa da un número plausible y falso: se cuenta por producto
+  (`leads.producto_id` del CRM de ws9) o se enlaza `/customer-success`, que ya lista el plan de
+  cada cliente.
+- **Hay tres grillas de precio, y no dicen lo mismo:** Strategy (47 · 97 · 1.500 · 10.000), la
+  parte 4 de `/admin/dev/pricing` (`GRILLA` del 09/08, con Free y la agencia a 297) y
+  `modelo.ts:867` (el 1 a 1 en 4.000). En el tablero, #771, #783 y #840 siguen citando el precio
+  del 20/09 (49/400, «el 47 deja de existir»), y la #840 pide un botón de compra sin checkout.
+  Una tab de precios que no jubile las otras es la cuarta.
+- **El referido de 97 se calcula con r² en la tab (124,98) y con r en el documento decidido**
+  (130,46, `docs/referidos.md:55`: «con el 50%, el 1er mes ya es un pago»). El test fija el de
+  la tab.
+
+**De la corrida, para la próxima.** El diseñador volvió a preguntarle a Martín cosas que se habían
+decidido ese mismo día (los precios, la agencia dentro del 97): el contexto nombraba las
+decisiones sin su procedencia, y las tareas viejas del tablero decían otra cosa. Lo cazaron dos
+refutadores leyendo la bitácora de `gtm-oferta-y-precios`. **Al lanzar una corrida de diseño, las
+decisiones del día van con su fuente (la bitácora, la hora), y «la fuente más nueva gana» se
+escribe en el prompt.**
+
+**Vive en:** `app/admin/estrategia/datos.ts` · `lib/capas.ts:183,251,280` ·
+`app/admin/dev/pricing/modelo.ts:526-601,867` · `docs/propuesta-tabs-strategy.md`.
+*Corrida `wf_01c22b1b-91a`, 10/10/2026.*
+
 
 ---
 

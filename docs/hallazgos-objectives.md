@@ -429,6 +429,31 @@ enlaza, **y quién lee lo que ella escribía**. La tercera es la que en este rep
 Objectives, porque las fuentes de KPI son lectores de tablas de otras áreas. Y el guard busca el
 nombre de la tabla como CADENA, no como argumento de `.from(`. Volverlo un KPI manual es una
 línea en `CANDIDATOS_KPI` y es decisión de producto.
+## La ventana de anuncios no entra en el esquema, y cargarla como Q4 dispara al vigilante (10/10/2026)
+
+**Síntoma.** El objetivo de venta de MaKo es US$15.000 entre el 1/11 y el 15/12. `objectives`
+guarda el período como `anio` + `quarter` (`supabase/migrations/0155_objectives_kpis.sql:39-57`):
+un rango no se puede expresar, y como Q4 2026 se mediría del 1/10 al 31/12.
+
+**Por qué no es un detalle.** El vigilante cuenta la gracia desde el inicio del trimestre: con un
+objetivo Q4 diría «va atrasado» desde el 14/10 (esperado ≈ US$2.283 contra 0 cobrado, un desvío
+del 100% contra el umbral del 20%) y se lo pasaría al Perro del tablero. La salida es una
+columna desde/hasta: el cálculo por rango ya existe y es privado (`recalcularProgreso(desde,
+hasta, hoy)` en `lib/objectives.ts`). Hasta entonces, una ventana se mide en `/comercial` o
+`/analisis` con `?desde&hasta`, y **no se carga como objetivo**.
+
+**Lo que se midió de paso.** `objectives` tiene 8 filas en toda la base, todas con origen
+`migracion`: ningún cliente creó uno a mano. Las 4 de ws13 están duplicadas (dos «Facturación del
+trimestre» y dos «Cierres del trimestre», creadas con 0,4 s de diferencia el 07/09). `kpis` y
+`kpi_registros`: 0. En ws9, `/general` no está en la barra (falta `general` en
+`lib/capas.ts:280`) y su acción del día lee `experimento_tareas` (0 filas) en vez de
+`plan_tareas` (423) (`app/general/page.tsx:128`). Y los avisos del vigilante no dejan rastro:
+escriben en `notificaciones`, que sigue sin existir en producción (la 0048 nunca se aplicó; ver
+[hallazgos-comunicacion.md](hallazgos-comunicacion.md)).
+
+**Vive en:** `supabase/migrations/0155_objectives_kpis.sql` · `lib/objectives.ts` ·
+`app/general/page.tsx:128` · `lib/capas.ts:280`. *Corrida `wf_01c22b1b-91a`, 10/10/2026.*
+
 
 ## Lo que quedó sin hacer
 
