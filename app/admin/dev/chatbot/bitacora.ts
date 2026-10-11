@@ -1323,4 +1323,68 @@ export const BITACORA: Hito[] = [
       "Lo hecho y sus trampas, en docs/hallazgos-chatbot.md → «Novena tanda». Commits f2d4f25a (botón del medio) y 18369310 (el resto).",
     ],
   },
+  {
+    fecha: "11 oct", hora: "04:30", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Décima tanda: general, nueva automatización, CRON, CONDITION, WhatsApp, email, AI Step y Probar",
+    pedido: `FEEDBACK GENERAL:
+1. El botón de IA que está al lado del título debe ser del mismo tamaño del recuadro del título y estar alineado... Y que sea el logo de MaKo, que es una estrella en el centro, sin la estrella chiquita arriba.
+2. Si le doy cliick derecho y mantengo para selección multiple, automáticamente se debe poner opaco todo, no solo al soltar la selección.
+3. En "Horarios de Oficina" pon los días centrado en el recuadro, no alineado a la izquierda.
+4. Quiero agregar un botón de "Configuraciones", que se despliegue un modal, dentro se puede editar el horario de oficina... Pero también configuraciones sobre todo para limitaciones de todos los flujos, si estoy prospectando en frio con esto, que se tenga en cuenta las configuraciones que en su momento tuvimos en cuenta, como que no se envien más de X cantidad de mensajes... Que todo eso sea configurable.
+5. Elimina el botón de "Volver a lo publicado" que aparece al lado de "Activar", para eso ya tenemos el CRTL Z... Y en todo caso, en los 3 puntitos de la sidebar, a los que tienen cambios sin guardar, que aparezca la opción "Descartar cambios".
+6. Si un usuario está creando una automatización que utiliza un medio que aún no conectó, en la tarjeta lo debe decir, y al momento de probarlo también. Y claro, no dejar publicarlo hasta que no lo configure. Y esas configuraciones siempre allí mismo, sin salirse de la pestaña.
+7. Vuelve a poner la automatización que avisa que se agendó un nuevo lead en Mauricio y Código... Y esa por ejemplo falta en las plantillas de nueva automatización... Faltan muchas que sería bueno que estén.
+8. Haz el tutorial de como utilizar esta tab de "Automations" tal como lo tenemos en el tutorial de "CURSO", que sea como un recorrido.
+
+FEEDBACK NUEVA AUTOMATIZACIÓN:
+1. En el modal principal que sale al principio, elimina los pasos de "¿Qué la dispara?", eso ya lo hacemos dentro en el CRON.
+2. Elimina los títulos... Como el de "O empieza así" o el de "Desde una plantilla"
+3. Que la primera "plantilla" sea siempre "Lienzo en blanco", para los que quieran comenzar de 0.
+4. Agrega las plantillas de avisos para el grupo de WhatsApp de MaKo.
+5. Agrega una barra de busqueda y filtro para buscar plantillas. No importa la busqueda o filtro, la primera siempre "Lienzo en blanco".
+6. La opción de "Pideselo a MaKo" no debería ser un botón que me lleve al lienzo y ahí me aparezca el input de lo que le quiero pedir... Sino que allí mismo ya debería poder escribir y grabar audio para pedirle a MaKo lo que quiero.
+7. Agrega más plantillas típicas, teniendo en cuenta que ahora agreamos más canales como Instagram... Lo típico que se me ocurre: "Comenta la palabra X en un Reel" que se usa mucho en Manychat eso. Y templates de Email también, por ejemplo si alguien quiere hacer una newsletter. Y agrega todas las plantillas que se te ocurran que sea comunes, claro.
+8. El paso de "Pídeselo a MaKo" quiero que lo guardes en la API... Para que por ejemplo, por el grupo de WhatsApp con MaKo si escribo o envio un audio pidiendo que cree una automatización, lo haga llamando justamente a esta función de "Pídeselo a MaKo".
+9. Y para que lo anterior funcione bien, cada automatización nueva, debe tener una URL que se pueda abrir. Así MaKo en WhatsApp puede enviarte el link de lo que creó.
+
+FEEDBACK CRON:
+1. Revisa que al editar el CRON en el primer paso, se sobre sale del recuadro, eso no debe pasar.
+2. Sospecho que muchas tarjetas quedaron viejas, de versiones anteriores... Y por eso salen bugs como que al editar el segundo paso no me aparece ningún desplegable... O que no se selecciona los pasos que elegí. Revisa eso. Siempre que se hacen modificaciones las automatizaciones ya creadas deben acompañar eso. Nunca nada debe quedar en una versión vieja...
+3. Si le doy a "Nuevo CRON" me debe desplazar con el scroll hacia allí para editarlo. Lo mismo que si estoy editando un CRON y selecciono el de arriba o de abajo, siempre me debe desplazar hacia donde esté parado.
+4. Si ya hay 2 CRON, el botón de "Nuevo CRON" siempre arriba del todo, primero.
+
+FEEDBACK CONDITION:
+1. El tamaño de los botones están bien. Pero el recuadro del desplegable del "Ya le escribiste", es decir de la condición, debería ser mucho más alto, ocupar todo el recuadro... Solo cuando creo 2 o más condiciones achicarse un poco, pero no tanto. Hazlo para que quepan 2 en el recuadro si hacer scroll. Y cuando haya más de 1, los botones siempre arriba del todo.
+2. Revisa que al crear una segunda CONDITION se bugea... Y salta un scroll hacia la derecha. Eso no debería de pasar. El botón de basura, para eliminar una condition queda escondido...
+3. En la tarjeta del lienzo, quiero que la condición y "Si no" quede alineado a la derecha y alineado a los botones de "+" verde y rojo, respectivamente...
+
+FEEDBACK WHATSAPP:
+1. Quiero que la tarjeta del lienzo, donde aparece el mensaje con el fondo gris, con las palomitas... Bueno, ahí, que cada mensaje sea un recuadro de fondo gris, como si fueran mensajes diferentes, porque lo son. No que estén todo junto.
+2. Si le doy a un botón de "Editar" y le vuelvo a dar, se debe cerrar la edición.
+3. Si grabo un audio, subo un archivo y lo que sea, y me salgo del modal editable, se debe quedar guardado. Siempre como borrador... Incluso si refresco. Esto siempre. Alguien puede estar grabando un audio y sin querer refresca o se sale y perdió lo grabado.
+4. El Scroll no funciona dentro del modal editable... Si le doy a scroll con la rueda del mouse, se hace zoom atras en el lienzo. Eso no debería pasar. Y no solo en WhatsApp, en ningún lado.
+5. Las sugerencias de MaKo, no deberían aparecer como un mensaje enviado, sino como un recuadro diferente arriba del recuadro donde uno escribe. Con la posibilidad de "cerrar" la sugerencia, y que se pliegue a un sutil texto arriba del mismo recuadro de texto donde se escribe.
+6. El editor de "MaKo en WhatsApp" debería ser exactamente igual que el editor de WhatsApp, tener las misma opciones... El mismo tamaño de modal, etc...
+
+FEEDBACK EMAIL:
+1. No permitas enviar emails con los email de MaKo, ellos deben poner sus propios email.
+
+FEEDBACK AI STEP:
+1. Agrega la opción de responder con audios, ya que se puede gracias a que tenemos elevenlabs conectado... Y si la persona aún no clonó su voz, que se lo permita clonar con el proceso allí mismo. O si quiere agregar una nueva voz.
+2. Elimina lo de "Tono", para eso ya tiene la "voz" del dueño. Y sino, que la pueda configurar allí mismo en otro modal.
+3. Si creo otro "caso" se me pone scroll a la derecha, eso nunca debe ocurrir. Y se tapa el tacho de basura.
+4. Un "Caso" debe ser como el CRON, tener pasos... Y lo primero es siempre definir el OBJETIVO... Hay muchas configuraciones que te pido que pienses como, en que orden y donde colocarlas... Por ejemplo, la IA de MaKo que simula hacerte objeciones y tinees que respondes... El tema de "Hand-off" que es muy importante... Etc... Revisa si lo son pasos diferentes o como implementar todo eso... Claro que si estamos haciendo el paso de objeciones por ejemplo, el modal debería reflejar el chat de WhatsApp o Instagram o donde sea que elegí que salga ese AI Step... Y que pueda comenzar a responder allí mismo. El problema es que ya de por si el modal es chico para poner los chats que hicimos... No se si abrir otro modal en el medio de la pantalla o algo así, definelo tu...
+5. También me gustaría configurar la "libertad" del AI Step... Que eso es parte del hand-off... Que tanto responde, hasta cuando, etc... Revisa bien todo, no quiero que sea algo muy complejo de configurar.
+6. También sería bueno agregar en el primer paso la funcionalidad que ya tenemos de escribir o mandar audio para explicar que queremos y que la IA configure el resto de pasos.
+7. Creo que para no complicarlo, sería mejor solo permitir 1 caso por tarjeta de AI Step, y si quieren pueden crear otra tarjeta...
+8. Y si elijo el AI Step, siempre va a estar vinculado a un medio, claro.. Por ejemplo, un AI Step para WhatsApp y otro para Instagram... Cuando configure ese paso, debería tener una sutil modificación el diseño de la tarjeta de AI Step que haga referencia a ese medio.
+
+FEEDBACK PROBAR:
+1. Si envío una prueba real, a Email, WhatsApp o donde sea, debería saltar un aviso de que ya se envió y que revise la casilla de mensajes.
+2. Revisa la screenshot que se corta el mensaje de "MaKo <equipo@hola-mako.com> → martinkoncke@gmail.com", no debería pasar.`,
+    puntos: [
+      "Con capturas: el lienzo de «Bienvenida» (CRON con un evento viejo, AI Step con sólo «Otra cosa»), el panel del CRON con el paso 2 sin desplegable y los seis recuadros desbordando, CONDITION con dos filas y scroll lateral, el editor de WhatsApp con la sugerencia como burbuja, y Probar con el remitente cortado.",
+    ],
+  },
 ];
