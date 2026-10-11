@@ -6,6 +6,9 @@
 > (`docs/diseno-ai-step-v2.md`, `docs/diseno-automations-configuraciones.md`, `docs/diseno-automations-galeria-v2.md`)
 > → UI → funciones → revisión de motor → cierre con cosecha en hallazgos-chatbot.md. Si el chat se corta: retomar con
 > `resumeFromRunId` o seguir desde los diseños; los scripts de datos quedan en SIMULACRO hasta desplegar.
+> **Coordinación (11/10 ~12:40):** la sesión «Integración Mercado Pago y Stripe» suma un CRON «Pagos» como 7º botón
+> (decisión de Martín: «Botón propio "Pagos"», grilla 4+3) DESPUÉS del commit de la décima: al pushearla, mandarle el
+> hash por SendMessage (from `uds:\\.\pipe\LOCAL\cc-msg-b4184de1f7adb8c75534ec808472560f`).
 > **EN COLA, después de la décima:** «Grupos de WhatsApp» (la tarjeta para mandar a uno o más grupos, el grupo como
 > medio del AI Step, y condiciones de grupo: está en el grupo X, mandó un mensaje, llegó cualquier mensaje, mandó
 > una palabra). Pedido textual en el hito siguiente de la bitácora.
