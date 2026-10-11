@@ -165,6 +165,25 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-offer.md — el cruce con archivo:línea',
     ],
   },
+  {
+    fecha: '11 oct', hora: '20:25', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Offer v2: cada conversación atada a un funnel, el chat de WhatsApp y el diagnóstico de fase adentro',
+    puntos: [
+      'En el lugar del título, un selector en árbol (el Dropdown de la casa): funnel → sus ofertas → sus conversaciones, con «Nueva oferta» y «Analizar». Se fue «Ofertas anteriores».',
+      'El funnel es una fila de `funnels` (lo que dibuja el CRM) y sus ofertas salen de `funnel_ofertas`; «Guardar en este funnel» liga la oferta, y queda como principal sólo si el funnel no tenía ninguna. Migración 0256, aplicada antes del deploy.',
+      'El chat usa las piezas de WhatsApp de la casa (ChatHilo, BurbujaHilo, ComposerWhatsApp: audio con su animación, adjuntos, imágenes, emojis) y el avatar de MaKo es la chispa sola sobre negro. La nota de voz se transcribe antes de guardar nada.',
+      'Arranca pidiendo un documento o el link de la web; el diagnóstico de fase se pregunta adentro del chat con opciones a medida que mapean a la original, no se muestra y va al PDF.',
+      'Revisión adversarial antes de subir (5 revisores + 5 refutadores): 26 hallazgos reales, cero de seguridad, todos arreglados con su test probado rompiéndolo. El más serio: una lista de opciones corrida un lugar guardaba otro rango en el diagnóstico del negocio.',
+    ],
+    archivos: [
+      'app/offer/OfferApp.tsx — la pantalla',
+      'app/offer/SelectorFunnel.tsx — el selector en árbol',
+      'app/offer/ChatOffer.tsx — el chat con las piezas de WhatsApp',
+      'app/api/offer/route.ts — la API (arbol, nueva, turno con audio, leer-link, guardar en el funnel)',
+      'lib/offer-reglas.ts — el diagnóstico adentro del chat y el árbol',
+      'supabase/migrations/0256_offer_funnel.sql — la conversación atada al funnel',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

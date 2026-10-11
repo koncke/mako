@@ -10,7 +10,7 @@
 import { familiaDeArchivo } from '@/lib/formatos-archivo';
 import {
   MARCA_COMPLETAR, PIEZAS,
-  type FuentePieza, type OfferSesionResumen, type OfferSesionVista, type PiezaKey, type PiezasSabidas, type VariableValor,
+  type AdjuntoVista, type FuentePieza, type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezaKey, type PiezasSabidas, type VariableValor,
 } from '@/lib/offer-marco';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
@@ -85,7 +85,7 @@ export function esOpcionArmar(op: string, opcionArmar: string): boolean {
 
 // ── Las sesiones ─────────────────────────────────────────────────────────────
 
-/** El renglón del historial que corresponde a una sesión abierta. */
+/** El renglón del selector que corresponde a una conversación abierta (./arbol.ts). */
 export function resumenDe(s: OfferSesionVista): OfferSesionResumen {
   return { id: s.id, titulo: s.titulo, estado: s.estado, total: s.conclusion?.calculo.total ?? null, updatedAt: s.updatedAt };
 }
@@ -94,11 +94,6 @@ const ms = (iso: string): number => {
   const t = Date.parse(iso);
   return Number.isFinite(t) ? t : 0;
 };
-
-/** La lista con este renglón puesto (o actualizado), de la más reciente a la más vieja. */
-export function conResumen(lista: OfferSesionResumen[], r: OfferSesionResumen): OfferSesionResumen[] {
-  return [r, ...lista.filter((x) => x.id !== r.id)].sort((a, b) => ms(b.updatedAt) - ms(a.updatedAt));
-}
 
 /** La más reciente de una lista (no se confía en el orden con que llegó). */
 export function masReciente(lista: OfferSesionResumen[]): OfferSesionResumen | null {
@@ -118,18 +113,163 @@ export function reemplaza(actual: OfferSesionVista | null, nueva: OfferSesionVis
   return ms(nueva.updatedAt) >= ms(actual.updatedAt);
 }
 
-/** ¿Se habló algo DESPUÉS de la última conclusión? Decide si la tarjeta del final invita a armar de nuevo. */
-export function hayChatDespuesDe(s: OfferSesionVista): boolean {
-  if (!s.conclusion) return true;
-  const corte = ms(s.conclusion.at);
-  return s.mensajes.some((m) => ms(m.at) > corte);
-}
-
-/** «11 oct». Sólo se llama en el navegador, después de abrir el menú (no hay hidratación de por medio). */
+/**
+ * «11 oct». Lo usa el renglón de una conversación en el selector (./arbol.ts): ese texto sólo se
+ * DIBUJA con el menú abierto (un portal que no existe en el HTML del server), así que la zona
+ * horaria del server no llega a pintarse y no hay hidratación que se desarme.
+ */
 export function fechaCorta(iso: string): string {
   const t = ms(iso);
   if (!t) return '';
   return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(new Date(t)).replace('.', '');
+}
+
+/**
+ * «14:32», la hora de una burbuja (como la de ChatHilo). ⚠️ Depende de la zona horaria de quien la
+ * calcula: la pantalla la pide sólo DESPUÉS de montar (ChatOffer, `montado`), o el HTML del server
+ * diría otra hora que el navegador y la hidratación fallaría.
+ */
+export function horaDe(iso: string | null | undefined): string {
+  const t = iso ? ms(iso) : 0;
+  if (!t) return '';
+  return new Date(t).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ── La conversación ──────────────────────────────────────────────────────────
+
+/**
+ * Las palomitas de un mensaje del dueño: azules (leído) si MaKo ya contestó algo DESPUÉS, una
+ * sola si todavía no. Es la misma lectura que hace WhatsApp, y sale del hilo, no de un estado.
+ */
+export function ticksDe(mensajes: readonly OfferMensaje[], i: number): 'read' | 'sent' {
+  return mensajes.slice(i + 1).some((m) => m.de === 'mako') ? 'read' : 'sent';
+}
+
+/**
+ * ¿El mensaje que se mandó YA quedó guardado? Para cuando el turno se cortó sin decir nada (un corte
+ * de red, un 504): se relee la conversación y se busca un mensaje del dueño NUEVO (después de los
+ * `antes` que había al mandar) que sea ése — el mismo texto, o una nota de voz si se mandó una. Si
+ * está, devolver lo enviado al composer haría que se mande dos veces.
+ */
+export function quedoGuardado(mensajes: readonly OfferMensaje[], antes: number, enviado: { texto: string; audio: boolean }): boolean {
+  const t = enviado.texto.trim();
+  return mensajes.slice(Math.max(0, antes)).some((m) => m.de === 'yo' && (enviado.audio ? !!m.audio : m.texto.trim() === t));
+}
+
+/**
+ * Desde qué paso se reintenta ARMAR la oferta cuando falló el de la oferta nueva ('generar'):
+ *   · si al releer la conversación ya hay una conclusión MÁS NUEVA que la de antes de armar, el
+ *     servidor terminó (se cortó la conexión, no el trabajo): 'listo', y se muestra;
+ *   · si contestó 409, falta el diagnóstico (otra pestaña mandó un mensaje y lo vació, o ya lo
+ *     consumió una generación): repetir 'generar' contestaría el mismo 409 en cada clic, así que se
+ *     reintenta DESDE el diagnóstico;
+ *   · si no, fue pasajero: se reintenta la oferta (el diagnóstico ya pagado no se rehace).
+ * `versionAhora` null = no se pudo releer (se decide sólo por el status).
+ */
+export function pasoTrasFalloDeOferta(e: { status: number | undefined; versionAntes: number; versionAhora: number | null }): 'listo' | 'diagnostico' | 'oferta' {
+  if (e.versionAhora != null && e.versionAhora > e.versionAntes) return 'listo';
+  if (e.status === 409) return 'diagnostico';
+  return 'oferta';
+}
+
+/** Lo que avisa 'guardar-oferta' cuando la oferta se escribió pero algo quedó a medias. */
+export type AvisoGuardado = { texto: string; reintentable: boolean };
+
+/**
+ * ¿La conclusión se dibuja como «Guardada» (o el botón «Guardar en este funnel»)?
+ *   · sin oferta guardada en su versión vigente (`ofertaId` null) → el botón;
+ *   · con un aviso RECIÉN devuelto: si se arregla reintentando (`reintentable`: la liga al funnel falló),
+ *     el botón, porque el aviso pide volver a tocarlo y el segundo toque liga (camino idempotente del
+ *     servidor); si no se arregla reintentando (el funnel se borró o se archivó), «Guardada» con el aviso
+ *     al lado — ofrecer el botón sería mandar a repetir algo que no se arregla repitiendo;
+ *   · sin aviso (también después de RECARGAR, cuando el aviso ya no existe): lo dice `ligada` de la
+ *     vista — false es «hay oferta, el funnel existe y la liga falta», y ahí va el botón.
+ * Con «Guardada» en el lugar del botón no había nada que tocar y la oferta quedaba suelta para
+ * siempre (revisión del 11/10).
+ */
+export function guardadaVisible(ofertaId: number | null, ligada: boolean | undefined, aviso: AvisoGuardado | null): boolean {
+  if (ofertaId == null) return false;
+  if (aviso && aviso.texto.trim()) return !aviso.reintentable;
+  return ligada !== false;
+}
+
+/**
+ * Qué dice la pantalla sin conversación abierta. «No pude leer» NO es «no hay»: con el árbol caído,
+ * mandar a «crear un funnel» a un negocio que tiene tres es el mensaje falso que esta casa no deja
+ * dibujar. Sin leer, se dice que no cargó y se ofrece volver a cargar.
+ */
+export function bienvenidaDe(arbolLeido: boolean, vacio: boolean): 'no-cargo' | 'sin-funnels' | 'elegir' {
+  if (!arbolLeido) return 'no-cargo';
+  return vacio ? 'sin-funnels' : 'elegir';
+}
+
+/** El tope de un mensaje del dueño: el mismo que acepta la ruta (app/api/offer/route.ts). */
+export const TOPE_MENSAJE = 12_000;
+
+/**
+ * Los links de un mensaje (la web o la landing del negocio), para leerlos con 'leer-link' ANTES del
+ * turno: el pedido es «si partimos de un documento o un link de su web o landing… sería mucho más
+ * fácil», y en WhatsApp un link se pega en el mensaje, no en un botón aparte. Acepta `https://…`,
+ * `http://…` y `www.…` (a éste le agrega https), sin la puntuación que cierra la frase, sin
+ * repetidos y hasta 3: más que eso en un mensaje no es «mi web», es una lista que no se va a leer.
+ */
+export function linksDe(texto: string, max = 3): string[] {
+  const out: string[] = [];
+  for (const m of texto.matchAll(/(?:https?:\/\/|www\.)[^\s<>"'«»]+/gi)) {
+    let u = m[0].replace(/[).,;:!?”’\]]+$/u, '');
+    if (/^www\./i.test(u)) u = `https://${u}`;
+    if (!/^https?:\/\/[^/\s.]+\.[^/\s]+/i.test(u)) continue;
+    if (!out.includes(u)) out.push(u);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+// ── Los archivos del composer ────────────────────────────────────────────────
+
+/**
+ * Un archivo elegido en el composer, mientras se lee y ya leído (con su doc). Los que no se pueden
+ * leer NO quedan acá: su motivo va a la línea de error (no hay un renglón rojo que quitar a mano).
+ */
+export type AdjuntoEnCurso = {
+  key: string;
+  nombre: string;
+  mime: string;
+  estado: 'leyendo' | 'listo';
+  doc?: AdjuntoVista;
+  /** La miniatura de una imagen (una URL `blob:` que hay que soltar al sacarla). */
+  previa?: string | null;
+};
+
+/** El chip de la barra de WhatsApp (ComposerWhatsApp → `chip`), sin los callbacks. */
+export type DatosChip = { imagen: string | null; icono: 'doc' | 'audio' | 'video'; titulo: string; detalle: string };
+
+/**
+ * Lo que dice el chip de arriba de la barra: UN archivo con su nombre y su estado (como un adjunto
+ * de WhatsApp), o «N archivos» con cuántos faltan leer. El aviso de un archivo leído a medias va en
+ * el detalle cuando es uno solo; con varios se cuenta, y cada aviso se lee entero en el chip del
+ * mensaje cuando sale (ChipArchivo).
+ */
+export function chipDeAdjuntos(adj: readonly AdjuntoEnCurso[]): DatosChip | null {
+  if (!adj.length) return null;
+  if (adj.length === 1) {
+    const a = adj[0];
+    const fam = familiaDeArchivo(a.nombre, a.mime);
+    return {
+      imagen: a.previa ?? null,
+      icono: fam === 'audio' ? 'audio' : fam === 'video' ? 'video' : 'doc',
+      titulo: a.nombre,
+      detalle: a.estado === 'leyendo' ? 'Leyendo…' : a.doc?.aviso?.trim() || 'Listo',
+    };
+  }
+  const leyendo = adj.filter((a) => a.estado === 'leyendo').length;
+  const avisos = adj.filter((a) => a.estado === 'listo' && a.doc?.aviso?.trim()).length;
+  return {
+    imagen: null,
+    icono: 'doc',
+    titulo: `${adj.length} archivos`,
+    detalle: leyendo ? `Leyendo ${adj.length - leyendo} de ${adj.length}…` : avisos ? `Listos · ${avisos} con aviso` : 'Listos',
+  };
 }
 
 // ── El diagnóstico ───────────────────────────────────────────────────────────
@@ -195,8 +335,13 @@ export const tiene = (v: string | null | undefined): v is string => typeof v ===
 
 // ── Los archivos ─────────────────────────────────────────────────────────────
 
-/** El ícono del set según la familia del archivo (lib/formatos-archivo.ts). Nunca un emoji. */
-export function iconoDeAdjunto(nombre: string, mime = ''): NombreIconoMenu {
+/**
+ * El ícono del set según la familia del archivo (lib/formatos-archivo.ts). Nunca un emoji.
+ * `via: 'audio'` es la «Transcripción del audio»: el documento que arma el servidor cuando una nota de
+ * voz no entra en el mensaje. No tiene extensión, así que por el nombre caería en «archivo».
+ */
+export function iconoDeAdjunto(nombre: string, mime = '', via?: string): NombreIconoMenu {
+  if (via === 'audio') return 'audio';
   switch (familiaDeArchivo(nombre, mime)) {
     case 'audio': return 'audio';
     case 'video': return 'video';

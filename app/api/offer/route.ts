@@ -2,32 +2,54 @@
 // POST /api/offer — la tab Offer: conversar, leer documentos, diagnosticar y armar la oferta
 // =============================================================================
 // Pedido de Martín (11/10/2026): Offer Analyst + Offer Generator en una sola tab, «muy de IA… algo
-// simple como un chat… y que el resultado final sea que te dé un PDF con la conclusión».
+// simple como un chat… y que el resultado final sea que te dé un PDF con la conclusión». v2 (el mismo día):
+// las ofertas atadas a los FUNNELS del CRM, el chat que pide primero un documento o el link de la web, el
+// audio, y el diagnóstico de fase preguntado adentro del chat (lib/offer-reglas.ts).
 //
 // Body: { action, ... } → siempre { ok: true, ... } | { ok: false, error } (el error dice de quién es la
 // culpa y qué hacer). Las acciones:
-//   · 'listar'                                   → { sesiones }
+//   · 'arbol'                                    → { arbol }   (funnel → ofertas → conversaciones)
 //   · 'abrir'          { id }                    → { sesion }
+//   · 'nueva'          { funnelId, ofertaBaseId|null } → { sesion }  (atada al funnel; con oferta base es
+//                                                   modo 'analizar'. Si ya hay una vacía igual, devuelve ésa)
 //   · 'subir-url'      { nombre, mime, tamano }  → { path, signedUrl }  (el navegador hace PUT del binario
 //                                                   a signedUrl con 'x-upsert: true'; molde:
-//                                                   app/api/onboarding/archivero/upload-url/route.ts)
-//   · 'leer'           { sesionId|null, path, nombre, mime } → { sesion, doc }  (crea la sesión si hace falta;
-//                                                   baja el archivo, lo pasa a texto y BORRA el binario)
-//   · 'turno'          { sesionId|null, texto, docIds } → { sesion }  (crea la sesión si hace falta)
+//                                                   app/api/onboarding/archivero/upload-url/route.ts). Sirve
+//                                                   también para el AUDIO del turno.
+//   · 'leer'           { sesionId|null, path, nombre, mime, funnelId? } → { sesion, doc }  (crea la sesión si
+//                                                   hace falta; baja el archivo, lo pasa a texto y BORRA el binario)
+//   · 'leer-link'      { sesionId|null, url, funnelId? } → { sesion, doc }  (baja la web con la descarga
+//                                                   SSRF-segura de lib/landing-fetch.ts y la guarda como documento)
+//   · 'turno'          { sesionId|null, texto, docIds, audio?, respuesta?, funnelId?, reintentar? } → { sesion }
+//                                                   texto puede venir vacío con audio, documentos o respuesta.
+//                                                   audio = { path, mime, secs } subido con 'subir-url'; se
+//                                                   transcribe y el binario NO se borra (se reproduce).
+//                                                   respuesta = { preguntaId, idx } al tocar una opción de una
+//                                                   pregunta del diagnóstico.
 //   · 'diagnosticar'   { sesionId }              → { ok: true }  (deja el diagnóstico en el borrador)
 //   · 'generar'        { sesionId }              → { sesion }  (versión nueva de la conclusión)
-//   · 'guardar-oferta' { sesionId }              → { ofertaId, sesion }  (fila NUEVA de `ofertas`)
+//   · 'guardar-oferta' { sesionId }              → { ofertaId, sesion, aviso?, avisoReintentable? }  (fila
+//                                                   NUEVA de `ofertas`, ligada al funnel de la conversación.
+//                                                   `aviso` = no se pudo ligar; `avisoReintentable` dice si
+//                                                   volver a tocar «Guardar» lo puede arreglar)
 //   · 'renombrar'      { id, titulo }            → { sesion }
-//   · 'borrar'         { id }                    → { ok: true }
+//   · 'borrar'         { id }                    → { ok: true }  (borra también los audios)
+//   ('listar' de la v1 se reemplazó por 'arbol'.)
 //
 // ⚠️ GATE: `adminDeWorkspaceActual()`, NO `resolverWsAdmin` — aquél le devuelve el ws1 (de Mauricio, un
 //    CLIENTE) al super admin que no está mirando a nadie, y la tab escribiría en la cuenta de otro.
-// ⚠️ ANTI-IDOR en 'leer': el `path` lo manda el navegador, así que se exige que sea de ESTE workspace y
-//    de esta tab (`<ws>/offer/<uuid>`) antes de bajarlo. Un path ajeno no se baja ni se borra.
-// ⚠️ EL BINARIO SE BORRA SIEMPRE, también si la lectura falla: lo que queda es el texto, en la fila.
+// ⚠️ ANTI-IDOR en 'leer' y en el audio del turno: el `path` lo manda el navegador, así que se exige que sea
+//    de ESTE workspace y de esta tab (`<ws>/offer/<uuid>`) antes de bajarlo. Un path ajeno no se toca.
+// ⚠️ EL BINARIO DE UN DOCUMENTO SE BORRA SIEMPRE, también si la lectura falla: lo que queda es el texto.
+//    El de un AUDIO no: el mensaje lo reproduce (GET /api/offer/audio). Se borra con la conversación.
 // ⚠️ UN TURNO QUE FALLA NO GUARDA UN MENSAJE DE MaKo: el cartel de error no es algo que MaKo «dijo»
 //    (AGENTS.md «Un cartel de la PLATAFORMA no es un turno de la conversación»). El mensaje del dueño sí
-//    queda guardado, y la respuesta de error lleva la sesión para que la pantalla no la pierda.
+//    queda guardado, y la respuesta de error lleva la sesión para que la pantalla no la pierda. La única
+//    excepción es la pregunta OBLIGATORIA del diagnóstico: si ninguna IA la adapta, sale la ORIGINAL (no es
+//    un cartel: es la pregunta de lib/fase-diagnostico.ts, escrita por una persona).
+// ⚠️ EL DIAGNÓSTICO NO SE MUESTRA EN EL CHAT: cuando el dueño contesta la última pregunta, se calcula con
+//    `diagnosticar` y se guarda en el negocio SÓLO si no tenía uno (`asegurarFaseGuardada`, insert-if-absent),
+//    y MaKo sigue con lo suyo. El resultado va al PDF (lib/offer-pdf.ts).
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -38,16 +60,25 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { MAX_ARCHIVO_BYTES, formatosLegibles, puedeLeerse } from '@/lib/formatos-archivo';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
-import { MARCA_COMPLETAR, faltanMinimas, type ConclusionOferta, type OfferMensaje } from '@/lib/offer-marco';
+import { transcribirAudio, SttSinEscucha, errorDeCascada } from '@/lib/ai-cheap';
+import { extraerLanding } from '@/lib/landing-fetch';
+import { leerFunnels } from '@/lib/funnels';
+import { listarOfertas } from '@/lib/ofertas';
+import { cambiarSettingSi, getSettingEstricto } from '@/lib/settings';
+import type { Diagnostico } from '@/lib/fase-diagnostico';
+import { MARCA_COMPLETAR, faltanMinimas, type ConclusionOferta } from '@/lib/offer-marco';
 import {
-  MAX_DOCS_SESION, TOPE_TEXTO_DOC, adjuntoDe, alertaFoco, calcularDiagnostico, faltanTexto,
-  docsDeLaConversacion, mergePiezas, opcionesConCierre, primerMensaje, recortar, type DocumentoGuardado,
+  MAX_DOCS_SESION, TOPE_TEXTO_DOC, adjuntoDe, alertaFoco, calcularDiagnostico, canalParaElNegocio, conRespuestaInferida,
+  diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
+  faseVigenteDe, linkParaLeer, mensajeDeMako, mergePiezas, planDiagnostico, primerMensaje, primerMensajeFunnel, recortar,
+  repartirTranscripcion, respuestaDiagnostico,
+  type AudioGuardado, type DocumentoGuardado, type MensajeGuardado,
 } from '@/lib/offer-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
-import { diagnosticoOffer, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
+import { FEATURE_OFFER, diagnosticoOffer, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
 import {
-  ErrorOffer, TITULO_DEFAULT, actualizarSesion, borrarSesion, crearSesion, guardarComoOferta, leerFila,
-  leerSesion, listarSesionesOffer, vistaDe, type FilaOffer,
+  ConflictoCAS, ErrorOffer, TITULO_DEFAULT, actualizarSesion, arbolOffer, audiosDe, borrarSesion, crearSesion, guardarComoOferta,
+  leerFila, sesionVaciaDe, vistaSesion, type FilaOffer,
 } from '@/lib/offer-sesiones';
 
 export const dynamic = 'force-dynamic';
@@ -58,6 +89,8 @@ export const runtime = 'nodejs';
 const BUCKET = 'archivero';
 /** Lo más largo que se acepta escrito en el chat. Más que eso es un documento, y se sube como tal. */
 const TOPE_MENSAJE = 12_000;
+/** Lo más largo que se acepta de un link. */
+const TOPE_URL = 2_000;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const ok = (datos: Record<string, unknown> = {}) => Response.json({ ok: true, ...datos });
@@ -67,6 +100,8 @@ const entero = (v: unknown): number | null => {
   return Number.isInteger(n) && n > 0 ? n : null;
 };
 const cadena = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+/** La ruta de un binario de ESTE workspace y de esta tab. Lo que no calce, no se toca. */
+const esPathDeOffer = (ws: number, path: string): boolean => new RegExp(`^${ws}/offer/[0-9a-f-]{36}$`).test(path);
 
 /** El paso del onboarding de la tab. Nunca tira: si el catálogo todavía no tiene la tab, se anota y se sigue. */
 async function marcar(paso: 'of_contar' | 'of_conclusion'): Promise<void> {
@@ -79,14 +114,70 @@ async function quien(): Promise<string | null> {
   return s ? (s.email || s.sub || null) : null;
 }
 
-/** Una conversación nueva, con lo que MaKo ya sabe del negocio y su primer mensaje (sin IA). */
-async function sesionNueva(ctx: ContextoOffer, documentos: DocumentoGuardado[] = []): Promise<FilaOffer> {
+/**
+ * Una conversación nueva, con lo que MaKo ya sabe y su primer mensaje (sin IA). Con funnel (v2) nace atada
+ * a él: pide el documento o el link y, si analiza una oferta, siembra las piezas desde ESA oferta.
+ */
+async function sesionNueva(
+  ctx: ContextoOffer, documentos: DocumentoGuardado[] = [],
+  atada: { funnelId?: number | null; ofertaBaseId?: number | null } = {},
+): Promise<FilaOffer> {
+  const conFunnel = atada.funnelId != null;
+  const piezas = conFunnel ? ctx.semillaSesion : ctx.semilla;
   return crearSesion({
-    piezas: ctx.semilla,
-    mensajes: [primerMensaje(ctx.semilla, { hayContexto: !!ctx.texto.trim() })],
+    piezas,
+    mensajes: [conFunnel
+      ? primerMensajeFunnel(piezas, { modo: atada.ofertaBaseId != null ? 'analizar' : 'crear', ofertaBaseNombre: ctx.ofertaBase?.nombre })
+      : primerMensaje(piezas, { hayContexto: !!ctx.texto.trim() })],
     creadoPor: await quien(),
     documentos,
+    funnelId: atada.funnelId ?? null,
+    ofertaBaseId: atada.ofertaBaseId ?? null,
   });
+}
+
+/** null si el funnel es de este negocio y está activo; si no, la respuesta de error. */
+async function validarFunnel(funnelId: number): Promise<Response | null> {
+  const funnels = await leerFunnels();
+  if (funnels == null) return no(502, 'No pude leer tus funnels (falló la base de MaKo, no es nada tuyo). Prueba de nuevo en un momento.');
+  return funnels.some((f) => f.id === funnelId) ? null : no(404, 'No encontré ese funnel. Puede que lo hayan archivado.');
+}
+
+/**
+ * La clave del diagnóstico de fase en app_settings: la MISMA que `FASE_KEY` de lib/fase-store.ts, que no la
+ * exporta (tests/offer-ia-cableado.test.ts lo fija leyendo los dos fuentes). Lo correcto es una función del
+ * store que guarde «sólo si no hay» — pendiente en lib/fase-store.ts, que no es de esta tab.
+ */
+const CLAVE_FASE = 'negocio.fase.diagnostico';
+
+/**
+ * El diagnóstico de fase de esta conversación, guardado en el negocio (es la misma entidad que el
+ * onboarding) si quedó completo y el negocio NO tenía uno. Nunca tira: si no se pudo, se intenta en el
+ * turno siguiente (y al armar la oferta), y el PDF lo lleva igual desde los mensajes.
+ *
+ * ⚠️ «Si no tenía uno» lo decide la BASE, no una lectura: `cambiarSettingSi(clave, null, …)` es un
+ *    insert-if-absent atómico. Antes se releía con `getDiagnosticoFase` (tolerante: un error de Supabase es
+ *    null) y se escribía con un upsert que PISA: con la base intermitente se borraba el diagnóstico que el
+ *    dueño había rehecho en el onboarding, y otra pestaña que guardara en el medio perdía (revisión
+ *    adversarial del 11/10/2026). Si ya había uno, se lee con la lectura ESTRICTA y manda ése.
+ * ⚠️ El canal que se guarda es el del NEGOCIO (`canalParaElNegocio`): el canal propio de un funnel
+ *    secundario no es «dónde cierra la venta» de todo el negocio.
+ */
+async function asegurarFaseGuardada(f: FilaOffer, ctx: ContextoOffer): Promise<void> {
+  if (ctx.faseGuardada) return;
+  const e = estadoDiagnostico(f.mensajes, { canal: ctx.canal, yaGuardado: false });
+  if (!e.diag) return;
+  const d: Diagnostico = { ...e.diag, canal: canalParaElNegocio(e, ctx.funnel) };
+  try {
+    if (await cambiarSettingSi(CLAVE_FASE, null, JSON.stringify(d))) { ctx.faseGuardada = d; return; }
+    const raw = await getSettingEstricto(CLAVE_FASE);
+    const ya = faseDeSetting(raw);
+    if (ya) { ctx.faseGuardada = ya; return; }
+    // La fila existe pero no trae un diagnóstico (vacía o ilegible): se reemplaza sólo si sigue así.
+    if (raw != null && await cambiarSettingSi(CLAVE_FASE, raw, JSON.stringify(d))) ctx.faseGuardada = d;
+  } catch (err) {
+    console.error('[offer:fase] no pude guardar el diagnóstico de fase en el negocio:', msg(err));
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -106,15 +197,18 @@ export async function POST(req: NextRequest) {
   return runWithWorkspace(ws, async () => {
     try {
       switch (action) {
-        case 'listar':
-          return ok({ sesiones: await listarSesionesOffer() });
+        case 'arbol':
+          return ok({ arbol: await arbolOffer() });
 
         case 'abrir': {
           const id = entero(body.id);
           if (!id) return no(400, 'Falta qué conversación abrir.');
-          const sesion = await leerSesion(id);
-          return sesion ? ok({ sesion }) : no(404, 'No encontré esa conversación. Puede que la hayan borrado.');
+          const fila = await leerFila(id);
+          return fila ? ok({ sesion: await vistaSesion(fila) }) : no(404, 'No encontré esa conversación. Puede que la hayan borrado.');
         }
+
+        case 'nueva':
+          return await nueva(body);
 
         case 'subir-url': {
           const nombre = cadena(body.nombre).slice(0, 200);
@@ -135,8 +229,11 @@ export async function POST(req: NextRequest) {
         case 'leer':
           return await leer(ws, body);
 
+        case 'leer-link':
+          return await leerLink(body);
+
         case 'turno':
-          return await turno(body, inicio);
+          return await turno(ws, body, inicio);
 
         case 'diagnosticar': {
           const id = entero(body.sesionId);
@@ -144,7 +241,8 @@ export async function POST(req: NextRequest) {
           const fila = await leerFila(id);
           if (!fila) return no(404, 'No encontré esa conversación.');
           if (faltanMinimas(fila.piezas).length) return no(409, `Antes de armar la oferta falta: ${faltanTexto(fila.piezas)}. Sigue la conversación con MaKo.`);
-          const ctx = await contextoOffer({ conEmbudo: true });
+          const ctx = await contextoOffer({ conEmbudo: true, funnelId: fila.funnelId, ofertaBaseId: fila.ofertaBaseId, mensajes: fila.mensajes });
+          await asegurarFaseGuardada(fila, ctx);
           const ia = await diagnosticoOffer({ mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto, embudo: ctx.embudo, inicio });
           if (!ia.ok) return no(502, ia.error);
           const calculo = calcularDiagnostico(ia.valor.dimensiones, { foco: alertaFoco(ctx.foco) });
@@ -163,8 +261,8 @@ export async function POST(req: NextRequest) {
         case 'guardar-oferta': {
           const id = entero(body.sesionId);
           if (!id) return no(400, 'Falta la conversación a guardar.');
-          const { ofertaId, fila } = await guardarComoOferta(id);
-          return ok({ ofertaId, sesion: vistaDe(fila) });
+          const { ofertaId, fila, aviso, avisoReintentable } = await guardarComoOferta(id);
+          return ok({ ofertaId, sesion: await vistaSesion(fila), ...(aviso ? { aviso, avisoReintentable: avisoReintentable === true } : {}) });
         }
 
         case 'renombrar': {
@@ -173,13 +271,21 @@ export async function POST(req: NextRequest) {
           if (!id) return no(400, 'Falta qué conversación renombrar.');
           if (!titulo) return no(400, 'Escribe un nombre.');
           const fila = await actualizarSesion(id, () => ({ titulo: titulo.slice(0, 80) }));
-          return ok({ sesion: vistaDe(fila) });
+          return ok({ sesion: await vistaSesion(fila) });
         }
 
         case 'borrar': {
           const id = entero(body.id);
           if (!id) return no(400, 'Falta qué conversación borrar.');
-          return (await borrarSesion(id)) ? ok() : no(404, 'No encontré esa conversación. Puede que ya la hayan borrado.');
+          const fila = await leerFila(id);
+          if (!fila || !(await borrarSesion(id))) return no(404, 'No encontré esa conversación. Puede que ya la hayan borrado.');
+          // Los audios se reproducían desde el mensaje: sin la conversación, sobran. Sólo los de ESTE workspace.
+          const audios = audiosDe(fila).filter((p) => esPathDeOffer(ws, p));
+          if (audios.length) {
+            const { error } = await getSupabaseServer().storage.from(BUCKET).remove(audios).catch((e) => ({ error: { message: msg(e) } }));
+            if (error) console.warn(`[offer:borrar] no pude borrar ${audios.length} audio(s) de la conversación #${id}: ${error.message}`);
+          }
+          return ok();
         }
 
         default:
@@ -195,29 +301,78 @@ export async function POST(req: NextRequest) {
 
 /** Cómo se nombra cada acción en un error 500 («Algo falló de nuestro lado al …»). */
 const QUE: Record<string, string> = {
-  listar: 'listar tus conversaciones', abrir: 'abrir la conversación', 'subir-url': 'preparar la subida',
-  leer: 'leer el documento', turno: 'guardar tu mensaje', diagnosticar: 'diagnosticar la oferta',
-  generar: 'armar la oferta', 'guardar-oferta': 'guardar la oferta', renombrar: 'renombrar la conversación',
-  borrar: 'borrar la conversación',
+  arbol: 'leer tus funnels y conversaciones', abrir: 'abrir la conversación', nueva: 'empezar la conversación',
+  'subir-url': 'preparar la subida', leer: 'leer el documento', 'leer-link': 'leer tu página', turno: 'guardar tu mensaje',
+  diagnosticar: 'diagnosticar la oferta', generar: 'armar la oferta', 'guardar-oferta': 'guardar la oferta',
+  renombrar: 'renombrar la conversación', borrar: 'borrar la conversación',
 };
 
-// ── leer ─────────────────────────────────────────────────────────────────────
+// ── nueva ────────────────────────────────────────────────────────────────────
+
+async function nueva(body: Record<string, unknown>): Promise<Response> {
+  const funnelId = entero(body.funnelId);
+  if (!funnelId) return no(400, 'Elige el funnel de la oferta.');
+  const ofertaBaseId = body.ofertaBaseId == null ? null : entero(body.ofertaBaseId);
+  if (body.ofertaBaseId != null && !ofertaBaseId) return no(400, 'La oferta a analizar no es válida.');
+  const malFunnel = await validarFunnel(funnelId);
+  if (malFunnel) return malFunnel;
+  if (ofertaBaseId != null && !(await listarOfertas()).some((o) => o.id === ofertaBaseId)) {
+    return no(404, 'No encontré esa oferta. Puede que la hayan borrado.');
+  }
+  // «Nueva oferta» dos veces seguidas no deja dos conversaciones vacías.
+  const vacia = await sesionVaciaDe(funnelId, ofertaBaseId);
+  if (vacia) return ok({ sesion: await vistaSesion(vacia) });
+  const ctx = await contextoOffer({ funnelId, ofertaBaseId });
+  const fila = await sesionNueva(ctx, [], { funnelId, ofertaBaseId });
+  return ok({ sesion: await vistaSesion(fila) });
+}
+
+// ── leer / leer-link ─────────────────────────────────────────────────────────
+
+/** La conversación a la que va un documento: la que viene, o una nueva (atada al funnel, si viene). */
+async function guardarDocumento(body: Record<string, unknown>, doc: DocumentoGuardado): Promise<Response> {
+  const sesionId = body.sesionId == null ? null : entero(body.sesionId);
+  const funnelId = entero(body.funnelId);
+  let fila: FilaOffer;
+  try {
+    fila = sesionId
+      ? await actualizarSesion(sesionId, (f) => {
+        if (f.documentos.length >= MAX_DOCS_SESION) throw new ErrorOffer(`Esta conversación ya tiene ${MAX_DOCS_SESION} documentos. Empieza otra para subir más.`, 409);
+        return { documentos: [...f.documentos, doc] };
+      })
+      : await sesionNueva(await contextoOffer({ funnelId }), [doc], { funnelId });
+  } catch (e) {
+    // El binario ya se borró (`leer` lo borra siempre): que el error diga CUÁL archivo hay que volver a subir.
+    if (e instanceof ConflictoCAS) return no(409, `No pude guardar «${doc.nombre}»: había otros archivos guardándose en esta conversación a la vez. Vuelve a subirlo.`);
+    throw e;
+  }
+  return ok({ sesion: await vistaSesion(fila), doc: adjuntoDe(doc) });
+}
+
+/** Las validaciones que van ANTES de bajar nada: la conversación existe y tiene lugar, el funnel es del negocio. */
+async function antesDeLeer(body: Record<string, unknown>): Promise<Response | null> {
+  const sesionId = body.sesionId == null ? null : entero(body.sesionId);
+  if (body.sesionId != null && !sesionId) return no(400, 'La conversación no es válida.');
+  if (sesionId) {
+    const fila = await leerFila(sesionId);
+    if (!fila) return no(404, 'No encontré esa conversación.');
+    if (fila.documentos.length >= MAX_DOCS_SESION) return no(409, `Esta conversación ya tiene ${MAX_DOCS_SESION} documentos. Empieza otra para subir más.`);
+    return null;
+  }
+  const funnelId = entero(body.funnelId);
+  return funnelId ? validarFunnel(funnelId) : null;
+}
 
 async function leer(ws: number, body: Record<string, unknown>): Promise<Response> {
   const path = cadena(body.path);
   const nombre = cadena(body.nombre).slice(0, 200) || 'documento';
   const mime = cadena(body.mime);
   // El path lo escribe el navegador: sólo uno de ESTE workspace y de esta tab. Uno ajeno no se toca.
-  if (!new RegExp(`^${ws}/offer/[0-9a-f-]{36}$`).test(path)) return no(400, 'Ese archivo no es de esta cuenta. Vuelve a subirlo.');
+  if (!esPathDeOffer(ws, path)) return no(400, 'Ese archivo no es de esta cuenta. Vuelve a subirlo.');
   const storage = getSupabaseServer().storage.from(BUCKET);
   try {
-    const sesionId = body.sesionId == null ? null : entero(body.sesionId);
-    if (body.sesionId != null && !sesionId) return no(400, 'La conversación no es válida.');
-    if (sesionId) {
-      const fila = await leerFila(sesionId);
-      if (!fila) return no(404, 'No encontré esa conversación.');
-      if (fila.documentos.length >= MAX_DOCS_SESION) return no(409, `Esta conversación ya tiene ${MAX_DOCS_SESION} documentos. Empieza otra para subir más.`);
-    }
+    const previo = await antesDeLeer(body);
+    if (previo) return previo;
     const { data, error } = await storage.download(path);
     if (error || !data) return no(400, `No encontré «${nombre}» en la subida. Vuelve a subirlo.`);
     const file = new File([await data.arrayBuffer()], nombre, { type: mime || data.type || '' });
@@ -230,13 +385,7 @@ async function leer(ws: number, body: Record<string, unknown>): Promise<Response
       ...(lectura.warning ? { aviso: recortar(lectura.warning, 200) } : recortado ? { aviso: `Leí sólo el principio (${TOPE_TEXTO_DOC.toLocaleString('es-MX')} de ${texto.length.toLocaleString('es-MX')} caracteres).` } : {}),
       at: new Date().toISOString(),
     };
-    const fila = sesionId
-      ? await actualizarSesion(sesionId, (f) => {
-        if (f.documentos.length >= MAX_DOCS_SESION) throw new ErrorOffer(`Esta conversación ya tiene ${MAX_DOCS_SESION} documentos. Empieza otra para subir más.`, 409);
-        return { documentos: [...f.documentos, doc] };
-      })
-      : await sesionNueva(await contextoOffer(), [doc]);
-    return ok({ sesion: vistaDe(fila), doc: adjuntoDe(doc) });
+    return await guardarDocumento(body, doc);
   } finally {
     // SIEMPRE, también si algo de arriba tiró: el binario no se guarda (lo que queda es el texto).
     const { error } = await storage.remove([path]).catch((e) => ({ error: { message: msg(e) } }));
@@ -244,9 +393,99 @@ async function leer(ws: number, body: Record<string, unknown>): Promise<Response
   }
 }
 
+/**
+ * La web o la landing del dueño como documento de la conversación. La baja `extraerLanding`
+ * (lib/landing-fetch.ts): sólo http/https, todas las IPs del host públicas, cada redirect revalidado, la
+ * IP clavada (sin DNS rebinding) y techo de tamaño y de tiempo. NO hay otro fetch de URLs de usuarios acá.
+ * Después de esto, la pantalla manda un 'turno' con `docIds: [doc.id]` (el texto puede ir vacío).
+ */
+async function leerLink(body: Record<string, unknown>): Promise<Response> {
+  const url = cadena(body.url).slice(0, TOPE_URL);
+  if (!url) return no(400, 'Pega el link de tu web o de tu landing.');
+  // ¿Lo que se va a bajar es LA página que pegó? `extraerLanding` le saca el www y el querystring: un link
+  // que elige la página por parámetro no se lee (sería OTRA página), y el www se avisa (`linkParaLeer`).
+  const link = linkParaLeer(url);
+  if (!link.ok) return no(422, link.error);
+  const previo = await antesDeLeer(body);
+  if (previo) return previo;
+  let pagina: Awaited<ReturnType<typeof extraerLanding>>;
+  try {
+    pagina = await extraerLanding(link.leida);
+  } catch (e) {
+    const cual = link.sinWww ? ` (MaKo la abre sin el «www.»: ${link.leida})` : '';
+    return no(422, `No pude abrir esa página${cual}: ${msg(e)} Si es privada o pide iniciar sesión, copia su texto y pégalo aquí.`);
+  }
+  // `bloqueada` sólo MIDE que hay poco texto en los titulares, párrafos y botones: el porqué no se sabe,
+  // así que no se afirma uno (AGENTS.md «Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar»).
+  if (pagina.bloqueada || !pagina.texto.trim()) {
+    return no(422, 'Entré a tu página pero casi no encontré texto para leer. Copia el texto de la página y pégalo aquí.');
+  }
+  let host = url;
+  try { host = new URL(pagina.urlFinal).host; } catch { /* queda el link tal cual */ }
+  const texto = [`Página: ${pagina.urlFinal}`, pagina.titulo ? `# ${pagina.titulo}` : '', pagina.descripcion, pagina.texto].filter(Boolean).join('\n\n');
+  const doc: DocumentoGuardado = {
+    id: randomUUID(),
+    nombre: recortar(pagina.titulo ? `${pagina.titulo} (${host})` : host, 200),
+    via: 'web', texto: texto.slice(0, TOPE_TEXTO_DOC), chars: texto.length,
+    ...(avisoLink(texto.length, link.sinWww ? link.leida : null) ?? {}),
+    at: new Date().toISOString(),
+  };
+  return guardarDocumento(body, doc);
+}
+
+/** El aviso del documento de un link: si se leyó sólo el principio, y cuál se leyó si fue sin el www. */
+function avisoLink(chars: number, leidaSinWww: string | null): { aviso: string } | null {
+  const partes = [
+    chars > TOPE_TEXTO_DOC ? `Leí sólo el principio (${TOPE_TEXTO_DOC.toLocaleString('es-MX')} de ${chars.toLocaleString('es-MX')} caracteres).` : '',
+    leidaSinWww ? `Leí ${leidaSinWww}, sin el «www.»: si no es tu página, copia su texto y pégalo aquí.` : '',
+  ].filter(Boolean);
+  return partes.length ? { aviso: partes.join(' ') } : null;
+}
+
 // ── turno ────────────────────────────────────────────────────────────────────
 
-async function turno(body: Record<string, unknown>, inicio: number): Promise<Response> {
+/** El audio que manda el navegador: de este workspace, de esta tab y con un tipo de audio. */
+function leerAudio(ws: number, raw: unknown): AudioGuardado | 'invalido' | null {
+  if (raw == null) return null;
+  if (typeof raw !== 'object') return 'invalido';
+  const o = raw as Record<string, unknown>;
+  const path = cadena(o.path);
+  const mime = cadena(o.mime).toLowerCase();
+  if (!esPathDeOffer(ws, path)) return 'invalido';
+  if (!/^(audio\/|video\/webm)/.test(mime)) return 'invalido';
+  const secs = typeof o.secs === 'number' && Number.isFinite(o.secs) ? Math.min(3_600, Math.max(0, Math.round(o.secs))) : 0;
+  return { path, mime, secs };
+}
+
+/**
+ * Transcribe el audio del dueño. El texto lo eligen los errores de SUS keys (AGENTS.md «Los errores de
+ * NUESTRAS credenciales no eligen el texto que lee el cliente»): `SttSinEscucha.errores`, no los de la red.
+ *  · Ninguna IA pudo → 502 con el mensaje de lib/ia-mensajes.ts (de quién es la culpa y qué hacer). El
+ *    binario NO se borra: la pantalla puede reintentar con el mismo audio.
+ *  · Alguien escuchó y no había voz ('') → 422 que dice que es el audio, y el binario se borra (no sirve).
+ */
+async function transcribir(audio: AudioGuardado): Promise<{ ok: true; texto: string } | { ok: false; res: Response }> {
+  const storage = getSupabaseServer().storage.from(BUCKET);
+  const { data, error } = await storage.download(audio.path);
+  if (error || !data) return { ok: false, res: no(400, 'No encontré tu audio en la subida. Vuelve a grabarlo.') };
+  const buf = Buffer.from(await data.arrayBuffer());
+  if (buf.byteLength > MAX_ARCHIVO_BYTES) return { ok: false, res: no(413, 'El audio pesa más de 25 MB. Grábalo más corto o escríbemelo.') };
+  let texto = '';
+  try {
+    texto = (await transcribirAudio(buf.toString('base64'), audio.mime, { language: 'es', feature: FEATURE_OFFER, motivo: 'Offer: transcribir un audio del dueño' })).trim();
+  } catch (e) {
+    console.error('[offer:audio] STT:', msg(e));
+    const delNegocio = e instanceof SttSinEscucha ? e.errores : [msg(e)];
+    return { ok: false, res: no(502, await errorDeCascada(delNegocio, 'escuchar tu audio')) };
+  }
+  if (!texto) {
+    await storage.remove([audio.path]).catch(() => null);
+    return { ok: false, res: no(422, 'Escuché tu audio pero no le entendí nada: grábalo de nuevo un poco más cerca del micrófono, o escríbemelo.') };
+  }
+  return { ok: true, texto };
+}
+
+async function turno(ws: number, body: Record<string, unknown>, inicio: number): Promise<Response> {
   const texto = typeof body.texto === 'string' ? body.texto.trim() : '';
   const docIds = Array.isArray(body.docIds) ? [...new Set(body.docIds.filter((x): x is string => typeof x === 'string' && !!x.trim()))].slice(0, MAX_DOCS_SESION) : [];
   // REINTENTAR: si la IA falló, el mensaje del dueño YA quedó guardado (paso 1) y el
@@ -255,53 +494,73 @@ async function turno(body: Record<string, unknown>, inicio: number): Promise<Res
   // IA sobre lo guardado, sin agregar nada.
   const reintentar = body.reintentar === true && body.sesionId != null;
   if (reintentar) return reintentarTurno(body, inicio);
-  if (!texto && !docIds.length) return no(400, 'Escribe algo o adjunta un documento.');
+  const audio = leerAudio(ws, body.audio);
+  if (audio === 'invalido') return no(400, 'Ese audio no es de esta cuenta. Vuelve a grabarlo.');
+  const respuestaPedida = body.respuesta && typeof body.respuesta === 'object' ? body.respuesta as { preguntaId?: unknown; idx?: unknown } : null;
+  if (!texto && !docIds.length && !audio && !respuestaPedida) return no(400, 'Escribe algo, dicta un audio o adjunta un documento.');
   if (texto.length > TOPE_MENSAJE) return no(413, 'El mensaje es muy largo para el chat. Súbelo como documento y MaKo lo lee entero.');
   const sesionIdRaw = body.sesionId == null ? null : entero(body.sesionId);
   if (body.sesionId != null && !sesionIdRaw) return no(400, 'La conversación no es válida.');
-  if (!sesionIdRaw && docIds.length) return no(400, 'Los documentos van con una conversación. Recarga la página y vuelve a intentarlo.');
-
-  let ctx: ContextoOffer | null = null;
-  let id = sesionIdRaw;
-  if (!id) {
-    ctx = await contextoOffer();
-    id = (await sesionNueva(ctx)).id;
+  if (!sesionIdRaw && (docIds.length || respuestaPedida)) return no(400, 'Eso va con una conversación. Recarga la página y vuelve a intentarlo.');
+  const funnelId = entero(body.funnelId);
+  if (!sesionIdRaw && funnelId) {
+    const malFunnel = await validarFunnel(funnelId);
+    if (malFunnel) return malFunnel;
   }
+
+  // 0) El audio se transcribe ANTES de guardar nada: si nadie lo puede escuchar, no queda un mensaje mudo.
+  let transcripcion = '';
+  if (audio) {
+    const t = await transcribir(audio);
+    if (!t.ok) return t.res;
+    transcripcion = t.texto;
+  }
+
+  let id = sesionIdRaw;
+  if (!id) id = (await sesionNueva(await contextoOffer({ funnelId }), [], { funnelId })).id;
   const sesionId = id;
+  const antes = await leerFila(sesionId);
+  if (!antes) return no(404, 'No encontré esa conversación. Puede que la hayan borrado.');
+  const ctx = await contextoOffer({ funnelId: antes.funnelId, ofertaBaseId: antes.ofertaBaseId });
+  const optsDiag = { canal: ctx.canal, yaGuardado: !!ctx.faseGuardada };
 
   // 1) El mensaje del dueño se guarda YA: si la IA falla, lo que escribió no se pierde.
-  // Una caja y no un let: TypeScript no ve la asignación adentro del callback y la daría por false.
+  // Cajas y no lets: TypeScript no ve la asignación adentro del callback y la daría por su valor inicial.
   const primero = { era: false };
+  // ⚠️ Una nota de voz larga NO se corta en silencio al tope del chat: si no entra, la transcripción ENTERA
+  // viaja como documento de la conversación y el mensaje lleva el principio (`repartirTranscripcion`). El id
+  // es fijo afuera del CAS: el callback puede correr varias veces.
+  const docAudio = { id: randomUUID(), creado: false };
   const conMensaje = await actualizarSesion(sesionId, (f) => {
     const porId = new Map(f.documentos.map((d) => [d.id, d] as const));
     const faltan = docIds.filter((d) => !porId.has(d));
     if (faltan.length) throw new ErrorOffer('Uno de los documentos ya no está en esta conversación. Vuelve a subirlo.', 400);
     primero.era = !f.mensajes.some((m) => m.de === 'yo');
-    const adjuntos = docIds.map((d) => adjuntoDe(porId.get(d) as DocumentoGuardado));
-    const m: OfferMensaje = { id: randomUUID(), de: 'yo', texto, at: new Date().toISOString(), ...(adjuntos.length ? { adjuntos } : {}) };
+    const at = new Date().toISOString();
+    const reparto = transcripcion
+      ? repartirTranscripcion(texto, transcripcion, { tope: TOPE_MENSAJE, topeDoc: TOPE_TEXTO_DOC, docsLibres: MAX_DOCS_SESION - f.documentos.length })
+      : { cuerpo: texto, doc: null };
+    const transcripta: DocumentoGuardado | null = reparto.doc
+      ? { id: docAudio.id, nombre: 'Transcripción del audio', via: 'audio', texto: reparto.doc.texto, chars: reparto.doc.chars, ...(reparto.doc.aviso ? { aviso: reparto.doc.aviso } : {}), at }
+      : null;
+    docAudio.creado = !!transcripta;
+    const adjuntos = [...docIds.map((d) => adjuntoDe(porId.get(d) as DocumentoGuardado)), ...(transcripta ? [adjuntoDe(transcripta)] : [])];
+    // La opción tocada de una pregunta del diagnóstico: se valida contra lo que MaKo preguntó de verdad.
+    const r = respuestaDiagnostico(f.mensajes, respuestaPedida, estadoDiagnostico(f.mensajes, optsDiag));
+    const cuerpo = reparto.cuerpo || (r?.texto ?? '');
+    if (!cuerpo && !adjuntos.length) throw new ErrorOffer('Esa pregunta ya no está abierta. Escribe tu respuesta.', 409);
+    const m: MensajeGuardado = {
+      id: randomUUID(), de: 'yo', texto: cuerpo, at,
+      ...(adjuntos.length ? { adjuntos } : {}),
+      ...(audio ? { audio } : {}),
+      ...(r ? { respuesta: { preguntaId: r.preguntaId, idx: r.idx } } : {}),
+    };
     // Un mensaje nuevo vacía el borrador: un diagnóstico de la conversación de antes ya no la describe.
-    return { mensajes: [...f.mensajes, m], borrador: null };
+    return { mensajes: [...f.mensajes, m], borrador: null, ...(transcripta ? { documentos: [...f.documentos, transcripta] } : {}) };
   });
   if (primero.era) await marcar('of_contar');
 
-  // 2) La respuesta de MaKo.
-  ctx = ctx ?? (await contextoOffer());
-  const ia = await turnoOffer({
-    mensajes: conMensaje.mensajes, piezas: conMensaje.piezas, docs: docsDeLaConversacion(conMensaje.documentos, conMensaje.mensajes, docIds), nuevos: docIds,
-    contexto: ctx.texto, inicio,
-  });
-  if (!ia.ok) return no(502, ia.error, { sesion: vistaDe(conMensaje) });
-
-  // 3) Se agrega a la fila de ESTE momento (CAS): las piezas se funden con las que haya ahora.
-  //    La fuente es 'doc' si el turno trajo documentos: de ahí sale casi todo lo que se anota en él.
-  const fuente = docIds.length ? 'doc' : 'chat';
-  const final = await actualizarSesion(sesionId, (f) => {
-    const piezas = mergePiezas(f.piezas, ia.valor.piezas, fuente);
-    const opciones = opcionesConCierre(ia.valor.opciones, faltanMinimas(piezas).length === 0);
-    const m: OfferMensaje = { id: randomUUID(), de: 'mako', texto: ia.valor.respuesta, at: new Date().toISOString(), ...(opciones.length ? { opciones } : {}) };
-    return { mensajes: [...f.mensajes, m], piezas };
-  });
-  return ok({ sesion: vistaDe(final) });
+  return responder({ sesionId, fila: conMensaje, ctx, nuevos: docAudio.creado ? [...docIds, docAudio.id] : docIds, inicio });
 }
 
 /** La respuesta de MaKo a un mensaje del dueño que quedó sin contestar (la IA falló). */
@@ -313,25 +572,56 @@ async function reintentarTurno(body: Record<string, unknown>, inicio: number): P
   const ultimo = fila.mensajes[fila.mensajes.length - 1];
   // Sólo se reintenta un mensaje del dueño sin respuesta: si MaKo ya contestó (otra
   // pestaña, un doble clic), reintentar sería contestar dos veces lo mismo.
-  if (!ultimo || ultimo.de !== 'yo') return ok({ sesion: vistaDe(fila) });
-  const nuevos = (ultimo.adjuntos ?? []).map((a) => a.id);
-  const ctx = await contextoOffer();
+  if (!ultimo || ultimo.de !== 'yo') return ok({ sesion: await vistaSesion(fila) });
+  const ctx = await contextoOffer({ funnelId: fila.funnelId, ofertaBaseId: fila.ofertaBaseId });
+  return responder({ sesionId, fila, ctx, nuevos: (ultimo.adjuntos ?? []).map((a) => a.id), inicio });
+}
+
+/**
+ * La respuesta de MaKo al último mensaje del dueño (turno y reintento pasan por acá).
+ *
+ *  2) Qué pregunta del diagnóstico toca (`planDiagnostico`) y la IA del turno.
+ *  3) Se agrega a la fila de ESTE momento (CAS): las piezas se funden con las que haya ahora, la respuesta
+ *     que MaKo leyó en las palabras del dueño se pega a su mensaje, y el mensaje de MaKo lo arma el CÓDIGO
+ *     (`mensajeDeMako`). Si mientras tanto otra pestaña ya contestó, no se contesta dos veces.
+ *  Antes y después: si el diagnóstico quedó completo, se guarda en el negocio. El resultado NO va al chat.
+ */
+async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOffer; nuevos: string[]; inicio: number }): Promise<Response> {
+  const { fila, ctx } = p;
+  const optsDiag = { canal: ctx.canal, yaGuardado: !!ctx.faseGuardada };
+  await asegurarFaseGuardada(fila, ctx);
+  const duenos = (ms: MensajeGuardado[]) => ms.filter((m) => m.de === 'yo').length;
+  const e = estadoDiagnostico(fila.mensajes, optsDiag);
+  const plan = planDiagnostico(e, { puedeConcluir: faltanMinimas(fila.piezas).length === 0, mensajesDelDueno: duenos(fila.mensajes), conDocumentosNuevos: p.nuevos.length > 0 });
   const ia = await turnoOffer({
-    mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes, nuevos), nuevos,
-    contexto: ctx.texto, inicio,
+    mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes, p.nuevos), nuevos: p.nuevos,
+    contexto: ctx.texto, inicio: p.inicio, diagnostico: diagnosticoParaPrompt(plan, e), diagnosticoObligatorio: plan.modo === 'forzar',
   });
-  if (!ia.ok) return no(502, ia.error, { sesion: vistaDe(fila) });
-  const fuente = nuevos.length ? 'doc' : 'chat';
-  const final = await actualizarSesion(sesionId, (f) => {
+  // Sin IA sólo se sigue si la pregunta que toca es la obligatoria del diagnóstico (sale la original).
+  if (!ia.ok && plan.modo !== 'forzar') return no(502, ia.error, { sesion: await vistaSesion(fila) });
+  const turnoIA = ia.ok ? ia.valor : null;
+
+  // La fuente es 'doc' si el turno trajo documentos: de ahí sale casi todo lo que se anota en él.
+  const fuente = p.nuevos.length ? 'doc' : 'chat';
+  const final = await actualizarSesion(p.sesionId, (f) => {
     // Si mientras tanto llegó otra respuesta de MaKo, no se agrega una segunda.
     const u = f.mensajes[f.mensajes.length - 1];
     if (!u || u.de !== 'yo') return null;
-    const piezas = mergePiezas(f.piezas, ia.valor.piezas, fuente);
-    const opciones = opcionesConCierre(ia.valor.opciones, faltanMinimas(piezas).length === 0);
-    const m: OfferMensaje = { id: randomUUID(), de: 'mako', texto: ia.valor.respuesta, at: new Date().toISOString(), ...(opciones.length ? { opciones } : {}) };
-    return { mensajes: [...f.mensajes, m], piezas };
+    const piezas = turnoIA ? mergePiezas(f.piezas, turnoIA.piezas, fuente) : f.piezas;
+    const puede = faltanMinimas(piezas).length === 0;
+    const inferida = conRespuestaInferida(f.mensajes, estadoDiagnostico(f.mensajes, optsDiag), turnoIA?.diagnosticoRespuesta);
+    // Si MaKo leyó la respuesta en las palabras del dueño, la pregunta que toca ahora es otra.
+    const planFinal = inferida.preguntaId
+      ? planDiagnostico(estadoDiagnostico(inferida.mensajes, optsDiag), { puedeConcluir: puede, mensajesDelDueno: duenos(inferida.mensajes), conDocumentosNuevos: p.nuevos.length > 0 })
+      : plan;
+    const m = mensajeDeMako({
+      turno: turnoIA, plan: planFinal, piezas, puedeConcluir: puede, id: randomUUID(), at: new Date().toISOString(),
+      diagPara: plan.modo === 'no' ? null : plan.pregunta.id,
+    });
+    return { mensajes: [...inferida.mensajes, m], piezas };
   });
-  return ok({ sesion: vistaDe(final) });
+  await asegurarFaseGuardada(final, ctx);
+  return ok({ sesion: await vistaSesion(final) });
 }
 
 // ── generar ──────────────────────────────────────────────────────────────────
@@ -343,7 +633,14 @@ async function generar(body: Record<string, unknown>, inicio: number): Promise<R
   if (!fila) return no(404, 'No encontré esa conversación.');
   const borrador = fila.borrador;
   if (!borrador) return no(409, 'Falta el diagnóstico de esta conversación. Vuelve a tocar «Armar mi oferta».');
-  const ctx = await contextoOffer();
+  const ctx = await contextoOffer({ funnelId: fila.funnelId, ofertaBaseId: fila.ofertaBaseId, mensajes: fila.mensajes });
+  await asegurarFaseGuardada(fila, ctx);
+  // El diagnóstico de fase que va al PDF, con la MISMA regla que el contexto de los prompts (`faseVigenteDe`:
+  // gana el guardado en el negocio), releída después de `asegurarFaseGuardada`. Si no hay ninguno porque el
+  // dueño armó la oferta con preguntas pendientes, la conclusión lo dice y el PDF también (no se omite en
+  // silencio).
+  const fase = faseVigenteDe(ctx);
+  const faltante = fase ? null : diagnosticoFaltante(estadoDiagnostico(fila.mensajes, { canal: ctx.canal, yaGuardado: !!ctx.faseGuardada }));
   const ia = await propuestaOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto,
     diagnostico: borrador.diagnostico, calculo: borrador.calculo, inicio,
@@ -362,11 +659,13 @@ async function generar(body: Record<string, unknown>, inicio: number): Promise<R
       version,
       at: new Date().toISOString(),
       modelo: borrador.modelo === ia.modelo ? ia.modelo : `diagnóstico: ${borrador.modelo} · oferta: ${ia.modelo}`,
+      fase,
+      ...(faltante ? { diagnosticoFaltante: faltante } : {}),
     };
     // La conversación toma el nombre de la oferta la primera vez, si nadie la renombró a mano.
     const titulo = f.titulo === TITULO_DEFAULT && nombre && !nombre.includes(MARCA_COMPLETAR) ? nombre.slice(0, 80) : undefined;
     return { conclusiones: [...f.conclusiones, conclusion], estado: 'concluida', borrador: null, ...(titulo ? { titulo } : {}) };
   });
   await marcar('of_conclusion');
-  return ok({ sesion: vistaDe(final) });
+  return ok({ sesion: await vistaSesion(final) });
 }

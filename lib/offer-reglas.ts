@@ -19,16 +19,26 @@
 //
 // Las keys de piezas y dimensiones, los tipos y el marco viven en lib/offer-marco.ts (no se tocan
 // desde acá: es el contrato que comparten la pantalla, el PDF y este motor).
+//
+// v2 (11/10/2026, pedido de Martín: «aprovechá lo que ya construimos»): también deciden el CÓDIGO
+//   · el árbol del selector (funnel → ofertas → conversaciones), con cada conversación UNA vez
+//     (`construirArbol`);
+//   · el diagnóstico de FASE adentro del chat: qué pregunta toca, cuándo es obligatoria, que la opción N
+//     personalizada sea la opción N original (`estadoDiagnostico`, `planDiagnostico`,
+//     `opcionesDiagnostico`, `mensajeDeMako`). El cálculo es `diagnosticar` de lib/fase-diagnostico.ts,
+//     el mismo del onboarding: acá no hay otra cuenta;
+//   · el primer mensaje de una conversación atada a un funnel (`primerMensajeFunnel`), sin IA.
 // =============================================================================
 
 import { parseJsonObject } from './json-del-modelo';
 import { urgenciaUsable, type UrgenciaTipo } from './oferta-modelo';
+import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, diagnosticar, type CanalId, type Diagnostico } from './fase-diagnostico';
 import {
   DIMENSION_IDS, DIMENSIONES_CRITICAS, MARCA_COMPLETAR, PIEZAS, PREGUNTAS_GUIA,
   dimensionLabel, esDimensionId, esPiezaKey, faltanMinimas, piezaLabel,
-  type AdjuntoVista, type BonoPropuesto, type CalculoDiagnostico, type CambioPropuesto, type DiagnosticoOferta,
-  type DimensionId, type EcuacionFila, type Entregable, type FaseRuta, type FuentePieza,
-  type NotaDimension, type OfferMensaje, type PiezaKey, type PiezaSabida, type PiezasSabidas,
+  type AdjuntoVista, type ArbolOffer, type BonoPropuesto, type CalculoDiagnostico, type CambioPropuesto, type DiagnosticoOferta,
+  type DimensionId, type EcuacionFila, type Entregable, type FaseRuta, type FuentePieza, type ModoSesion,
+  type NotaDimension, type OfferMensaje, type OfferSesionResumen, type PiezaKey, type PiezaSabida, type PiezasSabidas,
   type PropuestaOferta, type VariableValor,
 } from './offer-marco';
 
@@ -171,23 +181,78 @@ export function sanearPiezas(raw: unknown): PiezasSabidas {
   return out;
 }
 
-/** Los mensajes tal como vuelven de la base. Un mensaje sin texto ni adjuntos no se dibuja. */
-export function sanearMensajes(raw: unknown): OfferMensaje[] {
+/**
+ * El audio de un mensaje como se GUARDA: la ruta del binario en el bucket `archivero`
+ * (`<ws>/offer/<uuid>`), nunca una URL. La pantalla recibe `{ url, secs }` (`mensajeParaVista`): la ruta
+ * interna de Storage no baja al navegador.
+ */
+export type AudioGuardado = { path: string; mime: string; secs: number };
+/** Un mensaje como vive en la fila: igual que el de la pantalla, salvo el audio. */
+export type MensajeGuardado = Omit<OfferMensaje, 'audio'> & { audio?: AudioGuardado };
+/**
+ * Un mensaje SIN audio (todos los de MaKo): sirve igual como mensaje guardado y como el de la pantalla, porque
+ * las dos formas sólo difieren en el audio.
+ */
+export type MensajeSinAudio = Omit<OfferMensaje, 'audio'>;
+
+/** La forma de la ruta de un binario de Offer, sin el workspace (la ruta lo exige con el suyo). */
+const RE_PATH_OFFER = /^\d+\/offer\/[0-9a-f-]{36}$/;
+
+/** La URL con la que la pantalla reproduce el audio de un mensaje (app/api/offer/audio/route.ts). */
+export const urlAudio = (sesionId: number, mensajeId: string): string =>
+  `/api/offer/audio?id=${sesionId}&m=${encodeURIComponent(mensajeId)}`;
+
+/** El mensaje como lo ve la pantalla: el audio pasa de ruta interna a URL. */
+export function mensajeParaVista(sesionId: number, m: MensajeGuardado): OfferMensaje {
+  const { audio, ...resto } = m;
+  return audio ? { ...resto, audio: { url: urlAudio(sesionId, m.id), secs: audio.secs } } : resto;
+}
+
+function sanearAudio(raw: unknown): AudioGuardado | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.path !== 'string' || !RE_PATH_OFFER.test(o.path)) return undefined;
+  const secs = typeof o.secs === 'number' && Number.isFinite(o.secs) && o.secs >= 0 ? Math.round(o.secs) : 0;
+  return { path: o.path, mime: typeof o.mime === 'string' ? o.mime : '', secs };
+}
+
+function sanearPregunta(raw: unknown): MensajeGuardado['pregunta'] {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  return o.tipo === 'diagnostico' && typeof o.id === 'string' && o.id.trim() ? { tipo: 'diagnostico', id: o.id } : undefined;
+}
+
+function sanearRespuesta(raw: unknown): MensajeGuardado['respuesta'] {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const idx = typeof o.idx === 'number' ? o.idx : NaN;
+  if (typeof o.preguntaId !== 'string' || !o.preguntaId.trim() || !Number.isInteger(idx) || idx < 0 || idx >= N_OPCIONES_DIAG) return undefined;
+  return { preguntaId: o.preguntaId, idx, ...(o.inferida === true ? { inferida: true } : {}) };
+}
+
+/** Los mensajes tal como vuelven de la base. Un mensaje sin texto, sin adjuntos y sin audio no se dibuja. */
+export function sanearMensajes(raw: unknown): MensajeGuardado[] {
   if (!Array.isArray(raw)) return [];
-  const out: OfferMensaje[] = [];
+  const out: MensajeGuardado[] = [];
   for (const m of raw) {
     if (!m || typeof m !== 'object') continue;
     const o = m as Record<string, unknown>;
     const de = o.de === 'yo' ? 'yo' : o.de === 'mako' ? 'mako' : null;
     if (!de || typeof o.id !== 'string') continue;
     const adjuntos = sanearAdjuntos(o.adjuntos);
+    const audio = de === 'yo' ? sanearAudio(o.audio) : undefined;
     const t = typeof o.texto === 'string' ? o.texto : '';
-    if (!t.trim() && !adjuntos.length) continue;
+    if (!t.trim() && !adjuntos.length && !audio) continue;
     const opciones = Array.isArray(o.opciones) ? o.opciones.filter((x): x is string => typeof x === 'string' && !!x.trim()) : [];
+    const pregunta = de === 'mako' ? sanearPregunta(o.pregunta) : undefined;
+    const respuesta = de === 'yo' ? sanearRespuesta(o.respuesta) : undefined;
     out.push({
       id: o.id, de, texto: t, at: typeof o.at === 'string' ? o.at : '',
       ...(opciones.length ? { opciones } : {}),
       ...(adjuntos.length ? { adjuntos } : {}),
+      ...(audio ? { audio } : {}),
+      ...(pregunta ? { pregunta } : {}),
+      ...(respuesta ? { respuesta } : {}),
     });
   }
   return out;
@@ -299,7 +364,7 @@ export function siguientePregunta(piezas: PiezasSabidas): string | null {
 export function primerMensaje(
   piezas: PiezasSabidas,
   opts: { hayContexto?: boolean; at?: string } = {},
-): OfferMensaje {
+): MensajeSinAudio {
   const leyo = opts.hayContexto || Object.values(piezas).some((p) => p?.fuente === 'negocio' && p.valor.trim());
   const pregunta = siguientePregunta(piezas) ?? '¿Hay algo de tu oferta que quieras cambiar antes de armarla?';
   const invitacion = leyo
@@ -315,6 +380,421 @@ export function primerMensaje(
   };
 }
 
+// ── v2: la conversación atada a un funnel ────────────────────────────────────
+
+/**
+ * Lo primero que pide MaKo en una conversación v2, textual del pedido de Martín («si partimos de un
+ * documento o un link de su web o landing… sería mucho más fácil»): lo que más rinde por pregunta.
+ */
+export const PEDIDO_DOCUMENTO = '¿Tienes un documento de tu oferta, tu guion de ventas o el link de tu web o landing? Súbelo o pégalo aquí.';
+/** La salida para el que no tiene nada: MaKo pasa a preguntar. Es un botón (≤ 60 caracteres). */
+export const OPCION_SIN_DOCUMENTO = 'No tengo, pregúntame';
+
+/** «a, b y c». */
+const listaConY = (xs: string[]): string => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
+
+/**
+ * El primer mensaje de una conversación atada a un funnel, SIN IA (el mismo texto lo ve la pantalla al
+ * abrirla, y no depende de que conteste un modelo). Pide el documento o el link; si MaKo ya sabe piezas
+ * (de la oferta que se analiza o del producto del funnel), lo dice en UNA línea antes. «sin dato» no
+ * cuenta como sabido.
+ */
+export function primerMensajeFunnel(
+  piezas: PiezasSabidas,
+  opts: { modo: ModoSesion; ofertaBaseNombre?: string; at?: string },
+): MensajeSinAudio {
+  const sabidas = PIEZAS.filter((p) => tieneDato(piezas, p.key)).map((p) => p.label.toLowerCase());
+  const lista = listaConY(sabidas);
+  const nombre = (opts.ofertaBaseNombre ?? '').replace(/\s+/g, ' ').trim();
+  const linea = opts.modo === 'analizar' && nombre
+    ? (lista ? `De «${recortar(nombre, 60)}» ya tengo ${lista}.` : `Vamos a revisar «${recortar(nombre, 60)}».`)
+    : (lista ? `Ya tengo ${lista}.` : '');
+  const puede = faltanMinimas(piezas).length === 0;
+  return {
+    id: 'mako-inicio',
+    de: 'mako',
+    texto: linea ? `${linea} ${PEDIDO_DOCUMENTO}` : PEDIDO_DOCUMENTO,
+    at: opts.at ?? new Date().toISOString(),
+    opciones: [OPCION_SIN_DOCUMENTO, ...(puede ? [OPCION_ARMAR] : [])],
+  };
+}
+
+/** Lo que se lee de un producto del catálogo (lib/productos.ts → Producto), estructural a propósito. */
+export type EntradaProducto = {
+  tipo?: string | null; monto_usd?: number | null; suscripcion_meses?: number | null;
+  promesa?: string | null; incluye?: string | null; garantia?: string | null;
+};
+
+/**
+ * Lo que MaKo ya sabe al CREAR una oferta nueva para un funnel: el producto que ese funnel vende (lo que
+ * se entrega y se factura). `monto_usd` SÍ es numérico (columna numeric), no texto libre: se escribe con
+ * su unidad y su plazo.
+ */
+export function semillaDeProducto(p: EntradaProducto | null | undefined, at: string = new Date().toISOString()): PiezasSabidas {
+  if (!p) return {};
+  const monto = typeof p.monto_usd === 'number' && Number.isFinite(p.monto_usd) && p.monto_usd > 0 ? p.monto_usd : null;
+  const plazo = p.tipo === 'suscripcion' ? ` al mes${p.suscripcion_meses ? ` durante ${p.suscripcion_meses} meses` : ''}` : '';
+  const precio = monto != null ? `${monto.toLocaleString('es-MX')} USD${plazo}` : '';
+  return mergePiezas({}, { precio, resultado: colapsar(p.promesa), entregables: colapsar(p.incluye), garantia: colapsar(p.garantia) }, 'negocio', at);
+}
+
+// ── v2: el diagnóstico de FASE adentro del chat ──────────────────────────────
+// Pedido de Martín: «"El diagnóstico" (que en este caso las preguntas deben ser más personalizadas y el
+// resultado del diagnóstico no se debe ver al finalizar esas preguntas, pero sí ser parte del PDF final)».
+//
+// Las preguntas y sus opciones son las de lib/fase-diagnostico.ts. La IA las ADAPTA al negocio, y el
+// código garantiza que la opción N adaptada siga siendo la N original (`opcionesDiagnostico`): el `idx`
+// que vuelve es el de la original, y el cálculo es `diagnosticar`, el mismo del onboarding.
+//
+// ⚠️ EL ESTADO SE DERIVA DE LOS MENSAJES, no se guarda aparte: las respuestas viven en los mensajes del
+// dueño (`respuesta`) y todo lo demás —qué falta, cuál quedó abierta, el diagnóstico— se calcula. Un
+// campo «diagnóstico de la sesión» al lado sería una segunda copia que se desincroniza con la primera.
+
+/** Las opciones de cada pregunta del diagnóstico (las seis y la del canal). */
+export const N_OPCIONES_DIAG = 5;
+/** Una opción adaptada: es una fila tocable, puede ser más larga que un botón de respuesta rápida. */
+export const TOPE_OPCION_DIAG = 120;
+/** La pregunta adaptada, sin el puente. */
+export const TOPE_PREGUNTA_DIAG = 300;
+/** El id de la pregunta extra del canal, sólo cuando no se sabe dónde cierra la venta. */
+export const PREGUNTA_CANAL = 'canal';
+/** Sin el diagnóstico empezado, cuántos mensajes del dueño espera MaKo antes de hacerlo obligatorio. */
+export const MENSAJES_ANTES_DEL_DIAGNOSTICO = 3;
+
+export type PreguntaDiagnostico = { id: string; texto: string; opciones: string[] };
+
+/**
+ * El canal adapta la pregunta de volumen (lib/fase-diagnostico.ts → VOLUMEN_POR_CANAL). Si el funnel ni el
+ * negocio lo declararon, se pregunta ANTES, como el selector de canal del wizard.
+ */
+const PREGUNTA_DEL_CANAL: PreguntaDiagnostico = {
+  id: PREGUNTA_CANAL,
+  texto: '¿Dónde cierras la venta?',
+  opciones: CANALES.map((c) => `${c.label}: ${c.desc}`),
+};
+
+/** Las preguntas del diagnóstico en el orden en que se hacen. Sin canal conocido, la primera es el canal. */
+export function preguntasDiagnostico(canalConocido: CanalId | null, canalRespondido: CanalId | null = null): PreguntaDiagnostico[] {
+  const canal = canalConocido ?? canalRespondido ?? 'llamadas';
+  const base = PREGUNTAS.map((q): PreguntaDiagnostico => (q.id === 'volumen'
+    ? { id: q.id, texto: VOLUMEN_POR_CANAL[canal].texto, opciones: [...VOLUMEN_POR_CANAL[canal].opciones] }
+    : { id: q.id, texto: q.texto, opciones: [...q.opciones] }));
+  return canalConocido ? base : [PREGUNTA_DEL_CANAL, ...base];
+}
+
+export type EstadoDiagnostico = {
+  preguntas: PreguntaDiagnostico[];
+  /** id de pregunta → índice de la opción ORIGINAL. La última respuesta a cada una gana. */
+  respuestas: Record<string, number>;
+  canal: CanalId | null;
+  /** Lo que falta preguntar. Vacío si el negocio ya tenía un diagnóstico guardado. */
+  pendientes: PreguntaDiagnostico[];
+  /** La pregunta del ÚLTIMO mensaje de MaKo, si todavía no se contestó. */
+  abierta: string | null;
+  /** El diagnóstico de ESTA conversación (con `diagnosticar`), o null si falta alguna respuesta. */
+  diag: Diagnostico | null;
+  /** El negocio ya tenía uno guardado (getDiagnosticoFase): se usa ése y no se pregunta nada. */
+  yaGuardado: boolean;
+};
+
+type MensajeDiag = Pick<MensajeGuardado, 'de' | 'pregunta' | 'respuesta' | 'opciones'>;
+
+export function estadoDiagnostico(mensajes: MensajeDiag[], opts: { canal: CanalId | null; yaGuardado: boolean }): EstadoDiagnostico {
+  const respuestas: Record<string, number> = {};
+  for (const m of mensajes) if (m.de === 'yo' && m.respuesta) respuestas[m.respuesta.preguntaId] = m.respuesta.idx;
+  const idxCanal = respuestas[PREGUNTA_CANAL];
+  const canalRespondido = !opts.canal && idxCanal != null ? (CANALES[idxCanal]?.id ?? null) : null;
+  const canal = opts.canal ?? canalRespondido;
+  const preguntas = preguntasDiagnostico(opts.canal, canalRespondido);
+  const faltan = preguntas.filter((q) => respuestas[q.id] == null);
+  let ultimoMako: MensajeDiag | undefined;
+  for (let i = mensajes.length - 1; i >= 0; i--) if (mensajes[i].de === 'mako') { ultimoMako = mensajes[i]; break; }
+  const idAbierta = ultimoMako?.pregunta?.id ?? null;
+  const abierta = idAbierta && faltan.some((q) => q.id === idAbierta) ? idAbierta : null;
+  const diag = faltan.length === 0 ? diagnosticar(PREGUNTAS.map((q) => respuestas[q.id]), canal ?? undefined) : null;
+  return {
+    preguntas, respuestas, canal,
+    pendientes: opts.yaGuardado ? [] : faltan,
+    abierta: opts.yaGuardado ? null : abierta,
+    diag, yaGuardado: opts.yaGuardado,
+  };
+}
+
+export type PlanDiagnostico =
+  | { modo: 'no' }
+  | { modo: 'ofrecer' | 'forzar'; pregunta: PreguntaDiagnostico; numero: number; total: number };
+
+/**
+ * ¿Toca una pregunta del diagnóstico en este turno? MaKo elige el momento (`ofrecer`), con tres redes que
+ * la vuelven obligatoria (`forzar`):
+ *   · el diagnóstico ya empezó → las preguntas van seguidas, como en el wizard (son toques rápidos);
+ *   · ya están las piezas mínimas → el diagnóstico tiene que estar antes de armar la oferta;
+ *   · el dueño ya mandó MENSAJES_ANTES_DEL_DIAGNOSTICO mensajes y MaKo todavía no lo empezó.
+ * Si el dueño NO contestó la que quedó abierta (escribió otra cosa), este turno vuelve a `ofrecer`: insistir
+ * con la misma pregunta mensaje tras mensaje es la fricción que el marco prohíbe. Y un turno que trae
+ * DOCUMENTOS NUEVOS tampoco la fuerza: ese turno es para leer lo que mandó (con la obligatoria, el validar
+ * del turno descarta a los proveedores que sólo leyeron el documento, y lo que sacaron se perdería).
+ */
+export function planDiagnostico(e: EstadoDiagnostico, c: { puedeConcluir: boolean; mensajesDelDueno: number; conDocumentosNuevos?: boolean }): PlanDiagnostico {
+  const pregunta = e.pendientes[0];
+  if (!pregunta) return { modo: 'no' };
+  const contestadas = e.preguntas.filter((q) => e.respuestas[q.id] != null).length;
+  const base = { pregunta, numero: contestadas + 1, total: e.preguntas.length };
+  if (e.abierta || c.conDocumentosNuevos) return { modo: 'ofrecer', ...base };
+  if (contestadas > 0 || c.puedeConcluir || c.mensajesDelDueno >= MENSAJES_ANTES_DEL_DIAGNOSTICO) return { modo: 'forzar', ...base };
+  return { modo: 'ofrecer', ...base };
+}
+
+/** Los números de un texto, sin separadores («$3.000» y «3,000» son 3000). El cero no cuenta: «$0 – $3.000» se dice «menos de $3.000». */
+const numerosDe = (s: string): string[] =>
+  (s.match(/\d+(?:[.,]\d+)*/g) ?? []).map((n) => n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')).filter((n) => n !== '0');
+
+/**
+ * Las opciones que se dibujan: las ADAPTADAS por la IA, mientras sigan siendo las originales.
+ *
+ *  · Tiene que haber exactamente tantas como originales, todas distintas: con una de más o de menos, o dos
+ *    iguales, el orden ya no garantiza que la N sea la N, y se usan las originales enteras.
+ *  · Cada adaptada tiene EXACTAMENTE los números de su original, uno a uno (los rangos de dinero y de
+ *    cantidad son lo que la pregunta mide): «$3.000 – $10.000» puede pasar a «Entre $3.000 y $10.000 al
+ *    mes», no a «unos 5 mil» ni a «$3.000 – $10.000 (unos 60 a 200 mil pesos)». La que los cambia, o
+ *    viene vacía o larga, vuelve a su original — sólo ésa.
+ *  · Y si al final dos opciones quedan iguales (o con los mismos números), se usan las originales enteras.
+ * Es la segunda capa de la regla del prompt «no cambies los rangos»: el sentido de una frase no se puede
+ * verificar, los números sí.
+ *
+ * ⚠️ IGUALES, NO «INCLUIDOS» (revisión adversarial del 11/10/2026). La primera versión aceptaba un
+ *    SUPERCONJUNTO, y los rangos vecinos comparten un borde: una escala corrida un lugar («$3.000 –
+ *    $10.000» en la posición 0, cuya original es «$0 – $3.000», que sin el cero pide sólo {3000}) pasaba en
+ *    la 0 y las demás volvían a su original. Quedaban dos botones con el mismo rango, y el dueño que
+ *    factura $5.000 tocaba el primero: idx 0, la banda de menos de $3.000, guardada en el diagnóstico del
+ *    NEGOCIO. Y el chequeo de repetidas miraba las adaptadas ANTES de devolver cada una a su original.
+ */
+export function opcionesDiagnostico(original: string[], adaptadas: string[] | null | undefined): string[] {
+  if (!Array.isArray(adaptadas) || adaptadas.length !== original.length) return [...original];
+  const limpias = adaptadas.map((x) => colapsar(x));
+  const norm = limpias.map((x) => normalizar(x));
+  if (new Set(norm.filter(Boolean)).size !== norm.filter(Boolean).length) return [...original];
+  const firma = (s: string) => [...new Set(numerosDe(s))].sort().join('|');
+  const finales = original.map((o, i) => {
+    const a = limpias[i];
+    if (!a || a.length > TOPE_OPCION_DIAG) return o;
+    return firma(a) === firma(o) ? a : o;
+  });
+  const textos = finales.map(normalizar);
+  const numeros = finales.map(firma).filter(Boolean);
+  if (new Set(textos).size !== textos.length || new Set(numeros).size !== numeros.length) return [...original];
+  return finales;
+}
+
+/**
+ * La respuesta del dueño a una pregunta del diagnóstico, validada: la pregunta existe, MaKo la hizo en algún
+ * mensaje y el índice es una de sus opciones. Devuelve el texto de la opción que el dueño vio (la
+ * adaptada), para cuando la pantalla manda el toque sin texto. null = no vale (se guarda como texto suelto).
+ */
+export function respuestaDiagnostico(
+  mensajes: MensajeDiag[],
+  r: { preguntaId?: unknown; idx?: unknown } | null | undefined,
+  e: EstadoDiagnostico,
+): { preguntaId: string; idx: number; texto: string } | null {
+  if (!r || e.yaGuardado || typeof r.preguntaId !== 'string') return null;
+  const q = e.preguntas.find((x) => x.id === r.preguntaId);
+  const idx = typeof r.idx === 'number' ? r.idx : Number.NaN;
+  if (!q || !Number.isInteger(idx) || idx < 0 || idx >= q.opciones.length) return null;
+  let hecha: MensajeDiag | undefined;
+  for (let i = mensajes.length - 1; i >= 0; i--) {
+    if (mensajes[i].de === 'mako' && mensajes[i].pregunta?.id === q.id) { hecha = mensajes[i]; break; }
+  }
+  if (!hecha) return null;
+  return { preguntaId: q.id, idx, texto: hecha.opciones?.[idx] ?? q.opciones[idx] };
+}
+
+/**
+ * La respuesta que MaKo LEYÓ en las palabras del dueño (lo escribió o lo dictó en vez de tocar la opción):
+ * se pega al último mensaje del dueño, marcada `inferida`, sólo si había una pregunta abierta y ese mensaje
+ * no traía ya su respuesta.
+ */
+export function conRespuestaInferida(mensajes: MensajeGuardado[], e: EstadoDiagnostico, idx: number | null | undefined): { mensajes: MensajeGuardado[]; preguntaId: string | null } {
+  const ultimo = mensajes[mensajes.length - 1];
+  const q = e.abierta ? e.preguntas.find((x) => x.id === e.abierta) : undefined;
+  if (!q || !ultimo || ultimo.de !== 'yo' || ultimo.respuesta || typeof idx !== 'number' || !Number.isInteger(idx) || idx < 0 || idx >= q.opciones.length) {
+    return { mensajes, preguntaId: null };
+  }
+  return { mensajes: [...mensajes.slice(0, -1), { ...ultimo, respuesta: { preguntaId: q.id, idx, inferida: true } }], preguntaId: q.id };
+}
+
+/** El bloque del diagnóstico que lee el modelo del turno. */
+export function diagnosticoParaPrompt(plan: PlanDiagnostico, e: EstadoDiagnostico): string {
+  const opciones = (q: PreguntaDiagnostico) => q.opciones.map((o, i) => `  ${i}) ${o}`).join('\n');
+  const lineas: string[] = [];
+  const abierta = e.abierta ? e.preguntas.find((q) => q.id === e.abierta) : undefined;
+  if (abierta) {
+    lineas.push(`QUEDÓ ABIERTA la pregunta «${abierta.id}» (${abierta.texto}) y el dueño no tocó ninguna opción. Si su último mensaje la contesta con sus palabras, devuelve en "diagnostico_respuesta" el número de la opción original que corresponde:\n${opciones(abierta)}`);
+  }
+  if (plan.modo === 'no') {
+    if (!lineas.length) lineas.push('(No hay preguntas del diagnóstico pendientes: no lo menciones.)');
+    return lineas.join('\n\n');
+  }
+  const q = plan.pregunta;
+  lineas.push(`${plan.modo === 'forzar' ? 'OBLIGATORIA EN ESTE TURNO' : 'OPCIONAL (tú eliges el momento)'} — pregunta ${plan.numero} de ${plan.total}: «${q.id}» ${q.texto}\nOpciones originales, en este orden:\n${opciones(q)}`);
+  return lineas.join('\n\n');
+}
+
+/**
+ * El canal que se guarda en el diagnóstico del NEGOCIO (setDiagnosticoFase). Es el del NEGOCIO, no el de un
+ * funnel: si la conversación es de un funnel secundario con canal propio (un taller presencial en un
+ * negocio que vende por llamada), ese canal no puede quedar como «dónde cierra la venta» de todo el negocio
+ * — lo heredan los funnels sin canal (`canalEfectivo`) y lo leen los guiones de audio.
+ *
+ *  · Si el dueño contestó la pregunta del canal en el chat, ése (es una respuesta sobre su negocio).
+ *  · Si el canal vino del funnel por defecto, o del funnel de la conversación cuando ES el por defecto, ése.
+ *  · Si vino del canal propio de un funnel secundario: ninguno (el voto de volumen igual vale: el índice
+ *    mapea a la misma fase en todos los canales).
+ */
+export function canalParaElNegocio(
+  e: Pick<EstadoDiagnostico, 'respuestas' | 'canal'>,
+  funnel: { canal: CanalId | null; esDefault: boolean } | null,
+): CanalId | undefined {
+  if (!e.canal) return undefined;
+  if (e.respuestas[PREGUNTA_CANAL] != null) return e.canal;
+  if (!funnel || !funnel.canal || funnel.esDefault) return e.canal;
+  return undefined;
+}
+
+/**
+ * El diagnóstico de fase que VALE, en todos lados: el guardado en el negocio gana sobre el de la
+ * conversación. Lo usan el contexto de los prompts (lib/offer-contexto.ts) y lo que se congela en la
+ * conclusión y va al PDF (route.ts, `generar`). Con dos reglas, el dueño que rehízo el diagnóstico en el
+ * onboarding después de contestarlo acá recibía un PDF que decía «Fase 1» con la tesis escrita para la 3
+ * (revisión adversarial del 11/10/2026).
+ */
+export function faseVigenteDe(c: { faseGuardada: Diagnostico | null; faseSesion: Diagnostico | null }): Diagnostico | null {
+  return c.faseGuardada ?? c.faseSesion ?? null;
+}
+
+/**
+ * El valor del setting del diagnóstico de fase (`negocio.fase.diagnostico`), leído: el diagnóstico, o null
+ * si no hay o no se entiende. Es la misma regla que `getDiagnosticoFase` (lib/fase-store.ts), que no la
+ * exporta y lee con la lectura TOLERANTE; la ruta la necesita sobre una lectura ESTRICTA.
+ */
+export function faseDeSetting(raw: string | null): Diagnostico | null {
+  if (!raw) return null;
+  try {
+    const p = JSON.parse(raw) as Diagnostico;
+    return p && typeof p === 'object' && Array.isArray(p.respuestas) ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cuántas preguntas del diagnóstico quedaron sin contestar, para que el PDF lo DIGA en vez de omitir la
+ * sección en silencio. null si no falta nada (hay un diagnóstico, guardado o de la conversación).
+ */
+export function diagnosticoFaltante(e: EstadoDiagnostico): { contestadas: number; total: number } | null {
+  if (e.yaGuardado || e.diag) return null;
+  const contestadas = e.preguntas.filter((q) => e.respuestas[q.id] != null).length;
+  return { contestadas, total: e.preguntas.length };
+}
+
+// ── v2: el audio largo, el link de la web y la espera del CAS ────────────────
+
+/**
+ * El mensaje del dueño cuando trae un audio: si lo escrito más la transcripción entran en el tope del chat,
+ * van en el mensaje; si no, la transcripción ENTERA va como documento de la conversación (hasta el tope de
+ * un documento) y el mensaje lleva el principio y lo dice. Nada se corta en silencio: el resto viaja
+ * entero y el modelo lo lee como cualquier documento. Si la conversación ya no admite documentos
+ * (`docsLibres` en 0), se recorta el mensaje y el corte queda escrito en el propio mensaje.
+ *
+ * ⚠️ La transcripción ya se pagó (una llamada de STT): contestar «es muy largo» después de transcribir
+ *    la tiraría y habría que pagarla de nuevo (revisión adversarial del 11/10/2026).
+ */
+export function repartirTranscripcion(
+  escrito: string, transcripcion: string,
+  opts: { tope: number; topeDoc: number; docsLibres: number; inicio?: number },
+): { cuerpo: string; doc: { texto: string; chars: number; aviso?: string } | null } {
+  const junto = [escrito, transcripcion].filter((x) => x.trim()).join('\n\n');
+  if (junto.length <= opts.tope) return { cuerpo: junto, doc: null };
+  if (opts.docsLibres <= 0) {
+    const sobra = junto.length - opts.tope;
+    const nota = `\n\n[El audio sigue: quedaron afuera ${sobra.toLocaleString('es-MX')} caracteres porque la conversación ya tiene todos los documentos que admite.]`;
+    return { cuerpo: `${junto.slice(0, Math.max(0, opts.tope - nota.length))}${nota}`, doc: null };
+  }
+  const largo = Math.min(opts.inicio ?? 1_500, opts.tope);
+  const principio = recortar(transcripcion, largo);
+  const cuerpo = [escrito, `${principio}\n\n(El audio sigue entero en el documento «Transcripción del audio».)`].filter((x) => x.trim()).join('\n\n');
+  const recortado = transcripcion.length > opts.topeDoc;
+  return {
+    cuerpo,
+    doc: {
+      texto: transcripcion.slice(0, opts.topeDoc),
+      chars: transcripcion.length,
+      ...(recortado ? { aviso: `La transcripción tiene ${transcripcion.length.toLocaleString('es-MX')} caracteres: guardé los primeros ${opts.topeDoc.toLocaleString('es-MX')}.` } : {}),
+    },
+  };
+}
+
+/** Los parámetros de un link que no cambian la página que se ve (seguimiento de anuncios, de mails, de previews). */
+const PARAM_DE_SEGUIMIENTO = /^(utm_[a-z0-9_]+|fbclid|gclid|gbraid|wbraid|dclid|msclkid|ttclid|yclid|twclid|igshid|mc_cid|mc_eid|_ga|_gl|_hs[a-z]+|hsa_[a-z]+|ref|ref_src|sfnsn|__lovable_load_id)$/i;
+
+/**
+ * ¿La página que se va a leer es LA que pegó el dueño? `extraerLanding` (lib/landing-fetch.ts) baja la URL
+ * NORMALIZADA de Landing Analyst: sin `www.` y sin el querystring entero (la identidad de una landing). Eso
+ * está bien para Landing Analyst y mal para «pega el link de tu web»: `?page_id=245` de un WordPress sin
+ * permalinks baja la HOME, otra oferta, y MaKo anotaría piezas de ahí sin decir nada.
+ *
+ *  · Con parámetros que NO son de seguimiento → no se lee (se dice por qué y qué hacer), en vez de leer otra
+ *    página. Los de seguimiento (utm_*, fbclid…) no cambian lo que se ve: se leen igual.
+ *  · Sin `www.` → se lee, y se avisa en el documento cuál se leyó (si falla, el error lo nombra).
+ * La salida correcta es una variante de `extraerLanding` que baje la URL tal cual (pendiente en
+ * lib/landing-fetch.ts, que no es de esta tab).
+ */
+export function linkParaLeer(url: string): { ok: true; leida: string; sinWww: boolean } | { ok: false; error: string } {
+  const bruto = url.trim();
+  let u: URL;
+  try {
+    u = new URL(/^https?:\/\//i.test(bruto) ? bruto : `https://${bruto}`);
+  } catch {
+    return { ok: false, error: 'Ese link no se puede abrir. Revisa que esté completo (por ejemplo, https://tusitio.com).' };
+  }
+  const propios = [...u.searchParams.keys()].filter((k) => !PARAM_DE_SEGUIMIENTO.test(k));
+  if (propios.length) {
+    return { ok: false, error: `Ese link elige la página con parámetros (${propios.slice(0, 3).map((k) => `«${k}»`).join(', ')}) y MaKo todavía no puede leer esa página exacta. Copia el texto de la página y pégalo aquí.` };
+  }
+  const sinWww = /^www\./i.test(u.hostname);
+  u.hostname = u.hostname.toLowerCase().replace(/^www\./, '');
+  u.hash = '';
+  u.search = '';
+  return { ok: true, leida: u.toString().replace(/\/$/, ''), sinWww };
+}
+
+/**
+ * La oferta que OTRO pedido ya anotó para esta versión (y que no es la que este pedido acaba de crear), o
+ * null. Es la condición del compare-and-set de `guardarComoOferta` (lib/offer-sesiones.ts): si devuelve
+ * una, gana ésa y la recién creada se borra. Dos pedidos de «Guardar» a la vez creaban dos ofertas iguales.
+ */
+export function ofertaYaAnotada(cur: { ofertaId: number | null; ofertaVersion: number | null }, version: number, propia: number): number | null {
+  return cur.ofertaId != null && cur.ofertaVersion === version && cur.ofertaId !== propia ? cur.ofertaId : null;
+}
+
+/**
+ * `OfferSesionVista.ligada`: false SÓLO si hay oferta guardada, la conversación tiene funnel y la lectura
+ * dijo que falta la liga (`leida === false`). Una lectura que no se hizo o falló (`undefined`) es true:
+ * invitar a reintentar en falso es peor que un «Guardada» de más.
+ */
+export function ligadaParaVista(f: { funnelId: number | null; ofertaId: number | null }, leida: boolean | undefined): boolean {
+  if (f.funnelId == null || f.ofertaId == null) return true;
+  return leida !== false;
+}
+
+/**
+ * Cuántas veces reintenta el compare-and-set de una conversación y cuánto espera antes de cada vuelta.
+ * Cinco intentos con una espera fija de 80-200 ms se rendían con 6-8 archivos subidos a la vez (medido por la
+ * revisión: con filas grandes, el 68% de las tandas perdía uno). Diez, con espera creciente y azar.
+ */
+export const INTENTOS_CAS = 10;
+export const esperaCAS = (intento: number, azar: number = Math.random()): number =>
+  Math.min(1_500, 60 * 2 ** Math.max(0, intento)) + Math.floor(Math.max(0, Math.min(1, azar)) * 120);
+
 // ── El turno ─────────────────────────────────────────────────────────────────
 
 export type TurnoOffer = {
@@ -323,6 +803,10 @@ export type TurnoOffer = {
   piezas: Partial<Record<PiezaKey, string>>;
   /** Lo que dijo el modelo. NO decide nada: decide `faltanMinimas` sobre las piezas ya fusionadas. */
   listo: boolean;
+  /** v2: la pregunta del diagnóstico ADAPTADA, si el modelo la hizo en este turno. Las opciones las valida `opcionesDiagnostico`. */
+  diagnostico: { texto: string; opciones: string[] } | null;
+  /** v2: el índice de la opción original que el modelo leyó en las palabras del dueño, o null. */
+  diagnosticoRespuesta: number | null;
 };
 
 /**
@@ -378,17 +862,131 @@ function limpiarOpciones(v: unknown): string[] {
   return out;
 }
 
-/** El JSON del turno, o null si no sirve (la cascada prueba el próximo proveedor). */
+/** La pregunta del diagnóstico que adaptó el modelo: un texto con su «?» y una lista. La lista la juzga `opcionesDiagnostico`. */
+function limpiarDiagnostico(v: unknown): TurnoOffer['diagnostico'] {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const t = texto(o.texto, 2000);
+  if (!t || !t.includes('?') || pareceRazonamiento(t)) return null;
+  const opciones = Array.isArray(o.opciones) ? o.opciones.map((x) => colapsar(x)) : [];
+  return { texto: recortar(unaSolaPregunta(t), TOPE_PREGUNTA_DIAG), opciones };
+}
+
+/** Un índice de opción del diagnóstico (0-4), aunque venga como texto. */
+function indiceDiag(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v.trim()) : Number.NaN;
+  return Number.isInteger(n) && n >= 0 && n < N_OPCIONES_DIAG ? n : null;
+}
+
+/**
+ * El JSON del turno, o null si no sirve (la cascada prueba el próximo proveedor).
+ *
+ * La respuesta puede venir VACÍA sólo si el modelo hizo la pregunta del diagnóstico: en ese turno lo que se
+ * dibuja es la pregunta (y la respuesta, si la hay, es un puente corto).
+ */
 export function parseTurno(raw: unknown): TurnoOffer | null {
   const o = aObjeto(raw);
   if (!o) return null;
   const crudo = texto(o.respuesta, 4000);
-  if (!crudo || pareceRazonamiento(crudo)) return null;
+  if (crudo && pareceRazonamiento(crudo)) return null;
+  const diagnostico = limpiarDiagnostico(o.diagnostico);
+  if (!crudo && !diagnostico) return null;
   return {
-    respuesta: recortarRespuesta(unaSolaPregunta(crudo)),
+    respuesta: crudo ? recortarRespuesta(unaSolaPregunta(crudo)) : '',
     opciones: limpiarOpciones(o.opciones),
     piezas: limpiarPiezas(o.piezas),
     listo: o.listo === true,
+    diagnostico,
+    diagnosticoRespuesta: indiceDiag(o.diagnostico_respuesta),
+  };
+}
+
+/** Cuántas respuestas que sólo pasan el parse flojo acepta la cascada antes de cortar. */
+export const FLOJOS_ANTES_DE_CORTAR = 2;
+
+/**
+ * El `validar` de la cascada con un RESPALDO: una respuesta que pasa `parse` se acepta y corta; una que
+ * sólo pasa `parseFlojo` (sirve, pero sin lo que se pedía de más) se guarda —la primera— y la cascada sigue
+ * buscando; a la `cortarTras`-ésima que sólo pasa el flojo, se corta. `resultado()` es la que pasó `parse`
+ * o, si ninguna, el respaldo.
+ *
+ * Existe por el turno con la pregunta del diagnóstico OBLIGATORIA: con un validar que sólo aceptaba el
+ * turno que la adaptaba, uno válido con las piezas que el dueño acababa de dar se tiraba entero y se
+ * quemaba la cascada y la red de plataforma (revisión adversarial del 11/10/2026). Puro para tener test:
+ * lib/offer-ia.ts es `server-only`.
+ */
+export function validadorConRespaldo<T>(
+  parse: (raw: string) => T | null,
+  parseFlojo?: (raw: string) => T | null,
+  cortarTras: number = FLOJOS_ANTES_DE_CORTAR,
+): { validar: (t: string) => boolean; resultado: () => T | null; fueRespaldo: () => boolean } {
+  const caja: { valor: T | null; flojo: T | null; flojos: number } = { valor: null, flojo: null, flojos: 0 };
+  return {
+    validar: (t: string): boolean => {
+      try {
+        const v = parse(t);
+        if (v != null) { caja.valor = v; return true; }
+        const f = parseFlojo ? parseFlojo(t) : null;
+        if (f == null) return false;
+        if (caja.flojo == null) caja.flojo = f;
+        caja.flojos += 1;
+        return caja.flojos >= cortarTras;
+      } catch { return false; }
+    },
+    resultado: () => caja.valor ?? caja.flojo,
+    fueRespaldo: () => caja.valor == null && caja.flojo != null,
+  };
+}
+
+/** El `validar` del turno cuando la pregunta del diagnóstico es OBLIGATORIA: sin ella, que conteste el próximo proveedor. */
+export const parseTurnoConDiagnostico = (raw: unknown): TurnoOffer | null => {
+  const t = parseTurno(raw);
+  return t && t.diagnostico ? t : null;
+};
+
+/**
+ * El mensaje de MaKo que se guarda, decidido por el CÓDIGO sobre lo que trajo el modelo.
+ *
+ *  · Si toca la pregunta del diagnóstico (obligatoria, u opcional y el modelo la hizo), el mensaje ES esa
+ *    pregunta: el texto adaptado (o el original si el modelo no lo trajo, o lo trajo sin «?»), las opciones
+ *    de `opcionesDiagnostico` y la marca `pregunta`. Sin «Armar mi oferta» entre las opciones: rompería la
+ *    regla de que la opción N es la respuesta N. Lo que el modelo dijo antes va como puente sólo si no trae
+ *    otra pregunta.
+ *  · `turno` null (la IA falló) sólo llega con la pregunta obligatoria: sale la original, sin IA. El
+ *    diagnóstico no se traba porque un proveedor no contestó.
+ *  · `diagPara`: la pregunta para la que el modelo adaptó el texto. Si entre medio la pregunta que toca
+ *    cambió (el modelo leyó la respuesta en las palabras del dueño), su adaptación no se usa.
+ *  · Sin pregunta del diagnóstico y sin respuesta del modelo, sale la siguiente pregunta de la guía.
+ */
+export function mensajeDeMako(p: {
+  turno: TurnoOffer | null; plan: PlanDiagnostico; piezas: PiezasSabidas; puedeConcluir: boolean;
+  id: string; at: string; diagPara?: string | null;
+}): MensajeSinAudio {
+  const { turno, plan } = p;
+  const hayRespuesta = !!turno?.respuesta.trim();
+  if (plan.modo !== 'no') {
+    const q = plan.pregunta;
+    const d = turno?.diagnostico && (p.diagPara == null || p.diagPara === q.id) ? turno.diagnostico : null;
+    if (plan.modo === 'forzar' || d || !hayRespuesta) {
+      const pregunta = d?.texto && d.texto.includes('?') ? d.texto : q.texto;
+      const puente = d && hayRespuesta && !turno!.respuesta.includes('?') ? turno!.respuesta : '';
+      return {
+        id: p.id, de: 'mako', at: p.at,
+        texto: recortarRespuesta(puente ? `${puente} ${pregunta}` : pregunta),
+        opciones: opcionesDiagnostico(q.opciones, d?.opciones),
+        pregunta: { tipo: 'diagnostico', id: q.id },
+      };
+    }
+  }
+  if (turno && hayRespuesta) {
+    const opciones = opcionesConCierre(turno.opciones, p.puedeConcluir);
+    return { id: p.id, de: 'mako', texto: turno.respuesta, at: p.at, ...(opciones.length ? { opciones } : {}) };
+  }
+  const opciones = opcionesConCierre([], p.puedeConcluir);
+  return {
+    id: p.id, de: 'mako', at: p.at,
+    texto: siguientePregunta(p.piezas) ?? '¿Hay algo más de tu oferta que quieras contarme antes de armarla?',
+    ...(opciones.length ? { opciones } : {}),
   };
 }
 
@@ -760,10 +1358,14 @@ export const TOPE_DOCS_PROMPT = 24_000;
  * cascada barata manda un system y un user, y porque así el rótulo «DUEÑO» es parte de lo que el
  * modelo lee como dato.
  */
-export function conversacionParaPrompt(mensajes: OfferMensaje[], max = MAX_MENSAJES_PROMPT): string {
+/** Lo que el prompt lee de un mensaje: le da igual si es la forma guardada o la de la pantalla. */
+export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos'> & { audio?: unknown };
+
+export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_MENSAJES_PROMPT): string {
   const ult = mensajes.slice(-max);
   const lineas = ult.map((m) => {
-    const quien = m.de === 'yo' ? 'DUEÑO' : 'MaKo';
+    // «por audio»: el texto es una transcripción, y el modelo tiene que poder dudar de una palabra rara.
+    const quien = m.de === 'yo' ? (m.audio ? 'DUEÑO (por audio)' : 'DUEÑO') : 'MaKo';
     const adj = m.adjuntos?.length ? ` (adjuntó: ${m.adjuntos.map((a) => a.nombre).join(', ')})` : '';
     const cuerpo = (m.texto ?? '').trim() || (m.adjuntos?.length ? '(mandó documentos sin texto)' : '(vacío)');
     // Lo del DUEÑO va entero hasta el tope que acepta la ruta (12.000, TOPE_MENSAJE en
@@ -783,7 +1385,7 @@ export type DocParaPrompt = { id: string; nombre: string; texto: string; at: str
  * dueño lo quita del composer antes de mandar nunca entra a la conversación: sin este filtro, el
  * contrato de otro cliente subido por error seguía viajando a los proveedores en cada turno.
  */
-export function docsDeLaConversacion<T extends { id: string }>(docs: T[], mensajes: OfferMensaje[], nuevos: readonly string[] = []): T[] {
+export function docsDeLaConversacion<T extends { id: string }>(docs: T[], mensajes: Array<{ adjuntos?: AdjuntoVista[] }>, nuevos: readonly string[] = []): T[] {
   const usados = new Set<string>(nuevos);
   for (const m of mensajes) for (const a of m.adjuntos ?? []) usados.add(a.id);
   return docs.filter((d) => usados.has(d.id));
@@ -843,3 +1445,57 @@ export function piezasParaPrompt(piezas: PiezasSabidas): { sabidas: string; falt
 /** Las preguntas de la guía, en orden, para el system del turno. */
 export const guiaParaPrompt = (): string =>
   PREGUNTAS_GUIA.map((q, i) => `${i + 1}. [${q.pieza}] ${q.pregunta}`).join('\n');
+
+// ── v2: el árbol del selector ────────────────────────────────────────────────
+
+/** Un funnel como lo da `leerFunnels()` (lib/funnels.ts): el nombre que se muestra es el del producto, si lo hay. */
+export type FunnelParaArbol = { id: number; nombre: string; producto?: string | null };
+/** Una conversación con lo que decide dónde cuelga. `ofertaId` es la columna cruda (la última versión guardada). */
+export type SesionParaArbol = OfferSesionResumen & { funnelId: number | null; ofertaId: number | null; ofertaBaseId: number | null };
+
+/**
+ * El árbol funnel → ofertas → conversaciones. Puro: lo arma el CÓDIGO con las cuatro listas leídas.
+ *
+ *  · El nombre de un funnel es el de su producto principal, si no el suyo (lo mismo que el desplegable del
+ *    CRM: «Funnel principal» lo pone la migración y es igual para todos).
+ *  · Las ofertas de un funnel salen de `funnel_ofertas`, la principal primero y después por `orden`. Una
+ *    liga a una oferta que no está en `ofertas` (inactiva o borrada) no se dibuja.
+ *  · Una conversación cuelga de la oferta que GUARDÓ (si está en su funnel), si no de la que ANALIZABA
+ *    (si está en su funnel), si no va a «nuevas» de su funnel. Sin funnel, o con un funnel que ya no
+ *    está (archivado), va a «sueltas». Cada conversación aparece UNA vez: ninguna se pierde porque le
+ *    cambiaron una liga.
+ *  · Adentro de cada lista, la más reciente primero.
+ */
+export function construirArbol(e: {
+  funnels: FunnelParaArbol[];
+  ofertas: Array<{ id: number; nombre: string }>;
+  ligas: Array<{ funnel_id: number; oferta_id: number; es_principal: boolean; orden: number }>;
+  sesiones: SesionParaArbol[];
+}): ArbolOffer {
+  const resumen = (s: SesionParaArbol): OfferSesionResumen => ({ id: s.id, titulo: s.titulo, estado: s.estado, total: s.total, updatedAt: s.updatedAt });
+  const recientes = (a: SesionParaArbol, b: SesionParaArbol) => (b.updatedAt || '').localeCompare(a.updatedAt || '') || b.id - a.id;
+  const nombreOferta = new Map(e.ofertas.map((o) => [o.id, o.nombre] as const));
+  const funnels: ArbolOffer['funnels'] = e.funnels.map((f) => {
+    const ligas = e.ligas
+      .filter((l) => l.funnel_id === f.id && nombreOferta.has(l.oferta_id))
+      .sort((a, b) => Number(b.es_principal) - Number(a.es_principal) || a.orden - b.orden || a.oferta_id - b.oferta_id);
+    const vistas = new Set<number>();
+    const ofertas: ArbolOffer['funnels'][number]['ofertas'] = [];
+    for (const l of ligas) {
+      if (vistas.has(l.oferta_id)) continue;
+      vistas.add(l.oferta_id);
+      ofertas.push({ id: l.oferta_id, nombre: nombreOferta.get(l.oferta_id) as string, principal: l.es_principal, sesiones: [] });
+    }
+    return { id: f.id, nombre: (f.producto ?? '').trim() || f.nombre, ofertas, sesionesNuevas: [] };
+  });
+  const porFunnel = new Map(funnels.map((f) => [f.id, f] as const));
+  const sueltas: OfferSesionResumen[] = [];
+  for (const s of [...e.sesiones].sort(recientes)) {
+    const f = s.funnelId != null ? porFunnel.get(s.funnelId) : undefined;
+    if (!f) { sueltas.push(resumen(s)); continue; }
+    const deLaOferta = (id: number | null) => (id != null ? f.ofertas.find((o) => o.id === id) : undefined);
+    const destino = deLaOferta(s.ofertaId) ?? deLaOferta(s.ofertaBaseId);
+    (destino ? destino.sesiones : f.sesionesNuevas).push(resumen(s));
+  }
+  return { funnels, sueltas };
+}

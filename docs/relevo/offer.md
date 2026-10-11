@@ -1,63 +1,40 @@
 # Relevo — la tab Offer
 
-<sub>Escrito por el chat que la construyó (cuenta claude3), 11/10/2026 ~18:00 UTC. Primera mano.</sub>
+<sub>Escrito por el chat que la construyó (cuenta claude3), 11/10/2026 ~20:30 UTC. Primera mano.</sub>
 
 ## Dónde quedó
 
-- **v1 en producción** (commit `18b48ced`, deploy READY): `/offer` = chat con IA → diagnóstico de
-  9 dimensiones → oferta nueva → PDF. Análisis pasó a ser la 4ª tab de Experiments. Migración
-  0254 (`offer_sesiones`) aplicada. El marco destilado de los cursos: `docs/offer-marco.md`. Lo
-  que costó y lo pendiente: `docs/hallazgos-offer.md`. Memoria: `offer-tab-chat-ia`.
-- **NO se vio en el navegador**: el vigía de RAM mató el dev server local dos veces compilando
-  `/offer` y la extensión de Chrome no estaba conectada.
+- **v1** (`18b48ced`): `/offer` = chat con IA → diagnóstico de 9 dimensiones → oferta nueva → PDF.
+  Análisis es la 4ª tab de Experiments.
+- **v2** (este commit): cada conversación atada a un FUNNEL del CRM (fila de `funnels`; sus ofertas,
+  `funnel_ofertas`), selector en árbol en el lugar del título, chat con las piezas de WhatsApp de la
+  casa, avatar de MaKo (chispa sola, fondo negro), arranque pidiendo documento o link, y el diagnóstico
+  de fase preguntado adentro del chat (sólo en el PDF). Migración **0256 aplicada** en prod antes del
+  deploy. Revisión adversarial con 26 hallazgos reales, todos arreglados.
+- **Offer Playbook** (`994461ab`, en prod): `/admin/offer-playbook`, el marco en tabs, lo que corre
+  en el código, 19 autores con sus conclusiones y **13 cosas que el código todavía no aplica del
+  marco** (`app/admin/offer-playbook/pendientes.ts`).
+- El renombre visible «Producto» → «Funnel» del CRM lo hizo el chat del CRM (`f5a98420`).
+- **NO se vio en el navegador** (ni v1 ni v2): Martín dijo que lo visual lo revisa él.
 
-## El pedido NUEVO de Martín (11/10/2026, textual) — es lo que sigue
+## Lo que espera una decisión de Martín
 
-> Las ofertas deben estar atados a los productos del CRM... Y quiero cambiar el concepto
-> "Producto" por "Funnel" en todos lados... Porque un mismo funnel puede tener varias "ofertas"...
-> Configuralo de esa manera, para que yo pueda seleccionar en que funnel analizar o crear una
-> nueva oferta. Mandale como tarea al CRM que lo cambie en todos lados.
->
-> En la tab de offer, que donde hoy está el título de "Offer" se elimine y ahí se seleccione un
-> funnel, y se pueda crear o analizar una oferta.
->
-> Y para la funcionalidad de la tab, quiero que aproveches las cosas que ya construimos... Por
-> ejemplo "El diagnóstico" (Que en este caso, las preguntas deben ser más personalizadas y el
-> resultado del diagnóstico no se debe ver al finalizar esas preguntas, pero si ser parte del PDF
-> final). Aprovecha "El archivero", "Avatares", "Razones"...
->
-> Puedes ir pidiendole todo por el chat, en el orden que te parezca... Yo creo que si partimos de
-> un documento o un link de su web o landing o algo así, sería mucho más fácil... Pero si no tiene
-> nada o hay cosas que le faltan, como que nunca pensó en una garantía o no tiene claro su avatar,
-> también con preguntas poder ir creando todo.
->
-> Elimina el botón de "Ofertas anteriores", para eso ya estará el desplegable... Y ese desplegable
-> debe ser modo arbol, como lo hacemos siempre. Primero el paso del funnel y dentro las ofertas que
-> hayan.
->
-> Quiero que el diseño del chat se vea exactamente igual a lo que ya creamos... Que tenga ese
-> formato de grabar audio, la animación de grabando audio, adjuntar archivos, imagenes, emojis...
-> Copialo tal cual. Y el que pregunta, que sería MaKo, la foto de perfil que sea la estrella de
-> MaKo, que tiene una sola estrella sin una estrellita pequeña arriba, y el fondo negro.
+Las 4 marcadas «Decides tú» en la pestaña Criterio del Playbook: si Prueba pasa a pieza mínima; si
+con Cliente o Promesa en 3 o menos MaKo rehace la oferta o sólo avisa; si el PDF separa lo que propuso
+MaKo de lo que dijo el dueño; y si las reglas que hoy sólo viven en el prompt merecen control en código.
+Las otras 9 son «cambiar el código» con la regla ya decidida en el marco (la más seria: el filtro de
+cifras deja pasar números inventados en el PDF).
 
-(Mandó una captura del editor de mensajes de WhatsApp de Automations: burbujas con audio y
-texto, composer con emoji · clip · `{ }` · micrófono.)
+## Lo que quedó sin hacer
 
-## Cómo lo encaré (estado al escribir esto)
+Está en `docs/hallazgos-offer.md` → «Lo que quedó SIN hacer» (Archivero y Avatares desde el chat, la
+liga a `oferta_productos`, el binario suelto de un audio que se re-sube, la variante de
+`extraerLanding` que baje la URL tal cual, «guardar si no hay» en `lib/fase-store.ts`).
 
-1. **El renombre Producto → Funnel en el CRM es del chat del CRM**: se le mandó la tarea con el
-   pedido textual. La tab Offer lee los productos del CRM (`lib/productos.ts`) como «funnels» y
-   las ofertas de cada uno por `oferta_productos` (mig 0169/0171); no renombra nada del CRM.
-2. **Offer v2** (en curso en este chat): selector en ÁRBOL en el lugar del título (funnel → sus
-   ofertas, más «Nueva oferta» en cada funnel), sin el botón de historial; la sesión queda atada a
-   `producto_id` + la oferta; el chat con los componentes de WhatsApp (`ChatHilo`/`BurbujaHilo`/
-   `ComposerWhatsApp`: audio con su animación, adjuntos, imágenes, emojis) y el avatar de MaKo
-   (estrella sola, fondo negro); arrancar pidiendo un documento o el link de la web/landing; el
-   diagnóstico de fase (`lib/fase-diagnostico.ts`) preguntado adentro del chat con opciones
-   personalizadas, sin mostrar el resultado, y en el PDF; Archivero, Avatares y Razones como
-   contexto (y lo que falte, construido con preguntas).
+## Ojo con el clon
 
-## Si esto lo retoma otra cuenta
-
-`git log --oneline -- app/offer lib/offer-*` dice qué de la v2 ya entró. Lo que no esté
-commiteado y aparezca en el árbol es trabajo a medias de este chat: no se pushea sin verlo.
+El `main` local quedó **separado de `origin/main`**: otra sesión subió versiones rebasadas de varios
+commits, y además `a7f42966` + `1bc5c2af` (el Playbook, local) son los mismos cambios que
+`43b9c17c` + `994461ab` (remoto). Offer se subió desde un worktree limpio con cherry-pick. Quien
+reconcilie el clon: `git rebase origin/main` saltea los duplicados solo, pero el árbol de trabajo tiene
+cambios sin commitear de varias sesiones.

@@ -7,14 +7,25 @@
 // del teclado. Todo con el prefijo of- para no pisar a nadie.
 //
 // Sólo tokens que existen en claro Y en oscuro (app/globals.css → [data-tema="oscuro"]).
-// El dorado es SÓLO de MaKo: lo usan la estrella, la pastilla de «Armar mi oferta»
-// y el borde de una pieza que MaKo ya sabía. Lo del dueño va en azul o en gris.
+// El dorado es SÓLO de MaKo: lo usan su foto, la estrella, la pastilla de «Armar mi
+// oferta» y el borde de una pieza que MaKo ya sabía. Lo del dueño va en azul o en gris.
+//
+// ⚠️ `.of-hilo-lista > div` APLANA LA CAJA DE ChatHilo (app/whatsapp/_shared/ChatHilo.tsx): la
+// tarjeta del chat es la de ChatOffer, con la barra de escribir adentro, y ChatHilo dibuja su
+// propio borde y su radio en línea. Una regla con `!important` le gana a un estilo en línea sin
+// tocar el componente compartido. Si ChatHilo cambia su nodo raíz, lo peor que pasa es un borde
+// de más (se ve, no rompe nada).
 
 export const CSS_OFFER = `
-.of-btn-reset { font: inherit; color: inherit; }
+.of-sr { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.of-cabecera { flex: none; display: flex; align-items: center; gap: 12px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+
+.of-hilo-lista > div { border: 0 !important; border-radius: 0 !important; }
+.of-hilo[data-encima] { outline: 2px dashed var(--primary); outline-offset: -4px; }
+.of-error { flex: none; padding: 8px 16px; background: var(--warn-bg); color: var(--warn); font-size: 12.5px; line-height: 1.45; border-top: 1px solid var(--border); }
 
 .of-pill {
-  min-height: 44px; padding: 10px 18px; border-radius: 999px;
+  min-height: 40px; padding: 8px 16px; border-radius: 999px;
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
   font: inherit; font-size: var(--fs-md); font-weight: 600; line-height: 1.3; text-align: left;
   cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
@@ -26,23 +37,7 @@ export const CSS_OFFER = `
 .of-pill--mako { border-color: var(--mako-border); background: var(--mako-bg); color: var(--mako-ink); }
 .of-pill--mako:hover:not(:disabled) { border-color: var(--mako); background: var(--mako-bg); color: var(--mako-ink); }
 
-.of-herr {
-  flex: none; width: 42px; height: 42px; border-radius: 11px;
-  border: 1px solid var(--border-strong); background: var(--surface); color: var(--dim);
-  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
-  transition: background .14s ease, color .14s ease, box-shadow .14s ease;
-}
-.of-herr:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
-.of-herr:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.of-herr:disabled { opacity: .45; cursor: not-allowed; }
-
-.of-iconbtn-borde { border-color: var(--border-strong) !important; }
-
-.of-composer { border-color: var(--border-strong); box-shadow: 0 1px 2px rgba(18,21,27,.05); transition: border-color .14s ease, box-shadow .14s ease; }
-.of-reintento { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 4px auto 10px; max-width: 760px; padding: 8px 12px; border-radius: 12px; background: var(--warn-bg); color: var(--warn); font-size: 13.5px; }
-.of-composer:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
-.of-composer[data-encima] { border-color: var(--primary); background: var(--primary-bg) !important; }
-.of-campo::placeholder { color: var(--faint); }
+.of-reintento { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 8px 12px; border-radius: 12px; background: var(--warn-bg); color: var(--warn); font-size: 13.5px; }
 
 .of-quitar {
   flex: none; width: 22px; height: 22px; border-radius: 999px; border: 0; padding: 0;
@@ -51,16 +46,6 @@ export const CSS_OFFER = `
 }
 .of-quitar:hover { background: var(--surface); color: var(--ink); }
 .of-quitar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-.of-menu-fila {
-  width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 14px;
-  border: 0; border-radius: 10px; background: transparent; color: var(--ink);
-  font: inherit; font-size: var(--fs-md); text-align: left; cursor: pointer;
-}
-.of-menu-fila:hover:not(:disabled) { background: var(--surface-2); }
-.of-menu-fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.of-menu-fila[aria-current="true"] { background: var(--primary-bg); }
-.of-menu-fila:disabled { cursor: default; }
 
 .of-seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 13px; padding: 5px; gap: 3px; max-width: 100%; }
 .of-seg__op {
@@ -120,11 +105,14 @@ export const CSS_OFFER = `
 }
 
 @keyframes of-latido { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@keyframes of-av-latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.16); } }
+.of-av-latido { transform-box: fill-box; transform-origin: center; animation: of-av-latido 1.4s ease-in-out infinite; }
 .of-puntos span { animation: of-latido 1.2s ease-in-out infinite; }
 .of-puntos span:nth-child(2) { animation-delay: .2s; }
 .of-puntos span:nth-child(3) { animation-delay: .4s; }
 @media (prefers-reduced-motion: reduce) {
   .of-puntos span { animation: none; opacity: .7; }
+  .of-av-latido { animation: none; }
   .of-fila__flecha, .of-plegable__flecha { transition: none; }
 }
 `;

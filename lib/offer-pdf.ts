@@ -18,6 +18,7 @@
 // =============================================================================
 
 import { DIMENSIONES, MARCA_COMPLETAR, dimensionLabel, type ConclusionOferta, type PropuestaOferta } from './offer-marco';
+import { CANALES, dimensionDeFase, faseDef, repartoTexto, type Diagnostico } from './fase-diagnostico';
 import { PdfDoc } from './pdf-escritor';
 
 /** Copia LITERAL de app/globals.css (tema claro). */
@@ -121,8 +122,14 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
   doc.barra(xEstado, yp + 40, W - (xEstado - X) - 18, 8, c.calculo.total / 100, lista ? C.bien : colorNota(Math.round(c.calculo.total / 10)));
   doc.y = yp + altoPanel + 22;
 
+  // ── El diagnóstico del NEGOCIO (v2) ────────────────────────────────────────
+  // Va ANTES del de la oferta a propósito: la fase dice qué le toca al negocio, y la regla 7 del marco
+  // («la oferta es lo último que se corrige») se lee mejor con eso arriba. En el chat NO se mostró.
+  if (c.fase) seccionFase(doc, c.fase);
+  else if (c.diagnosticoFaltante) seccionFaseFaltante(doc, c.diagnosticoFaltante);
+
   // ── Diagnóstico ────────────────────────────────────────────────────────────
-  seccion(doc, 'Diagnóstico');
+  seccion(doc, 'Diagnóstico de tu oferta');
   if (lleno(d.tesis)) doc.textoRico(tramosConCompletar(d.tesis), { tam: 12, interlinea: 1.45, despues: 12 });
 
   const notas = new Map(d.dimensiones.map((n) => [n.id, n]));
@@ -184,6 +191,60 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
   }
 
   return doc.bytes();
+}
+
+/** Cuántas cosas de «todavía no» entran: la sección es contexto, no un segundo informe. */
+const MAX_NO_HACER = 3;
+
+/**
+ * «El diagnóstico de tu negocio»: la fase, el cuello de botella y lo que significa, con los textos de
+ * lib/fase-diagnostico.ts (los mismos que ve el onboarding: acá no se reescribe nada). Sin emojis: WinAnsi
+ * no los tiene (los descartaría `textoParaPdf`).
+ */
+function seccionFase(doc: PdfDoc, d: Diagnostico): void {
+  const f = faseDef(d.fase);
+  const dim = dimensionDeFase(f.id);
+  seccion(doc, 'El diagnóstico de tu negocio');
+  doc.texto(`Fase ${f.id} de 5: ${f.nombre}`, { tam: 13, fuente: 'Helvetica-Bold', conSiguiente: 14 });
+  doc.texto(`${f.subtitulo} · ${f.rango}`, { tam: 9.5, color: C.tenue, despues: 8 });
+  const canal = d.canal ? CANALES.find((x) => x.id === d.canal)?.label : null;
+  if (canal) doc.textoRico([{ t: 'Dónde cierras la venta: ', fuente: 'Helvetica-Bold', color: C.dim }, { t: canal }], { tam: 10, despues: 4 });
+  doc.textoRico([{ t: 'Lo que más te frena: ', fuente: 'Helvetica-Bold', color: C.ojo }, { t: `${f.cuelloLabel}. ${dim.descripcion}` }], { tam: 10, interlinea: 1.4, despues: 6 });
+  doc.textoRico([{ t: 'Lo que significa: ', fuente: 'Helvetica-Bold', color: C.dim }, { t: f.objetivo }], { tam: 10, interlinea: 1.4, despues: 8 });
+  const criticas = f.acciones.filter((a) => a.critica);
+  if (criticas.length) {
+    doc.texto('Lo primero', { tam: 10.5, fuente: 'Helvetica-Bold', conSiguiente: 14, despues: 2 });
+    for (const a of criticas) vineta(doc, `${a.titulo}: ${a.texto}`, C.mako);
+    doc.y += 4;
+  }
+  if (f.noHacer.length) {
+    doc.texto('Todavía no', { tam: 10.5, fuente: 'Helvetica-Bold', conSiguiente: 14, despues: 2 });
+    for (const x of f.noHacer.slice(0, MAX_NO_HACER)) vineta(doc, x, C.tenue);
+    doc.y += 4;
+  }
+  doc.textoRico([{ t: 'Para pasar de fase: ', fuente: 'Helvetica-Bold', color: C.bien }, { t: f.hito }], { tam: 10, interlinea: 1.4, despues: 6 });
+  if (d.mixto) {
+    doc.texto(`Tus respuestas quedaron repartidas entre fases (${repartoTexto(d.reparto)}): conviene trabajar primero el cuello de la fase más baja antes de saltar adelante.`, { tam: 9, color: C.dim, interlinea: 1.35, despues: 6 });
+  }
+  doc.y += 10;
+}
+
+/**
+ * La oferta se armó con preguntas del diagnóstico de fase sin contestar: la sección se DIBUJA igual y lo
+ * dice, en vez de faltar en silencio (un PDF sin la sección se lee como «no hacía falta»).
+ */
+function seccionFaseFaltante(doc: PdfDoc, f: { contestadas: number; total: number }): void {
+  seccion(doc, 'El diagnóstico de tu negocio');
+  doc.texto(`Quedó a medias: contestaste ${f.contestadas} de ${f.total} preguntas.`, { tam: 11, fuente: 'Helvetica-Bold', conSiguiente: 14, despues: 4 });
+  doc.texto('Termínalo en el chat de Offer y vuelve a armar la oferta: con eso este documento te dice en qué fase está tu negocio y qué te frena.', { tam: 10, color: C.dim, interlinea: 1.4, despues: 6 });
+  doc.y += 10;
+}
+
+/** Una viñeta con su punto dibujado en la línea donde arranca el texto. */
+function vineta(doc: PdfDoc, t: string, color: string): void {
+  doc.asegurar(14);
+  doc.textoEn(doc.margen + 4, doc.y + 10 * 0.95, '•', { tam: 10, color });
+  doc.textoRico(tramosConCompletar(t), { tam: 9.5, sangria: 14, interlinea: 1.35 });
 }
 
 function seccion(doc: PdfDoc, titulo: string): void {

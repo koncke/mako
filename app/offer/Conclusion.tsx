@@ -8,6 +8,10 @@
 // anillo, con UN chip que dice si está lista o qué es lo que más la frena. Debajo,
 // las tres acciones y un switcher de dos vistas.
 //
+// v2: el diagnóstico de FASE del negocio (las preguntas que MaKo hizo en el chat) NO se dibuja acá:
+// va al PDF (pedido de Martín: «el resultado del diagnóstico no se debe ver al finalizar esas
+// preguntas, pero sí ser parte del PDF final»). El «Diagnóstico» de esta vista es el de la OFERTA.
+//
 // Lo que se dibuja sale TAL CUAL de la conclusión (lib/offer-marco.ts →
 // ConclusionOferta). El puntaje, el cuello y «lista» los calcula el CÓDIGO
 // (CalculoDiagnostico), nunca el modelo: aquí sólo se pintan.
@@ -29,7 +33,7 @@ import {
   DIMENSIONES, dimensionLabel,
   type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type NotaDimension, type OfferSesionVista, type PropuestaOferta,
 } from '@/lib/offer-marco';
-import { anchoDeNota, partirCompletar, tiene, tonoDeNota, VARIABLE_LABEL } from './ayudas';
+import { anchoDeNota, guardadaVisible, partirCompletar, tiene, tonoDeNota, VARIABLE_LABEL, type AvisoGuardado } from './ayudas';
 import { descargarPdf, mensajeDeError } from './offer-api';
 
 const LECTURA = 880;
@@ -163,13 +167,19 @@ function Heroe({ conclusion }: { conclusion: ConclusionOferta }) {
 
 // ── Las acciones ─────────────────────────────────────────────────────────────
 
-function BarraAcciones({ sesion, onSeguir, onGuardar }: { sesion: OfferSesionVista; onSeguir: () => void; onGuardar: () => Promise<void> }) {
+function BarraAcciones({ sesion, onSeguir, onGuardar }: { sesion: OfferSesionVista; onSeguir: () => void; onGuardar: () => Promise<AvisoGuardado | null> }) {
   const [bajando, setBajando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Guardada = la sesión ya tiene su fila en `ofertas`. Sale del dato, no de un
-  // estado local: abrirla otro día también tiene que decir «Guardada».
-  const guardada = sesion.ofertaId != null;
+  /** Lo que el motor avisa al guardar (se guardó, pero algo quedó a medias): una línea, en ámbar. */
+  const [aviso, setAviso] = useState<AvisoGuardado | null>(null);
+  // Guardada = la versión vigente tiene su fila en `ofertas` y está ligada al funnel. Sale del DATO
+  // (`ligada`, que el servidor calcula), no sólo del aviso de este momento: abrirla otro día también
+  // tiene que ofrecer «Guardar en este funnel» si la liga quedó faltando. ⚠️ Con un aviso que se arregla
+  // reintentando, el botón se queda: el aviso pide volver a tocarlo, y con «Guardada» en su lugar la
+  // oferta quedaba suelta para siempre (revisión del 11/10). Con uno que NO (el funnel se borró o se
+  // archivó), «Guardada» y el aviso al lado (ayudas.ts → guardadaVisible).
+  const guardada = guardadaVisible(sesion.ofertaId, sesion.ligada, aviso);
 
   const pdf = async () => {
     if (bajando) return;
@@ -181,7 +191,9 @@ function BarraAcciones({ sesion, onSeguir, onGuardar }: { sesion: OfferSesionVis
     if (guardada || guardando) return;
     setGuardando(true);
     setError(null);
-    try { await onGuardar(); } catch (e) { setError(mensajeDeError(e)); } finally { setGuardando(false); }
+    // El aviso anterior se reemplaza recién con la respuesta: borrarlo antes haría que, mientras se
+    // reintenta, el botón (con su giro) se cambie por «Guardada» sin que nada se haya ligado todavía.
+    try { setAviso(await onGuardar()); } catch (e) { setError(mensajeDeError(e)); } finally { setGuardando(false); }
   };
 
   return (
@@ -198,9 +210,16 @@ function BarraAcciones({ sesion, onSeguir, onGuardar }: { sesion: OfferSesionVis
               <IconoMenu nombre="check" size={17} />Guardada
             </span>
           )
-          : <Button variant="tertiary" size="lg" loading={guardando} onClick={() => void guardar()}>Guardar como mi oferta</Button>}
+          // v2: la conversación es de un FUNNEL, y guardar liga la oferta a ese funnel (el contrato con el
+          // motor). Una de la v1 (sin funnel) la guarda como oferta del negocio, como antes.
+          : (
+            <Button variant="tertiary" size="lg" loading={guardando} onClick={() => void guardar()}>
+              {sesion.funnelId != null ? 'Guardar en este funnel' : 'Guardar como mi oferta'}
+            </Button>
+          )}
       </div>
       {error && <p role="alert" style={{ margin: '8px 2px 0', fontSize: 'var(--fs-sm)', lineHeight: 1.4, color: 'var(--bad)' }}>{error}</p>}
+      {aviso?.texto.trim() && <p role="status" style={{ margin: '8px 2px 0', fontSize: 'var(--fs-sm)', lineHeight: 1.4, color: 'var(--warn)' }}>{aviso.texto}</p>}
     </div>
   );
 }
@@ -501,8 +520,8 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar }: {
   conclusion: ConclusionOferta;
   /** Vuelve al chat (la conclusión sigue a un clic, con «Ver mi oferta»). */
   onSeguir: () => void;
-  /** Guarda la oferta nueva como la oferta del negocio. Tira si falla. */
-  onGuardar: () => Promise<void>;
+  /** Guarda la oferta nueva (v2: ligada al funnel de la conversación). Tira si falla; devuelve el aviso del motor, si hay. */
+  onGuardar: () => Promise<AvisoGuardado | null>;
 }) {
   const [pestana, setPestana] = useState<Pestana>('diagnostico');
   const id = useId();

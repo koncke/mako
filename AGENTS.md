@@ -381,6 +381,17 @@ Reglas que salen de eso:
   línea que el compilador exigía. Antes de excluir un archivo tocado por los dos, `git
   diff <archivo>` y separá: `git checkout HEAD -- <archivo>`, reaplicá **solo tu hunk**,
   commiteá, y devolvé el contenido completo al working tree.
+- ⚠️ **Y tu hunk se reaplica por CONTENIDO, nunca con `git apply --unidiff-zero` de una
+  inserción pura.** Un hunk sin contexto y sin líneas `-` no tiene nada que verificar: cae por
+  número de línea, y ese número salió de `git diff` contra el ÍNDICE — que no es HEAD si otra
+  sesión tiene algo stageado en ese archivo. Medido el 11/10/2026 en `app/_components/nav.ts`:
+  la línea cayó 7 renglones más abajo, suelta entre dos familias de la barra, y `ADMIN_NAV`
+  (un `flatMap` que corre al cargar el módulo) tiraba «Cannot read properties of undefined» —
+  **la app entera rota**. Y el pre-push no lo vio, porque chequea los tipos del ÁRBOL DE TRABAJO,
+  donde la línea estaba bien. Lo cazó correr los tests en un worktree limpio antes de pushear.
+  Se arma el archivo desde `git show HEAD:<ruta>` insertando junto a una línea ancla única, y se
+  mete con `git hash-object -w` + `git update-index --cacheinfo`. Un hunk que reemplaza líneas
+  (con `-`) sí se puede aplicar sin contexto: si el `-` no coincide, falla en vez de caer mal.
 - ⚠️ **Y un `git status` encadenado con `&&` no frena nada.** Mirar el estado de una ruta antes de
   `git checkout <sha> -- <ruta>` es la regla, y en una sola línea no sirve: `status` sale con 0
   aunque la ruta esté modificada, así que el `checkout` corre igual y pisa el trabajo ajeno sin

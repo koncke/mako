@@ -1,182 +1,318 @@
 'use client';
 
 // =============================================================================
-// OfferApp — la tab Offer: un chat con MaKo que termina en una oferta y un PDF
+// OfferApp — la tab Offer (v2): un funnel, una oferta, un chat con MaKo y un PDF
 // =============================================================================
-// Pedido de Martín (11/10/2026): «Implementa completamente la funcionalidad de
-// "Offer Analyst" y "Offer Generator" pero todo en una misma tab que se llame
-// "Offer"... Quiero que esta tab sea muy de IA: en lugar de formularios
-// larguísimos, algo simple como un chat con una IA, donde el usuario pueda escribir
-// o mandar audio o adjuntar como en el Archivero... que no tenga mucho texto la tab
-// y que el resultado final sea que te dé un PDF con la conclusión. Y que se pueda
-// visualizar allí también la conclusión.»
+// v1 (11/10/2026): «Implementa completamente la funcionalidad de "Offer Analyst" y "Offer
+// Generator" pero todo en una misma tab… algo simple como un chat con una IA… y que el resultado
+// final sea que te dé un PDF con la conclusión. Y que se pueda visualizar allí también.»
 //
-// TRES VISTAS, un paso por pantalla:
-//   chat        la conversación (también la bienvenida: sin sesión se dibuja el
-//               primer mensaje de MaKo que trae la semilla, y la sesión recién se
-//               crea con el primer turno o el primer archivo);
-//   generando   una tarjeta con dos pasos: diagnóstico → oferta nueva;
-//   conclusion  el diagnóstico y la oferta nueva, con el PDF.
+// v2 (11/10/2026, el mismo día), lo que cambia en la pantalla:
+//   · ARRIBA, EN EL LUGAR DEL TÍTULO, EL SELECTOR DEL FUNNEL en árbol (./SelectorFunnel.tsx):
+//     funnel → sus ofertas → sus conversaciones; «＋ Nueva oferta» en cada funnel y «＋ Analizar» en
+//     cada oferta (POST 'nueva'). Reemplaza al botón de «Ofertas anteriores» y a «Nueva oferta».
+//   · EL CHAT ES EL DE WHATSAPP DE LA CASA (./ChatOffer.tsx): burbujas, emoji, clip, micrófono con su
+//     grabación; MaKo con su foto (la estrella sola sobre negro, ./AvatarMako.tsx).
+//   · LAS PREGUNTAS DEL DIAGNÓSTICO (`m.pregunta`) se ven como cualquier pregunta de MaKo, con sus
+//     opciones; tocar la opción N manda `respuesta: { preguntaId, idx: N }`. El RESULTADO del
+//     diagnóstico no se dibuja: va al PDF.
+//   · UN LINK EN EL MENSAJE (la web, la landing) se lee con 'leer-link' antes del turno y viaja como
+//     un documento más: «si partimos de un documento o un link de su web… sería mucho más fácil».
+//   · UNA NOTA DE VOZ se sube como un archivo (subir-url → PUT) y el turno la lleva en `audio`; el
+//     servidor la transcribe y el `texto` del mensaje es la transcripción.
+// Lo que estaba bien en la v1 se queda: el riel de piezas, la vista Generando, la Conclusión con su
+// PDF, los topes de cada llamada y el reintento.
 //
-// El motor vive en app/api/offer/route.ts y lib/offer-sesiones.ts; aquí sólo se
-// llama al contrato (./offer-api.ts) y se dibuja lo que vuelve. Lo que la pantalla
-// necesita del marco (piezas, dimensiones, tipos) sale de lib/offer-marco.ts.
+// TRES VISTAS, un paso por pantalla: chat · generando (diagnóstico → oferta nueva) · conclusion.
+// Sin conversación abierta, una bienvenida de una línea que manda al selector.
 //
-// ⚠️ LA SESIÓN SE CREA UNA SOLA VEZ, aunque se elijan tres archivos a la vez.
-// 'leer' y 'turno' con `sesionId: null` crean una sesión cada uno: sin coordinar,
-// adjuntar tres archivos en la bienvenida dejaba TRES sesiones, cada una con un
-// archivo. `escribir` hace que el primero cree y los demás esperen su id.
+// El motor vive en app/api/offer/route.ts y lib/offer-sesiones.ts; acá sólo se llama al contrato
+// (./offer-api.ts) y se dibuja lo que vuelve.
 //
-// ⚠️ CAMBIAR DE SESIÓN DESCARTA LO QUE ESTABA EN VUELO (`epoca`). Lo que el
-// servidor ya recibió se guarda igual en la sesión de antes; lo que no puede pasar
-// es que la respuesta de la sesión vieja se dibuje en la nueva.
+// ⚠️ TODA CONVERSACIÓN EXISTE ANTES DEL PRIMER MENSAJE ('nueva' la crea con el primer mensaje de
+// MaKo). Por eso la coordinación de la v1 para no crear dos sesiones con dos archivos elegidos a la
+// vez ya no hace falta: sin `sesionId` no se escribe nada.
+// ⚠️ CAMBIAR DE CONVERSACIÓN DESCARTA LO QUE ESTABA EN VUELO (`epoca`). Lo que el servidor ya
+// recibió se guarda igual en la de antes; lo que no puede pasar es que su respuesta se dibuje acá.
+// ⚠️ LO QUE LLAMA UNA SESIÓN DE VOZ CORRE CON LAS PROPS DEL RENDER EN QUE SE APRETÓ EL 🎤
+// (ComposerWhatsApp guarda ese `onAudio`). Por eso `mandar` y `mandarAudio` deciden con REFS
+// (`sesionRef`, `enviando`, `adjRef`), nunca con el estado de su render.
 
-import { useCallback, useRef, useState } from 'react';
-import { Banner, Button, PageHeader } from '@/app/_ui';
-import { MAX_ARCHIVO_BYTES, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
-import type { AdjuntoVista, OfferMensaje, OfferSesionResumen, OfferSesionVista, PiezasSabidas } from '@/lib/offer-marco';
-import { Chat } from './Chat';
-import { Composer, type AdjuntoEnCurso } from './Composer';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Banner, Button, ButtonLink, Spinner } from '@/app/_ui';
+import { MAX_ARCHIVO_BYTES, familiaDeArchivo, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
+import type { AdjuntoVista, ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
+import { AvatarMako } from './AvatarMako';
+import { ChatOffer } from './ChatOffer';
 import { Conclusion } from './Conclusion';
 import { Generando, type PasoGeneracion } from './Generando';
-import { Historial } from './Historial';
 import { BarraPiezasMovil, RielPiezas, type AccionesPiezas } from './PiezasRail';
-import { conResumen, esOpcionArmar, hayChatDespuesDe, reemplaza, resumenDe, vistaDeEntrada, type VistaOffer } from './ayudas';
+import { SelectorFunnel } from './SelectorFunnel';
+import { arbolSeguro, arbolVacio, conSesionEnArbol, leerValor } from './arbol';
+import {
+  TOPE_MENSAJE, bienvenidaDe, chipDeAdjuntos, esOpcionArmar, linksDe, pasoTrasFalloDeOferta, quedoGuardado, reemplaza,
+  resumenDe, vistaDeEntrada, type AdjuntoEnCurso, type AvisoGuardado, type VistaOffer,
+} from './ayudas';
 import { CSS_OFFER } from './estilos';
-import { ErrorOfferApi, TOPE, llamarOffer, mensajeDeError, subirArchivo } from './offer-api';
-
-export type SemillaOffer = { piezas: PiezasSabidas; primerMensaje: OfferMensaje };
+import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, subirArchivo } from './offer-api';
 
 type EstadoGeneracion = { paso: PasoGeneracion; corriendo: boolean; error: string | null };
 const GEN_QUIETA: EstadoGeneracion = { paso: 'diagnostico', corriendo: false, error: null };
 
-/** Se tira cuando la persona cambió de sesión con algo en vuelo: no es un error que mostrar. */
-class Descartado extends Error {}
+/** Una nota de voz grabada: el binario, cuánto dura y su URL `blob:` (la del reproductor mientras sale). */
+type AudioGrabado = { blob: Blob; secs: number; url: string };
+
+/** Lo que se manda en un turno. */
+type Envio = {
+  texto: string;
+  docs: AdjuntoVista[];
+  respuesta?: { preguntaId: string; idx: number };
+  audio?: AudioGrabado;
+  /** Qué está leyendo MaKo mientras contesta («tu respuesta», «2 archivos»…). */
+  fuente: string;
+};
+
+/**
+ * Cómo terminó un envío, para quien lo mandó:
+ *   · 'salio'  — MaKo contestó, o el mensaje YA quedó guardado: no se devuelve nada (reenviarlo lo duplicaría);
+ *   · 'volver' — no salió y vale reintentar (un corte, un 502): el texto, los archivos o el audio vuelven;
+ *   · 'tirar'  — el servidor ya dijo que mandar LO MISMO no sirve (413, 415, 422: un audio sin voz, uno
+ *                que pesa de más) o el audio no se puede convertir. El texto igual vuelve al composer
+ *                (se puede corregir); un AUDIO se descarta y queda dicho por qué (revisión del 11/10:
+ *                volverlo a mandar corría otra vez la cascada de transcripción entera, con su escalón pago).
+ */
+type Resultado = 'salio' | 'volver' | 'tirar';
 
 let secuencia = 0;
 const claveNueva = (): string => `a${Date.now().toString(36)}${(secuencia++).toString(36)}`;
 
-export function OfferApp({ sesionesIniciales, sesionInicial, semilla, historialFallo, opcionArmar }: {
-  sesionesIniciales: OfferSesionResumen[];
-  /** La sesión más reciente, abierta. null = bienvenida. */
+const cuantosArchivos = (n: number): string => `${n} ${n === 1 ? 'archivo' : 'archivos'}`;
+
+/**
+ * Un audio que no se puede convertir no se arregla reintentando: es la MISMA grabación. Se distingue
+ * de un corte de red para que no vuelva a la barra con «Enviar audio» (ver `Resultado`).
+ */
+class AudioInservible extends Error {}
+
+/** La nota de voz en MP3: lo que el transcriptor y cualquier navegador aceptan (el webm de Chrome no). */
+async function aMp3(blob: Blob): Promise<Blob> {
+  if (blob.type === 'audio/mpeg') return blob;
+  try {
+    // Perezoso, como ChatHilo: el codificador (lamejs) sólo se baja al mandar una nota de voz.
+    const { blobToMp3 } = await import('@/app/whatsapp/audio');
+    return await blobToMp3(blob);
+  } catch {
+    throw new AudioInservible('No se pudo procesar el audio. Grábalo de nuevo.');
+  }
+}
+
+export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar }: {
+  arbolInicial: ArbolOffer;
+  /** La conversación más reciente, abierta. null = la bienvenida. */
   sesionInicial: OfferSesionVista | null;
-  semilla: SemillaOffer;
-  /** El server no pudo leer el historial (la pantalla igual abre). */
-  historialFallo: boolean;
+  /** El server no pudo leer el árbol (la pantalla igual abre). */
+  arbolFallo: boolean;
   /** La respuesta rápida que dispara la generación (lib/offer-reglas.ts → OPCION_ARMAR). */
   opcionArmar: string;
 }) {
-  const [sesiones, setSesiones] = useState<OfferSesionResumen[]>(sesionesIniciales);
+  const [arbol, setArbol] = useState<ArbolOffer>(arbolInicial);
   const [sesion, setSesion] = useState<OfferSesionVista | null>(sesionInicial);
   const [vista, setVista] = useState<VistaOffer>(vistaDeEntrada(sesionInicial));
   const [texto, setTexto] = useState('');
   const [adjuntos, setAdjuntos] = useState<AdjuntoEnCurso[]>([]);
   const [pendiente, setPendiente] = useState<OfferMensaje | null>(null);
+  const [fuente, setFuente] = useState('tu respuesta');
   const [errorChat, setErrorChat] = useState<string | null>(null);
   /** Reintentando la respuesta de MaKo: hay espera, pero ningún mensaje nuevo que dibujar. */
   const [reintentando, setReintentando] = useState(false);
   const [gen, setGen] = useState<EstadoGeneracion>(GEN_QUIETA);
-  const [abriendo, setAbriendo] = useState<number | null>(null);
-  const [errorHistorial, setErrorHistorial] = useState<string | null>(null);
-  const [avisoHistorial, setAvisoHistorial] = useState(historialFallo);
+  /** Abriendo o creando una conversación desde el selector. */
+  const [cambiando, setCambiando] = useState(false);
+  const [errorSelector, setErrorSelector] = useState<string | null>(null);
+  /**
+   * ¿El árbol se pudo LEER? «No pude leer» no es «no hay funnels» (AGENTS.md): con el árbol caído la
+   * bienvenida no puede mandar a crear un funnel a un negocio que tiene tres. Pasa a true sólo cuando
+   * una lectura sale bien; una que falla no lo baja (si ya había un árbol, sigue sirviendo).
+   */
+  const [arbolLeido, setArbolLeido] = useState(!arbolFallo);
+  const [recargando, setRecargando] = useState(false);
+  /** Una nota de voz que no llegó a salir: vuelve a la barra para reintentar o tirarla. */
+  const [audioEnEspera, setAudioEnEspera] = useState<AudioGrabado | null>(null);
 
+  const sesionRef = useRef<OfferSesionVista | null>(sesionInicial);
   const sesionId = useRef<number | null>(sesionInicial?.id ?? null);
-  const creacion = useRef<Promise<void> | null>(null);
   const epoca = useRef(0);
   const generando = useRef(false);
   const enviando = useRef(false);
+  const adjRef = useRef<AdjuntoEnCurso[]>([]);
+  /** Los links ya leídos en ESTA conversación: reenviar el mismo mensaje no lo vuelve a leer. */
+  const linksLeidos = useRef(new Map<string, AdjuntoVista>());
 
-  // ── La sesión que vuelve del servidor ──────────────────────────────────────
+  // ── Las URL `blob:` (miniaturas y notas de voz): se sueltan al sacarlas y al salir ──
+  const urls = useRef(new Set<string>());
+  const crearUrl = (b: Blob): string => { const u = URL.createObjectURL(b); urls.current.add(u); return u; };
+  const soltarUrl = (u: string | null | undefined) => {
+    if (!u || !urls.current.has(u)) return;
+    urls.current.delete(u);
+    try { URL.revokeObjectURL(u); } catch { /* ya no estaba */ }
+  };
+  useEffect(() => {
+    const todas = urls.current;
+    return () => { for (const u of todas) { try { URL.revokeObjectURL(u); } catch { /* noop */ } } todas.clear(); };
+  }, []);
+
+  /** Los adjuntos se llevan también en un ref: lo que termina de leerse después de un `await` decide con lo de AHORA. */
+  const cambiarAdjuntos = (fn: (prev: AdjuntoEnCurso[]) => AdjuntoEnCurso[]) => {
+    const next = fn(adjRef.current);
+    adjRef.current = next;
+    setAdjuntos(next);
+  };
+
+  // ── La conversación que vuelve del servidor ────────────────────────────────
+  const ponerSesion = (s: OfferSesionVista | null) => { sesionRef.current = s; setSesion(s); };
   const aplicarSesion = useCallback((nueva: OfferSesionVista, e: number) => {
     if (e !== epoca.current) return;
+    if (!reemplaza(sesionRef.current, nueva)) return;
     sesionId.current = nueva.id;
-    setSesion((actual) => (reemplaza(actual, nueva) ? nueva : actual));
-    setSesiones((l) => conResumen(l, resumenDe(nueva)));
+    sesionRef.current = nueva;
+    setSesion(nueva);
+    setArbol((a) => conSesionEnArbol(a, nueva, resumenDe(nueva)));
   }, []);
 
-  /**
-   * Corre una escritura que necesita el id de la sesión. Si todavía no hay sesión,
-   * la PRIMERA la crea (manda null) y las que llegan mientras tanto esperan su id.
-   * La reserva es sincrónica: entre leer `creacion` y escribirla no hay ningún
-   * `await`, así que dos archivos elegidos juntos no pueden crear dos sesiones.
-   */
-  const escribir = useCallback(async <R extends { sesion: OfferSesionVista }>(e: number, llamar: (id: number | null) => Promise<R>): Promise<R> => {
-    for (;;) {
-      if (e !== epoca.current) throw new Descartado();
-      const id = sesionId.current;
-      if (id != null) return llamar(id);
-      const enCurso = creacion.current;
-      if (enCurso) { await enCurso; continue; }
-      let soltar: () => void = () => undefined;
-      const mia = new Promise<void>((res) => { soltar = res; });
-      creacion.current = mia;
-      try {
-        const r = await llamar(null);
-        if (e === epoca.current) sesionId.current = r.sesion.id;
-        return r;
-      } catch (err) {
-        // Un turno cuya IA falló igual CREÓ la sesión (y guardó el mensaje): el id se toma acá,
-        // antes de soltar a los que esperan, o el próximo archivo crearía una segunda sesión.
-        if (err instanceof ErrorOfferApi && err.sesion && e === epoca.current) sesionId.current = err.sesion.id;
-        throw err;
-      } finally {
-        soltar();
-        if (creacion.current === mia) creacion.current = null;
-      }
-    }
-  }, []);
-
-  /** Deja la pantalla limpia para otra sesión (o para la bienvenida). */
-  const reiniciar = useCallback(() => {
+  /** Deja la pantalla limpia para otra conversación. */
+  const reiniciar = () => {
     epoca.current += 1;
     sesionId.current = null;
-    creacion.current = null;
     enviando.current = false;
+    linksLeidos.current = new Map();
+    for (const a of adjRef.current) soltarUrl(a.previa);
+    cambiarAdjuntos(() => []);
+    setAudioEnEspera((a) => { if (a) soltarUrl(a.url); return null; });
     setPendiente(null);
-    setAdjuntos([]);
     setTexto('');
     setErrorChat(null);
     setReintentando(false);
     setGen(GEN_QUIETA);
+  };
+
+  const refrescarArbol = useCallback(async (): Promise<boolean> => {
+    try {
+      const r = await llamarOffer<{ arbol: unknown }>({ action: 'arbol' }, TOPE.corto);
+      setArbol(arbolSeguro(r.arbol));
+      setArbolLeido(true);
+      return true;
+    } catch {
+      // Queda el árbol que había: sigue sirviendo para elegir. Si nunca se leyó, la bienvenida lo dice.
+      return false;
+    }
   }, []);
 
+  /** «Volver a cargar» de la bienvenida y del aviso: el árbol que no se pudo leer. */
+  const recargarArbol = async () => {
+    if (recargando) return;
+    setRecargando(true);
+    setErrorSelector(null);
+    try {
+      if (!(await refrescarArbol())) setErrorSelector('No cargaron tus funnels. Prueba de nuevo en un momento.');
+    } finally {
+      setRecargando(false);
+    }
+  };
+
+  // Otra pestaña pudo haber creado una conversación: al volver a ésta, el árbol se vuelve a pedir.
+  useEffect(() => {
+    const alVolver = () => { if (document.visibilityState === 'visible') void refrescarArbol(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => document.removeEventListener('visibilitychange', alVolver);
+  }, [refrescarArbol]);
+
   // ── Mandar un turno ────────────────────────────────────────────────────────
-  /** Manda un mensaje. Devuelve true si MaKo contestó. */
-  const mandar = async (t: string, docs: AdjuntoVista[]): Promise<boolean> => {
-    const limpio = t.trim();
-    if ((!limpio && !docs.length) || enviando.current) return false;
+  /**
+   * Manda un mensaje (texto, archivos ya leídos, una respuesta a una pregunta o una nota de voz).
+   * Devuelve cómo terminó (`Resultado`): quien lo mandó decide qué vuelve al composer.
+   */
+  const mandar = async (envio: Envio): Promise<Resultado> => {
+    const id = sesionId.current;
+    const s = sesionRef.current;
+    if (id == null || !s || enviando.current) return 'volver';
+    if (!envio.texto.trim() && !envio.docs.length && !envio.audio) return 'volver';
     enviando.current = true;
     const e = epoca.current;
+    const antes = s.mensajes.length;
     setErrorChat(null);
-    // Optimista: el mensaje del dueño se dibuja ya, mientras MaKo contesta.
-    setPendiente({ id: 'pendiente', de: 'yo', texto: limpio, at: new Date().toISOString(), adjuntos: docs.length ? docs : undefined });
+    setFuente(envio.fuente);
+    // Optimista: el mensaje del dueño se dibuja ya (una nota de voz, con su URL local), mientras MaKo contesta.
+    setPendiente({
+      id: 'pendiente', de: 'yo', texto: envio.texto, at: new Date().toISOString(),
+      ...(envio.docs.length ? { adjuntos: envio.docs } : {}),
+      ...(envio.audio ? { audio: { url: envio.audio.url, secs: envio.audio.secs } } : {}),
+    });
+    let avisoLink: string | null = null;
     try {
-      const r = await escribir(e, (id) => llamarOffer<{ sesion: OfferSesionVista }>(
-        { action: 'turno', sesionId: id, texto: limpio, docIds: docs.map((d) => d.id) },
+      const docIds = envio.docs.map((d) => d.id);
+      // 1) Los links del mensaje, leídos como un documento más (y una sola vez por conversación).
+      for (const url of linksDe(envio.texto)) {
+        const ya = linksLeidos.current.get(url);
+        if (ya) { if (!docIds.includes(ya.id)) docIds.push(ya.id); continue; }
+        setFuente('tu link');
+        try {
+          const r = await llamarOffer<{ sesion: OfferSesionVista; doc: AdjuntoVista }>(
+            { action: 'leer-link', sesionId: id, url, funnelId: s.funnelId },
+            TOPE.leer,
+            'Leer el link tardó demasiado.',
+          );
+          if (e !== epoca.current) return 'volver';
+          aplicarSesion(r.sesion, e);
+          if (r.doc?.id) { linksLeidos.current.set(url, r.doc); docIds.push(r.doc.id); }
+        } catch (err) {
+          if (e !== epoca.current) return 'volver';
+          // Un link que no abre no frena el mensaje: el texto lo nombra igual y MaKo pregunta. El motivo va
+          // TAL CUAL lo manda el servidor (ya es una frase entera: «Entré a tu página pero casi no encontré
+          // texto…»); con un prefijo nuestro adelante se leía como dos frases pegadas.
+          if (err instanceof ErrorOfferApi && err.sesion) aplicarSesion(err.sesion, e);
+          avisoLink = mensajeDeError(err);
+        }
+      }
+      // 2) La nota de voz: a MP3 y a Storage, como un archivo (no pasa por una server action, que topea en 1 MB).
+      let audio: { path: string; mime: string; secs: number } | undefined;
+      if (envio.audio) {
+        setFuente('tu audio');
+        const mp3 = await aMp3(envio.audio.blob);
+        const path = await subirArchivo(new File([mp3], 'nota-de-voz.mp3', { type: 'audio/mpeg' }), 'audio/mpeg');
+        if (e !== epoca.current) return 'volver';
+        audio = { path, mime: 'audio/mpeg', secs: Math.max(1, Math.round(envio.audio.secs)) };
+      }
+      setFuente(envio.fuente);
+      const r = await llamarOffer<{ sesion: OfferSesionVista }>(
+        {
+          action: 'turno', sesionId: id, texto: envio.texto, docIds,
+          ...(audio ? { audio } : {}),
+          ...(envio.respuesta ? { respuesta: envio.respuesta } : {}),
+        },
         TOPE.turno,
         'MaKo tardó demasiado en contestar. Prueba de nuevo.',
-      ));
+      );
       aplicarSesion(r.sesion, e);
-      return e === epoca.current;
+      if (avisoLink && e === epoca.current) setErrorChat(avisoLink);
+      return e === epoca.current ? 'salio' : 'volver';
     } catch (err) {
-      if (err instanceof Descartado || e !== epoca.current) return false;
+      if (e !== epoca.current) return 'volver';
       setErrorChat(mensajeDeError(err));
-      // El mensaje quedó guardado aunque MaKo no contestó: se dibuja la sesión que
-      // mandó el servidor y el texto NO vuelve al composer (reenviarlo lo duplicaría).
-      // La salida es «Reintentar», que corre la IA sobre lo guardado.
-      if (err instanceof ErrorOfferApi && err.sesion) { aplicarSesion(err.sesion, e); return true; }
-      // Sin sesión en el error (un corte de red, un 504): antes de devolver el texto al composer se
-      // relee la conversación. Si el mensaje ya quedó guardado, devolverlo haría que se mande dos veces.
-      const id = sesionId.current;
-      if (id != null) {
-        try {
-          const r = await llamarOffer<{ sesion: OfferSesionVista }>({ action: 'abrir', id }, TOPE.corto);
-          const ultimoYo = [...r.sesion.mensajes].reverse().find((m) => m.de === 'yo');
-          if (e === epoca.current) aplicarSesion(r.sesion, e);
-          if (ultimoYo && ultimoYo.texto.trim() === limpio) return true;
-        } catch { /* sin conexión: se devuelve el texto, que es lo seguro */ }
-      }
-      return false;
+      // El mensaje quedó guardado aunque MaKo no contestó: se dibuja la sesión que mandó el servidor
+      // y lo enviado NO vuelve al composer. La salida es «Reintentar», que corre la IA sobre lo guardado.
+      if (err instanceof ErrorOfferApi && err.sesion) { aplicarSesion(err.sesion, e); return 'salio'; }
+      // El servidor ya dijo que lo mismo no va a entrar (o el audio no se puede convertir): no se relee
+      // ni se ofrece reintentar ESO. El motivo ya quedó en la línea de error.
+      if (err instanceof AudioInservible || (err instanceof ErrorOfferApi && esRechazoDefinitivo(err.status))) return 'tirar';
+      // Sin sesión en el error (un corte de red, un 504): antes de devolver lo enviado se relee la
+      // conversación. Si el mensaje ya quedó guardado, devolverlo haría que se mande dos veces.
+      try {
+        const r = await llamarOffer<{ sesion: OfferSesionVista }>({ action: 'abrir', id }, TOPE.corto);
+        if (e !== epoca.current) return 'volver';
+        aplicarSesion(r.sesion, e);
+        if (quedoGuardado(r.sesion.mensajes, antes, { texto: envio.texto, audio: !!envio.audio })) return 'salio';
+      } catch { /* sin conexión: se devuelve lo enviado, que es lo seguro */ }
+      return 'volver';
     } finally {
       if (e === epoca.current) {
         setPendiente(null);
@@ -192,6 +328,7 @@ export function OfferApp({ sesionesIniciales, sesionInicial, semilla, historialF
     enviando.current = true;
     const e = epoca.current;
     setErrorChat(null);
+    setFuente('tu último mensaje');
     setReintentando(true);
     try {
       const r = await llamarOffer<{ sesion: OfferSesionVista }>(
@@ -213,76 +350,113 @@ export function OfferApp({ sesionesIniciales, sesionInicial, semilla, historialF
   const listos = adjuntos.filter((a) => a.estado === 'listo' && a.doc);
   const leyendo = adjuntos.some((a) => a.estado === 'leyendo');
   const respondiendo = pendiente != null || reintentando;
-  const puedeMandar = !respondiendo && !leyendo && !gen.corriendo;
+  const puedeMandar = !!sesion && !respondiendo && !leyendo && !gen.corriendo && !cambiando;
   const hayAlgo = texto.trim().length > 0 || listos.length > 0;
 
   /**
-   * Manda lo del composer. Si falla, el texto y los archivos VUELVEN al composer:
-   * perder lo que alguien escribió porque se cortó la conexión es peor que el corte.
+   * Manda lo del composer. Si no sale, el texto y los archivos VUELVEN al composer: perder lo que
+   * alguien escribió porque se cortó la conexión es peor que el corte.
    */
   const enviarComposer = async () => {
     if (!puedeMandar || !hayAlgo) return;
-    const t = texto;
+    if (texto.length > TOPE_MENSAJE) { setErrorChat('Tu mensaje es muy largo. Pártelo en dos.'); return; }
+    const t = texto.trim();
     const enviados = listos;
     const claves = new Set(enviados.map((a) => a.key));
     const e = epoca.current;
     setTexto('');
-    setAdjuntos((prev) => prev.filter((a) => !claves.has(a.key)));
-    const ok = await mandar(t, enviados.map((a) => a.doc as AdjuntoVista));
-    if (!ok && e === epoca.current) {
+    cambiarAdjuntos((prev) => prev.filter((a) => !claves.has(a.key)));
+    const fuenteEnvio = enviados.length ? cuantosArchivos(enviados.length) : linksDe(t).length ? 'tu link' : 'tu respuesta';
+    // Con 'tirar' el texto también vuelve: un texto rechazado se puede corregir (un audio, no).
+    const res = await mandar({ texto: t, docs: enviados.map((a) => a.doc as AdjuntoVista), fuente: fuenteEnvio });
+    if (res === 'salio') { for (const a of enviados) soltarUrl(a.previa); return; }
+    if (e === epoca.current) {
       setTexto((ahora) => (ahora.trim() ? ahora : t));
-      setAdjuntos((prev) => [...enviados, ...prev]);
+      cambiarAdjuntos((prev) => [...enviados, ...prev]);
     }
   };
 
-  // ── Archivos ───────────────────────────────────────────────────────────────
-  const marcarAdjunto = (key: string, e: number, cambio: Partial<AdjuntoEnCurso>) => {
-    if (e !== epoca.current) return;
-    setAdjuntos((prev) => prev.map((a) => (a.key === key ? { ...a, ...cambio } : a)));
+  // ── Notas de voz ───────────────────────────────────────────────────────────
+  /** Manda una nota de voz. Si no sale, vuelve a la barra de escucharla (no se pierde lo grabado). */
+  const enviarAudio = async (a: AudioGrabado) => {
+    const e = epoca.current;
+    if (sesionId.current == null || enviando.current || generando.current || adjRef.current.some((x) => x.estado === 'leyendo')) {
+      // Llegó con algo en curso (se grabó mientras MaKo contestaba): espera en la barra.
+      setAudioEnEspera(a);
+      return;
+    }
+    const res = await mandar({ texto: '', docs: [], audio: a, fuente: 'tu audio' });
+    if (e !== epoca.current) { soltarUrl(a.url); return; }
+    // Sólo un fallo que se arregla reintentando devuelve el audio a la barra. Uno rechazado como
+    // definitivo (sin voz, demasiado pesado, imposible de convertir) se descarta: el motivo ya está dicho.
+    if (res === 'volver') setAudioEnEspera(a);
+    else soltarUrl(a.url);
+  };
+  const mandarAudio = (blob: Blob, secs: number) => { void enviarAudio({ blob, secs, url: crearUrl(blob) }); };
+  const reenviarAudio = () => {
+    const a = audioEnEspera;
+    if (!a) return;
+    setAudioEnEspera(null);
+    void enviarAudio(a);
+  };
+  const descartarAudio = () => {
+    setAudioEnEspera((a) => { if (a) soltarUrl(a.url); return null; });
   };
 
+  // ── Archivos ───────────────────────────────────────────────────────────────
   /** Sube el archivo YA, lo lee, y deja su doc listo para el próximo mensaje. */
-  const leerArchivo = async (key: string, f: File, e: number) => {
+  const leerArchivo = async (key: string, f: File, e: number, id: number) => {
     try {
       const mime = f.type || 'application/octet-stream';
       const path = await subirArchivo(f, mime);
-      const r = await escribir(e, (id) => llamarOffer<{ sesion: OfferSesionVista; doc: AdjuntoVista }>(
+      if (e !== epoca.current) return;
+      const r = await llamarOffer<{ sesion: OfferSesionVista; doc: AdjuntoVista }>(
         { action: 'leer', sesionId: id, path, nombre: f.name, mime },
         TOPE.leer,
         'Leer el archivo tardó demasiado.',
-      ));
+      );
+      if (e !== epoca.current) return;
       aplicarSesion(r.sesion, e);
-      marcarAdjunto(key, e, { estado: 'listo', doc: r.doc });
+      cambiarAdjuntos((prev) => prev.map((a) => (a.key === key ? { ...a, estado: 'listo', doc: r.doc } : a)));
     } catch (err) {
-      if (err instanceof Descartado) return;
-      marcarAdjunto(key, e, { estado: 'error', error: mensajeDeError(err) });
+      if (e !== epoca.current) return;
+      soltarUrl(adjRef.current.find((a) => a.key === key)?.previa);
+      cambiarAdjuntos((prev) => prev.filter((a) => a.key !== key));
+      setErrorChat(`«${f.name}»: ${mensajeDeError(err)}`);
     }
   };
 
   const agregarArchivos = (archivos: File[]) => {
+    const id = sesionId.current;
+    if (id == null) return;
     const e = epoca.current;
+    const errores: string[] = [];
     const nuevos: AdjuntoEnCurso[] = [];
     const aLeer: Array<{ key: string; f: File }> = [];
     for (const f of archivos) {
-      const key = claveNueva();
-      // Se valida ANTES de subir y se dice por qué no: un rebote mudo deja a la
-      // persona esperando un archivo que nunca va a llegar.
+      // Se valida ANTES de subir y se dice por qué no: un rebote mudo deja a la persona esperando
+      // un archivo que nunca va a llegar.
       if (!puedeLeerse(f.name, f.type)) {
-        const porque = porQueNoPuedo(f.name);
-        nuevos.push({ key, nombre: f.name, estado: 'error', error: porque ? `Ese archivo ${porque}` : 'No leo ese formato.' });
+        errores.push(`«${f.name}» ${porQueNoPuedo(f.name) || 'no se puede leer.'}`);
       } else if (f.size > MAX_ARCHIVO_BYTES) {
-        nuevos.push({ key, nombre: f.name, estado: 'error', error: `Pesa más de ${Math.round(MAX_ARCHIVO_BYTES / (1024 * 1024))} MB.` });
+        errores.push(`«${f.name}» pesa más de ${Math.round(MAX_ARCHIVO_BYTES / (1024 * 1024))} MB.`);
       } else {
-        nuevos.push({ key, nombre: f.name, estado: 'leyendo' });
+        const key = claveNueva();
+        const previa = familiaDeArchivo(f.name, f.type) === 'imagen' ? crearUrl(f) : null;
+        nuevos.push({ key, nombre: f.name, mime: f.type, estado: 'leyendo', previa });
         aLeer.push({ key, f });
       }
     }
+    setErrorChat(errores.length ? errores.join(' ') : null);
     if (!nuevos.length) return;
-    setAdjuntos((prev) => [...prev, ...nuevos]);
-    for (const { key, f } of aLeer) void leerArchivo(key, f, e);
+    cambiarAdjuntos((prev) => [...prev, ...nuevos]);
+    for (const { key, f } of aLeer) void leerArchivo(key, f, e, id);
   };
 
-  const quitarAdjunto = (key: string) => setAdjuntos((prev) => prev.filter((a) => a.key !== key));
+  const quitarAdjuntos = () => {
+    for (const a of adjRef.current) soltarUrl(a.previa);
+    cambiarAdjuntos(() => []);
+  };
 
   // ── Armar la oferta ────────────────────────────────────────────────────────
   /**
@@ -296,6 +470,9 @@ export function OfferApp({ sesionesIniciales, sesionInicial, semilla, historialF
     generando.current = true;
     const e = epoca.current;
     let paso: PasoGeneracion = desde === 'listo' ? 'diagnostico' : desde;
+    // La versión de antes de armar: si el 'generar' se cortó del lado del navegador pero el servidor
+    // terminó, al releer aparece una MÁS NUEVA, y eso es la oferta, no un fallo.
+    const versionAntes = sesionRef.current?.conclusion?.version ?? 0;
     setVista('generando');
     setGen({ paso, corriendo: true, error: null });
     const corte = 'Tardó más de 5 minutos. Prueba de nuevo.';
@@ -312,126 +489,197 @@ export function OfferApp({ sesionesIniciales, sesionInicial, semilla, historialF
       setGen({ paso: 'listo', corriendo: false, error: null });
       setVista('conclusion');
     } catch (err) {
-      if (e === epoca.current) setGen({ paso, corriendo: false, error: mensajeDeError(err) });
+      if (e !== epoca.current) return;
+      if (paso !== 'oferta') { setGen({ paso, corriendo: false, error: mensajeDeError(err) }); return; }
+      // Falló la OFERTA (revisión del 11/10): repetir 'generar' tal cual podía ser un bucle sin salida.
+      // Se relee la conversación: si el servidor sí terminó, se muestra lo que armó; si contestó 409
+      // (falta el diagnóstico: otra pestaña mandó un mensaje o ya lo consumió una generación), el
+      // reintento arranca desde el diagnóstico. El resto (un corte, un 502) reintenta la oferta.
+      let versionAhora: number | null = null;
+      try {
+        const r = await llamarOffer<{ sesion: OfferSesionVista }>({ action: 'abrir', id }, TOPE.corto);
+        if (e !== epoca.current) return;
+        aplicarSesion(r.sesion, e);
+        versionAhora = r.sesion.conclusion?.version ?? 0;
+      } catch { /* sin conexión: decide sólo el status del error */ }
+      const siguiente = pasoTrasFalloDeOferta({ status: err instanceof ErrorOfferApi ? err.status : undefined, versionAntes, versionAhora });
+      if (siguiente === 'listo') {
+        setGen({ paso: 'listo', corriendo: false, error: null });
+        setVista('conclusion');
+        return;
+      }
+      setGen({ paso: siguiente, corriendo: false, error: mensajeDeError(err) });
     } finally {
       generando.current = false;
     }
   };
 
-  const elegirOpcion = (op: string) => {
-    if (esOpcionArmar(op, opcionArmar) && sesion?.puedeConcluir) { void armar(); return; }
+  /** Una respuesta rápida de MaKo (`idx` = su lugar en `opciones` del último mensaje). */
+  const elegirOpcion = (idx: number) => {
+    const s = sesionRef.current;
+    const ultimo = s?.mensajes[s.mensajes.length - 1];
+    if (!s || ultimo?.de !== 'mako') return;
+    const op = (ultimo.opciones ?? [])[idx]?.trim();
+    if (!op) return;
+    if (!ultimo.pregunta && esOpcionArmar(op, opcionArmar) && s.puedeConcluir) { void armar(); return; }
     if (!puedeMandar) return;
     // Una respuesta rápida es un turno: los archivos ya leídos viajan con ella.
     const enviados = listos;
     const claves = new Set(enviados.map((a) => a.key));
     const e = epoca.current;
-    setAdjuntos((prev) => prev.filter((a) => !claves.has(a.key)));
-    void mandar(op, enviados.map((a) => a.doc as AdjuntoVista)).then((ok) => {
-      if (!ok && e === epoca.current) setAdjuntos((prev) => [...enviados, ...prev]);
+    cambiarAdjuntos((prev) => prev.filter((a) => !claves.has(a.key)));
+    void mandar({
+      texto: op,
+      docs: enviados.map((a) => a.doc as AdjuntoVista),
+      // La opción N de una pregunta del diagnóstico ES la respuesta N: el motor la anota sin adivinar.
+      ...(ultimo.pregunta ? { respuesta: { preguntaId: ultimo.pregunta.id, idx } } : {}),
+      fuente: 'tu respuesta',
+    }).then((res) => {
+      if (res === 'salio') { for (const a of enviados) soltarUrl(a.previa); return; }
+      if (e === epoca.current) cambiarAdjuntos((prev) => [...enviados, ...prev]);
     });
   };
 
-  // ── Historial y nueva oferta ───────────────────────────────────────────────
-  const nuevaOferta = () => {
-    reiniciar();
-    setSesion(null);
-    setVista('chat');
-  };
-
-  const refrescarLista = async () => {
-    setErrorHistorial(null);
-    try {
-      const r = await llamarOffer<{ sesiones: OfferSesionResumen[] }>({ action: 'listar' }, TOPE.corto);
-      setSesiones(Array.isArray(r.sesiones) ? r.sesiones : []);
-      setAvisoHistorial(false);
-    } catch {
-      // Queda la lista que había: sigue sirviendo para abrir. Se dice que no se actualizó.
-      setErrorHistorial('No se actualizó la lista.');
+  // ── El selector: abrir una conversación o empezar una ──────────────────────
+  const abrirSesion = async (id: number) => {
+    // La que ya está abierta no se vuelve a pedir: re-abrirla descartaría lo que esté en vuelo
+    // (un turno, un archivo) sobre esa misma conversación.
+    if (sesionRef.current?.id === id) {
+      setVista(vistaDeEntrada(sesionRef.current));
+      return;
     }
-  };
-
-  const abrirSesion = async (id: number): Promise<boolean> => {
-    if (abriendo != null) return false;
-    // La que ya está abierta no se vuelve a pedir: re-abrirla descartaría lo que esté
-    // en vuelo (un turno, un archivo) sobre esa misma sesión.
-    if (sesion?.id === id) {
-      setVista(vistaDeEntrada(sesion));
-      return true;
-    }
-    setAbriendo(id);
-    setErrorHistorial(null);
+    setCambiando(true);
+    setErrorSelector(null);
     try {
       const r = await llamarOffer<{ sesion: OfferSesionVista }>({ action: 'abrir', id }, TOPE.corto);
       reiniciar();
       sesionId.current = r.sesion.id;
-      setSesion(r.sesion);
-      setSesiones((l) => conResumen(l, resumenDe(r.sesion)));
+      ponerSesion(r.sesion);
+      setArbol((a) => conSesionEnArbol(a, r.sesion, resumenDe(r.sesion)));
       setVista(vistaDeEntrada(r.sesion));
-      return true;
     } catch (err) {
-      setErrorHistorial(mensajeDeError(err));
-      return false;
+      setErrorSelector(mensajeDeError(err));
     } finally {
-      setAbriendo(null);
+      setCambiando(false);
     }
   };
 
-  const guardarOferta = async () => {
-    const id = sesion?.id;
-    if (id == null) return;
+  const nuevaSesion = async (funnelId: number, ofertaBaseId: number | null) => {
+    setCambiando(true);
+    setErrorSelector(null);
+    try {
+      const r = await llamarOffer<{ sesion: OfferSesionVista }>(
+        { action: 'nueva', funnelId, ofertaBaseId },
+        TOPE.turno,
+        'Tardó demasiado en abrir. Prueba de nuevo.',
+      );
+      // 'nueva' puede devolver la MISMA conversación abierta: el servidor reusa la que sigue vacía
+      // (`sesionVaciaDe`), y «vacía» incluye una a la que se le está transcribiendo un audio o leyendo
+      // un archivo. Reiniciar ahí descartaba lo que estaba en vuelo sobre esa misma conversación — y un
+      // texto con un link se perdía entero (revisión del 11/10). Es la guarda de `abrirSesion`.
+      if (r.sesion.id === sesionRef.current?.id) {
+        setVista('chat');
+        return;
+      }
+      reiniciar();
+      sesionId.current = r.sesion.id;
+      ponerSesion(r.sesion);
+      setArbol((a) => conSesionEnArbol(a, r.sesion, resumenDe(r.sesion)));
+      setVista('chat');
+      void refrescarArbol();
+    } catch (err) {
+      setErrorSelector(mensajeDeError(err));
+    } finally {
+      setCambiando(false);
+    }
+  };
+
+  const elegir = (valor: string) => {
+    const el = leerValor(valor);
+    if (!el || cambiando || generando.current) return;
+    if (el.tipo === 'sesion') void abrirSesion(el.id);
+    else void nuevaSesion(el.funnelId, el.ofertaBaseId);
+  };
+
+  const guardarOferta = async (): Promise<AvisoGuardado | null> => {
+    const id = sesionRef.current?.id;
+    if (id == null) return null;
     const e = epoca.current;
-    const r = await llamarOffer<{ ofertaId: number; sesion: OfferSesionVista }>({ action: 'guardar-oferta', sesionId: id }, TOPE.corto);
+    const r = await llamarOffer<{ ofertaId: number; sesion: OfferSesionVista; aviso?: unknown; avisoReintentable?: unknown }>({ action: 'guardar-oferta', sesionId: id }, TOPE.corto);
     aplicarSesion(r.sesion, e);
+    // Guardarla la liga al funnel y puede mover la conversación de rama (de «oferta nueva» a la oferta).
+    void refrescarArbol();
+    // `avisoReintentable` en positivo: sólo un `true` explícito vuelve a ofrecer el botón (un aviso de un
+    // servidor que no lo manda se trata como no reintentable: no se invita a repetir a ciegas).
+    return typeof r.aviso === 'string' && r.aviso.trim() ? { texto: r.aviso, reintentable: r.avisoReintentable === true } : null;
   };
 
   // ── Lo que se dibuja ───────────────────────────────────────────────────────
-  const mensajes = sesion ? sesion.mensajes : [semilla.primerMensaje];
-  const piezas = sesion ? sesion.piezas : semilla.piezas;
   const conclusion = sesion?.conclusion ?? null;
   const puedeConcluir = !!sesion?.puedeConcluir;
+  const ocupado = respondiendo || leyendo || gen.corriendo || cambiando;
   const verOferta = () => { if (conclusion) setVista('conclusion'); };
   const acciones: AccionesPiezas = {
     puedeConcluir,
     hayConclusion: !!conclusion,
-    ocupado: respondiendo || leyendo || gen.corriendo,
+    ocupado,
     onArmar: () => void armar(),
     onVer: verOferta,
   };
   const vistaReal: VistaOffer = vista === 'conclusion' && !conclusion ? 'chat' : vista;
+  // «Reintentar» se CALCULA del estado (el último mensaje es del dueño y nadie está contestando), no
+  // se dispara desde el error: así también aparece si el fallo pasó en otra pestaña o antes de recargar.
+  const ultimo = sesion?.mensajes[sesion.mensajes.length - 1];
+  const sinContestar = !!sesion && !respondiendo && ultimo?.de === 'yo';
+  const datosChip = chipDeAdjuntos(adjuntos);
+  const bienvenida = bienvenidaDe(arbolLeido, arbolVacio(arbol));
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <style>{CSS_OFFER}</style>
-      <PageHeader
-        titulo="Offer"
-        // Los dos en UNA fila propia: en el celular el header apila sus acciones a
-        // todo el ancho, y en un chat eso se come dos renglones de pantalla.
-        acciones={(
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-            {/* En la bienvenida, sin nada en vuelo, «Nueva oferta» no haría nada: no se dibuja. */}
-            {(sesion || respondiendo || leyendo) && (
-              <Button variant="tertiary" onClick={nuevaOferta} disabled={gen.corriendo}>Nueva oferta</Button>
-            )}
-            <Historial
-              sesiones={sesiones}
-              actualId={sesion?.id ?? null}
-              abriendo={abriendo}
-              error={errorHistorial}
-              deshabilitado={gen.corriendo}
-              onAbrir={abrirSesion}
-              alAbrir={() => void refrescarLista()}
-            />
-          </div>
-        )}
-      />
+      <header className="of-cabecera">
+        {/* El título se fue (pedido de Martín): en su lugar manda el selector. Queda para el lector de pantalla. */}
+        <h1 className="of-sr">Offer</h1>
+        <SelectorFunnel arbol={arbol} sesion={sesion} ocupado={cambiando || gen.corriendo} onElegir={elegir} />
+        {cambiando && <span role="status" aria-label="Abriendo" style={{ display: 'inline-flex', color: 'var(--dim)' }}><Spinner size={18} /></span>}
+      </header>
 
-      {avisoHistorial && (
+      {/* Sin conversación, la bienvenida ya lo dice con su botón; con una abierta, el aviso de arriba. */}
+      {!arbolLeido && sesion && (
         <div style={{ flex: 'none', marginBottom: 12 }}>
-          <Banner tono="warn" onCerrar={() => setAvisoHistorial(false)}>No cargó tu historial.</Banner>
+          <Banner tono="warn" accion={{ label: 'Volver a cargar', onClick: () => void recargarArbol() }}>No cargaron tus funnels.</Banner>
+        </div>
+      )}
+      {errorSelector && (
+        <div style={{ flex: 'none', marginBottom: 12 }}>
+          <Banner tono="bad" onCerrar={() => setErrorSelector(null)}>{errorSelector}</Banner>
         </div>
       )}
 
-      {vistaReal === 'generando' && (
+      {!sesion && (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center', maxWidth: 420 }}>
+            <AvatarMako size={56} />
+            {bienvenida === 'no-cargo' && (
+              <>
+                <p style={{ margin: 0, fontSize: 'var(--fs-card)', lineHeight: 1.5, color: 'var(--ink)' }}>No cargaron tus funnels.</p>
+                <Button variant="primary" loading={recargando} onClick={() => void recargarArbol()}>Volver a cargar</Button>
+              </>
+            )}
+            {bienvenida === 'sin-funnels' && (
+              <>
+                <p style={{ margin: 0, fontSize: 'var(--fs-card)', lineHeight: 1.5, color: 'var(--ink)' }}>Para empezar, crea un funnel en el CRM.</p>
+                <ButtonLink href="/crm" variant="primary">Ir al CRM</ButtonLink>
+              </>
+            )}
+            {bienvenida === 'elegir' && (
+              <p style={{ margin: 0, fontSize: 'var(--fs-card)', lineHeight: 1.5, color: 'var(--ink)' }}>Elige un funnel arriba para crear o analizar una oferta.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {sesion && vistaReal === 'generando' && (
         <Generando
           paso={gen.paso}
           corriendo={gen.corriendo}
@@ -441,9 +689,9 @@ export function OfferApp({ sesionesIniciales, sesionInicial, semilla, historialF
         />
       )}
 
-      {vistaReal === 'conclusion' && sesion && conclusion && (
-        // La key remonta la vista con cada conclusión nueva: vuelve a abrir en
-        // «Diagnóstico» y con las secciones de entrada, no donde quedó la anterior.
+      {sesion && vistaReal === 'conclusion' && conclusion && (
+        // La key remonta la vista con cada conclusión nueva: vuelve a abrir en «Diagnóstico» y con
+        // las secciones de entrada, no donde quedó la anterior.
         <Conclusion
           key={`${sesion.id}-${conclusion.version}`}
           sesion={sesion}
@@ -453,48 +701,34 @@ export function OfferApp({ sesionesIniciales, sesionInicial, semilla, historialF
         />
       )}
 
-      {vistaReal === 'chat' && (
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 24 }}>
+      {sesion && vistaReal === 'chat' && (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 20 }}>
           <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <BarraPiezasMovil piezas={piezas} acciones={acciones} />
-            <Chat
-              key={sesion?.id ?? 'nueva'}
-              mensajes={mensajes}
+            <BarraPiezasMovil piezas={sesion.piezas} acciones={acciones} />
+            <ChatOffer
+              sesion={sesion}
               pendiente={pendiente}
               respondiendo={respondiendo}
+              fuente={fuente}
+              opcionArmar={opcionArmar}
               opcionesHabilitadas={puedeMandar}
               onOpcion={elegirOpcion}
-              puedeConcluir={puedeConcluir}
-              invitarAArmar={!sesion || hayChatDespuesDe(sesion)}
-              hayConclusion={!!conclusion}
-              ocupado={acciones.ocupado}
-              onArmar={() => void armar()}
-              onVerOferta={verOferta}
-              opcionArmar={opcionArmar}
-            />
-            {/* Se CALCULA del estado (el último mensaje es del dueño y nadie está
-                contestando), no se dispara desde el error: así también aparece si el
-                fallo pasó en otra pestaña o antes de recargar. */}
-            {!respondiendo && !!sesion && sesion.mensajes[sesion.mensajes.length - 1]?.de === 'yo' && (
-              <div className="of-reintento" role="status">
-                <span>MaKo no contestó tu último mensaje.</span>
-                <Button variant="secondary" size="sm" onClick={() => void reintentarRespuesta()}>Reintentar</Button>
-              </div>
-            )}
-            <Composer
+              onReintentar={sinContestar ? () => void reintentarRespuesta() : null}
               texto={texto}
               onTexto={setTexto}
-              adjuntos={adjuntos}
-              onArchivos={agregarArchivos}
-              onQuitar={quitarAdjunto}
               onEnviar={() => void enviarComposer()}
-              puedeEnviar={puedeMandar && hayAlgo}
-              enviando={respondiendo}
+              ocupado={ocupado}
+              chip={datosChip ? { ...datosChip, onQuitar: quitarAdjuntos, tituloQuitar: adjuntos.length > 1 ? 'Quitar archivos' : 'Quitar archivo' } : null}
+              onArchivos={agregarArchivos}
+              onAudio={mandarAudio}
+              audioEnEspera={audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs } : null}
+              onReenviarAudio={reenviarAudio}
+              onDescartarAudio={descartarAudio}
               error={errorChat}
               onError={setErrorChat}
             />
           </div>
-          <RielPiezas piezas={piezas} acciones={acciones} />
+          <RielPiezas piezas={sesion.piezas} acciones={acciones} />
         </div>
       )}
     </div>

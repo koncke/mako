@@ -408,7 +408,7 @@ export const AREAS: AreaDev[] = [
     slug: 'offer-analyst', titulo: 'Offer', familia: 'Analyze',
     estado: 'parcial', verEnApp: '/offer',
     alcance: 'Offer Analyst y Offer Generator en UNA tab: un chat donde MaKo pregunta por las piezas de la oferta, la diagnostica con una rúbrica y escribe la oferta nueva, descargable en PDF; cada cambio propuesto se puede probar como experimento.',
-    vive: ['app/offer/page.tsx', 'app/offer/OfferApp.tsx', 'app/api/offer/route.ts', 'app/api/offer/pdf/route.ts',
+    vive: ['app/offer/', 'app/api/offer/', 'supabase/migrations/0254_offer_sesiones.sql', 'supabase/migrations/0256_offer_funnel.sql',
       'lib/offer-marco.ts', 'lib/offer-reglas.ts', 'lib/offer-ia.ts', 'lib/offer-sesiones.ts', 'lib/offer-contexto.ts',
       'lib/offer-pdf.ts', 'lib/pdf-escritor.ts', 'lib/pdf-helvetica.ts', 'app/offer-analyst/page.tsx', 'docs/offer-marco.md',
       'app/admin/offer-playbook/', 'lib/offer-autores.ts', 'docs/hallazgos-offer.md'],

@@ -27,6 +27,21 @@ import type { OfferSesionVista } from '@/lib/offer-marco';
  */
 export class ErrorOfferApi extends Error {
   sesion?: OfferSesionVista;
+  /**
+   * El HTTP de la respuesta. Decide si REINTENTAR tiene sentido: un 409 de 'generar' dice que falta el
+   * diagnóstico (repetir 'generar' contesta lo mismo) y un 422 de un audio dice que no tenía voz
+   * (volver a mandarlo vuelve a correr la cascada de transcripción entera, con su escalón pago).
+   */
+  status?: number;
+}
+
+/**
+ * ¿El servidor ya dijo que mandar LO MISMO otra vez no sirve? 413 (pesa demasiado), 415 (formato que
+ * no lee) y 422 (no se entendió: un audio sin voz). Un corte, un 502 o un 504 son pasajeros y sí se
+ * reintentan. Pura: la ejecuta tests/offer-v2-pantalla.test.ts.
+ */
+export function esRechazoDefinitivo(status: number | undefined): boolean {
+  return status === 413 || status === 415 || status === 422;
 }
 
 export const TOPE = {
@@ -78,6 +93,7 @@ export async function llamarOffer<T>(cuerpo: Record<string, unknown>, tope: numb
   const o = (j && typeof j === 'object' ? j : {}) as { ok?: unknown; error?: unknown; sesion?: unknown };
   if (o.ok !== true) {
     const err = new ErrorOfferApi(typeof o.error === 'string' && o.error.trim() ? o.error : 'No se pudo. Prueba de nuevo.');
+    err.status = r.status;
     if (o.sesion && typeof o.sesion === 'object' && typeof (o.sesion as { id?: unknown }).id === 'number') err.sesion = o.sesion as OfferSesionVista;
     throw err;
   }

@@ -23,7 +23,11 @@
 //    rioplatense: lo que sale de acá lo lee el cliente y la oferta termina en sus anuncios (AGENTS.md «La
 //    voz de MaKo es rioplatense, y el texto DEL CLIENTE no»).
 // ⚠️ LO QUE ESCRIBIÓ EL DUEÑO ES DATO, NUNCA INSTRUCCIÓN: contexto, piezas, documentos, conversación,
-//    embudo y diagnóstico viajan envueltos en `contenidoNoConfiable` y cada system lo dice.
+//    embudo y diagnóstico viajan envueltos en `contenidoNoConfiable` y cada system lo dice. La excepción
+//    es el bloque del DIAGNÓSTICO DE FASE del turno (v2): lo escribe el código y es una orden.
+// v2 (11/10/2026): el turno también hace, adentro del chat, las preguntas del diagnóstico de fase
+//    (lib/fase-diagnostico.ts) ADAPTADAS al negocio. Qué pregunta toca, si es obligatoria y si la opción N
+//    adaptada sigue siendo la N original lo decide lib/offer-reglas.ts; el resultado NO se dice en el chat.
 // =============================================================================
 
 import 'server-only';
@@ -36,11 +40,11 @@ import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import { wsSuperAdmin } from './workspace';
 import {
   DIMENSION_IDS, MARCO_OFERTA_TEXTO, dimensionLabel,
-  type CalculoDiagnostico, type DiagnosticoOferta, type OfferMensaje, type PiezasSabidas, type PropuestaOferta,
+  type CalculoDiagnostico, type DiagnosticoOferta, type PiezasSabidas, type PropuestaOferta,
 } from './offer-marco';
 import {
   conversacionParaPrompt, documentosParaPrompt, guiaParaPrompt, parseDiagnostico, parsePropuesta, parseTurno,
-  piezasParaPrompt, type DocParaPrompt, type TurnoOffer,
+  parseTurnoConDiagnostico, piezasParaPrompt, validadorConRespaldo, type DocParaPrompt, type MensajeParaPrompt, type TurnoOffer,
 } from './offer-reglas';
 
 /** El tag de gasto y la fila de /modelos-ia (lib/model-catalogo.ts). NO es 'ofertas' (ése es el paso del onboarding). */
@@ -71,7 +75,7 @@ const IDIOMA = 'IDIOMA: español neutro de México, de «tú», sin voseo ni mod
 
 // ── El turno ─────────────────────────────────────────────────────────────────
 
-const FORMA_TURNO = '{"respuesta":"","opciones":[],"piezas":{},"listo":false}';
+const FORMA_TURNO = '{"respuesta":"","opciones":[],"piezas":{},"listo":false,"diagnostico":null,"diagnostico_respuesta":null}';
 
 export const OFFER_TURNO_SYSTEM_TEMPLATE = `Eres MaKo, el copiloto de marketing de un negocio de alto ticket. En esta conversación ayudas al dueño a armar su OFERTA: le haces preguntas cortas para conocer cada pieza. El diagnóstico y la oferta nueva NO se hacen en este chat: salen cuando el dueño pide armarla.
 
@@ -80,14 +84,19 @@ EL MARCO (la única definición de oferta, de sus piezas y de la rúbrica que va
 
 CÓMO CONVERSAS (no negociable):
 1. UNA sola pregunta por mensaje. La respuesta tiene de 1 a 3 frases.
-2. Nunca preguntes lo que ya está en las piezas que ya sabes, en el contexto del negocio o en los documentos. Primero sácalo de ahí y anótalo en "piezas"; si no estás seguro de haberlo entendido, pide confirmación con una pregunta cerrada («Leí en tu documento que trabajas con dueños de clínicas, ¿es así?»).
-3. Pregunta por HECHOS, no pidas tareas: «¿quiénes son tus 3 mejores clientes?», no «define tu cliente ideal».
-4. Sigue el orden de esta guía y salta lo que ya sabes (las piezas mínimas van primero):
+2. Nunca preguntes lo que ya está en las piezas que ya sabes, en el contexto del negocio (perfil, Archivero, funnel, ofertas, productos, avatares, razones) o en los documentos. Primero sácalo de ahí y anótalo en "piezas"; si no estás seguro de haberlo entendido, pide confirmación con una pregunta cerrada («Leí en tu web que trabajas con dueños de clínicas, ¿es así?»).
+3. Lo que más rinde es un documento de su oferta, su guion de ventas o el link de su web o landing: si todavía no mandó nada y no dijo que no tiene, pídeselo. Si dijo que no tiene, pregunta.
+4. Pregunta por HECHOS, no pidas tareas: «¿quiénes son tus 3 mejores clientes?», no «define tu cliente ideal».
+5. Sigue el orden de esta guía y salta lo que ya sabes (las piezas mínimas van primero):
 {{guia}}
-5. "opciones": si la pregunta se contesta eligiendo, propone hasta 4 respuestas CERRADAS, cortas (60 caracteres como máximo) y a medida de ESTE negocio, con sus palabras y sus rangos reales, nunca genéricas. El dueño siempre puede escribir lo suyo. Si la pregunta es abierta, [].
-6. "piezas": sólo lo NUEVO que aprendiste en este turno (del último mensaje, de los documentos o del contexto), con la key de la pieza y en una o dos frases con las palabras del dueño. Lo que ya estaba anotado y no cambió no se repite. Si el dueño dice que no sabe algo, anota en esa pieza "sin dato: " seguido de lo que dijo, y pasa a la pregunta siguiente.
-7. "listo": true cuando ya están las 5 piezas mínimas (cliente, problema, resultado, entregables, precio). Ese turno dice en una frase «Ya tengo lo necesario para armar tu oferta» y ofrece la opción «Armar mi oferta»; el dueño puede seguir afinando las piezas que faltan si quiere.
-8. No des notas, diagnóstico ni la oferta armada en el chat, y no inventes datos.
+6. "opciones": si la pregunta se contesta eligiendo, propone hasta 4 respuestas CERRADAS, cortas (60 caracteres como máximo) y a medida de ESTE negocio, con sus palabras y sus rangos reales, nunca genéricas. El dueño siempre puede escribir lo suyo. Si la pregunta es abierta, [].
+7. LO QUE FALTA SE CONSTRUYE: si el dueño no tiene una pieza (nunca pensó una garantía, no tiene bonos, no tiene claro a quién le vende), no la des por perdida: constrúyela con él con preguntas CERRADAS de a una, con opciones a medida de su negocio (por ejemplo, tres garantías que encajan con lo que vende). Para el cliente, parte de los AVATARES del contexto si los hay; si no hay o son difusos, constrúyelo preguntando a qué se dedica, qué tamaño tiene y qué le duele.
+8. "piezas": sólo lo NUEVO que aprendiste en este turno (del último mensaje, de los documentos o del contexto), con la key de la pieza y en una o dos frases con las palabras del dueño. Lo que ya estaba anotado y no cambió no se repite. Si después de ofrecerle opciones el dueño sigue sin saber o no quiere definirla, anota en esa pieza "sin dato: " seguido de lo que dijo, y pasa a otra.
+9. "listo": true cuando ya están las 5 piezas mínimas (cliente, problema, resultado, entregables, precio). Ese turno dice en una frase «Ya tengo lo necesario para armar tu oferta»; el dueño puede seguir afinando las piezas que faltan si quiere.
+10. EL DIAGNÓSTICO DEL NEGOCIO: en «DIAGNÓSTICO» te paso, si la hay, la próxima pregunta de un diagnóstico cerrado con sus 5 opciones originales. Si dice OBLIGATORIA, tu pregunta de este turno ES ésa. Si dice OPCIONAL, hazla cuando te parezca natural (ya entendiste lo básico de la oferta, o el dueño no tiene documentos). Para hacerla devuelve "diagnostico": {"texto": "la pregunta adaptada a ESTE negocio, una sola, con su signo de pregunta", "opciones": ["las 5 respuestas"]}. Las 5 opciones dicen LO MISMO que las originales, en el MISMO orden, con las palabras de este negocio, y conservan los números y rangos tal cual (no los cambies ni los redondees). En ese turno "respuesta" es un puente corto sin pregunta (o vacío) y "opciones" []. Si no la haces, "diagnostico": null.
+11. Si «DIAGNÓSTICO» dice que QUEDÓ ABIERTA una pregunta y el último mensaje del dueño la contesta con sus palabras, devuelve en "diagnostico_respuesta" el número de la opción original (0 a 4). Si no la contesta, null.
+12. Nunca le digas al dueño en qué fase está su negocio, cuál es su cuello de botella ni qué significan sus respuestas del diagnóstico: eso va en el informe final, no en el chat.
+13. No des notas, diagnóstico ni la oferta armada en el chat, y no inventes datos.
 
 ${SEGURIDAD}
 
@@ -107,6 +116,9 @@ LAS PIEZAS QUE FALTAN:
 
 LOS DOCUMENTOS QUE SUBIÓ EL DUEÑO:
 {{documentos}}
+
+DIAGNÓSTICO:
+{{diagnostico}}
 
 LA CONVERSACIÓN HASTA AHORA (contestas el último mensaje del DUEÑO):
 {{conversacion}}
@@ -249,6 +261,13 @@ type Pedido<T> = {
   /** Va adentro de la frase de error: «MaKo no puede {tema}». */
   tema: string;
   parse: (raw: string) => T | null;
+  /**
+   * El parse FLOJO: una respuesta que no pasa `parse` pero SIRVE igual (el turno sin la pregunta del
+   * diagnóstico adaptada: trae las piezas que dio el dueño, y la pregunta sale ORIGINAL sin IA). Se guarda
+   * la primera, la cascada sigue buscando una que pase `parse`, y a la segunda que sólo pasa el flojo se
+   * corta: buscar más no le compra nada al dueño y quema cuota. Con un flojo, la red de plataforma no corre.
+   */
+  parseFlojo?: (raw: string) => T | null;
 };
 
 async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
@@ -257,17 +276,10 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
   if (!(await docsIADisponible().catch(() => false))) {
     return { ok: false, error: await errorDeCascada([], p.tema) };
   }
-  // Una caja y no un `let`: TypeScript no ve las asignaciones adentro del closure de `validar` y
-  // estrecharía la variable a `null` para siempre.
-  const caja: { valor: T | null } = { valor: null };
-  const validar = (t: string): boolean => {
-    try {
-      const v = p.parse(t);
-      if (v == null) return false;
-      caja.valor = v;
-      return true;
-    } catch { return false; }
-  };
+  // El validar sale de lib/offer-reglas.ts (puro, con test): acepta lo que pasa `parse` y guarda de
+  // respaldo lo que sólo pasa `parseFlojo`.
+  const v = validadorConRespaldo(p.parse, p.parseFlojo);
+  const validar = v.validar;
 
   // 1) Las keys del CLIENTE.
   const { provs, modelos, rotulo } = await proveedoresOffer();
@@ -279,7 +291,11 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
       validar, erroresOut: errores, timeoutMs: p.timeoutMs, esfuerzo: p.esfuerzo, hastaMs: p.hastaMs,
     });
   } catch (e) { errores.push(msg(e)); }
-  if (caja.valor != null) return { ok: true, valor: caja.valor, modelo: rotulo };
+  // Un turno que sirve sin lo que se pedía de más (el respaldo) también vuelve acá, ANTES de la red de
+  // plataforma: las keys del cliente SÍ contestaron, y el que llama ya sabe qué hacer con eso
+  // (lib/offer-reglas.ts → mensajeDeMako manda la pregunta original).
+  const delCliente = v.resultado();
+  if (delCliente != null) return { ok: true, valor: delCliente, modelo: rotulo };
 
   // 2) La RED DE PLATAFORMA: sólo si ninguna key del cliente contestó algo que sirva. Sus errores van
   //    aparte y sólo al log: con ellos se fabricaría el texto que lee el cliente.
@@ -295,7 +311,9 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
         maxTokens: p.maxTokens, timeoutMs: Math.min(p.timeoutMs, queda),
         feature: FEATURE_OFFER, motivo: `⚠ red de plataforma (${r.provider}) — las keys del negocio no contestaron · ${p.motivo}`,
       });
-      if (validar(out.text) && caja.valor != null) return { ok: true, valor: caja.valor, modelo: `red de plataforma · ${r.provider}` };
+      validar(out.text);
+      const valor = v.resultado();
+      if (valor != null) return { ok: true, valor, modelo: `red de plataforma · ${r.provider}` };
       erroresRed.push(`${r.provider}: contestó y lo descartamos (no tiene la forma pedida)`);
     } catch (e) { erroresRed.push(`${r.provider}: ${msg(e)}`); }
   }
@@ -306,7 +324,7 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
 }
 
 /** Las cuatro piezas de texto que comparten los tres pedidos. */
-function bloquesComunes(p: { mensajes: OfferMensaje[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; nuevos?: string[]; contexto: string }) {
+function bloquesComunes(p: { mensajes: MensajeParaPrompt[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; nuevos?: string[]; contexto: string }) {
   const { sabidas, faltan } = piezasParaPrompt(p.piezas);
   const docs = documentosParaPrompt(p.docs, p.nuevos ?? []);
   return {
@@ -324,23 +342,40 @@ function bloquesComunes(p: { mensajes: OfferMensaje[]; piezas: PiezasSabidas; do
 // (300 s) de app/api/offer/route.ts, con aire para guardar. El razonamiento de Gemini sale del MISMO
 // maxTokens que la respuesta: por eso el turno, corto, pide 1.500 y la propuesta, larga, 10.000.
 
+/**
+ * El turno del chat. `diagnostico` es el bloque de lib/offer-reglas.ts → `diagnosticoParaPrompt` (lo arma
+ * el código: qué pregunta toca y si es obligatoria).
+ *
+ * Con la pregunta del diagnóstico OBLIGATORIA el `validar` exige que el modelo la haya adaptado (si no, que
+ * conteste el próximo proveedor) y los plazos son más cortos: si nadie la adapta, la ruta manda la pregunta
+ * ORIGINAL sin IA (`mensajeDeMako` con `turno` null), así que esperar minutos no le compra nada al dueño.
+ */
 export async function turnoOffer(p: {
-  mensajes: OfferMensaje[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; nuevos: string[]; contexto: string; inicio: number;
+  mensajes: MensajeParaPrompt[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; nuevos: string[]; contexto: string; inicio: number;
+  diagnostico: string; diagnosticoObligatorio: boolean;
 }): Promise<ResultadoIA<TurnoOffer>> {
   const b = bloquesComunes(p);
   const system = await renderPrompt('offer.turno.system', OFFER_TURNO_SYSTEM_TEMPLATE, { marco: b.marco, guia: guiaParaPrompt() });
   const user = await renderPrompt('offer.turno.user', OFFER_TURNO_USER_TEMPLATE, {
-    contexto: b.contexto, piezas: b.piezas, faltan: b.faltan, documentos: b.documentos, conversacion: b.conversacion,
+    contexto: b.contexto, piezas: b.piezas, faltan: b.faltan, documentos: b.documentos,
+    // SIN `contenidoNoConfiable`, a propósito: el bloque lo escribe el CÓDIGO (las preguntas son las de
+    // lib/fase-diagnostico.ts) y trae una orden («OBLIGATORIA»); envuelto como dato, la cláusula de
+    // seguridad le diría al modelo que no la obedezca.
+    diagnostico: p.diagnostico.trim() || '(nada pendiente)', conversacion: b.conversacion,
   });
+  const obligatorio = p.diagnosticoObligatorio;
   return pedir({
-    system, user, maxTokens: 1_500, timeoutMs: 60_000, esfuerzo: 'low',
-    hastaMs: p.inicio + 150_000, hastaRedMs: p.inicio + 280_000,
-    motivo: 'Offer: conversar con el dueño', tema: 'contestarte ahora', parse: parseTurno,
+    system, user, maxTokens: 2_000, timeoutMs: 60_000, esfuerzo: 'low',
+    hastaMs: p.inicio + (obligatorio ? 90_000 : 150_000), hastaRedMs: p.inicio + (obligatorio ? 130_000 : 280_000),
+    motivo: 'Offer: conversar con el dueño', tema: 'contestarte ahora',
+    // Con la obligatoria se busca un turno que la ADAPTE, y uno que sirve sin adaptarla no se tira: trae las
+    // piezas que dio el dueño, y la pregunta sale ORIGINAL (revisión adversarial del 11/10/2026).
+    parse: obligatorio ? parseTurnoConDiagnostico : parseTurno, parseFlojo: obligatorio ? parseTurno : undefined,
   });
 }
 
 export async function diagnosticoOffer(p: {
-  mensajes: OfferMensaje[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; contexto: string; embudo: string; inicio: number;
+  mensajes: MensajeParaPrompt[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; contexto: string; embudo: string; inicio: number;
 }): Promise<ResultadoIA<DiagnosticoOferta>> {
   const b = bloquesComunes(p);
   const system = await renderPrompt('offer.diagnostico.system', OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE, { marco: b.marco });
@@ -370,7 +405,7 @@ function diagnosticoParaPrompt(d: DiagnosticoOferta, c: CalculoDiagnostico): str
 }
 
 export async function propuestaOffer(p: {
-  mensajes: OfferMensaje[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; contexto: string;
+  mensajes: MensajeParaPrompt[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; contexto: string;
   diagnostico: DiagnosticoOferta; calculo: CalculoDiagnostico; inicio: number;
 }): Promise<ResultadoIA<PropuestaOferta>> {
   const b = bloquesComunes(p);

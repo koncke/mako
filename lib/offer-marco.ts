@@ -19,6 +19,8 @@
 // puede cambiar el `label`, la key no.
 // =============================================================================
 
+import type { Diagnostico as DiagnosticoFase } from './fase-diagnostico';
+
 // ── Las 13 piezas de una oferta ──────────────────────────────────────────────
 
 export type PiezaKey =
@@ -144,6 +146,25 @@ export type OfferMensaje = {
   opciones?: string[];
   /** Los documentos que se mandaron con este mensaje. */
   adjuntos?: AdjuntoVista[];
+  /**
+   * Un mensaje del dueño que se DICTÓ (v2). `texto` es la TRANSCRIPCIÓN; `url` reproduce el binario
+   * (`/api/offer/audio?id=<sesionId>&m=<mensajeId>`, que redirige a una URL firmada de Storage).
+   * ⚠️ Para un `<audio src>` la pantalla le pega el `?ws=` con `conWs(url, useWs())`: no es un fetch, así
+   * que el parche de WsFetch no lo toca, y sin el parámetro el super admin que mira a un cliente recibe 403.
+   */
+  audio?: { url: string; secs: number };
+  /**
+   * Marca una pregunta del DIAGNÓSTICO DE FASE (lib/fase-diagnostico.ts) hecha adentro del chat (v2).
+   * Las `opciones` de ese mensaje son las respuestas PERSONALIZADAS, en el MISMO orden que las originales:
+   * la opción N es la respuesta N del diagnóstico. Sin «Armar mi oferta» entre ellas.
+   */
+  pregunta?: { tipo: 'diagnostico'; id: string };
+  /**
+   * En un mensaje del DUEÑO: la opción que eligió de una pregunta del diagnóstico (v2). `idx` es el índice
+   * de la opción ORIGINAL (0-4). `inferida` = no tocó la opción: lo dijo con sus palabras (o por audio) y
+   * MaKo lo leyó así.
+   */
+  respuesta?: { preguntaId: string; idx: number; inferida?: boolean };
 };
 
 /** Qué sabe MaKo de cada pieza y de dónde lo sacó. */
@@ -235,6 +256,18 @@ export type ConclusionOferta = {
   at: string;
   /** Proveedor/modelo que contestó (para el Saldo de IA y para auditar). */
   modelo: string;
+  /**
+   * El diagnóstico de FASE del negocio (v2), congelado al armar esta versión: el que el dueño contestó en
+   * esta conversación o, si el negocio ya lo tenía, el guardado. Va al PDF («El diagnóstico de tu
+   * negocio»); en el chat NO se muestra. Ausente en las conclusiones de la v1.
+   */
+  fase?: DiagnosticoFase | null;
+  /**
+   * v2: si se armó la oferta SIN diagnóstico de fase (no estaba guardado y el dueño no contestó todas las
+   * preguntas en el chat), cuántas contestó de cuántas. El PDF lo dice en vez de omitir la sección en
+   * silencio. Ausente (o null) cuando hay `fase`, y en las conclusiones de la v1.
+   */
+  diagnosticoFaltante?: { contestadas: number; total: number } | null;
 };
 
 // ── Lo que ve la pantalla de una sesión ──────────────────────────────────────
@@ -257,9 +290,53 @@ export type OfferSesionVista = {
   /** Lo calcula el código: están las piezas mínimas. */
   puedeConcluir: boolean;
   updatedAt: string;
+  /** v2: el FUNNEL (fila de `funnels`, el desplegable del CRM) al que está atada; null en las de la v1. */
+  funnelId: number | null;
+  /** El nombre como lo muestra el CRM: el producto principal del funnel, si no el nombre del funnel. '' si no se pudo leer. */
+  funnelNombre: string;
+  /** La oferta existente que se analiza (modo 'analizar'), o null. */
+  ofertaBaseId: number | null;
+  ofertaBaseNombre: string;
+  /** 'analizar' si parte de una oferta que ya existe; 'crear' si arma una nueva. Se DERIVA de `ofertaBaseId`. */
+  modo: ModoSesion;
+  /**
+   * La columna CRUDA `oferta_id`: la última oferta que se guardó desde esta conversación, de la versión que
+   * sea. Es la que usa `construirArbol` para ubicar la conversación bajo su oferta. `ofertaId` (arriba) vale
+   * sólo si lo guardado es la versión VIGENTE; las dos existen porque contestan preguntas distintas.
+   */
+  ofertaGuardadaId: number | null;
+  /**
+   * false SÓLO si tocar «Guardar en este funnel» lo puede arreglar: hay oferta guardada (`ofertaGuardadaId`),
+   * la conversación tiene funnel, ese funnel existe y la oferta NO está en `funnel_ofertas` de ese funnel
+   * (la liga había fallado). true en todo lo demás: v1 sin funnel, nada guardado, ya ligada, o el funnel se
+   * borró (reintentar no lo arregla). ⚠️ La lectura es TOLERANTE: si falla, true — mostrar «Guardada» de
+   * más es un rótulo; invitar a reintentar en falso es mandar a repetir algo que no se arregla repitiendo.
+   */
+  ligada: boolean;
 };
 
+export type ModoSesion = 'crear' | 'analizar';
+
 export type OfferSesionResumen = { id: number; titulo: string; estado: EstadoSesion; total: number | null; updatedAt: string };
+
+/**
+ * El selector de la tab, en árbol (v2): funnel → sus ofertas → sus conversaciones.
+ *
+ * «Funnel» = una fila de `funnels` (lo que el CRM dibuja en su desplegable). Sus ofertas salen de
+ * `funnel_ofertas` (mig 0171). `sesionesNuevas` = conversaciones de ese funnel que todavía no son de
+ * ninguna oferta suya (crear una nueva, o una que se guardó como una oferta que ya no está en el funnel).
+ * `sueltas` = las de la v1 (sin funnel) y las de un funnel que se archivó. Cada conversación aparece UNA
+ * sola vez (lo decide `construirArbol`, lib/offer-reglas.ts).
+ */
+export type ArbolOffer = {
+  funnels: Array<{
+    id: number;
+    nombre: string;
+    ofertas: Array<{ id: number; nombre: string; principal: boolean; sesiones: OfferSesionResumen[] }>;
+    sesionesNuevas: OfferSesionResumen[];
+  }>;
+  sueltas: OfferSesionResumen[];
+};
 
 /** ¿Están las piezas sin las que no hay análisis? (lo decide el código, no el modelo) */
 export function faltanMinimas(piezas: PiezasSabidas): PiezaKey[] {

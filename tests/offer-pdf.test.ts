@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import { pdfDeOferta, nombreArchivoOferta } from '../lib/offer-pdf';
 import { textoParaPdf, PdfDoc } from '../lib/pdf-escritor';
 import type { ConclusionOferta } from '../lib/offer-marco';
+import { diagnosticar, faseDef } from '../lib/fase-diagnostico';
 
 async function leerPdf(bytes: Uint8Array): Promise<{ texto: string; paginas: number }> {
   // pdfjs (dentro de unpdf) usa Math.sumPrecise, que no existe en Node < 22 (mismo
@@ -122,6 +123,42 @@ test('el PDF se LEE de vuelta: nombre, secciones, acentos, ñ y pie', async () =
   assert.match(texto, /Nutrición Ñandú/, 'los acentos o la ñ no llegaron');
   assert.match(texto, /mamás que trabajan/);
   assert.match(texto, /1 \//, 'falta el pie con el número de página');
+});
+
+// v2 (11/10/2026): el diagnóstico de FASE del negocio, que en el chat no se muestra, va al PDF con los
+// textos de lib/fase-diagnostico.ts. Sin `fase` (las conclusiones de la v1) la sección no aparece.
+// rotura (pdfDeOferta sin llamar a seccionFase): 1 fallo, 8 pases. rotura (la sección con el objetivo de
+// OTRA fase: faseDef(d.fase + 1)): 1 fallo, 8 pases.
+test('el diagnóstico del negocio entra al PDF: fase, cuello y lo que significa; sin fase no aparece', async () => {
+  const c = ejemplo();
+  c.fase = diagnosticar([1, 1, 1, 0, 1, 2], 'llamadas');
+  const f = faseDef(c.fase.fase);
+  const { texto } = await leerPdf(pdfDeOferta(c, { negocio: 'X', titulo: 'Y', fecha: new Date() }));
+  const plano = texto.replace(/\s+/g, ' ');
+  assert.match(plano, /El diagnóstico de tu negocio/);
+  assert.match(plano, new RegExp(`Fase ${f.id} de 5: ${f.nombre}`));
+  assert.ok(plano.includes(f.cuelloLabel), 'falta el cuello de botella');
+  assert.ok(plano.includes(f.objetivo.slice(0, 40)), 'falta lo que significa la fase');
+  assert.ok(plano.includes('Llamada de venta'), 'falta el canal');
+  assert.ok(plano.indexOf('El diagnóstico de tu negocio') < plano.indexOf('Diagnóstico de tu oferta'), 'el del negocio va antes que el de la oferta');
+  const sinFase = await leerPdf(pdfDeOferta(ejemplo(), { negocio: 'X', titulo: 'Y', fecha: new Date() }));
+  assert.doesNotMatch(sinFase.texto, /El diagnóstico de tu negocio/);
+});
+
+// Revisión adversarial (11/10/2026): la oferta armada con preguntas del diagnóstico PENDIENTES no omite la
+// sección en silencio: la dibuja y dice cuántas faltan. Con la fase, gana la fase.
+// rotura (pdfDeOferta sin llamar a seccionFaseFaltante): 1 fallo, 9 pases (base en verde: 10 de 10).
+test('con el diagnóstico a medias, el PDF lo dice (contestadas de total) en vez de omitir la sección', async () => {
+  const c = ejemplo();
+  c.diagnosticoFaltante = { contestadas: 2, total: 6 };
+  const plano = (await leerPdf(pdfDeOferta(c, { negocio: 'X', titulo: 'Y', fecha: new Date() }))).texto.replace(/\s+/g, ' ');
+  assert.match(plano, /El diagnóstico de tu negocio/);
+  assert.match(plano, /contestaste 2 de 6 preguntas/);
+  assert.ok(plano.indexOf('El diagnóstico de tu negocio') < plano.indexOf('Diagnóstico de tu oferta'));
+  // Con la fase, la fase (lo que falta no aplica).
+  c.fase = diagnosticar([1, 1, 1, 0, 1, 2], 'llamadas');
+  const conFase = (await leerPdf(pdfDeOferta(c, { negocio: 'X', titulo: 'Y', fecha: new Date() }))).texto.replace(/\s+/g, ' ');
+  assert.doesNotMatch(conFase, /contestaste/);
 });
 
 test('el texto con paréntesis y barra invertida se lee entero', async () => {

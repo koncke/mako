@@ -1,0 +1,325 @@
+'use client';
+
+// =============================================================================
+// ChatOffer — la conversación con MaKo, con el chat de WhatsApp de la casa
+// =============================================================================
+// Pedido de Martín (11/10/2026): «Quiero que el diseño del chat se vea exactamente igual a lo que
+// ya creamos… Que tenga ese formato de grabar audio, la animación de grabando audio, adjuntar
+// archivos, imagenes, emojis… Copialo tal cual.» (Mandó la captura del editor de mensajes de
+// WhatsApp de /automations.) Por eso esto NO dibuja un chat propio: monta las piezas de
+// app/whatsapp/_shared tal cual.
+//
+//   · el HILO es `ChatHilo` (scroll pegado abajo, entrada animada de lo nuevo, la franja de las
+//     respuestas rápidas con `encimaDelComposer`); la burbuja de cada mensaje es `BurbujaHilo`
+//     (el audio del dueño con `AudioPlay` y su transcripción, la hora y las palomitas `Ticks`);
+//   · la BARRA es `ComposerWhatsApp` en modo `enviar`: emojis, el clip con su menú y el micrófono con
+//     la grabación de `useGrabacionVoz` / `BarraGrabacion` (✓ termina, se escucha, ➤ verde manda).
+//
+// Lo que se ENVUELVE, y por qué (no se toca ningún archivo de _shared, que montan otras tabs):
+//   ⚠️ MaKo escribe Markdown (negrita, listas) y la burbuja pinta marcas de WhatsApp (`*negrita*`):
+//      sus mensajes van por `renderMensaje` de ChatHilo, con la MISMA burbuja (`BurbujaHilo`) y el
+//      texto por <Markdown> en su ranura `vacio` (lo que dibuja cuando no hay texto propio). Al lado,
+//      su foto de perfil (./AvatarMako.tsx).
+//   ⚠️ LA BARRA DE ChatHilo NO SIRVE ACÁ: su selector corta en 4 MB, elige UN archivo y su `accept` no
+//      trae .txt/.md/.csv; los archivos de Offer se suben y se leen por el camino de Offer (subir-url
+//      → PUT → leer, lib/formatos-archivo.ts → ACCEPT_IMPORTAR, hasta 25 MB). Así que ChatHilo va SIN
+//      barra (sin handlers de envío) y la barra se monta acá, con su menú del clip propio
+//      (`menuClip`: «Foto o video» y «Documento», como el editor del lienzo).
+//   ⚠️ LA CAJA: ChatHilo trae su propio borde y su radio. Para que la barra quede ADENTRO de la misma
+//      tarjeta (como en ChatHilo con su barra), la tarjeta es ésta, con los mismos valores, y la de
+//      ChatHilo se aplana con una regla de la hoja (estilos.ts → `.of-hilo-lista > div`): una regla con
+//      `!important` le gana al estilo en línea sin tocar el componente compartido.
+//   ⚠️ LOS COLORES: el default de ChatHilo es el índigo del WhatsApp no oficial, y su burbuja
+//      (`--wa-noof-bubble`) no se redefine en oscuro: texto claro sobre burbuja clara. Acá van
+//      `--primary` / `--primary-bg`, que existen en los dos temas (y el dueño en azul, como en la v1).
+//
+// ⚠️ LA HORA DE CADA BURBUJA SE PIDE DESPUÉS DE MONTAR (`montado`): sale de la zona horaria de quien
+// la calcula, y el HTML del server la diría distinta del navegador (la hidratación falla).
+// ⚠️ `data-esquina-ocupada` en la tarjeta: la ➤ y el micrófono viven en el rincón de abajo a la
+// derecha, y sin la marca la esquina de los avisos los tapa (AGENTS.md).
+
+import { useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type ReactNode } from 'react';
+import { Button } from '@/app/_ui';
+import { useWs } from '@/app/_ui/Link';
+import { Markdown } from '@/app/_components/Markdown';
+import { MakoStar } from '@/app/_components/MakoBrand';
+import { TextoMarcas } from '@/app/_components/TextoMarcas';
+import { ChatHilo, type HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
+import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
+import { Ticks } from '@/app/whatsapp/_shared/Ticks';
+import { ComposerWhatsApp, IconVideo, type ChipComposer, type OpcionMenuWA } from '@/app/whatsapp/_shared/ComposerWhatsApp';
+import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
+import { GRAMATICA } from '@/lib/mako-gramatica';
+import { ACCEPT_IMPORTAR, EXT_POR_FAMILIA } from '@/lib/formatos-archivo';
+import { conWs } from '@/lib/ws-tab';
+import type { AdjuntoVista, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
+import { AvatarMako } from './AvatarMako';
+import { ChipArchivo } from './ChipArchivo';
+import { esOpcionArmar, horaDe, ticksDe } from './ayudas';
+
+/** El acento de la tarjeta y la burbuja del dueño: tokens que existen en claro Y en oscuro. */
+const ACENTO = 'var(--primary)';
+const BURBUJA_YO = 'var(--primary-bg)';
+/** El renglón de «MaKo está escribiendo» viaja como un mensaje más del hilo (con su foto al lado). */
+const ID_ESCRIBIENDO = '__of-escribiendo';
+
+const ACCEPT_FOTO = [...EXT_POR_FAMILIA.imagen, ...EXT_POR_FAMILIA.video].map((e) => `.${e}`).join(',');
+
+const sinSuscripcion = () => () => {};
+
+/** El texto de una burbuja, con el mismo tamaño y la misma tinta que el de BurbujaHilo. */
+const TEXTO_BURBUJA = { fontSize: 14, lineHeight: 1.45, color: 'var(--ink)', overflowWrap: 'anywhere' as const };
+
+/** Los archivos que viajaron con un mensaje, ADENTRO de su burbuja (como un adjunto de WhatsApp). */
+function Adjuntos({ lista }: { lista: AdjuntoVista[] }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'stretch' }}>
+      {lista.map((a) => <ChipArchivo key={a.id} nombre={a.nombre} via={a.via} estado={a.aviso ? 'aviso' : 'listo'} nota={a.aviso} />)}
+    </div>
+  );
+}
+
+/** La fila de un mensaje de MaKo: su foto y, al lado, la burbuja. */
+function FilaMako({ animar = false, children }: { animar?: boolean; children: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+      <AvatarMako size={30} animar={animar} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>{children}</div>
+    </div>
+  );
+}
+
+export type AudioEnEspera = { url: string; secs: number };
+
+export function ChatOffer({
+  sesion, pendiente, respondiendo, fuente, opcionArmar, opcionesHabilitadas, onOpcion, onReintentar,
+  texto, onTexto, onEnviar, ocupado, chip, onArchivos, onAudio, audioEnEspera, onReenviarAudio, onDescartarAudio,
+  error, onError,
+}: {
+  sesion: OfferSesionVista;
+  /** El mensaje del dueño ya dibujado mientras MaKo contesta (optimista). */
+  pendiente: OfferMensaje | null;
+  respondiendo: boolean;
+  /** Qué está leyendo MaKo («tu respuesta», «tu audio», «tu link»): va al lado del rótulo de la gramática. */
+  fuente: string;
+  /** El texto de la opción que arma la oferta (lib/offer-reglas.ts → OPCION_ARMAR). */
+  opcionArmar: string;
+  /** Falso mientras se lee un archivo o MaKo contesta: un toque ahí mandaría a medias. */
+  opcionesHabilitadas: boolean;
+  /** El índice de la opción en `opciones` del último mensaje (el ORIGINAL: el de una pregunta del diagnóstico). */
+  onOpcion: (idx: number) => void;
+  /** «Reintentar» la respuesta de MaKo al último mensaje; null = no hay nada sin contestar. */
+  onReintentar: (() => void) | null;
+  texto: string;
+  onTexto: (v: string) => void;
+  onEnviar: () => void;
+  /** MaKo contesta, se lee un archivo o se arma la oferta: los botones de la barra se apagan (el campo no). */
+  ocupado: boolean;
+  /** Lo elegido en el clip, arriba de la barra (./ayudas.ts → chipDeAdjuntos). */
+  chip: ChipComposer | null;
+  onArchivos: (archivos: File[]) => void;
+  /** La nota de voz que se mandó con la ➤ (ya escuchada en la barra). */
+  onAudio: (blob: Blob, secs: number) => void;
+  /** Una nota de voz que NO salió (se cortó la subida): vuelve a la barra de escucharla para reintentar. */
+  audioEnEspera: AudioEnEspera | null;
+  onReenviarAudio: () => void;
+  onDescartarAudio: () => void;
+  error: string | null;
+  onError: (m: string) => void;
+}) {
+  const ws = useWs();
+  const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
+  const inputDoc = useRef<HTMLInputElement>(null);
+  const inputFoto = useRef<HTMLInputElement>(null);
+  const [encima, setEncima] = useState(false);
+
+  const mensajes = sesion.mensajes;
+  const ultimo = mensajes[mensajes.length - 1];
+
+  // Los mensajes por id: `renderMensaje` recibe el del hilo y necesita el de Offer (el Markdown, los adjuntos).
+  const porId = useMemo(() => {
+    const m = new Map<string, OfferMensaje>();
+    for (const x of mensajes) m.set(x.id, x);
+    if (pendiente) m.set(pendiente.id, pendiente);
+    return m;
+  }, [mensajes, pendiente]);
+
+  // El hilo en la forma de ChatHilo. Memo: el autoscroll del hilo corre cuando cambia `mensajes`, y
+  // un arreglo nuevo en cada tecla del composer lo dispararía sin que haya nada nuevo.
+  const hilo = useMemo<HiloMsg[]>(() => {
+    const aHilo = (m: OfferMensaje, status: string | null): HiloMsg => {
+      const fecha = montado ? m.at : null;
+      if (m.de === 'mako') return { id: m.id, fromMe: false, texto: m.texto, fecha };
+      if (m.audio?.url) {
+        return { id: m.id, fromMe: true, tipo: 'audio', mediaUrl: conWs(m.audio.url, ws), transcript: m.texto.trim() || null, fecha, status };
+      }
+      return { id: m.id, fromMe: true, texto: m.texto, fecha, status };
+    };
+    const out = mensajes.map((m, i) => aHilo(m, m.de === 'yo' ? ticksDe(mensajes, i) : null));
+    if (pendiente) out.push(aHilo(pendiente, 'sent'));
+    if (respondiendo) out.push({ id: ID_ESCRIBIENDO, fromMe: false });
+    return out;
+  }, [mensajes, pendiente, respondiendo, montado, ws]);
+
+  /** Los mensajes que la burbuja de ChatHilo no sabe dibujar; null = la de siempre. */
+  const renderMensaje = (h: HiloMsg): ReactNode | null => {
+    if (h.id === ID_ESCRIBIENDO) {
+      return (
+        <FilaMako animar>
+          <BurbujaHilo contenido={{}} saliente={false} vacio={(
+            <span role="status" style={{ fontSize: 13, color: 'var(--dim)' }}>
+              <span style={{ color: 'var(--mako-ink)', fontWeight: 600 }}>{GRAMATICA.analizando.rotulo}</span>
+              {' · '}{fuente}
+              <span className="of-puntos" aria-hidden><span>.</span><span>.</span><span>.</span></span>
+            </span>
+          )} />
+        </FilaMako>
+      );
+    }
+    const m = porId.get(String(h.id));
+    if (!m) return null;
+    const hora = horaDe(h.fecha);
+    if (m.de === 'mako') {
+      return (
+        <FilaMako>
+          <BurbujaHilo saliente={false} hora={hora} maxAncho="88%"
+            contenido={m.audio?.url ? { audio: { url: conWs(m.audio.url, ws), transcript: m.texto.trim() || null, duracion_s: m.audio.secs } } : {}}
+            vacio={(
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {m.texto.trim() && <div style={TEXTO_BURBUJA}><Markdown text={m.texto} /></div>}
+                {!!m.adjuntos?.length && <Adjuntos lista={m.adjuntos} />}
+              </div>
+            )} />
+        </FilaMako>
+      );
+    }
+    // Del dueño, con archivos: los archivos van ADENTRO de la burbuja y el texto debajo, como un
+    // adjunto con su pie. Sin archivos, la burbuja de siempre de ChatHilo.
+    if (!m.adjuntos?.length) return null;
+    // ⚠️ Una nota de voz CON documentos: la «Transcripción del audio» (el servidor la arma cuando la nota
+    // no entra en el mensaje) viaja como un adjunto más. La burbuja del audio no tiene dónde dibujar
+    // otra cosa (su `vacio` sólo sale sin audio), así que los chips van debajo, alineados con ella; sin
+    // esto la burbuja de siempre los tiraba y la transcripción entera quedaba invisible.
+    if (m.audio?.url) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <BurbujaHilo saliente fondo={BURBUJA_YO} hora={hora} pie={<Ticks status={h.status ?? null} />}
+            contenido={{ audio: { url: conWs(m.audio.url, ws), transcript: m.texto.trim() || null, duracion_s: m.audio.secs } }} />
+          <div style={{ maxWidth: '78%', minWidth: 0 }}><Adjuntos lista={m.adjuntos} /></div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <BurbujaHilo saliente fondo={BURBUJA_YO} hora={hora} pie={<Ticks status={h.status ?? null} />} contenido={{}}
+          vacio={(
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Adjuntos lista={m.adjuntos} />
+              {m.texto.trim() && <div style={{ ...TEXTO_BURBUJA, whiteSpace: 'pre-wrap' }}><TextoMarcas texto={m.texto} /></div>}
+            </div>
+          )} />
+      </div>
+    );
+  };
+
+  // Las respuestas rápidas cuelgan SÓLO del último mensaje, y sólo si es de MaKo: las de una pregunta
+  // ya contestada no contestan nada. Se guarda el índice ORIGINAL: en una pregunta del diagnóstico la
+  // opción N es la respuesta N, y filtrar las vacías no puede correrlas de lugar.
+  const opciones = !pendiente && ultimo?.de === 'mako'
+    ? (ultimo.opciones ?? []).map((t, idx) => ({ t: t.trim(), idx })).filter((o) => o.t)
+    : [];
+  const encimaDelComposer = opciones.length || onReintentar ? (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 10 }}>
+      {onReintentar && (
+        <div className="of-reintento" role="status">
+          <span>MaKo no contestó tu último mensaje.</span>
+          <Button variant="secondary" size="sm" onClick={onReintentar}>Reintentar</Button>
+        </div>
+      )}
+      {opciones.length > 0 && (
+        <div role="group" aria-label="Respuestas rápidas" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {opciones.map(({ t, idx }) => {
+            const armar = !ultimo?.pregunta && esOpcionArmar(t, opcionArmar) && sesion.puedeConcluir;
+            return (
+              <button key={`${idx}-${t}`} type="button" className={`of-pill${armar ? ' of-pill--mako' : ''}`}
+                disabled={!opcionesHabilitadas} onClick={() => onOpcion(idx)}>
+                {armar && <MakoStar size={14} animate={false} />}
+                {t}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  ) : undefined;
+
+  const menuClip: OpcionMenuWA[] = [
+    { key: 'foto', label: 'Foto o video', icono: <IconVideo size={18} />, onElegir: () => inputFoto.current?.click() },
+    { key: 'doc', label: 'Documento', icono: <IconDoc size={18} />, onElegir: () => inputDoc.current?.click() },
+  ];
+  const elegidos = (e: ChangeEvent<HTMLInputElement>) => {
+    const lista = Array.from(e.target.files ?? []);
+    // Se vacía para que elegir el MISMO archivo otra vez vuelva a disparar el cambio.
+    e.target.value = '';
+    if (lista.length) onArchivos(lista);
+  };
+
+  // Soltar archivos sobre el chat hace lo mismo que el clip.
+  const alArrastrar = (e: DragEvent<HTMLDivElement>) => {
+    if (ocupado || !Array.from(e.dataTransfer?.types ?? []).includes('Files')) return;
+    e.preventDefault();
+    if (!encima) setEncima(true);
+  };
+  const alSoltar = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    setEncima(false);
+    if (!ocupado) onArchivos(Array.from(e.dataTransfer.files));
+  };
+
+  return (
+    <div className="of-hilo" data-esquina-ocupada data-encima={encima || undefined}
+      onDragOver={alArrastrar} onDragLeave={() => setEncima(false)} onDrop={alSoltar}
+      style={{
+        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+        background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `3px solid ${ACENTO}`, borderRadius: 16, overflow: 'hidden',
+      }}>
+      {/* El alto del hilo sale de una caja ABSOLUTA: ChatHilo se mide con `height: 100%`, y un
+          porcentaje contra un alto que sale de flex da CERO en Safari (AGENTS.md, «Dos reglas de
+          layout»). Contra una caja con `inset: 0` el alto es definido en todos los motores. */}
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <div className="of-hilo-lista" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+          <ChatHilo
+            key={sesion.id}
+            mensajes={hilo}
+            accent={ACENTO}
+            accentBubble={BURBUJA_YO}
+            animarNuevos
+            renderMensaje={renderMensaje}
+            encimaDelComposer={encimaDelComposer}
+          />
+        </div>
+      </div>
+      {error && <div role="alert" className="of-error">{error}</div>}
+      {/* La barra va POR CONVERSACIÓN (`key`): una grabación a medias no viaja a otra (la sesión de voz
+          guarda el `onAudio` del render en que se apretó el 🎤: ComposerWhatsApp, cabecera). */}
+      <ComposerWhatsApp
+        key={sesion.id}
+        modo="enviar"
+        valor={texto}
+        onValor={onTexto}
+        onEnviar={onEnviar}
+        ocupado={ocupado}
+        menuClip={menuClip}
+        chip={chip}
+        onAudio={onAudio}
+        onErrorAudio={onError}
+        audioPendiente={audioEnEspera
+          ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onDescartar: onDescartarAudio, onUsar: onReenviarAudio, rotuloUsar: 'Enviar audio' }
+          : null}
+      />
+      <input ref={inputFoto} type="file" multiple accept={ACCEPT_FOTO} onChange={elegidos} hidden />
+      <input ref={inputDoc} type="file" multiple accept={ACCEPT_IMPORTAR} onChange={elegidos} hidden />
+    </div>
+  );
+}

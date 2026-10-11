@@ -1228,14 +1228,14 @@ export const REGISTRY: Group[] = [
         label: 'La conversación: cómo pregunta MaKo (system)', kind: 'system', dynamic: true,
         variables: [v('marco', 'el marco de oferta entero: piezas, rúbrica y reglas (lib/offer-marco.ts)'), v('guia', 'las preguntas de la guía, en orden de prioridad')], scope: 'static-only', sensitive: true,
         default: OFFER_TURNO_SYSTEM_TEMPLATE,
-        context: 'Cada turno del chat de Offer. Reglas que no se tocan: UNA pregunta por mensaje, nunca re-preguntar lo que ya se sabe, opciones cerradas a medida del negocio, «sin dato» cuando el dueño no sabe, y el JSON exacto. El código corta una segunda pregunta y decide solo cuándo ofrecer «Armar mi oferta» (lib/offer-reglas.ts). Conserva los slots {{marco}} y {{guia}}. Y no lo pases a voseo: lo lee el cliente.',
+        context: 'Cada turno del chat de Offer. Reglas que no se tocan: UNA pregunta por mensaje, nunca re-preguntar lo que ya se sabe, pedir primero un documento o el link de la web, construir con preguntas cerradas lo que falta, opciones cerradas a medida del negocio, «sin dato» sólo si ni con opciones lo define, las preguntas del diagnóstico de fase ADAPTADAS sin cambiar sus números ni su orden (y sin decirle al dueño el resultado), y el JSON exacto. El código corta una segunda pregunta, decide cuándo una pregunta del diagnóstico es obligatoria, devuelve a la opción original la adaptada que cambie un número y decide solo cuándo ofrecer «Armar mi oferta» (lib/offer-reglas.ts). Conserva los slots {{marco}} y {{guia}}. Y no lo pases a voseo: lo lee el cliente.',
       },
       {
         key: 'offer.turno.user', source: 'override',
         label: 'La conversación: lo que MaKo lee en cada turno (user)', kind: 'user', dynamic: true,
-        variables: [v('contexto', 'lo que el negocio ya tenía cargado (perfil, Archivero, ofertas, productos, fase)'), v('piezas', 'lo que ya se sabe de cada pieza'), v('faltan', 'las piezas que faltan'), v('documentos', 'el texto de los documentos que subió el dueño'), v('conversacion', 'los últimos 30 mensajes, con quién dijo qué')], scope: 'full', sensitive: false,
+        variables: [v('contexto', 'lo que el negocio ya tenía cargado (perfil, Archivero, el funnel y sus ofertas, productos, avatares, razones, fase)'), v('piezas', 'lo que ya se sabe de cada pieza'), v('faltan', 'las piezas que faltan'), v('documentos', 'el texto de los documentos y las webs que mandó el dueño'), v('diagnostico', 'la próxima pregunta del diagnóstico de fase con sus 5 opciones originales, y si es obligatoria (la decide el código)'), v('conversacion', 'los últimos 30 mensajes, con quién dijo qué')], scope: 'full', sensitive: false,
         default: OFFER_TURNO_USER_TEMPLATE,
-        context: 'Los datos del turno, cada uno envuelto como dato no confiable. Conserva los cinco slots y la orden del JSON del final: un modelo chico pesa más lo último que lee.',
+        context: 'Los datos del turno. Lo que viene del dueño va envuelto como dato no confiable; el bloque del diagnóstico NO (lo escribe el código y trae la orden de si la pregunta es obligatoria). Conserva los seis slots y la orden del JSON del final: un modelo chico pesa más lo último que lee.',
       },
       {
         key: 'offer.diagnostico.system', source: 'override',

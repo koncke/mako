@@ -164,6 +164,37 @@ El pedido, textual (Martín, 11/10/2026 18:04 UTC), está entero en el registro 
 - **El audio se transcribe ANTES de guardar nada**: si ninguna IA lo escucha, 502 y el binario queda
   (para no dejar un mensaje mudo); si no tenía voz, 422 y el binario se borra.
 
+### Lo que encontró la revisión adversarial de la v2 (5 revisores + 5 refutadores, antes de subirla)
+
+26 hallazgos reales sobre código que no había corrido nunca (seguridad: cero). Los que dejan regla:
+
+- **«La opción adaptada CONTIENE los números de la original» no alcanza: dos rangos vecinos comparten
+  un borde.** La IA personaliza las opciones del diagnóstico de fase y una lista corrida un lugar
+  pasaba el chequeo: tocar «menos de 3.000» guardaba en el diagnóstico DEL NEGOCIO el rango de al lado.
+  La opción N tiene que traer exactamente los mismos números que la N original, uno a uno; si no,
+  vuelve la original (`lib/offer-reglas.ts`).
+- **«Guardar si no hay» no es `getSetting` + `setSetting`**: el primero devuelve null cuando la base
+  falla y el segundo pisa. Va `cambiarSettingSi(clave, null, valor)`, que decide la base. El
+  diagnóstico que el negocio ya tenía no se toca desde Offer.
+- **Un validador estricto en la cascada tira respuestas que servían.** Con la pregunta obligatoria, un
+  turno con las piezas bien sacadas pero sin la pregunta adaptada se descartaba entero y se seguía
+  quemando la cascada hasta la red de plataforma. Se guarda la primera respuesta incompleta de
+  respaldo (`validadorConRespaldo`), se corta a la segunda, y la pregunta sale en su versión original.
+- **`extraerLanding` le saca el www y el querystring a la URL**: sirve para IDENTIFICAR una landing,
+  no para bajar la página que alguien pegó (con `?page_id=` bajaba otra). Hoy esos links piden pegar el
+  texto; falta una variante que baje la URL tal cual (`lib/landing-fetch.ts`, de otra área).
+- **`esDelWorkspace` no mira `activo`**: `ligarOfertaAFunnel` liga ofertas a funnels archivados. Offer
+  avisa que no se va a ver en el selector; con el funnel BORRADO dice que ya no existe y no manda a
+  reintentar (`avisoReintentable: false`).
+- **Un aviso que pide «vuelve a tocar Guardar» al lado de un botón que ya dice «Guardada»** es la
+  familia de «un paso que nombra un control que su pantalla no tiene»: el botón se cambiaba antes de
+  que la liga al funnel se confirmara. Mientras haya aviso, el botón sigue; después de recargar lo
+  decide `ligada` (vista).
+- **«Nueva oferta» devuelve la conversación vacía que ya existía** (para no sembrar huérfanas), y la
+  pantalla corría `reiniciar()` igual: descartaba lo que estaba en vuelo. Mismo id → no se reinicia.
+- **Una nota de voz larga se cortaba en silencio a 12.000 caracteres** (el tope del mensaje): ahora la
+  transcripción entera viaja como documento de la conversación.
+
 ## Offer Playbook (`/admin/offer-playbook`): el criterio y lo que se concluyó de cada curso
 
 **Vive en:** `app/admin/offer-playbook/*`, `lib/offer-autores.ts`, `docs/offer-marco.md`,
@@ -245,6 +276,10 @@ sobre 100 (promedio × 10).
   - **Un audio que ninguna IA escuchó se vuelve a subir al reintentar**: el servidor deja el binario
     para reintentar con el mismo `path`, pero la pantalla lo vuelve a subir y el primero queda suelto
     en Storage.
+  - **«Guardar si no hay» del diagnóstico de fase vive en la ruta** con la clave del setting copiada
+    (un test exige que sea igual a la de `lib/fase-store.ts`): falta la función en el store.
+  - **Un link con la página en el querystring** (`?page_id=…`) no se lee: pide pegar el texto hasta que
+    `lib/landing-fetch.ts` tenga una variante que baje la URL tal cual.
   - **La transcripción de un audio se ve cortada a 140 caracteres** (lo hace `BurbujaHilo`, que es
     compartido).
 - **Leer una imagen, un PDF escaneado o un audio puede cobrar en la OpenAI del cliente**:
