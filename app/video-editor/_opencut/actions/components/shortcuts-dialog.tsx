@@ -7,6 +7,7 @@ import {
 	useKeyboardShortcutsHelp,
 } from "@/app/video-editor/_opencut/actions/use-keyboard-shortcuts-help";
 import { useKeybindingsStore } from "@/app/video-editor/_opencut/actions/keybindings-store";
+import { ACTIONS } from "@/app/video-editor/_opencut/actions";
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
 import {
 	Dialog,
@@ -56,9 +57,9 @@ export function ShortcutsDialog({
 					action: recordingShortcut.action,
 				});
 				if (conflict) {
-					toast.error(
-						`Key "${keyString}" is already bound to "${conflict.existingAction}"`,
-					);
+					toast.error("Conflicto entre accesos directos", {
+						description: `«${keyString}» ya es «${ACTIONS[conflict.existingAction]?.description ?? conflict.existingAction}».`,
+					});
 					setRecordingShortcut(null);
 					return;
 				}
@@ -110,14 +111,14 @@ export function ShortcutsDialog({
 		<Dialog open={isOpen} onOpenChange={onOpenChange}>
 			<DialogContent className="flex max-h-[80vh] max-w-2xl flex-col p-0">
 				<DialogHeader>
-					<DialogTitle>Keyboard shortcuts</DialogTitle>
+					<DialogTitle>Atajos</DialogTitle>
 				</DialogHeader>
 
 				<DialogBody className="scrollbar-thin grow overflow-y-auto">
 					<div className="flex flex-col gap-6">
 						{categories.map((category) => (
 							<div key={category} className="flex flex-col gap-1">
-								<h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+								<h3 className="text-muted-foreground text-xs font-medium">
 									{category}
 								</h3>
 								<div className="flex flex-col gap-1">
@@ -139,13 +140,20 @@ export function ShortcutsDialog({
 					</div>
 				</DialogBody>
 				<DialogFooter>
-					<Button variant="destructive" onClick={resetToDefaults}>
-						Reset to default
+					<Button variant="secondary" onClick={resetToDefaults}>
+						Restablecer
 					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
 	);
+}
+
+/** «Ctrl+Shift+Z» → teclas sueltas. «Ctrl++» (aumentar la línea de tiempo) termina en la tecla «+». */
+function partesAtajo(combo: string): string[] {
+	if (combo === "+") return ["+"];
+	if (combo.endsWith("++")) return [...combo.slice(0, -2).split("+"), "+"];
+	return combo.split("+");
 }
 
 function ShortcutItem({
@@ -179,7 +187,7 @@ function ShortcutItem({
 				{displayKeys.map((key: string, index: number) => (
 					<div key={key} className="flex items-center gap-2">
 						<div className="flex items-center gap-1">
-							{key.split("+").map((keyPart: string, partIndex: number) => {
+							{partesAtajo(key).map((keyPart: string, partIndex: number) => {
 								const keyId = `${shortcut.id}-${index}-${partIndex}`;
 								return (
 									<EditableShortcutKey
@@ -193,7 +201,7 @@ function ShortcutItem({
 							})}
 						</div>
 						{index < displayKeys.length - 1 && (
-							<span className="text-muted-foreground text-xs">or</span>
+							<span className="text-muted-foreground text-xs">o</span>
 						)}
 					</div>
 				))}
@@ -223,7 +231,7 @@ function EditableShortcutKey({
 			size="sm"
 			onClick={handleClick}
 			title={
-				isRecording ? "Press any key combination..." : "Click to edit shortcut"
+				isRecording ? "Presiona la combinación de teclas" : "Haz clic para modificar el acceso directo"
 			}
 		>
 			{children}

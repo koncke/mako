@@ -4,6 +4,7 @@ import { createCanvasSurface } from "./canvas-utils";
 import { buildFrameDescriptor } from "./compositor/frame-descriptor";
 import { wasmCompositor } from "./compositor/wasm-compositor";
 import { resolveRenderTree } from "./resolve";
+import { escalarFrame } from "@/app/video-editor/_opencut/canvas/escala-salida";
 import {
 	measureSpanAsync,
 	measureSpanSync,
@@ -22,6 +23,12 @@ export class CanvasRenderer {
 	width: number;
 	height: number;
 	fps: FrameRate;
+	/**
+	 * Resolución de reproducción del reproductor («Completa» = 1, «1/2», «1/4»):
+	 * escala el cuadro justo antes del compositor (canvas/escala-salida.ts). Sólo
+	 * la cambia el reproductor; el export usa su propio renderer y queda en 1.
+	 */
+	escalaSalida = 1;
 
 	constructor({ width, height, fps }: CanvasRendererParams) {
 		this.width = width;
@@ -55,13 +62,14 @@ export class CanvasRenderer {
 			name: "resolve",
 			fn: () => resolveRenderTree({ node, renderer: this, time }),
 		});
-		const { frame, textures } = await measureSpanAsync({
+		const { frame: cuadro, textures } = await measureSpanAsync({
 			name: "buildFrame",
 			fn: () => buildFrameDescriptor({ node, renderer: this }),
 		});
+		const frame = escalarFrame(cuadro, this.escalaSalida);
 		wasmCompositor.ensureInitialized({
-			width: this.width,
-			height: this.height,
+			width: frame.width,
+			height: frame.height,
 		});
 		measureSpanSync({
 			name: "syncTextures",

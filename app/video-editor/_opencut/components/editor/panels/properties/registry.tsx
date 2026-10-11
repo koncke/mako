@@ -1,354 +1,107 @@
-import type { ReactNode } from "react";
-import type {
-	EffectElement,
-	GraphicElement,
-	ImageElement,
-	MaskableElement,
-	RetimableElement,
-	StickerElement,
-	TextElement,
-	VisualElement,
-	VideoElement,
-	AudioElement,
-	TimelineElement,
-} from "@/app/video-editor/_opencut/timeline";
-import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-	TextFontIcon,
-	ArrowExpandIcon,
-	RainDropIcon,
-	MusicNote03Icon,
-	MagicWand05Icon,
-	DashboardSpeed02Icon,
-} from "@hugeicons/core-free-icons";
-import { ElementParamsTab } from "./components/element-params-tab";
-import { ClipEffectsTab, StandaloneEffectTab } from "@/app/video-editor/_opencut/effects/components/effects-tab";
-import { MasksTab } from "@/app/video-editor/_opencut/masks/components/masks-tab";
-import { SpeedTab } from "@/app/video-editor/_opencut/speed/components/speed-tab";
-import { GraphicTab } from "@/app/video-editor/_opencut/graphics/components/graphic-tab";
-import { OcShapesIcon } from "@/app/video-editor/_opencut/components/icons";
+// =============================================================================
+// Las pestañas del panel derecho que registra ESTE paquete
+// =============================================================================
+// La cáscara (./index.tsx) dibuja lo que haya en las ranuras de ce/ranuras.ts.
+// Acá se registran:
+//
+//   «Video» (video, imagen, sticker, forma) con las sub-pestañas «Básico» y
+//   «Máscara» (la máscara sólo donde el motor la admite: video, imagen, forma).
+//   «Formas» (forma): relleno, trazo y radio, el panel de formas de CapCut.
+//   Los RESPALDOS (./respaldo.ts): «Texto», «Básico» del audio, «Audio» del
+//   clip de video y «Efectos», que se ocultan solos cuando el paquete dueño
+//   registra la pestaña con ese rótulo.
+//
+// El ORDEN sigue al de CapCut. Para que las pestañas de los demás paquetes
+// caigan en su lugar sin coordinar:
+//   Formas 5 · Video 10 · Audio 20 · Velocidad 30 · Animación 40 · Ajustar 50 ·
+//   Texto a voz 60 · Transición 70 (y «Texto» 10 para el elemento de texto).
+//   Sub-pestañas de «Video»: Básico 10 · Eliminar fondo 20 · Máscara 30 · Retoque 40.
+//
+// Lo importa ce/extensiones.ts (y la cáscara, por las dudas).
 
-const TRANSFORM_PARAM_KEYS = [
-	"transform.positionX",
-	"transform.positionY",
-	"transform.scaleX",
-	"transform.scaleY",
-	"transform.rotate",
-] as const;
+import { pestanasInspector, subpestanasInspector } from "@/app/video-editor/ce/ranuras";
+import { isMaskableElement } from "@/app/video-editor/_opencut/timeline/element-utils";
+import { MascaraCe } from "@/app/video-editor/_opencut/masks/components/masks-tab";
+import { FormaCe } from "@/app/video-editor/_opencut/graphics/components/graphic-tab";
+import { VideoBasico } from "./video/basico";
+import { marcarRespaldo } from "./respaldo";
+import { RespaldoAudio, RespaldoEfecto, RespaldoTexto } from "./respaldo-contenido";
 
-const BLENDING_PARAM_KEYS = ["opacity", "blendMode"] as const;
-const AUDIO_PARAM_KEYS = ["volume", "muted"] as const;
-const TEXT_PARAM_KEYS = [
-	"content",
-	"fontFamily",
-	"fontSize",
-	"color",
-	"textAlign",
-	"fontWeight",
-	"fontStyle",
-	"textDecoration",
-	"letterSpacing",
-	"lineHeight",
-	"background.enabled",
-	"background.color",
-	"background.cornerRadius",
-	"background.paddingX",
-	"background.paddingY",
-	"background.offsetX",
-	"background.offsetY",
-] as const;
+const TIPOS_VIDEO = new Set(["video", "image", "sticker", "graphic"]);
 
-export type TabContentProps = {
-	trackId: string;
-};
+pestanasInspector.registrar({
+	id: "video",
+	etiqueta: "Video",
+	orden: 10,
+	aplica: ({ element }) => TIPOS_VIDEO.has(element.type),
+});
 
-export type PropertiesTabDef = {
-	id: string;
-	label: string;
-	icon: ReactNode;
-	content: (props: TabContentProps) => ReactNode;
-};
+subpestanasInspector.registrar({
+	pestana: "video",
+	id: "video-basico",
+	etiqueta: "Básico",
+	orden: 10,
+	aplica: () => true,
+	Contenido: VideoBasico,
+});
 
-export type ElementPropertiesConfig = {
-	defaultTab: string;
-	tabs: PropertiesTabDef[];
-};
+// El id "masks" es el que lee el overlay del reproductor para entrar en modo
+// máscara (stores/properties-store.ts). No cambiarlo.
+subpestanasInspector.registrar({
+	pestana: "video",
+	id: "masks",
+	etiqueta: "Máscara",
+	orden: 30,
+	aplica: ({ element }) => isMaskableElement(element),
+	Contenido: MascaraCe,
+});
 
-function buildTransformTab({
-	element,
-}: {
-	element: VisualElement;
-}): PropertiesTabDef {
-	return {
-		id: "transform",
-		label: "Transform",
-		icon: <HugeiconsIcon icon={ArrowExpandIcon} size={16} />,
-		content: ({ trackId }) => (
-			<ElementParamsTab
-				element={element}
-				trackId={trackId}
-				paramKeys={TRANSFORM_PARAM_KEYS}
-				sectionKey="transform"
-			/>
-		),
-	};
-}
+pestanasInspector.registrar({
+	id: "formas",
+	etiqueta: "Formas",
+	orden: 5,
+	aplica: ({ element }) => element.type === "graphic",
+	Contenido: FormaCe,
+});
 
-function buildBlendingTab({
-	element,
-}: {
-	element: VisualElement;
-}): PropertiesTabDef {
-	return {
-		id: "blending",
-		label: "Blending",
-		icon: <HugeiconsIcon icon={RainDropIcon} size={16} />,
-		content: ({ trackId }) => (
-			<ElementParamsTab
-				element={element}
-				trackId={trackId}
-				paramKeys={BLENDING_PARAM_KEYS}
-				sectionKey="blending"
-			/>
-		),
-	};
-}
+// ── Respaldos ────────────────────────────────────────────────────────────────
 
-function buildAudioTab({
-	element,
-}: {
-	element: AudioElement | VideoElement;
-}): PropertiesTabDef {
-	return {
-		id: "audio",
-		label: "Audio",
-		icon: <HugeiconsIcon icon={MusicNote03Icon} size={16} />,
-		content: ({ trackId }) => (
-			<ElementParamsTab
-				element={element}
-				trackId={trackId}
-				paramKeys={AUDIO_PARAM_KEYS}
-				sectionKey="audio"
-			/>
-		),
-	};
-}
+pestanasInspector.registrar({
+	id: "respaldo-texto",
+	etiqueta: "Texto",
+	orden: 900,
+	aplica: ({ element }) => element.type === "text",
+	Contenido: RespaldoTexto,
+});
+marcarRespaldo("respaldo-texto", { reemplazadaPor: ["Texto"] });
 
-function buildSpeedTab({
-	element,
-}: {
-	element: RetimableElement;
-}): PropertiesTabDef {
-	return {
-		id: "speed",
-		label: "Speed",
-		icon: <HugeiconsIcon icon={DashboardSpeed02Icon} size={16} />,
-		content: ({ trackId }) => <SpeedTab element={element} trackId={trackId} />,
-	};
-}
+pestanasInspector.registrar({
+	id: "respaldo-audio",
+	etiqueta: "Básico",
+	orden: 900,
+	aplica: ({ element }) => element.type === "audio",
+	Contenido: RespaldoAudio,
+});
+marcarRespaldo("respaldo-audio", { reemplazadaPor: ["Básico", "Audio"] });
 
-function buildMasksTab({
-	element,
-}: {
-	element: MaskableElement;
-}): PropertiesTabDef {
-	return {
-		id: "masks",
-		label: "Masks",
-		icon: <OcShapesIcon size={16} />,
-		content: ({ trackId }) => <MasksTab element={element} trackId={trackId} />,
-	};
-}
+// El «Audio» de un clip de video va donde lo pone CapCut (después de «Video»), y
+// sólo si el archivo tiene sonido.
+pestanasInspector.registrar({
+	id: "respaldo-audio-video",
+	etiqueta: "Audio",
+	orden: 20,
+	aplica: ({ element, mediaAssets }) =>
+		element.type === "video" &&
+		mediaAssets.find((a) => a.id === element.mediaId)?.hasAudio !== false,
+	Contenido: RespaldoAudio,
+});
+marcarRespaldo("respaldo-audio-video", { reemplazadaPor: ["Audio"] });
 
-function buildClipEffectsTab({
-	element,
-}: {
-	element: VisualElement;
-}): PropertiesTabDef {
-	return {
-		id: "effects",
-		label: "Effects",
-		icon: <HugeiconsIcon icon={MagicWand05Icon} size={16} />,
-		content: ({ trackId }) => (
-			<ClipEffectsTab element={element} trackId={trackId} />
-		),
-	};
-}
-
-function buildTextTab({ element }: { element: TextElement }): PropertiesTabDef {
-	return {
-		id: "text",
-		label: "Text",
-		icon: <HugeiconsIcon icon={TextFontIcon} size={16} />,
-		content: ({ trackId }) => (
-			<ElementParamsTab
-				element={element}
-				trackId={trackId}
-				paramKeys={TEXT_PARAM_KEYS}
-				sectionKey="text"
-			/>
-		),
-	};
-}
-
-function buildGraphicTab({
-	element,
-}: {
-	element: GraphicElement;
-}): PropertiesTabDef {
-	return {
-		id: "graphic",
-		label: "Graphic",
-		icon: <OcShapesIcon size={16} />,
-		content: ({ trackId }) => <GraphicTab element={element} trackId={trackId} />,
-	};
-}
-
-function buildStandaloneEffectTab({
-	element,
-}: {
-	element: EffectElement;
-}): PropertiesTabDef {
-	return {
-		id: "effects",
-		label: "Effects",
-		icon: <HugeiconsIcon icon={MagicWand05Icon} size={16} />,
-		content: ({ trackId }) => (
-			<StandaloneEffectTab element={element} trackId={trackId} />
-		),
-	};
-}
-
-function getTextConfig({
-	element,
-}: {
-	element: TextElement;
-}): ElementPropertiesConfig {
-	return {
-		defaultTab: "text",
-		tabs: [
-			buildTextTab({ element }),
-			buildTransformTab({ element }),
-			buildBlendingTab({ element }),
-		],
-	};
-}
-
-function getVideoConfig({
-	element,
-	mediaAsset,
-}: {
-	element: VideoElement;
-	mediaAsset: MediaAsset | undefined;
-}): ElementPropertiesConfig {
-	const showAudioTab = mediaAsset?.hasAudio !== false;
-	return {
-		defaultTab: "transform",
-		tabs: [
-			buildTransformTab({ element }),
-			...(showAudioTab ? [buildAudioTab({ element })] : []),
-			buildSpeedTab({ element }),
-			buildBlendingTab({ element }),
-			buildMasksTab({ element }),
-			buildClipEffectsTab({ element }),
-		],
-	};
-}
-
-function getImageConfig({
-	element,
-}: {
-	element: ImageElement;
-}): ElementPropertiesConfig {
-	return {
-		defaultTab: "transform",
-		tabs: [
-			buildTransformTab({ element }),
-			buildBlendingTab({ element }),
-			buildMasksTab({ element }),
-			buildClipEffectsTab({ element }),
-		],
-	};
-}
-
-function getStickerConfig({
-	element,
-}: {
-	element: StickerElement;
-}): ElementPropertiesConfig {
-	return {
-		defaultTab: "transform",
-		tabs: [
-			buildTransformTab({ element }),
-			buildBlendingTab({ element }),
-			buildClipEffectsTab({ element }),
-		],
-	};
-}
-
-function getGraphicConfig({
-	element,
-}: {
-	element: GraphicElement;
-}): ElementPropertiesConfig {
-	return {
-		defaultTab: "graphic",
-		tabs: [
-			buildGraphicTab({ element }),
-			buildTransformTab({ element }),
-			buildBlendingTab({ element }),
-			buildMasksTab({ element }),
-			buildClipEffectsTab({ element }),
-		],
-	};
-}
-
-function getAudioConfig({
-	element,
-}: {
-	element: AudioElement;
-}): ElementPropertiesConfig {
-	return {
-		defaultTab: "audio",
-		tabs: [buildAudioTab({ element }), buildSpeedTab({ element })],
-	};
-}
-
-function getEffectConfig({
-	element,
-}: {
-	element: EffectElement;
-}): ElementPropertiesConfig {
-	return {
-		defaultTab: "effects",
-		tabs: [buildStandaloneEffectTab({ element })],
-	};
-}
-
-export function getPropertiesConfig({
-	element,
-	mediaAssets,
-}: {
-	element: TimelineElement;
-	mediaAssets: MediaAsset[];
-}): ElementPropertiesConfig {
-	switch (element.type) {
-		case "text":
-			return getTextConfig({ element });
-		case "video": {
-			const mediaAsset = mediaAssets.find((a) => a.id === element.mediaId);
-			return getVideoConfig({ element, mediaAsset });
-		}
-		case "image":
-			return getImageConfig({ element });
-		case "sticker":
-			return getStickerConfig({ element });
-		case "graphic":
-			return getGraphicConfig({ element });
-		case "audio":
-			return getAudioConfig({ element });
-		case "effect":
-			return getEffectConfig({ element });
-	}
-}
+pestanasInspector.registrar({
+	id: "respaldo-efecto",
+	etiqueta: "Efectos",
+	orden: 900,
+	aplica: ({ element }) => element.type === "effect",
+	Contenido: RespaldoEfecto,
+});
+marcarRespaldo("respaldo-efecto", { reemplazadaPor: null });

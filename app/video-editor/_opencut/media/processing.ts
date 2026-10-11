@@ -3,6 +3,7 @@ import { getMediaTypeFromFile } from "@/app/video-editor/_opencut/media/media-ut
 import { formatStorageBytes } from "@/app/video-editor/_opencut/services/storage/quota";
 import { storageService } from "@/app/video-editor/_opencut/services/storage/service";
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
+import { ALL_FORMATS, BlobSource, Input } from "mediabunny";
 import { readVideoFile } from "./mediabunny";
 import type { VideoFileData } from "./mediabunny";
 import { renderThumbnailDataUrl } from "./thumbnail";
@@ -14,11 +15,11 @@ const getUnsupportedVideoDescription = ({
 }: {
 	codec: VideoFileData["codec"];
 }): string => {
-	const codecLabel = codec ? codec.toUpperCase() : "this video codec";
+	const codecLabel = codec ? codec.toUpperCase() : "este códec";
 
 	return codec === "hevc"
-		? `${codecLabel} cannot be decoded in this browser, so this clip may not preview correctly. Convert it to H.264 MP4 or try importing it in Safari.`
-		: `${codecLabel} cannot be decoded in this browser, so this clip may not preview correctly. Convert it to H.264 MP4 and reimport it.`;
+		? `Este navegador no decodifica ${codecLabel}: el clip puede verse mal. Conviértelo a MP4 H.264 o ábrelo en Safari.`
+		: `Este navegador no decodifica ${codecLabel}: el clip puede verse mal. Conviértelo a MP4 H.264 e impórtalo de nuevo.`;
 };
 
 const getStorageLimitDescription = ({
@@ -31,12 +32,12 @@ const getStorageLimitDescription = ({
 	const fileSizeLabel = formatStorageBytes({ bytes: fileSize });
 
 	if (availableBytes === null) {
-		return `File size is ${fileSizeLabel}.`;
+		return `El archivo pesa ${fileSizeLabel}.`;
 	}
 
-	return `File size is ${fileSizeLabel}, but only ${formatStorageBytes({
+	return `El archivo pesa ${fileSizeLabel} y en el navegador quedan ${formatStorageBytes({
 		bytes: availableBytes,
-	})} is safely available in browser storage.`;
+	})} libres.`;
 };
 
 async function generateImageThumbnail({
@@ -99,7 +100,7 @@ export async function processMediaAssets({
 		const fileType = getMediaTypeFromFile({ file });
 
 		if (!fileType) {
-			toast.error(`Unsupported file type: ${file.name}`);
+			toast.error("Formato no admitido", { description: file.name });
 			continue;
 		}
 
@@ -108,7 +109,7 @@ export async function processMediaAssets({
 		});
 
 		if (!storageCheck.canStore) {
-			toast.error(`Not enough browser storage for ${file.name}`, {
+			toast.error("No hay suficiente almacenamiento", {
 				description: getStorageLimitDescription({
 					fileSize: file.size,
 					availableBytes: storageCheck.availableBytes,
@@ -144,24 +145,24 @@ export async function processMediaAssets({
 					thumbnailUrl = videoData.thumbnailUrl ?? undefined;
 
 					if (!videoData.canDecode) {
-						toast.error(`Can't preview ${file.name}`, {
+						toast.error(`No se puede previsualizar ${file.name}`, {
 							description: getUnsupportedVideoDescription({
 								codec: videoData.codec,
 							}),
 						});
 					}
 				} catch (error) {
-					const message =
-						error instanceof Error
-							? error.message
-							: "Could not process video";
-
-					toast.error(`Couldn't process ${file.name}`, {
-						description: message,
-					});
+					console.error("[importar] no se pudo leer el video", file.name, error);
+					toast.error("No se pudo importar", { description: file.name });
 				}
 			} else if (fileType === "audio") {
 				duration = await getMediaDuration({ file });
+				// Un .webm de audio (el que sale de «Extraer audio» de un video con Opus,
+				// o una grabación) puede llegar sin duración en la cabecera: el <audio>
+				// dice Infinity y el clip quedaría infinito. Se mide leyendo el archivo.
+				if (!Number.isFinite(duration)) {
+					duration = await medirDuracion({ file });
+				}
 			}
 
 			processedAssets.push({
@@ -186,7 +187,7 @@ export async function processMediaAssets({
 			}
 		} catch (error) {
 			console.error("Error processing file:", file.name, error);
-			toast.error(`Failed to process ${file.name}`);
+			toast.error("No se pudo importar", { description: file.name });
 			URL.revokeObjectURL(url);
 		}
 	}
@@ -217,3 +218,15 @@ const getMediaDuration = ({ file }: { file: File }): Promise<number> => {
 		element.load();
 	});
 };
+
+async function medirDuracion({ file }: { file: File }): Promise<number | undefined> {
+	const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+	try {
+		const segundos = await input.computeDuration();
+		return Number.isFinite(segundos) && segundos > 0 ? segundos : undefined;
+	} catch {
+		return undefined;
+	} finally {
+		input.dispose();
+	}
+}

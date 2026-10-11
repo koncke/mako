@@ -190,6 +190,10 @@ export const useKeybindingsStore = create<KeybindingsState>()(
 				runMigrations({ state: persisted, fromVersion: version }),
 			merge: (persisted, current) => {
 				if (!isPersistedState(persisted)) return current;
+				// Sin personalizar, manda SIEMPRE el preset del código: si no, quien
+				// abrió el editor antes se queda con el preset viejo guardado (el de
+				// OpenCut) aunque el de CapCut haya cambiado.
+				if (!persisted.isCustomized) return current;
 				const entries = Object.entries(persisted.keybindings);
 				// Persistence boundary: keys are normalized by the migration chain.
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
@@ -231,9 +235,32 @@ function generateKeybindingString(ev: KeyboardEvent): ShortcutKey | null {
 	return key;
 }
 
+// Las teclas de puntuación del preset se reconocen por POSICIÓN física, como
+// CapCut: en un teclado latino ` [ ] ; no están donde en EE. UU. (el [ pide
+// AltGr) y con `event.key` nunca coincidirían. El - y el + del zoom van por el
+// carácter (Ctrl++ es «la tecla del +» en cualquier distribución) o el
+// teclado numérico.
+const TECLA_POR_CODIGO: Record<string, Key> = {
+	Backquote: "`",
+	BracketLeft: "[",
+	BracketRight: "]",
+	Semicolon: ";",
+	Comma: ",",
+	Period: ".",
+	NumpadAdd: "=",
+	NumpadSubtract: "-",
+	Delete: "delete",
+	Backspace: "backspace",
+};
+
 function getPressedKey(ev: KeyboardEvent): Key | null {
 	const raw = (ev.key ?? "").toLowerCase();
 	const code = ev.code ?? "";
+
+	const porCodigo = TECLA_POR_CODIGO[code];
+	if (porCodigo) return porCodigo;
+	if (raw === "+" || raw === "=") return "=";
+	if (raw === "-") return "-";
 
 	if (code === "Space" || raw === " " || raw === "spacebar" || raw === "space")
 		return "space";

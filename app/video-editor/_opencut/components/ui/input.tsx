@@ -8,7 +8,7 @@ import { forwardRef, type ComponentProps } from "react";
 import { useState } from "react";
 
 const inputVariants = cva(
-	"file:text-foreground placeholder:text-muted-foreground border-border bg-input flex w-full min-w-0 rounded-md border shadow-xs outline-none file:inline-flex file:border-0 file:bg-transparent file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-offset-0 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+	"file:text-foreground placeholder:text-muted-foreground border-transparent bg-(--cc-input) flex w-full min-w-0 rounded-[4px] border outline-none file:inline-flex file:border-0 file:bg-transparent file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-offset-0 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
 	{
 		variants: {
 			variant: {
@@ -111,7 +111,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 							onClear?.();
 						}}
 						className="text-muted-foreground absolute top-0 right-0 h-full px-3 !opacity-100"
-						aria-label="Clear input"
+						aria-label="Borrar"
 					>
 						<X className="!size-[0.85]" />
 					</Button>
@@ -125,7 +125,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 							"text-muted-foreground hover:text-foreground absolute top-0 h-full px-3",
 							showClear ? "right-10" : "right-0",
 						)}
-						aria-label={showPassword ? "Hide password" : "Show password"}
+						aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
 					>
 						{showPassword ? (
 							<Eye className="size-4" />

@@ -1,376 +1,326 @@
+"use client";
+
+// La barra de herramientas de la línea de tiempo de CapCut (38 px, `#262626`).
+// Es una CÁSCARA: dibuja lo registrado en la ranura `herramientasLinea`
+// (ce/ranuras.ts), a la izquierda y a la derecha, con un separador cada vez
+// que cambia la centena de `orden`. Lo de esta barra que es del paquete de la
+// línea de tiempo se registra en ./herramientas-ce.tsx; Congelar, Revertir,
+// Reflejar, Grabar, Generar subtítulos… los registra cada paquete.
+//
+// Un `grupo` se dibuja como UN botón (el último usado del grupo) con el ◢ de
+// CapCut en la esquina, que abre el menú con todos. Un `Control` se dibuja tal
+// cual (deslizador del zoom, «Vinculación ▾»).
+
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
-import { useElementSelection } from "@/app/video-editor/_opencut/timeline/hooks/element/use-element-selection";
 import {
-	TooltipProvider,
 	Tooltip,
-	TooltipTrigger,
 	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
 } from "@/app/video-editor/_opencut/components/ui/tooltip";
-import { Button } from "@/app/video-editor/_opencut/components/ui/button";
 import {
-	SplitButton,
-	SplitButtonLeft,
-	SplitButtonRight,
-	SplitButtonSeparator,
-} from "@/app/video-editor/_opencut/components/ui/split-button";
-import { Slider } from "@/app/video-editor/_opencut/components/ui/slider";
-import { TIMELINE_ZOOM_BUTTON_FACTOR } from "./interaction";
-import { TIMELINE_ZOOM_MAX } from "@/app/video-editor/_opencut/timeline/scale";
-import { sliderToZoom, zoomToSlider } from "@/app/video-editor/_opencut/timeline/zoom-utils";
-import { ScenesView } from "@/app/video-editor/_opencut/components/editor/scenes-view";
-import { type TActionWithOptionalArgs, invokeAction } from "@/app/video-editor/_opencut/actions";
-import {
-	canToggleSourceAudio,
-	getSourceAudioActionLabel,
-	isSourceAudioSeparated,
-} from "@/app/video-editor/_opencut/timeline/audio-separation";
-import { hasMediaId } from "@/app/video-editor/_opencut/timeline";
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/app/video-editor/_opencut/components/ui/dropdown-menu";
+import { ScrollArea } from "@/app/video-editor/_opencut/components/ui/scroll-area";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
-import { ScrollArea } from "@/app/video-editor/_opencut/components/ui/scroll-area";
 import {
-	Bookmark02Icon,
-	Delete02Icon,
-	SnowIcon,
-	ScissorIcon,
-	MagnetIcon,
-	SearchAddIcon,
-	SearchMinusIcon,
-	Copy01Icon,
-	AlignLeftIcon,
-	AlignRightIcon,
-	Link02Icon,
-	Layers01Icon,
-	Chart03Icon,
-	Unlink02Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { OcRippleIcon } from "@/app/video-editor/_opencut/components/icons";
-import { GraphEditorPopover } from "./graph-editor/popover";
-import { PopoverTrigger } from "@/app/video-editor/_opencut/components/ui/popover";
-import { useGraphEditorController } from "./graph-editor/use-controller";
+	herramientasLinea,
+	type ContextoHerramienta,
+	type HerramientaLinea,
+} from "@/app/video-editor/ce/ranuras";
+import { TIMELINE_TOOLBAR_HEIGHT_PX } from "./layout";
 
-export function TimelineToolbar({
-	zoomLevel,
-	minZoom,
-	setZoomLevel,
-}: {
-	zoomLevel: number;
-	minZoom: number;
-	setZoomLevel: ({ zoom }: { zoom: number }) => void;
-}) {
-	const handleZoom = ({ direction }: { direction: "in" | "out" }) => {
-		const newZoomLevel =
-			direction === "in"
-				? Math.min(TIMELINE_ZOOM_MAX, zoomLevel * TIMELINE_ZOOM_BUTTON_FACTOR)
-				: Math.max(minZoom, zoomLevel / TIMELINE_ZOOM_BUTTON_FACTOR);
-		setZoomLevel({ zoom: newZoomLevel });
-	};
+type Estado = { visible: boolean; habilitada: boolean; activa: boolean };
+
+function estadoDe(h: HerramientaLinea, ctx: ContextoHerramienta): Estado {
+	try {
+		return {
+			visible: h.visible ? h.visible(ctx) : true,
+			habilitada: h.habilitada(ctx),
+			activa: h.activa ? h.activa(ctx) : false,
+		};
+	} catch (error) {
+		// Una herramienta rota no puede tumbar la barra entera.
+		console.error(`[barra] la herramienta «${h.id}» falló`, error);
+		return { visible: false, habilitada: false, activa: false };
+	}
+}
+
+/** Un bloque de la barra: una herramienta suelta o un grupo ◢. */
+type Bloque =
+	| { tipo: "suelta"; herramienta: HerramientaLinea }
+	| { tipo: "grupo"; id: string; herramientas: HerramientaLinea[] };
+
+function armarBloques(herramientas: HerramientaLinea[]): Bloque[][] {
+	const porCentena = new Map<number, Bloque[]>();
+	const grupos = new Map<string, Extract<Bloque, { tipo: "grupo" }>>();
+	for (const h of herramientas) {
+		const centena = Math.floor(h.orden / 100);
+		let fila = porCentena.get(centena);
+		if (!fila) {
+			fila = [];
+			porCentena.set(centena, fila);
+		}
+		if (h.grupo) {
+			const ya = grupos.get(h.grupo);
+			if (ya) {
+				ya.herramientas.push(h);
+				continue;
+			}
+			const nuevo = { tipo: "grupo" as const, id: h.grupo, herramientas: [h] };
+			grupos.set(h.grupo, nuevo);
+			fila.push(nuevo);
+			continue;
+		}
+		fila.push({ tipo: "suelta", herramienta: h });
+	}
+	return [...porCentena.entries()]
+		.sort((a, b) => a[0] - b[0])
+		.map(([, fila]) => fila);
+}
+
+export function TimelineToolbar() {
+	const editor = useEditor();
+	const seleccion = useEditor((e) => e.selection.getSelectedElements());
+	// Los interruptores leen el store de la línea de tiempo: re-dibujar si cambia.
+	useTimelineStore();
+	const ctx = useMemo<ContextoHerramienta>(
+		() => ({ editor, seleccion }),
+		[editor, seleccion],
+	);
+	const todas = herramientasLinea.todos();
+	// Re-evaluar habilitada/activa con cada cambio del editor (deshacer
+	// disponible, cabezal sobre un clip…): el selector devuelve los estados y
+	// `useEditor` re-dibuja cuando cambia alguno.
+	const estados = useEditor((e) =>
+		todas.flatMap((h) => {
+			const s = estadoDe(h, { editor: e, seleccion: e.selection.getSelectedElements() });
+			return [s.visible, s.habilitada, s.activa];
+		}),
+	);
+	const estadoPorId = new Map<string, Estado>(
+		todas.map((h, i) => [
+			h.id,
+			{
+				visible: estados[i * 3] ?? true,
+				habilitada: estados[i * 3 + 1] ?? false,
+				activa: estados[i * 3 + 2] ?? false,
+			},
+		]),
+	);
+	const visibles = todas.filter((h) => estadoPorId.get(h.id)?.visible);
+	const izquierda = armarBloques(visibles.filter((h) => h.lado === "izquierda"));
+	const derecha = armarBloques(visibles.filter((h) => h.lado === "derecha"));
 
 	return (
-		<ScrollArea className="scrollbar-hidden">
-			<div className="flex h-10 items-center justify-between border-b px-2 py-1">
-				<ToolbarLeftSection />
-
-				<SceneSelector />
-
-				<ToolbarRightSection
-					zoomLevel={zoomLevel}
-					minZoom={minZoom}
-					onZoomChange={(zoom) => setZoomLevel({ zoom })}
-					onZoom={handleZoom}
-				/>
-			</div>
+		<ScrollArea className="scrollbar-hidden shrink-0">
+			<TooltipProvider delayDuration={400}>
+				<div
+					className="flex items-center justify-between gap-6 border-b border-(--cc-line) px-3"
+					style={{ height: TIMELINE_TOOLBAR_HEIGHT_PX }}
+				>
+					<Lado filas={izquierda} ctx={ctx} estados={estadoPorId} />
+					<Lado filas={derecha} ctx={ctx} estados={estadoPorId} />
+				</div>
+			</TooltipProvider>
 		</ScrollArea>
 	);
 }
 
-function ToolbarLeftSection() {
-	const editor = useEditor();
-	const mediaAssets = useEditor((currentEditor) =>
-		currentEditor.media.getAssets(),
-	);
-	const { selectedElements } = useElementSelection();
-	const graphEditor = useGraphEditorController();
-	const isCurrentlyBookmarked = useEditor((e) =>
-		e.scenes.isBookmarked({ time: e.playback.getCurrentTime() }),
-	);
-	const selectedElement =
-		selectedElements.length === 1
-			? (editor.timeline.getElementsWithTracks({
-					elements: selectedElements,
-				})[0] ?? null)
-			: null;
-	const selectedMediaAsset = (() => {
-		if (!selectedElement) {
-			return null;
-		}
-
-		const { element } = selectedElement;
-		if (!hasMediaId(element)) {
-			return null;
-		}
-
-		return mediaAssets.find((asset) => asset.id === element.mediaId) ?? null;
-	})();
-	const canToggleSelectedSourceAudio =
-		!!selectedElement &&
-		canToggleSourceAudio(selectedElement.element, selectedMediaAsset);
-	const sourceAudioLabel =
-		selectedElement?.element.type === "video"
-			? getSourceAudioActionLabel({
-					element: selectedElement.element,
-				})
-			: "Extract audio";
-	const isSelectedSourceAudioSeparated =
-		selectedElement?.element.type === "video" &&
-		isSourceAudioSeparated({
-			element: selectedElement.element,
-		});
-
-	const handleAction = ({
-		action,
-		event,
-	}: {
-		action: TActionWithOptionalArgs;
-		event: React.MouseEvent;
-	}) => {
-		event.stopPropagation();
-		invokeAction(action);
-	};
-
+function Lado({
+	filas,
+	ctx,
+	estados,
+}: {
+	filas: Bloque[][];
+	ctx: ContextoHerramienta;
+	estados: Map<string, Estado>;
+}) {
 	return (
 		<div className="flex items-center gap-1">
-			<TooltipProvider delayDuration={500}>
-				<ToolbarButton
-					icon={<HugeiconsIcon icon={ScissorIcon} />}
-					tooltip="Split element"
-					onClick={({ event }) => handleAction({ action: "split", event })}
-				/>
-
-				<ToolbarButton
-					icon={<HugeiconsIcon icon={AlignLeftIcon} />}
-					tooltip="Split left"
-					onClick={({ event }) => handleAction({ action: "split-left", event })}
-				/>
-
-				<ToolbarButton
-					icon={<HugeiconsIcon icon={AlignRightIcon} />}
-					tooltip="Split right"
-					onClick={({ event }) =>
-						handleAction({ action: "split-right", event })
-					}
-				/>
-
-				<ToolbarButton
-					icon={
-						<HugeiconsIcon
-							icon={isSelectedSourceAudioSeparated ? Unlink02Icon : Link02Icon}
-						/>
-					}
-					tooltip={sourceAudioLabel}
-					disabled={!canToggleSelectedSourceAudio}
-					onClick={({ event }) =>
-						handleAction({ action: "toggle-source-audio", event })
-					}
-				/>
-
-				<ToolbarButton
-					icon={<HugeiconsIcon icon={Copy01Icon} />}
-					tooltip="Duplicate element"
-					onClick={({ event }) =>
-						handleAction({ action: "duplicate-selected", event })
-					}
-				/>
-
-				<ToolbarButton
-					icon={<HugeiconsIcon icon={SnowIcon} />}
-					tooltip="Freeze frame (coming soon)"
-					disabled={true}
-					onClick={({ event: _event }) => {}}
-				/>
-
-				<ToolbarButton
-					icon={<HugeiconsIcon icon={Delete02Icon} />}
-					tooltip="Delete element"
-					onClick={({ event }) =>
-						handleAction({ action: "delete-selected", event })
-					}
-				/>
-
-				<div className="bg-border mx-1 h-6 w-px" />
-
-				<Tooltip>
-					<ToolbarButton
-						icon={<HugeiconsIcon icon={Bookmark02Icon} />}
-						isActive={isCurrentlyBookmarked}
-						tooltip={isCurrentlyBookmarked ? "Remove bookmark" : "Add bookmark"}
-						onClick={({ event }) =>
-							handleAction({ action: "toggle-bookmark", event })
-						}
-					/>
-				</Tooltip>
-
-				<GraphEditorPopover
-					open={graphEditor.open}
-					onOpenChange={graphEditor.onOpenChange}
-					value={
-						graphEditor.state.status === "ready"
-							? graphEditor.state.cubicBezier
-							: null
-					}
-					message={graphEditor.state.message}
-					componentOptions={graphEditor.state.componentOptions}
-					activeComponentKey={graphEditor.state.activeComponentKey}
-					onActiveComponentKeyChange={graphEditor.onActiveComponentKeyChange}
-					onPreviewValue={graphEditor.onPreviewValue}
-					onCommitValue={graphEditor.onCommitValue}
-					onCancelPreview={graphEditor.onCancelPreview}
-				>
-					<ToolbarButton
-						icon={<HugeiconsIcon icon={Chart03Icon} />}
-						tooltip={graphEditor.tooltip}
-						disabled={!graphEditor.canOpen}
-						buttonWrapper={(button) =>
-							graphEditor.canOpen ? (
-								<PopoverTrigger asChild>{button}</PopoverTrigger>
+			{filas.map((fila, i) => (
+				<Fragment key={i}>
+					{i > 0 && <span className="mx-1.5 h-4 w-px shrink-0 bg-(--cc-line-2)" />}
+					<div className="flex items-center gap-1">
+						{fila.map((bloque) =>
+							bloque.tipo === "suelta" ? (
+								<Herramienta
+									key={bloque.herramienta.id}
+									herramienta={bloque.herramienta}
+									ctx={ctx}
+									estado={estados.get(bloque.herramienta.id)}
+								/>
 							) : (
-								button
-							)
-						}
-					/>
-				</GraphEditorPopover>
-			</TooltipProvider>
+								<Grupo
+									key={bloque.id}
+									herramientas={bloque.herramientas}
+									ctx={ctx}
+									estados={estados}
+								/>
+							),
+						)}
+					</div>
+				</Fragment>
+			))}
 		</div>
 	);
 }
 
-function SceneSelector() {
-	const editor = useEditor();
-	const currentScene = editor.scenes.getActiveScene();
-
-	return (
-		<div>
-			<SplitButton className="border-foreground/10 border">
-				<SplitButtonLeft>{currentScene?.name || "No Scene"}</SplitButtonLeft>
-				<SplitButtonSeparator />
-				<ScenesView>
-					<SplitButtonRight onClick={() => {}}>
-						<HugeiconsIcon icon={Layers01Icon} className="size-4" />
-					</SplitButtonRight>
-				</ScenesView>
-			</SplitButton>
-		</div>
-	);
-}
-
-function ToolbarRightSection({
-	zoomLevel,
-	minZoom,
-	onZoomChange,
-	onZoom,
+function Herramienta({
+	herramienta,
+	ctx,
+	estado,
 }: {
-	zoomLevel: number;
-	minZoom: number;
-	onZoomChange: (zoom: number) => void;
-	onZoom: (options: { direction: "in" | "out" }) => void;
+	herramienta: HerramientaLinea;
+	ctx: ContextoHerramienta;
+	estado?: Estado;
 }) {
-	const snappingEnabled = useTimelineStore((s) => s.snappingEnabled);
-	const rippleEditingEnabled = useTimelineStore((s) => s.rippleEditingEnabled);
-	const toggleSnapping = useTimelineStore((s) => s.toggleSnapping);
-	const toggleRippleEditing = useTimelineStore((s) => s.toggleRippleEditing);
-
+	if (herramienta.Control) {
+		const Control = herramienta.Control;
+		return <Control {...ctx} herramienta={herramienta} />;
+	}
 	return (
-		<div className="flex items-center gap-1">
-			<TooltipProvider delayDuration={500}>
-				<ToolbarButton
-					icon={<HugeiconsIcon icon={MagnetIcon} />}
-					isActive={snappingEnabled}
-					tooltip="Auto snapping"
-					onClick={() => toggleSnapping()}
-				/>
-
-				<ToolbarButton
-					icon={<OcRippleIcon size={24} className="scale-110" />}
-					isActive={rippleEditingEnabled}
-					tooltip="Ripple editing"
-					onClick={() => toggleRippleEditing()}
-				/>
-			</TooltipProvider>
-
-			<div className="bg-border mx-1 h-6 w-px" />
-
-			<div className="flex items-center gap-1">
-				<Button
-					variant="text"
-					size="icon"
-					onClick={() => onZoom({ direction: "out" })}
-				>
-					<HugeiconsIcon icon={SearchMinusIcon} />
-				</Button>
-				<Slider
-					className="w-28"
-					value={[zoomToSlider({ zoomLevel, minZoom })]}
-					onValueChange={(values) =>
-						onZoomChange(sliderToZoom({ sliderPosition: values[0], minZoom }))
-					}
-					min={0}
-					max={1}
-					step={0.005}
-				/>
-				<Button
-					variant="text"
-					size="icon"
-					onClick={() => onZoom({ direction: "in" })}
-				>
-					<HugeiconsIcon icon={SearchAddIcon} />
-				</Button>
-			</div>
-		</div>
-	);
-}
-
-function ToolbarButton({
-	icon,
-	tooltip,
-	onClick,
-	disabled,
-	isActive,
-	buttonWrapper,
-}: {
-	icon: React.ReactNode;
-	tooltip: string;
-	onClick?: ({ event }: { event: React.MouseEvent }) => void;
-	disabled?: boolean;
-	isActive?: boolean;
-	buttonWrapper?: (button: React.ReactElement) => React.ReactElement;
-}) {
-	const button = (
-		<Button
-			variant={isActive ? "secondary" : "text"}
-			size="icon"
-			disabled={disabled}
-			onClick={onClick ? (event) => onClick({ event }) : undefined}
-			className={cn(
-				"rounded-sm",
-				disabled ? "cursor-not-allowed opacity-50" : "",
-			)}
+		<BotonBarra
+			etiqueta={herramienta.etiqueta}
+			atajo={herramienta.atajo}
+			habilitada={estado?.habilitada ?? false}
+			activa={estado?.activa ?? false}
+			onClick={() => herramienta.ejecutar(ctx)}
 		>
-			{icon}
-		</Button>
+			<herramienta.Icono className="size-4" />
+		</BotonBarra>
 	);
-	const trigger = disabled ? (
-		<span className="inline-flex">{button}</span>
-	) : buttonWrapper ? (
-		buttonWrapper(button)
-	) : (
-		button
+}
+
+/** Botón de ícono de la barra, con el tooltip «Rótulo  Atajo» de CapCut. */
+export function BotonBarra({
+	etiqueta,
+	atajo,
+	habilitada = true,
+	activa = false,
+	onClick,
+	children,
+	className,
+	esquina,
+}: {
+	etiqueta: string;
+	atajo?: string;
+	habilitada?: boolean;
+	activa?: boolean;
+	onClick?: () => void;
+	children: ReactNode;
+	className?: string;
+	/** El ◢ de los grupos o el ▾ de los menús, dibujado aparte. */
+	esquina?: ReactNode;
+}) {
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<span className="relative inline-flex">
+					<button
+						type="button"
+						aria-label={etiqueta}
+						aria-pressed={activa || undefined}
+						disabled={!habilitada}
+						onClick={(event) => {
+							event.stopPropagation();
+							onClick?.();
+						}}
+						className={cn(
+							"flex size-7 cursor-pointer items-center justify-center rounded-[4px] text-(--cc-icon) hover:bg-white/8 disabled:cursor-default disabled:text-(--cc-icon-off) disabled:hover:bg-transparent",
+							activa && "text-(--cc-accent)",
+							className,
+						)}
+					>
+						{children}
+					</button>
+					{esquina}
+				</span>
+			</TooltipTrigger>
+			<TooltipContent side="top" className="flex items-center gap-2 px-2 py-1 text-xs">
+				<span>{etiqueta}</span>
+				{atajo && <span className="text-(--cc-text-3)">{atajo}</span>}
+			</TooltipContent>
+		</Tooltip>
 	);
+}
+
+function Grupo({
+	herramientas,
+	ctx,
+	estados,
+}: {
+	herramientas: HerramientaLinea[];
+	ctx: ContextoHerramienta;
+	estados: Map<string, Estado>;
+}) {
+	const [ultima, setUltima] = useState<string | null>(null);
+	// Se muestra la activa (p. ej. el modo del cursor), si no la última usada.
+	const activa = herramientas.find((h) => estados.get(h.id)?.activa);
+	const mostrada =
+		activa ?? herramientas.find((h) => h.id === ultima) ?? herramientas[0];
+	if (!mostrada) return null;
+	const estado = estados.get(mostrada.id);
+	const algunaHabilitada = herramientas.some((h) => estados.get(h.id)?.habilitada);
 
 	return (
-		<Tooltip delayDuration={200}>
-			<TooltipTrigger asChild>{trigger}</TooltipTrigger>
-			<TooltipContent>{tooltip}</TooltipContent>
-		</Tooltip>
+		<DropdownMenu>
+			<BotonBarra
+				etiqueta={mostrada.etiqueta}
+				atajo={mostrada.atajo}
+				habilitada={estado?.habilitada ?? false}
+				onClick={() => {
+					setUltima(mostrada.id);
+					mostrada.ejecutar(ctx);
+				}}
+				esquina={
+					<DropdownMenuTrigger asChild disabled={!algunaHabilitada}>
+						<button
+							type="button"
+							aria-label={`Más: ${mostrada.etiqueta}`}
+							className="absolute right-0 bottom-0 size-2.5 cursor-pointer disabled:cursor-default"
+						>
+							<svg
+								viewBox="0 0 4 4"
+								aria-hidden
+								className={cn(
+									"absolute right-[2px] bottom-[2px] size-[5px]",
+									algunaHabilitada ? "text-(--cc-icon)" : "text-(--cc-icon-off)",
+								)}
+							>
+								<path d="M4 0V4H0Z" fill="currentColor" />
+							</svg>
+						</button>
+					</DropdownMenuTrigger>
+				}
+			>
+				<mostrada.Icono className="size-4" />
+			</BotonBarra>
+			<DropdownMenuContent align="start" className="min-w-44">
+				{herramientas.map((h) => {
+					const e = estados.get(h.id);
+					return (
+						<DropdownMenuItem
+							key={h.id}
+							disabled={!e?.habilitada}
+							onClick={() => {
+								setUltima(h.id);
+								h.ejecutar(ctx);
+							}}
+							className={cn("gap-2 text-xs", e?.activa && "text-(--cc-accent)")}
+						>
+							<h.Icono className="size-3.5" />
+							<span className="flex-1">{h.etiqueta}</span>
+							{h.atajo && <span className="text-(--cc-text-3)">{h.atajo}</span>}
+						</DropdownMenuItem>
+					);
+				})}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }

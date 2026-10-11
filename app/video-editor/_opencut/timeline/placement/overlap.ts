@@ -3,6 +3,8 @@ import type { PlacementTimeSpan } from "./types";
 
 interface TrackWithElements {
 	elements: TimelineElement[];
+	/** «Bloquear pista»: no acepta nada nuevo. */
+	locked?: boolean;
 }
 
 function wouldElementOverlap({
@@ -33,6 +35,7 @@ export function canPlaceTimeSpansOnTrack({
 	track: TrackWithElements;
 	timeSpans: PlacementTimeSpan[];
 }): boolean {
+	if (track.locked) return false;
 	return timeSpans.every(({ startTime, duration, excludeElementId }) => {
 		return !wouldElementOverlap({
 			elements: track.elements,

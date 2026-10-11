@@ -3,7 +3,7 @@ import { usePreviewViewport } from "@/app/video-editor/_opencut/preview/componen
 import type { OnSnapLinesChange } from "@/app/video-editor/_opencut/preview/hooks/use-preview-interaction";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { useCommittedRef } from "@/app/video-editor/_opencut/hooks/use-committed-ref";
-import { useShiftKey } from "@/app/video-editor/_opencut/hooks/use-shift-key";
+import { useIgnorarGuias } from "@/app/video-editor/_opencut/preview/hooks/use-ignorar-guias";
 import { registerCanceller } from "@/app/video-editor/_opencut/editor/cancel-interaction";
 import {
 	TransformHandleController,
@@ -17,7 +17,7 @@ export function useTransformHandles({
 }) {
 	const viewport = usePreviewViewport();
 	const editor = useEditor();
-	const isShiftHeldRef = useShiftKey();
+	const ignorarGuiasRef = useIgnorarGuias();
 	const selectedElements = useEditor((e) => e.selection.getSelectedElements());
 	const tracks = useEditor(
 		(e) => e.timeline.getPreviewTracks() ?? e.scenes.getActiveScene().tracks,
@@ -30,7 +30,7 @@ export function useTransformHandles({
 	const deps: TransformHandleDeps = {
 		viewport,
 		input: {
-			isShiftHeld: () => isShiftHeldRef.current,
+			ignoraGuias: () => ignorarGuiasRef.current,
 		},
 		scene: {
 			getSelectedElements: () => selectedElements,

@@ -1,47 +1,71 @@
+"use client";
+
+// =============================================================================
+// Texto › Agregar texto: la tarjeta «Texto predeterminado» de CapCut
+// =============================================================================
+// Un clic, el ⊕ o arrastrarla a la línea de tiempo agrega un texto de 3 s (lo
+// que dura en CapCut) que dice «Texto predeterminado», en el cabezal si es por
+// clic. Los estilos de texto («Efectos de texto», «Plantilla de texto») los
+// registra el paquete de texto en sus propias secciones de esta pestaña.
+
 import { DraggableItem } from "@/app/video-editor/_opencut/components/editor/panels/assets/draggable-item";
-import { PanelView } from "@/app/video-editor/_opencut/components/editor/panels/assets/views/base-panel";
+import {
+	ContenidoBiblioteca,
+	GrillaBiblioteca,
+} from "@/app/video-editor/_opencut/components/editor/panels/assets/views/biblioteca-ui";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
-import { DEFAULTS } from "@/app/video-editor/_opencut/timeline/defaults";
 import { buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
-import type { MediaTime } from "@/app/video-editor/_opencut/wasm";
+import { mediaTimeFromSeconds, type MediaTime } from "@/app/video-editor/_opencut/wasm";
+
+/** El rótulo de CapCut (`default_text`), que también es el contenido del texto nuevo. */
+export const TEXTO_PREDETERMINADO = "Texto predeterminado";
+const SEGUNDOS_TEXTO_NUEVO = 3;
 
 export function TextView() {
 	const editor = useEditor();
+	const duracion = mediaTimeFromSeconds({ seconds: SEGUNDOS_TEXTO_NUEVO });
 
-	const handleAddToTimeline = ({ currentTime }: { currentTime: MediaTime }) => {
-		const activeScene = editor.scenes.getActiveScene();
-		if (!activeScene) return;
-
-		const element = buildTextElement({
-			raw: DEFAULTS.text.element,
-			startTime: currentTime,
-		});
-
+	const agregar = (startTime: MediaTime) => {
+		if (!editor.scenes.getActiveSceneOrNull()) return;
 		editor.timeline.insertElement({
-			element,
+			element: buildTextElement({
+				raw: {
+					name: TEXTO_PREDETERMINADO,
+					duration: duracion,
+					params: { content: TEXTO_PREDETERMINADO },
+				},
+				startTime,
+			}),
 			placement: { mode: "auto" },
 		});
 	};
 
 	return (
-		<PanelView title="Text">
-			<DraggableItem
-				name="Default text"
-				preview={
-					<div className="bg-accent flex size-full items-center justify-center rounded">
-						<span className="text-xs select-none">Default text</span>
-					</div>
-				}
-				dragData={{
-					id: "temp-text-id",
-					type: DEFAULTS.text.element.type,
-					name: DEFAULTS.text.element.name,
-					content: "Default text",
-				}}
-				aspectRatio={1}
-				onAddToTimeline={handleAddToTimeline}
-				shouldShowLabel={false}
-			/>
-		</PanelView>
+		<ContenidoBiblioteca>
+			<GrillaBiblioteca>
+				<DraggableItem
+					name={TEXTO_PREDETERMINADO}
+					preview={
+						<div className="flex size-full items-center justify-center bg-[var(--cc-sunken)] p-2">
+							<span className="text-center text-[13px] leading-tight font-semibold text-white select-none">
+								{TEXTO_PREDETERMINADO}
+							</span>
+						</div>
+					}
+					dragData={{
+						id: "texto-predeterminado",
+						type: "text",
+						name: TEXTO_PREDETERMINADO,
+						content: TEXTO_PREDETERMINADO,
+						duration: duracion,
+					}}
+					aspectRatio={1}
+					shouldShowLabel={false}
+					onClick={() => agregar(editor.playback.getCurrentTime())}
+					onAddToTimeline={({ currentTime }) => agregar(currentTime)}
+					containerClassName="w-full"
+				/>
+			</GrillaBiblioteca>
+		</ContenidoBiblioteca>
 	);
 }

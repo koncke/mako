@@ -9,9 +9,9 @@ import { TIMELINE_BOOKMARK_ROW_HEIGHT_PX } from "@/app/video-editor/_opencut/tim
 import { DEFAULT_FPS } from "@/app/video-editor/_opencut/fps/defaults";
 import {
 	ArrowTurnBackwardIcon,
-	Delete02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { IconoBorrar } from "@/app/_ui/BotonBorrar";
 import type { Bookmark } from "@/app/video-editor/_opencut/timeline";
 import {
 	Popover,
@@ -92,7 +92,7 @@ export function TimelineBookmarksRow({
 					height: TIMELINE_BOOKMARK_ROW_HEIGHT_PX,
 					width: `${dynamicTimelineWidth}px`,
 				}}
-				aria-label="Timeline ruler"
+				aria-label="Marcadores"
 				type="button"
 				onWheel={handleWheel}
 				onClick={(event) => {
@@ -189,7 +189,7 @@ function TimelineBookmark({
 						left: `${bookmarkLeft}px`,
 						width: `${bookmarkWidth}px`,
 					}}
-					aria-label={`Bookmark at ${formatNumberForDisplay({ value: mediaTimeToSeconds({ time }), fractionDigits: 1 })}s`}
+					aria-label={`Marcador en ${formatNumberForDisplay({ value: mediaTimeToSeconds({ time }), fractionDigits: 1 })} s`}
 					type="button"
 					onMouseDown={handleMouseDown}
 					onClick={handleClick}
@@ -221,7 +221,7 @@ function TimelineBookmark({
 								width: BOOKMARK_MARKER_WIDTH_PX,
 								height: BOOKMARK_MARKER_HEIGHT_PX,
 								clipPath: BOOKMARK_MARKER_CLIP_PATH,
-								backgroundColor: "hsl(var(--background))",
+								backgroundColor: "var(--background)",
 							}}
 						/>
 						<div
@@ -251,7 +251,7 @@ function TimelineBookmark({
 								width: BOOKMARK_MARKER_WIDTH_PX,
 								height: BOOKMARK_MARKER_HEIGHT_PX,
 								clipPath: BOOKMARK_MARKER_CLIP_PATH,
-								backgroundColor: "hsl(var(--background))",
+								backgroundColor: "var(--background)",
 							}}
 						/>
 						<div
@@ -349,9 +349,9 @@ function BookmarkPopoverContent({
 	return (
 		<>
 			<div className="flex flex-col gap-2">
-				<Label className="text-xs">Note</Label>
+				<Label className="text-xs">Descripción</Label>
 				<Input
-					placeholder="Add a note..."
+					placeholder="Descripción"
 					value={bookmark.note ?? ""}
 					onChange={(event) => handleUpdate({ note: event.target.value })}
 					className="h-8 text-sm"
@@ -378,7 +378,7 @@ function BookmarkPopoverContent({
 								type="button"
 								variant="text"
 								size="text"
-								aria-label="Reset to default color"
+								aria-label="Restablecer"
 								className="absolute top-1/2 right-1 -translate-y-1/2 mr-1"
 								onClick={() =>
 									editor.scenes.updateBookmark({
@@ -396,7 +396,7 @@ function BookmarkPopoverContent({
 				</div>
 			</div>
 			<div className="flex flex-col gap-2">
-				<Label className="text-xs">Duration</Label>
+				<Label className="text-xs">Duración</Label>
 				<div className="flex items-center gap-1.5">
 					<Input
 						type="number"
@@ -432,10 +432,10 @@ function BookmarkPopoverContent({
 						handleRemove();
 					}
 				}}
-				aria-label="delete bookmark"
+				aria-label="Eliminar marcador"
 			>
-				<HugeiconsIcon icon={Delete02Icon} className="!size-3.5" />
-				Delete
+				<IconoBorrar size={14} />
+				Eliminar marcador
 			</Button>
 		</>
 	);

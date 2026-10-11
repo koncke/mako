@@ -31,6 +31,8 @@ export type TrackType = "video" | "text" | "audio" | "graphic" | "effect";
 interface BaseTrack {
 	id: string;
 	name: string;
+	/** «Bloquear pista» de CapCut: sus clips no se eligen, mueven ni editan. */
+	locked?: boolean;
 }
 
 export interface VideoTrack extends BaseTrack {

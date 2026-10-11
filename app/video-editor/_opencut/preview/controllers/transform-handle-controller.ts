@@ -117,7 +117,8 @@ export interface PreviewViewportAdapter {
 }
 
 export interface InputAdapter {
-	isShiftHeld: () => boolean;
+	/** Ctrl apretado: escalar y rotar sin imán (CapCut). */
+	ignoraGuias: () => boolean;
 }
 
 export interface SceneReader {
@@ -598,7 +599,7 @@ export class TransformHandleController {
 		const snapThreshold = this.deps.viewport.screenPixelsToLogicalThreshold({
 			screenPixels: SNAP_THRESHOLD_SCREEN_PIXELS,
 		});
-		const { snappedScale, activeLines } = this.deps.input.isShiftHeld()
+		const { snappedScale, activeLines } = this.deps.input.ignoraGuias()
 			? { snappedScale: scaleFactor, activeLines: [] as SnapLine[] }
 			: snapScale({
 					proposedScale: scaleFactor,
@@ -677,7 +678,7 @@ export class TransformHandleController {
 		const snapThreshold = this.deps.viewport.screenPixelsToLogicalThreshold({
 			screenPixels: SNAP_THRESHOLD_SCREEN_PIXELS,
 		});
-		const { x: xSnap, y: ySnap } = this.deps.input.isShiftHeld()
+		const { x: xSnap, y: ySnap } = this.deps.input.ignoraGuias()
 			? {
 					x: {
 						snappedScale: proposedScaleX,
@@ -748,7 +749,7 @@ export class TransformHandleController {
 		if (deltaAngle < -180) deltaAngle += 360;
 
 		const newRotate = session.initialTransform.rotate + deltaAngle;
-		const { snappedRotation } = this.deps.input.isShiftHeld()
+		const { snappedRotation } = this.deps.input.ignoraGuias()
 			? { snappedRotation: newRotate }
 			: snapRotation({ proposedRotation: newRotate });
 

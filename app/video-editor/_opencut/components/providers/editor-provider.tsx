@@ -11,6 +11,7 @@ import { useKeybindingsStore } from "@/app/video-editor/_opencut/actions/keybind
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
 import { useEditorActions } from "@/app/video-editor/_opencut/actions/use-editor-actions";
 import { loadFontAtlas } from "@/app/video-editor/_opencut/fonts/google-fonts";
+import { nombreProyectoNuevo } from "@/app/video-editor/_opencut/inicio/nombre";
 import {
 	initializeGpuRenderer,
 	isGpuAvailable,
@@ -57,12 +58,14 @@ export function EditorProvider({ projectId, children }: EditorProviderProps) {
 
 				if (isNotFound) {
 					try {
+						// Un id que no existe (p. ej. «Editar en el editor» de Video
+						// Generator) abre un proyecto nuevo con el nombre MMDD de CapCut.
 						const newProjectId = await editor.project.createNewProject({
-							name: "Untitled Project",
+							name: await nombreProyectoNuevo(),
 						});
 						router.replace(rutaEditor(`/video-editor/${newProjectId}`));
 					} catch (_createErr) {
-						setError("Failed to create project");
+						setError("No se pudo abrir el proyecto");
 						setIsLoading(false);
 					}
 				} else {
@@ -73,7 +76,7 @@ export function EditorProvider({ projectId, children }: EditorProviderProps) {
 						setError(wasmPanic);
 					} else {
 						setError(
-							err instanceof Error ? err.message : "Failed to load project",
+							err instanceof Error ? err.message : "No se pudo abrir el proyecto",
 						);
 					}
 					setIsLoading(false);
@@ -103,7 +106,7 @@ export function EditorProvider({ projectId, children }: EditorProviderProps) {
 			<div className="bg-background flex h-screen w-screen items-center justify-center">
 				<div className="flex flex-col items-center gap-4">
 					<Loader2 className="text-muted-foreground size-8 animate-spin" />
-					<p className="text-muted-foreground text-sm">Loading project...</p>
+					<p className="text-muted-foreground text-sm">Cargando…</p>
 				</div>
 			</div>
 		);
@@ -114,7 +117,7 @@ export function EditorProvider({ projectId, children }: EditorProviderProps) {
 			<div className="bg-background flex h-screen w-screen items-center justify-center">
 				<div className="flex flex-col items-center gap-4">
 					<Loader2 className="text-muted-foreground size-8 animate-spin" />
-					<p className="text-muted-foreground text-sm">Exiting project...</p>
+					<p className="text-muted-foreground text-sm">Cargando…</p>
 				</div>
 			</div>
 		);

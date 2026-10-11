@@ -1,7 +1,8 @@
 import { useEffect, useReducer, useState } from "react";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { useCommittedRef } from "@/app/video-editor/_opencut/hooks/use-committed-ref";
-import { useShiftKey } from "@/app/video-editor/_opencut/hooks/use-shift-key";
+import { useIgnorarGuias } from "@/app/video-editor/_opencut/preview/hooks/use-ignorar-guias";
+import { guiasParaIman } from "@/app/video-editor/_opencut/guides/guias-usuario";
 import { usePreviewViewport } from "@/app/video-editor/_opencut/preview/components/preview-viewport";
 import type { SnapLine } from "@/app/video-editor/_opencut/preview/preview-snap";
 import { registerCanceller } from "@/app/video-editor/_opencut/editor/cancel-interaction";
@@ -21,7 +22,7 @@ export function usePreviewInteraction({
 	isMaskMode?: boolean;
 }) {
 	const editor = useEditor();
-	const isShiftHeldRef = useShiftKey();
+	const ignorarGuiasRef = useIgnorarGuias();
 	const viewport = usePreviewViewport();
 	const deps: PreviewInteractionDeps = {
 		viewport: {
@@ -29,7 +30,7 @@ export function usePreviewInteraction({
 			screenPixelsToLogicalThreshold: viewport.screenPixelsToLogicalThreshold,
 		},
 		input: {
-			isShiftHeld: () => isShiftHeldRef.current,
+			ignoraGuias: () => ignorarGuiasRef.current,
 		},
 		scene: {
 			getTracks: () => editor.scenes.getActiveScene().tracks,
@@ -58,6 +59,13 @@ export function usePreviewInteraction({
 		preview: {
 			isMaskMode: () => isMaskMode,
 			onSnapLinesChange,
+			getGuias: () => {
+				const proyecto = editor.project.getActive();
+				return guiasParaIman({
+					proyecto: proyecto?.metadata.id,
+					lienzo: proyecto.settings.canvasSize,
+				});
+			},
 		},
 	};
 	const depsRef = useCommittedRef(deps) as PreviewInteractionDepsRef;

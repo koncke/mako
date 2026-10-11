@@ -15,6 +15,7 @@ import {
 import {
 	SNAP_THRESHOLD_SCREEN_PIXELS,
 	snapPosition,
+	type GuiasIman,
 	type SnapLine,
 } from "@/app/video-editor/_opencut/preview/preview-snap";
 import type { TCanvasSize } from "@/app/video-editor/_opencut/project/types";
@@ -95,7 +96,8 @@ export interface PreviewViewportAdapter {
 }
 
 export interface InputAdapter {
-	isShiftHeld: () => boolean;
+	/** Ctrl apretado: el arrastre ignora las guías de alineación (CapCut). */
+	ignoraGuias: () => boolean;
 }
 
 export interface SceneReader {
@@ -136,6 +138,8 @@ export interface PlaybackApi {
 export interface PreviewOptions {
 	isMaskMode: () => boolean;
 	onSnapLinesChange?: (lines: SnapLine[]) => void;
+	/** Las guías de «Guías y reglas» visibles, como destinos extra del imán. */
+	getGuias?: () => GuiasIman | undefined;
 }
 
 export interface PreviewInteractionDeps {
@@ -543,7 +547,7 @@ export class PreviewInteractionController {
 			y: firstElement.initialTransform.position.y + deltaY,
 		};
 
-		const shouldSnap = !this.deps.input.isShiftHeld();
+		const shouldSnap = !this.deps.input.ignoraGuias();
 		const snapThreshold = this.deps.viewport.screenPixelsToLogicalThreshold({
 			screenPixels: SNAP_THRESHOLD_SCREEN_PIXELS,
 		});
@@ -554,6 +558,7 @@ export class PreviewInteractionController {
 					elementSize: drag.bounds,
 					rotation: drag.bounds.rotation,
 					snapThreshold,
+					guias: this.deps.preview.getGuias?.(),
 				})
 			: {
 					snappedPosition: proposedPosition,

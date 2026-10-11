@@ -1,5 +1,12 @@
 "use client";
 
+// Los tiradores del elemento elegido, como CapCut: marco blanco, un tirador
+// redondo en cada esquina (escala uniforme: CapCut no estira desde el
+// reproductor; el ancho y alto por separado van en «Escala» del panel) y el
+// control de rotación ⟳ DEBAJO del marco. OpenCut lo tenía arriba y con
+// tiradores en los lados; el controlador de rotación mide el ángulo contra el
+// centro, así que la posición del control no cambia la cuenta.
+
 import { usePreviewViewport } from "@/app/video-editor/_opencut/preview/components/preview-viewport";
 import { useTransformHandles } from "@/app/video-editor/_opencut/preview/hooks/use-transform-handles";
 import { isVisualElement } from "@/app/video-editor/_opencut/timeline/element-utils";
@@ -18,7 +25,7 @@ import {
 	IconHandle,
 	getResizeCursor,
 } from "./handle-primitives";
-import { Rotate01Icon } from "@hugeicons/core-free-icons";
+import { RotateClockwiseIcon } from "@hugeicons/core-free-icons";
 
 const CORNERS: Corner[] = [
 	"top-left",
@@ -26,7 +33,8 @@ const CORNERS: Corner[] = [
 	"bottom-left",
 	"bottom-right",
 ];
-const EDGES: Edge[] = ["right", "left", "bottom"];
+// Sin tiradores de lado (ver arriba). El controlador los sigue soportando.
+const EDGES: Edge[] = [];
 
 export function TransformHandles({
 	onSnapLinesChange,
@@ -67,15 +75,18 @@ export function TransformHandles({
 	const outlineWidth = Math.abs(bounds.width) * displayScale.x;
 	const outlineHeight = Math.abs(bounds.height) * displayScale.y;
 
+	// El centro del borde de ABAJO (rotado con el elemento) y, desde ahí, el
+	// control de rotación a ROTATION_HANDLE_OFFSET px de pantalla hacia afuera.
+	// Con escala negativa (reflejado) el «abajo» del marco sigue siendo abajo.
 	const rotationAngleRad = (bounds.rotation * Math.PI) / 180;
-	const topCenterLocalY = -bounds.height / 2;
-	const topCenterScreen = toOverlay({
-		canvasX: bounds.cx - topCenterLocalY * Math.sin(rotationAngleRad),
-		canvasY: bounds.cy + topCenterLocalY * Math.cos(rotationAngleRad),
+	const bottomCenterLocalY = Math.abs(bounds.height) / 2;
+	const bottomCenterScreen = toOverlay({
+		canvasX: bounds.cx - bottomCenterLocalY * Math.sin(rotationAngleRad),
+		canvasY: bounds.cy + bottomCenterLocalY * Math.cos(rotationAngleRad),
 	});
 	const rotationHandleScreen = {
-		x: topCenterScreen.x + Math.sin(rotationAngleRad) * ROTATION_HANDLE_OFFSET,
-		y: topCenterScreen.y - Math.cos(rotationAngleRad) * ROTATION_HANDLE_OFFSET,
+		x: bottomCenterScreen.x - Math.sin(rotationAngleRad) * ROTATION_HANDLE_OFFSET,
+		y: bottomCenterScreen.y + Math.cos(rotationAngleRad) * ROTATION_HANDLE_OFFSET,
 	};
 
 	const onPointerMove = (event: React.PointerEvent) =>
@@ -134,7 +145,7 @@ export function TransformHandles({
 				);
 			})}
 			<IconHandle
-				icon={Rotate01Icon}
+				icon={RotateClockwiseIcon}
 				screen={rotationHandleScreen}
 				onPointerDown={(event) => handleRotationPointerDown({ event })}
 				onPointerMove={onPointerMove}

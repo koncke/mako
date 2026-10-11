@@ -1,29 +1,30 @@
 "use client";
 
+// El campo de parámetro de OpenCut, con la fila de CapCut (./kit.tsx): rótulo a
+// la izquierda, el control, y ↺ / ◇ a la derecha. Conserva la API de siempre
+// (`param`, `value`, `onPreview`, `onCommit`, `keyframe`) porque lo siguen usando
+// pestañas del motor (los efectos del clip); para una pestaña nueva, `CampoParam`
+// del kit ya trae el ◇ con ‹ › y el valor vivo.
+
 import type {
-	ParamDefinition,
 	NumberParamDefinition,
+	ParamDefinition,
 	ParamValue,
 } from "@/app/video-editor/_opencut/params";
-import {
-	formatNumberForDisplay,
-	getFractionDigitsForStep,
-	snapToStep,
-} from "@/app/video-editor/_opencut/utils/math";
-import { SectionField } from "@/app/video-editor/_opencut/components/section";
-import { NumberField } from "@/app/video-editor/_opencut/components/ui/number-field";
 import { Switch } from "@/app/video-editor/_opencut/components/ui/switch";
 import { ColorPicker } from "@/app/video-editor/_opencut/components/ui/color-picker";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/app/video-editor/_opencut/components/ui/select";
+import { FontPicker } from "@/app/video-editor/_opencut/components/ui/font-picker";
+import { Textarea } from "@/app/video-editor/_opencut/components/ui/textarea";
 import { usePropertyDraft } from "../hooks/use-property-draft";
 import { KeyframeToggle } from "./keyframe-toggle";
-import { Textarea } from "@/app/video-editor/_opencut/components/ui/textarea";
+import {
+	BotonRestablecer,
+	CajaNumero,
+	DeslizadorValor,
+	FilaCe,
+	SelectCe,
+	escalaDeNumero,
+} from "./kit";
 
 export function PropertyParamField({
 	param,
@@ -42,27 +43,36 @@ export function PropertyParamField({
 		onToggle: () => void;
 	};
 }) {
-	return (
-		<SectionField
-			label={param.label}
-			beforeLabel={
-				keyframe && param.keyframable !== false ? (
+	const restablecer = () => {
+		onPreview(param.default);
+		onCommit();
+	};
+	const acciones = (
+		<>
+			<BotonRestablecer onClick={restablecer} desactivado={value === param.default} />
+			{keyframe && param.keyframable !== false ? (
+				<span className="flex w-[44px] justify-center">
 					<KeyframeToggle
 						isActive={keyframe.isActive}
 						isDisabled={keyframe.isDisabled}
-						title={`Toggle ${param.label.toLowerCase()} keyframe`}
+						title="Fotograma clave"
 						onToggle={keyframe.onToggle}
 					/>
-				) : undefined
-			}
-		>
-			<ParamInput
-				param={param}
-				value={value}
-				onPreview={onPreview}
-				onCommit={onCommit}
-			/>
-		</SectionField>
+				</span>
+			) : (
+				<span className="w-[44px]" />
+			)}
+		</>
+	);
+
+	if (param.type === "text") {
+		return <CampoTexto value={String(value)} onPreview={onPreview} onCommit={onCommit} label={param.label} />;
+	}
+
+	return (
+		<FilaCe rotulo={param.label} acciones={acciones}>
+			<ParamInput param={param} value={value} onPreview={onPreview} onCommit={onCommit} />
+		</FilaCe>
 	);
 }
 
@@ -91,7 +101,9 @@ function ParamInput({
 	if (param.type === "boolean") {
 		return (
 			<Switch
+				className="ml-auto"
 				checked={Boolean(value)}
+				aria-label={param.label}
 				onCheckedChange={(checked) => {
 					onPreview(checked);
 					onCommit();
@@ -102,30 +114,22 @@ function ParamInput({
 
 	if (param.type === "select") {
 		return (
-			<Select
-				value={String(value)}
-				onValueChange={(selected) => {
+			<SelectCe
+				valor={String(value)}
+				ariaLabel={param.label}
+				opciones={param.options.map((o) => ({ id: o.value, etiqueta: o.label }))}
+				onCambio={(selected) => {
 					onPreview(selected);
 					onCommit();
 				}}
-			>
-				<SelectTrigger className="w-full">
-					<SelectValue />
-				</SelectTrigger>
-				<SelectContent>
-					{param.options.map((option) => (
-						<SelectItem key={option.value} value={option.value}>
-							{option.label}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+			/>
 		);
 	}
 
 	if (param.type === "color") {
 		return (
 			<ColorPicker
+				className="w-full"
 				value={String(value).replace(/^#/, "").toUpperCase()}
 				onChange={(color) => onPreview(`#${color}`)}
 				onChangeEnd={(color) => {
@@ -136,24 +140,17 @@ function ParamInput({
 		);
 	}
 
-	if (param.type === "text") {
-		return (
-			<Textarea
-				value={String(value)}
-				onChange={(event) => onPreview(event.currentTarget.value)}
-				onBlur={onCommit}
-			/>
-		);
-	}
-
 	if (param.type === "font") {
 		return (
-			<input
-				className="border-input bg-accent h-9 w-full rounded-md border px-3 text-sm outline-none"
-				value={String(value)}
-				onChange={(event) => onPreview(event.currentTarget.value)}
-				onBlur={onCommit}
-			/>
+			<div className="min-w-0 flex-1">
+				<FontPicker
+					defaultValue={String(value)}
+					onValueChange={(font) => {
+						onPreview(font);
+						onCommit();
+					}}
+				/>
+			</div>
 		);
 	}
 
@@ -171,54 +168,65 @@ function NumberParamField({
 	onPreview: (value: number) => void;
 	onCommit: () => void;
 }) {
-	const { min, max, step, displayMultiplier = 1 } = param;
-	const displayValue = value * displayMultiplier;
-	const clampDisplayValue = (nextDisplayValue: number) =>
-		Math.max(
-			min,
-			max !== undefined ? Math.min(max, nextDisplayValue) : nextDisplayValue,
+	const { factor, min, max, paso, sufijo } = escalaDeNumero(param);
+	const previsualizar = (v: number) => onPreview(v / factor);
+	if (max !== undefined && Number.isFinite(min)) {
+		return (
+			<DeslizadorValor
+				valor={value * factor}
+				min={min}
+				max={max}
+				paso={paso}
+				sufijo={sufijo}
+				ariaLabel={param.label}
+				onPrevisualizar={previsualizar}
+				onConfirmar={onCommit}
+			/>
 		);
-
-	const previewFromDisplay = (displayVal: number) => {
-		const clamped = clampDisplayValue(
-			snapToStep({ value: displayVal, step }),
-		);
-		onPreview(clamped / displayMultiplier);
-	};
-
-	const maxFractionDigits = getFractionDigitsForStep({ step });
-
-	const draft = usePropertyDraft({
-		displayValue: formatNumberForDisplay({
-			value: displayValue,
-			maxFractionDigits,
-		}),
-		parse: (input) => {
-			const parsed = parseFloat(input);
-			if (Number.isNaN(parsed)) return null;
-			return clampDisplayValue(snapToStep({ value: parsed, step }));
-		},
-		onPreview: previewFromDisplay,
-		onCommit,
-	});
-
-	const handleReset = () => {
-		onPreview(param.default);
-		onCommit();
-	};
-
+	}
 	return (
-		<NumberField
-			icon={param.shortLabel}
-			value={draft.displayValue}
-			dragSensitivity="slow"
-			isDefault={value === param.default}
-			onFocus={draft.onFocus}
-			onChange={draft.onChange}
-			onBlur={draft.onBlur}
-			onScrub={previewFromDisplay}
-			onScrubEnd={onCommit}
-			onReset={handleReset}
+		<CajaNumero
+			className="ml-auto w-[96px]"
+			valor={value * factor}
+			min={min}
+			max={max}
+			paso={paso}
+			sufijo={sufijo}
+			ariaLabel={param.label}
+			onPrevisualizar={previsualizar}
+			onConfirmar={onCommit}
 		/>
+	);
+}
+
+function CampoTexto({
+	value,
+	label,
+	onPreview,
+	onCommit,
+}: {
+	value: string;
+	label: string;
+	onPreview: (value: ParamValue) => void;
+	onCommit: () => void;
+}) {
+	const draft = usePropertyDraft({
+		displayValue: value,
+		parse: (input) => input,
+		onPreview: (v: string) => onPreview(v),
+		onCommit,
+		supportsExpressions: false,
+	});
+	return (
+		<div className="py-1.5">
+			<Textarea
+				aria-label={label}
+				className="min-h-[72px] bg-(--cc-sunken)"
+				value={draft.displayValue}
+				onFocus={draft.onFocus}
+				onChange={draft.onChange}
+				onBlur={draft.onBlur}
+			/>
+		</div>
 	);
 }

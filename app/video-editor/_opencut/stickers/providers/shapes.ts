@@ -41,13 +41,35 @@ const LEGACY_SHAPE_PRESETS: Record<string, ShapeGraphicPreset> = {
 	star: { shapeKey: "star", name: "Star", definitionId: "star" },
 };
 
+// Las formas de Stickers › Formas, con nombre en español (el nombre pasa a ser el
+// del clip en la línea de tiempo). Las claves viejas (`square`, `circle`…) siguen
+// resolviendo por LEGACY_SHAPE_PRESETS: hay proyectos guardados con ellas.
+const PRESETS_FORMAS: ShapeGraphicPreset[] = [
+	{ shapeKey: "rectangle", name: "Cuadrado", definitionId: "rectangle" },
+	{ shapeKey: "ellipse", name: "Círculo", definitionId: "ellipse" },
+	{ shapeKey: "triangle", name: "Triángulo", definitionId: "polygon", params: { sides: 3 } },
+	{ shapeKey: "diamond", name: "Rombo", definitionId: "polygon", params: { sides: 4 } },
+	{ shapeKey: "pentagon", name: "Pentágono", definitionId: "polygon", params: { sides: 5 } },
+	{ shapeKey: "hexagon", name: "Hexágono", definitionId: "polygon", params: { sides: 6 } },
+	{ shapeKey: "star", name: "Estrella", definitionId: "star" },
+];
+
 function getShapePresets(): ShapeGraphicPreset[] {
 	registerDefaultGraphics();
-	return graphicsRegistry.getAll().map((definition) => ({
-		shapeKey: definition.id,
-		name: definition.name,
-		definitionId: definition.id,
-	}));
+	const conocidas = new Set(PRESETS_FORMAS.map((preset) => preset.definitionId));
+	// Una definición nueva del registro que no está en la lista aparece igual, con su nombre.
+	const nuevas = graphicsRegistry
+		.getAll()
+		.filter((definition) => !conocidas.has(definition.id))
+		.map((definition) => ({
+			shapeKey: definition.id,
+			name: definition.name,
+			definitionId: definition.id,
+		}));
+	return [
+		...PRESETS_FORMAS.filter((preset) => graphicsRegistry.has(preset.definitionId)),
+		...nuevas,
+	];
 }
 
 function getShapePreset({
@@ -124,10 +146,13 @@ function filterShapesByQuery({ query }: { query: string }): ShapeGraphicPreset[]
 		return presets;
 	}
 
+	const sinTildes = (texto: string) =>
+		texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 	return presets.filter((preset) => {
 		const definition = graphicsRegistry.get(preset.definitionId);
 		return (
-			preset.name.toLowerCase().includes(normalizedQuery) ||
+			sinTildes(preset.name).includes(sinTildes(normalizedQuery)) ||
+			"forma".startsWith(sinTildes(normalizedQuery)) ||
 			definition.keywords.some((keyword) =>
 				keyword.toLowerCase().includes(normalizedQuery),
 			)

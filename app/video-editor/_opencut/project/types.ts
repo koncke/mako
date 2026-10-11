@@ -32,8 +32,19 @@ export interface TProjectSettings {
 	canvasSizeMode?: "preset" | "custom";
 	lastCustomCanvasSize?: TCanvasSize | null;
 	originalCanvasSize?: TCanvasSize | null;
+	/** «Relación» del reproductor de CapCut (ver canvas/sizes.ts). Sin valor o
+	 *  "original": el primer clip fija el lienzo; con otra, el lienzo queda fijo. */
+	relacion?: string;
 	background: TBackground;
+	/** «Portada» de CapCut (botón a la izquierda de la pista principal). Ver
+	 *  timeline/components/portada.ts: `leerPortada()` la expone para Exportar. */
+	portada?: TPortada;
 }
+
+/** Un cuadro del video (`tiempo`, en ticks) o una imagen propia (`imagen`, data URL). */
+export type TPortada =
+	| { tipo: "cuadro"; tiempo: MediaTime }
+	| { tipo: "imagen"; imagen: string };
 
 export interface TTimelineViewState {
 	zoomLevel: number;

@@ -114,6 +114,15 @@ export type HerramientaLinea = {
   /** Para los interruptores (Imán de la pista principal, Ajuste automático…). */
   activa?: (ctx: ContextoHerramienta) => boolean;
   ejecutar: (ctx: ContextoHerramienta) => void;
+  /** Si está, la barra dibuja ESTO en lugar del botón: el deslizador del zoom,
+   *  «Vinculación ▾», «Eje de vista previa ▾» (botón + menú propio). */
+  Control?: ComponentType<ContextoHerramienta & { herramienta: HerramientaLinea }>;
 };
 
+// La barra (timeline/components/timeline-toolbar.tsx) separa las herramientas
+// por CENTENAS de `orden`, como los separadores de CapCut. Izquierda: 0–99
+// Seleccionar · 100–199 Deshacer/Rehacer · 200–299 Dividir, Borrar…,
+// Marcador, Recortar, Reflejar/Girar/Congelar/Revertir · 300–399 Generar
+// subtítulos, Eliminar fondo y demás IA. Derecha: 0–99 Grabar · 100–199 Imán,
+// Ajuste automático, Vinculación, Eje de vista previa · 200–299 zoom.
 export const herramientasLinea = new Ranura<HerramientaLinea>('herramientas de la línea de tiempo');

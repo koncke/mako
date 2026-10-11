@@ -6,7 +6,8 @@ import {
 } from "./insert-index";
 import { getTrackTypeForElementType } from "./compatibility";
 import { enforceMainTrackStart } from "./main-track";
-import { canPlaceTimeSpansOnTrack } from "./overlap";
+import { canPlaceTimeSpansOnTrack as cabeSinSolaparse } from "./overlap";
+import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
 import type {
 	PlacementResult,
 	PlacementStrategy,
@@ -14,6 +15,32 @@ import type {
 	PlacementTimeSpan,
 } from "./types";
 import { ZERO_MEDIA_TIME } from "@/app/video-editor/_opencut/wasm";
+
+/**
+ * Con el «Imán de la pista principal» prendido, soltar un clip ENCIMA de otro
+ * en la principal lo INSERTA (el imán empuja a los de después: ripple/iman.ts),
+ * como en CapCut; sin imán, como en OpenCut, se va a otra pista. Una pista
+ * bloqueada no acepta nada.
+ */
+function canPlaceTimeSpansOnTrack({
+	track,
+	timeSpans,
+	mainTrackId,
+}: {
+	track: TimelineTrack;
+	timeSpans: PlacementTimeSpan[];
+	mainTrackId?: string;
+}): boolean {
+	if (track.locked) return false;
+	if (
+		mainTrackId !== undefined &&
+		track.id === mainTrackId &&
+		useTimelineStore.getState().rippleEditingEnabled
+	) {
+		return true;
+	}
+	return cabeSinSolaparse({ track, timeSpans });
+}
 
 type ResolveTrackPlacementParams = PlacementSubject & {
 	tracks: SceneTracks;
@@ -70,10 +97,12 @@ function findFirstAvailableTrackIndex({
 	tracks,
 	trackType,
 	timeSpans,
+	mainTrackId,
 }: {
 	tracks: TimelineTrack[];
 	trackType: TrackType;
 	timeSpans: PlacementTimeSpan[];
+	mainTrackId?: string;
 }): number {
 	return tracks.findIndex((track) => {
 		return (
@@ -81,6 +110,7 @@ function findFirstAvailableTrackIndex({
 			canPlaceTimeSpansOnTrack({
 				track,
 				timeSpans,
+				mainTrackId,
 			})
 		);
 	});
@@ -153,7 +183,7 @@ export function resolveTrackPlacement({
 		}
 
 		const track = orderedTracks[trackIndex];
-		if (track.type !== trackType) {
+		if (track.type !== trackType || track.locked) {
 			return null;
 		}
 
@@ -170,6 +200,7 @@ export function resolveTrackPlacement({
 			tracks: orderedTracks,
 			trackType,
 			timeSpans,
+			mainTrackId: tracks.main.id,
 		});
 		if (existingTrackIndex >= 0) {
 			return buildExistingTrackResult({
@@ -197,6 +228,7 @@ export function resolveTrackPlacement({
 			canPlaceTimeSpansOnTrack({
 				track: preferredTrack,
 				timeSpans,
+				mainTrackId: tracks.main.id,
 			});
 		if (canUseExistingTrack) {
 			return buildExistingTrackResult({
@@ -234,6 +266,7 @@ export function resolveTrackPlacement({
 			canPlaceTimeSpansOnTrack({
 				track: aboveTrack,
 				timeSpans,
+				mainTrackId: tracks.main.id,
 			})
 		) {
 			return buildExistingTrackResult({
@@ -248,6 +281,7 @@ export function resolveTrackPlacement({
 			tracks: orderedTracks,
 			trackType,
 			timeSpans,
+			mainTrackId: tracks.main.id,
 		});
 		if (firstAvailableTrackIndex >= 0) {
 			return buildExistingTrackResult({

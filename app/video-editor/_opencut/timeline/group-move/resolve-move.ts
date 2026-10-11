@@ -1,6 +1,7 @@
 import type { SceneTracks } from "@/app/video-editor/_opencut/timeline";
 import { getTrackTypeForElementType } from "@/app/video-editor/_opencut/timeline/placement/compatibility";
 import { canPlaceTimeSpansOnTrack } from "@/app/video-editor/_opencut/timeline/placement/overlap";
+import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
 import type {
 	GroupMoveResult,
 	MoveGroup,
@@ -452,6 +453,19 @@ function canApplyMovesToExistingTracks({
 				duration: sourceElement?.duration ?? ZERO_MEDIA_TIME,
 			};
 		});
+		if (targetTrack.locked) {
+			return false;
+		}
+
+		// Con el imán, en la pista principal se puede soltar ENCIMA de otro clip:
+		// el imán lo inserta y empuja a los demás (ripple/iman.ts).
+		if (
+			targetTrackId === tracks.main.id &&
+			useTimelineStore.getState().rippleEditingEnabled
+		) {
+			continue;
+		}
+
 		if (hasOverlappingTimeSpans({ timeSpans })) {
 			return false;
 		}

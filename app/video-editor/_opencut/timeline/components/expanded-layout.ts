@@ -23,21 +23,22 @@ const PROPERTY_GROUPS: PropertyGroupDefinition[] = [
 	{ matchesPath: (path) => path.startsWith("effects.") },
 ];
 
+// Los rótulos de las filas de fotogramas clave, con los nombres de CapCut.
 const PROPERTY_LABELS: Partial<Record<string, string>> = {
-	"transform.positionX": "Position X",
-	"transform.positionY": "Position Y",
-	"transform.scaleX": "Scale X",
-	"transform.scaleY": "Scale Y",
-	"transform.rotate": "Rotation",
-	opacity: "Opacity",
-	volume: "Volume",
+	"transform.positionX": "Posición X",
+	"transform.positionY": "Posición Y",
+	"transform.scaleX": "Escala X",
+	"transform.scaleY": "Escala Y",
+	"transform.rotate": "Girar",
+	opacity: "Opacidad",
+	volume: "Volumen",
 	color: "Color",
-	"background.color": "BG Color",
-	"background.paddingX": "BG Pad X",
-	"background.paddingY": "BG Pad Y",
-	"background.offsetX": "BG Offset X",
-	"background.offsetY": "BG Offset Y",
-	"background.cornerRadius": "Corner Radius",
+	"background.color": "Fondo",
+	"background.paddingX": "Fondo X",
+	"background.paddingY": "Fondo Y",
+	"background.offsetX": "Desplazamiento X",
+	"background.offsetY": "Desplazamiento Y",
+	"background.cornerRadius": "Radio de las esquinas",
 };
 
 export function getPropertyLabel(path: AnimationPath): string {

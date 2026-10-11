@@ -8,7 +8,7 @@ import type {
 } from "@/app/video-editor/_opencut/actions";
 import { bindAction, unbindAction } from "@/app/video-editor/_opencut/actions";
 
-// eslint-disable-next-line opencut/prefer-object-params -- action subscriptions read best as (action, handler, isActive).
+// (OpenCut: prefer-object-params no aplica) action subscriptions read best as (action, handler, isActive).
 export function useActionHandler<A extends TAction>(
 	action: A,
 	handler: TActionFunc<A>,

@@ -60,12 +60,8 @@ export function useKeybindingsListener() {
 				case "seek-backward":
 					invokeAction("seek-backward", { seconds: 1 }, "keypress");
 					break;
-				case "jump-forward":
-					invokeAction("jump-forward", { seconds: 5 }, "keypress");
-					break;
-				case "jump-backward":
-					invokeAction("jump-backward", { seconds: 5 }, "keypress");
-					break;
+				// Shift+←/→ = «Avanzar/Retroceder muchos fotogramas»: 10 cuadros
+				// (timelineLargeAdjustRange de CapCut), lo resuelve el handler.
 				default:
 					invokeAction(boundAction, undefined, "keypress");
 			}

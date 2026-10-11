@@ -1,8 +1,7 @@
-import { Button } from "@/app/video-editor/_opencut/components/ui/button";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { KeyframeIcon } from "@hugeicons/core-free-icons";
+import { Diamond } from "lucide-react";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 
+/** El ◇ «Fotograma clave» de CapCut: relleno en cian cuando hay uno en el cabezal. */
 export function KeyframeToggle({
 	isActive,
 	isDisabled = false,
@@ -15,18 +14,16 @@ export function KeyframeToggle({
 	onToggle: () => void;
 }) {
 	return (
-		<Button
-			variant="text"
+		<button
+			type="button"
 			aria-pressed={isActive}
+			aria-label={title}
 			disabled={isDisabled}
 			title={title}
 			onClick={onToggle}
-			className="[&>svg]:size-3.5 mb-0.5"
+			className="flex size-5 cursor-pointer items-center justify-center rounded-[3px] text-(--cc-icon) hover:bg-(--cc-raised) disabled:cursor-default disabled:text-(--cc-icon-off) disabled:hover:bg-transparent"
 		>
-			<HugeiconsIcon
-				icon={KeyframeIcon}
-				className={cn(isActive && "text-primary fill-primary")}
-			/>
-		</Button>
+			<Diamond className={cn("size-3.5", isActive && "fill-primary text-primary")} />
+		</button>
 	);
 }

@@ -79,6 +79,7 @@ export function resolveTimelineElementIntersections({
 	container,
 	scrollContainer,
 	tracks,
+	mainTrackId,
 	zoomLevel,
 	startPos,
 	currentPos,
@@ -86,6 +87,7 @@ export function resolveTimelineElementIntersections({
 	container: HTMLElement;
 	scrollContainer: HTMLDivElement | null;
 	tracks: TimelineTrack[];
+	mainTrackId?: string | null;
 	zoomLevel: number;
 	startPos: { x: number; y: number };
 	currentPos: { x: number; y: number };
@@ -99,11 +101,17 @@ export function resolveTimelineElementIntersections({
 	const selectedElements: TimelineElementRef[] = [];
 
 	for (const [trackIndex, track] of tracks.entries()) {
+		// Una pista bloqueada no deja elegir sus clips, tampoco con el recuadro.
+		if (track.locked) continue;
 		const trackTop = getCumulativeHeightBefore({
 			tracks,
 			trackIndex,
+			mainTrackId,
 		});
-		const trackHeight = getTrackHeight({ type: track.type });
+		const trackHeight = getTrackHeight({
+			type: track.type,
+			isMain: !!mainTrackId && track.id === mainTrackId,
+		});
 		const elementTop = TIMELINE_CONTENT_TOP_PADDING_PX + trackTop;
 		const elementBottom = elementTop + trackHeight;
 

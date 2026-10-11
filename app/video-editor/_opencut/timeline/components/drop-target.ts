@@ -2,7 +2,7 @@ import type { TimelineTrack, TimelineElement } from "@/app/video-editor/_opencut
 import type { ComputeDropTargetParams, DropTarget } from "@/app/video-editor/_opencut/timeline";
 import { resolveTrackPlacement } from "@/app/video-editor/_opencut/timeline/placement";
 import { TIMELINE_TRACK_GAP_PX } from "./layout";
-import { getTrackHeight } from "./track-layout";
+import { getTrackHeightFor } from "./track-layout";
 import {
 	mediaTime,
 	type MediaTime,
@@ -46,16 +46,18 @@ function findElementAtPosition({
 function getTrackAtY({
 	mouseY,
 	tracks,
+	mainTrackId,
 	verticalDragDirection,
 }: {
 	mouseY: number;
 	tracks: TimelineTrack[];
+	mainTrackId: string;
 	verticalDragDirection?: "up" | "down" | null;
 }): { trackIndex: number; relativeY: number } | null {
 	let cumulativeHeight = 0;
 
 	for (let i = 0; i < tracks.length; i++) {
-		const trackHeight = getTrackHeight({ type: tracks[i].type });
+		const trackHeight = getTrackHeightFor({ track: tracks[i], mainTrackId });
 		const trackTop = cumulativeHeight;
 		const trackBottom = trackTop + trackHeight;
 
@@ -159,6 +161,7 @@ export function computeDropTarget({
 	const trackAtMouse = getTrackAtY({
 		mouseY,
 		tracks: orderedTracks,
+		mainTrackId: tracks.main.id,
 		verticalDragDirection,
 	});
 
@@ -214,7 +217,7 @@ export function computeDropTarget({
 		}
 	}
 
-	const trackHeight = getTrackHeight({ type: track.type });
+	const trackHeight = getTrackHeightFor({ track, mainTrackId: tracks.main.id });
 	const placementResult = resolveTrackPlacement({
 		tracks,
 		elementType,
@@ -257,9 +260,11 @@ export function computeDropTarget({
 export function getDropLineY({
 	dropTarget,
 	tracks,
+	mainTrackId,
 }: {
 	dropTarget: DropTarget;
 	tracks: TimelineTrack[];
+	mainTrackId?: string | null;
 }): number {
 	const safeTrackIndex = Math.min(
 		Math.max(dropTarget.trackIndex, 0),
@@ -268,7 +273,7 @@ export function getDropLineY({
 	let y = 0;
 
 	for (let i = 0; i < safeTrackIndex; i++) {
-		y += getTrackHeight({ type: tracks[i].type }) + TIMELINE_TRACK_GAP_PX;
+		y += getTrackHeightFor({ track: tracks[i], mainTrackId }) + TIMELINE_TRACK_GAP_PX;
 	}
 
 	return y;

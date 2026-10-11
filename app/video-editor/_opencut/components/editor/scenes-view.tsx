@@ -1,5 +1,9 @@
 "use client";
 
+// Escenas de OpenCut. CapCut no tiene escenas: el botón que abría esto se
+// sacó de la barra de la línea de tiempo y el motor queda (una escena, la
+// principal). Se conserva traducido por si se reabre.
+
 import {
 	Sheet,
 	SheetContent,
@@ -9,7 +13,8 @@ import {
 	SheetTrigger,
 } from "@/app/video-editor/_opencut/components/ui/sheet";
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
-import { Check, ListCheck, Trash2 } from "lucide-react";
+import { Check, ListCheck } from "lucide-react";
+import { IconoBorrar } from "@/app/_ui/BotonBorrar";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { useState } from "react";
 import {
@@ -71,7 +76,7 @@ export function ScenesView({ children }: { children: React.ReactNode }) {
 
 			const { canDelete, reason } = canDeleteScene({ scene });
 			if (!canDelete) {
-				toast.error(reason || "Failed to delete scene");
+				toast.error(reason || "No se pudo eliminar la escena");
 				continue;
 			}
 
@@ -96,12 +101,12 @@ export function ScenesView({ children }: { children: React.ReactNode }) {
 			<SheetContent>
 				<SheetHeader>
 					<SheetTitle>
-						{isSelectMode ? `Select scenes (${selectedScenes.size})` : "Scenes"}
+						{isSelectMode ? `Seleccionar escenas (${selectedScenes.size})` : "Escenas"}
 					</SheetTitle>
 					<SheetDescription>
 						{isSelectMode
-							? "Select scenes to delete"
-							: "Switch between scenes in your project"}
+							? "Selecciona las escenas que quieres eliminar"
+							: "Cambia de escena en tu proyecto"}
 					</SheetDescription>
 				</SheetHeader>
 				<div className="flex flex-col gap-4 py-4">
@@ -113,7 +118,7 @@ export function ScenesView({ children }: { children: React.ReactNode }) {
 							onClick={handleSelectMode}
 						>
 							<ListCheck />
-							{isSelectMode ? "Cancel" : "Select"}
+							{isSelectMode ? "Cancelar" : "Seleccionar"}
 						</Button>
 						{isSelectMode && (
 							<DeleteDialog
@@ -127,7 +132,7 @@ export function ScenesView({ children }: { children: React.ReactNode }) {
 										disabled={isMainSceneSelected}
 										size="sm"
 									>
-										<Trash2 />
+										<IconoBorrar size={16} />
 										Delete ({selectedScenes.size})
 									</Button>
 								}
@@ -136,7 +141,7 @@ export function ScenesView({ children }: { children: React.ReactNode }) {
 					</div>
 					{scenes.length === 0 ? (
 						<div className="text-muted-foreground text-sm">
-							No scenes available
+							No hay escenas
 						</div>
 					) : (
 						<div className="space-y-2">
@@ -195,22 +200,23 @@ function DeleteDialog({
 			<DialogTrigger asChild>{trigger}</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Delete Scenes</DialogTitle>
+					<DialogTitle>Eliminar escenas</DialogTitle>
 					<DialogDescription>
-						Are you sure you want to delete {count} scene
-						{count === 1 ? "" : "s"}? This action cannot be undone.
+						{count === 1
+							? "¿Eliminar 1 escena?"
+							: `¿Eliminar ${count} escenas?`}
 					</DialogDescription>
 				</DialogHeader>
 				<DialogFooter>
 					<Button variant="outline" onClick={() => setOpen(false)}>
-						Cancel
+						Cancelar
 					</Button>
 					<Button
 						variant="destructive"
 						onClick={handleDelete}
 						disabled={disabled}
 					>
-						Delete
+						Eliminar
 					</Button>
 				</DialogFooter>
 			</DialogContent>

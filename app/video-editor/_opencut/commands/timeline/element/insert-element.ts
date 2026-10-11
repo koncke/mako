@@ -91,9 +91,13 @@ export class InsertElementCommand extends Command {
 				const nextCanvasSize = { width: asset.width, height: asset.height };
 				const shouldSetOriginalCanvasSize =
 					!activeProject?.settings.originalCanvasSize;
+				// Con una «Relación» elegida a mano el primer clip no pisa el lienzo
+				// (como CapCut); sólo «Original» toma la del clip. Ver canvas/sizes.ts.
+				const relacion = activeProject?.settings.relacion;
+				const relacionFija = !!relacion && relacion !== "original";
 				editor.project.updateSettings({
 					settings: {
-						canvasSize: nextCanvasSize,
+						...(relacionFija ? {} : { canvasSize: nextCanvasSize }),
 						...(shouldSetOriginalCanvasSize
 							? { originalCanvasSize: nextCanvasSize }
 							: {}),

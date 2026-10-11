@@ -41,8 +41,11 @@ export const usePanelStore = create<PanelState>()(
 		}),
 		{
 			name: "panel-sizes",
-			version: 2,
-			migrate: (persistedState) => {
+			// v3: la distribución de CapCut. Los tamaños guardados con la de OpenCut
+			// (25/50/25 y 50/50) se tiran: no son una preferencia de nadie.
+			version: 3,
+			migrate: (persistedState, version) => {
+				if (version < 3) return { panels: { ...PANEL_CONFIG.panels } };
 				const state = persistedState as
 					| {
 							panels?: Partial<PanelSizes> | null;

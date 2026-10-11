@@ -27,6 +27,12 @@ export const REGION_GROUPS: Partial<Record<string, RegionId[]>> = {
 	asia: ["South Asia", "Southeast Asia", "East Asia", "Central Asia"],
 	africa: ["Sub-Saharan Africa", "North Africa"],
 	america: ["North America", "South America", "Central America", "Caribbean"],
+	// Los mismos grupos en español, para el buscador de Stickers › Banderas.
+	europa: ["Western Europe", "Eastern Europe", "Northern Europe", "Southern Europe"],
+	"áfrica": ["Sub-Saharan Africa", "North Africa"],
+	"américa": ["North America", "South America", "Central America", "Caribbean"],
+	"latinoamérica": ["South America", "Central America", "Caribbean"],
+	"oceanía": ["Oceania"],
 };
 
 export interface CountryRecord {

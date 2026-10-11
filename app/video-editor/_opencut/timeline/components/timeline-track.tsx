@@ -1,14 +1,19 @@
 "use client";
 
+import { Clapperboard } from "lucide-react";
 import { useElementSelection } from "@/app/video-editor/_opencut/timeline/hooks/element/use-element-selection";
 import { TimelineElement } from "./timeline-element";
 import type { TimelineTrack } from "@/app/video-editor/_opencut/timeline";
 import type { TimelineElement as TimelineElementType } from "@/app/video-editor/_opencut/timeline";
 import { TIMELINE_LAYERS } from "./layers";
 import type { ElementDragView } from "@/app/video-editor/_opencut/timeline";
+import { tipoDePista } from "./cabecera-pista";
 
 interface TimelineTrackContentProps {
 	track: TimelineTrack;
+	isMain?: boolean;
+	/** La línea entera está vacía: la principal muestra «Arrastra el material aquí…». */
+	mostrarVacio?: boolean;
 	zoomLevel: number;
 	dragView: ElementDragView;
 	onResizeStart: (params: {
@@ -35,6 +40,8 @@ interface TimelineTrackContentProps {
 
 export function TimelineTrackContent({
 	track,
+	isMain = false,
+	mostrarVacio = false,
 	zoomLevel,
 	dragView,
 	onResizeStart,
@@ -46,13 +53,14 @@ export function TimelineTrackContent({
 	targetElementId = null,
 }: TimelineTrackContentProps) {
 	const { isElementSelected } = useElementSelection();
+	const { nombre } = tipoDePista({ track, isMain });
 
 	return (
 		<div className="relative size-full">
 			<button
 				type="button"
 				className="absolute inset-0 m-0 size-full appearance-none border-0 bg-transparent p-0"
-				aria-label={`Select ${track.name} track`}
+				aria-label={nombre}
 				onMouseUp={(event) => {
 					if (shouldIgnoreClick?.()) return;
 					onTrackMouseUp?.(event);
@@ -78,7 +86,12 @@ export function TimelineTrackContent({
 				}}
 			>
 				{track.elements.length === 0 ? (
-					<div className="text-muted-foreground border-muted/30 pointer-events-none flex size-full items-center justify-center rounded-sm border-2 border-dashed text-xs" />
+					mostrarVacio ? (
+						<div className="pointer-events-none absolute inset-1 flex items-center justify-center gap-2 rounded-[6px] border border-dashed border-(--cc-text-3)/60 text-xs text-(--cc-text-3)">
+							<Clapperboard className="size-4" />
+							Arrastra el material aquí y empieza a crear
+						</div>
+					) : null
 				) : (
 					track.elements.map((element) => {
 						const isSelected = isElementSelected({
@@ -91,6 +104,7 @@ export function TimelineTrackContent({
 								key={element.id}
 								element={element}
 								track={track}
+								isMain={isMain}
 								zoomLevel={zoomLevel}
 								isSelected={isSelected}
 								onResizeStart={({ event, element, side }) =>
@@ -109,6 +123,18 @@ export function TimelineTrackContent({
 					})
 				)}
 			</div>
+			{/* Pista bloqueada: rayado encima y los clips no reciben el mouse. */}
+			{track.locked && (
+				<div
+					aria-hidden
+					className="pointer-events-none absolute inset-0"
+					style={{
+						zIndex: TIMELINE_LAYERS.trackContent + 1,
+						backgroundImage:
+							"repeating-linear-gradient(135deg, rgb(0 0 0 / 0.28) 0 6px, transparent 6px 12px)",
+					}}
+				/>
+			)}
 		</div>
 	);
 }

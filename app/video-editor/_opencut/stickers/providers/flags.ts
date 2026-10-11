@@ -38,6 +38,30 @@ async function loadCountries(): Promise<CountryRecord[]> {
 	return countriesPromise;
 }
 
+// Los nombres del dataset están en inglés; el navegador trae los de CLDR en
+// español («Alemania», «Estados Unidos»), que es lo que ve el usuario y lo que
+// queda como nombre del clip.
+let nombresEs: Intl.DisplayNames | null | undefined;
+function nombreEnEspanol(code: string): string | null {
+	if (nombresEs === undefined) {
+		try {
+			nombresEs = new Intl.DisplayNames(["es"], { type: "region" });
+		} catch {
+			nombresEs = null;
+		}
+	}
+	try {
+		const nombre = nombresEs?.of(code.toUpperCase());
+		return nombre && nombre !== code.toUpperCase() ? nombre : null;
+	} catch {
+		return null;
+	}
+}
+
+function sinTildes(texto: string): string {
+	return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 function toStickerItem({ country }: { country: CountryRecord }): StickerItem {
 	const normalizedCode = country.code.toUpperCase();
 	return {
@@ -46,7 +70,7 @@ function toStickerItem({ country }: { country: CountryRecord }): StickerItem {
 			providerValue: normalizedCode,
 		}),
 		provider: FLAGS_PROVIDER_ID,
-		name: country.name,
+		name: nombreEnEspanol(normalizedCode) ?? country.name,
 		previewUrl: buildFlagUrl({ code: normalizedCode }),
 		metadata: {
 			code: normalizedCode,
@@ -116,10 +140,17 @@ function filterCountriesByQuery({
 		return countries.filter((country) => country.region && regionIds.has(country.region));
 	}
 
+	const consulta = sinTildes(query);
 	return countries.filter((country) => {
 		const normalizedName = country.name.toLowerCase();
 		const normalizedCode = country.code.toLowerCase();
-		return normalizedName.includes(query) || normalizedCode.includes(query);
+		const nombreEs = sinTildes(nombreEnEspanol(country.code) ?? "");
+		return (
+			normalizedName.includes(query) ||
+			normalizedCode.includes(query) ||
+			nombreEs.includes(consulta) ||
+			"bandera".startsWith(consulta)
+		);
 	});
 }
 

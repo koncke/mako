@@ -1,12 +1,12 @@
+// El toast de importar archivos a la biblioteca. Los textos son los de CapCut
+// («Importando…», «Importado», «Importado (%1)», «No se pudo importar»), cortos:
+// el nombre del archivo ya se ve en la grilla.
+
 import { toast } from "sonner";
 
 export interface MediaUploadToastResult {
 	uploadedCount: number;
 	assetNames?: string[];
-}
-
-function getAssetLabel({ count }: { count: number }): string {
-	return count === 1 ? "media asset" : "media assets";
 }
 
 function waitForNextPaint(): Promise<void> {
@@ -18,34 +18,28 @@ function waitForNextPaint(): Promise<void> {
 }
 
 export async function showMediaUploadToast<T extends MediaUploadToastResult>({
-	filesCount,
+	filesCount: _filesCount,
 	promise,
 }: {
 	filesCount: number;
 	promise: Promise<T> | (() => Promise<T>);
 }) {
 	const run = typeof promise === "function" ? promise : () => promise;
-	const toastPromise = toast.promise(async () => {
-		await waitForNextPaint();
-		return run();
-	}, {
-		loading: `Uploading ${getAssetLabel({ count: filesCount })}...`,
-		success: ({ uploadedCount, assetNames }) => {
-			if (uploadedCount === 1) {
-				const assetName = assetNames?.[0];
-				return assetName
-					? `${assetName} has been uploaded`
-					: "1 media asset has been uploaded";
-			}
-
-			if (uploadedCount > 1) {
-				return `${uploadedCount} media assets have been uploaded`;
-			}
-
-			return "No media assets were uploaded";
+	const toastPromise = toast.promise(
+		async () => {
+			await waitForNextPaint();
+			return run();
 		},
-		error: `Failed to upload ${getAssetLabel({ count: filesCount })}`,
-	});
+		{
+			loading: "Importando…",
+			success: ({ uploadedCount }) => {
+				if (uploadedCount === 1) return "Importado";
+				if (uploadedCount > 1) return `Importado (${uploadedCount})`;
+				return "No se pudo importar";
+			},
+			error: "No se pudo importar",
+		},
+	);
 
 	return toastPromise.unwrap();
 }

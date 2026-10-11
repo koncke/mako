@@ -13,13 +13,18 @@ export type ModifierKeys =
 	| "ctrl+alt"
 	| "ctrl+alt+shift";
 
+// Las teclas de puntuación son las del preset «CapCut» (` [ ] , . - =). Se
+// guardan con el carácter del teclado de EE. UU. y se reconocen por POSICIÓN
+// física (`event.code`): en un teclado latino el ` es la tecla de la
+// izquierda del 1 y el [ la de la derecha de la P, igual que en CapCut
+// (keybindings-store.ts → getPressedKey).
 const KEYS = [
 	"a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
 	"k", "l", "m", "n", "o", "p", "q", "r", "s", "t",
 	"u", "v", "w", "x", "y", "z",
 	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
 	"up", "down", "left", "right",
-	"/", "?", ".",
+	"/", "?", ".", ",", ";", "`", "[", "]", "-", "=",
 	"enter", "tab", "space", "escape", "esc",
 	"backspace", "delete", "home", "end",
 ] as const;

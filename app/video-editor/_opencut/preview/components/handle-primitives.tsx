@@ -5,6 +5,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import type { IconSvgElement } from "@hugeicons/react";
 
 export const HANDLE_SIZE = 10;
+/** El tirador de esquina de CapCut: un círculo blanco de ~10 px en la captura al 125 %. */
+export const CORNER_HANDLE_SIZE = 9;
 export const HANDLE_HIT_AREA_SIZE = 18;
 export const ICON_HANDLE_RADIUS = 10;
 export const EDGE_HANDLE_THIN_SIZE = 6;
@@ -88,8 +90,8 @@ export function CornerHandle({
 			onPointerUp={onPointerUp}
 		>
 			<div
-				className="rounded-sm bg-white"
-				style={{ width: HANDLE_SIZE, height: HANDLE_SIZE }}
+				className="rounded-full bg-white shadow-md ring-1 ring-black/25"
+				style={{ width: CORNER_HANDLE_SIZE, height: CORNER_HANDLE_SIZE }}
 			/>
 		</HandleButton>
 	);
@@ -189,7 +191,7 @@ export function IconHandle({
 		<HandleButton
 			screen={screen}
 			hitAreaSize={ICON_HANDLE_RADIUS * 2}
-			className="rounded-full bg-white text-black shadow-sm"
+			className="rounded-full bg-white text-black shadow-md ring-1 ring-black/25"
 			onPointerDown={onPointerDown}
 			onPointerMove={onPointerMove}
 			onPointerUp={onPointerUp}
@@ -248,7 +250,7 @@ export function BoundingBoxOutline({
 				fill="transparent"
 				stroke="white"
 				strokeDasharray={dashed ? "4 4" : undefined}
-				strokeOpacity={0.75}
+				strokeOpacity={dashed ? 0.75 : 1}
 				vectorEffect="non-scaling-stroke"
 				style={{ pointerEvents: onPointerDown ? "all" : "none" }}
 			/>

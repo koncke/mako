@@ -107,7 +107,7 @@ export function TimelinePlayhead({
 		<div
 			ref={playheadRef}
 			role="slider"
-			aria-label="Timeline playhead"
+			aria-label="Cabezal"
 			aria-valuemin={0}
 			aria-valuemax={duration}
 			aria-valuenow={currentTime}
@@ -122,12 +122,14 @@ export function TimelinePlayhead({
 			}}
 			onKeyDown={handlePlayheadKeyDown}
 		>
-			<div className="bg-primary pointer-events-none absolute left-0 h-full w-0.5" />
+			{/* El cabezal de CapCut: línea blanca y el «escudo» blanco sobre la regla. */}
+			<div className="pointer-events-none absolute left-0 h-full w-px bg-(--cc-playhead)" />
 
 			<button
 				type="button"
-				aria-label="Drag playhead"
-				className={`pointer-events-auto absolute top-1 left-1/2 size-3 -translate-x-1/2 transform cursor-col-resize rounded-full border-2 shadow-xs ${isSnappingToPlayhead ? "bg-primary border-primary" : "bg-primary border-primary/50"}`}
+				aria-label="Mover el cabezal"
+				className={`pointer-events-auto absolute top-0 left-px h-3 w-[11px] -translate-x-1/2 cursor-col-resize bg-(--cc-playhead) shadow-xs ${isSnappingToPlayhead ? "outline outline-1 outline-(--cc-accent)" : ""}`}
+				style={{ clipPath: "polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%)" }}
 				onMouseDown={handlePlayheadMouseDown}
 			/>
 		</div>

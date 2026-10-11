@@ -5,6 +5,7 @@ import { TIMELINE_LAYERS } from "./layers";
 interface DragLineProps {
 	dropTarget: DropTarget | null;
 	tracks: TimelineTrack[];
+	mainTrackId?: string | null;
 	isVisible: boolean;
 	headerHeight?: number;
 }
@@ -12,12 +13,13 @@ interface DragLineProps {
 export function DragLine({
 	dropTarget,
 	tracks,
+	mainTrackId,
 	isVisible,
 	headerHeight = 0,
 }: DragLineProps) {
 	if (!isVisible || !dropTarget) return null;
 
-	const y = getDropLineY({ dropTarget, tracks });
+	const y = getDropLineY({ dropTarget, tracks, mainTrackId });
 	const lineTop = y + headerHeight;
 
 	return (

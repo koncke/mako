@@ -1,563 +1,348 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button } from "@/app/video-editor/_opencut/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "@/app/video-editor/_opencut/components/ui/dialog";
-import {
-	DropdownMenu,
-	DropdownMenuCheckboxItem,
-	DropdownMenuContent,
-	DropdownMenuTrigger,
-} from "@/app/video-editor/_opencut/components/ui/dropdown-menu";
-import { Input } from "@/app/video-editor/_opencut/components/ui/input";
-import { ScrollArea } from "@/app/video-editor/_opencut/components/ui/scroll-area";
-import { Separator } from "@/app/video-editor/_opencut/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/video-editor/_opencut/components/ui/tabs";
-import { useInfiniteScroll } from "@/app/video-editor/_opencut/hooks/use-infinite-scroll";
-import { useSoundSearch } from "@/app/video-editor/_opencut/sounds/use-sound-search";
-import { useSoundsStore } from "@/app/video-editor/_opencut/sounds/sounds-store";
-import type { SavedSound, SoundEffect } from "@/app/video-editor/_opencut/sounds/types";
-import { cn } from "@/app/video-editor/_opencut/utils/ui";
-import {
-	FavouriteIcon,
-	FilterMailIcon,
-	PauseIcon,
-	PlayIcon,
-	PlusSignIcon,
-} from "@hugeicons/core-free-icons";
+// =============================================================================
+// La pestaña Audio de la biblioteca: Importar · Extraer audio · Música · Efectos de sonido
+// =============================================================================
+// Sólo audio PROPIO (decisión 7 de docs/diseno-editor-video.md): lo que el usuario
+// importa o lo que saca de sus videos. Música y Efectos de sonido quedan con un
+// estado vacío de una frase hasta tener una biblioteca con licencia comercial
+// (Epidemic Connect o un pack CC0 propio): una pista sin licencia es un reclamo de
+// copyright sobre la campaña del cliente. La API de Freesound que traía OpenCut
+// (`/api/sounds/search`) se sacó: sus términos prohíben el uso «service bureau» y
+// su filtro «solo comercial» dejaba pasar sonidos no comerciales.
+
+import Image from "next/image";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { MusicNote03Icon, PauseIcon, PlayIcon, Video01Icon } from "@hugeicons/core-free-icons";
+import {
+	BotonAgregar,
+	useArrastreLinea,
+} from "@/app/video-editor/_opencut/components/editor/panels/assets/draggable-item";
+import { useAssetsPanelStore } from "@/app/video-editor/_opencut/components/editor/panels/assets/assets-panel-store";
+import {
+	agregarMedioEnCabezal,
+	idsMediosEnLinea,
+} from "@/app/video-editor/_opencut/components/editor/panels/assets/views/assets";
+import {
+	ContenidoBiblioteca,
+	TituloGrupo,
+	VacioBiblioteca,
+	ZonaImportar,
+	formatearDuracion,
+} from "@/app/video-editor/_opencut/components/editor/panels/assets/views/biblioteca-ui";
+import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
+import { importarArchivos, useImportarArchivos } from "@/app/video-editor/_opencut/media/importar";
+import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
+import { useFileUpload } from "@/app/video-editor/_opencut/media/use-file-upload";
+import { cn } from "@/app/video-editor/_opencut/utils/ui";
+import { SinAudioError, extraerAudio } from "./extraer-audio";
 
-export function SoundsView() {
-	return (
-		<div className="flex h-full flex-col">
-			<Tabs defaultValue="sound-effects" className="flex h-full flex-col">
-				<div className="px-3 pt-4 pb-0">
-					<TabsList>
-						<TabsTrigger value="sound-effects">Sound effects</TabsTrigger>
-						<TabsTrigger value="saved">Saved</TabsTrigger>
-					</TabsList>
-				</div>
-				<Separator className="my-4" />
-				<TabsContent
-					value="sound-effects"
-					className="mt-0 flex min-h-0 flex-1 flex-col p-5 pt-0"
-				>
-					<SoundEffectsView />
-				</TabsContent>
-				<TabsContent
-					value="saved"
-					className="mt-0 flex min-h-0 flex-1 flex-col p-5 pt-0"
-				>
-					<SavedSoundsView />
-				</TabsContent>
-			</Tabs>
-		</div>
-	);
-}
+export const SECCION_AUDIO_IMPORTAR = "audio.importar";
 
-function SoundEffectsView() {
-	const {
-		topSoundEffects,
-		isLoading,
-		searchQuery,
-		setSearchQuery,
-		scrollPosition,
-		setScrollPosition,
-		loadSavedSounds,
-		showCommercialOnly,
-		toggleCommercialFilter,
-		hasLoaded,
-		setTopSoundEffects,
-		setLoading,
-		setError,
-		setHasLoaded,
-		setCurrentPage,
-		setHasNextPage,
-		setTotalCount,
-	} = useSoundsStore();
-	const {
-		results: searchResults,
-		isLoading: isSearching,
-		loadMore,
-		hasNextPage,
-		isLoadingMore,
-	} = useSoundSearch({
-		query: searchQuery,
-		commercialOnly: showCommercialOnly,
-	});
+// ── Previsualizar (un solo audio sonando a la vez) ───────────────────────────
 
-	const [playingId, setPlayingId] = useState<number | null>(null);
-	const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(
-		null,
-	);
+function useEscuchar() {
+	const audioRef = useRef<HTMLAudioElement | null>(null);
+	const [sonando, setSonando] = useState<string | null>(null);
 
-	const { scrollAreaRef, handleScroll } = useInfiniteScroll({
-		onLoadMore: loadMore,
-		hasMore: hasNextPage,
-		isLoading: isLoadingMore || isSearching,
-	});
+	const detener = useCallback(() => {
+		audioRef.current?.pause();
+		setSonando(null);
+	}, []);
 
-	useEffect(() => {
-		loadSavedSounds();
-	}, [loadSavedSounds]);
-
-	useEffect(() => {
-		if (hasLoaded) {
-			return;
-		}
-
-		let shouldIgnore = false;
-
-		const fetchTopSounds = async () => {
-			try {
-				if (!shouldIgnore) {
-					setLoading({ loading: true });
-					setError({ error: null });
-				}
-
-				const response = await fetch(
-					"/api/sounds/search?page_size=50&sort=downloads",
-				);
-
-				if (!shouldIgnore) {
-					if (!response.ok) {
-						throw new Error(`Failed to fetch: ${response.status}`);
-					}
-
-					const data = await response.json();
-					setTopSoundEffects({ sounds: data.results });
-					setHasLoaded({ loaded: true });
-
-					setCurrentPage({ page: 1 });
-					setHasNextPage({ hasNext: !!data.next });
-					setTotalCount({ count: data.count });
-				}
-			} catch (error) {
-				if (!shouldIgnore) {
-					console.error("Failed to fetch top sounds:", error);
-					setError({
-						error:
-							error instanceof Error ? error.message : "Failed to load sounds",
-					});
-				}
-			} finally {
-				if (!shouldIgnore) {
-					setLoading({ loading: false });
-				}
+	const alternar = useCallback(
+		(id: string, url: string | undefined) => {
+			if (!url) return;
+			if (sonando === id) {
+				detener();
+				return;
 			}
-		};
+			if (!audioRef.current) {
+				audioRef.current = new Audio();
+				audioRef.current.addEventListener("ended", () => setSonando(null));
+			}
+			const audio = audioRef.current;
+			audio.src = url;
+			audio.currentTime = 0;
+			void audio.play().catch(() => setSonando(null));
+			setSonando(id);
+		},
+		[sonando, detener],
+	);
 
-		const timeoutId = setTimeout(fetchTopSounds, 100, {});
+	// Al cambiar de sección o cerrar el panel, se calla.
+	useEffect(() => () => audioRef.current?.pause(), []);
 
-		return () => {
-			shouldIgnore = true;
-			clearTimeout(timeoutId);
-		};
-	}, [
-		hasLoaded,
-		setTopSoundEffects,
-		setLoading,
-		setError,
-		setHasLoaded,
-		setCurrentPage,
-		setHasNextPage,
-		setTotalCount,
-	]);
+	return { sonando, alternar, detener };
+}
 
-	useEffect(() => {
-		if (!scrollAreaRef.current || scrollPosition <= 0) {
-			return;
-		}
+// ── Audio › Importar ─────────────────────────────────────────────────────────
 
-		const restoreScrollPosition = () => {
-			scrollAreaRef.current?.scrollTo({ top: scrollPosition });
-		};
-
-		const timeoutId = setTimeout(restoreScrollPosition, 100, {});
-
-		return () => clearTimeout(timeoutId);
-	}, [scrollPosition, scrollAreaRef]);
-
-	const handleScrollWithPosition = ({
-		currentTarget,
-	}: React.UIEvent<HTMLDivElement>) => {
-		const { scrollTop } = currentTarget;
-		setScrollPosition({ position: scrollTop });
-		handleScroll({ currentTarget } as React.UIEvent<HTMLDivElement>);
-	};
-
-	const displayedSounds = searchQuery ? searchResults : topSoundEffects;
-
-	const playSound = ({ sound }: { sound: SoundEffect }) => {
-		if (playingId === sound.id) {
-			audioElement?.pause();
-			setPlayingId(null);
-			return;
-		}
-
-		audioElement?.pause();
-
-		if (sound.previewUrl) {
-			const audio = new Audio(sound.previewUrl);
-			audio.addEventListener("ended", () => {
-				setPlayingId(null);
-			});
-			audio.addEventListener("error", () => {
-				setPlayingId(null);
-			});
-			audio.play().catch((error) => {
-				console.error("Failed to play sound preview:", error);
-				setPlayingId(null);
-			});
-
-			setAudioElement(audio);
-			setPlayingId(sound.id);
-		}
-	};
+export function AudioImportarView() {
+	const assets = useEditor((e) => e.media.getAssets());
+	const usados = useEditor(idsMediosEnLinea);
+	const audios = useMemo(
+		() => assets.filter((a) => a.type === "audio" && !a.ephemeral),
+		[assets],
+	);
+	const usadosSet = useMemo(() => new Set(usados), [usados]);
+	const { importar, procesando, progreso } = useImportarArchivos();
+	const { isDragOver, dragProps, openFilePicker, fileInputProps } = useFileUpload({
+		accept: "audio/*",
+		multiple: true,
+		onFilesSelected: (files) => void importar({ files, soloTipo: "audio" }),
+	});
+	const { sonando, alternar } = useEscuchar();
 
 	return (
-		<div className="mt-1 flex h-full flex-col gap-5">
-			<div className="flex items-center gap-3">
-				<Input
-					placeholder="Search sound effects"
-					className="w-full"
-					containerClassName="w-full"
-					value={searchQuery}
-					onChange={({ currentTarget }) =>
-						setSearchQuery({ query: currentTarget.value })
-					}
-					showClearIcon
-					onClear={() => setSearchQuery({ query: "" })}
-				/>
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button
-							variant="text"
-							size="icon"
-							className={cn(showCommercialOnly && "text-primary")}
-						>
-							<HugeiconsIcon icon={FilterMailIcon} />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end" className="w-56">
-						<DropdownMenuCheckboxItem
-							checked={showCommercialOnly}
-							onCheckedChange={() => toggleCommercialFilter()}
-						>
-							Show only commercially licensed
-						</DropdownMenuCheckboxItem>
-						<div className="text-muted-foreground px-2 py-1.5 text-xs">
-							{showCommercialOnly
-								? "Only showing sounds licensed for commercial use"
-								: "Showing all sounds regardless of license"}
-						</div>
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
-
-			<div className="relative h-full overflow-hidden">
-				<ScrollArea
-					className="h-full flex-1"
-					ref={scrollAreaRef}
-					onScrollCapture={handleScrollWithPosition}
-				>
-					<div className="flex flex-col gap-4">
-						{isLoading && !searchQuery && (
-							<div className="text-muted-foreground text-sm">
-								Loading sounds...
-							</div>
-						)}
-						{isSearching && searchQuery && (
-							<div className="text-muted-foreground text-sm">Searching...</div>
-						)}
-						{displayedSounds.map((sound) => (
-							<AudioItem
-								key={sound.id}
-								sound={sound}
-								isPlaying={playingId === sound.id}
-								onPlay={playSound}
-							/>
-						))}
-						{!isLoading && !isSearching && displayedSounds.length === 0 && (
-							<div className="text-muted-foreground text-sm">
-								{searchQuery ? "No sounds found" : "No sounds available"}
-							</div>
-						)}
-						{isLoadingMore && (
-							<div className="text-muted-foreground py-4 text-center text-sm">
-								Loading more sounds...
-							</div>
-						)}
-					</div>
-				</ScrollArea>
-			</div>
-		</div>
+		<ContenidoBiblioteca {...dragProps}>
+			<input {...fileInputProps} />
+			<ZonaImportar
+				texto="Arrastra y suelta los archivos de audio aquí"
+				onClick={openFilePicker}
+				procesando={procesando}
+				progreso={progreso}
+				resaltada={isDragOver}
+				compacta={audios.length > 0}
+			/>
+			{audios.length > 0 && (
+				<div className="mt-3 flex flex-col gap-0.5">
+					{audios.map((asset) => (
+						<RenglonAudio
+							key={asset.id}
+							asset={asset}
+							agregado={usadosSet.has(asset.id)}
+							sonando={sonando === asset.id}
+							onEscuchar={() => alternar(asset.id, asset.url)}
+						/>
+					))}
+				</div>
+			)}
+		</ContenidoBiblioteca>
 	);
 }
 
-function SavedSoundsView() {
-	const {
-		savedSounds,
-		isLoadingSavedSounds,
-		savedSoundsError,
-		loadSavedSounds,
-		clearSavedSounds,
-	} = useSoundsStore();
-
-	const [playingId, setPlayingId] = useState<number | null>(null);
-	const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(
-		null,
+function RenglonAudio({
+	asset,
+	agregado,
+	sonando,
+	onEscuchar,
+}: {
+	asset: MediaAsset;
+	agregado: boolean;
+	sonando: boolean;
+	onEscuchar: () => void;
+}) {
+	const editor = useEditor();
+	const portada = (
+		<div className="flex size-full items-center justify-center bg-[var(--cc-clip-audio)] text-[var(--cc-text)]">
+			<HugeiconsIcon icon={MusicNote03Icon} className="size-5" />
+		</div>
 	);
-
-	const [showClearDialog, setShowClearDialog] = useState(false);
-
-	useEffect(() => {
-		loadSavedSounds();
-	}, [loadSavedSounds]);
-
-	const playSound = ({ sound }: { sound: SoundEffect }) => {
-		if (playingId === sound.id) {
-			audioElement?.pause();
-			setPlayingId(null);
-			return;
-		}
-
-		audioElement?.pause();
-
-		if (sound.previewUrl) {
-			const audio = new Audio(sound.previewUrl);
-			audio.addEventListener("ended", () => {
-				setPlayingId(null);
-			});
-			audio.addEventListener("error", () => {
-				setPlayingId(null);
-			});
-			audio.play().catch((error) => {
-				console.error("Failed to play sound preview:", error);
-				setPlayingId(null);
-			});
-
-			setAudioElement(audio);
-			setPlayingId(sound.id);
-		}
-	};
-
-	const convertToSoundEffect = ({
-		savedSound,
-	}: {
-		savedSound: SavedSound;
-	}): SoundEffect => ({
-		id: savedSound.id,
-		name: savedSound.name,
-		description: "",
-		url: "",
-		previewUrl: savedSound.previewUrl,
-		downloadUrl: savedSound.downloadUrl,
-		duration: savedSound.duration,
-		filesize: 0,
-		type: "audio",
-		channels: 0,
-		bitrate: 0,
-		bitdepth: 0,
-		samplerate: 0,
-		username: savedSound.username,
-		tags: savedSound.tags,
-		license: savedSound.license,
-		created: savedSound.savedAt,
-		downloads: 0,
-		rating: 0,
-		ratingCount: 0,
+	const { arrastrando, props, fantasma } = useArrastreLinea({
+		dragData: { id: asset.id, type: "media", mediaType: "audio", name: asset.name },
+		fantasma: portada,
 	});
 
-	if (isLoadingSavedSounds) {
-		return (
-			<div className="flex h-full items-center justify-center">
-				<div className="text-muted-foreground text-sm">
-					Loading saved sounds...
-				</div>
-			</div>
-		);
-	}
-
-	if (savedSoundsError) {
-		return (
-			<div className="flex h-full items-center justify-center">
-				<div className="text-destructive text-sm">
-					Error: {savedSoundsError}
-				</div>
-			</div>
-		);
-	}
-
-	if (savedSounds.length === 0) {
-		return (
-			<div className="bg-background flex h-full flex-col items-center justify-center gap-3 p-4">
-				<HugeiconsIcon
-					icon={FavouriteIcon}
-					className="text-muted-foreground size-10"
-				/>
-				<div className="flex flex-col gap-2 text-center">
-					<p className="text-lg font-medium">No saved sounds</p>
-					<p className="text-muted-foreground text-sm text-balance">
-						Click the heart icon on any sound to save it here
-					</p>
-				</div>
-			</div>
-		);
-	}
-
 	return (
-		<div className="mt-1 flex h-full flex-col gap-5">
-			<div className="flex items-center justify-between">
-				<p className="text-muted-foreground text-sm">
-					{savedSounds.length} saved{" "}
-					{savedSounds.length === 1 ? "sound" : "sounds"}
-				</p>
-				<Dialog open={showClearDialog} onOpenChange={setShowClearDialog}>
-					<DialogTrigger asChild>
-						<Button
-							variant="text"
-							size="sm"
-							className="text-muted-foreground hover:text-destructive h-auto !opacity-100"
-						>
-							Clear all
-						</Button>
-					</DialogTrigger>
-					<DialogContent>
-						<DialogHeader>
-							<DialogTitle>Clear all saved sounds?</DialogTitle>
-							<DialogDescription>
-								This will permanently remove all {savedSounds.length} saved
-								sounds from your collection. This action cannot be undone.
-							</DialogDescription>
-						</DialogHeader>
-						<DialogFooter>
-							<Button variant="text" onClick={() => setShowClearDialog(false)}>
-								Cancel
-							</Button>
-							<Button
-								variant="destructive"
-								onClick={async ({
-									stopPropagation,
-								}: React.MouseEvent<HTMLButtonElement>) => {
-									stopPropagation();
-									await clearSavedSounds();
-									setShowClearDialog(false);
-								}}
-							>
-								Clear all sounds
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
-			</div>
-
-			<div className="relative h-full overflow-hidden">
-				<ScrollArea className="h-full flex-1">
-					<div className="flex flex-col gap-4">
-						{savedSounds.map((sound) => (
-							<AudioItem
-								key={sound.id}
-								sound={convertToSoundEffect({ savedSound: sound })}
-								isPlaying={playingId === sound.id}
-								onPlay={playSound}
-							/>
-						))}
-					</div>
-				</ScrollArea>
-			</div>
-		</div>
-	);
-}
-
-interface AudioItemProps {
-	sound: SoundEffect;
-	isPlaying: boolean;
-	onPlay: ({ sound }: { sound: SoundEffect }) => void;
-}
-
-function AudioItem({ sound, isPlaying, onPlay }: AudioItemProps) {
-	const { addSoundToTimeline, isSoundSaved, toggleSavedSound } =
-		useSoundsStore();
-	const isSaved = isSoundSaved({ soundId: sound.id });
-
-	const handleClick = () => {
-		onPlay({ sound });
-	};
-
-	const handleSaveClick = ({
-		stopPropagation,
-	}: React.MouseEvent<HTMLButtonElement>) => {
-		stopPropagation();
-		toggleSavedSound({ soundEffect: sound });
-	};
-
-	const handleAddToTimeline = async ({
-		stopPropagation,
-	}: React.MouseEvent<HTMLButtonElement>) => {
-		stopPropagation();
-		await addSoundToTimeline({ sound });
-	};
-
-	return (
-		<div className="group flex items-center gap-3 opacity-100 hover:opacity-75">
+		<div
+			className="group flex h-12 cursor-default items-center gap-2.5 rounded-[4px] px-1.5 hover:bg-[var(--cc-raised)]/50"
+			{...props}
+		>
 			<button
 				type="button"
-				className="flex min-w-0 flex-1 items-center gap-3 text-left"
-				onClick={handleClick}
+				aria-label={sonando ? "Pausar" : "Reproducir"}
+				title={sonando ? "Pausar" : "Reproducir"}
+				onClick={onEscuchar}
+				className="relative size-9 shrink-0 cursor-pointer overflow-hidden rounded-[4px]"
 			>
-				<div className="bg-accent relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md">
-					<div className="from-primary/20 absolute inset-0 bg-gradient-to-br to-transparent" />
-					{isPlaying ? (
-						<HugeiconsIcon icon={PauseIcon} className="size-5" />
-					) : (
-						<HugeiconsIcon icon={PlayIcon} className="size-5" />
+				{portada}
+				<span
+					className={cn(
+						"absolute inset-0 flex items-center justify-center bg-black/45 text-white transition-opacity",
+						sonando ? "opacity-100" : "opacity-0 group-hover:opacity-100",
 					)}
-				</div>
-
-				<div className="min-w-0 flex-1 overflow-hidden">
-					<p className="truncate text-sm font-medium">{sound.name}</p>
-					<span className="text-muted-foreground block truncate text-xs">
-						{sound.username}
-					</span>
-				</div>
+				>
+					<HugeiconsIcon icon={sonando ? PauseIcon : PlayIcon} className="size-4" />
+				</span>
 			</button>
-
-			<div className="flex items-center gap-3 pr-2">
-				<Button
-					variant="text"
-					size="icon"
-					className="text-muted-foreground hover:text-foreground w-auto !opacity-100"
-					onClick={handleAddToTimeline}
-					title="Add to timeline"
-				>
-					<HugeiconsIcon icon={PlusSignIcon} />
-				</Button>
-				<Button
-					variant="text"
-					size="icon"
-					className={`hover:text-foreground w-auto !opacity-100 ${
-						isSaved
-							? "text-red-500 hover:text-red-600"
-							: "text-muted-foreground"
-					}`}
-					onClick={handleSaveClick}
-					title={isSaved ? "Remove from saved" : "Save sound"}
-				>
-					<HugeiconsIcon
-						icon={FavouriteIcon}
-						className={`${isSaved ? "fill-current" : ""}`}
-					/>
-				</Button>
+			<div className="min-w-0 flex-1">
+				<div className={cn("truncate text-[12px]", sonando ? "text-primary" : "text-[var(--cc-text)]")} title={asset.name}>
+					{asset.name}
+				</div>
+				<div className="text-[11px] text-[var(--cc-text-3)] tabular-nums">
+					{formatearDuracion(asset.duration)}
+					{agregado && <span className="ml-2">Agregado</span>}
+				</div>
 			</div>
+			{!arrastrando && (
+				<BotonAgregar
+					className="relative right-auto bottom-auto mr-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+					onClick={() =>
+						agregarMedioEnCabezal({
+							editor,
+							asset,
+							startTime: editor.playback.getCurrentTime(),
+						})
+					}
+				/>
+			)}
+			{fantasma}
 		</div>
 	);
+}
+
+// ── Audio › Extraer audio ────────────────────────────────────────────────────
+
+export function ExtraerAudioView() {
+	const editor = useEditor();
+	const assets = useEditor((e) => e.media.getAssets());
+	const videos = useMemo(
+		() => assets.filter((a) => a.type === "video" && !a.ephemeral && a.hasAudio !== false),
+		[assets],
+	);
+	const irA = useAssetsPanelStore((s) => s.irA);
+	const [extrayendo, setExtrayendo] = useState<string | null>(null);
+	const [progreso, setProgreso] = useState(0);
+
+	const extraer = useCallback(
+		async ({ file, clave }: { file: File; clave: string }) => {
+			if (extrayendo) return;
+			setExtrayendo(clave);
+			setProgreso(0);
+			try {
+				await toast
+					.promise(
+						(async () => {
+							const audio = await extraerAudio({ file, onProgress: setProgreso });
+							const creados = await importarArchivos({ editor, files: [audio] });
+							if (creados.length === 0) throw new Error("no se guardó el audio");
+							return creados;
+						})(),
+						{
+							loading: "Extrayendo audio…",
+							success: "Extraído",
+							error: (error) =>
+								error instanceof SinAudioError
+									? "No se puede separar el audio"
+									: "No se pudo importar",
+						},
+					)
+					.unwrap();
+				// Lo extraído se ve donde vive: Audio › Importar.
+				irA({ categoria: "audio", seccion: SECCION_AUDIO_IMPORTAR });
+			} catch (error) {
+				if (!(error instanceof SinAudioError)) {
+					console.error("[extraer audio]", error);
+				}
+			} finally {
+				setExtrayendo(null);
+				setProgreso(0);
+			}
+		},
+		[editor, extrayendo, irA],
+	);
+
+	const { isDragOver, dragProps, openFilePicker, fileInputProps } = useFileUpload({
+		accept: "video/*",
+		multiple: false,
+		onFilesSelected: (files) => {
+			const file = files[0];
+			if (file) void extraer({ file, clave: "archivo" });
+		},
+	});
+
+	return (
+		<ContenidoBiblioteca {...dragProps}>
+			<input {...fileInputProps} />
+			<ZonaImportar
+				texto="Extraer audio de un video"
+				onClick={openFilePicker}
+				procesando={extrayendo === "archivo"}
+				progreso={progreso}
+				rotuloProcesando="Extrayendo audio…"
+				resaltada={isDragOver}
+				compacta={videos.length > 0}
+			/>
+			{videos.length > 0 && (
+				<div className="mt-4">
+					<TituloGrupo>Archivos multimedia importados</TituloGrupo>
+					<div className="flex flex-col gap-0.5">
+						{videos.map((video) => {
+							const esteSale = extrayendo === video.id;
+							return (
+								<div
+									key={video.id}
+									className="flex h-12 items-center gap-2.5 rounded-[4px] px-1.5 hover:bg-[var(--cc-raised)]/50"
+								>
+									<div className="relative size-9 shrink-0 overflow-hidden rounded-[4px] bg-[var(--cc-sunken)]">
+										{video.thumbnailUrl ? (
+											<Image
+												src={video.thumbnailUrl}
+												alt=""
+												fill
+												sizes="36px"
+												draggable={false}
+												className="object-cover"
+												unoptimized
+											/>
+										) : (
+											<span className="flex size-full items-center justify-center text-[var(--cc-text-3)]">
+												<HugeiconsIcon icon={Video01Icon} className="size-4" />
+											</span>
+										)}
+									</div>
+									<div className="min-w-0 flex-1">
+										<div className="truncate text-[12px] text-[var(--cc-text)]" title={video.name}>
+											{video.name}
+										</div>
+										<div className="text-[11px] text-[var(--cc-text-3)] tabular-nums">
+											{esteSale
+												? `Extrayendo audio… ${progreso} %`
+												: formatearDuracion(video.duration)}
+										</div>
+									</div>
+									<button
+										type="button"
+										disabled={extrayendo !== null}
+										onClick={() => void extraer({ file: video.file, clave: video.id })}
+										className="h-7 shrink-0 cursor-pointer rounded-[4px] bg-[var(--cc-raised)] px-2.5 text-[12px] text-[var(--cc-text)] hover:bg-[var(--cc-btn-2)] disabled:cursor-default disabled:opacity-50"
+									>
+										Extraer
+									</button>
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			)}
+		</ContenidoBiblioteca>
+	);
+}
+
+// ── Audio › Música y Efectos de sonido: sin biblioteca con licencia todavía ──
+
+function SinLicencia({ texto }: { texto: string }) {
+	const irA = useAssetsPanelStore((s) => s.irA);
+	return (
+		<VacioBiblioteca texto={texto}>
+			<button
+				type="button"
+				onClick={() => irA({ categoria: "audio", seccion: SECCION_AUDIO_IMPORTAR })}
+				className="h-7 cursor-pointer rounded-[4px] bg-[var(--cc-raised)] px-3 text-[12px] text-[var(--cc-text)] hover:bg-[var(--cc-btn-2)]"
+			>
+				Importar
+			</button>
+		</VacioBiblioteca>
+	);
+}
+
+export function MusicaView() {
+	return <SinLicencia texto="Aún no hay música con licencia: importa la tuya." />;
+}
+
+export function EfectosDeSonidoView() {
+	return <SinLicencia texto="Aún no hay efectos de sonido con licencia: importa los tuyos." />;
 }

@@ -1,7 +1,6 @@
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import type { Command, CommandResult } from "@/app/video-editor/_opencut/commands";
 import type { EditorSelectionSnapshot } from "@/app/video-editor/_opencut/selection/editor-selection";
-import { applyRippleAdjustments, computeRippleAdjustments } from "@/app/video-editor/_opencut/ripple";
 import type { SceneTracks } from "@/app/video-editor/_opencut/timeline/types";
 
 interface CommandHistoryEntry {
@@ -124,31 +123,10 @@ export class CommandManager {
 		}
 	}
 
-	private applyRippleIfEnabled({
-		beforeTracks,
-	}: {
-		beforeTracks: SceneTracks | null;
-	}): void {
-		if (!this.isRippleEnabled || !beforeTracks) {
-			return;
-		}
-
-		const afterTracks = this.editor.scenes.getActiveSceneOrNull()?.tracks;
-		if (!afterTracks) {
-			return;
-		}
-		const adjustments = computeRippleAdjustments({
-			beforeTracks,
-			afterTracks,
-		});
-		if (adjustments.length === 0) {
-			return;
-		}
-
-		const tracksWithRipple = applyRippleAdjustments({
-			tracks: afterTracks,
-			adjustments,
-		});
-		this.editor.timeline.updateTracks(tracksWithRipple);
+	private applyRippleIfEnabled(_: { beforeTracks: SceneTracks | null }): void {
+		// El ripple de OpenCut corría los clips de TODAS las pistas. En la copia
+		// de CapCut lo reemplaza el imán de la pista principal + la vinculación,
+		// que corre en `timeline.updateTracks` (ripple/iman.ts) para cubrir
+		// también `commitPreview`, que no pasa por acá.
 	}
 }

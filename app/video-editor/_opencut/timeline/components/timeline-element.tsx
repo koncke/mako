@@ -1,8 +1,18 @@
 "use client";
 
-import { createContext, useContext } from "react";
+// Un clip de la línea de tiempo, como en CapCut Desktop 9.3 (relevamiento §7.2):
+//   · video/imagen: franja del nombre arriba (con la duración), la tira
+//     CONTINUA de miniaturas y, en la pista principal, la onda del audio propio
+//     abajo;
+//   · texto: barra ladrillo con el texto; stickers/efectos con su color;
+//   · audio: azul marino con la onda celeste y los fundidos (círculos blancos);
+//   · elegido: contorno blanco de 2 px y tiradores blancos de 4 px;
+//   · ⧓ sobre el corte si el clip tiene transición (`transicion.id`, paquete G).
+// En «Modo de división» (B) el clic DIVIDE el clip en ese punto en vez de
+// elegirlo. Los clips de una pista bloqueada no reciben el mouse.
+
+import { createContext, useContext, useState } from "react";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
-import { useAssetsPanelStore } from "@/app/video-editor/_opencut/components/editor/panels/assets/assets-panel-store";
 import { AudioWaveform, WAVEFORM_GAIN_SAMPLE_COUNT } from "./audio-waveform";
 import { AudioVolumeLine } from "./audio-volume-line";
 import { useElementPreview } from "@/app/video-editor/_opencut/timeline/hooks/use-element-preview";
@@ -23,7 +33,7 @@ import {
 	timelineTimeToSnappedPixels,
 } from "@/app/video-editor/_opencut/timeline";
 import { getTrackHeight } from "./track-layout";
-import { getTimelineElementClassName, TIMELINE_TRACK_THEME } from "./theme";
+import { claseCuerpoClip, leerToken } from "./theme";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -40,19 +50,22 @@ import type {
 	ImageElement,
 	AudioElement,
 } from "@/app/video-editor/_opencut/timeline";
-import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import { mediaSupportsAudio } from "@/app/video-editor/_opencut/media/media-utils";
 import {
 	canToggleSourceAudio,
-	getSourceAudioActionLabel,
 	isSourceAudioSeparated,
 } from "@/app/video-editor/_opencut/timeline/audio-separation";
 import { buildWaveformGainSamples, isElementMuted } from "@/app/video-editor/_opencut/timeline/audio-state";
 import { getTimelinePixelsPerSecond } from "@/app/video-editor/_opencut/timeline";
 import { buildWaveformSourceKey } from "@/app/video-editor/_opencut/media/waveform-summary";
-import { addMediaTime, type MediaTime, TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import {
-	getActionDefinition,
+	addMediaTime,
+	mediaTime,
+	type MediaTime,
+	TICKS_PER_SECOND,
+} from "@/app/video-editor/_opencut/wasm";
+import {
+	atajoDe,
 	type TAction,
 	type TActionWithOptionalArgs,
 	invokeAction,
@@ -61,40 +74,32 @@ import { useElementSelection } from "@/app/video-editor/_opencut/timeline/hooks/
 import { resolveStickerId } from "@/app/video-editor/_opencut/stickers";
 import { buildGraphicPreviewUrl } from "@/app/video-editor/_opencut/graphics";
 import Image from "next/image";
-import {
-	ScissorIcon,
-	Delete02Icon,
-	Copy01Icon,
-	ViewIcon,
-	ViewOffSlashIcon,
-	VolumeHighIcon,
-	VolumeOffIcon,
-	VolumeMute02Icon,
-	Search01Icon,
-	Exchange01Icon,
-	KeyframeIcon,
-	MagicWand05Icon,
-} from "@hugeicons/core-free-icons";
+import { KeyframeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { uppercase } from "@/app/video-editor/_opencut/utils/string";
+import { Sparkles, WandSparkles } from "lucide-react";
 import { useMemo, type ComponentProps, type ReactNode } from "react";
 import type { SelectedKeyframeRef, ElementKeyframe } from "@/app/video-editor/_opencut/animation/types";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { usePropertiesStore } from "@/app/video-editor/_opencut/components/editor/panels/properties/stores/properties-store";
-import { getTrackTypeForElementType } from "@/app/video-editor/_opencut/timeline/placement/compatibility";
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
-import { KEYFRAME_LANE_HEIGHT_PX } from "./layout";
+import {
+	CLIP_NAME_STRIP_HEIGHT_PX,
+	CLIP_WAVE_STRIP_HEIGHT_PX,
+	KEYFRAME_LANE_HEIGHT_PX,
+} from "./layout";
 import {
 	getExpandedRows,
 	getExpansionHeight,
 	type ExpandedRow,
 } from "./expanded-layout";
+import { TiraMiniaturas } from "./tira-miniaturas";
+import { FundidosAudio } from "./fundidos-audio";
 
 const KEYFRAME_INDICATOR_MIN_WIDTH_PX = 40;
-const ELEMENT_RING_WIDTH_PX = 1.5;
+/** Entre dos clips pegados queda 1 px de cada lado, como el filo oscuro de CapCut. */
+const ELEMENT_RING_WIDTH_PX = 1;
 
 const PixelsPerSecondContext = createContext<number | null>(null);
-const THUMBNAIL_ASPECT_RATIO = 16 / 9;
 
 interface KeyframeIndicator {
 	time: MediaTime;
@@ -185,20 +190,26 @@ export function getKeyframeIndicators({
 	return [...keyframesByTime.values()].sort((a, b) => a.time - b.time);
 }
 
-export function getDisplayShortcut({ action }: { action: TAction }) {
-	const defaultShortcuts = getActionDefinition({ action }).defaultShortcuts;
-	if (!defaultShortcuts?.length) {
-		return "";
-	}
+/** «00:00:05:12» (horas:minutos:segundos:cuadros), como el rótulo de los clips de CapCut. */
+function formatoDuracion(ticks: number, fps: number): string {
+	const total = ticks / TICKS_PER_SECOND;
+	const h = Math.floor(total / 3600);
+	const m = Math.floor((total % 3600) / 60);
+	const s = Math.floor(total % 60);
+	const f = Math.floor((total % 1) * fps);
+	const dos = (n: number) => String(n).padStart(2, "0");
+	return `${dos(h)}:${dos(m)}:${dos(s)}:${dos(f)}`;
+}
 
-	return uppercase({
-		string: defaultShortcuts[0].replace("+", " "),
-	});
+function tieneTransicion(element: TimelineElementType): boolean {
+	const id = element.params["transicion.id"];
+	return typeof id === "string" && id.length > 0;
 }
 
 interface TimelineElementProps {
 	element: TimelineElementType;
 	track: TimelineTrack;
+	isMain?: boolean;
 	zoomLevel: number;
 	isSelected: boolean;
 	onResizeStart: (params: {
@@ -222,6 +233,7 @@ interface TimelineElementProps {
 export function TimelineElement({
 	element,
 	track,
+	isMain = false,
 	zoomLevel,
 	isSelected,
 	onResizeStart,
@@ -230,22 +242,20 @@ export function TimelineElement({
 	dragView,
 	isDropTarget = false,
 }: TimelineElementProps) {
+	const editor = useEditor();
 	const mediaAssets = useEditor((e) => e.media.getAssets());
 	const { selectedElements } = useElementSelection();
-	const requestRevealMedia = useAssetsPanelStore((s) => s.requestRevealMedia);
+	const modoCursor = useTimelineStore((s) => s.modoCursor);
 	const { renderElement } = useElementPreview({
 		trackId: track.id,
 		elementId: element.id,
 		fallback: element,
 	});
+	const [xCorte, setXCorte] = useState<number | null>(null);
 
-	let mediaAsset: MediaAsset | null = null;
-
-	if (hasMediaId(element)) {
-		mediaAsset =
-			mediaAssets.find((asset) => asset.id === element.mediaId) ?? null;
-	}
-
+	const mediaAsset = hasMediaId(element)
+		? (mediaAssets.find((asset) => asset.id === element.mediaId) ?? null)
+		: null;
 	const hasAudio = mediaSupportsAudio({ media: mediaAsset });
 
 	const isCurrentElementSelected = selectedElements.some(
@@ -303,9 +313,6 @@ export function TimelineElement({
 	const isExpanded = useTimelineStore((s) =>
 		s.expandedElementIds.has(element.id),
 	);
-	const toggleElementExpanded = useTimelineStore(
-		(s) => s.toggleElementExpanded,
-	);
 	const expandedRows = useMemo(
 		() =>
 			isExpanded ? getExpandedRows({ animations: element.animations }) : [],
@@ -328,27 +335,40 @@ export function TimelineElement({
 		elementLeft,
 	});
 
-	const handleRevealInMedia = ({ event }: { event: React.MouseEvent }) => {
-		event.stopPropagation();
-		if (hasMediaId(element)) {
-			requestRevealMedia(element.mediaId);
-		}
-	};
-
 	const isMuted = canElementHaveAudio(element) && isElementMuted({ element });
 	const canToggleCurrentSourceAudio =
 		selectedElements.length === 1 &&
 		isCurrentElementSelected &&
 		canToggleSourceAudio(element, mediaAsset);
-	const sourceAudioLabel =
-		element.type === "video"
-			? getSourceAudioActionLabel({ element })
-			: "Extract audio";
-	const isElementSourceAudioSeparated =
+	const separado =
 		element.type === "video" && isSourceAudioSeparated({ element });
 	const hasKeyframes = elementKeyframes.length > 0;
 	const expansionHeight = getExpansionHeight({ rows: expandedRows });
-	const baseTrackHeight = getTrackHeight({ type: track.type });
+	const baseTrackHeight = getTrackHeight({ type: track.type, isMain });
+	const bloqueada = track.locked === true;
+	const divide = modoCursor === "dividir" && !bloqueada;
+
+	// ⧓: el clip de la izquierda de un corte tiene transición y hay un clip pegado.
+	const siguientePegado = track.elements.some(
+		(otro) =>
+			otro.id !== element.id &&
+			Math.abs(otro.startTime - (element.startTime + element.duration)) <= 1,
+	);
+	const marcadorTransicion = tieneTransicion(element) && siguientePegado;
+
+	/** Tiempo de la línea bajo el mouse, ajustado al cuadro (para dividir). */
+	const tiempoBajoMouse = (event: React.MouseEvent): MediaTime | null => {
+		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const x = event.clientX - rect.left;
+		const fps = editor.project.getActive().settings.fps;
+		const ticksCuadro = (TICKS_PER_SECOND * fps.denominator) / fps.numerator;
+		const crudo = displayedStartTime + (x / timelinePixelsPerSecond) * TICKS_PER_SECOND;
+		const ajustado = Math.round(crudo / ticksCuadro) * ticksCuadro;
+		if (ajustado <= element.startTime || ajustado >= element.startTime + element.duration) {
+			return null;
+		}
+		return mediaTime({ ticks: Math.round(ajustado) });
+	};
 
 	const expandedContent =
 		isExpanded && expandedRows.length > 0 ? (
@@ -372,12 +392,18 @@ export function TimelineElement({
 			/>
 		) : null;
 
+	const muchos = selectedElements.length > 1 && isCurrentElementSelected;
+
 	return (
 		<PixelsPerSecondContext.Provider value={timelinePixelsPerSecond}>
 			<ContextMenu>
-				<ContextMenuTrigger asChild>
+				<ContextMenuTrigger asChild disabled={bloqueada}>
 					<div
-						className="absolute top-0 select-none"
+						className={cn(
+							"group/clip absolute top-0 select-none",
+							bloqueada && "pointer-events-none",
+							divide && "cursor-crosshair",
+						)}
 						style={{
 							left: `${elementLeft}px`,
 							width: `${elementWidth}px`,
@@ -390,11 +416,32 @@ export function TimelineElement({
 									? `translate3d(0, ${dragOffsetY}px, 0)`
 									: undefined,
 						}}
+						onMouseDownCapture={(event) => {
+							if (!divide || event.button !== 0) return;
+							event.preventDefault();
+							event.stopPropagation();
+							const splitTime = tiempoBajoMouse(event);
+							if (splitTime === null) return;
+							editor.timeline.splitElements({
+								elements: [{ trackId: track.id, elementId: element.id }],
+								splitTime,
+							});
+						}}
+						onClickCapture={(event) => {
+							if (divide) event.stopPropagation();
+						}}
+						onMouseMove={(event) => {
+							if (!divide) return;
+							const rect = event.currentTarget.getBoundingClientRect();
+							setXCorte(event.clientX - rect.left);
+						}}
+						onMouseLeave={() => setXCorte(null)}
 					>
 						<ElementInner
 							element={element}
 							displayElement={renderElement}
 							track={track}
+							isMain={isMain}
 							isSelected={isSelected}
 							isExpanded={expandedRows.length > 0}
 							baseTrackHeight={baseTrackHeight}
@@ -420,94 +467,95 @@ export function TimelineElement({
 								/>
 							</div>
 						)}
+						{divide && xCorte !== null && (
+							<div
+								aria-hidden
+								className="pointer-events-none absolute top-0 z-20 w-px bg-white"
+								style={{ left: xCorte, height: baseTrackHeight }}
+							/>
+						)}
+						{marcadorTransicion && (
+							<MarcadorTransicion
+								onClick={() =>
+									editor.selection.setSelectedElements({
+										elements: [{ trackId: track.id, elementId: element.id }],
+									})
+								}
+								alto={baseTrackHeight}
+							/>
+						)}
 					</div>
 				</ContextMenuTrigger>
-				<ContextMenuContent className="w-64">
-					<ActionMenuItem
-						action="split"
-						icon={<HugeiconsIcon icon={ScissorIcon} />}
-					>
-						Split
+				<ContextMenuContent className="w-60">
+					<ActionMenuItem action="copy-selected">Copiar</ActionMenuItem>
+					<ActionMenuItem action="cortar">Cortar</ActionMenuItem>
+					<ActionMenuItem action="paste-copied">Pegar</ActionMenuItem>
+					<ActionMenuItem action="delete-selected" variant="destructive">
+						{muchos ? `Eliminar (${selectedElements.length})` : "Eliminar"}
 					</ActionMenuItem>
-					<CopyMenuItem />
-					{selectedElements.length === 1 && (
-						<ActionMenuItem
-							action="duplicate-selected"
-							icon={<HugeiconsIcon icon={Copy01Icon} />}
-						>
-							Duplicate
+					<ContextMenuSeparator />
+					<ActionMenuItem action="split">Dividir</ActionMenuItem>
+					<ContextMenuSeparator />
+					<ActionMenuItem action="copiar-atributos" disabled={muchos}>
+						Copiar atributos
+					</ActionMenuItem>
+					<ActionMenuItem action="pegar-atributos">Pegar atributos</ActionMenuItem>
+					{(canToggleCurrentSourceAudio ||
+						(canElementHaveAudio(element) && hasAudio)) && <ContextMenuSeparator />}
+					{canToggleCurrentSourceAudio && (
+						<ActionMenuItem action="toggle-source-audio">
+							{separado ? "Recuperar audio" : "Extraer audio"}
 						</ActionMenuItem>
 					)}
-					{canElementHaveAudio(element) && hasAudio && (
-						<MuteMenuItem
-							isMultipleSelected={selectedElements.length > 1}
-							isCurrentElementSelected={isCurrentElementSelected}
-							isMuted={isMuted}
-						/>
-					)}
-					{canToggleCurrentSourceAudio && (
-						<ContextMenuItem
-							icon={
-								<HugeiconsIcon
-									icon={
-										isElementSourceAudioSeparated ? ScissorIcon : ScissorIcon
-									}
-								/>
-							}
-							onClick={(event: React.MouseEvent) => {
-								event.stopPropagation();
-								invokeAction("toggle-source-audio");
-							}}
-						>
-							{sourceAudioLabel}
-						</ContextMenuItem>
-					)}
-					{canElementBeHidden(element) && (
-						<VisibilityMenuItem
-							element={element}
-							isMultipleSelected={selectedElements.length > 1}
-							isCurrentElementSelected={isCurrentElementSelected}
-						/>
-					)}
-					{hasKeyframes && (
-						<ContextMenuItem
-							icon={<HugeiconsIcon icon={KeyframeIcon} />}
-							onClick={(event: React.MouseEvent) => {
-								event.stopPropagation();
-								toggleElementExpanded(element.id);
-							}}
-						>
-							{isExpanded ? "Collapse keyframes" : "Expand keyframes"}
-						</ContextMenuItem>
-					)}
-					{selectedElements.length === 1 && hasMediaId(element) && (
-						<>
-							<ContextMenuItem
-								icon={<HugeiconsIcon icon={Search01Icon} />}
-								onClick={(event: React.MouseEvent) =>
-									handleRevealInMedia({ event })
-								}
-							>
-								Reveal media
-							</ContextMenuItem>
-							<ContextMenuItem
-								icon={<HugeiconsIcon icon={Exchange01Icon} />}
-								disabled
-							>
-								Replace media
-							</ContextMenuItem>
-						</>
+					{canElementHaveAudio(element) && hasAudio && element.type === "video" && (
+						<ActionMenuItem action="toggle-elements-muted-selected">
+							{isMuted ? "Reactivar el audio del clip" : "Silenciar el audio del clip"}
+						</ActionMenuItem>
 					)}
 					<ContextMenuSeparator />
-					<DeleteMenuItem
-						isMultipleSelected={selectedElements.length > 1}
-						isCurrentElementSelected={isCurrentElementSelected}
-						elementType={element.type}
-						selectedCount={selectedElements.length}
-					/>
+					<ActionMenuItem action="alternar-clip">
+						Activar/Desactivar el clip
+					</ActionMenuItem>
+					{hasKeyframes && (
+						<ActionMenuItem action="panel-fotogramas-clave">
+							Mostrar/ocultar el panel de fotogramas clave
+						</ActionMenuItem>
+					)}
+					{hasMediaId(element) && element.type !== "audio" && (
+						<>
+							<ContextMenuSeparator />
+							{/* Reemplazar conservando duración y efectos: todavía no. */}
+							<ContextMenuItem disabled>Reemplazar el clip</ContextMenuItem>
+						</>
+					)}
 				</ContextMenuContent>
 			</ContextMenu>
 		</PixelsPerSecondContext.Provider>
+	);
+}
+
+function MarcadorTransicion({
+	onClick,
+	alto,
+}: {
+	onClick: () => void;
+	alto: number;
+}) {
+	return (
+		<button
+			type="button"
+			aria-label="Transición"
+			title="Transición"
+			className="pointer-events-auto absolute -right-[9px] z-20 flex size-[18px] cursor-pointer items-center justify-center rounded-[4px] bg-white text-[11px] leading-none text-(--cc-clip-video) shadow-sm"
+			style={{ top: Math.max(2, alto / 2 - 9) }}
+			onMouseDown={(e) => e.stopPropagation()}
+			onClick={(e) => {
+				e.stopPropagation();
+				onClick();
+			}}
+		>
+			⧓
+		</button>
 	);
 }
 
@@ -515,6 +563,7 @@ function ElementInner({
 	element,
 	displayElement,
 	track,
+	isMain,
 	isSelected,
 	isExpanded,
 	baseTrackHeight,
@@ -527,6 +576,7 @@ function ElementInner({
 	element: TimelineElementType;
 	displayElement?: TimelineElementType;
 	track: TimelineTrack;
+	isMain: boolean;
 	isSelected: boolean;
 	isExpanded: boolean;
 	baseTrackHeight: number;
@@ -548,8 +598,13 @@ function ElementInner({
 	isDropTarget?: boolean;
 }) {
 	const visibleElement = displayElement ?? element;
+	// Un clip desactivado (V) o una pista oculta/silenciada se ven apagados.
+	const pistaApagada =
+		("hidden" in track && track.hidden) || ("muted" in track && track.muted && track.type === "audio");
 	const isReducedOpacity =
 		(canElementBeHidden(visibleElement) && visibleElement.hidden) ||
+		(visibleElement.type === "audio" && visibleElement.params.muted === true) ||
+		pistaApagada ||
 		isDropTarget;
 	return (
 		<div
@@ -560,48 +615,46 @@ function ElementInner({
 			}}
 		>
 			<div
-				className="absolute inset-0 rounded-sm"
-				style={
-					isSelected
-						? {
-								boxShadow: `0 0 0 ${ELEMENT_RING_WIDTH_PX}px var(--primary)`,
-							}
-						: undefined
-				}
+				className={cn(
+					"absolute inset-0 overflow-hidden rounded-[4px]",
+					isExpanded && "bg-background",
+				)}
 			>
-				<div
-					className={cn(
-						"absolute inset-0 overflow-hidden rounded-sm",
-						isExpanded && "bg-background",
-					)}
+				<button
+					type="button"
+					tabIndex={-1}
+					className="absolute inset-0 flex size-full flex-col text-left"
+					onClick={(event) => onElementClick({ event, element })}
+					onMouseDown={(event) => onElementMouseDown({ event, element })}
 				>
-					<button
-						type="button"
-						tabIndex={-1}
-						className="absolute inset-0 size-full flex flex-col"
-						onClick={(event) => onElementClick({ event, element })}
-						onMouseDown={(event) => onElementMouseDown({ event, element })}
+					<div
+						className={cn(
+							"relative flex w-full shrink-0 overflow-hidden",
+							claseCuerpoClip(element),
+							isReducedOpacity && "opacity-50",
+						)}
+						style={{ height: `${baseTrackHeight}px` }}
 					>
-						<div
-							className={cn(
-								"flex shrink-0 items-center overflow-hidden",
-								getTimelineElementClassName({
-									type: getTrackTypeForElementType({
-										elementType: element.type,
-									}),
-								}),
-								isReducedOpacity && "opacity-50",
-							)}
-							style={{ height: `${baseTrackHeight}px` }}
-						>
-							<div className="flex flex-1 min-h-0 h-full items-center overflow-hidden">
-								<ElementContent element={visibleElement} track={track} />
-							</div>
-						</div>
-						{expandedContent}
-					</button>
-				</div>
+						<ElementContent
+							element={visibleElement}
+							track={track}
+							isMain={isMain}
+							isSelected={isSelected}
+							alto={baseTrackHeight}
+						/>
+					</div>
+					{expandedContent}
+				</button>
 			</div>
+
+			{/* Elegido: contorno blanco de 2 px. */}
+			{isSelected && (
+				<div
+					aria-hidden
+					className="pointer-events-none absolute inset-0 rounded-[4px] border-2 border-(--cc-select)"
+					style={{ height: baseTrackHeight }}
+				/>
+			)}
 
 			{isSelected && (
 				<>
@@ -609,12 +662,14 @@ function ElementInner({
 						side="left"
 						element={element}
 						track={track}
+						height={baseTrackHeight}
 						onResizeStart={onResizeStart}
 					/>
 					<ResizeHandle
 						side="right"
 						element={element}
 						track={track}
+						height={baseTrackHeight}
 						onResizeStart={onResizeStart}
 					/>
 				</>
@@ -623,15 +678,18 @@ function ElementInner({
 	);
 }
 
+/** Tirador de recorte: barra blanca de 4 px en el borde del clip elegido. */
 function ResizeHandle({
 	side,
 	element,
 	track,
+	height,
 	onResizeStart,
 }: {
 	side: "left" | "right";
 	element: TimelineElementType;
 	track: TimelineTrack;
+	height: number;
 	onResizeStart: (params: {
 		event: React.MouseEvent;
 		element: TimelineElementType;
@@ -644,13 +702,25 @@ function ResizeHandle({
 		<button
 			type="button"
 			className={cn(
-				"absolute top-0 bottom-0 w-2",
-				isLeft ? "-left-1 cursor-w-resize" : "-right-1 cursor-e-resize",
+				"absolute top-0 flex w-2.5 items-center",
+				isLeft
+					? "left-0 cursor-w-resize justify-start"
+					: "right-0 cursor-e-resize justify-end",
 			)}
+			style={{ height }}
 			onMouseDown={(event) => onResizeStart({ event, element, track, side })}
 			onClick={(event) => event.stopPropagation()}
-			aria-label={`${isLeft ? "Left" : "Right"} resize handle`}
-		></button>
+			aria-label={isLeft ? "Recortar el inicio" : "Recortar el final"}
+		>
+			<span
+				className={cn(
+					"flex h-full w-1 items-center justify-center bg-(--cc-select)",
+					isLeft ? "rounded-l-[4px]" : "rounded-r-[4px]",
+				)}
+			>
+				<span className="h-3 w-px bg-black/45" />
+			</span>
+		</button>
 	);
 }
 
@@ -709,7 +779,7 @@ function KeyframeIndicators({
 			<button
 				key={indicator.time}
 				type="button"
-				className="pointer-events-auto absolute top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-grab mr-0.5"
+				className="pointer-events-auto absolute top-1/2 mr-0.5 -translate-x-1/2 -translate-y-1/2 cursor-grab"
 				style={{ left: visualOffsetPx }}
 				onMouseDown={(event) =>
 					onKeyframeMouseDown({ event, keyframes: indicator.keyframes })
@@ -722,7 +792,7 @@ function KeyframeIndicators({
 						indicatorTime: indicator.time,
 					})
 				}
-				aria-label="Select keyframe"
+				aria-label="Fotograma clave"
 			>
 				<HugeiconsIcon
 					icon={KeyframeIcon}
@@ -821,7 +891,7 @@ function ExpandedKeyframeLanes({
 				return (
 					<div
 						key={row.propertyPath}
-						className={cn("relative flex items-center bg-muted/50")}
+						className={cn("relative flex items-center bg-(--cc-sunken)")}
 						style={{ height: `${KEYFRAME_LANE_HEIGHT_PX}px` }}
 					>
 						{laneKeyframes.map((kf) => {
@@ -875,12 +945,12 @@ function ExpandedKeyframeLanes({
 											indicatorTime: kf.time,
 										});
 									}}
-									aria-label="Select keyframe"
+									aria-label="Fotograma clave"
 								>
 									<HugeiconsIcon
 										icon={KeyframeIcon}
 										className={cn(
-											"size-3.5 text-black mr-1",
+											"mr-1 size-3.5 text-black",
 											isSelected ? "fill-primary" : "fill-white",
 										)}
 										strokeWidth={1.5}
@@ -896,9 +966,24 @@ function ExpandedKeyframeLanes({
 	);
 }
 
+// ── Contenido por tipo ──────────────────────────────────────────────────────
+
 interface ElementContentProps {
 	element: TimelineElementType;
 	track: TimelineTrack;
+	isMain: boolean;
+	isSelected: boolean;
+	alto: number;
+}
+
+/** El rótulo de un clip fino (texto, sticker, efecto): ícono + texto en una línea. */
+function RotuloFino({ icono, children }: { icono?: ReactNode; children: ReactNode }) {
+	return (
+		<div className="flex size-full min-w-0 items-center gap-1.5 px-2">
+			{icono}
+			<span className="truncate text-[11px] leading-none text-white/90">{children}</span>
+		</div>
+	);
 }
 
 function TextElementContent({
@@ -906,13 +991,9 @@ function TextElementContent({
 }: {
 	element: Extract<TimelineElementType, { type: "text" }>;
 }) {
-	return (
-		<div className="flex size-full items-center justify-start pl-2">
-			<span className="truncate text-xs text-white">
-				{typeof element.params.content === "string" ? element.params.content : ""}
-			</span>
-		</div>
-	);
+	const contenido =
+		typeof element.params.content === "string" ? element.params.content : "";
+	return <RotuloFino>{contenido || element.name}</RotuloFino>;
 }
 
 function EffectElementContent({
@@ -921,13 +1002,9 @@ function EffectElementContent({
 	element: Extract<TimelineElementType, { type: "effect" }>;
 }) {
 	return (
-		<div className="flex size-full items-center justify-start gap-1 pl-2">
-			<HugeiconsIcon
-				icon={MagicWand05Icon}
-				className="size-4 shrink-0 text-white"
-			/>
-			<span className="truncate text-xs text-white">{element.name}</span>
-		</div>
+		<RotuloFino icono={<Sparkles className="size-3.5 shrink-0 text-white/90" />}>
+			{element.name}
+		</RotuloFino>
 	);
 }
 
@@ -937,20 +1014,23 @@ function StickerElementContent({
 	element: Extract<TimelineElementType, { type: "sticker" }>;
 }) {
 	return (
-		<div className="flex size-full items-center gap-2 pl-2">
-			<Image
-				src={resolveStickerId({
-					stickerId: element.stickerId,
-					options: { width: 20, height: 20 },
-				})}
-				alt={element.name}
-				className="size-4 shrink-0"
-				width={20}
-				height={20}
-				unoptimized
-			/>
-			<span className="truncate text-xs text-white">{element.name}</span>
-		</div>
+		<RotuloFino
+			icono={
+				<Image
+					src={resolveStickerId({
+						stickerId: element.stickerId,
+						options: { width: 20, height: 20 },
+					})}
+					alt=""
+					className="size-4 shrink-0"
+					width={20}
+					height={20}
+					unoptimized
+				/>
+			}
+		>
+			{element.name}
+		</RotuloFino>
 	);
 }
 
@@ -960,20 +1040,49 @@ function GraphicElementContent({
 	element: Extract<TimelineElementType, { type: "graphic" }>;
 }) {
 	return (
-		<div className="flex size-full items-center gap-2 pl-2">
-			<Image
-				src={buildGraphicPreviewUrl({
-					definitionId: element.definitionId,
-					params: element.params,
-					size: 20,
-				})}
-				alt={element.name}
-				className="size-4 shrink-0"
-				width={20}
-				height={20}
-				unoptimized
-			/>
-			<span className="truncate text-xs text-white">{element.name}</span>
+		<RotuloFino
+			icono={
+				<Image
+					src={buildGraphicPreviewUrl({
+						definitionId: element.definitionId,
+						params: element.params,
+						size: 20,
+					})}
+					alt=""
+					className="size-4 shrink-0"
+					width={20}
+					height={20}
+					unoptimized
+				/>
+			}
+		>
+			{element.name}
+		</RotuloFino>
+	);
+}
+
+/** La franja del nombre arriba del clip (20 px en la captura → 16). */
+function FranjaNombre({
+	nombre,
+	duracion,
+	claseFondo,
+	inicio,
+}: {
+	nombre: string;
+	duracion?: string;
+	claseFondo: string;
+	inicio?: ReactNode;
+}) {
+	return (
+		<div
+			className={cn("flex w-full shrink-0 items-center gap-1.5 overflow-hidden px-1.5", claseFondo)}
+			style={{ height: CLIP_NAME_STRIP_HEIGHT_PX }}
+		>
+			{inicio}
+			<span className="truncate text-[10px] leading-none text-white/85">{nombre}</span>
+			{duracion && (
+				<span className="shrink-0 text-[10px] leading-none text-white/60">{duracion}</span>
+			)}
 		</div>
 	);
 }
@@ -981,9 +1090,11 @@ function GraphicElementContent({
 function AudioElementContent({
 	element,
 	trackId,
+	isSelected,
 }: {
 	element: AudioElement;
 	trackId: string;
+	isSelected: boolean;
 }) {
 	const pixelsPerSecond = useContext(PixelsPerSecondContext);
 	if (pixelsPerSecond === null) {
@@ -992,6 +1103,7 @@ function AudioElementContent({
 		);
 	}
 	const mediaAssets = useEditor((e) => e.media.getAssets());
+	const fps = useEditor((e) => e.project.getActiveOrNull()?.settings.fps);
 	const mediaAsset =
 		element.sourceType === "upload"
 			? (mediaAssets.find((asset) => asset.id === element.mediaId) ?? null)
@@ -1016,11 +1128,18 @@ function AudioElementContent({
 			}),
 		[element],
 	);
-	if (audioBuffer || audioUrl || sourceFile) {
-		return (
-			<div className="group/audio relative size-full">
-				<MediaElementHeader name={mediaLabel} hasFade={false} />
-				<div className="absolute inset-x-0 top-5 bottom-0 overflow-hidden">
+	const colorOnda = useMemo(() => leerToken("--cc-clip-audio-wave", "rgba(255,255,255,0.7)"), []);
+	const fpsNum = fps ? fps.numerator / fps.denominator : 30;
+
+	return (
+		<div className="group/audio relative flex size-full flex-col">
+			<FranjaNombre
+				nombre={mediaLabel}
+				duracion={formatoDuracion(element.duration, fpsNum)}
+				claseFondo="bg-(--cc-clip-audio-name)"
+			/>
+			<div className="relative min-h-0 flex-1 overflow-hidden">
+				{(audioBuffer || audioUrl || sourceFile) && (
 					<AudioWaveform
 						sourceKey={sourceKey}
 						sourceFile={sourceFile}
@@ -1031,22 +1150,17 @@ function AudioElementContent({
 						clipDurationSec={element.duration / TICKS_PER_SECOND}
 						retime={element.retime}
 						sourceStartSec={element.trimStart / TICKS_PER_SECOND}
-						color={TIMELINE_TRACK_THEME.audio.waveformColor}
+						color={colorOnda}
 					/>
-					<AudioVolumeLine element={element} trackId={trackId} />
-				</div>
+				)}
+				<AudioVolumeLine element={element} trackId={trackId} />
 			</div>
-		);
-	}
-
-	return (
-		<div className="group/audio relative size-full">
-			<div className="flex size-full items-center pl-2">
-				<span className="text-foreground/80 truncate text-xs">
-					{element.name}
-				</span>
-			</div>
-			<AudioVolumeLine element={element} trackId={trackId} />
+			<FundidosAudio
+				element={element}
+				trackId={trackId}
+				pixelsPerSecond={pixelsPerSecond}
+				visible={isSelected}
+			/>
 		</div>
 	);
 }
@@ -1072,98 +1186,105 @@ function EffectsButton({
 	return (
 		<button
 			type="button"
-			className="flex shrink-0 justify-center text-white cursor-pointer"
+			aria-label="Efectos"
+			className="flex shrink-0 cursor-pointer justify-center text-white"
 			onMouseDown={(event) => event.stopPropagation()}
 			onClick={handleClick}
 		>
-			<HugeiconsIcon icon={MagicWand05Icon} size={12} />
+			<WandSparkles className="size-3" />
 		</button>
 	);
 }
 
-function TiledMediaContent({
+/** Video o imagen: nombre + duración, tira de miniaturas y (en la principal) la onda. */
+function MediaClipContent({
 	element,
 	track,
+	isMain,
+	alto,
 }: {
 	element: VideoElement | ImageElement;
 	track: TimelineTrack;
+	isMain: boolean;
+	alto: number;
 }) {
+	const pixelsPerSecond = useContext(PixelsPerSecondContext) ?? 50;
 	const mediaAssets = useEditor((e) => e.media.getAssets());
-
+	const fps = useEditor((e) => e.project.getActiveOrNull()?.settings.fps);
 	const mediaAsset = mediaAssets.find((asset) => asset.id === element.mediaId);
-	const imageUrl =
-		element.type === "video"
-			? mediaAsset?.thumbnailUrl
-			: (mediaAsset?.thumbnailUrl ?? mediaAsset?.url);
-
-	if (!imageUrl) {
-		return (
-			<span className="text-foreground/80 truncate text-xs">
-				{element.name}
-			</span>
-		);
-	}
-
-	const trackHeight = getTrackHeight({ type: track.type });
-	const tileWidth = trackHeight * THUMBNAIL_ASPECT_RATIO;
+	const fpsNum = fps ? fps.numerator / fps.denominator : 30;
+	const conOnda =
+		isMain &&
+		element.type === "video" &&
+		mediaSupportsAudio({ media: mediaAsset ?? null }) &&
+		!isSourceAudioSeparated({ element });
+	const colorOnda = useMemo(() => leerToken("--cc-clip-audio-wave", "rgba(255,255,255,0.7)"), []);
+	const gainSamples = useMemo(
+		() =>
+			element.type === "video"
+				? buildWaveformGainSamples({ element, count: WAVEFORM_GAIN_SAMPLE_COUNT })
+				: undefined,
+		[element],
+	);
+	const aspecto =
+		mediaAsset?.width && mediaAsset?.height ? mediaAsset.width / mediaAsset.height : 16 / 9;
+	const altoTira = alto - CLIP_NAME_STRIP_HEIGHT_PX - (conOnda ? CLIP_WAVE_STRIP_HEIGHT_PX : 0);
+	const retime = element.type === "video" ? element.retime : undefined;
 
 	return (
-		<>
-			<div
-				className="absolute inset-0"
-				style={{
-					backgroundColor: "var(--muted)",
-					backgroundImage: `url(${imageUrl})`,
-					backgroundRepeat: "repeat-x",
-					backgroundSize: `${tileWidth}px ${trackHeight}px`,
-					backgroundPosition: "left center",
-					pointerEvents: "none",
-				}}
-			/>
-			<MediaElementHeader
-				name={mediaAsset?.name}
-				leading={
+		<div className="flex size-full flex-col">
+			<FranjaNombre
+				nombre={mediaAsset?.name ?? element.name}
+				duracion={formatoDuracion(element.duration, fpsNum)}
+				claseFondo="bg-(--cc-clip-video-name)"
+				inicio={
 					hasElementEffects({ element }) ? (
 						<EffectsButton element={element} track={track} />
 					) : null
 				}
-				hasFade={true}
 			/>
-		</>
-	);
-}
-
-function MediaElementHeader({
-	name,
-	leading,
-	hasFade,
-}: {
-	name?: string | null;
-	leading?: ReactNode;
-	hasFade?: boolean;
-}) {
-	if (!name && !leading) {
-		return null;
-	}
-
-	return (
-		<div
-			className={cn(
-				"absolute top-0 left-0 flex h-5 w-full bg-linear-to-b pt-1",
-				hasFade && "from-black/30 to-transparent",
-			)}
-		>
-			{leading && <div className="pl-1">{leading}</div>}
-			{name && (
-				<span className="truncate px-1.5 text-[0.6rem] leading-tight text-white/75">
-					{name}
-				</span>
+			<div className="relative w-full shrink-0" style={{ height: Math.max(0, altoTira) }}>
+				{mediaAsset ? (
+					<TiraMiniaturas
+						mediaId={mediaAsset.id}
+						tipo={element.type}
+						file={element.type === "video" ? mediaAsset.file : undefined}
+						urlRespaldo={
+							element.type === "video"
+								? mediaAsset.thumbnailUrl
+								: (mediaAsset.thumbnailUrl ?? mediaAsset.url)
+						}
+						aspecto={aspecto}
+						pixelsPerSecond={pixelsPerSecond}
+						clipDurationSec={element.duration / TICKS_PER_SECOND}
+						sourceStartSec={element.trimStart / TICKS_PER_SECOND}
+						retime={retime}
+					/>
+				) : null}
+			</div>
+			{conOnda && mediaAsset && element.type === "video" && (
+				<div
+					className="relative w-full shrink-0 overflow-hidden"
+					style={{ height: CLIP_WAVE_STRIP_HEIGHT_PX }}
+				>
+					<AudioWaveform
+						sourceKey={buildWaveformSourceKey({ kind: "media", id: mediaAsset.id })}
+						sourceFile={mediaAsset.file}
+						audioUrl={mediaAsset.url}
+						gainSamples={gainSamples}
+						pixelsPerSecond={pixelsPerSecond}
+						clipDurationSec={element.duration / TICKS_PER_SECOND}
+						retime={element.retime}
+						sourceStartSec={element.trimStart / TICKS_PER_SECOND}
+						color={colorOnda}
+					/>
+				</div>
 			)}
 		</div>
 	);
 }
 
-function ElementContent({ element, track }: ElementContentProps) {
+function ElementContent({ element, track, isMain, isSelected, alto }: ElementContentProps) {
 	switch (element.type) {
 		case "text":
 			return <TextElementContent element={element} />;
@@ -1174,105 +1295,15 @@ function ElementContent({ element, track }: ElementContentProps) {
 		case "graphic":
 			return <GraphicElementContent element={element} />;
 		case "audio":
-			return <AudioElementContent element={element} trackId={track.id} />;
+			return (
+				<AudioElementContent element={element} trackId={track.id} isSelected={isSelected} />
+			);
 		case "video":
 		case "image":
-			return <TiledMediaContent element={element} track={track} />;
+			return (
+				<MediaClipContent element={element} track={track} isMain={isMain} alto={alto} />
+			);
 	}
-}
-
-function CopyMenuItem() {
-	return (
-		<ActionMenuItem
-			action="copy-selected"
-			icon={<HugeiconsIcon icon={Copy01Icon} />}
-		>
-			Copy
-		</ActionMenuItem>
-	);
-}
-
-function MuteMenuItem({
-	isMultipleSelected,
-	isCurrentElementSelected,
-	isMuted,
-}: {
-	isMultipleSelected: boolean;
-	isCurrentElementSelected: boolean;
-	isMuted: boolean;
-}) {
-	const getIcon = () => {
-		if (isMultipleSelected && isCurrentElementSelected) {
-			return <HugeiconsIcon icon={VolumeMute02Icon} />;
-		}
-		return isMuted ? (
-			<HugeiconsIcon icon={VolumeOffIcon} />
-		) : (
-			<HugeiconsIcon icon={VolumeHighIcon} />
-		);
-	};
-
-	return (
-		<ActionMenuItem action="toggle-elements-muted-selected" icon={getIcon()}>
-			{isMuted ? "Unmute" : "Mute"}
-		</ActionMenuItem>
-	);
-}
-
-function VisibilityMenuItem({
-	element,
-	isMultipleSelected,
-	isCurrentElementSelected,
-}: {
-	element: TimelineElementType;
-	isMultipleSelected: boolean;
-	isCurrentElementSelected: boolean;
-}) {
-	const isHidden = canElementBeHidden(element) && element.hidden;
-
-	const getIcon = () => {
-		if (isMultipleSelected && isCurrentElementSelected) {
-			return <HugeiconsIcon icon={ViewOffSlashIcon} />;
-		}
-		return isHidden ? (
-			<HugeiconsIcon icon={ViewIcon} />
-		) : (
-			<HugeiconsIcon icon={ViewOffSlashIcon} />
-		);
-	};
-
-	return (
-		<ActionMenuItem
-			action="toggle-elements-visibility-selected"
-			icon={getIcon()}
-		>
-			{isHidden ? "Show" : "Hide"}
-		</ActionMenuItem>
-	);
-}
-
-function DeleteMenuItem({
-	isMultipleSelected,
-	isCurrentElementSelected,
-	elementType,
-	selectedCount,
-}: {
-	isMultipleSelected: boolean;
-	isCurrentElementSelected: boolean;
-	elementType: TimelineElementType["type"];
-	selectedCount: number;
-}) {
-	return (
-		<ActionMenuItem
-			action="delete-selected"
-			variant="destructive"
-			icon={<HugeiconsIcon icon={Delete02Icon} />}
-		>
-			{isMultipleSelected && isCurrentElementSelected
-				? `Delete ${selectedCount} elements`
-				: `Delete ${elementType === "text" ? "text" : "clip"}`}
-		</ActionMenuItem>
-	);
 }
 
 function ActionMenuItem({
@@ -1289,7 +1320,7 @@ function ActionMenuItem({
 				event.stopPropagation();
 				invokeAction(action);
 			}}
-			textRight={getDisplayShortcut({ action })}
+			textRight={atajoDe(action as TAction)}
 			{...props}
 		>
 			{children}

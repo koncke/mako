@@ -19,9 +19,9 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { TextIcon } from "@hugeicons/core-free-icons";
 
 const FONT_TABS = [
-	{ key: "all", label: "All fonts" },
-	{ key: "my-fonts", label: "My fonts" },
-	{ key: "favorites", label: "Favorites" },
+	{ key: "all", label: "Todas" },
+	{ key: "my-fonts", label: "Mis fuentes" },
+	{ key: "favorites", label: "Favoritos" },
 ] as const;
 
 type FontTab = (typeof FONT_TABS)[number]["key"];
@@ -82,9 +82,6 @@ export function FontPicker({
 		}
 	}, [open]);
 
-	const activeTabLabel =
-		FONT_TABS.find((t) => t.key === activeTab)?.label.toLowerCase() ?? "";
-
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger
@@ -98,7 +95,7 @@ export function FontPicker({
 						<HugeiconsIcon icon={TextIcon} />
 					</span>
 					<span className="truncate" style={{ fontFamily: defaultValue }}>
-						{defaultValue ?? "Select a font"}
+						{defaultValue ?? "Fuente"}
 					</span>
 				</div>
 				<ChevronDown className="size-3 shrink-0 opacity-50" />
@@ -120,7 +117,7 @@ export function FontPicker({
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 shrink-0 opacity-50" />
 					<Input
 						ref={searchInputRef}
-						placeholder={`Search ${activeTabLabel}...`}
+						placeholder="Buscar"
 						value={search}
 						onChange={(event) => setSearch(event.target.value)}
 						size="xs"
@@ -163,7 +160,7 @@ export function FontPicker({
 					fontNames.length > 0 &&
 					filteredFonts.length === 0 && (
 						<div className="py-6 text-center text-sm text-muted-foreground">
-							No fonts found.
+							No se encontraron resultados
 						</div>
 					)}
 				{status === "idle" && atlas && filteredFonts.length > 0 && (

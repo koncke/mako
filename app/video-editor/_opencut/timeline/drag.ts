@@ -1,5 +1,6 @@
 import type { MaskableElement, VisualElement } from "./types";
 import type { ParamValues } from "@/app/video-editor/_opencut/params";
+import type { MediaTime } from "@/app/video-editor/_opencut/wasm";
 
 interface BaseDragData {
 	id: string;
@@ -15,6 +16,8 @@ export interface MediaDragData extends BaseDragData {
 export interface TextDragData extends BaseDragData {
 	type: "text";
 	content: string;
+	/** Duración al soltarlo (la biblioteca de CapCut agrega el texto de 3 s). Sin ella, la de siempre. */
+	duration?: MediaTime;
 }
 
 export interface StickerDragData extends BaseDragData {

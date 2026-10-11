@@ -28,6 +28,7 @@ import {
 	resolveAnimationPathValueAtTime,
 } from "@/app/video-editor/_opencut/animation";
 import { resolveAnimationTarget } from "@/app/video-editor/_opencut/timeline/animation-targets";
+import { aplicarImanPrincipal } from "@/app/video-editor/_opencut/ripple/iman";
 import { BatchCommand } from "@/app/video-editor/_opencut/commands";
 import {
 	AddTrackCommand,
@@ -929,7 +930,13 @@ export class TimelineManager {
 	updateTracks(newTracks: SceneTracks): void {
 		this.previewOverlay.clear();
 		this.previewTracks = null;
-		this.editor.scenes.updateSceneTracks({ tracks: newTracks });
+		// El imán de la pista principal y la vinculación de CapCut corren acá,
+		// el único lugar por donde pasa TODO cambio de pistas (ripple/iman.ts).
+		const tracks = aplicarImanPrincipal({
+			antes: this.editor.scenes.getActiveSceneOrNull()?.tracks ?? null,
+			despues: newTracks,
+		});
+		this.editor.scenes.updateSceneTracks({ tracks });
 		this.notify();
 	}
 }

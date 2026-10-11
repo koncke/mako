@@ -1,54 +1,44 @@
 "use client";
 
-import Image from "next/image";
-import Link from "@/app/_ui/Link";
-import { useRouter } from "@/app/_ui/Link";
-import type { KeyboardEvent, MouseEvent } from "react";
-import { useEffect, useState } from "react";
+// =============================================================================
+// /video-editor: el inicio de CapCut, adentro de MaKo
+// =============================================================================
+// Copia de la pantalla de inicio de CapCut Desktop 9.3 (relevamiento §8,
+// `pc_home.png`) sin su barra lateral (acá está la de MaKo) ni lo que MaKo no
+// tiene (Pro, plantillas, herramientas de IA, Papelera, Sincronización):
+//
+//   · el banner grande «⊞ Crear proyecto», degradado cian #60d5e1→#13bddc con
+//     texto oscuro (1150×215 en la captura ≈ 920×172);
+//   · «Proyectos», con «Buscar» y la vista «Cuadrícula»/«Lista» a la derecha;
+//   · tarjetas de ~118 px (147 en la captura) con la miniatura, el nombre y
+//     «tamaño | duración» («9.1K | 00:00»), y el menú Abrir · Renombrar ·
+//     Duplicar · Eliminar.
+//
+// El nombre de un proyecto nuevo es la fecha MMDD, como CapCut (./nombre.ts).
+// La vista elegida se recuerda en este navegador (./store.ts).
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { EditorCore } from "@/app/video-editor/_opencut/core";
-import { MigrationDialog } from "@/app/video-editor/_opencut/project/components/migration-dialog";
-import { StoragePersistenceDialog } from "@/app/video-editor/_opencut/services/storage/components/storage-persistence-dialog";
-import { Button } from "@/app/video-editor/_opencut/components/ui/button";
-import { Card, CardContent } from "@/app/video-editor/_opencut/components/ui/card";
-import { Checkbox } from "@/app/video-editor/_opencut/components/ui/checkbox";
-import { Input } from "@/app/video-editor/_opencut/components/ui/input";
-import { Skeleton } from "@/app/video-editor/_opencut/components/ui/skeleton";
-import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
-import { useProjectsStore } from "./store";
-import { rutaEditor } from "@/app/video-editor/ruta";
-import type {
-	TProjectMetadata,
-	TProjectSortKey,
-	TProjectSortOption,
-} from "@/app/video-editor/_opencut/project/types";
-import { formatTimecode, mediaTimeToSeconds } from "opencut-wasm";
-import { formatDate } from "@/app/video-editor/_opencut/utils/date";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
-	Breadcrumb,
-	BreadcrumbItem,
-	BreadcrumbLink,
-	BreadcrumbList,
-	BreadcrumbPage,
-	BreadcrumbSeparator,
-} from "@/app/video-editor/_opencut/components/ui/breadcrumb";
-import {
-	Calendar04Icon,
+	ArrowDown01Icon,
 	GridViewIcon,
 	LeftToRightListDashIcon,
-	PlusSignIcon,
+	MoreHorizontalIcon,
+	PlusSignSquareIcon,
 	Search01Icon,
 	Video01Icon,
-	MoreHorizontalIcon,
-	Delete02Icon,
-	Copy01Icon,
-	Edit03Icon,
-	ArrowDown02Icon,
-	InformationCircleIcon,
 } from "@hugeicons/core-free-icons";
-import { OcVideoIcon } from "@/app/video-editor/_opencut/components/icons";
-import { Label } from "@/app/video-editor/_opencut/components/ui/label";
+import { IconoBorrar } from "@/app/_ui/BotonBorrar";
+import Link, { useRouter } from "@/app/_ui/Link";
+import { rutaEditor } from "@/app/video-editor/ruta";
+import type { EditorCore } from "@/app/video-editor/_opencut/core";
+import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
+import type { TProjectMetadata } from "@/app/video-editor/_opencut/project/types";
+import { MigrationDialog } from "@/app/video-editor/_opencut/project/components/migration-dialog";
+import { DeleteProjectDialog } from "@/app/video-editor/_opencut/project/components/delete-project-dialog";
+import { RenameProjectDialog } from "@/app/video-editor/_opencut/project/components/rename-project-dialog";
+import { StoragePersistenceDialog } from "@/app/video-editor/_opencut/services/storage/components/storage-persistence-dialog";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -58,959 +48,405 @@ import {
 } from "@/app/video-editor/_opencut/components/ui/context-menu";
 import {
 	DropdownMenu,
-	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/app/video-editor/_opencut/components/ui/dropdown-menu";
-import { DeleteProjectDialog } from "@/app/video-editor/_opencut/project/components/delete-project-dialog";
-import { ProjectInfoDialog } from "@/app/video-editor/_opencut/project/components/project-info-dialog";
-import { RenameProjectDialog } from "@/app/video-editor/_opencut/project/components/rename-project-dialog";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
-const formatProjectDuration = ({
-	duration,
-}: {
-	duration: number | undefined;
-}): string | null => {
-	if (duration === undefined) {
-		return null;
-	}
+import { useProjectsStore, type ProjectsViewMode } from "./store";
+import { nombreLibre, nombreProyectoNuevo } from "./nombre";
+import { formatoDuracionTarjeta, formatoPeso, useTamanoProyecto } from "./tamano";
 
-	const durationSeconds = mediaTimeToSeconds({ time: duration });
-	const format = durationSeconds >= 3600 ? "HH:MM:SS" : "MM:SS";
-	return formatTimecode({ time: duration, format }) ?? "";
-};
-
-const VIEW_MODE_OPTIONS = [
-	{ mode: "grid" as const, icon: GridViewIcon, label: "Grid view" },
-	{ mode: "list" as const, icon: LeftToRightListDashIcon, label: "List view" },
+const VISTAS: { modo: ProjectsViewMode; etiqueta: string; icono: typeof GridViewIcon }[] = [
+	{ modo: "grid", etiqueta: "Cuadrícula", icono: GridViewIcon },
+	{ modo: "list", etiqueta: "Lista", icono: LeftToRightListDashIcon },
 ];
 
 export function ProjectsPage() {
-	const { searchQuery, sortKey, sortOrder, viewMode } = useProjectsStore();
 	const editor = useEditor();
-	const sortOption: TProjectSortOption = `${sortKey}-${sortOrder}`;
-
+	const { searchQuery } = useProjectsStore();
 	const isLoading = useEditor((e) => e.project.getIsLoading());
 	const isInitialized = useEditor((e) => e.project.getIsInitialized());
-	const projectsToDisplay = useEditor((e) =>
-		e.project.getFilteredAndSortedProjects({ searchQuery, sortOption }),
+	const proyectos = useEditor((e) =>
+		e.project.getFilteredAndSortedProjects({ searchQuery, sortOption: "updatedAt-desc" }),
 	);
+	const total = useEditor((e) => e.project.getSavedProjects().length);
 
 	useEffect(() => {
 		if (!editor.project.getIsInitialized()) {
-			editor.project.loadAllProjects();
+			void editor.project.loadAllProjects();
 		}
 	}, [editor.project]);
 
 	return (
-		<div className="bg-background min-h-screen">
+		<div
+			className="min-h-full bg-(--cc-home)"
+			// El resplandor verde azulado de arriba del inicio de CapCut, que se apaga a los ~260 px.
+			style={{ backgroundImage: "linear-gradient(to bottom, var(--cc-home-glow), var(--cc-home) 260px)" }}
+		>
 			<MigrationDialog />
 			<StoragePersistenceDialog />
-			<ProjectsHeader />
-			<ProjectsToolbar projectIds={projectsToDisplay.map((p) => p.id)} />
-			<main className="mx-auto px-4 pt-2 pb-6 flex flex-col gap-4">
-				{isLoading || !isInitialized ? (
-					<ProjectsSkeleton />
-				) : projectsToDisplay.length === 0 ? (
-					<EmptyState />
-				) : (
-					<div
-						className={
-							viewMode === "grid"
-								? "xs:grid-cols-2 grid grid-cols-1 gap-6 sm:grid-cols-3 lg:grid-cols-4 px-4"
-								: "flex flex-col"
-						}
-					>
-						{projectsToDisplay.map((project) => (
-							<ProjectItem
-								key={project.id}
-								project={project}
-								allProjectIds={projectsToDisplay.map((p) => p.id)}
-							/>
-						))}
-					</div>
-				)}
+			<main className="mx-auto flex w-full max-w-[1240px] flex-col gap-7 px-8 pt-7 pb-10">
+				<CrearProyecto />
+				<section className="flex flex-col gap-4">
+					<BarraProyectos />
+					{isLoading || !isInitialized ? (
+						<Esqueleto />
+					) : proyectos.length === 0 ? (
+						<Vacio hayProyectos={total > 0} />
+					) : (
+						<Lista proyectos={proyectos} />
+					)}
+				</section>
 			</main>
 		</div>
 	);
 }
 
-function ProjectsHeader() {
-	const { viewMode, isHydrated, setViewMode } = useProjectsStore();
+// ── «⊞ Crear proyecto» ──────────────────────────────────────────────────────
 
-	return (
-		<header className="sticky top-0 z-20 px-8 bg-background flex flex-col gap-2">
-			<div className="flex items-center justify-between h-16 pt-2">
-				<div className="flex items-center gap-5">
-					<Breadcrumb>
-						<BreadcrumbList>
-							<BreadcrumbItem>
-								<BreadcrumbLink asChild>
-									<Link href="/" className="text-sm sm:text-base">
-										Home
-									</Link>
-								</BreadcrumbLink>
-							</BreadcrumbItem>
-							<BreadcrumbSeparator />
-							<BreadcrumbItem>
-								<BreadcrumbPage className="text-sm sm:text-base font-medium">
-									All projects
-								</BreadcrumbPage>
-							</BreadcrumbItem>
-						</BreadcrumbList>
-					</Breadcrumb>
+function CrearProyecto() {
+	const editor = useEditor();
+	const router = useRouter();
+	const [creando, setCreando] = useState(false);
 
-					<div className="hidden md:flex items-center rounded-md border p-1 px-1.5 h-10">
-						{VIEW_MODE_OPTIONS.map(({ mode, icon, label }) => (
-							<Button
-								key={mode}
-								variant="ghost"
-								size="icon"
-								className={cn(
-									"rounded-sm hover:bg-background",
-									isHydrated && viewMode === mode && "!bg-accent",
-								)}
-								onClick={() => setViewMode({ viewMode: mode })}
-								aria-label={label}
-								aria-pressed={isHydrated && viewMode === mode}
-							>
-								<HugeiconsIcon icon={icon} className="size-4" />
-							</Button>
-						))}
-					</div>
-				</div>
-
-				<div className="flex items-center gap-3 md:gap-4">
-					<SearchBar className="hidden md:block" />
-					<NewProjectButton />
-				</div>
-			</div>
-			<SearchBar className="block md:hidden mb-4" />
-		</header>
-	);
-}
-
-const SORT_LABELS: Record<TProjectSortKey, string> = {
-	createdAt: "Created",
-	updatedAt: "Modified",
-	name: "Name",
-	duration: "Duration",
-};
-
-function ProjectsToolbar({ projectIds }: { projectIds: string[] }) {
-	const {
-		selectedProjectIds,
-		sortKey,
-		sortOrder,
-		setSortOrder,
-		setSelectedProjects,
-		clearSelectedProjects,
-		viewMode,
-		setViewMode,
-	} = useProjectsStore();
-
-	const selectedProjectCount = selectedProjectIds.length;
-	const isAllSelected =
-		projectIds.length > 0 && selectedProjectCount === projectIds.length;
-	const hasSomeSelected =
-		selectedProjectCount > 0 && selectedProjectCount < projectIds.length;
-
-	const handleSelectAll = ({ checked }: { checked: boolean }) => {
-		if (checked) {
-			setSelectedProjects({ projectIds });
-			return;
+	const crear = async () => {
+		if (creando) return;
+		setCreando(true);
+		try {
+			const id = await editor.project.createNewProject({ name: await nombreProyectoNuevo() });
+			router.push(rutaEditor(`/video-editor/${id}`));
+		} catch (error) {
+			console.error("[inicio] no se pudo crear el proyecto", error);
+			toast.error("Algo salió mal. Intenta de nuevo.");
+			setCreando(false);
 		}
-		clearSelectedProjects();
 	};
 
 	return (
-		<div className="sticky top-16 z-10 flex items-center justify-between px-6 h-14 pt-2 bg-background">
+		<button
+			type="button"
+			onClick={() => void crear()}
+			disabled={creando}
+			className="flex h-[172px] w-full max-w-[920px] cursor-pointer items-center justify-center gap-3 rounded-[10px] bg-linear-to-r from-(--cc-create-from) to-(--cc-create-to) text-(--cc-on-create) transition-[filter] hover:brightness-105 disabled:cursor-wait disabled:opacity-80"
+		>
+			<HugeiconsIcon icon={PlusSignSquareIcon} className="size-7" strokeWidth={2} />
+			<span className="text-[20px] font-semibold">Crear proyecto</span>
+		</button>
+	);
+}
+
+// ── «Proyectos» con Buscar y la vista ───────────────────────────────────────
+
+function BarraProyectos() {
+	return (
+		<div className="flex h-8 items-center justify-between gap-4">
+			<h2 className="text-[16px] font-semibold text-(--cc-text)">Proyectos</h2>
 			<div className="flex items-center gap-2">
-				<Label
-					className="flex items-center gap-3 cursor-pointer px-2"
-					htmlFor="select-all-projects"
-				>
-					<Checkbox
-						className="size-5"
-						id="select-all-projects"
-						checked={
-							isAllSelected ? true : hasSomeSelected ? "indeterminate" : false
-						}
-						onCheckedChange={(checked) =>
-							handleSelectAll({ checked: checked === true })
-						}
-					/>
-					<span className="text-muted-foreground hidden md:block">
-						Select all
-					</span>
-				</Label>
-
-				<div className="h-4 w-px bg-border/50" />
-
-				<SortDropdown>
-					<Button variant="text" className="text-muted-foreground pl-2">
-						{SORT_LABELS[sortKey]}
-					</Button>
-				</SortDropdown>
-				<Button
-					variant="text"
-					className="text-muted-foreground"
-					onClick={() =>
-						setSortOrder({
-							sortOrder: sortOrder === "asc" ? "desc" : "asc",
-						})
-					}
-					onKeyDown={(event) => {
-						if (event.key === "Enter" || event.key === " ") {
-							setSortOrder({
-								sortOrder: sortOrder === "asc" ? "desc" : "asc",
-							});
-						}
-					}}
-					aria-label={`Sort ${sortOrder === "asc" ? "ascending" : "descending"}`}
-				>
-					<HugeiconsIcon
-						icon={ArrowDown02Icon}
-						className={sortOrder === "asc" ? "rotate-180" : ""}
-					/>
-				</Button>
-
-				<div className="h-4 w-px bg-border/50 block md:hidden" />
-
-				<div className="flex md:hidden items-center gap-4">
-					{VIEW_MODE_OPTIONS.map(({ mode, icon, label }) => (
-						<Button
-							key={mode}
-							variant="text"
-							onClick={() => setViewMode({ viewMode: mode })}
-							aria-label={label}
-						>
-							<HugeiconsIcon
-								icon={icon}
-								className={cn(
-									viewMode === mode ? "text-primary" : "text-muted-foreground",
-								)}
-							/>
-						</Button>
-					))}
-				</div>
+				<Buscar />
+				<MenuVista />
 			</div>
-			{selectedProjectCount > 0 ? <ProjectActions /> : null}
 		</div>
 	);
 }
 
-function SearchBar({
-	className,
-	collapsed,
-}: {
-	className?: string;
-	collapsed?: boolean;
-}) {
+function Buscar() {
 	const { searchQuery, setSearchQuery } = useProjectsStore();
+	const [abierto, setAbierto] = useState(searchQuery.length > 0);
+	const input = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		if (abierto) input.current?.focus();
+	}, [abierto]);
+
+	if (!abierto) {
+		return (
+			<button
+				type="button"
+				onClick={() => setAbierto(true)}
+				title="Buscar"
+				aria-label="Buscar"
+				className="flex size-8 cursor-pointer items-center justify-center rounded-[6px] bg-(--cc-home-btn) text-(--cc-icon) hover:brightness-125"
+			>
+				<HugeiconsIcon icon={Search01Icon} className="size-4" />
+			</button>
+		);
+	}
 
 	return (
-		<>
-			{collapsed ? (
-				<div className="block md:hidden">
-					<Button
-						size="icon"
-						variant="outline"
-						className="size-10.5 rounded-full"
-					>
-						<HugeiconsIcon icon={Search01Icon} />
-					</Button>
-				</div>
-			) : (
-				<div className={cn("relative", className)}>
-					<HugeiconsIcon
-						icon={Search01Icon}
-						className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2"
-						aria-hidden="true"
-					/>
-					<Input
-						placeholder="Search..."
-						value={searchQuery}
-						onChange={(event) => setSearchQuery({ query: event.target.value })}
-						size="lg"
-						className="pl-9"
-					/>
-				</div>
-			)}
-		</>
-	);
-}
-
-const PROJECT_ACTIONS = [
-	{
-		id: "duplicate",
-		label: "Duplicate",
-		icon: Copy01Icon,
-		variant: "outline" as const,
-	},
-	{
-		id: "delete",
-		label: "Delete",
-		icon: Delete02Icon,
-		variant: "destructive-foreground" as const,
-	},
-] as const;
-
-async function deleteProjects({
-	editor,
-	ids,
-}: {
-	editor: EditorCore;
-	ids: string[];
-}) {
-	await editor.project.deleteProjects({ ids });
-}
-
-async function duplicateProjects({
-	editor,
-	ids,
-}: {
-	editor: EditorCore;
-	ids: string[];
-}) {
-	await editor.project.duplicateProjects({ ids });
-}
-
-async function renameProject({
-	editor,
-	id,
-	name,
-}: {
-	editor: EditorCore;
-	id: string;
-	name: string;
-}) {
-	await editor.project.renameProject({ id, name });
-}
-
-function ProjectActions() {
-	const editor = useEditor();
-	const { selectedProjectIds, clearSelectedProjects } = useProjectsStore();
-	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-	const savedProjects = editor.project.getSavedProjects();
-	const selectedProjectNames = savedProjects
-		.filter((project) => selectedProjectIds.includes(project.id))
-		.map((project) => project.name);
-
-	const handleDuplicate = async () => {
-		await duplicateProjects({ editor, ids: selectedProjectIds });
-		clearSelectedProjects();
-	};
-
-	const handleDeleteClick = () => {
-		setIsDeleteDialogOpen(true);
-	};
-
-	const handleDeleteConfirm = async () => {
-		await deleteProjects({ editor, ids: selectedProjectIds });
-		clearSelectedProjects();
-		setIsDeleteDialogOpen(false);
-	};
-
-	const actionHandlers: Record<string, () => void> = {
-		duplicate: handleDuplicate,
-		delete: handleDeleteClick,
-	};
-
-	return (
-		<>
-			<div className="flex items-center gap-2.5 px-3">
-				<div className="hidden sm:flex items-center gap-2.5">
-					{PROJECT_ACTIONS.map((action) => (
-						<Button
-							key={action.id}
-							size="icon"
-							variant={action.variant}
-							className="size-9"
-							onClick={actionHandlers[action.id]}
-						>
-							<HugeiconsIcon icon={action.icon} />
-						</Button>
-					))}
-				</div>
-
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild className="sm:hidden">
-						<Button size="icon" variant="outline" className="size-9">
-							<HugeiconsIcon icon={MoreHorizontalIcon} />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						{PROJECT_ACTIONS.map((action) => (
-							<DropdownMenuItem
-								key={action.id}
-								variant={action.id === "delete" ? "destructive" : undefined}
-								onClick={actionHandlers[action.id]}
-							>
-								<HugeiconsIcon icon={action.icon} />
-								{action.label}
-							</DropdownMenuItem>
-						))}
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
-
-			<DeleteProjectDialog
-				isOpen={isDeleteDialogOpen}
-				onOpenChange={setIsDeleteDialogOpen}
-				projectNames={selectedProjectNames}
-				onConfirm={handleDeleteConfirm}
+		<label className="flex h-8 w-[220px] items-center gap-2 rounded-[6px] bg-(--cc-home-btn) px-2.5 ring-1 ring-transparent focus-within:ring-primary">
+			<HugeiconsIcon icon={Search01Icon} className="size-4 shrink-0 text-(--cc-text-3)" />
+			<input
+				ref={input}
+				value={searchQuery}
+				placeholder="Buscar"
+				onChange={(e) => setSearchQuery({ query: e.target.value })}
+				onBlur={() => {
+					if (!searchQuery) setAbierto(false);
+				}}
+				onKeyDown={(e) => {
+					if (e.key === "Escape") {
+						setSearchQuery({ query: "" });
+						setAbierto(false);
+					}
+				}}
+				className="min-w-0 flex-1 bg-transparent text-[13px] text-(--cc-text) outline-none placeholder:text-(--cc-text-3)"
 			/>
-		</>
+		</label>
 	);
 }
 
-function SortDropdown({ children }: { children: React.ReactNode }) {
-	const { sortKey, setSortKey } = useProjectsStore();
-
+function MenuVista() {
+	const { viewMode, isHydrated, setViewMode } = useProjectsStore();
+	const actual = VISTAS.find((v) => v.modo === (isHydrated ? viewMode : "grid")) ?? VISTAS[0];
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-			<DropdownMenuContent className="w-48" align="center">
-				<DropdownMenuCheckboxItem
-					checked={sortKey === "createdAt"}
-					onCheckedChange={() => setSortKey({ sortKey: "createdAt" })}
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					title={actual.etiqueta}
+					aria-label={actual.etiqueta}
+					className="flex h-8 cursor-pointer items-center gap-0.5 rounded-[6px] bg-(--cc-home-btn) px-2 text-(--cc-icon) hover:brightness-125"
 				>
-					Created
-				</DropdownMenuCheckboxItem>
-				<DropdownMenuCheckboxItem
-					checked={sortKey === "updatedAt"}
-					onCheckedChange={() => setSortKey({ sortKey: "updatedAt" })}
-				>
-					Modified
-				</DropdownMenuCheckboxItem>
-				<DropdownMenuCheckboxItem
-					checked={sortKey === "name"}
-					onCheckedChange={() => setSortKey({ sortKey: "name" })}
-				>
-					Name
-				</DropdownMenuCheckboxItem>
-				<DropdownMenuCheckboxItem
-					checked={sortKey === "duration"}
-					onCheckedChange={() => setSortKey({ sortKey: "duration" })}
-				>
-					Duration
-				</DropdownMenuCheckboxItem>
+					<HugeiconsIcon icon={actual.icono} className="size-4" />
+					<HugeiconsIcon icon={ArrowDown01Icon} className="size-3 text-(--cc-text-3)" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" className="w-40">
+				{VISTAS.map((v) => (
+					<DropdownMenuItem
+						key={v.modo}
+						onSelect={() => setViewMode({ viewMode: v.modo })}
+						className={cn("text-[12px]", v.modo === actual.modo && "text-primary")}
+					>
+						<HugeiconsIcon icon={v.icono} className="size-4" />
+						{v.etiqueta}
+					</DropdownMenuItem>
+				))}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
 }
 
-function NewProjectButton() {
-	const editor = useEditor();
-	const router = useRouter();
+// ── Las tarjetas ────────────────────────────────────────────────────────────
 
-	const handleCreateProject = async () => {
-		const projectId = await editor.project.createNewProject({
-			name: "New project",
-		});
-		router.push(rutaEditor(`/video-editor/${projectId}`));
-	};
-
+function Lista({ proyectos }: { proyectos: TProjectMetadata[] }) {
+	const { viewMode, isHydrated } = useProjectsStore();
+	const enLista = isHydrated && viewMode === "list";
+	if (enLista) {
+		return (
+			<div className="flex flex-col">
+				<div className="grid h-8 grid-cols-[minmax(0,1fr)_90px_90px_150px_36px] items-center gap-3 border-b border-(--cc-line-2) px-2 text-[11px] text-(--cc-text-3)">
+					<span>Nombre</span>
+					<span>Tamaño</span>
+					<span>Duración</span>
+					<span>Última modificación</span>
+					<span />
+				</div>
+				{proyectos.map((p) => (
+					<Proyecto key={p.id} proyecto={p} vista="list" />
+				))}
+			</div>
+		);
+	}
 	return (
-		<Button
-			size="lg"
-			className="flex px-5 md:px-6"
-			onClick={handleCreateProject}
-		>
-			<span className="text-sm font-medium hidden md:block">New project</span>
-			<span className="text-sm font-medium block md:hidden">New</span>
-		</Button>
+		<div className="grid grid-cols-[repeat(auto-fill,118px)] gap-x-5 gap-y-5">
+			{proyectos.map((p) => (
+				<Proyecto key={p.id} proyecto={p} vista="grid" />
+			))}
+		</div>
 	);
 }
 
-function ProjectItem({
-	project,
-	allProjectIds,
-}: {
-	project: TProjectMetadata;
-	allProjectIds: string[];
-}) {
-	const {
-		selectedProjectIds,
-		viewMode,
-		setProjectSelected,
-		selectProjectRange,
-	} = useProjectsStore();
-	const selectedProjectIdSet = new Set(selectedProjectIds);
-	const isSelected = selectedProjectIdSet.has(project.id);
-	const selectedProjectCount = selectedProjectIds.length;
-	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
-	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+async function duplicar(editor: EditorCore, proyecto: TProjectMetadata) {
+	const [nuevo] = await editor.project.duplicateProjects({ ids: [proyecto.id] });
+	if (!nuevo) return;
+	// El motor nombra la copia «(1) 1011»; CapCut deja «1011 (1)», como un proyecto
+	// nuevo del mismo día. Se renombra con la misma regla que los nuevos.
+	const base = proyecto.name.replace(/\s\(\d+\)$/, "");
+	const existentes = editor.project.getSavedProjects().map((p) => p.name);
+	await editor.project.renameProject({ id: nuevo, name: nombreLibre(base, existentes) });
+}
+
+function Proyecto({ proyecto, vista }: { proyecto: TProjectMetadata; vista: ProjectsViewMode }) {
 	const editor = useEditor();
-	const durationLabel = formatProjectDuration({ duration: project.duration });
-	const isMultiSelect = selectedProjectCount > 1;
-	const isGridView = viewMode === "grid";
+	const router = useRouter();
+	const bytes = useTamanoProyecto(proyecto);
+	const [menu, setMenu] = useState(false);
+	const [renombrar, setRenombrar] = useState(false);
+	const [borrar, setBorrar] = useState(false);
+	const href = rutaEditor(`/video-editor/${proyecto.id}`);
+	const peso = bytes === null ? "—" : formatoPeso(bytes);
+	const duracion = formatoDuracionTarjeta(proyecto.duration);
 
-	const handleRename = () => setIsRenameDialogOpen(true);
-	const handleDuplicate = async () => {
-		await duplicateProjects({ editor, ids: [project.id] });
-	};
-	const handleDeleteClick = () => setIsDeleteDialogOpen(true);
-	const handleInfoClick = () => setIsInfoDialogOpen(true);
-	const handleDeleteConfirm = async () => {
-		await deleteProjects({ editor, ids: [project.id] });
-		setIsDeleteDialogOpen(false);
-	};
-
-	const handleCheckboxChange = ({
-		checked,
-		shiftKey,
-	}: {
-		checked: boolean;
-		shiftKey: boolean;
-	}) => {
-		if (shiftKey && checked) {
-			selectProjectRange({ projectId: project.id, allProjectIds });
-			return;
-		}
-		setProjectSelected({ projectId: project.id, isSelected: checked });
+	// Los diálogos se abren una vuelta después del onSelect del menú: abrir un
+	// Dialog de radix mientras el menú se cierra deja `pointer-events: none` en <body>.
+	const acciones = {
+		abrir: () => router.push(href),
+		renombrar: () => setTimeout(() => setRenombrar(true), 0),
+		duplicar: () =>
+			void duplicar(editor, proyecto).catch(() => toast.error("Algo salió mal. Intenta de nuevo.")),
+		eliminar: () => setTimeout(() => setBorrar(true), 0),
 	};
 
-	const gridContent = (
-		<Card className="bg-background overflow-hidden border-none p-0">
-			<div className="bg-muted relative aspect-video">
-				<div className="absolute inset-0">
-					{project.thumbnail ? (
-						<Image
-							src={project.thumbnail}
-							alt="Project thumbnail"
-							fill
-							className="object-cover"
-						/>
-					) : (
-						<div className="flex size-full items-center justify-center">
-							<OcVideoIcon className="text-muted-foreground size-12 shrink-0" />
-						</div>
-					)}
-				</div>
-
-				{durationLabel && (
-					<div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs font-semibold px-2 py-1 rounded-sm">
-						{durationLabel}
-					</div>
-				)}
-			</div>
-
-			<CardContent className="flex flex-col gap-2 px-0 pt-4">
-				<h3 className="group-hover:text-foreground/90 line-clamp-2 text-sm leading-snug font-medium">
-					{project.name}
-				</h3>
-				<div className="text-muted-foreground flex items-center gap-1.5 text-sm">
-					<HugeiconsIcon icon={Calendar04Icon} className="size-4" />
-					<span>Created {formatDate({ date: project.createdAt })}</span>
-				</div>
-			</CardContent>
-		</Card>
-	);
-
-	const listRowContent = (
-		<div className="flex items-center gap-3 flex-1 min-w-0">
-			<div className="bg-muted relative size-10 rounded overflow-hidden shrink-0">
-				{project.thumbnail ? (
-					<Image
-						src={project.thumbnail}
-						alt="Project thumbnail"
-						fill
-						className="object-cover"
-					/>
-				) : (
-					<div className="flex size-full items-center justify-center">
-						<OcVideoIcon className="text-muted-foreground size-5 shrink-0" />
-					</div>
-				)}
-			</div>
-
-			<h3 className="group-hover:text-foreground/90 text-sm font-medium truncate flex-1 min-w-0">
-				{project.name}
-			</h3>
-
-			<span className="text-muted-foreground text-sm shrink-0 hidden sm:block">
-				{durationLabel ?? "—"}
-			</span>
-
-			<span className="text-muted-foreground text-sm shrink-0 w-auto pl-8 text-right hidden xs:block">
-				{formatDate({ date: project.createdAt })}
-			</span>
-		</div>
-	);
-
-	const listContent = (
-		<div
-			className={`flex items-center gap-4 py-2 px-4 border-b border-border/50 ${
-				isSelected ? "bg-primary/5" : ""
-			}`}
-		>
-			<Checkbox
-				checked={isSelected}
-				onMouseDown={(event) => event.preventDefault()}
-				onClick={(event) => {
-					handleCheckboxChange({
-						checked: !isSelected,
-						shiftKey: event.shiftKey,
-					});
-				}}
-				onCheckedChange={() => {}}
-				className="size-5 shrink-0"
-			/>
-
-			<Link href={rutaEditor(`/video-editor/${project.id}`)} className="flex-1 min-w-0">
-				{listRowContent}
-			</Link>
-
-			{!isMultiSelect && (
-				<ProjectMenu
-					isOpen={isDropdownOpen}
-					onOpenChange={setIsDropdownOpen}
-					variant="list"
-					onRenameClick={handleRename}
-					onDuplicateClick={handleDuplicate}
-					onDeleteClick={handleDeleteClick}
-					onInfoClick={handleInfoClick}
-				/>
+	const miniatura = (clase: string, icono: string) => (
+		<div className={cn("relative flex items-center justify-center overflow-hidden bg-(--cc-panel)", clase)}>
+			{proyecto.thumbnail ? (
+				// eslint-disable-next-line @next/next/no-img-element -- dataURL local de la miniatura
+				<img src={proyecto.thumbnail} alt="" className="size-full object-cover" />
+			) : (
+				<HugeiconsIcon icon={Video01Icon} className={cn("text-(--cc-text-3)", icono)} />
 			)}
 		</div>
+	);
+
+	const botonMenu = (
+		<MenuProyecto abierto={menu} onAbierto={setMenu} acciones={acciones}>
+			<button
+				type="button"
+				aria-label="Más"
+				onClick={(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+				}}
+				className={cn(
+					"flex size-6 cursor-pointer items-center justify-center rounded-[4px] text-(--cc-text) hover:bg-(--cc-raised)",
+					vista === "grid" && "absolute top-1.5 right-1.5 bg-black/55",
+					vista === "grid" && !menu && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+				)}
+			>
+				<HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
+			</button>
+		</MenuProyecto>
 	);
 
 	return (
 		<>
 			<ContextMenu>
 				<ContextMenuTrigger asChild>
-					<div className="group relative">
-						{isGridView ? (
-							<>
-								<Link href={rutaEditor(`/video-editor/${project.id}`)} className="block">
-									{gridContent}
-								</Link>
-
-								<Checkbox
-									checked={isSelected}
-									onMouseDown={(event) => event.preventDefault()}
-									onClick={(event) => {
-										handleCheckboxChange({
-											checked: !isSelected,
-											shiftKey: event.shiftKey,
-										});
-									}}
-									onCheckedChange={() => {}}
-									className={`absolute z-10 size-5 top-3 left-3 ${
-										isSelected || isDropdownOpen
-											? "opacity-100"
-											: "opacity-0 group-hover:opacity-100"
-									}`}
-								/>
-
-								{!isMultiSelect && (
-									<ProjectMenu
-										isOpen={isDropdownOpen}
-										onOpenChange={setIsDropdownOpen}
-										onRenameClick={handleRename}
-										onDuplicateClick={handleDuplicate}
-										onDeleteClick={handleDeleteClick}
-										onInfoClick={handleInfoClick}
-									/>
-								)}
-							</>
-						) : (
-							listContent
-						)}
-					</div>
+					{vista === "grid" ? (
+						<div className="group relative flex min-w-0 flex-col gap-1.5">
+							<Link
+								href={href}
+								className="block rounded-[8px] ring-primary ring-offset-2 ring-offset-(--cc-home) outline-none group-hover:ring-2 focus-visible:ring-2"
+							>
+								{miniatura("aspect-square w-full rounded-[8px]", "size-8")}
+							</Link>
+							{botonMenu}
+							<Link href={href} className="truncate text-[12px] text-(--cc-text)" title={proyecto.name}>
+								{proyecto.name}
+							</Link>
+							<span className="text-[11px] text-(--cc-text-3) tabular-nums">{`${peso} | ${duracion}`}</span>
+						</div>
+					) : (
+						<div className="group grid h-12 grid-cols-[minmax(0,1fr)_90px_90px_150px_36px] items-center gap-3 border-b border-(--cc-line-2)/60 px-2 text-[12px] hover:bg-(--cc-home-btn)">
+							<Link href={href} className="flex min-w-0 items-center gap-3">
+								{miniatura("size-9 shrink-0 rounded-[4px]", "size-4")}
+								<span className="truncate text-(--cc-text)">{proyecto.name}</span>
+							</Link>
+							<span className="text-(--cc-text-3) tabular-nums">{peso}</span>
+							<span className="text-(--cc-text-3) tabular-nums">{duracion}</span>
+							<span className="text-(--cc-text-3) tabular-nums">{fechaCorta(proyecto.updatedAt)}</span>
+							{botonMenu}
+						</div>
+					)}
 				</ContextMenuTrigger>
-				<ProjectContextMenuContent
-					onRenameClick={handleRename}
-					onDuplicateClick={handleDuplicate}
-					onDeleteClick={handleDeleteClick}
-					onInfoClick={handleInfoClick}
-				/>
+				<ContextMenuContent className="w-44 text-[12px]">
+					<ContextMenuItem onSelect={acciones.abrir}>Abrir</ContextMenuItem>
+					<ContextMenuItem onSelect={acciones.renombrar}>Renombrar</ContextMenuItem>
+					<ContextMenuItem onSelect={acciones.duplicar}>Duplicar</ContextMenuItem>
+					<ContextMenuSeparator />
+					<ContextMenuItem onSelect={acciones.eliminar} className="gap-2">
+						<IconoBorrar size={14} />
+						Eliminar
+					</ContextMenuItem>
+				</ContextMenuContent>
 			</ContextMenu>
 
 			<RenameProjectDialog
-				isOpen={isRenameDialogOpen}
-				onOpenChange={setIsRenameDialogOpen}
-				projectName={project.name}
-				onConfirm={async (newName) => {
-					await renameProject({ editor, id: project.id, name: newName });
-					setIsRenameDialogOpen(false);
+				isOpen={renombrar}
+				onOpenChange={setRenombrar}
+				projectName={proyecto.name}
+				onConfirm={async (nombre) => {
+					setRenombrar(false);
+					await editor.project.renameProject({ id: proyecto.id, name: nombre });
 				}}
 			/>
-
 			<DeleteProjectDialog
-				isOpen={isDeleteDialogOpen}
-				onOpenChange={setIsDeleteDialogOpen}
-				projectNames={[project.name]}
-				onConfirm={handleDeleteConfirm}
-			/>
-
-			<ProjectInfoDialog
-				isOpen={isInfoDialogOpen}
-				onOpenChange={setIsInfoDialogOpen}
-				project={project}
+				isOpen={borrar}
+				onOpenChange={setBorrar}
+				projectNames={[proyecto.name]}
+				onConfirm={async () => {
+					setBorrar(false);
+					await editor.project.deleteProjects({ ids: [proyecto.id] });
+				}}
 			/>
 		</>
 	);
 }
 
-function ProjectContextMenuContent({
-	onRenameClick,
-	onDuplicateClick,
-	onDeleteClick,
-	onInfoClick,
+function MenuProyecto({
+	abierto,
+	onAbierto,
+	acciones,
+	children,
 }: {
-	onRenameClick: () => void;
-	onDuplicateClick: () => void;
-	onDeleteClick: () => void;
-	onInfoClick: () => void;
+	abierto: boolean;
+	onAbierto: (v: boolean) => void;
+	acciones: Record<"abrir" | "renombrar" | "duplicar" | "eliminar", () => void>;
+	children: React.ReactNode;
 }) {
 	return (
-		<ContextMenuContent>
-			<ContextMenuItem
-				icon={<HugeiconsIcon icon={Edit03Icon} />}
-				onClick={onRenameClick}
-			>
-				Rename
-			</ContextMenuItem>
-			<ContextMenuItem
-				icon={<HugeiconsIcon icon={Copy01Icon} />}
-				onClick={onDuplicateClick}
-			>
-				Duplicate
-			</ContextMenuItem>
-			<ContextMenuItem
-				icon={<HugeiconsIcon icon={InformationCircleIcon} />}
-				onClick={onInfoClick}
-			>
-				Info
-			</ContextMenuItem>
-			<ContextMenuSeparator />
-			<ContextMenuItem
-				variant="destructive"
-				icon={<HugeiconsIcon icon={Delete02Icon} />}
-				onClick={onDeleteClick}
-			>
-				Delete
-			</ContextMenuItem>
-		</ContextMenuContent>
-	);
-}
-
-function ProjectMenu({
-	isOpen,
-	onOpenChange,
-	variant = "grid",
-	onRenameClick,
-	onDuplicateClick,
-	onDeleteClick,
-	onInfoClick,
-}: {
-	isOpen: boolean;
-	onOpenChange: (open: boolean) => void;
-	variant?: "grid" | "list";
-	onRenameClick: () => void;
-	onDuplicateClick: () => void;
-	onDeleteClick: () => void;
-	onInfoClick: () => void;
-}) {
-	const handleMenuClick = ({
-		event,
-	}: {
-		event: MouseEvent<HTMLButtonElement>;
-	}) => {
-		event.preventDefault();
-		event.stopPropagation();
-	};
-
-	const handleMenuKeyDown = ({
-		event,
-	}: {
-		event: KeyboardEvent<HTMLButtonElement>;
-	}) => {
-		if (event.key !== "Enter" && event.key !== " ") {
-			return;
-		}
-		event.preventDefault();
-		event.stopPropagation();
-	};
-
-	const handleRename = () => {
-		onRenameClick();
-		onOpenChange(false);
-	};
-
-	const handleDuplicate = () => {
-		onDuplicateClick();
-		onOpenChange(false);
-	};
-
-	const handleDeleteClick = () => {
-		onDeleteClick();
-		onOpenChange(false);
-	};
-
-	const handleInfoClick = () => {
-		onInfoClick();
-		onOpenChange(false);
-	};
-
-	const isGrid = variant === "grid";
-
-	return (
-		<DropdownMenu open={isOpen} onOpenChange={onOpenChange}>
-			<DropdownMenuTrigger asChild>
-				<Button
-					variant="background"
-					className={
-						isGrid
-							? `absolute z-10 top-3 right-3 ${isOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`
-							: "!bg-transparent !shadow-none"
-					}
-					size="icon"
-					aria-label="Project menu"
-					onClick={(event) =>
-						handleMenuClick({
-							event: event as unknown as MouseEvent<HTMLButtonElement>,
-						})
-					}
-					onMouseDown={(event) => event.stopPropagation()}
-					onKeyDown={(event) =>
-						handleMenuKeyDown({
-							event: event as unknown as KeyboardEvent<HTMLButtonElement>,
-						})
-					}
-				>
-					<HugeiconsIcon
-						icon={MoreHorizontalIcon}
-						className="text-foreground"
-						aria-hidden="true"
-					/>
-				</Button>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent className="w-48" align="end">
-				<DropdownMenuItem onClick={handleRename}>
-					<HugeiconsIcon icon={Edit03Icon} />
-					Rename
-				</DropdownMenuItem>
-				<DropdownMenuItem onClick={handleDuplicate}>
-					<HugeiconsIcon icon={Copy01Icon} />
-					Duplicate
-				</DropdownMenuItem>
-				<DropdownMenuItem onClick={handleInfoClick}>
-					<HugeiconsIcon icon={InformationCircleIcon} />
-					Info
-				</DropdownMenuItem>
-				<DropdownMenuItem variant="destructive" onClick={handleDeleteClick}>
-					<HugeiconsIcon icon={Delete02Icon} />
-					Delete
+		<DropdownMenu open={abierto} onOpenChange={onAbierto}>
+			<DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" className="w-44 text-[12px]">
+				<DropdownMenuItem onSelect={acciones.abrir}>Abrir</DropdownMenuItem>
+				<DropdownMenuItem onSelect={acciones.renombrar}>Renombrar</DropdownMenuItem>
+				<DropdownMenuItem onSelect={acciones.duplicar}>Duplicar</DropdownMenuItem>
+				<DropdownMenuSeparator />
+				<DropdownMenuItem onSelect={acciones.eliminar} className="gap-2">
+					<IconoBorrar size={14} />
+					Eliminar
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
 }
 
-function ProjectsSkeleton() {
-	const skeletonIds = Array.from(
-		{ length: 24 },
-		(_, index) => `skeleton-${index}`,
-	);
+function fechaCorta(fecha: Date): string {
+	const f = new Date(fecha);
+	if (Number.isNaN(f.getTime())) return "—";
+	const dos = (n: number) => String(n).padStart(2, "0");
+	return `${dos(f.getDate())}/${dos(f.getMonth() + 1)}/${f.getFullYear()} ${dos(f.getHours())}:${dos(f.getMinutes())}`;
+}
 
+// ── Estados ─────────────────────────────────────────────────────────────────
+
+function Esqueleto() {
+	const ids = useMemo(() => Array.from({ length: 12 }, (_, i) => `esqueleto-${i}`), []);
 	return (
-		<div className="px-4 xs:grid-cols-2 grid grid-cols-1 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-			{skeletonIds.map((skeletonId) => (
-				<Card
-					key={skeletonId}
-					className="bg-background overflow-hidden border-none p-0"
-				>
-					<div className="bg-muted relative aspect-video">
-						<div className="absolute inset-0">
-							<Skeleton className="bg-muted/50 size-full" />
-						</div>
-					</div>
-					<CardContent className="flex flex-col gap-2 px-0 pt-4">
-						<Skeleton className="bg-muted/50 h-4 w-3/4" />
-						<div className="text-muted-foreground flex items-center gap-1.5">
-							<Skeleton className="bg-muted/50 size-4" />
-							<Skeleton className="bg-muted/50 h-4 w-24" />
-						</div>
-					</CardContent>
-				</Card>
+		<div className="grid grid-cols-[repeat(auto-fill,118px)] gap-x-5 gap-y-5">
+			{ids.map((id) => (
+				<div key={id} className="flex flex-col gap-1.5">
+					<div className="aspect-square w-full animate-pulse rounded-[8px] bg-(--cc-panel)" />
+					<div className="h-3 w-3/4 animate-pulse rounded bg-(--cc-panel)" />
+					<div className="h-3 w-1/2 animate-pulse rounded bg-(--cc-panel)" />
+				</div>
 			))}
 		</div>
 	);
 }
 
-function EmptyState() {
-	const { searchQuery, setSearchQuery } = useProjectsStore();
-	const router = useRouter();
-	const editor = useEditor();
-	const savedProjects = editor.project.getSavedProjects();
-
-	const handleCreateProject = async () => {
-		try {
-			const projectId = await editor.project.createNewProject({
-				name: "New project",
-			});
-			router.push(rutaEditor(`/video-editor/${projectId}`));
-		} catch (error) {
-			toast.error("Failed to create project", {
-				description:
-					error instanceof Error ? error.message : "Please try again",
-			});
-		}
-	};
-
-	if (savedProjects.length > 0) {
-		return (
-			<div className="flex flex-col items-center justify-center gap-5 py-16 text-center">
-				<div className="flex flex-col items-center gap-8">
-					<HugeiconsIcon
-						icon={Search01Icon}
-						className="text-muted-foreground size-16 bg-accent/35 border rounded-md p-4"
-					/>
-					<div className="flex flex-col items-center gap-3">
-						<h3 className="text-lg font-medium">No results found</h3>
-						<p className="text-muted-foreground max-w-md">
-							Your search for "{searchQuery}" did not return any results.
-						</p>
-					</div>
-				</div>
-				<Button
-					onClick={() => setSearchQuery({ query: "" })}
-					variant="outline"
-					size="lg"
-				>
-					Clear search
-				</Button>
-			</div>
-		);
-	}
-
+function Vacio({ hayProyectos }: { hayProyectos: boolean }) {
 	return (
-		<div className="flex flex-col items-center justify-center gap-6 py-16 text-center">
-			<div className="flex flex-col items-center gap-2">
-				<div className="bg-muted/30 flex size-16 items-center justify-center rounded-full">
-					<HugeiconsIcon
-						icon={Video01Icon}
-						className="text-muted-foreground size-8"
-					/>
-				</div>
-				<h3 className="text-lg font-medium">No projects yet</h3>
-				<p className="text-muted-foreground max-w-md">
-					Start creating your first project. Import media, edit, and export your
-					videos. All privately.
-				</p>
-			</div>
-			<Button size="lg" className="gap-2" onClick={handleCreateProject}>
-				<HugeiconsIcon icon={PlusSignIcon} />
-				Create your first project
-			</Button>
+		<div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+			<HugeiconsIcon icon={hayProyectos ? Search01Icon : Video01Icon} className="size-8 text-(--cc-text-3)" />
+			<p className="max-w-[360px] text-[13px] text-(--cc-text-3)">
+				{hayProyectos
+					? "No se encontraron resultados"
+					: "El proyecto editado se guardará automáticamente. ¡Comienza a crear tus propios videos!"}
+			</p>
 		</div>
 	);
 }

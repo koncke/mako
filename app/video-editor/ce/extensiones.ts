@@ -10,4 +10,8 @@
 // que nadie importa no existe (AGENTS.md → «Escribir la salida no es
 // ofrecerla: después de escribirla, preguntá QUIÉN LA LLAMA»).
 
+import '../_opencut/timeline/components/herramientas-ce';
+import '../_opencut/components/editor/panels/properties/registry';
+import '../_opencut/components/editor/panels/assets/registro';
+
 export {};

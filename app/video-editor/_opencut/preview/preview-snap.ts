@@ -8,6 +8,16 @@ const ROTATION_SNAP_THRESHOLD_DEGREES = 5;
 export const MIN_SCALE = 0.01;
 export const SNAP_THRESHOLD_SCREEN_PIXELS = 8;
 
+/**
+ * Las guías de «Guías y reglas» (CapCut) como destinos extra del imán, en el
+ * mismo espacio que las posiciones: píxeles del lienzo desde el CENTRO.
+ * `vertical` son las x de las guías verticales; `horizontal`, las y.
+ */
+export interface GuiasIman {
+	vertical: readonly number[];
+	horizontal: readonly number[];
+}
+
 export interface SnapResult {
 	snappedPosition: { x: number; y: number };
 	activeLines: SnapLine[];
@@ -72,12 +82,14 @@ export function snapPosition({
 	elementSize,
 	rotation = 0,
 	snapThreshold,
+	guias,
 }: {
 	proposedPosition: { x: number; y: number };
 	canvasSize: { width: number; height: number };
 	elementSize: { width: number; height: number };
 	rotation?: number;
 	snapThreshold: { x: number; y: number };
+	guias?: GuiasIman;
 }): SnapResult {
 	const centerX = 0;
 	const centerY = 0;
@@ -117,8 +129,8 @@ export function snapPosition({
 		);
 	}
 
-	const verticalTargets = [centerX, left, right];
-	const horizontalTargets = [centerY, top, bottom];
+	const verticalTargets = [centerX, left, right, ...(guias?.vertical ?? [])];
+	const horizontalTargets = [centerY, top, bottom, ...(guias?.horizontal ?? [])];
 
 	const xCandidates: AxisSnapCandidate[] = [];
 	for (const targetX of verticalTargets) {

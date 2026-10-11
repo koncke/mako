@@ -246,7 +246,7 @@ function NumberField({
 		<div
 			ref={wrapperRef}
 			className={cn(
-				"border-border bg-accent flex h-7 w-full min-w-0 items-center rounded-md border text-sm outline-none cursor-text disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 focus-within:border-primary focus-within:ring-0 focus-within:ring-primary/10 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
+				"border-transparent bg-input flex h-7 w-full min-w-0 items-center rounded-[4px] border text-sm outline-none cursor-text disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 focus-within:border-primary focus-within:ring-0 focus-within:ring-primary/10 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
 				disabled && "pointer-events-none cursor-not-allowed opacity-50",
 				className,
 			)}
@@ -256,7 +256,7 @@ function NumberField({
 					<button
 						ref={iconRef}
 						type="button"
-						aria-label="Drag to adjust value"
+						aria-label="Arrastra para ajustar"
 						disabled={disabled}
 						className="text-muted-foreground [&_svg]:size-3.5! shrink-0 select-none pl-2.5 text-sm leading-none cursor-ew-resize"
 						onMouseDown={(event) => event.preventDefault()}
@@ -304,7 +304,7 @@ function NumberField({
 					<Button
 						variant="text"
 						size="text"
-						aria-label="Reset to default"
+						aria-label="Restablecer"
 						onClick={onReset}
 					>
 						<HugeiconsIcon icon={ArrowTurnBackwardIcon} className="size-3.5!" />

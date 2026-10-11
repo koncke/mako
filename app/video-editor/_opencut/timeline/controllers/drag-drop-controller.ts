@@ -118,6 +118,7 @@ function getDurationForDrag({
 	dragData: TimelineDragData;
 	mediaAssets: MediaAsset[];
 }): MediaTime {
+	if (dragData.type === "text" && dragData.duration) return dragData.duration;
 	if (dragData.type !== "media") return DEFAULT_NEW_ELEMENT_DURATION;
 	const media = mediaAssets.find((asset) => asset.id === dragData.id);
 	return toElementDurationTicks({ seconds: media?.duration });
@@ -387,6 +388,7 @@ export class DragDropController {
 		const element = buildTextElement({
 			raw: {
 				name: dragData.name ?? "",
+				...(dragData.duration ? { duration: dragData.duration } : {}),
 				params: { content: dragData.content ?? "" },
 			},
 			startTime: target.xPosition,

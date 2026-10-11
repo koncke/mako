@@ -8,7 +8,7 @@ export const EXPORT_QUALITY_VALUES = [
 	"very_high",
 ] as const;
 
-export const EXPORT_FORMAT_VALUES = ["mp4", "webm"] as const;
+export const EXPORT_FORMAT_VALUES = ["mp4", "mov", "webm"] as const;
 
 export type ExportFormat = (typeof EXPORT_FORMAT_VALUES)[number];
 export type ExportQuality = (typeof EXPORT_QUALITY_VALUES)[number];

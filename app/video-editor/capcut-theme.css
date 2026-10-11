@@ -123,6 +123,14 @@
   --cc-clip-adjust: #a2862e;
   --cc-select: #ffffff;
   --cc-playhead: #ffffff;
+  /* Inicio (pc_home.png): fondo casi negro con un resplandor verde azulado
+     arriba, botones de la barra de «Proyectos» y el banner «Crear proyecto». */
+  --cc-home: #0d0d0d;
+  --cc-home-glow: #0f2123;
+  --cc-home-btn: #29292d;
+  --cc-create-from: #60d5e1;
+  --cc-create-to: #13bddc;
+  --cc-on-create: #0d0d0d;
 
   /* ── Los tokens de shadcn que usa el motor, con los valores de CapCut ──── */
   --background: var(--cc-app);

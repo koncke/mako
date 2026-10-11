@@ -94,7 +94,9 @@ export function AudioVolumeLine({
 					{
 						trackId,
 						elementId: element.id,
-						updates: { params: { volume: nextVolume } },
+						// `previewElements` REEMPLAZA params entero: van todos, o el
+						// arrastre deja el clip sin el resto de sus params hasta soltar.
+						updates: { params: { ...element.params, volume: nextVolume } },
 					},
 				],
 			});
@@ -104,7 +106,7 @@ export function AudioVolumeLine({
 				rightValue: nextVolume,
 			});
 		},
-		[editor, element.id, trackId],
+		[editor, element.id, element.params, trackId],
 	);
 
 	const finishDrag = useCallback(
@@ -251,7 +253,7 @@ export function AudioVolumeLine({
 					onPointerUp={handlePointerUp}
 					onPointerCancel={handlePointerCancel}
 					onLostPointerCapture={handleLostPointerCapture}
-					title="Drag to adjust clip volume"
+					title="Volumen"
 				/>
 				{isDragging &&
 					tooltipClientPos &&

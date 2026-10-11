@@ -179,6 +179,8 @@ export const useStickersStore = create<StickersStore>()(
 				return;
 			}
 
+			// La vista de la biblioteca lee `recentStickers` directo: no hace falta
+			// rearmar el «browse» de OpenCut (que además dibujaba un PNG por emoji reciente).
 			set((state) => {
 				const recent = [
 					sanitizedStickerIds[0],
@@ -188,18 +190,10 @@ export const useStickersStore = create<StickersStore>()(
 					recentStickers: recent.slice(0, MAX_RECENT_STICKERS),
 				};
 			});
-
-			if (get().viewMode === "browse" && get().selectedCategory === "all") {
-				void get().browseStickers();
-			}
 		},
 
 			clearRecentStickers: () => {
 				set({ recentStickers: [] });
-
-				if (get().viewMode === "browse" && get().selectedCategory === "all") {
-					void get().browseStickers();
-				}
 			},
 		}),
 		{

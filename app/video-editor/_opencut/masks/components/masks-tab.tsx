@@ -1,852 +1,472 @@
 "use client";
 
-import type { MaskableElement } from "@/app/video-editor/_opencut/timeline";
+// =============================================================================
+// Video › Máscara — como CapCut
+// =============================================================================
+// Arriba la grilla de formas de CapCut (Ninguna, Línea, Líneas paralelas,
+// Círculo, Rectángulo, Corazón, Estrella, Pluma, Texto) con «Invertir» y ↺;
+// debajo, los parámetros de la forma elegida: Posición, Rotación, Tamaño,
+// Difuminar y Borde.
+//
+// Las formas son las del motor de OpenCut con el nombre de CapCut:
+//   split → Línea (tapa medio cuadro) · cinematic-bars → Líneas paralelas
+//   (conserva la franja del medio) · ellipse → Círculo · freeform → Pluma.
+// «diamond» (Rombo) existe en el motor pero no en CapCut: no se ofrece; si un
+// proyecto viejo lo trae, aparece al final para que se vea qué tiene.
+//
+// Unidades: el motor guarda posición y tamaño como FRACCIÓN de la caja del clip;
+// CapCut los muestra en píxeles. Se convierten con la caja del clip en el lienzo
+// (la misma que usan las asas del reproductor). Y va hacia arriba, como en
+// Básico.
+//
+// El overlay del reproductor entra en modo máscara (asas de la máscara, y con
+// «Pluma» se dibuja haciendo clic) cuando la vista activa del panel es "masks":
+// por eso la sub-pestaña se registra con ese id (stores/properties-store.ts).
+//
+// Pendiente frente a CapCut: «Esquinas redondeadas» del rectángulo (el motor no
+// la dibuja), el ◇ de fotograma clave de la máscara (el motor no anima máscaras)
+// y «Realizar seguimiento de la máscara».
+
+import type { ComponentType } from "react";
+import { useMemo } from "react";
+import { Ban, Circle, Diamond, Equal, FlipHorizontal2, Heart, Minus, PenTool, Square, Star, Type } from "lucide-react";
+import type { MaskableElement, TimelineElement } from "@/app/video-editor/_opencut/timeline";
 import type { Mask, MaskType, TextMask } from "@/app/video-editor/_opencut/masks/types";
-import type { NumberParamDefinition, SelectParamDefinition } from "@/app/video-editor/_opencut/params";
-import {
-	buildDefaultMaskInstance,
-	getMaskDefinition,
-	getMaskDefinitionsForMenu,
-} from "@/app/video-editor/_opencut/masks";
+import type { NumberParamDefinition } from "@/app/video-editor/_opencut/params";
+import { buildDefaultMaskInstance, getMaskDefinition } from "@/app/video-editor/_opencut/masks";
+import { MAX_FEATHER } from "@/app/video-editor/_opencut/masks/feather";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { useElementPreview } from "@/app/video-editor/_opencut/timeline/hooks/use-element-preview";
-import { useMenuPreview } from "@/app/video-editor/_opencut/editor/use-menu-preview";
 import { getVisibleElementsWithBounds } from "@/app/video-editor/_opencut/preview/element-bounds";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-	ArrowExpandIcon,
-	Delete02Icon,
-	FeatherIcon,
-	PlusSignIcon,
-	RotateClockwiseIcon,
-	TextFontIcon,
-} from "@hugeicons/core-free-icons";
-import { useMemo, useState } from "react";
-import { Button } from "@/app/video-editor/_opencut/components/ui/button";
+import { isMaskableElement } from "@/app/video-editor/_opencut/timeline/element-utils";
 import { ColorPicker } from "@/app/video-editor/_opencut/components/ui/color-picker";
 import { FontPicker } from "@/app/video-editor/_opencut/components/ui/font-picker";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@/app/video-editor/_opencut/components/ui/dropdown-menu";
-import { NumberField } from "@/app/video-editor/_opencut/components/ui/number-field";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/app/video-editor/_opencut/components/ui/select";
 import { Textarea } from "@/app/video-editor/_opencut/components/ui/textarea";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "@/app/video-editor/_opencut/components/ui/tooltip";
-import {
-	clamp,
-	formatNumberForDisplay,
-	getFractionDigitsForStep,
-	snapToStep,
-} from "@/app/video-editor/_opencut/utils/math";
-import {
-	Section,
-	SectionContent,
-	SectionField,
-	SectionFields,
-	SectionHeader,
-	SectionTitle,
-} from "@/app/video-editor/_opencut/components/section";
 import { usePropertyDraft } from "@/app/video-editor/_opencut/components/editor/panels/properties/hooks/use-property-draft";
 import {
-	OcMirrorIcon,
-	OcShapesIcon,
-	OcTextHeightIcon,
-	OcTextWidthIcon,
-} from "@/app/video-editor/_opencut/components/icons";
+	BotonRestablecer,
+	CajaNumero,
+	DeslizadorValor,
+	FilaCe,
+	SeccionCe,
+} from "@/app/video-editor/_opencut/components/editor/panels/properties/components/kit";
+import type { ContextoInspector } from "@/app/video-editor/ce/ranuras";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 
-type MasksTabProps = {
-	element: MaskableElement;
-	trackId: string;
+type Icono = ComponentType<{ className?: string }>;
+
+const FORMAS: ReadonlyArray<{ tipo: MaskType | null; nombre: string; Icono: Icono }> = [
+	{ tipo: null, nombre: "Ninguna", Icono: Ban },
+	{ tipo: "split", nombre: "Línea", Icono: Minus },
+	{ tipo: "cinematic-bars", nombre: "Líneas paralelas", Icono: Equal },
+	{ tipo: "ellipse", nombre: "Círculo", Icono: Circle },
+	{ tipo: "rectangle", nombre: "Rectángulo", Icono: Square },
+	{ tipo: "heart", nombre: "Corazón", Icono: Heart },
+	{ tipo: "star", nombre: "Estrella", Icono: Star },
+	{ tipo: "freeform", nombre: "Pluma", Icono: PenTool },
+	{ tipo: "text", nombre: "Texto", Icono: Type },
+];
+const RESTO: Partial<Record<MaskType, { nombre: string; Icono: Icono }>> = {
+	diamond: { nombre: "Rombo", Icono: Diamond },
 };
 
-type MaskItemProps = {
-	trackId: string;
-	elementId: string;
-	mask: Mask;
-	previewParam: (key: string) => (value: number | string | boolean) => void;
-	onCommit: () => void;
-};
-
-type EmptyViewProps = {
-	onAddMask: () => void;
-};
-
-type PreviewParamHandler = (
-	key: string,
-) => (value: number | string | boolean) => void;
-
-type RegisteredMaskDefinition = ReturnType<typeof getMaskDefinition>;
-
-function isTextMask(mask: Mask): mask is TextMask {
-	return mask.type === "text";
+export function nombreMascara(tipo: MaskType): string {
+	return FORMAS.find((f) => f.tipo === tipo)?.nombre ?? RESTO[tipo]?.nombre ?? tipo;
 }
 
-function withPreviewedMaskParam({
-	mask,
-	key,
-	value,
-}: {
-	mask: Mask;
-	key: string;
-	value: number | string | boolean;
-}): Mask {
-	switch (mask.type) {
-		case "split":
-			return { ...mask, params: { ...mask.params, [key]: value } };
-		case "cinematic-bars":
-			return { ...mask, params: { ...mask.params, [key]: value } };
-		case "rectangle":
-			return { ...mask, params: { ...mask.params, [key]: value } };
-		case "ellipse":
-			return { ...mask, params: { ...mask.params, [key]: value } };
-		case "heart":
-			return { ...mask, params: { ...mask.params, [key]: value } };
-		case "diamond":
-			return { ...mask, params: { ...mask.params, [key]: value } };
-		case "star":
-			return { ...mask, params: { ...mask.params, [key]: value } };
-		case "text":
-			return { ...mask, params: { ...mask.params, [key]: value } };
-		case "freeform":
-			return { ...mask, params: { ...mask.params, [key]: value } };
-	}
+/** La sub-pestaña registrada en la ranura del panel derecho. */
+export function MascaraCe({ element, track }: ContextoInspector) {
+	if (!isMaskableElement(element)) return null;
+	return <MasksTab element={element} trackId={track.id} />;
 }
 
-export function MasksTab({ element, trackId }: MasksTabProps) {
+export function MasksTab({ element, trackId }: { element: MaskableElement; trackId: string }) {
 	const editor = useEditor();
-	const { renderElement, previewUpdates, commit } =
-		useElementPreview<MaskableElement>({
-			trackId,
-			elementId: element.id,
-			fallback: element,
-		});
-	const maskDefs = getMaskDefinitionsForMenu();
-	const tracks = useEditor(
-		(e) => e.timeline.getPreviewTracks() ?? e.scenes.getActiveScene().tracks,
-	);
-	const currentTime = useEditor((e) => e.playback.getCurrentTime());
-	const mediaAssets = useEditor((e) => e.media.getAssets());
-	const canvasSize = useEditor(
-		(e) => e.project.getActive().settings.canvasSize,
-	);
-	const masks = element.masks ?? [];
-	const renderMasks = renderElement.masks ?? masks;
-	const hasMask = masks.length > 0;
-	const { onPointerLeave, onOpenChange, markCommitted } = useMenuPreview();
-	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-	const elementBounds = useMemo(() => {
-		const clampedTime = Math.min(
-			Math.max(currentTime, element.startTime),
-			element.startTime + element.duration - 1,
-		);
-
-		return (
-			getVisibleElementsWithBounds({
-				tracks,
-				currentTime: clampedTime,
-				canvasSize,
-				mediaAssets,
-			}).find(
-				(item) => item.trackId === trackId && item.elementId === element.id,
-			)?.bounds ?? null
-		);
-	}, [
-		canvasSize,
-		currentTime,
-		element.duration,
-		element.id,
-		element.startTime,
-		mediaAssets,
+	const { renderElement, previewUpdates, commit } = useElementPreview<MaskableElement>({
 		trackId,
-		tracks,
-	]);
+		elementId: element.id,
+		fallback: element,
+	});
+	const caja = useCajaDelClip(element, trackId);
 
-	const handleDropdownOpenChange = (open: boolean) => {
-		if (hasMask && open) return;
-		setIsDropdownOpen(open);
-		onOpenChange(open);
+	// Una máscara por clip, como CapCut (el motor admite varias; se edita la primera).
+	const mascara = element.masks?.[0] ?? null;
+	const viva = renderElement.masks?.[0] ?? mascara;
+
+	const poner = (masks: Mask[]) =>
+		editor.timeline.updateElements({
+			updates: [{ trackId, elementId: element.id, patch: { masks } as Partial<TimelineElement> }],
+		});
+
+	const elegir = (tipo: MaskType | null) => {
+		if (tipo === null) {
+			if (mascara) editor.timeline.removeMask({ trackId, elementId: element.id, maskId: mascara.id });
+			return;
+		}
+		if (mascara?.type === tipo) return;
+		poner([
+			buildDefaultMaskInstance({
+				maskType: tipo,
+				elementSize: caja ? { width: caja.width, height: caja.height } : undefined,
+			}),
+		]);
 	};
 
-	const previewMask = ({ maskType }: { maskType: MaskType }) => {
-		editor.timeline.previewElements({
-			updates: [
-				{
-					trackId,
-					elementId: element.id,
-					updates: {
-						masks: [
-							buildDefaultMaskInstance({
-								maskType,
-								elementSize: elementBounds
-									? {
-											width: elementBounds.width,
-											height: elementBounds.height,
-										}
-									: undefined,
-							}),
-						],
-					} as Partial<MaskableElement>,
-				},
-			],
+	const restablecer = () => {
+		if (!mascara) return;
+		const nueva = buildDefaultMaskInstance({
+			maskType: mascara.type,
+			elementSize: caja ? { width: caja.width, height: caja.height } : undefined,
+		});
+		poner([{ ...nueva, id: mascara.id } as Mask]);
+	};
+
+	const previsualizar = (cambios: Record<string, number | string | boolean>) => {
+		if (!viva) return;
+		previewUpdates({
+			masks: [{ ...viva, params: { ...viva.params, ...cambios } } as Mask],
 		});
 	};
 
-	const commitMask = ({ maskType }: { maskType: MaskType }) => {
-		if (editor.timeline.isPreviewActive()) {
-			editor.timeline.commitPreview();
-		} else {
-			editor.timeline.updateElements({
-				updates: [
-					{
-						trackId,
-						elementId: element.id,
-						patch: {
-							masks: [
-								buildDefaultMaskInstance({
-									maskType,
-									elementSize: elementBounds
-										? {
-												width: elementBounds.width,
-												height: elementBounds.height,
-											}
-										: undefined,
-								}),
-							],
-						} as Partial<MaskableElement>,
-					},
-				],
-			});
-		}
-		markCommitted();
-		setIsDropdownOpen(false);
-	};
-
-	const previewMaskParam =
-		({ index, key }: { index: number; key: string }) =>
-		(value: number | string | boolean) => {
-			if (!renderMasks[index]) {
-				return;
-			}
-
-			const updatedMasks = renderMasks.map((existingMask, maskIndex) =>
-				maskIndex !== index
-					? existingMask
-					: withPreviewedMaskParam({ mask: existingMask, key, value }),
-			);
-
-			previewUpdates({ masks: updatedMasks });
-		};
+	const formas = [...FORMAS];
+	if (mascara && !FORMAS.some((f) => f.tipo === mascara.type)) {
+		const r = RESTO[mascara.type];
+		if (r) formas.push({ tipo: mascara.type, ...r });
+	}
 
 	return (
-		<div className="flex flex-col h-full">
-			<div className="border-b px-3.5 h-11 shrink-0 flex items-center justify-between gap-2">
-				<SectionTitle>Masks</SectionTitle>
-				<DropdownMenu
-					open={hasMask ? false : isDropdownOpen}
-					onOpenChange={handleDropdownOpenChange}
-				>
-					{hasMask ? (
+		<div className="flex flex-col pt-1">
+			<SeccionCe
+				titulo="Máscara"
+				plegable={false}
+				acciones={
+					<>
 						<Tooltip>
 							<TooltipTrigger asChild>
-								<span className="inline-flex">
-									<Button
-										variant="ghost"
-										size="icon"
-										disabled
-										aria-label="Add mask"
-									>
-										<HugeiconsIcon icon={PlusSignIcon} className="size-3.5!" />
-									</Button>
-								</span>
+								<button
+									type="button"
+									aria-label="Invertir"
+									aria-pressed={!!mascara?.params.inverted}
+									disabled={!mascara}
+									onClick={() =>
+										mascara &&
+										editor.timeline.toggleMaskInverted({
+											trackId,
+											elementId: element.id,
+											maskId: mascara.id,
+										})
+									}
+									className={cn(
+										"flex h-5 cursor-pointer items-center gap-1 rounded-[3px] px-1.5 text-[12px] text-(--cc-icon) hover:bg-(--cc-raised) disabled:cursor-default disabled:text-(--cc-icon-off) disabled:hover:bg-transparent",
+										mascara?.params.inverted && "text-primary",
+									)}
+								>
+									<FlipHorizontal2 className="size-3.5" />
+									Invertir
+								</button>
 							</TooltipTrigger>
-							<TooltipContent className="max-w-56 text-balance">
-								Only one mask is supported right now. If you need more,
-								duplicate the clip and apply a different mask to each copy.
-							</TooltipContent>
+							<TooltipContent side="top">Invertir</TooltipContent>
 						</Tooltip>
-					) : (
-						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon" aria-label="Add mask">
-								<HugeiconsIcon icon={PlusSignIcon} className="size-3.5!" />
-							</Button>
-						</DropdownMenuTrigger>
-					)}
-					<DropdownMenuContent className="w-40" onPointerLeave={onPointerLeave}>
-						{maskDefs.map((definition) => (
-							<DropdownMenuItem
-								key={definition.type}
-								onPointerEnter={() =>
-									previewMask({ maskType: definition.type })
-								}
-								onClick={() => commitMask({ maskType: definition.type })}
-							>
-								<HugeiconsIcon {...definition.icon} />
-								{definition.name}
-							</DropdownMenuItem>
-						))}
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
-
-			{masks.length === 0 ? (
-				<EmptyView onAddMask={() => setIsDropdownOpen(true)} />
-			) : (
-				masks.map((mask, index) => (
-					<MaskItem
-						key={mask.id}
-						trackId={trackId}
-						elementId={element.id}
-						mask={renderMasks[index] ?? mask}
-						previewParam={(paramKey) =>
-							previewMaskParam({ index, key: paramKey })
-						}
-						onCommit={commit}
-					/>
-				))
-			)}
-		</div>
-	);
-}
-
-function MaskItem({
-	trackId,
-	elementId,
-	mask,
-	previewParam,
-	onCommit,
-}: MaskItemProps) {
-	const editor = useEditor();
-	const definition = getMaskDefinition(mask.type);
-
-	return (
-		<Section sectionKey={`mask-item:${mask.id}`} showTopBorder={false}>
-			<SectionHeader
-				trailing={
-					<div className="flex items-center gap-1">
-						<Button
-							variant="ghost"
-							size="icon"
-							aria-label={`Toggle ${definition.name} mask inversion`}
-							onClick={() =>
-								editor.timeline.toggleMaskInverted({
-									trackId,
-									elementId,
-									maskId: mask.id,
-								})
-							}
-						>
-							<OcMirrorIcon
-								className={cn(mask.params.inverted && "-scale-x-100")}
-							/>
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							aria-label={`Remove ${definition.name} mask`}
-							onClick={() =>
-								editor.timeline.removeMask({
-									trackId,
-									elementId,
-									maskId: mask.id,
-								})
-							}
-						>
-							<HugeiconsIcon icon={Delete02Icon} />
-						</Button>
-					</div>
+						<BotonRestablecer onClick={restablecer} desactivado={!mascara} />
+					</>
 				}
 			>
-				<div className="flex items-center gap-2">
-					<HugeiconsIcon {...definition.icon} size={14} />
-					<SectionTitle className="capitalize font-normal">
-						{definition.name}
-					</SectionTitle>
+				<div className="grid grid-cols-[repeat(auto-fill,minmax(58px,1fr))] gap-1.5 pb-1">
+					{formas.map(({ tipo, nombre, Icono }) => {
+						const elegida = tipo === null ? !mascara : mascara?.type === tipo;
+						return (
+							<button
+								key={nombre}
+								type="button"
+								aria-pressed={elegida}
+								onClick={() => elegir(tipo)}
+								className="group flex cursor-pointer flex-col items-center gap-1"
+							>
+								<span
+									className={cn(
+										"flex aspect-square w-full items-center justify-center rounded-[5px] border bg-(--cc-sunken) text-(--cc-icon) group-hover:text-foreground",
+										elegida ? "border-primary text-primary" : "border-transparent",
+									)}
+								>
+									<Icono className="size-5" />
+								</span>
+								<span
+									className={cn(
+										"w-full truncate text-center text-[11px]",
+										elegida ? "text-foreground" : "text-(--cc-text-2)",
+									)}
+								>
+									{nombre}
+								</span>
+							</button>
+						);
+					})}
 				</div>
-			</SectionHeader>
-			<SectionContent>
-				<MaskParamsFields
-					mask={mask}
-					definition={definition}
-					previewParam={previewParam}
-					onCommit={onCommit}
+			</SeccionCe>
+
+			{viva && (
+				<ParametrosMascara
+					mascara={viva}
+					caja={caja}
+					previsualizar={previsualizar}
+					confirmar={commit}
 				/>
-			</SectionContent>
-		</Section>
+			)}
+		</div>
 	);
 }
 
-function MaskParamsFields({
-	mask,
-	definition,
-	previewParam,
-	onCommit,
+/** La caja del clip en el lienzo (px), en el cabezal o en el borde más cercano del clip. */
+function useCajaDelClip(element: TimelineElement, trackId: string) {
+	const tracks = useEditor((e) => e.timeline.getPreviewTracks() ?? e.scenes.getActiveScene().tracks);
+	const currentTime = useEditor((e) => e.playback.getCurrentTime());
+	const mediaAssets = useEditor((e) => e.media.getAssets());
+	const lienzo = useEditor((e) => e.project.getActive().settings.canvasSize);
+	return useMemo(() => {
+		const t = Math.min(Math.max(currentTime, element.startTime), element.startTime + element.duration - 1);
+		return (
+			getVisibleElementsWithBounds({ tracks, currentTime: t, canvasSize: lienzo, mediaAssets }).find(
+				(it) => it.trackId === trackId && it.elementId === element.id,
+			)?.bounds ?? null
+		);
+	}, [tracks, currentTime, lienzo, mediaAssets, element.startTime, element.duration, element.id, trackId]);
+}
+
+function ParametrosMascara({
+	mascara,
+	caja,
+	previsualizar,
+	confirmar,
 }: {
-	mask: Mask;
-	definition: RegisteredMaskDefinition;
-	previewParam: PreviewParamHandler;
-	onCommit: () => void;
+	mascara: Mask;
+	caja: { width: number; height: number } | null;
+	previsualizar: (cambios: Record<string, number | string | boolean>) => void;
+	confirmar: () => void;
 }) {
-	const featherParam = getNumberParamDefinition({
-		definition,
-		key: "feather",
-	});
-	const strokeWidthParam = getNumberParamDefinition({
-		definition,
-		key: "strokeWidth",
-	});
-	const previewNumberParam = (key: string) => (value: number) =>
-		previewParam(key)(value);
-	const previewStrokeColor = previewParam("strokeColor");
-	const strokeAlignParam = definition.params.find(
-		(param): param is SelectParamDefinition<string> =>
-			param.key === "strokeAlign" && param.type === "select",
-	);
+	const def = getMaskDefinition(mascara.type);
+	const p = mascara.params as unknown as Record<string, unknown>;
+	const n = (k: string, d = 0) => (typeof p[k] === "number" ? (p[k] as number) : d);
+	const numParam = (k: string) =>
+		def.params.find((x): x is NumberParamDefinition => x.key === k && x.type === "number");
+	// Sin caja (el clip no se ve en ningún cuadro) se mide contra 1000 px: los
+	// números siguen siendo proporcionales y editables.
+	const ancho = caja?.width ?? 1000;
+	const alto = caja?.height ?? 1000;
+	const tiene = (k: string) => k in p;
+	const { features } = def;
+
+	const pluma = mascara.type === "freeform" && !(mascara.params as { closed?: boolean }).closed;
 
 	return (
-		<SectionFields>
-			{isTextMask(mask) ? (
-				<TextMaskFields
-					mask={mask}
-					previewParam={previewParam}
-					onCommit={onCommit}
-					fontSizeParam={getNumberParamDefinition({
-						definition,
-						key: "fontSize",
-					})}
-				/>
-			) : null}
-			{definition.features.hasPosition &&
-				"centerX" in mask.params &&
-				"centerY" in mask.params && (
-					<SectionField label="Position">
-						<div className="flex items-center gap-2">
-							<MaskNumberField
-								className="flex-1"
-								icon="X"
-								param={getNumberParamDefinition({
-									definition,
-									key: "centerX",
-								})}
-								value={getMaskNumber({
-									params: mask.params,
-									key: "centerX",
-								})}
-								onPreview={previewNumberParam("centerX")}
-								onCommit={onCommit}
-							/>
-							<MaskNumberField
-								className="flex-1"
-								icon="Y"
-								param={getNumberParamDefinition({
-									definition,
-									key: "centerY",
-								})}
-								value={getMaskNumber({
-									params: mask.params,
-									key: "centerY",
-								})}
-								onPreview={previewNumberParam("centerY")}
-								onCommit={onCommit}
-							/>
-						</div>
-					</SectionField>
-				)}
-
-			{definition.features.sizeMode === "width-height" &&
-				"width" in mask.params &&
-				"height" in mask.params && (
-					<SectionField label="Size">
-						<div className="flex items-center gap-2">
-							<MaskNumberField
-								className="flex-1"
-								icon="W"
-								param={getNumberParamDefinition({
-									definition,
-									key: "width",
-								})}
-								value={getMaskNumber({
-									params: mask.params,
-									key: "width",
-								})}
-								onPreview={previewNumberParam("width")}
-								onCommit={onCommit}
-							/>
-							<MaskNumberField
-								className="flex-1"
-								icon="H"
-								param={getNumberParamDefinition({
-									definition,
-									key: "height",
-								})}
-								value={getMaskNumber({
-									params: mask.params,
-									key: "height",
-								})}
-								onPreview={previewNumberParam("height")}
-								onCommit={onCommit}
-							/>
-						</div>
-					</SectionField>
-				)}
-
-			{definition.features.sizeMode === "height-only" &&
-				"height" in mask.params && (
-					<SectionField label="Height">
-						<MaskNumberField
-							icon="H"
-							param={getNumberParamDefinition({
-								definition,
-								key: "height",
-							})}
-							value={getMaskNumber({
-								params: mask.params,
-								key: "height",
-							})}
-							onPreview={previewNumberParam("height")}
-							onCommit={onCommit}
-						/>
-					</SectionField>
-				)}
-
-			{definition.features.sizeMode === "width-only" &&
-				"width" in mask.params && (
-					<SectionField label="Width">
-						<MaskNumberField
-							icon="W"
-							param={getNumberParamDefinition({
-								definition,
-								key: "width",
-							})}
-							value={getMaskNumber({
-								params: mask.params,
-								key: "width",
-							})}
-							onPreview={previewNumberParam("width")}
-							onCommit={onCommit}
-						/>
-					</SectionField>
-				)}
-
-			{definition.features.sizeMode === "uniform" && "scale" in mask.params && (
-				<SectionField label="Scale">
-					<MaskNumberField
-						icon={
-							isTextMask(mask) ? <HugeiconsIcon icon={ArrowExpandIcon} /> : "S"
-						}
-						param={getNumberParamDefinition({
-							definition,
-							key: "scale",
-						})}
-						value={getMaskNumber({
-							params: mask.params,
-							key: "scale",
-						})}
-						onPreview={previewNumberParam("scale")}
-						onCommit={onCommit}
-					/>
-				</SectionField>
+		<SeccionCe titulo="Configuración de la máscara" clave="ce:mascara:config">
+			{pluma && (
+				<p className="pb-1 text-[12px] text-(--cc-text-3)">Haz clic para empezar a dibujar</p>
+			)}
+			{mascara.type === "text" && (
+				<CamposTexto mascara={mascara as TextMask} previsualizar={previsualizar} confirmar={confirmar} />
 			)}
 
-			{definition.features.hasRotation && "rotation" in mask.params && (
-				<SectionField label="Rotation">
-					<MaskNumberField
-						icon={<HugeiconsIcon icon={RotateClockwiseIcon} />}
-						param={getNumberParamDefinition({
-							definition,
-							key: "rotation",
-						})}
-						value={getMaskNumber({
-							params: mask.params,
-							key: "rotation",
-						})}
-						onPreview={previewNumberParam("rotation")}
-						onCommit={onCommit}
+			{features.hasPosition && tiene("centerX") && tiene("centerY") && (
+				<FilaCe rotulo="Posición">
+					<CajaNumero
+						className="min-w-0 flex-1"
+						etiqueta="X"
+						ariaLabel="Posición X"
+						valor={Math.round(n("centerX") * ancho)}
+						paso={1}
+						onPrevisualizar={(v) => previsualizar({ centerX: v / ancho })}
+						onConfirmar={confirmar}
 					/>
-				</SectionField>
+					<CajaNumero
+						className="min-w-0 flex-1"
+						etiqueta="Y"
+						ariaLabel="Posición Y"
+						valor={Math.round(-n("centerY") * alto)}
+						paso={1}
+						onPrevisualizar={(v) => previsualizar({ centerY: -v / alto })}
+						onConfirmar={confirmar}
+					/>
+				</FilaCe>
 			)}
 
-			<SectionField label="Feather">
-				<MaskNumberField
-					icon={<HugeiconsIcon icon={FeatherIcon} />}
-					param={featherParam}
-					value={getMaskNumber({
-						params: mask.params,
-						key: "feather",
-					})}
-					onPreview={previewNumberParam("feather")}
-					onCommit={onCommit}
-				/>
-			</SectionField>
+			{features.hasRotation && tiene("rotation") && (
+				<FilaCe rotulo="Rotación">
+					<CajaNumero
+						className="min-w-0 flex-1"
+						ariaLabel="Rotación"
+						valor={n("rotation")}
+						min={numParam("rotation")?.min ?? -360}
+						max={numParam("rotation")?.max ?? 360}
+						paso={1}
+						sufijo="°"
+						onPrevisualizar={(v) => previsualizar({ rotation: v })}
+						onConfirmar={confirmar}
+					/>
+				</FilaCe>
+			)}
 
-			<SectionField label="Stroke">
-				<div className="flex flex-col gap-2">
-					<div className="flex items-center gap-2">
-						<MaskNumberField
-							className="flex-1"
-							icon="W"
-							param={strokeWidthParam}
-							value={getMaskNumber({
-								params: mask.params,
-								key: "strokeWidth",
-							})}
-							onPreview={previewNumberParam("strokeWidth")}
-							onCommit={onCommit}
+			{features.sizeMode === "uniform" && tiene("scale") && (
+				<FilaCe rotulo="Tamaño">
+					<DeslizadorValor
+						valor={Math.round(n("scale", 1) * 100)}
+						min={1}
+						max={500}
+						paso={1}
+						sufijo="%"
+						ariaLabel="Tamaño"
+						onPrevisualizar={(v) => previsualizar({ scale: v / 100 })}
+						onConfirmar={confirmar}
+					/>
+				</FilaCe>
+			)}
+			{(features.sizeMode === "width-height" ||
+				features.sizeMode === "width-only" ||
+				features.sizeMode === "height-only") && (
+				<FilaCe rotulo="Tamaño">
+					{features.sizeMode !== "height-only" && (
+						<CajaNumero
+							className="min-w-0 flex-1"
+							etiqueta="An"
+							ariaLabel="Ancho"
+							valor={Math.round(n("width") * ancho)}
+							min={1}
+							paso={1}
+							onPrevisualizar={(v) => previsualizar({ width: v / ancho })}
+							onConfirmar={confirmar}
 						/>
-						<ColorPicker
-							className=""
-							value={mask.params.strokeColor.replace(/^#/, "").toUpperCase()}
-							onChange={(color) => previewStrokeColor(`#${color}`)}
-							onChangeEnd={(color) => {
-								previewStrokeColor(`#${color}`);
-								onCommit();
-							}}
+					)}
+					{features.sizeMode !== "width-only" && (
+						<CajaNumero
+							className="min-w-0 flex-1"
+							etiqueta="Al"
+							ariaLabel="Alto"
+							valor={Math.round(n("height") * alto)}
+							min={1}
+							paso={1}
+							onPrevisualizar={(v) => previsualizar({ height: v / alto })}
+							onConfirmar={confirmar}
 						/>
-					</div>
-					{strokeAlignParam ? (
-						<Select
-							value={mask.params.strokeAlign}
-							onValueChange={(value) => {
-								previewParam("strokeAlign")(value);
-								onCommit();
-							}}
-						>
-							<SelectTrigger className="w-full">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								{strokeAlignParam.options.map((option) => (
-									<SelectItem key={option.value} value={option.value}>
-										{option.label}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					) : null}
-				</div>
-			</SectionField>
-		</SectionFields>
+					)}
+				</FilaCe>
+			)}
+
+			<FilaCe rotulo="Difuminar">
+				<DeslizadorValor
+					valor={Math.round((n("feather") / MAX_FEATHER) * 100)}
+					min={0}
+					max={100}
+					paso={1}
+					ariaLabel="Difuminar"
+					onPrevisualizar={(v) => previsualizar({ feather: (v / 100) * MAX_FEATHER })}
+					onConfirmar={confirmar}
+				/>
+			</FilaCe>
+
+			<FilaCe rotulo="Borde">
+				<DeslizadorValor
+					valor={n("strokeWidth")}
+					min={0}
+					max={100}
+					paso={1}
+					ariaLabel="Borde"
+					onPrevisualizar={(v) => previsualizar({ strokeWidth: v })}
+					onConfirmar={confirmar}
+				/>
+			</FilaCe>
+			{n("strokeWidth") > 0 && (
+				<FilaCe rotulo="Color">
+					<ColorPicker
+						className="w-full"
+						value={String(p.strokeColor ?? "#ffffff").replace(/^#/, "").toUpperCase()}
+						onChange={(c) => previsualizar({ strokeColor: `#${c}` })}
+						onChangeEnd={(c) => {
+							previsualizar({ strokeColor: `#${c}` });
+							confirmar();
+						}}
+					/>
+				</FilaCe>
+			)}
+		</SeccionCe>
 	);
 }
 
-const LETTER_SPACING_PARAM: NumberParamDefinition = {
-	key: "letterSpacing",
-	label: "Letter spacing",
-	type: "number",
-	default: 0,
-	min: -100,
-	max: 500,
-	step: 1,
-};
-
-const LINE_HEIGHT_PARAM: NumberParamDefinition = {
-	key: "lineHeight",
-	label: "Line height",
-	type: "number",
-	default: 1.2,
-	min: 0.1,
-	max: 10,
-	step: 0.1,
-};
-
-function TextMaskFields({
-	mask,
-	previewParam,
-	onCommit,
-	fontSizeParam,
+function CamposTexto({
+	mascara,
+	previsualizar,
+	confirmar,
 }: {
-	mask: TextMask;
-	previewParam: PreviewParamHandler;
-	onCommit: () => void;
-	fontSizeParam: NumberParamDefinition;
+	mascara: TextMask;
+	previsualizar: (cambios: Record<string, number | string | boolean>) => void;
+	confirmar: () => void;
 }) {
-	const content = usePropertyDraft({
-		displayValue: mask.params.content,
+	const draft = usePropertyDraft({
+		displayValue: mascara.params.content,
 		parse: (input) => input,
-		onPreview: (value) => previewParam("content")(value),
-		onCommit,
+		onPreview: (v: string) => previsualizar({ content: v }),
+		onCommit: confirmar,
+		supportsExpressions: false,
 	});
-
-	const previewNumberParam = (key: string) => (value: number) =>
-		previewParam(key)(value);
-
 	return (
 		<>
-			<SectionField label="Content">
+			<div className="py-1.5">
 				<Textarea
-					value={content.displayValue}
-					className="min-h-20"
-					onFocus={content.onFocus}
-					onChange={content.onChange}
-					onBlur={content.onBlur}
+					aria-label="Texto"
+					className="min-h-[60px] bg-(--cc-sunken)"
+					value={draft.displayValue}
+					onFocus={draft.onFocus}
+					onChange={draft.onChange}
+					onBlur={draft.onBlur}
 				/>
-			</SectionField>
-			<SectionField label="Font">
-				<FontPicker
-					defaultValue={mask.params.fontFamily}
-					onValueChange={(value) => {
-						previewParam("fontFamily")(value);
-						onCommit();
-					}}
-				/>
-			</SectionField>
-			<SectionField label="Size">
-				<MaskNumberField
-					icon={<HugeiconsIcon icon={TextFontIcon} />}
-					param={fontSizeParam}
-					value={mask.params.fontSize}
-					onPreview={previewNumberParam("fontSize")}
-					onCommit={onCommit}
-				/>
-			</SectionField>
-			<SectionField label="Spacing">
-				<div className="flex items-start gap-2">
-					<MaskNumberField
-						className="w-1/2"
-						icon={<OcTextWidthIcon size={14} />}
-						param={LETTER_SPACING_PARAM}
-						value={mask.params.letterSpacing ?? 0}
-						onPreview={previewNumberParam("letterSpacing")}
-						onCommit={onCommit}
-					/>
-					<MaskNumberField
-						className="w-1/2"
-						icon={<OcTextHeightIcon size={14} />}
-						param={LINE_HEIGHT_PARAM}
-						value={mask.params.lineHeight ?? 1.2}
-						onPreview={previewNumberParam("lineHeight")}
-						onCommit={onCommit}
+			</div>
+			<FilaCe rotulo="Fuente">
+				<div className="min-w-0 flex-1">
+					<FontPicker
+						defaultValue={mascara.params.fontFamily}
+						onValueChange={(v) => {
+							previsualizar({ fontFamily: v });
+							confirmar();
+						}}
 					/>
 				</div>
-			</SectionField>
+			</FilaCe>
+			<FilaCe rotulo="Tamaño de la fuente">
+				<CajaNumero
+					className="min-w-0 flex-1"
+					ariaLabel="Tamaño de la fuente"
+					valor={mascara.params.fontSize}
+					min={1}
+					paso={1}
+					onPrevisualizar={(v) => previsualizar({ fontSize: v })}
+					onConfirmar={confirmar}
+				/>
+			</FilaCe>
+			<FilaCe rotulo="Espaciado">
+				<CajaNumero
+					className="min-w-0 flex-1"
+					ariaLabel="Espaciado entre caracteres"
+					valor={mascara.params.letterSpacing ?? 0}
+					min={-100}
+					max={500}
+					paso={1}
+					onPrevisualizar={(v) => previsualizar({ letterSpacing: v })}
+					onConfirmar={confirmar}
+				/>
+				<CajaNumero
+					className="min-w-0 flex-1"
+					ariaLabel="Interlineado"
+					valor={mascara.params.lineHeight ?? 1.2}
+					min={0.1}
+					max={10}
+					paso={0.1}
+					onPrevisualizar={(v) => previsualizar({ lineHeight: v })}
+					onConfirmar={confirmar}
+				/>
+			</FilaCe>
 		</>
-	);
-}
-
-function getNumberParamDefinition({
-	definition,
-	key,
-}: {
-	definition: RegisteredMaskDefinition;
-	key: string;
-}): NumberParamDefinition {
-	const param = definition.params.find((candidate) => candidate.key === key);
-
-	if (!param || param.type !== "number") {
-		throw new Error(`Missing number param definition for mask key "${key}"`);
-	}
-
-	return param;
-}
-
-function getMaskNumber<
-	TParams extends Mask["params"],
-	TKey extends keyof TParams & string,
->({ params, key }: { params: TParams; key: TKey }): number {
-	const value = params[key];
-
-	if (typeof value !== "number") {
-		throw new Error(`Expected numeric mask param for "${key}"`);
-	}
-
-	return value;
-}
-
-function MaskNumberField({
-	param,
-	value,
-	onPreview,
-	onCommit,
-	icon,
-	className,
-}: {
-	param: NumberParamDefinition;
-	value: number;
-	onPreview: (value: number) => void;
-	onCommit: () => void;
-	icon?: React.ReactNode;
-	className?: string;
-}) {
-	const isPercent = param.unit === "percent";
-	const percentMax = param.max ?? 100;
-	const displayMultiplier = isPercent
-		? 100 / percentMax
-		: (param.displayMultiplier ?? 1);
-	const min = isPercent ? 0 : param.min;
-	const max = isPercent ? 100 : param.max;
-	const step = isPercent ? 1 : param.step;
-	const displayValue = value * displayMultiplier;
-	const maxFractionDigits = getFractionDigitsForStep({ step });
-
-	const clampDisplay = (nextDisplayValue: number) =>
-		max !== undefined
-			? clamp({ value: nextDisplayValue, min, max })
-			: Math.max(min, nextDisplayValue);
-
-	const previewFromDisplay = (nextDisplayValue: number) => {
-		onPreview(
-			clampDisplay(snapToStep({ value: nextDisplayValue, step })) /
-				displayMultiplier,
-		);
-	};
-
-	const draft = usePropertyDraft({
-		displayValue: formatNumberForDisplay({
-			value: displayValue,
-			maxFractionDigits,
-		}),
-		parse: (input) => {
-			const parsed = parseFloat(input);
-			if (Number.isNaN(parsed)) return null;
-			return (
-				clampDisplay(snapToStep({ value: parsed, step })) / displayMultiplier
-			);
-		},
-		onPreview,
-		onCommit,
-	});
-
-	return (
-		<NumberField
-			className={className}
-			icon={icon}
-			value={draft.displayValue}
-			dragSensitivity="slow"
-			onFocus={draft.onFocus}
-			onChange={draft.onChange}
-			onBlur={draft.onBlur}
-			onScrub={previewFromDisplay}
-			onScrubEnd={onCommit}
-		/>
-	);
-}
-
-function EmptyView({ onAddMask }: EmptyViewProps) {
-	return (
-		<div className="flex flex-col h-full items-center justify-center gap-4 text-center">
-			<OcShapesIcon className="size-10 text-muted-foreground" strokeWidth={1} />
-			<div className="flex flex-col gap-2">
-				<h3 className="font-medium text-foreground">No masks</h3>
-				<p className="text-muted-foreground text-sm text-balance max-w-40">
-					Add a mask to hide or reveal parts of this layer.
-				</p>
-			</div>
-			<Button variant="default" size="sm" onClick={onAddMask}>
-				Add mask
-			</Button>
-		</div>
 	);
 }
