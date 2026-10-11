@@ -130,6 +130,41 @@ export const BITACORA: Hito[] = [
       'app/api/offer/route.ts — la API (turno, leer, diagnosticar, generar, guardar)',
     ],
   },
+  {
+    fecha: '11 oct', hora: '18:04', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las ofertas, atadas a un funnel; el chat igual al de WhatsApp; el diagnóstico adentro',
+    pedido: 'Las ofertas deben estar atados a los productos del CRM... Y quiero cambiar el concepto "Producto" por "Funnel" en todos lados... Porque un mismo funnel puede tener varias "ofertas"... Configuralo de esa manera, para que yo pueda seleccionar en que funnel analizar o crear una nueva oferta. Mandale como tarea al CRM que lo cambie en todos lados.\n\nEn la tab de offer, que donde hoy está el título de "Offer" se elimine y ahí se seleccione un funnel, y se pueda crear o analizar una oferta.\n\nY para la funcionalidad de la tab, quiero que aproveches las cosas que ya construimos... Por ejemplo "El diagnóstico" (Que en este caso, las preguntas deben ser más personalizadas y el resultado del diagnóstico no se debe ver al finalizar esas preguntas, pero si ser parte del PDF final). Aprovecha "El archivero", "Avatares", "Razones"...\n\nPuedes ir pidiendole todo por el chat, en el orden que te parezca... Yo creo que si partimos de un documento o un link de su web o landing o algo así, sería mucho más fácil... Pero si no tiene nada o hay cosas que le faltan, como que nunca pensó en una garantía o no tiene claro su avatar, también con preguntas poder ir creando todo.\n\nElimina el botón de "Ofertas anteriores", para eso ya estará el desplegable... Y ese desplegable debe ser modo arbol, como lo hacemos siempre. Primero el paso del funnel y dentro las ofertas que hayan.\n\nQuiero que el diseño del chat se vea exactamente igual a lo que ya creamos... Que tenga ese formato de grabar audio, la animación de grabando audio, adjuntar archivos, imagenes, emojis... Copialo tal cual. Y el que pregunta, que sería MaKo, la foto de perfil que sea la estrella de MaKo, que tiene una sola estrella sin una estrellita pequeña arriba, y el fondo negro.',
+    puntos: [
+      'El renombre «Producto» → «Funnel» del CRM se le pasó al chat del CRM, que lo hizo el mismo día (f5a98420: cambia sólo el texto que se ve; tablas, claves y firmas quedan igual).',
+      'El chat del CRM corrigió el contrato: el «funnel» es una fila de `funnels`, no un producto de `productos`. Ver docs/hallazgos-offer.md.',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '18:19', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Una tab en SuperAdmin con el criterio y las conclusiones de los cursos de oferta',
+    pedido: 'También quiero que me dejes en SuperAdmin una tab con el criterio y todas las conclusiones que sacaste luego de analizar los cursos que hablan de OFFER, así lo puedo revisar',
+    puntos: [
+      '«El criterio» se leyó como DOS cosas: lo que dice el marco escrito (docs/offer-marco.md) y lo que el código aplica de verdad; donde no coinciden, la tab lo muestra en vez de elegir uno.',
+      '«Todas las conclusiones» no es el volcado de las seis investigaciones (~600 KB): es lo que concluyó cada autor, una idea por fila y con su fuente.',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '19:28', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Offer Playbook: el marco en tabs, lo que corre en el código y lo que concluyó cada autor',
+    puntos: [
+      'La tab RENDERIZA docs/offer-marco.md partido en seis pestañas (Criterio, Precio y garantías, Errores comunes, Autores, Discrepancias, Fuentes): no hay copia del marco.',
+      'Criterio muestra lo que corre de verdad (las 13 piezas y las 9 dimensiones, leídas de lib/offer-marco.ts) y las 13 cosas que el código todavía no aplica del marco, con quién lo resuelve.',
+      'Autores: 19 autores y 132 conclusiones, destiladas por 6 agentes y verificadas por otros 6 contra la investigación y la clase citada; tres re-verificadas a mano. Sin citas textuales de los cursos.',
+      'El cruce marco ↔ código lo hizo un agente aparte contra HEAD. Lo más serio: el filtro de cifras deja pasar números inventados en el PDF.',
+    ],
+    archivos: [
+      'app/admin/offer-playbook/page.tsx — la tab',
+      'app/admin/offer-playbook/secciones.ts — cómo se reparte el marco entre las pestañas',
+      'app/admin/offer-playbook/pendientes.ts — lo que el código todavía no aplica',
+      'lib/offer-autores.ts — las conclusiones por autor',
+      'docs/hallazgos-offer.md — el cruce con archivo:línea',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

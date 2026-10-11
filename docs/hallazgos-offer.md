@@ -6,9 +6,10 @@ autor y dónde discrepan) vive en [offer-marco.md](offer-marco.md); el contrato 
 en `lib/offer-marco.ts`.
 
 **Vive en:** `app/offer/*`, `app/api/offer/route.ts`, `app/api/offer/pdf/route.ts`,
-`lib/offer-marco.ts`, `lib/offer-reglas.ts`, `lib/offer-ia.ts`, `lib/offer-sesiones.ts`,
-`lib/offer-contexto.ts`, `lib/offer-pdf.ts`, `lib/pdf-escritor.ts`, `lib/pdf-helvetica.ts`,
-`supabase/migrations/0254_offer_sesiones.sql`.
+`app/api/offer/audio/route.ts`, `lib/offer-marco.ts`, `lib/offer-reglas.ts`, `lib/offer-ia.ts`,
+`lib/offer-sesiones.ts`, `lib/offer-contexto.ts`, `lib/offer-pdf.ts`, `lib/offer-autores.ts`,
+`lib/pdf-escritor.ts`, `lib/pdf-helvetica.ts`, `app/admin/offer-playbook/*`,
+`supabase/migrations/0254_offer_sesiones.sql`, `supabase/migrations/0256_offer_funnel.sql`.
 
 ## El pedido, textual (Martín, 11/10/2026 07:55 UTC)
 
@@ -126,8 +127,126 @@ dejan regla:
   (atrás/adelante pintaba otra) y la hipótesis de «Probarlo» volvía a abrir el alta. La tab y
   la limpieza del parámetro van por el router de la casa.
 
+## Offer v2 (11/10/2026, tarde): atada a un funnel, el chat de WhatsApp y el diagnóstico adentro
+
+**Vive en:** `app/offer/*` (`SelectorFunnel.tsx`, `ChatOffer.tsx`, `arbol.ts`, `AvatarMako.tsx`),
+`app/api/offer/route.ts`, `app/api/offer/audio/route.ts`, `lib/offer-sesiones.ts` (`arbolOffer`),
+`lib/offer-reglas.ts`, `lib/offer-ia.ts`, `lib/offer-pdf.ts`, `supabase/migrations/0256_offer_funnel.sql`.
+
+El pedido, textual (Martín, 11/10/2026 18:04 UTC), está entero en el registro de `/admin/dev`
+(Products & Offers). Lo que no se deduce del código:
+
+- **«Funnel» NO es un producto de `productos`, y era el diagnóstico obvio.** El pedido decía «las
+  ofertas deben estar atadas a los productos del CRM», y el primer contrato leía `listProductos()`.
+  Lo midió el chat del CRM (15:15): lo que el CRM dibuja como «producto» es una fila de `funnels`
+  (`leads.funnel_id`), con el nombre de su producto principal (`productoDeFunnel`). `productos` es el
+  catálogo con precio que va ADENTRO de una oferta. Con el contrato viejo, el selector habría listado
+  la lista de precios en vez de los funnels que Martín ve. **Regla:** funnels con `leerFunnels()`
+  (null si la lectura falla), ofertas con `funnel_ofertas`, y la oferta guardada se liga con
+  `ligarOfertaAFunnel` — principal SÓLO si el funnel no tenía ninguna (no se le roba la principal a otra).
+- **El número de migración se mira también en las RAMAS y los worktrees.** La 0255 estaba tomada por
+  `0255_cobros_pasarela.sql` en la rama `pagos-pasarela`, que `ls supabase/migrations` no ve.
+- **El composer de `ChatHilo` no sirve para los archivos de Offer** (corta en 4 MB, uno solo, `accept`
+  fijo). Se monta `ComposerWhatsApp` con su menú del clip y los archivos van por el camino de Offer
+  (`subir-url` → PUT → `leer`). Para que la barra quede dentro de la tarjeta del hilo se le aplana la
+  caja a `ChatHilo` desde afuera (`.of-hilo-lista > div` en `app/offer/estilos.ts`): si `ChatHilo`
+  cambia su nodo raíz, lo peor que pasa es un borde de más.
+- **La ranura `vacio` de `BurbujaHilo`** es la forma de pintar Markdown con la burbuja de la casa.
+- **La hora de una burbuja depende de la zona horaria**: dibujada en el servidor, rompe la hidratación.
+  Se pide después de montar.
+- **`MakoStar` siempre dibuja la estrellita chica**; la chispa sola está sólo en `MakoLogo`, con su
+  borde. `AvatarMako` copia el trazo (`SPARK` no se exporta): si la marca cambia, son dos lugares.
+- **El bloque del diagnóstico no puede ir dentro de `contenidoNoConfiable`**: la cláusula de seguridad
+  le dice al modelo que no obedezca lo que hay adentro, y el bloque trae la orden de que la pregunta es
+  obligatoria.
+- **Con la pregunta obligatoria, la validación estricta descarta a los proveedores que sólo leyeron el
+  documento**: por eso un turno con documentos nuevos no la fuerza.
+- **El audio se transcribe ANTES de guardar nada**: si ninguna IA lo escucha, 502 y el binario queda
+  (para no dejar un mensaje mudo); si no tenía voz, 422 y el binario se borra.
+
+## Offer Playbook (`/admin/offer-playbook`): el criterio y lo que se concluyó de cada curso
+
+**Vive en:** `app/admin/offer-playbook/*`, `lib/offer-autores.ts`, `docs/offer-marco.md`,
+`tests/offer-playbook.test.ts`.
+
+Pedido de Martín (11/10/2026 18:19 UTC): «una tab con el criterio y todas las conclusiones que sacaste
+luego de analizar los cursos que hablan de OFFER, así lo puedo revisar».
+
+- **La tab RENDERIZA el marco, no lo copia** (como `/admin/docs`): `secciones.ts` corta
+  `docs/offer-marco.md` por sus `## N.` y cada sección va a una tab. Una sección nueva que nadie mapeó
+  va a la última tab y el test falla hasta que alguien decida dónde va. El `.md` llega al deploy por
+  `outputFileTracingIncludes` (`next.config.ts`); sin eso la tab anda en local y sale vacía en producción.
+- **Lo que corre de verdad sale del código**: las piezas y las dimensiones de la pestaña Criterio se
+  leen de `lib/offer-marco.ts` (`EnElCodigo.tsx`), no del documento.
+- **Las conclusiones por autor** (`lib/offer-autores.ts`: 19 autores, 132 conclusiones) salen de las
+  seis investigaciones del 11/10, destiladas por un agente y verificadas por otro contra la
+  investigación y contra la clase citada. Se re-verificaron a mano tres al azar (Contreras clases 084 y
+  109, Carrizo 039): las tres dicen lo que la conclusión afirma. **Las citas textuales se dejaron
+  afuera** (todo va parafraseado); sólo queda la del curso propio de MaKo.
+- **Trampa de Windows:** un componente `Pendientes.tsx` al lado de un módulo `pendientes.ts` —mismo
+  nombre, distinta mayúscula y extensión— hace que `import './Pendientes'` resuelva al `.ts` en Windows
+  (busca `.ts` antes que `.tsx` y el disco no distingue mayúsculas) y al `.tsx` en Linux. Se renombró a
+  `ListaPendientes.tsx`. Dos archivos que difieren sólo en la mayúscula no conviven en una carpeta.
+
+### El marco contra el código (cruce del 11/10/2026, contra HEAD)
+
+Lo que el código de Offer todavía no aplica del marco escrito. En pantalla va una línea por tema
+(`app/admin/offer-playbook/pendientes.ts`); acá, el dónde. Cuando se arregle uno, se saca de los dos.
+
+1. **Cifras inventadas.** El filtro es todo o nada por pieza (`lib/offer-reglas.ts:565-577`): con
+   cualquier dato en Prueba o Bonos, todas sus cifras pasan; Bonos se llena sola con los NOMBRES de los
+   bonos cargados (`:267`, `:281`); el valor total, la frase, los escenarios y la ecuación no se revisan
+   (`:546-550`). El PDF puede decir «27 clientes duplicaron sus ventas» sin que nadie lo dijera. Es lo
+   que el marco más prohíbe (§5).
+2. **Preguntas que faltan.** La guía tiene 13 de las 39 del §3 (`lib/offer-marco.ts:306-320`): no
+   pregunta el valor anual del resultado (#32, la que destraba D7), costo y capacidad (#30, #23), la
+   primera semana (#22) ni el % cobrado al firmar (#27). El campo `destraba` de cada dimensión no llega
+   a la IA (`:74`, `:291`).
+3. **Piezas mínimas.** El código pide 5 sin Prueba (`lib/offer-marco.ts:41-53`) y un «sin dato» cuenta
+   (`:265-267`); el §3 marca como mínimas «cuántos pagaron» y «cuántos lograron el resultado». Decide
+   Martín.
+4. **Anclas sin números.** D1 (75+), D6 (márgenes) y D7 (valor 5-10×, 50-75% al firmar) llegan a la IA
+   sin los números del §4, y sin las señales de alerta (`lib/offer-marco.ts:81`, `:104-111`). Con «la
+   mayor parte al firmar», cobrar el 100% saca nota alta; para el marco es señal de precio barato.
+5. **D1 o D2 en 3 o menos.** El marco rehace la oferta desde ahí; el código sólo avisa
+   (`lib/offer-reglas.ts:488-491`) y la oferta sale completa. Decide Martín.
+6. **«Lista para vender» sin el Check final** de Contreras (`lib/offer-reglas.ts:483-485`): puede decir
+   «lista» con Precio y cobro en 5.
+7. **Garantía.** El texto de la IA dice «sin casos» (`lib/offer-marco.ts:297`, `lib/offer-ia.ts:174`) y
+   el marco dice «con menos de 10 a 15 casos» (§7.1).
+8. **Alertas que faltan:** margen bajo 60%, dónde se corta el embudo y cuándo subir el precio. Sólo
+   existen foco y D1/D2 bajos (`app/api/offer/route.ts:150`); el tipo anuncia una alerta del embudo que
+   no existe (`lib/offer-marco.ts:187`).
+9. **Alerta de foco:** sin la facturación salta recién con 6 (`lib/offer-reglas.ts:516`), no está
+   medida contra negocios reales, y la IA que pone la nota de Foco no la ve (se calcula después).
+10. **Supuestos:** la sección 20 sólo lista los «[completar]» (`lib/offer-reglas.ts:575`, `:590-626`);
+    no separa lo que propuso MaKo de lo que dijo el dueño del negocio. Decide Martín.
+11. **Reglas de cierre que no llegan al prompt** (cuotas con 50% inicial, valor de 4-5× el precio,
+    bonos con su porqué, LTV:CAC): el texto del marco que lee la IA es un resumen (`lib/offer-marco.ts:269-303`).
+12. **Reglas que sólo cumple el prompt** (duración 90-180 días, precio desde 1.000 USD, garantía nunca
+    incondicional, nombres del método como propuesta): con la cascada gratis, un modelo chico puede
+    saltarse alguna sin aviso.
+13. **Topes flojos:** acepta 6 fases, ningún bono y ningún nombre del método (`lib/offer-reglas.ts:648`,
+    `:654`, `:670`).
+
+El 14º era del marco y ya se arregló: decía que el total es «el promedio» (0-10) y el código lo muestra
+sobre 100 (promedio × 10).
+
 ## Lo que quedó SIN hacer
 
+- **Offer v2:**
+  - **El Archivero no se entera de lo que se sube en Offer**: no hay una función que registre un
+    documento sin recalcular el estado entero (`buildEstado(true)`). Hace falta una
+    `registrarDocumentoSinPisar` en `lib/archivero.ts`, con el molde de `borrarDocumentoArchivero`.
+  - **El avatar que se arma en el chat no se guarda en Avatares**: `setAvatares` reemplaza la lista
+    entera y escribir desde el chat sin que una persona confirme rompe «un canal propone, una persona
+    confirma». Queda en la pieza `cliente`.
+  - **La oferta guardada no se liga a los productos** (`oferta_productos`), sólo al funnel.
+  - **Un audio que ninguna IA escuchó se vuelve a subir al reintentar**: el servidor deja el binario
+    para reintentar con el mismo `path`, pero la pantalla lo vuelve a subir y el primero queda suelto
+    en Storage.
+  - **La transcripción de un audio se ve cortada a 140 caracteres** (lo hace `BurbujaHilo`, que es
+    compartido).
 - **Leer una imagen, un PDF escaneado o un audio puede cobrar en la OpenAI del cliente**:
   `archivoATexto` usa las cascadas compartidas de visión y transcripción, que terminan en
   OpenAI (lo mismo que hoy le pasa al Archivero y al importador del Plan). La conversación, el

@@ -220,7 +220,7 @@ Los grupos están ordenados por prioridad: se pregunta de arriba hacia abajo.
 ## 4. Rúbrica de análisis
 
 **Cómo se lee**
-- Cada dimensión se puntúa de 0 a 10. La nota total es el promedio.
+- Cada dimensión se puntúa de 0 a 10. La nota total es el promedio de las nueve llevado a 100 (promedio × 10): con todo en 7, la oferta saca 70/100. Todas pesan lo mismo.
 - **El orden importa.** D1, D2 y D3 se apoyan una en la otra: si el cliente ideal está mal, todo lo que viene después se degrada (*NTPVS* de Razzetti, *capas de negocio* de Carrizo). El **cuello de botella** es la dimensión más baja; si hay empate, gana la que está más arriba. Si D1 o D2 sacan 3 o menos, MaKo rehace la oferta desde ahí antes de opinar sobre el precio o los bonos.
 - **Lista para salir a vender:** ninguna dimensión por debajo de 5, y D1, D2 y D4 en 7 o más: cliente, promesa y certeza son lo que la llamada no puede arreglar. Antes de entregarla, MaKo pasa además el *Check final* de Contreras: dolor urgente, transformación medible, entregables concretos, garantía fuerte y precio por valor.
 - Si hay datos del embudo, antes de culpar a la oferta MaKo dice dónde se corta (ver §9.5).

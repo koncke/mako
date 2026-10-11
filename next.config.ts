@@ -32,6 +32,8 @@ const nextConfig: NextConfig = {
   // docs/, entra solo: el patrón es un glob.
   outputFileTracingIncludes: {
     '/admin/docs': ['./docs/**/*.md', './AGENTS.md'],
+    // Offer Playbook renderiza el marco de oferta partido en tabs (app/admin/offer-playbook).
+    '/admin/offer-playbook': ['./docs/offer-marco.md'],
   },
   experimental: {
     // El middleware (proxy) bufferea el body con tope 10MB por defecto y, si se
