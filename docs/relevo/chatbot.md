@@ -11,6 +11,11 @@
 > - **Las 9 pausadas (#229-#237) se ARCHIVARON** con el «sí» de Martín: eran automatizaciones que esos negocios no
 >   crearon, idénticas a la plantilla. Queda sólo la del ws1 (#228, prendida). El script de la mudanza ya no las
 >   recrea.
+> - **ws1 limpio** («Archiva todas las que no haya pedido»): archivadas #220, #226 y #227. Quedan #198, #212 y
+>   #213 (las de sus audios) y el recordatorio #228, todas prendidas.
+> - **La caída y la vuelta del WhatsApp y la grabación de Fathom los configura SÓLO el super admin**
+>   (`AVISOS_SOLO_SUPERADMIN`): salieron de la lista del cliente y la API y MaKo no dejan tocarlos. Revierte lo del
+>   09/10 («las dos cosas»). Detalle en `docs/hallazgos-comunicacion.md`, al final.
 > - **Todavía no salió ningún recordatorio por el camino nuevo** (no hubo reuniones desde la mudanza). El primero
 >   real: el toque de 24 h del lead 2593, el **12/10 a las 17:00 UTC**.
 > - Sigue sin verse con clics en producción ninguna de las ocho tandas (§4).

@@ -37,7 +37,7 @@ import { getSetting } from '@/lib/settings';
 import { KEY_TIMEZONE, TZ_DEFAULT, esTzValida, setTimezoneWorkspace } from '@/lib/timezone';
 import { getPerfil, getNotifPrefs, setNotifPrefs, avisoWaActivo, getNotifInApp, DEFAULT_PERFIL, type NotifPrefs } from '@/lib/perfil';
 import { AVISOS_WA_EN_VIVO, NOTIF_IN_APP, soloDigitos, telefonoValido, emailValido, inAppActivo } from '@/lib/notif-catalogo';
-import { CATALOGO_AVISOS } from '@/lib/avisos-catalogo';
+import { CATALOGO_AVISOS, esAvisoSoloSuperAdmin } from '@/lib/avisos-catalogo';
 import { getDestinatarios, setDestinatarios, type ResultadoGuardar } from '@/lib/notif-destinatarios';
 import { getGrupoJidMaKo, getEstadoVerificacionContacto } from '@/lib/mako-grupo';
 import { buildReporteDiario, buildReporteHorario, buildReporteSemanal } from '@/lib/reportes';
@@ -422,6 +422,9 @@ export const RUNNERS: Runners = {
       const valor = bool(input, 'valor')!;
       if (esReporteDelCatalogo(aviso)) return { error: `«${aviso}» es un reporte, no un aviso: usa configurar_reporte.` };
       if (!avisoSilenciable(aviso)) return { error: `No existe el aviso «${aviso}». Pide listar_avisos_disponibles.`, faltan: ['aviso'] };
+      // Los que configura SÓLO el super admin (la caída y la vuelta del WhatsApp, la grabación de Fathom):
+      // Martín, 10/10/2026. Ni por MaKo: se cambian desde /mensajes (lib/avisos-catalogo.ts, AVISOS_SOLO_SUPERADMIN).
+      if (esAvisoSoloSuperAdmin(aviso)) return { error: `El aviso «${tituloAviso(aviso)}» lo configura la agencia: no se cambia desde aquí.` };
       const prefs = await getNotifPrefs();
       const actual = prefs.avisos[aviso] !== false;
       if (actual === valor) return { error: `El aviso «${tituloAviso(aviso)}» ya está ${siNo(valor)}.` };
@@ -430,6 +433,8 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload) => escribir(async () => {
       const aviso = String(payload.aviso ?? '');
       if (!avisoSilenciable(aviso)) return { ok: false, resumen: `El aviso «${aviso}» ya no existe.` };
+      // Una pendiente propuesta ANTES del 10/10/2026 sobre uno del super admin no se aplica al confirmarla.
+      if (esAvisoSoloSuperAdmin(aviso)) return { ok: false, resumen: `El aviso «${tituloAviso(aviso)}» lo configura la agencia.` };
       const prefs = await getNotifPrefs();
       await setNotifPrefs({ ...prefs, avisos: { ...prefs.avisos, [aviso]: payload.valor === true } });
       return `Aviso «${tituloAviso(aviso)}»: ${siNo(payload.valor === true)}.`;

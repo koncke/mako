@@ -8714,8 +8714,9 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
   que la vista previa dibujara al dueño contestando «Sí, adelante 👍» y a MaKo «Listo, lo hago
   ahora». Y el `ejemplo:` del catálogo ES el texto que sale cuando el negocio no escribió el suyo
   (ningún store tiene override de la cuota): la promesa llegaba al grupo tal cual.
-- **HECHO el 09/10 (Martín: «las dos cosas»):** `wa-desconectado` y el nuevo `wa-reconectado`
-  están en `AVISOS_DEL_CLIENTE`, así que el cliente los apaga desde su configuración; y cuando la
+- **HECHO el 09/10 (Martín: «las dos cosas») — y la mitad del cliente REVERTIDA el 10/10:** ver «Los avisos que
+  configura sólo el super admin», al final. `wa-desconectado` y el nuevo `wa-reconectado`
+  estaban en `AVISOS_DEL_CLIENTE`, así que el cliente los apagaba desde su configuración; y cuando la
   línea vuelve sale «🟢 Volvió tu WhatsApp». Dos reglas que no se ven en el código: el «volvió»
   sale **sólo si la caída se AVISÓ** (`decidirLinea` devuelve `volvio` con la marca de avisado; un
   corte que volvió entre dos corridas no tiene nada que desmentir), y el vigilante **limpia las
@@ -9644,3 +9645,27 @@ de Instagram que hoy arma el Chatbot sobre Zernio.
 
 *09/10/2026 — investigación pedida por Martín al chat de Ads Manager (cuenta 2), leyendo la
 doc de Meta como texto crudo; sin tocar código.*
+
+## Los avisos que configura sólo el super admin (10/10/2026, noche)
+
+Martín, mirando la lista de Automations del ws1: «hay ciertos mensajes que no deberían configurarse del lado del
+cliente, solo de SuperAdmin, como el de "Tu WhatsApp se desconectó"», y después «El de Fathom también debería ser
+algo que se configura en SuperAdmin». Revierte la mitad del cliente de «las dos cosas» del 09/10.
+
+- **Esconder la fila no alcanzaba: un cliente tenía TRES puertas.** La lista de su tab (`AVISOS_DEL_CLIENTE`), la
+  API de su tab (`/api/perfil/plantillas` prendía, apagaba y editaba CUALQUIER id que le mandaran, no sólo los de
+  su lista) y MaKo (`configurar_aviso_whatsapp` deja silenciar todo el catálogo, a propósito). Las tres miran
+  ahora una lista explícita, `AVISOS_SOLO_SUPERADMIN`: la API contesta 404 (a quien no le corresponde, no existe)
+  salvo al super admin, y MaKo frena al proponer y al confirmar (una pendiente vieja no se aplica).
+  **Vive en:** `lib/avisos-catalogo.ts`, `app/api/perfil/plantillas/route.ts` (`soloDelSuperAdmin`),
+  `lib/api-mako/areas/equipo.run.ts`. Guard: `tests/avisos-solo-superadmin.test.ts` (6 roturas, todas en rojo).
+- **Lista explícita y no «todo lo que no es del cliente»**: el resto del catálogo el dueño lo sigue pudiendo
+  silenciar por MaKo, y eso es una decisión vieja que no se tocó.
+- **⚠️ Son DOS interruptores y la regla cubre los dos.** El de la plantilla (`enabled` en `mako.plantillas.store`,
+  lo que mueve la lista y /mensajes) y el del negocio (`NotifPrefs.avisos`, `avisoWaActivo`, que sólo se toca por
+  MaKo). Cerrar una puerta dejaba la otra.
+- **Lo que un cliente ya había apagado antes, queda.** Medido: el ws13 tiene la grabación de Fathom apagada en su
+  store (nadie sabe si la apagó él). No se tocó: el super admin lo ve y lo cambia desde /mensajes mirando ese
+  negocio (`/api/admin/plantillas` edita el store del cliente que se mira).
+- Al cliente le quedan cuatro en su lista: reporte semanal, recordatorio de reunión próxima, mensaje de WhatsApp
+  entrante y cuota vencida. Los tres que salieron se siguen emitiendo igual.

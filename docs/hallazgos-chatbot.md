@@ -3515,6 +3515,13 @@ Medido en producción (sólo lectura, 10/10 ~21:20):
 - **⚠️ El script de la mudanza las habría vuelto a crear.** `scripts/recordatorio-a-automatizacion.mts` crea la fila
   a todo negocio sin una SIN ARCHIVAR, así que una segunda corrida con `--aplicar` devolvía las 9. Ahora saltea al
   que no tiene nada propio que mudar (apagada y de fábrica); el simulacro da «creadas: 0».
+- **Y lo mismo en el ws1** (Martín: «También con Mauricio... Archiva todas las que no haya pedido. Solo deja la de
+  los audios que él ya grabó y el mensaje de MaKo de nueva agenda»): se archivaron la #220 (residuo +45 días), la
+  #226 (felicitación al terminar clase) y la #227 (una vacía), todas pausadas y sin nadie adentro. Quedan
+  prendidas las tres con SUS audios (#198 bienvenida, #212 y #213 post-agenda: audios 1, 5 y 7, grabados el
+  02/08) y, con su «sí», el recordatorio #228. «Nueva agenda» es el aviso `reunion-nuevo-agendado` (🎯 Nuevo
+  agendado), que no está en la lista del cliente y sigue prendido. Los otros Mensajes de MaKo de Mauricio NO se
+  apagaron: a la pregunta contestó con la regla de abajo, no con un «apagalos».
 - **Todavía no salió ni un recordatorio por el camino nuevo**: en toda la historia hay 3 marcas, las tres del ws1 y
   anteriores a la mudanza, y desde entonces no hubo reuniones. El primero real es el toque de 24 h de la reunión
   del 13/10 17:00 UTC (lead 2593): sale el **12/10 a las 17:00 UTC**. Ésa es la prueba de que el emisor lee la fila.

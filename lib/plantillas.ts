@@ -413,9 +413,10 @@ export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: 
  *
  * Las 'parcial' sí entran: esas salen, aunque no en todos los casos.
  *
- * El cliente ve SOLO los de `AVISOS_DEL_CLIENTE` (lib/avisos-catalogo.ts): siete,
+ * El cliente ve SOLO los de `AVISOS_DEL_CLIENTE` (lib/avisos-catalogo.ts): cuatro,
  * elegidos a mano (eran ocho; `lead-no-confirmo` salió el 09/10/2026 porque ya no lo
- * emite nada vivo). El resto se sigue emitiendo —lo gobierna la agencia desde
+ * emite nada vivo, y la grabación de Fathom y la caída y vuelta del WhatsApp el 10/10,
+ * a `AVISOS_SOLO_SUPERADMIN`). El resto se sigue emitiendo —lo gobierna la agencia desde
  * /mensajes— pero no le ocupa una fila que tendría que entender y decidir.
  *
  * `vista: 'agencia'` es para el panel del super-admin, que sí quiere el mapa

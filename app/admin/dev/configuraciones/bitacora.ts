@@ -598,4 +598,31 @@ Y también:
       "tests/cron-aviso.test.ts · tests/variables-aviso.test.ts — 8 roturas, cada una 1 falla",
     ],
   },
+  {
+    fecha: "10 oct", hora: "22:05", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Hay mensajes que configura sólo el super admin",
+    pedido: "«Y hay ciertos mensajes que no deberían configurarse del lado del cliente, solo de SuperAdmin, como el de \"Tu WhatsApp se desconectó\"...» Y a la pregunta de cuáles: «WhatsApp desconectado y reconectado», y «El de Fathom también debería ser algo que se configura en SuperAdmin».",
+    puntos: [
+      "Revierte la mitad del cliente de «las dos cosas» (09/10): el cliente ya no apaga el aviso de la caída.",
+    ],
+  },
+  {
+    fecha: "10 oct", hora: "22:10", chat: "chatbot", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "AVISOS_SOLO_SUPERADMIN: la caída, la vuelta y Fathom, cerrados en las tres puertas del cliente",
+    puntos: [
+      "Salieron de AVISOS_DEL_CLIENTE (quedan cuatro) y entraron a una lista explícita, AVISOS_SOLO_SUPERADMIN.",
+      "La API de la tab del cliente contestaba a CUALQUIER id, no sólo a los de su lista: ahora 404 para éstos, salvo al super admin, en el GET ?id y antes del switch del POST.",
+      "MaKo (configurar_aviso_whatsapp) los frena al proponer y al confirmar: son dos interruptores (el de la plantilla y el del negocio) y la regla cubre los dos.",
+      "Lo que un cliente ya había apagado queda (el ws13 tiene Fathom apagado): lo ve y lo cambia el super admin desde /mensajes.",
+    ],
+    archivos: [
+      "lib/avisos-catalogo.ts — AVISOS_SOLO_SUPERADMIN",
+      "app/api/perfil/plantillas/route.ts — soloDelSuperAdmin",
+      "lib/api-mako/areas/equipo.run.ts — configurar_aviso_whatsapp",
+      "tests/avisos-solo-superadmin.test.ts — 6 roturas, cada una 1 falla",
+      "docs/hallazgos-comunicacion.md — «Los avisos que configura sólo el super admin»",
+    ],
+  },
 ];

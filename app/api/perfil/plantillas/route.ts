@@ -27,7 +27,8 @@ import { acusesDe, setAcuses } from '@/lib/insistencias';
 
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
-import { seEditaElTexto, CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import { seEditaElTexto, esAvisoSoloSuperAdmin, CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import { getSesionAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -43,11 +44,25 @@ async function denegado(): Promise<NextResponse | null> {
   return null;
 }
 
+/**
+ * LOS AVISOS DEL SUPER ADMIN (`AVISOS_SOLO_SUPERADMIN`, lib/avisos-catalogo.ts: la caída y la vuelta del
+ * WhatsApp, la grabación de Fathom) no los toca el admin del NEGOCIO: 404, no 403 (a quien no le corresponde,
+ * no existe). El super admin pasa — mirando un cliente sigue siendo admin de plataforma —, aunque su lugar
+ * para configurarlos es /mensajes (/api/admin/plantillas). Esconderlos de la lista no alcanzaba: un POST con el
+ * id los prendía y apagaba igual.
+ */
+async function soloDelSuperAdmin(id: string | null | undefined): Promise<NextResponse | null> {
+  if (!id || !esAvisoSoloSuperAdmin(id) || (await getSesionAdmin())) return null;
+  return NextResponse.json({ ok: false, error: 'no existe' }, { status: 404 });
+}
+
 export async function GET(req: NextRequest) {
   const no = await denegado();
   if (no) return no;
   try {
     const id = new URL(req.url).searchParams.get('id');
+    const ajeno = await soloDelSuperAdmin(id);
+    if (ajeno) return ajeno;
     if (id) return NextResponse.json({ ok: true, plantilla: await getPlantilla(id) });
     return NextResponse.json({ ok: true, plantillas: await listarPlantillas() });
   } catch (e) {
@@ -68,6 +83,9 @@ export async function POST(req: NextRequest) {
     acuses?: unknown;
   };
   try { b = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+  // ANTES del switch: vale para TODAS las acciones con id (texto, prender, canales, frecuencia, el lienzo…).
+  const ajeno = await soloDelSuperAdmin(b.id);
+  if (ajeno) return ajeno;
 
   const faltaId = () => NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
 

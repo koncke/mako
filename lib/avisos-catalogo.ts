@@ -282,16 +282,36 @@ export const AVISOS_DEL_CLIENTE: readonly string[] = [
   // ws1), que el motor no corre. Era un interruptor que no prendía ni apagaba nada. Lo decide Martín
   // si vuelve: es una línea.
   'reunion-recordatorio',   // la reunión se viene
-  'reunion-ocurrio-fathom', // terminó y quedó la grabación
   'wa-mensaje-entrante',    // alguien escribió y nadie contestó
   'cuota-vencida',          // hay plata por cobrar
-  // Los dos de la línea de WhatsApp: Martín, 09/10/2026 al cerrar el Chatbot, «las dos cosas» —
-  // que el cliente pueda apagar el aviso de la caída, y que haya un «volvió».
-  'wa-desconectado',        // se cayó su WhatsApp
-  'wa-reconectado',         // y volvió
+  // ⛔ La grabación de Fathom y los dos de la línea de WhatsApp SALIERON el 10/10/2026: son de
+  // `AVISOS_SOLO_SUPERADMIN`, abajo.
 ];
 
 export const esAvisoDelCliente = (id: string): boolean => AVISOS_DEL_CLIENTE.includes(id);
+
+/**
+ * LOS AVISOS QUE CONFIGURA SÓLO EL SUPER ADMIN (desde /mensajes): el cliente no los ve en su lista, no los toca
+ * por la API de su tab (`/api/perfil/plantillas` contesta 404) ni se los pide a MaKo (`configurar_aviso_whatsapp`).
+ * Se siguen emitiendo igual. Martín, 10/10/2026: «hay ciertos mensajes que no deberían configurarse del lado del
+ * cliente, solo de SuperAdmin, como el de "Tu WhatsApp se desconectó"», y de la grabación: «El de Fathom también
+ * debería ser algo que se configura en SuperAdmin».
+ *
+ * ⚠️ Esto REVIERTE lo del 09/10/2026 («las dos cosas»: que el cliente pudiera apagar el aviso de la caída). Lo que
+ * un cliente ya hubiera apagado antes queda guardado en su store: el super admin lo ve y lo cambia desde /mensajes,
+ * mirando ese negocio.
+ *
+ * Lista EXPLÍCITA y no «todo lo que no es del cliente»: el resto del catálogo lo puede silenciar el dueño
+ * por MaKo a propósito (lib/api-mako/areas/equipo.run.ts, punto 5). Y no puede cruzarse con `AVISOS_DEL_CLIENTE`
+ * (tests/avisos-solo-superadmin.test.ts).
+ */
+export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
+  'wa-desconectado',        // se cayó su WhatsApp
+  'wa-reconectado',         // y volvió
+  'reunion-ocurrio-fathom', // terminó la reunión y quedó la grabación
+];
+
+export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
 
 /** ¿El texto de este aviso lo arma el código? (`textoDelCodigo`). Un aviso propio del negocio, nunca. */
 export const textoLoArmaElCodigo = (id: string): boolean =>

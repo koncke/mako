@@ -1301,4 +1301,16 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ["scripts/recordatorio-a-automatizacion.mts", "docs/hallazgos-chatbot.md — «El recordatorio como plantilla»"],
   },
+  {
+    fecha: "10 oct", hora: "21:58", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Limpiar las automatizaciones de Mauricio",
+    pedido: "«Tambien con Mauricio... Archiva todas las que no haya pedido. Solo deja la de los audios que él ya grabó y el mensaje de MaKo de nueva agenda». Y del recordatorio #228: «Dejarlo prendido».",
+    puntos: [
+      "Archivadas #220 (residuo), #226 (felicitación) y #227 (vacía), las tres pausadas y sin nadie adentro.",
+      "Quedan prendidas #198, #212 y #213 (las de sus audios 1, 5 y 7) y el recordatorio #228. «Nueva agenda» es el aviso reunion-nuevo-agendado, que sigue prendido.",
+      "Los Mensajes de MaKo de Mauricio no se apagaron: la respuesta fue la regla de los avisos del super admin (bitácora de Configuraciones).",
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «El recordatorio como plantilla»"],
+  },
 ];
