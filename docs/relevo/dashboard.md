@@ -42,7 +42,16 @@ audiencia y el mapa (`lib/graficos-audiencia.ts`, `MapaMexico.tsx`), los bloques
 (`lib/graficos-bloques.ts`, `app/dashboard/bloques/`), la interactividad (`Grafico.tsx`, `Detalle.tsx`),
 Nueva hoja con IA (`NuevaHoja.tsx`, `app/api/graficos/ia/`), los elementos (`Elemento.tsx`), el AI
 Analyst (`PanelAnalista.tsx`, migración 0246, cron) y las plantillas de Analysts. Se cortó una vez
-(la sesión se cerró) y se relanzó a las 05:15.
+(la sesión se cerró) y se relanzó a las 05:15; a las ~06:00 cinco agentes cayeron por el límite de uso.
+A las 12:32 se retomó (mismo script, `resumeFromRunId: 'wf_57bc1bc0-b52'`): TERMINADOS y en caché
+audiencia, bloques, nueva hoja y elementos; RETOMANDO pantalla, controles, interactividad, analista y
+analysts (con una nota de que hay trabajo suyo a medias en sus archivos). Los resultados de cada agente
+quedan en el `journal.jsonl` de la carpeta de la corrida.
+
+Pendientes que ya dejó la audiencia (enchufar al integrar): el mapa no se recorta a `g.limite`
+(lib/graficos-agregar.ts: `g.tipo === 'mapa'` como el histograma); el lector de la audiencia con
+dimensión vacía lee edad y género (`g?.dimension ?? ''`); Meta NO da agendas por región (marcarlo en el
+catálogo para no dibujar ceros); la edad se ordena por la etiqueta, no por el valor.
 
 ## Lo que falta después de la corrida
 
