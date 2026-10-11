@@ -430,3 +430,41 @@ export const ONB_TE_TOCA: Pendiente[] = [
   { t: '**Ponle fecha a las 5 que quedan**: la etapa vencía el 9/10. Primero #734 y #171, que son las que traban a un cliente.' },
   { t: '**Graba el video tutorial** (#737): es lo único de la etapa que no es código.' },
 ]
+
+// =============================================================================
+// El Dashboard: la depuración del proyecto del tablero (11/10)
+// =============================================================================
+// Pedido de Martín (10/10, por el chat «MaKo Pricing»): «Quiero desarrollar la tab de
+// Graphics como te lo indiqué... y también dile que revise el proyecto de Dashboard en el
+// PLAN, para que revise las tareas... Revisa según nuestro criterio si no hay que reprioizar
+// o eliminar directamente tareas innecesarias», y «Sí, en Runway».
+//
+// El mismo reparto que el CRM y el Onboarding: título, prioridad y «Hecha» salen del tablero
+// en cada carga; acá vive sólo el veredicto (ver el comentario de CRM_VEREDICTOS). El
+// criterio: el Dashboard no está en ninguna de las cinco etapas del 1/10, y la poda («si es
+// puede ser, no se hace»). Lo que se construyó en la misma tanda —Graphics › Mis gráficos— se
+// llevó dos tarjetas y explica otra. El detalle, en docs/hallazgos-graficos.md.
+
+export const DASH_MEDIDO = '11 de octubre de 2026';
+
+export const DASH_VEREDICTOS: Record<number, { que: Veredicto; motivo: string; hecho?: string }> = {
+  // ── Se va: por qué ya no queda nada que hacer ──
+  320: { que: 'va', motivo: 'Ya está en Mis gráficos', hecho: '«Costo por agenda» es una métrica de Mis gráficos (pauta ÷ agendas de Meta), y el informe inicial la trae' },
+  326: { que: 'va', motivo: 'Lo cubre Mis gráficos', hecho: 'Cada persona arma su tablero con el período que elige. Las palancas con semáforo nunca se definieron' },
+  322: { que: 'va', motivo: 'No queda qué arreglar', hecho: 'Julio es el tracking caído del 15/07 al 03/08, que no se recupera. Mis gráficos separa las agendas de Meta y las del CRM' },
+  341: { que: 'va', motivo: 'Ya agrupa por lunes', hecho: 'La base y la app agrupan las cohortes por lunes, y un test lo fija' },
+
+  // ── Se pospone: cómo se sobrevive sin eso ──
+  705: { que: 'pospone', motivo: 'Lo histórico se mira con «Máximo». Leticia figura perdida con un pago cobrado: se corrige en su ficha' },
+  323: { que: 'pospone', motivo: 'Falta el conteo a mano de Mauricio para comparar, y es historia de marzo a julio' },
+  219: { que: 'pospone', motivo: 'La meta de plata ya se carga en /general. La capacidad nunca se definió, y Objetivos va después' },
+  321: { que: 'pospone', motivo: 'El período exacto se mira en Mis gráficos. El piso de Tendencias es anterior a la pauta más vieja' },
+  342: { que: 'pospone', motivo: 'El desglose sólo perdería gente arriba de 1.000 agendas al año, y el ws1 tiene 129' },
+  670: { que: 'pospone', motivo: 'Pinta mal un estado de un mapa que mira una sola cuenta: no frena ninguna decisión' },
+};
+
+/** Lo que le queda a Martín de este proyecto. */
+export const DASH_TE_TOCA: Pendiente[] = [
+  { t: '**Arma tu informe** en Mis gráficos: elige los gráficos y átales datos.', href: '/graficos', boton: 'Abrir Mis gráficos' },
+  { t: '**Corrige a Leticia** en el CRM de Leila: figura perdida con un pago cobrado de US$40 (#705).' },
+];

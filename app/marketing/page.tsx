@@ -98,14 +98,16 @@ export default async function Page({
   const hoyReal = hoyEnTijuana();
   const params = await searchParams;
   const desdeParam = params.desde;
-  const hastaParam = params.hasta;
+  // Un rango que termina después de hoy —la ventana del 1/11 al 15/12, «este mes»— se ACOTA a
+  // hoy. Antes se descartaba entero y la pantalla volvía a los últimos 30 días sin avisar
+  // (docs/hallazgos-ads.md). Es el mismo criterio que /graficos.
+  const hastaParam = params.hasta && esFechaValida(params.hasta) && params.hasta > hoyReal ? hoyReal : params.hasta;
   const filtroActivo =
     !!desdeParam &&
     !!hastaParam &&
     esFechaValida(desdeParam) &&
     esFechaValida(hastaParam) &&
-    desdeParam <= hastaParam &&
-    hastaParam <= hoyReal;
+    desdeParam <= hastaParam;
 
   // Default (sin filtro): últimos 30 días, como Meta (no "todo el periodo").
   const rangoDesde = filtroActivo ? desdeParam! : diasAntes(hoyReal, 29);

@@ -203,7 +203,7 @@ export const FAMILIAS: NavFamilia[] = [
         // en el orden en que se pregunta. Son la misma familia de pregunta con
         // dos niveles de digestión.
         { key: 'analisis', label: 'Análisis', href: '/analisis', icon: 'analytics', match: starts('/analisis') },
-        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
+        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) },
         // Salió de los Analysts: los otros seis analizan un activo PROPIO (una
         // oferta, un anuncio, una landing); éste vigila lo que hacen los demás.
         { key: 'market-an', label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', comingSoon: true, match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
@@ -467,6 +467,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-admin', label: 'Admin', href: '/admin/dev/admin', icon: 'admin', match: starts('/admin/dev/admin') },
           { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
           { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
+          { key: 'dev-dashboard', label: 'Dashboard', href: '/admin/dev/dashboard', icon: 'graphics', match: starts('/admin/dev/dashboard') },
           // El área se llama como la tab (Automations, desde el 09/10/2026); la key y la ruta
           // /admin/dev/chatbot siguen: son el slug del registro y su historia.
           { key: 'dev-chatbot', label: 'Automations', href: '/admin/dev/chatbot', icon: 'config', match: starts('/admin/dev/chatbot') },

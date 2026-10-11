@@ -31,6 +31,8 @@ export const PROYECTO_CHATBOT = 'Feature: Chatbot';
 export const PROYECTO_CS = 'Feature: Customer Success';
 /** El del Onboarding: su depuración (10/10) usa la tabla de veredictos del CRM. */
 export const PROYECTO_ONBOARDING = 'Feature: Onboarding';
+/** El del Dashboard: su depuración (11/10) usa la misma tabla de veredictos. */
+export const PROYECTO_DASHBOARD = 'Feature: Dashboard';
 
 /**
  * Todas las tareas de un proyecto, ordenadas por prioridad como el tablero.

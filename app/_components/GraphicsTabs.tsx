@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// GraphicsTabs — sub-tabs de la sección "Graphics" (Marketing · Comercial)
+// GraphicsTabs — sub-tabs de la sección "Graphics" (Marketing · Comercial · Mis gráficos)
 // =============================================================================
 // Marketing y Comercial se unificaron bajo "Graphics" en el sidebar. Esta barra
 // va arriba de ambos dashboards y navega entre ellos, conservando el filtro de
@@ -16,6 +16,8 @@ const SANS = "'Geist', sans-serif";
 const TABS = [
   { label: 'Marketing', href: '/marketing' },
   { label: 'Comercial', href: '/comercial' },
+  // El tablero que arma cada persona (app/graficos): elige los gráficos y les ata datos.
+  { label: 'Mis gráficos', href: '/graficos' },
 ];
 
 export function GraphicsTabs() {

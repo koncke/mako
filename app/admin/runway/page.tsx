@@ -28,6 +28,7 @@ import {
   CHATBOT_MEDIDO, CHATBOT_TAREAS, CHATBOT_EN_PRODUCCION, CHATBOT_TE_TOCA,
   CS_MEDIDO, CS_TAREAS, CS_EN_PRODUCCION, CS_TE_TOCA,
   ONB_MEDIDO, ONB_VEREDICTOS, ONB_ELIMINADAS, ONB_TE_TOCA,
+  DASH_MEDIDO, DASH_VEREDICTOS, DASH_TE_TOCA,
   type Veredicto, type EstadoChatbot, type TareaApartado, type Pendiente,
 } from './datos';
 // El chip de prioridad es EL MISMO del tablero: la banda y el color salen de
@@ -37,7 +38,7 @@ import { prioFromScore, PCOLOR } from '@/app/plan/board/types';
 // Las tareas salen del tablero, ABIERTAS Y CERRADAS: una terminada tiene que poder
 // verse marcada, y el lector de /admin/dev las filtra en la consulta.
 import { wsDelBoard } from '@/app/admin/dev/roadmap';
-import { tareasDelCrm, tareasDelProyecto, PROYECTO_CHATBOT, PROYECTO_CS, PROYECTO_ONBOARDING, type TareaCrm } from './tareas';
+import { tareasDelCrm, tareasDelProyecto, PROYECTO_CHATBOT, PROYECTO_CS, PROYECTO_ONBOARDING, PROYECTO_DASHBOARD, type TareaCrm } from './tareas';
 
 export const dynamic = 'force-dynamic';
 
@@ -430,10 +431,11 @@ export default async function RunwayPage() {
   // El título, la prioridad y si está cerrada salen del tablero; lo que se hizo, de
   // `datos.ts`. Entran las tarjetas que se trabajaron y las abiertas que aparezcan
   // después (marcadas «sin revisar»): las cerradas de antes no son de esta foto.
-  const [tareasBot, tareasCs, tareasOnb] = await Promise.all([
+  const [tareasBot, tareasCs, tareasOnb, tareasDash] = await Promise.all([
     tareasDelProyecto(wsDelBoard(admin.ws), PROYECTO_CHATBOT),
     tareasDelProyecto(wsDelBoard(admin.ws), PROYECTO_CS),
     tareasDelProyecto(wsDelBoard(admin.ws), PROYECTO_ONBOARDING),
+    tareasDelProyecto(wsDelBoard(admin.ws), PROYECTO_DASHBOARD),
   ]);
   const BOT = filasDeApartado(tareasBot, CHATBOT_TAREAS);
   const CS = filasDeApartado(tareasCs, CS_TAREAS);
@@ -456,6 +458,22 @@ export default async function RunwayPage() {
     { k: 'se van', n: cuentaOnb('va'), bg: 'var(--primary)', ink: '#fff' },
     { k: ONB_ELIMINADAS.length === 1 ? 'borrada' : 'borradas', n: ONB_ELIMINADAS.length, bg: 'var(--border-strong)', ink: 'var(--ink)' },
     { k: 'sin revisar', n: ONB.filter((f) => !f.hecha && f.que === null).length, bg: 'var(--border)', ink: 'var(--ink)' },
+  ].filter((r) => r.n > 0);
+
+  // ── El Dashboard (11/10): el mismo reparto que el Onboarding ──
+  const DASH: FilaVeredicto[] = tareasDash
+    .filter((t) => DASH_VEREDICTOS[t.num] || t.progreso < 100)
+    .map((t) => ({
+      num: t.num, titulo: t.titulo, score: t.score, hecha: t.progreso >= 100,
+      ...(DASH_VEREDICTOS[t.num] ?? { que: null, motivo: 'Entró después de la depuración' }),
+    }));
+  const cuentaDash = (v: Veredicto) => DASH.filter((f) => !f.hecha && f.que === v).length;
+  const REPARTO_DASH: Tramo[] = [
+    { k: 'cerradas', n: DASH.filter((f) => f.hecha).length, bg: 'var(--good)', ink: '#fff' },
+    { k: 'se quedan', n: cuentaDash('queda'), bg: 'var(--bad)', ink: '#fff' },
+    { k: 'se posponen', n: cuentaDash('pospone'), bg: 'var(--surface-2)', ink: 'var(--ink)' },
+    { k: 'se van', n: cuentaDash('va'), bg: 'var(--primary)', ink: '#fff' },
+    { k: 'sin revisar', n: DASH.filter((f) => !f.hecha && f.que === null).length, bg: 'var(--border)', ink: 'var(--ink)' },
   ].filter((r) => r.n > 0);
 
   return (
@@ -669,6 +687,12 @@ export default async function RunwayPage() {
         }))} />
       <h2 style={h2}>Lo que te toca del Onboarding</h2>
       <ListaPendientes items={ONB_TE_TOCA} />
+
+      {/* ── el Dashboard: la depuración del proyecto, 11/10 ── */}
+      <h2 id="dashboard" style={{ ...h2, margin: '56px 0 14px' }}>El Dashboard · qué se hace con cada tarea, al {DASH_MEDIDO}</h2>
+      <TablaVeredictos reparto={REPARTO_DASH} filas={DASH} etiquetas={{ va: 'Se va' }} />
+      <h2 style={h2}>Lo que te toca del Dashboard</h2>
+      <ListaPendientes items={DASH_TE_TOCA} />
 
     </Pagina>
   );

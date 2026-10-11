@@ -335,8 +335,8 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'dashboard', titulo: 'Dashboard', familia: 'Analyze',
     estado: 'listo', verEnApp: '/dashboard',
-    alcance: 'El shell de los dos tableros de números: /dashboard solo redirige a /marketing y la barra GraphicsTabs conmuta entre Marketing y Comercial conservando el filtro de fecha (?desde&hasta).',
-    vive: ['app/dashboard/page.tsx', 'app/_components/GraphicsTabs.tsx', 'app/_components/FechaFiltro.tsx'],
+    alcance: 'Graphics: /dashboard redirige a /marketing y la barra GraphicsTabs conmuta entre Marketing, Comercial y Mis gráficos (el editor de informes estilo Looker Studio, por persona) conservando el filtro de fecha (?desde&hasta).',
+    vive: ['app/dashboard/page.tsx', 'app/_components/GraphicsTabs.tsx', 'app/_components/FechaFiltro.tsx', 'app/graficos/', 'app/api/graficos/', 'lib/graficos-catalogo.ts', 'lib/graficos-agregar.ts', 'lib/graficos-datos.ts', 'lib/graficos-tablero.ts', 'tests/graficos.test.ts'],
     proyectos: ['Feature: Dashboard'],
   },
   {

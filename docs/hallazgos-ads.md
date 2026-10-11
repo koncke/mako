@@ -3938,3 +3938,9 @@ se puede sin Zernio». Lo que toca a la app, en cuatro renglones:
 
 **Vive en:** `app/comercial/page.tsx:164-177,215` · `lib/queries.ts:701-739`.
 *Corrida `wf_01c22b1b-91a`, 10/10/2026.*
+
+**Arreglado el 11/10/2026 en `/comercial` y `/marketing`** (la misma condición estaba en las dos):
+un `hasta` posterior a hoy se ACOTA a hoy, con el mismo criterio que `/graficos`. Medido con
+`?desde=2026-10-01&hasta=2026-12-15` en el ws1: las dos pantallas dibujan desde el 01/10 y ya no
+vuelven a 30 días. **Sigue igual:** `app/ads-manager/AdsManagerView.tsx` (misma condición
+`hastaParam <= hoyReal`) y el CAC acumulado sin «desde».

@@ -53,12 +53,14 @@ import { PARTES as ADSMANAGER_PARTES, BITACORA as ADSMANAGER_BITACORA } from './
 import { PARTES as WAMAKO_PARTES, BITACORA as WAMAKO_BITACORA } from './whatsapp-de-mako/bitacora';
 import { PARTES as WEBHOOKS_PARTES, BITACORA as WEBHOOKS_BITACORA } from './webhook-gateway/bitacora';
 import { PARTES as APIMAKO_PARTES, BITACORA as APIMAKO_BITACORA } from './api-mako/bitacora';
+import { PARTES as DASHBOARD_PARTES, BITACORA as DASHBOARD_BITACORA } from './dashboard/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
   admin: { partes: ADMIN_PARTES, bitacora: ADMIN_BITACORA },
   configuraciones: { partes: CONFIGURACIONES_PARTES, bitacora: CONFIGURACIONES_BITACORA },
   onboarding: { partes: ONBOARDING_PARTES, bitacora: ONBOARDING_BITACORA },
   general: { partes: GENERAL_PARTES, bitacora: GENERAL_BITACORA },
+  dashboard: { partes: DASHBOARD_PARTES, bitacora: DASHBOARD_BITACORA },
   chatbot: { partes: CHATBOT_PARTES, bitacora: CHATBOT_BITACORA },
   'ads-writer': { partes: ADS_PARTES, bitacora: ADS_BITACORA },
   'ads-manager': { partes: ADSMANAGER_PARTES, bitacora: ADSMANAGER_BITACORA },
