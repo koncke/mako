@@ -33,6 +33,9 @@
 //     (tercera tanda, decisión 4: «todo eso debería ir dentro del editable del CONDICIONAL»). Cada
 //     plantilla arranca cuando el lead LLEGA A UNA ETAPA, y lo que el evento decía va en la primera
 //     condición: «No agendó», «Ya le escribiste», «Próxima reunión en ≤ 720 h».
+//     ⚠️ LA EXCEPCIÓN ES EL RECORDATORIO DE LA REUNIÓN (`cron.fijo`, 10/10/2026): su CRON, «Agendó una
+//     reunión», no es una etapa ni lo inscribe el motor (lo lee su emisor, lib/recordatorio-automatizacion.ts),
+//     así que viene puesto y no se pregunta nada. Un negocio tiene UNO: si ya lo tiene, no se crea otro.
 //   · LA ETAPA ES DEL NEGOCIO, así que la plantilla no la trae (`cron.pide`): la pantalla la pide al
 //     elegir (app/automations/GaleriaPlantillas.tsx) y, si no se elige, nace con el CRON a elegir
 //     («Elige qué la dispara», lo que dice la tarjeta CRON de una recién creada).
@@ -55,6 +58,8 @@ import {
 } from './flujo-conversacion';
 import type { Disparador } from './disparadores';
 import { TOPE_NOMBRE_SECUENCIA } from './setting-estrategia';
+import { TRIGGER_RECORDATORIO, NOMBRE_RECORDATORIO_AUTOMATIZACION, pasosDeLaConfig } from './recordatorio-automatizacion';
+import { TEXTO_DEFAULT } from './recordatorio-lead';
 
 // ── El dato ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -67,11 +72,19 @@ export const TRIGGER_DE_PIDE: Readonly<Record<PideCron, string>> = {
   etapa_entrega: 'entrega_actual',
 };
 
-export type CronDePlantilla = {
-  pide: PideCron;
-  /** Qué etapa conviene elegir, dicho como la ve el negocio. Va debajo del desplegable. */
-  ayuda: string;
-};
+export type CronDePlantilla =
+  | {
+    pide: PideCron;
+    /** Qué etapa conviene elegir, dicho como la ve el negocio. Va debajo del desplegable. */
+    ayuda: string;
+    fijo?: undefined;
+  }
+  /**
+   * EL CRON VIENE PUESTO y no se pregunta nada: el del recordatorio de la reunión («Agendó una reunión»), que
+   * no es una etapa del negocio. Nace con ese `trigger_tipo` en la fila, así `setSecuenciaPasos` le aplica
+   * desde el primer guardado la forma que su emisor sabe mandar (`toquesDeLaAutomatizacion`).
+   */
+  | { fijo: typeof TRIGGER_RECORDATORIO; pide?: undefined; ayuda?: undefined };
 
 /** Un paso de una plantilla: una tarjeta del lienzo, como la arma el ＋ (`nodoNuevo`). */
 export type PasoDePlantilla = PasoGrafo & {
@@ -209,9 +222,31 @@ function postAgenda(pre: string, primera: FilaCondicion, primerMensaje: string):
   ];
 }
 
+/**
+ * EL RECORDATORIO DE LA REUNIÓN: los MISMOS pasos que armó la mudanza de cada negocio (`pasosDeLaConfig`), con
+ * los textos de fábrica, ningún número propio y los ids de plantilla. «Sale sola» va explícito porque es lo que
+ * pasa: lo manda su emisor siempre, y la tarjeta ni ofrece «Revisar» (`mostrarRevisar`, app/automations/FlujoLienzo.tsx).
+ */
+function pasosRecordatorio(pre: string): PasoDePlantilla[] {
+  return pasosDeLaConfig({ textos: TEXTO_DEFAULT, lineas: {} }, { pre })
+    .map((x) => (x.nodo ? x : { ...x, revisar: false })) as PasoDePlantilla[];
+}
+
 // ── La galería ──────────────────────────────────────────────────────────────────────────────────
 
 export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
+  {
+    // Decisión de Martín (10/10/2026), a la pregunta de qué hacer con el recordatorio de un negocio NUEVO:
+    // «Ningún negocio tiene que arrancar con ninguna automatización creada, para eso ya tenemos los
+    // templates. Solo ponlo como template.» Va PRIMERA: es lo primero que hace la tab por un negocio.
+    id: 'recordatorio-reunion',
+    nombre: NOMBRE_RECORDATORIO_AUTOMATIZACION,
+    emoji: '⏰',
+    linea: 'Le recuerda la reunión al lead 24 h, 1 h y 15 min antes, con la hora y el link.',
+    origen: 'la mudanza del 10/10/2026 (#228-#237), con los textos de fábrica',
+    cron: { fijo: TRIGGER_RECORDATORIO },
+    pasos: pasosRecordatorio('rr'),
+  },
   {
     id: 'bienvenida-sin-agenda',
     nombre: 'Bienvenida — dejó sus datos y no agendó',

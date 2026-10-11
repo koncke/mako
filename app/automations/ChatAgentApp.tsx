@@ -756,7 +756,9 @@ function ChatAgentInner() {
           onEmpezar={() => { setGaleria(false); void crearNueva(); }}
           onCron={(clase) => { setGaleria(false); void crearNueva(clase); }}
           onPegar={(t) => { setGaleria(false); void crearDesdeCopia(t); }}
-          onCreada={(r) => void alCrearDePlantilla(r)} />
+          onCreada={(r) => void alCrearDePlantilla(r)}
+          // El recordatorio de la reunión es UNO por negocio: si ya está en la lista, su plantilla se dibuja apagada.
+          triggersVivos={(secuencias ?? []).map((s) => s.trigger_tipo)} />
       )}
 
       {/* «COPIASTE UN FLUJO»: arriba al centro, sobre el lienzo, hasta que se conteste. */}

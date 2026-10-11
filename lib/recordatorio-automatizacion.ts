@@ -28,7 +28,12 @@ import { TOQUES, TEXTO_DEFAULT, VARIABLES, problemaDelTexto, type ConfigRecordat
 export const TRIGGER_RECORDATORIO = 'reunion_recordatorio';
 /** Cómo se llama en la tarjeta CRON y en el selector. */
 export const ROTULO_TRIGGER_RECORDATORIO = 'Agendó una reunión';
-/** El nombre de la automatización que crea la mudanza (y la plantilla de la galería). */
+/**
+ * El nombre de la automatización que crea la mudanza y la plantilla de la galería (`recordatorio-reunion`,
+ * lib/plantillas-automatizaciones.ts). Un negocio NUEVO no la tiene: la elige de la galería (decisión de
+ * Martín, 10/10/2026: «Ningún negocio tiene que arrancar con ninguna automatización creada, para eso ya
+ * tenemos los templates»). Sin la fila, su emisor lee la configuración de antes, que nace apagada.
+ */
 export const NOMBRE_RECORDATORIO_AUTOMATIZACION = 'Recordatorio de la reunión';
 
 /**
@@ -120,18 +125,24 @@ export function frenoDelRecordatorio(pasos: readonly PasoGrafo[]): { error: stri
  * LOS PASOS DE UN RECORDATORIO a partir de la configuración de antes (`chatbot.recordatorio_reunion`): la
  * mudanza de cada negocio y la plantilla de la galería (con la de fábrica). Los ids son estables
  * (`espera-1440`, `toque-1440`…), así una tarjeta abierta sigue siendo la misma.
+ *
+ * `pre` es para la PLANTILLA (lib/plantillas-automatizaciones.ts): sus ids van con el prefijo de su plantilla
+ * (`rr_espera_1440`, `rr_toque_1440`…), como los de las otras. Las filas de la mudanza ya están escritas con
+ * los de arriba y no cambian.
  */
-export function pasosDeLaConfig(cfg: Pick<ConfigRecordatorio, 'textos' | 'lineas'>): PasoGrafo[] {
+export function pasosDeLaConfig(cfg: Pick<ConfigRecordatorio, 'textos' | 'lineas'>, o: { pre?: string } = {}): PasoGrafo[] {
+  const espera = (min: Toque) => (o.pre ? `${o.pre}_espera_${min}` : `espera-${min}`);
+  const toque = (min: Toque) => (o.pre ? `${o.pre}_toque_${min}` : `toque-${min}`);
   const out: PasoGrafo[] = [];
   TOQUES.forEach((min, i) => {
     const sig = TOQUES[i + 1];
-    out.push({ id: `espera-${min}`, nodo: 'esperar', espera: { modo: 'antes_reunion', minutos: min }, siguiente: `toque-${min}`, canal: 'whatsapp', delay_horas: 0, cuerpo: '' } as PasoGrafo);
+    out.push({ id: espera(min), nodo: 'esperar', espera: { modo: 'antes_reunion', minutos: min }, siguiente: toque(min), canal: 'whatsapp', delay_horas: 0, cuerpo: '' } as PasoGrafo);
     const linea = cfg.lineas[min];
     out.push({
-      id: `toque-${min}`, canal: 'whatsapp', proveedor: 'no_oficial', tipo: 'texto', delay_horas: 0,
+      id: toque(min), canal: 'whatsapp', proveedor: 'no_oficial', tipo: 'texto', delay_horas: 0,
       cuerpo: cfg.textos[min] ?? TEXTO_DEFAULT[min],
       ...(linea ? { linea } : {}),
-      siguiente: sig != null ? `espera-${sig}` : null,
+      siguiente: sig != null ? espera(sig) : null,
     } as PasoGrafo);
   });
   return out;

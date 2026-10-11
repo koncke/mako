@@ -88,9 +88,24 @@ export const ROTULO_OTRAS = 'O empieza así';
 export const ROTULO_PLANTILLAS = 'Desde una plantilla';
 export const PREGUNTA_ETAPA = '¿En qué etapa arranca?';
 
-/** ¿Al elegirla hay que preguntar la etapa? Sólo si hay etapas para ofrecer: si no, nace con el CRON a elegir. */
+/**
+ * ¿Al elegirla hay que preguntar la etapa? Sólo si arranca en una etapa y hay etapas para ofrecer: si no, nace
+ * con el CRON a elegir. Una con el CRON fijo (el recordatorio de la reunión) no pregunta nada.
+ */
 export function preguntaEtapa(p: PlantillaAutomatizacion, productos: readonly ProductoParaDisparo[]): boolean {
-  return seccionesParaCron(p.cron.pide, productos).length > 0;
+  return p.cron.pide ? seccionesParaCron(p.cron.pide, productos).length > 0 : false;
+}
+
+/** Lo que dice la tarjeta de una plantilla de CRON fijo que el negocio ya tiene. */
+export const YA_LA_TIENES = 'Ya la tienes en tu lista.';
+
+/**
+ * ¿El negocio ya tiene esta plantilla? Sólo cuenta para las de CRON fijo, que son UNA por negocio (el
+ * recordatorio: con dos, su emisor manda la primera activa y la lista no dice cuál). El server lo vuelve a mirar
+ * (`crearDesdePlantilla`): esto es para no ofrecer un clic que va a contestar que no.
+ */
+export function yaLaTiene(p: PlantillaAutomatizacion, triggersVivos: readonly string[]): boolean {
+  return !!p.cron.fijo && triggersVivos.includes(p.cron.fijo);
 }
 
 const CSS = `
@@ -117,6 +132,8 @@ const ROTULO: CSSProperties = {
 export function GaleriaPlantillas(p: {
   /** Los productos con sus etapas (los mismos que lee el editor del CRON). */
   productos: readonly ProductoParaDisparo[];
+  /** El `trigger_tipo` de las automatizaciones de la lista (sin archivar): apaga la plantilla de CRON fijo que ya tiene. */
+  triggersVivos?: readonly string[];
   onCerrar: () => void;
   /** «Pídesela a MaKo»: quien monta crea la vacía de «＋ Nueva» (que abre la caja de Crear con IA). */
   onEmpezar: (como: QueNueva) => void;
@@ -184,9 +201,10 @@ export function GaleriaPlantillas(p: {
     void crear(pl, null);
   };
 
-  // ── 2. ¿En qué etapa arranca? ──
-  if (elegida) {
-    const secciones = seccionesParaCron(elegida.cron.pide, p.productos);
+  // ── 2. ¿En qué etapa arranca? ── (sólo se elige una que arranca en una etapa: `preguntaEtapa`)
+  const pideElegida = elegida?.cron.pide;
+  if (elegida && pideElegida) {
+    const secciones = seccionesParaCron(pideElegida, p.productos);
     const ocupado = creando != null;
     return (
       <Modal titulo={`${elegida.emoji} ${elegida.nombre}`} onCerrar={cerrar} ancho={560}
@@ -200,7 +218,7 @@ export function GaleriaPlantillas(p: {
         <div data-galeria-paso="etapa" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 17, fontWeight: 700 }}>{PREGUNTA_ETAPA}</div>
           <Dropdown value={valor} secciones={secciones} search width="100%" variante="principal"
-            botonLabel={rotuloDeEleccion(elegida.cron.pide, secciones, valor)}
+            botonLabel={rotuloDeEleccion(pideElegida, secciones, valor)}
             onChange={setValor} ariaLabel={PREGUNTA_ETAPA} disabled={ocupado} />
           <div style={LINEA}>{elegida.cron.ayuda}</div>
           {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</div>}
@@ -245,16 +263,19 @@ export function GaleriaPlantillas(p: {
         <div style={ROTULO}>{ROTULO_PLANTILLAS}</div>
         {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)', marginBottom: 10 }}>{error}</div>}
         <div className="gal-grilla">
-          {PLANTILLAS.map((pl) => (
-            <button key={pl.id} type="button" className="gal-tarjeta" data-plantilla={pl.id}
-              disabled={ocupado && creando !== pl.id} aria-busy={creando === pl.id || undefined}
-              onClick={() => elegir(pl)}>
-              <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{pl.emoji}</span>
-              <span style={NOMBRE}>{pl.nombre}</span>
-              <span style={LINEA}>{pl.linea}</span>
-              {creando === pl.id && <span className="mk-spin" style={{ width: 14, height: 14, marginTop: 'auto' }} aria-label="Creando" />}
-            </button>
-          ))}
+          {PLANTILLAS.map((pl) => {
+            const tiene = yaLaTiene(pl, p.triggersVivos ?? []);
+            return (
+              <button key={pl.id} type="button" className="gal-tarjeta" data-plantilla={pl.id} data-ya-la-tiene={tiene || undefined}
+                disabled={tiene || (ocupado && creando !== pl.id)} aria-busy={creando === pl.id || undefined}
+                onClick={() => elegir(pl)}>
+                <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{pl.emoji}</span>
+                <span style={NOMBRE}>{pl.nombre}</span>
+                <span style={LINEA}>{tiene ? YA_LA_TIENES : pl.linea}</span>
+                {creando === pl.id && <span className="mk-spin" style={{ width: 14, height: 14, marginTop: 'auto' }} aria-label="Creando" />}
+              </button>
+            );
+          })}
         </div>
       </div>
     </Modal>

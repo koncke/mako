@@ -19,7 +19,7 @@
 //   4. la ruta: la acción existe detrás de la guarda de admin y enchufa las puertas de verdad;
 //   5. la pantalla: la galería dibuja las dos formas de empezar y todas las plantillas.
 //
-// PROBADO ROMPIÉNDOLO: ver «ROTURAS» al pie (27, todas en rojo).
+// PROBADO ROMPIÉNDOLO: ver «ROTURAS» al pie (34, todas en rojo).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -42,7 +42,12 @@ import { LEAD_DEL_EVENTO, faltanEnPaso } from '../lib/api-mako/flujo-params';
 import { porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
 import { TOPE_NOMBRE_SECUENCIA } from '../lib/setting-estrategia';
-import { GaleriaPlantillas, preguntaEtapa, EMPEZAR, TITULO_GALERIA, ROTULO_PLANTILLAS } from '../app/automations/GaleriaPlantillas';
+import { GaleriaPlantillas, preguntaEtapa, yaLaTiene, EMPEZAR, TITULO_GALERIA, ROTULO_PLANTILLAS, YA_LA_TIENES } from '../app/automations/GaleriaPlantillas';
+import { TRIGGER_RECORDATORIO, toquesDeLaAutomatizacion, frenoDelRecordatorio } from '../lib/recordatorio-automatizacion';
+import { TOQUES, TEXTO_DEFAULT, VARIABLES } from '../lib/recordatorio-lead';
+
+/** La plantilla del recordatorio de la reunión: la única con el CRON fijo (decisión de Martín, 10/10/2026). */
+const RECORDATORIO = 'recordatorio-reunion';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -83,8 +88,14 @@ test('la galería tiene entre 5 y 8 plantillas, con id, nombre, línea y emoji q
     assert.ok(p.nombre.trim() && p.nombre.length <= TOPE_NOMBRE_SECUENCIA, `${p.id}: el nombre mide ${p.nombre.length}`);
     assert.ok(p.linea.trim() && p.linea.length <= TOPE_LINEA, `${p.id}: la línea mide ${p.linea.length}`);
     assert.equal(emojiDeSecuencia(p.emoji), p.emoji, `${p.id}: «${p.emoji}» no se guarda como emoji`);
-    assert.ok(p.cron.pide in TRIGGER_DE_PIDE, `${p.id}: pide «${p.cron.pide}»`);
-    assert.ok(p.cron.ayuda.trim(), `${p.id}: sin ayuda para elegir la etapa`);
+    if (p.cron.fijo) {
+      // El CRON fijo es SÓLO el del recordatorio: cualquier otro necesitaría su propia forma de Publicar.
+      assert.equal(p.cron.fijo, TRIGGER_RECORDATORIO, `${p.id}: CRON fijo «${p.cron.fijo}»`);
+      assert.equal(p.id, RECORDATORIO);
+    } else {
+      assert.ok(p.cron.pide in TRIGGER_DE_PIDE, `${p.id}: pide «${p.cron.pide}»`);
+      assert.ok(p.cron.ayuda.trim(), `${p.id}: sin ayuda para elegir la etapa`);
+    }
     assert.equal(plantillaPorId(p.id), p);
   }
   assert.equal(plantillaPorId('no-existe'), null);
@@ -98,7 +109,18 @@ test('cada plantilla se PUEDE PUBLICAR: pasa lo que frena guardar, Publicar y el
     assert.deepEqual(validarGrafo(pasos), [], `${p.id}: no se publica`);
     assert.equal(frenoDelFlujo(pasos, faltanEnAccion), null, `${p.id}: el lienzo frena Publicar`);
     assert.ok(raizSalida(pasos), `${p.id}: el CRON no lleva a ninguna tarjeta`);
+    // Con el CRON del recordatorio, Publicar (el lienzo y `setSecuenciaPasos`) exige además lo que su emisor
+    // sabe mandar.
+    if (p.cron.fijo === TRIGGER_RECORDATORIO) assert.equal(frenoDelRecordatorio(pasos), null, `${p.id}: el emisor no la sabe mandar`);
   }
+});
+
+test('el recordatorio es el de fábrica: los tres toques, con sus textos, y nace como lo armó la mudanza', () => {
+  const r = toquesDeLaAutomatizacion(normalizar(pasosDePlantilla(plantillaPorId(RECORDATORIO)!)));
+  assert.equal(r.problema, null);
+  assert.deepEqual(r.toques.map((t) => t.min), [...TOQUES]);
+  assert.deepEqual(r.toques.map((t) => t.texto), TOQUES.map((m) => TEXTO_DEFAULT[m]));
+  assert.ok(r.toques.every((t) => t.linea === null), 'trae el número de un negocio');
 });
 
 test('cada acción existe en el registro, es una acción y lleva lo obligatorio (lo que mira setSecuenciaPasos)', () => {
@@ -127,7 +149,8 @@ test('es del modelo de la sexta tanda: sin «Ir a», sin campos de la lista de a
       }
       assert.equal(x.template_wa ?? null, null, `${donde}: plantilla del oficial`);
       if (c === 'mensaje') {
-        assert.ok(x.tipo === undefined || x.tipo === 'ia', `${donde}: tipo «${x.tipo}»`);
+        // `texto` es lo mismo que ausente (lo escribe la mudanza del recordatorio, `pasosDeLaConfig`).
+        assert.ok(x.tipo === undefined || x.tipo === 'texto' || x.tipo === 'ia', `${donde}: tipo «${x.tipo}»`);
         assert.ok(x.canal === 'whatsapp' || x.canal === 'email', `${donde}: canal «${x.canal}»`);
         if (x.tipo === 'ia') assert.equal(x.canal, 'whatsapp', `${donde}: «MaKo lo adapta» sólo sale por WhatsApp`);
         assert.equal(typeof x.revisar, 'boolean', `${donde}: «Sale sola» queda al default de la automatización`);
@@ -212,6 +235,12 @@ test('los datos del «{ }» son de los que se le mandan a un LEAD y el motor res
   for (const p of PLANTILLAS) {
     for (const t of textos(p.pasos)) {
       for (const m of t.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi)) {
+        // El recordatorio NO lo manda el motor: sus datos son los que resuelve su emisor (`VARIABLES`), y uno
+        // del motor saldría crudo (Publicar lo rechaza: `problemaDelTexto`).
+        if (p.cron.fijo === TRIGGER_RECORDATORIO) {
+          assert.ok((VARIABLES as readonly string[]).includes(m[1]), `${p.id}: «{{${m[1]}}}» no lo resuelve el emisor del recordatorio`);
+          continue;
+        }
         const v = datoDe(m[1]);
         assert.ok(v, `${p.id}: «{{${m[1]}}}» no está en el catálogo del «{ }»`);
         assert.ok(valePara(v!, 'lead') && !v!.oculta, `${p.id}: «{{${m[1]}}}» no se ofrece para un lead`);
@@ -228,7 +257,9 @@ test('el texto que le llega al lead (y al equipo) va con tuteo neutro, sin voseo
 });
 
 test('pasosDePlantilla da una COPIA con el orden de lectura: crear no toca el catálogo', () => {
-  const p = PLANTILLAS[0];
+  // Una que ARRANCA con una condición, para poder tocarle las filas (la primera de la galería es el recordatorio).
+  const p = plantillaPorId('bienvenida-sin-agenda')!;
+  assert.ok(p.pasos[0].ramas?.length, 'la de la prueba ya no arranca con una condición');
   const a = pasosDePlantilla(p);
   assert.deepEqual(a.map((x) => x.orden), a.map((_, i) => i + 1));
   a[0].cuerpo = 'cambiado';
@@ -293,12 +324,15 @@ test('lo elegido se guarda sólo si es del kanban que la plantilla pide, y como 
 // ── 3. Crear ─────────────────────────────────────────────────────────────────────
 
 type Llamada = { op: string; args: unknown[] };
-function baseDeMentira(o: { vivas?: string[]; errIns?: string } = {}) {
+function baseDeMentira(o: { vivas?: string[]; errIns?: string; triggers?: Record<string, string> } = {}) {
   const llamadas: Llamada[] = [];
   const db: DbPlantilla = {
     from: () => ({
       select: (cols) => ({
-        is: async (c, v) => { llamadas.push({ op: 'select', args: [cols, c, v] }); return { data: (o.vivas ?? []).map((nombre) => ({ nombre })), error: null }; },
+        is: async (c, v) => {
+          llamadas.push({ op: 'select', args: [cols, c, v] });
+          return { data: (o.vivas ?? []).map((nombre) => ({ nombre, trigger_tipo: o.triggers?.[nombre] ?? 'etapa_actual' })), error: null };
+        },
       }),
       insert: (fila) => ({
         select: () => ({
@@ -392,7 +426,46 @@ test('crear: si ya hay una automatización con ese nombre, nace con un número',
   const r = await crearDesdePlantilla('no-asistio', { db, setPasos: async () => {}, setDisparadores: async () => {} });
   assert.equal(r.nombre, 'No asistió: reagendar 2');
   assert.equal((llamadas[1].args[0] as { nombre: string }).nombre, 'No asistió: reagendar 2');
-  assert.deepEqual(llamadas[0].args, ['nombre', 'archivada_at', null], 'los nombres se miran sólo entre las vigentes');
+  assert.deepEqual(llamadas[0].args, ['nombre, trigger_tipo', 'archivada_at', null], 'los nombres se miran sólo entre las vigentes');
+});
+
+test('crear el recordatorio: nace APAGADO con SU CRON en la fila (antes de los pasos) y sin tocar la lista de CRON', async () => {
+  const { db, llamadas } = baseDeMentira({ vivas: ['Bienvenida'] });
+  const pasos: unknown[] = [];
+  const crones: unknown[] = [];
+  const r = await crearDesdePlantilla(RECORDATORIO, {
+    db, clave: () => 'plantilla-r',
+    setPasos: async (_, ps) => { pasos.push(ps); },
+    setDisparadores: async (_, l) => { crones.push(l); },
+  });
+  assert.deepEqual(r, { id: 700, nombre: 'Recordatorio de la reunión', pide: null, aviso: null });
+  // `setSecuenciaPasos` lee el trigger_tipo de la FILA para exigir la forma del recordatorio: tiene que estar al insertar.
+  assert.deepEqual(llamadas[1].args[0], {
+    clave: 'plantilla-r', nombre: 'Recordatorio de la reunión', etapa: 'manual', trigger_tipo: TRIGGER_RECORDATORIO, activa: false, pasos: [], emoji: '⏰',
+  });
+  assert.deepEqual(pasos, [pasosDePlantilla(plantillaPorId(RECORDATORIO)!)]);
+  assert.equal(crones.length, 0, 'el CRON del recordatorio no va por la lista de CRON');
+});
+
+test('crear el recordatorio: si el negocio YA tiene uno (sin archivar), o si piden una etapa, no se crea NADA', async () => {
+  const yaEsta = baseDeMentira({ vivas: ['Mi recordatorio'], triggers: { 'Mi recordatorio': TRIGGER_RECORDATORIO } });
+  await assert.rejects(
+    crearDesdePlantilla(RECORDATORIO, { db: yaEsta.db, setPasos: async () => {}, setDisparadores: async () => {} }),
+    (e: unknown) => e instanceof PlantillaInvalidaError && /Ya la tienes/.test(e.message),
+  );
+  assert.deepEqual(ops(yaEsta.llamadas), ['select'], 'insertó un segundo recordatorio');
+
+  const conEtapa = baseDeMentira();
+  await assert.rejects(
+    crearDesdePlantilla(RECORDATORIO, { db: conEtapa.db, setPasos: async () => {}, setDisparadores: async () => {} }, { disparador: 'venta:5:agendado' }),
+    (e: unknown) => e instanceof PlantillaInvalidaError,
+  );
+  assert.deepEqual(ops(conEtapa.llamadas), []);
+
+  // Con otro recordatorio ARCHIVADO (no viene en las vigentes) sí se crea: la lista no lo muestra.
+  const otra = baseDeMentira({ vivas: ['Otra'] });
+  const r = await crearDesdePlantilla(RECORDATORIO, { db: otra.db, setPasos: async () => {}, setDisparadores: async () => {} });
+  assert.equal(r.id, 700);
 });
 
 // ── 4. La ruta ───────────────────────────────────────────────────────────────────
@@ -415,8 +488,8 @@ test('la ruta: «crear_desde_plantilla» va detrás de la guarda de admin y ench
 
 // ── 5. La pantalla ───────────────────────────────────────────────────────────────
 
-const dibujar = (productos: ProductoParaDisparo[] = []) => renderToStaticMarkup(createElement(GaleriaPlantillas, {
-  productos, onCerrar: () => {}, onEmpezar: () => {}, onCreada: () => {},
+const dibujar = (productos: ProductoParaDisparo[] = [], triggersVivos?: string[]) => renderToStaticMarkup(createElement(GaleriaPlantillas, {
+  productos, triggersVivos, onCerrar: () => {}, onEmpezar: () => {}, onCreada: () => {},
 }));
 
 test('la galería dibuja las dos formas de empezar y TODAS las plantillas, con su emoji, nombre y línea', () => {
@@ -438,6 +511,23 @@ test('la etapa se pregunta sólo si hay etapas de ese kanban para ofrecer', () =
   assert.equal(preguntaEtapa(entrega, UN_PRODUCTO), true);
   assert.equal(preguntaEtapa(venta, []), false);
   assert.equal(preguntaEtapa(entrega, [{ ...UN_PRODUCTO[0], etapasEntrega: [] }]), false);
+  // El recordatorio trae su CRON: no pregunta nada aunque haya etapas.
+  assert.equal(preguntaEtapa(plantillaPorId(RECORDATORIO)!, UN_PRODUCTO), false);
+});
+
+test('el recordatorio que el negocio ya tiene se dibuja APAGADO y lo dice; los demás, no', () => {
+  const rec = plantillaPorId(RECORDATORIO)!;
+  assert.equal(yaLaTiene(rec, [TRIGGER_RECORDATORIO]), true);
+  assert.equal(yaLaTiene(rec, ['etapa_actual']), false);
+  // Una de etapa nunca se apaga: de ésas se pueden tener varias.
+  assert.equal(yaLaTiene(plantillaPorId('no-asistio')!, ['etapa_actual', TRIGGER_RECORDATORIO]), false);
+
+  const html = dibujar(UN_PRODUCTO, ['etapa_actual', TRIGGER_RECORDATORIO]);
+  const tarjeta = (id: string) => html.match(new RegExp(`<button[^>]*data-plantilla="${id}"[^>]*>[\\s\\S]*?</button>`))?.[0] ?? '';
+  assert.match(tarjeta(RECORDATORIO), /disabled=""/, 'el recordatorio que ya tiene se puede elegir');
+  assert.ok(tarjeta(RECORDATORIO).includes(YA_LA_TIENES), 'no dice que ya la tiene');
+  assert.ok(!tarjeta('no-asistio').includes('disabled'), 'apagó una plantilla de etapa');
+  assert.ok(!dibujar(UN_PRODUCTO, ['etapa_actual']).match(new RegExp(`data-plantilla="${RECORDATORIO}"[^>]*disabled`)), 'apagado sin tenerlo');
 });
 
 // ROTURAS, medidas el 10/10/2026 contra la base en verde (0 fallos, 23 pases), cada una aplicada y
@@ -470,4 +560,14 @@ test('la etapa se pregunta sólo si hay etapas de ese kanban para ofrecer', () =
 //   R25 la etapa se pregunta aunque no haya ninguna             → 1 fallo  (cuándo se pregunta)
 //   R26 la post-agenda manda el «¿me confirmas?» sin volver a mirar la reunión → 1 fallo (la reunión por delante)
 //   R27 la confirmación mira la reunión ANTES de la primera espera            → 1 fallo (la reunión por delante)
+//
+// Y las del RECORDATORIO como plantilla (10/10/2026 a la noche, base en verde: 0 fallos, 27 pases; mismo arnés):
+//
+//   R28 la fila del recordatorio nace con trigger «manual»       → 1 fallo  (crear el recordatorio)
+//   R29 crear no mira si el negocio ya tiene un recordatorio     → 1 fallo  (ya tiene uno)
+//   R30 la galería nunca apaga la que ya tiene                   → 1 fallo  (la galería)
+//   R31 el toque de 1 h con `{{lead_nombre}}` (un dato del motor) → 3 fallos (Publicar, la de fábrica, el «{ }»)
+//   R32 el recordatorio sin el toque de 1 h                      → 1 fallo  (la de fábrica)
+//   R33 el CRON fijo se guarda por la lista de CRON              → 2 fallos (crear el recordatorio + pedir una etapa)
+//   R34 la galería pregunta la etapa del recordatorio            → 1 fallo  (cuándo se pregunta)
 

@@ -22,6 +22,11 @@
 //   · SI LOS PASOS FALLAN, SE BORRA. Una automatización con el nombre de la plantilla y sin sus
 //     tarjetas dice ser algo que no es. Recién creada no tiene inscripciones ni envíos: borrarla no
 //     se lleva nada.
+//   · UN CRON FIJO (`cron.fijo`, el recordatorio de la reunión, 10/10/2026) NACE EN LA FILA, no por
+//     `guardarDisparadores`: `setSecuenciaPasos` lee el `trigger_tipo` de la fila para saber si tiene que
+//     exigir la forma que el emisor del recordatorio sabe mandar, así que tiene que estar ANTES de los
+//     pasos. Y un negocio tiene UNO: con dos, el emisor manda la primera activa por cada minuto y la
+//     lista muestra dos recordatorios sin decir cuál sale. Si ya lo tiene (sin archivar), no se crea nada.
 //
 // ⚠️ SIN `server-only` Y SIN IMPORTS DEL SERVIDOR, a propósito: la base y los dos setters entran por
 // parámetro, así el test (tests/plantillas-automatizaciones.test.ts) ejecuta la función entera con
@@ -47,7 +52,7 @@ type Resp<T> = PromiseLike<{ data: T | null; error: { message: string } | null }
  */
 export type DbPlantilla = {
   from(tabla: 'nutricion_secuencias'): {
-    select(cols: string): { is(col: string, v: null): Resp<Array<{ nombre: string | null }>> };
+    select(cols: string): { is(col: string, v: null): Resp<Array<{ nombre: string | null; trigger_tipo?: string | null }>> };
     insert(fila: Record<string, unknown>): { select(cols: string): { single(): Resp<{ id: number }> } };
     delete(): { eq(col: string, v: number): Resp<unknown> };
   };
@@ -80,24 +85,29 @@ export type CreadaDesdePlantilla = {
 const claveNueva = (p: PlantillaAutomatizacion) => `plantilla-${p.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
 /**
- * La fila que se inserta: apagada, sin pasos (entran después por su puerta) y con el CRON a elegir.
- * `etapa: 'manual'` porque la columna es NOT NULL: es lo mismo que escribe «＋ Nueva»
+ * La fila que se inserta: apagada, sin pasos (entran después por su puerta) y con el CRON a elegir, o con el
+ * suyo si es fijo. `etapa: 'manual'` porque la columna es NOT NULL: es lo mismo que escribe «＋ Nueva»
  * (`crearSecuenciaVacia`, lib/setting-secuencias.ts).
  */
 export function filaDePlantilla(p: PlantillaAutomatizacion, clave: string, nombre: string): Record<string, unknown> {
-  return { clave, nombre, etapa: 'manual', trigger_tipo: 'manual', activa: false, pasos: [], emoji: emojiDeSecuencia(p.emoji) };
+  return { clave, nombre, etapa: 'manual', trigger_tipo: p.cron.fijo ?? 'manual', activa: false, pasos: [], emoji: emojiDeSecuencia(p.emoji) };
 }
 
 /** Crea la automatización de la plantilla `plantillaId`. Devuelve la creada, o tira con el motivo. */
 export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlantilla, o: { disparador?: unknown } = {}): Promise<CreadaDesdePlantilla> {
   const p = plantillaPorId(plantillaId);
   if (!p) throw new PlantillaInvalidaError('Esa plantilla no existe.');
-  // Lo elegido se entiende ANTES de crear nada: una etapa de otro kanban es un error de quien pide.
-  const elegido = o.disparador == null || o.disparador === '' ? null : disparadorDeEleccion(p.cron.pide, o.disparador);
-  if (o.disparador != null && o.disparador !== '' && !elegido) throw new PlantillaInvalidaError('Esa etapa no sirve para esta plantilla.');
+  // Lo elegido se entiende ANTES de crear nada: una etapa de otro kanban es un error de quien pide, y una
+  // plantilla con el CRON fijo (sin `pide`) no se arranca en ninguna etapa.
+  const pidio = o.disparador != null && o.disparador !== '';
+  const elegido = !pidio || !p.cron.pide ? null : disparadorDeEleccion(p.cron.pide, o.disparador);
+  if (pidio && !elegido) throw new PlantillaInvalidaError('Esa etapa no sirve para esta plantilla.');
 
-  const { data: vivas, error: errNombres } = await deps.db.from('nutricion_secuencias').select('nombre').is('archivada_at', null);
+  const { data: vivas, error: errNombres } = await deps.db.from('nutricion_secuencias').select('nombre, trigger_tipo').is('archivada_at', null);
   if (errNombres) throw new Error(`crearDesdePlantilla: ${errNombres.message}`);
+  if (p.cron.fijo && (vivas ?? []).some((r) => r.trigger_tipo === p.cron.fijo)) {
+    throw new PlantillaInvalidaError('Ya la tienes en tu lista.');
+  }
   const nombre = nombreLibre(p.nombre, (vivas ?? []).map((r) => String(r.nombre ?? '')));
 
   const fila = filaDePlantilla(p, (deps.clave ?? (() => claveNueva(p)))(), nombre);
@@ -114,13 +124,13 @@ export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlanti
     throw e;
   }
 
-  if (!elegido) return { id: nueva.id, nombre, pide: p.cron.pide, aviso: null };
+  if (!elegido) return { id: nueva.id, nombre, pide: p.cron.pide ?? null, aviso: null };
   try {
     await deps.setDisparadores(nueva.id, [elegido]);
     return { id: nueva.id, nombre, pide: null, aviso: null };
   } catch (e) {
     const motivo = deps.motivoDeCron?.(e) ?? null;
     if (motivo == null) { await borrar(); throw e; }
-    return { id: nueva.id, nombre, pide: p.cron.pide, aviso: `No pude poner la etapa (${motivo}): elígela en el CRON.` };
+    return { id: nueva.id, nombre, pide: p.cron.pide ?? null, aviso: `No pude poner la etapa (${motivo}): elígela en el CRON.` };
   }
 }
