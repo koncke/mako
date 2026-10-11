@@ -11,6 +11,18 @@
             "statusMessage": "Resolviendo la cuenta activa..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/guardia/relevo.mjs\" inicio",
+            "timeout": 60,
+            "asyncRewake": true,
+            "rewakeMessage": "Relevo tras la caída de la app:",
+            "rewakeSummary": "Retomando tras la caída de la app"
+          }
+        ]
       }
     ],
     "SessionEnd": [
@@ -33,6 +45,28 @@
             "command": "bash \"$HOME/.claude/bitacora-sesion.sh\" turno",
             "timeout": 60,
             "suppressOutput": true
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/guardia/relevo.mjs\" turno",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Workflow|Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/guardia/memoria.mjs\"",
+            "timeout": 300,
+            "statusMessage": "Guardia de RAM..."
           }
         ]
       }

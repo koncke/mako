@@ -73,3 +73,17 @@ test('el lock suelta siempre y propaga el código de salida', () => {
   // Y si no se propaga el código, un error de tipos saldría como push verde.
   assert.match(src, /hijo\.on\('exit'[\s\S]{0,80}cerrar\(code/, 'el exit code de tsc se propaga');
 });
+
+test('el lock espera RAM, con el turno tomado, antes de lanzar tsc', () => {
+  // 11/10/2026: la app de Claude murió con 7 chats adentro y 5 typechecks en cola
+  // detrás de este lock con 0,8 GB libres. El turno solo no alcanza: tsc pide ~3 GB.
+  // Verificado rompiéndolo: sacar el `await esperarRam()` da 1 fallo; moverlo
+  // debajo del `spawn` da 1 fallo.
+  const src = leer('../scripts/typecheck-lock.mjs');
+  const turno = src.indexOf('await esperarTurno()');
+  const ram = src.indexOf('await esperarRam()');
+  const lanza = src.indexOf('spawn(process.execPath');
+  assert.ok(turno > 0 && lanza > 0, 'no encontré el turno o el spawn: el guard está mirando otra cosa');
+  assert.ok(ram > turno && ram < lanza, 'esperarRam() tiene que correr DESPUÉS de tomar el turno y ANTES de lanzar tsc');
+  assert.match(src, /freemem\(\)/, 'la espera mira la RAM disponible de la máquina');
+});

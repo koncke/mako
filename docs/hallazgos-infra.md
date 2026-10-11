@@ -3850,6 +3850,79 @@ archivos / 853.311 bytes idénticos.
 
 **Vive en:** esta entrada · *2026-10-09*
 
+### ⚠️ Se cayó con 7 chats adentro y NO fue la GPU: RAM agotada por un `next dev` huérfano de 8 GB (11/10/2026)
+
+**Síntoma.** 05:07, la app de Claude se colgó y murió con 7 sesiones trabajando, 4 con
+workflows. Al reabrirla ningún chat siguió solo: Martín entró a cada uno a escribir «Continua».
+
+**El diagnóstico obvio —el bug de la GPU de las entradas de arriba— era el equivocado.** El log
+no tiene `GPU process gone` ni `beforeQuitForUpdate`: se corta en seco. Lo que sí tiene es
+`[CliGovernor] memory pressure (critical): evicted 0 of 0 idle session(s), 10 effective` y
+`event-loop-stall` de hasta 15 s. Y la firma de que la app no murió de golpe sino que quedó
+**colgada**: el relanzamiento de las 05:08:02 dice `Not main instance, returning early` — la
+instancia vieja seguía viva, paginando, con el lock de instancia única tomado. Recién la de las
+05:09:54 arrancó. Sin dump en Crashpad y sin evento en el Visor.
+
+**La causa medida: un `next dev` HUÉRFANO con 8,1 GB de memoria privada** (1,3 GB de working
+set; el resto, paginado). Lo había lanzado en segundo plano una sesión a las 04:59; su CLI murió
+con el crash y él siguió vivo, filtrando. Matarlo llevó la RAM disponible de 0,55 a 5,16 GB en
+tres segundos. Encima había 4 workflows, un `tsc` de 3 GB, un `npm ci` y Defender en 1,7 GB; el
+pagefile llegó a un pico de 20,9 GB.
+
+⚠️ **El `tree_rss_sum` del log de la app decía 3 GB un minuto antes de morir**: el `next dev`
+ya no estaba en el árbol (su padre había muerto), así que el log de la app no lo ve. Lo encontró
+preguntar «¿quién tiene más memoria PRIVADA ahora?», no leer el log.
+
+**La guardia que quedó**, en `~/.claude/guardia/` (fuera del repo: vale para cualquier proyecto):
+
+| Pieza | Qué hace | Cómo se engancha |
+|---|---|---|
+| `memoria.mjs` | Antes de un Workflow, un Agent o un comando pesado (tsc directo, `npm test`, builds, `npm ci`) mira la RAM: si no alcanza ESPERA, y si no se libera NIEGA con una razón que el modelo entiende. Tope de 2 workflows a la vez en la máquina | hook `PreToolUse` de `~/.claude/settings.json` |
+| `vigia.ps1` | Con < 0,9 GB tres lecturas seguidas, mata el más grande entre tsc, vitest, jest, eslint, playwright, next build y next dev. Un `next dev` de más de 5 GB privados se mata siempre: es una fuga | tarea programada `mako-vigia-ram`, al iniciar sesión |
+| `relevo.mjs` | Si la app se cayó (o se reinició por un update), detecta qué chats quedaron a mitad de turno o con un workflow sin terminar y les manda «retomá» | hooks `SessionStart` (con `asyncRewake`) y `UserPromptSubmit` |
+| `scripts/typecheck-lock.mjs` | Además del turno, espera RAM (≥ 2,5 GB) antes de lanzar tsc, con el turno tomado | el pre-push y `npm run typecheck` |
+
+Todo lo que deciden queda en `~/.claude/guardia/guardia.log`, y lo que el vigía mata, en
+`vigia.csv`.
+
+**Las trampas que salieron armándola:**
+
+- **Task Scheduler lanza con prioridad 7** (bajo normal, y memoria y E/S de baja prioridad): el
+  vigía quedó con 0,015 s de CPU y 3 MB sin llegar a ejecutar una línea — lo opuesto a lo que
+  necesita algo que tiene que actuar EN plena presión. Va `Settings.Priority = 3`.
+- **Los hooks se recargan en caliente**: el `PreToolUse` nuevo corrió en las 6 sesiones ya
+  abiertas sin reiniciarlas (verificado con un archivo de traza).
+- **`asyncRewake` existe en Claude Code 2.1.295**: un hook en segundo plano que sale con 2
+  DESPIERTA al modelo con su stderr (`rewakeMessage` es el prefijo). Es lo único que permite
+  que un chat retome sin que nadie le escriba.
+- **Al reabrir, la app levanta sola 2 chats** (`Warming session` en el log: los que tienen
+  preview). Ésos disparan `SessionStart`, y el primero se vuelve el que avisa a los demás.
+- **El mapeo `local_… ↔ cliSessionId`** está en
+  `%APPDATA%\Claude\claude-code-sessions\<cuenta>\<org>\local_*.json`.
+- **Un enfriamiento entre admisiones, con 7 sesiones, es inanición**: cada admisión ajena
+  renovaba la espera y una sesión esperó 4 min para que le negaran. Ahora sólo aplica si no hay
+  lugar para dos.
+- **El patrón `typecheck` suelto agarraba el NOMBRE de un test liviano**
+  (`tests/typecheck-lock.test.ts`) y la guardia frenó a la sesión que la estaba escribiendo. Lo
+  pesado se nombra por COMANDO, no por palabra.
+
+**Probado:** el relevo contra la caída de hoy, simulando las 05:11, marca exactamente los 6 chats
+a los que Martín les escribió «Continua» y ningún otro; el que se despierta por el aviso del líder
+no se vuelve a despertar; y mirado después los da a todos por «ya retomada». El lock, roto de dos
+formas, da 1 fallo cada una.
+
+**Lo que quedó SIN hacer:**
+
+- El camino `SessionStart` + `asyncRewake` no se probó de punta a punta: hace falta otra caída.
+  El de `UserPromptSubmit` (escribir en cualquier chat) es el respaldo.
+- Excluir `node_modules`, `.next` y `~/.claude` de Defender (MsMpEng en 1,7 GB privados): pide
+  admin. Es de Martín.
+- Un `next dev` que una sesión lanza en segundo plano sobrevive a la sesión, y nadie lo apaga al
+  cerrar el chat: hoy lo para el vigía recién a los 5 GB.
+
+**Vive en:** `~/.claude/guardia/` · `~/.claude/settings.json` · `scripts/typecheck-lock.mjs` ·
+*2026-10-11*
+
 ## La integración con Claude nunca funcionó desde afuera
 
 **Vive en:** `lib/rutas-publicas.ts` · `proxy.ts` · `tests/rutas-publicas.test.ts`

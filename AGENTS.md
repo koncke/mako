@@ -293,6 +293,25 @@ catálogo o cualquier cosa que un test mire por su NOMBRE, corré `npm test` ant
 pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y la mayoría
 de los cambios no los necesita — pero los renombres, sí.
 
+# La guardia de RAM puede demorar o negar: no es un error, y no se esquiva
+
+El 11/10/2026 la app de Claude se colgó y murió con 7 chats adentro: RAM agotada, con un `next
+dev` HUÉRFANO de 8 GB (lo había lanzado una sesión en segundo plano y sobrevivió a ella). Desde
+entonces un hook (`~/.claude/guardia/memoria.mjs`) mira la RAM antes de un Workflow, un Agent o
+un comando pesado (tsc directo, `npm test`, builds, `npm ci`), y el lock del typecheck espera RAM
+además del turno. Lo que gobierna a cualquier agente:
+
+- **Si te demora o te niega, esperá y reintentá, o hacelo sin fan-out.** No es un error de tu
+  código, y **no se esquiva** reescribiendo el comando para que no lo reconozca: lo que protege
+  son los otros chats, que se caen todos juntos.
+- **Un `next dev` que lanzás en segundo plano lo APAGÁS al terminar.** Sobrevive a tu sesión y
+  nadie más sabe que es tuyo; hoy lo para un vigía recién a los 5 GB.
+- **Hasta 2 workflows a la vez en la máquina.** Antes de lanzar uno de muchos agentes, preguntá
+  si el trabajo lo necesita — con 7 chats abiertos, el tuyo no es el único.
+
+El detalle, y lo que hace cada pieza, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) →
+«Se cayó con 7 chats adentro y NO fue la GPU».
+
 # En un archivo `'use server'` SOLO se exportan funciones async
 
 Un `export const`, un `export type` con valor, un `export function` sincrónico: los tres
