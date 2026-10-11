@@ -155,4 +155,25 @@ export const BITACORA: Hito[] = [
       'AGENTS.md: un overflow que scrollea tiene que TENER alto (Pagina con flex 1 lo anula).',
     ],
   },
+  {
+    fecha: '11 oct', hora: '—', chat: CH, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Todo el Dashboard por la API de MaKo, y que Automations lo consuma',
+    pedido: 'Revisa que todo esto se pueda consumir en la API de MaKo, absolutamente todo. Y también mandale tarea al chat de chatbot para que se pueda configurar en automations y consumir esto tambien',
+    puntos: ['Dos respuestas suyas a preguntas: los closers ven sólo la hoja Closing; la API trabaja sobre el informe de la persona que se nombre (sin nombrar y con un solo informe, ése; con varios, pide elegir).'],
+  },
+  {
+    fecha: '11 oct', hora: '—', chat: CH, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las decisiones de la tarde: proveedores, cobranza, cohortes y las tres tabs de Analysts',
+    pedido: '1. Si, siempre tiene que probar con otros provedoores.\n2. Cualquiera con acceso a esa tab.\n3. Que muestre todas y para eso tenemos filtros dentro de un elemento.\n4. Lo de ads analyst migralo a la tab de "Ads Writer" y eliminalo.\n5. Lo que Landing Analyst mandalo a Landing Generator y eliminalo.\n6. Lo de Closing puede ir completo al dashboard. Solo debes agregar el elemnto link, video o insertar embed.',
+    puntos: ['1 a 3 contestan las decisiones pendientes del v3: la key de Gemini del ws1 bloqueada, la guarda de «Marcar cobrada» y las cohortes con el filtro de 30 días.'],
+  },
+  {
+    fecha: '11 oct', hora: '—', chat: CH, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'La topbar como la de Looker: las hojas en un desplegable, filtros arriba y Compartir',
+    pedido: '1. Elimina todos las tabs de arriba, mejor que sea un desplegable en donde está el título grande abajo de la topbar... Que ahí sea un desplegable para elegir otra tab o en su defecto crear una nueva con el placeholder "Nueva hoja", que siempre el placeholder sea la primera opción.\n2. Elimina los 3 puntos de la derecha que tiene la opción de "Reestablecer informe" eso no tiene sentido, eliminalo.\n3. Los botones de MaKo deben ser más pequeños y sutiles, solo el logo con el fondo negro, nada más.\n4. El botón de MaKo para analizar toda la hoja y el botón de exportar que estén dentro donde hoy está los 3 puntos con "Restablecer informe". Y también el botón de tutorial allí.\n5. El emoji, el título y el subtitulo debería poder editarse ahí mismo si le doy click, no hace falta entrar a la vista de edición.\n6. Elimina el icono de dashboard de la topbar. El título pasa a ser la topbar, junto al botón de editar y los 3 puntos.\n7. Los botones de filtro también en la topbar, y mejora el diseño... Teniamos un link diseño de filtro de fecha, y ahora está muy confuso. Y que siempre esté disponible el botón de filtro con la barra de busqueda en la topbar, que siempre estén allí, solo que en edición puedo elegir agregar o quitar filtros. Y no se debería poder agregar filtros desde la vista que no sea edición.\n8. La topbar se tiene que ver igual a la de looker como en la captura. En lugar de los botones de "Archivo, vista, pagina, ayuda", ahí va el subtitulo.  El tema de formas, flechas, texto, fijate como lo posiciona Looker, que sea igual.\n9. Agrega el botón de "Compartir" que funcione exactamente igual que lo que ya tenemos en "Compartir" en la vista de CONOCIMIENTOS de SuperAdmin, que se pueda crear un link de acceso a esos graficos y también invitar por email.',
+    puntos: [
+      'Mandó dos capturas: el Dashboard en producción (las hojas como pestañas arriba, «AI Analyst», «Exportar», «Editar», «⋯») y la topbar de Looker Studio en edición (título «Informe sin título», debajo Archivo · Vista · Página · Ayuda; a la derecha Restablecer, Compartir ▾, Ver y ⋮; y la barra de herramientas: deshacer, rehacer, selección, zoom, Añadir página, Añadir datos, Combinar, Añadir un gráfico, Añadir un control, código, imagen, texto, línea, formas, Tema y diseño).',
+      'Llegó con el uso semanal de la cuenta 3 por encima del 90%: quedó para la ventana siguiente (docs/relevo/dashboard.md).',
+    ],
+  },
 ];

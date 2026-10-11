@@ -18,6 +18,33 @@ Solo debes agregar el elemnto link, video o insertar embed.»
 Dos respuestas suyas a preguntas: los closers ven **sólo la hoja Closing** del Dashboard; la API trabaja sobre el
 informe **de la persona que se nombre** (sin nombrar y con un solo informe guardado, ése; con varios, pide elegir).
 
+## ⚠️ PEDIDO NUEVO, SIN EMPEZAR (llegó con la cuenta 3 arriba del 90%): la topbar como la de Looker
+
+Nueve puntos, textuales en la bitácora (`app/admin/dev/dashboard/bitacora.ts`, último hito `prompt`), con dos
+capturas: las hojas pasan de pestañas a un DESPLEGABLE en el título (con «Nueva hoja» siempre primera); se va el
+«⋯» con «Restablecer informe»; los botones de MaKo, sólo el logo en fondo negro; AI Analyst, Exportar y el tutorial
+adentro de un «⋮»; emoji, título y subtítulo editables con un clic sin entrar a Editar; sin el ícono del Dashboard
+(el título ES la topbar, con Editar y el ⋮); los filtros (fecha + búsqueda) siempre en la topbar, con un diseño
+mejor (el de fecha «está muy confuso»), y agregar/quitar filtros SÓLO editando; la topbar igual a la de Looker (en
+lugar de Archivo · Vista · Página · Ayuda va el subtítulo; formas, flechas y texto ubicados como Looker); y un
+botón **Compartir** que funcione exactamente como el de CONOCIMIENTOS del super admin (link de acceso a los
+gráficos e invitar por email). Va DESPUÉS de integrar la tanda v4 (los dos tocan app/dashboard/EditorInforme.tsx).
+
+## Estado de los paquetes al cerrar (11/10 ~15:30)
+
+TERMINADOS (sus archivos en el árbol, sin commitear): **P2b** (modo closer, `hojaDestino`, retiro de las tres tabs;
+22/22 y 5/5) y **P4** (Landing → `/landing-generator/analizar`; 12/0). **P2a** terminó y esperaba su typecheck.
+SEGUÍAN CORRIENDO: **P1** (elementos), **P3** (Ads → Ads Writer), **P5** (API). Pendientes que dejaron para otros:
+`lib/api-mako/areas/mako.run.ts:265` (comparar sólo el camino: `ruta.split(/[?#]/)[0]`), el recorrido detrás de la
+ficha (`capaAbierta` en EditorInforme + la regex de tests/dashboard-recorridos.test.ts:139), textos «Closing/Ads
+Analyst» en app/crm/lead-view/GeneratedInsightCard.tsx, app/crm/insights-actions.ts, app/marketing/ad-charts.tsx:699,
+app/experimentos/RetroTab.tsx:274, y regenerar docs/api-mako.md.
+
+## Lo que ya está EN PRODUCCIÓN de esta tanda
+
+`e51f01a8`: la red de plataforma del AI Analyst y la guarda de «Marcar cobrada». (Lo de «Pídeselo a MaKo» con la red
+y las cohortes en «Todo» siguen en el árbol: sus archivos los tocan P5 y P2b.)
+
 ## Lo que ya está escrito y con tests (sin commitear)
 
 - **IA con red de plataforma** (punto 1): `lib/graficos-ia-red.ts` (nuevo) + el AI Analyst
