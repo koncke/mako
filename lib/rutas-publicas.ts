@@ -75,6 +75,12 @@ export const PUBLICOS = [
   // que un cambio del matcher no apague el Pixel de todos los clientes con un 401. No es
   // /api/, así que `esPublicaSoloLeer` la deja sólo en GET/HEAD/OPTIONS.
   '/m.js',
+  // El service worker de MaKo Mobile (public/sw.js, 11/10/2026): lo pide el NAVEGADOR al
+  // registrarlo y al buscar actualizaciones, y no tiene que depender de la sesión (una sesión
+  // vencida no puede dejar al teléfono sin el código que muestra los avisos). Es un archivo
+  // estático sin datos de nadie. Mismo caso que '/m.js': el matcher del proxy ya excluye todo
+  // camino que termina en `.js`, y está acá por si eso cambia. Sólo GET/HEAD/OPTIONS.
+  '/sw.js',
   '/api/og',
   '/vsl',
   '/vsl-assets',

@@ -54,6 +54,7 @@ import { PARTES as WAMAKO_PARTES, BITACORA as WAMAKO_BITACORA } from './whatsapp
 import { PARTES as WEBHOOKS_PARTES, BITACORA as WEBHOOKS_BITACORA } from './webhook-gateway/bitacora';
 import { PARTES as APIMAKO_PARTES, BITACORA as APIMAKO_BITACORA } from './api-mako/bitacora';
 import { PARTES as DASHBOARD_PARTES, BITACORA as DASHBOARD_BITACORA } from './dashboard/bitacora';
+import { PARTES as MOBILE_PARTES, BITACORA as MOBILE_BITACORA } from './mako-mobile/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
   admin: { partes: ADMIN_PARTES, bitacora: ADMIN_BITACORA },
@@ -76,6 +77,7 @@ const REGISTROS: Record<string, Registro> = {
   'vsl-tracking': { partes: VSLTRACK_PARTES, bitacora: VSLTRACK_BITACORA },
   'design-system': { partes: DS_PARTES, bitacora: DS_BITACORA },
   'mako-ux-ui': { partes: MAKOUI_PARTES, bitacora: MAKOUI_BITACORA },
+  'mako-mobile': { partes: MOBILE_PARTES, bitacora: MOBILE_BITACORA },
   'credentials-vault-byok': { partes: BYOK_PARTES, bitacora: BYOK_BITACORA },
   'vsl-generator': { partes: VSLGEN_PARTES, bitacora: VSLGEN_BITACORA },
   stories: { partes: STORIES_PARTES, bitacora: STORIES_BITACORA },

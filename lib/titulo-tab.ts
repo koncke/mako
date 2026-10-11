@@ -11,6 +11,7 @@
 // Lógica pura y aparte del componente para poder probarla (tests/titulo-tab).
 
 import { TODOS_LOS_ITEMS, ADMIN_NAV, USER_NAV, type NavItem } from '@/app/_components/nav';
+import { DESTINOS_MOVIL } from './movil-rutas';
 
 export const MARCA = 'MaKo';
 
@@ -32,6 +33,12 @@ const EXTRA: Record<string, string> = {
   '/anuncio': 'Anuncio',
   '/equipo': 'Equipo',
   '/inicio': 'Inicio',
+  // MaKo Mobile: los nombres de SU barra (lib/movil-rutas.ts), no los de escritorio
+  // —/m/hoy es «Today», no «General»—. Sin estas entradas, `desdeLaRuta` titulaba
+  // todo /m como «MaKo - M». `/m` atrapa el resto (una subpantalla sin nombre).
+  ...Object.fromEntries(DESTINOS_MOVIL.map((d) => [d.href, d.label])),
+  '/m/cuenta': 'Perfil',
+  '/m': 'MaKo',
 };
 const EXTRA_KEYS = Object.keys(EXTRA).sort((a, b) => b.length - a.length);
 

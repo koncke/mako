@@ -532,6 +532,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           // UX/UI es el catálogo que los muestra montados (/admin/ui).
           { key: 'dev-design-system', label: 'Design System', href: '/admin/dev/design-system', icon: 'graphics', match: starts('/admin/dev/design-system') },
           { key: 'dev-mako-ux-ui', label: 'MaKo UX/UI', href: '/admin/dev/mako-ux-ui', icon: 'graphics', match: starts('/admin/dev/mako-ux-ui') },
+          { key: 'dev-mako-mobile', label: 'MaKo Mobile', href: '/admin/dev/mako-mobile', icon: 'mako', match: starts('/admin/dev/mako-mobile') },
           // Va pegada a VSL Tracking porque son las dos puntas del mismo bucle:
           // aquélla MIDE dónde se cae la curva, ésta escribe el guion que se
           // reescribe con ese dato. Hoy la pantalla es un ComingSoon; el registro

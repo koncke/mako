@@ -17,7 +17,7 @@ import { buscarUsuarioPorEmail } from './usuarios';
 import { getWorkspace, getWorkspaceActual, runWithWorkspace } from './workspace';
 import { contextoDeAgencia } from './agencia';
 import { deQuienEsElPerfil, titularDelCliente } from './perfil-sujeto';
-import { DEFAULT_IN_APP, normalizarInApp, type NotifInApp } from './notif-catalogo';
+import { DEFAULT_IN_APP, normalizarInApp, normalizarPush, rolPushDeFila, type NotifInApp, type NotifPush, type RolPush } from './notif-catalogo';
 
 // ── Perfil personal (por usuario) ─────────────────────────────────────────────
 export type Perfil = {
@@ -367,14 +367,37 @@ export async function estadoAviso(ws: number, tipo: string): Promise<EstadoAviso
 // el sonido es de quien está frente al teclado, no de la cuenta que está mirando.
 const IN_APP_KEY = 'notifInApp';
 
-async function filaPropia(): Promise<{ id: number; perfil: Record<string, unknown> } | null> {
+type FilaPropia = { id: number; perfil: Record<string, unknown>; rol: RolPush; workspaceId: number | null };
+
+async function filaPropia(): Promise<FilaPropia | null> {
   const sesion = await getUsuarioActual();
   if (!sesion?.email) return null;
   const { data, error } = await getSupabaseServer()
-    .from('usuarios').select('id, perfil').eq('email', sesion.email.trim().toLowerCase()).maybeSingle();
+    .from('usuarios').select('id, perfil, rol, rol_ws, workspace_id').eq('email', sesion.email.trim().toLowerCase()).maybeSingle();
   if (error || !data) return null;
-  const fila = data as { id: number; perfil: unknown };
-  return { id: fila.id, perfil: (fila.perfil && typeof fila.perfil === 'object' ? fila.perfil : {}) as Record<string, unknown> };
+  const fila = data as { id: number; perfil: unknown; rol: string | null; rol_ws: string | null; workspace_id: number | null };
+  return {
+    id: fila.id,
+    perfil: (fila.perfil && typeof fila.perfil === 'object' ? fila.perfil : {}) as Record<string, unknown>,
+    rol: rolPushDeFila(fila),
+    workspaceId: fila.workspace_id == null ? null : Number(fila.workspace_id),
+  };
+}
+
+/**
+ * La fila de `usuarios` de quien está FRENTE AL TECLADO, ignorando la impersonación (la misma
+ * regla que el pop-up y el sonido). La usan las suscripciones de Web Push (app/api/push/*):
+ * un teléfono se ata a la PERSONA, nunca al workspace de la pestaña — un super admin mirando
+ * a un cliente con `?ws=1` no tiene que recibir en su teléfono los avisos de ese cliente.
+ * `null` = sesión sin fila propia (dev-login, contraseña maestra, legacy).
+ */
+export async function usuarioPropio(): Promise<{ id: number; workspaceId: number | null; rol: RolPush } | null> {
+  try {
+    const u = await filaPropia();
+    return u ? { id: u.id, workspaceId: u.workspaceId, rol: u.rol } : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getNotifInApp(): Promise<NotifInApp> {
@@ -403,4 +426,85 @@ export async function setNotifInApp(v: NotifInApp): Promise<{ inApp: NotifInApp;
     .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
   if (error) throw new Error(`perfil: ${error.message}`);
   return { inApp: normalizarInApp(perfil[IN_APP_KEY]), guardado: true };
+}
+
+// ── Web Push (MaKo Mobile), por USUARIO ───────────────────────────────────────
+// Lo que le llega al TELÉFONO de una persona (lib/notif-catalogo.ts, «Web Push»). Igual
+// que el pop-up: es de quien está frente al teclado, NO de la cuenta que está mirando.
+//
+// ⚠️ Y SE ESCRIBE RELEYENDO LA FILA: el jsonb `perfil` se reescribe ENTERO, así que se parte
+// de lo que hay (`filaPropia` lo lee en el mismo pedido) para no borrar `notifInApp`, los
+// campos del formulario ni la marca de agua del feed.
+const PUSH_KEY = 'notifPush';
+
+/** Las preferencias de push de quien está frente al teclado. Sin fila propia: el default de admin. */
+export async function getNotifPush(): Promise<NotifPush> {
+  try {
+    const u = await filaPropia();
+    if (!u) return normalizarPush(null, 'admin');
+    return normalizarPush(u.perfil[PUSH_KEY], u.rol);
+  } catch {
+    return normalizarPush(null, 'admin');
+  }
+}
+
+/** Guarda las preferencias de push. `guardado:false` = sesión sin fila propia (ver setNotifInApp). */
+export async function setNotifPush(v: NotifPush): Promise<{ push: NotifPush; guardado: boolean }> {
+  const u = await filaPropia();
+  if (!u) return { push: normalizarPush(v, 'admin'), guardado: false };
+  const limpio = normalizarPush(v, u.rol);
+  const perfil = { ...u.perfil, [PUSH_KEY]: limpio };
+  const { error } = await getSupabaseServer()
+    .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
+  if (error) throw new Error(`perfil: ${error.message}`);
+  return { push: limpio, guardado: true };
+}
+
+// ── El LEÍDO del feed de avisos (Inbox de MaKo Mobile), por USUARIO ──────────
+// Una marca de agua por WORKSPACE adentro de `usuarios.perfil.notifVistoHasta`
+// (`{ "<ws>": "<iso>" }`): todo aviso de ese workspace con `created_at` <= la marca está
+// visto PARA ESTA PERSONA. Reemplaza al booleano `leido` de la 0048, que era uno por fila
+// y lo compartía todo el equipo (lo que uno leía, se le apagaba al otro).
+//
+// ⚠️ POR WORKSPACE Y NO UNA SOLA: un super admin que mira el feed de un cliente con `?ws=1`
+// y lo marca visto no puede apagarse así los avisos de SU propio workspace.
+const VISTO_KEY = 'notifVistoHasta';
+
+function vistoDe(perfil: Record<string, unknown>, ws: number): string | null {
+  const mapa = perfil[VISTO_KEY];
+  if (!mapa || typeof mapa !== 'object') return null;
+  const v = (mapa as Record<string, unknown>)[String(ws)];
+  return typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? v : null;
+}
+
+/** Hasta cuándo vio esta persona el feed de ese workspace. `null` = nunca lo marcó. */
+export async function getNotifVistoHasta(ws: number): Promise<string | null> {
+  try {
+    const u = await filaPropia();
+    return u ? vistoDe(u.perfil, ws) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Corre la marca de agua hasta `hasta` (default: ahora). NUNCA la retrocede: dos pestañas
+ * que marcan en orden cruzado no pueden des-leer lo que la otra ya vio.
+ */
+export async function setNotifVistoHasta(ws: number, hasta?: string | null): Promise<{ vistoHasta: string | null; guardado: boolean }> {
+  const pedido = hasta && !Number.isNaN(Date.parse(hasta)) ? new Date(hasta) : new Date();
+  // Una marca en el futuro taparía los avisos que todavía no llegaron.
+  const tope = Math.min(pedido.getTime(), Date.now());
+  const u = await filaPropia();
+  if (!u) return { vistoHasta: null, guardado: false };
+  const actual = vistoDe(u.perfil, ws);
+  if (actual && Date.parse(actual) >= tope) return { vistoHasta: actual, guardado: true };
+  const nueva = new Date(tope).toISOString();
+  const previo = u.perfil[VISTO_KEY];
+  const mapa = { ...(previo && typeof previo === 'object' ? (previo as Record<string, unknown>) : {}), [String(ws)]: nueva };
+  const perfil = { ...u.perfil, [VISTO_KEY]: mapa };
+  const { error } = await getSupabaseServer()
+    .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
+  if (error) throw new Error(`perfil: ${error.message}`);
+  return { vistoHasta: nueva, guardado: true };
 }

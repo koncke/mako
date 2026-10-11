@@ -65,11 +65,16 @@ const RELLENO_LINEA = 'color-mix(in srgb, var(--on-sidebar) 13%, transparent)';
 const fmtValor = (n: number | null, unidad: string): string =>
   (unidad === 'usd' ? fmtUSD(n) : n === null ? '—' : fmtNum(n));
 
-export function Cabecera({ objetivo, foco, capacidad, progreso, anio, quarter, desglose, complemento }: {
+export function Cabecera({ objetivo, foco, capacidad, progreso, fraccion, anio, quarter, desglose, complemento }: {
   objetivo: ObjectiveConAvance | null;
   foco: Foco;
   capacidad: CapacidadLeida;
   progreso: ProgresoQuarter;
+  /**
+   * Dónde cae la marca del tiempo en la barra, 0..1 (`fraccionDelObjetivo`,
+   * lib/vista-general-modelo.ts). Para un objetivo ANUAL es la fracción del AÑO a hoy.
+   */
+  fraccion: number;
   anio: number;
   quarter: number;
   /** El detalle lead por lead del número grande. Sólo existe para objetivos de plata. */
@@ -86,12 +91,10 @@ export function Cabecera({ objetivo, foco, capacidad, progreso, anio, quarter, d
   const alDia = objetivo?.ritmo?.alDia ?? true;
   const colorBarra = supera || alDia ? 'var(--good)' : 'var(--warn-fill)';
 
-  // Dónde cae la marca del tiempo: qué fracción del período ya se consumió. Para un
-  // objetivo ANUAL, `progreso.fraccion` es la del trimestre y pondría la marca en el
-  // lugar equivocado — ahí se recalcula sobre el rango propio del objetivo.
-  const fraccion = objetivo === null ? 0
-    : objetivo.quarter !== null ? progreso.fraccion
-    : fraccionDeRango(objetivo.desde, objetivo.hasta, progreso.hasta);
+  // Dónde cae la marca del tiempo llega calculada (`fraccion`): para un objetivo ANUAL,
+  // `progreso.fraccion` es la del trimestre y pondría la marca en el lugar equivocado. La
+  // cuenta vivía acá y le pasaba el FIN del trimestre como si fuera hoy; ahora vive en
+  // `fraccionDelObjetivo` (lib/vista-general-modelo.ts), con test, y la comparte el móvil.
 
   const periodo = objetivo?.quarter === null ? `${anio}` : `Q${quarter} ${anio}`;
 
@@ -238,9 +241,11 @@ export function Cabecera({ objetivo, foco, capacidad, progreso, anio, quarter, d
         {/* La acción del día. Cuando el foco ES «carga el objetivo», la zona derecha
             calla en vez de repetir lo que la izquierda ya está pidiendo — y sólo en
             ese caso: un workspace con el plan cargado y sin objetivo tiene una acción
-            real, y perderla por un texto de arranque sería peor que el problema. */}
+            real, y perderla por un texto de arranque sería peor que el problema.
+            ⚠️ Se pregunta por el CAMPO (`pideConfigurar`), nunca por el texto del botón:
+            comparar `hrefLabel` se rompía en silencio el día que cambiara ese copy. */}
         <div className="mk-cabecera__b">
-          {foco.origen === 'arranque' && foco.hrefLabel === 'Cargar el objetivo' ? (
+          {foco.pideConfigurar === 'objetivo' ? (
             <p style={{ margin: 0, fontSize: 'var(--fs-md)', lineHeight: 1.55, color: 'var(--sidebar-text)' }}>
               Cuando cargues la meta, aquí va a aparecer qué hacer hoy.
             </p>
@@ -251,18 +256,6 @@ export function Cabecera({ objetivo, foco, capacidad, progreso, anio, quarter, d
       </div>
     </section>
   );
-}
-
-/** Qué fracción de un rango ya se consumió a la fecha `hoy`. Para el objetivo ANUAL. */
-function fraccionDeRango(desde: string, hasta: string, hoy: string): number {
-  const dia = 86_400_000;
-  const d0 = Date.parse(`${desde}T00:00:00Z`);
-  const d1 = Date.parse(`${hasta}T00:00:00Z`);
-  const h = Date.parse(`${hoy}T00:00:00Z`);
-  if (!Number.isFinite(d0) || !Number.isFinite(d1) || !Number.isFinite(h) || d1 <= d0) return 0;
-  const total = (d1 - d0) / dia + 1;
-  const corridos = Math.max(0, Math.min(total, (h - d0) / dia + 1));
-  return corridos / total;
 }
 
 function NumeroGrande({ objetivo, desglose, metaOk }: {

@@ -1,0 +1,34 @@
+/* /m/inbox — lo propio de la pantalla. Todo con alcance [data-m] y prefijo .mi-;
+   las primitivas (fila, sheet, sección) viven en app/m/m.css. Sólo var(--token). */
+
+/* La pill de la aprobación: lo ÚNICO naranja de la pantalla. */
+[data-m] .mi-pill-aprobacion { background: var(--warn-bg); color: var(--warn); }
+[data-m] .mi-pill-nuevo { background: var(--primary-bg); color: var(--primary); }
+[data-m] .mi-vencida { color: var(--bad); font-weight: 600; }
+[data-m] .mi-lead { display: inline-flex; width: 20px; color: var(--dim); margin-top: 2px; }
+
+/* El cuerpo del sheet: lo que se va a ejecutar, a la vista. */
+[data-m] .mi-detalle { display: flex; flex-direction: column; gap: 12px; }
+[data-m] .mi-resumen { font-size: var(--fs-md); line-height: 1.5; color: var(--ink); margin: 0; }
+[data-m] .mi-meta { font-size: var(--fs-meta); color: var(--dim); margin: 0; }
+[data-m] .mi-sub { font-size: var(--fs-sm); font-weight: 600; color: var(--dim); margin: 8px 0 0; }
+[data-m] .mi-lineas { margin: 0; display: flex; flex-direction: column; }
+[data-m] .mi-linea {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+[data-m] .mi-linea:first-child { border-top: 0; }
+[data-m] .mi-linea dt { font-size: var(--fs-meta); color: var(--dim); }
+[data-m] .mi-linea dd { margin: 0; font-size: var(--fs-md); color: var(--ink); line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* Los parámetros que se corrigen en el sheet. Inputs de 16 px: m.css ya lo fuerza. */
+[data-m] .mi-campos { display: flex; flex-direction: column; gap: 12px; }
+[data-m] .mi-campo { display: flex; flex-direction: column; gap: 6px; }
+[data-m] .mi-campo__rot { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+[data-m] .mi-campo .mk-input { width: 100%; min-height: var(--touch); }
+[data-m] .mi-area { min-height: 96px; resize: vertical; }
+
+/* El pie: la consecuencia en TINTA (no gris), pegada arriba del primario. */
+[data-m] .mi-consecuencia { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--ink); }
+[data-m] .mi-error { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--bad); font-weight: 600; }
+[data-m] .mi-aviso { margin: 0; font-size: var(--fs-sm); color: var(--dim); }

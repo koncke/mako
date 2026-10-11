@@ -139,6 +139,20 @@ const nextConfig: NextConfig = {
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'" },
         ],
       },
+      // El service worker de MaKo Mobile (public/sw.js: sólo push y click, SIN 'fetch'). Lo
+      // que pide la guía de PWA de Next 16 (§8): servido como JavaScript, SIN caché —un sw.js
+      // viejo cacheado deja a todos los teléfonos con el comportamiento anterior hasta que el
+      // navegador decida revalidar— y con una CSP propia que sólo deja cargar scripts del
+      // mismo origen. El bloque global de arriba sigue aplicando (los dos se suman).
+      // Scope '/' con el script en la raíz: NO hace falta `Service-Worker-Allowed`.
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self'" },
+        ],
+      },
     ];
   },
 };

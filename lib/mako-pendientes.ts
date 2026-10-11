@@ -9,6 +9,7 @@
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace } from './workspace';
+import { getSupabaseServer } from './supabase';
 import { pendienteRepetida, MARGEN_RELOJ_MS } from './turno-sin-duplicar';
 
 export type EstadoPendiente = 'pendiente' | 'confirmada' | 'ejecutada' | 'cancelada' | 'vencida' | 'error';
@@ -60,8 +61,50 @@ export async function crearPendiente(
       .insert({ grupo_jid: data.grupoJid, tipo: data.tipo, payload: data.payload ?? {}, resumen: data.resumen, origen: data.origen ?? null, vence_at: venceAt })
       .select('id').single();
     if (error) { console.error('[pendientes] crear:', error.message); return null; }
-    return (row as { id: number }).id;
+    const id = (row as { id: number }).id;
+    // El push va SÓLO acá, después del insert que salió bien: la rama de la repetida (arriba)
+    // devuelve una pendiente que ya avisó cuando nació.
+    await avisarPendiente(ws, id, data.resumen, data.origen ?? null, data.ttlMin ?? 120);
+    return id;
   });
+}
+
+/**
+ * «MaKo te pide confirmar», al teléfono de los ADMIN del workspace (MaKo Mobile).
+ *
+ * NO se manda cuando quien la originó la está mirando, o cuando se confirma sola:
+ *   · `app`      → nació en el chat de MaKo de la app: la persona tiene la tarjeta adelante.
+ *   · `flujo:…`  → la dejó un paso de una automatización, que la confirma EN EL ACTO
+ *                  (`aplicarEnElActo`, lib/api-mako/flujo.ts): avisar sería una alarma falsa.
+ * Y se re-pregunta antes de mandar (`pushPorDetras`): una pendiente que se confirmó en el
+ * mismo pedido —un token con escritura directa por /api/v1— o que ya venció no espera a nadie.
+ *
+ * TTL = lo que le queda a la pendiente, con techo de 2 h: después vence y el aviso miente.
+ * Tag fijo: varias pendientes seguidas se juntan en UNA notificación (el Inbox las lista).
+ */
+async function avisarPendiente(ws: number, id: number, resumen: string, origen: string | null, ttlMin: number): Promise<void> {
+  if (origen === 'app' || origen?.startsWith('flujo:')) return;
+  try {
+    const { pushPorDetras } = await import('./push');
+    await pushPorDetras(ws, {
+      tipo: 'mako-pendiente',
+      titulo: 'MaKo te pide confirmar',
+      cuerpo: resumen,
+      ruta: '/mako/pendientes',
+      tag: 'mako-pendiente',
+      ttl: Math.max(60, Math.min(ttlMin, 120) * 60),
+      urgencia: 'high',
+      soloAdmins: true,
+    }, async () => {
+      const { data } = await getSupabaseServer().from('mako_acciones_pendientes')
+        .select('estado, vence_at').eq('id', id).eq('workspace_id', ws).maybeSingle();
+      const f = data as { estado?: string; vence_at?: string } | null;
+      return f?.estado === 'pendiente' && !!f.vence_at && Date.parse(f.vence_at) > Date.now();
+    });
+  } catch (e) {
+    // Que falle el push no puede tumbar la pendiente, que ya está creada.
+    console.error(`[pendientes] push de la #${id}:`, e instanceof Error ? e.message : String(e));
+  }
 }
 
 /** Marca como 'vencida' toda pendiente cuyo vence_at ya pasó (limpieza previa a leer). */

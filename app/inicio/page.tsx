@@ -2,6 +2,10 @@ import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
 import { onboardingPendiente } from '@/lib/onboarding-state';
+import { prefiereMovil } from '@/lib/movil-guard';
+
+/** Si un teléfono que entra por /inicio va solo a MaKo Mobile (/m). Ver la nota de abajo. */
+const MOBILE_AL_ENTRAR = false;
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +26,18 @@ export default async function Inicio() {
     const ws = await getWorkspaceActual(); // null si no está impersonando
     if (ws == null) redirect('/customer-success');
   }
+  // MaKo Mobile: un TELÉFONO va a /m (lib/movil-dispositivo.ts), salvo que haya pedido
+  // la «Versión completa» (cookie `mako_vista=escritorio`, 12 h). Va DESPUÉS del admin
+  // sin workspace —/m es la app de UN negocio, sin cliente no tiene nada que mostrar— y
+  // ANTES del reparto por rol: /m reparte solo (su guard manda el onboarding pendiente a
+  // /m/configurar). Acá y no en el proxy: el proxy es el choke point de seguridad y lo
+  // atraviesan también /api y la landing que leen Meta y Google.
+  //
+  // ⚠️ SALIDA ESCALONADA (11/10/2026): MaKo Mobile se publicó con este reparto APAGADO. Ninguna
+  // pantalla de /m se había podido renderizar antes del deploy (la máquina no tenía RAM para un
+  // next dev), así que se abre sólo por URL hasta verla funcionando en producción; recién ahí
+  // se pone en true y los teléfonos empiezan a caer solos en /m.
+  if (MOBILE_AL_ENTRAR && sesion && (await prefiereMovil())) redirect(await rutaConWs('/m'));
   // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:
   // si pierde la pestaña, el admin que abre un cliente termina mirando otra cuenta con
   // el chrome de admin puesto — se lee como «la app se rompió», no como «me cambió de

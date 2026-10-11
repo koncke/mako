@@ -23,7 +23,8 @@ import { rutaDePropuesta } from '@/lib/propuestas-tipos';
 import { getRolWsEfectivo, getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { porId } from '@/lib/api-mako/registro';
-import { esAccion, type Parametro } from '@/lib/api-mako/tipos';
+import { esAccion } from '@/lib/api-mako/tipos';
+import { plano } from '@/lib/bandeja-filas';
 import { NoEsTuyo } from '@/app/crm/revisar/[id]/NoEsTuyo';
 import { RevisarAccion, type OperacionPlana } from './RevisarAccion';
 
@@ -37,19 +38,8 @@ export const maxDuration = 300;
 
 const ORIGEN: Record<string, string> = { whatsapp: 'Por WhatsApp', claude: 'Por la API', app: 'Desde el chat de la app' };
 
-/** Un parámetro sin nada que no viaje bien al cliente (el `ejemplo` es `unknown`). */
-function plano(p: Parametro): Parametro {
-  return {
-    nombre: p.nombre, tipo: p.tipo, descripcion: p.descripcion,
-    ...(p.obligatorio ? { obligatorio: true } : {}),
-    ...(p.enum ? { enum: [...p.enum] } : {}),
-    ...(p.max != null ? { max: p.max } : {}),
-    ...(p.entero ? { entero: true as const } : {}),
-    ...(p.minimo != null ? { minimo: p.minimo } : {}),
-    ...(p.maximo != null ? { maximo: p.maximo } : {}),
-    ...(p.campos ? { campos: p.campos.map(plano) } : {}),
-  };
-}
+// `plano` (un parámetro sin el `ejemplo`, que no viaja bien al cliente) vive en
+// lib/bandeja-filas.ts: lo comparte el Inbox del teléfono.
 
 function fmtFecha(iso: string, tz: string): string {
   try {

@@ -127,8 +127,45 @@ export async function crearPropuesta(input: {
       ref: refFinal,
     });
     if (error) throw new Error(`crearPropuesta: ${error.message}`);
+    // El push va SÓLO con `nueva: true`: las ramas de arriba devuelven una propuesta que ya
+    // existía (la misma `ref`), y ésa ya avisó cuando nació.
+    await avisarPropuesta(input.ws, id, input.tipo, input.resumen ?? '', input.origen ?? null);
     return { id, nueva: true };
   });
+}
+
+/**
+ * «MaKo dejó algo para revisar», al teléfono de quien lo quiera (MaKo Mobile, lib/push.ts).
+ *
+ * NO se manda cuando quien la originó la está mirando o se aplica sola: `app` es el chat de
+ * MaKo de la app y también un paso de una automatización (que la aplica EN EL ACTO,
+ * `aplicarEnElActo` en lib/api-mako/flujo.ts). Y se re-pregunta antes de mandar: una
+ * propuesta que se aplicó en el mismo pedido (un token con escritura directa) ya no espera.
+ *
+ * Tag fijo: diez formularios de una landing en una hora son UNA notificación que se
+ * actualiza, no diez (la bandeja las lista). TTL 24 h: un borrador espera a que lo miren.
+ */
+async function avisarPropuesta(ws: number, id: string, tipo: TipoPropuesta, resumen: string, origen: string | null): Promise<void> {
+  if (origen === 'app' || origen?.startsWith('flujo:')) return;
+  try {
+    const { pushPorDetras } = await import('./push');
+    await pushPorDetras(ws, {
+      tipo: 'mako-propuesta',
+      titulo: 'MaKo dejó algo para revisar',
+      cuerpo: resumen.trim() || (tipo === 'lead' ? 'Un lead nuevo espera tu revisión.' : 'Una acción espera tu revisión.'),
+      ruta: tipo === 'lead' ? `/crm/revisar/${id}` : `/mako/revisar/${id}`,
+      tag: 'mako-propuesta',
+      ttl: 24 * 3600,
+      urgencia: 'normal',
+    }, async () => {
+      const { data } = await getSupabaseServer().from('propuestas')
+        .select('estado').eq('id', id).eq('workspace_id', ws).maybeSingle();
+      return (data as { estado?: string } | null)?.estado === 'pendiente';
+    });
+  } catch (e) {
+    // Que falle el push no puede tumbar la propuesta, que ya está creada.
+    console.error(`[propuestas] push de ${id}:`, e instanceof Error ? e.message : String(e));
+  }
 }
 
 /** Una propuesta por id. `null` si no existe en ESTE workspace — el scope lo pone

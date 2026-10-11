@@ -1098,6 +1098,13 @@ export const AREAS: AreaDev[] = [
     vive: ['app/admin/docs/page.tsx', 'app/admin/docs/DocsView.tsx', 'app/admin/docs/catalogo.ts', 'app/admin/docs/git-meta.ts'],
   },
   {
+    slug: 'mako-mobile', titulo: 'MaKo Mobile', familia: 'Platform', grupo: 'Dev',
+    estado: 'parcial', verEnApp: '/m',
+    alcance: 'La app del teléfono (PWA): Today, Inbox, MaKo, CRM y Plan re-adaptados en /m, con Web Push por persona y el chat de MaKo que propone y se aprueba desde el hilo. Salió con el reparto de teléfonos apagado (/inicio): se abre por URL hasta verla en producción.',
+    vive: ['app/m/', 'app/api/m/', 'app/api/push/', 'app/api/perfil/notif-push/', 'public/sw.js', 'lib/movil-rutas.ts', 'lib/movil-guard.ts', 'lib/movil-dispositivo.ts', 'lib/movil-instalar.ts', 'lib/haptico.ts', 'lib/push.ts', 'lib/push-payload.ts', 'lib/push-cliente.ts', 'lib/mako-turno-app.ts', 'lib/mako-turno-app-reglas.ts', 'lib/inbox-movil.ts', 'lib/hoy-movil.ts', 'lib/crm-movil.ts', 'lib/plan-hoy.ts', 'lib/plan-marcar.ts', 'lib/vista-general.ts', 'app/plan/board/prioridades.ts', 'docs/diseno-mako-mobile.md'],
+    proyectos: ['Feature: MaKo Mobile'],
+  },
+  {
     slug: 'mako-ux-ui', titulo: 'MaKo UX/UI', familia: 'Platform', grupo: 'Dev',
     estado: 'listo', verEnApp: '/admin/ui',
     alcance: 'El sistema de diseño renderizado de verdad, en ocho sub-tabs: Roadmap, Sidebar, Íconos, Marca, Fundamentos, Piezas, Estados y Gramática de MaKo. /admin/rediseno redirige acá.',

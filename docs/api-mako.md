@@ -662,7 +662,7 @@ curl -L \
 
 ### `GET /api/v1/plan/prioridades` — Qué hacer ahora
 
-Las tareas abiertas de mayor score que se pueden empezar YA: excluye las bloqueadas por una dependencia abierta (siguen siendo importantes, pero no ejecutables) y dice cuántas quedaron afuera por eso. Si TODAS las abiertas están bloqueadas, devuelve igual las de mayor score marcadas `bloqueada: true`, para saber qué destrabar primero. Responde «¿qué hago hoy?».
+Las tareas abiertas que se pueden empezar YA, en el MISMO orden que la vista Prioridades del tablero (banda con la urgencia heredada, después las del objetivo principal, el score del proyecto y la urgencia): excluye las bloqueadas por una dependencia abierta (siguen siendo importantes, pero no ejecutables) y dice cuántas quedaron afuera por eso. Si TODAS las abiertas están bloqueadas, devuelve igual las primeras en ese orden marcadas `bloqueada: true`, para saber qué destrabar primero. Responde «¿qué hago hoy?».
 
 - **Ruta por operación:** `GET /api/v1/plan/ver_prioridades_plan`
 - **Token detallado:** permiso `plan=read` (Solo lectura en «Plan»)

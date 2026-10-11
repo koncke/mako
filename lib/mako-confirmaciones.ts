@@ -145,8 +145,13 @@ export type ProductoALaVista = {
  * ningún producto. El segundo además VALIDA el id antes de resolver, así que un filtro
  * por default le haría contestar «La confirmación #N no está pendiente» sobre una que sí
  * lo está — un falso negativo en un camino que ESCRIBE.
+ *
+ * ⚠️ `estricto`: sin él, una lectura caída devuelve `[]` — lo de siempre para la tarjeta
+ * del CRM, que no puede tumbar la pantalla. El Inbox del teléfono (lib/inbox-movil.ts)
+ * lo pide estricto, porque ahí «no pude leer» y «no hay nada que decidir» son dos
+ * respuestas distintas y la segunda apaga la búsqueda.
  */
-export async function listPendientes(deProducto?: ProductoALaVista): Promise<MakoConfirmacion[]> {
+export async function listPendientes(deProducto?: ProductoALaVista, opts?: { estricto?: boolean }): Promise<MakoConfirmacion[]> {
   const supabase = await getTenantDb();
   const { data, error } = await supabase
     .from('mako_confirmaciones')
@@ -154,7 +159,10 @@ export async function listPendientes(deProducto?: ProductoALaVista): Promise<Mak
     .eq('estado', 'pendiente')
     .order('created_at', { ascending: true })
     .limit(100);
-  if (error) return [];
+  if (error) {
+    if (opts?.estricto) throw new Error(`mako_confirmaciones: ${error.message}`);
+    return [];
+  }
   const filas = (data ?? []) as MakoConfirmacion[];
   if (!deProducto || filas.length === 0) return filas;
   return acotarAlProducto(supabase, filas, deProducto);
@@ -242,6 +250,20 @@ const CERRO_POR_ESTADO: Record<string, boolean | null> = {
  *  - 'confirmar' → deja el cambio de MaKo como está.
  *  - 'rechazar'  → revierte (aplica el patch `revert` a la fila del lead).
  *  - 'op:<key>'  → aplica la opción (mueve a opcion.stage por setPipelineStage).
+ *
+ * ⚠️ RECLAMA ANTES DE APLICAR (11/10/2026, MaKo Mobile). Antes leía el estado y escribía
+ * el cierre AL FINAL, sin compare-and-set: dos toques seguidos (el celular, dos pestañas,
+ * un reintento) leían los dos «pendiente» y revertían el lead o lo movían de etapa DOS
+ * veces — y mover de etapa puede mandar una conversión a Meta que no se deshace. Ahora el
+ * cierre va PRIMERO, con `.eq('estado', 'pendiente')`, el molde de `reclamarPendiente`
+ * (lib/mako-pendientes.ts): el toque que no gana el reclamo no toca nada.
+ *
+ * Lo que se puede saber sin escribir (que la opción exista) falla ANTES de reclamar. Y si
+ * lo que se aplica después falla (el revert, o un requisito que el movimiento de etapa
+ * rechaza), el reclamo se SUELTA —vuelve a 'pendiente', con la misma guarda— para que la
+ * persona lo pueda reintentar: es lo que pasaba antes, cuando el cierre iba al final.
+ * Lo fija tests/mako-confirmaciones-doble-toque.test.ts, que corre esta función contra una
+ * base falsa.
  */
 export async function resolverConfirmacion(id: number, decision: string, autor: string): Promise<void> {
   const supabase = await getTenantDb();
@@ -250,57 +272,77 @@ export async function resolverConfirmacion(id: number, decision: string, autor: 
   const c = data as MakoConfirmacion;
   if (c.estado !== 'pendiente') return;
 
-  let nuevoEstado: 'confirmado' | 'rechazado' = 'confirmado';
-  let nota: string;
+  const op = decision.startsWith('op:') ? (c.opciones ?? []).find((o) => o.key === decision.slice(3)) : undefined;
+  if (decision.startsWith('op:') && !op) throw new Error('Opción inválida');
+  const nuevoEstado: 'confirmado' | 'rechazado' = decision === 'rechazar' ? 'rechazado' : 'confirmado';
 
-  if (decision === 'rechazar') {
-    nuevoEstado = 'rechazado';
-    if (c.aplicado && c.revert && Object.keys(c.revert).length) {
-      const patch: Record<string, unknown> = { ...c.revert };
-      // Sentinela: quitar SOLO el link que agregó MaKo (no pisar los que sumaron
-      // otros flujos entre el apply y el rechazo).
-      const removeUrl = typeof patch.fathom_remove_url === 'string' ? patch.fathom_remove_url : null;
-      delete patch.fathom_remove_url;
-      // Mantener la invariante estado_lead ↔ cerro.
-      if (typeof patch.estado_lead === 'string') patch.cerro = CERRO_POR_ESTADO[patch.estado_lead] ?? null;
-      if (Object.keys(patch).length) {
-        const { error: e2 } = await supabase.from('leads').update(patch).eq('id', c.lead_id);
-        if (e2) throw new Error(`No se pudo revertir: ${e2.message}`);
-      }
-      if (removeUrl) {
-        const { data: row } = await supabase.from('leads').select('fathom_links').eq('id', c.lead_id).maybeSingle();
-        const rawLinks = row?.fathom_links;
-        const links = Array.isArray(rawLinks) ? (rawLinks as Array<{ url?: string }>) : [];
-        const filtrados = links.filter((l) => l?.url !== removeUrl);
-        if (filtrados.length !== links.length) await supabase.from('leads').update({ fathom_links: filtrados }).eq('id', c.lead_id);
-      }
-    }
-    nota = `MaKo (${c.regla}): rechazado por ${autor}`;
-  } else if (decision.startsWith('op:')) {
-    const key = decision.slice(3);
-    const op = (c.opciones ?? []).find((o) => o.key === key);
-    if (!op) throw new Error('Opción inválida');
-    if (op.stage) {
-      // El botón del modal no abre ningún formulario: si la opción no trae motivo
-      // (las de "Marcar Perdido" no lo traen), el lead terminaba en una salida con
-      // el motivo de una pérdida ANTERIOR o sin motivo, algo que el wizard del CRM
-      // jamás habría dejado pasar. El motivo lo pone la propuesta que el humano
-      // acaba de aceptar: la regla + su título es exactamente el porqué.
-      const motivo = op.motivo?.trim() || `${c.regla}: ${c.titulo}`;
-      // Y se valida con la misma fuente que el CRM: si aun así falta un dato, el
-      // movimiento no se hace y la confirmación queda pendiente (el modal muestra
-      // el error y el humano puede resolverlo desde la ficha).
-      await setPipelineStage(c.lead_id, op.stage, { motivo, requisitos: 'validar' });
-    }
-    nota = `MaKo (${c.regla}): "${op.label}" por ${autor}`;
-  } else {
-    nota = `MaKo (${c.regla}): confirmado por ${autor}`;
-  }
-
-  const { error: e3 } = await supabase
+  // El reclamo: de N toques simultáneos, pasa uno.
+  const { data: mia, error: eReclamo } = await supabase
     .from('mako_confirmaciones')
     .update({ estado: nuevoEstado, resolved_at: new Date().toISOString(), resolved_by: autor })
-    .eq('id', id);
-  if (e3) throw new Error(`No se pudo cerrar la confirmación: ${e3.message}`);
+    .eq('id', id)
+    .eq('estado', 'pendiente')
+    .select('id');
+  if (eReclamo) throw new Error(`No se pudo cerrar la confirmación: ${eReclamo.message}`);
+  if (!(mia ?? []).length) return; // otro toque la resolvió primero: no se aplica nada dos veces
+
+  let nota: string;
+  try {
+    if (decision === 'rechazar') {
+      if (c.aplicado && c.revert && Object.keys(c.revert).length) {
+        const patch: Record<string, unknown> = { ...c.revert };
+        // Sentinela: quitar SOLO el link que agregó MaKo (no pisar los que sumaron
+        // otros flujos entre el apply y el rechazo).
+        const removeUrl = typeof patch.fathom_remove_url === 'string' ? patch.fathom_remove_url : null;
+        delete patch.fathom_remove_url;
+        // Mantener la invariante estado_lead ↔ cerro.
+        if (typeof patch.estado_lead === 'string') patch.cerro = CERRO_POR_ESTADO[patch.estado_lead] ?? null;
+        if (Object.keys(patch).length) {
+          const { error: e2 } = await supabase.from('leads').update(patch).eq('id', c.lead_id);
+          if (e2) throw new Error(`No se pudo revertir: ${e2.message}`);
+        }
+        if (removeUrl) {
+          const { data: row } = await supabase.from('leads').select('fathom_links').eq('id', c.lead_id).maybeSingle();
+          const rawLinks = row?.fathom_links;
+          const links = Array.isArray(rawLinks) ? (rawLinks as Array<{ url?: string }>) : [];
+          const filtrados = links.filter((l) => l?.url !== removeUrl);
+          if (filtrados.length !== links.length) await supabase.from('leads').update({ fathom_links: filtrados }).eq('id', c.lead_id);
+        }
+      }
+      nota = `MaKo (${c.regla}): rechazado por ${autor}`;
+    } else if (op) {
+      if (op.stage) {
+        // El botón del modal no abre ningún formulario: si la opción no trae motivo
+        // (las de "Marcar Perdido" no lo traen), el lead terminaba en una salida con
+        // el motivo de una pérdida ANTERIOR o sin motivo, algo que el wizard del CRM
+        // jamás habría dejado pasar. El motivo lo pone la propuesta que el humano
+        // acaba de aceptar: la regla + su título es exactamente el porqué.
+        const motivo = op.motivo?.trim() || `${c.regla}: ${c.titulo}`;
+        // Y se valida con la misma fuente que el CRM: si aun así falta un dato, el
+        // movimiento no se hace y la confirmación vuelve a quedar pendiente (el catch
+        // de abajo suelta el reclamo; el modal muestra el error y el humano puede
+        // resolverlo desde la ficha).
+        await setPipelineStage(c.lead_id, op.stage, { motivo, requisitos: 'validar' });
+      }
+      nota = `MaKo (${c.regla}): "${op.label}" por ${autor}`;
+    } else {
+      nota = `MaKo (${c.regla}): confirmado por ${autor}`;
+    }
+  } catch (e) {
+    // Se suelta SÓLO lo que este toque reclamó (`.eq('estado', nuevoEstado)`).
+    const { error: eSoltar } = await supabase
+      .from('mako_confirmaciones')
+      .update({ estado: 'pendiente', resolved_at: null, resolved_by: null })
+      .eq('id', id)
+      .eq('estado', nuevoEstado);
+    if (eSoltar) {
+      // Sin poder soltarla, la confirmación queda cerrada con el cambio SIN aplicar: se
+      // dice con todas las letras para que alguien la mire en el lead.
+      console.error(`[mako-conf] #${id} quedó ${nuevoEstado} sin aplicarse y no se pudo reabrir: ${eSoltar.message}`);
+      throw new Error(`${e instanceof Error ? e.message : String(e)} La confirmación quedó cerrada sin aplicarse: revisa el lead.`);
+    }
+    throw e;
+  }
+
   try { await logLeadEvent(c.lead_id, 'CRM automático', nota, 'MaKo'); } catch { /* no fatal */ }
 }

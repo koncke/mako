@@ -20,7 +20,18 @@ export type DataSource = {
   status: SourceStatus;
   lastSync: string | null;   // YYYY-MM-DD o ISO
   detalle: string;
+  /**
+   * La consulta de esta fuente FALLÓ. Sin esto, un error de la base se leía como
+   * `lastSync: null` —«nunca entregó nada»— y la guarda #165 le decía al cliente «conecta una
+   * fuente» sobre una fuente conectada. Con el error a la vista, `estadoFuentes`
+   * (lib/vista-general-modelo.ts) contesta «no sé» en vez de «sin datos».
+   */
+  error?: string;
 };
+
+/** El mensaje del error de una consulta, o undefined si salió bien. */
+const errorDe = (r: { error: { message: string } | null }): string | undefined =>
+  (r.error ? r.error.message || 'la consulta falló' : undefined);
 
 function diasDesde(fecha: string | null): number | null {
   if (!fecha) return null;
@@ -77,6 +88,7 @@ export async function getDataSources(): Promise<DataSource[]> {
       status,
       lastSync: fecha,
       detalle: fecha ? `Último día con datos: ${fecha}` : 'Sin datos de Meta',
+      error: errorDe(metaRes),
     });
   }
 
@@ -91,6 +103,7 @@ export async function getDataSources(): Promise<DataSource[]> {
       status,
       lastSync: fecha,
       detalle: fecha ? `Último lead de instant form hace ${d}d` : 'Nunca llegó un lead del instant form',
+      error: errorDe(metaLeadRes),
     });
   }
 
@@ -105,6 +118,7 @@ export async function getDataSources(): Promise<DataSource[]> {
       status,
       lastSync: fecha,
       detalle: fecha ? `Última agenda hace ${d}d` : 'Sin agendas registradas',
+      error: errorDe(calendlyRes),
     });
   }
 
@@ -119,6 +133,7 @@ export async function getDataSources(): Promise<DataSource[]> {
       status,
       lastSync: fecha,
       detalle: fecha ? `Último día con plays: ${fecha}` : 'Sin métricas de Panda aún',
+      error: errorDe(pandaRes),
     });
   }
 
@@ -133,6 +148,7 @@ export async function getDataSources(): Promise<DataSource[]> {
       status,
       lastSync: fecha,
       detalle: fecha ? `Último evento hace ${d}d` : 'Sin eventos del beacon',
+      error: errorDe(beaconRes),
     });
   }
 

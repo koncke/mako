@@ -86,8 +86,19 @@ export async function confirmarLeadsAction(id: string, filas: FilaImport[]): Pro
   return { ok: true, creados: r.creados, omitidos: r.omitidos, errores };
 }
 
-export async function descartarLeadsAction(id: string): Promise<{ ok: boolean }> {
-  if (!(await getUsuarioActual())) return { ok: false };
+/**
+ * Descarta UNA propuesta de contactos.
+ *
+ * ⚠️ SÓLO tipo 'lead' y SÓLO pendiente (11/10/2026). `descartarPropuesta` no mira el tipo,
+ * y esta acción pide cualquier sesión: sin el chequeo, un closer descartaba por id una
+ * propuesta de ACCIÓN de MaKo, que en `descartarAccionAction` es sólo del admin. Y una que
+ * ya se resolvió no contesta «ok» como si se hubiera descartado ahora.
+ */
+export async function descartarLeadsAction(id: string): Promise<{ ok: boolean; error?: string }> {
+  if (!(await getUsuarioActual())) return { ok: false, error: 'sin sesión' };
+  const prop = await getPropuesta(id);
+  if (!prop || prop.tipo !== 'lead') return { ok: false, error: 'esa propuesta no existe' };
+  if (prop.estado !== 'pendiente') return { ok: false, error: 'esa propuesta ya se resolvió' };
   await descartarPropuesta(id);
   return { ok: true };
 }

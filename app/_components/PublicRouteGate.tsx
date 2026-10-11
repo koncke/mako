@@ -12,6 +12,7 @@
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
+import { esRutaMovil } from '@/lib/movil-rutas';
 
 /** ¿La ruta es una landing pública? (no debe mostrar chrome de la app). */
 export function isPublicLandingPath(pathname: string | null | undefined): boolean {
@@ -52,7 +53,13 @@ export function esVistaSinChrome(pathname: string | null | undefined): boolean {
     // tracking. Mide 440 px: el riel del sidebar es fijo y se come un cuarto del
     // ancho para navegar a lugares a los que nadie va a ir desde acá — lo único
     // que se hace en esta ventana es mirar entrar eventos y cerrarla.
-    || /^\/integraciones\/escuchando\/?$/.test(p);
+    || /^\/integraciones\/escuchando\/?$/.test(p)
+    // MaKo Mobile (/m) dibuja SU cromo (header y barra inferior, app/m/layout.tsx):
+    // el Sidebar, los banners y la esquina de avisos de escritorio no van. NO entra
+    // en `isPublicLandingPath`: /m exige sesión, y esa lista significa «público».
+    // Por `esRutaMovil` y nunca `startsWith('/m')`, que atrapa /mako, /marketing y
+    // la ruta PÚBLICA /m.js del Pixel.
+    || esRutaMovil(p);
 }
 
 /** Renderiza a sus hijos SOLO en las pantallas que sí llevan el chrome de la app. */

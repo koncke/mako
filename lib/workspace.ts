@@ -148,6 +148,11 @@ const TENANT_TABLES = new Set<string>([
   // líneas `getTenantDb()` es PASSTHROUGH: el CRUD listaría las etiquetas de TODOS los negocios y
   // «¿este lead ya la tiene?» contestaría con filas de otro cliente.
   'crm_etiquetas', 'crm_lead_etiquetas',
+  // El feed de avisos POR WORKSPACE (mig 0250, MaKo Mobile): la 0048 no tenía `workspace_id` y
+  // aplicada habría mostrado a cada cliente los avisos de todos. lib/notificaciones.ts escribe y
+  // lee con el ws explícito; esta línea es la red si alguien la lee con getTenantDb.
+  // (`push_suscripciones` NO va: no tiene `workspace_id`, se ata a la PERSONA.)
+  'notificaciones',
   // Las insistencias vivas (mig 0180): un aviso que vuelve hasta que alguien dice «lo vi».
   // Va acá porque la fila es del workspace cuyo grupo recibe el mensaje — y porque el
   // techo que protege SU línea de WhatsApp no puede depender de leer la de otro.

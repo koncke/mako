@@ -19,6 +19,37 @@ export type ChartSession = {
 
 const SESSION_COLS = 'id, chart_key, titulo, contexto, pinned, archived, created_at, updated_at';
 
+/**
+ * El prefijo de los chats del TELÉFONO (`chart_key = mako-movil:<persona>`). Es el mismo
+ * string que `PREFIJO_CHART_MOVIL` de lib/mako-turno-app-reglas.ts —ese módulo no se puede
+ * importar acá sin traer el registro de la API— y tests/movil-privacidad.test.ts frena si
+ * los dos se separan.
+ */
+const PREFIJO_CHAT_MOVIL = 'mako-movil:';
+
+/** ¿Esta clave es de un chat del teléfono (por PERSONA)? */
+export function esChatDelTelefono(chartKey: string | null | undefined): boolean {
+  return String(chartKey ?? '').startsWith(PREFIJO_CHAT_MOVIL);
+}
+
+/**
+ * Para las rutas de ESCRITORIO (/api/chart-insights, /api/mako-doer), que leen y escriben
+ * sesiones POR ID sin mirar de quién son (el escritorio es por workspace a propósito).
+ * true = ese id es un chat del TELÉFONO: la ruta contesta 404.
+ *
+ * ⚠️ Los chats del teléfono son POR PERSONA (lib/mako-turno-app.ts, `sesionDe`), y esa
+ * promesa se caía por la puerta de al lado: medido el 11/10/2026 leyendo las dos rutas,
+ * cualquier sesión del mismo workspace —un closer— leía con `?sessionId=N` (ids
+ * correlativos) o `?chartKey=mako-movil:u<id>` lo que el dueño habló con MaKo en su celular,
+ * y con `send`/`rename`/`delete` se lo escribía o se lo borraba. Un id que no existe sigue
+ * contestando como siempre (false): sólo se corta lo que es del teléfono.
+ */
+export async function esSesionDelTelefono(sessionId: number): Promise<boolean> {
+  if (!Number.isInteger(sessionId) || sessionId <= 0) return false;
+  const s = await getSession(sessionId);
+  return !!s && esChatDelTelefono(s.chart_key);
+}
+
 export async function createSession(chartKey: string, titulo: string | null, contexto: string | null): Promise<ChartSession> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
@@ -54,10 +85,15 @@ export async function listSessions(chartKey: string, incluirArchivadas = false):
 /** Todas las sesiones (para la tab "Preguntale a MaKo"). Excluye las sesiones de
  *  asesoría por lead de WhatsApp (chart_key 'wa-advisor:*') y las del doer
  *  (chart_key 'mako-doer'), que tienen su propia superficie y no deben ensuciar
- *  la lista global de MaKo. */
+ *  la lista global de MaKo.
+ *
+ *  ⚠️ Y excluye los chats del TELÉFONO ('mako-movil:<persona>', lib/mako-turno-app.ts):
+ *  son POR PERSONA a propósito, y esta lista es por workspace. Sin este filtro, la tab de
+ *  escritorio le mostraba a un closer los chats que el dueño tuvo con MaKo en su celular
+ *  (y a la inversa). */
 export async function listAllSessions(incluirArchivadas = false, limit = 300): Promise<ChartSession[]> {
   const supabase = (await getTenantDb());
-  let q = supabase.from('chart_sessions').select(SESSION_COLS).not('chart_key', 'like', 'wa-advisor:%').neq('chart_key', 'mako-doer');
+  let q = supabase.from('chart_sessions').select(SESSION_COLS).not('chart_key', 'like', 'wa-advisor:%').not('chart_key', 'like', `${PREFIJO_CHAT_MOVIL}%`).neq('chart_key', 'mako-doer');
   if (!incluirArchivadas) q = q.eq('archived', false);
   const { data, error } = await q.order('pinned', { ascending: false }).order('updated_at', { ascending: false }).limit(limit);
   if (error) throw new Error(`listAllSessions falló: ${error.message}`);

@@ -26,9 +26,8 @@
 // con el lápiz del panel, que es un click.
 // =============================================================================
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { useVoiceRecorder } from '@/app/whatsapp/_shared/VoiceRecorder';
-import { useDictadoVivo, unirDictado } from './dictado-vivo';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { useDictar } from '@/app/_components/useDictar';
 import { GuardianIcon } from './GuardianIcon';
 import { type Prio, scoreFromPrio } from './types';
 
@@ -180,44 +179,14 @@ export function BotonDictar({ titulo, valor, onValor, onError }: {
   onValor: (v: string) => void;
   onError: (m: string) => void;
 }) {
-  const [subiendo, setSubiendo] = useState(false);
-  // El texto que había ANTES de arrancar a dictar. Cada parcial reescribe el campo entero
-  // con `base + loDictado`, porque el reconocedor corrige lo que ya dijo: acumular los
-  // parciales duplicaría media frase cada vez que cambia de opinión.
-  const base = useRef('');
-  const vivo = useDictadoVivo(
-    (texto) => onValor(unirDictado(base.current, texto)),
-    onError,
-  );
-
-  const rec = useVoiceRecorder(async (blob) => {
-    setSubiendo(true);
-    try {
-      const fd = new FormData();
-      fd.append('audio', blob, 'nota.webm');
-      // ⚠️ CON SEÑAL DE CORTE (AGENTS.md): un `fetch` sin `signal` con la conexión caída no
-      // resuelve NUNCA, y acá eso dejaba el botón deshabilitado para siempre — el `finally`
-      // no llega a correr.
-      const j = await fetch('/api/plan-dictado', { method: 'POST', body: fd, signal: AbortSignal.timeout(90_000) }).then((r) => r.json());
-      if (!j?.ok) { onError(String(j?.error || 'No pude transcribir el audio.')); return; }
-      if (j.texto) onValor(unirDictado(valor, String(j.texto)));
-    } catch (e) {
-      onError(e instanceof Error && e.name === 'TimeoutError'
-        ? 'La transcripción tardó demasiado. Escríbelo a mano o prueba de nuevo.'
-        : e instanceof Error ? e.message : String(e));
-    }
-    finally { setSubiendo(false); }
-  }, onError);
-
-  const escuchando = vivo.soportado ? vivo.escuchando : rec.recording;
-  const alternar = () => {
-    if (vivo.soportado) {
-      if (vivo.escuchando) vivo.parar();
-      else { base.current = valor; vivo.arrancar(); }
-      return;
-    }
-    if (rec.recording) rec.stop(false); else void rec.start();
-  };
+  // La lógica (dictar en vivo o grabar y transcribir) es la de app/_components/useDictar.ts,
+  // la misma que usa el chat de MaKo del teléfono. El botón es de acá.
+  const d = useDictar(valor, onValor, onError);
+  const subiendo = d.subiendo;
+  const escuchando = d.escuchando;
+  const alternar = d.alternar;
+  const vivo = { soportado: d.enVivo };
+  const rec = { secs: d.segundos };
 
   return (
     <button type="button"

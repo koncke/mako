@@ -37,6 +37,8 @@ import {
 } from '@/lib/plan-propuesta';
 import { matchTarea, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/lib/buscar-tareas';
 import { resolverDeps, estaBloqueada, puedeDepender, type EntidadDep, type ClaseDep, type EstadoDeps } from '@/app/plan/board/dependencias';
+// «¿Qué hago ahora?» tiene UNA definición, la de la vista Prioridades del tablero.
+import { prioridadesDelTablero, type FiltroPrioridades } from '@/app/plan/board/prioridades';
 import { cruzarCandidatas, buscarDuplicados } from '@/lib/mako-guardian';
 import { proponerProyecto } from '@/lib/checklist-coach';
 import { proyectosSinTareas, proponerTareasParaProyecto } from '@/lib/plan-proyecto-vacio';
@@ -101,6 +103,18 @@ const estadoDeps = (tab: Tablero): EstadoDeps | null => {
     deps: tab.deps,
   });
 };
+
+/**
+ * El tablero normalizado en la forma que lee `prioridadesDelTablero` (la del grafo de
+ * dependencias: `progress`, no `avance`), con la tarea original colgada en `t` para
+ * devolverla tal cual. Es el mismo mapeo que `estadoDeps`, arriba.
+ */
+type TareaPrioApi = { id: string; num: number; score: number; progress: number; labels: string[]; recurrente: boolean; t: TareaPlan };
+type ProyectoPrioApi = { id: string; score: number; recurrente: boolean };
+const tareasPrio = (tab: Tablero): TareaPrioApi[] =>
+  tab.tareas.map((t) => ({ id: t.id, num: t.num ?? 0, score: t.score, progress: t.avance, labels: t.labels, recurrente: t.recurrente, t }));
+const proyectosPrio = (tab: Tablero): ProyectoPrioApi[] =>
+  tab.proyectos.map((p) => ({ id: p.id, score: p.score, recurrente: p.recurrente }));
 
 /**
  * El avance de un proyecto: promedio del avance de sus tareas CON FIN.
@@ -280,30 +294,37 @@ export const RUNNERS: Runners = {
       const limite = num(input, 'limite') ?? 10;
       const tab = await leerTablero(ctx.ws);
       // «¿Qué hago hoy?» — y una tarea que se repite NO es una respuesta a eso: se hace
-      // cuando toca, no cuando la lista la pone arriba. Es el mismo criterio que las 5
-      // tarjetas de la vista Prioridades, y tiene que ser el mismo o las dos superficies
-      // contestan distinto a la misma pregunta.
+      // cuando toca, no cuando la lista la pone arriba.
       let abiertas = tab.tareas.filter(compite);
       const ref = str(input, 'proyectoId');
+      let filtro: FiltroPrioridades<TareaPrioApi, ProyectoPrioApi> | null = null;
       if (ref) {
         const p = buscarProyecto(tab, ref);
         if (!p) return error(`No encuentro el proyecto «${ref}». Lista los que hay con listar_proyectos_plan.`);
         abiertas = abiertas.filter((t) => t.proyectoId === p.id);
+        filtro = { tarea: (x) => x.t.proyectoId === p.id, proyecto: (x) => x.id === p.id };
       }
-      const est = estadoDeps(tab);
-      const libres = est ? abiertas.filter((t) => !estaBloqueada(t.id, est)) : abiertas;
+      // ⚠️ EL ORDEN ES EL DE LA VISTA PRIORIDADES DEL TABLERO, CON LA MISMA FUNCIÓN
+      // (`prioridadesDelTablero`, app/plan/board/prioridades.ts): banda con la urgencia
+      // heredada → las del objetivo principal → score del proyecto → urgencia. Acá había un
+      // orden propio sólo por score, con un comentario que decía «es el mismo criterio» y no
+      // lo era: MaKo contestaba «¿qué hago hoy?» con otra lista que la pantalla y el teléfono.
+      const r = prioridadesDelTablero({ tareas: tareasPrio(tab), proyectos: proyectosPrio(tab), deps: tab.deps, filtro, max: limite });
+      const libres = abiertas.filter((t) => !estaBloqueada(t.id, r.estDeps));
       const nombres = nombresDeProyectos(tab);
       // Si TODAS las abiertas están bloqueadas, no se devuelve una lista vacía: se dan las
-      // de mayor score marcadas, para decidir qué destrabar.
+      // primeras en el mismo orden, marcadas, para decidir qué destrabar.
       const todasBloqueadas = !libres.length && abiertas.length > 0;
-      const elegibles = todasBloqueadas ? abiertas : libres;
+      const elegidas = todasBloqueadas
+        ? prioridadesDelTablero({ tareas: tareasPrio(tab), proyectos: proyectosPrio(tab), estDeps: r.estDeps, filtro, max: limite, incluirBloqueadas: true }).prioridades
+        : r.prioridades;
       return json({
         board: tab.board,
         total_abiertas: abiertas.length,
         excluidas_por_bloqueo: abiertas.length - libres.length,
-        tareas: [...elegibles].sort((a, b) => b.score - a.score).slice(0, limite)
-          .map((t) => ({ ...tareaCompacta(t, nombres), ...(todasBloqueadas ? { bloqueada: true } : {}) })),
-        ...(todasBloqueadas ? { nota: 'Todas las tareas abiertas están bloqueadas por una dependencia abierta: estas son las de mayor score, marcadas bloqueada: true. Qué las frena está en ver_tarea_plan.' } : {}),
+        tareas: elegidas.map((x) => ({ ...tareaCompacta(x.t, nombres), ...(todasBloqueadas ? { bloqueada: true } : {}) })),
+        orden: 'El mismo de la vista Prioridades del tablero: primero la banda (alta, media, baja, a futuro, contando la urgencia que hereda de lo que destraba), adentro de la banda las del objetivo principal, después el score del proyecto y la urgencia. Las primeras 5 son las tarjetas que ve la persona.',
+        ...(todasBloqueadas ? { nota: 'Todas las tareas abiertas están bloqueadas por una dependencia abierta: estas son las primeras en el orden de Prioridades, marcadas bloqueada: true. Qué las frena está en ver_tarea_plan.' } : {}),
         ...aviso(tab),
       });
     },

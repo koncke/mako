@@ -34,6 +34,12 @@
       "skillPath": "skills/productivity/grilling/SKILL.md",
       "computedHash": "5e05f3e63506a5c11f7bd202d26a1b38f331ea609bcd0ffd3b84eac9c8ac973a"
     },
+    "mobile-native": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/mobile-native/SKILL.md",
+      "computedHash": "8d77850a34ec20f745aed3215aa0d587e90438599bb09dc72d9d09ce896a5765"
+    },
     "supabase": {
       "source": "supabase/agent-skills",
       "sourceType": "github",
@@ -45,6 +51,24 @@
       "sourceType": "github",
       "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
       "computedHash": "3639bed1f40b3fbadae79fee631c42c89b2d1f5c30b05d5aa3cca06422a6bbbc"
+    },
+    "thumb-first": {
+      "source": "kylezantos/thumb-first",
+      "sourceType": "github",
+      "skillPath": "skills/thumb-first/SKILL.md",
+      "computedHash": "7122104c2a5119bbe9dce966e2f64f23fff3590cba45bc61dbfbf24cc150aa1d"
+    },
+    "thumb-first-design": {
+      "source": "kylezantos/thumb-first",
+      "sourceType": "github",
+      "skillPath": "skills/thumb-first-design/SKILL.md",
+      "computedHash": "425d7396d851e2eff93c480167c701346c52f860d73e241c62fcfd4e9f52f349"
+    },
+    "thumb-first-platform": {
+      "source": "kylezantos/thumb-first",
+      "sourceType": "github",
+      "skillPath": "skills/thumb-first-platform/SKILL.md",
+      "computedHash": "2acad2b612a4e30c744c9b0147ff30fe6b2d2a1d5f541224cb040edf1d23713d"
     },
     "ui-ux-pro-max": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
@@ -69,6 +93,12 @@
       "sourceType": "github",
       "skillPath": "skills/web-design-guidelines/SKILL.md",
       "computedHash": "f3bc47f890f42a44db1007ab390709ec368e4b8c089baee6b0007182236ac474"
+    },
+    "web-haptics": {
+      "source": "lochie/web-haptics",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "5d7681493bd00cd4197f637c5a868f1ad683b41201707688c004aded3e2f2700"
     },
     "webapp-testing": {
       "source": "anthropics/skills",

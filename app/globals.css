@@ -250,6 +250,32 @@
   --accent-orange: var(--bad);
   --font-cormorant: 'Geist', system-ui, sans-serif;
   --font-dm-sans: 'Geist', system-ui, sans-serif;
+
+  /* ── Movimiento y medidas del shell de MaKo Mobile (/m) ─────────────────
+     UNA vez acá, y los lee también el escritorio el día que los quiera: la
+     regla de la skill animate es «extend the codebase's tokens, don't fork
+     them». Hasta el 11/10/2026 no había NINGÚN token de curva ni de duración
+     (sólo el «.14s ease» de app/_ui/tokens.ts), así que cada animación elegía
+     la suya. Las tres curvas son las de Emil Kowalski: ease-out fuerte para
+     entrar y salir, ease-in-out para mover en pantalla, y la del drawer de iOS
+     (Ionic) para los sheets. Nunca ease-in en la interfaz: arranca lento justo
+     cuando el ojo está mirando. */
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  --ease-drawer: cubic-bezier(.32, .72, 0, 1);
+  --dur-press: 120ms;
+  --dur-pop: 180ms;
+  --dur-sheet: 320ms;
+  /* La salida es ~65% de la entrada: lo que se va no tiene que hacer esperar. */
+  --dur-sheet-out: 220ms;
+  --m-header: 44px;
+  --m-tabbar: 56px;
+  --m-gutter: 16px;
+  /* El velo detrás de un sheet: oscurece para enfocar, sin blur (el blur
+     decorativo es un veto de la casa). En oscuro hace falta más para separar el
+     panel del fondo: /m elige `--scrim-oscuro` con el tema (app/m/m.css). */
+  --scrim: rgba(0, 0, 0, .4);
+  --scrim-oscuro: rgba(0, 0, 0, .55);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -351,6 +377,24 @@
     --card-pad: 18px;
     --sect-gap: 16px;
   }
+}
+
+/* MaKo Mobile (/m) usa la escala de arriba SIEMPRE, aunque la ventana pase de
+   820 px: un iPad horizontal o una computadora abriendo /m siguen viendo la app
+   del teléfono, con sus 44 px de toque. `[data-m]` lo lleva el contenedor del
+   shell (app/m/layout.tsx). Los valores son LOS MISMOS que los del @media de
+   arriba, y tests/movil-shell.test.ts falla si alguno se separa. */
+[data-m] {
+  --fs-meta: 13px;
+  --fs-sm: 14.5px;
+  --fs-md: 16px;
+  --fs-card: 16.5px;
+  --fs-sect: 20px;
+  --fs-page: 26px;
+  --fs-kpi: 30px;
+  --touch: 44px;
+  --card-pad: 18px;
+  --sect-gap: 16px;
 }
 
 @theme inline {

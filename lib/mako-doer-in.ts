@@ -50,6 +50,10 @@ import { crearMemoDeAcciones } from '@/lib/turno-sin-duplicar';
 // un lugar").
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { puedeLeerse, formatosLegibles, porQueNoPuedo } from '@/lib/formatos-archivo';
+// Cómo entra una foto o un PDF al turno: lo comparte con el chat del teléfono
+// (lib/mako-turno-app.ts). Ver la cabecera de lib/mako-adjuntos.ts: el bloque de imagen NO
+// le llega a Gemini por chatCheapTools (medido el 11/10/2026).
+import { mimeImagenWhatsApp, bloquesDeAdjuntos, placeholderDeAdjunto } from '@/lib/mako-adjuntos';
 import { ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { recordUsage } from '@/lib/anthropic-usage';
 import { rutearDoer } from '@/lib/mako-router';
@@ -176,9 +180,7 @@ function adjuntoDe(m: MsgIn): { tipo: 'image' | 'document' | 'texto'; base64: st
   const msg = m.message ?? {};
   const img = msg.imageMessage as { base64?: string; mimetype?: string; caption?: string } | undefined;
   if (img) {
-    const mime = (img.mimetype || 'image/jpeg').split(';')[0];
-    const ok = /^image\/(jpeg|png|gif|webp)$/.test(mime);
-    return { tipo: 'image', base64: m.base64 || img.base64 || null, mime: ok ? mime : 'image/jpeg', caption: img.caption || '', nombre: 'captura.jpg', soportado: true };
+    return { tipo: 'image', base64: m.base64 || img.base64 || null, mime: mimeImagenWhatsApp(img.mimetype), caption: img.caption || '', nombre: 'captura.jpg', soportado: true };
   }
   const doc = msg.documentMessage as { base64?: string; mimetype?: string; caption?: string; fileName?: string } | undefined;
   if (doc) {
@@ -762,11 +764,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           void enviarAGrupoJid(jid, 'Me llegó tu archivo pero WhatsApp no me deja bajarlo. ¿Me lo reenvías?', 0);
           return { engaged: false, skip: 'adjunto sin base64' };
         }
-        const source = { type: 'base64', media_type: adjunto.tipo === 'image' ? adjunto.mime : 'application/pdf', data: b64 };
-        const prompt = textoDirecto || adjunto.caption || (adjunto.tipo === 'image' ? 'Mira esta imagen y dime qué ves y qué hago.' : 'Lee este PDF y dime lo importante.');
-        mediaBlocks = [{ type: adjunto.tipo, source }, { type: 'text', text: prompt }];
+        mediaBlocks = bloquesDeAdjuntos([{ tipo: adjunto.tipo, mime: adjunto.mime, base64: b64 }], textoDirecto || adjunto.caption);
         // Para la memoria guardamos un placeholder de texto.
-        texto = `(envió ${adjunto.tipo === 'image' ? 'una imagen' : 'un PDF'}${adjunto.caption ? `: ${adjunto.caption}` : ''})${textoDirecto ? ` — ${textoDirecto}` : ''}`;
+        texto = placeholderDeAdjunto(adjunto.tipo, adjunto.caption, textoDirecto);
       }
     }
 
