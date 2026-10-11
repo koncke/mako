@@ -696,7 +696,7 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 22px' }}>
-                <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>Este anuncio todavía no tiene análisis de guion en Ads Analyst.</div>
+                <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>Este anuncio todavía no tiene análisis de guion.</div>
                 <button type="button" onClick={() => reanalizar(head.adId)} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Analizar este guion</button>
                 {reMsg && <span style={{ fontSize: 12, color: 'var(--faint)' }}>{reMsg}</span>}
               </div>

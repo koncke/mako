@@ -294,7 +294,8 @@ test('el buscador del modal: sin acentos ni mayúsculas, sobre nombre y línea',
 
 // r7: 1 fallo. r8: 1 fallo.
 test('la ruta: la puerta de /api/graficos, la cascada GRATIS, la traducción en el validar, y no escribe', () => {
-  const src = sinComentarios(leer('app/api/graficos/ia/route.ts'));
+  // La generación se mudó a lib/graficos-ia-generar.ts (la usa también la API de MaKo): se leen los dos.
+  const src = sinComentarios(`${leer('app/api/graficos/ia/route.ts')}\n${leer('lib/graficos-ia-generar.ts')}`);
   assert.match(src, /if \(rol == null\) return err\(401/);
   assert.match(src, /if \(rol !== 'admin'\) return err\(403/);
   assert.match(src, /if \(!tabEnCapa\('graphics', await getCapaActual\(\)\)\) return err\(404/);
@@ -305,6 +306,11 @@ test('la ruta: la puerta de /api/graficos, la cascada GRATIS, la traducción en 
   assert.match(src, /getPromptText\('dashboard\.hoja-ia\.system', HOJA_IA_SYSTEM_TEMPLATE\)/);
   assert.match(src, /userDeHoja\(pedido\)/, 'el pedido va por userDeHoja (envuelto como dato)');
   assert.match(src, /falloDeIA\(errores, hayIA\)/);
+  // La red de plataforma va DESPUÉS de los intentos con las keys del negocio, con la misma traducción en el
+  // validar, y antes del error (Martín, 11/10/2026: «siempre tiene que probar con otros provedoores»).
+  const iRed = src.indexOf('await porLaRedDePlataforma(');
+  assert.ok(iRed > src.indexOf("motivo: 'Corregir la hoja del Dashboard con IA'") && iRed < src.indexOf('falloDeIA(errores, hayIA)'), 'la red, entre el último intento del negocio y el error');
+  assert.match(src.slice(iRed, iRed + 900), /deIAHoja\(parseJsonObject\(t\)\)/);
   assert.match(src, /const maxTokens = salidaParaIA\(tokensAprox\(p\.system\) \+ tokensAprox\(p\.user\), techoDeEntrada\('groq'\)\)/);
   assert.doesNotMatch(src, /guardarTablero|\.from\(|getTenantDb|setSetting/, 'la ruta no guarda: la hoja la mete el editor con mutar');
   const md = Number(/export const maxDuration = (\d+);/.exec(src)?.[1]);

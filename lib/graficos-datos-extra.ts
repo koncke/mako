@@ -14,7 +14,8 @@
 //   · toques    → los mismos descartes que `recorrerToques` (lib/landing-mapa-server.ts) y el rótulo
 //                 de «Lo más tocado» (`rotuloDe`).
 //   · retencion → `avancePorPersona` (lib/vsl-retencion.ts), con la duración de Panda.
-//   · llamadas  → el mismo universo que getClosingViewData: de venta y analizadas.
+//   · llamadas  → el mismo universo que getClosingViewData: de venta y analizadas, y nombradas como en la
+//                 lista de la hoja (`nombreDeLlamada`, app/dashboard/bloques/extra/llamadas-modelo.ts).
 //   · proyectos y ejecución → `metricasProductividad` (lib/productividad-metricas.ts), lo de la tab.
 //
 // ⚠️ DESCARTES DE LOS EVENTOS DEL PIXEL: las pruebas (`prueba` no nulo: es quien probaba el Pixel) y la
@@ -27,7 +28,7 @@
 import 'server-only';
 import { SinConexionError, type Fila } from './graficos-agregar';
 import type { Grafico } from './graficos-catalogo';
-import { enRango, fechaTj, leer, lindo, num, ruta, txt, type Rango } from './graficos-lectura';
+import { enRango, queTableroLeer, fechaTj, leer, lindo, num, ruta, txt, type Rango } from './graficos-lectura';
 import { conversorGastoMeta } from './moneda-meta';
 import { integracionConectada } from './credenciales';
 import { getQuadrantData } from './ads-analyst';
@@ -43,13 +44,13 @@ import { rotuloDe } from './landing-mapa-rotulo';
 import { avancePorPersona, esEventoDeVideo, type EventoVsl } from './vsl-retencion';
 import { getDuracionesVsl } from './leads';
 import { idDeclaraHost } from './video-id';
-import { tableroActual } from './tablero-actual';
 import { listPlanBoard } from './plan-board';
 import { listCategorias, listTareas } from './todo';
 import { toBoard, toLabel } from '@/app/plan/board/desde-todo';
 import { PLABEL, prioFromScore, type BoardTask, type Label } from '@/app/plan/board/types';
 import { sinRecurrentes } from './plan-recurrentes';
 import { CUADRANTE_ROTULO, cuadranteDe, metricasProductividad } from './productividad-metricas';
+import { nombreDeLlamada } from '@/app/dashboard/bloques/extra/llamadas-modelo';
 
 export type Lector = (fecha: string, rg: Rango, g?: Pick<Grafico, 'dimension' | 'desglose'>) => Promise<Fila[]>;
 
@@ -361,17 +362,25 @@ const puntajeDe = (x: { score: number | string | null; has_transcript: boolean |
   return Number.isFinite(n) ? n : null;
 };
 
-type FLlamadaVenta = { recording_id: number; call_date: string | null; duration_min: number | null; closer: string | null; tipo: string | null; score: number | string | null; outcome_tone: string | null; has_transcript: boolean | null };
+type FLlamadaVenta = {
+  recording_id: number; call_date: string | null; duration_min: number | null; closer: string | null; tipo: string | null; score: number | string | null;
+  outcome_tone: string | null; has_transcript: boolean | null; title: string | null; lead_id: number | null; lead_nombre: string | null; invitee_email: string | null;
+};
 /**
  * Sin Fathom la tab no muestra nada (pide la key): la tarjeta lo dice en vez de dibujar ceros mudos
  * que se leen como «no hubo llamadas».
  */
 export const exigirFathom = async () => { if (!(await integracionConectada('fathom'))) throw new SinConexionError('Conecta Fathom en Integraciones'); };
 
-/** Las llamadas de venta analizadas, el universo de la tab (getClosingViewData). */
+/**
+ * Las llamadas de venta analizadas, el universo de la tab (getClosingViewData). Cada fila es UNA llamada con
+ * su id (`r.llamada`) y el de su lead (`r.lead`): el detalle de un número lista llamadas y cada una abre su
+ * ficha. `llamada` la nombra como la nombraba la tab (`nombreDeLlamada`): trae nombres y emails de personas
+ * (DIMENSIONES_PERSONA, lib/graficos-acciones.ts), y no viaja a ningún modelo.
+ */
 async function filasLlamadasVenta(rg: Rango): Promise<Fila[]> {
   await exigirFathom();
-  const rows = await leer<FLlamadaVenta>('closing_analyses', 'recording_id, call_date, duration_min, closer, tipo, score, outcome_tone, has_transcript', rg, {
+  const rows = await leer<FLlamadaVenta>('closing_analyses', 'recording_id, call_date, duration_min, closer, tipo, score, outcome_tone, has_transcript, title, lead_id, lead_nombre, invitee_email', rg, {
     col: 'call_date', orden: 'recording_id', extra: (q) => q.eq('category', 'venta').eq('status', 'analizada'),
   });
   return rows.map((x) => {
@@ -380,7 +389,8 @@ async function filasLlamadasVenta(rg: Rango): Promise<Fila[]> {
     const gano = x.outcome_tone === 'good';
     return {
       f: x.call_date,
-      d: { closer: txt(x.closer), reunion: txt(x.tipo), tono: TONO_LLAMADA[x.outcome_tone ?? ''] ?? null },
+      d: { closer: txt(x.closer), reunion: txt(x.tipo), tono: TONO_LLAMADA[x.outcome_tone ?? ''] ?? null, llamada: nombreDeLlamada(x) },
+      r: { llamada: String(x.recording_id), lead: x.lead_id != null ? String(x.lead_id) : null },
       v: {
         llamadas: 1, minutos: num(x.duration_min), puntos: p ?? 0, con_puntaje: p != null ? 1 : 0,
         ganadas: gano ? 1 : 0, perdidas: x.outcome_tone === 'bad' ? 1 : 0, r1: x.tipo === 'R1' ? 1 : 0, r2: r2 ? 1 : 0, ganadas_r2: r2 && gano ? 1 : 0,
@@ -440,7 +450,7 @@ async function filasProyectos(): Promise<Fila[]> {
  * bloques de la plantilla «Productividad» (lib/graficos-bloques-extra.ts).
  */
 export async function leerTablero(): Promise<{ tasks: BoardTask[]; labels: Label[] }> {
-  if ((await tableroActual()) === 'dueno') {
+  if ((await queTableroLeer()) === 'dueno') {
     const b = await listPlanBoard();
     return { tasks: b.tareas, labels: b.proyectos };
   }

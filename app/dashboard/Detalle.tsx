@@ -14,6 +14,10 @@
 // Lo que no se ve:
 //   · La FICHA del lead (LeadEditModal) se dibuja en lugar de esta caja, no encima: vive en z 80 y la pila
 //     de modales de app/_ui arranca en 130, así que encima quedaría tapada. Al cerrarla vuelve el detalle.
+//   · «Ver llamada» hace lo mismo con la ficha de la LLAMADA (bloques/extra/FichaLlamada.tsx: el detalle de
+//     la tab Closing, que se eliminó, con sus tareas). En lugar de esta caja, no encima: abrir un Modal
+//     encima de otro apaga el de abajo (la pila), y al cerrarla vuelve el detalle. Una tarea de la ficha
+//     (revisar, re-analizar) refresca la lista y la hoja con `recargar`.
 //   · «Marcar cobrada» usa los dos ids de la MISMA fila del server, con la fecha de hoy del negocio, y deja
 //     Deshacer 5 s (el molde de la vieja «A quién cobrarle»). Después de cada acción: se vuelve a pedir la
 //     lista y `onCambio()` le avisa a la hoja que refresque sus números.
@@ -29,6 +33,7 @@ import { etiquetaTiempo, fmtValor } from '@/lib/graficos-agregar';
 import { fuenteDe, metricaDe, tituloDe, type Efectivo, type Grafico, type Hoja } from '@/lib/graficos-catalogo';
 import { accionesDeFila, campoParaFiltrar, esDimensionTiempo, type AccionFila, type FilaDetalle, type RespuestaDetalle, type SelDetalle } from '@/lib/graficos-acciones';
 import type { TemaHoja } from '@/lib/graficos-temas';
+import { FichaLlamada } from './bloques/extra/FichaLlamada';
 
 // Code-split, como en app/_components/Desglose.tsx: la ficha del CRM se baja al abrirla.
 const LeadEditModal = dynamic(() => import('@/app/crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
@@ -61,6 +66,7 @@ export function DetalleModal({ g, efectivo, sel, onCerrar, onCambio, onFiltrar }
   const [version, setVersion] = useState(0);
   const [estado, setEstado] = useState<{ clave: string; resp: RespuestaDetalle } | null>(null);
   const [ficha, setFicha] = useState<{ leadId: number; nombre: string } | null>(null);
+  const [llamada, setLlamada] = useState<number | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const { toast, show, clear } = useToast();
 
@@ -114,6 +120,7 @@ export function DetalleModal({ g, efectivo, sel, onCerrar, onCambio, onFiltrar }
 
   const correr = (a: AccionFila, f: FilaDetalle) => {
     if (a.tipo === 'ficha') { const id = Number(f.ids.lead); if (Number.isFinite(id)) setFicha({ leadId: id, nombre: f.nombre }); return; }
+    if (a.tipo === 'llamada') { const id = Number(f.ids.llamada); if (Number.isInteger(id) && id > 0) setLlamada(id); return; }
     if (a.tipo === 'cobrar') void cobrar(f);
   };
 
@@ -135,6 +142,14 @@ export function DetalleModal({ g, efectivo, sel, onCerrar, onCambio, onFiltrar }
     return (
       <>
         <LeadEditModal leadId={ficha.leadId} seed={{ nombre: ficha.nombre }} onClose={() => { setFicha(null); recargar(); }} />
+        <Toast state={toast} onClose={clear} />
+      </>
+    );
+  }
+  if (llamada != null) {
+    return (
+      <>
+        <FichaLlamada recordingId={llamada} onCerrar={() => setLlamada(null)} onCambio={recargar} />
         <Toast state={toast} onClose={clear} />
       </>
     );

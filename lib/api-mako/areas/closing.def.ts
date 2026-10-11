@@ -16,7 +16,9 @@
 // Qué NO está acá, a propósito (ver el retorno de la corrida y docs/hallazgos):
 //   · sincronizar_llamadas, reanalizar_llamada, reevaluar_llamada_con_mako: IA cara
 //     y SÍNCRONA (barrido entero de Fathom + Claude ≈ 2 min por llamada) sin una
-//     fila de estado donde contar el resultado; se hacen desde /closing.
+//     fila de estado donde contar el resultado; se hacen desde la hoja Closing del
+//     Dashboard (la tab /closing se eliminó el 11/10/2026: su bloque «Las llamadas»
+//     sincroniza y la ficha de cada llamada revisa y re-analiza).
 //   · relinkear_llamada_a_lead: no hay función de lib; el update vive inline en
 //     analizarLlamadasDeLead (Paso 0).
 //   · grabaciones_fathom_sin_analizar: preClassify necesita quién es «de casa», que
@@ -130,7 +132,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'detalle_llamada', area: 'closing', tipo: 'lectura',
     titulo: 'Detalle del análisis de una llamada',
-    descripcion: 'El análisis completo de UNA grabación: desenlace, resumen, próximo paso, las 7 dimensiones con puntaje, nota y cita con link al segundo, fortalezas, debilidades, objeciones (abiertas primero), momentos clave, recomendaciones de coaching y las últimas ediciones humanas. Trae la llamada en cualquier estado (también con error o pendiente). Por WhatsApp resume en pocas líneas y pasa el link de /closing: no copies el análisis entero.',
+    descripcion: 'El análisis completo de UNA grabación: desenlace, resumen, próximo paso, las 7 dimensiones con puntaje, nota y cita con link al segundo, fortalezas, debilidades, objeciones (abiertas primero), momentos clave, recomendaciones de coaching y las últimas ediciones humanas. Trae la llamada en cualquier estado (también con error o pendiente). Por WhatsApp resume en pocas líneas y pasa el link, que abre la llamada en la hoja Closing del Dashboard: no copies el análisis entero.',
     parametros: [recordingId],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB_FATHOM,
   },

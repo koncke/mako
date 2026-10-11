@@ -292,13 +292,13 @@ SEGÚN DE QUÉ TE HABLEN, puedes tener herramientas de cada tab de MaKo (email, 
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
 const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, da el resumen corto y CIERRA con un link para verlo (formato: "Mira el detalle aquí → URL"). No inventes rutas; usa estas (base ${APP_URL}):
 - Ficha 360 de un lead: ${APP_URL}/crm/{id}
-- Análisis de una llamada de ventas: ${APP_URL}/closing?call={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tienes, ${APP_URL}/closing.
+- Análisis de una llamada de ventas: ${APP_URL}/dashboard?hoja=closing&llamada={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tienes, ${APP_URL}/dashboard?hoja=closing.
 - WhatsApp con un lead: ${APP_URL}/whatsapp?lead={id}
 - Marketing / anuncios: ${APP_URL}/dashboard · Ads Manager: ${APP_URL}/ads-manager
 - Experimentos (verdades validadas): ${APP_URL}/experimentos
 - Plan / tareas: ${APP_URL}/plan · Nutrición y email: ${APP_URL}/email
 - Salud de la cuenta de Meta: ${APP_URL}/integraciones
-Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes aquí → ${APP_URL}/closing".`;
+Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes aquí → ${APP_URL}/dashboard?hoja=closing".`;
 
 /**
  * Cuántas API keys de IA tiene cargadas ESTE workspace.

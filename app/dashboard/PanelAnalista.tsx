@@ -146,7 +146,7 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista }: {
         if (!vivo) return;
         setEstado(r.vista ?? null);
         setTz(r.tzNegocio ?? null);
-        setIa({ ok: r.iaDisponible !== false, mensaje: r.mensajeIA ?? null });
+        setIa({ ok: true, mensaje: null });
       })
       .catch((e) => { if (vivo) setAviso(mensaje(e)); })
       .finally(() => { if (vivo) setCargando(false); });

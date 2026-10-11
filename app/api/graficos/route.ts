@@ -5,9 +5,17 @@
 // server actions se ENCOLAN de a una (AGENTS.md, «Antes de optimizar una consulta…»). El
 // `?ws=` lo pega solo el parche de fetch (app/_components/WsFetch.tsx).
 //
-// La puerta es la misma que la de la página (`requireRolWs([], { nav: 'graphics' })`): admin del
-// workspace y la tab en su capa. Sin eso, un closer leía por acá la plata que su pantalla le
-// esconde.
+// La puerta es la misma que la de la página (`requireRolWs(['closer'], { nav: 'graphics' })`): admin
+// del workspace o closer, y la tab en su capa.
+//
+// ⚠️ EL CLOSER, DESDE EL 11/10/2026 (decisión 6 de Martín: Closing Analyst se retiró y «los closers ven
+//    SÓLO la hoja Closing del Dashboard»): entra, pero sólo a lo que esa hoja pide —`datos` de las
+//    llamadas, `bloques` de Closing y `valores` de un campo de Closing, recortados a esos conjuntos—, y
+//    sólo si su negocio tiene Closing en la capa. Guardar, el detalle de un número y todo lo demás:
+//    403. La lista vive en lib/graficos-plantillas.ts (`closerPuedePedir`), al lado de la hoja que la
+//    usa, y en positivo: una acción nueva de esta ruta nace cerrada para él. Antes de esto un closer
+//    no entraba nunca: leía por acá la plata que su pantalla le esconde, y eso sigue siendo así.
+//    Las rutas hermanas (ia, analisis, imagen) siguen sólo para el admin.
 //
 //   POST { accion: 'datos', pedidos: [{ grafico, desde, hasta, filtros?, agrupar? }] } → { datos: Record<id, DatosGrafico> }
 //   POST { accion: 'bloques', pedidos: [{ id, bloque, desde, hasta }] }               → { datos: Record<id, DatosBloque> }
@@ -27,6 +35,7 @@ import { datosDeGraficos, valoresDeCampo, type PedidoDatos } from '@/lib/grafico
 import { datosDeBloques, type PedidoBloque } from '@/lib/graficos-bloques';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
 import { guardarTablero } from '@/lib/graficos-tablero';
+import { closerPuedePedir, fuentesDeCampoCloser } from '@/lib/graficos-plantillas';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -36,11 +45,16 @@ const err = (status: number, error: string) => NextResponse.json({ error }, { st
 export async function POST(req: Request) {
   const rol = await getRolWsEfectivo();
   if (rol == null) return err(401, 'no autenticado');
-  if (rol !== 'admin') return err(403, 'Sólo el admin de la cuenta');
-  if (!tabEnCapa('graphics', await getCapaActual())) return err(404, 'No existe');
+  if (rol !== 'admin' && rol !== 'closer') return err(403, 'Sólo el admin de la cuenta');
+  const capa = await getCapaActual();
+  if (!tabEnCapa('graphics', capa)) return err(404, 'No existe');
+  // El closer ve la hoja Closing si su negocio compró Closing (la key de la capa sigue siendo ésa).
+  if (rol === 'closer' && !tabEnCapa('closing', capa)) return err(403, 'Sólo el admin de la cuenta');
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return err(400, 'JSON inválido'); }
+  const closer = rol === 'closer';
+  if (closer && !closerPuedePedir(body)) return err(403, 'Sólo la hoja Closing');
 
   if (body.accion === 'guardar') {
     try {
@@ -86,7 +100,10 @@ export async function POST(req: Request) {
     let hasta = String(body.hasta ?? '');
     if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) return err(400, 'Período inválido');
     if (hasta > hoy) hasta = hoy < desde ? desde : hoy;
-    const fuentes = Array.isArray(body.fuentes) ? body.fuentes.map(String).slice(0, 30) : undefined;
+    // Al closer, los valores salen SÓLO de las llamadas: «Closer» también es un campo de los leads.
+    const fuentes = closer
+      ? fuentesDeCampoCloser(body.campo, body.fuentes)
+      : Array.isArray(body.fuentes) ? body.fuentes.map(String).slice(0, 30) : undefined;
     return NextResponse.json({ valores: await valoresDeCampo(String(body.campo ?? ''), desde, hasta, fuentes) });
   }
 

@@ -28,7 +28,7 @@
 //     esto, Analyze eran nueve filas y la barra se volvía una lista de todo.
 //
 // Dos parejas que conviene no confundir, porque son la razón del reparto:
-//   · Ads Manager (Operate) EJECUTA · Ads Analyst (Analyze) COMPRENDE.
+//   · Ads Manager (Operate) EJECUTA · el Dashboard (Analyze, la hoja «Ads Analyst») COMPRENDE.
 //   · Automations (Create) se configura y se entrena · WhatsApp/Email (Operate)
 //     es la conversación de todos los días.
 //
@@ -214,7 +214,12 @@ export const FAMILIAS: NavFamilia[] = [
         // /analisis/trimestre —el informe congelado, que se mandó por WhatsApp— vive donde
         // estaba: por eso el match de Experiments acepta las dos rutas, para que la barra marque
         // la tab y el título de la pestaña no caiga a «MaKo - Analisis» sin tilde.
-        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) },
+        // El CLOSER lo ve desde el 11/10/2026 (decisión 6 de Martín): Closing Analyst se retiró y su
+        // análisis, con la ficha de cada llamada y sus tareas, es la hoja «Closing» del Dashboard. Ve
+        // SÓLO esa hoja y sin editar: lo pone app/dashboard/page.tsx (un informe en memoria) y lo
+        // cierra /api/graficos (`closerPuedePedir`, lib/graficos-plantillas.ts). La key sigue siendo
+        // `graphics`; la de Closing (`closing`) se quedó en las capas y en los gating de la API.
+        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', rolesWs: ['closer'], match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) },
         // Salió de los Analysts: los demás analizan un activo PROPIO (un anuncio,
         // una landing, una llamada); éste vigila lo que hacen los demás.
         { key: 'market-an', label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', comingSoon: true, match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
@@ -230,18 +235,22 @@ export const FAMILIAS: NavFamilia[] = [
         // («Offer», arriba): ya no sólo analiza, también la escribe.
         key: 'analysts', label: 'Analysts', icon: 'search',
         items: [
-          { key: 'script', label: 'Ads Analyst', href: '/ads-analyst', icon: 'notepencil', match: starts('/ads-analyst') },
-          { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', match: starts('/landing-analyst') },
           { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
-          // Va antes que Closing porque ése es el orden del embudo: primero la
-          // conversación que califica, después la llamada que cierra.
           { key: 'chat-analyst', label: 'Chat Analyst', href: '/chat-analyst', icon: 'chats', comingSoon: true, rolesWs: ['setter'], match: starts('/chat-analyst') },
-          { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', rolesWs: ['closer'], match: starts('/closing') },
           { key: 'cs-analyst', label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
-          // Productivity Analyst SALIÓ de acá el 11/10/2026 (Martín: «elimina las tabs que ya hayas
-          // puesto como template de la sidebar»): es todo análisis y vive entera en la plantilla
-          // «Productividad» del Dashboard. Su ruta redirige (app/productivity-analyst/page.tsx). Ads,
-          // Landing y Closing siguen acá hasta que sus TAREAS se muden a otras tabs.
+          // CUATRO SALIERON DE ACÁ el 11/10/2026 (Martín: «elimina las tabs que ya hayas puesto como
+          // template de la sidebar», y después las decisiones 4, 5 y 6 de ese día):
+          //   · Productivity Analyst: era todo análisis; vive entera en la hoja «Productividad» del
+          //     Dashboard. Su ruta redirige (app/productivity-analyst/page.tsx).
+          //   · Ads Analyst (key `script`): el análisis es la hoja «Ads Analyst» del Dashboard y la tarea
+          //     (valorar un guion, sincronizar, ángulos y avatares) se mudó a Ads Writer (?tab=analizar).
+          //   · Landing Analyst (key `landing-an`): el análisis es la hoja «Landing» y la tarea (analizar
+          //     una página) se mudó a Landing Generator (/landing-generator/analizar).
+          //   · Closing Analyst (key `closing`): va COMPLETO a la hoja «Closing», con la ficha de cada
+          //     llamada y sus tareas; el closer ve el Dashboard (el ítem `graphics`, arriba).
+          // Sus rutas REDIRIGEN (hay links afuera que nadie puede editar) y sus KEYS se quedan en
+          // lib/capas.ts y en los gating de la API: están escritas en la base. Que nadie vuelva a
+          // enlazarlas lo cuida tests/tabs-retiradas.test.ts.
         ],
       },
     ],

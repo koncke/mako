@@ -271,7 +271,7 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
     if (demo) {
       const TAB_DEMO: Record<string, { label: string; icon: string }> = {
         adquisicion: { label: 'Marketing', icon: 'ads' }, nutricion: { label: 'CRM', icon: 'crm' },
-        conversion: { label: 'Closing Analyst', icon: 'closing' }, creativos: { label: 'Ads Analyst', icon: 'notepencil' },
+        conversion: { label: 'Closing', icon: 'closing' }, creativos: { label: 'Ads Writer', icon: 'notepencil' },
         revenue: { label: 'Dashboard', icon: 'graphics' },
       };
       const tabsDemo = (modoTodo ? AREAS_UI : AREAS_UI.filter((a) => areasSel.includes(a.key))).map((a) => TAB_DEMO[a.key]).filter(Boolean);

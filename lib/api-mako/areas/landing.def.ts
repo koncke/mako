@@ -3,8 +3,10 @@
 // =============================================================================
 // La página a la que llega el tráfico del cliente: las landings que declaró (cada
 // una con su proyecto de Clarity), el Pixel de MaKo (si llega, de qué versión, el
-// código a pegar), los videos que mide y cuál es el VSL, y los diagnósticos del
-// Landing Analyst. SIN server-only y sin importar valores de módulos que lo tengan:
+// código a pegar), los videos que mide y cuál es el VSL, y los diagnósticos de cada
+// página (Landing Generator → Diagnóstico: la tab Landing Analyst se retiró el
+// 11/10/2026 y su key 'landing-an' sigue gobernando el gating, porque está escrita en
+// la base). SIN server-only y sin importar valores de módulos que lo tengan:
 // esto lo importan los tests y el generador de la referencia. Los cuerpos van en
 // landing.run.ts, cruzados por id. Español neutro (lo lee el cliente).
 //
@@ -17,8 +19,10 @@
 //     formato viejo y en el probador en vivo, que necesita a una persona mirando.
 //   · la retención del VSL: no existe un lector del área que arme la curva.
 //
-// Gating: todo lo de /integraciones y de las dos tabs es `requireRolWs([], …)` =
-// solo el admin, así que va `rolMinimo: 'admin'` con la tab de cada pantalla.
+// Gating: todo lo de /integraciones y de Landing Generator (incluida su pantalla de
+// diagnóstico, /landing-generator/analizar) es `requireRolWs([], …)` = solo el admin,
+// así que va `rolMinimo: 'admin'` con la key de cada capacidad: 'landing-an' para el
+// diagnóstico y 'landing-writer' para las versiones guardadas.
 // =============================================================================
 
 import type { OperacionDef, Gating } from '../tipos';
@@ -186,11 +190,11 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'externo', gating: { ...G_INTEG, integracion: 'panda' },
   },
 
-  // ── Lecturas: el Landing Analyst ────────────────────────────────────────────
+  // ── Lecturas: el diagnóstico (Landing Generator → Diagnóstico) ──────────────
   {
     id: 'listar_analisis_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Diagnósticos de landings',
-    descripcion: 'Las landings que tienen diagnóstico del Landing Analyst, las más nuevas primero: estado (analizada, pendiente o error, con el motivo), score de 0 a 10 (null = el modelo no lo dio, NO es 0), veredicto de una línea y cuándo se analizó. Úsala para saber qué páginas ya se diagnosticaron antes de proponer analizar una, o para conseguir la URL exacta de un diagnóstico. No requiere parámetros.',
+    descripcion: 'Las landings que tienen diagnóstico (Landing Generator → Diagnóstico), las más nuevas primero: estado (analizada, pendiente o error, con el motivo), score de 0 a 10 (null = el modelo no lo dio, NO es 0), veredicto de una línea y cuándo se analizó. Úsala para saber qué páginas ya se diagnosticaron antes de proponer analizar una, o para conseguir la URL exacta de un diagnóstico. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_ANALYST,
   },
@@ -276,20 +280,20 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'texto', tipo: 'string', max: 30000, descripcion: 'El contenido de la página pegado por el dueño, de arriba a abajo (mínimo 40 palabras), cuando no se puede descargar. Saltea la bajada, no el análisis.' },
     ],
     canales: SIN_HTTP, costo: 'ia', gating: G_ANALYST, lenta: true,
-    escribe: 'el diagnóstico de esa URL en landing_analyses: uno bueno pisa al anterior (score, hallazgos y secciones), que se pierde; si falla sobre uno bueno solo anota el error. Y el paso del onboarding del Landing Analyst',
+    escribe: 'el diagnóstico de esa URL en landing_analyses: uno bueno pisa al anterior (score, hallazgos y secciones), que se pierde; si falla sobre uno bueno solo anota el error. Y el paso del onboarding del diagnóstico (Landing Generator → Diagnóstico)',
   },
 
   // ── Acciones en pantalla (datos exactos y borrados) ─────────────────────────
   {
     id: 'guardar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Agregar o corregir una landing',
-    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se analiza sola en Landing Analyst, por detrás. Tope: 12 landings.',
+    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Landing Generator → Diagnóstico). Tope: 12 landings.',
     parametros: [
       { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La dirección de la página, con o sin https.' },
       { nombre: 'anterior', tipo: 'string', max: 500, descripcion: 'La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_INTEG,
-    escribe: 'la lista de landings declaradas (app_settings landing.config) y, si la página es nueva, su análisis en Landing Analyst (landing_analyses), con la cascada gratis del negocio',
+    escribe: 'la lista de landings declaradas (app_settings landing.config) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio',
   },
   {
     id: 'borrar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
@@ -304,7 +308,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'borrar_analisis_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     titulo: 'Borrar el diagnóstico de una landing',
-    descripcion: 'Borra el diagnóstico del Landing Analyst de una URL (no toca visitas ni eventos). También desaparece del selector del Landing Generator. No se puede deshacer: rehacerlo cuesta otro análisis con IA. Úsala solo a pedido explícito del dueño. Deja un link para confirmar.',
+    descripcion: 'Borra el diagnóstico de una landing (no toca visitas ni eventos). También desaparece de Landing Generator → Diagnóstico y del selector «Sobre cuál» al crear una landing. No se puede deshacer: rehacerlo cuesta otro análisis con IA. Úsala solo a pedido explícito del dueño. Deja un link para confirmar.',
     parametros: [
       { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La landing analizada (de listar_analisis_landing).' },
     ],

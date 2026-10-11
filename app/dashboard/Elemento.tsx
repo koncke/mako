@@ -1,11 +1,14 @@
 'use client';
 
 // =============================================================================
-// Elemento — lo que se inserta como en Looker: texto, imagen, formas y flechas (punto 18)
+// Elemento — lo que se inserta como en Looker: texto, enlace, imagen, video, insertado, formas y flechas
 // =============================================================================
 // Martín, 11/10/2026 (punto 18 del feedback): el Dashboard es un editor de informes estilo Looker
 // Studio, y Looker deja INSERTAR texto, imágenes, líneas y formas además de gráficos. El modelo vive en
 // lib/graficos-catalogo.ts (`Elemento`, `sanearElemento`); acá se dibuja y se edita.
+// Y el mismo día (decisión 6: «Closing Analyst va COMPLETO al Dashboard, sumando los elementos Enlace,
+// Video e Insertar»): el ENLACE vive acá, con el texto (se edita igual: doble clic en el lugar); el VIDEO
+// y lo INSERTADO, que meten algo de otro sitio en la hoja, en ./ElementoInsertado.tsx.
 //
 //   · `CuerpoElemento` llena la celda de la grilla (flex: 1 y min-height: 0, NUNCA height: 100%: contra
 //     un alto de flex no resuelve en Safari y la caja da CERO, AGENTS.md «Dos reglas de layout»).
@@ -25,11 +28,15 @@
 //    veces más chico) y la geometría la arma una función PURA (`geometriaElemento`), que es lo que el
 //    test mide.
 
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { TIPOS_ELEMENTO, urlDeImagen, type Elemento, type TipoElemento } from '@/lib/graficos-catalogo';
+import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { TIPOS_ELEMENTO, topeDeTextoElemento, urlDeEnlace, urlDeImagen, type Elemento, type TipoElemento } from '@/lib/graficos-catalogo';
+import { insertableDe, videoDe } from '@/lib/embeds';
+import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { Button, Switch } from '@/app/_ui';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
-import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import Link from '@/app/_ui/Link';
+import { CuerpoInsertado, CuerpoVideo, RecuadroVacio, soloSeleccionar, useHostPropio } from './ElementoInsertado';
 
 type Direccion = Elemento['direccion'];
 type Grosor = Elemento['grosor'];
@@ -238,54 +245,101 @@ async function subirImagen(f: File): Promise<{ ok: true; url: string } | { ok: f
 /** Cómo se ve en la grilla. `colores` = la paleta del tema de la hoja. */
 export function CuerpoElemento({ e, colores, editando, onCambiar }: { e: Elemento; colores: string[]; editando: boolean; onCambiar: (p: Partial<Elemento>) => void }) {
   if (e.tipo === 'texto') return <CuerpoTexto e={e} colores={colores} editando={editando} onCambiar={onCambiar} />;
+  if (e.tipo === 'enlace') return <CuerpoEnlace e={e} colores={colores} editando={editando} onCambiar={onCambiar} />;
   if (e.tipo === 'imagen') return <CuerpoImagen e={e} editando={editando} />;
+  if (e.tipo === 'video') return <CuerpoVideo e={e} editando={editando} />;
+  if (e.tipo === 'insertado') return <CuerpoInsertado e={e} editando={editando} />;
   return <CuerpoForma e={e} colores={colores} />;
 }
+
+/** Los manejadores que hacen que escribir en el lugar no mueva ni borre la TARJETA. */
+const sinArrastre = {
+  // `lk-no-arrastrar` es el `cancel` de la grilla: sin eso, apretar adentro para mover el cursor
+  // arrastra la tarjeta. Los stopPropagation son la segunda capa, por si la clase cambia.
+  className: 'lk-no-arrastrar',
+  onMouseDown: (ev: ReactMouseEvent) => ev.stopPropagation(),
+  onTouchStart: (ev: { stopPropagation: () => void }) => ev.stopPropagation(),
+  onPointerDown: (ev: { stopPropagation: () => void }) => ev.stopPropagation(),
+};
+
+/**
+ * Escribir EN EL LUGAR (el texto y el enlace): un DOBLE clic abre el campo (un clic solo es «seleccionar»,
+ * como en Looker) y se guarda al salir. Uno solo para los dos: es la misma regla de cuándo se guarda y
+ * cuándo se descarta, y escrita dos veces se separa.
+ */
+function useEnLugar(e: Elemento, editando: boolean, onCambiar: (p: Partial<Elemento>) => void) {
+  // El MISMO tope que el saneo (lib/graficos-catalogo.ts): el campo no deja escribir lo que se recortaría.
+  const tope = topeDeTextoElemento(e.tipo);
+  // null = no se está escribiendo en el lugar.
+  const [borrador, setBorrador] = useState<string | null>(null);
+  // ⚠️ `abierto` y no sólo `borrador`: después de un Escape el campo se desmonta, y si el navegador
+  //    dispara el blur del campo que se va, el onBlur (con el borrador viejo en su clausura) guardaría
+  //    lo que la persona acaba de descartar. Con la marca, cerrar es idempotente.
+  const abierto = useRef(false);
+  // Lo último que se escribió, para el efecto de abajo (un efecto no ve el estado del render que lo cerró).
+  const escrito = useRef<string | null>(null);
+  const ultimo = useRef({ texto: e.texto, onCambiar });
+  useEffect(() => { ultimo.current = { texto: e.texto, onCambiar }; });
+
+  // Si se deja de editar la HOJA con el campo abierto (un atajo, otro botón), el campo se cierra. Es el
+  // ajuste de estado DURANTE el render que React documenta para «cambió una prop», no un setState en un
+  // efecto (que pinta dos veces, y que el lint de la casa rechaza).
+  const [editandoVisto, setEditandoVisto] = useState(editando);
+  if (editandoVisto !== editando) {
+    setEditandoVisto(editando);
+    if (!editando && borrador != null) setBorrador(null);
+  }
+
+  const enLugar = editando && borrador != null;
+  const escribir = (v: string) => { escrito.current = v; setBorrador(v); };
+  const abrir = () => { abierto.current = true; escrito.current = e.texto; setBorrador(e.texto); };
+  // Los handlers del campo son los del último render, así que su clausura ya trae el borrador al día.
+  const cerrar = (guardar: boolean) => {
+    if (!abierto.current) return;
+    abierto.current = false;
+    setBorrador(null);
+    if (guardar && borrador != null && borrador !== e.texto) onCambiar({ texto: borrador.slice(0, tope) });
+  };
+
+  // …y lo escrito se GUARDA: salir de la edición no es descartar. Esto sí es un efecto: le avisa al padre.
+  useEffect(() => {
+    if (editando || !abierto.current) return;
+    abierto.current = false;
+    const b = escrito.current;
+    const u = ultimo.current;
+    if (b != null && b !== u.texto) u.onCambiar({ texto: b.slice(0, tope) });
+  }, [editando, tope]);
+
+  return { borrador, escribir, enLugar, abrir, cerrar, tope };
+}
+
+/**
+ * El foco al campo cuando se abre, con el cursor al final (no se selecciona todo: un doble clic para
+ * corregir una letra no puede terminar borrando el título entero con la primera tecla).
+ */
+function useFocoAlAbrir(campo: { current: HTMLInputElement | HTMLTextAreaElement | null }, abierto: boolean) {
+  useEffect(() => {
+    const el = campo.current;
+    if (!abierto || !el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [campo, abierto]);
+}
+
+/** Cómo se ve el campo de escribir en el lugar: la letra del elemento, sin borde, con un filete. */
+const estiloCampoEnLugar = (estilo: CSSProperties): CSSProperties => ({
+  ...estilo, minWidth: 0, width: '100%', boxSizing: 'border-box', margin: 0, padding: 2, border: 'none', outline: 'none',
+  background: 'transparent', borderRadius: 4, boxShadow: 'inset 0 0 0 1px var(--border-strong)', cursor: 'text',
+});
 
 /**
  * El texto. Editando la hoja, un DOBLE clic lo edita en el lugar (un clic solo es «seleccionar», como en
  * Looker) y se guarda al salir del campo. Escape descarta; Ctrl/⌘+Enter guarda; Enter es un párrafo.
  */
 function CuerpoTexto({ e, colores, editando, onCambiar }: { e: Elemento; colores: readonly string[]; editando: boolean; onCambiar: (p: Partial<Elemento>) => void }) {
-  // null = no se está escribiendo en el lugar.
-  const [borrador, setBorrador] = useState<string | null>(null);
+  const { borrador, escribir, enLugar, abrir, cerrar, tope } = useEnLugar(e, editando, onCambiar);
   const campo = useRef<HTMLTextAreaElement>(null);
-  // ⚠️ `abierto` y no sólo `borrador`: después de un Escape el campo se desmonta, y si el navegador
-  //    dispara el blur del campo que se va, el onBlur (con el borrador viejo en su clausura) guardaría
-  //    lo que la persona acaba de descartar. Con la marca, cerrar es idempotente.
-  const abierto = useRef(false);
-  const ultimo = useRef({ borrador, texto: e.texto, onCambiar });
-  useEffect(() => { ultimo.current = { borrador, texto: e.texto, onCambiar }; });
-
-  const enLugar = editando && borrador != null;
-  const abrir = () => { abierto.current = true; setBorrador(e.texto); };
-  // Los handlers del campo son los del último render, así que su clausura ya trae el borrador al día.
-  const cerrar = (guardar: boolean) => {
-    if (!abierto.current) return;
-    abierto.current = false;
-    setBorrador(null);
-    if (guardar && borrador != null && borrador !== e.texto) onCambiar({ texto: borrador.slice(0, 2000) });
-  };
-
-  // El foco al campo cuando se abre, con el cursor al final (no se selecciona todo: un doble clic para
-  // corregir una letra no puede terminar borrando el título entero con la primera tecla).
-  useEffect(() => {
-    const el = campo.current;
-    if (!enLugar || !el) return;
-    el.focus();
-    el.setSelectionRange(el.value.length, el.value.length);
-  }, [enLugar]);
-
-  // Si se deja de editar la HOJA con el campo abierto (un atajo, otro botón), lo escrito se guarda: salir
-  // de la edición no es descartar.
-  useEffect(() => {
-    if (editando) return;
-    if (!abierto.current) return;
-    abierto.current = false;
-    const u = ultimo.current;
-    if (u.borrador != null && u.borrador !== u.texto) u.onCambiar({ texto: u.borrador.slice(0, 2000) });
-    setBorrador(null);
-  }, [editando]);
+  useFocoAlAbrir(campo, enLugar);
 
   const estilo = estiloTexto(e, colores);
 
@@ -293,13 +347,11 @@ function CuerpoTexto({ e, colores, editando, onCambiar }: { e: Elemento; colores
     return (
       <textarea
         ref={campo}
-        // `lk-no-arrastrar` es el `cancel` de la grilla: sin eso, apretar adentro para mover el cursor
-        // arrastra la tarjeta. Los stopPropagation son la segunda capa, por si la clase cambia.
-        className="lk-no-arrastrar"
+        {...sinArrastre}
         aria-label="Texto"
         value={borrador ?? ''}
-        maxLength={2000}
-        onChange={(ev) => setBorrador(ev.target.value)}
+        maxLength={tope}
+        onChange={(ev) => escribir(ev.target.value)}
         onBlur={() => cerrar(true)}
         onKeyDown={(ev) => {
           // Que Suprimir o Retroceso no borren la TARJETA mientras se escribe.
@@ -307,14 +359,7 @@ function CuerpoTexto({ e, colores, editando, onCambiar }: { e: Elemento; colores
           if (ev.key === 'Escape') { ev.preventDefault(); cerrar(false); }
           else if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); cerrar(true); }
         }}
-        onMouseDown={(ev) => ev.stopPropagation()}
-        onTouchStart={(ev) => ev.stopPropagation()}
-        onPointerDown={(ev) => ev.stopPropagation()}
-        style={{
-          ...estilo, flex: 1, minHeight: 0, minWidth: 0, width: '100%', boxSizing: 'border-box', resize: 'none',
-          margin: 0, padding: 2, border: 'none', outline: 'none', background: 'transparent', borderRadius: 4,
-          boxShadow: 'inset 0 0 0 1px var(--border-strong)', cursor: 'text',
-        }}
+        style={{ ...estiloCampoEnLugar(estilo), flex: 1, minHeight: 0, resize: 'none' }}
       />
     );
   }
@@ -336,6 +381,79 @@ function CuerpoTexto({ e, colores, editando, onCambiar }: { e: Elemento; colores
   );
 }
 
+/** Cómo se lee en un PDF el camino de una pantalla de MaKo: con su dominio (`hola-mako.com/crm`), no `/crm`. */
+export const enlaceImpreso = (url: string): string => (url.startsWith('/') ? `${DOMINIOS_MAKO[0]}${url}` : url.replace(/^https?:\/\//, ''));
+
+/**
+ * El enlace: un texto que lleva a otro lado. A una pantalla de MaKo (un camino, `/crm`), ADENTRO y con el
+ * Link de app/_ui, que conserva el cliente que se está mirando (`?ws=`); afuera (http/https), en otra
+ * pestaña con `noopener noreferrer` y la flechita ↗. Editando: un clic SELECCIONA (no navega) y un doble
+ * clic edita lo que se lee, en el lugar, como un texto (Enter o salir guarda; Escape descarta). En el PDF
+ * se imprime también la dirección: un link en un papel no se puede tocar.
+ */
+function CuerpoEnlace({ e, colores, editando, onCambiar }: { e: Elemento; colores: readonly string[]; editando: boolean; onCambiar: (p: Partial<Elemento>) => void }) {
+  const { borrador, escribir, enLugar, abrir, cerrar, tope } = useEnLugar(e, editando, onCambiar);
+  const campo = useRef<HTMLInputElement>(null);
+  useFocoAlAbrir(campo, enLugar);
+
+  const estilo = estiloTexto(e, colores);
+  // Se vuelve a sanear al DIBUJAR (como la imagen): lo que llega a un href no depende de que el saneo
+  // del guardado haya corrido.
+  const url = urlDeEnlace(e.url);
+  const interno = url.startsWith('/');
+  const texto = e.texto.trim();
+
+  if (enLugar) {
+    return (
+      <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+        <input
+          ref={campo}
+          {...sinArrastre}
+          aria-label="Texto del enlace"
+          value={borrador ?? ''}
+          maxLength={tope}
+          onChange={(ev) => escribir(ev.target.value)}
+          onBlur={() => cerrar(true)}
+          onKeyDown={(ev) => {
+            ev.stopPropagation();
+            if (ev.key === 'Escape') { ev.preventDefault(); cerrar(false); }
+            else if (ev.key === 'Enter') { ev.preventDefault(); cerrar(true); }
+          }}
+          style={estiloCampoEnLugar(estilo)}
+        />
+      </div>
+    );
+  }
+
+  const lo = texto || url;
+  const decorado: CSSProperties = { color: 'inherit', textDecoration: 'underline', textUnderlineOffset: '0.18em', textDecorationThickness: '0.07em' };
+  const alClic = editando ? soloSeleccionar : undefined;
+  let contenido: ReactNode;
+  if (!lo) contenido = editando ? <span style={{ color: 'var(--faint)', fontWeight: 400 }}>Doble clic para escribir</span> : null;
+  else if (!url) contenido = <span>{lo}</span>; // sin dirección todavía: se lee, no se toca
+  else if (interno) {
+    contenido = <Link href={url} prefetch={false} onClick={alClic} draggable={editando ? false : undefined} style={decorado}>{lo}</Link>;
+  } else {
+    contenido = (
+      <a href={url} target="_blank" rel="noopener noreferrer" title={editando ? undefined : 'Se abre en otra pestaña'}
+        onClick={alClic} draggable={editando ? false : undefined} style={decorado}>
+        {lo}<span aria-hidden> ↗</span>
+      </a>
+    );
+  }
+  return (
+    <div
+      onDoubleClick={editando ? (ev) => { ev.stopPropagation(); ev.preventDefault(); abrir(); } : undefined}
+      title={editando ? 'Doble clic para editar el texto' : undefined}
+      style={{ ...estilo, flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', overflowWrap: 'anywhere', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+    >
+      <div>{contenido}</div>
+      {url && <span className="lk-solo-imprimir lk-imp-enlace">{enlaceImpreso(url)}</span>}
+      {editando && !url && lo && <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--faint)' }}>Sin enlace</span>}
+    </div>
+  );
+}
+
 /** La imagen. Sin URL o con una que no carga, editando se ve un recuadro que lo dice; mirando, nada. */
 function CuerpoImagen({ e, editando }: { e: Elemento; editando: boolean }) {
   // El fallo es DE ESA URL: cambiar la imagen lo borra solo, sin un efecto que lo resetee.
@@ -345,15 +463,7 @@ function CuerpoImagen({ e, editando }: { e: Elemento; editando: boolean }) {
 
   if (!url || fallo) {
     if (!editando) return <div style={{ flex: 1, minHeight: 0 }} />;
-    return (
-      <div style={{
-        flex: 1, minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 6, border: '1.5px dashed var(--border-strong)', borderRadius: 8, color: 'var(--faint)', fontSize: 13, textAlign: 'center', padding: 8, overflow: 'hidden',
-      }}>
-        <IconoMenu nombre="imagen" size={22} />
-        <span>{fallo ? 'No pude cargar la imagen' : 'Agrega una imagen'}</span>
-      </div>
-    );
+    return <RecuadroVacio icono="imagen" texto={fallo ? 'No pude cargar la imagen' : 'Agrega una imagen'} />;
   }
   return (
     <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative', overflow: 'hidden' }}>
@@ -401,10 +511,17 @@ function CuerpoForma({ e, colores }: { e: Elemento; colores: readonly string[] }
 
 // ── El ícono de cada tipo (para el menú Insertar y la cabecera del panel) ───────────────
 
+/**
+ * Los tipos cuyo dibujo es el del SET de la casa (app/_ui/iconos-menu.tsx): el mismo «link», «video» o
+ * «imagen» que en cualquier otro menú de la app. El resto (texto y formas) se dibuja acá, con su forma.
+ */
+const DEL_SET = { imagen: 'imagen', enlace: 'link', video: 'video', insertado: 'insertar' } as const satisfies Partial<Record<TipoElemento, NombreIconoMenu>>;
+const esDelSet = (t: TipoElemento): t is keyof typeof DEL_SET => Object.prototype.hasOwnProperty.call(DEL_SET, t);
+
 /** El dibujito de un tipo de elemento, en `currentColor`. Lo puede usar el menú «Insertar» de la pantalla. */
 export function IconoElemento({ tipo, size = 18 }: { tipo: TipoElemento; size?: number }) {
-  if (tipo === 'imagen') return <IconoMenu nombre="imagen" size={size} />;
-  const trazos: Record<Exclude<TipoElemento, 'imagen'>, ReactNode> = {
+  if (esDelSet(tipo)) return <IconoMenu nombre={DEL_SET[tipo]} size={size} />;
+  const trazos: Record<Exclude<TipoElemento, keyof typeof DEL_SET>, ReactNode> = {
     texto: <path d="M5 7V5h14v2M12 5v14M9 19h6" />,
     rectangulo: <rect x="3.5" y="6" width="17" height="12" rx="2" />,
     circulo: <circle cx="12" cy="12" r="8" />,
@@ -431,6 +548,8 @@ const S = {
     font: 'inherit', fontSize: 14, color: 'var(--ink)', background: 'var(--surface)',
   },
   error: { margin: 0, fontSize: 12.5, color: 'var(--bad)' },
+  ayuda: { margin: 0, fontSize: 12.5, color: 'var(--dim)' },
+  ok: { margin: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--good)', minWidth: 0, overflowWrap: 'anywhere' },
   pie: { display: 'flex', alignItems: 'center', gap: 10, padding: 16 },
 } satisfies Record<string, CSSProperties>;
 
@@ -535,6 +654,8 @@ function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar }: { e: Ele
   const nombre = TIPOS_ELEMENTO.find((t) => t.id === e.tipo)?.nombre ?? 'Elemento';
   const forma = e.tipo === 'rectangulo' || e.tipo === 'circulo';
   const trazada = forma || e.tipo === 'linea' || e.tipo === 'flecha';
+  // Lo que trae su propio color (una foto, un reproductor, una página ajena) no lleva el de la paleta.
+  const conColor = e.tipo !== 'imagen' && e.tipo !== 'video' && e.tipo !== 'insertado';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -542,12 +663,16 @@ function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar }: { e: Ele
       <div className="lk-props-cab"><IconoElemento tipo={e.tipo} size={20} /><span className="lk-props-nombre">{nombre}</span></div>
 
       {e.tipo === 'texto' && (
+        <Seccion>
+          <label htmlFor={idTexto} style={S.titulo}>Texto</label>
+          <textarea id={idTexto} value={e.texto} maxLength={topeDeTextoElemento(e.tipo)} rows={4} onChange={(ev) => onCambiar({ texto: ev.target.value })}
+            style={{ ...S.campo, resize: 'vertical', lineHeight: 1.45 }} />
+        </Seccion>
+      )}
+      {e.tipo === 'enlace' && <SeccionesEnlace e={e} onCambiar={onCambiar} />}
+
+      {(e.tipo === 'texto' || e.tipo === 'enlace') && (
         <>
-          <Seccion>
-            <label htmlFor={idTexto} style={S.titulo}>Texto</label>
-            <textarea id={idTexto} value={e.texto} maxLength={2000} rows={4} onChange={(ev) => onCambiar({ texto: ev.target.value })}
-              style={{ ...S.campo, resize: 'vertical', lineHeight: 1.45 }} />
-          </Seccion>
           <Seccion titulo="Tamaño">
             <Opciones etiqueta="Tamaño" valor={e.tamano} onElegir={(v) => onCambiar({ tamano: v })}
               opciones={(['s', 'm', 'l', 'xl'] as const).map((k, i) => ({
@@ -563,8 +688,10 @@ function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar }: { e: Ele
       )}
 
       {e.tipo === 'imagen' && <SeccionesImagen e={e} onCambiar={onCambiar} />}
+      {e.tipo === 'video' && <SeccionesVideo e={e} onCambiar={onCambiar} />}
+      {e.tipo === 'insertado' && <SeccionesInsertado e={e} onCambiar={onCambiar} />}
 
-      {e.tipo !== 'imagen' && (
+      {conColor && (
         <Seccion titulo="Color"><Muestras e={e} colores={colores} onElegir={(i) => onCambiar({ color: i })} /></Seccion>
       )}
 
@@ -607,6 +734,143 @@ function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar }: { e: Ele
   );
 }
 
+/**
+ * El BORRADOR de un campo de dirección, que se aplica al salir: el saneo tira lo que no es una dirección
+ * entera, así que atado directo al valor guardado, «htt» se borraría con la tercera letra. Si la dirección
+ * cambia desde afuera (una subida, un deshacer), el campo la muestra: es el ajuste de estado durante el
+ * render que React documenta para esto, sin un efecto que pinte dos veces.
+ */
+function useBorrador(valor: string): [string, (v: string) => void] {
+  const [borrador, setBorrador] = useState(valor);
+  const [vista, setVista] = useState(valor);
+  if (vista !== valor) { setVista(valor); setBorrador(valor); }
+  return [borrador, setBorrador];
+}
+
+/** Lo que MaKo reconoció en la dirección guardada: «✓ YouTube», «✓ lookerstudio.google.com». */
+function Reconocido({ nombre }: { nombre: string }) {
+  return <p style={S.ok}><IconoMenu nombre="check" size={14} /><span>{nombre}</span></p>;
+}
+
+/** Enlace: lo que se lee y a dónde lleva (una pantalla de MaKo o un link https). */
+function SeccionesEnlace({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial<Elemento>) => void }) {
+  const idTexto = useId();
+  const idUrl = useId();
+  const [borrador, setBorrador] = useBorrador(e.url);
+  const [error, setError] = useState<string | null>(null);
+
+  const aplicar = () => {
+    const v = borrador.trim();
+    if (!v) { setError(null); if (e.url) onCambiar({ url: '' }); return; }
+    const ok = urlDeEnlace(v);
+    if (!ok) { setError('Usa un link https o una pantalla como /crm'); return; }
+    setError(null);
+    // Se muestra como quedó (con su https, o el camino de una pantalla de MaKo).
+    setBorrador(ok);
+    if (ok !== e.url) onCambiar({ url: ok });
+  };
+
+  return (
+    <>
+      <Seccion>
+        <label htmlFor={idTexto} style={S.titulo}>Texto</label>
+        <input id={idTexto} value={e.texto} maxLength={topeDeTextoElemento(e.tipo)} onChange={(ev) => onCambiar({ texto: ev.target.value })} style={S.campo} />
+      </Seccion>
+      <Seccion>
+        <label htmlFor={idUrl} style={S.titulo}>Enlace</label>
+        <input id={idUrl} inputMode="url" placeholder="https:// o /crm" value={borrador}
+          onChange={(ev) => setBorrador(ev.target.value)} onBlur={aplicar}
+          onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); aplicar(); } }}
+          style={S.campo} />
+        {error
+          ? <p role="alert" style={S.error}>{error}</p>
+          : e.url && <p style={S.ayuda}>{e.url.startsWith('/') ? 'Pantalla de MaKo' : 'Se abre en otra pestaña'}</p>}
+      </Seccion>
+    </>
+  );
+}
+
+/** Video: el link (YouTube, Vimeo, Loom, Drive, Fathom… o un archivo) y su título. */
+function SeccionesVideo({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial<Elemento>) => void }) {
+  const idUrl = useId();
+  const idTitulo = useId();
+  const [borrador, setBorrador] = useBorrador(e.url);
+  const [error, setError] = useState<string | null>(null);
+  const actual = e.url ? videoDe(e.url) : null;
+
+  const aplicar = () => {
+    const v = borrador.trim();
+    if (!v) { setError(null); if (e.url) onCambiar({ url: '' }); return; }
+    const r = videoDe(v);
+    if (!r.ok) { setError(r.error); return; }
+    setError(null);
+    setBorrador(r.valor.direccion);
+    if (r.valor.direccion !== e.url) onCambiar({ url: r.valor.direccion });
+  };
+  // Un link guardado que ya no se reconoce (la lista cambió) también lo dice.
+  const aviso = error ?? (actual && !actual.ok ? actual.error : null);
+
+  return (
+    <>
+      <Seccion>
+        <label htmlFor={idUrl} style={S.titulo}>Pega el link del video</label>
+        <input id={idUrl} inputMode="url" placeholder="https://" value={borrador}
+          onChange={(ev) => setBorrador(ev.target.value)} onBlur={aplicar}
+          onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); aplicar(); } }}
+          style={S.campo} />
+        {aviso ? <p role="alert" style={S.error}>{aviso}</p> : actual?.ok && <Reconocido nombre={actual.valor.nombre} />}
+      </Seccion>
+      <Seccion>
+        <label htmlFor={idTitulo} style={S.titulo}>Título</label>
+        <input id={idTitulo} value={e.texto} maxLength={topeDeTextoElemento(e.tipo)} placeholder={actual?.ok ? actual.valor.nombre : ''}
+          onChange={(ev) => onCambiar({ texto: ev.target.value })} style={S.campo} />
+      </Seccion>
+    </>
+  );
+}
+
+/**
+ * Insertar: un link o el CÓDIGO que da un sitio (`<iframe …>`), y su título. Del código se guarda SÓLO
+ * la dirección (`insertableDe`): al aplicar, el campo pasa a mostrar eso, para que se vea qué quedó.
+ */
+function SeccionesInsertado({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial<Elemento>) => void }) {
+  const idUrl = useId();
+  const idTitulo = useId();
+  const propio = useHostPropio();
+  const [borrador, setBorrador] = useBorrador(e.url);
+  const [error, setError] = useState<string | null>(null);
+  const actual = e.url ? insertableDe(e.url, propio) : null;
+
+  const aplicar = () => {
+    const v = borrador.trim();
+    if (!v) { setError(null); if (e.url) onCambiar({ url: '' }); return; }
+    const r = insertableDe(v, propio);
+    if (!r.ok) { setError(r.error); return; }
+    setError(null);
+    setBorrador(r.valor.direccion);
+    if (r.valor.direccion !== e.url) onCambiar({ url: r.valor.direccion });
+  };
+  const aviso = error ?? (actual && !actual.ok ? actual.error : null);
+
+  return (
+    <>
+      <Seccion>
+        <label htmlFor={idUrl} style={S.titulo}>Link o código</label>
+        <textarea id={idUrl} rows={3} placeholder="https://… o <iframe …>" value={borrador}
+          onChange={(ev) => setBorrador(ev.target.value)} onBlur={aplicar}
+          onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); aplicar(); } }}
+          style={{ ...S.campo, resize: 'vertical', lineHeight: 1.4, fontFamily: "'Geist Mono', monospace", fontSize: 12.5, wordBreak: 'break-all' }} />
+        {aviso ? <p role="alert" style={S.error}>{aviso}</p> : actual?.ok && <Reconocido nombre={actual.valor.nombre} />}
+      </Seccion>
+      <Seccion>
+        <label htmlFor={idTitulo} style={S.titulo}>Título</label>
+        <input id={idTitulo} value={e.texto} maxLength={topeDeTextoElemento(e.tipo)} placeholder={actual?.ok ? actual.valor.nombre : ''}
+          onChange={(ev) => onCambiar({ texto: ev.target.value })} style={S.campo} />
+      </Seccion>
+    </>
+  );
+}
+
 /** Imagen: subir un archivo o pegar un enlace https, cómo se ajusta y su descripción. */
 function SeccionesImagen({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial<Elemento>) => void }) {
   const idUrl = useId();
@@ -614,13 +878,7 @@ function SeccionesImagen({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial
   const archivo = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // El enlace se escribe en un BORRADOR y se aplica al salir: `urlDeImagen` sanea y tira lo que no es
-  // https, así que atado directo al valor guardado, «htt» se borraría con la tercera letra.
-  const [borrador, setBorrador] = useState(e.url);
-  // Si la URL cambia desde afuera (una subida, un deshacer), el campo la muestra. Es el ajuste de
-  // estado durante el render que React documenta para esto: sin un efecto que pinte dos veces.
-  const [vista, setVista] = useState(e.url);
-  if (vista !== e.url) { setVista(e.url); setBorrador(e.url); }
+  const [borrador, setBorrador] = useBorrador(e.url);
 
   const aplicar = () => {
     const v = borrador.trim();

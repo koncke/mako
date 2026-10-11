@@ -294,7 +294,9 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'analizar', label: 'Tu primera página analizada' },
       { key: 'seguimiento', label: 'Seguimiento puesto en la landing', opcional: true },
     ],
-    href: '/landing-analyst',
+    // La tab se retiró el 11/10/2026: el diagnóstico vive en Landing Generator. La key y los
+    // pasos NO cambian (están escritos en la base: cambiarlos reabre el onboarding).
+    href: '/landing-generator/analizar',
   },
 
   // ── Landing Generator: se prende escribiendo la primera página ──

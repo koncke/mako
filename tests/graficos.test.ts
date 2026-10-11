@@ -271,3 +271,17 @@ test('los tramos de días cubren el período entero, sin huecos ni días repetid
   }
   assert.equal(tramosDeDias('2026-09-11', '2026-10-12', 6).length, 6);
 });
+
+// Sin sesión (la API de MaKo por WhatsApp o HTTP, una automatización, un cron) `tableroActual()` contesta
+// 'cliente' para todos, y en el workspace del super admin Tareas y Productividad leían el tablero VACÍO.
+// Probado rompiéndolo (base 22 / 0): `tableroActual()` de vuelta en filasTareas -> 21 / 1.
+test('Tareas y Productividad: con sesión, quién mira; sin sesión, la CAPA del workspace', () => {
+  const lect = readFileSync(join(__dirname, '..', 'lib', 'graficos-lectura.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const f = lect.slice(lect.indexOf('export async function queTableroLeer('), lect.indexOf('\n}\n', lect.indexOf('export async function queTableroLeer(')));
+  assert.match(f, /if \(s\) return tableroActual\(\);\n  return tableroDeCapa\(await getCapaActual\(\)/);
+  for (const ruta of ['graficos-datos.ts', 'graficos-datos-extra.ts']) {
+    const src = readFileSync(join(__dirname, '..', 'lib', ruta), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
+    assert.doesNotMatch(src, /tableroActual\(\)/, `${ruta}: elige el tablero por la sesión`);
+    assert.match(src, /await queTableroLeer\(\)/, `${ruta}: no usa queTableroLeer`);
+  }
+});

@@ -6,7 +6,10 @@
 // Separado para que los dos lectores lo importen sin importarse entre sí.
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual } from './workspace';
+import { getCapaActual, getTenantDb, getWorkspaceActual } from './workspace';
+import { getUsuarioActual } from './auth';
+import { tableroActual } from './tablero-actual';
+import { tableroDeCapa, type QueTablero } from './tablero-de-capa';
 import { leerTodo, type ConsultaPaginada, type OrdenPaginado } from './supabase-paginado';
 import { diasAntes, hoyEnTijuana } from './date-utils';
 import { tramosDeDias } from './graficos-agregar';
@@ -36,6 +39,19 @@ export const host = (u: unknown): string | null => {
 };
 
 export type Rango = { desde: string; hasta: string; sinRango: boolean };
+
+/**
+ * Cuál de los dos tableros (plan_* o experimento_*) lee un conjunto de Tareas o Productividad. Con sesión,
+ * la regla de /plan (`tableroActual`: quién mira). SIN sesión —la API de MaKo por WhatsApp o HTTP, una
+ * automatización, un cron— `tableroActual()` contesta 'cliente' para todos, y en el workspace del super
+ * admin se leía el tablero VACÍO sin un error (medido en el relevo del 11/10/2026): ahí decide la CAPA
+ * del workspace (`tableroDeCapa`, en positivo: 'dueno' sólo para la plataforma).
+ */
+export async function queTableroLeer(): Promise<QueTablero> {
+  const s = await getUsuarioActual().catch(() => null);
+  if (s) return tableroActual();
+  return tableroDeCapa(await getCapaActual().catch(() => null));
+}
 
 /**
  * La lectura común: workspace explícito, paginada, y con el período sobre la columna que se

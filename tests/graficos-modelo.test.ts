@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CAMPOS, campoDe, efectivoDe, hojaVacia, sanearControles, sanearElemento, sanearGrafico, sanearHoja, sanearTablero,
+  CAMPOS, ENTIDADES, campoDe, destinoDetalle, efectivoDe, fuenteDe, hojaVacia, sanearControles, sanearElemento, sanearGrafico, sanearHoja, sanearTablero,
   type ControlVista, type Grafico, type Hoja,
 } from '../lib/graficos-catalogo';
 import { filtrarFilas, agregar, SIN_DATO, type Fila } from '../lib/graficos-agregar';
@@ -142,6 +142,27 @@ test('una imagen sólo con https, y un elemento nuevo trae todo lo suyo', () => 
   assert.equal(sanearElemento({ tipo: 'imagen', url: 'data:image/png;base64,AAAA' })!.url, '');
   assert.equal(sanearElemento({ tipo: 'imagen', url: 'https://ejemplo.com/a.png' })!.url, 'https://ejemplo.com/a.png');
   assert.equal(sanearElemento({ tipo: 'no-existe' }), null);
+});
+
+// La hoja Closing (decisión 6 de Martín, 11/10/2026): lo que el catálogo le pone a las llamadas para que el
+// Dashboard tenga lo de la tab. Probado ROMPIÉNDOLO (11/10/2026, base 14 / 0 en este archivo; arnés del
+// paquete P1, cada rotura restaurada de memoria y verificada por hash): `estado` fuera de `llamadas` → 13 / 1
+// (este); `llamadas_venta` fuera de ENTIDADES → 13 / 1 (este); `destinoDetalle` de vuelta a FUENTES_BASE →
+// 13 / 1 (este: la entidad quedaba declarada y su número no se abría). Al final, 14 / 0.
+test('la hoja Closing: las llamadas tienen su estado, y el número de una llamada de VENTA abre su lista', () => {
+  assert.ok(fuenteDe('llamadas')!.dimensiones.some((d) => d.id === 'estado' && d.clase === 'categoria'), 'llamadas.estado');
+  assert.deepEqual(campoDe('llamadas.estado')?.en, { llamadas: 'estado' }, '«Estado» de las llamadas es SU estado: no cruza');
+  // La misma forma que `llamadas` (la ficha de la llamada y la del lead, desde la misma fila).
+  assert.deepEqual(ENTIDADES.llamadas_venta, ENTIDADES.llamadas);
+  assert.deepEqual(ENTIDADES.llamadas_venta, {
+    entidad: 'llamada', plural: 'Llamadas', ref: 'llamada', nombre: ['llamada'], linea: ['closer', 'reunion'], ids: { llamada: 'llamada', lead: 'lead' }, unidad: ['llamadas', 'con_puntaje'],
+  });
+  // Un conjunto de las tabs de Analysts (lib/graficos-fuentes-extra.ts) con entidad SÍ abre su detalle: hasta el
+  // 11/10 se buscaba sólo entre los de siempre y la entidad quedaba declarada sin poder abrirse nunca.
+  assert.deepEqual(destinoDetalle('llamadas_venta', 'fecha', 'puntaje'), { fuente: 'llamadas_venta', fecha: 'fecha', incluye: 'puntaje', columnas: ['puntaje', 'puntos'] });
+  assert.deepEqual(destinoDetalle('llamadas_venta', 'fecha', 'llamadas')?.columnas, [], 'una llamada vale 1: no es una columna');
+  assert.equal(destinoDetalle('llamadas_dimensiones', 'fecha', 'puntaje'), null, 'sin entidad, no lista');
+  assert.equal(destinoDetalle('llamadas_venta', 'inventada', 'puntaje'), null);
 });
 
 test('una hoja guarda emoji, subtítulo, tema y controles (lo que no se sanea, se borra en el primer guardado)', () => {

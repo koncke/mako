@@ -6,10 +6,14 @@
 // Pero si puedes poner un template de landing con la cantidad de datos que tenemos, de clicks,
 // retención, mapa de calor, grabaciones, etc...».
 //
-// Una hoja por tab: «Ads Analyst», «Landing», «Closing» y «Productividad», cada una con SU período arriba
-// y SÓLO lo que es análisis. Las TAREAS se quedan en sus tabs hasta que Martín las mude (analizar un
-// guion nuevo, sincronizar, ángulos y avatares, re-analizar, analizar o pegar una página, revisar o
-// re-evaluar una llamada): una hoja del Dashboard mira, no ejecuta.
+// Una hoja por tab: «Ads Analyst», «Landing», «Closing» y «Productividad», cada una con SU período arriba.
+// Las TAREAS se mudaron el 11/10/2026 (decisiones de Martín), y no todas al mismo lugar:
+//   · Ads Analyst → a Ads Writer (analizar un guion nuevo, sincronizar, ángulos y avatares). Su hoja mira.
+//   · Landing Analyst → a Landing Generator (analizar o pegar una página). Su hoja mira.
+//   · Closing va COMPLETO a su hoja, y la tab se elimina: la hoja EJECUTA. El bloque «Las llamadas»
+//     sincroniza, y la ficha de cada llamada revisa a mano, re-evalúa con MaKo y re-analiza (admin y
+//     closer, como la tab; las rutas lo vuelven a mirar: app/api/closing/puerta.ts).
+//   «Una hoja del Dashboard mira, no ejecuta» ya no vale para Closing.
 //
 // Los conjuntos nuevos están en lib/graficos-fuentes-extra.ts y los bloques en
 // lib/graficos-bloques-extra-catalogo.ts. Los ids locales van con guiones y sin guion bajo: armados con
@@ -114,7 +118,7 @@ const LANDING: PlantillaHoja = {
 
 const CLOSING: PlantillaHoja = {
   id: 'closing', nombre: 'Closing', emoji: '📞',
-  linea: 'El puntaje de tus llamadas de venta, el embudo R1 → R2 → cierre, los factores y los closers.',
+  linea: 'El puntaje de tus llamadas, el embudo R1 → R2 → cierre, los factores, los closers y cada llamada.',
   armar: (id: Id) => ({
     id: id('closing'), nombre: 'Closing', emoji: '📞', subtitulo: 'Las llamadas de venta analizadas: qué decide tus cierres.',
     controles: [
@@ -122,11 +126,13 @@ const CLOSING: PlantillaHoja = {
       lista(id('cl-closer'), 'closer'),
     ],
     componentes: [
-      // 1 · Los KPI de la tab
+      // 1 · Los KPI de la tab. «Analizadas» cuenta las ventas con análisis completo del período; las de
+      //     servicio excluidas y las sin analizar las dice la línea de «Las llamadas» (son de todo el historial).
       kpi(id('cl-puntaje'), 'llamadas_venta', 'puntaje', 'Score promedio', 'de 10, llamadas con puntaje', 0, 0),
-      kpi(id('cl-r1'), 'llamadas_venta', 'puntaje', 'R1', 'diagnóstico', 3, 0, { controles: [lista(id('cl-r1-c'), 'llamadas_venta.reunion', ['R1'])] }),
-      kpi(id('cl-r2'), 'llamadas_venta', 'puntaje', 'R2', 'cierre', 6, 0, { controles: [lista(id('cl-r2-c'), 'llamadas_venta.reunion', ['R2'])] }),
-      kpi(id('cl-tasa'), 'llamadas_venta', 'tasa_cierre', 'Tasa de cierre', 'R2 ganadas ÷ R2', 9, 0),
+      kpi(id('cl-r1'), 'llamadas_venta', 'puntaje', 'R1', 'diagnóstico', 3, 0, { w: 2, controles: [lista(id('cl-r1-c'), 'llamadas_venta.reunion', ['R1'])] }),
+      kpi(id('cl-r2'), 'llamadas_venta', 'puntaje', 'R2', 'cierre', 5, 0, { w: 2, controles: [lista(id('cl-r2-c'), 'llamadas_venta.reunion', ['R2'])] }),
+      kpi(id('cl-tasa'), 'llamadas_venta', 'tasa_cierre', 'Tasa de cierre', 'R2 ganadas ÷ R2', 7, 0, { w: 2 }),
+      kpi(id('cl-analizadas'), 'llamadas_venta', 'llamadas', 'Analizadas', 'llamadas de venta con análisis', 9, 0),
       // 2 · El embudo y la tendencia mensual del score (doce meses: una línea de años no se lee)
       bloque(id('cl-embudo'), 'embudo_cierre', 0, 4, 6, 10),
       { id: id('cl-tendencia'), clase: 'grafico', tipo: 'serie', fuente: 'llamadas_venta', dimension: 'mes', metricas: ['puntaje'], periodo: 'ult12m', titulo: 'Tendencia del score', x: 6, y: 4, w: 6, h: 10 },
@@ -137,6 +143,8 @@ const CLOSING: PlantillaHoja = {
         id: id('cl-punto-debil'), clase: 'grafico', tipo: 'dinamica_calor', fuente: 'llamadas_dimensiones', dimension: 'closer', desglose: 'dimension',
         metricas: ['puntaje'], titulo: 'Puntaje por closer y dimensión', x: 0, y: 38, w: 12, h: 10,
       },
+      // 4 · Las llamadas: la lista de la tab y la entrada a cada ficha (con sus tareas)
+      bloque(id('cl-llamadas'), 'llamadas_cierre', 0, 48, 12, 18),
     ],
   }),
 };

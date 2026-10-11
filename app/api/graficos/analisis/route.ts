@@ -11,9 +11,9 @@
 // La puerta es la misma que la de /api/graficos y la de la página: admin del negocio y la tab en su
 // capa. Sin eso, un closer leería por acá los números que su pantalla le esconde.
 //
-//   GET  ?hoja=<id>[&inicial=1]                → { vista, tzNegocio?, iaDisponible? }
+//   GET  ?hoja=<id>[&inicial=1]                → { vista, tzNegocio? }
 //   GET                                       → { nuevos: hojaIds[] }   (el punto del botón)
-//   POST { accion: 'analizar', hoja, ids?, vista? } → { estado: 'corriendo' | 'ocupado' | 'sin_ia', vista?, mensaje? }
+//   POST { accion: 'analizar', hoja, ids?, vista? } → { estado: 'corriendo' | 'ocupado', vista?, mensaje? }
 //   POST { accion: 'cancelar', hojaId }             → { cancelado }
 //   POST { accion: 'programar', hojaId, cron|null, componentes? } → { vista }
 //   POST { accion: 'visto', hojaId, analizadoAt }   → { ok }
@@ -24,7 +24,6 @@ import { tabEnCapa } from '@/lib/capas';
 import { getUsuarioActual } from '@/lib/auth';
 import { tableroActual } from '@/lib/tablero-actual';
 import { rateLimit } from '@/lib/rate-limit';
-import { docsIADisponible, errorDeCascada } from '@/lib/ai-cheap';
 import { tzDeWorkspace } from '@/lib/timezone';
 import { TZ_TIJUANA } from '@/lib/date-utils';
 import { MAX_COMPONENTES, sanearHoja, type VistaValores } from '@/lib/graficos-catalogo';
@@ -73,12 +72,11 @@ export async function GET(req: Request) {
     if (!ID.test(hojaId)) return err(400, 'Hoja inválida');
     const vista = await vistaDe(p.sub, hojaId);
     if (url.searchParams.get('inicial') !== '1') return NextResponse.json({ vista });
-    // Sólo al abrir el panel: la zona (para decir «hora de …» antes de programar) y si hay IA.
-    const [tzNegocio, iaDisponible] = await Promise.all([
-      tzDeWorkspace(p.ws).catch(() => TZ_TIJUANA),
-      docsIADisponible().catch(() => false),
-    ]);
-    return NextResponse.json({ vista, tzNegocio, iaDisponible, ...(iaDisponible ? {} : { mensajeIA: await errorDeCascada([], 'analizar tus gráficos') }) });
+    // Sólo al abrir el panel: la zona (para decir «hora de …» antes de programar). Ya no se pregunta
+    // si el negocio tiene IA: sin la suya va la red de plataforma (Martín, 11/10/2026: «siempre tiene
+    // que probar con otros provedoores»), así que el botón no se apaga por eso.
+    const tzNegocio = await tzDeWorkspace(p.ws).catch(() => TZ_TIJUANA);
+    return NextResponse.json({ vista, tzNegocio });
   } catch (e) {
     console.error(`[analista] GET: ${e instanceof Error ? e.message : String(e)}`);
     return err(500, 'No pude leer el análisis');
@@ -100,9 +98,8 @@ export async function POST(req: Request) {
       const hoja = sanearHoja(crudo, 0);
       if (!hoja) return err(400, 'Hoja inválida');
       if (!rateLimit(`analista:${p.ws}:${p.sub}`, 15, 60 * 60_000)) return err(429, 'Muchos análisis seguidos. Prueba en un rato.');
-      if (!(await docsIADisponible().catch(() => false))) {
-        return NextResponse.json({ estado: 'sin_ia', mensaje: await errorDeCascada([], 'analizar tus gráficos') });
-      }
+      // Sin IA propia del negocio también se intenta: después de sus keys va la red de plataforma
+      // (lib/graficos-ia-red.ts; Martín, 11/10/2026: «siempre tiene que probar con otros provedoores»).
       const inicio = Date.now();
       const r = await arrancarAMano({
         usuario: p.sub, hoja, ids: sanearIds(body.ids), vista: sanearVista(body.vista),

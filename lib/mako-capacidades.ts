@@ -56,9 +56,12 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entra a Offer', 'Cuéntale a MaKo qué vendes, a quién y a qué precio', 'Lee el diagnóstico y la oferta nueva que arma', 'Descarga el PDF; lo que quieras probar, llévalo a Experiments'],
   },
   {
-    id: 'landing-diagnosticar', tab: 'Landing Analyst', ruta: '/landing-analyst',
+    // Desde el 11/10/2026 Landing Analyst no es una tab: analizar una página es parte de Landing
+    // Generator (/landing-generator/analizar) y los números de la landing son la hoja «Landing» del
+    // Dashboard. El id no cambia: lo devuelve el modelo y queda escrito en las tareas del plan.
+    id: 'landing-diagnosticar', tab: 'Landing Generator', ruta: '/landing-generator/analizar',
     que: 'Diagnosticar una landing: MaKo la abre, le lee el mensaje y lo cruza con lo que hace la gente que llega (visitas, retención del video, agendas) para decir qué cambiar primero.',
-    como: ['Entra a Landing Analyst', 'Pega la dirección de tu página y toca Analizar', 'Mira los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],
+    como: ['Entra a Landing Generator y abre Diagnóstico', 'Pega la dirección de tu página y toca Analizar', 'Mira los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],
   },
   {
     // Desde el 11/10/2026 la tab es el editor copiado de Gamma (docs/diseno-editor-landing.md). Los
@@ -111,14 +114,24 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Abre el Dashboard', 'Elige el período', 'Pregúntale a MaKo qué cambió y por qué'],
   },
   {
-    id: 'llamadas', tab: 'Closing Analyst', ruta: '/closing',
+    // Closing Analyst se retiró el 11/10/2026: las llamadas, su ficha y sus tareas son la hoja
+    // «Closing» del Dashboard. ⚠️ La ruta lleva `?hoja=`: quien la cruce con el nav tiene que mirar
+    // sólo el camino (lib/api-mako/areas/mako.run.ts, `disponible`).
+    id: 'llamadas', tab: 'Dashboard', ruta: '/dashboard?hoja=closing',
     que: 'Analizar una llamada de venta: qué objeciones salieron, qué se hizo bien y qué corregir.',
-    como: ['Entra a Closing Analyst', 'Elige la llamada', 'Lee el análisis y lo que propone para la próxima'],
+    como: ['Abre la hoja Closing del Dashboard', 'Elige la llamada en «Las llamadas»', 'Lee el análisis y lo que propone para la próxima'],
   },
   {
-    id: 'guiones-ads', tab: 'Ads Analyst', ruta: '/ads-analyst',
+    // Ads Analyst también se retiró: el análisis de los guiones es la hoja «Ads Analyst» del Dashboard,
+    // y valorar un guion nuevo es la capacidad de abajo (`guion-valorar`, en Ads Writer).
+    id: 'guiones-ads', tab: 'Dashboard', ruta: '/dashboard?hoja=ads-analyst',
     que: 'Ver qué guion y qué gancho retienen mejor, por cuartiles, cruzado con lo que después cerró.',
-    como: ['Entra a Ads Analyst', 'Elige el anuncio', 'Mira dónde se cae la retención y qué gancho aguantó'],
+    como: ['Abre la hoja Ads Analyst del Dashboard', 'Mira los patrones y el cuadrante de retención', 'En «Guiones», compara hook rate, retención y agendas de cada uno'],
+  },
+  {
+    id: 'guion-valorar', tab: 'Ads Writer', ruta: '/ads-writer?tab=analizar',
+    que: 'Valorar un guion antes de grabarlo: MaKo lo compara contra lo que ya funcionó en tus anuncios y dice qué esperar.',
+    como: ['Entra a Ads Writer, en Analizar guion', 'Pega el guion completo', 'Lee la valoración y qué esperar; los intentos quedan guardados'],
   },
   {
     id: 'experimento', tab: 'Experiments', ruta: '/experimentos',

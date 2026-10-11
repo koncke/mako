@@ -41,6 +41,9 @@ import { DEFS as whatsapp } from './areas/whatsapp.def';
 import { DEFS as email } from './areas/email.def';
 import { DEFS as chatbot } from './areas/chatbot.def';
 import { DEFS as metricas } from './areas/metricas.def';
+// El EDITOR del Dashboard (11/10/2026): es del área `metricas` («Dashboard y análisis») pero vive en su
+// propio archivo. tests/api-mako-registro.test.ts sabe que el área tiene dos archivos de runners.
+import { DEFS as dashboard } from './areas/dashboard.def';
 import { DEFS as experimentos } from './areas/experimentos.def';
 import { DEFS as landing } from './areas/landing.def';
 import { DEFS as closing } from './areas/closing.def';
@@ -56,7 +59,7 @@ import { DEFS as mako } from './areas/mako.def';
 
 /** Por área, en el orden de la barra. El orden es el del catálogo y la referencia. */
 const POR_AREA: Record<Area, readonly OperacionDef[]> = {
-  general, plan, crm, ads, whatsapp, email, chatbot, metricas, experimentos,
+  general, plan, crm, ads, whatsapp, email, chatbot, metricas: [...metricas, ...dashboard], experimentos,
   landing, closing, negocio, contenido, video, integraciones, equipo, cs, curso, cobros, mako,
 };
 

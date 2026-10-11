@@ -94,7 +94,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Qué le falta a una tab',
     descripcion: 'Para una tab de MaKo (closing, email, script, crm, marketing, experimentos, comercial): qué integración necesita, si ya está conectada, qué le falta en palabras simples y el aviso de cuando conectar no alcanza (por ejemplo, Calendly necesita además sus tipos de evento). Es la respuesta a «¿por qué mi CRM está vacío?»: distingue configuración faltante de dato vacío. WhatsApp no está: su número se vincula por QR desde la misma tab, sin credenciales.',
     parametros: [
-      { nombre: 'key', tipo: 'string', obligatorio: true, enum: TABS_ACTIVACION, descripcion: 'la tab: closing (Closing Analyst), email, script (Ads Analyst), crm, marketing (Dashboard), experimentos o comercial.' },
+      { nombre: 'key', tipo: 'string', obligatorio: true, enum: TABS_ACTIVACION, descripcion: 'la tab: closing (la hoja Closing del Dashboard), email, script (los guiones de los anuncios: Ads Writer y la hoja Ads Analyst del Dashboard), crm, marketing (Dashboard), experimentos o comercial.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
   },

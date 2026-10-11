@@ -382,7 +382,7 @@ export const RUNNERS: Runners = {
     },
   },
 
-  // ── Lecturas: Landing Analyst ──────────────────────────────────────────────
+  // ── Lecturas: el diagnóstico (Landing Generator → Diagnóstico) ─────────────
 
   listar_analisis_landing: {
     leer: async () => {

@@ -52,6 +52,12 @@ button.bx-tarjeta:focus-visible, .bx-boton:focus-visible, .bx-pildora:focus-visi
 .bx-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .bx-lista { display: flex; flex-direction: column; gap: 7px; }
 .bx-vacio { border: 1.5px dashed var(--border-strong); border-radius: 11px; padding: 18px 14px; text-align: center; color: var(--faint); font-size: 12.5px; line-height: 1.5; }
+.bx-boton:disabled, .bx-pildora:disabled { cursor: default; opacity: .6; text-decoration: none; }
+.bx-buscar { flex: 1 1 200px; min-width: 150px; max-width: 320px; box-sizing: border-box; padding: 7px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); font: inherit; font-size: 13px; color: var(--ink); }
+.bx-buscar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+button.bx-renglon { display: flex; width: 100%; align-items: center; gap: 10px; padding: 10px 8px; background: none; border: none; border-bottom: 1px solid var(--border); font: inherit; color: inherit; text-align: left; cursor: pointer; transition: box-shadow .15s; }
+button.bx-renglon:hover { box-shadow: inset 0 0 0 999px var(--velo-hover); }
+button.bx-renglon:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .bx-svg { display: block; width: 100%; height: auto; overflow: visible; }
 .bx-svg text { font-family: ${MONO}; }
 @container (max-width: 640px) { .bx-cols { grid-template-columns: minmax(0, 1fr); } }

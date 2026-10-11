@@ -87,7 +87,7 @@ export async function pandaConectado(): Promise<boolean> {
   return !!k && !k.startsWith('PENDING');
 }
 
-// ── 2. Los diagnósticos del Landing Analyst ─────────────────────────────────
+// ── 2. Los diagnósticos (Landing Generator → Diagnóstico; el módulo sigue siendo lib/landing-analyst)
 
 const COLS_DIAG =
   'url, url_final, titulo, status, score, veredicto, veredicto_tone, resumen, promesa, avatar, ' +

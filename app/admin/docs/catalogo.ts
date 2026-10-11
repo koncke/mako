@@ -67,12 +67,16 @@ export const CATALOGO: Record<string, FichaDoc> = {
     hace: ['WhatsApp no oficial (Evolution)', 'WhatsApp oficial (Chatwoot)', 'Nutrición y secuencias', 'Email (Resend)', 'Avisos'],
   },
   'hallazgos-ads': {
-    grupo: 'Por área', tabs: ['/ads-manager', '/ads-analyst'],
+    // Ads Analyst se retiró el 11/10/2026: su análisis es la hoja «Ads Analyst» del Dashboard y su tarea
+    // (valorar un guion) vive en Ads Writer.
+    grupo: 'Por área', tabs: ['/ads-manager', '/ads-writer', '/dashboard?hoja=ads-analyst'],
     hace: ['Lecturas de Meta', 'Crear y publicar campañas', 'Análisis de creativos'],
   },
   'hallazgos-landing': {
-    grupo: 'Por área', tabs: ['/vsl', '/landing-generator', '/landing-analyst'],
-    hace: ['Tracking y beacon', 'Retención del VSL', 'Landing Analyst', 'El copy de las landings'],
+    // Landing Analyst se retiró el 11/10/2026: analizar una página vive en Landing Generator y los
+    // números de la landing son la hoja «Landing» del Dashboard.
+    grupo: 'Por área', tabs: ['/vsl', '/landing-generator', '/dashboard?hoja=landing'],
+    hace: ['Tracking y beacon', 'Retención del VSL', 'Analizar una landing', 'El copy de las landings'],
   },
   'hallazgos-ui': {
     grupo: 'Por área', tabs: ['/admin/ui'],

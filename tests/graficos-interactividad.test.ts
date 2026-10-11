@@ -25,6 +25,13 @@
 //     («las dimensiones con nombres de personas…»).
 // Al retomar la corrida (cortada por la cuota) este archivo importaba DIMENSIONES_PERSONA y el módulo no lo
 // exportaba: lo marcó el typecheck (TS2305), no tsx — un import nombrado que falta es `undefined` en CJS.
+//
+// Closing al Dashboard (11/10/2026, P2a): «Ver llamada» ya no es un link a /closing?call= sino la ficha de la
+// llamada en la caja del detalle, y las llamadas de venta llevan sus ids. Base 17 de 17; roturas:
+//   · `ver_llamada` de vuelta a un link a /closing?call=      → 2 fallos de 17 («las acciones de cada fila» y
+//     «"Ver llamada" abre la ficha…»).
+//   · filasLlamadasVenta sin `r: { llamada, lead }`             → 1 fallo de 17 («los lectores llevan los ids…»).
+//   · Detalle.tsx sin la rama `a.tipo === 'llamada'`            → 1 fallo de 17 («"Ver llamada" abre la ficha…»).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -181,7 +188,10 @@ test('las acciones de cada fila: según sus ids, la capa del workspace y el esta
   assert.deepEqual(ids(accionesDeFila({ ids: { pago: '70' }, estado: 'Vencido' }, TODO, p)), [], 'sin el lead de la MISMA fila no se cobra');
   assert.deepEqual(ids(accionesDeFila({ ids: { pago: '70', lead: '7' }, estado: 'Vencido' }, { ...TODO, crm: false }, p)), [], 'sin CRM en la capa, ningún botón del CRM');
   assert.deepEqual(accionesDeFila({ ids: { anuncio: '120 9' }, estado: null }, TODO, p).map((x) => x.href), ['/anuncio/120%209?desde=2026-10-01&hasta=2026-10-31']);
-  assert.deepEqual(accionesDeFila({ ids: { llamada: '55' }, estado: null }, TODO, p).map((x) => x.href), ['/closing?call=55']);
+  // «Ver llamada» abre la ficha de la llamada EN la caja del detalle (la tab /closing se eliminó el 11/10/2026):
+  // no lleva ningún link.
+  assert.deepEqual(accionesDeFila({ ids: { llamada: '55' }, estado: null }, TODO, p), [{ id: 'ver_llamada', titulo: 'Ver llamada', tipo: 'llamada' }]);
+  assert.deepEqual(accionesDeFila({ ids: { llamada: '55' }, estado: null }, { ...TODO, closing: false }, p), [], 'sin Closing en la capa, no se ofrece');
   assert.deepEqual(accionesDeFila({ ids: { tarea: 't-9' }, estado: null }, TODO, p).map((x) => x.href), ['/plan?tarea=t-9']);
   assert.deepEqual(accionesDeFila({ ids: { lead: '7', anuncio: '1' }, estado: null }, SIN_CAPACIDADES, p), []);
 });
@@ -293,6 +303,29 @@ test('los lectores llevan los ids de la misma fila (Meta, leads, pagos, llamadas
   assert.match(cuerpo('filasEntrega'), /'id, lead_id, producto_id,/);
   assert.match(cuerpo('filasEntrega'), /r: \{ cliente: lead \}/);
   assert.equal((cuerpo('filasTareas').match(/r: \{ tarea: String\(x\.id\) \}/g) ?? []).length, 2, 'las dos mitades del tablero');
+  // Y las llamadas de venta (lib/graficos-datos-extra.ts): cada fila con SU llamada y su lead, y nombrada como la lista.
+  const extra = sinComentarios(leer('lib', 'graficos-datos-extra.ts'));
+  const ini = extra.indexOf('async function filasLlamadasVenta(');
+  assert.ok(ini >= 0, 'no encuentro filasLlamadasVenta');
+  const venta = extra.slice(ini, extra.indexOf('\nconst GRUPO_DIM', ini));
+  assert.ok(venta.length > 400 && venta.length < 3000, `el recorte de filasLlamadasVenta mide ${venta.length}`);
+  assert.match(venta, /title, lead_id, lead_nombre, invitee_email'/);
+  assert.match(venta, /r: \{ llamada: String\(x\.recording_id\), lead: x\.lead_id != null \? String\(x\.lead_id\) : null \}/);
+  assert.match(venta, /llamada: nombreDeLlamada\(x\)/);
+});
+
+test('«Ver llamada» abre la ficha de la llamada en lugar de la caja del detalle (como la del lead)', () => {
+  const det = sinComentarios(leer('app', 'dashboard', 'Detalle.tsx'));
+  assert.match(det, /import \{ FichaLlamada \} from '\.\/bloques\/extra\/FichaLlamada'/);
+  // El botón de una acción `llamada` guarda el id de LA FILA (no uno que llegue de otro lado)…
+  assert.match(det, /if \(a\.tipo === 'llamada'\) \{ const id = Number\(f\.ids\.llamada\); if \(Number\.isInteger\(id\) && id > 0\) setLlamada\(id\); return; \}/);
+  // …y con eso se dibuja la ficha ANTES que la caja del detalle (un Modal encima de otro apaga al de abajo).
+  const ficha = det.indexOf('<FichaLlamada recordingId={llamada}');
+  const caja = det.indexOf('<Modal');
+  assert.ok(ficha > 0 && caja > 0 && ficha < caja, 'la ficha de la llamada no reemplaza a la caja del detalle');
+  assert.match(det, /<FichaLlamada recordingId=\{llamada\} onCerrar=\{\(\) => setLlamada\(null\)\} onCambio=\{recargar\} \/>/);
+  // Ninguna acción vuelve a la tab retirada.
+  for (const a of ACCIONES) assert.ok(!a.href || !a.href({ llamada: '1', anuncio: '1', tarea: '1' }, { desde: '2026-10-01', hasta: '2026-10-31' }).startsWith('/closing'), a.id);
 });
 
 test('el gráfico declara su único hook antes del primer return', () => {

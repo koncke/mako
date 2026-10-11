@@ -898,7 +898,10 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // «créame una automatización que…» no traía NINGUNA herramienta del área, y «Pídeselo a MaKo» por WhatsApp
   // (`crear_automatizacion_con_ia`) no llegaba al turno.
   chatbot: /\b(secuencias?|nutrici[oó]n|chatbot|bot\b|seguimiento autom|handoff|automatizaci[oó]n(es)?|automations?|flujos?\b)/i,
-  metricas: /\b(m[eé]tricas?|n[uú]meros|inversi[oó]n|gast[oóé]|cac\b|roas|dashboard|ingresos?|facturaci|cu[aá]nto (vend|invert|gast|cobr)|cascada)/i,
+  // El EDITOR del Dashboard por la API (11/10/2026): «agrega un gráfico», «mi hoja de Marketing», «el informe de
+  // Ana», «el AI Analyst». «plantilla» sola NO: es la palabra de las plantillas de WhatsApp (área whatsapp), y con
+  // ella cada mensaje sobre una plantilla de Meta traía ~20 operaciones del Dashboard; va atada a una hoja.
+  metricas: /\b(m[eé]tricas?|n[uú]meros|inversi[oó]n|gast[oóé]|cac\b|roas|dashboard|ingresos?|facturaci|cu[aá]nto (vend|invert|gast|cobr)|cascada|gr[aá]ficos?|hojas?\b|informes?\b|plantillas? (?:de |del |para )?(?:la |una |mi )?(?:hoja|dashboard|informe|marketing|comercial|closing|landing|productividad|ads analyst)|ai analyst|an[aá]lisis de (?:la|mi|una) hoja)/i,
   experimentos: /\b(experimentos?|hip[oó]tesis|retro\b|retrospectiva|conclusi[oó]n)/i,
   landing: /\b(landing|p[aá]gina|p[ií]xel|pixel|tracking|vsl)/i,
   closing: /\b(llamadas?|closing|closers?|transcri|fathom|objeci[oó]n)/i,

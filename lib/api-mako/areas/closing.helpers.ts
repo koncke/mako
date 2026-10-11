@@ -5,10 +5,13 @@
 // DEUDA, a propósito y escrita: cada pieza de acá debería vivir en lib/closing.ts
 // (o en un lib/closing-metricas.ts sin server-only) y la usarían también la
 // pantalla y las actions. Hoy:
-//   · Las métricas (closers, factores, tendencia, embudo) viven SOLO en el useMemo
-//     `ag` de app/closing/ClosingBrowser.tsx. Se copian acá con el MISMO criterio
-//     (mismas 7 dimensiones, mean sin nulos, mes UTC): si cambia uno, cambia el otro.
-//   · No hay lectura de UNA fila por recording_id: hay cuatro selects distintos.
+//   · Las métricas (closers, factores, tendencia, embudo) son las del useMemo `ag` de
+//     la tab vieja (app/closing/ClosingBrowser.tsx, que se eliminó el 11/10/2026 al
+//     mudarse Closing al Dashboard). Desde ese día ESTA es la única copia: la leen la
+//     API de MaKo y los bloques de la hoja Closing (lib/graficos-bloques-extra.ts).
+//   · `leerLlamada` es la lectura de UNA fila por recording_id: la usan la API de MaKo
+//     y la ficha de una llamada del Dashboard (GET /api/closing/llamada). Trae las
+//     anotaciones del análisis (`annotations`): son las marcas del transcript.
 //   · leadTieneLlamada es la server action de app/crm/insights-actions.ts, pero
 //     PAGINADA: la original barre closing_analyses con un select pelado que corta
 //     en 1000 filas sin avisar.
@@ -32,7 +35,7 @@ export const DIMS7 = ['Situación', 'Problema', 'Implicación', 'Necesidad / ben
 const COLS_DETALLE =
   'recording_id, call_url, share_url, embed_token, title, call_date, started_at, duration_min, closer, invitee_email, ' +
   'lead_id, lead_nombre, lead_empresa, category, origen_clasif, tipo, score, outcome, outcome_tone, summary, next_step, ' +
-  'dims, moments, recs, strengths, weaknesses, objections, has_transcript, edit_history, status, error, model, analyzed_at';
+  'dims, moments, recs, strengths, weaknesses, objections, annotations, has_transcript, edit_history, status, error, model, analyzed_at';
 
 /** UNA fila de closing_analyses de este workspace, en cualquier estado. score ya es número. */
 export async function leerLlamada(recordingId: number): Promise<ClosingAnalysisRow | null> {
@@ -115,7 +118,7 @@ export async function ultimaLlamadaDelLead(leadId: number, horas: number): Promi
   return ((data ?? [])[0] as { recording_id: number } | undefined) ?? null;
 }
 
-// ── Métricas (copia del useMemo `ag` de ClosingBrowser) ──────────────────────
+// ── Métricas (las del useMemo `ag` de la tab vieja; hoy, la única copia) ─────
 
 const mean = (xs: Array<number | null | undefined>): number | null => {
   const v = xs.filter((x): x is number => typeof x === 'number' && Number.isFinite(x));

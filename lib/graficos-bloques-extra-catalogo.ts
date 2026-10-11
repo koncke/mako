@@ -16,7 +16,10 @@
 //   · mapa_calor         la foto reconstruida de una grabación con el calor encima (el de la tab, tal cual).
 //   · curva_vsl          20 cortes con monotonía y el denominador «medidos»: invariantes ENTRE filas.
 //   · embudo_cierre / factores_cierre / closers_cierre: diferencias entre grupos (ganadas − perdidas), el
-//                        punto débil de cada closer y ejemplos que saltan a la llamada.
+//                        punto débil de cada closer y ejemplos que abren la llamada.
+//   · llamadas_cierre    la LISTA de la tab Closing (búsqueda, filtros y orden en la pantalla) y la entrada a
+//                        la ficha de cada llamada, con sus tareas (decisión de Martín del 11/10/2026: la tab
+//                        Closing se elimina y TODO va a su hoja). Una fila por llamada no es una suma.
 //   · matriz_proyectos / piramide_prioridad / tareas_atencion: la cruz 50/50 con sus cuadrantes, el orden
 //                        FIJO de las bandas (el agregador ordena por valor y borra la banda en cero) y las
 //                        listas de tareas sueltas con un umbral.
@@ -37,6 +40,7 @@ export const BLOQUES_EXTRA: readonly InfoBloque[] = [
   { id: 'embudo_cierre', nombre: 'Embudo de llamadas', linea: 'Diagnóstico, propuesta y cierre ganado', w: 6, h: 10 },
   { id: 'factores_cierre', nombre: 'Factores del cierre', linea: 'Qué dimensión separa las ganadas de las perdidas', w: 12, h: 14 },
   { id: 'closers_cierre', nombre: 'El equipo de closers', linea: 'Puntaje, llamadas, ganadas y punto débil de cada uno', w: 12, h: 10 },
+  { id: 'llamadas_cierre', nombre: 'Las llamadas', linea: 'Cada llamada de venta: búscala, ábrela y revísala', w: 12, h: 18 },
   // Productivity Analyst
   { id: 'matriz_proyectos', nombre: 'Impacto × Esfuerzo', linea: 'Cada proyecto en su cuadrante: qué hacer primero', w: 7, h: 14 },
   { id: 'piramide_prioridad', nombre: 'Pirámide de prioridad', linea: 'Tareas activas por banda, de Alta a A futuro', w: 5, h: 14 },
@@ -68,6 +72,18 @@ export type DatosFactores = {
 };
 /** ⚠️ Trae NOMBRES de personas (los closers): no se le manda a ningún modelo de IA. */
 export type DatosClosers = { closers: Array<{ closer: string; llamadas: number; puntaje: number | null; ganadas: number; flojo: { dimension: string; puntaje: number | null } | null }> };
+/**
+ * Una fila de «Las llamadas»: lo justo para la lista (el detalle se pide al abrir la ficha, a
+ * GET /api/closing/llamada). `nombre` es el de la tab: el lead, si no el email del invitado, si no el título.
+ * ⚠️ Trae NOMBRES y emails de personas: no se le manda a ningún modelo de IA.
+ */
+export type FilaLlamada = {
+  id: number; fecha: string | null; tipo: string | null; closer: string | null; nombre: string | null; empresa: string | null;
+  email: string | null; titulo: string | null; puntaje: number | null; tono: 'good' | 'warn' | 'bad' | null; minutos: number | null; conTranscript: boolean;
+};
+/** Los contadores de TODO lo procesado (getClosingViewData): no tienen período, como en la tab. */
+export type ContadoresClosing = { ventas: number; servicio: number; internas: number; test: number; errores: number; pendientes: number; total: number };
+export type DatosLlamadas = { llamadas: FilaLlamada[]; counts: ContadoresClosing; ultimaSync: string | null };
 export type ProyectoMatriz = { id: string; nombre: string; emoji: string; impacto: number | null; esfuerzo: number | null; tareas: number; completo: boolean };
 export type DatosMatriz = { proyectos: ProyectoMatriz[] };
 export type DatosPiramide = { piramide: Record<Prio, number>; activas: number };
@@ -81,4 +97,4 @@ export type DatosAtencion = { estancadas: TareaAtencion[]; altaSinDeadline: Tare
  * (lib/graficos-analisis-server.ts: «Los bloques todavía no se analizan»). El día que empiece a leerlos,
  * éstos se dejan afuera en positivo desde esta lista; no se reescribe otra.
  */
-export const BLOQUES_CON_PERSONAS: readonly string[] = ['closers_cierre', 'tareas_atencion', 'mapa_calor'];
+export const BLOQUES_CON_PERSONAS: readonly string[] = ['closers_cierre', 'llamadas_cierre', 'tareas_atencion', 'mapa_calor'];

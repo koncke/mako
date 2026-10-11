@@ -6,7 +6,9 @@
 // La galería agrupada como la de Looker Studio, y al final una sección «Bloques de MaKo»: lo de las tabs
 // viejas que tiene su propia lectura y sus acciones (Revenue, A quién cobrarle, las cohortes…,
 // lib/graficos-catalogo.ts → BLOQUES). «Insertar» (punto 18 del feedback del 11/10/2026): texto, imagen,
-// rectángulo, círculo, línea y flecha (TIPOS_ELEMENTO), que dibuja app/dashboard/Elemento.tsx.
+// rectángulo, círculo, línea y flecha (TIPOS_ELEMENTO), que dibuja app/dashboard/Elemento.tsx; y desde la
+// decisión 6 (Closing al Dashboard, el mismo día) un Enlace, un Video y una página insertada
+// (app/dashboard/ElementoInsertado.tsx). El menú va en tres grupos: lo que se lee, lo que se mira y las formas.
 //
 // Acá viven también el `Flotante` (el panel anclado a un botón que usan todos los menús del editor) y los
 // íconos de la barra, para que la fila de arriba (./Cabecera.tsx), el panel (./Propiedades.tsx) y el
@@ -14,7 +16,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BLOQUES, GRUPOS, TIPOS, TIPOS_ELEMENTO, type BloqueId, type TipoElemento } from '@/lib/graficos-catalogo';
+import { BLOQUES, GRUPOS, TIPOS, TIPOS_ELEMENTO, type BloqueId, type GrupoElemento, type TipoElemento } from '@/lib/graficos-catalogo';
 import { PALETA_MAKO } from '@/lib/graficos-temas';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { IconoElemento } from './Elemento';
@@ -29,7 +31,9 @@ export function Flotante({ ancla, onCerrar, ancho, children }: { ancla: HTMLElem
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; alto: number } | null>(null);
   const cerrar = useRef(onCerrar);
-  cerrar.current = onCerrar;
+  // El último `onCerrar`, al día ANTES de los efectos que lo llaman (un efecto de layout corre en orden). En
+  // un efecto y no en el render: un ref escrito al dibujar es lo que el lint de la casa rechaza.
+  useLayoutEffect(() => { cerrar.current = onCerrar; });
   useLayoutEffect(() => {
     const ubicar = () => {
       if (!ancla.isConnected) { cerrar.current(); return; }
@@ -95,17 +99,27 @@ export function Galeria({ actual, onElegir, onBloque }: { actual?: string; onEle
   );
 }
 
+/** Los grupos del menú «Insertar», en orden: los del catálogo (`grupo` de TIPOS_ELEMENTO). */
+const GRUPOS_ELEMENTO: readonly GrupoElemento[] = ['texto', 'medios', 'formas'];
+
 /**
  * «Insertar»: cada opción con su dibujo (la regla de la casa: un desplegable lleva ícono en cada opción).
- * El dibujo es el de ./Elemento.tsx, el mismo de la cabecera de su panel: un solo lugar.
+ * El dibujo es el de ./Elemento.tsx, el mismo de la cabecera de su panel: un solo lugar. Los grupos van
+ * separados por un filete, sin rótulo: el dibujo y el nombre ya dicen qué es cada uno.
  */
 export function MenuInsertar({ onElegir }: { onElegir: (t: TipoElemento) => void }) {
+  const grupos = GRUPOS_ELEMENTO.map((g) => TIPOS_ELEMENTO.filter((t) => t.grupo === g)).filter((ts) => ts.length);
   return (
     <div className="lk-lista" role="menu">
-      {TIPOS_ELEMENTO.map((t) => (
-        <button key={t.id} type="button" role="menuitem" className="lk-opcion" onClick={() => onElegir(t.id)}>
-          <IconoElemento tipo={t.id} size={17} /> <span>{t.nombre}</span>
-        </button>
+      {grupos.map((ts, i) => (
+        <div key={ts[0].grupo} role="group">
+          {i > 0 && <div className="lk-sep-h" role="separator" />}
+          {ts.map((t) => (
+            <button key={t.id} type="button" role="menuitem" className="lk-opcion" onClick={() => onElegir(t.id)}>
+              <IconoElemento tipo={t.id} size={17} /> <span>{t.nombre}</span>
+            </button>
+          ))}
+        </div>
       ))}
     </div>
   );

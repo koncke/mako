@@ -235,3 +235,41 @@ test('datosDeBloques reparte y le pasa a datosDeBloquesExtra SÓLO los extra; Cu
   const primero = f.slice(f.indexOf('{', f.indexOf(') {')), f.indexOf('const d = payloadDe('));
   assert.match(primero, /if \(!esBloqueComercial\(b\.bloque\)\) \{\s*return <CuerpoBloqueExtra b=\{b\} estado=\{estado\} estilo=\{estilo\} desde=\{desde\} hasta=\{hasta\} onRefrescar=\{onRefrescar\} \/>;/);
 });
+
+// Martín, 11/10/2026: «Que muestre todas y para eso tenemos filtros dentro de un elemento». Con el filtro de
+// fecha de la hoja en 30 días, el funnel maduro y las cohortes quedaban con 1-2 cohortes. Su período propio
+// le gana al control de la hoja (efectivoDe) y se acota con el control del bloque.
+// Probado rompiéndolo (base 14 / 0): sin `periodo: 'todo'` en las cohortes semanales -> 13 / 1.
+test('Comercial: el funnel maduro y las cohortes muestran TODAS (período propio «Todo»)', async () => {
+  const { componentesDe, plantillaHojaDe } = await import('../lib/graficos-plantillas');
+  const { efectivoDe, esBloque } = await import('../lib/graficos-catalogo');
+  const p = plantillaHojaDe('comercial');
+  assert.ok(p, 'no encontré la plantilla comercial');
+  const comps = componentesDe(p!);
+  const hoja = { ...(await import('../lib/graficos-plantillas')).tableroInicial().hojas[1] };
+  for (const bloque of ['funnel_maduro', 'cohortes_mes', 'cohortes_semana']) {
+    const c = comps.find((x) => esBloque(x) && x.bloque === bloque);
+    assert.ok(c && esBloque(c), `falta el bloque ${bloque}`);
+    assert.equal(c.periodo, 'todo', `${bloque} no muestra todas`);
+    // Y le gana al control de período de la hoja (que arranca en 30 días).
+    const ef = efectivoDe(c, hoja, {}, '2026-10-11');
+    assert.ok(ef.desde < '2024-01-01', `${bloque}: el período efectivo arranca el ${ef.desde}`);
+  }
+});
+
+// Martín, 11/10/2026, sobre «Marcar cobrada»: «Cualquiera con acceso a esa tab». La action no tenía guarda
+// (la llamaba cualquiera con su id) ni miraba que la cuota fuera del lead que recibe.
+// Probado rompiéndolo (base 15 / 0): sin la llamada a la guarda -> 14 / 1; sin el chequeo del lead -> 14 / 1.
+test('«Marcar cobrada»: sesión, acceso a la tab (CRM o Dashboard) y la cuota tiene que ser de ese lead', () => {
+  const src = readFileSync(resolve(__dirname, '../app/crm/actions.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const ini = src.indexOf('export async function marcarPagoAction(');
+  const cuerpo = src.slice(ini, src.indexOf('\n}\n', ini));
+  assert.match(cuerpo, /\): Promise<void> \{\n  await exigirAccesoAMarcarPago\(pagoId, leadId\);\n  await marcarPago\(/, 'la guarda va ANTES de escribir');
+  const g = src.slice(src.indexOf('async function exigirAccesoAMarcarPago('), src.indexOf('\n}\n', src.indexOf('async function exigirAccesoAMarcarPago(')));
+  assert.match(g, /if \(rol == null\) throw/);
+  assert.match(g, /tabEnCapa\('crm', capa\)/);
+  assert.match(g, /rol === 'admin' && tabEnCapa\('graphics', capa\)/);
+  assert.match(g, /\.eq\('id', pagoId\)\.eq\('workspace_id', ws \?\? -1\)/);
+  assert.match(g, /!== Number\(leadId\)\) throw/);
+  assert.doesNotMatch(src, /export async function exigirAccesoAMarcarPago/, 'un archivo use server sólo exporta las actions');
+});

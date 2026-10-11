@@ -244,6 +244,12 @@ export const CSS = `
    así los gráficos se dibujan ya con su medida de papel. */
 .lk-solo-imprimir { display: none; }
 .lk--imprimir .lk-pagina { width: 1040px; padding-left: 0; padding-right: 0; }
+/* Lo que imprimen los elementos (app/dashboard/Elemento.tsx y ElementoInsertado.tsx): la dirección de un
+   enlace debajo de su texto, y en lugar de un reproductor o una página insertada, un recuadro con su
+   título y su proveedor. SIN display acá: lo da el bloque de impresión, si no se vería en pantalla. */
+.lk-imp-enlace { font-size: 11px; font-weight: 400; color: var(--dim); margin-top: 2px; overflow-wrap: anywhere; letter-spacing: 0; }
+.lk-imp-caja { flex: 1; min-height: 0; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 10px; box-sizing: border-box; border: 1.5px dashed var(--border-strong); border-radius: var(--dash-tarjeta-radio, 16px); color: var(--dim); font-size: 13px; text-align: center; overflow: hidden; }
+.lk-imp-tit { font-weight: 600; color: var(--ink); }
 @media print {
   @page { size: A4 landscape; margin: 10mm; }
   aside[data-sidebar] { display: none !important; }
@@ -256,6 +262,8 @@ export const CSS = `
   .lk-cuerpo, .lk-lienzo { display: block !important; overflow: visible !important; height: auto !important; }
   .lk-cab-hoja { padding: 0 0 10px; }
   .lk-solo-imprimir { display: block !important; }
+  .lk-solo-imprimir.lk-imp-caja { display: flex !important; }
+  .lk-comp--elemento iframe, .lk-comp--elemento video { display: none !important; }
   .lk-pagina { width: 1040px; padding: 0 !important; }
   .lk .react-grid-layout { display: grid !important; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: 30px; gap: 16px; height: auto !important; }
   .lk .react-grid-item { position: relative !important; transform: none !important; left: auto !important; top: auto !important; width: auto !important; height: auto !important; grid-column: var(--lk-col); grid-row: var(--lk-fila); break-inside: avoid; page-break-inside: avoid; }

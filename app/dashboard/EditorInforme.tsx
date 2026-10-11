@@ -41,6 +41,17 @@
 //    el resultado. Next integra el replaceState nativo a su router.
 // ⚠️ Mientras corre un recorrido, los atajos (Supr, Ctrl+Z) se apagan: el recorrido sólo frena Escape y
 //    Tab, y debajo del velo Supr borraba el componente elegido sin que se viera.
+//
+// DESDE EL 11/10/2026 (Closing, Ads y Landing Analyst se retiraron y traen acá con `?hoja=`):
+//   · `hojaAgregada`: la plantilla que pidió el link y no estaba (`hojaDestino`, lib/graficos-plantillas.ts).
+//     Entra en el informe del PRIMER render —así no hay un parpadeo de la primera hoja— y como
+//     `ultimoGuardado` sigue siendo el informe que vino, el autoguardado la escribe: la persona fue a
+//     buscarla. No se apila en el deshacer: no es un cambio suyo.
+//   · `soloLectura` (el closer, decisión 6 de Martín): sin Editar, sin Nueva hoja, sin menú de hoja, sin
+//     AI Analyst ni el chat de MaKo de cada gráfico, sin el detalle de un número y sin guardar nunca;
+//     Exportar sí. ⚠️ La pantalla sólo esconde: lo que cierra es /api/graficos (`closerPuedePedir`).
+//   · `llamadaInicial` (`?llamada=`): abre la ficha de esa llamada (./bloques/extra/FichaLlamada.tsx);
+//     al cerrarla se saca de la URL con el mismo replaceState que usa la hoja.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
 import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } from 'react-grid-layout';
@@ -57,12 +68,12 @@ import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
 import {
   AREAS, COLS, FUENTES, MAX_COMPONENTES, MAX_CONTROLES, MAX_HOJAS,
-  campoDe, efectivoDe, esBloque, esElemento, esGrafico, nuevoBloque, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
+  campoDe, efectivoDe, esBloque, esElemento, esGrafico, minimoDeElemento, nuevoBloque, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
   sanearComponente, sanearControlVista, sanearControles, tituloDe, tonoDe,
   type BloqueId, type Componente, type ControlVista, type Efectivo, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
 import { colorDeTono, estiloEfectivo, letrasDe, paletaDe, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
-import { tableroInicial } from '@/lib/graficos-plantillas';
+import { conHojaAgregada, tableroInicial } from '@/lib/graficos-plantillas';
 import type { Resultado } from '@/lib/graficos-agregar';
 import type { DatosGrafico } from '@/lib/graficos-datos';
 import type { DatosBloque } from '@/lib/graficos-bloques';
@@ -74,6 +85,7 @@ import { NuevaHoja } from './NuevaHoja';
 import { BotonAnalista, PanelAnalista } from './PanelAnalista';
 import { BarraControles, ChipsControles } from './BarraControles';
 import { DetalleModal } from './Detalle';
+import { FichaLlamada } from './bloques/extra/FichaLlamada';
 import { CabeceraHoja, FilaHojas } from './Cabecera';
 import { PropsBloque, PropsGrafico } from './Propiedades';
 import { PanelEstilo } from './PanelEstilo';
@@ -89,6 +101,11 @@ const FILA = 30;
 const MARGEN = 16;
 /** Por debajo de este ancho, la grilla de 12 columnas no se lee: las tarjetas van una abajo de la otra. */
 const ANCHO_PILA = 640;
+/**
+ * Lo más chico que se puede achicar una tarjeta. El de un elemento sale del catálogo (`minimoDeElemento`,
+ * TIPOS_ELEMENTO): un video o una página insertada más chicos que 3 × 4 no se ven ni se tocan.
+ */
+const minimoDe = (c: Componente): { w: number; h: number } => (esElemento(c) ? minimoDeElemento(c.tipo) : { w: 2, h: 2 });
 /** Cuánto espera el respiro del autoguardado y el de los pedidos de datos. */
 const RESPIRO_GUARDAR_MS = 700;
 const RESPIRO_DATOS_MS = 250;
@@ -129,18 +146,32 @@ function descargar(texto: string, nombre: string, tipo: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lecturaFallo, hoy, hojaInicial }: {
+export function EditorInforme({
+  inicial, datosIniciales, bloquesIniciales, lecturaFallo, hoy, hojaInicial,
+  hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null,
+}: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
   bloquesIniciales: Record<string, DatosBloque>;
   lecturaFallo: boolean;
   hoy: string;
   hojaInicial: string;
+  /** La plantilla que pidió `?hoja=` y no estaba: se suma al informe y se guarda. */
+  hojaAgregada?: Hoja | null;
+  /** Un aviso para mostrar al abrir (el link pidió una hoja y el informe ya no tiene lugar). */
+  aviso?: string | null;
+  /** El closer: mira la hoja Closing, exporta, y nada más. */
+  soloLectura?: boolean;
+  /** `?llamada=`: el recording_id de la llamada cuya ficha se abre al entrar. */
+  llamadaInicial?: number | null;
 }) {
-  const [tablero, setTablero] = useState<Tablero>(inicial);
+  // El informe del primer render: el que vino, más la hoja que pidió el link si no estaba.
+  const [arranque] = useState<Tablero>(() => conHojaAgregada(inicial, hojaAgregada));
+  const [tablero, setTablero] = useState<Tablero>(arranque);
   const tableroRef = useRef(tablero);
   tableroRef.current = tablero;
   const [hojaId, setHojaId] = useState(hojaInicial);
+  const [llamada, setLlamada] = useState<number | null>(llamadaInicial);
   const [editando, setEditando] = useState(false);
   const [selId, setSelId] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu>(null);
@@ -166,14 +197,15 @@ export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lectu
   const { confirm, confirmNode } = useConfirm();
   const { width, containerRef, mounted } = useContainerWidth();
   const ws = useWs();
-  const guardable = !lecturaFallo;
+  // Mirando sin poder guardar: la lectura falló (el primer cambio pisaría el informe real) o es el closer.
+  const guardable = !lecturaFallo && !soloLectura;
 
   const hoja = tablero.hojas.find((h) => h.id === hojaId) ?? tablero.hojas[0];
   const sel = editando ? hoja.componentes.find((c) => c.id === selId) ?? null : null;
 
   // ── El recorrido: uno para mirar y otro para editar (el «?» abre el del lugar) ─────────────────
   // No se abre solo con un menú o un modal abierto: los flotantes del editor van por encima del velo.
-  const capaAbierta = !!menu || modalDatos || nuevaHoja || analista || !!detalle;
+  const capaAbierta = !!menu || modalDatos || nuevaHoja || analista || !!detalle || llamada != null;
   const recorrido = useRecorrido(RECORRIDO_DASHBOARD, { autoabrir: !editando && !capaAbierta });
   const recorridoEdicion = useRecorrido(RECORRIDO_DASHBOARD_EDICION, { autoabrir: editando && !recorrido.abierto && !capaAbierta });
   const enRecorrido = recorrido.abierto || recorridoEdicion.abierto;
@@ -204,8 +236,8 @@ export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lectu
   const firmaPedida = useRef<Record<string, string> | null>(null);
   if (firmaPedida.current === null) {
     // Lo que trajo el server en la primera pintada ya está pedido: con la vista vacía y la versión 0,
-    // con la MISMA función que usó page.tsx.
-    const h0 = inicial.hojas.find((h) => h.id === hojaInicial) ?? inicial.hojas[0];
+    // con la MISMA función que usó page.tsx (y sobre el MISMO informe: el que incluye la hoja agregada).
+    const h0 = arranque.hojas.find((h) => h.id === hojaInicial) ?? arranque.hojas[0];
     const p0 = pedidosDeHoja(h0, {}, hoy, 0);
     const f: Record<string, string> = {};
     for (const x of p0.graficos) if (datosIniciales[x.g.id]) f[x.g.id] = x.firma;
@@ -296,6 +328,8 @@ export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lectu
   }, [datos]);
 
   // ── El guardado: solo, con un respiro, y nunca si la lectura falló ─────────────────────────────
+  // Lo guardado es el informe que VINO (`inicial`), no el del primer render: si el link sumó una hoja,
+  // la diferencia la escribe el autoguardado de abajo sin que nadie toque nada.
   const ultimoGuardado = useRef(JSON.stringify(inicial));
   const pendienteGuardar = useRef<string | null>(null);
   const mandar = useCallback(async (json: string, keepalive = false) => {
@@ -338,6 +372,25 @@ export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lectu
       window.history.replaceState(null, '', conWs(`${window.location.pathname}?${qs.toString()}`, ws));
     } catch { /* sin history: la hoja ya cambió en pantalla, y el link copiado abre la primera */ }
   }, [ws]);
+  /** La ficha de la llamada que abrió el link (`?llamada=`): al cerrarla, el parámetro se va de la URL. */
+  const cerrarLlamada = useCallback(() => {
+    setLlamada(null);
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      qs.delete('llamada');
+      const q = qs.toString();
+      window.history.replaceState(null, '', conWs(`${window.location.pathname}${q ? `?${q}` : ''}`, ws));
+    } catch { /* sin history: la ficha ya se cerró, y recargar la vuelve a abrir */ }
+  }, [ws]);
+  // Lo que pasó al abrir sin que la persona tocara nada: se dice una vez, corto.
+  const avisado = useRef(false);
+  useEffect(() => {
+    if (avisado.current) return;
+    avisado.current = true;
+    if (hojaAgregada && arranque.hojas.some((h) => h.id === hojaAgregada.id) && !inicial.hojas.some((h) => h.id === hojaAgregada.id)) {
+      show(`Hoja ${hojaAgregada.nombre} agregada`);
+    } else if (aviso) show(aviso);
+  }, [hojaAgregada, arranque, inicial, aviso, show]);
   /** Lo que devuelve «Nueva hoja» (en blanco, de una plantilla o armada por MaKo), ya saneado. */
   const crearHoja = useCallback((h: Hoja, aviso?: string) => {
     const t = tableroRef.current;
@@ -533,7 +586,7 @@ export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lectu
 
   // ── La grilla ────────────────────────────────────────────────────────────────────────────────
   const layout: Layout = useMemo(
-    () => hoja.componentes.map((c) => ({ i: c.id, x: c.x, y: c.y, w: c.w, h: c.h, minW: esElemento(c) ? 1 : 2, minH: esElemento(c) ? 1 : 2 })),
+    () => hoja.componentes.map((c) => { const m = minimoDe(c); return { i: c.id, x: c.x, y: c.y, w: c.w, h: c.h, minW: m.w, minH: m.h }; }),
     [hoja.componentes],
   );
   // Arrastrar y agrandar: se apila UNA vez al empezar el gesto, no en cada píxel.
@@ -619,8 +672,9 @@ export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lectu
           </div>
           <div className="lk-comp-acciones lk-no-arrastrar" onClick={(e) => e.stopPropagation()}>
             {chips}
-            {/* El chat de MaKo de cada gráfico (el de las tabs viejas), también mirando. Sin personas: ./exportar.ts. */}
-            {est.resultado && (
+            {/* El chat de MaKo de cada gráfico (el de las tabs viejas), también mirando. Sin personas: ./exportar.ts.
+                Al closer no: su tab de antes no lo tenía, y es IA que gasta en una vista de sólo lectura. */}
+            {est.resultado && !soloLectura && (
               <span className="lk-mako" data-recorrido={c.id === primerGrafico ? 'dash-mako' : undefined}>
                 <MakoButton chartKey={`dashboard:${hoja.id}:${c.id}`} titulo={tituloDe(c)} contexto={contextoDeGrafico(c, est.resultado, ef)} />
               </span>
@@ -628,7 +682,8 @@ export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lectu
           </div>
         </div>
         {!kpi && c.subtitulo && <div className="lk-comp-sub" title={c.subtitulo}>{c.subtitulo}</div>}
-        <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando ? undefined : (s) => setDetalle({ id: c.id, sel: s })} />
+        {/* El detalle de un número pide `detalle` a /api/graficos, que al closer le contesta 403: no se ofrece. */}
+        <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloLectura ? undefined : (s) => setDetalle({ id: c.id, sel: s })} />
       </div>
     );
   };
@@ -651,16 +706,21 @@ export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lectu
         acciones={(
           <>
             <BotonRecorrido objetivo="dash-ayuda" titulo={editando ? 'Ver la guía de edición' : 'Ver la guía del Dashboard'} onClick={editando ? recorridoEdicion.reabrir : recorrido.reabrir} />
-            {/* El botón de MaKo de la casa, con el punto de «hay un análisis nuevo» (./PanelAnalista.tsx). */}
-            <span className="lk-analista" data-recorrido="dash-analista">
-              <BotonAnalista hojaId={hoja.id} abierto={analista} onClick={alternarAnalista} />
-            </span>
+            {/* El botón de MaKo de la casa, con el punto de «hay un análisis nuevo» (./PanelAnalista.tsx).
+                Al closer no: /api/graficos/analisis es sólo del admin. */}
+            {!soloLectura && (
+              <span className="lk-analista" data-recorrido="dash-analista">
+                <BotonAnalista hojaId={hoja.id} abierto={analista} onClick={alternarAnalista} />
+              </span>
+            )}
             <button type="button" className="lk-pill" data-recorrido="dash-exportar" aria-haspopup="menu" aria-expanded={menu?.tipo === 'exportar'} onClick={abrirMenu('exportar')}>
               <SvgExportar /> Exportar <SvgFlecha />
             </button>
-            <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={alternarEdicion}>
-              {editando ? <><SvgOjo /> Ver</> : <><SvgLapiz /> Editar</>}
-            </button>
+            {!soloLectura && (
+              <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={alternarEdicion}>
+                {editando ? <><SvgOjo /> Ver</> : <><SvgLapiz /> Editar</>}
+              </button>
+            )}
             {guardable && (
               <button type="button" className="lk-pill lk-pill--icono" aria-label="Más opciones" aria-haspopup="menu" aria-expanded={menu?.tipo === 'mas'} onClick={abrirMenu('mas')}>⋯</button>
             )}
@@ -705,7 +765,7 @@ export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lectu
                 <p>Esta hoja no tiene gráficos.</p>
                 {editando ? (
                   <button type="button" className="lk-pill lk-pill--azul" onClick={(e) => { e.stopPropagation(); setMenu({ ancla: e.currentTarget, tipo: 'graficos' }); }}>Añadir un gráfico</button>
-                ) : (
+                ) : !soloLectura && (
                   <button type="button" className="lk-pill lk-pill--azul" onClick={alternarEdicion} disabled={!guardable}>Editar</button>
                 )}
               </div>
@@ -829,6 +889,9 @@ export function EditorInforme({ inicial, datosIniciales, bloquesIniciales, lectu
         <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivos[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
           onCerrar={cerrarDetalle} onCambio={refrescar} onFiltrar={filtrarPor} />
       )}
+      {/* La llamada del link (`?llamada=`). Sus tareas (re-analizar, revisar) son también del closer:
+          la ficha no va en sólo lectura. Después de una, los bloques se vuelven a pedir. */}
+      {llamada != null && <FichaLlamada recordingId={llamada} onCerrar={cerrarLlamada} onCambio={refrescar} />}
       {confirmNode}
 
       <Recorrido id={RECORRIDO_DASHBOARD} pasos={PASOS_DASHBOARD} abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />

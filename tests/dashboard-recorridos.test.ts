@@ -138,7 +138,7 @@ test('el de mirar se abre mirando, el de editar al editar, nunca los dos juntos,
   assert.match(EDITOR, /const recorrido = useRecorrido\(RECORRIDO_DASHBOARD, \{ autoabrir: !editando && !capaAbierta \}\);/);
   assert.match(EDITOR, /const recorridoEdicion = useRecorrido\(RECORRIDO_DASHBOARD_EDICION, \{ autoabrir: editando && !recorrido\.abierto && !capaAbierta \}\);/);
   // No se abre solo con un menú o un modal abierto: los flotantes del editor (z 580) quedan arriba del velo.
-  assert.match(EDITOR, /const capaAbierta = !!menu \|\| modalDatos \|\| nuevaHoja \|\| analista \|\| !!detalle;/);
+  assert.match(EDITOR, /const capaAbierta = !!menu \|\| modalDatos \|\| nuevaHoja \|\| analista \|\| !!detalle \|\| llamada != null;/);
   assert.match(EDITOR, /<BotonRecorrido objetivo="dash-ayuda" [^\n]*onClick=\{editando \? recorridoEdicion\.reabrir : recorrido\.reabrir\}/);
   assert.match(EDITOR, /<Recorrido id=\{RECORRIDO_DASHBOARD\} pasos=\{PASOS_DASHBOARD\} abierto=\{recorrido\.abierto\} onCerrar=\{recorrido\.onCerrar\} \/>/);
   assert.match(EDITOR, /<Recorrido id=\{RECORRIDO_DASHBOARD_EDICION\} pasos=\{PASOS_DASHBOARD_EDICION\} abierto=\{recorridoEdicion\.abierto\} onCerrar=\{recorridoEdicion\.onCerrar\} \/>/);

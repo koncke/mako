@@ -24,6 +24,8 @@
 
 import { diasAntes, esFechaValida } from './date-utils';
 import { PALETA_MAKO, sanearTema, type TemaHoja } from './graficos-temas';
+import { TOPE_DIRECCION, conDominio, esHostPropio } from './embeds';
+import { DOMINIOS_MAKO } from './email-remitente';
 
 import {
   AREAS, TIEMPO, cat, dist, m, r,
@@ -170,7 +172,9 @@ const FUENTES_BASE: readonly Fuente[] = [
     descripcion: 'Las llamadas que analizó el Closing Analyst: closer, resultado y puntaje.',
     fechas: [{ id: 'fecha', nombre: 'Llamada' }],
     // `llamada` es el título de cada llamada (con su recording_id en `r.llamada`): la fila del detalle.
-    dimensiones: [...TIEMPO, cat('closer', 'Closer'), cat('categoria', 'Categoría'), cat('reunion', 'Reunión'), cat('resultado', 'Resultado'), cat('llamada', 'Llamada')],
+    // `estado` (11/10/2026, para la hoja Closing): analizada, «Sin transcript», «Con error» o descartada;
+    // la llena lib/graficos-datos.ts (P2a del relevo).
+    dimensiones: [...TIEMPO, cat('closer', 'Closer'), cat('categoria', 'Categoría'), cat('reunion', 'Reunión'), cat('resultado', 'Resultado'), cat('estado', 'Estado'), cat('llamada', 'Llamada')],
     metricas: [
       m('llamadas', 'Llamadas'), m('minutos', 'Minutos'), r('duracion', 'Duración promedio (min)', 'numero', 'minutos', 'llamadas'),
       r('puntaje', 'Puntaje promedio', 'numero', 'puntos', 'con_puntaje'), m('puntos', 'Puntos'), m('con_puntaje', 'Llamadas con puntaje'),
@@ -310,6 +314,9 @@ export const ENTIDADES: Readonly<Record<string, InfoEntidad>> = {
   },
   pagos: { entidad: 'cuota', plural: 'Cuotas', ref: 'cuota', nombre: ['cliente', 'cuota'], linea: ['estado'], ids: { pago: 'cuota', lead: 'cliente' }, unidad: ['pagos', 'clientes'] },
   llamadas: { entidad: 'llamada', plural: 'Llamadas', ref: 'llamada', nombre: ['llamada'], linea: ['closer', 'reunion'], ids: { llamada: 'llamada', lead: 'lead' }, unidad: ['llamadas', 'con_puntaje'] },
+  // Las de VENTA (lib/graficos-fuentes-extra.ts): las que mira la hoja Closing. La misma forma que
+  // `llamadas`; su dimensión `llamada` (el título, con el recording_id en `r.llamada`) la pone el conjunto.
+  llamadas_venta: { entidad: 'llamada', plural: 'Llamadas', ref: 'llamada', nombre: ['llamada'], linea: ['closer', 'reunion'], ids: { llamada: 'llamada', lead: 'lead' }, unidad: ['llamadas', 'con_puntaje'] },
   tareas: { entidad: 'tarea', plural: 'Tareas', ref: 'tarea', nombre: ['tarea'], linea: ['proyecto', 'estado'], ids: { tarea: 'tarea' }, unidad: ['tareas', 'hechas', 'abiertas'] },
   entrega: { entidad: 'lead', plural: 'Clientes', ref: 'cliente', nombre: ['cliente'], linea: ['producto', 'etapa'], ids: { lead: 'cliente' }, unidad: ['clientes'] },
 };
@@ -359,7 +366,10 @@ export function destinoDetalle(fuenteId: string, fecha: string, metrica: string 
     return x ? { ...x, columnas: [...x.columnas] } : null;
   }
   const ent = ENTIDADES[fuenteId];
-  const fuente = FUENTES_BASE.find((f) => f.id === fuenteId);
+  // TODOS los conjuntos, también los de las tabs de Analysts: hasta el 11/10/2026 se buscaba sólo en
+  // FUENTES_BASE, así que una entidad de un conjunto extra (`llamadas_venta`) quedaba declarada y su
+  // número no se podía abrir nunca, sin un error.
+  const fuente = fuenteDe(fuenteId);
   const mm = fuente?.metricas.find((x) => x.id === metrica);
   if (!ent || !fuente || !mm || !fuente.fechas.some((x) => x.id === fecha)) return null;
   const esUnidad = (id: string): boolean => {
@@ -810,21 +820,50 @@ export type Bloque = {
   x: number; y: number; w: number; h: number;
 };
 
-/** Lo que se inserta como en Looker (punto 18): texto, imagen, formas y flechas. */
-export type TipoElemento = 'texto' | 'imagen' | 'rectangulo' | 'circulo' | 'linea' | 'flecha';
-export const TIPOS_ELEMENTO: ReadonlyArray<{ id: TipoElemento; nombre: string; w: number; h: number }> = [
-  { id: 'texto', nombre: 'Texto', w: 12, h: 2 },
-  { id: 'imagen', nombre: 'Imagen', w: 4, h: 6 },
-  { id: 'rectangulo', nombre: 'Rectángulo', w: 4, h: 4 },
-  { id: 'circulo', nombre: 'Círculo', w: 3, h: 4 },
-  { id: 'linea', nombre: 'Línea', w: 6, h: 1 },
-  { id: 'flecha', nombre: 'Flecha', w: 3, h: 2 },
+/**
+ * Lo que se inserta como en Looker (punto 18): texto, imagen, formas y flechas; y desde el 11/10/2026
+ * (decisión 6 de Martín, «Closing Analyst va COMPLETO al Dashboard, sumando los elementos Enlace, Video e
+ * Insertar») un ENLACE (a una pantalla de MaKo o afuera), un VIDEO (YouTube, Vimeo, Loom, Drive, Fathom…
+ * o un archivo) y un INSERTADO (cualquier página https en un iframe con sandbox, como el «Insertar URL» de
+ * Looker). Los dibuja app/dashboard/Elemento.tsx (el Enlace) y app/dashboard/ElementoInsertado.tsx.
+ *
+ * `minW`/`minH`: lo más chico que se puede achicar en la grilla. Un video o una página de 1×1 no se ven:
+ * la pantalla los lee de acá (`minimoDeElemento`) y el saneo no deja guardar menos.
+ * `grupo`: las secciones del menú «Insertar».
+ * ⚠️ MaKo (el AI Analyst) NO crea elementos que no sean un título (lib/graficos-ia.ts, `pieza`): un link o
+ *    una página elegidos por un modelo serían un dato exacto en manos de un LLM.
+ */
+export type TipoElemento = 'texto' | 'enlace' | 'imagen' | 'video' | 'insertado' | 'rectangulo' | 'circulo' | 'linea' | 'flecha';
+export type GrupoElemento = 'texto' | 'medios' | 'formas';
+export type InfoElemento = { id: TipoElemento; nombre: string; w: number; h: number; minW: number; minH: number; grupo: GrupoElemento };
+export const TIPOS_ELEMENTO: ReadonlyArray<InfoElemento> = [
+  { id: 'texto', nombre: 'Texto', w: 12, h: 2, minW: 1, minH: 1, grupo: 'texto' },
+  { id: 'enlace', nombre: 'Enlace', w: 4, h: 2, minW: 1, minH: 1, grupo: 'texto' },
+  { id: 'imagen', nombre: 'Imagen', w: 4, h: 6, minW: 1, minH: 1, grupo: 'medios' },
+  { id: 'video', nombre: 'Video', w: 6, h: 7, minW: 3, minH: 4, grupo: 'medios' },
+  { id: 'insertado', nombre: 'Insertar', w: 12, h: 12, minW: 3, minH: 4, grupo: 'medios' },
+  { id: 'rectangulo', nombre: 'Rectángulo', w: 4, h: 4, minW: 1, minH: 1, grupo: 'formas' },
+  { id: 'circulo', nombre: 'Círculo', w: 3, h: 4, minW: 1, minH: 1, grupo: 'formas' },
+  { id: 'linea', nombre: 'Línea', w: 6, h: 1, minW: 1, minH: 1, grupo: 'formas' },
+  { id: 'flecha', nombre: 'Flecha', w: 3, h: 2, minW: 1, minH: 1, grupo: 'formas' },
 ];
+/** Lo más chico de un elemento en la grilla (el `minW`/`minH` del layout). Un tipo que no existe: 1×1. */
+export function minimoDeElemento(tipo: string): { w: number; h: number } {
+  const i = TIPOS_ELEMENTO.find((x) => x.id === tipo);
+  return { w: i?.minW ?? 1, h: i?.minH ?? 1 };
+}
+/** Lo más largo del texto de cada tipo: el párrafo de un Texto, el de un Enlace, el título de un Video. */
+const TOPE_TEXTO_ELEMENTO: Partial<Record<TipoElemento, number>> = { enlace: 300, video: 120, insertado: 120 };
+/** El tope del texto de un tipo: el MISMO para el saneo y para los campos de la pantalla (su `maxLength`). */
+export const topeDeTextoElemento = (tipo: TipoElemento): number => TOPE_TEXTO_ELEMENTO[tipo] ?? 2000;
 export type Elemento = {
   id: string;
   clase: 'elemento';
   tipo: TipoElemento;
-  /** Texto: hasta 2000 caracteres; un salto de línea es un párrafo. */
+  /**
+   * Texto: hasta 2000 caracteres; un salto de línea es un párrafo. Enlace: lo que se lee (300). Imagen:
+   * su descripción. Video e Insertar: su título (120).
+   */
   texto: string;
   tamano: 's' | 'm' | 'l' | 'xl';
   alinear: 'izquierda' | 'centro' | 'derecha';
@@ -832,7 +871,11 @@ export type Elemento = {
   color: number | null;
   /** Formas: rellena o sólo el contorno. */
   relleno: boolean;
-  /** Imagen: sólo https (el valor termina en un `src`). */
+  /**
+   * La dirección, saneada POR TIPO (`urlDeElemento`): imagen y video, https; enlace, un camino de MaKo
+   * (`/crm`) o http/https afuera; insertado, https que no sea de MaKo. ⚠️ Lo que se guarda es SIEMPRE una
+   * dirección: un código `<iframe>` pegado no se guarda nunca, sólo su `src`. Vacío = sin dirección.
+   */
   url: string;
   ajuste: 'cubrir' | 'contener';
   direccion: 'derecha' | 'izquierda' | 'arriba' | 'abajo';
@@ -984,6 +1027,80 @@ export function sanearBloque(raw: unknown): Bloque | null {
 /** Sólo https: el valor termina en un `src` (un `javascript:` o un `data:` gigante no entran). */
 export const urlDeImagen = (v: unknown): string => (typeof v === 'string' && /^https:\/\/[^\s"'<>]{4,2000}$/i.test(v.trim()) ? v.trim() : '');
 
+/** Un tab, un salto o un control ADENTRO de una URL lo borra el navegador: `/` + tab + `/evil.tld` es `//evil.tld`. */
+const RE_INVISIBLES = /[\s\u0000-\u001f\u007f\\]/;
+
+/**
+ * Una dirección https que se puede guardar (video, insertado): sin usuario, clave ni puerto, con dominio
+ * (ni `localhost` ni una IP) y hasta 2000, normalizada por `new URL`. '' = no. Un código `<iframe>` pegado
+ * no pasa nunca (trae espacios): lo que se guarda es la dirección que la pantalla le sacó.
+ * ⚠️ Es la vara de lo que se GUARDA, a propósito más floja que la de lo que se VE (`videoDe`,
+ *    `insertableDe`, lib/embeds.ts): si mañana la lista de proveedores cambia, un link guardado no se
+ *    borra en el próximo guardado; la pantalla dice por qué no se ve.
+ */
+export function urlHttps(v: unknown): string {
+  if (typeof v !== 'string') return '';
+  const t = v.trim();
+  if (!t || t.length > TOPE_DIRECCION || RE_INVISIBLES.test(t)) return '';
+  let u: URL;
+  try { u = new URL(t); } catch { return ''; }
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || !conDominio(u.hostname)) return '';
+  return u.href.length <= TOPE_DIRECCION ? u.href : '';
+}
+/** El link de un video: https (lo que se ve lo decide `videoDe`). */
+export const urlDeVideo = urlHttps;
+/** Lo que se inserta: https y NUNCA de MaKo (un iframe de nuestro origen con allow-same-origin se sacaría el sandbox). */
+export const urlDeInsertado = (v: unknown): string => {
+  const u = urlHttps(v);
+  return u && !esHostPropio(new URL(u).hostname) ? u : '';
+};
+
+/** Lo más largo del camino de una pantalla de MaKo. */
+const TOPE_CAMINO = 500;
+/**
+ * El camino de una pantalla de MaKo: `/` y después algo que NO sea otra `/` ni una `\` (`//x` y `/\x`
+ * son OTRO host para el navegador), y que no sea una API ni un archivo de Next (un link no dispara un GET
+ * a `/api/…` con la sesión de quien lo toca).
+ */
+const RE_CAMINO = /^\/(?![/\\])(?!(?:api|_next)(?:[/?#]|$))/i;
+
+/**
+ * El enlace de un elemento Enlace. Dos formas, y nada más:
+ *   · un CAMINO de MaKo (`/crm?x=1`, hasta 500): se abre adentro con app/_ui/Link, que conserva el `?ws=`;
+ *   · un link http/https con dominio (hasta 2000), que se abre en otra pestaña. Sin esquema y con forma
+ *     de dominio (`ejemplo.com/x`), se le pone https, como a un link pegado (`direccionDeTexto`).
+ * Un link a MaKo misma (`https://hola-mako.com/crm`) se guarda como su CAMINO: abierto afuera perdería
+ * el cliente que se está mirando. Lo que nunca entra: `javascript:`, `data:`, `//otro.host`, usuario y
+ * clave (`https://banco.com@otro.sitio`), `localhost` o una IP, y cualquier espacio o control adentro.
+ */
+export function urlDeEnlace(v: unknown): string {
+  if (typeof v !== 'string') return '';
+  const t = v.trim();
+  if (!t || t.length > TOPE_DIRECCION || RE_INVISIBLES.test(t)) return '';
+  if (t.startsWith('/')) return t.length <= TOPE_CAMINO && RE_CAMINO.test(t) ? t : '';
+  const conEsquema = /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : /^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[/?#]|$)/i.test(t) ? `https://${t}` : '';
+  if (!conEsquema) return '';
+  let u: URL;
+  try { u = new URL(conEsquema); } catch { return ''; }
+  if ((u.protocol !== 'https:' && u.protocol !== 'http:') || u.username || u.password || !conDominio(u.hostname)) return '';
+  if (DOMINIOS_MAKO.includes(u.hostname.replace(/^www\./, ''))) {
+    const camino = `${u.pathname}${u.search}${u.hash}`;
+    return camino.length <= TOPE_CAMINO && RE_CAMINO.test(camino) ? camino : '';
+  }
+  return u.href.length <= TOPE_DIRECCION ? u.href : '';
+}
+
+/** La dirección de un elemento, saneada según su tipo. Los que no llevan dirección (texto, formas) guardan ''. */
+export function urlDeElemento(tipo: TipoElemento, v: unknown): string {
+  switch (tipo) {
+    case 'imagen': return urlDeImagen(v);
+    case 'enlace': return urlDeEnlace(v);
+    case 'video': return urlDeVideo(v);
+    case 'insertado': return urlDeInsertado(v);
+    default: return '';
+  }
+}
+
 export function sanearElemento(raw: unknown): Elemento | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
@@ -994,16 +1111,16 @@ export function sanearElemento(raw: unknown): Elemento | null {
   const grosor = [1, 2, 3, 4].includes(Number(o.grosor)) ? (Number(o.grosor) as 1 | 2 | 3 | 4) : 2;
   return {
     id: idValido(o.id) ?? nuevoId(), clase: 'elemento', tipo: info.id,
-    texto: texto(o.texto, 2000),
+    texto: texto(o.texto, topeDeTextoElemento(info.id)),
     tamano: uno(o.tamano, ['s', 'm', 'l', 'xl'] as const, info.id === 'texto' ? 'l' : 'm'),
     alinear: uno(o.alinear, ['izquierda', 'centro', 'derecha'] as const, 'izquierda'),
     color, relleno: o.relleno !== false,
-    url: urlDeImagen(o.url),
+    url: urlDeElemento(info.id, o.url),
     ajuste: uno(o.ajuste, ['cubrir', 'contener'] as const, 'cubrir'),
     direccion: uno(o.direccion, ['derecha', 'izquierda', 'arriba', 'abajo'] as const, 'derecha'),
     grosor,
     x: entero(o.x, 0, COLS - 1, 0), y: entero(o.y, 0, 999, 0),
-    w: entero(o.w, 1, COLS, info.w), h: entero(o.h, 1, 30, info.h),
+    w: entero(o.w, info.minW, COLS, info.w), h: entero(o.h, info.minH, 30, info.h),
   };
 }
 
@@ -1100,9 +1217,18 @@ export function nuevoBloque(bloque: BloqueId, componentes: Componente[]): Bloque
   return sanearBloque({ id: nuevoId(), bloque, x: 0, y: abajoDeTodo(componentes), w: info.w, h: info.h })!;
 }
 
+/** Lo que trae escrito un elemento recién insertado (se reemplaza con un doble clic). */
+const TEXTO_INICIAL: Partial<Record<TipoElemento, string>> = { texto: 'Escribe un título', enlace: 'Texto del enlace' };
+
 export function nuevoElemento(tipo: TipoElemento, componentes: Componente[]): Elemento {
   const info = TIPOS_ELEMENTO.find((x) => x.id === tipo) ?? TIPOS_ELEMENTO[0];
-  return sanearElemento({ id: nuevoId(), tipo: info.id, texto: info.id === 'texto' ? 'Escribe un título' : '', x: 0, y: abajoDeTodo(componentes), w: info.w, h: info.h })!;
+  return sanearElemento({
+    id: nuevoId(), tipo: info.id, texto: TEXTO_INICIAL[info.id] ?? '',
+    // Un enlace nace con el ACENTO del tema (el primer color de su paleta): un link en la tinta del texto
+    // no se distingue de un texto.
+    color: info.id === 'enlace' ? 0 : null,
+    x: 0, y: abajoDeTodo(componentes), w: info.w, h: info.h,
+  })!;
 }
 
 /** Un control nuevo. Una lista o una búsqueda nacen con un campo: sin campo no filtran nada. */

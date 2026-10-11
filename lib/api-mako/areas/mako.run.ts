@@ -262,7 +262,8 @@ export const RUNNERS: Runners = {
       // y queda solo si la capa del negocio incluye esa key. En positivo: con una capa
       // restringida, una ruta que no cae en ningún item del nav no sale.
       const disponible = (ruta: string): boolean => {
-        const item = TODOS_LOS_ITEMS.find((i) => i.match(ruta));
+        // Sin la query: una capacidad puede apuntar a `/dashboard?hoja=closing`, y el `match` del nav mira el camino.
+        const item = TODOS_LOS_ITEMS.find((i) => i.match(ruta.split(/[?#]/)[0]));
         if (vista.tabs != null && (!item || !vista.tabs.includes(item.key))) return false;
         if (vista.rol !== 'admin' && !(item?.rolesWs?.length)) return false;
         return true;

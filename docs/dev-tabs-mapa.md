@@ -323,8 +323,8 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 ### Dashboard
 
 - 🟢 **Dashboard**  `/dashboard`  · ícono `graphics`  
-  El shell de los dos tableros de números: /dashboard solo redirige a /marketing y la barra GraphicsTabs conmuta entre Marketing y Comercial conservando el filtro de fecha (?desde&hasta).  
-  <sub>app/dashboard/page.tsx · app/_components/GraphicsTabs.tsx · app/_components/FechaFiltro.tsx</sub>
+  *(Reescrita a mano el 11/10/2026; el 08/08 era el shell que redirigía a /marketing.)* Un editor de informes estilo Looker Studio: Marketing y Comercial son las dos hojas del informe inicial (sus rutas traen con `?hoja=`), y Ads Analyst, Landing, Closing y Productividad son plantillas de hoja. `?hoja=<plantilla>` abre la hoja con esa firma o la AGREGA al informe (`hojaDestino`, lib/graficos-plantillas.ts). El closer lo ve con SÓLO la hoja Closing, en memoria y sin editar.  
+  <sub>app/dashboard/page.tsx · app/dashboard/EditorInforme.tsx · lib/graficos-plantillas.ts · app/api/graficos/route.ts</sub>
 - 🟢 **Marketing Dashboard**  `/marketing`  · ícono `graphics`  
   KPIs estrella, salud del funnel en trapezoides, tendencias, anuncios ganadores y los desgloses de toda la cuenta de Meta (edad/género, plataforma, mapa). Gateado por PanelActivacion si Meta no está conectado.  
   <sub>app/marketing/page.tsx · app/marketing/ResumenCreativos.tsx · app/marketing/AnuncioCard.tsx · app/marketing/ad-charts.tsx</sub>
@@ -370,21 +370,32 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 
 ### Analysts
 
-- 🟢 **Ads Analyst**  `/ads-analyst`  · ícono `notepencil`  
-  Cruza el análisis cualitativo de Claude sobre el guion (ángulo, gancho, beats) con las métricas Meta×CRM de todo el histórico del anuncio; arriba viven Patrones (ganadores/a cortar/de proceso) y el Cuadrante de Retención. Sin filtro de fecha y gateado por Meta.  
-  <sub>app/ads-analyst/page.tsx · app/ads-analyst/ScriptsBrowser.tsx · lib/ads-analyst.ts · lib/script-angles.ts</sub>
-- 🟢 **Landing Analyst**  `/landing-analyst`  · ícono `web`  
-  Baja la landing del cliente, le lee el copy y lo cruza con el comportamiento real de esa URL (beacon + agendas del CRM): lista de landings a la izquierda, diagnóstico con hallazgos por severidad a la derecha. A propósito NO se gatea por integración: con pegar una URL alcanza.  
-  <sub>app/landing-analyst/page.tsx · app/landing-analyst/LandingAnalystApp.tsx · lib/landing-analyst.ts · app/api/landing-analyst/</sub>
+> **Nota del 11/10/2026** (escrita a mano sobre este relevamiento del 08/08): Ads Analyst, Landing
+> Analyst y Closing Analyst SALIERON de la sidebar (decisiones 4, 5 y 6 de Martín de ese día), como
+> antes Productivity Analyst. Lo que era análisis son HOJAS del Dashboard (`/dashboard?hoja=ads-analyst`,
+> `?hoja=landing`, `?hoja=closing`); las tareas se mudaron: valorar un guion a Ads Writer
+> (`/ads-writer?tab=analizar`), analizar una página a Landing Generator (`/landing-generator/analizar`),
+> y las de Closing (sincronizar, re-analizar, revisar) van COMPLETAS a la hoja Closing, con la ficha de
+> cada llamada. El closer ve el Dashboard con SÓLO esa hoja. Las rutas viejas redirigen
+> (`/closing?call=<id>` → `?hoja=closing&llamada=<id>`) y las keys del nav (`script`, `landing-an`,
+> `closing`) se quedaron en las capas y en los gating de la API. Las fichas de abajo están al día con
+> eso; el grupo Analysts quedó con VSL, Chat y CS Analyst (los tres por construir).
+
+- 🟢 **Ads Analyst**  `/dashboard?hoja=ads-analyst`  · ícono `notepencil`  
+  Cruza el análisis cualitativo de Claude sobre el guion (ángulo, gancho, beats) con las métricas Meta×CRM de todo el histórico del anuncio; arriba viven Patrones (ganadores/a cortar/de proceso) y el Cuadrante de Retención. Sin filtro de fecha y gateado por Meta. *(11/10/2026: ya no es una tab; es la hoja «Ads Analyst» del Dashboard y `/ads-analyst` redirige ahí.)*  
+  <sub>lib/graficos-plantillas-analysts.ts · app/dashboard/bloques/extra/BloquesAds.tsx · lib/ads-analyst.ts · lib/script-angles.ts · app/ads-analyst/page.tsx (redirect)</sub>
+- 🟢 **Landing Analyst**  `/landing-generator/analizar`  · ícono `web`  
+  Baja la landing del cliente, le lee el copy y lo cruza con el comportamiento real de esa URL (beacon + agendas del CRM): lista de landings a la izquierda, diagnóstico con hallazgos por severidad a la derecha. A propósito NO se gatea por integración: con pegar una URL alcanza. *(11/10/2026: ya no es una tab; analizar es «Diagnóstico», dentro de Landing Generator, y el pulso y el mapa de calor son la hoja «Landing» del Dashboard. `/landing-analyst` redirige.)*  
+  <sub>app/landing-generator/analizar/page.tsx · app/landing-analyst/LandingAnalystApp.tsx · lib/landing-analyst.ts · app/api/landing-analyst/</sub>
 - ⚪ **VSL Analyst**  `/vsl-analyst`  · ícono `video`  
   En qué tramo se cae el espectador del VSL, contra qué parte del guion, y qué pasó después con ese lead en el CRM. Hoy es ComingSoon.  
   <sub>app/vsl-analyst/page.tsx · app/_components/ComingSoon.tsx</sub>
 - ⚪ **Chat Analyst**  `/chat-analyst`  · ícono `chats`  
   Lo que Closing Analyst hace con las llamadas, pero con las conversaciones (WhatsApp, Email, Instagram): dónde se cae el chat, qué objeción aparece y qué responde mejor. Hoy es ComingSoon; visible para rol setter.  
   <sub>app/chat-analyst/page.tsx · app/_components/ComingSoon.tsx</sub>
-- 🟢 **Closing Analyst**  `/closing`  · ícono `closing`  
-  Trae las llamadas de Fathom, las matchea con los leads del CRM y analiza al closer en las de VENTA (R1/R2) con método SPIN; las de entrega de servicio, internas y de prueba se detectan y se excluyen. Sin Fathom muestra PanelActivacion. Visible para rol closer.  
-  <sub>app/closing/page.tsx · app/closing/ClosingBrowser.tsx · lib/closing.ts · app/api/closing/</sub>
+- 🟢 **Closing Analyst**  `/dashboard?hoja=closing`  · ícono `closing`  
+  Trae las llamadas de Fathom, las matchea con los leads del CRM y analiza al closer en las de VENTA (R1/R2) con método SPIN; las de entrega de servicio, internas y de prueba se detectan y se excluyen. *(11/10/2026: ya no es una tab; es la hoja «Closing» del Dashboard, con la ficha de cada llamada y sus tareas. El closer ve SÓLO esa hoja, sin editar.)*  
+  <sub>lib/graficos-plantillas-analysts.ts · app/dashboard/bloques/extra/BloquesClosing.tsx · app/dashboard/bloques/extra/FichaLlamada.tsx · lib/closing.ts · app/api/closing/ · app/closing/page.tsx (redirect)</sub>
 - ⚪ **CS Analyst**  `/cs-analyst`  · ícono `cs`  
   Retención y customer success: anticipar la baja de un cliente ya cerrado. Hoy es ComingSoon.  
   <sub>app/cs-analyst/page.tsx · app/_components/ComingSoon.tsx</sub>
@@ -397,18 +408,18 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 - 🟢 **All Scripts**  `/ads-analyst/guiones`  · ícono `script`  
   La ruta «ver todos»: la tab previsualiza 8 guiones y ésta muestra los N con el mismo toggle tabla/tarjetas y el mismo modal de embudo. Solo lee.  
   <sub>app/ads-analyst/guiones/page.tsx · app/ads-analyst/ScriptsBrowser.tsx</sub>
-- 🟢 **New Script Check**  `/ads-analyst`  · ícono `pen`  
+- 🟢 **New Script Check**  `/ads-writer?tab=analizar`  · ícono `pen`  
   «Analizá un guion nuevo»: se pega un guion que todavía no está en Meta, MaKo lo compara contra lo que ya funciona y devuelve valoración + qué esperar; los intentos quedan en un historial de borradores borrable.  
   <sub>app/ads-analyst/ScriptsBrowser.tsx · app/api/ads-analyst/valorar/route.ts · lib/ads-analyst.ts</sub>
 - 🟢 **Angles & Avatars**  `/ads-analyst`  · ícono `tools`  
   El CRUD de la taxonomía de ángulos y avatares (color, nombre y la descripción que además guía a la IA al clasificar). Se abre desde Ads Analyst y desde el onboarding: misma data, un solo componente.  
   <sub>app/components/TaxonomyManager.tsx · app/api/ads-analyst/angles/route.ts · app/api/ads-analyst/avatares/route.ts · lib/script-angles.ts</sub>
-- 🟢 **Closing Metrics**  `/closing`  · ícono `analytics`  
-  La vista «Métricas» del panorama agregado: KPIs, hallazgo de la semana (la dimensión que más decide los cierres), tendencia del score, embudo, dumbbell de gap ganadas↔perdidas por dimensión y el ranking de closers. Todo computado en cliente sobre las ventas reales.  
-  <sub>app/closing/ClosingBrowser.tsx</sub>
-- 🟢 **Calls**  `/closing?call=`  · ícono `mic`  
-  La vista «Llamadas»: lista filtrable (tipo, closer, resultado, búsqueda, orden) y el detalle de una llamada — grabación embebida con deep-link al segundo, dimensiones, momentos, objeciones, transcript anotado, revisión manual e historial de ediciones. Deep link ?call=<recording_id>.  
-  <sub>app/closing/ClosingBrowser.tsx · app/api/closing/transcript/route.ts · app/api/closing/revise/route.ts</sub>
+- 🟢 **Closing Metrics**  `/dashboard?hoja=closing`  · ícono `analytics`  
+  La vista «Métricas» del panorama agregado: KPIs, tendencia del score, embudo, factores (gap ganadas↔perdidas por dimensión) y el ranking de closers. *(11/10/2026: son los bloques y gráficos de la hoja Closing; los calcula el server con las copias de lib/api-mako/areas/closing.helpers.ts.)*  
+  <sub>lib/graficos-plantillas-analysts.ts · app/dashboard/bloques/extra/BloquesClosing.tsx · lib/graficos-bloques-extra.ts</sub>
+- 🟢 **Calls**  `/dashboard?hoja=closing&llamada=`  · ícono `mic`  
+  La lista de llamadas y el detalle de una — grabación con deep-link al segundo, dimensiones, momentos, objeciones, transcript anotado, revisión manual e historial de ediciones. *(11/10/2026: la ficha es un modal del Dashboard; `?llamada=<recording_id>` la abre, y el `?call=` de la ruta vieja se traduce a eso.)*  
+  <sub>app/dashboard/bloques/extra/FichaLlamada.tsx · app/api/closing/transcript/route.ts · app/api/closing/revise/route.ts</sub>
 
 ## Sales Machine  ·  17 piezas
 

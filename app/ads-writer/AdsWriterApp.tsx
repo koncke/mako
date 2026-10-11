@@ -6,36 +6,73 @@
 // LA UNA COSA: al entrar, el dueño no quiere filtrar ni navegar. Quiere el
 // próximo anuncio escrito. De ahí sale todo el orden de la pantalla:
 //
-//   · UNA sola acción primaria en toda la tab: «Escribir el próximo guion».
-//     Elige la primera celda sin guion y dispara la acción `guion-auto` que ya
-//     existe en la API — cero backend nuevo.
+//   · UNA sola acción primaria en las vistas de la matriz (Anuncios y Guiones):
+//     «Escribir el próximo guion». Elige la primera celda sin guion y dispara la
+//     acción `guion-auto` que ya existe en la API — cero backend nuevo. En
+//     «Analizar guion» el header la esconde: ahí la primaria es «Valorar guion».
 //   · La COBERTURA arriba («12 de 18 anuncios con guion · 3 listos para grabar»)
 //     porque los huecos son el producto: lo que falta escribir ES el trabajo.
 //   · El dorado NO aparece en ningún otro lado. Es el color de «acá intervino
 //     MaKo» (ver la regla en app/globals.css) y gastarlo en un chip de categoría
 //     lo vuelve mudo. Los ángulos pasaron a <Tag> neutro.
 //
-// Las dos vistas quedan MONTADAS y se ocultan con `display`, nunca se desmontan:
+// Las vistas quedan MONTADAS y se ocultan con `display`, nunca se desmontan:
 // es lo que hace que un «Nuevo guion» a medias sobreviva a ir a mirar la lista.
+//
+// ── LA TERCERA VISTA, «Analizar guion» (11/10/2026) ─────────────────────────
+// Lo que EJECUTABA Ads Analyst (valorar un guion nuevo, sincronizar, ángulos y
+// avatares) se mudó acá; su análisis, a la hoja «Ads Analyst» del Dashboard.
+// La vista viaja en `?tab=` (./tabs.ts): la page la lee en el server y, para
+// «analizar», arma la vista entera allá (lee la base) y la manda ya dibujada
+// por la prop `analizar` — mismo molde que Análisis en app/experimentos.
+// Tocar una vista la escribe de vuelta con el router de la casa (conserva el
+// ?ws=), y eso es un viaje al server: así «Analizar guion» llega con sus datos.
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { MatrizView } from '../onboarding/MatrizView';
 import { GuionesGlobal } from './GuionesGlobal';
 import { MakoStar } from '../_components/MakoBrand';
-import { PageHeader, Button, ErrorState, useConfirm } from '../_ui';
+import { PageHeader, Button, ErrorState, Spinner, useConfirm } from '../_ui';
+import { useRouter } from '../_ui/Link';
 import type { EstadoGuion, GuionItem } from '../onboarding/guion-ui';
+import { hrefDeVista, VISTA_POR_DEFECTO, type VistaAdsWriter } from './tabs';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-type Vista = 'anuncios' | 'guiones';
+type Vista = VistaAdsWriter;
 type Avatar = { id: string; nombre: string; segmento: string };
 type Celda = { id: string; avatarId: string; nombre: string; guiones: GuionItem[] };
 type AnguloLite = { id: string; nombre: string; emoji: string };
 
-export function AdsWriterApp() {
-  const [vista, setVista] = useState<Vista>('anuncios');
+export function AdsWriterApp({ tabInicial = VISTA_POR_DEFECTO, analizar = null }: {
+  /** La vista que pide la URL (`?tab=`), resuelta en el server con `tabDeUrl` (./tabs.ts). */
+  tabInicial?: Vista;
+  /** «Analizar guion» ya dibujada en el server. null = este pedido no la trajo (la URL nombra otra vista). */
+  analizar?: ReactNode | null;
+}) {
+  // El valor de la URL manda al montar, y desde ahí la vista es de quien la usa…
+  const [vista, setVista] = useState<Vista>(tabInicial);
+  // …salvo que el SERVER mande otra: pasa si se llega a /ads-writer con otro ?tab= sin desmontar
+  // esta pantalla (el link de la barra estando en «Analizar guion», por ejemplo). Es el patrón de
+  // React para ajustar el estado cuando cambia una prop: durante el render, sin efecto.
+  const [tabDelServer, setTabDelServer] = useState<Vista>(tabInicial);
+  if (tabInicial !== tabDelServer) {
+    setTabDelServer(tabInicial);
+    setVista(tabInicial);
+  }
+  // «Analizar guion» se guarda la ÚLTIMA que mandó el server: al volver a Anuncios el server ya no la
+  // manda (null), y si se soltara se desmontaría con el guion que la persona estaba pegando. Cuando
+  // llega una nueva (al volver, o tras un refresh) React la reconcilia en el mismo lugar: cambian los
+  // datos, se conserva lo escrito.
+  const [analizarVivo, setAnalizarVivo] = useState<ReactNode | null>(analizar);
+  const [analizarDelServer, setAnalizarDelServer] = useState<ReactNode | null>(analizar);
+  if (analizar !== analizarDelServer) {
+    setAnalizarDelServer(analizar);
+    if (analizar != null) setAnalizarVivo(analizar);
+  }
+  const router = useRouter();
   const [celdas, setCeldas] = useState<Celda[]>([]);
   const [avatares, setAvatares] = useState<Avatar[]>([]);
   const [angulos, setAngulos] = useState<AnguloLite[]>([]);
@@ -45,6 +82,20 @@ export function AdsWriterApp() {
   const [saltarA, setSaltarA] = useState<string | null>(null);
   const [tokenMatriz, setTokenMatriz] = useState(0);
   const { confirm, confirmNode } = useConfirm();
+
+  // La vista se cambia en el acto y se escribe en la URL con el ROUTER de la casa
+  // (conserva el ?ws=; AGENTS.md, «la tab viaja en ?tab= leída en el server y
+  // escrita con router.replace»). Con history.replaceState el árbol del router
+  // quedaba con la vista vieja y atrás/adelante pintaba otra (lo midió
+  // Experimentos el 11/10). La URL se arma desde la ACTUAL para no perder lo que
+  // traiga el link. Tocar la vista que ya está abierta no viaja.
+  const cambiarVista = (v: Vista) => {
+    if (v === vista) return;
+    setVista(v);
+    let destino = v === VISTA_POR_DEFECTO ? '/ads-writer' : `/ads-writer?tab=${v}`;
+    try { destino = hrefDeVista(window.location.href, v); } catch { /* sin URL: el destino mínimo */ }
+    router.replace(destino, { scroll: false });
+  };
 
   const cargar = useCallback(async () => {
     setCargando(true); setErr(null);
@@ -97,7 +148,7 @@ export function AdsWriterApp() {
     if (!celdas.length) { await rehacerMatriz(); return; }
     const celda = proximaCelda;
     if (!celda) return;
-    setEscribiendo(true); setVista('anuncios');
+    setEscribiendo(true); cambiarVista('anuncios');
     const ok = await post({ action: 'guion-auto', id: celda.id });
     setEscribiendo(false);
     // Y se MUESTRA lo que escribió. Antes terminaba en la grilla con la celda
@@ -139,7 +190,7 @@ export function AdsWriterApp() {
   const editarGuion = (celdaId: string, guionId: string, texto: string) =>
     post({ action: 'guion-texto', id: celdaId, guionId, texto });
 
-  const irAMatriz = (celdaId: string) => { setSaltarA(celdaId); setVista('anuncios'); };
+  const irAMatriz = (celdaId: string) => { setSaltarA(celdaId); cambiarVista('anuncios'); };
 
   // «Rehacer la matriz» BORRA todos los guiones escritos: el route reemplaza las
   // celdas por unas nuevas con `guiones: []`. Antes no preguntaba nada.
@@ -156,9 +207,12 @@ export function AdsWriterApp() {
     setCargando(false);
   };
 
-  const vistas: Array<{ k: Vista; label: string; n: number }> = [
+  // «Analizar guion» no lleva número: su historial lo trae el server sólo cuando
+  // se la pide, y un número que aparece recién al visitarla se lee como que cambió.
+  const vistas: Array<{ k: Vista; label: string; n?: number }> = [
     { k: 'anuncios', label: 'Anuncios', n: cobertura.total },
     { k: 'guiones', label: 'Guiones', n: cobertura.guiones },
+    { k: 'analizar', label: 'Analizar guion' },
   ];
 
   // El header se arma MIENTRAS carga, no después: esconder las tabs y la acción
@@ -167,6 +221,12 @@ export function AdsWriterApp() {
   // del estado vacío de la vista Anuncios (que es el que sabe qué falta).
   const hayMatriz = cobertura.total > 0;
   const armado = hayMatriz || cargando;
+  // «Analizar guion» no depende de la matriz: ahí las vistas se ven siempre (si
+  // no, quien llega por el link de valorar un guion sin matriz armada no tiene
+  // por dónde ir a armarla). Y la acción primaria del header es la de la matriz:
+  // en esta vista la primaria es «Valorar guion», y dos primarias no son una.
+  const enAnalizar = vista === 'analizar';
+  const conVistas = armado || enAnalizar;
 
   return (
     <div style={{ maxWidth: 1080, margin: '0 auto', padding: '26px 22px 64px' }}>
@@ -183,7 +243,7 @@ export function AdsWriterApp() {
             {cobertura.listos > 0 && <> · <b style={num}>{cobertura.listos}</b> {cobertura.listos === 1 ? 'guion listo' : 'guiones listos'} para grabar</>}
           </span>
         ) : undefined}
-        accion={armado ? (
+        accion={armado && !enAnalizar ? (
           // Cuando ya no queda nada por escribir el botón se APAGA. Antes seguía
           // clickeable, con la chispa de MaKo y todo, y lo único que hacía era
           // cambiarte de tab sin avisar.
@@ -192,20 +252,21 @@ export function AdsWriterApp() {
             {hayMatriz && !proximaCelda ? 'Todos tienen guion' : 'Escribir el próximo guion'}
           </Button>
         ) : undefined}
-        acciones={hayMatriz ? <Button variant="tertiary" onClick={rehacerMatriz}>Rehacer la matriz</Button> : undefined}
-        tabs={armado ? (
-          <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid var(--border)', marginBottom: 'var(--sect-gap)' }}>
+        acciones={hayMatriz && !enAnalizar ? <Button variant="tertiary" onClick={rehacerMatriz}>Rehacer la matriz</Button> : undefined}
+        tabs={conVistas ? (
+          // Con `flex-wrap`: una barra de vistas no scrollea de costado (app/_ui/LEEME.md).
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, borderBottom: '1px solid var(--border)', marginBottom: 'var(--sect-gap)' }}>
             {vistas.map((v) => {
               const on = vista === v.k;
               return (
-                <button key={v.k} type="button" onClick={() => setVista(v.k)} style={{
+                <button key={v.k} type="button" onClick={() => cambiarVista(v.k)} aria-pressed={on} style={{
                   border: 'none', borderBottom: `2px solid ${on ? 'var(--primary)' : 'transparent'}`,
                   background: 'none', color: on ? 'var(--ink)' : 'var(--dim)',
                   fontFamily: SANS, fontWeight: on ? 600 : 500, fontSize: 'var(--fs-md)',
                   padding: '10px 12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7,
                 }}>
                   {v.label}
-                  <span style={{ fontFamily: MONO, fontSize: 'var(--fs-meta)', color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{v.n}</span>
+                  {v.n != null && <span style={{ fontFamily: MONO, fontSize: 'var(--fs-meta)', color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{v.n}</span>}
                 </button>
               );
             })}
@@ -213,9 +274,10 @@ export function AdsWriterApp() {
         ) : undefined}
       />
 
-      {err && <div style={{ marginBottom: 16 }}><ErrorState detalle="No se pudo hablar con el servidor." onReintentar={cargar} detalleTecnico={err} inline /></div>}
+      {/* El error de la matriz: en «Analizar guion» no se usa, y su cartel taparía una vista que anda. */}
+      {err && !enAnalizar && <div style={{ marginBottom: 16 }}><ErrorState detalle="No se pudo hablar con el servidor." onReintentar={cargar} detalleTecnico={err} inline /></div>}
 
-      {/* Las dos montadas: cambiar de vista no puede tirar un guion a medias. */}
+      {/* Las tres montadas: cambiar de vista no puede tirar un guion a medias. */}
       <div style={{ display: vista === 'anuncios' ? 'block' : 'none' }}>
         {/* sinCabecera: el título y «Rehacer la matriz» ya están en el PageHeader
             de esta pantalla. En el hub de onboarding la matriz sí trae los suyos. */}
@@ -233,6 +295,18 @@ export function AdsWriterApp() {
           onIrAMatriz={irAMatriz} onEditar={editarGuion} onEscribirPrimero={escribirProximo}
         />
       </div>
+      {/* «Analizar guion» se monta la primera vez que hace falta y desde ahí se queda (ver
+          `analizarVivo`). Mientras el server la arma por primera vez, el giro: es una lectura de
+          la base, no una corrida de IA. */}
+      {(analizarVivo != null || enAnalizar) && (
+        <div style={{ display: enAnalizar ? 'block' : 'none' }}>
+          {analizarVivo ?? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0', color: 'var(--faint)' }}>
+              <Spinner size={22} />
+            </div>
+          )}
+        </div>
+      )}
 
       {confirmNode}
     </div>

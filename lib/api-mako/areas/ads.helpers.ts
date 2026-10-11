@@ -121,7 +121,7 @@ export async function vocabularioParaEscribir(cual: 'angulos' | 'avatares'): Pro
   if (!raw) return { lista: defaults() };
   try {
     const p = JSON.parse(raw) as unknown;
-    if (!Array.isArray(p)) return { error: `La lista guardada de ${cual} no tiene la forma esperada; revísala en Ads Analyst antes de editarla por aquí.` };
+    if (!Array.isArray(p)) return { error: `La lista guardada de ${cual} no tiene la forma esperada; revísala en Ads Writer (Analizar guion → Ángulos y avatares) antes de editarla por aquí.` };
     // Mismo criterio que getAngles (lib/script-angles.ts): una fila que al sanearla
     // queda sin ítems con nombre ('[]', ítems sin label) se MUESTRA como los 5 de
     // fábrica. Escribir sobre la lista vacía reemplazaría esos 5 visibles por uno.
@@ -129,7 +129,7 @@ export async function vocabularioParaEscribir(cual: 'angulos' | 'avatares'): Pro
     if (!conNombre.length) return { lista: defaults() };
     return { lista: conNombre };
   } catch {
-    return { error: `La lista guardada de ${cual} no es JSON válido; revísala en Ads Analyst antes de editarla por aquí.` };
+    return { error: `La lista guardada de ${cual} no es JSON válido; revísala en Ads Writer (Analizar guion → Ángulos y avatares) antes de editarla por aquí.` };
   }
 }
 

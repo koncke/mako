@@ -10,8 +10,10 @@
 //   · mapa_calor          → nada: lo dibuja MapaDeCalor de la tab, que pide sus datos a sus rutas
 //                           (/api/landing-analyst/mapa*, sólo admin como el Dashboard) y mira 30 días.
 //   · curva_vsl           → curvaRetencion + histogramaAbandono (lib/vsl-retencion.ts), video por video.
-//   · *_cierre            → getClosingViewData + embudoDe/factoresDe/closersDe, la copia de las métricas
-//                           de la tab que ya usa la API de MaKo (lib/api-mako/areas/closing.helpers.ts).
+//   · *_cierre            → getClosingViewData + embudoDe/factoresDe/closersDe, las métricas de la tab que
+//                           usa también la API de MaKo (lib/api-mako/areas/closing.helpers.ts).
+//   · llamadas_cierre     → getClosingViewData, la MISMA lectura: la lista de la tab (compacta: el detalle
+//                           de una llamada lo pide su ficha a GET /api/closing/llamada) y los contadores.
 //   · Productividad       → metricasProductividad (lib/productividad-metricas.ts), lo de la tab.
 //
 // ⚠️ Lo que se lee para varios bloques se lee UNA vez por pedido (`una`): los tres bloques de Closing
@@ -31,9 +33,10 @@ import { closersDe, embudoDe, enVentana, factoresDe } from './api-mako/areas/clo
 import { metricasProductividad } from './productividad-metricas';
 import { exigirFathom, exigirMeta, leerTablero, videosDelPeriodo } from './graficos-datos-extra';
 import type {
-  DatosAtencion, DatosClosers, DatosCuadrante, DatosCurvaVsl, DatosEmbudoCierre, DatosFactores, DatosMatriz,
+  DatosAtencion, DatosClosers, DatosCuadrante, DatosCurvaVsl, DatosEmbudoCierre, DatosFactores, DatosLlamadas, DatosMatriz,
   DatosPatrones, DatosPiramide, GuionResumen,
 } from './graficos-bloques-extra-catalogo';
+import { nombreDeLlamada } from '@/app/dashboard/bloques/extra/llamadas-modelo';
 
 type Una = <T>(clave: string, leer: () => Promise<T>) => Promise<T>;
 
@@ -94,10 +97,28 @@ async function curvaVsl(p: PedidoBloque): Promise<DatosCurvaVsl> {
 
 // ── Closing Analyst ─────────────────────────────────────────────────────────────────────
 
-async function llamadas(p: PedidoBloque, una: Una): Promise<ClosingAnalysisRow[]> {
+/** Lo que leen los cuatro bloques de Closing: UNA lectura de closing_analyses por pedido. Sin Fathom, «Conecta Fathom». */
+async function vistaClosing(una: Una) {
   await exigirFathom();
-  const vista = await una('closing', () => getClosingViewData());
-  return enVentana(vista.calls, p.desde, p.hasta);
+  return una('closing', () => getClosingViewData());
+}
+
+async function llamadas(p: PedidoBloque, una: Una): Promise<ClosingAnalysisRow[]> {
+  return enVentana((await vistaClosing(una)).calls, p.desde, p.hasta);
+}
+
+async function llamadasCierre(p: PedidoBloque, una: Una): Promise<DatosLlamadas> {
+  const vista = await vistaClosing(una);
+  return {
+    llamadas: enVentana(vista.calls, p.desde, p.hasta).map((c) => ({
+      id: c.recording_id, fecha: c.call_date, tipo: c.tipo, closer: c.closer, nombre: nombreDeLlamada(c), empresa: c.lead_empresa,
+      email: c.invitee_email, titulo: c.title, puntaje: c.score, tono: c.outcome_tone, minutos: c.duration_min,
+      // Como la tab: una llamada sin transcript se lista, atenuada (su puntaje no cuenta en los KPI).
+      conTranscript: c.has_transcript !== false,
+    })),
+    counts: vista.counts,
+    ultimaSync: vista.lastSync,
+  };
 }
 
 async function embudoCierre(p: PedidoBloque, una: Una): Promise<DatosEmbudoCierre> {
@@ -170,6 +191,7 @@ function leerBloque(p: PedidoBloque, una: Una): Promise<unknown> {
     case 'embudo_cierre': return embudoCierre(p, una);
     case 'factores_cierre': return factoresCierre(p, una);
     case 'closers_cierre': return closersCierre(p, una);
+    case 'llamadas_cierre': return llamadasCierre(p, una);
     case 'matriz_proyectos': return matriz(una);
     case 'piramide_prioridad': return piramide(una);
     case 'tareas_atencion': return atencion(una);

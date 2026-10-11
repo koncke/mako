@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// LandingAnalystApp — el diagnóstico de la landing
+// LandingAnalystApp — el diagnóstico de la landing (Landing Generator → Diagnóstico)
 // =============================================================================
 // Dos columnas: la lista de landings analizadas a la izquierda y el diagnóstico
 // completo a la derecha. Todo lo que se ve acá lo produce el server
@@ -11,22 +11,24 @@
 // diagnóstico, no abajo. Es lo único medido de la página —el resto es juicio de
 // MaKo— y verlo primero cambia cómo se leen los hallazgos.
 //
-// Son DOS vistas hermanas y por eso van en tabs, no en rutas distintas: el
-// diagnóstico es el JUICIO de MaKo sobre el copy, y el pulso es lo que el Pixel
-// MIDIÓ de cada página. Contestan dos preguntas del mismo lugar, y la segunda no
-// se paga si nadie la abre (la pide su propio endpoint al montarse).
+// ⚠️ DESDE EL 11/10/2026 ES SÓLO LA TAREA. Decisión de Martín: «Lo de Landing Analyst se
+// muda a Landing Generator y Landing Analyst se ELIMINA». Lo monta
+// /landing-generator/analizar; /landing-analyst redirige (app/landing-analyst/destino.ts).
+// Lo que era ANÁLISIS se fue a la hoja «Landing» del Dashboard y salió de acá: las
+// pestañas «Lo que mide tu Pixel» y «Mapa de calor» (MapaDeCalor.tsx lo sigue montando
+// el Dashboard desde esta carpeta) y los KPIs del pie (páginas analizadas, puntaje
+// promedio, hallazgos graves: la tabla «Diagnóstico de cada página» de esa hoja).
+// El archivo NO se mudó de carpeta a propósito: la sesión del editor de landings toca
+// el link de «Escribir la nueva versión» en este mismo archivo.
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import Link from '@/app/_ui/Link';
-import { Tabs } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import { MakoLogo } from '../_components/MakoBrand';
-import { PulsoPaginas } from './PulsoPaginas';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { analisisCortado } from '@/lib/landing-url';
-import { MapaDeCalor } from './MapaDeCalor';
 import type { LandingViewData, LandingAnalysisRow, LandingHallazgo, Severidad, Tone } from '@/lib/landing-analyst';
 
 const MONO = "'Geist Mono', monospace";
@@ -86,15 +88,6 @@ const inputUrl: CSSProperties = {
 };
 
 // ── piezas ───────────────────────────────────────────────────────────────────
-
-function Kpi({ label, valor, color }: { label: string; valor: string; color?: string }) {
-  return (
-    <div style={{ ...card, padding: '16px 18px', minWidth: 130, flex: 1 }}>
-      <div style={eyebrow}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 650, marginTop: 6, color: color ?? 'var(--ink)', letterSpacing: '-0.02em' }}>{valor}</div>
-    </div>
-  );
-}
 
 /** Las 5 dimensiones como barras. El score general NO es su promedio: lo decide MaKo. */
 function Dims({ dims }: { dims: LandingAnalysisRow['dims'] }) {
@@ -209,24 +202,18 @@ function Hallazgo({ h }: { h: LandingHallazgo }) {
 
 // ── vista principal ──────────────────────────────────────────────────────────
 
-type Vista = 'copy' | 'pulso' | 'mapa';
-
-export function LandingAnalystApp({ data, errorMsg, vistaInicial = 'copy' }: { data: LandingViewData; errorMsg: string | null; vistaInicial?: Vista }) {
+// ⛔ Acá vivían las pestañas (`Vista = 'copy' | 'pulso' | 'mapa'`, `vistaInicial` y el
+// `router.replace` que escribía `?tab=` de vuelta en la URL vieja). Salieron el 11/10/2026
+// con el retiro de la tab: el pulso y el mapa son la hoja «Landing» del Dashboard, y un
+// `?tab=` viejo lo traduce el redirect (app/landing-analyst/destino.ts).
+export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; errorMsg: string | null }) {
   const router = useRouter();
-  const { landings, sinAnalizar, kpis } = data;
+  const { landings, sinAnalizar } = data;
 
   const [url, setUrl] = useState('');
   const [corriendo, setCorriendo] = useState<string | null>(null);
   const [aviso, setAviso] = useState<{ tono: 'bad' | 'good'; texto: string } | null>(null);
   const [selUrl, setSelUrl] = useState<string | null>(landings[0]?.url ?? null);
-  const [vista, setVista] = useState<Vista>(vistaInicial);
-  // La pestaña se escribe de vuelta en la URL (router de app/_ui/Link: conserva el
-  // ?ws=), así el link que se copia abre la pestaña que se está viendo.
-  const cambiarVista = useCallback((id: string) => {
-    const v: Vista = id === 'pulso' || id === 'mapa' ? id : 'copy';
-    setVista(v);
-    router.replace(v === 'copy' ? '/landing-analyst' : `/landing-analyst?tab=${v}`, { scroll: false });
-  }, [router]);
   // Página que no se pudo leer sola: se ofrece pegar el texto en vez de dejar
   // al usuario contra la pared. `pegar.url` es la que quedó esperando su copy.
   const [pegar, setPegar] = useState<{ url: string; texto: string } | null>(null);
@@ -309,24 +296,17 @@ export function LandingAnalystApp({ data, errorMsg, vistaInicial = 'copy' }: { d
     <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '28px 0 40px' }}>
       {/* HEADER */}
       <header style={{ padding: '0 32px', marginBottom: 22 }}>
+        {/* La tab es Landing Generator y esto es una pantalla suya: el nivel de arriba es el
+            panel de la tab, y se navega explícito (AGENTS.md, «El destino de "Volver"…»). */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
           <MakoLogo size={22} />
-          <span style={eyebrow}>Landing Analyst</span>
+          <Link href="/landing-generator" style={{ ...eyebrow, color: 'var(--dim)', textDecoration: 'none' }}>Landing Generator</Link>
+          <span style={eyebrow}>/ Diagnóstico</span>
         </div>
         <h1 style={{ fontSize: 30, fontWeight: 650, letterSpacing: '-0.025em', margin: 0 }}>
           Qué le pasa a tu página
         </h1>
 
-        <div style={{ marginTop: 18 }}>
-          <Tabs
-            tabs={[{ id: 'copy', label: 'Diagnóstico' }, { id: 'pulso', label: 'Lo que mide tu Pixel' }, { id: 'mapa', label: 'Mapa de calor' }]}
-            activa={vista}
-            onCambio={cambiarVista}
-          />
-        </div>
-
-        {vista === 'copy' && (
-          <>
         {/* Analizar una URL */}
         <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
@@ -398,19 +378,9 @@ export function LandingAnalystApp({ data, errorMsg, vistaInicial = 'copy' }: { d
             ))}
           </div>
         )}
-          </>
-        )}
       </header>
 
-      {vista === 'pulso' ? (
-        <div style={{ padding: '0 32px' }}>
-          <PulsoPaginas />
-        </div>
-      ) : vista === 'mapa' ? (
-        <div style={{ padding: '0 32px' }}>
-          <MapaDeCalor />
-        </div>
-      ) : landings.length === 0 ? (
+      {landings.length === 0 ? (
         <div style={{ padding: '0 32px' }}>
           <div style={{ ...card, padding: 40, textAlign: 'center', maxWidth: 560, margin: '30px auto 0' }}>
             {/* Se centra con FLEX, no con el `textAlign: 'center'` del padre: el preflight
@@ -593,14 +563,8 @@ export function LandingAnalystApp({ data, errorMsg, vistaInicial = 'copy' }: { d
         </div>
       )}
 
-      {/* KPIs al pie: contexto, no protagonista */}
-      {vista === 'copy' && landings.length > 0 && (
-        <div style={{ display: 'flex', gap: 12, padding: '26px 32px 0', flexWrap: 'wrap' }}>
-          <Kpi label="Páginas analizadas" valor={String(kpis.total)} />
-          <Kpi label="Puntaje promedio" valor={fmtScore(kpis.scorePromedio)} color={scoreColor(kpis.scorePromedio)} />
-          <Kpi label="Hallazgos graves" valor={String(kpis.hallazgosAltos)} color={kpis.hallazgosAltos > 0 ? 'var(--bad)' : undefined} />
-        </div>
-      )}
+      {/* ⛔ Acá iban los KPIs del pie (páginas analizadas, puntaje promedio, hallazgos graves):
+          son análisis y viven en la hoja «Landing» del Dashboard desde el 11/10/2026. */}
     </main>
   );
 }

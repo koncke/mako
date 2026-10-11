@@ -6,10 +6,13 @@ adjuntar_grabaciones_fathom
 afinar_avatares
 agregar_dependencia_plan
 agregar_escenario_secuencia
+agregar_filtro_dashboard
+agregar_grafico_dashboard
 agregar_link_fathom
 agregar_nota_lead
 agregar_objetivo_custom
 analisis_negocio
+analizar_hoja_dashboard
 analizar_llamadas_lead
 anular_link_pago
 apagar_kpi
@@ -26,6 +29,7 @@ borrar_borrador_plantilla
 borrar_clase_curso
 borrar_documento_archivero
 borrar_guion_anuncio
+borrar_hoja_dashboard
 borrar_landing
 borrar_plantilla_meta
 borrar_producto
@@ -39,6 +43,7 @@ buscar_tareas_plan
 buscar_tutorial
 cambiar_espera_paso
 cancelar_accion
+cancelar_analisis_dashboard
 cancelar_programacion_broadcast
 cancelar_suscripcion
 catalogo_angulos_guion
@@ -55,6 +60,7 @@ configurar_reporte
 configurar_seccion_reporte
 confirmaciones_crm_automatico
 confirmar_accion
+consultar_datos_dashboard
 contar_escenarios_reusables
 contar_eventos_prueba
 contar_leads_por_etapa
@@ -67,6 +73,7 @@ crear_clase_curso
 crear_contacto_chatwoot_lead
 crear_etiqueta
 crear_experimento
+crear_hoja_dashboard
 crear_lead_magnet
 crear_link_pago
 crear_modulo_curso
@@ -82,11 +89,14 @@ detectar_fatiga_adsets
 detectar_piezas_landing
 diagnosticar_funnel
 duplicados_lead
+duplicar_hoja_dashboard
 editar_avatar_negocio
 editar_broadcast
 editar_clase_curso
 editar_contacto_lead
 editar_etiqueta
+editar_grafico_dashboard
+editar_hoja_dashboard
 editar_lead_magnet
 editar_meta_secuencia_email
 editar_pasos_secuencia_email
@@ -149,11 +159,14 @@ huecos_secuencias
 ignorar_datos_sin_marcar
 iniciar_experimento
 inscripciones_lead
+insertar_elemento_dashboard
 journey_lead
 kpis_email
 lead_insiste_con_lo_mismo
 lead_tiene_llamada
+leer_analisis_dashboard
 leer_guion_anuncio
+leer_hoja_dashboard
 leer_resumen_objetivos
 leer_segundo_cerebro_como_archivos
 limites_formato_instagram
@@ -259,6 +272,7 @@ plantillas_meta_de_secuencia
 poner_etiqueta_lead
 posponer_item_plan_retro
 probar_conexion_integracion
+programar_analisis_dashboard
 programar_broadcast
 proponer_agendar_reunion
 proponer_agregar_angulo
@@ -292,7 +306,9 @@ proponer_sincronizar_guiones
 proponer_tareas_plan
 proponer_toggle_nutricion
 propuestas_lead_pendientes
+quitar_componente_dashboard
 quitar_dependencia_plan
+quitar_filtro_dashboard
 r2_sin_lead
 reabrir_onboarding_chatbot
 reactivar_datos_sin_marcar
@@ -306,6 +322,7 @@ renombrar_modulo_curso
 requisitos_para_mover
 resolver_confirmacion_crm
 responder_pregunta_personalidad
+restablecer_informe_dashboard
 restaurar_clase_curso
 resumen_bandejas_confirmacion
 resumir_marketing_periodo
@@ -333,6 +350,7 @@ ver_cac_acumulado
 ver_cac_mensual
 ver_cambios_landing
 ver_capacidad_instalada
+ver_catalogo_dashboard
 ver_ciclo_venta
 ver_clase_curso
 ver_cobro

@@ -52,7 +52,7 @@ export const PASOS_DASHBOARD: PasoRecorrido[] = [
 export const PASOS_DASHBOARD_EDICION: PasoRecorrido[] = [
   { objetivo: 'dash-deshacer', titulo: 'Deshacer', texto: 'Vuelve atrás cualquier cambio. También con Ctrl+Z.' },
   { objetivo: 'dash-anadir-grafico', titulo: 'Añadir un gráfico', texto: 'Elige el tipo. Abajo están los bloques de MaKo.' },
-  { objetivo: 'dash-insertar', titulo: 'Insertar', texto: 'Texto, imagen, formas y flechas.' },
+  { objetivo: 'dash-insertar', titulo: 'Insertar', texto: 'Texto, enlace, imagen, video, una página y formas.' },
   { objetivo: 'dash-datos', titulo: 'Añadir datos', texto: 'Una tabla nueva con cualquier conjunto de MaKo.' },
   { objetivo: 'dash-estilo', titulo: 'Estilo de la hoja', texto: 'Plantilla, color y letra para todos los gráficos.' },
   { objetivo: 'dash-componente', titulo: 'Mover y agrandar', texto: 'Arrástralo o estira su esquina. Con un clic, sus datos.' },

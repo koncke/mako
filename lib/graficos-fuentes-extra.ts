@@ -109,11 +109,12 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
   {
     // Las MISMAS llamadas que mira la tab: de venta y ya analizadas (el conjunto `llamadas`
     // cuenta todas, internas y de prueba incluidas). El puntaje, como la tab: sólo las que
-    // tienen transcript y puntaje (no se promedian ceros falsos).
+    // tienen transcript y puntaje (no se promedian ceros falsos). `llamada` es cada una, con
+    // su id: lo que lista el detalle de un número (y abre su ficha). Trae nombres de personas.
     id: 'llamadas_venta', nombre: 'Llamadas de venta', area: 'CRM y ventas',
     descripcion: 'Las llamadas de venta analizadas: puntaje, R1 y R2, ganadas y perdidas.',
     fechas: [{ id: 'fecha', nombre: 'Llamada' }],
-    dimensiones: [...TIEMPO, cat('closer', 'Closer'), cat('reunion', 'Reunión'), cat('tono', 'Resultado')],
+    dimensiones: [...TIEMPO, cat('closer', 'Closer'), cat('reunion', 'Reunión'), cat('tono', 'Resultado'), cat('llamada', 'Llamada')],
     metricas: [
       m('llamadas', 'Llamadas'), m('minutos', 'Minutos'), r('duracion', 'Duración promedio (min)', 'numero', 'minutos', 'llamadas'),
       m('puntos', 'Puntos'), m('con_puntaje', 'Con puntaje'), r('puntaje', 'Puntaje promedio', 'numero', 'puntos', 'con_puntaje'),

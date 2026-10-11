@@ -49,7 +49,12 @@ const str = (i: Record<string, unknown>, k: string): string | null => {
 const json = (o: unknown): string => JSON.stringify(o);
 const error = (content: string) => ({ content, isError: true });
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
-const linkLlamada = (id: number): string => linkPantalla(`/closing?call=${id}`);
+/**
+ * El link a UNA llamada: la hoja Closing del Dashboard con su ficha abierta (`?llamada=`, que valida
+ * app/dashboard/page.tsx). Hasta el 11/10/2026 era /closing?call=<id>; esa tab se eliminó y su ruta
+ * redirige acá, así que los links viejos que ya viajaron en un WhatsApp siguen abriendo la llamada.
+ */
+const linkLlamada = (id: number): string => linkPantalla(`/dashboard?hoja=closing&llamada=${id}`);
 const conSegundo = (url: string | null, t: number | undefined): string | null =>
   url && typeof t === 'number' && t >= 0 ? `${url}?timestamp=${Math.round(t)}` : url;
 const recorta = (s: string | null | undefined, n: number): string | null =>
@@ -568,7 +573,7 @@ export const RUNNERS: Runners = {
       // del link sea exactamente el de esta fila.
       const token = (c.share_url ?? '').match(/\/share\/([^/?]+)/)?.[1] ?? null;
       if (!c.share_url || !token || token !== c.embed_token) {
-        return { error: `La llamada ${rec} no tiene un link de Fathom que la identifique sin ambigüedad (share_url o embed_token faltan o no coinciden): el follow-up podría redactarse sobre otra llamada. Hazlo desde /closing.` };
+        return { error: `La llamada ${rec} no tiene un link de Fathom que la identifique sin ambigüedad (share_url o embed_token faltan o no coinciden): el follow-up podría redactarse sobre otra llamada. Re-analízala desde su ficha en la hoja Closing del Dashboard (vuelve a traer el link de Fathom) y propónlo de nuevo: ${linkLlamada(rec)}` };
       }
       return {
         payload: { leadId, reunion, shareUrl: c.share_url, recording_id: rec },

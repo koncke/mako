@@ -47,13 +47,21 @@ export const PREVIEW_DEFAULT: PreviewLink = {
   icono: '✦',
 };
 
+/** Las llamadas de venta: la ruta vieja (/closing) y la hoja del Dashboard que la reemplazó. */
+const CLOSING: PreviewLink = { tipo: 'closing', titulo: 'Análisis de llamadas', descripcion: 'Qué pasó en tus llamadas de venta y dónde se cae el cierre.', icono: '🎧' };
+
 /**
  * De ruta a tarjeta. El orden IMPORTA: lo más específico primero.
  *
  * `/crm/2311/resumen` y `/crm/2311` son pantallas distintas y la primera tiene que
  * ganar; si la genérica de `/crm` estuviera arriba se comería a todas.
+ *
+ * `hoja`: la regla vale sólo con ese `?hoja=`. Desde el 11/10/2026 Closing Analyst es la hoja
+ * «Closing» del Dashboard (`/dashboard?hoja=closing&llamada=<id>`, el link que manda MaKo), y sin
+ * esto su tarjeta decía «Tus anuncios». El `?hoja=` es parte de la RUTA, no un dato: el id de la
+ * llamada no sale en la tarjeta.
  */
-const RUTAS: Array<{ re: RegExp; p: PreviewLink }> = [
+const RUTAS: Array<{ re: RegExp; hoja?: string; p: PreviewLink }> = [
   {
     re: /^\/plan\/revisar\//,
     p: {
@@ -84,8 +92,10 @@ const RUTAS: Array<{ re: RegExp; p: PreviewLink }> = [
   { re: /^\/crm/, p: { tipo: 'crm', titulo: 'Tu CRM', descripcion: 'Tus leads, su etapa y qué sigue con cada uno.', icono: '👥' } },
   { re: /^\/plan/, p: { tipo: 'plan', titulo: 'Tu plan', descripcion: 'En qué estás trabajando y qué sigue, priorizado.', icono: '📋' } },
   { re: /^\/integraciones/, p: { tipo: 'integraciones', titulo: 'Tus integraciones', descripcion: 'Conecta tus herramientas y mira el estado de cada una.', icono: '🔌' } },
+  { re: /^\/dashboard\/?$/, hoja: 'closing', p: CLOSING },
   { re: /^\/(marketing|dashboard|ads-manager)/, p: { tipo: 'ads', titulo: 'Tus anuncios', descripcion: 'Gasto, resultados y salud de tus campañas.', icono: '📊' } },
-  { re: /^\/closing/, p: { tipo: 'closing', titulo: 'Análisis de llamadas', descripcion: 'Qué pasó en tus llamadas de venta y dónde se cae el cierre.', icono: '🎧' } },
+  // La ruta vieja redirige a la hoja, pero sus links ya salieron en mensajes de MaKo.
+  { re: /^\/closing(?![\w-])/, p: CLOSING },
   { re: /^\/experimentos/, p: { tipo: 'experimentos', titulo: 'Tus experimentos', descripcion: 'Lo que ya está validado y lo que sigue en prueba.', icono: '🧪' } },
   { re: /^\/(email|whatsapp|chatbot|chat-agent)/, p: { tipo: 'mensajes', titulo: 'Tus mensajes', descripcion: 'Conversaciones, nutrición y secuencias.', icono: '💬' } },
   { re: /^\/(conocimiento|conocimientos)/, p: { tipo: 'conocimiento', titulo: 'Tu conocimiento', descripcion: 'El material y la metodología cargados en MaKo.', icono: '📚' } },
@@ -103,11 +113,13 @@ export function previewDeDestino(destino: string | null | undefined): PreviewLin
   let path = crudo;
   // El `next=` puede venir como path o como URL completa según quién lo arme.
   if (/^https?:\/\//i.test(path)) {
-    try { path = new URL(path).pathname; } catch { return PREVIEW_DEFAULT; }
+    try { const u = new URL(path); path = u.pathname + u.search; } catch { return PREVIEW_DEFAULT; }
   }
-  path = path.split('?')[0].split('#')[0];
-  if (!path.startsWith('/')) path = `/${path}`;
-  return RUTAS.find((r) => r.re.test(path))?.p ?? PREVIEW_DEFAULT;
+  const [sinHash] = path.split('#');
+  const [ruta, query = ''] = sinHash.split('?');
+  path = ruta.startsWith('/') ? ruta : `/${ruta}`;
+  const hoja = new URLSearchParams(query).get('hoja');
+  return RUTAS.find((r) => r.re.test(path) && (!r.hoja || r.hoja === hoja))?.p ?? PREVIEW_DEFAULT;
 }
 
 /** Búsqueda por CLAVE de tipo — la usa la imagen de /api/og, que solo recibe eso. */

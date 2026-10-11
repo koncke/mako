@@ -22,7 +22,7 @@ export default async function EquipoPage() {
         <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="perfil" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Equipo</h1>
       </header>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Suma a tu equipo y decide qué ve cada uno. El <b>Closer</b> ve CRM, WhatsApp y Closing Analyst; el <b>Setter</b> ve CRM, WhatsApp y Email; el <b>Admin</b> ve todo tu negocio.</p>
+      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Suma a tu equipo y decide qué ve cada uno. El <b>Closer</b> ve CRM, WhatsApp y la hoja Closing del Dashboard; el <b>Setter</b> ve CRM, WhatsApp y Email; el <b>Admin</b> ve todo tu negocio.</p>
       <div style={{ maxWidth: 720 }}>
         <ConfigTabs />
         <EquipoView />

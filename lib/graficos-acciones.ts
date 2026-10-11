@@ -45,13 +45,13 @@ export const ESTADO_COBRADO = 'Cobrado';
 
 /**
  * Las dimensiones que el detalle usa para NOMBRAR una fila y que traen nombres de personas (`<conjunto>.<dim>`):
- * el lead, el cliente de una cuota o de una entrega, y los títulos de una llamada (suele decir con quién fue) y
- * de una tarea (suele decir a quién). Ninguna viaja a un modelo de IA (AGENTS: un dato con nombres de personas
- * no se le manda a ninguno): quedan FUERA de `DIMENSIONES_PUBLICAS` (lib/graficos-analisis.ts), y
- * tests/graficos-interactividad.test.ts cruza las dos listas — la próxima que se sume acá tiene que quedar
- * afuera de allá, o el test cae.
+ * el lead, el cliente de una cuota o de una entrega, las llamadas (el título suele decir con quién fue; la de
+ * venta se nombra con el lead o el email del invitado) y el título de una tarea (suele decir a quién). Ninguna
+ * viaja a un modelo de IA (AGENTS: un dato con nombres de personas no se le manda a ninguno): quedan FUERA de
+ * `DIMENSIONES_PUBLICAS` (lib/graficos-analisis.ts), y tests/graficos-interactividad.test.ts cruza las dos
+ * listas — la próxima que se sume acá tiene que quedar afuera de allá, o el test cae.
  */
-export const DIMENSIONES_PERSONA: readonly string[] = ['leads.lead', 'pagos.cliente', 'entrega.cliente', 'llamadas.llamada', 'tareas.tarea'];
+export const DIMENSIONES_PERSONA: readonly string[] = ['leads.lead', 'pagos.cliente', 'entrega.cliente', 'llamadas.llamada', 'llamadas_venta.llamada', 'tareas.tarea'];
 
 export type AccionId = 'abrir_ficha' | 'marcar_cobrada' | 'ver_anuncio' | 'ver_llamada' | 'abrir_tarea';
 type Periodo = { desde: string; hasta: string };
@@ -62,8 +62,11 @@ export type AccionDef = {
   requiere: IdEntidad[];
   /** La tab que el workspace tiene que tener. */
   capa: keyof Capacidades;
-  /** `ficha` abre la ficha del lead encima · `cobrar` llama a marcarPagoAction con Deshacer · `link` navega. */
-  tipo: 'ficha' | 'cobrar' | 'link';
+  /**
+   * `ficha` abre la ficha del lead encima · `llamada` abre la ficha de la llamada encima · `cobrar` llama a
+   * marcarPagoAction con Deshacer · `link` navega.
+   */
+  tipo: 'ficha' | 'llamada' | 'cobrar' | 'link';
   href?: (ids: IdsFila, p: Periodo) => string;
 };
 
@@ -72,7 +75,8 @@ export type AccionDef = {
  *   · lead    → la ficha (LeadEditModal, la misma de los desgloses de /general).
  *   · cuota   → «Marcar cobrada» (marcarPagoAction, app/crm/actions.ts), con Deshacer de 5 s.
  *   · anuncio → /anuncio/<ad_id>, la página del anuncio solo (misma puerta que el Ads Manager).
- *   · llamada → /closing?call=<recording_id>, que abre esa llamada directo.
+ *   · llamada → su ficha (app/dashboard/bloques/extra/FichaLlamada.tsx), dibujada en la caja del detalle como la
+ *               del lead. Hasta el 11/10/2026 era un link a /closing?call=<id>; la tab Closing se eliminó.
  *   · tarea   → /plan?tarea=<id>, que abre esa tarjeta.
  */
 export const ACCIONES: readonly AccionDef[] = [
@@ -82,7 +86,7 @@ export const ACCIONES: readonly AccionDef[] = [
     id: 'ver_anuncio', titulo: 'Ver anuncio', requiere: ['anuncio'], capa: 'ads', tipo: 'link',
     href: (ids, p) => `/anuncio/${encodeURIComponent(ids.anuncio ?? '')}?desde=${p.desde}&hasta=${p.hasta}`,
   },
-  { id: 'ver_llamada', titulo: 'Ver llamada', requiere: ['llamada'], capa: 'closing', tipo: 'link', href: (ids) => `/closing?call=${encodeURIComponent(ids.llamada ?? '')}` },
+  { id: 'ver_llamada', titulo: 'Ver llamada', requiere: ['llamada'], capa: 'closing', tipo: 'llamada' },
   { id: 'abrir_tarea', titulo: 'Abrir tarea', requiere: ['tarea'], capa: 'plan', tipo: 'link', href: (ids) => `/plan?tarea=${encodeURIComponent(ids.tarea ?? '')}` },
 ];
 

@@ -2,7 +2,8 @@
 // embeds — lo que se puede INSERTAR (un video, una agenda), desde un link o su código
 // =============================================================================
 // Ejecuta lib/embeds.ts (`embedDe`, `reconocerUrl`, `atributosDeIframe`, `embedDeIframe`, los altos,
-// `lecturaDePanda`, `porQueNoSeInserta`). Items 14 y 15 del audio del 08/10/2026
+// `lecturaDePanda`, `porQueNoSeInserta`; y desde el 11/10/2026 Fathom y lo que se ve en el Video y el Insertar
+// del Dashboard: `videoDe`, `insertableDe`, `videoDirecto`, `miniaturaDe`, `esHostPropio`). Items 14 y 15 del audio del 08/10/2026
 // (docs/feedback-curso-08oct.md): «tengo que hacer que funcione con URL y con objetos embed. Con HTML
 // embed» (22:40) y «que lo pueda embeber cosas como… el Calendar» (24:30).
 //
@@ -23,7 +24,9 @@ import {
   embedDe, reconocerUrl, atributosDeIframe, embedDeIframe, altoDeEmbed, altoValido, ALTOS_EMBED, lecturaDePanda,
   porQueNoSeInserta, srcDePandaParaClase, direccionDeTexto, nombreDeProveedor, claseDeProveedor, SANDBOX_EMBED, ALLOW_EMBED,
   REFERRER_EMBED, HOSTS_IFRAME, DOMINIOS_IFRAME, PROVEEDORES_EMBED,
+  videoDe, insertableDe, videoDirecto, miniaturaDe, esArchivoDeVideo, esHostPropio, conDominio,
 } from '../lib/embeds';
+import { DOMINIOS_MAKO } from '../lib/email-remitente';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -33,6 +36,8 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 const YT = 'dQw4w9WgXcQ';
 const PANDA = 'https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=8d035c87-3767-4b84-8a3d-da41efc6524f';
 const LOOM = '0281766fa2d04bb788eaf19e65135184';
+/** Un token de Fathom con la forma de los reales (32 letras y números): inventado. */
+const FATHOM = 'qGEmdURy3JdNPfo9CseUvfNfjYMGzQ5D';
 
 /** Links y códigos REALES (la forma que copia la persona) → el `src` que se inserta y de quién es. */
 const BUENOS: Array<[string, string, string]> = [
@@ -68,6 +73,12 @@ const BUENOS: Array<[string, string, string]> = [
   ['https://fast.wistia.net/embed/iframe/e4a27b971d', 'https://fast.wistia.net/embed/iframe/e4a27b971d', 'wistia'],
   ['https://miescuela.wistia.com/medias/e4a27b971d', 'https://fast.wistia.net/embed/iframe/e4a27b971d', 'wistia'],
   ['https://iframe.mediadelivery.net/play/12345/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d', 'https://iframe.mediadelivery.net/embed/12345/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d', 'bunny'],
+  // Fathom (las llamadas del Closing, 11/10/2026): el link de Compartir (con el `?timestamp=` que trae al
+  // copiarlo desde un minuto, y la barra final) y el del reproductor dan el MISMO reproductor.
+  [`https://fathom.video/share/${FATHOM}`, `https://fathom.video/embed/${FATHOM}`, 'fathom'],
+  [`https://fathom.video/share/${FATHOM}/?timestamp=754.2`, `https://fathom.video/embed/${FATHOM}`, 'fathom'],
+  [`https://www.fathom.video/embed/${FATHOM}?autoplay=1`, `https://fathom.video/embed/${FATHOM}`, 'fathom'],
+  [`fathom.video/share/${FATHOM}`, `https://fathom.video/embed/${FATHOM}`, 'fathom'],
   // Agendas: el link y el código de cada una.
   ['https://calendly.com/juan-perez/30min', 'https://calendly.com/juan-perez/30min', 'calendly'],
   ['<!-- Calendly inline widget begin --><div class="calendly-inline-widget" data-url="https://calendly.com/juan-perez/30min" style="min-width:320px;height:700px;"></div><script type="text/javascript" src="https://assets.calendly.com/assets/external/widget.js" async></script><!-- Calendly inline widget end -->',
@@ -125,6 +136,16 @@ const MALOS: string[] = [
   'https://evil.tld/calendly.com/juan',
   '',
   'no es un link',
+  // Fathom: parecidos, http, la grabación ADENTRO de la cuenta (no se ve sin entrar), su miniatura y un
+  // token que cambiaría el camino.
+  `https://fathom.video.evil.tld/share/${FATHOM}`,
+  `https://evilfathom.video/share/${FATHOM}`,
+  `https://fathom.video@evil.tld/share/${FATHOM}`,
+  `http://fathom.video/share/${FATHOM}`,
+  'https://fathom.video/calls/829932619',
+  `https://fathom.video/share/${FATHOM}/thumbnail`,
+  'https://fathom.video/share/abc%2F..%2Fx',
+  'https://fathom.video/share/',
 ];
 
 test('cada link y código REAL da el reproductor o la agenda de su proveedor, con el src armado acá', () => {
@@ -277,6 +298,149 @@ test('el editor: «Insertar» escribe el MISMO iframe que el saneo, y pegar sól
   assert.match(ed, /\.mk-editor-rico \.ProseMirror \.mk-er-insertado\.ProseMirror-selectednode > iframe \{ pointer-events: auto; \}/);
 });
 
+// ── Los elementos del Dashboard: Video e Insertar (11/10/2026) ───────────────
+// Decisión 6 de Martín: «Closing Analyst va COMPLETO al Dashboard, sumando los elementos Enlace, Video e
+// Insertar». Lo que se ve en cada uno lo decide este módulo; la pantalla (app/dashboard/ElementoInsertado.tsx)
+// no reconoce un host ni arma un `src`.
+
+const errorDe = (r: { ok: boolean; error?: string }) => (r.ok ? null : r.error);
+
+test('Fathom: el link de la grabación pide el de Compartir; el reproductor es fathom.video/embed y entra a la segunda capa', () => {
+  for (const calls of ['https://fathom.video/calls/829932619', 'https://app.fathom.video/calls/99', `https://fathom.video/share/${FATHOM}/thumbnail`]) {
+    assert.equal(embedDe(calls), null, calls);
+    assert.equal(porQueNoSeInserta(calls), 'Usa el link de Compartir de Fathom.', calls);
+  }
+  assert.ok(HOSTS_IFRAME.includes('fathom.video'), 'sin el host, el saneo de una clase tiraría el reproductor de Fathom');
+  const a = atributosDeIframe(embedDe(`https://fathom.video/share/${FATHOM}`)!);
+  assert.deepEqual(a.slice(0, 3), [['src', `https://fathom.video/embed/${FATHOM}`], ['title', 'Fathom'], ['data-proveedor', 'fathom']]);
+  assert.ok(!a.some(([n]) => n === 'data-alto'), 'un video no lleva alto');
+  assert.equal(claseDeProveedor('fathom'), 'video');
+});
+
+test('el Video: un proveedor de VIDEO de la lista, un archivo directo o Fathom (miniatura y clic); nada más', () => {
+  const yt = videoDe(`https://www.youtube.com/watch?v=${YT}&t=42`);
+  assert.ok(yt.ok);
+  assert.deepEqual(yt.valor, {
+    direccion: `https://www.youtube.com/watch?v=${YT}&t=42`, modo: 'iframe', src: `https://www.youtube-nocookie.com/embed/${YT}?rel=0`, proveedor: 'youtube',
+    nombre: 'YouTube', link: `https://www.youtube.com/watch?v=${YT}&t=42`, miniatura: `https://i.ytimg.com/vi/${YT}/hqdefault.jpg`, alClic: false,
+  });
+  // Fathom: la miniatura y un clic; el «Abrir ↗» va al link de Compartir, sin el minuto ni el reproductor suelto.
+  for (const entra of [`https://fathom.video/share/${FATHOM}?timestamp=754.2`, `https://fathom.video/embed/${FATHOM}`]) {
+    const f = videoDe(entra);
+    assert.ok(f.ok, entra);
+    assert.equal(f.valor.src, `https://fathom.video/embed/${FATHOM}`);
+    assert.equal(f.valor.link, `https://fathom.video/share/${FATHOM}`);
+    assert.equal(f.valor.miniatura, `https://fathom.video/share/${FATHOM}/thumbnail`);
+    assert.equal(f.valor.alClic, true);
+  }
+  const mp4 = videoDe('https://cdn.ejemplo.com/clases/uno.MP4?v=2');
+  assert.ok(mp4.ok);
+  assert.deepEqual([mp4.valor.modo, mp4.valor.src, mp4.valor.proveedor, mp4.valor.miniatura], ['directo', 'https://cdn.ejemplo.com/clases/uno.MP4?v=2', null, null]);
+  // Del CÓDIGO que se pegó se guarda la dirección, nunca el código.
+  const codigo = videoDe(BUENOS.find(([e]) => e.startsWith('<iframe width'))![0]);
+  assert.ok(codigo.ok);
+  assert.doesNotMatch(codigo.valor.direccion, /[<>"\s]/);
+  assert.equal(codigo.valor.proveedor, 'youtube');
+
+  const NO: Array<[string, string]> = [
+    ['', 'Pega el link del video.'],
+    [`http://www.youtube.com/watch?v=${YT}`, 'El link tiene que ser https.'],
+    ['https://calendly.com/juan/30min', 'Es una agenda: usa Insertar.'],
+    ['https://ejemplo.com/pagina', 'Ese link no es de un video. Usa Insertar.'],
+    ['https://fathom.video/calls/829932619', 'Usa el link de Compartir de Fathom.'],
+    ['https://dashboard.pandavideo.com.br/#/videos/8d035c87-3767-4b84-8a3d-da41efc6524f', 'De Panda Video, pega su código para insertar.'],
+    ['https://www.youtube.com/playlist?list=PLx1', 'Ese link de YouTube no es un video.'],
+    ['javascript:alert(1)', 'Ese link no es válido.'],
+    [`https://juan:clave@www.youtube.com/watch?v=${YT}`, 'Ese link no es válido.'],
+    [`https://www.youtube.com:8443/watch?v=${YT}`, 'Ese link no es válido.'],
+    ['https://localhost/a.mp4', 'Ese link no es válido.'],
+    ['https://192.168.0.10/a.mp4', 'Ese link no es válido.'],
+    ['<p>hola</p>', 'Ese código no trae un link.'],
+    [`https://ejemplo.com/${'a'.repeat(2100)}.mp4`, 'Ese link es demasiado largo.'],
+  ];
+  for (const [entra, frase] of NO) {
+    assert.equal(errorDe(videoDe(entra)), frase, entra.slice(0, 80));
+    assert.ok(frase.split(' ').length <= 9, `largo: ${frase}`);
+  }
+});
+
+test('Insertar: CUALQUIER https (como Looker); lo de la lista pasa por ella; nunca MaKo; un código nunca se guarda', () => {
+  // El código que da Looker Studio: se guarda SÓLO su `src`, y va tal cual (no es de la lista).
+  const looker = '<iframe width="600" height="450" src="https://lookerstudio.google.com/embed/reporting/0a1b/page/p_xyz" frameborder="0" style="border:0" allowfullscreen sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe><script>alert(1)</script>';
+  const l = insertableDe(looker);
+  assert.ok(l.ok);
+  assert.deepEqual(l.valor, {
+    direccion: 'https://lookerstudio.google.com/embed/reporting/0a1b/page/p_xyz', src: 'https://lookerstudio.google.com/embed/reporting/0a1b/page/p_xyz',
+    proveedor: null, nombre: 'lookerstudio.google.com',
+  });
+  // Lo de la lista: el `src` lo arma lib/embeds.ts, y se guarda la dirección que se pegó.
+  const yt = insertableDe(`https://youtu.be/${YT}`);
+  assert.ok(yt.ok);
+  assert.deepEqual([yt.valor.src, yt.valor.proveedor, yt.valor.nombre, yt.valor.direccion], [`https://www.youtube-nocookie.com/embed/${YT}?rel=0`, 'youtube', 'YouTube', `https://youtu.be/${YT}`]);
+  const cal = insertableDe(BUENOS.find(([e]) => e.includes('calendly-inline-widget'))![0]);
+  assert.ok(cal.ok);
+  assert.deepEqual([cal.valor.src, cal.valor.direccion], ['https://calendly.com/juan-perez/30min', 'https://calendly.com/juan-perez/30min']);
+  const www = insertableDe('https://www.typeform.com/to/abc');
+  assert.ok(www.ok && www.valor.nombre === 'typeform.com');
+  // Lo que se guarda vuelve a dar lo mismo (es lo que la pantalla relee en cada dibujo).
+  for (const r of [l, yt, cal, www]) {
+    assert.ok(r.ok);
+    const otra = insertableDe(r.valor.direccion);
+    assert.deepEqual(otra, r);
+  }
+
+  const NO: Array<[string, string | null, string]> = [
+    ['https://hola-mako.com/crm', null, 'Para una pantalla de MaKo usa Enlace.'],
+    ['https://www.hola-mako.com/dashboard?hoja=closing', null, 'Para una pantalla de MaKo usa Enlace.'],
+    ['https://app.hola-mako.com/x', null, 'Para una pantalla de MaKo usa Enlace.'],
+    ['https://makodigital.app/crm', null, 'Para una pantalla de MaKo usa Enlace.'],
+    // El host de ESTA pestaña (un deploy de prueba) también es MaKo.
+    ['https://dashboard-marketing-abc123.vercel.app/crm', 'dashboard-marketing-abc123.vercel.app', 'Para una pantalla de MaKo usa Enlace.'],
+    ['https://hola-mako.com.evil.tld/x', null, ''],
+    ['javascript:alert(1)', null, 'Ese link no es válido.'],
+    ['data:text/html,<script>alert(1)</script>', null, 'Ese código no trae un link.'],
+    ['//ejemplo.com/x', null, 'Ese link no es válido.'],
+    ['http://ejemplo.com/x', null, 'El link tiene que ser https.'],
+    ['https://juan:clave@ejemplo.com/x', null, 'Ese link no es válido.'],
+    ['https://ejemplo.com:8443/x', null, 'Ese link no es válido.'],
+    ['https://192.168.0.1/admin', null, 'Ese link no es válido.'],
+    ['https://localhost/x', null, 'Ese link no es válido.'],
+    ['<iframe srcdoc="<script>alert(1)</script>"></iframe>', null, 'Ese código no trae un link.'],
+    ['https://www.youtube.com/playlist?list=PLx1', null, 'Ese link de YouTube no es un video.'],
+    ['https://fathom.video/calls/829932619', null, 'Usa el link de Compartir de Fathom.'],
+    ['https://calendar.app.google/abc123XYZ', null, 'De Google Calendar, pega su código para insertar.'],
+    ['', null, 'Pega un link o un código.'],
+  ];
+  for (const [entra, propio, frase] of NO) {
+    const r = insertableDe(entra, propio);
+    // '' en la tabla = SÍ entra (un host PARECIDO a MaKo no es MaKo: es otro sitio, con su sandbox).
+    if (!frase) { assert.ok(r.ok, entra); continue; }
+    assert.equal(errorDe(r), frase, entra.slice(0, 80));
+    assert.ok(frase.split(' ').length <= 9, `largo: ${frase}`);
+  }
+  // Sin decirle el host de la pestaña, el deploy de prueba es un sitio más (lo frena la pantalla, que sí lo sabe).
+  assert.ok(insertableDe('https://dashboard-marketing-abc123.vercel.app/crm').ok);
+});
+
+test('el video directo, la miniatura y nuestros hosts', () => {
+  for (const ok of ['https://x.com/a.webm', 'https://x.com/b/c.m4v', 'https://x.com/d.MOV', 'https://x.com/e.mp4?token=1#t=10']) assert.ok(videoDirecto(ok), ok);
+  for (const no of ['https://x.com/a.mp4.html', 'http://x.com/a.mp4', 'https://x.com/a.mkv', 'javascript:a.mp4', '', null]) assert.equal(videoDirecto(no), null, String(no));
+  assert.equal(esArchivoDeVideo('/clases/uno.mp4'), true);
+  assert.equal(esArchivoDeVideo('/clases/uno.mp4/'), false);
+
+  assert.equal(miniaturaDe(`https://youtu.be/${YT}`), `https://i.ytimg.com/vi/${YT}/hqdefault.jpg`);
+  assert.equal(miniaturaDe(`https://fathom.video/share/${FATHOM}`), `https://fathom.video/share/${FATHOM}/thumbnail`);
+  for (const sin of ['https://vimeo.com/76979871', 'https://calendly.com/juan/30min', `http://youtu.be/${YT}`, 'https://fathom.video/calls/1', '']) assert.equal(miniaturaDe(sin), null, sin);
+
+  for (const h of ['hola-mako.com', 'www.hola-mako.com', 'send.hola-mako.com', 'HOLA-MAKO.COM', 'hola-mako.com.', 'makodigital.app']) assert.equal(esHostPropio(h), true, h);
+  for (const h of ['hola-mako.com.evil.tld', 'evilhola-mako.com', 'mako.com', '']) assert.equal(esHostPropio(h), false, h);
+  assert.equal(esHostPropio('preview.vercel.app', 'preview.vercel.app'), true, 'el host de esta pestaña');
+  // Los dominios de MaKo son UNA lista: la de lib/email-remitente.ts.
+  for (const d of DOMINIOS_MAKO) assert.equal(esHostPropio(d), true, d);
+  for (const h of ['ejemplo.com', 'a.b.co', 'xn--mxico-bsa.mx']) assert.equal(conDominio(h), true, h);
+  for (const h of ['localhost', '127.0.0.1', '[::1]', 'ejemplo.', 'ejemplo.1', '.ejemplo.com']) assert.equal(conDominio(h), false, h);
+});
+
 // ── ROTURAS (08/10/2026, scratchpad video/romper.mjs) ────────────────────────
 // Una por vez, restaurada de memoria (hash verificado), corriendo JUNTOS los tres archivos de la pista
 // (este, tests/curso-video-embed.test.ts y tests/html-seguro.test.ts): 38 tests, 38 / 0 con todo en su lugar.
@@ -303,3 +467,20 @@ test('el editor: «Insertar» escribe el MISMO iframe que el saneo, y pegar sól
 //   · el editor: el src del nodo sin su parseHTML (TipTap lo pisa)      → 37 / 1 (el editor…)
 //   · el editor: pegar un código no lo inserta                          → 37 / 1 (el editor…)
 //   · esCodigoParaInsertar sin exigir que empiece con < y termine con > → 37 / 1 (el editor…)
+//
+// ── ROTURAS (11/10/2026: Fathom, el Video y el Insertar del Dashboard) ───────
+// Base de este archivo solo: 15 / 0. Arnés del paquete P1 (scratchpad p1/romper.mjs), una rotura por vez
+// sobre lib/embeds.ts, restaurada DE MEMORIA (nunca con git) y verificada por hash. Al final, 15 / 0.
+//   · el host de Fathom con endsWith en vez de exacto                    → 14 / 1 (ningún ataque…)
+//   · el token de Fathom sin su juego de caracteres                      → 14 / 1 (ningún ataque…)
+//   · Fathom armando el src con /share/ (no entra en un iframe)          → 12 / 3 (cada link real · Fathom · el Video)
+//   · Fathom sin su `pista` (el link de la grabación)                    → 12 / 3 (Fathom · el Video · Insertar)
+//   · fathom.video fuera de HOSTS_IFRAME                                 → 13 / 2 (la segunda capa · Fathom)
+//   · una dirección con puerto aceptada                                  → 13 / 2 (el Video · Insertar)
+//   · Insertar sin mirar nuestro host                                    → 14 / 1 (Insertar)
+//   · esHostPropio sin el host de la pestaña                             → 13 / 2 (Insertar · los hosts)
+//   · el Video aceptando una agenda                                      → 14 / 1 (el Video)
+//   · Insertar guardando lo que se pegó (el código) en vez de la dirección → 14 / 1 (Insertar)
+//   · Fathom sin miniatura                                               → 13 / 2 (el Video · la miniatura y los hosts)
+//   · conDominio aceptando una IP (el TLD con números)                   → 12 / 3 (el Video · Insertar · los hosts)
+//   · el «Abrir ↗» de Fathom al link que se pegó (con el minuto)         → 14 / 1 (el Video)

@@ -39,6 +39,27 @@
 //
 // Sin 'use client' ni 'server-only' a propósito: lo importan el server y el navegador, y un test lo
 // EJECUTA (tests/embeds.test.ts).
+//
+// LOS ELEMENTOS DEL DASHBOARD (11/10/2026, decisión 6 de Martín: «Closing Analyst va COMPLETO al
+// Dashboard, sumando los elementos Enlace, Video e Insertar»). Este módulo contesta también qué se ve
+// en el elemento Video (`videoDe`) y en el elemento Insertar (`insertableDe`, app/dashboard/
+// ElementoInsertado.tsx). Lo que se sumó para eso:
+//   · FATHOM, como un video más (el reproductor de las llamadas del Closing). Medido por el relevo: su
+//     `/share/<t>` manda `X-Frame-Options: SAMEORIGIN` (no entra en un iframe) y `/embed/<t>` sí; con un
+//     token inválido `/embed/` contesta 302 a la home. El token del link de Compartir ES el del
+//     reproductor (lib/closing.ts, `embedTokenOf`). `/calls/<id>` es la grabación ADENTRO de la cuenta:
+//     no se ve sin entrar, y se pide el link de Compartir (`pista`).
+//     ⚠️ Con Fathom en la lista, un link de Compartir también se inserta en una clase del curso y en el
+//        editor rico (lib/html-seguro.ts y app/_ui/EditorRico.tsx leen de acá): es el mismo reproductor.
+//   · El VIDEO DIRECTO (`videoDirecto`): un .mp4/.webm/.m4v/.mov https va con `<video>`.
+//   · La MINIATURA (`miniaturaDe`) de YouTube y de Fathom: el PDF del Dashboard imprime eso, no un iframe.
+//   · El elemento Insertar acepta CUALQUIER https, como Looker (decisión que Claude le reporta a Martín):
+//     lo conocido pasa por `embedDe` (el `src` lo arma este módulo) y lo desconocido va tal cual, con el
+//     MISMO sandbox. Lo que NUNCA entra: nuestro propio host (`esHostPropio`), con allow-scripts +
+//     allow-same-origin un iframe de nuestro origen se sacaría el sandbox, y además MaKo manda
+//     `X-Frame-Options: DENY` (next.config.ts): una pantalla de MaKo va con el elemento Enlace.
+
+import { esDominioDeMako } from './email-remitente';
 
 // ── El contrato ──────────────────────────────────────────────────────────────
 
@@ -46,7 +67,12 @@ export type Embed = { src: string; proveedor: string; alto?: number };
 
 export type ClaseEmbed = 'video' | 'agenda';
 
-type Ficha = { nombre: string; clase: ClaseEmbed; alto?: number };
+/**
+ * `pista`: lo que se le dice a quien pegó un link de este proveedor que NO se puede mostrar, cuando hay
+ * uno que sí (Fathom: el de la grabación adentro de la cuenta → «el link de Compartir»). Sin pista, la
+ * frase de siempre («Ese link de YouTube no es un video»).
+ */
+type Ficha = { nombre: string; clase: ClaseEmbed; alto?: number; pista?: string };
 
 /**
  * Los proveedores, con el nombre que ve la persona y si son un VIDEO (va a 16:9, sin alto) o una
@@ -61,6 +87,7 @@ export const PROVEEDORES_EMBED = {
   panda: { nombre: 'Panda Video', clase: 'video' },
   wistia: { nombre: 'Wistia', clase: 'video' },
   bunny: { nombre: 'Bunny', clase: 'video' },
+  fathom: { nombre: 'Fathom', clase: 'video', pista: 'Usa el link de Compartir de Fathom.' },
   calendly: { nombre: 'Calendly', clase: 'agenda', alto: 700 },
   calcom: { nombre: 'Cal.com', clase: 'agenda', alto: 700 },
   google: { nombre: 'Google Calendar', clase: 'agenda', alto: 600 },
@@ -161,7 +188,7 @@ export function atributosDeIframe(e: Embed): Array<[string, string]> {
  */
 export const HOSTS_IFRAME: readonly string[] = [
   'www.youtube-nocookie.com', 'player.vimeo.com', 'www.loom.com', 'drive.google.com', 'fast.wistia.net',
-  'iframe.mediadelivery.net', 'calendly.com', 'cal.com', 'calendar.google.com', 'tidycal.com',
+  'iframe.mediadelivery.net', 'fathom.video', 'calendly.com', 'cal.com', 'calendar.google.com', 'tidycal.com',
 ];
 /** Los que van por dominio: Panda (un subdominio por biblioteca) y HubSpot (uno por región). */
 export const DOMINIOS_IFRAME: readonly string[] = ['tv.pandavideo.com', 'tv.pandavideo.com.br', 'hubspot.com'];
@@ -275,6 +302,15 @@ export function reconocerUrl(u: URL): Reconocido | null {
     const ok = (partes[0] === 'embed' || partes[0] === 'play') && partes.length === 3 && /^\d{1,10}$/.test(partes[1]) && RE_UUID.test(partes[2]);
     const id = ok ? `${partes[1]}/${partes[2].toLowerCase()}` : null;
     return r('bunny', id, id ? `https://iframe.mediadelivery.net/embed/${id}` : null);
+  }
+  if (host === 'fathom.video' || host === 'www.fathom.video' || host === 'app.fathom.video') {
+    // `/share/<token>` (el link de Compartir) y `/embed/<token>` (su reproductor): el MISMO token. El
+    // `?timestamp=` o `?tab=` de un link copiado no viaja. `/calls/<id>` (la grabación adentro de la
+    // cuenta, el link que más circula en el CRM) es de Fathom pero no se ve sin entrar: src null y la
+    // `pista` pide el de Compartir. ⚠️ El `src` va SIEMPRE a fathom.video/embed: un link de compartir
+    // en un iframe no carga (SAMEORIGIN, medido).
+    const id = (partes[0] === 'share' || partes[0] === 'embed') && partes.length === 2 ? idLimpio(partes[1]) : null;
+    return r('fathom', id, id ? `https://fathom.video/embed/${id}` : null);
   }
   if (host === 'calendly.com' || host === 'www.calendly.com') {
     const c = caminoDeAgenda(partes, 3);
@@ -479,6 +515,162 @@ export function porQueNoSeInserta(texto: string | null | undefined): string {
   const pide = pideCodigo(u);
   if (pide) return `De ${ficha(pide).nombre}, pega su código para insertar.`;
   const r = reconocerUrl(u);
-  if (r && !r.src) return `Ese link de ${ficha(r.proveedor).nombre} no es ${ficha(r.proveedor).clase === 'agenda' ? 'una agenda' : 'un video'}.`;
+  if (r && !r.src) return sinSrc(r.proveedor);
   return 'Ese sitio no se puede insertar.';
+}
+
+/** Por qué un link de un proveedor de la lista no se puede mostrar: su `pista`, o la frase de siempre. */
+function sinSrc(p: ProveedorEmbed): string {
+  const f = ficha(p);
+  return f.pista ?? `Ese link de ${f.nombre} no es ${f.clase === 'agenda' ? 'una agenda' : 'un video'}.`;
+}
+
+// ── Los elementos del Dashboard: Video e Insertar ─────────────────────────────
+
+/** Lo que contesta una pregunta que puede fallar: el valor, o la frase corta que va en rojo debajo del campo. */
+export type Resultado<T> = { ok: true; valor: T } | { ok: false; error: string };
+
+/**
+ * ¿El camino es un ARCHIVO de video que el navegador reproduce solo? La regla de lib/curso.ts
+ * (`videoDeLink`, «un archivo directo se reproduce con `<video>`»), acá para que la usen los dos.
+ */
+export const esArchivoDeVideo = (camino: string): boolean => /\.(mp4|webm|m4v|mov)$/i.test(camino);
+
+/** Un host «con dominio»: con un punto y un TLD de letras. Sin `localhost`, sin IPs (v4 ni v6). */
+const RE_CON_DOMINIO = /^(?:[a-z0-9-]{1,63}\.)+[a-z][a-z0-9-]{1,62}$/i;
+export const conDominio = (host: string): boolean => host.length <= 253 && RE_CON_DOMINIO.test(host);
+
+/**
+ * ¿Es NUESTRO host? Un dominio de MaKo o un subdominio (`DOMINIOS_MAKO`, lib/email-remitente.ts: la
+ * lista es UNA), o el host donde corre esta pestaña (`propio` = `location.hostname`, que cubre localhost
+ * y un deploy de prueba). Lo usa el elemento Insertar, que no mete MaKo adentro de MaKo.
+ */
+export function esHostPropio(host: string, propio?: string | null): boolean {
+  const h = host.trim().toLowerCase().replace(/\.$/, '');
+  if (!h) return false;
+  if (propio && h === propio.trim().toLowerCase()) return true;
+  return esDominioDeMako(h);
+}
+
+/** Lo más largo que se guarda de una dirección. */
+export const TOPE_DIRECCION = 2000;
+
+/** Una dirección de lo que se pegó, parseada. `null` + el porqué si no hay una que valga. */
+function direccionHttps(texto: string | null | undefined, vacio: string): Resultado<URL> {
+  const t = (texto ?? '').trim();
+  if (!t) return { ok: false, error: vacio };
+  const dir = direccionDeTexto(t);
+  if (!dir) return { ok: false, error: t.includes('<') ? 'Ese código no trae un link.' : 'Ese link no es válido.' };
+  let u: URL;
+  try { u = new URL(dir); } catch { return { ok: false, error: 'Ese link no es válido.' }; }
+  if (u.protocol === 'http:') return { ok: false, error: 'El link tiene que ser https.' };
+  // Con usuario o clave, el host que se lee no es el que se visita (`https://youtube.com@otro.sitio`).
+  // Con puerto, tampoco es el servicio de siempre (la misma regla que `reconocerUrl`): sin esto, un
+  // `youtube.com:8443` no es YouTube para la lista y entraría a Insertar como un sitio cualquiera.
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || !conDominio(u.hostname)) return { ok: false, error: 'Ese link no es válido.' };
+  // El mismo tope que guarda el Dashboard (`urlHttps`, lib/graficos-catalogo.ts): si no, se valida acá
+  // y el saneo lo borra al guardar.
+  if (u.href.length > TOPE_DIRECCION) return { ok: false, error: 'Ese link es demasiado largo.' };
+  return { ok: true, valor: u };
+}
+
+/**
+ * La dirección https de un VIDEO DIRECTO (un archivo .mp4/.webm/.m4v/.mov), o `null`. Va con `<video>`:
+ * no hay reproductor de nadie en el medio.
+ */
+export function videoDirecto(texto: string | null | undefined): string | null {
+  const r = direccionHttps(texto, '');
+  return r.ok && esArchivoDeVideo(r.valor.pathname) ? r.valor.href : null;
+}
+
+/**
+ * La miniatura de un video, para el PDF y para el «clic para reproducir» de Fathom. Sólo de los que la
+ * dan por una dirección fija: YouTube (`i.ytimg.com/vi/<id>/hqdefault.jpg`) y Fathom
+ * (`fathom.video/share/<t>/thumbnail`, la que dibujaba la tab Closing). `null` = no hay.
+ */
+export function miniaturaDe(texto: string | null | undefined): string | null {
+  const r = direccionHttps(texto, '');
+  const rec = r.ok ? reconocerUrl(r.valor) : null;
+  if (!rec?.id) return null;
+  if (rec.proveedor === 'youtube') return `https://i.ytimg.com/vi/${rec.id}/hqdefault.jpg`;
+  if (rec.proveedor === 'fathom') return `https://fathom.video/share/${rec.id}/thumbnail`;
+  return null;
+}
+
+/** Lo que se ve en el elemento Video. */
+export type VideoParaVer = {
+  /** Lo que se GUARDA en el elemento: la dirección https (de un link o del código que se pegó). */
+  direccion: string;
+  /** `iframe`: el reproductor del proveedor. `directo`: un `<video>` sobre el archivo. */
+  modo: 'iframe' | 'directo';
+  /** El `src`: el que arma `reconocerUrl` (nunca el que entró) o el archivo. */
+  src: string;
+  /** `null` = un archivo directo. */
+  proveedor: ProveedorEmbed | null;
+  /** Cómo se nombra: «YouTube», «Fathom», «Archivo de video». */
+  nombre: string;
+  /** El «Abrir ↗»: el link original. De Fathom, siempre el de Compartir (el reproductor suelto no es una página). */
+  link: string;
+  miniatura: string | null;
+  /** Fathom: la miniatura y un clic para reproducir (como la tab Closing), no el reproductor de entrada. */
+  alClic: boolean;
+};
+
+/**
+ * Lo que se ve en el elemento Video desde un link (o su código): un proveedor de VIDEO de la lista
+ * (YouTube, Vimeo, Loom, Drive, Panda, Wistia, Bunny, Fathom) o un archivo directo. Una agenda, un sitio
+ * cualquiera o un link que no se puede mostrar dan su frase corta.
+ */
+export function videoDe(texto: string | null | undefined): Resultado<VideoParaVer> {
+  const d = direccionHttps(texto, 'Pega el link del video.');
+  if (!d.ok) return d;
+  const u = d.valor;
+  if (esArchivoDeVideo(u.pathname)) {
+    return { ok: true, valor: { direccion: u.href, modo: 'directo', src: u.href, proveedor: null, nombre: 'Archivo de video', link: u.href, miniatura: null, alClic: false } };
+  }
+  const pide = pideCodigo(u);
+  if (pide) return { ok: false, error: `De ${ficha(pide).nombre}, pega su código para insertar.` };
+  const r = reconocerUrl(u);
+  if (!r) return { ok: false, error: 'Ese link no es de un video. Usa Insertar.' };
+  if (ficha(r.proveedor).clase === 'agenda') return { ok: false, error: 'Es una agenda: usa Insertar.' };
+  if (!r.src) return { ok: false, error: sinSrc(r.proveedor) };
+  const fathom = r.proveedor === 'fathom';
+  return {
+    ok: true,
+    valor: {
+      direccion: u.href, modo: 'iframe', src: r.src, proveedor: r.proveedor, nombre: ficha(r.proveedor).nombre,
+      link: fathom ? `https://fathom.video/share/${r.id}` : u.href,
+      miniatura: miniaturaDe(u.href), alClic: fathom,
+    },
+  };
+}
+
+/** Lo que se ve en el elemento Insertar. */
+export type Insertable = {
+  /** Lo que se GUARDA: la dirección. Un código `<iframe>` pegado NUNCA se guarda: sólo su `src`. */
+  direccion: string;
+  /** El `src` del iframe: el de `embedDe` si el proveedor es de la lista; si no, la dirección tal cual. */
+  src: string;
+  /** `null` = un sitio cualquiera (Looker, un formulario, un tablero): va tal cual, con el mismo sandbox. */
+  proveedor: ProveedorEmbed | null;
+  /** «Calendly», o el host del sitio («lookerstudio.google.com»). */
+  nombre: string;
+};
+
+/**
+ * Lo que se ve en el elemento Insertar desde un link o un código: CUALQUIER https (como el «Insertar
+ * URL» de Looker). Lo de la lista pasa por `reconocerUrl` y su `src` lo arma este módulo; lo demás va
+ * tal cual. Nunca nuestro propio host (`propio` = `location.hostname` de quien mira).
+ */
+export function insertableDe(texto: string | null | undefined, propio?: string | null): Resultado<Insertable> {
+  const d = direccionHttps(texto, 'Pega un link o un código.');
+  if (!d.ok) return d;
+  const u = d.valor;
+  if (esHostPropio(u.hostname, propio)) return { ok: false, error: 'Para una pantalla de MaKo usa Enlace.' };
+  const pide = pideCodigo(u);
+  if (pide) return { ok: false, error: `De ${ficha(pide).nombre}, pega su código para insertar.` };
+  const r = reconocerUrl(u);
+  if (r && !r.src) return { ok: false, error: sinSrc(r.proveedor) };
+  if (r && r.src) return { ok: true, valor: { direccion: u.href, src: r.src, proveedor: r.proveedor, nombre: ficha(r.proveedor).nombre } };
+  return { ok: true, valor: { direccion: u.href, src: u.href, proveedor: null, nombre: u.hostname.replace(/^www\./, '') } };
 }

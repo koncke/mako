@@ -1,14 +1,18 @@
 // =============================================================================
 // GET /api/closing/transcript?recording_id=N — transcript de una grabación
 // =============================================================================
-// Lo consume el panel de detalle de /closing para mostrar el transcript completo
-// con timestamps clicables (deep-link al player embebido). Gated por el login del
-// dashboard. Devuelve líneas con t_seconds ya calculados.
+// Lo consume la pestaña «Transcript» de la ficha de una llamada
+// (app/dashboard/bloques/extra/FichaLlamada.tsx) para mostrar el transcript completo
+// con timestamps clicables. Devuelve líneas con t_seconds ya calculados.
+//
+// Puerta (../puerta.ts): admin o closer y el Dashboard en la capa. Es lo que se dijo
+// en una llamada: un setter no lo lee. Sin Fathom contesta vacío (lo decide acá).
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { fetchRecordingTranscript } from '@/lib/fathom-api';
 import { integracionConectada } from '@/lib/credenciales';
+import { puertaClosing } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -23,6 +27,8 @@ function toSeconds(ts: string | null | undefined): number {
 }
 
 export async function GET(req: NextRequest) {
+  const cerrada = await puertaClosing({ fathom: false });
+  if (cerrada) return cerrada;
   const idRaw = req.nextUrl.searchParams.get('recording_id');
   const recordingId = Number(idRaw);
   // Fase 1: los transcripts vienen del Fathom global del dueño → otros vacío benigno.

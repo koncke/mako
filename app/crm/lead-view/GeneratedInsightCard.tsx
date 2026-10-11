@@ -113,7 +113,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
   const pedirAnalisis = () => {
     setError(null);
     startTransition(async () => {
-      setFase('Buscando la llamada en Closing Analyst…');
+      setFase('Buscando la llamada…');
       const tiene = await leadTieneLlamadaAction(lead.id);
       if (tiene) { await correrAnalisis(); }
       else { setFase(null); setConfirmAnalizar(true); }
@@ -174,7 +174,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
               <div style={{ fontSize: 13, color: 'var(--dim)' }}>
                 {tieneFathom
                   ? 'Este lead tiene el link de Fathom pero su llamada todavía no está analizada. MaKo la analiza y genera el insight.'
-                  : 'MaKo busca la llamada en Closing Analyst y Fathom (por email o link) y la re-linkea a este lead. Si no la encuentra, carga el link de Fathom.'}
+                  : 'MaKo busca la llamada entre las analizadas y en Fathom (por email o link) y la re-linkea a este lead. Si no la encuentra, carga el link de Fathom.'}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -301,7 +301,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
       {confirmAnalizar && (
         <ConfirmDialog
           title="Analizar la llamada"
-          message={<>Este lead <b>no tiene su llamada analizada</b> en Closing Analyst. Voy a extraer los datos de Fathom, analizar el closing y generar el insight. ¿Ejecutar el proceso?</>}
+          message={<>Este lead <b>no tiene su llamada analizada</b>. Voy a extraer los datos de Fathom, analizar el closing y generar el insight. ¿Ejecutar el proceso?</>}
           confirmLabel="Sí, ejecutar"
           onConfirm={confirmarYAnalizar}
           onCancel={() => setConfirmAnalizar(false)}

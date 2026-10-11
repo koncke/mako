@@ -8,6 +8,16 @@
 // el server (lib/ads-analyst.ts). Las conclusiones de MaKo se derivan de los
 // patrones reales del período. La curva de retención sale de los cuartiles de
 // Meta y los tiempos de cada beat los estima Claude (ambos rotulados).
+//
+// ⚠️ DESDE EL 11/10/2026 NINGUNA RUTA MONTA `ScriptsBrowser` NI `GuionesFull`.
+// /ads-analyst y /ads-analyst/guiones redirigen a la hoja «Ads Analyst» del
+// Dashboard (el análisis) y las tareas se mudaron a Ads Writer → «Analizar guion»
+// (app/ads-writer/AnalizarGuion.tsx). Este archivo NO se borra: lo importa
+// app/marketing/ad-charts.tsx (FunnelModal, applyAngles, applyAvatares y sus
+// tipos), que es la ficha de un anuncio del Ads Manager. Borrar los dos
+// componentes que quedaron sin consumidor es una decisión aparte.
+// La valoración de un guion nuevo y los colores de los bloques viven en
+// app/ads-writer/ValoracionGuion.tsx: se importan de allá, UNA copia.
 // =============================================================================
 
 import { createElement as h, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
@@ -17,6 +27,9 @@ import dynamic from 'next/dynamic';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { TaxonomyManager } from '../components/TaxonomyManager';
 import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion, ScriptDraft } from '@/lib/ads-analyst';
+import {
+  BLOQUES_GUION as KIND, chipBloque as kindChip, rgba, VEREDICTO_VALORACION as VV, ValoracionView,
+} from '../ads-writer/ValoracionGuion';
 // El veredicto, la confianza y los patrones viven en un módulo puro desde el 11/10/2026:
 // los usa también el Dashboard (lib/graficos-datos-extra.ts, lib/graficos-bloques-extra.ts).
 import {
@@ -64,11 +77,7 @@ export function applyAvatares(list?: AvatarDef[]) {
   AVATAR = list && list.length ? Object.fromEntries(list.map((a) => [a.key, { label: a.label, c: a.color }])) : {};
 }
 function avatarInfo(k: string) { return AVATAR[k] ?? { label: k, c: '#6B675C' }; }
-const KIND: Record<string, { label: string; c: string }> = {
-  gancho: { label: 'Gancho', c: '#C8870C' }, contexto: { label: 'Contexto', c: '#B5742A' }, problema: { label: 'Problema', c: '#D0504A' },
-  mecanismo: { label: 'Mecanismo', c: '#2F6DDB' }, prueba: { label: 'Prueba', c: '#3B6D11' }, objecion: { label: 'Objeción', c: '#A8770F' },
-  recordatorio: { label: 'Recordatorio', c: '#7C4DD6' }, oferta: { label: 'Oferta + CTA', c: '#7C4DD6' }, cta: { label: 'CTA', c: '#0E8E7E' },
-};
+// KIND (los tipos de bloque y sus colores) vive en app/ads-writer/ValoracionGuion.tsx (BLOQUES_GUION).
 const VERDICT: Record<string, { label: string; c: string }> = {
   escalar: { label: 'Escalar', c: '#1E9E57' }, mejorar: { label: 'Mejorar gancho', c: '#2F6DDB' }, reescribir: { label: 'Reescribir cuerpo', c: '#9A6A09' },
   repensar: { label: 'Repensar', c: '#D0504A' }, validar: { label: 'Validar (poco spend)', c: '#6B675C' },
@@ -82,11 +91,7 @@ const CONF: Record<string, { label: string; c: string }> = {
 const QUAD_XMAX = 55, QUAD_YMAX = 30;
 const SPARK = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
 
-// ── Helpers puros ──
-function rgba(hex: string, a: number): string {
-  const n = hex.replace('#', '');
-  return `rgba(${parseInt(n.substring(0, 2), 16)},${parseInt(n.substring(2, 4), 16)},${parseInt(n.substring(4, 6), 16)},${a})`;
-}
+// ── Helpers puros ── (rgba viene de app/ads-writer/ValoracionGuion.tsx)
 function fmtT(s: number): string { return `${Math.floor(s / 60)}:${String(Math.floor(s) % 60).padStart(2, '0')}`; }
 function hookColor(hr: number): string { return hr >= 22 ? 'var(--good)' : hr >= 15 ? 'var(--warn)' : 'var(--bad)'; }
 function retColor(r: number): string { return r >= 25 ? 'var(--good)' : r >= 18 ? 'var(--warn)' : 'var(--bad)'; }
@@ -103,10 +108,7 @@ function avatarChip(k: string): CSSProperties {
   const a = avatarInfo(k);
   return { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 6, fontFamily: MONO, letterSpacing: '.04em', background: 'var(--surface-2)', color: a.c, border: `1px solid ${rgba(a.c, .4)}` };
 }
-function kindChip(k: string): CSSProperties {
-  const x = KIND[k] ?? { label: k, c: '#6B675C' };
-  return { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 5, fontFamily: MONO, letterSpacing: '.05em', textTransform: 'uppercase', background: rgba(x.c, .12), color: x.c, border: `1px solid ${rgba(x.c, .28)}` };
-}
+// kindChip (el chip de un tipo de bloque) vive en app/ads-writer/ValoracionGuion.tsx (chipBloque).
 function verdictChip(k: string): CSSProperties {
   const v = VERDICT[k] ?? { label: k, c: '#6B675C' };
   return { display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap', background: rgba(v.c, .1), color: v.c, border: `1px solid ${rgba(v.c, .32)}` };
@@ -588,7 +590,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
           {valError && <span style={{ fontSize: 12.5, color: 'var(--bad)' }}>{valError}</span>}
           {guionText.length > 0 && !valorando && <button onClick={() => { setGuionText(''); setValoracion(null); setValError(null); }} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>limpiar</button>}
         </div>
-        {valoracion && <ValoracionView v={valoracion} />}
+        {valoracion && <ValoracionView v={valoracion} angulo={angleInfo} />}
 
         {drafts.length > 0 && (
           <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
@@ -612,7 +614,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
       </section>
 
       {/* GUIONES */}
-      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={8} fullHref="/ads-analyst/guiones" angles={angles} avatares={avatares} />
+      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={8} fullHref="/dashboard?hoja=ads-analyst" angles={angles} avatares={avatares} />
 
       <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6, lineHeight: 1.6 }}>
         Patrones automáticos · Meta Ads (spend · frecuencia · retención de video por cuartiles) × CRM (agendas y cierres). La retención por beat se estima con los cuartiles de Meta y los tiempos de cada bloque con el ritmo de lectura. Los guiones de muestra chica quedan fuera de los patrones.
@@ -880,91 +882,7 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, onS
   );
 }
 
-// ── Valoración de un guion nuevo ──
-const VV: Record<string, { label: string; c: string }> = {
-  'escalar-candidato': { label: 'Candidato a escalar', c: '#1E9E57' },
-  'mejorar-gancho': { label: 'Mejorar gancho', c: '#2F6DDB' },
-  'reescribir-cuerpo': { label: 'Reescribir cuerpo', c: '#9A6A09' },
-  'repensar-angulo': { label: 'Repensar ángulo', c: '#D0504A' },
-  'promesa-pero-validar': { label: 'Promesa — validar', c: '#6B675C' },
-};
-function Chip({ label, value }: { label: string; value: string }) {
-  return <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '7px 11px' }}><span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--faint)' }}>{label}</span><span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{value}</span></div>;
-}
-function PatList({ title, color, items }: { title: string; color: string; items: Array<{ patron: string; evidencia: string }> }) {
-  if (!items.length) return null;
-  return (
-    <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 13, padding: '14px 16px' }}>
-      <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color, marginBottom: 10 }}>{title}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>{items.map((it, i) => (<div key={i}><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{it.patron}</div><div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.4 }}>{it.evidencia}</div></div>))}</div>
-    </div>
-  );
-}
-function ValoracionView({ v }: { v: Valoracion }) {
-  const vv = VV[v.prediccion.verdicto] ?? { label: v.prediccion.verdicto, c: '#6B675C' };
-  const sat = v.perfil.angulo_saturado && v.clasificacion.angle === v.perfil.angulo_saturado;
-  return (
-    <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 12, padding: '13px 15px' }}>
-        <span style={{ flex: 'none', color: '#7A5908', fontWeight: 700, fontSize: 15 }}>!</span>
-        <div style={{ fontSize: 13.5, lineHeight: 1.5, color: '#5A4408' }}>Predicción sin datos. Este guion no corrió en Meta; abajo es lo que MaKo espera comparándolo con tus {v.perfil.n_total} guiones reales ({v.perfil.n_confiables} con señal suficiente).</div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-        <span style={angleChip(v.clasificacion.angle)}>{angleInfo(v.clasificacion.angle).label}</span>
-        {sat && <span style={{ fontSize: 11, color: 'var(--bad)' }}>ángulo ya saturado en tu cuenta</span>}
-        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--dim)' }}>{v.clasificacion.hook_type} · {v.clasificacion.format}</span>
-        <span style={{ marginLeft: 'auto', display: 'inline-block', fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 999, background: rgba(vv.c, .1), color: vv.c, border: `1px solid ${rgba(vv.c, .32)}` }}>{vv.label}</span>
-      </div>
-      {v.clasificacion.tags.length > 0 && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{v.clasificacion.tags.map((t) => <span key={t} style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px' }}>{t}</span>)}</div>}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Chip label="Hook (est.)" value={`${v.prediccion.hook_rate_estimado.min}–${v.prediccion.hook_rate_estimado.max}%`} />
-        <Chip label="Ret. CTA (est.)" value={`${v.prediccion.retencion_cta_estimada.min}–${v.prediccion.retencion_cta_estimada.max}%`} />
-        <Chip label="Confianza" value="Sin dato real" />
-      </div>
-      <div style={{ background: rgba(vv.c, .06), border: `1px solid ${rgba(vv.c, .26)}`, borderRadius: 13, padding: '16px 18px' }}>
-        <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: vv.c, marginBottom: 8 }}>{v.lectura_estructural.title}</div>
-        <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink)' }}>{v.lectura_estructural.text}</div>
-        {v.prediccion.razon && <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--dim)', marginTop: 8 }}>{v.prediccion.razon}</div>}
-      </div>
-      {v.beats.length > 0 && (
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>El guion en bloques</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {v.beats.map((b, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', borderLeft: `3px solid ${(KIND[b.kind]?.c) || '#6B675C'}`, paddingLeft: 12 }}>
-                <span style={kindChip(b.kind)}>{KIND[b.kind]?.label || b.kind}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--ink)' }}>{b.text}</div>
-                  {v.lectura_estructural.punto_de_fuga?.beat_index === i && <div style={{ fontSize: 12, color: 'var(--bad)', marginTop: 3 }}>▼ punto de fuga: {v.lectura_estructural.punto_de_fuga.motivo}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {(v.patrones_match.length > 0 || v.patrones_miss.length > 0) && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
-          <PatList title="Cumple" color="#1E9E57" items={v.patrones_match} />
-          <PatList title="Se pierde / reproduce" color="#D0504A" items={v.patrones_miss} />
-        </div>
-      )}
-      {v.reescrituras.length > 0 && (
-        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 13, padding: '14px 16px' }}>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: '#9A6A09', marginBottom: 10 }}>Qué probar</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{v.reescrituras.map((r, i) => (<div key={i}><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{r.que_cambiar}</div><div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5 }}>{r.propuesta}</div></div>))}</div>
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: 'rgba(30,158,87,.06)', border: '1px solid rgba(30,158,87,.26)', borderRadius: 13, padding: '14px 16px' }}>
-        <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: '#1E9E57' }}>Plan de validación</span>
-        <Chip label="Presupuesto" value={fmtUSD(v.plan_validacion.presupuesto_usd)} />
-        <Chip label="Días" value={String(v.plan_validacion.dias_minimos)} />
-        <Chip label="Impresiones" value={v.plan_validacion.impresiones_objetivo.toLocaleString('en-US')} />
-        {v.plan_validacion.control && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>control: {v.plan_validacion.control}</span>}
-        {v.plan_validacion.nota && <div style={{ flexBasis: '100%', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{v.plan_validacion.nota}</div>}
-      </div>
-    </div>
-  );
-}
+// ── Valoración de un guion nuevo ── vive en app/ads-writer/ValoracionGuion.tsx (ValoracionView, VEREDICTO_VALORACION).
 
 // ── Lista de Guiones (tabla / tarjetas, con preview o completa) ──
 function Bar({ label, val, color }: { label: string; val: number; color: string }) {

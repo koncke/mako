@@ -1,49 +1,24 @@
 // =============================================================================
-// /closing — Closing Analyst
+// /closing — ahora es la hoja «Closing» del Dashboard
 // =============================================================================
-// Trae las llamadas históricas de Fathom (vía el sync), las matchea con los
-// leads del CRM y analiza el desempeño del closer en las de VENTA (R1/R2) —
-// Método SPIN, propuesta, objeciones y CTA. Las llamadas de ENTREGA DE SERVICIO
-// (coaching/accountability con clientes ya cerrados), internas y de prueba se
-// detectan y se EXCLUYEN del análisis (se cuentan aparte).
+// Decisión 6 de Martín (11/10/2026): «Closing Analyst va COMPLETO al Dashboard… y la tab se ELIMINA (la
+// ruta redirige). Los closers ven SÓLO la hoja Closing del Dashboard». Lo que era análisis vive en la
+// plantilla «Closing» (lib/graficos-plantillas-analysts.ts) y el detalle de una llamada con sus tareas
+// (re-analizar, revisar, re-evaluar con MaKo) en app/dashboard/bloques/extra/FichaLlamada.tsx.
 //
-// La data vive en closing_analyses (la llena /api/closing/sync + el cron). Esta
-// página solo lee; el componente cliente dispara el sync y muestra el detalle.
-// =============================================================================
+// SE REDIRIGE, NO SE BORRA (AGENTS.md, «Retirar una RUTA…»): `/closing?call=<id>` salió en mensajes de
+// MaKo por WhatsApp (lib/mako-doer-in.ts lo enseñaba como deep link) y nadie los puede editar. El
+// `call` se traduce a `&llamada=`, que abre la ficha de ESA llamada; el resto de la query viaja tal cual
+// (`destinoDeClosing`, lib/graficos-plantillas.ts). Con `rutaConWs`, o el super admin mirando a un
+// cliente terminaría en su propio Dashboard.
+//
+// La puerta la pone /dashboard (`requireRolWs(['closer'], { nav: 'graphics' })`, y al closer además la
+// key `closing` en la capa): acá no se repite.
 
-import { getClosingViewData, type ClosingViewData } from '@/lib/closing';
-import { ClosingBrowser } from './ClosingBrowser';
-import { requireRolWs } from '@/lib/tab-access';
-import { integracionConectada } from '@/lib/credenciales';
-import { PanelActivacion } from '../_components/PanelActivacion';
-import { tabActivacion } from '@/lib/tab-activacion';
+import { redirect } from 'next/navigation';
+import { rutaConWs } from '@/lib/workspace';
+import { destinoDeClosing } from '@/lib/graficos-plantillas';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-const EMPTY: ClosingViewData = {
-  calls: [],
-  counts: { ventas: 0, servicio: 0, internas: 0, test: 0, errores: 0, pendientes: 0, total: 0 },
-  kpis: { scorePromedio: null, conScore: 0, ganadas: 0, r1Prom: null, r2Prom: null },
-  lastSync: null,
-};
-
-export default async function ClosingPage() {
-  await requireRolWs(['closer'], { nav: 'closing' });
-
-  // Sin Fathom esta tab no tiene NADA que mostrar: el sync devuelve 403 y la
-  // vista queda en ceros, prolija pero muda sobre la causa. En vez de eso, la
-  // misma pantalla partida del onboarding pidiendo la key.
-  const tab = tabActivacion('closing');
-  if (tab && !(await integracionConectada('fathom'))) return <PanelActivacion tab={tab} />;
-
-  let data: ClosingViewData = EMPTY;
-  let errorMsg: string | null = null;
-  try {
-    data = await getClosingViewData();
-  } catch (err) {
-    errorMsg = err instanceof Error ? err.message : String(err);
-  }
-
-  return <ClosingBrowser data={data} errorMsg={errorMsg} />;
+export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  redirect(await rutaConWs(destinoDeClosing(await searchParams)));
 }

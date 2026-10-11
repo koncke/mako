@@ -16,13 +16,12 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { enRango, fechaTj, host, leer, lindo, nombres, num, ruta, txt, type Rango } from './graficos-lectura';
+import { enRango, queTableroLeer, fechaTj, host, leer, lindo, nombres, num, ruta, txt, type Rango } from './graficos-lectura';
 import { LECTORES_EXTRA } from './graficos-datos-extra';
 export type { Rango };
 import { conversorGastoMeta } from './moneda-meta';
 import { diasAntes, hoyEnTijuana } from './date-utils';
 import { productosCrm } from './api-mako/areas/crm.helpers';
-import { tableroActual } from './tablero-actual';
 import { VENTA_SIN_COBRO } from './venta-tipo';
 import { VSL_PRUEBA_VIDEO_ID } from './config';
 import { campoDe, fuenteDe, sanearGrafico, type Grafico } from './graficos-catalogo';
@@ -259,18 +258,25 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
 }
 
 const CATEGORIA_LLAMADA: Record<string, string> = { venta: 'Venta', interna: 'Interna', entrega_servicio: 'Entrega del servicio', test: 'Prueba', sin_clasificar: 'Sin clasificar' };
-type FLlamada = { recording_id: number; call_date: string | null; duration_min: number | null; closer: string | null; category: string | null; tipo: string | null; outcome: string | null; score: number | null; title: string | null; lead_id: number | null; lead_nombre: string | null };
+/**
+ * El estado del análisis, en palabras. `pendiente` es una venta que llegó SIN transcript (el próximo sync la
+ * reintenta): «Sin transcript» dice qué le falta, «Pendiente» se leería como «en cola».
+ */
+const ESTADO_LLAMADA: Record<string, string> = { analizada: 'Analizada', pendiente: 'Sin transcript', error: 'Con error', descartada: 'Descartada' };
+type FLlamada = { recording_id: number; call_date: string | null; duration_min: number | null; closer: string | null; category: string | null; status: string | null; tipo: string | null; outcome: string | null; score: number | null; title: string | null; lead_id: number | null; lead_nombre: string | null };
 async function filasLlamadas(rg: Rango): Promise<Fila[]> {
-  const rows = await leer<FLlamada>('closing_analyses', 'recording_id, call_date, duration_min, closer, category, tipo, outcome, score, title, lead_id, lead_nombre', rg, { col: 'call_date', orden: 'recording_id' });
+  const rows = await leer<FLlamada>('closing_analyses', 'recording_id, call_date, duration_min, closer, category, status, tipo, outcome, score, title, lead_id, lead_nombre', rg, { col: 'call_date', orden: 'recording_id' });
   return rows.map((x) => ({
     f: x.call_date,
     d: {
       closer: txt(x.closer), categoria: CATEGORIA_LLAMADA[x.category ?? ''] ?? lindo(txt(x.category)), reunion: txt(x.tipo), resultado: txt(x.outcome)?.slice(0, 40) ?? null,
+      estado: ESTADO_LLAMADA[x.status ?? ''] ?? lindo(txt(x.status)),
       // La llamada: su título, o con quién fue. Suele traer el nombre del lead (DIMENSIONES_PERSONA).
       llamada: txt(x.title)?.slice(0, 80) ?? txt(x.lead_nombre),
     },
     v: { llamadas: 1, minutos: num(x.duration_min), puntos: x.score != null ? num(x.score) : 0, con_puntaje: x.score != null ? 1 : 0 },
-    // «Ver llamada» abre /closing?call=<recording_id>; el lead, si la llamada está atada a uno, su ficha.
+    // «Ver llamada» abre la ficha de la llamada (app/dashboard/bloques/extra/FichaLlamada.tsx) en la caja del
+    // detalle; el lead, si la llamada está atada a uno, su ficha del CRM.
     r: { llamada: String(x.recording_id), lead: x.lead_id != null ? String(x.lead_id) : null },
   }));
 }
@@ -347,7 +353,7 @@ async function filasEnvios(rg: Rango): Promise<Fila[]> {
 /** Las bandas del tablero (app/plan/board/types.ts, `prioFromScore`): ALTA ≥ 75 · MEDIA ≥ 50 · BAJA ≥ 25. */
 const banda = (s: number) => (s >= 75 ? 'Alta' : s >= 50 ? 'Media' : s >= 25 ? 'Baja' : 'A futuro');
 async function filasTareas(fecha: string, rg: Rango): Promise<Fila[]> {
-  const deQuien = await tableroActual();
+  const deQuien = await queTableroLeer();
   const col = fecha === 'deadline' ? 'deadline' : fecha === 'alta' ? 'created_at' : null;
   if (deQuien === 'dueno') {
     // El tablero del super admin: plan_tareas + plan_proyectos (id de texto).

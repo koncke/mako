@@ -15,26 +15,67 @@
 // ⚠️ LOS PEDIDOS SALEN DE `pedidosDeHoja` (./exportar.ts), la MISMA función que usa la pantalla, con
 //    la vista vacía y la versión 0. Si esto armara los suyos, la firma de lo que ya llegó no coincidiría
 //    con la de la pantalla y cada gráfico se pediría dos veces al abrir.
+//
+// Desde el 11/10/2026 (Closing, Ads y Landing Analyst se retiraron de la sidebar y traen acá):
+//   · `?hoja=` se resuelve con `hojaDestino` (lib/graficos-plantillas.ts): el id exacto, la hoja que
+//     tiene la firma de la plantilla pedida, o la plantilla AGREGADA al informe (EditorInforme la suma
+//     y la guarda). Antes caía en la primera hoja sin avisar.
+//   · EL CLOSER entra (decisión 6 de Martín) y ve SÓLO la hoja Closing: un informe EN MEMORIA con la
+//     plantilla de ids fijos, sin editar ni guardar (`soloLectura`). No se lee su informe guardado: no
+//     tiene uno que pueda tocar. /api/graficos le contesta sólo lo de Closing.
+//   · `?llamada=<recording_id>` abre la ficha de esa llamada (la ruta vieja era /closing?call=).
 
+import { redirect } from 'next/navigation';
 import { Pagina } from '@/app/_ui';
-import { requireRolWs } from '@/lib/tab-access';
+import { homeDeCapa, requireRolWs } from '@/lib/tab-access';
+import { getCapaActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
+import { tabEnCapa } from '@/lib/capas';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { leerTablero } from '@/lib/graficos-tablero';
+import { hojaDestino, informeCloser, llamadaDeUrl } from '@/lib/graficos-plantillas';
 import { datosDeGraficos } from '@/lib/graficos-datos';
 import { datosDeBloques } from '@/lib/graficos-bloques';
+import type { Hoja, Tablero } from '@/lib/graficos-catalogo';
 import { EditorInforme } from './EditorInforme';
 import { pedidosDeHoja } from './exportar';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ hoja?: string }> }) {
-  await requireRolWs([], { nav: 'graphics' });
+type Busqueda = { hoja?: string | string[]; llamada?: string | string[] };
+
+export default async function Page({ searchParams }: { searchParams: Promise<Busqueda> }) {
+  await requireRolWs(['closer'], { nav: 'graphics' });
+  // Cacheado por request (lib/auth.ts): no es una consulta más.
+  const closer = (await getRolWsEfectivo()) === 'closer';
+  if (closer) {
+    // Lo único que el closer ve acá es Closing: si su negocio no lo compró, esto no es para él.
+    const capa = await getCapaActual();
+    if (!tabEnCapa('closing', capa)) redirect(await rutaConWs(homeDeCapa(capa)));
+  }
 
   const hoy = hoyEnTijuana();
   const p = await searchParams;
-  const lectura = await leerTablero();
-  const hoja = lectura.tablero.hojas.find((h) => h.id === p.hoja) ?? lectura.tablero.hojas[0];
+  const pedida = Array.isArray(p.hoja) ? p.hoja[0] : p.hoja;
+  const llamada = llamadaDeUrl(p.llamada);
+
+  let tablero: Tablero;
+  let lecturaFallo = false;
+  let hoja: Hoja;
+  let agregar: Hoja | null = null;
+  let lleno = false;
+  if (closer) {
+    tablero = informeCloser();
+    hoja = tablero.hojas[0];
+  } else {
+    const lectura = await leerTablero();
+    tablero = lectura.tablero;
+    lecturaFallo = lectura.estado === 'error';
+    const destino = hojaDestino(tablero, pedida);
+    agregar = destino.agregar;
+    lleno = !!destino.lleno;
+    hoja = agregar ?? tablero.hojas.find((h) => h.id === destino.hojaId) ?? tablero.hojas[0];
+  }
   const { graficos, bloques } = pedidosDeHoja(hoja, {}, hoy, 0);
   // Como en /api/graficos: un período que termina después de hoy se acota a hoy (la firma no cambia,
   // porque sale del período que pidió el gráfico, no del acotado).
@@ -53,12 +94,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ h
     // El PDF lo desarma en el @media print de ./editor-css.ts.
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <EditorInforme
-        inicial={lectura.tablero}
+        inicial={tablero}
         datosIniciales={datos}
         bloquesIniciales={datosBloque}
-        lecturaFallo={lectura.estado === 'error'}
+        lecturaFallo={lecturaFallo}
         hoy={hoy}
         hojaInicial={hoja.id}
+        hojaAgregada={agregar}
+        aviso={lleno ? 'Máximo de hojas' : null}
+        soloLectura={closer}
+        llamadaInicial={llamada}
       />
     </Pagina>
   );

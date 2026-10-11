@@ -336,7 +336,9 @@ export const AREAS: AreaDev[] = [
     slug: 'dashboard', titulo: 'Dashboard', familia: 'Analyze',
     estado: 'listo', verEnApp: '/dashboard',
     alcance: 'La tab Dashboard es un editor de informes copiado de Looker Studio: hojas (Marketing y Comercial son las dos del informe inicial), 40 tipos de gráfico, estilo editable, control de período y los 24 conjuntos de datos de MaKo. Por persona y workspace.',
-    vive: ['app/dashboard/', 'app/graficos/', 'app/marketing/page.tsx', 'app/comercial/page.tsx', 'app/api/graficos/', 'lib/graficos-catalogo.ts', 'lib/graficos-agregar.ts', 'lib/graficos-datos.ts', 'lib/graficos-tablero.ts', 'tests/graficos.test.ts'],
+    vive: ['app/dashboard/', 'app/graficos/', 'app/marketing/page.tsx', 'app/comercial/page.tsx', 'app/api/graficos/', 'lib/graficos-catalogo.ts', 'lib/graficos-agregar.ts', 'lib/graficos-datos.ts', 'lib/graficos-tablero.ts', 'tests/graficos.test.ts',
+      'lib/graficos-ia-red.ts', 'lib/graficos-ia-generar.ts', 'lib/graficos-analisis-server.ts',
+      'lib/api-mako/areas/dashboard.def.ts', 'lib/api-mako/areas/dashboard.run.ts', 'lib/api-mako/areas/dashboard.helpers.ts'],
     proyectos: ['Feature: Dashboard'],
   },
   {
@@ -372,27 +374,31 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'ads-analyst', titulo: 'Ads Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'listo', verEnApp: '/ads-analyst',
-    alcance: 'Cruza el análisis cualitativo de Claude sobre el guion (ángulo, gancho, beats) con las métricas Meta×CRM de todo el histórico del anuncio; arriba viven Patrones (ganadores/a cortar/de proceso) y el Cuadrante de Retención. Sin filtro de fecha y gateado por Meta.',
-    vive: ['app/ads-analyst/page.tsx', 'app/ads-analyst/ScriptsBrowser.tsx', 'lib/ads-analyst.ts', 'lib/script-angles.ts', 'lib/script-avatares.ts', 'app/api/ads-analyst/'],
+    estado: 'listo', verEnApp: '/dashboard?hoja=ads-analyst',
+    alcance: 'Cruza el análisis cualitativo de Claude sobre el guion (ángulo, gancho, beats) con las métricas Meta×CRM de todo el histórico del anuncio; arriba viven Patrones (ganadores/a cortar/de proceso) y el Cuadrante de Retención. Sin filtro de fecha y gateado por Meta. Desde el 11/10/2026 ya no es una tab: el análisis es la hoja «Ads Analyst» del Dashboard, valorar un guion nuevo vive en Ads Writer (?tab=analizar) y /ads-analyst redirige a la hoja.',
+    vive: ['app/ads-analyst/page.tsx', 'app/ads-analyst/ScriptsBrowser.tsx', 'lib/ads-analyst.ts', 'lib/script-angles.ts', 'lib/script-avatares.ts', 'app/api/ads-analyst/',
+      'app/ads-writer/AnalizarGuion.tsx', 'lib/graficos-plantillas-analysts.ts', 'app/dashboard/bloques/extra/BloquesAds.tsx'],
     proyectos: ['Feature: Ads Analyst'],
   },
   {
     slug: 'landing-analyst', titulo: 'Landing Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'listo', verEnApp: '/landing-analyst',
+    estado: 'listo', verEnApp: '/landing-generator/analizar',
     alcance: 'Baja la landing del cliente, le lee el copy y lo cruza con el comportamiento real de esa URL (beacon + agendas del CRM): lista de landings a la izquierda, diagnóstico con hallazgos por severidad a la derecha. A propósito NO se gatea por integración: con pegar una URL alcanza. Desde el 06/10/2026 analiza SOLA cada página que se declara en el Pixel (por detrás, con un cron de red) y tiene el MAPA DE CALOR: los toques dibujados sobre la foto de la página que guarda una grabación.',
     vive: ['app/landing-analyst/page.tsx', 'app/landing-analyst/LandingAnalystApp.tsx', 'lib/landing-analyst.ts', 'app/api/landing-analyst/',
       'app/landing-analyst/PulsoPaginas.tsx', 'app/landing-analyst/MapaDeCalor.tsx',
       'lib/landing-mapa.ts', 'lib/landing-mapa-foto.ts', 'lib/landing-mapa-server.ts',
       'lib/landing-url.ts', 'lib/landing-analyst-auto.ts', 'app/api/cron/landing-analyst-auto/route.ts',
-      'tests/landing-mapa.test.ts', 'tests/landing-analyst-auto.test.ts'],
+      'tests/landing-mapa.test.ts', 'tests/landing-analyst-auto.test.ts',
+      'app/landing-generator/analizar/page.tsx', 'app/landing-analyst/destino.ts', 'tests/landing-generator-analizar.test.ts', 'app/dashboard/bloques/extra/BloquesLanding.tsx'],
     proyectos: ['Feature: Landing Analyst'],
+    nota: 'Desde el 11/10/2026 no es una tab: analizar una página es «Diagnóstico», dentro de Landing Generator (/landing-generator/analizar, que monta LandingAnalystApp desde donde está) y el pulso y el mapa de calor son la hoja «Landing» del Dashboard. /landing-analyst redirige. La key `landing-an` sigue gobernando los gating de la API.',
   },
   {
     slug: 'closing-analyst', titulo: 'Closing Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'listo', verEnApp: '/closing',
-    alcance: 'Trae las llamadas de Fathom, las matchea con los leads del CRM y analiza al closer en las de VENTA (R1/R2) con método SPIN; las de entrega de servicio, internas y de prueba se detectan y se excluyen. Sin Fathom muestra PanelActivacion. Visible para rol closer.',
-    vive: ['app/closing/page.tsx', 'app/closing/ClosingBrowser.tsx', 'lib/closing.ts', 'app/api/closing/'],
+    estado: 'listo', verEnApp: '/dashboard?hoja=closing',
+    alcance: 'Trae las llamadas de Fathom, las matchea con los leads del CRM y analiza al closer en las de VENTA (R1/R2) con método SPIN; las de entrega de servicio, internas y de prueba se detectan y se excluyen. Desde el 11/10/2026 no es una tab: es la hoja «Closing» del Dashboard, con la ficha de cada llamada y sus tareas; el closer ve SÓLO esa hoja, sin editar. /closing?call=<id> redirige a ?hoja=closing&llamada=<id>.',
+    vive: ['app/closing/page.tsx', 'lib/closing.ts', 'app/api/closing/', 'lib/graficos-plantillas-analysts.ts', 'lib/graficos-plantillas.ts',
+      'app/dashboard/bloques/extra/BloquesClosing.tsx', 'app/dashboard/bloques/extra/FichaLlamada.tsx'],
     proyectos: ['Feature: Closing Analyst'],
   },
   {
@@ -621,7 +627,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'closing-script', titulo: 'Closing Script', familia: 'Sales Machine',
     estado: 'por-construir', verEnApp: '/closing-script',
-    alcance: 'El guion que usa el closer en la llamada. ComingSoon; su contraparte de ANÁLISIS (/closing, Closing Analyst) sí existe y funciona, así que el bucle natural es que ésta se alimente de aquélla.',
+    alcance: 'El guion que usa el closer en la llamada. ComingSoon; su contraparte de ANÁLISIS (la hoja Closing del Dashboard, ex Closing Analyst) sí existe y funciona, así que el bucle natural es que ésta se alimente de aquélla.',
     // ⚠️ Este `vive` eran dos rutas: el stub (UN commit en toda su vida) y nav.ts
     // (68). El Change History automático mostraba 12 commits y ninguno hablaba del
     // área. Es el gemelo de «Una ruta que apunta a la nada»: una que apunta a TODO

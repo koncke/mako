@@ -16,9 +16,14 @@
 //
 // ⚠️ SIN `server-only`: lo leen el server (el inicial), la pantalla (el modal) y los tests. Y SIN
 //    datos de ningún cliente (AGENTS.md: un ejemplo de pantalla es ficticio por regla).
+//
+// Desde el 11/10/2026 también vive acá A DÓNDE LLEVA un link a una hoja (`hojaDestino`, abajo) y el
+// informe del CLOSER (`informeCloser`): Closing Analyst, Ads Analyst y Landing Analyst se retiraron
+// de la sidebar y sus rutas traen al Dashboard con `?hoja=` (decisión 6 de Martín: «Closing Analyst
+// va COMPLETO al Dashboard… Los closers ven SÓLO la hoja Closing»).
 
 import {
-  NOMBRE_INICIAL, nuevoId, sanearHoja,
+  MAX_HOJAS, NOMBRE_INICIAL, campoDe, esBloque, esElemento, hojaVacia, nuevoId, sanearGrafico, sanearHoja,
   type Componente, type Hoja, type Tablero,
 } from './graficos-catalogo';
 import { PLANTILLAS_ANALYSTS } from './graficos-plantillas-analysts';
@@ -86,13 +91,17 @@ const COMERCIAL: PlantillaHoja = {
       { id: id('co-cobranza'), clase: 'bloque', bloque: 'cobranza', x: 0, y: 9, w: 12, h: 8 },
       // 3 · La tendencia de los últimos 12 meses
       { id: id('co-tendencia'), clase: 'grafico', tipo: 'serie', fuente: 'negocio', dimension: 'mes', metricas: ['vendido', 'cobrado', 'gasto', 'cierres'], titulo: 'Tendencia', periodo: 'ult12m', x: 0, y: 17, w: 12, h: 10 },
-      // 4 · Salud del funnel comercial: las cohortes maduras
-      { id: id('co-funnel'), clase: 'bloque', bloque: 'funnel_maduro', x: 0, y: 27, w: 12, h: 12 },
+      // 4 · Salud del funnel comercial: las cohortes maduras.
+      // ⚠️ El funnel y las cohortes van con período «Todo» (Martín, 11/10/2026: «Que muestre todas y para eso
+      // tenemos filtros dentro de un elemento»): con el filtro de fecha de la hoja en 30 días quedaban 1-2
+      // cohortes maduras. Su período propio le gana al control de la hoja (`efectivoDe`), y se acota con el
+      // control de período del propio bloque.
+      { id: id('co-funnel'), clase: 'bloque', bloque: 'funnel_maduro', periodo: 'todo', x: 0, y: 27, w: 12, h: 12 },
       // 5 · SCL — el ciclo de venta
       { id: id('co-scl'), clase: 'bloque', bloque: 'scl', x: 0, y: 39, w: 12, h: 8 },
       // 6 · Las cohortes
-      { id: id('co-cohortes-mes'), clase: 'bloque', bloque: 'cohortes_mes', x: 0, y: 47, w: 12, h: 10 },
-      { id: id('co-cohortes-semana'), clase: 'bloque', bloque: 'cohortes_semana', x: 0, y: 57, w: 12, h: 10 },
+      { id: id('co-cohortes-mes'), clase: 'bloque', bloque: 'cohortes_mes', periodo: 'todo', x: 0, y: 47, w: 12, h: 10 },
+      { id: id('co-cohortes-semana'), clase: 'bloque', bloque: 'cohortes_semana', periodo: 'todo', x: 0, y: 57, w: 12, h: 10 },
     ],
   }),
 };
@@ -127,3 +136,190 @@ export function tableroInicial(): Tablero {
 
 /** Los componentes de una plantilla (para los tests y el modal). */
 export const componentesDe = (p: PlantillaHoja): Componente[] => fija(p).componentes;
+
+// ── A dónde lleva `?hoja=` (C2) ─────────────────────────────────────────────────────────────────
+// Los links a una hoja nombran la PLANTILLA: /closing → `?hoja=closing`, /ads-analyst →
+// `?hoja=ads-analyst`, /productivity-analyst → `?hoja=productividad`, y lo mismo /marketing y
+// /comercial. Hasta el 11/10/2026 page.tsx buscaba `h.id === hoja` y, si no estaba, caía en la
+// primera hoja SIN AVISAR: una hoja agregada desde «Nueva hoja» nace con ids nuevos, así que a quien
+// la había armado así el link de su tab vieja lo dejaba en Marketing. Era el bug vivo de
+// /productivity-analyst, y con las tres tabs retiradas hubiera sido el de tres más.
+
+/**
+ * Lo que reconoce una hoja armada con una plantilla aunque tenga ids NUEVOS (la de «Nueva hoja»):
+ * un bloque que sólo esa plantilla trae, o un id fijo del informe inicial. Alcanza con UNO.
+ * ⚠️ Un bloque de una firma no puede estar en otra plantilla: la hoja de una se tomaría por la otra
+ *    (lo cuida tests/graficos-analysts.test.ts). Por eso Comercial no se reconoce por `cobranza`, que
+ *    también trae la plantilla «Cobranza».
+ * Las plantillas generales no tienen firma: se reconocen por su id (y si no están, se agregan con él).
+ */
+export type FirmaHoja = { bloques?: readonly string[]; ids?: readonly string[] };
+const FIRMAS: Readonly<Record<string, FirmaHoja>> = {
+  marketing: { ids: ['marketing', 'mk-spend', 'mk-funnel', 'mk-tendencias', 'mk-anuncios'] },
+  comercial: { ids: ['comercial', 'co-revenue', 'co-cobranza', 'co-funnel', 'co-tendencia'] },
+  closing: { bloques: ['embudo_cierre', 'factores_cierre', 'llamadas_cierre'] },
+  'ads-analyst': { bloques: ['patrones_guiones', 'cuadrante_retencion'] },
+  landing: { bloques: ['mapa_calor', 'curva_vsl'] },
+  productividad: { bloques: ['matriz_proyectos', 'piramide_prioridad'] },
+};
+/** La firma de una plantilla, para los tests. */
+export const firmaDe = (plantillaId: string): FirmaHoja | undefined => FIRMAS[plantillaId];
+
+function calzaFirma(h: Hoja, f: FirmaHoja): boolean {
+  if (f.ids?.includes(h.id)) return true;
+  return h.componentes.some((c) => !!f.ids?.includes(c.id) || (esBloque(c) && !!f.bloques?.includes(c.bloque)));
+}
+
+/** Los ids de todo lo que tiene id en el informe (componentes, controles de la hoja y de cada componente). */
+function idsDe(t: Tablero): Set<string> {
+  const ids = new Set<string>();
+  for (const h of t.hojas) {
+    for (const k of h.controles) ids.add(k.id);
+    for (const c of h.componentes) {
+      ids.add(c.id);
+      if (!esElemento(c)) for (const k of c.controles) ids.add(k.id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * La plantilla armada con sus ids FIJOS para agregarla a ESTE informe. La hoja conserva su id (es
+ * lo que nombra el link, y así el próximo `?hoja=` la encuentra por el paso 1). Un componente o un
+ * control cuyo id ya usa otra hoja se acuña de nuevo: las plantillas generales repiten nombres
+ * locales (`por-dia` está en cuatro) y con el mismo id lo elegido mirando en una hoja se vería en la
+ * otra, y los datos de una se pintarían un instante en la otra (los dos se guardan por id).
+ */
+function paraAgregar(t: Tablero, p: PlantillaHoja): Hoja {
+  const h = fija(p);
+  const usados = idsDe(t);
+  const libre = (id: string) => (usados.has(id) ? nuevoId() : id);
+  return {
+    ...h,
+    controles: h.controles.map((k) => ({ ...k, id: libre(k.id) })),
+    componentes: h.componentes.map((c) => (esElemento(c)
+      ? { ...c, id: libre(c.id) }
+      : { ...c, id: libre(c.id), controles: c.controles.map((k) => ({ ...k, id: libre(k.id) })) })),
+  };
+}
+
+/** Lo que contesta `hojaDestino`. `hojaId: null` = la primera hoja. */
+export type DestinoHoja = {
+  hojaId: string | null;
+  /** La plantilla pedida, armada para agregarla: no estaba en el informe. */
+  agregar: Hoja | null;
+  /** Era una plantilla, no estaba, y el informe ya tiene el máximo de hojas: se avisa. */
+  lleno?: true;
+};
+
+/**
+ * Qué hoja abre `?hoja=<pedido>` en ESTE informe:
+ *   1. la que tiene ese id exacto;
+ *   2. si el pedido es una plantilla, la primera hoja con su FIRMA (la que se agregó desde «Nueva
+ *      hoja», con ids nuevos);
+ *   3. si es una plantilla y no está, la plantilla armada (`agregar`): la pantalla la AGREGA al
+ *      informe y se guarda, porque la persona fue a buscarla (EditorInforme.tsx, con un toast).
+ * Un pedido que no es ni una hoja ni una plantilla abre la primera hoja.
+ */
+export function hojaDestino(t: Tablero, pedido: string | null | undefined): DestinoHoja {
+  const p = typeof pedido === 'string' ? pedido.trim() : '';
+  if (!p) return { hojaId: null, agregar: null };
+  if (t.hojas.some((h) => h.id === p)) return { hojaId: p, agregar: null };
+  const plantilla = plantillaHojaDe(p);
+  if (!plantilla) return { hojaId: null, agregar: null };
+  const firma = FIRMAS[plantilla.id];
+  const conFirma = firma ? t.hojas.find((h) => calzaFirma(h, firma)) : undefined;
+  if (conFirma) return { hojaId: conFirma.id, agregar: null };
+  if (t.hojas.length >= MAX_HOJAS) return { hojaId: null, agregar: null, lleno: true };
+  const agregar = paraAgregar(t, plantilla);
+  return { hojaId: agregar.id, agregar };
+}
+
+/** Un informe con una hoja más al final, si no estaba (la que agrega `hojaDestino`). */
+export function conHojaAgregada(t: Tablero, h: Hoja | null | undefined): Tablero {
+  if (!h || t.hojas.some((x) => x.id === h.id) || t.hojas.length >= MAX_HOJAS) return t;
+  return { ...t, hojas: [...t.hojas, h] };
+}
+
+/**
+ * El `recording_id` de una llamada que viene en la URL (`?llamada=` del Dashboard, `?call=` de la
+ * ruta vieja): un entero positivo, o nada. Lo que no se entiende no abre una ficha vacía.
+ */
+export function llamadaDeUrl(v: unknown): number | null {
+  const s = Array.isArray(v) ? v[0] : v;
+  if (typeof s !== 'string' || !/^\d{1,15}$/.test(s.trim())) return null;
+  const n = Number(s.trim());
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+/**
+ * /closing → la hoja Closing del Dashboard. `?call=<id>` (la ruta vieja abría ESA llamada) pasa a
+ * `&llamada=<id>`, y el resto de la query viaja tal cual (el `?ws=` incluido): los links a /closing
+ * salieron en avisos y mensajes de MaKo que nadie puede editar.
+ */
+export function destinoDeClosing(sp: Record<string, string | string[] | undefined>): string {
+  const qs = new URLSearchParams();
+  qs.set('hoja', 'closing');
+  const id = llamadaDeUrl(sp.call);
+  if (id != null) qs.set('llamada', String(id));
+  for (const [k, v] of Object.entries(sp)) {
+    if (k === 'call' || k === 'hoja' || k === 'llamada') continue;
+    if (typeof v === 'string') qs.append(k, v);
+    else if (Array.isArray(v)) for (const x of v) qs.append(k, x);
+  }
+  return `/dashboard?${qs.toString()}`;
+}
+
+// ── El closer: la hoja Closing y nada más (C3) ──────────────────────────────────────────────────
+// Decisión 6 de Martín (11/10/2026): «Los closers ven SÓLO la hoja Closing del Dashboard (no editan el
+// informe, no ven otras hojas)». La pantalla le arma este informe EN MEMORIA (nunca se guarda) y
+// /api/graficos le contesta sólo lo que esta hoja pide. ⚠️ Esconder el resto en la pantalla no
+// protege nada (AGENTS.md, «Un flag de visibilidad protege la PANTALLA»): la lista de abajo es la que
+// usa el SERVER, y el test cruza que la hoja no pida nada fuera de ella.
+
+/** Los conjuntos que un closer puede leer: las llamadas. Ni la plata, ni los leads, ni la pauta. */
+export const CLOSER_CONJUNTOS: readonly string[] = ['llamadas', 'llamadas_venta', 'llamadas_dimensiones'];
+/** Los bloques de Closing. */
+export const CLOSER_BLOQUES: readonly string[] = ['embudo_cierre', 'factores_cierre', 'closers_cierre', 'llamadas_cierre'];
+
+/** El informe del closer: la plantilla Closing con sus ids fijos (sin guardar, la elegida mirando no se pierde al recargar). */
+export function informeCloser(): Tablero {
+  const p = plantillaHojaDe('closing');
+  // Un informe sin hojas rompe la pantalla (todo lee `hojas[0]`): sin la plantilla, una hoja vacía.
+  return { v: 3, nombre: NOMBRE_INICIAL, hojas: [p ? fija(p) : hojaVacia('Closing')] };
+}
+
+/**
+ * Los conjuntos de Closing donde un closer puede pedir los valores de un campo (el desplegable de un
+ * filtro), recortados a los que pidió la pantalla. Vacío = ese campo no es de Closing: 403. «Closer»
+ * también está en los leads, y por ahí no pasa.
+ */
+export function fuentesDeCampoCloser(campoId: unknown, pedidas?: unknown): string[] {
+  const c = campoDe(typeof campoId === 'string' ? campoId : '');
+  if (!c) return [];
+  const propias = Object.keys(c.en).filter((f) => CLOSER_CONJUNTOS.includes(f));
+  if (!Array.isArray(pedidas)) return propias;
+  const p = pedidas.map(String);
+  return propias.filter((f) => p.includes(f));
+}
+
+/**
+ * ¿Un closer puede hacer este pedido a /api/graficos? `datos` de los conjuntos de Closing, `bloques`
+ * de Closing y `valores` de un campo de Closing. Guardar, el detalle de un número y todo lo demás,
+ * no. EN POSITIVO: una acción nueva de la ruta nace cerrada para el closer.
+ * Un pedido de la lista que no se entiende cierra la lista entera: la pantalla del closer no los arma.
+ */
+export function closerPuedePedir(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false;
+  const b = body as Record<string, unknown>;
+  const lista = (v: unknown): Array<Record<string, unknown> | null> => (Array.isArray(v) ? v : []);
+  if (b.accion === 'datos') {
+    return lista(b.pedidos).every((p) => {
+      const g = sanearGrafico(p?.grafico);
+      return !!g && CLOSER_CONJUNTOS.includes(g.fuente);
+    });
+  }
+  if (b.accion === 'bloques') return lista(b.pedidos).every((p) => CLOSER_BLOQUES.includes(String(p?.bloque ?? '')));
+  if (b.accion === 'valores') return fuentesDeCampoCloser(b.campo, b.fuentes).length > 0;
+  return false;
+}
