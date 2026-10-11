@@ -250,3 +250,61 @@ Contratos ya escritos (no se cambian sin avisar): `lib/editor-landing/doc.ts`,
 - Sin `'use server'` nuevos (todo por route handlers); si hubiera uno, sólo exporta funciones async.
 - Tests: `node --import tsx --test tests/<x>.test.ts`; cada test nuevo se prueba ROMPIÉNDOLO y el
   resultado de la rotura va en su comentario con números.
+
+---
+
+# Tanda 2 (11/10/2026, tarde): el feedback de Martín sobre el Panel, presentaciones, diagnóstico y publicar
+
+Pedido textual (con dos capturas del Panel en producción):
+
+> 1. Aún no se ve igual... Muchos botones a la derecha.
+> 2. "Diagnóstico" no debería ser otra ruta, debería abrirse ahí a la derecha.
+> 3. Elimina las tab de "Recientes, creadas por mi, publicadas y favoritas". También elimina la tab de "landings", que en la sidebar aparezcan las landings creadas/analizadas con el nombre de las mismas... Y también elimina el botón de "diagnostico" de la sidebar, en su lugar que esté dentro de los 3 puntos que debe tener cada landing, junto a otros botones como renombrar, eliminar, archivar, duplicar, etc... También elimina la funcionalidad de "carpetas".
+> 4. También agrega el botón de "Nueva landing" como placeholder en el primer puesto arriba de las demás landing.
+> 5. Falta la funcionalidad de crear presentaciones, no solo landings... Diapositivas, tal cual como lo hace gamma.
+> 6. Al momento de crear nuevo tengo que elegir si crear landing, presentación... Sería bueno que ahí aparezcan los templates (deberías hacer más templates de presentaciones)... Y también quiero ahí mismo agregar la funcionalidad que tenemos en "nueva automatización", donde le escribo a la IA o le mando un audio, pero me gusta el formato que hiciste de "¿Qué vas a crear hoy?", solo falta agregar la funcionalidad de dictarle con audio, como lo tenemos en donde te mencioné.
+> 7. También quiero que al analizar una landing sea como un "tutorial" de los que tenemos en MaKo, que se ponga opaco y señale el lugar donde se esta haciendo el comentario, y luego que queden guardados todos los comentarios y sugerencias y claro, la opción de solucionarlo allí mismo con IA.
+> 8. También si traigo una landing de afuera, tiene que funcionar el paso anterior, se tiene que previsualizar y comenzar con los "comentarios"... Y me gustaría si es una landing de afuera tener la opción de replicarla con nuestro editor.
+> 9. Si se tiene que poder editar libremente con "HTML personalizado", esto permitirá copiar otras landing...
+> 10. Y claro, falta la opción de publicar, ya sea con una URL creada por MaKo, como lo hace Gamma, o la opción de traer tu dominio.
+
+## Decisiones de la tanda 2
+
+- **T1 · El Panel es una barra lateral de DOCUMENTOS, no de filtros** (puntos 1, 3, 4). Se van Landings,
+  Recientes, Creadas por mí, Favoritos, Publicadas, Diagnóstico y Carpetas (la columna `carpeta` queda en
+  la tabla sin uso). La barra lista las landings y presentaciones POR NOMBRE (ícono según el tipo, las
+  analizadas de afuera también), con «+ Nueva landing» como primer renglón, y cada renglón con su «⋯»:
+  Abrir, Diagnóstico, Renombrar, Duplicar, Archivar (= papelera, restaurable), Eliminar (tacho rojo).
+  Plantillas, Temas y Papelera quedan abajo. La derecha es la caja «¿Qué vas a crear hoy?» con muchos
+  menos botones (se van Crear nuevo/Nuevo desde cero/Importar/Ordenar/Cuadrícula/Lista como fila de botones).
+- **T2 · El Diagnóstico se abre a la DERECHA del Panel** (punto 2), no en otra ruta: seleccionar
+  «Diagnóstico» de una landing (o pegar una URL de afuera) dibuja el análisis en el área principal.
+  `/landing-generator/analizar` (lo montó la sesión Graphics al retirar el Landing Analyst) pasa a
+  redirigir al Panel con la landing abierta en diagnóstico.
+- **T3 · Presentaciones** (punto 5): `config.formato: 'pagina' | 'presentacion'` y, en presentación,
+  `config.proporcion: '16:9' | '4:3' | 'fluido'`. Cada sección es una DIAPOSITIVA de proporción fija
+  (CSS `aspect-ratio`, guías de desbordamiento como Gamma), la UI dice «diapositiva», Presentar es la
+  acción principal (en vez de Publicar), y la IA genera diapositivas (menos texto, más diseños
+  optimizados). ~12 plantillas de presentación propias (pitch, propuesta comercial, informe mensual,
+  caso de éxito, onboarding de cliente, plan de marketing, webinar, clase de curso, roadmap, equipo,
+  ventas, reporte de resultados).
+- **T4 · Crear** (punto 6): la caja «¿Qué vas a crear hoy?» con selector Landing | Presentación, el
+  micrófono `BotonDictar` (el de «Nueva automatización»: en vivo con el reconocimiento del navegador y,
+  de respaldo, grabar y transcribir) y el ejemplo que se escribe solo (`useEjemploQueSeEscribe`), y
+  debajo las plantillas del tipo elegido.
+- **T5 · Diagnóstico como RECORRIDO** (puntos 7, 8): previsualización de la landing (la nuestra, con el
+  render; la de afuera, con su HTML bajado por `lib/landing-fetch.ts` y servido aislado), y un recorrido
+  como los de MaKo (`RecorridoAutomations`): la pantalla se oscurece y el foco señala el bloque al que
+  apunta cada comentario (se ubica por la cita textual del hallazgo). Los comentarios/sugerencias quedan
+  GUARDADOS por landing, con estado (pendiente / resuelto / descartado) y «Solucionar con IA» (en una
+  landing nuestra, «Editar con IA» sobre esa sección). Para una de afuera: «Replicar en el editor».
+- **T6 · HTML libre de verdad** (punto 9): una sección puede ser «Formato libre (HTML)»: HTML/CSS/JS
+  propios editables con código y vista en vivo. En la publicada se sirve desde su PROPIA URL con
+  `Content-Security-Policy: sandbox allow-scripts allow-forms allow-popups` (origen opaco: no toca la
+  sesión de MaKo) y el iframe se ajusta al alto por `postMessage`. «Replicar» una landing de afuera
+  arma secciones así cuando la conversión a bloques no es fiel.
+- **T7 · Publicar con dominio propio** (punto 10): además de `hola-mako.com/l/<slug>` (la URL de MaKo),
+  «Conectar tu dominio»: se registra en el proyecto de Vercel por API (`VERCEL_API_TOKEN`,
+  `VERCEL_TEAM_SLUG`), se muestran los registros DNS a cargar, se verifica el estado, y `proxy.ts`
+  sirve en ESE host sólo la landing publicada (nada de la app ni de `/api`, salvo lo que la página
+  necesita). Subdominios `<slug>.hola-mako.com` quedan fuera (necesitan DNS comodín: lo decide Martín).
