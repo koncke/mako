@@ -36,6 +36,15 @@ Cuenta) — o la composición que se decida con él viendo un prototipo.
 
 `MOVIL_ACTIVO` sigue en `false` hasta que Martín apruebe el rediseño.
 
+**El próximo paso, acordado: un PROTOTIPO antes de implementar.** Un diseñador escribe
+`docs/diseno-mako-mobile-v2.md` (barra de 5 con «Más», encabezado nativo con el logo real chico, tarjetas
+y listas en claro, qué texto se va, y por sección qué hace el teléfono y qué queda en la computadora —
+el editor de video y el de landings en versión reducida honesta) y un HTML autocontenido de 390×844 con
+Today, Más, CRM y ficha, Inbox, Dashboard, Ads Manager y el editor de video reducido, con los tokens reales
+de globals.css, el SVG real del logo y datos de ejemplo FICTICIOS. Se publica como artifact para que
+Martín lo vea en el celular y lo apruebe; recién ahí se implementa. Quedó sin lanzar el 11/10 a la tarde:
+la sesión de Chatbot pidió la máquina para su undécima tanda (RAM y cola del typecheck).
+
 Ya arreglado en esta tanda (commit de la tarde): el Inbox cuenta y muestra sólo lo que se decide en el
 teléfono (los 68 borradores del plan van plegados en «N para revisar en la computadora»), Today corta
 «Para hoy» en 5, el globo propio del chat de WhatsApp era ilegible en oscuro, el email de Cuenta.
