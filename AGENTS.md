@@ -7560,3 +7560,48 @@ de `18:00:00`, y el test cae. Con cualquier unidad de calendario, no.
 Y el corolario general, que vale para cualquier guard sobre una función con ramas: **si la
 función tiene un camino que NO pasa por la normalización que te protege, ése es el único
 caso que prueba algo.**
+
+# Lo que se guarda en el NAVEGADOR lleva el workspace en la clave
+
+IndexedDB, OPFS, localStorage y la Cache Storage son por ORIGEN: todas las pestañas de
+hola-mako.com comparten las mismas bases. El super admin abre varios clientes a la vez con
+`?ws=N`, una pestaña por cliente, así que una base sin el workspace en el nombre le mezcla
+los datos de uno con los de otro, sin error. Pasó en el Video Editor: OpenCut guardaba los
+proyectos en `video-editor-projects` y un cliente le «heredaba» proyectos a otro.
+
+- Toda clave con datos de un cliente lleva el ws (molde: `app/video-editor/espacio.ts`).
+- El ws sale del server (`getWorkspaceActual()` → prop), nunca de leer `?ws=` de la URL.
+- Se lee en CADA apertura, no al importar el módulo: los singletons de almacenamiento se
+  crean una vez y la pestaña puede cambiar de cliente sin recargar.
+- Un guardado en un cleanup/unmount compara el ws del montaje con el actual antes de escribir.
+
+# Un tema limitado a una clase no llega a los PORTALES
+
+Una copia de app con su CSS limitado a una clase raíz (`.ce` del Video Editor, `.lk`, `.gh`)
+define sus tokens ADENTRO de esa clase. Radix y `createPortal` montan menús, popovers y
+diálogos en `<body>`, afuera: se dibujan sin colores y sin un solo error. La vista declara
+un contenedor de portal dentro de su raíz y se lo pasa a todo portal (molde:
+`app/video-editor/portal.ts`, `container={portalCe()}`). Lo mismo con `requestFullscreen`:
+se pide sobre la raíz, nunca sobre un sub-elemento.
+
+# Un tope sobre algo que se PAGA rechaza con aviso; no recorta
+
+`decirConVoz` cortaba en silencio el texto a 400 caracteres y cobraba un audio partido a mitad
+de frase. Caracteres, segundos o tokens que se facturan se validan ANTES de llamar, y el
+mensaje dice cuál es el tope. Recortar es entregar —y cobrar— otra cosa que la pedida.
+
+# Una tab nueva decide si entra en la capa `superadmin`
+
+La capa `superadmin` (`lib/capas.ts`) tiene `navKeys` EXPLÍCITAS: una tab que no se suma ahí no
+aparece para el super admin en su propio workspace, y `requireCapa` lo rebota a su casa sin
+explicar por qué. Les pasa a `video-generator` y `video-editor`. Al crear una tab, la decisión se
+toma y se escribe; no se descubre después.
+
+# El 200 también puede ser NUESTRO
+
+(Complemento de «`res.ok` no es salió bien».) Sin sesión, `proxy.ts` contesta 307 a `/login`
+a todo lo que su matcher no exime —un `.json`, `.avif` o `.mp4` de `public/` incluidos— y
+`fetch` sigue el redirect hasta un 200 con HTML. Lo que se baja se valida por `content-type`,
+no por el status. Lo estático que se pide sin sesión se exime en el matcher por RUTA (`ve/`,
+`cono-tx/`); una ruta de PÁGINA no se exime nunca, porque el proxy es el único que valida el
+`?ws=`.
