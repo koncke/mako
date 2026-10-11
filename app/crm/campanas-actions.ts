@@ -235,7 +235,7 @@ export async function previaLoteAction(
   if (!lote.length) return { ok: false, error: 'Ese id no es de Meta.' };
   try {
     const d = await destino(funnelId);
-    if (!d.ok) return { ok: false, error: 'Ese producto ya no existe.' };
+    if (!d.ok) return { ok: false, error: 'Ese funnel ya no existe.' };
     const [asignadas, productos] = await Promise.all([leerCampanasAsignadasEstricto(), productosConNull()]);
     // ⚠️ CON EL MAPA COMO QUEDARÍA, no con el de hoy: si en el mismo lote va una campaña y
     // un conjunto suyo que hoy está en otro producto, el conjunto pasa a ser de éste y sus
@@ -248,7 +248,7 @@ export async function previaLoteAction(
     }
     // Un `funnel_id` de un embudo archivado no está entre los vivos: se dice así y no se
     // inventa un nombre.
-    const nombreDe = (id: number | null) => productos.find((p) => p.id === id)?.nombre ?? 'un producto archivado';
+    const nombreDe = (id: number | null) => productos.find((p) => p.id === id)?.nombre ?? 'un funnel archivado';
     const porProducto = [...cuenta].map(([id, n]) => ({ id, n, nombre: nombreDe(id) })).sort((a, b) => b.n - a.n);
     const desde = [...new Set(lote
       .map((it) => asignadas.find((a) => a.id === it.id))
@@ -297,7 +297,7 @@ export async function asignarLoteAction(
     // archivado no rompería nada hoy —el ruteo lo descarta—, pero dejaría una fila que
     // dice «va a X» sobre algo que no va a ningún lado.
     const d = await destino(funnelId);
-    if (!d.ok) return { ok: false, error: 'Ese producto ya no existe.' };
+    if (!d.ok) return { ok: false, error: 'Ese funnel ya no existe.' };
     // Lectura ESTRICTA: con una tolerante, una lectura caída se leería como «no hay
     // ninguna» y este guardado borraría todas las demás (ver lib/campana-funnel.ts).
     const actuales = await leerCampanasAsignadasEstricto();

@@ -325,14 +325,14 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               se deshace desde el aviso. */}
           {destinos.length > 0 && (
             <Dropdown
-              value="" resetAfterSelect placeholder="Producto" ariaLabel={`Agregar ${cuantos} a otro producto`}
+              value="" resetAfterSelect placeholder="Funnel" ariaLabel={`Agregar ${cuantos} a otro funnel`}
               icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
               buttonStyle={estiloDrop}
               options={destinos.map((p) => ({ value: String(p.fid ?? 'default'), label: p.nombre }))}
               onChange={(v) => {
                 if (corriendo) return;
                 const fid = v === 'default' ? null : Number(v);
-                agregarA(fid, destinos.find((p) => p.fid === fid)?.nombre ?? 'otro producto');
+                agregarA(fid, destinos.find((p) => p.fid === fid)?.nombre ?? 'otro funnel');
               }} />
           )}
 

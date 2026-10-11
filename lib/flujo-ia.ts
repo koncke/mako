@@ -588,7 +588,7 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
   let producto: ProductoIA | null = null;
   if (def.parametros.some((p) => p.nombre === 'embudoId')) {
     producto = resolverProducto(datos.embudoId ?? datos.producto ?? datos.embudo ?? null, est.ctx);
-    if (!producto || producto.funnelId == null) return { quitar: `Saqué «${def.titulo}»: ese producto no existe` };
+    if (!producto || producto.funnelId == null) return { quitar: `Saqué «${def.titulo}»: ese funnel no existe` };
     params.embudoId = producto.funnelId;
   }
   for (const p of def.parametros) {
@@ -1505,7 +1505,7 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
           const suyas = etiquetasDeAccion(a.params);
           if (!suyas.length || suyas.some((id) => !etiquetaOk(id))) err.push('una etiqueta de una acción no existe');
         }
-        if ('embudoId' in (a.params ?? {}) && !ctx.productos.some((x) => x.funnelId === Number(a.params.embudoId))) err.push('una acción usa un producto que no existe');
+        if ('embudoId' in (a.params ?? {}) && !ctx.productos.some((x) => x.funnelId === Number(a.params.embudoId))) err.push('una acción usa un funnel que no existe');
         for (const pr of def.parametros) {
           const v = a.params?.[pr.nombre];
           if (pr.tipo === 'number' && RX_PARAM_PLATA.test(pr.nombre) && v != null && !(ctx.numerosPermitidos ?? []).includes(Number(v))) err.push(`a «${def.titulo}» le pusieron un monto que no está en el pedido`);

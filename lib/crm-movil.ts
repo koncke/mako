@@ -122,7 +122,7 @@ const COLS_QUIETO = 'id, nombre, funnel_id, estado_lead, pipeline_stage, fecha_a
  */
 async function quietos(ahoraMs: number): Promise<QuietoM[]> {
   const funnels = await funnelsConUmbrales();
-  if (!funnels) throw new Error('No pude leer los embudos.');
+  if (!funnels) throw new Error('No pude leer los funnels.');
   const plazos = new Map<number, Record<string, number>>();
   const etiquetas = new Map<number, Map<string, string>>();
   const etapasDe = new Map<number, (typeof funnels)[number]['cfg']['stages']>();
@@ -293,7 +293,7 @@ export async function fichaMovil(leadId: number): Promise<FichaMovil | null> {
       const etapa = p.esCasa ? (etapaCasa && stages.some((s) => s.key === etapaCasa) ? etapaCasa : etapaVigenteDe(l, comoLite(stages))) : p.etapa;
       return {
         funnelId: p.funnelId,
-        nombre: (f ? nombreVisible(f) : '') || 'Producto',
+        nombre: (f ? nombreVisible(f) : '') || 'Funnel',
         esCasa: p.esCasa,
         etapa,
         etapaLabel: stages.find((s) => s.key === etapa)?.label ?? etapa,

@@ -432,7 +432,7 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null, productos }: {
       // el tipo del éxito no tiene (el typecheck lo marcó con el ternario puesto).
       let id: number | null = null;
       if ('id' in r) id = r.id;
-      else if (r.elegir) { setProductosAlta(r.elegir); mostrarAvisoAlta('Elige el producto'); return; }
+      else if (r.elegir) { setProductosAlta(r.elegir); mostrarAvisoAlta('Elige el funnel'); return; }
       else if (r.coincidencias.length === 1) {
         id = r.coincidencias[0].id;
         // Ya estaba y el server la AGREGÓ al elegido (se agrega, nunca se mueve): se dice,

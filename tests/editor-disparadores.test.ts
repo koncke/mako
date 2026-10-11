@@ -48,7 +48,7 @@ test('la primera pantalla: los SIETE botones gigantes en 4+3, en orden y con su 
   const html = dibujar([{ id: 'd1', trigger_tipo: 'manual' }]);
   const clases = [...html.matchAll(/data-clase-cron="([a-z]+)"/g)].map((m) => m[1]);
   assert.deepEqual(clases, ['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email', 'pagos']);
-  for (const l of ['Producto', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email', 'Pagos']) assert.match(html, new RegExp(`>${l}</button>`));
+  for (const l of ['Funnel', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email', 'Pagos']) assert.match(html, new RegExp(`>${l}</button>`));
   // Cada botón lleva su ícono (un <svg>), no un emoji.
   assert.ok(cuantos(html, /<svg/g) >= 7, 'faltan los íconos de los botones');
   // 4+3, nunca 3+3+1 (11/10/2026: con «Pagos» son siete, y un botón solo en una tercera fila se ve roto).

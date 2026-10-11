@@ -397,10 +397,10 @@ test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / E
     actual: { trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 }, textoActual: 'x',
   });
   // La raíz: «Productos» y «Etiquetas» (cuarta tanda, punto 2). Ni «Eventos» ni «La que tiene puesta».
-  assert.deepEqual(secs.map((s) => s.title), ['Productos', 'Etiquetas']);
+  assert.deepEqual(secs.map((s) => s.title), ['Funnels', 'Etiquetas']);
   const raiz = (t: string) => secs.find((s) => s.title === t)!;
-  assert.deepEqual(raiz('Productos').grupos!.map((g) => g.title), ['Mentoría', 'Servicio'], 'adentro de «Productos», el nombre de cada uno');
-  const prod = (t: string) => raiz('Productos').grupos!.find((s) => s.title === t) ?? raiz(t);
+  assert.deepEqual(raiz('Funnels').grupos!.map((g) => g.title), ['Mentoría', 'Servicio'], 'adentro de «Funnels», el nombre de cada uno');
+  const prod = (t: string) => raiz('Funnels').grupos!.find((s) => s.title === t) ?? raiz(t);
   assert.deepEqual(prod('Mentoría').options, [], 'un producto no tiene opciones: tiene pasos');
   assert.deepEqual(prod('Mentoría').grupos!.map((g) => [g.title, g.options.map((o) => o.value)]), [
     ['Adquisición de clientes', ['venta:5:agendado']], ['Entrega del servicio', ['entrega:9:onb']],
@@ -413,7 +413,7 @@ test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / E
   assert.equal(rotuloDisparo(secs, 'etiqueta:3', 'x'), 'Se le puso «Cualificado»');
   // Con UN producto, el producto no está: «Productos» abre directo en Adquisición / Entrega.
   const uno = pasosDisparo({ disparadores: DISPARADORES, productos: [PRODUCTOS[0]], etiquetas: [], actual: { trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 }, textoActual: 'x' });
-  assert.deepEqual(uno.map((s) => s.title), ['Productos']);
+  assert.deepEqual(uno.map((s) => s.title), ['Funnels']);
   assert.deepEqual(uno[0].grupos!.map((s) => s.title), ['Adquisición de clientes', 'Entrega del servicio']);
   assert.equal(rotuloDisparo(uno, 'venta:5:agendado', 'x'), 'Llega a «Agendado»');
   // Un disparador por EVENTO de antes NO es una sección («La que tiene puesta» salió): lo dice el

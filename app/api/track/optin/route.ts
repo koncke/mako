@@ -429,7 +429,7 @@ export async function POST(req: NextRequest) {
             // UNA) y sin esta línea quien lo abre no tiene cómo saber que esa persona
             // ya está también en los tableros de otros productos. Cuenta sólo los que
             // se agregaron de verdad, más la casa.
-            tambien.length ? `🗂️ Entró a ${tambien.length + 1} productos` : null,
+            tambien.length ? `🗂️ Entró a ${tambien.length + 1} funnels` : null,
             `👉 ${linkApp(`/crm/${lead.id}`, wsEnContexto())}`,
           ].filter(Boolean).join('\n'),
         }),

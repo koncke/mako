@@ -1815,7 +1815,7 @@ export function pasosDisparo(op: OpcionesDisparo): SeccionDisparo[] {
 }
 
 /** El primer paso del CRON: los productos (cuarta tanda, punto 2). */
-export const PASO_PRODUCTOS = 'Productos';
+export const PASO_PRODUCTOS = 'Funnels';
 
 /** Las etiquetas que pueden disparar (las vivas), o null si no hay ninguna. */
 function seccionEtiquetas(op: Pick<OpcionesDisparo, 'etiquetas'>): SeccionDisparo | null {

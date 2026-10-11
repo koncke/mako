@@ -475,7 +475,7 @@ export const CONDICIONES: readonly DefCondicion[] = [
   // ── Etapa y pipeline ──
   { id: 'etapa', seccion: 'Etapa y pipeline', ambito: 'adquisicion', rotulo: ['Está en la etapa', 'No está en la etapa'], negable: true, valor: LEGADO, fuentes: ['lead', 'productos'] },
   {
-    id: 'en_producto', seccion: 'Etapa y pipeline', ambito: 'adquisicion', rotulo: ['Está en el embudo de', 'No está en el embudo de'], negable: true, valor: { t: 'lista', catalogo: 'producto' }, fuentes: ['lead', 'productos'],
+    id: 'en_producto', seccion: 'Etapa y pipeline', ambito: 'adquisicion', rotulo: ['Está en el funnel de', 'No está en el funnel de'], negable: true, valor: { t: 'lista', catalogo: 'producto' }, fuentes: ['lead', 'productos'],
     evaluar: (f, h) => { const id = num(f); return id == null || !h.etapasPorProducto ? null : h.etapasPorProducto.has(id); },
   },
 
@@ -1034,7 +1034,7 @@ export function etapasEntregaDeFilas(filas: readonly FilaCondicion[]): Array<{ p
 export type NombresCatalogo = (catalogo: CatalogoValor, valor: string) => string | null;
 
 const GENERICO: Record<CatalogoValor, string> = {
-  etiqueta: 'una etiqueta', etapa: 'una etapa', producto: 'un producto', campana: 'una campaña', origen: 'un origen',
+  etiqueta: 'una etiqueta', etapa: 'una etapa', producto: 'un funnel', campana: 'una campaña', origen: 'un origen',
   estado_lead: 'un estado', estado_cliente: 'un estado', curso: 'un curso', modulo: 'un módulo', clase: 'una clase',
   clase_tarea: 'una clase', post: 'un post', etapa_entrega: 'una etapa', reunion: 'una reunión',
 };

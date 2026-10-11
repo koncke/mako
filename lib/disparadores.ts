@@ -129,7 +129,7 @@ export type ClaseDisparador = 'producto' | 'recurrente' | 'etiqueta' | 'instagra
 
 /** Los botones gigantes de la primera pantalla del CRON (CRON puntos 1, 2, 6, 7 y 8, y Pagos), en ese orden. */
 export const CLASES_DISPARADOR: ReadonlyArray<{ clase: ClaseDisparador; label: string }> = [
-  { clase: 'producto', label: 'Producto' },
+  { clase: 'producto', label: 'Funnel' },
   { clase: 'recurrente', label: 'Recurrente' },
   { clase: 'etiqueta', label: 'Etiqueta' },
   { clase: 'instagram', label: 'Instagram' },

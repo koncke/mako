@@ -30,8 +30,8 @@ export async function cambiarCursoAlGanarAction(
   try {
     if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador puede cambiarlo.' };
     const real = funnelId ?? (await idDelFunnelDefault());
-    if (real == null || !(await listarFunnels()).some((f) => f.id === real)) return { ok: false, error: 'Ese producto no existe.' };
-    if (prendido && !(await estadoCursoAlGanar(real))) return { ok: false, error: 'Ese producto no tiene clases.' };
+    if (real == null || !(await listarFunnels()).some((f) => f.id === real)) return { ok: false, error: 'Ese funnel no existe.' };
+    if (prendido && !(await estadoCursoAlGanar(real))) return { ok: false, error: 'Ese funnel no tiene clases.' };
     const lista = await cambiarCursoAlGanar(real, prendido === true);
     revalidatePath('/crm');
     return { ok: true, prendido: lista.includes(real) };

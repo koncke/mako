@@ -56,7 +56,7 @@ import type { NombreIconoMenu } from '../app/_ui/iconos-menu';
  * Lo que no está acá sale de partir el nombre y ponerle las tildes por palabra (`TILDES`).
  */
 export const ROTULOS_PARAMETRO: Readonly<Record<string, string>> = {
-  leadId: 'Lead', etiquetaId: 'Etiqueta', secuenciaId: 'Automatización', embudoId: 'Producto',
+  leadId: 'Lead', etiquetaId: 'Etiqueta', secuenciaId: 'Automatización', embudoId: 'Funnel',
   kpiId: 'KPI', objectiveId: 'Objetivo', pagoId: 'Cuota', audioId: 'Audio', handoffId: 'Caso',
   miembro_id: 'Miembro', recording_id: 'Grabación', facturado_por_id: 'Facturado por',
   campaignId: 'Campaña', adsetId: 'Conjunto', adId: 'Anuncio', ad_id: 'Anuncio', contactId: 'Contacto',
@@ -182,11 +182,11 @@ export const ICONO_AREA: Readonly<Record<AreaAccion, NombreIconoMenu>> = { CRM: 
  * Los BLOQUES de un área: adentro de un área se separan con una línea, no con otro clic. Tres niveles
  * (CRM › Etiquetas › Agregar) eran un clic de más sobre once acciones que ya se buscan escribiendo.
  */
-export const GRUPOS_ACCION = ['Etapa y productos', 'Etiquetas', 'Ficha', 'Equipo', 'Automatizaciones', 'Cliente', 'Chat'] as const;
+export const GRUPOS_ACCION = ['Etapa y funnels', 'Etiquetas', 'Ficha', 'Equipo', 'Automatizaciones', 'Cliente', 'Chat'] as const;
 export type GrupoAccion = (typeof GRUPOS_ACCION)[number];
 /** El área de cada bloque. `Automatizaciones` sólo tiene las que el selector no ofrece (`FUERA_DEL_SELECTOR`). */
 export const AREA_DE_GRUPO: Readonly<Record<GrupoAccion, AreaAccion>> = {
-  'Etapa y productos': 'CRM', Etiquetas: 'CRM', Ficha: 'CRM', Equipo: 'CRM', Automatizaciones: 'CRM',
+  'Etapa y funnels': 'CRM', Etiquetas: 'CRM', Ficha: 'CRM', Equipo: 'CRM', Automatizaciones: 'CRM',
   Cliente: 'Customer Success', Chat: 'WhatsApp',
 };
 
@@ -242,9 +242,9 @@ export type AccionDelFlujo = {
  * TODAS las del workspace marcadas con `curada` (lib/api-mako/flujo.ts), y el selector suma la puesta.
  */
 export const ACCIONES_DEL_FLUJO: readonly AccionDelFlujo[] = [
-  { id: 'proponer_cambio_etapa', titulo: 'Mover de etapa', que: 'Lo pasa a otra etapa del kanban', grupo: 'Etapa y productos', icono: 'etapa' },
-  { id: 'agregar_lead_a_producto', titulo: 'Agregar a un producto', que: 'Lo suma a otro producto, sin sacarlo del suyo', grupo: 'Etapa y productos', icono: 'producto' },
-  { id: 'quitar_lead_de_producto', titulo: 'Quitar de un producto', que: 'Lo quita de uno de sus productos', grupo: 'Etapa y productos', icono: 'quitar' },
+  { id: 'proponer_cambio_etapa', titulo: 'Mover de etapa', que: 'Lo pasa a otra etapa del kanban', grupo: 'Etapa y funnels', icono: 'etapa' },
+  { id: 'agregar_lead_a_producto', titulo: 'Agregar a un funnel', que: 'Lo suma a otro funnel, sin sacarlo del suyo', grupo: 'Etapa y funnels', icono: 'producto' },
+  { id: 'quitar_lead_de_producto', titulo: 'Quitar de un funnel', que: 'Lo quita de uno de sus funnels', grupo: 'Etapa y funnels', icono: 'quitar' },
   { id: 'poner_etiqueta_lead', titulo: 'Agregar una etiqueta', que: 'Le agrega una etiqueta del CRM', grupo: 'Etiquetas', icono: 'etiqueta-mas' },
   { id: 'sacar_etiqueta_lead', titulo: 'Eliminar una etiqueta', que: 'Le elimina una etiqueta del CRM', grupo: 'Etiquetas', icono: 'etiqueta-menos' },
   { id: 'agregar_nota_lead', titulo: 'Agregar una nota', que: 'Deja una nota en su historial', grupo: 'Ficha', icono: 'nota' },

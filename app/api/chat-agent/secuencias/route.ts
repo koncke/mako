@@ -363,7 +363,7 @@ export async function POST(req: NextRequest) {
         return Response.json({ ok: true });
       }
       const fid = body.funnelId == null || body.funnelId === '' ? null : Number(body.funnelId);
-      if (fid != null && !Number.isFinite(fid)) return Response.json({ ok: false, error: 'producto inválido' }, { status: 400 });
+      if (fid != null && !Number.isFinite(fid)) return Response.json({ ok: false, error: 'funnel inválido' }, { status: 400 });
       await setDisparadorEtapa(id, String(body.etapa ?? ''), fid);
       return Response.json({ ok: true });
     }

@@ -56,7 +56,7 @@ export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignad
   const [ocupada, setOcupada] = useState(false);
   const [pide, setPide] = useState<Pide | null>(null);
 
-  const nombreDe = (funnelId: number | null) => productos.find((p) => p.id === funnelId)?.nombre ?? 'otro producto';
+  const nombreDe = (funnelId: number | null) => productos.find((p) => p.id === funnelId)?.nombre ?? 'otro funnel';
   const actual = asignada ? valorDe(asignada.funnelId) : '';
 
   const asignar = async (funnelId: number | null, traer: boolean) => {

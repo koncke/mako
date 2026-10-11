@@ -784,7 +784,7 @@ export async function crearProductoAction(nombre: string, canal?: string | null)
     revalidatePath('/funnel');
     return { funnelId };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'No se pudo crear el producto.' };
+    return { error: e instanceof Error ? e.message : 'No se pudo crear el funnel.' };
   }
 }
 
@@ -881,7 +881,7 @@ async function yaEstanEnProducto(ids: number[], destinoId: number, defaultId: nu
       db.from('lead_funnel').select('lead_id').eq('funnel_id', destinoId).in('lead_id', tanda),
     ]);
     if (casas.error) throw new Error('No se pudo leer la casa de los leads: ' + casas.error.message);
-    if (filas.error) throw new Error('No se pudo leer en qué productos están: ' + filas.error.message);
+    if (filas.error) throw new Error('No se pudo leer en qué funnels están: ' + filas.error.message);
     for (const l of (casas.data ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>) {
       if (casaReal(l.funnel_id == null ? null : Number(l.funnel_id), defaultId) === destinoId) out.add(Number(l.id));
     }
@@ -1090,7 +1090,7 @@ export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: str
       revalidatePath('/crm');
       return { ...choque, agregadoA: destino.nombre ?? undefined };
     } catch (err) {
-      return { ...choque, errorAlAgregar: err instanceof Error ? err.message : 'No pude agregarlo al producto.' };
+      return { ...choque, errorAlAgregar: err instanceof Error ? err.message : 'No pude agregarlo al funnel.' };
     }
   }
 }
@@ -1897,7 +1897,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     ? etapaDeGanado((funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault()).stages)
     : null;
   if (hayGanados && !etapaGanado) {
-    errores.push('Este embudo no tiene etapa de cierre: esos leads entraron en la primera etapa.');
+    errores.push('Este funnel no tiene etapa de cierre: esos leads entraron en la primera etapa.');
   }
 
   for (const f of validadas) {
@@ -2880,7 +2880,7 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
         // Escala» — y como el título es un input, renombrar arrancaba desde el valor
         // equivocado. Se pide sólo por ESTE id: el mapa entero es para el desplegable.
         nombre: (cfg.id != null ? (await productosPorFunnel([cfg.id])).get(cfg.id) : null)?.trim()
-          || cfg.nombre || 'Tu embudo',
+          || cfg.nombre || 'Tu funnel',
         esDefault: cfg.esDefault,
         etapas: propias,
         fijas,
@@ -2970,13 +2970,13 @@ export async function extrasDelEmbudoAction(funnelId?: number): Promise<ExtrasDe
  * nombre del PRODUCTO. El porqué completo está en `renombrarFunnel` (lib/funnels.ts).
  */
 export async function renombrarEmbudoAction(funnelId: number | null, nombre: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede editar el embudo.' };
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede editar el funnel.' };
   try {
     // Sin id es el del NEGOCIO, y hay que resolver cuál es: `renombrarFunnel` necesita una fila.
     let id = funnelId;
     if (id == null) {
       const cfg = await getFunnelDefault();
-      if (cfg.origen === 'error' || cfg.id == null) return { ok: false, error: 'No se pudo leer tu embudo principal. Vuelve a intentarlo.' };
+      if (cfg.origen === 'error' || cfg.id == null) return { ok: false, error: 'No se pudo leer tu funnel principal. Vuelve a intentarlo.' };
       id = cfg.id;
     }
     await renombrarFunnel(id, nombre);
@@ -2999,7 +2999,7 @@ export async function renombrarEmbudoAction(funnelId: number | null, nombre: str
  * no para decidir: guardar NUNCA se bloquea, y esto tampoco.
  */
 export async function archivarEmbudoAction(funnelId: number): Promise<{ ok: true; leads: number } | { ok: false; error: string }> {
-  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede eliminar un embudo.' };
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede eliminar un funnel.' };
   try {
     const leads = await contarLeadsDeFunnel(funnelId).catch(() => -1);
     await archivarFunnel(funnelId);
@@ -3024,11 +3024,11 @@ export async function eliminarEmbudoDefinitivoAction(funnelId: number): Promise<
     revalidatePath('/crm');
     return { ok: true, rescatados };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo borrar el producto.' };
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo borrar el funnel.' };
   }
 }
 export async function restaurarEmbudoAction(funnelId: number): Promise<{ ok: true } | { ok: false; error: string }> {
-  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede restaurar un embudo.' };
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede restaurar un funnel.' };
   try {
     await restaurarFunnel(funnelId);
     bust(TAG.pipeline, TAG.leads);
@@ -3161,7 +3161,7 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       if (!pipeline.some((st) => st.key === op.key)) {
         return { ok: false, error: 'Esa etapa no es del pipeline: no se puede eliminar, solo renombrar.' };
       }
-      if (pipeline.length <= 1) return { ok: false, error: 'Tu embudo se quedaría sin etapas.' };
+      if (pipeline.length <= 1) return { ok: false, error: 'Tu funnel se quedaría sin etapas.' };
       // La etapa de ENTRADA tampoco: sin ella el embudo no tiene por dónde llegar un lead,
       // y es de donde cuelga la declaración de cómo entra la gente.
       if (pipeline.find((st) => st.key === op.key)?.kind === 'entrada') {
@@ -3211,7 +3211,7 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
           .filter((t) => t.category === 'nutricion')
           .map((t) => `${t.from}>${t.to}`),
       );
-      if (!posibles.has(op.id)) return { ok: false, error: 'Esa nutrición no es de este embudo.' };
+      if (!posibles.has(op.id)) return { ok: false, error: 'Esa nutrición no es de este funnel.' };
       const sup = new Set(actual.suppressed);
       // Todos los ids de la MISMA nutrición se escriben juntos: con uno solo, apagarla la
       // deja corriendo desde la otra etapa de la que sale.
@@ -3230,14 +3230,14 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       // cierre no tienen plazo (un lead en Ganado no está «quieto», ya terminó), y la etapa
       // tiene que existir en ESTE embudo.
       const st = actual.stages.find((x) => x.key === op.key);
-      if (!st) return { ok: false, error: 'Esa etapa no es de este embudo.' };
+      if (!st) return { ok: false, error: 'Esa etapa no es de este funnel.' };
       if (!puedeTenerPlazo(st)) return { ok: false, error: 'Esa etapa no lleva plazo.' };
       const dias = op.dias == null ? null : sanearPlazo(op.dias);
       if (op.dias != null && dias == null) return { ok: false, error: `El plazo va de 1 a ${PLAZO_MAX_DIAS} días.` };
       // Las OTRAS claves de `umbrales` se conservan: las cuatro perillas del CRM automático
       // viven en el mismo objeto, y `saveFunnelDe` reemplaza `umbrales` entero.
       const u = await umbralesDe(funnelId ?? null);
-      if (u == null) return { ok: false, error: 'No se pudo leer el embudo; no se guardó nada para no pisarlo.' };
+      if (u == null) return { ok: false, error: 'No se pudo leer el funnel; no se guardó nada para no pisarlo.' };
       const previos = u.porEtapa && typeof u.porEtapa === 'object' && !Array.isArray(u.porEtapa)
         ? { ...(u.porEtapa as Record<string, unknown>) } : {};
       if (dias == null) delete previos[op.key];
@@ -3256,7 +3256,7 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       // «funcionaría» —el guardado no fallaría— y la pantalla volvería a mostrarlas donde
       // estaban, que es la peor forma de no hacer nada.
       const i = pipeline.findIndex((st) => st.key === op.key);
-      if (i < 0) return { ok: false, error: 'Esa etapa la pone MaKo al final del embudo y no se puede mover. Sí puedes cambiarle el nombre.' };
+      if (i < 0) return { ok: false, error: 'Esa etapa la pone MaKo al final del funnel y no se puede mover. Sí puedes cambiarle el nombre.' };
       const j = i + op.delta;
       if (j < 0 || j >= pipeline.length) return { ok: false, error: 'Esa etapa ya está en la punta.' };
       // El cierre va último: es de donde salen los datos de la venta, y `problemasDePipeline`
@@ -3276,7 +3276,7 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       // entrada, el pago, el cierre y las terminales no pueden ser una reunión (perderían su
       // tipo, y al desmarcarlas volverían como un paso cualquiera). Ver `puedeSerReunion`.
       const st = pipeline.find((x) => x.key === op.key);
-      if (!st) return { ok: false, error: 'Esa etapa la pone MaKo al final del embudo: no puede ser una reunión.' };
+      if (!st) return { ok: false, error: 'Esa etapa la pone MaKo al final del funnel: no puede ser una reunión.' };
       if (!puedeSerReunion(st)) return { ok: false, error: 'Esa etapa no puede ser una reunión.' };
       pipeline = pipeline.map((x) => (x.key === op.key ? ({ ...x, kind: tipoAlMarcar(op.es) } as Stage) : x));
     } else {

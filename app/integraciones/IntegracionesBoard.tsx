@@ -1123,7 +1123,7 @@ function CodigoLanding({ snippet, cargador, pixel, elegida, onElegir }: {
           esta página, y colgada al pie del paso 1 —donde vivía— se leía como un
           detalle opcional. El código que se copia no depende de esto, así que
           mover el paso no puede dejar a nadie con un snippet viejo. */}
-      <Paso n={2} titulo="¿Qué producto vende?">
+      <Paso n={2} titulo="¿A qué funnel entran sus leads?">
         <AsignarProducto elegida={elegida} productos={pixel?.productos ?? null}
           landings={landings} onLandings={setLandings} rechazos={pixel?.gracias ?? []} />
       </Paso>

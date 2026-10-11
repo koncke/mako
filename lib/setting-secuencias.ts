@@ -396,10 +396,10 @@ export async function setDisparadorEtapa(secuenciaId: number, etapa: string | re
     if (funnelId == null) {
       // «Todos los productos»: la etapa tiene que existir en ALGUNO, o es una key muerta.
       const existe = productos.some((pr) => pr.etapas.some((e) => e.value === key));
-      if (!existe) throw new Error(`La etapa «${key}» no existe en ninguno de tus productos.`);
+      if (!existe) throw new Error(`La etapa «${key}» no existe en ninguno de tus funnels.`);
     } else {
       const pr = productos.find((x) => x.funnelId === funnelId);
-      if (!pr) throw new Error('Ese producto no existe o está archivado.');
+      if (!pr) throw new Error('Ese funnel no existe o está archivado.');
       if (!pr.etapas.some((e) => e.value === key)) {
         throw new Error(`«${key}» no es una etapa de ${pr.nombre}: elige una de las suyas.`);
       }
@@ -531,7 +531,7 @@ export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigge
   const pedidas: string | string[] = etapas.length ? etapas : String(c.etapa ?? '');
   if (tipo === TRIGGER_ETAPA) {
     const fid = c.funnel_id == null ? null : Number(c.funnel_id);
-    if (fid != null && !Number.isFinite(fid)) throw new TriggerInvalidoError('Ese producto no existe.');
+    if (fid != null && !Number.isFinite(fid)) throw new TriggerInvalidoError('Ese funnel no existe.');
     try { return await setDisparadorEtapa(secuenciaId, pedidas, fid); }
     catch (e) { throw new TriggerInvalidoError(e instanceof Error ? e.message : String(e)); }
   }
@@ -555,7 +555,7 @@ export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigge
   // `null` explícito = «todos», que sí es una elección.
   const tocaEmbudo = c.funnel_id !== undefined;
   const funnelId = c.funnel_id == null ? null : Number(c.funnel_id);
-  if (funnelId != null && (!Number.isFinite(funnelId) || funnelId <= 0)) throw new TriggerInvalidoError('Ese producto no existe.');
+  if (funnelId != null && (!Number.isFinite(funnelId) || funnelId <= 0)) throw new TriggerInvalidoError('Ese funnel no existe.');
   const supabase = await getTenantDb();
   let etiquetaId: number | null = null;
   if (tipo === TRIGGER_ETIQUETA) {

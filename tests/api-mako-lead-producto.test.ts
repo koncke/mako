@@ -90,7 +90,7 @@ test('⚠️ el lead y el producto se validan contra ESTE negocio antes de propo
   assert.ok(iLead > 0 && iNo > iLead, 'un lead de otro negocio tiene que volver como error, primero');
   assert.ok(iProd > iNo, 'el producto se busca después del lead');
   assert.match(f, /if \(!productos\) return \{ error: NO_LEI_PRODUCTOS \};/, '«no pude leer» no es «no existe»');
-  assert.match(f, /const producto = productos\.find\(\(p\) => p\.embudoId === id\);\s*if \(!producto\) \{\s*return \{\s*error: `No existe el producto/, 'un embudo que no es de este negocio vuelve como error');
+  assert.match(f, /const producto = productos\.find\(\(p\) => p\.embudoId === id\);\s*if \(!producto\) \{\s*return \{\s*error: `No existe el funnel/, 'un embudo que no es de este negocio vuelve como error');
   assert.match(f, /await productosDelLead\(lead\.id\)/, 'en cuáles está, con la lectura de la ficha');
   // Y la lista de productos: la de la pantalla, con vacío = no se pudo leer.
   const h = funcion(HELPERS, 'export async function productosCrm(');

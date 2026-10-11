@@ -71,9 +71,9 @@ export async function confirmarLeadsAction(id: string, filas: FilaImport[]): Pro
     const lista = x.destino === 'crear' ? productos.slice(1) : productos;
     for (const p of lista) {
       const real = casaReal(p, defaultId);
-      if (real == null) { errores.push('No pude leer el producto del negocio para agregarlo.'); continue; }
+      if (real == null) { errores.push('No pude leer el funnel del negocio para agregarlo.'); continue; }
       try { await agregarAProducto(x.leadId, real); }
-      catch (e) { errores.push(`No pude agregarlo a un producto: ${e instanceof Error ? e.message : 'error'}`); }
+      catch (e) { errores.push(`No pude agregarlo a un funnel: ${e instanceof Error ? e.message : 'error'}`); }
     }
   }
 

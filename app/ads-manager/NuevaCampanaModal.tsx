@@ -781,7 +781,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
       setResult({ campaign_id: String(j.campaign_id ?? ''), ads: (j.ad_ids ?? []).length });
       if (producto) {
         const a = await asignarCampanaAction(funnelDeValor(producto), { tipo: 'campana', id: String(j.campaign_id), nombre: spec.name }, false).catch(() => null);
-        if (!a?.ok) setAvisoProducto('No quedó asignada al producto: hazlo desde la tabla.');
+        if (!a?.ok) setAvisoProducto('No quedó asignada al funnel: hazlo desde la tabla.');
       }
       setStep('listo');
       chequearAprobacion(j.ad_ids ?? [], spec.name ?? '');
@@ -990,7 +990,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
                   <span style={{ fontSize: 13, color: 'var(--dim)' }}>Sus leads entran en</span>
                   <Dropdown
                     value={producto}
-                    options={[{ value: '', label: 'Sin producto' }, ...productos.map((p) => ({ value: valorDeProducto(p.id), label: p.nombre }))]}
+                    options={[{ value: '', label: 'Sin funnel' }, ...productos.map((p) => ({ value: valorDeProducto(p.id), label: p.nombre }))]}
                     onChange={setProducto}
                     width={230}
                   />

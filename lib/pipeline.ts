@@ -1156,7 +1156,7 @@ export function problemasDePipeline(pipeline: Stage[]): string[] {
 
   // 2) Un solo cierre. Con dos, cada uno pide el monto y el embudo tiene dos finales.
   if (cierres.length > 1) {
-    out.push(`Hay ${cierres.length} etapas de cierre (${cierres.map(nombre).join(', ')}). El embudo tiene un solo final: deja una.`);
+    out.push(`Hay ${cierres.length} etapas de cierre (${cierres.map(nombre).join(', ')}). El funnel tiene un solo final: deja una.`);
   }
 
   // 3) Un cierre que no es el final invierte el orden de exigencia, y mover un lead MÁS

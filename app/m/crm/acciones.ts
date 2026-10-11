@@ -111,7 +111,7 @@ export async function moverEtapaAction(leadId: number, funnelId: number | null, 
     const { productos, defaultId, etapaCasa } = await productosDelLead(leadId);
     const fid = funnelId ?? defaultId;
     const prod = productos.find((p) => p.funnelId === fid);
-    if (fid == null || !prod) return { ok: false, error: 'No está en ese producto' };
+    if (fid == null || !prod) return { ok: false, error: 'No está en ese funnel' };
     const stages = (await etapasDeProducto(fid)) as EtapaM[];
     if (!seMueveEnElTelefono(stages, etapa)) return { ok: false, error: 'Esa, en la computadora' };
 

@@ -177,7 +177,7 @@ test('los eventos de ManyChat: seis de Instagram y seis de Messenger, con el del
   // (`DISPARADORES_SOCIALES` la marca `disponible: false`, tests/disparadores-canal-social.test.ts).
   assert.deepEqual(EVENTOS_MESSENGER.filter((e) => e.apagado).map((e) => e.subtipo), ['anuncio', 'tienda']);
   // «Pagos», el séptimo (11/10/2026): botón propio por decisión de Martín, con la grilla en 4+3.
-  assert.deepEqual(CLASES_DISPARADOR.map((c) => c.label), ['Producto', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email', 'Pagos']);
+  assert.deepEqual(CLASES_DISPARADOR.map((c) => c.label), ['Funnel', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email', 'Pagos']);
 });
 
 // ── 4. El Recurrente: «A quién» ─────────────────────────────────────────────────────────────────

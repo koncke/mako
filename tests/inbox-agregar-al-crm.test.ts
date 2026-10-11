@@ -181,9 +181,9 @@ test('sin elegir: con 0-1 producto nace en el del negocio; con 2+ NO crea y devu
 });
 
 test('⚠️ «no pude leer» no es «no existe» ni «hay uno»', () => {
-  assert.deepEqual(destinoDelAlta(null, 18), { error: 'No pude leer tus productos.' });
-  assert.deepEqual(destinoDelAlta(null, null), { error: 'No pude leer tus productos.' }, 'con la lista caída y sin elegir, creó en el principal');
-  assert.deepEqual(destinoDelAlta([DEF, MARCA], 99), { error: 'Ese producto no existe.' });
+  assert.deepEqual(destinoDelAlta(null, 18), { error: 'No pude leer tus funnels.' });
+  assert.deepEqual(destinoDelAlta(null, null), { error: 'No pude leer tus funnels.' }, 'con la lista caída y sin elegir, creó en el principal');
+  assert.deepEqual(destinoDelAlta([DEF, MARCA], 99), { error: 'Ese funnel no existe.' });
 });
 
 test('el default de la casa sale de la MISMA lista, no de otra lectura', () => {

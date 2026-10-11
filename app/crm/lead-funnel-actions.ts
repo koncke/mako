@@ -33,7 +33,7 @@ const idOk = (n: unknown): n is number => typeof n === 'number' && Number.isFini
 async function resolverProducto(funnelId: number | null): Promise<number> {
   if (funnelId != null) return Number(funnelId);
   const def = await idDelFunnelDefault();
-  if (def == null) throw new Error('No encontré el producto del negocio.');
+  if (def == null) throw new Error('No encontré el funnel del negocio.');
   return def;
 }
 
@@ -76,7 +76,7 @@ export async function productosDeLaFichaAction(leadId: number): Promise<Res<{ pr
     }
     return { ok: true, productos: out, puedeQuitar: puedeQuitar(productos) };
   } catch (e) {
-    return mal(e, 'No se pudieron leer los productos del lead.');
+    return mal(e, 'No se pudieron leer los funnels del lead.');
   }
 }
 
@@ -88,7 +88,7 @@ export async function agregarAProductoAction(leadId: number, funnelId: number | 
     bust();
     return { ok: true, agregado: r.agregado };
   } catch (e) {
-    return mal(e, 'No se pudo agregar al producto.');
+    return mal(e, 'No se pudo agregar al funnel.');
   }
 }
 
@@ -100,7 +100,7 @@ export async function quitarDeProductoAction(leadId: number, funnelId: number | 
     bust();
     return { ok: true, deshacer: d };
   } catch (e) {
-    return mal(e, 'No se pudo quitar del producto.');
+    return mal(e, 'No se pudo quitar del funnel.');
   }
 }
 
@@ -138,11 +138,11 @@ export async function agregarLoteAProductoAction(leadIds: number[], funnelId: nu
     if (!ids.length) return { ok: true, agregados: [], fallaron: 0 };
     const destino = await resolverProducto(funnelId);
     const nombre = (await listarFunnels()).find((f) => f.id === destino);
-    const r = await agregarLoteAProducto(ids, destino, porQue?.trim() || `Agregado a «${(nombre ? nombreVisible(nombre) : '') || 'otro producto'}»`);
+    const r = await agregarLoteAProducto(ids, destino, porQue?.trim() || `Agregado a «${(nombre ? nombreVisible(nombre) : '') || 'otro funnel'}»`);
     bust();
     return { ok: true, ...r };
   } catch (e) {
-    return mal(e, 'No se pudieron agregar al producto.');
+    return mal(e, 'No se pudieron agregar al funnel.');
   }
 }
 

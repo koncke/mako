@@ -121,7 +121,7 @@ test('la barra de lote: el medio centrado, y activar + eliminar JUNTOS a la dere
   // interruptor, y el interruptor y «Eliminar» quedan pegados al final.
   const iSwitch = bloque.indexOf('role="switch"');
   const iEliminar = bloque.indexOf('>Eliminar</BotonLote>');
-  for (const rotulo of ['Presupuesto', 'Producto', 'Renombrar', 'Agregar conjunto', 'Agregar anuncio']) {
+  for (const rotulo of ['Presupuesto', 'Funnel', 'Renombrar', 'Agregar conjunto', 'Agregar anuncio']) {
     const i = bloque.indexOf(`>${rotulo}</BotonLote>`);
     assert.ok(i > 0 && i < iSwitch, `«${rotulo}» va en el medio, antes del interruptor`);
   }
@@ -159,7 +159,7 @@ test('la barra de lote lleva ícono Y TEXTO en cada acción, y ni un emoji', () 
   // «no exageres con poner solo iconos y nada de botones con texto, porque se acumularon
   // todos a la izquierda y no se entiende… No pongas emoji, siempre iconos» (06/10).
   const bloque = barraDeLote();
-  for (const rotulo of ['Presupuesto', 'Producto', 'Renombrar', 'Agregar conjunto', 'Agregar anuncio', 'Eliminar']) {
+  for (const rotulo of ['Presupuesto', 'Funnel', 'Renombrar', 'Agregar conjunto', 'Agregar anuncio', 'Eliminar']) {
     assert.match(bloque, new RegExp(`>${rotulo}</BotonLote>`), `falta el botón «${rotulo}» con su texto`);
   }
   for (const icono of ['sales', 'tag', 'notepencil', 'users', 'creativos', 'trash']) {

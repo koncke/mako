@@ -104,7 +104,7 @@ test('quitar la casa: updateLead SÓLO para que el desenlace siga a la etapa pro
 
 test('quitar vuelve a contar en el server (esconder la X no protege nada)', () => {
   const quitar = LIB.slice(LIB.indexOf('export async function quitarDeProducto'), LIB.indexOf('export async function deshacerQuitar'));
-  assert.match(quitar, /if \(!puedeQuitar\(productos\)\) throw new Error\('Es su único producto\.'\);/);
+  assert.match(quitar, /if \(!puedeQuitar\(productos\)\) throw new Error\('Es su único funnel\.'\);/);
   assert.match(quitar, /funnel_id: casaParaEscribir\(nueva\.funnelId, defaultId\)/, 'la casa promovida se escribe con la traducción del default');
 });
 

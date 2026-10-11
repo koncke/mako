@@ -59,7 +59,7 @@ export default async function FichaLeadMovil({ params }: { params: Promise<{ id:
       <div className="mc-sub">
         {f.casa?.etapaLabel && <span className="mc-pill">{f.casa.etapaLabel}</span>}
         {f.casa && <span className="mc-pill mc-pill--dim">{f.casa.nombre}</span>}
-        {f.productos.length > 1 && <span className="mc-pill mc-pill--dim">+{f.productos.length - 1} producto{f.productos.length > 2 ? 's' : ''}</span>}
+        {f.productos.length > 1 && <span className="mc-pill mc-pill--dim">+{f.productos.length - 1} funnel{f.productos.length > 2 ? 's' : ''}</span>}
       </div>
       {f.empresa && <p className="mc-empresa">{f.empresa}</p>}
 
@@ -139,7 +139,7 @@ export default async function FichaLeadMovil({ params }: { params: Promise<{ id:
           )) : <p className="mc-meta">Sin notas todavía.</p>}
         </Plegada>
         {f.productos.length > 1 && (
-          <Plegada titulo="Productos" n={f.productos.length}>
+          <Plegada titulo="Funnels" n={f.productos.length}>
             <dl className="mc-datos">
               {f.productos.map((p) => (<div key={p.funnelId}><dt>{p.nombre}{p.esCasa ? ' · principal' : ''}</dt><dd>{p.etapaLabel ?? 'Sin etapa'}</dd></div>))}
             </dl>

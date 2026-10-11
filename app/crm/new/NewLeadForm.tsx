@@ -206,7 +206,7 @@ export function NewLeadForm({ enModal }: {
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
           <button type="button" onClick={enModal.onTraer}
             style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-            Traer de otro producto
+            Traer de otro funnel
           </button>
         </div>
       )}

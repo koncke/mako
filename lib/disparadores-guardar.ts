@@ -67,10 +67,10 @@ async function validarContraElNegocio(nuevos: readonly Disparador[]): Promise<vo
     if (t === TRIGGER_ETAPA) {
       for (const key of keys) {
         if (d.funnel_id == null) {
-          if (!productos.some((pr) => pr.etapas.some((e) => e.value === key))) throw new TriggerInvalidoError(`La etapa «${key}» no existe en ninguno de tus productos.`);
+          if (!productos.some((pr) => pr.etapas.some((e) => e.value === key))) throw new TriggerInvalidoError(`La etapa «${key}» no existe en ninguno de tus funnels.`);
         } else {
           const pr = productos.find((x) => x.funnelId === d.funnel_id);
-          if (!pr) throw new TriggerInvalidoError('Ese producto no existe o está archivado.');
+          if (!pr) throw new TriggerInvalidoError('Ese funnel no existe o está archivado.');
           if (!pr.etapas.some((e) => e.value === key)) throw new TriggerInvalidoError(`«${key}» no es una etapa de ${pr.nombre}.`);
         }
       }

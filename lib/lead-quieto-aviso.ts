@@ -71,7 +71,7 @@ const TROZO = 200;
 /** El aviso de UN negocio, dentro de su contexto. Nunca tira: el error vuelve en la fila. */
 async function quietosDelWorkspace(ws: number, ahoraMs: number, dry = false): Promise<ResultadoQuietos> {
   const funnels = await funnelsConUmbrales();
-  if (!funnels) return { ws, ok: false, error: 'no se pudieron leer los embudos' };
+  if (!funnels) return { ws, ok: false, error: 'no se pudieron leer los funnels' };
 
   const plazos = new Map<number, PlazosPorEtapa>();
   const etiquetas = new Map<number, Map<string, string>>();
@@ -83,7 +83,7 @@ async function quietosDelWorkspace(ws: number, ahoraMs: number, dry = false): Pr
     etiquetas.set(f.id, new Map(f.cfg.stages.map((s) => [s.key, s.label])));
     etapasDe.set(f.id, f.cfg.stages);
     const v = plazosValidos(f.umbrales?.porEtapa, f.cfg.stages);
-    descartes.push(...v.descartes.map((d) => `embudo ${f.id} · ${d}`));
+    descartes.push(...v.descartes.map((d) => `funnel ${f.id} · ${d}`));
     if (Object.keys(v.plazos).length) plazos.set(f.id, v.plazos);
   }
   const nPlazos = [...plazos.values()].reduce((s, p) => s + Object.keys(p).length, 0);

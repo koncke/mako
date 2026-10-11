@@ -604,7 +604,7 @@ function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, 
         botonLabel={valor ? rotuloDisparo(conRaiz, valor, textos.texto(d)) : 'Elige la etapa'}
         onChange={tocarEtapa} ariaLabel="Qué etapa dispara esta automatización" disabled={busy}
       />
-    ) : <div style={{ fontSize: 13, color: 'var(--dim)', fontFamily: SANS }}>{esEventoDeAntes(d) ? textos.texto(d) : 'Todavía no tienes productos con etapas.'}</div>);
+    ) : <div style={{ fontSize: 13, color: 'var(--dim)', fontFamily: SANS }}>{esEventoDeAntes(d) ? textos.texto(d) : 'Todavía no tienes funnels con etapas.'}</div>);
   }
 
   if (clase === 'etiqueta') {

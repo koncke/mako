@@ -439,13 +439,13 @@ export async function contarLeadsDeFunnel(funnelId: number | null): Promise<numb
   const { count, error } = await (funnelId == null ? base.is('funnel_id', null) : base.eq('funnel_id', funnelId));
   // ⚠️ Un error NO es «cero leads». Devolver 0 acá haría que la pantalla dijera «este
   // embudo no tiene leads» sobre uno lleno, y con eso alguien lo archiva tranquilo.
-  if (error) throw new Error('No se pudo contar los leads del embudo: ' + error.message);
+  if (error) throw new Error('No se pudo contar los leads del funnel: ' + error.message);
   // Y los AGREGADOS (mig 0207): también están en ese tablero. Contarlos de menos haría que un
   // embudo con gente pareciera vacío justo antes de archivarlo.
   const id = funnelId ?? (await idDelFunnelDefault());
   if (id == null) return count ?? 0;
   const ag = await supabase.from('lead_funnel').select('id', { count: 'exact', head: true }).eq('funnel_id', id);
-  if (ag.error) throw new Error('No se pudo contar los leads agregados al embudo: ' + ag.error.message);
+  if (ag.error) throw new Error('No se pudo contar los leads agregados al funnel: ' + ag.error.message);
   return (count ?? 0) + (ag.count ?? 0);
 }
 async function _listLeads(): Promise<Lead[]> {
@@ -823,7 +823,7 @@ export async function moverLeadDeFunnel(leadId: number, funnelId: number | null)
   // Un error acá NO se traga: la pantalla de arriba tiene que poder decir que el lead
   // sigue donde estaba. Un «listo» sobre un movimiento que no pasó manda a buscarlo a un
   // tablero donde no está.
-  if (error) throw new Error('No se pudo mover el lead de producto: ' + error.message);
+  if (error) throw new Error('No se pudo mover el lead de funnel: ' + error.message);
   // ⚠️ El caché lo invalida la ACTION, no esta función: `lib/leads.ts` no importa `bust`
   // y meterlo acá sumaría una dependencia de Next a un módulo que hoy es sólo datos.
 }
@@ -1312,7 +1312,7 @@ export async function upsertLeadFromMeta(input: {
     if (porCampana.asignada && porCampana.funnelId !== funnelActual) {
       await logLeadEvent(
         existing.id,
-        'Producto',
+        'Funnel',
         `Volvió a entrar por «${porCampana.nombre}», que es de ${porCampana.producto}. Sigue en su tablero.`,
         'Meta',
       ).catch(() => { /* el rastro no puede tumbar la ingesta */ });

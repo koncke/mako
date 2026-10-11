@@ -56,7 +56,7 @@ export function AsignarProducto({ elegida, productos, landings, onLandings, rech
   // tiene su embudo del negocio, así que el server baja `null` cuando la lista viene
   // vacía, y dibujar acá una casilla marcada sobre nada sería inventar el dato.
   if (!productos) {
-    return <div style={{ fontSize: 12.5, color: 'var(--bad)' }}>No pude leer tus productos. Recarga la página.</div>;
+    return <div style={{ fontSize: 12.5, color: 'var(--bad)' }}>No pude leer tus funnels. Recarga la página.</div>;
   }
 
   const cfg = landings.find((l) => mismaPagina(l.url, elegida)) ?? null;
@@ -75,7 +75,7 @@ export function AsignarProducto({ elegida, productos, landings, onLandings, rech
 
   const opciones = [
     ...productos.map((p) => ({ value: String(p.id), label: p.nombre })),
-    ...huerfanos.map((id) => ({ value: String(id), label: 'Producto archivado', sub: 'Sus leads entran al del negocio' })),
+    ...huerfanos.map((id) => ({ value: String(id), label: 'Funnel archivado', sub: 'Sus leads entran al del negocio' })),
   ];
 
   const alternar = async (v: string) => {
@@ -118,7 +118,7 @@ export function AsignarProducto({ elegida, productos, landings, onLandings, rech
   return (
     <div>
       <Select
-        ariaLabel="Productos de esta página"
+        ariaLabel="Funnels de esta página"
         options={opciones}
         value=""
         varios={marcados.map(String)}

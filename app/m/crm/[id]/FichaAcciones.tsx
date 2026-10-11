@@ -440,7 +440,7 @@ function SheetMover(p: Props & { abierto: boolean; onCerrar: () => void; onAgend
         </>
       ) : undefined}>
       {p.productos.length > 1 && !destino && (
-        <div className="mc-productos" role="group" aria-label="Producto">
+        <div className="mc-productos" role="group" aria-label="Funnel">
           {p.productos.map((x) => (
             <button key={x.funnelId} type="button" className="mc-chip" aria-pressed={x.funnelId === prod?.funnelId} onClick={() => setFid(x.funnelId)}>
               {x.nombre}

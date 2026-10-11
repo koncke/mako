@@ -657,7 +657,7 @@ test('⚠️ eliminar un embudo lo ARCHIVA, y hay por dónde recuperarlo', () =>
   // ⚠️ SE LLAMA «PRODUCTOS», NO «EMBUDOS», y va `sutil`: «debe ser Productos eliminados y
   //    ser mucho más sutil, solo un texto» (30/09/2026). El nombre del negocio es el del
   //    producto — «embudo» es como lo llama la tabla, no el cliente.
-  assert.ok(tb.includes("label: 'Productos eliminados', sutil: true"),
+  assert.ok(tb.includes("label: 'Funnels eliminados', sutil: true"),
     'el selector no ofrece la puerta de vuelta, o volvió a llamarse «embudos» / a pesar como una opción más');
   assert.ok(!/label: 'Embudos eliminados'/.test(tb), 'volvió el nombre viejo');
   assert.match(tb, /restaurarEmbudoAction/, 'la pantalla de eliminados no puede restaurar nada');
@@ -727,7 +727,7 @@ test('⚠️ el pop-up: un solo cerrar, sin líneas, y las etapas se arrastran',
 
   // Un solo cerrar: el pie es para eliminar, no para una segunda ✕.
   assert.ok(!/>\s*Cerrar\s*</.test(md), 'volvió el segundo botón de cerrar, abajo');
-  assert.ok(md.includes('Eliminar producto'), 'el pie perdió «Eliminar producto»');
+  assert.ok(md.includes('Eliminar funnel'), 'el pie perdió «Eliminar funnel»');
 
   // Sin líneas: ni bordes de fila ni separadores.
   assert.ok(!/borderTop: '1px solid var\(--border\)'/.test(md), 'volvió una línea divisoria');
@@ -817,7 +817,7 @@ test('⚠️ renombrar un embudo escribe DONDE SE LEE, que puede no ser la tabla
   assert.match(ren, /v_funnel_productos/, 'el renombre no mira si el embudo tiene producto: escribiría donde no se lee');
   assert.match(ren, /from\('productos'\)[\s\S]{0,60}\.update\(\{ nombre \}\)/, 'el renombre no escribe el nombre del producto');
   // Y el choque del índice único se traduce: el error crudo de Postgres no le dice nada a nadie.
-  assert.match(fn, /Ya tienes un embudo que se llama/, 'un nombre repetido sale con el error crudo de la base');
+  assert.match(fn, /Ya tienes un funnel que se llama/, 'un nombre repetido sale con el error crudo de la base');
 });
 
 test('⚠️ un menú de acciones no lleva la flecha del desplegable', () => {

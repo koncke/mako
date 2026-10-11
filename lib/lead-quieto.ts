@@ -66,7 +66,7 @@ export function plazosValidos(
     const d = sanearPlazo(v);
     if (d == null) { descartes.push(`${k}: plazo inválido (${JSON.stringify(v)})`); continue; }
     const e = porKey.get(k);
-    if (!e) { descartes.push(`${k}: el embudo no tiene esa etapa`); continue; }
+    if (!e) { descartes.push(`${k}: el funnel no tiene esa etapa`); continue; }
     if (!puedeTenerPlazo(e)) { descartes.push(`${k}: una etapa terminal no tiene plazo`); continue; }
     plazos[k] = d;
   }
@@ -199,8 +199,8 @@ export function textoLeadsQuietos(
   const nombres = [...new Set(quietos.map((q) => q.nombre))].slice(0, NOMBRES_MAX);
   const total = new Set(quietos.map((q) => q.leadId)).size;
   const cabeza = total === 1
-    ? '⏳ *1 lead* lleva en su etapa más de lo que marca tu embudo'
-    : `⏳ *${total} leads* llevan en su etapa más de lo que marca tu embudo`;
+    ? '⏳ *1 lead* lleva en su etapa más de lo que marca tu funnel'
+    : `⏳ *${total} leads* llevan en su etapa más de lo que marca tu funnel`;
   const quienes = nombres.length ? ` Los que más esperan: ${lista(nombres)}.` : '';
   return `${cabeza}: ${lista(partes)}.${quienes}${link ? ` Míralos aquí 👉 ${link}` : ''} — MaKo`;
 }

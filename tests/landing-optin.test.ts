@@ -1801,7 +1801,7 @@ test('⚠️ con VARIOS productos la persona es UNA: los extra se AGREGAN, no se
 
   // Y el aviso lo DICE: el link lleva a la ficha (que es UNA), y sin esta línea
   // nadie sabe que esa persona ya está también en otros tableros.
-  assert.ok(/Entró a \$\{tambien\.length \+ 1\} productos/.test(codigo), 'con varios productos el aviso tiene que decirlo');
+  assert.ok(/Entró a \$\{tambien\.length \+ 1\} funnels/.test(codigo), 'con varios funnels el aviso tiene que decirlo');
 });
 
 // PROBADO ROMPIENDOLO: borrando `if (!elegido) return null;` de

@@ -272,7 +272,7 @@ test('⚠️ el alta devuelve las COINCIDENCIAS, no un string, y sólo una perso
   // ⚠️ EL BOTÓN NO ABRE NADA EN EL FORM: avisa al padre, que cambia la VISTA del modal.
   //    «Cuando le doy, debe reemplazar al formulario de arriba, con un botón de atrás
   //    claro» (30/09). Abriéndose debajo, el modal pedía dos cosas a la vez.
-  assert.match(nf, />\s*Traer de otro producto\s*</, 'se fue la opción de traer un lead de otro producto');
+  assert.match(nf, />\s*Traer de otro funnel\s*</, 'se fue la opción de traer un lead de otro funnel');
   assert.match(nf, /onTraer\?: \(\) => void/, 'el form volvió a resolver el traer por su cuenta: no puede, la vista necesita otro ancho');
   assert.ok(!/function TraerDeOtroProducto/.test(nf), 'el traedor volvió a vivir adentro del form');
 });

@@ -383,7 +383,7 @@ export async function saveFunnelDefault(
  */
 export async function renombrarFunnel(funnelId: number, nombreCrudo: string): Promise<{ donde: 'producto' | 'funnel' }> {
   const nombre = nombreCrudo.trim().replace(/\s+/g, ' ');
-  if (!nombre) throw new Error('El embudo necesita un nombre.');
+  if (!nombre) throw new Error('El funnel necesita un nombre.');
   if (nombre.length > 60) throw new Error('El nombre no puede pasar de 60 caracteres.');
   const supabase = await getTenantDb();
 
@@ -401,20 +401,20 @@ export async function renombrarFunnel(funnelId: number, nombreCrudo: string): Pr
   if (productoId != null) {
     const { data: tocadas, error } = await supabase.from('productos').update({ nombre }).eq('id', productoId).select('id');
     if (error) throw new Error(traducirChoque(error.message, nombre));
-    if (!((tocadas ?? []) as unknown[]).length) throw new Error('No se pudo renombrar: ese producto no es de este workspace.');
+    if (!((tocadas ?? []) as unknown[]).length) throw new Error('No se pudo renombrar: ese funnel no es de este workspace.');
     return { donde: 'producto' };
   }
 
   const { data: tocadas, error } = await supabase
     .from('funnels').update({ nombre, updated_at: new Date().toISOString() }).eq('id', funnelId).select('id');
   if (error) throw new Error(traducirChoque(error.message, nombre));
-  if (!((tocadas ?? []) as unknown[]).length) throw new Error('No se pudo renombrar: ese embudo no es de este workspace.');
+  if (!((tocadas ?? []) as unknown[]).length) throw new Error('No se pudo renombrar: ese funnel no es de este workspace.');
   return { donde: 'funnel' };
 }
 
 /** El choque del índice único, dicho en una frase que se entiende. */
 function traducirChoque(msg: string, nombre: string): string {
-  if (/duplicate key|unique constraint|23505/i.test(msg)) return `Ya tienes un embudo que se llama «${nombre}».`;
+  if (/duplicate key|unique constraint|23505/i.test(msg)) return `Ya tienes un funnel que se llama «${nombre}».`;
   return `No se pudo renombrar: ${msg}`;
 }
 
@@ -438,14 +438,14 @@ function traducirChoque(msg: string, nombre: string): string {
 export async function archivarFunnel(funnelId: number): Promise<void> {
   const supabase = await getTenantDb();
   const { data, error } = await supabase.from('funnels').select('id, es_default, activo').eq('id', funnelId).limit(1);
-  if (error) throw new Error(`No se pudo leer el embudo: ${error.message}`);
+  if (error) throw new Error(`No se pudo leer el funnel: ${error.message}`);
   const fila = ((data ?? []) as Array<{ id: number; es_default: boolean; activo: boolean }>)[0];
-  if (!fila) throw new Error('Ese embudo no es de este workspace.');
-  if (fila.es_default) throw new Error('Este es tu embudo principal: no se puede eliminar. Puedes cambiarle el nombre.');
+  if (!fila) throw new Error('Ese funnel no es de este workspace.');
+  if (fila.es_default) throw new Error('Este es tu funnel principal: no se puede eliminar. Puedes cambiarle el nombre.');
   const { data: tocadas, error: e2 } = await supabase
     .from('funnels').update({ activo: false, updated_at: new Date().toISOString() }).eq('id', funnelId).select('id');
-  if (e2) throw new Error(`No se pudo archivar el embudo: ${e2.message}`);
-  if (!((tocadas ?? []) as unknown[]).length) throw new Error('Ese embudo no es de este workspace.');
+  if (e2) throw new Error(`No se pudo archivar el funnel: ${e2.message}`);
+  if (!((tocadas ?? []) as unknown[]).length) throw new Error('Ese funnel no es de este workspace.');
 }
 
 /**
@@ -482,10 +482,10 @@ export async function archivarFunnel(funnelId: number): Promise<void> {
 export async function eliminarFunnelDefinitivo(funnelId: number): Promise<{ rescatados: number }> {
   const supabase = await getTenantDb();
   const { data, error } = await supabase.from('funnels').select('id, es_default, activo').eq('id', funnelId).limit(1);
-  if (error) throw new Error(`No se pudo leer el embudo: ${error.message}`);
+  if (error) throw new Error(`No se pudo leer el funnel: ${error.message}`);
   const fila = ((data ?? []) as Array<{ id: number; es_default: boolean; activo: boolean }>)[0];
-  if (!fila) throw new Error('Ese producto no es de este workspace.');
-  if (fila.es_default) throw new Error('Este es tu producto principal: no se puede eliminar.');
+  if (!fila) throw new Error('Ese funnel no es de este workspace.');
+  if (fila.es_default) throw new Error('Este es tu funnel principal: no se puede eliminar.');
   // ⚠️ SÓLO SE BORRA LO QUE YA ESTÁ ARCHIVADO. Es el guard en positivo que hace que
   // eliminar de verdad exija DOS decisiones en dos momentos: nada se pierde de un clic.
   if (fila.activo) throw new Error('Primero hay que eliminarlo del tablero; recién después se puede borrar para siempre.');
@@ -510,7 +510,7 @@ export async function eliminarFunnelDefinitivo(funnelId: number): Promise<{ resc
     for (let i = 0; i < ids.length; i += 200) {
       const { data: fs, error: eF } = await supabase.from('lead_funnel')
         .select('lead_id, etapa').eq('funnel_id', idNegocio).in('lead_id', ids.slice(i, i + 200));
-      if (eF) throw new Error(`No se pudo leer en qué otros productos está su gente: ${eF.message}`);
+      if (eF) throw new Error(`No se pudo leer en qué otros funnels está su gente: ${eF.message}`);
       for (const f of (fs ?? []) as Array<{ lead_id: number | string; etapa: string }>) etapaEnNegocio.set(Number(f.lead_id), f.etapa);
     }
   }
@@ -550,8 +550,8 @@ export async function eliminarFunnelDefinitivo(funnelId: number): Promise<{ resc
   }
 
   const { data: borradas, error: eDel } = await supabase.from('funnels').delete().eq('id', funnelId).select('id');
-  if (eDel) throw new Error(`No se pudo borrar el producto: ${eDel.message}`);
-  if (!((borradas ?? []) as unknown[]).length) throw new Error('Ese producto no es de este workspace.');
+  if (eDel) throw new Error(`No se pudo borrar el funnel: ${eDel.message}`);
+  if (!((borradas ?? []) as unknown[]).length) throw new Error('Ese funnel no es de este workspace.');
   return { rescatados };
 }
 /** Devuelve un embudo archivado a la lista. Lo inverso exacto de `archivarFunnel`. */
@@ -559,8 +559,8 @@ export async function restaurarFunnel(funnelId: number): Promise<void> {
   const supabase = await getTenantDb();
   const { data: tocadas, error } = await supabase
     .from('funnels').update({ activo: true, updated_at: new Date().toISOString() }).eq('id', funnelId).select('id');
-  if (error) throw new Error(`No se pudo restaurar el embudo: ${error.message}`);
-  if (!((tocadas ?? []) as unknown[]).length) throw new Error('Ese embudo no es de este workspace.');
+  if (error) throw new Error(`No se pudo restaurar el funnel: ${error.message}`);
+  if (!((tocadas ?? []) as unknown[]).length) throw new Error('Ese funnel no es de este workspace.');
 }
 
 /**
