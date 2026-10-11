@@ -13,8 +13,9 @@
 // tardar minutos en la cascada, y no se arranca uno que no llega a terminar. Lo que no entra queda
 // vencido y lo toma el tick siguiente (`sin_turno` en la respuesta): no se quema.
 //
-// ⚠️ SIN IA, NO SE QUEMAN TURNOS: el chequeo previo (`docsIADisponible`) va una vez por negocio, y lo
-// que no pudo correr por eso se cuenta APARTE (`sin_ia`) y queda escrito en la fila con el motivo.
+// ⚠️ UN NEGOCIO SIN IA PROPIA TAMBIÉN SE ANALIZA (desde el 11/10/2026): después de sus keys va la red
+// de plataforma (lib/graficos-ia-red.ts; Martín: «siempre tiene que probar con otros provedoores»).
+// Antes se contaba aparte como `sin_ia` y no se intentaba.
 //
 // ⚠️ Y UN FALLO NO SE REINTENTA SOLO: el horario avanzó antes del trabajo. Sin avisos por WhatsApp a
 // propósito: un aviso nuevo de MaKo es un evento de automatización y lo decide Martín (AGENTS.md). El
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
     }
     const wss = [...new Set((data ?? []).map((r) => (r as { workspace_id: number }).workspace_id))];
 
-    const total: CuentaCron = { corridos: 0, fallidos: 0, sinIa: 0, sinTurno: 0, saltados: 0 };
+    const total: CuentaCron = { corridos: 0, fallidos: 0, sinTurno: 0, saltados: 0 };
     const errores: Array<{ ws: number; error: string }> = [];
     let sinVisitar = 0;
     for (const ws of wss) {
@@ -70,10 +71,10 @@ export async function GET(req: NextRequest) {
 
     const ms = Date.now() - inicio;
     // Log SIEMPRE, también sin nada que hacer: un cron mudo y uno que no corrió se ven iguales.
-    console.log(`[cron:dashboard-analisis] negocios=${wss.length} corridos=${total.corridos} fallidos=${total.fallidos} sin_ia=${total.sinIa} sin_turno=${total.sinTurno + sinVisitar} saltados=${total.saltados} errores=${errores.length} ms=${ms}`);
+    console.log(`[cron:dashboard-analisis] negocios=${wss.length} corridos=${total.corridos} fallidos=${total.fallidos} sin_turno=${total.sinTurno + sinVisitar} saltados=${total.saltados} errores=${errores.length} ms=${ms}`);
     const ok = errores.length === 0 || errores.length < wss.length;
     return Response.json({
-      ok, negocios: wss.length, corridos: total.corridos, fallidos: total.fallidos, sin_ia: total.sinIa,
+      ok, negocios: wss.length, corridos: total.corridos, fallidos: total.fallidos,
       sin_turno: total.sinTurno, negocios_sin_turno: sinVisitar, saltados: total.saltados, errores, ms,
     }, { status: ok ? 200 : 500 });
   } catch (e) {

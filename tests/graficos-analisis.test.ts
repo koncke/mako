@@ -359,3 +359,22 @@ test('el análisis va SOLO por la cascada gratis (nunca chatClaude) y con un pla
   assert.match(server, /CASCADA_DOCS/);
   assert.match(server, /hastaMs: p\.hastaMs/);
 });
+
+// Martín, 11/10/2026 («siempre tiene que probar con otros provedoores»): la única key de Gemini del ws1
+// la bloqueó Google y el panel decía que no pudo. Probado rompiéndolo (base 22 / 0): sin la llamada a la
+// red -> 21 / 1; con el «sin IA propia, no se intenta» de antes -> 21 / 1; la red sin el «⚠» -> 21 / 1.
+test('sin respuesta usable de las keys del negocio (o sin keys), va la RED DE PLATAFORMA: gratis, registrada y con sus errores aparte', () => {
+  const server = sinComentarios(leer('../lib/graficos-analisis-server.ts'));
+  const iCascada = server.indexOf('await chatCheapCascade(opciones)');
+  const iRed = server.indexOf('await porLaRedDePlataforma(');
+  const iError = server.indexOf("await errorDeCascada(errores, 'analizar tus gráficos')");
+  assert.ok(iCascada > 0 && iRed > iCascada && iError > iRed, 'el orden: las keys del negocio, la red, y recién ahí el error');
+  assert.doesNotMatch(server, /return await fallar\(await errorDeCascada\(\[\]/, 'sin IA propia ya no se corta antes de probar la red');
+  assert.doesNotMatch(server, /cuenta\.sinIa|sinIa:/, 'el cron también analiza al negocio sin IA propia');
+  const red = sinComentarios(leer('../lib/graficos-ia-red.ts'));
+  assert.match(red, /provsGratisDePlataforma\(\)/);
+  assert.match(red, /motivo: `⚠ red de plataforma \(\$\{r\.provider\}\)/, 'se registra como red de plataforma en el Saldo de IA');
+  assert.doesNotMatch(red, /chatClaude|anthropic|openai/i, 'la red es gratis por construcción');
+  assert.match(red, /console\.warn\(/, 'sus errores van al log');
+  assert.doesNotMatch(red, /erroresOut/, 'y nunca a la lista con la que se arma el texto del cliente');
+});

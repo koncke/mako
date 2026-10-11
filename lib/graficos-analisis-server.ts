@@ -36,6 +36,7 @@ import { tableroInicial } from './graficos-plantillas';
 import { getSettingEstricto } from './settings';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, docsIADisponible, errorDeCascada, type ProvName } from './ai-cheap';
 import { overrideDeFeature } from './model-registry';
+import { porLaRedDePlataforma } from './graficos-ia-red';
 import { getPromptText } from './prompt-render';
 import { parseJsonObject } from './json-del-modelo';
 import { tzDeWorkspace } from './timezone';
@@ -281,8 +282,11 @@ export async function analizarHoja(p: PedidoAnalisis): Promise<{ ok: boolean; er
       const entrada = serializarHoja({ hoja: p.hoja, hoy: p.hoy, origen: p.origen, conVista: Object.keys(p.vista).length > 0, items, noIncluidos });
       if (!entrada.graficos.some((g) => !('error' in g))) return await fallar('No pude leer ninguno de los gráficos de la hoja.');
 
-      // d) La IA, sólo gratis. Sin ninguna conectada no se pregunta: se dice qué falta.
-      if (!(await docsIADisponible().catch(() => false))) return await fallar(await errorDeCascada([], 'analizar tus gráficos'));
+      // d) La IA, sólo gratis: primero las keys del negocio y, si ninguna devuelve algo usable (o no
+      //    tiene ninguna), la RED DE PLATAFORMA (lib/graficos-ia-red.ts). Martín, 11/10/2026: «siempre
+      //    tiene que probar con otros provedoores» — la única key de Gemini del ws1 la bloqueó Google y el
+      //    panel decía que no pudo, con la agencia teniendo con qué contestar.
+      const hayIaDelNegocio = await docsIADisponible().catch(() => false);
       await marcarFase(p.filaId, p.corridaId, 'escribiendo');
       const pin = await overrideDeFeature(FEATURE_ANALISTA).catch(() => null);
       const usaPin = pin != null && pin.provider !== 'anthropic';
@@ -312,7 +316,17 @@ export async function analizarHoja(p: PedidoAnalisis): Promise<{ ok: boolean; er
         hastaMs: p.hastaMs,
         respondioOut: respondio,
       };
-      const crudo = await chatCheapCascade(opciones);
+      let crudo = hayIaDelNegocio ? await chatCheapCascade(opciones) : '';
+      if (!crudo.trim()) {
+        const red = await porLaRedDePlataforma({
+          system: opciones.system, user: opciones.user, maxTokens: MAX_TOKENS_SALIDA,
+          feature: FEATURE_ANALISTA, motivo: opciones.motivo, hastaMs: p.hastaMs, validar: opciones.validar,
+        });
+        if (red) {
+          crudo = red.texto;
+          respondio.provider = `red de plataforma · ${red.provider}`;
+        }
+      }
       if (!crudo.trim()) {
         return await fallar(rechazos.length
           ? `El análisis que escribió MaKo ${rechazos[rechazos.length - 1]}. Prueba de nuevo.`
@@ -336,7 +350,7 @@ export async function analizarHoja(p: PedidoAnalisis): Promise<{ ok: boolean; er
   });
 }
 
-export type CuentaCron = { corridos: number; fallidos: number; sinIa: number; sinTurno: number; saltados: number };
+export type CuentaCron = { corridos: number; fallidos: number; sinTurno: number; saltados: number };
 
 /**
  * Lo programado que venció en el negocio ACTUAL (el cron lo llama adentro de `runWithWorkspace`).
@@ -347,18 +361,18 @@ export type CuentaCron = { corridos: number; fallidos: number; sinIa: number; si
  */
 export async function drenarVencidos(opts: { deadline: number }): Promise<CuentaCron> {
   const ws = await wsActual();
-  const cuenta: CuentaCron = { corridos: 0, fallidos: 0, sinIa: 0, sinTurno: 0, saltados: 0 };
+  const cuenta: CuentaCron = { corridos: 0, fallidos: 0, sinTurno: 0, saltados: 0 };
   const db = await getTenantDb();
   const { data, error } = await db.from(T).select(COLS).eq('workspace_id', ws)
     .not('cron', 'is', null).lte('proxima_at', ahoraIso()).order('proxima_at', { ascending: true }).limit(20);
   if (error) throw new Error(`No pude leer lo programado: ${error.message}`);
   const filas = (data ?? []) as Fila[];
   if (!filas.length) return cuenta;
-  // El chequeo previo, UNA vez por negocio: sin IA no se quema el plazo del cron en cada fila.
-  const hayIa = await docsIADisponible().catch(() => false);
+  // ⚠️ Un negocio SIN IA propia también se analiza: después de sus keys va la red de plataforma
+  // (lib/graficos-ia-red.ts; Martín, 11/10/2026: «siempre tiene que probar con otros provedoores»).
 
   for (const f of filas) {
-    if (hayIa && Date.now() > opts.deadline - RESERVA_MS) { cuenta.sinTurno++; continue; }
+    if (Date.now() > opts.deadline - RESERVA_MS) { cuenta.sinTurno++; continue; }
     const cron = sanearCronAnalisis(f.cron);
     if (!cron || !f.tz || !f.proxima_at) { cuenta.saltados++; continue; }
     const proxima = siguienteCorrida(cron, f.proxima_at, f.tz, new Date());
@@ -370,12 +384,6 @@ export async function drenarVencidos(opts: { deadline: number }): Promise<Cuenta
     // Si hay una corrida a mano viva, esta ocurrencia se saltea: la de a mano es igual de fresca.
     const token = await tomarCorrida(f, 'cron').catch((e) => { console.error(`[analista:cron] ${f.id}: ${msg(e)}`); return null; });
     if (!token) { cuenta.saltados++; continue; }
-    if (!hayIa) {
-      await cerrarConError(f.id, token, await errorDeCascada([], 'analizar tus gráficos'));
-      cuenta.sinIa++;
-      continue;
-    }
-
     // El informe GUARDADO de esa persona. «No pude leer» no es «nunca guardó».
     let hoja: Hoja | null;
     try {

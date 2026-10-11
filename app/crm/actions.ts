@@ -102,7 +102,30 @@ import { DURACION_DEFECTO_MIN, instanteDeLocal } from './horarios-respuesta';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
-import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
+import { tabEnCapa } from '@/lib/capas';
+
+/**
+ * «Marcar cobrada» la usa quien tenga acceso a la tab desde la que se marca (Martín, 11/10/2026:
+ * «Cualquiera con acceso a esa tab»): el CRM (cualquier rol cuya capa lo incluya: la ficha del lead) o el
+ * Dashboard (admin, con la tab en la capa: «A quién cobrarle» y el detalle de un número). Sin sesión,
+ * nadie: la action no tenía ninguna guarda y la podía llamar cualquiera que conociera su id.
+ * Y la cuota tiene que ser DE ESE lead: el par (cuota, lead) lo arma el navegador, y la action escribía el
+ * historial en el lead que le pasaran. No exportada: es un archivo 'use server'.
+ */
+async function exigirAccesoAMarcarPago(pagoId: number, leadId: number): Promise<void> {
+  const rol = await getRolWsEfectivo();
+  if (rol == null) throw new Error('Inicia sesión para marcar un pago.');
+  const capa = await getCapaActual();
+  const porCrm = tabEnCapa('crm', capa);
+  const porDashboard = rol === 'admin' && tabEnCapa('graphics', capa);
+  if (!porCrm && !porDashboard) throw new Error('No tienes acceso a la cobranza de esta cuenta.');
+  const ws = await getWorkspaceActual();
+  const db = await getTenantDb();
+  const { data, error } = await db.from('pagos').select('lead_id').eq('id', pagoId).eq('workspace_id', ws ?? -1).maybeSingle();
+  if (error) throw new Error(`No pude leer la cuota: ${error.message}`);
+  if (!data || Number((data as { lead_id: unknown }).lead_id) !== Number(leadId)) throw new Error('Esa cuota no es de este lead.');
+}
 
 /**
  * Autor para el historial: el email del usuario logueado (se resuelve a nombre y
@@ -1095,6 +1118,7 @@ export async function marcarPagoAction(
   pagado: boolean,
   fechaPago: string | null,
 ): Promise<void> {
+  await exigirAccesoAMarcarPago(pagoId, leadId);
   await marcarPago(pagoId, pagado, fechaPago);
   // Queda registrado en Change History (marcar y desmarcar).
   await logLeadEvent(
