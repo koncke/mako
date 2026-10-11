@@ -67,8 +67,40 @@ Corrida del 11/10/2026 (relevo de 7 agentes + 11 de implementación + 1 revisió
   «los errores son de otro archivo» no prueba que lo tuyo compile. Con errores semánticos (TS2304) el
   resto sí se chequea.
 
+## El rediseño v2 (11/10/2026, tarde): lo que el relevo midió
+
+Diseño y prototipo en [diseno-mako-mobile-v2.md](diseno-mako-mobile-v2.md) (tres lectores sobre las
+pantallas de escritorio; nada implementado todavía).
+
+- **«El editor de video estilo CapCut (/video-generator)» no está en `/video-generator`.** La lectura
+  obvia del pedido manda a diseñar sobre un editor que en `main` no existe: ahí hay un wizard de tomas
+  (`PasoTomas.tsx`). El CapCut vive en la rama `video-editor` (`C:/dev/wt-video-editor`) y el editor
+  tipo Gamma en `wt-gamma`; los dos sin mergear. Antes de diseñar una versión reducida de algo, se
+  mira qué hay en `main`. **Vive en:** app/video-generator/, app/landing-generator/
+- **El verde y el rojo de la casa no sirven como TEXTO chico**: `--good` da 3,45:1 y `--bad` 4,26:1
+  sobre blanco (AA pide 4,5), y `--primary` da 4,20:1 sobre `--bg`. En el teléfono el color va en la
+  marca (punto, flecha) con el texto en tinta, y los links sobre `--bg` en `--primary-strong` (5,27).
+  **Vive en:** app/globals.css
+- **Un header claro invierte el hallazgo de `black-translucent`**: con el header claro va `default`
+  (texto oscuro) y `themeColor` claro; en iOS instalada `default` pinta su propia franja, que hay que
+  mirar en un iPhone contra `--bg`. **Vive en:** app/m/layout.tsx
+- **Ads Manager no tiene propuestas de MaKo para aprobar** (son de Meta) y **Automations no muestra
+  números** (están en `/chat-analyst`): un diseño que los dé por existentes inventa trabajo de
+  backend. **Vive en:** app/ads-manager/, app/automations/, app/automations/DashboardChatAgent.tsx
+- **`chrome --headless --window-size=390,844 --screenshot` NO mira un teléfono: diagnostica un
+  desborde que no existe.** Chrome en Windows topea el ancho de la ventana en ~500 px; la página se
+  arma a 500 (y el `@media (max-width: 520px)` igual aplica, así que no se nota) y la captura sale
+  recortada a 390. Medido el 11/10 sobre el prototipo: las tarjetas cortadas en el borde derecho y
+  la barra con 4 de sus 5 destinos, sobre una página que a 390 de verdad mide 390 justos. Para mirar
+  a ancho de teléfono va `Emulation.setDeviceMetricsOverride` por CDP (molde: el puente `mirar.mjs`
+  de `verificar-en-navegador`), y la medición que lo confirma es `document.documentElement.scrollWidth`
+  contra `innerWidth`, no la captura. **Vive en:** docs/prototipos/mako-mobile-v2.html
+
 ## Lo que quedó sin hacer
 
+- **Implementar la v2** (barra Today · CRM · Inbox · Plan · More, header claro con título grande, las
+  diez secciones): espera las tres respuestas de Martín al final de diseno-mako-mobile-v2.md. Suma el
+  token `--m-titulo` (32 px) y dos íconos al set (bandeja, computadora).
 - **Un teléfono que abre una pantalla de escritorio la ve con el Sidebar en miniatura** (la captura de Martín del 11/10): eso es lo que tapa <DesvioMovil>, inerte hasta prender MOVIL_ACTIVO. Y antes de prenderlo, la revisión tab por tab de /m en un teléfono.
 
 - **Ver /m funcionando en producción y prender `MOVIL_ACTIVO`** (lib/movil-desvio.ts). Ninguna

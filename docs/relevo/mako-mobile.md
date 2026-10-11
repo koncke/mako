@@ -42,8 +42,17 @@ y listas en claro, qué texto se va, y por sección qué hace el teléfono y qu�
 el editor de video y el de landings en versión reducida honesta) y un HTML autocontenido de 390×844 con
 Today, Más, CRM y ficha, Inbox, Dashboard, Ads Manager y el editor de video reducido, con los tokens reales
 de globals.css, el SVG real del logo y datos de ejemplo FICTICIOS. Se publica como artifact para que
-Martín lo vea en el celular y lo apruebe; recién ahí se implementa. Quedó sin lanzar el 11/10 a la tarde:
-la sesión de Chatbot pidió la máquina para su undécima tanda (RAM y cola del typecheck).
+Martín lo vea en el celular y lo apruebe; recién ahí se implementa.
+
+**HECHO el 11/10 a la noche, ESPERANDO A MARTÍN:** `docs/diseno-mako-mobile-v2.md` y
+`docs/prototipos/mako-mobile-v2.html` (las 12 pantallas, navegables; `#more`, `#crm`, `#editor`… abre cada
+una). Publicado privado en https://claude.ai/artifact/DiP5DFkdjk5BWzC1khhVa3. Se miró a 390×844 con
+Chrome headless + Emulation (ver hallazgos-mobile: `--window-size=390` NO sirve, Chrome topea en ~500 y
+recorta la captura): sin desborde horizontal, sin errores de script. **Antes de implementar faltan sus
+3 respuestas:** (1) Video y Landing sobre lo que hay en `main` o esperar a mergear el CapCut
+(rama `video-editor`) y el Gamma (`wt-gamma`); (2) si el teléfono puede gastar créditos de Flow
+(«Filmar de nuevo») o sólo mira, cambia el texto y descarga; (3) Ads Manager con lo que ya existe o con
+propuestas de MaKo para aprobar en el Inbox (no existen ni en escritorio).
 
 Ya arreglado en esta tanda (commit de la tarde): el Inbox cuenta y muestra sólo lo que se decide en el
 teléfono (los 68 borradores del plan van plegados en «N para revisar en la computadora»), Today corta
