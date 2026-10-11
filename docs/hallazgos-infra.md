@@ -5356,3 +5356,29 @@ ahí. (El Dashboard tomó la 0247.)
   la salida fue un worktree en `C:/dev` (junction a `node_modules`) y agentes sueltos de a tres, con la
   parte de Automations en una rama aparte rebaseada sobre el commit de la sesión que la estaba
   reescribiendo.
+
+## Un `tsc` que no dice nada no dijo que está todo bien (11/10/2026)
+
+- **El vigía de RAM mata el `tsc` del lock** (`~/.claude/guardia/guardia.log`, «MATO pid … tsc --noEmit por
+  zona-roja») y el script sale con 1 sin imprimir un error: se lee como «typecheck en rojo sin errores».
+  Se diagnostica leyendo ese log, no la salida del script, y se repite.
+- **Un `tsc` con TS6053** («File not found», porque otra sesión borró un archivo del glob en medio de la
+  corrida) no calcula los diagnósticos semánticos: la salida muestra sólo esos errores y parece que todo lo
+  demás compila. Se repite. `scripts/typecheck-lock.mjs` podría detectarlo.
+
+**Vive en:** `scripts/typecheck-lock.mjs`.
+
+## Un worktree no trae `.env.local`, y `next start` ahí rebota todo al login (11/10/2026)
+
+`.env.local` no se versiona, así que un worktree recién armado arranca `next start` sin `AUTH_SECRET`: la
+cookie firmada con `crearToken` (la del clon) no verifica y TODA ruta privada redirige a `/login`. Se lee
+como un bug de los redirects que se están probando. Se copia `.env.local` del clon al worktree antes de
+arrancar (está en `.gitignore`), y se recuerda que bootear local escribe en prod.
+
+## `git merge-file` entre worktrees da conflictos falsos por los CRLF (11/10/2026)
+
+Simular un merge con la copia de trabajo (CRLF) contra un `git show` (LF) dio 3 conflictos; normalizado a
+LF, 0. Y `git apply -3` de un parche armado en el clon sobre un worktree de `origin/main` sí resuelve solo:
+los únicos conflictos reales fueron dos áreas nuevas en la misma línea del registro de la API.
+
+*11/10/2026, chat «Graphics», integración de la tanda v4 del Dashboard (commit `6e85d8d7`).*

@@ -3957,3 +3957,25 @@ un `hasta` posterior a hoy se ACOTA a hoy, con el mismo criterio que `/graficos`
 `?desde=2026-10-01&hasta=2026-12-15` en el ws1: las dos pantallas dibujan desde el 01/10 y ya no
 vuelven a 30 días. **Sigue igual:** `app/ads-manager/AdsManagerView.tsx` (misma condición
 `hastaParam <= hoyReal`) y el CAC acumulado sin «desde».
+
+## Ads Analyst se mudó a Ads Writer: `force` no es «reintentar» (11/10/2026)
+
+**Vive en:** `lib/ads-analyst.ts:522-575` (con `getVideoTranscripts`, que ordena por `ad_id`, :468),
+`app/ads-writer/AnalizarGuion.tsx`
+
+- **Con `force`, todos los transcripts pasan a candidatos y se corren los primeros 6 por `ad_id`:
+  siempre los mismos seis, cobrando cada vez.** Los pendientes pueden no tocarse nunca, y reclasificar con
+  ángulos nuevos no llega al resto. Sin `force` ya se reintentan los que tienen error o están pendientes.
+  En la tab, el «Actualizar igual» del caso «recién sincronizado» mandaba `force`. Ahora sólo lo manda con
+  todo al día y sin errores, y avisa que gasta IA. **SIN HACER:** que `force` avance más allá de los seis
+  (la lib no es de ningún paquete).
+- **La copia de `verdictFromVals` en `lib/api-mako/areas/ads.run.ts` no se puede cambiar por el import**
+  de `lib/ads-analyst-patrones` como sugiere su cabecera: las claves son distintas (`reescribir` contra
+  `reescribir_cuerpo`) y rompería lo que ya lee la API.
+- **Una vista que el server manda sólo cuando su `?tab=` la pide se desmonta al cambiar de vista** y se
+  pierde lo escrito, salvo que el cliente guarde el último nodo que llegó.
+- **Quedaron sin montar** el componente `ScriptsBrowser` y `GuionesFull` (`app/ads-analyst/`). El
+  archivo no se puede borrar entero: `app/marketing/ad-charts.tsx` importa de ahí `FunnelModal`,
+  `applyAngles` y `applyAvatares`. Mudar eso y borrar el resto es una decisión aparte.
+
+*11/10/2026, chat «Graphics», paquete P3 de la tanda v4 del Dashboard (commit `6e85d8d7`).*

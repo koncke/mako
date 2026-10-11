@@ -171,8 +171,8 @@ agregada por día.
   el redirect al Dashboard los rebotaba. Se sumó.
 - `?hoja=<id>` sólo resuelve ids FIJOS: una hoja de «Nueva hoja» lleva ids nuevos. Las hojas de Analysts
   del informe de Mauricio se escribieron con los ids de la plantilla.
-- Ads, Landing y Closing siguen en la sidebar: tienen TAREAS (analizar un guion, una URL, una llamada)
-  que Martín se va a llevar a otras tabs.
+- Ads, Landing y Closing salieron el mismo día, a la tarde (decisiones 4, 5 y 6): ver «Closing al
+  Dashboard» abajo.
 
 ## Cómo se verifica cuando el `next dev` no sobrevive
 
@@ -220,14 +220,63 @@ El Dashboard cuenta `cerro || estado_lead === 'ganado'`, menos `venta_tipo = 'si
 No hay un constructor de tableros embebible en Next con licencia libre (Metabase y Grafana son AGPL,
 Superset es Python). `react-grid-layout` 2.2.4 (MIT) + `recharts`.
 
+## Closing al Dashboard: lo que la tab hacía mal y el port obvio habría copiado (11/10/2026)
+
+**Vive en:** `app/dashboard/bloques/extra/BloquesClosing.tsx`, `FichaLlamada.tsx`, `app/api/closing/puerta-regla.ts`
+
+- **El KPI «Analizadas» de la tab contaba ventas pendientes y con error** (`counts.ventas`). La hoja cuenta
+  sólo las analizadas (`llamadas_venta.llamadas`): 71 en el ws1.
+- **`lastSync` es el `updated_at` de CUALQUIER fila**, incluida una revisión a mano: el bloque dice
+  «Actualizado», no «Sincronizado».
+- **`/api/closing/analyze` contesta `ok: true` con el fallo adentro** (`status: 'error'`). La tab no lo
+  miraba; la ficha sí.
+- **Las cinco rutas de `/api/closing/*` no tenían control de rol** (un setter gastaba IA o leía
+  transcripts con un `fetch`), y `revise` tomaba el `autor` del cuerpo. Ahora hay una puerta en positivo
+  (admin y closer) y el autor sale de la sesión.
+- ⚠️ **El diagnóstico obvio era el equivocado en `destinoDetalle`**: la entidad `llamadas_venta` estaba
+  declarada y su número no abría nunca, sin error. Buscaba sólo en `FUENTES_BASE`, y el test pasaba porque
+  `LECTORES` sí incluía los conjuntos extra. Una tabla de capacidades se valida contra la MISMA lista que
+  usa quien la consume.
+- **El closer ve un informe EN MEMORIA** (sólo la hoja Closing, sin editar) y `/api/graficos` le contesta
+  403 a cualquier otra hoja (`closerPuedePedir`). Esconder las hojas no alcanzaba: el pedido de datos es
+  otra puerta. Medido en Chrome con un closer ficticio: 403 «Sólo la hoja Closing».
+- **`?hoja=<plantilla>` caía en Marketing** para toda hoja de plantilla (ids al azar): `hojaDestino` la
+  busca por FIRMA y, si no está, la agrega con ids fijos.
+- **Un `Confirm` encima de un `Modal`**: los dos escuchan Escape en `document` y el `Confirm` no está en la
+  pila de modales (deducido, no medido). Por eso «Re-analizar» confirma adentro del pie de la ficha.
+
+## Enlace, Video e Insertar: el href se sanea también en las ramas de respaldo (11/10/2026)
+
+**Vive en:** `lib/embeds.ts` (`videoDe`, `insertableDe`), `app/dashboard/ElementoInsertado.tsx`
+
+- El test encontró un bug en su primera corrida: el «Ver el video ↗» de un link NO reconocido pintaba
+  `e.url` crudo, así que un `javascript:` llegaba al href. El camino feliz estaba saneado.
+- Lo que se GUARDA tiene una vara floja (https) y lo que se VE una estricta: si la lista de proveedores
+  cambia, un link guardado no se borra en el próximo guardado. La API de MaKo valida con la estricta
+  (`armarElemento`), y un `<iframe>` pegado guarda sólo su `src`.
+- Sumar Fathom a la lista de embeds también lo habilita en las clases de los cursos (el sanitizador lo deja
+  como `fathom.video/embed/<t>`). `/calls/` no se inserta.
+- React 19 precarga toda `<img>` no perezosa: la miniatura que sólo existe para el PDF va con
+  `fetchPriority="low"` (perezosa adentro de algo escondido no se baja nunca).
+- Por HTTP, la dirección de un elemento que sea una grabación de Fathom no sale (`urlParaCanal`).
+
+## Dos puertas para la misma decisión: arreglar la lib no arregla la ruta (11/10/2026)
+
+**Vive en:** `app/api/graficos/analisis/route.ts`, `lib/graficos-analisis-server.ts`
+
+La red de plataforma del AI Analyst (decisión 1) se escribió y se desplegó en la lib (`e51f01a8`) y el
+botón seguía apagado para un negocio sin IA propia: la RUTA preguntaba `docsIADisponible()` antes de
+llamar a la lib, en el POST y en el GET que habilita el botón. Al cambiar quién puede algo, se buscan
+TODAS las preguntas por esa capacidad, no la función que la ejecuta.
+
 ## Lo que quedó sin hacer
 
+- **Dos escritores del mismo tablero**: el autoguardado del editor hace un upsert sin versión y la API
+  usa compare-and-set (`guardarTableroSi`). Gana el último que escribe. Que el editor mande la versión.
+- **El control «Closer» de la hoja Closing no filtra los bloques** (`PedidoBloque` no recibe filtros); la
+  lista de llamadas tiene su propio filtro de closer.
 - **Lecturas de Comercial sin paginar** (`lib/pagos.ts`, `lib/queries.ts`): la primera que va a cortar en
   1000 filas sin avisar es `getOutstandingDetalle` (lee TODA la tabla pagos; el ws1 tiene 34).
-- **Las cohortes de Comercial con «Últimos 30 días»** miran sólo las del último mes; la tab vieja mostraba
-  todas las maduras. Reproducirlo es `periodo: 'todo'` en esos bloques, y el filtro de fecha deja de
-  aplicarles: **lo decide Martín**.
-- **`marcarPagoAction` sin guarda de rol** (`app/crm/actions.ts`): ver [hallazgos-crm.md](hallazgos-crm.md).
 - **El GeoJSON del mapa** se baja de `raw.githubusercontent.com` en el navegador del cliente.
 - **`sniffImagen` tiene tres copias** (`app/api/perfil/avatar`, `app/api/portadas`,
   `app/api/graficos/imagen`): va a un módulo de `lib/`.
@@ -238,4 +287,7 @@ Superset es Python). `react-grid-layout` 2.2.4 (MIT) + `recharts`.
 - **El onboarding de la tab**, mapas de otros países, velas y campos calculados: no se hicieron.
 
 *10-11/10/2026, chat «Graphics». El v3 (feedback de veinte puntos, Exportar, Analysts, AI Analyst):
-corrida de 9 agentes `wf_57bc1bc0-b52` + integración, commit `623ff3cd`.*
+corrida de 9 agentes `wf_57bc1bc0-b52` + integración, commit `623ff3cd`. El v4 (las seis decisiones y la
+API): seis agentes en paralelo (P1 elementos, P2a Closing, P2b modo closer, P3 Ads, P4 Landing, P5 API) +
+integración, commit `6e85d8d7`. Las cohortes en «Todo» y la guarda de «Marcar cobrada» se cerraron ahí
+(decisiones 3 y 2).*

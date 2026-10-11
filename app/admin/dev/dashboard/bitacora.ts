@@ -176,4 +176,26 @@ export const BITACORA: Hito[] = [
       'Llegó con el uso semanal de la cuenta 3 por encima del 90%: quedó para la ventana siguiente (docs/relevo/dashboard.md).',
     ],
   },
+  {
+    fecha: '11 oct', hora: '16:32', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Dashboard v4: las tres tabs de Analysts se retiran y el Dashboard entero sale por la API de MaKo',
+    puntos: [
+      'Closing va completo a la hoja «Closing»: la lista de llamadas y la ficha de cada una (grabación, análisis, re-analizar, revisar a mano). /closing redirige ahí.',
+      'El closer ve el Dashboard con sólo esa hoja, sin editar; el servidor le niega cualquier otra.',
+      'Ads Analyst: la valoración de un guion vive en Ads Writer («Analizar guion»). Landing Analyst: el diagnóstico vive en Landing Generator. Las rutas viejas redirigen.',
+      'Elementos nuevos: Enlace, Video (YouTube, Vimeo, Loom, Drive, Fathom…) e Insertar una página.',
+      '22 operaciones del Dashboard en la API de MaKo: leer y editar hojas y gráficos, insertar elementos, analizar y programar el AI Analyst, exportar.',
+      'El AI Analyst ya no se apaga sin IA propia (prueba la red de plataforma) y las cohortes abren en «Todo».',
+    ],
+    commits: [{ sha: '6e85d8d', msg: 'Dashboard v4: Closing, Ads y Landing Analyst se retiran como tabs, el Dashboard entero sale por la API de MaKo, y Enlace, Video e Insertar', lineas: 11488, archivos: 106 }],
+    archivos: ['app/dashboard/EditorInforme.tsx', 'app/dashboard/bloques/extra/FichaLlamada.tsx', 'app/dashboard/ElementoInsertado.tsx', 'lib/api-mako/areas/dashboard.run.ts', 'app/ads-writer/AnalizarGuion.tsx', 'app/landing-generator/analizar/page.tsx'],
+  },
+  {
+    fecha: '11 oct', hora: '16:32', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'cosecha',
+    titulo: 'Lo que dejó el v4: la tab de Closing contaba mal, sus rutas no tenían rol y la red de IA tenía una segunda puerta',
+    puntos: [
+      'docs/hallazgos-graficos.md: lo que la tab de Closing hacía mal, el href que se escapaba en la rama de respaldo, y la ruta del AI Analyst que se apagaba antes de llegar a la red.',
+      'hallazgos-api-mako (validar estricto, borrar con «-», el tablero leído sin cookie), hallazgos-ads (force no es reintentar), hallazgos-landing (lo que quedó sin usar) e hallazgos-infra (el worktree sin .env.local).',
+    ],
+  },
 ];

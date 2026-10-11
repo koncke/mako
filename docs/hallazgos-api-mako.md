@@ -1127,3 +1127,59 @@ un link pendiente del mismo producto y pasarela devuelve `yaEstaba` y vuelve a p
 `cobro`). **Vive en:** `lib/variables-aviso.ts`.
 
 _11/10/2026 — `tests/api-mako-cobros.test.ts` (15, probado con 10 roturas)._
+
+## El área Dashboard (11/10/2026, 22 operaciones en `metricas`)
+
+### Lo que viene de un agente se valida ESTRICTO antes de sanear
+
+El modelo del Dashboard corrige en silencio: `sanearGrafico` convierte una métrica o un tipo que no existe
+en otra cosa sin error, y `sanearElemento` aceptaba como Video cualquier https. Por la API eso es un
+gráfico distinto del que se pidió y un «ok». **Regla:** cada operación valida contra el catálogo vigente y
+rechaza con la lista de lo disponible (`armarGrafico`, `armarElemento`, `armarControlHoja`); el saneo queda
+para lo que ya está guardado. **Vive en:** `lib/api-mako/areas/dashboard.helpers.ts`.
+
+### Para borrar un campo de texto se manda `-`
+
+El validador tira el `''` como «no vino» (`lib/api-mako/validar.ts:83`), así que un vacío nunca llega al
+runner y no hay forma de vaciar un subtítulo. Mismo agujero que `vaciaEsValor` para las listas.
+
+### El tablero leído sin cookie miente
+
+Fuera de una request (un flujo, un token), `leerTablero()` devolvía el tablero inicial como si no hubiera
+nada guardado: `lib/settings.ts` cae a `OWNER_WS` cuando no hay workspace. La lectura de la API exige
+workspace y tira si falta (`wsDeLaLectura`, `lib/graficos-tablero.ts`).
+
+### El compare-and-set no compara el JSON
+
+Un `.eq` sobre el valor del tablero rompe el largo de la URL de PostgREST. Va un hash del valor y el
+compare-and-set sobre `updated_at` (`guardarTableroSi`). ⚠️ El autoguardado del editor todavía escribe sin
+versión: dos escritores, gana el último (ver [hallazgos-graficos.md](hallazgos-graficos.md)).
+
+### La persona se NOMBRA, y en un flujo es obligatoria
+
+Un `Ctx` no trae persona (sólo ws, canal y rol): «el informe» de un flujo no existe sin nombrarlo. Sin
+nombrar y con un solo informe guardado, ése; con varios, pide elegir; en un flujo, error. Closer y setter
+no son persona de un informe. Por HTTP las etiquetas de personas salen como alias y el link de una
+grabación de Fathom no sale (`urlParaCanal`). **Vive en:** `elegirPersona`, `etiquetaPersona`.
+
+### Crear, borrar y restablecer no corren en una automatización
+
+Se frenan en `preparar()` (`noEnFlujo`), no en `NO_EN_FLUJOS`: una hoja por cada lead que entra no es lo
+que nadie quiso configurar.
+
+### Tres trampas del registro que mordieron al sumar el área
+
+- **El chequeo de `server-only` en las `.def.ts` sólo ve las registradas**: una def suelta que lo importe
+  no rompe nada hasta que alguien la registra. El test ahora barre el DIRECTORIO (probado con un
+  `zzrotura.def.ts`: la lista vieja daba verde).
+- **La regex de runners del test** (`^\s{2}'?id'?:\s*\{`) prohíbe cualquier otra clave con dos espacios de
+  sangría en un `.run.ts`.
+- **«plantilla» suelta choca con WhatsApp** en `mako-intencion`: la regex exige «plantilla de hoja /
+  dashboard / informe».
+
+### Un type guard sobre `l.c` no angosta `l`
+
+Para angostar una unión discriminada se pregunta por la FORMA del objeto (`!('desde' in l)`). Lo cazó el
+typecheck, no los tests.
+
+_11/10/2026 — `tests/api-mako-dashboard.test.ts` (25, probado con 14 roturas), commit `6e85d8d7`._
