@@ -52,7 +52,10 @@ export function esVistaSinChrome(pathname: string | null | undefined): boolean {
     // tracking. Mide 440 px: el riel del sidebar es fijo y se come un cuarto del
     // ancho para navegar a lugares a los que nadie va a ir desde acá — lo único
     // que se hace en esta ventana es mirar entrar eventos y cerrarla.
-    || /^\/integraciones\/escuchando\/?$/.test(p);
+    || /^\/integraciones\/escuchando\/?$/.test(p)
+    // El Video Editor ocupa la ventana entera, como CapCut. Su salida es el menú de
+    // su barra superior («Volver al inicio», con el `?ws=`): sin chrome no hay sidebar.
+    || /^\/video-editor\/[^/]+\/?$/.test(p);
 }
 
 /** Renderiza a sus hijos SOLO en las pantallas que sí llevan el chrome de la app. */

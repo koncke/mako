@@ -14,6 +14,11 @@
 /* La biblioteca de primitives (app/_ui). Un solo import: las clases mk-* quedan
    disponibles en cualquier pantalla sin que nadie importe nada. */
 @import "./_ui/ui.css";
+/* El Video Editor (copia de CapCut): sus tokens viven limitados a `.ce` y al
+   @theme sólo le suma nombres que no existían. Ver el archivo. Y las animaciones
+   de entrada/salida de sus menús (animate-in, fade-in-0, zoom-in-95…). */
+@import "./video-editor/capcut-theme.css";
+@import "tw-animate-css";
 
 /*
   Rediseño "Marketing OS" — tema claro (Geist) exportado desde Claude Design.

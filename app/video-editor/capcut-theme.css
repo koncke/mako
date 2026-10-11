@@ -1,0 +1,196 @@
+/* =============================================================================
+   Video Editor — el tema de CapCut, limitado a `.ce`
+   =============================================================================
+   El motor portado de OpenCut está escrito con utilidades de Tailwind sobre los
+   tokens de shadcn (`bg-background`, `text-muted-foreground`, `border-border`…).
+   Tres de esos nombres YA existen en MaKo con otro valor (`--primary`, `--border`,
+   `--accent`) y el `:root` de OpenCut además pisa `--sidebar`, que es la barra
+   lateral de MaKo. Copiar su globals.css repinta la app entera.
+
+   La receta (AGENTS.md → «Una pantalla oscura se hace redefiniendo TOKENS»):
+   · los vars se definen DENTRO de `.ce`, la raíz del editor; afuera no existen;
+   · al `@theme` global sólo se le suman NOMBRES QUE NO EXISTÍAN, apuntando a esos
+     vars (afuera de `.ce` no resuelven a nada y nadie los usa);
+   · el `@layer base` de OpenCut (bordes y body globales) va scopeado a `.ce`;
+   · `dark:` se ata a `.ce`: CapCut es oscuro siempre y MaKo no usa `dark:`.
+
+   La paleta es la MEDIDA píxel a píxel sobre las capturas oficiales de CapCut
+   Desktop 9.3 (relevamiento del 11/10/2026, docs/diseno-editor-video.md). La
+   fuente de CapCut (CapCut Sans) es de ByteDance y no se copia: va Geist, la
+   de MaKo.
+
+   Este archivo lo importa app/globals.css (las directivas @theme/@custom-variant/
+   @utility sólo valen dentro de la entrada de Tailwind). */
+
+@custom-variant dark (&:where(.ce, .ce *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-hover: var(--popover-hover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-border: var(--secondary-border);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-constructive: var(--constructive);
+  --color-constructive-foreground: var(--constructive-foreground);
+  --color-caution: var(--caution);
+  --color-caution-foreground: var(--caution-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* La escala de texto de OpenCut (más chica que la de Tailwind) sólo dentro
+     del editor: afuera el var no existe y queda el valor de siempre. Va en
+     `inline` a propósito: así la utilidad lleva el `var()` adentro y se
+     resuelve en el elemento, no en :root. */
+  --text-xs: var(--ce-text-xs, 0.75rem);
+  --text-sm: var(--ce-text-sm, 0.875rem);
+  --text-base: var(--ce-text-base, 1rem);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+}
+
+/* OpenCut esconde barras de desplazamiento; en MaKo eso está prohibido
+   (AGENTS.md → «Dos reglas de layout», regla 4). Los mismos nombres de utilidad
+   dibujan acá la barra FINA de CapCut. */
+@utility scrollbar-hidden {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cc-scroll, #404040) transparent;
+}
+@utility scrollbar-x-hidden {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cc-scroll, #404040) transparent;
+}
+@utility scrollbar-y-hidden {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cc-scroll, #404040) transparent;
+}
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cc-scroll, #404040) transparent;
+}
+
+.ce {
+  /* ── La paleta de CapCut Desktop 9.3 (medida) ─────────────────────────── */
+  --cc-app: #141414;          /* ventana, barra superior, separaciones */
+  --cc-panel: #262626;        /* cuerpo de paneles, línea de tiempo, Exportar */
+  --cc-panel-head: #303030;   /* franja de pestañas y cabeceras */
+  --cc-raised: #3b3b3b;       /* subcategorías, desplegables, segmento elegido */
+  --cc-input: #343337;        /* campos de texto, botón Menú */
+  --cc-sunken: #1c1c1c;       /* control segmentado, cajas numéricas */
+  --cc-btn-2: #4f4f4f;        /* Compartir, Cancelar, interruptor apagado */
+  --cc-scroll: #404040;
+  --cc-track-head: #2a2a2a;
+  --cc-track: #292929;
+  --cc-track-active: #2f2f2f;
+  --cc-line: #09090b;
+  --cc-line-2: #353535;
+  --cc-accent: #00c1cd;       /* EL cian: Exportar, pestaña activa, tiempo actual */
+  --cc-text: #e0e0e0;
+  --cc-text-2: #bababa;
+  --cc-text-3: #929292;
+  --cc-ruler: #555555;
+  --cc-icon: #c9c9c9;
+  --cc-icon-off: #575757;
+  --cc-track-icon: #808080;
+  --cc-clip-video: #004d52;
+  --cc-clip-video-name: #1a5f64;
+  --cc-clip-text: #9c4937;
+  --cc-clip-audio: #0e3058;
+  --cc-clip-audio-wave: #0e81b3;
+  --cc-clip-audio-name: #274569;
+  --cc-clip-sticker: #a8622a;
+  --cc-clip-effect: #6a4bb0;
+  --cc-clip-filter: #4e4fb3;
+  --cc-clip-adjust: #a2862e;
+  --cc-select: #ffffff;
+  --cc-playhead: #ffffff;
+
+  /* ── Los tokens de shadcn que usa el motor, con los valores de CapCut ──── */
+  --background: var(--cc-app);
+  --foreground: var(--cc-text);
+  --card: var(--cc-panel);
+  --card-foreground: var(--cc-text);
+  --popover: #2d2d2d;
+  --popover-hover: var(--cc-raised);
+  --popover-foreground: var(--cc-text);
+  --primary: var(--cc-accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--cc-raised);
+  --secondary-border: #4a4a4a;
+  --secondary-foreground: var(--cc-text);
+  --muted: var(--cc-input);
+  --muted-foreground: var(--cc-text-3);
+  --accent: var(--cc-raised);
+  --accent-foreground: var(--cc-text);
+  --destructive: #f5464b;
+  --destructive-foreground: #ffffff;
+  --constructive: #3fb27f;
+  --constructive-foreground: #ffffff;
+  --caution: #f2b01e;
+  --caution-foreground: #1a1a1a;
+  --border: var(--cc-line-2);
+  --input: var(--cc-sunken);
+  --ring: var(--cc-accent);
+
+  /* ── Los tokens de MaKo que se cruzan (barras de scroll globales, primitives) */
+  --bg: var(--cc-app);
+  --surface: var(--cc-panel);
+  --surface-2: var(--cc-raised);
+  --ink: var(--cc-text);
+  --dim: var(--cc-text-2);
+  --faint: var(--cc-text-3);
+  --border-strong: #4a4a4a;
+  --on-primary: #ffffff;
+  --focus-ring: 0 0 0 2px var(--cc-accent);
+
+  --ce-text-xs: 0.72rem;
+  --ce-text-sm: 0.79rem;
+  --ce-text-base: 0.92rem;
+
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Geist', system-ui, sans-serif;
+  color-scheme: dark;
+  overscroll-behavior-x: contain;
+}
+
+/* Los paneles (biblioteca, reproductor, propiedades, línea de tiempo) son un
+   escalón más claros que la ventana, como en CapCut. */
+.ce .panel {
+  --background: var(--cc-panel);
+  --card: var(--cc-panel);
+  --accent: var(--cc-raised);
+  --input: var(--cc-sunken);
+}
+
+/* El `@layer base` de OpenCut, pero sólo adentro del editor. */
+.ce *,
+.ce ::before,
+.ce ::after {
+  border-color: var(--border);
+}
+.ce ::selection {
+  background: rgb(0 193 205 / 0.35);
+}
+
+/* Los portales de radix (menús, popovers, diálogos) se montan en <body>, FUERA
+   de `.ce`: llevan la misma clase en su contenedor (ver VideoEditorCliente). */

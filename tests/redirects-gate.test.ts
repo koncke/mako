@@ -102,6 +102,8 @@ test('el matcher que se leyó de proxy.ts es el de verdad', () => {
   assert.equal(loMiraElGate('/api/crm'), true, 'una API interna también');
   assert.equal(loMiraElGate('/logo.png'), false, 'las imágenes están exentas por extensión');
   assert.equal(loMiraElGate('/cono-tx/algo.json'), false, 'los .json de /conocimientos van exentos por RUTA');
+  assert.equal(loMiraElGate('/ve/fonts/font-atlas.json'), false, 'los recursos del Video Editor van exentos por RUTA');
+  assert.equal(loMiraElGate('/video-editor/abc'), true, 'la PÁGINA del editor la mira el gate (valida el ?ws=)');
 });
 
 test('el gate SÍ mira el destino de un redirect: el 307 es un request nuevo', () => {

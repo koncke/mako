@@ -297,6 +297,7 @@ export const FAMILIAS: NavFamilia[] = [
           { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
           { key: 'image-generator', label: 'Image Generator', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
           { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
+          { key: 'video-editor', label: 'Video Editor', href: '/video-editor', icon: 'videogen', match: starts('/video-editor') },
         ],
       },
       {

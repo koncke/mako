@@ -285,6 +285,10 @@ function denegarRol(req: NextRequest, pathname: string) {
 // ⚠️ LOS ASSETS `.json` DE /conocimientos VAN EXCLUIDOS POR RUTA, y son los únicos así:
 //   · `cono-tx/`  — las transcripciones (`public/cono-tx/<videoId>.json`)
 //   · `cono-doc/` — el material de las clases (`public/cono-doc/<slug>.json`)
+//   · `ve/`       — los recursos del Video Editor (`public/ve/`: el atlas de fuentes
+//                   `.json` + `.avif`, banderas, formas). NO se exime `video-editor/`:
+//                   el lookahead sacaría del proxy también a la PÁGINA del editor, y
+//                   el proxy es el único que valida el `?ws=` del super admin.
 //
 // La lista de extensiones de acá no incluye `.json` —y no conviene que lo haga, hay
 // endpoints que sí tienen que estar gateados—, así que esos archivos entran al
@@ -304,5 +308,5 @@ function denegarRol(req: NextRequest, pathname: string) {
 // Son assets públicos de verdad: no llevan ningún dato de sesión, y el que tiene el
 // videoId ya tiene el video.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|cono-tx/|cono-doc/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|cono-tx/|cono-doc/|ve/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
 };
