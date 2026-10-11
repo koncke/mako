@@ -48,7 +48,7 @@ import { decidirAgenda } from '@/lib/nutricion-agenda';
 import {
   disparadoresDe, vistasPorDisparador, unaPorSecuencia, disparaPorEvento, barreElDisparador, textosParaElGrupo,
   TRIGGERS_SOLO_EVENTO, TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER,
-  TRIGGER_EMAIL_RECIBIDO, TRIGGERS_DEL_EMISOR, TRIGGER_AVISO_MAKO,
+  TRIGGER_EMAIL_RECIBIDO, TRIGGERS_DEL_EMISOR, TRIGGER_AVISO_MAKO, TRIGGER_PAGO,
   type Disparador,
 } from '@/lib/disparadores';
 import { frenoDelEvento, eventoDeFila } from '@/lib/aviso-evento';
@@ -1786,7 +1786,7 @@ async function reactivarReusables(
  * Messenger no inscriben a nadie. 'etiqueta_quitada' lo emite el choke point de las etiquetas.
  */
 export type EventoNutricion =
-  | 'lead_nuevo' | 'agenda_nueva' | 'etapa' | 'entrega' | 'etiqueta'
+  | 'lead_nuevo' | 'agenda_nueva' | 'etapa' | 'entrega' | 'etiqueta' | 'pago'
   | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido';
 
 /** Lo que el evento de ETAPA necesita saber, porque no se deduce del lead id. */
@@ -1832,6 +1832,9 @@ const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
   instagram: [TRIGGER_INSTAGRAM],
   messenger: [TRIGGER_MESSENGER],
   email_recibido: [TRIGGER_EMAIL_RECIBIDO],
+  // Los pagos (Stripe / Mercado Pago, 11/10/2026): los emite el webhook de la pasarela por `enrolarPorPago`
+  // (lib/pago-entrante.ts), DESPUÉS de asentar el pago en el CRM. `disparaPorEvento` pregunta por CUÁL evento.
+  pago: [TRIGGER_PAGO],
 };
 
 /**

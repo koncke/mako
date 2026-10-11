@@ -344,6 +344,9 @@ export const TRIGGERS: Opcion[] = [
   { value: 'instagram', label: 'Un evento de Instagram' },
   { value: 'messenger', label: 'Un evento de Messenger' },
   { value: 'email_recibido', label: 'Recibes un email' },
+  // Los pagos de la pasarela (11/10/2026, `TRIGGER_PAGO`): necesitan el evento (`subtipo`), así que se eligen en
+  // el CRON y /email los rechaza (`SOLO_DESDE_EL_CRON`).
+  { value: 'pago', label: 'Un evento de pago' },
   { value: 'grupo_mako', label: 'Recurrente al grupo de MaKo' },
   // «MaKo en WhatsApp» como automatización (11/10/2026, `TRIGGER_AVISO_MAKO`): lo emite el código de cada
   // aviso (lib/aviso-evento.ts), no el motor. Nace de la galería con su evento: /email lo rechaza.

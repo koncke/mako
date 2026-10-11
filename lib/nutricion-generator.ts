@@ -189,6 +189,9 @@ Un objeto por paso, en el MISMO orden y con el MISMO canal que recibiste. Para e
 // Cubre los 13 triggers legacy; las secuencias funnel-agnósticas (etapa_actual)
 // arman su glosa con la etapa real del funnel del workspace en generarSecuencia.
 export const COHORTE_GLOSS: Record<string, string> = {
+  // Los pagos de la pasarela (11/10/2026): CUÁL evento lo dice el nombre de la automatización (el CRON lo
+  // guarda en `subtipo`, que esta glosa no ve).
+  pago: 'Acaba de pasar algo con un pago suyo por Stripe o Mercado Pago (aprobado, rechazado, devuelto o una suscripción cancelada: lo dice el nombre de la automatización). Corto, con el dato y qué sigue. Si se aprobó, ya es cliente: se le da la bienvenida, no se le vende de nuevo.',
   // Un CLIENTE, no un lead: ya compró y está en la entrega. El tono es otro y por eso
   // la glosa lo dice primero — MaKo escribe el copy leyendo esto.
   entrega_actual: 'YA ES CLIENTE: compró y está avanzando por las etapas de la entrega de tu servicio. No se le vende de nuevo: se lo acompaña, se le dice qué sigue y qué hace falta de su lado.',

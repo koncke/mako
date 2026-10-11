@@ -1001,10 +1001,20 @@ https://hola-mako.com/plan — MaKo`,
     ejemplo: `🟡 Mañana vence la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}). Avisarle hoy sale más barato que perseguirlo después. — MaKo`,
   },
   {
-    id: 'pago-recibido', titulo: 'Pago recibido / cash collected', categoria: 'aviso',
-    prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'no',
-    disparador: 'Se registra un pago (cierre o cuota cobrada).',
-    ejemplo: `💰 *Entró plata*: pago de Grupo Delta por *$2.300*. Cash del mes: $14.600 — vas 68% de la meta. Bien ahí. — MaKo`,
+    id: 'pago-recibido', titulo: 'Pago recibido', categoria: 'aviso',
+    prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    // Desde el 11/10/2026 lo emite la pasarela (lib/cobros.ts, aplicarPagoAprobado) cuando Stripe o Mercado Pago
+    // confirman un cobro creado en MaKo, y es un EVENTO de MaKo (`pago_recibido`, lib/disparadores.ts): sale por la
+    // automatización «Aviso de pago recibido» que el negocio agrega de la galería (`mako-pago`). El texto lo arma el
+    // código (`textoDelCodigo`), con la pasarela, el concepto y el link a la ficha.
+    textoDelCodigo: true,
+    disparador: 'Stripe o Mercado Pago confirman un pago de un link de cobro creado en MaKo.',
+    ejemplo: `💰 *Entró un pago*: Grupo Delta pagó *US$ 2.300* por Stripe (Mentoría).
+
+👉 Mira su ficha:
+https://hola-mako.com/crm/123/resumen
+
+— MaKo`,
   },
   {
     id: 'cierre-venta', titulo: 'Cierre de venta nuevo', categoria: 'aviso',

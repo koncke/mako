@@ -74,6 +74,16 @@ export function IconoDisparador({ tipo, tam = 34 }: Props) {
       </svg>
     ));
   }
+  if (tipo === 'pagos') {
+    // Una tarjeta (los pagos de la pasarela, 11/10/2026): verde de plata, sin marca de Stripe ni de Mercado
+    // Pago — el CRON escucha a las dos.
+    return caja(tam, 'var(--good-bg)', (
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="var(--good)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2.8" y="5.5" width="18.4" height="13" rx="2.4" />
+        <path d="M2.8 9.6h18.4M6.5 14.6h4" />
+      </svg>
+    ));
+  }
   // El rayo del CRON (CRON punto 10: «que el emoji de CRON sea el rayo»).
   return caja(tam, 'var(--warn-bg)', (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="#F59E0B"><path d="M13.2 2.5 4.8 13.6h6l-1.4 7.9 8.4-11.1h-6Z" /></svg>
@@ -90,6 +100,11 @@ export function IconoEvento({ subtipo, tam = 18 }: { subtipo: string; tam?: numb
   if (subtipo === 'en_vivo') return <svg {...p}><circle cx="12" cy="12" r="2.5" /><path d="M7.5 16.5a6.4 6.4 0 0 1 0-9M16.5 7.5a6.4 6.4 0 0 1 0 9M4.6 19.4a10.4 10.4 0 0 1 0-14.8M19.4 4.6a10.4 10.4 0 0 1 0 14.8" /></svg>;
   if (subtipo === 'ref') return <svg {...p}><path d="M10 14a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6l-1 1" /><path d="M14 10a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6l1-1" /></svg>;
   if (subtipo === 'qr') return <svg {...p}><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2" /></svg>;
+  // Pagos (11/10/2026).
+  if (subtipo === 'aprobado') return <svg {...p}><circle cx="12" cy="12" r="8.5" /><path d="m8.2 12.3 2.6 2.6 5-5.4" /></svg>;
+  if (subtipo === 'rechazado') return <svg {...p}><circle cx="12" cy="12" r="8.5" /><path d="m9 9 6 6M15 9l-6 6" /></svg>;
+  if (subtipo === 'reembolsado') return <svg {...p}><path d="M9 7 5 11l4 4" /><path d="M5 11h9.5a4.5 4.5 0 0 1 0 9H12" /></svg>;
+  if (subtipo === 'suscripcion_cancelada') return <svg {...p}><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" /><path d="M19.6 4.4v3.6H16" /><path d="m9.5 9.5 5 5M14.5 9.5l-5 5" /></svg>;
   if (subtipo === 'tienda') return <svg {...p}><path d="M4 9.5 5.5 4.5h13L20 9.5" /><path d="M4 9.5h16v2a2.7 2.7 0 0 1-5.3 0 2.7 2.7 0 0 1-5.4 0 2.7 2.7 0 0 1-5.3 0Z" /><path d="M5.5 13.5v6h13v-6" /></svg>;
   return <svg {...p}><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m4 7 8 6 8-6" /></svg>;
 }

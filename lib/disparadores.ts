@@ -48,6 +48,12 @@ export const TRIGGER_MESSENGER = 'messenger';
 /** «Si recibo un email» (CRON punto 8). */
 export const TRIGGER_EMAIL_RECIBIDO = 'email_recibido';
 /**
+ * «Pagos» (11/10/2026, la pasarela de Stripe y Mercado Pago): CUÁL evento lo dice `subtipo`
+ * (`EVENTOS_PAGO`). Lo emite el webhook de la pasarela por `enrolarPorPago` (lib/pago-entrante.ts),
+ * DESPUÉS de asentar el pago en el CRM (así `fecha_primer_pago` ya está y la condición «Pagó» da bien).
+ */
+export const TRIGGER_PAGO = 'pago';
+/**
  * Un Recurrente cuyo «A quién» es SÓLO el grupo de MaKo: no hay cohorte de leads. Con cohorte y
  * grupo a la vez, el `trigger_tipo` es el de la cohorte y `grupo: true`.
  */
@@ -70,6 +76,7 @@ export const TRIGGER_AVISO_MAKO = 'aviso_mako';
  */
 export const TRIGGERS_SOLO_EVENTO: ReadonlySet<string> = new Set([
   TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO,
+  TRIGGER_PAGO,
 ]);
 
 /**
@@ -100,7 +107,7 @@ export const TRIGGERS_NUEVOS: readonly string[] = [...TRIGGERS_SOLO_EVENTO, TRIG
  * y el evento de MaKo quedaba sin evento.
  */
 export const SOLO_DESDE_EL_CRON: ReadonlySet<string> = new Set([
-  TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_SOLO_GRUPO, ...TRIGGERS_DEL_EMISOR,
+  TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_PAGO, TRIGGER_SOLO_GRUPO, ...TRIGGERS_DEL_EMISOR,
 ]);
 export const MOTIVO_SOLO_DESDE_EL_CRON = 'Ese disparador se elige en el CRON de la automatización.';
 
@@ -109,15 +116,18 @@ export const TOPE_DISPARADORES = 10;
 /** Cuántas etiquetas se pueden «Ignorar». */
 export const TOPE_IGNORAR = 50;
 
-// ── Las seis clases de la primera pantalla ──────────────────────────────────────────────────────
+// ── Las siete clases de la primera pantalla ─────────────────────────────────────────────────────
 
 /**
- * `mako` = «Evento de MaKo» (11/10/2026). NO es un botón de la primera pantalla (`CLASES_DISPARADOR` sigue
- * en seis): una fila de evento nace de la galería con su CRON puesto, y no se cambia.
+ * `mako` = «Evento de MaKo» (11/10/2026). NO es un botón de la primera pantalla: una fila de evento nace de
+ * la galería con su CRON puesto, y no se cambia.
+ *
+ * `pagos` (11/10/2026): los eventos de la pasarela (Stripe / Mercado Pago). Martín eligió que sea un BOTÓN
+ * PROPIO y no un evento adentro de «Producto», con la grilla en 4+3 — nunca 3+3+1, que se ve roto.
  */
-export type ClaseDisparador = 'producto' | 'recurrente' | 'etiqueta' | 'instagram' | 'messenger' | 'email' | 'mako';
+export type ClaseDisparador = 'producto' | 'recurrente' | 'etiqueta' | 'instagram' | 'messenger' | 'email' | 'pagos' | 'mako';
 
-/** Los botones gigantes de la primera pantalla del CRON (CRON puntos 1, 2, 6, 7 y 8), en ese orden. */
+/** Los botones gigantes de la primera pantalla del CRON (CRON puntos 1, 2, 6, 7 y 8, y Pagos), en ese orden. */
 export const CLASES_DISPARADOR: ReadonlyArray<{ clase: ClaseDisparador; label: string }> = [
   { clase: 'producto', label: 'Producto' },
   { clase: 'recurrente', label: 'Recurrente' },
@@ -125,6 +135,7 @@ export const CLASES_DISPARADOR: ReadonlyArray<{ clase: ClaseDisparador; label: s
   { clase: 'instagram', label: 'Instagram' },
   { clase: 'messenger', label: 'Messenger' },
   { clase: 'email', label: 'Email' },
+  { clase: 'pagos', label: 'Pagos' },
 ];
 
 /** Un evento de un canal. `apagado` = el motivo por el que todavía no se ofrece (como en ManyChat). */
@@ -165,8 +176,21 @@ export const EVENTOS_EMAIL: readonly EventoCanal[] = [
   { subtipo: 'recibido', label: 'Recibes un email' },
 ];
 
+/**
+ * «Pagos» (11/10/2026): lo que confirma la pasarela de un cobro creado en MaKo. El vocabulario del CRON;
+ * el del proveedor (checkout.session.completed, invoice.paid, approved…) lo traduce el webhook a éste
+ * (lib/cobros-eventos.ts), en UN lugar. Un pago aprobado dispara también en cada RENOVACIÓN de una
+ * suscripción: la automatización corre una vez por lead, así que la bienvenida sale con el primero.
+ */
+export const EVENTOS_PAGO: readonly EventoCanal[] = [
+  { subtipo: 'aprobado', label: 'Se aprueba un pago' },
+  { subtipo: 'rechazado', label: 'Se rechaza un pago' },
+  { subtipo: 'reembolsado', label: 'Se devuelve un pago' },
+  { subtipo: 'suscripcion_cancelada', label: 'Se cancela una suscripción' },
+];
+
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
-export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo';
+export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido';
 
 /**
  * LOS EVENTOS DE MAKO (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md §1): cada uno es un aviso del
@@ -187,6 +211,9 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // lo que no se veía era la AUTOMATIZACIÓN. Desde acá sale sólo por la fila de este evento (docs/diseno-automations-
   // galeria-v2.md §5), y la mudanza de ws1 y ws13 la crea antes del deploy (scripts/mudanza-nuevo-agendado.mts).
   { subtipo: 'lead_agendo', aviso: 'reunion-nuevo-agendado', label: 'Un lead agenda una reunión', trae: ['lead', 'mensaje'] },
+  // La pasarela de pagos (11/10/2026): el aviso «Entró un pago» lo arma lib/cobros.ts cuando Stripe o Mercado Pago
+  // confirman un cobro creado en MaKo. Al equipo (el grupo de MaKo), no al lead: al lead le escribe el CRON «Pagos».
+  { subtipo: 'pago_recibido', aviso: 'pago-recibido', label: 'Entra un pago', trae: ['lead', 'mensaje'] },
 ];
 
 /** Los eventos de una clase de canal (vacío para las demás). */
@@ -194,6 +221,7 @@ export function eventosDe(clase: ClaseDisparador | 'otro' | null): readonly Even
   if (clase === 'instagram') return EVENTOS_INSTAGRAM;
   if (clase === 'messenger') return EVENTOS_MESSENGER;
   if (clase === 'email') return EVENTOS_EMAIL;
+  if (clase === 'pagos') return EVENTOS_PAGO;
   if (clase === 'mako') return EVENTOS_MAKO;
   return [];
 }
@@ -221,10 +249,14 @@ export function subtipoDelEvento(canal: 'instagram' | 'messenger', subtipoDelWeb
 }
 
 /** El `trigger_tipo` de cada clase de canal. */
-const TRIGGER_DE_CANAL: Record<'instagram' | 'messenger' | 'email', string> = {
-  instagram: TRIGGER_INSTAGRAM, messenger: TRIGGER_MESSENGER, email: TRIGGER_EMAIL_RECIBIDO,
+/** Las clases cuyo CRON es «elegí el evento» (`subtipo`): los canales y los pagos. */
+export type ClaseDeEventos = 'instagram' | 'messenger' | 'email' | 'pagos';
+export const esClaseDeEventos = (c: ClaseDisparador | 'otro' | null): c is ClaseDeEventos =>
+  c === 'instagram' || c === 'messenger' || c === 'email' || c === 'pagos';
+const TRIGGER_DE_CANAL: Record<ClaseDeEventos, string> = {
+  instagram: TRIGGER_INSTAGRAM, messenger: TRIGGER_MESSENGER, email: TRIGGER_EMAIL_RECIBIDO, pagos: TRIGGER_PAGO,
 };
-export const triggerDeCanal = (c: 'instagram' | 'messenger' | 'email'): string => TRIGGER_DE_CANAL[c];
+export const triggerDeCanal = (c: ClaseDeEventos): string => TRIGGER_DE_CANAL[c];
 
 /**
  * ¿Está conectado el canal? Lo contesta el servidor (lib/disparadores-canales.ts). `conectado: null`
@@ -232,7 +264,7 @@ export const triggerDeCanal = (c: 'instagram' | 'messenger' | 'email'): string =
  * no puede llegar es una automatización que no arranca nunca, sin error).
  */
 export type EstadoCanal = { conectado: boolean | null; motivo?: string; cuenta?: string | null };
-export type EstadoCanales = Record<'instagram' | 'messenger' | 'email', EstadoCanal>;
+export type EstadoCanales = Record<ClaseDeEventos, EstadoCanal>;
 
 // ── El dato ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -289,7 +321,7 @@ const DE_ETAPA: ReadonlySet<string> = new Set([TRIGGER_ETAPA, TRIGGER_ENTREGA]);
 /** Las que llevan `ignorar`. */
 const CON_IGNORAR: ReadonlySet<string> = new Set([TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA]);
 /** Las que llevan `subtipo` (el evento de MaKo también: cuál de `EVENTOS_MAKO`). */
-const CON_SUBTIPO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO]);
+const CON_SUBTIPO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO, TRIGGER_PAGO]);
 
 /**
  * CADA DISPARADOR LLEVA SÓLO LOS CAMPOS DE SU TIPO. Un campo de otro tipo que sobrevive a un cambio
@@ -473,6 +505,7 @@ function claseDelTipo(t: string): ClaseDisparador | null {
   if (t === TRIGGER_INSTAGRAM) return 'instagram';
   if (t === TRIGGER_MESSENGER) return 'messenger';
   if (t === TRIGGER_EMAIL_RECIBIDO) return 'email';
+  if (t === TRIGGER_PAGO) return 'pagos';
   if (t === TRIGGER_AVISO_MAKO) return 'mako';
   if (t === TRIGGER_SOLO_GRUPO) return 'recurrente';
   return null;
@@ -540,7 +573,7 @@ export function conDisparo(d: Disparador, a: DisparoActual): Disparador {
 /** Un disparador nuevo, sin elegir todavía, de una clase (lo que dibuja el editor hasta que se elige). */
 export function borradorDeClase(clase: ClaseDisparador, id: string, cronPorDefecto: CronAviso): Disparador {
   if (clase === 'recurrente') return { id, trigger_tipo: 'manual', cron: cronPorDefecto, cron_proxima_at: null };
-  if (clase === 'instagram' || clase === 'messenger' || clase === 'email') return { id, trigger_tipo: TRIGGER_DE_CANAL[clase], subtipo: null };
+  if (esClaseDeEventos(clase)) return { id, trigger_tipo: TRIGGER_DE_CANAL[clase], subtipo: null };
   if (clase === 'etiqueta') return { id, trigger_tipo: 'manual' };
   return { id, trigger_tipo: 'manual' };
 }
@@ -617,7 +650,7 @@ export function problemaDeCambio(previos: readonly Disparador[], lista: readonly
 // ── Cuándo dispara un evento ────────────────────────────────────────────────────────────────────
 
 /** Los eventos de los disparadores nuevos (los de siempre los decide lib/nutricion-etapa.ts). */
-export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido';
+export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido' | 'pago';
 
 /**
  * ¿ESTE disparador arranca con ESTE evento? Es la pregunta fina del evento (la gruesa, qué
@@ -651,6 +684,12 @@ export function disparaPorEvento(
     return t === (evento === 'instagram' ? TRIGGER_INSTAGRAM : TRIGGER_MESSENGER) && !!sub && d.subtipo === sub;
   }
   if (evento === 'email_recibido') return t === TRIGGER_EMAIL_RECIBIDO;
+  // Pagos: el MISMO evento (`subtipo`), como Instagram. Sin subtipo, nada: un aviso de la pasarela que no
+  // dice qué pasó no puede caer en «entonces todos».
+  if (evento === 'pago') {
+    const sub = typeof ctx?.subtipo === 'string' ? ctx.subtipo : '';
+    return t === TRIGGER_PAGO && !!sub && d.subtipo === sub;
+  }
   return false;
 }
 

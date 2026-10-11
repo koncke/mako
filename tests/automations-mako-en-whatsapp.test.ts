@@ -163,10 +163,11 @@ test('3. «＋ Nuevo mensaje» abre la galería en la sección «MaKo en WhatsAp
 });
 
 // Décima tanda: sin rótulos de sección, las de «MaKo en WhatsApp» van MEZCLADAS con las del Chatbot, con la MISMA tarjeta.
-test('3. las cuatro de «MaKo en WhatsApp» van mezcladas con las del Chatbot, con la misma tarjeta y sin rótulos', () => {
+test('3. las cinco de «MaKo en WhatsApp» van mezcladas con las del Chatbot, con la misma tarjeta y sin rótulos', () => {
   const html = galeria();
   const mako = PLANTILLAS.filter(esPlantillaMako);
-  assert.deepEqual(mako.map((p) => p.id).sort(), ['mako-agendado', 'mako-charla', 'mako-cobranza', 'mako-reunion']);
+  // La quinta, «Aviso de pago recibido» (11/10/2026, la pasarela de pagos).
+  assert.deepEqual(mako.map((p) => p.id).sort(), ['mako-agendado', 'mako-charla', 'mako-cobranza', 'mako-pago', 'mako-reunion']);
   assert.deepEqual(dibujadas(html), PLANTILLAS.map((p) => p.id), 'no se dibujan todas, en el orden del catálogo');
   for (const p of PLANTILLAS) assert.match(html, new RegExp(`<button type="button" class="gal-tarjeta" data-plantilla="${p.id}"`), `«${p.id}» con otra tarjeta`);
   // Ni la sección aparte, ni los rótulos de antes, ni la sección de los «eliminados».
@@ -285,7 +286,8 @@ test('5. `listarPlantillas` deja afuera los tres eventos en las dos vistas, y la
   assert.match(listar, /const base = \(agencia \? CATALOGO_AVISOS : CATALOGO_AVISOS\.filter\(\(c\) => esAvisoDelCliente\(c\.id\)\)\)\n\s+\.filter\(\(c\) => !AVISOS_POR_EVENTO\.has\(c\.id\)\);/,
     'los eventos de MaKo volvieron a listarse (en /mensajes serían un interruptor que no hace nada)');
   // El nuevo agendado es un evento desde la décima tanda: tampoco se lista en /mensajes.
-  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'reunion-nuevo-agendado', 'reunion-recordatorio', 'wa-mensaje-entrante']);
+  // Y el pago recibido desde el 11/10/2026 (la pasarela): también es un evento, no un interruptor de /mensajes.
+  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'pago-recibido', 'reunion-nuevo-agendado', 'reunion-recordatorio', 'wa-mensaje-entrante']);
   assert.deepEqual(AVISOS_DEL_CLIENTE, [], '«Todos arrancan vacíos»: un mensaje de MaKo del cliente es una automatización');
   // El reporte de los lunes no se mudó: es del super admin y sale como siempre (sólo email).
   assert.ok(AVISOS_SOLO_SUPERADMIN.includes('reporte-semanal'));

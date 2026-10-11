@@ -411,14 +411,14 @@ export const DEFS: readonly OperacionDef[] = [
         nombre: 'crons', tipo: 'object[]', obligatorio: true, max: 10, descripcion: 'los CRON, el principal primero (hasta 10).',
         campos: [
           { nombre: 'id', tipo: 'string', max: 24, descripcion: 'opcional: el id del CRON (de ficha_secuencia_mensajes), para conservar la próxima ocurrencia de su horario.' },
-          { nombre: 'trigger_tipo', tipo: 'string', obligatorio: true, max: 60, descripcion: 'qué lo dispara: etapa_actual, entrega_actual, etiqueta_puesta, etiqueta_agregada, etiqueta_quitada, instagram, messenger, email_recibido, grupo_mako, o un trigger de listar_triggers_email (área email).' },
+          { nombre: 'trigger_tipo', tipo: 'string', obligatorio: true, max: 60, descripcion: 'qué lo dispara: etapa_actual, entrega_actual, etiqueta_puesta, etiqueta_agregada, etiqueta_quitada, instagram, messenger, email_recibido, pago, grupo_mako, o un trigger de listar_triggers_email (área email).' },
           { nombre: 'etapa', tipo: 'string', max: 60, descripcion: 'con etapa_actual o entrega_actual: la clave de la etapa (de etapas_para_secuencia).' },
           { nombre: 'etapas', tipo: 'string[]', max: 20, descripcion: 'opcional: varias etapas del mismo kanban (la primera es la de etapa).' },
           { nombre: 'funnel_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'con etapa_actual: el embudo del producto (sin él, la etapa de cualquier producto).' },
           { nombre: 'producto_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'con entrega_actual: el producto cuya entrega se mira.' },
           { nombre: 'etiqueta_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'con etiqueta_puesta: la etiqueta (de listar_etiquetas, área crm).' },
           { nombre: 'ignorar', tipo: 'string[]', max: 50, descripcion: 'con etiqueta_agregada o etiqueta_quitada: los ids de las etiquetas que NO la disparan, como textos ("12", "15").' },
-          { nombre: 'subtipo', tipo: 'string', max: 30, descripcion: 'con instagram, messenger o email_recibido: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido.' },
+          { nombre: 'subtipo', tipo: 'string', max: 30, descripcion: 'con instagram, messenger, email_recibido o pago: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido. Pago: aprobado, rechazado, reembolsado, suscripcion_cancelada.' },
           { nombre: 'grupo', tipo: 'boolean', descripcion: 'con horario: además (o en vez) de la cohorte, le escribe al grupo de WhatsApp de MaKo del negocio.' },
           {
             nombre: 'cron', tipo: 'object', descripcion: 'opcional: el horario de un Recurrente. Con horario, el CRON no arranca por el evento: sale en cada ocurrencia, a los que están en la cohorte.',

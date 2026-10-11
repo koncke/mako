@@ -753,7 +753,7 @@ const CANALES: Readonly<Record<string, readonly CanalPlantilla[]>> = {
   'ultimo-intento': ['whatsapp'], 'email-newsletter': ['email'], 'email-recordatorio-reunion': ['email'], 'email-respuesta-auto': ['email'],
   'ig-comentario-dm': ['instagram'], 'ig-historia-dm': ['instagram'], 'ig-bienvenida-dm': ['instagram'], 'ig-ref-dm': ['instagram'], 'ig-en-vivo-dm': ['instagram'],
   'ms-bienvenida': ['messenger'], 'ms-qr': ['messenger'], 'ms-ref': ['messenger'], 'ms-comentario': ['messenger'],
-  'mako-reunion': ['mako'], 'mako-charla': ['mako'], 'mako-cobranza': ['mako'], 'mako-agendado': ['mako'],
+  'mako-reunion': ['mako'], 'mako-charla': ['mako'], 'mako-cobranza': ['mako'], 'mako-agendado': ['mako'], 'mako-pago': ['mako'],
 };
 
 test('canalesDe: por dónde sale cada plantilla, contra la tabla escrita a mano (y cada canal tiene alguna)', () => {
@@ -773,7 +773,7 @@ test('filtrarPlantillas: cada palabra, sin acentos ni mayúsculas; canal y objet
   assert.deepEqual(ids({ canal: 'mako' }), PLANTILLAS.filter(esPlantillaMako).map((p) => p.id));
   assert.deepEqual(ids({ canal: 'instagram', objetivo: 'cobrar' }), [], 'las dos a la vez');
   assert.deepEqual(ids({ canal: 'whatsapp', objetivo: 'cobrar' }), ['pago-pendiente']);
-  assert.deepEqual(ids({ objetivo: 'cobrar' }), ['pago-pendiente', 'mako-cobranza']);
+  assert.deepEqual(ids({ objetivo: 'cobrar' }), ['pago-pendiente', 'mako-cobranza', 'mako-pago']);
   assert.deepEqual(ids({ texto: 'no existe nada asi' }), []);
 });
 

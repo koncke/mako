@@ -821,6 +821,18 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_agendo' },
     pasos: [mako('ma_aviso', '{{mensaje_mako}}', null)],
   },
+  {
+    // La pasarela de pagos (11/10/2026): «Entró un pago», el aviso que arma lib/cobros.ts cuando Stripe o Mercado
+    // Pago confirman un cobro creado en MaKo. Al grupo del equipo; al lead le escribe el CRON «Pagos».
+    id: 'mako-pago',
+    nombre: 'Aviso de pago recibido',
+    emoji: '💰',
+    linea: 'Te avisa en el grupo cuando entra un pago por Stripe o Mercado Pago.',
+    origen: 'el aviso «Pago recibido» (pago-recibido), que arma la pasarela al confirmar un cobro',
+    objetivo: 'cobrar',
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'pago_recibido' },
+    pasos: [mako('mp_aviso', '{{mensaje_mako}}', null)],
+  },
 ];
 
 // ── Lo que se lee de la galería ─────────────────────────────────────────────────────────────────

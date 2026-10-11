@@ -49,12 +49,12 @@ import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NuevoPlaceholder } from './NuevoPlaceholder';
 import { CRON_DEFAULT } from '@/app/_components/EditorCron';
 import {
-  CLASES_DISPARADOR, claseDeDisparador, eventosDe, triggerDeCanal, borradorDeClase, conDisparo, disparoActualDe, esDelEmisor, esEventoDeAntes,
+  CLASES_DISPARADOR, claseDeDisparador, eventosDe, triggerDeCanal, esClaseDeEventos, borradorDeClase, conDisparo, disparoActualDe, esDelEmisor, esEventoDeAntes,
   disparadoresDe, sanearDisparadores, firmaLista, nuevoIdDisparador, problemaDeDisparador, textoDeDisparador,
   valoresQuien, quienTrasTocar, valorEtiqueta, conValorEtiqueta, alternarIgnorar, textoQuien, VALOR_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA, TEXTO_GRUPO,
   TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA,
-  type ClaseDisparador, type Disparador, type EstadoCanales,
+  type ClaseDisparador, type ClaseDeEventos, type Disparador, type EstadoCanales,
 } from '@/lib/disparadores';
 import {
   pasosDisparo, valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, rotuloDisparo,
@@ -242,10 +242,14 @@ export const ALTO_BOTON_CLASE = 76;
  * le ganaba al alto de su contenido: los botones salían por abajo. Ahora la grilla es más baja (76) y el
  * recuadro nunca mide menos que lo que tiene adentro (`flex: 1 0 auto`, ver `recuadro`): si no entra, la lista
  * scrollea. Y el texto no empuja el ancho (`minWidth: 0`, se parte la palabra antes que desbordar).
+ *
+ * ⚠️ SIETE BOTONES EN 4+3 (11/10/2026): «Pagos» es un botón propio (decisión de Martín). En la grilla de 3
+ * quedaba 3+3+1 —un botón solo en una tercera fila, que se ve roto—, así que son CUATRO columnas: dos filas,
+ * el mismo alto que antes, y la letra un punto más chica para que «Recurrente» entre en la columna angosta.
  */
 export function ElegirClase({ onElegir, disabled, actual }: { onElegir: (c: ClaseDisparador) => void; disabled?: boolean; actual?: ClaseDisparador | 'otro' | null }) {
   return (
-    <div role="group" aria-label="Qué dispara esta automatización" data-cron-clases style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, minWidth: 0 }}>
+    <div role="group" aria-label="Qué dispara esta automatización" data-cron-clases style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, minWidth: 0 }}>
       {CLASES_DISPARADOR.map((c) => {
         const on = actual === c.clase;
         return (
@@ -254,7 +258,7 @@ export function ElegirClase({ onElegir, disabled, actual }: { onElegir: (c: Clas
               minHeight: ALTO_BOTON_CLASE, minWidth: 0, padding: '10px 6px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`,
               background: on ? 'var(--primary-bg)' : 'var(--surface)', boxSizing: 'border-box',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, cursor: 'pointer',
-              fontFamily: SANS, fontSize: 14, fontWeight: 700, lineHeight: 1.2, textAlign: 'center', overflowWrap: 'anywhere',
+              fontFamily: SANS, fontSize: 13, fontWeight: 700, lineHeight: 1.2, textAlign: 'center', overflowWrap: 'anywhere',
               color: on ? 'var(--primary)' : 'var(--ink)', transition: 'border-color .12s, box-shadow .12s, transform .12s',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,.07)'; }}
@@ -299,14 +303,14 @@ function abrirIntegraciones(ws: number | null) {
 }
 
 /**
- * LOS EVENTOS DE UN CANAL (Instagram, Messenger, Email: CRON puntos 6, 7 y 8), en una grilla de dos
+ * LOS EVENTOS DE UN CANAL (Instagram, Messenger, Email: CRON puntos 6, 7 y 8; y Pagos), en una grilla de dos
  * columnas: el ícono del evento y la frase de ManyChat. Los que ManyChat apaga (los de anuncios) van
  * apagados con su motivo; con el canal SIN conectar, todos, con el motivo arriba y el link a donde se
  * conecta. «No pude comprobarlo» (`conectado: null`) también los apaga: un evento que no puede llegar
  * es una automatización que no arranca nunca.
  */
 export function EventosDeCanal({ clase, d, estado, onElegir, disabled }: {
-  clase: 'instagram' | 'messenger' | 'email'; d: Disparador; estado: EstadoCanales | null | undefined;
+  clase: ClaseDeEventos; d: Disparador; estado: EstadoCanales | null | undefined;
   onElegir: (subtipo: string) => void; disabled?: boolean;
 }) {
   const canal = estado?.[clase];
@@ -414,7 +418,7 @@ export function EditorDisparadores(p: PropsEditorDisparadores) {
   /** El CRON es del EMISOR (el recordatorio, un evento de MaKo): va solo y no se cambia (ver la cabecera). */
   const fijo = esDelEmisor(lista[0]);
   const elegirTipo = eligiendo || !actual || clase === null;
-  const estadoCanales = useEstadoCanales(clase === 'instagram' || clase === 'messenger' || clase === 'email');
+  const estadoCanales = useEstadoCanales(esClaseDeEventos(clase ?? null));
   /**
    * AL ABRIR UN CRON, LA LISTA VA HASTA ÉL (décima tanda, CRON 3: «Si le doy a "Nuevo CRON" me debe desplazar
    * con el scroll hacia allí para editarlo. Lo mismo que si estoy editando un CRON y selecciono el de arriba o
@@ -641,7 +645,7 @@ function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, 
     );
   }
 
-  if (clase === 'instagram' || clase === 'messenger' || clase === 'email') {
+  if (esClaseDeEventos(clase)) {
     return (
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         <Volver onClick={onVolver} disabled={busy} />

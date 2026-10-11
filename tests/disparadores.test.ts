@@ -176,7 +176,8 @@ test('los eventos de ManyChat: seis de Instagram y seis de Messenger, con el del
   // La tienda de Facebook, apagada desde la segunda pasada (09/10/2026): Zernio no la avisa
   // (`DISPARADORES_SOCIALES` la marca `disponible: false`, tests/disparadores-canal-social.test.ts).
   assert.deepEqual(EVENTOS_MESSENGER.filter((e) => e.apagado).map((e) => e.subtipo), ['anuncio', 'tienda']);
-  assert.deepEqual(CLASES_DISPARADOR.map((c) => c.label), ['Producto', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email']);
+  // «Pagos», el séptimo (11/10/2026): botón propio por decisión de Martín, con la grilla en 4+3.
+  assert.deepEqual(CLASES_DISPARADOR.map((c) => c.label), ['Producto', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email', 'Pagos']);
 });
 
 // ── 4. El Recurrente: «A quién» ─────────────────────────────────────────────────────────────────

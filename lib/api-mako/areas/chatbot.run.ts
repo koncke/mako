@@ -25,7 +25,7 @@ import { linkApp } from '@/lib/app-url';
 import { aplicarVariables, valoresVariablesLead } from '@/lib/template-vars';
 import { conVariables } from '@/lib/variables-resolver';
 import { prepararDisparadores, guardarDisparadores } from '@/lib/disparadores-guardar';
-import { firmaLista, eventosDe, claseDeDisparador, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
 import { textoCron } from '@/lib/cron-aviso';
 import { TRIGGERS } from '@/lib/email-marketing';
 import { getTenantDb } from '@/lib/workspace';
@@ -173,7 +173,7 @@ function textoDeUnCron(d: Disparador): string {
   const nombre = TRIGGERS.find((t) => t.value === d.trigger_tipo)?.label ?? d.trigger_tipo;
   if (d.cron) return `${textoCron(d.cron, d.cron.tz ?? null)}${d.grupo ? ' · al grupo de MaKo' : ''}${d.trigger_tipo !== TRIGGER_SOLO_GRUPO && d.trigger_tipo !== 'manual' ? ` · ${nombre}` : ''}`;
   const clase = claseDeDisparador(d);
-  const evento = clase === 'instagram' || clase === 'messenger' || clase === 'email' ? eventosDe(clase).find((e) => e.subtipo === d.subtipo)?.label : null;
+  const evento = esClaseDeEventos(clase) ? eventosDe(clase).find((e) => e.subtipo === d.subtipo)?.label : null;
   if (evento) return evento;
   if (d.etapa) return `${nombre}: ${[...new Set([d.etapa, ...(d.etapas ?? [])])].join(', ')}`;
   if (d.etiqueta_id) return `${nombre} (#${d.etiqueta_id})`;

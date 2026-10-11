@@ -780,7 +780,7 @@ export function CuerpoCron({ disparadores, onAbrir, onNuevo }: {
 
 /** Las claves que da `iconoDeDisparador` (lib/disparadores.ts): las dibuja `IconoDisparador`. */
 // `mako` («Evento de MaKo», 11/10/2026) dibuja el rayo, como `otro`: `IconoDisparador` cae ahí para lo que no tiene dibujo propio.
-const CLASES_ICONO_CRON: ReadonlySet<string> = new Set<ClaseDisparador | 'otro'>(['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email', 'mako', 'otro']);
+const CLASES_ICONO_CRON: ReadonlySet<string> = new Set<ClaseDisparador | 'otro'>(['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email', 'pagos', 'mako', 'otro']);
 const esClaseDeIcono = (s: string): s is ClaseDisparador | 'otro' => CLASES_ICONO_CRON.has(s);
 
 /**

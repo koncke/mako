@@ -83,9 +83,10 @@ const FIRMA_COBRANZA = 'mk_entrada:mensaje>mk_e48:esperar>mk_48:mensaje>mk_e72:e
 
 // Desde la décima tanda (GENERAL 7, 11/10/2026) son CUATRO: el aviso de nuevo agendado (`lead_agendo`) pasó a ser un
 // evento (docs/diseno-automations-galeria-v2.md §5).
-test('EVENTOS_MAKO: cuatro, cada subtipo se guarda, cada aviso existe y es UNO de `AVISOS_POR_EVENTO`', () => {
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo']);
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado']);
+test('EVENTOS_MAKO: cinco, cada subtipo se guarda, cada aviso existe y es UNO de `AVISOS_POR_EVENTO`', () => {
+  // El quinto, «Entra un pago» (11/10/2026): lo emite la pasarela de pagos (lib/cobros.ts).
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido']);
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido']);
   for (const e of EVENTOS_MAKO) {
     // El subtipo pasa el saneo del CRON (el id crudo, con guion, no pasaría).
     assert.equal(sanearDisparador({ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: e.subtipo })?.subtipo, e.subtipo, e.subtipo);
@@ -128,7 +129,8 @@ test('el CRON: clase «mako», su texto es el label, no es un botón de la prime
   assert.equal(eventosDe('mako'), EVENTOS_MAKO);
   const t = textoDeDisparador(ev('reunion_pronto'), { deSiempre: () => 'NO' });
   assert.equal(t, 'Falta media hora para una reunión');
-  assert.deepEqual(CLASES_DISPARADOR.map((c) => c.clase), ['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email'], 'los seis botones siguen seis');
+  // Siete desde el 11/10/2026 («Pagos», botón propio por decisión de Martín); `mako` sigue sin ser un botón.
+  assert.deepEqual(CLASES_DISPARADOR.map((c) => c.clase), ['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email', 'pagos'], 'mako no es un botón de la primera pantalla');
   assert.equal(barreElDisparador(ev('lead_contesta')), false, 'el barrido horario le mandaría un aviso por cada lead');
   // El evento vive en la lista guardada; el primero de las columnas lo hereda (mismo trigger_tipo).
   assert.equal(disparadoresDe({ trigger_tipo: TRIGGER_AVISO_MAKO, etapa: 'manual', disparadores: [ev('lead_contesta')] })[0].subtipo, 'lead_contesta');
