@@ -8,7 +8,9 @@
 > `Workflow({scriptPath: …/workflows/scripts/undecima-tanda-automations-wf_b4e3948d-3dc.js, resumeFromRunId:
 > "wf_b4e3948d-3dc"})` (los 8 relevos vuelven del caché; el arquitecto se cortó al devolver los paquetes y corre de
 > nuevo: puede leer el documento ya escrito), o implementar directo desde el §8. ⚠️ La migración nueva va en 0257+
-> (la 0256 la tomó Offer). Hallazgos de paso, sin tocar: `RESEND_API_KEY` de la plataforma vive en la fila de
+> (la 0256 la tomó Offer). ⚠️ **Antes de implementar, traer origin/main:** medido 11/10 18:50 UTC, el main local del clon NO
+> tiene el CRON «Pagos» (67b7695d, eb514e3c, 1e85eb62, pusheados desde un worktree), que toca lib/disparadores.ts,
+> EditorDisparadores, FlujoLienzo, lib/nutricion.ts, plantillas-automatizaciones, avisos-catalogo y disparadores-canales. Hallazgos de paso, sin tocar: `RESEND_API_KEY` de la plataforma vive en la fila de
 > credenciales del ws1, y el refresh token de Google Calendar del ws1 contesta invalid_grant (§10).
 >
 > **HECHA (11/10/2026 ~12:20, `claude3`): la DÉCIMA tanda, `4e2ebc7d`, desplegada (Ready).** AI Step v2 (un caso
