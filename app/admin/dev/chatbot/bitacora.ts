@@ -1290,4 +1290,15 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ["docs/hallazgos-chatbot.md — «El recordatorio como plantilla»"],
   },
+  {
+    fecha: "10 oct", hora: "21:52", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Archivar los 9 recordatorios que creó la mudanza",
+    pedido: "«Archivalos y los que te parezca ponlos como templates...»",
+    puntos: [
+      "Las 9 (#229-#237) eran idénticas a la plantilla nueva: no había otra plantilla que sacar. Archivadas con compare-and-set; queda sólo la del ws1 (#228, prendida).",
+      "El script de la mudanza las habría recreado en una segunda corrida: ahora saltea al negocio sin nada propio que mudar.",
+    ],
+    archivos: ["scripts/recordatorio-a-automatizacion.mts", "docs/hallazgos-chatbot.md — «El recordatorio como plantilla»"],
+  },
 ];

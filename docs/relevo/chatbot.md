@@ -8,8 +8,9 @@
 > - **Verificado lo que la §4 marcaba «SIN VERIFICAR»:** las 10 filas del recordatorio están (#228 del ws1
 >   prendida, #229-#237 pausadas), ninguna tocada desde la mudanza; y las 198/221/223/224/226 tienen sus cambios
 >   del 10/10.
-> - **Nuevo, para Martín:** esas 9 pausadas son automatizaciones que esos negocios no crearon (sólo el ws11 tenía
->   una configuración de antes, apagada). Con la regla de arriba, ¿se archivan? No cambia ningún envío.
+> - **Las 9 pausadas (#229-#237) se ARCHIVARON** con el «sí» de Martín: eran automatizaciones que esos negocios no
+>   crearon, idénticas a la plantilla. Queda sólo la del ws1 (#228, prendida). El script de la mudanza ya no las
+>   recrea.
 > - **Todavía no salió ningún recordatorio por el camino nuevo** (no hubo reuniones desde la mudanza). El primero
 >   real: el toque de 24 h del lead 2593, el **12/10 a las 17:00 UTC**.
 > - Sigue sin verse con clics en producción ninguna de las ocho tandas (§4).

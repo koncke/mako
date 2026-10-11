@@ -6,7 +6,8 @@
 // lib/recordatorio-automatizacion.ts: la automatización vive como cualquier otra y la manda el MISMO emisor de
 // siempre (`toquesDelNegocio`, lib/reunion-recordatorio.ts), así que la mudanza no cambia qué sale ni cuándo.
 //
-// Por cada negocio ACTIVO que todavía no tiene una automatización con el CRON del recordatorio:
+// Por cada negocio ACTIVO que todavía no tiene una automatización con el CRON del recordatorio, y que tiene algo
+// PROPIO que mudar (prendida, o con textos o números suyos; lo de fábrica apagado no se crea: ver abajo):
 //   1. lee su configuración de antes (`chatbot.recordatorio_reunion`; sin fila = la de fábrica, apagada);
 //   2. arma los pasos con los MISMOS toques (`pasosDeLaConfig`) y comprueba que el emisor los lea igual;
 //   3. crea la automatización «Recordatorio de la reunión», PRENDIDA sólo si la de antes lo estaba;
@@ -59,6 +60,15 @@ for (const w of (wss ?? []) as Array<{ id: number; nombre: string | null }>) {
   if (es) throw new Error(`ws${w.id}: ${es.message}`);
   const raw = (fila?.value as string | undefined) ?? null;
   const cfg = configDeRecordatorio(raw);
+  // ⛔ SIN NADA PROPIO QUE MUDAR, NO SE CREA (decisión de Martín, 10/10/2026 a la noche: «Ningún negocio tiene que
+  // arrancar con ninguna automatización creada, para eso ya tenemos los templates»). Apagada y con los textos y
+  // números de fábrica es la plantilla de la galería (`recordatorio-reunion`): el negocio que la quiera la elige.
+  // La primera corrida (10/10 ~14:26) las creó igual en 9 negocios; se archivaron (#229-#237) y esto no las recrea.
+  if (!cfg.activo && !cfg.propios.length && !Object.keys(cfg.lineas).length) {
+    console.log(`ws${w.id}: nada propio que mudar (la de fábrica, apagada): no se crea, está en la galería`);
+    salteadas++;
+    continue;
+  }
   const pasos = pasosDeLaConfig(cfg);
   const r = toquesDeLaAutomatizacion(pasos);
   if (r.problema) throw new Error(`ws${w.id}: los pasos no se leen (${r.problema})`);

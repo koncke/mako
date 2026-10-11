@@ -3507,7 +3507,14 @@ Medido en producción (sólo lectura, 10/10 ~21:20):
 - Las 10 filas del recordatorio están (#228 del ws1 PRENDIDA, #229-#237 pausadas) y **ninguna se tocó desde que la
   creó la mudanza**. De las 9 pausadas, sólo el ws11 tenía una configuración de antes, y estaba apagada y sin textos
   propios: **son 9 automatizaciones que esos negocios no crearon**, justo lo que la decisión de arriba dice que no
-  tiene que pasar. Archivarlas no cambia ningún envío (están pausadas). Lo decide Martín.
+  tiene que pasar. **Martín: «Archivalos y los que te parezca ponlos como templates».** Las 9 eran idénticas a la
+  plantilla (textos de fábrica, sin números propios, sin borrador ni posiciones, 0 inscripciones), así que no hay
+  otra plantilla que sacar de ahí: se ARCHIVARON el 11/10 00:52 UTC (#229-#237, con compare-and-set sobre
+  `activa`, `archivada_at` y `updated_at`). Para recuperar una: `archivada_at = null`. No cambia ningún envío: sin
+  fila, el emisor lee la configuración de antes, que en esos negocios no existe o está apagada (ws11).
+- **⚠️ El script de la mudanza las habría vuelto a crear.** `scripts/recordatorio-a-automatizacion.mts` crea la fila
+  a todo negocio sin una SIN ARCHIVAR, así que una segunda corrida con `--aplicar` devolvía las 9. Ahora saltea al
+  que no tiene nada propio que mudar (apagada y de fábrica); el simulacro da «creadas: 0».
 - **Todavía no salió ni un recordatorio por el camino nuevo**: en toda la historia hay 3 marcas, las tres del ws1 y
   anteriores a la mudanza, y desde entonces no hubo reuniones. El primero real es el toque de 24 h de la reunión
   del 13/10 17:00 UTC (lead 2593): sale el **12/10 a las 17:00 UTC**. Ésa es la prueba de que el emisor lee la fila.
