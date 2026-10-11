@@ -374,4 +374,32 @@ export const BITACORA: Hito[] = [
       { sha: "740bc35f", msg: "La salida para cargar otra key estaba configurada. En UNA sola pantalla", lineas: 349, archivos: 7 },
     ],
   },
+  {
+    fecha: "10 oct", hora: "21:43", chat: "Onboarding", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Revisar el proyecto del Onboarding y dejarlo en Runway",
+    pedido: "Revisa el proyecto del plan \"ONBOARDING\" y ponlo todo en Runway... Revisa según nuestro criterio si no hay que repriorizar o eliminar directamente tareas innecesarias",
+    puntos: [
+      "Llegó después de medir el estado del área, que no tenía briefing: el último chat «Onboarding» era del 05/09 y desde entonces el área se había tocado desde Chatbot, CRM y Customer Success.",
+    ],
+  },
+  {
+    fecha: "10 oct", hora: "21:43", chat: "Onboarding", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La depuración del proyecto: 5 se quedan, 10 se posponen, 4 se cierran y 1 se borra",
+    puntos: [
+      "Las 20 abiertas de «Feature: Onboarding» se midieron una por una contra el código y la base, con el criterio de la etapa 3 («Onboarding + el video») y la poda del 03/10. Se quedan #734 (la cuota de Gemini frena el arranque), #171 (el histórico de Meta nunca llega: una línea en lib/onboarding-extract.ts:67), #737 (el video tutorial), #801 (el Ads Manager sin onboarding; el Offer Analyst salió con P2) y #201 (Instagram «leída» vacía). Cuatro de las pospuestas eran para la versión gratis y se posponen, no se borran: la versión gratis se postergó, no se descartó.",
+      "Lo que no se ve en el diff: la depuración del 25/09 ya había mandado abajo #614, #652 y #706, y el 01/10 volvieron a subir. No fue el reparto diario sino `applyGuardian`, la re-priorización del navegador que corre cuando cambia el conjunto de abiertas y pisa score y base de todas. Por lo que se lee en el código tampoco mira `score_manual`. Esta depuración escribió la base sin fijarlas, y fijarlas lo decide Martín.",
+    ],
+    commits: [
+      { sha: "dae23ffa", msg: "Runway: la depuración del Onboarding, con la misma tabla que el CRM", lineas: 456, archivos: 5 },
+    ],
+    archivos: [
+      "app/admin/runway/datos.ts — ONB_VEREDICTOS, ONB_ELIMINADAS y ONB_TE_TOCA: el veredicto de cada tarjeta",
+      "app/admin/runway/page.tsx — TablaVeredictos y ListaPendientes, que ahora usan el CRM y el Onboarding",
+      "app/admin/runway/tareas.ts — PROYECTO_ONBOARDING",
+      "docs/hallazgos-onboarding.md — «La depuración del proyecto del tablero»",
+      "docs/hallazgos-plan.md — «Una depuración de prioridades dura hasta que alguien cierra una tarjeta»",
+    ],
+  },
 ];

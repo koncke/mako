@@ -23,6 +23,7 @@ El flujo, entonces: Martín abre un chat con el título de siempre y pega **una 
 | CRM | `Leé docs/relevo/crm.md y seguimos desde ahí.` |
 | Chatbot | `Leé docs/relevo/chatbot.md y seguimos desde ahí.` |
 | Customer Success | `Leé docs/relevo/customer-success.md y seguimos desde ahí.` |
+| Onboarding | `Leé docs/relevo/onboarding.md y seguimos desde ahí.` |
 | Estrategia de ventas MaKo (tab Strategy y referidos) | `Leé docs/relevo/vender-mako-estrategia.md y seguimos desde ahí.` |
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |

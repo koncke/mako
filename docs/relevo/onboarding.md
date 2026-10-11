@@ -1,0 +1,79 @@
+# Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
+
+<sub>Escrito el 10/10/2026 por el chat «Onboarding» (cuenta claude3), sobre lo que hizo ese
+mismo chat. Es el primer briefing de esta área: no había ninguno, y no hubo un chat
+«Onboarding» desde el 05/09 (el del prototipo conversacional). Cubre hasta el commit
+`dae23ffa` (10/10/2026 21:43).</sub>
+
+## Qué es esta parte del producto
+
+Dos cosas distintas que se llaman igual:
+
+- **El wizard del cliente nuevo** (`/onboarding`, `app/onboarding/OnboardingWizard.tsx`). El
+  alta deja al workspace en `pending` y `guardOnboarding` lo manda acá antes que a cualquier
+  tab. Los pasos los elige la capa (`lib/capas.ts`): en `completo` y `agencia` son seis —
+  fase, llave de IA (`gemini`), Archivero, productos, teléfono (`tabs`) y Meta
+  (`integraciones`)—. Los dos últimos se pueden dejar para después (`PASOS_POSTERGABLES`).
+  Al terminar, MaKo escribe el plan del cliente (`/api/onboarding/plan-arranque`,
+  `lib/todo-seed-ia.ts`) y lo deja como borrador.
+- **El onboarding de cada tab** (`lib/tab-onboarding-catalogo.ts`, estado en
+  `lib/tab-onboarding-state.ts`). Regla de agosto: toda tab tiene uno. Dos excepciones
+  decididas por Martín: Automations (ex /chatbot) entra por su estado vacío, el QR de
+  WhatsApp si no hay línea (05/10), y el CRM entra directo, sin panel (08/10).
+
+Para probar se usa el **Cliente de Prueba (ws3)**: está sin empezar (sin fila de
+`onboarding.state`). Nunca ws1, que es Mauricio, un cliente.
+
+## Qué se hizo en esta ventana
+
+Martín pidió revisar el proyecto «Feature: Onboarding» del tablero con el criterio de la
+casa, repriorizar o borrar lo innecesario, y dejarlo en Runway. Se aplicó en el tablero
+(ws9) y está a la vista en **/admin/runway#onboarding**:
+
+| | Tareas |
+|---|---|
+| **Se quedan** (etapa 3, que vencía el 9/10) | #734 la cuota de Gemini frena el arranque · #171 el histórico de leads de Meta nunca llega · #737 el video tutorial · #801 el onboarding del Ads Manager · #201 Instagram figura «leída» vacía |
+| **Se posponen** (abajo, en A FUTURO) | #614 #652 #607 #608 (eran para la versión gratis) · #532 #164 #699 #214 #213 #743 |
+| **Se cerraron**, con la prueba en el historial | #372 #309 #706 #707 |
+| **Se borró** | #625 (reiniciar el onboarding de Leila: se prueba en ws3) |
+
+El respaldo de las 20 filas y del proyecto, tomado antes de escribir:
+`dashboard-marketing-main/backups/onboarding-depuracion-2026-10-10.json` (fuera del repo).
+El detalle del proyecto se reescribió: su «Qué falta» nombraba tarjetas que ya eran del CRM.
+
+## Lo que quedó a medias, y dónde vive
+
+- **Las cinco que se quedan están sin empezar y sin fecha.** Por dónde arrancar:
+  - **#171 es una línea**: `lib/onboarding-extract.ts:67` lee `getSetting('meta_page_id')`,
+    que no escribe nadie. Va `credWs('META_PAGE_ID')` con el mismo respaldo fail-closed de
+    `lib/meta-leads.ts`.
+  - **#734**: la red de plataforma (`provsGratisDePlataforma`) no la usa ningún camino del
+    arranque. El Archivero lee con `leerDocumentoIA` y los productos con `chatCheapCascade`
+    sobre `CASCADA_DOCS`, sólo con las keys del cliente. Y `app/onboarding/ProductosView.tsx:242`
+    pinta el error sin el botón para sumar otra key (la pieza `ErrorIA` ya existe).
+  - **#801**: el Ads Manager no tiene entrada ni en `lib/tab-onboarding-catalogo.ts` ni en
+    `lib/tab-activacion.ts`. El Offer Analyst ya no va: P2 se eliminó el 03/10.
+  - **#201**: `app/api/onboarding/archivero/route.ts` no tiene guarda de host para Instagram,
+    y cuenta como «leída» una web de la que no sacó ningún campo.
+  - **#737** no es código: lo graba Martín.
+- **Las prioridades nuevas pueden deshacerse solas**: la re-priorización del navegador
+  (`applyGuardian`) pisa `score` y `score_base` de todas las abiertas cuando alguien crea,
+  borra o completa una tarjeta con /plan abierto. Así se deshizo la depuración del 25/09.
+  Detalle en `docs/hallazgos-plan.md`, la entrada del 10/10.
+
+## Lo que espera una decisión de Martín
+
+1. **¿Las fijo a mano?** La regla de la casa es que `score_manual` lo pone una persona. Si
+   Martín quiere que esta depuración no se mueva, es suya la decisión. (Y ojo: por lo que se
+   lee en el código, `applyGuardian` tampoco respeta las fijadas; no se midió en el navegador.)
+2. **Las fechas de las cinco que quedan.** Propuesta: #734 y #171 primero.
+
+## Dónde leer más
+
+- `docs/hallazgos-onboarding.md`: la última entrada (10/10) y, antes, las del 05 y 06/10
+  (Automations y «Tu forma de escribir»).
+- `docs/onboarding-nuevo.md`: la propuesta de rediseño (el mapa, la promesa, el revelado).
+  De sus fases sólo se hizo la salida de Meta (16/08); el resto quedó atado a la versión
+  gratis, igual que las cuatro tarjetas pospuestas.
+- En la memoria: `regla-onboarding-por-tab`, `onboarding-cliente-wizard`,
+  `plan-arranque-generado` y `personalidad-quiz`.
