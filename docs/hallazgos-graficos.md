@@ -1,7 +1,10 @@
 # Hallazgos — el Dashboard (el editor de informes)
 
-La tab Dashboard es un editor de informes copiado de Looker Studio: hojas, 40 tipos de gráfico,
-estilo editable, control de período y los 24 conjuntos de datos de MaKo. Lo que se hizo está en el
+La tab Dashboard es un editor de informes copiado de Looker Studio: hojas, 41 tipos de gráfico,
+estilo editable, control de período y los 24 conjuntos de datos de MaKo. **El editor es de Looker; los
+gráficos son de MaKo** (Martín, 11/10: «que los graficos editables se parezcan más a esos» — los de
+las tabs viejas): tarjetas con los tokens de la app, la KPI de 44 px con su rótulo en mono, el embudo
+de trapecios. El informe inicial es la réplica de las tabs viejas de Marketing y Comercial. Lo que se hizo está en el
 commit; acá va lo que hay que saber **antes** de tocarlo.
 
 ## Cómo está armado, en una tabla
@@ -35,6 +38,22 @@ El guardado es automático: recorrer el editor con `dev-login` deja un `graficos
 `graficos.tablero.2` — el informe de Mauricio, que lo había abierto en producción 40 minutos antes.
 Pesaba 1.652 bytes, lo mismo que el inicial sin tocar, así que casi seguro no tenía cambios suyos;
 pero no hay forma de saberlo. La limpieza borra sólo `graficos.tablero.dev`.
+
+## Mirar el Dashboard lo GUARDABA, y una copia guardada no recibe las mejoras del inicial
+
+**Vive en:** `alMoverGrilla` en `app/dashboard/EditorInforme.tsx`
+
+react-grid-layout avisa `onLayoutChange` también al MONTAR, cuando compacta lo que le llegó. Ese aviso
+cambiaba el estado, y el autoguardado (700 ms) lo escribía: **abrir la tab, sin tocar nada, congelaba
+una copia del informe inicial**. Así reapareció `graficos.tablero.2` (Mauricio) a las 01:59 del 11/10,
+con los 20 gráficos del inicial de entonces sin un cambio suyo. El daño no se ve: el informe se dibuja
+igual. Lo que se pierde es que, de ahí en más, cambiar `tableroInicial()` no le llega a esa persona.
+
+La grilla ahora sólo escribe mientras se edita (`if (!editando) return`, con guard en
+`tests/graficos.test.ts`). Medido en el navegador: mirar las dos hojas no deja fila; arrastrar una
+tarjeta, sí. ⚠️ **Al cambiar el informe inicial, mirá quién ya tiene uno guardado**
+(`app_settings` con `key like 'graficos.tablero.%'`): a esa gente no le llega. El 11/10 había uno,
+el de Mauricio, igual al inicial viejo; se reemplazó por la réplica y se releyó con `sanearTablero`.
 
 ## Un informe del v1 se migra a UNA hoja
 
@@ -104,6 +123,33 @@ Medido el 11/10 contra la base (`information_schema` + filas por workspace). 21 
 - **Un id con guion bajo no es un id**: el saneo pide `[a-z0-9-]` y reemplaza el resto, así que la
   respuesta vuelve con otro id. Le pasó a la prueba de las 24 fuentes, no al editor (que acuña los suyos).
 
+## La réplica de las tabs viejas: qué es igual y qué no
+
+**Vive en:** `tableroInicial` en `lib/graficos-catalogo.ts`; el dibujo, en `app/dashboard/Grafico.tsx`
+
+Los bloques están en el orden y el lugar de antes (KPI estrella, Salud del Funnel con sus cuatro de
+eficiencia, Tendencias; Revenue, A cobrar, Tendencia mensual, Salud del Funnel comercial, SCL, cohortes).
+Para que los números fueran los mismos hubo que sumar métricas, y cada una se calcula como la calculaba
+la pantalla vieja — no como sonaría lógico:
+
+- **Vistas del VSL = YouTube (el video marcado `vsl` + el VSL de prueba) + los plays de Panda**, de
+  `marketing_metrics_daily`, igual que `lib/queries.ts`. Contar los `play` de `vsl_events` da otro número.
+- **El SCL (ciclo de venta) va de `fecha_agenda` a `fecha_primer_pago`**, no de la reunión al cierre
+  (`_getSCL` en `lib/queries.ts`). Se promedia sobre los que tienen las dos fechas (`con_ciclo`): dividir
+  por todos los cierres lo achica con los que nunca tuvieron reunión.
+- **No-show = agendó y no asistió.**
+- **El chip «↑ 1,3×»** (`estilo.comparar`) lee el período ANTERIOR del mismo largo, que termina el día
+  antes (`periodoAnterior`, en `lib/graficos-agregar.ts` para que tenga test). Es una lectura más por
+  gráfico que lo pide.
+- **El tope de la tabla pasó de 6 a 8 métricas**: las cohortes tienen ocho columnas y el saneo, en
+  silencio, tiraba las dos últimas. El de componentes por página, de 40 a 50: con 41 tipos no entraba
+  uno de cada uno.
+- **Una tarjeta de número lleva SIEMPRE su filete** (gris si no se eligió color) y el número toma el
+  color del filete sólo cuando es mayor que cero: un «US$0» no va en verde, como antes.
+- **El blanco de fábrica (`#ffffff`) se pinta como `var(--surface)`**, y ejes, grilla y tooltips usan
+  tokens: las tarjetas se dan vuelta en el tema oscuro. El relleno del embudo es claro en los dos temas,
+  así que su tinta es fija.
+
 ## Por qué react-grid-layout y no otro
 
 Se buscó un constructor de tableros ya hecho. No hay uno embebible en Next con licencia libre:
@@ -113,17 +159,19 @@ la 2.3.0 tenía 5 días.
 
 ## Lo que quedó sin hacer
 
-- **Lo que las tabs viejas tenían y el editor no:** las cohortes semanales y mensuales, el desglose
-  clickeable de cada número hasta el nombre de los leads, el chat con MaKo por gráfico, los anuncios
-  ganadores con su veredicto, el Outstanding (lo que falta cobrar mirando adelante) y el link al Ads
-  Manager. El código está en el historial de git (`app/marketing/page.tsx` y `app/comercial/page.tsx`
-  antes del 11/10/2026).
+- **Lo que la réplica no pudo copiar:** «Audiencia y alcance» (plataformas y el mapa de México: se
+  leía EN VIVO de la API de Meta, no está en la base — en su lugar quedó la tabla de anuncios), el
+  desglose clickeable de cada número hasta el nombre de los leads, el chat con MaKo por gráfico, los
+  anuncios ganadores con su veredicto, el MRR, la barra cobrado/pendiente, el selector de métricas de
+  Tendencias y el «aún sin datos» (ahora sale «—» o «0x»). Las cohortes y el Outstanding sí volvieron.
+  El código está en el historial de git (`app/marketing/page.tsx` y `app/comercial/page.tsx` antes del
+  11/10/2026).
 - **El onboarding de la tab:** /marketing mostraba un panel de activación sin Meta conectado
   (`tabActivacion('marketing')`). El Dashboard no lo muestra: con el CRM solo ya hay qué ver.
 - **Mapas, cronología por fechas propias y velas**: no hay datos geográficos ni de rango por fila.
 - **Filtros, campos calculados y combinar fuentes**: no se copiaron de Looker a propósito.
-- **El tema oscuro**: el CSS del editor tiene los valores de Looker limitados a `.lk` (como el de GitHub
-  en `/api-mako`); en oscuro se ve como una isla clara.
+- **El tema oscuro del CROMO**: la barra, los paneles y la galería tienen los valores de Looker limitados
+  a `.lk` (como el de GitHub en `/api-mako`); en oscuro se ven como una isla clara. Las tarjetas sí se dan vuelta.
 - **`app/ads-manager/AdsManagerView.tsx`** tira un rango que termina después de hoy (`docs/hallazgos-ads.md`).
 
-*10-11/10/2026, chat «Graphics».*
+*10-11/10/2026, chat «Graphics». La réplica y el diseño de MaKo, 11/10 de madrugada.*

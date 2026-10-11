@@ -90,4 +90,27 @@ export const BITACORA: Hito[] = [
       'lib/graficos-datos.ts — los 24 lectores',
     ],
   },
+  {
+    fecha: '11 oct', hora: '—', chat: CH, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las dos tabs de Mauricio como estaban, y los gráficos con el diseño de antes',
+    pedido: 'Quiero que personalices las 2 tabs de Mauricio como estaban en este editor, que tengan todos los graficos de antes acomodados en el mismo lugar que estaban y con el mismo diseño. Quiero que los graficos editables se parezcan más a esos que a los que me propusiste, tengan ese diseño.',
+    puntos: ['«Esos» son los gráficos de las tabs viejas de Marketing y Comercial; el editor de alrededor sigue siendo el de Looker.'],
+  },
+  {
+    fecha: '11 oct', hora: '—', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El informe inicial es la réplica de Marketing y Comercial, y los gráficos son de MaKo',
+    puntos: [
+      'Marketing: las cuatro KPI estrella (Ad Spend con su chip contra el período anterior), la Salud del Funnel con el embudo de trapecios y sus cuatro de eficiencia, Tendencias y la tabla de anuncios. Comercial: Sold, Cash y Outstanding, A quién cobrarle, la tendencia mensual, la Salud del Funnel comercial con sus cuatro, el SCL y las cohortes mensuales y semanales.',
+      'Gráficos con el diseño de las tabs viejas: el número de 44 px con su rótulo en mono, el filete de color, el subtítulo, los ejes y tooltips con los tokens de la app. En el estilo se suman Subtítulo, Filete de color arriba y Comparar con el período anterior. Tipo nuevo: Embudo vertical.',
+      'Métricas nuevas para que los números sean los de antes: impresiones, clics y vistas de landing y del VSL en el resumen del negocio (con CPM, CPC y los costos por vista), no-show y el SCL (agenda → primer pago) en los leads.',
+      'El informe de Mauricio (ws1) se reemplazó por la réplica: el que tenía era el inicial viejo, que el editor había guardado solo al abrirlo. Desde ahora mirar no guarda: sólo editar.',
+      'No se pudo copiar «Audiencia y alcance»: se leía en vivo de Meta y no está en la base.',
+    ],
+    archivos: [
+      'lib/graficos-catalogo.ts — la réplica (tableroInicial), las métricas y el estilo nuevo',
+      'lib/graficos-datos.ts — vistas del VSL, no-show, SCL y el período anterior',
+      'app/dashboard/Grafico.tsx — el diseño de MaKo y el embudo vertical',
+      'app/dashboard/EditorInforme.tsx — la tarjeta, los controles nuevos y mirar sin guardar',
+    ],
+  },
 ];

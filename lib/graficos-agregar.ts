@@ -37,6 +37,11 @@ export type Resultado = {
   cruce?: { claves: string[]; celdas: Array<Array<number | null>> };
   /** La evolución diaria de la primera métrica (el cuadro de resultados con tendencia). */
   serie?: Array<{ clave: string; etiqueta: string; valor: number | null }>;
+  /**
+   * Los totales del período ANTERIOR del mismo largo, cuando el gráfico pide compararse
+   * (el chip «↑ 1,3×» de las KPI viejas). Mismo orden que `totales`.
+   */
+  anterior?: Array<number | null>;
 };
 
 export const SIN_DATO = '(sin dato)';
@@ -287,4 +292,21 @@ export function fmtValor(v: number | null, formato: Formato, compacto = false): 
   if (formato === 'usd') return `US$${num}`;
   if (formato === 'segundos') return `${num} s`;
   return num;
+}
+
+/** El período del mismo largo que termina el día antes de `desde`. */
+export function periodoAnterior(desde: string, hasta: string): { desde: string; hasta: string } {
+  const dias = Math.max(1, Math.round((Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000) + 1);
+  const h = diasAntes(desde, 1);
+  return { desde: diasAntes(h, dias - 1), hasta: h };
+}
+
+/**
+ * El chip de las KPI viejas: el valor de ahora sobre el del período anterior del mismo largo,
+ * «↑ 1,3×» / «↓ 0,8×». Sin período anterior con algo, no hay chip: dividir por cero no es un dato.
+ */
+export function chipComparar(ahora: number | null, antes: number | null): string | null {
+  if (ahora == null || antes == null || !(antes > 0) || !Number.isFinite(ahora)) return null;
+  const f = ahora / antes;
+  return `${f >= 1 ? '↑' : '↓'} ${f.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`;
 }

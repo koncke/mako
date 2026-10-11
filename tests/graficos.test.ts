@@ -8,6 +8,13 @@
 //   · Los distintos sumados en vez de contados → 1 fallo («las personas se cuentan…»).
 //   · La serie de tiempo sólo con los días que tienen filas → 1 fallo («el tiempo se rellena»).
 //   · Sacar `agendas:` del lector de Meta → 1 fallo («el lector llena cada campo»).
+// Y la réplica de las tabs viejas (11/10/2026, base en 0 fallos, 19 tests):
+//   · El tope de la tabla de vuelta a 6 métricas → 1 fallo («la réplica… sin perder una métrica»).
+//   · El ciclo dividido por todos los cierres → 1 fallo («el ciclo de venta se promedia…»).
+//   · El período anterior un día más largo → 1 fallo («comparar: …»).
+//   · El negocio sin `vistas_vsl` → 1 fallo («el lector llena cada campo»).
+//   · El lector sin `resultado.anterior` → 1 fallo («comparar: …»).
+//   · La grilla escribiendo sin estar editando → 1 fallo de 20 («mirar no guarda»).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -16,7 +23,7 @@ import {
   FUENTES, TIPOS, sanearGrafico, sanearTablero, tableroInicial, nuevoGrafico, tituloDe, metricasPara, fuenteDe, rangoDe, rangoDeGrafico,
   nuevoControl, esGrafico, type Grafico, type Hoja,
 } from '../lib/graficos-catalogo';
-import { agregar, clavesDelRango, fmtValor, histograma, OTROS, SIN_DATO, type Fila } from '../lib/graficos-agregar';
+import { agregar, chipComparar, clavesDelRango, fmtValor, histograma, OTROS, periodoAnterior, SIN_DATO, type Fila } from '../lib/graficos-agregar';
 
 const g = (r: Partial<Grafico> & Record<string, unknown>): Grafico => sanearGrafico({ id: 'g1', ...r })!;
 
@@ -172,4 +179,64 @@ test('el lector llena cada métrica base y cada dimensión de cada conjunto del 
 
 test('ningún componente del informe inicial se queda sin fuente conocida', () => {
   for (const h of tableroInicial().hojas) for (const c of h.componentes) if (esGrafico(c)) assert.ok(fuenteDe(c.fuente), c.fuente);
+});
+
+test('el informe inicial es la réplica de las tabs viejas: los bloques en su lugar y sin perder una métrica', () => {
+  const [mk, co] = tableroInicial().hojas;
+  const graf = (h: Hoja) => h.componentes.filter(esGrafico);
+  // Marketing, primera fila: las cuatro KPI estrella, en el orden de antes.
+  const fila1 = graf(mk).filter((c) => c.y === 0).sort((a, b) => a.x - b.x);
+  assert.deepEqual(fila1.map((c) => c.titulo), ['Ad Spend', 'CAC real', 'ROAS cash', 'ROAS sold']);
+  assert.deepEqual(fila1.map((c) => c.metricas[0]), ['gasto', 'cac', 'roas_cobrado', 'roas_vendido']);
+  assert.ok(fila1[0].estilo.comparar, 'el Ad Spend trae el chip contra el período anterior');
+  assert.deepEqual(graf(mk).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl']);
+  assert.deepEqual(graf(co).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['agendas', 'asistencias', 'calificados', 'cierres']);
+  // Las cohortes con sus ocho columnas: el saneo no se comió ninguna (el tope de la tabla era 6).
+  const coh = graf(co).find((c) => c.titulo === 'Cohortes mensuales')!;
+  assert.deepEqual(coh.metricas, ['agendas', 'asistencias', 'no_show', 'calificados', 'cierres', 'tasa_cierre', 'ciclo', 'vendido']);
+  // Nadie se pisa en la grilla: la compactación correría lo de abajo y lo sacaría de su lugar.
+  for (const h of [mk, co]) {
+    const cs = h.componentes;
+    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+      const a = cs[i], b = cs[j];
+      const pisa = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      assert.ok(!pisa, `${h.nombre}: se pisan ${(a as Grafico).titulo} y ${(b as Grafico).titulo}`);
+    }
+  }
+});
+
+test('el ciclo de venta se promedia sobre los que tienen las dos fechas, no sobre todos los cierres', () => {
+  const filas: Fila[] = [
+    { f: '2026-10-01', d: {}, v: { dias_ciclo: 10, con_ciclo: 1, cierres: 1 } },
+    { f: '2026-10-02', d: {}, v: { dias_ciclo: 0, con_ciclo: 0, cierres: 1 } },
+    { f: '2026-10-03', d: {}, v: { dias_ciclo: 20, con_ciclo: 1, cierres: 1 } },
+  ];
+  const r = agregar(g({ fuente: 'leads', tipo: 'numero', fecha: 'cierre', metricas: ['ciclo'] }), filas, '2026-10-01', '2026-10-31');
+  assert.equal(r.totales[0], 15);
+});
+
+test('comparar: el período anterior es del mismo largo y termina el día antes; el chip no divide por cero', () => {
+  assert.deepEqual(periodoAnterior('2026-10-01', '2026-10-30'), { desde: '2026-09-01', hasta: '2026-09-30' });
+  assert.deepEqual(periodoAnterior('2026-10-11', '2026-10-11'), { desde: '2026-10-10', hasta: '2026-10-10' });
+  assert.deepEqual(periodoAnterior('2026-03-01', '2026-03-31'), { desde: '2026-01-29', hasta: '2026-02-28' });
+  assert.equal(chipComparar(130, 100), '↑ 1,3×');
+  assert.equal(chipComparar(80, 100), '↓ 0,8×');
+  assert.equal(chipComparar(5, 0), null);
+  assert.equal(chipComparar(null, 3), null);
+  // Y el lector lo pide de verdad: con `comparar`, los totales del período anterior viajan en `anterior`.
+  const src = readFileSync(join(__dirname, '..', 'lib', 'graficos-datos.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const cuerpo = src.slice(src.indexOf('export async function datosDeGraficos'));
+  assert.ok(cuerpo.includes('g.estilo.comparar && !sinRango ? periodoAnterior(p.desde, hasta)'), 'el lector no pide el período anterior');
+  assert.ok(cuerpo.includes('resultado.anterior = agregar(g, await lecturas.get(claveAnt)!, ant.desde, ant.hasta).totales'), 'el lector no devuelve los totales anteriores');
+});
+
+test('mirar no guarda: la grilla sólo escribe el informe mientras se edita', () => {
+  // La grilla avisa un cambio al montar (compacta lo que vino) y el autoguardado lo escribía: abrir
+  // el Dashboard congelaba una copia del informe inicial (el de Mauricio, 11/10 a las 01:59).
+  const src = readFileSync(join(__dirname, '..', 'app', 'dashboard', 'EditorInforme.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  const ini = src.indexOf('const alMoverGrilla = useCallback(');
+  assert.ok(ini >= 0, 'no encuentro alMoverGrilla');
+  const cuerpo = src.slice(ini, src.indexOf('}, [idHoja, editando]);', ini));
+  assert.ok(cuerpo.length > 0 && cuerpo.length < 1500, `el recorte mide ${cuerpo.length}: está mirando otra cosa`);
+  assert.match(cuerpo, /^const alMoverGrilla = useCallback\(\(l: Layout\) => \{\n\s*if \(!editando\) return;/);
 });

@@ -42,7 +42,7 @@ import {
   type Area, type Componente, type Control, type Dimension, type Estilo, type Grafico, type Hoja, type Metrica, type Preset, type Tablero,
 } from '@/lib/graficos-catalogo';
 import type { DatosGrafico } from '@/lib/graficos-datos';
-import { CuerpoGrafico, type EstadoDatos } from './Grafico';
+import { CuerpoGrafico, esTarjetaNumero, type EstadoDatos } from './Grafico';
 
 /** Lo que decide los DATOS de un gráfico, período incluido. Moverlo o pintarlo no pide nada. */
 const firmaDe = (g: Grafico, rg: { desde: string; hasta: string }) =>
@@ -310,7 +310,11 @@ export function EditorInforme({ inicial, datosIniciales, lecturaFallo, hoy, hoja
   // Arrastrar y agrandar: se apila UNA vez al empezar el gesto, no en cada píxel.
   const alEmpezarGesto = useCallback(() => pila.apilar(tableroRef.current), [pila]);
   const idHoja = hoja.id;
+  // La grilla avisa un cambio también al MONTAR, cuando compacta lo que vino (medido el 11/10: así
+  // se guardó el informe de Mauricio a las 01:59 sin que tocara nada, y una copia guardada ya no
+  // recibe las mejoras del informe inicial). Mirando, no se escribe: sólo editando.
   const alMoverGrilla = useCallback((l: Layout) => {
+    if (!editando) return;
     setTablero((t) => {
       let cambio = false;
       const hojas = t.hojas.map((h) => {
@@ -325,7 +329,7 @@ export function EditorInforme({ inicial, datosIniciales, lecturaFallo, hoy, hoja
       });
       return cambio ? { ...t, hojas } : t;
     });
-  }, [idHoja]);
+  }, [idHoja, editando]);
 
   return (
     <div className={`lk lk-app${editando ? ' lk--editando' : ''}`}>
@@ -433,11 +437,20 @@ export function EditorInforme({ inicial, datosIniciales, lecturaFallo, hoy, hoja
                   }
                   const est = datos[c.id] ?? { cargando: true };
                   const e = c.estilo;
-                  const estilo: CSSProperties = { background: e.fondo, borderRadius: e.radio, ...(e.borde ? { borderColor: '#dadce0' } : {}) };
+                  // La tarjeta de las tabs viejas: el número lleva SIEMPRE su filete de 3 px (gris si
+                  // no se eligió color); un gráfico, sólo si se eligió. El blanco de fábrica es el
+                  // token de superficie, así la tarjeta se da vuelta en el tema oscuro.
+                  const kpi = esTarjetaNumero(c.tipo);
+                  const filete = e.bordeSuperior ?? (kpi ? 'var(--border-strong)' : null);
+                  const estilo: CSSProperties = {
+                    background: e.fondo.toLowerCase() === '#ffffff' ? 'var(--surface)' : e.fondo,
+                    borderRadius: e.radio,
+                    ...(filete ? { borderTop: `3px solid ${filete}` } : {}),
+                  };
                   return (
                     <div
                       key={c.id} style={estilo}
-                      className={`lk-comp${elegido ? ' lk-comp--sel' : ''}${soltandoEn === c.id ? ' lk-comp--soltar' : ''}${e.borde ? ' lk-comp--borde' : ''}`}
+                      className={`lk-comp${kpi ? ' lk-comp--kpi' : ''}${elegido ? ' lk-comp--sel' : ''}${soltandoEn === c.id ? ' lk-comp--soltar' : ''}${e.borde ? ' lk-comp--borde' : ''}`}
                       onClick={(ev) => { if (editando) { ev.stopPropagation(); setSelId(c.id); } }}
                       onDragOver={(ev) => { if (editando && traeCampo(ev)) { ev.preventDefault(); ev.stopPropagation(); setSoltandoEn(c.id); } }}
                       onDragLeave={() => setSoltandoEn((s) => (s === c.id ? null : s))}
@@ -449,6 +462,7 @@ export function EditorInforme({ inicial, datosIniciales, lecturaFallo, hoy, hoja
                           {est.cargando && est.resultado && <span className="lk-mini-giro" aria-label="Actualizando" />}
                         </div>
                       )}
+                      {!kpi && e.subtitulo && <div className="lk-comp-sub" style={{ textAlign: e.alinear === 'centro' ? 'center' : 'left' }} title={e.subtitulo}>{e.subtitulo}</div>}
                       <CuerpoGrafico g={c} estado={est} />
                     </div>
                   );
@@ -757,6 +771,7 @@ function Propiedades({ g, cambiar, onDuplicar, onBorrar, onCambiarTipo, onAnadir
           <Seccion titulo="Encabezado del gráfico">
             <label className="lk-check"><input type="checkbox" checked={g.estilo.mostrarTitulo} onChange={(e) => est({ mostrarTitulo: e.target.checked })} /> Mostrar título</label>
             <input className="lk-input" value={g.titulo} placeholder={tituloDe({ ...g, titulo: '' })} maxLength={80} onChange={(e) => cambiar({ titulo: e.target.value })} aria-label="Título" />
+            <input className="lk-input" value={g.estilo.subtitulo} placeholder="Subtítulo" maxLength={80} onChange={(e) => est({ subtitulo: e.target.value })} aria-label="Subtítulo" />
             <div className="lk-segmento" role="group" aria-label="Tamaño del título">
               {(['s', 'm', 'l'] as const).map((t) => <button key={t} type="button" aria-pressed={g.estilo.tamTitulo === t} onClick={() => est({ tamTitulo: t })}>{t === 's' ? 'Chico' : t === 'm' ? 'Mediano' : 'Grande'}</button>)}
             </div>
@@ -814,11 +829,18 @@ function Propiedades({ g, cambiar, onDuplicar, onBorrar, onCambiarTipo, onAnadir
 
           <Seccion titulo="Números">
             <label className="lk-check"><input type="checkbox" checked={g.estilo.compacto} onChange={(e) => est({ compacto: e.target.checked })} /> Números compactos (1,2 k)</label>
+            {info.grupo === 'Cuadro de resultados' && (
+              <label className="lk-check"><input type="checkbox" checked={g.estilo.comparar} onChange={(e) => est({ comparar: e.target.checked })} /> Comparar con el período anterior</label>
+            )}
           </Seccion>
 
           <Seccion titulo="Fondo y borde">
             <label className="lk-campo-num">Color de fondo <input type="color" className="lk-color-input" value={g.estilo.fondo} onChange={(e) => est({ fondo: e.target.value })} /></label>
             <label className="lk-check"><input type="checkbox" checked={g.estilo.borde} onChange={(e) => est({ borde: e.target.checked })} /> Mostrar borde</label>
+            <label className="lk-check"><input type="checkbox" checked={g.estilo.bordeSuperior != null} onChange={(e) => est({ bordeSuperior: e.target.checked ? g.estilo.colores[0] : null })} /> Filete de color arriba</label>
+            {g.estilo.bordeSuperior != null && (
+              <label className="lk-campo-num">Color del filete <input type="color" className="lk-color-input" value={g.estilo.bordeSuperior} onChange={(e) => est({ bordeSuperior: e.target.value })} /></label>
+            )}
             <span className="lk-sub">Radio de las esquinas</span>
             <div className="lk-segmento" role="group" aria-label="Radio de las esquinas">
               {[0, 4, 8, 16].map((n) => <button key={n} type="button" aria-pressed={g.estilo.radio === n} onClick={() => est({ radio: n })}>{n}</button>)}
@@ -1094,6 +1116,7 @@ function IconoTipo({ tipo, size = 34 }: { tipo: string; size?: number }) {
     case 'cascada': return caja(<><rect x="4" y="16" width="5" height="12" fill={A} /><rect x="11" y="10" width="5" height="6" fill="#34A853" /><rect x="18" y="10" width="5" height="5" fill="#EA4335" /><rect x="25" y="5" width="5" height="10" fill="#34A853" /><rect x="32" y="5" width="5" height="23" fill={A} /></>);
     case 'cronologia': return caja(<><rect x="5" y="5" width="16" height="4" fill={A} /><rect x="12" y="12" width="20" height="4" fill={B} /><rect x="8" y="19" width="10" height="4" fill={C} /><rect x="22" y="26" width="13" height="3" fill="#34A853" /></>);
     case 'embudo': return caja(<><path d="M4 4h32l-4 7H8Z" fill={A} /><path d="M9 12h22l-3 7H12Z" fill={B} /><path d="M13 20h14l-3 7h-8Z" fill={C} /></>);
+    case 'embudo_vertical': return caja(<><path d="M5 3h30l-4 6H9Z" fill={A} /><rect x="17" y="10.5" width="6" height="2" rx="1" fill={C} /><path d="M10 14h20l-3 6H13Z" fill={B} /><rect x="17" y="21.5" width="6" height="2" rx="1" fill={C} /><path d="M14 25h12l-2 4h-8Z" fill={C} /></>);
     case 'embudo_barras': return caja(<><rect x="4" y="5" width="32" height="6" fill={A} /><rect x="9" y="13" width="22" height="6" fill={B} /><rect x="14" y="21" width="12" height="6" fill={C} /></>);
     case 'embudo_columnas': return caja(<><rect x="4" y="4" width="8" height="24" fill={A} /><rect x="16" y="12" width="8" height="16" fill={B} /><rect x="28" y="19" width="8" height="9" fill={C} /></>);
     default: return caja(<rect x="4" y="4" width="32" height="24" stroke={L} />);
@@ -1162,20 +1185,28 @@ const CSS = `
 .lk-hoja-nueva:hover { background: rgba(60,64,67,.08); color: var(--lk-tinta); }
 .lk-cuerpo { flex: 1; min-height: 0; display: flex; align-items: stretch; }
 .lk-lienzo { flex: 1; min-width: 0; background: var(--lk-lienzo); padding: 24px; overflow: auto; }
-.lk-pagina { background: #fff; min-height: calc(100% - 4px); padding: 20px; box-shadow: 0 1px 2px rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15); box-sizing: border-box; }
+.lk-pagina { background: var(--bg); min-height: calc(100% - 4px); padding: 20px; box-shadow: 0 1px 2px rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15); box-sizing: border-box; }
 .lk-pagina[data-soltar] { outline: 2px dashed var(--lk-azul); outline-offset: -6px; }
 .lk-vacio { display: grid; place-items: center; gap: 12px; padding: 140px 0; color: var(--lk-gris); font-size: 14px; }
 .lk-vacio p { margin: 0; }
-.lk-comp { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; box-sizing: border-box; background: #fff; border: 1px solid transparent; overflow: hidden; }
-.lk-comp--borde { border-color: var(--lk-borde); }
+/* Las tarjetas son las de MaKo (las KPI y las secciones de las tabs viejas): Geist, la tinta de la
+   app, borde var(--border) y esquinas de 16. El cromo de alrededor sigue siendo el de Looker. */
+.lk-comp { display: flex; flex-direction: column; gap: 10px; padding: 20px 22px; box-sizing: border-box; background: var(--surface); border: 1px solid transparent; overflow: hidden; font-family: 'Geist', system-ui, sans-serif; color: var(--ink); }
+.lk-comp--borde { border-color: var(--border); }
+/* Como las KPI viejas: el rótulo y el número van juntos y centrados en la tarjeta, por alta que sea. */
+.lk-comp--kpi { justify-content: center; }
 .lk--editando .lk-comp { cursor: move; }
 .lk--editando .lk-comp:hover { outline: 1px solid var(--lk-borde); }
 .lk-comp--sel, .lk--editando .lk-comp--sel:hover { outline: 2px solid var(--lk-azul) !important; outline-offset: -1px; }
 .lk-comp--soltar { outline: 2px solid var(--lk-azul) !important; background: var(--lk-azul-claro) !important; }
 .lk-comp--control { padding: 4px; justify-content: center; }
-.lk-comp-tit { display: flex; align-items: center; gap: 6px; min-width: 0; font-weight: 500; color: #3c4043; }
+.lk-comp-tit { display: flex; align-items: center; gap: 6px; min-width: 0; font-weight: 600; letter-spacing: -0.015em; color: var(--ink); line-height: 1.2; }
 .lk-comp-tit span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lk-comp-tit--s { font-size: 12px; } .lk-comp-tit--m { font-size: 13.5px; } .lk-comp-tit--l { font-size: 16px; }
+.lk-comp-tit--s { font-size: 15px; } .lk-comp-tit--m { font-size: 19px; } .lk-comp-tit--l { font-size: 23px; }
+/* El rótulo de la KPI: mono, mayúsculas, espaciado, en gris. */
+.lk-comp--kpi .lk-comp-tit { font-family: 'Geist Mono', monospace; font-weight: 400; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); margin-bottom: 8px; }
+.lk-comp--kpi .lk-comp-tit--s { font-size: 11px; } .lk-comp--kpi .lk-comp-tit--m { font-size: 12px; } .lk-comp--kpi .lk-comp-tit--l { font-size: 13px; }
+.lk-comp-sub { margin-top: -6px; font-size: 13px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lk-mini-giro { width: 10px; height: 10px; border: 2px solid var(--lk-borde); border-top-color: var(--lk-azul); border-radius: 50%; animation: lkGiro .8s linear infinite; flex: none; }
 @keyframes lkGiro { to { transform: rotate(360deg); } }
 .lk .recharts-wrapper *:focus, .lk .recharts-surface:focus { outline: none; }
@@ -1294,18 +1325,19 @@ const CSS = `
 .lk-dato-desc { font-size: 13px; color: var(--lk-gris); }
 .lk-dato-mas { font-size: 13.5px; color: var(--lk-azul); font-weight: 500; }
 .lk-tabla { flex: 1; min-height: 0; overflow: auto; }
-.lk-tabla table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.lk-tabla th { text-align: right; font-weight: 500; color: #3c4043; padding: 6px 8px; border-bottom: 1px solid var(--lk-borde); background: #f8f9fa; position: sticky; top: 0; white-space: nowrap; }
-.lk-tabla td { text-align: right; padding: 6px 8px; border-bottom: 1px solid #f1f3f4; white-space: nowrap; font-variant-numeric: tabular-nums; color: #3c4043; }
-.lk-tabla .lk-tabla-izq { text-align: left; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
-.lk-tabla-total td { font-weight: 500; border-bottom: none; border-top: 1px solid var(--lk-borde); }
-.lk-tabla-fuerte { font-weight: 500; }
+.lk-tabla table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.lk-tabla th { text-align: right; font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; white-space: nowrap; }
+.lk-tabla td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink); }
+.lk-tabla .lk-tabla-izq { text-align: left; max-width: 240px; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.lk-tabla tbody tr:hover td { background: var(--surface-2); }
+.lk-tabla-total td { font-weight: 600; border-bottom: none; border-top: 1px solid var(--border-strong); }
+.lk-tabla-fuerte { font-weight: 600; }
 .lk-tabla-barra { min-width: 130px; }
 .lk-celda-barra { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .lk-celda-num { flex: none; min-width: 52px; text-align: right; }
-.lk-celda-pista { flex: 1; min-width: 50px; max-width: 120px; height: 12px; display: flex; }
-.lk-celda-pista span { display: block; height: 100%; }
-.lk-tabla-mas { margin: 6px 8px 0; font-size: 11.5px; color: var(--lk-gris); }
+.lk-celda-pista { flex: 1; min-width: 50px; max-width: 120px; height: 10px; display: flex; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.lk-celda-pista span { display: block; height: 100%; border-radius: 5px; }
+.lk-tabla-mas { margin: 8px 10px 0; font-family: 'Geist Mono', monospace; font-size: 12px; color: var(--faint); }
 @media (max-width: 1200px) { .lk-datos { width: 220px; } .lk-props { width: 270px; } }
 @media (max-width: 980px) { .lk-datos { display: none; } }
 @media (max-width: 760px) { .lk-props, .lk-riel { display: none; } .lk-nombre { width: 160px; } .lk-lienzo { padding: 12px; } }

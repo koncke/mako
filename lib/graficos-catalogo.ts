@@ -70,9 +70,12 @@ export const FUENTES: readonly Fuente[] = [
     metricas: [
       m('gasto', 'Gasto en anuncios', 'usd'), m('leads', 'Leads'), m('agendas', 'Agendas'), m('asistencias', 'Asistencias'),
       m('cierres', 'Cierres'), m('vendido', 'Vendido', 'usd'), m('cobrado', 'Cobrado', 'usd'),
+      m('impresiones', 'Impresiones'), m('clics', 'Clics'), m('vistas_landing', 'Vistas de la landing'), m('vistas_vsl', 'Vistas del VSL'),
       r('cac', 'CAC', 'usd', 'gasto', 'cierres'), r('roas_cobrado', 'ROAS cobrado', 'veces', 'cobrado', 'gasto'),
       r('roas_vendido', 'ROAS vendido', 'veces', 'vendido', 'gasto'), r('cpl', 'Costo por lead', 'usd', 'gasto', 'leads'),
       r('cpa', 'Costo por agenda', 'usd', 'gasto', 'agendas'), r('tasa_cierre', 'Tasa de cierre', 'pct', 'cierres', 'asistencias', 100),
+      r('cpm', 'CPM', 'usd', 'gasto', 'impresiones', 1000), r('cpc', 'CPC', 'usd', 'gasto', 'clics'),
+      r('costo_landing', 'Costo por vista de landing', 'usd', 'gasto', 'vistas_landing'), r('costo_vsl', 'Costo por vista del VSL', 'usd', 'gasto', 'vistas_vsl'),
     ],
   },
   // ── Marketing ─────────────────────────────────────────────────────────────────────────
@@ -83,7 +86,8 @@ export const FUENTES: readonly Fuente[] = [
     dimensiones: [...TIEMPO, cat('campana', 'Campaña'), cat('conjunto', 'Conjunto'), cat('anuncio', 'Anuncio')],
     metricas: [
       m('gasto', 'Gasto', 'usd'), m('impresiones', 'Impresiones'), m('clics', 'Clics'), m('leads', 'Leads'), m('agendas', 'Agendas'),
-      dist('anuncios', 'Anuncios'),
+      m('vistas_landing', 'Vistas de la landing'), dist('anuncios', 'Anuncios'),
+      r('costo_landing', 'Costo por vista de landing', 'usd', 'gasto', 'vistas_landing'),
       r('ctr', 'CTR', 'pct', 'clics', 'impresiones', 100), r('cpc', 'Costo por clic', 'usd', 'gasto', 'clics'),
       r('cpm', 'CPM', 'usd', 'gasto', 'impresiones', 1000), r('cpl', 'Costo por lead', 'usd', 'gasto', 'leads'),
       r('cpa', 'Costo por agenda', 'usd', 'gasto', 'agendas'),
@@ -136,6 +140,11 @@ export const FUENTES: readonly Fuente[] = [
     metricas: [
       m('leads', 'Leads'), m('agendas', 'Agendaron'), m('asistencias', 'Asistieron'), m('calificados', 'Calificados'),
       m('cierres', 'Cerraron'), m('vendido', 'Vendido', 'usd'), m('cobrado', 'Cobrado', 'usd'),
+      m('no_show', 'No asistieron'), m('dias_ciclo', 'Días de ciclo'), m('con_ciclo', 'Cierres con ciclo'),
+      r('tasa_no_show', 'No-show rate', 'pct', 'no_show', 'agendas', 100),
+      // El ciclo se promedia sobre los cierres que tienen las DOS fechas: dividir por todos los
+      // cierres lo achicaría con los que nunca tuvieron reunión cargada.
+      r('ciclo', 'Ciclo de venta (días)', 'numero', 'dias_ciclo', 'con_ciclo'),
       r('tasa_asistencia', 'Tasa de asistencia', 'pct', 'asistencias', 'agendas', 100),
       r('tasa_cierre', 'Tasa de cierre', 'pct', 'cierres', 'asistencias', 100),
       r('ticket', 'Ticket promedio', 'usd', 'vendido', 'cierres'),
@@ -298,9 +307,9 @@ const t = (id: string, nombre: string, grupo: Grupo, dimension: InfoTipo['dimens
 
 // Los nombres y los grupos son los de la galería de Looker (pedido de Martín, 11/10/2026).
 export const TIPOS: readonly InfoTipo[] = [
-  t('tabla', 'Tabla', 'Tabla', 'cualquiera', 'no', 1, 6, 6, 8),
-  t('tabla_barras', 'Tabla con barras', 'Tabla', 'cualquiera', 'no', 1, 6, 6, 8),
-  t('tabla_calor', 'Tabla con mapa de calor', 'Tabla', 'cualquiera', 'no', 1, 6, 6, 8),
+  t('tabla', 'Tabla', 'Tabla', 'cualquiera', 'no', 1, 8, 6, 8),
+  t('tabla_barras', 'Tabla con barras', 'Tabla', 'cualquiera', 'no', 1, 8, 6, 8),
+  t('tabla_calor', 'Tabla con mapa de calor', 'Tabla', 'cualquiera', 'no', 1, 8, 6, 8),
   t('numero', 'Cuadro de resultados', 'Cuadro de resultados', 'ninguna', 'no', 1, 1, 3, 3),
   t('numero_compacto', 'Cuadro de resultados compacto', 'Cuadro de resultados', 'ninguna', 'no', 1, 1, 3, 3),
   t('numero_tendencia', 'Cuadro de resultados con tendencia', 'Cuadro de resultados', 'ninguna', 'no', 1, 1, 3, 4),
@@ -338,6 +347,9 @@ export const TIPOS: readonly InfoTipo[] = [
   t('embudo', 'Embudo de conversión', 'Embudo de conversión', 'ninguna', 'no', 2, 8, 6, 8, true),
   t('embudo_barras', 'Embudo de barras', 'Embudo de conversión', 'ninguna', 'no', 2, 8, 6, 8, true),
   t('embudo_columnas', 'Embudo de columnas', 'Embudo de conversión', 'ninguna', 'no', 2, 8, 8, 8, true),
+  // El de las tabs viejas de Marketing y Comercial: trapecios de arriba a abajo, con la caída
+  // entre etapas en un chip (pedido de Martín, 11/10/2026: «con el mismo diseño»).
+  t('embudo_vertical', 'Embudo vertical', 'Embudo de conversión', 'ninguna', 'no', 2, 8, 6, 12, true),
 ];
 export const GRUPOS: readonly Grupo[] = [...new Set(TIPOS.map((x) => x.grupo))];
 
@@ -384,9 +396,20 @@ export const nombrePreset = (p: Preset) => PRESETS.find((x) => x.id === p)?.nomb
 
 // ── El estilo de un gráfico (la pestaña ESTILO) ───────────────────────────────────────────
 
-/** La paleta por defecto de Looker Studio. */
-export const PALETA = ['#4285F4', '#EA4335', '#FBBC04', '#34A853', '#FF6D01', '#46BDC6', '#7B61FF', '#F06292'];
+/**
+ * La paleta por defecto: la de las tabs viejas de Marketing y Comercial (el azul de los
+ * embudos y los cuatro de Tendencias). Martín, 11/10/2026: «Quiero que los graficos editables se
+ * parezcan más a esos que a los que me propusiste, tengan ese diseño» — el editor es de Looker,
+ * los gráficos son de MaKo.
+ */
+export const PALETA = ['#3B6FB0', '#C8870C', '#0E8E7E', '#6A4BD8', '#D0504A', '#1E9E57', '#B04A8C', '#2E8FB8'];
 export type Estilo = {
+  /** La línea chica de abajo del número («Spend ÷ cierres del período»). */
+  subtitulo: string;
+  /** El filete de color arriba de la tarjeta (las KPI viejas), o null sin filete. */
+  bordeSuperior: string | null;
+  /** El chip «↑ 1,3×» contra el período anterior del mismo largo. */
+  comparar: boolean;
   mostrarTitulo: boolean;
   tamTitulo: 's' | 'm' | 'l';
   colores: string[];
@@ -403,9 +426,11 @@ export type Estilo = {
   maximo: number | null;
   total: boolean;
 };
+// La tarjeta de la casa: fondo blanco, borde y esquinas de 16, como las KPI viejas.
 export const ESTILO_BASE: Estilo = {
+  subtitulo: '', bordeSuperior: null, comparar: false,
   mostrarTitulo: true, tamTitulo: 'm', colores: PALETA.slice(), etiquetas: false, leyenda: 'arriba', cuadricula: true,
-  ejes: true, fondo: '#ffffff', borde: false, radio: 0, compacto: false, alinear: 'izquierda', objetivo: null, maximo: null, total: true,
+  ejes: true, fondo: '#ffffff', borde: true, radio: 16, compacto: false, alinear: 'izquierda', objetivo: null, maximo: null, total: true,
 };
 const color = (v: unknown, def: string) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : def);
 const numONull = (v: unknown) => (v === null || v === '' || v === undefined ? null : Number.isFinite(Number(v)) ? Number(v) : null);
@@ -414,6 +439,9 @@ export function sanearEstilo(raw: unknown): Estilo {
   const e = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const B = ESTILO_BASE;
   return {
+    subtitulo: typeof e.subtitulo === 'string' ? e.subtitulo.slice(0, 80) : '',
+    bordeSuperior: e.bordeSuperior == null || e.bordeSuperior === '' ? null : color(e.bordeSuperior, PALETA[0]),
+    comparar: e.comparar === true,
     mostrarTitulo: typeof e.mostrarTitulo === 'boolean' ? e.mostrarTitulo : B.mostrarTitulo,
     tamTitulo: e.tamTitulo === 's' || e.tamTitulo === 'l' ? e.tamTitulo : 'm',
     colores: PALETA.map((c, i) => color(Array.isArray(e.colores) ? e.colores[i] : undefined, c)),
@@ -422,8 +450,8 @@ export function sanearEstilo(raw: unknown): Estilo {
     cuadricula: e.cuadricula !== false,
     ejes: e.ejes !== false,
     fondo: color(e.fondo, B.fondo),
-    borde: e.borde === true,
-    radio: Math.min(24, Math.max(0, Math.round(Number(e.radio) || 0))),
+    borde: typeof e.borde === 'boolean' ? e.borde : B.borde,
+    radio: e.radio === undefined || e.radio === null ? B.radio : Math.min(24, Math.max(0, Math.round(Number(e.radio) || 0))),
     compacto: e.compacto === true,
     alinear: e.alinear === 'centro' ? 'centro' : 'izquierda',
     objetivo: numONull(e.objetivo),
@@ -473,7 +501,8 @@ export type Tablero = { v: 2; nombre: string; hojas: Hoja[] };
 
 export const NOMBRE_INICIAL = 'Dashboard';
 export const COLS = 12;
-export const MAX_COMPONENTES = 40;
+// Que entre uno de cada tipo de la galería (41) y sus controles.
+export const MAX_COMPONENTES = 50;
 export const MAX_HOJAS = 20;
 export const LIMITES = [3, 5, 10, 20, 50] as const;
 
@@ -668,11 +697,21 @@ export function rangoDeGrafico(g: Grafico, hoja: Hoja, hoy: string): { desde: st
 }
 
 /**
- * El informe con el que arranca quien nunca armó el suyo: las dos hojas que antes eran las
- * tabs Marketing y Comercial, con sus números de siempre armados como gráficos.
+ * El informe con el que arranca quien nunca armó el suyo: las dos tabs viejas, Marketing y
+ * Comercial, rearmadas como hojas con sus bloques en el mismo orden y lugar. Pedido de Martín
+ * (11/10/2026): «que tengan todos los graficos de antes acomodados en el mismo lugar que estaban
+ * y con el mismo diseño». Lo que no se pudo rearmar (Audiencia y alcance, que se leía en vivo de
+ * Meta, y el desglose clickeable de cada número) está en docs/hallazgos-graficos.md.
  */
 export function tableroInicial(): Tablero {
   const g = (o: Record<string, unknown>) => sanearGrafico({ id: nuevoId(), ...o })!;
+  const kpi = (o: Record<string, unknown>, sub: string, extra: Partial<Estilo> = {}) =>
+    g({ tipo: 'numero', w: 3, h: 4, ...o, estilo: { ...ESTILO_BASE, subtitulo: sub, ...extra } });
+  // El azul del embudo de Marketing y el dorado del de Comercial: el embudo vertical aclara su
+  // primer color hacia arriba, como los trapecios de antes.
+  const AZUL = ['#9DBBF5', ...PALETA.slice(1)];
+  const DORADO = ['#E7CF8E', ...PALETA.slice(1)];
+  const VERDE = '#1E9E57';
   return {
     v: 2,
     nombre: NOMBRE_INICIAL,
@@ -680,31 +719,45 @@ export function tableroInicial(): Tablero {
       {
         id: 'marketing', nombre: 'Marketing',
         componentes: [
-          g({ tipo: 'numero', fuente: 'negocio', metricas: ['gasto'], x: 0, y: 0, w: 3, h: 3 }),
-          g({ tipo: 'numero', fuente: 'negocio', metricas: ['cac'], x: 3, y: 0, w: 3, h: 3 }),
-          g({ tipo: 'numero', fuente: 'negocio', metricas: ['roas_cobrado'], x: 6, y: 0, w: 3, h: 3 }),
-          g({ tipo: 'numero', fuente: 'negocio', metricas: ['cpl'], x: 9, y: 0, w: 3, h: 3 }),
-          g({ tipo: 'serie', fuente: 'negocio', dimension: 'dia', metricas: ['gasto', 'leads'], x: 0, y: 3, w: 8, h: 8 }),
-          g({ tipo: 'anillo', fuente: 'meta', dimension: 'campana', metricas: ['gasto'], limite: 5, x: 8, y: 3, w: 4, h: 8 }),
-          g({ tipo: 'tabla', fuente: 'meta', dimension: 'campana', metricas: ['gasto', 'leads', 'agendas', 'cpl', 'cpa'], x: 0, y: 11, w: 7, h: 8 }),
-          g({ tipo: 'embudo', fuente: 'leads', fecha: 'alta', metricas: ['leads', 'agendas', 'asistencias', 'cierres'], x: 7, y: 11, w: 5, h: 8 }),
-          g({ tipo: 'columnas', fuente: 'visitas', dimension: 'dia', metricas: ['visitas'], x: 0, y: 19, w: 6, h: 7 }),
-          g({ tipo: 'barras', fuente: 'leads', fecha: 'alta', dimension: 'origen', metricas: ['leads'], x: 6, y: 19, w: 6, h: 7 }),
+          // 1 · Los KPIs estrella
+          kpi({ fuente: 'negocio', metricas: ['gasto'], titulo: 'Ad Spend', x: 0, y: 0 }, 'contra el período anterior', { comparar: true }),
+          kpi({ fuente: 'negocio', metricas: ['cac'], titulo: 'CAC real', x: 3, y: 0 }, 'Spend ÷ cierres del período'),
+          kpi({ fuente: 'negocio', metricas: ['roas_cobrado'], titulo: 'ROAS cash', x: 6, y: 0 }, 'Cash ÷ Spend · lo que entró', { bordeSuperior: VERDE }),
+          kpi({ fuente: 'negocio', metricas: ['roas_vendido'], titulo: 'ROAS sold', x: 9, y: 0 }, 'Sold ÷ Spend · comprometido'),
+          // 2 · Salud del Funnel — Marketing: el embudo y las cuatro de eficiencia
+          g({ tipo: 'embudo_vertical', fuente: 'negocio', metricas: ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl'], titulo: 'Salud del Funnel — Marketing', x: 0, y: 4, w: 6, h: 12, estilo: { ...ESTILO_BASE, colores: AZUL } }),
+          kpi({ fuente: 'negocio', metricas: ['cpm'], titulo: 'CPM', x: 6, y: 4, h: 6 }, 'por 1,000 impresiones'),
+          kpi({ fuente: 'negocio', metricas: ['cpc'], titulo: 'CPC', x: 9, y: 4, h: 6 }, 'por click'),
+          kpi({ fuente: 'negocio', metricas: ['costo_landing'], titulo: 'Costo / Landing View', x: 6, y: 10, h: 6 }, 'por vista de landing'),
+          kpi({ fuente: 'negocio', metricas: ['costo_vsl'], titulo: 'Costo / VSL View', x: 9, y: 10, h: 6 }, 'por play del VSL'),
+          // 3 · Tendencias
+          g({ tipo: 'serie', fuente: 'negocio', dimension: 'dia', metricas: ['gasto', 'leads', 'agendas', 'cierres'], titulo: 'Tendencias', x: 0, y: 16, w: 12, h: 10 }),
+          // 4 · Los anuncios del período (Audiencia y alcance se leía en vivo de Meta: ver el comentario)
+          g({ tipo: 'tabla_barras', fuente: 'meta', dimension: 'anuncio', metricas: ['gasto', 'impresiones', 'clics', 'leads', 'agendas', 'cpl', 'cpa'], titulo: 'Anuncios del período', limite: 10, x: 0, y: 26, w: 12, h: 10 }),
         ],
       },
       {
         id: 'comercial', nombre: 'Comercial',
         componentes: [
-          g({ tipo: 'numero', fuente: 'negocio', metricas: ['vendido'], x: 0, y: 0, w: 3, h: 3 }),
-          g({ tipo: 'numero', fuente: 'negocio', metricas: ['cobrado'], x: 3, y: 0, w: 3, h: 3 }),
-          g({ tipo: 'numero', fuente: 'negocio', metricas: ['cierres'], x: 6, y: 0, w: 3, h: 3 }),
-          g({ tipo: 'numero', fuente: 'negocio', metricas: ['tasa_cierre'], x: 9, y: 0, w: 3, h: 3 }),
-          g({ tipo: 'columnas', fuente: 'negocio', dimension: 'mes', metricas: ['vendido', 'cobrado'], periodo: 'este_anio', x: 0, y: 3, w: 8, h: 8 }),
-          g({ tipo: 'circular', fuente: 'pagos', fecha: 'vencimiento', dimension: 'estado', metricas: ['monto'], x: 8, y: 3, w: 4, h: 8 }),
-          g({ tipo: 'barras', fuente: 'leads', fecha: 'cierre', dimension: 'closer', metricas: ['cierres'], x: 0, y: 11, w: 6, h: 8 }),
-          g({ tipo: 'tabla', fuente: 'llamadas', dimension: 'closer', metricas: ['llamadas', 'minutos', 'puntaje'], x: 6, y: 11, w: 6, h: 8 }),
-          g({ tipo: 'tabla_barras', fuente: 'pagos', fecha: 'vencimiento', dimension: 'cliente', metricas: ['monto', 'cobrado', 'pendiente'], x: 0, y: 19, w: 6, h: 8 }),
-          g({ tipo: 'serie', fuente: 'leads', fecha: 'agenda', dimension: 'semana', metricas: ['agendas', 'asistencias'], periodo: 'ult90', x: 6, y: 19, w: 6, h: 8 }),
+          // 1 · Revenue
+          kpi({ fuente: 'negocio', metricas: ['vendido'], titulo: 'Sold Revenue', x: 0, y: 0, w: 4 }, 'cierres del período', { bordeSuperior: '#C8870C' }),
+          kpi({ fuente: 'negocio', metricas: ['cobrado'], titulo: 'Cash Collected', x: 4, y: 0, w: 4 }, 'incluye cuotas previas', { bordeSuperior: VERDE }),
+          kpi({ fuente: 'pagos', fecha: 'vencimiento', metricas: ['pendiente'], titulo: 'Outstanding', x: 8, y: 0, w: 4 }, 'cuotas que vencen en el período', { bordeSuperior: '#D0504A' }),
+          g({ tipo: 'tabla_barras', fuente: 'pagos', fecha: 'vencimiento', dimension: 'cliente', metricas: ['pendiente', 'cobrado', 'monto'], titulo: 'A quién cobrarle', limite: 10, x: 0, y: 4, w: 12, h: 6 }),
+          // 2 · La tendencia mensual
+          g({ tipo: 'serie', fuente: 'negocio', dimension: 'mes', metricas: ['vendido', 'cobrado', 'gasto'], titulo: 'Tendencia', periodo: 'este_anio', x: 0, y: 10, w: 12, h: 10 }),
+          // 3 · Salud del Funnel — Comercial: el embudo de las reuniones y las cuatro de cierre
+          g({ tipo: 'embudo_vertical', fuente: 'leads', fecha: 'agenda', metricas: ['agendas', 'asistencias', 'calificados', 'cierres'], titulo: 'Salud del Funnel — Comercial', x: 0, y: 20, w: 6, h: 12, estilo: { ...ESTILO_BASE, colores: DORADO } }),
+          kpi({ fuente: 'leads', fecha: 'agenda', metricas: ['tasa_cierre'], titulo: 'Ratio de cierre', x: 6, y: 20, h: 6 }, 'cierres ÷ asistencias'),
+          kpi({ fuente: 'leads', fecha: 'agenda', metricas: ['tasa_no_show'], titulo: 'No-show rate', x: 9, y: 20, h: 6 }, 'no asistieron ÷ agendaron'),
+          kpi({ fuente: 'leads', fecha: 'agenda', metricas: ['cierres'], titulo: 'Cierres', x: 6, y: 26, h: 6 }, 'de las reuniones del período', { bordeSuperior: VERDE }),
+          kpi({ fuente: 'negocio', metricas: ['cac'], titulo: 'CAC acumulado', periodo: 'todo', x: 9, y: 26, h: 6 }, 'todo el gasto ÷ todos los cierres'),
+          // 4 · SCL — el ciclo de venta
+          kpi({ fuente: 'leads', fecha: 'cierre', metricas: ['ciclo'], titulo: 'SCL promedio (días)', periodo: 'este_anio', x: 0, y: 32, w: 4, h: 6 }, 'de la agenda al primer pago'),
+          g({ tipo: 'columnas', fuente: 'leads', fecha: 'cierre', dimension: 'mes', metricas: ['ciclo'], titulo: 'SCL — ciclo de venta por mes', periodo: 'este_anio', x: 4, y: 32, w: 8, h: 6 }),
+          // 5 · Las cohortes
+          g({ tipo: 'tabla', fuente: 'leads', fecha: 'agenda', dimension: 'mes', metricas: ['agendas', 'asistencias', 'no_show', 'calificados', 'cierres', 'tasa_cierre', 'ciclo', 'vendido'], titulo: 'Cohortes mensuales', periodo: 'este_anio', x: 0, y: 38, w: 12, h: 10 }),
+          g({ tipo: 'tabla', fuente: 'leads', fecha: 'agenda', dimension: 'semana', metricas: ['agendas', 'asistencias', 'no_show', 'calificados', 'cierres', 'tasa_cierre', 'vendido'], titulo: 'Cohortes semanales', periodo: 'ult90', x: 0, y: 48, w: 12, h: 10 }),
         ],
       },
     ],

@@ -22,8 +22,9 @@ import { diasAntes, hoyEnTijuana } from './date-utils';
 import { productosCrm } from './api-mako/areas/crm.helpers';
 import { tableroActual } from './tablero-actual';
 import { VENTA_SIN_COBRO } from './venta-tipo';
+import { VSL_PRUEBA_VIDEO_ID } from './config';
 import { fuenteDe, sanearGrafico, type Grafico } from './graficos-catalogo';
-import { agregar, type Fila, type Resultado } from './graficos-agregar';
+import { agregar, periodoAnterior, type Fila, type Resultado } from './graficos-agregar';
 
 const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : Number(v);
@@ -92,10 +93,10 @@ async function nombres(tabla: string, ids: Array<number | string>, col = 'nombre
 
 // ── Marketing ────────────────────────────────────────────────────────────────────────────
 
-type FMeta = { id: number; fecha: string; ad_id: string | null; campaign_name: string | null; adset_name: string | null; ad_name: string | null; spend: number | null; impressions: number | null; link_clicks: number | null; leads_count: number | null; agendas_meta: number | null };
+type FMeta = { id: number; fecha: string; ad_id: string | null; campaign_name: string | null; adset_name: string | null; ad_name: string | null; spend: number | null; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null; agendas_meta: number | null };
 async function filasMeta(rg: Rango): Promise<Fila[]> {
   const [rows, conv] = await Promise.all([
-    leer<FMeta>('marketing_metrics_daily', 'id, fecha, ad_id, campaign_name, adset_name, ad_name, spend, impressions, link_clicks, leads_count, agendas_meta', rg, {
+    leer<FMeta>('marketing_metrics_daily', 'id, fecha, ad_id, campaign_name, adset_name, ad_name, spend, impressions, link_clicks, landing_page_views, leads_count, agendas_meta', rg, {
       col: 'fecha',
       // Una fila por ANUNCIO por día: ni fecha ni ad_id son únicos, el id cierra el orden.
       orden: [{ col: 'fecha' }, { col: 'ad_id' }, { col: 'id' }],
@@ -106,9 +107,31 @@ async function filasMeta(rg: Rango): Promise<Fila[]> {
   return rows.map((x) => ({
     f: x.fecha,
     d: { campana: txt(x.campaign_name), conjunto: txt(x.adset_name), anuncio: txt(x.ad_name) },
-    v: { gasto: conv.aUsdNum(num(x.spend)), impresiones: num(x.impressions), clics: num(x.link_clicks), leads: num(x.leads_count), agendas: num(x.agendas_meta) },
+    v: { gasto: conv.aUsdNum(num(x.spend)), impresiones: num(x.impressions), clics: num(x.link_clicks), vistas_landing: num(x.landing_page_views), leads: num(x.leads_count), agendas: num(x.agendas_meta) },
     u: { anuncios: txt(x.ad_id) },
   }));
+}
+
+/**
+ * Las vistas del VSL por día, como las contaba la tab vieja de Marketing (`lib/queries.ts`):
+ * las vistas de YouTube del video marcado VSL, más el VSL de prueba anterior, más los plays de
+ * Panda, que es la fuente del presente. Un día de YouTube sin delta (`youtube_views` null) no suma.
+ */
+type FVistaVsl = { id: number; fecha: string; plataforma: string; youtube_video_id: string | null; youtube_video_type: string | null; youtube_views: number | null; video_plays: number | null };
+async function vistasVslPorDia(rg: Rango): Promise<Array<{ f: string; n: number }>> {
+  const rows = await leer<FVistaVsl>('marketing_metrics_daily', 'id, fecha, plataforma, youtube_video_id, youtube_video_type, youtube_views, video_plays', rg, {
+    col: 'fecha',
+    orden: [{ col: 'fecha' }, { col: 'ad_id' }, { col: 'id' }],
+    extra: (q) => q.in('plataforma', ['youtube', 'panda']),
+  });
+  const out: Array<{ f: string; n: number }> = [];
+  for (const x of rows) {
+    const n = x.plataforma === 'panda'
+      ? num(x.video_plays)
+      : (x.youtube_video_type === 'vsl' || x.youtube_video_id === VSL_PRUEBA_VIDEO_ID) && x.youtube_views != null ? num(x.youtube_views) : 0;
+    if (n) out.push({ f: x.fecha, n });
+  }
+  return out;
 }
 
 type FPres = { fecha: string; adset_id: string; adset_name: string | null; daily_budget_mxn: number | null; status: string | null };
@@ -176,9 +199,22 @@ type FLead = {
   monto_cierre_usd: number | null; total_cobrado_usd: number | null; pipeline_stage: string | null; funnel_id: number | null;
   origen_lead: string | null; utm_source: string | null; utm_campaign: string | null; utm_content: string | null;
   meta_campaign_name: string | null; meta_ad_name: string | null; closer: string | null; setter: string | null; motivo_perdida: string | null;
-  venta_tipo: string | null;
+  venta_tipo: string | null; fecha_agenda: string | null; fecha_primer_pago: string | null;
 };
-const COLS_LEAD = 'id, created_at, fecha_junta_1, fecha_cierre, asistio_j1, calificado, cerro, estado_lead, monto_cierre_usd, total_cobrado_usd, pipeline_stage, funnel_id, origen_lead, utm_source, utm_campaign, utm_content, meta_campaign_name, meta_ad_name, closer, setter, motivo_perdida, venta_tipo';
+const COLS_LEAD = 'id, created_at, fecha_junta_1, fecha_cierre, asistio_j1, calificado, cerro, estado_lead, monto_cierre_usd, total_cobrado_usd, pipeline_stage, funnel_id, origen_lead, utm_source, utm_campaign, utm_content, meta_campaign_name, meta_ad_name, closer, setter, motivo_perdida, venta_tipo, fecha_agenda, fecha_primer_pago';
+
+/**
+ * El ciclo de venta (SCL) en días, como lo medía la tab vieja de Comercial (`_getSCL`): de la
+ * agenda al PRIMER PAGO, no al cierre. Negativo es dato roto y no cuenta; sin las dos fechas, null.
+ */
+const diasDeCiclo = (x: FLead): number | null => {
+  if (!x.fecha_agenda || !x.fecha_primer_pago) return null;
+  const a = Date.parse(`${x.fecha_agenda.slice(0, 10)}T00:00:00Z`);
+  const p = Date.parse(`${x.fecha_primer_pago.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(p)) return null;
+  const d = Math.floor((p - a) / 86_400_000);
+  return d >= 0 ? d : null;
+};
 
 /** Los nombres que ve la persona: el del producto de cada embudo y el de cada etapa. Sólo para rotular. */
 async function rotulosDelCrm(): Promise<{ producto: (id: number | null) => string | null; etapa: (id: number | null, key: string | null) => string | null }> {
@@ -212,21 +248,27 @@ const gano = (x: FLead) => (!!x.cerro || x.estado_lead === 'ganado') && x.venta_
 
 async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
   const [rows, rot] = await Promise.all([leadsCrudos(fecha, rg), rotulosDelCrm()]);
-  return rows.map((x) => ({
-    f: fecha === 'agenda' ? x.fecha_junta_1 : fecha === 'cierre' ? x.fecha_cierre : fechaTj(x.created_at),
-    d: {
-      etapa: rot.etapa(x.funnel_id, txt(x.pipeline_stage)),
-      producto: rot.producto(x.funnel_id),
-      origen: txt(x.origen_lead) ?? txt(x.utm_source),
-      campana: txt(x.meta_campaign_name) ?? txt(x.utm_campaign),
-      anuncio: txt(x.meta_ad_name) ?? txt(x.utm_content),
-      closer: txt(x.closer), setter: txt(x.setter), motivo: txt(x.motivo_perdida),
-    },
-    v: {
-      leads: 1, agendas: x.fecha_junta_1 ? 1 : 0, asistencias: x.asistio_j1 ? 1 : 0, calificados: x.calificado ? 1 : 0,
-      cierres: gano(x) ? 1 : 0, vendido: gano(x) ? num(x.monto_cierre_usd) : 0, cobrado: num(x.total_cobrado_usd),
-    },
-  }));
+  return rows.map((x) => {
+    const ciclo = diasDeCiclo(x);
+    return {
+      f: fecha === 'agenda' ? x.fecha_junta_1 : fecha === 'cierre' ? x.fecha_cierre : fechaTj(x.created_at),
+      d: {
+        etapa: rot.etapa(x.funnel_id, txt(x.pipeline_stage)),
+        producto: rot.producto(x.funnel_id),
+        origen: txt(x.origen_lead) ?? txt(x.utm_source),
+        campana: txt(x.meta_campaign_name) ?? txt(x.utm_campaign),
+        anuncio: txt(x.meta_ad_name) ?? txt(x.utm_content),
+        closer: txt(x.closer), setter: txt(x.setter), motivo: txt(x.motivo_perdida),
+      },
+      v: {
+        leads: 1, agendas: x.fecha_junta_1 ? 1 : 0, asistencias: x.asistio_j1 ? 1 : 0, calificados: x.calificado ? 1 : 0,
+        cierres: gano(x) ? 1 : 0, vendido: gano(x) ? num(x.monto_cierre_usd) : 0, cobrado: num(x.total_cobrado_usd),
+        // No-show como en la tab vieja: agendó y no asistió.
+        no_show: x.fecha_junta_1 && !x.asistio_j1 ? 1 : 0,
+        dias_ciclo: ciclo ?? 0, con_ciclo: ciclo != null ? 1 : 0,
+      },
+    };
+  });
 }
 
 type FAudit = { id: number; created_at: string; lead_id: number | null; campo: string | null; valor_nuevo: string | null; autor: string | null };
@@ -280,12 +322,14 @@ async function filasLlamadas(rg: Rango): Promise<Fila[]> {
 // ── Negocio: la pauta, el CRM y los cobros en una sola serie ────────────────────────────────
 
 async function filasNegocio(rg: Rango): Promise<Fila[]> {
-  const [meta, altas, agendas, cierres, cobros] = await Promise.all([
+  const [meta, altas, agendas, cierres, cobros, vsl] = await Promise.all([
     filasMeta(rg), leadsCrudos('alta', rg), leadsCrudos('agenda', rg), leadsCrudos('cierre', rg),
     leer<FPago>('pagos', 'id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago', rg, { col: 'fecha_pago', extra: (q) => q.eq('pagado', true) }),
+    vistasVslPorDia(rg),
   ]);
   const out: Fila[] = [];
-  for (const x of meta) out.push({ f: x.f, d: {}, v: { gasto: x.v.gasto } });
+  for (const x of meta) out.push({ f: x.f, d: {}, v: { gasto: x.v.gasto, impresiones: x.v.impresiones, clics: x.v.clics, vistas_landing: x.v.vistas_landing } });
+  for (const x of vsl) out.push({ f: x.f, d: {}, v: { vistas_vsl: x.n } });
   for (const x of altas) out.push({ f: fechaTj(x.created_at), d: {}, v: { leads: 1 } });
   for (const x of agendas) out.push({ f: x.fecha_junta_1, d: {}, v: { agendas: 1, asistencias: x.asistio_j1 ? 1 : 0 } });
   for (const x of cierres) if (gano(x)) out.push({ f: x.fecha_cierre, d: {}, v: { cierres: 1, vendido: num(x.monto_cierre_usd) } });
@@ -538,8 +582,14 @@ export async function datosDeGraficos(pedidos: PedidoDatos[]): Promise<Record<st
     const rg: Rango = { desde: p.desde, hasta, sinRango };
     const clave = `${g.fuente}|${g.fecha}|${p.desde}|${hasta}|${sinRango}`;
     if (!lecturas.has(clave)) lecturas.set(clave, lector(g.fecha, rg));
+    // El período anterior del MISMO largo, que termina el día antes de que empiece éste.
+    const ant = g.estilo.comparar && !sinRango ? periodoAnterior(p.desde, hasta) : null;
+    const claveAnt = ant ? `${g.fuente}|${g.fecha}|${ant.desde}|${ant.hasta}|false` : null;
+    if (ant && claveAnt && !lecturas.has(claveAnt)) lecturas.set(claveAnt, lector(g.fecha, { ...ant, sinRango: false }));
     try {
-      out[g.id] = { ok: true, resultado: agregar(g, await lecturas.get(clave)!, p.desde, hasta) };
+      const resultado = agregar(g, await lecturas.get(clave)!, p.desde, hasta);
+      if (ant && claveAnt) resultado.anterior = agregar(g, await lecturas.get(claveAnt)!, ant.desde, ant.hasta).totales;
+      out[g.id] = { ok: true, resultado };
     } catch (e) {
       console.error(`[graficos] ${clave}: ${e instanceof Error ? e.message : String(e)}`);
       out[g.id] = { ok: false, error: 'No pude leer los datos' };
