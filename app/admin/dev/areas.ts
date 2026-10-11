@@ -893,7 +893,7 @@ export const AREAS: AreaDev[] = [
     vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'lib/plan-proyectos-catalogo.ts'],
     proyectos: ['Vender MaKo: Ads'],
     hallazgos: 'hallazgos-landing',
-    nota: 'El único código propio es la tab de super admin /admin/estrategia (app/admin/estrategia/datos.ts; hasta el 10/10/2026 era el doc /vsl/estrategia, que ahora redirige ahí): el canal B «campaña de mensajes» con su escalerita de métricas —8 de las 15 llamadas agendadas, US$125 por agenda, US$500 por cliente, 3× de retorno— y el plan de gasto US$1.000 de ads sobre US$10.000 facturados. El canal E (VSL Funnel propio + ads) queda para cuando la campaña dé señal. La ejecución vive fuera del repo, en el Ads Manager de Meta. NO CONFUNDIR con app/ads-manager, app/marketing ni app/ads-writer: eso es el producto que se le vende al cliente.',
+    nota: 'El único código propio es la tab de super admin /admin/estrategia (app/admin/estrategia/datos.ts; hasta el 10/10/2026 era el doc /vsl/estrategia, que ahora redirige ahí): el canal B «campaña de mensajes» con su escalerita de métricas —16 de las 26 agendas de la ventana, US$125 por agenda, ~US$390 por venta del grupal— y el plan de gasto: US$2.000 de ads en total del 1/11 al 15/12, contra un objetivo de US$15.000 en esa ventana (decisión del 10/10/2026: se mide el total, no el mes). El canal E (VSL Funnel propio + ads) queda para cuando la campaña dé señal. La ejecución vive fuera del repo, en el Ads Manager de Meta. NO CONFUNDIR con app/ads-manager, app/marketing ni app/ads-writer: eso es el producto que se le vende al cliente.',
   },
   {
     slug: 'gtm-instagram', titulo: 'GTM: Instagram', familia: 'Business', grupo: 'Go-to-Market',

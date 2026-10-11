@@ -1,14 +1,18 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { getSesionAdmin } from '@/lib/auth';
 import Costos from './Costos';
 
-// Documento INTERNO de costos, para compartirle a Mauricio por link. Cae bajo
-// /vsl → es pública por proxy.ts (startsWith '/vsl/'), así que el link se abre
-// sin login. noindex: son números de la empresa, no se distribuye ni lo levanta
-// ningún buscador.
-// ⚠️ /vsl/estrategia YA NO es pública: desde el 10/10/2026 redirige a la tab de
-// super admin /admin/estrategia. Si esta página también se muda (Martín pidió
-// «todo en una sola tab, sólo super admin» y nombró «una de análisis de costos»),
-// lo decide él: hoy sigue pública para mandársela por link a Mauricio.
+// Documento INTERNO de costos: qué paga MaKo por mes. Desde el 10/10/2026 es SÓLO
+// para el super admin (decisión de Martín: «¿Hacemos privada /vsl/costos?» → «Privada»).
+// Hasta ese día se abría sin login para mandárselo por link a Mauricio, que es un
+// CLIENTE: el link que ya tiene deja de abrir.
+//
+// ⚠️ EL GUARD VIVE ACÁ, NO EN EL PROXY: la página cae bajo '/vsl', que está en PUBLICOS
+// (lib/rutas-publicas.ts) por la landing, así que el proxy la deja pasar sin sesión.
+// `getSesionAdmin` lee la cookie firmada, que llega igual en una ruta pública. Es el
+// mismo guard que /admin/estrategia y /admin/runway: el rol de AGENCIA, no `rol_ws`
+// (que vale 'admin' para el dueño de cada workspace y la abriría a todos los clientes).
 //
 // ⚠️ Los montos están escritos a mano, con la fecha de medición a la vista en el
 // pie. NO se conectan a las APIs de facturación a propósito: esto es una foto
@@ -21,6 +25,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function Page() {
+export const dynamic = 'force-dynamic';
+
+export default async function Page() {
+  const admin = await getSesionAdmin();
+  if (!admin) redirect('/inicio');
   return <Costos />;
 }

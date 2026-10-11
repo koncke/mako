@@ -35,14 +35,14 @@ import type { CSSProperties, ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import {
   DESDE, HITOS, dia, pct, anclaje, faltan, num, usd,
-  HITO_ANUNCIOS, HITO_PLATA, HITO_FIN, CAPITAL, VENTANA, OBJETIVO_MES_USD,
-  PRECIO_PRO, PRECIO_GROWTH, PRECIO_GRUPAL, CUOTAS_GRUPAL, RENOVACION_GRUPAL_USD,
+  HITO_ANUNCIOS, HITO_PLATA, HITO_FIN, CAPITAL, VENTANA, OBJETIVO_USD, DIAS_VENTANA,
+  PRECIO_PRO, PRECIO_GROWTH, PRECIO_GRUPAL, CUOTAS_GRUPAL, RENOVACION_GRUPAL_USD, PRECIO_1A1,
   TORTAS, porcentajes, type Torta, type ClavePorcion,
   CAC_GRUPAL, CAC_PRO, DEJA_GRUPAL, type FilaCac,
   TECHO_PRO, TECHO_GROWTH, LTV_PRO, LTV_GROWTH, VIDA_PRO, VIDA_GROWTH,
   COSTO_REFERIDO, COMISION_GRUPAL, COMISION_GRUPAL_PCT, DESCUENTO_MAX_97,
   PASOS, CANALES, DIAG, DIAG_PASOS, LOOM_PASOS, LOOM_MIRA, LOOM_DICE, ANALISIS, DUDA,
-  ASISTE, CIERRA, AGENDADAS, EFECTIVAS, VENTAS, PAUTA, FACTURADO, NETO, COBRADO_EN_EL_MES,
+  ASISTE, CIERRA, AGENDADAS, EFECTIVAS, VENTAS, PAUTA, FACTURADO, NETO, PRIMERAS_CUOTAS,
   VENTAS_OBJETIVO, AGENDAS_OBJETIVO, COSTO_POR_AGENDA, FUTURO, JAN_GANA, JAN_GANO, type FilaJan,
 } from './datos';
 
@@ -134,7 +134,7 @@ function Intro() {
     <header className="est-hero">
       <p className="est-hero-h">Cómo vamos a vender <span className="est-oro">MaKo</span></p>
       <p className="est-hero-p">
-        El software para vender high ticket con <b>VSL Funnel</b>. Tres ofertas para que <b>cualquier lead
+        El software para vender high ticket con <b>VSL Funnel</b>. Cuatro ofertas para que <b>cualquier lead
         compre algo</b>, empujadas por dos canales: <b>prospección</b> a costo cero y <b>campaña de
         mensajes</b> a WhatsApp.
       </p>
@@ -158,7 +158,7 @@ function Cifras({ hoy }: { hoy: string }) {
     },
     { clave: 'Ventana de venta', valor: VENTANA, k: 'var(--mako)', sub: `${HITO_ANUNCIOS.rotulo} → ${HITO_FIN.rotulo}` },
     // El objetivo NO es lo que proyecta el embudo: el sub dice cuánto proyecta, para que no se lean como lo mismo.
-    { clave: 'Objetivo del mes', valor: usd(OBJETIVO_MES_USD), k: 'var(--good)', ink: 'var(--good)', sub: `Proyección: ${usd(FACTURADO)}` },
+    { clave: 'Objetivo de la ventana', valor: usd(OBJETIVO_USD), k: 'var(--good)', ink: 'var(--good)', sub: `Proyección: ${usd(FACTURADO)}` },
   ];
   return (
     <div className="est-grid" style={minCol(200)}>
@@ -233,6 +233,14 @@ function Oferta() {
           ))}
         </div>
         <p className="est-pie">Renueva: {usd(RENOVACION_GRUPAL_USD)} cada 3 meses · o {usd(PRECIO_GROWTH)}/mes sólo software</p>
+      </div>
+
+      {/* El precio está decidido y el contenido no (datos.ts, PRECIO_1A1): se dibuja la falta. */}
+      <div className="est-plan est-plan--1a1">
+        <span className="est-eyebrow">1 a 1</span>
+        <div className="est-precio"><b className="est-num">{usd(PRECIO_1A1)}</b></div>
+        <div><span className="est-chip est-chip--gris">Contenido a definir</span></div>
+        <p className="est-pie">Tiene que valer mucho la pena</p>
       </div>
     </div>
   );
@@ -654,7 +662,7 @@ function Proyeccion() {
       {/* Lo FACTURADO sale de las ventas × el precio del grupal, no del objetivo: el
           objetivo se dibuja abajo, aparte, con la brecha a la vista. */}
       <div className="est-cuenta">
-        <div className="est-cuenta-i" title={`En ${CUOTAS_GRUPAL} cuotas: en el mes entran ${usd(COBRADO_EN_EL_MES)}`}>
+        <div className="est-cuenta-i" title={`En ${CUOTAS_GRUPAL} cuotas: en la ventana entran como mínimo ${usd(PRIMERAS_CUOTAS)}`}>
           <span className="est-eyebrow">Vendido</span>
           <b className="est-num">{usd(FACTURADO)}</b>
           <small className="est-cuenta-s est-num">{num(VENTAS)} × {usd(PRECIO_GRUPAL)}</small>
@@ -672,22 +680,24 @@ function Proyeccion() {
 
 /** Lo proyectado contra el objetivo: una barra, y lo que falta para llegar. */
 function Brecha() {
-  const p = Math.min(100, (FACTURADO / OBJETIVO_MES_USD) * 100);
-  const falta = Math.max(0, OBJETIVO_MES_USD - FACTURADO);
+  const p = Math.min(100, (FACTURADO / OBJETIVO_USD) * 100);
+  const falta = Math.max(0, OBJETIVO_USD - FACTURADO);
   return (
     <div className="est-caja est-brecha">
       <div className="est-brecha-hd">
-        <span className="est-eyebrow">Objetivo del mes</span>
-        <b className="est-num">{usd(OBJETIVO_MES_USD)}</b>
+        <span className="est-eyebrow">Objetivo de la ventana</span>
+        <b className="est-num">{usd(OBJETIVO_USD)}</b>
       </div>
       <div className="est-brecha-carril" role="img"
-        aria-label={`Proyección ${usd(FACTURADO)} de un objetivo de ${usd(OBJETIVO_MES_USD)}`}>
+        aria-label={`Proyección ${usd(FACTURADO)} de un objetivo de ${usd(OBJETIVO_USD)}`}>
         <div className="est-brecha-llena" style={{ width: `${p}%` }}><span className="est-num">{usd(FACTURADO)}</span></div>
         {falta > 0 && <div className="est-brecha-falta"><span className="est-num">−{usd(falta)}</span></div>}
       </div>
       {falta > 0 && (
         <p className="est-brecha-pie">
-          Para llegar: <b className="est-num">{num(VENTAS_OBJETIVO)} ventas</b> ≈ <b className="est-num">{num(AGENDAS_OBJETIVO)} agendas</b>
+          {/* «10 tickets de 1500 o muchos de 47 o 97, o la combinación» (Martín, 10/10): la
+              cuenta va en grupales, que es lo que venden los dos canales. */}
+          Para llegar: <b className="est-num">{num(VENTAS_OBJETIVO)} grupales</b> ≈ <b className="est-num">{num(AGENDAS_OBJETIVO)} agendas</b> · o combinados con planes de {num(PRECIO_PRO)} y {num(PRECIO_GROWTH)}
         </p>
       )}
     </div>
@@ -809,19 +819,16 @@ function Futuro() {
   );
 }
 
-/** Una columna de la propuesta. Lo que choca con los referidos va marcado, no corregido (datos.ts). */
+/** Una columna de la propuesta, ya escrita con el programa de referidos (datos.ts, JAN_GANA). */
 function ColJan({ titulo, filas }: { titulo: string; filas: FilaJan[] }) {
   return (
     <div className="est-caja est-lista">
       <span className="est-lista-t">{titulo}</span>
       <ul>
         {filas.map((f) => (
-          <li key={f.t} className={f.choca ? 'est-jan--choca' : undefined}>
-            <span className="est-lista-ic"><Ic d={f.choca ? I.cruz : I.check} size={12} /></span>
-            <span>
-              {f.t}
-              {f.choca && <span className="est-jan-choca"><b>Choca con referidos.</b> {f.choca}</span>}
-            </span>
+          <li key={f.t}>
+            <span className="est-lista-ic"><Ic d={I.check} size={12} /></span>
+            <span>{f.t}</span>
           </li>
         ))}
       </ul>
@@ -843,10 +850,10 @@ export default function Estrategia({ hoy }: { hoy: string }) {
           <Producto />
         </Seccion>
         <Seccion n={2} titulo="La oferta" pregunta="¿Cuánto cuesta cada cosa?"
-          dato={`${usd(PRECIO_PRO)} · ${usd(PRECIO_GROWTH)} · ${usd(PRECIO_GRUPAL)}`}>
+          dato={`${usd(PRECIO_PRO)} · ${usd(PRECIO_GROWTH)} · ${usd(PRECIO_GRUPAL)} · ${usd(PRECIO_1A1)}`}>
           <Oferta />
         </Seccion>
-        <Seccion n={3} titulo="Los dos canales" pregunta="¿De dónde salen las llamadas?" dato={`${num(AGENDADAS)} agendas al mes`}>
+        <Seccion n={3} titulo="Los dos canales" pregunta="¿De dónde salen las llamadas?" dato={`${num(AGENDADAS)} agendas en ${num(DIAS_VENTANA)} días`}>
           <Canales />
         </Seccion>
         <Seccion n={4} titulo="El lead magnet y el Loom" pregunta="¿Con qué se engancha a cada lead?">
@@ -881,8 +888,8 @@ export default function Estrategia({ hoy }: { hoy: string }) {
           <p className="est-sub">Lo que deja un cliente</p>
           <Ltv />
         </Seccion>
-        <Seccion n={10} titulo="Proyección del mes" pregunta="¿Cuánto entra y cuánto falta?"
-          dato={`${usd(FACTURADO)} de ${usd(OBJETIVO_MES_USD)}`}>
+        <Seccion n={10} titulo="Proyección de la ventana" pregunta="¿Cuánto entra y cuánto falta?"
+          dato={`${usd(FACTURADO)} de ${usd(OBJETIVO_USD)}`}>
           <Proyeccion />
         </Seccion>
       </Grupo>

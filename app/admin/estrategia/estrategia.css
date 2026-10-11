@@ -192,8 +192,6 @@ html:not([data-tema="oscuro"]):not([data-tema-candidato]) .est { --est-on-verde:
 .est-icp-l b { font-weight: 600; }
 
 /* ── la propuesta a Jan ─────────────────────────────────────────────────────── */
-.est-jan--choca .est-lista-ic { background: var(--est-rojo-bg); color: var(--bad); }
-.est-jan-choca { display: block; margin-top: 4px; font-size: 12.5px; line-height: 1.4; color: var(--bad); }
 
 .est-h3 {
   margin: 0;
@@ -331,6 +329,8 @@ html:not([data-tema="oscuro"]):not([data-tema-candidato]) .est { --est-on-verde:
   border-color: color-mix(in srgb, var(--mako) 60%, var(--border));
   background: linear-gradient(170deg, var(--est-oro-bg), var(--surface) 62%);
 }
+/* Punteado: el precio está decidido y el contenido todavía no (datos.ts, PRECIO_1A1). */
+.est-plan--1a1 { border-style: dashed; }
 .est-precio { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .est-precio b { font-size: 40px; font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
 .est-precio span { font-size: 13px; color: var(--faint); }

@@ -38,6 +38,11 @@
 // desplegables»): la página DIBUJADA, no el fuente. Probada rompiéndola sobre una
 // base de 14/14 en verde, restaurando de memoria entre una y otra (el resultado de
 // cada rotura, en el comentario de su test).
+//
+// Cuarta tanda (10/10/2026, las cuatro decisiones de Martín: la ventana en vez del mes,
+// el objetivo de 15.000, el 1 a 1 de 10.000, Jan reescrito y /vsl/costos privada). Cinco
+// roturas sobre una base de 15/15 en verde, restaurando de memoria: las cinco dieron 14
+// pases y 1 fallo, cada una en su test.
 // =============================================================================
 
 import test from 'node:test';
@@ -50,8 +55,8 @@ import {
   TORTAS, porcentajes, CONTRIB_PRO, LTV_PRO, TECHO_PRO, TECHO_GROWTH, COSTO_REFERIDO,
   VIDA_PRO, VIDA_GROWTH, COMISION_GRUPAL,
   HITO_ANUNCIOS, HITO_PLATA, HITO_FIN, hoyAR, faltan, usd,
-  AGENDADAS, EFECTIVAS, VENTAS, PAUTA, FACTURADO, NETO, OBJETIVO_MES_USD, PRECIO_GRUPAL,
-  VENTAS_OBJETIVO, AGENDAS_OBJETIVO, COBRADO_EN_EL_MES,
+  AGENDADAS, EFECTIVAS, VENTAS, PAUTA, FACTURADO, NETO, OBJETIVO_USD, PRECIO_GRUPAL,
+  VENTAS_OBJETIVO, AGENDAS_OBJETIVO, PRIMERAS_CUOTAS, DIAS_VENTANA, PAUTA_TOTAL, PRECIO_1A1,
   CAC_GRUPAL, CAC_PRO, CAC_CAMPANA_GRUPAL, DEJA_GRUPAL, LOOMS_POR_VENTA, CANALES,
   ANALISIS, FUTURO, DIAG, LOOM_MIRA, LOOM_DICE, JAN_GANA, JAN_GANO,
 } from '../app/admin/estrategia/datos';
@@ -128,20 +133,28 @@ test('«hoy» es la fecha de Buenos Aires, no la UTC', () => {
   assert.match(page, /export default async function[\s\S]*const hoy = hoyAR\(\)/);
 });
 
-test('la proyección es la de la página de estrategia, y lo facturado sale de las ventas, no del objetivo', () => {
-  assert.deepEqual([AGENDADAS, EFECTIVAS, VENTAS, PAUTA], [15, 12, 5, 1000]);
-  // Los 10.000 salían del mix viejo (1 a 1 de 4.000 + grupales): con la oferta de hoy,
-  // 5 ventas son 5 grupales.
+test('la proyección es la de la ventana entera, y lo facturado sale de las ventas, no del objetivo', () => {
+  // Decisión del 10/10: la pauta es US$2.000 EN TOTAL de punta a punta de la ventana de
+  // los anuncios (1/11 al 15/12), el objetivo es US$15.000 en esa ventana, y la
+  // prospección se estira proporcional (1.000 por mes × 1,5).
+  // Rota: PAUTA_TOTAL en 1.000 → 14 pases, 1 fallo; la prospección SIN estirar (1.000
+  // en total) → 14 pases, 1 fallo.
+  assert.equal(DIAS_VENTANA, 45);
+  assert.equal(PAUTA, PAUTA_TOTAL);
+  assert.deepEqual(CANALES.map((c) => c.embudo.map((e) => e.n)), [[1500, 300, 10], [800, 560, 16]]);
+  assert.deepEqual([AGENDADAS, EFECTIVAS, VENTAS, PAUTA], [26, 21, 8, 2000]);
   assert.equal(FACTURADO, VENTAS * PRECIO_GRUPAL);
-  assert.deepEqual([FACTURADO, NETO, COBRADO_EN_EL_MES], [7500, 6500, 2500]);
-  assert.notEqual(NETO, OBJETIVO_MES_USD - PAUTA, 'el neto no puede salir del objetivo');
+  assert.deepEqual([FACTURADO, NETO, PRIMERAS_CUOTAS], [12000, 10000, 4000]);
+  assert.equal(OBJETIVO_USD, 15000);
+  assert.notEqual(NETO, OBJETIVO_USD - PAUTA, 'el neto no puede salir del objetivo');
   // La brecha: lo que hace falta para llegar al objetivo con la misma asistencia y cierre.
-  assert.deepEqual([VENTAS_OBJETIVO, AGENDAS_OBJETIVO], [7, 22]);
+  assert.deepEqual([VENTAS_OBJETIVO, AGENDAS_OBJETIVO], [10, 32]);
 });
 
 test('el costo de conseguir un cliente: el grupal contra lo que deja, el 47 sin el Free', () => {
-  // La campaña de esta página vende el grupal: 1.000 ÷ (8 × 0,8 × 0,4) = 390,625
-  // (en coma flotante 2,56 es 2,5600000000000005, y redondea a 390,62).
+  // La campaña de esta página vende el grupal: 2.000 ÷ (16 × 0,8 × 0,4) = 390,625
+  // (en coma flotante 5,12 no es exacto, y redondea a 390,62). Es el mismo costo que
+  // con la pauta de 1.000: cambia el volumen, no la tasa.
   assert.ok(Math.abs(CAC_CAMPANA_GRUPAL - 390.625) < 0.01, `campaña: ${CAC_CAMPANA_GRUPAL}`);
   assert.equal(DEJA_GRUPAL, 1190.33);
   for (const f of CAC_GRUPAL) assert.ok(f.usd <= DEJA_GRUPAL, `${f.label}: ${f.usd}`);
@@ -175,6 +188,10 @@ test('la tab es sólo para el super admin, y /vsl/estrategia redirige a ella', (
   const page = sinComentarios(leer('app/admin/estrategia/page.tsx'));
   assert.match(page, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);/);
   assert.doesNotMatch(page, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada workspace');
+  // /vsl/costos también, desde el 10/10: cae bajo '/vsl' (pública por la landing), así
+  // que el guard es lo ÚNICO que la cierra. Rota: sin las dos líneas → 14 pases, 1 fallo.
+  const costos = sinComentarios(leer('app/vsl/costos/page.tsx'));
+  assert.match(costos, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);\s*return <Costos \/>/);
   const vieja = sinComentarios(leer('app/vsl/estrategia/page.tsx'));
   assert.match(vieja, /redirect\('\/admin\/estrategia'\)/);
   // El item vive en la familia de ADMIN, y ninguna familia de clientes enlaza la tab:
@@ -223,12 +240,25 @@ test('lo que Martín reclamó vuelve A LA VISTA: la intro, el cliente ideal y lo
   assert.deepEqual(faltan, [], 'se dibujan sólo en un title, o no se dibujan');
 });
 
-test('la propuesta a Jan marca lo que choca con los referidos, al lado de la viñeta', () => {
-  // Rota: sin el renglón de `choca` → 13 pases, 1 fallo. Lo que choca se MARCA y no se corrige:
-  // qué se le ofrece a Jan lo decide Martín (datos.ts, JAN_GANA).
-  const chocan = [...JAN_GANA, ...JAN_GANO].filter((f) => f.choca);
-  assert.equal(chocan.length, 3);
-  assert.equal(VISIBLE.match(/Choca con referidos\./g)?.length ?? 0, chocan.length);
-  for (const f of chocan) assert.ok(VISIBLE.includes(f.choca!), `no se ve por qué choca: ${f.t}`);
+test('la propuesta a Jan está escrita con el programa de referidos: no promete lo que el programa no da', () => {
+  // Decisión del 10/10: «Reescribirla». Lo de julio prometía cinco cosas que el programa
+  // no da (datos.ts, el comentario de JAN_GANA); ninguna puede volver por un copy viejo.
+  // Rota: «Acceso personal de por vida» de vuelta en JAN_GANA → 14 pases, 1 fallo; el
+  // premio del grupal escrito a mano («US$300») en vez de usd(COMISION_GRUPAL) da verde
+  // con los números de hoy, y está bien: lo que se fija es que diga el del programa.
+  const filas = [...JAN_GANA, ...JAN_GANO].map((f) => f.t);
+  const prohibido = /de por vida|licencia de reventa|prueba gratuita extendida|% de las ganancias|recurrencia|sin mover un dedo/i;
+  assert.deepEqual(filas.filter((t) => prohibido.test(t)), []);
+  assert.ok(JAN_GANA.some((f) => f.t.includes(usd(COMISION_GRUPAL))), 'el premio del grupal');
+  assert.doesNotMatch(VISIBLE, /Choca con referidos/);
   assert.match(HTML, /<details class="est-det est-det--hijo">/, 'Jan va en su propio desplegable');
+});
+
+test('el 1 a 1 está en la oferta a US$10.000, con el contenido a definir y fuera de la proyección', () => {
+  // Martín, 10/10: «que salga 10k» y «La defino yo». Rota: sin la tarjeta → 14 pases, 1 fallo.
+  assert.equal(PRECIO_1A1, 10000);
+  assert.match(VISIBLE, /1 a 1<\/span><div class="est-precio"><b class="est-num">US\$10\.000<\/b>/);
+  assert.match(VISIBLE, /Contenido a definir/);
+  // No hay embudo que lo venda: lo facturado son sólo grupales.
+  assert.equal(FACTURADO % PRECIO_GRUPAL, 0);
 });

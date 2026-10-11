@@ -295,9 +295,9 @@ ninguna decisión.
 prospección (18/10 y 19/10), y la «ventana de 45 días» son 29-30 días con plata. La tab importa
 `HITOS` tal cual: se corrige en `runway/datos.ts` y se corrige en las dos pantallas.
 
-**`/vsl/costos` sigue pública sin login**, con los costos de la empresa. Era el otro documento
+**`/vsl/costos` seguía pública sin login**, con los costos de la empresa. Era el otro documento
 interno bajo `/vsl`; su cabecera decía «igual que /vsl/estrategia», que dejó de ser cierto.
-**Decisión de Martín.**
+Martín la cerró el mismo día (ver «la tercera vuelta», abajo).
 
 ### Y la segunda vuelta, el mismo día: «poco texto» no es «esconder en un hover»
 
@@ -322,6 +322,39 @@ referidos) no se borra: vuelve **marcado**, porque decidir qué se le ofrece a a
 trabajo de la pantalla. **Vive en:** `app/admin/estrategia/Estrategia.tsx` (`Seccion`,
 `ColJan`), `app/admin/estrategia/datos.ts` (`JAN_GANA`, `JAN_GANO`), y lo fija
 `tests/estrategia-tab.test.ts`, que dibuja la página y busca el texto **sin los `title`**.
+
+### Y la tercera vuelta, el mismo día: las cuatro decisiones
+
+Martín contestó lo que la tab tenía marcado: la proyección se cuenta sobre **la ventana de los
+anuncios** (1/11 al 15/12) y no por mes, con **US$2.000 de pauta en total** y un **objetivo de
+US$15.000**; el **1 a 1 vuelve a US$10.000** con el contenido a definir por él; la propuesta a
+Jan **se reescribe** con el programa de referidos; y `/vsl/costos` **se cierra**. Tres cosas
+que no se ven en el diff:
+
+**La propuesta a Jan chocaba en CINCO filas, y la tab marcaba tres.** Las tres marcadas
+chocaban con la tabla de premios (reventa, prueba extendida, % de ganancias). Las dos que
+nadie marcó chocaban con otra fila del programa, la de **reglas comunes**: «acceso personal de
+por vida» contra «todo se cobra, también a los amigos», y «cobra una recurrencia sin mover un
+dedo» contra un premio que es **una vez por cliente nuevo**. Las dos se leían como favores, no
+como reglas rotas. **Al contrastar una propuesta contra un programa decidido, se contrasta
+contra TODAS sus filas**, incluida la de reglas comunes, que es la que no habla de premios.
+**Vive en:** `app/admin/estrategia/datos.ts` (el comentario de `JAN_GANA` enumera las cinco);
+`tests/estrategia-tab.test.ts` frena que vuelva cualquiera de ellas.
+
+**Un costo por venta sale de las TASAS, no de dividir volúmenes redondeados.** Al estirar la
+prospección a 45 días, las agendas dan 10,5 y se cuentan 10 (media agenda no existe). Con eso,
+«Looms por venta» calculado como `responden ÷ ventas` pasaba de 89 a 94 **sólo por alargar la
+ventana**, sin que cambiara nada del canal. Ahora es `1 ÷ (tasa de agenda × asiste × cierra)`,
+y la campaña sigue en US$390,62 por venta y US$125 por agenda con el doble de pauta.
+
+**El guard de `/vsl/costos` vive en la página, no en el proxy.** `/vsl` está en `PUBLICOS` por
+la landing, así que el proxy la deja pasar sin sesión; `getSesionAdmin` lee la cookie firmada,
+que llega igual en una ruta pública. Es el único cerrojo, y por eso lo fija un test. El link
+que tenía Mauricio (un cliente) deja de abrir.
+
+**Lo que sigue sin coincidir con el runway:** la pauta y el objetivo ya son los mismos, pero las
+tasas no (el runway dice US$100 por agenda y 50% de asistencia con cierre implícito de 100%; la
+tab, US$125, 80% y 40%). La tab usa las que Martín aprobó y no dibuja la diferencia.
 
 ---
 

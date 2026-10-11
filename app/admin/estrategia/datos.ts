@@ -87,17 +87,31 @@ function cifra(clave: string): string {
 export const CAPITAL = cifra('Capital restante');
 export const VENTANA = cifra('Ventana de venta');
 
+// ── La ventana de los anuncios (decisión de Martín, 10/10/2026) ─────────────
+// «No lo mediría en mes... Lo mediría el total que son 2k repartido de inicio a fin
+// en las fechas donde dijimos que íbamos a correr los ads.» Las fechas son las del
+// runway (arrancan los anuncios → dejan de comprar), y TODA la proyección se cuenta
+// sobre ese tramo: la pauta, los dos canales y el objetivo. Antes era «en el mes» y
+// la pauta de la estrategia (1.000) no coincidía con la del runway (2.000).
+/** 1/11 al 15/12, contando los dos extremos: 45 días (el «45 días» de VENTANA). */
+export const DIAS_VENTANA = dia(HITO_FIN.fecha) - dia(HITO_ANUNCIOS.fecha) + 1;
+/** 45 ÷ 30 = 1,5: con esto se estira lo que la estrategia vieja contaba por mes. */
+export const MESES_VENTANA = DIAS_VENTANA / 30;
+/** US$2.000 en total, de punta a punta de la ventana. No es un ritmo mensual. */
+export const PAUTA_TOTAL = 2000;
+
 /**
- * El objetivo del mes. Estrategia.tsx:488 («El objetivo es $10,000 en el mes»).
- * ⚠️ Es un OBJETIVO, no lo que proyecta el embudo: los 10.000 salían del mix viejo
- * (1 «1 a 1» de 4.000 + 4 grupales), que ya no está en la oferta. Lo proyectado se
- * calcula abajo (FACTURADO) y la pantalla dibuja la brecha entre los dos.
+ * El objetivo de la ventana. Martín, 10/10/2026: «El objetivo no debe ser 10k...
+ * Debería ser 15k, que son vender 10 tickets de 1500 o muchos de 47 o 97, o la
+ * combinación de ambos.» Es el mismo US$15.000 que factura la cuenta del runway.
+ * ⚠️ Es un OBJETIVO, no lo que proyecta el embudo: lo proyectado se calcula abajo
+ * (FACTURADO) y la pantalla dibuja la brecha entre los dos.
  */
-export const OBJETIVO_MES_USD = 10000;
+export const OBJETIVO_USD = 15000;
 
 // ── La oferta (decisión de Martín, 10/10/2026) ──────────────────────────────
 // Reemplaza la escalera vieja de Estrategia.tsx:24-55 (Solo 497 · Grupal ·
-// 1 a 1 de 4.000): ni el Solo ni el 1 a 1 aparecen en nada posterior al 20/09.
+// 1 a 1 de 4.000). El Solo no vuelve; el 1 a 1 sí, a otro precio (PRECIO_1A1).
 // Los precios de software salen de UNIT_V2; el grupal, de ASCENSO_PROGRAMAS.
 function plan(id: UnitPlan['plan']): UnitPlan {
   const p = UNIT_V2.find((u) => u.plan === id);
@@ -115,6 +129,14 @@ export const PRECIO_GRUPAL = GRUPAL.precioUsd; // 1.500
 export const CUOTAS_GRUPAL = 3;
 /** Del 21/09: renovación del grupal, 500 cada 3 meses (o 97/mes sólo software). */
 export const RENOVACION_GRUPAL_USD = 500;
+/**
+ * El 1 a 1, de vuelta y a US$10.000. Martín, 10/10/2026: «Podríamos plantear una
+ * oferta 1 a 1... Pero que salga 10k y debería realmente valer mucho la pena».
+ * ⚠️ QUÉ INCLUYE LO DEFINE ÉL («La defino yo»): la tab dibuja el precio y dice que el
+ * contenido falta. No entra en la proyección ni en la brecha: sin contenido no hay
+ * embudo que lo venda, y su objetivo de 15.000 lo nombró en grupales y planes.
+ */
+export const PRECIO_1A1 = 10000;
 
 // ── A dónde va cada dólar (las tres tortas) ─────────────────────────────────
 // Con la IA de HOY (IA_POR_PRO.hoyUsd = 10,90, medida), no la del ruteo barato:
@@ -272,25 +294,46 @@ export type Canal = {
   hechos: string[]; fases?: { t: string; usd: number }[]; embudo: Escalon[];
 };
 
+// Las TASAS son las de la página vieja (Estrategia.tsx:60-72), que Martín aprobó; los
+// VOLÚMENES se calculan con ellas sobre la ventana. Antes eran 1.000 conversaciones
+// «en el mes» y US$1.000 de pauta (400 conversaciones → 8 agendas).
+/** Prospección: 1.000 conversaciones por mes, estiradas a la ventana («Proporcional», 10/10). */
+const PROSPECCION_POR_MES = 1000;
+const RESPONDE_A = 0.2;
+const AGENDA_A = 0.035;
+/** Campaña: lo que cuesta cada conversación iniciada, y las dos tasas de después. */
+const COSTO_CONVERSACION = 2.5;
+const RESPONDE_B = 0.7;
+const AGENDA_B = 0.03;
+/** La fase 1 (encontrar el ad ganador) sigue en 300; el resto de la pauta es escalar. */
+const AD_GANADOR = 300;
+
+const CONVERSACIONES_A = Math.round(PROSPECCION_POR_MES * MESES_VENTANA); // 1.500
+const RESPONDEN_A = Math.round(CONVERSACIONES_A * RESPONDE_A); // 300
+const CONVERSACIONES_B = Math.round(PAUTA_TOTAL / COSTO_CONVERSACION); // 800
+const RESPONDEN_B = Math.round(CONVERSACIONES_B * RESPONDE_B); // 560
+// ⚠️ Las agendas van con floor: media agenda no se cuenta (10,5 → 10 y 16,8 → 16).
+// Con la pauta vieja daban exacto (7 y 8,4 → 8), así que el criterio no cambió nada de antes.
+
 /** Estrategia.tsx:60-72 (embudos) y :321-357 (las tarjetas). */
 export const CANALES: Canal[] = [
   {
     id: 'A', nombre: 'Prospección', sub: 'Círculo rojo + leads 100% fríos', inversion: 0,
     hechos: ['Un Loom VSL por cada lead'],
     embudo: [
-      { l: 'Conversaciones abiertas en el mes', n: 1000 },
-      { l: 'Responden', n: 200, tasa: '20% · la abro yo' },
-      { l: 'Agendadas', n: 7, tasa: '3,5%' },
+      { l: 'Conversaciones abiertas', n: CONVERSACIONES_A, tasa: `${num(PROSPECCION_POR_MES)} por mes` },
+      { l: 'Responden', n: RESPONDEN_A, tasa: `${num(RESPONDE_A * 100)}% · la abro yo` },
+      { l: 'Agendadas', n: Math.floor(RESPONDEN_A * AGENDA_A), tasa: `${num(AGENDA_A * 100, 1)}%` },
     ],
   },
   {
-    id: 'B', nombre: 'Campaña de mensajes', sub: 'Meta optimizando a WhatsApp', inversion: 1000,
+    id: 'B', nombre: 'Campaña de mensajes', sub: 'Meta optimizando a WhatsApp', inversion: PAUTA_TOTAL,
     hechos: [],
-    fases: [{ t: 'Ad ganador', usd: 300 }, { t: 'Escalar', usd: 700 }],
+    fases: [{ t: 'Ad ganador', usd: AD_GANADOR }, { t: 'Escalar', usd: PAUTA_TOTAL - AD_GANADOR }],
     embudo: [
-      { l: 'Conversaciones iniciadas', n: 400, tasa: 'US$2,50 c/u' },
-      { l: 'Responden', n: 280, tasa: '70% · escribieron ellos' },
-      { l: 'Agendadas', n: 8, tasa: '3%' },
+      { l: 'Conversaciones iniciadas', n: CONVERSACIONES_B, tasa: `${usd(COSTO_CONVERSACION)} c/u` },
+      { l: 'Responden', n: RESPONDEN_B, tasa: `${num(RESPONDE_B * 100)}% · escribieron ellos` },
+      { l: 'Agendadas', n: Math.floor(RESPONDEN_B * AGENDA_B), tasa: `${num(AGENDA_B * 100)}%` },
     ],
   },
 ];
@@ -356,31 +399,35 @@ export const DUDA: FilaDuda[] = [
 ];
 
 // ── Proyección (Estrategia.tsx:109-113 y :488-533) ──────────────────────────
-// ⚠️ Es la de la página de estrategia (80% asiste, 40% cierra, US$1.000 de pauta),
-// NO la del runway (50% de show up, cierre implícito de 100%, US$2.000): Martín
-// aprobó ésta. La contradicción entre las dos NO se dibuja: la decide él.
-// ⚠️ Y los 5 × ? = US$10.000 salían del MIX viejo (1 «1 a 1» de 4.000 + 4 grupales
-// de 1.500, Estrategia.tsx:115-118). El 1 a 1 no está en la oferta vigente: con
-// sólo grupales, 5 ventas son US$7.500. Por eso lo FACTURADO se calcula con el
-// precio del grupal, y el objetivo de US$10.000 se dibuja aparte, con su brecha.
+// Sobre la VENTANA entera (1/11 al 15/12), no por mes: decisión del 10/10.
+// ⚠️ Las tasas son las de la página de estrategia (80% asiste, 40% cierra, US$125
+// por agenda), NO las del runway (50% de show up, cierre implícito de 100%, US$100
+// por agenda): Martín aprobó éstas. La pauta (2.000) y el objetivo (15.000) ya
+// coinciden con los del runway; las tasas siguen distintas y eso NO se dibuja.
+// ⚠️ Lo FACTURADO se calcula con el precio del grupal (lo que venden los dos canales),
+// y el objetivo se dibuja aparte, con su brecha.
 export const ASISTE = 0.8;
 export const CIERRA = 0.4;
-export const AGENDADAS = CANALES.reduce((s, c) => s + (c.embudo.at(-1)?.n ?? 0), 0); // 7 + 8 = 15
-export const EFECTIVAS = Math.round(AGENDADAS * ASISTE); // 12
-/** 12 × 40% = 4,8 → 5. Se redondea porque se dibuja como un número de ventas. */
+export const AGENDADAS = CANALES.reduce((s, c) => s + (c.embudo.at(-1)?.n ?? 0), 0); // 10 + 16 = 26
+export const EFECTIVAS = Math.round(AGENDADAS * ASISTE); // 20,8 → 21
+/** 21 × 40% = 8,4 → 8. Se redondea porque se dibuja como un número de ventas. */
 export const VENTAS = Math.round(EFECTIVAS * CIERRA);
-export const PAUTA = CANALES.reduce((s, c) => s + c.inversion, 0); // 1.000
-/** 5 grupales × US$1.500 = US$7.500. Lo que el embudo proyecta, no el objetivo. */
+export const PAUTA = CANALES.reduce((s, c) => s + c.inversion, 0); // 2.000 (= PAUTA_TOTAL)
+/** 8 grupales × US$1.500 = US$12.000. Lo que el embudo proyecta, no el objetivo. */
 export const FACTURADO = VENTAS * PRECIO_GRUPAL;
-/** 7.500 − 1.000 = 6.500. */
+/** 12.000 − 2.000 = 10.000. */
 export const NETO = FACTURADO - PAUTA;
-/** Con 3 cuotas, en el mes entra la primera de cada venta: 5 × 500 = 2.500. */
-export const COBRADO_EN_EL_MES = VENTAS * (PRECIO_GRUPAL / CUOTAS_GRUPAL);
-/** Para llegar al objetivo con sólo grupales: ⌈10.000 ÷ 1.500⌉ = 7 ventas. */
-export const VENTAS_OBJETIVO = Math.ceil(OBJETIVO_MES_USD / PRECIO_GRUPAL);
-/** Y las agendas que hacen falta con la misma asistencia y cierre: ⌈7 ÷ (0,8 × 0,4)⌉ = 22. */
+/**
+ * Con 3 cuotas mensuales, dentro de la ventana entra COMO MÍNIMO la primera de cada
+ * venta: 8 × 500 = 4.000. Una venta del 1/11 ya paga la segunda el 1/12; cuántas lo
+ * hacen depende de en qué día cae cada una, y eso la proyección no lo sabe.
+ */
+export const PRIMERAS_CUOTAS = VENTAS * (PRECIO_GRUPAL / CUOTAS_GRUPAL);
+/** Para llegar al objetivo con sólo grupales: ⌈15.000 ÷ 1.500⌉ = 10 ventas. */
+export const VENTAS_OBJETIVO = Math.ceil(OBJETIVO_USD / PRECIO_GRUPAL);
+/** Y las agendas que hacen falta con la misma asistencia y cierre: ⌈10 ÷ (0,8 × 0,4)⌉ = 32. */
 export const AGENDAS_OBJETIVO = Math.ceil(VENTAS_OBJETIVO / (ASISTE * CIERRA) - 1e-9);
-/** US$1.000 ÷ 8 agendas de la campaña = US$125. */
+/** US$2.000 ÷ 16 agendas de la campaña = US$125. */
 export const COSTO_POR_AGENDA = (() => {
   const b = CANALES.find((c) => c.id === 'B');
   return b ? b.inversion / (b.embudo.at(-1)?.n ?? 1) : 0;
@@ -399,20 +446,20 @@ function canal(id: string) {
   if (!c) throw new Error(`modelo.ts: CAC_CANALES no tiene «${id}»`);
   return c;
 }
-function escalon(id: Canal['id'], l: string): number {
-  const e = CANALES.find((c) => c.id === id)?.embudo.find((x) => x.l === l);
-  if (!e) throw new Error(`estrategia: el canal ${id} no tiene el escalón «${l}»`);
-  return e.n;
-}
 /** Ventas que trae un canal: sus agendadas × asiste × cierra (sin redondear: es un costo). */
 const ventasDe = (id: Canal['id']) => (CANALES.find((c) => c.id === id)?.embudo.at(-1)?.n ?? 0) * ASISTE * CIERRA;
 
 /** Lo que deja un grupal ANTES de pagar por conseguirlo: 1.500 − cobro − reserva − 1 h = 1.190,33. */
 export const DEJA_GRUPAL = GRUPAL.capacidadUsd;
-/** US$1.000 ÷ (8 × 0,8 × 0,4 = 2,56 ventas) = 390,62 (390,625 con 2,56 en coma flotante). */
+/** US$2.000 ÷ (16 × 0,8 × 0,4 = 5,12 ventas) = 390,62 (390,625 en coma flotante). */
 export const CAC_CAMPANA_GRUPAL = r2((CANALES.find((c) => c.id === 'B')?.inversion ?? 0) / ventasDe('B'));
-/** Un Loom por cada lead que responde (200) ÷ (7 × 0,8 × 0,4 = 2,24 ventas) ≈ 89. */
-export const LOOMS_POR_VENTA = Math.round(escalon('A', 'Responden') / ventasDe('A'));
+/**
+ * Un Loom por cada lead que responde, por venta: 1 ÷ (3,5% × 0,8 × 0,4) ≈ 89.
+ * ⚠️ Sale de las TASAS, no de dividir los volúmenes: con la agenda redondeada para
+ * abajo (300 → 10, no 10,5), 300 ÷ 3,2 daba 94 y el costo de un canal cambiaba sólo
+ * por alargar la ventana.
+ */
+export const LOOMS_POR_VENTA = Math.round(1 / (AGENDA_A * ASISTE * CIERRA));
 
 export const CAC_GRUPAL: FilaCac[] = [
   { label: 'Campaña de mensajes', usd: CAC_CAMPANA_GRUPAL,
@@ -460,28 +507,34 @@ export const FUTURO = [
 ] as const;
 
 /**
- * La propuesta a Jan (Estrategia.tsx:563-585 de la página vieja, 28/07/2026), el caso
- * concreto del canal G. La primera versión de la tab la sacó por chocar con los
- * referidos decididos el 10/10; Martín la reclamó ese mismo día («eliminaste cosas…
- * que estaban buenas»), así que vuelve TAL CUAL y lo que choca va MARCADO, no
- * corregido: qué se le ofrece a Jan lo decide él, no la tab.
- * `choca` dice la regla del 10/10 contra la que choca (docs/referidos.md, «EL
- * PROGRAMA DECIDIDO»), en un renglón: se dibuja debajo de la viñeta.
+ * La propuesta a Jan, el caso concreto del canal G, REESCRITA con el programa de
+ * referidos (decisión de Martín, 10/10/2026: «Reescribirla»).
+ *
+ * La de julio (Estrategia.tsx:563-585 de la página vieja, 28/07/2026) chocaba con
+ * docs/referidos.md («EL PROGRAMA DECIDIDO») en cinco filas, y la tab sólo marcaba tres:
+ *   · «Licencia de reventa para todos sus clientes» → cada cliente paga su plan.
+ *   · «Prueba gratuita extendida» → el 1er mes gratis en el 47 y hasta 50% en el 97.
+ *   · «Un % de las ganancias a futuro con sus clientes» → MaKo cobra el plan y el que
+ *     refiere recibe el premio, no al revés.
+ *   · «Acceso personal de por vida a MaKo» (sin marcar) → «todo se cobra, también a
+ *     los amigos» (reglas comunes): su cuenta se paga con lo que trae.
+ *   · «Cobra una recurrencia sin mover un dedo» (sin marcar) → el premio es UNA vez por
+ *     cliente nuevo (su primer mes), no un ingreso todos los meses.
+ * Lo que queda es lo mismo que recibe cualquier revendedor, más lo que no tiene precio
+ * (su metodología en el software, el trabajo para que MaKo se use al 100%). Los montos
+ * salen de las constantes del programa, no se escriben.
  */
-export type FilaJan = { t: string; choca?: string };
+export type FilaJan = { t: string };
 export const JAN_GANA: FilaJan[] = [
-  { t: 'Acceso personal de por vida a MaKo y a todas sus versiones futuras' },
-  { t: 'Licencia de reventa para todos sus clientes: sube el valor de su oferta',
-    choca: 'Decidido: cada cliente paga su plan; el revendedor cobra primero en descuento y lo que sobra, en efectivo' },
-  { t: 'Sus clientes acceden a una prueba gratuita extendida',
-    choca: `Decidido: el que llega tiene el 1er mes gratis en el ${num(PRECIO_PRO)} y hasta ${num(DESCUENTO_MAX_97 * 100)}% en el ${num(PRECIO_GROWTH)}` },
-  { t: 'Cobra una recurrencia a sus clientes sin mover un dedo, sólo sumando MaKo' },
+  { t: `Su cuenta de ${num(PRECIO_GROWTH)} da de alta un workspace por cada cliente suyo, y cada uno paga su plan` },
+  { t: 'Cada cliente nuevo le descuenta su primer mes; cubierta su suscripción, lo que sobra se le paga en efectivo' },
+  { t: `Sus clientes entran con el 1er mes gratis en el ${num(PRECIO_PRO)}, o hasta ${num(DESCUENTO_MAX_97 * 100)}% del 1er mes en el ${num(PRECIO_GROWTH)}` },
+  { t: `${usd(COMISION_GRUPAL)} en efectivo por cada alumno que traiga al grupal` },
   { t: 'Su metodología implementada en el software, para vender lo que él ofrece' },
   { t: 'Trabajo para que MaKo se use al 100% en sus productos' },
 ];
 export const JAN_GANO: FilaJan[] = [
   { t: 'Jan me ayuda 1 a 1 con mis ads (RECON)' },
   { t: 'Me recomienda ya con 3 o más de sus clientes; lo cobrado va 100% a los ads que él recomiende' },
-  { t: 'Un % de las ganancias a futuro con todos sus clientes que usen MaKo',
-    choca: 'Decidido: MaKo cobra el plan de cada cliente y el que refiere recibe el premio, no al revés' },
+  { t: 'Cada cliente suyo paga su plan de lista: MaKo cobra, y él recibe el premio' },
 ];
