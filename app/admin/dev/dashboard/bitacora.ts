@@ -198,4 +198,25 @@ export const BITACORA: Hito[] = [
       'hallazgos-api-mako (validar estricto, borrar con «-», el tablero leído sin cookie), hallazgos-ads (force no es reintentar), hallazgos-landing (lo que quedó sin usar) e hallazgos-infra (el worktree sin .env.local).',
     ],
   },
+  {
+    fecha: '11 oct', hora: '18:35', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La topbar como la de Looker, y Compartir por link o por email',
+    puntos: [
+      'Las hojas pasan a un desplegable en el título, con «Nueva hoja» siempre primera. Sin pestañas, sin el ícono de la tab y sin «Restablecer el informe».',
+      'AI Analyst, Exportar y la guía viven en el ⋮; los botones de MaKo son sólo el logo en negro. Emoji, título y subtítulo se editan con un clic.',
+      'Los filtros quedan siempre en la topbar; agregarlos o quitarlos, sólo editando. El período vuelve al diseño de antes.',
+      'Editando, la barra de herramientas como la de Looker.',
+      'Compartir es el mismo de Conocimientos (link o invitados por email). El link muestra todas las hojas en sólo lectura, sin nombres de personas ni el detalle de un número.',
+    ],
+    commits: [{ sha: '12160c5', msg: 'Dashboard: la topbar como la de Looker y «Compartir» por link o por email', lineas: 3316, archivos: 31 }],
+    archivos: ['app/dashboard/Cabecera.tsx', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/BarraControles.tsx', 'app/dashboard/CompartirInforme.tsx', 'app/compartido/[token]/informe-reglas.ts', 'app/api/compartido/graficos/route.ts'],
+  },
+  {
+    fecha: '11 oct', hora: '18:35', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'cosecha',
+    titulo: 'Lo que dejó la topbar: dos botones para el mismo desplegable, un placeholder que se imprimía y el link que no confía en lo que pide',
+    puntos: [
+      'docs/hallazgos-graficos.md: la topbar (el desplegable que son dos botones, el «Agrega un subtítulo» que salía en el PDF, el test de Conocimientos que fija la clase del botón reusado) y las cuatro reglas del link.',
+      'docs/hallazgos-seguridad.md: las puertas del link (el token en el cuerpo, todo adentro del workspace del share, el mismo 404, los topes).',
+    ],
+  },
 ];

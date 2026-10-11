@@ -1,55 +1,55 @@
 # Relevo — chat «Graphics» (la tab Dashboard)
 
-<sub>Escrito el 11/10/2026 ~16:45 (hora de Argentina) por la cuenta 3, desde el chat que hizo el trabajo. Se pisa en cada relevo.</sub>
+<sub>Escrito el 11/10/2026 ~18:45 (hora de Argentina) por la cuenta 3, desde el chat que hizo el trabajo. Se pisa en cada relevo.</sub>
 
 ## Dónde está
 
-La **tanda v4** sale en `6e85d8d7` (+ la bitácora y esta cosecha): las seis decisiones de Martín de la tarde y
-el Dashboard entero en la API de MaKo. Lo de antes: `623ff3cd` (v3), `e51f01a8` (red de plataforma del AI
-Analyst y la guarda de «Marcar cobrada»). Pedidos textuales en `app/admin/dev/dashboard/bitacora.ts`; lo que
-costó, en `docs/hallazgos-graficos.md` (más api-mako, ads, landing e infra). El contrato de la corrida de
-agentes sigue en [dashboard-v4.md](dashboard-v4.md).
+La **topbar como la de Looker y «Compartir»** (los nueve puntos de la tarde) sale en `12160c59` (+ la bitácora
+y este relevo). Antes: la **v4** en `6e85d8d7` (Closing, Ads y Landing Analyst como tabs retiradas, el Dashboard
+entero en la API de MaKo, Enlace/Video/Insertar), el **v3** en `623ff3cd`. Pedidos textuales en
+`app/admin/dev/dashboard/bitacora.ts`; lo que costó, en `docs/hallazgos-graficos.md` (y la puerta del link en
+`docs/hallazgos-seguridad.md`).
 
-## ⚠️ LO QUE SIGUE: la topbar como la de Looker (nueve puntos, sin empezar)
+⚠️ Si `12160c59` no aparece en `origin/main`, el push quedó esperando: la sesión de Chatbot pidió (pedido de
+Martín, ~18:30) no correr typecheck, tests ni builds mientras implementa su undécima tanda, y el pre-push corre
+el typecheck. El commit está en el worktree `wt-topbar` (detached); se pushea con `git push origin HEAD:main`
+desde ahí, después de `git fetch` + `git rebase origin/main`.
 
-Textual en la bitácora (último hito `prompt`), con dos capturas: las hojas pasan de pestañas a un DESPLEGABLE en
-el título (con «Nueva hoja» siempre primera); se va el «⋯» con «Restablecer informe»; los botones de MaKo, sólo
-el logo en fondo negro; AI Analyst, Exportar y el tutorial adentro de un «⋮»; emoji, título y subtítulo
-editables con un clic sin entrar a Editar; sin el ícono del Dashboard (el título ES la topbar, con Editar y el
-⋮); los filtros (fecha + búsqueda) siempre en la topbar, con un diseño mejor (el de fecha «está muy confuso»),
-y agregar/quitar filtros SÓLO editando; la topbar igual a la de Looker (en lugar de Archivo · Vista · Página ·
-Ayuda va el subtítulo; formas, flechas y texto ubicados como Looker); y un botón **Compartir** que funcione
-exactamente como el de CONOCIMIENTOS del super admin (link de acceso a los gráficos e invitar por email).
-Casi todo vive en `app/dashboard/EditorInforme.tsx` (cabecera y barra) y `app/dashboard/Cabecera.tsx`.
+## Lo que quedó de la topbar (interpretaciones dichas en el cierre)
 
-## Lo que falta de la v4
+- **Punto 7, «la barra de búsqueda»:** la fila de filtros de la hoja vive siempre en la topbar; buscar es lo que
+  trae cada filtro de lista adentro. «＋ Filtro» y «Quitar» sólo editando. Si Martín quería un buscador suelto,
+  falta.
+- **«Restablecer el informe»** salió de la pantalla y sigue en la API de MaKo (`restablecer_informe_dashboard`).
+- **Compartir** reusa el modal de Conocimientos con una prop opcional `claseBoton` (azul de Looker en la topbar;
+  en Conocimientos no cambia nada).
 
-1. **El informe de Mauricio** (ws1, `graficos.tablero.2`): lo EDITÓ el 11/10 a las 17:00 UTC (estilo de la hoja
-   Marketing en «contraste»). NO pisarlo entero: sumar sólo las cohortes en «Todo» y la lista de llamadas de la
-   hoja Closing (diff con el script del scratchpad `diff-tablero2.mts`; si ese chat ya no está, se reescribe:
-   leer la fila, comparar contra `PLANTILLAS_ANALYSTS` y agregar sólo componentes con id nuevo).
-2. **Briefs a dos chats**: Chatbot (el evento «El AI Analyst terminó» `dashboard_analisis_listo`, el área
-   Dashboard en el selector del paso ⚡ Acción, selectores por persona y hoja; texto en dashboard-v4.md) y Landing
-   Generator (`DialogoAnalitica.tsx:146` sigue enlazando la ruta vieja, y su nav no tiene «Diagnóstico»; el
-   detalle en `docs/hallazgos-landing.md`). Cuando Chatbot defina el aviso, emitirlo desde
-   `lib/graficos-analisis-server.ts` al guardar un análisis programado.
-3. **Dos escritores del tablero**: el autoguardado del editor no manda versión (la API sí). Ver hallazgos.
-4. **Sin usar y sin borrar** (lo decide Martín): `PulsoPaginas.tsx` + su ruta y su lib; el componente
-   `ScriptsBrowser` y `GuionesFull`.
+## Lo que falta
+
+1. **El aviso «El AI Analyst terminó»** para Automations: Chatbot lo define con hoja, resumen, hallazgos y link
+   SEPARADOS en `datos`; cuando mande el id, emitirlo desde `lib/graficos-analisis-server.ts` al guardar un
+   análisis programado.
+2. **Textos sueltos de Landing Analyst** (Landing Generator no los tocó): la nota de `lib/model-catalogo.ts`, el
+   encabezado del prompt de `lib/landing-writer.ts` y `docs/diseno-editor-landing.md`.
+3. **Pendientes del link** (detalle en hallazgos-graficos, «Lo que quedó sin hacer»): el tablero de Tareas que se
+   elige por la sesión de quien abre el link; los bloques sin `soloLectura`; `useValoresCompartidos` a
+   `valores.ts`; `controlParaHttp` y `controlParaLink` duplicados.
+4. **Dos escritores del tablero**: el autoguardado del editor no manda versión (la API sí).
+5. **Sin usar y sin borrar** (lo decide Martín): `PulsoPaginas.tsx` + su ruta y su lib; `ScriptsBrowser` y
+   `GuionesFull`.
+
+Hecho desde el relevo anterior: el informe de Mauricio (ws1) recibió las cohortes en «Todo» y la hoja Closing
+sin pisar lo que él editó; los briefs a Chatbot y a Landing Generator se mandaron y contestaron (Landing
+Generator arregló el link viejo de `DialogoAnalitica`).
 
 ## Cómo quedó verificado
 
-Chrome contra `next start` de un worktree limpio (ws1, usuario `dev`): los cuatro redirects (`/closing`,
-`?call=` → `&llamada=`, `/ads-analyst`, `/landing-analyst`), la hoja Closing con 71 llamadas y su ficha con la
-grabación de Fathom, el menú Insertar con Enlace, Video e Insertar y un YouTube embebido, Ads Writer «Analizar
-guion», Landing Generator «Diagnóstico», y un closer viendo sólo «Closing» (sin Editar; la API le contesta 403 a
-otra hoja). La prueba escribió `graficos.tablero.dev` en el ws1 (se limpia con el script del scratchpad
-`limpiar-prueba.mjs`, que borra sólo eso y los `dashboard_analisis` del usuario `dev`).
+Chrome contra `next start` de un worktree limpio, en el ws9 (el ws3 redirige a /onboarding), usuario `dev`:
+topbar y desplegable de hojas, el ⋮, la barra de edición, Compartir azul (`rgb(47, 111, 237)`), crear un link,
+abrirlo sin sesión (15 componentes, sin Editar ni Compartir), detalle 403, revocar 200 y el link revocado 404.
+La prueba no guardó ningún informe (releído: sólo existe `graficos.tablero.2`, el de Mauricio); dejó la fila
+de `shares` id 45 del ws9, revocada.
 
-## Decisiones tomadas sin preguntar (dichas en el cierre)
-
-- El elemento Insertar acepta cualquier https (como Looker), salvo nuestros dominios («usa Enlace»), puertos e IPs.
-- `?tab=analizar` de Ads Writer no pasa por la puerta del onboarding de Copy Generator.
-- Las tareas de Closing (sincronizar, re-analizar, revisar) quedan para admin y closer; un setter no.
-- Crear, borrar y restablecer hojas por la API no corren dentro de una automatización.
-- Por HTTP, el link de una grabación de Fathom no sale.
+Typecheck 0; `npm test` 8068/4. Los 4 rojos: tres ajenos que ya estaban en main (confirm-encima-de-modales por
+el z-index de `DesvioMovil`, mover-etapa-validacion, plan-filtro-cliente) y el de conocimientos-compartir, que
+se actualizó en el mismo commit (12/0).
