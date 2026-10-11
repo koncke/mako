@@ -30,13 +30,18 @@
 //     se pasa. La vista del chat se quedó en Notificaciones, que es donde vive (no es el lienzo).
 //
 // El `key` es obligatorio y lo pone quien monta: el detalle siembra seis `useState` de sus props
-// (AGENTS.md, «Un `useState` sembrado de props no se resiembra»).
+// (AGENTS.md, «Un `useState` sembrado de props no se resiembra»). Lo que el «⋯» de la lista cambia sin
+// remontarlo (el interruptor, el nombre) el detalle lo resiembra solo (novena tanda).
+//
+// ⚠️ EL TACHO ES EL «ELIMINAR» DEL «⋯» (novena tanda, 10/10/2026): `onEliminar` llega de la lista, que
+// pregunta con la confirmación de la casa y OCULTA el mensaje (se recupera). Sin él, el tacho del detalle
+// borraba acá mismo y sin preguntar: dos «Eliminar» del mismo mensaje con dos consecuencias distintas.
 
 import { TemplateDetalleModal, type PlantillaVista } from '../agencia/TemplateDetalleModal';
 import { ENDPOINT_MENSAJES_MAKO } from '@/lib/chatbot-mensajes-mako';
 import type { Muelles } from '@/lib/lienzo-grafo';
 
-export function MensajeMakoLienzo({ plantilla, insetIzq, muelles, onCambio, onCerrar }: {
+export function MensajeMakoLienzo({ plantilla, insetIzq, muelles, onCambio, onCerrar, onEliminar }: {
   plantilla: PlantillaVista;
   /** Lo que tapa la lista a la izquierda (`muelles(...).insets.izq`). */
   insetIzq: number;
@@ -44,8 +49,10 @@ export function MensajeMakoLienzo({ plantilla, insetIzq, muelles, onCambio, onCe
   muelles?: Muelles | null;
   /** Cambió algo del mensaje (nombre, interruptor, texto publicado): la lista lo vuelve a leer. */
   onCambio: () => void;
-  /** El mensaje se fue (eliminar uno propio): se vuelve a la lista. */
+  /** El detalle se cierra: se vuelve a la lista. */
   onCerrar: () => void;
+  /** El tacho: el MISMO «Eliminar» del «⋯» de la fila (pregunta y oculta). */
+  onEliminar: () => void;
 }) {
   // ⚠️ EL ALTO LO DA UNA CAJA ABSOLUTA, no el `height: 100%` del detalle contra un ítem flex. El
   // detalle pone su alto con `height: alto`, y un porcentaje contra un alto que sale de `flex: 1`
@@ -61,6 +68,7 @@ export function MensajeMakoLienzo({ plantilla, insetIzq, muelles, onCambio, onCe
           alto="100%" marco={false} insetIzq={insetIzq} muelles={muelles}
           onCambio={onCambio}
           onClose={onCerrar}
+          onEliminar={onEliminar}
         />
       </div>
     </div>

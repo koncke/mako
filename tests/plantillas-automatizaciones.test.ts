@@ -19,7 +19,15 @@
 //   4. la ruta: la acción existe detrás de la guarda de admin y enchufa las puertas de verdad;
 //   5. la pantalla: la galería dibuja las dos formas de empezar y todas las plantillas.
 //
-// PROBADO ROMPIÉNDOLO: ver «ROTURAS» al pie (34, todas en rojo).
+// Y desde la novena tanda (10/10/2026, Martín): «Todo lo que hiciste de una cantidad impresionante de flujos y
+// tarjetas eso justamente debería estar en una nueva tarjeta que sea "AI Step". Configuralo allí» y «Las dos
+// automatizaciones de agendó se podrían unificar ya que se tiene justamente la tarjeta de CONDITION». Se fija
+// que ningún «Si responde» cuelgue tarjetas (todos son AI Step), que cada AI Step se publique y sobreviva al
+// saneo de `setSecuenciaPasos`, que cada caso conserve su decisión de antes (una tabla escrita a mano,
+// medida sobre lo que corre: la expansión) y que la post-agenda unificada elija el primer mensaje con
+// «Ya le escribiste» y junte las dos ramas en la misma espera.
+//
+// PROBADO ROMPIÉNDOLO: ver «ROTURAS» al pie (todas en rojo).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,7 +39,11 @@ import {
   TOPE_LINEA, TRIGGER_DE_PIDE, SIN_ETAPA, type PasoDePlantilla,
 } from '../lib/plantillas-automatizaciones';
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '../lib/plantilla-crear';
-import { validarGrafo, validarParaGuardar, normalizar, claseDe, raizSalida, padresDe, descendientes, type FilaCondicion } from '../lib/flujo-grafo';
+import {
+  validarGrafo, validarParaGuardar, normalizar, claseDe, raizSalida, padresDe, descendientes, nodoPorId,
+  esPasoIA, expandirPasoIA, faltaEnCaso, AVISO_OTRA_COSA, type FilaCondicion,
+} from '../lib/flujo-grafo';
+import { camposDelFlujo } from '../lib/nutricion-grafo-motor';
 import { frenoDelFlujo, emojiDeSecuencia, type ProductoParaDisparo } from '../lib/flujo-conversacion';
 import { problemaDeDisparadores } from '../lib/disparadores';
 import { condicionPorId, problemaDeFila } from '../lib/condiciones-catalogo';
@@ -185,9 +197,9 @@ function miraLaReunion(pasos: readonly PasoDePlantilla[], id: string, vistos = n
 test('lo que arranca en una etapa de reunión vuelve a mirar, después de cada espera, que la reunión siga por delante', () => {
   // `preparaUnaReunion` (el «la reunión ya pasó» del motor) decide por el trigger de antes, y una
   // plantilla arranca por una ETAPA: la guarda va en el flujo.
-  // Las que PREPARAN una reunión (las post-agenda de #212, #213 y #221). Escritas a mano y no
-  // deducidas: deducirlas de la condición que se quiere fijar daría verde sobre la que la perdió.
-  const PREPARAN = ['agendo-con-bienvenida', 'agendo-sin-hablar', 'agendo-confirmar'];
+  // Las que PREPARAN una reunión (las post-agenda de #212 y #213, unificadas, y la de #221). Escritas a mano
+  // y no deducidas: deducirlas de la condición que se quiere fijar daría verde sobre la que la perdió.
+  const PREPARAN = ['agendo-preparar', 'agendo-confirmar'];
   const conReunion = PREPARAN.map((id) => plantillaPorId(id)!);
   assert.ok(conReunion.every(Boolean));
   for (const p of conReunion) {
@@ -199,6 +211,126 @@ test('lo que arranca en una etapa de reunión vuelve a mirar, después de cada e
       assert.ok(miraLaReunion(p.pasos, x.id!), `${p.id}/${x.id}: sale después de una espera sin mirar si la reunión sigue por delante`);
     }
   }
+});
+
+// ── El AI Step (novena tanda) ────────────────────────────────────────────────────
+
+test('lo que contesta va en un AI Step: ningún «Si responde» de los de siempre, y de ninguno cuelga una tarjeta', () => {
+  for (const p of PLANTILLAS) {
+    const pasos = normalizar(pasosDePlantilla(p));
+    for (const x of pasos) {
+      if (claseDe(x) !== 'respuesta') continue;
+      const donde = `${p.id}/${x.id}`;
+      assert.ok(esPasoIA(x), `${donde}: un «Si responde» con tarjetas hijas (va un AI Step)`);
+      assert.equal(x.si_no ?? null, null, `${donde}: «Otra cosa» lleva a una tarjeta`);
+      for (const c of x.casos ?? []) assert.equal(c.siguiente ?? null, null, `${donde}/${c.id}: el caso lleva a una tarjeta`);
+      assert.deepEqual([...descendientes(pasos, x.id!)], [], `${donde}: tiene tarjetas debajo`);
+    }
+  }
+});
+
+test('cada AI Step se puede publicar caso por caso y SOBREVIVE al guardado (la quinta puerta)', () => {
+  let vistos = 0;
+  for (const p of PLANTILLAS) {
+    for (const x of normalizar(pasosDePlantilla(p)).filter((y) => esPasoIA(y))) {
+      vistos++;
+      const donde = `${p.id}/${x.id}`;
+      // Sin casos se publicaría «configurado» y sólo avisaría (`nodoNuevo` nace con uno por eso).
+      assert.ok(x.casos?.length, `${donde}: un AI Step sin casos`);
+      // Lo que marca la tarjeta y frena Publicar es UNA función: nombre, «cuándo», y que conteste o avise.
+      for (const c of x.casos!) assert.equal(faltaEnCaso(c), null, `${donde}/${c.id}: le falta algo`);
+      // `setSecuenciaPasos` reconstruye cada paso con `camposDelFlujo`: lo que no conserve se BORRA en el
+      // primer guardado, sin error. La plantilla nace por esa puerta (lib/plantilla-crear.ts).
+      const guardado = camposDelFlujo(x);
+      assert.equal(guardado.paso_ia, true, `${donde}: el guardado lo vuelve un «Si responde» de los de siempre`);
+      assert.deepEqual(guardado.casos, x.casos, `${donde}: el guardado le cambia los casos`);
+      assert.equal(guardado.si_no, null, `${donde}`);
+    }
+  }
+  assert.ok(vistos > 0, 'ninguna plantilla tiene un AI Step');
+});
+
+/**
+ * LO QUE HACE CADA CASO, escrito a mano desde las tarjetas que tenía cada plantilla ANTES del AI Step
+ * (10/10/2026): «sola» = su «MaKo contesta» llevaba `revisar: false`; «revisar» = `revisar: true`; «no
+ * contesta» = no había «MaKo contesta», sólo la tarjeta MaKo; avisa = había una tarjeta MaKo. A mano y no
+ * deducido del catálogo: deducido, daría verde sobre el caso que perdió su decisión. Una plantilla que no está
+ * acá no tiene AI Step; una nueva con AI Step falla hasta que alguien escriba sus decisiones.
+ */
+type Sale = 'sola' | 'revisar' | 'no contesta';
+const DECISIONES: Readonly<Record<string, ReadonlyArray<readonly [titulo: string, sale: Sale, avisa: boolean]>>> = {
+  'bienvenida-sin-agenda': [['Quiere agendar', 'sola', true], ['Pregunta el precio', 'revisar', false], ['No le interesa', 'revisar', false]],
+  'agendo-preparar': [
+    ['Confirma', 'sola', false], ['Pregunta el precio', 'revisar', false], ['Pregunta por la reunión', 'revisar', false], ['Quiere cambiar el día', 'sola', true],
+  ],
+  'agendo-confirmar': [
+    ['Confirma', 'sola', false], ['Pregunta el precio', 'revisar', false], ['Pregunta por la reunión', 'revisar', false], ['Quiere cambiar el día', 'sola', true],
+    ['Puede no calificar', 'no contesta', true],
+  ],
+  'no-asistio': [['Quiere reagendar', 'sola', true], ['No le interesa', 'revisar', false]],
+  'reactivar-sin-cierre': [['Quiere retomarlo', 'revisar', true], ['Pregunta el precio', 'revisar', false], ['No le interesa', 'revisar', false]],
+};
+
+test('cada caso conserva su decisión de antes, medida sobre lo que CORRE (la expansión del motor y «Probar»)', () => {
+  for (const p of PLANTILLAS) {
+    const exp = expandirPasoIA(normalizar(pasosDePlantilla(p)));
+    const resp = exp.find((x) => claseDe(x) === 'respuesta');
+    const corre: Array<[string, Sale, boolean]> = [];
+    for (const c of resp?.casos ?? []) {
+      const donde = `${p.id}/${c.id}`;
+      let n = nodoPorId(exp, c.siguiente);
+      let sale: Sale = 'no contesta';
+      if (n && claseDe(n) === 'mensaje') {
+        assert.ok(n.tipo === 'ia' && n.canal === 'whatsapp', `${donde}: la respuesta no la escribe MaKo por WhatsApp`);
+        sale = n.revisar === false ? 'sola' : 'revisar';
+        n = nodoPorId(exp, n.siguiente);
+      }
+      if (n) {
+        assert.equal(claseDe(n), 'accion', `${donde}: después de la respuesta hay otra cosa que un aviso`);
+        assert.equal(n.accion!.operacion, OP_AVISAR, `${donde}: el aviso no es al equipo`);
+        assert.deepEqual(faltanEnAccion(n.accion!.operacion, n.accion!.params), [], `${donde}: al aviso le falta un dato`);
+      }
+      corre.push([c.titulo, sale, !!n]);
+      // La guarda de la plata: un caso que habla del precio nunca sale solo (además de `puedeContestarSolo`).
+      if (/precio|cuesta|pago|descuento/i.test(`${c.titulo} ${c.cuando}`)) assert.notEqual(sale, 'sola', `${donde}: habla de plata y sale sola`);
+    }
+    assert.deepEqual(corre, (DECISIONES[p.id] ?? []).map((d) => [...d]), `${p.id}: lo que hace cada caso`);
+    // «Otra cosa» sigue avisando, con el texto de las de origen (`AVISO_OTRA_COSA`).
+    if (resp) {
+      const otra = nodoPorId(exp, resp.si_no);
+      assert.equal(otra && claseDe(otra), 'accion', `${p.id}: «Otra cosa» no avisa`);
+      assert.equal(otra!.accion!.operacion, OP_AVISAR);
+      assert.deepEqual(otra!.accion!.params, { leadId: LEAD_DEL_EVENTO, mensaje: AVISO_OTRA_COSA }, `${p.id}: el aviso de «Otra cosa»`);
+    }
+  }
+});
+
+test('las dos post-agenda son UNA: «Ya le escribiste» elige el primer mensaje y las dos ramas llegan a la MISMA espera', () => {
+  // Los ids de antes ya no existen (nadie los creó: 0 filas con clave `plantilla-%` al 10/10/2026).
+  assert.equal(plantillaPorId('agendo-con-bienvenida'), null);
+  assert.equal(plantillaPorId('agendo-sin-hablar'), null);
+  const p = plantillaPorId('agendo-preparar');
+  assert.ok(p, 'falta la post-agenda unificada');
+  assert.notEqual(p.nombre, plantillaPorId('agendo-confirmar')!.nombre);
+  const pasos = normalizar(pasosDePlantilla(p));
+  const conds = pasos.filter((x) => claseDe(x) === 'condicion' && (x.ramas ?? []).some((r) => r.filas.some((f) => f.campo === 'ya_contactado')));
+  assert.equal(conds.length, 1, 'no hay UNA condición «Ya le escribiste»');
+  const [c] = conds;
+  // Una rama que decide SÓLO eso, sin negar: «Si se cumple» = ya le escribiste; «Si no» = nunca.
+  assert.equal(c.ramas!.length, 1);
+  assert.deepEqual(c.ramas![0].filas, [{ campo: 'ya_contactado' }], 'la rama mira otra cosa o está negada');
+  const ya = nodoPorId(pasos, c.ramas![0].siguiente);
+  const nuevo = nodoPorId(pasos, c.si_no);
+  assert.ok(ya && nuevo, 'una de las ramas no lleva a nada');
+  for (const m of [ya, nuevo]) assert.ok(claseDe(m) === 'mensaje' && m.canal === 'whatsapp', `${m.id}: no es un WhatsApp`);
+  // Las aperturas de #212 y #213: a quien ya le escribiste no se le dice «te escribo por…».
+  assert.doesNotMatch(ya.cuerpo ?? '', /te escribo por/i, 'a quien ya le escribiste se le presenta');
+  assert.match(nuevo.cuerpo ?? '', /te escribo por/i, 'a quien nunca le escribiste no se le presenta');
+  // Las dos ramas se juntan en la MISMA espera, que tiene a las dos de padres (sexta tanda: varios padres).
+  assert.ok(ya.siguiente && ya.siguiente === nuevo.siguiente, 'las dos ramas no llegan a la misma tarjeta');
+  const junta = nodoPorId(pasos, ya.siguiente)!;
+  assert.equal(claseDe(junta), 'esperar');
+  assert.deepEqual(padresDe(pasos, junta.id!).map((x) => x.id).sort(), [ya.id, nuevo.id].sort());
 });
 
 test('ninguna condición necesita un dato del negocio (una etiqueta, una etapa, un curso) ni es de las retiradas', () => {
@@ -411,13 +543,13 @@ test('crear: una etapa que el negocio no tiene NO tumba la automatización (avis
     return { b, deps: { db: b.db, setPasos: async () => {}, setDisparadores: async () => { throw err; }, motivoDeCron: (e: unknown) => (e instanceof Motivo ? e.message : null) } };
   };
   const a = deps(new Motivo('«x» no es una etapa de Mentoría.'));
-  const r = await crearDesdePlantilla('agendo-sin-hablar', a.deps, { disparador: 'venta:5:x' });
+  const r = await crearDesdePlantilla('agendo-preparar', a.deps, { disparador: 'venta:5:x' });
   assert.equal(r.pide, 'etapa_venta');
   assert.match(r.aviso ?? '', /no es una etapa de Mentoría/);
   assert.deepEqual(ops(a.b.llamadas), ['select', 'insert']);
 
   const b = deps(new Error('se cayó la base'));
-  await assert.rejects(crearDesdePlantilla('agendo-sin-hablar', b.deps, { disparador: 'venta:5:x' }), /se cayó la base/);
+  await assert.rejects(crearDesdePlantilla('agendo-preparar', b.deps, { disparador: 'venta:5:x' }), /se cayó la base/);
   assert.deepEqual(ops(b.b.llamadas), ['select', 'insert', 'delete']);
 });
 
@@ -570,4 +702,33 @@ test('el recordatorio que el negocio ya tiene se dibuja APAGADO y lo dice; los d
 //   R32 el recordatorio sin el toque de 1 h                      → 1 fallo  (la de fábrica)
 //   R33 el CRON fijo se guarda por la lista de CRON              → 2 fallos (crear el recordatorio + pedir una etapa)
 //   R34 la galería pregunta la etapa del recordatorio            → 1 fallo  (cuándo se pregunta)
+//
+// ⚠️ Desde la novena tanda R26 y R27 rompían la función `postAgenda`, que ya no existe: las dos post-agenda
+// son UNA (`agendo-preparar`), y lo que esas dos roturas fijaban lo sigue fijando el mismo test sobre ella (R44).
+//
+// Y las del AI STEP y la post-agenda UNIFICADA (10/10/2026 a la noche, base en verde: 0 fallos, 31 pases;
+// arnés `galeria-roturas.mjs` del scratchpad, que restaura de memoria y comprobó el archivo byte a byte igual):
+//
+//   R35 el AI Step sin la marca `paso_ia`                        → 3 fallos (va en un AI Step, se publica y
+//                                                                   sobrevive al guardado, la decisión de cada caso)
+//   R36 «Otra cosa» de «Agendó: confirmar» lleva a una tarjeta   → 3 fallos (se puede publicar, va en un AI Step,
+//                                                                   sobrevive al guardado)
+//   R37 el precio sale solo en la unificada                      → 1 fallo  (la decisión de cada caso)
+//   R38 «Quiere cambiar el día» deja de avisar                   → 1 fallo  (la decisión de cada caso)
+//   R39 «Puede no calificar» pasa a contestar                    → 1 fallo  (la decisión de cada caso)
+//   R40 la guía de cada caso con un espacio al final             → 1 fallo  (sobrevive al guardado: el saneo recorta)
+//   R41 la condición de la unificada negada                      → 1 fallo  (las dos post-agenda son UNA)
+//   R42 las aperturas de la unificada cruzadas                   → 1 fallo  (las dos post-agenda son UNA)
+//   R43 una rama de la unificada saltea la espera común          → 1 fallo  (las dos post-agenda son UNA)
+//   R44 la unificada no mira la reunión antes de la apertura     → 1 fallo  (la reunión por delante)
+//   R45 vuelve el id viejo `agendo-sin-hablar`                   → 4 fallos (la reunión por delante, la decisión de
+//                                                                   cada caso, las dos son UNA, crear con un aviso)
+//   R46 un caso del AI Step sin «cuándo»                         → 2 fallos (se puede publicar + caso por caso)
+//   R47 «Otra cosa» con otro aviso que el de las de origen       → 1 fallo  (la decisión de cada caso)
+//
+// ⚠️ Lo que R35 midió de paso: con la marca quitada, «se puede publicar» siguió en VERDE. Un «Si responde» de los
+// de siempre con casos que no llevan a ninguna tarjeta PASA `validarGrafo` (sólo el AI Step mira `faltaEnCaso`):
+// por eso este archivo pregunta por el AI Step en su propio test y no confía en el de Publicar.
+// La parte del test de decisiones que mira que el aviso EXPANDIDO esté completo (`faltanEnAccion`) no se puede
+// romper desde la galería: lo arma `expandirPasoIA`, y su rotura vive en tests/automations-paso-ia.test.ts.
 

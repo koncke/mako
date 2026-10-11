@@ -64,7 +64,7 @@ import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutric
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
-  escenariosDeRespuesta, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
+  escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
@@ -219,6 +219,13 @@ export type PasoSecuencia = {
   espera?: Espera;
   ramas?: RamaCondicion[];
   casos?: CasoRespuesta[];
+  /**
+   * El AI STEP (novena tanda): «Si responde» con lo de cada caso ADENTRO (lib/flujo-grafo.ts). Los guarda
+   * `camposDelFlujo`; el motor lo recorre EXPANDIDO (`responderConGrafo` → `expandirPasoIA`).
+   */
+  paso_ia?: PasoGrafo['paso_ia'];
+  instrucciones?: string;
+  otra_aviso?: string;
   si_no?: string | null;
   /** Condición (cuarta tanda, punto 8): las flechas en paralelo del «Si no» (las de cada rama van en la rama). */
   paralelos_si_no?: string[];
@@ -4876,7 +4883,12 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
  */
 async function responderConGrafo(c: CtxRespuesta): Promise<boolean> {
   const { leadId, secuencia, texto, supabase, lead } = c;
-  const pasos = secuencia.pasos;
+  // ⚠️ EL AI STEP SE RECORRE EXPANDIDO (novena tanda, `expandirPasoIA`): lo que en la tarjeta va adentro
+  // de cada caso —cómo responder, si sale sola, si te avisa, el aviso de «Otra cosa»— pasa a ser el «MaKo
+  // contesta» y el «avisar al equipo» de siempre, con ids derivados del nodo y del caso. Así corre por el
+  // MISMO redactor, el mismo borrador, la misma guarda de la plata (`puedeContestarSolo`) y el mismo
+  // hand-off que un «Si responde» de antes. Sin AI Step es el mismo flujo. Lo guardado no cambia.
+  const pasos = expandirPasoIA(secuencia.pasos);
   const escenarios = escenariosDeRespuesta(pasos);
   const lista: EscenarioSecuencia[] = escenarios.map((e) => ({
     titulo: e.titulo, cuando: e.cuando, comoResponder: e.comoResponder, ...(e.contestaSolo ? { contestaSolo: true } : {}),

@@ -41,7 +41,11 @@ export type TipoNodo =
   | 'etiqueta'
   // La tarjeta MAKO del chatbot (tercera tanda, decisión 11): la ⚡ Acción `avisar_al_equipo`, que
   // le escribe al GRUPO de WhatsApp del negocio (nunca al lead). Misma idea que la etiqueta.
-  | 'mako';
+  | 'mako'
+  // El AI STEP del chatbot (novena tanda): «Si responde» con sus casos ADENTRO (`paso_ia`,
+  // lib/flujo-grafo.ts). Un tipo de DIBUJO aparte —el dato sigue siendo el nodo `respuesta`— porque
+  // se dibuja sin filas de salida (una fila por caso, sin flechas) y su editor es otro y más alto.
+  | 'paso-ia';
 
 /**
  * LA IDENTIDAD DE UNA TARJETA DE MENSAJE (tercera tanda, decisión 5): la de WhatsApp lleva el verde
@@ -790,6 +794,11 @@ export const ALTO_EDITOR_CONTROL: Readonly<Partial<Record<TipoNodo, number>>> = 
   mako: 280,
   accion: 400,
   condicion: 320, entrada: 460, respuesta: 400,
+  // AI STEP (novena tanda): el tono (2 renglones, ~70), UN caso entero —nombre 40, cuándo 2 renglones 56,
+  // cómo responder 3 renglones 76 y los dos interruptores 44, con 8 de aire: ~250 con su caja—, «＋ Caso»
+  // (48) y «Otra cosa» con su aviso (~84), con 12 entre bloques → ~490. Con 460 el caso recién creado
+  // entra entero y «Otra cosa» asoma abajo; desde el segundo caso scrollea, como «Si responde».
+  'paso-ia': 460,
 };
 const ALTO_EDITOR_CONTROL_OTRO = 320;
 

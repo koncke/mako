@@ -36,6 +36,16 @@
 //     esta lista (sólo para el admin: es el guard de su endpoint) y su lienzo se abre ACÁ, con el
 //     mismo editor de allá (`MensajeMakoLienzo`). Se eligen aparte de las automatizaciones
 //     (`avisoSel`), así la selección de siempre —y lo que sus tests fijan— no cambia de tipo.
+//
+// ── NOVENA TANDA (10/10/2026): el «⋯» también en los Mensajes de MaKo ──
+//   · Pedido literal: «No aparecen los 3 puntos para eliminar una automatización de "MaKo en WhatsApp"...
+//     Las cosas de "MaKo en WhatsApp" deben ser EXACTAMENTE igual al resto, no tienen diferencia». La fila
+//     de un mensaje lleva el MISMO menú que una automatización, con lo que tiene sentido para un mensaje
+//     (`opcionesDeMensaje`): Activar/Pausar y Eliminar, con la MISMA confirmación. Eliminar OCULTA el
+//     mensaje de la lista de este negocio y lo apaga (lib/plantillas-ocultas.ts); se recupera desde
+//     «Nueva automatización» (GaleriaPlantillas). El tacho del lienzo del mensaje es el mismo Eliminar.
+//   · Lo que está «ocupado» o falló, por fila, ahora puede ser de una automatización (id numérico) o de
+//     un mensaje (id de texto): los dos universos no se cruzan, así que el estado lleva cualquiera.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
@@ -136,7 +146,10 @@ export const ICONOS_FILA = {
   activar: 'activar', pausar: 'pausar', duplicar: 'duplicar', copiar: 'copiar', eliminar: 'borrar',
 } as const satisfies Record<string, NombreIconoMenu>;
 
-/** Lo que ofrece el «⋯» de una fila. Activar o Pausar según cómo esté. Cada una con su ícono. */
+/**
+ * Lo que ofrece el «⋯» de una fila. Activar o Pausar según cómo esté. Cada una con su ícono.
+ * La de un Mensaje de MaKo sale de ÉSTA (`opcionesDeMensaje`): mismos rótulos y mismos íconos.
+ */
 export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'duplicar' | 'copiar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
   return [
     { value: 'activa', label: activa ? 'Pausar' : 'Activar', icono: activa ? ICONOS_FILA.pausar : ICONOS_FILA.activar },
@@ -147,6 +160,30 @@ export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'dupl
     { value: 'eliminar', label: 'Eliminar', icono: ICONOS_FILA.eliminar },
   ];
 }
+
+/**
+ * EL «⋯» DE UN MENSAJE DE MAKO (novena tanda, 10/10/2026: «Las cosas de "MaKo en WhatsApp" deben ser
+ * EXACTAMENTE igual al resto»). Sale de `opcionesDeFila` —los mismos rótulos y los mismos íconos, que no
+ * pueden divergir— quedándose con lo que tiene sentido para un mensaje:
+ *   · Activar / Pausar, salvo un FIJO (`porDefecto: 'siempre'`, `fijo` en la vista): no se apaga (el server
+ *     lo ignora), así que ofrecerlo sería un control que no hace nada.
+ *   · Eliminar, con la misma confirmación que una automatización: OCULTA el mensaje (sale de la lista de este
+ *     negocio, apagado) y se recupera desde «Nueva automatización». Un fijo tampoco: esconder algo que va a
+ *     seguir saliendo es peor que dejarlo a la vista. Un fijo no tiene «⋯» (hoy ninguno del cliente lo es).
+ *   · ⚠️ SIN «Duplicar» NI «Copiar flujo», a propósito. Una copia de uno de fábrica sería un mensaje propio
+ *     que NO sale por el mismo evento (el emisor nombra el id del catálogo: el evento corre los pasos de un
+ *     propio, pero nunca su mensaje), y 3 de los 4 de fábrica mandan un texto que arma el código, no el de la
+ *     plantilla. Y «Copiar flujo» copia los pasos de una AUTOMATIZACIÓN (lib/flujo-copia.ts): el flujo de un
+ *     mensaje es otro modelo (lib/flujos-tipos.ts) y pegarlo crearía una automatización. Ofrecerlos sería
+ *     prometer una copia que no se comporta igual.
+ */
+export function opcionesDeMensaje(m: { activo: boolean; fijo: boolean }): ReturnType<typeof opcionesDeFila> {
+  if (m.fijo) return [];
+  return opcionesDeFila(m.activo).filter((o) => o.value === 'activa' || o.value === 'eliminar');
+}
+
+/** El botón «⋯» de una fila: el MISMO para una automatización y para un mensaje. */
+const ESTILO_BOTON_MENU: CSSProperties = { width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 };
 
 // El emoji que se eligió en el título (tercera tanda, decisión 8: `nutricion_secuencias.emoji`) y, sin
 // uno elegido, el del objetivo, como el chrome del lienzo. El objetivo puede ser uno del catálogo O uno
@@ -235,7 +272,7 @@ export type AbrirSecuencia = { id: number };
 /** Lo mismo para un Mensaje de MaKo (el link de Notificaciones, `/automations?aviso=<id>`): un objeto por pedido. */
 export type AbrirAviso = { id: string };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, horario, tz, abrir, handoffs, avisos, abrirAviso, onAvisosCambio, arranque, onArranqueUsado }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, horario, tz, abrir, handoffs, avisos, abrirAviso, onAvisosCambio, onOcultosCambio, arranque, onArranqueUsado }: {
   /** La recién creada con un tipo de CRON elegido en el modal: su lienzo abre ese CRON (una vez). */
   arranque?: { id: number; clase: ClaseDisparador } | null;
   onArranqueUsado?: () => void;
@@ -249,6 +286,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   abrirAviso?: AbrirAviso | null;
   /** Cambió un mensaje (su nombre, su interruptor, lo publicado): volver a leerlos. */
   onAvisosCambio?: () => void;
+  /** Se eliminó (ocultó) un mensaje: volver a leer los que se recuperan desde «Nueva automatización». */
+  onOcultosCambio?: () => void;
   /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
   handoffs?: ReadonlyArray<{ secuenciaId: number | null }>;
   productos: ProductoOpcion[];
@@ -430,11 +469,16 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const recibirEdicion = useCallback((v: EdicionLocal) => setEdicion(v), []);
 
   // ── Los tres puntos de cada fila (decisión 6) ─────────────────────────────────
+  // ⚠️ LA FILA ES UNA AUTOMATIZACIÓN (id numérico) O UN MENSAJE DE MAKO (id de texto, novena tanda): los dos
+  // universos no se cruzan —un número nunca es igual a un texto—, así que estos dos estados llevan cualquiera
+  // y cada fila se compara con SU id, como siempre.
   /** La fila con una acción en vuelo: su «⋯» se apaga hasta que vuelva. */
-  const [ocupada, setOcupada] = useState<number | null>(null);
+  const [ocupada, setOcupada] = useState<number | string | null>(null);
   /** Por qué no se pudo: debajo de ESA fila, no en otro lado. */
-  const [errFila, setErrFila] = useState<{ id: number; texto: string } | null>(null);
+  const [errFila, setErrFila] = useState<{ id: number | string; texto: string } | null>(null);
   const [aEliminar, setAEliminar] = useState<SecuenciaDto | null>(null);
+  /** El Mensaje de MaKo a eliminar (novena tanda): la MISMA confirmación que una automatización. */
+  const [mensajeAEliminar, setMensajeAEliminar] = useState<PlantillaVista | null>(null);
   const [eliminando, setEliminando] = useState(false);
   /** La copia recién creada: se abre cuando llegue en la lista (si no hay nada sin publicar). */
   const [abrirCopia, setAbrirCopia] = useState<number | null>(null);
@@ -515,6 +559,48 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   };
 
   /**
+   * EL «⋯» DE UN MENSAJE DE MAKO (novena tanda). Activar/Pausar por la puerta de siempre del mensaje (la
+   * acción `enabled` de su endpoint, la misma del interruptor del lienzo), y Eliminar pregunta primero. Lo
+   * que contesta mal queda pegado a ESA fila, como en una automatización.
+   */
+  const accionMensaje = async (a: PlantillaVista, accion: string) => {
+    if (accion === 'eliminar') { setErrFila(null); setMensajeAEliminar(a); return; }
+    if (accion !== 'activa') return;
+    setErrFila(null); setOcupada(a.id);
+    try {
+      const r = await pedir(ENDPOINT_MENSAJES_MAKO, 'POST', { action: 'enabled', id: a.id, enabled: !mensajeActivo(a) });
+      if (!r.ok) { setErrFila({ id: a.id, texto: r.error || 'No se pudo cambiar' }); return; }
+      onAvisosCambio?.();
+    } catch {
+      setErrFila({ id: a.id, texto: 'Sin conexión' });
+    } finally {
+      setOcupada(null);
+    }
+  };
+
+  /**
+   * Eliminar un mensaje = OCULTARLO (`ocultar`, lib/plantillas-ocultas.ts): sale de la lista de este negocio,
+   * deja de enviar y se recupera desde «Nueva automatización». Si era el que estaba abierto, se cierra y queda
+   * la automatización elegida debajo — como cuando se elimina la automatización abierta.
+   */
+  const eliminarMensaje = async () => {
+    const a = mensajeAEliminar;
+    if (!a) return;
+    setEliminando(true);
+    try {
+      const r = await pedir(ENDPOINT_MENSAJES_MAKO, 'POST', { action: 'ocultar', id: a.id });
+      if (!r.ok) { setErrFila({ id: a.id, texto: r.error || 'No se pudo eliminar' }); return; }
+      if (a.id === avisoSel) setAvisoSel(null);
+      onAvisosCambio?.();
+      onOcultosCambio?.();
+    } catch {
+      setErrFila({ id: a.id, texto: 'Sin conexión' });
+    } finally {
+      setEliminando(false); setMensajeAEliminar(null);
+    }
+  };
+
+  /**
    * LOS MUELLES (decisión 11): dónde va «Probar», el editor apaisado y lo que cada cosa que flota
    * tiene que dejar libre. Lo decide UNA función pura (`muelles`, lib/lienzo-grafo.ts) con la caja
    * de esta tab: acá sólo se mide la caja y se reparte el resultado.
@@ -589,7 +675,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       ) : aviso ? (
         <div style={ESTILO_LIENZO}>
           <MensajeMakoLienzo key={aviso.id} plantilla={aviso} insetIzq={m.insets.izq} muelles={m}
-            onCambio={() => onAvisosCambio?.()} onCerrar={() => setAvisoSel(null)} />
+            onCambio={() => onAvisosCambio?.()} onCerrar={() => setAvisoSel(null)}
+            onEliminar={() => { setErrFila(null); setMensajeAEliminar(aviso); }} />
         </div>
       ) : (
       <div style={ESTILO_LIENZO}>
@@ -707,7 +794,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
                     // para el otro lado, no tapar a la tarjeta de la secuencia»).
                     <Dropdown value="" placeholder="⋯" align="afuera" resetAfterSelect sinFlecha search={false}
                       ariaLabel={`Opciones de ${j.nombre}`} disabled={ocupada === j.id}
-                      buttonStyle={{ width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
+                      buttonStyle={ESTILO_BOTON_MENU}
                       options={opcionesDeFila(j.activa)}
                       onChange={(v) => void accionFila(j, v)} />
                   ) : undefined} />
@@ -717,10 +804,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             );
           })}
           {/* LOS MENSAJES DE MAKO (quinta tanda, punto 5): los flujos de Configuraciones ›
-              Notificaciones, cada uno una fila con su emoji, su nombre y su punto de prendido. Bajo
-              su rótulo, para que no se lean como automatizaciones: no se duplican ni se archivan
-              desde acá (no son filas de secuencias), así que van sin «⋯» — se prenden y se
-              eliminan en su propio lienzo, como en Notificaciones. */}
+              Notificaciones, cada uno una fila con su emoji, su nombre y su punto de prendido, bajo
+              su rótulo. ⚠️ Y CON SU «⋯» desde la novena tanda (10/10/2026), que dio vuelta la decisión
+              de la quinta («van sin "⋯"»): «Las cosas de "MaKo en WhatsApp" deben ser EXACTAMENTE
+              igual al resto». El MISMO menú que una automatización, con lo que tiene sentido para un
+              mensaje (`opcionesDeMensaje`: sin Duplicar ni Copiar flujo, y nada para un fijo). */}
           {(avisosVisibles.length > 0 || rolAdmin) && (
             <div data-grupo-mensajes-mako style={ROTULO_GRUPO}>{ROTULO_MENSAJES_MAKO}</div>
           )}
@@ -734,11 +822,26 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nuevo mensaje</span>
             </button>
           )}
-          {avisosVisibles.map((a) => (
-            <ItemLista key={`aviso:${a.id}`} on={aviso?.id === a.id} activa={mensajeActivo(a)} emoji={emojiDeMensaje(a)} nombre={a.titulo}
-              sinPublicar={sinPublicarDe(a)}
-              onClick={() => elegirAviso(a.id)} />
-          ))}
+          {avisosVisibles.map((a) => {
+            const opciones = opcionesDeMensaje({ activo: mensajeActivo(a), fijo: a.fijo });
+            return (
+              <div key={`aviso:${a.id}`}>
+                <ItemLista on={aviso?.id === a.id} activa={mensajeActivo(a)} emoji={emojiDeMensaje(a)} nombre={a.titulo}
+                  sinPublicar={sinPublicarDe(a)}
+                  onClick={() => elegirAviso(a.id)}
+                  menu={rolAdmin && opciones.length > 0 ? (
+                    /* El MISMO «⋯» que el de una automatización: el Dropdown de la casa, por portal y hacia
+                       afuera de la lista, con su botón. */
+                    <Dropdown value="" placeholder="⋯" align="afuera" resetAfterSelect sinFlecha search={false}
+                      ariaLabel={`Opciones de ${a.titulo}`} disabled={ocupada === a.id}
+                      buttonStyle={ESTILO_BOTON_MENU}
+                      options={opciones}
+                      onChange={(v) => void accionMensaje(a, v)} />
+                  ) : undefined} />
+                {errFila?.id === a.id && <div role="alert" style={{ padding: '0 12px 8px 56px', fontSize: 12.5, color: 'var(--bad)' }}>{errFila.texto}</div>}
+              </div>
+            );
+          })}
         </div>
         {/* (Acá iba el pie de la lista, «N etapas sin secuencia · Armar una». Salió el 10/10/2026: era
             de una versión anterior. Ver el comentario del montaje en ChatAgentApp.) */}
@@ -779,6 +882,16 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           onConfirm={() => void eliminar()} onCancel={() => setAEliminar(null)}
         />
       )}
+
+      {/* Y la de un Mensaje de MaKo (novena tanda): la MISMA frase y los mismos botones. Eliminar lo OCULTA
+          de la lista de este negocio y lo apaga; se recupera desde «Nueva automatización». */}
+      {mensajeAEliminar && (
+        <Confirm
+          message={`«${mensajeAEliminar.titulo}» deja de enviar y sale de la lista.`}
+          confirmLabel="Eliminar mensaje" cancelLabel="No eliminar" tone="danger" loading={eliminando}
+          onConfirm={() => void eliminarMensaje()} onCancel={() => setMensajeAEliminar(null)}
+        />
+      )}
     </div>
   );
 }
@@ -798,7 +911,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
  */
 function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar }: {
   on: boolean; activa: boolean; emoji: string; nombre: string; onClick: () => void;
-  /** El «⋯» de la fila. Sin él (el recordatorio, la que se está creando, quien no es admin), nada. */
+  /** El «⋯» de la fila. Sin él (la que se está creando, quien no es admin, un mensaje fijo), nada. */
   menu?: ReactNode;
   /** La fila que el server está creando: en vez del emoji, el giro. */
   creando?: boolean;

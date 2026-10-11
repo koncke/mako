@@ -66,6 +66,7 @@ import {
   claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, padresDe,
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, textoCasoRespuesta,
   RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos, rotuloSiNoDeRespuesta,
+  esPasoIA, faltaEnCaso, ROTULO_OTRA_COSA,
 } from './flujo-grafo';
 import { limpiezaPara, OP_AVISAR, type EstrategiaLegada } from './flujo-legado';
 import { textoCron, type CronAviso } from './cron-aviso';
@@ -191,6 +192,68 @@ export const ANCHO_ETIQUETA = 210;
  * misma holgura que un mensaje. El texto se corta con «…» a los 90 caracteres (`grafoDeSecuencia`).
  */
 export const ALTO_MAKO = 47 + 3 * 18 + 8;
+
+// ── LA TARJETA AI STEP (novena tanda) ──────────────────────────────────────────────────────────
+// Pedido de Martín: «una tarjeta con sus casos adentro». UNA tarjeta, sin puertos por caso (sus casos
+// no tienen flechas: lo de cada uno va adentro, lib/flujo-grafo.ts «EL AI STEP»): una fila por caso
+// —el nombre con «sola»/«revisa» y la campanita si avisa, y debajo cómo responde— y al pie «Otra cosa →
+// te aviso». Cuelga del CRON como «Si responde» (`grafoDeSecuencia`, la flecha de la que escucha).
+//
+// ⚠️ LOS NÚMEROS SON LOS DE `CuerpoPasoIA` (app/automations/EditorPasoIA.tsx), que dibuja cada fila con
+// ESTE alto exacto: la tarjeta tiene alto fijo (no tiene puertos, pero el lienzo la mide antes de pintar
+// para el layout) y lo que no entra se corta.
+
+/** Una fila de un caso: dos renglones (el nombre y cómo responde). */
+export const FILA_CASO_IA = 40;
+/** La fila «+N casos» cuando no entran todos. */
+export const FILA_MAS_CASOS_IA = 22;
+/** La fila de «Otra cosa → te aviso». */
+export const FILA_OTRA_IA = 28;
+/**
+ * Cuántos casos se dibujan en la tarjeta. Con el tope de 30 (`TOPE_CASOS`), una fila por caso era una
+ * tarjeta de 1.300 px: el resto lo dice «+N casos» y está entero en el editor (AGENTS.md: un layout se
+ * prueba con el valor MÁS LARGO del conjunto).
+ */
+export const CASOS_EN_TARJETA_IA = 6;
+/** Lo que dice cómo responde, cortado (la fila es de un renglón). */
+const RESUMEN_IA = 60;
+
+/** Lo que dibuja una fila de un caso del AI Step. */
+export type FilaPasoIA = {
+  id: string;
+  titulo: string;
+  /** Cómo responde, en una línea; o lo que hace si no contesta. */
+  resumen: string;
+  /** «sola» o «revisa» si contesta; null si no contesta. */
+  chip: 'sola' | 'revisa' | null;
+  avisa: boolean;
+  /** Le falta algo para publicar (`faltaEnCaso`, la MISMA regla que el freno de Publicar). */
+  falta: boolean;
+};
+
+/** Las filas de la tarjeta AI Step: los casos que entran, cuántos quedan afuera y la de «Otra cosa». */
+export function filasDePasoIA(p: PasoGrafo): { casos: FilaPasoIA[]; mas: number; otra: string } {
+  const todos = p.casos ?? [];
+  const casos = todos.slice(0, CASOS_EN_TARJETA_IA).map((c): FilaPasoIA => {
+    const r = (c.responder ?? '').replace(/\s+/g, ' ').trim();
+    const avisa = c.avisar === true;
+    return {
+      id: c.id,
+      titulo: (c.titulo ?? '').trim() || 'Sin nombre',
+      resumen: r ? (r.length > RESUMEN_IA ? `${r.slice(0, RESUMEN_IA - 1).trimEnd()}…` : r) : avisa ? 'Te aviso' : 'Sin respuesta',
+      chip: r ? (c.sola === true ? 'sola' : 'revisa') : null,
+      avisa,
+      falta: faltaEnCaso(c) != null,
+    };
+  });
+  return { casos, mas: Math.max(0, todos.length - casos.length), otra: `${ROTULO_OTRA_COSA} → te aviso` };
+}
+
+/** El alto de la tarjeta AI Step: la cabecera, una fila por caso que entra, «+N», «Otra cosa» y el pie. */
+export function altoPasoIA(p: PasoGrafo): number {
+  const f = filasDePasoIA(p);
+  return Math.ceil(CABECERA_TARJETA + f.casos.length * FILA_CASO_IA + (f.mas ? FILA_MAS_CASOS_IA : 0) + FILA_OTRA_IA + PIE_PUERTOS + BORDE_NODO);
+}
 
 /** El ancho de la píldora de una espera: el de su texto, con piso y techo. */
 function anchoPildora(texto: string): number {
@@ -459,6 +522,9 @@ export const TITULO = {
   ir_a: 'GO TO',
   // Los canales de Meta por Zernio (sexta tanda, CRON 5 y 7).
   instagram: 'INSTAGRAM', messenger: 'MESSENGER',
+  // Novena tanda: «Si responde» con sus casos adentro. El nombre es el del pedido («una nueva tarjeta que
+  // sea "AI Step"»), en mayúsculas como todos.
+  paso_ia: 'AI STEP',
 } as const;
 
 /**
@@ -469,8 +535,10 @@ export const TITULO = {
 export function tituloDeTarjeta(p: PasoGrafo, enRespuesta?: boolean): string {
   void enRespuesta;
   switch (claseDe(p)) {
-    // «Si responde» es la CONDITION que escucha (sexta tanda, punto 12): se nombra como se ve.
-    case 'condicion': case 'respuesta': return TITULO.condicion;
+    // «Si responde» es la CONDITION que escucha (sexta tanda, punto 12): se nombra como se ve. El AI Step
+    // (novena tanda) es la misma clase con otra cara: también se nombra como se ve.
+    case 'respuesta': return esPasoIA(p) ? TITULO.paso_ia : TITULO.condicion;
+    case 'condicion': return TITULO.condicion;
     case 'ir_a': return TITULO.ir_a;
     case 'esperar': return TITULO.esperar;
     case 'accion': return etiquetaDeAccion(p) ? TITULO.etiqueta : esMako(p) ? TITULO.mako : TITULO.accion;
@@ -490,8 +558,10 @@ function trozoDe(p: PasoGrafo, nombres?: NombresParaTexto): string {
   if (c === 'mensaje') t = p.canal === 'email' ? (p.asunto ?? '') || (p.cuerpo ?? '') : (p.cuerpo ?? '');
   else if (c === 'esperar') t = textoEspera(p.espera).replace(/^Esperar /, '');
   else if (c === 'condicion' && p.ramas?.[0]) t = textoRama(p.ramas[0], nombres);
-  // La que escucha, por su primer caso («CONDITION: Pregunta el precio»): la frase entera no entra.
-  else if (c === 'respuesta' && p.casos?.[0]) t = p.casos[0].titulo ?? '';
+  // La que escucha, por su primer caso («CONDITION: Pregunta el precio»): la frase entera no entra. El AI
+  // Step, por su nombre solo: hay uno por automatización, y su primer caso al lado se leía como el caso
+  // del que habla el error («AI STEP: Precio: «Precio» no contesta»).
+  else if (c === 'respuesta' && p.casos?.[0] && !esPasoIA(p)) t = p.casos[0].titulo ?? '';
   else if (et && et.etiquetaId != null) t = textoEtiqueta(et, nombres);
   else if (esMako(p)) t = makoDeAccion(p)?.mensaje ?? '';
   t = t.replace(/\s+/g, ' ').trim();
@@ -843,6 +913,19 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       const puertos: PuertoNodo[] = (p.ramas ?? []).map((r) => ({ id: r.id, rotulo: textoRama(r, op.nombres), tono: 'buena' as const, vacio: !r.siguiente, ...enParalelo(r.id) }));
       puertos.push({ id: RESULTADO_SI_NO, rotulo: 'Si no', tono: 'mala', vacio: !p.si_no, ...enParalelo(RESULTADO_SI_NO) });
       t = { ...base, tipo: 'condicion', familia: 'control', titulo: TITULO.condicion, icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
+    } else if (c === 'respuesta' && esPasoIA(p)) {
+      // EL AI STEP (novena tanda): UNA tarjeta sin puertos —`puertos: []`, como un «Ir a»: sin puntos ni
+      // ＋— y con sus casos adentro (`filasDePasoIA`, los dibuja `CuerpoPasoIA`). La flecha que le llega
+      // es la del CRON, la de «Si responde» (abajo). El ✦ de MaKo: la escribe MaKo.
+      // Los hand-offs pendientes salieron por «Otra cosa»: van en ESA fila (`detalle`), como la marca de la
+      // fila «Si no» de la forma de siempre.
+      const falta = (p.casos ?? []).some((x) => faltaEnCaso(x) != null);
+      const pendientes = Math.max(0, Math.floor(Number(op.pendientesOtraCosa) || 0));
+      t = {
+        ...base, tipo: 'paso-ia', familia: 'contenido', titulo: TITULO.paso_ia, icono: ICONO_MAKO, puertos: [],
+        alto: altoPasoIA(p), ...(pendientes ? { detalle: `${pendientes} sin caso` } : {}),
+        ...(falta ? { advertencia: 'Falta completar un caso' } : {}),
+      };
     } else if (c === 'respuesta') {
       // «SI RESPONDE» SE DIBUJA COMO LA CONDITION QUE ESCUCHA (sexta tanda, punto 12: «Reply ya te dije
       // que tiene que estar dentro de CONDITION»): una fila por caso, «Su respuesta trata de «…»»
@@ -1159,7 +1242,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
  * salta a la 212, el que junta ramas) se siguen dibujando, corriendo y borrando: lo que se va es
  * crearlos. Con «MaKo» (decisión 11): la ⚡ Acción `avisar_al_equipo`, dibujada como su tarjeta.
  */
-export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako' | CanalSocial;
+export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako' | 'ai_step' | CanalSocial;
 /**
  * Una opción del menú del ＋ (estructural: `DropdownOption` vive en un componente). `grupo` separa
  * el menú con una línea; `icono` es un SVG (`data:`), nunca un emoji.
@@ -1189,6 +1272,9 @@ export const ICONOS_MAS = {
   // El engranaje: el rayo es del CRON desde la sexta tanda (`ICONO_CRON`), y las dos no lo comparten.
   accion: svg(`<g ${LINEA}><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></g>`),
   mako: svg('<path fill="#F2B01E" d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z"/>', '-12 -12 24 24'),
+  // AI Step (novena tanda): la chispa de MaKo con una chispa chica al lado. La sola es «MaKo en WhatsApp»:
+  // las dos en el mismo menú con el mismo dibujo no se distinguían.
+  ai_step: svg('<path fill="#F2B01E" d="M-2 -9 C-1.2 -3.4 1.4 -0.8 7 0 C1.4 0.8 -1.2 3.4 -2 9 C-2.8 3.4 -5.4 0.8 -11 0 C-5.4 -0.8 -2.8 -3.4 -2 -9 Z"/><path fill="#F2B01E" d="M7.5 -11 C7.9 -8.6 8.9 -7.6 11 -7.2 C8.9 -6.8 7.9 -5.8 7.5 -3.4 C7.1 -5.8 6.1 -6.8 4 -7.2 C6.1 -7.6 7.1 -8.6 7.5 -11 Z"/>', '-12 -12 24 24'),
   // Los logos oficiales sobre su degradé (lib/canal-social.ts, `logoSocialSvg`).
   instagram: logoSocialSvg('instagram'),
   messenger: logoSocialSvg('messenger'),
@@ -1206,12 +1292,28 @@ export const ICONOS_MAS = {
  * · «Si responde» y «Ir a» NO se ofrecen (cuarta tanda, puntos 4 y 12: «Elimina las tarjetas de
  *   "Reply" y "Go to"... si alguien quiere configurar que la automatización se detenga cuando alguien
  *   contesta, ya lo puede hacer con CONDITION»). Los que ya existen se dibujan, corren y se borran.
+ * · «AI Step» (novena tanda) SÍ: es «Si responde» con sus casos adentro, y se ofrece con sus mismas
+ *   reglas —una por automatización (`hayQueEscucha`), nunca adentro de la rama de la respuesta— desde
+ *   cualquier ＋. NO se engancha en esa salida: nace colgada del CRON, como «Si responde» (no tiene
+ *   padre: es un evento), y la salida queda como estaba (`insertarDesdeLienzo`).
  */
 export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, medio: boolean, puerto?: string): OpcionMas[] {
   void medio; void puerto;
   const resp = raizRespuesta(pasos);
   const enRespuesta = nodoLienzo !== ID_ENTRADA && (nodoLienzo === resp || subarbolRespuesta(pasos).has(nodoLienzo));
-  return MENU_MAS.filter((o) => !(enRespuesta && o.fueraDeRespuesta)).map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
+  const sinAIStep = hayQueEscucha(pasos);
+  return MENU_MAS
+    .filter((o) => !(enRespuesta && o.fueraDeRespuesta) && !(sinAIStep && o.value === 'ai_step'))
+    .map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
+}
+
+/**
+ * ¿Ya hay una tarjeta que escucha las respuestas («Si responde» o un AI Step), conectada o SUELTA? Hay
+ * una por automatización (`validarGrafo`, y ya al GUARDAR un borrador: `validarParaGuardar`), así que con
+ * una el ＋ y el click derecho no ofrecen «AI Step»: ofrecerla sería un borrador que no se guarda.
+ */
+function hayQueEscucha(pasos: readonly PasoGrafo[]): boolean {
+  return pasos.some((p) => p && claseDe(p) === 'respuesta');
 }
 
 /**
@@ -1231,6 +1333,10 @@ export const MENU_MAS: ReadonlyArray<OpcionMas & { fueraDeRespuesta?: boolean }>
   { value: 'messenger', label: 'Messenger', icono: ICONOS_MAS.messenger, grupo: 0, fueraDeRespuesta: true },
   { value: 'esperar', label: 'Esperar', icono: ICONOS_MAS.esperar, grupo: 1, fueraDeRespuesta: true },
   { value: 'condicion', label: 'Condición', icono: ICONOS_MAS.condicion, grupo: 1 },
+  // Novena tanda: la tarjeta que contesta cuando el lead escribe, con sus casos adentro. Va con la lógica:
+  // es la condición que escucha. No adentro de su propia rama (`fueraDeRespuesta`), y una sola
+  // (`hayQueEscucha`).
+  { value: 'ai_step', label: 'AI Step', icono: ICONOS_MAS.ai_step, grupo: 1, fueraDeRespuesta: true },
   { value: 'etiqueta', label: 'Etiqueta', icono: ICONOS_MAS.etiqueta, grupo: 2 },
   { value: 'accion', label: 'Acción', icono: ICONOS_MAS.accion, grupo: 2 },
   { value: 'mako', label: 'MaKo en WhatsApp', icono: ICONOS_MAS.mako, grupo: 3 },
@@ -1241,8 +1347,11 @@ export const MENU_MAS: ReadonlyArray<OpcionMas & { fueraDeRespuesta?: boolean }>
  * cualquier lugar). Lo mismo que el ＋, sin la restricción de «Si responde» (una tarjeta suelta no
  * cuelga de nada todavía) y sin «Si responde» (no se ofrece desde la cuarta tanda).
  */
-export function opcionesSueltas(): OpcionMas[] {
-  return MENU_MAS.map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
+export function opcionesSueltas(pasos: readonly PasoGrafo[] = []): OpcionMas[] {
+  // «AI Step» sólo si todavía no hay una que escuche (`hayQueEscucha`): una segunda no se guarda ni como
+  // borrador. Sin `pasos`, lo de siempre (la lista entera).
+  const sinAIStep = hayQueEscucha(pasos);
+  return MENU_MAS.filter((o) => !(sinAIStep && o.value === 'ai_step')).map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
 }
 
 /** Los campos que `setSecuenciaPasos` exige a todo paso, incluido uno de control. */
@@ -1281,6 +1390,17 @@ export function nodoNuevo(que: QueAgregar, pasos: readonly PasoGrafo[], rnd: () 
     // La tarjeta MAKO (decisión 11): el aviso al grupo del negocio, sobre el lead del EVENTO (el aviso
     // lleva su nombre, su teléfono y el link a su ficha). Nace sin mensaje: `faltaEscribir` lo frena.
     case 'mako': return { ...b, accion: { operacion: OP_AVISAR, params: { leadId: LEAD_DEL_EVENTO, mensaje: '' } } };
+    // EL AI STEP (novena tanda): «Si responde» con sus casos adentro, colgada del CRON.
+    //
+    // ⚠️ NACE CON UN CASO VACÍO, NO SIN CASOS. Sin casos es una tarjeta VÁLIDA —toda respuesta va a «Otra
+    // cosa → te aviso»— y se publicaría así: se vería configurada y no contestaría nada, que es lo
+    // contrario de lo que se pidió («Configuralo allí»). Con un caso vacío, la fila dice qué falta, el
+    // editor lo marca en rojo y Publicar no deja hasta completarlo (`faltaEnCaso`). Nace «a revisar» y sin
+    // avisar: lo mismo que todo caso nuevo de «Si responde» (`agregarCaso`, `revisar: true`).
+    case 'ai_step': {
+      const caso = nuevoId([...pasos, { id }], rnd);
+      return { ...b, nodo: 'respuesta', paso_ia: true, casos: [{ id: caso, titulo: '', cuando: '', siguiente: null }], si_no: null };
+    }
     default: return b;
   }
 }
@@ -1322,6 +1442,16 @@ export function insertarDesdeLienzo<P extends PasoParaGrafo>(
   pasos: readonly P[], nodo: string, puerto: string | undefined, que: QueAgregar, rnd: () => number = Math.random,
 ): { pasos: P[]; id: string | null } {
   const base = normalizar(pasos);
+  // ⚠️ EL AI STEP NO SE ENGANCHA EN EL ＋ QUE LO CREÓ (novena tanda). Es la que ESCUCHA (`respuesta`): no
+  // tiene padre (`validarGrafo`: «cuelga del CRON»), así que `insertarNodo` la dejaba apuntada por esa
+  // salida —un flujo que ni Publicar ni el borrador aceptan— y lo que colgaba de la salida pasaba a colgar
+  // de ella. Nace al FINAL del array (no corre el índice de nadie), colgada del CRON, y la salida queda
+  // como estaba. Una sola por automatización: si ya hay una, no se crea (el menú tampoco la ofrece).
+  if (que === 'ai_step') {
+    if (base.some((p) => claseDe(p) === 'respuesta')) return { pasos: base, id: null };
+    const n = nodoNuevo('ai_step', base, rnd) as unknown as P;
+    return { pasos: renumerar(normalizar([...base, n])), id: n.id! };
+  }
   const lugar = lugarDesdeLienzo(nodo, puerto);
   // (Hasta la tercera tanda acá se frenaba un «Ir a» en una salida ocupada. El ＋ ya no crea «Ir a»:
   // decisión 3.)

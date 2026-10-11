@@ -20,8 +20,8 @@
 // =============================================================================
 
 import {
-  CAMPOS_CONDICION, TOPE_CASOS, TOPE_NODOS,
-  claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida,
+  CAMPOS_CONDICION, TOPE_CASOS, TOPE_NODOS, TOPE_RESPONDER, TOPE_INSTRUCCIONES, TOPE_OTRA_AVISO,
+  claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida, esPasoIA, faltaEnCaso,
   normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta,
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
 } from './flujo-grafo';
@@ -841,15 +841,31 @@ function sanearRama(x: unknown): RamaCondicion | null {
   };
 }
 
-function sanearCaso(x: unknown): CasoRespuesta | null {
+/**
+ * Un caso de «Si responde», saneado. `deIA`: el nodo es un AI STEP (novena tanda), y el caso trae ADENTRO
+ * lo que en la forma de siempre eran sus tarjetas hijas —cómo responder, si sale sola, si te avisa—.
+ *
+ * ⚠️ LA QUINTA PUERTA OTRA VEZ (AGENTS.md): sin las tres líneas del AI Step, el primer guardado devolvía
+ * cada caso sin su respuesta y Publicar lo frenaba con «no contesta ni avisa» sobre lo que la persona
+ * acababa de escribir. En un «Si responde» de los de siempre no se guardan: no significan nada ahí, y un
+ * flujo de antes queda byte a byte igual.
+ */
+function sanearCaso(x: unknown, deIA = false): CasoRespuesta | null {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   const o = x as Record<string, unknown>;
-  return {
+  const caso: CasoRespuesta = {
     id: idValido(o.id) ? o.id : '',
     titulo: typeof o.titulo === 'string' ? o.titulo.trim().slice(0, 120) : '',
     cuando: typeof o.cuando === 'string' ? o.cuando.trim().slice(0, 600) : '',
     siguiente: destinoId(o.siguiente) ?? null,
   };
+  if (deIA) {
+    const r = typeof o.responder === 'string' ? o.responder.trim().slice(0, TOPE_RESPONDER) : '';
+    if (r) caso.responder = r;
+    if (o.sola === true) caso.sola = true;
+    if (o.avisar === true) caso.avisar = true;
+  }
+  return caso;
 }
 
 /**
@@ -881,7 +897,7 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 }
 
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
-export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar'>;
+export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar' | 'paso_ia' | 'instrucciones' | 'otra_aviso'>;
 
 /**
  * Las flechas en paralelo, saneadas: ids válidos, sin repetidos. Sólo en las clases que las
@@ -917,11 +933,22 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
     if (parSiNo) out.paralelos_si_no = parSiNo;
   }
   if (nodo === 'respuesta') {
-    out.casos = Array.isArray(o.casos) ? o.casos.map(sanearCaso).filter((c): c is CasoRespuesta => !!c) : [];
+    // EL AI STEP (novena tanda): la marca, el tono y el aviso de «Otra cosa», y lo de adentro de cada caso
+    // (`sanearCaso`). Sin la marca, el primer guardado lo volvía un «Si responde» de los de siempre con
+    // casos sin tarjetas: casos que no contestan nada.
+    const deIA = o.paso_ia === true;
+    out.casos = Array.isArray(o.casos) ? o.casos.map((c) => sanearCaso(c, deIA)).filter((c): c is CasoRespuesta => !!c) : [];
     out.si_no = destinoId(o.si_no) ?? null;
     // La sexta puerta (10/10/2026): sin esta línea, guardar le devolvía la flecha a una «Si responde»
     // que la persona había soltado.
     if (o.suelta === true) out.suelta = true;
+    if (deIA) {
+      out.paso_ia = true;
+      const tono = typeof o.instrucciones === 'string' ? o.instrucciones.trim().slice(0, TOPE_INSTRUCCIONES) : '';
+      if (tono) out.instrucciones = tono;
+      const aviso = typeof o.otra_aviso === 'string' ? o.otra_aviso.trim().slice(0, TOPE_OTRA_AVISO) : '';
+      if (aviso) out.otra_aviso = aviso;
+    }
   }
   if (nodo === 'ir_a') out.destino = sanearDestino(o.destino);
   if (!nodo && typeof o.revisar === 'boolean') out.revisar = o.revisar;
@@ -999,6 +1026,39 @@ export function agregarCasoAlGrafo<P extends PasoGrafo>(
   if (!titulo || !cuando) return { error: 'el caso no tiene nombre o descripción' };
   const casos = [...(r.casos ?? [])];
   const k = casos.findIndex((c) => c.titulo.trim().toLowerCase() === titulo.toLowerCase());
+  // ⚠️ UN AI STEP (novena tanda) LLEVA LA GUÍA ADENTRO DEL CASO: colgarle un «MaKo contesta» como en la
+  // forma de siempre es justo lo que `validarGrafo` no deja guardar ahí («debajo no van tarjetas»), y la
+  // API («enseñar este caso») y el hand-off resuelto entran por acá. Mismo título = el mismo caso.
+  if (esPasoIA(r)) {
+    const adentro = { cuando, ...(guia ? { responder: guia.slice(0, TOPE_RESPONDER) } : {}), ...(caso.contestaSolo === true ? { sola: true } : {}) };
+    // ⚠️ UN CASO QUE NO CONTESTA NI AVISA SE FRENA ACÁ, no al guardar (revisión de la novena tanda).
+    // `comoResponder` es opcional en la API (`agregar_escenario_secuencia`), y en la forma de siempre un
+    // caso sin guía igual colgaba un «MaKo contesta». En un AI Step queda sin `responder` y sin `avisar`
+    // —lo que `faltaEnCaso` rechaza—, así que `preparar` decía «Agregar el caso…», la persona lo
+    // confirmaba y `ejecutar` moría en `setSecuenciaPasos` con «no contesta ni avisa». Lo que se puede
+    // saber sin escribir falla en `preparar()` (AGENTS.md, el registro de la API, punto 3). Un caso que
+    // YA estaba y ya contesta o avisa conserva lo suyo: sólo se le reescribe el «cuándo».
+    const sinQueHacer = (c: CasoRespuesta): { error: string } | null =>
+      faltaEnCaso(c) === 'que_hace' ? { error: 'en un AI Step el caso necesita «cómo responder»' } : null;
+    if (k >= 0) {
+      // `sola` se reescribe con lo que dice el caso enseñado (ausente = a revisar, como siempre).
+      const { sola: _antes, ...resto } = casos[k];
+      void _antes;
+      const nuevo = { ...resto, ...adentro };
+      const falta = sinQueHacer(nuevo);
+      if (falta) return falta;
+      const out = [...pasos];
+      out[ri] = { ...r, casos: casos.map((c, j) => (j === k ? nuevo : c)) };
+      return { pasos: normalizar(out) };
+    }
+    if (casos.length >= TOPE_CASOS) return { error: `«Si responde» ya tiene ${TOPE_CASOS} casos, el máximo` };
+    const nuevo = { id: nuevoId(pasos, rnd), titulo, siguiente: null, ...adentro };
+    const falta = sinQueHacer(nuevo);
+    if (falta) return falta;
+    const out = [...pasos];
+    out[ri] = { ...r, casos: [...casos, nuevo] };
+    return { pasos: normalizar(out) };
+  }
   const nuevoMensaje = (siguiente: string | null): P => ({
     ...RELLENO_CONTROL, proveedor: 'no_oficial', tipo: 'ia', cuerpo: guia, revisar: caso.contestaSolo !== true,
     id: nuevoId(pasos, rnd), siguiente,

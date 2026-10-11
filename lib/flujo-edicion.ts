@@ -311,7 +311,12 @@ const sinPausa = (x: ParteMensaje): ParteMensaje => {
  * la ponga donde se hizo el click (`fijarPosicion`, lib/lienzo-posiciones.ts) y abra su editor.
  */
 export function crearSuelta<P extends PasoGrafo>(pasosIn: readonly P[], que: QueAgregar, rnd: () => number = Math.random): { pasos: P[]; id: string } {
-  const { fijo } = paraEditar(pasosIn);
+  const { base, fijo } = paraEditar(pasosIn);
+  // El AI STEP (novena tanda) es la que escucha: una por automatización. Con una ya puesta (conectada o
+  // suelta) no se crea otra —un flujo con dos no se guarda ni como borrador—, y `id` vacío lo dice. Nace
+  // colgada del CRON (sin `suelta`): «Si responde» no tiene flechas que le lleguen, así que «sin flechas»
+  // ya es su forma de siempre.
+  if (que === 'ai_step' && base.some((p) => claseDe(p) === 'respuesta')) return { pasos: base, id: '' };
   const n = { ...nodoNuevo(que, fijo, rnd), siguiente: null } as unknown as P;
   const id = n.id!;
   return { pasos: normalizar([...fijo, n]), id };

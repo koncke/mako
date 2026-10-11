@@ -40,6 +40,13 @@
 // caja de Crear con IA) y, si hay algo copiado, «Pegar lo copiado» (copiar flujo, lib/flujo-copia.ts);
 // (3) las plantillas. El modal es ANCHO (cubre casi todo) y el viejo «En blanco» se fue: era lo mismo
 // que «Pídesela a MaKo» sin decirlo.
+//
+// ── NOVENA TANDA (10/10/2026): (4) LOS MENSAJES DE MAKO ELIMINADOS ──────────────────────────────
+// El «⋯» de un Mensaje de MaKo en la lista los ELIMINA = los oculta de la lista de este negocio y los
+// apaga (lib/plantillas-ocultas.ts). Se recuperan ACÁ, que es donde se va a buscar lo que se quiere tener
+// en la lista: una sección al pie, «Mensajes de MaKo», con una tarjeta por cada uno. Tocarla lo devuelve
+// a la lista PRENDIDO y abre su lienzo (lo hace quien monta: `onRestaurar`). Sin ninguno eliminado, la
+// sección no se dibuja: un rótulo con nada abajo se lee como que falta algo.
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Modal } from '@/app/_ui/Modal';
@@ -54,6 +61,8 @@ import { ElegirClase } from './EditorDisparadores';
 import type { ClaseDisparador } from '@/lib/disparadores';
 import { leerCopia } from '@/lib/flujo-copia';
 import { MakoStar } from '@/app/_components/MakoBrand';
+import type { PlantillaVista } from '@/lib/plantillas';
+import { emojiDeMensaje } from '@/lib/chatbot-mensajes-mako';
 
 /** Las dos formas de empezar sin plantilla (las de «＋ Nueva»). */
 export type QueNueva = 'blanco' | 'mako';
@@ -87,6 +96,9 @@ export const ROTULO_CRON = '¿Qué la dispara?';
 export const ROTULO_OTRAS = 'O empieza así';
 export const ROTULO_PLANTILLAS = 'Desde una plantilla';
 export const PREGUNTA_ETAPA = '¿En qué etapa arranca?';
+/** La sección de los Mensajes de MaKo que este negocio eliminó (novena tanda): tocar uno lo recupera. */
+export const ROTULO_OCULTOS = 'Mensajes de MaKo';
+export const LINEA_OCULTO = 'Lo eliminaste. Tócalo para recuperarlo.';
 
 /**
  * ¿Al elegirla hay que preguntar la etapa? Sólo si arranca en una etapa y hay etapas para ofrecer: si no, nace
@@ -143,6 +155,13 @@ export function GaleriaPlantillas(p: {
   onPegar?: (texto: string) => void;
   /** La que se creó desde una plantilla: quien monta la abre. */
   onCreada: (r: CreadaGaleria) => void;
+  /** Los Mensajes de MaKo que este negocio eliminó (`GET ?ocultos=1`). Vacío o ausente = sin sección. */
+  ocultos?: readonly Pick<PlantillaVista, 'id' | 'titulo' | 'categoria'>[];
+  /**
+   * Recuperar uno: quien monta lo devuelve a la lista, cierra esto y abre su lienzo. Devuelve por qué no se
+   * pudo (se dibuja acá) o `null`. Sin esto la sección no se dibuja: tocar una tarjeta no haría nada.
+   */
+  onRestaurar?: (id: string) => Promise<string | null>;
 }) {
   // LO COPIADO, si hay (copiar flujo, 10/10/2026: «al momento de crear un nuevo flujo que te aparezca la
   // opción de pegar»). Leer el portapapeles puede pedir permiso: si no lo dan, la opción no aparece.
@@ -162,6 +181,9 @@ export function GaleriaPlantillas(p: {
   const [valor, setValor] = useState('');
   const [creando, setCreando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** El mensaje que se está recuperando, y por qué no se pudo (pegado a su sección). */
+  const [restaurando, setRestaurando] = useState<string | null>(null);
+  const [errorOculto, setErrorOculto] = useState<string | null>(null);
   const enVuelo = useRef(false);
 
   // Las props de AHORA, sin cambiarle la identidad al `onCerrar` del Modal (ver la cabecera).
@@ -201,6 +223,20 @@ export function GaleriaPlantillas(p: {
     void crear(pl, null);
   };
 
+  /** Recuperar un mensaje eliminado. Comparte el candado de crear: dos cosas a la vez no. */
+  const recuperar = async (id: string) => {
+    if (enVuelo.current || !props.current.onRestaurar) return;
+    enVuelo.current = true;
+    setRestaurando(id); setErrorOculto(null);
+    try {
+      const motivo = await props.current.onRestaurar(id);
+      if (motivo) setErrorOculto(motivo);
+    } finally {
+      enVuelo.current = false;
+      setRestaurando(null);
+    }
+  };
+
   // ── 2. ¿En qué etapa arranca? ── (sólo se elige una que arranca en una etapa: `preguntaEtapa`)
   const pideElegida = elegida?.cron.pide;
   if (elegida && pideElegida) {
@@ -228,7 +264,8 @@ export function GaleriaPlantillas(p: {
   }
 
   // ── 1. ¿Cómo empiezas? ──
-  const ocupado = creando != null;
+  const ocupado = creando != null || restaurando != null;
+  const ocultos = p.onRestaurar ? (p.ocultos ?? []) : [];
   return (
     <Modal titulo={TITULO_GALERIA} onCerrar={cerrar} ancho={980} sinFiletes>
       <style>{CSS}</style>
@@ -277,6 +314,27 @@ export function GaleriaPlantillas(p: {
             );
           })}
         </div>
+        {/* (4) LOS MENSAJES DE MAKO ELIMINADOS (novena tanda): tocar uno lo recupera y abre su lienzo. Sin
+            ninguno, no hay sección. */}
+        {ocultos.length > 0 && (
+          <div data-galeria-ocultos>
+            <div style={ROTULO}>{ROTULO_OCULTOS}</div>
+            {errorOculto && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)', marginBottom: 10 }}>{errorOculto}</div>}
+            <div className="gal-grilla">
+              {ocultos.map((m) => (
+                <button key={m.id} type="button" className="gal-tarjeta" data-oculto={m.id}
+                  disabled={ocupado && restaurando !== m.id} aria-busy={restaurando === m.id || undefined}
+                  title={`Recuperar «${m.titulo}»`}
+                  onClick={() => void recuperar(m.id)}>
+                  <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{emojiDeMensaje(m)}</span>
+                  <span style={NOMBRE}>{m.titulo}</span>
+                  <span style={LINEA}>{LINEA_OCULTO}</span>
+                  {restaurando === m.id && <span className="mk-spin" style={{ width: 14, height: 14, marginTop: 'auto' }} aria-label="Recuperando" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Modal>
   );

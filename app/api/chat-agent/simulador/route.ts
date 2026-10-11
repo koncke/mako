@@ -32,7 +32,7 @@ import { transcribirAudio } from '@/lib/ai-cheap';
 import { clasificarEscenario } from '@/lib/chat-agent-handoff';
 import { getUsuarioActual } from '@/lib/auth';
 import { buscarUsuarioPorEmail } from '@/lib/usuarios';
-import { escenariosDeRespuesta, normalizar, TOPE_NODOS, type PasoGrafo } from '@/lib/flujo-grafo';
+import { escenariosDeRespuesta, normalizar, TOPE_NODOS, TOPE_GUIA, type PasoGrafo } from '@/lib/flujo-grafo';
 import { destinoDelQueMira, destinosGuardados, sanearDestinoPrueba, sanearMensajePrueba, sanearEmisorPrueba } from '@/lib/simulador-grafo';
 import { enviarPasoDePrueba, guardarDestinoDeQuienPrueba } from '@/lib/prueba-paso';
 import type { EscenarioSecuencia } from '@/lib/setting-estrategia';
@@ -110,6 +110,8 @@ export async function POST(req: NextRequest) {
       const t = await transcribir(body);
       if ('error' in t) return json({ ok: false, error: t.error }, 400);
       const mensaje = t.texto || (typeof body.mensaje === 'string' ? body.mensaje : '');
+      // Llegan como se ven en el lienzo (un AI Step, compacto): `escenariosDeRespuesta` lo expande adentro
+      // (`expandirPasoIA`, novena tanda), así la guía y «sale sola» de cada caso son las que lee el motor.
       const casos = escenariosDeRespuesta(pasos);
       // La forma del clasificador de siempre. Se busca el caso por REFERENCIA: el clasificador
       // devuelve el mismo objeto que se le pasó, así que no hace falta comparar títulos (dos casos
@@ -137,7 +139,9 @@ export async function POST(req: NextRequest) {
       const escenario: EscenarioSecuencia = {
         titulo: String(e.titulo ?? '').slice(0, 200) || 'Otra cosa',
         cuando: String(e.cuando ?? '').slice(0, 1000),
-        comoResponder: String(e.comoResponder ?? '').slice(0, 2000),
+        // El tope es el de la guía de un AI Step (`TOPE_GUIA`): con 2000 «Probar» le cortaba la respuesta
+        // del caso a un tono largo y contestaba distinto que el motor (revisión de la novena tanda).
+        comoResponder: String(e.comoResponder ?? '').slice(0, TOPE_GUIA),
       };
       // ⚠️ `responderSimulador` lee de lo GUARDADO el nombre, el objetivo, el gancho y las
       // preguntas de la secuencia; lo que se edita en el lienzo (el caso y su guía) viaja acá.

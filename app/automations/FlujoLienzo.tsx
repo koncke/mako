@@ -54,6 +54,9 @@ import { EditorEtiqueta } from './EditorEtiqueta';
 // El editor de la CONDICIÓN (tercera tanda, puntos 9 y 10): una frase por fila, del catálogo por
 // secciones filtrado por el CRON. Vive aparte; este archivo sólo lo monta.
 import { EditorCondicion, EditorCondicionDeRespuesta, useCatalogosCondicion, catalogosDe } from './EditorCondicion';
+// El AI STEP (novena tanda): su cuerpo en la tarjeta y su editor viven aparte; este archivo los monta.
+import { CuerpoPasoIA, EditorPasoIA, type CambioPasoIA } from './EditorPasoIA';
+import { respuestaAPasoIA } from '@/lib/paso-ia-convertir';
 import { quitarIrA } from '@/lib/flujo-legado';
 import { ambitoDeDisparo, nombresCatalogoDe } from '@/lib/condiciones-catalogo';
 import { LEAD_DEL_EVENTO } from '@/lib/api-mako/flujo-params';
@@ -67,7 +70,7 @@ import { aplicarVariables } from '@/lib/template-vars';
 import { datosOfrecidos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
-  claseDe, idDe, borrarNodo, condicionARespuesta, raizRespuesta, TOPE_CASOS,
+  claseDe, idDe, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS,
   type Espera, type NombresParaTexto,
 } from '@/lib/flujo-grafo';
 import {
@@ -337,6 +340,9 @@ export function FlujoLienzo({
     onPosiciones?.(fijarPosicion(derivado, posiciones, id, Math.round(x), Math.round(y), ID_ENTRADA));
   };
   const crearSueltaEn = (que: QueAgregar, punto: { x: number; y: number }) => {
+    // Sólo lo que el menú ofrece ahora: un segundo AI Step no (hay una que escucha por automatización, y
+    // `crearSuelta` devuelve el flujo igual con el id vacío).
+    if (!opcionesSueltas(pasos).some((o) => o.value === que)) return;
     const r = crearSuelta(pasos, que);
     onPasos(() => r.pasos, true);
     ponerEn(r.id, punto.x, punto.y);
@@ -477,7 +483,7 @@ export function FlujoLienzo({
   const iconoMenu = (src?: string) => (src ? <img src={src} alt="" width={18} height={18} style={{ display: 'block' }} /> : undefined);
   /** EL CLICK DERECHO EN EL FONDO (punto 2): crear cada tipo de tarjeta EN ese punto, Publicar y Acomodar. */
   const menuLienzo = editable ? (punto: { x: number; y: number }): ItemMenuLienzo[] => [
-    ...opcionesSueltas().map((o) => ({
+    ...opcionesSueltas(pasos).map((o) => ({
       id: `crear-${o.value}`, label: o.label, grupo: o.grupo, icono: iconoMenu(o.icono),
       onElegir: () => crearSueltaEn(o.value as QueAgregar, punto),
     })),
@@ -608,7 +614,10 @@ export function FlujoLienzo({
         }
         return (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={(n.tipo === 'ir-a' && Boolean(n.advertencia)) || (cerradas.has(n.id) && incompletas.has(n.id))}>
-            {n.tipo === 'mensaje' && paso && esCanalSocial(paso.canal)
+            {/* EL AI STEP (novena tanda): sus casos adentro, una fila cada uno, y «Otra cosa» al pie. */}
+            {n.tipo === 'paso-ia' && paso
+              ? <CuerpoPasoIA paso={paso} pendientes={n.detalle} />
+              : n.tipo === 'mensaje' && paso && esCanalSocial(paso.canal)
               ? <VistaMensajeSocial paso={paso} canal={paso.canal} negocio={negocio} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : null} />
               : n.tipo === 'mensaje' && paso
               ? <VistaMensaje paso={paso} audios={audios} negocio={negocio} biblioteca={biblioteca} />
@@ -939,7 +948,16 @@ function EditorDeNodo(pr: PropsEditor) {
           onPasarARespuesta={pasarARespuesta} />
       );
     }
-    case 'respuesta': return <EditorRespuesta {...pr} paso={paso} id={id} cambiar={cambiar} />;
+    case 'respuesta': {
+      // EL AI STEP (novena tanda): la misma clase, con sus casos adentro y su propio editor. Sus campos
+      // (`paso_ia`, el tono, el aviso de «Otra cosa») están en `PasoSecuenciaDto` (`CamposDelFlujo`, en
+      // ChatAgentApp), así que el cambio va por `cambiarNodo` sobre el DTO, sin castear.
+      if (esPasoIA(paso)) {
+        const cambiarIA: CambioPasoIA = (patch, apilar) => pr.onPasos((prev) => cambiarNodo<PasoSecuenciaDto>(prev, id, patch), apilar);
+        return <EditorPasoIA key={`ia-${id}`} paso={paso} pasos={pr.pasos} busy={pr.busy} cambiar={cambiarIA} />;
+      }
+      return <EditorRespuesta {...pr} paso={paso} id={id} cambiar={cambiar} />;
+    }
     case 'ir_a': return <EditorIrA {...pr} paso={paso} id={id} cambiar={cambiar} />;
     default:
       if (paso.canal === 'email') return <EditorEmail paso={paso} id={id} negocio={pr.negocio} busy={pr.busy} cambiar={cambiar} />;
@@ -1037,6 +1055,8 @@ function EditorMako({ paso, busy, cambiar }: { paso: PasoSecuenciaDto; busy: boo
 function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto | null }) {
   const txt: CSSProperties = { fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' };
   if (paso && claseDe(paso) === 'mensaje') return <div style={txt}>{paso.cuerpo || 'Sin escribir'}</div>;
+  // El AI Step no tiene filas de salida: sus casos son su contenido (lo mismo que dibuja la tarjeta).
+  if (paso && esPasoIA(paso)) return <CuerpoPasoIA paso={paso} />;
   if (nodo.puertos?.some((p) => p.rotulo != null)) return <div style={txt}>{nodo.puertos.map((p) => p.rotulo).join('\n')}</div>;
   return <div style={{ ...txt, color: 'var(--dim)' }}>{nodo.detalle}</div>;
 }
@@ -1207,16 +1227,34 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
  * nace con su tarjeta «MaKo contesta» (`agregarCaso`), que no se abre sola para no sacar a la persona
  * de la lista que está armando; el «Si no» es lo que antes era «Otra cosa».
  */
-function EditorRespuesta({ paso, id, cambiar, onPasos, busy, onAbrir }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorRespuesta({ paso, id, cambiar, onPasos, busy, onAbrir, pasos }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
   const casos = paso.casos ?? [];
+  /**
+   * «PASAR A AI STEP» (novena tanda: «Todo lo que hiciste… debería estar en una nueva tarjeta que sea "AI
+   * Step". Configuralo allí»): pliega las tarjetas de cada caso adentro de la tarjeta (`respuestaAPasoIA`,
+   * lib/paso-ia-convertir.ts). Todo o nada: si un caso tiene algo que no entra, el botón se apaga y su
+   * `title` dice cuál. Deshacible como cualquier cambio, y nada se guarda hasta Publicar.
+   */
+  const conversion = respuestaAPasoIA(pasos, id);
+  const motivo = 'error' in conversion ? conversion.error : null;
   return (
-    <EditorCondicionDeRespuesta key={`resp-${id}`} busy={busy} r={{
-      casos,
-      cambiarCasos: (c, apilar) => cambiar({ casos: c }, apilar),
-      onAgregarCaso: () => { if (casos.length < TOPE_CASOS) onPasos((prev) => agregarCaso(prev, id).pasos, true); },
-      onQuitarCaso: (casoId) => onPasos((prev) => quitarCaso(prev, id, casoId), true),
-      ...(paso.si_no ? { onVerSiNo: () => onAbrir(paso.si_no!) } : {}),
-    }} />
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <EditorCondicionDeRespuesta key={`resp-${id}`} busy={busy} r={{
+        casos,
+        cambiarCasos: (c, apilar) => cambiar({ casos: c }, apilar),
+        onAgregarCaso: () => { if (casos.length < TOPE_CASOS) onPasos((prev) => agregarCaso(prev, id).pasos, true); },
+        onQuitarCaso: (casoId) => onPasos((prev) => quitarCaso(prev, id, casoId), true),
+        ...(paso.si_no ? { onVerSiNo: () => onAbrir(paso.si_no!) } : {}),
+      }} />
+      <button type="button" disabled={busy || motivo != null} title={motivo ?? 'Pasar a AI Step'}
+        onClick={() => onPasos((prev) => { const r = respuestaAPasoIA(prev, id); return 'error' in r ? prev : r.pasos; }, true)}
+        style={{
+          ...botonGrande, width: '100%', border: '1px solid var(--border-strong)', background: 'var(--surface)', fontFamily: SANS,
+          color: motivo != null ? 'var(--faint)' : 'var(--primary)', cursor: busy || motivo != null ? 'default' : 'pointer',
+        }}>
+        Pasar a AI Step
+      </button>
+    </div>
   );
 }
 

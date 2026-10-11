@@ -17,7 +17,7 @@ import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
 import { motivoNoInscribe } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { claseDe, idDe, siguienteDe, raizRespuesta } from '@/lib/flujo-grafo';
+import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA } from '@/lib/flujo-grafo';
 import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo, AVISO_REPETIDO } from '@/lib/nutricion-grafo-motor';
 import { getAdjunto } from '@/lib/setting-adjuntos';
 import { emitirAviso } from '@/lib/avisos';
@@ -178,6 +178,22 @@ function textoDeUnCron(d: Disparador): string {
   return nombre;
 }
 
+/**
+ * Lo que la ficha de una automatización dice de un AI STEP (novena tanda): la marca, el tono, el aviso de
+ * «Otra cosa» y cada caso con lo que hace. Explícito y con todos los campos (null/false = no lo tiene):
+ * quien lee la ficha es un modelo, y un campo ausente lo lee como «no sé», no como «no».
+ */
+function fichaPasoIA(p: PasoSecuencia) {
+  return {
+    paso_ia: true as const,
+    instrucciones: p.instrucciones ?? null,
+    otra_aviso: p.otra_aviso ?? null,
+    casos: (p.casos ?? []).map((c) => ({
+      id: c.id, titulo: c.titulo, cuando: c.cuando, responder: c.responder ?? null, sola: c.sola === true, avisar: c.avisar === true,
+    })),
+  };
+}
+
 /** El detector de copy sin terminar del motor (RX_RELLENO en lib/nutricion.ts, que no lo exporta):
  *  un paso con un [corchete] que no sea [tu link …] NO sale nunca y se reprograma cada 24 h. */
 const RX_RELLENO = /\[(?!tu link)[^\]\n]{2,80}\]/i;
@@ -205,6 +221,9 @@ export const RUNNERS: Runners = {
           // Una tarjeta de CONTROL no manda nada: decide por dónde sigue el flujo.
           orden: p.orden, id: idDe(p, i), tipo: p.nodo, siguiente: siguienteDe(s.pasos, i), espera: p.espera ?? null,
           ramas: p.ramas ?? null, casos: p.casos ?? null, si_no: p.si_no ?? null, paralelos_si_no: p.paralelos_si_no ?? null, destino: p.destino ?? null,
+          // EL AI STEP (novena tanda) sí contesta, y lo que contesta vive ADENTRO de la tarjeta: sin esto la
+          // ficha mostraba un «Si responde» con casos sin nada debajo, o sea uno que no contesta nada.
+          ...(esPasoIA(p) ? fichaPasoIA(p) : {}),
         }) : esPasoAccion(p) ? ({
           // Un paso «⚡ Acción de MaKo» no manda un mensaje: corre esta operación del registro.
           orden: p.orden, id: idDe(p, i), tipo: 'accion', delay_horas: p.delay_horas, ancla: p.ancla ?? null, requiere: p.requiere ?? null,
@@ -223,6 +242,7 @@ export const RUNNERS: Runners = {
         metricas_30d: { ventana: ventana30(), ...s.metricas },
         historico: { inscriptos: s.inscriptos, enviados: s.enviados },
         notas: [
+          'Un «Si responde» con paso_ia=true (AI Step) contesta adentro: cada caso dice cómo responde (responder, con el tono de instrucciones arriba), si sale solo (sola) y si te avisa (avisar); lo que no encaja va a «Otra cosa», que avisa con otra_aviso.',
           'Un paso con sin_terminar=true no sale nunca: el motor lo reprograma cada 24 h.',
           'Los [tu link …] salen literales al lead: nada los reemplaza.',
           'activa=true no garantiza envíos: mira estado_canal_whatsapp_chatbot.',

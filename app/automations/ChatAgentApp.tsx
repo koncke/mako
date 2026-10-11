@@ -28,7 +28,7 @@ import { leerCopia, firmaDeCopia } from '@/lib/flujo-copia';
 import type { ClaseDisparador } from '@/lib/disparadores';
 // Los Mensajes de MaKo (los flujos de Configuraciones › Notificaciones, quinta tanda punto 5): el
 // endpoint y el parámetro del link son los de allá (lib/chatbot-mensajes-mako.ts).
-import { ENDPOINT_MENSAJES_MAKO, PARAM_AVISO, mensajePedido } from '@/lib/chatbot-mensajes-mako';
+import { ENDPOINT_MENSAJES_MAKO, ENDPOINT_MENSAJES_OCULTOS, PARAM_AVISO, mensajePedido } from '@/lib/chatbot-mensajes-mako';
 import type { PlantillaVista } from '@/lib/plantillas';
 import type { CronAviso } from '@/lib/cron-aviso';
 // ⚠️ ACÁ SE IMPORTABAN `HandoffsPanel` Y `RecordatorioReunion`, y se fueron el 08/10/2026 con
@@ -107,8 +107,12 @@ export type PasoSecuenciaDto = {
  * Lo que un paso suma para ser un NODO de un flujo con ramas (lib/flujo-grafo.ts, pedido de
  * Martín del 08/10/2026, punto 9). Todo opcional: una secuencia de antes no trae nada.
  * `tipo: 'media'` es un archivo o una imagen de la biblioteca (`media_id`, por referencia).
+ * El AI Step (novena tanda) suma `paso_ia`, el tono (`instrucciones`) y el aviso de «Otra cosa»
+ * (`otra_aviso`), y un «Si responde» soltado del CRON lleva `suelta`: viajaban igual sin declararse
+ * (JavaScript no borra lo que TypeScript no declara), pero el lienzo tenía que castear para editarlos.
  */
-export type CamposDelFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar' | 'media_id'>;
+export type CamposDelFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar' | 'media_id'
+  | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'suelta'>;
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
@@ -377,6 +381,38 @@ function ChatAgentInner() {
     } catch { /* sin red: la lista queda con las automatizaciones */ }
   }, []);
   useEffect(() => { if (rolAdmin) void cargarAvisos(); }, [rolAdmin, cargarAvisos]);
+
+  /**
+   * LOS MENSAJES QUE ESTE NEGOCIO ELIMINÓ (novena tanda, 10/10/2026): el «⋯» de su fila los OCULTA, y se
+   * recuperan desde «Nueva automatización» (la galería). Los lee el MISMO endpoint, con `?ocultos=1`, y sólo
+   * para el admin, como los otros. Se leen al entrar y cada vez que se elimina o se recupera uno. Si no se
+   * pueden leer, la galería no dibuja la sección: no se afirma que no haya ninguno.
+   */
+  const [ocultos, setOcultos] = useState<PlantillaVista[] | null>(null);
+  const cargarOcultos = useCallback(async () => {
+    try {
+      const r = await fetch(ENDPOINT_MENSAJES_OCULTOS, { cache: 'no-store' });
+      const j = await r.json().catch(() => null);
+      if (r.ok && j?.ok && Array.isArray(j.plantillas)) setOcultos(j.plantillas as PlantillaVista[]);
+    } catch { /* sin red: la galería sigue sin la sección */ }
+  }, []);
+  useEffect(() => { if (rolAdmin) void cargarOcultos(); }, [rolAdmin, cargarOcultos]);
+  /**
+   * RECUPERAR UNO desde la galería: vuelve a la lista PRENDIDO (`restaurar`, lib/plantillas-ocultas.ts), la
+   * galería se cierra y se abre su lienzo — cuando la lista ya lo trae, que es lo que `abrirAviso` espera
+   * (sólo abre un mensaje que esté entre los que se ven). Devuelve por qué no se pudo, para la galería.
+   */
+  const restaurarMensaje = async (id: string): Promise<string | null> => {
+    try {
+      const r = await fetch(ENDPOINT_MENSAJES_MAKO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'restaurar', id }) });
+      const j = await r.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (!r.ok || !j?.ok) return j?.error || 'No se pudo recuperar';
+      await Promise.all([cargarAvisos(), cargarOcultos()]);
+      setGaleria(false);
+      setAbrirAviso({ id });
+      return null;
+    } catch { return 'Sin conexión — prueba de nuevo.'; }
+  };
 
   /**
    * «NUEVA» (decisión 14 de la segunda tanda): una automatización VACÍA y pausada, y se abre su
@@ -731,6 +767,7 @@ function ChatAgentInner() {
         <SimuladorWhatsApp
           secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           avisos={avisos} abrirAviso={abrirAviso} onAvisosCambio={() => void cargarAvisos()}
+          onOcultosCambio={() => void cargarOcultos()}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
           abrir={abrirSec}
@@ -758,7 +795,9 @@ function ChatAgentInner() {
           onPegar={(t) => { setGaleria(false); void crearDesdeCopia(t); }}
           onCreada={(r) => void alCrearDePlantilla(r)}
           // El recordatorio de la reunión es UNO por negocio: si ya está en la lista, su plantilla se dibuja apagada.
-          triggersVivos={(secuencias ?? []).map((s) => s.trigger_tipo)} />
+          triggersVivos={(secuencias ?? []).map((s) => s.trigger_tipo)}
+          // Los Mensajes de MaKo que este negocio eliminó: tocar uno lo recupera y abre su lienzo (novena tanda).
+          ocultos={ocultos ?? []} onRestaurar={restaurarMensaje} />
       )}
 
       {/* «COPIASTE UN FLUJO»: arriba al centro, sobre el lienzo, hasta que se conteste. */}

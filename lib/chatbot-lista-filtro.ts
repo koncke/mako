@@ -28,7 +28,7 @@
 
 import type { DropdownGroup, DropdownOption } from '@/app/components/Dropdown';
 import { alternarValor } from '@/app/components/dropdown-varios';
-import { claseDe, type PasoGrafo } from './flujo-grafo';
+import { claseDe, expandirPasoIA, type PasoGrafo } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
 import type { PlantillaVista } from './plantillas';
 import { emojiDeMensaje, mensajeActivo } from './chatbot-mensajes-mako';
@@ -69,10 +69,16 @@ const sinRepetir = (es: Envio[]): Envio[] => {
  *   por WhatsApp.
  * · Lo demás (esperas, condiciones, «Si responde», «Ir a», las otras acciones, el CRON) no manda
  *   nada: «Si responde» bifurca y los mensajes que siguen son tarjetas propias, que ya cuentan.
+ *
+ * ⚠️ UN AI STEP SE CUENTA EXPANDIDO (`expandirPasoIA`, novena tanda): lo que manda —el «MaKo contesta» de
+ * cada caso, por el WhatsApp no oficial, y el aviso al equipo de los casos que avisan y de «Otra cosa»—
+ * vive ADENTRO de la tarjeta, no en tarjetas propias. Leído compacto, una automatización cuyo único
+ * mensaje al lead es su AI Step no pasaba «WhatsApp» ni «A clientes». Es lo mismo que recorren el motor
+ * y «Probar».
  */
 export function enviosDePasos(pasos: readonly PasoGrafo[]): Envio[] {
   const out: Envio[] = [];
-  for (const p of pasos) {
+  for (const p of expandirPasoIA(pasos)) {
     if (!p || typeof p !== 'object') continue;
     const c = claseDe(p);
     if (c === 'mensaje') {

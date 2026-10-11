@@ -53,7 +53,7 @@ import {
   type PasoGrafo, type FilaCondicion, type CampoCondicion,
   CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS,
   claseDe, idDe, nuevoId, puertosDe, raicesSalida, raizRespuesta, descendientes, indicePorId,
-  conectarPuerto, puedeTenerParalelos, validarGrafo, contarParalelos,
+  conectarPuerto, puedeTenerParalelos, validarGrafo, contarParalelos, esPasoIA,
 } from './flujo-grafo';
 import { faltanEnPaso, LEAD_DEL_EVENTO } from './api-mako/flujo-params';
 import { accionDelFlujo, PARAM_ETIQUETAS } from './editor-acciones';
@@ -1332,6 +1332,10 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
     let hilo: Hilo = 'salida';
     if (despues === 'cron' || despues === ID_INICIO) lugar = { tipo: 'cron' };
     else if (despues === 'si_responde' || despues === 'respuesta' || (resp && g.despues_de === resp && (salida === 'caso' || !salida))) {
+      // ⚠️ UN AI STEP (novena tanda) LLEVA LO DE CADA CASO ADENTRO: colgarle tarjetas es lo que
+      // `validarGrafo` no deja guardar («debajo de la tarjeta X no van tarjetas»), y el pedido entero
+      // fallaba con ese id a la vista. Se dice y se sigue con lo demás.
+      if (resp && esPasoIA(pasos[indicePorId(pasos, resp)])) { est.avisos.push('El AI Step lleva sus casos adentro: edítalos en su tarjeta'); continue; }
       const caso = (g.caso && typeof g.caso === 'object' ? g.caso : {}) as Record<string, unknown>;
       const titulo = str(caso.titulo).trim().slice(0, 120);
       const cuando = str(caso.cuando).trim().slice(0, 600);
@@ -1352,6 +1356,8 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
       const ancla = str(g.despues_de).trim();
       const i = indicePorId(pasos, ancla);
       if (i < 0 || claseDe(pasos[i]) === 'inicio') { est.avisos.push('Un tramo nuevo iba después de una tarjeta que no existe: no lo agregué'); continue; }
+      // Lo mismo por una salida del AI Step (un caso o «Otra cosa»): no lleva tarjetas.
+      if (esPasoIA(pasos[i])) { est.avisos.push('El AI Step lleva sus casos adentro: edítalos en su tarjeta'); continue; }
       if (enResp.has(ancla)) hilo = 'respuesta';
       if (salida === 'paralelo') {
         if (hilo === 'respuesta' || !puedeTenerParalelos(pasos[i])) { est.avisos.push('Esa tarjeta no puede abrir otro camino a la vez: no agregué ese tramo'); continue; }

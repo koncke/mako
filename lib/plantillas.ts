@@ -18,6 +18,7 @@ import { CATALOGO_AVISOS, esAvisoDelCliente, type AvisoCatalogo, type CategoriaA
 import { esFlujoValido, type Flujo } from './flujos-tipos';
 import { sanearFrecuencia } from './disparador-mensaje';
 import { conVariables } from './variables-resolver';
+import { estaOculta, ocultar, restaurar, conInterruptor, porOculto, queOcultos } from './plantillas-ocultas';
 
 const KEY_STORE = 'mako.plantillas.store';
 /**
@@ -39,7 +40,8 @@ export function conLaBaseDeLaPlataforma<T>(fn: () => Promise<T>): Promise<T> {
 }
 const enLaBase = (): boolean => editandoLaBase.getStore() === true;
 
-type EntradaStore = {
+/** Exportado SÓLO como tipo, para lib/plantillas-ocultas.ts (puro, con test): `import type` no arrastra `server-only`. */
+export type EntradaStore = {
   texto?: string;      // referencia editada (pisa el ejemplo del catálogo)
   enabled?: boolean;   // default true
   custom?: { titulo: string; categoria: CategoriaAviso; requiereRespuesta: boolean };
@@ -72,6 +74,14 @@ type EntradaStore = {
    * publica». Salir de la pantalla de cualquier forma guarda acá.
    */
   borrador?: string;
+  /**
+   * ESTE NEGOCIO LO ELIMINÓ DE SU LISTA (novena tanda, 10/10/2026: el «⋯» de los Mensajes de MaKo en
+   * /automations). No se borra nada: sale de la lista del cliente, queda APAGADO y se recupera desde «Nueva
+   * automatización». Lo escriben sólo las funciones de lib/plantillas-ocultas.ts, que sostienen «oculto ⇒
+   * apagado» (`ocultar` pone las dos marcas juntas; prender uno oculto lo restaura). Ausente = en la lista.
+   * ⚠️ NO SE HEREDA de la base de la plataforma (`leerPar`): es una decisión de cada negocio, como el borrador.
+   */
+  oculto?: true;
 };
 type Store = Record<string, EntradaStore>;
 
@@ -137,7 +147,8 @@ function canalesDe(e: EntradaStore | undefined): CanalesAviso {
   };
 }
 
-export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso; frecuenciaMin: number; posiciones: Record<string, { x: number; y: number }>; borrador: string | null; asunto: string };
+/** `oculto`: este negocio lo eliminó de su lista (`EntradaStore.oculto`). Sólo la vista de la agencia lo trae en `true`. */
+export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso; frecuenciaMin: number; posiciones: Record<string, { x: number; y: number }>; borrador: string | null; asunto: string; oculto: boolean };
 
 /**
  * EL STORE ES POR WORKSPACE, CON LOS DEL DUEÑO COMO PLANTILLA.
@@ -216,12 +227,15 @@ async function leerPar(): Promise<{ propio: Store; efectivo: Store }> {
   const [propio, baseStore] = await Promise.all([leerStorePropio(), leerStoreDe(base, KEY_BASE)]);
   const efectivo: Store = {};
   for (const id of new Set([...Object.keys(baseStore), ...Object.keys(propio)])) {
-    // ⚠️ EL BORRADOR NO SE HEREDA, y es el único campo con esa excepción. Lo del
-    // dueño es el DEFAULT de todos, y un borrador no es un default: es trabajo a
-    // medio escribir de UNA persona. Heredado, cada cliente abriría el mensaje con
-    // un «Sin publicar» y un texto que nunca tipeó — y al apretar Publicar estaría
-    // publicando en SU negocio el borrador de la agencia.
-    const { borrador: _sinHeredar, ...heredable } = baseStore[id] ?? {};
+    // ⚠️ EL BORRADOR NO SE HEREDA. Lo del dueño es el DEFAULT de todos, y un borrador
+    // no es un default: es trabajo a medio escribir de UNA persona. Heredado, cada
+    // cliente abriría el mensaje con un «Sin publicar» y un texto que nunca tipeó — y
+    // al apretar Publicar estaría publicando en SU negocio el borrador de la agencia.
+    // ⚠️ Y LA MARCA DE «ELIMINADO» TAMPOCO (novena tanda, 10/10/2026, `oculto`): sacar un
+    // mensaje de la lista es una decisión de CADA negocio. Heredada, un mensaje que se
+    // ocultara en la base desaparecería de la lista de todos los clientes, apagado y sin
+    // que ninguno lo haya eliminado. Lo que sí se hereda es el interruptor, como siempre.
+    const { oculto: _cadaNegocioDecide, borrador: _sinHeredar, ...heredable } = baseStore[id] ?? {};
     // ⚠️ Y UN PASO «⚡ ACCIÓN» TAMPOCO SE HEREDA. Desde el 08/10/2026 ese paso CORRE solo
     // (lib/api-mako/flujo.ts), y lo que el dueño arma en su /mensajes es una automatización
     // de SU negocio: heredada, «crear una tarea» o «mover el lead» corría en el tablero y el
@@ -290,6 +304,9 @@ function aVista(cat: AvisoCatalogo, e: EntradaStore | undefined, esCustom: boole
     // vacío» son dos cosas, y la segunda es alguien que borró el texto a propósito
     // y todavía no lo publicó.
     borrador: typeof e?.borrador === 'string' ? e.borrador : null,
+    // Si este negocio lo eliminó de su lista. Un fijo no se oculta (`ocultarPlantilla` lo rechaza): aunque
+    // una escritura a mano le dejara la marca, no se esconde algo que va a seguir saliendo.
+    oculto: cat.porDefecto !== 'siempre' && estaOculta(e),
     esCustom,
   };
 }
@@ -308,6 +325,9 @@ function aVista(cat: AvisoCatalogo, e: EntradaStore | undefined, esCustom: boole
  */
 function estaPrendida(cat: AvisoCatalogo, e: EntradaStore | undefined): boolean {
   if (cat.porDefecto === 'siempre') return true;   // no se apaga, ni con un override viejo
+  // Eliminado de la lista = apagado, aunque una escritura vieja le haya dejado `enabled: true`
+  // (lib/plantillas-ocultas.ts: «oculto ⇒ apagado»). Lo leen la lista, el runtime y los flujos.
+  if (estaOculta(e)) return false;
   if (typeof e?.enabled === 'boolean') return e.enabled;
   if (e?.custom) return true;
   return cat.porDefecto === 'on';
@@ -421,8 +441,13 @@ export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: 
  *
  * `vista: 'agencia'` es para el panel del super-admin, que sí quiere el mapa
  * completo: es su catálogo de trabajo, no la pantalla de un cliente.
+ *
+ * ⚠️ Y LO QUE EL NEGOCIO ELIMINÓ (novena tanda, `oculto`) no sale en SU lista; la de la agencia lo trae con
+ * la marca, y `ocultos: true` contesta sólo esos (lo que se recupera desde «Nueva automatización»), con el
+ * MISMO universo de la vista: el cliente recupera sólo lo que su lista podía mostrarle. Quién ve qué lo
+ * decide `queOcultos` (lib/plantillas-ocultas.ts, con test).
  */
-export async function listarPlantillas(opts: { vista?: 'cliente' | 'agencia' } = {}): Promise<PlantillaVista[]> {
+export async function listarPlantillas(opts: { vista?: 'cliente' | 'agencia'; ocultos?: boolean } = {}): Promise<PlantillaVista[]> {
   const store = await leerStore();
   const agencia = opts.vista === 'agencia';
   const base = agencia ? CATALOGO_AVISOS : CATALOGO_AVISOS.filter((c) => esAvisoDelCliente(c.id));
@@ -430,12 +455,14 @@ export async function listarPlantillas(opts: { vista?: 'cliente' | 'agencia' } =
   const custom = Object.entries(store)
     .filter(([, e]) => e.custom)
     .map(([id, e]) => aVista(customACatalogo(id, e), e, true));
-  return [...built, ...custom];
+  return porOculto([...built, ...custom], queOcultos(agencia ? 'agencia' : 'cliente', opts.ocultos === true));
 }
 
 export async function getPlantilla(id: string): Promise<PlantillaVista | null> {
   // Sin filtrar: esto lo usa el RUNTIME para resolver el texto y el interruptor de
-  // un aviso que ya se está emitiendo. Filtrar acá lo dejaría sin plantilla.
+  // un aviso que ya se está emitiendo. Filtrar acá lo dejaría sin plantilla. Tampoco
+  // los ocultos: uno eliminado tiene que encontrarse para saber que está APAGADO
+  // (`estaPrendida`); sin plantilla, `plantillaActiva` contestaría «prendido».
   return (await listarPlantillas({ vista: 'agencia' })).find((p) => p.id === id) ?? null;
 }
 
@@ -505,7 +532,37 @@ export async function setEnabledPlantilla(id: string, enabled: boolean): Promise
   // El guard va en el SERVIDOR y no sólo en el botón: esconder el switch no
   // protege nada, y este aviso es el que dice que los números dejaron de llegar.
   if (!enabled && CATALOGO_AVISOS.find((c) => c.id === id)?.porDefecto === 'siempre') return;
-  await mutar(id, (e) => ({ ...e, enabled }));
+  // `conInterruptor`: prender uno que el negocio eliminó lo devuelve a la lista (lib/plantillas-ocultas.ts).
+  await mutar(id, (e) => conInterruptor(e, enabled));
+}
+
+/**
+ * «ELIMINAR» UN MENSAJE DESDE /automations (novena tanda, 10/10/2026): sale de la lista de ESTE negocio y
+ * queda apagado, en una sola escritura (`ocultar`). Se recupera con `restaurarPlantilla`. No borra nada:
+ * es la paridad con la automatización, que archiva. Devuelve `false` sin escribir para un FIJO: no se
+ * apaga (el guard de `setEnabledPlantilla`), así que esconderlo dejaría un mensaje que sale y no se ve.
+ *
+ * ⚠️ Y NUNCA SOBRE LA BASE (`conLaBaseDeLaPlataforma`, revisión de la novena tanda): `oculto` no se hereda
+ * (`leerPar`) y `enabled` sí, así que ocultar en la base dejaba el mensaje APAGADO para todo cliente que no lo
+ * tocó, como «Pausada» y sin marca de eliminado, sin que ninguno lo hubiera eliminado. «Eliminar de la lista»
+ * es una decisión de CADA negocio; en la base no hay lista que achicar.
+ */
+export async function ocultarPlantilla(id: string): Promise<boolean> {
+  if (enLaBase()) return false;
+  if (CATALOGO_AVISOS.find((c) => c.id === id)?.porDefecto === 'siempre') return false;
+  await mutar(id, ocultar);
+  return true;
+}
+
+/**
+ * «Recuperar»: vuelve a la lista de este negocio, PRENDIDO (`restaurar`, lib/plantillas-ocultas.ts). `false` sin
+ * escribir sobre la BASE, por lo mismo que `ocultarPlantilla`: ahí prendería el mensaje para todos los clientes
+ * que lo heredan, con un botón que dice «Recuperar».
+ */
+export async function restaurarPlantilla(id: string): Promise<boolean> {
+  if (enLaBase()) return false;
+  await mutar(id, restaurar);
+  return true;
 }
 
 /**
@@ -613,7 +670,15 @@ export async function publicarBorrador(id: string): Promise<boolean> {
   return publico;
 }
 
-/** Elimina: las custom se borran; las built-in NO se pueden borrar → se desactivan. */
+/**
+ * Elimina: las custom se borran; las built-in NO se pueden borrar → se desactivan.
+ *
+ * ⚠️ DESDE LA NOVENA TANDA (10/10/2026) ESTO ES SÓLO EL TACHO DE /mensajes (/api/admin/plantillas: el
+ * catálogo de la agencia, que lista también los ocultos, así que ahí ocultar se leería como un tacho que no
+ * hace nada). Del lado del NEGOCIO nada destruye: en /automations «Eliminar» —el «⋯» de la fila y el tacho
+ * del lienzo— OCULTA (`ocultarPlantilla`) y se recupera, que es la paridad con la automatización (archiva);
+ * y la acción `borrar` de /api/perfil/plantillas (el tacho de la bandeja de correo) también oculta.
+ */
 export async function borrarPlantilla(id: string): Promise<{ borrada: boolean }> {
   const propio = await leerStorePropio();
   // Sólo se borra de verdad una custom PROPIA. Una custom heredada del dueño no se

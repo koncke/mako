@@ -116,6 +116,28 @@
 //     lib/flujo-edicion.ts: el lienzo edita por ahí, nunca con `conectarPuerto` a mano.
 //   · «IR A» NO SE CREA: los que hay se pasan a flechas (`quitarIrA`, lib/flujo-legado.ts). El motor
 //     y «Probar» los siguen sabiendo correr mientras no se conviertan.
+//
+// ── NOVENA TANDA (10/10/2026): EL AI STEP ─────────────────────────────────────────────────────
+// Pedido literal de Martín: «Todo lo que hiciste de una cantidad impresionante de flujos y tarjetas eso
+// justamente debería estar en una nueva tarjeta que sea "AI Step". Configuralo allí». Eligió la forma
+// «una tarjeta con sus casos adentro»: el tono general arriba (opcional), una fila por situación
+// (cuándo → cómo responder, si sale sola o va a revisar, si te avisa) y «Otra cosa → te aviso».
+//
+//   · NO ES UNA CLASE NUEVA: es una FORMA del nodo `respuesta` (`paso_ia: true`). `claseDe` sigue
+//     diciendo 'respuesta' en todos lados, así hereda TODAS las reglas de «Si responde» sin copiarlas
+//     (una por automatización, sin padre, sin esperas, sin paralelos, cuelga del CRON). Una clase nueva
+//     eran unos quince archivos y una segunda copia de esas reglas (AGENTS.md, las cinco puertas).
+//   · Lo que en la forma de siempre eran las TARJETAS HIJAS de cada caso (el «MaKo contesta» y el aviso
+//     al equipo) va ADENTRO del caso (`responder`, `sola`, `avisar`), y «Otra cosa» es el texto del
+//     aviso (`otra_aviso`). Un caso de un AI Step NO tiene `siguiente`.
+//   · EL MOTOR NO SE REESCRIBE: `expandirPasoIA` devuelve el flujo con el AI Step EXPANDIDO a la forma
+//     de siempre (las tarjetas hijas, con ids que se derivan del nodo y del caso), y lo que RECORRE la
+//     respuesta —el motor (`responderConGrafo`), «Probar» (lib/simulador-grafo.ts) y los casos del
+//     clasificador (`escenariosDeRespuesta`)— recorre eso. Así el redactor, el borrador, «sale sola» con
+//     la guarda de la plata (`puedeContestarSolo`), el cierre de la charla y el hand-off son los MISMOS.
+//   · LO QUE SE GUARDA ES LA FORMA COMPACTA. Lo expandido no se guarda nunca: sus ids llevan `~`, que el
+//     saneo de `setSecuenciaPasos` no acepta (`[A-Za-z0-9_-]`), así que un expandido guardado por error
+//     perdería las flechas de sus casos y Publicar lo frenaría por tarjetas sueltas: falla ruidoso.
 // =============================================================================
 
 // El catálogo de condiciones importa sólo TIPOS de acá: el ciclo no existe en runtime.
@@ -207,6 +229,14 @@ export type CasoRespuesta = {
   /** Cuándo aplica, en palabras del negocio. Es lo que lee el clasificador. */
   cuando: string;
   siguiente: string | null;
+  // ── Sólo en un AI STEP (`paso_ia`, novena tanda): el caso lleva ADENTRO lo que en la forma de
+  //    siempre eran sus tarjetas hijas. En un «Si responde» de los de siempre no significan nada. ──
+  /** Cómo responder: la guía del redactor (lo que era el `cuerpo` del «MaKo contesta»). Vacío = no contesta. */
+  responder?: string;
+  /** Sale sola. Ausente o false = queda para revisar (lo que era `revisar: true`, el default de siempre). */
+  sola?: boolean;
+  /** Te avisa al grupo con el título del caso (lo que era la tarjeta «MaKo en WhatsApp» debajo). */
+  avisar?: boolean;
 };
 
 export type Espera =
@@ -255,6 +285,15 @@ export type PasoGrafo = {
    * desde el CRON la vuelve a enganchar (`conectar`, lib/flujo-edicion.ts). Ausente = conectada.
    */
   suelta?: boolean;
+  /**
+   * Sólo «Si responde»: es un AI STEP (novena tanda, ver «EL AI STEP» más abajo). Ausente = la forma de
+   * siempre, con una tarjeta hija por caso. La clase sigue siendo 'respuesta' (`claseDe`).
+   */
+  paso_ia?: true;
+  /** Sólo AI Step: el tono general, que se suma a la guía de cada caso. Opcional. */
+  instrucciones?: string;
+  /** Sólo AI Step: el aviso al equipo de «Otra cosa». Vacío = `AVISO_OTRA_COSA`. */
+  otra_aviso?: string;
   /** condicion: «si no» · respuesta: «otra cosa». */
   si_no?: string | null;
   /**
@@ -320,6 +359,9 @@ export function claseDe(p: PasoGrafo): ClaseNodo {
 }
 
 export const esNodoMensaje = (p: PasoGrafo): boolean => claseDe(p) === 'mensaje';
+
+/** ¿Es un AI STEP? Un «Si responde» con sus casos adentro (`paso_ia`, novena tanda). */
+export const esPasoIA = (p: PasoGrafo | null | undefined): boolean => !!p && claseDe(p) === 'respuesta' && p.paso_ia === true;
 
 // Por SALIDA: una tarjeta de una salida, o cada RESULTADO de una condición (cuarta tanda, punto 8:
 // «varias si se cumple y varias si no se cumple»).
@@ -850,10 +892,35 @@ export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
       delete out.paralelos_si_no;
     }
     if (c === 'respuesta') {
-      out.casos = (p.casos ?? []).map((x, k) => ({ ...x, id: x.id || `${ids[i]}c${k}`, siguiente: x.siguiente ?? null }));
+      const idsCasos = idsDeCasos(ids[i], p.casos ?? []);
+      out.casos = (p.casos ?? []).map((x, k) => ({ ...x, id: idsCasos[k], siguiente: x.siguiente ?? null }));
       out.si_no = p.si_no ?? null;
     }
     return out;
+  });
+}
+
+/**
+ * LOS IDS DE LOS CASOS de un «Si responde»: el que trae cada uno o `<nodo>c<k>`, y un REPETIDO se
+ * desempata como los ids de tarjeta de `normalizar` (el segundo toma `_2`). Lo usan `normalizar` y
+ * `expandirPasoIA`, así lo que se guarda y lo que se recorre nombran igual a cada caso.
+ *
+ * ⚠️ EN UN AI STEP UN ID REPETIDO NO ES INOFENSIVO (revisión de la novena tanda). En la forma de
+ * siempre el motor va por `caso.siguiente` y dos casos con el mismo id no se pisan. La expansión
+ * deriva del id las tarjetas de cada caso (`idRespuestaDeCaso`), así que el segundo caso apuntaba a la
+ * respuesta del primero: medido con «Precio» (NO des precio, a revisar) y «Confirma» (agradece, sale
+ * sola) con el mismo id, «Confirma» contestaba con la guía del precio y quedaba a revisar. Nace sin
+ * que nadie lo pida: `sanearCaso` deja en '' un id inválido y el `<nodo>c<k>` de acá puede ser el de
+ * otro caso. No se frena al guardar porque nadie podría arreglarlo desde el lienzo (no muestra ids).
+ */
+export function idsDeCasos(nodo: string, casos: readonly { readonly id?: string | null }[]): string[] {
+  const vistos = new Set<string>();
+  return casos.map((c, k) => {
+    const base = typeof c.id === 'string' && c.id ? c.id : `${nodo}c${k}`;
+    let id = base;
+    for (let n = 2; vistos.has(id); n++) id = `${base}_${n}`;
+    vistos.add(id);
+    return id;
   });
 }
 
@@ -931,7 +998,10 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
       }
     }
     if (c === 'respuesta' && (p.casos?.length ?? 0) > TOPE_CASOS) err.push(`«Si responde» tiene más de ${TOPE_CASOS} casos`);
-    if (publicar && c === 'respuesta') for (const x of p.casos ?? []) if (!x.titulo?.trim() || !x.cuando?.trim()) err.push('un caso de «Si responde» no tiene nombre o descripción');
+    // El AI STEP se valida en su forma COMPACTA (lo que se guarda), con sus propios motivos: nombran la
+    // tarjeta por su id para que Publicar la abra (`tarjetaDelError`) y el caso por su nombre.
+    if (c === 'respuesta' && esPasoIA(p)) err.push(...erroresDelPasoIA(p, ids[i], publicar));
+    else if (publicar && c === 'respuesta') for (const x of p.casos ?? []) if (!x.titulo?.trim() || !x.cuando?.trim()) err.push('un caso de «Si responde» no tiene nombre o descripción');
     if (publicar && c === 'esperar') {
       const m = Number(p.espera?.minutos);
       if (!p.espera || !(m > 0)) err.push(`la espera ${ids[i]} no dice cuánto`);
@@ -1446,7 +1516,15 @@ export type EscenarioDeGrafo = {
   siguiente: string | null;
 };
 
-export function escenariosDeRespuesta(pasos: readonly PasoGrafo[]): EscenarioDeGrafo[] {
+/**
+ * ⚠️ CON UN AI STEP, SOBRE EL FLUJO EXPANDIDO (`expandirPasoIA`, novena tanda): la guía de cada caso es
+ * su `responder` con el tono, y «sale sola» es su `sola` —los dos viajan al «MaKo contesta» que arma la
+ * expansión—. Se expande ACÁ ADENTRO (es idempotente) para que quien sólo pregunta por los casos —la
+ * acción `clasificar` de «Probar», que recibe los pasos del lienzo— lea lo mismo que el motor. El
+ * `siguiente` que devuelve es del flujo EXPANDIDO: quien recorre la rama, recorre `expandirPasoIA(pasos)`.
+ */
+export function escenariosDeRespuesta(pasosIn: readonly PasoGrafo[]): EscenarioDeGrafo[] {
+  const pasos = expandirPasoIA(pasosIn);
   const r = nodoPorId(pasos, raizRespuesta(pasos));
   if (!r) return [];
   return (r.casos ?? []).map((c) => {
@@ -1816,7 +1894,9 @@ export const ROTULO_RESPONDIO = 'Respondió';
  * la #198 del ws1 (la captura de Martín: «hay una condición suelta que no esta conectado a nada»):
  * cero casos, una fila «Si no» que lleva a «Te escribió algo que no sé contestar».
  */
-export function rotuloSiNoDeRespuesta(p: { readonly casos?: readonly unknown[] | null } | null | undefined): string {
+export function rotuloSiNoDeRespuesta(p: { readonly casos?: readonly unknown[] | null; readonly paso_ia?: boolean } | null | undefined): string {
+  // El AI Step lo dice como lo dibuja: «Otra cosa → te aviso» (novena tanda). Lo lee «Probar» al caer ahí.
+  if (p?.paso_ia === true) return ROTULO_OTRA_COSA;
   return p?.casos?.length ? 'Si no' : ROTULO_RESPONDIO;
 }
 
@@ -1855,7 +1935,7 @@ export function condicionARespuesta<P extends PasoGrafo>(
   let otraCosa: string | null = null;
   if (c.si_no == null) {
     otraCosa = nuevoId(out, rnd);
-    out = [...out, { ...relleno, id: otraCosa, accion: { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje: 'Te escribió algo que no sé contestar' } }, siguiente: null } as unknown as P];
+    out = [...out, { ...relleno, id: otraCosa, accion: { operacion: OP_AVISO_EQUIPO, params: { leadId: LEAD_EVENTO, mensaje: AVISO_OTRA_COSA } }, siguiente: null } as unknown as P];
   }
   const casoId = ramas[0]?.id || nuevoId(out, rnd);
   const casos: CasoRespuesta[] = [
@@ -1871,6 +1951,165 @@ export function condicionARespuesta<P extends PasoGrafo>(
     return q;
   });
   return { pasos: normalizar(out), ids: { caso: casoId, mensaje: mensajeId, otraCosa } };
+}
+
+// ── EL AI STEP (novena tanda): la forma COMPACTA y su EXPANSIÓN ─────────────────────────────────
+// El porqué entero, en la cabecera de este archivo («NOVENA TANDA: EL AI STEP»).
+
+/**
+ * La operación del aviso al grupo del negocio. Es el MISMO literal que `OP_AVISAR` (lib/flujo-legado.ts),
+ * que no se importa: flujo-legado importa este módulo, y este módulo no importa a nadie del flujo
+ * (el ciclo no existe en runtime y así sigue). tests/automations-paso-ia.test.ts fija que sean iguales.
+ */
+export const OP_AVISO_EQUIPO = 'avisar_al_equipo';
+/** El lead del EVENTO en los params de una acción del flujo: el mismo literal que `LEAD_DEL_EVENTO` (lib/api-mako/flujo-params.ts). */
+const LEAD_EVENTO = 'evento';
+/** El aviso de «Otra cosa» si nadie escribió otro: el hand-off de siempre («MaKo se calla y te avisa»). */
+export const AVISO_OTRA_COSA = 'Te escribió algo que no sé contestar';
+/** La última fila de un AI Step: lo que no encajó en ningún caso. */
+export const ROTULO_OTRA_COSA = 'Otra cosa';
+/**
+ * El MENSAJE del aviso de un caso con «Avisarme»; el TÍTULO del aviso es el del caso, y el motor le suma lo
+ * que escribió el lead (`respuesta`, `LLENA_EL_FLUJO`). No dice si MaKo contestó: el aviso corre después
+ * del redactor, pero no sabe si su borrador salió (AGENTS.md: un mensaje que sale solo no afirma lo que no
+ * verificó). Eso ya lo dice el aviso del redactor (`wa-mensaje-entrante`).
+ */
+export const AVISO_DE_CASO = 'Te escribió sobre esto.';
+
+/** Los topes de lo que se escribe en un AI Step (el saneo de `setSecuenciaPasos` los aplica). */
+export const TOPE_RESPONDER = 2000;
+export const TOPE_INSTRUCCIONES = 1000;
+export const TOPE_OTRA_AVISO = 1000;
+
+/**
+ * LOS IDS DE LA EXPANSIÓN, derivados del nodo y del caso: DETERMINÍSTICOS (expandir dos veces, o el
+ * motor y «Probar», dan las mismas tarjetas) y con `~`, que no entra en un id guardado (`[A-Za-z0-9_-]`):
+ * nunca chocan con una tarjeta de verdad. El motor los deja en `nutricion_envios.nodo_id` y en la clave del
+ * reclamo de la acción (una vez por respuesta), así que también tienen que ser ESTABLES entre corridas.
+ */
+export const idRespuestaDeCaso = (nodo: string, caso: string): string => `${nodo}~${caso}~r`;
+export const idAvisoDeCaso = (nodo: string, caso: string): string => `${nodo}~${caso}~a`;
+export const idOtraCosa = (nodo: string): string => `${nodo}~otra`;
+
+/**
+ * LA GUÍA CON LA QUE EL REDACTOR CONTESTA UN CASO: su `responder`, con el tono general arriba. '' = el
+ * caso no contesta (aunque haya tono: el tono no es una respuesta). Va al bloque «CÓMO RESPONDER» del
+ * redactor (`bloqueEscenario`, lib/setter-conversacion.ts).
+ */
+export function guiaDeCaso(p: Pick<PasoGrafo, 'instrucciones'>, c: Pick<CasoRespuesta, 'responder'>): string {
+  const r = (c.responder ?? '').trim();
+  if (!r) return '';
+  const tono = (p.instrucciones ?? '').trim();
+  return tono ? `${ROTULO_TONO}${tono}\n${r}` : r;
+}
+const ROTULO_TONO = 'Tono: ';
+
+/**
+ * El LARGO MÁXIMO de `guiaDeCaso` con los topes del saneo: el rótulo, el tono, el salto y la respuesta.
+ * Es el tope de lo que «Probar» le pasa al redactor (`responder`, app/api/chat-agent/simulador): cortaba
+ * en 2000, y con un tono de 1000 y una respuesta de 2000 (3007) perdía el FINAL —la respuesta del caso,
+ * que va después del tono—, así que contestaba distinto que el motor, que no recorta (revisión de la
+ * novena tanda).
+ */
+export const TOPE_GUIA = ROTULO_TONO.length + TOPE_INSTRUCCIONES + 1 + TOPE_RESPONDER;
+
+/** Los campos que todo paso tiene (lo de `RELLENO_CONTROL` del motor), para las tarjetas de la expansión. */
+const RELLENO_EXPANSION = { canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null } as const;
+
+/** Una acción «avisar al equipo» sobre el lead del evento, como la arma `condicionARespuesta`. */
+function avisoAlEquipo<P extends PasoGrafo>(id: string, params: { titulo?: string; mensaje: string }): P {
+  const titulo = (params.titulo ?? '').trim().slice(0, 120);
+  return {
+    ...RELLENO_EXPANSION, id, siguiente: null,
+    accion: { operacion: OP_AVISO_EQUIPO, params: { leadId: LEAD_EVENTO, ...(titulo ? { titulo } : {}), mensaje: params.mensaje } },
+  } as unknown as P;
+}
+
+/**
+ * EL FLUJO CON EL AI STEP EXPANDIDO a la forma de siempre de «Si responde». PURA e IDEMPOTENTE: lo
+ * expandido ya no tiene `paso_ia`, así que expandirlo otra vez no hace nada. Un flujo sin AI Step vuelve
+ * igual (una copia del array).
+ *
+ * Por cada caso, al FINAL del array (no corre el índice de nadie: `paso_actual`, `paso` de los envíos):
+ *   · si tiene guía (`guiaDeCaso`): un mensaje de WhatsApp no oficial `tipo: 'ia'` —el «MaKo contesta»
+ *     de siempre— con la guía de cuerpo y `revisar = !sola` (ausente = borrador, como todo caso nuevo);
+ *   · si avisa: una acción «avisar al equipo» con el título del caso, DESPUÉS del mensaje (o sola, si el
+ *     caso no contesta: ahí la charla pasa a una persona, como en la forma de siempre);
+ *   · si no hace ninguna de las dos, el caso queda sin salida (Publicar no lo deja: `erroresDelPasoIA`).
+ * Y «Otra cosa» es una acción «avisar al equipo» con `otra_aviso` (o `AVISO_OTRA_COSA`).
+ *
+ * Lo que la lee: el motor (`responderConGrafo`, lib/nutricion.ts), «Probar» (lib/simulador-grafo.ts) y
+ * `escenariosDeRespuesta`. NUNCA lo que se GUARDA ni lo que se DIBUJA: eso es la forma compacta.
+ */
+export function expandirPasoIA<P extends PasoGrafo>(pasos: readonly P[]): P[] {
+  if (!pasos.some((p) => esPasoIA(p))) return [...pasos];
+  const extra: P[] = [];
+  const out = pasos.map((p, i) => {
+    if (!esPasoIA(p)) return p;
+    const nodo = idDe(p, i);
+    // El id de cada caso, como lo pone `normalizar` (si falta, o si se repite): el clasificador devuelve
+    // ESTE id, y de él salen las tarjetas del caso. Un flujo sin normalizar (los pasos del lienzo que
+    // llegan a «Probar») nombra igual que uno guardado.
+    const idsCasos = idsDeCasos(nodo, p.casos ?? []);
+    const casos: CasoRespuesta[] = (p.casos ?? []).map((c, k) => {
+      const id = idsCasos[k];
+      const guia = guiaDeCaso(p, c);
+      const aviso = c.avisar === true ? idAvisoDeCaso(nodo, id) : null;
+      const contesta = guia ? idRespuestaDeCaso(nodo, id) : null;
+      if (contesta) {
+        extra.push({
+          ...RELLENO_EXPANSION, proveedor: 'no_oficial', id: contesta, tipo: 'ia', cuerpo: guia,
+          revisar: c.sola !== true, siguiente: aviso,
+        } as unknown as P);
+      }
+      if (aviso) extra.push(avisoAlEquipo<P>(aviso, { titulo: c.titulo, mensaje: AVISO_DE_CASO }));
+      return { id, titulo: c.titulo, cuando: c.cuando, siguiente: contesta ?? aviso };
+    });
+    const otra = idOtraCosa(nodo);
+    extra.push(avisoAlEquipo<P>(otra, { mensaje: (p.otra_aviso ?? '').trim().slice(0, TOPE_OTRA_AVISO) || AVISO_OTRA_COSA }));
+    const q = { ...p, casos, si_no: otra };
+    delete q.paso_ia;
+    delete q.instrucciones;
+    delete q.otra_aviso;
+    return q;
+  });
+  return [...out, ...extra];
+}
+
+/**
+ * Lo que impide guardar o publicar un AI Step, en su forma COMPACTA. Los motivos nombran la tarjeta por su
+ * id («la tarjeta X», que `errorLegible` vuelve «AI STEP» y `tarjetaDelError` abre) y el caso por su
+ * nombre: son cortos porque van al lado de Publicar (el porqué, acá).
+ *   · Al guardar: un caso con `siguiente` o un «Otra cosa» con flecha. En un AI Step lo de debajo va
+ *     ADENTRO del caso; una tarjeta colgada la pisaría la expansión, y el lead recibiría otra cosa que
+ *     lo que se dibuja. Lo escribe sólo quien arma `pasos` a mano (la API); el lienzo no lo ofrece.
+ *   · Al publicar: cada caso con nombre y «cuándo» (es lo que lee el clasificador) y que haga algo
+ *     (contestar o avisar): un caso que no hace nada se come la respuesta en silencio.
+ */
+function erroresDelPasoIA(p: PasoGrafo, id: string, publicar: boolean): string[] {
+  const err: string[] = [];
+  if ((p.casos ?? []).some((x) => x.siguiente) || p.si_no) err.push(`debajo de la tarjeta ${id} no van tarjetas`);
+  if (!publicar) return err;
+  for (const x of p.casos ?? []) {
+    const t = (x.titulo ?? '').trim();
+    const falta = faltaEnCaso(x);
+    if (falta === 'nombre') err.push(`la tarjeta ${id} tiene un caso sin nombre`);
+    else if (falta === 'cuando') err.push(`en la tarjeta ${id}, «${t}» no dice cuándo`);
+    else if (falta === 'que_hace') err.push(`en la tarjeta ${id}, «${t}» no contesta ni avisa`);
+  }
+  return err;
+}
+
+/**
+ * LO PRIMERO QUE LE FALTA A UN CASO DE UN AI STEP para publicar, o null. UNA función para el freno de
+ * Publicar (`erroresDelPasoIA`) y para lo que se marca en rojo en la tarjeta y en su editor: con dos
+ * copias, la tarjeta diría «completo» de algo que Publicar frena.
+ */
+export function faltaEnCaso(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 'responder' | 'avisar'>): 'nombre' | 'cuando' | 'que_hace' | null {
+  if (!(c.titulo ?? '').trim()) return 'nombre';
+  if (!(c.cuando ?? '').trim()) return 'cuando';
+  if (!(c.responder ?? '').trim() && c.avisar !== true) return 'que_hace';
+  return null;
 }
 
 // ── Textos que dibuja la tarjeta (cortos: AGENTS.md, el texto que se DIBUJA) ────────

@@ -12,6 +12,10 @@
 // abre por el link, la tab de Notificaciones sin lienzo y con su link. Lo que vive en efectos y en
 // el server (la lectura de los mensajes, el guard, la capa) se fija en el fuente sin comentarios.
 //
+// Desde la novena tanda (10/10/2026) cada fila de un mensaje lleva el MISMO «⋯» que una automatización
+// («Las cosas de "MaKo en WhatsApp" deben ser EXACTAMENTE igual al resto»): Activar/Pausar y Eliminar, que
+// oculta el mensaje (lo de ocultar y recuperar, en tests/plantillas-ocultas.test.ts).
+//
 // PROBADO ROMPIÉNDOLO: ver `ROTURAS` al pie.
 
 import { test } from 'node:test';
@@ -19,7 +23,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { SimuladorWhatsApp, ROTULO_MENSAJES_MAKO } from '../app/automations/SimuladorWhatsApp';
+import { SimuladorWhatsApp, ROTULO_MENSAJES_MAKO, opcionesDeFila, opcionesDeMensaje } from '../app/automations/SimuladorWhatsApp';
 import { PlantillasView } from '../app/agencia/PlantillasView';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 import type { PlantillaVista } from '../lib/plantillas';
@@ -92,7 +96,15 @@ test('el endpoint es el de Notificaciones (sin abrir uno nuevo), con su guard de
 
 // ── La lista de /automations ────────────────────────────────────────────────────────
 
-test('cada mensaje es una fila de la lista, bajo su rótulo, con su emoji, su nombre y su punto de prendido', () => {
+/**
+ * La fila ENTERA que dice `titulo`: de su `chb-fila` a la siguiente. ⚠️ Hasta la novena tanda el recorte
+ * terminaba en el NOMBRE, y el «⋯» se dibuja DESPUÉS del nombre (su propia columna): el `doesNotMatch(fila,
+ * /Opciones de/)` de entonces daba verde con o sin menú, o sea que no fijaba nada. Lo delató dar vuelta el test.
+ */
+const filaDe = (html: string, titulo: string): string =>
+  html.split('class="chb-fila').slice(1).find((f) => f.includes(`>${titulo}</span>`)) ?? '';
+
+test('cada mensaje es una fila de la lista, bajo su rótulo, con su emoji, su nombre, su punto de prendido y su «⋯»', () => {
   const html = dibujar({ avisos: AVISOS });
   const iRotulo = html.indexOf(`>${ROTULO_MENSAJES_MAKO}</div>`);
   const iBienvenida = html.indexOf('>Bienvenida</span>');
@@ -101,15 +113,90 @@ test('cada mensaje es una fila de la lista, bajo su rótulo, con su emoji, su no
     const i = html.indexOf(`>${a.titulo}</span>`);
     assert.ok(i > iRotulo, `«${a.titulo}» no está en la lista, bajo el rótulo`);
     // La fila: el emoji de su categoría y el punto de estado encima (el de las automatizaciones).
-    const fila = html.slice(html.lastIndexOf('<div class="chb-fila', i), i);
+    const fila = filaDe(html, a.titulo);
     assert.ok(fila.includes(emojiDeMensaje(a)), `«${a.titulo}» sin el emoji de su categoría`);
     assert.match(fila, new RegExp(`title="${mensajeActivo(a) ? 'Activa' : 'Pausada'}"`), `«${a.titulo}» con el punto equivocado`);
-    // Sin «⋯»: no son filas de secuencias (no se duplican ni se archivan desde acá).
-    assert.doesNotMatch(fila, /Opciones de/);
+    // ⚠️ CON «⋯» desde la novena tanda (10/10/2026: «Las cosas de "MaKo en WhatsApp" deben ser EXACTAMENTE
+    // igual al resto»), en su columna propia después del botón de la fila, como el de una automatización.
+    assert.match(fila, new RegExp(`aria-label="Opciones de ${a.titulo}"`), `«${a.titulo}» sin sus tres puntos`);
+    assert.match(fila, /<\/button><span class="chb-menu"/, `el «⋯» de «${a.titulo}» no está en su columna, después del botón de la fila`);
   }
   // Un fijo sale siempre aunque su interruptor diga otra cosa.
   assert.equal(mensajeActivo({ enabled: false, fijo: true }), true);
   assert.equal(mensajeActivo({ enabled: false, fijo: false }), false);
+});
+
+test('el «⋯» de un mensaje: Activar/Pausar y Eliminar (sin Duplicar ni Copiar flujo), y nada para un fijo', () => {
+  // Sale de `opcionesDeFila`: los mismos rótulos y los mismos íconos que el de una automatización.
+  assert.deepEqual(opcionesDeMensaje({ activo: true, fijo: false }).map((o) => o.label), ['Pausar', 'Eliminar']);
+  assert.deepEqual(opcionesDeMensaje({ activo: false, fijo: false }).map((o) => o.label), ['Activar', 'Eliminar']);
+  for (const activo of [true, false]) {
+    const deFila = new Map(opcionesDeFila(activo).map((o) => [o.value, o]));
+    for (const o of opcionesDeMensaje({ activo, fijo: false })) assert.deepEqual(o, deFila.get(o.value), `«${o.label}» no es la de una automatización`);
+  }
+  // Un fijo no se apaga ni se esconde: no hay nada que ofrecerle, y la fila va sin «⋯».
+  assert.deepEqual(opcionesDeMensaje({ activo: true, fijo: true }), []);
+  const html = dibujar({ avisos: [...AVISOS, aviso('meta-sin-datos', 'Dejé de recibir datos', { fijo: true })] });
+  assert.ok(filaDe(html, 'Dejé de recibir datos').length > 0, 'no se dibujó la fila del fijo');
+  assert.doesNotMatch(filaDe(html, 'Dejé de recibir datos'), /Opciones de/, 'un fijo con «⋯»');
+  // El menú es el MISMO Dropdown que el de una automatización (mismos atributos, mismo botón).
+  const lista = fuente('app/automations/SimuladorWhatsApp.tsx');
+  const menus = lista.split('<Dropdown value="" placeholder="⋯"').slice(1).map((m) => m.slice(0, m.indexOf('/>')));
+  assert.equal(menus.length, 2, `hay ${menus.length} «⋯» en la lista`);
+  for (const m of menus) {
+    assert.match(m, /^ align="afuera" resetAfterSelect sinFlecha search=\{false\}/);
+    assert.match(m, /buttonStyle=\{ESTILO_BOTON_MENU\}/);
+  }
+  assert.match(menus[1], /ariaLabel=\{`Opciones de \$\{a\.titulo\}`\} disabled=\{ocupada === a\.id\}/);
+  assert.match(menus[1], /options=\{opciones\}\n\s+onChange=\{\(v\) => void accionMensaje\(a, v\)\}/);
+  assert.match(lista, /const opciones = opcionesDeMensaje\(\{ activo: mensajeActivo\(a\), fijo: a\.fijo \}\);/);
+  assert.match(lista, /menu=\{rolAdmin && opciones\.length > 0 \? \(/);
+});
+
+test('las acciones de un mensaje: Activar/Pausar por su puerta de siempre, Eliminar pregunta IGUAL que una automatización y OCULTA', () => {
+  const lista = fuente('app/automations/SimuladorWhatsApp.tsx');
+  const accion = lista.slice(lista.indexOf('const accionMensaje = async'), lista.indexOf('const eliminarMensaje = async'));
+  assert.ok(accion.length > 200 && accion.length < 1500, `el recorte de accionMensaje mide ${accion.length}`);
+  assert.match(accion, /if \(accion === 'eliminar'\) \{ setErrFila\(null\); setMensajeAEliminar\(a\); return; \}/, 'Eliminar sin preguntar');
+  assert.match(accion, /pedir\(ENDPOINT_MENSAJES_MAKO, 'POST', \{ action: 'enabled', id: a\.id, enabled: !mensajeActivo\(a\) \}\)/);
+  assert.match(accion, /setErrFila\(\{ id: a\.id, texto: r\.error \|\| 'No se pudo cambiar' \}\)/);
+  assert.match(accion, /onAvisosCambio\?\.\(\);/, 'la lista no se vuelve a leer');
+  const eliminar = lista.slice(lista.indexOf('const eliminarMensaje = async'), lista.indexOf('const raiz = useRef'));
+  assert.ok(eliminar.length > 200 && eliminar.length < 1500, `el recorte de eliminarMensaje mide ${eliminar.length}`);
+  assert.match(eliminar, /pedir\(ENDPOINT_MENSAJES_MAKO, 'POST', \{ action: 'ocultar', id: a\.id \}\)/);
+  // El que estaba abierto se cierra (queda la automatización de debajo), y se releen la lista y los ocultos.
+  assert.match(eliminar, /if \(a\.id === avisoSel\) setAvisoSel\(null\);\n\s+onAvisosCambio\?\.\(\);\n\s+onOcultosCambio\?\.\(\);/);
+  // La MISMA confirmación: la misma frase, el mismo «No eliminar», el mismo tono.
+  const conf = (desde: string) => lista.slice(lista.indexOf(desde), lista.indexOf('/>', lista.indexOf(desde)));
+  const deSec = conf('message={`«${aEliminar.nombre}»');
+  const deMsj = conf('message={`«${mensajeAEliminar.titulo}»');
+  assert.ok(deSec.length > 0 && deMsj.length > 0, 'falta una de las dos confirmaciones');
+  const sinSujeto = (c: string) => c.replace(/\$\{\w+\.(nombre|titulo)\}/, '${X}').replace(/onConfirm=[\s\S]*$/, '').replace(/"Eliminar (automatización|mensaje)"/, '"Eliminar …"');
+  assert.equal(sinSujeto(deMsj), sinSujeto(deSec), 'la confirmación de un mensaje no es la de una automatización');
+  assert.match(deMsj, /onConfirm=\{\(\) => void eliminarMensaje\(\)\} onCancel=\{\(\) => setMensajeAEliminar\(null\)\}/);
+  // Lo ocupado y el error de la fila llevan el id de cualquiera de las dos (número o texto).
+  assert.match(lista, /const \[ocupada, setOcupada\] = useState<number \| string \| null>\(null\);/);
+  assert.match(lista, /const \[errFila, setErrFila\] = useState<\{ id: number \| string; texto: string \} \| null>\(null\);/);
+  assert.match(lista, /\{errFila\?\.id === a\.id && <div role="alert"/, 'el error de un mensaje no queda pegado a su fila');
+  // Y el tacho del lienzo del mensaje es ESTE Eliminar (no el borrado de antes, sin preguntar).
+  const montaje = lista.slice(lista.indexOf('<MensajeMakoLienzo key={aviso.id}'), lista.indexOf('/>', lista.indexOf('<MensajeMakoLienzo key={aviso.id}')));
+  assert.match(montaje, /onEliminar=\{\(\) => \{ setErrFila\(null\); setMensajeAEliminar\(aviso\); \}\}/, 'el tacho del lienzo no es el Eliminar de la lista');
+  assert.match(fuente('app/automations/MensajeMakoLienzo.tsx'), /onClose=\{onCerrar\}\n\s+onEliminar=\{onEliminar\}/);
+  const modal = fuente('app/agencia/TemplateDetalleModal.tsx');
+  const elim = modal.slice(modal.indexOf('const eliminar = async'), modal.indexOf('const probar = async'));
+  assert.ok(elim.indexOf('if (onEliminar) { onEliminar(); return; }') > 0, 'el tacho no pasa por el Eliminar de la lista');
+  assert.ok(elim.indexOf('if (onEliminar) { onEliminar(); return; }') < elim.indexOf("action: 'borrar'"), 'el tacho borra antes de preguntarle a la lista');
+});
+
+test('el lienzo del mensaje vuelve a leer el interruptor y el nombre de las props (el «⋯» los cambia sin remontarlo)', () => {
+  // Sin DOM en los tests de esta casa: un render estático siembra siempre de la prop. Se fija el ajuste AL
+  // DIBUJAR (el patrón de SecuenciaPerfil, `activaVista`), y que el nombre no pise lo que se está tipeando.
+  const modal = fuente('app/agencia/TemplateDetalleModal.tsx');
+  assert.match(modal, /if \(plantilla && plantilla\.enabled !== enabledVisto\) \{ setEnabledVisto\(plantilla\.enabled\); setEnabled\(plantilla\.enabled\); \}/);
+  assert.match(modal, /if \(plantilla && plantilla\.titulo !== tituloVisto\) \{ setTituloVisto\(plantilla\.titulo\); if \(!editandoTitulo\) setTitulo\(plantilla\.titulo\); \}/);
+  // Y el ajuste va antes del primer uso del interruptor (el `toggle`), no en un efecto.
+  assert.ok(modal.indexOf('plantilla.enabled !== enabledVisto') < modal.indexOf('const toggle = async'));
+  assert.doesNotMatch(modal, /useEffect\(\(\) => \{[^}]*setEnabled\(/, 'el interruptor se resiembra en un efecto (pinta primero el viejo)');
 });
 
 test('quien no es admin no ve ningún mensaje (el endpoint le contesta 403), y sin mensajes no hay rótulo', () => {
@@ -243,3 +330,14 @@ test('el link aparece sólo si el negocio tiene /automations: lo decide el serve
 //   · M11 sin automatizaciones no hay lista: 32 / 1 · M12 con un mensaje abierto, tocar la automatización
 //     de abajo no vuelve: 32 / 1 · M13 la automatización sigue elegida con un mensaje abierto: 32 / 1
 //   · M15 (con el test del QR ya sumado: 34 tests) el link se queda en el QR: 33 / 1
+//
+// NOVENA TANDA (10/10/2026): la fila de un mensaje TIENE «⋯» (dio vuelta el «sin "⋯"» de la quinta). ⚠️ El
+// test viejo daba VERDE con el menú ya dibujado (379 / 0 sobre las suites del área): su recorte de la fila
+// terminaba en el nombre y el «⋯» va después, en su columna. Ahora se mira la fila entera (`filaDe`).
+// Roturas con el arnés del pie de tests/plantillas-ocultas.test.ts (los dos archivos, 30 tests; base 30 / 0):
+//   · R23 la fila sin «⋯» (lo de la quinta): 28 / 2 · R24 el «⋯» de un mensaje con Duplicar: 29 / 1
+//   · R25 un fijo con «⋯»: 29 / 1 · R26 Eliminar sin preguntar: 29 / 1 · R27 el mensaje abierto no se
+//     cierra al eliminarlo: 29 / 1 · R28 otra confirmación que la de una automatización: 29 / 1
+//   · R29 el «⋯» de un mensaje con otro botón: 29 / 1 · R30 lo ocupado sólo para un id numérico: 29 / 1
+//   · R31 el tacho del lienzo no llega a la lista: 29 / 1 · R32 el tacho borra sin preguntar: 29 / 1
+//   · R33 el interruptor del lienzo no se resiembra: 29 / 1 · R34 el nombre pisa lo que se tipea: 29 / 1

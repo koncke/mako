@@ -2,8 +2,9 @@
 // /api/admin/plantillas — CRUD de plantillas de aviso (editar/activar/crear/borrar)
 // =============================================================================
 // Solo admin. GET → lista completa (catálogo + custom, con enabled). GET ?id →
-// una. POST { action }: 'texto' | 'enabled' | 'reset' | 'crear' | 'borrar' |
-// 'probar' (genera un ejemplo con IA desde la referencia).
+// una. GET ?ocultos=1 → los que el store eliminó de su lista. POST { action }: 'texto' |
+// 'enabled' | 'reset' | 'crear' | 'borrar' | 'ocultar' | 'restaurar' | 'probar' (genera
+// un ejemplo con IA desde la referencia) y las del lienzo.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
@@ -11,7 +12,7 @@ import {
   listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla, setPosicionesPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo,
   setTituloPlantilla, setAsuntoPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
-  conLaBaseDeLaPlataforma,
+  ocultarPlantilla, restaurarPlantilla, conLaBaseDeLaPlataforma,
 } from '@/lib/plantillas';
 import { getProgramado, setProgramado, NoAgendable } from '@/lib/avisos-programados';
 import { acusesDe, setAcuses } from '@/lib/insistencias';
@@ -19,6 +20,7 @@ import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 import { CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
+import { PARAM_OCULTOS } from '@/lib/chatbot-mensajes-mako';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -40,8 +42,12 @@ export async function GET(req: NextRequest) {
 }
 
 async function getEnSuStore(req: NextRequest) {
-  const id = new URL(req.url).searchParams.get('id');
+  const params = new URL(req.url).searchParams;
+  const id = params.get('id');
   if (id) { const p = await getPlantilla(id); return p ? NextResponse.json({ ok: true, plantilla: p }) : NextResponse.json({ ok: false, error: 'no existe' }, { status: 404 }); }
+  // Los que el store eliminó de su lista (novena tanda): el mismo protocolo que /api/perfil/plantillas. Acá con
+  // el catálogo entero, que es lo que esta vista lista (ya los trae con su marca `oculto`).
+  if (params.get(PARAM_OCULTOS) === '1') return NextResponse.json({ ok: true, plantillas: await listarPlantillas({ vista: 'agencia', ocultos: true }) });
   return NextResponse.json({ ok: true, plantillas: await listarPlantillas({ vista: 'agencia' }) });
 }
 
@@ -119,7 +125,21 @@ async function postEnSuStore(req: NextRequest) {
       if (ws == null) return NextResponse.json({ ok: false, error: 'sin workspace' }, { status: 400 });
       return NextResponse.json({ ok: true, acuses: await setAcuses(ws, b.acuses) });
     }
+    /* `borrar` BORRA (una propia) en este catálogo, que lista también los ocultos: acá ocultar se leería como
+       un tacho que no hace nada. `ocultar` y `restaurar` son los de /api/perfil/plantillas, por paridad de
+       protocolo (lib/plantillas.ts, `ocultarPlantilla`). En la BASE (el workspace de la plataforma) los dos
+       contestan `false` sin escribir: ahí apagarían o prenderían el mensaje de todos los clientes. */
     case 'borrar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) }); }
+    case 'ocultar': {
+      if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
+      if (!(await ocultarPlantilla(b.id))) return NextResponse.json({ ok: false, error: 'Este mensaje no se puede eliminar.' }, { status: 400 });
+      return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+    }
+    case 'restaurar': {
+      if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
+      if (!(await restaurarPlantilla(b.id))) return NextResponse.json({ ok: false, error: 'Este mensaje no se puede recuperar.' }, { status: 400 });
+      return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+    }
     case 'probar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, texto: await generarMensajeAviso(b.id, b.contexto || 'Usa datos de ejemplo realistas.') }); }
     case 'flujo-get': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) }); }
     case 'flujo-set': {

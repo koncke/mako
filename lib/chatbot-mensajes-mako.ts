@@ -12,7 +12,10 @@
 //     Con el link armado en un archivo y el parámetro leído en otro, el día que uno cambie el otro
 //     abre /automations en la primera automatización sin decir nada (tests/chatbot-mensajes-mako.test.ts
 //     cruza las dos puntas);
-//   · cómo se ve cada mensaje como FILA de la lista (emoji y prendido).
+//   · cómo se ve cada mensaje como FILA de la lista (emoji y prendido);
+//   · el pedido de los que este negocio ELIMINÓ (novena tanda, 10/10/2026: el «⋯» los oculta y se recuperan
+//     desde «Nueva automatización»): `?ocultos=1` lo arma /automations y lo leen las dos rutas, con la
+//     misma constante (tests/plantillas-ocultas.test.ts cruza las puntas).
 //
 // SIN 'use client' y sin `server-only`: lo leen la lista de /automations, la tab de Notificaciones y los
 // tests. El tipo `PlantillaVista` se trae con `import type`, que se borra al compilar. Y no importa
@@ -25,6 +28,11 @@ import { EMOJI_CATEGORIA } from './avisos-catalogo';
 
 /** El endpoint de la tab de Configuraciones › Notificaciones: lista, edita y publica, con guard de admin. */
 export const ENDPOINT_MENSAJES_MAKO = '/api/perfil/plantillas';
+
+/** El parámetro del GET que lista los mensajes que este negocio eliminó (se recuperan desde la galería). */
+export const PARAM_OCULTOS = 'ocultos';
+/** El pedido entero, como lo hace /automations. Las rutas comparan `params.get(PARAM_OCULTOS) === '1'`. */
+export const ENDPOINT_MENSAJES_OCULTOS = `${ENDPOINT_MENSAJES_MAKO}?${PARAM_OCULTOS}=1`;
 
 /** El parámetro del deep link de /automations que abre el lienzo de UN mensaje de MaKo. */
 export const PARAM_AVISO = 'aviso';

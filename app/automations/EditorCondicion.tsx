@@ -159,9 +159,10 @@ export function catalogosDe(p: { etapas: EtapasDeProducto[]; productos: Producto
 /**
  * EL PLACEHOLDER de la casa para agregar (sexta tanda, punto 4, el «+ Nuevo disparador» de ManyChat):
  * borde punteado, el texto en el color primario y centrado, 48 de alto. Lo que se ve es el botón de un
- * desplegable (`Agregar`), así que el estilo va como `buttonStyle`.
+ * desplegable (`Agregar`), así que el estilo va como `buttonStyle`. Exportado para el «＋ Caso» del AI
+ * Step (app/automations/EditorPasoIA.tsx): el mismo botón, no una copia.
  */
-const PLACEHOLDER: CSSProperties = {
+export const PLACEHOLDER: CSSProperties = {
   ...botonGrande, width: '100%', justifyContent: 'center', background: 'transparent',
   border: '1.5px dashed var(--border-strong)', fontSize: 14.5,
 };
@@ -368,9 +369,9 @@ function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar }: {
  *
  * Desde el 10/10/2026 (condición 3) es CHICA y cuelga de la ESQUINA de arriba a la derecha del contenedor
  * de la condición (`xs`): al lado del desplegable le robaba ancho a la pregunta y se confundía con el de
- * la tarjeta entera, que es el `md` de la cabecera del panel.
+ * la tarjeta entera, que es el `md` de la cabecera del panel. Lo usa también cada caso del AI Step.
  */
-function BotonQuitar({ onClick, disabled, aria }: { onClick: () => void; disabled: boolean; aria: string }) {
+export function BotonQuitar({ onClick, disabled, aria }: { onClick: () => void; disabled: boolean; aria: string }) {
   return (
     <BotonBorrar talla="xs" onClick={onClick} disabled={disabled} title={aria}
       style={{ position: 'absolute', top: -9, right: -9, zIndex: 1, boxShadow: '0 1px 3px rgba(0,0,0,.12)' }} />

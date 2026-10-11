@@ -50,8 +50,18 @@
 import {
   type PasoGrafo, type NombresParaTexto, type HechosLead,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
-  textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida,
+  textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida, expandirPasoIA,
 } from './flujo-grafo';
+
+/**
+ * ⚠️ LO QUE SE RECORRE ES EL FLUJO CON EL AI STEP EXPANDIDO (novena tanda, `expandirPasoIA`): el MISMO que
+ * recorre el motor (`responderConGrafo`). Quien llama pasa los pasos como se ven en el lienzo —la forma
+ * compacta, la que se valida (`frenoDelFlujo`) y se firma (`firmaFlujo`)— y cada función que CAMINA los
+ * expande acá adentro: es idempotente y determinística (los cursores de un caso, `<nodo>~<caso>~r`, existen
+ * igual en cada llamada). Con uno solo de los dos lados expandido, «Probar» entraba a un caso y cerraba
+ * con «Esa tarjeta ya no existe», o contestaba distinto que el motor.
+ */
+const recorrido = <P extends PasoGrafo>(pasos: readonly P[]): P[] => expandirPasoIA(pasos);
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { aplicarVariables, valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
@@ -262,7 +272,7 @@ export function hechosDeLeadNuevo(c: LeadNuevoPrueba = {}): HechosLead {
 export function elegirComoLead(pasos: readonly PasoGrafo[], estado: EstadoSim, hechos: HechosLead): { estado: EstadoSim; opcion: OpcionRama | null } {
   const e = estado.eligiendo;
   if (!e) return { estado, opcion: null };
-  const p = nodoPorId(pasos, e.nodo);
+  const p = nodoPorId(recorrido(pasos), e.nodo);
   const puerto = p ? elegirSalida(p, hechos).puerto : RESULTADO_SI_NO;
   const opcion = e.opciones.find((o) => o.puerto === puerto) ?? e.opciones.find((o) => o.puerto === RESULTADO_SI_NO) ?? null;
   return { estado: opcion ? elegir(estado, opcion.puerto) : { ...estado, eligiendo: null }, opcion };
@@ -485,12 +495,13 @@ const TOPE_VUELTAS_MUDAS = TOPE_HILOS * 2 + 2;
  * uno y otro.
  */
 export function siguiente<P extends PasoGrafo>(
-  pasos: readonly P[],
+  pasosIn: readonly P[],
   estado: EstadoSim,
   nombres: NombresSim = {},
 ): Paso<P> {
   if (estado.terminado || estado.eligiendo) return { evento: null, estado };
   if (estado.rama === 'salida' && estado.salidaPausada) return { evento: null, estado };
+  const pasos = recorrido(pasosIn);
   let st = estado;
   for (let vuelta = 0; vuelta <= TOPE_VUELTAS_MUDAS; vuelta++) {
     if (!st.hilos.length) {
@@ -542,10 +553,12 @@ export function pausarPorRespuesta(estado: EstadoSim): { estado: EstadoSim; paus
  * MaKo no contesta.
  */
 export function entrarEnRespuesta(
-  pasos: readonly PasoGrafo[],
+  pasosIn: readonly PasoGrafo[],
   estado: EstadoSim,
   casoId: string | null,
 ): { estado: EstadoSim; sinRespuesta: boolean; caso: CasoElegido | null } {
+  // Por el flujo EXPANDIDO (`recorrido`): un caso de un AI Step no tiene `siguiente` en la tarjeta.
+  const pasos = recorrido(pasosIn);
   const r = nodoPorId(pasos, raizRespuesta(pasos));
   if (!r) return { estado: { ...estado, terminado: true, hilos: [], eligiendo: null }, sinRespuesta: true, caso: null };
   const c = casoId ? (r.casos ?? []).find((x) => x.id === casoId) ?? null : null;

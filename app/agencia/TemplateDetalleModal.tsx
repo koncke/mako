@@ -64,7 +64,7 @@ async function api(endpoint: string, body: unknown): Promise<{ ok: boolean; erro
  * scroll anidado. Son dos props y no un `embebido` porque son dos decisiones: el
  * alto lo manda la fila del grid, y el marco, quién lo dibuja.
  */
-export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, endpoint = ENDPOINT_AGENCIA, alto = 620, marco = true, insetIzq, muelles }: {
+export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, onEliminar, endpoint = ENDPOINT_AGENCIA, alto = 620, marco = true, insetIzq, muelles }: {
   plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void;
   /**
    * Abre la vista de PROBAR (el chat). Opcional a propósito: el que no la implementa
@@ -74,6 +74,13 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
    * preview de nada.
    */
   onVerChat?: () => void;
+  /**
+   * EL TACHO LO RESUELVE QUIEN MONTA (novena tanda, 10/10/2026). En /automations, «Eliminar» un mensaje es el
+   * MISMO del «⋯» de su fila: pregunta con la confirmación de la casa y OCULTA (se recupera), por paridad con
+   * la automatización, que archiva. Ausente = lo de siempre: el tacho borra acá mismo (/mensajes, el
+   * catálogo de la agencia, y la bandeja de correo, cuya ruta también oculta).
+   */
+  onEliminar?: () => void;
   endpoint?: string;
   alto?: number | string; marco?: boolean;
   /**
@@ -117,6 +124,18 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
   const [editandoTitulo, setEditandoTitulo] = useState(false);
   const [preguntandoSalida, setPreguntandoSalida] = useState(false);
   const [enabled, setEnabled] = useState(plantilla?.enabled ?? true);
+  /**
+   * ⚠️ EL INTERRUPTOR Y EL NOMBRE SE RESIEMBRAN DE LAS PROPS (novena tanda, 10/10/2026). El «⋯» de la fila en
+   * /automations pausa o activa el mensaje SIN remontar este detalle (misma `key`), y el `useState` de arriba
+   * se siembra una sola vez: el interruptor del pie seguía diciendo lo de antes (AGENTS.md, «Un `useState`
+   * sembrado de props no se resiembra»). Es el patrón de la automatización (SecuenciaPerfil, `activaVista`):
+   * un ajuste de estado AL DIBUJAR, no un efecto, así el interruptor cambia en el mismo pintado que la lista.
+   * El nombre, igual —salvo mientras se está escribiendo: no se le pisa a nadie lo que tipea—.
+   */
+  const [enabledVisto, setEnabledVisto] = useState(plantilla?.enabled);
+  if (plantilla && plantilla.enabled !== enabledVisto) { setEnabledVisto(plantilla.enabled); setEnabled(plantilla.enabled); }
+  const [tituloVisto, setTituloVisto] = useState(plantilla?.titulo);
+  if (plantilla && plantilla.titulo !== tituloVisto) { setTituloVisto(plantilla.titulo); if (!editandoTitulo) setTitulo(plantilla.titulo); }
   const [prueba, setPrueba] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ txt: string; mal: boolean } | null>(null);
@@ -269,7 +288,12 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
     else { flashMal(r.error || 'No se pudo cambiar la categoría'); setCategoria(plantilla?.categoria ?? 'aviso'); }
   };
   const toggle = async () => { if (!id) return; setBusy('toggle'); const r = await api(endpoint, { action: 'enabled', id, enabled: !enabled }); if (r.ok) { setEnabled(!enabled); flashOk(!enabled ? 'Activada ✓' : 'Desactivada ✓'); onCambio?.(); } setBusy(null); };
-  const eliminar = async () => { if (!id) return; setBusy('del'); const r = await api(endpoint, { action: 'borrar', id }); if (r.ok) { onCambio?.(); onClose(); } setBusy(null); };
+  const eliminar = async () => {
+    if (!id) return;
+    // En /automations lo resuelve la lista: la misma confirmación y el mismo «ocultar» que el «⋯» (`onEliminar`).
+    if (onEliminar) { onEliminar(); return; }
+    setBusy('del'); const r = await api(endpoint, { action: 'borrar', id }); if (r.ok) { onCambio?.(); onClose(); } setBusy(null);
+  };
   /**
    * ⚠️ EL `contexto` YA ESTABA ACEPTADO EN LAS DOS RUTAS Y NADIE LO MANDABA NUNCA.
    * Medido: cero ocurrencias de «contexto» en app/agencia/. Sin él la ruta caía a

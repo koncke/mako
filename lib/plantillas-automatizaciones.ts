@@ -25,7 +25,7 @@
 //     (lib/variables-resolver.ts), y un CRON por etapa no garantiza que lo tenga.
 //
 // ── EL MODELO DE LA SEXTA TANDA, NADA DE ANTES ────────────────────────────────────────────────
-//   · Tarjetas con ids, esperas, condiciones y «Si responde». NADA de «Ir a» (la sexta tanda lo
+//   · Tarjetas con ids, esperas, condiciones y un AI Step (abajo). NADA de «Ir a» (la sexta tanda lo
 //     sacó: #198 tenía dos, a la #212) ni de los campos de la lista de antes (`delay_horas`,
 //     `requiere`, `ancla`): lo que eran se escribe con una espera o una condición.
 //   · EL CRON ES UNA ETAPA, NO UN EVENTO. Los eventos del catálogo de antes («Dejó el formulario sin
@@ -43,6 +43,32 @@
 //     tiene) lo ausente es «borrador», y eso no es una decisión de la plantilla sino un default.
 //     Lo sensible —el precio, quien no compró, quien no le interesa— queda para que lo apruebe una
 //     persona, como en las de origen.
+//
+// ── LO QUE CONTESTA VA EN UN AI STEP, NO EN TARJETAS (novena tanda, 10/10/2026) ──────────────────
+// Pedido literal de Martín: «Todo lo que hiciste de una cantidad impresionante de flujos y tarjetas eso
+// justamente debería estar en una nueva tarjeta que sea "AI Step". Configuralo allí».
+//   · Cada «Si responde» de la galería es un AI STEP (`paso_ia`, lib/flujo-grafo.ts, «EL AI STEP»): cada
+//     caso lleva ADENTRO cómo responder (`responder`), si sale sola (`sola`) y si te avisa (`avisar`), y de
+//     él no cuelga NINGUNA tarjeta. El motor y «Probar» lo recorren expandido (`expandirPasoIA`) a las
+//     mismas tarjetas que había acá antes, así que lo que se le contesta al lead no cambia.
+//   · LAS DECISIONES DE CADA CASO SON LAS DE ANTES, tarjeta por tarjeta: el precio y lo sensible quedan
+//     para revisar, confirmar y cambiar el día salen solos, y lo que avisaba sigue avisando (el test las
+//     fija en una tabla escrita a mano). En un caso, `sola` AUSENTE es «a revisar» SIEMPRE —no el default
+//     de la automatización: `revisar = !sola`—, y `contesta` obliga a decirlo igual en cada uno.
+//   · ⚠️ LO QUE SE PERDIÓ AL PLEGAR: el texto propio del aviso de cada caso («coordina el nuevo horario»).
+//     El aviso de un caso lleva el TÍTULO del caso y lo que escribió el lead (`AVISO_DE_CASO`): el caso no
+//     tiene dónde guardar otro texto (lo mismo que hace el conversor, lib/paso-ia-convertir.ts). «Otra
+//     cosa» no pierde nada: el texto de las de origen ES el de por default (`AVISO_OTRA_COSA`), así que
+//     `otra_aviso` va vacío —escrito, sería una segunda copia del mismo texto—.
+//
+// ── LAS DOS POST-AGENDA SON UNA (10/10/2026) ─────────────────────────────────────────────────────
+// Martín: «Las dos automatizaciones de agendó se podrían unificar ya que se tiene justamente la tarjeta de
+// CONDITION». #212 y #213 eran el MISMO flujo nodo por nodo con otra primera fila («Ya le escribiste» /
+// «Nunca le escribiste») y otro primer mensaje. Ahora es UNA plantilla (`agendo-preparar`): una condición
+// «Ya le escribiste» elige el primer mensaje y las dos ramas llegan a la MISMA espera (varios padres, sexta
+// tanda). Ids y nombre nuevos, distintos de «Agendó: confirmar y preparar»: nadie había creado una
+// automatización desde la galería (0 filas con clave `plantilla-%`, medido en producción el 10/10/2026),
+// así que los ids viejos (`agendo-con-bienvenida`, `agendo-sin-hablar`) no los nombra ningún dato.
 //
 // ⚠️ PURO Y SIN `server-only`: lo importan la pantalla (la galería), el server (lib/plantilla-crear.ts,
 // que la crea) y el test (tests/plantillas-automatizaciones.test.ts, que valida CADA plantilla con
@@ -138,22 +164,34 @@ function mako(id: string, mensaje: string, siguiente: string | null, titulo?: st
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: { leadId: LEAD_DEL_EVENTO, ...(titulo ? { titulo } : {}), mensaje } } };
 }
 
-/** «Si responde»: los casos que busca el clasificador, y «otra cosa». */
-function siResponde(id: string, casos: CasoRespuesta[], otraCosa: string | null): PasoDePlantilla {
-  return { ...RELLENO, id, nodo: 'respuesta', casos, si_no: otraCosa };
+/**
+ * EL AI STEP: «Si responde» con lo de cada caso ADENTRO (`paso_ia`). Sin tarjetas debajo —ni un caso con
+ * flecha ni un «Otra cosa» con flecha: `validarGrafo` no lo deja guardar— y con el aviso de «Otra cosa» de
+ * por default (ver «LO QUE CONTESTA VA EN UN AI STEP», arriba). Sin tono general (`instrucciones`): las de
+ * origen no tenían, y uno inventado le cambiaría la voz al negocio que la elija.
+ */
+function aiStep(id: string, casos: CasoRespuesta[]): PasoDePlantilla {
+  return { ...RELLENO, id, nodo: 'respuesta', paso_ia: true, casos, si_no: null };
 }
 
-/** Una respuesta de MaKo dentro de «Si responde»: el texto es CÓMO contestar (`comoResponder`). */
-function respuesta(id: string, comoResponder: string, siguiente: string | null, o: { revisar: boolean }): PasoDePlantilla {
-  return { ...RELLENO, id, tipo: 'ia', cuerpo: comoResponder, siguiente, revisar: o.revisar };
-}
+/** Lo que hace un caso del AI Step: lo que en la forma de siempre eran sus tarjetas hijas. */
+type HaceCaso = Pick<CasoRespuesta, 'responder' | 'sola' | 'avisar'>;
 
-const caso = (id: string, titulo: string, cuando: string, siguiente: string): CasoRespuesta => ({ id, titulo, cuando, siguiente });
+/**
+ * El caso CONTESTA con esta guía (lo que era el `cuerpo` del «MaKo contesta»). La salida se dice SIEMPRE,
+ * aunque «revisar» sea lo que pasa sin `sola`: es la decisión que más importa de cada caso.
+ */
+const contesta = (responder: string, sale: 'sola' | 'revisar'): HaceCaso => (sale === 'sola' ? { responder, sola: true } : { responder });
+/** Además te avisa al grupo, con el título del caso (lo que era la tarjeta MaKo debajo de la respuesta). */
+const yAvisa = (h: HaceCaso): HaceCaso => ({ ...h, avisar: true });
+/** Sólo te avisa: no contesta, y la charla pasa a una persona (lo que era una tarjeta MaKo sola). */
+const SOLO_AVISA: HaceCaso = { avisar: true };
+
+const caso = (id: string, titulo: string, cuando: string, hace: HaceCaso): CasoRespuesta => ({ id, titulo, cuando, siguiente: null, ...hace });
 
 // Las filas que se repiten. Ninguna necesita un dato del negocio (ni una etiqueta ni una etapa).
 const NO_AGENDO: FilaCondicion = { campo: 'agendo', no: true };
 const YA_LE_ESCRIBISTE: FilaCondicion = { campo: 'ya_contactado' };
-const NUNCA_LE_ESCRIBISTE: FilaCondicion = { campo: 'ya_contactado', no: true };
 const NO_PAGO: FilaCondicion = { campo: 'pago', no: true };
 const TIENE_WHATSAPP: FilaCondicion = { campo: 'tiene_telefono' };
 /** «Llegó hace menos de 72 h» (el «Solo a leads recientes» de #198: la PRIMERA tarjeta, `antiguedadDeEntrada`). */
@@ -172,8 +210,8 @@ const RECIENTE: FilaCondicion = { campo: 'antiguedad', valor: 72 };
  */
 const REUNION_POR_DELANTE: FilaCondicion = { campo: 'reunion_en', op: 'menor_igual', valor: 720 };
 
-/** Lo que dice el aviso de «otra cosa» en las de origen (#198, #212, #213, #220, #221, #223, #224). */
-const NO_SE_CONTESTAR = 'Te escribió algo que no sé contestar';
+// El aviso de «otra cosa» en las de origen (#198, #212, #213, #220, #221, #223, #224) decía «Te escribió algo
+// que no sé contestar», que es `AVISO_OTRA_COSA`: el AI Step lo manda solo (no se repite acá).
 const NO_CONFIRMO = { titulo: 'no confirmó la reunión', mensaje: 'Agendó y no confirmó. Conviene que le marques tú.' } as const;
 
 // Las respuestas que se repiten entre las post-agenda (de #212, #213 y #221, sin el video ni el link).
@@ -184,43 +222,12 @@ const R_CAMBIAR = 'Dile que no hay problema y pregúntale qué día y horario le
 const R_NO_INTERESA = 'Agradece que te avise, en una línea, sin insistir. Déjale la puerta abierta.';
 const R_PRECIO_LLAMADA = 'Dile que el precio depende de lo que necesite y que lo ven en una llamada corta. Invítalo a agendarla. No des cifras.';
 
-const C_CONFIRMA = (id: string, sig: string) => caso(id, 'Confirma', 'Confirma que va a estar, o contesta solo con un sí, ok, gracias o un emoji.', sig);
-const C_PRECIO = (id: string, sig: string) => caso(id, 'Pregunta el precio', 'Pregunta cuánto cuesta, las formas de pago o si hay descuento.', sig);
-const C_REUNION = (id: string, sig: string) => caso(id, 'Pregunta por la reunión', 'Pregunta a qué hora es, qué día, cuánto dura, de qué se trata o dónde está el link.', sig);
-const C_CAMBIAR = (id: string, sig: string) => caso(id, 'Quiere cambiar el día', 'Dice que no puede en el horario que agendó, pide cambiar el día o la hora, o pregunta cómo reagendar.', sig);
-const C_NO_INTERESA = (id: string, sig: string) => caso(id, 'No le interesa', 'Dice que no le interesa, que no es el momento o pide que no le escriban.', sig);
-
-/**
- * LA POST-AGENDA DE #212 Y #213, generalizada. Las dos son el MISMO flujo con otra primera fila
- * («Ya le escribiste» / «Nunca le escribiste») y otro primer mensaje: en las de origen, eran dos
- * eventos del catálogo de antes y dos audios distintos.
- */
-function postAgenda(pre: string, primera: FilaCondicion, primerMensaje: string): PasoDePlantilla[] {
-  const id = (s: string) => `${pre}_${s}`;
-  return [
-    esperar(id('espera_1h'), 60, id('filtro')),
-    condicion(id('filtro'), [primera, REUNION_POR_DELANTE], id('prepara'), null),
-    whatsapp(id('prepara'), primerMensaje, id('espera_1d'), { revisar: false }),
-    esperar(id('espera_1d'), 1440, id('sigue_1')),
-    condicion(id('sigue_1'), [REUNION_POR_DELANTE], id('confirma'), null),
-    whatsapp(id('confirma'), 'Hola {{nombre}}, ¿me confirmas que nos vemos en la reunión?', id('espera_12h'), { revisar: false, ia: true }),
-    esperar(id('espera_12h'), 720, id('sigue_2')),
-    condicion(id('sigue_2'), [REUNION_POR_DELANTE], id('aviso'), null),
-    mako(id('aviso'), NO_CONFIRMO.mensaje, null, NO_CONFIRMO.titulo),
-    siResponde(id('si_responde'), [
-      C_CONFIRMA(id('c_confirma'), id('r_confirma')),
-      C_PRECIO(id('c_precio'), id('r_precio')),
-      C_REUNION(id('c_reunion'), id('r_reunion')),
-      C_CAMBIAR(id('c_cambiar'), id('r_cambiar')),
-    ], id('r_otra')),
-    respuesta(id('r_confirma'), R_CONFIRMA, null, { revisar: false }),
-    respuesta(id('r_precio'), R_PRECIO_REUNION, null, { revisar: true }),
-    respuesta(id('r_reunion'), R_PREGUNTA_REUNION, null, { revisar: true }),
-    respuesta(id('r_cambiar'), R_CAMBIAR, id('r_cambiar_aviso'), { revisar: false }),
-    mako(id('r_cambiar_aviso'), 'Quiere cambiar el día de la reunión: coordina el nuevo horario.', null, 'quiere cambiar el día'),
-    mako(id('r_otra'), NO_SE_CONTESTAR, null),
-  ];
-}
+// Los casos que se repiten, con lo que hace cada uno (`contesta`, `yAvisa`, `SOLO_AVISA`) puesto por cada plantilla.
+const C_CONFIRMA = (id: string, hace: HaceCaso) => caso(id, 'Confirma', 'Confirma que va a estar, o contesta solo con un sí, ok, gracias o un emoji.', hace);
+const C_PRECIO = (id: string, hace: HaceCaso) => caso(id, 'Pregunta el precio', 'Pregunta cuánto cuesta, las formas de pago o si hay descuento.', hace);
+const C_REUNION = (id: string, hace: HaceCaso) => caso(id, 'Pregunta por la reunión', 'Pregunta a qué hora es, qué día, cuánto dura, de qué se trata o dónde está el link.', hace);
+const C_CAMBIAR = (id: string, hace: HaceCaso) => caso(id, 'Quiere cambiar el día', 'Dice que no puede en el horario que agendó, pide cambiar el día o la hora, o pregunta cómo reagendar.', hace);
+const C_NO_INTERESA = (id: string, hace: HaceCaso) => caso(id, 'No le interesa', 'Dice que no le interesa, que no es el momento o pide que no le escriban.', hace);
 
 /**
  * EL RECORDATORIO DE LA REUNIÓN: los MISMOS pasos que armó la mudanza de cada negocio (`pasosDeLaConfig`), con
@@ -262,35 +269,47 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       esperar('bv_espera_1d', 1440, 'bv_sigue_sin_agenda'),
       condicion('bv_sigue_sin_agenda', [NO_AGENDO], 'bv_recordatorio', null),
       whatsapp('bv_recordatorio', '{{nombre}}, ¿pudiste ver mi mensaje? Si quieres, respóndeme por aquí y te ayudo a encontrar un horario.', null, { revisar: false, ia: true }),
-      siResponde('bv_si_responde', [
-        caso('bv_c_agendar', 'Quiere agendar', 'Dice que sí, que quiere agendar, pide horarios o pregunta cómo seguimos.', 'bv_r_agendar'),
-        C_PRECIO('bv_c_precio', 'bv_r_precio'),
-        C_NO_INTERESA('bv_c_no', 'bv_r_no'),
-      ], 'bv_r_otra'),
-      respuesta('bv_r_agendar', 'Agradece en una línea y dile que con gusto lo ayudamos a agendar. Pregúntale qué día y horario le quedan mejor. No propongas horarios ni mandes links.', 'bv_r_agendar_aviso', { revisar: false }),
-      mako('bv_r_agendar_aviso', 'Quiere agendar una llamada: ayúdalo a elegir el horario.', null, 'quiere agendar'),
-      respuesta('bv_r_precio', R_PRECIO_LLAMADA, null, { revisar: true }),
-      respuesta('bv_r_no', R_NO_INTERESA, null, { revisar: true }),
-      mako('bv_r_otra', NO_SE_CONTESTAR, null),
+      aiStep('bv_si_responde', [
+        caso('bv_c_agendar', 'Quiere agendar', 'Dice que sí, que quiere agendar, pide horarios o pregunta cómo seguimos.',
+          yAvisa(contesta('Agradece en una línea y dile que con gusto lo ayudamos a agendar. Pregúntale qué día y horario le quedan mejor. No propongas horarios ni mandes links.', 'sola'))),
+        C_PRECIO('bv_c_precio', contesta(R_PRECIO_LLAMADA, 'revisar')),
+        C_NO_INTERESA('bv_c_no', contesta(R_NO_INTERESA, 'revisar')),
+      ]),
     ],
   },
   {
-    id: 'agendo-con-bienvenida',
-    nombre: 'Agendó después de tu bienvenida',
+    // LAS POST-AGENDA DE #212 Y #213, UNIFICADAS (ver «LAS DOS POST-AGENDA SON UNA», arriba). En las de
+    // origen eran dos eventos del catálogo de antes y dos audios distintos; acá la primera condición mira
+    // si ya le escribiste y elige el mensaje. Es la misma forma que `cp_hablamos` de «Agendó: confirmar y
+    // preparar», que viene de #221.
+    id: 'agendo-preparar',
+    nombre: 'Agendó: preparar la reunión',
     emoji: '🤝',
-    linea: 'Prepara la reunión de quien agendó y ya había recibido tu bienvenida.',
-    origen: '#212 (ws1)',
+    linea: 'Prepara la reunión de quien agendó: le pregunta qué quiere resolver y te avisa si no confirma.',
+    origen: '#212 y #213 (ws1), unidas con una condición',
     cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien agendó una reunión.' },
-    pasos: postAgenda('ab', YA_LE_ESCRIBISTE, 'Hola {{nombre}}, gracias por agendar 🙌 Para aprovechar la reunión, ¿me cuentas en una línea qué te gustaría resolver?'),
-  },
-  {
-    id: 'agendo-sin-hablar',
-    nombre: 'Agendó sin haber hablado contigo',
-    emoji: '🙋',
-    linea: 'Se presenta y prepara la reunión de quien agendó sin hablar antes contigo.',
-    origen: '#213 (ws1)',
-    cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien agendó una reunión.' },
-    pasos: postAgenda('as', NUNCA_LE_ESCRIBISTE, 'Hola {{nombre}}, te escribo por la reunión que agendaste con nosotros 🙌 Para aprovecharla, ¿me cuentas en una línea qué te gustaría resolver?'),
+    pasos: [
+      esperar('ap_espera_1h', 60, 'ap_filtro'),
+      condicion('ap_filtro', [REUNION_POR_DELANTE], 'ap_hablamos', null),
+      // A quien ya le escribiste (#212, después de tu bienvenida) no se le dice «te escribo por…»; a quien
+      // nunca (#213, agendó sin hablar antes contigo), sí.
+      condicion('ap_hablamos', [YA_LE_ESCRIBISTE], 'ap_prepara_ya', 'ap_prepara_nuevo'),
+      whatsapp('ap_prepara_ya', 'Hola {{nombre}}, gracias por agendar 🙌 Para aprovechar la reunión, ¿me cuentas en una línea qué te gustaría resolver?', 'ap_espera_1d', { revisar: false }),
+      whatsapp('ap_prepara_nuevo', 'Hola {{nombre}}, te escribo por la reunión que agendaste con nosotros 🙌 Para aprovecharla, ¿me cuentas en una línea qué te gustaría resolver?', 'ap_espera_1d', { revisar: false }),
+      // Las dos flechas llegan a la MISMA espera (sexta tanda: varios padres).
+      esperar('ap_espera_1d', 1440, 'ap_sigue_1'),
+      condicion('ap_sigue_1', [REUNION_POR_DELANTE], 'ap_confirma', null),
+      whatsapp('ap_confirma', 'Hola {{nombre}}, ¿me confirmas que nos vemos en la reunión?', 'ap_espera_12h', { revisar: false, ia: true }),
+      esperar('ap_espera_12h', 720, 'ap_sigue_2'),
+      condicion('ap_sigue_2', [REUNION_POR_DELANTE], 'ap_aviso', null),
+      mako('ap_aviso', NO_CONFIRMO.mensaje, null, NO_CONFIRMO.titulo),
+      aiStep('ap_si_responde', [
+        C_CONFIRMA('ap_c_confirma', contesta(R_CONFIRMA, 'sola')),
+        C_PRECIO('ap_c_precio', contesta(R_PRECIO_REUNION, 'revisar')),
+        C_REUNION('ap_c_reunion', contesta(R_PREGUNTA_REUNION, 'revisar')),
+        C_CAMBIAR('ap_c_cambiar', yAvisa(contesta(R_CAMBIAR, 'sola'))),
+      ]),
+    ],
   },
   {
     id: 'agendo-confirmar',
@@ -316,20 +335,14 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       // Sin reunión por delante, esta espera corta sola (el motor: `sin_reunion`).
       esperar('cp_antes_4h', 240, 'cp_ultimo', 'antes_reunion'),
       whatsapp('cp_ultimo', '{{nombre}}, todavía no tengo tu confirmación para la reunión de hoy. ¿Sigue en pie? Si no puedes, la cambiamos para cuando te quede mejor.', null, { revisar: true }),
-      siResponde('cp_si_responde', [
-        C_CONFIRMA('cp_c_confirma', 'cp_r_confirma'),
-        C_PRECIO('cp_c_precio', 'cp_r_precio'),
-        C_REUNION('cp_c_reunion', 'cp_r_reunion'),
-        C_CAMBIAR('cp_c_cambiar', 'cp_r_cambiar'),
-        caso('cp_c_no_califica', 'Puede no calificar', 'Cuenta que no es quien decide o que no puede invertir en este momento.', 'cp_r_no_califica'),
-      ], 'cp_r_otra'),
-      respuesta('cp_r_confirma', R_CONFIRMA, null, { revisar: false }),
-      respuesta('cp_r_precio', R_PRECIO_REUNION, null, { revisar: true }),
-      respuesta('cp_r_reunion', R_PREGUNTA_REUNION, null, { revisar: true }),
-      respuesta('cp_r_cambiar', R_CAMBIAR, 'cp_r_cambiar_aviso', { revisar: false }),
-      mako('cp_r_cambiar_aviso', 'Quiere cambiar el día de la reunión: coordina el nuevo horario.', null, 'quiere cambiar el día'),
-      mako('cp_r_no_califica', 'Lo que contestó sugiere que no califica. Revisa antes de la reunión si la mantienes.', null, 'puede no calificar'),
-      mako('cp_r_otra', NO_SE_CONTESTAR, null),
+      aiStep('cp_si_responde', [
+        C_CONFIRMA('cp_c_confirma', contesta(R_CONFIRMA, 'sola')),
+        C_PRECIO('cp_c_precio', contesta(R_PRECIO_REUNION, 'revisar')),
+        C_REUNION('cp_c_reunion', contesta(R_PREGUNTA_REUNION, 'revisar')),
+        C_CAMBIAR('cp_c_cambiar', yAvisa(contesta(R_CAMBIAR, 'sola'))),
+        // No se le contesta nada: lo decide una persona antes de la reunión (en #221 era sólo el aviso).
+        caso('cp_c_no_califica', 'Puede no calificar', 'Cuenta que no es quien decide o que no puede invertir en este momento.', SOLO_AVISA),
+      ]),
     ],
   },
   {
@@ -349,14 +362,11 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       whatsapp('na_wa_2', '{{nombre}}, ¿lo reagendamos? Respóndeme por aquí y buscamos un horario que te quede bien.', null, { revisar: true }),
       email('na_mail', '¿Reprogramamos tu reunión?', 'Buscamos otro horario en un minuto.',
         'Hola {{nombre}}:\n\nTe esperábamos en la reunión y no pudimos conectarnos.\n\nSi todavía te interesa, responde este correo y buscamos un nuevo horario.', null, { revisar: false }),
-      siResponde('na_si_responde', [
-        caso('na_c_reagendar', 'Quiere reagendar', 'Pide disculpas, cuenta por qué no pudo, dice que quiere reprogramar o pregunta por otro horario.', 'na_r_reagendar'),
-        C_NO_INTERESA('na_c_no', 'na_r_no'),
-      ], 'na_r_otra'),
-      respuesta('na_r_reagendar', R_CAMBIAR, 'na_r_reagendar_aviso', { revisar: false }),
-      mako('na_r_reagendar_aviso', 'Quiere reagendar la reunión: coordina el nuevo horario.', null, 'quiere reagendar'),
-      respuesta('na_r_no', R_NO_INTERESA, null, { revisar: true }),
-      mako('na_r_otra', NO_SE_CONTESTAR, null),
+      aiStep('na_si_responde', [
+        caso('na_c_reagendar', 'Quiere reagendar', 'Pide disculpas, cuenta por qué no pudo, dice que quiere reprogramar o pregunta por otro horario.',
+          yAvisa(contesta(R_CAMBIAR, 'sola'))),
+        C_NO_INTERESA('na_c_no', contesta(R_NO_INTERESA, 'revisar')),
+      ]),
     ],
   },
   {
@@ -374,16 +384,13 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       whatsapp('rc_retomar', 'Hola {{nombre}}, hace un tiempo tuvimos una reunión y quedó en pausa. ¿Sigue en tus planes? Si quieres, lo retomamos esta semana; si ya no es el momento, dímelo sin problema.', 'rc_espera_3d', { revisar: true }),
       esperar('rc_espera_3d', 3 * 1440, 'rc_puerta'),
       whatsapp('rc_puerta', '{{nombre}}, te dejo la puerta abierta: cuando quieras retomarlo, respóndeme por aquí y lo vemos.', null, { revisar: true }),
-      siResponde('rc_si_responde', [
-        caso('rc_c_retomar', 'Quiere retomarlo', 'Dice que sí, que le interesa retomarlo, pregunta cómo seguimos o pide horarios.', 'rc_r_retomar'),
-        C_PRECIO('rc_c_precio', 'rc_r_precio'),
-        C_NO_INTERESA('rc_c_no', 'rc_r_no'),
-      ], 'rc_r_otra'),
-      respuesta('rc_r_retomar', 'Agradece en una línea y dile que con gusto lo retoman. Pregúntale qué día y horario le quedan mejor esta semana. No menciones precios.', 'rc_r_retomar_aviso', { revisar: true }),
-      mako('rc_r_retomar_aviso', 'Quiere retomarlo: coordina una nueva reunión.', null, 'quiere retomarlo'),
-      respuesta('rc_r_precio', R_PRECIO_LLAMADA, null, { revisar: true }),
-      respuesta('rc_r_no', R_NO_INTERESA, null, { revisar: true }),
-      mako('rc_r_otra', NO_SE_CONTESTAR, null),
+      // Quien no compró es de lo sensible: los tres casos quedan para revisar, como en #220.
+      aiStep('rc_si_responde', [
+        caso('rc_c_retomar', 'Quiere retomarlo', 'Dice que sí, que le interesa retomarlo, pregunta cómo seguimos o pide horarios.',
+          yAvisa(contesta('Agradece en una línea y dile que con gusto lo retoman. Pregúntale qué día y horario le quedan mejor esta semana. No menciones precios.', 'revisar'))),
+        C_PRECIO('rc_c_precio', contesta(R_PRECIO_LLAMADA, 'revisar')),
+        C_NO_INTERESA('rc_c_no', contesta(R_NO_INTERESA, 'revisar')),
+      ]),
     ],
   },
   {
