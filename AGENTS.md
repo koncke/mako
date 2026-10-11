@@ -7585,3 +7585,22 @@ de `18:00:00`, y el test cae. Con cualquier unidad de calendario, no.
 Y el corolario general, que vale para cualquier guard sobre una función con ramas: **si la
 función tiene un camino que NO pasa por la normalización que te protege, ése es el único
 caso que prueba algo.**
+
+# MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
+
+La app del teléfono vive en `app/m/` y se monta DENTRO del layout raíz (no hay route groups). Las decisiones
+están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md); lo que costó, en
+[docs/hallazgos-mobile.md](docs/hallazgos-mobile.md).
+
+- **«¿Es móvil?» se pregunta con `esRutaMovil` (`lib/movil-rutas.ts`), nunca con `startsWith('/m')`**: eso
+  atrapa /mako, /marketing y la ruta PÚBLICA /m.js del Pixel.
+- **Cada `page.tsx` de /m llama a `requireMovil` (`lib/movil-guard.ts`)**, nunca a `requireRolWs`/`requireCapa`:
+  esos redirigen a pantallas de escritorio y sacan a la persona de la app. Los layouts no se re-ejecutan al navegar.
+- **Qué destino ve cada rol sale de `lib/movil-rutas.ts`** (la misma regla del Sidebar: `rolesWs` + capa). Un destino
+  nuevo declara la key de `nav.ts` que refleja; no hay segunda tabla de permisos.
+- **Un link de escritorio que va al teléfono pasa por `rutaMovil`/`rutaMovilOHome`**, y uno que SALE (un push) por
+  `linkApp` — salvo al workspace de plataforma, que va sin `?ws=` (para un admin global es impersonación).
+- **Primitivas de `app/m/_ui`** (FilaM, SheetM, PantallaM, useToastM…), nunca `Pagina`, `Modal`, `Tooltip` ni
+  `.mk-btn--sm` (son de escritorio). Sólo `var(--token)`; el header es oscuro siempre (`black-translucent`).
+- **El reparto de teléfonos de `/inicio` se prende con `MOBILE_AL_ENTRAR`** (app/inicio/page.tsx): salió apagado
+  porque ninguna pantalla se pudo renderizar antes del deploy.

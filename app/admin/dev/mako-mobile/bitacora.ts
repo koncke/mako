@@ -43,4 +43,16 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['docs/diseno-mako-mobile.md', 'lib/movil-rutas.ts'],
   },
+  {
+    fecha: '11 oct', hora: '14:52', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La app del teléfono en /m, con salida escalonada',
+    puntos: [
+      'Today, Inbox (con la campanita, que no existía), MaKo (voz, fotos y aprobar desde el hilo), CRM (ficha, agendar en la llamada, WhatsApp de la línea del negocio) y Plan (marcar hecha con deshacer).',
+      'Web Push por persona: los avisos que ya salían por WhatsApp, y «MaKo te pide confirmar». Los avisos del negocio son de admin, como en escritorio.',
+      'Salió con el reparto de teléfonos APAGADO: ninguna pantalla se pudo renderizar antes del deploy (la máquina no tenía RAM para un next dev). Se abre por URL hasta verla en producción.',
+      'La revisión adversarial cerró tres bugs: chats del teléfono legibles por otra persona por las rutas de escritorio, la suscripción que seguía siendo de la cuenta anterior y los links con ?ws=9 que abrían el plan vacío.',
+    ],
+    commits: [{ sha: 'ef8626ce', msg: 'MaKo Mobile: la app del teléfono en /m (PWA), con Web Push y el chat de MaKo que propone y se aprueba desde el hilo', lineas: 44028, archivos: 328 }],
+    archivos: ['app/m/', 'lib/movil-rutas.ts', 'lib/movil-guard.ts', 'lib/push.ts', 'lib/mako-turno-app.ts', 'lib/inbox-movil.ts', 'lib/vista-general.ts', 'app/plan/board/prioridades.ts', 'public/sw.js', 'docs/hallazgos-mobile.md'],
+  },
 ];
