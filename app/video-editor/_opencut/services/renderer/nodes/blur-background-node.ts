@@ -19,6 +19,8 @@ export type BackdropSource = {
 	source: CanvasImageSource;
 	width: number;
 	height: number;
+	/** El cuadro del video (ver `sourceVersion` en visual-node.ts). */
+	version?: number;
 };
 
 export interface ResolvedBlurBackgroundNodeState {

@@ -254,6 +254,8 @@ async function resolveVideoNode({
 		source: frame.canvas,
 		sourceWidth: frame.canvas.width,
 		sourceHeight: frame.canvas.height,
+		// El canvas es de una rueda de 3 que se reusa: el cuadro lo dice el timestamp.
+		sourceVersion: frame.timestamp,
 	};
 }
 
@@ -480,6 +482,7 @@ async function resolveBackdropSource({
 			source: frame.canvas,
 			width: frame.canvas.width,
 			height: frame.canvas.height,
+			version: frame.timestamp,
 		};
 	}
 

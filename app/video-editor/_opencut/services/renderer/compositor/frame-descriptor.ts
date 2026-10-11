@@ -155,10 +155,10 @@ async function collectNode({
 		const textureId = `${path}:blur-background`;
 		const { width, height } = renderer;
 		const { backdropSource, passes } = node.resolved;
-		// Backdrop pixels come from a decoded video/image frame whose identity
-		// already changes when it changes. Hashing the source reference is
-		// enough to let us skip redraws on frozen frames.
-		const contentHash = `blur:${identityKey(backdropSource.source)}:${backdropSource.width}x${backdropSource.height}:${width}x${height}`;
+		// La identidad del canvas NO alcanza: el decodificador de video recicla 3
+		// canvas, así que el mismo objeto trae otro cuadro (al saltar 3, 6… cuadros
+		// el fondo quedaba congelado). Va también el cuadro (`version`).
+		const contentHash = `blur:${identityKey(backdropSource.source)}:${backdropSource.version ?? ""}:${backdropSource.width}x${backdropSource.height}:${width}x${height}`;
 		textures.set(textureId, {
 			kind: "rendered",
 			id: textureId,
@@ -280,6 +280,9 @@ async function collectVisualSourceNode({
 		source: fuenteFinal.source,
 		width: fuenteFinal.width,
 		height: fuenteFinal.height,
+		// El cuadro del video, por si el objeto llega igual (el canvas reciclado
+		// del decodificador, sin gancho ni pase que lo reemplace).
+		version: (node.resolved as ResolvedVisualSourceNodeState).sourceVersion,
 	});
 
 	const transform = computeVisualTransform({

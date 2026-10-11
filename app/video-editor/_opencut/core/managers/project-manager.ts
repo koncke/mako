@@ -18,6 +18,7 @@ import { DEFAULT_FPS } from "@/app/video-editor/_opencut/fps/defaults";
 import { buildDefaultScene, getProjectDurationFromScenes } from "@/app/video-editor/_opencut/timeline/scenes";
 import { buildScene } from "@/app/video-editor/_opencut/services/renderer/scene-builder";
 import { CanvasRenderer } from "@/app/video-editor/_opencut/services/renderer/canvas-renderer";
+import { isGpuAvailable } from "@/app/video-editor/_opencut/services/renderer/gpu-renderer";
 import {
 	CURRENT_PROJECT_VERSION,
 	migrations,
@@ -631,6 +632,10 @@ export class ProjectManager {
 
 	private async updateThumbnailFromTimeline(): Promise<boolean> {
 		if (!this.active) return false;
+		// Sin el contexto de la GPU el compositor no dibuja nada («GPU context not
+		// initialized»): salir del editor antes de que termine de cargar, o un
+		// navegador sin GPU, no es un error, es quedarse sin miniatura.
+		if (!isGpuAvailable()) return false;
 
 		const tracks = this.editor.scenes.getActiveScene().tracks;
 		const mediaAssets = this.editor.media.getAssets();

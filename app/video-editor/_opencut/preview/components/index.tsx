@@ -180,6 +180,7 @@ function PreviewCanvas({
 	const lastFrameRef = useRef(-1);
 	const lastSceneRef = useRef<RootNode | null>(null);
 	const renderingRef = useRef(false);
+	const ultimoErrorRef = useRef<string | null>(null);
 	const { width: nativeWidth, height: nativeHeight } = usePreviewSize();
 	const viewportSize = useContainerSize({ containerRef: viewportRef });
 	const editor = useEditor();
@@ -265,7 +266,18 @@ function PreviewCanvas({
 		lastFrameRef.current = frame;
 		renderer
 			.render({ node: renderTree, time: renderTime })
-			.then(() => {
+			.catch((error: unknown) => {
+				// Un cuadro que falla no puede dejar el reproductor congelado: sin
+				// esto `renderingRef` quedaba en true para siempre. Pasó (11/10/2026)
+				// con «Desenfoque» como capa (el WASM rechazaba el cuadro): después ya
+				// no se dibujaba nada más hasta recargar. Se avisa una vez por error.
+				const mensaje = error instanceof Error ? error.message : String(error);
+				if (mensaje !== ultimoErrorRef.current) {
+					ultimoErrorRef.current = mensaje;
+					console.error("[reproductor] no se pudo dibujar el cuadro:", error);
+				}
+			})
+			.finally(() => {
 				renderingRef.current = false;
 			});
 	}, [renderer, renderTree, editor.playback, editor.timeline]);

@@ -56,6 +56,12 @@ export type ExternalTextureDescriptor = {
 	source: CanvasImageSource;
 	width: number;
 	height: number;
+	/**
+	 * Qué contenido tiene `source` cuando el objeto se reusa (el cuadro de un
+	 * video: el decodificador recicla 3 canvas). Con el mismo objeto y otra
+	 * versión, el compositor la vuelve a subir.
+	 */
+	version?: number;
 };
 
 /**

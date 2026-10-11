@@ -63,11 +63,23 @@ export function EditorPage({ projectId }: { projectId: string }) {
 	// ⚠️ Si lo que desmonta el editor es un cambio de cliente (`?ws=` distinto),
 	// VideoEditorCliente ya fijó el espacio NUEVO: guardar ahora escribiría el
 	// proyecto de un cliente en el almacenamiento de otro. Ahí no se guarda.
+	// ⚠️ En desarrollo React (Strict Mode) desmonta y vuelve a montar cada efecto
+	// enseguida de montarlo: eso NO es salir. Pasó (11/10/2026): al entrar desde
+	// el inicio corría prepareExit antes de inicializar la GPU y quedaba en la
+	// consola «Failed to generate project thumbnail on exit: GPU context not
+	// initialized». Por eso la salida se mira una microtarea después: si el
+	// editor volvió a montarse, no se salió.
+	const montado = useRef(false);
 	useEffect(() => {
+		montado.current = true;
 		const espacio = conEspacio("");
 		return () => {
+			montado.current = false;
 			if (conEspacio("") !== espacio) return;
-			void editor.project.prepareExit().catch(() => {});
+			queueMicrotask(() => {
+				if (montado.current) return;
+				void editor.project.prepareExit().catch(() => {});
+			});
 		};
 	}, [editor]);
 

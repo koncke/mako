@@ -135,10 +135,14 @@ const SelectContent = React.forwardRef<
 	React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
 >(({ className, children, position = "popper", ...props }, ref) => (
 	<SelectPrimitive.Portal container={portalCe()}>
+		{/* z-300: va al mismo portal que los diálogos (z-250, ui/dialog.tsx); con
+		    z-50 la lista se abría DEBAJO del diálogo, invisible y sin clic. Pasó
+		    (11/10/2026) en Recortar › «Relación de aspecto»: no se podía elegir 1:1.
+		    Exportar lo había parchado sólo para su diálogo (dialogo-exportar.tsx). */}
 		<SelectPrimitive.Content
 			ref={ref}
 			className={cn(
-				"bg-popover text-popover-foreground z-50 max-h-(--radix-select-content-available-height) min-w-32 overflow-hidden rounded-md border p-1 shadow-lg",
+				"bg-popover text-popover-foreground z-300 max-h-(--radix-select-content-available-height) min-w-32 overflow-hidden rounded-md border p-1 shadow-lg",
 				className,
 			)}
 			position={position}

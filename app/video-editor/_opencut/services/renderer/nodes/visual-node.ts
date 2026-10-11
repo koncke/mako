@@ -33,6 +33,13 @@ export interface ResolvedVisualSourceNodeState extends ResolvedVisualNodeState {
 	source: CanvasImageSource;
 	sourceWidth: number;
 	sourceHeight: number;
+	/**
+	 * Qué cuadro tiene `source` (el `timestamp` del video decodificado). El
+	 * decodificador reusa 3 canvas en rueda, así que el MISMO objeto trae otro
+	 * cuadro después: sin esto el compositor, que cachea por identidad, no lo
+	 * re-sube (compositor/wasm-compositor.ts).
+	 */
+	sourceVersion?: number;
 }
 
 export abstract class VisualNode<

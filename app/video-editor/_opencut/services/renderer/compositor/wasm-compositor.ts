@@ -18,6 +18,7 @@ import type {
 	RenderedTextureDescriptor,
 	TextureUploadDescriptor,
 } from "./types";
+import { texturaExternaVigente } from "./textura-vigente";
 
 /**
  * One slot in the derived-texture cache. The OffscreenCanvas is persistent —
@@ -37,6 +38,7 @@ type ExternalCacheEntry = {
 	source: CanvasImageSource;
 	width: number;
 	height: number;
+	version: number | undefined;
 };
 
 class WasmCompositor {
@@ -52,10 +54,20 @@ class WasmCompositor {
 			return;
 		}
 
+		// Se mira también el tamaño REAL del canvas, no sólo el que se anotó acá: el
+		// canvas es el mismo para todo el WASM, y `applyEffectPasses` lo achica al
+		// tamaño de lo que procesa sin avisar. Pasó (11/10/2026): la miniatura del
+		// «Desenfoque» (160×160) lo dejaba en 160×160, el anotado seguía en
+		// 1280×720 y el próximo cuadro se dibujaba en ese canvas chico: el
+		// reproductor mostraba la esquina de arriba a la izquierda estirada (con
+		// las barras de prueba, «todo rojo»). gpu-renderer.ts ya no llama a
+		// `applyEffectPasses`; esto queda por si otra llamada al WASM lo vuelve a hacer.
 		if (
 			!this.initializedSize ||
 			this.initializedSize.width !== width ||
-			this.initializedSize.height !== height
+			this.initializedSize.height !== height ||
+			this.canvas.width !== width ||
+			this.canvas.height !== height
 		) {
 			resizeCompositor(width, height);
 			this.initializedSize = { width, height };
@@ -88,7 +100,7 @@ class WasmCompositor {
 	}
 
 	render(frame: FrameDescriptor) {
-		renderFrame(frame);
+		renderFrame(paraElWasm(frame));
 		if (isRenderPerfEnabled()) {
 			recordWasmFrameProfile(
 				getLastFrameProfile() as Array<{ name: string; durationMs: number }>,
@@ -98,11 +110,11 @@ class WasmCompositor {
 
 	private syncExternalTexture(texture: ExternalTextureDescriptor) {
 		const previous = this.cache.get(texture.id);
+		// El mismo canvas puede traer OTRO cuadro (el decodificador recicla 3):
+		// se compara también la versión. Ver ./textura-vigente.ts.
 		if (
 			previous?.kind === "external" &&
-			previous.source === texture.source &&
-			previous.width === texture.width &&
-			previous.height === texture.height
+			texturaExternaVigente(previous, texture)
 		) {
 			incrementCounter({ name: "textureCacheHit" });
 			return;
@@ -129,6 +141,7 @@ class WasmCompositor {
 			source: texture.source,
 			width: texture.width,
 			height: texture.height,
+			version: texture.version,
 		});
 	}
 
@@ -224,4 +237,27 @@ function ensureOffscreenCanvas({
 	context.clearRect(0, 0, width, height);
 	context.drawImage(source, 0, 0, width, height);
 	return canvas;
+}
+
+/**
+ * El cuadro como lo lee el WASM. En opencut-wasm 0.2.10 el `serde` de Rust pone
+ * en camelCase los campos de una CAPA (`effectPassGroups`) pero NO los de la
+ * variante `SceneEffect` del enum, que quedó en snake_case: espera
+ * `effect_pass_groups`. Pasó (11/10/2026): «Desenfoque» puesto como capa (lo
+ * único que llega como efecto de escena) tiraba «missing field
+ * `effect_pass_groups`» en cada cuadro, no desenfocaba y el reproductor quedaba
+ * congelado. Visto en las cadenas del .wasm («struct variant
+ * FrameItemDescriptor::SceneEffect … effect_pass_groups»), junto a las de la
+ * capa en camelCase. Venía así del OpenCut original.
+ */
+function paraElWasm(frame: FrameDescriptor): unknown {
+	if (!frame.items.some((item) => item.type === "sceneEffect")) return frame;
+	return {
+		...frame,
+		items: frame.items.map((item) =>
+			item.type === "sceneEffect"
+				? { type: "sceneEffect", effect_pass_groups: item.effectPassGroups }
+				: item,
+		),
+	};
 }

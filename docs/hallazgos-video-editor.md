@@ -165,9 +165,35 @@ también cambia desde deshacer.
   árbol de render. Todo render con `CanvasRenderer` fuera del reproductor termina con
   `refrescarReproductor(editor)`.
 - **Un gancho de fuente que devuelve siempre el mismo lienzo congela un VIDEO en su primer cuadro** (con
-  una imagen no se nota): el compositor decide re-subir por identidad del objeto, no por contenido, y los
-  cuadros normales se salvan porque el `CanvasSink` del videoCache rota 3 lienzos. La regla quedó en el
-  contrato de ganchos (diseño §4.1); se previó leyendo el código, antes de que pasara.
+  una imagen no se nota): el compositor decidía re-subir por identidad del objeto, no por contenido.
+- ⚠️ **Y «los cuadros normales se salvan porque el `CanvasSink` rota 3 lienzos» era FALSO** (medido el
+  11/10 en Chrome): saltar un MÚLTIPLO de 3 cuadros devuelve el mismo lienzo con otro contenido, así que el
+  reproductor mostraba un cuadro viejo al mover el cabezal 1 s, y a Velocidad 3× el MP4 salía CONGELADO
+  desde 0,67 s (lo delató `ffmpeg -vf freezedetect`, y desapareció al prender el arreglo). Ahora una textura
+  externa lleva `version` (el timestamp del cuadro) y el compositor compara identidad Y versión
+  (`compositor/textura-vigente.ts`). El fondo desenfocado tenía la misma trampa. Lo cuida
+  `tests/video-editor-motor.test.ts`.
+
+## Todo rojo en el reproductor: el WASM achicaba el canvas que comparte con él
+
+**Vive en:** `services/renderer/gpu-renderer.ts` · `services/renderer/compositor/wasm-compositor.ts`
+
+- **Al agregar «Glitch» como capa, el reproductor quedaba de un solo color (rojo)**. ⚠️ El diagnóstico
+  obvio —el reparto de los pases `ce-*` a las capas o las uniforms de espacio— era el EQUIVOCADO: la
+  textura salía bien del reparto. Lo que pasaba: con sólo ABRIR Biblioteca › Efectos, la miniatura de
+  «Desenfoque» (el único efecto que no es `ce-*`) llamaba a `applyEffectPasses` del WASM, que dibuja en SU
+  canvas y lo deja de 160×160 — y ese canvas es el mismo que el compositor monta en el reproductor.
+  `ensureInitialized` sólo miraba el tamaño anotado en JS, así que el cuadro siguiente de 1280×720 se
+  dibujaba en 160×160: se veía la esquina de arriba a la izquierda estirada, que en las barras de prueba
+  es la roja. Se detectó espiando el setter `width` del canvas.
+- **Regla:** nada del editor llama a `applyEffectPasses` ni a `applyMaskFeather` fuera del compositor (la
+  miniatura del desenfoque va con el `filter: blur()` del canvas 2D), y el compositor compara contra el
+  tamaño REAL del canvas. Lo cuida el test.
+- **Y «Desenfoque» como capa tiraba `missing field effect_pass_groups` en cada cuadro y congelaba el
+  reproductor hasta recargar**: el `serde` de opencut-wasm 0.2.10 espera la variante `SceneEffect` en
+  snake_case y la capa en camelCase (salió de las cadenas del `.wasm`; venía así de OpenCut), y la promesa
+  de render no tenía `catch`, así que la marca de «render en curso» quedaba prendida. La frontera con el
+  WASM se traduce en `paraElWasm` (`wasm-compositor.ts`); un render que falla nunca deja la marca prendida.
 
 ## Decodificar fuera del reproductor: nunca el `videoCache`
 
@@ -333,7 +359,9 @@ Los tokens viven en `.ce` y en ningún otro lado. Lo que se dibuja afuera sale s
   debajo de los menús, z-50). Es la trampa de `hallazgos-second-brain.md` → «La pantalla completa mata
   el portal», otra vez.
 - **Un Select o un menú adentro de un Dialog se abre DEBAJO**: van al mismo portal con z-50 de fábrica y
-  el Dialog usa z-250. Adentro de un diálogo, `className='z-300'`.
+  el Dialog usa z-250. Exportar lo había parchado sólo en su diálogo con `className='z-300'`, y en Recortar
+  la «Relación de aspecto» no se podía elegir (la lista se abría invisible): ahora z-300 es el valor POR
+  DEFECTO de `components/ui/select.tsx`. Un parche en el lugar donde se vio no arregla el patrón.
 - **`hsl(var(--x))` es CSS inválido en el port**: los tokens de OpenCut eran tripletes HSL; en `.ce` son
   hex, `hsl(#262626)` no vale y queda transparente (los marcadores se dibujaban sin fondo). Se buscan con
   `grep "hsl(var"`; queda uno (ver «sin hacer»).
@@ -539,6 +567,21 @@ Es la familia de `hallazgos-infra.md` → «El manifest de la app estaba detrás
 - **`_historial.generado.ts` estaba viejo en la rama**: regenerarlo para sumar UN área reescribió ~1650
   líneas. Ante un conflicto de merge se vuelve a correr `node scripts/gen-dev-historial.mjs`, nunca a mano.
 
+## Lo que confunde al MEDIR el editor en un navegador
+
+- **«Failed to generate project thumbnail on exit» al ENTRAR al editor**: en desarrollo, React (Strict
+  Mode) monta, desmonta y vuelve a montar cada efecto, y ese desmontaje falso disparaba la salida antes de
+  que la GPU existiera. Un «al salir» en un cleanup se confirma una microtarea después
+  (`editor-page.tsx`); sin GPU no se genera miniatura (`project-manager.ts`).
+- El cursor sobre la línea de tiempo prende el **eje de vista previa** y pisa al cabezal: una captura
+  «del cuadro en 2 s» puede ser del cuadro bajo el mouse.
+- Con varias tarjetas en la biblioteca, el ⊕ se busca ADENTRO de la tarjeta: los ⊕ ocultos de las otras
+  también reciben el clic.
+- `ffmpeg -sseof -0.1` no da el último cuadro. Y un video de prueba SIN etiquetas de color, ffmpeg lo lee
+  BT.601 y el navegador BT.709: se compara contra un export base, nunca contra el original leído por ffmpeg.
+- Las pruebas que sirven (Playwright headless y mudo + ffprobe) quedaron en el scratchpad de la sesión
+  del 11/10 (`smoke/ve-lib.mjs`, `r3`…`r10`, `e2e.mjs`): para repetirlas, copiarlas a `scripts/`.
+
 ## El entorno de esta máquina: `next dev`, `.next` y el typecheck acotado
 
 **Vive en:** `C:/dev/tsc-ve.mjs` y `tsconfig.ve.json` (FUERA de lo versionado) · `.next/`
@@ -722,5 +765,12 @@ el texto sin contorno ni sombra (H: `services/renderer/nodes/text-node.ts`, y su
 - Lint que ya estaba: `components/providers/editor-provider.tsx` (`_createErr`, `react-hooks/immutability`),
   `components/ui/font-picker.tsx:80`, `timeline/components/index.tsx` (`syncFollowers`) y
   `timeline/bookmarks/components/bookmarks.tsx:308`.
+
+- Botón dentro de botón en `timeline/components/timeline-element.tsx` (el «Efectos» ~l.1216 vive adentro
+  del botón que cubre el clip ~l.626): React lo marca como error en cuanto un clip tiene efectos.
+- «Encountered a script tag while rendering React component» en el inicio después de volver con «atrás»:
+  sin ubicar.
+- Para mirar a ojo: Espejo deja una línea de 1 px en el centro; Saturación −50 queda igual que Blanco y
+  negro; Saturación +50 deja la piel muy naranja.
 
 *11/10/2026, chat «Video Editor»: tanda 1 (paquetes A–E), tanda 2 (F, I, K, L) y la integración.*
