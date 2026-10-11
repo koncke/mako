@@ -415,8 +415,8 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 ### Sales Machine
 
 - 🟢 **Landing Generator**  `/landing-generator`  · ícono `web`  
-  MaKo escribe la página entera (estructura + copy bloque por bloque) desde el funnel y, si esa URL ya pasó por el Landing Analyst, sus hallazgos; con refinado por instrucción y guardado.  
-  <sub>app/landing-generator/page.tsx · app/landing-generator/LandingWriterApp.tsx · app/landing-writer/page.tsx (redirect de la ruta vieja) · lib/landing-writer.ts</sub>
+  Desde el 11/10/2026, el editor de landings copiado de Gamma 5: Panel, «Crear con IA» en dos pasos, edición por secciones y bloques, temas, exportar y publicar en hola-mako.com/l/<slug> (docs/diseno-editor-landing.md). La pantalla vieja (LandingWriterApp.tsx) se retiró.  
+  <sub>app/landing-generator/ · app/api/landing-generator/ · app/l/ · lib/editor-landing/ · app/landing-writer/page.tsx (redirect de la ruta vieja, con la query)</sub>
 - ⚪ **VSL Generator**  `/vsl-generator`  · ícono `video`  
   Escribir el guion de un VSL. Hoy es un ComingSoon puro; no hay lib ni API (lib/vsl-estructuras.ts existe pero lo consume el Landing Analyst, no esto).  
   <sub>app/vsl-generator/page.tsx (ComingSoon) · app/vsl-writer/page.tsx (redirect) · app/_components/nav.ts (key 'vsl-writer', comingSoon: true)</sub>
@@ -442,8 +442,8 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 ### Landing Generator
 
 - 🟢 **Landing Versions**  · ícono `contexto`  
-  El panel «Tus versiones»: las landings guardadas (landing_drafts), que al clickear vuelven a cargar la propuesta completa en pantalla.  
-  <sub>app/landing-generator/LandingWriterApp.tsx (bloque «Tus versiones») · lib/landing-writer.ts (listarDrafts)</sub>
+  Hasta el 11/10/2026, el panel «Tus versiones» del generador anterior (landing_drafts). Hoy sus filas se ofrecen en el Panel del editor como «Importar → Del generador anterior» y se convierten con specADoc.  
+  <sub>lib/editor-landing/server.ts (borradoresViejos, importarBorrador) · lib/editor-landing/spec-a-doc.ts · lib/landing-writer.ts (listarDrafts, que usa la API de MaKo)</sub>
 
 ### Chatbot
 

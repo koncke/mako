@@ -38,7 +38,7 @@
  * de archivos de la mig 0225; 120 el 09/10/2026 con `email_entrantes`, mig 0245; 121 el 11/10/2026 con
  * `dashboard_analisis`, mig 0247; 123 el mismo día con `notificaciones`, mig 0250, y las conversaciones
  * de la tab Offer, `offer_sesiones`, mig 0254; 126 con `cobros` y `pasarela_eventos` de la pasarela, mig
- * 0255), en orden alfabético.
+ * 0255; 129 el mismo día con las tres del editor de landings, mig 0246), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -67,7 +67,7 @@ export const TABLAS_DE_INQUILINO = [
   'experimentos', 'flow_puentes', 'flow_trabajos', 'formatos',
   'funnel_config', 'funnel_ofertas', 'funnels', 'identidades_fiscales',
   'ig_conversaciones', 'ig_mensajes', 'kpi_registros', 'kpis',
-  'landing_analyses', 'landing_drafts', 'landing_visits', 'lead_audit',
+  'landing_analyses', 'landing_doc_comentarios', 'landing_doc_versiones', 'landing_docs', 'landing_drafts', 'landing_visits', 'lead_audit',
   'lead_funnel', 'lead_insights', 'lead_magnets', 'lead_orden', 'lead_respuestas', 'leads',
   'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv',
   'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily', 'meta_campaign_drafts',

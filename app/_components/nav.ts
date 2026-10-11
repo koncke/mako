@@ -543,6 +543,9 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           // reescribe con ese dato. Hoy la pantalla es un ComingSoon; el registro
           // existe igual, que es justamente para no volver a arrancar de cero.
           { key: 'dev-vsl-generator', label: 'VSL Generator', href: '/admin/dev/vsl-generator', icon: 'video', match: starts('/admin/dev/vsl-generator') },
+          // El editor de landings copiado de Gamma (11/10/2026): su registro lleva el pedido literal
+          // de Martín y lo que quedó sin hacer (app/admin/dev/landing-generator/bitacora.ts).
+          { key: 'dev-landing-generator', label: 'Landing Generator', href: '/admin/dev/landing-generator', icon: 'web', match: starts('/admin/dev/landing-generator') },
           { key: 'dev-credentials-vault-byok', label: 'Credentials Vault (BYOK)', href: '/admin/dev/credentials-vault-byok', icon: 'config', match: starts('/admin/dev/credentials-vault-byok') },
           // Los dos formatos de Content Machine con registro escrito. Stories ya
           // está construida; Thumbnails sigue siendo un ComingSoon y su registro

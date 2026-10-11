@@ -558,11 +558,25 @@ export const AREAS: AreaDev[] = [
     hallazgos: 'hallazgos-chatbot',
   },
   {
+    // Desde el 11/10/2026 la tab es el editor copiado de Gamma 5 (docs/diseno-editor-landing.md):
+    // la pantalla vieja (LandingWriterApp.tsx) y su ruta (/api/landing-writer) se retiraron. El
+    // `vive` va por CARPETA donde el área es dueña de la carpeta entera: un `vive` corto no da un
+    // área con poca historia, da un área invisible (AGENTS.md, «Una ruta que apunta a la nada…»).
     slug: 'landing-generator', titulo: 'Landing Generator', familia: 'Sales Machine',
     estado: 'listo', verEnApp: '/landing-generator',
-    alcance: 'MaKo escribe la página entera (estructura + copy bloque por bloque) desde el funnel y, si esa URL ya pasó por el Landing Analyst, sus hallazgos; con refinado por instrucción y guardado.',
-    vive: ['app/landing-generator/page.tsx', 'app/landing-generator/LandingWriterApp.tsx', 'app/landing-writer/page.tsx', 'lib/landing-writer.ts', 'lib/landing-spec.ts', 'app/api/landing-writer/route.ts'],
+    alcance: 'El editor de landings copiado de Gamma 5: Panel con carpetas, plantillas y papelera; «Crear con IA» en dos pasos (esquema que se edita, secciones en tandas) desde el funnel, el perfil y —si la página ya pasó por el Landing Analyst— sus hallazgos; edición por secciones y bloques en TipTap (menú «/», barra de formato, 52 diseños, temas, comentarios, historial, Edición con IA); exportar a PDF, PNG, PPTX y HTML; y publicar como foto en hola-mako.com/l/<slug>, multipágina, con el Pixel de MaKo y el Píxel de Meta.',
+    vive: [
+      'app/landing-generator', 'app/api/landing-generator', 'app/l', 'lib/editor-landing', 'lib/imagenes-stock.ts',
+      'supabase/migrations/0246_editor_landing.sql', 'scripts/gen-iconos-landing.mjs', 'docs/diseno-editor-landing.md',
+      'app/landing-writer/page.tsx', 'lib/landing-writer.ts', 'lib/landing-spec.ts', 'app/admin/dev/landing-generator/bitacora.ts',
+      'tests/editor-landing-agente.test.ts', 'tests/editor-landing-armazon.test.ts', 'tests/editor-landing-crear.test.ts',
+      'tests/editor-landing-exportar.test.ts', 'tests/editor-landing-ia-bloques.test.ts', 'tests/editor-landing-ia.test.ts',
+      'tests/editor-landing-insertar.test.ts', 'tests/editor-landing-menus.test.ts', 'tests/editor-landing-plantillas.test.ts',
+      'tests/editor-landing-publica.test.ts', 'tests/editor-landing-render.test.ts', 'tests/editor-landing-server.test.ts',
+      'tests/editor-landing-temas.test.ts', 'tests/editor-landing-validar.test.ts',
+    ],
     proyectos: ['Feature: Landing Generator'],
+    hallazgos: 'hallazgos-editor-landing',
   },
   {
     slug: 'vsl-generator', titulo: 'VSL Generator', familia: 'Sales Machine',

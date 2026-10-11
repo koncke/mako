@@ -55,6 +55,14 @@ import {
   LANDING_ADJUST_SYSTEM_TEMPLATE,
   LANDING_ADJUST_USER_TEMPLATE,
 } from './landing-writer';
+import {
+  ESQUEMA_SYSTEM_TEMPLATE as LANDING_EDITOR_ESQUEMA_SYSTEM, ESQUEMA_USER_TEMPLATE as LANDING_EDITOR_ESQUEMA_USER,
+  SECCIONES_SYSTEM_TEMPLATE as LANDING_EDITOR_SECCIONES_SYSTEM, SECCIONES_USER_TEMPLATE as LANDING_EDITOR_SECCIONES_USER,
+  EDITAR_SYSTEM_TEMPLATE as LANDING_EDITOR_EDITAR_SYSTEM, EDITAR_USER_TEMPLATE as LANDING_EDITOR_EDITAR_USER,
+  TEXTO_SYSTEM_TEMPLATE as LANDING_EDITOR_TEXTO_SYSTEM, TEXTO_USER_TEMPLATE as LANDING_EDITOR_TEXTO_USER,
+  DISENOS_SYSTEM_TEMPLATE as LANDING_EDITOR_DISENOS_SYSTEM, DISENOS_USER_TEMPLATE as LANDING_EDITOR_DISENOS_USER,
+  NOTAS_SYSTEM_TEMPLATE as LANDING_EDITOR_NOTAS_SYSTEM, NOTAS_USER_TEMPLATE as LANDING_EDITOR_NOTAS_USER,
+} from './editor-landing/ia-reglas';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-secuencias';
 import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
@@ -701,6 +709,100 @@ export const REGISTRY: Group[] = [
         variables: [v('specActual', 'el LandingSpec actual en JSON'), v('instruccion', 'el cambio que pide el usuario'), v('contexto', 'contexto del negocio')], scope: 'full', sensitive: false,
         default: LANDING_ADJUST_USER_TEMPLATE,
         context: 'Le pasa a MaKo el spec actual y el cambio pedido. Mantén los slots y el pedido de devolver el JSON COMPLETO (si devuelve solo el bloque cambiado, se pierde el resto de la página).',
+      },
+    ],
+  },
+  {
+    // El editor copiado de Gamma (lib/editor-landing/ia.ts; los defaults viven en
+    // lib/editor-landing/ia-reglas.ts, portados de presenton con su aviso Apache-2.0).
+    // Las keys y los slots los fija tests/editor-landing-ia.test.ts contra PROMPTS_EDITOR.
+    group: 'Editor de landings (Landing Generator)',
+    icon: '🧩',
+    blurb: 'MaKo en el editor de landings: arma el esquema, escribe las secciones con su diseño, edita con IA la landing o una sección, reescribe textos, propone otros diseños y escribe las notas del orador.',
+    entries: [
+      {
+        key: 'landing_editor.esquema.system', source: 'override',
+        label: 'Esquema de la landing (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma del copy (español neutro de México por default)'), v('formato', 'forma EXACTA del JSON del esquema')], scope: 'static-only', sensitive: true,
+        default: LANDING_EDITOR_ESQUEMA_SYSTEM,
+        context: 'Arma la lista de secciones que la persona revisa antes de generar. NO borres «PROHIBIDO INVENTAR» ni la regla de que los AJUSTES mandan: el texto pegado o importado puede traer instrucciones adentro y son datos. Conserva {{idioma}} y {{formato}}, o la pantalla no puede leer el esquema.',
+      },
+      {
+        key: 'landing_editor.esquema.user', source: 'override',
+        label: 'Ajustes + contenido + contexto (user)', kind: 'user', dynamic: true,
+        variables: [v('ajustes', 'cantidad de secciones, idioma, objetivo, audiencia, tono y cantidad de texto'), v('contenido', 'el pedido, el texto pegado o la página importada'), v('instrucciones', 'instrucciones extra y el modo de texto'), v('contexto', 'funnel + perfil + método del negocio'), v('diagnostico', 'diagnóstico del Landing Analyst si la landing ya se analizó')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_ESQUEMA_USER,
+        context: 'Le pasa a MaKo los ajustes y el material. Conserva los slots: {{contenido}} llega delimitado como dato no confiable.',
+      },
+      {
+        key: 'landing_editor.secciones.system', source: 'override',
+        label: 'Secciones con su diseño (system)', kind: 'system', dynamic: true,
+        variables: [v('gramatica', 'los bloques que la IA puede escribir (sale del código)'), v('texto', 'la cantidad de texto por sección'), v('modoTexto', 'Generar · Condensar · Conservar'), v('idioma', 'el idioma del copy'), v('formato', 'forma del JSON de este pedido')], scope: 'static-only', sensitive: true,
+        default: LANDING_EDITOR_SECCIONES_SYSTEM,
+        context: 'Escribe hasta 3 secciones por pedido con la gramática de bloques del editor. {{gramatica}} sale del código (las listas cerradas del documento): si se borra, la IA no sabe qué bloques existen y nada se puede convertir. NO borres «PROHIBIDO INVENTAR».',
+      },
+      {
+        key: 'landing_editor.secciones.user', source: 'override',
+        label: 'Esquema + secciones pedidas (user)', kind: 'user', dynamic: true,
+        variables: [v('ajustes', 'los ajustes de la generación'), v('esquema', 'la página entera por títulos, con las pedidas marcadas'), v('pedidas', 'el detalle de las secciones a escribir'), v('instrucciones', 'instrucciones extra'), v('contexto', 'funnel + perfil + método del negocio')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_SECCIONES_USER,
+        context: 'Le pasa a MaKo el esquema completo (para que no repita) y el detalle solo de las secciones de esta tanda. Conserva los slots.',
+      },
+      {
+        key: 'landing_editor.editar.system', source: 'override',
+        label: 'Edición con IA (system)', kind: 'system', dynamic: true,
+        variables: [v('gramatica', 'los bloques que la IA puede escribir'), v('idioma', 'el idioma del copy'), v('formato', 'forma del JSON de la edición')], scope: 'static-only', sensitive: true,
+        default: LANDING_EDITOR_EDITAR_SYSTEM,
+        context: 'Aplica la instrucción de la persona sobre la landing o una sección. Conserva las reglas de devolver cada sección ENTERA con su id y de no tocar las bloqueadas: si se borran, una edición pierde el resto de la sección. Las bloqueadas igual se descartan en código.',
+      },
+      {
+        key: 'landing_editor.editar.user', source: 'override',
+        label: 'Instrucción + secciones (user)', kind: 'user', dynamic: true,
+        variables: [v('instruccion', 'lo que pidió la persona'), v('alcance', 'la landing entera o una sección'), v('secciones', 'las secciones actuales en la gramática (las bloqueadas, solo el título)'), v('contexto', 'funnel + perfil + método del negocio')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_EDITAR_USER,
+        context: 'Le pasa a MaKo la instrucción y las secciones actuales. Conserva los slots.',
+      },
+      {
+        key: 'landing_editor.texto.system', source: 'override',
+        label: 'Acciones de texto (system)', kind: 'system', dynamic: true,
+        variables: [v('accion', 'qué hacer: mejorar, corregir, acortar, ampliar, simplificar, más específico, tono, traducir o continuar'), v('idioma', 'el idioma de la respuesta')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_TEXTO_SYSTEM,
+        context: 'Reescribe la selección con la acción elegida en la barra. Conserva {{accion}} (la escribe el código según el botón) y la regla de devolver SOLO el texto: lo que vuelve reemplaza la selección tal cual.',
+      },
+      {
+        key: 'landing_editor.texto.user', source: 'override',
+        label: 'Texto + contexto (user)', kind: 'user', dynamic: true,
+        variables: [v('texto', 'la selección'), v('contexto', 'la sección donde está el texto, si la hay')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_TEXTO_USER,
+        context: 'Le pasa a MaKo el texto seleccionado. Conserva los slots.',
+      },
+      {
+        key: 'landing_editor.disenos.system', source: 'override',
+        label: 'Probar nuevo diseño (system)', kind: 'system', dynamic: true,
+        variables: [v('gramatica', 'los bloques que la IA puede escribir'), v('formato', 'forma del JSON de las alternativas')], scope: 'static-only', sensitive: true,
+        default: LANDING_EDITOR_DISENOS_SYSTEM,
+        context: 'Propone hasta 3 formas distintas de la misma sección. Conserva la regla de que el TEXTO se conserva: las alternativas que cambian el texto se descartan en código y no llegan a la persona.',
+      },
+      {
+        key: 'landing_editor.disenos.user', source: 'override',
+        label: 'Sección actual (user)', kind: 'user', dynamic: true,
+        variables: [v('seccion', 'la sección actual en la gramática')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_DISENOS_USER,
+        context: 'Le pasa a MaKo la sección actual. Conserva el slot.',
+      },
+      {
+        key: 'landing_editor.notas.system', source: 'override',
+        label: 'Notas del orador (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma de las notas')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_NOTAS_SYSTEM,
+        context: 'Escribe lo que la persona diría al presentar la sección. Texto plano: el modo Presentar lo muestra tal cual.',
+      },
+      {
+        key: 'landing_editor.notas.user', source: 'override',
+        label: 'Sección (user)', kind: 'user', dynamic: true,
+        variables: [v('seccion', 'el texto de la sección')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_NOTAS_USER,
+        context: 'Le pasa a MaKo el texto de la sección. Conserva el slot.',
       },
     ],
   },

@@ -48,7 +48,8 @@ const TABLAS_RESET = TABLAS_DE_INQUILINO;
 /** Buckets con binarios prefijados por `<ws>/`. `avatars` NO: es por usuario. */
 // Los tres últimos son del curso tipo Skool (07/10/2026): adjuntos de la descripción (0216), lo que
 // sube el alumno en una tarea (0218) y los adjuntos de la comunidad (0217). Todos con <ws>/ adelante.
-const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips', 'curso-notas', 'curso-adjuntos', 'curso-entregas', 'comunidad-adjuntos'] as const;
+// `landing-imagenes` (0246): las imágenes y videos del editor de landings, PÚBLICO y con <ws>/ adelante.
+const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips', 'curso-notas', 'curso-adjuntos', 'curso-entregas', 'comunidad-adjuntos', 'landing-imagenes'] as const;
 
 export type ResultadoReset = {
   borrado: Record<string, number>;

@@ -17,7 +17,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { esPublica, esPublicaSoloLectura, esPublicaDeEscritura, PUBLICOS_ESCRITURA } from '../lib/rutas-publicas';
+import { esPublica, esPublicaSoloLectura, esPublicaDeEscritura, esPublicaSoloLeer, PUBLICOS_ESCRITURA } from '../lib/rutas-publicas';
 
 test('las rutas del agente que hablan por Bearer entran sin sesión', () => {
   // Son las que corren en la máquina del cliente, donde no hay cookie posible.
@@ -143,4 +143,20 @@ test('el comprador de un link de pago entra sin sesión, y sólo a lo suyo (11/1
   assert.equal(esPublica('/api/pagar/otra'), false, '/api/pagar no es un prefijo público');
   // La política de reembolsos: la abre el revisor de la pasarela sin cuenta.
   assert.equal(esPublica('/reembolsos'), true);
+});
+
+test('las landings publicadas (/l) entran sin sesión, y sólo para LEER', () => {
+  // Las abre un visitante sin cuenta de MaKo (app/l/**/route.ts, docs/diseno-editor-landing.md D4).
+  // Sin esto, en producción el proxy las manda a /login; en local no se ve (el gate está apagado).
+  // Probado rompiéndolo (11/10/2026): sacar `/l` de PUBLICOS, corriendo este archivo con
+  // tests/editor-landing-publica.test.ts, da 36 pass / 2 fail (cae éste y su gemelo de allá).
+  // Restaurado: 38 / 0.
+  for (const r of ['/l/mi-landing', '/l/mi-landing/gracias', '/l/vista/tok_ABCdef123456']) {
+    assert.equal(esPublica(r), true, r);
+    // No es /api/: una página pública que acepta POST ejecuta server actions sin sesión.
+    assert.equal(esPublicaSoloLeer(r), true, r);
+    assert.equal(esPublicaDeEscritura(r), false, r);
+  }
+  // El prefijo es «/l» más la barra: la tab del editor (con sesión) también empieza con «/l».
+  for (const r of ['/landing-generator', '/landing-generator/12', '/landing-writer', '/lx']) assert.equal(esPublica(r), false, r);
 });

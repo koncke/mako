@@ -106,6 +106,18 @@ export const PUBLICOS = [
   '/vsl-assets',
   '/compartido',
   '/api/compartido',
+  // ── Las landings publicadas con el editor (11/10/2026, docs/diseno-editor-landing.md D4) ──
+  // `/l/<slug>`, `/l/<slug>/<ruta>` y `/l/vista/<token>` (el borrador por el link privado).
+  // Las abre un VISITANTE, sin cuenta de MaKo: detrás del gate se leerían como una página de
+  // login. Son route handlers que leen la foto por slug o por token con el cliente crudo y
+  // NO miran la cookie de sesión para nada (sin cookie, `getTenantDb` caería al ws1).
+  //
+  // Va como PREFIJO, como `/compartido` y `/api/v1`: la carpeta `app/l` es pública POR
+  // CONSTRUCCIÓN, y tests/editor-landing-publica.test.ts enumera en positivo los route.ts que
+  // puede tener (una ruta nueva ahí falla hasta que alguien decide que también es pública).
+  // No es /api/, así que `esPublicaSoloLeer` la deja sólo en GET/HEAD/OPTIONS: los
+  // formularios de la landing no postean acá — el opt-in lo manda el Pixel a /api/track/optin.
+  '/l',
   // ── El agente (Claude) ──────────────────────────────────────────────────
   // Se listan UNA POR UNA y no como `/api/agente`, en positivo, porque en esa carpeta
   // conviven dos clases de ruta. Estas cuatro las llama el agente desde la máquina del

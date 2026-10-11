@@ -305,6 +305,12 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     pasos: [
       { key: 'generar', label: 'Tu primera versión escrita' },
       { key: 'guardar', label: 'Una versión guardada', opcional: true },
+      // El editor copiado de Gamma (11/10/2026). OPCIONAL a propósito: un paso obligatorio nuevo
+      // le reabriría la tab a todo el que ya la tenía cerrada. Lo marca publicar
+      // (lib/editor-landing/publicar.ts); `generar` lo marca la IA (ia.ts) y `guardar` el primer
+      // guardado de una landing (server.ts). Prefijo `lg_`: el registro de pasos es COMPARTIDO entre
+      // tabs y «publicar» suelto chocaría con el de otra.
+      { key: 'lg_publicar', label: 'Tu primera landing publicada', opcional: true },
     ],
     href: '/landing-generator',
   },

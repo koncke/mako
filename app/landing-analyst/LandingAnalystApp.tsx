@@ -506,7 +506,7 @@ export function LandingAnalystApp({ data, errorMsg, vistaInicial = 'copy' }: { d
                           : analizar(sel.url))}>
                         {corriendo === sel.url ? 'Analizando…' : sel.bloqueada ? 'Actualizar el texto' : 'Volver a analizar'}
                       </button>
-                      <Link href={`/landing-writer?url=${encodeURIComponent(sel.url)}`} style={{ ...btnPrimario, textDecoration: 'none', display: 'inline-block' }}>
+                      <Link href={`/landing-generator/crear?url=${encodeURIComponent(sel.url)}`} style={{ ...btnPrimario, textDecoration: 'none', display: 'inline-block' }}>
                         Escribir la nueva versión
                       </Link>
                     </div>

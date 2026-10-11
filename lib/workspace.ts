@@ -194,6 +194,12 @@ const TENANT_TABLES = new Set<string>([
   // igual, por si esta línea se pierde al juntar las partes del rediseño del chatbot).
   'setting_adjuntos',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',
+  // El editor de landings copiado de Gamma (mig 0246): las landings, su historial de versiones y
+  // los comentarios por sección. Las tres tienen N filas por workspace: sin estas líneas
+  // `getTenantDb()` es PASSTHROUGH y el Panel de un negocio listaría las landings de TODOS, con su
+  // contenido. (lib/editor-landing/server.ts escribe además el `.eq` a mano en cada consulta.) La
+  // página PÚBLICA no pasa por acá: lee por slug o por token con el cliente crudo.
+  'landing_docs', 'landing_doc_versiones', 'landing_doc_comentarios',
   // Canal Instagram vía Zernio (mig 0136). La tab se retiró el 06/10/2026 y ya no
   // las lee ni las escribe nadie, pero las TABLAS quedan en la base (sin migración
   // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que
