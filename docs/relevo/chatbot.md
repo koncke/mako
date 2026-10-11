@@ -1,5 +1,15 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **EN CURSO (11/10/2026 ~01:45, chat «chatbot», `claude3`): «MaKo en WhatsApp» = una automatización más.** Martín
+> (con enojo, pedido varias veces): «debe ser IDENTICO… quedaron cosas muy viejas que quiero que las depreques. Todo
+> ahora es lo mismo». Decisiones: **todos los negocios arrancan VACÍOS** (los mensajes de MaKo del cliente dejan de
+> salir hasta que cada negocio los agrega desde la galería) y **nada de opciones nuevas**: cada cuánto / insistir se
+> arman con CONDITION y DELAY en las plantillas. Alcance: 'reunion-recordatorio' (aviso al equipo 30 min antes),
+> 'wa-mensaje-entrante', 'cuota-vencida'; el reporte semanal pasa a SuperAdmin. El diseño va a
+> `docs/diseno-mako-en-whatsapp-unificado.md`; lo corre el workflow `wf_e017428b-b53` (diseñar → implementar →
+> revisar motor/datos → arreglar). Si este chat se corta: retomar ese run (`resumeFromRunId`) o leer el diseño.
+> Regla en la memoria: `mako-en-whatsapp-es-una-automatizacion`.
+>
 > **Actualización del 11/10/2026 ~01:00 (chat «chatbot», `claude3`): la NOVENA tanda** (`f2d4f25a` + `18369310`):
 > tarjeta **AI Step** (una forma del «Si responde» con los casos adentro), **«⋯» en los Mensajes de MaKo** (Activar/
 > Pausar y Eliminar = ocultar, recuperable desde «Nueva automatización»), **«Agendó» unificado** en la galería y en
