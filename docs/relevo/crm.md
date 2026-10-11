@@ -18,7 +18,24 @@ ausente también en `app/crm/actions.ts`) y el `marcarAplicada` DESPUÉS de crea
 (`app/crm/revisar/[id]/acciones.ts:83`). Se le ofrecieron a Martín sin respuesta todavía;
 la decisión 1 de la §5 se le presentó con la (c) recomendada.
 
-### La tarea nueva: «Producto» pasa a llamarse «Funnel» en todos lados (SIN EMPEZAR)
+### ✅ «Producto» → «Funnel»: HECHO el 11/10 a las 16:26 (`53ba6450`, 63 archivos)
+
+Martín contestó a las 15:55: *«Es así: funnel > oferta > productos»* (el catálogo con precio
+sigue siendo «producto») y *«arrancalo ahora»*. Cambió sólo lo que se lee, donde la palabra
+nombra un funnel: el CRM entero, el teléfono, «Agregar al CRM» de WhatsApp, Ads Manager, el
+paso 2 del Pixel, el CRON y las condiciones de Automations, el paso «⚡ Acción», el aviso del
+lead quieto y los mensajes de las acciones del CRM por MaKo. El porqué de cada frontera, en
+`docs/hallazgos-crm.md` → «"Producto" → "Funnel"». **Sin verificar en el navegador**: se
+verificó con tests (304 pass en los 19 archivos del área) y typecheck.
+
+**Lo que quedó pendiente:** las descripciones de las `.def.ts` de la API de MaKo (esperan a que
+`lib/api-mako` no tenga cambios ajenos, porque regeneran `docs/api-mako.md`), la dimensión
+«Producto» de los gráficos (`lib/graficos-catalogo.ts`, de la sesión del Dashboard) y los prompts.
+Y un rojo que NO es de esta tarea: `tests/mover-etapa-validacion.test.ts` («la opción del modal de
+confirmaciones valida») falla contra `lib/mako-confirmaciones.ts`, último commit `ef8626ce`
+(MaKo Mobile).
+
+Lo de abajo es lo que se sabía ANTES de hacerlo:
 
 Pedido de Martín, textual (11/10/2026, en el chat de la tab Offer, que la reenvió acá):
 *«Las ofertas deben estar atados a los productos del CRM... Y quiero cambiar el concepto

@@ -7908,3 +7908,44 @@ en la lista de cobros; el «Borrar lead» de `LeadSheet` probablemente tiene el 
 
 _11/10/2026 — pasarela de pagos; `tests/muestra-pagos.test.ts` y `tests/pago-comprobante.test.ts`
 probados rompiéndolos._
+
+## «Producto» → «Funnel»: la palabra nombraba DOS cosas, y sólo una se renombró (11/10/2026)
+
+Martín pidió cambiar el concepto «Producto» por «Funnel» «en todos lados», y la jerarquía que
+fijó es **funnel > oferta > productos**. El renombre (`53ba6450`) sólo es correcto si se separa
+qué nombraba cada «producto», porque en el código la misma palabra apuntaba a dos tablas:
+
+| Lo que dice la pantalla | Qué es por dentro | Quedó |
+|---|---|---|
+| El «producto» del CRM (selector, ficha, «traer de otro…», campañas, Pixel, «Agregar al CRM») | una fila de `funnels` (`leads.funnel_id`, `lead_funnel`), con el nombre de `productoDeFunnel` | **funnel** |
+| El catálogo con precio (único/suscripción), lo que entrega Customer Success, los cursos | `productos` (`lib/productos.ts`), dentro de una oferta | **producto** |
+
+- **La regla para decidir cada aparición: de dónde salen los datos**, no cómo se llama la
+  variable. `funnels` / `lead_funnel` / `funnel_id` → funnel; `productos` / `listProductos` /
+  `producto_id` / `oferta_productos` → producto. Las variables y funciones siguen llamándose
+  `productos` (`TraerDeOtroProducto`, `agregarAProducto`): lo que cambia es lo que se LEE.
+- ⚠️ **En Automations los dos conviven en la misma fila.** `productosConEtapas`
+  (`lib/setting-secuencias.ts`) devuelve una fila POR FUNNEL, con las etapas de venta del funnel
+  y las de entrega de su producto principal, más los productos sueltos que sólo tienen entrega.
+  Por eso el paso del CRON pasó a «Funnels» (`PASO_PRODUCTOS`) y el disparador de ETAPA dice
+  «funnel», pero el de ENTREGA (`producto_id`, `TRIGGER_ENTREGA`) sigue diciendo «Elige el
+  producto»: el kanban de entrega es del producto, no del funnel.
+- **La relación «un funnel tiene varias ofertas» ya existía:** es `funnel_ofertas` (mig 0171),
+  no `oferta_productos`. El chat de la tab Offer estaba por armar su selector con
+  `listProductos`, que es el catálogo de precios; se le avisó y pasó a `leerFunnels()` +
+  `ofertasDeFunnels()`.
+- **El historial del lead no se migró:** las entradas nuevas dicen «Funnel» en el campo y las
+  viejas «Producto». Nadie filtra por ese campo (medido con grep), así que no rompe nada.
+
+**Lo que quedó sin hacer, con dónde vive:**
+- Las descripciones de `lib/api-mako/areas/crm.def.ts` (y otras `.def.ts`) siguen diciendo
+  «producto»: generan `docs/api-mako.md`, que al 11/10 tenía cambios sin commitear de otra
+  sesión. Se hace cuando `lib/api-mako` esté limpio, regenerando con
+  `node --import tsx scripts/generar-api-doc.mjs`.
+- La dimensión «Producto» de los gráficos (`lib/graficos-catalogo.ts`, `cat('producto', 'Producto')`):
+  el archivo estaba en curso en la sesión del Dashboard.
+- Los prompts de IA (`lib/flujo-ia.ts`, el doer) siguen diciendo «producto» a propósito: cambiar
+  la palabra que lee un modelo es cambiar lo que contesta.
+
+**Vive en:** `lib/funnels.ts` · `lib/setting-secuencias.ts` · `lib/flujo-conversacion.ts` ·
+`app/crm/CrmToolbar.tsx`. *Chat CRM, 2026-10-11, sin multi-agente (la guardia de RAM lo frenó).*
