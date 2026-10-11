@@ -425,6 +425,11 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         { key: 'modelos-ia', label: 'Modelos IA', href: '/modelos-ia', icon: 'mako', match: starts('/modelos-ia') },
         // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
         { key: 'conocimientos', label: 'Conocimientos', href: '/conocimientos', icon: 'contexto', match: starts('/conocimientos') },
+        // El criterio de la tab Offer y lo que se concluyó de cada curso de oferta (11/10/2026,
+        // Martín: «una tab con el criterio y todas las conclusiones… así lo puedo revisar»). Va
+        // en este bloque porque es CON QUÉ PIENSA MaKo cuando analiza una oferta. La key NO
+        // lleva el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros).
+        { key: 'admin-offer-playbook', label: 'Offer Playbook', href: '/admin/offer-playbook', icon: 'tag', match: starts('/admin/offer-playbook') },
       ],
     ],
   },
@@ -434,11 +439,6 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
    * decidió en cada tab, qué se rompió y qué falta. Es lo que hace que cambiar o
    * debuguear una tab no arranque de cero cada vez.
    */
-        // El criterio de la tab Offer y lo que se concluyó de cada curso de oferta (11/10/2026,
-        // Martín: «una tab con el criterio y todas las conclusiones… así lo puedo revisar»). Va
-        // en este bloque porque es CON QUÉ PIENSA MaKo cuando analiza una oferta. La key NO
-        // lleva el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros).
-        { key: 'admin-offer-playbook', label: 'Offer Playbook', href: '/admin/offer-playbook', icon: 'tag', match: starts('/admin/offer-playbook') },
   {
     key: 'dev',
     label: 'Dev',
