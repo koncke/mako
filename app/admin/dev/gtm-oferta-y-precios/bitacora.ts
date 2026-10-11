@@ -319,4 +319,30 @@ export const BITACORA: Hito[] = [
       'app/admin/estrategia/datos.ts — `JAN_GANA` / `JAN_GANO`, con `choca` en lo que no coincide con el programa decidido',
     ],
   },
+  {
+    fecha: '10 oct', hora: '21:37', chat: 'MaKo Pricing', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Las cuatro decisiones de la tab: la ventana, el objetivo, el 1 a 1, Jan y los costos',
+    pedido: '¿El 1 a 1 de US$4.000 sigue existiendo? → Podríamos plantear una oferta 1 a 1... Pero que salga 10k y debería realmente valer mucho la pena...\n¿La pauta de noviembre es de US$1.000 o de US$2.000? → No lo mediría en mes... Lo mediría el total que son 2k repartido de inicio a fin en las fechas donde dijimos que ibamos a correr los ads\n¿Hacemos privada /vsl/costos? → Privada\n¿Qué le ofrecemos a Jan? → Reescribirla\n¿El objetivo de US$10.000 también pasa a ser el total de la ventana? → El objetivo no debe ser 10k... Debería ser 15k, que son vender 10 tickets de 1500 o muchos de 47 o 97, o la combinación de ambos.\n¿La prospección, cómo la cuento en la ventana de 45 días? → Proporcional (~1.500)\n¿Qué incluye el 1 a 1 de US$10.000? → La defino yo',
+    puntos: [],
+  },
+  {
+    fecha: '10 oct', hora: '21:37', chat: 'MaKo Pricing', cuenta: 'claude3',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La proyección se cuenta en la ventana, contra 15.000; el 1 a 1 vuelve a 10.000 y Jan se reescribe',
+    puntos: [
+      'Toda la proyección pasa del mes a la **ventana de los anuncios** (1/11 al 15/12, 45 días del runway), con **US$2.000 de pauta en total**. Con las tasas que Martín aprobó: 26 agendas → 8 grupales → US$12.000 vendidos contra un objetivo de **US$15.000**; faltan 32 agendas en vez de 26.',
+      'El **1 a 1 vuelve a US$10.000** con la tarjeta punteada y «Contenido a definir»: lo define Martín, y no entra en la proyección porque no hay embudo que lo venda.',
+      '⚠️ **La propuesta a Jan chocaba en cinco filas y la tab marcaba tres.** Las dos sin marcar —«acceso de por vida» y «recurrencia sin mover un dedo»— chocaban con las reglas comunes del programa, no con la tabla de premios, y se leían como favores. Ahora dice lo mismo que cualquier revendedor más lo que no tiene precio.',
+      '`/vsl/costos` queda sólo para el super admin, con el guard en la página: `/vsl` es pública por la landing y el proxy no la cierra.',
+    ],
+    commits: [
+      { sha: 'a5cf1407', msg: 'Strategy: la ventana en vez del mes, objetivo 15.000, el 1 a 1 a 10.000, Jan reescrito y /vsl/costos privada', lineas: 355, archivos: 7 },
+    ],
+    archivos: [
+      'app/admin/estrategia/datos.ts — `DIAS_VENTANA`, `PAUTA_TOTAL`, `OBJETIVO_USD`, `PRECIO_1A1`, los dos embudos calculados con sus tasas, `JAN_GANA` / `JAN_GANO`',
+      'app/vsl/costos/page.tsx — el guard `getSesionAdmin`',
+      'tests/estrategia-tab.test.ts — la proyección de la ventana, el 1 a 1, Jan sin las cinco promesas y el guard de los costos',
+    ],
+  },
 ];

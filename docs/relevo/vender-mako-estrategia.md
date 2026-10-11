@@ -32,14 +32,25 @@ ve; y la propuesta a Jan vuelve en su propio desplegable, con los tres puntos qu
 con los referidos MARCADOS, no corregidos. El porqué, en `docs/hallazgos-planes-y-cobro.md`
 → «Y la segunda vuelta, el mismo día».
 
+## Las cuatro decisiones, contestadas (10/10, chat «MaKo Pricing», cuenta 3) — HECHO
+
+En producción con `a5cf1407`. El pedido textual, en la bitácora de `gtm-oferta-y-precios`.
+
+1. **La proyección se mide en la ventana de los anuncios (1/11 al 15/12), no por mes**, con
+   **US$2.000 de pauta en total** y un **objetivo de US$15.000** («10 tickets de 1500 o
+   muchos de 47 o 97»). La prospección se estira proporcional (1.500 conversaciones). Da 26
+   agendas → 8 grupales → US$12.000; faltan 32 agendas.
+2. **El 1 a 1 vuelve a US$10.000.** El contenido lo define Martín («La defino yo»): la
+   tarjeta dice «Contenido a definir» y no entra en la proyección.
+3. **`/vsl/costos` es privada** (sólo super admin; el guard en la página). El link de
+   Mauricio dejó de abrir.
+4. **La propuesta a Jan se reescribió** con el programa de referidos. Chocaba en cinco
+   filas, no en tres: también «acceso de por vida» y «recurrencia sin mover un dedo».
+
 ## Lo que espera a Martín
 
-1. ¿El **1 a 1 de US$4.000** sigue existiendo? Sin él, 5 ventas son US$7.500 y el objetivo
-   de 10.000 pide 7 ventas (~22 agendas).
-2. ¿La pauta de noviembre es **US$1.000 o US$2.000**? (estrategia vs. runway)
-3. ¿**`/vsl/costos`** se hace privada? Hoy es pública, con los costos de la empresa.
-4. **La propuesta a Jan** choca en tres puntos con los referidos decididos (licencia de
-   reventa, prueba gratuita extendida, % de ganancias): ¿se le ofrece lo de julio, o se
-   reescribe con el programa del 10/10? La tab la muestra marcada (`datos.ts`, `JAN_GANA`).
-5. Después: el acuerdo de una página y los mensajes para los referidores del grupal (Jan,
-   Juanfran, su hermana).
+1. **Qué incluye el 1 a 1 de US$10.000** («que realmente valga mucho la pena»). Lo define él.
+2. **Las tasas del runway y de la tab siguen sin coincidir**: US$100 por agenda y 50% de
+   asistencia (runway) contra US$125, 80% y 40% (tab). La tab usa las que él aprobó.
+3. Después: el acuerdo de una página y los mensajes para los referidores del grupal (Jan,
+   Juanfran, su hermana). Nada se le anunció a nadie y P68 sigue tachado en el Plan.
