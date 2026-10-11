@@ -16,87 +16,26 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { leerTodo, type ConsultaPaginada, type OrdenPaginado } from './supabase-paginado';
+import { enRango, fechaTj, host, leer, lindo, nombres, num, ruta, txt, type Rango } from './graficos-lectura';
+import { LECTORES_EXTRA } from './graficos-datos-extra';
+export type { Rango };
 import { conversorGastoMeta } from './moneda-meta';
 import { diasAntes, hoyEnTijuana } from './date-utils';
 import { productosCrm } from './api-mako/areas/crm.helpers';
 import { tableroActual } from './tablero-actual';
 import { VENTA_SIN_COBRO } from './venta-tipo';
 import { VSL_PRUEBA_VIDEO_ID } from './config';
-import { fuenteDe, sanearGrafico, type Grafico } from './graficos-catalogo';
-import { agregar, periodoAnterior, type Fila, type Resultado } from './graficos-agregar';
-
-const num = (v: unknown): number => {
-  const n = typeof v === 'number' ? v : Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
-const txt = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
-const fechaTj = (iso: unknown): string | null => {
-  if (typeof iso !== 'string' || !iso) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
-  const ms = Date.parse(iso);
-  return Number.isFinite(ms) ? hoyEnTijuana(new Date(ms)) : null;
-};
-const lindo = (s: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/[_-]+/g, ' ') : null);
-/** La ruta de una URL sin el dominio ni la query: «/vsl», no «https://hola-mako.com/vsl?fbclid=…». */
-const ruta = (u: unknown): string | null => {
-  const s = txt(u);
-  if (!s) return null;
-  try { const x = new URL(s); return `${x.hostname.replace(/^www\./, '')}${x.pathname.replace(/\/$/, '') || ''}`; } catch { return s.split('?')[0]; }
-};
-const host = (u: unknown): string | null => {
-  const s = txt(u);
-  if (!s) return '(directo)';
-  try { return new URL(s).hostname.replace(/^www\./, ''); } catch { return s; }
-};
-
-type Rango = { desde: string; hasta: string; sinRango: boolean };
-
-/**
- * La lectura común: workspace explícito, paginada, y con el período sobre la columna que se
- * pida. Un instante (`ts`) se trae con un día de margen a cada lado y se recorta en memoria con
- * la fecha de Tijuana, que es la que se dibuja.
- */
-async function leer<T>(tabla: string, cols: string, rg: Rango, opts: { col?: string | null; ts?: boolean; orden?: OrdenPaginado; extra?: (q: ConsultaPaginada) => ConsultaPaginada } = {}): Promise<T[]> {
-  const ws = await getWorkspaceActual();
-  if (ws == null) return [];
-  const db = await getTenantDb();
-  const col = opts.col;
-  const filtros = (q: ConsultaPaginada) => {
-    let x = opts.extra ? opts.extra(q) : q;
-    if (col && !rg.sinRango) {
-      x = opts.ts
-        ? x.gte(col, `${diasAntes(rg.desde, 1)}T00:00:00Z`).lte(col, `${diasAntes(rg.hasta, -1)}T23:59:59Z`)
-        : x.gte(col, rg.desde).lte(col, rg.hasta);
-    }
-    return x;
-  };
-  return leerTodo<T>(db, tabla, cols, { orden: opts.orden ?? 'id', eq: { workspace_id: ws }, filtros });
-}
-/** ¿La fecha de la fila entra en el período? (Las de un instante vienen con margen.) */
-const enRango = (f: string | null, rg: Rango) => rg.sinRango || (!!f && f >= rg.desde && f <= rg.hasta);
-
-async function nombres(tabla: string, ids: Array<number | string>, col = 'nombre'): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
-  const unicos = [...new Set(ids.filter((x) => x != null).map(String))];
-  if (!unicos.length) return out;
-  const ws = await getWorkspaceActual();
-  const db = await getTenantDb();
-  // De a tandas: un `.in` con cientos de ids arma una URL que el proxy corta.
-  for (let i = 0; i < unicos.length; i += 150) {
-    const { data, error } = await db.from(tabla).select(`id, ${col}`).eq('workspace_id', ws ?? -1).in('id', unicos.slice(i, i + 150));
-    if (error) throw new Error(`No pude leer ${tabla}: ${error.message}`);
-    for (const x of (data ?? []) as unknown as Array<Record<string, unknown>>) { const n = txt(x[col]); if (n) out.set(String(x.id), n); }
-  }
-  return out;
-}
+import { campoDe, fuenteDe, sanearGrafico, type Grafico } from './graficos-catalogo';
+import { filasAudiencia } from './graficos-audiencia';
+import { agregar, claveCategoria, filtrarFilas, periodoAnterior, SinConexionError, type Filtro, type Fila, type Resultado } from './graficos-agregar';
+import { ESTADO_COBRADO } from './graficos-acciones';
 
 // ── Marketing ────────────────────────────────────────────────────────────────────────────
 
-type FMeta = { id: number; fecha: string; ad_id: string | null; campaign_name: string | null; adset_name: string | null; ad_name: string | null; spend: number | null; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null; agendas_meta: number | null };
+type FMeta = { id: number; fecha: string; ad_id: string | null; campaign_id: string | null; adset_id: string | null; campaign_name: string | null; adset_name: string | null; ad_name: string | null; spend: number | null; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null; agendas_meta: number | null };
 async function filasMeta(rg: Rango): Promise<Fila[]> {
   const [rows, conv] = await Promise.all([
-    leer<FMeta>('marketing_metrics_daily', 'id, fecha, ad_id, campaign_name, adset_name, ad_name, spend, impressions, link_clicks, landing_page_views, leads_count, agendas_meta', rg, {
+    leer<FMeta>('marketing_metrics_daily', 'id, fecha, ad_id, campaign_id, adset_id, campaign_name, adset_name, ad_name, spend, impressions, link_clicks, landing_page_views, leads_count, agendas_meta', rg, {
       col: 'fecha',
       // Una fila por ANUNCIO por día: ni fecha ni ad_id son únicos, el id cierra el orden.
       orden: [{ col: 'fecha' }, { col: 'ad_id' }, { col: 'id' }],
@@ -109,6 +48,8 @@ async function filasMeta(rg: Rango): Promise<Fila[]> {
     d: { campana: txt(x.campaign_name), conjunto: txt(x.adset_name), anuncio: txt(x.ad_name) },
     v: { gasto: conv.aUsdNum(num(x.spend)), impresiones: num(x.impressions), clics: num(x.link_clicks), vistas_landing: num(x.landing_page_views), leads: num(x.leads_count), agendas: num(x.agendas_meta) },
     u: { anuncios: txt(x.ad_id) },
+    // El id de Meta de cada nombre: lo que abre «Ver anuncio» (lib/graficos-acciones.ts).
+    r: { campana: txt(x.campaign_id), conjunto: txt(x.adset_id), anuncio: txt(x.ad_id) },
   }));
 }
 
@@ -147,6 +88,7 @@ async function filasPresupuesto(rg: Rango): Promise<Fila[]> {
     d: { conjunto: txt(x.adset_name), estado: ESTADO_META[x.status ?? ''] ?? lindo(txt(x.status)) },
     v: { presupuesto: conv.aUsdNum(num(x.daily_budget_mxn)) },
     u: { conjuntos: x.adset_id },
+    r: { conjunto: txt(x.adset_id) },
   }));
 }
 
@@ -199,9 +141,9 @@ type FLead = {
   monto_cierre_usd: number | null; total_cobrado_usd: number | null; pipeline_stage: string | null; funnel_id: number | null;
   origen_lead: string | null; utm_source: string | null; utm_campaign: string | null; utm_content: string | null;
   meta_campaign_name: string | null; meta_ad_name: string | null; closer: string | null; setter: string | null; motivo_perdida: string | null;
-  venta_tipo: string | null; fecha_agenda: string | null; fecha_primer_pago: string | null;
+  venta_tipo: string | null; fecha_agenda: string | null; fecha_primer_pago: string | null; nombre: string | null;
 };
-const COLS_LEAD = 'id, created_at, fecha_junta_1, fecha_cierre, asistio_j1, calificado, cerro, estado_lead, monto_cierre_usd, total_cobrado_usd, pipeline_stage, funnel_id, origen_lead, utm_source, utm_campaign, utm_content, meta_campaign_name, meta_ad_name, closer, setter, motivo_perdida, venta_tipo, fecha_agenda, fecha_primer_pago';
+const COLS_LEAD = 'id, created_at, fecha_junta_1, fecha_cierre, asistio_j1, calificado, cerro, estado_lead, monto_cierre_usd, total_cobrado_usd, pipeline_stage, funnel_id, origen_lead, utm_source, utm_campaign, utm_content, meta_campaign_name, meta_ad_name, closer, setter, motivo_perdida, venta_tipo, fecha_agenda, fecha_primer_pago, nombre';
 
 /**
  * El ciclo de venta (SCL) en días, como lo medía la tab vieja de Comercial (`_getSCL`): de la
@@ -259,7 +201,10 @@ async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
         campana: txt(x.meta_campaign_name) ?? txt(x.utm_campaign),
         anuncio: txt(x.meta_ad_name) ?? txt(x.utm_content),
         closer: txt(x.closer), setter: txt(x.setter), motivo: txt(x.motivo_perdida),
+        // El lead mismo: es un nombre de persona (lib/graficos-acciones.ts, DIMENSIONES_PERSONA).
+        lead: txt(x.nombre),
       },
+      r: { lead: String(x.id) },
       v: {
         leads: 1, agendas: x.fecha_junta_1 ? 1 : 0, asistencias: x.asistio_j1 ? 1 : 0, calificados: x.calificado ? 1 : 0,
         cierres: gano(x) ? 1 : 0, vendido: gano(x) ? num(x.monto_cierre_usd) : 0, cobrado: num(x.total_cobrado_usd),
@@ -298,24 +243,35 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
   const hoy = hoyEnTijuana();
   return rows.map((x) => {
     const monto = num(x.monto_usd);
-    const estado = x.pagado ? 'Cobrado' : x.fecha_esperada && x.fecha_esperada < hoy ? 'Vencido' : 'Pendiente';
+    // `ESTADO_COBRADO` es el mismo rótulo que mira la acción «Marcar cobrada» para no ofrecerla dos veces.
+    const estado = x.pagado ? ESTADO_COBRADO : x.fecha_esperada && x.fecha_esperada < hoy ? 'Vencido' : 'Pendiente';
+    const lead = x.lead_id != null ? String(x.lead_id) : null;
     return {
       f: fecha === 'pago' ? x.fecha_pago : x.fecha_esperada,
-      d: { estado, cliente: x.lead_id != null ? nom.get(String(x.lead_id)) ?? null : null, cuota: x.numero != null ? `Cuota ${x.numero}` : null },
+      d: { estado, cliente: lead != null ? nom.get(lead) ?? null : null, cuota: x.numero != null ? `Cuota ${x.numero}` : null },
       v: { monto, cobrado: x.pagado ? monto : 0, pendiente: x.pagado ? 0 : monto, pagos: 1 },
-      u: { clientes: x.lead_id != null ? String(x.lead_id) : null },
+      u: { clientes: lead },
+      // Los DOS ids de la MISMA fila: marcarPagoAction no comprueba que la cuota sea de ese lead
+      // (relevo de los botones de acción), así que el par nunca se arma en el navegador.
+      r: { cliente: lead, cuota: String(x.id) },
     };
   });
 }
 
 const CATEGORIA_LLAMADA: Record<string, string> = { venta: 'Venta', interna: 'Interna', entrega_servicio: 'Entrega del servicio', test: 'Prueba', sin_clasificar: 'Sin clasificar' };
-type FLlamada = { recording_id: number; call_date: string | null; duration_min: number | null; closer: string | null; category: string | null; tipo: string | null; outcome: string | null; score: number | null };
+type FLlamada = { recording_id: number; call_date: string | null; duration_min: number | null; closer: string | null; category: string | null; tipo: string | null; outcome: string | null; score: number | null; title: string | null; lead_id: number | null; lead_nombre: string | null };
 async function filasLlamadas(rg: Rango): Promise<Fila[]> {
-  const rows = await leer<FLlamada>('closing_analyses', 'recording_id, call_date, duration_min, closer, category, tipo, outcome, score', rg, { col: 'call_date', orden: 'recording_id' });
+  const rows = await leer<FLlamada>('closing_analyses', 'recording_id, call_date, duration_min, closer, category, tipo, outcome, score, title, lead_id, lead_nombre', rg, { col: 'call_date', orden: 'recording_id' });
   return rows.map((x) => ({
     f: x.call_date,
-    d: { closer: txt(x.closer), categoria: CATEGORIA_LLAMADA[x.category ?? ''] ?? lindo(txt(x.category)), reunion: txt(x.tipo), resultado: txt(x.outcome)?.slice(0, 40) ?? null },
+    d: {
+      closer: txt(x.closer), categoria: CATEGORIA_LLAMADA[x.category ?? ''] ?? lindo(txt(x.category)), reunion: txt(x.tipo), resultado: txt(x.outcome)?.slice(0, 40) ?? null,
+      // La llamada: su título, o con quién fue. Suele traer el nombre del lead (DIMENSIONES_PERSONA).
+      llamada: txt(x.title)?.slice(0, 80) ?? txt(x.lead_nombre),
+    },
     v: { llamadas: 1, minutos: num(x.duration_min), puntos: x.score != null ? num(x.score) : 0, con_puntaje: x.score != null ? 1 : 0 },
+    // «Ver llamada» abre /closing?call=<recording_id>; el lead, si la llamada está atada a uno, su ficha.
+    r: { llamada: String(x.recording_id), lead: x.lead_id != null ? String(x.lead_id) : null },
   }));
 }
 
@@ -395,43 +351,54 @@ async function filasTareas(fecha: string, rg: Rango): Promise<Fila[]> {
   const col = fecha === 'deadline' ? 'deadline' : fecha === 'alta' ? 'created_at' : null;
   if (deQuien === 'dueno') {
     // El tablero del super admin: plan_tareas + plan_proyectos (id de texto).
-    type T = { id: string; created_at: string | null; deadline: string | null; progress: number | null; score: number | null; labels: unknown; origen: string | null };
-    const rows = await leer<T>('plan_tareas', 'id, created_at, deadline, progress, score, labels, origen', rg, { col, ts: col === 'created_at' });
+    type T = { id: string; created_at: string | null; deadline: string | null; progress: number | null; score: number | null; labels: unknown; origen: string | null; title: string | null };
+    const rows = await leer<T>('plan_tareas', 'id, created_at, deadline, progress, score, labels, origen, title', rg, { col, ts: col === 'created_at' });
     const proy = await nombres('plan_proyectos', rows.map((x) => (Array.isArray(x.labels) ? String(x.labels[0] ?? '') : '')).filter(Boolean), 'name');
     return rows.map((x) => {
       const hecha = num(x.progress) >= 100;
       return {
         f: fecha === 'deadline' ? txt(x.deadline) : fechaTj(x.created_at),
-        d: { proyecto: Array.isArray(x.labels) ? proy.get(String(x.labels[0] ?? '')) ?? null : null, prioridad: banda(num(x.score)), estado: hecha ? 'Hecha' : 'Abierta', origen: lindo(txt(x.origen)), responsable: null },
+        d: { proyecto: Array.isArray(x.labels) ? proy.get(String(x.labels[0] ?? '')) ?? null : null, prioridad: banda(num(x.score)), estado: hecha ? 'Hecha' : 'Abierta', origen: lindo(txt(x.origen)), responsable: null, tarea: txt(x.title)?.slice(0, 120) ?? null },
         v: { tareas: 1, hechas: hecha ? 1 : 0, abiertas: hecha ? 0 : 1, progreso: Math.min(100, num(x.progress)) },
+        // Las dos mitades del tablero no comparten el tipo del id (AGENTS): viaja como texto, que contiene al número.
+        r: { tarea: String(x.id) },
       };
     }).filter((x) => enRango(x.f, rg));
   }
   // El de cada cliente: experimento_tareas + tarea_categorias (id numérico).
-  type T = { id: number; created_at: string | null; deadline: string | null; progreso: number | null; score: number | null; categorias: unknown; origen: string | null; responsable: string | null };
-  const rows = await leer<T>('experimento_tareas', 'id, created_at, deadline, progreso, score, categorias, origen, responsable', rg, { col, ts: col === 'created_at' });
+  type T = { id: number; created_at: string | null; deadline: string | null; progreso: number | null; score: number | null; categorias: unknown; origen: string | null; responsable: string | null; titulo: string | null };
+  const rows = await leer<T>('experimento_tareas', 'id, created_at, deadline, progreso, score, categorias, origen, responsable, titulo', rg, { col, ts: col === 'created_at' });
   const cats = await nombres('tarea_categorias', rows.map((x) => (Array.isArray(x.categorias) ? String(x.categorias[0] ?? '') : '')).filter(Boolean));
   return rows.map((x) => {
     const hecha = num(x.progreso) >= 100;
     return {
       f: fecha === 'deadline' ? txt(x.deadline) : fechaTj(x.created_at),
-      d: { proyecto: Array.isArray(x.categorias) ? cats.get(String(x.categorias[0] ?? '')) ?? null : null, prioridad: banda(num(x.score)), estado: hecha ? 'Hecha' : 'Abierta', origen: lindo(txt(x.origen)), responsable: txt(x.responsable) },
+      d: { proyecto: Array.isArray(x.categorias) ? cats.get(String(x.categorias[0] ?? '')) ?? null : null, prioridad: banda(num(x.score)), estado: hecha ? 'Hecha' : 'Abierta', origen: lindo(txt(x.origen)), responsable: txt(x.responsable), tarea: txt(x.titulo)?.slice(0, 120) ?? null },
       v: { tareas: 1, hechas: hecha ? 1 : 0, abiertas: hecha ? 0 : 1, progreso: Math.min(100, num(x.progreso)) },
+      r: { tarea: String(x.id) },
     };
   }).filter((x) => enRango(x.f, rg));
 }
 
 // ── Customer Success ─────────────────────────────────────────────────────────────────────
 
-type FEntrega = { id: number; producto_id: number | null; etapa: string | null; etapa_desde: string | null; created_at: string | null };
+type FEntrega = { id: number; lead_id: number | null; producto_id: number | null; etapa: string | null; etapa_desde: string | null; created_at: string | null };
 async function filasEntrega(fecha: string, rg: Rango): Promise<Fila[]> {
-  const rows = await leer<FEntrega>('cliente_entrega', 'id, producto_id, etapa, etapa_desde, created_at', rg, { col: fecha === 'desde' ? 'etapa_desde' : null, ts: true });
-  const prod = await nombres('productos', rows.map((x) => x.producto_id).filter((x): x is number => x != null));
-  return rows.map((x) => ({
-    f: fechaTj(x.etapa_desde ?? x.created_at),
-    d: { producto: x.producto_id != null ? prod.get(String(x.producto_id)) ?? null : null, etapa: lindo(txt(x.etapa)) },
-    v: { clientes: 1 },
-  })).filter((x) => enRango(x.f, rg));
+  const rows = await leer<FEntrega>('cliente_entrega', 'id, lead_id, producto_id, etapa, etapa_desde, created_at', rg, { col: fecha === 'desde' ? 'etapa_desde' : null, ts: true });
+  const [prod, cli] = await Promise.all([
+    nombres('productos', rows.map((x) => x.producto_id).filter((x): x is number => x != null)),
+    nombres('leads', rows.map((x) => x.lead_id).filter((x): x is number => x != null)),
+  ]);
+  return rows.map((x) => {
+    const lead = x.lead_id != null ? String(x.lead_id) : null;
+    return {
+      f: fechaTj(x.etapa_desde ?? x.created_at),
+      // El cliente es un nombre de persona (DIMENSIONES_PERSONA); su lead_id abre la ficha.
+      d: { producto: x.producto_id != null ? prod.get(String(x.producto_id)) ?? null : null, etapa: lindo(txt(x.etapa)), cliente: lead != null ? cli.get(lead) ?? null : null },
+      v: { clientes: 1 },
+      r: { cliente: lead },
+    };
+  }).filter((x) => enRango(x.f, rg));
 }
 
 type FProg = { id: number; lead_id: number | null; pct: number | null; estado: string | null; area: string | null; visto_at: string | null; created_at: string | null };
@@ -521,9 +488,16 @@ async function filasFlow(rg: Rango): Promise<Fila[]> {
 // ── El reparto ───────────────────────────────────────────────────────────────────────────
 
 /** Los lectores, uno por conjunto del catálogo. El test exige que estén todos. */
-export const LECTORES: Record<string, (fecha: string, rg: Rango) => Promise<Fila[]>> = {
+/**
+ * Un lector por conjunto. El tercer argumento es el gráfico, para los conjuntos que se leen POR
+ * DIMENSIÓN (la audiencia de Meta: cada desglose es otra lectura, y juntarlas sumaría tres veces).
+ */
+export const LECTORES: Record<string, (fecha: string, rg: Rango, g?: Pick<Grafico, 'dimension' | 'desglose'>) => Promise<Fila[]>> = {
   negocio: (_, rg) => filasNegocio(rg),
   meta: (_, rg) => filasMeta(rg),
+  // Sin dimensión (un cuadro de resultados) se lee edad y género: trae las agendas y suma el total de la
+  // cuenta. Por región Meta NO da agendas (0 de 33 filas, medido), y el KPI saldría en 0.
+  audiencia: (_, rg, g) => filasAudiencia(g?.dimension ?? '', g?.desglose ?? null, rg),
   presupuesto: (_, rg) => filasPresupuesto(rg),
   visitas: (_, rg) => filasVisitas(rg),
   vsl: (_, rg) => filasVsl(rg),
@@ -546,6 +520,8 @@ export const LECTORES: Record<string, (fecha: string, rg: Rango) => Promise<Fila
   onboarding: (f, rg) => filasOnboarding(f, rg),
   ia: (_, rg) => filasIa(rg),
   flow: (_, rg) => filasFlow(rg),
+  // Los conjuntos de las tabs de Analysts (lib/graficos-fuentes-extra.ts).
+  ...LECTORES_EXTRA,
 };
 
 /**
@@ -554,46 +530,111 @@ export const LECTORES: Record<string, (fecha: string, rg: Rango) => Promise<Fila
  * el 10/10 sobre el ws1). El resumen del negocio cruza la pauta con el CRM, así que va igual:
  * con el gasto de hoy en cero, el CAC de hoy saldría regalado.
  */
-export function hastaDeFuente(g: Grafico, desde: string, hasta: string): string {
+export function hastaDeFuente(g: Pick<Grafico, 'fuente'>, desde: string, hasta: string): string {
   if (g.fuente !== 'meta' && g.fuente !== 'negocio' && g.fuente !== 'presupuesto') return hasta;
   const ayer = diasAntes(hoyEnTijuana(), 1);
   return hasta > ayer ? (ayer < desde ? desde : ayer) : hasta;
 }
 
 export type DatosGrafico = { ok: true; resultado: Resultado } | { ok: false; error: string };
-export type PedidoDatos = { grafico: unknown; desde: string; hasta: string };
+/**
+ * Lo que pide la pantalla por gráfico: el gráfico, el período y lo que resolvió `efectivoDe`
+ * (lib/graficos-catalogo.ts) — los filtros ya traducidos a las dimensiones de SU conjunto y el
+ * «agrupar por». El server vuelve a sanear todo: lo que llega del navegador no vale nada.
+ */
+export type PedidoDatos = { grafico: unknown; desde: string; hasta: string; filtros?: unknown; agrupar?: unknown };
+
+const TOPE_FILTROS = 8;
+/** Los filtros que valen para ESTE conjunto: dimensión de categoría que existe, con tope de valores y de largo. */
+export function sanearFiltros(raw: unknown, fuenteId: string): Filtro[] {
+  const f = fuenteDe(fuenteId);
+  if (!f || !Array.isArray(raw)) return [];
+  const out: Filtro[] = [];
+  for (const x of raw.slice(0, TOPE_FILTROS)) {
+    if (!x || typeof x !== 'object') continue;
+    const o = x as Record<string, unknown>;
+    const dim = f.dimensiones.find((d) => d.id === o.dimension && d.clase === 'categoria');
+    if (!dim) continue;
+    if (Array.isArray(o.valores)) {
+      const valores = [...new Set(o.valores.map((v) => String(v).slice(0, 120)))].slice(0, 50);
+      if (valores.length) out.push({ dimension: dim.id, valores });
+    } else if (typeof o.texto === 'string' && o.texto.trim()) {
+      out.push({ dimension: dim.id, texto: o.texto.trim().slice(0, 80) });
+    }
+  }
+  return out;
+}
 
 /**
  * Los datos de VARIOS gráficos, leyendo cada (fuente, fecha, período) UNA vez: ocho gráficos
  * sobre la pauta del mismo mes son una lectura, no ocho. Un fallo vuelve como error de SU
  * gráfico: que no se pueda leer la pauta no apaga el gráfico de leads de al lado.
+ *
+ * Los FILTROS se aplican en memoria, después de la lectura y antes de agregar: la clave de lectura
+ * no los lleva, así las filas crudas se siguen compartiendo entre gráficos. Y se aplican TAMBIÉN al
+ * período anterior: comparar lo filtrado contra lo no filtrado haría mentir al chip «↑ 1,3×».
  */
 export async function datosDeGraficos(pedidos: PedidoDatos[]): Promise<Record<string, DatosGrafico>> {
   const lecturas = new Map<string, Promise<Fila[]>>();
   const out: Record<string, DatosGrafico> = {};
   await Promise.all(pedidos.map(async (p) => {
-    const g = sanearGrafico(p.grafico);
-    if (!g) return;
-    const fuente = fuenteDe(g.fuente);
-    const lector = LECTORES[g.fuente];
-    if (!fuente || !lector) { out[g.id] = { ok: false, error: 'Fuente desconocida' }; return; }
+    const g0 = sanearGrafico(p.grafico);
+    if (!g0) return;
+    const fuente = fuenteDe(g0.fuente);
+    const lector = LECTORES[g0.fuente];
+    if (!fuente || !lector) { out[g0.id] = { ok: false, error: 'Fuente desconocida' }; return; }
+    // «Agrupar por» cambia la dimensión de TIEMPO del gráfico (nunca una categoría).
+    const agrupar = p.agrupar === 'dia' || p.agrupar === 'semana' || p.agrupar === 'mes' ? p.agrupar : null;
+    const esT = g0.dimension === 'dia' || g0.dimension === 'semana' || g0.dimension === 'mes';
+    const g = agrupar && esT ? { ...g0, dimension: agrupar } : g0;
+    const filtros = sanearFiltros(p.filtros, g.fuente);
     const sinRango = !!fuente.fechas.find((x) => x.id === g.fecha)?.sinRango;
     const hasta = hastaDeFuente(g, p.desde, p.hasta);
     const rg: Rango = { desde: p.desde, hasta, sinRango };
-    const clave = `${g.fuente}|${g.fecha}|${p.desde}|${hasta}|${sinRango}`;
-    if (!lecturas.has(clave)) lecturas.set(clave, lector(g.fecha, rg));
+    const porDim = fuente.porDimension ? `|${g.dimension}|${g.desglose ?? ''}` : '';
+    const clave = `${g.fuente}|${g.fecha}|${p.desde}|${hasta}|${sinRango}${porDim}`;
+    if (!lecturas.has(clave)) lecturas.set(clave, lector(g.fecha, rg, g));
     // El período anterior del MISMO largo, que termina el día antes de que empiece éste.
-    const ant = g.estilo.comparar && !sinRango ? periodoAnterior(p.desde, hasta) : null;
-    const claveAnt = ant ? `${g.fuente}|${g.fecha}|${ant.desde}|${ant.hasta}|false` : null;
-    if (ant && claveAnt && !lecturas.has(claveAnt)) lecturas.set(claveAnt, lector(g.fecha, { ...ant, sinRango: false }));
+    const ant = g.comparar && !sinRango ? periodoAnterior(p.desde, hasta) : null;
+    const claveAnt = ant ? `${g.fuente}|${g.fecha}|${ant.desde}|${ant.hasta}|false${porDim}` : null;
+    if (ant && claveAnt && !lecturas.has(claveAnt)) lecturas.set(claveAnt, lector(g.fecha, { ...ant, sinRango: false }, g));
     try {
-      const resultado = agregar(g, await lecturas.get(clave)!, p.desde, hasta);
-      if (ant && claveAnt) resultado.anterior = agregar(g, await lecturas.get(claveAnt)!, ant.desde, ant.hasta).totales;
+      const resultado = agregar(g, filtrarFilas(await lecturas.get(clave)!, filtros), p.desde, hasta);
+      if (ant && claveAnt) resultado.anterior = agregar(g, filtrarFilas(await lecturas.get(claveAnt)!, filtros), ant.desde, ant.hasta).totales;
       out[g.id] = { ok: true, resultado };
     } catch (e) {
       console.error(`[graficos] ${clave}: ${e instanceof Error ? e.message : String(e)}`);
-      out[g.id] = { ok: false, error: 'No pude leer los datos' };
+      out[g.id] = { ok: false, error: e instanceof SinConexionError ? e.message : 'No pude leer los datos' };
     }
   }));
   return out;
+}
+
+export type ValorDeCampo = { valor: string; filas: number };
+/**
+ * Los valores que puede elegir una lista desplegable: los distintos de ese campo en el período, en
+ * TODOS los conjuntos donde el campo significa lo mismo (`campoDe(...).en`), con cuántas filas trae
+ * cada uno. Se normaliza con la MISMA función que agrupa y filtra (`claveCategoria`). Con tope: una
+ * lista de mil campañas no se elige, se busca.
+ */
+export async function valoresDeCampo(campoId: string, desde: string, hasta: string, soloFuentes?: string[]): Promise<ValorDeCampo[]> {
+  const campo = campoDe(campoId);
+  if (!campo) return [];
+  const cuenta = new Map<string, number>();
+  const fuentes = Object.keys(campo.en).filter((f) => !soloFuentes || soloFuentes.includes(f));
+  await Promise.all(fuentes.map(async (fid) => {
+    const f = fuenteDe(fid);
+    const lector = LECTORES[fid];
+    if (!f || !lector) return;
+    const dim = campo.en[fid];
+    const fecha = f.fechas[0];
+    const rg: Rango = { desde, hasta: hastaDeFuente({ fuente: fid }, desde, hasta), sinRango: !!fecha.sinRango };
+    try {
+      const filas = await lector(fecha.id, rg, { dimension: dim, desglose: null });
+      for (const fl of filas) { const k = claveCategoria(fl.d[dim]); cuenta.set(k, (cuenta.get(k) ?? 0) + 1); }
+    } catch (e) {
+      console.error(`[graficos] valores ${campoId}/${fid}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }));
+  return [...cuenta.entries()].map(([valor, filas]) => ({ valor, filas })).sort((a, b) => b.filas - a.filas || a.valor.localeCompare(b.valor)).slice(0, 300);
 }

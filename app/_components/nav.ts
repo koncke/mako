@@ -226,13 +226,10 @@ export const FAMILIAS: NavFamilia[] = [
           { key: 'chat-analyst', label: 'Chat Analyst', href: '/chat-analyst', icon: 'chats', comingSoon: true, rolesWs: ['setter'], match: starts('/chat-analyst') },
           { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', rolesWs: ['closer'], match: starts('/closing') },
           { key: 'cs-analyst', label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
-          // ⚠️ AL FINAL Y NO EN EL ORDEN DEL EMBUDO, a propósito: los otros siete analizan
-          // una pieza del camino de la VENTA (la oferta, el anuncio, la landing, la
-          // llamada); éste analiza lo que produjo el TABLERO. Es el único que no mira
-          // hacia afuera, así que no tiene lugar en esa secuencia.
-          // Era la quinta pestaña de /plan hasta el 26/09/2026 — ver el encabezado de
-          // app/productivity-analyst/page.tsx.
-          { key: 'productivity-analyst', label: 'Productivity Analyst', href: '/productivity-analyst', icon: 'analytics', match: starts('/productivity-analyst') },
+          // Productivity Analyst SALIÓ de acá el 11/10/2026 (Martín: «elimina las tabs que ya hayas
+          // puesto como template de la sidebar»): es todo análisis y vive entera en la plantilla
+          // «Productividad» del Dashboard. Su ruta redirige (app/productivity-analyst/page.tsx). Ads,
+          // Landing y Closing siguen acá hasta que sus TAREAS se muden a otras tabs.
         ],
       },
     ],

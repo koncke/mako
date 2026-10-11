@@ -16,7 +16,8 @@
 import 'server-only';
 import { getUsuarioActual } from './auth';
 import { getSettingEstricto, setSetting } from './settings';
-import { sanearTablero, tableroInicial, type Tablero } from './graficos-catalogo';
+import { sanearTablero, type Tablero } from './graficos-catalogo';
+import { tableroInicial } from './graficos-plantillas';
 
 const clave = (sub: string) => `graficos.tablero.${sub}`;
 

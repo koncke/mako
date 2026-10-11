@@ -98,6 +98,11 @@ const TENANT_TABLES = new Set<string>([
   // 30/09/2026: la tabla quedó vacía porque el upsert fallaba, y eso tapó el agujero
   // de casualidad. Es el mismo modo de falla del `wsDeInstancia` de la 0180.
   'avisos_programados',
+  // El «AI Analyst» del Dashboard (mig 0247): una fila por negocio, persona y hoja, que es a la vez el
+  // estado, el candado y el horario. Sin esta línea el cron de un negocio leería y avanzaría lo
+  // programado de TODOS, y el panel podría mostrar el análisis de otro negocio con el mismo hoja_id
+  // (los del informe inicial son fijos: «marketing», «comercial»).
+  'dashboard_analisis',
   // ⚠️ SIN ESTA LINEA `getTenantDb()` ES PASSTHROUGH, no «sin scope»: la lectura
   // devolveria las corridas de CUALQUIER workspace y el drenador de un cliente
   // avanzaria y mandaria las filas de todos. No da error: contesta de mas.

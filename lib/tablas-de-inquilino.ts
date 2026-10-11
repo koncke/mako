@@ -35,7 +35,8 @@
 
 /**
  * Las tablas de inquilino (119 al 08/10/2026: las dos de etiquetas de la mig 0224 y la biblioteca
- * de archivos de la mig 0225; 120 el 09/10/2026 con `email_entrantes`, mig 0245), en orden alfabético.
+ * de archivos de la mig 0225; 120 el 09/10/2026 con `email_entrantes`, mig 0245; 121 el 11/10/2026 con
+ * `dashboard_analisis`, mig 0247), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -51,7 +52,11 @@ export const TABLAS_DE_INQUILINO = [
   'comunidad_evento_avisos', 'comunidad_eventos', 'comunidad_likes', 'comunidad_notificaciones',
   'comunidad_perfiles', 'comunidad_posts', 'comunidad_seguimientos', 'comunidad_votos',
   'contenido_posts', 'creative_transcripts', 'credenciales', 'credenciales_auditoria', 'crm_etiquetas', 'crm_lead_etiquetas',
-  'cs_clientes', 'cs_respuestas', 'curso_accesos', 'curso_adjuntos', 'curso_clase_notas', 'curso_clases', 'curso_desbloqueos', 'curso_estilo', 'curso_modulos', 'curso_progreso', 'curso_sesiones', 'email_broadcast_envios', 'email_broadcasts',
+  'cs_clientes', 'cs_respuestas', 'curso_accesos', 'curso_adjuntos', 'curso_clase_notas', 'curso_clases', 'curso_desbloqueos', 'curso_estilo', 'curso_modulos', 'curso_progreso', 'curso_sesiones',
+  // El «AI Analyst» del Dashboard (mig 0247, 11/10/2026): el análisis y el horario de cada hoja, por
+  // persona. Se vacía con el negocio igual que el informe (`graficos.tablero.<sub>`, en app_settings).
+  'dashboard_analisis',
+  'email_broadcast_envios', 'email_broadcasts',
   // Los emails que LLEGAN (mig 0245, sexta tanda). `workspace_id` admite null (lo que no es de nadie
   // queda escrito igual): el reset y el borrado vacían sólo los de este inquilino. No va en
   // TENANT_TABLES: nadie la lee con getTenantDb.

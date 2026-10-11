@@ -9,15 +9,23 @@
 // workspace y la tab en su capa. Sin eso, un closer leía por acá la plata que su pantalla le
 // esconde.
 //
-//   POST { accion: 'datos', pedidos: [{ grafico, desde, hasta }] } → { datos: Record<id, DatosGrafico> }
-//   POST { accion: 'guardar', tablero }                             → { tablero }
+//   POST { accion: 'datos', pedidos: [{ grafico, desde, hasta, filtros?, agrupar? }] } → { datos: Record<id, DatosGrafico> }
+//   POST { accion: 'bloques', pedidos: [{ id, bloque, desde, hasta }] }               → { datos: Record<id, DatosBloque> }
+//   POST { accion: 'valores', campo, desde, hasta, fuentes? }                        → { valores: [{ valor, filas }] }
+//   POST { accion: 'detalle', grafico, desde, hasta, filtros?, agrupar?, sel }        → { detalle: RespuestaDetalle }
+//   POST { accion: 'guardar', tablero }                                               → { tablero }
+//
+// El DETALLE (lib/graficos-detalle.ts) es lo que hay atrás de un número clickeado: las cosas que lo forman,
+// cada una con sus ids y, en `puede`, qué tabs tiene la capa — de eso dependen los botones de cada fila.
 
 import { NextResponse } from 'next/server';
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { esFechaValida, hoyEnTijuana } from '@/lib/date-utils';
-import { MAX_COMPONENTES } from '@/lib/graficos-catalogo';
-import { datosDeGraficos, type PedidoDatos } from '@/lib/graficos-datos';
+import { bloqueDe, MAX_COMPONENTES, type BloqueId } from '@/lib/graficos-catalogo';
+import { datosDeGraficos, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
+import { datosDeBloques, type PedidoBloque } from '@/lib/graficos-bloques';
+import { detalleDeGrafico } from '@/lib/graficos-detalle';
 import { guardarTablero } from '@/lib/graficos-tablero';
 
 export const dynamic = 'force-dynamic';
@@ -52,9 +60,44 @@ export async function POST(req: Request) {
       if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) continue;
       // Un período que termina después de hoy se acota a hoy; no se descarta.
       if (hasta > hoy) hasta = hoy < desde ? desde : hoy;
-      pedidos.push({ grafico: p.grafico, desde, hasta });
+      pedidos.push({ grafico: p.grafico, desde, hasta, filtros: p.filtros, agrupar: p.agrupar });
     }
     return NextResponse.json({ datos: await datosDeGraficos(pedidos) });
+  }
+
+  if (body.accion === 'bloques') {
+    // Un bloque decide su propia ventana (el Outstanding mira hasta fin de mes): las fechas llegan sin acotar.
+    const lista = Array.isArray(body.pedidos) ? body.pedidos.slice(0, MAX_COMPONENTES) : [];
+    const pedidos: PedidoBloque[] = [];
+    for (const p of lista as Array<Record<string, unknown>>) {
+      const desde = String(p?.desde ?? '');
+      const hasta = String(p?.hasta ?? '');
+      const id = typeof p?.id === 'string' ? p.id.slice(0, 40) : '';
+      const info = bloqueDe(String(p?.bloque ?? ''));
+      if (!id || !info || !esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) continue;
+      pedidos.push({ id, bloque: info.id as BloqueId, desde, hasta });
+    }
+    return NextResponse.json({ datos: await datosDeBloques(pedidos) });
+  }
+
+  if (body.accion === 'valores') {
+    const hoy = hoyEnTijuana();
+    const desde = String(body.desde ?? '');
+    let hasta = String(body.hasta ?? '');
+    if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) return err(400, 'Período inválido');
+    if (hasta > hoy) hasta = hoy < desde ? desde : hoy;
+    const fuentes = Array.isArray(body.fuentes) ? body.fuentes.map(String).slice(0, 30) : undefined;
+    return NextResponse.json({ valores: await valoresDeCampo(String(body.campo ?? ''), desde, hasta, fuentes) });
+  }
+
+  if (body.accion === 'detalle') {
+    // El mismo período que el pedido de datos: acotado a hoy, como el gráfico que se clickeó.
+    const hoy = hoyEnTijuana();
+    const desde = String(body.desde ?? '');
+    let hasta = String(body.hasta ?? '');
+    if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) return err(400, 'Período inválido');
+    if (hasta > hoy) hasta = hoy < desde ? desde : hoy;
+    return NextResponse.json({ detalle: await detalleDeGrafico({ grafico: body.grafico, desde, hasta, filtros: body.filtros, agrupar: body.agrupar, sel: body.sel }) });
   }
 
   return err(400, 'Acción desconocida');

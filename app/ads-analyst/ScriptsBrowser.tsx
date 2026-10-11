@@ -17,6 +17,12 @@ import dynamic from 'next/dynamic';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { TaxonomyManager } from '../components/TaxonomyManager';
 import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion, ScriptDraft } from '@/lib/ads-analyst';
+// El veredicto, la confianza y los patrones viven en un módulo puro desde el 11/10/2026:
+// los usa también el Dashboard (lib/graficos-datos-extra.ts, lib/graficos-bloques-extra.ts).
+import {
+  HOOK_MID, HOLD_MID, POL, buildPatterns, confFromImpr, confidence, esMuestraChica, fatigue, fmtK, fmtUSD, hold,
+  verdictFromVals, verdictOf, type Pattern,
+} from '@/lib/ads-analyst-patrones';
 
 // Vista de detalle unificada (pestañas Rendimiento/Audiencia/Guion). Vive en
 // ad-charts (recharts + d3) → se carga on-demand al abrir un guion. El import es
@@ -71,11 +77,7 @@ const VERDICT: Record<string, { label: string; c: string }> = {
 const CONF: Record<string, { label: string; c: string }> = {
   alta: { label: 'Alta', c: '#1E9E57' }, media: { label: 'Media', c: '#A8770F' }, baja: { label: 'Baja', c: '#98A0AC' },
 };
-// Umbrales ABSOLUTOS recalibrados a los datos reales (el mock usaba 20/22, pero
-// la retención al CTA real ronda 8% de mediana → 22 dejaba todo abajo). Benchmarks
-// FIJOS: "buen gancho ≥28% frena el scroll", "retiene al CTA ≥10% = 1 de cada 10
-// llega". Alimentan el veredicto (tabla) Y las divisorias FIJAS del cuadrante.
-const HOOK_MID = 28, HOLD_MID = 10;
+// Los umbrales del veredicto (HOOK_MID / HOLD_MID) viven en lib/ads-analyst-patrones.ts.
 // Dominio FIJO del cuadrante: el marco no se auto-escala ni se mueve nunca.
 const QUAD_XMAX = 55, QUAD_YMAX = 30;
 const SPARK = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
@@ -86,23 +88,12 @@ function rgba(hex: string, a: number): string {
   return `rgba(${parseInt(n.substring(0, 2), 16)},${parseInt(n.substring(2, 4), 16)},${parseInt(n.substring(4, 6), 16)},${a})`;
 }
 function fmtT(s: number): string { return `${Math.floor(s / 60)}:${String(Math.floor(s) % 60).padStart(2, '0')}`; }
-function fmtUSD(n: number): string { return `$${Math.round(n).toLocaleString('en-US')}`; }
-function fmtK(n: number): string { return n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${Math.round(n)}`; }
 function hookColor(hr: number): string { return hr >= 22 ? 'var(--good)' : hr >= 15 ? 'var(--warn)' : 'var(--bad)'; }
 function retColor(r: number): string { return r >= 25 ? 'var(--good)' : r >= 18 ? 'var(--warn)' : 'var(--bad)'; }
 function angleInfo(k: string) { return ANGLE[k] ?? { label: k, c: '#6B675C' }; }
-function confFromImpr(impressions: number): 'alta' | 'media' | 'baja' { return impressions >= 25000 ? 'alta' : impressions >= 8000 ? 'media' : 'baja'; }
-function confidence(a: ScriptView): 'alta' | 'media' | 'baja' { return confFromImpr(a.impressions); }
-function fatigue(a: ScriptView): 'alta' | 'media' | 'ok' { return a.freq >= 2.4 ? 'alta' : a.freq >= 1.8 ? 'media' : 'ok'; }
+// confFromImpr, confidence, fatigue, hold, verdictFromVals y verdictOf: lib/ads-analyst-patrones.ts.
 function fatColor(a: ScriptView): string { const f = fatigue(a); return f === 'alta' ? 'var(--bad)' : f === 'media' ? 'var(--warn)' : 'var(--dim)'; }
 function cpa(a: ScriptView): number | null { return a.agendas > 0 ? a.spend / a.agendas : null; }
-function hold(a: ScriptView): number { return a.beats.length ? a.beats[a.beats.length - 1].ret : a.finalRet; }
-function verdictFromVals(hookRate: number, holdv: number, impressions: number): string {
-  if (confFromImpr(impressions) === 'baja') return 'validar';
-  const hi = hookRate >= HOOK_MID, ho = holdv >= HOLD_MID;
-  return hi ? (ho ? 'escalar' : 'reescribir') : (ho ? 'mejorar' : 'repensar');
-}
-function verdictOf(a: ScriptView): string { return a.esImagen ? 'imagen' : verdictFromVals(a.hookRate, hold(a), a.impressions); }
 function angleChip(k: string): CSSProperties {
   const a = angleInfo(k);
   return { display: 'inline-block', fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 6, fontFamily: MONO, letterSpacing: '.04em', background: rgba(a.c, .12), color: a.c, border: `1px solid ${rgba(a.c, .3)}` };
@@ -168,135 +159,7 @@ function decorateBeats(sc: ScriptView): DecoratedBeat[] {
   });
 }
 
-// ── Patrones ganadores (determinístico sobre los guiones confiables) ──
-type Polarity = 'bueno' | 'malo' | 'proceso';
-const POL: Record<Polarity, { c: string; label: string }> = {
-  bueno: { c: '#1E9E57', label: 'Sigue' }, malo: { c: '#D0504A', label: 'Corta' }, proceso: { c: '#9A6A09', label: 'Proceso' },
-};
-type Pattern = {
-  key: string; polarity: Polarity; chip: string; big: string; bigColor: string; tlabel: string; stmt: string;
-  aLabel: string; aVal: string; a: number; bLabel: string; bVal: string; b: number; max: number; ads: ScriptView[]; priority: number;
-};
-
-// Patrones positivos (seguí), negativos (cortá) y de proceso (cómo estás probando).
-// `ads` = todos los guiones con señal; `reliable` = confianza != baja (≥8k impr).
-// Los POSITIVOS se calculan sobre reliable (no celebrar ruido); los de proceso y
-// los negativos de desperdicio sobre TODOS (su punto es justo la falta de prueba).
-function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
-  const won = (a: ScriptView) => a.agendas > 0;
-  const tag = (a: ScriptView, t: string) => a.tags.indexOf(t) >= 0;
-  const mean = (arr: ScriptView[], f: (x: ScriptView) => number) => (arr.length ? arr.reduce((s, x) => s + f(x), 0) / arr.length : 0);
-  const sum = (arr: ScriptView[], f: (x: ScriptView) => number) => arr.reduce((s, x) => s + f(x), 0);
-  const r = Math.round;
-  const total = ads.length;
-  const out: Pattern[] = [];
-  if (!total) return out;
-  const bySpend = (arr: ScriptView[]) => arr.slice().sort((a, b) => b.spend - a.spend);
-  // Patrones de gancho/retención: SOLO video (las imágenes no tienen métricas de video).
-  const vReliable = reliable.filter((a) => !a.esImagen);
-
-  // ── PROCESO ──
-  const under = ads.filter((a) => a.spend < 10 || a.days < 3);
-  if (under.length / total >= 0.5) {
-    const share = r((under.length / total) * 100);
-    out.push({ key: 'subtesteo', polarity: 'proceso', chip: 'Sub-testeo', big: `${share}%`, bigColor: POL.proceso.c, tlabel: 'guiones con <$10 o <3 días', priority: 10,
-      stmt: `El ${share}% de tus guiones (${under.length} de ${total}) no pasaron $10 o estuvieron activos menos de 3 días: no los estás probando, los estás asomando. Cualquier "ganador" se apoya en muy pocos guiones realmente testeados.`,
-      aLabel: 'sub-testeados', aVal: String(under.length), a: under.length, bLabel: 'probados', bVal: String(total - under.length), b: total - under.length, max: total, ads: bySpend(under) });
-  }
-  const byAngAll: Record<string, ScriptView[]> = {};
-  ads.forEach((a) => { (byAngAll[a.angle] = byAngAll[a.angle] || []).push(a); });
-  const domAngle = Object.keys(byAngAll).sort((x, y) => byAngAll[y].length - byAngAll[x].length)[0];
-  if (domAngle && byAngAll[domAngle].length / total >= 0.6) {
-    const share = r((byAngAll[domAngle].length / total) * 100);
-    const nSub = Object.keys(byAngAll).filter((k) => byAngAll[k].length <= 2).length;
-    out.push({ key: 'concentracion', polarity: 'proceso', chip: 'Ángulo dominante', big: `${share}%`, bigColor: POL.proceso.c, tlabel: `son del ángulo ${angleInfo(domAngle).label}`, priority: 10,
-      stmt: `${share}% de tus guiones atacan por "${angleInfo(domAngle).label}". Estás optimizando dentro de un solo ángulo y dejaste ${nSub} casi sin probar. No sabes si es el mejor o el único que probaste — abre 2-3 guiones por ángulo flojo.`,
-      aLabel: angleInfo(domAngle).label, aVal: `${share}%`, a: share, bLabel: 'otros', bVal: `${100 - share}%`, b: 100 - share, max: 100, ads: byAngAll[domAngle] });
-  }
-  const baja = ads.filter((a) => a.impressions < 8000), nAlta = ads.filter((a) => a.impressions >= 25000).length;
-  if (baja.length / total >= 0.5) {
-    const share = r((baja.length / total) * 100);
-    out.push({ key: 'muestrachica', polarity: 'proceso', chip: 'Confianza', big: `${share}%`, bigColor: POL.proceso.c, tlabel: 'guiones de muestra chica', priority: 9,
-      stmt: `El ${share}% de tus guiones tiene muestra chica (<8k impresiones). Solo ${nAlta} llegan a confianza alta — los "ganadores" se apoyan en poquitos guiones de verdad probados.`,
-      aLabel: 'muestra chica', aVal: String(baja.length), a: baja.length, bLabel: 'confiables', bVal: String(total - baja.length), b: total - baja.length, max: total, ads: bySpend(baja) });
-  }
-
-  // ── MALO ──
-  const waste = ads.filter((a) => a.agendas === 0 && a.spend > 0), wasteSpend = sum(waste, (a) => a.spend);
-  if (wasteSpend >= 50) {
-    out.push({ key: 'quemado', polarity: 'malo', chip: 'Plata quemada', big: fmtK(wasteSpend), bigColor: POL.malo.c, tlabel: `${waste.length} guiones, 0 agendas`, priority: 9,
-      stmt: `Quemaste ${fmtUSD(wasteSpend)} en ${waste.length} guiones que no agendaron una sola junta. Pausa los que ya tienen impresiones suficientes (no es falta de muestra, no convierten) y reinvierte.`,
-      aLabel: '0 agendas', aVal: String(waste.length), a: waste.length, bLabel: 'agendaron', bVal: String(ads.filter(won).length), b: ads.filter(won).length, max: total, ads: bySpend(waste) });
-  }
-  let wasteAng: { k: string; sp: number; g: ScriptView[] } | null = null;
-  Object.keys(byAngAll).forEach((k) => { const g = byAngAll[k], sp = sum(g, (x) => x.spend), ag = sum(g, (x) => x.agendas); if (ag === 0 && sp >= 50 && (!wasteAng || sp > wasteAng.sp)) wasteAng = { k, sp, g }; });
-  if (wasteAng && (wasteSpend < 50 || (wasteAng as { sp: number }).sp < 0.85 * wasteSpend)) { const w = wasteAng as { k: string; sp: number; g: ScriptView[] };
-    out.push({ key: 'angulo-quemado', polarity: 'malo', chip: 'Ángulo a cortar', big: fmtK(w.sp), bigColor: POL.malo.c, tlabel: `${angleInfo(w.k).label}: 0 agendas`, priority: 8,
-      stmt: `Corta el ángulo ${angleInfo(w.k).label}: quemó ${fmtUSD(w.sp)} sin agendar nada. Mueve ese dinero al ángulo que sí rinde.`,
-      aLabel: 'gastado', aVal: fmtK(w.sp), a: w.sp, bLabel: 'agendas', bVal: '0', b: 0, max: w.sp, ads: bySpend(w.g) });
-  }
-  const leak = vReliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) < HOLD_MID);
-  if (leak.length >= 2 && sum(leak, (a) => a.spend) >= 50) {
-    out.push({ key: 'gancho-sin-cuerpo', polarity: 'malo', chip: 'Gancho sin cuerpo', big: String(leak.length), bigColor: POL.malo.c, tlabel: 'frenan pero no retienen', priority: 8,
-      stmt: `${leak.length} guiones frenan el scroll (hook ${r(mean(leak, (a) => a.hookRate))}% promedio) pero pierden a la gente antes del CTA (${r(mean(leak, (a) => hold(a)))}%). El problema no es la entrada, es el cuerpo: reescribe el medio.`,
-      aLabel: 'hook', aVal: `${r(mean(leak, (a) => a.hookRate))}%`, a: mean(leak, (a) => a.hookRate), bLabel: 'ret. CTA', bVal: `${r(mean(leak, (a) => hold(a)))}%`, b: mean(leak, (a) => hold(a)), max: Math.max(mean(leak, (a) => a.hookRate), 30), ads: bySpend(leak) });
-  }
-  const fat = ads.filter((a) => a.freq >= 2.4), healthy = ads.filter((a) => a.freq < 1.8);
-  if (fat.length >= 2) {
-    out.push({ key: 'fatiga', polarity: 'malo', chip: 'Fatiga', big: String(fat.length), bigColor: POL.malo.c, tlabel: 'guiones saturados (frec. ≥2.4)', priority: 7,
-      stmt: `${fat.length} guiones ya pasaron frecuencia 2.4 — la misma gente los vio de más y su costo por resultado sube. Mismo guion, creativo nuevo, antes de que se quemen.`,
-      aLabel: 'saturados', aVal: `${mean(fat, (a) => a.freq).toFixed(1)}x`, a: mean(fat, (a) => a.freq), bLabel: 'sanos', bVal: healthy.length ? `${mean(healthy, (a) => a.freq).toFixed(1)}x` : '—', b: healthy.length ? mean(healthy, (a) => a.freq) : 0, max: Math.max(mean(fat, (a) => a.freq), 3), ads: bySpend(fat) });
-  }
-  const weakHook = vReliable.filter((a) => a.hookRate < HOOK_MID && hold(a) >= HOLD_MID);
-  if (weakHook.length >= 2) {
-    out.push({ key: 'gancho-flojo', polarity: 'malo', chip: 'Gancho flojo', big: String(weakHook.length), bigColor: POL.malo.c, tlabel: 'cuerpo retiene, gancho bajo', priority: 6,
-      stmt: `${weakHook.length} guiones retienen bien una vez que arrancan (${r(mean(weakHook, (a) => hold(a)))}%) pero el gancho no frena el scroll (${r(mean(weakHook, (a) => a.hookRate))}%). Buen cuerpo desperdiciado: prueba los ganchos que sugiere MaKo en cada uno.`,
-      aLabel: 'ret. CTA', aVal: `${r(mean(weakHook, (a) => hold(a)))}%`, a: mean(weakHook, (a) => hold(a)), bLabel: 'hook', bVal: `${r(mean(weakHook, (a) => a.hookRate))}%`, b: mean(weakHook, (a) => a.hookRate), max: Math.max(mean(weakHook, (a) => hold(a)), 30), ads: bySpend(weakHook) });
-  }
-
-  // ── BUENO (sobre reliable) ──
-  const dash = reliable.filter((a) => tag(a, 'dashboard')), noDash = reliable.filter((a) => !tag(a, 'dashboard'));
-  if (dash.length >= 2 && noDash.length >= 2) {
-    const rw = r((dash.filter(won).length / dash.length) * 100), rwo = r((noDash.filter(won).length / noDash.length) * 100);
-    if (rw > rwo) out.push({ key: 'dashboard', polarity: 'bueno', chip: 'Dashboard', big: `${rw}%`, bigColor: POL.bueno.c, tlabel: 'de los que muestran panel agendan', priority: 7,
-      stmt: `Muestra el panel en pantalla: los guiones que muestran un dashboard agendan ${rw}% vs ${rwo}% de los que no. Es tu patrón ganador más claro.`,
-      aLabel: 'con panel', aVal: `${rw}%`, a: rw, bLabel: 'sin panel', bVal: `${rwo}%`, b: rwo, max: 100, ads: dash.filter(won) });
-  }
-  const escalables = vReliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) >= HOLD_MID && a.agendas > 0 && a.freq < 2.4);
-  if (escalables.length >= 2) {
-    out.push({ key: 'escalar', polarity: 'bueno', chip: 'Escala esto', big: String(escalables.length), bigColor: POL.bueno.c, tlabel: 'listos para más presupuesto', priority: 7,
-      stmt: `${escalables.length} guiones ya frenan, retienen, agendan y tienen frecuencia sana. Súbeles presupuesto — son tus candidatos a escalar ya.`,
-      aLabel: 'listos', aVal: String(escalables.length), a: escalables.length, bLabel: 'confiables', bVal: String(reliable.length), b: reliable.length, max: Math.max(reliable.length, 1), ads: bySpend(escalables) });
-  }
-  const gH = vReliable.filter((a) => a.hookType === 'resultado' || a.hookType === 'pregunta'), gD = vReliable.filter((a) => a.hookType === 'dolor');
-  if (gH.length >= 2 && gD.length >= 2 && mean(gH, (a) => a.hookRate) > mean(gD, (a) => a.hookRate)) {
-    out.push({ key: 'hook', polarity: 'bueno', chip: 'Tipo de gancho', big: `${r(mean(gH, (a) => a.hookRate))}%`, bigColor: POL.bueno.c, tlabel: 'hook con cifra o pregunta', priority: 6,
-      stmt: `Los ganchos que abren con una cifra o una pregunta promedian ${r(mean(gH, (a) => a.hookRate))}% de hook rate — más que abrir con dolor abstracto (${r(mean(gD, (a) => a.hookRate))}%).`,
-      aLabel: 'cifra/pregunta', aVal: `${r(mean(gH, (a) => a.hookRate))}%`, a: mean(gH, (a) => a.hookRate), bLabel: 'dolor', bVal: `${r(mean(gD, (a) => a.hookRate))}%`, b: mean(gD, (a) => a.hookRate), max: 50, ads: gH });
-  }
-  let bestEff: { k: string; per1k: number; g: ScriptView[] } | null = null;
-  Object.keys(byAngAll).forEach((k) => { const g = byAngAll[k], sp = sum(g, (x) => x.spend), ag = sum(g, (x) => x.agendas), per1k = sp > 0 ? (ag / sp) * 1000 : 0; if (ag > 0 && (!bestEff || per1k > bestEff.per1k)) bestEff = { k, per1k, g }; });
-  if (bestEff) { const be = bestEff as { k: string; per1k: number; g: ScriptView[] };
-    out.push({ key: 'eff', polarity: 'bueno', chip: 'Eficiencia $', big: be.per1k.toFixed(1), bigColor: POL.bueno.c, tlabel: `juntas por $1k · ${angleInfo(be.k).label}`, priority: 6,
-      stmt: `El ángulo ${angleInfo(be.k).label} agenda ${be.per1k.toFixed(1)} juntas por cada $1,000 — es tu ángulo más eficiente. Métele más guiones.`,
-      aLabel: angleInfo(be.k).label, aVal: be.per1k.toFixed(1), a: be.per1k, bLabel: 'objetivo', bVal: '—', b: 0, max: Math.max(be.per1k, 1), ads: bySpend(be.g) });
-  }
-  const gLong = vReliable.filter((a) => a.dur >= 44), gShort = vReliable.filter((a) => a.dur < 44);
-  if (gLong.length >= 2 && gShort.length >= 2) {
-    const diff = Math.round(mean(gLong, (a) => hold(a)) - mean(gShort, (a) => hold(a)));
-    if (diff > 0) out.push({ key: 'dur', polarity: 'bueno', chip: 'Duración', big: `+${diff} pts`, bigColor: POL.bueno.c, tlabel: 'retención extra en 44s o más', priority: 5,
-      stmt: `Los guiones de 44s o más retienen +${diff} pts al CTA frente a los de menos de 44s. Dan tiempo a construir el deseo.`,
-      aLabel: '≥44s', aVal: `${r(mean(gLong, (a) => hold(a)))}%`, a: mean(gLong, (a) => hold(a)), bLabel: '<44s', bVal: `${r(mean(gShort, (a) => hold(a)))}%`, b: mean(gShort, (a) => hold(a)), max: 35, ads: bySpend(gLong) });
-  }
-  const iA = reliable.filter((a) => tag(a, 'implementacion')), iB = reliable.filter((a) => !tag(a, 'implementacion'));
-  if (iA.length >= 2 && iB.length >= 2 && mean(iA, (a) => a.cierres) > mean(iB, (a) => a.cierres)) {
-    out.push({ key: 'impl', polarity: 'bueno', chip: 'Contenido', big: `${(mean(iA, (a) => a.cierres) / Math.max(mean(iB, (a) => a.cierres), 0.1)).toFixed(1)}×`, bigColor: POL.bueno.c, tlabel: 'cierres al mostrar el setup', priority: 5,
-      stmt: `Mostrar cómo se implementa (el setup, el panel en marcha) está en los guiones con más cierres: ${mean(iA, (a) => a.cierres).toFixed(1)} vs ${mean(iB, (a) => a.cierres).toFixed(1)} de los que no.`,
-      aLabel: 'lo muestran', aVal: mean(iA, (a) => a.cierres).toFixed(1), a: mean(iA, (a) => a.cierres), bLabel: 'no', bVal: mean(iB, (a) => a.cierres).toFixed(1), b: mean(iB, (a) => a.cierres), max: Math.max(mean(iA, (a) => a.cierres), 0.1), ads: bySpend(iA) });
-  }
-
-  return out.sort((x, y) => y.priority - x.priority);
-}
+// ── Patrones ganadores: buildPatterns, POL y Pattern viven en lib/ads-analyst-patrones.ts ──
 
 type DrillRow = { id: string; name: string; angleColor: string; sub: string; verdictLabel: string; verdictChip: CSSProperties };
 function drillRows(ads: ScriptView[]): DrillRow[] {
@@ -408,7 +271,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
   // Puntos del cuadrante: histórico (de props) o la ventana fetcheada; filtrados por ángulo y muestra.
   const allTimePoints = useMemo<QuadPoint[]>(() => ads.filter((s) => !s.esImagen).map((s) => ({ id: s.id, short: s.short, angle: s.angle, hookRate: s.hookRate, hold: hold(s), spend: s.spend, impressions: s.impressions, agendas: s.agendas })), [ads]);
   const quadItems = useMemo(() => (quadPoints ?? allTimePoints).filter((p) => (angle === 'todos' || p.angle === angle) && (!hideSmall || p.impressions >= 8000)), [quadPoints, allTimePoints, angle, hideSmall]);
-  const P = useMemo(() => buildPatterns(ads, reliable), [ads, reliable]);
+  const P = useMemo(() => buildPatterns(ads, reliable, (k) => angleInfo(k).label), [ads, reliable]);
   const mk = useMemo(() => makoConclusions(reliable, P), [reliable, P]);
   const activeFilters = (quadWin !== 'todo' ? 1 : 0) + (angle !== 'todos' ? 1 : 0) + (mapMode !== 'ads' ? 1 : 0) + (hideSmall ? 1 : 0);
   const syncGate = useMemo(() => {
@@ -511,7 +374,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
     });
   }
 
-  const lowConf = ads.filter((a) => confidence(a) === 'baja' || (a.hookRate >= 24 && a.agendas === 0 && a.spend < 800));
+  const lowConf = ads.filter(esMuestraChica);
   const quadLegend = [
     { c: '#1E9E57', title: 'Escalar', sub: 'Paran y se quedan. Más presupuesto.' },
     { c: '#2F6DDB', title: 'Mejorar el gancho', sub: 'Retienen, pero entran pocos.' },

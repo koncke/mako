@@ -23,35 +23,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Select, Alert, EmptyState, ErrorState, SkeletonLines, Section, MONO } from '@/app/_ui';
 import {
   colorDeCalor, rankingDe, ubicarPorAncla, ubicarPorPunto, PIXEL_ANCLA_DESDE, PIXEL_PUNTO_DESDE,
-  type Dispositivo, type ToqueMapa,
+  type Dispositivo,
 } from '@/lib/landing-mapa';
 import { RUTA_PIXEL } from '@/lib/pixel-aviso';
 import type { PaginaDelMapa, DatosDelMapa, FondoDelMapa } from '@/lib/landing-mapa-server';
+// El rótulo de lo tocado vive en un módulo puro desde el 11/10/2026: lo usa también el
+// conjunto `toques` del Dashboard, del lado del server.
+import { hostPath, rotuloDe } from '@/lib/landing-mapa-rotulo';
 
 const SANS = "'Geist', sans-serif";
-
-function hostPath(url: string): string {
-  try { const u = new URL(url); return u.host + (u.pathname === '/' ? '' : u.pathname); } catch { return url; }
-}
-
-const TAGS: Record<string, string> = {
-  IMG: 'una imagen', PICTURE: 'una imagen', SVG: 'un ícono', H1: 'un título', H2: 'un título', H3: 'un título',
-  H4: 'un título', P: 'un texto', SPAN: 'un texto', LI: 'una lista', VIDEO: 'un video', INPUT: 'un campo',
-  LABEL: 'un campo', TEXTAREA: 'un campo', SELECT: 'un campo',
-};
-
-/** Lo que se tocó, en palabras: el destino de un botón, o qué era lo que no es un botón. */
-function rotuloDe(t: Pick<ToqueMapa, 'tipo' | 'etiqueta'>): string {
-  const e = t.etiqueta;
-  if (t.tipo === 'clic_vacio') {
-    const tag = e.replace(/^vacio:\s*/, '').toUpperCase();
-    return `Fuera de un botón · ${TAGS[tag] ?? 'una zona'}`;
-  }
-  if (e.startsWith('boton:')) return e.slice(6).trim() || 'Un botón sin texto';
-  if (e.startsWith('ancla ')) return e.slice(6);
-  if (/^https?:\/\//.test(e)) return hostPath(e.split(' — ')[0]);
-  return e;
-}
 
 /** El calor: cada toque suma alfa en un círculo difuso, y la suma se pinta con la rampa. */
 function pintarCalor(canvas: HTMLCanvasElement, puntos: Array<{ x: number; y: number }>, radio: number) {

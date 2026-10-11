@@ -140,6 +140,10 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // Para devolverlas a Claude hace falta una fila en CLAUDE_PERMITIDO con su fecha.
   { feature: 'lead_insights', label: 'Insight 360 del lead', grupo: 'Análisis', def: GEMINI(), pii: true, recomendado: GEMINI(), nota: 'Síntesis multi-fuente sobre PII. Bajó a Gemini con el veto: no corría desde julio y su permiso pago no lo revisaba nadie.' },
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El análisis más pesado del producto. Bajó a Gemini con el veto: sin corridas desde el 5/7. Si vuelve a hacer falta Opus, va con fila y fecha en lib/veto-claude.ts.' },
+  // El Dashboard (11/10/2026): las dos van GRATIS y sin fallback pago. Lo que sale se VE (una hoja que
+  // se puede deshacer, un análisis que se puede volver a pedir) y pasa por un saneo determinista.
+  { feature: 'dashboard-hoja-ia', label: 'Armar una hoja del Dashboard con IA', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: '«Pídeselo a MaKo» en Nueva hoja: elige gráficos del catálogo por su nombre. Los ids, el lugar y el estilo los pone el código (lib/graficos-ia.ts).' },
+  { feature: 'dashboard-analista', label: 'AI Analyst del Dashboard', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: 'MaKo lee lo que MUESTRAN los gráficos de una hoja (números ya agregados, sin nombres de leads ni conversaciones) y escribe qué pasa y qué hacer. A mano o programado (lib/graficos-analisis.ts).' },
   { feature: 'ads-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: GEMINI(), nota: 'Lectura estructural creativa sobre un guion público. Si Gemini falla, la cascada gratis sigue antes de pagar.' },
   { feature: 'script-valorador', label: 'Valorar guion nuevo', grupo: 'Análisis', def: GEMINI() },
   { feature: 'landing-analyst', label: 'Diagnosticar una landing', grupo: 'Análisis', def: GEMINI(), nota: 'Lee el copy de la página y lo cruza con el comportamiento medido (visitas, retención, agendas). Sin PII: la landing es pública y las métricas van agregadas.' },

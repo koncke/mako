@@ -59,6 +59,8 @@ import { VARIANTES_SYSTEM_TEMPLATE } from './secuencias-variantes';
 import { PASO_IA_SYSTEM_TEMPLATE } from './paso-ia';
 import { GUION_PASO_SYSTEM_TEMPLATE } from './guion-audio';
 import { CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE } from './flujo-ia';
+import { HOJA_IA_SYSTEM_TEMPLATE } from './graficos-ia';
+import { ANALISTA_SYSTEM_TEMPLATE } from './graficos-analisis';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
@@ -455,6 +457,22 @@ export const REGISTRY: Group[] = [
         variables: [], scope: 'static-only', sensitive: false,
         default: CREAR_IA_SYSTEM_TEMPLATE,
         context: 'La caja «Generar con IA» de una automatización nueva: el modelo devuelve el flujo como un JSON propio con NOMBRES, y el código lo traduce y lo repara (lib/flujo-ia.ts → deIA). No borres la forma del JSON ni las reglas duras: el código saca lo que no las cumple y, si queda roto, prueba otro proveedor. No le pidas links ni ids: los pone el código, y el disparador va por su clave corta (d1, d2…). No le agregues «ir_a»: la IA no arma saltos (el código los saca). No lo alargues: cada token de más le resta salida a Groq y lo deja afuera de la cascada. Y no lo pases a voseo: los mensajes le llegan al cliente del negocio.',
+      },
+      // El Dashboard (11/10/2026). SIN slots: el catálogo y lo que muestran los gráficos viajan en el
+      // mensaje user, así un override guardado no pierde un conjunto nuevo.
+      {
+        key: 'dashboard.hoja-ia.system', source: 'override',
+        label: 'Armar una hoja del Dashboard con IA (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: HOJA_IA_SYSTEM_TEMPLATE,
+        context: '«Pídeselo a MaKo» al crear una hoja del Dashboard. El modelo elige conjuntos, tipos y métricas POR SU ID del catálogo que le llega; el código descarta lo que no existe y acomoda la grilla (lib/graficos-ia.ts → deIAHoja). No le pidas ids ni posiciones: los pone el código.',
+      },
+      {
+        key: 'dashboard.analista.system', source: 'override',
+        label: 'AI Analyst del Dashboard (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: ANALISTA_SYSTEM_TEMPLATE,
+        context: 'El botón «AI Analyst» del Dashboard y su análisis programado: MaKo lee lo que muestran los gráficos de una hoja y dice qué pasa y qué conviene hacer. No le pidas que invente números: sólo puede citar los que le llegan (lib/graficos-analisis.ts).',
       },
       {
         key: 'chatbot.editar-ia.system', source: 'override',

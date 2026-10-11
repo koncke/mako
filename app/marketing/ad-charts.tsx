@@ -8,14 +8,16 @@
 //   - BreakdownCharts: edad/género + plataforma + mapa de México con selector,
 //     usado tanto por AdDetalle como por el "resumen de toda la cuenta" de la
 //     tab Marketing (datos de /api/account-insights).
-// recharts y d3-geo viven SOLO acá → se cargan on-demand (next/dynamic) desde
-// la tab Marketing.
+// recharts vive acá → se carga on-demand (next/dynamic) desde la tab Marketing.
+// El mapa de México (y con él d3-geo) se mudó a app/dashboard/MapaMexico.tsx el
+// 11/10/2026: lo monta también el Dashboard, que no puede importar este archivo
+// sin arrastrar el Ads Analyst (ScriptsBrowser).
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
-import { geoMercator, geoPath } from 'd3-geo';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
+import MapaMexico from '../dashboard/MapaMexico';
 import type { SenalRecon } from '@/lib/queries';
 import type { ScriptView } from '@/lib/ads-analyst';
 import { VEREDICTO_BADGE } from './AnuncioCard';
@@ -45,7 +47,6 @@ export type Breakdowns = { demograficos: Demo[]; plataformas: BD[]; regiones: BD
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
-const GEOURL = 'https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json';
 
 export const fmtUSD = (n: number | null | undefined, d?: number) => {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
@@ -57,7 +58,6 @@ const fmtPct = (n: number | null | undefined) => (n === null || n === undefined 
 const fmtFecha = (iso: string) => fmtDDMMYYYY(iso);
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const diasEntre = (a: string, b: string) => { const [y1, m1, d1] = a.split('-').map(Number); const [y2, m2, d2] = b.split('-').map(Number); return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000); };
-const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const txtTranscript = (status?: string) => {
   switch (status) {
     case 'sin_video': return 'Este anuncio no tiene video.';
@@ -180,8 +180,8 @@ export function BreakdownCharts({ demograficos, plataformas, regiones }: Breakdo
       {regiones.length > 0 && (
         <div style={card}>
           <div style={sectLabel}>Regiones / estados · {bdActiva.label}</div>
-          <MexicoMap regiones={regiones} metric={bdMet} fmt={bdActiva.fmt} />
-          <p style={{ fontSize: 11.5, color: 'var(--faint)', margin: '10px 2px 0' }}>Meta no expone ciudad en la API de anuncios; el nivel más fino es región/estado.</p>
+          {/* La nota de que Meta no da ciudad viaja adentro del mapa (app/dashboard/MapaMexico.tsx). */}
+          <MapaMexico regiones={regiones.map((r) => ({ etiqueta: r.label, valor: r[bdMet] }))} color="var(--mako)" fmt={bdActiva.fmt} alto={300} />
         </div>
       )}
     </>
@@ -493,81 +493,7 @@ function Timeline({ activity }: { activity: AdInsights['activity'] }) {
   );
 }
 
-// Mapa coroplético de México (d3-geo) coloreado por la métrica seleccionada.
-type GeoFeature = { type: string; properties: Record<string, unknown>; geometry: unknown };
-function MexicoMap({ regiones, metric, fmt }: { regiones: BD[]; metric: BdKey; fmt: (n: number) => string }) {
-  const [features, setFeatures] = useState<GeoFeature[] | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [hover, setHover] = useState<{ name: string; val: number; x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    fetch(GEOURL)
-      .then((r) => r.json())
-      .then((j) => { if (alive) setFeatures(j.features ?? null); })
-      .catch(() => { if (alive) setFailed(true); });
-    return () => { alive = false; };
-  }, []);
-
-  const valByNorm = useMemo(() => new Map(regiones.map((r) => [norm(r.label), r[metric] as number])), [regiones, metric]);
-  const max = Math.max(...regiones.map((r) => r[metric] as number), 1);
-  const valueFor = (rawName: string): number => {
-    const n = norm(rawName);
-    if (valByNorm.has(n)) return valByNorm.get(n)!;
-    for (const [k, val] of valByNorm) if (k.startsWith(n) || n.startsWith(k)) return val;
-    return 0;
-  };
-  const nameOf = (f: GeoFeature) => String(f.properties.name ?? f.properties.NAME_1 ?? f.properties.ESTADO ?? f.properties.estado ?? '—');
-
-  const W = 640, H = 360;
-  const path = useMemo(() => {
-    if (!features) return null;
-    const fc = { type: 'FeatureCollection', features } as unknown as Parameters<ReturnType<typeof geoMercator>['fitSize']>[1];
-    const proj = geoMercator().fitSize([W, H], fc);
-    return geoPath(proj);
-  }, [features]);
-
-  const top = [...regiones].sort((a, b) => (b[metric] as number) - (a[metric] as number)).slice(0, 6);
-  const topList = (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-      {top.map((r) => (
-        <span key={r.label} style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px' }}>{r.label}: {fmt(r[metric] as number)}</span>
-      ))}
-    </div>
-  );
-
-  if (failed) return <div>{topList}</div>;
-  if (!features || !path) return <div style={{ fontSize: 13, color: 'var(--faint)' }}>Cargando mapa…{topList}</div>;
-
-  return (
-    <div style={{ position: 'relative' }} onMouseLeave={() => setHover(null)}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-        {features.map((f, i) => {
-          const name = nameOf(f);
-          const val = valueFor(name);
-          const t = max > 0 ? val / max : 0;
-          const fill = val > 0 ? `rgba(200,135,12,${(0.14 + t * 0.78).toFixed(3)})` : 'var(--surface-2)';
-          return (
-            <path
-              key={i}
-              d={path(f as unknown as Parameters<typeof path>[0]) ?? undefined}
-              fill={fill}
-              stroke="var(--border)"
-              strokeWidth={0.5}
-              onMouseMove={(e) => { const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect(); setHover({ name, val, x: e.clientX - rect.left, y: e.clientY - rect.top }); }}
-            />
-          );
-        })}
-      </svg>
-      {hover && (
-        <div style={{ position: 'absolute', left: Math.min(hover.x + 12, W - 140), top: hover.y + 12, pointerEvents: 'none', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, color: 'var(--ink)', boxShadow: '0 6px 20px rgba(18,21,27,.18)', whiteSpace: 'nowrap' }}>
-          <b>{hover.name}</b>: {fmt(hover.val)}
-        </div>
-      )}
-      {topList}
-    </div>
-  );
-}
+// El mapa coroplético de México vive en app/dashboard/MapaMexico.tsx (se mudó el 11/10/2026).
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AdDetailTabs — vista de detalle UNIFICADA (Ads Manager + Ads Analyst).
