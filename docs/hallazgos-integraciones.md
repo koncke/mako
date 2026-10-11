@@ -666,3 +666,45 @@ este mismo formulario adentro del aviso del invitar del curso, así que allá ca
 
 _09/10/2026 — sin subagentes; `tests/resend-remitente.test.ts` probado con 7 roturas (1 fallo cada una,
 2 la del juez). Typecheck 0; npm test 6339/0._
+
+## Stripe y Mercado Pago como integraciones (11/10/2026, la pasarela de pagos)
+
+El modelo entero de la pasarela vive en [hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) →
+«La pasarela». Acá, lo que es de la tab y de las credenciales.
+
+### El molde de Meta era el diagnóstico equivocado: guarda la clave SIN probarla
+
+**Síntoma (evitado):** una clave de Stripe rota quedaba guardada con un mensaje que decía «Guardada».
+**Causa:** `guardarCampo` (`ServicioConfigForm.tsx`) cuenta los campos `auto` obligatorios como
+faltantes y, si falta alguno, guarda sin probar. Meta lo tapa porque su descubrimiento corre al toque y
+pisa el mensaje, pero su token también queda guardado sin probar. **Regla:** si los obligatorios de una
+integración se DERIVAN de una clave, la clave va directo al descubrimiento (`descubrir-pago`), que le
+pregunta al proveedor primero y guarda TODO junto sólo si la acepta. Meta tiene el mismo agujero y no se
+tocó. **Vive en:** `app/integraciones/ServicioConfigForm.tsx` · `lib/cobros-conexion.ts`.
+
+### El ruteo de un webhook sólo se AGREGA: cambiar de cuenta deja la vieja reclamada
+
+**Causa:** `guardarCredencial` sólo agrega filas a `webhook_routing`, y `borrarRoutingDeWs` se lleva
+TODAS las del servicio. **Regla:** quien reemplaza un identificador de ruteo suelta el anterior con
+`soltarIdentificador(servicio, id, ws)`. Afecta también a `META_PAGE_ID` (no se tocó).
+**Vive en:** `lib/webhook-routing.ts` · `lib/cobros-conexion.ts`.
+
+### Reclamar el id de la cuenta ANTES de guardar la clave
+
+Así, si la cuenta ya es de otro workspace, contesta 409 y no guarda nada — y de paso impide que un
+cliente pegue como suya la clave de cobro de MaKo, sin una lista aparte (siempre que la plataforma la haya
+conectado primero). Los tres ids derivados (`STRIPE_ACCOUNT_ID`, `STRIPE_WEBHOOK_SECRET`,
+`MERCADOPAGO_USER_ID`) llevan `derivado: true` en el catálogo y las dos rutas de guardar los descartan: un
+`acct_` tipeado a mano secuestraría los avisos de otro negocio.
+**Vive en:** `lib/cobros-conexion.ts` · `lib/metodo-catalogo.ts` · `app/api/integraciones/credencial/route.ts` · `app/api/metodo/route.ts`.
+
+### La clave del aviso de Mercado Pago sólo existe en su panel
+
+No hay API para leerla, las suscripciones sólo avisan por la URL del panel (crear una suscripción no
+acepta URL de aviso) y los pagos de prueba también. Por eso es opcional con un `sinEsto` que dice qué se
+pierde: si no está, casi seguro el paso del panel no se hizo. El aviso de Stripe, en cambio, lo registra
+MaKo solo (y su `whsec_` vuelve SÓLO al crearlo: si ya hay uno nuestro, se borra y se crea otro).
+**Vive en:** `lib/metodo-catalogo.ts` · `lib/stripe-api.ts` (`asegurarWebhookStripe`).
+
+_11/10/2026 — pasarela de pagos; `tests/cobros-conexion.test.ts` (7, probado con 5 roturas) y
+`tests/pasarela-sin-env.test.ts`._

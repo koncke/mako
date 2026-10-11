@@ -20,10 +20,11 @@ import { formatoMonto } from './pasarela-moneda';
  */
 export function montoUsdDelCobro(p: { monto: number; moneda: string; montoUsdDeclarado?: number | null; productoMontoUsd?: number | null }): number | null {
   if (p.moneda.toUpperCase() === 'USD') return redondear(p.monto);
+  // ⚠️ SÓLO LO DECLARADO (revisión del 11/10/2026). Tomar el precio del producto daba `monto_usd = 2000` a una
+  // seña de ARS 50.000 sobre un programa de US$ 2.000, y la seña sumaba US$ 2.000 al cash. El precio del
+  // producto se OFRECE en la pantalla como valor sugerido; lo confirma la persona.
   const declarado = Number(p.montoUsdDeclarado);
   if (Number.isFinite(declarado) && declarado > 0) return redondear(declarado);
-  const delProducto = Number(p.productoMontoUsd);
-  if (Number.isFinite(delProducto) && delProducto > 0) return redondear(delProducto);
   return null;
 }
 
@@ -123,7 +124,8 @@ export function decidirCobro(p: ParametrosCobro): DecisionCobro {
     if (Number.isFinite(m) && m > 0) monto = m;
   }
   if (monto == null) return { ok: false, error: moneda === 'USD' ? 'Falta el monto.' : `Falta el monto en ${moneda}.`, faltan: ['monto'] };
-  if (monto > 1_000_000) return { ok: false, error: 'El monto es demasiado alto.' };
+  // El tope es en DÓLARES (revisión del 11/10/2026: en ARS, COP o CLP una venta normal de US$ 2.000 pasa el millón).
+  if (moneda === 'USD' && monto > 1_000_000) return { ok: false, error: 'El monto es demasiado alto.' };
   if (pasarela === 'mercadopago' && p.tipo === 'suscripcion' && !p.email) {
     return { ok: false, error: 'Para una suscripción de Mercado Pago hace falta el email de quien paga.', faltan: ['email'] };
   }

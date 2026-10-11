@@ -1091,3 +1091,39 @@ viernes» → «la tarea», el turno le avisa al modelo que no tiene con qué ca
 
 _09/10/2026 — agente en worktree + revisión adversarial (8 roturas, cada una con su fallo, y dos del
 implementador re-hechas); `tests/agenda-whatsapp.test.ts` 16/16. Integrado por quien escribe esto._
+
+## El área `cobros` (11/10/2026, la pasarela de pagos)
+
+### Sumar el área a `AREA_KEYWORDS` no alcanzaba: el diagnóstico obvio era el equivocado
+
+**Medido:** «mandale un link de pago a Ana», «reembolsale el pago a Carlos» y «creá un checkout de
+Mercado Pago para Laura» salían `capturar` y DUDOSAS, y con una intención dudosa `herramientasDelTurno`
+ni siquiera mira las áreas del texto. **Causa:** no había ninguna regla que reconociera un pedido de
+cobro. **Regla:** la señal es el OBJETO (link de pago, checkout, reembolso, suscripción) más un verbo de
+pedido, y las tres puertas (clasificador, router y `esCargaDePlan`) dicen lo mismo.
+**Vive en:** `lib/mako-intencion.ts` (`esPedidoDeCobro`) · `lib/mako-router.ts` · `lib/mako-doer-in.ts`.
+
+### «Cancelá» es una palabra de CONFIRMACIÓN
+
+Con una pendiente abierta, «cancelá la suscripción de Pedro» se leía como «cancelá la pendiente». Todo
+pedido por objeto se excluye de la regla 1 del clasificador. **Vive en:** `lib/mako-intencion.ts`.
+
+### Las áreas del clasificador incluyen las de las lecturas PREVIAS
+
+Sin `crm` en el turno, `crear_link_pago` llegaba sin `listar_productos` (de donde sale el `productoId`):
+comprobado rompiéndolo. **Vive en:** `lib/mako-intencion.ts` (`AREAS_COBROS`).
+
+### Mercado Pago no crea links por la API, a propósito
+
+El catálogo está en USD y Mercado Pago cobra en la moneda de su cuenta: `preparar()` lo rechaza con un
+mensaje claro en vez de dejar una pendiente que falla al confirmar. Y `crear_link_pago` no duplica: con
+un link pendiente del mismo producto y pasarela devuelve `yaEstaba` y vuelve a pasar ESE link.
+**Vive en:** `lib/api-mako/areas/cobros.run.ts`.
+
+### Una fuente nueva de variables rompe dos tests que no la nombran
+
+`tests/datos-mensaje.test.ts` (`porFuente`, un `Record<FuenteDato>`) y el prefijo `link_` de
+`tests/variables-aviso.test.ts` se rompen con cualquier fuente o variable nueva (`{{link_pago}}`, fuente
+`cobro`). **Vive en:** `lib/variables-aviso.ts`.
+
+_11/10/2026 — `tests/api-mako-cobros.test.ts` (15, probado con 10 roturas)._

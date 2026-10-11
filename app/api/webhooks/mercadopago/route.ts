@@ -15,7 +15,8 @@
 //      'mercadopago', …)`, y el secreto de ESE negocio con `credWsEstricta`. «No pude leer» va por
 //      `responderFalloDeRuteo`.
 //   3. LA FIRMA, si el negocio pegó su secreto y la notificación trae `x-signature` (sólo el formato
-//      nuevo: MP dice que la de un IPN «no se puede validar»). Inválida → 401.
+//      nuevo: MP dice que la de un IPN «no se puede validar»). Inválida → se anota y se relee igual (la
+//      seguridad es la relectura, no la firma: ver el bloque 3).
 //      ⚠️ SIN SECRETO SE ACEPTA, y alcanza: lo que se aplica sale de RELEER el recurso con el token del
 //      negocio y de exigir que lo haya cobrado SU cuenta (`collector_id === MERCADOPAGO_USER_ID`) y
 //      que su `external_reference` sea un cobro de ESE negocio (lib/cobros-webhook.ts,
@@ -93,8 +94,11 @@ export async function POST(req: NextRequest) {
   if (secreto && firma && n.formato === 'webhook') {
     const fallo = verificarFirmaMercadoPago({ dataId: q.get('data.id'), requestId: req.headers.get('x-request-id'), header: firma }, secreto);
     if (fallo) {
-      console.warn(`[webhook:mercadopago] firma rechazada (ws ${ws ?? '—'}): ${MOTIVO_FIRMA_PASARELA[fallo]}`);
-      return Response.json({ ok: false, error: 'signature', motivo: fallo }, { status: 401 });
+      // ⚠️ NO SE RECHAZA (revisión del 11/10/2026): la seguridad de este webhook es la RELECTURA con el token
+      // del negocio, no la firma. Un 401 acá dejaba a un negocio con el secreto renovado en el panel de MP (o
+      // pegado de otra aplicación) rebotando TODOS sus avisos, y MP reintenta cada 15 minutos sin un máximo:
+      // las renovaciones y las bajas se perdían. Se anota y se relee igual.
+      console.warn(`[webhook:mercadopago] firma que no coincide (ws ${ws ?? '—'}): ${MOTIVO_FIRMA_PASARELA[fallo]} — se relee igual`);
     }
   }
   if (ws == null) {
@@ -103,7 +107,9 @@ export async function POST(req: NextRequest) {
       { proveedor: 'mercadopago', eventoId: claveEventoMp(n.tipo, n.id, 'sin-workspace'), ws: null, tipo: n.tipo },
       { estado: 'ignorado', motivo: n.userId ? 'ninguna cuenta conectada con ese user_id' : 'la notificación no dice de qué cuenta es' },
     );
-    return Response.json({ ok: true, ignorado: 'sin workspace' });
+    // La MISMA respuesta que un aviso procesado (revisión del 11/10/2026): con «sin workspace» acá y el motivo de
+    // la relectura allá, la ruta dejaba recorrer los user_id (numéricos) y saber cuáles son clientes de MaKo.
+    return Response.json({ ok: true });
   }
   const wsFinal = ws;
 
@@ -122,7 +128,7 @@ export async function POST(req: NextRequest) {
   // ── 5. Una vez por estado, ANTES de aplicar ──
   const reclamo = await reclamarEvento({ proveedor: 'mercadopago', eventoId: lectura.clave, ws: wsFinal, tipo: lectura.tipo });
   if (reclamo === 'sin_tabla') {
-    console.error('[webhook:mercadopago] falta la tabla pasarela_eventos (mig 0250): no se aplica nada sin poder deduplicar');
+    console.error('[webhook:mercadopago] falta la tabla pasarela_eventos (mig 0255): no se aplica nada sin poder deduplicar');
     return Response.json({ ok: false, error: 'sin_tabla' });
   }
   if (reclamo === 'duplicado') return Response.json({ ok: true, evento: lectura.clave, duplicado: true });
@@ -140,7 +146,7 @@ export async function POST(req: NextRequest) {
     }
     await marcarEvento('mercadopago', lectura.clave, r.valor);
     console.log(`[webhook:mercadopago] ${lectura.clave} ws=${wsFinal}: ${r.valor.estado}${r.valor.motivo ? ` (${r.valor.motivo})` : ''}`);
-    return Response.json({ ok: true, evento: lectura.clave, estado: r.valor.estado, motivo: r.valor.motivo });
+    return Response.json({ ok: true });
   } catch (e) {
     // La fila queda en `error`: el reintento de MP (si fue transitorio) la vuelve a reclamar.
     await marcarEvento('mercadopago', lectura.clave, { estado: 'error', motivo: mensajeDeError(e) });

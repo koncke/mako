@@ -866,11 +866,11 @@ export const AREAS: AreaDev[] = [
       'app/api/pagar/email/route.ts', 'app/reembolsos/page.tsx',
       'app/admin/cobros/page.tsx', 'app/admin/cobros/actions.ts', 'app/admin/cobros/VenderPlan.tsx', 'app/admin/cobros/ListaCobrosMako.tsx',
       'app/crm/[id]/cobros-actions.ts', 'lib/api-mako/areas/cobros.def.ts', 'lib/api-mako/areas/cobros.run.ts',
-      'supabase/migrations/0250_cobros_pasarela.sql', 'docs/diseno-pasarela-pagos.md',
+      'supabase/migrations/0255_cobros_pasarela.sql', 'docs/diseno-pasarela-pagos.md',
     ],
     proyectos: ['Feature: Cobros y planes'],
     hallazgos: 'hallazgos-planes-y-cobro',
-    nota: 'Nació el 11/10/2026 («Lo voy a utilizar yo como superadmin para vender MaKo, pero también los usuarios pueden alojarlo»). MaKo NO tiene una máquina de cobro propia: vende con la misma integración que conecta un cliente, desde /integraciones del workspace `wsSuperAdmin()`, y lo único de la plataforma es la rama de lib/cobros.ts que da de alta la cuenta al pagar — escrita en positivo, porque sin eso un cliente que vende con su Stripe crearía inquilinos. Dos trampas que ya costaron un diagnóstico: Stripe NO firma como Svix (el `whsec_` va entero; claveDelSecreto lo decodificaría y rechazaría el 100%), y las claves se leen con credDelCliente y con nada más (credWs/envCred caen al ws1, que es Mauricio). El contrato entre las piezas está en docs/diseno-pasarela-pagos.md. Lo que sigue: el primer cobro real (migración 0250 + conectar la cuenta de MaKo) y «Pagos» en el CRON de Automations (fase 2).',
+    nota: 'Nació el 11/10/2026 («Lo voy a utilizar yo como superadmin para vender MaKo, pero también los usuarios pueden alojarlo»). MaKo NO tiene una máquina de cobro propia: vende con la misma integración que conecta un cliente, desde /integraciones del workspace `wsSuperAdmin()`, y lo único de la plataforma es la rama de lib/cobros.ts que da de alta la cuenta al pagar — escrita en positivo, porque sin eso un cliente que vende con su Stripe crearía inquilinos. Dos trampas que ya costaron un diagnóstico: Stripe NO firma como Svix (el `whsec_` va entero; claveDelSecreto lo decodificaría y rechazaría el 100%), y las claves se leen con credDelCliente y con nada más (credWs/envCred caen al ws1, que es Mauricio). El contrato entre las piezas está en docs/diseno-pasarela-pagos.md. Lo que sigue: el primer cobro real (migración 0255 + conectar la cuenta de MaKo) y «Pagos» en el CRON de Automations (fase 2).',
   },
   {
     slug: 'subscriptions-billing', titulo: 'Subscriptions & Billing', familia: 'Business', grupo: 'Cobros y planes',

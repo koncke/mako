@@ -100,6 +100,7 @@ const ESTADO = (conectado: boolean | null): EstadoCanales => ({
   instagram: { conectado, motivo: conectado ? undefined : 'Sin conectar' },
   messenger: { conectado, motivo: conectado ? undefined : 'Sin conectar' },
   email: { conectado, motivo: conectado ? undefined : 'Sin conectar' },
+  pagos: { conectado, motivo: conectado ? undefined : 'Sin conectar' },
 });
 const eventos = (clase: 'instagram' | 'messenger' | 'email', estado: EstadoCanales | null | undefined, d: Partial<Disparador> = {}) =>
   renderToStaticMarkup(createElement(EventosDeCanal, { clase, d: { id: 'd1', trigger_tipo: 'manual', ...d } as Disparador, estado, onElegir: () => {} }));

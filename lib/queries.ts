@@ -2296,7 +2296,7 @@ async function _getPendientesDeMarcar(
   const avisos: string[] = [];
 
   // Plan de pagos + comprobantes faltantes (cuotas pagadas sin comprobante) por lead. `proveedor`
-  // (mig 0250) viaja porque un cobro confirmado por la pasarela NO pide comprobante
+  // (mig 0255) viaja porque un cobro confirmado por la pasarela NO pide comprobante
   // (lib/pago-comprobante.ts): sin la columna, cada lead que pagó por link quedaba para siempre en
   // «Datos sin marcar: Comprobante de pago».
   const pagosRows = await leerTodo<{ lead_id: number; pagado: boolean; comprobante_path: string | null; proveedor: string | null }>(

@@ -20,6 +20,8 @@
 //     la app de Meta está en verificación.
 //   · Email: el remitente PROPIO del negocio conectado (`emailConectado`, lib/resend.ts). Recibir un
 //     email necesita además el buzón de entrada, que es de la parte «canales».
+//   · Pagos (11/10/2026): Stripe o Mercado Pago conectados en ESTE workspace (`pasarelasConectadas`,
+//     lib/cobros.ts: la clave más lo que MaKo deriva — sin el aviso registrado, un pago nunca llegaría).
 //
 // INTEGRACIÓN: si la parte «canales» guarda otra señal de conexión (un webhook suscripto, un buzón),
 // esta función es el lugar donde se suma — no una segunda lectura en otra pantalla.
@@ -28,6 +30,8 @@ import 'server-only';
 import { credWs } from './credenciales';
 import { emailConectado } from './resend';
 import type { EstadoCanal, EstadoCanales } from './disparadores';
+import { pasarelasConectadas } from './cobros';
+import { NOMBRE_PASARELA } from './cobros-tipos';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { listarLineas, type LineaRow } from './evolution';
 import { lineaPorDefault } from './lineas-whatsapp';
@@ -43,6 +47,7 @@ const real = (v: string | null): v is string => !!v && !v.startsWith('PENDING');
 const MOTIVO_FACEBOOK = 'Conecta tu página de Facebook';
 const MOTIVO_INSTAGRAM = 'Conecta tu Instagram';
 const MOTIVO_EMAIL = 'Conecta tu email';
+const MOTIVO_PAGOS = 'Conecta Stripe o Mercado Pago';
 const MOTIVO_NO_SE = 'No pude comprobarlo';
 
 /** La cuenta de Instagram profesional de la página, o null si no tiene. Tira si Meta no contesta. */
@@ -88,7 +93,17 @@ export async function estadoCanalesDisparo(): Promise<EstadoCanales> {
     console.error('[disparadores-canales] el email:', e instanceof Error ? e.message : String(e));
     email = { conectado: null, motivo: MOTIVO_NO_SE };
   }
-  return { instagram, messenger, email };
+  let pagos: EstadoCanal;
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) throw new Error('sin workspace');
+    const conectadas = await pasarelasConectadas(ws);
+    pagos = conectadas.length ? { conectado: true, cuenta: conectadas.map((x) => NOMBRE_PASARELA[x]).join(' y ') } : { conectado: false, motivo: MOTIVO_PAGOS };
+  } catch (e) {
+    console.error('[disparadores-canales] las pasarelas de pago:', e instanceof Error ? e.message : String(e));
+    pagos = { conectado: null, motivo: MOTIVO_NO_SE };
+  }
+  return { instagram, messenger, email, pagos };
 }
 
 // ── Los MEDIOS de una automatización (décima tanda, GENERAL 6) ──────────────────────────────────────

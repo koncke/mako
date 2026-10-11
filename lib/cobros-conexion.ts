@@ -27,7 +27,7 @@
 import 'server-only';
 import { APP_BASE_URL } from './app-url';
 import { auditarCredencial, credDelCliente, eliminarCredencial, guardarCredencial, IdentificadorOcupadoError } from './credenciales';
-import { soltarIdentificador } from './webhook-routing';
+import { soltarIdentificador, upsertRouting, wsPorIdentificadorEstricto } from './webhook-routing';
 import { asegurarWebhookStripe, leerCuentaStripe, type CuentaStripe } from './stripe-api';
 import { leerCuentaMp, type CuentaMp } from './mercadopago-api';
 import { NOMBRE_PASARELA, type Pasarela } from './cobros-tipos';
@@ -150,6 +150,14 @@ async function reclamarCuenta(ws: number, env: string, id: string, servicio: Pas
       return { ok: false, cambio: false };
     }
     throw e;
+  }
+  // ⚠️ QUE LA FILA DE RUTEO EXISTA DE VERDAD (revisión del 11/10/2026). `guardarCredencial` guarda la credencial
+  // aunque `upsertRouting` devuelva 'error' (la idea era re-sembrarla en el boot, y eso sólo cubre al ws1): con un
+  // corte justo al conectar, la tarjeta decía «Conectada», cada aviso daba 401 y el cron no veía ese workspace
+  // (lee `webhook_routing`). Se reintenta una vez; si no queda, se deshace y se dice.
+  if ((await wsPorIdentificadorEstricto(servicio, id)) !== ws && (await upsertRouting(servicio, id, ws)) !== 'ok') {
+    await eliminarCredencial(ws, env).catch(() => {});
+    throw new Error(`No pude registrar la cuenta de ${NOMBRE_PASARELA[servicio]} para recibir sus pagos. Prueba de nuevo en un momento.`);
   }
   const cambio = !!previo && previo !== id;
   if (cambio) await soltarIdentificador(servicio, previo!, ws);

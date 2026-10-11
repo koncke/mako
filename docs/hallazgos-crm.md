@@ -7861,3 +7861,50 @@ Salió al cablear «Marcar cobrada» en el Dashboard (`app/dashboard/bloques/Blo
   Outstanding y «A quién cobrarle» van a dar de menos sin un error.
 
 **Vive en:** `app/crm/actions.ts` (`marcarPagoAction`) · `lib/pagos.ts`. *2026-10-11 Graphics.*
+
+## Cobrar desde la ficha (11/10/2026, la pasarela de pagos)
+
+El modelo de la pasarela vive en [hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «La
+pasarela». Acá, lo que es del CRM.
+
+### `findLeadByContacto` no encuentra lo que `createLead` guarda, y con dos elige en silencio
+
+**Síntoma:** buscar «juan@x.com» no encuentra un lead guardado como «Juan@X.com» (y crearlo choca por
+duplicado), y con dos leads del mismo email se queda con el más viejo avisando sólo en un `console.warn`.
+**Causa:** `primerLeadPor` compara con `eq` sobre el email en minúsculas, pero `createLead` sólo le hace
+`trim`. La mig 0061 afirma que «el código ya normaliza el email de entrada a lowercase», y `createLead` no
+lo hace. **Regla:** quien ata algo a un lead por email cuenta antes (`limit 2`), corta si hay más de uno,
+y le pasa el email ya en minúsculas a `createLead`. **Vive en:** `lib/leads.ts` (`primerLeadPor`,
+`createLead`) · `app/admin/cobros/actions.ts` (`leadDelComprador`).
+
+### Un test protegía la incoherencia que había que arreglar
+
+`tests/crm-ficha-y-selector.test.ts` fijaba con regex «venta o plan» en `/crm/[id]` y «hay cuotas» en el
+modal (`LeadSheet`): dos condiciones distintas para la MISMA tab Pagos. La regla «las dos puertas
+iguales» no se podía cumplir sin romperlo. **Regla:** un guard de FORMA también congela un bug; ahora
+pide la misma variable (`verPagos`, de `lib/muestra-pagos.ts`) en las dos.
+**Vive en:** `tests/crm-ficha-y-selector.test.ts` · `lib/muestra-pagos.ts`.
+
+### El comprobante de pago: cinco copias de un predicado
+
+`p.pagado && !p.comprobante_path` estaba copiado en cinco lugares y marcaba para siempre «Datos sin
+marcar: Comprobante de pago» a todo cobro confirmado por la pasarela. Ahora es UNA función pura
+(`faltaComprobante`, que exime a los que tienen `proveedor`) y los cinco la llaman.
+**Vive en:** `lib/pago-comprobante.ts` · `lib/queries.ts` · `app/crm/actions.ts` · `app/crm/[id]/page.tsx` ·
+`lib/api-mako/areas/crm.helpers.ts`.
+
+### Una cuota se marcaba sin mirar de qué lead era
+
+`registrarCobroDeProveedor` buscaba la cuota a saldar sólo por id: un `pagoId` que viniera de otro lado
+saldaba la cuota de otra persona. Ahora filtra también por el lead, y `crearCobroAction` no acepta un
+`pagoId` del navegador. **Vive en:** `lib/pagos.ts` · `app/crm/[id]/cobros-actions.ts`.
+
+### El `Confirm` de `app/_ui` no entra en la pila de modales (deducido, no probado en el navegador)
+
+Montado adentro de la ficha en modal, Escape cerraría la ficha entera: `LeadSheet` escucha en `window`
+en captura, antes que el listener del Confirm. Se envolvió con `useCapaModal(true, { anidada: true })`
+en la lista de cobros; el «Borrar lead» de `LeadSheet` probablemente tiene el mismo problema.
+**Vive en:** `app/_ui/Confirm.tsx` · `app/crm/[id]/CobrosDelLead.tsx`.
+
+_11/10/2026 — pasarela de pagos; `tests/muestra-pagos.test.ts` y `tests/pago-comprobante.test.ts`
+probados rompiéndolos._

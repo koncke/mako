@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0250 — cobros: la pasarela de pagos (Stripe y Mercado Pago), su rastro y la cuota que salda
+-- 0255 — cobros: la pasarela de pagos (Stripe y Mercado Pago), su rastro y la cuota que salda
 -- =============================================================================
 -- ⚠️ ORDEN DE DESPLIEGUE: ANTES del deploy que trae lib/cobros.ts, app/api/webhooks/stripe,
 -- app/api/webhooks/mercadopago y la tab Pagos de la ficha. El código nuevo LEE `cobros` y las

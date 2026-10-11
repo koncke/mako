@@ -15,12 +15,12 @@ import type { Hito, Parte } from '../_registro/tipos';
 
 export const PARTES: Parte[] = [
   { titulo: 'Conectar pegando la clave (BYOK)', detalle: 'Categoría «Pagos» en /integraciones · MaKo deriva el id de la cuenta y, en Stripe, registra el aviso solo · nada se guarda si el proveedor no acepta la clave', estado: 'hecha' },
-  { titulo: 'El cobro y su link estable', detalle: '`cobros` (mig 0250) · /pagar/<token> abre el checkout vivo: la sesión de Stripe vence y el link no', estado: 'hecha' },
+  { titulo: 'El cobro y su link estable', detalle: '`cobros` (mig 0255) · /pagar/<token> abre el checkout vivo: la sesión de Stripe vence y el link no', estado: 'hecha' },
   { titulo: 'Los avisos de la pasarela', detalle: 'Firma propia de cada una (Stripe no es Svix) · ruteo estricto · se relee el pago al proveedor antes de aplicar · dedup por evento · cron cada 30 min como red', estado: 'hecha' },
   { titulo: 'Alta automática al pagar un plan de MaKo', detalle: 'Sólo si el cobro es del workspace de la plataforma, en positivo · reclamo antes de crear (dos avisos no dan dos altas) · un email que ya es usuario no se toca solo', estado: 'hecha' },
   { titulo: 'Vender un plan desde /admin/cobros', detalle: 'Plan → pasarela (si hay dos) → monto → a quién → link · la lista con el estado del cobro y el de la cuenta', estado: 'hecha' },
   { titulo: 'Cobrar desde la ficha del lead y por la API de MaKo', detalle: 'La tab Pagos de la ficha (las tres puertas) y el área `cobros` de la API', estado: 'sigue' },
-  { titulo: 'El primer cobro real, de punta a punta', detalle: 'Aplicar la migración 0250 y conectar la cuenta de MaKo en /integraciones del workspace de la plataforma', estado: 'cola' },
+  { titulo: 'El primer cobro real, de punta a punta', detalle: 'Aplicar la migración 0255 y conectar la cuenta de MaKo en /integraciones del workspace de la plataforma', estado: 'cola' },
   { titulo: 'Revisar /terminos y /reembolsos', detalle: 'Quedaron en BORRADOR de mínima: plazo de respuesta, garantía del grupal y cancelar sin escribir los decide Martín', estado: 'cola' },
   { titulo: '«Pagos» en el CRON de Automations', detalle: 'Botón propio (grilla 4+3) con aprobado · rechazado · reembolsado · suscripción cancelada, y el aviso al dueño. Fase 2, después del commit de Automations', estado: 'cola' },
 ];

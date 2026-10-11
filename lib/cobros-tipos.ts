@@ -7,7 +7,7 @@
 //
 // ⚠️ TRAMPA DE NOMBRE: un COBRO no es un PAGO. `pagos` (lib/pagos.ts, mig 0014) son las CUOTAS del
 // CRM y `pagoId` es el id de una cuota (así lo rotula el lienzo de Automations). Un cobro es lo que
-// se le pide a una pasarela (tabla `cobros`, mig 0250), y su id es `cobroId`.
+// se le pide a una pasarela (tabla `cobros`, mig 0255), y su id es `cobroId`.
 
 export type Pasarela = 'stripe' | 'mercadopago';
 export const PASARELAS: readonly Pasarela[] = ['stripe', 'mercadopago'];

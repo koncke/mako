@@ -26,7 +26,7 @@ import { emailEnmascarado } from '@/lib/cobros-reglas';
 import { esTokenCobro, NOMBRE_PASARELA, type Cobro } from '@/lib/cobros-tipos';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { nombreDelNegocio, usuarioDelAlta } from '../../acceso';
-import { cambiosRestantes } from '../../cambio-email';
+import { cambiosRestantes, dentroDeLaVentana } from '../../cambio-email';
 import { AccesoMako } from './AccesoMako';
 
 export const dynamic = 'force-dynamic';
@@ -191,7 +191,7 @@ async function AltaDeMako({ c }: { c: Cobro }) {
         token={c.token}
         emailInicial={emailEnmascarado(u.email) ?? ''}
         yaEntro={!!u.ultimo_login}
-        puedeCambiar={!u.ultimo_login && cambiosRestantes(c) > 0}
+        puedeCambiar={!u.ultimo_login && cambiosRestantes(c) > 0 && dentroDeLaVentana(c)}
         contacto={EMAIL_MAKO}
       />
     );

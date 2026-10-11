@@ -5337,3 +5337,22 @@ ahí. (El Dashboard tomó la 0247.)
 `lib/reset-workspace.ts` no nombra `portadas` en su lista de buckets, y además barre por el prefijo
 `<N>/`, mientras portadas usa `ws<N>/`. Las portadas del plan y las imágenes del Dashboard
 (`ws<N>/dashboard/…`) sobreviven a un reset. **Vive en:** `lib/reset-workspace.ts`. · *2026-10-11 Graphics*
+
+## Tres trampas medidas armando la pasarela de pagos (11/10/2026)
+
+- **Next contesta un `HEAD` llamando al `GET`.** Un route handler cuyo `GET` tiene efectos (crear una
+  sesión de Stripe en `/pagar/<token>`) los dispara con el `HEAD` de un bot de vista previa. Regla: ese
+  handler declara su propio `HEAD`. **Vive en:** `node_modules/next/dist/server/route-modules/app-route/helpers/auto-implement-methods.js` ·
+  `app/pagar/[token]/route.ts`.
+- **El test de páginas sin `<Suspense>` no veía las páginas CORTAS.** Envolver `/reembolsos` en un
+  Suspense propio daba verde: el umbral de React (~12.800 bytes) es ACUMULATIVO, y una página corta
+  renderizada sola nunca lo alcanza (en producción el layout ya escribió bytes antes). Ahora el test
+  antepone 16 KB de CSS y el mínimo de caracteres visibles es por página. **Vive en:** `tests/layout-sin-suspense.test.ts`.
+- **Un `npm run typecheck` que sale con 1 y SIN un solo error es la RAM**, no el código: con la máquina
+  justa, el `tsc` hijo muere y `typecheck-lock` devuelve `code ?? 1`. Se espera y se repite; no se busca
+  un error que no existe. **Vive en:** `scripts/typecheck-lock.mjs`.
+- **Con la RAM al límite, un worktree propio y agentes de a tres.** Con 6 sesiones sobre el clon y dos
+  workflows de otras sesiones corriendo, la guardia (`~/.claude/guardia/memoria.mjs`) frenó el workflow;
+  la salida fue un worktree en `C:/dev` (junction a `node_modules`) y agentes sueltos de a tres, con la
+  parte de Automations en una rama aparte rebaseada sobre el commit de la sesión que la estaba
+  reescribiendo.

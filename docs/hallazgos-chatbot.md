@@ -3677,3 +3677,26 @@ dice «las mismas opciones»); el email de MaKo no sale y /integraciones del ws1
 vincular su dominio); al salir del editor la barra pasa a burbuja; «Descartar cambios» sin preguntar si está abierta;
 0 en «por persona» = siempre borrador; Publicar frena aunque esté pausada; el tutorial se abre solo a un admin la
 primera vez que ve un lienzo; Instagram y Messenger sin AI Step en la galería; el evento de antes no se ofrece en el CRON.
+
+## El CRON «Pagos» y el aviso «Entra un pago» (11/10/2026, la pasarela de pagos)
+
+- **«Pagos» es un BOTÓN PROPIO de la primera pantalla** (decisión de Martín, elegida entre dos opciones):
+  siete botones van en una grilla de **4+3**, nunca 3+3+1 (un botón solo en una tercera fila se ve roto).
+  `esClaseDeEventos` reemplazó las tres copias de «instagram || messenger || email» (editor, API).
+  **Vive en:** `lib/disparadores.ts` · `app/automations/EditorDisparadores.tsx` · `tests/editor-disparadores.test.ts`.
+- **Lo emite la pasarela DESPUÉS de asentar el pago en el CRM** (`enrolarPorPago`, `lib/pago-entrante.ts`):
+  con `fecha_primer_pago` ya escrita, `esLeadCliente` da true y el WhatsApp sale solo, no como borrador.
+  Y un lead que entra pagando NO dispara `lead_nuevo` («dejó el formulario sin agendar»).
+- **«Se aprueba un pago» corre UNA vez por lead**: la inscripción es única por (lead, automatización), así
+  que la bienvenida sale con el primer pago y no con cada renovación de una suscripción.
+- **«Entra un pago» es el quinto Evento de MaKo** (`pago_recibido` → `pago-recibido`, `textoDelCodigo`):
+  sale sólo si el negocio agrega «Aviso de pago recibido» (`mako-pago`) de la galería. En una venta de
+  MaKo, el texto dice cómo quedó el alta de la cuenta. `tests/plantillas-viejas.test.ts` cruza el aviso
+  contra su emisor (`lib/cobros.ts`): sin emisor queda rojo — y así quedó en la rama de Automations hasta
+  juntarla con la pasarela.
+- **`disparadores-canales` suma `pagos`**: «conectado» es tener Stripe o Mercado Pago con lo que MaKo
+  deriva (sin el aviso registrado, un pago nunca llegaría). Un test que arma `EstadoCanales` a mano
+  (`tests/editor-disparadores.test.ts`) se rompe en el TYPECHECK, no en la suite: `npm test` no chequea
+  tipos. **Vive en:** `lib/disparadores-canales.ts`.
+
+_11/10/2026 — `tests/disparadores-pagos.test.ts` (6, probado con 3 roturas)._

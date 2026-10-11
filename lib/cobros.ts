@@ -39,6 +39,10 @@ import {
   montoUsdDelCobro, pasaAPagado, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
+import { motivoSinDatos } from './cobros-eventos';
+import { emitirDelCatalogo } from './avisos';
+import { linkResumenLead } from './lead-resumen';
+import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
   cancelarSuscripcionStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, reembolsarStripe,
 } from './stripe-api';
@@ -164,7 +168,13 @@ export async function cobroPendienteDelLead(ws: number, leadId: number): Promise
 async function actualizar(ws: number, id: number, patch: Record<string, unknown>, soloSi?: { estado?: readonly EstadoCobro[] }): Promise<Cobro | null> {
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
-    let q = db.from('cobros').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+    // Todo motivo que se escribe pasa por `motivoSinDatos`: los errores de los proveedores traen pedazos de
+    // claves y emails, y `motivo` lo ve cualquiera de la ficha y lo lee el modelo (revisión del 11/10/2026).
+    const limpio: Record<string, unknown> = { ...patch };
+    for (const k of ['motivo', 'alta_motivo'] as const) {
+      if (typeof limpio[k] === 'string') limpio[k] = motivoSinDatos(limpio[k] as string).slice(0, 300);
+    }
+    let q = db.from('cobros').update({ ...limpio, updated_at: new Date().toISOString() }).eq('id', id);
     if (soloSi?.estado) q = q.in('estado', [...soloSi.estado]);
     const { data, error } = await q.select(COLS_COBRO).maybeSingle();
     if (error) throw new Error(`No pude actualizar el cobro ${id}: ${error.message}`);
@@ -244,6 +254,9 @@ export async function crearCobro(ws: number, p: {
     if (!d.ok) return d;
 
     const montoUsd = montoUsdDelCobro({ monto: d.monto, moneda: d.moneda, montoUsdDeclarado: p.montoUsd, productoMontoUsd: producto?.monto_usd });
+    // Sin valor en USD el pago no podría asentarse en el CRM (pagos.monto_usd es NOT NULL) y el CRON «Pagos»
+    // saldría sin `fecha_primer_pago`: se pide antes de crear el link, no después de cobrar.
+    if (montoUsd == null) return { ok: false, error: `¿Cuánto es en dólares? Hace falta para tus reportes (se cobra en ${d.moneda}).`, faltan: ['montoUsd'] };
     const concepto = (p.concepto ?? '').trim() || producto?.nombre || (altaCapa ? `MaKo · plan ${capaDef(altaCapa).nombre}` : 'Pago');
     const modo = d.pasarela === 'stripe' ? (modoDeClaveStripe(stripe?.key) ?? 'real') : (cuentaMp?.modo ?? 'real');
     const token = nuevoTokenCobro();
@@ -261,7 +274,7 @@ export async function crearCobro(ws: number, p: {
     const checkout = await crearCheckout(cobro, { stripe, mp }, 0);
     if (!checkout.ok) {
       await actualizar(ws, cobro.id, { estado: 'anulado', motivo: checkout.error.slice(0, 300) });
-      return { ok: false, error: `${NOMBRE_PASARELA[d.pasarela]}: ${checkout.error}` };
+      return { ok: false, error: motivoSinDatos(`${NOMBRE_PASARELA[d.pasarela]}: ${checkout.error}`) };
     }
     const listo = await actualizar(ws, cobro.id, {
       proveedor_ref: checkout.ref, url_proveedor: checkout.url, url_vence_at: checkout.venceAt,
@@ -351,7 +364,11 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       if (ganada) { actual = ganada; nuevo = true; }
       else actual = (await getCobro(ws, c.id)) ?? c;
     }
-    if (actual.estado === 'reembolsado') return { nuevo: false, renovacion: false };
+    // Un «aprobado» del pago que se DEVOLVIÓ es una reentrega vieja. Pero la RENOVACIÓN de una suscripción cuyo
+    // primer pago se reembolsó sigue siendo plata que entra (revisión del 11/10/2026: se perdía).
+    if (actual.estado === 'reembolsado' && (!actual.proveedor_pago_id || actual.proveedor_pago_id === p.proveedorPagoId)) {
+      return { nuevo: false, renovacion: false };
+    }
     if (!actual.proveedor_suscripcion_id && p.suscripcionId) {
       actual = (await actualizar(ws, c.id, { proveedor_suscripcion_id: p.suscripcionId, suscripcion_estado: 'activa' })) ?? actual;
     }
@@ -361,6 +378,7 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
 
     // 2. El CRM: la cuota. Idempotente por (workspace, proveedor, proveedor_pago_id).
     let cuotaNueva = false;
+    let cuotaAsentada = false;
     if (actual.lead_id) {
       const montoUsd = renovacion
         ? montoUsdDeLaCuota({ montoCuota: p.monto, monedaCuota: p.moneda ?? actual.moneda, cobroMontoUsd: actual.monto_usd })
@@ -377,6 +395,7 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
             montoOriginal: renovacion && p.monto ? p.monto : actual.monto, moneda: (renovacion && p.moneda) || actual.moneda, fechaPago: fecha,
           });
           cuotaNueva = !r.yaEstaba;
+          cuotaAsentada = true;
         } catch (e) {
           // Que falle el CRM no deshace el cobro (la plata entró): queda escrito y el próximo aviso
           // o el cron lo completan, porque este paso es idempotente.
@@ -402,8 +421,67 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     // 5. La plataforma: el alta automática de MaKo (decisión de Martín, 11/10/2026).
     await altaSiCorresponde(actual);
 
+    // 6. Automations, DESPUÉS del CRM (con `fecha_primer_pago` ya escrita, el WhatsApp al lead sale solo y no
+    //    como borrador, y la condición «Pagó» da bien): el aviso «Entró un pago» al grupo del equipo (un Evento
+    //    de MaKo: sale sólo si el negocio agregó «Aviso de pago recibido» de la galería) y el CRON «Pagos» del
+    //    lead. ⚠️ Atado a que la cuota ESTÉ, no a que ESTE intento la haya escrito (revisión del 11/10/2026): si
+    //    un intento la insertó y se cortó antes de avisar, el reintento la encuentra «ya estaba» y antes no
+    //    avisaba nunca. Repetir es seguro: el aviso deduplica por el pago del proveedor (3 días, lo que reintenta
+    //    Stripe; un evento ya PROCESADO no vuelve a entrar por `pasarela_eventos`) y la inscripción es única.
+    if (actual.lead_id && (nuevo || cuotaAsentada)) {
+      await avisarPagoRecibido(actual, { proveedorPagoId: p.proveedorPagoId, renovacion, monto: renovacion && p.monto ? p.monto : actual.monto, moneda: (renovacion && p.moneda) || actual.moneda });
+      await alCron(actual, 'aprobado');
+    }
+
     return { nuevo, renovacion };
   });
+}
+
+/**
+ * El aviso «Entró un pago» (pago-recibido, un Evento de MaKo: `pago_recibido`). El texto lo arma el código
+ * (`textoDelCodigo` en el catálogo). Dedup por el pago del proveedor: Stripe y Mercado Pago reentregan.
+ * Nunca tumba la aplicación del pago: la plata ya está asentada.
+ */
+async function avisarPagoRecibido(c: Cobro, p: { proveedorPagoId: string; renovacion: boolean; monto: number; moneda: string }): Promise<void> {
+  if (!c.lead_id) return;
+  try {
+    const lead = await getLead(c.lead_id);
+    const nombre = lead?.nombre || c.nombre || 'Un cliente';
+    const prueba = c.modo === 'prueba' ? ' — es un pago de PRUEBA' : '';
+    const que = p.renovacion ? `renovó *${c.concepto}*` : `pagó *${formatoMonto(p.monto, p.moneda)}*`;
+    const detalle = p.renovacion ? ` (${formatoMonto(p.monto, p.moneda)})` : ` (${c.concepto})`;
+    const cuenta = await lineaDelAlta(c);
+    await emitirDelCatalogo('pago-recibido', {
+      ws: c.workspace_id,
+      dedupTtlMin: 4320,
+      dedupKey: `${c.proveedor}:${p.proveedorPagoId}`,
+      texto: `💰 *Entró un pago*: ${nombre} ${que} por ${NOMBRE_PASARELA[c.proveedor]}${detalle}${prueba}.${cuenta}\n\n👉 Mira su ficha:\n${linkResumenLead(c.lead_id, c.workspace_id)}\n\n— MaKo`,
+      lead: { id: c.lead_id, nombre },
+    });
+  } catch (e) {
+    console.error(`[cobros] no pude avisar el pago del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+  }
+}
+
+/** En una venta de MaKo, cómo quedó el alta (para el aviso al super admin). */
+async function lineaDelAlta(c: Cobro): Promise<string> {
+  if (!c.alta_capa) return '';
+  const fresco = await getCobro(c.workspace_id, c.id).catch(() => null);
+  const estado = fresco?.alta_estado ?? c.alta_estado;
+  if (estado === 'hecha') return ` Su cuenta de MaKo (plan ${capaDef(c.alta_capa).nombre}) ya está creada y le llegó el acceso.`;
+  if (estado === 'ya_tenia_cuenta') return ' Ese email ya tenía una cuenta de MaKo: el plan NO se cambió solo, revísalo en /admin/cobros.';
+  if (estado === 'error') return ' ⚠️ El alta de su cuenta falló: revísalo en /admin/cobros.';
+  return '';
+}
+
+/** El CRON «Pagos» del lead (lib/pago-entrante.ts). Nunca tumba lo que ya se asentó. */
+async function alCron(c: Cobro, subtipo: SubtipoPago): Promise<void> {
+  if (!c.lead_id) return;
+  try {
+    await enrolarPorPago(c.lead_id, subtipo);
+  } catch (e) {
+    console.error(`[cobros] no pude disparar el CRON «Pagos» (${subtipo}) del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+  }
 }
 
 async function ganarLead(c: Cobro, autor: string): Promise<void> {
@@ -491,12 +569,16 @@ export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void
   await runWithWorkspace(c.workspace_id, async () => {
     if (c.estado === 'pendiente') {
       const r = await actualizar(c.workspace_id, c.id, { estado: 'fallido', motivo: motivo.slice(0, 300) }, { estado: ['pendiente'] });
-      if (r && c.lead_id) await logLeadEvent(c.lead_id, 'Pago rechazado', `${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
+      if (r && c.lead_id) {
+        await logLeadEvent(c.lead_id, 'Pago rechazado', `${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
+        await alCron(c, 'rechazado');
+      }
       return;
     }
     if (c.estado === 'pagado' && c.tipo === 'suscripcion' && c.lead_id) {
       await actualizar(c.workspace_id, c.id, { motivo: `Falló el cobro de la renovación: ${motivo}`.slice(0, 300) });
       await logLeadEvent(c.lead_id, 'Pago rechazado', `Renovación de ${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
+      await alCron(c, 'rechazado');
     }
   });
 }
@@ -523,6 +605,7 @@ export async function aplicarReembolso(c: Cobro, p: { proveedorPagoId: string | 
     }
     if (cambio && c.lead_id) {
       await logLeadEvent(c.lead_id, 'Pago reembolsado', `${esElPrimero ? '' : 'Renovación de '}${c.concepto}: devuelto por ${NOMBRE_PASARELA[c.proveedor]}`, NOMBRE_PASARELA[c.proveedor]);
+      await alCron(c, 'reembolsado');
     }
   });
 }
@@ -545,6 +628,7 @@ export async function aplicarSuscripcionCancelada(c: Cobro): Promise<void> {
       if (error) console.error(`[cobros] no pude cerrar la suscripción del lead ${lead.id}: ${error.message}`);
     }
     await logLeadEvent(c.lead_id, 'Suscripción cancelada', `${c.concepto}: se dejó de cobrar en ${NOMBRE_PASARELA[c.proveedor]}`, NOMBRE_PASARELA[c.proveedor]);
+    await alCron(c, 'suscripcion_cancelada');
   });
 }
 
@@ -602,17 +686,19 @@ export async function reembolsarCobro(ws: number, id: number, autor: string, mot
 export async function cancelarSuscripcionCobro(ws: number, id: number, autor: string): Promise<{ ok: boolean; resumen: string }> {
   const c = await getCobro(ws, id);
   if (!c) return { ok: false, resumen: 'No encontré ese cobro.' };
-  if (c.tipo !== 'suscripcion' || !c.proveedor_suscripcion_id) return { ok: false, resumen: 'Ese cobro no es una suscripción activa.' };
+  // En MP el id del preapproval ES el `proveedor_ref` del cobro: a veces el aviso no llena `proveedor_suscripcion_id`.
+  const susId = c.proveedor_suscripcion_id ?? (c.proveedor === 'mercadopago' && c.tipo === 'suscripcion' ? c.proveedor_ref : null);
+  if (c.tipo !== 'suscripcion' || !susId) return { ok: false, resumen: 'Ese cobro no es una suscripción activa.' };
   if (c.suscripcion_estado === 'cancelada') return { ok: false, resumen: 'Esa suscripción ya estaba cancelada.' };
   if (c.proveedor === 'stripe') {
     const stripe = await credStripe(ws);
     if (!stripe) return { ok: false, resumen: 'Stripe no está conectado.' };
-    const r = await cancelarSuscripcionStripe(stripe.key, c.proveedor_suscripcion_id, idemBaja(c.id));
+    const r = await cancelarSuscripcionStripe(stripe.key, susId, idemBaja(c.id));
     if (!r.ok) return { ok: false, resumen: `Stripe no canceló la suscripción: ${r.error}` };
   } else {
     const mp = await credMp(ws);
     if (!mp) return { ok: false, resumen: 'Mercado Pago no está conectado.' };
-    const r = await cancelarSuscripcionMp(mp.token, c.proveedor_suscripcion_id, idemBaja(c.id));
+    const r = await cancelarSuscripcionMp(mp.token, susId, idemBaja(c.id));
     if (!r.ok) return { ok: false, resumen: `Mercado Pago no canceló la suscripción: ${r.error}` };
   }
   await aplicarSuscripcionCancelada(c);
@@ -626,30 +712,62 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
 
 /**
  * Un aviso se puede perder (un deploy, un 5xx de nuestro lado que el proveedor dejó de reintentar), y
- * los pagos de PRUEBA de Mercado Pago no mandan aviso a la notification_url. El cron relee los cobros
- * pendientes de los últimos días y aplica lo que la pasarela ya confirmó, más las altas que quedaron
- * en error. Tope por corrida: 50.
+ * los pagos de PRUEBA de Mercado Pago no mandan aviso a la notification_url. El cron hace dos cosas:
+ *   · relee al proveedor los cobros PENDIENTES con movimiento en los últimos días y aplica lo que la
+ *     pasarela ya confirmó. La ventana cuenta desde `updated_at`, no desde que se creó: la preferencia de
+ *     MP no vence y el link de Stripe crea otra sesión al abrirse (revisión del 11/10/2026);
+ *   · REPARA los cobros «pagados a medias» (revisión del 11/10/2026, la grave): el cobro pasa a pagado
+ *     primero y después se asienta la cuota, se gana el lead y se da el alta. Si eso se corta después de
+ *     que el proveedor ya recibió su 200 (el resto iba en `after()`), nadie lo reintentaba. Un pagado sin su
+ *     cuota en el CRM, o con el alta sin terminar, vuelve a pasar por `aplicarPagoAprobado`, que es
+ *     idempotente paso por paso.
+ * Tope por corrida: 50 de cada tipo.
  */
 export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}): Promise<{ revisados: number; cambiados: number; errores: number }> {
-  const desde = new Date(Date.now() - (opts.dias ?? 3) * 86_400_000).toISOString();
+  const desde = new Date(Date.now() - (opts.dias ?? 14) * 86_400_000).toISOString();
   const db = getSupabaseServer();
-  const { data, error } = await db.from('cobros').select(COLS_COBRO)
-    .eq('workspace_id', ws)
-    // También las altas en 'pendiente': una que se murió a la mitad (un `after()` cortado) queda ahí, y
-    // altaSiCorresponde sólo la vuelve a reclamar si lleva más de 10 minutos.
-    .or(`and(estado.in.(pendiente,fallido),created_at.gte.${desde}),and(estado.eq.pagado,alta_estado.in.(error,pendiente))`)
-    .order('created_at', { ascending: false }).limit(50);
-  if (error) throw new Error(`No pude leer los cobros a reconciliar: ${error.message}`);
-  const cobros = (data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
+  const [pend, pag] = await Promise.all([
+    db.from('cobros').select(COLS_COBRO).eq('workspace_id', ws)
+      .in('estado', ['pendiente', 'fallido']).gte('updated_at', desde)
+      .order('updated_at', { ascending: false }).limit(50),
+    db.from('cobros').select(COLS_COBRO).eq('workspace_id', ws).eq('estado', 'pagado')
+      // Los pagados recientes (para ver si les falta la cuota) y las altas sin terminar, de cuando sea.
+      .or(`pagado_at.gte.${desde},alta_estado.in.(error,pendiente),and(alta_capa.not.is.null,alta_estado.is.null)`)
+      .order('pagado_at', { ascending: false }).limit(50),
+  ]);
+  if (pend.error) throw new Error(`No pude leer los cobros pendientes a reconciliar: ${pend.error.message}`);
+  if (pag.error) throw new Error(`No pude leer los cobros pagados a reparar: ${pag.error.message}`);
+  const pendientes = (pend.data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
+  const pagados = (pag.data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
+
+  // Qué pagados ya tienen su cuota en el CRM (una sola lectura).
+  const conCuota = new Set<number>();
+  if (pagados.length) {
+    const { data, error } = await db.from('pagos').select('cobro_id').eq('workspace_id', ws).in('cobro_id', pagados.map((c) => c.id));
+    if (error) throw new Error(`No pude leer las cuotas de los cobros: ${error.message}`);
+    for (const r of data ?? []) conCuota.add(Number((r as { cobro_id: number }).cobro_id));
+  }
+
   let cambiados = 0;
   let errores = 0;
   const [stripe, mp] = await Promise.all([credStripe(ws), credMp(ws)]);
-  for (const c of cobros) {
+
+  for (const c of pagados) {
+    const faltaCuota = !!c.lead_id && c.monto_usd != null && !!c.proveedor_pago_id && !conCuota.has(c.id);
+    const faltaAlta = !!c.alta_capa && c.alta_estado !== 'hecha' && c.alta_estado !== 'ya_tenia_cuenta';
+    if (!faltaCuota && !faltaAlta) continue;
     try {
-      if (c.estado === 'pagado') {
-        await runWithWorkspace(ws, () => altaSiCorresponde(c));
-        continue;
-      }
+      if (c.proveedor_pago_id) await aplicarPagoAprobado(c, { proveedorPagoId: c.proveedor_pago_id });
+      else await runWithWorkspace(ws, () => altaSiCorresponde(c));
+      cambiados++;
+    } catch (e) {
+      errores++;
+      console.error(`[cobros] reparar cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  for (const c of pendientes) {
+    try {
       if (c.proveedor === 'stripe' && stripe && c.proveedor_ref) {
         const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
         if (s.ok && s.estado === 'complete' && s.pagoEstado === 'paid' && s.referencia === c.token) {
@@ -676,7 +794,7 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
       console.error(`[cobros] reconciliar cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
     }
   }
-  return { revisados: cobros.length, cambiados, errores };
+  return { revisados: pendientes.length + pagados.length, cambiados, errores };
 }
 
 /** Los workspaces con alguna pasarela conectada (para el cron). Lee la tabla de ruteo, que es en claro. */

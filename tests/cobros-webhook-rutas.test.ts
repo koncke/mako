@@ -97,7 +97,9 @@ test('mercadopago: firma si hay secreto y viene x-signature (sólo el formato nu
   assert.match(p, /if \(secreto && firma && n\.formato === 'webhook'\) \{/, 'un IPN no se puede validar (lo dice MP): pedirle firma lo rechazaría para siempre');
   assert.match(p, /verificarFirmaMercadoPago\(\{ dataId: q\.get\('data\.id'\), requestId: req\.headers\.get\('x-request-id'\), header: firma \}, secreto\)/, 'el data.id del manifiesto sale del QUERY');
   const firma = p.slice(p.indexOf("if (secreto && firma && n.formato === 'webhook') {"), p.indexOf('if (ws == null) {'));
-  assert.match(firma, /status: 401/, 'una firma inválida es 401');
+  // Una firma que no coincide NO se rechaza (revisión del 11/10/2026): la seguridad es la relectura, y un 401
+  // dejaba a un negocio con el secreto renovado rebotando todo para siempre (MP reintenta sin máximo).
+  assert.doesNotMatch(firma, /status: 401/, 'una firma que no coincide se anota y se relee igual: un 401 rebota para siempre');
   antes(p, 'verificarFirmaMercadoPago(', 'if (ws == null) {', 'la firma va antes de «sin workspace»');
   antes(p, 'releerNotificacionMp(', 'reclamarEvento(', 'la clave de MP lleva el estado resultante: sale de releer');
   antes(p, 'reclamarEvento(', 'aplicarNotificacionMp(', 'se aplica antes de reclamar: un reintento de MP aplicaría dos veces');

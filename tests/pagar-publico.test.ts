@@ -33,7 +33,7 @@ const LISTO = 'app/pagar/[token]/listo/page.tsx';
 const EMAIL = 'app/api/pagar/email/route.ts';
 const TODAS = [PAGAR, LISTO, EMAIL, 'app/pagar/[token]/listo/AccesoMako.tsx', 'app/pagar/acceso.ts', 'app/pagar/cambio-email.ts'];
 
-const COBRO_OK: CobroParaCambio = { estado: 'pagado', alta_estado: 'hecha', alta_ws: 42, alta_email_cambios: 0 };
+const COBRO_OK: CobroParaCambio = { estado: 'pagado', alta_estado: 'hecha', alta_ws: 42, alta_email_cambios: 0, pagado_at: new Date(Date.now() - 3_600_000).toISOString() };
 const USUARIO_OK: UsuarioDelAlta = { id: 7, email: 'juan@empresa.com', ultimo_login: null };
 
 test('las cuatro condiciones del cambio de email, una por una', () => {
@@ -58,6 +58,13 @@ test('las cuatro condiciones del cambio de email, una por una', () => {
   assert.equal(motivoParaNoCambiar({ ...COBRO_OK, alta_email_cambios: 2 }, USUARIO_OK), null, 'el tercero todavía se puede');
   const tope = motivoParaNoCambiar({ ...COBRO_OK, alta_email_cambios: 3 }, USUARIO_OK);
   assert.ok(tope && tope.status === 429, 'el cuarto no');
+
+  // 5. Dentro de las 48 h desde el pago (revisión adversarial del 11/10/2026: el link se reenvía y no
+  //    vence). Roto a propósito (la ventana de 48 h sin chequear): 1 fail en este test; restaurado: pasa.
+  const viejo = motivoParaNoCambiar({ ...COBRO_OK, pagado_at: new Date(Date.now() - 49 * 3_600_000).toISOString() }, USUARIO_OK);
+  assert.ok(viejo && viejo.status === 409, 'pasadas las 48 h, el link ya no cambia el acceso');
+  const sinFecha = motivoParaNoCambiar({ ...COBRO_OK, pagado_at: null }, USUARIO_OK);
+  assert.ok(sinFecha && sinFecha.status === 409, 'sin fecha de pago, no (fail-closed)');
   assert.equal(cambiosRestantes({ alta_email_cambios: 3 }), 0);
 
   // Sin la cuenta del alta (dos candidatas o ninguna), no se elige a quién cambiarle el email.

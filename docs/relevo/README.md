@@ -27,6 +27,7 @@ El flujo, entonces: Martín abre un chat con el título de siempre y pega **una 
 | Onboarding | `Leé docs/relevo/onboarding.md y seguimos desde ahí.` |
 | Estrategia de ventas MaKo (tab Strategy y referidos) | `Leé docs/relevo/vender-mako-estrategia.md y seguimos desde ahí.` |
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
+| Integración Mercado Pago y Stripe (la pasarela de pagos) | `Leé docs/relevo/pagos.md y seguimos desde ahí.` |
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |
 | Ads Manager | `Leé docs/relevo/ads-manager.md y seguimos desde ahí.` |
 | Plan / Perro Guardián | `Leé docs/relevo/plan-perro-guardian.md y seguimos desde ahí.` |

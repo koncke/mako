@@ -1,5 +1,5 @@
 // =============================================================================
-// El contrato de datos de la pasarela: la migración 0250 y las listas que el compilador no ve
+// El contrato de datos de la pasarela: la migración 0255 y las listas que el compilador no ve
 // =============================================================================
 // Nada de esto da error en el momento: una tabla sin RLS se lee con la anon key, un `default` en
 // `workspace_id` le atribuye al ws1 (Mauricio, un CLIENTE) lo de otro, una tabla fuera de
@@ -29,7 +29,7 @@ const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 
 /** La migración sin comentarios SQL (la cabecera explica el `default` que NO lleva, y lo nombra). */
-const SQL = leer('supabase/migrations/0250_cobros_pasarela.sql').replace(/--.*$/gm, '');
+const SQL = leer('supabase/migrations/0255_cobros_pasarela.sql').replace(/--.*$/gm, '');
 
 /** El `create table … ( … );` de una tabla. */
 function tabla(nombre: string): string {
@@ -88,4 +88,17 @@ test('la cuota que confirma la pasarela se escribe con getTenantDb, nunca con el
     assert.match(cuerpo, /const db = await getTenantDb\(\);/, `${f} sin getTenantDb`);
     assert.doesNotMatch(cuerpo, /getSupabaseServer/, `${f}: pagos.workspace_id tiene default 1 — el cobro de otro caería en el CRM de Mauricio`);
   }
+});
+
+// Revisión adversarial de dinero (11/10/2026). Roto a propósito, de a uno: el reembolso que deja la fecha
+// esperada → 5 pass / 1 fail; sin casar la cuota impaga del mismo monto → 5 / 1. Restaurado: 6 / 0.
+test('lib/pagos.ts: un reembolso no deja DEUDA y un pago salda la cuota impaga que ya existía', () => {
+  const pagos = readFileSync(join(import.meta.dirname, '../lib/pagos.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const desm = pagos.slice(pagos.indexOf('export async function desmarcarCobroDeProveedor('));
+  assert.match(desm, /update\(\{ pagado: false, fecha_pago: null, fecha_esperada: null \}\)/, 'la cuota devuelta volvería a cobranza y al Outstanding');
+  const reg = pagos.slice(pagos.indexOf('export async function registrarCobroDeProveedor('), pagos.indexOf('export async function desmarcarCobroDeProveedor('));
+  assert.match(reg, /!q\.pagado && !q\.proveedor_pago_id && q\.fecha_esperada && Math\.abs\(Number\(q\.monto_usd\) - p\.montoUsd\) < 0\.01/, 'el pago no casa la cuota impaga del plan: doble cash');
+  const iCasa = reg.indexOf('const casa = impagas[0];');
+  assert.ok(iCasa > 0 && iCasa < reg.indexOf('for (let intento = 0; intento < 2; intento++)'), 'se casa ANTES de insertar una cuota nueva');
+  assert.match(reg, /if \(casa\) \{[\s\S]*?await marcarPago\(casa\.id, true, p\.fechaPago\)/, 'la cuota casada se marca pagada (y corta la cobranza)');
 });

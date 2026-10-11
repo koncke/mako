@@ -1,7 +1,7 @@
 // =============================================================================
 // pasarela-eventos — la deduplicación y el rastro de los avisos de Stripe y Mercado Pago
 // =============================================================================
-// La tabla `pasarela_eventos` (mig 0250, molde: `email_entrantes` de la 0245) es DOS cosas:
+// La tabla `pasarela_eventos` (mig 0255, molde: `email_entrantes` de la 0245) es DOS cosas:
 //   · LA DEDUPLICACIÓN: (proveedor, evento_id) es único. Stripe y Mercado Pago REINTENTAN y mandan
 //     el mismo aviso más de una vez; el segundo choca acá en vez de volver a tocar el CRM. Se reclama
 //     ANTES de aplicar.
@@ -31,7 +31,7 @@ const LOG = '[pasarela-eventos]';
 /** Cuánto tiene que estar quieto un `procesando` para darlo por muerto (maxDuration de las rutas: 60 s). */
 export const MIN_PROCESANDO_VIEJO = 10;
 
-/** El código de PostgREST / Postgres de una tabla que no existe (la 0250 sin aplicar). */
+/** El código de PostgREST / Postgres de una tabla que no existe (la 0255 sin aplicar). */
 export const esTablaQueFalta = (code: unknown): boolean => code === '42P01' || code === 'PGRST205';
 
 type ErrorDeBase = { message: string; code?: string; details?: string | null; hint?: string | null };
@@ -43,7 +43,7 @@ export type EventoPasarela = { proveedor: Pasarela; eventoId: string; ws: number
 
 /**
  * `nuevo`: hay que procesarlo (es la primera vez, o se reclamó un `error` o un `procesando` muerto).
- * `duplicado`: ya se procesó o se está procesando. `sin_tabla`: falta la 0250, y sin fila no hay
+ * `duplicado`: ya se procesó o se está procesando. `sin_tabla`: falta la 0255, y sin fila no hay
  * cómo deduplicar. `{ error }`: la base no contestó; lo clasifica quien llama (503 si es transitorio).
  */
 export type Reclamo = 'nuevo' | 'duplicado' | 'sin_tabla' | { error: Error };

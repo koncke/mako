@@ -171,7 +171,7 @@ const TENANT_TABLES = new Set<string>([
   'objectives', 'kpis', 'kpi_registros',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_campaign_drafts', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros',
-  // Los cobros de la pasarela (Stripe / Mercado Pago, mig 0250). Sin esta línea getTenantDb() es
+  // Los cobros de la pasarela (Stripe / Mercado Pago, mig 0255). Sin esta línea getTenantDb() es
   // PASSTHROUGH y la tab Pagos de una ficha listaría los cobros de TODOS los negocios. Las rutas
   // públicas (/pagar/<token>) y los webhooks leen con service role y ws explícito, a propósito.
   'cobros',

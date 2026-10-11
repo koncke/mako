@@ -15,6 +15,12 @@
 //   3. El usuario NUNCA ENTRÓ (`ultimo_login` null): una vez que entró, la cuenta ya es de alguien,
 //      y un link reenviado no puede llevársela.
 //   4. Menos de MAX_CAMBIOS_EMAIL cambios: el token no es un buscador de emails ilimitado.
+//   5. Dentro de las VENTANA_CAMBIO_HORAS desde el pago (revisión adversarial del 11/10/2026): el link se
+//      reenvía (el grupo de WhatsApp, un {{link_pago}}, el historial del navegador) y no vence. Sin
+//      ventana, un admin que nunca entró —porque soporte le creó otro usuario a mano— quedaba para
+//      siempre a un POST de que cualquiera con el link lo apuntara a su Gmail y entrara como admin.
+//      Lo que queda abierto (que quien PAGA no sea el dueño de la cuenta) se cierra con un código al
+//      email actual: docs/hallazgos-planes-y-cobro.md, «Lo que quedó SIN hacer».
 //
 // ⚠️ SIN `server-only` a propósito: lo ejecuta el test. La base la lee la ruta.
 
@@ -23,6 +29,7 @@ import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import type { Cobro } from '@/lib/cobros-tipos';
 
 export const MAX_CAMBIOS_EMAIL = 3;
+export const VENTANA_CAMBIO_HORAS = 48;
 
 /**
  * Lo que se contesta si el token no existe Y si el cobro no habilita el cambio: la MISMA respuesta,
@@ -34,7 +41,7 @@ export const RESPUESTA_GENERICA = {
   error: `Desde este link no se puede cambiar el email. Escríbenos a ${EMAIL_MAKO} y lo cambiamos.`,
 } as const;
 
-export type CobroParaCambio = Pick<Cobro, 'estado' | 'alta_estado' | 'alta_ws' | 'alta_email_cambios'>;
+export type CobroParaCambio = Pick<Cobro, 'estado' | 'alta_estado' | 'alta_ws' | 'alta_email_cambios' | 'pagado_at'>;
 export type UsuarioDelAlta = { id: number; email: string; ultimo_login: string | null };
 export type NoSePuede = { status: number; error: string };
 
@@ -50,8 +57,17 @@ export const cambiosRestantes = (c: Pick<Cobro, 'alta_email_cambios'>): number =
  * `null` = se puede cambiar. Si no, por qué, con lo que tiene que hacer la persona. El orden importa:
  * lo que no dice nada de la cuenta (genérico) va primero.
  */
-export function motivoParaNoCambiar(c: CobroParaCambio | null, u: UsuarioDelAlta | null): NoSePuede | null {
+/** ¿Sigue abierta la ventana del cambio? Sin fecha de pago, no (fail-closed). */
+export function dentroDeLaVentana(c: Pick<Cobro, 'pagado_at'>, ahoraMs: number = Date.now()): boolean {
+  const t = Date.parse(c.pagado_at ?? '');
+  return Number.isFinite(t) && ahoraMs - t <= VENTANA_CAMBIO_HORAS * 3_600_000;
+}
+
+export function motivoParaNoCambiar(c: CobroParaCambio | null, u: UsuarioDelAlta | null, ahoraMs: number = Date.now()): NoSePuede | null {
   if (!esAltaHecha(c)) return RESPUESTA_GENERICA;
+  if (!dentroDeLaVentana(c!, ahoraMs)) {
+    return { status: 409, error: `El email de acceso se cambia desde aquí sólo en las primeras ${VENTANA_CAMBIO_HORAS} horas. Escríbenos a ${EMAIL_MAKO} y lo cambiamos.` };
+  }
   if (!u) return { status: 409, error: `No encontramos la cuenta de este pago. Escríbenos a ${EMAIL_MAKO} y lo resolvemos.` };
   if (u.ultimo_login) {
     return { status: 409, error: `Ya entraste a MaKo con esta cuenta, así que el email no se cambia desde aquí. Si necesitas otro, escríbenos a ${EMAIL_MAKO}.` };

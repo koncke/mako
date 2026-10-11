@@ -2097,6 +2097,29 @@ del campo contesta **«que pongo ACA»**, que es la pregunta de quien tiene el c
 adentro del input. Si los cuatro campos abren el mismo texto de 20 pasos, tres de esos
 cuatro estan contestando otra cosa.
 
+# Un cobro pasa por `lib/cobros.ts`, y la clave de una pasarela se lee con `credDelCliente`
+
+La pasarela de pagos (Stripe y Mercado Pago, 11/10/2026) tiene UN escritor de lo que importa: `lib/cobros.ts`
+crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve o cancela. El contrato está en
+[docs/diseno-pasarela-pagos.md](docs/diseno-pasarela-pagos.md); lo que costó, en
+[docs/hallazgos-planes-y-cobro.md](docs/hallazgos-planes-y-cobro.md) → «La pasarela». Lo que gobierna código nuevo:
+
+- **Un COBRO no es un PAGO.** `pagos` (lib/pagos.ts) son las CUOTAS del CRM y `pagoId` es una cuota; lo que se le
+  pide a una pasarela es un `cobro` (`cobroId`). Un camino nuevo que cobre algo crea un cobro con `crearCobro`, no
+  escribe `pagos` ni `estado_lead` a mano: la cuota la asienta `registrarCobroDeProveedor` (idempotente por el pago
+  del proveedor) y el lead se gana por `setPipelineStage` + `etapaDeGanado`. Si no, el CRM automático le escribe
+  «no agendaste» al que pagó.
+- **La clave de una pasarela se lee con `credDelCliente(clave, ws)`**, nunca `credWs`/`envCred`/`process.env`: esos
+  caen al ws1 (Mauricio, un cliente). La de MaKo es la del workspace `wsSuperAdmin()`, conectada desde
+  /integraciones como la de cualquiera. Y **ninguna clave `STRIPE_*`/`MERCADOPAGO_*` va al entorno de Vercel**
+  (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts).
+- **Lo que confirma la pasarela se RELEE al proveedor** con la clave del workspace ruteado antes de aplicarse: el
+  cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
+- **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
+  cliente que vende con su Stripe no crea inquilinos.
+- **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
+  valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada.
+
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
 `soloPlataforma`, `oculto`, `esSuper`: los flags que deciden qué se dibuja no protegen

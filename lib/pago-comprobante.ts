@@ -12,7 +12,7 @@
 // lead que pagaba por link quedaba para siempre en «Datos sin marcar: Comprobante de pago» — un
 // pendiente que nadie puede cerrar, porque no hay comprobante que subir.
 //
-// Los `select` que alimentan esto tienen que traer `proveedor` (mig 0250): sin la columna, el
+// Los `select` que alimentan esto tienen que traer `proveedor` (mig 0255): sin la columna, el
 // predicado vuelve a pedirle el comprobante a todo cobro de pasarela, sin ningún error.
 
 export type CuotaConComprobante = {

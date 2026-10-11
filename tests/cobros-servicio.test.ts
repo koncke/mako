@@ -136,3 +136,16 @@ test('reconciliar: suscripción → la FACTURA, pago único → el payment inten
   // Y Mercado Pago sólo aplica lo que cobró la cuenta del negocio, para ESTE cobro.
   assert.match(rc, /x\.estado === 'approved' && x\.cobradorId === mp\.userId && x\.referencia === c\.token/);
 });
+
+// Revisión del 11/10/2026: el cron REPARA los cobros «pagados a medias» (el cobro pasa a pagado antes de
+// asentar la cuota; si se corta después del 200 al proveedor, nadie lo reintentaba). Roto a propósito
+// (el recorrido de los pagados que no repara a nadie): 6 pass / 1 fail; restaurado: 7 / 0.
+test('reconciliar: un pagado sin su cuota en el CRM o con el alta sin terminar vuelve a pasar por aplicarPagoAprobado', () => {
+  const rc = bloque('export async function reconciliarCobros(');
+  assert.match(rc, /\.eq\('estado', 'pagado'\)/, 'el cron no mira los pagados');
+  assert.match(rc, /\.in\('cobro_id', pagados\.map/, 'no cruza los pagados contra sus cuotas');
+  assert.match(rc, /const faltaCuota = [^;]*!conCuota\.has\(c\.id\)/);
+  assert.match(rc, /if \(!faltaCuota && !faltaAlta\) continue;/);
+  assert.match(rc, /if \(c\.proveedor_pago_id\) await aplicarPagoAprobado\(c, \{ proveedorPagoId: c\.proveedor_pago_id \}\)/);
+  assert.match(rc, /\.gte\('updated_at', desde\)/, 'la ventana de los pendientes cuenta desde el último movimiento, no desde que se creó');
+});

@@ -45,7 +45,8 @@ async function llamar(
       cache: 'no-store', signal: AbortSignal.timeout(15_000),
     });
   } catch (e) {
-    return { ok: false, status: 0, error: `Mercado Pago no contestó (${e instanceof Error ? e.message : String(e)})` };
+    // Sin `e.message`: con un header inválido fetch tira con el TOKEN entero adentro (ver lib/stripe-api.ts).
+    return { ok: false, status: 0, error: `Mercado Pago no contestó (${e instanceof Error ? e.name : 'error de red'})` };
   }
   let crudo: unknown = null;
   try { crudo = await r.json(); } catch { /* respuesta no-JSON */ }

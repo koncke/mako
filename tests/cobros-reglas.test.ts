@@ -112,11 +112,13 @@ test('decidirCobro: la suscripción de MP pide el email, y el monto tiene tope',
 
 // ── El valor en dólares ───────────────────────────────────────────────────────
 
-test('montoUsdDelCobro: USD es el monto; otra moneda, lo declarado o el producto; si no, null (sin tasa)', () => {
+test('montoUsdDelCobro: USD es el monto; otra moneda, SÓLO lo declarado; si no, null (sin tasa ni precio del producto)', () => {
   assert.equal(montoUsdDelCobro({ monto: 47, moneda: 'USD' }), 47);
   assert.equal(montoUsdDelCobro({ monto: 47.004, moneda: 'usd' }), 47);
   assert.equal(montoUsdDelCobro({ monto: 49900, moneda: 'ARS', montoUsdDeclarado: 47 }), 47);
-  assert.equal(montoUsdDelCobro({ monto: 49900, moneda: 'ARS', productoMontoUsd: 50 }), 50);
+  // Revisión del 11/10/2026: el precio del producto NO vale en otra moneda (una seña de ARS 50.000 sobre un
+  // programa de US$ 2.000 sumaba US$ 2.000 al cash). Se ofrece en pantalla; lo confirma la persona.
+  assert.equal(montoUsdDelCobro({ monto: 49900, moneda: 'ARS', productoMontoUsd: 50 }), null);
   // Lo declarado gana sobre el producto (quien armó el link sabe lo que cobró).
   assert.equal(montoUsdDelCobro({ monto: 49900, moneda: 'ARS', montoUsdDeclarado: 45, productoMontoUsd: 50 }), 45);
   // ⚠️ Sin dato: null. Ni el monto en pesos tomado como dólares, ni una tasa de cambio.

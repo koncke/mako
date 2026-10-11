@@ -82,7 +82,9 @@ export async function POST(req: NextRequest) {
   const fallo = verificarFirmaStripe(raw, req.headers.get('stripe-signature'), secreto);
   if (fallo) {
     console.warn(`[webhook:stripe] firma rechazada (acct ${acct ?? '—'}, ws ${ws ?? '—'}): ${MOTIVO_FIRMA_PASARELA[fallo]}`);
-    return Response.json({ ok: false, error: 'signature', motivo: fallo }, { status: 401 });
+    // La MISMA respuesta para todo rechazo: con el motivo en el cuerpo, «sin-secreto» (cuenta desconocida)
+    // contra «no-coincide» (cuenta conocida) dejaba saber qué cuentas de Stripe son clientes de MaKo.
+    return Response.json({ ok: false, error: 'signature' }, { status: 401 });
   }
   if (ws == null) {
     // Sin workspace no hay secreto, y sin secreto la firma ya rechazó: esto queda por si eso cambia.
@@ -106,8 +108,8 @@ export async function POST(req: NextRequest) {
   // ── 4. Una vez por evento, ANTES de aplicar ──
   const reclamo = await reclamarEvento({ proveedor: 'stripe', eventoId: ev.id, ws: wsFinal, tipo: ev.tipo });
   if (reclamo === 'sin_tabla') {
-    // Sin la 0250 no hay cómo deduplicar (ni cobros que aplicar: viven en la misma migración).
-    console.error('[webhook:stripe] falta la tabla pasarela_eventos (mig 0250): no se aplica nada sin poder deduplicar');
+    // Sin la 0255 no hay cómo deduplicar (ni cobros que aplicar: viven en la misma migración).
+    console.error('[webhook:stripe] falta la tabla pasarela_eventos (mig 0255): no se aplica nada sin poder deduplicar');
     return Response.json({ ok: false, error: 'sin_tabla' });
   }
   if (reclamo === 'duplicado') return Response.json({ ok: true, evento: ev.tipo, duplicado: true });

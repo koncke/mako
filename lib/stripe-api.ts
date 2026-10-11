@@ -81,7 +81,9 @@ async function llamar(
   } catch (e) {
     // Un timeout o un corte de red: el pedido PUDO haber llegado. Quien llama decide (y en lo que
     // cobra, el default es NO reintentar: AGENTS.md «En lo que gasta plata ajena, el default es NO reintentar»).
-    return { ok: false, status: 0, error: `Stripe no contestó (${e instanceof Error ? e.message : String(e)})` };
+    // Sin `e.message`: un header inválido (una clave pegada con un salto de línea) hace que fetch tire con la
+    // CLAVE ENTERA adentro del mensaje, y este error termina en `cobros.motivo`, en pantalla y en el modelo.
+    return { ok: false, status: 0, error: `Stripe no contestó (${e instanceof Error ? e.name : 'error de red'})` };
   }
   let j: Json = {};
   try { j = obj(await r.json()); } catch { /* respuesta no-JSON */ }

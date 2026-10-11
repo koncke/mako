@@ -39,7 +39,7 @@ Vocabulario, para no chocar con lo que ya existe:
 
 ---
 
-## 2. Datos (una migración: `0250_cobros_pasarela.sql`, renumerar si hace falta al commitear)
+## 2. Datos (una migración: `0255_cobros_pasarela.sql`; nació 0250 y se renumeró al juntar con main)
 
 ```sql
 create table if not exists cobros (
@@ -350,8 +350,24 @@ total). El link creado va por `paraLaPersona` y en `datos`. REST bajo `/cobros/.
 Variables del lienzo: `{{link_pago}}` (el cobro pendiente más nuevo del lead, cero proveedores al
 resolver). `crear_link_pago` entra a la lista corta del «⚡ Acción».
 
-### 4.9 Fase 2 (después del commit de Automations)
+### 4.9 Automations (hecho, en una rama aparte rebaseada sobre la décima tanda)
 
 CRON «Pagos» (botón propio, grilla 4+3) con `aprobado | rechazado | reembolsado |
-suscripcion_cancelada`, el evento `'pago'` del motor (`enrolarPorEvento`), y el aviso
-`pago-recibido` al grupo del dueño (y al del super admin en una venta de MaKo).
+suscripcion_cancelada`, el evento `'pago'` del motor (`enrolarPorPago`, lib/pago-entrante.ts), y el
+Evento de MaKo `pago_recibido` (aviso `pago-recibido`, plantilla `mako-pago`) al grupo del equipo —
+también al del super admin en una venta de MaKo, con cómo quedó el alta.
+
+### 4.10 Lo que cambió al construirlo (manda sobre lo de arriba)
+
+- **La pasarela se pregunta ANTES del monto** en los dos formularios (ficha y /admin/cobros): Mercado Pago
+  cobra en la moneda de su cuenta. §4.7 decía «plan → monto → a quién → pasarela».
+- **El aviso de Stripe se crea SIN `Idempotency-Key`** (excepción a §4.3): Stripe guarda la respuesta de
+  una clave 24 h, y una clave repetible devolvería el aviso recién borrado con su `whsec_` viejo.
+- **`lib/cobros.ts` no es el único escritor de `cobros`:** `app/api/pagar/email/route.ts` escribe
+  `alta_email_cambios` y `alta_motivo` (el cambio de cuenta de Google tras el alta).
+- **API (§4.8):** el parámetro se llama `pasarela`; `anular_link_pago` es `costo: 'externo'` (expira la
+  sesión en Stripe); la API NO crea links de Mercado Pago (el catálogo está en USD); REST bajo
+  `/cobros/cobros`, `/cobros/links-pago`.
+- **Integraciones (§3):** la clave va directo al descubrimiento, que la prueba y guarda TODO junto; los
+  derivados llevan `derivado: true` y no se aceptan por el guardar a mano; cambiar de cuenta suelta el
+  identificador viejo (`soltarIdentificador`).
