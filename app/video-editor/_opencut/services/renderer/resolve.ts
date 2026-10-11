@@ -1,5 +1,7 @@
 import { mediaTimeToSeconds, roundMediaTime } from "@/app/video-editor/_opencut/wasm";
 import { getElementLocalTime } from "@/app/video-editor/_opencut/animation";
+import { aplicarGanchosVisual } from "./ganchos-ce";
+import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { resolveEffectParamsAtTime } from "@/app/video-editor/_opencut/animation/effect-param-channel";
 import {
 	buildGaussianBlurPasses,
@@ -149,15 +151,25 @@ function resolveVisualState({
 		elementStartTime: params.timeOffset,
 		elementDuration: params.duration,
 	});
-	const transform = resolveTransformAtTime({
-		baseTransform: params.transform,
-		animations: params.animations,
-		localTime,
-	});
-	const opacity = resolveOpacityAtTime({
-		baseOpacity: params.opacity,
-		animations: params.animations,
-		localTime,
+	const conKeyframes = {
+		transform: resolveTransformAtTime({
+			baseTransform: params.transform,
+			animations: params.animations,
+			localTime,
+		}),
+		opacity: resolveOpacityAtTime({
+			baseOpacity: params.opacity,
+			animations: params.animations,
+			localTime,
+		}),
+	};
+	// Animaciones de entrada/salida, reflejo, transiciones: ver ganchos-ce.ts.
+	const { transform, opacity } = aplicarGanchosVisual(conKeyframes, {
+		params: params.paramsElemento ?? {},
+		elementoId: params.elementoId,
+		localTime: localTime / TICKS_PER_SECOND,
+		duration: params.duration / TICKS_PER_SECOND,
+		lienzo: { width: context.renderer.width, height: context.renderer.height },
 	});
 	const containScale = Math.min(
 		context.renderer.width / sourceWidth,
@@ -333,17 +345,32 @@ function resolveTextNode({
 	});
 	const background = buildTextBackgroundFromElement({ element: node.params });
 
+	// El texto también pasa por los ganchos visuales (animaciones de texto de CapCut).
+	const visualTexto = aplicarGanchosVisual(
+		{
+			transform: resolveTransformAtTime({
+				baseTransform: node.params.transform,
+				animations: node.params.animations,
+				localTime,
+			}),
+			opacity: resolveOpacityAtTime({
+				baseOpacity: node.params.opacity,
+				animations: node.params.animations,
+				localTime,
+			}),
+		},
+		{
+			params: node.params.params ?? {},
+			elementoId: node.params.id,
+			localTime: localTime / TICKS_PER_SECOND,
+			duration: node.params.duration / TICKS_PER_SECOND,
+			lienzo: { width: context.renderer.width, height: context.renderer.height },
+		},
+	);
+
 	return {
-		transform: resolveTransformAtTime({
-			baseTransform: node.params.transform,
-			animations: node.params.animations,
-			localTime,
-		}),
-		opacity: resolveOpacityAtTime({
-			baseOpacity: node.params.opacity,
-			animations: node.params.animations,
-			localTime,
-		}),
+		transform: visualTexto.transform,
+		opacity: visualTexto.opacity,
 		textColor: resolveColorAtTime({
 			baseColor:
 				typeof node.params.params.color === "string"

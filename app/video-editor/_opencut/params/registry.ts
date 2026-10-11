@@ -11,6 +11,7 @@ import type {
 } from "@/app/video-editor/_opencut/timeline";
 import { DEFAULTS } from "@/app/video-editor/_opencut/timeline/defaults";
 import { VOLUME_DB_MAX, VOLUME_DB_MIN } from "@/app/video-editor/_opencut/timeline/audio-constants";
+import { paramsExtra } from "@/app/video-editor/_opencut/params/extra";
 import {
 	CORNER_RADIUS_MAX,
 	CORNER_RADIUS_MIN,
@@ -333,23 +334,32 @@ export const elementParamRegistry = new DefinitionRegistry<
 
 elementParamRegistry.register({
 	key: "video",
-	definition: [...visualElementParams, ...audioElementParams],
+	definition: [...visualElementParams, ...audioElementParams, ...paramsExtra("video")],
 });
-elementParamRegistry.register({ key: "image", definition: visualElementParams });
+elementParamRegistry.register({
+	key: "image",
+	definition: [...visualElementParams, ...paramsExtra("image")],
+});
 elementParamRegistry.register({
 	key: "text",
-	definition: [...textElementParams, ...visualElementParams],
+	definition: [...textElementParams, ...visualElementParams, ...paramsExtra("text")],
 });
 elementParamRegistry.register({
 	key: "sticker",
-	definition: visualElementParams,
+	definition: [...visualElementParams, ...paramsExtra("sticker")],
 });
 elementParamRegistry.register({
 	key: "graphic",
-	definition: visualElementParams,
+	definition: [...visualElementParams, ...paramsExtra("graphic")],
 });
-elementParamRegistry.register({ key: "audio", definition: audioElementParams });
-elementParamRegistry.register({ key: "effect", definition: [] });
+elementParamRegistry.register({
+	key: "audio",
+	definition: [...audioElementParams, ...paramsExtra("audio")],
+});
+elementParamRegistry.register({
+	key: "effect",
+	definition: [...paramsExtra("effect")],
+});
 
 export function getElementParams({
 	element,

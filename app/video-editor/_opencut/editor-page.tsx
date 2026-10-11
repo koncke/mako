@@ -1,5 +1,7 @@
 "use client";
 
+// Todas las funciones de la copia de CapCut se registran antes del primer dibujo.
+import "@/app/video-editor/ce/extensiones";
 import {
 	ResizablePanelGroup,
 	ResizablePanel,

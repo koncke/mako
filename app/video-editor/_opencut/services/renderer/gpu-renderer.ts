@@ -3,6 +3,7 @@ import {
 	applyMaskFeather as applyMaskFeatherWasm,
 	initializeGpu,
 } from "opencut-wasm";
+import { aplicarPasesCe, esPaseCe } from "./pases-ce";
 import type { EffectPass, EffectUniformValue } from "@/app/video-editor/_opencut/effects/types";
 
 let gpuAvailable = false;
@@ -39,16 +40,31 @@ export const gpuRenderer = {
 		height: number;
 		passes: EffectPass[];
 	}): OffscreenCanvas {
-		if (passes.length === 0 || !gpuAvailable) {
+		if (passes.length === 0) {
 			return source;
 		}
-
-		return applyEffectPasses({
-			source,
-			width,
-			height,
-			passes: serializeEffectPasses(passes),
-		});
+		// Tramos consecutivos del mismo motor: los `ce-*` van al WebGL2 de
+		// pases-ce.ts, los demás al WASM (sólo si hay GPU para él).
+		let actual = source;
+		let i = 0;
+		while (i < passes.length) {
+			const ce = esPaseCe(passes[i].shader);
+			let j = i;
+			while (j < passes.length && esPaseCe(passes[j].shader) === ce) j++;
+			const tramo = passes.slice(i, j);
+			if (ce) {
+				actual = aplicarPasesCe({ source: actual, width, height, passes: tramo });
+			} else if (gpuAvailable) {
+				actual = applyEffectPasses({
+					source: actual,
+					width,
+					height,
+					passes: serializeEffectPasses(tramo),
+				});
+			}
+			i = j;
+		}
+		return actual;
 	},
 
 	applyMaskFeather({

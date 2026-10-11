@@ -1,4 +1,5 @@
 import { BaseNode } from "./base-node";
+import type { ParamValues } from "@/app/video-editor/_opencut/params";
 import type { Effect, EffectPass } from "@/app/video-editor/_opencut/effects/types";
 import type { Mask } from "@/app/video-editor/_opencut/masks/types";
 import type { BlendMode, Transform } from "@/app/video-editor/_opencut/rendering";
@@ -16,6 +17,9 @@ export interface VisualNodeParams {
 	blendMode?: BlendMode;
 	effects?: Effect[];
 	masks?: Mask[];
+	/** `element.params` del elemento de origen: lo leen los ganchos de ganchos-ce.ts. */
+	paramsElemento?: ParamValues;
+	elementoId?: string;
 }
 
 export interface ResolvedVisualNodeState {

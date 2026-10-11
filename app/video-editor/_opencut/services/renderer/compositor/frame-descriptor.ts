@@ -7,6 +7,8 @@ import { createCanvasSurface } from "../canvas-utils";
 import { BlurBackgroundNode } from "../nodes/blur-background-node";
 import { ColorNode } from "../nodes/color-node";
 import { EffectLayerNode } from "../nodes/effect-layer-node";
+import { aplicarGanchosFuente, preaplicarPasesCe } from "../ganchos-ce";
+import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import {
 	GraphicNode,
 	type ResolvedGraphicNodeState,
@@ -239,20 +241,37 @@ async function collectVisualSourceNode({
 			? DEFAULT_GRAPHIC_SOURCE_SIZE
 			: (node.resolved as ResolvedVisualSourceNodeState).sourceHeight;
 
+	// Recorte, quitar fondo, filtros, ajustes y croma: ver ganchos-ce.ts.
+	const tipoFuente =
+		node instanceof GraphicNode ? "graphic" : node instanceof StickerNode ? "sticker" : node instanceof ImageNode ? "image" : "video";
+	const ganchada = aplicarGanchosFuente(
+		{ source, width: sourceWidth, height: sourceHeight },
+		{
+			tipo: tipoFuente,
+			params: node.params.paramsElemento ?? {},
+			elementoId: node.params.elementoId,
+			localTime: node.resolved.localTime / TICKS_PER_SECOND,
+			duration: node.params.duration / TICKS_PER_SECOND,
+			lienzo: { width: renderer.width, height: renderer.height },
+		},
+	);
+	const conPases = preaplicarPasesCe(ganchada, node.resolved.effectPasses);
+	const fuenteFinal = conPases.fuente;
+
 	const textureId = `${path}:source`;
 	textures.set(textureId, {
 		kind: "external",
 		id: textureId,
-		source,
-		width: sourceWidth,
-		height: sourceHeight,
+		source: fuenteFinal.source,
+		width: fuenteFinal.width,
+		height: fuenteFinal.height,
 	});
 
 	const transform = computeVisualTransform({
 		renderer,
 		resolved: node.resolved,
-		sourceWidth,
-		sourceHeight,
+		sourceWidth: fuenteFinal.width,
+		sourceHeight: fuenteFinal.height,
 	});
 	const { mask, strokeLayer } = buildMaskArtifacts({
 		node,
@@ -268,7 +287,7 @@ async function collectVisualSourceNode({
 		transform,
 		opacity: node.resolved.opacity,
 		blendMode: node.params.blendMode ?? "normal",
-		effectPassGroups: node.resolved.effectPasses,
+		effectPassGroups: conPases.grupos,
 		mask,
 	});
 	if (strokeLayer) {
