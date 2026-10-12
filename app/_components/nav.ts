@@ -155,43 +155,34 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
       ],
     ],
-    grupos: [
-      {
-        // Después de la venta. Va en Operate y no en Analyze porque contesta «¿qué
-        // tengo que hacer hoy con mis clientes?», no «¿qué pasó?».
+  },
+  {
+    // Después de la venta: los clientes, su curso y su comunidad. Desde el 12/10/2026 es FAMILIA propia y no un
+    // desplegable de Operate (Martín: «Customer Success no debería estar dentro de Operate, sino que debería ser
+    // otra tab padre dentro de la sidebar»). La key de la familia no es contrato; las de los ítems sí (capas).
+    key: 'customer',
+    label: 'Customer Success',
+    pregunta: '¿Cómo van mis clientes?',
+    icon: 'cs',
+    bloques: [
+      [
+        // ⚠️ LA KEY ES `customer-success`, que es la que pide el guard de las dos páginas
+        // (`requireCapa('customer-success')` → `tabEnCapa`) y la que nombran las capas en
+        // lib/capas.ts. Cambiarla acá deja a la barra preguntando por otra cosa que la
+        // página: la fila se esconde donde la página abre, o al revés.
         //
-        // ⚠️ VOLVIÓ A SER UN DESPLEGABLE DE DOS (06/10/2026). Del 26/09 al 06/10 fue una
-        // fila sola: el segundo destino era `/customer-success/programa`, el temario de 44
-        // clases de Mauricio escrito en código, y se borró al rearmar la tab para cualquier
-        // workspace. Volvió el curso —ahora en la base, colgado de las etapas de entrega de
-        // cada producto (mig 0202)— y con dos destinos que se consultan de a uno (la
-        // cartera es lo de todos los días, el curso se toca cuando se arma) el criterio de
-        // `NavGrupo` vuelve a pedir el desplegable.
-        //
-        // La key del GRUPO no es contrato (sólo identifica el desplegable); la de los
-        // ítems sí, y por eso el grupo NO se llama `customer-success`: ese nombre es de la
-        // fila de Clientes y dos cosas con la misma key en la barra son dos cosas que se
-        // pisan en cualquier mapa por key.
-        key: 'cs-grupo', label: 'Customer Success', icon: 'cs',
-        items: [
-          // ⚠️ LA KEY ES `customer-success`, que es la que pide el guard de las dos páginas
-          // (`requireCapa('customer-success')` → `tabEnCapa`) y la que nombran las capas en
-          // lib/capas.ts. Cambiarla acá deja a la barra preguntando por otra cosa que la
-          // página: la fila se esconde donde la página abre, o al revés.
-          //
-          // Y el `match` es IGUALDAD, no `starts`: con `starts` se encendería también
-          // estando en /customer-success/curso, y la barra marcaría dos destinos a la vez.
-          { key: 'customer-success', label: 'Clientes', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' },
-          // El curso: las clases de cada producto y el avance de cada cliente. Su página pide
-          // `customer-success` (no tiene capa propia); que este destino se VEA en cada capa
-          // donde esa página deja entrar lo persigue tests/curso-admin.test.ts.
-          { key: 'cs-curso', label: 'Curso', href: '/customer-success/curso', icon: 'video', match: starts('/customer-success/curso') },
-          // La comunidad tipo Skool de cada producto (07/10/2026, D8 de docs/diseno-curso-skool.md).
-          // Como el curso, su página pide `customer-success` (no tiene capa propia), y que el destino
-          // se VEA en cada capa donde esa página deja entrar lo persigue tests/comunidad-nav.test.ts.
-          { key: 'cs-comunidad', label: 'Comunidad', href: '/customer-success/comunidad', icon: 'comunidad', match: starts('/customer-success/comunidad') },
-        ],
-      },
+        // Y el `match` es IGUALDAD, no `starts`: con `starts` se encendería también
+        // estando en /customer-success/curso, y la barra marcaría dos destinos a la vez.
+        { key: 'customer-success', label: 'Clientes', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' },
+        // El curso: las clases de cada producto y el avance de cada cliente. Su página pide
+        // `customer-success` (no tiene capa propia); que este destino se VEA en cada capa
+        // donde esa página deja entrar lo persigue tests/curso-admin.test.ts.
+        { key: 'cs-curso', label: 'Curso', href: '/customer-success/curso', icon: 'video', match: starts('/customer-success/curso') },
+        // La comunidad tipo Skool de cada producto (07/10/2026, D8 de docs/diseno-curso-skool.md).
+        // Como el curso, su página pide `customer-success` (no tiene capa propia), y que el destino
+        // se VEA en cada capa donde esa página deja entrar lo persigue tests/comunidad-nav.test.ts.
+        { key: 'cs-comunidad', label: 'Comunidad', href: '/customer-success/comunidad', icon: 'comunidad', match: starts('/customer-success/comunidad') },
+      ],
     ],
   },
   {

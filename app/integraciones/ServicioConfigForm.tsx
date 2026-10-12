@@ -820,7 +820,9 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
                     // es la pista de FORMATO que evita que peguen cualquier cosa.
                     // Se pierde solo cuando el semáforo tiene algo más urgente que
                     // decir (credencial ilegible: "volvé a pegarla").
-                    placeholder={!c.ilegible && c.placeholder ? c.placeholder : sem.placeholder}
+                    // Con «Ej.:» adelante y en cursiva (globals.css): sin eso, «rk_live_…» se leía como una clave ya
+                    // guardada (12/10/2026). Guardada, manda el semáforo («••••1234»), que sí es lo que hay.
+                    placeholder={c.ilegible || c.configurado || !c.placeholder ? sem.placeholder : `Ej.: ${c.placeholder}`}
                     autoComplete="off"
                     spellCheck={false}
                     aria-label={c.label}

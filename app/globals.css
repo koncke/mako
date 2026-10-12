@@ -699,8 +699,13 @@ textarea.mako-field {
   font-family: 'Geist Mono', monospace;
   font-size: 13px;
 }
+/* Un ejemplo de formato en monoespaciada se leía como una clave YA GUARDADA (12/10/2026: «en el input de donde dice
+   clave Stripe aparece completado algo y no debería aparecer nada»). El ejemplo va en la letra de la app y en
+   cursiva, con «Ej.:» adelante (ServicioConfigForm): se lee como pista, no como valor. */
 .mk-key-input::placeholder {
   color: var(--faint);
+  font-family: 'Geist', system-ui, sans-serif;
+  font-style: italic;
 }
 .mk-key-input:read-only {
   cursor: default;
