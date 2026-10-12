@@ -172,35 +172,6 @@ export const FAMILIAS: NavFamilia[] = [
     ],
   },
   {
-    // Después de la venta: los clientes, su curso y su comunidad. Desde el 12/10/2026 es FAMILIA propia y no un
-    // desplegable de Operate (Martín: «Customer Success no debería estar dentro de Operate, sino que debería ser
-    // otra tab padre dentro de la sidebar»). La key de la familia no es contrato; las de los ítems sí (capas).
-    key: 'customer',
-    label: 'Customer Success',
-    pregunta: '¿Cómo van mis clientes?',
-    icon: 'cs',
-    bloques: [
-      [
-        // ⚠️ LA KEY ES `customer-success`, que es la que pide el guard de las dos páginas
-        // (`requireCapa('customer-success')` → `tabEnCapa`) y la que nombran las capas en
-        // lib/capas.ts. Cambiarla acá deja a la barra preguntando por otra cosa que la
-        // página: la fila se esconde donde la página abre, o al revés.
-        //
-        // Y el `match` es IGUALDAD, no `starts`: con `starts` se encendería también
-        // estando en /customer-success/curso, y la barra marcaría dos destinos a la vez.
-        { key: 'customer-success', label: 'Clientes', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' },
-        // El curso: las clases de cada producto y el avance de cada cliente. Su página pide
-        // `customer-success` (no tiene capa propia); que este destino se VEA en cada capa
-        // donde esa página deja entrar lo persigue tests/curso-admin.test.ts.
-        { key: 'cs-curso', label: 'Curso', href: '/customer-success/curso', icon: 'video', match: starts('/customer-success/curso') },
-        // La comunidad tipo Skool de cada producto (07/10/2026, D8 de docs/diseno-curso-skool.md).
-        // Como el curso, su página pide `customer-success` (no tiene capa propia), y que el destino
-        // se VEA en cada capa donde esa página deja entrar lo persigue tests/comunidad-nav.test.ts.
-        { key: 'cs-comunidad', label: 'Comunidad', href: '/customer-success/comunidad', icon: 'comunidad', match: starts('/customer-success/comunidad') },
-      ],
-    ],
-  },
-  {
     key: 'analyze',
     label: 'Analyze',
     pregunta: '¿Qué está pasando y por qué?',
@@ -349,7 +320,37 @@ export const FAMILIAS: NavFamilia[] = [
       ],
     ],
   },
-];
+  {
+    // Al FINAL de la barra desde el 12/10/2026 (Martín: «Pon en la sidebar principal a Customer Success al final de
+    // todo, abajo de Content Machine»).
+    // Después de la venta: los clientes, su curso y su comunidad. Desde el 12/10/2026 es FAMILIA propia y no un
+    // desplegable de Operate (Martín: «Customer Success no debería estar dentro de Operate, sino que debería ser
+    // otra tab padre dentro de la sidebar»). La key de la familia no es contrato; las de los ítems sí (capas).
+    key: 'customer',
+    label: 'Customer Success',
+    pregunta: '¿Cómo van mis clientes?',
+    icon: 'cs',
+    bloques: [
+      [
+        // ⚠️ LA KEY ES `customer-success`, que es la que pide el guard de las dos páginas
+        // (`requireCapa('customer-success')` → `tabEnCapa`) y la que nombran las capas en
+        // lib/capas.ts. Cambiarla acá deja a la barra preguntando por otra cosa que la
+        // página: la fila se esconde donde la página abre, o al revés.
+        //
+        // Y el `match` es IGUALDAD, no `starts`: con `starts` se encendería también
+        // estando en /customer-success/curso, y la barra marcaría dos destinos a la vez.
+        { key: 'customer-success', label: 'Clientes', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' },
+        // El curso: las clases de cada producto y el avance de cada cliente. Su página pide
+        // `customer-success` (no tiene capa propia); que este destino se VEA en cada capa
+        // donde esa página deja entrar lo persigue tests/curso-admin.test.ts.
+        { key: 'cs-curso', label: 'Curso', href: '/customer-success/curso', icon: 'video', match: starts('/customer-success/curso') },
+        // La comunidad tipo Skool de cada producto (07/10/2026, D8 de docs/diseno-curso-skool.md).
+        // Como el curso, su página pide `customer-success` (no tiene capa propia), y que el destino
+        // se VEA en cada capa donde esa página deja entrar lo persigue tests/comunidad-nav.test.ts.
+        { key: 'cs-comunidad', label: 'Comunidad', href: '/customer-success/comunidad', icon: 'comunidad', match: starts('/customer-success/comunidad') },
+      ],
+    ],
+  },];
 
 /**
  * MaKo, abajo del todo y fuera de las familias: es una CAPACIDAD GLOBAL, no un
