@@ -193,6 +193,21 @@ export const BITACORA: Hito[] = [
       'Sí, Offer leía el documento apenas se elegía (para el ✓ del chip). Se decidió que se lea recién al ENVIAR, detrás de una vista previa como la de WhatsApp que compartan todos los chats (ver el hito de implementación).',
     ],
   },
+  {
+    fecha: '12 oct', hora: '02:40', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Adjuntar como WhatsApp: la vista previa compartida, y Offer lee recién al enviar',
+    puntos: [
+      'Un componente para todos los chats (app/whatsapp/_shared/VistaAdjuntos.tsx): el archivo grande (la primera página del PDF, la imagen o su reproductor), la tira de miniaturas con «+» y «×», el mensaje abajo y Enviar.',
+      'Offer: elegir no sube ni lee nada; Enviar sube y lee cada uno en orden y recién ahí manda el mensaje. Si una lectura falla, no sale el mensaje y no se releen los ya leídos.',
+      'ChatHilo (bandeja de WhatsApp, grupos de MaKo, simulador de Automations): varios archivos a la vez, en orden, con el texto como pie del primero.',
+      'El error que lo disparó (un NUL adentro del texto del PDF) ya estaba arreglado en el lector compartido.',
+    ],
+    archivos: [
+      'app/whatsapp/_shared/VistaAdjuntos.tsx — la vista previa',
+      'app/offer/adjuntos-envio.ts — leer al enviar, en orden y sin releer',
+      'app/whatsapp/_shared/ChatHilo.tsx — varios adjuntos en los chats de WhatsApp',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

@@ -42,7 +42,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  bienvenidaDe, chipDeAdjuntos, guardadaVisible, iconoDeAdjunto, linksDe, pasoTrasFalloDeOferta, quedoGuardado, ticksDe,
+  bienvenidaDe, guardadaVisible, iconoDeAdjunto, linksDe, pasoTrasFalloDeOferta, quedoGuardado, ticksDe,
 } from '../app/offer/ayudas';
 import {
   arbolSeguro, conSesionEnArbol, leerValor, seccionesDelArbol, titulosUnicos, todasLasSesiones, valorNueva, valorSesion,
@@ -250,16 +250,14 @@ test('chat: la «Transcripción del audio» lleva el ícono del audio, y una not
 });
 
 // ── Lo de la conversación ────────────────────────────────────────────────────
-test('chat: los links del mensaje, el chip de adjuntos, «¿ya quedó guardado?» y las palomitas', () => {
+// (El chip de «Leyendo… / Listo» de arriba de la barra se fue el 11/10/2026 —elegir un archivo ya no lo
+// lee: abre la vista previa—, y sus asserts con él. Lo de la vista y la lectura al enviar lo fija
+// tests/offer-adjuntos-al-enviar.test.ts.)
+test('chat: los links del mensaje, «¿ya quedó guardado?» y las palomitas', () => {
   assert.deepEqual(linksDe('mi web es https://acme.com/precios. y www.otra.mx, fin'), ['https://acme.com/precios', 'https://www.otra.mx']);
   assert.deepEqual(linksDe('(https://a.com) https://a.com'), ['https://a.com']);
   assert.deepEqual(linksDe('nada, ni http:// suelto'), []);
   assert.equal(linksDe('https://a.com https://b.com https://c.com https://d.com').length, 3);
-
-  assert.equal(chipDeAdjuntos([]), null);
-  assert.equal(chipDeAdjuntos([{ key: 'a', nombre: 'p.pdf', mime: 'application/pdf', estado: 'leyendo' }])?.detalle, 'Leyendo…');
-  assert.equal(chipDeAdjuntos([{ key: 'a', nombre: 'n.mp3', mime: '', estado: 'listo', doc: { id: 'd', nombre: 'n.mp3', via: 'x', chars: 1, aviso: 'Sólo 10 min' } }])?.detalle, 'Sólo 10 min');
-  assert.equal(chipDeAdjuntos([{ key: 'a', nombre: 'a.pdf', mime: '', estado: 'listo' }, { key: 'b', nombre: 'b.pdf', mime: '', estado: 'leyendo' }])?.detalle, 'Leyendo 1 de 2…');
 
   const m = (de: 'yo' | 'mako', texto: string, audio = false): OfferMensaje => ({ id: `${de}-${texto}`, de, texto, at: '', ...(audio ? { audio: { url: '/x', secs: 3 } } : {}) });
   assert.equal(quedoGuardado([m('mako', 'hola'), m('yo', 'precio')], 1, { texto: 'precio', audio: false }), true);

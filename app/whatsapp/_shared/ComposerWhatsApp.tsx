@@ -264,6 +264,11 @@ export type ComposerWhatsAppProps = {
   onEnviar?: () => void;
   /** Clip simple: abre el selector de archivos con `acceptArchivo` y entrega el archivo. */
   onArchivo?: (f: File) => void;
+  /**
+   * Clip simple que deja elegir VARIOS (`multiple`) y los entrega juntos. Lo usa ChatHilo para abrir la
+   * vista previa (VistaAdjuntos.tsx) con todos los elegidos, como WhatsApp. Gana sobre `onArchivo`.
+   */
+  onArchivos?: (fs: File[]) => void;
   acceptArchivo?: string;
   /** Clip con menú (el editor): «Foto o video», «Documento», «Audios guardados»… */
   menuClip?: OpcionMenuWA[];
@@ -306,7 +311,7 @@ export type ComposerWhatsAppProps = {
 };
 
 export function ComposerWhatsApp({
-  modo, valor, onValor, placeholder, ocupado, soloLectura, onEnviar, onArchivo, acceptArchivo, menuClip,
+  modo, valor, onValor, placeholder, ocupado, soloLectura, onEnviar, onArchivo, onArchivos, acceptArchivo, menuClip,
   onAudio, onErrorAudio, onBorradorVoz, mientrasGraba, audioPendiente, chip, ref, maxAlto, trasClip, datos, datosFuera,
 }: ComposerWhatsAppProps) {
   const editar = modo === 'editar';
@@ -403,7 +408,7 @@ export function ComposerWhatsApp({
     );
   }
 
-  const conClip = !!onArchivo || !!menuClip?.length;
+  const conClip = !!onArchivo || !!onArchivos || !!menuClip?.length;
   const hayParaEnviar = !!valor.trim() || !!chip;
   // En el editor la fila es más angosta (el panel del nodo mide 328 px): botones de 38.
   const icono: CSSProperties = editar ? { ...iconComposer, width: 38, height: 38 } : iconComposer;
@@ -430,9 +435,13 @@ export function ComposerWhatsApp({
         </div>
       )}
       <div style={{ padding: editar ? '8px 8px' : '8px 12px', display: 'flex', alignItems: 'flex-end', gap: editar ? 2 : 4 }}>
-        {onArchivo && !menuClip?.length && (
-          <input ref={archivo} type="file" accept={acceptArchivo} style={{ display: 'none' }}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; if (f) onArchivo(f); }} />
+        {(onArchivo || onArchivos) && !menuClip?.length && (
+          <input ref={archivo} type="file" accept={acceptArchivo} multiple={!!onArchivos} style={{ display: 'none' }}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              const lista = Array.from(e.target.files ?? []);
+              e.target.value = '';
+              if (onArchivos) { if (lista.length) onArchivos(lista); } else if (lista[0]) onArchivo?.(lista[0]);
+            }} />
         )}
         <button type="button" ref={setBtnEmoji} onClick={() => setAbierto((a) => (a === 'emoji' ? null : 'emoji'))} title="Emojis" aria-label="Emojis" aria-expanded={abierto === 'emoji'}
           style={{ ...icono, color: abierto === 'emoji' ? 'var(--primary)' : 'var(--dim)' }}><IconSmiley /></button>

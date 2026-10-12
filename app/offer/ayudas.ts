@@ -10,7 +10,7 @@
 import { familiaDeArchivo } from '@/lib/formatos-archivo';
 import {
   MARCA_COMPLETAR, PIEZAS,
-  type AdjuntoVista, type FuentePieza, type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezaKey, type PiezasSabidas, type VariableValor,
+  type FuentePieza, type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezaKey, type PiezasSabidas, type VariableValor,
 } from '@/lib/offer-marco';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
@@ -225,52 +225,9 @@ export function linksDe(texto: string, max = 3): string[] {
   return out;
 }
 
-// ── Los archivos del composer ────────────────────────────────────────────────
-
-/**
- * Un archivo elegido en el composer, mientras se lee y ya leído (con su doc). Los que no se pueden
- * leer NO quedan acá: su motivo va a la línea de error (no hay un renglón rojo que quitar a mano).
- */
-export type AdjuntoEnCurso = {
-  key: string;
-  nombre: string;
-  mime: string;
-  estado: 'leyendo' | 'listo';
-  doc?: AdjuntoVista;
-  /** La miniatura de una imagen (una URL `blob:` que hay que soltar al sacarla). */
-  previa?: string | null;
-};
-
-/** El chip de la barra de WhatsApp (ComposerWhatsApp → `chip`), sin los callbacks. */
-export type DatosChip = { imagen: string | null; icono: 'doc' | 'audio' | 'video'; titulo: string; detalle: string };
-
-/**
- * Lo que dice el chip de arriba de la barra: UN archivo con su nombre y su estado (como un adjunto
- * de WhatsApp), o «N archivos» con cuántos faltan leer. El aviso de un archivo leído a medias va en
- * el detalle cuando es uno solo; con varios se cuenta, y cada aviso se lee entero en el chip del
- * mensaje cuando sale (ChipArchivo).
- */
-export function chipDeAdjuntos(adj: readonly AdjuntoEnCurso[]): DatosChip | null {
-  if (!adj.length) return null;
-  if (adj.length === 1) {
-    const a = adj[0];
-    const fam = familiaDeArchivo(a.nombre, a.mime);
-    return {
-      imagen: a.previa ?? null,
-      icono: fam === 'audio' ? 'audio' : fam === 'video' ? 'video' : 'doc',
-      titulo: a.nombre,
-      detalle: a.estado === 'leyendo' ? 'Leyendo…' : a.doc?.aviso?.trim() || 'Listo',
-    };
-  }
-  const leyendo = adj.filter((a) => a.estado === 'leyendo').length;
-  const avisos = adj.filter((a) => a.estado === 'listo' && a.doc?.aviso?.trim()).length;
-  return {
-    imagen: null,
-    icono: 'doc',
-    titulo: `${adj.length} archivos`,
-    detalle: leyendo ? `Leyendo ${adj.length - leyendo} de ${adj.length}…` : avisos ? `Listos · ${avisos} con aviso` : 'Listos',
-  };
-}
+// (El chip de «Leyendo… / Listo» de arriba de la barra se fue el 11/10/2026: elegir un archivo ya no lo
+// lee. Lo elegido se ve en la vista previa de la casa, app/whatsapp/_shared/VistaAdjuntos.tsx, y se lee
+// recién al enviar: ./adjuntos-envio.ts.)
 
 // ── El diagnóstico ───────────────────────────────────────────────────────────
 

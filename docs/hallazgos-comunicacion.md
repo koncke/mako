@@ -9718,3 +9718,30 @@ un mail de MaKo desde ws10/ws11 sale por la key de la plataforma; el 201 sin `ke
 `lib/curso-invitar-canales.ts` · `lib/avisos.ts` · `lib/mako-grupo.ts` · `lib/mako-tarjeta.ts`
 
 _11/10/2026 — undécima tanda (w1-email, w1-mako-envio y el enchufe), probado rompiéndolo (los números, en cada test)._
+
+## Adjuntar como WhatsApp: elegir no sube nada, Enviar sí (12/10/2026)
+
+Pedido de Martín, después de que un PDF tirara un error apenas lo eligió en Offer: «Solo cuando le doy a
+ENVIAR debería… debería salir la vista previa del documento… como lo tiene whatsapp… puedo agregar más
+documentos… Y aún escribir un mensaje abajo… en todos los chats que consuman esto de subir documento».
+
+- **El componente es UNO: `app/whatsapp/_shared/VistaAdjuntos.tsx`** (+ `adjuntos-vista.ts`, puro, con
+  `useListaAdjuntos` y `enviarEnOrden`). Lo usan ChatHilo (la bandeja de WhatsApp, los grupos de MaKo, el
+  simulador de /automations) y la tab Offer. Un chat nuevo con adjuntos lo
+  monta en vez de dibujar su propio chip.
+- **ChatHilo manda varios en orden con `onEnviarArchivo`, el texto como pie del PRIMERO**; si uno falla, se
+  corta ahí y los que faltan vuelven a la vista con el error (el que ya salió no se reenvía).
+- **La primera página del PDF sale de `unpdf` importado DINÁMICO** (pdf.js, ~1,6 MB: no va al bundle de
+  entrada). En el navegador pide el polyfill de `Math.sumPrecise`, y el documento se cierra con
+  `pdf.loadingTask.destroy()` (en sus tipos no existe `pdf.destroy`).
+- **Un objectURL creado en `useMemo` y liberado en un efecto deja la imagen ROTA en dev**: StrictMode monta
+  dos veces, el primer desmontaje libera la URL y el segundo montaje reusa la memoizada. Se crea y se libera
+  en el mismo efecto. (Era el caso del chip viejo de ChatHilo.)
+- **`sinComentarios` de los tests se come un `accept='image/*,…'`**: el `/*` adentro de la cadena abre un
+  falso comentario de bloque y el guard deja de mirar lo que sigue. Un `accept` con comodín en un fuente que
+  lee un test va con las líneas antes que los bloques, o se busca en otra forma.
+- **En `app/_ui/iconos-menu.tsx`, `mas` son TRES PUNTOS; el «+» es `agregar`.**
+- Quedan dos chats que muestran el clip aunque sólo mandan audio (el ensayo del AI Step y el onboarding del
+  Chat Agent): hoy el envío de un archivo falla con «No se pudo enviar «x».».
+**Vive en:** `app/whatsapp/_shared/VistaAdjuntos.tsx`, `app/whatsapp/_shared/adjuntos-vista.ts`,
+`app/whatsapp/_shared/ChatHilo.tsx`. · *2026-10-12 Offer*

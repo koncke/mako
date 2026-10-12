@@ -195,6 +195,15 @@ El pedido, textual (Martín, 11/10/2026 18:04 UTC), está entero en el registro 
 - **Una nota de voz larga se cortaba en silencio a 12.000 caracteres** (el tope del mensaje): ahora la
   transcripción entera viaja como documento de la conversación.
 
+### Los documentos se leen recién al ENVIAR (12/10/2026)
+
+Hasta la v2, elegir un archivo lo subía y lo LEÍA con IA en el acto (para el ✓ del chip). Martín lo vio
+al saltar un error apenas eligió un PDF: «eso estaría mal. Solo cuando le doy a ENVIAR debería». Ahora
+elegir abre la vista previa compartida (`VistaAdjuntos`, ver hallazgos-comunicacion.md) y Enviar sube y
+lee cada uno en orden («Leyendo «X»…») antes del turno (`app/offer/adjuntos-envio.ts`). Si una lectura
+falla no sale el turno, la vista queda con el error, y al reintentar no se releen los ya leídos; un
+documento leído que nunca viaja en un mensaje no le llega a la IA (`docsDeLaConversacion`).
+
 ## Offer Playbook (`/admin/offer-playbook`): el criterio y lo que se concluyó de cada curso
 
 **Vive en:** `app/admin/offer-playbook/*`, `lib/offer-autores.ts`, `docs/offer-marco.md`,

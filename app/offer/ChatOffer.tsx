@@ -20,11 +20,15 @@
 //      sus mensajes van por `renderMensaje` de ChatHilo, con la MISMA burbuja (`BurbujaHilo`) y el
 //      texto por <Markdown> en su ranura `vacio` (lo que dibuja cuando no hay texto propio). Al lado,
 //      su foto de perfil (./AvatarMako.tsx).
-//   ⚠️ LA BARRA DE ChatHilo NO SIRVE ACÁ: su selector corta en 4 MB, elige UN archivo y su `accept` no
-//      trae .txt/.md/.csv; los archivos de Offer se suben y se leen por el camino de Offer (subir-url
-//      → PUT → leer, lib/formatos-archivo.ts → ACCEPT_IMPORTAR, hasta 25 MB). Así que ChatHilo va SIN
-//      barra (sin handlers de envío) y la barra se monta acá, con su menú del clip propio
-//      (`menuClip`: «Foto o video» y «Documento», como el editor del lienzo).
+//   ⚠️ LA BARRA DE ChatHilo NO SIRVE ACÁ: su selector corta en 4 MB y su `accept` no trae .txt/.md/.csv;
+//      los archivos de Offer se suben y se leen por el camino de Offer (subir-url → PUT → leer,
+//      lib/formatos-archivo.ts → ACCEPT_IMPORTAR, hasta 25 MB). Así que ChatHilo va SIN barra (sin
+//      handlers de envío) y la barra se monta acá, con su menú del clip propio (`menuClip`: «Foto o
+//      video» y «Documento», como el editor del lienzo).
+//   ⚠️ LOS ARCHIVOS ELEGIDOS NO SE LEEN ACÁ (11/10/2026, «Solo cuando le doy a ENVIAR debería…»): el clip
+//      y soltar llaman a `onArchivos`, que los junta en la vista previa de la casa (VistaAdjuntos, la
+//      misma de ChatHilo). La vista llega armada por `vista` y se apoya ENCIMA del hilo y la barra, sin
+//      desmontarlos (la barra guarda la sesión de voz; el hilo, su scroll).
 //   ⚠️ LA CAJA: ChatHilo trae su propio borde y su radio. Para que la barra quede ADENTRO de la misma
 //      tarjeta (como en ChatHilo con su barra), la tarjeta es ésta, con los mismos valores, y la de
 //      ChatHilo se aplana con una regla de la hoja (estilos.ts → `.of-hilo-lista > div`): una regla con
@@ -47,7 +51,7 @@ import { TextoMarcas } from '@/app/_components/TextoMarcas';
 import { ChatHilo, type HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { Ticks } from '@/app/whatsapp/_shared/Ticks';
-import { ComposerWhatsApp, IconVideo, type ChipComposer, type OpcionMenuWA } from '@/app/whatsapp/_shared/ComposerWhatsApp';
+import { ComposerWhatsApp, IconVideo, type OpcionMenuWA } from '@/app/whatsapp/_shared/ComposerWhatsApp';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { ACCEPT_IMPORTAR, EXT_POR_FAMILIA } from '@/lib/formatos-archivo';
@@ -93,7 +97,7 @@ export type AudioEnEspera = { url: string; secs: number };
 
 export function ChatOffer({
   sesion, pendiente, respondiendo, fuente, opcionArmar, opcionesHabilitadas, onOpcion, onReintentar,
-  texto, onTexto, onEnviar, ocupado, chip, onArchivos, onAudio, audioEnEspera, onReenviarAudio, onDescartarAudio,
+  texto, onTexto, onEnviar, ocupado, vista, onArchivos, onAudio, audioEnEspera, onReenviarAudio, onDescartarAudio,
   error, onError,
 }: {
   sesion: OfferSesionVista;
@@ -115,8 +119,9 @@ export function ChatOffer({
   onEnviar: () => void;
   /** MaKo contesta, se lee un archivo o se arma la oferta: los botones de la barra se apagan (el campo no). */
   ocupado: boolean;
-  /** Lo elegido en el clip, arriba de la barra (./ayudas.ts → chipDeAdjuntos). */
-  chip: ChipComposer | null;
+  /** La vista previa de los archivos juntados (VistaAdjuntos), encima del hilo y la barra; null = el chat. */
+  vista: ReactNode | null;
+  /** El clip y soltar: los JUNTA en la vista previa (no los sube ni los lee). */
   onArchivos: (archivos: File[]) => void;
   /** La nota de voz que se mandó con la ➤ (ya escuchada en la barra). */
   onAudio: (blob: Blob, secs: number) => void;
@@ -281,7 +286,7 @@ export function ChatOffer({
     <div className="of-hilo" data-esquina-ocupada data-encima={encima || undefined}
       onDragOver={alArrastrar} onDragLeave={() => setEncima(false)} onDrop={alSoltar}
       style={{
-        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative',
         background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `3px solid ${ACENTO}`, borderRadius: 16, overflow: 'hidden',
       }}>
       {/* El alto del hilo sale de una caja ABSOLUTA: ChatHilo se mide con `height: 100%`, y un
@@ -311,7 +316,6 @@ export function ChatOffer({
         onEnviar={onEnviar}
         ocupado={ocupado}
         menuClip={menuClip}
-        chip={chip}
         onAudio={onAudio}
         onErrorAudio={onError}
         audioPendiente={audioEnEspera
@@ -320,6 +324,8 @@ export function ChatOffer({
       />
       <input ref={inputFoto} type="file" multiple accept={ACCEPT_FOTO} onChange={elegidos} hidden />
       <input ref={inputDoc} type="file" multiple accept={ACCEPT_IMPORTAR} onChange={elegidos} hidden />
+      {/* La vista previa, como en WhatsApp Web: tapa el área del chat (hilo + barra) con `inset: 0`. */}
+      {vista && <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column' }}>{vista}</div>}
     </div>
   );
 }

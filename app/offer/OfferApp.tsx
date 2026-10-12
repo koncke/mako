@@ -20,6 +20,12 @@
 //     un documento más: «si partimos de un documento o un link de su web… sería mucho más fácil».
 //   · UNA NOTA DE VOZ se sube como un archivo (subir-url → PUT) y el turno la lleva en `audio`; el
 //     servidor la transcribe y el `texto` del mensaje es la transcripción.
+//   · LOS ARCHIVOS SE LEEN AL ENVIAR, NO AL ELEGIR (pedido de Martín, 11/10/2026: «No se si apenas lo
+//     subí ya lo quiso analizar, eso estaría mal. Solo cuando le doy a ENVIAR debería... Sino, debería
+//     salir la vista previa del documento que acabo de subir, como lo tiene whatsapp»). Elegir (clip o
+//     soltar) abre la vista previa de la casa (app/whatsapp/_shared/VistaAdjuntos.tsx) sobre el chat; ahí
+//     se suman más y se escribe el mensaje. Recién Enviar sube y lee cada uno (./adjuntos-envio.ts,
+//     «Leyendo «X»…») y después manda el turno. Se fue el chip con el ✓ de «leído» de arriba de la barra.
 // Lo que estaba bien en la v1 se queda: el riel de piezas, la vista Generando, la Conclusión con su
 // PDF, los topes de cada llamada y el reintento.
 //
@@ -36,22 +42,25 @@
 // recibió se guarda igual en la de antes; lo que no puede pasar es que su respuesta se dibuje acá.
 // ⚠️ LO QUE LLAMA UNA SESIÓN DE VOZ CORRE CON LAS PROPS DEL RENDER EN QUE SE APRETÓ EL 🎤
 // (ComposerWhatsApp guarda ese `onAudio`). Por eso `mandar` y `mandarAudio` deciden con REFS
-// (`sesionRef`, `enviando`, `adjRef`), nunca con el estado de su render.
+// (`sesionRef`, `enviando`, `leyendoRef`), nunca con el estado de su render.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Banner, Button, ButtonLink, Spinner } from '@/app/_ui';
-import { MAX_ARCHIVO_BYTES, familiaDeArchivo, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
+import { ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import type { AdjuntoVista, ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
+import { VistaAdjuntos, useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
+import { MAX_ADJUNTOS, type ItemAdjunto } from '@/app/whatsapp/_shared/adjuntos-vista';
 import { AvatarMako } from './AvatarMako';
 import { ChatOffer } from './ChatOffer';
 import { Conclusion } from './Conclusion';
 import { Generando, type PasoGeneracion } from './Generando';
 import { BarraPiezasMovil, RielPiezas, type AccionesPiezas } from './PiezasRail';
 import { SelectorFunnel } from './SelectorFunnel';
+import { leerAdjuntos } from './adjuntos-envio';
 import { arbolSeguro, arbolVacio, conSesionEnArbol, leerValor } from './arbol';
 import {
-  TOPE_MENSAJE, bienvenidaDe, chipDeAdjuntos, esOpcionArmar, linksDe, pasoTrasFalloDeOferta, quedoGuardado, reemplaza,
-  resumenDe, vistaDeEntrada, type AdjuntoEnCurso, type AvisoGuardado, type VistaOffer,
+  TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, linksDe, pasoTrasFalloDeOferta, quedoGuardado, reemplaza,
+  resumenDe, vistaDeEntrada, type AvisoGuardado, type VistaOffer,
 } from './ayudas';
 import { CSS_OFFER } from './estilos';
 import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, subirArchivo } from './offer-api';
@@ -83,8 +92,18 @@ type Envio = {
  */
 type Resultado = 'salio' | 'volver' | 'tirar';
 
-let secuencia = 0;
-const claveNueva = (): string => `a${Date.now().toString(36)}${(secuencia++).toString(36)}`;
+/**
+ * Los topes del navegador para lo que entra a la vista previa: que se pueda leer (lib/formatos-archivo.ts)
+ * y que no pase de 25 MB (el tope de la subida directa a Storage). Se validan ANTES de subir y dicen por
+ * qué no: un rebote mudo deja a la persona esperando un archivo que nunca va a llegar.
+ * Sin `accept` acá a propósito: `validar` dice el motivo PROPIO de cada formato («los .pages no se pueden
+ * leer: expórtalo a PDF»), y el rebote genérico del `accept` lo taparía. El «+» igual lleva el `accept`.
+ */
+const TOPES_OFFER = {
+  maxBytes: MAX_ARCHIVO_BYTES,
+  maxArchivos: MAX_ADJUNTOS,
+  validar: (f: { name: string; type: string }): string | null => (puedeLeerse(f.name, f.type) ? null : `«${f.name}» ${porQueNoPuedo(f.name) || 'no se puede leer.'}`),
+};
 
 const cuantosArchivos = (n: number): string => `${n} ${n === 1 ? 'archivo' : 'archivos'}`;
 
@@ -119,7 +138,15 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
   const [sesion, setSesion] = useState<OfferSesionVista | null>(sesionInicial);
   const [vista, setVista] = useState<VistaOffer>(vistaDeEntrada(sesionInicial));
   const [texto, setTexto] = useState('');
-  const [adjuntos, setAdjuntos] = useState<AdjuntoEnCurso[]>([]);
+  /** Los archivos de la vista previa: elegidos y SIN subir ni leer hasta que se aprieta Enviar. */
+  const lista = useListaAdjuntos(TOPES_OFFER);
+  /** Subiendo y leyendo los archivos de la vista (antes del turno). */
+  const [leyendo, setLeyendo] = useState(false);
+  /** En cuál va: «Leyendo «precios.pdf»…». */
+  const [estadoVista, setEstadoVista] = useState<string | null>(null);
+  const [errorVista, setErrorVista] = useState<string | null>(null);
+  /** El archivo cuya lectura falló: su miniatura va marcada. */
+  const [falloId, setFalloId] = useState<string | null>(null);
   const [pendiente, setPendiente] = useState<OfferMensaje | null>(null);
   const [fuente, setFuente] = useState('tu respuesta');
   const [errorChat, setErrorChat] = useState<string | null>(null);
@@ -144,11 +171,18 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
   const epoca = useRef(0);
   const generando = useRef(false);
   const enviando = useRef(false);
-  const adjRef = useRef<AdjuntoEnCurso[]>([]);
+  /** Leyendo los archivos de la vista: lo mira una nota de voz que llega en el medio (decide con refs). */
+  const leyendoRef = useRef(false);
   /** Los links ya leídos en ESTA conversación: reenviar el mismo mensaje no lo vuelve a leer. */
   const linksLeidos = useRef(new Map<string, AdjuntoVista>());
+  /**
+   * Los archivos de la vista YA leídos, por el id de la vista: si después falla otro (o el turno), al
+   * reintentar no se vuelven a subir ni a leer (cada lectura es un pedido de IA).
+   */
+  const docsLeidos = useRef(new Map<string, AdjuntoVista>());
 
-  // ── Las URL `blob:` (miniaturas y notas de voz): se sueltan al sacarlas y al salir ──
+  // ── Las URL `blob:` de las notas de voz: se sueltan al sacarlas y al salir ──
+  // (Las de los archivos de la vista previa las crea y las suelta VistaAdjuntos, por elemento.)
   const urls = useRef(new Set<string>());
   const crearUrl = (b: Blob): string => { const u = URL.createObjectURL(b); urls.current.add(u); return u; };
   const soltarUrl = (u: string | null | undefined) => {
@@ -160,13 +194,6 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
     const todas = urls.current;
     return () => { for (const u of todas) { try { URL.revokeObjectURL(u); } catch { /* noop */ } } todas.clear(); };
   }, []);
-
-  /** Los adjuntos se llevan también en un ref: lo que termina de leerse después de un `await` decide con lo de AHORA. */
-  const cambiarAdjuntos = (fn: (prev: AdjuntoEnCurso[]) => AdjuntoEnCurso[]) => {
-    const next = fn(adjRef.current);
-    adjRef.current = next;
-    setAdjuntos(next);
-  };
 
   // ── La conversación que vuelve del servidor ────────────────────────────────
   const ponerSesion = (s: OfferSesionVista | null) => { sesionRef.current = s; setSesion(s); };
@@ -185,8 +212,13 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
     sesionId.current = null;
     enviando.current = false;
     linksLeidos.current = new Map();
-    for (const a of adjRef.current) soltarUrl(a.previa);
-    cambiarAdjuntos(() => []);
+    lista.vaciar();
+    docsLeidos.current = new Map();
+    leyendoRef.current = false;
+    setLeyendo(false);
+    setEstadoVista(null);
+    setErrorVista(null);
+    setFalloId(null);
     setAudioEnEspera((a) => { if (a) soltarUrl(a.url); return null; });
     setPendiente(null);
     setTexto('');
@@ -347,40 +379,127 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
     }
   };
 
-  const listos = adjuntos.filter((a) => a.estado === 'listo' && a.doc);
-  const leyendo = adjuntos.some((a) => a.estado === 'leyendo');
   const respondiendo = pendiente != null || reintentando;
   const puedeMandar = !!sesion && !respondiendo && !leyendo && !gen.corriendo && !cambiando;
-  const hayAlgo = texto.trim().length > 0 || listos.length > 0;
+  const hayAlgo = texto.trim().length > 0;
 
   /**
-   * Manda lo del composer. Si no sale, el texto y los archivos VUELVEN al composer: perder lo que
-   * alguien escribió porque se cortó la conexión es peor que el corte.
+   * Manda lo del composer (sólo texto: con archivos juntados la barra queda debajo de la vista previa, y
+   * ahí manda `enviarVista`). Si no sale, el texto VUELVE al composer: perder lo que alguien escribió
+   * porque se cortó la conexión es peor que el corte.
    */
   const enviarComposer = async () => {
+    if (lista.ref.current.length) { void enviarVista(); return; }
     if (!puedeMandar || !hayAlgo) return;
     if (texto.length > TOPE_MENSAJE) { setErrorChat('Tu mensaje es muy largo. Pártelo en dos.'); return; }
     const t = texto.trim();
-    const enviados = listos;
-    const claves = new Set(enviados.map((a) => a.key));
     const e = epoca.current;
     setTexto('');
-    cambiarAdjuntos((prev) => prev.filter((a) => !claves.has(a.key)));
-    const fuenteEnvio = enviados.length ? cuantosArchivos(enviados.length) : linksDe(t).length ? 'tu link' : 'tu respuesta';
     // Con 'tirar' el texto también vuelve: un texto rechazado se puede corregir (un audio, no).
-    const res = await mandar({ texto: t, docs: enviados.map((a) => a.doc as AdjuntoVista), fuente: fuenteEnvio });
-    if (res === 'salio') { for (const a of enviados) soltarUrl(a.previa); return; }
+    const res = await mandar({ texto: t, docs: [], fuente: linksDe(t).length ? 'tu link' : 'tu respuesta' });
+    if (res === 'salio') return;
+    if (e === epoca.current) setTexto((ahora) => (ahora.trim() ? ahora : t));
+  };
+
+  // ── Archivos: la vista previa ──────────────────────────────────────────────
+  /** Sube y lee UN archivo de la vista (subir-url → PUT → 'leer'). Sólo lo llama `enviarVista`. */
+  const leerUno = async (it: ItemAdjunto, id: number, funnelId: number | null, e: number): Promise<AdjuntoVista> => {
+    const mime = it.file.type || 'application/octet-stream';
+    const path = await subirArchivo(it.file, mime);
+    if (e !== epoca.current) throw new Error('Cambiaste de conversación.');
+    const r = await llamarOffer<{ sesion: OfferSesionVista; doc: AdjuntoVista }>(
+      { action: 'leer', sesionId: id, path, nombre: it.file.name, mime, ...(funnelId != null ? { funnelId } : {}) },
+      TOPE.leer,
+      'Leer el archivo tardó demasiado.',
+    );
+    aplicarSesion(r.sesion, e);
+    return r.doc;
+  };
+
+  /**
+   * Enviar de la vista previa. Recién ACÁ se sube y se lee cada archivo (./adjuntos-envio.ts), en orden y
+   * diciendo en cuál va; con todos leídos, la vista se cierra y sale el turno con los docs y el texto
+   * (`mandar`: el link del texto, el 502 con la sesión guardada y el reintento siguen ahí). Si una lectura
+   * falla, NO sale el turno: la vista queda con el error y el archivo marcado, y los ya leídos no se
+   * vuelven a leer al reintentar. Si el turno no sale, la vista vuelve con todo (y los docs ya leídos).
+   */
+  const enviarVista = async () => {
+    const items = lista.ref.current;
+    if (!items.length || leyendoRef.current || !puedeMandar) return;
+    if (texto.length > TOPE_MENSAJE) { setErrorVista('Tu mensaje es muy largo. Pártelo en dos.'); return; }
+    const id = sesionId.current;
+    const s = sesionRef.current;
+    if (id == null || !s) return;
+    const e = epoca.current;
+    // El texto que se manda es el de cuando se apretó Enviar. Si se sigue escribiendo mientras se leen los
+    // archivos, eso queda en la barra (no se pisa ni se pierde).
+    const t = texto.trim();
+    leyendoRef.current = true;
+    setLeyendo(true);
+    setErrorVista(null);
+    setErrorChat(null);
+    setFalloId(null);
+    let lectura: Awaited<ReturnType<typeof leerAdjuntos>>;
+    try {
+      lectura = await leerAdjuntos(items, docsLeidos.current, {
+        leer: (it) => leerUno(it, id, s.funnelId, e),
+        alEmpezar: (it) => { if (e === epoca.current) setEstadoVista(`Leyendo «${it.file.name}»…`); },
+        vigente: () => e === epoca.current,
+      });
+    } finally {
+      if (e === epoca.current) { leyendoRef.current = false; setLeyendo(false); setEstadoVista(null); }
+    }
+    if (e !== epoca.current || (!lectura.ok && lectura.cortado)) return;
+    if (!lectura.ok) {
+      setErrorVista(lectura.error);
+      setFalloId(lectura.falloId);
+      return;
+    }
+    setTexto((ahora) => (ahora.trim() === t ? '' : ahora));
+    lista.vaciar();
+    const res = await mandar({ texto: t, docs: lectura.docs, fuente: cuantosArchivos(lectura.docs.length) });
+    if (res === 'salio') { for (const it of items) docsLeidos.current.delete(it.id); return; }
+    // No salió (un corte, un rechazo): vuelve la vista con lo que había, y el error del turno (que `mandar`
+    // dejó en `errorChat`) se ve ahí. Los docs siguen en `docsLeidos`: reintentar no los relee.
     if (e === epoca.current) {
       setTexto((ahora) => (ahora.trim() ? ahora : t));
-      cambiarAdjuntos((prev) => [...enviados, ...prev]);
+      lista.poner([...items, ...lista.ref.current.filter((x) => !items.some((y) => y.id === x.id))]);
     }
+  };
+
+  /** El clip o soltar: abre (o suma a) la vista previa. NO sube ni lee nada. */
+  const agregarArchivos = (archivos: File[]) => {
+    if (sesionId.current == null) return;
+    const abierta = lista.ref.current.length > 0;
+    const errores = lista.agregar(archivos);
+    const msg = errores.length ? errores.join(' ') : null;
+    // Con la vista abierta, el motivo va en la vista; si no se abrió (nada entró), en la línea del chat.
+    if (lista.ref.current.length) {
+      setErrorVista(msg);
+      if (!abierta) setErrorChat(null);
+    } else {
+      setErrorChat(msg);
+    }
+  };
+  const quitarArchivo = (idArchivo: string) => {
+    lista.quitar(idArchivo);
+    docsLeidos.current.delete(idArchivo);
+    if (idArchivo === falloId) { setFalloId(null); setErrorVista(null); }
+  };
+  /** La ✕ de la vista o Escape: descarta los archivos (el texto queda en la barra). */
+  const cerrarVista = () => {
+    if (leyendoRef.current) return;
+    lista.vaciar();
+    docsLeidos.current = new Map();
+    setErrorVista(null);
+    setFalloId(null);
   };
 
   // ── Notas de voz ───────────────────────────────────────────────────────────
   /** Manda una nota de voz. Si no sale, vuelve a la barra de escucharla (no se pierde lo grabado). */
   const enviarAudio = async (a: AudioGrabado) => {
     const e = epoca.current;
-    if (sesionId.current == null || enviando.current || generando.current || adjRef.current.some((x) => x.estado === 'leyendo')) {
+    if (sesionId.current == null || enviando.current || generando.current || leyendoRef.current) {
       // Llegó con algo en curso (se grabó mientras MaKo contestaba): espera en la barra.
       setAudioEnEspera(a);
       return;
@@ -401,61 +520,6 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
   };
   const descartarAudio = () => {
     setAudioEnEspera((a) => { if (a) soltarUrl(a.url); return null; });
-  };
-
-  // ── Archivos ───────────────────────────────────────────────────────────────
-  /** Sube el archivo YA, lo lee, y deja su doc listo para el próximo mensaje. */
-  const leerArchivo = async (key: string, f: File, e: number, id: number) => {
-    try {
-      const mime = f.type || 'application/octet-stream';
-      const path = await subirArchivo(f, mime);
-      if (e !== epoca.current) return;
-      const r = await llamarOffer<{ sesion: OfferSesionVista; doc: AdjuntoVista }>(
-        { action: 'leer', sesionId: id, path, nombre: f.name, mime },
-        TOPE.leer,
-        'Leer el archivo tardó demasiado.',
-      );
-      if (e !== epoca.current) return;
-      aplicarSesion(r.sesion, e);
-      cambiarAdjuntos((prev) => prev.map((a) => (a.key === key ? { ...a, estado: 'listo', doc: r.doc } : a)));
-    } catch (err) {
-      if (e !== epoca.current) return;
-      soltarUrl(adjRef.current.find((a) => a.key === key)?.previa);
-      cambiarAdjuntos((prev) => prev.filter((a) => a.key !== key));
-      setErrorChat(`«${f.name}»: ${mensajeDeError(err)}`);
-    }
-  };
-
-  const agregarArchivos = (archivos: File[]) => {
-    const id = sesionId.current;
-    if (id == null) return;
-    const e = epoca.current;
-    const errores: string[] = [];
-    const nuevos: AdjuntoEnCurso[] = [];
-    const aLeer: Array<{ key: string; f: File }> = [];
-    for (const f of archivos) {
-      // Se valida ANTES de subir y se dice por qué no: un rebote mudo deja a la persona esperando
-      // un archivo que nunca va a llegar.
-      if (!puedeLeerse(f.name, f.type)) {
-        errores.push(`«${f.name}» ${porQueNoPuedo(f.name) || 'no se puede leer.'}`);
-      } else if (f.size > MAX_ARCHIVO_BYTES) {
-        errores.push(`«${f.name}» pesa más de ${Math.round(MAX_ARCHIVO_BYTES / (1024 * 1024))} MB.`);
-      } else {
-        const key = claveNueva();
-        const previa = familiaDeArchivo(f.name, f.type) === 'imagen' ? crearUrl(f) : null;
-        nuevos.push({ key, nombre: f.name, mime: f.type, estado: 'leyendo', previa });
-        aLeer.push({ key, f });
-      }
-    }
-    setErrorChat(errores.length ? errores.join(' ') : null);
-    if (!nuevos.length) return;
-    cambiarAdjuntos((prev) => [...prev, ...nuevos]);
-    for (const { key, f } of aLeer) void leerArchivo(key, f, e, id);
-  };
-
-  const quitarAdjuntos = () => {
-    for (const a of adjRef.current) soltarUrl(a.previa);
-    cambiarAdjuntos(() => []);
   };
 
   // ── Armar la oferta ────────────────────────────────────────────────────────
@@ -523,20 +587,14 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
     if (!op) return;
     if (!ultimo.pregunta && esOpcionArmar(op, opcionArmar) && s.puedeConcluir) { void armar(); return; }
     if (!puedeMandar) return;
-    // Una respuesta rápida es un turno: los archivos ya leídos viajan con ella.
-    const enviados = listos;
-    const claves = new Set(enviados.map((a) => a.key));
-    const e = epoca.current;
-    cambiarAdjuntos((prev) => prev.filter((a) => !claves.has(a.key)));
+    // (Los archivos ya no viajan con una respuesta rápida: con archivos juntados, la vista previa tapa el
+    // chat y sus opciones; se mandan con su propio Enviar.)
     void mandar({
       texto: op,
-      docs: enviados.map((a) => a.doc as AdjuntoVista),
+      docs: [],
       // La opción N de una pregunta del diagnóstico ES la respuesta N: el motor la anota sin adivinar.
       ...(ultimo.pregunta ? { respuesta: { preguntaId: ultimo.pregunta.id, idx } } : {}),
       fuente: 'tu respuesta',
-    }).then((res) => {
-      if (res === 'salio') { for (const a of enviados) soltarUrl(a.previa); return; }
-      if (e === epoca.current) cambiarAdjuntos((prev) => [...enviados, ...prev]);
     });
   };
 
@@ -631,8 +689,27 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
   // se dispara desde el error: así también aparece si el fallo pasó en otra pestaña o antes de recargar.
   const ultimo = sesion?.mensajes[sesion.mensajes.length - 1];
   const sinContestar = !!sesion && !respondiendo && ultimo?.de === 'yo';
-  const datosChip = chipDeAdjuntos(adjuntos);
   const bienvenida = bienvenidaDe(arbolLeido, arbolVacio(arbol));
+  // La vista previa, sobre el área del chat, mientras haya archivos juntados. Su error: el de la vista
+  // (un archivo que no entró o no se pudo leer) o, si el turno no salió, el que dejó `mandar`.
+  const vistaAdjuntos = lista.items.length ? (
+    <VistaAdjuntos
+      items={lista.items}
+      onAgregar={agregarArchivos}
+      onQuitar={quitarArchivo}
+      onCerrar={cerrarVista}
+      texto={texto}
+      onTexto={setTexto}
+      onEnviar={() => void enviarVista()}
+      accept={ACCEPT_IMPORTAR}
+      maxArchivos={MAX_ADJUNTOS}
+      enviando={leyendo}
+      puedeEnviar={puedeMandar}
+      estado={estadoVista}
+      error={errorVista ?? errorChat}
+      conError={falloId}
+    />
+  ) : null;
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -718,7 +795,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
               onTexto={setTexto}
               onEnviar={() => void enviarComposer()}
               ocupado={ocupado}
-              chip={datosChip ? { ...datosChip, onQuitar: quitarAdjuntos, tituloQuitar: adjuntos.length > 1 ? 'Quitar archivos' : 'Quitar archivo' } : null}
+              vista={vistaAdjuntos}
               onArchivos={agregarArchivos}
               onAudio={mandarAudio}
               audioEnEspera={audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs } : null}

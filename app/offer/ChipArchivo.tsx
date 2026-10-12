@@ -3,15 +3,15 @@
 // =============================================================================
 // ChipArchivo — un archivo que viajó con un mensaje, adentro de su burbuja
 // =============================================================================
-// v2: mientras se lee, el archivo es el chip de la barra de WhatsApp (ComposerWhatsApp
-// → `chip`, armado en ayudas.ts → chipDeAdjuntos); cuando ya salió, es éste, adentro
-// de la burbuja del mensaje (ChatOffer). Los cuatro estados siguen: el «leyendo» y el
-// «error» no se usan hoy en el chat, y la pieza los conserva por si vuelven.
+// Antes de salir, un archivo se ve en la vista previa de la casa (app/whatsapp/_shared/
+// VistaAdjuntos.tsx); cuando ya salió, es éste, adentro de la burbuja del mensaje (ChatOffer).
 //
-// Cuatro estados: leyendo (giro), listo (check verde), aviso (se leyó pero MaKo
-// avisa algo: «solo leí las primeras 20 páginas») y error (no se pudo, con el
-// porqué). El aviso y el error se ESCRIBEN en el chip y no sólo en el title: en
-// el celular no hay hover, y un aviso que no se ve no avisa.
+// ⚠️ SIN EL ✓ DE «LEÍDO» (11/10/2026). Existía porque elegir un archivo lo leía en el acto y el ✓
+// avisaba que ya estaba; ahora se lee al ENVIAR y un turno no sale si una lectura falla, así que todo
+// archivo de un mensaje enviado está leído: el ✓ no distinguía nada. Un archivo enviado es una
+// tarjeta, como en WhatsApp. Queda el AVISO (se leyó, pero MaKo avisa algo: «solo leí las primeras 20
+// páginas») y, por si vuelven, el giro de «leyendo» y el error. El aviso y el error se ESCRIBEN en el
+// chip y no sólo en el title: en el celular no hay hover, y un aviso que no se ve no avisa.
 
 import { Spinner } from '@/app/_ui';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
@@ -44,7 +44,6 @@ export function ChipArchivo({ nombre, estado, nota, onQuitar, via }: {
         <span aria-hidden style={{ display: 'inline-flex', color: 'var(--dim)' }}><IconoMenu nombre={iconoDeAdjunto(nombre, '', via)} size={15} /></span>
         <span style={{ minWidth: 0, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>{nombre}</span>
         {estado === 'leyendo' && <span style={{ display: 'inline-flex', color: 'var(--mako-ink)' }}><Spinner size={13} /></span>}
-        {estado === 'listo' && <span aria-label="Leído" style={{ display: 'inline-flex', color: 'var(--good)' }}><IconoMenu nombre="check" size={15} /></span>}
         {estado === 'aviso' && <span aria-label="Leído con aviso" style={{ display: 'inline-flex', color: 'var(--warn)' }}><IconoMenu nombre="avisar" size={15} /></span>}
         {onQuitar && (
           <button type="button" className="of-quitar" onClick={onQuitar} aria-label={`Quitar ${nombre}`} title="Quitar">
