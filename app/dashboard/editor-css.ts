@@ -60,8 +60,12 @@ export const CSS = `
 .lk-top-sub { margin: 0; min-width: 0; font-size: 13px; color: var(--dim); line-height: 1.4; overflow-wrap: anywhere; }
 .lk-top-sub .edin { padding: 0 4px; border-radius: 5px; }
 .lk-top-sub .edin:hover { background: var(--velo-hover); }
-.lk-top-der { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-left: auto; min-width: 0; }
+/* Buscar, Filtro, Editar y ⋮ van en UNA fila (12/10/2026: «quedaron todos desfazados»). Con flex: 0 1 auto el
+   título (flex: 1 1 280px) se quedaba con el ancho y esta fila se encogía al del buscador: «Filtro» bajaba de
+   renglón y Editar y ⋮ quedaban centrados entre los dos. Si no entra al lado del título, la fila ENTERA baja. */
+.lk-top-der { display: flex; align-items: center; flex-wrap: nowrap; justify-content: flex-end; gap: 8px; margin-left: auto; min-width: 0; flex: none; }
 .lk-top-filtros { display: flex; min-width: 0; }
+.lk-top-der .bc-barra { flex-wrap: nowrap; }
 .lk-top-filtros:empty { display: none; }
 .lk-cab-periodo { margin: 4px 0 0; font-size: 13px; color: var(--dim); }
 .lk-pill { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
@@ -252,7 +256,8 @@ export const CSS = `
   .lk-top { padding: 10px 16px 8px; }
   .lk-top-tit { font-size: 19px; }
   .lk-top-emoji { width: 36px; height: 36px; font-size: 24px; }
-  .lk-top-der { margin-left: 0; justify-content: flex-start; }
+  .lk-top-der { margin-left: 0; justify-content: flex-start; flex: 1 1 100%; flex-wrap: wrap; }
+  .lk-top-der .bc-barra { flex-wrap: wrap; }
   .lk-barra { margin: 0 16px; }
   .lk--editando .lk-barra { margin: 0; padding: 2px 16px 6px; }
   .lk-ins-sueltos { display: none; }
