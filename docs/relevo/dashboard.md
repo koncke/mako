@@ -27,7 +27,7 @@ mapa de calor en vivo.
 20), y el mapa de calor en vivo de su landing.
 
 **Después (12/10 ~12:00):** Buscar, Filtro, Editar y ⋮ en una sola fila de la topbar (`editor-css.ts`, `.lk-top-der`), y quien
-nunca guardó un informe arranca EN BLANCO con «Crear una página» (`page.tsx` `sinPaginas`, `EditorInforme` `enBlanco`; la
+nunca guardó un informe arranca con la pantalla de siempre y «＋ Nuevo Dashboard» en el medio del lienzo (`page.tsx` `sinPaginas`, `EditorInforme` `enBlanco`; la
 primera que crea es la única). ⚠️ El teléfono (`/m/dashboard`) todavía le muestra Marketing y Comercial fijos a
 quien no tiene informe: falta aplicarle lo mismo.
 

@@ -416,6 +416,7 @@ export function EditorInforme({
   // El link compartido por el que se entró (o nadie): decide a qué ruta van las LECTURAS (./lectura-compartida.ts).
   const tokenLink = compartido?.token ?? null;
   useEffect(() => {
+    if (enBlanco) return;
     const firmas = firmaPedida.current!;
     const p = pedidosDeHoja(lienzo, vista, hoy, version, noSePiden);
     const graficos = p.graficos.filter((x) => firmas[x.g.id] !== x.firma);
@@ -995,17 +996,10 @@ export function EditorInforme({
 
   const gDetalle = detalle ? hoja.componentes.find((c) => c.id === detalle.id) : undefined;
 
-  if (enBlanco) {
-    return (
-      <div className="lk lk-app">
-        <div className="lk-en-blanco">
-          <p>Todavía no hay páginas</p>
-          <button type="button" className="lk-pill lk-pill--azul" onClick={() => setNuevaHoja(true)} disabled={!guardable}>＋ Crear una página</button>
-        </div>
-        {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} enBlanco="Página 1" />}
-      </div>
-    );
-  }
+  // En blanco la pantalla es la de siempre (Martín, 12/10: «poner todo exactamente igual y en el lugar donde irían
+  // los gráficos, en el medio poner un botón de 'Nuevo Dashboard' nada más»): la topbar muestra una hoja vacía y sin
+  // filtros, sin el desplegable de hojas (por dentro viaja el inicial) y sin editar el título.
+  const hojaTop: Hoja = enBlanco ? { ...hoja, nombre: 'Dashboard', emoji: '📊', subtitulo: '', controles: [], componentes: [] } : hoja;
 
   return (
     <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`}>
@@ -1015,21 +1009,21 @@ export function EditorInforme({
       {/* ── La topbar, como la de Looker: el título de la hoja (con su desplegable) y a la derecha los
              filtros, Compartir, Editar y el ⋮ ── */}
       <BarraSuperior
-        hoja={hoja} editable={guardable} conHojas={puedeNuevaHoja || tablero.hojas.length > 1}
-        hojasAbierto={menu?.tipo === 'hojas'} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hoja, vista, hoy)}
+        hoja={hojaTop} editable={guardable && !enBlanco} conHojas={!enBlanco && (puedeNuevaHoja || tablero.hojas.length > 1)}
+        hojasAbierto={menu?.tipo === 'hojas'} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hojaTop, vista, hoy)}
         onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
         derecha={(
           <>
             {/* Los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando. */}
             <div className="lk-top-filtros" data-recorrido="dash-controles">
               <BarraControles
-                hoja={hoja} vista={vista} editando={editando} guardable={guardable} hoy={hoy} compartido={compartido}
+                hoja={hojaTop} vista={vista} editando={editando} guardable={guardable} hoy={hoy} compartido={compartido}
                 onVista={onVista} onAgregar={agregarControl} onCambiar={cambiarControl} onQuitar={quitarControl} onRestablecer={restablecerVista}
               />
             </div>
             {/* «Editar» en azul (punto 3 de v5). Compartir se fue al ⋮. */}
             {!soloMirar && (
-              <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={alternarEdicion}>
+              <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={enBlanco ? () => setNuevaHoja(true) : alternarEdicion}>
                 {editando ? <><SvgOjo /> Ver</> : <><SvgLapiz /> Editar</>}
               </button>
             )}
@@ -1095,7 +1089,11 @@ export function EditorInforme({
                 {muestra?.etiqueta && <span className="lk-miga-muestra">Muestra: {muestra.etiqueta}</span>}
               </nav>
             )}
-            {!lienzo.componentes.length ? (
+            {enBlanco ? (
+              <div className="lk-vacio lk-en-blanco">
+                <button type="button" className="lk-pill lk-pill--azul" onClick={(e) => { e.stopPropagation(); setNuevaHoja(true); }} disabled={!guardable}>＋ Nuevo Dashboard</button>
+              </div>
+            ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
                 <p>{dueno ? 'Este pop-up está vacío.' : 'Esta hoja no tiene gráficos.'}</p>
                 {editando ? (
@@ -1260,7 +1258,7 @@ export function EditorInforme({
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
       {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} />}
-      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} enBlanco={`Página ${tablero.hojas.length + 1}`} />}
+      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} />}
       {gDetalle && esGrafico(gDetalle) && detalle && (
         <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivosHoja[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
           onCerrar={cerrarDetalle} onCambio={refrescar} onFiltrar={filtrarPor} />

@@ -25,11 +25,14 @@ test('page.tsx: sin informe guardado y sin pedir una hoja, la pantalla va en bla
   assert.match(src, /sinPaginas=\{sinPaginas\}/);
 });
 
-test('EditorInforme: en blanco no hay guía, y se dibuja sólo «Crear una página»', () => {
+test('EditorInforme: en blanco la pantalla es la de siempre (los estilos viven en su return) con «Nuevo Dashboard» en el lienzo', () => {
   const src = leer('app/dashboard/EditorInforme.tsx');
   assert.match(src, /autoabrir: conGuia && !enBlanco && !editando/);
-  assert.match(src, /if \(enBlanco\) \{\s*return \(/);
-  assert.match(src, /Crear una página/);
+  // Un return aparte se dibujaba SIN los <style> del editor (12/10: el texto chiquito arriba a la izquierda).
+  assert.doesNotMatch(src, /if \(enBlanco\) \{\s*return \(/);
+  assert.match(src, /\{enBlanco \? \(\s*<div className="lk-vacio lk-en-blanco">/);
+  assert.match(src, /Nuevo Dashboard/);
+  assert.match(src, /conHojas=\{!enBlanco && /);
 });
 
 test('EditorInforme: la primera página que se crea en blanco es la ÚNICA (el inicial no se guarda)', () => {
