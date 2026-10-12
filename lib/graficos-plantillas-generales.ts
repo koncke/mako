@@ -4,8 +4,14 @@
 // Martín, 11/10/2026: «replica el modal que tenemos en "Automations", en donde al principio tenemos
 // la opción de "Pídeselo a MaKo" y abajo se le ofrece TEMPLATES». Marketing y Comercial son las dos
 // tabs viejas (lib/graficos-plantillas.ts); las de Analysts las arma lib/graficos-plantillas-analysts.ts.
-// Éstas son las del resto de MaKo, una por área: el CRM, la cobranza, las automatizaciones, WhatsApp,
-// Customer Success y la IA. (El Plan no tiene una propia: lo cubre la de Productivity Analyst.)
+// Éstas son las del resto de MaKo, una por área: el CRM, la cobranza, las automatizaciones y la IA. (El Plan
+// no tiene una propia: lo cubre la de Productivity Analyst.)
+//
+// ⚠️ TANDA v5 (12/10/2026): «WhatsApp y MaKo» y «Customer Success» se FUERON. Las reemplazan las hojas Chat
+//    Analyst y CS Analyst (lib/graficos-plantillas-analysts.ts), que miran lo mismo y más; dos plantillas del
+//    mismo tema terminan contando distinto. Un link o un agente que nombre las viejas llega a las nuevas
+//    (`PLANTILLAS_REEMPLAZADAS`, lib/graficos-plantillas.ts). Y sin bloques: «A quién cobrarle» es la tabla de la
+//    cobranza (con «Marcar cobrada» en la fila), y «Para qué se usa» son barras (relevo C, punto 20).
 //
 // ⚠️ CADA PIEZA ESTÁ ESCRITA EN LA MISMA FORMA QUE LA SALIDA DE LA IA (`deIAHoja`, lib/graficos-ia.ts),
 //    y el test las pasa por esa misma puerta: una plantilla con una métrica que no es de su conjunto
@@ -22,9 +28,10 @@ import { acomodar } from './graficos-ia';
 import type { PlantillaHoja } from './graficos-plantillas';
 
 /**
- * Una pieza: un gráfico, un bloque o un título de sección, con la forma que escribe la IA más un
- * nombre `local` (de ahí sale su id: fijo para el inicial, nuevo al instanciar) y, si hace falta,
- * sus controles (un «agrupar por» en una serie).
+ * Una pieza: un gráfico o un título de sección, con la forma que escribe la IA más un nombre `local` (de
+ * ahí sale su id: fijo para el inicial, nuevo al instanciar) y, si hace falta, sus controles (un «agrupar
+ * por» en una serie) y las opciones del catálogo que la IA no escribe (las de una tabla, el orden): la puerta
+ * de la IA no las mira, el saneo las copia.
  */
 export type PiezaPlantilla = { local: string; controles?: Array<Record<string, unknown>> } & Record<string, unknown>;
 
@@ -42,7 +49,6 @@ function aComponente(p: PiezaPlantilla, id: (local: string) => string): Record<s
   if (typeof seccion === 'string') return { id: propio, clase: 'elemento', tipo: 'texto', texto: seccion, tamano: 'xl' };
   // El id fijo tiene que pasar `idValido` (hasta 40 caracteres): por eso corto.
   const ctrls = (controles ?? []).map((c, i) => ({ ...c, id: id(`${local}-c${i}`) }));
-  if (typeof resto.bloque === 'string') return { ...resto, id: propio, clase: 'bloque', controles: ctrls };
   return { ...resto, id: propio, clase: 'grafico', controles: ctrls };
 }
 
@@ -84,15 +90,21 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
     ],
   },
   {
+    // «Este mes completo»: lo que VENCE mira hacia adelante (`pagos.vencimiento` es `futuro`), así que el mes
+    // entra entero; lo cobrado igual se corta en hoy (decisión de la tanda v5).
     id: 'cobranza', nombre: 'Cobranza', emoji: '💳',
     linea: 'Lo que vence en el período, lo cobrado, lo pendiente y a quién cobrarle primero.',
-    subtitulo: 'Las cuotas de tus clientes.', periodo: 'este_mes',
+    subtitulo: 'Las cuotas de tus clientes.', periodo: 'este_mes_completo',
     piezas: [
       { local: 'vence', tipo: 'numero', fuente: 'pagos', metricas: ['monto'], dimension: null, titulo: 'Vence en el período' },
       { local: 'cobrado', tipo: 'numero', fuente: 'pagos', fecha: 'pago', metricas: ['cobrado'], dimension: null, titulo: 'Cobrado', comparar: true },
       { local: 'pendiente', tipo: 'numero', fuente: 'pagos', metricas: ['pendiente'], dimension: null, titulo: 'Pendiente' },
       { local: 'clientes', tipo: 'numero', fuente: 'pagos', metricas: ['clientes'], dimension: null, titulo: 'Clientes con cuota' },
-      { local: 'a-quien', bloque: 'cobranza' },
+      // La que era el bloque «A quién cobrarle»: una fila por cliente, el más urgente arriba, «Marcar cobrada».
+      {
+        local: 'a-quien', tipo: 'tabla', fuente: 'cobranza', dimension: 'cliente', metricas: ['pendiente', 'proxima_monto', 'dias'], titulo: 'A quién cobrarle',
+        ordenMetrica: 'dias', ordenAsc: true, limite: 50, tabla: { acciones: true, columnas: ['urgencia'] },
+      },
       { local: 'semanas', tipo: 'columnas', fuente: 'pagos', dimension: 'semana', metricas: ['cobrado', 'pendiente'], titulo: 'Cobrado y pendiente por semana' },
       { local: 'estados', tipo: 'circular', fuente: 'pagos', dimension: 'estado', metricas: ['monto'], titulo: 'Por estado' },
       { local: 'por-cliente', tipo: 'tabla', fuente: 'pagos', dimension: 'cliente', metricas: ['monto', 'cobrado', 'pendiente'], titulo: 'Por cliente' },
@@ -114,36 +126,6 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
     ],
   },
   {
-    id: 'whatsapp', nombre: 'WhatsApp y MaKo', emoji: '💬',
-    linea: 'Los mensajes de tus líneas de WhatsApp y lo que tu equipo le pide a MaKo.',
-    subtitulo: 'Tus líneas y tus chats con MaKo.', periodo: 'ult30',
-    piezas: [
-      { local: 'enviados', tipo: 'numero', fuente: 'whatsapp', metricas: ['enviados'], dimension: null, titulo: 'Enviados', comparar: true },
-      { local: 'recibidos', tipo: 'numero', fuente: 'whatsapp', metricas: ['recibidos'], dimension: null, titulo: 'Recibidos' },
-      { local: 'chats', tipo: 'numero', fuente: 'whatsapp', metricas: ['chats'], dimension: null, titulo: 'Chats' },
-      { local: 'mako', tipo: 'numero', fuente: 'mako_chat', metricas: ['mensajes'], dimension: null, titulo: 'Mensajes con MaKo' },
-      { local: 'por-dia', tipo: 'serie', fuente: 'whatsapp', dimension: 'dia', metricas: ['enviados', 'recibidos'], titulo: 'Mensajes por día', controles: AGRUPAR_AUTO },
-      { local: 'lineas', tipo: 'barras', fuente: 'whatsapp', dimension: 'linea', metricas: ['mensajes'], titulo: 'Por línea' },
-      { local: 'tipos', tipo: 'circular', fuente: 'whatsapp', dimension: 'tipo', metricas: ['mensajes'], titulo: 'Por tipo' },
-      { local: 'quien', tipo: 'barras', fuente: 'mako_chat', dimension: 'quien', metricas: ['mensajes'], titulo: 'Quién le escribe a MaKo' },
-    ],
-  },
-  {
-    id: 'customer-success', nombre: 'Customer Success', emoji: '🤝',
-    linea: 'En qué etapa de la entrega está cada cliente y cuánto avanzan tus alumnos en los cursos.',
-    subtitulo: 'La entrega y los cursos.', periodo: 'ult30',
-    piezas: [
-      { local: 'clientes', tipo: 'numero', fuente: 'entrega', metricas: ['clientes'], dimension: null, titulo: 'Clientes en entrega' },
-      { local: 'clases', tipo: 'numero', fuente: 'avance_cursos', metricas: ['clases'], dimension: null, titulo: 'Clases vistas', comparar: true },
-      { local: 'avance', tipo: 'numero', fuente: 'avance_cursos', metricas: ['avance'], dimension: null, titulo: 'Avance promedio' },
-      { local: 'alumnos', tipo: 'numero', fuente: 'avance_cursos', metricas: ['alumnos'], dimension: null, titulo: 'Alumnos activos' },
-      { local: 'etapas', tipo: 'barras', fuente: 'entrega', dimension: 'etapa', metricas: ['clientes'], titulo: 'Clientes por etapa' },
-      { local: 'productos', tipo: 'barras_apiladas', fuente: 'entrega', dimension: 'producto', desglose: 'etapa', metricas: ['clientes'], titulo: 'Por producto y etapa' },
-      { local: 'semanas', tipo: 'serie', fuente: 'avance_cursos', dimension: 'semana', metricas: ['clases'], titulo: 'Clases vistas por semana' },
-      { local: 'areas', tipo: 'barras', fuente: 'avance_cursos', dimension: 'area', metricas: ['clases'], titulo: 'Por área' },
-    ],
-  },
-  {
     id: 'ia-contenido', nombre: 'Contenido e IA', emoji: '✨',
     linea: 'Cuánto usas la IA y para qué, y los videos e imágenes que MaKo le pidió a Flow.',
     subtitulo: 'La IA y la producción de contenido.', periodo: 'ult30',
@@ -153,9 +135,11 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
       { local: 'pedidos', tipo: 'numero', fuente: 'flow', metricas: ['trabajos'], dimension: null, titulo: 'Pedidos a Flow' },
       { local: 'exito', tipo: 'numero', fuente: 'flow', metricas: ['tasa_exito'], dimension: null, titulo: 'Tasa de éxito' },
       { local: 'por-dia', tipo: 'serie', fuente: 'ia', dimension: 'dia', metricas: ['llamadas'], titulo: 'Llamadas por día', controles: AGRUPAR_AUTO },
-      { local: 'funciones', tipo: 'tabla_barras', fuente: 'ia', dimension: 'funcion', metricas: ['llamadas', 'costo', 'costo_prom'], titulo: 'Para qué se usa' },
+      { local: 'funciones', tipo: 'barras', fuente: 'ia', dimension: 'funcion', metricas: ['llamadas'], ordenMetrica: 'llamadas', titulo: 'Para qué se usa' },
       { local: 'proveedores', tipo: 'circular', fuente: 'ia', dimension: 'proveedor', metricas: ['llamadas'], titulo: 'Por proveedor' },
       { local: 'flow', tipo: 'columnas', fuente: 'flow', dimension: 'tipo', desglose: 'estado', metricas: ['trabajos'], titulo: 'Videos e imágenes' },
+      // Vivía en «WhatsApp y MaKo», que se fue en v5: lo que tu equipo le pide a MaKo es uso de la IA.
+      { local: 'quien', tipo: 'barras', fuente: 'mako_chat', dimension: 'quien', metricas: ['mensajes'], titulo: 'Quién le escribe a MaKo' },
     ],
   },
 ];
@@ -167,12 +151,14 @@ export const PLANTILLAS_GENERALES: readonly PlantillaHoja[] = DEFINICIONES_GENER
 const plano = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
 /**
- * Las plantillas que pasan el buscador del modal (nombre + línea, sin acentos ni mayúsculas). Recibe
+ * Las plantillas que pasan el buscador del modal (nombre + línea + `buscar`, sin acentos ni mayúsculas). Recibe
  * la lista (`PLANTILLAS_HOJA`) en vez de importarla: lib/graficos-plantillas.ts importa este archivo.
  * «Hoja en blanco» no pasa por acá: va primera siempre (app/dashboard/NuevaHoja.tsx).
+ * `buscar` (v5): las tabs de Analysts se buscan por el nombre que tenían («Landing Analyst»), que la hoja ya no
+ * dibuja — sin eso, «analyst» encontraba 1 de 4 (relevo E, punto 21).
  */
 export function filtrarPlantillasHoja(lista: readonly PlantillaHoja[], texto: string): PlantillaHoja[] {
   const q = plano(texto.trim());
   if (!q) return [...lista];
-  return lista.filter((p) => plano(`${p.nombre} ${p.linea}`).includes(q));
+  return lista.filter((p) => plano(`${p.nombre} ${p.linea} ${p.buscar ?? ''}`).includes(q));
 }

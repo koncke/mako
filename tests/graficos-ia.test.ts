@@ -25,6 +25,13 @@
 //    Analysts sumó 11 conjuntos y 10 bloques (algunos de 6 columnas). El catálogo pasó de 8,9k a 11k
 //    caracteres y dejaba a Groq afuera; de ahí salieron los niveles de `catalogoParaIA` y el tope del
 //    pedido. El árbol compartido tiene una hora, no un estado.
+// ⚠️ TANDA v5 (12/10/2026): LOS BLOQUES SE FUERON. El modelo ya no los ve (ni en el catálogo ni en el system) y
+//    uno que llegue igual se DESCARTA con su motivo; las plantillas generales «WhatsApp y MaKo» y «Customer
+//    Success» se fueron (las reemplazan las hojas Chat Analyst y CS Analyst): quedan cuatro.
+//    PROBADO ROMPIENDO LO NUEVO (base: 16 pases, 0 fallos):
+//   r12 · `pieza` acepta un bloque (lo arma como gráfico de cobranza)                         → (ver abajo)
+//   r13 · `pieza` sin el chequeo de `tipoAdmite` (el mapa de calor sobre las visitas)           → (ver abajo)
+//   r14 · el catálogo vuelve a listar «BLOQUES»                                               → (ver abajo)
 // Correr: npx tsx --test tests/graficos-ia.test.ts
 
 import { test } from 'node:test';
@@ -32,7 +39,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  BLOQUES, COLS, FUENTES, TIPOS, sanearComponente, sanearHoja, tipoDe,
+  COLS, FUENTES, TIPOS, sanearComponente, sanearHoja, tipoDe,
   type Componente, type Grafico,
 } from '../lib/graficos-catalogo';
 import {
@@ -74,7 +81,8 @@ const BUENA = {
     { tipo: 'barras', fuente: 'leads', metricas: ['cierres', 'vendido'], dimension: 'closer', desglose: null, titulo: 'Por closer' },
     { tipo: 'circular', fuente: 'leads', metricas: ['leads'], dimension: 'origen', titulo: 'De dónde vienen' },
     { tipo: 'serie', fuente: 'negocio', metricas: ['gasto', 'leads'], dimension: 'dia', titulo: 'Gasto y leads' },
-    { bloque: 'cobranza' },
+    // v5: lo que era el bloque «A quién cobrarle» es un gráfico del catálogo (la cobranza, por cliente).
+    { tipo: 'tabla', fuente: 'cobranza', metricas: ['pendiente', 'dias'], dimension: 'cliente', titulo: 'A quién cobrarle' },
   ],
 };
 
@@ -112,10 +120,11 @@ test('deIAHoja: un JSON válido entra entero, sin avisos ni correcciones', () =>
   assert.deepEqual(g.map((x) => [x.tipo, x.fuente, x.dimension, x.metricas.join('+')]), [
     ['numero', 'leads', null, 'leads'], ['numero', 'leads', null, 'cierres'], ['numero', 'negocio', null, 'cac'],
     ['barras', 'leads', 'closer', 'cierres+vendido'], ['circular', 'leads', 'origen', 'leads'], ['serie', 'negocio', 'dia', 'gasto+leads'],
+    ['tabla', 'cobranza', 'cliente', 'pendiente+dias'],
   ]);
   assert.equal(g[0].comparar, true);
   assert.equal(r.hoja.componentes[0].clase, 'elemento', 'el título de sección es un elemento de texto');
-  assert.ok(r.hoja.componentes.some((c) => c.clase === 'bloque' && c.bloque === 'cobranza'));
+  assert.ok(!r.hoja.componentes.some((c) => c.clase === 'bloque'), 'v5: ningún bloque');
   // La hoja sobrevive a un segundo saneo sin perder nada (es lo que hace el modal al recibirla).
   assert.equal(sanearHoja(JSON.parse(JSON.stringify(r.hoja)), 0)!.componentes.length, BUENA.componentes.length);
 });
@@ -138,6 +147,24 @@ test('deIAHoja: lo que no tiene arreglo se descarta y se avisa, NUNCA se convier
   assert.equal(r.correcciones.length, 3);
   assert.match(r.correcciones.join('\n'), /"torta3d" no existe/);
   assert.match(r.correcciones.join('\n'), /"ventas_inventadas" no existe/);
+});
+
+// r12 y r13: v5.
+test('deIAHoja: un bloque (v5: se fueron) y un tipo sobre un conjunto que no admite se descartan con su motivo, NUNCA se convierten', () => {
+  const r = deIAHoja({
+    nombre: 'Con bloque', componentes: [
+      ...BUENA.componentes.slice(1, 6),
+      { bloque: 'cobranza' },
+      { tipo: 'mapa_calor', fuente: 'visitas', metricas: ['visitas'] },
+    ],
+  });
+  assert.deepEqual(r.errores, [], '2 de 7 mal no es más de la mitad');
+  assert.equal(r.hoja.componentes.length, 5, 'el bloque y el mapa de calor quedan afuera');
+  assert.ok(!r.hoja.componentes.some((c) => c.clase === 'bloque'), 'un bloque se coló');
+  assert.ok(!r.hoja.componentes.some((c) => c.clase === 'grafico' && (c.fuente === 'visitas' || c.fuente === 'cobranza')), 'se convirtió en un gráfico que nadie pidió');
+  assert.equal(r.avisos[0], '2 gráficos quedaron afuera');
+  assert.match(r.correcciones.join('\n'), /los bloques ya no existen/);
+  assert.match(r.correcciones.join('\n'), /"mapa_calor" va sólo sobre "toques", no sobre "visitas"/);
 });
 
 // r3: 2 fallos (éste y el del rechazo, que cuenta esa corrección).
@@ -187,7 +214,7 @@ test('deIAHoja: se topea a TOPE_COMPONENTES_IA y lo dice', () => {
 
 // r5: 2 fallos (éste y el del JSON válido, que pierde el orden de la sección y el bloque).
 test('acomodar: sin superposiciones, adentro de 12 columnas y en el orden en que vienen', () => {
-  // Un generador con semilla: todas las mezclas de tipos de la galería, bloques y títulos.
+  // Un generador con semilla: todas las mezclas de tipos de la galería, secciones y títulos (v5: sin bloques).
   let s = 7;
   const azar = () => { s = (s * 1103515245 + 12345) % 2 ** 31; return s / 2 ** 31; };
   const crudos = TIPOS.map((t) => ({ id: `t-${t.id}`, clase: 'grafico', tipo: t.id, fuente: t.soloDims ? 'audiencia' : 'leads', metricas: ['leads', 'agendas'] }));
@@ -197,17 +224,16 @@ test('acomodar: sin superposiciones, adentro de 12 columnas y en el orden en que
     for (let i = 0; i < n; i++) {
       const r = azar();
       const raw = r < 0.08 ? { id: `s${i}`, clase: 'elemento', tipo: 'texto', texto: 'Sección' }
-        : r < 0.15 ? { id: `b${i}`, clase: 'bloque', bloque: BLOQUES[Math.floor(azar() * BLOQUES.length)].id }
+        : r < 0.15 ? { id: `b${i}`, clase: 'elemento', tipo: 'seccion', texto: 'Grupo', seccion: { plegable: true } }
           : { ...crudos[Math.floor(azar() * crudos.length)], id: `g${vuelta}x${i}` };
       lista.push(sanearComponente(raw)!);
     }
     const out = acomodar(lista);
     assert.deepEqual(out.map((c) => c.id), lista.map((c) => c.id), 'acomodar no reordena ni pierde');
     assert.equal(sinSuperposicion(out), null, `vuelta ${vuelta}: ${sinSuperposicion(out)}`);
-    // Lo que va a lo ancho, va a lo ancho (un bloque angosto de Analysts se acomoda como cualquiera).
+    // Lo que va a lo ancho, va a lo ancho (una sección agrupa FILAS: sola en la suya).
     for (const c of out) {
-      if (c.clase === 'elemento' && c.tipo === 'texto') assert.equal(c.w, COLS);
-      if (c.clase === 'bloque' && (BLOQUES.find((b) => b.id === c.bloque)?.w ?? 0) >= COLS) assert.equal(c.w, COLS);
+      if (c.clase === 'elemento' && (c.tipo === 'texto' || c.tipo === 'seccion')) assert.equal(c.w, COLS);
       if (c.clase === 'grafico' && ['Tabla', 'Serie temporal'].includes(tipoDe(c.tipo)!.grupo) && c.tipo !== 'serie_sparkline') assert.equal(c.w, COLS);
     }
   }
@@ -220,7 +246,8 @@ test('acomodar: sin superposiciones, adentro de 12 columnas y en el orden en que
 
 // r6: 1 fallo.
 test('las plantillas generales pasan por la MISMA puerta que la IA: cero correcciones', () => {
-  assert.ok(DEFINICIONES_GENERALES.length >= 5 && DEFINICIONES_GENERALES.length <= 8);
+  // v5: «WhatsApp y MaKo» y «Customer Success» se fueron (son las hojas Chat Analyst y CS Analyst): quedan 4.
+  assert.ok(DEFINICIONES_GENERALES.length >= 4 && DEFINICIONES_GENERALES.length <= 8, `${DEFINICIONES_GENERALES.length} generales`);
   for (const d of DEFINICIONES_GENERALES) {
     const r = deIAHoja({ nombre: d.nombre, emoji: d.emoji, periodo: d.periodo, componentes: d.piezas.map(({ local: _l, controles: _c, ...p }) => p) });
     assert.deepEqual(r.errores, [], `${d.id}: ${r.errores.join(' | ')}`);
@@ -260,8 +287,11 @@ test('el catálogo que lee el modelo: todos los ids, ningún dato, y entra en el
   const linea = (id: string) => new RegExp(`^- ${id} [«\\[]`, 'm');
   for (const f of FUENTES) assert.match(cat, linea(f.id), `falta el conjunto ${f.id}`);
   for (const t of TIPOS) assert.match(cat, linea(t.id), `falta el tipo ${t.id}`);
-  for (const b of BLOQUES) assert.match(cat, linea(b.id), `falta el bloque ${b.id}`);
   assert.ok(tipoDe('numero') && cat.includes('[sin dimensión · 1 métrica]'));
+  // v5: ni una palabra de bloques (se fueron), y el tipo atado a un conjunto lo dice (r14).
+  assert.doesNotMatch(cat, /BLOQUES/, 'el catálogo le ofrece bloques al modelo');
+  assert.doesNotMatch(HOJA_IA_SYSTEM_TEMPLATE, /bloque/i, 'el system le ofrece bloques al modelo');
+  assert.match(cat, /^- mapa_calor \[[^\]]*sólo toques\]/m, 'el mapa de calor no dice que va sólo sobre los toques');
   // ⚠️ LA CUENTA ES LA DE lib/ai-cheap.ts (`tokensAprox`: 3,5 caracteres por token) y el techo de
   //    Groq es 7000 (`TECHO_ENTRADA`); el test no puede importarlos porque ai-cheap es server-only.
   //    Con el pedido más largo que acepta la ruta, tienen que quedar ≥3000 de salida

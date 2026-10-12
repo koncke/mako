@@ -5,17 +5,20 @@
 // server actions se ENCOLAN de a una (AGENTS.md, «Antes de optimizar una consulta…»). El
 // `?ws=` lo pega solo el parche de fetch (app/_components/WsFetch.tsx).
 //
-// La puerta es la misma que la de la página (`requireRolWs(['closer'], { nav: 'graphics' })`): admin
-// del workspace o closer, y la tab en su capa.
+// La puerta es la misma que la de la página (`requireRolWs(['closer', 'setter'], { nav: 'graphics' })`): admin
+// del workspace, o un rol con hoja única (closer, setter), y la tab en su capa.
 //
 // ⚠️ EL CLOSER, DESDE EL 11/10/2026 (decisión 6 de Martín: Closing Analyst se retiró y «los closers ven
 //    SÓLO la hoja Closing del Dashboard»): entra, pero sólo a lo que esa hoja pide —`datos` de las
 //    llamadas, `bloques` de Closing y `valores` de un campo de Closing, recortados a esos conjuntos—, y
 //    sólo si su negocio tiene Closing en la capa. Guardar, el detalle de un número y todo lo demás:
-//    403. La lista vive en lib/graficos-plantillas.ts (`closerPuedePedir`), al lado de la hoja que la
+//    403. La lista vive en lib/graficos-plantillas.ts (`puedePedir`), al lado de la hoja que la
 //    usa, y en positivo: una acción nueva de esta ruta nace cerrada para él. Antes de esto un closer
 //    no entraba nunca: leía por acá la plata que su pantalla le esconde, y eso sigue siendo así.
 //    Las rutas hermanas (ia, analisis, imagen) siguen sólo para el admin.
+// ⚠️ Y EL SETTER, DESDE EL 12/10/2026 (tanda v5: «El setter ve SÓLO la hoja Chat Analyst»): la misma regla,
+//    generalizada a todo rol con hoja ÚNICA (`HOJA_DE_ROL`): `puedePedir(rol, body)` con los conjuntos de SU
+//    hoja, su capa (WhatsApp) y su informe en memoria para los pop-ups.
 //
 //   POST { accion: 'datos', pedidos: [{ grafico, desde, hasta, filtros?, agrupar? }], popupDe? } → { datos: Record<id, DatosGrafico> }
 //   POST { accion: 'bloques', pedidos: [{ id, bloque, desde, hasta }] }               → { datos: Record<id, DatosBloque> }
@@ -32,11 +35,11 @@
 //
 // EL POP-UP (interfaz I5 del contrato): los gráficos de la mini-hoja guardada adentro de un gráfico
 // (`Grafico.popup`) se piden con este mismo `datos` y `popupDe: <id del gráfico dueño>`. El server busca al
-// dueño en el informe de quien pide —el guardado, o el del closer en memoria— y lee cada componente con SU
+// dueño en el informe de quien pide —el guardado, o el del closer o el setter en memoria— y lee cada componente con SU
 // definición guardada: del cuerpo valen el período, el «agrupar por» y los filtros (el inyectado del clic
 // incluido, que se sanea contra el conjunto como cualquier filtro). Lo que no está en el pop-up guardado: al
 // admin se le lee tal cual (lo está editando y todavía no se guardó; igual podría pedirlo sin pop-up), al
-// closer no se le lee.
+// closer (ni al setter) no se le lee.
 
 import { NextResponse } from 'next/server';
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
@@ -47,7 +50,7 @@ import { datosDeGraficos, valoresDeCampo, type PedidoDatos } from '@/lib/grafico
 import { datosDeBloques, type PedidoBloque } from '@/lib/graficos-bloques';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
 import { guardarTableroVersion, leerTablero } from '@/lib/graficos-tablero';
-import { closerPuedePedir, fuentesDeCampoCloser, informeCloser } from '@/lib/graficos-plantillas';
+import { fuentesDeCampoDeRol, hojaDeRol, informeDeRol, puedePedir } from '@/lib/graficos-plantillas';
 
 /** Los componentes del pop-up del gráfico `id` (en cualquier hoja del informe), o null si no está o no tiene. */
 function componentesDePopup(t: Tablero, id: string): Componente[] | null {
@@ -65,16 +68,17 @@ const err = (status: number, error: string) => NextResponse.json({ error }, { st
 export async function POST(req: Request) {
   const rol = await getRolWsEfectivo();
   if (rol == null) return err(401, 'no autenticado');
-  if (rol !== 'admin' && rol !== 'closer') return err(403, 'Sólo el admin de la cuenta');
+  // La hoja ÚNICA de un rol (el closer, Closing; el setter, Chat Analyst). Sin una, sólo el admin.
+  const unica = hojaDeRol(rol);
+  if (rol !== 'admin' && !unica) return err(403, 'Sólo el admin de la cuenta');
   const capa = await getCapaActual();
   if (!tabEnCapa('graphics', capa)) return err(404, 'No existe');
-  // El closer ve la hoja Closing si su negocio compró Closing (la key de la capa sigue siendo ésa).
-  if (rol === 'closer' && !tabEnCapa('closing', capa)) return err(403, 'Sólo el admin de la cuenta');
+  // Ve su hoja si su negocio compró la capa que la hoja pide (Closing / WhatsApp).
+  if (unica && !tabEnCapa(unica.capa, capa)) return err(403, 'Sólo el admin de la cuenta');
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return err(400, 'JSON inválido'); }
-  const closer = rol === 'closer';
-  if (closer && !closerPuedePedir(body)) return err(403, 'Sólo la hoja Closing');
+  if (unica && !puedePedir(rol, body)) return err(403, unica.error);
 
   if (body.accion === 'guardar') {
     // v5: el autoguardado manda la VERSIÓN que leyó (compare-and-set, como la API de MaKo). Sin `version` es
@@ -95,9 +99,9 @@ export async function POST(req: Request) {
     // El pop-up: sus componentes se leen con la definición GUARDADA del gráfico dueño.
     let delPopup: Map<string, Componente> | null = null;
     if (typeof body.popupDe === 'string' && body.popupDe) {
-      const dueno = closer ? informeCloser() : (await leerTablero()).tablero;
+      const dueno = informeDeRol(rol) ?? (await leerTablero()).tablero;
       const comps = componentesDePopup(dueno, body.popupDe.slice(0, 40));
-      if (!comps && closer) return err(403, 'Sólo la hoja Closing');
+      if (!comps && unica) return err(403, unica.error);
       delPopup = new Map((comps ?? []).map((c) => [c.id, c] as const));
     }
     const pedidos: PedidoDatos[] = [];
@@ -110,7 +114,7 @@ export async function POST(req: Request) {
         const id = grafico && typeof grafico === 'object' ? String((grafico as { id?: unknown }).id ?? '') : '';
         const guardado = delPopup.get(id);
         if (guardado) grafico = guardado;
-        else if (closer) continue;
+        else if (unica) continue;
       }
       // El período va TAL CUAL: el corte en hoy (y el «futuro») lo decide `datosDeGraficos`.
       pedidos.push({ grafico, desde, hasta, filtros: p.filtros, agrupar: p.agrupar });
@@ -137,9 +141,10 @@ export async function POST(req: Request) {
     const desde = String(body.desde ?? '');
     const hasta = String(body.hasta ?? '');
     if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) return err(400, 'Período inválido');
-    // Al closer, los valores salen SÓLO de las llamadas: «Closer» también es un campo de los leads.
-    const fuentes = closer
-      ? fuentesDeCampoCloser(body.campo, body.fuentes)
+    // A un rol con hoja única, los valores salen SÓLO de los conjuntos de su hoja: «Closer» también es un campo de
+    // los leads, y «Setter» también.
+    const fuentes = unica
+      ? fuentesDeCampoDeRol(rol, body.campo, body.fuentes)
       : Array.isArray(body.fuentes) ? body.fuentes.map(String).slice(0, 30) : undefined;
     return NextResponse.json({ valores: await valoresDeCampo(String(body.campo ?? ''), desde, hasta, fuentes) });
   }

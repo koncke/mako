@@ -20,6 +20,14 @@
 //   · El modo closer (C3): sólo la hoja Closing, y el server sólo le da lo de Closing — y la hoja no le
 //     pide nada que el server le niegue.
 // Que nadie vuelva a ENLAZAR las tres rutas retiradas lo cuida tests/tabs-retiradas.test.ts.
+//
+// TANDA v5 (12/10/2026): los bloques se fueron, así que lo de arriba que nombraba un bloque cambió:
+//   · Son SIETE plantillas: las cuatro de antes y VSL, CS y Chat Analyst (punto 22). Que ninguna traiga un bloque
+//     y que cada gráfico pase el saneo sin cambiar lo cuida tests/graficos-plantillas-v5.test.ts, sobre TODAS.
+//   · `?hoja=` pregunta PRIMERO de qué plantilla nació la hoja (`Hoja.plantilla`); la FIRMA por bloque murió con
+//     los bloques y queda la de ids fijos (Marketing y Comercial) de respaldo.
+//   · El desplegable «Analysts» salió entero de la sidebar, y el SETTER ve SÓLO la hoja Chat Analyst, como el
+//     closer con Closing: los tests del modo closer son ahora de los dos roles (`HOJA_DE_ROL`).
 // Correr: npx tsx --test tests/graficos-analysts.test.ts
 //
 // PROBADO ROMPIÉNDOLO (11/10/2026, al retomar la corrida): una rotura por vez sobre la base en verde
@@ -68,15 +76,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  BLOQUES, MAX_HOJAS, campoDe, esBloque, esElemento, esGrafico, fuenteDe, hojaVacia, minimoDeElemento, sanearHoja,
-  type Componente, type Tablero,
+  MAX_HOJAS, campoDe, esElemento, esGrafico, fuenteDe, hojaVacia, minimoDeElemento, sanearHoja,
+  type Componente, type Hoja, type Tablero,
 } from '../lib/graficos-catalogo';
 import { FUENTES_EXTRA } from '../lib/graficos-fuentes-extra';
-import { BLOQUES_EXTRA } from '../lib/graficos-bloques-extra-catalogo';
 import { PLANTILLAS_ANALYSTS } from '../lib/graficos-plantillas-analysts';
 import {
-  CLOSER_BLOQUES, CLOSER_CONJUNTOS, PLANTILLAS_HOJA, closerPuedePedir, componentesDe, conHojaAgregada, destinoDeClosing,
-  firmaDe, fuentesDeCampoCloser, hojaDestino, informeCloser, instanciarPlantilla, llamadaDeUrl, plantillaHojaDe, tableroInicial,
+  CLOSER_CONJUNTOS, HOJA_DE_ROL, PLANTILLAS_HOJA, SETTER_CONJUNTOS, closerPuedePedir, componentesDe, conHojaAgregada, destinoDeClosing,
+  firmaDe, fuentesDeCampoCloser, fuentesDeCampoDeRol, hojaDeRol, hojaDestino, informeCloser, informeDeRol, instanciarPlantilla,
+  llamadaDeUrl, plantillaHojaDe, puedePedir, tableroInicial,
 } from '../lib/graficos-plantillas';
 import { TODOS_LOS_ITEMS } from '../app/_components/nav';
 import { tabEnCapa } from '../lib/capas';
@@ -92,10 +100,13 @@ const leer = (ruta: string) => readFileSync(join(RAIZ, ruta), 'utf8').replace(/\
 // Las líneas PRIMERO y los bloques después: un `/*` dentro de un comentario de línea se comería el código.
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-type Crudo = Record<string, unknown> & { id: string; clase?: string; controles?: Array<Record<string, unknown>> };
+type Crudo = Record<string, unknown> & { id: string; clase?: string; tipo?: string; controles?: Array<Record<string, unknown>> };
+
+/** Las siete, en el orden del CAMINO del negocio que tenía el desplegable (el anuncio, la página, el video, el chat, la llamada, el cliente, el tablero). */
+const IDS_ANALYSTS = ['ads-analyst', 'landing', 'vsl-analyst', 'chat-analyst', 'closing', 'cs-analyst', 'productividad'];
 
 test('cada plantilla de Analysts sobrevive al saneo SIN PERDER NADA (componentes, métricas, dimensiones, controles)', () => {
-  assert.deepEqual(PLANTILLAS_ANALYSTS.map((p) => p.id), ['ads-analyst', 'landing', 'closing', 'productividad']);
+  assert.deepEqual(PLANTILLAS_ANALYSTS.map((p) => p.id), IDS_ANALYSTS);
   for (const p of PLANTILLAS_ANALYSTS) {
     const crudo = p.armar((l) => l) as { id: string; controles: Crudo[]; componentes: Crudo[] };
     const h = sanearHoja(crudo, 0)!;
@@ -108,8 +119,10 @@ test('cada plantilla de Analysts sobrevive al saneo SIN PERDER NADA (componentes
       assert.ok(s, `${p.id}/${c.id}: el id local no pasa idValido o el componente no existe`);
       assert.equal(s!.x, c.x, `${p.id}/${c.id}: x`); assert.equal(s!.y, c.y, `${p.id}/${c.id}: y`);
       assert.equal(s!.w, c.w, `${p.id}/${c.id}: w`); assert.equal(s!.h, c.h, `${p.id}/${c.id}: h`);
-      if (c.clase === 'bloque') {
-        assert.ok(esBloque(s!) && s.bloque === c.bloque, `${p.id}/${c.id}: el bloque ${String(c.bloque)} no existe`);
+      // v5: sin bloques. Un elemento (la caja de IA, el botón de Closing) sigue siendo ESE elemento.
+      assert.notEqual(c.clase, 'bloque', `${p.id}/${c.id}: un bloque (se fueron en v5)`);
+      if (c.clase === 'elemento') {
+        assert.ok(esElemento(s!) && s.tipo === c.tipo, `${p.id}/${c.id}: el elemento ${String(c.tipo)} no sobrevivió`);
         continue;
       }
       assert.ok(esGrafico(s!), `${p.id}/${c.id}: no es un gráfico`);
@@ -126,6 +139,7 @@ test('cada plantilla de Analysts sobrevive al saneo SIN PERDER NADA (componentes
       for (const k of c.controles ?? []) {
         const sk = g.controles.find((x) => x.id === k.id);
         assert.deepEqual(sk?.valores ?? null, k.valores ?? null, `${p.id}/${c.id}: el control ${String(k.id)} perdió sus valores`);
+        assert.equal(!!sk?.fijo, k.fijo === true, `${p.id}/${c.id}: el control ${String(k.id)} perdió el «fijo»`);
       }
     }
   }
@@ -160,32 +174,30 @@ test('cada conjunto nuevo tiene su lector en LECTORES_EXTRA, y cada lector su co
   assert.deepEqual(claves, FUENTES_EXTRA.map((f) => f.id).sort());
 });
 
-test('cada bloque nuevo se lee en datosDeBloquesExtra y se dibuja en CuerpoBloqueExtra', () => {
-  const datos = sinComentarios(leer('lib/graficos-bloques-extra.ts'));
-  const dibujo = sinComentarios(leer('app/dashboard/bloques/extra/CuerpoBloqueExtra.tsx'));
-  const ids = BLOQUES_EXTRA.map((b) => b.id);
-  assert.equal(new Set(BLOQUES.map((b) => b.id)).size, BLOQUES.length, 'un bloque de Analysts repite el id de uno de Comercial');
-  for (const id of ids) {
-    assert.ok(datos.includes(`case '${id}':`), `${id}: datosDeBloquesExtra no lo lee`);
-    assert.ok(dibujo.includes(`b.bloque === '${id}'`), `${id}: CuerpoBloqueExtra no lo dibuja`);
-  }
-});
+// (El test «cada bloque nuevo se lee en datosDeBloquesExtra y se dibuja en CuerpoBloqueExtra» se fue en v5: los
+// bloques salieron del catálogo y nada los ofrece, así que fijaba código sin call site. Los archivos de los
+// bloques quedan hasta que el último que los nombra los suelte: ver «NO HICE» del paquete P8.)
 
+// v5 (P2): el filtro del video vive en el SQL del resumen y en su gemelo en memoria (`resumirEventos`), y
+// `videosDelPeriodo` lee el RESUMEN, no los eventos crudos.
 test('la retención del video sólo lee eventos DEL VIDEO: un clic o un scroll no son un play', () => {
-  const src = sinComentarios(leer('lib/graficos-datos-extra.ts'));
-  const ini = src.indexOf('export async function videosDelPeriodo');
-  const fin = src.indexOf('async function filasRetencionVsl', ini);
-  assert.ok(ini >= 0 && fin > ini, 'no encuentro videosDelPeriodo');
-  const cuerpo = src.slice(ini, fin);
-  const filtro = cuerpo.indexOf('if (!esEventoDeVideo(x.tipo_evento)) continue;');
-  assert.ok(filtro >= 0, 'videosDelPeriodo agrupa cualquier evento (un clic armaría un video «Sin identificar»)');
-  assert.ok(filtro < cuerpo.indexOf('porVideo.get('), 'el filtro va ANTES de agrupar por video');
+  const vr = sinComentarios(leer('lib/vsl-retencion.ts'));
+  const i = vr.indexOf('export function resumirEventos'); const res = vr.slice(i, vr.indexOf('\n}\n', i));
+  const k = res.indexOf('if (!esEventoDeVideo(e.tipo_evento)) continue;');
+  assert.ok(k >= 0 && k < res.indexOf('grupos.get('), 'resumirEventos agrupa cualquier evento (un clic armaría un video «Sin identificar»)');
+  const src = sinComentarios(leer('lib/graficos-datos-extra.ts')); const ini = src.indexOf('export async function videosDelPeriodo');
+  assert.match(src.slice(ini, src.indexOf('async function filasRetencionVsl', ini)), /leerResumenVsl\(rg, visitantes\)/);
 });
 
 test('la retención y el scroll se dividen por los MEDIDOS; impacto y esfuerzo no se suman', () => {
   for (const id of ['scroll', 'retencion_vsl']) {
     const f = FUENTES_EXTRA.find((x) => x.id === id)!;
-    for (const mm of f.metricas.filter((x) => x.razon)) assert.equal(mm.razon!.den, 'medidos', `${id}.${mm.id}: se divide por ${mm.razon!.den}, no por los medidos`);
+    // `siguen` (la curva por corte) se divide por los medidos de ESE corte: fuera de la dimensión `corte`,
+    // dividir por `medidos` daría un 0% inventado (P2, v5).
+    for (const mm of f.metricas.filter((x) => x.razon)) {
+      const den = id === 'retencion_vsl' && mm.id === 'siguen' ? 'medidos_corte' : 'medidos';
+      assert.equal(mm.razon!.den, den, `${id}.${mm.id}: se divide por ${mm.razon!.den}, no por ${den}`);
+    }
   }
   const proy = FUENTES_EXTRA.find((x) => x.id === 'proyectos')!;
   for (const id of ['impacto', 'esfuerzo']) assert.equal(proy.metricas.find((x) => x.id === id)?.sinTotal, true, `proyectos.${id} se sumaría entre proyectos`);
@@ -274,12 +286,12 @@ test('Productividad cuenta como la tab: sin las recurrentes, y cada tarea en TOD
 
 /** Las palabras terminadas en á/é/í (o en ás/és/ís) que SÍ son de tú o neutras. Todo lo demás es sospechoso. */
 const NEUTRAS = new Set(['más', 'está', 'aquí', 'así', 'ahí', 'allí', 'sí', 'qué', 'días', 'después', 'además', 'través', 'país', 'acá', 'estás', 'detrás']);
+// v5: las plantillas (con las tres hojas nuevas y los pop-ups) y los lectores; los bloques se fueron del catálogo,
+// y sus archivos ya están en el índice (el guard del repo los ve).
 const CON_TEXTO = [
-  'lib/graficos-plantillas-analysts.ts', 'lib/graficos-fuentes-extra.ts', 'lib/graficos-bloques-extra-catalogo.ts',
-  'lib/graficos-datos-extra.ts', 'lib/graficos-bloques-extra.ts', 'lib/ads-analyst-patrones.ts', 'lib/landing-mapa-rotulo.ts',
-  'lib/productividad-metricas.ts', 'app/dashboard/bloques/extra/CuerpoBloqueExtra.tsx', 'app/dashboard/bloques/extra/piezas-extra.tsx',
-  'app/dashboard/bloques/extra/BloquesAds.tsx', 'app/dashboard/bloques/extra/BloquesLanding.tsx',
-  'app/dashboard/bloques/extra/BloquesClosing.tsx', 'app/dashboard/bloques/extra/BloquesProductividad.tsx',
+  'lib/graficos-plantillas-analysts.ts', 'lib/graficos-plantillas.ts', 'lib/graficos-plantillas-generales.ts',
+  'lib/graficos-fuentes-extra.ts', 'lib/graficos-datos-extra.ts', 'lib/ads-analyst-patrones.ts', 'lib/landing-mapa-rotulo.ts',
+  'lib/productividad-metricas.ts', 'app/vsl-analyst/page.tsx', 'app/cs-analyst/page.tsx', 'app/chat-analyst/page.tsx',
 ];
 
 test('sin voseo en lo que se dibuja (el guard del repo no ve un archivo sin git add)', () => {
@@ -297,24 +309,34 @@ test('sin voseo en lo que se dibuja (el guard del repo no ve un archivo sin git 
 
 // ── La sidebar ───────────────────────────────────────────────────────────────────────────
 
-test('las cuatro tabs de Analysts salieron de la sidebar (sus KEYS no), y el closer ve el Dashboard', () => {
+test('las tabs de Analysts salieron de la sidebar (el desplegable entero), y el closer y el setter ven el Dashboard', () => {
   const nav = sinComentarios(leer('app/_components/nav.ts'));
   // Ads, Landing y Closing salieron el 11/10 a la tarde, con sus tareas YA mudadas (Ads Writer, Landing
   // Generator y la ficha de la llamada en la hoja Closing). Antes de eso este test exigía lo contrario:
-  // sacarlas sin mudarlas dejaba al cliente sin la única pantalla para hacerlas.
-  for (const r of ['/productivity-analyst', '/ads-analyst', '/landing-analyst', '/closing']) {
+  // sacarlas sin mudarlas dejaba al cliente sin la única pantalla para hacerlas. VSL, CS y Chat, el 12/10 (v5).
+  for (const r of ['/productivity-analyst', '/ads-analyst', '/landing-analyst', '/closing', '/vsl-analyst', '/cs-analyst', '/chat-analyst']) {
     assert.doesNotMatch(nav, new RegExp(`href: '${r}'`), `${r} volvió a la sidebar`);
     assert.ok(!TODOS_LOS_ITEMS.some((i) => i.href === r || i.href.startsWith(`${r}?`) || i.href.startsWith(`${r}/`)), `un ítem de la barra apunta a ${r}`);
   }
-  // Las KEYS están escritas en la base (capas, onboarding, gating de la API): no se van con el ítem.
+  // El desplegable «Analysts» ya no existe (Martín, punto 22: «elimina por completo el desplegable»).
+  assert.doesNotMatch(nav, /key: 'analysts'/, 'volvió el desplegable «Analysts»');
+  assert.ok(!TODOS_LOS_ITEMS.some((i) => ['vsl-an', 'chat-analyst', 'cs-analyst'].includes(i.key)), 'volvió un ítem «pronto» de los Analysts');
+  // Las KEYS de antes están escritas en la base (capas, onboarding, gating de la API): no se van con el ítem.
   assert.equal(tabEnCapa('closing', 'superadmin'), true, 'la key `closing` salió de la capa: el closer perdería su hoja');
-  // El closer ve el Dashboard (ve SÓLO la hoja Closing: lo cuida el test del modo closer, abajo).
+  // El closer y el setter ven el Dashboard (cada uno SÓLO su hoja: lo cuida el test del modo de un rol, abajo).
   const dash = TODOS_LOS_ITEMS.find((i) => i.key === 'graphics');
   assert.ok(dash?.rolesWs?.includes('closer'), 'el closer no ve el Dashboard: se quedó sin el análisis de sus llamadas');
-  const pagina = sinComentarios(leer('app/productivity-analyst/page.tsx'));
-  assert.match(pagina, /redirect\(await rutaConWs\('\/dashboard\?hoja=productividad'\)\)/, 'la ruta vieja no redirige con rutaConWs');
-  const prod = PLANTILLAS_ANALYSTS.find((p) => p.id === 'productividad')!;
-  assert.equal(sanearHoja(prod.armar((l) => l), 0)!.id, 'productividad', 'el redirect apunta a una hoja que no existe');
+  assert.ok(dash?.rolesWs?.includes('setter'), 'el setter no ve el Dashboard: se quedó sin su Chat Analyst');
+  const redirige: Array<[string, string]> = [
+    ['app/productivity-analyst/page.tsx', 'productividad'], ['app/vsl-analyst/page.tsx', 'vsl-analyst'],
+    ['app/cs-analyst/page.tsx', 'cs-analyst'], ['app/chat-analyst/page.tsx', 'chat-analyst'],
+  ];
+  for (const [f, hoja] of redirige) {
+    const pagina = sinComentarios(leer(f));
+    assert.match(pagina, new RegExp(`redirect\\(await rutaConWs\\('/dashboard\\?hoja=${hoja}'\\)\\)`), `${f}: no redirige con rutaConWs`);
+    const p = PLANTILLAS_ANALYSTS.find((x) => x.id === hoja)!;
+    assert.equal(sanearHoja(p.armar((l) => l), 0)!.id, hoja, `${f}: el redirect apunta a una hoja que no existe`);
+  }
 });
 
 // ── A dónde lleva `?hoja=` (C2) ────────────────────────────────────────────────────────────
@@ -331,112 +353,156 @@ const idsRepetidos = (t: Tablero): string[] => {
   return rep;
 };
 
-test('hojaDestino: el id exacto, después la FIRMA de la plantilla, y si no está la AGREGA con ids fijos', () => {
+test('hojaDestino: el id exacto, después la hoja que NACIÓ de la plantilla, y si no está la AGREGA con ids fijos', () => {
   const ini = tableroInicial();
   // 1 · El id exacto.
   assert.deepEqual(hojaDestino(ini, 'comercial'), { hojaId: 'comercial', agregar: null });
   // Sin pedido, o un pedido que no es ni hoja ni plantilla: la primera hoja (null).
   for (const p of [null, undefined, '', '  ', 'no-existe']) assert.deepEqual(hojaDestino(ini, p), { hojaId: null, agregar: null }, String(p));
-  // 3 · La plantilla no está: se agrega con SUS ids fijos (el próximo link la encuentra por el id).
-  for (const id of ['closing', 'ads-analyst', 'landing', 'productividad']) {
+  // 4 · La plantilla no está: se agrega con SUS ids fijos (el próximo link la encuentra por el id), y dice de
+  //     qué plantilla nació.
+  for (const id of IDS_ANALYSTS) {
     const d = hojaDestino(ini, id);
     assert.ok(d.agregar, `${id}: no se agrega (el link caería en Marketing sin avisar)`);
     assert.equal(d.hojaId, id);
     assert.equal(d.agregar!.id, id, `${id}: la hoja agregada no tiene el id que nombra el link`);
+    assert.equal(d.agregar!.plantilla, id, `${id}: la hoja agregada no dice de qué plantilla nació`);
     assert.deepEqual(d.agregar!.componentes.map((c) => c.id), componentesDe(plantillaHojaDe(id)!).map((c) => c.id), `${id}: no son los ids fijos`);
     // Agregada, el mismo link ya la encuentra por el id (no se agrega dos veces).
     assert.deepEqual(hojaDestino(conHojaAgregada(ini, d.agregar), id), { hojaId: id, agregar: null }, `${id}: se agregaría en cada visita`);
   }
-  // 2 · La que se agregó desde «Nueva hoja» (ids NUEVOS) se reconoce por su firma.
-  for (const id of ['closing', 'ads-analyst', 'landing', 'productividad']) {
+  // 2 · La que se agregó desde «Nueva hoja» (ids NUEVOS) se reconoce por la plantilla de la que nació.
+  for (const id of IDS_ANALYSTS) {
     const nueva = instanciarPlantilla(plantillaHojaDe(id)!);
     assert.notEqual(nueva.id, id);
     const t: Tablero = { ...ini, hojas: [...ini.hojas, nueva] };
     assert.deepEqual(hojaDestino(t, id), { hojaId: nueva.id, agregar: null }, `${id}: la hoja de «Nueva hoja» no se reconoce y se agregaría otra`);
   }
+  // Y la de un informe guardado ANTES de v5: sus bloques se migran en el saneo, que le pone la plantilla que
+  // delataban (lib/graficos-migrar-v5.ts). Sin eso, cada visita a /closing le agregaba otra hoja Closing.
+  const vieja = sanearHoja({ id: 'gviejacl', nombre: 'Closing', componentes: [{ id: 'gx1', clase: 'bloque', bloque: 'embudo_cierre', x: 0, y: 0, w: 6, h: 10 }] }, 0)!;
+  assert.equal(vieja.plantilla, 'closing', 'la migración no le puso la plantilla a la hoja vieja');
+  assert.deepEqual(hojaDestino({ ...ini, hojas: [...ini.hojas, vieja] }, 'closing'), { hojaId: 'gviejacl', agregar: null });
 });
 
-test('hojaDestino: una firma no reconoce la hoja de OTRA plantilla, ni el informe inicial', () => {
+test('hojaDestino: la plantilla de una hoja no la toma OTRA, y la FIRMA de respaldo reconoce Marketing y Comercial de antes', () => {
   const ini = tableroInicial();
-  const conFirma = ['closing', 'ads-analyst', 'landing', 'productividad', 'marketing', 'comercial'];
-  for (const a of conFirma) {
-    const f = firmaDe(a);
-    assert.ok(f && ((f.bloques?.length ?? 0) + (f.ids?.length ?? 0)) > 0, `${a}: sin firma`);
-    // Cada bloque de una firma existe en el catálogo: uno mal escrito no reconoce nada, y no da error.
-    for (const b of f!.bloques ?? []) assert.ok(BLOQUES.some((x) => x.id === b), `${a}: la firma nombra el bloque ${b}, que no existe`);
-    // Y la plantilla trae ALGO de su firma (si no, la hoja que arma no se reconoce a sí misma).
-    const h = instanciarPlantilla(plantillaHojaDe(a)!);
-    const propia = (f!.bloques ?? []).some((b) => h.componentes.some((c) => esBloque(c) && c.bloque === b));
-    if (a !== 'marketing' && a !== 'comercial') assert.ok(propia, `${a}: su plantilla no trae ningún bloque de su firma`);
-  }
-  // La hoja de cada plantilla de la galería, instanciada sola en un informe: ninguna OTRA firma la toma
-  // (la de «Cobranza» trae el bloque `cobranza`, igual que Comercial: por eso Comercial no lo usa).
+  // La hoja de cada plantilla de la galería, instanciada sola en un informe: ninguna OTRA plantilla la toma.
+  const pedidos = PLANTILLAS_HOJA.map((p) => p.id);
   for (const p of PLANTILLAS_HOJA) {
     const t: Tablero = { v: 3, nombre: 'x', hojas: [hojaVacia('Vacía'), instanciarPlantilla(p)] };
-    for (const otra of conFirma) {
+    for (const otra of pedidos) {
       if (otra === p.id) continue;
       assert.ok(hojaDestino(t, otra).agregar, `la hoja de «${p.nombre}» se toma por la de ${otra}`);
     }
   }
-  // Marketing y Comercial se reconocen por sus ids fijos, no por un bloque que comparten con otras.
-  assert.equal(hojaDestino({ ...ini, hojas: [ini.hojas[1], { ...ini.hojas[0], id: 'renombrada' }] }, 'marketing').hojaId, 'renombrada');
+  // La firma de respaldo: los ids fijos del informe inicial, que una hoja guardada antes de v5 (sin
+  // `plantilla`) todavía tiene. Cada uno existe en su plantilla (uno mal escrito no reconoce nada, sin error).
+  for (const a of ['marketing', 'comercial']) {
+    const f = firmaDe(a);
+    assert.ok(f && f.ids.length > 1, `${a}: sin firma`);
+    const fijos = new Set([a, ...componentesDe(plantillaHojaDe(a)!).map((c) => c.id)]);
+    for (const id of f!.ids) assert.ok(fijos.has(id), `${a}: la firma nombra «${id}», que su plantilla no trae`);
+    const sinPlantilla: Hoja = { ...ini.hojas.find((h) => h.id === a)!, id: 'renombrada', plantilla: undefined };
+    const t: Tablero = { ...ini, hojas: [ini.hojas.find((h) => h.id !== a)!, sinPlantilla] };
+    assert.equal(hojaDestino(t, a).hojaId, 'renombrada', `${a}: una hoja de antes, renombrada, no se reconoce por sus ids fijos`);
+  }
+  // Las de Analysts ya no tienen firma: las reconoce su `plantilla` (la firma por bloque murió con los bloques).
+  for (const a of IDS_ANALYSTS) assert.equal(firmaDe(a), undefined, `${a}: volvió una firma`);
 });
 
-test('hojaDestino: lo agregado no repite ids de otra hoja, y con el informe lleno se avisa', () => {
-  // Las generales repiten nombres locales (`por-dia` está en cuatro): con ids fijos, dos hojas
+test('hojaDestino: lo agregado no repite ids de otra hoja (ni adentro de un pop-up), y con el informe lleno se avisa', () => {
+  // Las generales repiten nombres locales (`por-dia` está en tres): con ids fijos, dos hojas
   // compartirían lo elegido mirando y los datos guardados por id.
   let t = tableroInicial();
-  for (const id of ['crm', 'automatizaciones', 'whatsapp', 'ia-contenido', 'cobranza', 'customer-success', 'closing']) {
+  for (const id of ['crm', 'automatizaciones', 'ia-contenido', 'cobranza', 'cs-analyst', 'chat-analyst', 'vsl-analyst', 'closing', 'ads-analyst']) {
     const d = hojaDestino(t, id);
     assert.ok(d.agregar, id);
     assert.equal(d.agregar!.id, id, `${id}: la hoja perdió el id que nombra el link`);
     t = conHojaAgregada(t, d.agregar);
   }
   assert.deepEqual(idsRepetidos(t), [], 'dos hojas comparten el id de un componente o un control');
+  // Una hoja con los MISMOS ids fijos ya en el informe (una copia con otro id): se acuñan de nuevo, y la caja
+  // de IA sigue leyendo SU gráfico renombrado (no el de la otra hoja).
+  const copia: Hoja = { ...informeCloser().hojas[0], id: 'otra-hoja', plantilla: undefined };
+  const t2: Tablero = { ...tableroInicial(), hojas: [...tableroInicial().hojas, copia] };
+  const d2 = hojaDestino(t2, 'closing');
+  assert.ok(d2.agregar, 'la plantilla no se agrega');
+  const conDos = conHojaAgregada(t2, d2.agregar);
+  assert.deepEqual(idsRepetidos(conDos), [], 'la plantilla agregada repite los ids de la copia');
+  const caja = d2.agregar!.componentes.find((c) => c.clase === 'elemento' && c.tipo === 'ia' && c.ia?.fuentes?.length);
+  const leida = caja && caja.clase === 'elemento' ? caja.ia!.fuentes![0] : null;
+  assert.ok(leida && d2.agregar!.componentes.some((c) => c.id === leida), 'la caja de IA quedó leyendo un gráfico de OTRA hoja');
+  const popup = d2.agregar!.componentes.find((c) => c.clase === 'grafico' && c.popup);
+  const ajenos = new Set(copia.componentes.flatMap((c) => (c.clase === 'grafico' && c.popup ? c.popup.componentes.map((x) => x.id) : [])));
+  assert.ok(popup && popup.clase === 'grafico' && popup.popup!.componentes.every((x) => !ajenos.has(x.id)), 'el pop-up agregado repite los ids del de la copia');
   // Lleno: no hay lugar, y se dice (no cae en la primera sin avisar).
   const lleno: Tablero = { v: 3, nombre: 'x', hojas: Array.from({ length: MAX_HOJAS }, (_, i) => hojaVacia(`H${i}`)) };
   assert.deepEqual(hojaDestino(lleno, 'closing'), { hojaId: null, agregar: null, lleno: true });
   assert.equal(conHojaAgregada(lleno, informeCloser().hojas[0]).hojas.length, MAX_HOJAS);
 });
 
+test('las plantillas que se fueron llevan a las que las reemplazan (WhatsApp → Chat Analyst, Customer Success → CS Analyst)', () => {
+  // AGENTS.md, «Sacar algo de un catálogo no es borrarlo»: un link o un agente de la API que nombre la vieja.
+  assert.equal(plantillaHojaDe('whatsapp')?.id, 'chat-analyst');
+  assert.equal(plantillaHojaDe('customer-success')?.id, 'cs-analyst');
+  assert.ok(!PLANTILLAS_HOJA.some((p) => p.id === 'whatsapp' || p.id === 'customer-success'), 'volvió una general reemplazada');
+  const ini = tableroInicial();
+  const d = hojaDestino(ini, 'whatsapp');
+  assert.equal(d.agregar?.id, 'chat-analyst');
+  // Agregada, el link viejo la encuentra (no agrega otra).
+  assert.deepEqual(hojaDestino(conHojaAgregada(ini, d.agregar), 'whatsapp'), { hojaId: 'chat-analyst', agregar: null });
+  assert.deepEqual(hojaDestino(conHojaAgregada(ini, d.agregar), 'customer-success').agregar?.id, 'cs-analyst');
+});
+
 test('cada link a una hoja que manda el producto abre ESA hoja en el informe inicial (ninguno cae en la primera)', () => {
   const ini = tableroInicial();
-  for (const href of ['/dashboard?hoja=marketing', '/dashboard?hoja=comercial', '/dashboard?hoja=productividad', '/dashboard?hoja=closing', '/dashboard?hoja=ads-analyst', '/dashboard?hoja=landing']) {
+  for (const href of ['/dashboard?hoja=marketing', '/dashboard?hoja=comercial', '/dashboard?hoja=productividad', '/dashboard?hoja=closing', '/dashboard?hoja=ads-analyst', '/dashboard?hoja=landing',
+    '/dashboard?hoja=vsl-analyst', '/dashboard?hoja=cs-analyst', '/dashboard?hoja=chat-analyst']) {
     const pedido = new URL(href, 'https://x').searchParams.get('hoja');
     const d = hojaDestino(ini, pedido);
     assert.equal(d.hojaId, pedido, `${href}: abre otra hoja`);
   }
 });
 
-// ── El closer: la hoja Closing y nada más (C3) ─────────────────────────────────────────────
+// ── La hoja ÚNICA de un rol: el closer ve Closing, el setter ve Chat Analyst (C3 y v5) ──────────
 
-test('el closer ve SÓLO la hoja Closing, y esa hoja no le pide al server nada que el server le niegue', () => {
-  const t = informeCloser();
-  assert.deepEqual(t.hojas.map((h) => h.id), ['closing']);
-  const h = t.hojas[0];
-  assert.ok(h.componentes.length >= 8, 'la hoja del closer vino vacía');
-  for (const c of h.componentes) {
-    if (esGrafico(c)) {
-      assert.ok(CLOSER_CONJUNTOS.includes(c.fuente), `${c.id}: pide «${c.fuente}», que al closer le da 403`);
-      assert.ok(closerPuedePedir({ accion: 'datos', pedidos: [{ grafico: c, desde: '2026-01-01', hasta: '2026-10-11' }] }), `${c.id}: el server se lo niega`);
-    } else if (esBloque(c)) {
-      assert.ok(CLOSER_BLOQUES.includes(c.bloque), `${c.id}: el bloque ${c.bloque} al closer le da 403`);
+test('cada rol con hoja única ve SÓLO su hoja, y esa hoja (con sus pop-ups) no le pide al server nada que el server le niegue', () => {
+  assert.deepEqual(Object.keys(HOJA_DE_ROL).sort(), ['closer', 'setter'], 'un rol nuevo con hoja única: ¿qué ve?');
+  assert.equal(hojaDeRol('admin'), null, 'el admin no tiene hoja única');
+  assert.equal(informeDeRol('admin'), null);
+  for (const [rol, plantilla, conjuntos] of [['closer', 'closing', CLOSER_CONJUNTOS], ['setter', 'chat-analyst', SETTER_CONJUNTOS]] as const) {
+    const t = informeDeRol(rol)!;
+    assert.deepEqual(t.hojas.map((h) => h.id), [plantilla], `${rol}: ve otra cosa que su hoja`);
+    assert.equal(hojaDeRol(rol)!.plantilla, plantilla);
+    const h = t.hojas[0];
+    assert.ok(h.componentes.length >= 8, `${rol}: su hoja vino vacía`);
+    const todos = h.componentes.flatMap((c) => (esGrafico(c) && c.popup ? [c, ...c.popup.componentes] : [c]));
+    for (const c of todos) {
+      if (esGrafico(c)) {
+        assert.ok(conjuntos.includes(c.fuente), `${rol}/${c.id}: pide «${c.fuente}», que le da 403`);
+        assert.ok(puedePedir(rol, { accion: 'datos', pedidos: [{ grafico: c, desde: '2026-01-01', hasta: '2026-10-11' }] }), `${rol}/${c.id}: el server se lo niega`);
+      }
+      assert.notEqual(c.clase, 'bloque', `${rol}/${c.id}: un bloque`);
+      if (!esElemento(c)) for (const k of c.controles) if (k.campo) assert.ok(fuentesDeCampoDeRol(rol, k.campo).length, `${rol}/${c.id}: el filtro ${k.campo} le da 403`);
     }
-    if (!esElemento(c)) for (const k of c.controles) if (k.campo) assert.ok(fuentesDeCampoCloser(k.campo).length, `${c.id}: el filtro ${k.campo} al closer le da 403`);
+    for (const k of h.controles) if (k.campo) assert.ok(fuentesDeCampoDeRol(rol, k.campo).length, `${rol}: la barra filtra por ${k.campo}, que le da 403`);
   }
-  for (const k of h.controles) if (k.campo) assert.ok(fuentesDeCampoCloser(k.campo).length, `la barra filtra por ${k.campo}, que al closer le da 403`);
+  // Los nombres de antes siguen siendo los del closer.
+  assert.deepEqual(informeCloser(), informeDeRol('closer'));
 });
 
-test('lo que el server le contesta a un closer: datos y bloques de Closing, valores de sus campos, y nada más', () => {
+test('lo que el server le contesta a un rol con hoja única: datos de sus conjuntos, valores de sus campos, y nada más', () => {
   const g = (fuente: string) => ({ grafico: { id: 'x', clase: 'grafico', tipo: 'numero', fuente, metricas: [] }, desde: '2026-10-01', hasta: '2026-10-11' });
+  // El closer: las llamadas.
   assert.equal(closerPuedePedir({ accion: 'datos', pedidos: [g('llamadas_venta'), g('llamadas_dimensiones')] }), true);
   assert.equal(closerPuedePedir({ accion: 'datos', pedidos: [] }), true, 'una lista vacía no pide nada');
   // La plata, los leads y la pauta, no. Y uno de afuera cierra la lista entera.
-  for (const f of ['negocio', 'leads', 'pagos', 'meta']) assert.equal(closerPuedePedir({ accion: 'datos', pedidos: [g(f)] }), false, f);
+  for (const f of ['negocio', 'leads', 'pagos', 'meta', 'whatsapp']) assert.equal(closerPuedePedir({ accion: 'datos', pedidos: [g(f)] }), false, f);
   assert.equal(closerPuedePedir({ accion: 'datos', pedidos: [g('llamadas_venta'), g('pagos')] }), false, 'uno de afuera se cuela en una lista');
   assert.equal(closerPuedePedir({ accion: 'datos', pedidos: [{ grafico: null }] }), false, 'un pedido que no se entiende pasa');
-  assert.equal(closerPuedePedir({ accion: 'bloques', pedidos: [{ id: 'a', bloque: 'embudo_cierre' }, { id: 'b', bloque: 'closers_cierre' }] }), true);
-  for (const b of ['revenue', 'cobranza', 'mapa_calor', 'patrones_guiones', '']) assert.equal(closerPuedePedir({ accion: 'bloques', pedidos: [{ id: 'a', bloque: b }] }), false, b);
+  // Los bloques se fueron (v5): ninguno pasa.
+  for (const b of ['embudo_cierre', 'revenue', 'cobranza', '']) assert.equal(closerPuedePedir({ accion: 'bloques', pedidos: [{ id: 'a', bloque: b }] }), false, b);
   // Valores: «Closer» es un campo de los leads TAMBIÉN; al closer se le recorta a las llamadas.
   assert.equal(closerPuedePedir({ accion: 'valores', campo: 'closer' }), true);
   assert.ok(!fuentesDeCampoCloser('closer').includes('leads'), 'los valores de «Closer» se leerían de los leads');
@@ -444,33 +510,48 @@ test('lo que el server le contesta a un closer: datos y bloques de Closing, valo
   assert.deepEqual(fuentesDeCampoCloser('closer', ['llamadas_venta', 'leads']), ['llamadas_venta']);
   assert.ok(campoDe('leads.etapa'), 'el caso de prueba ya no existe en el catálogo');
   assert.equal(closerPuedePedir({ accion: 'valores', campo: 'leads.etapa' }), false);
-  // Guardar, el detalle de un número, lo desconocido: no.
-  for (const accion of ['guardar', 'detalle', 'otra', undefined]) assert.equal(closerPuedePedir({ accion, tablero: {}, pedidos: [] }), false, String(accion));
-  assert.equal(closerPuedePedir(null), false);
+  // El setter: los mensajes, las conversaciones y las automatizaciones. Ni las llamadas, ni la plata, ni MaKo.
+  assert.equal(puedePedir('setter', { accion: 'datos', pedidos: [g('whatsapp'), g('conversaciones'), g('envios'), g('inscripciones')] }), true);
+  for (const f of ['llamadas_venta', 'pagos', 'leads', 'mako_chat', 'negocio']) assert.equal(puedePedir('setter', { accion: 'datos', pedidos: [g(f)] }), false, `setter: ${f}`);
+  // «Setter» es un campo de los leads TAMBIÉN: al setter se le recorta a las conversaciones.
+  assert.equal(puedePedir('setter', { accion: 'valores', campo: 'setter' }), true);
+  assert.ok(!fuentesDeCampoDeRol('setter', 'setter').includes('leads'), 'los valores de «Setter» se leerían de los leads');
+  assert.equal(puedePedir('setter', { accion: 'valores', campo: 'closer' }), false, 'el setter lee los closers');
+  // Guardar, el detalle de un número, lo desconocido: no, para ninguno. El admin, todo; un rol sin hoja, nada.
+  for (const rol of ['closer', 'setter']) {
+    for (const accion of ['guardar', 'detalle', 'otra', undefined]) assert.equal(puedePedir(rol, { accion, tablero: {}, pedidos: [] }), false, `${rol}: ${String(accion)}`);
+    assert.equal(puedePedir(rol, null), false);
+  }
+  assert.equal(puedePedir('admin', { accion: 'guardar' }), true);
+  assert.equal(puedePedir('otro', { accion: 'datos', pedidos: [] }), false, 'un rol desconocido pasa');
 });
 
-test('el modo closer está enchufado: la página, la ruta y la pantalla (leyendo el fuente)', () => {
+test('el modo de un rol está enchufado: la página, la ruta y la pantalla (leyendo el fuente)', () => {
   const pagina = sinComentarios(leer('app/dashboard/page.tsx'));
-  assert.match(pagina, /requireRolWs\(\['closer'\], \{ nav: 'graphics' \}\)/, 'el closer no entra al Dashboard');
-  assert.match(pagina, /tabEnCapa\('closing', capa\)/, 'un closer sin Closing en su capa vería la hoja');
-  assert.match(pagina, /tablero = informeCloser\(\)/, 'el closer no recibe el informe en memoria');
-  assert.match(pagina, /soloLectura=\{closer\}/);
+  assert.match(pagina, /requireRolWs\(\['closer', 'setter'\], \{ nav: 'graphics' \}\)/, 'el closer o el setter no entran al Dashboard');
+  assert.match(pagina, /const unica = hojaDeRol\(rol\);/);
+  assert.match(pagina, /if \(!tabEnCapa\(unica\.capa, capa\)\) redirect\(/, 'un rol sin la capa de su hoja la vería');
+  assert.match(pagina, /const enMemoria = informeDeRol\(rol\);/, 'el rol no recibe el informe en memoria');
+  assert.match(pagina, /soloLectura=\{!!unica\}/);
   assert.match(pagina, /hojaDestino\(tablero, pedida\)/, '?hoja= dejó de pasar por hojaDestino');
   const ruta = sinComentarios(leer('app/api/graficos/route.ts'));
-  assert.match(ruta, /if \(rol !== 'admin' && rol !== 'closer'\) return err\(403/);
-  assert.match(ruta, /if \(closer && !closerPuedePedir\(body\)\) return err\(403/, 'la ruta no frena al closer');
-  assert.match(ruta, /\? fuentesDeCampoCloser\(body\.campo, body\.fuentes\)/, 'los valores del closer no se recortan a las llamadas');
-  // El closer sólo llega a lo de Closing ANTES de cualquier acción: el chequeo va antes del primer `accion ===`.
-  assert.ok(ruta.indexOf('closerPuedePedir(body)') < ruta.indexOf("body.accion === 'guardar'"), 'el chequeo del closer va después de guardar');
+  assert.match(ruta, /const unica = hojaDeRol\(rol\);\s*if \(rol !== 'admin' && !unica\) return err\(403/);
+  assert.match(ruta, /if \(unica && !tabEnCapa\(unica\.capa, capa\)\) return err\(403/, 'la ruta no mira la capa de la hoja del rol');
+  assert.match(ruta, /if \(unica && !puedePedir\(rol, body\)\) return err\(403, unica\.error\)/, 'la ruta no frena al rol');
+  assert.match(ruta, /\? fuentesDeCampoDeRol\(rol, body\.campo, body\.fuentes\)/, 'los valores del rol no se recortan a su hoja');
+  assert.match(ruta, /const dueno = informeDeRol\(rol\) \?\? \(await leerTablero\(\)\)\.tablero;/, 'el pop-up del rol se busca en otro informe');
+  // El rol sólo llega a lo de su hoja ANTES de cualquier acción: el chequeo va antes del primer `accion ===`.
+  assert.ok(ruta.indexOf('puedePedir(rol, body)') < ruta.indexOf("body.accion === 'guardar'"), 'el chequeo del rol va después de guardar');
   const ed = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
   // Desde la tanda de la topbar (11/10/2026) el closer y el link compartido comparten `soloMirar`, y el AI
-  // Analyst es una opción del ⋮ (no un botón suelto).
-  assert.match(ed, /const guardable = !lecturaFallo && !soloLectura && !compartido;/, 'el closer podría guardar');
-  assert.match(ed, /const soloMirar = soloLectura \|\| !!compartido;/, 'el closer dejó de ser «sólo mirar»');
-  assert.match(ed, /\{!soloMirar && \(\s*<>\s*<button type="button" role="menuitem" className="lk-opcion lk-opcion--mako"/, 'el closer ve el AI Analyst');
-  assert.match(ed, /\{!soloMirar && \(\s*<button type="button" className="lk-pill" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/, 'el closer ve Editar');
-  assert.match(ed, /onDetalle=\{editando \|\| soloMirar \? undefined :/, 'el closer abre el detalle de un número (403)');
-  assert.match(ed, /\{est\.resultado && !soloMirar && \(/, 'el closer ve el chat de MaKo de cada gráfico');
+  // Analyst es una opción del ⋮ (no un botón suelto). El setter entra por el mismo `soloLectura`.
+  assert.match(ed, /const guardable = !lecturaFallo && !soloLectura && !compartido;/, 'el rol podría guardar');
+  assert.match(ed, /const soloMirar = soloLectura \|\| !!compartido;/, 'el rol dejó de ser «sólo mirar»');
+  assert.match(ed, /\{!soloMirar && \(\s*<>\s*<button type="button" role="menuitem" className="lk-opcion lk-opcion--mako"/, 'el rol ve el AI Analyst');
+  // «Editar» en azul desde v5 (P4: `lk-pill lk-pill--azul`).
+  assert.match(ed, /\{!soloMirar && \(\s*<button type="button" className="lk-pill lk-pill--azul" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/, 'el rol ve Editar');
+  assert.match(ed, /onDetalle=\{editando \|\| soloMirar \? undefined :/, 'el rol abre el detalle de un número (403)');
+  assert.match(ed, /\{est\.resultado && !soloMirar && /, 'el rol ve el chat de MaKo de cada gráfico');
 });
 
 test('?llamada= abre la ficha: un entero positivo o nada, y /closing?call= se traduce', () => {

@@ -34,7 +34,7 @@
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
 - **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
-- **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard`
+- **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
@@ -6046,7 +6046,7 @@ curl -L \
 
 ## Dashboard y análisis — `metricas`
 
-Tab **Dashboard** (`/dashboard`). 24 lecturas · 14 acciones.
+Tab **Dashboard** (`/dashboard`). 25 lecturas · 17 acciones.
 
 ### `GET /api/v1/metricas/numeros` — Números del negocio por período
 
@@ -6538,7 +6538,7 @@ curl -L \
 
 ### `GET /api/v1/metricas/dashboard/catalogo` — Catálogo del Dashboard
 
-Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, los bloques armados, las plantillas de hoja, los estilos, los filtros, los elementos, los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.
+Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, las plantillas de hoja, los estilos, los filtros, los elementos (con las acciones de un botón), los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.
 
 - **Ruta por operación:** `GET /api/v1/metricas/ver_catalogo_dashboard`
 - **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
@@ -6551,7 +6551,7 @@ Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, di
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `conjunto` | string | no | El id del conjunto de datos (leads, meta, pagos, llamadas…; la lista en ver_catalogo_dashboard). Con esto, el detalle de ese conjunto. |
-| `seccion` | string (conjuntos \\| tipos \\| bloques \\| plantillas \\| estilos \\| filtros \\| elementos \\| periodos \\| campos) | no | Sólo esta parte del catálogo. Los campos (para filtrar) sólo salen pidiéndolos. |
+| `seccion` | string (conjuntos \\| tipos \\| plantillas \\| estilos \\| filtros \\| elementos \\| periodos \\| campos) | no | Sólo esta parte del catálogo. Los campos (para filtrar) sólo salen pidiéndolos. |
 
 ```bash
 curl -L \
@@ -6601,7 +6601,7 @@ curl -L \
 
 ### `GET /api/v1/metricas/dashboard/hojas/{hoja}` — Leer una hoja del Dashboard
 
-Una hoja del informe de una persona con su configuración y sus números: la cabecera, los filtros de arriba, y cada gráfico con su período, sus filtros y lo que muestra (lo mismo que dibuja la pantalla al abrirla). Úsala para «¿qué dice mi hoja de Marketing?» o antes de cambiar un gráfico (trae los ids). En csv es el MISMO archivo que el botón Exportar. Por HTTP, las categorías con nombres de personas salen como «Cliente 1» y los bloques van sin datos. Por HTTP acepta ?formato=md|csv|json.
+Una hoja del informe de una persona con su configuración y sus números: la cabecera, los filtros de arriba, cada gráfico con su período, lo que lo define, sus filtros y lo que muestra (lo mismo que dibuja la pantalla al abrirla), los elementos (secciones, cajas de Conclusiones de MaKo, botones) y los conectores. Úsala para «¿qué dice mi hoja de Marketing?» o antes de cambiar un gráfico (trae los ids). El texto de una caja de Conclusiones se lee con leer_conclusiones_dashboard. En csv es el MISMO archivo que el botón Exportar. Por HTTP, las categorías con nombres de personas salen como «Cliente 1». Por HTTP acepta ?formato=md|csv|json.
 
 - **Ruta por operación:** `GET /api/v1/metricas/leer_hoja_dashboard`
 - **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
@@ -6780,16 +6780,16 @@ curl -L \
   -d '{"persona":"ana@negocio.com"}'
 ```
 
-### `POST /api/v1/metricas/dashboard/hojas/{hoja}/componentes` — Agregar un gráfico o bloque
+### `POST /api/v1/metricas/dashboard/hojas/{hoja}/componentes` — Agregar un gráfico a una hoja
 
-Agrega un gráfico o un bloque armado a una hoja del Dashboard. Un gráfico es un `tipo` (tabla, serie, barras, circular, numero…) sobre un `conjunto` con sus `metricas` y, según el tipo, una `dimension` y un `desglose`; un bloque se pide con `bloque` (revenue, cobranza…). Lo que el tipo no acepta se rechaza con los `disponibles`, nunca se corrige en silencio. Va abajo de todo, o arriba con lugar. Devuelve el id del componente.
+Agrega un gráfico a una hoja del Dashboard: un `tipo` (tabla, serie, barras, circular, numero, tarjetas…) sobre un `conjunto` con sus `metricas` y, según el tipo, una `dimension` y un `desglose`. Los `filtros` y el período que se pasan DEFINEN el gráfico: no se dibujan en la tarjeta y quien mira no los cambia. Lo que el tipo no acepta se rechaza con los `disponibles`, nunca se corrige en silencio. Va abajo de todo, o arriba con lugar. Devuelve el id del gráfico.
 
 - **Ruta por operación:** `POST /api/v1/metricas/agregar_grafico_dashboard`
 - **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** agrega un componente a una hoja del informe de esa persona
+- **Escribe:** agrega un gráfico a una hoja del informe de esa persona
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -6805,12 +6805,16 @@ Agrega un gráfico o un bloque armado a una hoja del Dashboard. Un gráfico es u
 | `dimension` | string | no | Por qué se agrupa: dia, semana, mes o una categoría del conjunto (etapa, campana, closer…). Sin esto, sólo el total; al editar, «-» la saca. |
 | `desglose` | string | no | Una segunda categoría que reparte la primera métrica (columnas apiladas, tabla dinámica). Al editar, «-» lo saca. |
 | `fecha` | string | no | Cuál fecha del conjunto decide qué filas entran (en leads: alta, agenda o cierre). Sin esto, la primera del conjunto. |
-| `periodo` | string | no | El período: ult7, ult30, este_mes, mes_pasado, ult12m, todo… (la lista en ver_catalogo_dashboard). Con desde y hasta, uno a medida. «auto» o sin esto = el filtro de período de la hoja. |
+| `periodo` | string | no | El período: ult7, ult30, este_mes, mes_pasado, ult12m, todo… (la lista en ver_catalogo_dashboard). Con desde y hasta, uno a medida. Es el período PROPIO del gráfico (un filtro que lo define). «auto» o sin esto = el filtro de período de la hoja. |
 | `desde` | string | no | Primer día de un período a medida, YYYY-MM-DD. Va junto con hasta. |
 | `hasta` | string | no | Último día de un período a medida, YYYY-MM-DD, inclusive. Va junto con desde. |
 | `titulo` | string | no | El título que se ve arriba. Sin título, se arma solo con la métrica y la dimensión; al editar, «-» lo saca. |
-| `bloque` | string | no | En vez de un gráfico, un bloque armado (de ver_catalogo_dashboard). |
+| `filtros` | object[] | no | Los filtros que DEFINEN el gráfico («sólo R1», «sin agendas»): no se dibujan en la tarjeta y quien mira no los cambia. Uno por campo. |
+| `filtros.campo` | string | sí | La categoría que se filtra: una dimensión del conjunto (etapa, campana) o un campo de ver_catalogo_dashboard. |
+| `filtros.valores` | string[] | no | Los valores que entran, escritos como los muestra el gráfico. |
+| `filtros.texto` | string | no | En vez de valores: entra lo que contenga este texto. |
 | `comparar` | boolean | no | true = muestra el cambio contra el período anterior. |
+| `mako` | boolean | no | false = la tarjeta va sin el botón para preguntarle a MaKo; true lo vuelve a poner. Sin esto, como está (de entrada, prendido). |
 | `lugar` | string (abajo \\| arriba) | no | Dónde va: abajo de todo (default) o arriba de todo. |
 
 ```bash
@@ -6826,7 +6830,7 @@ curl -L \
 
 ### `PATCH /api/v1/metricas/dashboard/hojas/{hoja}/componentes/{componente}` — Editar un gráfico del Dashboard
 
-Cambia un gráfico de una hoja: título, tipo, conjunto, métricas, dimensión, desglose, período, límite, comparar o sus filtros propios. Sólo cambia lo que se pasa; lo que el tipo nuevo no acepta se rechaza con los `disponibles`. Los `filtros` REEMPLAZAN los filtros propios del gráfico (una lista vacía los saca). El estilo es de la página: se cambia con editar_hoja_dashboard.
+Cambia un gráfico de una hoja: título, tipo, conjunto, métricas, dimensión, desglose, período, límite, comparar, el botón de MaKo o los filtros que lo definen. Sólo cambia lo que se pasa; lo que el tipo nuevo no acepta se rechaza con los `disponibles`. Los `filtros` REEMPLAZAN los que definen el gráfico (una lista vacía los saca); los que quien mira puede mover se quedan. El estilo es de la página: se cambia con editar_hoja_dashboard.
 
 - **Ruta por operación:** `POST /api/v1/metricas/editar_grafico_dashboard`
 - **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
@@ -6843,7 +6847,7 @@ Cambia un gráfico de una hoja: título, tipo, conjunto, métricas, dimensión, 
 | --- | --- | --- | --- |
 | `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
-| `componente` | string | sí | El id del gráfico, bloque o elemento (de leer_hoja_dashboard), o su título. |
+| `componente` | string | sí | El id del gráfico o del elemento (de leer_hoja_dashboard), o su título. |
 | `titulo` | string | no | El título que se ve arriba. Sin título, se arma solo con la métrica y la dimensión; al editar, «-» lo saca. |
 | `subtitulo` | string | no | La línea chica de abajo. «-» la saca. |
 | `tipo` | string | no | El tipo de gráfico nuevo (de ver_catalogo_dashboard). |
@@ -6852,12 +6856,13 @@ Cambia un gráfico de una hoja: título, tipo, conjunto, métricas, dimensión, 
 | `dimension` | string | no | Por qué se agrupa: dia, semana, mes o una categoría del conjunto (etapa, campana, closer…). Sin esto, sólo el total; al editar, «-» la saca. |
 | `desglose` | string | no | Una segunda categoría que reparte la primera métrica (columnas apiladas, tabla dinámica). Al editar, «-» lo saca. |
 | `fecha` | string | no | Cuál fecha del conjunto decide qué filas entran (en leads: alta, agenda o cierre). Sin esto, la primera del conjunto. |
-| `periodo` | string | no | El período: ult7, ult30, este_mes, mes_pasado, ult12m, todo… (la lista en ver_catalogo_dashboard). Con desde y hasta, uno a medida. «auto» = el filtro de período de la hoja. |
+| `periodo` | string | no | El período: ult7, ult30, este_mes, mes_pasado, ult12m, todo… (la lista en ver_catalogo_dashboard). Con desde y hasta, uno a medida. Es el período PROPIO del gráfico (un filtro que lo define). «auto» = el filtro de período de la hoja. |
 | `desde` | string | no | Primer día de un período a medida, YYYY-MM-DD. Va junto con hasta. |
 | `hasta` | string | no | Último día de un período a medida, YYYY-MM-DD, inclusive. Va junto con desde. |
 | `limite` | number | no | Cuántos grupos de una categoría se muestran. |
 | `comparar` | boolean | no | true = muestra el cambio contra el período anterior. |
-| `filtros` | object[] | no | Los filtros propios del gráfico, que ganan sobre los de la hoja en el mismo campo. Reemplaza los que tenía; una lista vacía los saca. |
+| `mako` | boolean | no | false = la tarjeta va sin el botón para preguntarle a MaKo; true lo vuelve a poner. Sin esto, como está (de entrada, prendido). |
+| `filtros` | object[] | no | Los filtros que DEFINEN el gráfico: no se dibujan y ganan sobre los de la hoja en el mismo campo. Reemplaza los que tenía; una lista vacía los saca. |
 | `filtros.campo` | string | sí | La categoría que se filtra: una dimensión del conjunto (etapa, campana) o un campo de ver_catalogo_dashboard. |
 | `filtros.valores` | string[] | no | Los valores que entran, escritos como los muestra el gráfico. |
 | `filtros.texto` | string | no | En vez de valores: entra lo que contenga este texto. |
@@ -6875,7 +6880,7 @@ curl -L \
 
 ### `DELETE /api/v1/metricas/dashboard/hojas/{hoja}/componentes/{componente}` — Quitar un componente de una hoja
 
-Saca un gráfico, un bloque o un elemento de una hoja del Dashboard. Por la API no se deshace solo: el resumen trae su configuración para volver a agregarlo.
+Saca un gráfico o un elemento de una hoja del Dashboard, con los conectores que lo tocaban. Por la API no se deshace solo: el resumen trae su configuración para volver a agregarlo.
 
 - **Ruta por operación:** `POST /api/v1/metricas/quitar_componente_dashboard`
 - **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
@@ -6892,7 +6897,7 @@ Saca un gráfico, un bloque o un elemento de una hoja del Dashboard. Por la API 
 | --- | --- | --- | --- |
 | `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
-| `componente` | string | sí | El id del gráfico, bloque o elemento (de leer_hoja_dashboard), o su título. |
+| `componente` | string | sí | El id del gráfico o del elemento (de leer_hoja_dashboard), o su título. |
 
 ```bash
 curl -L \
@@ -6980,7 +6985,7 @@ curl -L \
 
 ### `POST /api/v1/metricas/dashboard/hojas/{hoja}/elementos` — Insertar un elemento en una hoja
 
-Inserta un elemento en una hoja del Dashboard: un texto, una imagen, una forma, un enlace, un video o una página insertada, según los tipos de ver_catalogo_dashboard. Una dirección sólo con https; el resumen la muestra ENTERA para que la persona la confirme, porque una dirección que pasó por un modelo puede no ser exacta. Devuelve el id del elemento.
+Inserta un elemento en una hoja del Dashboard, según los tipos de ver_catalogo_dashboard: un texto, una imagen, un enlace, un video, una página insertada, una línea o una flecha; una sección a lo ancho (agrupa lo que tiene debajo, y se puede plegar); una caja «Conclusiones de MaKo» (`ia`: lo que se le pide y qué gráficos lee; escribe cuando se la genera con generar_conclusiones_dashboard), o un botón de acción (`accion`). La ficha de una llamada o de un anuncio va sólo adentro de un pop-up y no se inserta por aquí. Una dirección sólo con https; el resumen la muestra ENTERA para que la persona la confirme, porque una dirección que pasó por un modelo puede no ser exacta. Devuelve el id del elemento.
 
 - **Ruta por operación:** `POST /api/v1/metricas/insertar_elemento_dashboard`
 - **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
@@ -6997,11 +7002,20 @@ Inserta un elemento en una hoja del Dashboard: un texto, una imagen, una forma, 
 | --- | --- | --- | --- |
 | `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
-| `tipo` | string | sí | El tipo de elemento: texto, imagen, rectangulo, circulo, linea, flecha… (la lista en ver_catalogo_dashboard). |
-| `texto` | string | no | El texto (un título, una nota) o lo que dice un enlace. |
+| `tipo` | string | sí | El tipo de elemento: texto, imagen, enlace, video, insertado, linea, flecha, seccion, ia o accion (la lista en ver_catalogo_dashboard). |
+| `texto` | string | no | El texto (un título, una nota), lo que dice un enlace, el título de una sección o de una caja de Conclusiones, o lo que dice un botón. |
 | `url` | string | no | La dirección https de una imagen, un enlace, un video o una página insertada. |
 | `titulo` | string | no | El título de un video o de una página insertada. |
 | `tamano` | string | no | El tamaño de un texto: s, m, l o xl. |
+| `plegable` | boolean | no | Una sección: true = se puede plegar (el «Desplegable»). |
+| `abierto` | boolean | no | Una sección que se pliega: false = arranca cerrada. Default, abierta. |
+| `fondo` | number | no | Una sección: el fondo del grupo, un color de la paleta de la hoja (0 a 7). Sin esto, sin fondo. |
+| `pedido` | string | no | Una caja de Conclusiones: lo que MaKo tiene que mirar o contestar («qué separa a las campañas que cierran»). |
+| `componentes` | string[] | no | Una caja de Conclusiones: sólo estos gráficos de la hoja (sus ids o títulos). Sin esto, todos. |
+| `muestra` | string (resumen \\| hallazgos \\| recomendaciones \\| texto) | no | Una caja de Conclusiones: qué escribe. Default resumen. |
+| `largo` | string (corto \\| medio \\| largo) | no | Una caja de Conclusiones: cuánto escribe. Default medio. |
+| `forma` | string (parrafo \\| vinetas \\| tarjetas) | no | Una caja de Conclusiones: cómo se ve. Default párrafo. |
+| `accion` | string | no | Un botón de acción: qué corre (de ver_catalogo_dashboard, sección elementos). |
 | `lugar` | string (abajo \\| arriba) | no | Dónde va: abajo de todo (default) o arriba de todo. |
 
 ```bash
@@ -7047,7 +7061,7 @@ curl -L \
 
 ### `POST /api/v1/metricas/dashboard/hojas/{hoja}/analisis` — Analizar una hoja con el AI Analyst
 
-Pone a MaKo a analizar los gráficos de una hoja y deja el resultado guardado. Lee lo que la hoja muestra, sin nombres de personas, y escribe un resumen, hallazgos con su número y recomendaciones, sólo con IA gratis. Corre POR DETRÁS y puede tardar más de un minuto: contesta «en curso» y el resultado se lee con leer_analisis_dashboard. Los bloques no se analizan.
+Pone a MaKo a analizar los gráficos de una hoja y deja el resultado guardado. Lee lo que la hoja muestra, sin nombres de personas, y escribe un resumen, hallazgos con su número y recomendaciones, sólo con IA gratis. Corre POR DETRÁS y puede tardar más de un minuto: contesta «en curso» y el resultado se lee con leer_analisis_dashboard.
 
 - **Ruta por operación:** `POST /api/v1/metricas/analizar_hoja_dashboard`
 - **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
@@ -7143,6 +7157,133 @@ curl -L \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/analisis/corrida" \
+  -d '{"persona":"ana@negocio.com"}'
+```
+
+### `POST /api/v1/metricas/dashboard/hojas/{hoja}/conectores` — Unir dos componentes con una flecha
+
+Une dos componentes de una hoja del Dashboard (gráficos o elementos) con una flecha que los sigue cuando se mueven. No une un componente consigo mismo ni dos veces el mismo par; si ya están unidos, lo dice y no propone nada. Devuelve el id del conector.
+
+- **Ruta por operación:** `POST /api/v1/metricas/conectar_componentes_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega un conector a una hoja del informe de esa persona
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `origen` | string | sí | El componente donde arranca la flecha: su id (de leer_hoja_dashboard) o su título. |
+| `destino` | string | sí | El componente donde termina la flecha: su id o su título. |
+| `punta` | string (fin \\| ambas \\| ninguna) | no | Dónde lleva punta la flecha. Default, al final. |
+| `trazo` | string (curva \\| recta \\| codo) | no | Cómo se dibuja la línea. Default, curva. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/conectores" \
+  -d '{"persona":"ana@negocio.com","origen":"ORIGEN","destino":"DESTINO"}'
+```
+
+### `DELETE /api/v1/metricas/dashboard/hojas/{hoja}/conectores/{conector}` — Quitar una flecha entre componentes
+
+Saca un conector de una hoja del Dashboard. Se nombra por su id (de leer_hoja_dashboard) o por los dos componentes que une.
+
+- **Ruta por operación:** `POST /api/v1/metricas/quitar_conector_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca un conector de una hoja del informe de esa persona
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `conector` | string | no | El id del conector (de leer_hoja_dashboard). |
+| `origen` | string | no | En vez del id: uno de los dos componentes que une (su id o su título). |
+| `destino` | string | no | En vez del id: el otro componente que une. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/conectores/CONECTOR" \
+  -d '{"persona":"ana@negocio.com"}'
+```
+
+### `GET /api/v1/metricas/dashboard/hojas/{hoja}/conclusiones` — Leer las Conclusiones de MaKo de una hoja
+
+Lo último que escribieron las cajas «Conclusiones de MaKo» de una hoja (o la caja que se nombre): su texto y cuándo, si hay una escribiendo, si el último intento falló y su horario. Son las cajas sueltas en la hoja; las de un pop-up leen lo que se abre (una llamada) y no salen por la API. Por HTTP los nombres de personas quedan como «Closer 1». Por HTTP acepta ?formato=md|json.
+
+- **Ruta por operación:** `GET /api/v1/metricas/leer_conclusiones_dashboard`
+- **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** markdown (también `?formato=` md | json)
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `componente` | string | no | La caja: su id (de leer_hoja_dashboard) o su título. Sin esto, todas las de la hoja. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/conclusiones?persona=ana%40negocio.com"
+```
+
+### `POST /api/v1/metricas/dashboard/hojas/{hoja}/componentes/{componente}/conclusiones` — Generar las Conclusiones de MaKo
+
+Pone a MaKo a escribir una caja «Conclusiones de MaKo» de una hoja (el ↻ de la pantalla): lee los gráficos que la caja mira, sin nombres de personas, y escribe lo que la caja pide, sólo con IA gratis. Corre POR DETRÁS y puede tardar más de un minuto: contesta «en curso» y el texto se lee con leer_conclusiones_dashboard. Las cajas de un pop-up no se generan por aquí.
+
+- **Ruta por operación:** `POST /api/v1/metricas/generar_conclusiones_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** corre la caja de Conclusiones de MaKo y guarda su texto en dashboard_ia_elementos (por persona, hoja y caja)
+- **Reversible:** no
+- **Costo:** ia · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `componente` | string | sí | La caja: su id (de leer_hoja_dashboard) o su título. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/componentes/COMPONENTE/conclusiones" \
   -d '{"persona":"ana@negocio.com"}'
 ```
 

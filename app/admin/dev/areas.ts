@@ -419,22 +419,22 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'vsl-analyst', titulo: 'VSL Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'por-construir', verEnApp: '/vsl-analyst',
-    alcance: 'En qué tramo se cae el espectador del VSL, contra qué parte del guion, y qué pasó después con ese lead en el CRM. Hoy es ComingSoon.',
-    vive: ['app/vsl-analyst/page.tsx', 'app/_components/ComingSoon.tsx'],
+    estado: 'parcial', verEnApp: '/dashboard?hoja=vsl-analyst', hallazgos: 'hallazgos-graficos',
+    alcance: 'Desde el 12/10/2026 (tanda v5) es la hoja «VSL Analyst» del Dashboard: quién le da play al video, dónde se va (la curva por corte), cuánto ve cada video y cada página, y si los leads que más lo vieron agendan y compran más. Todo sale del Pixel. /vsl-analyst redirige a la hoja. SIN CONSTRUIR: el tramo del video contra la parte del guion.',
+    vive: ['app/vsl-analyst/page.tsx', 'lib/graficos-plantillas-analysts.ts', 'lib/vsl-retencion.ts'],
     proyectos: ['Feature: VSL Analyst'],
   },
   {
     slug: 'chat-analyst', titulo: 'Chat Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'por-construir', verEnApp: '/chat-analyst',
-    alcance: 'Lo que Closing Analyst hace con las llamadas, pero con las conversaciones (WhatsApp y Email): dónde se cae el chat, qué objeción aparece y qué responde mejor. Hoy es ComingSoon; visible para rol setter.',
-    vive: ['app/chat-analyst/page.tsx', 'app/_components/ComingSoon.tsx'],
+    estado: 'parcial', verEnApp: '/dashboard?hoja=chat-analyst', hallazgos: 'hallazgos-graficos',
+    alcance: 'Desde el 12/10/2026 (tanda v5) es la hoja «Chat Analyst» del Dashboard: los mensajes de WhatsApp, qué tan rápido se responde (por setter y por línea), los chats que esperan respuesta y cómo rinden las automatizaciones. El SETTER ve sólo esta hoja (HOJA_DE_ROL, lib/graficos-plantillas.ts). /chat-analyst redirige. SIN CONSTRUIR: dónde se cae el chat y qué objeción aparece (es la caja de IA de la hoja, que se configura).',
+    vive: ['app/chat-analyst/page.tsx', 'lib/graficos-plantillas-analysts.ts', 'lib/graficos-plantillas.ts'],
     proyectos: ['Feature: Chat Analyst'],
   },
   {
     slug: 'customer-success', titulo: 'Customer Success', familia: 'Analyze', grupo: 'Analysts',
     estado: 'parcial', verEnApp: '/customer-success', hallazgos: 'hallazgos-customer-success',
-    alcance: 'Lo que pasa DESPUÉS del pago, para cualquier workspace. CONSTRUIDO (/customer-success): la cartera (los leads ganados del CRM), cuál necesita atención hoy y por qué (lib/cs-senal.ts, que además ORDENA la pantalla), qué dice el contrato, el trabajo abierto de ese cliente en el tablero, y el estado en la entrega —activo, pausado, graduado, baja—, que es una DECISIÓN que se marca a mano. SIN CONSTRUIR: el CS Analyst (/cs-analyst, ComingSoon), que anticipa una baja leyendo las llamadas de entrega, y los casos de éxito.',
+    alcance: 'Lo que pasa DESPUÉS del pago, para cualquier workspace. CONSTRUIDO (/customer-success): la cartera (los leads ganados del CRM), cuál necesita atención hoy y por qué (lib/cs-senal.ts, que además ORDENA la pantalla), qué dice el contrato, el trabajo abierto de ese cliente en el tablero, y el estado en la entrega —activo, pausado, graduado, baja—, que es una DECISIÓN que se marca a mano. El CS Analyst es, desde el 12/10/2026, la hoja «CS Analyst» del Dashboard (la cartera, la entrega y las sesiones; /cs-analyst redirige). SIN CONSTRUIR: anticipar una baja leyendo las llamadas de entrega, y los casos de éxito.',
     // La carpeta entera: el kanban, la tabla, el lote, el editor de etapas y las pestañas de
     // la ficha nacieron el 05/10 y la lista archivo por archivo no los veía.
     vive: ['app/customer-success/', 'lib/servicio-etapas.ts', 'lib/cs-mover-etapa.ts', 'lib/entrega-servicio.ts', 'lib/clientes-ganados.ts', 'app/plan/board/filtro-cliente.ts',

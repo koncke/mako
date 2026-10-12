@@ -96,7 +96,7 @@ test('el endpoint del link no lee sesión, ni cookie, ni un workspace del pedido
 });
 
 test('todo lo que el link lee corre en el workspace DEL SHARE', () => {
-  for (const lector of ['datosDeGraficos(', 'datosDeBloques(', 'valoresDeCampo(', 'leerTableroVersionado(']) {
+  for (const lector of ['datosDeGraficos(', 'valoresDeCampo(', 'leerTableroVersionado(']) {
     let desde = 0;
     let vistos = 0;
     for (let i = SERVER.indexOf(lector, desde); i > -1; i = SERVER.indexOf(lector, desde)) {
@@ -130,8 +130,10 @@ test('la página: el informe entra por su puerta ANTES de la galería, y se mont
 test('el botón es el MISMO Compartir de Conocimientos, con el recurso del informe y la hoja abierta', () => {
   assert.match(BOTON, /<Compartir\s+recurso=\{RECURSO_INFORME\}/);
   assert.match(BOTON, /parametros=\{\{ hoja: hojaId \}\}/);
-  assert.match(BOTON, /export function BotonCompartir\(\{ hojaId, titulo, compacto \}: \{ hojaId: string; titulo: string; compacto\?: boolean \}\)/,
+  // v5 (P4): el modo controlado (`abierto`/`onCerrar`, el ⋮ lo abre) y la variante de la app (no el verde de Conocimientos).
+  assert.match(BOTON, /export function BotonCompartir\(\{ hojaId, titulo, compacto, abierto, onCerrar \}: \{ hojaId: string; titulo: string; compacto\?: boolean; abierto\?: boolean; onCerrar\?: \(\) => void \}\)/,
     'la firma del contrato con la topbar (hojaId, titulo) no se cambia');
+  assert.match(BOTON, /variante="app"/);
   assert.doesNotMatch(BOTON, /createPortal|className="cmp-ov"/, 'un modal propio sería la copia que se queda vieja');
 });
 
@@ -151,4 +153,28 @@ test('la ruta del link está EXACTA en las públicas que aceptan POST', async ()
   assert.equal(esPublica('/api/compartido/graficos'), true, 'sin esto el middleware pide sesión y el 405 ni se evalúa');
   assert.equal(esPublicaDeEscritura('/api/compartido/graficos/x'), false, 'exacta, no por prefijo');
   assert.equal(esPublicaSoloLectura('/api/compartido/graficos/x'), true);
+});
+
+// ── v5 (12/10/2026): lo que no se comparte no se LEE, y no hay bloques ──────────────────────────────
+
+test('v5: el link reparte ANTES de leer, rechaza un pop-up antes de abrir el informe, y no tiene bloques', () => {
+  // El server: lo que no sale contesta «No se comparte» y nunca llega a `datosDeGraficos`.
+  const leerG = bloque(SERVER, 'async function leerGraficos(', '\n}\n', 1500);
+  const reparte = leerG.indexOf('repartirGraficos(pedidos)');
+  assert.ok(reparte > -1 && reparte < leerG.indexOf('datosDeGraficos('), 'el mapa de calor se leería antes de decidir que no sale');
+  assert.match(leerG, /for \(const x of noSalen\) out\[x\.g\.id\] = \{ ok: false, error: NO_SE_COMPARTE \};/);
+  assert.match(leerG, /datosDeGraficos\(salen\.map\(/, 'se leen SÓLO los que salen');
+  // La primera pintada no pide lo plegado (se pide al abrir la sección, como en la pantalla con sesión).
+  const iniciales = bloque(SERVER, 'export async function datosInicialesDeHoja(', '\n}\n', 900);
+  assert.match(iniciales, /pedidosDeHoja\(hoja, \{\}, hoy, 0, ocultos\)/);
+  assert.match(iniciales, /ocultosPorPlegado\(hoja\.componentes, plegadasDeEntrada\(hoja\.componentes\)\)/);
+  // El endpoint: un pop-up se rechaza ANTES de leer el informe; sólo `datos` y `valores`.
+  const post = bloque(ENDPOINT, 'export async function POST(', '\n}\n', 4500);
+  const popup = post.indexOf("if (body.popupDe != null && body.popupDe !== '') return responder({ error: NO_SE_COMPARTE }, 403);");
+  assert.ok(popup > -1 && popup < post.indexOf('leerInformeCompartido('), 'un pop-up se buscaría en el informe');
+  assert.match(post, /if \(accion !== 'datos' && accion !== 'valores'\) return responder\(\{ error: 'Acción desconocida' \}, 400\);/);
+  // Sin bloques en ninguna de las tres puntas.
+  for (const [nombre, src] of [['endpoint', ENDPOINT], ['server', SERVER], ['vista', VISTA]] as const) {
+    assert.doesNotMatch(src, /graficos-bloques|datosDeBloques|bloquesIniciales|BLOQUES_COMPARTIBLES|bloquesDelCuerpo/, `${nombre}: los bloques se fueron (v5)`);
+  }
 });

@@ -10,8 +10,12 @@
 //     inicial sin avisar. Acá se lee y se escribe el informe de la persona elegida (`sub`) con las de
 //     versión de lib/graficos-tablero.ts.
 //   · LAS LECTURAS SON LAS DE LA PANTALLA: `pedidosDeHoja` (app/dashboard/exportar.ts) con la vista vacía,
-//     `datosDeGraficos`, `datosDeBloques`, `detalleDeGrafico`, `csvDeHoja`. Si esto armara las suyas,
-//     WhatsApp y la pantalla contarían distinto.
+//     `datosDeGraficos`, `detalleDeGrafico`, `csvDeHoja`. Si esto armara las suyas, WhatsApp y la pantalla
+//     contarían distinto. (v5: no hay bloques; el saneo los convirtió en gráficos.)
+//   · LAS CAJAS «CONCLUSIONES DE MAKO» SON LAS SUELTAS EN LA HOJA. Se leen y se generan con las MISMAS
+//     funciones que la ruta de la pantalla (lib/graficos-ia-elemento-server.ts: `vistaDeCaja`, `arrancarCaja`,
+//     `analizarCaja`), SIEMPRE sin pop-up y sin `ref`: la caja de un pop-up lee lo que se abre (una llamada con
+//     lo que se dijo) y eso no sale por ningún canal de la API (tests/api-mako-dashboard.test.ts lo fija).
 //   · ESCRIBIR ES COMPARE-AND-SET: `preparar()` fija la persona y la versión que leyó, y `ejecutar()` relee,
 //     compara y escribe con `guardarTableroSi` (que no escribe si alguien guardó en el medio).
 //   · EL AI ANALYST CORRE POR DETRÁS (`after()`): /api/v1 corta a los 60 s y un análisis con la cascada
@@ -32,14 +36,13 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { rateLimit } from '@/lib/rate-limit';
 import {
-  BLOQUES, bloqueDe, campoDe, camposDeFuente, efectivoDe, esBloque, esElemento, esGrafico, fuenteDe, hojaVacia, metricaDe, sanearTablero,
+  campoDe, camposDeFuente, efectivoDe, esElemento, esGrafico, fuenteDe, hojaVacia, metricaDe, sanearTablero,
   tituloDe,
-  type Componente, type Grafico, type Hoja,
+  type Componente, type Elemento, type Grafico, type Hoja,
 } from '@/lib/graficos-catalogo';
 import { PLANTILLAS_TEMA } from '@/lib/graficos-temas';
 import { PLANTILLAS_HOJA, instanciarPlantilla, plantillaHojaDe, tableroInicial } from '@/lib/graficos-plantillas';
 import { cortarEnHoyDe, datosDeGraficos, hastaDeFuente, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
-import { datosDeBloques } from '@/lib/graficos-bloques';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
 import { guardarTableroSi, leerTableroVersionado, listarTablerosGuardados, type TableroVersionado } from '@/lib/graficos-tablero';
 import { analizarHoja, arrancarAMano, cancelarCorrida, programar, vistaDe, NoProgramable } from '@/lib/graficos-analisis-server';
@@ -47,16 +50,17 @@ import { queTableroLeer } from '@/lib/graficos-lectura';
 import { generarHojaIA } from '@/lib/graficos-ia-generar';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { Alias, sanearCronAnalisis, type SalidaAnalisis } from '@/lib/graficos-analisis';
+import { CajaInvalida, analizarCaja, arrancarCaja, vistaDeCaja } from '@/lib/graficos-ia-elemento-server';
 import { textoCron } from '@/lib/cron-aviso';
 import { csvDeHoja, nombreArchivo, pedidosDeHoja, periodoDeHoja, seccionCsv } from '@/app/dashboard/exportar';
 import type { Resultado } from '@/lib/graficos-agregar';
 import {
-  acotarAHoy, aplicarCambio, armarBloque, armarControlHoja, armarElemento, armarGrafico, analisisMarkdown, buscarComponente,
-  buscarHoja, catalogoJson, catalogoMarkdown, controlParaHttp, controlesDeFiltros, copiaDeHoja, datosAMarkdown,
-  detalleMarkdown, elegirPersona, etiquetaPersona, filtroEnPalabras, filtrosDeConsulta, hojaMarkdown, informesMarkdown, urlParaCanal,
-  juntarTotales, nombreDeComponente, periodoPedido, recortar, resolverCampo, resultadoMarkdown, resultadoPara,
-  salidaConNombres, textoDeAnalisis,
-  type Cambio, type EntradaFiltro, type EntradaGrafico, type Eleccion, type InformeListado, type LeidoDeComponente,
+  aplicarCambio, armarConector, armarControlHoja, armarElemento, armarGrafico, analisisMarkdown, buscarCajas, buscarComponente,
+  buscarConector, buscarHoja, catalogoJson, catalogoMarkdown, conFiltrosFijos, conclusionesMarkdown, controlParaHttp, controlesDeFiltros,
+  copiaDeHoja, detalleMarkdown, elegirPersona, etiquetaPersona, filtroEnPalabras, filtrosDeConsulta, filtrosFijosDe, hojaMarkdown,
+  informesMarkdown, juntarTotales, nombreDeComponente, periodoDeGrafico, periodoEnTexto, periodoPedido, recortar, resolverCampo,
+  resultadoMarkdown, resultadoPara, salidaCajaConNombres, salidaConNombres, textoDeAnalisis, textoDeCaja, urlParaCanal,
+  type Cambio, type CajaLeida, type EntradaFiltro, type EntradaGrafico, type Eleccion, type InformeListado, type LeidoDeComponente,
   type MiembroCuenta, type PersonaInforme, type SeccionCatalogo,
 } from './dashboard.helpers';
 
@@ -248,14 +252,19 @@ function laHoja(r: Resuelto, input: In): Hoja | Fallo {
   return hb.ok ? hb.valor : { error: hb.error, disponibles: hb.disponibles };
 }
 
+/** El período de un gráfico como se vuelve a PEDIR: `periodo X`, o `desde A, hasta B` si es a medida. */
+const periodoComoParametro = (p: ReturnType<typeof periodoDeGrafico>): string =>
+  (p.periodo === 'personalizado' ? `desde ${p.desde}, hasta ${p.hasta}` : `periodo ${p.periodo}`);
+
 /** Cómo se vuelve a armar un componente que se saca (por la API no hay deshacer). */
 function comoVolver(c: Componente): string {
   if (esGrafico(c)) {
-    return `Para volverlo: agregar_grafico_dashboard con tipo ${c.tipo}, conjunto ${c.fuente}, metricas [${c.metricas.join(', ')}]${c.dimension ? `, dimension ${c.dimension}` : ''}${c.desglose ? `, desglose ${c.desglose}` : ''}${c.titulo ? `, titulo ${comillas(c.titulo)}` : ''}.`;
+    const p = periodoDeGrafico(c);
+    return `Para volverlo: agregar_grafico_dashboard con tipo ${c.tipo}, conjunto ${c.fuente}, metricas [${c.metricas.join(', ')}]${c.dimension ? `, dimension ${c.dimension}` : ''}${c.desglose ? `, desglose ${c.desglose}` : ''}${p.periodo !== 'auto' ? `, ${periodoComoParametro(p)}` : ''}${c.titulo ? `, titulo ${comillas(c.titulo)}` : ''}.`;
   }
-  if (esBloque(c)) return `Para volverlo: agregar_grafico_dashboard con bloque ${c.bloque}.`;
-  const url = (c as { url?: string }).url;
-  return `Para volverlo: insertar_elemento_dashboard con tipo ${c.tipo}${c.texto ? `, texto ${comillas(c.texto.slice(0, 80))}` : ''}${url ? `, url ${url}` : ''}.`;
+  if (!esElemento(c)) return 'Para volverlo, ármalo de nuevo en la pantalla.';
+  const extra = c.tipo === 'ia' && c.ia?.pedido ? `, pedido ${comillas(c.ia.pedido.slice(0, 120))}` : c.tipo === 'accion' && c.accion ? `, accion ${c.accion.id}` : '';
+  return `Para volverlo: insertar_elemento_dashboard con tipo ${c.tipo}${c.texto ? `, texto ${comillas(c.texto.slice(0, 80))}` : ''}${c.url ? `, url ${c.url}` : ''}${extra}.`;
 }
 
 // ── El AI Analyst: lo que corre por detrás ───────────────────────────────────────────────────
@@ -311,6 +320,9 @@ export const RUNNERS: Runners = {
       }
       const alias = new Alias();
       const r = resultadoPara(principal, al.graficos.length > 1 ? juntarTotales(rs) : rs[0], http, alias);
+      // El período se pidió TAL CUAL (`datosDeGraficos` lo corta con la regla de su fecha): lo que se MUESTRA va
+      // cortado como en la pantalla (una fecha que mira hacia adelante, como el vencimiento, no se corta).
+      const hasta = cortarEnHoyDe(principal, per.desde, per.hasta);
       const hastaDatos = hastaDeFuente(principal, per.desde, per.hasta);
       const filtros = fl.filtros.map((f) => filtroEnPalabras(fuente.id, f, http, alias));
       const formato = formatoDe(input, ctx, 'md');
@@ -318,41 +330,25 @@ export const RUNNERS: Runners = {
         return {
           content: J({
             conjunto: fuente.id, tipo: principal.tipo, dimension: principal.dimension, desglose: principal.desglose, fecha: principal.fecha,
-            periodo: { desde: per.desde, hasta: per.hasta, datos_hasta: hastaDatos }, filtros, resultado: r,
+            periodo: { desde: per.desde, hasta, datos_hasta: hastaDatos }, filtros, resultado: r,
           }),
           formato: 'json',
         };
       }
       if (formato === 'csv') {
         const BOM = String.fromCharCode(0xfeff);
-        const lineas = seccionCsv({ ...principal, titulo: tituloAlVuelo(al.graficos) }, r, { desde: per.desde, hasta: per.hasta, agrupar: null });
+        const lineas = seccionCsv({ ...principal, titulo: tituloAlVuelo(al.graficos) }, r, { desde: per.desde, hasta, agrupar: null });
         return {
           content: `${BOM}${lineas.join('\r\n')}\r\n`, formato: 'csv',
           headers: { 'Content-Disposition': `attachment; filename="${nombreArchivo(fuente.id, hoy, 'csv')}"` },
         };
       }
       const md = [
-        ...resultadoMarkdown(principal, r, { desde: per.desde, hasta: per.hasta, topeFilas: http ? undefined : TOPE_FILAS_CHAT, titulo: tituloAlVuelo(al.graficos) }),
+        ...resultadoMarkdown(principal, r, { desde: per.desde, hasta, topeFilas: http ? undefined : TOPE_FILAS_CHAT, titulo: tituloAlVuelo(al.graficos) }),
         ...(filtros.length ? [`Filtros: ${filtros.join(' · ')}`] : []),
-        ...(hastaDatos !== per.hasta ? [`La pauta de Meta llega con un día de atraso: los datos van hasta ${hastaDatos}.`] : []),
+        ...(hastaDatos !== hasta ? [`La pauta de Meta llega con un día de atraso: los datos van hasta ${hastaDatos}.`] : []),
       ].join('\n');
       return http ? md : recortar(md, TOPE_MD_CHAT, 'pide un período más corto o menos métricas');
-    },
-  },
-
-  leer_bloque_dashboard: {
-    leer: async (input, ctx) => {
-      const info = bloqueDe(str(input, 'bloque'));
-      if (!info) return fallo(`El bloque ${comillas(str(input, 'bloque'))} no existe.`, BLOQUES.map((b) => b.id));
-      // Un bloque decide su propia ventana (el Outstanding mira hasta fin de mes): va sin acotar, como /api/graficos.
-      const rg = periodoPedido(input, hoyEnTijuana(), 'ult30', false);
-      if ('error' in rg) return fallo(rg.error, rg.disponibles);
-      const datos = await infra('bloque', () => datosDeBloques([{ id: 'b', bloque: info.id, desde: rg.desde, hasta: rg.hasta }]));
-      const d = datos.b;
-      if (!d || !d.ok) return fallo(`No pude leer el bloque ${comillas(info.nombre)}${d && !d.ok ? `: ${d.error}` : ''}.`);
-      if (formatoDe(input, ctx, 'md') === 'json') return { content: J({ bloque: info.id, nombre: info.nombre, periodo: { desde: rg.desde, hasta: rg.hasta }, datos: d.datos }), formato: 'json' };
-      const md = [`**${info.nombre}** (\`${info.id}\`) · ${rg.desde} a ${rg.hasta}`, info.linea, '', ...datosAMarkdown(d.datos)].join('\n');
-      return recortar(md, TOPE_MD_CHAT, 'pide un período más corto');
     },
   },
 
@@ -400,12 +396,10 @@ export const RUNNERS: Runners = {
       if (esFallo(hoja)) return fallo(hoja.error, hoja.disponibles);
       const http = r.http;
       const hoy = hoyEnTijuana();
-      const { graficos, bloques } = pedidosDeHoja(hoja, {}, hoy, 0);
-      const [datos, datosB] = await infra('leer la hoja', () => Promise.all([
-        datosDeGraficos(graficos.map(({ pedido }) => pedido)),
-        // Los bloques traen nombres de clientes y del equipo: por HTTP no se leen.
-        http || !bloques.length ? Promise.resolve({} as Awaited<ReturnType<typeof datosDeBloques>>) : datosDeBloques(bloques.map((b) => b.pedido)),
-      ]));
+      // TODO lo de la hoja, también lo plegado (`pedidosDeHoja` sin `ocultos`): la API no dibuja, y una sección
+      // cerrada sigue siendo parte de lo que la hoja dice.
+      const { graficos } = pedidosDeHoja(hoja, {}, hoy, 0);
+      const datos = await infra('leer la hoja', () => datosDeGraficos(graficos.map(({ pedido }) => pedido)));
       const alias = new Alias();
       const resultados: Record<string, Resultado | undefined> = {};
       const efectivos: Record<string, { desde: string; hasta: string; agrupar: 'dia' | 'semana' | 'mes' | null }> = {};
@@ -417,15 +411,16 @@ export const RUNNERS: Runners = {
           const d = datos[c.id];
           const res = d?.ok ? resultadoPara(c, d.resultado, http, alias) : null;
           if (res) { resultados[c.id] = res; efectivos[c.id] = { desde: pg.ef.desde, hasta, agrupar: pg.ef.agrupar }; }
+          // Lo que DEFINE el gráfico (sus filtros `fijo`) va aparte de lo que filtra para mirar: los dos se aplican.
+          const dimsFijas = new Set(filtrosFijosDe(c).map((k) => campoDe(k.campo)?.en[c.fuente]).filter((x): x is string => !!x));
+          const enPalabras = (f: (typeof pg.ef.filtros)[number]) => filtroEnPalabras(c.fuente, f, http, alias);
           leidos.push({
             c, desde: pg.ef.desde, hasta, agrupar: pg.ef.agrupar,
-            filtros: pg.ef.filtros.map((f) => filtroEnPalabras(c.fuente, f, http, alias)), noAplica: pg.ef.noAplica,
+            filtros: pg.ef.filtros.filter((f) => !dimsFijas.has(f.dimension)).map(enPalabras),
+            fijos: pg.ef.filtros.filter((f) => dimsFijas.has(f.dimension)).map(enPalabras),
+            noAplica: pg.ef.noAplica,
             resultado: res, error: d ? (d.ok ? null : d.error) : 'No pude leer los datos',
           });
-        } else if (esBloque(c)) {
-          const pb = bloques.find((x) => x.b.id === c.id)!;
-          const d = datosB[c.id];
-          leidos.push({ c, desde: pb.ef.desde, hasta: pb.ef.hasta, datos: d?.ok ? d.datos : null, error: http ? null : d ? (d.ok ? null : d.error) : 'No pude leer los datos', oculto: http });
         } else if (esElemento(c)) leidos.push({ c });
       }
       const controles = http ? hoja.controles.map((c) => controlParaHttp(c, alias)) : hoja.controles;
@@ -436,24 +431,34 @@ export const RUNNERS: Runners = {
         return { content: c.csv, formato: 'csv', headers: { 'Content-Disposition': `attachment; filename="${nombreArchivo(hoja.nombre, hoy, 'csv')}"`, 'X-Graficos': String(c.graficos) } };
       }
       if (formato === 'json') {
+        const elementoJson = (e: Elemento) => ({
+          id: e.id, clase: 'elemento', tipo: e.tipo, texto: e.texto, url: urlParaCanal(e.url, http), x: e.x, y: e.y, w: e.w, h: e.h,
+          ...(e.seccion ? { seccion: e.seccion } : {}),
+          // La configuración de la caja; su TEXTO vive en otra tabla y se lee con leer_conclusiones_dashboard.
+          ...(e.ia ? { conclusiones: { pedido: e.ia.pedido, lee: e.ia.fuentes, muestra: e.ia.vista, largo: e.ia.largo, forma: e.ia.formato } } : {}),
+          ...(e.accion ? { accion: e.accion } : {}),
+        });
         return {
           content: J({
             informe: r.etiqueta, estado: r.lectura.estado,
-            hoja: { id: hoja.id, nombre: hoja.nombre, emoji: hoja.emoji, subtitulo: hoja.subtitulo, estilo: hoja.tema, filtros: controles },
+            hoja: { id: hoja.id, nombre: hoja.nombre, emoji: hoja.emoji, subtitulo: hoja.subtitulo, estilo: hoja.tema, filtros: controles, conectores: hoja.conectores ?? [] },
             componentes: leidos.map((l) => {
-              if (!('desde' in l)) return { id: l.c.id, clase: 'elemento', tipo: l.c.tipo, texto: l.c.texto, url: urlParaCanal((l.c as { url?: string }).url, http), x: l.c.x, y: l.c.y, w: l.c.w, h: l.c.h };
-              if ('resultado' in l) {
-                const g = l.c;
-                return {
-                  id: g.id, clase: 'grafico', titulo: tituloDe(g), tipo: g.tipo, conjunto: g.fuente, fecha: g.fecha, metricas: g.metricas,
-                  dimension: g.dimension, desglose: g.desglose, periodo_guardado: g.periodo, periodo: { desde: l.desde, hasta: l.hasta },
-                  agrupado_por: l.agrupar, filtros: l.filtros, no_filtra: l.noAplica, filtros_propios: http ? g.controles.map((k) => controlParaHttp(k, alias)) : g.controles,
-                  x: g.x, y: g.y, w: g.w, h: g.h,
-                  ...(l.resultado ? { resultado: l.resultado } : { error: l.error ?? 'no se pudo leer' }),
-                };
-              }
-              const b = l.c as Componente & { clase: 'bloque'; bloque: string };
-              return { id: b.id, clase: 'bloque', titulo: tituloDe(b), bloque: b.bloque, periodo: { desde: l.desde, hasta: l.hasta }, x: b.x, y: b.y, w: b.w, h: b.h, ...(http ? { datos: 'no sale por la API' } : l.error ? { error: l.error } : { datos: l.datos }) };
+              if (!('desde' in l)) return elementoJson(l.c);
+              const g = l.c;
+              const p = periodoDeGrafico(g);
+              return {
+                id: g.id, clase: 'grafico', titulo: tituloDe(g), tipo: g.tipo, conjunto: g.fuente, fecha: g.fecha, metricas: g.metricas,
+                dimension: g.dimension, desglose: g.desglose,
+                // El período PROPIO del gráfico, derivado de su control (v5): 'auto' = el de la hoja.
+                periodo_guardado: p.periodo, ...(p.periodo === 'personalizado' ? { periodo_guardado_rango: { desde: p.desde, hasta: p.hasta } } : {}),
+                periodo: { desde: l.desde, hasta: l.hasta },
+                agrupado_por: l.agrupar, lo_define: l.fijos, filtros: l.filtros, no_filtra: l.noAplica,
+                filtros_propios: http ? g.controles.map((k) => controlParaHttp(k, alias)) : g.controles,
+                ...(g.mako === false ? { mako: false } : {}),
+                ...(g.popup ? { popup: { titulo: g.popup.titulo, piezas: g.popup.componentes.length } } : {}),
+                x: g.x, y: g.y, w: g.w, h: g.h,
+                ...(l.resultado ? { resultado: l.resultado } : { error: l.error ?? 'no se pudo leer' }),
+              };
             }),
             link,
           }),
@@ -681,36 +686,36 @@ export const RUNNERS: Runners = {
       const h = laHoja(r, input);
       if (esFallo(h)) return h;
       const lugar = str(input, 'lugar') === 'arriba' ? 'arriba' : 'abajo';
-      let comp: Componente;
-      let que: string;
-      if (str(input, 'bloque')) {
-        if (str(input, 'tipo') || str(input, 'conjunto')) return { error: 'Un bloque va solo: sin tipo ni conjunto.' };
-        const b = armarBloque({ bloque: str(input, 'bloque'), titulo: str(input, 'titulo') || undefined, periodo: input.periodo, desde: input.desde, hasta: input.hasta }, { x: 0, y: 0 });
-        if (!b.ok) return { error: b.error, disponibles: b.disponibles };
-        comp = b.bloque;
-        que = `Agregar el bloque ${comillas(tituloDe(b.bloque))}`;
-      } else {
-        if (!str(input, 'tipo') || !str(input, 'conjunto')) return { error: 'Un gráfico va con tipo, conjunto y métricas (o pide un bloque).', faltan: [!str(input, 'tipo') ? 'tipo' : 'conjunto'] };
-        const a = armarGrafico({
-          tipo: str(input, 'tipo'), conjunto: str(input, 'conjunto'), metricas: textos(input, 'metricas') ?? [],
-          dimension: opc(input, 'dimension') ?? null, desglose: opc(input, 'desglose') ?? null,
-          ...(str(input, 'fecha') ? { fecha: str(input, 'fecha') } : {}),
-          ...(input.periodo !== undefined ? { periodo: str(input, 'periodo') } : {}),
-          ...(input.desde !== undefined ? { desde: str(input, 'desde') } : {}),
-          ...(input.hasta !== undefined ? { hasta: str(input, 'hasta') } : {}),
-          titulo: str(input, 'titulo'), ...(input.comparar !== undefined ? { comparar: input.comparar === true } : {}),
-        }, null);
-        if (!a.ok) return { error: a.error, disponibles: a.disponibles };
-        comp = a.grafico;
-        const f = fuenteDe(a.grafico.fuente);
-        que = `Agregar el gráfico ${comillas(tituloDe(a.grafico))} (${a.grafico.tipo} de ${f?.nombre ?? a.grafico.fuente})`;
+      // v5: no hay bloques (el saneo los convirtió en gráficos): la def ya no declara `bloque`, así que el
+      // validador lo descarta antes de llegar acá.
+      if (!str(input, 'tipo') || !str(input, 'conjunto')) return { error: 'Un gráfico va con tipo, conjunto y métricas.', faltan: [!str(input, 'tipo') ? 'tipo' : 'conjunto'] };
+      const a = armarGrafico({
+        tipo: str(input, 'tipo'), conjunto: str(input, 'conjunto'), metricas: textos(input, 'metricas') ?? [],
+        dimension: opc(input, 'dimension') ?? null, desglose: opc(input, 'desglose') ?? null,
+        ...(str(input, 'fecha') ? { fecha: str(input, 'fecha') } : {}),
+        ...(input.periodo !== undefined ? { periodo: str(input, 'periodo') } : {}),
+        ...(input.desde !== undefined ? { desde: str(input, 'desde') } : {}),
+        ...(input.hasta !== undefined ? { hasta: str(input, 'hasta') } : {}),
+        titulo: str(input, 'titulo'), ...(input.comparar !== undefined ? { comparar: input.comparar === true } : {}),
+        ...(typeof input.mako === 'boolean' ? { mako: input.mako } : {}),
+      }, null);
+      if (!a.ok) return { error: a.error, disponibles: a.disponibles };
+      let g: Grafico = a.grafico;
+      // Los filtros que se pasan DEFINEN el gráfico (`fijo`): no nacen como chips de la tarjeta.
+      if (Array.isArray(input.filtros) && input.filtros.length) {
+        const cf = controlesDeFiltros(fuenteDe(g.fuente)!, input.filtros as EntradaFiltro[], ctx.canal === 'http');
+        if (!cf.ok) return { error: cf.error, disponibles: cf.disponibles };
+        const cc = conFiltrosFijos(g.controles, cf.controles);
+        if (!cc.ok) return { error: cc.error };
+        g = { ...g, controles: cc.controles };
       }
+      const f = fuenteDe(g.fuente);
       return {
-        cambio: { op: 'agregar_componente', hojaId: h.id, componente: comp, lugar },
-        que: `${que} ${lugar === 'arriba' ? 'arriba' : 'abajo'} de todo en la hoja ${comillas(h.nombre)}`,
-        hecho: `Quedó ${comillas(nombreDeComponente(comp))} en la hoja ${comillas(h.nombre)} (id ${comp.id})`,
-        deshacer: `Para deshacerlo: quitar_componente_dashboard con hoja ${h.id} y componente ${comp.id}.`,
-        datos: { hojaId: h.id, componenteId: comp.id },
+        cambio: { op: 'agregar_componente', hojaId: h.id, componente: g, lugar },
+        que: `Agregar el gráfico ${comillas(tituloDe(g))} (${g.tipo} de ${f?.nombre ?? g.fuente}) ${lugar === 'arriba' ? 'arriba' : 'abajo'} de todo en la hoja ${comillas(h.nombre)}`,
+        hecho: `Quedó ${comillas(nombreDeComponente(g))} en la hoja ${comillas(h.nombre)} (id ${g.id})`,
+        deshacer: `Para deshacerlo: quitar_componente_dashboard con hoja ${h.id} y componente ${g.id}.`,
+        datos: { hojaId: h.id, componenteId: g.id },
       };
     }),
     ejecutar: aplicar,
@@ -723,29 +728,10 @@ export const RUNNERS: Runners = {
       const cb = buscarComponente(h, str(input, 'componente'));
       if (!cb.ok) return { error: cb.error, disponibles: cb.disponibles };
       const actual = cb.valor;
-      if (esElemento(actual)) return { error: `${comillas(nombreDeComponente(actual))} es un elemento: sácalo con quitar_componente_dashboard e inserta otro.` };
+      if (!esGrafico(actual)) return { error: `${comillas(nombreDeComponente(actual))} es un elemento: sácalo con quitar_componente_dashboard e inserta otro.` };
       const titulo = opc(input, 'titulo');
       const subtitulo = opc(input, 'subtitulo');
-      if (esBloque(actual)) {
-        const otros = ['tipo', 'conjunto', 'metricas', 'dimension', 'desglose', 'fecha', 'limite', 'comparar', 'filtros'].filter((k) => input[k] !== undefined);
-        if (otros.length) return { error: `${comillas(tituloDe(actual))} es un bloque: de un bloque sólo se cambian el título, el subtítulo y el período.` };
-        // Un período pedido reemplaza al guardado entero (un preset nuevo no arrastra las fechas a medida de antes).
-        const pidePeriodo = input.periodo !== undefined || input.desde !== undefined || input.hasta !== undefined;
-        const per = pidePeriodo
-          ? { periodo: input.periodo, desde: input.desde, hasta: input.hasta }
-          : { periodo: actual.periodo, desde: actual.desde ?? undefined, hasta: actual.hasta ?? undefined };
-        const b = armarBloque({ bloque: actual.bloque, ...per }, { x: actual.x, y: actual.y });
-        if (!b.ok) return { error: b.error, disponibles: b.disponibles };
-        const nuevo = { ...actual, titulo: titulo ?? actual.titulo, subtitulo: subtitulo ?? actual.subtitulo, periodo: b.bloque.periodo, desde: b.bloque.desde, hasta: b.bloque.hasta };
-        return {
-          cambio: { op: 'reemplazar_componente', hojaId: h.id, componente: nuevo },
-          que: `Cambiar el bloque ${comillas(tituloDe(actual))} de la hoja ${comillas(h.nombre)}`,
-          hecho: `Quedó el bloque ${comillas(tituloDe(nuevo))}`,
-          deshacer: `Para volver: editar_grafico_dashboard con componente ${actual.id}${actual.titulo ? `, titulo ${comillas(actual.titulo)}` : ''}, periodo ${actual.periodo}.`,
-          datos: { hojaId: h.id, componenteId: actual.id },
-        };
-      }
-      const g = actual as Grafico;
+      const g = actual;
       const e: EntradaGrafico = {
         ...(input.tipo !== undefined ? { tipo: str(input, 'tipo') } : {}),
         ...(input.conjunto !== undefined ? { conjunto: str(input, 'conjunto') } : {}),
@@ -760,15 +746,19 @@ export const RUNNERS: Runners = {
         ...(subtitulo !== undefined ? { subtitulo } : {}),
         ...(num(input, 'limite') !== undefined ? { limite: num(input, 'limite') } : {}),
         ...(input.comparar !== undefined ? { comparar: input.comparar === true } : {}),
+        ...(typeof input.mako === 'boolean' ? { mako: input.mako } : {}),
       };
       const a = armarGrafico(e, g);
       if (!a.ok) return { error: a.error, disponibles: a.disponibles };
       let nuevo: Grafico = a.grafico;
       if (Array.isArray(input.filtros)) {
+        // Los `filtros` REEMPLAZAN los que DEFINEN el gráfico (los fijos); los que son para mirar se quedan.
         const fuente = fuenteDe(nuevo.fuente)!;
-        const cf = controlesDeFiltros(fuente, input.filtros as EntradaFiltro[]);
+        const cf = controlesDeFiltros(fuente, input.filtros as EntradaFiltro[], ctx.canal === 'http');
         if (!cf.ok) return { error: cf.error, disponibles: cf.disponibles };
-        nuevo = { ...nuevo, controles: [...nuevo.controles.filter((k) => k.tipo === 'periodo' || k.tipo === 'agrupar'), ...cf.controles] };
+        const cc = conFiltrosFijos(nuevo.controles, cf.controles);
+        if (!cc.ok) return { error: cc.error };
+        nuevo = { ...nuevo, controles: cc.controles };
       } else if (a.grafico.fuente !== g.fuente) {
         // Un filtro propio de un campo que el conjunto nuevo no tiene filtraría nada: se saca y se dice.
         const sirven = new Set(camposDeFuente(nuevo.fuente).map((c) => c.id));
@@ -784,10 +774,14 @@ export const RUNNERS: Runners = {
       const t = (v: unknown) => (v == null || v === '' ? '-' : Array.isArray(v) ? `[${v.join(', ')}]` : String(v));
       dif('tipo', nuevo.tipo, g.tipo, t); dif('conjunto', nuevo.fuente, g.fuente, t); dif('metricas', nuevo.metricas, g.metricas, t);
       dif('dimension', nuevo.dimension, g.dimension, t); dif('desglose', nuevo.desglose, g.desglose, t); dif('fecha', nuevo.fecha, g.fecha, t);
-      dif('periodo', nuevo.periodo === 'personalizado' ? `${nuevo.desde}..${nuevo.hasta}` : nuevo.periodo, g.periodo === 'personalizado' ? `${g.desde}..${g.hasta}` : g.periodo, t);
+      // El período sale de su CONTROL (v5), no del campo de antes.
+      const pNuevo = periodoDeGrafico(nuevo);
+      const pAntes = periodoDeGrafico(g);
+      if (periodoEnTexto(pNuevo) !== periodoEnTexto(pAntes)) { cambios.push(`período ${periodoEnTexto(pNuevo)}`); antes.push(periodoComoParametro(pAntes)); }
       dif('titulo', nuevo.titulo, g.titulo, (v) => (v ? comillas(String(v)) : '-')); dif('subtitulo', nuevo.subtitulo, g.subtitulo, (v) => (v ? comillas(String(v)) : '-'));
       dif('limite', nuevo.limite, g.limite, t); dif('comparar', nuevo.comparar, g.comparar, t);
-      if (JSON.stringify(nuevo.controles) !== JSON.stringify(g.controles)) cambios.push('sus filtros propios');
+      dif('mako', nuevo.mako !== false, g.mako !== false, t);
+      if (JSON.stringify(filtrosFijosDe(nuevo)) !== JSON.stringify(filtrosFijosDe(g))) cambios.push('los filtros que lo definen');
       return {
         cambio: { op: 'reemplazar_componente', hojaId: h.id, componente: nuevo },
         que: `Cambiar el gráfico ${comillas(tituloDe(g))} de la hoja ${comillas(h.nombre)}: ${cambios.join(', ') || 'nada'}${a.notas.length ? ` (${a.notas.join('; ')})` : ''}`,
@@ -824,7 +818,7 @@ export const RUNNERS: Runners = {
       const a = armarControlHoja(h, {
         tipo: str(input, 'tipo'), campo: str(input, 'campo') || undefined, valores: input.valores, texto: str(input, 'texto') || undefined,
         agrupar: str(input, 'agrupar') || undefined, periodo: input.periodo, desde: input.desde, hasta: input.hasta,
-      });
+      }, ctx.canal === 'http');
       if (!a.ok) return { error: a.error, disponibles: a.disponibles, ...(a.yaEstaba ? { yaEstaba: true } : {}) };
       const c = a.control;
       const cual = c.tipo === 'periodo' ? 'de período' : c.tipo === 'agrupar' ? 'de agrupar' : `de ${campoDe(c.campo)?.nombre ?? c.campo}`;
@@ -870,16 +864,28 @@ export const RUNNERS: Runners = {
       const a = armarElemento({
         tipo: str(input, 'tipo'), ...(input.texto !== undefined ? { texto: String(input.texto) } : {}), url: str(input, 'url'),
         ...(str(input, 'titulo') ? { titulo: str(input, 'titulo') } : {}), ...(str(input, 'tamano') ? { tamano: str(input, 'tamano') } : {}),
-      }, 0);
+        // Lo de v5, por tipo (lo que el tipo no usa, `armarElemento` lo ignora).
+        ...(typeof input.plegable === 'boolean' ? { plegable: input.plegable } : {}),
+        ...(typeof input.abierto === 'boolean' ? { abierto: input.abierto } : {}),
+        ...(num(input, 'fondo') !== undefined ? { fondo: num(input, 'fondo') } : {}),
+        ...(str(input, 'pedido') ? { pedido: str(input, 'pedido') } : {}),
+        ...(textos(input, 'componentes')?.length ? { componentes: textos(input, 'componentes') } : {}),
+        ...(str(input, 'muestra') ? { muestra: str(input, 'muestra') } : {}),
+        ...(str(input, 'largo') ? { largo: str(input, 'largo') } : {}),
+        ...(str(input, 'forma') ? { forma: str(input, 'forma') } : {}),
+        ...(str(input, 'accion') ? { accion: str(input, 'accion') } : {}),
+      }, 0, h);
       if (!a.ok) return { error: a.error, disponibles: a.disponibles };
       const el = a.elemento;
       const url = (el as { url?: string }).url;
+      // Una caja de IA no escribe al insertarse (nunca corre sola: decisión de la tanda v5): se dice cómo pedirla.
+      const despues = esElemento(el) && el.tipo === 'ia' ? ` Para que escriba: generar_conclusiones_dashboard con hoja ${h.id} y componente ${el.id}.` : '';
       return {
         cambio: { op: 'agregar_componente', hojaId: h.id, componente: el, lugar },
         // ⚠️ LA DIRECCIÓN VA ENTERA: una URL que pasó por un modelo no es exacta, y la persona la confirma viéndola.
         que: `Insertar ${comillas(nombreDeComponente(el))} ${lugar === 'arriba' ? 'arriba' : 'abajo'} de todo en la hoja ${comillas(h.nombre)}${url ? `, con la dirección ${url}` : ''}`,
         hecho: `Quedó ${comillas(nombreDeComponente(el))} (id ${el.id})`,
-        deshacer: `Para deshacerlo: quitar_componente_dashboard con hoja ${h.id} y componente ${el.id}.`,
+        deshacer: `Para deshacerlo: quitar_componente_dashboard con hoja ${h.id} y componente ${el.id}.${despues}`,
         datos: { hojaId: h.id, componenteId: el.id },
       };
     }),
@@ -908,7 +914,7 @@ export const RUNNERS: Runners = {
         const h = laHoja(r, input);
         if (esFallo(h)) return h;
         const graficos = h.componentes.filter(esGrafico);
-        if (!graficos.length) return { error: `La hoja ${comillas(h.nombre)} no tiene gráficos para analizar (los bloques todavía no se analizan).` };
+        if (!graficos.length) return { error: `La hoja ${comillas(h.nombre)} no tiene gráficos para analizar.` };
         const ids = textos(input, 'componentes');
         if (ids?.length) {
           const malos = ids.filter((id) => !graficos.some((g) => g.id === id));
@@ -1050,6 +1056,148 @@ export const RUNNERS: Runners = {
       } catch (e) {
         console.error(`[api-mako dashboard] cancelar: ${msg(e)}`);
         return { ok: false, resumen: 'No pude cortar el análisis. Reintenta en un momento.' };
+      }
+    },
+  },
+
+  // ── v5: los conectores ───────────────────────────────────────────────────────────────────────
+
+  conectar_componentes_dashboard: {
+    preparar: (input, ctx) => proponer(input, ctx, (r) => {
+      const h = laHoja(r, input);
+      if (esFallo(h)) return h;
+      const a = armarConector(h, { origen: str(input, 'origen'), destino: str(input, 'destino'), punta: str(input, 'punta') || undefined, trazo: str(input, 'trazo') || undefined });
+      if (!a.ok) return { error: a.error, disponibles: a.disponibles, ...(a.yaEstaba ? { yaEstaba: true } : {}) };
+      const de = comillas(nombreDeComponente(a.desde));
+      const hacia = comillas(nombreDeComponente(a.hasta));
+      return {
+        cambio: { op: 'agregar_conector', hojaId: h.id, conector: a.conector },
+        que: `Unir ${de} con ${hacia} con una flecha en la hoja ${comillas(h.nombre)}`,
+        hecho: `Quedó la flecha de ${de} a ${hacia} (id ${a.conector.id})`,
+        deshacer: `Para deshacerlo: quitar_conector_dashboard con hoja ${h.id} y conector ${a.conector.id}.`,
+        datos: { hojaId: h.id, conectorId: a.conector.id },
+      };
+    }),
+    ejecutar: aplicar,
+  },
+
+  quitar_conector_dashboard: {
+    preparar: (input, ctx) => proponer(input, ctx, (r) => {
+      const h = laHoja(r, input);
+      if (esFallo(h)) return h;
+      const b = buscarConector(h, { conector: str(input, 'conector'), origen: str(input, 'origen'), destino: str(input, 'destino') });
+      // Sacar lo que ya no está es «ya está así» (el DELETE de una flecha que otro sacó en el medio).
+      if (!b.ok) return { error: b.error, disponibles: b.disponibles, ...(str(input, 'conector') ? { yaEstaba: true } : {}) };
+      const k = b.valor;
+      const nombre = (id: string) => { const c = h.componentes.find((x) => x.id === id); return comillas(c ? nombreDeComponente(c) : id); };
+      return {
+        cambio: { op: 'quitar_conector', hojaId: h.id, conectorId: k.id },
+        que: `Sacar la flecha de ${nombre(k.desde)} a ${nombre(k.hasta)} de la hoja ${comillas(h.nombre)}`,
+        hecho: `Se sacó la flecha de ${nombre(k.desde)} a ${nombre(k.hasta)}`,
+        deshacer: `Para volverla: conectar_componentes_dashboard con hoja ${h.id}, origen ${k.desde}, destino ${k.hasta}${k.trazo !== 'curva' ? `, trazo ${k.trazo}` : ''}${k.punta !== 'fin' ? `, punta ${k.punta}` : ''}.`,
+        datos: { hojaId: h.id },
+      };
+    }),
+    ejecutar: aplicar,
+  },
+
+  // ── v5: las cajas «Conclusiones de MaKo» (SUELTAS EN LA HOJA, nunca las de un pop-up) ─────────────
+
+  leer_conclusiones_dashboard: {
+    leer: async (input, ctx) => {
+      const r = await resolver(input, ctx, 'persona');
+      if (esFallo(r)) return fallo(r.error, r.disponibles);
+      const hoja = laHoja(r, input);
+      if (esFallo(hoja)) return fallo(hoja.error, hoja.disponibles);
+      const bc = buscarCajas(hoja, str(input, 'componente'));
+      if (!bc.ok) return fallo(bc.error, bc.disponibles.length ? bc.disponibles : undefined);
+      const cajas: CajaLeida[] = [];
+      for (const e of bc.valor) {
+        // ⚠️ Sin pop-up y sin lo abierto, SIEMPRE: la caja de un pop-up lee una llamada con lo que se dijo.
+        const vista = await infra('leer las conclusiones', () => vistaDeCaja(r.sub!, { hojaId: hoja.id, popupDe: '', elementoId: e.id, ref: '' }));
+        // Los nombres reales sólo por WhatsApp y la app (es la pantalla del dueño); por HTTP quedan los alias.
+        const salida = vista.ultimo ? (r.http ? vista.ultimo.salida : salidaCajaConNombres(vista.ultimo.salida, vista.ultimo.nombres)) : null;
+        cajas.push({ e, vista, salida });
+      }
+      const link = linkHoja(hoja.id, ctx);
+      if (formatoDe(input, ctx, 'md') === 'json') {
+        return {
+          content: J({
+            informe: r.etiqueta, hoja: { id: hoja.id, nombre: hoja.nombre },
+            cajas: cajas.map(({ e, vista, salida }) => ({
+              id: e.id, titulo: nombreDeComponente(e), muestra: e.ia?.vista ?? null,
+              corriendo: vista.corriendo, fallo: vista.fallo,
+              ultimo: vista.ultimo && salida ? {
+                escrita_at: vista.ultimo.analizadoAt, modelo: vista.ultimo.modelo, resumen: salida.resumen,
+                puntos: salida.puntos.map((x) => ({ titulo: x.titulo, texto: x.texto, tono: x.tono })), texto: textoDeCaja(salida),
+              } : null,
+              programa: vista.programa ? { horario: textoCron(vista.programa.cron, vista.programa.tz), proxima_at: vista.programa.proximaAt } : null,
+            })),
+            link,
+          }),
+          formato: 'json',
+        };
+      }
+      return conclusionesMarkdown({ hojaNombre: hoja.nombre, cajas, link, ahoraMs: Date.now() });
+    },
+  },
+
+  generar_conclusiones_dashboard: {
+    preparar: async (input, ctx) => {
+      try {
+        const r = await resolver(input, ctx, 'persona');
+        if (esFallo(r)) return r;
+        const h = laHoja(r, input);
+        if (esFallo(h)) return h;
+        const bc = buscarCajas(h, str(input, 'componente'));
+        if (!bc.ok) return { error: bc.error, disponibles: bc.disponibles };
+        if (bc.valor.length !== 1) return { error: 'Di qué caja escribir: su id o su título.', disponibles: bc.valor.map((e) => `${e.id} · ${nombreDeComponente(e)}`) };
+        const e = bc.valor[0];
+        // Lo que se puede saber sin escribir falla acá (AGENTS.md, «confirmar RECLAMA»): sin gráficos que leer, no hay caja.
+        const lee = e.ia!.fuentes;
+        const graficos = h.componentes.filter(esGrafico);
+        if (!(lee == null ? graficos : graficos.filter((g) => lee.includes(g.id))).length) {
+          return { error: `La caja ${comillas(nombreDeComponente(e))} no tiene gráficos que leer en la hoja.` };
+        }
+        const vista = await vistaDeCaja(r.sub!, { hojaId: h.id, popupDe: '', elementoId: e.id, ref: '' });
+        if (vista.corriendo) return { error: `La caja ${comillas(nombreDeComponente(e))} ya está escribiendo: se lee con leer_conclusiones_dashboard en un rato.`, yaEstaba: true };
+        return {
+          payload: { sub: r.sub, hojaId: h.id, elementoId: e.id },
+          resumen: `Escribir con MaKo la caja ${comillas(nombreDeComponente(e))} de la hoja ${comillas(h.nombre)}, en ${r.etiqueta}. Corre por detrás y puede tardar más de un minuto.`,
+        };
+      } catch (e) {
+        console.error(`[api-mako dashboard] conclusiones: ${msg(e)}`);
+        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.' };
+      }
+    },
+    ejecutar: async (payload, ctx) => {
+      try {
+        const sub = typeof payload.sub === 'string' ? payload.sub : '';
+        const hojaId = typeof payload.hojaId === 'string' ? payload.hojaId : '';
+        const elementoId = typeof payload.elementoId === 'string' ? payload.elementoId : '';
+        if (!/^\d+$/.test(sub) || !hojaId || !elementoId) return { ok: false, resumen: 'La propuesta no dice qué caja escribir: vuelve a pedirla.' };
+        const lectura = await leerTableroVersionado(sub);
+        const hoja = lectura.tablero.hojas.find((h) => h.id === hojaId);
+        if (!hoja) return { ok: false, resumen: 'Esa hoja ya no está en el informe.' };
+        // El mismo tope que la pantalla, y la MISMA cuenta: 30 por hora por persona (app/api/graficos/ia-elemento).
+        if (!rateLimit(`conclusiones:${ctx.ws}:${sub}`, 30, 60 * 60_000)) return { ok: false, resumen: 'Muchas cajas seguidas de esa persona. Prueba en un rato.' };
+        const r = await arrancarCaja({
+          usuario: sub, hoja, elementoId, popupDe: null, ref: null, vista: {}, queTablero: await queTableroLeer(),
+          hastaMs: Date.now() + (ctx.canal === 'http' ? PLAZO_ANALISIS_HTTP_MS : PLAZO_ANALISIS_MS),
+        });
+        if (!r.ok) return { ok: false, resumen: 'Esa caja ya está escribiendo: se lee con leer_conclusiones_dashboard.' };
+        const modo = await porDetras(ctx.ws, () => analizarCaja(r.pedido));
+        return {
+          ok: true,
+          resumen: modo === 'fondo'
+            ? 'MaKo quedó escribiendo la caja: se lee con leer_conclusiones_dashboard en un rato.'
+            : 'MaKo escribió la caja: se lee con leer_conclusiones_dashboard.',
+          datos: { hojaId: hoja.id, componenteId: elementoId, estado: modo === 'fondo' ? 'corriendo' : 'terminado', link: linkHoja(hoja.id, ctx) },
+        };
+      } catch (e) {
+        if (e instanceof CajaInvalida) return { ok: false, resumen: e.message };
+        console.error(`[api-mako dashboard] conclusiones: ${msg(e)}`);
+        return { ok: false, resumen: 'No pude arrancar la caja. Reintenta en un momento.' };
       }
     },
   },

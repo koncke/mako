@@ -518,7 +518,7 @@ function ChatAgentInner() {
     // UNA sola pantalla. Los links viejos (`?stab=plantillas`, `?stab=dashboard`) caen
     // acá y abren el Chatbot, que es lo correcto: un parámetro que ya no existe no
     // puede dejar la pantalla en blanco. Las plantillas de Meta viven en /whatsapp y
-    // los números en /chat-analyst.
+    // los números en la hoja «Chat Analyst» del Dashboard (desde el 12/10/2026; /chat-analyst redirige ahí).
     const sec = params.get('sec');
     if (!sec) { anclaAplicada.current = true; return; }
     // Hay que esperar a que carguen: sin la lista no se puede resolver ni la
@@ -633,7 +633,8 @@ function ChatAgentInner() {
           Las cuatro sub-tabs partían UNA cosa en cuatro pantallas: el email y el
           WhatsApp son dos canales de la MISMA secuencia y se arman en el mismo lienzo,
           las plantillas de Meta son del canal oficial —que ya no gobierna este editor—
-          y los números son otra pregunta, así que viven en /chat-analyst.
+          y los números son otra pregunta, así que viven en la hoja «Chat Analyst» del Dashboard
+          (desde el 12/10/2026; la ruta /chat-analyst redirige ahí).
 
           Y los dos botones de la derecha: el de crear ya está en la grilla (la tarjeta
           punteada), y «Archivar todas» era una salida de emergencia para las secuencias

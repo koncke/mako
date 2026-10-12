@@ -19,7 +19,7 @@ export default async function ConfiguracionesPage() {
 
   const equipoPanel = (
     <div>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 18px', maxWidth: 720 }}>Suma a tu equipo y decide qué ve cada uno. El <b>Closer</b> ve CRM, WhatsApp y la hoja Closing del Dashboard; el <b>Setter</b> ve CRM, WhatsApp y Email; el <b>Admin</b> ve todo tu negocio.</p>
+      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 18px', maxWidth: 720 }}>Suma a tu equipo y decide qué ve cada uno. El <b>Closer</b> ve CRM, WhatsApp y la hoja Closing del Dashboard; el <b>Setter</b> ve CRM, WhatsApp, Email, Automations y la hoja Chat Analyst del Dashboard; el <b>Admin</b> ve todo tu negocio.</p>
       <EquipoView />
     </div>
   );

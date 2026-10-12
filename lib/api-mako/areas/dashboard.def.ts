@@ -27,10 +27,15 @@
 //   · Los NOMBRES de los parámetros son fijos en todas las operaciones (el editor de Automations arma
 //     selectores por nombre): `persona`, `hoja`, `componente`, `conjunto`, `metricas`, `dimension`,
 //     `periodo`.
-//   · PRIVACIDAD POR HTTP (un token vive en la máquina de un tercero): los informes por persona, los
-//     bloques, el detalle de un número y los valores de un campo NO salen por HTTP (traen nombres de
-//     personas). Lo que sí sale (datos, hojas, análisis) lleva las dimensiones de personas con ALIAS
+//   · PRIVACIDAD POR HTTP (un token vive en la máquina de un tercero): los informes por persona, el detalle
+//     de un número y los valores de un campo NO salen por HTTP (traen nombres de personas). Lo que sí sale
+//     (datos, hojas, análisis, las cajas de Conclusiones) lleva las dimensiones de personas con ALIAS
 //     («Closer 1»): la misma lista POSITIVA que el AI Analyst (`dimensionPublica`, lib/graficos-analisis.ts).
+//   · v5 (12/10/2026): NO HAY BLOQUES (el saneo los convirtió en gráficos: `leer_bloque_dashboard` se fue y
+//     agregar ya no acepta `bloque`). Los filtros que se GUARDAN en un gráfico son de DEFINICIÓN (no se
+//     dibujan en la tarjeta) y su período es un control fijo más. Las cajas «Conclusiones de MaKo» que la API
+//     lee y genera son las SUELTAS EN LA HOJA: las de un pop-up leen lo que se abre (una llamada con lo que se
+//     dijo) y no las toca ningún canal de la API.
 //   · ESCRIBIR ES COMPARE-AND-SET: `preparar()` fija la persona y la VERSIÓN del informe que leyó;
 //     `ejecutar()` no escribe si cambió en el medio («tu informe cambió, vuelve a pedirlo»).
 //
@@ -55,7 +60,7 @@ const hojaObligatoria: Parametro = {
 };
 const componente: Parametro = {
   nombre: 'componente', tipo: 'string', obligatorio: true, max: 80, rotulo: 'Componente',
-  descripcion: 'El id del gráfico, bloque o elemento (de leer_hoja_dashboard), o su título.',
+  descripcion: 'El id del gráfico o del elemento (de leer_hoja_dashboard), o su título.',
 };
 const conjunto = (obligatorio: boolean, extra = ''): Parametro => ({
   nombre: 'conjunto', tipo: 'string', max: 40, rotulo: 'Conjunto', ejemplo: 'leads', ...(obligatorio ? { obligatorio: true } : {}),
@@ -93,6 +98,8 @@ const filtros: Parametro = {
   ],
 };
 const titulo: Parametro = { nombre: 'titulo', tipo: 'string', max: 80, rotulo: 'Título', descripcion: 'El título que se ve arriba. Sin título, se arma solo con la métrica y la dimensión; al editar, «-» lo saca.' };
+// El rótulo dice «IA» y no «MaKo»: tests/editor-acciones.test.ts frena una mayúscula pegada («aK») en un rótulo.
+const mako: Parametro = { nombre: 'mako', tipo: 'boolean', rotulo: 'Botón de IA', descripcion: 'false = la tarjeta va sin el botón para preguntarle a MaKo; true lo vuelve a poner. Sin esto, como está (de entrada, prendido).' };
 
 // ── Las operaciones ──────────────────────────────────────────────────────────────────────────
 
@@ -101,10 +108,10 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_catalogo_dashboard', area: 'metricas', tipo: 'lectura',
     titulo: 'Catálogo del Dashboard',
-    descripcion: 'Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, los bloques armados, las plantillas de hoja, los estilos, los filtros, los elementos, los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.',
+    descripcion: 'Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, las plantillas de hoja, los estilos, los filtros, los elementos (con las acciones de un botón), los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.',
     parametros: [
       conjunto(false, ' Con esto, el detalle de ese conjunto.'),
-      { nombre: 'seccion', tipo: 'string', rotulo: 'Sección', enum: ['conjuntos', 'tipos', 'bloques', 'plantillas', 'estilos', 'filtros', 'elementos', 'periodos', 'campos'], descripcion: 'Sólo esta parte del catálogo. Los campos (para filtrar) sólo salen pidiéndolos.' },
+      { nombre: 'seccion', tipo: 'string', rotulo: 'Sección', enum: ['conjuntos', 'tipos', 'plantillas', 'estilos', 'filtros', 'elementos', 'periodos', 'campos'], descripcion: 'Sólo esta parte del catálogo. Los campos (para filtrar) sólo salen pidiéndolos.' },
     ],
     salida: 'markdown', formatos: ['md', 'json'],
     canales: TODOS, costo: 'gratis',
@@ -126,18 +133,6 @@ export const DEFS: readonly OperacionDef[] = [
     gating: GATING,
   },
   {
-    id: 'leer_bloque_dashboard', area: 'metricas', tipo: 'lectura',
-    titulo: 'Leer un bloque del Dashboard',
-    descripcion: 'Los datos de un bloque armado del Dashboard en un período: Revenue, A quién cobrarle, la salud del funnel comercial, el ciclo de venta, las cohortes y los de Analysts (patrones de guiones, curva del video, factores del cierre, closers, matriz de proyectos…). Son las MISMAS lecturas que la pantalla. Úsala cuando pregunten por algo que vive en un bloque y no en un gráfico; los ids, en ver_catalogo_dashboard. Trae nombres de clientes y del equipo: no sale por HTTP.',
-    parametros: [
-      { nombre: 'bloque', tipo: 'string', obligatorio: true, max: 40, rotulo: 'Bloque', ejemplo: 'revenue', descripcion: 'El id del bloque (revenue, cobranza, funnel_maduro, scl, cohortes_mes…; la lista en ver_catalogo_dashboard).' },
-      periodo(' Default: últimos 30 días.'), desde, hasta,
-    ],
-    salida: 'markdown', formatos: ['md', 'json'],
-    canales: SIN_HTTP, costo: 'gratis', lenta: true,
-    gating: GATING,
-  },
-  {
     id: 'listar_informes_dashboard', area: 'metricas', tipo: 'lectura',
     titulo: 'Informes del Dashboard por persona',
     descripcion: 'Quién tiene un informe del Dashboard guardado en la cuenta: nombre, email, sus hojas con id y nombre, y cuándo lo cambió por última vez. Si nadie guardó uno, las hojas del informe inicial que ven todos. Úsala para saber a qué `persona` apuntar antes de leer o cambiar un informe. Son personas del equipo: no sale por HTTP.',
@@ -149,7 +144,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'leer_hoja_dashboard', area: 'metricas', tipo: 'lectura',
     titulo: 'Leer una hoja del Dashboard',
-    descripcion: 'Una hoja del informe de una persona con su configuración y sus números: la cabecera, los filtros de arriba, y cada gráfico con su período, sus filtros y lo que muestra (lo mismo que dibuja la pantalla al abrirla). Úsala para «¿qué dice mi hoja de Marketing?» o antes de cambiar un gráfico (trae los ids). En csv es el MISMO archivo que el botón Exportar. Por HTTP, las categorías con nombres de personas salen como «Cliente 1» y los bloques van sin datos. Por HTTP acepta ?formato=md|csv|json.',
+    descripcion: 'Una hoja del informe de una persona con su configuración y sus números: la cabecera, los filtros de arriba, cada gráfico con su período, lo que lo define, sus filtros y lo que muestra (lo mismo que dibuja la pantalla al abrirla), los elementos (secciones, cajas de Conclusiones de MaKo, botones) y los conectores. Úsala para «¿qué dice mi hoja de Marketing?» o antes de cambiar un gráfico (trae los ids). El texto de una caja de Conclusiones se lee con leer_conclusiones_dashboard. En csv es el MISMO archivo que el botón Exportar. Por HTTP, las categorías con nombres de personas salen como «Cliente 1». Por HTTP acepta ?formato=md|csv|json.',
     parametros: [persona, hojaObligatoria],
     salida: 'markdown', formatos: ['md', 'csv', 'json'],
     canales: TODOS, costo: 'gratis', lenta: true,
@@ -250,35 +245,37 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'agregar_grafico_dashboard', area: 'metricas', tipo: 'accion',
-    titulo: 'Agregar un gráfico o bloque',
-    descripcion: 'Agrega un gráfico o un bloque armado a una hoja del Dashboard. Un gráfico es un `tipo` (tabla, serie, barras, circular, numero…) sobre un `conjunto` con sus `metricas` y, según el tipo, una `dimension` y un `desglose`; un bloque se pide con `bloque` (revenue, cobranza…). Lo que el tipo no acepta se rechaza con los `disponibles`, nunca se corrige en silencio. Va abajo de todo, o arriba con lugar. Devuelve el id del componente.',
+    titulo: 'Agregar un gráfico a una hoja',
+    descripcion: 'Agrega un gráfico a una hoja del Dashboard: un `tipo` (tabla, serie, barras, circular, numero, tarjetas…) sobre un `conjunto` con sus `metricas` y, según el tipo, una `dimension` y un `desglose`. Los `filtros` y el período que se pasan DEFINEN el gráfico: no se dibujan en la tarjeta y quien mira no los cambia. Lo que el tipo no acepta se rechaza con los `disponibles`, nunca se corrige en silencio. Va abajo de todo, o arriba con lugar. Devuelve el id del gráfico.',
     parametros: [
       persona, hojaObligatoria,
       { nombre: 'tipo', tipo: 'string', max: 40, rotulo: 'Tipo', ejemplo: 'barras', descripcion: 'El tipo de gráfico (de ver_catalogo_dashboard). Va con conjunto y metricas.' },
       conjunto(false, ' Va con tipo.'), metricas(false), dimension, desglose, fecha,
-      periodo(' «auto» o sin esto = el filtro de período de la hoja.'), desde, hasta, titulo,
-      { nombre: 'bloque', tipo: 'string', max: 40, rotulo: 'Bloque', descripcion: 'En vez de un gráfico, un bloque armado (de ver_catalogo_dashboard).' },
+      periodo(' Es el período PROPIO del gráfico (un filtro que lo define). «auto» o sin esto = el filtro de período de la hoja.'), desde, hasta, titulo,
+      { ...filtros, descripcion: 'Los filtros que DEFINEN el gráfico («sólo R1», «sin agendas»): no se dibujan en la tarjeta y quien mira no los cambia. Uno por campo.' },
       { nombre: 'comparar', tipo: 'boolean', rotulo: 'Comparar', descripcion: 'true = muestra el cambio contra el período anterior.' },
+      mako,
       { nombre: 'lugar', tipo: 'string', rotulo: 'Lugar', enum: ['abajo', 'arriba'], descripcion: 'Dónde va: abajo de todo (default) o arriba de todo.' },
     ],
     confirmacion: 'chat', reversible: true,
-    escribe: 'agrega un componente a una hoja del informe de esa persona',
+    escribe: 'agrega un gráfico a una hoja del informe de esa persona',
     canales: TODOS, costo: 'gratis',
     gating: GATING,
   },
   {
     id: 'editar_grafico_dashboard', area: 'metricas', tipo: 'accion',
     titulo: 'Editar un gráfico del Dashboard',
-    descripcion: 'Cambia un gráfico de una hoja: título, tipo, conjunto, métricas, dimensión, desglose, período, límite, comparar o sus filtros propios. Sólo cambia lo que se pasa; lo que el tipo nuevo no acepta se rechaza con los `disponibles`. Los `filtros` REEMPLAZAN los filtros propios del gráfico (una lista vacía los saca). El estilo es de la página: se cambia con editar_hoja_dashboard.',
+    descripcion: 'Cambia un gráfico de una hoja: título, tipo, conjunto, métricas, dimensión, desglose, período, límite, comparar, el botón de MaKo o los filtros que lo definen. Sólo cambia lo que se pasa; lo que el tipo nuevo no acepta se rechaza con los `disponibles`. Los `filtros` REEMPLAZAN los que definen el gráfico (una lista vacía los saca); los que quien mira puede mover se quedan. El estilo es de la página: se cambia con editar_hoja_dashboard.',
     parametros: [
       persona, hojaObligatoria, componente, titulo,
       { nombre: 'subtitulo', tipo: 'string', max: 80, rotulo: 'Subtítulo', descripcion: 'La línea chica de abajo. «-» la saca.' },
       { nombre: 'tipo', tipo: 'string', max: 40, rotulo: 'Tipo', descripcion: 'El tipo de gráfico nuevo (de ver_catalogo_dashboard).' },
       conjunto(false, ' Si cambia, pasa también las métricas.'), metricas(false), dimension, desglose, fecha,
-      periodo(' «auto» = el filtro de período de la hoja.'), desde, hasta,
+      periodo(' Es el período PROPIO del gráfico (un filtro que lo define). «auto» = el filtro de período de la hoja.'), desde, hasta,
       { nombre: 'limite', tipo: 'number', entero: true, minimo: 3, maximo: 50, rotulo: 'Límite', descripcion: 'Cuántos grupos de una categoría se muestran.' },
       { nombre: 'comparar', tipo: 'boolean', rotulo: 'Comparar', descripcion: 'true = muestra el cambio contra el período anterior.' },
-      { ...filtros, vaciaEsValor: true, descripcion: 'Los filtros propios del gráfico, que ganan sobre los de la hoja en el mismo campo. Reemplaza los que tenía; una lista vacía los saca.' },
+      mako,
+      { ...filtros, vaciaEsValor: true, descripcion: 'Los filtros que DEFINEN el gráfico: no se dibujan y ganan sobre los de la hoja en el mismo campo. Reemplaza los que tenía; una lista vacía los saca.' },
     ],
     confirmacion: 'chat', reversible: true,
     escribe: 'cambia la configuración de un gráfico de una hoja del informe de esa persona',
@@ -288,7 +285,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'quitar_componente_dashboard', area: 'metricas', tipo: 'accion',
     titulo: 'Quitar un componente de una hoja',
-    descripcion: 'Saca un gráfico, un bloque o un elemento de una hoja del Dashboard. Por la API no se deshace solo: el resumen trae su configuración para volver a agregarlo.',
+    descripcion: 'Saca un gráfico o un elemento de una hoja del Dashboard, con los conectores que lo tocaban. Por la API no se deshace solo: el resumen trae su configuración para volver a agregarlo.',
     parametros: [persona, hojaObligatoria, componente],
     confirmacion: 'chat', reversible: false,
     escribe: 'saca un componente de una hoja del informe de esa persona',
@@ -331,14 +328,23 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'insertar_elemento_dashboard', area: 'metricas', tipo: 'accion',
     titulo: 'Insertar un elemento en una hoja',
-    descripcion: 'Inserta un elemento en una hoja del Dashboard: un texto, una imagen, una forma, un enlace, un video o una página insertada, según los tipos de ver_catalogo_dashboard. Una dirección sólo con https; el resumen la muestra ENTERA para que la persona la confirme, porque una dirección que pasó por un modelo puede no ser exacta. Devuelve el id del elemento.',
+    descripcion: 'Inserta un elemento en una hoja del Dashboard, según los tipos de ver_catalogo_dashboard: un texto, una imagen, un enlace, un video, una página insertada, una línea o una flecha; una sección a lo ancho (agrupa lo que tiene debajo, y se puede plegar); una caja «Conclusiones de MaKo» (`ia`: lo que se le pide y qué gráficos lee; escribe cuando se la genera con generar_conclusiones_dashboard), o un botón de acción (`accion`). La ficha de una llamada o de un anuncio va sólo adentro de un pop-up y no se inserta por aquí. Una dirección sólo con https; el resumen la muestra ENTERA para que la persona la confirme, porque una dirección que pasó por un modelo puede no ser exacta. Devuelve el id del elemento.',
     parametros: [
       persona, hojaObligatoria,
-      { nombre: 'tipo', tipo: 'string', obligatorio: true, max: 30, rotulo: 'Tipo', ejemplo: 'texto', descripcion: 'El tipo de elemento: texto, imagen, rectangulo, circulo, linea, flecha… (la lista en ver_catalogo_dashboard).' },
-      { nombre: 'texto', tipo: 'string', max: 2000, rotulo: 'Texto', descripcion: 'El texto (un título, una nota) o lo que dice un enlace.' },
+      { nombre: 'tipo', tipo: 'string', obligatorio: true, max: 30, rotulo: 'Tipo', ejemplo: 'texto', descripcion: 'El tipo de elemento: texto, imagen, enlace, video, insertado, linea, flecha, seccion, ia o accion (la lista en ver_catalogo_dashboard).' },
+      { nombre: 'texto', tipo: 'string', max: 2000, rotulo: 'Texto', descripcion: 'El texto (un título, una nota), lo que dice un enlace, el título de una sección o de una caja de Conclusiones, o lo que dice un botón.' },
       { nombre: 'url', tipo: 'string', max: 2000, rotulo: 'Dirección', descripcion: 'La dirección https de una imagen, un enlace, un video o una página insertada.' },
       { nombre: 'titulo', tipo: 'string', max: 80, rotulo: 'Título', descripcion: 'El título de un video o de una página insertada.' },
       { nombre: 'tamano', tipo: 'string', max: 4, rotulo: 'Tamaño', descripcion: 'El tamaño de un texto: s, m, l o xl.' },
+      { nombre: 'plegable', tipo: 'boolean', rotulo: 'Se pliega', descripcion: 'Una sección: true = se puede plegar (el «Desplegable»).' },
+      { nombre: 'abierto', tipo: 'boolean', rotulo: 'Abierta', descripcion: 'Una sección que se pliega: false = arranca cerrada. Default, abierta.' },
+      { nombre: 'fondo', tipo: 'number', entero: true, minimo: 0, maximo: 7, rotulo: 'Fondo', descripcion: 'Una sección: el fondo del grupo, un color de la paleta de la hoja (0 a 7). Sin esto, sin fondo.' },
+      { nombre: 'pedido', tipo: 'string', max: 600, rotulo: 'Qué le pides', descripcion: 'Una caja de Conclusiones: lo que MaKo tiene que mirar o contestar («qué separa a las campañas que cierran»).' },
+      { nombre: 'componentes', tipo: 'string[]', max: 60, rotulo: 'Gráficos', descripcion: 'Una caja de Conclusiones: sólo estos gráficos de la hoja (sus ids o títulos). Sin esto, todos.' },
+      { nombre: 'muestra', tipo: 'string', rotulo: 'Muestra', enum: ['resumen', 'hallazgos', 'recomendaciones', 'texto'], descripcion: 'Una caja de Conclusiones: qué escribe. Default resumen.' },
+      { nombre: 'largo', tipo: 'string', rotulo: 'Largo', enum: ['corto', 'medio', 'largo'], descripcion: 'Una caja de Conclusiones: cuánto escribe. Default medio.' },
+      { nombre: 'forma', tipo: 'string', rotulo: 'Formato', enum: ['parrafo', 'vinetas', 'tarjetas'], descripcion: 'Una caja de Conclusiones: cómo se ve. Default párrafo.' },
+      { nombre: 'accion', tipo: 'string', max: 40, rotulo: 'Acción', descripcion: 'Un botón de acción: qué corre (de ver_catalogo_dashboard, sección elementos).' },
       { nombre: 'lugar', tipo: 'string', rotulo: 'Lugar', enum: ['abajo', 'arriba'], descripcion: 'Dónde va: abajo de todo (default) o arriba de todo.' },
     ],
     confirmacion: 'chat', reversible: true,
@@ -359,7 +365,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'analizar_hoja_dashboard', area: 'metricas', tipo: 'accion',
     titulo: 'Analizar una hoja con el AI Analyst',
-    descripcion: 'Pone a MaKo a analizar los gráficos de una hoja y deja el resultado guardado. Lee lo que la hoja muestra, sin nombres de personas, y escribe un resumen, hallazgos con su número y recomendaciones, sólo con IA gratis. Corre POR DETRÁS y puede tardar más de un minuto: contesta «en curso» y el resultado se lee con leer_analisis_dashboard. Los bloques no se analizan.',
+    descripcion: 'Pone a MaKo a analizar los gráficos de una hoja y deja el resultado guardado. Lee lo que la hoja muestra, sin nombres de personas, y escribe un resumen, hallazgos con su número y recomendaciones, sólo con IA gratis. Corre POR DETRÁS y puede tardar más de un minuto: contesta «en curso» y el resultado se lee con leer_analisis_dashboard.',
     parametros: [
       persona, hojaObligatoria,
       { nombre: 'componentes', tipo: 'string[]', max: 60, rotulo: 'Gráficos', descripcion: 'Sólo estos gráficos (sus ids). Sin esto, todos los de la hoja.' },
@@ -396,6 +402,60 @@ export const DEFS: readonly OperacionDef[] = [
     confirmacion: 'chat', reversible: true,
     escribe: 'marca como cancelada la corrida del AI Analyst de esa hoja en dashboard_analisis',
     canales: TODOS, costo: 'gratis',
+    gating: GATING,
+  },
+  // ── v5: los conectores y las cajas «Conclusiones de MaKo» ─────────────────────────────────────
+  {
+    id: 'conectar_componentes_dashboard', area: 'metricas', tipo: 'accion',
+    titulo: 'Unir dos componentes con una flecha',
+    descripcion: 'Une dos componentes de una hoja del Dashboard (gráficos o elementos) con una flecha que los sigue cuando se mueven. No une un componente consigo mismo ni dos veces el mismo par; si ya están unidos, lo dice y no propone nada. Devuelve el id del conector.',
+    parametros: [
+      persona, hojaObligatoria,
+      { nombre: 'origen', tipo: 'string', obligatorio: true, max: 80, rotulo: 'Desde', descripcion: 'El componente donde arranca la flecha: su id (de leer_hoja_dashboard) o su título.' },
+      { nombre: 'destino', tipo: 'string', obligatorio: true, max: 80, rotulo: 'Hasta', descripcion: 'El componente donde termina la flecha: su id o su título.' },
+      { nombre: 'punta', tipo: 'string', rotulo: 'Punta', enum: ['fin', 'ambas', 'ninguna'], descripcion: 'Dónde lleva punta la flecha. Default, al final.' },
+      { nombre: 'trazo', tipo: 'string', rotulo: 'Trazo', enum: ['curva', 'recta', 'codo'], descripcion: 'Cómo se dibuja la línea. Default, curva.' },
+    ],
+    confirmacion: 'chat', reversible: true,
+    escribe: 'agrega un conector a una hoja del informe de esa persona',
+    canales: TODOS, costo: 'gratis',
+    gating: GATING,
+  },
+  {
+    id: 'quitar_conector_dashboard', area: 'metricas', tipo: 'accion',
+    titulo: 'Quitar una flecha entre componentes',
+    descripcion: 'Saca un conector de una hoja del Dashboard. Se nombra por su id (de leer_hoja_dashboard) o por los dos componentes que une.',
+    parametros: [
+      persona, hojaObligatoria,
+      { nombre: 'conector', tipo: 'string', max: 60, rotulo: 'Conector', descripcion: 'El id del conector (de leer_hoja_dashboard).' },
+      { nombre: 'origen', tipo: 'string', max: 80, rotulo: 'Desde', descripcion: 'En vez del id: uno de los dos componentes que une (su id o su título).' },
+      { nombre: 'destino', tipo: 'string', max: 80, rotulo: 'Hasta', descripcion: 'En vez del id: el otro componente que une.' },
+    ],
+    confirmacion: 'chat', reversible: true,
+    escribe: 'saca un conector de una hoja del informe de esa persona',
+    canales: TODOS, costo: 'gratis',
+    gating: GATING,
+  },
+  {
+    id: 'leer_conclusiones_dashboard', area: 'metricas', tipo: 'lectura',
+    titulo: 'Leer las Conclusiones de MaKo de una hoja',
+    descripcion: 'Lo último que escribieron las cajas «Conclusiones de MaKo» de una hoja (o la caja que se nombre): su texto y cuándo, si hay una escribiendo, si el último intento falló y su horario. Son las cajas sueltas en la hoja; las de un pop-up leen lo que se abre (una llamada) y no salen por la API. Por HTTP los nombres de personas quedan como «Closer 1». Por HTTP acepta ?formato=md|json.',
+    parametros: [
+      persona, hojaObligatoria,
+      { ...componente, obligatorio: false, descripcion: 'La caja: su id (de leer_hoja_dashboard) o su título. Sin esto, todas las de la hoja.' },
+    ],
+    salida: 'markdown', formatos: ['md', 'json'],
+    canales: TODOS, costo: 'gratis',
+    gating: GATING,
+  },
+  {
+    id: 'generar_conclusiones_dashboard', area: 'metricas', tipo: 'accion',
+    titulo: 'Generar las Conclusiones de MaKo',
+    descripcion: 'Pone a MaKo a escribir una caja «Conclusiones de MaKo» de una hoja (el ↻ de la pantalla): lee los gráficos que la caja mira, sin nombres de personas, y escribe lo que la caja pide, sólo con IA gratis. Corre POR DETRÁS y puede tardar más de un minuto: contesta «en curso» y el texto se lee con leer_conclusiones_dashboard. Las cajas de un pop-up no se generan por aquí.',
+    parametros: [persona, hojaObligatoria, { ...componente, descripcion: 'La caja: su id (de leer_hoja_dashboard) o su título.' }],
+    confirmacion: 'chat', reversible: false,
+    escribe: 'corre la caja de Conclusiones de MaKo y guarda su texto (por persona, hoja y caja)',
+    canales: TODOS, costo: 'ia', lenta: true,
     gating: GATING,
   },
 ];

@@ -55,6 +55,7 @@ cobertura_datos_retro
 cobertura_guiones_anuncio
 cobranza_lead
 comparar_agendas_meta_crm
+conectar_componentes_dashboard
 configurar_aviso_whatsapp
 configurar_reporte
 configurar_seccion_reporte
@@ -138,6 +139,7 @@ ficha_secuencia_email
 ficha_secuencia_mensajes
 fijar_zona_horaria_workspace
 generar_avatares
+generar_conclusiones_dashboard
 generar_lead_magnets
 guardar_borrador_plantilla
 guardar_campo_perfil
@@ -165,6 +167,7 @@ kpis_email
 lead_insiste_con_lo_mismo
 lead_tiene_llamada
 leer_analisis_dashboard
+leer_conclusiones_dashboard
 leer_guion_anuncio
 leer_hoja_dashboard
 leer_resumen_objetivos
@@ -307,6 +310,7 @@ proponer_tareas_plan
 proponer_toggle_nutricion
 propuestas_lead_pendientes
 quitar_componente_dashboard
+quitar_conector_dashboard
 quitar_dependencia_plan
 quitar_filtro_dashboard
 r2_sin_lead

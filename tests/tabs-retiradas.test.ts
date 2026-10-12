@@ -18,6 +18,10 @@
 // `/vsl/closing`, que es otra cosa. El patrón exige que la ruta ARRANQUE la cadena (o siga a un
 // `${APP_URL}`), así que ninguna de ésas calza.
 //
+// TANDA v5 (12/10/2026, punto 22): VSL, CS y Chat Analyst también se retiraron —eran «pronto» en el desplegable
+// «Analysts», que salió entero de la sidebar— y sus rutas redirigen a su hoja del Dashboard (`?hoja=vsl-analyst`,
+// `cs-analyst`, `chat-analyst`). Y el texto de Equipo dice qué ve un SETTER (la hoja Chat Analyst).
+//
 // Correr: npx tsx --test tests/tabs-retiradas.test.ts
 //
 // PROBADO ROMPIÉNDOLO: los números están al final del archivo.
@@ -39,7 +43,7 @@ const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\
 /** Las líneas PRIMERO y los bloques después: un `/*` dentro de un `//` se comería el código. */
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-const RETIRADAS = ['/closing', '/ads-analyst', '/landing-analyst'] as const;
+const RETIRADAS = ['/closing', '/ads-analyst', '/landing-analyst', '/vsl-analyst', '/cs-analyst', '/chat-analyst'] as const;
 
 function archivosDeProducto(): string[] {
   const todos = execFileSync('git', ['ls-files', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' })
@@ -59,7 +63,7 @@ const itemDe = (href: string) => TODOS_LOS_ITEMS.find((i) => i.match(camino(href
 /** Lo que se saltea el barrido, cada cosa con su motivo. */
 const NO_SON_LINKS: ReadonlyArray<{ re: RegExp; por: string }> = [
   // Los redirects: nombrarse es su trabajo.
-  { re: /^app\/(closing|ads-analyst|landing-analyst)\/(.*\/)?page\.tsx$/, por: 'es el redirect de la ruta retirada' },
+  { re: /^app\/(closing|ads-analyst|landing-analyst|vsl-analyst|cs-analyst|chat-analyst)\/(.*\/)?page\.tsx$/, por: 'es el redirect de la ruta retirada' },
   // El registro de /admin/dev y el catálogo de /admin/docs cuentan en prosa, dentro de cadenas, qué
   // rutas se retiraron: es documentación, no un destino (el mismo criterio que tests/analisis-mudada.test.ts).
   { re: /^app\/admin\/dev\/.*bitacora\.ts$/, por: 'documentación' },
@@ -101,23 +105,29 @@ function linksVivos(ruta: string): string[] {
   return malos;
 }
 
-test('nadie del producto enlaza /closing, /ads-analyst ni /landing-analyst (sólo sus redirects)', () => {
+test('nadie del producto enlaza /closing, /ads-analyst, /landing-analyst ni las de v5 (sólo sus redirects)', () => {
   const malos = RETIRADAS.flatMap((r) => linksVivos(r).map((x) => `${r} ← ${x}`));
   assert.deepEqual(malos, [], 'hay links vivos a una tab retirada: van a su hoja del Dashboard o a la tab que se quedó con la tarea');
 });
 
-test('las tres rutas viejas REDIRIGEN (con el ?ws=) y no montan la pantalla vieja', () => {
+test('las rutas viejas REDIRIGEN (con el ?ws=) y no montan la pantalla vieja', () => {
   const paginas: Array<[string, RegExp]> = [
     ['app/closing/page.tsx', /redirect\(await rutaConWs\(destinoDeClosing\(await searchParams\)\)\)/],
     ['app/ads-analyst/page.tsx', /redirect\(await rutaConWs\('\/dashboard\?hoja=ads-analyst'\)\)/],
     ['app/ads-analyst/guiones/page.tsx', /redirect\(await rutaConWs\('\/dashboard\?hoja=ads-analyst'\)\)/],
     ['app/landing-analyst/page.tsx', /redirect\(await rutaConWs\(/],
+    // v5: las tres que quedaban en el desplegable «Analysts».
+    ['app/vsl-analyst/page.tsx', /redirect\(await rutaConWs\('\/dashboard\?hoja=vsl-analyst'\)\)/],
+    ['app/cs-analyst/page.tsx', /redirect\(await rutaConWs\('\/dashboard\?hoja=cs-analyst'\)\)/],
+    ['app/chat-analyst/page.tsx', /redirect\(await rutaConWs\('\/dashboard\?hoja=chat-analyst'\)\)/],
   ];
   for (const [f, re] of paginas) {
     const src = sinComentarios(leer(f));
     assert.match(src, re, `${f}: no redirige con rutaConWs (perdería el ?ws= del cliente que mira el super admin)`);
-    assert.doesNotMatch(src, /<(ClosingBrowser|ScriptsBrowser|LandingAnalystApp)\b/, `${f}: volvió a montar la pantalla vieja`);
+    assert.doesNotMatch(src, /<(ClosingBrowser|ScriptsBrowser|LandingAnalystApp|ChatAnalystVista|DashboardChatAgent|ComingSoon)\b/, `${f}: volvió a montar la pantalla vieja`);
   }
+  // La cáscara de /chat-analyst se borró con la ruta (v5): su dashboard es la hoja Chat Analyst.
+  assert.ok(!existsSync(join(RAIZ, 'app/chat-analyst/ChatAnalystVista.tsx')), 'volvió la pantalla vieja de /chat-analyst');
   // La tab vieja de Closing ya no tiene pantalla: su detalle es la ficha del Dashboard.
   assert.ok(existsSync(join(RAIZ, 'app/dashboard/bloques/extra/FichaLlamada.tsx')), 'falta la ficha de la llamada en el Dashboard');
 });
@@ -161,6 +171,9 @@ test('lo que nombra una tab: capacidades del Perro, «Ver en…» de la Retro, e
   assert.equal(TOOL_HREF.script, '/dashboard?hoja=ads-analyst');
   assert.equal(TOOL_HREF.landing, '/dashboard?hoja=landing');
   assert.equal(TOOL_LABEL.closing, 'Closing');
+  // v5: VSL, CS y Chat Analyst son hojas, y «Ver en…» lleva a cada una (antes no había a dónde).
+  assert.deepEqual([TOOL_HREF.vsl, TOOL_HREF.cs, TOOL_HREF.chats], ['/dashboard?hoja=vsl-analyst', '/dashboard?hoja=cs-analyst', '/dashboard?hoja=chat-analyst']);
+  assert.equal(TOOL_LABEL.chats, 'Chat Analyst');
   // El área de la API: la tab y la ruta donde vive hoy (la referencia y la consola de tokens las muestran).
   assert.deepEqual([AREA_INFO.closing.tab, AREA_INFO.closing.ruta], ['Dashboard', '/dashboard?hoja=closing']);
   assert.deepEqual([AREA_INFO.landing.tab, AREA_INFO.landing.ruta], ['Landing Generator', '/landing-generator']);
@@ -175,7 +188,7 @@ test('lo que nombra una tab: capacidades del Perro, «Ver en…» de la Retro, e
   assert.ok(!previewDeDestino('/dashboard?hoja=closing&llamada=12345').descripcion.includes('12345'), 'el id de la llamada se filtró a la tarjeta');
 });
 
-test('MaKo en WhatsApp manda el link nuevo de una llamada, y el texto de Equipo dice qué ve un closer', () => {
+test('MaKo en WhatsApp manda el link nuevo de una llamada, y el texto de Equipo dice qué ve un closer y un setter', () => {
   // El prompt arma el link a mano con `${APP_URL}`: es el que vuelve a nacer viejo si alguien lo copia.
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /\$\{APP_URL\}\/dashboard\?hoja=closing&llamada=\{recording_id\}/);
@@ -184,6 +197,8 @@ test('MaKo en WhatsApp manda el link nuevo de una llamada, y el texto de Equipo 
     const src = leer(f);
     assert.doesNotMatch(src, /Closing Analyst/, `${f} promete una tab que ya no está`);
     assert.match(src, /El <b>Closer<\/b> ve CRM, WhatsApp y la hoja Closing del Dashboard/, f);
+    // v5: el setter ve SÓLO la hoja Chat Analyst del Dashboard (y Automations, que el nav ya le daba).
+    assert.match(src, /el <b>Setter<\/b> ve CRM, WhatsApp, Email, Automations y la hoja Chat Analyst del Dashboard/, f);
   }
 });
 

@@ -30,6 +30,9 @@
 //     ruta escribe con compare-and-set (lib/graficos-tablero.ts). El closer no guarda: null.
 //   · Lo que arranca PLEGADO (una sección con «Arranca plegada», lib/graficos-secciones.ts) no se pide en la
 //     primera pintada: se pide al abrirse (`pedidosDeHoja` con `ocultos`, la MISMA cuenta que la pantalla).
+//   · EL SETTER entra como el closer (decisión de la tanda: «El setter ve SÓLO la hoja Chat Analyst»): un rol
+//     con hoja ÚNICA (`HOJA_DE_ROL`, lib/graficos-plantillas.ts) recibe el informe EN MEMORIA con esa hoja, sin
+//     editar, y sólo si su negocio compró la capa que la hoja pide (Closing / WhatsApp).
 
 import { redirect } from 'next/navigation';
 import { Pagina } from '@/app/_ui';
@@ -38,7 +41,7 @@ import { getCapaActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { leerTablero } from '@/lib/graficos-tablero';
-import { hojaDestino, informeCloser, llamadaDeUrl } from '@/lib/graficos-plantillas';
+import { hojaDeRol, hojaDestino, informeDeRol, llamadaDeUrl } from '@/lib/graficos-plantillas';
 import { datosDeGraficos } from '@/lib/graficos-datos';
 import { datosDeBloques } from '@/lib/graficos-bloques';
 import type { Hoja, Tablero } from '@/lib/graficos-catalogo';
@@ -52,13 +55,14 @@ export const revalidate = 0;
 type Busqueda = { hoja?: string | string[]; llamada?: string | string[] };
 
 export default async function Page({ searchParams }: { searchParams: Promise<Busqueda> }) {
-  await requireRolWs(['closer'], { nav: 'graphics' });
+  await requireRolWs(['closer', 'setter'], { nav: 'graphics' });
   // Cacheado por request (lib/auth.ts): no es una consulta más.
-  const closer = (await getRolWsEfectivo()) === 'closer';
-  if (closer) {
-    // Lo único que el closer ve acá es Closing: si su negocio no lo compró, esto no es para él.
+  const rol = await getRolWsEfectivo();
+  const unica = hojaDeRol(rol);
+  if (unica) {
+    // Lo único que el closer (o el setter) ve acá es SU hoja: si su negocio no compró esa capa, esto no es para él.
     const capa = await getCapaActual();
-    if (!tabEnCapa('closing', capa)) redirect(await rutaConWs(homeDeCapa(capa)));
+    if (!tabEnCapa(unica.capa, capa)) redirect(await rutaConWs(homeDeCapa(capa)));
   }
 
   const hoy = hoyEnTijuana();
@@ -72,8 +76,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   let hoja: Hoja;
   let agregar: Hoja | null = null;
   let lleno = false;
-  if (closer) {
-    tablero = informeCloser();
+  const enMemoria = informeDeRol(rol);
+  if (enMemoria) {
+    tablero = enMemoria;
     hoja = tablero.hojas[0];
   } else {
     const lectura = await leerTablero();
@@ -111,7 +116,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         versionInicial={version}
         hojaAgregada={agregar}
         aviso={lleno ? 'Máximo de hojas' : null}
-        soloLectura={closer}
+        soloLectura={!!unica}
         llamadaInicial={llamada}
       />
     </Pagina>

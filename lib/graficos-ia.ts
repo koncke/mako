@@ -10,8 +10,13 @@
 //
 // LAS DOS CAPAS (AGENTS.md, «una regla en un prompt no es una regla»):
 //   1. el prompt pide ids del catálogo (`catalogoParaIA`) y nada más;
-//   2. `deIAHoja` resuelve cada pieza contra FUENTES/TIPOS/BLOQUES y decide qué entra. Es el
-//      `validar` de la cascada: una salida inservible prueba el proveedor siguiente.
+//   2. `deIAHoja` resuelve cada pieza contra FUENTES/TIPOS y decide qué entra. Es el `validar` de la
+//      cascada: una salida inservible prueba el proveedor siguiente.
+//
+// ⚠️ TANDA v5 (12/10/2026): LOS BLOQUES SE FUERON (lib/graficos-migrar-v5.ts). El modelo ya no los ve en el
+//    catálogo ni en el system, y uno que mande igual un `{"bloque": …}` (un override viejo del system, editable
+//    en /configuraciones, todavía los nombra) se DESCARTA con su motivo: lo que hacía un bloque se arma con los
+//    conjuntos y los tipos (revenue, cobranza, barra_proporcion, tramos, tarjetas…).
 //
 // ⚠️ `sanearGrafico` CORRIGE EN SILENCIO (lib/graficos-catalogo.ts): un tipo que no existe pasa a
 //    'barras' y las métricas que no valen se rellenan con las primeras válidas. Sobre una salida de
@@ -29,9 +34,9 @@
 //    EXISTEN, sin un solo valor) y el pedido de quien está mirando. Ni nombres de leads, ni montos.
 
 import {
-  BLOQUES, COLS, FUENTES, MAX_COMPONENTES, PRESETS, TIPOS, TIPOS_ELEMENTO,
-  bloqueDe, desglosesPara, dimensionesPara, emojiValido, fuenteDe, metricasPara, nuevoId,
-  sanearBloque, sanearElemento, sanearGrafico, sanearHoja, tipoDe,
+  COLS, FUENTES, MAX_COMPONENTES, PRESETS, TIPOS, TIPOS_ELEMENTO,
+  desglosesPara, dimensionesPara, emojiValido, fuenteDe, metricasPara, nuevoId,
+  sanearElemento, sanearGrafico, sanearHoja, tipoAdmite, tipoDe,
   type Componente, type Fuente, type Hoja, type InfoTipo, type Preset,
 } from './graficos-catalogo';
 import { contenidoNoConfiable } from './prompt-render-pure';
@@ -65,7 +70,6 @@ export const HOJA_IA_SYSTEM_TEMPLATE = `Armas UNA hoja de un dashboard de negoci
 Cada componente es UNO de estos:
 - un gráfico: {"tipo":"<id de TIPOS>","fuente":"<id de CONJUNTOS>","metricas":["<id>"],"dimension":"<id o null>","desglose":"<id o null>","titulo":"…"}
   opcionales: "fecha":"<id de fecha del conjunto>", "periodo":"<id de período>" (sólo si ese gráfico mira otra ventana), "comparar":true (un cuadro de resultados contra el período anterior)
-- un bloque armado: {"bloque":"<id de BLOQUES>"}
 - un título de sección: {"seccion":"…"}
 Reglas:
 - Usa SOLO ids que aparecen en el catálogo, escritos igual. Las métricas, la dimensión, el desglose y la fecha tienen que ser del MISMO conjunto que el gráfico.
@@ -86,7 +90,7 @@ const conNombre = (id: string, nombre: string, nombres: boolean) => (nombres && 
 const TIEMPO_IDS = ['dia', 'semana', 'mes'];
 
 /** Qué tan apretado sale el catálogo (ver `catalogoParaIA`). */
-type Nivel = { nombresCampos: boolean; nombresTipos: boolean; lineasBloques: boolean };
+type Nivel = { nombresCampos: boolean; nombresTipos: boolean };
 
 function lineaFuente(f: Fuente, n: Nivel): string {
   const fechas = f.fechas.length > 1
@@ -101,7 +105,8 @@ function lineaFuente(f: Fuente, n: Nivel): string {
   // ÷ = no se suma: una razón (el CAC, una tasa) o algo con `sinTotal` (el alcance).
   const mets = f.metricas.map((x) => `${conNombre(x.id, x.nombre, n.nombresCampos)}${x.razon || x.sinTotal ? '÷' : ''}`).join(', ');
   const cruces = f.porDimension ? ' (desglose: sólo edad con genero)' : '';
-  return `${f.id} «${f.nombre}»${fechas} | dim: ${dims}${cruces} | met: ${mets}`;
+  // Un conjunto sin dimensiones (las suscripciones) dice «—»: «dim: » vacío se lee como un error del catálogo.
+  return `${f.id} «${f.nombre}»${fechas} | dim: ${dims || '—'}${cruces} | met: ${mets}`;
 }
 
 function lineaTipo(t: InfoTipo, n: Nivel): string {
@@ -109,7 +114,9 @@ function lineaTipo(t: InfoTipo, n: Nivel): string {
     : t.dimension === 'tiempo' ? 'tiempo' : t.dimension === 'categoria' ? 'categoría' : 'cualquier dim';
   const desg = t.desglose === 'requerido' ? ' + desglose obligatorio' : t.desglose === 'opcional' ? ' + desglose opcional' : '';
   const mets = t.minMetricas === t.maxMetricas ? `${t.minMetricas} métrica${t.minMetricas === 1 ? '' : 's'}` : `${t.minMetricas}-${t.maxMetricas} métricas`;
-  return `${t.id}${n.nombresTipos ? ` «${t.nombre}»` : ''} [${dim}${desg} · ${mets}${t.soloSumas ? ' · sin ÷' : ''}]`;
+  // v5: un tipo atado a un conjunto (el mapa de calor, sólo sobre los toques) lo dice; `deIAHoja` descarta el resto.
+  const solo = t.soloFuentes ? ` · sólo ${t.soloFuentes.join('/')}` : '';
+  return `${t.id}${n.nombresTipos ? ` «${t.nombre}»` : ''} [${dim}${desg} · ${mets}${t.soloSumas ? ' · sin ÷' : ''}${solo}]`;
 }
 
 /** El pedido más largo que se le manda al modelo (la ruta y el modal cortan acá). */
@@ -128,13 +135,15 @@ export const TOPE_CATALOGO_CARACTERES = 10_500;
  * conjunto nuevo (las fuentes de Analysts, lib/graficos-fuentes-extra.ts, pasaron el catálogo de 9k
  * a 11k en una mañana) deja a Groq afuera de la cascada en silencio, y Groq suele ser el único que
  * contesta. Lo que se saca primero es lo que menos ayuda a elegir: los nombres de los tipos (el id ya
- * dice «columnas_apiladas»), la línea de cada bloque y, al final, los nombres de dimensiones y métricas.
+ * dice «columnas_apiladas») y, al final, los nombres de dimensiones y métricas.
+ * ⚠️ Con los conjuntos de v5 (revenue, cobranza, cartera, conversaciones…) el que viaja HOY es el más
+ *    apretado: medido el 12/10/2026, 9.539 caracteres de 10.500. El próximo conjunto grande lo pasa (lo frena
+ *    tests/graficos-ia.test.ts).
  */
 const NIVELES: readonly Nivel[] = [
-  { nombresCampos: true, nombresTipos: true, lineasBloques: true },
-  { nombresCampos: true, nombresTipos: false, lineasBloques: true },
-  { nombresCampos: true, nombresTipos: false, lineasBloques: false },
-  { nombresCampos: false, nombresTipos: false, lineasBloques: false },
+  { nombresCampos: true, nombresTipos: true },
+  { nombresCampos: true, nombresTipos: false },
+  { nombresCampos: false, nombresTipos: false },
 ];
 
 function armarCatalogo(n: Nivel): string {
@@ -144,16 +153,13 @@ function armarCatalogo(n: Nivel): string {
     '',
     'TIPOS (id [lo que pide]):',
     ...TIPOS.map((t) => `- ${lineaTipo(t, n)}`),
-    '',
-    'BLOQUES (ya armados, con su propia lectura):',
-    ...BLOQUES.map((b) => `- ${b.id} «${b.nombre}»${n.lineasBloques ? `: ${b.linea}` : ''}`),
   ].join('\n');
 }
 
 /**
- * El catálogo compacto: los conjuntos con sus fechas, dimensiones y métricas, los tipos con lo que
- * pide cada uno y los bloques armados. Ids y nombres, nada de datos. Si ni el más apretado entra en
- * el tope, viaja igual (y el test avisa): mejor sin Groq que sin hoja.
+ * El catálogo compacto: los conjuntos con sus fechas, dimensiones y métricas y los tipos con lo que pide
+ * cada uno. Ids y nombres, nada de datos. Si ni el más apretado entra en el tope, viaja igual (y el test
+ * avisa): mejor sin Groq que sin hoja.
  */
 export function catalogoParaIA(): string {
   let ultimo = '';
@@ -177,13 +183,12 @@ const ANCHOS = new Set<string>(['Tabla', 'Tabla dinámica', 'Serie temporal', 'L
 type Medida = { forma: 'kpi' | 'ancho' | 'normal'; w: number; h: number };
 
 function medida(c: Componente): Medida {
-  if (c.clase === 'bloque') {
-    const b = bloqueDe(c.bloque);
-    const w = Math.min(COLS, b?.w ?? COLS);
-    return { forma: w >= COLS ? 'ancho' : 'normal', w, h: b?.h ?? 8 };
-  }
+  // v5: ningún componente saneado es un bloque (se migran en `sanearHoja`); queda la rama para el tipo.
+  if (c.clase === 'bloque') return { forma: 'ancho', w: COLS, h: 8 };
   if (c.clase === 'elemento') {
     if (c.tipo === 'texto') return { forma: 'ancho', w: COLS, h: 2 };
+    // Una sección agrupa FILAS enteras (va siempre a lo ancho): sola en su fila.
+    if (c.tipo === 'seccion') return { forma: 'ancho', w: COLS, h: c.h };
     const e = TIPOS_ELEMENTO.find((x) => x.id === c.tipo);
     return { forma: 'normal', w: e?.w ?? 4, h: e?.h ?? 4 };
   }
@@ -202,7 +207,7 @@ const ANCHO_KPI: Record<number, number> = { 2: 6, 3: 4, 4: 3 };
  * El lugar de cada componente, en el orden en que vienen (el del modelo o el de la plantilla): x, y,
  * w y h por código, sin superposiciones y adentro de las 12 columnas.
  *   · Los cuadros de resultados seguidos van en filas de hasta 4, repartidos a lo ancho.
- *   · Tablas, series, bloques y títulos de sección van solos en su fila, a lo ancho.
+ *   · Tablas, series, secciones y títulos de sección van solos en su fila, a lo ancho.
  *   · El resto se acomoda de izquierda a derecha con su ancho de la galería; el último de cada fila
  *     se estira hasta el borde (una fila con un hueco a la derecha se lee como que falta algo) y la
  *     fila toma el alto del más alto, para que las tarjetas terminen parejas.
@@ -311,13 +316,9 @@ function pieza(raw: unknown, n: number): Pieza {
     return e ? { ok: true, c: e, corregida: [], cuenta: false } : { ok: false, motivo: `componente ${n}: un título que no se pudo armar` };
   }
 
-  // Un bloque armado.
+  // Un bloque de antes (v5: ya no existen). Se dice cuál, para el reintento: cuenta como un descarte.
   if (typeof o.bloque === 'string' || o.clase === 'bloque') {
-    const info = bloqueDe(String(o.bloque ?? ''));
-    if (!info) return { ok: false, motivo: `componente ${n}: el bloque ${lista([String(o.bloque ?? '')])} no existe` };
-    const periodo = PERIODOS_VALIDOS.has(String(o.periodo)) ? o.periodo : 'auto';
-    const b = sanearBloque({ id: nuevoId(), clase: 'bloque', bloque: info.id, titulo: texto(o.titulo, 60), periodo });
-    return b ? { ok: true, c: b, corregida: [], cuenta: true } : { ok: false, motivo: `componente ${n}: el bloque "${info.id}" no se pudo armar` };
+    return { ok: false, motivo: `componente ${n}: los bloques ya no existen (${lista([String(o.bloque ?? '')])}): se arma con un gráfico del catálogo` };
   }
 
   // Un gráfico.
@@ -328,6 +329,9 @@ function pieza(raw: unknown, n: number): Pieza {
   const info = tipoDe(tipoPedido);
   // ⚠️ `sanearGrafico` lo pasaría a «barras» sin decir nada: un tipo que no existe no tiene arreglo.
   if (!info) return { ok: false, motivo: `componente ${n}: el tipo ${lista([tipoPedido])} no existe` };
+  // Lo mismo con un tipo atado a otro conjunto (v5: el mapa de calor, sólo sobre los toques): `sanearGrafico`
+  // lo pasaría a «barras» en silencio.
+  if (!tipoAdmite(info, fuente.id)) return { ok: false, motivo: `componente ${n}: "${info.id}" va sólo sobre ${lista([...(info.soloFuentes ?? [])])}, no sobre "${fuente.id}"` };
 
   const pedidas = metricasPedidas(o);
   const validas = metricasPara(fuente, info.id).map((x) => x.id);
@@ -378,8 +382,8 @@ function pieza(raw: unknown, n: number): Pieza {
 /**
  * La salida del modelo → una hoja que vale. Es el `validar` de la cascada (la ruta rechaza si hay
  * `errores`) y la única puerta por la que lo que escribió el modelo llega a la pantalla.
- *   1. descarta lo que no tiene arreglo: un conjunto, un tipo o un bloque que no existen, un gráfico
- *      sin ninguna métrica que sirva;
+ *   1. descarta lo que no tiene arreglo: un conjunto o un tipo que no existen, un bloque (v5: se fueron), un
+ *      tipo sobre un conjunto que no admite, un gráfico sin ninguna métrica que sirva;
  *   2. corrige el resto con `sanearGrafico` y ANOTA cada diferencia con lo pedido;
  *   3. topea a TOPE_COMPONENTES_IA (y a MAX_COMPONENTES);
  *   4. pone los ids (`nuevoId`) y el lugar (`acomodar`), y el período de la hoja arriba;
@@ -422,7 +426,7 @@ export function deIAHoja(json: unknown): ResultadoHojaIA {
   });
 
   const errores: string[] = [];
-  if (!graficos) errores.push('no quedó ningún gráfico ni bloque que se pueda armar con el catálogo');
+  if (!graficos) errores.push('no quedó ningún gráfico que se pueda armar con el catálogo');
   else if ((descartados + corregidos) * 2 > considerados) {
     errores.push(`se corrigieron o descartaron ${descartados + corregidos} de ${considerados} componentes`);
   }

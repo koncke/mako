@@ -26,26 +26,43 @@
 //     las dos corridas dan lo mismo: los ids nuevos se acuñan en preparar y viajan en el cambio.
 //
 //   · LAS PERSONAS NO SALEN POR HTTP. La lista es la del AI Analyst (`dimensionPublica`, POSITIVA):
-//     `sinPersonas` (app/dashboard/exportar.ts) pone «Closer 1» y un filtro sobre una dimensión con
-//     nombres se rechaza (filtrar por «Juan» y ver si da cero es una forma de preguntar si Juan existe).
+//     `resultadoSinPersonas` (la MISMA que el link compartido, app/compartido/[token]/informe-reglas.ts) pone
+//     «Closer 1» en las filas, el desglose y las columnas extra, y un filtro sobre una dimensión con nombres
+//     se rechaza — también el que se GUARDA en un gráfico o en la hoja (filtrar por «Juan» y ver si da cero
+//     es una forma de preguntar si Juan existe, aunque el filtro viva en el informe).
+//
+// Lo de v5 (12/10/2026, contrato docs/relevo/dashboard-v5.md):
+//   · SIN BLOQUES. El saneo los convierte en gráficos (lib/graficos-migrar-v5.ts): la API no los ofrece ni
+//     los lee, y una hoja vieja que los traía se lee ya convertida.
+//   · LOS FILTROS QUE SE GUARDAN EN UN GRÁFICO SON DE DEFINICIÓN (`fijo`): lo que define la tarjeta («las
+//     agendas de R1») no es un chip para quien mira. Y EL PERÍODO DE UN GRÁFICO ES UN CONTROL FIJO más
+//     (`conPeriodoFijo`), nunca el campo `periodo` de antes. Los NOMBRES de los parámetros (`periodo`,
+//     `desde`, `hasta`, `filtros`) no cambian: son contrato del editor de Automations.
+//   · LOS ELEMENTOS NUEVOS: la sección, la caja «Conclusiones de MaKo» (con lo que pide y lo que lee), la
+//     acción y los conectores. La FICHA (`entidad`) vive sólo adentro de un pop-up y la API no arma pop-ups.
 
 import {
-  AGRUPAR, BLOQUES, CAMPOS, FUENTES, MAX_COMPONENTES, MAX_CONTROLES, MAX_HOJAS, PRESETS, TIPOS, TIPOS_CONTROL, TIPOS_ELEMENTO,
-  bloqueDe, campoDe, camposDeFuente, desglosesPara, dimensionDe, dimensionesPara, emojiValido,
-  esElemento, esGrafico, fuenteDe, metricasPara, nombrePreset, nuevoId, rangoDe, sanearBloque, sanearComponente,
+  AGRUPAR, CAMPOS, FUENTES, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, PRESETS, TIPOS, TIPOS_CONTROL,
+  TIPOS_ELEMENTO, TOPE_PEDIDO_IA, campoDe, camposDeFuente, desglosesPara, dimensionDe, dimensionesPara, emojiValido,
+  esElemento, esGrafico, fuenteDe, metricasPara, nombrePreset, nuevoId, rangoDe, sanearComponente,
   sanearControlVista, sanearControles, sanearElemento, sanearGrafico, sanearHoja, tipoDe, tituloDe,
-  type Bloque, type Componente, type ControlVista, type FiltroDim, type Fuente, type Grafico, type Hoja, type Preset, type Tablero,
+  type Componente, type ConfigIA, type Conector, type ControlVista, type Elemento, type FiltroDim, type Fuente, type Grafico, type Hoja,
+  type Preset, type Tablero,
 } from '@/lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, tableroInicial } from '@/lib/graficos-plantillas';
 import { PLANTILLAS_TEMA, sanearTema } from '@/lib/graficos-temas';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { Alias, conNombres, dimensionPublica, etiquetaSegura, haceCuanto, type SalidaAnalisis, type VistaAnalisis } from '@/lib/graficos-analisis';
-import { enOrden, rangoTexto, sinPersonas } from '@/app/dashboard/exportar';
+import { enOrden, rangoTexto } from '@/app/dashboard/exportar';
+import { esGrabacionDeLlamada, resultadoSinPersonas } from '@/app/compartido/[token]/informe-reglas';
+import { idDeParte, idLibre } from '@/lib/graficos-migrar-v5';
+import { ACCIONES_ELEMENTO, accionElementoDisponible, type RespuestaDetalle } from '@/lib/graficos-acciones';
+import { puedeConectar } from '@/lib/graficos-conectores';
 import { textoCron } from '@/lib/cron-aviso';
 import { esFechaValida } from '@/lib/date-utils';
 import { insertableDe, videoDe } from '@/lib/embeds';
 import type { Formato } from '@/lib/graficos-constructores';
-import type { RespuestaDetalle } from '@/lib/graficos-acciones';
+import type { SalidaCaja, VistaCaja } from '@/lib/graficos-ia-elemento';
 
 /** Para comparar lo que escribe una persona: sin acentos, sin mayúsculas, sin espacios de más. */
 export const normalizar = (s: string): string =>
@@ -157,7 +174,8 @@ export function buscarHoja(t: Tablero, pedido: string): Encontrado<Hoja> {
 /** Cómo se llama un componente en una lista. */
 export function nombreDeComponente(c: Componente): string {
   if (esElemento(c)) {
-    const t = c.texto.replace(/\s+/g, ' ').trim();
+    // Un botón se llama por su rótulo (v5): su `texto` puede venir vacío.
+    const t = (c.tipo === 'accion' && c.accion?.rotulo ? c.accion.rotulo : c.texto).replace(/\s+/g, ' ').trim();
     const tipo = TIPOS_ELEMENTO.find((x) => x.id === c.tipo)?.nombre ?? c.tipo;
     return t ? `${tipo}: ${t.slice(0, 60)}` : tipo;
   }
@@ -186,11 +204,13 @@ type ErrorPedido = { error: string; disponibles?: unknown };
 const texto = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
 /**
- * El período de una LECTURA: un preset, o desde y hasta (a medida). Acotado a hoy, salvo con `acotar:
- * false`: un BLOQUE decide su propia ventana (el Outstanding mira hasta fin de mes), como /api/graficos.
+ * El período de una LECTURA: un preset, o desde y hasta (a medida), TAL CUAL se pidió. ⚠️ NO se corta en hoy
+ * acá (v5, «el corte en hoy en UN lugar»): lo corta `datosDeGraficos` (y `detalleDeGrafico`, `valoresDeCampo`)
+ * con la regla de cada fecha — lo que vence (`pagos.vencimiento`, el pendiente de Revenue) mira HACIA ADELANTE,
+ * y un corte acá lo dejaba en hoy por la API mientras la pantalla mostraba el mes entero. Lo que se MUESTRA
+ * como período va cortado con `cortarEnHoyDe` (lib/graficos-datos.ts), en el runner.
  */
-export function periodoPedido(input: EntradaPeriodo, hoy: string, porDefecto: Preset = 'ult30', acotar = true): { preset: Preset; desde: string; hasta: string } | ErrorPedido {
-  const fin = (d: string, h: string) => (acotar ? acotarAHoy(d, h, hoy) : { desde: d, hasta: h });
+export function periodoPedido(input: EntradaPeriodo, hoy: string, porDefecto: Preset = 'ult30'): { preset: Preset; desde: string; hasta: string } | ErrorPedido {
   const p = texto(input.periodo);
   const d = texto(input.desde);
   const h = texto(input.hasta);
@@ -199,20 +219,15 @@ export function periodoPedido(input: EntradaPeriodo, hoy: string, porDefecto: Pr
     if (!esFechaValida(d) || !esFechaValida(h)) return { error: `«desde» y «hasta» van como YYYY-MM-DD (llegó ${d} y ${h}).` };
     if (d > h) return { error: `El período está al revés: «desde» (${d}) es posterior a «hasta» (${h}).` };
     if (p && p !== 'personalizado') return { error: 'Pasa un período (periodo) o un rango (desde y hasta), no los dos.' };
-    return { preset: 'personalizado', ...fin(d, h) };
+    return { preset: 'personalizado', desde: d, hasta: h };
   }
   if (p && !esPreset(p)) return { error: `El período ${comillas(p)} no existe.`, disponibles: PRESETS_CON_NOMBRE };
   const preset = (p || porDefecto) as Preset;
   const rg = rangoDe(preset, hoy);
-  return { preset, ...fin(rg.desde, rg.hasta) };
+  return { preset, desde: rg.desde, hasta: rg.hasta };
 }
 
-/** Como /api/graficos: un período que termina después de hoy se acota a hoy (sin quedar al revés). */
-export function acotarAHoy(desde: string, hasta: string, hoy: string): { desde: string; hasta: string } {
-  return { desde, hasta: hasta > hoy ? (hoy < desde ? desde : hoy) : hasta };
-}
-
-/** El período que se GUARDA en un gráfico o un bloque: 'auto' (el de la hoja), un preset, o a medida. */
+/** El período que se GUARDA en un gráfico (como control fijo) o en la hoja: 'auto' (el de la hoja), un preset, o a medida. */
 export function periodoGuardado(input: EntradaPeriodo): { periodo: Preset | 'auto'; desde: string | null; hasta: string | null } | ErrorPedido {
   const p = texto(input.periodo);
   const d = texto(input.desde);
@@ -231,12 +246,49 @@ export function periodoGuardado(input: EntradaPeriodo): { periodo: Preset | 'aut
 const periodoEnPalabras = (periodo: Preset | 'auto', desde: string | null, hasta: string | null): string =>
   periodo === 'auto' ? 'el período de la hoja' : periodo === 'personalizado' && desde && hasta ? rangoTexto(desde, hasta) : nombrePreset(periodo).toLowerCase();
 
+/** El período propio de un gráfico, como lo GUARDÓ: el de su control de período (fijo o a la vista), o el campo de antes. */
+export type PeriodoDeGrafico = { periodo: Preset | 'auto'; desde: string | null; hasta: string | null; fijo: boolean };
+
+/**
+ * El período que el gráfico tiene guardado, leído de donde vive desde v5: su control `periodo` (casi siempre
+ * `fijo`, que es como lo deja el saneo). Sin control, el campo de antes (`periodo`, que el saneo sólo deja
+ * puesto si el gráfico ya tenía 8 controles); sin nada, 'auto' (el de la hoja).
+ */
+export function periodoDeGrafico(g: Pick<Grafico, 'controles' | 'periodo' | 'desde' | 'hasta'>): PeriodoDeGrafico {
+  const c = g.controles.find((k) => k.tipo === 'periodo');
+  if (c) return { periodo: c.preset, desde: c.desde, hasta: c.hasta, fijo: !!c.fijo };
+  return { periodo: g.periodo, desde: g.desde, hasta: g.hasta, fijo: g.periodo !== 'auto' };
+}
+
+/** El período de un gráfico en una palabra, para los textos de cambio y de deshacer («ult30», «2026-09-01..2026-09-30», «auto»). */
+export function periodoEnTexto(p: PeriodoDeGrafico): string {
+  return p.periodo === 'personalizado' ? `${p.desde}..${p.hasta}` : p.periodo;
+}
+
+/**
+ * Los controles de un gráfico con el período pedido escrito como control `periodo` FIJO (v5): se saca el
+ * control de período que tuviera (fijo o a la vista: lo que se pide manda) y, salvo 'auto', se pone uno de
+ * definición con id determinístico `<id>-fecha` (el mismo que usa el saneo al migrar). Escribirlo en el campo
+ * `periodo` de antes no sirve: con un control de período en el gráfico, el saneo lo descarta en silencio.
+ */
+export function conPeriodoFijo(controles: readonly ControlVista[], pg: { periodo: Preset | 'auto'; desde: string | null; hasta: string | null }, idGrafico: string): { ok: true; controles: ControlVista[] } | ({ ok: false } & ErrorPedido) {
+  const resto = controles.filter((k) => k.tipo !== 'periodo');
+  if (pg.periodo === 'auto') return { ok: true, controles: resto };
+  if (resto.length >= MAX_CONTROLES) return { ok: false, error: `El gráfico ya tiene ${MAX_CONTROLES} filtros: no entra el de período.` };
+  const id = idLibre(idDeParte(idGrafico, 'fecha'), new Set(resto.map((k) => k.id)));
+  const c = sanearControlVista({ id, tipo: 'periodo', fijo: true, preset: pg.periodo, desde: pg.desde, hasta: pg.hasta });
+  if (!c) return { ok: false, error: 'No pude armar el período del gráfico.' };
+  return { ok: true, controles: [c, ...resto] };
+}
+
 // ── Un gráfico: lo pedido, validado ANTES de sanear ──────────────────────────────────────────
 
 export type EntradaGrafico = {
   tipo?: string; conjunto?: string; metricas?: string[]; dimension?: string | null; desglose?: string | null;
   fecha?: string; periodo?: string; desde?: string; hasta?: string; titulo?: string; subtitulo?: string;
   limite?: number; comparar?: boolean; orden?: 'asc' | 'desc';
+  /** El botón de MaKo de la tarjeta (v5): `false` lo apaga; sin esto, como estaba (ausente = prendido). */
+  mako?: boolean;
 };
 export type GraficoArmado = { ok: true; grafico: Grafico; notas: string[] } | ({ ok: false } & ErrorPedido);
 
@@ -317,25 +369,31 @@ export function armarGrafico(e: EntradaGrafico, base: Grafico | null, lugar: { x
     if (base && !fechas.includes(base.fecha)) notas.push(`la fecha pasó a ${comillas(fecha)}`);
   }
 
-  // El período guardado.
-  let periodo: Preset | 'auto' = base?.periodo ?? 'auto';
-  let desde: string | null = base?.desde ?? null;
-  let hasta: string | null = base?.hasta ?? null;
-  if (e.periodo !== undefined || e.desde !== undefined || e.hasta !== undefined) {
+  // El período guardado: un control `periodo` FIJO (v5), nunca el campo de antes (ver `conPeriodoFijo`).
+  const id = base?.id ?? nuevoId();
+  let controles: readonly ControlVista[] = base?.controles ?? [];
+  const pidePeriodo = e.periodo !== undefined || e.desde !== undefined || e.hasta !== undefined;
+  if (pidePeriodo) {
     const pg = periodoGuardado(e);
     if ('error' in pg) return { ok: false, ...pg };
-    ({ periodo, desde, hasta } = pg);
+    const cp = conPeriodoFijo(controles, pg, id);
+    if (!cp.ok) return cp;
+    controles = cp.controles;
   }
 
   const raw: Record<string, unknown> = {
     ...(base ?? {}),
-    id: base?.id ?? nuevoId(), clase: 'grafico', tipo: info.id, fuente: fuente.id, fecha, dimension, desglose, metricas: mets,
-    periodo, desde, hasta,
+    id, clase: 'grafico', tipo: info.id, fuente: fuente.id, fecha, dimension, desglose, metricas: mets,
+    controles,
+    // Con un período pedido, el campo de antes queda en 'auto': el control manda (y el saneo no lo «migra» encima).
+    ...(pidePeriodo ? { periodo: 'auto', desde: null, hasta: null } : {}),
     titulo: e.titulo !== undefined ? e.titulo : base?.titulo ?? '',
     subtitulo: e.subtitulo !== undefined ? e.subtitulo : base?.subtitulo ?? '',
     ...(e.limite !== undefined ? { limite: e.limite } : {}),
     ...(e.comparar !== undefined ? { comparar: e.comparar } : {}),
     ...(e.orden !== undefined ? { ordenAsc: e.orden === 'asc' } : {}),
+    // El botón de MaKo: sólo se guarda apagado (`sanearGrafico`); prenderlo es sacar la marca.
+    ...(e.mako !== undefined ? { mako: e.mako } : {}),
     // Un tipo nuevo cambia el orden de las métricas: la de orden se reinicia si ya no está.
     ordenMetrica: base?.ordenMetrica && mets.includes(base.ordenMetrica) ? base.ordenMetrica : null,
     ...(base ? {} : { x: lugar.x, y: lugar.y, w: info.w, h: info.h }),
@@ -346,17 +404,15 @@ export function armarGrafico(e: EntradaGrafico, base: Grafico | null, lugar: { x
     || g.fecha !== fecha || g.metricas.join(',') !== mets.join(',')) {
     return noVale('No pude armar el gráfico como se pidió.');
   }
+  // Y el período pedido tiene que ser el que quedó (un control fijo con ese preset, o ninguno con 'auto').
+  if (pidePeriodo) {
+    const pedido = periodoGuardado(e);
+    const quedo = periodoDeGrafico(g);
+    if ('error' in pedido || quedo.periodo !== pedido.periodo || (pedido.periodo !== 'auto' && (!quedo.fijo || quedo.desde !== pedido.desde || quedo.hasta !== pedido.hasta))) {
+      return noVale('No pude guardar el período del gráfico como se pidió.');
+    }
+  }
   return { ok: true, grafico: g, notas };
-}
-
-/** Un bloque armado (revenue, cobranza…), con su período guardado. */
-export function armarBloque(e: { bloque: string; titulo?: string } & EntradaPeriodo, lugar: { x: number; y: number }): { ok: true; bloque: Bloque } | ({ ok: false } & ErrorPedido) {
-  const info = bloqueDe(texto(e.bloque));
-  if (!info) return { ok: false, error: `El bloque ${comillas(texto(e.bloque))} no existe.`, disponibles: BLOQUES.map((b) => b.id) };
-  const pg = periodoGuardado(e);
-  if ('error' in pg) return { ok: false, ...pg };
-  const b = sanearBloque({ id: nuevoId(), clase: 'bloque', bloque: info.id, titulo: e.titulo ?? '', ...pg, x: lugar.x, y: lugar.y, w: info.w, h: info.h });
-  return b ? { ok: true, bloque: b } : { ok: false, error: 'No pude armar el bloque.' };
 }
 
 // ── Los filtros ──────────────────────────────────────────────────────────────────────────────
@@ -402,8 +458,20 @@ function campoParaFuente(fuente: Fuente, campo: string): string | null {
   return camposDeFuente(fuente.id).find((c) => c.en[fuente.id] === campo)?.id ?? null;
 }
 
-/** Los filtros PROPIOS de un gráfico, como controles de su cabecera (los de lista y búsqueda). */
-export function controlesDeFiltros(fuente: Fuente, crudos: readonly EntradaFiltro[]): { ok: true; controles: ControlVista[] } | ({ ok: false } & ErrorPedido) {
+/** ¿Algún conjunto donde vive el campo lo tiene con nombres de personas? (la lista positiva del AI Analyst) */
+const campoConPersonas = (campoId: string): boolean => {
+  const campo = campoDe(campoId);
+  return !!campo && !Object.entries(campo.en).every(([f, d]) => dimensionPublica(f, d));
+};
+
+/**
+ * Los filtros PROPIOS de un gráfico, como controles de DEFINICIÓN (`fijo`, v5): lo que la API escribe en un
+ * gráfico DEFINE la tarjeta («las agendas de R1»), no es un chip que quien mira cambia. Antes nacían como
+ * controles a la vista, y todo gráfico armado por MaKo con filtros salía con chips en la cabecera (el punto 1
+ * del pedido v5). Por HTTP, un filtro con valores sobre un campo de personas se rechaza: guardado en el
+ * informe es el mismo oráculo que en una consulta (`filtrosDeConsulta`).
+ */
+export function controlesDeFiltros(fuente: Fuente, crudos: readonly EntradaFiltro[], http = false): { ok: true; controles: ControlVista[] } | ({ ok: false } & ErrorPedido) {
   const out: ControlVista[] = [];
   for (const f of crudos) {
     const nombre = texto(f.campo);
@@ -411,12 +479,33 @@ export function controlesDeFiltros(fuente: Fuente, crudos: readonly EntradaFiltr
     if (!campo) return { ok: false, error: `${comillas(nombre)} no es un campo que filtre ${comillas(fuente.id)}.`, disponibles: camposDeFuente(fuente.id).map((c) => c.id) };
     const valores = valoresDe(f.valores);
     const t = texto(f.texto).slice(0, 80);
-    const c = sanearControlVista({ id: nuevoId(), tipo: valores.length || !t ? 'lista' : 'texto', campo, valores: valores.length ? valores : null, texto: t });
+    if (http && (valores.length || t) && campoConPersonas(campo)) {
+      return { ok: false, error: `Por la API no se filtra por ${comillas(campoDe(campo)?.nombre ?? campo)}: son nombres de personas.` };
+    }
+    // Uno por campo (`sanearControles` tiraría el segundo sin decir nada).
+    if (out.some((k) => k.campo === campo)) return { ok: false, error: `Hay dos filtros de ${comillas(campoDe(campo)?.nombre ?? campo)}: va uno por campo.` };
+    const c = sanearControlVista({ id: nuevoId(), tipo: valores.length || !t ? 'lista' : 'texto', campo, valores: valores.length ? valores : null, texto: t, fijo: true });
     if (!c) return { ok: false, error: `No pude armar el filtro de ${comillas(nombre)}.` };
     out.push(c);
   }
   return { ok: true, controles: out };
 }
+
+/**
+ * Los controles de un gráfico con sus filtros de definición REEMPLAZADOS por `fijos`: se van los fijos de lista
+ * y de búsqueda que tenía, quedan el período, el «agrupar por» y los que son para MIRAR — salvo uno sobre un
+ * campo que ahora define un fijo (uno por campo: el que define manda, y en la pantalla también).
+ */
+export function conFiltrosFijos(controles: readonly ControlVista[], fijos: readonly ControlVista[]): { ok: true; controles: ControlVista[] } | ({ ok: false } & ErrorPedido) {
+  const campos = new Set(fijos.map((k) => k.campo));
+  const quedan = controles.filter((k) => k.tipo === 'periodo' || k.tipo === 'agrupar' || (!k.fijo && !campos.has(k.campo)));
+  const todos = [...quedan, ...fijos];
+  if (todos.length > MAX_CONTROLES) return { ok: false, error: `Un gráfico lleva hasta ${MAX_CONTROLES} filtros contando el período: quedarían ${todos.length}.` };
+  return { ok: true, controles: todos };
+}
+
+/** Los filtros de DEFINICIÓN de un gráfico (los de lista y búsqueda con `fijo`): los que no se dibujan. */
+export const filtrosFijosDe = (g: Pick<Grafico, 'controles'>): ControlVista[] => g.controles.filter((k) => k.fijo && (k.tipo === 'lista' || k.tipo === 'texto'));
 
 /** Los campos que tienen sentido en una hoja: los que filtran algún gráfico suyo (o todos, si no tiene). */
 export function camposDeLaHoja(h: Hoja): string[] {
@@ -436,8 +525,11 @@ export function resolverCampo(pedido: string, candidatos: readonly string[] = CA
   return porDimension.length === 1 ? porDimension[0].id : null;
 }
 
-/** Un filtro de la barra de una hoja, armado y validado. */
-export function armarControlHoja(h: Hoja, e: { tipo: string; campo?: string; valores?: unknown; texto?: string; agrupar?: string } & EntradaPeriodo): { ok: true; control: ControlVista } | ({ ok: false; yaEstaba?: boolean } & ErrorPedido) {
+/**
+ * Un filtro de la barra de una hoja, armado y validado. Por HTTP, lo que deja ELEGIDO de entrada sobre un campo
+ * de personas se rechaza (el mismo oráculo que una consulta): el filtro sin valores, sí.
+ */
+export function armarControlHoja(h: Hoja, e: { tipo: string; campo?: string; valores?: unknown; texto?: string; agrupar?: string } & EntradaPeriodo, http = false): { ok: true; control: ControlVista } | ({ ok: false; yaEstaba?: boolean } & ErrorPedido) {
   const tipo = TIPOS_CONTROL.find((t) => t.id === e.tipo)?.id;
   if (!tipo) return { ok: false, error: `El tipo de filtro ${comillas(e.tipo)} no existe.`, disponibles: TIPOS_CONTROL.map((t) => t.id) };
   if (h.controles.length >= MAX_CONTROLES) return { ok: false, error: `La hoja ya tiene ${MAX_CONTROLES} filtros: es el máximo.` };
@@ -466,6 +558,9 @@ export function armarControlHoja(h: Hoja, e: { tipo: string; campo?: string; val
     raw.campo = campo;
     if (tipo === 'lista') { const v = valoresDe(e.valores); raw.valores = v.length ? v : null; }
     else raw.texto = texto(e.texto);
+    if (http && ((Array.isArray(raw.valores) && raw.valores.length) || raw.texto) && campoConPersonas(campo)) {
+      return { ok: false, error: `Por la API no se deja elegido un valor de ${comillas(campoDe(campo)?.nombre ?? campo)}: son nombres de personas. El filtro sin valores, sí.` };
+    }
   }
   const c = sanearControlVista(raw);
   if (!c) return { ok: false, error: 'No pude armar el filtro.' };
@@ -495,17 +590,74 @@ const PIDEN_URL = new Set(['imagen', 'enlace', 'video', 'insertado']);
 export function urlParaCanal(url: string | undefined, http: boolean): string {
   if (!url) return '';
   if (!http) return url;
-  try {
-    const h = new URL(url).hostname.toLowerCase();
-    if (h === 'fathom.video' || h.endsWith('.fathom.video')) return 'una grabación de llamada (no sale por la API)';
-  } catch { /* no es una dirección: va tal cual */ }
-  return url;
+  // La MISMA vara que el link compartido (app/compartido/[token]/informe-reglas.ts): una sola definición.
+  return esGrabacionDeLlamada(url) ? 'una grabación de llamada (no sale por la API)' : url;
 }
 
-/** Un elemento validado contra los tipos VIGENTES (TIPOS_ELEMENTO, en tiempo de ejecución). */
-export function armarElemento(e: { tipo: string; texto?: string; url?: string; titulo?: string; tamano?: string }, y: number): { ok: true; elemento: Componente } | ({ ok: false } & ErrorPedido) {
+/** Los tipos de elemento que la API sabe insertar: todos menos la FICHA, que vive sólo adentro de un pop-up. */
+export const ELEMENTOS_DE_LA_API = TIPOS_ELEMENTO.filter((x) => x.id !== 'entidad').map((x) => x.id);
+/** Lo que muestra una caja «Conclusiones de MaKo», cuánto escribe y cómo (los de `ConfigIA`). */
+export const MUESTRAS_IA: readonly ConfigIA['vista'][] = ['resumen', 'hallazgos', 'recomendaciones', 'texto'];
+export const LARGOS_IA: readonly ConfigIA['largo'][] = ['corto', 'medio', 'largo'];
+export const FORMAS_IA: readonly ConfigIA['formato'][] = ['parrafo', 'vinetas', 'tarjetas'];
+/** Las acciones que un botón SUELTO EN LA HOJA puede correr (las de una llamada o un lead viven en un pop-up). */
+export const ACCIONES_DE_HOJA = ACCIONES_ELEMENTO.filter((a) => accionElementoDisponible(a, null) == null).map((a) => a.id);
+
+/** Lo que llega para insertar un elemento: lo de siempre y, por tipo, lo de v5. */
+export type EntradaElemento = {
+  tipo: string; texto?: string; url?: string; titulo?: string; tamano?: string;
+  /** Sección: si se pliega, si arranca abierta, y el fondo (un color de la paleta, 0-7). */
+  plegable?: boolean; abierto?: boolean; fondo?: number;
+  /** Conclusiones de MaKo: qué se le pide, qué gráficos lee (ids o títulos de la hoja), qué muestra, cuánto y cómo. */
+  pedido?: string; componentes?: string[]; muestra?: string; largo?: string; forma?: string;
+  /** Acción: el id de la acción (de ACCIONES_DE_HOJA). El rótulo del botón va en `texto`. */
+  accion?: string;
+};
+
+/**
+ * Un elemento validado contra los tipos VIGENTES (TIPOS_ELEMENTO, en tiempo de ejecución). `hoja` = la hoja
+ * donde va: una caja de IA mira cuántas hay (hasta MAX_IA_POR_HOJA: el saneo tiraría la quinta sin decir
+ * nada) y qué gráficos lee. Lo de un tipo que no lo usa se ignora; lo que no vale se rechaza con lo que sí.
+ */
+export function armarElemento(e: EntradaElemento, y: number, hoja?: Hoja): { ok: true; elemento: Componente } | ({ ok: false } & ErrorPedido) {
   const info = TIPOS_ELEMENTO.find((x) => x.id === e.tipo);
-  if (!info) return { ok: false, error: `El tipo de elemento ${comillas(e.tipo)} no existe.`, disponibles: TIPOS_ELEMENTO.map((x) => x.id) };
+  if (!info) return { ok: false, error: `El tipo de elemento ${comillas(e.tipo)} no existe.`, disponibles: ELEMENTOS_DE_LA_API };
+  if (info.id === 'entidad') return { ok: false, error: 'Una ficha va sólo adentro del pop-up de un gráfico, y los pop-ups se arman en la pantalla.', disponibles: ELEMENTOS_DE_LA_API };
+  const especial: Pick<Elemento, 'seccion' | 'ia' | 'accion'> = {};
+  if (info.id === 'seccion') {
+    if (e.fondo !== undefined && !(Number.isInteger(e.fondo) && e.fondo >= 0 && e.fondo < 8)) return { ok: false, error: 'El fondo de una sección es un color de la paleta, de 0 a 7.' };
+    especial.seccion = { fondo: e.fondo ?? null, plegable: e.plegable === true, abierto: e.abierto !== false };
+  } else if (info.id === 'ia') {
+    if (hoja && hoja.componentes.filter((c) => esElemento(c) && c.tipo === 'ia').length >= MAX_IA_POR_HOJA) {
+      return { ok: false, error: `La hoja ya tiene ${MAX_IA_POR_HOJA} cajas de Conclusiones de MaKo: es el máximo.` };
+    }
+    const elegir = <T extends string>(v: string | undefined, ops: readonly T[], def: T, que: string): T | ErrorPedido =>
+      v === undefined || v === '' ? def : (ops as readonly string[]).includes(v) ? (v as T) : { error: `${comillas(v)} no es ${que}.`, disponibles: ops };
+    const vista = elegir(e.muestra, MUESTRAS_IA, 'resumen', 'lo que muestra una caja');
+    const largo = elegir(e.largo, LARGOS_IA, 'medio', 'un largo');
+    const formato = elegir(e.forma, FORMAS_IA, 'parrafo', 'una forma');
+    for (const x of [vista, largo, formato]) if (typeof x !== 'string') return { ok: false, ...x };
+    const pedido = texto(e.pedido);
+    if (pedido.length > TOPE_PEDIDO_IA) return { ok: false, error: `Lo que se le pide a la caja va hasta ${TOPE_PEDIDO_IA} caracteres: llegaron ${pedido.length}.` };
+    let fuentes: string[] | null = null;
+    if (e.componentes?.length) {
+      if (!hoja) return { ok: false, error: 'No sé de qué hoja son esos gráficos.' };
+      fuentes = [];
+      const graficos = hoja.componentes.filter(esGrafico);
+      for (const pedidoG of e.componentes) {
+        const cb = buscarComponente({ ...hoja, componentes: graficos }, pedidoG);
+        if (!cb.ok) return { ok: false, error: `La caja lee gráficos de la hoja, y ${comillas(pedidoG)} no es uno.`, disponibles: graficos.map((g) => `${g.id} · ${tituloDe(g)}`) };
+        if (!fuentes.includes(cb.valor.id)) fuentes.push(cb.valor.id);
+      }
+    }
+    especial.ia = { pedido, fuentes, vista: vista as ConfigIA['vista'], largo: largo as ConfigIA['largo'], formato: formato as ConfigIA['formato'], lee: 'hoja', cron: null };
+  } else if (info.id === 'accion') {
+    const id = texto(e.accion);
+    if (!id) return { ok: false, error: 'Un botón de acción va con su acción.', disponibles: ACCIONES_DE_HOJA };
+    const a = ACCIONES_ELEMENTO.find((x) => x.id === id);
+    if (!a || !ACCIONES_DE_HOJA.includes(a.id)) return { ok: false, error: `La acción ${comillas(id)} no va en un botón de la hoja.`, disponibles: ACCIONES_DE_HOJA };
+    especial.accion = { id: a.id, rotulo: texto(e.texto) || a.titulo };
+  }
   let url = texto(e.url);
   // `sanearElemento` pasaría un tamaño inventado al de por defecto sin decir nada.
   if (e.tamano && !TAMANOS.includes(e.tamano)) return { ok: false, error: `${comillas(e.tamano)} no es un tamaño.`, disponibles: TAMANOS };
@@ -521,10 +673,60 @@ export function armarElemento(e: { tipo: string; texto?: string; url?: string; t
   // El título de un video o de una página insertada vive en `texto` (lib/graficos-catalogo.ts).
   const t = e.texto !== undefined ? e.texto : e.titulo ?? '';
   if (info.id === 'texto' && !t.trim()) return { ok: false, error: 'Un elemento de texto va con su texto.' };
-  const el = sanearElemento({ id: nuevoId(), clase: 'elemento', tipo: info.id, texto: t, url, ...(e.tamano ? { tamano: e.tamano } : {}), x: 0, y, w: info.w, h: info.h });
+  const el = sanearElemento({ id: nuevoId(), clase: 'elemento', tipo: info.id, texto: t, url, ...(e.tamano ? { tamano: e.tamano } : {}), ...especial, x: 0, y, w: info.w, h: info.h });
   if (!el) return { ok: false, error: 'No pude armar el elemento.' };
   if (url && !(el as { url?: string }).url) return { ok: false, error: `Esa dirección no se puede usar en ${comillas(info.nombre)}: tiene que ser https y de un lugar que se pueda mostrar. Llegó: ${url}` };
+  // Defensa: lo de v5 tiene que sobrevivir al saneo (una acción sin id, o una caja sin su configuración, no dibujan nada).
+  if ((especial.accion && el.accion?.id !== especial.accion.id) || (especial.ia && JSON.stringify(el.ia) !== JSON.stringify(especial.ia))) {
+    return { ok: false, error: 'No pude armar el elemento como se pidió.' };
+  }
   return { ok: true, elemento: el };
+}
+
+/** Lo que llega para unir dos componentes de una hoja con una flecha (v5). */
+export type EntradaConector = { origen: string; destino: string; punta?: string; trazo?: string };
+const PUNTAS: readonly Conector['punta'][] = ['fin', 'ambas', 'ninguna'];
+const TRAZOS: readonly Conector['trazo'][] = ['curva', 'recta', 'codo'];
+
+/**
+ * Un conector nuevo entre dos componentes de la hoja (por id o por título), validado con la MISMA regla que la
+ * pantalla (`puedeConectar`, lib/graficos-conectores.ts): no a sí mismo, no dos veces el mismo par (en
+ * cualquier sentido) y hasta MAX_CONECTORES. `yaEstaba` = ese par ya está unido.
+ */
+export function armarConector(h: Hoja, e: EntradaConector): { ok: true; conector: Conector; desde: Componente; hasta: Componente } | ({ ok: false; yaEstaba?: true } & ErrorPedido) {
+  const a = buscarComponente(h, e.origen);
+  if (!a.ok) return { ok: false, error: a.error, disponibles: a.disponibles };
+  const b = buscarComponente(h, e.destino);
+  if (!b.ok) return { ok: false, error: b.error, disponibles: b.disponibles };
+  if (a.valor.id === b.valor.id) return { ok: false, error: 'Un conector une dos componentes distintos.' };
+  const punta = e.punta ? (PUNTAS as readonly string[]).includes(e.punta) ? (e.punta as Conector['punta']) : null : 'fin';
+  const trazo = e.trazo ? (TRAZOS as readonly string[]).includes(e.trazo) ? (e.trazo as Conector['trazo']) : null : 'curva';
+  if (!punta) return { ok: false, error: `${comillas(String(e.punta))} no es una punta.`, disponibles: PUNTAS };
+  if (!trazo) return { ok: false, error: `${comillas(String(e.trazo))} no es un trazo.`, disponibles: TRAZOS };
+  const lista = h.conectores ?? [];
+  const ya = lista.find((k) => (k.desde === a.valor.id && k.hasta === b.valor.id) || (k.desde === b.valor.id && k.hasta === a.valor.id));
+  if (ya) return { ok: false, error: `Esos dos ya están unidos (${ya.id}).`, yaEstaba: true };
+  if (!puedeConectar(lista, a.valor.id, b.valor.id, MAX_CONECTORES)) return { ok: false, error: `La hoja ya tiene ${MAX_CONECTORES} conectores: es el máximo.` };
+  return { ok: true, conector: { id: nuevoId(), desde: a.valor.id, hasta: b.valor.id, punta, trazo, color: null }, desde: a.valor, hasta: b.valor };
+}
+
+/** Un conector de la hoja por su id, o por los dos componentes que une (en cualquier sentido). */
+export function buscarConector(h: Hoja, e: { conector?: string; origen?: string; destino?: string }): Encontrado<Conector> {
+  const lista = h.conectores ?? [];
+  const nombre = (id: string) => { const c = h.componentes.find((x) => x.id === id); return c ? nombreDeComponente(c) : id; };
+  const disponibles = lista.map((k) => `${k.id} · ${nombre(k.desde)} → ${nombre(k.hasta)}`);
+  const id = texto(e.conector);
+  if (id) {
+    const i = lista.findIndex((k) => k.id === id);
+    return i >= 0 ? { ok: true, valor: lista[i], indice: i } : { ok: false, error: `La hoja no tiene el conector ${comillas(id)}.`, disponibles };
+  }
+  if (!texto(e.origen) || !texto(e.destino)) return { ok: false, error: 'Di qué conector sacar: su id, o los dos componentes que une.', disponibles };
+  const a = buscarComponente(h, texto(e.origen));
+  const b = buscarComponente(h, texto(e.destino));
+  if (!a.ok) return { ok: false, error: a.error, disponibles: a.disponibles };
+  if (!b.ok) return { ok: false, error: b.error, disponibles: b.disponibles };
+  const i = lista.findIndex((k) => (k.desde === a.valor.id && k.hasta === b.valor.id) || (k.desde === b.valor.id && k.hasta === a.valor.id));
+  return i >= 0 ? { ok: true, valor: lista[i], indice: i } : { ok: false, error: 'Esos dos componentes no están unidos.', disponibles };
 }
 
 // ── El CAMBIO de un informe ──────────────────────────────────────────────────────────────────
@@ -539,18 +741,33 @@ export type Cambio =
   | { op: 'quitar_componente'; hojaId: string; componenteId: string }
   | { op: 'agregar_filtro'; hojaId: string; control: ControlVista }
   | { op: 'quitar_filtro'; hojaId: string; controlId: string }
+  | { op: 'agregar_conector'; hojaId: string; conector: Conector }
+  | { op: 'quitar_conector'; hojaId: string; conectorId: string }
   | { op: 'restablecer' };
 
 export type Aplicado = { ok: true; tablero: Tablero } | { ok: false; error: string; yaEstaba?: true };
 
 const igual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-/** La copia de una hoja: TODO lo que tiene id se acuña de nuevo (como «Duplicar» del editor). */
+/**
+ * La copia de una hoja: TODO lo que tiene id se acuña de nuevo (como «Duplicar» del editor), y lo que NOMBRA a
+ * otro componente lo sigue (v5): los conectores (sus dos puntas) y lo que lee una caja de IA (`ia.fuentes`).
+ * Sin eso, el saneo descarta los conectores (apuntan a ids que no están) y la caja se queda leyendo nada. La
+ * copia no dice de qué plantilla nació: la hoja de la plantilla es la original (`hojaDestino`).
+ */
 export function copiaDeHoja(h: Hoja): Hoja {
+  const ids = new Map(h.componentes.map((c) => [c.id, nuevoId()] as const));
+  const nuevo = (id: string) => ids.get(id) ?? id;
+  const sinPlantilla: Hoja = { ...h };
+  delete sinPlantilla.plantilla;
   return sanearHoja({
-    ...h, id: nuevoId(), nombre: `${h.nombre} (copia)`.slice(0, 40),
+    ...sinPlantilla, id: nuevoId(), nombre: `${h.nombre} (copia)`.slice(0, 40),
     controles: h.controles.map((c) => ({ ...c, id: nuevoId() })),
-    componentes: h.componentes.map((c) => (esElemento(c) ? { ...c, id: nuevoId() } : { ...c, id: nuevoId(), controles: c.controles.map((k) => ({ ...k, id: nuevoId() })) })),
+    componentes: h.componentes.map((c) => {
+      if (!esElemento(c)) return { ...c, id: nuevo(c.id), controles: c.controles.map((k) => ({ ...k, id: nuevoId() })) };
+      return { ...c, id: nuevo(c.id), ...(c.ia?.fuentes ? { ia: { ...c.ia, fuentes: c.ia.fuentes.map(nuevo) } } : {}) };
+    }),
+    conectores: (h.conectores ?? []).map((k) => ({ ...k, id: nuevoId(), desde: nuevo(k.desde), hasta: nuevo(k.hasta) })),
   }, 0)!;
 }
 
@@ -614,6 +831,10 @@ export function aplicarCambio(t: Tablero, c: Cambio): Aplicado {
       const comp = sanearComponente(c.componente);
       if (!comp) return { ok: false, error: 'El componente no se pudo armar.' };
       if (h.componentes.some((x) => x.id === comp.id)) return { ok: false, error: 'Ya hay un componente con ese id.' };
+      // El saneo tiraría la quinta caja de IA sin decir nada: se dice acá (también si otra llegó en el medio).
+      if (esElemento(comp) && comp.tipo === 'ia' && h.componentes.filter((x) => esElemento(x) && x.tipo === 'ia').length >= MAX_IA_POR_HOJA) {
+        return { ok: false, error: `La hoja ya tiene ${MAX_IA_POR_HOJA} cajas de Conclusiones de MaKo: es el máximo.` };
+      }
       const abajo = h.componentes.reduce((mx, x) => Math.max(mx, x.y + x.h), 0);
       const componentes = c.lugar === 'arriba'
         ? [{ ...comp, x: 0, y: 0 }, ...h.componentes.map((x) => ({ ...x, y: x.y + comp.h }))]
@@ -630,9 +851,24 @@ export function aplicarCambio(t: Tablero, c: Cambio): Aplicado {
       componentes[j] = comp;
       return conHoja({ ...h, componentes });
     }
-    case 'quitar_componente':
+    case 'quitar_componente': {
       if (!h.componentes.some((x) => x.id === c.componenteId)) return { ok: false, error: 'Ese componente ya no está en la hoja.', yaEstaba: true };
-      return conHoja({ ...h, componentes: h.componentes.filter((x) => x.id !== c.componenteId) });
+      // Los conectores que lo tocaban se van con él (el saneo también lo haría: así no depende de eso).
+      const conectores = (h.conectores ?? []).filter((k) => k.desde !== c.componenteId && k.hasta !== c.componenteId);
+      return conHoja({ ...h, componentes: h.componentes.filter((x) => x.id !== c.componenteId), ...(h.conectores ? { conectores } : {}) });
+    }
+    case 'agregar_conector': {
+      const k = c.conector;
+      const ids = new Set(h.componentes.map((x) => x.id));
+      if (!ids.has(k.desde) || !ids.has(k.hasta)) return { ok: false, error: 'Uno de los dos componentes ya no está en la hoja.' };
+      const lista = h.conectores ?? [];
+      if (lista.some((x) => (x.desde === k.desde && x.hasta === k.hasta) || (x.desde === k.hasta && x.hasta === k.desde))) return { ok: false, error: 'Esos dos ya están unidos.', yaEstaba: true };
+      if (!puedeConectar(lista, k.desde, k.hasta, MAX_CONECTORES)) return { ok: false, error: `La hoja ya tiene ${MAX_CONECTORES} conectores: es el máximo.` };
+      return conHoja({ ...h, conectores: [...lista, k] });
+    }
+    case 'quitar_conector':
+      if (!(h.conectores ?? []).some((k) => k.id === c.conectorId)) return { ok: false, error: 'Ese conector ya no está en la hoja.', yaEstaba: true };
+      return conHoja({ ...h, conectores: (h.conectores ?? []).filter((k) => k.id !== c.conectorId) });
     case 'agregar_filtro': {
       const ctl = sanearControlVista(c.control);
       if (!ctl) return { ok: false, error: 'El filtro no se pudo armar.' };
@@ -705,10 +941,12 @@ export function juntarTotales(rs: readonly Resultado[]): Resultado {
 }
 
 /**
- * Lo que un gráfico puede mostrar por un canal. Por HTTP, las etiquetas de personas como alias
- * («Closer 1»); por WhatsApp y la app, tal cual (es la pantalla del dueño).
+ * Lo que un gráfico puede mostrar por un canal. Por HTTP, las etiquetas de personas como alias («Closer 1»)
+ * en las filas, el desglose y las columnas extra, y sin la miniatura de una fila que es una persona: la
+ * MISMA función que el link compartido (`resultadoSinPersonas`). Por WhatsApp y la app, tal cual (es la
+ * pantalla del dueño).
  */
-export const resultadoPara = (g: Grafico, r: Resultado, http: boolean, alias: Alias): Resultado => (http ? sinPersonas(g, r, alias) : r);
+export const resultadoPara = (g: Grafico, r: Resultado, http: boolean, alias: Alias): Resultado => (http ? resultadoSinPersonas(g, r, alias) : r);
 
 /** Un control de la hoja visto por HTTP: los valores elegidos de un campo con personas, como alias. */
 export function controlParaHttp(c: ControlVista, alias: Alias): ControlVista {
@@ -728,48 +966,10 @@ export function filtroEnPalabras(fuenteId: string, f: FiltroDim, http: boolean, 
   return http && !dimensionPublica(fuenteId, f.dimension) ? `${nombre}: una búsqueda` : `${nombre} contiene «${f.texto ?? ''}»`;
 }
 
-/**
- * Los datos de un bloque, en markdown. Cada bloque tiene su payload (app/dashboard/bloques/datos-comercial.ts,
- * lib/graficos-bloques-extra-catalogo.ts): acá se recorren genéricos, con topes, en vez de escribir quince
- * dibujos que se quedarían viejos con cada bloque nuevo.
- */
-export function datosAMarkdown(datos: unknown, prof = 0): string[] {
-  const sangria = '  '.repeat(prof);
-  const prim = (v: unknown): string | null => {
-    if (v == null) return '—';
-    if (typeof v === 'number') return Number.isFinite(v) ? String(Math.round(v * 100) / 100) : '—';
-    if (typeof v === 'boolean') return v ? 'sí' : 'no';
-    if (typeof v === 'string') return v.length > 120 ? `${v.slice(0, 119)}…` : v;
-    return null;
-  };
-  const out: string[] = [];
-  if (!datos || typeof datos !== 'object') { out.push(`${sangria}- ${prim(datos) ?? ''}`); return out; }
-  for (const [k, v] of Object.entries(datos as Record<string, unknown>)) {
-    if (k === 'bloque') continue;
-    const p = prim(v);
-    if (p != null) { out.push(`${sangria}- ${k}: ${p}`); continue; }
-    if (Array.isArray(v)) {
-      if (!v.length) { out.push(`${sangria}- ${k}: (vacío)`); continue; }
-      if (v.every((x) => prim(x) != null)) { out.push(`${sangria}- ${k}: ${v.slice(0, 12).map((x) => prim(x)).join(', ')}${v.length > 12 ? ` (y ${v.length - 12} más)` : ''}`); continue; }
-      out.push(`${sangria}- ${k} (${v.length}):`);
-      for (const x of v.slice(0, 10)) {
-        if (x && typeof x === 'object' && !Array.isArray(x)) {
-          const planos = Object.entries(x as Record<string, unknown>).map(([kk, vv]) => [kk, prim(vv)] as const).filter(([, vv]) => vv != null);
-          out.push(`${sangria}  - ${planos.map(([kk, vv]) => `${kk}: ${vv}`).join(' · ')}`);
-        } else out.push(`${sangria}  - ${prim(x) ?? '{…}'}`);
-      }
-      if (v.length > 10) out.push(`${sangria}  - (y ${v.length - 10} más)`);
-      continue;
-    }
-    if (prof >= 2) { out.push(`${sangria}- ${k}: {…}`); continue; }
-    out.push(`${sangria}- ${k}:`, ...datosAMarkdown(v, prof + 1));
-  }
-  return out;
-}
-
 // ── El catálogo ──────────────────────────────────────────────────────────────────────────────
 
-export const SECCIONES_CATALOGO = ['conjuntos', 'tipos', 'bloques', 'plantillas', 'estilos', 'filtros', 'elementos', 'periodos', 'campos'] as const;
+// v5: sin «bloques» (no existen más: el saneo los convierte en gráficos, lib/graficos-migrar-v5.ts).
+export const SECCIONES_CATALOGO = ['conjuntos', 'tipos', 'plantillas', 'estilos', 'filtros', 'elementos', 'periodos', 'campos'] as const;
 export type SeccionCatalogo = (typeof SECCIONES_CATALOGO)[number];
 
 const conjuntoJson = (f: Fuente, detalle: boolean) => ({
@@ -790,11 +990,16 @@ export function catalogoJson(p: { conjunto?: string; seccion?: SeccionCatalogo }
   const todo: Record<SeccionCatalogo, unknown> = {
     conjuntos: FUENTES.map((f) => conjuntoJson(f, false)),
     tipos: TIPOS.map((t) => ({ id: t.id, nombre: t.nombre, grupo: t.grupo, dimension: t.dimension, desglose: t.desglose, metricas: { min: t.minMetricas, max: t.maxMetricas }, ...(t.soloSumas ? { solo_sumas: true } : {}), ...(t.soloDims ? { solo_dimensiones: t.soloDims } : {}) })),
-    bloques: BLOQUES.map((b) => ({ id: b.id, nombre: b.nombre, linea: b.linea })),
     plantillas: PLANTILLAS_HOJA.map((x) => ({ id: x.id, nombre: x.nombre, emoji: x.emoji, linea: x.linea })),
     estilos: PLANTILLAS_TEMA.map((x) => ({ id: x.id, nombre: x.nombre, linea: x.linea })),
     filtros: TIPOS_CONTROL.map((x) => ({ id: x.id, nombre: x.nombre, linea: x.linea })),
-    elementos: TIPOS_ELEMENTO.map((x) => ({ id: x.id, nombre: x.nombre })),
+    // La FICHA vive sólo adentro de un pop-up (y la API no arma pop-ups): se lista, marcada. La Acción trae
+    // las que un botón de la hoja puede correr.
+    elementos: TIPOS_ELEMENTO.map((x) => ({
+      id: x.id, nombre: x.nombre,
+      ...(x.id === 'entidad' ? { solo_en_popup: true } : {}),
+      ...(x.id === 'accion' ? { acciones: ACCIONES_DE_HOJA.map((id) => ({ id, nombre: ACCIONES_ELEMENTO.find((a) => a.id === id)!.titulo })) } : {}),
+    })),
     periodos: PRESETS.map((x) => ({ id: x.id, nombre: x.nombre })),
     campos: CAMPOS.map((c) => ({ id: c.id, nombre: c.nombre, conjuntos: Object.keys(c.en) })),
   };
@@ -835,11 +1040,14 @@ export function catalogoMarkdown(p: { conjunto?: string; seccion?: SeccionCatalo
     out.push('', '## Tipos de gráfico', 'id · dimensión que pide · desglose · métricas (mín-máx).');
     for (const t of TIPOS) out.push(`- \`${t.id}\` ${t.nombre} · ${t.dimension} · desglose ${t.desglose} · ${t.minMetricas}-${t.maxMetricas}${t.soloSumas ? ' · sólo las que se suman' : ''}${t.soloDims ? ` · sólo ${t.soloDims.join(', ')}` : ''}`);
   }
-  if (ver('bloques')) { out.push('', '## Bloques armados'); for (const b of BLOQUES) out.push(`- \`${b.id}\` ${b.nombre}: ${b.linea}`); }
   if (ver('plantillas')) { out.push('', '## Plantillas de hoja'); for (const x of PLANTILLAS_HOJA) out.push(`- \`${x.id}\` ${x.emoji} ${x.nombre}: ${x.linea}`); }
   if (ver('estilos')) { out.push('', '## Estilos de página'); for (const x of PLANTILLAS_TEMA) out.push(`- \`${x.id}\` ${x.nombre}: ${x.linea}`); }
   if (ver('filtros')) { out.push('', '## Filtros de una hoja'); for (const x of TIPOS_CONTROL) out.push(`- \`${x.id}\` ${x.nombre}: ${x.linea}`); }
-  if (ver('elementos')) { out.push('', '## Elementos'); out.push(TIPOS_ELEMENTO.map((x) => `\`${x.id}\` ${x.nombre}`).join(' · ')); }
+  if (ver('elementos')) {
+    out.push('', '## Elementos');
+    out.push(TIPOS_ELEMENTO.map((x) => `\`${x.id}\` ${x.nombre}${x.id === 'entidad' ? ' (sólo adentro de un pop-up)' : ''}`).join(' · '));
+    out.push(`Las acciones de un botón: ${ACCIONES_DE_HOJA.map((id) => `\`${id}\` ${ACCIONES_ELEMENTO.find((a) => a.id === id)!.titulo}`).join(' · ')}.`);
+  }
   if (ver('periodos')) { out.push('', '## Períodos'); out.push(PRESETS.map((x) => `\`${x.id}\` ${x.nombre}`).join(' · '), 'Con desde y hasta, uno a medida.'); }
   if (p.seccion === 'campos') {
     out.push('## Campos para filtrar', 'Un campo compartido filtra todos los conjuntos donde significa lo mismo; los demás son de un conjunto («leads.etapa»).');
@@ -935,11 +1143,44 @@ export function informesMarkdown(p: { informes: readonly InformeListado[]; sinPe
 
 // ── Una hoja, en palabras ────────────────────────────────────────────────────────────────────
 
-/** Lo que el runner leyó de cada componente de la hoja. */
+/** Lo que el runner leyó de cada componente de la hoja (v5: no hay bloques; un elemento no lee nada). */
 export type LeidoDeComponente =
-  | { c: Grafico; desde: string; hasta: string; agrupar: 'dia' | 'semana' | 'mes' | null; filtros: string[]; noAplica: string[]; resultado: Resultado | null; error: string | null }
-  | { c: Bloque; desde: string; hasta: string; datos: unknown; error: string | null; oculto: boolean }
-  | { c: Componente & { clase: 'elemento' } };
+  | {
+    c: Grafico; desde: string; hasta: string; agrupar: 'dia' | 'semana' | 'mes' | null;
+    /** Los filtros que aplica para MIRAR (los de la hoja y los de su cabecera), en palabras. */
+    filtros: string[];
+    /** Los que lo DEFINEN (`fijo`: no se dibujan en la tarjeta), en palabras. */
+    fijos: string[];
+    noAplica: string[]; resultado: Resultado | null; error: string | null;
+  }
+  | { c: Elemento };
+
+/** Un elemento en una línea: qué es y, según el tipo, lo que tiene adentro (la dirección, la caja, el botón). */
+export function elementoEnPalabras(e: Elemento, http: boolean): string {
+  const base = `(\`${e.id}\`) ${nombreDeComponente(e)}`;
+  if (e.tipo === 'seccion') {
+    const s = e.seccion;
+    return `${base}${s?.plegable ? ` · se pliega, ${s.abierto ? 'abierta' : 'cerrada'} de entrada` : ''}`;
+  }
+  if (e.tipo === 'ia' && e.ia) {
+    const lee = e.ia.fuentes == null ? 'todos los gráficos de la hoja' : e.ia.fuentes.length ? `${e.ia.fuentes.length === 1 ? 'el gráfico' : 'los gráficos'} ${e.ia.fuentes.join(', ')}` : 'ninguno (los que leía se borraron)';
+    return `${base} · muestra ${e.ia.vista}, largo ${e.ia.largo} · lee ${lee}${e.ia.pedido ? ` · pide ${comillas(e.ia.pedido)}` : ''}. Su texto: leer_conclusiones_dashboard.`;
+  }
+  if (e.tipo === 'accion' && e.accion) return `${base} · corre \`${e.accion.id}\``;
+  const u = urlParaCanal(e.url, http);
+  return `${base}${u ? ` · ${u}` : ''}`;
+}
+
+/** Lo que un gráfico tiene de v5 que no son sus datos: su período propio, el botón de MaKo y el pop-up. */
+function extrasDeGrafico(g: Grafico): string {
+  const out: string[] = [];
+  const p = periodoDeGrafico(g);
+  if (p.periodo !== 'auto') out.push(`período propio: ${periodoEnPalabras(p.periodo, p.desde, p.hasta)}`);
+  if (g.mako === false) out.push('sin el botón de MaKo');
+  if (g.popup) out.push(`al hacer clic abre un pop-up${g.popup.titulo ? ` ${comillas(g.popup.titulo)}` : ''} (${g.popup.componentes.length} ${g.popup.componentes.length === 1 ? 'pieza' : 'piezas'}, se arma en la pantalla)`);
+  else if (g.alClic === 'nada') out.push('el clic no abre nada');
+  return out.length ? ` · ${out.join(' · ')}` : '';
+}
 
 export function hojaMarkdown(p: { hoja: Hoja; quien: string; periodoHoja: string; leidos: readonly LeidoDeComponente[]; link: string; topeFilas: number; controles: readonly ControlVista[]; http?: boolean }): string {
   const h = p.hoja;
@@ -960,23 +1201,70 @@ export function hojaMarkdown(p: { hoja: Hoja; quien: string; periodoHoja: string
   for (const l of p.leidos) {
     out.push('');
     // Por la FORMA de lo leído (sin período = un elemento): un type guard sobre `l.c` no angosta `l`.
-    if (!('desde' in l)) { const u = urlParaCanal((l.c as { url?: string }).url, !!p.http); out.push(`(\`${l.c.id}\`) ${nombreDeComponente(l.c)}${u ? ` · ${u}` : ''}`); continue; }
-    if ('resultado' in l) {
-      const g = l.c;
-      out.push(`(\`${g.id}\`) ${tipoDe(g.tipo)?.nombre ?? g.tipo} · ${g.metricas.join(', ')}${g.dimension ? ` por ${g.dimension}` : ''}${g.desglose ? ` y ${g.desglose}` : ''}`);
-      if (l.filtros.length) out.push(`Filtros: ${l.filtros.join(' · ')}`);
-      if (l.noAplica.length) out.push(`No filtra por: ${l.noAplica.join(', ')}`);
-      if (l.error || !l.resultado) out.push(`**${tituloDe(g)}**: no se pudo leer (${l.error ?? 'sin datos'}). No es un cero.`);
-      else out.push(...resultadoMarkdown(g, l.resultado, { desde: l.desde, hasta: l.hasta, topeFilas: p.topeFilas, agrupar: l.agrupar }));
-      continue;
-    }
-    const b = l.c as Bloque;
-    out.push(`(\`${b.id}\`) **${tituloDe(b)}** · bloque \`${b.bloque}\` · ${rangoTexto(l.desde, l.hasta)}`);
-    if (l.oculto) out.push('Los datos de los bloques no salen por la API (traen nombres de personas).');
-    else if (l.error) out.push(`No se pudo leer (${l.error}). No es un cero.`);
-    else out.push(...datosAMarkdown(l.datos));
+    if (!('desde' in l)) { out.push(elementoEnPalabras(l.c, !!p.http)); continue; }
+    const g = l.c;
+    out.push(`(\`${g.id}\`) ${tipoDe(g.tipo)?.nombre ?? g.tipo} · ${g.metricas.join(', ')}${g.dimension ? ` por ${g.dimension}` : ''}${g.desglose ? ` y ${g.desglose}` : ''}${extrasDeGrafico(g)}`);
+    if (l.fijos.length) out.push(`Lo define: ${l.fijos.join(' · ')}`);
+    if (l.filtros.length) out.push(`Filtros: ${l.filtros.join(' · ')}`);
+    if (l.noAplica.length) out.push(`No filtra por: ${l.noAplica.join(', ')}`);
+    if (l.error || !l.resultado) out.push(`**${tituloDe(g)}**: no se pudo leer (${l.error ?? 'sin datos'}). No es un cero.`);
+    else out.push(...resultadoMarkdown(g, l.resultado, { desde: l.desde, hasta: l.hasta, topeFilas: p.topeFilas, agrupar: l.agrupar }));
+  }
+  const conectores = h.conectores ?? [];
+  if (conectores.length) {
+    const nombre = (id: string) => { const c = h.componentes.find((x) => x.id === id); return c ? nombreDeComponente(c) : id; };
+    out.push('', 'Conectores:');
+    for (const k of conectores) out.push(`- \`${k.id}\` ${nombre(k.desde)} → ${nombre(k.hasta)} (${k.trazo}${k.punta === 'fin' ? '' : `, punta ${k.punta}`})`);
   }
   if (p.link) out.push('', p.link);
   return out.join('\n');
 }
 
+// ── Las cajas «Conclusiones de MaKo» ─────────────────────────────────────────────────────────
+
+/**
+ * Las cajas de IA SUELTAS EN LA HOJA (no las de un pop-up). ⚠️ LA API NO TOCA LAS DE UN POP-UP: leen lo que
+ * se abre (una llamada CON LO QUE SE DIJO, decisión 3 del 12/10) y su texto no sale por HTTP ni por ningún
+ * canal de la API. Viven adentro de su gráfico (`popup.componentes`), así que buscar en la hoja no las ve.
+ */
+export const cajasDeHoja = (h: Hoja): Elemento[] => h.componentes.filter((c): c is Elemento => esElemento(c) && c.tipo === 'ia' && !!c.ia);
+
+/** Una caja de la hoja por su id o su título; sin pedir ninguna, todas. */
+export function buscarCajas(h: Hoja, pedido: string): Encontrado<Elemento[]> {
+  const cajas = cajasDeHoja(h);
+  const disponibles = cajas.map((c) => `${c.id} · ${nombreDeComponente(c)}`);
+  if (!cajas.length) return { ok: false, error: `La hoja ${comillas(h.nombre)} no tiene cajas de Conclusiones de MaKo.`, disponibles };
+  if (!pedido.trim()) return { ok: true, valor: cajas, indice: 0 };
+  const cb = buscarComponente({ ...h, componentes: cajas }, pedido);
+  if (!cb.ok) return { ok: false, error: `No hay ninguna caja de Conclusiones de MaKo ${comillas(pedido.trim())} en la hoja ${comillas(h.nombre)}.`, disponibles };
+  return { ok: true, valor: [cb.valor as Elemento], indice: cb.indice };
+}
+
+/** La salida de una caja con los nombres reales en lugar de «Closer 1» (lo que ve la pantalla con sesión). */
+export function salidaCajaConNombres(s: SalidaCaja, nombres: Record<string, string>): SalidaCaja {
+  const n = (t: string) => conNombres(t, nombres);
+  return { ...s, resumen: n(s.resumen), puntos: s.puntos.map((x) => ({ ...x, titulo: n(x.titulo), texto: n(x.texto) })) };
+}
+
+/** Lo que escribió una caja, en texto: su párrafo y sus puntos. Vacío si todavía no escribió. */
+export function textoDeCaja(s: Pick<SalidaCaja, 'resumen' | 'puntos'>): string {
+  return [s.resumen.trim(), ...s.puntos.map((x) => `• ${x.titulo.trim()}${x.texto.trim() ? `: ${x.texto.trim()}` : ''}`)].filter(Boolean).join('\n');
+}
+
+/** Una caja leída: su lugar y su estado. */
+export type CajaLeida = { e: Elemento; vista: VistaCaja; salida: SalidaCaja | null };
+
+/** El estado de las cajas de una hoja, en markdown: lo que corre, lo último que escribieron, lo que falló. */
+export function conclusionesMarkdown(p: { hojaNombre: string; cajas: readonly CajaLeida[]; link: string; ahoraMs: number }): string {
+  const out: string[] = [`## Conclusiones de MaKo · ${p.hojaNombre}`];
+  for (const { e, vista, salida } of p.cajas) {
+    out.push('', `**${nombreDeComponente(e)}** (\`${e.id}\`)`);
+    if (vista.corriendo) out.push(`Está escribiendo desde ${haceCuanto(vista.corriendo.desde, p.ahoraMs)}: vuelve a leerla en un rato.`);
+    if (vista.fallo) out.push(`El último intento no salió: ${vista.fallo.error}`);
+    if (vista.ultimo && salida) out.push(`Escrita ${haceCuanto(vista.ultimo.analizadoAt, p.ahoraMs)} (${vista.ultimo.analizadoAt}).`, textoDeCaja(salida) || '(sin texto)');
+    else if (!vista.corriendo) out.push('Todavía no escribió nada: se pide con generar_conclusiones_dashboard.');
+    if (vista.programa) out.push(`Programada: ${textoCron(vista.programa.cron, vista.programa.tz)}.`);
+  }
+  if (p.link) out.push('', p.link);
+  return out.join('\n');
+}

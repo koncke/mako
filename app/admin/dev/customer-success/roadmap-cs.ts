@@ -251,7 +251,9 @@ export const URGENTE: Grupo[] = [
           'Dibujar el último contacto y los compromisos vencidos: los datos existen y ninguna pantalla los muestra desde la poda del 26/09.',
           '`conTrabajo` (`lib/cs-senal.ts`) sin call site: MaKo nunca ve las tareas vencidas de un cliente.',
           'La alerta de baja: sin umbral, sin cadencia, sin entrada en el catálogo de avisos y sin insumo (depende de analizar las llamadas de entrega).',
-          '`/cs-analyst` sigue en ComingSoon: darla de alta o borrarla.',
+          // Era «la ruta del CS Analyst sigue en ComingSoon»: desde el 12/10/2026 es la hoja «CS Analyst» del
+          // Dashboard (la ruta redirige). Lo que le falta a la hoja:
+          'La hoja CS Analyst del Dashboard no anticipa una baja: no lee las llamadas de entrega.',
           'El onboarding de la tab.',
         ],
       },

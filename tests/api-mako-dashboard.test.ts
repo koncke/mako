@@ -37,12 +37,12 @@ import { join } from 'node:path';
 import { REGISTRO } from '../lib/api-mako/registro';
 import { RUTAS_REST } from '../lib/api-mako/rest';
 import {
-  ERROR_PERSONA_EN_FLUJO, aplicarCambio, armarControlHoja, armarElemento, armarGrafico, buscarComponente, buscarHoja,
-  catalogoJson, catalogoMarkdown, controlParaHttp, copiaDeHoja, datosAMarkdown, elegirPersona, etiquetaPersona,
-  filtrosDeConsulta, juntarTotales, periodoPedido, periodoGuardado, recortar, resultadoMarkdown, resultadoPara,
-  textoDeAnalisis, urlParaCanal, type MiembroCuenta, type PersonaInforme,
+  ERROR_PERSONA_EN_FLUJO, aplicarCambio, armarConector, armarControlHoja, armarElemento, armarGrafico, buscarCajas, buscarComponente,
+  buscarConector, buscarHoja, catalogoJson, catalogoMarkdown, conFiltrosFijos, controlParaHttp, controlesDeFiltros, copiaDeHoja,
+  elegirPersona, etiquetaPersona, filtrosDeConsulta, filtrosFijosDe, hojaMarkdown, juntarTotales, periodoDeGrafico, periodoPedido,
+  periodoGuardado, recortar, resultadoMarkdown, resultadoPara, textoDeAnalisis, urlParaCanal, type MiembroCuenta, type PersonaInforme,
 } from '../lib/api-mako/areas/dashboard.helpers';
-import { fuenteDe, sanearGrafico, TIPOS_ELEMENTO, type Grafico, type Tablero } from '../lib/graficos-catalogo';
+import { MAX_IA_POR_HOJA, fuenteDe, sanearGrafico, sanearHoja, TIPOS_ELEMENTO, type Elemento, type Grafico, type Hoja, type Tablero } from '../lib/graficos-catalogo';
 import { tableroInicial } from '../lib/graficos-plantillas';
 import { Alias } from '../lib/graficos-analisis';
 import type { Resultado } from '../lib/graficos-agregar';
@@ -151,12 +151,14 @@ test('el componente: por id o por título', () => {
   assert.ok(!no.ok && no.disponibles.length === h.componentes.length);
 });
 
-test('el período: un preset o desde y hasta, en orden, y acotado a hoy (salvo un bloque)', () => {
+// v5: el período de una lectura va TAL CUAL; el corte en hoy vive en `datosDeGraficos` (una fecha que mira hacia
+// adelante, como el vencimiento de una cuota, no se corta). Rotura 15.
+test('el período: un preset o desde y hasta, en orden, y SIN cortar en hoy (lo corta la lectura)', () => {
   const hoy = '2026-10-11';
   assert.deepEqual(periodoPedido({}, hoy), { preset: 'ult30', desde: '2026-09-12', hasta: hoy });
   assert.deepEqual(periodoPedido({ periodo: 'este_mes' }, hoy), { preset: 'este_mes', desde: '2026-10-01', hasta: hoy });
-  assert.deepEqual(periodoPedido({ desde: '2026-10-01', hasta: '2026-12-31' }, hoy), { preset: 'personalizado', desde: '2026-10-01', hasta: hoy });
-  assert.deepEqual(periodoPedido({ desde: '2026-10-01', hasta: '2026-12-31' }, hoy, 'ult30', false), { preset: 'personalizado', desde: '2026-10-01', hasta: '2026-12-31' });
+  assert.deepEqual(periodoPedido({ periodo: 'este_mes_completo' }, hoy), { preset: 'este_mes_completo', desde: '2026-10-01', hasta: '2026-10-31' }, 'lo que vence en el mes, entero');
+  assert.deepEqual(periodoPedido({ desde: '2026-10-01', hasta: '2026-12-31' }, hoy), { preset: 'personalizado', desde: '2026-10-01', hasta: '2026-12-31' });
   const medio = periodoPedido({ desde: '2026-10-01' }, hoy);
   assert.ok('error' in medio);
   const reves = periodoPedido({ desde: '2026-10-05', hasta: '2026-10-01' }, hoy);
@@ -273,8 +275,8 @@ test('⚠️ POR HTTP las etiquetas de personas salen como alias; por WhatsApp y
 
 test('las lecturas con personas no salen por HTTP, y todo pide la tab del Dashboard y el rol admin', () => {
   const del = REGISTRO.filter((d) => d.id.endsWith('_dashboard'));
-  assert.equal(del.length, 22, `son ${del.length}`);
-  for (const id of ['listar_informes_dashboard', 'leer_bloque_dashboard', 'ver_detalle_numero_dashboard', 'listar_valores_campo_dashboard']) {
+  assert.equal(del.length, 25, `son ${del.length}`);
+  for (const id of ['listar_informes_dashboard', 'ver_detalle_numero_dashboard', 'listar_valores_campo_dashboard']) {
     assert.ok(!REGISTRO.find((d) => d.id === id)!.canales.includes('http'), `${id} trae nombres de personas y sale por HTTP`);
   }
   for (const d of del) {
@@ -324,9 +326,6 @@ test('el markdown de un resultado: la tabla con su unidad, el total y lo que no 
   assert.deepEqual(tot.totales, [1, 2]);
   assert.deepEqual(tot.anterior, [null, 1]);
   assert.match(recortar('a\n'.repeat(50), 20), /Recortado/);
-  const bloque = datosAMarkdown({ bloque: 'x', total: 3, filas: Array.from({ length: 15 }, (_, i) => ({ nombre: `n${i}`, monto: i })) }).join('\n');
-  assert.match(bloque, /filas \(15\)/);
-  assert.match(bloque, /y 5 más/);
 });
 
 test('el catálogo: los ids que piden las otras operaciones, y un conjunto inventado dice los que hay', () => {
@@ -398,11 +397,11 @@ test('⚠️ ESCRIBIR ES COMPARE-AND-SET: el runner relee y compara, y el guarda
 });
 
 // Rotura 11.
-test('⚠️ leer una hoja: las MISMAS lecturas que la pantalla, el CSV del botón Exportar, y por HTTP sin bloques', () => {
+test('⚠️ leer una hoja: las MISMAS lecturas que la pantalla, el CSV del botón Exportar, y sin bloques (v5)', () => {
   const r = runner('leer_hoja_dashboard');
   assert.match(r, /pedidosDeHoja\(hoja, \{\}, hoy, 0\)/, 'los pedidos de la pantalla, con la vista vacía');
   assert.match(r, /datosDeGraficos\(/);
-  assert.match(r, /http \|\| !bloques\.length \? Promise\.resolve\(/, 'por HTTP no se leen los bloques (traen nombres)');
+  assert.doesNotMatch(RUN, /datosDeBloques|graficos-bloques|armarBloque|leer_bloque_dashboard/, 'los bloques se fueron: nadie los lee');
   assert.match(r, /csvDeHoja\(\{ hoja, resultados, efectivos, hoy \}\)/, 'el MISMO CSV que el botón Exportar');
   assert.match(r, /resultadoPara\(c, d\.resultado, http, alias\)/);
   assert.match(runner('consultar_datos_dashboard'), /filtrosDeConsulta\(fuente, input\.filtros as EntradaFiltro\[\] \| undefined, http\)/);
@@ -419,4 +418,232 @@ test('el AI Analyst por la API arranca y corre POR DETRÁS (/api/v1 corta a los 
 
 test('una URL que pasó por un modelo se muestra ENTERA en lo que la persona confirma', () => {
   assert.match(runner('insertar_elemento_dashboard'), /con la dirección \$\{url\}/);
+});
+
+// ── v5 (12/10/2026): sin bloques, filtros de definición, el período como control, lo nuevo de una hoja ─────────
+
+const hojaDe = (componentes: unknown[], extra: Record<string, unknown> = {}): Hoja => sanearHoja({ id: 'h', nombre: 'H', componentes, ...extra }, 0)!;
+
+// Rotura 16.
+test('v5: sin bloques en la API — ni la operación, ni el parámetro, ni la sección del catálogo, ni las formas', () => {
+  const del = REGISTRO.filter((d) => d.id.endsWith('_dashboard'));
+  assert.ok(!del.some((d) => d.id === 'leer_bloque_dashboard'), 'leer_bloque_dashboard se fue');
+  for (const d of del) {
+    assert.ok(!d.parametros.some((p) => p.nombre === 'bloque'), `${d.id} todavía acepta un bloque`);
+    const dice = [d.titulo, d.descripcion, ...d.parametros.map((p) => `${p.descripcion} ${(p.enum ?? []).join(' ')}`)].join(' ');
+    assert.doesNotMatch(dice, /\bbloques?\b|rect[aá]ngulo|c[ií]rculo/i, `${d.id} nombra lo que ya no existe`);
+  }
+  const md = catalogoMarkdown({});
+  assert.ok(typeof md === 'string' && !/Bloques armados/.test(md));
+  assert.ok(!('bloques' in (catalogoJson({}) as Record<string, unknown>)));
+});
+
+// Rotura 17.
+test('v5: los filtros que se GUARDAN en un gráfico son de DEFINICIÓN (fijo); reemplazarlos deja los de mirar; por HTTP no sobre personas', () => {
+  const leads = fuenteDe('leads')!;
+  const cf = controlesDeFiltros(leads, [{ campo: 'etapa', valores: ['Ganado'] }, { campo: 'campana', texto: 'Verano' }]);
+  assert.ok(cf.ok);
+  assert.ok(cf.controles.every((k) => k.fijo === true), 'nacían como chips de la tarjeta (el punto 1 del pedido v5)');
+  assert.deepEqual(cf.controles.map((k) => k.tipo), ['lista', 'texto']);
+  const http = controlesDeFiltros(leads, [{ campo: 'closer', valores: ['Juan'] }], true);
+  assert.ok(!http.ok && /personas/.test(http.error), 'guardado en el informe es el mismo oráculo que en una consulta');
+  assert.ok(controlesDeFiltros(leads, [{ campo: 'closer', valores: ['Juan'] }], false).ok, 'por WhatsApp y la app, sí');
+  assert.ok(!controlesDeFiltros(leads, [{ campo: 'etapa', valores: ['A'] }, { campo: 'leads.etapa', valores: ['B'] }]).ok, 'uno por campo');
+  // Reemplazar: se van los fijos de antes; quedan el período y los de mirar, salvo el del mismo campo (manda el que define).
+  const g = sanearGrafico({
+    id: 'g1', tipo: 'tabla', fuente: 'leads', dimension: 'etapa', metricas: ['leads'], periodo: 'ult90',
+    controles: [{ id: 'k1', tipo: 'lista', campo: 'campana' }, { id: 'k2', tipo: 'lista', campo: 'leads.origen', fijo: true, valores: ['Meta'] }, { id: 'k3', tipo: 'texto', campo: 'leads.etapa' }],
+  })!;
+  const nuevos = controlesDeFiltros(leads, [{ campo: 'campana', valores: ['Verano'] }]);
+  assert.ok(nuevos.ok);
+  const cc = conFiltrosFijos(g.controles, nuevos.controles);
+  assert.ok(cc.ok);
+  assert.deepEqual(cc.controles.map((k) => `${k.tipo}:${k.campo ?? ''}:${k.fijo ? 'fijo' : 'mirar'}`), ['periodo::fijo', 'texto:leads.etapa:mirar', 'lista:campana:fijo']);
+  assert.deepEqual(filtrosFijosDe({ controles: cc.controles }).map((k) => k.campo), ['campana']);
+});
+
+// Rotura 18.
+test('v5: el período de un gráfico se escribe como control FIJO (y «auto» lo saca); los nombres de los parámetros no cambian', () => {
+  const a = armarGrafico({ tipo: 'tabla', conjunto: 'leads', metricas: ['leads'], dimension: 'etapa', periodo: 'ult90' }, null);
+  assert.ok(a.ok);
+  const p = a.grafico.controles.filter((k) => k.tipo === 'periodo');
+  assert.equal(p.length, 1);
+  assert.equal(p[0].fijo, true);
+  assert.equal(p[0].preset, 'ult90');
+  assert.equal(p[0].id, `${a.grafico.id}-fecha`);
+  assert.equal(a.grafico.periodo, 'auto', 'el campo de antes no se usa');
+  assert.deepEqual(periodoDeGrafico(a.grafico), { periodo: 'ult90', desde: null, hasta: null, fijo: true });
+  // EL caso: un gráfico que ya tiene un control de período. Con el campo de antes, el saneo descartaba el pedido.
+  const conVisible = sanearGrafico({ id: 'g2', tipo: 'tabla', fuente: 'leads', dimension: 'etapa', metricas: ['leads'], controles: [{ id: 'p', tipo: 'periodo', preset: 'ult7' }] })!;
+  const b = armarGrafico({ desde: '2026-09-01', hasta: '2026-09-30' }, conVisible);
+  assert.ok(b.ok);
+  assert.deepEqual(periodoDeGrafico(b.grafico), { periodo: 'personalizado', desde: '2026-09-01', hasta: '2026-09-30', fijo: true });
+  assert.equal(b.grafico.controles.filter((k) => k.tipo === 'periodo').length, 1);
+  const c = armarGrafico({ periodo: 'auto' }, b.grafico);
+  assert.ok(c.ok && !c.grafico.controles.some((k) => k.tipo === 'periodo') && periodoDeGrafico(c.grafico).periodo === 'auto', '«auto» = el de la hoja');
+  // El editor de Automations arma selectores por NOMBRE: periodo, desde y hasta siguen siendo esos.
+  for (const op of ['agregar_grafico_dashboard', 'editar_grafico_dashboard']) {
+    const nombres = new Set(REGISTRO.find((d) => d.id === op)!.parametros.map((x) => x.nombre));
+    for (const n of ['periodo', 'desde', 'hasta', 'filtros', 'mako']) assert.ok(nombres.has(n), `${op}: ${n}`);
+  }
+  // Y lo que se MUESTRA de una consulta va cortado como en la pantalla (lo pedido viaja entero a la lectura).
+  assert.match(runner('consultar_datos_dashboard'), /const hasta = cortarEnHoyDe\(principal, per\.desde, per\.hasta\);/);
+});
+
+// Rotura 19.
+test('v5: el botón de MaKo se apaga y se prende por gráfico (ausente = prendido)', () => {
+  const a = armarGrafico({ tipo: 'numero', conjunto: 'leads', metricas: ['leads'], mako: false }, null);
+  assert.ok(a.ok && a.grafico.mako === false);
+  const b = armarGrafico({ mako: true }, a.grafico);
+  assert.ok(b.ok && b.grafico.mako === undefined, 'prenderlo es sacar la marca');
+  const c = armarGrafico({ titulo: 'Leads' }, a.grafico);
+  assert.ok(c.ok && c.grafico.mako === false, 'sin pedirlo, como estaba');
+});
+
+// Rotura 20.
+test('v5: los elementos nuevos — sección, caja de IA con su configuración, acción de la hoja — y la ficha NO', () => {
+  const h = hojaDe([
+    { id: 'g-a', tipo: 'tabla', fuente: 'leads', dimension: 'etapa', metricas: ['leads'], titulo: 'Por etapa' },
+    { id: 'g-b', tipo: 'numero', fuente: 'leads', metricas: ['cierres'], y: 8 },
+  ]);
+  const s = armarElemento({ tipo: 'seccion', texto: 'Cobranza', plegable: true, abierto: false, fondo: 2 }, 0, h);
+  assert.ok(s.ok);
+  const sec = s.elemento as Elemento;
+  assert.deepEqual(sec.seccion, { fondo: 2, plegable: true, abierto: false });
+  assert.deepEqual([sec.x, sec.w], [0, 12], 'una sección va a lo ancho');
+  const ia = armarElemento({ tipo: 'ia', texto: 'Qué pasa', pedido: 'Qué etapa frena', componentes: ['Por etapa'], muestra: 'hallazgos', largo: 'corto' }, 0, h);
+  assert.ok(ia.ok);
+  assert.deepEqual((ia.elemento as Elemento).ia, { pedido: 'Qué etapa frena', fuentes: ['g-a'], vista: 'hallazgos', largo: 'corto', formato: 'parrafo', lee: 'hoja', cron: null });
+  const malGrafico = armarElemento({ tipo: 'ia', componentes: ['no-esta'] }, 0, h);
+  assert.ok(!malGrafico.ok && (malGrafico.disponibles as string[]).some((x) => x.startsWith('g-a')));
+  assert.ok(!armarElemento({ tipo: 'ia', muestra: 'poema' }, 0, h).ok);
+  const llena = hojaDe([...h.componentes, ...Array.from({ length: MAX_IA_POR_HOJA }, (_, i) => ({ id: `ia${i}`, clase: 'elemento', tipo: 'ia', ia: {}, y: 20 + i * 8 }))]);
+  const quinta = armarElemento({ tipo: 'ia' }, 0, llena);
+  assert.ok(!quinta.ok && /máximo/.test(quinta.error), 'el saneo la tiraría sin decir nada');
+  const boton = armarElemento({ tipo: 'accion', accion: 'sincronizar_llamadas' }, 0, h);
+  assert.ok(boton.ok);
+  assert.deepEqual((boton.elemento as Elemento).accion, { id: 'sincronizar_llamadas', rotulo: 'Sincronizar llamadas' });
+  const deLlamada = armarElemento({ tipo: 'accion', accion: 'reanalizar_llamada' }, 0, h);
+  assert.ok(!deLlamada.ok && (deLlamada.disponibles as string[]).includes('sincronizar_llamadas'), 'una acción de una llamada vive en su pop-up');
+  const ficha = armarElemento({ tipo: 'entidad' }, 0, h);
+  assert.ok(!ficha.ok && /pop-up/.test(ficha.error));
+  for (const viejo of ['rectangulo', 'circulo']) assert.ok(!armarElemento({ tipo: viejo }, 0, h).ok, viejo);
+  // Y una quinta caja que llegó en el medio (entre proponer y confirmar) se dice al aplicar.
+  const cuarta = armarElemento({ tipo: 'ia' }, 0, h);
+  assert.ok(cuarta.ok);
+  const ap = aplicarCambio({ v: 3, nombre: 'D', hojas: [llena] }, { op: 'agregar_componente', hojaId: 'h', componente: cuarta.elemento, lugar: 'abajo' });
+  assert.ok(!ap.ok && /máximo/.test(ap.error));
+});
+
+// Rotura 21.
+test('v5: los conectores — unir, «ya están unidos», sacar, y se van con el componente que tocaban; duplicar los sigue', () => {
+  const h = hojaDe([
+    { id: 'g-a', tipo: 'numero', fuente: 'leads', metricas: ['leads'], titulo: 'Leads' },
+    { id: 'g-b', tipo: 'numero', fuente: 'leads', metricas: ['cierres'], titulo: 'Cierres', x: 6 },
+  ]);
+  const t: Tablero = { v: 3, nombre: 'D', hojas: [h] };
+  const a = armarConector(h, { origen: 'Leads', destino: 'g-b', trazo: 'recta' });
+  assert.ok(a.ok && a.conector.desde === 'g-a' && a.conector.hasta === 'g-b' && a.conector.trazo === 'recta' && a.conector.punta === 'fin');
+  assert.ok(!armarConector(h, { origen: 'g-a', destino: 'g-a' }).ok, 'no a sí mismo');
+  assert.ok(!armarConector(h, { origen: 'g-a', destino: 'g-b', punta: 'flecha' }).ok);
+  const ap = aplicarCambio(t, { op: 'agregar_conector', hojaId: 'h', conector: a.conector });
+  assert.ok(ap.ok && ap.tablero.hojas[0].conectores?.length === 1);
+  const h2 = ap.tablero.hojas[0];
+  const otra = armarConector(h2, { origen: 'g-b', destino: 'g-a' });
+  assert.ok(!otra.ok && otra.yaEstaba, 'el mismo par, en cualquier sentido');
+  const b = buscarConector(h2, { origen: 'Cierres', destino: 'Leads' });
+  assert.ok(b.ok && b.valor.id === a.conector.id);
+  const fuera = aplicarCambio(ap.tablero, { op: 'quitar_conector', hojaId: 'h', conectorId: a.conector.id });
+  assert.ok(fuera.ok && !(fuera.tablero.hojas[0].conectores ?? []).length);
+  const sinB = aplicarCambio(ap.tablero, { op: 'quitar_componente', hojaId: 'h', componenteId: 'g-b' });
+  assert.ok(sinB.ok && !(sinB.tablero.hojas[0].conectores ?? []).length, 'un conector a un componente que no está no queda colgado');
+  // Duplicar una hoja: los conectores y lo que lee una caja siguen a los ids NUEVOS.
+  const conCaja = hojaDe([...h2.componentes, { id: 'ia1', clase: 'elemento', tipo: 'ia', ia: { fuentes: ['g-a'] }, y: 20 }], { conectores: h2.conectores, plantilla: 'closing' });
+  const copia = copiaDeHoja(conCaja);
+  const nuevoA = copia.componentes.find((c) => c.clase === 'grafico' && c.titulo === 'Leads')!.id;
+  assert.notEqual(nuevoA, 'g-a');
+  assert.equal(copia.conectores?.length, 1, 'el saneo los descartaba: apuntaban a ids que no están');
+  assert.equal(copia.conectores![0].desde, nuevoA);
+  assert.deepEqual((copia.componentes.find((c) => c.clase === 'elemento') as Elemento).ia?.fuentes, [nuevoA], 'la caja se quedaba leyendo nada');
+  assert.equal(copia.plantilla, undefined, 'la copia no es la hoja de la plantilla');
+});
+
+// Rotura 22.
+test('v5: por HTTP tampoco nombran personas las COLUMNAS EXTRA de una tabla, y una fila-persona va sin su miniatura', () => {
+  const g = sanearGrafico({ id: 'g', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'llamada', metricas: ['llamadas'], tabla: { columnas: ['closer', 'reunion'] } })!;
+  const r: Resultado = {
+    columnas: [{ id: 'llamadas', nombre: 'Llamadas', formato: 'numero' }], totales: [1], fuera: 0, clase: 'categoria',
+    filas: [{ clave: 'Llamada con Ana', etiqueta: 'Llamada con Ana', valores: [1], extra: { closer: 'Juan Pérez', reunion: 'R1' }, imagen: 'https://x.com/a.png' }],
+  };
+  const http = resultadoPara(g, r, true, new Alias());
+  assert.doesNotMatch(JSON.stringify(http), /Juan|Ana|a\.png/);
+  assert.equal(http.filas[0].extra?.reunion, 'R1', 'una columna pública va tal cual');
+  assert.equal(resultadoPara(g, r, false, new Alias()), r, 'por WhatsApp y la app, tal cual');
+  // Las tarjetas de un guion (público) sí llevan su miniatura.
+  const t = sanearGrafico({ id: 't', tipo: 'tarjetas', fuente: 'guiones', dimension: 'guion', metricas: [] })!;
+  const rt: Resultado = { ...r, filas: [{ clave: 'Hook 1', etiqueta: 'Hook 1', valores: [1], imagen: 'https://x.com/b.png' }] };
+  assert.equal(resultadoPara(t, rt, true, new Alias()).filas[0].imagen, 'https://x.com/b.png');
+});
+
+// Rotura 23.
+test('v5: la hoja en palabras dice lo nuevo — lo que define un gráfico, el botón de MaKo, el pop-up, los elementos y los conectores', () => {
+  const h = hojaDe([
+    { id: 'g-a', tipo: 'numero', fuente: 'leads', metricas: ['leads'], titulo: 'Ganados', mako: false, alClic: 'popup', popup: { titulo: 'Lead', componentes: [{ id: 'p-t', clase: 'elemento', tipo: 'texto', texto: 'x' }] } },
+    { id: 's1', clase: 'elemento', tipo: 'seccion', texto: 'Cobranza', seccion: { plegable: true, abierto: false }, y: 4 },
+    { id: 'ia1', clase: 'elemento', tipo: 'ia', texto: 'Qué pasa', ia: { pedido: 'Qué frena', vista: 'hallazgos' }, y: 6 },
+    { id: 'b1', clase: 'elemento', tipo: 'accion', accion: { id: 'sincronizar_llamadas', rotulo: 'Traer llamadas' }, y: 14 },
+  ], { conectores: [{ id: 'k1', desde: 'g-a', hasta: 'ia1' }] });
+  const g = h.componentes[0] as Grafico;
+  const md = hojaMarkdown({
+    hoja: h, quien: 'el informe de Ana', periodoHoja: 'Últimos 30 días', link: '', topeFilas: 10, controles: [],
+    leidos: [
+      { c: g, desde: '2026-10-01', hasta: '2026-10-11', agrupar: null, filtros: [], fijos: ['Etapa: Ganado'], noAplica: [], resultado: null, error: 'x' },
+      ...h.componentes.filter((c): c is Elemento => c.clase === 'elemento').map((c) => ({ c })),
+    ],
+  });
+  assert.match(md, /Lo define: Etapa: Ganado/);
+  assert.match(md, /sin el botón de MaKo/);
+  assert.match(md, /abre un pop-up «Lead»/);
+  assert.match(md, /Sección: Cobranza · se pliega, cerrada de entrada/);
+  assert.match(md, /Conclusiones de MaKo: Qué pasa · muestra hallazgos.*pide «Qué frena»/);
+  assert.match(md, /Acción: Traer llamadas · corre `sincronizar_llamadas`/);
+  assert.match(md, /Conectores:\n- `k1` Ganados → Conclusiones de MaKo: Qué pasa/);
+});
+
+// Rotura 24.
+test('v5: las cajas de Conclusiones que toca la API son las SUELTAS EN LA HOJA — nunca la de un pop-up (lee una llamada)', () => {
+  const h = hojaDe([
+    { id: 'tab', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'llamada', metricas: ['llamadas'], alClic: 'popup', popup: { titulo: 'Llamada', componentes: [{ id: 'ia-pop', clase: 'elemento', tipo: 'ia', ia: { lee: 'entidad' } }] } },
+    { id: 'ia-hoja', clase: 'elemento', tipo: 'ia', texto: 'Qué decide los cierres', ia: {}, y: 12 },
+  ]);
+  const todas = buscarCajas(h, '');
+  assert.ok(todas.ok && todas.valor.map((e) => e.id).join() === 'ia-hoja');
+  assert.ok(!buscarCajas(h, 'ia-pop').ok, 'la del pop-up no existe para la API');
+  assert.ok(buscarCajas(h, 'Qué decide los cierres').ok, 'por título');
+  // El runner llama a las funciones de las cajas SIEMPRE sin pop-up y sin lo abierto.
+  for (const id of ['leer_conclusiones_dashboard', 'generar_conclusiones_dashboard']) {
+    const r = runner(id);
+    const vistas = [...r.matchAll(/vistaDeCaja\(([^)]*)\)/g)];
+    assert.ok(vistas.length >= 1, `${id} sin vistaDeCaja`);
+    for (const m of vistas) assert.match(m[1], /popupDe: '', elementoId: e\.id, ref: ''/, `${id}: ${m[1]}`);
+  }
+  assert.match(runner('generar_conclusiones_dashboard'), /arrancarCaja\(\{\s*usuario: sub, hoja, elementoId, popupDe: null, ref: null,/);
+  const llamadas = [...RUN.matchAll(/\b(vistaDeCaja|arrancarCaja|vistaDeCajaDeLaCuenta|programarCaja|drenarCajasVencidas)\(/g)].length;
+  assert.equal(llamadas, 3, 'una llamada nueva a las cajas pasa por esta guarda');
+  // Salen por HTTP con alias, como el AI Analyst: generar cuesta IA (gratis), se confirma y corre por detrás.
+  const gen = REGISTRO.find((d) => d.id === 'generar_conclusiones_dashboard')!;
+  assert.equal(gen.costo, 'ia');
+  assert.equal(gen.lenta, true);
+  assert.match(runner('generar_conclusiones_dashboard'), /porDetras\(ctx\.ws, \(\) => analizarCaja\(r\.pedido\)\)/);
+  assert.match(runner('leer_conclusiones_dashboard'), /r\.http \? vista\.ultimo\.salida : salidaCajaConNombres\(/);
+});
+
+// Rotura 25.
+test('v5: por HTTP, un filtro de la hoja no deja ELEGIDO un nombre (sí el filtro sin valores)', () => {
+  const h = hojaDe([]);
+  const conNombre = armarControlHoja(h, { tipo: 'lista', campo: 'closer', valores: ['Juan'] }, true);
+  assert.ok(!conNombre.ok && /personas/.test(conNombre.error));
+  assert.ok(armarControlHoja(h, { tipo: 'lista', campo: 'closer' }, true).ok);
+  assert.ok(armarControlHoja(h, { tipo: 'lista', campo: 'closer', valores: ['Juan'] }, false).ok);
+  assert.match(runner('agregar_filtro_dashboard'), /\}, ctx\.canal === 'http'\);/);
 });

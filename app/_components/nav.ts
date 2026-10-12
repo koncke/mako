@@ -23,9 +23,10 @@
 //
 // Dentro de una familia hay dos niveles, y la diferencia importa:
 //   · `items`  — lo que se abre TODOS LOS DÍAS. Siempre a la vista.
-//   · `grupos` — colecciones que se consultan de a una (los Analysts, los
-//     tres canales de chat, los writers). Abren un desplegable al costado. Sin
-//     esto, Analyze eran nueve filas y la barra se volvía una lista de todo.
+//   · `grupos` — colecciones que se consultan de a una (los canales de chat, los
+//     writers). Abren un desplegable al costado. Sin esto, la barra se volvía una
+//     lista de todo. (Los Analysts eran el primero, y se fueron el 12/10/2026:
+//     son hojas del Dashboard. Ver la familia Analyze.)
 //
 // Dos parejas que conviene no confundir, porque son la razón del reparto:
 //   · Ads Manager (Operate) EJECUTA · el Dashboard (Analyze, la hoja «Ads Analyst») COMPRENDE.
@@ -204,9 +205,11 @@ export const FAMILIAS: NavFamilia[] = [
         // El CLOSER lo ve desde el 11/10/2026 (decisión 6 de Martín): Closing Analyst se retiró y su
         // análisis, con la ficha de cada llamada y sus tareas, es la hoja «Closing» del Dashboard. Ve
         // SÓLO esa hoja y sin editar: lo pone app/dashboard/page.tsx (un informe en memoria) y lo
-        // cierra /api/graficos (`closerPuedePedir`, lib/graficos-plantillas.ts). La key sigue siendo
-        // `graphics`; la de Closing (`closing`) se quedó en las capas y en los gating de la API.
-        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', rolesWs: ['closer'], match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) },
+        // cierra /api/graficos (`puedePedir`, lib/graficos-plantillas.ts). Y el SETTER desde el 12/10/2026
+        // (tanda v5): ve SÓLO la hoja «Chat Analyst», que reemplazó a /chat-analyst — la misma regla, en
+        // `HOJA_DE_ROL`. La key sigue siendo `graphics`; las de Closing (`closing`) y WhatsApp (`whatsapp`)
+        // son las de las capas que cada hoja pide.
+        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', rolesWs: ['closer', 'setter'], match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) },
         // Sólo lo ve el super admin desde el 12/10/2026 (Martín: «Elimina "Competitors Spy" y que solo se vea en super admin»).
         // Salió de los Analysts: los demás analizan un activo PROPIO (un anuncio,
         // una landing, una llamada); éste vigila lo que hacen los demás.
@@ -214,36 +217,20 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: (p) => starts('/experimentos')(p) || starts('/analisis')(p) },
       ],
     ],
-    grupos: [
-      {
-        // Ordenados por el CAMINO del negocio, no alfabético ni por antigüedad:
-        // primero lo que trae a la gente (anuncio → landing → VSL) y al final lo
-        // que pasa con la persona (la conversación, la llamada, el cliente). La
-        // oferta, que iba primera, salió el 11/10/2026 a su propia tab suelta
-        // («Offer», desde el 12/10 en Sales Machine): ya no sólo analiza, también la escribe.
-        // Sólo el super admin desde el 12/10/2026 (Martín: «elimina "analysts" que tiene desplegable con puras tabs de
-        // "pronto"»): las tres llevan adminOnly, así que para un cliente el grupo queda vacío y no se dibuja.
-        key: 'analysts', label: 'Analysts', icon: 'search',
-        items: [
-          { key: 'vsl-an', adminOnly: true, label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
-          { key: 'chat-analyst', adminOnly: true, label: 'Chat Analyst', href: '/chat-analyst', icon: 'chats', comingSoon: true, rolesWs: ['setter'], match: starts('/chat-analyst') },
-          { key: 'cs-analyst', adminOnly: true, label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
-          // CUATRO SALIERON DE ACÁ el 11/10/2026 (Martín: «elimina las tabs que ya hayas puesto como
-          // template de la sidebar», y después las decisiones 4, 5 y 6 de ese día):
-          //   · Productivity Analyst: era todo análisis; vive entera en la hoja «Productividad» del
-          //     Dashboard. Su ruta redirige (app/productivity-analyst/page.tsx).
-          //   · Ads Analyst (key `script`): el análisis es la hoja «Ads Analyst» del Dashboard y la tarea
-          //     (valorar un guion, sincronizar, ángulos y avatares) se mudó a Ads Writer (?tab=analizar).
-          //   · Landing Analyst (key `landing-an`): el análisis es la hoja «Landing» y la tarea (analizar
-          //     una página) se mudó a Landing Generator (/landing-generator/analizar).
-          //   · Closing Analyst (key `closing`): va COMPLETO a la hoja «Closing», con la ficha de cada
-          //     llamada y sus tareas; el closer ve el Dashboard (el ítem `graphics`, arriba).
-          // Sus rutas REDIRIGEN (hay links afuera que nadie puede editar) y sus KEYS se quedan en
-          // lib/capas.ts y en los gating de la API: están escritas en la base. Que nadie vuelva a
-          // enlazarlas lo cuida tests/tabs-retiradas.test.ts.
-        ],
-      },
-    ],
+    // ⚠️ SIN `grupos` DESDE EL 12/10/2026 (tanda v5, punto 22; Martín: «elimina por completo el
+    // desplegable de la sidebar principal de "analysts"»).
+    // Era el desplegable «Analysts» y se vació de a poco, todo hacia hojas del Dashboard:
+    //   · el 11/10, Productivity Analyst (hoja «Productividad»), Ads Analyst (key `script`: hoja «Ads
+    //     Analyst»; valorar un guion se mudó a Ads Writer), Landing Analyst (key `landing-an`: hoja
+    //     «Landing»; analizar una página, a Landing Generator) y Closing Analyst (key `closing`: hoja
+    //     «Closing», completa, y el closer ve el Dashboard);
+    //   · el 12/10, los tres que quedaban, que eran «pronto»: VSL Analyst (key `vsl-an`), CS Analyst
+    //     (`cs-analyst`) y Chat Analyst (`chat-analyst`, la del setter), hojas «VSL Analyst», «CS Analyst»
+    //     y «Chat Analyst» (lib/graficos-plantillas-analysts.ts). El setter ve SÓLO la suya (`HOJA_DE_ROL`).
+    // Sus rutas REDIRIGEN a `/dashboard?hoja=<id>` (hay links afuera que nadie puede editar). Las keys de los
+    // tres de v5 NO se conservan: no estaban escritas en ninguna capa, onboarding ni test (medido, relevo E).
+    // Las del 11/10 se quedan en lib/capas.ts y en los gating de la API. Que nadie vuelva a enlazar ninguna
+    // ruta lo cuida tests/tabs-retiradas.test.ts.
   },
   {
     // Todo lo que construye la máquina de VENDER, en el orden del embudo: lo que

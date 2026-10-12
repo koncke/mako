@@ -32,13 +32,16 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   // «Offer» a secas desde el 11/10/2026: Offer Analyst y Offer Generator viven en UNA tab
   // (/offer). El id `offer` no cambia — está escrito en los reportes ya guardados en
   // retros.reporte, y un id nuevo los dejaría apuntando a nada.
-  offer: 'Offer', cs: 'CS Analyst', todo: 'To-do', chats: 'Chats (WA, Email, IG)',
+  // VSL, CS y Chat Analyst son, desde el 12/10/2026 (tanda v5), hojas del Dashboard con esos nombres: el de
+  // `chats` pasa a ser el de la hoja («Chats (WA, Email, IG)» nombraba una tab que no existió nunca).
+  offer: 'Offer', cs: 'CS Analyst', todo: 'To-do', chats: 'Chat Analyst',
 };
 
 /** Ruta real de la app para "Ver en {tab} →" (null = todavía no existe la tab). */
 export const TOOL_HREF: Partial<Record<ToolId, string>> = {
   market: '/dashboard?hoja=marketing', crm: '/crm', closing: '/dashboard?hoja=closing', script: '/dashboard?hoja=ads-analyst',
   graphics: '/dashboard', todo: '/plan', landing: '/dashboard?hoja=landing', offer: '/offer',
+  vsl: '/dashboard?hoja=vsl-analyst', cs: '/dashboard?hoja=cs-analyst', chats: '/dashboard?hoja=chat-analyst',
 };
 
 // ── Evidencia (el bloque visual del modal de hallazgo) ───────────────────────

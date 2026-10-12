@@ -41,10 +41,10 @@ export default async function InformeCompartido({ informe, token, hoja: pedida }
   if (!tablero) return <NoAbrio />;
   const hoy = hoyDelInforme();
   const hoja = hojaDeInforme(tablero, pedida);
-  // Los DATOS salen del informe real; al navegador va el informe con los controles de personas en alias
-  // (`tableroParaLink`). Las firmas de lo que ya vino las toma la pantalla de `datosIniciales`: no se pide
-  // dos veces aunque el chip diga «Closer 1» y el pedido real «Juan».
-  const { datos, bloques } = await datosInicialesDeHoja(informe, hoja, hoy);
+  // Los DATOS salen del informe real; al navegador va el informe con los controles de personas en alias y lo
+  // que no se comparte como la tarjeta que lo dice (`tableroParaLink`). Las firmas de lo que ya vino las toma
+  // la pantalla de `datosIniciales`: no se pide dos veces aunque el chip diga «Closer 1» y el pedido real «Juan».
+  const { datos } = await datosInicialesDeHoja(informe, hoja, hoy);
   const inicial = tableroParaLink(tablero);
 
   return (
@@ -54,7 +54,6 @@ export default async function InformeCompartido({ informe, token, hoja: pedida }
       <EditorInforme
         inicial={inicial}
         datosIniciales={datos}
-        bloquesIniciales={bloques}
         lecturaFallo={false}
         hoy={hoy}
         hojaInicial={hoja.id}

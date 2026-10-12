@@ -28,18 +28,19 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   administraShare, puedeCompartirInforme, puedeVerInforme, RECURSO_INFORME, RECURSOS_PLATAFORMA,
   type Administrador, type Share,
 } from '../lib/shares';
 import { nombreDeShare, INFORME_SIN_NOMBRE } from '../lib/share-nombre';
-import { sanearGrafico, sanearHoja, type Grafico, type Hoja, type Tablero } from '../lib/graficos-catalogo';
-import { BLOQUES_CON_PERSONAS } from '../lib/graficos-bloques-extra-catalogo';
+import { TIPOS, TIPOS_ELEMENTO, sanearGrafico, sanearHoja, type Elemento, type Grafico, type Hoja, type Tablero } from '../lib/graficos-catalogo';
 import type { Resultado } from '../lib/graficos-agregar';
 import {
-  BLOQUES_COMPARTIBLES, IDS_BLOQUES, bloqueCompartible, campoCompartible, controlDeLista, filtrosCompartidos,
-  hojaDeInforme, pedidoBloqueCompartido, pedidoGraficoCompartido, pedidosDeBloques, pedidosDeGraficos,
-  periodoCompartido, repartirBloques, resultadoCompartible, tableroParaLink,
+  ELEMENTOS_QUE_NO_SALEN, ELEMENTOS_QUE_SALEN, NO_SE_COMPARTE, TIPOS_QUE_NO_SALEN, campoCompartible, controlDeLista,
+  esGrabacionDeLlamada, filtrosCompartidos, filtrosPermitidos, hojaDeInforme, pedidoGraficoCompartido, pedidosDeGraficos,
+  periodoCompartido, repartirGraficos, resultadoCompartible, tableroParaLink,
 } from '../app/compartido/[token]/informe-reglas';
 import { RUTA_LECTURA_COMPARTIDA } from '../app/dashboard/lectura-compartida';
 import { Alias } from '../lib/graficos-analisis';
@@ -122,9 +123,9 @@ const hojaCon = (componentes: unknown[], extra: Record<string, unknown> = {}): H
   sanearHoja({ id: 'h1', nombre: 'Comercial', componentes, ...extra }, 0)!;
 
 // Un gráfico de leads con un filtro de ETAPA (público) y uno de CLOSER (personas) en la barra; el dueño
-// dejó el de closer en «Juan».
+// dejó el de closer en «Juan». (v5: sin bloques; una hoja vieja que los traía llega ya convertida.)
 const LEADS = { id: 'g1', clase: 'grafico', tipo: 'tabla', fuente: 'leads', fecha: 'alta', dimension: 'etapa', metricas: ['leads'] };
-const HOJA = hojaCon([LEADS, { id: 'b1', clase: 'bloque', bloque: 'revenue' }, { id: 'b2', clase: 'bloque', bloque: 'cobranza' }], {
+const HOJA = hojaCon([LEADS, { id: 'g2', tipo: 'numero', fuente: 'pagos', metricas: ['cobrado'], y: 8 }], {
   controles: [
     { id: 'cp', tipo: 'periodo', preset: 'ult30' },
     { id: 'ce', tipo: 'lista', campo: 'leads.etapa' },
@@ -156,6 +157,28 @@ test('filtrosCompartidos: el del dueño en lo que no se mueve, el de la vista en
   assert.deepEqual(filtrosCompartidos(G1, HOJA, [{ dimension: 'etapa', valores: [] }], HOY), [{ dimension: 'closer', valores: ['Juan'] }]);
 });
 
+// v5, rotura 15: un filtro de DEFINICIÓN no lo mueve un link, aunque la hoja tenga un control para mirar ese campo.
+test('v5: un filtro FIJO no lo mueve la vista del link (ni en el gráfico ni sobre el control de la hoja del mismo campo)', () => {
+  const definida = hojaCon([{ ...LEADS, controles: [{ id: 'fx', tipo: 'lista', campo: 'leads.etapa', valores: ['Ganado'], fijo: true }] }], {
+    controles: [{ id: 'ce', tipo: 'lista', campo: 'leads.etapa' }],
+  });
+  const gd = definida.componentes[0] as Grafico;
+  assert.equal(filtrosPermitidos(gd, definida).has('etapa'), false, 'la definición manda sobre el control de la hoja (como en la pantalla del dueño)');
+  assert.deepEqual(filtrosCompartidos(gd, definida, [{ dimension: 'etapa', valores: ['Perdido'] }], HOY), [{ dimension: 'etapa', valores: ['Ganado'] }]);
+  // Sin el fijo, el mismo control de la hoja sí se mueve.
+  assert.equal(filtrosPermitidos(G1, HOJA).get('etapa'), 'lista');
+});
+
+// v5, rotura 16: la barra de búsqueda de una tabla es un control más; sólo se mueve sobre un campo público.
+test('v5: la búsqueda de una tabla filtra en el link sólo sobre un campo público', () => {
+  const porEtapa = hojaCon([{ ...LEADS, tabla: { buscar: true } }]);
+  assert.equal(filtrosPermitidos(porEtapa.componentes[0] as Grafico, porEtapa).get('etapa'), 'texto', 'sin esto, la búsqueda de una tabla no filtraba en un link');
+  const porLlamada = hojaCon([{ id: 'g1', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'llamada', metricas: ['llamadas'], tabla: { buscar: true } }]);
+  const gl = porLlamada.componentes[0] as Grafico;
+  assert.equal(filtrosPermitidos(gl, porLlamada).has('llamada'), false, 'una búsqueda sobre personas sería un oráculo letra por letra');
+  assert.deepEqual(filtrosCompartidos(gl, porLlamada, [{ dimension: 'llamada', texto: 'Ana' }], HOY), []);
+});
+
 test('el pedido de un gráfico se REARMA desde el guardado: el `grafico` del cuerpo no se lee', () => {
   const otro = { ...LEADS, fuente: 'pagos', dimension: 'lead', metricas: ['cobrado'] };
   const p = pedidoGraficoCompartido(G1, HOJA, { id: 'g1', grafico: otro, desde: '2026-10-01', hasta: '2026-10-05', agrupar: 'mes' }, HOY);
@@ -167,18 +190,26 @@ test('el pedido de un gráfico se REARMA desde el guardado: el `grafico` del cue
   assert.deepEqual(periodoCompartido(G1, HOJA, 'ayer', null, HOY), { desde: '2026-09-12', hasta: HOY });
 });
 
-test('los pedidos del cuerpo: sólo ids de ESTA hoja, de la clase pedida, sin repetir', () => {
-  const cuerpo = [{ id: 'g1' }, { id: 'g1' }, { id: 'b1' }, { id: 'zz' }, { id: '../x' }, null, 'g1'];
-  assert.deepEqual(pedidosDeGraficos(HOJA, cuerpo).map((x) => x.comp.id), ['g1']);
-  assert.deepEqual(pedidosDeBloques(HOJA, cuerpo).map((x) => x.comp.id), ['b1']);
-  assert.deepEqual(pedidosDeGraficos(HOJA, 'no-es-lista'), []);
-  // Y el bloque también sale del guardado, no del cuerpo.
-  const b1 = pedidosDeBloques(HOJA, [{ id: 'b1', bloque: 'cobranza' }])[0];
-  assert.equal(pedidoBloqueCompartido(b1.comp, HOJA, b1.cliente, HOY).bloque, 'revenue');
+// v5, rotura 17: el período de DEFINICIÓN (las cohortes miran «todo») no lo cambia la vista del link.
+test('v5: un período FIJO no lo mueve la vista del link', () => {
+  const h = hojaCon([{ ...LEADS, periodo: 'todo' }]);
+  const gf = h.componentes[0] as Grafico;
+  assert.ok(gf.controles.some((k) => k.tipo === 'periodo' && k.fijo), 'el saneo lo migró a un control fijo');
+  assert.deepEqual(periodoCompartido(gf, h, '2026-10-01', '2026-10-05', HOY), periodoCompartido(gf, h, null, null, HOY));
+  assert.notDeepEqual(periodoCompartido(gf, h, '2026-10-01', '2026-10-05', HOY), { desde: '2026-10-01', hasta: '2026-10-05' });
 });
 
-test('controlDeLista: sólo una LISTA que la hoja (o ese gráfico) tiene', () => {
-  const hoja = hojaCon([{ ...LEADS, controles: [{ id: 'k1', tipo: 'lista', campo: 'leads.origen' }] }], {
+test('los pedidos del cuerpo: sólo gráficos de ESTA hoja, sin repetir', () => {
+  const cuerpo = [{ id: 'g1' }, { id: 'g1' }, { id: 'g2' }, { id: 'zz' }, { id: '../x' }, null, 'g1'];
+  assert.deepEqual(pedidosDeGraficos(HOJA, cuerpo).map((x) => x.comp.id), ['g1', 'g2']);
+  assert.deepEqual(pedidosDeGraficos(HOJA, 'no-es-lista'), []);
+});
+
+test('controlDeLista: sólo una LISTA que la hoja (o ese gráfico, si sale en el link) tiene, y que se puede mover', () => {
+  const hoja = hojaCon([
+    { ...LEADS, controles: [{ id: 'k1', tipo: 'lista', campo: 'leads.origen' }, { id: 'kf', tipo: 'lista', campo: 'leads.etapa', fijo: true }] },
+    { id: 'mc', tipo: 'mapa_calor', fuente: 'toques', controles: [{ id: 'k2', tipo: 'lista', campo: 'pagina' }], y: 8 },
+  ], {
     controles: [{ id: 'ce', tipo: 'lista', campo: 'leads.etapa' }, { id: 'cb', tipo: 'texto', campo: 'leads.campana' }],
   });
   assert.equal(controlDeLista(hoja, 'ce', undefined)?.campo, 'leads.etapa');
@@ -186,6 +217,8 @@ test('controlDeLista: sólo una LISTA que la hoja (o ese gráfico) tiene', () =>
   assert.equal(controlDeLista(hoja, 'k1', 'g1')?.campo, 'leads.origen', 'el de la cabecera del gráfico');
   assert.equal(controlDeLista(hoja, 'k1', undefined), null, 'sin decir de qué gráfico, no se busca en todos');
   assert.equal(controlDeLista(hoja, 'nada', undefined), null);
+  assert.equal(controlDeLista(hoja, 'kf', 'g1'), null, 'un filtro de definición no se dibuja: nadie pide sus valores');
+  assert.equal(controlDeLista(hoja, 'k2', 'mc'), null, 'el control de lo que no se comparte, tampoco');
 });
 
 const res = (r: Partial<Resultado>): Resultado => ({ columnas: [], filas: [], totales: [], fuera: 0, clase: 'categoria', ...r });
@@ -209,46 +242,100 @@ test('el resultado sale sin personas y sin el id de cada fila', () => {
   assert.equal(dos.filas[0].etiqueta, uno.filas[1].etiqueta);
 });
 
+// v5, rotura 18: lo que `sinPersonas` no miraba — las columnas extra y la miniatura de una fila-persona.
+test('v5: las columnas extra de una tabla y la miniatura de una fila-persona tampoco salen; la de un guion, sí', () => {
+  const llamadas = g({ tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'llamada', metricas: ['llamadas'], tabla: { columnas: ['closer', 'reunion'] } });
+  const r = resultadoCompartible(llamadas, res({ filas: [{ clave: 'Llamada con Ana', etiqueta: 'Llamada con Ana', valores: [1], ref: '9', extra: { closer: 'Juan Pérez', reunion: 'R1' }, imagen: 'https://x.com/a.png', geo: { lat: 1, lon: 2 } }] }));
+  assert.doesNotMatch(JSON.stringify(r), /Juan|Ana|a\.png|"geo"/);
+  assert.equal(r.filas[0].extra?.reunion, 'R1');
+  const tarjetas = g({ tipo: 'tarjetas', fuente: 'guiones', dimension: 'guion', metricas: [] });
+  const t = resultadoCompartible(tarjetas, res({ filas: [{ clave: 'Hook 1', etiqueta: 'Hook 1', valores: [1], imagen: 'https://x.com/b.png' }] }));
+  assert.equal(t.filas[0].imagen, 'https://x.com/b.png', 'un anuncio no es una persona: su miniatura sale');
+});
+
 test('el contrato con la pantalla: la ruta que pide `lectura-compartida.ts` es la de este endpoint', () => {
   // El que encola y el que ejecuta comparten un contrato (AGENTS.md): si la pantalla cambia la ruta, esto cae.
   assert.equal(RUTA_LECTURA_COMPARTIDA, '/api/compartido/graficos');
 });
 
-test('BLOQUES_COMPARTIBLES: en positivo — ni personas ni acciones de servidor, y cada uno existe en el catálogo', () => {
-  for (const id of Object.keys(BLOQUES_COMPARTIBLES)) assert.ok(IDS_BLOQUES.includes(id), `${id} no es un bloque del catálogo`);
-  for (const id of BLOQUES_CON_PERSONAS) assert.equal(bloqueCompartible(id), false, `${id} trae personas: no sale`);
-  // Los comerciales: «A quién cobrarle» con «Marcar cobrada», y los desgloses de leads con «Editar lead».
-  for (const id of ['cobranza', 'revenue', 'funnel_maduro', 'scl', 'cohortes_mes', 'cohortes_semana']) {
-    assert.equal(bloqueCompartible(id), false, `${id}: sus desgloses son personas con acciones que sin sesión fallan`);
+// ── v5: lo que NO sale en un link (decisión 4 de informe-reglas.ts) ──────────────────────────────
+
+// Una hoja con TODO lo que no sale, y lo que sí, con nombres de personas metidos donde se podrían colar.
+const HOJA_TODO = hojaCon([
+  LEADS,
+  { id: 'mc', tipo: 'mapa_calor', fuente: 'toques', titulo: 'Toques de la landing', y: 8 },
+  { id: 'ia1', clase: 'elemento', tipo: 'ia', texto: 'Qué decide', ia: { pedido: 'Compara a Juan Pérez con Ana Gómez' }, y: 20 },
+  { id: 'ac1', clase: 'elemento', tipo: 'accion', accion: { id: 'sincronizar_llamadas', rotulo: 'Traer llamadas' }, y: 28 },
+  {
+    id: 'tl', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'llamada', metricas: ['llamadas'], tabla: { acciones: true, buscar: true }, y: 30,
+    alClic: 'popup', popup: { titulo: 'Llamada de Juan Pérez', componentes: [
+      { id: 'pz', clase: 'elemento', tipo: 'entidad', entidad: { tipo: 'llamada', pieza: 'completo' } },
+      { id: 'pia', clase: 'elemento', tipo: 'ia', ia: { lee: 'entidad', pedido: 'Qué dijo Ana Gómez' } },
+    ] },
+  },
+  { id: 'vf', clase: 'elemento', tipo: 'video', texto: 'Llamada con Ana Gómez', url: 'https://fathom.video/share/abc123', y: 40 },
+  { id: 's1', clase: 'elemento', tipo: 'seccion', texto: 'Cobranza', seccion: { plegable: true }, y: 48 },
+  { id: 'tx', clase: 'elemento', tipo: 'texto', texto: 'Notas de la semana', y: 50 },
+], { conectores: [{ id: 'k1', desde: 'mc', hasta: 'tx' }] });
+
+// v5, roturas 19 a 26: EL test del pedido — el link no sirve ninguna de las cosas de la lista.
+test('v5: el link NO sirve el mapa de calor, las cajas de IA, los pop-ups, las fichas, las acciones ni una grabación — y lo dice', () => {
+  const link = tableroParaLink({ v: 3, nombre: 'Dashboard', hojas: [HOJA_TODO] });
+  const h = link.hojas[0];
+  const json = JSON.stringify(link);
+  assert.doesNotMatch(json, /"mapa_calor"/, 'el mapa de calor monta la página de un cliente en vivo');
+  assert.doesNotMatch(json, /"tipo":"(ia|accion|entidad)"/, 'ni una caja de IA, ni un botón, ni una ficha');
+  assert.doesNotMatch(json, /"popup"|"alClic"/, 'los pop-ups no viajan');
+  assert.doesNotMatch(json, /"acciones"/, 'ni las acciones de la fila');
+  assert.doesNotMatch(json, /fathom\.video/, 'ni el link de una grabación');
+  assert.doesNotMatch(json, /Juan|Ana/, 'ni un nombre metido en lo que no sale');
+  // Cada cosa que no sale queda como su tarjeta, en su lugar, con su id (los conectores siguen valiendo).
+  for (const id of ['mc', 'ia1', 'ac1', 'vf']) {
+    const c = h.componentes.find((x) => x.id === id) as Elemento | undefined;
+    assert.ok(c && c.clase === 'elemento' && c.tipo === 'texto' && c.texto.includes(NO_SE_COMPARTE), `${id}: falta su tarjeta «${NO_SE_COMPARTE}»`);
+    const original = HOJA_TODO.componentes.find((x) => x.id === id)!;
+    assert.deepEqual([c.x, c.y, c.w, c.h], [original.x, original.y, original.w, original.h], `${id}: la tarjeta va en su lugar`);
   }
-  assert.equal(bloqueCompartible('bloque-que-se-sume-manana'), false, 'lo nuevo nace cerrado');
-  assert.equal(bloqueCompartible('toString'), false, 'no lo abre una propiedad del prototipo');
-  // Y los que sí: cuentas, anuncios, videos y proyectos.
-  for (const id of ['embudo_cierre', 'factores_cierre', 'patrones_guiones', 'cuadrante_retencion', 'curva_vsl', 'matriz_proyectos', 'piramide_prioridad']) {
-    assert.equal(bloqueCompartible(id), true, id);
-  }
+  assert.ok((h.componentes.find((x) => x.id === 'mc') as Elemento).texto.startsWith('Toques de la landing'));
+  // Lo que sí sale, sale: la tabla (sin su pop-up ni sus acciones, con su búsqueda), la sección, el texto, el conector.
+  const tl = h.componentes.find((x) => x.id === 'tl') as Grafico;
+  assert.ok(tl && tl.clase === 'grafico' && tl.tabla?.buscar === true);
+  assert.ok(h.componentes.some((x) => x.id === 's1' && x.clase === 'elemento' && x.tipo === 'seccion'));
+  assert.ok(h.componentes.some((x) => x.id === 'tx' && x.clase === 'elemento' && x.tipo === 'texto' && x.texto === 'Notas de la semana'));
+  assert.deepEqual(h.conectores?.map((k) => k.id), ['k1']);
+  // El informe real no se toca: con él se leen los datos.
+  assert.ok(HOJA_TODO.componentes.some((x) => x.id === 'mc' && x.clase === 'grafico'));
 });
 
-test('repartirBloques: DOS hojas de dos negocios — decide el TIPO guardado, nunca el id', () => {
-  // Dos sujetos con los mismos tipos y ids distintos (el de un negocio puede llamarse como el de otro).
-  const hojaA = [{ b: { id: 'a1', bloque: 'embudo_cierre' } }, { b: { id: 'a2', bloque: 'cobranza' } }];
-  const hojaB = [{ b: { id: 'cobranza', bloque: 'revenue' } }, { b: { id: 'embudo_cierre', bloque: 'curva_vsl' } }];
-  const a = repartirBloques(hojaA);
-  const b = repartirBloques(hojaB);
-  assert.deepEqual(a.salen.map((x) => x.b.id), ['a1']);
-  assert.deepEqual(a.noSalen.map((x) => x.b.id), ['a2'], '«A quién cobrarle» no se lee');
-  assert.deepEqual(b.salen.map((x) => x.b.id), ['embudo_cierre'], 'un id que se llama como un bloque permitido no lo abre');
-  assert.deepEqual(b.noSalen.map((x) => x.b.id), ['cobranza'], 'Revenue no sale, aunque su id diga otra cosa');
+test('v5: y el SERVER tampoco lo lee aunque se lo pidan: el mapa de calor contesta «No se comparte», un pop-up ni se encuentra', () => {
+  const pedidos = pedidosDeGraficos(HOJA_TODO, [{ id: 'g1' }, { id: 'mc' }, { id: 'tl' }, { id: 'pz' }, { id: 'pia' }, { id: 'ia1' }, { id: 'ac1' }]);
+  assert.deepEqual(pedidos.map((x) => x.comp.id), ['g1', 'mc', 'tl'], 'las piezas de un pop-up y los elementos no son gráficos de la hoja');
+  const { salen, noSalen } = repartirGraficos(pedidos.map((x) => ({ g: x.comp })));
+  assert.deepEqual(salen.map((x) => x.g.id), ['g1', 'tl']);
+  assert.deepEqual(noSalen.map((x) => x.g.id), ['mc'], 'decide el TIPO guardado: el mapa de calor ni se lee');
+  // Dos negocios con el mismo id: decide el tipo, nunca el id.
+  const otro = hojaCon([{ id: 'mc', tipo: 'tabla', fuente: 'leads', dimension: 'etapa', metricas: ['leads'] }]);
+  assert.deepEqual(repartirGraficos(pedidosDeGraficos(otro, [{ id: 'mc' }]).map((x) => ({ g: x.comp }))).salen.map((x) => x.g.id), ['mc']);
 });
 
-test('lo que sale de un bloque permitido: los factores sin los ejemplos, los proyectos de cliente en alias', () => {
-  const fac = BLOQUES_COMPARTIBLES.factores_cierre({ ganadas: 2, dimensiones: [{ dimension: 'Rapport', brillo: [{ id: 9 }], falto: [{ id: 8 }] }] }) as { ganadas: number; dimensiones: Array<{ brillo: unknown[]; falto: unknown[] }> };
-  assert.deepEqual([fac.dimensiones[0].brillo, fac.dimensiones[0].falto], [[], []], 'cada ejemplo abre la ficha de una llamada');
-  assert.equal(fac.ganadas, 2);
-  const mat = BLOQUES_COMPARTIBLES.matriz_proyectos({ proyectos: [{ id: 'p1', nombre: 'Cliente: Ana Gómez' }, { id: 'p2', nombre: 'Landing' }] }) as { proyectos: Array<{ nombre: string }> };
-  assert.notEqual(mat.proyectos[0].nombre, 'Cliente: Ana Gómez', 'un proyecto de cliente nombra al cliente');
-  assert.equal(mat.proyectos[1].nombre, 'Landing');
-  assert.equal(BLOQUES_COMPARTIBLES.factores_cierre(null), null, 'un payload raro pasa tal cual (lo descarta la pantalla)');
+test('v5: qué sale, EN POSITIVO — cada tipo del catálogo decidido, y un dibujo propio nuevo no sale sin decidirlo', () => {
+  for (const t of TIPOS_ELEMENTO) {
+    const sale = ELEMENTOS_QUE_SALEN.includes(t.id);
+    const noSale = Object.prototype.hasOwnProperty.call(ELEMENTOS_QUE_NO_SALEN, t.id);
+    assert.ok(sale !== noSale, `el elemento «${t.id}» tiene que estar en UNA de las dos listas (informe-reglas.ts)`);
+  }
+  for (const id of Object.keys(TIPOS_QUE_NO_SALEN)) assert.ok(TIPOS.some((t) => t.id === id), `${id} no es un tipo del catálogo`);
+  // Los tipos con dibujo propio leen por su cuenta, fuera del endpoint del link: cada uno tiene que estar decidido.
+  const registro = readFileSync(join(__dirname, '..', 'app', 'dashboard', 'graficos', 'registro.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const propios = /TIPOS_CON_DIBUJO_PROPIO: readonly string\[\] = \[([^\]]*)\]/.exec(registro);
+  assert.ok(propios, 'no encontré TIPOS_CON_DIBUJO_PROPIO en app/dashboard/graficos/registro.ts');
+  for (const id of propios[1].match(/'([a-z_]+)'/g)!.map((x) => x.slice(1, -1))) {
+    assert.ok(Object.prototype.hasOwnProperty.call(TIPOS_QUE_NO_SALEN, id), `«${id}» se dibuja por su cuenta: decide si sale en un link`);
+  }
+  assert.equal(esGrabacionDeLlamada('https://fathom.video/share/x'), true);
+  assert.equal(esGrabacionDeLlamada('https://app.fathom.video/calls/1'), true);
+  assert.equal(esGrabacionDeLlamada('https://notfathom.video/x'), false);
+  assert.equal(esGrabacionDeLlamada('https://www.youtube.com/watch?v=x'), false);
 });
 
 test('tableroParaLink: los valores ELEGIDOS de un filtro de personas viajan como alias; los datos siguen leyendo el real', () => {
