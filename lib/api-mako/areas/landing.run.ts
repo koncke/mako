@@ -140,9 +140,9 @@ export const RUNNERS: Runners = {
       if (v.texto.startsWith('No se pudo consultar')) return errorLectura('No se pudo consultar si esta página tiene el Pixel (falló la lectura). No concluyas que no está instalado; inténtalo de nuevo en un momento.');
       return json({
         url: v.url, instalada: v.instalada, version: v.version, version_actual: SNIPPET_VERSION, vieja: v.vieja,
-        ultima_visita: v.ultima, visitas_30_dias: v.visitas, texto: v.texto,
+        ultima_visita: v.ultima, visitas_30_dias: v.visitas, visitas_tope: v.visitasTope ?? false, texto: v.texto,
         ventana: { dias: 30 },
-        nota: 'Se miran como máximo las 400 visitas más recientes del negocio (todas las páginas): «no instalada» sobre una página de poco tráfico puede ser ese recorte. visitas_30_dias tampoco pasa de 400. El texto habla de la pantalla de Integraciones («el código de arriba»): si hace falta el código, usa ver_codigo_pixel o manda el link a Integraciones → Landing.',
+        nota: 'Se leen como máximo las 1000 visitas más recientes de ESTA página: con visitas_tope en true, visitas_30_dias es un piso («al menos»), no el total. El texto habla de la pantalla de Integraciones («el código de arriba»): si hace falta el código, usa ver_codigo_pixel o manda el link a Integraciones → Landing.',
       });
     },
   },

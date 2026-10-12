@@ -74,7 +74,7 @@ function pedir(clave: string, campo: string, desde: string, hasta: string, fuent
   const corte = setTimeout(() => ctrl.abort(), TOPE_MS);
   const vuelo: Vuelo = { ctrl, usuarios: 0, promesa: Promise.resolve([]) };
   // Sin link, `pedidoDeLectura` devuelve el cuerpo de SIEMPRE (la hoja y el control no viajan): el closer pasa
-  // por `closerPuedePedir`, que mira el cuerpo entero.
+  // por `puedePedir(rol, body)`, que mira el cuerpo entero.
   const { ruta, cuerpo } = pedidoDeLectura(
     { accion: 'valores', hojaId: link?.hojaId ?? '', controlId: link?.controlId ?? '', componenteId: link?.componenteId, campo, desde, hasta, fuentes },
     link?.compartido ?? null,

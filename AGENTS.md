@@ -3605,9 +3605,9 @@ NUNCA»**. Si no entra, se reorganiza o se pliega.
 
 - **La columna no crece: se agrupa.** Una familia con más de ~6 destinos mete en un
   `NavGrupo` los que se consultan de a uno. Cuesta UNA fila y abre al costado. El
-  precedente está en la misma barra: «Analysts» esconde siete destinos en una fila, con el
-  porqué escrito al lado — *«sin esto, Analyze eran nueve filas y la barra se volvía una
-  lista de todo»*.
+  precedente fue «Analysts», que escondía siete destinos en una fila — *«sin esto, Analyze
+  eran nueve filas y la barra se volvía una lista de todo»*. Desde el 12/10/2026 no existe:
+  esas tabs pasaron a ser hojas plantilla del Dashboard (la otra salida a una columna larga).
 - **`scrollbar-width: none` está prohibido en los dos ejes.** No elimina el scroll: elimina
   la evidencia, y con `overflow: hidden` en el contenedor el síntoma es exactamente cero —
   ni degradado, ni media fila cortada, ni nada. Sobre fondo oscuro va `.mk-scroll-oscuro`,

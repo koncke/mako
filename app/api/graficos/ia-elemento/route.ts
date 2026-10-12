@@ -29,7 +29,7 @@ import { tableroActual } from '@/lib/tablero-actual';
 import { rateLimit } from '@/lib/rate-limit';
 import { sanearHoja, type VistaValores } from '@/lib/graficos-catalogo';
 import { buscarCaja } from '@/lib/graficos-ia-elemento';
-import { informeCloser } from '@/lib/graficos-plantillas';
+import { hojaDeRol, informeDeRol } from '@/lib/graficos-plantillas';
 import {
   CajaInvalida, analizarCaja, arrancarCaja, programarCaja, vistaDeCaja, vistaDeCajaDeLaCuenta,
 } from '@/lib/graficos-ia-elemento-server';
@@ -43,20 +43,25 @@ const ID = /^[a-z0-9-]{1,40}$/i;
 const REF = /^\d{1,20}$/;
 const idDe = (v: unknown): string | null => (typeof v === 'string' && ID.test(v) ? v : null);
 
-type Puerta = { ws: number; sub: string; rol: 'admin' | 'closer' };
+type Puerta = { ws: number; sub: string; rol: 'admin' | 'closer' | 'setter' };
 
-/** La puerta: sesión, el Dashboard en la capa, y admin o closer (el closer, si su negocio compró Closing). */
+/**
+ * La puerta: sesión, el Dashboard en la capa, y el admin o un rol con su hoja única (`HOJA_DE_ROL`: el closer con
+ * Closing, el setter con Chat Analyst), si su negocio tiene la tab de esa hoja. Es la misma regla de
+ * app/api/graficos/route.ts: una copia propia del chequeo del closer dejaba al setter con 403 en su caja.
+ */
 async function puerta(): Promise<Puerta | Response> {
   const rol = await getRolWsEfectivo();
   if (rol == null) return err(401, 'no autenticado');
-  if (rol !== 'admin' && rol !== 'closer') return err(403, 'Sólo el admin de la cuenta');
+  const unica = hojaDeRol(rol);
+  if (rol !== 'admin' && !unica) return err(403, 'Sólo el admin de la cuenta');
   const capa = await getCapaActual();
   if (!tabEnCapa('graphics', capa)) return err(404, 'No existe');
-  if (rol === 'closer' && !tabEnCapa('closing', capa)) return err(403, 'Sólo el admin de la cuenta');
+  if (unica && !tabEnCapa(unica.capa, capa)) return err(403, 'Sólo el admin de la cuenta');
   const s = await getUsuarioActual();
   const ws = await getWorkspaceActual();
   if (!s || ws == null) return err(401, 'no autenticado');
-  return { ws, sub: s.sub, rol };
+  return { ws, sub: s.sub, rol: rol as Puerta['rol'] };
 }
 
 /** Lo elegido mirando: por id de control, sólo objetos (lo vuelve a sanear el catálogo al usarlo). */
@@ -89,9 +94,9 @@ export async function GET(req: Request) {
   const clave = { hojaId, popupDe, elementoId, ref: refCrudo };
   try {
     if (p.rol === 'admin') return NextResponse.json({ vista: await vistaDeCaja(p.sub, clave) });
-    // El closer: sólo una caja que está en SU hoja (la plantilla Closing, en memoria).
-    const hoja = informeCloser().hojas.find((h) => h.id === hojaId);
-    if (!hoja || !buscarCaja(hoja, elementoId, popupDe || null)) return err(403, 'Sólo la hoja Closing');
+    // Un rol con hoja única: sólo una caja que está en SU hoja (la plantilla, en memoria).
+    const hoja = informeDeRol(p.rol)?.hojas.find((h) => h.id === hojaId);
+    if (!hoja || !buscarCaja(hoja, elementoId, popupDe || null)) return err(403, hojaDeRol(p.rol)?.error ?? 'Sólo el admin de la cuenta');
     return NextResponse.json({ vista: await vistaDeCajaDeLaCuenta(clave) });
   } catch (e) {
     console.error(`[conclusiones] GET: ${e instanceof Error ? e.message : String(e)}`);

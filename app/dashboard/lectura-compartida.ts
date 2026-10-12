@@ -18,7 +18,7 @@
 //    `fuentes`) viaja porque el cuerpo es el MISMO que el de /api/graficos, no para que se use.
 // ⚠️ EL DETALLE DE UN NÚMERO NO ESTÁ ACÁ: en un informe compartido no se ofrece (son listas de personas
 //    con nombre y teléfono; el endpoint público lo contesta 403). Guardar tampoco: no es una lectura.
-// ⚠️ SIN COMPARTIR, EL CUERPO ES EXACTAMENTE EL DE SIEMPRE: `closerPuedePedir` (lib/graficos-plantillas.ts)
+// ⚠️ SIN COMPARTIR, EL CUERPO ES EXACTAMENTE EL DE SIEMPRE: `puedePedir` (lib/graficos-plantillas.ts)
 //    mira el cuerpo entero, y un campo de más podría cambiarle la respuesta al closer.
 
 import type { PedidoBloqueHoja, PedidoGrafico } from './exportar';

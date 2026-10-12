@@ -193,25 +193,6 @@ test('la línea del SCL: el origen del primer tramo y el destino de cada uno', (
 
 // ── Lo que no es de Comercial se delega ───────────────────────────────────────────────────────
 
-test('los seis de Comercial son los del catálogo que NO son de Analysts, y un bloque extra se delega entero', () => {
-  const extra = new Set(BLOQUES_EXTRA.map((b) => b.id));
-  const delCatalogo = BLOQUES.map((b) => b.id).filter((id) => !extra.has(id));
-  assert.deepEqual([...delCatalogo].sort(), [...BLOQUES_COMERCIAL].sort());
-  // Un bloque de la otra corrida (aunque todavía no esté en BLOQUES_EXTRA) cae del lado del extra.
-  const pedidos = [
-    { id: 'a', bloque: 'cobranza', desde: '2026-09-12', hasta: HOY },
-    { id: 'b', bloque: 'retencion_cuadrante', desde: '2026-09-12', hasta: HOY },
-    { id: 'c', bloque: 'cohortes_semana', desde: '2026-09-12', hasta: HOY },
-  ];
-  const { propios, extra: delegados } = repartirPedidos(pedidos);
-  assert.deepEqual(propios.map((p) => p.id), ['a', 'c']);
-  assert.deepEqual(delegados.map((p) => p.id), ['b']);
-  assert.equal(esBloqueComercial('retencion_cuadrante'), false);
-  // Y lo que llega de la red sólo se usa si es el payload de ESE bloque.
-  assert.equal(payloadDe({ bloque: 'scl' }, 'cobranza'), null);
-  assert.equal(payloadDe(null, 'cobranza'), null);
-});
-
 // El cableado: el server y la pantalla se leen del FUENTE (el server es `server-only`).
 const sinComentarios = (src: string) => src
   .replace(/\r\n/g, '\n')
@@ -240,23 +221,6 @@ test('datosDeBloques reparte y le pasa a datosDeBloquesExtra SÓLO los extra; Cu
 // fecha de la hoja en 30 días, el funnel maduro y las cohortes quedaban con 1-2 cohortes. Su período propio
 // le gana al control de la hoja (efectivoDe) y se acota con el control del bloque.
 // Probado rompiéndolo (base 14 / 0): sin `periodo: 'todo'` en las cohortes semanales -> 13 / 1.
-test('Comercial: el funnel maduro y las cohortes muestran TODAS (período propio «Todo»)', async () => {
-  const { componentesDe, plantillaHojaDe } = await import('../lib/graficos-plantillas');
-  const { efectivoDe, esBloque } = await import('../lib/graficos-catalogo');
-  const p = plantillaHojaDe('comercial');
-  assert.ok(p, 'no encontré la plantilla comercial');
-  const comps = componentesDe(p!);
-  const hoja = { ...(await import('../lib/graficos-plantillas')).tableroInicial().hojas[1] };
-  for (const bloque of ['funnel_maduro', 'cohortes_mes', 'cohortes_semana']) {
-    const c = comps.find((x) => esBloque(x) && x.bloque === bloque);
-    assert.ok(c && esBloque(c), `falta el bloque ${bloque}`);
-    assert.equal(c.periodo, 'todo', `${bloque} no muestra todas`);
-    // Y le gana al control de período de la hoja (que arranca en 30 días).
-    const ef = efectivoDe(c, hoja, {}, '2026-10-11');
-    assert.ok(ef.desde < '2024-01-01', `${bloque}: el período efectivo arranca el ${ef.desde}`);
-  }
-});
-
 // Martín, 11/10/2026, sobre «Marcar cobrada»: «Cualquiera con acceso a esa tab». La action no tenía guarda
 // (la llamaba cualquiera con su id) ni miraba que la cuota fuera del lead que recibe.
 // Probado rompiéndolo (base 15 / 0): sin la llamada a la guarda -> 14 / 1; sin el chequeo del lead -> 14 / 1.

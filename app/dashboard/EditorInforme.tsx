@@ -54,7 +54,7 @@
 //   · `soloLectura` (el closer, decisión 6 de Martín): sin Editar, sin Nueva hoja, sin menú de hoja, sin
 //     AI Analyst ni el chat de MaKo de cada gráfico, sin el detalle de un número y sin guardar nunca;
 //     Exportar sí, y desde v5 los POP-UPS (la ficha de una llamada de la tabla «Las llamadas» era lo que su
-//     bloque hacía). ⚠️ La pantalla sólo esconde: lo que cierra es /api/graficos (`closerPuedePedir`).
+//     bloque hacía). ⚠️ La pantalla sólo esconde: lo que cierra es /api/graficos (`puedePedir`).
 //   · `llamadaInicial` (`?llamada=`): abre la ficha de esa llamada (./bloques/extra/FichaLlamada.tsx);
 //     al cerrarla se saca de la URL con el mismo replaceState que usa la hoja.
 //
@@ -135,6 +135,7 @@ import { CSS_EDICION } from './edicion-css';
 import { conBusqueda, contextoDeGrafico, csvDeHoja, enOrden, idBusquedaDe, loQueSeVeDe, nombreArchivo, pedidosDeHoja, periodoDeHoja, type PedidosHoja } from './exportar';
 import { crearColaGuardado, leerRespuestaGuardado, type ColaGuardado } from './guardado';
 import { pedidoDeLectura, type Compartido } from './lectura-compartida';
+import { AccionesFilaProvider } from './entidades/acciones-fila';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
@@ -971,8 +972,14 @@ export function EditorInforme({
             compartido no se ofrece (son listas de personas; el endpoint del link también lo contesta 403).
             Sin `onDetalle`, el clic en un número no hace nada y no se pinta como clicable. Desde v5, lo que
             abre lo decide el gráfico (`alClicDe`: el detalle, su pop-up o nada). */}
-        {popupDelCloser ? <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={popupDelCloser} efectivo={ef} />
-          : <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : alClicDe(c)} efectivo={ef} />}
+        {(() => {
+          const cuerpo = popupDelCloser ? <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={popupDelCloser} efectivo={ef} />
+            : <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : alClicDe(c)} efectivo={ef} />;
+          // Las acciones EN LA FILA (`tabla.acciones`: «Marcar cobrada»…) van sólo mirando y con sesión: sin este
+          // provider la tabla no dibuja la columna (useColumnaAcciones devuelve null).
+          return c.tabla?.acciones && !editando && !compartido
+            ? <AccionesFilaProvider g={c} efectivo={ef} onCambio={refrescar}>{cuerpo}</AccionesFilaProvider> : cuerpo;
+        })()}
       </div>
     );
   };
@@ -1060,7 +1067,7 @@ export function EditorInforme({
         <div className="lk-lienzo" style={varsTema} onClick={() => { if (editando) { setSelId(null); setConSel(null); } }}>
           <div className="lk-pagina" ref={containerRef}>
             {dueno && (
-              <nav className="lk-miga lk-no-arrastrar" aria-label="Dónde estás" onClick={(e) => e.stopPropagation()}>
+              <nav className="lk-miga lk-no-arrastrar" aria-label="Ubicación" onClick={(e) => e.stopPropagation()}>
                 <button type="button" onClick={salirDelPopup}>{hoja.nombre}</button>
                 <span aria-hidden>›</span>
                 <span className="lk-miga-actual">Pop-up · {dueno.popup?.titulo || tituloDe(dueno)}</span>

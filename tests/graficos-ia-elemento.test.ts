@@ -141,9 +141,22 @@ test('ninguna puerta sin sesión lee las cajas: ni la API de MaKo (bearer), ni e
   };
   const puertas = ['lib/api-mako', 'app/api/v1', 'app/api/agente', 'app/compartido', 'app/api/compartido'].flatMap(barrer);
   assert.ok(puertas.length > 20, `barrí ${puertas.length} archivos: ¿se movieron las carpetas?`);
+  // La API de MaKo (ola 3 de la v5) lee y genera las cajas SUELTAS en la hoja, que miran gráficos sin nombres
+  // (`dimensionPublica`); las de un pop-up leen lo que se abre (el transcript de una llamada) y no salen por ningún
+  // canal. Por eso la única excepción es dashboard.run.ts, y ahí toda caja va con `popupDe` vacío y sin `ref`.
+  // Verificado poniendo `popupDe: h.id` en una llamada de dashboard.run.ts: 14 pasan, 1 falla.
+  const API_CAJAS = 'lib/api-mako/areas/dashboard.run.ts';
   for (const ruta of puertas) {
-    assert.doesNotMatch(sinComentarios(leer(ruta)), /graficos-ia-elemento|dashboard_ia_elementos|\/api\/graficos\/ia-elemento/, `${ruta} lee las cajas de IA`);
+    if (ruta.replace(/\\/g, '/') === API_CAJAS) continue;
+    // Un `import type` (las formas de la vista, para describirla) no lee nada: se borra en compilación.
+    const sinTipos = sinComentarios(leer(ruta)).replace(/^import type [^;]+ from '@\/lib\/graficos-ia-elemento';$/gm, '');
+    assert.doesNotMatch(sinTipos, /graficos-ia-elemento|dashboard_ia_elementos|\/api\/graficos\/ia-elemento/, `${ruta} lee las cajas de IA`);
   }
+  const api = sinComentarios(leer(API_CAJAS));
+  const claves = [...api.matchAll(/popupDe: ([^,}]+)/g)].map((m) => m[1].trim());
+  assert.ok(claves.length >= 3, `la API nombra ${claves.length} cajas: ¿se movió?`);
+  for (const c of claves) assert.match(c, /^(''|null)$/, `la API pide una caja de pop-up (popupDe: ${c})`);
+  for (const m of api.matchAll(/\bref: ([^,}]+)/g)) assert.match(m[1].trim(), /^(''|null)$/, `la API pide una caja con ref (${m[1]})`);
   assert.doesNotMatch(leer('lib/rutas-publicas.ts'), /ia-elemento|'\/api\/graficos/, 'la ruta de las cajas es de sesión');
   // Y la ruta no devuelve la fila: devuelve la vista.
   const ruta = sinComentarios(leer('app/api/graficos/ia-elemento/route.ts'));
@@ -182,7 +195,8 @@ test('NUNCA corre al abrir: la caja al montarse sólo lee, y generar sale de un 
     return /\.(ts|tsx)$/.test(n) && /arrancarCaja\(/.test(sinComentarios(leer(p))) ? [p.replace(/\\/g, '/')] : [];
   });
   const quien = ['app', 'lib'].flatMap(barrer);
-  assert.deepEqual(quien.sort(), ['app/api/graficos/ia-elemento/route.ts', 'lib/graficos-ia-elemento-server.ts']);
+  // La API de MaKo genera por `generar_conclusiones_dashboard`: una ACCIÓN que pide alguien, no una lectura.
+  assert.deepEqual(quien.sort(), ['app/api/graficos/ia-elemento/route.ts', 'lib/api-mako/areas/dashboard.run.ts', 'lib/graficos-ia-elemento-server.ts']);
 });
 
 // ── El tope, el horario y lo que lee ─────────────────────────────────────────────────────────

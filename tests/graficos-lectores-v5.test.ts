@@ -121,7 +121,7 @@ test('la visita guarda país, región, ciudad y coordenadas redondeadas — NUNC
 test('un pop-up se lee con la definición GUARDADA del gráfico dueño; el closer no pide lo que no está', () => {
   const src = sinComentarios(leer('app/api/graficos/route.ts'));
   assert.match(cuerpoDe(src, 'function componentesDePopup('), /esGrafico\(c\) && c\.id === id/);
-  assert.match(src, /const dueno = closer \? informeCloser\(\) : \(await leerTablero\(\)\)\.tablero;/);
-  assert.match(src, /if \(!comps && closer\) return err\(403,/);
-  assert.match(src, /if \(guardado\) grafico = guardado;\s*else if \(closer\) continue;/);
+  assert.match(src, /const dueno = informeDeRol\(rol\) \?\? \(await leerTablero\(\)\)\.tablero;/);
+  assert.match(src, /if \(!comps && unica\) return err\(403,/);
+  assert.match(src, /if \(guardado\) grafico = guardado;\s*else if \(unica\) continue;/);
 });
