@@ -6,7 +6,7 @@ import {
 	renderFrame,
 	resizeCompositor,
 	uploadTexture,
-} from "opencut-wasm";
+} from "@/app/video-editor/_opencut/wasm/opencut";
 import {
 	incrementCounter,
 	isRenderPerfEnabled,

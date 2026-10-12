@@ -8,7 +8,7 @@ import {
 	mediaTimeToSeconds as _mediaTimeToSeconds,
 	type FrameRate,
 	type TimeCodeFormat,
-} from "opencut-wasm";
+} from "@/app/video-editor/_opencut/wasm/opencut";
 
 /**
  * Integer-tick time. Mirrors `MediaTime(i64)` in `rust/crates/time/src/media_time.rs`.

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import { generateUUID } from "@/app/video-editor/_opencut/utils/id";
 import { storageService } from "@/app/video-editor/_opencut/services/storage/service";
-import type { FrameRate } from "opencut-wasm";
+import type { FrameRate } from "@/app/video-editor/_opencut/wasm/opencut";
 import { hasMediaId } from "@/app/video-editor/_opencut/timeline/element-utils";
 import { frameRatesEqual, getHighestImportedVideoFps } from "@/app/video-editor/_opencut/fps/utils";
 import { UpdateProjectSettingsCommand } from "@/app/video-editor/_opencut/commands/project";

@@ -8,7 +8,7 @@
 // modificación: el inicio se vuelve a dibujar seguido y la base no cambia sola.
 
 import { useEffect, useState } from "react";
-import { formatTimecode, mediaTimeToSeconds } from "opencut-wasm";
+import { formatTimecode, mediaTimeToSeconds } from "@/app/video-editor/_opencut/wasm/opencut";
 import { IndexedDBAdapter } from "@/app/video-editor/_opencut/services/storage/indexeddb-adapter";
 import type { MediaAssetData } from "@/app/video-editor/_opencut/services/storage/types";
 import type { TProjectMetadata } from "@/app/video-editor/_opencut/project/types";

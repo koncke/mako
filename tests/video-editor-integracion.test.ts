@@ -23,7 +23,7 @@
 //
 // Correr: node --import tsx --test tests/video-editor-integracion.test.ts
 // PROBADO ROMPIÉNDOLO (11/10/2026, de a una y restaurando):
-//   R1 sin `adminOnly` en la entrada del nav                        → 5/1 (de 6)
+//   R1 (hasta el 12/10) sin `adminOnly` en la entrada del nav     → 5/1 (de 6)
 //   R2 `puedeVer` del Sidebar sin la línea de `adminOnly`             → 5/1 (de 6)
 //   R3 [proyecto]/page.tsx con `requireRolWs` en vez del guard        → 5/1 (de 6)
 //   R4 un `import Link from 'next/link'` en un archivo del editor     → 5/1 (de 6)
@@ -54,12 +54,13 @@ function archivosDe(dir: string): string[] {
   return out;
 }
 
-test('1a: la tab del nav es adminOnly (y su key sigue siendo la del guard)', () => {
+test('1a: la tab del nav está abierta (sin adminOnly) y su key sigue siendo la del guard', () => {
   const items = FAMILIAS.flatMap((f) => [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)]);
   const ve = items.find((i) => i.key === 'video-editor');
   assert.ok(ve, 'desapareció la entrada video-editor del nav: la key es contrato con la base (capas, onboarding)');
   assert.equal(ve.href, '/video-editor');
-  assert.equal(ve.adminOnly, true, 'el Video Editor se ve sólo como super admin hasta que Martín lo valide');
+  // Abierto a todos el 12/10/2026 («habilitalo para cualquiera»).
+  assert.ok(!ve.adminOnly, 'el Video Editor está abierto a todos: adminOnly lo vuelve a esconder de los clientes');
 });
 
 test('1b: el Sidebar respeta adminOnly en las tabs de producto, no sólo en el menú de la foto', () => {
@@ -74,17 +75,16 @@ test('1b: el Sidebar respeta adminOnly en las tabs de producto, no sólo en el m
   );
 });
 
-test('1c: las dos pages del editor pasan por el guard del super admin, no por el de toda tab', () => {
+test('1c: las dos pages del editor pasan por el guard del editor, que es el de toda tab', () => {
   for (const r of ['app/video-editor/page.tsx', 'app/video-editor/[proyecto]/page.tsx']) {
     const src = sinLineas(leer(r));
     assert.match(src, /^\s*await requireEditorVideo\(\);/m, `${r}: sin el guard, la URL tecleada abre el editor a cualquiera`);
-    assert.doesNotMatch(src, /requireRolWs\(/, `${r}: requireRolWs solo deja entrar a todo admin-cliente`);
   }
   const acceso = sinLineas(leer('app/video-editor/acceso.ts'));
-  assert.match(acceso, /return \(await getSesionAdmin\(\)\) != null;/, 'la pregunta es por la PERSONA (el super admin), también mirando un cliente');
-  // El rebote lleva el ?ws=: uno pelado deja a quien rebota en su propia cuenta.
-  assert.match(acceso, /redirect\(await rutaConWs\(homeDeCapa\(await getCapaActual\(\)\)\)\)/);
-  assert.match(acceso, /await requireRolWs\(\[\], \{ nav: 'video-editor' \}\)/, 'después del candado, lo de toda tab (capa, rol, onboarding)');
+  // La misma pregunta que toda tab (abierto a todos el 12/10/2026): rol y capa.
+  assert.match(acceso, /tabEnCapa\('video-editor', await getCapaActual\(\)\)/, 'la pregunta del botón y de la API es la capa');
+  assert.match(acceso, /getRolWsEfectivo\(\)\) !== 'admin'/, 'y el rol: closer y setter no');
+  assert.match(acceso, /await requireRolWs\(\[\], \{ nav: 'video-editor' \}\)/, 'el guard de las pages: capa, rol y onboarding');
   // Y el botón de Video Generator se ofrece con la MISMA pregunta.
   const vg = sinLineas(leer('app/video-generator/page.tsx'));
   assert.match(vg, /veEditorVideo\(\)/);

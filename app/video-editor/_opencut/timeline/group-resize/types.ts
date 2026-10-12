@@ -1,4 +1,4 @@
-import type { FrameRate } from "opencut-wasm";
+import type { FrameRate } from "@/app/video-editor/_opencut/wasm/opencut";
 import type { ElementRef, RetimeConfig } from "@/app/video-editor/_opencut/timeline/types";
 import type { MediaTime } from "@/app/video-editor/_opencut/wasm";
 

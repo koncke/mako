@@ -5,7 +5,7 @@ import {
 	formatTimecode,
 	type FrameRate,
 	type TimeCodeFormat,
-} from "opencut-wasm";
+} from "@/app/video-editor/_opencut/wasm/opencut";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import {
 	parseMediaTimecode,

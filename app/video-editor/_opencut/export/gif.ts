@@ -9,7 +9,7 @@
 // CapCut corta en 60 s («No se puede exportar. El video es demasiado largo.»):
 // un GIF de un minuto ya pesa decenas de MB y nadie lo va a subir.
 
-import type { FrameRate } from "opencut-wasm";
+import type { FrameRate } from "@/app/video-editor/_opencut/wasm/opencut";
 import type { RootNode } from "@/app/video-editor/_opencut/services/renderer/nodes/root-node";
 import { CanvasRenderer } from "@/app/video-editor/_opencut/services/renderer/canvas-renderer";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";

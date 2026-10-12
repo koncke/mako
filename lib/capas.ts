@@ -279,10 +279,10 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // afuera de la única capa que administra el producto era la última pieza del bug que
     // hacía que Customer Success fuera «la tab de Mauricio»: sin esto, el super-admin sólo
     // podía verla ENTRANDO al workspace de un cliente, o sea mirando la cartera de otro.
-    // ⚠️ `video-editor` ENTRA ACÁ EL 12/10/2026 porque es `adminOnly` hasta que Martín lo
-    // valide, y el Sidebar muestra lo `adminOnly` sólo al super admin SIN impersonar
-    // (`adminShell`), o sea en ESTE workspace. Sin esta key, la tab no aparecía en ningún
-    // lado: adentro de un cliente la esconde el Sidebar, y acá la rebotaba `requireCapa`.
+    // ⚠️ `video-editor` ENTRA ACÁ EL 12/10/2026: era `adminOnly` hasta que Martín lo
+    // abrió ese mismo día, y esta capa tiene `navKeys` EXPLÍCITAS: sin la key, el super
+    // admin no la ve en su propio workspace y `requireCapa` lo rebota (lo mismo le pasa a
+    // `video-generator`, que no está en la lista).
     navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.

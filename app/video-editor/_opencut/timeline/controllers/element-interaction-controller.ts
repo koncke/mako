@@ -17,7 +17,7 @@ import {
 	ZERO_MEDIA_TIME,
 } from "@/app/video-editor/_opencut/wasm";
 import { TIMELINE_DRAG_THRESHOLD_PX } from "@/app/video-editor/_opencut/timeline/components/interaction";
-import type { FrameRate } from "opencut-wasm";
+import type { FrameRate } from "@/app/video-editor/_opencut/wasm/opencut";
 import { computeDropTarget } from "@/app/video-editor/_opencut/timeline/components/drop-target";
 import { getMouseTimeFromClientX } from "@/app/video-editor/_opencut/timeline/drag-utils";
 import { generateUUID } from "@/app/video-editor/_opencut/utils/id";

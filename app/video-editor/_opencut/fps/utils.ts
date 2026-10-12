@@ -1,4 +1,4 @@
-import type { FrameRate } from "opencut-wasm";
+import type { FrameRate } from "@/app/video-editor/_opencut/wasm/opencut";
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 
 type MediaAssetFpsInput = Pick<MediaAsset, "type" | "fps">;

@@ -1,6 +1,6 @@
 import { type JSX } from "react";
 import { BASE_TIMELINE_PIXELS_PER_SECOND } from "@/app/video-editor/_opencut/timeline/scale";
-import { mediaTimeToSeconds } from "opencut-wasm";
+import { mediaTimeToSeconds } from "@/app/video-editor/_opencut/wasm/opencut";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { TIMELINE_RULER_HEIGHT_PX } from "./layout";
 import { DEFAULT_FPS } from "@/app/video-editor/_opencut/fps/defaults";

@@ -1,7 +1,7 @@
 import {
 	applyMaskFeather as applyMaskFeatherWasm,
 	initializeGpu,
-} from "opencut-wasm";
+} from "@/app/video-editor/_opencut/wasm/opencut";
 import { aplicarPasesCe, esPaseCe } from "./pases-ce";
 import type { EffectPass } from "@/app/video-editor/_opencut/effects/types";
 import { GAUSSIAN_BLUR_SHADER } from "@/app/video-editor/_opencut/effects/definitions/blur";

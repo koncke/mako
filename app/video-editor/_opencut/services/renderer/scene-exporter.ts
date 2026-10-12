@@ -34,7 +34,7 @@ import {
 	QUALITY_VERY_HIGH,
 	type VideoEncodingConfig,
 } from "mediabunny";
-import type { FrameRate } from "opencut-wasm";
+import type { FrameRate } from "@/app/video-editor/_opencut/wasm/opencut";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { frameRateToFloat } from "@/app/video-editor/_opencut/fps/utils";
 import type { RootNode } from "./nodes/root-node";

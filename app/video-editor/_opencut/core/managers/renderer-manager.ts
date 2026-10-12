@@ -5,7 +5,7 @@ import { CanvasRenderer } from "@/app/video-editor/_opencut/services/renderer/ca
 import { SceneExporter } from "@/app/video-editor/_opencut/services/renderer/scene-exporter";
 import { buildScene } from "@/app/video-editor/_opencut/services/renderer/scene-builder";
 import { createTimelineAudioBuffer } from "@/app/video-editor/_opencut/media/audio";
-import { formatTimecode } from "opencut-wasm";
+import { formatTimecode } from "@/app/video-editor/_opencut/wasm/opencut";
 import { frameRateToFloat } from "@/app/video-editor/_opencut/fps/utils";
 import { downloadBlob } from "@/app/video-editor/_opencut/utils/browser";
 

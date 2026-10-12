@@ -306,10 +306,9 @@ export const FAMILIAS: NavFamilia[] = [
           { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
           { key: 'image-generator', adminOnly: true, label: 'Image Generator', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
           { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
-          // ⚠️ `adminOnly` HASTA QUE MARTÍN LO VALIDE: es una copia de CapCut que se arma
-          // por tandas. Esto sólo la esconde de la barra; quien la cierra de verdad es el
-          // guard de app/video-editor/acceso.ts (la URL tecleada también rebota).
-          { key: 'video-editor', label: 'Video Editor', href: '/video-editor', icon: 'tijera', adminOnly: true, match: starts('/video-editor') },
+          // La copia de CapCut. Abierta a todos desde el 12/10/2026; quién entra lo decide
+          // app/video-editor/acceso.ts (la misma pregunta que toda tab: rol y capa).
+          { key: 'video-editor', label: 'Video Editor', href: '/video-editor', icon: 'tijera', match: starts('/video-editor') },
         ],
       },
       {

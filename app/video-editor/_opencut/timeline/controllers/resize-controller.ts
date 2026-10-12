@@ -32,7 +32,7 @@ import {
 	type TimelineTrack,
 } from "@/app/video-editor/_opencut/timeline";
 import type { ElementRef } from "@/app/video-editor/_opencut/timeline/types";
-import type { FrameRate } from "opencut-wasm";
+import type { FrameRate } from "@/app/video-editor/_opencut/wasm/opencut";
 
 // --- Session ---
 

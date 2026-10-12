@@ -10,7 +10,7 @@ import {
 	toElementDurationTicks,
 } from "@/app/video-editor/_opencut/timeline/creation";
 import { BASE_TIMELINE_PIXELS_PER_SECOND } from "@/app/video-editor/_opencut/timeline/scale";
-import type { FrameRate } from "opencut-wasm";
+import type { FrameRate } from "@/app/video-editor/_opencut/wasm/opencut";
 import {
 	buildTextElement,
 	buildGraphicElement,

@@ -1,5 +1,5 @@
 import type { Bookmark } from "@/app/video-editor/_opencut/timeline";
-import type { FrameRate } from "opencut-wasm";
+import type { FrameRate } from "@/app/video-editor/_opencut/wasm/opencut";
 import { addMediaTime, roundFrameTime, type MediaTime } from "@/app/video-editor/_opencut/wasm";
 
 function bookmarkTimeEqual({

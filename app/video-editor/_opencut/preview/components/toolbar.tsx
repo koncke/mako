@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { Pause, Play } from "lucide-react";
-import { formatTimecode } from "opencut-wasm";
+import { formatTimecode } from "@/app/video-editor/_opencut/wasm/opencut";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
 	ArrowDown01Icon,
