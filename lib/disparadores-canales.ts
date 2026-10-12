@@ -40,7 +40,7 @@ import { esColumnaInexistente } from './nutricion-grafo-motor';
 import { plataformaDe } from './canal-social';
 import type { PasoGrafo } from './flujo-grafo';
 import {
-  MOTIVO_MEDIO, avisoSinWebhook, faltantes, frenoDeMedios, mediosQueUsa, socialesConectados, usosDeMedios,
+  MOTIVO_MEDIO, avisoSinWebhook, medioQueFrena, mediosQueUsa, socialesConectados,
   type CronDeMedio, type EstadoMedio, type EstadoMedios, type Medio,
 } from './medios-automatizacion';
 
@@ -149,7 +149,9 @@ export async function medioSinConectar(
   const usa = mediosQueUsa(pasos, disparadores);
   if (!usa.length) return { falta: null, sociales: [] };
   const estado = await estadoMedios(usa);
-  return { falta: frenoDeMedios(faltantes(usosDeMedios(pasos, linea, disparadores), estado)), sociales: socialesConectados(usa, estado) };
+  // La MISMA cuenta que frena «Probar» en la pantalla (decimotercera tanda, punto 3): `medioQueFrena`.
+  const f = medioQueFrena(pasos, linea, disparadores, estado);
+  return { falta: f ? { medio: f.medio, error: f.error } : null, sociales: socialesConectados(usa, estado) };
 }
 
 /**

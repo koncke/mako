@@ -27,9 +27,8 @@ import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type Creando }
 // «Configuraciones» y al «?» del recorrido. Desde la duodécima vive en UN lugar, la lista: el cartel vacío se fue
 // (la lista se dibuja también sin ninguna automatización).
 import { MenuAutomations } from './ConfiguracionesBoton';
-import { GaleriaPlantillas, type CreadaGaleria, type CreadaConIAGaleria } from './GaleriaPlantillas';
+import { GaleriaPlantillas, type CreadaGaleria } from './GaleriaPlantillas';
 import { leerCopia, firmaDeCopia } from '@/lib/flujo-copia';
-import { resumenAvisos } from '@/lib/flujo-ia-cliente';
 // (Acá se importaba lib/chatbot-mensajes-mako.ts: el endpoint de Notificaciones y el link `?aviso=` de los
 // Mensajes de MaKo de antes. Se fue el 11/10/2026: «MaKo en WhatsApp» son automatizaciones de esta misma lista,
 // con el CRON «Evento de MaKo» — docs/diseno-mako-en-whatsapp-unificado.md.)
@@ -266,6 +265,11 @@ function ChatAgentInner() {
    */
   const [galeria, setGaleria] = useState(false);
   /**
+   * LO QUE SE LE PIDIÓ A MaKo Y NO LLEGÓ A CREAR LA FILA (decimotercera tanda, punto 2): `crear_vacia` falló. Vuelve a la
+   * barra de la galería la próxima vez que se abra, para no tener que escribirlo de nuevo.
+   */
+  const [pedidoSinCrear, setPedidoSinCrear] = useState<string | null>(null);
+  /**
    * ⛔ LA TAB YA NO TIENE ONBOARDING (duodécima tanda, 12/10/2026). Hasta acá vivía `enOnboarding`: sin una línea
    * vinculada, la tab ERA el QR (Martín, 05/10: «lo único que tiene que salir es el QR»). En la prueba con Fiesta Music
    * eso fue lo primero que vio el cliente, y Martín lo dio vuelta: al entrar se ve el lienzo y el recorrido, también
@@ -392,7 +396,16 @@ function ChatAgentInner() {
    * `creando` es un ESTADO aparte y no una fila metida en `secuencias`: un `load()` de otra pantalla
    * en el medio la borraría.
    */
-  const crearNueva = async () => {
+  //
+  // ⚠️ Y «PÍDESELO A MaKo» ENTRA POR ACÁ (decimotercera tanda, punto 2; Martín, textual: «Al momento de enviar eso, no
+  // ocurre nada... Se cierra el modal y queda varios segundos creando la automatización... Me debe crear automáticamente
+  // la nueva automatización en la sidebar, y llevarme a ese lienzo... Que dentro aparezca un loader hasta que se cree
+  // está bien»). Con `pedido`, la fila nace VACÍA por esta MISMA puerta y su lienzo abre con el chat de MaKo y el pedido
+  // puesto (`AbrirSecuencia.pedido`): el chat lo manda como CREAR sobre esa fila, con la capa y el loader adentro del
+  // lienzo. Si la fila no se pudo crear, el pedido no se pierde: vuelve a la barra de la galería (`pedidoSinCrear`).
+  // Si MaKo falla después, la fila queda (vacía, pausada) con el error en su chat y el pedido de vuelta en la barra: no
+  // es una fantasma, es una automatización a la que se le puede volver a pedir.
+  const crearNueva = async (pedido?: string) => {
     if (creandoNueva.current) return;
     creandoNueva.current = true;
     setErrCrear(null);
@@ -401,27 +414,27 @@ function ChatAgentInner() {
     setAbrirSec({ id: temporal });
     try {
       const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_vacia' }) })).json();
-      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); return; }
+      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); if (pedido) setPedidoSinCrear(pedido); return; }
       // (Acá se guardaba `arranque`: el tipo de CRON elegido en «¿Qué la dispara?» del modal, que abría su CRON en
       // ese tipo. Se fue con esos botones en la décima tanda: «eso ya lo hacemos dentro en el CRON».)
-      setCreando({ temporal, id: Number(r.secuenciaId) });
+      const id = Number(r.secuenciaId);
+      setCreando({ temporal, id });
+      // El pedido viaja YA, con la fila todavía «creándose»: la lista la sigue por su clave y el lienzo de verdad se
+      // monta con el chat abierto y el pedido puesto.
+      if (pedido) { setPedidoSinCrear(null); setAbrirSec({ id, mako: true, pedido }); }
       await load();
-    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
+    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); if (pedido) setPedidoSinCrear(pedido); } finally { setCreando(null); creandoNueva.current = false; }
   };
   /** «＋ Nueva»: la galería. «Lienzo en blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia). */
   const abrirGaleria = () => { setErrCrear(null); setGaleria(true); };
   /**
-   * LA QUE ARMÓ MaKo DESDE «PÍDESELO A MaKo» (décima tanda, punto 6): ya está GUARDADA y pausada (la fila nació al
-   * guardar, lib/flujo-ia-crear.ts). Se cierra el modal, se trae la lista y se abre; el aviso que más importa («Elige
-   * qué la dispara en el CRON») queda pegado al botón, como el de una plantilla.
+   * «PÍDESELO A MaKo» (décima tanda, punto 6; decimotercera, punto 2): el modal se cierra AL ENVIAR y la fila nace YA por
+   * la puerta de «Nueva» (`crearNueva(pedido)`). Hasta la decimotercera, MaKo trabajaba ADENTRO del modal y la fila
+   * nacía al guardar (`alCrearConIA`): para la persona «no pasaba nada» durante el minuto que tarda.
    */
-  // ⚠️ SE ABRE CON EL CHAT DE MaKo ABIERTO (duodécima tanda, §2.5 y §3.6, `mako: true`): ahí está lo que se le pidió
-  // y lo que contestó, y el próximo cambio se pide en el mismo hilo.
-  const alCrearConIA = async (r: CreadaConIAGaleria) => {
+  const pedirAMako = (pedido: string) => {
     setGaleria(false);
-    setErrCrear(resumenAvisos(r.avisos)?.texto ?? null);
-    await load();
-    setAbrirSec({ id: r.secuenciaId, mako: true });
+    void crearNueva(pedido);
   };
   /**
    * CREAR DESDE LO COPIADO (copiar flujo, 10/10/2026): el aviso al entrar a la tab y «Pegar lo copiado» del
@@ -762,7 +775,7 @@ function ChatAgentInner() {
           onBlanco={() => { setGaleria(false); void crearNueva(); }}
           onPegar={(t) => { setGaleria(false); void crearDesdeCopia(t); }}
           onCreada={(r) => void alCrearDePlantilla(r)}
-          onCreadaIA={(r) => void alCrearConIA(r)} />
+          onPedirAMako={pedirAMako} pedidoInicial={pedidoSinCrear} />
       )}
 
       {/* «COPIASTE UN FLUJO»: arriba al centro, sobre el lienzo, hasta que se conteste. */}

@@ -8,9 +8,11 @@
 //
 //   1. UNA SOLA VERDAD: `estadoCanalesDisparo` (lib/disparadores-canales.ts) toma Instagram y Messenger de
 //      `estadoMedios`, la misma lectura que la tarjeta, Probar y Publicar. Graph se fue.
-//   2. SIN KEY O CON KEY MALA, AHÍ MISMO: el modal (`ConectarSocial`, app/automations/ConectarMedio.tsx) pide «API key
-//      de Zernio» con «Falta conectar Zernio» y con el 401 de la key propia, la guarda por la puerta de
-//      /integraciones y sigue con el OAuth. La tarjeta también ofrece «Conectar» en esos dos casos.
+//   2. SIN KEY O CON KEY MALA, AHÍ MISMO: con «Falta conectar Zernio» y con el 401 de la key propia, el modal
+//      (`ConectarSocial`, app/automations/ConectarMedio.tsx) abre EL modal de Zernio de /integraciones (decimotercera
+//      tanda, punto 5: «No crees un nuevo modal de conectar la API, reutiliza exactamente el mismo que ya tenemos en
+//      integraciones»; hasta ahí pedía la key en un campo propio) y, al cerrarlo, sigue con el OAuth. La tarjeta también
+//      ofrece «Conectar» en esos dos casos.
 //   3. EL 402 VIAJA COMO 402, con su link de pago (sólo con key PROPIA: el de la plataforma no es del cliente).
 //
 // Un test no puede importar un módulo `server-only` (el webhook y la ruta se fijan sobre el FUENTE); el modal se
@@ -24,7 +26,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  ConectarSocial, leerZernio, pideKeyZernio, ZERNIO_KEY_MALA, ZERNIO_PAUSADA, ZERNIO_SIN_KEY, type EstadoZernio,
+  ConectarSocial, leerZernio, pideKeyZernio, ZERNIO_KEY_MALA, ZERNIO_PAUSADA, type EstadoZernio,
 } from '../app/automations/ConectarMedio';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -76,16 +78,28 @@ test('`leerZernio`: sin Zernio y con el 401 de la key propia piden la key; lo de
   assert.equal(pideKeyZernio(leerZernio({ ok: true, cuentas: [] })), false);
 });
 
-test('el modal abre EN el campo «API key de Zernio» con sin Zernio y con la key mala, y diciendo por qué', () => {
-  const sin = modal({ estado: 'sin_zernio' });
-  assert.match(sin, />API key de Zernio</);
-  assert.match(sin, CAMPO_KEY, 'la key es un secreto: va en un campo de contraseña');
-  assert.match(sin, new RegExp(`role="alert"[^>]*>${ZERNIO_SIN_KEY}<`));
-  const mala = modal({ estado: 'key_mala', error: ZERNIO_KEY_MALA });
-  assert.match(mala, CAMPO_KEY);
-  assert.match(mala, /Tu key de Zernio no sirve/);
-  // Sin la key escrita, «Conectar» no se puede tocar (el campo está vacío al abrir).
-  assert.match(mala, /<button[^>]*disabled=""[^>]*>Conectar Instagram<\/button>/);
+// DECIMOTERCERA TANDA (punto 5): ya no hay un campo «API key de Zernio» propio. Sin Zernio o con la key mala, el modal
+// es EL de /integraciones (`ServicioSuelto` → `ServicioModal`, cargado a demanda: sin DOM no se dibuja nada).
+test('sin Zernio o con la key mala: EL modal de Zernio de /integraciones, no un campo propio', () => {
+  for (const html of [modal({ estado: 'sin_zernio' }), modal({ estado: 'key_mala', error: ZERNIO_KEY_MALA })]) {
+    assert.doesNotMatch(html, /data-zernio-key|API key de Zernio/, 'volvió el campo propio de la key');
+    assert.doesNotMatch(html, />Conectar Instagram</, 'abrió el OAuth sin Zernio');
+  }
+  const cm = fuente('app/automations/ConectarMedio.tsx');
+  assert.match(cm, /const ServicioSuelto = dynamic\(\(\) => import\('@\/app\/integraciones\/ServicioSuelto'\), \{ ssr: false/);
+  assert.match(cm, /useState<'zernio' \| 'listo' \| 'abriendo' \| 'esperando' \| 'conectado'>\(\(\) => \(pideKeyZernio\(inicial\) \? 'zernio' : 'listo'\)\)/);
+  assert.match(cm, /if \(fase === 'zernio'\) \{\n {4}return <ServicioSuelto servicio="zernio" /);
+  assert.doesNotMatch(cm, /\/api\/integraciones\/credencial|TextField|guardarKeyZernio/, 'la key se vuelve a guardar por un formulario propio');
+  // Y ES el de la grilla: el mismo `ServicioModal`, con la `Integracion` armada por la MISMA cuenta.
+  const suelto = fuente('app/integraciones/ServicioSuelto.tsx');
+  assert.match(suelto, /import \{ ServicioModal \} from '\.\/IntegracionesBoard';/);
+  assert.match(suelto, /<ServicioModal\n/);
+  const board = fuente('app/integraciones/IntegracionesBoard.tsx');
+  assert.match(board, /export function ServicioModal\(/);
+  assert.match(board, /<ServicioModal\n\s+i=\{svcByKey\(modal\.key\)!\}/, 'la grilla dejó de usar ese modal');
+  const lib = fuente('lib/integraciones.ts');
+  assert.match(lib, /return Promise\.all\(defs\.map\(integracionDeDef\)\);/);
+  assert.match(lib, /return integracionDeDef\(d\);/);
   // Sin nada que arreglar: el botón de siempre, sin campo.
   for (const html of [modal(), modal({ estado: 'ok', cuentas: [] })]) {
     assert.doesNotMatch(html, /data-zernio-key/);
@@ -94,18 +108,22 @@ test('el modal abre EN el campo «API key de Zernio» con sin Zernio y con la ke
   }
 });
 
-test('la key se guarda por la MISMA puerta que /integraciones y recién después se pide el OAuth', () => {
+test('la key se guarda por la puerta de /integraciones (su modal), y al cerrarlo sigue el OAuth', () => {
   const cm = fuente('app/automations/ConectarMedio.tsx');
-  assert.match(cm, /fetch\('\/api\/integraciones\/credencial', \{/);
-  assert.match(cm, /body: JSON\.stringify\(\{ action: 'guardar', servicio: 'zernio', valores: \{ ZERNIO_API_KEY: key \} \}\)/);
   const conectar = bloque(cm, 'const conectar = async () => {', "setFase('esperando');");
   const iVentana = conectar.indexOf("window.open('', 'mako-conectar'");
-  const iGuardar = conectar.indexOf('await guardarKeyZernio(k)');
   const iPedir = conectar.indexOf("await pedir('conectar')");
-  assert.ok(iVentana >= 0 && iVentana < iGuardar, 'la ventana se abre en el clic, antes de cualquier espera (si no, el navegador la bloquea)');
-  assert.ok(iGuardar > 0 && iGuardar < iPedir, 'el OAuth se pide antes de guardar la key');
-  // Una key mala que vuelve (401) vuelve a pedir el campo, vacío.
-  assert.match(conectar, /if \(pideKeyZernio\(res\)\) \{ setPideKey\(true\); setKey\(''\); \}/);
+  assert.ok(iVentana >= 0 && iVentana < iPedir, 'la ventana se abre en el clic, antes de cualquier espera (si no, el navegador la bloquea)');
+  // Una key mala que vuelve (401), o Zernio que no está: el modal de Integraciones, ahí mismo.
+  assert.match(conectar, /if \(pideKeyZernio\(res\)\) \{ setFase\('zernio'\); return; \}/);
+  // Al cerrarlo se vuelve a mirar Zernio: si sirve, sigue el OAuth acá; si no y no se guardó nada, se cierra todo; si
+  // se guardó y sigue sin servir, se dice y queda el botón para volver.
+  const alCerrar = bloque(cm, 'const alCerrarZernio = async () => {', 'const conectar = async () => {');
+  assert.match(alCerrar, /const e = leerZernio\(await pedir\('estado'\)\);/);
+  assert.match(alCerrar, /if \(!guardoKey\.current\) \{ onCerrar\(\); return; \}/);
+  assert.match(alCerrar, /setRevisar\(true\);/);
+  // El modal de Integraciones guarda por `ServicioConfigForm`: la ruta de credenciales, con su whitelist por campo.
+  assert.match(fuente('app/integraciones/ServicioConfigForm.tsx'), /body: JSON\.stringify\(\{ action: 'guardar', servicio: servicio\.key, valores: \{ \[env\]: v \} \}\)/);
   // El contrato de la ruta de credenciales: `guardar` con servicio, valores y la whitelist por campo.
   const cred = fuente('app/api/integraciones/credencial/route.ts');
   assert.match(cred, /if \(body\.action === 'guardar'\) \{/);

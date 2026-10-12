@@ -27,6 +27,13 @@ export type MensajeChatMako = {
   id: string; de: 'yo' | 'mako'; texto: string; at: string; via: 'app' | 'whatsapp';
   pregunta?: PreguntaMako; respuesta?: RespuestaMako;
   cambios?: { cambiadas: number; quitadas: number; agregadas: number }; avisos?: string[];
+  /**
+   * DE QUÉ TARJETA SALIÓ (decimotercera tanda, 12/10/2026, punto 7: «las recomendaciones que te de MaKo, en "MaKo te
+   * ayuda a escribirlo"... se debe quedar guardado como parte del historial del chat... se tiene que ver que el usuario
+   * apretó el botón en X tarjeta»). El nombre de la tarjeta tal como se lee en el lienzo (`nombreDeTarjeta`,
+   * lib/flujo-conversacion.ts). Ausente = un turno del chat de siempre.
+   */
+  tarjeta?: string;
 };
 export type ChatAutomatizacion = { v: 1; mensajes: MensajeChatMako[] };
 
@@ -38,6 +45,8 @@ export const claveChat = (secuenciaId: number) => `automatizacion.chat:${secuenc
 
 /** El largo máximo de un texto guardado (un mensaje, una pregunta, un aviso). Lo de más se corta. */
 export const TOPE_TEXTO_CHAT = 4000;
+/** El largo máximo del nombre de una tarjeta (`tarjeta`): es un rótulo, no un mensaje. */
+export const TOPE_TARJETA_CHAT = 160;
 /** Cuántas opciones guarda una pregunta, y cuántos avisos un mensaje. */
 const TOPE_OPCIONES = 8;
 const TOPE_AVISOS = 20;
@@ -104,6 +113,7 @@ export function sanearMensaje(raw: unknown): MensajeChatMako | null {
     const avisos = raw.avisos.map(texto).filter((a): a is string => !!a && a.trim().length > 0).slice(0, TOPE_AVISOS);
     if (avisos.length) m.avisos = avisos;
   }
+  if (typeof raw.tarjeta === 'string' && raw.tarjeta.trim()) m.tarjeta = raw.tarjeta.trim().slice(0, TOPE_TARJETA_CHAT);
   return m;
 }
 

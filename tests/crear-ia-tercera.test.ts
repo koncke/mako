@@ -38,8 +38,9 @@ import { opcionesCronIA } from '../lib/disparadores';
 import { catalogosDe, etapasDeCondicion } from '../lib/condiciones-catalogos';
 import { porId } from '../lib/api-mako/registro';
 import { marcasDeVoseo } from '../lib/puestas-data';
-import { EJEMPLOS, TITULO_GALERIA_IA } from '../app/automations/CrearConIA';
-import { ChatMako } from '../app/automations/ChatMako';
+import { EJEMPLOS, TITULO_GALERIA_IA, PLACEHOLDER_QUIETO } from '../app/automations/CrearConIA';
+import { BarraPideselo } from '../app/automations/ChatMako';
+import { Z_ACCION_LIENZO } from '../lib/lienzo-grafo';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -251,15 +252,17 @@ test('los dos prompts: sin «ir_a», el disparador por clave, y en español neut
 // ── 5. La caja (desde la duodécima tanda, el CHAT de MaKo: app/automations/ChatMako.tsx) ─────────────────────
 // ⚠️ DUODÉCIMA TANDA (12/10/2026): la caja de CrearConIA.tsx pasó a ser ChatMako.tsx (galería y lienzo) y su lector del
 // stream, app/automations/stream-ia.ts. Lo que fijaba esta sección sigue valiendo y se fija AHÍ: el placeholder que se
-// escribe solo y para al tocarlo, el micrófono del Plan, la capa del lienzo con su teclado y el error con su link. El
-// modo 'crear' (la caja del lienzo vacío, que no se dibujaba desde la décima) se fue: se dibuja la galería.
-// Roturas re-medidas con el arnés scratchpad/wf-duodecima/chat-ui/romper.mjs: ver al lado de cada test.
+// escribe solo y para al tocarlo, el micrófono, la capa del lienzo con su teclado y el error con su link.
+// ⚠️ DECIMOTERCERA TANDA (12/10/2026): la galería es `BarraPideselo` (la barra de WhatsApp con el logo de MaKo, que sólo
+// PIDE: punto 2) y la capa la pone SecuenciaPerfil (de la lista para la derecha, encima de «Publicar»; el chat encima).
+// Roturas re-medidas con scratchpad/agente-13/romper.mjs: ver al lado de cada test.
 
 const CAJA = sinComentarios(leer('app/automations/ChatMako.tsx'));
 const LECTOR = sinComentarios(leer('app/automations/stream-ia.ts'));
-const dibujar = (props: Partial<Parameters<typeof ChatMako>[0]> = {}) => renderToStaticMarkup(createElement(ChatMako, {
-  modo: 'galeria', onListo: () => {}, ...props,
-} as Parameters<typeof ChatMako>[0]));
+const PERFIL = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
+const dibujar = (props: Partial<Parameters<typeof BarraPideselo>[0]> = {}) => renderToStaticMarkup(createElement(BarraPideselo, {
+  onPedido: () => {}, ...props,
+} as Parameters<typeof BarraPideselo>[0]));
 
 // rotura (volver a dibujar los `ejemplos` como chips): 1 fallo. Desde la integración la prop ya no
 // existe: lo que se fija es que no vuelvan ni ella ni la cadena que los armaba con nombres de etapas
@@ -277,9 +280,17 @@ test('dibujada: «Pídeselo a MaKo», el primer ejemplo genérico en el placehol
   for (const f of ['app/automations/ChatAgentApp.tsx', 'app/automations/SimuladorWhatsApp.tsx', 'app/automations/SecuenciaPerfil.tsx']) {
     assert.doesNotMatch(sinComentarios(leer(f)), /ejemplosIA/, `${f}: volvió la cadena de los ejemplos con nombres de etapas`);
   }
-  // El micrófono del Plan (el mismo botón, no una copia).
-  assert.match(html, /aria-label="Dictar el pedido"/);
-  assert.match(CAJA, /import \{ BotonDictar \} from '@\/app\/plan\/board\/CrearTareaModal';/);
+  // DECIMOTERCERA (punto 6): la nota de voz de la barra de WhatsApp (se graba, se escucha y la ➤ la manda), transcrita
+  // con lo MISMO que el dictado del Plan (`transcribirNota`, app/_components/useDictar.ts), no con una copia.
+  assert.match(html, /aria-label="Grabar nota de voz"/);
+  assert.match(CAJA, /import \{ transcribirNota \} from '@\/app\/_components\/useDictar';/);
+  // PUNTO 4: el logo de MaKo antes de «Pídeselo a MaKo», no la estrella de texto.
+  assert.ok(html.indexOf('<svg') >= 0 && html.indexOf('<svg') < html.indexOf(`>${TITULO_GALERIA_IA}<`), 'falta el logo antes del título');
+  assert.doesNotMatch(html, />✦</, 'volvió la estrella de texto');
+  // Lo escrito que volvió (la fila no se pudo crear): está en la barra, y el ejemplo no se mueve.
+  const devuelto = dibujar({ inicial: 'Avisarme cuando alguien agenda' });
+  assert.match(devuelto, />Avisarme cuando alguien agenda<\/textarea>/);
+  assert.match(devuelto, new RegExp(`placeholder="${PLACEHOLDER_QUIETO}"`));
 });
 
 test('los ejemplos son genéricos: ni etapas, ni productos, ni nombres, y en tú', () => {
@@ -293,20 +304,28 @@ test('los ejemplos son genéricos: ni etapas, ni productos, ni nombres, y en tú
 // rotura (la animación vuelve cuando se vacía el campo: `!pedido` sin `!tocada`): 1 fallo.
 // Duodécima (romper.mjs): `!texto` sin `!tocada` → 13 / 1 (éste).
 test('el placeholder para del todo al tocar la caja, y no vuelve', () => {
-  // Desde la décima tanda también en la galería («Pídeselo a MaKo»): el placeholder se escribe en todo lo que no es editar.
-  assert.match(CAJA, /useEjemploQueSeEscribe\(p\.modo !== 'editar' && !tocada && !texto\)/);
-  assert.match(CAJA, /onPointerDownCapture=\{parar\}/);
-  assert.match(CAJA, /onFocusCapture=\{parar\}/);
+  // Desde la décima tanda en la galería («Pídeselo a MaKo»); desde la decimotercera, en `BarraPideselo`.
+  assert.match(CAJA, /const ejemplo = useEjemploQueSeEscribe\(!tocada && !texto\);/);
+  assert.match(CAJA, /onPointerDownCapture=\{parar\} onFocusCapture=\{parar\}/);
   assert.doesNotMatch(CAJA, /setTocada\(false\)/, 'nada la vuelve a prender');
-  assert.match(CAJA, /\(tocada \? PLACEHOLDER_QUIETO : ejemplo\)/);
-  assert.match(CAJA, /placeholder=\{placeholder\}/);
+  assert.match(CAJA, /placeholder=\{tocada \? PLACEHOLDER_QUIETO : ejemplo\}/);
 });
 
 // rotura (la capa adentro del componente, sin portal): 1 fallo.
 // Duodécima (romper.mjs): la capa sin portal → 13 / 1; Cancelar sin `abort()` en el lector → 13 / 1 (éste las dos).
-test('mientras crea en el lienzo: una capa fija sobre toda la pantalla (portal al body), que también corta el teclado', () => {
-  assert.match(CAJA, /const capa = tarjeta && \(typeof document !== 'undefined' \? createPortal\(tarjeta, document\.body\) : tarjeta\);/);
-  assert.match(CAJA, /capa: \{\n\s+position: 'fixed', inset: 0, zIndex: 125,/);
+// ⚠️ DECIMOTERCERA (puntos 2 y 6): la capa ya no es un portal sobre TODA la pantalla. La pone SecuenciaPerfil de la lista
+// para la derecha (la fila recién creada se sigue viendo) y POR ENCIMA de «Publicar» (`Z_ACCION_LIENZO`, el mismo
+// contexto de apilamiento: el Lienzo no crea uno), y el chat (el hilo de WhatsApp, con el «escribiendo…», las fases y
+// Cancelar) queda encima de la capa.
+test('mientras MaKo trabaja: la capa tapa el lienzo (no la lista) por encima de «Publicar», y el teclado no llega al lienzo', () => {
+  assert.match(PERFIL, /\{rolAdmin && chatTrabajando && \(\n\s+<div data-capa-mako="" aria-hidden style=\{\{\n\s+position: 'absolute', top: 0, bottom: 0, left: insetIzq \?\? 0, right: 0, zIndex: Z_CAPA_MAKO,/);
+  const z = /const Z_CAPA_MAKO = (\d+);\nconst Z_CHAT_ENCIMA = (\d+);/.exec(PERFIL);
+  assert.ok(z, 'no están los z de la capa y del chat');
+  assert.ok(Number(z![1]) > Z_ACCION_LIENZO, 'la capa queda debajo de «Publicar»');
+  assert.ok(Number(z![2]) > Number(z![1]), 'el chat queda debajo de la capa');
+  assert.match(PERFIL, /zIndex: chatTrabajando \? Z_CHAT_ENCIMA : 4/);
+  assert.match(PERFIL, /onTrabajando=\{setChatTrabajando\}/);
+  assert.match(CAJA, /useEffect\(\(\) => \{ onTrabajandoRef\.current\?\.\(trabajando\); \}, \[trabajando\]\);/);
   assert.match(CAJA, /document\.addEventListener\('keydown', alTeclado, true\);/);
   assert.match(CAJA, /e\.stopImmediatePropagation\(\);/);
   // Y Cancelar corta el pedido de verdad (AbortController), no sólo la pantalla.
@@ -317,7 +336,7 @@ test('mientras crea en el lienzo: una capa fija sobre toda la pantalla (portal a
 // Duodécima (romper.mjs): el lector sin `link` → 13 / 1 (éste).
 test('el error trae el link a donde se arregla', () => {
   assert.match(LECTOR, /if \(ev\.t === 'error'\) return \{ t: 'error', error: ev\.error \|\| 'No se pudo', \.\.\.\(ev\.link \? \{ link: ev\.link \} : \{\}\) \};/);
-  assert.match(CAJA, /if \(fin\.t === 'error'\) \{ deshacer\(\{ texto: fin\.error, \.\.\.\(fin\.link \? \{ link: fin\.link \} : \{\}\) \}\); return; \}/);
+  assert.match(CAJA, /if \(fin\.t === 'error'\) return deshacer\(\{ texto: fin\.error, \.\.\.\(fin\.link \? \{ link: fin\.link \} : \{\}\) \}\);/);
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
   assert.match(ruta, /send\(\{ t: 'error', error: g\.error, \.\.\.\(g\.link \? \{ link: g\.link \} : \{\}\) \}\);/);
 });

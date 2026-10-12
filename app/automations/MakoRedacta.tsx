@@ -21,27 +21,57 @@
 //   · UNDÉCIMA TANDA: en «MaKo en WhatsApp» (`datos` = el contexto de la tarjeta, destino 'equipo') escribe el
 //     aviso al EQUIPO, y si propone una nota de voz es para la Voz de MaKo (el editor la genera). Sin la voz del
 //     negocio: la ruta no la lee ni pide configurarla.
+//   · DECIMOTERCERA TANDA (12/10/2026):
+//       - punto 8, «Falta el botón de "MaKo te ayuda a escribirlo" en todos los otros canales... es diferente WhatsApp
+//         que Email»: `canal` ('whatsapp' | 'email' | 'instagram' | 'messenger'). Lo monta también el editor del email
+//         (EditorEmailGmail.tsx: propone asunto y cuerpo) y el de un DM (EditorMensajeSocial.tsx: uno o dos mensajes
+//         cortos, sin nota de voz). Lo que cambia por canal lo decide lib/mako-redacta.ts.
+//       - punto 7, «todo eso se debe quedar guardado como parte del historial del chat... se tiene que ver que el usuario
+//         apretó el botón en X tarjeta»: con `historial` (la automatización y el nombre de la tarjeta), la ruta anota el
+//         pedido y lo que propuso en el chat de MaKo de esa automatización, y el chat abierto lo suma
+//         (`avisarChatMako`, ./chat-mako-eventos.ts).
+//       - el logo de MaKo en la cabecera (punto 4), no la estrella de texto.
 
 import { useState, type CSSProperties } from 'react';
 import { Spinner } from '@/app/_ui';
+import { MakoLogo } from '@/app/_components/MakoBrand';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
-import type { DatosRedacta } from '@/lib/mako-redacta';
+import type { CanalRedacta, DatosRedacta } from '@/lib/mako-redacta';
+import { avisarChatMako } from './chat-mako-eventos';
 
 const SANS = "'Geist', sans-serif";
 /** La ruta corta a los 90 s (`maxDuration`); el navegador espera un poco más y no para siempre. */
 const ESPERA_MS = 95_000;
 
-type Respuesta = { mensajes: string[]; audio: string | null; nota: string | null; leido: string[]; sinVoz: boolean; descartes: string[] };
+type Respuesta = { mensajes: string[]; asunto: string | null; audio: string | null; nota: string | null; leido: string[]; sinVoz: boolean; descartes: string[] };
 
 const caja: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.45, outline: 'none', resize: 'none' };
 const btn: CSSProperties = { height: 32, padding: '0 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 };
 const btnMako: CSSProperties = { ...btn, border: '1px solid var(--mako-border)', background: 'var(--mako-bg)', color: 'var(--mako-ink)' };
 
-/** Lo que propuso MaKo, para el recuadro de la sugerencia del editor. `sinVoz`: además pidió la voz del negocio. */
-export type PropuestaRedacta = { mensajes: string[]; audio: string | null; nota: string | null; sinVoz: boolean };
+/**
+ * Lo que propuso MaKo, para el recuadro de la sugerencia del editor. `sinVoz`: además pidió la voz del negocio.
+ * `asunto`: sólo el email (punto 8 de la decimotercera tanda).
+ */
+export type PropuestaRedacta = { mensajes: string[]; asunto?: string | null; audio: string | null; nota: string | null; sinVoz: boolean };
 
-export function MakoRedacta({ contexto, permiteAudio, adaptar, onPropuesta, onCerrar, deshabilitado, datos = 'motor' }: {
+/** Dónde se anota lo que propone (punto 7): la automatización y la tarjeta tal como se lee en el lienzo. */
+export type HistorialRedacta = { secuenciaId: number; tarjeta: string };
+
+/** Lo que se le pregunta a la persona, por canal (corto, en tú). */
+export const PLACEHOLDER_REDACTA: Record<CanalRedacta, string> = {
+  whatsapp: '¿Qué quieres lograr con este mensaje?',
+  email: '¿Qué quieres lograr con este email?',
+  instagram: '¿Qué quieres lograr con este DM?',
+  messenger: '¿Qué quieres lograr con este DM?',
+};
+
+export function MakoRedacta({ contexto, permiteAudio, adaptar, onPropuesta, onCerrar, deshabilitado, datos = 'motor', canal = 'whatsapp', historial = null }: {
+  /** Por dónde sale lo que se escribe (punto 8): cambia lo que MaKo propone. Ausente = WhatsApp. */
+  canal?: CanalRedacta;
+  /** La tarjeta y su automatización: lo pedido y lo propuesto entran al chat de MaKo (punto 7). Sin esto, no se anota. */
+  historial?: HistorialRedacta | null;
   /**
    * Qué datos resuelve quien manda (lib/mako-redacta.ts, `DatosRedacta`): el recordatorio tiene los suyos, y la
    * tarjeta «MaKo en WhatsApp» manda SU contexto (destino 'equipo', undécima tanda): MaKo escribe el aviso al
@@ -75,15 +105,18 @@ export function MakoRedacta({ contexto, permiteAudio, adaptar, onPropuesta, onCe
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pedido, actual: contexto.actual, disparador: contexto.disparador ?? '',
-          objetivo: contexto.objetivo ?? '', gancho: contexto.gancho ?? '', permiteAudio, datos,
+          objetivo: contexto.objetivo ?? '', gancho: contexto.gancho ?? '', permiteAudio, datos, canal,
+          ...(historial ? { secuenciaId: historial.secuenciaId, tarjeta: historial.tarjeta } : {}),
         }),
         signal: AbortSignal.timeout(ESPERA_MS),
       });
-      const j = await r.json().catch(() => null) as ({ ok?: boolean; error?: string } & Partial<Respuesta>) | null;
+      const j = await r.json().catch(() => null) as ({ ok?: boolean; error?: string; chat?: unknown } & Partial<Respuesta>) | null;
+      // Lo que la ruta anotó en el chat de MaKo (punto 7), también si no pudo: el chat abierto lo suma.
+      if (historial && j?.chat) avisarChatMako(historial.secuenciaId, j.chat);
       if (!j?.ok) { setEstado({ t: 'error', error: j?.error || 'MaKo no pudo escribirlo. Prueba de nuevo.' }); return; }
-      const lista: Respuesta = { mensajes: j.mensajes ?? [], audio: j.audio ?? null, nota: j.nota ?? null, leido: j.leido ?? [], sinVoz: !!j.sinVoz, descartes: j.descartes ?? [] };
+      const lista: Respuesta = { mensajes: j.mensajes ?? [], asunto: j.asunto ?? null, audio: j.audio ?? null, nota: j.nota ?? null, leido: j.leido ?? [], sinVoz: !!j.sinVoz, descartes: j.descartes ?? [] };
       setEstado({ t: 'listo', r: lista });
-      if (lista.mensajes.length || lista.audio) onPropuesta({ mensajes: lista.mensajes, audio: lista.audio, nota: lista.nota, sinVoz: lista.sinVoz });
+      if (lista.mensajes.length || lista.audio) onPropuesta({ mensajes: lista.mensajes, asunto: lista.asunto, audio: lista.audio, nota: lista.nota, sinVoz: lista.sinVoz });
     } catch (e) {
       setEstado({ t: 'error', error: e instanceof Error && e.name === 'TimeoutError' ? 'MaKo tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.' });
     }
@@ -107,14 +140,15 @@ export function MakoRedacta({ contexto, permiteAudio, adaptar, onPropuesta, onCe
   return (
     <div data-mako-redacta style={{ display: 'flex', flexDirection: 'column', gap: 10, fontFamily: SANS }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--mako-ink)' }}>✦ MaKo</span>
+        <MakoLogo size={20} animate={false} />
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--mako-ink)' }}>MaKo</span>
         <button type="button" onClick={onCerrar} aria-label="Cerrar MaKo" title="Cerrar"
           style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, padding: 0 }}>✕</button>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
         <textarea value={pedido} onChange={(e) => setPedido(e.target.value)} rows={3} disabled={deshabilitado || pidiendo}
-          placeholder="¿Qué quieres lograr con este mensaje?" aria-label="Qué quieres lograr con este mensaje"
+          placeholder={PLACEHOLDER_REDACTA[canal]} aria-label={PLACEHOLDER_REDACTA[canal].replace(/[¿?]/g, '')}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void escribir(); } }}
           style={{ ...caja, flex: 1, minWidth: 0 }} />
         <BotonDictar titulo="Dictar" valor={pedido} onValor={setPedido} onError={(m) => setEstado({ t: 'error', error: m })} />

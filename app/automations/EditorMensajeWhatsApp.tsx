@@ -100,7 +100,7 @@ import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
 import { fueraDelContexto } from '@/app/_components/CampoConDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
 import { SalidaWhatsApp } from './SalidaWhatsApp';
-import { MakoRedacta } from './MakoRedacta';
+import { MakoRedacta, type HistorialRedacta } from './MakoRedacta';
 import { Dropdown } from '../components/Dropdown';
 import { SvcIcon } from '@/app/_components/ServicioVisual';
 import { MakoLogo } from '@/app/_components/MakoBrand';
@@ -242,6 +242,11 @@ export type EditorMensajeWhatsAppProps = {
   makoEnCabecera?: boolean;
   /** Quién firma las burbujas («MaKo» en «MaKo en WhatsApp»). Default: el negocio. */
   autor?: string;
+  /**
+   * EL HISTORIAL DEL ✦ (decimotercera tanda, punto 7): la automatización y el nombre de ESTA tarjeta. Lo que se le
+   * pide a MaKo y lo que propone entran al chat de MaKo de la automatización. Sin esto (/mensajes), no se anota.
+   */
+  chatMako?: HistorialRedacta | null;
 };
 
 /**
@@ -563,7 +568,7 @@ export function horaDeAhora(): string {
 export function EditorMensajeWhatsApp({
   paso, onChange, audios, onAudioNuevo, variables, datos, permiteIA, onModoIA, permiteAudio: pidenAudio = true, permiteAdjuntos = true,
   negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor, redactaCon: redactaPedido, onPartirConEspera, vozMako,
-  contexto,
+  contexto, chatMako = null,
 }: EditorMensajeWhatsAppProps) {
   const ws = useWs();
   // ⚠️ CON LA VOZ DE MaKo NO SE GRABA NI SE USA UN AUDIO DEL NEGOCIO (undécima tanda): el micrófono, «Audios
@@ -1415,6 +1420,7 @@ export function EditorMensajeWhatsApp({
             // Con la Voz de MaKo también propone una nota de voz: la genera MaKo («Generar con la voz de MaKo»).
             permiteAudio={permiteAudio || !!vozMako}
             datos={redactaCon ?? 'motor'}
+            historial={chatMako}
             adaptar={puedeAdaptar && !redactaCon ? { activo: esIA, onCambiar: (on) => { onChange({ tipo: on ? 'ia' : 'texto' }); onModoIA?.(on); } } : null}
             onPropuesta={alProponer}
             onCerrar={() => alternarPanelMako(claveBorrador, false)}

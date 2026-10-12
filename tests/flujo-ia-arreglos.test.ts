@@ -327,8 +327,9 @@ test('edicionVigente: si el lienzo cambió desde que se mandó, el resultado no 
 // rotura (CrearConIA llama a `p.onListo` del clic en vez del ref): 2 fallos de 25, éste y el de las etiquetas.
 test('editar: la caja devuelve la foto que mandó y la pantalla la compara antes de aplicar', () => {
   const caja = CHAT();
-  assert.match(caja, /const base = p\.modo === 'editar' \? p\.pasos : undefined;/);
-  assert.match(caja, /secuenciaId: p\.secuenciaId, pasos: base/);
+  // Decimotercera tanda: el modo sale del lienzo (vacío = crear sobre esta fila), y la foto va sólo al editar.
+  assert.match(caja, /const base = modo === 'editar' \? p\.pasos : undefined;/);
+  assert.match(caja, /secuenciaId: p\.secuenciaId,\n\s+\.\.\.\(base \? \{ pasos: base \} : \{\}\),/);
   assert.doesNotMatch(caja, /\bp\.onListo\(/, 'el onListo del clic cierra sobre el lienzo viejo');
   assert.match(caja, /useEffect\(\(\) => \{ onListoRef\.current = p\.onListo; \}\);/);
   assert.match(caja, /disparador: l\.disparador \?\? null, base,/);
@@ -386,11 +387,12 @@ test('crear sobre una que ya tiene tarjetas: el 409 trae lo guardado y la caja s
   // de respaldo. Roto volviendo a sólo las columnas (12/10): 24 / 1, cae éste.
   assert.match(bloque, /const actual = await cronGuardado\(\);/);
   assert.match(bloque, /disparador: actual \?\? valorDisparo\(\{/);
-  // Duodécima: el chat crea SIN `secuenciaId` (la fila nace al guardar), así que ese 409 no le llega; el stream igual
-  // conserva lo guardado del error por si otra pantalla crea sobre una fila.
+  // DECIMOTERCERA (punto 2): el chat del lienzo CREA con `secuenciaId` cuando el lienzo está vacío (la fila nació con
+  // el pedido de «Nueva automatización»). Si lo publicado ya tiene tarjetas (el borrador se vació a mano), el 409 llega
+  // como error al chat: «ya tiene tarjetas: pídele un cambio». El stream conserva lo guardado del error.
   const caja = CHAT();
-  assert.match(caja, /modo: p\.modo === 'galeria' \? 'crear' : 'editar'/);
-  assert.match(caja, /\.\.\.\(p\.modo === 'editar' \? \{ secuenciaId: p\.secuenciaId, pasos: base \} : \{ historial: hilo \}\)/);
+  assert.match(caja, /const modo = crea \? 'crear' : 'editar';/);
+  assert.match(caja, /pedido: enCurso\.pedido, modo, respuestas: enCurso\.respuestas, secuenciaId: p\.secuenciaId,/);
   assert.match(STREAM(), /\.\.\.\(j\?\.guardado \? \{ guardado: j\.guardado \} : \{\}\)/);
 });
 

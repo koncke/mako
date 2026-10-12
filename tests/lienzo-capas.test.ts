@@ -44,13 +44,20 @@ test('⚠️ el panel apaisado va encima de la esquina de avisos y de «Crear co
   // Desde la décima tanda (11/10/2026) queda UNA caja: la barra «Pídele un cambio» (editar). La del lienzo vacío
   // («Generar con IA», modo crear) se fue al modal «Nueva automatización» (docs/diseno-automations-galeria-v2.md §1).
   assert.ok(!perfil.includes('{rolAdmin && pasos.length === 0 && ('), 'volvió la caja «Generar con IA» del lienzo vacío');
-  const ini = perfil.indexOf('{rolAdmin && editandoIA && pasos.length > 0 && (');
+  // Decimotercera tanda: el chat también con el lienzo vacío (MaKo crea ahí), y mientras MaKo trabaja sube por encima de
+  // la capa que tapa el lienzo (que a su vez va encima de «Publicar»). Quieto, su capa de siempre.
+  const ini = perfil.indexOf('{rolAdmin && editandoIA && (');
   const fin = perfil.indexOf('<FlujoLienzo', ini);
   assert.ok(ini >= 0 && fin > ini, 'no encontré la caja de «Crear con IA»');
   const cajas = perfil.slice(ini, fin);
   assert.ok(cajas.length < 1_200, `el recorte mide ${cajas.length}: está mirando otra cosa`);
-  const zIA = [...cajas.matchAll(/zIndex: (\d+)/g)].map((m) => Number(m[1]));
+  const zIA = [...cajas.matchAll(/zIndex: chatTrabajando \? Z_CHAT_ENCIMA : (\d+)/g)].map((m) => Number(m[1]));
   assert.equal(zIA.length, 1, 'la caja de «Crear con IA» (editar) declara su capa');
+  // Trabajando: la capa encima de «Publicar» y el chat encima de la capa, los dos debajo de 60 (AGENTS.md: un flotante
+  // va con z < 60) y de los modales.
+  const capa = numero(perfil, /const Z_CAPA_MAKO = (\d+);/, 'el z de la capa de MaKo');
+  const chat = numero(perfil, /const Z_CHAT_ENCIMA = (\d+);/, 'el z del chat encima de la capa');
+  assert.ok(capa > Z_ACCION_LIENZO && chat > capa && chat < 60, `la capa (${capa}) y el chat (${chat}) no quedan entre «Publicar» y 60`);
   const modales = numero(leer('../app/_components/pila-modales.ts'), /const Z_BASE = (\d+);/, 'la base de la pila de modales');
   assert.ok(Z_EDITOR_APAISADO > esquina, `el panel (${Z_EDITOR_APAISADO}) no le gana a la esquina de avisos (${esquina}): tapa «Revisar antes de enviar»`);
   for (const z of zIA) assert.ok(Z_EDITOR_APAISADO > z, `el panel (${Z_EDITOR_APAISADO}) no le gana a la caja de «Crear con IA» (${z})`);

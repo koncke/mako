@@ -308,11 +308,18 @@ export type ComposerWhatsAppProps = {
   datos?: GrupoDatos[];
   /** Lo que va en rojo (`fueraDelContexto`). Sin esto, lo que `datos` no ofrece. */
   datosFuera?: DatoFuera;
+  /**
+   * EL COLOR DE LA ➤ (decimotercera tanda, punto 6: el chat con MaKo «exactamente igual en diseño al de WhatsApp...
+   * Solo cambiale unos colores»). Sin esto, el verde de WhatsApp de siempre.
+   */
+  acento?: string;
+  /** El nombre del campo para un lector de pantalla, si el `placeholder` cambia solo (el que se escribe y se borra). */
+  etiqueta?: string;
 };
 
 export function ComposerWhatsApp({
   modo, valor, onValor, placeholder, ocupado, soloLectura, onEnviar, onArchivo, onArchivos, acceptArchivo, menuClip,
-  onAudio, onErrorAudio, onBorradorVoz, mientrasGraba, audioPendiente, chip, ref, maxAlto, trasClip, datos, datosFuera,
+  onAudio, onErrorAudio, onBorradorVoz, mientrasGraba, audioPendiente, chip, ref, maxAlto, trasClip, datos, datosFuera, acento, etiqueta,
 }: ComposerWhatsAppProps) {
   const editar = modo === 'editar';
   const campo = useRef<HTMLTextAreaElement | null>(null);
@@ -460,11 +467,11 @@ export function ComposerWhatsApp({
             onEnviar?.();
           }}
           placeholder={placeholder ?? 'Escribe un mensaje…'}
-          aria-label={placeholder ?? 'Mensaje'}
+          aria-label={etiqueta ?? placeholder ?? 'Mensaje'}
           style={{ flex: 1, minWidth: 0, minHeight: 40, resize: 'none', padding: '9px 16px', borderRadius: 21, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 14, lineHeight: 1.35, outline: 'none' }} />
         </CampoConDatos>
         {!editar && hayParaEnviar && onEnviar ? (
-          <button type="button" onClick={onEnviar} disabled={ocupado} title="Enviar" aria-label="Enviar" style={{ flex: 'none', width: 42, height: 42, borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: ocupado ? 'default' : 'pointer', opacity: ocupado ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
+          <button type="button" onClick={onEnviar} disabled={ocupado} title="Enviar" aria-label="Enviar" style={{ flex: 'none', width: 42, height: 42, borderRadius: '50%', border: 'none', background: acento ?? 'var(--wa)', color: '#fff', cursor: ocupado ? 'default' : 'pointer', opacity: ocupado ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
         ) : onAudio ? (
           <button type="button" onClick={() => void voz.start()} disabled={ocupado} title="Grabar nota de voz" aria-label="Grabar nota de voz" style={{ ...icono, color: 'var(--dim)', opacity: ocupado ? 0.5 : 1 }}><IconMic /></button>
         ) : null}

@@ -165,49 +165,68 @@ export async function getIntegraciones(): Promise<Integracion[]> {
   // oficial… directamente voy a sacar el tema de oficial»), salvo para quien ya lo tenía, y
   // el 09/10/2026 se borró la integración entera («que no exista más»): la tarjeta ya no está
   // en lib/integraciones-catalogo.ts. Ver tests/sin-chatwoot.test.ts.
-  return Promise.all(defs.map(async (d) => {
-    if (d.key === 'landing') {
-      return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoLanding()) };
-    }
-    if (d.key === 'google') {
-      return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoGoogleCalendar()) };
-    }
-    if (d.key === 'agente') {
-      return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoAgente()) };
-    }
-    // Servicios de plataforma: se evalúan contra el env global (agencia).
-    // Per-cliente: contra las credenciales del workspace actual.
-    const faltan: string[] = [];
-    for (const k of d.envs) {
-      const ok = d.global ? envGlobalReal(k) : Boolean(await credWs(k));
-      if (!ok) faltan.push(k);
-    }
-    // ⚠️ EMAIL CON LA KEY Y SIN REMITENTE PROPIO NO ESTÁ CONECTADO, aunque la key sea lo único que pide
-    // para abrir /email (por eso el remitente sigue `opcional` en el catálogo, ver `sinEsto`). La tarjeta
-    // decía «Conectada» al lado de un campo vacío (Customer Success, audio del 08/10/2026, punto 15: el ws4
-    // tiene su key y ningún remitente), y después con el email de MaKo como remitente de un cliente (el ws1).
-    // UNA rama, POSITIVA (undécima tanda): `emailConectado` (lib/resend.ts) = key Y un remitente que pasa
-    // `remitenteDelNegocio`; lo que no pasa —sin remitente, el sandbox, el de MaKo, otro dominio— dice lo mismo.
-    // Es una lectura para DIBUJAR: si no se pudo leer, dice «falta», que se corrige solo en la próxima carga;
-    // no decide ningún envío.
-    if (d.key === 'email' && !faltan.length && !(await emailConectado().catch(() => false))) {
-      return {
-        key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
-        estado: 'falta' as EstadoIntegracion,
-        detalle: POR_QUE_SIN_EMAIL,
-        tieneDetalle: d.tieneDetalle,
-        ...delMetodo(d.key),
-      };
-    }
+  return Promise.all(defs.map(integracionDeDef));
+}
+
+/**
+ * UNA integración, con LA MISMA cuenta que la grilla (`integracionDeDef`), para abrir SU modal desde otra pestaña
+ * (decimotercera tanda, punto 5: «No crees un nuevo modal de conectar la API, reutiliza exactamente el mismo que ya
+ * tenemos en integraciones»; Automations conecta Zernio con el `ServicioModal` de /integraciones). Respeta la regla
+ * de la PLATAFORMA (una tarjeta `soloSuper` no se le abre a un cliente); la capa decide qué se LISTA, no qué se puede
+ * configurar cuando una automatización lo necesita. null = no existe o no es para este workspace.
+ */
+export async function getIntegracion(key: string): Promise<Integracion | null> {
+  const d = DEFS.find((x) => x.key === key);
+  if (!d) return null;
+  const wsActual = await getWorkspaceActual().catch(() => null);
+  const esSuper = wsActual != null && wsActual === (await wsSuperAdmin().catch(() => -1));
+  if (!defsVisibles([d], { cats: null, ocultas: new Set(), esSuper }).length) return null;
+  return integracionDeDef(d);
+}
+
+/** El estado de UNA tarjeta del catálogo (la grilla y `getIntegracion`). */
+async function integracionDeDef(d: Def): Promise<Integracion> {
+  if (d.key === 'landing') {
+    return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoLanding()) };
+  }
+  if (d.key === 'google') {
+    return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoGoogleCalendar()) };
+  }
+  if (d.key === 'agente') {
+    return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoAgente()) };
+  }
+  // Servicios de plataforma: se evalúan contra el env global (agencia).
+  // Per-cliente: contra las credenciales del workspace actual.
+  const faltan: string[] = [];
+  for (const k of d.envs) {
+    const ok = d.global ? envGlobalReal(k) : Boolean(await credWs(k));
+    if (!ok) faltan.push(k);
+  }
+  // ⚠️ EMAIL CON LA KEY Y SIN REMITENTE PROPIO NO ESTÁ CONECTADO, aunque la key sea lo único que pide
+  // para abrir /email (por eso el remitente sigue `opcional` en el catálogo, ver `sinEsto`). La tarjeta
+  // decía «Conectada» al lado de un campo vacío (Customer Success, audio del 08/10/2026, punto 15: el ws4
+  // tiene su key y ningún remitente), y después con el email de MaKo como remitente de un cliente (el ws1).
+  // UNA rama, POSITIVA (undécima tanda): `emailConectado` (lib/resend.ts) = key Y un remitente que pasa
+  // `remitenteDelNegocio`; lo que no pasa —sin remitente, el sandbox, el de MaKo, otro dominio— dice lo mismo.
+  // Es una lectura para DIBUJAR: si no se pudo leer, dice «falta», que se corrige solo en la próxima carga;
+  // no decide ningún envío.
+  if (d.key === 'email' && !faltan.length && !(await emailConectado().catch(() => false))) {
     return {
-      key: d.key,
-      nombre: d.nombre,
-      categoria: d.categoria,
-      descripcion: d.descripcion,
-      estado: (faltan.length ? 'falta' : 'conectada') as EstadoIntegracion,
-      detalle: faltan.length ? `Falta configurar: ${faltan.join(', ')}` : 'Conectada y operativa.',
+      key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
+      estado: 'falta' as EstadoIntegracion,
+      detalle: POR_QUE_SIN_EMAIL,
       tieneDetalle: d.tieneDetalle,
       ...delMetodo(d.key),
     };
-  }));
+  }
+  return {
+    key: d.key,
+    nombre: d.nombre,
+    categoria: d.categoria,
+    descripcion: d.descripcion,
+    estado: (faltan.length ? 'falta' : 'conectada') as EstadoIntegracion,
+    detalle: faltan.length ? `Falta configurar: ${faltan.join(', ')}` : 'Conectada y operativa.',
+    tieneDetalle: d.tieneDetalle,
+    ...delMetodo(d.key),
+  };
 }

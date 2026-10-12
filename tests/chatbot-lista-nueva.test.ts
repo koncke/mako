@@ -99,10 +99,11 @@ test('crearNueva pone la fila y la abre ANTES de pedirle nada al server; el id r
   // Sin `pedido` desde el 10/10/2026: lo mandaba «Armar una» del pie de la lista, que salió. Y sin `clase` desde la
   // décima tanda (11/10/2026): era el tipo de CRON de «¿Qué la dispara?» del modal, que se fue («eso ya lo hacemos
   // dentro en el CRON»); con él se fue el `const id` que lo acompañaba, y el id real va directo a la fila.
-  const c = recorte(APP(), 'const crearNueva = async () => {', '\n  };', 1700);
+  // Decimotercera tanda (punto 2): vuelve un `pedido`, el de «Pídeselo a MaKo», que entra por esta MISMA puerta.
+  const c = recorte(APP(), 'const crearNueva = async (pedido?: string) => {', '\n  };', 1900);
   const iFila = c.indexOf('setCreando({ temporal, id: null });\n    setAbrirSec({ id: temporal });');
   const iPost = c.indexOf("fetch('/api/chat-agent/secuencias'");
-  const iReal = c.indexOf('setCreando({ temporal, id: Number(r.secuenciaId) });');
+  const iReal = c.indexOf('setCreando({ temporal, id });');
   const iLoad = c.indexOf('await load();');
   assert.ok(iFila >= 0 && iPost > iFila, 'la fila aparece después del POST: vuelve a tardar');
   assert.ok(iReal > iPost && iLoad > iReal, 'el id real tiene que llegar antes del load');

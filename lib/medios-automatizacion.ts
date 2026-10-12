@@ -198,6 +198,26 @@ export function frenoDeMedios(faltan: readonly Faltante[]): { medio: Medio; erro
 }
 
 /**
+ * EL MEDIO QUE FRENA UN FLUJO, de punta a punta: lo que usan sus tarjetas y su CRON (`usosDeMedios`), lo que falta
+ * (`faltantes`) y el primero que se SABE sin conectar (`frenoDeMedios`), con la línea de WhatsApp de ESA tarjeta (para
+ * abrir el QR de la que hace falta). null = nada que frenar, también con «no pude comprobarlo» o sin la lectura.
+ *
+ * UNA cuenta para las tres puertas: Publicar y Activar en el server (`medioSinConectar`, lib/disparadores-canales.ts) y
+ * «Probar» en la pantalla (decimotercera tanda, punto 3: «Me dice "Sin zernio"... Pero me permite probarlo, eso no
+ * debería pasar... debe decirme que me falta conectar X cosa»; SecuenciaPerfil.tsx, `probar`).
+ */
+export function medioQueFrena(
+  pasos: readonly PasoGrafo[] | null | undefined, lineaAutomatizacion: string | null | undefined,
+  disparadores: readonly CronDeMedio[] | null | undefined, estado: EstadoMedios | null | undefined,
+): { medio: Medio; linea: string | null; error: string } | null {
+  const faltan = faltantes(usosDeMedios(pasos, lineaAutomatizacion, disparadores), estado);
+  const freno = frenoDeMedios(faltan);
+  if (!freno) return null;
+  const f = faltan.find((x) => x.conectado === false && x.medio === freno.medio);
+  return { medio: freno.medio, linea: f?.linea ?? null, error: freno.error };
+}
+
+/**
  * Los medios de Zernio (Instagram, Messenger) que el flujo usa y están CONECTADOS: los que necesitan que Zernio le
  * avise a MaKo (`asegurarAvisosSociales`, lib/disparadores-canales.ts). «No pude comprobarlo» no cuenta.
  */

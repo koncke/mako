@@ -52,7 +52,8 @@ import {
 import { pasoDeMako, paramsDeMako, type CambioDeMako } from '@/lib/mako-tarjeta';
 // El contexto de los datos de una tarjeta: el MISMO con que Publicar los valida.
 import { contextoDeTarjeta } from '@/lib/tokens-del-flujo';
-import { EditorEmailGmail } from './EditorEmailGmail';
+import { EditorEmailGmail, type EditorEmailGmailProps } from './EditorEmailGmail';
+import type { HistorialRedacta } from './MakoRedacta';
 import { NuevoPlaceholder } from './NuevoPlaceholder';
 import { EditorEtiqueta } from './EditorEtiqueta';
 // El editor de la CONDICIÓN (tercera tanda, puntos 9 y 10): una frase por fila, del catálogo por
@@ -1016,6 +1017,12 @@ type PropsEditor = {
  */
 function EditorDeNodo(pr: PropsEditor) {
   const { nodo, paso, rolAdmin } = pr;
+  /**
+   * EL ✦ DE CADA TARJETA ANOTA EN EL CHAT DE MaKo (decimotercera tanda, punto 7: «se tiene que ver que el usuario apretó
+   * el botón en X tarjeta»): la automatización y la tarjeta nombrada como se lee en el lienzo (`nombreDeTarjeta`, la
+   * misma que nombra los errores de Publicar). Sin automatización guardada, no se anota.
+   */
+  const chatDe = (id: string) => (pr.secuenciaId ? { secuenciaId: pr.secuenciaId, tarjeta: nombreDeTarjeta(pr.pasos, id) } : null);
   // ⚠️ UN SETTER NO EDITA, PERO TIENE QUE PODER LEER. Un mensaje no tiene `detalle` —su
   // contenido es el mensaje—, así que el panel salía en blanco justo en lo que más se abre.
   if (!rolAdmin) return <SoloLectura nodo={nodo} paso={paso} />;
@@ -1029,7 +1036,7 @@ function EditorDeNodo(pr: PropsEditor) {
       // La etiqueta es una ⚡ Acción dibujada como lo que hace (decisión 8): tiene su propio editor.
       if (etiquetaDeAccion(paso)) return <EditorEtiquetaLienzo paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
       // La tarjeta MAKO (tercera tanda, decisión 11): el aviso al grupo del negocio, con su editor.
-      if (esMako(paso)) return <EditorMako key={`mako-${id}`} {...pr} paso={paso} id={id} />;
+      if (esMako(paso)) return <EditorMako key={`mako-${id}`} {...pr} paso={paso} id={id} chatMako={chatDe(id)} />;
       return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
     // La `key` va por tarjeta: el editor recuerda la unidad elegida (`useState` sembrado de props).
     case 'esperar': return <EditorEspera key={`espera-${id}`} espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
@@ -1064,17 +1071,22 @@ function EditorDeNodo(pr: PropsEditor) {
     }
     case 'ir_a': return <EditorIrA {...pr} paso={paso} id={id} cambiar={cambiar} />;
     default:
-      if (paso.canal === 'email') return <EditorEmail paso={paso} id={id} negocio={pr.negocio} busy={pr.busy} cambiar={cambiar} />;
+      // El ✦ de MaKo también en el email y en los DM (decimotercera tanda, punto 8): cada uno pide lo suyo (lib/mako-redacta.ts).
+      if (paso.canal === 'email') {
+        return <EditorEmail paso={paso} id={id} negocio={pr.negocio} busy={pr.busy} cambiar={cambiar}
+          mako={rolAdmin ? { disparador: pr.disparador, paraGuion: pr.paraGuion, chat: chatDe(id) } : null} />;
+      }
       // Instagram y Messenger: la lógica del de WhatsApp con la cara de su app. La `key` va por tarjeta
       // (siembra estado de sus props). Tipear no apila; borrar, editar o adjuntar sí (`cambioApila`).
       if (esCanalSocial(paso.canal)) {
         return (
           <EditorMensajeSocial key={`social-${id}`} paso={paso} canal={paso.canal} negocio={pr.negocio} deshabilitado={pr.busy}
             adjuntos={pr.adjuntos} onAdjuntoNuevo={pr.onAdjuntoNuevo} onError={pr.onError}
+            mako={rolAdmin ? { disparador: pr.disparador, paraGuion: pr.paraGuion, chat: chatDe(id) } : null}
             onChange={(patch) => cambiar(patch, cambioApila(patch, paso))} />
         );
       }
-      return <EditorMensaje {...pr} paso={paso} id={id} cambiar={cambiar} />;
+      return <EditorMensaje {...pr} paso={paso} id={id} cambiar={cambiar} chatMako={chatDe(id)} />;
   }
 }
 
@@ -1088,14 +1100,15 @@ function EditorDeNodo(pr: PropsEditor) {
  * paso y la pantalla seguía mostrando el del negocio (docs/hallazgos-chatbot.md, «Una prop nueva del
  * editor con CERO call sites»).
  */
-function EditorEmail({ paso, id, negocio, busy, cambiar }: { paso: PasoSecuenciaDto; id: string; negocio: string; busy: boolean; cambiar: Cambiar }) {
+function EditorEmail({ paso, id, negocio, busy, cambiar, mako }: { paso: PasoSecuenciaDto; id: string; negocio: string; busy: boolean; cambiar: Cambiar; mako?: EditorEmailGmailProps['mako'] }) {
   return (
     // `cuerpoHtml`: el editor rico arranca del HTML guardado y un deshacer del lienzo lo devuelve
     // entero (sin esto, arrancaba del texto plano y deshacer sólo volvía el texto).
     <EditorEmailGmail key={`email-${id}`}
       asunto={paso.asunto ?? ''} preheader={paso.preheader ?? ''} cuerpo={paso.cuerpo ?? ''} cuerpoHtml={paso.cuerpo_html ?? ''}
-      remitente={paso.remitente ?? null}
-      onChange={(patch) => cambiar(patch, 'remitente' in patch)} negocio={negocio} deshabilitado={busy} />
+      remitente={paso.remitente ?? null} mako={mako}
+      // Usar la sugerencia de MaKo (asunto y cuerpo de una vez) es una decisión: apila, como elegir otro «De».
+      onChange={(patch) => cambiar(patch, 'remitente' in patch || ('asunto' in patch && 'cuerpo_html' in patch))} negocio={negocio} deshabilitado={busy} />
   );
 }
 
@@ -1142,7 +1155,7 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, disparador, triggerTipo, onPasos }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar }) {
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, disparador, triggerTipo, onPasos, chatMako }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar; chatMako?: HistorialRedacta | null }) {
   const noOficial = proveedorDelPaso(paso) === 'no_oficial';
   // EL RECORDATORIO DE LA REUNIÓN (10/10/2026): lo manda su emisor, que manda TEXTO y resuelve SUS datos
   // (lib/recordatorio-automatizacion.ts). Ni audio, ni archivos, ni «Revisar» (sale siempre), y el «{ }» con
@@ -1197,6 +1210,7 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       revisarHeredado={revisarHeredado(pasos, id, envioAutoSecuencia)}
       negocio={negocio}
       placeholder={paso.tipo === 'ia' ? 'Cómo responder' : undefined}
+      chatMako={chatMako}
     />
   );
 }
@@ -1231,7 +1245,7 @@ const CONTEXTO_MAKO: ContextoDatos = { destino: 'equipo', conLead: true };
  * Tipear no apila (el Ctrl+Z del texto es del navegador); borrar, adjuntar o sumar la voz, sí (`cambioApila`). La
  * `key` va por tarjeta.
  */
-function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos, onAdjuntoNuevo, onError, disparador, paraGuion, negocio }: PropsEditor & { paso: PasoSecuenciaDto; id: string }) {
+function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos, onAdjuntoNuevo, onError, disparador, paraGuion, negocio, chatMako }: PropsEditor & { paso: PasoSecuenciaDto; id: string; chatMako?: HistorialRedacta | null }) {
   const trigger = eventoMako ? TRIGGER_AVISO_MAKO : (triggerTipo ?? '');
   const ctx = contextoDeTarjeta(paso, { trigger_tipo: trigger, subtipo: eventoMako ?? undefined });
   // Por su firma: la tarjeta cambia en cada tecla y su contexto no (el «{ }» no se rearma por tipear).
@@ -1253,7 +1267,7 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
       audios={[]} permiteAudio={false} permiteAdjuntos adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
       datos={datos} redactaCon={contexto} permiteIA paraGuion={paraGuion} disparador={disparador} negocio={negocio}
       onPartirConEspera={(i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true)}
-      onChange={cambiarMako} onError={onError} deshabilitado={busy}
+      onChange={cambiarMako} onError={onError} deshabilitado={busy} chatMako={chatMako}
     />
   );
 }

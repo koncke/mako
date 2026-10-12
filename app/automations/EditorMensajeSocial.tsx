@@ -16,7 +16,11 @@
 //
 // LO QUE NO TIENE, a propósito (lib/canal-social.ts):
 //   · NOTA DE VOZ: Instagram rechaza el OGG/Opus y el MP3 de la biblioteca de WhatsApp.
-//   · «✦ MaKo»: el motor reescribe un texto sólo por el WhatsApp no oficial.
+//   · «MaKo lo adapta a cada persona»: el motor reescribe un texto sólo por el WhatsApp no oficial. El ✦ que AYUDA A
+//     ESCRIBIRLO sí está (decimotercera tanda, punto 8: «Falta el botón de "MaKo te ayuda a escribirlo" en todos los
+//     otros canales»): el mismo panel del WhatsApp (MakoRedacta.tsx) con el canal de la tarjeta, que propone uno o dos
+//     DM cortos y sin nota de voz; la propuesta espera arriba de la barra con «Agregar» y «Usar», como en WhatsApp, y lo
+//     pedido y lo propuesto entran al chat de MaKo (punto 7, `mako.chat`).
 //   · Un archivo de cualquier tipo: Instagram toma foto, video o PDF (`problemaDeAdjunto`).
 //
 // ARRIBA, LA CUENTA DESDE LA QUE SALE (como el número de salida del de WhatsApp), con «Conectar» si
@@ -36,7 +40,9 @@ import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
 import { CampoConDatos, type CampoConDatosHandle } from '@/app/_components/CampoConDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
-import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead } from './EditorMensajeWhatsApp';
+import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead, propuestaALista } from './EditorMensajeWhatsApp';
+import { MakoRedacta, type HistorialRedacta, type PropuestaRedacta } from './MakoRedacta';
+import { BotonMako } from '@/app/_ui/BotonMako';
 import { aplicarVariables } from '@/lib/template-vars';
 import { cambiosDePaso } from '@/lib/guion-audio';
 import { partesDe, formaGuardada, esUnTexto, TOPE_PARTES, type ParteMensaje } from '@/lib/mensaje-partes';
@@ -58,6 +64,15 @@ export type EditorMensajeSocialProps = {
   onAdjuntoNuevo?: (a: AdjuntoDto) => void;
   deshabilitado?: boolean;
   onError?: (m: string) => void;
+  /**
+   * EL ✦ DE MaKo (decimotercera tanda, punto 8): lo que lee para escribir y dónde anota (`chat`, punto 7). Sin esto
+   * (quien sólo mira), no se ofrece.
+   */
+  mako?: {
+    disparador?: string;
+    paraGuion?: { objetivo?: string | null; gancho?: string | null } | null;
+    chat?: HistorialRedacta | null;
+  } | null;
 };
 
 /** Lo que dice la cuenta de salida (POST /api/zernio, leído por `leerZernio`). `null` = todavía no llegó. */
@@ -80,7 +95,7 @@ function IconEnviar() {
   return <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 21 3l-8.5 18-2.2-7.3L3 11.5Z" fill="currentColor" /></svg>;
 }
 
-export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, onAdjuntoNuevo, deshabilitado, onError }: EditorMensajeSocialProps) {
+export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, onAdjuntoNuevo, deshabilitado, onError, mako = null }: EditorMensajeSocialProps) {
   const ws = useWs();
   const ident = IDENTIDAD_SOCIAL[canal];
   const nombreCanal = NOMBRE_CANAL[canal];
@@ -212,6 +227,24 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
     show('Mensaje borrado', () => { if (mismoPaso(pasoVivo.current, deQuien)) aplicarPartes(antes); });
   };
 
+  // ── EL ✦ DE MaKo (punto 8): el panel en lugar del chat, y la propuesta arriba de la barra ──
+  const [panelMako, setPanelMako] = useState(false);
+  const [sugerencia, setSugerencia] = useState<{ mensajes: string[]; nota: string | null } | null>(null);
+  const alProponer = (p: PropuestaRedacta) => {
+    if (!p.mensajes.length) return;
+    setSugerencia({ mensajes: p.mensajes, nota: p.nota });
+    if (!p.sinVoz) setPanelMako(false);
+  };
+  /** «Usar» reemplaza los mensajes de la tarjeta; «Agregar» los suma al final. Las MISMAS funciones que la barra. */
+  const usarSugerencia = (modo: 'reemplazar' | 'agregar') => {
+    if (!sugerencia) return;
+    const sig = propuestaALista(partesDe(pasoVivo.current), sugerencia.mensajes, modo);
+    if (sig.length > TOPE_PARTES) { avisar(`Hasta ${TOPE_PARTES} mensajes`); return; }
+    setError(null);
+    aplicarPartes(sig);
+    setSugerencia(null);
+  };
+
   const onTecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviar(); }
   };
@@ -296,6 +329,8 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
               Conectar
             </button>
           )}
+          {/* El ✦ (punto 8): el botón de MaKo de la casa, el mismo del WhatsApp. */}
+          {mako && <BotonMako lado={28} encendido={panelMako} deshabilitado={ocupado} title="Que MaKo te ayude a escribirlo" onClick={() => setPanelMako((v) => !v)} />}
           {cuenta?.estado === 'pausada' && cuenta.pago && (
             <a href={cuenta.pago} target="_blank" rel="noopener noreferrer" data-zernio-pago
               style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
@@ -337,7 +372,17 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, minWidth: 0, border: `1px solid ${ident.borde}`, borderRadius: 16, overflow: 'hidden', background: 'var(--surface)' }}>
       {filaCuenta}
-      <div data-chat style={{ flex: '1 1 auto', minHeight: 110, padding: 12, display: 'flex', flexDirection: 'column', overflowY: 'auto', background: 'var(--surface)' }}>
+      {panelMako && mako && (
+        <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: 12, borderTop: '1px solid var(--border)' }}>
+          <MakoRedacta canal={canal} datos="motor" permiteAudio={false} historial={mako.chat ?? null}
+            contexto={{
+              actual: partes.map((x) => (x.tipo === 'texto' || x.tipo === 'media' ? x.cuerpo ?? '' : '')).filter((t) => t.trim()).join('\n\n'),
+              disparador: mako.disparador, objetivo: mako.paraGuion?.objetivo ?? null, gancho: mako.paraGuion?.gancho ?? null,
+            }}
+            onPropuesta={alProponer} onCerrar={() => setPanelMako(false)} deshabilitado={ocupado} />
+        </div>
+      )}
+      <div data-chat style={{ flex: '1 1 auto', minHeight: 110, padding: 12, display: panelMako && mako ? 'none' : 'flex', flexDirection: 'column', overflowY: 'auto', background: 'var(--surface)' }}>
         {/* `marginTop: auto` y no `justify-content: flex-end`: con flex-end y scroll, lo que desborda por arriba no se alcanza. */}
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>{vista}</div>
       </div>
@@ -348,6 +393,27 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         </div>
       )}
       {error && <div role="alert" style={{ flex: 'none', padding: '6px 12px', borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--bad)' }}>{error}</div>}
+      {/* LA SUGERENCIA DE MaKo (punto 8), arriba de la barra: no es un mensaje enviado. */}
+      {sugerencia && !panelMako && (
+        <div data-sugerencia-social="" role="region" aria-label="Sugerencia de MaKo"
+          style={{ flex: 'none', margin: '0 10px 8px', padding: '9px 11px', borderRadius: 12, background: 'var(--mako-bg)', border: '1px solid var(--mako-border)', display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 230, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700, color: 'var(--mako-ink)' }}>
+            Sugerencia de MaKo
+            <button type="button" onClick={() => setSugerencia(null)} title="Descartar" aria-label="Descartar la sugerencia"
+              style={{ marginLeft: 'auto', flex: 'none', background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>✕</button>
+          </div>
+          {sugerencia.mensajes.map((m, k) => (
+            <div key={k} style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', padding: '6px 9px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--mako-border)' }}>{conNegocio(m)}</div>
+          ))}
+          {sugerencia.nota && <div style={{ fontSize: 12, color: 'var(--dim)' }}>{sugerencia.nota}</div>}
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+            <button type="button" disabled={ocupado} onClick={() => usarSugerencia('agregar')}
+              style={{ height: 28, padding: '0 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Agregar</button>
+            <button type="button" disabled={ocupado} onClick={() => usarSugerencia('reemplazar')}
+              style={{ height: 28, padding: '0 11px', borderRadius: 8, border: 'none', background: ident.burbuja, color: '#fff', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Usar</button>
+          </div>
+        </div>
+      )}
       {chip && (
         <div style={{ flex: 'none', margin: '0 10px 6px', padding: '6px 10px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
           <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600, color: 'var(--ink)' }}>{chip.titulo}</span>

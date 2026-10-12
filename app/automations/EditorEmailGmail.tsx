@@ -59,6 +59,12 @@
 // implementación de lo mismo. Si el remitente es el sandbox de Resend o el envío está apagado, lo dice
 // un chip corto al lado del De, que es donde se mira quién manda.
 //
+// EL ✦ DE MaKo (decimotercera tanda, 12/10/2026, punto 8: «Falta el botón de "MaKo te ayuda a escribirlo" en todos
+// los otros canales... Pero claro, es diferente WhatsApp que Email»): en la cabecera «Mensaje nuevo», el mismo panel
+// que el de WhatsApp (MakoRedacta.tsx) con `canal: 'email'`: MaKo propone ASUNTO y CUERPO (en párrafos, sin nota de
+// voz). La propuesta espera en su recuadro arriba del email y «Usar» pone los dos de una vez (un deshacer). Lo pedido
+// y lo propuesto entran al chat de MaKo de la automatización (punto 7, `mako.chat`).
+//
 // ⚠️ NADA DE ACÁ PUBLICA: `onChange` es un cambio local del lienzo (sólo «Publicar» publica). Lo único
 //    que escribe es el flujo de «Vincular nuevo», que es el de /email y guarda en el workspace.
 // ⚠️ `cuerpoHtml` lo pasa quien monta (`paso.cuerpo_html`). Si no lo pasa, el editor lleva su propia
@@ -77,6 +83,8 @@ import { EmojiPicker } from '../whatsapp/EmojiPicker';
 import { EditorRicoPerezoso } from '../customer-success/curso/editor-rico-perezoso';
 import { Modal } from '@/app/_ui/Modal';
 import { useWs } from '@/app/_ui/Link';
+import { BotonMako } from '@/app/_ui/BotonMako';
+import { MakoRedacta, type HistorialRedacta, type PropuestaRedacta } from './MakoRedacta';
 import { htmlDeCuerpoTexto, type RenderEmailParams } from '@/lib/email-html';
 import { textoDeHtmlEmail, aplicarVariablesHtml, sanearHtmlEmail } from '@/lib/email-html-seguro';
 import { aplicarVariables } from '@/lib/template-vars';
@@ -116,7 +124,19 @@ export type EditorEmailGmailProps = {
   /** Nombre del negocio: resuelve `{{negocio}}` y firma el pie (`paramsDeVista`, como el motor). */
   negocio?: string;
   deshabilitado?: boolean;
+  /**
+   * EL ✦ DE MaKo (decimotercera tanda, punto 8): lo que lee para escribir (el disparador y la estrategia) y dónde anota
+   * (`chat`, punto 7). Sin esto (quien sólo mira), no se ofrece.
+   */
+  mako?: {
+    disparador?: string;
+    paraGuion?: { objetivo?: string | null; gancho?: string | null } | null;
+    chat?: HistorialRedacta | null;
+  } | null;
 };
+
+/** Lo que propuso el ✦ para este email: espera en su recuadro hasta que se usa o se descarta. */
+type SugerenciaEmail = { asunto: string | null; cuerpo: string; nota: string | null };
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -355,7 +375,7 @@ type Abierto = 'datos-asunto' | 'datos-cuerpo' | 'emoji' | 'de' | null;
 /** El rojo de un email al LEAD: lo que el envío no resuelve (la pregunta de Publicar, `contextoDeTarjeta`). */
 const FUERA_EMAIL = fueraDelContexto({ destino: 'lead', conLead: true });
 
-export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChange, negocio, deshabilitado }: EditorEmailGmailProps) {
+export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChange, negocio, deshabilitado, mako = null }: EditorEmailGmailProps) {
   const ws = useWs();
   const clave = String(ws ?? '');
   const [estado, setEstado] = useState<EstadoRemitente | null | undefined>(() => {
@@ -408,6 +428,27 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
     alCambiarCuerpo(sanearHtmlEmail(raw));
   };
   const entrarHtml = () => { setCongelado(valorHtml); setCrudo(htmlLegible(valorHtml)); setAbierto(null); setModo('html'); };
+
+  // ── EL ✦ DE MaKo (punto 8): el panel en lugar del email mientras está abierto, y la propuesta en su recuadro ──
+  const [panelMako, setPanelMako] = useState(false);
+  const [sugerencia, setSugerencia] = useState<SugerenciaEmail | null>(null);
+  const alProponer = (p: PropuestaRedacta) => {
+    const cuerpoNuevo = p.mensajes[0] ?? '';
+    if (!cuerpoNuevo.trim() && !p.asunto) return;
+    setSugerencia({ asunto: p.asunto ?? null, cuerpo: cuerpoNuevo, nota: p.nota });
+    if (!p.sinVoz) setPanelMako(false);
+  };
+  /** «Usar»: el asunto y el cuerpo de una vez (UN cambio: un deshacer), en el editor visual. */
+  const usarSugerencia = () => {
+    const s = sugerencia;
+    if (!s) return;
+    const html = s.cuerpo.trim() ? htmlDeCuerpoTexto(s.cuerpo) : valorHtml;
+    const texto = textoDeHtmlEmail(html);
+    setCopia({ cuerpo: texto, html });
+    setModo('visual');
+    onChange({ ...(s.asunto ? { asunto: s.asunto } : {}), cuerpo_html: html, cuerpo: texto });
+    setSugerencia(null);
+  };
   const salirHtml = () => { setAbierto(null); setModo('visual'); };
 
   useEffect(() => {
@@ -494,9 +535,39 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, minWidth: 0, fontFamily: SANS }}>
       <style>{CSS}</style>
-      <section className="mk-gmail" aria-label="Mensaje nuevo">
-        <div style={{ flex: 'none', padding: '8px 12px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>
-          Mensaje nuevo
+      {panelMako && mako && (
+        <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: 12, borderRadius: 14, border: '1px solid var(--mako-border)', background: 'var(--surface)' }}>
+          <MakoRedacta canal="email" datos="motor" permiteAudio={false} historial={mako.chat ?? null}
+            contexto={{
+              actual: [asunto.trim() ? `Asunto: ${asunto.trim()}` : '', (cuerpoHtml ? textoDeHtmlEmail(cuerpoHtml) : cuerpo).trim()].filter(Boolean).join('\n\n'),
+              disparador: mako.disparador, objetivo: mako.paraGuion?.objetivo ?? null, gancho: mako.paraGuion?.gancho ?? null,
+            }}
+            onPropuesta={alProponer} onCerrar={() => setPanelMako(false)} deshabilitado={deshabilitado} />
+        </div>
+      )}
+      {/* LA SUGERENCIA DE MaKo (punto 8), arriba del email: el asunto y el cuerpo, con «Usar». No es un email enviado. */}
+      {sugerencia && !panelMako && (
+        <div data-sugerencia-email="" role="region" aria-label="Sugerencia de MaKo"
+          style={{ flex: 'none', marginBottom: 8, padding: '9px 11px', borderRadius: 10, background: 'var(--mako-bg)', border: '1px solid var(--mako-border)', display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 260, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700, color: 'var(--mako-ink)' }}>
+            Sugerencia de MaKo
+            <button type="button" onClick={() => setSugerencia(null)} title="Descartar" aria-label="Descartar la sugerencia"
+              style={{ marginLeft: 'auto', flex: 'none', background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>✕</button>
+          </div>
+          {sugerencia.asunto && <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{sugerencia.asunto}</div>}
+          {sugerencia.cuerpo && (
+            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', padding: '6px 9px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--mako-border)' }}>{sugerencia.cuerpo}</div>
+          )}
+          {sugerencia.nota && <div style={{ fontSize: 12, color: 'var(--dim)' }}>{sugerencia.nota}</div>}
+          <button type="button" onClick={usarSugerencia} disabled={deshabilitado}
+            style={{ alignSelf: 'flex-end', height: 28, padding: '0 12px', borderRadius: 8, border: 'none', background: 'var(--mako)', color: '#fff', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Usar</button>
+        </div>
+      )}
+      <section className="mk-gmail" aria-label="Mensaje nuevo" style={panelMako && mako ? { display: 'none' } : undefined}>
+        <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, padding: mako ? '5px 8px 5px 12px' : '8px 12px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>
+          <span style={{ flex: 1 }}>Mensaje nuevo</span>
+          {/* El ✦ (punto 8): el botón de MaKo de la casa, el mismo del WhatsApp. */}
+          {mako && <BotonMako lado={26} encendido={panelMako} deshabilitado={deshabilitado} title="Que MaKo te ayude a escribirlo" onClick={() => setPanelMako((v) => !v)} />}
         </div>
         <div className="mk-gmail-scroll">
           <div className="mk-gmail-fila">

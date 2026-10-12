@@ -1334,7 +1334,10 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
   );
 }
 
-function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, cargadorLanding, pixel, agenteActual, appUrl, onClose, onCambio, onRefetchUsage }: {
+// ⚠️ EXPORTADO (decimotercera tanda, punto 5: «No crees un nuevo modal de conectar la API, reutiliza exactamente el mismo
+// que ya tenemos en integraciones»): Automations lo abre para Zernio sin cambiar de pestaña (`ServicioSuelto`,
+// ./ServicioSuelto.tsx, cargado a demanda). Un segundo modal para lo mismo es el que deja de decir lo mismo.
+export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, cargadorLanding, pixel, agenteActual, appUrl, onClose, onCambio, onRefetchUsage }: {
   i: Integracion; sev: 'good' | 'warn' | 'bad';
   /** Reemplaza la palabra del chip cuando el estado tiene un nombre propio ("Falta permiso"). */
   chipWord?: string;

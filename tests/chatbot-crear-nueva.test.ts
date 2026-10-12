@@ -57,11 +57,12 @@ const dibujar = (extra: Record<string, unknown>) => renderToStaticMarkup(createE
 /** El cuerpo de `crearNueva` en ChatAgentApp, hasta su cierre real. */
 function crearNueva(): string {
   const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
-  const ini = src.indexOf('const crearNueva = async () => {');
+  // Decimotercera tanda (punto 2): `pedido` es el de «Pídeselo a MaKo», que entra por esta MISMA puerta.
+  const ini = src.indexOf('const crearNueva = async (pedido?: string) => {');
   assert.ok(ini >= 0, 'no está crearNueva');
   const fin = src.indexOf('\n  };', ini);
   const cuerpo = src.slice(ini, fin);
-  assert.ok(cuerpo.length > 100 && cuerpo.length < 1500, `el recorte mide ${cuerpo.length}`);
+  assert.ok(cuerpo.length > 100 && cuerpo.length < 1900, `el recorte mide ${cuerpo.length}`);
   return cuerpo;
 }
 
@@ -101,7 +102,7 @@ test('el fallo de crear se dibuja pegado al «＋ Nueva» de la lista', () => {
 
 test('crearNueva ignora los clics mientras hay un POST en vuelo, y se suelta en un finally', () => {
   const c = crearNueva();
-  assert.match(c, /^const crearNueva = async \(\) => \{\n {4}if \(creandoNueva\.current\) return;\n {4}creandoNueva\.current = true;/);
+  assert.match(c, /^const crearNueva = async \(pedido\?: string\) => \{\n {4}if \(creandoNueva\.current\) return;\n {4}creandoNueva\.current = true;/);
   // Tercera tanda: el finally suelta también la fila de «Nueva» (`creando`): si falló, se va.
   assert.match(c, /finally \{ setCreando\(null\); creandoNueva\.current = false; \}/);
   assert.match(sinComentarios(leer('app/automations/ChatAgentApp.tsx')), /const creandoNueva = useRef\(false\);/);
@@ -131,10 +132,15 @@ test('«＋ Nueva» abre la galería, y «Lienzo en blanco» crea la vacía de s
   const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   assert.match(src, /const abrirGaleria = \(\) => \{ setErrCrear\(null\); setGaleria\(true\); \};/);
   assert.match(src, /\{galeria && rolAdmin && \(\s*<GaleriaPlantillas productos=\{productos\} onCerrar=\{\(\) => setGaleria\(false\)\}\s*onBlanco=\{\(\) => \{ setGaleria\(false\); void crearNueva\(\); \}\}/, 'la galería no está montada, o «Lienzo en blanco» no crea la vacía');
-  // «Pídeselo a MaKo» (décima tanda): la que armó MaKo también se abre DESPUÉS de traer la lista, y desde la duodécima
-  // con el chat de MaKo abierto (`mako: true`, §3.6; lo fija también tests/automations-chat-mako.test.ts).
-  assert.match(src, /onCreadaIA=\{\(r\) => void alCrearConIA\(r\)\}/);
-  assert.match(src, /const alCrearConIA = async \(r: CreadaConIAGaleria\) => \{\n {4}setGaleria\(false\);\n[^\n]*\n {4}await load\(\);\n {4}setAbrirSec\(\{ id: r\.secuenciaId, mako: true \}\);/);
+  // «Pídeselo a MaKo» (decimotercera tanda, punto 2): el modal se cierra AL ENVIAR y la fila nace YA por ESTA puerta
+  // (`crearNueva(pedido)`), con su lienzo abierto, el chat de MaKo y el pedido puesto (lo fija también
+  // tests/automations-decimotercera.test.ts). Si la fila no se pudo crear, el pedido vuelve a la barra.
+  assert.match(src, /onPedirAMako=\{pedirAMako\} pedidoInicial=\{pedidoSinCrear\} \/>/);
+  assert.match(src, /const pedirAMako = \(pedido: string\) => \{\n {4}setGaleria\(false\);\n {4}void crearNueva\(pedido\);\n {2}\};/);
+  assert.doesNotMatch(src, /alCrearConIA\(|onCreadaIA=/, 'volvió crear ADENTRO del modal');
+  const c = crearNueva();
+  assert.match(c, /if \(pedido\) \{ setPedidoSinCrear\(null\); setAbrirSec\(\{ id, mako: true, pedido \}\); \}\n {6}await load\(\);/);
+  assert.match(c, /setErrCrear\(r\?\.error \?\? 'No se pudo crear'\); if \(pedido\) setPedidoSinCrear\(pedido\); return;/);
   // La creada desde una plantilla se abre DESPUÉS de traer la lista (antes no está para elegirla).
   assert.match(src, /await load\(\);\n {4}setAbrirSec\(\{ id: r\.secuenciaId \}\);/);
 });

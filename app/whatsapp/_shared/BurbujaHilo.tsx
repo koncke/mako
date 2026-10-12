@@ -47,6 +47,8 @@ export type BurbujaHiloProps = {
   pie?: ReactNode;
   /** El fondo de la burbuja saliente (el acento del canal). Default: el del no oficial. */
   fondo?: string;
+  /** El borde de la burbuja saliente (decimotercera tanda: el chat con MaKo). Default: el índigo del no oficial. */
+  borde?: string;
   /** Tocar una imagen: el lightbox del hilo. Sin esto (o compacta), la imagen no es un botón. */
   onVerImagen?: (url: string) => void;
   /** Lo que se dibuja cuando no hay nada que mostrar («Sin escribir» en el editor). */
@@ -76,7 +78,7 @@ export function tipoDeMedia(m: NonNullable<ContenidoBurbuja['media']>): 'image' 
   return 'document';
 }
 
-export function BurbujaHilo({ contenido, saliente = true, compacta = false, autor, hora, pie, fondo, onVerImagen, vacio, maxAncho, lineas = 5 }: BurbujaHiloProps) {
+export function BurbujaHilo({ contenido, saliente = true, compacta = false, autor, hora, pie, fondo, borde, onVerImagen, vacio, maxAncho, lineas = 5 }: BurbujaHiloProps) {
   const { texto, audio, media, ia } = contenido;
   // 240 como en el hilo, pero nunca más que la burbuja: en el editor del lienzo (328 px) una foto
   // de 240 se salía por el costado.
@@ -93,7 +95,7 @@ export function BurbujaHilo({ contenido, saliente = true, compacta = false, auto
     padding: compacta ? '8px 10px' : '10px 13px',
     borderRadius: saliente ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
     background: saliente ? (fondo ?? 'var(--wa-noof-bubble)') : 'var(--surface)',
-    border: '1px solid ' + (saliente ? 'rgba(91,107,214,.30)' : 'var(--border)'),
+    border: '1px solid ' + (saliente ? (borde ?? 'rgba(91,107,214,.30)') : 'var(--border)'),
     boxShadow: '0 1px 2px rgba(18,21,27,.04)',
     overflow: compacta ? 'hidden' : undefined,
   };

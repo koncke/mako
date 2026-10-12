@@ -39,6 +39,13 @@ function prioridad(a: string): number {
   return i < 0 ? PRIORIDAD.length : i;
 }
 
+/**
+ * Lo que dice MaKo al crear (corto; los avisos van aparte). Vive acá y no en lib/flujo-ia-preguntas.ts (que lo
+ * reexporta) desde la decimotercera tanda: lo dibuja también el chat del lienzo (app/automations/ChatMako.tsx) cuando
+ * MaKo crea sobre la fila que nació al enviar desde «Nueva automatización».
+ */
+export const textoDeCreada = (nombre: string): string => `Creé «${nombre}». Quedó pausada.`;
+
 export function ordenarAvisos(avisos: readonly string[]): string[] {
   return avisos.map((a, i) => ({ a, i, p: prioridad(a) })).sort((x, y) => x.p - y.p || x.i - y.i).map((x) => x.a);
 }

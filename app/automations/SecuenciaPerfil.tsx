@@ -56,8 +56,8 @@ import {
 import { EmojiPickerMini } from '@/app/plan/board/EmojiPicker';
 import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
 // Un medio sin conectar frena Publicar (409) y Activar (décima tanda, GENERAL 6): el modal de la tab lo conecta ahí mismo.
-import { ConectarMedio } from './ConectarMedio';
-import { medioDelError, type Medio } from '@/lib/medios-automatizacion';
+import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
+import { medioDelError, medioQueFrena, mediosQueUsa, type Medio } from '@/lib/medios-automatizacion';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
 // se tilda la IA): no tiene por qué viajar en el bundle de cada apertura del lienzo.
@@ -79,6 +79,16 @@ const NOMBRE_MAX = TOPE_NOMBRE_SECUENCIA;
  *  propósito: son la misma pieza en las dos pantallas. */
 /** El alto de «Probar», «Activar» y «Publicar» (10/10/2026: «más grandes»). */
 const ALTO_ACCION = 44;
+
+/**
+ * EL CHAT DE MaKo Y LA CAPA QUE TAPA EL LIENZO MIENTRAS TRABAJA (decimotercera tanda, puntos 2 y 6). El chat es el hilo de
+ * WhatsApp (ChatMako.tsx): mide un alto FIJO, como una ventana de chat, y no lo que tiene adentro. La capa va de la lista
+ * para la derecha (la lista se sigue viendo: ahí está la fila recién creada) y por ENCIMA de «Publicar» (`Z_ACCION_LIENZO`,
+ * 57, en el mismo contexto de apilamiento: el Lienzo no lo crea), y el chat por encima de la capa.
+ */
+const ALTO_CHAT_MAKO = 'min(460px, calc(100% - 132px))';
+const Z_CAPA_MAKO = 58;
+const Z_CHAT_ENCIMA = 59;
 
 const tarjetaChrome: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
@@ -145,13 +155,18 @@ export type EdicionLocal = {
 /** Lo que devuelve `frenoDelFlujo`: el error legible y la tarjeta a abrir. */
 export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null }: {
   /**
    * ABRIR CON EL CHAT DE MaKo ABIERTO (duodécima tanda, §2.5 y §3.6): la recién creada con «Pídeselo a MaKo» y el link
    * `?sec=<id>&mako=1` (también el de la API). Se mira el FLANCO (false → true), también con el lienzo ya montado, y
    * abre por `abrirMako`, la del ✦.
    */
   makoAlAbrir?: boolean;
+  /**
+   * EL PEDIDO CON EL QUE NACIÓ (decimotercera tanda, punto 2): el de «Pídeselo a MaKo» del modal «Nueva automatización».
+   * La fila ya existe (vacía y pausada) y el chat lo manda solo, como CREAR sobre ella. Llega junto con `makoAlAbrir`.
+   */
+  pedidoAlAbrir?: string | null;
   // (Acá iban `arranque` y `onArranqueUsado`: la recién creada con un tipo de CRON elegido en «¿Qué la dispara?» del
   // modal abría su CRON en ese tipo. Se fueron con esos botones en la décima tanda, 11/10/2026.)
   /** Lo de la AUTOMATIZACIÓN ENTERA desde el click derecho del CRON (copiar, duplicar, eliminar): lo hace la lista. */
@@ -352,6 +367,18 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const [revelarIA, setRevelarIA] = useState<{ orden: string[]; clave: number } | null>(null);
   const [editandoIA, setEditandoIA] = useState(false);
+  /** MaKo está trabajando (lo avisa el chat): la capa tapa el lienzo y el chat queda encima. */
+  const [chatTrabajando, setChatTrabajando] = useState(false);
+  /**
+   * EL PEDIDO QUE NACIÓ EN EL MODAL (punto 2), hasta que el chat lo manda (`onPedidoInicialUsado`). Se ajusta AL DIBUJAR
+   * cuando llega uno nuevo (el lienzo puede estar montado ya: la fila se abre antes de que el server conteste).
+   */
+  const [pedidoVisto, setPedidoVisto] = useState<string | null>(null);
+  const [pedidoPendiente, setPedidoPendiente] = useState<string | null>(null);
+  if ((pedidoAlAbrir ?? null) !== pedidoVisto) {
+    setPedidoVisto(pedidoAlAbrir ?? null);
+    if (pedidoAlAbrir?.trim()) setPedidoPendiente(pedidoAlAbrir);
+  }
   /** Hay una tarjeta abierta (lo avisa el lienzo): la caja y la barra de la IA se esconden. */
   const [tarjetaAbierta, setTarjetaAbierta] = useState(false);
   const cambiosPropios = rolAdmin && JSON.stringify(pasos) !== visto;
@@ -442,6 +469,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * y «No se activó: Conecta tu …» al activar (`medioDelError`): las dos abren el mismo modal (ConectarMedio).
    */
   const [conectarMedio, setConectarMedio] = useState<Medio | null>(null);
+  /** La línea de WhatsApp que frenó «Probar» (la de una tarjeta puede no ser la de la automatización). */
+  const [lineaAConectar, setLineaAConectar] = useState<string | null | undefined>(undefined);
   const flashOk = (m: string) => { setFlash(m); setTimeout(() => setFlash(null), 2600); };
 
   /**
@@ -892,10 +921,22 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * uno solo, un botón). Quien monta abre el panel con ese canal (`onProbar(canal)`).
    */
   const canales = canalesParaProbar(pasos);
+  /**
+   * ⚠️ «PROBAR» FRENA CON UN MEDIO SIN CONECTAR (decimotercera tanda, punto 3; Martín, con #246 y sus tarjetas «Sin
+   * conectar»: «Me dice "Sin zernio"... Pero me permite probarlo, eso no debería pasar, si falta un paso, en ese caso
+   * de conexión, debe decirme que me falta conectar X cosa»). La cuenta es la de Publicar y Activar (`medioQueFrena`,
+   * lib/medios-automatizacion.ts: las tarjetas Y el CRON, con la línea de cada una) sobre la MISMA lectura que pinta el
+   * chip de la tarjeta (`useEstadoMedios`). Dice qué falta y abre el modal de ese medio ahí mismo. «No pude
+   * comprobarlo» no frena (conectar no lo arregla).
+   */
+  const usaMedios = useMemo(() => mediosQueUsa(pasos, crons.lista), [pasos, crons.lista]);
+  const estadoMedios = useEstadoMedios(usaMedios, rolAdmin && !!onProbar);
   const probar = (canal: CanalProbar) => {
     if (!onProbar) return;
     const freno = frenoDeEsta(pasos);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
+    const falta = medioQueFrena(pasos, lineaSec, crons.lista, estadoMedios);
+    if (falta) { setErr(falta.error); setLineaAConectar(falta.linea); setConectarMedio(falta.medio); return; }
     setErr(null);
     onProbar(canal);
   };
@@ -935,10 +976,29 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           galería con `secuenciaId` en esta franja (y `reservaAbajo={RESERVA_ABAJO_CREAR}` en el lienzo). */}
       {/* EL CHAT DE MaKo (duodécima tanda, §2.5): reemplaza a la barra «Pídele un cambio», en el MISMO lugar, con el hilo
           encima del composer y un alto máximo de ~45% del lienzo (crece hacia arriba desde la franja; el hilo scrollea). */}
-      {rolAdmin && editandoIA && pasos.length > 0 && (
-        <div data-crear-ia="editar" style={{ position: 'absolute', ...franja, maxHeight: '45%', display: tarjetaAbierta ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', pointerEvents: 'none', zIndex: 4 }}>
-          <div style={{ pointerEvents: 'auto', width: `min(${BARRA_IA_ANCHO}px, 100%)`, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <ChatMako modo="editar" secuenciaId={secuencia.id} pasos={pasos} onListo={alListoIA} onCerrar={() => setEditandoIA(false)} />
+      {/* DECIMOTERCERA TANDA: el chat ES el hilo de WhatsApp (punto 6), de alto fijo, y está también con el lienzo VACÍO
+          (punto 2: la fila que nació con un pedido de «Nueva automatización», donde MaKo CREA). Mientras MaKo trabaja, la
+          capa tapa el lienzo de la lista para la derecha y el chat queda encima: el «escribiendo…», las fases y Cancelar. */}
+      {rolAdmin && chatTrabajando && (
+        <div data-capa-mako="" aria-hidden style={{
+          position: 'absolute', top: 0, bottom: 0, left: insetIzq ?? 0, right: 0, zIndex: Z_CAPA_MAKO,
+          display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '12vh',
+          background: 'rgba(18,21,27,.32)', backdropFilter: 'blur(1.5px)',
+        }}>
+          {/* «QUE DENTRO APAREZCA UN LOADER» (punto 2): con el lienzo vacío, MaKo está creando la automatización. */}
+          {pasos.length === 0 && (
+            <div data-creando-mako="" style={{ ...tarjetaChrome, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>
+              <span className="mk-spin" style={{ width: 16, height: 16 }} aria-hidden />
+              Creando tu automatización
+            </div>
+          )}
+        </div>
+      )}
+      {rolAdmin && editandoIA && (
+        <div data-crear-ia="editar" style={{ position: 'absolute', ...franja, height: ALTO_CHAT_MAKO, display: tarjetaAbierta ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none', zIndex: chatTrabajando ? Z_CHAT_ENCIMA : 4 }}>
+          <div style={{ pointerEvents: 'auto', width: `min(${BARRA_IA_ANCHO}px, 100%)`, flex: 1, minHeight: 0, position: 'relative' }}>
+            <ChatMako secuenciaId={secuencia.id} pasos={pasos} onListo={alListoIA} onCerrar={() => setEditandoIA(false)}
+              onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)} />
           </div>
         </div>
       )}
@@ -1006,8 +1066,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 tanda, general 1: «Y que sea el logo de MaKo, que es una estrella en el centro, sin la estrella
                 chiquita arriba»). El `BotonMako` de la casa lleva `MakoStar`, que dibuja la chispa CON el punto
                 chico de arriba; el logo es la chispa sola, centrada en su recuadro negro. */}
-            {rolAdmin && pasos.length > 0 && (
-              <BotonLogoMako lado={ALTO_ACCION} encendido={editandoIA} onClick={abrirMako} title="Pedirle un cambio a MaKo" />
+            {/* DECIMOTERCERA TANDA: también con el lienzo VACÍO. Ahí MaKo CREA sobre esta fila (la ruta lo exige vacía y
+                pausada): es la fila de un pedido que se canceló o falló, o un «Lienzo en blanco». */}
+            {rolAdmin && (
+              <BotonLogoMako lado={ALTO_ACCION} encendido={editandoIA} onClick={abrirMako} title={pasos.length ? 'Pedirle un cambio a MaKo' : 'Pedírsela a MaKo'} />
             )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
@@ -1145,8 +1207,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       )}
       {/* CONECTAR AHÍ MISMO lo que frenó Publicar o Activar (GENERAL 6). Conectado, el aviso se va. */}
       {conectarMedio && rolAdmin && (
-        <ConectarMedio medio={conectarMedio} linea={secuencia.instance_name ?? null}
-          onCerrar={() => setConectarMedio(null)} onConectado={() => { setConectarMedio(null); setErr(null); }} />
+        <ConectarMedio medio={conectarMedio} linea={lineaAConectar !== undefined ? lineaAConectar : (secuencia.instance_name ?? null)}
+          onCerrar={() => { setConectarMedio(null); setLineaAConectar(undefined); }}
+          onConectado={() => { setConectarMedio(null); setLineaAConectar(undefined); setErr(null); }} />
       )}
     </div>
   );

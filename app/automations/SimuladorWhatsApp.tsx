@@ -269,8 +269,10 @@ const CUADRICULA: CSSProperties = { backgroundImage: 'radial-gradient(var(--bord
  *
  * `mako: true` (duodécima tanda, §3.6): abre con el CHAT DE MaKo abierto — la recién creada con «Pídeselo a MaKo» y el
  * link `?sec=<id>&mako=1`. Llega al lienzo como `makoAlAbrir`.
+ * `pedido` (decimotercera tanda, punto 2): la fila acaba de nacer VACÍA desde «Pídeselo a MaKo» del modal, y el chat
+ * manda ese pedido solo (MaKo CREA sobre ella). Llega al lienzo como `pedidoAlAbrir`.
  */
-export type AbrirSecuencia = { id: number; mako?: true };
+export type AbrirSecuencia = { id: number; mako?: true; pedido?: string };
 // (Acá vivía `AbrirAviso`, el pedido de abrir un Mensaje de MaKo desde el link de Notificaciones,
 // `/automations?aviso=<id>`. Se fue el 11/10/2026 con esos mensajes: un mensaje de MaKo se abre con `?sec=`.)
 
@@ -367,6 +369,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const [probando, setProbando] = useState<CanalProbar | null>(null);
   /** La que se pidió abrir con el chat de MaKo abierto (`abrir.mako`, duodécima tanda §3.6): su lienzo lo abre. */
   const [makoPara, setMakoPara] = useState<number | null>(null);
+  /** El pedido con que nació (`abrir.pedido`, decimotercera tanda, punto 2): el chat de ESA fila lo manda solo. */
+  const [pedidoPara, setPedidoPara] = useState<{ id: number; pedido: string } | null>(null);
   /**
    * EL AVISO DE QUE LA PRUEBA DE VERDAD SALIÓ («Enviado · revisa tu WhatsApp»), duodécima tanda, §2.8. Lo pide
    * PanelProbar (`onEnviado`) y se dibuja ACÁ, en la raíz y fuera de la capa de «Probar» (z 3): vivía adentro del
@@ -407,7 +411,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const cambiarA = (id: number) => {
     setSelId(id); setProbando(null); setEdicion(null);
     // El chat abierto al entrar es de la que se pidió abrir así: elegir otra lo olvida (el pedido lo vuelve a poner).
-    setMakoPara(null);
+    setMakoPara(null); setPedidoPara(null);
     // Desde acá la URL dice la elegida (`onElegida`, décima tanda): una elección de verdad, no la primera de la lista.
     eligio.current = true;
     // Abrir la fila que se está creando recuerda de dónde se vino (si el server falla, se vuelve).
@@ -644,8 +648,10 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   if (abrir && abrir !== abrirVisto && secuencias.some((j) => j.id === abrir.id)) {
     setAbrirVisto(abrir);
     elegir(abrir.id);
-    // Con `mako: true`, ESA abre con el chat de MaKo abierto (va DESPUÉS de elegir: `cambiarA` lo limpia).
+    // Con `mako: true`, ESA abre con el chat de MaKo abierto (va DESPUÉS de elegir: `cambiarA` lo limpia), y con
+    // `pedido`, el chat lo manda solo.
     setMakoPara(abrir.mako ? abrir.id : null);
+    setPedidoPara(abrir.pedido ? { id: abrir.id, pedido: abrir.pedido } : null);
   }
 
   // `editorAbierto: true`: lo que se reparte es el muelle que el editor ocupa CUANDO se abre (el
@@ -721,7 +727,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             paddingLeft: m.insets.izq, color: 'var(--dim)', fontSize: 13.5, ...CUADRICULA,
           }}>
             <span className="mk-spin" style={{ width: 18, height: 18 }} aria-hidden />
-            Creando…
+            {pedidoPara ? 'Creando tu automatización' : 'Creando…'}
           </div>
         ) : (
           /**
@@ -755,6 +761,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             onCambioLocal={recibirEdicion}
             onAccionTodo={rolAdmin ? (a) => void accionFila(sel, a) : undefined}
             makoAlAbrir={makoPara === sel.id}
+            pedidoAlAbrir={pedidoPara?.id === sel.id ? pedidoPara.pedido : null}
             onCambio={onReload} />
         )}
       </div>

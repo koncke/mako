@@ -3648,3 +3648,20 @@ corta en 3,2 s sin `onUndo` (`Math.min(ms, 3200)`).
 
 **Vive en:** `app/automations/SimuladorWhatsApp.tsx` (el `<Toast>` en la raíz) · `app/automations/PanelProbar.tsx`
 (`onEnviado`) · `app/_ui/Toast.tsx`. El resto, en [hallazgos-chatbot.md](hallazgos-chatbot.md) → «Duodécima tanda».
+
+## Un campo que se mide en su primer efecto adentro de un Modal mide CERO (12/10/2026)
+
+La barra «Pídeselo a MaKo» del modal «Nueva automatización» (Automations) salía sin placeholder y con la barra de scroll, y
+Martín lo leyó como «no aparece más la animación». La animación andaba. El campo se medía solo (`height = scrollHeight` en
+un `useEffect` que corre cuando cambia el texto), y la pila de modales pinta un `Modal` con `display: none` en su PRIMER
+render: `decidirVisible` da false hasta que el efecto de `useCapaModal` lo mete en la pila, y el efecto del hijo corre
+ANTES que el del padre. Medía 0, ponía `height: 0px` y no volvía a medir. Sin un error, y con `getComputedStyle` coherente.
+
+**La regla:** lo que se mide solo adentro de un Modal no confía en la medida del primer efecto. O mide con un `minHeight`
+que lo sostenga (la barra de WhatsApp, `ComposerWhatsApp`, mide con el borde y tiene `minHeight: 40`), o vuelve a medir
+cuando el nodo pasa a ser visible (un `ResizeObserver`). Y `height = scrollHeight` con `box-sizing: border-box` desborda
+siempre el borde: se suma `offsetHeight - clientHeight`.
+
+**Vive en:** `app/_components/pila-modales.ts` (`decidirVisible`) · `app/_ui/Modal.tsx` ·
+`app/whatsapp/_shared/ComposerWhatsApp.tsx`. El resto, en [hallazgos-chatbot.md](hallazgos-chatbot.md) → «Decimotercera
+tanda».

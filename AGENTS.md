@@ -4197,6 +4197,9 @@ definido adentro de otro, una `key` que cambia) era falso: el barrido con el AST
   padre se re-renderiza por otra cosa (un toast, un sondeo).
 - **`autoFocus` (y cualquier `.focus()` al montar) no llega**: el primer render de la caja es
   `display:none`. Va `useFocoInicial(id)`, que espera a que el campo se vea.
+- **Y una MEDIDA tampoco**: un campo que se mide solo en su primer efecto (`height = scrollHeight`) mide 0 y queda
+  colapsado, con la barra de scroll y el placeholder fuera de la vista (la barra «Pídeselo a MaKo», 12/10/2026). Va con
+  `minHeight` y la medida con el borde (`ComposerWhatsApp`), o vuelve a medir cuando se ve (`ResizeObserver`).
 - **Hasta que se arregle Modal de raíz** (el `onCerrar` por ref y el foco cuando la capa se ve;
   los cambios exactos en `docs/hallazgos-customer-success.md` → «El feedback del audio del 08/10 a
   la noche»), el mismo bug vive en otros nueve

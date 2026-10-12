@@ -15,9 +15,10 @@
 // "Lienzo en blanco"», «Agrega una barra de busqueda y filtro para buscar plantillas. No importa la busqueda o filtro,
 // la primera siempre "Lienzo en blanco"» y «La opción de "Pideselo a MaKo"... allí mismo ya debería poder escribir y
 // grabar audio». De arriba abajo, sin rótulos de sección (queda sólo el título del Modal):
-//   1. «Pídeselo a MaKo»: el chat de MaKo en `modo: 'galeria'` (app/automations/ChatMako.tsx; hasta la duodécima tanda,
-//      la caja de CrearConIA.tsx), con el micrófono de siempre. La fila nace AL GUARDAR (lib/flujo-ia-crear.ts):
-//      cancelar no deja nada.
+//   1. «Pídeselo a MaKo»: la barra de WhatsApp con el logo de MaKo (`BarraPideselo`, app/automations/ChatMako.tsx;
+//      hasta la duodécima, la caja de CrearConIA.tsx y después el chat en `modo: 'galeria'`). DECIMOTERCERA TANDA (punto
+//      2): NO trabaja acá. Al enviar, el modal se cierra y quien monta crea la fila YA, abre su lienzo y el chat de esa
+//      fila le pasa el pedido a MaKo (`onPedirAMako`, ChatAgentApp.tsx).
 //   2. El buscador y el filtro (Canal y Objetivo) en una fila. Lo que filtra es puro y con test
 //      (`filtrarPlantillas`, `alternarFiltroGaleria`).
 //   3. La grilla: «Lienzo en blanco» PRIMERA SIEMPRE (ningún texto ni filtro la saca), «Pegar lo copiado» si hay algo
@@ -56,8 +57,7 @@ import {
 import type { ProductoParaDisparo } from '@/lib/flujo-conversacion';
 import { leerCopia } from '@/lib/flujo-copia';
 import { useEtiquetasTodas } from '@/app/_components/etiquetas-cliente';
-import type { ListoCrearIA } from './CrearConIA';
-import { ChatMako } from './ChatMako';
+import { BarraPideselo } from './ChatMako';
 import { CSS_NUEVO } from './NuevoPlaceholder';
 import { IconoDisparador } from './IconosDisparador';
 
@@ -70,9 +70,6 @@ export type CreadaGaleria = {
   /** Por qué no se pudo guardar la etapa elegida, si pasó. */
   aviso: string | null;
 };
-
-/** La que creó MaKo desde la caja: ya guardada y pausada. */
-export type CreadaConIAGaleria = Pick<ListoCrearIA, 'secuenciaId' | 'nombre' | 'avisos'>;
 
 const API = '/api/chat-agent/secuencias';
 /** El tope del pedido: crear son tres escrituras; si no contesta en esto, algo está mal y se dice. */
@@ -135,8 +132,13 @@ export function GaleriaPlantillas(p: {
   onPegar?: (texto: string) => void;
   /** La que se creó desde una plantilla: quien monta la abre. */
   onCreada: (r: CreadaGaleria) => void;
-  /** La que creó MaKo desde «Pídeselo a MaKo» (ya guardada y pausada): quien monta la abre. */
-  onCreadaIA?: (r: CreadaConIAGaleria) => void;
+  /**
+   * «Pídeselo a MaKo» (decimotercera tanda, punto 2): el pedido escrito o dictado. Quien monta cierra el modal, crea la
+   * fila YA y abre su lienzo con el chat de MaKo trabajando. Sin esto, la barra no se dibuja.
+   */
+  onPedirAMako?: (pedido: string) => void;
+  /** Lo que se le había pedido y no llegó a crear la fila (vuelve a la barra). */
+  pedidoInicial?: string | null;
 }) {
   // LO COPIADO, si hay (copiar flujo, 10/10/2026: «al momento de crear un nuevo flujo que te aparezca la
   // opción de pegar»). Leer el portapapeles puede pedir permiso: si no lo dan, la opción no aparece.
@@ -160,23 +162,19 @@ export function GaleriaPlantillas(p: {
   const [elegida, setElegida] = useState<PlantillaAutomatizacion | null>(null);
   const [valor, setValor] = useState('');
   const [creando, setCreando] = useState<string | null>(null);
-  /** MaKo está armando una (la caja de arriba): no se cierra ni se elige otra cosa. */
-  const [conMaKo, setConMaKo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const enVuelo = useRef(false);
-  const ocupadoIA = useRef(false);
-  useEffect(() => { ocupadoIA.current = conMaKo; }, [conMaKo]);
 
   // Las props de AHORA, sin cambiarle la identidad al `onCerrar` del Modal (ver la cabecera).
   const props = useRef(p);
   useEffect(() => { props.current = p; });
-  const cerrar = useCallback(() => { if (!enVuelo.current && !ocupadoIA.current) props.current.onCerrar(); }, []);
+  const cerrar = useCallback(() => { if (!enVuelo.current) props.current.onCerrar(); }, []);
 
   const filtro = filtroDeValores(filtros);
   const visibles = useMemo(() => filtrarPlantillas(PLANTILLAS, { texto, canal: filtro.canal, objetivo: filtro.objetivo }), [texto, filtro.canal, filtro.objetivo]);
 
   const crear = async (pl: PlantillaAutomatizacion, disparador: string | null) => {
-    if (enVuelo.current || ocupadoIA.current) return;
+    if (enVuelo.current) return;
     enVuelo.current = true;
     setCreando(pl.id); setError(null);
     try {
@@ -201,7 +199,7 @@ export function GaleriaPlantillas(p: {
   };
 
   const elegir = (pl: PlantillaAutomatizacion) => {
-    if (enVuelo.current || ocupadoIA.current) return;
+    if (enVuelo.current) return;
     setError(null);
     if (preguntaEtapa(pl, p.productos, etiquetas)) { setElegida(pl); setValor(''); return; }
     void crear(pl, null);
@@ -235,7 +233,7 @@ export function GaleriaPlantillas(p: {
   }
 
   // ── 1. La galería ──
-  const ocupado = creando != null || conMaKo;
+  const ocupado = creando != null;
   /** La tarjeta de una plantilla: la MISMA para todas. */
   const tarjeta = (pl: PlantillaAutomatizacion) => (
     <button key={pl.id} type="button" className="gal-tarjeta" data-plantilla={pl.id}
@@ -250,21 +248,19 @@ export function GaleriaPlantillas(p: {
   const nFiltros = filtros.length;
   const grupos = gruposDelFiltroGaleria().map((g) => ({ ...g, options: g.options.map((o) => ({ ...o, icono: ICONO_FILTRO[o.value] })) }));
   const rotuloFiltro = nFiltros ? grupos.flatMap((g) => g.options).filter((o) => filtros.includes(o.value)).map((o) => o.label).join(' · ') : 'Filtrar';
-  // La creada por MaKo: ya está guardada (pausada) y la abre quien monta.
-  const alListoIA = (r: ListoCrearIA) => {
-    props.current.onCreadaIA?.({ secuenciaId: r.secuenciaId, nombre: r.nombre, avisos: r.avisos });
-  };
   return (
     <Modal titulo={TITULO_GALERIA} onCerrar={cerrar} ancho={980} sinFiletes>
       <style>{CSS}</style>
       <style>{CSS_NUEVO}</style>
       <div data-galeria-paso="lista" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* 1. «Pídeselo a MaKo», a lo ancho: escribir o dictar, y la crea (punto 6). Desde la duodécima tanda es el CHAT
-            (./ChatMako.tsx): si le falta un dato decisivo, pregunta con botones acá mismo, y el hilo viaja entero en cada
-            turno hasta que la fila nace (ahí el server lo guarda como su chat). */}
-        <div data-galeria-ia>
-          <ChatMako modo="galeria" onListo={alListoIA} onOcupado={setConMaKo} deshabilitado={creando != null} />
-        </div>
+        {/* 1. «Pídeselo a MaKo», a lo ancho: escribir o mandar una nota de voz (punto 6 de la décima). Desde la
+            decimotercera (punto 2) la barra sólo PIDE: el modal se cierra y la fila nace YA, con su lienzo y el chat de
+            MaKo trabajando adentro. Si MaKo necesita un dato, lo pregunta ahí, en el chat de esa fila. */}
+        {p.onPedirAMako && (
+          <div data-galeria-ia>
+            <BarraPideselo onPedido={(t) => props.current.onPedirAMako?.(t)} deshabilitado={creando != null} inicial={p.pedidoInicial} />
+          </div>
+        )}
 
         {/* 2. El buscador y el filtro, en una fila (punto 5). */}
         <div data-galeria-busqueda style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

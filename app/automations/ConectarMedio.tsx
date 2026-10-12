@@ -16,11 +16,11 @@
 //   · Email — `VincularRemitente` (app/automations/EditorEmailGmail.tsx), que carga `DominioSetup` de /email.
 //   · Instagram / Messenger — el OAuth de Zernio en una VENTANA EMERGENTE y el sondeo de `estado` hasta que
 //     aparezca la cuenta. Antes `EditorMensajeSocial` abría una pestaña nueva y no se enteraba de la vuelta.
-//     Duodécima tanda (§2.11): SIN KEY O CON KEY MALA SE RESUELVE AHÍ MISMO. Sin Zernio («Falta conectar Zernio»)
-//     o con un 401 de la key propia, el modal pide «API key de Zernio», la guarda por la MISMA puerta que
-//     /integraciones (POST /api/integraciones/credencial, `guardar`) y sigue con el OAuth. Con un 402 (la cuenta de
-//     Zernio del negocio, pausada por falta de pago) dice eso y da su link de pago. Lo que contestó la ruta lo lee
-//     UNA función (`leerZernio`), la misma para el modal y la cabecera de la tarjeta (EditorMensajeSocial).
+//     Duodécima tanda (§2.11): SIN KEY O CON KEY MALA SE RESUELVE AHÍ MISMO. Con un 402 (la cuenta de Zernio del
+//     negocio, pausada por falta de pago) dice eso y da su link de pago. Lo que contestó la ruta lo lee UNA función
+//     (`leerZernio`), la misma para el modal y la cabecera de la tarjeta (EditorMensajeSocial).
+//     DECIMOTERCERA TANDA (punto 5): sin Zernio («Falta conectar Zernio») o con un 401 de la key propia, se abre EL
+//     modal de Zernio de /integraciones (`ServicioSuelto`), no un campo propio; al cerrarlo, sigue el OAuth.
 //
 // ⚠️ CONECTAR ALGO CAMBIA LO QUE CONTESTAN LAS LECTURAS CACHEADAS: el estado de los medios (`useEstadoMedios`,
 // acá) y el de los canales del CRON (`canalesDeLaVisita`, EditorDisparadores). Al conectar se avisa
@@ -28,7 +28,8 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Modal, TextField } from '@/app/_ui';
+import dynamic from 'next/dynamic';
+import { Button, Modal } from '@/app/_ui';
 import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
 import { VincularRemitente } from './EditorEmailGmail';
 import type { DomState } from '../email/EmailApp';
@@ -133,67 +134,89 @@ export function leerZernio(j: RespuestaZernio | null | undefined): EstadoZernio 
 export const pideKeyZernio = (e: EstadoZernio | null | undefined): boolean => e?.estado === 'sin_zernio' || e?.estado === 'key_mala';
 
 /**
- * Guarda la key del negocio por la MISMA puerta que /integraciones (whitelist por servicio, auditoría, el rechazo de
- * la key de la plataforma). Devuelve el error a mostrar, o null si quedó guardada.
+ * ⚠️ SIN ZERNIO O CON LA KEY MALA, EL MODAL DE /integraciones (decimotercera tanda, punto 5; Martín, con la captura del
+ * modal «Conectar Instagram» que pedía la key en un campo propio: «No crees un nuevo modal de conectar la API, reutiliza
+ * exactamente el mismo que ya tenemos en integraciones»). Es el `ServicioModal` de la grilla para Zernio
+ * (app/integraciones/ServicioSuelto.tsx: el carrusel, el chip, `ServicioConfigForm` con pegar, guardar y probar), sin
+ * salir de la pestaña. Hasta acá este modal tenía su campo «API key de Zernio» y su `guardarKeyZernio`: la misma
+ * credencial por dos formularios. Se carga A DEMANDA: la grilla de /integraciones no viaja con el lienzo.
  */
-async function guardarKeyZernio(key: string): Promise<string | null> {
-  const j = await fetch('/api/integraciones/credencial', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(30_000),
-    body: JSON.stringify({ action: 'guardar', servicio: 'zernio', valores: { ZERNIO_API_KEY: key } }),
-  }).then((r) => r.json()).catch(() => null) as { ok?: boolean; guardadas?: number; error?: string } | null;
-  if (!j) return 'Sin conexión';
-  if (!j.ok || !j.guardadas) return j.error || 'No se pudo guardar la key';
-  return null;
-}
+const ServicioSuelto = dynamic(() => import('@/app/integraciones/ServicioSuelto'), { ssr: false, loading: () => null });
+
+/** El botón que vuelve al modal de Integraciones cuando la key que se guardó no sirve. */
+export const REVISAR_ZERNIO = 'Abrir Zernio';
 
 /**
  * Instagram o Messenger: el OAuth de Zernio en una ventana emergente y el sondeo de la cuenta. `inicial` es lo que
- * ya sabe quien lo abre (la cabecera de la tarjeta): con «sin Zernio» o la key mala abre directo en el campo.
+ * ya sabe quien lo abre (la cabecera de la tarjeta): con «sin Zernio» o la key mala abre directo en el modal de
+ * Integraciones. Sin `inicial`, pregunta el estado al abrir y, si Zernio no está, va al mismo lugar.
  */
 export function ConectarSocial({ medio, inicial = null, onCerrar, onConectado }: {
   medio: CanalSocial; inicial?: EstadoZernio | null; onCerrar: () => void; onConectado: () => void;
 }) {
-  const [fase, setFase] = useState<'listo' | 'abriendo' | 'esperando' | 'conectado'>('listo');
-  const [error, setError] = useState<string | null>(() =>
-    inicial?.estado === 'sin_zernio' ? ZERNIO_SIN_KEY : inicial && inicial.estado !== 'ok' ? inicial.error : null);
-  const [pideKey, setPideKey] = useState(() => pideKeyZernio(inicial));
+  const [fase, setFase] = useState<'zernio' | 'listo' | 'abriendo' | 'esperando' | 'conectado'>(() => (pideKeyZernio(inicial) ? 'zernio' : 'listo'));
+  const [error, setError] = useState<string | null>(() => (inicial && inicial.estado !== 'ok' && inicial.estado !== 'sin_zernio' && !pideKeyZernio(inicial) ? inicial.error : null));
   const [pago, setPago] = useState<string | null>(inicial?.estado === 'pausada' ? inicial.pago : null);
-  const [key, setKey] = useState('');
-  /** Se guardó una key: al cerrar, las lecturas cacheadas se vuelven a pedir (aunque no termine el OAuth). */
+  /** Se guardó la key en Integraciones y Zernio igual no la acepta: el botón para volver. */
+  const [revisar, setRevisar] = useState(false);
+  /** Integraciones avisó que Zernio quedó conectado (`ServicioConfigForm`, al guardar). */
   const guardoKey = useRef(false);
   const vivo = useRef(true);
-  useEffect(() => () => { vivo.current = false; }, []);
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
   const plataforma = plataformaDe(medio);
-  const pedir = (action: 'estado' | 'conectar') => fetch('/api/zernio', {
+  const pedir = useCallback((action: 'estado' | 'conectar') => fetch('/api/zernio', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, plataforma }), signal: AbortSignal.timeout(65_000),
-  }).then((r) => r.json()).catch(() => null) as Promise<RespuestaZernio | null>;
+  }).then((r) => r.json()).catch(() => null) as Promise<RespuestaZernio | null>, [plataforma]);
   const cerrar = () => { if (guardoKey.current) avisarMedioConectado(); onCerrar(); };
 
+  // Sin lo que ya se sabe, se pregunta al abrir: sin Zernio (o con la key mala) se va directo a Integraciones.
+  useEffect(() => {
+    if (inicial) return;
+    void pedir('estado').then((j) => {
+      if (!vivo.current) return;
+      const e = leerZernio(j);
+      if (pideKeyZernio(e)) setFase((f) => (f === 'listo' ? 'zernio' : f));
+    });
+    // Al abrir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * Se cerró el modal de Integraciones. Si Zernio ya sirve, sigue el OAuth acá («Conectar Instagram»). Si sigue sin
+   * servir y se guardó una key, se dice y queda el botón para volver; si no se guardó nada, se cierra todo (la persona
+   * no quiso).
+   */
+  const alCerrarZernio = async () => {
+    setFase('listo'); setError(null); setPago(null); setRevisar(false);
+    const e = leerZernio(await pedir('estado'));
+    if (!vivo.current) return;
+    if (!pideKeyZernio(e)) {
+      if (guardoKey.current) avisarMedioConectado();
+      if (e.estado === 'pausada') { setError(e.error); setPago(e.pago); }
+      return;
+    }
+    if (!guardoKey.current) { onCerrar(); return; }
+    setError(e.estado === 'key_mala' ? e.error : ZERNIO_SIN_KEY);
+    setRevisar(true);
+  };
+
   const conectar = async () => {
-    const k = key.trim();
-    if (pideKey && !k) return;
-    setError(null); setPago(null);
+    setError(null); setPago(null); setRevisar(false);
     // La ventana se abre EN el clic (si no, el navegador la bloquea) y después se le pone la URL.
     const ventana = window.open('', 'mako-conectar', 'width=560,height=720');
     setFase('abriendo');
-    if (pideKey) {
-      const fallo = await guardarKeyZernio(k);
-      if (!vivo.current) return;
-      if (fallo) { ventana?.close(); setFase('listo'); setError(fallo); return; }
-      guardoKey.current = true;
-    }
     const res = leerZernio(await pedir('conectar'));
     if (!vivo.current) return;
     if (res.estado !== 'ok' || !res.url) {
-      ventana?.close(); setFase('listo');
-      // Sin Zernio o con la key mala: el campo, ahí mismo (y vacío: lo que estaba escrito no sirvió).
-      if (pideKeyZernio(res)) { setPideKey(true); setKey(''); }
-      setError(res.estado === 'sin_zernio' ? ZERNIO_SIN_KEY : res.estado === 'ok' ? 'No se pudo conectar' : res.error);
+      ventana?.close();
+      // Sin Zernio o con la key mala: EL modal de Integraciones, ahí mismo.
+      if (pideKeyZernio(res)) { setFase('zernio'); return; }
+      setFase('listo');
+      setError(res.estado === 'ok' || res.estado === 'sin_zernio' ? 'No se pudo conectar' : res.error);
       if (res.estado === 'pausada') setPago(res.pago);
       return;
     }
     const j = { url: res.url };
-    setPideKey(false);
     if (ventana) ventana.location.href = j.url; else window.open(j.url, '_blank', 'noopener');
     setFase('esperando');
     for (let i = 0; i < SONDEO_MAX && vivo.current; i += 1) {
@@ -211,6 +234,9 @@ export function ConectarSocial({ medio, inicial = null, onCerrar, onConectado }:
     if (vivo.current) { setFase('listo'); setError('No llegó la cuenta. Prueba de nuevo.'); }
   };
 
+  if (fase === 'zernio') {
+    return <ServicioSuelto servicio="zernio" onCerrar={() => void alCerrarZernio()} onConectado={() => { guardoKey.current = true; }} />;
+  }
   return (
     <Modal titulo={`Conectar ${NOMBRE_CANAL[medio]}`} onCerrar={cerrar} ancho={440}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12, fontSize: 13.5, color: 'var(--ink)' }}>
@@ -219,15 +245,12 @@ export function ConectarSocial({ medio, inicial = null, onCerrar, onConectado }:
           : fase === 'esperando'
             ? <span role="status" style={{ color: 'var(--dim)' }}>Termina en la ventana que se abrió.</span>
             : (
-              <>
-                {pideKey && (
-                  <TextField label="API key de Zernio" type="password" autoComplete="off" spellCheck={false} data-zernio-key
-                    hint="En Zernio: Settings → API Keys" value={key} disabled={fase === 'abriendo'}
-                    onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && key.trim()) void conectar(); }}
-                    style={{ alignSelf: 'stretch' }} />
+              <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Button onClick={() => void conectar()} disabled={fase === 'abriendo'}>{`Conectar ${NOMBRE_CANAL[medio]}`}</Button>
+                {revisar && (
+                  <Button variant="secondary" data-revisar-zernio="" onClick={() => { guardoKey.current = false; setRevisar(false); setFase('zernio'); }}>{REVISAR_ZERNIO}</Button>
                 )}
-                <Button onClick={() => void conectar()} disabled={fase === 'abriendo' || (pideKey && !key.trim())}>{`Conectar ${NOMBRE_CANAL[medio]}`}</Button>
-              </>
+              </span>
             )}
         {error && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</span>}
         {pago && <a href={pago} target="_blank" rel="noopener noreferrer" data-zernio-pago style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>Pagar en Zernio</a>}

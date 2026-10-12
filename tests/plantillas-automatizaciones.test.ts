@@ -684,8 +684,9 @@ test('la ruta: «crear_desde_plantilla» va detrás de la guarda de admin y ench
 
 // ── 5. La pantalla ───────────────────────────────────────────────────────────────
 
+// Decimotercera tanda (punto 2): «Pídeselo a MaKo» se dibuja con quien recibe el pedido (`onPedirAMako`).
 const dibujar = (productos: ProductoParaDisparo[] = []) => renderToStaticMarkup(createElement(GaleriaPlantillas, {
-  productos, onCerrar: () => {}, onBlanco: () => {}, onCreada: () => {},
+  productos, onCerrar: () => {}, onBlanco: () => {}, onCreada: () => {}, onPedirAMako: () => {},
 }));
 
 test('la galería dibuja «Pídeselo a MaKo», el buscador, «Lienzo en blanco» PRIMERA y TODAS las plantillas, con su emoji, nombre y línea', () => {
@@ -695,7 +696,8 @@ test('la galería dibuja «Pídeselo a MaKo», el buscador, «Lienzo en blanco»
   const iIA = html.indexOf('data-galeria-ia');
   assert.ok(iIA > 0 && html.includes(`>${esc(TITULO_GALERIA_IA)}<`), 'falta «Pídeselo a MaKo»');
   assert.ok(html.indexOf('data-crear-ia-caja="galeria"', iIA) > iIA, 'la caja no es la de la galería');
-  assert.ok(html.includes('aria-label="Dictar el pedido"'), 'sin el micrófono');
+  // Decimotercera (punto 6): la nota de voz de la barra de WhatsApp (se transcribe y sale como el pedido).
+  assert.ok(html.includes('aria-label="Grabar nota de voz"'), 'sin el micrófono');
   const iBuscar = html.indexOf('data-galeria-busqueda');
   assert.ok(iBuscar > iIA, 'el buscador no va debajo de «Pídeselo a MaKo»');
   const iGrilla = html.indexOf('data-galeria-grilla');

@@ -188,7 +188,8 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   // «modo grupo» de UN texto sino EL MISMO `EditorMensajeWhatsApp` con `vozMako`, sobre el DTO de la tarjeta
   // (`pasoDeMako`: su id y su orden reales) y de vuelta por `paramsDeMako` (la lista explícita: sale TAL CUAL).
   const flujo = sinComentarios(leer('../app/automations/FlujoLienzo.tsx'));
-  assert.match(flujo, /if \(esMako\(paso\)\) return <EditorMako key=\{`mako-\$\{id\}`\} \{\.\.\.pr\} paso=\{paso\} id=\{id\} \/>;/);
+  // Decimotercera tanda (punto 7): con la tarjeta para el historial del ✦ (`chatDe`).
+  assert.match(flujo, /if \(esMako\(paso\)\) return <EditorMako key=\{`mako-\$\{id\}`\} \{\.\.\.pr\} paso=\{paso\} id=\{id\} chatMako=\{chatDe\(id\)\} \/>;/);
   const ed = bloque(flujo, 'function EditorMako(', '\n}\n', 4_000);
   assert.match(ed, /const dto = useMemo\(\(\) => pasoDeMako\(paso\), \[paso\]\);/);
   assert.match(ed, /paso=\{dto\} autor="MaKo" vozMako /);

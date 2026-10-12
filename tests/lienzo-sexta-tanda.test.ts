@@ -222,7 +222,8 @@ test('⚠️ FlujoLienzo edita por lib/flujo-edicion.ts (todo por `onPasos`), y 
 
 test('⚠️ el chrome: el ✦ de MaKo al lado del título, «Activar» al lado de «Publicar» (punto 8)', () => {
   const chrome = tramo(PERFIL, 'chrome={(', 'herramientas={rolAdmin ? (', 6_000);
-  assert.match(chrome, /title="Pedirle un cambio a MaKo"/, 'el ✦ de MaKo no está al lado del título');
+  // Decimotercera tanda: también con el lienzo vacío (ahí se la pide armar).
+  assert.match(chrome, /title=\{pasos\.length \? 'Pedirle un cambio a MaKo' : 'Pedírsela a MaKo'\}/, 'el ✦ de MaKo no está al lado del título');
   assert.doesNotMatch(chrome, />Activar</, '«Activar» sigue arriba');
   const herramientas = tramo(PERFIL, 'herramientas={rolAdmin ? (', 'pie={(', 1_600);
   assert.doesNotMatch(herramientas, /Pedirle un cambio a MaKo/, 'el ✦ volvió a la fila del zoom');

@@ -1,13 +1,23 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
-> **EN COLA (12/10/2026 ~10:30, `claude3` al 91 % semanal): la DECIMOTERCERA tanda** (8 puntos con capturas; pedido literal en el
-> último hito de la bitácora): (1) la barra de «Pídeselo a MaKo» sin placeholder, con scroll y sin la animación que escribe
-> ejemplos; (2) al enviar no pasa nada visible: crear la fila YA en la lista y llevar al lienzo con un loader adentro; (3)
-> «Probar» deja probar con «Sin conectar»: frenar y decir qué falta conectar; (4) la estrella de «Pídeselo a MaKo» → el logo
-> de MaKo; (5) NO un modal nuevo para conectar Zernio: reusar el de Integraciones; (6) el chat de MaKo IGUAL en diseño al
-> de WhatsApp (otros colores); (7) lo que sugiere «MaKo te ayuda a escribirlo» queda en el historial del chat, con qué
-> tarjeta; (8) «MaKo te ayuda a escribirlo» en todos los canales (distinto por canal: email no es WhatsApp). Va en el
-> worktree `C:/dev/wt-undecima` (el clon de OneDrive no se pone al día).
+> **HECHA, SIN PUSH (12/10/2026, `claude3`, un agente solo): la DECIMOTERCERA tanda** (8 puntos con capturas; pedido literal
+> en el último hito de la bitácora). Worktree `C:/dev/wt-undecima` (rama `undecima`). Lo aprendido:
+> `docs/hallazgos-chatbot.md` → «Decimotercera tanda» (y en hallazgos-ui, el campo que mide cero adentro de un Modal):
+> (1) la barra de «Pídeselo a MaKo» es la de WhatsApp, con el logo y el ejemplo que se escribe (el alto se colapsaba en el
+> primer render del Modal: la animación andaba); (2) al enviar, el modal se cierra, la fila nace YA y su lienzo abre con el
+> chat de MaKo creando (capa con «Creando tu automatización»); (3) Probar frena con un medio sin conectar (`medioQueFrena`,
+> la cuenta de Publicar) y abre su modal; (4) el logo de MaKo; (5) Zernio con EL modal de Integraciones (`ServicioSuelto` →
+> `ServicioModal`); (6) el chat es el hilo de WhatsApp (`ChatHilo`) con los colores de MaKo; (7) el ✦ anota en el chat de
+> MaKo con la tarjeta; (8) el ✦ en el email (asunto y cuerpo) y en los DM (cortos, sin audio). **Sin migraciones ni datos.**
+> Test nuevo: `tests/automations-decimotercera.test.ts` (16 roturas, 16 cazadas).
+>
+> **Antes del push:** Martín mira lo visual (el chat, la capa, la barra y el modal de Zernio). **Pendiente, con su archivo,
+> en los hallazgos:** el 409 de crear sobre una fila con tarjetas publicadas y el borrador vacío; los rearranques de Probar
+> no miran los medios.
+>
+> **Decisiones** (se pueden dar vuelta): si MaKo falla al crear, la fila queda vacía y pausada con el error en su chat (no
+> se borra); el ✦ del título también con el lienzo vacío; la nota de voz al chat de MaKo se transcribe y viaja como texto;
+> el chat sin clip (MaKo no recibe archivos); Zernio se abre aunque la capa no liste su tarjeta.
 >
 > **HECHA, SIN PUSH (12/10/2026 ~08:00, `claude3`): la DUODÉCIMA tanda** (feedback de la prueba con Fiesta Music; el
 > pedido, en el último hito de la bitácora). Worktree `C:/dev/wt-undecima` (rama `undecima`), corrida `wf_ec999673-272`.

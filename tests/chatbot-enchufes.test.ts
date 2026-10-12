@@ -66,7 +66,8 @@ test('la tarjeta dibuja hasta dos partes, «+N mensajes…» y NO la transcripci
 test('el «De» del email llega al editor, y elegirlo se puede deshacer', () => {
   const email = bloque(FLUJO, 'function EditorEmail(', '\nfunction EditorEtiquetaLienzo(', 2_500);
   assert.match(email, /remitente=\{paso\.remitente \?\? null\}/, 'el editor no recibe el remitente del paso');
-  assert.match(email, /cambiar\(patch, 'remitente' in patch\)/, 'elegir el «De» no entra a la pila de deshacer');
+  // Decimotercera tanda (punto 8): usar la sugerencia del ✦ (asunto y cuerpo de una vez) también apila.
+  assert.match(email, /cambiar\(patch, 'remitente' in patch \|\| \('asunto' in patch && 'cuerpo_html' in patch\)\)/, 'elegir el «De» no entra a la pila de deshacer');
 });
 
 test('el número de salida viaja de SecuenciaPerfil al editor de WhatsApp', () => {

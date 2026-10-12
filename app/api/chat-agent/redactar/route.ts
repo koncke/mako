@@ -1,15 +1,22 @@
 // =============================================================================
 // API: el ✦ de MaKo que ayuda a escribir un WhatsApp del lienzo (sexta tanda del Chatbot, WhatsApp 3)
 // =============================================================================
-// POST { pedido, actual, disparador, objetivo, gancho, permiteAudio, datos }
+// POST { pedido, actual, disparador, objetivo, gancho, permiteAudio, datos, canal?, secuenciaId?, tarjeta? }
 //   `datos`: 'motor' (al lead), 'recordatorio', o el contexto de la tarjeta (`ContextoDatos`, lib/variables-aviso.ts);
 //   con destino 'equipo' es el aviso de «MaKo en WhatsApp» (undécima tanda): otro prompt, sin la voz del negocio.
-//   → { ok: true, mensajes: string[], audio: string | null, nota: string | null, leido: string[], sinVoz: boolean, descartes: string[] }
-//   → { ok: false, error, link? }
+//   → { ok: true, mensajes: string[], asunto: string | null, audio: string | null, nota: string | null, leido: string[], sinVoz: boolean, descartes: string[], chat? }
+//   → { ok: false, error, link?, chat? }
+//
+// DECIMOTERCERA TANDA (12/10/2026, puntos 7 y 8): `canal` (WhatsApp, email, Instagram, Messenger) cambia lo que se le
+// pide al modelo (lib/mako-redacta.ts). Y con `secuenciaId` y `tarjeta`, lo que se pidió y lo que propuso MaKo (o por
+// qué no pudo) ENTRAN AL CHAT DE MaKo de esa automatización (`agregarAlChat`, el de ChatMako), con la tarjeta: Martín,
+// «todo eso se debe quedar guardado como parte del historial del chat... se tiene que ver que el usuario apretó el botón
+// en X tarjeta». Vuelven en `chat` para que el chat abierto los sume sin releer. Un chat que no se guarda nunca tumba
+// la propuesta (queda en el log).
 //
 // El pedido, el prompt y el filtro viven en lib/mako-redacta.ts (con test); la pantalla, en
-// app/automations/MakoRedacta.tsx. NO GUARDA NADA: lo que MaKo escribe vuelve al editor como una
-// propuesta, y la persona la usa o no (sólo «Publicar» publica).
+// app/automations/MakoRedacta.tsx. NO GUARDA NADA EN EL FLUJO: lo que MaKo escribe vuelve al editor como una
+// propuesta, y la persona la usa o no (sólo «Publicar» publica). Lo único que escribe es el HISTORIAL del chat de MaKo.
 //
 // ⚠️ EL CONTEXTO SE LEE POR EL REGISTRO DE LA API DE MaKo (`ejecutarOperacion`, AGENTS.md «Una capacidad
 //    nueva de MaKo se DECLARA en el registro»): el negocio, los productos, el embudo, el curso y la voz
@@ -34,9 +41,12 @@ import { canalKeyDe } from '@/lib/api-mako/canal';
 import type { Ctx } from '@/lib/api-mako/tipos';
 import { FEATURE_GUION_AUDIO } from '@/lib/guion-audio';
 import {
-  lecturasDeRedacta, esParaElEquipo, pedidoDeRedacta, redactaSystem, userDeRedacta, revisarRedacta,
-  type LECTURAS_REDACTA, type PropuestaRedacta,
+  lecturasDeRedacta, esParaElEquipo, pedidoDeRedacta, redactaSystem, userDeRedacta, revisarRedacta, pedidoParaChat, textoDePropuestaParaChat,
+  type LECTURAS_REDACTA, type PropuestaRedacta, type PedidoRedacta,
 } from '@/lib/mako-redacta';
+import { mensajeChat } from '@/lib/flujo-ia-preguntas';
+import { agregarAlChat, secuenciaDelWorkspace } from '@/lib/automatizacion-chat-db';
+import type { MensajeChatMako } from '@/lib/automatizacion-chat';
 
 export const dynamic = 'force-dynamic';
 /** La cascada gratis tarda de 3 a 30 s; con la red de plataforma, un poco más. El cliente corta a 95 s. */
@@ -45,6 +55,28 @@ export const maxDuration = 90;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /** Lo que se le dice al cliente por cada intento fallido: no viaja el texto crudo de un proveedor. */
 const MOTIVO = 'Escribir un WhatsApp del lienzo con el ✦ de MaKo';
+
+/**
+ * EL HISTORIAL (decimotercera tanda, punto 7): el pedido y lo que contestó MaKo, al chat de la automatización, con la
+ * tarjeta. Sólo si la automatización es de ESTE workspace (`secuenciaDelWorkspace`) y viene la tarjeta. Es lo ÚNICO
+ * que esta ruta escribe (el flujo no lo toca). Nunca tira: devuelve lo que guardó (para que el chat abierto lo sume) o
+ * nada.
+ */
+async function anotarEnChat(ws: number, p: PedidoRedacta, respuesta: string): Promise<MensajeChatMako[] | undefined> {
+  if (p.secuenciaId == null || !p.tarjeta) return undefined;
+  try {
+    if (!(await secuenciaDelWorkspace(ws, p.secuenciaId))) return undefined;
+    const mensajes = [
+      mensajeChat('yo', pedidoParaChat(p), 'app', { tarjeta: p.tarjeta }),
+      mensajeChat('mako', respuesta, 'app', { tarjeta: p.tarjeta }),
+    ];
+    await agregarAlChat(ws, p.secuenciaId, mensajes);
+    return mensajes;
+  } catch (e) {
+    console.error(`[redactar] el chat de #${p.secuenciaId}: ${msg(e)}`);
+    return undefined;
+  }
+}
 
 /** Lo que el registro devolvió, en texto, recortado a su tope. */
 async function leer(ctx: Ctx, lecturas: typeof LECTURAS_REDACTA): Promise<{ leido: Array<{ rotulo: string; texto: string }> }> {
@@ -88,7 +120,7 @@ export async function POST(req: NextRequest) {
     leer(ctx, lecturasDeRedacta(p.datos)),
     equipo ? Promise.resolve(true) : hayVozGuiaEstricto().catch(() => null),
   ]);
-  const system = redactaSystem(p.datos);
+  const system = redactaSystem(p.datos, p.canal);
   const user = userDeRedacta(p, leido);
   // Lo que se le dio a leer: de acá pueden salir los links que un mensaje nombra.
   const permitido = [user].join('\n');
@@ -96,7 +128,7 @@ export async function POST(req: NextRequest) {
   let propuesta: PropuestaRedacta | null = null;
   const valida = (t: string): boolean => {
     try {
-      const r = revisarRedacta(parseJsonObject(t), permitido, p.permiteAudio, p.datos);
+      const r = revisarRedacta(parseJsonObject(t), permitido, p.permiteAudio, p.datos, p.canal);
       if (!r.mensajes.length && !r.audio) return false;
       propuesta = r;
       return true;
@@ -134,11 +166,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (!propuesta) {
-    return Response.json({ ok: false, error: await errorDeCascada(errores, 'escribir el mensaje') }, { status: 502 });
+    const error = await errorDeCascada(errores, 'escribir el mensaje');
+    const chat = await anotarEnChat(ws, p, error);
+    return Response.json({ ok: false, error, ...(chat ? { chat } : {}) }, { status: 502 });
   }
   const listo = propuesta as PropuestaRedacta;
+  const chat = await anotarEnChat(ws, p, textoDePropuestaParaChat(listo));
   return Response.json({
-    ok: true, mensajes: listo.mensajes, audio: listo.audio, nota: listo.nota, descartes: listo.descartes,
-    leido: leido.map((l) => l.rotulo), sinVoz: hayVoz === false,
+    ok: true, mensajes: listo.mensajes, asunto: listo.asunto, audio: listo.audio, nota: listo.nota, descartes: listo.descartes,
+    leido: leido.map((l) => l.rotulo), sinVoz: hayVoz === false, ...(chat ? { chat } : {}),
   });
 }

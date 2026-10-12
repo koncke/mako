@@ -389,8 +389,8 @@ export function turnoDelUsuario(pedido: string, respuestas: readonly RespuestaMa
   return mensajeChat('yo', texto, via, ultima ? { respuesta: ultima } : {});
 }
 
-/** Lo que dice MaKo al crear (corto; los avisos van aparte). */
-export const textoDeCreada = (nombre: string): string => `Creé «${nombre}». Quedó pausada.`;
+/** Lo que dice MaKo al crear: vive en lib/flujo-ia-cliente.ts (lo dibuja también el chat del lienzo). */
+export { textoDeCreada } from './flujo-ia-cliente';
 
 // ── Editar: la respuesta a «¿Cambio qué la dispara?» (sin modelo) ─────────────────
 

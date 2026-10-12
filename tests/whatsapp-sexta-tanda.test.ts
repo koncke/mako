@@ -550,6 +550,9 @@ test('el contexto sale del REGISTRO de la API de MaKo (lecturas que existen), y 
   assert.match(ruta, /ejecutarOperacion\(l\.id, l\.input \?\? \{\}, ctx, 'json'\)/);
   assert.match(ruta, /\(await getRolWsEfectivo\(\)\) !== 'admin'/);
   assert.doesNotMatch(ruta, /chatClaude|from '@\/lib\/anthropic'|setSecuenciaPasos|\.from\(/, 'la ruta paga, o escribe');
+  // Lo ÚNICO que escribe es el historial del chat de MaKo (decimotercera tanda, punto 7), con la automatización
+  // comprobada en ESTE workspace: `agregarAlChat` detrás de `secuenciaDelWorkspace`.
+  assert.match(ruta, /if \(!\(await secuenciaDelWorkspace\(ws, p\.secuenciaId\)\)\) return undefined;[\s\S]{0,400}await agregarAlChat\(ws, p\.secuenciaId, mensajes\);/);
   assert.match(ruta, /pin\.provider !== 'anthropic' && pin\.provider !== 'openai'/, 'un pin pago se usaría');
   assert.match(ruta, /motivo: `⚠ red de plataforma/);
   assert.match(ruta, /errorDeCascada\(errores, 'escribir el mensaje'\)/, 'los errores de la red eligieran el texto del cliente');

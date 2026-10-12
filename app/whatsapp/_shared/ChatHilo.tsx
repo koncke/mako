@@ -107,8 +107,27 @@ export type ChatHiloProps = {
   /** acento del canal (cinta superior + burbuja saliente). Default índigo no-oficial. */
   accent?: string;
   accentBubble?: string;
-  /** envía texto; devuelve true si ok. Ausente + readOnly → sin composer. */
-  onEnviarTexto?: (texto: string) => Promise<boolean>;
+  /**
+   * envía texto; devuelve true si ok. Ausente + readOnly → sin composer. `{ error }` (decimotercera tanda, el chat
+   * con MaKo): no salió, lo escrito vuelve a la barra, y `error` se dice (null = no hay nada que decir: se canceló).
+   */
+  onEnviarTexto?: (texto: string) => Promise<boolean | { error: string | null }>;
+  /**
+   * EL MICRÓFONO SIN EL CLIP (decimotercera tanda, el chat con MaKo): la nota de voz grabada y escuchada en la barra
+   * (✓ termina, ➤ manda) llega acá, sin pasar a MP3 ni por `onEnviarArchivo`. MaKo no recibe archivos: el clip no se
+   * dibuja. true = salió.
+   */
+  onEnviarAudio?: (grabado: Blob, secs: number) => Promise<boolean>;
+  /** El color de la ➤ de la barra. Sin esto, el de WhatsApp. */
+  acentoEnviar?: string;
+  /** El fondo del hilo. Sin esto, el de siempre (`--surface-2`). */
+  fondoHilo?: string;
+  /**
+   * DEVOLVER UN TEXTO A LA BARRA desde afuera (decimotercera tanda, el chat con MaKo): un pedido que no salió y que no
+   * nació en la barra (el de «Nueva automatización», una nota de voz transcrita). Cada `vez` nueva lo pone, salvo que la
+   * persona ya haya escrito otra cosa.
+   */
+  ponerBorrador?: { texto: string; vez: number } | null;
   /** envía media/voz por multipart; tipo 'audio' para nota de voz. */
   onEnviarArchivo?: (blob: Blob, tipo: '' | 'audio', fileName: string, caption?: string) => Promise<boolean>;
   readOnly?: boolean;
@@ -153,6 +172,7 @@ const adjuntoStore = new Map<string, ItemAdjunto[]>();
 export function ChatHilo({
   mensajes, header, accent = 'var(--wa-noof)', accentBubble = 'var(--wa-noof-bubble)',
   onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey, onDraftChange, animarNuevos, encimaDelComposer, renderMensaje,
+  onEnviarAudio, acentoEnviar, fondoHilo, ponerBorrador,
 }: ChatHiloProps) {
   const [draft, setDraftState] = useState<string>(() => (draftKey ? draftStore.get(draftKey) ?? '' : ''));
   const lista = useListaAdjuntos(
@@ -206,6 +226,15 @@ export function ChatHilo({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al cambiar de conversación
   }, [draftKey]);
   useEffect(() => { const el = scrollRef.current; if (el && stickRef.current) el.scrollTop = el.scrollHeight; }, [mensajes, typing]);
+  // Lo que alguien de afuera devuelve a la barra (`ponerBorrador`), una vez por `vez` y sin pisar lo escrito.
+  const vezPuesta = useRef<number | null>(null);
+  useEffect(() => {
+    if (!ponerBorrador || vezPuesta.current === ponerBorrador.vez) return;
+    vezPuesta.current = ponerBorrador.vez;
+    const t = ponerBorrador.texto;
+    if (t && !draftRef.current.trim()) setDraft(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `setDraft` lee el ref; sólo importa la vez nueva
+  }, [ponerBorrador?.vez]);
   const onScroll = () => { const el = scrollRef.current; if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; };
 
   /** El clip (o el «+» de la vista): suma a la vista previa; lo que no entra dice por qué. */
@@ -239,7 +268,9 @@ export function ChatHilo({
     // que el usuario ya haya escrito otra cosa mientras tanto.
     setDraft('');
     try {
-      if (!(await onEnviarTexto(texto))) { setDraft((d) => d || texto); setSendErr('No se pudo enviar el mensaje.'); }
+      const r = await onEnviarTexto(texto);
+      if (r === false) { setDraft((d) => d || texto); setSendErr('No se pudo enviar el mensaje.'); }
+      else if (r !== true) { setDraft((d) => d || texto); setSendErr(r.error); }
     } catch (e) {
       setDraft((d) => d || texto);
       setSendErr('No se pudo enviar (' + (e instanceof Error ? e.message : 'error de red') + ').');
@@ -285,6 +316,13 @@ export function ChatHilo({
     if (!(await onEnviarArchivo(mp3, 'audio', 'nota-de-voz.mp3'))) setSendErr('No se pudo enviar el audio.');
     setSending(false); setAudioFase(null);
   };
+  /** La nota de voz de quien no recibe archivos (`onEnviarAudio`): sin MP3 ni clip. */
+  const enviarAudioPropio = async (grabado: Blob, secs: number) => {
+    if (!onEnviarAudio || sending) return;
+    setSending(true); setSendErr(null); stickRef.current = true;
+    try { if (!(await onEnviarAudio(grabado, secs))) setSendErr('No se pudo enviar el audio.'); }
+    finally { setSending(false); }
+  };
   const puedeComponer = !readOnly && (!!onEnviarTexto || !!onEnviarArchivo);
   /** La vista previa tapa el hilo y la barra mientras haya archivos juntados (sin desmontarlos: la barra
    *  guarda la sesión de voz y el hilo su scroll). */
@@ -300,7 +338,7 @@ export function ChatHilo({
       {/* El cuerpo (hilo + barra) en una caja propia: la vista previa se apoya ENCIMA con `inset: 0`, un
           alto definido en todos los motores (un `height: 100%` contra un alto de flex da cero en Safari). */}
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-      <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface-2)' }}>
+      <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, background: fondoHilo ?? 'var(--surface-2)' }}>
         {cargando && mensajes.length === 0 && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
@@ -383,8 +421,9 @@ export function ChatHilo({
           placeholder={placeholder}
           onArchivos={onEnviarArchivo ? agregarArchivos : undefined}
           acceptArchivo={ACCEPT_HILO}
-          onAudio={onEnviarArchivo ? enviarAudio : undefined}
+          onAudio={onEnviarArchivo ? enviarAudio : onEnviarAudio ? enviarAudioPropio : undefined}
           onErrorAudio={setSendErr}
+          acento={acentoEnviar}
         />
       )}
 

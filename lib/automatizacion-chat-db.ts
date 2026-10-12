@@ -48,6 +48,20 @@ function despuesDe(leido: string): string {
   return new Date(Number.isNaN(antes) ? ahora : Math.max(ahora, antes + 1)).toISOString();
 }
 
+/**
+ * ¿ESTA AUTOMATIZACIÓN ES DE ESTE WORKSPACE? (decimotercera tanda, punto 7: el ✦ «MaKo te ayuda a escribirlo» de una
+ * tarjeta anota en su chat, y el id llega del navegador). Una clave huérfana no molesta (la del chat va por workspace),
+ * pero no se escribe el chat de una automatización que no existe acá. Estricta: «no pude leer» tira.
+ */
+export async function secuenciaDelWorkspace(ws: number, secuenciaId: number): Promise<boolean> {
+  if (!idValido(ws) || !idValido(secuenciaId)) return false;
+  const { data, error } = await getSupabaseServer()
+    .from('nutricion_secuencias').select('id')
+    .eq('workspace_id', ws).eq('id', secuenciaId).maybeSingle();
+  if (error) throw new Error(`No pude leer la automatización: ${error.message}`);
+  return !!data;
+}
+
 /** El chat de una automatización (vacío si todavía no tiene). Tira si no se pudo leer. */
 export async function leerChat(ws: number, secuenciaId: number): Promise<ChatAutomatizacion> {
   if (!idValido(ws) || !idValido(secuenciaId)) throw new Error('leerChat: workspace o automatización inválidos.');

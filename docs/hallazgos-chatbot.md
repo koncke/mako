@@ -4045,3 +4045,80 @@ _12/10/2026 — cierre de la duodécima: typecheck sin errores de la tanda (qued
 _12/10/2026 — enchufe del cierre (el CRON que se edita, el 409, el aviso de Publicar, la siembra del CRON, las etapas de la condición): typecheck con los mismos 2 de entorno; suite entera 8418 tests, 8413 pasan, 4 fallan y 1 se salta. Los 3 de antes más `ads-video-procesando` (un tiempo bajo carga: solo da 10 / 0). Roturas en un espejo: 9 de 9 cazadas (`tests/automations-duodecima-enchufes.test.ts`, al pie)._
 
 _12/10/2026 — cierre final de la duodécima: typecheck entero en 0 errores (los 2 de `lib/editor-landing` se fueron: otra sesión instaló `html-to-image` y `pptxgenjs` en el `node_modules` compartido). Suite entera, 8418 tests: 8414 pasan, 3 fallan y 1 se salta. Los 3 son de HEAD y de otras áreas, y la tanda no toca ningún archivo que lean: `confirm-encima-de-modales` (ya arreglado en origin/main, `DesvioMovil.tsx`), `mover-etapa-validacion` y `plan-filtro-cliente` (los dos siguen rojos en origin/main `2a9b0777`: ni el test ni lo que leen cambiaron). `ads-video-procesando` pasó: lo del enchufe era carga._
+
+## Decimotercera tanda (12/10/2026, claude3): la barra de MaKo, crear y llevarte al lienzo, Probar sin conexión, el chat de WhatsApp
+
+El pedido, textual (8 puntos con capturas de hola-mako.com/automations), en el último hito de
+`app/admin/dev/chatbot/bitacora.ts` (12/10, 10:30). Un agente solo, sin multi-agente, en el worktree `C:/dev/wt-undecima`.
+Lo que no se ve en el diff:
+
+- ⚠️ **«No se ve el placeholder, tiene scroll y no aparece más la animación»: el diagnóstico obvio (se borró la animación)
+  era el equivocado.** `useEjemploQueSeEscribe` seguía andando; lo roto era el ALTO del campo. La pila de modales pinta un
+  `Modal` con `display: none` en su PRIMER render (`decidirVisible` da false hasta que un efecto lo mete en la pila), y el
+  efecto del hijo corre antes que el del padre: medía `scrollHeight = 0`, ponía `height: 0px` y no volvía a medir hasta que
+  cambiara el texto. Quedaba el relleno, con el ejemplo escribiéndose fuera de la vista y la barra de scroll. Además,
+  `height = scrollHeight` con `box-sizing: border-box` y 2 px de borde desborda SIEMPRE 2 px. Estaba roto desde la décima
+  (la caja de la galería tenía el mismo efecto). **Regla:** la barra es `ComposerWhatsApp`, que mide con el borde y tiene
+  `minHeight`. La trampa general, en [hallazgos-ui.md](hallazgos-ui.md). **Vive en:** `app/_components/pila-modales.ts`,
+  `app/whatsapp/_shared/ComposerWhatsApp.tsx`, `app/automations/ChatMako.tsx` (`BarraPideselo`).
+- **«Al enviar no ocurre nada»: MaKo trabajaba ADENTRO del modal** y la fila nacía al guardar (para la persona, un minuto
+  sin nada). Ahora el modal se cierra al enviar y la fila nace YA por la puerta de «Nueva» (`crearNueva(pedido)`, la de
+  «Lienzo en blanco»): la fila «creándose» en la lista, su lienzo, y el chat de MaKo abierto con el pedido puesto, que el
+  chat manda como CREAR sobre esa fila (la ruta ya lo aceptaba: vacía y pausada). Las preguntas de MaKo salen en el chat de
+  la fila, no en el modal. **Decisión:** si MaKo falla, la fila queda vacía y pausada, con el error en su chat y el pedido
+  de vuelta en la barra: no es una fantasma, es una automatización a la que se le puede volver a pedir. Si falla crear la
+  fila, el error va pegado a «＋ Nueva» y el pedido vuelve a la barra de la galería (`pedidoSinCrear`). **Vive en:**
+  `ChatAgentApp.tsx` (`crearNueva`, `pedirAMako`), `SimuladorWhatsApp.tsx` (`AbrirSecuencia.pedido`), `SecuenciaPerfil.tsx`
+  (`pedidoAlAbrir`, la capa), `ChatMako.tsx` (`pedidoInicial`).
+- ⚠️ **Un pedido que sale al MONTAR se corta en desarrollo:** React monta, desmonta y vuelve a montar los efectos, y el
+  desmonte de `useStreamIA` aborta el pedido en vuelo. El primer turno sale en un `setTimeout(0)` que limpia el cleanup,
+  con una guarda por pedido. **Regla:** si otro efecto del mismo componente aborta al desmontar, un fetch de montaje no sale
+  en el cuerpo del efecto.
+- **La capa ya no es un portal sobre toda la pantalla.** La pone SecuenciaPerfil, de la lista para la derecha (la fila
+  recién creada se sigue viendo), y POR ENCIMA de «Publicar»: z 58 > `Z_ACCION_LIENZO` (57). El Lienzo no crea un contexto
+  de apilamiento, así que compiten en el mismo. El chat sube a 59 mientras MaKo trabaja; los dos, debajo de 60 (AGENTS.md).
+- **«Sin Zernio», y Probar dejaba probar.** Probar miraba sólo la FORMA (`frenoDelFlujo`), nunca los medios; Publicar sí, en
+  el server. Ahora `medioQueFrena` (lib/medios-automatizacion.ts) es la cuenta de Publicar y Activar (`medioSinConectar` la
+  usa) Y la de Probar, con la línea de la tarjeta que frena (para abrir SU QR). Probar dice «Conecta tu Instagram» y abre el
+  modal de ese medio. «No pude comprobarlo» no frena.
+- **El modal de Zernio es EL de Integraciones:** `ServicioModal`, exportado de IntegracionesBoard.tsx y montado a demanda por
+  `app/integraciones/ServicioSuelto.tsx`. La `Integracion` la arma el server con la MISMA cuenta que la grilla
+  (`getIntegracion` → `integracionDeDef`, por la server action `integracionAction`). Se fueron el campo propio de la key y
+  `guardarKeyZernio`. Al cerrar Integraciones se vuelve a mirar Zernio: si sirve, sigue el OAuth; si se guardó una key que
+  no sirve, se dice y queda «Abrir Zernio». ⚠️ `getIntegracion` NO filtra por la capa (la capa decide qué se LISTA): una
+  automatización que necesita Zernio lo necesita aunque la tarjeta no esté en la grilla. Sí respeta `soloPlataforma`.
+- **El chat ES el hilo de WhatsApp** (`ChatHilo` + `BurbujaHilo` + `ComposerWhatsApp`), no una copia. Lo que le faltaba al
+  hilo para servirle a MaKo entró como props OPCIONALES, y nadie más cambia:
+  - `onEnviarAudio`: el micrófono sin el clip (MaKo no recibe archivos). La nota se transcribe con `transcribirNota` y viaja
+    como texto.
+  - `acentoEnviar` y `fondoHilo`: los colores de MaKo.
+  - `ponerBorrador`: devolver a la barra un pedido que no nació en ella.
+  - `onEnviarTexto` puede devolver `{ error }`: no salió, y lo escrito vuelve.
+
+  La pregunta va como los botones de respuesta de WhatsApp, debajo de la burbuja.
+- **El historial del ✦ (punto 7):** la ruta del ✦ (`/api/chat-agent/redactar`) anota en el chat de MaKo de la automatización
+  el pedido y lo propuesto (o el error), con `tarjeta`: el nombre de `nombreDeTarjeta`, el mismo de los errores de
+  Publicar. ⚠️ El id llega del navegador: se escribe sólo si la automatización es del workspace (`secuenciaDelWorkspace`,
+  lib/automatizacion-chat-db.ts). Es lo único que esa ruta escribe; el guard «la ruta no paga ni escribe»
+  (`tests/whatsapp-sexta-tanda.test.ts`) lo admite explícito. El chat abierto lo suma sin releer (`chat-mako-eventos.ts`).
+- **El ✦ en el email y en los DM (punto 8)**, con `canal` en lib/mako-redacta.ts:
+  - el email pide asunto y cuerpo, con su JSON propio;
+  - un DM, uno o dos mensajes cortos (≤ `TOPE_TEXTO_SOCIAL`);
+  - la nota de voz es SÓLO de WhatsApp (Instagram rechaza el OGG/Opus).
+
+  ⚠️ `String.replace` con un texto como patrón reemplaza SÓLO la primera vez: el system de los DM tiene `{{red}}` dos veces y
+  le llegaba al modelo «DM de {{red}}». Lo encontró el test nuevo en su primera corrida. **Regla:** para llenar un hueco que
+  puede repetirse, `split().join()` (o `replaceAll`).
+- **El ✦ del título también con el lienzo vacío:** ahí MaKo crea. La caja grande del lienzo vacío sigue afuera (la sacó la
+  décima): el ✦ es un botón chico.
+
+**SIN HACER (con su archivo):**
+- `app/automations/ChatMako.tsx`: crear sobre una fila con el borrador vaciado a mano pero con tarjetas PUBLICADAS da el
+  409 («ya tiene tarjetas: pídele un cambio») en el chat. El `guardado` del 409 no se usa.
+- `app/automations/PanelProbar.tsx`: los rearranques de Probar (↻, «Cambió · ↻») miran `EdicionLocal.freno` (la forma), no
+  los medios. Desconectar un medio con Probar abierto no frena hasta cerrarlo.
+- `app/automations/EditorPasoIA.tsx` y `app/landing-generator/CajaCrear.tsx`: el ejemplo que se escribe solo usa el mismo
+  placeholder. Si alguno mide su alto en el primer efecto adentro de un Modal, tiene la trampa de arriba: no se midió.
+- Lo visual (el chat como WhatsApp, la capa, el modal de Zernio) no se miró en el navegador: lo mira Martín.
+
+_12/10/2026 — cierre de la decimotercera: typecheck en 0 errores. Tests de las áreas tocadas: 1093 / 1093 (84 archivos). Suite entera, 9043 tests: la primera corrida dio 4 rojos; 1 era un guard de la forma del lienzo (`flujo-lienzo-paralelos`, la rama del email ahora abre un bloque), ya arreglado. Los otros 3 son de HEAD y de otras áreas, y ninguno lee un archivo de la tanda: `mover-etapa-validacion`, `plan-filtro-cliente` y `plan-proyectos-catalogo` (la barra de `nav.ts`). Roturas: 16 de 16 cazadas (`tests/automations-decimotercera.test.ts`, al pie)._

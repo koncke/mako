@@ -205,7 +205,8 @@ test('WhatsApp 5: la sugerencia de MaKo es un recuadro arriba de la barra, que s
   // El panel del ✦ entrega la propuesta y ya no la dibuja como burbujas.
   const redacta = sinComentarios(leer('app/automations/MakoRedacta.tsx'));
   assert.doesNotMatch(redacta, /BurbujaHilo/, 'las sugerencias volvieron a ser burbujas en el panel');
-  assert.match(redacta, /onPropuesta\(\{ mensajes: lista\.mensajes, audio: lista\.audio, nota: lista\.nota, sinVoz: lista\.sinVoz \}\)/);
+  // Decimotercera tanda (punto 8): también el asunto (sólo el email lo trae; WhatsApp no lo usa).
+  assert.match(redacta, /onPropuesta\(\{ mensajes: lista\.mensajes, asunto: lista\.asunto, audio: lista\.audio, nota: lista\.nota, sinVoz: lista\.sinVoz \}\)/);
   assert.match(EDITOR, /onPropuesta=\{alProponer\}/);
 });
 
