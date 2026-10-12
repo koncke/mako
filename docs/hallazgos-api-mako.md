@@ -1183,3 +1183,23 @@ Para angostar una unión discriminada se pregunta por la FORMA del objeto (`!('d
 typecheck, no los tests.
 
 _11/10/2026 — `tests/api-mako-dashboard.test.ts` (25, probado con 14 roturas), commit `6e85d8d7`._
+
+## El área Dashboard en la v5: lo que la API escribía y no hacía nada (12/10/2026)
+
+- **El período que pedía la API no hacía nada.** Desde la v5 el período propio de un gráfico vive en un control
+  `periodo` con `fijo: true`, y con un control así el saneo descarta el campo `periodo` sin avisar. La API lo
+  escribe como control fijo `<id>-fecha` (`conPeriodoFijo`) y comprueba DESPUÉS del saneo que quedó
+  (`armarGrafico`). Los nombres de los parámetros (`periodo`, `desde`, `hasta`) no cambiaron.
+- **Todo gráfico que armaba MaKo con filtros salía con chips para mirar.** Lo que se guarda en un gráfico lo DEFINE
+  (`fijo`); un filtro para mirar va en la hoja (`controlesDeFiltros`).
+- **La referencia quedó vieja dentro del mismo WIP**: se editó el `escribe` de una def después de generarla y
+  `api-mako-registro` lo cazó. Regenerar `docs/api-mako.md` es el ÚLTIMO paso después de tocar una `.def.ts`.
+- **Las «Conclusiones de MaKo» salen por la API sólo las SUELTAS en la hoja** (`leer_conclusiones_dashboard`,
+  `generar_conclusiones_dashboard`): miran gráficos sin nombres (`dimensionPublica`). Las de un pop-up leen lo que
+  se abre (el transcript de una llamada) y no las alcanza ningún canal: viven en `popup.componentes`, así que
+  buscar sólo en la hoja ya las deja afuera. `tests/graficos-ia-elemento.test.ts` exige que `dashboard.run.ts`
+  pida toda caja con `popupDe` vacío y sin `ref` (probado rompiéndolo: 14/1).
+- **Sin bloques**: `leer_bloque_dashboard` y el parámetro `bloque` se fueron; `entidad` (una ficha) se rechaza
+  fuera de un pop-up. **Vive en:** `lib/api-mako/areas/dashboard.def.ts`, `dashboard.helpers.ts`, `dashboard.run.ts`.
+
+*12/10/2026, chat «Graphics», ola 3 de la v5 (paquete de la API y el link).*

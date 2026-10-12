@@ -4107,3 +4107,22 @@ desde donde está), `app/landing-analyst/page.tsx` (redirige)
   Dashboard) se le pidió a la sesión Landing Generator, junto con un acceso a «Diagnóstico» en su nav.
 
 *11/10/2026, chat «Graphics», paquete P4 de la tanda v4 del Dashboard (commit `6e85d8d7`).*
+
+## El mapa de calor en vivo y el Pixel que tardaba 6,7 s (12/10/2026)
+
+- **`verificarPagina` tardaba 6,7 s en el ws1**: leía en serie las 7.085 visitas del host para quedarse con la
+  versión de la más nueva. Para «la más nueva» no se lee todo: una regex de candidatos en la base (`imatch` de
+  PostgREST funciona, medido), con tope (`TOPE_VISITAS_VERIFICAR`, 1000), más la igualdad exacta en memoria. Con
+  el tope alcanzado, `visitas` es un PISO («al menos»): la API lo dice con `visitas_tope`.
+- **El mapa de calor se veía «hardcodeado» porque la hoja de estilos de la página tenía `crossorigin`**: al
+  copiarla, el navegador no deja leer sus reglas. Va por `hojasSinCors` (compartida). Y la página se embebe EN
+  VIVO adentro de un mockup de celular: un clic adentro sería una acción real en el negocio del cliente, así que el
+  scroll va por `postMessage` y la tapa y el sandbox lo frenan dos veces.
+- **Un r.js que no define `rrwebRecord` no graba** (`replayGrabar` del snippet ve que no es función y sale): lo
+  fija `noDebeTener` en el generador.
+- **`tests/landing-gracias.test.ts` fija la línea exacta del `if` de `alVisitarPagina`**: no se podía sumar una
+  condición ahí, así que se cambió lo que entra (`pagina = null` para la visita del mapa). Cuando un guard fija una
+  línea, se cambia la entrada. **Vive en:** `lib/landing-token.ts`, `lib/landing-mapa-server.ts`,
+  `app/dashboard/graficos/` (mapa de calor).
+
+*12/10/2026, chat «Graphics», ola 2 de la v5 (paquete del mapa de calor).*

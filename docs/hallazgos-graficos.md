@@ -310,38 +310,140 @@ Quien abre el link no tiene sesión y ve el informe de OTRA persona. Las cuatro 
    Analyst.
 3. **Un filtro sobre un campo no público no se mueve:** sus valores serían nombres, y una búsqueda por
    texto, un oráculo letra por letra. Lo que el dueño dejó elegido filtra igual y viaja como alias.
-4. **Un bloque sale sólo si está en `BLOQUES_COMPARTIBLES`:** los que muestran personas o tienen una
-   acción («Marcar cobrada», «Editar lead») dicen «No se comparte en un link».
+4. **Sale lo decidido EN POSITIVO (`seComparte`, v5):** un gráfico sale salvo los tipos de `TIPOS_QUE_NO_SALEN`
+   (el mapa de calor: es la página de un cliente en vivo); un elemento, sólo si está en `ELEMENTOS_QUE_SALEN`. Las
+   cajas de IA, las acciones, las fichas, los pop-ups y una grabación de Fathom llegan como una tarjeta «No se
+   comparte en un link» en su lugar, y el server ni los lee.
 
 El detalle de un número contesta 403. Medido en Chrome (ws9): 15 componentes sin Editar ni Compartir,
 detalle 403, revocar 200 y el link revocado 404. Las puertas (por qué POST, los topes, el 404 que no
 distingue) están en [hallazgos-seguridad.md](hallazgos-seguridad.md).
 
+## La v5: sin bloques fijos, todo editable (12/10/2026)
+
+El feedback de 24 puntos del 11/10 a la noche (textual en `app/admin/dev/dashboard/bitacora.ts`): un solo
+«Filtro» y la búsqueda tipo Ctrl+F, pop-ups configurables, «Conclusiones de MaKo» como elemento de IA, sección
+y desplegable, conectores, gráficos gordos, mapa de cualquier país, hojas VSL/CS/Chat Analyst y el mapa de calor
+en vivo. Lo que costó, por tema:
+
+**El modelo y la migración de los bloques** (`lib/graficos-catalogo.ts`, `lib/graficos-migrar-v5.ts`)
+- **Los 17 bloques del informe de Mauricio se migran en el SANEO, no a mano**, con ids determinísticos: el saneo
+  corre en cada recarga, así que lo que agrega con `nuevoId()` sería otro componente cada vez. Ante una colisión,
+  el siguiente id libre. Y una hoja no puede perder componentes por migrarse: el tope se corre en lo que la
+  migración agrega.
+- **Una firma por bloques muere con los bloques.** `hojaDestino` encontraba la hoja Closing por los bloques que
+  tenía; con ids nuevos, `?hoja=closing` agregaba OTRA. La migración guarda `Hoja.plantilla` y la búsqueda mira
+  eso primero.
+- **Desde v5 el período propio de un gráfico vive en `controles`** (`fijo: true`). Un `{...comp, controles: [nuevo]}`
+  lo borra y cambia el número sin un error: agregar un control es sumarlo a la lista. Y con un control `periodo`
+  en el gráfico, el saneo descarta el campo `periodo` viejo **sin avisar**: la API de MaKo lo escribía ahí y no
+  hacía nada (ver [hallazgos-api-mako.md](hallazgos-api-mako.md)).
+- **El diagnóstico obvio era el equivocado (dos veces).** De 8 controles quedaban 7 y parecía el tope: era
+  `leads.setter`, que dejó de existir al volverse compartido, y el saneo tiraba el control (lo traduce
+  `campoVigente`). Y un `pedidosDeHoja` que daba `6 !== 1` no duplicaba nada: el fixture tenía `clase: 'bloque'`
+  y el saneo lo migró a 5 gráficos. Un test que pasa por el saneo no usa clases deprecadas.
+- **Una sección plegable en el medio esconde el resto de la hoja** (agrupa todo hasta la siguiente). Toda
+  sección que se inserte (migración, plantilla, IA) lleva su sección de cierre al pie del grupo.
+
+**Los datos** (`lib/graficos-agregar.ts`, `lib/graficos-datos*.ts`)
+- **La Landing tardaba y terminaba en «No pude leer los datos»** porque leía dos veces las ~48k filas de
+  `vsl_events`. La salida fue un resumen en SQL (`retencion_vsl_resumen`, mig 0261), y el primero tardaba 3,1 s:
+  un join `is not distinct from` sobre CTEs hizo que el planificador descartara 9.093.240 filas. **«Faltan
+  índices» era el diagnóstico equivocado**: agrupar en dos niveles sin join bajó a 756 ms, con 0 diferencias
+  sobre 3.010 personas.
+- **PostgREST corta en 1000 filas también una función `returns setof`, sin avisar.** La función devuelve un jsonb.
+- **`Number(null)` da 0**: una visita sin header de longitud caía en el golfo de Guinea. El null se mira antes de
+  convertir (`ubicacionDeHeaders`).
+- **La entrega contaba filas de `cliente_entrega`, no clientes**: se lee el universo (`carteraEnEntrega`) y se
+  reparte con `repartirEnEtapas`, igual que Customer Success. Y `envios.respondio_at` no lo escribe nadie:
+  «respondió» se deriva de la inscripción.
+- **Una métrica percentil no es una base**: el guard «el lector llena cada métrica» la excluye y exige su `de`.
+- **El sello de Lovable era lo más tocado del ws1** en el mapa de calor (`#lovable-badge-close` ×6): se reconoce
+  por el selector, no por la palabra.
+
+**El dibujo y el mapa** (`app/dashboard/graficos/`, `public/geo/v1`, `scripts/geo-paises.mjs`)
+- **Las etiquetas que se chocaban no eran un bug de recharts** (3.8 ya dibuja `LabelList` arriba de las líneas):
+  eran hasta 120 etiquetas sin halo. Van las que entran sin pisarse, en tinta y con halo.
+- **Natural Earth nombra mal regiones vecinas**: el `name_es` de la Ciudad de México es «México» (el estado de al
+  lado), el de la Ciudad de Buenos Aires es «Buenos Aires» (la provincia), Bogotá trae el código de Cundinamarca y
+  `MX-DIF` es viejo. Un nombre que tienen dos regiones no ubica ninguna; las correcciones van escritas en
+  `scripts/geo-paises.mjs`.
+- **Un `.json` de `public/` pasa por el control de sesión** (el matcher del proxy excluye png/js/css, no json): la
+  geometría andaba con sesión y fallaba en el link. Va `'/geo'` en `PUBLICOS`.
+- **Un dibujo propio recibe el resultado pero no lo que mira el gráfico**: todo componente que pide sus datos
+  necesita `efectivo` (lo que resolvió la hoja), o mira sólo su período propio.
+
+**La edición** (`app/dashboard/EditorInforme.tsx`, `edicion-css.ts`, `guardado.ts`)
+- **react-grid-layout 2.x llama a `onLayoutChange` en un efecto pasivo, después del commit**: un ref que esa
+  callback lee va en `useLayoutEffect`. Y plegar sin la vuelta pierde el orden (la grilla escribe las `y`
+  compactadas): `aGuardado` devuelve las filas guardadas.
+- **Una cola de guardado compara con lo que VIAJA, no con lo último confirmado**: si no, un Ctrl+Z hecho con otro
+  guardado en vuelo no se manda nunca. El guardado lleva versión (409 «el informe cambió en otra pestaña»).
+- **`scrollIntoView` corre una tarjeta para siempre**: también scrollea los contenedores con `overflow: hidden`
+  (`.lk-comp` lo tiene). La búsqueda scrollea a mano sólo lo que tiene auto/scroll (`llevarALaVista`). Y el
+  `MutationObserver` de la búsqueda no escucha `style`: el tooltip de recharts lo reescribe en cada movimiento.
+
+**La IA y las entidades** (`lib/graficos-ia-elemento*.ts`, `app/dashboard/entidades/`)
+- **Una caja de pop-up es por lo que se abrió**: con la clave sin el `ref`, las conclusiones de una llamada salían
+  en el pop-up de otra. El estado de algo que vive en un pop-up lleva el `ref` de lo abierto.
+- **`nuevoElemento(...)!` sobre un saneo que devuelve null**: insertar «Acción» o «Ficha» rompía sin error de tipos.
+  Un elemento con configuración obligatoria nace con la configuración de quien lo inserta.
+- **Una ficha del CRM queda debajo de la pila de Modals** (LeadEditModal en z 80, la pila arranca en 130) y
+  `window.open` pierde el `?ws=`: adentro de un pop-up, la ficha es un `ButtonLink newTab`.
+- **Romper una guarda que coincide con el default no prueba nada**: sacar `diaSemana: 1` dio verde porque
+  `sanearCron` ya pone 1. La rotura que prueba es cambiar el valor.
+
+**Roles: la regla vive en TRES puertas** (`HOJA_DE_ROL`, `lib/graficos-plantillas.ts`)
+- El setter pasó a ver SÓLO la hoja Chat Analyst. `app/api/graficos/route.ts` ya preguntaba por `HOJA_DE_ROL`;
+  **`/api/graficos/ia-elemento` tenía su propia copia del chequeo del closer** (el setter recibía 403 en su caja), y
+  **`/m/dashboard` también**: un setter en el teléfono caía en la rama del ADMIN y veía Marketing, Comercial y las
+  hojas del informe. Al ampliar un rol se busca `'closer'` en `app/api/graficos/**` y en `app/m/dashboard/**`;
+  todas pasan por `hojaDeRol`/`informeDeRol`. La capa de cada rol vive en `lib/graficos-roles.ts`, porque
+  `lib/movil-rutas.ts` viaja al navegador en cada página y no puede importar las plantillas. Lo fija
+  `tests/movil-dashboard-rol.test.ts`.
+- **Escribir la capacidad no es enchufarla**: `AccionesFilaProvider` (las acciones en la fila: «Marcar cobrada»)
+  quedó con cero call sites entre dos paquetes; sin él la tabla no dibuja la columna. Lo monta `tarjeta()` de
+  `EditorInforme.tsx` mirando y con sesión.
+
+**El link compartido** (`app/compartido/[token]/informe-reglas.ts`)
+- **Lo que no sale se REEMPLAZA en su lugar, no se saca**: misma id y misma caja, así los conectores siguen valiendo
+  y el lienzo no salta. La tarjeta nombra el TIPO del elemento, porque el título de un video puede ser «Llamada con
+  Ana».
+- **Riesgo latente**: `BuscarEnHoja.tsx` calcula `campoCompartible` sobre la hoja ya limpia para el link y el server
+  sobre la real. Hoy coinciden (lo único que no sale es el mapa de calor, sobre campos públicos); si se suma a
+  `TIPOS_QUE_NO_SALEN` un tipo con campos de personas, la pantalla dibujaría una búsqueda que el server ignora.
+
+**El catálogo que lee «Pídeselo a MaKo»** ya viaja en el nivel más apretado (sin nombres): 9.539 de 10.500
+caracteres. El próximo conjunto grande pasa el tope y el modelo ve sólo ids (`lib/graficos-ia.ts`).
+
+*12/10/2026, chat «Graphics»: relevo (3 lectores) + tres olas de agentes (`wf_…` ola 1: modelo, datos, dibujo;
+ola 2: topbar/filtros, edición, IA y entidades, mapa de calor; ola 3: plantillas/roles y API/link) + integración en
+`wt-v5`. Migraciones 0260-0262 aplicadas antes del deploy.*
+
 ## Lo que quedó sin hacer
 
+- **El código muerto de los bloques**: ya no se dibuja ninguno (el saneo los migra), pero quedan los archivos.
+  Muertos (sólo se importan entre ellos): `app/dashboard/bloques/{BloqueCobranza,BloqueCohortes,BloqueFunnel,
+  BloqueRevenue,BloqueScl,CuerpoBloque}.tsx` y `bloques/extra/{BloquesAds,BloquesClosing,BloquesLanding,
+  BloquesProductividad,CuerpoBloqueExtra}.tsx`, más `lib/graficos-bloques-extra.ts`. Vivos y para MUDAR (no
+  borrar): `bloques/piezas.tsx`, `bloques/datos-comercial.ts`, `bloques/extra/{FichaLlamada,llamadas-modelo,
+  piezas-extra}`. Y con eso: la acción `'bloques'` de `app/api/graficos/route.ts`, `datosDeBloques` de
+  `app/dashboard/page.tsx`, `bloquesIniciales`, `LecturaBloques` (`lectura-compartida.ts`) y `PedidosHoja.bloques`
+  (`exportar.ts`). Ojo: `app/admin/dev/areas.ts` nombra esos archivos en `vive[]` y `tests/dev-areas.test.ts` los
+  busca en disco.
+- **`controlParaHttp` (API) y `controlParaLink` (link) siguen siendo dos funciones** (miden contra universos
+  distintos). Y `useValoresCompartidos` vive en `BarraControles.tsx`, no en `valores.ts`.
+- **El tipo de control `texto` se llama «Búsqueda» en `TIPOS_CONTROL`** y la pantalla lo muestra «Contiene…»
+  (lo traduce `MenuFiltro`): la API dice otra cosa que la pantalla.
 - **Un link abierto CON sesión de MaKo** lee el tablero de Tareas según la sesión de quien lo abre
-  (`queTableroLeer`, `lib/graficos-lectura.ts`), no según la capa del share: no trae datos de otro
-  negocio, pero puede leer la tabla vacía. Lo anota `app/compartido/[token]/informe-compartido.ts`.
-- **Los bloques no saben que están en un link** (no hay `soloLectura` en `CuerpoBloque` ni en
-  `BloqueCobranza`). Hoy no hace falta: los que tienen una acción no se sirven. Un bloque compartible que
-  sume un botón lo dibujaría en el link.
-- **`useValoresCompartidos` vive en `app/dashboard/BarraControles.tsx`** porque `valores.ts` no aceptaba
-  otra ruta; va a `valores.ts`. Y `controlParaHttp` (API de MaKo) y `controlParaLink` (el link) hacen lo
-  mismo dos veces.
-- **Dos escritores del mismo tablero**: el autoguardado del editor hace un upsert sin versión y la API
-  usa compare-and-set (`guardarTableroSi`). Gana el último que escribe. Que el editor mande la versión.
-- **El control «Closer» de la hoja Closing no filtra los bloques** (`PedidoBloque` no recibe filtros); la
-  lista de llamadas tiene su propio filtro de closer.
-- **Lecturas de Comercial sin paginar** (`lib/pagos.ts`, `lib/queries.ts`): la primera que va a cortar en
-  1000 filas sin avisar es `getOutstandingDetalle` (lee TODA la tabla pagos; el ws1 tiene 34).
-- **El GeoJSON del mapa** se baja de `raw.githubusercontent.com` en el navegador del cliente.
-- **`sniffImagen` tiene tres copias** (`app/api/perfil/avatar`, `app/api/portadas`,
-  `app/api/graficos/imagen`): va a un módulo de `lib/`.
-- **`useEjemplo` de `app/dashboard/NuevaHoja.tsx`** es una copia del de `app/automations/CrearConIA.tsx`
-  (no exportado todavía).
-- **El AI Analyst no analiza los bloques** y no dice qué modelo contestó (falta `respondioOut` en
-  `chatCheapCascade`, [hallazgos-ia.md](hallazgos-ia.md)).
-- **El onboarding de la tab**, mapas de otros países, velas y campos calculados: no se hicieron.
+  (`queTableroLeer`), no según la capa del share.
+- **Lecturas de Comercial sin paginar** (`lib/pagos.ts`, `lib/queries.ts`): la primera que va a cortar en 1000
+  filas es `getOutstandingDetalle`.
+- **`sniffImagen` tiene tres copias** (`app/api/perfil/avatar`, `app/api/portadas`, `app/api/graficos/imagen`) y
+  `useEjemplo` de `app/dashboard/NuevaHoja.tsx` copia al de `app/automations/CrearConIA.tsx`.
+- **El AI Analyst no dice qué modelo contestó** (falta `respondioOut` en `chatCheapCascade`,
+  [hallazgos-ia.md](hallazgos-ia.md)).
+- **El onboarding de la tab**, velas y campos calculados: no se hicieron.
 
 *10-11/10/2026, chat «Graphics». El v3 (feedback de veinte puntos, Exportar, Analysts, AI Analyst):
 corrida de 9 agentes `wf_57bc1bc0-b52` + integración, commit `623ff3cd`. El v4 (las seis decisiones y la

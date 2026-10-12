@@ -379,3 +379,15 @@ Tal como las devolvieron (síntoma → causa · dónde · regla). Son la materia
 - **Un check dentro de una FilaM con onClick sería un <button> dentro de otro <button> (HTML inválido, y el toque cae en el padre)** → FilaM con onClick renderiza la fila entera como <button>, y `leading` vive adentro · app/m/_ui/FilaM.tsx (rama p.onClick) · REGLA: Para una fila con un control propio a la izquierda Y que abre algo al tocarla: FilaM sin onClick (un div, que conserva el swipe) + un botón position:absolute;inset:0 adentro del título (z-index 1) + el control en z-index 2. El botón vive dentro de .m-fila__t (overflow hidden), pero su bloque contenedor es .m-fila (position relative), así que no lo recorta
 - **Después de un swipe confirmado, la fila vuelve a su lugar un frame antes de irse** → FilaM llama a onAccion() y en el mismo tick hace mover(0). Un setState normal se pinta después · app/m/_ui/FilaM.tsx alSoltar → setTimeout(accion.onAccion(); mover(0)) · REGLA: Si el onAccion de un swipe saca la fila, la oculta de forma síncrona (flushSync) o la deja invisible antes de que FilaM la devuelva
 - **Un script tsx que importa módulos del repo con path.join tira ERR_UNSUPPORTED_ESM_URL_SCHEME en Windows** → import() de una ruta absoluta C:/… se lee como un esquema de URL «c:» · scripts de diagnóstico del scratchpad (patrón de la tarea: imports dinámicos con path.join) · REGLA: En Windows los imports dinámicos van con pathToFileURL(p).href
+
+## Un rol con hoja única del Dashboard: el teléfono preguntaba sólo por el closer (12/10/2026)
+
+**Síntoma (cazado antes del deploy):** con el setter sumado al Dashboard (ve SÓLO la hoja Chat Analyst), los tests
+del teléfono cambiaron solos: el setter ganaba «Dashboard» en More. **Causa:** `/m/dashboard` preguntaba
+`ctx.rol === 'closer'` para darle su hoja; cualquier otro rol caía en la rama del ADMIN — Marketing, Comercial y las
+hojas del informe, los números del negocio que su escritorio no le muestra. **La regla:** el teléfono pregunta por
+`hojaDeRol`/`informeDeRol` (`HOJA_DE_ROL`, lib/graficos-plantillas.ts), igual que escritorio, y More saca la fila
+si el negocio no tiene la tab de esa hoja (`capaDeHojaDeRol`, lib/graficos-roles.ts: `lib/movil-rutas.ts` va al
+navegador en cada página y no puede importar las plantillas). Lo fija `tests/movil-dashboard-rol.test.ts` (probado
+volviendo al chequeo del closer: 0/1). **Vive en:** `app/m/dashboard/page.tsx`, `app/m/dashboard/[hoja]/page.tsx`,
+`lib/movil-rutas.ts`.

@@ -227,4 +227,33 @@ export const BITACORA: Hito[] = [
       'Mandó siete capturas, ya en producción con la topbar nueva: la hoja Closing (chips «Reunión · Llamadas de…» cortados en las tarjetas R1 y R2, los botones «Todo» y «Closer» separados), el desplegable de hojas (el ⋮ de Productividad en blanco sobre el hover), el ícono de formas, las Tendencias con las etiquetas pisándose, el modal de Compartir verde de Conocimientos, la tabla de barras de Guiones, y el mapa de calor de la Landing.',
     ],
   },
+  {
+    fecha: '12 oct', hora: '07:39', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La v5: sin bloques de MaKo, todo editable, con pop-ups, cajas de IA y hojas VSL, CS y Chat Analyst',
+    puntos: [
+      'Los 17 bloques del informe de Mauricio pasan a gráficos editables al abrirlo (la migración corre en el saneo, sin tocar su informe a mano); las plantillas ya no traen bloques.',
+      'Un solo botón «Filtro» (con el período adentro) y la búsqueda siempre visible: Ctrl+F lleva a lo que buscás; en una tabla, filtra. Lo mismo dentro de cada gráfico.',
+      'Elementos nuevos: «Conclusiones de MaKo» (IA gratis, con su pedido, largo y forma; corre al configurarla, con ↻ o con horario, nunca al abrir), Sección/Desplegable a lo ancho, flechas que conectan bloques, Acción y Ficha. Sale el botón de Formas.',
+      'Pop-ups configurables al hacer clic (la llamada, con Fathom y la IA que puede leer el transcript; el anuncio, con sus métricas), y el botón de MaKo se apaga por gráfico.',
+      'Gráficos gordos y legibles, el mapa de cualquier país (y ciudades: cada visita guarda país, región y ciudad, sin IP), la Landing en un segundo y el mapa de calor en vivo dentro de un celular.',
+      'Hojas VSL Analyst, CS Analyst y Chat Analyst; sale el desplegable «Analysts» y sus rutas redirigen. El setter ve sólo Chat Analyst, también en el teléfono.',
+      'La API de MaKo y el link compartido al día: sin bloques, con los elementos nuevos; el link no sirve el mapa de calor, las cajas de IA, los pop-ups ni las acciones.',
+    ],
+    commits: [
+      { sha: '8de5a74', msg: 'Dashboard v5, ola 1: el modelo, los datos y el dibujo', lineas: 9128, archivos: 300 },
+      { sha: '69f2986', msg: 'Dashboard v5, ola 2: topbar, edición, IA, entidades y mapa de calor', lineas: 13756, archivos: 85 },
+      { sha: 'ba5e384', msg: 'Dashboard v5, ola 3: plantillas, Analysts, roles, API y link', lineas: 4052, archivos: 36 },
+      { sha: '76b89e5', msg: 'Dashboard v5, integración de la ola 3: el setter con su caja, las acciones de fila y las cajas por la API', lineas: 241, archivos: 10 },
+      { sha: '5514c1b', msg: 'Dashboard v5: el setter ve SÓLO su hoja también en el teléfono', lineas: 86, archivos: 7 },
+    ],
+    archivos: ['lib/graficos-catalogo.ts', 'lib/graficos-migrar-v5.ts', 'lib/graficos-plantillas.ts', 'lib/graficos-ia-elemento.ts', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/MenuFiltro.tsx', 'app/dashboard/ElementoIA.tsx', 'app/dashboard/Popup.tsx', 'app/m/dashboard/page.tsx', 'supabase/migrations/0260_dashboard_ia_elementos.sql'],
+  },
+  {
+    fecha: '12 oct', hora: '07:50', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'cosecha',
+    titulo: 'Lo que dejó la v5: el período que el saneo tiraba, la Landing que no era de índices y el rol que vivía en tres puertas',
+    puntos: [
+      'docs/hallazgos-graficos.md: la migración de bloques con ids determinísticos, el período que vive en un control, la Landing lenta («faltan índices» era el diagnóstico equivocado), Natural Earth que nombra mal regiones vecinas, y el setter que veía Marketing en el teléfono.',
+      'hallazgos-api-mako (el período que la API escribía y no hacía nada), hallazgos-landing (verificarPagina en 6,7 s y el mapa de calor en vivo), hallazgos-infra (Write cambia el fin de línea; un build sin raíz posible) y hallazgos-mobile.',
+    ],
+  },
 ];

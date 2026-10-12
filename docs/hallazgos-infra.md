@@ -5511,3 +5511,18 @@ otros). **Lo que destrabó:** apuntar el junction del worktree de push al `node_
 YA tiene todo (`for p in …; do [ -e "$w/node_modules/$p" ]…` sobre `git worktree list`). **La regla:** quien
 suma una dependencia avisa en el relevo que el `node_modules` del clon necesita `npm install`, o lo deja
 instalado él. **Vive en:** `package.json`, `.git/hooks/pre-push`. · *2026-10-12 Offer*
+
+## Herramientas que cambian el fin de línea, y un build que no tiene raíz posible (12/10/2026)
+
+- **La herramienta Write convierte un archivo CRLF a LF** al reescribirlo (medido tres veces en la v5 del
+  Dashboard: `Grafico.tsx`, `lib/landing-mapa-server.ts`, una ruta). Edit sí lo conserva. Y Python con `io.open`
+  por default lee convirtiendo a LF y reescribe así: va `newline=''`. Después de reescribir un archivo existente,
+  se cuenta el fin de línea con node.
+- **Con el `node_modules` prestado de OTRO worktree (el que tiene todas las dependencias), el build no tiene una
+  raíz que sirva desde la carpeta de OneDrive**: Turbopack exige que el destino del junction esté adentro de
+  `turbopack.root`, y la única carpeta que contiene a los dos era `C:\`, donde hay un junction `C:\node_modules` que
+  apunta a sí mismo («Symlink [project]/node_modules is in a symlink loop»). Lo que anduvo: un worktree de build
+  HERMANO del que presta (`C:\dev\wt-v5-build` junto a `C:\dev\wt-video-editor`), con `root: resolve(__dirname, '..')`.
+  El junction de `C:\node_modules` no es de esta sesión: no se tocó.
+
+*12/10/2026, chat «Graphics», cierre de la v5 del Dashboard.*
