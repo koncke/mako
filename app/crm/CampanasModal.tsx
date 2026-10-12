@@ -83,14 +83,24 @@ const CASILLA: CSSProperties = { width: 16, height: 16, margin: 0, cursor: 'poin
 type Orden = 'nombre' | 'estado' | 'leads';
 type Pide = { funnelId: number | null; items: ItemCampana[] } & ReturnType<typeof preguntaAsignar>;
 
-export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCerrar, onCambio }: {
+/** El `onCerrar` de respaldo: de módulo, para que su identidad no cambie entre renders. */
+const NADA = () => {};
+
+export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLinea = false, onCerrar, onCambio }: {
   /** El producto. `null` = el del negocio — y quien monta normaliza el id numérico del
    *  principal a `null` antes de pasarlo (ver `destino` en campanas-actions.ts). */
   funnelId: number | null;
   nombreProducto: string;
   /** Si se abre desde otro modal y es parte de la misma tarea: el de atrás no se apaga. */
   anidada?: boolean;
-  onCerrar: () => void;
+  /**
+   * Dibujar la tabla SIN el modal, en el lugar donde se monta. Lo usa el editor del funnel:
+   * «al clickear una opción de anuncios, ahí se ponga por defecto abierta el modal de "Campañas
+   * de Meta" en donde estaba el form del tipo de funnel» (Martín, 12/10/2026).
+   */
+  enLinea?: boolean;
+  /** Obligatorio como modal (con identidad FIJA, AGENTS.md); en línea no se usa. */
+  onCerrar?: () => void;
   /** Para que la sección que lo abrió se redibuje sin volver a leer. */
   onCambio?: (asignadas: CampanaAsignada[]) => void;
 }) {
@@ -362,9 +372,8 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
     );
   };
 
-  const cuerpo = (
-    <Modal titulo="Campañas de Meta" encabezado={<span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{nombreProducto}</span>}
-      onCerrar={onCerrar} ancho={900} alto="min(85vh, 720px)" anidada={anidada} sinFiletes>
+  const contenido = (
+    <>
       {/* `crm-hover`: el portal se escapa del `<main>` del CRM, que es donde vive el velo
           de hover de todos sus botones (app/_ui/ui.css). Sin esto, los de acá no reaccionan. */}
       <div className="crm-hover" style={{ padding: 0, minWidth: 560 }}>
@@ -461,6 +470,17 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
           onCancel={() => setPide(null)} />
       )}
       <Toast state={toast} onClose={clear} />
+    </>
+  );
+
+  // EN LÍNEA (tercer feedback del 12/10/2026 sobre el editor del funnel): la MISMA tabla, sin el
+  // modal, adentro del pop-up del embudo. Ahí no hay portal: el contenido vive donde lo monten.
+  if (enLinea) return contenido;
+
+  const cuerpo = (
+    <Modal titulo="Campañas de Meta" encabezado={<span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{nombreProducto}</span>}
+      onCerrar={onCerrar ?? NADA} ancho={900} alto="min(85vh, 720px)" anidada={anidada} sinFiletes>
+      {contenido}
     </Modal>
   );
 

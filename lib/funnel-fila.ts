@@ -9,7 +9,7 @@
 
 import type { Stage, FunnelTransition, EntradaId, EventoFunnel } from './pipeline';
 import {
-  sanearLabels, DEFAULT_PIPELINE, generateFunnel, parseEntradas, parseEvento, sanearPipeline } from './pipeline';
+  sanearLabels, DEFAULT_PIPELINE, generateFunnel, ordenarNutricion, parseEntradas, parseEvento, sanearPipeline } from './pipeline';
 
 export type { EventoFunnel };
 
@@ -85,10 +85,14 @@ export function buildFunnel(
     id?: number | null; nombre?: string; canal?: string | null; esDefault?: boolean;
     entradas?: EntradaId[]; evento?: EventoFunnel | null; origen?: FunnelConfig['origen'];
     labels?: Record<string, string>;
+    /** El orden de la banda Nutrición que eligió el negocio (`data.ordenNutricion`). */
+    ordenNutricion?: string[];
   },
 ): FunnelConfig {
   const labels = extra?.labels ?? {};
-  const { stages, transitions } = generateFunnel(pipeline, suppressed, labels);
+  const generado = generateFunnel(pipeline, suppressed, labels);
+  const transitions = generado.transitions;
+  const stages = ordenarNutricion(generado.stages, extra?.ordenNutricion);
   return {
     id: extra?.id ?? null,
     nombre: extra?.nombre ?? FUNNEL_DEFAULT_NOMBRE,
@@ -134,6 +138,8 @@ export function filaAFunnel(f: FilaFunnel): FunnelConfig {
     // Un nombre propio no AFIRMA nada del negocio —no dice por dónde entra la gente— y
     // esconderlo dejaría al cliente viendo «Perdido» después de haberlo renombrado.
     labels: sanearLabels(cfg.labels),
+    // Como los nombres, no cuelga de `declarado`: es cómo se ve el tablero, no algo que se afirme.
+    ordenNutricion: Array.isArray(cfg.ordenNutricion) ? cfg.ordenNutricion.filter((k): k is string => typeof k === 'string').slice(0, 40) : undefined,
     entradas: declarado ? parseEntradas(cfg.entradas) : [],
     evento: declarado ? parseEvento(cfg.evento) : null,
     origen: declarado ? 'declarado' : 'sin-fila',

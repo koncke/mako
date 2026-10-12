@@ -551,7 +551,10 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], lab
   const ganadoDef = lib(TERMINAL_DEL_PIPELINE); if (ganadoDef) place(ganadoDef, 'pipeline');
   (['perdido', 'descal', 'noresp'] as const).forEach((k) => { const d = lib(k); if (d) place(d, 'salidas'); });
   // "Nutrición - Manual": catch-all manual SIEMPRE presente (opción del worklist).
-  const manualDef = lib('manual'); if (manualDef) place(manualDef, 'nutricion');
+  // ⚠️ Salvo que el funnel la haya QUITADO (12/10/2026: «Todas las etapas de nutrición se deben
+  // poder editar, incluso si las quiero eliminar todas»). No sale de ninguna transición, así que
+  // su marca en `suppressed` es `*>manual` (`idNutricionFija`).
+  const manualDef = lib('manual'); if (manualDef && !sup.has(idNutricionFija('manual'))) place(manualDef, 'nutricion');
 
   // Keys de las reuniones, en orden. `reunionesDe` (no `etapasDeReunion`): acá NO
   // se cae al funnel por defecto — un pipeline sin reuniones no tiene ninguna, y
@@ -792,6 +795,39 @@ export const ENTRADAS: Record<EntradaId, EntradaDef> = {
  */
 export const ENTRADAS_OFRECIDAS: EntradaId[] = ['landing', 'agenda_sola', 'chat_entrante', 'chat_saliente', 'carrito'];
 
+/**
+ * El TIPO DE FUNNEL: lo que el editor del funnel pregunta desde el 12/10/2026 en lugar de «Marca
+ * hasta tres». Pedido de Martín, textual: «que solo se pueda elegir 1 opción… que las opciones
+ * estén referidas al FUNNEL, como "Anuncios a Landing", "Anuncios a WhatsApp", "Prospección",
+ * "Anuncios a carrito", "Anuncios a formulario"».
+ *
+ * ⚠️ NO ES UN DATO NUEVO: cada tipo ES una entrada de `ENTRADAS`, y se guarda en el mismo
+ * `funnels.data.entradas` (una sola). Lo leen los audios, el ensayo, las secuencias, el generador
+ * de landings, el estructurador de campañas y el opt-in de la landing; con un campo aparte, esos
+ * cinco seguirían leyendo el viejo. «Agendan llamada» (`agenda_sola`) deja de ofrecerse, y se
+ * sigue MOSTRANDO donde ya está declarada (la regla del `<select>` cuyo valor no está en la lista).
+ *
+ * `anuncios`: abre las campañas de Meta al elegirlo. Prospección no las tiene «por ningún lado,
+ * ya que justamente es prospección».
+ */
+export type TipoFunnel = 'anuncios_landing' | 'anuncios_whatsapp' | 'prospeccion' | 'anuncios_carrito' | 'anuncios_formulario';
+export const TIPOS_FUNNEL: readonly { id: TipoFunnel; label: string; entrada: EntradaId; anuncios: boolean }[] = [
+  { id: 'anuncios_landing', label: 'Anuncios a Landing', entrada: 'landing', anuncios: true },
+  { id: 'anuncios_whatsapp', label: 'Anuncios a WhatsApp', entrada: 'chat_entrante', anuncios: true },
+  { id: 'prospeccion', label: 'Prospección', entrada: 'chat_saliente', anuncios: false },
+  { id: 'anuncios_carrito', label: 'Anuncios a carrito', entrada: 'carrito', anuncios: true },
+  { id: 'anuncios_formulario', label: 'Anuncios a formulario', entrada: 'formulario_anuncio', anuncios: true },
+];
+
+/** El tipo de un funnel por lo declarado: la PRIMERA entrada que es un tipo. Sin ninguna, null. */
+export function tipoDeFunnel(entradas: readonly EntradaId[]): (typeof TIPOS_FUNNEL)[number] | null {
+  for (const e of entradas) {
+    const t = TIPOS_FUNNEL.find((x) => x.entrada === e);
+    if (t) return t;
+  }
+  return null;
+}
+
 export const esEntrada = (x: unknown): x is EntradaId =>
   typeof x === 'string' && Object.prototype.hasOwnProperty.call(ENTRADAS, x);
 
@@ -860,6 +896,51 @@ export type EtapaVisible = {
  * abre mostrando una lista distinta de la que llega medio segundo después — que se lee
  * como que la app parpadea y cambia sola.
  */
+/**
+ * La marca en `suppressed` de una nutrición que NO sale de ninguna transición: hoy sólo `manual`,
+ * que `generateFunnel` coloca siempre. Las demás se quitan con su `desde>hacia`.
+ */
+export const idNutricionFija = (key: string): string => `*>${key}`;
+/** Las nutriciones que se colocan solas, sin una transición: se quitan con `idNutricionFija`. */
+export const NUTRICIONES_FIJAS: readonly string[] = ['manual'];
+
+/**
+ * Los ids de `suppressed` que QUITAN una columna de nutrición: todas las transiciones que llegan a
+ * ella (Reactivación llega desde dos etapas) y, si se coloca sola, su marca fija. Vacío = esa clave
+ * no es una nutrición que este pipeline pueda tener.
+ *
+ * Pura y sin `server-only`, para que tenga test: es lo que decide qué se apaga cuando alguien toca
+ * el tacho de una etapa de nutrición en el editor del funnel.
+ */
+export function idsParaQuitarNutricion(pipeline: Stage[], labels: Record<string, string>, key: string): string[] {
+  const ids = generateFunnel(pipeline, [], labels).transitions
+    .filter((t) => t.category === 'nutricion' && t.to === key)
+    .map((t) => `${t.from}>${t.to}`);
+  if (NUTRICIONES_FIJAS.includes(key)) ids.push(idNutricionFija(key));
+  return [...new Set(ids)];
+}
+
+/**
+ * Las columnas de la banda Nutrición en el orden que eligió el negocio (`funnels.data.ordenNutricion`,
+ * 12/10/2026: «Las etapas de nutrición también se deben poder desplazar arrastrando»). Las que no
+ * están en el orden guardado van al final, en el orden de siempre. Se reordenan en el MISMO lugar del
+ * arreglo y se les renumera la `col`, así el tablero y el editor leen lo mismo.
+ */
+export function ordenarNutricion(stages: Stage[], orden: readonly string[] | undefined): Stage[] {
+  if (!orden?.length) return stages;
+  const pos = new Map(orden.map((k, i) => [k, i]));
+  const lugares: number[] = [];
+  const nutri: Stage[] = [];
+  stages.forEach((st, i) => { if (st.band === 'nutricion') { lugares.push(i); nutri.push(st); } });
+  const ordenadas = nutri
+    .map((st, i) => ({ st, i }))
+    .sort((a, b) => (pos.get(a.st.key) ?? Infinity) - (pos.get(b.st.key) ?? Infinity) || a.i - b.i)
+    .map((x, c) => ({ ...x.st, col: c }));
+  const out = [...stages];
+  lugares.forEach((lugar, k) => { out[lugar] = ordenadas[k]; });
+  return out;
+}
+
 export function etapasVisibles(stages: Stage[]): { propias: EtapaVisible[]; fijas: EtapaVisible[]; nutricion: EtapaVisible[] } {
   const visibles = stages.filter((st) => st.band === 'pipeline' || esTerminal(st.key));
   const uno = (st: Stage): EtapaVisible => ({

@@ -216,8 +216,11 @@ test('⚠️ la pregunta de «cómo entra tu gente» sobrevivió a las DOS mudan
   // Probado rompiéndolo (el archivo entero da 17 / 0):
   //   · el pop-up deja de montar `EmbudoEntradas`      -> 16 / 1
   //   · la lectura deja de devolver `entradas`         -> 16 / 1
+  // ⚠️ Desde el 12/10/2026 la pregunta es el TIPO DE FUNNEL (`SeccionFunnel`, arriba de las
+  // etapas), y se guarda en el mismo dato con la misma action.
   const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8');
-  assert.match(md, /<EmbudoEntradas/, 'el pop-up del embudo no pregunta cómo entra la gente');
+  assert.match(md, /<SeccionFunnel/, 'el pop-up del embudo no pregunta cómo entra la gente');
+  assert.match(md, /declararEntradasAction\(nuevas, ev, funnelId\)/, 'el tipo de funnel dejó de guardarse como la entrada');
   // ⚠️ YA NO ES UNA SUBTAB: es un desplegable de la tab de etapas, y una pregunta del alta
   // de producto. «Elimina la tab de Cómo entran, eso debería estar como un paso al momento
   // de crear un nuevo producto... y se debería poder editar con un desplegable luego».
@@ -229,8 +232,9 @@ test('⚠️ la pregunta de «cómo entra tu gente» sobrevivió a las DOS mudan
   //    dibujaba. Un guard que mira la PALABRA no distingue el código del comentario que lo
   //    explica, y es el mismo error que la aserción de `FunnelEditor` de más abajo ya
   //    documenta veinte líneas después.
-  assert.match(limpio(md), /<EmbudoEntradas/, 'el desplegable de entradas se fue del pop-up');
-  assert.match(limpio(md), /entradasAbierto/, 'el panel de entradas ya no se puede abrir ni cerrar');
+  assert.match(limpio(md), /<SeccionFunnel/, 'el tipo de funnel se fue del pop-up');
+  // Desde el 12/10/2026 no se abre ni se cierra: está siempre a la vista, arriba de las etapas.
+  assert.ok(limpio(md).indexOf('<SeccionFunnel') < limpio(md).indexOf('<NuevaEtapa'), 'el tipo de funnel dejó de ir arriba de las etapas');
   const tb2 = readFileSync(join(RAIZ, 'app/crm/CrmToolbar.tsx'), 'utf8');
   assert.match(tb2, /declararEntradasAction\(entradas, null, r\.funnelId\)/,
     'el alta de producto dejó de preguntar cómo entra la gente');
@@ -572,7 +576,10 @@ test('⚠️ el pop-up de etapas: una operación por cambio, y el pipeline nunca
   // 2) Las cinco operaciones están enchufadas, y cada una es una op propia.
   //    ⚠️ `nutricion` salió de la lista el 12/10/2026 con su subtab («Elimina las tabs de
   //    "Nutrición" y "Etiqueta"»); entró `tipo`, el desplegable Etapa / Reunión / Nutrición.
-  for (const op of ['renombrar', 'eliminar', 'agregar', 'mover', 'tipo']) {
+  //    ⚠️ Y `mover` (las flechas) salió el 12/10/2026: «elimina los botones de las flechas, pon
+  //    al inicio de cada etapa el típico icono de arrastre». Mover es `reordenar` (arrastrar), y
+  //    las nutriciones se quitan y se ordenan con sus dos ops.
+  for (const op of ['renombrar', 'eliminar', 'agregar', 'reordenar', 'tipo', 'quitarNutricion', 'ponerNutricion', 'ordenNutricion']) {
     assert.ok(md.includes(`op: '${op}'`), `al pop-up le falta la operación «${op}»`);
   }
 
@@ -736,7 +743,8 @@ test('⚠️ el pop-up: un solo cerrar, sin líneas, y las etapas se arrastran',
   assert.ok(!/border: '1px solid var\(--border\)'/.test(md), 'volvió el borde de las filas');
 
   // El arrastre, con el molde del plan: imagen VACÍA y copia propia.
-  assert.match(md, /data-etapa draggable/, 'las etapas dejaron de arrastrarse');
+  assert.match(md, /data-etapa="propias" draggable/, 'las etapas dejaron de arrastrarse');
+  assert.match(md, /data-etapa="nutricion" draggable/, 'las etapas de nutrición dejaron de arrastrarse');
   assert.match(md, /setDragImage\(vacio, 0, 0\)/,
     'el arrastre volvió a usar la foto del navegador, que el SO pinta translúcida');
   assert.match(md, /document\.addEventListener\('dragover', seguir, true\)/,
@@ -748,7 +756,9 @@ test('⚠️ el pop-up: un solo cerrar, sin líneas, y las etapas se arrastran',
   // pasó en verde con el `mover` de las flechas ya roto: el `soltarEn` del arrastre tiene
   // la misma línea y la tapaba. Una aserción que se satisface con OTRO call site no mide
   // el que se quería medir.
-  const optimistas = [...md.matchAll(/setOrdenLocal\(orden\)/g)].length;
+  // Desde el 12/10/2026 los dos caminos son los dos ARRASTRES (las flechas se fueron): el de las
+  // etapas propias y el de las de nutrición.
+  const optimistas = [...md.matchAll(/setOrdenLocal\(orden\)/g)].length + [...md.matchAll(/setNutriLocal\(orden\)/g)].length;
   assert.equal(optimistas, 2, `mover una etapa volvió a esperar al server: ${optimistas} de 2 caminos son optimistas`);
 
   // El input abre sólo desde el TEXTO: por eso el botón no estira.
@@ -898,8 +908,8 @@ test('⚠️ el pop-up abre con lo que el tablero YA dibujó, y con el MISMO map
   assert.match(md, /ordenLocal \?\? emb\?\.etapas \?\? semilla\?\.etapas/,
     'el pop-up volvió a esperar al server para listar las etapas');
   // Lo que el tablero NO sabe sigue esperando: las entradas declaradas y el pie.
-  assert.match(md, /esEntrada\(e\) && entradasAbierto && !emb && <Cargando \/>/,
-    'la declaración de entradas se pinta con la semilla, que no las trae: diría que no hay ninguna');
+  assert.match(md, /\{!emb \? <Cargando \/> : \(\s*<SeccionFunnel/,
+    'el tipo de funnel se pinta con la semilla, que no lo trae: diría que no hay ninguno');
 });
 
 test('⚠️ la etapa de ENTRADA: lápiz, y ni se mueve ni la pisan — también en el server', () => {
@@ -921,8 +931,11 @@ test('⚠️ la etapa de ENTRADA: lápiz, y ni se mueve ni la pisan — también
 
   // En la pantalla: ni se arrastra, ni lleva flechas ni ✕, y su único control es el lápiz.
   assert.match(md, /draggable=\{!esEntrada\(e\)\}/, 'la entrada volvió a poder arrastrarse');
-  assert.match(md, /Configurar por dónde entra la gente a/, 'la entrada perdió su lápiz');
-  assert.match(md, /if \(idx < pisoDelOrden\) idx = pisoDelOrden/,
+  // ⚠️ Desde el 12/10/2026 la entrada NO lleva nada a la derecha: «elimines el botón de "editar" de
+  // lead entrante, que toda la sección de edición del funnel se haga arriba de las etapas».
+  assert.match(md, /<Asa quieta=\{esEntrada\(e\)\} \/>/, 'la entrada volvió a tener asa de arrastre');
+  assert.match(md, /\{!esEntrada\(e\) && \(<>/, 'la entrada volvió a tener controles (tipo o tacho)');
+  assert.match(md, /if \(g === 'propias' && idx < pisoDelOrden\) idx = pisoDelOrden/,
     'la marca del arrastre volvió a dibujarse por encima de la entrada');
 
   // ⚠️ Y EL SERVER LO HACE CUMPLIR, que es lo único que no se puede saltear con una

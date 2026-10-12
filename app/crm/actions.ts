@@ -90,7 +90,7 @@ import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
 import { esSinCobro, type VentaTipo } from '@/lib/venta-tipo';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
-import { parseEntradas, parseEvento, etapasVisibles, type EtapaVisible } from '@/lib/pipeline';
+import { parseEntradas, parseEvento, etapasVisibles, idsParaQuitarNutricion, type EtapaVisible } from '@/lib/pipeline';
 import { canalEfectivo, type CanalId } from '@/lib/fase-diagnostico';
 import { getDiagnosticoFase } from '@/lib/fase-store';
 import { alinearEtapaVista } from '@/lib/etapa-historial';
@@ -3175,7 +3175,18 @@ export type OpEtapa =
    * mande el navegador, y una clave que no exista se ignora. Un arrastre puede mover una
    * etapa varios lugares de una, y hacerlo con N `mover` sería N escrituras.
    */
-  | { op: 'reordenar'; keys: string[] };
+  | { op: 'reordenar'; keys: string[] }
+  /**
+   * Quitar (o devolver) una COLUMNA de nutrición, cualquiera: «Todas las etapas de nutrición se
+   * deben poder editar, incluso si las quiero eliminar todas» (Martín, 12/10/2026). Se apagan TODAS
+   * las transiciones que llegan a ella y, si se coloca sola («Nutrición - Manual»), su marca fija
+   * (`idsParaQuitarNutricion`, lib/pipeline.ts). Por CLAVE y no por id de transición: el navegador
+   * no sabe de qué etapas sale cada una, y no tiene por qué saberlo.
+   */
+  | { op: 'quitarNutricion'; key: string }
+  | { op: 'ponerNutricion'; key: string }
+  /** El orden de la banda Nutrición, tal como quedó después de arrastrar (`data.ordenNutricion`). */
+  | { op: 'ordenNutricion'; keys: string[] };
 
 /**
  * Una etapa quitada, como vuelve con «Deshacer».
@@ -3284,6 +3295,34 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       const piso = pipeline.findIndex((st) => st.kind === 'entrada') + 1;
       const at = Math.max(piso, Math.min(op.at, pipeline.length));
       pipeline = [...pipeline.slice(0, at), vuelve, ...pipeline.slice(at)];
+    } else if (op.op === 'quitarNutricion' || op.op === 'ponerNutricion') {
+      // Los ids salen del PIPELINE, nunca del navegador: `suppressed` es texto libre en un jsonb.
+      const ids = idsParaQuitarNutricion(actual.pipeline, labels, op.key);
+      if (!ids.length) return { ok: false, error: 'Esa etapa no es una nutrición de este funnel.' };
+      const sup = new Set(actual.suppressed);
+      for (const k of ids) { if (op.op === 'ponerNutricion') sup.delete(k); else sup.add(k); }
+      // Con el pipeline INTACTO, como `nutricion`: esta operación sólo toca `suppressed`.
+      const conGanadoQ = conTerminales(actual.pipeline);
+      if (funnelId != null) await saveFunnelDe(funnelId, conGanadoQ, [...sup], { labels });
+      else await saveFunnelDefault(conGanadoQ, [...sup], { labels });
+      bust(TAG.pipeline, TAG.leads);
+      revalidatePath('/crm');
+      return { ok: true };
+    } else if (op.op === 'ordenNutricion') {
+      // Sólo las columnas de nutrición que ESTE funnel tiene, sin repetir; las que no vinieron
+      // van al final, en el orden que ya tenían (un arrastre no puede perder una columna).
+      const validas = actual.stages.filter((st) => st.band === 'nutricion').map((st) => st.key);
+      const vistas = new Set<string>();
+      const orden: string[] = [];
+      for (const k of Array.isArray(op.keys) ? op.keys : []) if (validas.includes(k) && !vistas.has(k)) { vistas.add(k); orden.push(k); }
+      for (const k of validas) if (!vistas.has(k)) orden.push(k);
+      const conGanadoO = conTerminales(actual.pipeline);
+      const extraO = { labels, ordenNutricion: orden };
+      if (funnelId != null) await saveFunnelDe(funnelId, conGanadoO, actual.suppressed, extraO);
+      else await saveFunnelDefault(conGanadoO, actual.suppressed, extraO);
+      bust(TAG.pipeline, TAG.leads);
+      revalidatePath('/crm');
+      return { ok: true };
     } else if (op.op === 'nutricion') {
       // El id se valida contra las nutriciones que ESTE pipeline puede tener, y no se
       // acepta crudo: `suppressed` es texto libre en un jsonb, así que sin esto se puede

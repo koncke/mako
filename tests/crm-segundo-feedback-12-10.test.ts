@@ -113,21 +113,27 @@ test('la barra es un contenedor del ancho del kanban, redondeado, y va antes de 
   assert.doesNotMatch(src, /margin: '-16px -44px/);
 });
 
-test('el editor de etapas lista también las de nutrición y las fijas (Ganado y descartados)', () => {
+test('el editor de etapas: UNA lista — agregar arriba, las propias, Ganado, nutrición y descartes', () => {
   const src = sinComentarios(leer('app/crm/EtapasModal.tsx'));
-  assert.match(src, /nutricionEtapas\.map\(\(e\) => filaQuieta\(e, 'Nutrición'/);
-  // Tercer feedback del 12/10, punto 1: UNA sola lista en el orden del tablero — las propias,
-  // «+ Agregar etapa», Ganado, las de nutrición y los descartados.
+  // Cuarto feedback del 12/10: «+ Agregar etapa» ARRIBA DE TODO, antes de la entrada, y la etapa
+  // nueva entra justo después de la entrada.
   const iNueva = src.indexOf('<NuevaEtapa');
-  const iGanado = src.indexOf("fijas.filter((e) => e.key === 'ganado').map((e) => filaQuieta(e, 'Ganado'))");
-  const iNutri = src.indexOf("nutricionEtapas.map((e) => filaQuieta(e, 'Nutrición'");
-  const iDesc = src.indexOf("fijas.filter((e) => e.key !== 'ganado').map((e) => filaQuieta(e, 'Descartado'))");
-  assert.ok(iNueva > 0 && iGanado > iNueva && iNutri > iGanado && iDesc > iNutri, 'propias → agregar → Ganado → nutrición → descartados');
-  // Y el bloque aparte de abajo (con su margen) no vuelve.
-  assert.doesNotMatch(src, /marginTop: 14[^}]*\}\}>\s*\{fijas/);
-  // Quitar una nutrición es apagarla con TODOS sus ids, y el deshacer la prende.
-  assert.match(src, /op: 'nutricion', id, activa: false, tambien/);
-  assert.match(src, /op: 'nutricion', id, activa: true, tambien/);
+  const iPropias = src.indexOf('{etapas.map((e, i) => (');
+  const iGanado = src.indexOf("fijas.filter((e) => e.key === 'ganado').map((e) => filaFija(e))");
+  const iNutri = src.indexOf('nutricionEtapas.map((e, i) => filaNutricion(e, i))');
+  const iDesc = src.indexOf("fijas.filter((e) => e.key !== 'ganado').map((e) => filaFija(e))");
+  assert.ok(iNueva > 0 && iPropias > iNueva && iGanado > iPropias && iNutri > iGanado && iDesc > iNutri,
+    'agregar → propias → Ganado → nutrición → descartes');
+  assert.match(src, /despuesDe: etapas\[iEntrada\]\.key/);
+  // Ganado y descartes: sin la pastilla, con la caja diferenciada.
+  assert.doesNotMatch(src, /'Ganado'\)\)|'Descartado'\)\)/);
+  assert.match(src, /const filaFija = [^]*?border: '1px dashed var\(--border-strong\)'/);
+  // Quitar CUALQUIER nutrición es por clave (el server decide qué apagar), y el deshacer la pone.
+  assert.match(src, /op: 'quitarNutricion', key: e\.key/);
+  assert.match(src, /op: 'ponerNutricion', key: e\.key/);
+  // Borrar es el tacho rojo de la casa, y ya no hay flechas.
+  assert.match(src, /<BotonBorrar talla="sm"/);
+  assert.doesNotMatch(src, /CerrarIcon|MoverPartido/);
   // Y el server las manda.
   const act = sinComentarios(leer('app/crm/actions.ts'));
   assert.match(act, /nutricionEtapas: nutricion,/);
@@ -135,12 +141,18 @@ test('el editor de etapas lista también las de nutrición y las fijas (Ganado y
   assert.match(pipe, /nutricion: stages\.filter\(\(st\) => st\.band === 'nutricion' && !esTerminal\(st\.key\)\)\.map\(uno\)/);
 });
 
-test('el editor de etapas asigna campañas desde la fila de entrada, con el modal de «Leads entrantes»', () => {
+test('el tipo de funnel va arriba: una opción, se guarda al elegir, y las campañas son su paso 2', () => {
   const src = sinComentarios(leer('app/crm/EtapasModal.tsx'));
-  assert.match(src, /onClick=\{\(\) => setCampanas\(true\)\}/);
-  assert.match(src, /<CampanasModal\s+funnelId=\{emb\?\.esDefault \|\| funnelId == null \? null : funnelId\}[^>]*anidada\s+onCerrar=\{cerrarCampanas\}/);
-  // `onCerrar` de identidad fija (AGENTS.md).
-  assert.match(src, /const cerrarCampanas = useCallback\(/);
+  // Arriba de la lista de etapas.
+  assert.ok(src.indexOf('<SeccionFunnel') > 0 && src.indexOf('<SeccionFunnel') < src.indexOf('<NuevaEtapa'));
+  // Sin «Marca hasta tres», sin «Guardar» ni «Dejar como estaba»: elegir guarda.
+  assert.doesNotMatch(src, /Marca hasta tres|Dejar como estaba|>\s*Guardar\s*</);
+  assert.match(src, /setSel\(\[t\.entrada\]\);\s*if \(await guardar\(\[t\.entrada\], eventoDe\(\), antes\) && t\.anuncios\) setPaso\('campanas'\);/);
+  // El paso 2 es la tabla de «Leads entrantes», en línea, con la flecha para volver.
+  assert.match(src, /if \(paso === 'campanas' && tipo\?\.anuncios\)/);
+  assert.match(src, /aria-label="Cambiar el tipo de funnel"/);
+  // La entrada ya no tiene ni lápiz ni «Campañas de Meta».
+  assert.doesNotMatch(src, /setCampanas|entradasAbierto|Campañas de Meta</);
 });
 
 test('el desplegable de etiquetas de la ficha lleva el lápiz de cada etiqueta, y la puesta va opaca sin subtítulo', () => {

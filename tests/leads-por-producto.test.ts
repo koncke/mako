@@ -347,8 +347,11 @@ test('⚠️ el botón partido vive en UN lugar, y los dos ejes salen de ahí', 
   // lugar de los que sí se pueden usar.
   assert.match(mp, /if \(!puedeAntes && !puedeDespues\) return null;/,
     'el botón partido volvió a dibujarse entero en gris');
-  assert.match(limpio(leer('app/crm/EtapasModal.tsx')), /from '\.\/MoverPartido'/,
-    'el pop-up del embudo no importa el control compartido: se escribió una copia');
+  // ⚠️ El pop-up del embudo ya NO lo usa (12/10/2026: «elimina los botones de las flechas, pon al
+  // inicio de cada etapa el típico icono de arrastre»): ahí se mueve arrastrando. Y tampoco se
+  // escribió una copia de las flechas.
+  assert.doesNotMatch(limpio(leer('app/crm/EtapasModal.tsx')), /MoverPartido|onAntes=|onDespues=/,
+    'volvieron las flechas al pop-up del embudo');
 
   // ⚠️ EN EL TABLERO LAS FLECHAS VIVEN ADENTRO DEL MENÚ DE LOS TRES PUNTOS, no en la
   //    cabecera: «las flechas de desplazar en las columnas deben de estar DENTRO del

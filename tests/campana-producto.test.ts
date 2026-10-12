@@ -229,8 +229,11 @@ test('un conjunto asignado a un producto ARCHIVADO no tapa a su campaña viva', 
 test('el pop-up monta el selector con el principal como null, no con su id', () => {
   // El selector del tablero abre el pop-up del principal con su id NUMÉRICO: con ese
   // número no se veían sus campañas y no se podía asignar ninguna.
+  // Desde el 12/10/2026 las campañas se asignan en el paso 2 del tipo de funnel (`SeccionFunnel`),
+  // con la MISMA tabla del «⋯» de la columna (`CampanasModal`, en línea).
   const src = leer('app/crm/EtapasModal.tsx');
-  assert.match(src, /<CampanasDelProducto funnelId=\{emb\.esDefault \? null : emb\.id\}/);
+  assert.match(src, /funnelIdCampanas=\{emb\.esDefault \|\| funnelId == null \? null : funnelId\}/);
+  assert.match(src, /<CampanasModal enLinea funnelId=\{funnelIdCampanas\}/);
   // Y el server se defiende igual: traduce el id del principal a null antes de validar.
   const acc = sinComentarios(leer('app/crm/campanas-actions.ts'));
   assert.match(acc, /return \{ ok: true, id: f\.esDefault \? null : f\.id, real: f\.id,/);

@@ -649,8 +649,10 @@ test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron
   assert.ok(/sp\?\.embudo === 'entradas'/.test(cp), '/crm dejó de leer ?embudo= de la URL');
   assert.ok(/abrirEmbudo=\{abrirEmbudo\}/.test(cp), '/crm no le pasa al tablero qué pop-up abrir');
   const md = leer('../app/crm/EtapasModal.tsx');
-  assert.ok(md.includes('<EmbudoEntradas'), 'el pop-up dejó de preguntar cómo entra la gente');
-  assert.ok(/abrirEntradas === true/.test(md), 'el pop-up ignora que le pidieron abrir las entradas');
+  // Desde el 12/10/2026 el tipo de funnel está siempre a la vista, arriba de las etapas: el
+  // deep-link sigue abriendo el pop-up y ahí ya está la pregunta (no hay nada que desplegar).
+  assert.ok(md.includes('<SeccionFunnel'), 'el pop-up dejó de preguntar cómo entra la gente');
+  assert.ok(/abrirEntradas\?: boolean/.test(md), 'el pop-up dejó de aceptar el deep-link de las entradas');
   assert.ok(lib.includes('Hay ${pendientes} pendiente'), 'los que coinciden se mencionan, no se esconden');
   // «Ver el pendiente», no «Revisar»: revisar sugiere que hay que aprobar cada
   // lead, y los leads entran solos. Lo único que espera es una decisión sobre un
