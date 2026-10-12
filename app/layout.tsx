@@ -9,6 +9,7 @@ import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { AvisoPixelViejo } from './_components/AvisoPixelViejo';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
 import { HideOnPublicLanding } from './_components/PublicRouteGate';
+import { SeccionesTab } from './_components/SeccionesTab';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
 import { TemaCandidato } from './_components/TemaCandidato';
@@ -230,6 +231,9 @@ export default async function RootLayout({
                 <AvisoPixelViejo />
                 <MakoConfirmGate />
               </EsquinaAvisos>
+              {/* Las secciones de las tabs unificadas (Video, Image, Copywriting): una barra, acá, para
+                  todas sus pantallas. Ver app/_components/SeccionesTab.tsx. */}
+              <HideOnPublicLanding><SeccionesTab /></HideOnPublicLanding>
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}

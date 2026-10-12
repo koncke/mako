@@ -37,7 +37,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { FAMILIAS } from '../app/_components/nav';
+import { FAMILIAS, itemsDe } from '../app/_components/nav';
 import { leerRefDesde, refDesdeTexto, rutaEditarEnEditor } from '../app/video-editor/desde/desde';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -55,7 +55,8 @@ function archivosDe(dir: string): string[] {
 }
 
 test('1a: la tab del nav está abierta (sin adminOnly) y su key sigue siendo la del guard', () => {
-  const items = FAMILIAS.flatMap((f) => [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)]);
+  // `itemsDe` abre las tabs unificadas en sus secciones (el editor es una sección de «Video»).
+  const items = FAMILIAS.flatMap(itemsDe);
   const ve = items.find((i) => i.key === 'video-editor');
   assert.ok(ve, 'desapareció la entrada video-editor del nav: la key es contrato con la base (capas, onboarding)');
   assert.equal(ve.href, '/video-editor');
@@ -64,15 +65,13 @@ test('1a: la tab del nav está abierta (sin adminOnly) y su key sigue siendo la 
 });
 
 test('1b: el Sidebar respeta adminOnly en las tabs de producto, no sólo en el menú de la foto', () => {
+  // Desde el 12/10 la regla vive en lib/nav-visibilidad.ts (la comparten el Sidebar y la barra
+  // de secciones de las tabs unificadas): `adminShell` = super admin SIN impersonar.
+  const regla = sinLineas(leer('lib/nav-visibilidad.ts'));
+  assert.match(regla, /\(!it\.adminOnly \|\| v\.adminShell\)/, 'la regla dejó de mirar adminOnly');
   const sb = sinLineas(leer('app/_components/Sidebar.tsx'));
-  assert.match(
-    sb,
-    // Desde el 12/10 la condición es `adminShell` (super admin SIN impersonar, de main):
-    // lo `adminOnly` se ve en el workspace propio, y por eso `video-editor` está en la capa
-    // `superadmin` (lib/capas.ts).
-    /const puedeVer = \(it: NavItem\) =>\s*\(!it\.adminOnly \|\| (?:rol === 'admin'|adminShell)\)/,
-    '`puedeVer` dejó de mirar adminOnly: el Video Editor aparecería en la barra de cualquier cliente',
-  );
+  assert.match(sb, /const puedeVer = \(it: NavItem\) => puedeVerItem\(it, vistaNav\);/, 'el Sidebar dejó de usar la regla compartida');
+  assert.match(sb, /resolverTab\(it, vistaNav\)/, 'el Sidebar no resuelve las tabs unificadas por sus secciones');
 });
 
 test('1c: las dos pages del editor pasan por el guard del editor, que es el de toda tab', () => {

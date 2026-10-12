@@ -16,7 +16,19 @@
   `tests/video-editor-wasm.test.ts`. Reproducido en local con `NEXT_DEPLOYMENT_ID=… npm run build`.
 - **Acceso**: `app/video-editor/acceso.ts` pregunta lo mismo que toda tab (rol + capa).
 
-## Pendiente: unificar las tabs de contenido (pedido de Martín, 12/10)
+## HECHO (12/10): las tabs de contenido unificadas en Video, Image y Copywriting
+- `nav.ts`, familia `content`: tres tabs con `secciones` (cada sección es el ítem de siempre, misma
+  key, misma ruta, mismo `adminOnly`: ningún guard cambió). `itemsDe` las abre en sus secciones, así
+  que títulos, capas, /admin/dev y los tests siguen viendo los mismos ítems.
+- La regla de quién ve qué se mudó a `lib/nav-visibilidad.ts` (`puedeVerItem`, `resolverTab`): la usan
+  el Sidebar y la barra de secciones (`app/_components/SeccionesTab.tsx`, una vez en el layout, deja su
+  alto en `--alto-secciones`). Una tab se ve si se ve alguna sección y lleva a la primera visible que no
+  sea «Próximamente»; con una sola sección visible no hay barra.
+- Medido en el navegador mirando el ws 1 (como cliente): Video muestra «Editor · Crear con IA»;
+  Copywriting sólo Ads Writer (sin barra); Image, hoy todo `adminOnly`, sólo el super admin.
+- SIGUE (pedido de Martín, «luego»): el lienzo tipo Canva en Image y el tipo Notion/Mila en Copywriting.
+
+## El pedido original de la unificación (12/10)
 > «Que no exista "video generator" y luego "Editor"... que todo sea lo mismo, para varias taps...
 > 1. Video Generator + Editor + Reels = "Video" (el lienzo de edición tipo CapCut y un botón o sección
 > para crear con IA) 2. Image Generator + Thumbnail + Carousels = "Image" (… tipo Canva …)

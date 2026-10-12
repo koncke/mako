@@ -30,7 +30,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_FAMILIAS, itemsDe, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
-import { tabEnCapa } from '@/lib/capas';
+import { puedeVerItem, resolverTab } from '@/lib/nav-visibilidad';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { Icon } from './icons';
@@ -428,17 +428,19 @@ export function Sidebar() {
   // el super admin, también mirando un cliente con `?ws=`, que es donde la prueba.
   // Antes `adminOnly` sólo lo leía el menú de la foto (USER_NAV): puesto en una
   // familia no escondía nada. Es cosmético; el cierre real es el guard de la page.
-  const rolCliente = rolWs === 'closer' || rolWs === 'setter';
   //  · SUPER ADMIN — `adminOnly` (las tabs «pronto» de Sales Machine): sólo en la barra del super admin, no
   //           mirando como cliente. Va acá y no en cada familia: `puedeVer` es por donde pasan la barra y el buscador.
-  const puedeVer = (it: NavItem) =>
-    (!it.adminOnly || adminShell)
-    && (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true)
-    && tabEnCapa(it.key, capa || undefined);
+  // La regla vive en lib/nav-visibilidad.ts: la usa también la barra de secciones de las tabs unificadas.
+  const rolCliente = rolWs === 'closer' || rolWs === 'setter';
+  const vistaNav = { adminShell, rolWs, capa };
+  const puedeVer = (it: NavItem) => puedeVerItem(it, vistaNav);
 
   const familiasProducto = FAMILIAS
     .map((f) => {
-      const bloques = f.bloques.map((b) => b.filter(puedeVer)).filter((b) => b.length > 0);
+      // Una tab unificada (Video, Image, Copywriting) se resuelve por sus secciones.
+      const bloques = f.bloques
+        .map((b) => b.map((it) => resolverTab(it, vistaNav)).filter((it): it is NavItem => it !== null))
+        .filter((b) => b.length > 0);
       const grupos = (f.grupos ?? []).map((g) => ({ ...g, items: g.items.filter(puedeVer) })).filter((g) => g.items.length > 0);
       // `planaParaCliente` (Content Machine, 12/10/2026): fuera de la barra del super admin, lo que quedó en los
       // desplegables va suelto, en un bloque más. El super admin los sigue viendo como desplegables.

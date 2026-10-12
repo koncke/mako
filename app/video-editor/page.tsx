@@ -26,7 +26,7 @@ export default async function VideoEditorPage() {
   // local del motor por cliente (ver espacio.ts).
   const ws = await getWorkspaceActual();
   return (
-    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: 'calc(100vh - var(--alto-secciones, 0px))', display: 'flex', flexDirection: 'column' }}>
       <TemaOscuroScript />
       <VideoEditorCliente vista="inicio" ws={ws} />
     </Pagina>

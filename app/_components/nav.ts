@@ -68,6 +68,16 @@ export type NavItem = {
    */
   entrarComoDueno?: boolean;
   match: (pathname: string) => boolean;
+  /**
+   * Una TAB UNIFICADA (Video, Image, Copywriting, 12/10/2026): agrupa herramientas que
+   * antes eran tabs sueltas. Cada sección es el ítem de siempre, con su key, su ruta y su
+   * `adminOnly`: los guards de cada page no cambian. La tab se ve si se ve alguna sección
+   * (`puedeVerItem`) y lleva a la primera visible; arriba de cada sección, la barra de
+   * secciones (app/_components/SeccionesTab.tsx) deja saltar entre ellas.
+   */
+  secciones?: NavItem[];
+  /** El rótulo de este ítem en la barra de secciones de su tab («Crear con IA»). */
+  seccion?: string;
 };
 
 /** Una colección dentro de una familia. Abre un desplegable al costado. */
@@ -117,9 +127,13 @@ export type NavFamilia = {
   planaParaCliente?: boolean;
 };
 
-/** Todos los destinos de una familia, incluidos los de sus colecciones. */
+/**
+ * Todos los destinos de una familia, incluidos los de sus colecciones. Una tab unificada
+ * se abre en sus SECCIONES (y ella no figura): títulos, capas, el mapa de /admin/dev y los
+ * tests siguen viendo los mismos ítems con las mismas keys que antes de unificar.
+ */
 export const itemsDe = (f: NavFamilia): NavItem[] =>
-  [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)];
+  [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)].flatMap((it) => it.secciones ?? [it]);
 
 const starts = (p: string) => (pathname: string) =>
   pathname === p || pathname.startsWith(p + '/');
@@ -288,44 +302,51 @@ export const FAMILIAS: NavFamilia[] = [
     // 12/10/2026, Martín: «Elimina todo lo de "Content Machine", que solo quede Ads Writer y Video Generator. Y que
     // queden sin sub tabs... Y claro, que el resto quede tal cual en SuperAdmin». Lo demás lleva `adminOnly` y, fuera
     // de la barra del super admin, los desplegables se aplanan (`planaParaCliente`): quedan las dos sueltas.
-    planaParaCliente: true,
+    //
+    // 12/10/2026, también: «Que no exista "video generator" y luego "Editor"... que todo sea lo mismo… Que sean
+    // 3 tabs funcionales que todo mundo reconoce y MaKo le agrega generación con IA». Video = el lienzo tipo
+    // CapCut + crear con IA + Reels; Image = Image Generator + Thumbnails + Carousels; Copywriting = Ideas + Ads
+    // Writer + YouTube Writer + Stories. Son TABS UNIFICADAS (`secciones`): cada herramienta sigue con su key, su
+    // ruta y su `adminOnly`, así que el pedido anterior se cumple solo — el cliente ve Video (Editor y Crear con
+    // IA) y Copywriting (Ads Writer); Image, que hoy es todo `adminOnly`, sólo el super admin.
     pregunta: '¿Qué pieza necesito hacer?',
     icon: 'creativos',
     bloques: [
-      // Antes de la pieza está de qué hablar. Por eso Ideas va suelto arriba y
-      // no adentro de un canal: no es de Meta ni de Instagram ni de YouTube.
-      [{ key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') }],
-    ],
-    grupos: [
-      {
-        // ⚠️ «Ads Writer» sigue apuntando a /ads-writer: ese módulo se está
-        // reescribiendo AHORA en otra sesión y su propio código ya declara
-        // /content-machine como destino. Cuando aterrice, esto es cambiar el href.
-        key: 'ads', label: 'Ads', icon: 'meta',
-        items: [
-          { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
-          { key: 'image-generator', adminOnly: true, label: 'Image Generator', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
-          { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
-          // La copia de CapCut. Abierta a todos desde el 12/10/2026; quién entra lo decide
-          // app/video-editor/acceso.ts (la misma pregunta que toda tab: rol y capa).
-          { key: 'video-editor', label: 'Video Editor', href: '/video-editor', icon: 'tijera', match: starts('/video-editor') },
-        ],
-      },
-      {
-        key: 'ig-formatos', label: 'Instagram', icon: 'instagram',
-        items: [
-          { key: 'reels', adminOnly: true, label: 'Reels', href: '/reels', icon: 'videogen', match: starts('/reels') },
-          { key: 'carousels', adminOnly: true, label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
-          { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
-        ],
-      },
-      {
-        key: 'yt-formatos', label: 'YouTube', icon: 'youtube',
-        items: [
-          { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
-          { key: 'thumbnails', adminOnly: true, label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
-        ],
-      },
+      [
+        {
+          key: 'video', label: 'Video', href: '/video-editor', icon: 'videogen',
+          match: (p) => starts('/video-editor')(p) || starts('/video-generator')(p) || starts('/reels')(p),
+          secciones: [
+            // La copia de CapCut. Abierta a todos desde el 12/10/2026; quién entra lo decide
+            // app/video-editor/acceso.ts (la misma pregunta que toda tab: rol y capa).
+            { key: 'video-editor', label: 'Video Editor', seccion: 'Editor', href: '/video-editor', icon: 'tijera', match: starts('/video-editor') },
+            { key: 'video-generator', label: 'Video Generator', seccion: 'Crear con IA', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
+            { key: 'reels', adminOnly: true, label: 'Reels', href: '/reels', icon: 'videogen', match: starts('/reels') },
+          ],
+        },
+        {
+          key: 'image', label: 'Image', href: '/image-generator', icon: 'imagegen',
+          match: (p) => starts('/image-generator')(p) || starts('/thumbnails')(p) || starts('/carousels')(p),
+          secciones: [
+            { key: 'image-generator', adminOnly: true, label: 'Image Generator', seccion: 'Crear con IA', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
+            { key: 'thumbnails', adminOnly: true, label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
+            { key: 'carousels', adminOnly: true, label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
+          ],
+        },
+        {
+          key: 'copywriting', label: 'Copywriting', href: '/ads-writer', icon: 'escribir',
+          match: (p) => starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p),
+          secciones: [
+            { key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') },
+            // ⚠️ «Ads Writer» sigue apuntando a /ads-writer: ese módulo se está
+            // reescribiendo en otra sesión y su propio código ya declara
+            // /content-machine como destino. Cuando aterrice, esto es cambiar el href.
+            { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
+            { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
+            { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
+          ],
+        },
+      ],
     ],
   },
 ];
