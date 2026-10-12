@@ -8308,3 +8308,31 @@ chat «Chatbot».
 **Vive en:** `app/crm/new/borrador-alta.ts` (`sanearLada`, `ladaInicial`) · `app/crm/new/NewLeadForm.tsx`
 (`elegirLada`) · `app/crm/lead-view/ficha-medidas.ts` · `app/crm/EtapasModal.tsx` ·
 `tests/crm-segundo-feedback-12-10.test.ts` · *2026-10-12, chat «CRM» (claude3), sin agentes*
+
+## El editor del funnel del 12/10: el tipo de funnel ES la entrada, y «Manual» no se podía quitar (12/10/2026)
+
+Pedido de Martín (12/10/2026, 13:11): el tipo de funnel arriba de las etapas, una sola opción, y las etapas de
+nutrición «editables… incluso si las quiero eliminar todas… desplazar arrastrando». Lo que no se ve en el código:
+
+- **El tipo de funnel NO es un dato nuevo.** La tentación era un campo `tipoFunnel`; cinco lectores (audios, ensayo,
+  secuencias, generador de landings, estructurador de campañas) y el opt-in de la landing leen `funnels.data.entradas`.
+  Cada tipo ES una entrada (`TIPOS_FUNNEL`, lib/pipeline.ts) y se guarda con la misma action: un campo aparte habría
+  dejado a los seis leyendo el dato viejo sin un error. «Anuncios a formulario» devuelve a la pantalla
+  `formulario_anuncio` (el Instant Form), que el catálogo conservaba sin ofrecerlo.
+- **«Nutrición - Manual» no tenía cómo quitarse**: `generateFunnel` la coloca SIEMPRE (no sale de ninguna transición),
+  y el ✕ del editor sólo existía para las nutriciones derivadas. La marca nueva es `*>manual` en `suppressed`
+  (`idNutricionFija`), y quitar se pide por CLAVE (`quitarNutricion`): el server calcula qué transiciones apagar
+  (`idsParaQuitarNutricion`), así el navegador no necesita saber de qué etapas sale cada nutrición.
+- **El orden de la banda Nutrición no era un dato**: lo decidía el orden de colocación de `generateFunnel`. Vive en
+  `data.ordenNutricion` y lo aplica el LECTOR (`ordenarNutricion` en `buildFunnel`), reordenando en el mismo lugar del
+  arreglo y renumerando la `col`, así el tablero y el editor leen lo mismo. `mergeFunnelData` conserva el campo en los
+  demás guardados.
+- **La tabla de campañas se reusa EN LÍNEA** (`CampanasModal enLinea`), no se copia: es «el mismo que tenemos en los 3
+  puntos de Leads entrantes».
+
+**SIN HACER:** que «Marcar nutrición manual» (la ficha del lead) se apague cuando el funnel quitó esa etapa: hoy manda
+al lead a una columna que no se dibuja. El rojo previo de `tests/mover-etapa-validacion.test.ts` (no es de este cambio).
+
+**Vive en:** `app/crm/EtapasModal.tsx` (`SeccionFunnel`, `filaNutricion`, `filaFija`) · `lib/pipeline.ts`
+(`TIPOS_FUNNEL`, `idsParaQuitarNutricion`, `ordenarNutricion`) · `lib/funnel-fila.ts` · `app/crm/actions.ts` ·
+`app/crm/CampanasModal.tsx` · `tests/crm-funnel-editor-12-10.test.ts` · *2026-10-12, chat «CRM» (claude3), sin agentes*

@@ -6,7 +6,27 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
-## 0. Al 12/10/2026, 12:00 (chat «CRM», cuenta `claude3`, al 95% semanal)
+## 0. Al 12/10/2026, 13:40 (chat «CRM», cuenta `claude3`, al 96% semanal)
+
+### ✅ El editor del funnel (cuarto feedback del 12/10): HECHO en `53cf309f`
+
+Martín pidió a las 13:11, con dos capturas del editor de VSL FUNNEL (textual en la bitácora): el tipo de funnel
+arriba de las etapas, UNA opción, que se guarde al elegirla, y con anuncios las campañas de Meta en su lugar con
+una flecha para volver (Prospección sin campañas); la entrada sin lápiz ni «Campañas de Meta»; «+ Agregar etapa»
+arriba de todo; sin flechas, un asa para arrastrar; las de nutrición editables, arrastrables y que se puedan quitar
+todas; Ganado y descartes sin pastilla y con la caja distinta; el tacho rojo. Todo hecho. Sin mirar en el navegador.
+
+**Para la próxima:** el tipo de funnel se guarda como la ENTRADA de siempre (`TIPOS_FUNNEL`, lib/pipeline.ts), no
+es un dato nuevo. «Agendan llamada» dejó de ofrecerse y se muestra elegida donde ya estaba declarada. Quitar
+«Nutrición - Manual» deja sus leads fuera del tablero (lo dice el diálogo) y el «Marcar nutrición manual» de la
+ficha los sigue mandando ahí: si eso molesta, que ese botón se apague cuando la etapa no está.
+
+**Rojo previo en main, no mío:** `tests/mover-etapa-validacion.test.ts` («CABLEADO: la opción del modal de
+confirmaciones…») falla sobre `lib/mako-confirmaciones.ts`, que nadie de este chat tocó.
+
+**Siguen sin hacer** (los del tercer feedback, abajo en §0-a): notas como los chats de MaKo (3) y «A revisar» en el
+desplegable (4).
+## 0-a. Al 12/10/2026, 12:00 (chat «CRM», cuenta `claude3`, al 95% semanal)
 
 ### ✅ El tercer feedback del 12/10: HECHO en `40d5ba8c`, salvo dos puntos
 
@@ -28,7 +48,7 @@ pedido de las 11:43). El 7 (los plazos de etapa como template de Automations) se
 - **1, a medias**: las etapas de nutrición se renombran con un clic y se quitan con la ✕, pero no tienen el lápiz
   (color y tipo) de las propias. Si «editables como cualquier otra» era eso, falta.
 
-## 0-a. Al 12/10/2026, 11:00 (chat «CRM», cuenta `claude3`, al 93% semanal)
+## 0-a2. Al 12/10/2026, 11:00 (chat «CRM», cuenta `claude3`, al 93% semanal)
 
 ### ✅ El segundo feedback del 12/10 (once puntos): HECHO en `3e5176c9`
 

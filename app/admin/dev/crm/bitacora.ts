@@ -1937,4 +1937,33 @@ export const BITACORA: Hito[] = [
       'app/crm/lead-view/ficha-medidas.ts — el alto de la ficha',
     ],
   },
+  {
+    fecha: '12 oct', hora: '13:11', chat: 'CRM', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El editor del funnel: tipo de funnel arriba con sus campañas, todo se arrastra, nutriciones editables',
+    pedido: 'El botón de agregar etapa no puede quedar ahí en el medio, eso está muy mal... Ponlo arriba del todo, arriba de lead entrante. Y Nutrición manual y excepcional también deberían ser editables... Todas las etapas de nutrición se deben poder editar, incluso si las quiero eliminar todas... Las etapas de nutrición también se deben poder desplazar arrastrando.\n2. El botón de editar en "lead entrante" debe cambiar... Primero elimina el botón de "Camapaña de Meta" al lado del botón de editar. Luego, cambia el formulario de "Marca hasta tres."... Elimina los subtitulos de las opciones, que solo se pueda elegir 1 opción, elimina el texto "Marca hasta tres.", elimina los botones de "guardar y dejar como estaba" cuando el usuario clickea en algo ya se guarda automáticamente, que las opciones estén referidas al FUNNEL, como "Anuncios a Landing", "Anuncios a WhatsApp", "Prospección", "Anuncios a carrito", "Anuncios a formulario", y que al clickear una opción de anuncios, ahí se ponga por defecto abierta el modal de "Campañas de Meta" en donde estaba el form del tipo de funnel... Si quiero cambiar de funnel una flechita para ir al paso de atras y listo. Solo el funnel "prospección" no debería tener la opción de "Campañas de Meta" por ningún lado, ya que justamente es prospección...\n... Quiero que elimnes el botón de "editar" de lead entrante, que toda la sección de edición del funnel se haga arriba de las etapas.\nEn las etapas, elimina los botones de las flechas, pon al inicio de cada etapa el típico icono de arrastre, para que se entienda que se puede arrastrar. Elimina los chips de "Ganado y descartado" de las etapas que lo tengan, que esas etapas simplemente no tengan nada, pero quiero que el contenedor se diferencie o algo que diferencien a esas etapas. Cambia el ícono de X por un icono de basura en rojo.\n\nSolucionalo ahora',
+    puntos: [
+      'Con dos capturas del editor de VSL FUNNEL: la lista de etapas con «+ Agregar etapa» en el medio y el formulario «Marca hasta tres» abierto bajo «Lead entrante».',
+      'Lo pidió con la cuenta al 96% semanal: «Solucionalo ahora».',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '13:34', chat: 'CRM', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El tipo de funnel arriba, sus campañas en el paso 2, y las etapas que se arrastran y se quitan todas',
+    puntos: [
+      'El funnel se edita ARRIBA de las etapas: el tipo es UNA opción y se guarda al elegirlo, sin «Marca hasta tres» ni botones de guardar.',
+      'Un tipo de anuncios abre ahí mismo la tabla de «Campañas de Meta», con una flecha para volver. Prospección no tiene campañas.',
+      '**El tipo ES la entrada de siempre** (`TIPOS_FUNNEL`): lo siguen leyendo los audios, el ensayo, las secuencias y el opt-in de la landing.',
+      '«+ Agregar etapa» va arriba de todo; las flechas se fueron y cada etapa se arrastra por su asa, también las de nutrición.',
+      'Las nutriciones se quitan TODAS, «Nutrición - Manual» incluida. Ganado y descartes sin pastilla, con la caja punteada; borrar es el tacho rojo.',
+    ],
+    commits: [{ sha: '53cf309f', msg: 'CRM: el editor del funnel — tipo de funnel arriba con sus campañas, etapas que se arrastran y nutriciones que se quitan todas', lineas: 959, archivos: 11 }],
+    archivos: [
+      'app/crm/EtapasModal.tsx — SeccionFunnel, las filas con asa y tacho',
+      'lib/pipeline.ts — TIPOS_FUNNEL, idsParaQuitarNutricion, ordenarNutricion',
+      'app/crm/actions.ts — quitarNutricion, ponerNutricion, ordenNutricion',
+      'app/crm/CampanasModal.tsx — la tabla en línea',
+    ],
+  },
 ];
