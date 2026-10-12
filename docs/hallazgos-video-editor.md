@@ -654,7 +654,9 @@ el motor no parte líneas, en «Subtítulos con Whisper»; que quitar un efecto 
 - **El modo VIDEO de MediaPipe exige marcas de tiempo crecientes**, y el editor salta hacia atrás y
   alterna clips: va en modo IMAGEN.
 - **La doc de MediaPipe dice dos máscaras para el selfie y el modelo trae un solo rótulo**:
-  `segmentador.ts` maneja los dos casos; falta ver en Chrome cuál llega.
+  `segmentador.ts` maneja los dos casos. **Medido en Chrome (12/10): llega UNA sola máscara** (la de la
+  persona), corre en GPU aun en headless, ~14 ms por cuadro con entrada de 512×288, y la primera máscara
+  tarda 4,6–7,4 s desde que se prende (baja el modelo y el wasm).
 - **Trampa del entorno**: MediaPipe carga su JS desde el CDN con una etiqueta `<script>`. Si alguien suma
   `script-src` a la CSP de `next.config.ts`, quitar fondo se rompe callado (sólo queda el aviso).
 
@@ -755,6 +757,21 @@ La espera del modelo dentro del render está en «Los ganchos `ce-*`».
   líneas. Ante un conflicto de merge se vuelve a correr `node scripts/gen-dev-historial.mjs`, nunca a mano.
 
 ## Lo que confunde al MEDIR el editor en un navegador
+
+- ⚠️ **«La Salida del texto se aplicó al clip de video» parecía un bug del panel de Animación y no lo
+  era**: el script clicaba por COORDENADAS después de un `scrollIntoView`, el panel se desplaza suave y el
+  clic caía en la línea de tiempo, que elegía el video. En el panel se clica con un locator, nunca por
+  coordenadas.
+- Una captura del reproductor con un clip ELEGIDO incluye los tiradores blancos: la caja mide el lienzo
+  entero aunque el clip esté al 89 %. Se suelta la selección antes de capturar.
+- Una transición sobre un corte SIMPLE (dividir sin mover nada) da diferencia 0: las dos mitades piden el
+  mismo instante de la fuente. Para probar los dos decodificadores se saca el medio y se usa un video que
+  cambie mucho en el tiempo. (Y para el producto: en ese caso común sólo se notan Deslizar, Empujar y las
+  de Cámara.)
+- Para medir cuadro a cuadro REPRODUCIENDO: una captura de Playwright tarda ~400 ms y `captureStream` del
+  canvas WebGL2 da un WebM vacío (con `preserveDrawingBuffer` apagado se lee alfa 0). Se muestrea con un
+  bucle de `requestAnimationFrame` que copia el canvas a un 2D chico, descartando las lecturas con alfa 0.
+- ffmpeg 8 ya no acepta `-vsync`: es `-fps_mode passthrough`.
 
 - **«Failed to generate project thumbnail on exit» al ENTRAR al editor**: en desarrollo, React (Strict
   Mode) monta, desmonta y vuelve a montar cada efecto, y ese desmontaje falso disparaba la salida antes de
