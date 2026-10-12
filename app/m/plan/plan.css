@@ -1,30 +1,16 @@
 /* =============================================================================
-   /m/plan — el check, la fila que sale y la hoja de lectura
-   Todo con alcance .m-plan-* / .m-check: esta hoja se carga en cualquier página
-   que monte ListaPlan (Plan y Today), nunca fuera de /m.
+   /m/plan — lo propio de la pantalla (el shell es app/m/m.css)
+   Todo con el prefijo .m-plan-*: Next deja la hoja cargada al salir de la ruta.
+   Sólo tokens de app/globals.css. Anatomía del prototipo
+   (docs/prototipos/mako-mobile-v2.html: #plan, .chk-wrap, .chk, .punto, .fila.hecha).
    ============================================================================= */
 
-/* ── CheckTarea: 24 de dibujo dentro de 44 de toque ─────────────────────── */
-.m-check {
-  position: relative; z-index: 2;   /* por encima del botón que abre la fila */
-  display: grid; place-items: center;
-  width: 44px; height: 44px; margin: -10px;
-  padding: 0; border: 0; border-radius: 50%; background: none; color: inherit;
-  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-}
-.m-check__c {
-  display: grid; place-items: center;
-  width: 24px; height: 24px; border-radius: 50%;
-  border: 2px solid var(--border-strong); background: transparent;
-  color: transparent;
-  transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out),
-    color 160ms var(--ease-out), transform var(--dur-press) var(--ease-out);
-}
-.m-check:active .m-check__c { transform: scale(.9); }
-.m-check[aria-checked="true"] .m-check__c { background: var(--good); border-color: var(--good); color: var(--on-primary); }
-.m-check:disabled { cursor: default; }
-.m-check:disabled:not([aria-checked="true"]) .m-check__c { opacity: .45; }
-.m-check:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary); }
+/* El segmentado debajo del título grande; la lista 16 px más abajo. */
+.m-plan-seg { padding-top: 4px; }
+.m-plan-cuerpo { margin-top: 16px; }
+
+/* ── La casilla: 26 de dibujo dentro de 44 de toque ─────────────────────── */
+/* La casilla redonda es la primitiva CasillaM (app/m/_ui, su CSS en app/m/m.css): la misma de Today. */
 
 /* ── La fila entera abre el detalle: un botón estirado sobre la fila ───── */
 .m-plan-abrir {
@@ -38,44 +24,50 @@
 }
 .m-plan-abrir:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
 
-.m-plan-vencida { color: var(--bad); }
+/* ── El proyecto: su punto de color y su nombre ────────────────────────── */
+.m-plan-proy { min-width: 0; }
+.m-plan-punto {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 6px; vertical-align: 1px; background: var(--faint);
+}
 
-/* ── La fila que sale: colapsa alto + opacidad en 200 ms ───────────────── */
+/* ── El plazo en el riel. Vencida: el punto rojo; el texto queda en tinta ── */
+.m-plan-plazo { display: inline-flex; align-items: center; gap: 6px; }
+.m-plan-plazo[data-vencida]::before {
+  content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--bad);
+}
+
+/* ── El filete arranca donde arranca el TEXTO (después de la casilla) ──── */
+/* La fila va envuelta (para cerrarse al salir), así que el filete del shell caería a 16 px. */
+.m-lista > .m-plan-item + .m-plan-item::before { content: none; }
+.m-plan-item + .m-plan-item .m-fila__txt::before {
+  content: ''; position: absolute; z-index: 2; top: 0; left: auto; width: 100vw;
+  height: 1px; background: var(--border); pointer-events: none;
+}
+
+/* ── La fila que se completa: se llena, se tacha y se cierra ──────────── */
 .m-plan-item {
   display: grid; grid-template-rows: 1fr;
   transition: grid-template-rows 200ms var(--ease-out), opacity 200ms var(--ease-out);
 }
 .m-plan-item__in { min-height: 0; overflow: hidden; }
-.m-plan-item[data-sale] { grid-template-rows: 0fr; opacity: 0; pointer-events: none; }
+.m-plan-item .m-fila__t { transition: color 160ms var(--ease-out); }
+.m-plan-item:is([data-estado="marcada"], [data-estado="sale"]) .m-fila__t {
+  color: var(--faint); text-decoration: line-through;
+}
+.m-plan-item:is([data-estado="sale"], [data-estado="sale-swipe"]) { grid-template-rows: 0fr; opacity: 0; pointer-events: none; }
 /* Por swipe la fila ya cruzó la pantalla: se apaga en el acto y sólo cierra el hueco. */
-.m-plan-item[data-sale="swipe"] { transition: grid-template-rows 200ms var(--ease-out); }
+.m-plan-item[data-estado="sale-swipe"] { transition: grid-template-rows 200ms var(--ease-out); }
 
-/* ── Alertas: una línea cada una, arriba de las listas ─────────────────── */
-.m-plan-alertas { list-style: none; margin: 8px calc(-1 * var(--m-gutter)) 0; padding: 0; }
-.m-plan-alerta {
-  display: flex; align-items: center; gap: 12px;
-  min-height: 44px; padding: 0 var(--m-gutter);
-  font-size: var(--fs-sm); color: var(--ink); text-decoration: none;
+/* Una lectura llegó al tope: una línea gris, debajo de la lista. */
+[data-m] .m-plan-nota {
+  margin: 12px 4px 0;
+  font-size: var(--fs-meta); line-height: 1.4; color: var(--dim); text-align: center;
 }
-.m-plan-alerta__txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.m-plan-alerta__punto { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--warn-fill); }
-.m-plan-alerta__punto[data-tono="bad"] { background: var(--bad); }
-.m-plan-alerta__punto[data-tono="mako"] { background: var(--mako); }
-.m-plan-alerta__ir { flex: none; color: var(--faint); display: grid; place-items: center; }
-.m-plan-alerta__ir svg { transform: rotate(-90deg); }
-a.m-plan-alerta:active { background: var(--velo-hover); }
 
-/* ── La hoja de lectura ─────────────────────────────────────────────────── */
-.m-plan-detalle { margin: 0; display: flex; flex-direction: column; }
-.m-plan-detalle__fila {
-  display: flex; justify-content: space-between; gap: 16px;
-  padding: 12px 0; border-bottom: 1px solid var(--border);
-  font-size: var(--fs-md);
-}
-.m-plan-detalle__fila:last-child { border-bottom: 0; }
-.m-plan-detalle dt { color: var(--dim); }
-.m-plan-detalle dd { margin: 0; color: var(--ink); text-align: right; }
+/* La forma del segmentado mientras carga (loading.tsx). */
+.m-plan-skel-seg { height: 44px; border-radius: var(--r-md); }
 
 @media (prefers-reduced-motion: reduce) {
-  .m-check__c, .m-plan-item { transition: none; }
+  .m-plan-item, .m-plan-item .m-fila__t { transition: none; }
 }

@@ -17,13 +17,17 @@
 //   · sacando `noPuede(` de `resolverConfirmacionMovil` → 1 fallo.
 //   · sacando el `prop.tipo !== 'lead'` de `descartarLeadsAction` → 1 fallo.
 //   · el error «Revísala en la computadora» escrito «Revisala acá» → 1 fallo (voseo).
+// Y en la integración v2 (11/10/2026, base 20 / 0, scratchpad/integ/romper.py):
+//   · `lineasDelPayload` cortando otra vez el texto aprobado en 160 → 19 / 1.
+//   · `detalleDeBorrador` con las tareas de otra persona de la reunión → 19 / 1.
+//   · `detalleDeLeads` sin la forma del contacto suelto de WhatsApp → 19 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  complejidadDe, decisionValida, esParametroComplejo, etiquetaDeOrigen, idDePropuesta, idNumerico,
+  complejidadDe, decisionValida, detalleDeBorrador, detalleDeLeads, esParametroComplejo, etiquetaDeOrigen, idDePropuesta, idNumerico,
   lineasDeCambios, lineasDelPayload, opcionesDeConfirmacion, ordenarItems, resumenDeBorrador, sumarConteos,
   tiposVisibles, tituloDeBorrador, TIPOS_DECISION, NOMBRE_TIPO, type TipoDecision,
 } from '../lib/inbox-movil-reglas';
@@ -101,9 +105,26 @@ test('lineasDelPayload: en el orden de los parámetros, con su rótulo, sin vac�
     { rotulo: 'Nombre', valor: 'Ana' },
     { rotulo: 'Ítems', valor: '2 elementos' },
   ]);
-  const largo = lineasDelPayload({ texto: 'a'.repeat(400) })[0].valor;
-  assert.ok(largo.length <= 161 && largo.endsWith('…'), 'lo largo se corta');
+  // Lo que se APRUEBA no se recorta (v2): un WhatsApp de 400 caracteres se ve entero en el sheet.
+  assert.equal(lineasDelPayload({ texto: 'a'.repeat(400) })[0].valor, 'a'.repeat(400));
+  // Sólo el tope de peso (2000) y la pista de un objeto crudo (160) cortan.
+  const enorme = lineasDelPayload({ texto: 'a'.repeat(5000) })[0].valor;
+  assert.ok(enorme.length <= 2001 && enorme.endsWith('…'), 'el tope de peso corta');
+  const objeto = lineasDelPayload({ extra: { k: 'x'.repeat(400) } })[0].valor;
+  assert.ok(objeto.length <= 161 && objeto.endsWith('…'), 'un objeto crudo es una pista corta');
   assert.deepEqual(lineasDelPayload(null), []);
+});
+
+test('el sheet de un borrador y de un lote de contactos MUESTRA qué trae (v2)', () => {
+  // Borrador: las tareas de quien mira (las de otra persona de la reunión no), sin vacías, con tope.
+  const b = { tareas: [{ titulo: ' Mandar la propuesta ' }, { titulo: 'La de Pedro', esDeOtro: true }, { titulo: '' }, { titulo: 'Llamar al banco' }] };
+  assert.deepEqual(detalleDeBorrador(b).map((l) => l.valor), ['Mandar la propuesta', 'Llamar al banco']);
+  assert.equal(detalleDeBorrador({ tareas: Array.from({ length: 30 }, (_, i) => ({ titulo: `T${i}` })) }).length, 12);
+  // Contactos: las DOS formas de la base (el lote y el contacto suelto de WhatsApp).
+  assert.deepEqual(detalleDeLeads({ leads: [{ nombre: 'Ana', empresa: 'Acme' }, { nombre: '' }, { nombre: 'Luis' }] }).map((l) => l.valor),
+    ['Ana · Acme', 'Luis']);
+  assert.deepEqual(detalleDeLeads({ nombre: 'Ana', telefono: '+52 1' }).map((l) => l.valor), ['Ana']);
+  assert.deepEqual(detalleDeLeads(null), []);
 });
 
 test('lineasDeCambios: el «antes» sólo cuando dice algo', () => {

@@ -27,7 +27,9 @@
 //                                                          → { ok, guardado_at } | { ok:false, sinColumna }
 //                                                            (400 si rompe el dato: `validarParaGuardar`;
 //                                                             409 { desactualizado } si `base` ya no es lo publicado)
-//        { action:'descartar-borrador', secuenciaId }     → lo borra → { ok, base } | { ok:false, sinColumna }
+//        { action:'descartar-borrador', secuenciaId, visto? } → lo borra → { ok, base } | { ok:false, sinColumna }
+//                                                            (con `visto` —el teléfono—, 409 { desactualizado } si la
+//                                                             fila ya no es la que se vio: `comprobarVisto`)
 //        { action:'disparadores', secuenciaId, disparadores: Disparador[] }
 //                                                          → los CRON de la automatización, la lista
 //                                                            entera (mig 0241) → { ok, disparadores }
@@ -213,6 +215,8 @@ export async function POST(req: NextRequest) {
     emoji?: unknown; etapas?: unknown[]; posiciones?: unknown; disparadores?: unknown; pasos?: unknown;
     /** La huella de lo publicado que abrió la pestaña (sólo `action: 'borrador'`). */
     base?: unknown;
+    /** `descartar-borrador` desde una FOTO (el teléfono): { base?, guardado_at } de lo que se vio (lib/secuencia-borrador.ts). */
+    visto?: unknown;
     /** `crear_desde_plantilla`: el id de la plantilla y la etapa elegida (opcional). */
     plantilla?: unknown; disparador?: unknown;
     /** `crear_desde_copia` / `limpiar_copia`: el TEXTO del portapapeles (lib/flujo-copia.ts). */
@@ -325,6 +329,10 @@ export async function POST(req: NextRequest) {
      * ⚠️ `base` ES LA HUELLA DE LO QUE LA PESTAÑA ABRIÓ (revisión, 10/10/2026): si ya no es lo publicado,
      * no se guarda y contesta 409 `desactualizado` (lib/secuencia-borrador.ts, la cabecera). Descartar
      * devuelve la base de lo publicado que quedó: la pestaña que acaba de publicar sigue con ésa.
+     *
+     * ⚠️ DESCARTAR CON `visto` (MaKo Mobile, 12/10/2026): el teléfono descarta lo que LEYÓ, quizá hace
+     * horas. Si la computadora guardó o publicó otra cosa después, no se borra nada y contesta el mismo
+     * 409 `desactualizado`. Sin `visto` (el lienzo), como siempre.
      */
     if (body.action === 'borrador' || body.action === 'descartar-borrador') {
       const id = Number(body.secuenciaId);
@@ -332,7 +340,7 @@ export async function POST(req: NextRequest) {
       const db = (await getTenantDb()) as unknown as DbBorrador;
       const r = body.action === 'borrador'
         ? await guardarBorradorSecuencia(db, id, body.pasos, body.base)
-        : await descartarBorradorSecuencia(db, id);
+        : await descartarBorradorSecuencia(db, id, body.visto);
       if (r.ok) return Response.json({ ok: true, ...('guardado_at' in r ? { guardado_at: r.guardado_at } : {}), ...('base' in r ? { base: r.base } : {}) });
       if (r.motivo === 'sin_columna') return Response.json({ ok: false, sinColumna: true });
       if (r.motivo === 'desactualizado') return Response.json({ ok: false, desactualizado: true }, { status: 409 });

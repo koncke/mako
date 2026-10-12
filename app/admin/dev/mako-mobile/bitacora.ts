@@ -17,6 +17,8 @@ export const PARTES: Parte[] = [
   { titulo: 'El shell y la PWA', detalle: 'Árbol /m con su header y su barra por rol, manifest que abre la app y no la landing, service worker sin caché', estado: 'sigue' },
   { titulo: 'Today, Inbox, MaKo, CRM y Plan', detalle: 'Las cinco pantallas re-adaptadas: el Pulso, aprobar, el chat con voz y fotos, la ficha con agendar, las tareas de hoy', estado: 'sigue' },
   { titulo: 'Web Push', detalle: 'Los avisos que ya salen por WhatsApp también al teléfono, por persona; y «MaKo te pide confirmar»', estado: 'sigue' },
+  { titulo: 'La v2: app nativa con la piel de MaKo', detalle: 'Claro por defecto, título grande, listas agrupadas, barra Today · CRM · Inbox · Plan · More y seis secciones más en More (Dashboard, Ads Manager, Customer Success, Automations, Video, Landing)', estado: 'sigue' },
+  { titulo: 'Cualquier teléfono ve /m', detalle: 'El desvío prendido: un celular que abre una pantalla de escritorio va a su versión de /m, o se le dice que esa pantalla se usa en la computadora', estado: 'sigue' },
   { titulo: 'Medir en un iPhone y un Android de verdad', detalle: 'Voz, push, instalar, teclado y gestos no se pueden probar en un navegador sin pantalla', estado: 'cola' },
 ];
 
@@ -54,5 +56,26 @@ export const BITACORA: Hito[] = [
     ],
     commits: [{ sha: 'ef8626ce', msg: 'MaKo Mobile: la app del teléfono en /m (PWA), con Web Push y el chat de MaKo que propone y se aprueba desde el hilo', lineas: 44028, archivos: 328 }],
     archivos: ['app/m/', 'lib/movil-rutas.ts', 'lib/movil-guard.ts', 'lib/push.ts', 'lib/mako-turno-app.ts', 'lib/inbox-movil.ts', 'lib/vista-general.ts', 'app/plan/board/prioridades.ts', 'public/sw.js', 'docs/hallazgos-mobile.md'],
+  },
+  {
+    fecha: '11 oct', hora: '21:54', chat: CH, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que cualquier teléfono vea el diseño nuevo, no sólo la app',
+    pedido: 'Entré desde mi celular a la web de MaKo y no se ven los cambios... No solamente tienes que hacerlo como "app" sino a cualquiera que entre desde mobile le debe salir este diseño.',
+    puntos: [
+      'No veía los cambios porque el desvío de teléfonos (MOVIL_ACTIVO) seguía APAGADO desde la v1: un celular que entraba a la web caía en el escritorio, y /m sólo se abría escribiendo la URL.',
+      'Sus tres preguntas del diseño v2 quedaron sin contestar; se implementó con lo conservador: Video y Landing sobre lo que hay en main, el teléfono no gasta créditos de Google Flow, y Ads Manager sólo con lo que ya existe.',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '00:20', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La v2 implementada y el desvío de teléfonos prendido (sin commit todavía: la hora es la de la integración)',
+    puntos: [
+      'Doce agentes rehicieron el armazón y las pantallas sobre el prototipo v2, con datos reales: Today, Inbox, CRM (lista, ficha y chat), Plan, More, Dashboard, Ads Manager, Customer Success, Automations, Video, Landing, MaKo y la cuenta. Cada escritura reusa la action de escritorio con su mismo gating.',
+      'MOVIL_ACTIVO quedó en true. Dos cosas que se habrían roto al prenderlo: lo público (el comprador que vuelve de pagar en /pagar/…/listo) se tapaba con «Esta pantalla se usa en la computadora», y el admin global sin cliente entraba en un bucle /customer-success → /m/cs → /inicio. Las dos quedaron cerradas y con test.',
+      'Un link de escritorio abre la MISMA cosa en el teléfono cuando el id es el mismo en los dos lados: el plan de un video (/video-generator?plan=…) y una landing (/landing-generator/<id>); /comercial abre la pestaña Comercial del Dashboard.',
+      'Lo que el prototipo dibuja y el repo no puede hacer de verdad no se inventó: filmar de nuevo una toma (gasta créditos), editar una sección de la landing (sería un segundo editor), «Hoy» en Ads Manager (la pauta llega hasta ayer), «Probar en mi WhatsApp» y «Conclusiones con MaKo».',
+      'Falta verlo en un navegador y en un teléfono real: la máquina no tuvo RAM para un next dev en toda la corrida. El typecheck y los tests puntuales están en verde.',
+    ],
+    archivos: ['app/m/', 'lib/movil-desvio.ts', 'lib/movil-rutas.ts', 'app/layout.tsx', 'docs/diseno-mako-mobile-v2.md', 'docs/hallazgos-mobile.md', 'docs/relevo/mako-mobile.md'],
   },
 ];

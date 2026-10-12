@@ -7,13 +7,16 @@
 //         Los pasos llevan los campos del flujo con ramas (id, siguiente, nodo, espera, ramas,
 //         casos, si_no, destino, revisar, media_id): `setSecuenciaPasos` los sanea, normaliza y
 //         valida (`validarGrafo`). Un flujo que no se puede guardar contesta 400 con el motivo.
+//         Con `visto` = { base, guardado_at } (el teléfono publica un borrador que LEYÓ), 409
+//         { desactualizado } si lo publicado o el borrador ya no son los que vio (`comprobarVisto`).
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, vozDeAIStepQueFalta, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
-import { getRolWsEfectivo } from '@/lib/workspace';
+import { getRolWsEfectivo, getTenantDb } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 import { lineaDeSecuencia, medioSinConectar } from '@/lib/disparadores-canales';
+import { comprobarVisto, type DbBorrador } from '@/lib/secuencia-borrador';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +43,7 @@ export async function PATCH(req: NextRequest) {
   if ((await getRolWsEfectivo()) !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar las secuencias.' }, { status: 403 });
   }
-  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown };
+  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown; visto?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -52,6 +55,15 @@ export async function PATCH(req: NextRequest) {
   }
   try {
     if (Array.isArray(body.pasos)) {
+      // ⚠️ PUBLICAR DESDE UNA FOTO (MaKo Mobile, 12/10/2026): el teléfono publica el borrador TAL COMO LO
+      // LEYÓ, quizá hace horas. Si después la computadora guardó otro borrador o publicó otra cosa, publicar
+      // esa foto revertía lo nuevo (y salía a los leads). Con `visto`, no se escribe nada si la fila ya no es
+      // la que se vio (lib/secuencia-borrador.ts). Sin `visto` (el lienzo, que publica lo suyo), como siempre.
+      if (body.visto !== undefined) {
+        const c = await comprobarVisto((await getTenantDb()) as unknown as DbBorrador, id, body.visto);
+        if (!c.ok && c.motivo === 'no_existe') return Response.json({ ok: false, error: 'Esa automatización no existe en este negocio.' }, { status: 404 });
+        if (!c.ok) return Response.json({ ok: false, desactualizado: true, error: 'La automatización cambió desde que la abriste.' }, { status: 409 });
+      }
       // PUBLICAR NO DEJA UN MEDIO SIN CONECTAR (décima tanda, GENERAL 6: «no dejar publicarlo hasta que no lo
       // configure»): 409 con el medio, que la pantalla usa para abrir «Conectar» ahí mismo. Sólo acá, que es
       // Publicar: guardar un borrador no pasa por esta ruta. «No pude comprobarlo» no frena.

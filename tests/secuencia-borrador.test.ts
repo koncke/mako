@@ -15,7 +15,11 @@
 //      de lo nuevo; descartar devuelve la base que quedó, para la pestaña que acaba de publicar;
 //   3. la columna que falta degrada (lectura null, escritura `sin_columna`) y cualquier otro error
 //      NO se traga;
-//   4. guardar un borrador no toca `pasos` ni `updated_at`.
+//   4. guardar un borrador no toca `pasos` ni `updated_at`;
+//   5. (MaKo Mobile, 12/10/2026) quien escribe desde una FOTO —el teléfono publica o descarta el borrador
+//      que LEYÓ, quizá hace horas— manda `visto` = { base, guardado_at }, y si la fila ya no es ésa no se
+//      escribe nada (`comprobarVisto`, 409 en las dos rutas). Sin eso, «Publicar» revertía lo que la
+//      computadora publicó después y el descarte borraba su borrador nuevo sin rastro.
 //
 // PROBADO ROMPIÉNDOLO (09/10/2026): ver el pie.
 //
@@ -26,7 +30,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   sanearBorrador, firmaPublicado, borradorVigente, leerBorradoresSecuencias,
-  guardarBorradorSecuencia, descartarBorradorSecuencia, type DbBorrador,
+  guardarBorradorSecuencia, descartarBorradorSecuencia, comprobarVisto, leerVisto, type DbBorrador,
 } from '../lib/secuencia-borrador';
 import { validarGrafo, type PasoGrafo } from '../lib/flujo-grafo';
 
@@ -52,7 +56,7 @@ function dbFalsa(o: { filas?: Fila[]; errLista?: Err; errLeer?: Err; errUpdate?:
         is: () => Promise.resolve({ data: o.errLista ? null : filas, error: o.errLista ?? null }),
         eq: (_c: string, v: number) => ({
           maybeSingle: () => Promise.resolve({
-            data: o.errLeer ? null : (filas.find((f) => f.id === v) ? { id: v, pasos: filas.find((f) => f.id === v)!.pasos } : null),
+            data: o.errLeer ? null : (filas.find((f) => f.id === v) ? { id: v, pasos: filas.find((f) => f.id === v)!.pasos, pasos_borrador: filas.find((f) => f.id === v)!.pasos_borrador } : null),
             error: o.errLeer ?? null,
           }),
         }),
@@ -187,6 +191,67 @@ test('una automatización que no existe (o de otro negocio) contesta no_existe',
   const inval = await guardarBorradorSecuencia(db, 99, [msg('a', 'zz'), ini('a')], BASE);
   assert.equal(inval.ok, false);
   assert.equal((inval as { motivo: string }).motivo, 'invalido');
+});
+
+// ── Lo que se VIO (MaKo Mobile, 12/10/2026) ──────────────────────────────────────────────────────
+// La línea de tiempo del hallazgo: el teléfono abrió X con el borrador v1 (guardado a las 9). Después la
+// computadora guardó v2 (autosave) o publicó v2. El teléfono, sin refrescar, toca Publicar o Descartar.
+
+const V1: PasoGrafo[] = [msg('a', 'b', 'v1'), msg('b'), ini('a')];
+const V2: PasoGrafo[] = [msg('a', 'b', 'v2 de la computadora'), msg('b'), ini('a')];
+const T1 = '2026-10-12T09:00:00.000Z';
+const T2 = '2026-10-12T13:00:00.000Z';
+/** Lo que el teléfono vio: lo publicado X y el borrador v1. */
+const VISTO = { base: BASE, guardado_at: T1 };
+
+test('⚠️ la fila como se vio pasa; con otro borrador guardado o con otro publicado, `desactualizado`', async () => {
+  const igual = dbFalsa({ filas: [{ id: 5, pasos: PUBLICADO, pasos_borrador: { pasos: V1, base: BASE, guardado_at: T1 } }] });
+  assert.deepEqual(await comprobarVisto(igual.db, 5, VISTO), { ok: true });
+  // La computadora guardó v2 encima (misma base, otro `guardado_at`).
+  const guardo = dbFalsa({ filas: [{ id: 5, pasos: PUBLICADO, pasos_borrador: { pasos: V2, base: BASE, guardado_at: T2 } }] });
+  assert.deepEqual(await comprobarVisto(guardo.db, 5, VISTO), { ok: false, motivo: 'desactualizado' }, 'publicaría v1 encima del v2 guardado');
+  // La computadora publicó v2 (lo publicado cambió; el borrador viejo quedó en la columna).
+  const publico = dbFalsa({ filas: [{ id: 5, pasos: V2, pasos_borrador: { pasos: V1, base: BASE, guardado_at: T1 } }] });
+  assert.deepEqual(await comprobarVisto(publico.db, 5, VISTO), { ok: false, motivo: 'desactualizado' }, 'revertiría lo publicado a v1');
+  // La computadora lo descartó.
+  const descarto = dbFalsa({ filas: [{ id: 5, pasos: PUBLICADO, pasos_borrador: null }] });
+  assert.deepEqual(await comprobarVisto(descarto.db, 5, VISTO), { ok: false, motivo: 'desactualizado' });
+  // Lo que no tiene la forma no escribe a ciegas; la que no existe (u otro negocio), no_existe.
+  assert.deepEqual(await comprobarVisto(igual.db, 5, { base: BASE }), { ok: false, motivo: 'desactualizado' });
+  assert.deepEqual(await comprobarVisto(igual.db, 5, null), { ok: false, motivo: 'desactualizado' });
+  assert.deepEqual(await comprobarVisto(igual.db, 99, VISTO), { ok: false, motivo: 'no_existe' });
+  assert.equal(leerVisto({ base: 3, guardado_at: T1 }), null);
+});
+
+test('⚠️ descartar con `visto` no borra el borrador que la computadora guardó después', async () => {
+  const { db, updates, filas } = dbFalsa({ filas: [{ id: 5, pasos: PUBLICADO, pasos_borrador: { pasos: V2, base: BASE, guardado_at: T2 } }] });
+  assert.deepEqual(await descartarBorradorSecuencia(db, 5, VISTO), { ok: false, motivo: 'desactualizado' });
+  assert.equal(updates.length, 0, 'borró el v2 de la computadora');
+  assert.equal((filas[0].pasos_borrador as { guardado_at: string }).guardado_at, T2);
+  // Con la fila como se vio, descarta como siempre (y devuelve la base).
+  const ok = dbFalsa({ filas: [{ id: 5, pasos: PUBLICADO, pasos_borrador: { pasos: V1, base: BASE, guardado_at: T1 } }] });
+  assert.deepEqual(await descartarBorradorSecuencia(ok.db, 5, VISTO), { ok: true, base: BASE });
+  assert.equal(ok.filas[0].pasos_borrador, null);
+});
+
+test('el descarte que sigue a Publicar manda sólo el `guardado_at`: la base ya cambió, el borrador es el mismo', async () => {
+  // Publicar v1 movió lo publicado a v1: con la base de antes nunca descartaría.
+  const { db, filas } = dbFalsa({ filas: [{ id: 5, pasos: V1, pasos_borrador: { pasos: V1, base: BASE, guardado_at: T1 } }] });
+  assert.deepEqual(await descartarBorradorSecuencia(db, 5, { guardado_at: T1 }), { ok: true, base: firmaPublicado(V1) });
+  assert.equal(filas[0].pasos_borrador, null);
+  // Si entre el PATCH y el descarte otra pestaña guardó uno nuevo, ése se queda.
+  const otro = dbFalsa({ filas: [{ id: 5, pasos: V1, pasos_borrador: { pasos: V2, base: firmaPublicado(V1), guardado_at: T2 } }] });
+  assert.deepEqual(await descartarBorradorSecuencia(otro.db, 5, { guardado_at: T1 }), { ok: false, motivo: 'desactualizado' });
+  assert.equal(otro.updates.length, 0);
+});
+
+test('sin `visto` (el lienzo de escritorio) descartar es como siempre; la columna que falta degrada', async () => {
+  const { db, filas } = dbFalsa({ filas: [{ id: 5, pasos: PUBLICADO, pasos_borrador: { pasos: V2, base: BASE, guardado_at: T2 } }] });
+  assert.deepEqual(await descartarBorradorSecuencia(db, 5), { ok: true, base: BASE });
+  assert.equal(filas[0].pasos_borrador, null);
+  const sinCol = { code: '42703', message: 'column nutricion_secuencias.pasos_borrador does not exist' };
+  assert.deepEqual(await comprobarVisto(dbFalsa({ filas: [{ id: 5, pasos: PUBLICADO, pasos_borrador: null }], errLeer: sinCol }).db, 5, VISTO), { ok: false, motivo: 'sin_columna' });
+  await assert.rejects(comprobarVisto(dbFalsa({ filas: [{ id: 5, pasos: PUBLICADO, pasos_borrador: null }], errLeer: { code: '57014', message: 'timeout' } }).db, 5, VISTO), /timeout/);
 });
 
 // ── Roturas (09/10/2026) ─────────────────────────────────────────────────────────────────────

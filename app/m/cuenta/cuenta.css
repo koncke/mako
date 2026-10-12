@@ -1,25 +1,48 @@
-/* /m/cuenta — lo propio de la pantalla. Alcance [data-m], prefijo .mc-, sólo var(--token). */
+/* /m/cuenta — lo propio de la pantalla (v2: docs/prototipos/mako-mobile-v2.html, «Cuenta»).
+   Alcance [data-m], prefijo .m-cuenta-, sólo var(--token) de globals.css. Las listas, filas,
+   el interruptor y el segmentado son del shell (app/m/m.css). */
 
-[data-m] .mc-email { font-size: var(--fs-meta); color: var(--dim); max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
-[data-m] .mc-vista,
-[data-m] .mc-bloque { display: flex; flex-direction: column; gap: 8px; padding: 8px 0 4px; }
-[data-m] .mc-frase { margin: 0; font-size: var(--fs-md); line-height: 1.5; color: var(--ink); }
-[data-m] .mc-dim { color: var(--dim); font-size: var(--fs-sm); }
-[data-m] .mc-error { margin: 0; font-size: var(--fs-sm); color: var(--bad); font-weight: 600; }
-[data-m] .mc-prefs { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; }
-[data-m] .mc-tipos { list-style: none; margin: 0; padding: 0 0 0 4px; display: flex; flex-direction: column; }
-[data-m] .mc-tipos li + li { border-top: 1px solid var(--border); }
-[data-m] .mc-salidas { display: flex; flex-direction: column; gap: 8px; padding-top: 32px; }
+/* Los grupos: 14 entre listas (el `.m-lista + .m-lista` del shell, acá con gap), 22 arriba de
+   «Apariencia» y de lo que sigue al segmentado, 8 entre una lista y su nota. */
+[data-m] .m-cuenta { display: flex; flex-direction: column; gap: 14px; }
+[data-m] .m-cuenta > .m-lista { margin-top: 0; }
+[data-m] .m-cuenta-subt { margin: 8px 4px -4px; font-size: var(--fs-md); font-weight: 600; line-height: 1.3; color: var(--ink); }
+[data-m] .m-cuenta > .m-seg + .m-lista { margin-top: 8px; }
+/* La nota debajo de una lista (como el pie de un grupo en Ajustes): cómo se destraba un permiso. */
+[data-m] .m-cuenta-nota { margin: -6px 4px 0; font-size: var(--fs-meta); line-height: 1.45; color: var(--dim); }
+
+/* Las salidas (SalirDeLaVista, CerrarSesion) son botones de app/m/_ui: acá se dibujan como una
+   fila más de la lista (60 de alto, texto a la izquierda, sin escala al tocar). El doble
+   `.mk-btn.mk-btn` le gana al :hover pegado de m.css (que pinta el terciario de gris). */
+[data-m] .m-cuenta-boton .mk-btn.mk-btn {
+  display: flex; justify-content: flex-start; width: 100%; min-height: 60px;
+  padding: 11px 14px 11px 16px; border: 0; border-radius: 0;
+  background: var(--surface); color: var(--ink);
+  font-size: var(--fs-card); font-weight: 500; line-height: 1.3; white-space: normal; text-align: left;
+}
+[data-m] .m-cuenta-boton .mk-btn.mk-btn:hover:not(:disabled) { background: var(--surface); color: var(--ink); }
+[data-m] .m-cuenta-boton--azul .mk-btn.mk-btn,
+[data-m] .m-cuenta-boton--azul .mk-btn.mk-btn:hover:not(:disabled) { color: var(--primary-strong); }
+[data-m] .m-cuenta-boton .mk-btn.mk-btn:active:not(:disabled) {
+  transform: none; background-image: linear-gradient(var(--velo-hover), var(--velo-hover));
+}
+[data-m] .m-cuenta-boton .mk-btn.mk-btn:focus-visible { box-shadow: inset 0 0 0 2px var(--primary); }
+@media (hover: hover) and (pointer: fine) {
+  [data-m] .m-cuenta-boton .mk-btn.mk-btn:hover:not(:disabled) { background-image: linear-gradient(var(--velo-hover), var(--velo-hover)); }
+}
+
+/* El sheet «Qué te avisa»: el maestro arriba y los tipos debajo. */
+[data-m] .m-cuenta-tipos { display: flex; flex-direction: column; }
 
 /* /m/cuenta/instalar — un paso por pantalla, ícono grande. */
-[data-m] .mc-paso {
+[data-m] .m-cuenta-paso {
   display: flex; flex-direction: column; align-items: center; text-align: center;
   gap: 16px; padding: 40px 0 24px; min-height: 50dvh; justify-content: center;
 }
-[data-m] .mc-paso__ico {
+[data-m] .m-cuenta-paso__ico {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 96px; height: 96px; border-radius: 24px; background: var(--surface-2); color: var(--ink);
+  width: 96px; height: 96px; border-radius: 24px; background: var(--surface); border: 1px solid var(--border); color: var(--ink);
 }
-[data-m] .mc-paso__n { font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
-[data-m] .mc-paso__frase { margin: 0; font-size: var(--fs-sect); font-weight: 600; line-height: 1.3; color: var(--ink); max-width: 22ch; }
-[data-m] .mc-paso__acciones { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+[data-m] .m-cuenta-paso__n { font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
+[data-m] .m-cuenta-paso__frase { margin: 0; font-size: var(--fs-sect); font-weight: 600; line-height: 1.3; color: var(--ink); max-width: 22ch; }
+[data-m] .m-cuenta-paso__acciones { display: flex; flex-direction: column; gap: 8px; width: 100%; }

@@ -50,7 +50,7 @@ import { NuevoPlaceholder } from './NuevoPlaceholder';
 import { CRON_DEFAULT } from '@/app/_components/EditorCron';
 import {
   CLASES_DISPARADOR, claseDeDisparador, eventosOfrecidos, triggerDeCanal, esClaseDeEventos, borradorDeClase, conDisparo, disparoActualDe, esDelEmisor, esEventoDeAntes,
-  disparadoresDe, sanearDisparadores, firmaLista, nuevoIdDisparador, problemaDeDisparador, textoDeDisparador,
+  disparadoresDe, sanearDisparadores, firmaLista, nuevoIdDisparador, problemaDeDisparador, textoDeDisparador, deSiempreDisparador,
   valoresQuien, quienTrasTocar, valorEtiqueta, conValorEtiqueta, alternarIgnorar, textoQuien, VALOR_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA, TEXTO_GRUPO,
   TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA,
@@ -58,9 +58,8 @@ import {
 } from '@/lib/disparadores';
 import {
   pasosDisparo, valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, rotuloDisparo,
-  detalleDisparador, nombreEtiqueta, PASO_PRODUCTOS, type DisparoActual, type SeccionDisparo,
+  nombreEtiqueta, PASO_PRODUCTOS, type DisparoActual, type SeccionDisparo,
 } from '@/lib/flujo-conversacion';
-import { etapasDe } from '@/lib/nutricion-etapa';
 import { scrollParaVer } from '@/lib/lienzo-grafo';
 import type { CronAviso } from '@/lib/cron-aviso';
 import type { Opcion, ProductoOpcion, SecuenciaDto } from './ChatAgentApp';
@@ -170,23 +169,10 @@ export function useTextoDisparador(p: {
   etiquetaEtapa: (key: string) => string; tz: string | null;
 }): { texto: (d: Disparador) => string; deSiempre: (d: Disparador) => string } {
   const todas = useMemo(() => p.productos.flatMap((pr) => [...pr.etapas, ...pr.etapasEntrega]), [p.productos]);
-  const deSiempre = (d: Disparador): string => {
-    const kanban = d.trigger_tipo === 'etapa_actual'
-      ? p.productos.find((pr) => pr.funnelId != null && pr.funnelId === d.funnel_id)?.etapas ?? null
-      : d.trigger_tipo === 'entrega_actual'
-        ? p.productos.find((pr) => pr.productoId != null && pr.productoId === d.producto_id)?.etapasEntrega ?? null
-        : null;
-    const nombreDe = (k: string) => (kanban ?? todas).find((e) => e.value === k)?.label ?? p.etiquetaEtapa(k);
-    const puestas = etapasDe({ etapa: d.etapa ?? null, etapas: d.etapas ?? null });
-    return detalleDisparador({
-      trigger_tipo: d.trigger_tipo, etapa: d.etapa ?? null, cron: null,
-      etiquetaTrigger: p.disparadores.find((x) => x.value === d.trigger_tipo)?.label ?? null,
-      nombreEtapa: d.etapa ? nombreDe(d.etapa) : null,
-      nombreEtiqueta: nombreEtiqueta(p.etiquetas, d.etiqueta_id ?? null),
-      nombresEtapas: puestas.map(nombreDe),
-      todas: !!kanban && puestas.length >= 3 && kanban.every((e) => puestas.includes(e.value)),
-    });
-  };
+  // La regla vive en lib/disparadores.ts (`deSiempreDisparador`): la misma que usa el teléfono
+  // (app/m/automations), que no puede llamar un hook. Acá sólo se le pasan los nombres.
+  const nombres = { productos: p.productos, etiquetas: p.etiquetas, triggers: p.disparadores, etiquetaEtapa: p.etiquetaEtapa, tz: p.tz };
+  const deSiempre = (d: Disparador): string => deSiempreDisparador(d, nombres, todas);
   return { deSiempre, texto: (d) => textoDeDisparador(d, { deSiempre, tz: p.tz }) };
 }
 

@@ -10,7 +10,10 @@
 //     MUESTRAN y no se guardan: no vuelven al recargar, a propósito);
 //   · qué dice la fila y el sheet de una propuesta después de confirmar o cancelar;
 //   · el gesto del micrófono (deslizar a la izquierda cancela, hacia arriba bloquea);
-//   · el tamaño al que se achica una foto antes de subirla.
+//   · el tamaño al que se achica una foto antes de subirla;
+//   · qué es un archivo elegido, qué sale al tocar Enviar en la vista previa, qué dice la
+//     vista mientras no se puede enviar y cuánto tapa el teclado de iOS
+//     (tests/m-mako-vista-previa.test.ts).
 //
 // Lo importan componentes 'use client': SÓLO TIPOS de lib/mako-turno-app-reglas.ts (ese
 // módulo arrastra el registro de la API de MaKo, ~400 descripciones) y VALORES sólo de
@@ -127,6 +130,56 @@ export function problemaDeSeleccion(bytes: readonly number[]): string | null {
   if (bytes.length > TOPE_ADJUNTOS) return ERROR_ADJUNTO.muchos;
   if (bytes.reduce((n, b) => n + b, 0) > TOPE_TOTAL_BYTES) return ERROR_ADJUNTO.pesado;
   return null;
+}
+
+/** Un archivo que viaja con el turno (lo arma `envioDe`; ChatMako lo sube por multipart). */
+export type AdjuntoM = { id: string; file: File; nombre: string; tipo: 'image' | 'document' };
+
+/**
+ * Qué es un archivo elegido: por su tipo o, si el navegador no lo dio, por su extensión. null = no
+ * se manda (solo fotos o PDF). El route lo vuelve a mirar por sus BYTES (lib/mako-adjuntos.ts): esto
+ * es para decirlo antes de subir, no para confiar en lo que dijo el navegador.
+ * ⚠️ NO es el `accept` de la lista (`aceptaSegun`): un PDF sin tipo, como lo entregan algunos
+ * selectores de Android, quedaría afuera por una regla que el route no tiene.
+ */
+export function tipoDeElegido(f: { name: string; type: string }): 'image' | 'document' | null {
+  if (f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name)) return 'image';
+  if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) return 'document';
+  return null;
+}
+
+/**
+ * Lo que sale al tocar Enviar (en el composer o en la vista previa): el texto recortado y TODOS
+ * los archivos juntados, en el orden de la tira. Sin archivos, sólo el texto.
+ */
+export function envioDe(texto: string, items: readonly { id: string; file: File }[]): { texto: string; adjuntos: AdjuntoM[] } {
+  return {
+    texto: texto.trim(),
+    adjuntos: items.map((it) => ({
+      id: it.id, file: it.file, nombre: it.file.name, tipo: tipoDeElegido(it.file) === 'image' ? 'image' : 'document',
+    })),
+  };
+}
+
+/**
+ * Lo que dice la vista previa mientras algo no la deja enviar (va con su giro). null = nada: se
+ * puede enviar. Un Enviar apagado sin motivo a la vista se lee como un botón roto.
+ */
+export function avisoDeVista(s: { preparando: boolean; transcribiendo: boolean; ocupado: boolean }): string | null {
+  if (s.preparando) return 'Preparando el archivo…';
+  if (s.transcribiendo) return 'Transcribiendo…';
+  if (s.ocupado) return `${GRAMATICA.analizando.rotulo} · tu mensaje anterior`;
+  return null;
+}
+
+/**
+ * Cuánto tapa el teclado, en px. En iOS el layout NO se achica con el teclado (hay que correr lo
+ * de abajo esto); en Android el viewport ya se achica solo (`interactive-widget=resizes-content`,
+ * app/m/layout.tsx) y da 0.
+ */
+export function altoTeclado(innerHeight: number, vv: { height: number; offsetTop: number } | null | undefined): number {
+  if (!vv) return 0;
+  return Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
 }
 
 // ── El micrófono ─────────────────────────────────────────────────────────────

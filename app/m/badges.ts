@@ -1,9 +1,11 @@
 // =============================================================================
-// Los números de la barra inferior de /m — UNA fuente por destino
+// Los números de la barra inferior de /m (y de las filas de More) — UNA fuente por lugar
 // =============================================================================
 // El layout de /m los pide una vez por render (y se vuelven a pedir con cada
 // `router.refresh()`: el pull-to-refresh y la vuelta al frente pasados 60 s), y
-// los pinta arriba del ícono de cada destino.
+// los pinta arriba del ícono de cada lugar de la barra. Las claves son las de
+// `IdBarra` (lib/movil-rutas.ts): un destino fijo (`inbox`) o una sección de More
+// (`ads`, `video`…), que /m/mas pide con la misma función para el número de su fila.
 //
 // CÓMO SE ENCHUFA UNA FUENTE: una línea en `FUENTES`, con una función server que
 // devuelve cuántas cosas BLOQUEAN en ese destino. Ejemplo (el que viene):
@@ -26,24 +28,24 @@
 // =============================================================================
 
 import 'server-only';
-import type { DestinoMovil, RolMovil } from '@/lib/movil-rutas';
+import type { IdBarra, RolMovil } from '@/lib/movil-rutas';
 import type { CapaId } from '@/lib/capas';
 import { contarParaDecidir } from '@/lib/inbox-movil';
 
 export type ContextoBadges = { rol: RolMovil; capa: CapaId; ws: number | null };
 export type FuenteBadge = (ctx: ContextoBadges) => Promise<number | null>;
 
-const FUENTES: Partial<Record<DestinoMovil, FuenteBadge>> = {
+const FUENTES: Partial<Record<IdBarra, FuenteBadge>> = {
   // `total: null` (alguna bandeja no se pudo leer) = sin número, nunca un 0 inventado.
   inbox: async (ctx) => (await contarParaDecidir({ rol: ctx.rol, capa: ctx.capa })).total,
 };
 
-/** Los números de los destinos VISIBLES (los otros ni se consultan). */
+/** Los números de los lugares VISIBLES (los otros ni se consultan). */
 export async function contarBadges(
   ctx: ContextoBadges,
-  visibles: DestinoMovil[],
-): Promise<Partial<Record<DestinoMovil, number>>> {
-  const out: Partial<Record<DestinoMovil, number>> = {};
+  visibles: IdBarra[],
+): Promise<Partial<Record<IdBarra, number>>> {
+  const out: Partial<Record<IdBarra, number>> = {};
   await Promise.all(visibles.map(async (d) => {
     const fuente = FUENTES[d];
     if (!fuente) return;

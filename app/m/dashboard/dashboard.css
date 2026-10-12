@@ -1,0 +1,69 @@
+/* =============================================================================
+   /m/dashboard — lo propio de la pantalla (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-dash-*: Next deja la hoja cargada al salir de la ruta. Sólo tokens de
+   app/globals.css. Anatomía del prototipo (docs/prototipos/mako-mobile-v2.html: .graf, .delta,
+   .vcol). El color de una variación va en la FLECHA; el número queda en --dim. */
+
+.m-dash { transition: opacity .2s var(--ease-out); }
+.m-dash--cargando { opacity: .55; }
+
+/* El segmentado de hojas, debajo del título grande. */
+.m-dash-seg { padding-top: 4px; }
+
+/* ── El gráfico ─────────────────────────────────────────────────────────── */
+.m-dash-graf {
+  padding: 14px 12px 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+}
+.m-dash-graf__cab {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  padding: 0 4px 8px; min-width: 0;
+}
+.m-dash-graf__sel {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--fs-card); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.m-dash-graf__total {
+  flex: none; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* El dedo elige barras de lado; el gesto vertical sigue siendo el scroll de la página. */
+.m-dash-graf__lienzo { touch-action: pan-y; border-radius: 8px; outline: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.m-dash-graf__lienzo:focus-visible { box-shadow: 0 0 0 2px var(--primary); }
+.m-dash-graf svg { display: block; width: 100%; height: auto; overflow: visible; user-select: none; -webkit-user-select: none; }
+.m-dash-eje { fill: var(--faint); font-size: 11px; font-family: inherit; font-variant-numeric: tabular-nums; }
+.m-dash-grilla { stroke: var(--border); stroke-width: 1; }
+.m-dash-barra { fill: var(--primary); transition: fill .15s var(--ease-out); }
+.m-dash-barra--sel { fill: var(--primary-strong); }
+
+/* ── Los números: el valor y, debajo, la variación ────────────────────── */
+.m-dash-vs { font-size: var(--fs-meta); color: var(--dim); white-space: nowrap; }
+.m-dash-v { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.m-dash-v strong { font-size: var(--fs-card); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.m-dash-delta {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: var(--fs-meta); font-weight: 500; color: var(--dim); font-variant-numeric: tabular-nums;
+}
+.m-dash-delta svg { flex: none; color: var(--faint); }
+.m-dash-delta[data-tono="good"] svg { color: var(--good); }
+.m-dash-delta[data-tono="bad"] svg { color: var(--bad); }
+
+/* ── A quién cobrarle: el punto de la urgencia antes de la línea ──────── */
+.m-dash-punto {
+  display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%;
+  vertical-align: 1px; background: var(--faint);
+}
+.m-dash-punto[data-tono="bad"] { background: var(--bad); }
+.m-dash-punto[data-tono="warn"] { background: var(--warn); }
+
+/* «Marcar cobrado» al lado del nombre: el alto de toque de md (44) con el texto y el aire del
+   prototipo (.btn-chico), para que el nombre y su cuota no queden en tres letras a 390 px. */
+.m-dash-cobrar.mk-btn { padding: 0 12px; font-size: var(--fs-sm); white-space: nowrap; }
+
+/* ── El sheet del período: la marca del elegido ───────────────────────── */
+.m-dash-check { display: inline-grid; place-items: center; color: var(--primary-strong); }
+
+/* ── Cargando (loading.tsx) ───────────────────────────────────────────── */
+.m-dash-skel-seg { height: 44px; border-radius: var(--r-md); }
+.m-dash-skel-graf { height: 196px; margin-top: 66px; border-radius: var(--r-lg); }
+.m-dash-skel-lista { margin-top: 66px; }

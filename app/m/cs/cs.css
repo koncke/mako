@@ -1,0 +1,30 @@
+/* =============================================================================
+   /m/cs — Customer Success en el teléfono
+   Todo con alcance .m-cs-*: Next deja esta hoja cargada al salir de la ruta, y una
+   clase sin prefijo le cambiaría otra pantalla. Lo demás (lista, fila, sección,
+   píldora, sheet) es del shell (app/m/m.css).
+   ============================================================================= */
+
+/* El selector de servicio arriba de las secciones (sólo con más de uno). */
+.m-cs-seg { padding-top: 4px; }
+
+/* El conteo de la etapa, a la derecha del título de la sección (el `.r` del prototipo). */
+.m-cs-n {
+  flex: none; font-size: var(--fs-meta); color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La etapa actual en el sheet, y el servicio elegido: el ✓ azul. */
+.m-cs-check { display: grid; place-items: center; color: var(--primary-strong); }
+.m-cs-spin { width: 18px; height: 18px; color: var(--dim); }
+
+/* Lo que no salió (mover, invitar): el punto rojo y el texto en tinta (el rojo como texto no
+   pasa AA a este tamaño). */
+[data-m] .m-cs-error {
+  display: flex; gap: 8px; align-items: baseline; margin: 0 4px 12px;
+  font-size: var(--fs-sm); line-height: 1.4; color: var(--ink); text-align: left;
+}
+[data-m] .m-cs-error::before {
+  content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--bad); transform: translateY(-1px);
+}

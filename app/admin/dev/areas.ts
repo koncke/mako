@@ -1144,8 +1144,9 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'mako-mobile', titulo: 'MaKo Mobile', familia: 'Platform', grupo: 'Dev',
     estado: 'parcial', verEnApp: '/m',
-    alcance: 'La app del teléfono (PWA): Today, Inbox, MaKo, CRM y Plan re-adaptados en /m, con Web Push por persona y el chat de MaKo que propone y se aprueba desde el hilo. Salió con el reparto de teléfonos apagado (/inicio): se abre por URL hasta verla en producción.',
-    vive: ['app/m/', 'app/api/m/', 'app/api/push/', 'app/api/perfil/notif-push/', 'public/sw.js', 'lib/movil-rutas.ts', 'lib/movil-guard.ts', 'lib/movil-dispositivo.ts', 'lib/movil-instalar.ts', 'lib/haptico.ts', 'lib/push.ts', 'lib/push-payload.ts', 'lib/push-cliente.ts', 'lib/mako-turno-app.ts', 'lib/mako-turno-app-reglas.ts', 'lib/inbox-movil.ts', 'lib/hoy-movil.ts', 'lib/crm-movil.ts', 'lib/plan-hoy.ts', 'lib/plan-marcar.ts', 'lib/vista-general.ts', 'app/plan/board/prioridades.ts', 'docs/diseno-mako-mobile.md'],
+    alcance: 'La app del teléfono (PWA) en /m, v2 «app nativa con la piel de MaKo»: Today · CRM · Inbox · Plan · More, y en More Dashboard, Ads Manager, Customer Success, Automations, Video y Landing en versión reducida, más MaKo. Web Push por persona y el chat de MaKo que propone y se aprueba desde el hilo. El desvío de teléfonos está PRENDIDO: cualquier celular que abra MaKo ve /m.',
+    vive: ['app/m/', 'app/api/m/', 'app/api/push/', 'app/api/perfil/notif-push/', 'public/sw.js', 'lib/movil-rutas.ts', 'lib/movil-guard.ts', 'lib/movil-desvio.ts', 'app/_components/DesvioMovil.tsx', 'lib/movil-dispositivo.ts', 'lib/movil-instalar.ts', 'lib/haptico.ts', 'lib/push.ts', 'lib/push-payload.ts', 'lib/push-cliente.ts', 'lib/mako-turno-app.ts', 'lib/mako-turno-app-reglas.ts', 'lib/inbox-movil.ts', 'lib/hoy-movil.ts', 'lib/crm-movil.ts', 'lib/plan-hoy.ts', 'lib/plan-marcar.ts', 'lib/vista-general.ts', 'app/plan/board/prioridades.ts', 'docs/diseno-mako-mobile.md', 'docs/diseno-mako-mobile-v2.md', 'docs/prototipos/mako-mobile-v2.html'],
+    hallazgos: 'hallazgos-mobile',
     proyectos: ['Feature: MaKo Mobile'],
   },
   {

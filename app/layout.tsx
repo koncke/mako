@@ -19,7 +19,8 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
 import { DesvioMovil } from './_components/DesvioMovil';
 import { prefiereMovil } from '@/lib/movil-guard';
-import { MOVIL_ACTIVO } from '@/lib/movil-desvio';
+import { MOVIL_ACTIVO, seDesvia } from '@/lib/movil-desvio';
+import { getWorkspaceActual } from '@/lib/workspace';
 
 // Título por defecto de las pantallas internas — es lo que se lee en la pestaña
 // del navegador, al lado del favicon. El producto es MaKo: acá decía "Marketing
@@ -53,7 +54,11 @@ export const metadata: Metadata = {
   // Agregada a la pantalla de inicio del celular tiene que verse como una app, no
   // como un marcador: sin esto el sistema pone la inicial del título en un cuadrado
   // gris. `apple-web-app` además la abre SIN la barra del navegador en iOS.
-  appleWebApp: { capable: true, title: 'MaKo', statusBarStyle: 'black-translucent' },
+  // `default` (texto oscuro): MaKo Mobile v2 es CLARO (docs/diseno-mako-mobile-v2.md, «El
+  // encabezado»). Con `black-translucent` iOS pintaba el reloj en BLANCO sobre el encabezado
+  // claro. ⚠️ Instalada, iOS pinta su propia franja con `default`: si en un iPhone real se
+  // nota contra --bg, el encabezado de /m pasa a --surface (se mide en el teléfono).
+  appleWebApp: { capable: true, title: 'MaKo', statusBarStyle: 'default' },
 };
 
 // El color de la barra del sistema cuando la app corre desde la pantalla de inicio:
@@ -108,7 +113,15 @@ export default async function RootLayout({
   // MaKo Mobile: un TELÉFONO no ve el escritorio (lib/movil-desvio.ts). Lo decide el server
   // (UA + la cookie de «Versión completa»); <DesvioMovil> tapa la pantalla desde el primer
   // pintado y lleva a /m, o dice que esa pantalla se usa en la computadora.
-  const telefono = MOVIL_ACTIVO && (await prefiereMovil());
+  // ⚠️ El admin global SIN cliente no se desvía (`seDesvia`): /m lo mandaría a /inicio y /inicio a
+  // /customer-success, que el desvío volvería a mandar a /m/cs — un bucle. El workspace sólo se
+  // pregunta en un teléfono: la computadora no paga esa lectura.
+  const esTelefono = MOVIL_ACTIVO && (await prefiereMovil());
+  const telefono = seDesvia({
+    activo: MOVIL_ACTIVO,
+    telefono: esTelefono,
+    adminSinCliente: esTelefono && esAdmin && (await getWorkspaceActual()) == null,
+  });
   return (
     <html lang="es" className="h-full antialiased">
       <body>

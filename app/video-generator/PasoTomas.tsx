@@ -33,20 +33,11 @@ import { textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { DURACIONES_FLOW, creditosDeClip } from '@/lib/costo-clip';
 import type { PlanGuardado } from './video-datos';
 
-/** En qué anda una toma. El orden importa: se evalúa de arriba abajo. */
-export type EstadoToma = 'filmada' | 'generando' | 'fallada' | 'sin-texto' | 'pendiente';
-
-export function estadoDeToma(item: PlanGuardado, n: number): EstadoToma {
-  const v = item.video?.[String(n)];
-  if (v?.url) return 'filmada';
-  if (v?.error) return 'fallada';
-  if (v?.trabajoId || v?.operacion) return 'generando';
-  // ⚠️ Antes que `pendiente`: una toma sin texto no se puede filmar, y decir
-  // «pendiente» sobre algo que el botón va a rechazar es prometer un camino que
-  // no existe. Pasa con los clips que se agregan a mano, que nacen vacíos.
-  if (!(item.plan.clips.find((c) => c.n === n)?.voz ?? '').trim()) return 'sin-texto';
-  return 'pendiente';
-}
+// La regla de en qué anda una toma vive en un módulo PURO (./tomas-estado.ts) para que el
+// server y el teléfono la llamen sin traerse este componente. Se re-exporta: quien la importaba
+// de acá sigue igual.
+import { estadoDeToma, type EstadoToma } from './tomas-estado';
+export { estadoDeToma, type EstadoToma };
 
 const COLOR: Record<EstadoToma, string> = {
   filmada: 'var(--primary)',

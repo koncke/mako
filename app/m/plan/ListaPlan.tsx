@@ -1,85 +1,117 @@
 'use client';
 
 // =============================================================================
-// ListaPlan — las listas de tareas del teléfono (Prioridades · Hoy · Esta semana)
+// ListaPlan — el plan en el teléfono: Hoy · Semana · Prioridades
 // =============================================================================
-// Una sola pieza para /m/plan y para la sección Plan de Today: recibe las listas
-// ya armadas por el server (`leerPlanHoy`) y se encarga del ÚNICO gesto de
-// escritura que el teléfono tiene sobre el plan, «marcar hecha», con su Deshacer.
-// Tocar una tarea abre una hoja de lectura; editar se queda en la computadora.
+// Recibe las tres listas ya armadas por el server (`leerPlanHoy` + `listaHoy`) y muestra
+// UNA a la vez con el segmentado del prototipo (docs/prototipos/mako-mobile-v2.html,
+// `#plan`). La fila: casilla redonda · título · el proyecto como punto de su color · el
+// plazo en el riel. Tocar la fila abre el detalle en un sheet; editar se queda en la
+// computadora.
 //
-// MARCAR: el check (o el swipe a la derecha, que es su equivalente) saca la fila
-// en el acto —optimista— y llama a `marcarHechaAction`. Si el server dice que no,
-// la fila VUELVE y el toast dice por qué. Si dice que sí, el toast «Completada»
+// MARCAR: la casilla (o el swipe a la derecha, su equivalente) la llena, tacha el título,
+// y la fila se va sola un momento después. Llama a `marcarHechaAction`: si el server dice
+// que no, la fila VUELVE y el toast dice por qué; si dice que sí, el toast «Completada»
 // lleva Deshacer, que vuelve a llamar con `{ prev, entryId }`. La action llama a
 // `refresh()`, así que la página se re-pide sola (las 5 prioridades se rellenan).
 //
-// ⚠️ LO OCULTO SE GUARDA POR ID, NO SE BORRA DE LAS PROPS. Después de marcar, el
-// refresco trae las listas SIN esa tarea y el estado local deja de importar; si
-// el refresco tarda, el estado la sigue escondiendo. Al revés con Deshacer: se
-// suelta el id y la tarea reaparece cuando el server la vuelve a mandar.
+// ⚠️ LA FILA QUE SE VA SE SOSTIENE AUNQUE EL SERVER YA NO LA MANDE. El refresco trae las
+// listas SIN la tarea, y puede llegar antes de que termine de irse: `conEnTransito`
+// (formato.ts) la deja donde estaba hasta que la animación termina. Al terminar, si el
+// server ya no la manda, la marca se suelta: si un día vuelve (alguien la reabrió en la
+// computadora), se ve. Con Deshacer pasa lo mismo al revés: se suelta la marca y la tarea
+// reaparece cuando el server la vuelve a mandar.
 //
-// ⚠️ UNA TAREA NO SALE DOS VECES. `hoy` ya viene sin las de `prioridades`, pero
-// `semana` trae todas (lib/plan-hoy.ts): acá se le sacan las que ya están arriba.
+// ⚠️ UNA TAREA NO SALE DOS VECES en la misma lista (`vistos`): «Hoy» junta dos listas del
+// server (`listaHoy`), y si un día la lectura deja de separarlas, se notaría acá.
 //
-// ⚠️ EL SWIPE SALE CON LA FILA YA INVISIBLE. FilaM la lleva fuera de la pantalla,
-// llama a `onAccion` y la devuelve a su lugar en el mismo tick: si la fila no se
-// escondiera de forma SÍNCRONA (flushSync), se vería volver un frame antes de irse.
+// ⚠️ EL SWIPE SALE CON LA FILA YA INVISIBLE. FilaM la lleva fuera de la pantalla, llama a
+// `onAccion` y la devuelve a su lugar en el mismo tick: si la fila no se escondiera de
+// forma SÍNCRONA (flushSync), se vería volver un frame antes de irse.
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { FilaM, SeccionM, SheetM, VacioM, useConexion, useToastM } from '@/app/m/_ui';
-import { ButtonLink } from '@/app/_ui/Button';
-import { TONO } from '@/app/_ui/tokens';
+import {
+  CasillaM, ComputadoraM, FilaDatoM, FilaM, ListaM, PieM, PildoraM, SegmentadoM, SheetM, VacioM, useConexion, useToastM,
+} from '@/app/m/_ui';
+import { Button } from '@/app/_ui/Button';
 import { haptico } from '@/lib/haptico';
 import { marcarHechaAction } from '@/app/m/plan/acciones';
 import type { ItemPlan, ResultadoMarcar } from '@/app/plan/board/hoy';
-import { CheckTarea } from './CheckTarea';
-import './plan.css';
-import { ROTULO_BANDA, TONO_BANDA, textoVence } from './formato';
+import { ROTULO_BANDA, TONO_BANDA, colorProyecto, conEnTransito, contar, plazoCorto, textoVence } from './formato';
 
-export type SeccionPlan = { id: string; titulo: string; items: ItemPlan[] };
+export type VistaPlan = 'hoy' | 'semana' | 'prioridades';
+export type ListasPlan = Record<VistaPlan, ItemPlan[]>;
 
-/** marcada = el círculo se llena · sale = la fila se va · oculta = ya no se dibuja. */
+const VISTAS: { id: VistaPlan; label: string }[] = [
+  { id: 'hoy', label: 'Hoy' },
+  { id: 'semana', label: 'Semana' },
+  { id: 'prioridades', label: 'Prioridades' },
+];
+
+/** marcada = llena y tachada · sale = la fila se cierra · sale-swipe = ya cruzó la pantalla · oculta = no se dibuja. */
 type Estado = 'marcada' | 'sale' | 'sale-swipe' | 'oculta';
+type Marca = { estado: Estado; item: ItemPlan; antes: string | null; vista: VistaPlan };
 
-const LLENADO_MS = 160;
+/** Cuánto se ve tachada antes de irse (el llenado del círculo son 160 ms de esto). */
+const SOSTENER_MS = 600;
 const SALIDA_MS = 200;
 
-export function ListaPlan({ secciones, fecha, vacio = 'No tienes tareas para hoy.' }: {
-  secciones: SeccionPlan[];
-  /** `YYYY-MM-DD` del negocio: contra esto se cuenta «vence hoy». */
+export function ListaPlan({ listas, fecha, abiertas }: {
+  listas: ListasPlan;
+  /** `YYYY-MM-DD` del negocio: contra esto se cuenta el plazo. */
   fecha: string;
-  vacio?: string;
+  /** Cuántas tareas abiertas hay en todo el tablero (para decir bien el vacío). */
+  abiertas: number;
 }) {
   const toast = useToastM();
   const { enLinea } = useConexion();
-  const [estados, setEstados] = useState<Record<string, Estado>>({});
-  const [abierta, setAbierta] = useState<ItemPlan | null>(null);
+  const [vista, setVista] = useState<VistaPlan>('hoy');
+  // Map y no objeto: los ids del tablero del cliente son números, y un objeto ordena las
+  // claves numéricas — el orden en que se tocaron se perdería.
+  const [marcas, setMarcas] = useState<ReadonlyMap<string, Marca>>(new Map());
+  const [detalle, setDetalle] = useState<ItemPlan | null>(null);
+  const [abierto, setAbierto] = useState(false);
   const timers = useRef(new Map<string, number[]>());
+  const idsDelServer = useRef(new Set<string>());
 
   useEffect(() => {
     const t = timers.current;
     return () => { for (const ids of t.values()) ids.forEach((n) => window.clearTimeout(n)); };
   }, []);
 
-  // Sin duplicados entre secciones: gana la primera donde aparece (Prioridades).
-  const visibles = useMemo(() => {
-    const vistos = new Set<string>();
-    return secciones.map((s) => ({
-      ...s,
-      items: s.items.filter((it) => {
-        if (vistos.has(it.id)) return false;
-        vistos.add(it.id);
-        return estados[it.id] !== 'oculta';
-      }),
-    }));
-  }, [secciones, estados]);
+  // Lo que el server manda ahora. Una marca «oculta» de una tarea que ya no viene se suelta.
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const l of Object.values(listas)) for (const it of l) ids.add(it.id);
+    idsDelServer.current = ids;
+    setMarcas((prev) => {
+      let cambio = false;
+      const sig = new Map(prev);
+      for (const [id, m] of prev) if (m.estado === 'oculta' && !ids.has(id)) { sig.delete(id); cambio = true; }
+      return cambio ? sig : prev;
+    });
+  }, [listas]);
 
-  const poner = (id: string, e: Estado | null) => setEstados((prev) => {
-    const sig = { ...prev };
-    if (e) sig[id] = e; else delete sig[id];
+  const visibles = useMemo(() => {
+    const transito = [...marcas.values()].filter((m) => m.vista === vista && m.estado !== 'oculta');
+    const vistos = new Set<string>();
+    return conEnTransito(listas[vista], transito).filter((it) => {
+      if (vistos.has(it.id)) return false;
+      vistos.add(it.id);
+      return marcas.get(it.id)?.estado !== 'oculta';
+    });
+  }, [listas, vista, marcas]);
+
+  const poner = (id: string, m: Marca) => setMarcas((prev) => new Map(prev).set(id, m));
+  const cambiar = (id: string, estado: Estado) => setMarcas((prev) => {
+    const m = prev.get(id);
+    if (!m) return prev;
+    const sig = new Map(prev);
+    // Ya se fue y el server tampoco la manda: no hay nada que esconder.
+    if (estado === 'oculta' && !idsDelServer.current.has(id)) sig.delete(id);
+    else sig.set(id, { ...m, estado });
     return sig;
   });
   const agendar = (id: string, ms: number, f: () => void) => {
@@ -89,7 +121,12 @@ export function ListaPlan({ secciones, fecha, vacio = 'No tienes tareas para hoy
   const volver = (id: string) => {
     for (const n of timers.current.get(id) ?? []) window.clearTimeout(n);
     timers.current.delete(id);
-    poner(id, null);
+    setMarcas((prev) => {
+      if (!prev.has(id)) return prev;
+      const sig = new Map(prev);
+      sig.delete(id);
+      return sig;
+    });
   };
 
   const deshacer = async (item: ItemPlan, r: Extract<ResultadoMarcar, { ok: true }>) => {
@@ -101,66 +138,95 @@ export function ListaPlan({ secciones, fecha, vacio = 'No tienes tareas para hoy
   };
 
   const completar = (item: ItemPlan, via: 'check' | 'swipe') => {
-    if (!enLinea || estados[item.id]) return;
+    if (!enLinea || marcas.has(item.id)) return;
+    const i = visibles.findIndex((x) => x.id === item.id);
+    const base = { item, antes: i > 0 ? visibles[i - 1].id : null, vista };
     if (via === 'check') {
       haptico('light');
-      poner(item.id, 'marcada');
-      agendar(item.id, LLENADO_MS, () => poner(item.id, 'sale'));
-      agendar(item.id, LLENADO_MS + SALIDA_MS, () => poner(item.id, 'oculta'));
+      poner(item.id, { ...base, estado: 'marcada' });
+      agendar(item.id, SOSTENER_MS, () => cambiar(item.id, 'sale'));
+      agendar(item.id, SOSTENER_MS + SALIDA_MS, () => cambiar(item.id, 'oculta'));
     } else {
-      flushSync(() => poner(item.id, 'sale-swipe'));
-      agendar(item.id, SALIDA_MS, () => poner(item.id, 'oculta'));
+      flushSync(() => poner(item.id, { ...base, estado: 'sale-swipe' }));
+      agendar(item.id, SALIDA_MS, () => cambiar(item.id, 'oculta'));
     }
     marcarHechaAction(item.id, true)
       .then((r) => {
         if (!r.ok) { volver(item.id); haptico('error'); toast(r.error); return; }
-        // Ya estaba hecha (otra pestaña, otra persona): sale igual, sin Deshacer.
+        // Ya estaba hecha (otra pestaña, otra persona): se va igual, sin Deshacer.
         if (r.yaEstaba) { toast('Ya estaba hecha'); return; }
         toast('Completada', { deshacer: () => { void deshacer(item, r); } });
       })
       .catch(() => { volver(item.id); haptico('error'); toast('Sin conexión'); });
   };
 
-  const total = visibles.reduce((n, s) => n + s.items.length, 0);
-  if (total === 0) return <VacioM frase={vacio} />;
+  const abrir = (it: ItemPlan) => { setDetalle(it); setAbierto(true); };
+  const vacio = vista === 'hoy' ? 'Nada vence hoy.'
+    : vista === 'semana' ? 'Nada vence esta semana.'
+      : abiertas === 0 ? 'No hay tareas abiertas.' : 'Ninguna prioridad por ahora.';
+  const detalleMarcado = detalle ? marcas.has(detalle.id) : false;
 
   return (
     <>
-      {visibles.map((s) => s.items.length > 0 && (
-        <SeccionM key={s.id} id={`plan-${s.id}`} titulo={s.titulo}>
-          <div className="m-lista">
-            {s.items.map((it) => (
+      <div className="m-plan-seg">
+        <SegmentadoM etiqueta="Vista" valor={vista} onCambio={setVista} opciones={VISTAS} />
+      </div>
+
+      <div className="m-plan-cuerpo">
+        {visibles.length === 0 ? (
+          <VacioM frase={vacio} />
+        ) : (
+          <ListaM etiqueta={contar(visibles.length, 'tarea', 'tareas')}>
+            {visibles.map((it) => (
               <FilaTarea
                 key={it.id}
                 item={it}
                 fecha={fecha}
-                estado={estados[it.id]}
+                estado={marcas.get(it.id)?.estado}
                 enLinea={enLinea}
                 onCompletar={(via) => completar(it, via)}
-                onAbrir={() => setAbierta(it)}
+                onAbrir={() => abrir(it)}
               />
             ))}
-          </div>
-        </SeccionM>
-      ))}
-      <SheetM
-        abierto={!!abierta}
-        onCerrar={() => setAbierta(null)}
-        titulo={abierta?.titulo ?? ''}
-        id="tarea"
-        pie={abierta && (
-          <ButtonLink href={abierta.linkEscritorio} variant="primary" size="lg" full>Abrir en la computadora</ButtonLink>
+          </ListaM>
         )}
+      </div>
+
+      {/* Mientras se cierra, el pie se queda: si se fuera, la hoja se achica a mitad de la salida. */}
+      <SheetM
+        abierto={abierto}
+        onCerrar={() => setAbierto(false)}
+        titulo={detalle?.titulo ?? ''}
+        id="tarea"
+        pie={detalle && !(abierto && detalleMarcado) ? (
+          <PieM>
+            <Button
+              variant="primary"
+              size="lg"
+              full
+              disabled={!enLinea}
+              onClick={() => { setAbierto(false); completar(detalle, 'check'); }}
+            >
+              Completar tarea
+            </Button>
+          </PieM>
+        ) : undefined}
       >
-        {abierta && <DetalleTarea item={abierta} fecha={fecha} />}
+        {detalle && <DetalleTarea item={detalle} fecha={fecha} />}
       </SheetM>
     </>
   );
 }
 
-function PillBanda({ banda }: { banda: ItemPlan['banda'] }) {
-  const t = TONO[TONO_BANDA[banda]];
-  return <span className="mk-pill" style={{ background: t.bg, color: t.ink }}>{ROTULO_BANDA[banda]}</span>;
+/** El proyecto como en el prototipo: su punto de color y su nombre. */
+function Proyecto({ p }: { p: NonNullable<ItemPlan['proyecto']> }) {
+  const color = colorProyecto(p);
+  return (
+    <span className="m-plan-proy">
+      <i className="m-plan-punto" style={color ? { background: color } : undefined} aria-hidden />
+      {p.nombre}
+    </span>
+  );
 }
 
 function FilaTarea({ item, fecha, estado, enLinea, onCompletar, onAbrir }: {
@@ -171,33 +237,30 @@ function FilaTarea({ item, fecha, estado, enLinea, onCompletar, onAbrir }: {
   onCompletar: (via: 'check' | 'swipe') => void;
   onAbrir: () => void;
 }) {
-  const vence = textoVence(item.deadline, fecha);
-  const segunda = item.proyecto || vence ? (
-    <>
-      {item.proyecto?.nombre}
-      {item.proyecto && vence ? ' · ' : null}
-      {vence && <span className={item.vencida ? 'm-plan-vencida' : undefined}>{vence}</span>}
-    </>
-  ) : undefined;
-
+  const plazo = plazoCorto(item.deadline, fecha);
   return (
-    <div className="m-plan-item" data-sale={estado === 'sale' ? 'check' : estado === 'sale-swipe' ? 'swipe' : undefined}>
+    <div className="m-plan-item" data-estado={estado}>
       <div className="m-plan-item__in">
         <FilaM
           titulo={(
             <>
               <span aria-hidden>{item.titulo}</span>
-              {/* La fila entera abre el detalle: un botón estirado sobre la fila
-                  (el check va por encima). Así FilaM sigue siendo un div con swipe
-                  y el check no queda adentro de otro botón. */}
+              {/* La fila entera abre el detalle: un botón estirado sobre la fila (la casilla
+                  va por encima). Así FilaM sigue siendo un div con swipe y la casilla no
+                  queda adentro de otro botón. */}
               <button type="button" className="m-plan-abrir" onClick={onAbrir} aria-label={`Ver ${item.titulo}`} />
             </>
           )}
-          pill={<PillBanda banda={item.banda} />}
-          segunda={segunda}
-          chevron
+          segunda={item.proyecto ? <Proyecto p={item.proyecto} /> : undefined}
+          riel={plazo ? (
+            <span className="m-plan-plazo" data-vencida={item.vencida || undefined}>
+              {item.vencida && <span className="m-sr">Vencida, </span>}
+              {plazo}
+            </span>
+          ) : undefined}
+          chevron={false}
           leading={(
-            <CheckTarea
+            <CasillaM
               marcada={estado === 'marcada' || estado === 'sale'}
               onMarcar={() => onCompletar('check')}
               titulo={item.titulo}
@@ -214,19 +277,15 @@ function FilaTarea({ item, fecha, estado, enLinea, onCompletar, onAbrir }: {
 
 function DetalleTarea({ item, fecha }: { item: ItemPlan; fecha: string }) {
   const vence = textoVence(item.deadline, fecha);
-  const filas: [string, string][] = [];
-  if (item.proyecto) filas.push(['Proyecto', item.proyecto.nombre]);
-  filas.push(['Prioridad', ROTULO_BANDA[item.banda]]);
-  if (vence) filas.push(['Plazo', vence.charAt(0).toUpperCase() + vence.slice(1)]);
-  if (item.esInstancia) filas.push(['Se repite', 'Sí']);
   return (
-    <dl className="m-plan-detalle">
-      {filas.map(([k, v]) => (
-        <div key={k} className="m-plan-detalle__fila">
-          <dt>{k}</dt>
-          <dd className={k === 'Plazo' && item.vencida ? 'm-plan-vencida' : undefined}>{v}</dd>
-        </div>
-      ))}
-    </dl>
+    <>
+      <ListaM>
+        {item.proyecto && <FilaDatoM k="Proyecto" v={<Proyecto p={item.proyecto} />} />}
+        <FilaDatoM k="Prioridad" v={<PildoraM tono={TONO_BANDA[item.banda]}>{ROTULO_BANDA[item.banda]}</PildoraM>} />
+        {vence && <FilaDatoM k="Plazo" v={vence.charAt(0).toUpperCase() + vence.slice(1)} />}
+        {item.esInstancia && <FilaDatoM k="Se repite" v="Sí" />}
+      </ListaM>
+      <ComputadoraM que="Editar la tarea" />
+    </>
   );
 }

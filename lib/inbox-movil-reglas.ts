@@ -146,7 +146,14 @@ export function complejidadDe(parametros: readonly Pick<Parametro, 'tipo'>[] | n
 
 // ── Lo que se ejecuta, legible ───────────────────────────────────────────────
 
-const MAX_VALOR = 160;
+/**
+ * Hasta dónde se muestra un TEXTO que se va a ejecutar. ⚠️ Lo que se aprueba no se recorta: con
+ * 160 (la v1) un WhatsApp largo salía con «…» en el sheet y se aprobaba sin ver el final. El
+ * corte de UNA línea es trabajo de la fila (CSS), no del detalle. El tope sólo cuida el peso.
+ */
+const MAX_TEXTO = 2000;
+/** Un objeto crudo (JSON) es jerga: se muestra corto, como pista. */
+const MAX_JSON = 160;
 
 /** Un id en pantalla es jerga: el resumen de la propuesta ya nombra al lead, la campaña… */
 const esId = (nombre: string): boolean => nombre === 'id' || /Id$|_id$/.test(nombre);
@@ -154,17 +161,17 @@ const esId = (nombre: string): boolean => nombre === 'id' || /Id$|_id$/.test(nom
 function valorLegible(v: unknown): string | null {
   if (v == null) return null;
   if (typeof v === 'boolean') return v ? 'Sí' : 'No';
-  if (typeof v === 'string') { const s = v.trim(); return s ? corta(s) : null; }
+  if (typeof v === 'string') { const s = v.trim(); return s ? corta(s, MAX_TEXTO) : null; }
   if (typeof v === 'number') return Number.isFinite(v) ? String(v) : null;
   if (Array.isArray(v)) {
     if (!v.length) return null;
-    if (v.every((x) => typeof x === 'string' || typeof x === 'number')) return corta(v.join(', '));
+    if (v.every((x) => typeof x === 'string' || typeof x === 'number')) return corta(v.join(', '), MAX_TEXTO);
     return v.length === 1 ? '1 elemento' : `${v.length} elementos`;
   }
-  try { return corta(JSON.stringify(v)); } catch { return null; }
+  try { return corta(JSON.stringify(v), MAX_JSON); } catch { return null; }
 }
 
-const corta = (s: string): string => (s.length > MAX_VALOR ? `${s.slice(0, MAX_VALOR)}…` : s);
+const corta = (s: string, max: number): string => (s.length > max ? `${s.slice(0, max)}…` : s);
 
 /**
  * Las líneas de «lo que se va a ejecutar». Con los `parametros` de la operación van en
@@ -285,6 +292,42 @@ export function tituloDeBorrador(b: { resumen?: string | null; fuenteTitulo?: st
  * cerrar. Las de otra persona (`esDeOtro`) esperan a esa persona y no cuentan, igual que
  * en Today (`leerBorradores`, lib/plan-hoy.ts).
  */
+/** Cuántas filas de un borrador o de un lote de contactos viajan al sheet del teléfono. */
+export const TOPE_DETALLE_REVISAR = 12;
+
+/**
+ * Lo que trae un borrador del plan, para su sheet: las tareas de QUIEN MIRA (las `esDeOtro`
+ * son de otra persona de la reunión), una por fila y sin las vacías. El rótulo es «Tarea»: el
+ * sheet dibuja el título como la fila (el rótulo repetido no distingue nada).
+ */
+export function detalleDeBorrador(b: { tareas: ReadonlyArray<{ titulo?: string | null; esDeOtro?: boolean }> }, max = TOPE_DETALLE_REVISAR): LineaDetalle[] {
+  return b.tareas
+    .filter((t) => !t.esDeOtro && typeof t.titulo === 'string' && t.titulo.trim())
+    .slice(0, max)
+    .map((t) => ({ rotulo: 'Tarea', valor: (t.titulo as string).trim() }));
+}
+
+/**
+ * Los contactos de una propuesta de leads, para su sheet: el nombre (y la empresa, si hay). Hay
+ * DOS formas en la base: el lote (`datos.leads[]`, la API y el agente) y el contacto suelto de
+ * WhatsApp (`datos.nombre`, lib/mako-doer-acciones.ts). Se aceptan las dos.
+ */
+export function detalleDeLeads(datos: Record<string, unknown> | null | undefined, max = TOPE_DETALLE_REVISAR): LineaDetalle[] {
+  if (!datos) return [];
+  const lista: unknown[] = Array.isArray(datos.leads) ? datos.leads : [datos];
+  const out: LineaDetalle[] = [];
+  for (const x of lista) {
+    if (out.length >= max) break;
+    if (!x || typeof x !== 'object') continue;
+    const o = x as Record<string, unknown>;
+    const nombre = typeof o.nombre === 'string' ? o.nombre.trim() : '';
+    if (!nombre) continue;
+    const empresa = typeof o.empresa === 'string' && o.empresa.trim() ? o.empresa.trim() : null;
+    out.push({ rotulo: 'Contacto', valor: empresa ? `${nombre} · ${empresa}` : nombre });
+  }
+  return out;
+}
+
 export function resumenDeBorrador(b: { tareas: ReadonlyArray<{ esDeOtro?: boolean }>; cerrar?: ReadonlyArray<unknown> | null }): string {
   const tareas = b.tareas.filter((x) => !x.esDeOtro).length;
   const cierres = b.cerrar?.length ?? 0;

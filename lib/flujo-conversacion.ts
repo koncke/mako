@@ -66,7 +66,7 @@ import {
   claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, padresDe,
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, textoCasoRespuesta,
   RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos, rotuloSiNoDeRespuesta,
-  esPasoIA, erroresDelPasoIA, medioDe, raicesRespuesta, puedeSumarAIStep,
+  esPasoIA, erroresDelPasoIA, medioDe, raicesRespuesta, puedeSumarAIStep, juntarPasosIA,
   type MedioAIStep,
 } from './flujo-grafo';
 // La libertad de un escenario del AI Step (undécima tanda): UNA lectura para la tarjeta, el editor y el motor.
@@ -1473,6 +1473,15 @@ export function lugarDesdeLienzo(nodo: string, puerto?: string): LugarInsercion 
 /** El orden del array es el orden de lectura (`orden`, las métricas por paso). */
 export function renumerar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
   return pasos.map((p, i) => ({ ...p, orden: i + 1 }));
+}
+
+/**
+ * EL BORRADOR como lo abre el lienzo: un borrador de antes se abre con UN AI Step por medio
+ * (`juntarPasosIA` entre dos `normalizar`, como `abrirFlujo`). La llaman el lienzo
+ * (app/automations/SecuenciaPerfil.tsx) y el teléfono (app/m/automations): una regla, un lugar.
+ */
+export function borradorAlAbrir<P extends PasoGrafo>(pasos: readonly P[]): P[] {
+  return renumerar(normalizar(juntarPasosIA(normalizar(pasos)).pasos));
 }
 
 /**

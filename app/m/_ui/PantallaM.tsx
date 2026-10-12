@@ -1,12 +1,15 @@
 'use client';
 
 // =============================================================================
-// PantallaM — el encabezado de una página de /m, y el pull-to-refresh propio
+// PantallaM — el cuerpo de una página de /m, con el pull-to-refresh propio
 // =============================================================================
-// Va adentro del contenido (el header oscuro de arriba es del shell). Lleva:
-//   · un título grande opcional (26/600) — la frase héroe de Today, por ejemplo;
-//   · «Actualizado 10:42» arriba de cada lista viva;
-//   · tirar hacia abajo desde arriba de todo para refrescar (`router.refresh()`).
+// El título grande lo dibuja el SHELL (v2: el nombre de la sección, 32/700, que se va al hacer
+// scroll y deja el chico en la barra). PantallaM ya no dibuja títulos ni «Actualizado hh:mm»:
+// la v2 los eliminó (docs/diseno-mako-mobile-v2.md, «Qué texto se elimina»). Las props `titulo`
+// y `actualizado` de la v1 se BORRARON (no se ignoran): pasarlas no compila, que es la forma de
+// que nadie vuelva a escribir un título-frase creyendo que se dibuja.
+//
+// Lo que sí hace: tirar hacia abajo desde arriba de todo para refrescar (`router.refresh()`).
 //
 // ⚠️ EL PULL ES CON EVENTOS `touch`, NO `pointer`. Con `touch-action: pan-y` (el
 // default de una página que scrollea), el navegador se queda con el gesto vertical
@@ -25,16 +28,8 @@ import { useRouter } from '@/app/_ui/Link';
 import { haptico } from '@/lib/haptico';
 import { distanciaDePull, ejeDelGesto, RETENCION_PULL, UMBRAL_PULL } from './gestos';
 import { useShellM } from './contexto';
-import { HoraM } from './HoraM';
 
-export function PantallaM({ titulo, actualizado, refrescable = false, children }: {
-  /** El título grande de la pantalla (h2). El nombre del destino ya está en el header. */
-  titulo?: ReactNode;
-  /**
-   * Cuándo se leyeron los datos (lo pasa el server: `new Date()` al leer). Si no
-   * viene y la pantalla es refrescable, se muestra la hora de la última carga.
-   */
-  actualizado?: Date | number | string | null;
+export function PantallaM({ refrescable = false, children }: {
   /** Tirar hacia abajo para refrescar: Today, Inbox, CRM y Plan. Nunca el chat ni un sheet. */
   refrescable?: boolean;
   children?: ReactNode;
@@ -159,9 +154,6 @@ export function PantallaM({ titulo, actualizado, refrescable = false, children }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refrescable, router]);
 
-  const momento = actualizado ?? (refrescable ? conexion.datosDe : null);
-  const hora = momento != null ? <HoraM momento={momento} /> : null;
-
   return (
     <div className="m-pantalla" ref={raiz}>
       {refrescable && (
@@ -175,14 +167,6 @@ export function PantallaM({ titulo, actualizado, refrescable = false, children }
         </div>
       )}
       <div ref={mueve}>
-        {titulo != null ? (
-          <div className="m-pantalla__cab">
-            <h2 className="m-pantalla__titulo">{titulo}</h2>
-            {hora}
-          </div>
-        ) : hora ? (
-          <div className="m-pantalla__cab m-pantalla__cab--solo">{hora}</div>
-        ) : null}
         {children}
       </div>
       {cargando && <span className="m-sr" role="status">Actualizando</span>}

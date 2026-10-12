@@ -20,6 +20,13 @@
 //   · buscarEnCartera sin el tope de 20: 1 fallo, 8 pases.
 //   · siguienteAccion con el insight antes que la llamada: 1 fallo, 8 pases.
 //   · acciones.ts sin «seMueveEnElTelefono(» en el server: 1 fallo, 8 pases.
+// Y las reglas v2 de la lista y la ficha (integración, 11/10/2026, base 14 / 0,
+// scratchpad/integ/romper.py), de a una y restaurando:
+//   · proximaLlamada creyéndole a un junta_1_at que no cae en fecha_junta_1 → 13 / 1
+//   · haceCuanto sin el «ahora» del primer minuto                          → 13 / 1
+//   · llegoPor repitiendo «Landing · Landing»                               → 13 / 1
+//   · etapaEnTablero contando una etapa que el funnel ya no tiene           → 13 / 1
+//   · lineaActividad sin traducir la key de la etapa a su nombre            → 13 / 1
 // =============================================================================
 
 import test from 'node:test';
@@ -27,8 +34,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  buscarEnCartera, chipsDeDia, cualAgendar, etapasMovibles, rotuloAgendar, seMueveEnElTelefono,
-  siguienteAccion, telHref, waMeHref, MAX_RESULTADOS, type EtapaM,
+  buscarEnCartera, chipsDeDia, cualAgendar, diaRelativo, etapaEnTablero, etapasMovibles, haceCuanto, lineaActividad, llegoPor,
+  proximaLlamada, rotuloAgendar, seMueveEnElTelefono, siguienteAccion, telHref, waMeHref, MAX_RESULTADOS, type EtapaM,
 } from '../app/m/crm/reglas';
 
 const ETAPAS: EtapaM[] = [
@@ -119,4 +126,47 @@ test('la acción del server usa LA MISMA regla que el sheet, y nunca manda seña
   assert.match(src, /setLeadStageAction\(leadId, etapa\)/, 'sin opts: ni calificado ni asistencia');
   assert.doesNotMatch(src, /calificado|asistio_j/, 'el teléfono no manda toques de Meta');
   assert.match(src, /moverEtapaEnProducto\(/, 'un agregado se mueve en su producto');
+});
+
+// ── v2: lo que dicen las filas de la lista y de la ficha ──────────────────────
+
+const TZ = 'America/Mexico_City';
+const AHORA = Date.parse('2026-10-11T18:00:00Z');
+const HOY = '2026-10-11';
+
+test('próxima llamada: la hora vale SÓLO si cae en la fecha guardada (reagendar sin hora)', () => {
+  const r = (fecha_junta_1: string | null, junta_1_at: string | null) => ({ fecha_junta_1, junta_1_at, fecha_junta_2: null, junta_2_at: null });
+  // Reagendada al martes sin hora: el instante viejo (del 5) no es la hora del martes.
+  assert.deepEqual(proximaLlamada(r('2026-10-13', '2026-10-05T16:00:00Z'), AHORA, TZ, HOY), { cual: 'R1', texto: 'Mar 13' });
+  // Hoy, con su hora en la zona del NEGOCIO (22:30 UTC = 16:30 en CDMX).
+  assert.deepEqual(proximaLlamada(r(HOY, '2026-10-11T22:30:00Z'), AHORA, TZ, HOY), { cual: 'R1', texto: 'Hoy, 16:30' });
+  // Ya pasó: no hay próxima.
+  assert.equal(proximaLlamada(r(HOY, '2026-10-11T15:00:00Z'), AHORA, TZ, HOY), null);
+});
+
+test('hace cuánto y el día relativo', () => {
+  assert.deepEqual(
+    ['2026-10-11T17:59:40Z', '2026-10-11T17:48:00Z', '2026-10-11T15:00:00Z', '2026-10-10T20:00:00Z'].map((iso) => haceCuanto(iso, AHORA, 'UTC', HOY)),
+    ['ahora', '12 min', '3 h', 'ayer'],
+  );
+  assert.deepEqual(['2026-10-11', '2026-10-10', '2026-10-08', '2026-10-01'].map((d) => diaRelativo(d, HOY)), ['hoy', 'ayer', 'jue', '1 oct']);
+});
+
+test('«Llegó por» no repite el canal ni dice «Sin origen»', () => {
+  assert.equal(llegoPor('Landing', 'Landing'), 'Landing');
+  assert.equal(llegoPor('Landing', 'Campaña X'), 'Landing · Campaña X');
+  assert.equal(llegoPor('Sin origen', null), null);
+  assert.equal(llegoPor(null, 'Anuncio 3'), 'Anuncio 3');
+});
+
+test('actividad: la etapa con su NOMBRE, la asistencia en palabras y el pago con su ícono', () => {
+  const nombre = (v: string) => ({ agenda: 'Agenda R1' } as Record<string, string>)[v];
+  assert.equal(lineaActividad('Etapa', 'agenda', nombre).titulo, 'En Agenda R1');
+  assert.equal(lineaActividad('Asistió R1', 'Sí', nombre).titulo, 'Asistió a la primera llamada');
+  assert.equal(lineaActividad('Pago registrado', '500', nombre).icono, 'dinero');
+});
+
+test('contar «como el tablero»: una etapa que el funnel ya no tiene cae en la primera columna', () => {
+  assert.equal(etapaEnTablero('vieja', ['lead', 'contactado']), 'lead');
+  assert.equal(etapaEnTablero('contactado', ['lead', 'contactado']), 'contactado');
 });

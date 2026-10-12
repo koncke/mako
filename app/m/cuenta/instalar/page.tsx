@@ -1,5 +1,6 @@
 // /m/cuenta/instalar — los pasos para agregar MaKo a la pantalla de inicio (iPhone).
-// La cabecera pone «‹ Cuenta» sola (cabeceraPorRuta): una subpantalla de /m/cuenta.
+// La cabecera pone «‹ Perfil» sola (cabeceraPorRuta): una subpantalla de /m/cuenta. El nombre
+// («Instalar MaKo») lo pone PasosInstalar con <CabeceraM>.
 
 import '../cuenta.css';
 import { requireMovil } from '@/lib/movil-guard';

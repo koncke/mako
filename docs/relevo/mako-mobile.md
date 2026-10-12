@@ -3,7 +3,87 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
-## ⚠️ LA DEVOLUCIÓN DE MARTÍN (11/10, 15:16) — arrancá por acá
+## ⚠️⚠️⚠️ DÓNDE QUEDÓ (12/10, madrugada) — LEER ESTO PRIMERO
+
+**La v2 está en `main` y PRENDIDA** (`MOVIL_ACTIVO = true`): cualquier celular con sesión que abra MaKo cae
+en /m. Es lo que Martín pidió el 11/10 a las 21:54: «Entré desde mi celular a la web de MaKo y no se ven los
+cambios... No solamente tienes que hacerlo como "app" sino a cualquiera que entre desde mobile le debe salir
+este diseño». Se hizo en el worktree `.claude/worktrees/wt-mobile` (rebasado sobre la undécima de Automations).
+
+- Hecho: Today, Inbox, CRM (lista, ficha, chat), Plan, More, Dashboard, Ads Manager, Customer Success,
+  Automations (UNA lista, como la undécima), Video, Landing, MaKo (con la vista previa de adjuntos de Offer)
+  y Cuenta, sobre el prototipo y con datos reales. Las 3 preguntas del diseño, por default (lo conservador):
+  docs/diseno-mako-mobile-v2.md.
+- Verificado: typecheck en cero, 8379/8383 tests (los 2 rojos que quedan, `mover-etapa-validacion` y
+  `plan-filtro-cliente`, ya fallaban en main y leen archivos que esto no toca), `next build` verde con las 21
+  rutas de /m, y 13 pantallas miradas a 390 px con UA de iPhone (ws 9 y el CRM del ws 1, sólo leyendo): sin
+  desborde y sin errores de la app. `/plan/agencia` en un teléfono lleva a `/m/plan`, `/integraciones` dice
+  «se usa en la computadora». **La ficha de un lead NO se pudo mirar** (el dev server muere de memoria al
+  compilarla en esta máquina; el build sí la compila).
+- **Lo que falta, en un iPhone y un Android reales:** la ficha (agendar, mover de etapa, dictar), el chat de
+  MaKo con la vista previa de un PDF, la franja de la barra de estado con `statusBarStyle: default`, instalar
+  y los avisos. Si algo sale mal para un cliente: `MOVIL_ACTIVO = false` en lib/movil-desvio.ts y deploy.
+- Lo que el prototipo dibuja y el teléfono no hace, y por qué: docs/hallazgos-mobile.md → «Lo que quedó sin
+  hacer». Lo que Martín tiene que decidir: el título «Perfil» o «Cuenta», y si el teléfono puede gastar
+  créditos de Flow o mostrar propuestas de MaKo en Ads Manager.
+
+## ⚠️⚠️ EL REDISEÑO PEDIDO (11/10, ~16:30) — ESTO MANDA SOBRE TODO LO DE ABAJO
+
+Martín vio /m en producción (recorrida a ancho de teléfono, las seis tabs andan) y la RECHAZÓ, textual:
+«Todo eso se ve bastante mal... Ese no es el icono de MaKo... Tampoco quiero que ese icono tenga tanto
+protagonismo... MaKo no es una app de un chat con una IA... Decidiste sacar muchas cosas que tal vez si
+sería bueno tenerlas... Pusiste por defecto blackmode, cuando por defecto es white mode. Hay una cantidad
+de texto en esas capturas, y otros que estan flotando... No se ve para nada como lo que es MaKo, se ve
+bastante feo.»
+
+Y contestó (decisiones, no se rediscuten):
+- **Estilo: «Estilo app nativa, pero sin perder el diseño que ya hicimos en MaKo».** Estructura de app de
+  iPhone (títulos grandes, listas agrupadas, sheets) con la identidad de MaKo de escritorio: CLARO, la
+  paleta Nord + el azul de acción, Geist, las tarjetas de la casa, el dorado sólo para la marca.
+- **Secciones que van al teléfono, además de Today, Inbox, CRM y Plan:** Dashboard, Ads Manager,
+  Customer Success, Automations, **el editor de video estilo CapCut** (/video-generator, el editor de
+  anuncios) y **el constructor de landings estilo Gamma** (/landing-generator), aunque sea en versión
+  reducida. (WhatsApp no lo marcó.)
+- **El ícono de MaKo:** el del destino central de la barra NO es el logo de MaKo (era una chispa genérica
+  del set de íconos). Va el logo real (app/_components/MakoBrand.tsx / Marca.tsx) y SIN protagonismo:
+  MaKo no es «una app de chat con una IA», así que el chat deja de ser un destino central de la barra
+  (va dentro de «Más» o como acción secundaria).
+- **Claro por defecto:** ya arreglado (app/m/_ui/tema.ts y ShellM: oscuro SÓLO si la persona lo eligió;
+  antes seguía al sistema operativo).
+- **Menos texto y nada flotando:** sacar la «Actualizado hh:mm» flotando al lado del título, los
+  subtítulos, las segundas líneas largas, las pills que no deciden nada. Un paso por pantalla, cosas
+  grandes (memoria un-paso-por-pantalla).
+
+La barra con más de cinco secciones: cinco destinos máximo (Today · CRM · Inbox · Plan · Más) y «Más»
+abre la lista de las demás (Dashboard, Ads Manager, Customer Success, Automations, Video, Landing, MaKo,
+Cuenta) — o la composición que se decida con él viendo un prototipo.
+
+`MOVIL_ACTIVO` sigue en `false` hasta que Martín apruebe el rediseño. (Superado: se prendió con la v2
+el 11/10 a la noche, cuando pidió que cualquier teléfono viera el diseño nuevo. Ver arriba.)
+
+**El próximo paso, acordado: un PROTOTIPO antes de implementar.** Un diseñador escribe
+`docs/diseno-mako-mobile-v2.md` (barra de 5 con «Más», encabezado nativo con el logo real chico, tarjetas
+y listas en claro, qué texto se va, y por sección qué hace el teléfono y qué queda en la computadora —
+el editor de video y el de landings en versión reducida honesta) y un HTML autocontenido de 390×844 con
+Today, Más, CRM y ficha, Inbox, Dashboard, Ads Manager y el editor de video reducido, con los tokens reales
+de globals.css, el SVG real del logo y datos de ejemplo FICTICIOS. Se publica como artifact para que
+Martín lo vea en el celular y lo apruebe; recién ahí se implementa.
+
+**HECHO el 11/10 a la noche, ESPERANDO A MARTÍN:** `docs/diseno-mako-mobile-v2.md` y
+`docs/prototipos/mako-mobile-v2.html` (las 12 pantallas, navegables; `#more`, `#crm`, `#editor`… abre cada
+una). Publicado privado en https://claude.ai/artifact/DiP5DFkdjk5BWzC1khhVa3. Se miró a 390×844 con
+Chrome headless + Emulation (ver hallazgos-mobile: `--window-size=390` NO sirve, Chrome topea en ~500 y
+recorta la captura): sin desborde horizontal, sin errores de script. **Antes de implementar faltan sus
+3 respuestas:** (1) Video y Landing sobre lo que hay en `main` o esperar a mergear el CapCut
+(rama `video-editor`) y el Gamma (`wt-gamma`); (2) si el teléfono puede gastar créditos de Flow
+(«Filmar de nuevo») o sólo mira, cambia el texto y descarga; (3) Ads Manager con lo que ya existe o con
+propuestas de MaKo para aprobar en el Inbox (no existen ni en escritorio).
+
+Ya arreglado en esta tanda (commit de la tarde): el Inbox cuenta y muestra sólo lo que se decide en el
+teléfono (los 68 borradores del plan van plegados en «N para revisar en la computadora»), Today corta
+«Para hoy» en 5, el globo propio del chat de WhatsApp era ilegible en oscuro, el email de Cuenta.
+
+## LA DEVOLUCIÓN DE MARTÍN (11/10, 15:16)
 
 Abrió MaKo en su teléfono y vio **el escritorio** (/general con el Sidebar en miniatura y botones
 chicos): «Se ve bastante mal... Realmente no tiene mucho de app mobile eso... Revisalo bien y vuelvelo

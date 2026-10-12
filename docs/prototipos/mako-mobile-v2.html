@@ -1,0 +1,1660 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MaKo Mobile v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<style>
+/* =============================================================================
+   MaKo Mobile v2 — prototipo navegable (docs/diseno-mako-mobile-v2.md)
+   Layout: un teléfono de 390×844 en una escena; a ancho de teléfono, el prototipo
+   ES la pantalla (fixed, inset 0) y la barra de estado falsa desaparece.
+   Los tokens de :root son COPIA de app/globals.css (tema claro + la escala [data-m]).
+   Los únicos nuevos están marcados «NUEVO»: se proponen en el documento.
+   ============================================================================= */
+:root {
+  /* — app/globals.css, tema claro — */
+  --bg: #F4F6F9;
+  --surface: #FFFFFF;
+  --surface-2: #F5F7FA;
+  --velo-hover: rgba(18, 21, 27, .055);
+  --border: #EAECF1;
+  --border-strong: #DCE0E7;
+  --ink: #12151B;
+  --dim: #454C57;
+  --faint: #66707F;
+  --sidebar: #14161B;
+  --sidebar-2: #1E212A;
+  --sidebar-line: #383D47;
+  --sidebar-text: #949CAA;
+  --on-sidebar: #F3F5F8;
+  --on-ink: #F3F5F8;
+  --primary: #2F6FED;
+  --primary-strong: #245FD6;
+  --primary-bg: #EAF1FE;
+  --primary-weak: #9DBBF5;
+  --on-primary: #FFFFFF;
+  --mako: #F2B01E;
+  --mako-lite: #F8CB63;
+  --mako-ink: #8F6709;
+  --mako-bg: #FDF4DE;
+  --mako-border: #EFDCA9;
+  --good: #1E9E57;
+  --good-bg: #E7F5EC;
+  --warn: #B4530E;
+  --warn-bg: #FDEEE1;
+  --warn-fill: #EE7B1C;
+  --bad: #D0504A;
+  --bad-bg: #FBEAEA;
+  --wa: #1E9E57;
+  --wa-bubble: #DDF3E4;
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--primary);
+  --r-sm: 8px;
+  --r-md: 11px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  /* — la escala móvil ([data-m] en globals.css) — */
+  --fs-meta: 13px;
+  --fs-sm: 14.5px;
+  --fs-md: 16px;
+  --fs-card: 16.5px;
+  --fs-sect: 20px;
+  --fs-page: 26px;
+  --fs-kpi: 30px;
+  --touch: 44px;
+  /* — movimiento y medidas de /m (globals.css) — */
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  --ease-drawer: cubic-bezier(.32, .72, 0, 1);
+  --dur-press: 120ms;
+  --dur-pop: 180ms;
+  --dur-sheet: 320ms;
+  --dur-sheet-out: 220ms;
+  --m-header: 44px;
+  --m-tabbar: 56px;
+  --m-gutter: 16px;
+  --scrim: rgba(0, 0, 0, .4);
+  /* — el logo real (app/_components/MakoBrand.tsx, MakoLogo) — */
+  --logo-1: #2A251C;
+  --logo-2: #171511;
+  /* — la tinta sobre el botón dorado (.mk-btn--mako, app/_ui/ui.css) — */
+  --on-mako: #17140C;
+  /* — NUEVO: el título grande nativo. 26 px (--fs-page) se lee «web»; iOS usa 34. — */
+  --m-titulo: 32px;
+  /* — contenido de ejemplo: colores de proyectos y de cuadros de video (datos, no UI) — */
+  --proy-1: #2F6FED;
+  --proy-2: #1E9E57;
+  --proy-3: #B46BD6;
+  --proy-4: #EE7B1C;
+  --cuadro-1: #3B4252;
+  --cuadro-2: #5E6B7E;
+  --cuadro-3: #8C7A6B;
+  --cuadro-4: #4C566A;
+  /* — la escena alrededor del teléfono (sólo el prototipo) — */
+  --escena: #E3E7ED;
+  --escena-ink: #12151B;
+  --escena-dim: #454C57;
+  --marco: #0E1013;
+  color-scheme: light;
+}
+/* La ESCENA sigue el tema de quien mira; el teléfono no: MaKo es claro por defecto. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --escena: #16181D; --escena-ink: #F3F5F8; --escena-dim: #C4CAD2; --marco: #2A2D33; }
+}
+:root[data-theme="dark"] { --escena: #16181D; --escena-ink: #F3F5F8; --escena-dim: #C4CAD2; --marco: #2A2D33; }
+
+/* Oscuro SÓLO si la persona lo elige (Cuenta → Apariencia). Valores de [data-tema="oscuro"]. */
+.device[data-tema="oscuro"] {
+  --velo-hover: rgba(255, 255, 255, .07);
+  --bg: #22262E; --surface: #2A2F39; --surface-2: #333944;
+  --border: #383D47; --border-strong: #4A5160;
+  --ink: #F3F5F8; --on-ink: #22262E; --dim: #C4CAD2; --faint: #9EA4AE;
+  --primary: #7FA6F8; --primary-strong: #9DBBF5; --primary-bg: #26324A; --primary-weak: #4B6693; --on-primary: #22262E;
+  --mako-ink: #F2B01E; --mako-bg: #2E2614; --mako-border: #4E4020;
+  --good: #4FC98A; --good-bg: #17301F; --warn: #EFA05A; --warn-bg: #33230F; --bad: #EF8B85; --bad-bg: #351C1B;
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--escena); color: var(--escena-ink);
+  font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+button, a, [role="button"] { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+svg { flex: none; }
+[hidden] { display: none !important; }
+
+/* ── La escena ─────────────────────────────────────────────────────────── */
+.escena { min-height: 100%; display: flex; align-items: center; justify-content: center; gap: 44px; padding: 24px 16px; }
+.lado { width: 230px; display: flex; flex-direction: column; gap: 18px; }
+.lado-marca { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.lado-nota { margin: 0; font-size: 14px; color: var(--escena-dim); line-height: 1.5; }
+.lado-ir { display: flex; flex-wrap: wrap; gap: 6px; }
+.lado-ir button { padding: 7px 11px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--escena-ink) 18%, transparent); font-size: 13.5px; font-weight: 500; color: var(--escena-ink); }
+.lado-ir button:hover { background: color-mix(in srgb, var(--escena-ink) 8%, transparent); }
+.marco-wrap { flex: none; }
+
+/* ── El teléfono ───────────────────────────────────────────────────────── */
+.device {
+  --sb: 47px; --hi: 34px;
+  position: relative; width: 390px; height: 844px; flex: none;
+  border-radius: 54px; border: 11px solid var(--marco); overflow: hidden;
+  background: var(--bg); color: var(--ink);
+  box-shadow: 0 30px 70px rgba(18, 21, 27, .28);
+  transform-origin: top left;
+  font-size: var(--fs-md);
+}
+.statusbar { position: absolute; z-index: 60; top: 0; left: 0; right: 0; height: 47px; display: flex; align-items: center; justify-content: space-between; padding: 4px 26px 0 36px; font-size: 16px; font-weight: 600; pointer-events: none; color: var(--ink); }
+.statusbar .ico { display: flex; gap: 6px; align-items: center; }
+.isla { position: absolute; z-index: 61; top: 10px; left: 50%; width: 120px; height: 34px; margin-left: -60px; border-radius: 20px; background: #000; pointer-events: none; }
+.home-ind { position: absolute; z-index: 61; bottom: 8px; left: 50%; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: var(--ink); pointer-events: none; opacity: .9; }
+
+/* ── Pantallas y navegación ────────────────────────────────────────────── */
+.screen { position: absolute; inset: 0; background: var(--bg); }
+.screen.push { z-index: 10; transform: translateX(100%); transition: transform var(--dur-sheet) var(--ease-drawer); box-shadow: -10px 0 30px rgba(18, 21, 27, .08); }
+.screen.push.in { transform: none; }
+.scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(var(--m-tabbar) + var(--hi) + 28px); scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.device.full .scroll { padding-bottom: 28px; }
+
+.nav { position: sticky; top: 0; z-index: 5; height: calc(var(--sb) + var(--m-header)); padding: var(--sb) 6px 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; background: var(--bg); transition: box-shadow .2s ease; }
+.screen.scrolled .nav { box-shadow: 0 1px 0 var(--border); }
+.nav-l { display: flex; align-items: center; justify-self: start; min-width: 0; }
+.nav-r { display: flex; align-items: center; justify-self: end; gap: 2px; }
+.nav-t { font-size: 17px; font-weight: 600; letter-spacing: -.01em; opacity: 0; transition: opacity var(--dur-pop) ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.screen.scrolled .nav-t, .nav-t.siempre { opacity: 1; }
+.nav .logo { display: flex; padding: 8px 10px; }
+.back { display: flex; align-items: center; gap: 2px; min-height: var(--touch); padding: 0 10px 0 4px; color: var(--primary-strong); font-size: 17px; font-weight: 500; }
+.back svg { transform: rotate(90deg); }
+.ib { width: var(--touch); height: var(--touch); display: grid; place-items: center; border-radius: 999px; color: var(--primary-strong); }
+.ib:active { background: var(--velo-hover); }
+
+.tg { margin: 0 20px 14px; font-size: var(--m-titulo); font-weight: 700; letter-spacing: -.025em; line-height: 1.1; text-wrap: balance; }
+
+/* Título de sección: el nombre, y a lo sumo UNA acción a la derecha. */
+.st { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 28px 20px 10px; }
+.st h2 { margin: 0; font-size: var(--fs-sect); font-weight: 600; letter-spacing: -.012em; }
+.lnk { color: var(--primary-strong); font-size: var(--fs-md); font-weight: 500; min-height: 32px; }
+.lnk:active { opacity: .6; }
+
+/* ── La lista agrupada (Ajustes de iPhone, con la tarjeta de la casa) ──── */
+.lista { margin: 0 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.lista + .lista { margin-top: 14px; }
+.fila { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 11px 14px 11px 16px; text-align: left; transition: background var(--dur-press) ease; }
+.fila + .fila::before { content: ""; position: absolute; top: 0; right: 0; left: var(--sep, 16px); border-top: 1px solid var(--border); }
+button.fila:active, .fila.tocable:active { background: var(--velo-hover); }
+.lista-av { --sep: 68px; }
+[data-plan] { --sep: 56px; }
+.tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.t { font-size: var(--fs-card); font-weight: 600; line-height: 1.3; }
+.t.n { font-weight: 500; }
+.c { font-size: var(--fs-sm); color: var(--dim); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.r { flex: none; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
+.chev { flex: none; color: var(--faint); transform: rotate(-90deg); }
+.hora { flex: none; width: 58px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.dato .k { flex: 1; color: var(--dim); font-size: var(--fs-md); }
+.dato .v { font-size: var(--fs-md); font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+.dato { min-height: 52px; }
+.azul { color: var(--primary-strong); }
+.compu { color: var(--dim); }
+.compu .ic-tile { color: var(--dim); }
+
+.av { flex: none; width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; font-size: 14.5px; font-weight: 700; letter-spacing: .02em; background: color-mix(in srgb, var(--primary) 14%, var(--surface)); color: var(--primary-strong); }
+.av-sm { width: 34px; height: 34px; font-size: 13px; }
+.av-xl { width: 88px; height: 88px; font-size: 30px; }
+.ic-tile { flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink); border: 1px solid var(--border); }
+.marca { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--mako-bg); }
+.marca.neutra { background: var(--surface-2); color: var(--dim); }
+
+/* La píldora de ESTADO: punto de color + texto en tinta. El verde y el rojo como
+   TEXTO no pasan AA a 13 px (3,45 y 4,26 sobre blanco): el color va en la marca. */
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: var(--fs-meta); font-weight: 500; color: var(--dim); white-space: nowrap; }
+.pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.pill.good i { background: var(--good); }
+.pill.warn i { background: var(--warn-fill); }
+.pill.bad i { background: var(--bad); }
+.pill.info i { background: var(--primary); }
+.punto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+
+/* ── Botones (app/_ui/ui.css, en grande) ───────────────────────────────── */
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; padding: 0 20px; border-radius: var(--r-md); border: 1px solid transparent; font-size: var(--fs-card); font-weight: 600; transition: transform var(--dur-press) var(--ease-out), background var(--dur-press) ease, opacity .2s; }
+.btn:active:not([disabled]) { transform: scale(.97); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn-p { background: var(--primary); color: var(--on-primary); font-weight: 700; }
+.btn-s { background: var(--surface); color: var(--ink); border-color: var(--border-strong); }
+.btn-t { background: transparent; color: var(--primary-strong); }
+.btn-m { background: var(--mako); color: var(--on-mako); font-weight: 700; }
+.btn-chico { width: auto; min-height: 36px; padding: 0 14px; font-size: var(--fs-sm); }
+.consec { margin: 0 0 10px; font-size: var(--fs-sm); color: var(--ink); text-align: center; line-height: 1.45; }
+.pie-fijo { position: absolute; z-index: 8; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + var(--hi)); background: var(--bg); box-shadow: 0 -1px 0 var(--border); }
+
+/* ── Control segmentado ────────────────────────────────────────────────── */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin: 0 16px; padding: 3px; border-radius: 11px; background: color-mix(in srgb, var(--ink) 7%, var(--bg)); }
+.seg button { min-height: 38px; border-radius: 9px; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(18, 21, 27, .1); }
+.seg .num { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: 12px; font-weight: 700; }
+
+/* ── Interruptor ───────────────────────────────────────────────────────── */
+.sw { position: relative; flex: none; width: 51px; height: 31px; border-radius: 999px; background: var(--border-strong); transition: background .2s ease; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface); box-shadow: 0 2px 5px rgba(18, 21, 27, .2); transition: transform .25s var(--ease-out); }
+.sw[aria-checked="true"] { background: var(--primary); }
+.sw[aria-checked="true"]::after { transform: translateX(20px); }
+
+/* ── Today ─────────────────────────────────────────────────────────────── */
+.card { margin: 0 16px; padding: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); box-shadow: 0 1px 2px rgba(18, 21, 27, .05); }
+.card-h { display: flex; align-items: center; gap: 10px; }
+.card-h h2 { margin: 0; font-size: var(--fs-sect); font-weight: 600; letter-spacing: -.012em; }
+.card p { margin: 8px 0 16px; font-size: var(--fs-md); color: var(--dim); line-height: 1.45; }
+.chk-wrap { flex: none; display: grid; place-items: center; width: var(--touch); height: var(--touch); margin: -8px -6px -8px -10px; }
+.chk { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border-strong); display: grid; place-items: center; color: transparent; transition: background .18s ease, border-color .18s ease; }
+.chk-wrap[aria-checked="true"] .chk { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.fila.hecha .t { color: var(--faint); text-decoration: line-through; }
+.trim { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.trim-l1 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.trim-l1 span { color: var(--dim); }
+.trim-l1 strong { font-size: 22px; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.barra { position: relative; height: 10px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.barra i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--good); }
+.barra b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .55; }
+.trim-l2 { display: flex; justify-content: space-between; gap: 10px; font-size: var(--fs-sm); color: var(--dim); }
+.sube { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-weight: 500; }
+.sube svg { color: var(--good); }
+.baja svg { color: var(--bad); }
+
+/* ── Búsqueda ──────────────────────────────────────────────────────────── */
+.buscar { display: flex; align-items: center; gap: 8px; margin: 0 16px; padding: 0 12px; min-height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 7%, var(--bg)); color: var(--faint); }
+.buscar input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 16px; color: var(--ink); outline: none; }
+.buscar input::placeholder { color: var(--faint); }
+
+/* ── Ficha del lead ────────────────────────────────────────────────────── */
+.ficha-h { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 4px 20px 0; text-align: center; }
+.ficha-h h1 { margin: 6px 0 0; font-size: var(--fs-page); font-weight: 700; letter-spacing: -.02em; }
+.ficha-sub { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: var(--fs-sm); flex-wrap: wrap; justify-content: center; }
+.acc3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 16px 0; }
+.acc { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 68px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); color: var(--primary-strong); font-size: var(--fs-sm); font-weight: 600; transition: transform var(--dur-press) var(--ease-out); }
+.acc:active { transform: scale(.96); }
+.nota { padding: 14px 16px; font-size: var(--fs-md); line-height: 1.5; }
+.nota small { display: block; margin-top: 4px; font-size: var(--fs-meta); color: var(--dim); }
+.grabando .t { color: var(--bad); }
+.rec { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); animation: latir 1s ease-in-out infinite; }
+@keyframes latir { 50% { opacity: .35; } }
+
+/* ── Gráfico (Dashboard) ───────────────────────────────────────────────── */
+.graf { margin: 0 16px; padding: 14px 12px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); }
+.graf-h { display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px 8px; gap: 10px; }
+.graf-h strong { font-size: var(--fs-card); font-weight: 600; }
+.graf-h span { font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
+.graf svg { display: block; width: 100%; height: auto; overflow: visible; }
+.graf .eje { fill: var(--faint); font-size: 11px; font-family: inherit; font-variant-numeric: tabular-nums; }
+.graf .grilla { stroke: var(--border); stroke-width: 1; }
+.graf .barra-d { fill: var(--primary); transition: fill .15s; }
+.graf .barra-d.sel { fill: var(--primary-strong); }
+.graf .barra-d.tenue { fill: var(--primary-weak); }
+.graf .hit { fill: transparent; cursor: pointer; }
+.delta { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
+.delta.up svg { color: var(--good); }
+.delta.down svg { color: var(--bad); }
+.vcol { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.vcol strong { font-size: var(--fs-card); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ── Ads Manager ───────────────────────────────────────────────────────── */
+.fila .pill { margin-top: 4px; align-self: flex-start; }
+.stepper { display: flex; align-items: center; justify-content: center; gap: 22px; padding: 10px 0 6px; }
+.stepper button { width: 56px; height: 56px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); font-size: 28px; font-weight: 500; color: var(--primary-strong); display: grid; place-items: center; }
+.stepper button:active { transform: scale(.94); }
+.stepper output { min-width: 150px; text-align: center; font-size: 40px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.stepper-pie { text-align: center; font-size: var(--fs-sm); color: var(--dim); margin: 0 0 6px; }
+
+/* ── Video ─────────────────────────────────────────────────────────────── */
+.cuadro { position: relative; overflow: hidden; background: linear-gradient(160deg, var(--c1, var(--cuadro-1)), var(--c2, var(--cuadro-2))); }
+.cuadro .silueta { position: absolute; left: 50%; bottom: 0; width: 70%; transform: translateX(-50%); color: var(--c3, var(--cuadro-3)); opacity: .9; }
+.miniv { flex: none; width: 46px; height: 82px; border-radius: 8px; }
+.escenario { background: var(--sidebar); padding: 16px 0 14px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.player { position: relative; width: 212px; height: 377px; border-radius: 14px; }
+.player .sub { position: absolute; left: 12px; right: 12px; bottom: 42px; text-align: center; font-size: 15px; font-weight: 700; line-height: 1.3; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); text-wrap: balance; }
+.player .play { position: absolute; left: 50%; top: 42%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 999px; display: grid; place-items: center; background: rgba(0, 0, 0, .42); color: #fff; }
+.player .prog { position: absolute; left: 12px; right: 12px; bottom: 16px; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .3); overflow: hidden; }
+.player .prog i { display: block; height: 100%; width: 0; background: #fff; }
+.player .marca-t { position: absolute; top: 10px; left: 10px; padding: 3px 8px; border-radius: 999px; background: rgba(0, 0, 0, .45); color: #fff; font-size: 12px; font-weight: 600; }
+.escenario .dur { color: var(--sidebar-text); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.tira { display: flex; gap: 8px; overflow-x: auto; padding: 14px 16px 6px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.toma { position: relative; flex: none; width: 58px; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
+.toma .cuadro { width: 58px; height: 103px; border-radius: 9px; outline: 3px solid transparent; outline-offset: 2px; transition: outline-color .15s; }
+.toma[aria-pressed="true"] .cuadro { outline-color: var(--primary); }
+.toma[aria-pressed="true"] { color: var(--ink); }
+.toma .est { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; }
+.toma[data-s="fallo"] .est { background: var(--bad); color: #fff; }
+.toma[data-s="lista"] .est { background: rgba(0, 0, 0, .45); color: #fff; }
+.toma[data-s="filmando"] .cuadro::after { content: ""; position: absolute; inset: 0; background: rgba(18, 21, 27, .5); }
+.toma[data-s="filmando"] .est { z-index: 2; }
+.giro { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, .35); border-top-color: #fff; animation: girar .9s linear infinite; }
+.giro.oscuro { border-color: color-mix(in srgb, var(--ink) 18%, transparent); border-top-color: var(--ink); }
+@keyframes girar { to { transform: rotate(360deg); } }
+.panel-toma { padding: 10px 16px 0; display: flex; flex-direction: column; gap: 12px; }
+.panel-toma-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.panel-toma-h h2 { margin: 0; font-size: var(--fs-sect); font-weight: 600; letter-spacing: -.012em; }
+.linea { width: 100%; text-align: left; padding: 14px 16px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); font-size: 18px; line-height: 1.45; font-weight: 500; }
+.linea small { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: var(--fs-sm); color: var(--primary-strong); font-weight: 500; }
+.motivo { margin: 0; font-size: var(--fs-md); color: var(--dim); }
+
+/* ── Landing ───────────────────────────────────────────────────────────── */
+.pagina { margin: 0 16px; border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--border); background: #FFFFFF; color: #12151B; }
+.secc { display: block; width: 100%; text-align: left; position: relative; padding: 20px 18px; border-bottom: 1px solid #EAECF1; cursor: pointer; }
+.secc:last-child { border-bottom: 0; }
+.secc.sel { box-shadow: inset 0 0 0 3px var(--primary); }
+.secc-hero { background: #1B2B4B; color: #FFFFFF; padding: 26px 18px; }
+.secc-hero h3 { margin: 0 0 8px; font-size: 24px; line-height: 1.15; letter-spacing: -.02em; text-wrap: balance; }
+.secc-hero p { margin: 0 0 14px; font-size: 14px; opacity: .85; }
+.secc-hero span { display: inline-block; padding: 9px 14px; border-radius: 8px; background: #F2B01E; color: #17140C; font-weight: 700; font-size: 14px; }
+.secc h4 { margin: 0 0 8px; font-size: 17px; }
+.secc ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; color: #454C57; }
+.secc blockquote { margin: 0; font-size: 15px; line-height: 1.5; font-style: italic; color: #454C57; }
+.ia-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ia-op { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 12px; border-radius: var(--r-md); border: 1px solid var(--mako-border); background: var(--mako-bg); font-size: var(--fs-sm); font-weight: 600; text-align: left; }
+.ia-op:active { transform: scale(.97); }
+.campo { display: flex; flex-direction: column; gap: 6px; }
+.campo label { font-size: var(--fs-sm); color: var(--dim); font-weight: 500; }
+.campo input, .campo textarea { width: 100%; font: inherit; font-size: 17px; line-height: 1.45; color: var(--ink); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-md); padding: 12px 14px; resize: none; }
+
+/* ── Chat de MaKo ──────────────────────────────────────────────────────── */
+.hilo { display: flex; flex-direction: column; gap: 10px; padding: 8px 16px 16px; }
+.msg-yo, .msg-mk { max-width: 82%; padding: 10px 14px; border-radius: 18px; font-size: var(--fs-md); line-height: 1.45; }
+.msg-yo { align-self: flex-end; background: var(--primary); color: var(--on-primary); border-bottom-right-radius: 6px; }
+.msg-mk { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 6px; }
+.composer { position: absolute; z-index: 8; left: 0; right: 0; bottom: calc(var(--m-tabbar) + var(--hi)); display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px; background: var(--bg); box-shadow: 0 -1px 0 var(--border); }
+.composer input { flex: 1; min-width: 0; min-height: 44px; border-radius: 22px; border: 1px solid var(--border-strong); background: var(--surface); padding: 0 16px; font: inherit; font-size: 16px; color: var(--ink); }
+.composer .ib { background: var(--surface); border: 1px solid var(--border-strong); }
+
+/* ── Mensajes de WhatsApp (sheets) ─────────────────────────────────────── */
+.msg { display: flex; flex-direction: column; gap: 6px; }
+.msg + .msg { margin-top: 16px; }
+.msg-a { font-size: var(--fs-sm); font-weight: 600; color: var(--dim); }
+.burbuja { align-self: flex-start; max-width: 92%; padding: 10px 13px; border-radius: 14px; border-top-left-radius: 4px; background: var(--wa-bubble); color: #12151B; font-size: var(--fs-md); line-height: 1.45; }
+.burbuja.suya { background: var(--surface); color: var(--ink); border: 1px solid var(--border); }
+.burbuja.mia { align-self: flex-end; border-top-left-radius: 14px; border-top-right-radius: 4px; }
+.cambio { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px; border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--border); font-size: var(--fs-card); font-weight: 600; }
+.cambio svg { transform: rotate(-90deg); color: var(--faint); }
+
+/* ── Agendar ───────────────────────────────────────────────────────────── */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button, .slots button { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); font-size: var(--fs-md); font-weight: 500; }
+.chips button[aria-pressed="true"], .slots button[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.slots button { border-radius: var(--r-md); padding: 0; font-variant-numeric: tabular-nums; }
+.subt { margin: 18px 0 10px; font-size: var(--fs-md); font-weight: 600; }
+.subt:first-child { margin-top: 0; }
+
+/* ── Barra inferior ────────────────────────────────────────────────────── */
+.tabbar { position: absolute; z-index: 20; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: var(--hi); background: var(--surface); border-top: 1px solid var(--border); transition: transform var(--dur-sheet) var(--ease-drawer); }
+.device.full .tabbar { transform: translateY(100%); }
+.tab { position: relative; height: var(--m-tabbar); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--faint); font-size: 12px; font-weight: 500; }
+.tab[aria-current="page"] { color: var(--primary); font-weight: 600; }
+.tab:active svg { transform: scale(.9); }
+.tab svg { transition: transform var(--dur-press) var(--ease-out); }
+.bdg { position: absolute; top: 4px; left: calc(50% + 5px); min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center; background: var(--primary); color: var(--on-primary); font-size: 11.5px; font-weight: 700; border: 2px solid var(--surface); font-variant-numeric: tabular-nums; }
+
+/* ── Sheet ─────────────────────────────────────────────────────────────── */
+.velo { position: absolute; z-index: 40; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity var(--dur-sheet-out) ease; }
+.velo.on { opacity: 1; pointer-events: auto; transition-duration: var(--dur-sheet); }
+.sheet { position: absolute; z-index: 41; left: 0; right: 0; bottom: 0; max-height: calc(100% - var(--sb) - 12px); display: flex; flex-direction: column; background: var(--bg); border-radius: var(--r-xl) var(--r-xl) 0 0; transform: translateY(100%); transition: transform var(--dur-sheet-out) var(--ease-out); padding-bottom: var(--hi); }
+.sheet.on { transform: none; transition: transform var(--dur-sheet) var(--ease-drawer); }
+.sheet.arrastre { transition: none; }
+.sh-tope { flex: none; padding: 8px 16px 6px; touch-action: none; cursor: grab; }
+.grabber { width: 36px; height: 5px; border-radius: 3px; margin: 0 auto 8px; background: var(--border-strong); }
+.sh-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sh-cab h2 { margin: 0; font-size: var(--fs-sect); font-weight: 600; letter-spacing: -.012em; }
+.sh-cerrar { width: 36px; height: 36px; border-radius: 999px; display: grid; place-items: center; background: color-mix(in srgb, var(--ink) 7%, var(--bg)); color: var(--dim); }
+.sh-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px 16px; }
+.sh-pie { flex: none; padding: 12px 16px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 -1px 0 var(--border); }
+.sh-scroll .lista { margin: 0; }
+
+/* ── Toast ─────────────────────────────────────────────────────────────── */
+.toast { position: absolute; z-index: 50; left: 16px; right: 16px; bottom: calc(var(--m-tabbar) + var(--hi) + 12px); display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 0 6px 0 18px; border-radius: var(--r-lg); background: var(--sidebar); color: var(--on-sidebar); font-size: var(--fs-md); font-weight: 500; opacity: 0; transform: translateY(10px); transition: opacity var(--dur-pop) ease, transform var(--dur-pop) var(--ease-out); pointer-events: none; }
+.toast.on { opacity: 1; transform: none; pointer-events: auto; }
+.device.full .toast { bottom: calc(var(--hi) + 130px); }
+.toast button { min-height: 44px; padding: 0 12px; color: var(--primary-weak); font-weight: 600; }
+
+@media (hover: hover) and (pointer: fine) {
+  button.fila:hover, .fila.tocable:hover { background: var(--velo-hover); }
+  .acc:hover, .ia-op:hover { background: color-mix(in srgb, var(--ink) 3%, var(--surface)); }
+}
+
+/* A ancho de teléfono, el prototipo ES la pantalla. */
+@media (max-width: 520px) {
+  .escena { padding: 0; display: block; }
+  .lado, .statusbar, .isla, .home-ind { display: none; }
+  .device { position: fixed; inset: 0; width: auto; height: auto; border: 0; border-radius: 0; box-shadow: none; transform: none !important; --sb: env(safe-area-inset-top, 0px); --hi: env(safe-area-inset-bottom, 0px); }
+}
+@media (max-width: 860px) and (min-width: 521px) { .lado { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .screen.push, .sheet, .sheet.on, .tabbar { transition: opacity .15s ease; }
+  .screen.push { transform: none; opacity: 0; }
+  .screen.push.in { opacity: 1; }
+  .rec, .giro { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="lg-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:var(--logo-1)"/><stop offset="100%" style="stop-color:var(--logo-2)"/></linearGradient>
+    <linearGradient id="lg-oro" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:var(--mako-lite)"/><stop offset="100%" style="stop-color:var(--mako)"/></linearGradient>
+    <!-- El logo REAL: MakoLogo de app/_components/MakoBrand.tsx (insignia oscura + chispa dorada) -->
+    <symbol id="logo" viewBox="0 0 48 48">
+      <rect x="1.5" y="1.5" width="45" height="45" rx="13" fill="url(#lg-bg)" style="stroke:var(--mako)" stroke-opacity=".35" stroke-width="1"/>
+      <g transform="translate(24 24) scale(1.55)"><path d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z" fill="url(#lg-oro)"/></g>
+    </symbol>
+    <!-- MakoStar quieta: la marca de «esto lo hizo/propone MaKo» -->
+    <symbol id="estrella" viewBox="-12 -12 24 24">
+      <path d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z" fill="url(#lg-oro)"/>
+      <circle cx="8.5" cy="-8.5" r="1.6" fill="url(#lg-oro)" opacity=".55"/>
+    </symbol>
+    <!-- Íconos del set de la casa (app/_components/icons.tsx y app/_ui/iconos-menu.tsx), trazo 1.85 -->
+    <symbol id="i-today" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a8 8 0 0 1 16 0"/><path d="M12 15l4.2-3.4"/><circle cx="12" cy="15" r="1.1"/><path d="M4.2 15H5.6M18.4 15h1.4M12 7.2V5.6"/></symbol>
+    <symbol id="i-crm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.2a3 3 0 0 1 0 5.6"/><path d="M17.5 14.2A5.5 5.5 0 0 1 21.5 20"/></symbol>
+    <!-- NUEVO para el set: «bandeja» (Inbox). Mismo trazo y radio que el resto. -->
+    <symbol id="i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5 6 5.5h12l2.5 8"/><path d="M3.5 13.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5v-4.5h-5.2a3.3 3.3 0 0 1-6.6 0Z"/></symbol>
+    <symbol id="i-plan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="4.2" y="3.4" width="15.6" height="17.2" rx="2.6"/><path d="M6.9 7.6l1.2 1.2 2.3-2.7"/><path d="M6.9 12l1.2 1.2 2.3-2.7"/><path d="M6.9 16.4l1.2 1.2 2.3-2.7"/><path d="M12.9 7.4h4.5M12.9 11.8h4.5M12.9 16.2h4.5"/></symbol>
+    <!-- «mas» de iconos-menu, con los puntos rellenos para que se lean a 24 px -->
+    <symbol id="i-more" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18.5" cy="12" r="1.9"/></symbol>
+    <symbol id="i-graphics" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="5" width="4" height="15" rx="1"/><rect x="17" y="9" width="4" height="11" rx="1"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9h17"/><path d="M3.5 14h17"/><path d="M9 9v10.5"/><path d="M15 9v10.5"/></symbol>
+    <symbol id="i-cs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8 14a5 5 0 0 0 8 0"/><path d="M9 9.7h.01"/><path d="M15 9.7h.01"/></symbol>
+    <symbol id="i-chatbot" viewBox="0 0 24 24"><g fill="currentColor" stroke="none" transform="translate(1.981 1.993) scale(0.013)">
+    <path fill-rule="nonzero" d="M 1407 389 L 1321 357 C 1277 341 1241 306 1225 261 L 1194 176 C 1189 164 1172 164 1167 176 L 1136 261 C 1120 306 1085 341 1040 357 L 955 389 C 942 393 942 411 955 415 L 1040 446 C 1085 463 1120 498 1136 542 L 1167 628 C 1172 640 1189 640 1194 628 L 1225 542 C 1241 498 1277 463 1321 446 L 1407 415 C 1419 411 1419 393 1407 389 Z M 1407 389 " />
+    <path fill-rule="nonzero" d="M 1495 260 L 1466 250 C 1450 244 1438 232 1432 216 L 1421 186 C 1419 182 1413 182 1412 186 L 1401 216 C 1395 232 1383 244 1367 250 L 1338 260 C 1333 262 1333 268 1338 270 L 1367 281 C 1383 286 1395 299 1401 314 L 1412 344 C 1413 348 1419 348 1421 344 L 1432 314 C 1438 299 1450 286 1466 281 L 1495 270 C 1500 268 1500 262 1495 260 Z M 1495 260 " />
+    <path fill-rule="nonzero" d="M 1343 164 L 1323 156 C 1313 153 1305 145 1301 134 L 1294 115 C 1293 112 1289 112 1288 115 L 1281 134 C 1277 145 1269 153 1259 156 L 1239 164 C 1236 165 1236 169 1239 170 L 1259 177 C 1269 181 1277 189 1281 199 L 1288 219 C 1289 222 1293 222 1294 219 L 1301 199 C 1305 189 1313 181 1323 177 L 1343 170 C 1346 169 1346 165 1343 164 Z M 1343 164 " />
+    <path fill-rule="nonzero" d="M 1284 638 C 1271 638 1260 649 1260 662 L 1260 968 C 1260 1081 1186 1173 1095 1173 L 379 1173 L 188 1318 L 194 1172 L 176 1167 C 101 1145 49 1063 49 967 L 49 552 C 49 439 123 347 214 347 L 906 347 C 919 347 930 336 930 323 C 930 310 919 299 906 299 L 214 299 C 97 299 1 412 1 552 L 1 967 C 1 1076 60 1172 145 1207 L 138 1372 L 146 1380 C 148 1381 152 1384 158 1386 C 160 1387 163 1388 166 1388 C 172 1388 178 1385 183 1382 L 395 1220 L 1095 1220 C 1212 1220 1308 1107 1308 967 L 1308 662 C 1308 649 1297 638 1284 638 Z M 1284 638 " />
+    <path fill-rule="nonzero" d="M 385 746 C 385 748 385 749 385 751 C 385 752 384 754 384 755 C 384 756 384 758 384 759 C 384 761 383 762 383 764 C 383 765 382 766 382 768 C 382 769 381 771 381 772 C 380 773 380 775 380 776 C 379 777 379 779 378 780 C 377 781 377 783 376 784 C 376 785 375 787 374 788 C 374 789 373 790 372 792 C 371 793 371 794 370 795 C 369 797 368 798 367 799 C 366 800 366 801 365 802 C 364 803 363 804 362 806 C 361 807 360 808 359 809 C 358 810 357 811 356 812 C 355 813 354 814 352 814 C 351 815 350 816 349 817 C 348 818 347 819 346 820 C 344 820 343 821 342 822 C 341 823 339 823 338 824 C 337 825 336 825 334 826 C 333 827 332 827 330 828 C 329 828 328 829 326 829 C 325 830 324 830 322 831 C 321 831 319 831 318 832 C 317 832 315 833 314 833 C 312 833 311 833 310 834 C 308 834 307 834 305 834 C 304 834 302 834 301 834 C 299 834 298 834 297 834 C 295 834 294 834 292 834 C 291 834 289 834 288 834 C 287 834 285 834 284 834 C 282 833 281 833 279 833 C 278 833 277 832 275 832 C 274 831 272 831 271 831 C 270 830 268 830 267 829 C 266 829 264 828 263 828 C 262 827 260 827 259 826 C 258 825 256 825 255 824 C 254 823 253 823 251 822 C 250 821 249 820 248 820 C 246 819 245 818 244 817 C 243 816 242 815 241 814 C 240 814 239 813 237 812 C 236 811 235 810 234 809 C 233 808 232 807 231 806 C 230 804 229 803 229 802 C 228 801 227 800 226 799 C 225 798 224 797 223 795 C 223 794 222 793 221 792 C 220 790 220 789 219 788 C 218 787 218 785 217 784 C 216 783 216 781 215 780 C 215 779 214 777 214 776 C 213 775 213 773 212 772 C 212 771 212 769 211 768 C 211 766 211 765 210 764 C 210 762 210 761 209 759 C 209 758 209 756 209 755 C 209 754 209 752 209 751 C 209 749 209 748 209 746 C 209 745 209 744 209 742 C 209 741 209 739 209 738 C 209 736 209 735 209 733 C 210 732 210 731 210 729 C 211 728 211 726 211 725 C 212 724 212 722 212 721 C 213 719 213 718 214 717 C 214 715 215 714 215 713 C 216 711 216 710 217 709 C 218 707 218 706 219 705 C 220 704 220 702 221 701 C 222 700 223 699 223 697 C 224 696 225 695 226 694 C 227 693 228 692 229 691 C 229 689 230 688 231 687 C 232 686 233 685 234 684 C 235 683 236 682 237 681 C 239 680 240 679 241 678 C 242 677 243 677 244 676 C 245 675 246 674 248 673 C 249 672 250 672 251 671 C 253 670 254 669 255 669 C 256 668 258 667 259 667 C 260 666 262 666 263 665 C 264 664 266 664 267 663 C 268 663 270 663 271 662 C 272 662 274 661 275 661 C 277 661 278 660 279 660 C 281 660 282 659 284 659 C 285 659 287 659 288 659 C 289 659 291 659 292 658 C 294 658 295 658 297 658 C 298 658 299 658 301 658 C 302 659 304 659 305 659 C 307 659 308 659 310 659 C 311 659 312 660 314 660 C 315 660 317 661 318 661 C 319 661 321 662 322 662 C 324 663 325 663 326 663 C 328 664 329 664 330 665 C 332 666 333 666 334 667 C 336 667 337 668 338 669 C 339 669 341 670 342 671 C 343 672 344 672 346 673 C 347 674 348 675 349 676 C 350 677 351 677 352 678 C 354 679 355 680 356 681 C 357 682 358 683 359 684 C 360 685 361 686 362 687 C 363 688 364 689 365 691 C 366 692 366 693 367 694 C 368 695 369 696 370 697 C 371 699 371 700 372 701 C 373 702 374 704 374 705 C 375 706 376 707 376 709 C 377 710 377 711 378 713 C 379 714 379 715 380 717 C 380 718 380 719 381 721 C 381 722 382 724 382 725 C 382 726 383 728 383 729 C 383 731 384 732 384 733 C 384 735 384 736 384 738 C 384 739 385 741 385 742 C 385 744 385 745 385 746 Z M 385 746 " />
+    <path fill-rule="nonzero" d="M 750 746 C 750 748 750 749 750 751 C 750 752 750 754 750 755 C 749 756 749 758 749 759 C 749 761 749 762 748 764 C 748 765 748 766 747 768 C 747 769 747 771 746 772 C 746 773 745 775 745 776 C 744 777 744 779 743 780 C 743 781 742 783 742 784 C 741 785 740 787 740 788 C 739 789 738 790 738 792 C 737 793 736 794 735 795 C 734 797 734 798 733 799 C 732 800 731 801 730 802 C 729 803 728 804 727 806 C 726 807 725 808 724 809 C 723 810 722 811 721 812 C 720 813 719 814 718 814 C 717 815 716 816 714 817 C 713 818 712 819 711 820 C 710 820 708 821 707 822 C 706 823 705 823 703 824 C 702 825 701 825 700 826 C 698 827 697 827 696 828 C 694 828 693 829 692 829 C 690 830 689 830 688 831 C 686 831 685 831 683 832 C 682 832 681 833 679 833 C 678 833 676 833 675 834 C 673 834 672 834 671 834 C 669 834 668 834 666 834 C 665 834 663 834 662 834 C 661 834 659 834 658 834 C 656 834 655 834 653 834 C 652 834 650 834 649 834 C 648 833 646 833 645 833 C 643 833 642 832 641 832 C 639 831 638 831 636 831 C 635 830 634 830 632 829 C 631 829 630 828 628 828 C 627 827 626 827 624 826 C 623 825 622 825 620 824 C 619 823 618 823 617 822 C 615 821 614 820 613 820 C 612 819 611 818 609 817 C 608 816 607 815 606 814 C 605 814 604 813 603 812 C 602 811 601 810 600 809 C 599 808 598 807 597 806 C 596 804 595 803 594 802 C 593 801 592 800 591 799 C 590 798 590 797 589 795 C 588 794 587 793 586 792 C 586 790 585 789 584 788 C 584 787 583 785 582 784 C 582 783 581 781 581 780 C 580 779 580 777 579 776 C 579 775 578 773 578 772 C 577 771 577 769 577 768 C 576 766 576 765 576 764 C 575 762 575 761 575 759 C 575 758 574 756 574 755 C 574 754 574 752 574 751 C 574 749 574 748 574 746 C 574 745 574 744 574 742 C 574 741 574 739 574 738 C 574 736 575 735 575 733 C 575 732 575 731 576 729 C 576 728 576 726 577 725 C 577 724 577 722 578 721 C 578 719 579 718 579 717 C 580 715 580 714 581 713 C 581 711 582 710 582 709 C 583 707 584 706 584 705 C 585 704 586 702 586 701 C 587 700 588 699 589 697 C 590 696 590 695 591 694 C 592 693 593 692 594 691 C 595 689 596 688 597 687 C 598 686 599 685 600 684 C 601 683 602 682 603 681 C 604 680 605 679 606 678 C 607 677 608 677 609 676 C 611 675 612 674 613 673 C 614 672 615 672 617 671 C 618 670 619 669 620 669 C 622 668 623 667 624 667 C 626 666 627 666 628 665 C 630 664 631 664 632 663 C 634 663 635 663 636 662 C 638 662 639 661 641 661 C 642 661 643 660 645 660 C 646 660 648 659 649 659 C 650 659 652 659 653 659 C 655 659 656 659 658 658 C 659 658 661 658 662 658 C 663 658 665 658 666 658 C 668 659 669 659 671 659 C 672 659 673 659 675 659 C 676 659 678 660 679 660 C 681 660 682 661 683 661 C 685 661 686 662 688 662 C 689 663 690 663 692 663 C 693 664 694 664 696 665 C 697 666 698 666 700 667 C 701 667 702 668 703 669 C 705 669 706 670 707 671 C 708 672 710 672 711 673 C 712 674 713 675 714 676 C 716 677 717 677 718 678 C 719 679 720 680 721 681 C 722 682 723 683 724 684 C 725 685 726 686 727 687 C 728 688 729 689 730 691 C 731 692 732 693 733 694 C 734 695 734 696 735 697 C 736 699 737 700 738 701 C 738 702 739 704 740 705 C 740 706 741 707 742 709 C 742 710 743 711 743 713 C 744 714 744 715 745 717 C 745 718 746 719 746 721 C 747 722 747 724 747 725 C 748 726 748 728 748 729 C 749 731 749 732 749 733 C 749 735 749 736 750 738 C 750 739 750 741 750 742 C 750 744 750 745 750 746 Z M 750 746 " />
+    <path fill-rule="nonzero" d="M 1126 746 C 1126 748 1126 749 1125 751 C 1125 752 1125 754 1125 755 C 1125 756 1125 758 1125 759 C 1124 761 1124 762 1124 764 C 1124 765 1123 766 1123 768 C 1123 769 1122 771 1122 772 C 1121 773 1121 775 1120 776 C 1120 777 1119 779 1119 780 C 1118 781 1118 783 1117 784 C 1117 785 1116 787 1115 788 C 1114 789 1114 790 1113 792 C 1112 793 1112 794 1111 795 C 1110 797 1109 798 1108 799 C 1107 800 1106 801 1106 802 C 1105 803 1104 804 1103 806 C 1102 807 1101 808 1100 809 C 1099 810 1098 811 1097 812 C 1096 813 1094 814 1093 814 C 1092 815 1091 816 1090 817 C 1089 818 1088 819 1086 820 C 1085 820 1084 821 1083 822 C 1082 823 1080 823 1079 824 C 1078 825 1076 825 1075 826 C 1074 827 1073 827 1071 828 C 1070 828 1069 829 1067 829 C 1066 830 1064 830 1063 831 C 1062 831 1060 831 1059 832 C 1058 832 1056 833 1055 833 C 1053 833 1052 833 1050 834 C 1049 834 1048 834 1046 834 C 1045 834 1043 834 1042 834 C 1040 834 1039 834 1037 834 C 1036 834 1035 834 1033 834 C 1032 834 1030 834 1029 834 C 1027 834 1026 834 1025 834 C 1023 833 1022 833 1020 833 C 1019 833 1017 832 1016 832 C 1015 831 1013 831 1012 831 C 1011 830 1009 830 1008 829 C 1006 829 1005 828 1004 828 C 1002 827 1001 827 1000 826 C 999 825 997 825 996 824 C 995 823 993 823 992 822 C 991 821 990 820 989 820 C 987 819 986 818 985 817 C 984 816 983 815 982 814 C 981 814 979 813 978 812 C 977 811 976 810 975 809 C 974 808 973 807 972 806 C 971 804 970 803 969 802 C 969 801 968 800 967 799 C 966 798 965 797 964 795 C 963 794 963 793 962 792 C 961 790 961 789 960 788 C 959 787 958 785 958 784 C 957 783 957 781 956 780 C 956 779 955 777 955 776 C 954 775 954 773 953 772 C 953 771 952 769 952 768 C 952 766 951 765 951 764 C 951 762 951 761 950 759 C 950 758 950 756 950 755 C 950 754 950 752 950 751 C 949 749 949 748 949 746 C 949 745 949 744 950 742 C 950 741 950 739 950 738 C 950 736 950 735 950 733 C 951 732 951 731 951 729 C 951 728 952 726 952 725 C 952 724 953 722 953 721 C 954 719 954 718 955 717 C 955 715 956 714 956 713 C 957 711 957 710 958 709 C 958 707 959 706 960 705 C 961 704 961 702 962 701 C 963 700 963 699 964 697 C 965 696 966 695 967 694 C 968 693 969 692 969 691 C 970 689 971 688 972 687 C 973 686 974 685 975 684 C 976 683 977 682 978 681 C 979 680 981 679 982 678 C 983 677 984 677 985 676 C 986 675 987 674 989 673 C 990 672 991 672 992 671 C 993 670 995 669 996 669 C 997 668 999 667 1000 667 C 1001 666 1002 666 1004 665 C 1005 664 1006 664 1008 663 C 1009 663 1011 663 1012 662 C 1013 662 1015 661 1016 661 C 1017 661 1019 660 1020 660 C 1022 660 1023 659 1025 659 C 1026 659 1027 659 1029 659 C 1030 659 1032 659 1033 658 C 1035 658 1036 658 1037 658 C 1039 658 1040 658 1042 658 C 1043 659 1045 659 1046 659 C 1048 659 1049 659 1050 659 C 1052 659 1053 660 1055 660 C 1056 660 1058 661 1059 661 C 1060 661 1062 662 1063 662 C 1064 663 1066 663 1067 663 C 1069 664 1070 664 1071 665 C 1073 666 1074 666 1075 667 C 1076 667 1078 668 1079 669 C 1080 669 1082 670 1083 671 C 1084 672 1085 672 1086 673 C 1088 674 1089 675 1090 676 C 1091 677 1092 677 1093 678 C 1094 679 1096 680 1097 681 C 1098 682 1099 683 1100 684 C 1101 685 1102 686 1103 687 C 1104 688 1105 689 1106 691 C 1106 692 1107 693 1108 694 C 1109 695 1110 696 1111 697 C 1112 699 1112 700 1113 701 C 1114 702 1114 704 1115 705 C 1116 706 1117 707 1117 709 C 1118 710 1118 711 1119 713 C 1119 714 1120 715 1120 717 C 1121 718 1121 719 1122 721 C 1122 722 1123 724 1123 725 C 1123 726 1124 728 1124 729 C 1124 731 1124 732 1125 733 C 1125 735 1125 736 1125 738 C 1125 739 1125 741 1125 742 C 1126 744 1126 745 1126 746 Z M 1126 746 " />
+  </g></symbol>
+    <symbol id="i-videogen" viewBox="0 0 24 24"><g fill="currentColor" stroke="none" transform="translate(2 2) scale(0.013)">
+    <path fill-rule="nonzero" d="M 1099 1500 L 257 1500 C 154 1500 69 1416 69 1312 L 69 471 C 69 367 154 283 257 283 L 706 283 C 721 283 734 295 734 311 C 734 326 721 338 706 338 L 257 338 C 185 338 125 398 125 471 L 125 1312 C 125 1385 185 1444 257 1444 L 1099 1444 C 1172 1444 1231 1385 1231 1312 L 1231 774 C 1231 759 1243 746 1259 746 C 1274 746 1287 759 1287 774 L 1287 1312 C 1287 1416 1202 1500 1099 1500 Z M 1099 1500 " />
+    <path fill-rule="nonzero" d="M 1277 167 C 1210 187 1157 240 1136 307 C 1134 316 1122 316 1119 307 C 1099 240 1046 187 978 167 C 970 164 970 152 978 149 C 1046 129 1099 76 1119 9 C 1122 0 1134 0 1136 9 C 1157 76 1210 129 1277 149 C 1286 152 1286 164 1277 167 Z M 1277 167 " />
+    <path fill-rule="nonzero" d="M 983 465 C 949 478 922 505 909 539 C 906 547 895 547 892 539 C 879 505 852 478 818 465 C 810 462 810 451 818 448 C 852 435 879 408 892 373 C 895 366 906 366 909 373 C 922 408 949 435 983 448 C 991 451 991 462 983 465 Z M 983 465 " />
+    <path fill-rule="nonzero" d="M 1422 563 C 1374 580 1335 618 1319 666 C 1316 675 1305 675 1302 666 C 1285 618 1247 579 1199 563 C 1190 560 1190 548 1199 546 C 1247 529 1285 491 1302 443 C 1305 434 1316 434 1319 443 C 1336 491 1374 529 1422 546 C 1431 548 1431 560 1422 563 Z M 1422 563 " />
+    <path fill-rule="nonzero" d="M 559 1172 C 548 1172 538 1169 528 1164 C 507 1152 494 1131 494 1107 L 494 700 C 494 676 507 654 528 643 C 549 631 574 632 594 645 L 906 849 C 925 861 936 881 936 903 C 936 925 925 945 906 957 L 594 1161 C 584 1168 571 1172 559 1172 Z M 559 691 C 557 691 556 691 555 692 C 553 693 550 695 550 700 L 550 1107 C 550 1111 553 1114 555 1115 C 556 1116 560 1117 564 1114 L 876 911 C 879 908 880 905 880 903 C 880 901 879 898 876 896 L 564 692 C 562 691 560 691 559 691 Z M 559 691 " />
+  </g></symbol>
+    <symbol id="i-web" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M4.6 7.2h14.8M4.6 16.8h14.8"/><path d="M12 3v18"/><path d="M12 3a5 9 0 0 0 0 18 5 9 0 0 0 0-18Z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M14.8 3.6a5.7 5.7 0 1 0 0 11.4 5.7 5.7 0 0 0 0-11.4Zm0 2.5a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Z"/><path d="M10.8 13.2 5.4 18.6" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" fill="none"/></g></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5 12 15l5.5-5.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5-11-6.5Z"/></symbol>
+    <symbol id="i-pausa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M9 5.5v13M15 5.5v13"/></symbol>
+    <symbol id="i-regen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></symbol>
+    <symbol id="i-wa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8 8 0 0 1-11.7 7.1L4 20l1.5-5.2A8 8 0 1 1 21 11.5Z"/></symbol>
+    <symbol id="i-tel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h3.5l1.8 4.5-2.3 1.4a10.5 10.5 0 0 0 6.1 6.1l1.4-2.3L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5A16 16 0 0 1 3.5 5.6 1.5 1.5 0 0 1 5 4Z"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.8" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3.2"/></symbol>
+    <symbol id="i-filtro" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16l-6.2 7.3v5.2l-3.6 1.8v-7L4 5.5Z"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l3.6-.9L18.2 8.5 15.5 5.8 4.9 16.4 4 20Z"/><path d="M14 7.3 16.7 10"/></symbol>
+    <symbol id="i-bajar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 20h14"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+    <symbol id="i-enviar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 3.5 10 14"/><path d="M20.5 3.5 14 20.5l-4-6.5-6.5-4 17-6.5Z"/></symbol>
+    <symbol id="i-dinero" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M14.6 9.4c-.4-.9-1.4-1.4-2.6-1.4-1.5 0-2.6.8-2.6 2s1.1 1.6 2.6 2 2.6.8 2.6 2-1.1 2-2.6 2c-1.2 0-2.2-.5-2.6-1.4M12 6.5V8M12 16v1.5"/></symbol>
+    <symbol id="i-reloj" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3.1"/></symbol>
+    <symbol id="i-flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m6 11 6-6 6 6"/></symbol>
+    <!-- NUEVO para el set: «computadora». Para lo que queda en escritorio. -->
+    <symbol id="i-compu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/></symbol>
+    <symbol id="i-perfil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+    <symbol id="silueta" viewBox="0 0 100 90"><circle cx="50" cy="30" r="20" fill="currentColor"/><path d="M8 90c2-24 20-38 42-38s40 14 42 38Z" fill="currentColor"/></symbol>
+  </defs>
+</svg>
+
+<div class="escena">
+  <aside class="lado">
+    <div class="lado-marca"><svg width="32" height="32"><use href="#logo"/></svg>MaKo Mobile</div>
+    <p class="lado-nota">Prototipo v2. Los datos son de ejemplo.</p>
+    <div class="lado-ir" id="lado-ir">
+      <button data-ir="today">Today</button>
+      <button data-ir="inbox">Inbox</button>
+      <button data-ir="crm">CRM</button>
+      <button data-ir="ficha">Ficha</button>
+      <button data-ir="plan">Plan</button>
+      <button data-ir="more">More</button>
+      <button data-ir="dashboard">Dashboard</button>
+      <button data-ir="ads">Ads Manager</button>
+      <button data-ir="cs">Customer Success</button>
+      <button data-ir="auto">Automations</button>
+      <button data-ir="editor">Video</button>
+      <button data-ir="landing-ed">Landing</button>
+    </div>
+  </aside>
+
+  <div class="marco-wrap" id="marco-wrap">
+  <div class="device" id="device">
+    <div class="isla"></div>
+    <div class="statusbar"><span>9:41</span><span class="ico">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.2-1.2A10.2 10.2 0 0 0 8 .5 10.2 10.2 0 0 0 .8 3.4L2 4.6a8.6 8.6 0 0 1 6-2.4Zm0 3.3c1.4 0 2.6.5 3.6 1.4l1.2-1.2A6.8 6.8 0 0 0 8 3.8 6.8 6.8 0 0 0 3.2 5.7l1.2 1.2c1-.9 2.2-1.4 3.6-1.4Zm0 3.3c.5 0 1 .2 1.3.5L8 10.6 6.7 9.3c.3-.3.8-.5 1.3-.5Z"/></svg>
+      <svg width="27" height="13" viewBox="0 0 27 13" fill="none"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="18" height="9" rx="2" fill="currentColor"/><path d="M25 4.5v4a2 2 0 0 0 0-4Z" fill="currentColor" opacity=".5"/></svg>
+    </span></div>
+
+    <!-- ═══════════════════════════ TODAY ═══════════════════════════ -->
+    <section class="screen" id="today" data-tab="today">
+      <div class="scroll">
+        <header class="nav">
+          <div class="nav-l"><span class="logo" role="img" aria-label="MaKo"><svg width="28" height="28"><use href="#logo"/></svg></span></div>
+          <div class="nav-t">Today</div>
+          <div class="nav-r"><button class="ib" data-sheet="cuenta" aria-label="Tu cuenta"><span class="av av-sm">SH</span></button></div>
+        </header>
+        <h1 class="tg">Today</h1>
+
+        <article class="card" id="card-seg">
+          <div class="card-h"><svg width="20" height="20"><use href="#estrella"/></svg><h2>Enviar 3 seguimientos</h2></div>
+          <p>Daniela, Rodrigo y Valeria no contestan desde el martes.</p>
+          <button class="btn btn-p" data-sheet="seguimientos">Revisar los mensajes</button>
+        </article>
+
+        <div class="st"><h2>Reuniones</h2></div>
+        <div class="lista">
+          <button class="fila" data-open="ficha" data-lead="camila"><span class="hora">10:30</span><span class="tx"><span class="t">Camila Rivas</span><span class="c">Primera llamada</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-open="ficha" data-lead="andres"><span class="hora">16:00</span><span class="tx"><span class="t">Andrés Peña</span><span class="c">Segunda llamada</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+        </div>
+
+        <div class="st"><h2>Para hoy</h2><button class="lnk" data-tabgo="plan">Ver el plan</button></div>
+        <div class="lista" data-plan="hoy" data-tope="3"></div>
+
+        <div class="st"><h2>Trimestre</h2></div>
+        <div class="lista">
+          <div class="trim">
+            <div class="trim-l1"><span>Cobrado · Q4</span><strong>US$ 6.000</strong></div>
+            <div class="barra" role="img" aria-label="13 % de la meta, con el 12 % del trimestre corrido"><i style="width:13.3%"></i><b style="left:12%"></b></div>
+            <div class="trim-l2"><span>Meta US$ 45.000</span><span class="sube"><svg width="14" height="14"><use href="#i-flecha"/></svg>US$ 620 arriba</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ INBOX ═══════════════════════════ -->
+    <section class="screen" id="inbox" data-tab="inbox" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"></div><div class="nav-t">Inbox</div><div class="nav-r"></div></header>
+        <h1 class="tg">Inbox</h1>
+        <div class="seg" role="group" aria-label="Vista" data-seg="inbox">
+          <button aria-pressed="true" data-v="decidir">Para decidir<span class="num" id="num-decidir">3</span></button>
+          <button aria-pressed="false" data-v="avisos">Avisos</button>
+        </div>
+        <div style="height:16px"></div>
+        <div class="lista lista-av" id="inbox-decidir">
+          <button class="fila" data-sheet="seguimientos" data-item="seg"><span class="marca"><svg width="20" height="20"><use href="#estrella"/></svg></span><span class="tx"><span class="t">Enviar 3 seguimientos</span><span class="c">WhatsApp · 3 leads</span></span><span class="r">9:40</span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-sheet="ganado" data-item="gan"><span class="marca"><svg width="20" height="20"><use href="#estrella"/></svg></span><span class="tx"><span class="t">Jorge Méndez pagó</span><span class="c">Pasarlo a Ganado · US$ 1.500</span></span><span class="r">8:15</span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-sheet="tareas" data-item="tar"><span class="marca neutra"><svg width="20" height="20"><use href="#i-plan"/></svg></span><span class="tx"><span class="t">4 tareas de la reunión</span><span class="c">Reunión del jueves</span></span><span class="r">ayer</span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+        </div>
+        <p class="consec" id="inbox-vacio" hidden style="margin:40px 24px;color:var(--dim)">Nada para decidir.</p>
+        <div class="lista lista-av" id="inbox-avisos" hidden>
+          <button class="fila" data-open="ficha" data-lead="paola"><span class="av">PG</span><span class="tx"><span class="t n">Nuevo lead: Paola Guzmán</span><span class="c">Formulario · Clase gratis</span></span><span class="r">8:12</span></button>
+          <button class="fila" data-open="ficha" data-lead="camila"><span class="av">CR</span><span class="tx"><span class="t n">Camila Rivas agendó</span><span class="c">Hoy, 10:30</span></span><span class="r">ayer</span></button>
+          <div class="fila"><span class="marca neutra"><svg width="20" height="20"><use href="#i-dinero"/></svg></span><span class="tx"><span class="t n">Pago de Héctor Ruiz</span><span class="c">US$ 500 · cuota 1 de 3</span></span><span class="r">ayer</span></div>
+          <button class="fila" data-open="ads"><span class="marca neutra"><svg width="20" height="20"><use href="#i-grid"/></svg></span><span class="tx"><span class="t n">Un anuncio no entrega</span><span class="c">Ventas 360 · Clase gratis</span></span><span class="r">lun</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ CRM ═══════════════════════════ -->
+    <section class="screen" id="crm" data-tab="crm" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"></div><div class="nav-t">CRM</div><div class="nav-r"><button class="ib" data-sheet="filtro" aria-label="Filtrar por etapa"><svg width="22" height="22"><use href="#i-filtro"/></svg></button></div></header>
+        <h1 class="tg">CRM</h1>
+        <label class="buscar"><svg width="18" height="18"><use href="#i-search"/></svg><input id="q-crm" type="search" placeholder="Buscar" aria-label="Buscar un lead" enterkeyhint="search" autocomplete="off"></label>
+        <div id="crm-listas">
+          <div class="st"><h2>Hoy</h2></div>
+          <div class="lista lista-av">
+            <button class="fila" data-open="ficha" data-lead="camila"><span class="av">CR</span><span class="tx"><span class="t">Camila Rivas</span><span class="c">Primera llamada</span></span><span class="r">10:30</span></button>
+            <button class="fila" data-open="ficha" data-lead="andres"><span class="av">AP</span><span class="tx"><span class="t">Andrés Peña</span><span class="c">Segunda llamada</span></span><span class="r">16:00</span></button>
+          </div>
+          <div class="st"><h2>Por responder</h2></div>
+          <div class="lista lista-av">
+            <button class="fila" data-open="ficha" data-lead="mariana"><span class="av">MS</span><span class="tx"><span class="t">Mariana Solís</span><span class="c">¿Tienen pagos en cuotas?</span></span><span class="r">12 min</span></button>
+            <button class="fila" data-open="ficha" data-lead="ivan"><span class="av">IC</span><span class="tx"><span class="t">Iván Castro</span><span class="c">Ok, lo veo hoy</span></span><span class="r">1 h</span></button>
+          </div>
+          <div class="st"><h2>Nuevos</h2></div>
+          <div class="lista lista-av">
+            <button class="fila" data-open="ficha" data-lead="paola"><span class="av">PG</span><span class="tx"><span class="t">Paola Guzmán</span><span class="c">Formulario · Clase gratis</span></span><span class="r">8:12</span></button>
+            <button class="fila" data-open="ficha" data-lead="natalia"><span class="av">NI</span><span class="tx"><span class="t">Natalia Ibarra</span><span class="c">Anuncio · Caso de éxito</span></span><span class="r">ayer</span></button>
+            <button class="fila" data-open="ficha" data-lead="ricardo"><span class="av">RL</span><span class="tx"><span class="t">Ricardo Luna</span><span class="c">Formulario · Clase gratis</span></span><span class="r">ayer</span></button>
+          </div>
+        </div>
+        <p class="consec" id="crm-nada" hidden style="margin:40px 24px;color:var(--dim)">Ningún lead con ese nombre.</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ PLAN ═══════════════════════════ -->
+    <section class="screen" id="plan" data-tab="plan" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"></div><div class="nav-t">Plan</div><div class="nav-r"></div></header>
+        <h1 class="tg">Plan</h1>
+        <div class="seg" role="group" aria-label="Vista" data-seg="plan">
+          <button aria-pressed="true" data-v="hoy">Hoy</button>
+          <button aria-pressed="false" data-v="semana">Semana</button>
+          <button aria-pressed="false" data-v="prio">Prioridades</button>
+        </div>
+        <div style="height:16px"></div>
+        <div class="lista" data-plan="hoy" id="plan-lista"></div>
+        <div class="lista" style="margin-top:22px"><button class="fila compu" data-toast="Se abre en la computadora"><span class="ic-tile"><svg width="18" height="18"><use href="#i-compu"/></svg></span><span class="tx"><span class="t n">Tablero y proyectos</span><span class="c">En la computadora</span></span></button></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ MORE ═══════════════════════════ -->
+    <section class="screen" id="more" data-tab="more" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"></div><div class="nav-t">More</div><div class="nav-r"></div></header>
+        <h1 class="tg">More</h1>
+        <div class="lista">
+          <button class="fila" data-sheet="cuenta" style="min-height:76px"><span class="av" style="width:52px;height:52px;font-size:18px">SH</span><span class="tx"><span class="t">Sofía Herrera</span><span class="c">Academia Brío</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+        </div>
+        <div class="lista" style="--sep:60px">
+          <button class="fila" data-open="dashboard"><span class="ic-tile"><svg width="18" height="18"><use href="#i-graphics"/></svg></span><span class="tx"><span class="t n">Dashboard</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-open="ads"><span class="ic-tile"><svg width="18" height="18"><use href="#i-grid"/></svg></span><span class="tx"><span class="t n">Ads Manager</span></span><span class="bdg" style="position:static;border:0">1</span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-open="cs"><span class="ic-tile"><svg width="18" height="18"><use href="#i-cs"/></svg></span><span class="tx"><span class="t n">Customer Success</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-open="auto"><span class="ic-tile"><svg width="18" height="18"><use href="#i-chatbot"/></svg></span><span class="tx"><span class="t n">Automations</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+        </div>
+        <div class="lista" style="--sep:60px">
+          <button class="fila" data-open="video"><span class="ic-tile"><svg width="18" height="18"><use href="#i-videogen"/></svg></span><span class="tx"><span class="t n">Video Generator</span></span><span class="bdg" style="position:static;border:0" id="bdg-video">1</span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-open="landing"><span class="ic-tile"><svg width="18" height="18"><use href="#i-web"/></svg></span><span class="tx"><span class="t n">Landing Generator</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+        </div>
+        <div class="lista" style="--sep:60px">
+          <button class="fila" data-open="mako"><span class="ic-tile" style="border:0;background:none"><svg width="32" height="32"><use href="#logo"/></svg></span><span class="tx"><span class="t n">MaKo</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+        </div>
+        <div class="lista" style="--sep:60px">
+          <button class="fila compu" data-toast="Se abre la versión completa"><span class="ic-tile"><svg width="18" height="18"><use href="#i-compu"/></svg></span><span class="tx"><span class="t n">Versión de computadora</span></span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ FICHA (push) ═══════════════════════════ -->
+    <section class="screen push" id="ficha" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"><button class="back" data-back><svg width="20" height="20"><use href="#i-chev"/></svg><span data-back-txt>CRM</span></button></div><div class="nav-t" data-f="nombre">Camila Rivas</div><div class="nav-r"></div></header>
+        <div class="ficha-h">
+          <span class="av av-xl" data-f="ini">CR</span>
+          <h1 data-f="nombre">Camila Rivas</h1>
+          <div class="ficha-sub"><span class="pill info"><i></i><span data-f="etapa">Agendado</span></span><span>Programa Ventas 360</span></div>
+        </div>
+        <div class="acc3">
+          <button class="acc" data-llamar><svg width="24" height="24"><use href="#i-tel"/></svg>Llamar</button>
+          <button class="acc" data-sheet="whatsapp"><svg width="24" height="24"><use href="#i-wa"/></svg>WhatsApp</button>
+          <button class="acc" data-sheet="agendar"><svg width="24" height="24"><use href="#i-cal"/></svg>Agendar</button>
+        </div>
+        <div class="st"><h2>Datos</h2></div>
+        <div class="lista">
+          <div class="fila dato"><span class="k">Próxima llamada</span><span class="v" data-f="prox">Hoy, 10:30</span></div>
+          <button class="fila dato" data-sheet="etapa"><span class="k">Etapa</span><span class="v azul" data-f="etapa">Agendado</span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <div class="fila dato"><span class="k">Teléfono</span><span class="v" data-f="tel">+52 55 4321 8765</span></div>
+          <div class="fila dato"><span class="k">Llegó por</span><span class="v" data-f="origen">Anuncio · Caso de éxito</span></div>
+        </div>
+        <div class="st"><h2>Notas</h2></div>
+        <div class="lista">
+          <div class="nota"><span data-f="nota">Quiere empezar en noviembre. Pregunta por pagar en 3 cuotas.</span><small>Ayer · Sofía</small></div>
+          <button class="fila" id="nota-voz"><span class="ic-tile azul" style="background:var(--primary-bg);border-color:transparent"><svg width="18" height="18"><use href="#i-mic"/></svg></span><span class="tx"><span class="t azul">Nota por voz</span></span></button>
+        </div>
+        <div class="st"><h2>Actividad</h2></div>
+        <div class="lista" style="--sep:60px">
+          <div class="fila"><span class="ic-tile"><svg width="18" height="18"><use href="#i-cal"/></svg></span><span class="tx"><span class="t n">Agendó la primera llamada</span></span><span class="r">ayer</span></div>
+          <div class="fila"><span class="ic-tile"><svg width="18" height="18"><use href="#i-eye"/></svg></span><span class="tx"><span class="t n">Vio el 82 % de la clase</span></span><span class="r">ayer</span></div>
+          <div class="fila"><span class="ic-tile"><svg width="18" height="18"><use href="#i-web"/></svg></span><span class="tx"><span class="t n">Llenó el formulario</span></span><span class="r">sáb</span></div>
+        </div>
+        <div class="lista" style="margin-top:14px;--sep:60px">
+          <button class="fila compu" data-toast="Se abre en la computadora"><span class="ic-tile"><svg width="18" height="18"><use href="#i-compu"/></svg></span><span class="tx"><span class="t n">Pagos, historial y campos</span><span class="c">En la computadora</span></span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ DASHBOARD (push) ═══════════════════════════ -->
+    <section class="screen push" id="dashboard" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"><button class="back" data-back><svg width="20" height="20"><use href="#i-chev"/></svg>More</button></div><div class="nav-t">Dashboard</div><div class="nav-r"></div></header>
+        <h1 class="tg">Dashboard</h1>
+        <div class="seg" role="group" aria-label="Hoja" data-seg="hoja">
+          <button aria-pressed="true" data-v="mkt">Marketing</button>
+          <button aria-pressed="false" data-v="com">Comercial</button>
+        </div>
+        <div class="st"><h2 id="graf-titulo">Leads por día</h2><button class="lnk" data-sheet="periodo" id="periodo-btn">30 días</button></div>
+        <div class="graf"><div class="graf-h"><strong id="graf-sel">11 oct · 7 leads</strong><span id="graf-total">248 en 30 días</span></div><svg id="graf" viewBox="0 0 330 150" role="img" aria-label="Gráfico de barras"></svg></div>
+        <div class="st"><h2>Últimos 30 días</h2><span class="r">vs. los 30 anteriores</span></div>
+        <div class="lista" id="dash-metricas"></div>
+        <div id="cobrar" hidden>
+          <div class="st"><h2>A quién cobrarle</h2></div>
+          <div class="lista lista-av" id="cobrar-lista">
+            <div class="fila" data-cobro="hector"><span class="av">HR</span><span class="tx"><span class="t">Héctor Ruiz</span><span class="c">US$ 500 · vence hoy</span></span><button class="btn btn-s btn-chico" data-hacer="cobrado">Marcar cobrado</button></div>
+            <div class="fila" data-cobro="lucia"><span class="av">LF</span><span class="tx"><span class="t">Lucía Fernández</span><span class="c">US$ 750 · vence el jue</span></span><button class="btn btn-s btn-chico" data-hacer="cobrado">Marcar cobrado</button></div>
+          </div>
+        </div>
+        <div class="lista" style="margin-top:22px;--sep:60px"><button class="fila compu" data-toast="Se abre en la computadora"><span class="ic-tile"><svg width="18" height="18"><use href="#i-compu"/></svg></span><span class="tx"><span class="t n">Editar el tablero</span><span class="c">En la computadora</span></span></button></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ ADS MANAGER (push) ═══════════════════════════ -->
+    <section class="screen push" id="ads" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"><button class="back" data-back><svg width="20" height="20"><use href="#i-chev"/></svg>More</button></div><div class="nav-t">Ads Manager</div><div class="nav-r"></div></header>
+        <h1 class="tg">Ads Manager</h1>
+        <div class="seg" role="group" aria-label="Período" data-seg="ads">
+          <button aria-pressed="true" data-v="hoy">Hoy</button>
+          <button aria-pressed="false" data-v="7d">7 días</button>
+          <button aria-pressed="false" data-v="mes">Este mes</button>
+        </div>
+        <div style="height:16px"></div>
+        <div class="lista" id="ads-resumen">
+          <div class="fila dato"><span class="k">Importe gastado</span><span class="v" data-a="gasto">US$ 92,20</span></div>
+          <div class="fila dato"><span class="k">Resultados</span><span class="v" data-a="res">13 agendas</span></div>
+          <div class="fila dato"><span class="k">Coste por resultado</span><span class="v" data-a="cpr">US$ 7,09</span></div>
+        </div>
+        <div class="st"><h2>Campañas</h2></div>
+        <div class="lista">
+          <div class="fila tocable" data-campana="c1"><span class="tx" role="button" tabindex="0" data-sheet="campana"><span class="t">Ventas 360 · Caso de éxito</span><span class="c" data-c="linea">9 agendas · US$ 60/día</span></span><button class="sw" role="switch" aria-checked="true" aria-label="Activa" data-sw="campana"></button></div>
+          <div class="fila tocable" data-campana="c2"><span class="tx" role="button" tabindex="0" data-sheet="campana"><span class="t">Ventas 360 · Clase gratis</span><span class="c" data-c="linea">4 agendas · US$ 40/día</span><span class="pill warn" data-sheet="entrega" role="button" tabindex="0"><i></i>Con problemas · 1</span></span><button class="sw" role="switch" aria-checked="true" aria-label="Activa" data-sw="campana"></button></div>
+          <div class="fila tocable" data-campana="c3"><span class="tx" role="button" tabindex="0" data-sheet="campana"><span class="t">Remarketing 7 días</span><span class="c" data-c="linea">En pausa · US$ 15/día</span></span><button class="sw" role="switch" aria-checked="false" aria-label="Activa" data-sw="campana"></button></div>
+        </div>
+        <div class="lista" style="margin-top:22px;--sep:60px"><button class="fila compu" data-toast="Se abre en la computadora"><span class="ic-tile"><svg width="18" height="18"><use href="#i-compu"/></svg></span><span class="tx"><span class="t n">Crear campañas y subir anuncios</span><span class="c">En la computadora</span></span></button></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ CUSTOMER SUCCESS (push) ═══════════════════════════ -->
+    <section class="screen push" id="cs" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"><button class="back" data-back><svg width="20" height="20"><use href="#i-chev"/></svg>More</button></div><div class="nav-t">Customer Success</div><div class="nav-r"></div></header>
+        <h1 class="tg">Customer Success</h1>
+        <div id="cs-etapas"></div>
+        <div class="lista" style="margin-top:22px;--sep:60px"><button class="fila compu" data-toast="Se abre en la computadora"><span class="ic-tile"><svg width="18" height="18"><use href="#i-compu"/></svg></span><span class="tx"><span class="t n">Etapas, curso y comunidad</span><span class="c">En la computadora</span></span></button></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ AUTOMATIONS (push) ═══════════════════════════ -->
+    <section class="screen push" id="auto" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"><button class="back" data-back><svg width="20" height="20"><use href="#i-chev"/></svg>More</button></div><div class="nav-t">Automations</div><div class="nav-r"></div></header>
+        <h1 class="tg">Automations</h1>
+        <div class="lista">
+          <div class="fila tocable" data-auto="a1"><span class="tx" role="button" tabindex="0" data-sheet="automatizacion"><span class="t">Seguimiento al agendar</span><span class="c">Cuando llega a «Agendado»</span></span><button class="sw" role="switch" aria-checked="true" aria-label="Activa" data-sw="auto"></button></div>
+          <div class="fila tocable" data-auto="a2"><span class="tx" role="button" tabindex="0" data-sheet="automatizacion"><span class="t">Recuperar a quien no asistió</span><span class="c">Cuando llega a «No asistió»</span><span class="pill warn" data-borrador><i></i>Sin publicar</span></span><button class="sw" role="switch" aria-checked="true" aria-label="Activa" data-sw="auto"></button></div>
+          <div class="fila tocable" data-auto="a3"><span class="tx" role="button" tabindex="0" data-sheet="automatizacion"><span class="t">Recordatorio de cuota</span><span class="c">Todos los días, 9:00</span></span><button class="sw" role="switch" aria-checked="true" aria-label="Activa" data-sw="auto"></button></div>
+          <div class="fila tocable" data-auto="a4"><span class="tx" role="button" tabindex="0" data-sheet="automatizacion"><span class="t">Bienvenida a clientes</span><span class="c">Cuando llega a «Ganado»</span></span><button class="sw" role="switch" aria-checked="false" aria-label="Activa" data-sw="auto"></button></div>
+        </div>
+        <div class="lista" style="margin-top:22px;--sep:60px"><button class="fila compu" data-toast="Se abre en la computadora"><span class="ic-tile"><svg width="18" height="18"><use href="#i-compu"/></svg></span><span class="tx"><span class="t n">Editar el flujo</span><span class="c">En la computadora</span></span></button></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ VIDEO GENERATOR (push) ═══════════════════════════ -->
+    <section class="screen push" id="video" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"><button class="back" data-back><svg width="20" height="20"><use href="#i-chev"/></svg>More</button></div><div class="nav-t">Video Generator</div><div class="nav-r"></div></header>
+        <h1 class="tg">Video Generator</h1>
+        <div class="st" style="margin-top:6px"><h2>En curso</h2></div>
+        <div class="lista" style="--sep:74px">
+          <button class="fila" data-open="editor"><span class="miniv cuadro" style="--c1:var(--cuadro-1);--c2:var(--cuadro-2)"><svg class="silueta" viewBox="0 0 100 90"><use href="#silueta"/></svg></span><span class="tx"><span class="t">Clase gratis · 0:46</span><span class="c" id="video-estado"><span class="punto" style="background:var(--bad)"></span>Una toma no salió</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+        </div>
+        <div class="st"><h2>Terminados</h2></div>
+        <div class="lista" style="--sep:74px">
+          <button class="fila" data-sheet="ver-terminado"><span class="miniv cuadro" style="--c1:var(--cuadro-4);--c2:var(--cuadro-3)"><svg class="silueta" viewBox="0 0 100 90"><use href="#silueta"/></svg></span><span class="tx"><span class="t">Caso de éxito</span><span class="c">0:41 · Testimonio</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-sheet="ver-terminado"><span class="miniv cuadro" style="--c1:var(--cuadro-2);--c2:var(--cuadro-4)"><svg class="silueta" viewBox="0 0 100 90"><use href="#silueta"/></svg></span><span class="tx"><span class="t">Tres errores al vender</span><span class="c">0:38 · Hablando a cámara</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+        </div>
+        <div style="margin:22px 16px 0"><button class="btn btn-m" data-toast="Elige el formato y el guion">Crear mi anuncio</button></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ EDITOR DE VIDEO REDUCIDO (push, pantalla completa) ═══════════════════════════ -->
+    <section class="screen push" id="editor" data-full="1" hidden>
+      <div class="scroll" style="padding-bottom:170px">
+        <header class="nav" style="box-shadow:0 1px 0 var(--border)"><div class="nav-l"><button class="back" data-back><svg width="20" height="20"><use href="#i-chev"/></svg>Atrás</button></div><div class="nav-t siempre">Clase gratis</div><div class="nav-r"></div></header>
+        <div class="escenario">
+          <div class="player cuadro" id="player" style="--c1:var(--cuadro-1);--c2:var(--cuadro-2)">
+            <svg class="silueta" viewBox="0 0 100 90"><use href="#silueta"/></svg>
+            <span class="marca-t" id="player-marca">Toma 6</span>
+            <button class="play" id="player-play" aria-label="Reproducir"><svg width="26" height="26"><use href="#i-play"/></svg></button>
+            <div class="sub" id="player-sub">Te dejo la clase gratis en el enlace. Mírala hoy.</div>
+            <div class="prog"><i id="player-prog"></i></div>
+          </div>
+          <span class="dur" id="player-dur">Toma 6 de 7 · 8 s</span>
+        </div>
+        <div class="tira" id="tira" aria-label="Tomas"></div>
+        <div class="panel-toma">
+          <div class="panel-toma-h"><h2 id="pt-titulo">Toma 6</h2><span class="pill bad" id="pt-estado"><i></i>No salió</span></div>
+          <p class="motivo" id="pt-motivo">Google Flow no la filmó.</p>
+          <button class="linea" data-sheet="linea" id="pt-linea"><span id="pt-texto">Te dejo la clase gratis en el enlace. Mírala hoy.</span><small><svg width="15" height="15"><use href="#i-pen"/></svg>Cambiar lo que dice</small></button>
+        </div>
+      </div>
+      <div class="pie-fijo" id="editor-pie">
+        <p class="consec" id="editor-consec">Filmar de nuevo cuesta 12 créditos.</p>
+        <button class="btn btn-p" id="editor-accion" data-hacer="refilmar">Filmar de nuevo la toma 6</button>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ LANDING GENERATOR (push) ═══════════════════════════ -->
+    <section class="screen push" id="landing" hidden>
+      <div class="scroll">
+        <header class="nav"><div class="nav-l"><button class="back" data-back><svg width="20" height="20"><use href="#i-chev"/></svg>More</button></div><div class="nav-t">Landing Generator</div><div class="nav-r"></div></header>
+        <h1 class="tg">Landing Generator</h1>
+        <div class="lista">
+          <button class="fila" data-open="landing-ed"><span class="tx"><span class="t">Clase gratis de ventas</span><span class="c">1.240 visitas · 96 leads en 30 días</span><span class="pill good" style="margin-top:6px;align-self:flex-start"><i></i>Publicada</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-open="landing-ed"><span class="tx"><span class="t">Programa Ventas 360</span><span class="c">610 visitas · 22 leads en 30 días</span><span class="pill good" style="margin-top:6px;align-self:flex-start"><i></i>Publicada</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-open="landing-ed"><span class="tx"><span class="t">Webinar de noviembre</span><span class="c">Sin publicar</span><span class="pill" style="margin-top:6px;align-self:flex-start"><i></i>Borrador</span></span><svg class="chev" width="18" height="18"><use href="#i-chev"/></svg></button>
+        </div>
+        <div class="lista" style="margin-top:22px;--sep:60px"><button class="fila compu" data-toast="Se abre en la computadora"><span class="ic-tile"><svg width="18" height="18"><use href="#i-compu"/></svg></span><span class="tx"><span class="t n">Diseño, bloques y dominio</span><span class="c">En la computadora</span></span></button></div>
+      </div>
+    </section>
+
+    <section class="screen push" id="landing-ed" data-full="1" hidden>
+      <div class="scroll" style="padding-bottom:120px">
+        <header class="nav" style="box-shadow:0 1px 0 var(--border)"><div class="nav-l"><button class="back" data-back><svg width="20" height="20"><use href="#i-chev"/></svg>Atrás</button></div><div class="nav-t siempre">Clase gratis de ventas</div><div class="nav-r"><button class="ib" data-toast="Enlace copiado" aria-label="Copiar el enlace público"><svg width="22" height="22"><use href="#i-link"/></svg></button></div></header>
+        <div style="height:14px"></div>
+        <div class="pagina">
+          <div class="secc secc-hero" role="button" tabindex="0" data-sheet="seccion" data-secc="portada"><h3 id="hero-titulo">Vende sin perseguir a nadie</h3><p>Una clase gratis de 40 minutos para cerrar más con menos llamadas.</p><span>Quiero la clase</span></div>
+          <div class="secc" role="button" tabindex="0" data-sheet="seccion" data-secc="aprender"><h4>Lo que vas a aprender</h4><ul><li>Filtrar antes de la llamada</li><li>El guion de cierre en 3 pasos</li><li>Qué hacer con los «lo pienso»</li></ul></div>
+          <div class="secc" role="button" tabindex="0" data-sheet="seccion" data-secc="testimonio"><blockquote>«Pasé de una venta al mes a cinco, sin cambiar el precio.» — Daniela O.</blockquote></div>
+          <div class="secc" role="button" tabindex="0" data-sheet="seccion" data-secc="formulario"><h4>Aparta tu lugar</h4><ul><li>Nombre · WhatsApp · Email</li></ul></div>
+        </div>
+      </div>
+      <div class="pie-fijo">
+        <p class="consec" id="landing-consec">Sin cambios por publicar.</p>
+        <button class="btn btn-p" id="landing-publicar" data-hacer="publicar-landing" disabled>Publicar cambios</button>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ MAKO (push) ═══════════════════════════ -->
+    <section class="screen push" id="mako" hidden>
+      <div class="scroll" style="padding-bottom:calc(var(--m-tabbar) + var(--hi) + 90px)">
+        <header class="nav" style="box-shadow:0 1px 0 var(--border)"><div class="nav-l"><button class="back" data-back><svg width="20" height="20"><use href="#i-chev"/></svg>More</button></div><div class="nav-t siempre" style="display:flex;align-items:center;gap:8px"><svg width="22" height="22"><use href="#logo"/></svg>MaKo</div><div class="nav-r"></div></header>
+        <div class="hilo" id="hilo">
+          <div class="msg-yo">¿Cuántas agendas llevamos esta semana?</div>
+          <div class="msg-mk">Llevas 11 agendas esta semana, 3 más que la anterior. «Caso de éxito» trajo 7.</div>
+        </div>
+      </div>
+      <form class="composer" id="composer"><button type="button" class="ib" aria-label="Dictar"><svg width="22" height="22"><use href="#i-mic"/></svg></button><input id="composer-in" placeholder="Escríbele a MaKo" aria-label="Mensaje para MaKo" enterkeyhint="send" autocomplete="off"><button type="submit" class="ib" aria-label="Enviar"><svg width="22" height="22"><use href="#i-enviar"/></svg></button></form>
+    </section>
+
+    <!-- ═══════════════════════════ BARRA INFERIOR ═══════════════════════════ -->
+    <nav class="tabbar" aria-label="Secciones">
+      <button class="tab" data-tabgo="today" aria-current="page"><svg width="26" height="26"><use href="#i-today"/></svg>Today</button>
+      <button class="tab" data-tabgo="crm"><svg width="26" height="26"><use href="#i-crm"/></svg>CRM</button>
+      <button class="tab" data-tabgo="inbox"><svg width="26" height="26"><use href="#i-inbox"/></svg>Inbox<span class="bdg" id="bdg-inbox">3</span></button>
+      <button class="tab" data-tabgo="plan"><svg width="26" height="26"><use href="#i-plan"/></svg>Plan</button>
+      <button class="tab" data-tabgo="more"><svg width="26" height="26"><use href="#i-more"/></svg>More</button>
+    </nav>
+
+    <div class="velo" id="velo"></div>
+    <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-titulo">
+      <div class="sh-tope" id="sheet-tope"><div class="grabber"></div><div class="sh-cab"><h2 id="sheet-titulo"></h2><button class="sh-cerrar" data-cerrar aria-label="Cerrar"><svg width="16" height="16"><use href="#i-x"/></svg></button></div></div>
+      <div id="sheet-cuerpo" style="display:flex;flex-direction:column;min-height:0;flex:1"></div>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-txt"></span><button id="toast-btn" hidden>Deshacer</button></div>
+    <div class="home-ind"></div>
+  </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SHEETS ═══════════════════════════ -->
+<template id="t-seguimientos" data-titulo="Enviar 3 seguimientos">
+  <div class="sh-scroll">
+    <div class="msg"><span class="msg-a">Daniela Ortiz</span><div class="burbuja">Hola Daniela, ¿pudiste ver la clase? Si quieres, te aparto 20 minutos esta semana para resolver tus dudas.</div></div>
+    <div class="msg"><span class="msg-a">Rodrigo Salinas</span><div class="burbuja">Rodrigo, ¿cómo vas? Quedó pendiente lo de las cuotas: te lo explico en una llamada corta cuando te acomode.</div></div>
+    <div class="msg"><span class="msg-a">Valeria Campos</span><div class="burbuja">Hola Valeria, te dejo de nuevo el enlace de la clase. Cualquier duda me escribes por aquí.</div></div>
+  </div>
+  <div class="sh-pie">
+    <p class="consec">Salen ahora por WhatsApp a 3 personas.</p>
+    <button class="btn btn-p" data-hacer="enviar-seg">Enviar 3 mensajes</button>
+    <button class="btn btn-t" data-cerrar>No enviar</button>
+  </div>
+</template>
+
+<template id="t-ganado" data-titulo="Jorge Méndez pagó">
+  <div class="sh-scroll">
+    <div class="cambio">Asistió<svg width="18" height="18"><use href="#i-chev"/></svg>Ganado</div>
+    <div class="lista" style="margin-top:14px">
+      <div class="fila dato"><span class="k">Pago</span><span class="v">US$ 1.500</span></div>
+      <div class="fila dato"><span class="k">Cómo</span><span class="v">Transferencia</span></div>
+      <div class="fila dato"><span class="k">Cuándo</span><span class="v">Hoy, 8:02</span></div>
+    </div>
+  </div>
+  <div class="sh-pie">
+    <p class="consec">Cuenta como venta y Meta recibe la conversión.</p>
+    <button class="btn btn-p" data-hacer="ganado">Pasar a Ganado</button>
+    <button class="btn btn-t" data-cerrar>Dejarlo en Asistió</button>
+  </div>
+</template>
+
+<template id="t-tareas" data-titulo="4 tareas de la reunión">
+  <div class="sh-scroll">
+    <div class="lista">
+      <div class="fila"><span class="tx"><span class="t n">Armar la oferta de noviembre</span></span></div>
+      <div class="fila"><span class="tx"><span class="t n">Grabar 2 testimonios nuevos</span></span></div>
+      <div class="fila"><span class="tx"><span class="t n">Subir el presupuesto de «Caso de éxito»</span></span></div>
+      <div class="fila"><span class="tx"><span class="t n">Revisar el guion de la clase</span></span></div>
+    </div>
+  </div>
+  <div class="sh-pie">
+    <p class="consec">Estas se revisan en la computadora.</p>
+    <button class="btn btn-s" data-toast="Se abre en la computadora"><svg width="20" height="20"><use href="#i-compu"/></svg>Abrir en la computadora</button>
+  </div>
+</template>
+
+<template id="t-etapa" data-titulo="Mover de etapa">
+  <div class="sh-scroll"><div class="lista" id="etapas-lista"></div></div>
+</template>
+
+<template id="t-filtro" data-titulo="Ver por etapa">
+  <div class="sh-scroll"><div class="lista">
+    <button class="fila" data-cerrar data-toast="Todas las etapas"><span class="tx"><span class="t n">Todas</span></span><svg width="20" height="20" class="azul"><use href="#i-check"/></svg></button>
+    <button class="fila" data-cerrar data-toast="Filtro: Nuevo"><span class="tx"><span class="t n">Nuevo</span></span><span class="r">3</span></button>
+    <button class="fila" data-cerrar data-toast="Filtro: Contactado"><span class="tx"><span class="t n">Contactado</span></span><span class="r">2</span></button>
+    <button class="fila" data-cerrar data-toast="Filtro: Agendado"><span class="tx"><span class="t n">Agendado</span></span><span class="r">1</span></button>
+    <button class="fila" data-cerrar data-toast="Filtro: Asistió"><span class="tx"><span class="t n">Asistió</span></span><span class="r">1</span></button>
+  </div></div>
+</template>
+
+<template id="t-whatsapp" data-titulo="WhatsApp">
+  <div class="sh-scroll" style="display:flex;flex-direction:column;gap:8px">
+    <div class="burbuja suya">Hola, vi la clase. ¿El programa se puede pagar en cuotas?</div>
+    <div class="burbuja mia">¡Hola! Sí, en 3 cuotas. Lo vemos en la llamada de hoy a las 10:30.</div>
+    <div class="burbuja suya">Perfecto, ahí estaré.</div>
+  </div>
+  <div class="sh-pie" style="flex-direction:row;align-items:center;gap:8px">
+    <input id="wa-in" aria-label="Responder por WhatsApp" placeholder="Responder" style="flex:1;min-width:0;min-height:44px;border-radius:22px;border:1px solid var(--border-strong);background:var(--surface);padding:0 16px;font:inherit;font-size:16px;color:var(--ink)">
+    <button class="ib" data-hacer="wa-enviar" aria-label="Enviar" style="background:var(--primary);color:var(--on-primary)"><svg width="20" height="20"><use href="#i-enviar"/></svg></button>
+  </div>
+</template>
+
+<template id="t-agendar" data-titulo="Agendar">
+  <div class="sh-scroll">
+    <p class="subt">Día</p>
+    <div class="chips" data-grupo="dia">
+      <button aria-pressed="false" data-v="hoy">Hoy</button>
+      <button aria-pressed="true" data-v="mañana">Mañana</button>
+      <button aria-pressed="false" data-v="lun 13">Lun 13</button>
+      <button aria-pressed="false" data-v="mar 14">Mar 14</button>
+    </div>
+    <p class="subt">Horarios libres</p>
+    <div class="slots" data-grupo="hora">
+      <button aria-pressed="false">9:00</button><button aria-pressed="true">10:00</button><button aria-pressed="false">11:30</button>
+      <button aria-pressed="false">13:00</button><button aria-pressed="false">16:30</button><button aria-pressed="false">18:00</button>
+    </div>
+  </div>
+  <div class="sh-pie">
+    <p class="consec" data-ag="consec">Le llega la invitación a Camila.</p>
+    <button class="btn btn-p" data-hacer="agendar" data-ag="btn">Agendar mañana, 10:00</button>
+  </div>
+</template>
+
+<template id="t-periodo" data-titulo="Período">
+  <div class="sh-scroll"><div class="lista">
+    <button class="fila" data-hacer="periodo" data-v="7 días"><span class="tx"><span class="t n">Últimos 7 días</span></span></button>
+    <button class="fila" data-hacer="periodo" data-v="30 días"><span class="tx"><span class="t n">Últimos 30 días</span></span><svg width="20" height="20" class="azul"><use href="#i-check"/></svg></button>
+    <button class="fila" data-hacer="periodo" data-v="Este mes"><span class="tx"><span class="t n">Este mes</span></span></button>
+    <button class="fila" data-hacer="periodo" data-v="90 días"><span class="tx"><span class="t n">Últimos 90 días</span></span></button>
+  </div></div>
+</template>
+
+<template id="t-campana" data-titulo="Campaña">
+  <div class="sh-scroll">
+    <div class="lista">
+      <div class="fila dato"><span class="k">Importe gastado hoy</span><span class="v" data-cp="gasto">US$ 55,80</span></div>
+      <div class="fila dato"><span class="k">Resultados</span><span class="v" data-cp="res">9 agendas</span></div>
+      <div class="fila dato"><span class="k">Coste por resultado</span><span class="v" data-cp="cpr">US$ 6,20</span></div>
+    </div>
+    <p class="subt" style="margin-top:22px">Presupuesto diario</p>
+    <div class="stepper"><button data-paso="-5" aria-label="Bajar 5 dólares">−</button><output id="presu">US$ 60</output><button data-paso="5" aria-label="Subir 5 dólares">+</button></div>
+    <p class="stepper-pie" id="presu-antes">Hoy: US$ 60 al día</p>
+    <div style="margin-top:14px"><button class="btn btn-t" data-hacer="conclusiones"><svg width="18" height="18"><use href="#estrella"/></svg>Conclusiones con MaKo</button></div>
+  </div>
+  <div class="sh-pie">
+    <p class="consec" id="presu-consec">Mueve el presupuesto para cambiarlo.</p>
+    <button class="btn btn-p" data-hacer="presupuesto" id="presu-btn" disabled>Poner US$ 60/día</button>
+    <button class="btn btn-t" data-cerrar>No cambiar</button>
+  </div>
+</template>
+
+<template id="t-entrega" data-titulo="Por qué no está entregando">
+  <div class="sh-scroll">
+    <div class="lista">
+      <div class="fila"><span class="tx"><span class="t">Testimonio corto</span><span class="c">Meta lo rechazó: el texto promete un resultado.</span></span></div>
+    </div>
+  </div>
+  <div class="sh-pie">
+    <button class="btn btn-s" data-toast="Se abre Meta"><svg width="18" height="18"><use href="#i-link"/></svg>Pedir revisión en Meta</button>
+    <button class="btn btn-t" data-toast="Se abre en la computadora">Editar los textos en la computadora</button>
+  </div>
+</template>
+
+<template id="t-cliente" data-titulo="Cliente">
+  <div class="sh-scroll">
+    <div class="lista" id="cli-etapas"></div>
+    <div class="lista" style="margin-top:14px;--sep:60px">
+      <button class="fila" data-toast="Se abre WhatsApp"><span class="ic-tile"><svg width="18" height="18"><use href="#i-wa"/></svg></span><span class="tx"><span class="t n">Escribirle por WhatsApp</span></span></button>
+      <button class="fila" data-toast="Invitación reenviada"><span class="ic-tile"><svg width="18" height="18"><use href="#i-enviar"/></svg></span><span class="tx"><span class="t n">Reenviar la invitación al curso</span></span></button>
+    </div>
+  </div>
+  <div class="sh-pie">
+    <button class="btn btn-p" data-hacer="cs-siguiente" id="cli-sig">Pasar a la siguiente etapa</button>
+  </div>
+</template>
+
+<template id="t-automatizacion" data-titulo="Automatización">
+  <div class="sh-scroll">
+    <p class="subt">Últimos 30 días</p>
+    <div class="lista">
+      <div class="fila dato"><span class="k">Enviados</span><span class="v">412</span></div>
+      <div class="fila dato"><span class="k">Respuestas</span><span class="v">38 %</span></div>
+      <div class="fila dato"><span class="k">Leads en curso</span><span class="v">27</span></div>
+    </div>
+    <p class="subt" style="margin-top:22px">Pasos</p>
+    <div class="lista" style="--sep:60px">
+      <div class="fila"><span class="ic-tile"><svg width="18" height="18"><use href="#i-wa"/></svg></span><span class="tx"><span class="t n">WhatsApp</span><span class="c">Hola {nombre}, te escribo por la llamada…</span></span></div>
+      <div class="fila"><span class="ic-tile"><svg width="18" height="18"><use href="#i-reloj"/></svg></span><span class="tx"><span class="t n">Esperar 1 día</span></span></div>
+      <div class="fila"><span class="ic-tile"><svg width="18" height="18"><use href="#i-filtro"/></svg></span><span class="tx"><span class="t n">Condición</span><span class="c">¿Respondió?</span></span></div>
+      <div class="fila"><span class="ic-tile"><svg width="18" height="18"><use href="#i-wa"/></svg></span><span class="tx"><span class="t n">WhatsApp</span><span class="c">Te dejo la clase de nuevo…</span></span></div>
+    </div>
+  </div>
+  <div class="sh-pie" id="auto-pie"></div>
+</template>
+
+<template id="t-ver-terminado" data-titulo="Caso de éxito">
+  <div class="sh-scroll" style="display:flex;justify-content:center;padding-top:4px">
+    <div class="player cuadro" style="--c1:var(--cuadro-4);--c2:var(--cuadro-3);width:180px;height:320px"><svg class="silueta" viewBox="0 0 100 90"><use href="#silueta"/></svg><span class="play"><svg width="24" height="24"><use href="#i-play"/></svg></span><div class="sub">Yo no creía que se pudiera vender así.</div></div>
+  </div>
+  <div class="sh-pie">
+    <button class="btn btn-p" data-hacer="descargar"><svg width="20" height="20"><use href="#i-bajar"/></svg>Descargar el anuncio</button>
+  </div>
+</template>
+
+<template id="t-linea" data-titulo="Lo que dice">
+  <div class="sh-scroll">
+    <div class="campo"><label for="linea-in">Toma 6 · 8 s</label><textarea id="linea-in" rows="4"></textarea></div>
+  </div>
+  <div class="sh-pie">
+    <p class="consec">Filmar de nuevo cuesta 12 créditos.</p>
+    <button class="btn btn-p" data-hacer="linea">Guardar y filmar de nuevo</button>
+    <button class="btn btn-t" data-cerrar>No cambiar</button>
+  </div>
+</template>
+
+<template id="t-seccion" data-titulo="Portada">
+  <div class="sh-scroll">
+    <div class="campo"><label for="secc-in">Título</label><input id="secc-in" autocomplete="off"></div>
+    <p class="subt" style="margin-top:22px">Con MaKo</p>
+    <div class="ia-grid">
+      <button class="ia-op" data-hacer="ia" data-v="Vende más con menos llamadas"><svg width="18" height="18"><use href="#estrella"/></svg>Mejorar la escritura</button>
+      <button class="ia-op" data-hacer="ia" data-v="Vende sin perseguir"><svg width="18" height="18"><use href="#estrella"/></svg>Acortar</button>
+      <button class="ia-op" data-hacer="ia" data-v="Cierra más ventas sin perseguir a nadie"><svg width="18" height="18"><use href="#estrella"/></svg>Simplificar</button>
+      <button class="ia-op" data-hacer="ia" data-v="Vende sin perseguir a nadie" data-diseno="1"><svg width="18" height="18"><use href="#estrella"/></svg>Otro diseño</button>
+    </div>
+    <div class="lista" style="margin-top:14px;--sep:60px">
+      <button class="fila" data-toast="Elige una foto"><span class="ic-tile"><svg width="18" height="18"><use href="#i-regen"/></svg></span><span class="tx"><span class="t n">Reemplazar la imagen</span></span></button>
+    </div>
+  </div>
+  <div class="sh-pie">
+    <button class="btn btn-p" data-hacer="secc-guardar">Guardar</button>
+  </div>
+</template>
+
+<template id="t-cuenta" data-titulo="Cuenta">
+  <div class="sh-scroll">
+    <div class="lista">
+      <div class="fila"><span class="av">SH</span><span class="tx"><span class="t">Sofía Herrera</span><span class="c">sofia@ejemplo.mx</span></span></div>
+    </div>
+    <div class="lista" style="margin-top:14px">
+      <div class="fila"><span class="tx"><span class="t n">Avisos en este teléfono</span></span><button class="sw" role="switch" aria-checked="true" aria-label="Avisos en este teléfono" data-sw="avisos"></button></div>
+    </div>
+    <p class="subt" style="margin-top:22px">Apariencia</p>
+    <div class="seg" role="group" aria-label="Apariencia" data-seg="tema" style="margin:0">
+      <button aria-pressed="true" data-v="claro">Claro</button>
+      <button aria-pressed="false" data-v="oscuro">Oscuro</button>
+    </div>
+    <div class="lista" style="margin-top:22px">
+      <button class="fila" data-toast="Sesión cerrada"><span class="tx"><span class="t n">Cerrar sesión</span></span></button>
+    </div>
+  </div>
+</template>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const device = $('#device');
+  const reducido = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+
+  // ── Datos de ejemplo (ficticios) ──────────────────────────────────────
+  const LEADS = {
+    camila: { n: 'Camila Rivas', e: 'Agendado', prox: 'Hoy, 10:30', tel: '+52 55 4321 8765', origen: 'Anuncio · Caso de éxito', nota: 'Quiere empezar en noviembre. Pregunta por pagar en 3 cuotas.' },
+    andres: { n: 'Andrés Peña', e: 'Asistió', prox: 'Hoy, 16:00', tel: '+52 33 1876 2290', origen: 'Formulario · Clase gratis', nota: 'Ya vio la clase completa. Decide con su socio.' },
+    mariana: { n: 'Mariana Solís', e: 'Contactado', prox: 'Sin agendar', tel: '+52 81 2290 4417', origen: 'Anuncio · Clase gratis', nota: 'Pregunta por cuotas. Tiene un negocio de cosmética.' },
+    ivan: { n: 'Iván Castro', e: 'Contactado', prox: 'Sin agendar', tel: '+52 55 7781 0032', origen: 'Formulario · Clase gratis', nota: 'Dice que ve la clase hoy.' },
+    paola: { n: 'Paola Guzmán', e: 'Nuevo', prox: 'Sin agendar', tel: '+52 33 6650 1189', origen: 'Formulario · Clase gratis', nota: 'Sin notas todavía.' },
+    natalia: { n: 'Natalia Ibarra', e: 'Nuevo', prox: 'Sin agendar', tel: '+52 55 9012 3346', origen: 'Anuncio · Caso de éxito', nota: 'Sin notas todavía.' },
+    ricardo: { n: 'Ricardo Luna', e: 'Nuevo', prox: 'Sin agendar', tel: '+52 81 4467 2201', origen: 'Formulario · Clase gratis', nota: 'Sin notas todavía.' },
+  };
+  const ETAPAS = ['Nuevo', 'Contactado', 'Agendado', 'Asistió', 'Ganado', 'Perdido'];
+  let leadActual = 'camila';
+
+  const PLAN = {
+    hoy: [
+      { t: 'Grabar el testimonio de Paola', p: 'Contenido', col: 'var(--proy-3)', v: 'Hoy' },
+      { t: 'Responder a Mariana sobre cuotas', p: 'Ventas', col: 'var(--proy-2)', v: 'Hoy' },
+      { t: 'Revisar el guion del anuncio nuevo', p: 'Anuncios', col: 'var(--proy-1)', v: 'Hoy' },
+      { t: 'Llamar a los 2 que no asistieron', p: 'Ventas', col: 'var(--proy-2)', v: 'Hoy' },
+    ],
+    semana: [
+      { t: 'Armar la oferta de noviembre', p: 'Oferta', col: 'var(--proy-4)', v: 'Mié' },
+      { t: 'Subir 3 anuncios nuevos', p: 'Anuncios', col: 'var(--proy-1)', v: 'Jue' },
+      { t: 'Revisar la landing del webinar', p: 'Contenido', col: 'var(--proy-3)', v: 'Vie' },
+    ],
+    prio: [
+      { t: 'Lanzar el webinar de noviembre', p: 'Proyecto · 4 tareas', col: 'var(--proy-4)', v: '30 oct' },
+      { t: 'Bajar el costo por agenda', p: 'Proyecto · 3 tareas', col: 'var(--proy-1)', v: '15 nov' },
+      { t: 'Ordenar el seguimiento de leads', p: 'Proyecto · 5 tareas', col: 'var(--proy-2)', v: '20 nov' },
+    ],
+  };
+  const hechas = new Set();
+
+  const CS = [
+    { etapa: 'Onboarding', clientes: [{ id: 'k1', n: 'Fernanda Ríos', emp: 'Estudio Luma', r: 'hace 2 días' }, { id: 'k2', n: 'Óscar Delgado', emp: 'Delgado Seguros', r: 'hace 5 días' }] },
+    { etapa: 'Primeras clases', clientes: [{ id: 'k3', n: 'Renata Vidal', emp: 'Vidal Nutrición', r: 'hace 3 días' }, { id: 'k4', n: 'Emilio Navarro', emp: 'Navarro Bienes Raíces', r: '21 días sin moverse', quieto: true }] },
+    { etapa: 'Implementando', clientes: [{ id: 'k5', n: 'Sara Molina', emp: 'Molina Coaching', r: 'hace 1 día' }, { id: 'k6', n: 'Gabriel Torres', emp: 'Torres Fitness', r: 'hace 8 días' }] },
+    { etapa: 'Renovación', clientes: [{ id: 'k7', n: 'Lorena Paz', emp: 'Paz Inmobiliaria', r: 'hace 9 días' }] },
+  ];
+  let clienteActual = null;
+
+  const DASH = {
+    mkt: {
+      titulo: 'Leads por día', unidad: 'leads', total: '248 en 30 días',
+      datos: [5, 7, 6, 4, 8, 9, 7, 6, 5, 8, 10, 9, 7, 6, 8, 11, 9, 8, 7, 10, 12, 9, 8, 7, 9, 11, 10, 8, 9, 7],
+      etiquetas: (i) => fechaDia(i, 30),
+      metricas: [['Ad Spend', 'US$ 2.480', '12 %', 'up', true], ['Leads', '248', '18 %', 'up'], ['CAC real', 'US$ 413', '9 %', 'down', true], ['ROAS cash', '3,0', '0,4', 'up'], ['ROAS sold', '3,6', '0,2', 'down']],
+    },
+    com: {
+      titulo: 'Cash Collected por semana', unidad: 'US$', total: 'US$ 7.500 en 30 días',
+      datos: [4500, 3000, 6000, 4500, 1500, 3000, 1500, 1500],
+      etiquetas: (i) => ['17 ago', '24 ago', '31 ago', '7 sep', '14 sep', '21 sep', '28 sep', '5 oct'][i],
+      metricas: [['Sold Revenue', 'US$ 9.000', '20 %', 'up'], ['Cash Collected', 'US$ 7.500', '6 %', 'down'], ['Outstanding', 'US$ 4.500', '', ''], ['Cierres', '6', '2', 'up']],
+    },
+  };
+  let hoja = 'mkt', barraSel = null;
+
+  const TOMAS = [
+    { s: 'lista', d: 8, txt: '¿Te pasa que hablas con muchos interesados y casi nadie compra?' },
+    { s: 'lista', d: 6, txt: 'Yo estaba igual: veinte llamadas por semana y una venta.' },
+    { s: 'lista', d: 8, txt: 'Lo que cambió todo fue dejar de perseguir y empezar a filtrar.' },
+    { s: 'lista', d: 8, txt: 'Ahora sólo hablo con gente que ya vio la clase y quiere avanzar.' },
+    { s: 'lista', d: 6, txt: 'En dos meses pasé de una venta a cinco.' },
+    { s: 'fallo', d: 8, txt: 'Te dejo la clase gratis en el enlace. Mírala hoy.' },
+    { s: 'filmando', d: 4, txt: 'Nos vemos adentro.' },
+  ];
+  const COSTO = { 4: 7, 6: 10, 8: 12, 10: 15 };
+  let tomaSel = 5, entero = false;
+
+  // ── Utilidades ────────────────────────────────────────────────────────
+  function fechaDia(i, n) {
+    const d = new Date(2026, 9, 11); d.setDate(d.getDate() - (n - 1 - i));
+    return d.getDate() + ' ' + ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][d.getMonth()];
+  }
+  const ini = (n) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const svgUse = (id, w = 18) => `<svg width="${w}" height="${w}"><use href="#${id}"/></svg>`;
+  const CHEV = '<svg class="chev" width="18" height="18"><use href="#i-chev"/></svg>';
+  const usd = (n) => 'US$ ' + n.toLocaleString('es-MX');
+
+  // ── Toast ─────────────────────────────────────────────────────────────
+  let tTimer = null, tDeshacer = null;
+  function toast(txt, deshacer) {
+    const el = $('#toast'), b = $('#toast-btn');
+    $('#toast-txt').textContent = txt;
+    tDeshacer = deshacer || null; b.hidden = !deshacer;
+    el.classList.add('on'); clearTimeout(tTimer);
+    tTimer = setTimeout(() => el.classList.remove('on'), deshacer ? 5000 : 2600);
+  }
+  $('#toast-btn').addEventListener('click', () => { const f = tDeshacer; tDeshacer = null; $('#toast').classList.remove('on'); if (f) f(); });
+
+  // ── Navegación: tabs + pila de pantallas ─────────────────────────────
+  let tab = 'today';
+  const pila = [];
+  function marcarFull() {
+    const top = pila[pila.length - 1];
+    device.classList.toggle('full', !!top && $('#' + top).dataset.full === '1');
+  }
+  function irTab(t) {
+    while (pila.length) { const s = $('#' + pila.pop()); s.classList.remove('in'); s.hidden = true; }
+    tab = t;
+    $$('.screen[data-tab]').forEach((s) => { s.hidden = s.dataset.tab !== t; });
+    $$('.tab').forEach((b) => { if (b.dataset.tabgo === t) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    const sc = $('#' + t + ' .scroll'); if (sc) sc.scrollTop = 0;
+    $('#' + t).classList.remove('scrolled');
+    marcarFull(); cerrarSheet(true);
+  }
+  function abrir(id, desde) {
+    const s = $('#' + id);
+    if (id === 'ficha') { cargarLead(desde && desde.dataset.lead || leadActual); const bt = $('#ficha [data-back-txt]'); bt.textContent = tab === 'today' ? 'Today' : tab === 'inbox' ? 'Inbox' : 'CRM'; }
+    if (id === 'cs') pintarCS();
+    s.hidden = false; s.style.zIndex = 10 + pila.length;
+    s.querySelector('.scroll').scrollTop = 0; s.classList.remove('scrolled');
+    pila.push(id); marcarFull();
+    requestAnimationFrame(() => requestAnimationFrame(() => s.classList.add('in')));
+  }
+  function atras() {
+    const id = pila.pop(); if (!id) return;
+    const s = $('#' + id); s.classList.remove('in'); marcarFull();
+    setTimeout(() => { if (!s.classList.contains('in')) s.hidden = true; }, reducido() ? 160 : 340);
+    if (id === 'editor') pararPlayer();
+  }
+
+  // El título chico aparece cuando el grande se fue (título grande nativo).
+  $$('.scroll').forEach((sc) => sc.addEventListener('scroll', () => {
+    sc.closest('.screen').classList.toggle('scrolled', sc.scrollTop > 34);
+  }, { passive: true }));
+
+  // ── Sheet ─────────────────────────────────────────────────────────────
+  const sheet = $('#sheet'), velo = $('#velo');
+  let sheetNombre = null, sheetOrigen = null;
+  function abrirSheet(nombre, origen) {
+    const tpl = $('#t-' + nombre); if (!tpl) return;
+    sheetNombre = nombre; sheetOrigen = origen;
+    $('#sheet-titulo').textContent = tpl.dataset.titulo;
+    const cuerpo = $('#sheet-cuerpo'); cuerpo.innerHTML = ''; cuerpo.append(tpl.content.cloneNode(true));
+    prepararSheet(nombre, origen);
+    sheet.style.transform = '';
+    velo.classList.add('on'); sheet.classList.add('on');
+    setTimeout(() => { const f = sheet.querySelector('.sh-cerrar'); if (f) f.focus({ preventScroll: true }); }, 60);
+  }
+  function cerrarSheet(instant) {
+    if (!sheet.classList.contains('on')) return;
+    sheet.classList.remove('on'); velo.classList.remove('on'); sheet.style.transform = '';
+    sheetNombre = null;
+    if (instant) { sheet.classList.add('arrastre'); requestAnimationFrame(() => sheet.classList.remove('arrastre')); }
+  }
+  velo.addEventListener('click', () => cerrarSheet());
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarSheet(); });
+
+  // Arrastrar para cerrar, desde el borde de arriba (1:1 con el dedo; cierra por distancia o velocidad).
+  (() => {
+    const tope = $('#sheet-tope'); let y0 = null, t0 = 0, dy = 0;
+    tope.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; y0 = e.clientY; t0 = performance.now(); dy = 0; tope.setPointerCapture(e.pointerId); sheet.classList.add('arrastre'); });
+    tope.addEventListener('pointermove', (e) => { if (y0 === null) return; dy = Math.max(0, e.clientY - y0); sheet.style.transform = `translateY(${dy}px)`; });
+    const fin = () => {
+      if (y0 === null) return; const v = dy / Math.max(1, performance.now() - t0); y0 = null; sheet.classList.remove('arrastre');
+      if (dy > 110 || v > 0.6) cerrarSheet(); else sheet.style.transform = '';
+    };
+    tope.addEventListener('pointerup', fin); tope.addEventListener('pointercancel', fin);
+  })();
+
+  function prepararSheet(nombre, origen) {
+    if (nombre === 'etapa') {
+      const l = LEADS[leadActual];
+      $('#etapas-lista').innerHTML = ETAPAS.map((e) => `<button class="fila" data-hacer="etapa" data-v="${e}"><span class="tx"><span class="t n">${e}</span></span>${e === l.e ? '<svg width="20" height="20" class="azul"><use href="#i-check"/></svg>' : ''}</button>`).join('');
+    }
+    if (nombre === 'agendar') {
+      const n = LEADS[leadActual].n.split(' ')[0];
+      sheet.querySelector('[data-ag="consec"]').textContent = `Le llega la invitación a ${n}.`;
+    }
+    if (nombre === 'campana') {
+      const fila = origen.closest('[data-campana]');
+      $('#sheet-titulo').textContent = fila.querySelector('.t').textContent;
+      const c = CAMPANAS[fila.dataset.campana];
+      sheet.querySelector('[data-cp="gasto"]').textContent = c.gasto;
+      sheet.querySelector('[data-cp="res"]').textContent = c.res;
+      sheet.querySelector('[data-cp="cpr"]').textContent = c.cpr;
+      presu = c.presu; presuAntes = c.presu; campanaActual = fila.dataset.campana; pintarPresu();
+    }
+    if (nombre === 'cliente') {
+      const { c, i } = buscarCliente(clienteActual);
+      $('#sheet-titulo').textContent = c.n;
+      $('#cli-etapas').innerHTML = CS.map((et, k) => `<button class="fila" data-hacer="cs-mover" data-k="${k}"><span class="tx"><span class="t n">${et.etapa}</span></span>${k === i ? '<svg width="20" height="20" class="azul"><use href="#i-check"/></svg>' : ''}</button>`).join('');
+      const sig = CS[i + 1];
+      const b = $('#cli-sig'); b.hidden = !sig; if (sig) b.textContent = 'Pasar a ' + sig.etapa;
+    }
+    if (nombre === 'automatizacion') {
+      const fila = origen.closest('[data-auto]');
+      $('#sheet-titulo').textContent = fila.querySelector('.t').textContent;
+      autoActual = fila;
+      const borrador = !!fila.querySelector('[data-borrador]');
+      $('#auto-pie').innerHTML = borrador
+        ? '<p class="consec">Los próximos envíos usan la versión nueva.</p><button class="btn btn-p" data-hacer="auto-publicar">Publicar los cambios</button><button class="btn btn-t" data-hacer="auto-descartar">Descartar los cambios</button>'
+        : '<button class="btn btn-s" data-hacer="auto-probar">' + svgUse('i-wa', 20) + 'Probar en mi WhatsApp</button>';
+    }
+    if (nombre === 'linea') { $('#linea-in').value = TOMAS[tomaSel].txt; sheet.querySelector('label[for="linea-in"]').textContent = `Toma ${tomaSel + 1} · ${TOMAS[tomaSel].d} s`; sheet.querySelector('.sh-pie .consec').textContent = `Filmar de nuevo cuesta ${COSTO[TOMAS[tomaSel].d]} créditos.`; }
+    if (nombre === 'seccion') {
+      $$('.secc').forEach((s) => s.classList.toggle('sel', s === origen));
+      const titulos = { portada: 'Portada', aprender: 'Lo que vas a aprender', testimonio: 'Testimonio', formulario: 'Formulario' };
+      $('#sheet-titulo').textContent = titulos[origen.dataset.secc] || 'Sección';
+      const h = origen.querySelector('h3, h4, blockquote');
+      $('#secc-in').value = h ? h.textContent : '';
+    }
+    if (nombre === 'ver-terminado') { const t = origen.querySelector('.t'); if (t) $('#sheet-titulo').textContent = t.textContent; }
+    if (nombre === 'cuenta') {
+      const oscuro = device.dataset.tema === 'oscuro';
+      $$('[data-seg="tema"] button', sheet).forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.v === 'oscuro') === oscuro)));
+    }
+  }
+
+  // ── Plan ──────────────────────────────────────────────────────────────
+  function filaPlan(it, key) {
+    const on = hechas.has(key);
+    return `<div class="fila${on ? ' hecha' : ''}" data-key="${key}"><button class="chk-wrap" role="checkbox" aria-checked="${on}" aria-label="Completar: ${it.t}"><span class="chk">${svgUse('i-check', 16)}</span></button><span class="tx"><span class="t">${it.t}</span><span class="c"><span class="punto" style="background:${it.col}"></span>${it.p}</span></span><span class="r">${it.v}</span></div>`;
+  }
+  function pintarPlan() {
+    $$('[data-plan]').forEach((cont) => {
+      const vista = cont.dataset.plan, tope = +(cont.dataset.tope || 99);
+      cont.innerHTML = PLAN[vista].slice(0, tope).map((it, i) => filaPlan(it, vista + i)).join('');
+    });
+  }
+  function completar(btn) {
+    const fila = btn.closest('[data-key]'); const key = fila.dataset.key;
+    const on = !hechas.has(key);
+    on ? hechas.add(key) : hechas.delete(key);
+    pintarPlan();
+    if (on) toast('Completada', () => { hechas.delete(key); pintarPlan(); });
+  }
+
+  // ── Ficha del lead ────────────────────────────────────────────────────
+  function cargarLead(k) {
+    leadActual = k; const l = LEADS[k];
+    $$('#ficha [data-f]').forEach((el) => {
+      const f = el.dataset.f;
+      el.textContent = f === 'nombre' ? l.n : f === 'ini' ? ini(l.n) : f === 'etapa' ? l.e : l[f];
+    });
+    pararNota();
+  }
+  let grabando = false;
+  function pararNota() { grabando = false; const b = $('#nota-voz'); b.classList.remove('grabando'); b.querySelector('.t').textContent = 'Nota por voz'; b.querySelector('.ic-tile').innerHTML = svgUse('i-mic'); }
+
+  // ── Dashboard ─────────────────────────────────────────────────────────
+  function pintarDash() {
+    const d = DASH[hoja];
+    $('#graf-titulo').textContent = d.titulo;
+    $('#graf-total').textContent = d.total;
+    $('#periodo-btn').hidden = hoja !== 'mkt';
+    $('#cobrar').hidden = hoja !== 'com';
+    const W = 330, H = 150, top = 8, base = 124, izq = 30, n = d.datos.length;
+    const max = Math.max(...d.datos);
+    const paso = hoja === 'mkt' ? 4 : 2000;
+    const techo = Math.ceil(max / paso) * paso;
+    const y = (v) => base - (v / techo) * (base - top);
+    const ancho = (W - izq) / n, gap = n > 12 ? 2 : 8, bw = ancho - gap;
+    let s = '';
+    for (let v = 0; v <= techo; v += paso) {
+      const yy = y(v).toFixed(1);
+      s += `<line class="grilla" x1="${izq}" x2="${W}" y1="${yy}" y2="${yy}"/>`;
+      s += `<text class="eje" x="${izq - 6}" y="${(+yy + 4).toFixed(1)}" text-anchor="end">${hoja === 'mkt' ? v : (v / 1000) + 'k'}</text>`;
+    }
+    d.datos.forEach((v, i) => {
+      const x = izq + i * ancho + gap / 2, yy = y(v), h = base - yy, r = Math.min(4, bw / 2);
+      const sel = barraSel === null ? i === n - 1 : i === barraSel;
+      s += `<path class="barra-d${sel ? ' sel' : ''}" d="M${x},${base} V${(yy + r).toFixed(1)} Q${x},${yy.toFixed(1)} ${(x + r).toFixed(1)},${yy.toFixed(1)} H${(x + bw - r).toFixed(1)} Q${(x + bw).toFixed(1)},${yy.toFixed(1)} ${(x + bw).toFixed(1)},${(yy + r).toFixed(1)} V${base} Z"/>`;
+      s += `<rect class="hit" data-i="${i}" x="${izq + i * ancho}" y="${top}" width="${ancho}" height="${base - top + 20}"/>`;
+    });
+    const marcas = n > 12 ? [0, Math.floor(n / 2), n - 1] : [0, 3, n - 1];
+    marcas.forEach((i) => {
+      const x = izq + i * ancho + ancho / 2;
+      s += `<text class="eje" x="${x.toFixed(1)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}">${d.etiquetas(i)}</text>`;
+    });
+    $('#graf').innerHTML = s;
+    const i = barraSel === null ? n - 1 : barraSel;
+    $('#graf-sel').textContent = d.etiquetas(i) + ' · ' + (hoja === 'mkt' ? d.datos[i] + ' leads' : usd(d.datos[i]));
+    $('#dash-metricas').innerHTML = d.metricas.map(([k, v, dl, dir, invertir]) => {
+      const bueno = invertir ? (dir === 'down' ? 'up' : 'down') : dir;
+      const delta = dl ? `<span class="delta ${bueno}" aria-label="${dir === 'up' ? 'sube' : 'baja'} ${dl}"><svg width="12" height="12" style="transform:rotate(${dir === 'up' ? 0 : 180}deg)"><use href="#i-flecha"/></svg>${dl}</span>` : '';
+      return `<div class="fila dato"><span class="k">${k}</span><span class="vcol"><strong>${v}</strong>${delta}</span></div>`;
+    }).join('');
+  }
+  $('#graf').addEventListener('click', (e) => { const h = e.target.closest('.hit'); if (!h) return; barraSel = +h.dataset.i; pintarDash(); });
+
+  // ── Ads Manager ───────────────────────────────────────────────────────
+  const CAMPANAS = {
+    c1: { gasto: 'US$ 55,80', res: '9 agendas', cpr: 'US$ 6,20', presu: 60, ag: 9 },
+    c2: { gasto: 'US$ 36,40', res: '4 agendas', cpr: 'US$ 9,10', presu: 40, ag: 4 },
+    c3: { gasto: 'US$ 0', res: 'Sin resultados', cpr: '—', presu: 15, ag: 0 },
+  };
+  const ADS_PERIODO = { hoy: ['US$ 92,20', '13 agendas', 'US$ 7,09'], '7d': ['US$ 604,50', '81 agendas', 'US$ 7,46'], mes: ['US$ 868,00', '112 agendas', 'US$ 7,75'] };
+  let presu = 60, presuAntes = 60, campanaActual = 'c1';
+  function pintarPresu() {
+    $('#presu').textContent = usd(presu);
+    $('#presu-antes').textContent = `Hoy: ${usd(presuAntes)} al día`;
+    const b = $('#presu-btn'), cambia = presu !== presuAntes;
+    b.disabled = !cambia; b.textContent = `Poner ${usd(presu)}/día`;
+    $('#presu-consec').textContent = cambia ? 'Meta empieza a gastar el monto nuevo hoy.' : 'Mueve el presupuesto para cambiarlo.';
+  }
+  function lineaCampana(k) {
+    const c = CAMPANAS[k], fila = $(`[data-campana="${k}"]`), on = fila.querySelector('.sw').getAttribute('aria-checked') === 'true';
+    fila.querySelector('[data-c="linea"]').textContent = (on ? (c.ag ? c.ag + ' agendas' : 'Sin resultados') : 'En pausa') + ' · ' + usd(c.presu) + '/día';
+  }
+
+  // ── Customer Success ─────────────────────────────────────────────────
+  function buscarCliente(id) { for (let i = 0; i < CS.length; i++) { const c = CS[i].clientes.find((x) => x.id === id); if (c) return { c, i }; } return {}; }
+  function pintarCS() {
+    $('#cs-etapas').innerHTML = CS.map((et) => `
+      <div class="st"><h2>${et.etapa}</h2><span class="r">${et.clientes.length}</span></div>
+      <div class="lista lista-av">${et.clientes.length ? et.clientes.map((c) => `<button class="fila" data-sheet="cliente" data-cli="${c.id}"><span class="av">${ini(c.n)}</span><span class="tx"><span class="t">${c.n}</span><span class="c">${c.emp}</span></span><span class="r">${c.quieto ? '<span class="punto" style="background:var(--bad)"></span>' : ''}${c.r}</span></button>`).join('') : '<div class="fila"><span class="tx"><span class="c">Sin clientes en esta etapa.</span></span></div>'}</div>`).join('');
+  }
+  function moverCliente(id, destino) {
+    const { c, i } = buscarCliente(id); if (i === undefined || i === destino) return;
+    CS[i].clientes = CS[i].clientes.filter((x) => x.id !== id);
+    const viejo = { ...c }; c.r = 'hace un momento'; c.quieto = false;
+    CS[destino].clientes.unshift(c); pintarCS();
+    toast('En ' + CS[destino].etapa, () => { CS[destino].clientes = CS[destino].clientes.filter((x) => x.id !== id); Object.assign(c, viejo); CS[i].clientes.unshift(c); pintarCS(); });
+  }
+
+  // ── Automations ──────────────────────────────────────────────────────
+  let autoActual = null;
+
+  // ── Editor de video reducido ─────────────────────────────────────────
+  function pintarTira() {
+    $('#tira').innerHTML = TOMAS.map((t, i) => {
+      const est = t.s === 'fallo' ? svgUse('i-x', 12) : t.s === 'lista' ? svgUse('i-check', 12) : '<span class="giro"></span>';
+      const c = ['--c1:var(--cuadro-1);--c2:var(--cuadro-2)', '--c1:var(--cuadro-4);--c2:var(--cuadro-3)', '--c1:var(--cuadro-2);--c2:var(--cuadro-1)'][i % 3];
+      return `<button class="toma" data-toma="${i}" data-s="${t.s}" aria-pressed="${i === tomaSel}" aria-label="Toma ${i + 1}: ${nombreEstado(t.s)}"><span class="cuadro" style="${c}"><svg class="silueta" viewBox="0 0 100 90"><use href="#silueta"/></svg></span><span class="est">${est}</span>${i + 1}</button>`;
+    }).join('');
+  }
+  const nombreEstado = (s) => ({ lista: 'Lista', fallo: 'No salió', filmando: 'Filmando' }[s]);
+  function pintarToma() {
+    const t = TOMAS[tomaSel], n = tomaSel + 1, todas = TOMAS.every((x) => x.s === 'lista');
+    $('#pt-titulo').textContent = 'Toma ' + n;
+    const pill = $('#pt-estado'); pill.className = 'pill ' + ({ lista: 'good', fallo: 'bad', filmando: 'info' }[t.s]);
+    pill.innerHTML = '<i></i>' + nombreEstado(t.s);
+    $('#pt-motivo').hidden = t.s === 'lista';
+    $('#pt-motivo').textContent = t.s === 'fallo' ? 'Google Flow no la filmó.' : 'Suele tardar entre 1 y 3 minutos.';
+    $('#pt-texto').textContent = t.txt;
+    $('#player-sub').textContent = entero ? TOMAS[0].txt : t.txt;
+    $('#player-marca').textContent = entero ? 'Anuncio entero' : 'Toma ' + n;
+    $('#player-dur').textContent = entero ? '0:46 · 7 tomas' : `Toma ${n} de ${TOMAS.length} · ${t.d} s`;
+    const b = $('#editor-accion'), consec = $('#editor-consec');
+    if (t.s === 'fallo') {
+      b.disabled = false; b.dataset.hacer = 'refilmar'; b.textContent = 'Filmar de nuevo la toma ' + n;
+      consec.textContent = `Filmar de nuevo cuesta ${COSTO[t.d]} créditos.`;
+    } else if (!todas) {
+      const falta = TOMAS.findIndex((x) => x.s !== 'lista');
+      b.disabled = true; b.dataset.hacer = 'entero'; b.textContent = 'Ver el anuncio entero';
+      consec.textContent = TOMAS[falta].s === 'fallo' ? `Falta la toma ${falta + 1}.` : `Se está filmando la toma ${falta + 1}.`;
+    } else if (!entero) {
+      b.disabled = false; b.dataset.hacer = 'entero'; b.textContent = 'Ver el anuncio entero';
+      consec.textContent = 'Las 7 tomas están listas.';
+    } else {
+      b.disabled = false; b.dataset.hacer = 'descargar'; b.innerHTML = svgUse('i-bajar', 20) + 'Descargar el anuncio';
+      consec.textContent = 'Queda en tu teléfono, listo para usar.';
+    }
+    $('#video-estado').innerHTML = todas ? 'Listo · 0:46' : TOMAS.some((x) => x.s === 'fallo') ? '<span class="punto" style="background:var(--bad)"></span>Una toma no salió' : 'Filmando…';
+    $('#bdg-video').hidden = !TOMAS.some((x) => x.s === 'fallo');
+  }
+  let playTimer = null;
+  function pararPlayer() { clearTimeout(playTimer); const p = $('#player-prog'); p.style.transition = 'none'; p.style.width = '0'; $('#player-play').innerHTML = svgUse('i-play', 26); $('#player-play').setAttribute('aria-label', 'Reproducir'); }
+  $('#player-play').addEventListener('click', () => {
+    const p = $('#player-prog');
+    if (p.style.width === '100%') { pararPlayer(); return; }
+    const secs = entero ? 46 : TOMAS[tomaSel].d;
+    p.style.transition = 'none'; p.style.width = '0';
+    requestAnimationFrame(() => { p.style.transition = `width ${secs}s linear`; p.style.width = '100%'; });
+    $('#player-play').innerHTML = svgUse('i-pausa', 26); $('#player-play').setAttribute('aria-label', 'Pausar');
+    clearTimeout(playTimer); playTimer = setTimeout(pararPlayer, secs * 1000);
+  });
+  function terminarFilmacion(i, ms) {
+    setTimeout(() => { TOMAS[i].s = 'lista'; pintarTira(); pintarToma(); }, ms);
+  }
+
+  // ── Acciones ──────────────────────────────────────────────────────────
+  let decidir = 3;
+  function quitarDecision(item) {
+    const fila = $(`#inbox-decidir [data-item="${item}"]`); if (fila) fila.hidden = true;
+    decidir--; pintarDecidir();
+  }
+  function volverDecision(item) { const fila = $(`#inbox-decidir [data-item="${item}"]`); if (fila) fila.hidden = false; decidir++; pintarDecidir(); }
+  function pintarDecidir() {
+    $('#num-decidir').textContent = decidir; $('#num-decidir').hidden = !decidir;
+    $('#bdg-inbox').textContent = decidir; $('#bdg-inbox').hidden = !decidir;
+    $('#inbox-vacio').hidden = !!decidir || $('#inbox-decidir').hidden;
+  }
+
+  const HACER = {
+    'enviar-seg'() { cerrarSheet(); quitarDecision('seg'); $('#card-seg').hidden = true; toast('Mensajes enviados'); },
+    ganado() { cerrarSheet(); quitarDecision('gan'); toast('Jorge pasó a Ganado', () => volverDecision('gan')); },
+    etapa(b) {
+      const l = LEADS[leadActual], antes = l.e; l.e = b.dataset.v; cargarLead(leadActual); cerrarSheet();
+      if (antes !== l.e) toast('En ' + l.e, () => { l.e = antes; cargarLead(leadActual); });
+    },
+    agendar(b) { const n = LEADS[leadActual]; n.prox = b.textContent.replace('Agendar ', '').replace(/^./, (c) => c.toUpperCase()); if (n.e === 'Nuevo' || n.e === 'Contactado') n.e = 'Agendado'; cargarLead(leadActual); cerrarSheet(); toast('Agendada'); },
+    'wa-enviar'() { const i = $('#wa-in'); if (!i.value.trim()) { i.focus(); return; } const d = document.createElement('div'); d.className = 'burbuja mia'; d.textContent = i.value.trim(); sheet.querySelector('.sh-scroll').append(d); i.value = ''; d.scrollIntoView({ block: 'end' }); },
+    periodo(b) { $('#periodo-btn').textContent = b.dataset.v; cerrarSheet(); toast('Período: ' + b.dataset.v); },
+    cobrado(b) {
+      const fila = b.closest('[data-cobro]'); fila.hidden = true;
+      toast('Cobrado', () => { fila.hidden = false; });
+    },
+    presupuesto() {
+      const antes = CAMPANAS[campanaActual].presu, k = campanaActual; CAMPANAS[k].presu = presu; lineaCampana(k); cerrarSheet();
+      toast(usd(presu) + ' al día', () => { CAMPANAS[k].presu = antes; lineaCampana(k); });
+    },
+    conclusiones() { cerrarSheet(); abrir('mako'); },
+    'cs-mover'(b) { const id = clienteActual; cerrarSheet(); moverCliente(id, +b.dataset.k); },
+    'cs-siguiente'() { const id = clienteActual; const { i } = buscarCliente(id); cerrarSheet(); moverCliente(id, i + 1); },
+    'auto-publicar'() { const f = autoActual; const p = f.querySelector('[data-borrador]'); if (p) p.remove(); cerrarSheet(); toast('Publicada'); },
+    'auto-descartar'() { const f = autoActual; const p = f.querySelector('[data-borrador]'); if (p) p.remove(); cerrarSheet(); toast('Cambios descartados'); },
+    'auto-probar'() { cerrarSheet(); toast('Enviado · revisa tu WhatsApp'); },
+    refilmar() {
+      const i = tomaSel; TOMAS[i].s = 'filmando'; pintarTira(); pintarToma(); toast('Filmando la toma ' + (i + 1));
+      terminarFilmacion(i, 3200);
+    },
+    linea() { const v = $('#linea-in').value.trim(); if (!v) return; const i = tomaSel; TOMAS[i].txt = v; TOMAS[i].s = 'filmando'; cerrarSheet(); pintarTira(); pintarToma(); toast('Filmando la toma ' + (i + 1)); terminarFilmacion(i, 3200); },
+    entero() { entero = true; pintarToma(); $('.escenario').scrollIntoView({ block: 'start', behavior: reducido() ? 'auto' : 'smooth' }); },
+    descargar() { cerrarSheet(); toast('Descargando el anuncio'); },
+    ia(b) {
+      const i = $('#secc-in'); i.value = '…'; b.disabled = true;
+      setTimeout(() => { i.value = b.dataset.v; b.disabled = false; }, 900);
+    },
+    'secc-guardar'() {
+      const sel = $('.secc.sel'), v = $('#secc-in').value.trim();
+      if (sel && v) { const h = sel.querySelector('h3, h4, blockquote'); if (h && h.textContent !== v) { h.textContent = v; marcarCambiosLanding(); } }
+      cerrarSheet(); $$('.secc').forEach((s) => s.classList.remove('sel'));
+    },
+    'publicar-landing'() { const b = $('#landing-publicar'); b.disabled = true; $('#landing-consec').textContent = 'Sin cambios por publicar.'; toast('Publicada'); },
+  };
+  function marcarCambiosLanding() { $('#landing-publicar').disabled = false; $('#landing-consec').textContent = 'La página publicada cambia al instante.'; }
+
+  // ── Un solo escuchador de clics ──────────────────────────────────────
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    const ir = t.closest('[data-ir]');
+    if (ir) {
+      const v = ir.dataset.ir;
+      const raiz = { today: 1, inbox: 1, crm: 1, plan: 1, more: 1 };
+      if (raiz[v]) irTab(v);
+      else if (v === 'ficha') { irTab('crm'); abrir('ficha', { dataset: { lead: 'camila' } }); }
+      else if (v === 'editor') { irTab('more'); abrir('video'); abrir('editor'); }
+      else if (v === 'landing-ed') { irTab('more'); abrir('landing'); abrir('landing-ed'); }
+      else { irTab('more'); abrir(v); }
+      return;
+    }
+    const chk = t.closest('.chk-wrap'); if (chk) { completar(chk); return; }
+    const sw = t.closest('.sw');
+    if (sw) {
+      const on = sw.getAttribute('aria-checked') !== 'true'; sw.setAttribute('aria-checked', String(on));
+      if (sw.dataset.sw === 'campana') { const k = sw.closest('[data-campana]').dataset.campana; lineaCampana(k); toast(on ? 'Activa' : 'En pausa', () => { sw.setAttribute('aria-checked', String(!on)); lineaCampana(k); }); }
+      else if (sw.dataset.sw === 'auto') toast(on ? 'Activa' : 'Pausada', () => sw.setAttribute('aria-checked', String(!on)));
+      else toast(on ? 'Avisos prendidos' : 'Avisos apagados');
+      return;
+    }
+    const seg = t.closest('.seg button');
+    if (seg) {
+      const grupo = seg.parentElement.dataset.seg, v = seg.dataset.v;
+      $$('button', seg.parentElement).forEach((b) => b.setAttribute('aria-pressed', String(b === seg)));
+      if (grupo === 'inbox') { $('#inbox-decidir').hidden = v !== 'decidir'; $('#inbox-avisos').hidden = v !== 'avisos'; pintarDecidir(); }
+      if (grupo === 'plan') { $('#plan-lista').dataset.plan = v; pintarPlan(); }
+      if (grupo === 'hoja') { hoja = v; barraSel = null; pintarDash(); }
+      if (grupo === 'ads') { const [g, r, c] = ADS_PERIODO[v]; $('[data-a="gasto"]').textContent = g; $('[data-a="res"]').textContent = r; $('[data-a="cpr"]').textContent = c; }
+      if (grupo === 'tema') { device.dataset.tema = v === 'oscuro' ? 'oscuro' : ''; if (v !== 'oscuro') delete device.dataset.tema; }
+      return;
+    }
+    const opt = t.closest('[data-grupo] button');
+    if (opt) {
+      $$('button', opt.parentElement).forEach((b) => b.setAttribute('aria-pressed', String(b === opt)));
+      const dia = sheet.querySelector('[data-grupo="dia"] [aria-pressed="true"]'), hora = sheet.querySelector('[data-grupo="hora"] [aria-pressed="true"]');
+      sheet.querySelector('[data-ag="btn"]').textContent = 'Agendar ' + dia.dataset.v + ', ' + hora.textContent;
+      return;
+    }
+    const toma = t.closest('[data-toma]');
+    if (toma) { tomaSel = +toma.dataset.toma; entero = false; pararPlayer(); pintarTira(); pintarToma(); return; }
+    const paso = t.closest('[data-paso]');
+    if (paso) { presu = Math.max(5, Math.min(500, presu + +paso.dataset.paso)); pintarPresu(); return; }
+    if (t.closest('[data-llamar]')) { toast('Llamando a ' + LEADS[leadActual].n.split(' ')[0]); return; }
+    if (t.closest('#nota-voz')) {
+      const b = $('#nota-voz');
+      if (!grabando) { grabando = true; b.classList.add('grabando'); b.querySelector('.t').textContent = 'Grabando · toca para terminar'; b.querySelector('.ic-tile').innerHTML = '<span class="rec"></span>'; }
+      else { pararNota(); toast('Nota guardada'); }
+      return;
+    }
+    const tabgo = t.closest('[data-tabgo]'); if (tabgo) { irTab(tabgo.dataset.tabgo); return; }
+    if (t.closest('[data-back]')) { atras(); return; }
+    const hacer = t.closest('[data-hacer]'); if (hacer && !hacer.disabled) { HACER[hacer.dataset.hacer](hacer); return; }
+    const sh = t.closest('[data-sheet]');
+    if (sh) {
+      if (sh.dataset.cli) clienteActual = sh.dataset.cli;
+      if (sh.dataset.lead) leadActual = sh.dataset.lead;
+      abrirSheet(sh.dataset.sheet, sh); return;
+    }
+    const ab = t.closest('[data-open]'); if (ab) { abrir(ab.dataset.open, ab); return; }
+    const ce = t.closest('[data-cerrar]'); if (ce) { cerrarSheet(); if (ce.dataset.toast) toast(ce.dataset.toast); return; }
+    const to = t.closest('[data-toast]'); if (to) { toast(to.dataset.toast); }
+  });
+  // La píldora «Con problemas» también abre con teclado.
+  document.addEventListener('keydown', (e) => { const p = e.target.closest && e.target.closest('[role="button"][data-sheet]'); if (p && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirSheet(p.dataset.sheet, p); } });
+
+  // ── Búsqueda del CRM ─────────────────────────────────────────────────
+  $('#q-crm').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    let alguno = false;
+    $$('#crm-listas .lista').forEach((l) => {
+      let vis = 0;
+      $$('.fila', l).forEach((f) => { const ok = !q || f.querySelector('.t').textContent.toLowerCase().includes(q); f.hidden = !ok; if (ok) vis++; });
+      l.hidden = !vis; l.previousElementSibling.hidden = !vis; if (vis) alguno = true;
+    });
+    $('#crm-nada').hidden = alguno;
+  });
+
+  // ── Chat de MaKo ─────────────────────────────────────────────────────
+  $('#composer').addEventListener('submit', (e) => {
+    e.preventDefault(); const i = $('#composer-in'), v = i.value.trim(); if (!v) return;
+    const h = $('#hilo'); const yo = document.createElement('div'); yo.className = 'msg-yo'; yo.textContent = v; h.append(yo); i.value = '';
+    setTimeout(() => { const mk = document.createElement('div'); mk.className = 'msg-mk'; mk.textContent = 'Lo miro y te lo paso en un momento.'; h.append(mk); mk.scrollIntoView({ block: 'end', behavior: 'smooth' }); }, 700);
+  });
+
+  // ── El teléfono entra en la ventana ──────────────────────────────────
+  function encajar() {
+    const w = $('#marco-wrap');
+    if (innerWidth <= 520) { device.style.transform = ''; w.style.height = ''; w.style.width = ''; return; }
+    const k = Math.min(1, (innerHeight - 48) / 844);
+    device.style.transform = k < 1 ? `scale(${k})` : '';
+    w.style.height = (844 * k) + 'px'; w.style.width = (390 * k) + 'px';
+  }
+  addEventListener('resize', encajar);
+
+  pintarPlan(); pintarDash(); pintarTira(); pintarToma(); pintarDecidir(); encajar();
+  const ancla = (location.hash || '').slice(1);
+  if (ancla) { const b = document.querySelector(`[data-ir="${ancla}"]`); if (b) b.click(); }
+})();
+</script>
+</body>
+</html>

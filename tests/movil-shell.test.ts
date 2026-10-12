@@ -10,7 +10,10 @@
 //     «público», y el título de la pestaña usa los nombres de la barra;
 //   · el manifest abre /inicio con `id: '/'`;
 //   · la cabecera por defecto y la física de los gestos (lógica pura);
-//   · nadie en /m navega con next/link ni pregunta `startsWith('/m')`.
+//   · nadie en /m navega con next/link ni pregunta `startsWith('/m')`;
+//   · v2: el cromo es CLARO (themeColor = --bg, statusBarStyle `default`), el título
+//     grande existe como token (--m-titulo) y la pantalla que entra se anima con `left`,
+//     nunca con `transform` (rompería todo lo `position: fixed` de adentro).
 //
 // Verificado ROMPIÉNDOLO (11/10/2026):
 //   · `--fs-sect: 21px` en el bloque [data-m]: 1 fallo («la escala…»).
@@ -20,6 +23,11 @@
 //   · `start_url: '/'` en el manifest: 1 fallo.
 //   · la cabecera de /m/crm/12 volviendo a «Today»: 1 fallo.
 //   · `UMBRAL_SWIPE = 0.5`: 1 fallo (la física del swipe).
+// v2 (11/10/2026; base 14 pasan / 0 fallan), de a una y restaurando, cada una
+//     13 / 1 en su test: themeColor de vuelta a '#14161B'; la columna animada con
+//     `transform`; sin `--m-titulo` en [data-m]; la sección de More sin «‹ More»;
+//     `nivel` contando segmentos de URL (More → Dashboard no deslizaba); `rotuloVolver`
+//     sin acortar («‹ Landing Generator» se comía el título).
 // =============================================================================
 
 import test from 'node:test';
@@ -29,7 +37,8 @@ import { join } from 'node:path';
 import { esVistaSinChrome, isPublicLandingPath } from '../app/_components/PublicRouteGate';
 import { tituloDe } from '../lib/titulo-tab';
 import manifest from '../app/manifest';
-import { cabeceraPorRuta, llevaBarra, profundidad } from '../app/m/_ui/cabecera';
+import { cabeceraPorRuta, llevaBarra, nivel, rotuloVolver, esTrabajo } from '../app/m/_ui/cabecera';
+import { barraMovil } from '../lib/movil-rutas';
 import {
   rubberband, decidirSwipe, destinoDelSheet, velocidadDe, ejeDelGesto, distanciaDePull,
 } from '../app/m/_ui/gestos';
@@ -65,9 +74,18 @@ test('la escala de [data-m] es la misma que la del @media del teléfono', () => 
   assert.ok(media, 'no encontré el @media (max-width: 820px) de la escala');
   assert.ok(dataM, 'no encontré el bloque [data-m] de globals.css');
   const a = vars(media![1]);
-  const b = vars(dataM![1]);
+  // Los `--m-*` son SÓLO de /m (el título grande): el escritorio no los tiene.
+  const b = Object.fromEntries(Object.entries(vars(dataM![1])).filter(([k]) => !k.startsWith('--m-')));
   assert.ok(Object.keys(a).length >= 8, 'el @media tiene menos variables de las esperadas');
   assert.deepEqual(b, a);
+});
+
+test('el título grande de la v2 es un token de [data-m]: 32 px', () => {
+  const css = sinComentariosCss(leer('app/globals.css'));
+  const dataM = css.match(/\n\[data-m\] \{([^}]*)\}/);
+  assert.equal(vars(dataM![1])['--m-titulo'], '32px');
+  // Y m.css lo usa (un token que nadie lee es uno que se borra «porque sobra»).
+  assert.match(sinComentariosCss(leer('app/m/m.css')), /font-size:\s*var\(--m-titulo\)/);
 });
 
 test('los tokens del shell existen UNA vez en :root', () => {
@@ -97,13 +115,30 @@ test('m.css sin hex, sin 100vh, sin transition: all, y todo con alcance', () => 
   assert.deepEqual(sueltos, [], 'reglas sin alcance de /m');
 });
 
-test('el viewport de /m: cover, sin bloquear el zoom, themeColor = --sidebar', () => {
+test('el viewport de /m: cover, sin bloquear el zoom, themeColor = --bg (cromo claro)', () => {
   const src = sinComentariosTs(leer('app/m/layout.tsx'));
   assert.match(src, /viewportFit:\s*'cover'/);
   assert.match(src, /interactiveWidget:\s*'resizes-content'/);
   assert.doesNotMatch(src, /maximumScale|userScalable/);
-  const sidebar = leer('app/globals.css').match(/\n\s*--sidebar:\s*(#[0-9A-Fa-f]{6});/)![1];
-  assert.match(src, new RegExp(`themeColor:\\s*'${sidebar}'`, 'i'));
+  // El PRIMER --bg de globals.css es el del tema claro (:root), que es el de por defecto.
+  const bg = leer('app/globals.css').match(/\n\s*--bg:\s*(#[0-9A-Fa-f]{6});/)![1];
+  assert.match(src, new RegExp(`themeColor:\\s*'${bg}'`, 'i'));
+  // Con el encabezado claro, el reloj de iOS va en oscuro: `default`, no `black-translucent`.
+  assert.match(sinComentariosTs(leer('app/layout.tsx')), /statusBarStyle:\s*'default'/);
+  // Y el cromo no vuelve a ser oscuro: ni el encabezado ni la barra pintan --sidebar.
+  const css = sinComentariosCss(leer('app/m/m.css'));
+  for (const sel of ['m-cabecera', 'm-barra']) {
+    const bloque = css.match(new RegExp(`\\n\\.${sel} \\{([^}]*)\\}`));
+    assert.ok(bloque, `no encontré .${sel} en m.css`);
+    assert.doesNotMatch(bloque![1], /--sidebar/, `.${sel} volvió al cromo oscuro de la v1`);
+  }
+});
+
+test('la pantalla que entra se anima con `left`, nunca con `transform` (los fixed de adentro saltarían)', () => {
+  const src = sinComentariosTs(leer('app/m/_ui/ShellM.tsx'));
+  assert.match(src, /el\.animate\(\[\{ left: '100%' \}, \{ left: '0px' \}\]/);
+  assert.doesNotMatch(src, /el\.animate\([^)]*transform/, 'un transform en la columna descoloca el composer y el pie fijo');
+  assert.match(sinComentariosCss(leer('app/m/m.css')), /\.m-columna \{[^}]*position: relative/);
 });
 
 test('/m apaga el cromo de escritorio sin volverse público', () => {
@@ -132,18 +167,62 @@ test('el manifest abre el repartidor y conserva la identidad', () => {
   assert.equal(m.display, 'standalone');
   assert.ok((m.icons ?? []).length >= 3, 'se perdieron los íconos');
   assert.deepEqual((m.shortcuts ?? []).map((s) => [s.name, s.url]),
-    [['Today', '/m/hoy'], ['Inbox', '/m/inbox'], ['MaKo', '/m/mako']]);
+    [['Today', '/m/hoy'], ['Inbox', '/m/inbox'], ['CRM', '/m/crm']]);
 });
 
 test('la cabecera por defecto: título en la raíz, volver fijo en la subpantalla', () => {
-  assert.deepEqual(cabeceraPorRuta('/m/hoy'), { titulo: 'Today', padre: null });
-  assert.deepEqual(cabeceraPorRuta('/m/crm'), { titulo: 'CRM', padre: null });
-  assert.deepEqual(cabeceraPorRuta('/m/crm/12'), { titulo: '', padre: { href: '/m/crm', label: 'CRM' } });
-  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), { titulo: 'Perfil', padre: { href: '/m/hoy', label: 'Today' } });
-  assert.deepEqual(cabeceraPorRuta('/m/raro'), { titulo: '', padre: { href: '/m/hoy', label: 'Today' } });
+  const t = (titulo: string, padre: { href: string; label: string } | null, trabajo = false, conBarra = true) => ({ titulo, padre, trabajo, conBarra });
+  // Las raíces de la barra: el nombre, sin volver.
+  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('Today', null));
+  assert.deepEqual(cabeceraPorRuta('/m/crm'), t('CRM', null));
+  assert.deepEqual(cabeceraPorRuta('/m/mas'), t('More', null));
+  // Una subpantalla vuelve a su raíz; el título lo pone la página.
+  assert.deepEqual(cabeceraPorRuta('/m/crm/12'), t('', { href: '/m/crm', label: 'CRM' }));
+  // Las secciones de More vuelven a More; sus subpantallas, a la sección.
+  assert.deepEqual(cabeceraPorRuta('/m/dashboard'), t('Dashboard', { href: '/m/mas', label: 'More' }));
+  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Customer Success', { href: '/m/mas', label: 'More' }));
+  assert.deepEqual(cabeceraPorRuta('/m/ads/9'), t('', { href: '/m/ads', label: 'Ads Manager' }));
+  // La cuenta es la primera fila de More.
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('Perfil', { href: '/m/mas', label: 'More' }));
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'Perfil' }));
+  assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'Today' }));
+  // Pantallas de trabajo: sin título grande y sin barra de abajo.
+  assert.deepEqual(cabeceraPorRuta('/m/mako'), t('MaKo', { href: '/m/mas', label: 'More' }, true, false));
+  assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video Generator' }, true, false));
+  assert.deepEqual(cabeceraPorRuta('/m/landing/3'), t('', { href: '/m/landing', label: 'Landing Generator' }, true, false));
+  assert.equal(esTrabajo('/m/video'), false, 'la LISTA de videos es una sección normal');
+  // El chat de WhatsApp de un lead: de trabajo desde el server, y vuelve a SU ficha.
+  assert.deepEqual(cabeceraPorRuta('/m/crm/12/chat'), t('', { href: '/m/crm/12', label: 'Ficha' }, true, false));
+  assert.equal(esTrabajo('/m/crm/12'), false, 'la ficha no es de trabajo');
   assert.equal(llevaBarra('/m/configurar'), false);
   assert.equal(llevaBarra('/m/hoy'), true);
-  assert.ok(profundidad('/m/crm/12') > profundidad('/m/crm'));
+  assert.equal(llevaBarra('/m/video/7'), false);
+  // Una sección que subió a la barra es una raíz: sin volver y CON barra (aunque sea de trabajo).
+  assert.deepEqual(cabeceraPorRuta('/m/mako', barraMovil('setter', 'pm')), t('MaKo', null, true, true));
+  assert.deepEqual(cabeceraPorRuta('/m/dashboard', barraMovil('admin', 'pm')), t('Dashboard', null));
+});
+
+test('el nivel de una pantalla: ir más adentro desliza; cambiar de tab y volver, no', () => {
+  // Cambiar de tab: 0 → 0.
+  for (const p of ['/m/hoy', '/m/crm', '/m/inbox', '/m/plan', '/m/mas']) assert.equal(nivel(p), 0, p);
+  // More → una sección (la MISMA profundidad de URL, pero un nivel más adentro).
+  assert.equal(nivel('/m/dashboard'), 1);
+  assert.equal(nivel('/m/cuenta'), 1);
+  assert.equal(nivel('/m/crm/12'), 1);
+  assert.equal(nivel('/m/crm/12/chat'), 2);
+  assert.equal(nivel('/m/video/7'), 2);
+  assert.equal(nivel('/m/cuenta/instalar'), 2);
+  // Subida a la barra, una sección es raíz.
+  assert.equal(nivel('/m/dashboard', barraMovil('admin', 'pm')), 0);
+  assert.equal(nivel('/m/dashboard/x', barraMovil('admin', 'pm')), 1);
+});
+
+test('el «volver» corto: un padre largo pasa a «Atrás» (el nombre entero va en el aria-label)', () => {
+  assert.equal(rotuloVolver('More'), 'More');
+  assert.equal(rotuloVolver('CRM'), 'CRM');
+  assert.equal(rotuloVolver('Perfil'), 'Perfil');
+  assert.equal(rotuloVolver('Landing Generator'), 'Atrás');
+  assert.equal(rotuloVolver('Customer Success'), 'Atrás');
 });
 
 test('la física de los gestos', () => {

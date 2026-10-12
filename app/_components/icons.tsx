@@ -48,6 +48,20 @@ const PATHS: Record<string, ReactNode> = {
   config: (<><path d="M4 7h9M17 7h3" /><circle cx="15" cy="7" r="2" /><path d="M4 12h3M11 12h9" /><circle cx="9" cy="12" r="2" /><path d="M4 17h9M17 17h3" /><circle cx="15" cy="17" r="2" /></>),
   logout: (<><path d="M15 5H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8" /><path d="M17 15l3-3-3-3" /><path d="M20 12H9" /></>),
   bell: (<><path d="M6 9a6 6 0 0 1 12 0c0 4.5 1.8 5.6 2 5.9H4c.2-.3 2-1.4 2-5.9Z" /><path d="M10 20a2 2 0 0 0 4 0" /></>),
+  // MaKo Mobile v2 (docs/diseno-mako-mobile-v2.md, «La barra inferior»): la BANDEJA es Inbox
+  // (la cola de lo que espera una decisión; la campana dice «avisos», que es otra cosa), la
+  // COMPUTADORA marca lo que queda en escritorio, y MAS son los tres puntos de More, RELLENOS
+  // para que se lean a 24 px (de trazo, a ese tamaño, se pierden).
+  bandeja: (<><path d="M3.5 13.5 6 5.5h12l2.5 8" /><path d="M3.5 13.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5v-4.5h-5.2a3.3 3.3 0 0 1-6.6 0Z" /></>),
+  computadora: (<><rect x="3" y="4.5" width="18" height="12" rx="2" /><path d="M8.5 20h7M12 16.5V20" /></>),
+  mas: (<g fill="currentColor" stroke="none"><circle cx="5.5" cy="12" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="18.5" cy="12" r="1.9" /></g>),
+  // Y tres que le faltaban al set cuando las pantallas v2 los necesitaron (sin ellos, cada una
+  // dibujaba su SVG suelto o usaba otro ícono «parecido»): el RELOJ de una espera (el DELAY de
+  // Automations), la FLECHA de una variación (Today: arriba/abajo del ritmo; se gira para bajar)
+  // y el CALENDARIO de una reunión. Los trazos de reloj y calendario son los de iconos-menu.tsx.
+  reloj: (<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>),
+  flecha: (<><path d="M12 19V5" /><path d="m6 11 6-6 6 6" /></>),
+  calendario: (<><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>),
   // Parlante con dos ondas. `ads` es el mismo parlante con una sola onda, pero ese
   // ya significa "Ads" en el sidebar: reusarlo haría que el mismo dibujo quisiera
   // decir dos cosas. La segunda onda lo separa y además lee más como "volumen".

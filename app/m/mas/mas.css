@@ -1,0 +1,11 @@
+/* =============================================================================
+   /m/mas — More. Todo con alcance `.m-mas-*` y sólo tokens de app/globals.css.
+   ============================================================================= */
+
+/* El logo real de MaKo ocupa el lugar de la baldosa de 32 (sin caja detrás). */
+.m-mas-logo { display: grid; place-items: center; width: 32px; height: 32px; }
+
+/* «Versión de computadora»: la última caja, en gris (como lo que queda en escritorio). */
+.m-mas-compu { margin-top: 22px; }
+.m-mas-compu .m-fila__t,
+.m-mas-compu .m-icono { color: var(--dim); }

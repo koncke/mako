@@ -19,8 +19,21 @@ import type { PadreM } from './cabecera';
  * Lo que una página pisa de la cabecera. `undefined` = lo de siempre para esta
  * ruta (app/m/_ui/cabecera.ts); `padre: null` = sin «volver»; `accion: null` = sin
  * acción a la derecha.
+ *
+ *   · `trabajo: true` — pantalla de trabajo (un editor, un chat): sin título grande, el
+ *     nombre en la barra desde el principio, con filete, y SIN la barra de abajo.
+ *   · `grande: false` — la página dibuja su propio encabezado (la ficha de un lead: avatar
+ *     y nombre) en vez del título grande. Si marca ese encabezado con el atributo
+ *     `data-m-titulo-grande`, el nombre chico aparece en la barra cuando ese encabezado se
+ *     va al hacer scroll; si no marca nada, el nombre chico está siempre.
  */
-export type CabeceraPisada = { titulo?: string; padre?: PadreM | null; accion?: ReactNode };
+export type CabeceraPisada = {
+  titulo?: string;
+  padre?: PadreM | null;
+  accion?: ReactNode;
+  trabajo?: boolean;
+  grande?: boolean;
+};
 
 export type ConexionM = {
   /** `navigator.onLine`. Sin red, lo que escribe se deshabilita con el motivo pegado. */

@@ -19,6 +19,19 @@
 // respeta app/m/m.css) y el composer se apoya sobre el teclado: en Android lo hace solo el
 // viewport (`interactive-widget=resizes-content`, en el layout); en iOS el layout no se
 // achica y hay que correrlo lo que mide el teclado (`visualViewport`).
+//
+// Adjuntar, como WhatsApp del celular (pedido de Martín, 11/10/2026: «la vista previa del
+// documento… como lo tiene WhatsApp… en todos los chats que suben documentos»): la hoja de
+// adjuntar (cámara, fotos, archivo) sólo JUNTA. Con algo juntado, la pantalla pasa a la vista
+// previa a pantalla completa (VistaAdjuntosM, que monta la MISMA VistaAdjuntos de los otros
+// chats): se suman o se quitan archivos y se escribe el mensaje, que es el MISMO texto del
+// composer. Enviar manda lo de siempre (`onEnviar({ texto, adjuntos })`): todo junto, por
+// multipart, lo sube ChatMako. La ✕ (o «atrás») descarta los archivos; el texto queda.
+//   ⚠️ ELEGIR NO SUBE NADA: `sumar` sólo achica las fotos en el teléfono (canvas, antes de
+//      subir: Vercel corta a los ~4,5 MB) y las junta.
+//   ⚠️ TODO lo que entra pasa por `sumar` —las tres entradas de la hoja y el «+» de la vista—,
+//      así los 4 archivos, los 4 MB en total y «solo fotos o PDF» valen igual por los dos
+//      caminos. El formato lo mira `tipoDeElegido` (tipo O extensión), no el `accept`.
 // =============================================================================
 
 import { useEffect, useRef, useState, type ChangeEvent, type PointerEvent as PE } from 'react';
@@ -26,26 +39,34 @@ import { Icon } from '@/app/_components/icons';
 import { Button } from '@/app/_ui/Button';
 import { useDictar, transcribirNota } from '@/app/_components/useDictar';
 import { useVoiceRecorder } from '@/app/whatsapp/_shared/VoiceRecorder';
-import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
+import { useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
+import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO, TOPE_ADJUNTOS } from '@/lib/mako-adjuntos';
 import { haptico } from '@/lib/haptico';
 import { esIOS } from '@/lib/movil-instalar';
-import { SheetM } from '../_ui';
-import { IconoM } from './iconos';
+import { FilaM, ListaM, SheetM } from '../_ui';
+import { IconoChat, type NombreIconoChat } from './iconos';
 import { achicarImagen } from './subir';
+import { VistaAdjuntosM } from './VistaAdjuntosM';
 import {
-  ESPERA_MANTENER_MS, TOPE_NOTA_S, comoHabilitarMic, duracion, esMicBloqueado, gestoDelMic,
-  problemaDeSeleccion, restanteNota,
+  ESPERA_MANTENER_MS, TOPE_NOTA_S, altoTeclado, avisoDeVista, comoHabilitarMic, duracion, envioDe,
+  esMicBloqueado, gestoDelMic, problemaDeSeleccion, restanteNota, tipoDeElegido, type AdjuntoM,
 } from './chat-ui';
 
-export type AdjuntoM = { id: string; file: File; nombre: string; tipo: 'image' | 'document'; thumb: string | null };
+export type { AdjuntoM } from './chat-ui';
 export type Envio = { texto: string; adjuntos: AdjuntoM[]; voz?: { url: string; secs: number } };
 
 type Modo = 'quieto' | 'manteniendo' | 'bloqueado';
 
 const ACCEPT_FOTOS = 'image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif';
+/** El tope de la lista: los archivos del route. Los bytes (4 MB en total) y el formato los mira `sumar`. */
+const TOPES_LISTA = { maxArchivos: TOPE_ADJUNTOS };
+const SIN_CONEXION = 'Sin conexión: no se puede enviar.';
 
-let n = 0;
-const nuevoId = () => `adj-${++n}`;
+const OPCIONES_ADJUNTAR: ReadonlyArray<{ id: 'camara' | 'fotos' | 'archivo'; label: string; icono: NombreIconoChat }> = [
+  { id: 'camara', label: 'Cámara', icono: 'camara' },
+  { id: 'fotos', label: 'Fotos', icono: 'foto' },
+  { id: 'archivo', label: 'Archivo', icono: 'archivo' },
+];
 
 export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
   enLinea: boolean;
@@ -55,7 +76,7 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
   onAltura: (px: number) => void;
 }) {
   const [texto, setTexto] = useState('');
-  const [adjuntos, setAdjuntos] = useState<AdjuntoM[]>([]);
+  const lista = useListaAdjuntos(TOPES_LISTA);
   const [procesando, setProcesando] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [micBloqueado, setMicBloqueado] = useState(false);
@@ -120,7 +141,7 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv || !enfocado) { setTeclado(0); return; }
-    const medir = () => setTeclado(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)));
+    const medir = () => setTeclado(altoTeclado(window.innerHeight, vv));
     medir();
     vv.addEventListener('resize', medir);
     vv.addEventListener('scroll', medir);
@@ -148,57 +169,76 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
     });
   }
 
-  // ── Adjuntar ──
-  async function alElegir(e: ChangeEvent<HTMLInputElement>) {
-    const lista = Array.from(e.target.files ?? []);
-    e.target.value = '';
-    if (!lista.length) return;
+  // ── Adjuntar: elegir JUNTA (no sube nada) ──
+  /**
+   * La única puerta de entrada de un archivo: las tres de la hoja y el «+» de la vista previa.
+   * Achica las fotos acá, en el teléfono, y las suma a la lista. Lo que no entra se dice; el lote
+   * que pasaría los 4 archivos o los 4 MB en total no entra entero (como antes de la vista).
+   */
+  async function sumar(archivos: File[]) {
+    if (!archivos.length) return;
     setError(null);
-    setProcesando((p) => p + lista.length);
-    const nuevos: AdjuntoM[] = [];
+    setProcesando((p) => p + archivos.length);
+    const nuevos: File[] = [];
+    const motivos: string[] = [];
     try {
-      for (const f of lista) {
-        const esImagen = f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name);
-        const esPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
-        if (!esImagen && !esPdf) { setError(ERROR_ADJUNTO.formato); continue; }
-        try {
-          const listo = esImagen ? await achicarImagen(f) : f;
-          nuevos.push({ id: nuevoId(), file: listo, nombre: f.name || listo.name, tipo: esImagen ? 'image' : 'document', thumb: esImagen ? URL.createObjectURL(listo) : null });
-        } catch { setError('No pude leer esa imagen.'); }
+      for (const f of archivos) {
+        const tipo = tipoDeElegido(f);
+        if (!tipo) { motivos.push(ERROR_ADJUNTO.formato); continue; }
+        try { nuevos.push(tipo === 'image' ? await achicarImagen(f) : f); }
+        catch { motivos.push('No pude leer esa imagen.'); }
       }
-    } finally { setProcesando((p) => Math.max(0, p - lista.length)); }
-    if (!nuevos.length) return;
-    setAdjuntos((actuales) => {
-      const problema = problemaDeSeleccion([...actuales, ...nuevos].map((a) => a.file.size));
-      if (problema) {
-        setError(problema);
-        nuevos.forEach((a) => a.thumb && URL.revokeObjectURL(a.thumb));
-        return actuales;
-      }
-      return [...actuales, ...nuevos];
-    });
+    } finally { setProcesando((p) => Math.max(0, p - archivos.length)); }
+    if (nuevos.length) {
+      // Contra lo que hay AHORA (`ref`): mientras se achicaba, la persona pudo quitar o sumar otro.
+      const tope = problemaDeSeleccion([...lista.ref.current.map((a) => a.file.size), ...nuevos.map((f) => f.size)]);
+      if (tope) motivos.push(tope);
+      else motivos.push(...lista.agregar(nuevos));
+    }
+    setError(motivos.length ? [...new Set(motivos)].join(' ') : null);
   }
 
-  const quitar = (id: string) => setAdjuntos((as) => {
-    const a = as.find((x) => x.id === id);
-    if (a?.thumb) URL.revokeObjectURL(a.thumb);
-    return as.filter((x) => x.id !== id);
-  });
+  function alElegir(e: ChangeEvent<HTMLInputElement>) {
+    const elegidos = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    void sumar(elegidos);
+  }
 
+  const quitar = (id: string) => {
+    lista.quitar(id);
+    if (!lista.ref.current.length) setError(null);
+  };
+  /** La ✕ de la vista (o «atrás»): descarta los archivos. El texto queda: es el borrador del chat. */
+  const cerrarVista = () => {
+    lista.vaciar();
+    setError(null);
+    ajustarAlto(); // lo que se escribió en la vista vuelve al campo, con su alto
+  };
+
+  const abrirHoja = () => {
+    // Un dictado en curso no sigue escribiendo detrás de la vista previa.
+    if (dictar.escuchando) dictar.alternar();
+    // La hoja se lleva el foco: el composer deja de estar «enfocado» (y de seguir al teclado).
+    setEnfocado(false);
+    setHojaAdjuntar(true);
+  };
   const elegir = (cual: 'camara' | 'fotos' | 'archivo') => {
     // El click al input va DENTRO del gesto: fuera de él el navegador no abre el selector.
     (cual === 'camara' ? inCamara : cual === 'fotos' ? inFotos : inArchivo).current?.click();
     setHojaAdjuntar(false);
   };
 
-  // ── Enviar ──
-  const hayAlgo = texto.trim().length > 0 || adjuntos.length > 0;
-  const puedeEnviar = hayAlgo && enLinea && !ocupado && procesando === 0 && !dictar.escuchando && !dictar.subiendo;
+  // ── Enviar (el composer o la vista previa: lo mismo) ──
+  const hayVista = lista.items.length > 0;
+  const listo = enLinea && !ocupado && procesando === 0 && !transcribiendo && !dictar.escuchando && !dictar.subiendo;
+  const hayAlgo = texto.trim().length > 0 || hayVista;
+  const puedeEnviar = hayAlgo && listo;
   const enviar = () => {
     if (!puedeEnviar) return;
-    onEnviar({ texto: texto.trim(), adjuntos });
+    // La lista de AHORA (la ref), no la del render: el «+» pudo sumar uno recién.
+    onEnviar(envioDe(texto, lista.ref.current));
     setTexto('');
-    setAdjuntos([]);
+    lista.vaciar();
     setError(null);
     ajustarAlto();
   };
@@ -254,70 +294,62 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
   return (
     <div
       ref={raiz}
-      className="mm-composer"
+      className="m-mako-composer"
       data-enfocado={enfocado || undefined}
+      data-teclado={teclado ? '' : undefined}
       data-m-sin-barra={enfocado || grabando ? '' : undefined}
       style={teclado ? { transform: `translateY(${-teclado}px)` } : undefined}
     >
       {micBloqueado && (
-        <p className="mm-composer__aviso" role="status">
+        <p className="m-mako-composer__aviso" role="status">
           Micrófono bloqueado. {comoHabilitarMic(ios)}
         </p>
       )}
-      {error && <p className="mm-composer__error" role="alert">{error}</p>}
-      {!enLinea && <p className="mm-composer__aviso" role="status">Sin conexión: no se puede enviar.</p>}
+      {error && !hayVista && <p className="m-mako-composer__error" role="alert">{error}</p>}
+      {!enLinea && <p className="m-mako-composer__aviso" role="status">{SIN_CONEXION}</p>}
 
-      {(adjuntos.length > 0 || procesando > 0) && (
-        <ul className="mm-adjuntos" aria-label="Archivos para enviar">
-          {adjuntos.map((a) => (
-            <li key={a.id} className="mm-adjunto">
-              {a.thumb
-                ? <img src={a.thumb} alt="" />
-                : <span className="mm-adjunto__doc"><IconoM nombre="archivo" size={22} /><span>{a.nombre}</span></span>}
-              <button type="button" className="mm-adjunto__quitar" aria-label={`Quitar ${a.nombre}`} onClick={() => quitar(a.id)}>
-                <Icon name="x" size={14} />
-              </button>
-            </li>
-          ))}
-          {procesando > 0 && <li className="mm-adjunto mm-adjunto--cargando" aria-label="Preparando el archivo"><span className="mk-spin" /></li>}
+      {/* El primer archivo, mientras se achica: después lo muestra la vista previa. */}
+      {procesando > 0 && !hayVista && (
+        <ul className="m-mako-adjuntos-lista" aria-label="Archivos para enviar">
+          <li className="m-mako-adjunto" aria-label="Preparando el archivo"><span className="mk-spin" /></li>
         </ul>
       )}
 
-      <div className="mm-composer__fila">
+      <div className="m-mako-composer__fila">
         {modo === 'bloqueado' ? (
           <>
-            <button type="button" className="mm-circulo" aria-label="Descartar la nota de voz" onClick={() => { nota.stop(true); setModo('quieto'); }}>
+            <button type="button" className="m-mako-circulo" aria-label="Descartar la nota de voz" onClick={() => { nota.stop(true); setModo('quieto'); }}>
               <Icon name="trash" size={22} />
             </button>
-            <div className="mm-grabando" aria-live="polite">
-              <span className="mm-grabando__punto" aria-hidden />
-              <span className="mm-grabando__tiempo">{duracion(nota.secs)}</span>
-              {restante != null && <span className="mm-grabando__resta">quedan {restante} s</span>}
+            <div className="m-mako-grabando" aria-live="polite">
+              <span className="m-mako-grabando__punto" aria-hidden />
+              <span className="m-mako-grabando__tiempo">{duracion(nota.secs)}</span>
+              {restante != null && <span className="m-mako-grabando__resta">quedan {restante} s</span>}
             </div>
             <Button variant="primary" size="md" onClick={() => { nota.stop(false); setModo('quieto'); }}>Enviar audio</Button>
           </>
         ) : (
           <>
             {modo === 'manteniendo' ? (
-              <div className="mm-grabando mm-grabando--mantener" aria-live="polite">
-                <span className="mm-grabando__punto" aria-hidden />
-                <span className="mm-grabando__tiempo">{duracion(nota.secs)}</span>
+              <div className="m-mako-grabando" aria-live="polite">
+                <span className="m-mako-grabando__punto" aria-hidden />
+                <span className="m-mako-grabando__tiempo">{duracion(nota.secs)}</span>
                 {restante != null
-                  ? <span className="mm-grabando__resta">quedan {restante} s</span>
-                  : <span className="mm-grabando__cancelar" style={{ transform: `translateX(${Math.max(-60, arrastre.dx / 2)}px)` }}>‹ Desliza para cancelar</span>}
+                  ? <span className="m-mako-grabando__resta">quedan {restante} s</span>
+                  : <span className="m-mako-grabando__cancelar" style={{ transform: `translateX(${Math.max(-60, arrastre.dx / 2)}px)` }}>‹ Desliza para cancelar</span>}
               </div>
             ) : (
               <>
-                <button type="button" className="mm-circulo" aria-label="Adjuntar una foto o un archivo"
-                  disabled={!enLinea || adjuntos.length >= 4} onClick={() => setHojaAdjuntar(true)}>
-                  <IconoM nombre="mas" size={22} />
+                <button type="button" className="m-mako-circulo" aria-label="Adjuntar una foto o un archivo"
+                  disabled={!enLinea || lista.items.length >= TOPE_ADJUNTOS} onClick={abrirHoja}>
+                  <IconoChat nombre="mas" size={22} />
                 </button>
                 <textarea
                   ref={campo}
-                  className="mm-campo"
+                  className="m-mako-campo"
                   rows={1}
                   aria-label="Mensaje para MaKo"
-                  placeholder={transcribiendo ? 'Transcribiendo…' : dictar.escuchando ? 'Te escucho…' : 'Escribe a MaKo'}
+                  placeholder={transcribiendo ? 'Transcribiendo…' : dictar.escuchando ? 'Te escucho…' : 'Escríbele a MaKo'}
                   value={texto}
                   enterKeyHint="send"
                   onChange={(e) => { setTexto(e.target.value); ajustarAlto(); }}
@@ -332,24 +364,24 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
               </>
             )}
             {verEnviar ? (
-              <button type="button" className="mm-circulo mm-circulo--enviar" aria-label="Enviar a MaKo"
+              <button type="button" className="m-mako-circulo m-mako-circulo--enviar" aria-label="Enviar a MaKo"
                 disabled={!puedeEnviar}
                 // Que el toque no le saque el foco al campo: el teclado queda abierto.
                 onPointerDown={(e) => e.preventDefault()}
                 onClick={enviar}>
-                <IconoM nombre="enviar" size={22} />
+                <IconoChat nombre="enviar" size={22} />
               </button>
             ) : (
-              <span className="mm-mic-caja">
+              <span className="m-mako-mic-caja">
                 {modo === 'manteniendo' && (
-                  <span className="mm-candado" style={{ transform: `translateY(${Math.max(-40, arrastre.dy / 2)}px)` }} aria-hidden>
-                    <IconoM nombre="candado" size={20} />
-                    <span className="mm-candado__flecha">⌃</span>
+                  <span className="m-mako-candado" style={{ transform: `translateY(${Math.max(-40, arrastre.dy / 2)}px)` }} aria-hidden>
+                    <IconoChat nombre="candado" size={20} />
+                    <span className="m-mako-candado__flecha">⌃</span>
                   </span>
                 )}
                 <button
                   type="button"
-                  className="mm-circulo mm-mic"
+                  className="m-mako-circulo m-mako-mic"
                   data-estado={modo === 'manteniendo' ? 'mantener' : dictar.escuchando ? 'escucha' : transcribiendo || dictar.subiendo ? 'trabaja' : undefined}
                   aria-label={dictar.escuchando ? 'Terminar de dictar' : 'Dictar; mantén para una nota de voz'}
                   aria-pressed={dictar.escuchando}
@@ -364,7 +396,7 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
                   {transcribiendo || dictar.subiendo
                     ? <span className="mk-spin" aria-hidden />
                     : dictar.escuchando && !dictar.enVivo
-                      ? <span className="mm-mic__segs">{duracion(dictar.segundos)}</span>
+                      ? <span className="m-mako-mic__segs">{duracion(dictar.segundos)}</span>
                       : <Icon name="mic" size={22} />}
                 </button>
               </span>
@@ -378,12 +410,34 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
       <input ref={inArchivo} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden onChange={alElegir} />
 
       <SheetM abierto={hojaAdjuntar} onCerrar={() => setHojaAdjuntar(false)} titulo="Adjuntar" id="adjuntar" snap="medio">
-        <div className="mm-opciones">
-          <button type="button" className="mm-opcion" onClick={() => elegir('camara')}><IconoM nombre="camara" /> Cámara</button>
-          <button type="button" className="mm-opcion" onClick={() => elegir('fotos')}><IconoM nombre="foto" /> Fotos</button>
-          <button type="button" className="mm-opcion" onClick={() => elegir('archivo')}><IconoM nombre="archivo" /> Archivo</button>
-        </div>
+        <ListaM>
+          {OPCIONES_ADJUNTAR.map((o) => (
+            <FilaM key={o.id} navegacion chevron={false} titulo={o.label}
+              leading={<span className="m-mako-opcion-ico"><IconoChat nombre={o.icono} size={18} /></span>}
+              onClick={() => elegir(o.id)} />
+          ))}
+        </ListaM>
       </SheetM>
+
+      {/* La vista previa, a pantalla completa, mientras haya algo juntado (por portal a #m-capas). */}
+      {hayVista && (
+        <VistaAdjuntosM
+          items={lista.items}
+          onAgregar={(fs) => void sumar(fs)}
+          onQuitar={quitar}
+          onCerrar={cerrarVista}
+          texto={texto}
+          onTexto={(v) => { setTexto(v); ajustarAlto(); }}
+          onEnviar={enviar}
+          accept={ACCEPT_ADJUNTOS_CHAT}
+          maxArchivos={TOPE_ADJUNTOS}
+          puedeEnviar={listo}
+          estado={avisoDeVista({ preparando: procesando > 0, transcribiendo: transcribiendo || dictar.subiendo, ocupado })}
+          error={error ?? (enLinea ? null : SIN_CONEXION)}
+          acento="var(--primary)"
+          placeholder="Escríbele a MaKo"
+        />
+      )}
     </div>
   );
 }

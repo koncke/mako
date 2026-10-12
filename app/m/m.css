@@ -1,5 +1,5 @@
 /* =============================================================================
-   MaKo Mobile (/m) — el shell y sus primitivas
+   MaKo Mobile (/m) — el shell y sus primitivas (v2: docs/diseno-mako-mobile-v2.md)
    =============================================================================
    ⚠️ TODO ACÁ TIENE ALCANCE: `[data-m]` / `.m-*` (adentro del shell) o
    `:root:has(#m-root)` (el documento, SÓLO mientras hay un shell de /m en la
@@ -10,14 +10,19 @@
    Ningún color nuevo: sólo var(--token) de app/globals.css. Las curvas y las
    duraciones también son tokens (--ease-*, --dur-*), y todo lo que se mueve
    trae su variante `prefers-reduced-motion` al lado.
+
+   ⚠️ UN h1/h2/p CON MARGEN VA CON `[data-m]` DELANTE: la regla de abajo
+   `[data-m] :is(h1, h2, h3, p) { margin: 0 }` pesa (0,1,1) y le gana a una clase
+   sola (0,1,0) — el margen se pierde en silencio.
+
+   La CSS propia de una pantalla NO va acá: va en un .css en SU carpeta, importado
+   por su page.tsx, con clases prefijadas (app/m/_ui/LEEME.md).
    ============================================================================= */
 
 /* ── Baseline de plataforma (mobile-native) ─────────────────────────────── */
 :root:has(#m-root) {
-  /* El rebote de iOS muestra el fondo del documento: oscuro, como el cromo. Con
-     blanco, tirar de más arriba de todo destapaba una franja clara detrás del
-     reloj (que con black-translucent se pinta en BLANCO). */
-  background: var(--sidebar);
+  /* El rebote de iOS muestra el fondo del documento: el del encabezado (--bg). */
+  background: var(--bg);
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -88,67 +93,81 @@
 [data-m] .mk-btn--sm { min-height: var(--touch); }
 
 /* ── El shell ──────────────────────────────────────────────────────────── */
-.m-shell { min-height: 100dvh; }
+/* `--m-abajo` = lo que ocupa la barra de abajo con su área segura (sólo el área segura
+   si no hay barra: pantallas de trabajo, /m/configurar, el teclado del chat). Lo que una
+   pantalla pega abajo (un composer) va con `bottom: var(--m-abajo)` y no se queda
+   flotando 56 px arriba cuando la barra no está. */
+.m-shell { min-height: 100dvh; --m-abajo: calc(var(--m-tabbar) + env(safe-area-inset-bottom, 0px)); }
+.m-shell[data-sin-barra],
+.m-shell:has([data-m-sin-barra]) { --m-abajo: env(safe-area-inset-bottom, 0px); }
 
-/* Cromo oscuro EN LOS DOS MODOS: con black-translucent, iOS pinta el reloj y la
-   batería en blanco sobre lo que haya debajo, así que lo de arriba no puede ser
-   claro nunca. */
+/* El encabezado: --bg, opaco, sin blur. Una barra de 44 px con a lo sumo UN control
+   por lado y el nombre chico al centro, que aparece (con su filete) cuando el
+   título grande se fue al hacer scroll (`data-fuera`, lo pone ShellM). */
 .m-cabecera {
   position: fixed; z-index: 40; top: 0; left: 0; right: 0;
   padding-top: env(safe-area-inset-top, 0px);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
-  background: var(--sidebar);
-  color: var(--on-sidebar);
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 0 1px 0 transparent;
+  transition: box-shadow var(--dur-pop) ease;
 }
+.m-cabecera[data-fuera] { box-shadow: 0 1px 0 var(--border); }
 .m-cabecera__fila {
   height: var(--m-header);
   max-width: calc(560px + 2 * var(--m-gutter));
   margin: 0 auto;
-  display: flex; align-items: center; gap: 4px;
-  padding: 0 4px 0 8px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center;
+  padding: 0 6px;
 }
+.m-cabecera__lado { display: flex; align-items: center; min-width: 0; justify-self: start; }
+.m-cabecera__lado--der { justify-self: end; gap: 2px; }
+/* El nombre chico (17/600). Con tope de ancho: sin él, un título largo se come los
+   costados y el «volver» queda sin lugar (por eso cabecera.ts lo acorta a «Atrás»). */
 .m-cabecera__titulo {
-  min-width: 0; padding-left: 8px;
-  font-size: var(--fs-card); font-weight: 600; letter-spacing: -0.01em; line-height: 1.2;
+  min-width: 0; max-width: min(360px, calc(100vw - 200px));
+  font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; text-align: center;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  opacity: 0; transition: opacity var(--dur-pop) ease;
 }
-.m-cabecera__espacio { flex: 1; min-width: 8px; }
+.m-cabecera[data-fuera] .m-cabecera__titulo { opacity: 1; }
+/* El logo real de MaKo (MakoLogo, 28 px): sólo en Today, arriba a la izquierda. */
+.m-cabecera__logo { display: flex; padding: 8px 10px; }
 .m-cabecera__volver {
-  display: inline-flex; align-items: center; gap: 2px; min-width: 44px; min-height: 44px;
-  max-width: 60%; padding: 0 10px 0 2px; border-radius: var(--r-md);
-  color: var(--on-sidebar); text-decoration: none;
-  font-size: var(--fs-card); font-weight: 500;
+  display: inline-flex; align-items: center; gap: 2px; min-width: 44px; min-height: 44px; max-width: 100%;
+  padding: 0 10px 0 2px; border-radius: var(--r-md);
+  color: var(--primary-strong); text-decoration: none;
+  font-size: 17px; font-weight: 500;
 }
 .m-cabecera__volver span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* El chevron del set apunta hacia abajo: girado, es el «‹» de volver. */
 .m-cabecera__volver svg { transform: rotate(90deg); }
+/* La acción de la derecha (UNA): 44×44, redonda. Las páginas usan esta clase. */
 .m-cabecera__accion {
   display: inline-grid; place-items: center; flex: none;
-  min-width: 44px; height: 44px; border-radius: var(--r-md);
-  color: var(--on-sidebar); text-decoration: none; background: none; border: 0; padding: 0;
+  width: 44px; height: 44px; border-radius: 999px;
+  color: var(--primary-strong); text-decoration: none; background: none; border: 0; padding: 0;
 }
-.m-cabecera__avatar {
-  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
-  background: var(--sidebar-line); color: var(--on-sidebar);
-  font-size: var(--fs-meta); font-weight: 600; letter-spacing: .02em;
-}
-/* Viendo un cliente: su nombre, siempre a la vista. 28 de alto dibujado, 44 de toque. */
+/* Viendo un cliente (super admin o agencia): su nombre, siempre a la vista. 28 de
+   alto dibujado, 44 de toque. Es la única excepción a «un control por lado»: una
+   cuenta ajena no se mira sin saberlo. */
 .m-cabecera__cliente {
-  display: inline-flex; align-items: center; min-width: 0; max-width: 46%; min-height: 44px;
-  padding: 0 4px; text-decoration: none; color: var(--on-sidebar);
+  display: inline-flex; align-items: center; min-width: 0; max-width: 100%; min-height: 44px;
+  padding: 0 4px; text-decoration: none; color: var(--ink);
 }
 .m-cabecera__cliente span {
   display: block; min-width: 0; height: 28px; line-height: 26px; padding: 0 12px;
-  border: 1px solid var(--sidebar-line); border-radius: 999px;
+  border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface);
   font-size: var(--fs-meta); font-weight: 600;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .m-cabecera a, .m-cabecera button { transition: opacity 80ms var(--ease-out); }
-.m-cabecera a:active, .m-cabecera button:active { opacity: .7; }
-.m-cabecera :is(a, button):focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-weak); }
+.m-cabecera a:active, .m-cabecera button:active { opacity: .6; }
+.m-cabecera :is(a, button):focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
 
-/* Sin conexión: una cinta de 36 px bajo el header. Dice desde cuándo son los datos. */
+/* Sin conexión: una cinta de 36 px bajo el encabezado. Dice desde cuándo son los datos. */
 .m-cinta {
   position: fixed; z-index: 39; left: 0; right: 0;
   top: calc(var(--m-header) + env(safe-area-inset-top, 0px));
@@ -161,27 +180,40 @@
 .m-cinta__punto { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
 
 /* El contenido: el scroll es del DOCUMENTO (en iOS, tocar la barra de estado sólo
-   sube el documento), y reserva el alto del header y de la barra con sus safe
-   areas para que nada quede tapado. */
+   sube el documento), y reserva el alto del encabezado y de la barra con sus safe
+   areas para que nada quede tapado. `overflow-x: clip` corta la pantalla que entra
+   deslizando desde la derecha (sin crear un contenedor de scroll ni romper sticky). */
 .m-contenido {
   display: block;
+  overflow-x: clip;
   padding-top: calc(var(--m-header) + env(safe-area-inset-top, 0px));
-  padding-bottom: calc(var(--m-tabbar) + env(safe-area-inset-bottom, 0px) + 16px);
+  padding-bottom: calc(var(--m-tabbar) + env(safe-area-inset-bottom, 0px) + 28px);
   padding-left: calc(var(--m-gutter) + env(safe-area-inset-left, 0px));
   padding-right: calc(var(--m-gutter) + env(safe-area-inset-right, 0px));
 }
 .m-shell[data-offline] .m-contenido { padding-top: calc(var(--m-header) + env(safe-area-inset-top, 0px) + 36px); }
 .m-shell[data-sin-barra] .m-contenido,
-.m-shell:has([data-m-sin-barra]) .m-contenido { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
-.m-columna { max-width: 560px; margin: 0 auto; }
+.m-shell:has([data-m-sin-barra]) .m-contenido { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); }
+/* `position: relative` porque al entrar se anima `left` (ver ShellM: un transform
+   rompería todo lo `position: fixed` de adentro). */
+.m-columna { position: relative; max-width: 560px; margin: 0 auto; }
 
-/* La barra inferior: oscura, opaca, sin blur, a todo el ancho. */
+/* El TÍTULO GRANDE: el nombre de la pantalla, 32/700, tracking −0,025 em. Se va con
+   el contenido al hacer scroll. 20 px del borde (16 del gutter + 4). */
+[data-m] .m-titulo-grande {
+  margin: 0 4px 14px;
+  font-size: var(--m-titulo); font-weight: 700; letter-spacing: -0.025em; line-height: 1.1;
+  text-wrap: balance; color: var(--ink);
+}
+
+/* La barra inferior: --surface con filete arriba, opaca, sin blur, a todo el ancho. */
 .m-barra {
   position: fixed; z-index: 40; left: 0; right: 0; bottom: 0;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
-  background: var(--sidebar);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
 }
 /* La oculta una pantalla que la necesita fuera (el chat con el teclado abierto):
    le basta con poner `data-m-sin-barra` en cualquier elemento suyo. */
@@ -194,49 +226,35 @@
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
 }
 .m-barra__lista li { display: flex; min-width: 0; }
-/* La columna ENTERA es el target, no el ícono. */
+/* La columna ENTERA es el target, no el ícono. Ícono de línea + nombre de 12 px. */
 .m-barra__item {
   flex: 1; min-width: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  color: var(--sidebar-text); text-decoration: none;
-  font-size: var(--fs-meta); font-weight: 500; line-height: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: var(--faint); text-decoration: none;
+  font-size: 12px; font-weight: 500; line-height: 15px;
 }
-.m-barra__item[aria-current="page"] { color: var(--on-sidebar); font-weight: 600; }
-.m-barra__item:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-weak); }
+/* El activo: azul y 600. Nunca dorado (el dorado es «esto lo hizo MaKo»). */
+.m-barra__item[aria-current="page"] { color: var(--primary); font-weight: 600; }
+.m-barra__item:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
 .m-barra__rotulo { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* El indicador del activo va DETRÁS del ícono: superficie + peso, nunca dorado. */
 .m-barra__ico {
   position: relative; display: grid; place-items: center;
-  width: 56px; height: 30px; border-radius: 15px;
+  width: 32px; height: 28px;
   transition: transform var(--dur-press) var(--ease-out);
 }
-.m-barra__item[aria-current="page"] .m-barra__ico { background: var(--sidebar-line); }
-.m-barra__item:active .m-barra__ico { transform: scale(.94); }
-/* La chispa de MaKo es MARCA, no estado: dorada siempre, activa o no. */
-.m-barra__ico--marca { color: var(--mako); }
+.m-barra__item:active .m-barra__ico { transform: scale(.9); }
+/* El número de lo que BLOQUEA: azul, con un aro del color de la barra. */
 .m-barra__badge {
-  position: absolute; top: -5px; left: calc(50% + 6px);
-  min-width: 18px; height: 18px; padding: 0 4px; box-sizing: content-box;
+  position: absolute; top: -4px; left: calc(50% + 5px);
+  min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box;
   display: grid; place-items: center;
-  border: 2px solid var(--sidebar); border-radius: 11px;
-  background: var(--warn-fill); color: var(--sidebar);
-  font-size: 12px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
-}
-@media (prefers-reduced-motion: reduce) {
-  .m-barra__ico { transition: none; }
-  .m-barra__item:active .m-barra__ico { transform: none; }
-  [data-m] .mk-btn:active:not(:disabled) { transform: none; }
+  border: 2px solid var(--surface); border-radius: 999px;
+  background: var(--primary); color: var(--on-primary);
+  font-size: 11.5px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
 }
 
-/* ── PantallaM ─────────────────────────────────────────────────────────── */
+/* ── PantallaM (el pull-to-refresh) ────────────────────────────────────── */
 .m-pantalla { position: relative; }
-.m-pantalla__cab { display: flex; align-items: baseline; gap: 12px; padding-top: 16px; }
-.m-pantalla__titulo {
-  flex: 1; min-width: 0;
-  font-size: var(--fs-page); font-weight: 600; line-height: 1.2; letter-spacing: -0.015em; color: var(--ink);
-}
-.m-actualizado { font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.m-pantalla__cab--solo { justify-content: flex-end; padding-top: 12px; }
 /* El indicador del pull-to-refresh: neutro (refrescar no es MaKo, no va dorado). */
 .m-pull {
   position: absolute; left: 0; right: 0; top: 0; height: 0;
@@ -247,34 +265,57 @@
 /* ── /m/configurar: una frase y, abajo (en la zona del pulgar), la salida ── */
 .m-configurar {
   display: flex; flex-direction: column; justify-content: space-between; gap: 32px;
-  min-height: calc(100dvh - var(--m-header) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
+  min-height: calc(100dvh - var(--m-header) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 28px);
   padding: 40px 0 8px;
 }
 .m-configurar__frase { font-size: var(--fs-page); font-weight: 600; line-height: 1.2; letter-spacing: -0.015em; color: var(--ink); }
 .m-configurar__acciones { display: flex; flex-direction: column; gap: 8px; }
 
-/* ── SeccionM ──────────────────────────────────────────────────────────── */
-.m-seccion { padding-top: 24px; }
-.m-seccion__cab { display: flex; align-items: center; gap: 12px; min-height: 32px; margin-bottom: 8px; }
+/* ── SeccionM: el título de sección (20/600, 28 arriba y 10 abajo) ──────── */
+.m-seccion { padding-top: 28px; }
+.m-seccion__cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 28px; margin: 0 4px 10px; }
 .m-seccion__titulo {
   flex: 1; min-width: 0;
-  font-size: var(--fs-sect); font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; color: var(--ink);
+  font-size: var(--fs-sect); font-weight: 600; line-height: 1.25; letter-spacing: -0.012em; color: var(--ink);
 }
+/* La UNA acción de una sección («Ver el plan»): texto azul, 44 de toque. */
+.m-lnk {
+  display: inline-flex; align-items: center; min-height: 44px; margin: -8px 0;
+  border: 0; background: none; padding: 0; font: inherit; cursor: pointer;
+  color: var(--primary-strong); font-size: var(--fs-md); font-weight: 500; text-decoration: none;
+}
+.m-lnk:active { opacity: .6; }
 
-/* ── FilaM: la .mk-fila con medidas de teléfono ────────────────────────── */
-.m-lista { margin: 0 calc(-1 * var(--m-gutter)); }
-.m-fila-envoltorio { position: relative; overflow: hidden; background: var(--bg); }
-.m-fila-envoltorio + .m-fila-envoltorio::before {
-  /* El filete con inset de 16 lo pone la fila de abajo: una sola no deja raya colgando. */
-  content: ''; position: absolute; z-index: 2; top: 0; left: var(--m-gutter); right: 0;
+/* ── La lista agrupada (Ajustes de iPhone, con la tarjeta de la casa) ──── */
+.m-lista {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.m-lista + .m-lista { margin-top: 14px; }
+/* La fila «En la computadora» va en su propia caja, separada del resto. */
+.m-lista--compu, .m-lista + .m-lista--compu { margin-top: 22px; }
+/* El filete lo pone la fila de ABAJO. En una fila de FilaM arranca donde arranca el
+   TEXTO (después del avatar o del ícono): el ::before es absoluto con `left: auto`,
+   así que toma la posición estática = el borde izquierdo del texto, y se estira hasta
+   el borde de la caja (que lo corta). Cualquier otra cosa en la lista: desde 16 px. */
+.m-lista > * + *:not(.m-fila-envoltorio) { position: relative; }
+.m-lista > * + *:not(.m-fila-envoltorio)::before {
+  content: ''; position: absolute; z-index: 2; top: 0; left: 16px; right: 0;
   height: 1px; background: var(--border);
 }
+.m-lista > * + .m-fila-envoltorio .m-fila__txt::before {
+  content: ''; position: absolute; z-index: 2; top: 0; left: auto; width: 100vw;
+  height: 1px; background: var(--border); pointer-events: none;
+}
+
+/* ── FilaM ─────────────────────────────────────────────────────────────── */
+.m-fila-envoltorio { position: relative; overflow: hidden; background: var(--surface); }
 .m-fila {
   position: relative; z-index: 1;
-  display: flex; align-items: flex-start; gap: 12px;
-  width: 100%; min-height: 64px; margin: 0;
-  padding: 14px var(--m-gutter);
-  border: 0; background: var(--bg); color: inherit; font: inherit; text-align: left; text-decoration: none;
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 60px; margin: 0;
+  padding: 11px 14px 11px 16px;
+  border: 0; background: var(--surface); color: inherit; font: inherit; text-align: left; text-decoration: none;
   transition: background-color 80ms var(--ease-out);
 }
 .m-fila--toca { cursor: pointer; }
@@ -282,22 +323,34 @@
 @media (hover: hover) and (pointer: fine) {
   .m-fila--toca:hover { background-image: linear-gradient(var(--velo-hover), var(--velo-hover)); }
 }
-.m-fila:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
-.m-fila[aria-disabled="true"] { opacity: .45; }
-.m-fila__lead { flex: none; display: grid; place-items: center; min-width: 24px; margin-top: 1px; }
-.m-fila__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.m-fila__l1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.m-fila:focus-visible, .m-fila__abre:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+.m-fila[aria-disabled="true"], .m-fila:disabled { opacity: .45; }
+.m-fila__lead { flex: none; display: grid; place-items: center; min-width: 24px; }
+.m-fila__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .m-fila__t {
-  min-width: 0; font-size: var(--fs-card); font-weight: 600; line-height: 1.35; color: var(--ink);
+  min-width: 0; font-size: var(--fs-card); font-weight: 600; line-height: 1.3; color: var(--ink);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
+/* Filas de navegación (More, actividad): el nombre en 500. */
+.m-fila__t--nav { font-weight: 500; }
 .m-fila__c {
-  font-size: var(--fs-sm); line-height: 1.5; color: var(--dim);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: var(--fs-sm); line-height: 1.35; color: var(--dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.m-fila__riel { flex: none; padding-top: 2px; font-size: var(--fs-meta); color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.m-fila__ir { flex: none; margin-top: 2px; color: var(--faint); display: grid; place-items: center; }
+.m-fila__pill { display: flex; margin-top: 4px; }
+.m-fila__riel { flex: none; font-size: var(--fs-meta); color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.m-fila__ir { flex: none; color: var(--faint); display: grid; place-items: center; }
 .m-fila__ir svg { transform: rotate(-90deg); }
+/* La hora grande de una reunión, como leading: <span className="m-fila__hora">10:30</span>. */
+.m-fila__hora { flex: none; width: 58px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; color: var(--ink); }
+/* Con un interruptor: el texto es la zona que abre y el control queda a la derecha. */
+.m-fila--control { padding: 0 14px 0 0; align-items: stretch; }
+.m-fila__abre {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px;
+  min-height: 60px; padding: 11px 0 11px 16px;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; text-decoration: none;
+}
+.m-fila__control { flex: none; display: flex; align-items: center; padding-left: 12px; }
 /* En curso: la barra es el BORDE de la fila (2 px, ancho completo), como en escritorio. */
 .m-fila__barra { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; height: 2px; background: var(--border); overflow: hidden; }
 .m-fila__barra i { display: block; position: relative; height: 100%; background: var(--mako); overflow: hidden; transition: width .4s var(--ease-out); }
@@ -307,6 +360,14 @@
   animation: mBarraViva 1.5s linear infinite;
 }
 @keyframes mBarraViva { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+/* La fila clave → valor (FilaDatoM). */
+.m-fila--dato { min-height: 52px; }
+.m-dato__k { font-size: var(--fs-md); color: var(--dim); line-height: 1.35; }
+.m-dato__v { flex: none; max-width: 62%; font-size: var(--fs-md); font-weight: 500; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.m-dato__v--azul { color: var(--primary-strong); }
+/* «… · En la computadora»: gris entero, no se toca. */
+.m-fila--compu .m-fila__t, .m-fila--compu .m-fila__c, .m-fila--compu .m-icono { color: var(--dim); }
 
 /* El swipe: el fondo con la acción queda a la vista mientras la fila se corre. */
 .m-swipe-fondo {
@@ -323,12 +384,94 @@
 .m-swipe-fondo[data-listo] .m-swipe-fondo__ico { transform: scale(1); }
 .m-fila--swipe { touch-action: pan-y; }
 
+/* ── Avatar, ícono, píldora ────────────────────────────────────────────── */
+/* Las iniciales de Marca.tsx: fondo teñido de azul, letras --primary-strong. */
+.m-avatar {
+  flex: none; display: grid; place-items: center; border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface)); color: var(--primary-strong);
+  font-weight: 700; letter-spacing: .02em; line-height: 1;
+}
+.m-avatar--sm { width: 34px; height: 34px; font-size: 13px; }
+.m-avatar--md { width: 40px; height: 40px; font-size: 14.5px; }
+.m-avatar--lg { width: 52px; height: 52px; font-size: 18px; }
+.m-avatar--xl { width: 88px; height: 88px; font-size: 30px; }
+/* El ícono de una fila de navegación, en su baldosa de 32. */
+.m-icono {
+  flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink); border: 1px solid var(--border);
+}
+.m-icono--azul { background: var(--primary-bg); border-color: transparent; color: var(--primary-strong); }
+/* La píldora de ESTADO: el color va en el PUNTO; el texto, en tinta. */
+.m-pildora {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;
+  border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border);
+  font-size: var(--fs-meta); font-weight: 500; color: var(--dim); white-space: nowrap;
+}
+.m-pildora i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.m-pildora[data-tono="good"] i { background: var(--good); }
+.m-pildora[data-tono="warn"] i { background: var(--warn-fill); }
+.m-pildora[data-tono="bad"] i { background: var(--bad); }
+.m-pildora[data-tono="info"] i { background: var(--primary); }
+
+/* Un conteo de lo que BLOQUEA en el riel de una fila (More): la píldora azul del badge. */
+.m-num {
+  display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 7px;
+  border-radius: 999px; background: var(--primary); color: var(--on-primary);
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+
+/* ── El segmentado ─────────────────────────────────────────────────────── */
+.m-seg {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px;
+  padding: 3px; border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--ink) 7%, var(--bg));
+}
+.m-seg__op {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0;
+  min-height: 38px; padding: 0 8px; border: 0; border-radius: 9px; background: none;
+  font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); text-decoration: none; cursor: pointer;
+  transition: background-color var(--dur-press) ease, color var(--dur-press) ease;
+}
+.m-seg__txt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-seg__op[aria-pressed="true"], .m-seg__op[aria-current="page"] {
+  background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.m-seg__op:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+.m-seg__n {
+  flex: none; display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 999px; background: var(--primary); color: var(--on-primary);
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+
+/* ── El interruptor (el mk-switch de la casa en tamaño iOS, 44 de toque) ── */
+[data-m] .m-interruptor { width: 51px; height: 31px; }
+[data-m] .m-interruptor::before { content: ''; position: absolute; inset: -7px -2px; }
+[data-m] .m-interruptor::after { left: 2px; width: 27px; height: 27px; }
+[data-m] .m-interruptor[aria-checked="true"]::after { transform: translateX(20px); }
+
+/* ── El pie: la consecuencia en tinta, pegada arriba del botón ──────────── */
+.m-pie { display: flex; flex-direction: column; gap: 6px; }
+[data-m] .m-pie__consecuencia {
+  margin: 0 0 4px; text-align: center;
+  font-size: var(--fs-sm); line-height: 1.45; color: var(--ink);
+}
+/* El pie FIJO de una pantalla (PieFijoM): abajo de todo, o arriba de la barra. */
+.m-pie-fijo {
+  position: fixed; z-index: 38; left: 0; right: 0;
+  bottom: calc(var(--m-tabbar) + env(safe-area-inset-bottom, 0px));
+  padding: 12px calc(var(--m-gutter) + env(safe-area-inset-right, 0px)) 12px calc(var(--m-gutter) + env(safe-area-inset-left, 0px));
+  background: var(--bg); box-shadow: 0 -1px 0 var(--border);
+}
+.m-shell[data-sin-barra] .m-pie-fijo,
+.m-shell:has([data-m-sin-barra]) .m-pie-fijo { bottom: 0; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+.m-pie-fijo > .m-pie { max-width: 560px; margin: 0 auto; }
+.m-pie-fijo__hueco { flex: none; }
+
 /* ── Skeleton: la forma de la fila, y aparece a los 300 ms (no parpadea) ─ */
 .m-skel-filas { opacity: 1; transition: opacity 150ms var(--ease-out) 300ms; }
 @starting-style { .m-skel-filas { opacity: 0; } }
-.m-skel-fila { display: flex; align-items: flex-start; gap: 12px; min-height: 64px; padding: 14px var(--m-gutter); }
-.m-skel-fila + .m-skel-fila { border-top: 1px solid var(--border); }
-.m-skel-fila__lineas { flex: 1; display: flex; flex-direction: column; gap: 8px; padding-top: 2px; }
+.m-skel-fila { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 11px 14px 11px 16px; }
+.m-skel-fila__lineas { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 
 /* ── Vacío y error ─────────────────────────────────────────────────────── */
 .m-vacio {
@@ -338,51 +481,49 @@
 .m-vacio__frase { font-size: var(--fs-md); color: var(--dim); line-height: 1.5; max-width: 32ch; }
 .m-error__frase { color: var(--ink); }
 
-/* ── TarjetaDecision: la única tarjeta de Today (la decisión que bloquea) ─ */
+/* ── TarjetaDecision: la única tarjeta suelta (lo que bloquea) ─────────── */
 .m-decision {
   display: flex; flex-direction: column; gap: 10px;
-  padding: 16px; border-radius: var(--r-lg);
+  padding: 18px; border-radius: var(--r-xl);
   background: var(--surface); border: 1px solid var(--border);
 }
-.m-decision__pill { align-self: flex-start; background: var(--warn-bg); color: var(--warn); }
-.m-decision__titulo { font-size: var(--fs-card); font-weight: 600; line-height: 1.35; color: var(--ink); }
+.m-decision__cab { display: flex; align-items: center; gap: 8px; }
+.m-decision__titulo { font-size: var(--fs-sect); font-weight: 600; line-height: 1.3; letter-spacing: -0.012em; color: var(--ink); }
 /* La consecuencia va en TINTA, no en gris: lo irreversible se lee ANTES del botón. */
-.m-decision__consecuencia { font-size: var(--fs-sm); line-height: 1.5; color: var(--ink); }
+.m-decision__consecuencia { font-size: var(--fs-md); line-height: 1.45; color: var(--ink); }
 .m-decision__estado { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); }
 .m-decision__estado--hecho { color: var(--good); }
 .m-decision__barra { position: relative; height: 2px; border-radius: 2px; background: var(--border); overflow: hidden; }
 .m-decision__barra i { position: absolute; inset: 0; width: 40%; background: var(--mako); animation: mBarraViva 1.5s linear infinite; }
 
-/* ── ToastM ────────────────────────────────────────────────────────────── */
+/* ── El toast: 3-4 palabras (+ «Deshacer»), arriba de la barra y del pie ── */
 .m-toast-capa {
   position: fixed; z-index: 90; left: 0; right: 0;
-  bottom: calc(var(--m-tabbar) + env(safe-area-inset-bottom, 0px) + 12px);
+  bottom: calc(var(--m-pie, 0px) + var(--m-abajo) + 12px);
   display: flex; justify-content: center;
   padding: 0 calc(var(--m-gutter) + env(safe-area-inset-right, 0px)) 0 calc(var(--m-gutter) + env(safe-area-inset-left, 0px));
   pointer-events: none;
 }
-.m-shell[data-sin-barra] .m-toast-capa,
-.m-shell:has([data-m-sin-barra]) .m-toast-capa { bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
 .m-toast {
   pointer-events: auto;
-  display: flex; align-items: center; gap: 4px;
-  min-height: 44px; max-width: 100%;
-  padding: 0 4px 0 16px; border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; max-width: 560px; min-height: 50px;
+  padding: 0 6px 0 18px; border-radius: var(--r-lg);
   background: var(--ink); color: var(--on-ink);
-  font-size: var(--fs-sm); font-weight: 500;
+  font-size: var(--fs-md); font-weight: 500;
   transform: translateY(0); opacity: 1;
-  transition: transform 240ms var(--ease-out), opacity 240ms var(--ease-out);
+  transition: transform var(--dur-pop) var(--ease-out), opacity var(--dur-pop) ease;
 }
-@starting-style { .m-toast { transform: translateY(100%); opacity: 0; } }
-.m-toast[data-saliendo] { transform: translateY(100%); opacity: 0; transition-duration: 180ms; }
-.m-toast__msg { min-width: 0; padding: 12px 8px 12px 0; }
+@starting-style { .m-toast { transform: translateY(10px); opacity: 0; } }
+.m-toast[data-saliendo] { transform: translateY(10px); opacity: 0; }
+.m-toast__msg { min-width: 0; padding: 13px 0; }
 .m-toast__deshacer {
   flex: none; min-height: 44px; padding: 0 12px; border: 0; background: none; border-radius: var(--r-sm);
-  color: var(--primary-weak); font: inherit; font-weight: 700; cursor: pointer;
+  color: var(--primary-weak); font: inherit; font-weight: 600; cursor: pointer;
 }
 .m-toast__deshacer:active { opacity: .7; }
 
-/* ── SheetM ────────────────────────────────────────────────────────────── */
+/* ── SheetM: radio 18 arriba, agarradera, título + ✕, cuerpo y pie fijo ── */
 :root:has(.m-sheet-capa) { overflow: hidden; }
 .m-sheet-capa { position: fixed; inset: 0; z-index: 80; }
 .m-sheet__velo {
@@ -394,7 +535,7 @@
   position: absolute; left: 0; right: 0; bottom: 0;
   max-width: 640px; margin: 0 auto;
   display: flex; flex-direction: column;
-  background: var(--surface); color: var(--ink);
+  background: var(--bg); color: var(--ink);
   border-radius: var(--r-xl) var(--r-xl) 0 0;
   transform: translateY(100%);
   will-change: transform;
@@ -402,32 +543,68 @@
 }
 .m-sheet[data-tope="alto"] { height: calc(100dvh - env(safe-area-inset-top, 0px) - 12px); }
 .m-sheet[data-tope="medio"] { height: 55dvh; }
-.m-sheet__agarre { flex: none; height: 24px; display: flex; justify-content: center; padding-top: 8px; touch-action: none; cursor: grab; }
+.m-sheet__agarre { flex: none; height: 21px; display: flex; justify-content: center; padding-top: 8px; touch-action: none; cursor: grab; }
 .m-sheet__grabber { width: 36px; height: 5px; border-radius: 3px; background: var(--border-strong); }
-.m-sheet__cab { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 8px var(--m-gutter); touch-action: none; }
-.m-sheet__titulo { flex: 1; min-width: 0; font-size: var(--fs-sect); font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
+.m-sheet__cab { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 4px var(--m-gutter); touch-action: none; }
+.m-sheet__titulo { flex: 1; min-width: 0; font-size: var(--fs-sect); font-weight: 600; line-height: 1.25; letter-spacing: -0.012em; }
+/* La ✕: 36 dibujada, 44 de toque. */
 .m-sheet__cerrar {
-  flex: none; min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--r-md); background: none;
-  color: var(--primary); font: inherit; font-size: var(--fs-md); font-weight: 600; cursor: pointer;
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px;
+  border: 0; border-radius: 999px; background: none; padding: 0; color: var(--dim); cursor: pointer;
+}
+.m-sheet__cerrar-circulo {
+  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 7%, var(--bg));
 }
 .m-sheet__cerrar:disabled { opacity: .45; cursor: not-allowed; }
-.m-sheet__cerrar:active:not(:disabled) { opacity: .7; }
+.m-sheet__cerrar:active:not(:disabled) { opacity: .6; }
+.m-sheet__cerrar:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
 .m-sheet__cuerpo {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  padding: 0 var(--m-gutter) calc(16px + env(safe-area-inset-bottom, 0px));
+  padding: 12px var(--m-gutter) calc(16px + env(safe-area-inset-bottom, 0px));
 }
 .m-sheet:has(.m-sheet__pie) .m-sheet__cuerpo { padding-bottom: 16px; }
 .m-sheet__pie {
-  flex: none; display: flex; flex-direction: column; gap: 8px;
-  padding: 12px var(--m-gutter) calc(16px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--border); background: var(--surface);
+  flex: none; display: flex; flex-direction: column; gap: 6px;
+  padding: 12px var(--m-gutter) calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg); box-shadow: 0 -1px 0 var(--border);
 }
+
+/* ── CasillaM: la casilla redonda de una tarea (Plan y «Para hoy») ─────── */
+/* 26 visibles en un toque de 44; el margen negativo devuelve los 18 de más. z-index 2: por
+   encima del botón estirado que abre la fila (Plan). */
+.m-casilla {
+  position: relative; z-index: 2;
+  display: grid; place-items: center;
+  width: 44px; height: 44px; margin: -9px;
+  padding: 0; border: 0; border-radius: 50%; background: none; color: inherit;
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.m-casilla__c {
+  display: grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--border-strong); background: transparent;
+  color: transparent;
+  transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out),
+    color 160ms var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.m-casilla:active .m-casilla__c { transform: scale(.9); }
+.m-casilla[aria-checked="true"] .m-casilla__c { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.m-casilla:disabled { cursor: default; }
+.m-casilla:disabled:not([aria-checked="true"]) .m-casilla__c { opacity: .45; }
+.m-casilla:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary); }
 
 /* ── Reduced motion: lo que se desliza pasa a aparecer ────────────────── */
 @media (prefers-reduced-motion: reduce) {
+  .m-casilla__c { transition: none; }
+  .m-cabecera, .m-cabecera__titulo { transition: none; }
+  .m-barra__ico { transition: none; }
+  .m-barra__item:active .m-barra__ico { transform: none; }
+  [data-m] .mk-btn:active:not(:disabled) { transform: none; }
   .m-toast { transition: opacity 150ms linear; transform: none; }
   @starting-style { .m-toast { transform: none; opacity: 0; } }
   .m-toast[data-saliendo] { transform: none; }
   .m-fila__barra--viva i::after, .m-decision__barra i { animation: none; }
   .m-swipe-fondo__ico { transition: none; }
+  .m-seg__op { transition: none; }
 }

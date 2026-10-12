@@ -34,10 +34,9 @@ export default async function Inicio() {
   // /m/configurar). Acá y no en el proxy: el proxy es el choke point de seguridad y lo
   // atraviesan también /api y la landing que leen Meta y Google.
   //
-  // ⚠️ SALIDA ESCALONADA (11/10/2026): MaKo Mobile se publicó con este reparto APAGADO. Ninguna
-  // pantalla de /m se había podido renderizar antes del deploy (la máquina no tenía RAM para un
-  // next dev), así que se abre sólo por URL hasta verla funcionando en producción; recién ahí
-  // se pone en true y los teléfonos empiezan a caer solos en /m.
+  // El interruptor es `MOVIL_ACTIVO` (lib/movil-desvio.ts): salió APAGADO con la v1 y se PRENDIÓ
+  // con la v2 (11/10/2026, Martín: «a cualquiera que entre desde mobile le debe salir este
+  // diseño»). El admin sin cliente ya salió arriba: /m no tiene nada que mostrarle.
   if (MOBILE_AL_ENTRAR && sesion && (await prefiereMovil())) redirect(await rutaConWs('/m'));
   // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:
   // si pierde la pestaña, el admin que abre un cliente termina mirando otra cuenta con

@@ -6,10 +6,12 @@
 // Es una de las dos tarjetas que /m permite (la otra es «Siguiente acción» en la
 // ficha del lead): todo lo demás es una lista con filete. Nunca una pila de estas.
 //
-//   [Aprobación pendiente]                ← el único naranja de la pantalla
-//   Mandar el recordatorio de pago
+//   ✦ Mandar el recordatorio de pago       ← la estrella SÓLO si MaKo lo propuso (`estrella`)
 //   340 mensajes · no se puede deshacer    ← la consecuencia en TINTA, no en gris
-//   [ Revisar y aprobar ]                  → abre el sheet que MUESTRA todo
+//   [        Revisar y aprobar         ]   → botón grande (lg, ancho completo): abre lo que MUESTRA todo
+//
+// v2 (prototipo `#today`, 11/10/2026): sin la píldora «Aprobación pendiente» (una píldora que no
+// decide nada se va; la tarjeta suelta ya dice que algo espera) y con el botón grande.
 //
 // La tarjeta NO aprueba: abre el detalle (el sheet de aprobación), que es donde
 // la consecuencia queda pegada al botón que nombra acción + objeto («Enviar 340
@@ -23,11 +25,14 @@ import type { ReactNode } from 'react';
 import { Button, ButtonLink } from '@/app/_ui/Button';
 import { shadow } from '@/app/_ui/tokens';
 import { GRAMATICA } from '@/lib/mako-gramatica';
+import { MakoStar } from '@/app/_components/MakoBrand';
 
 export type EstadoDecision = 'pendiente' | 'aplicando' | 'hecho' | 'resuelta';
 
-export function TarjetaDecision({ titulo, consecuencia, accion, estado = 'pendiente', resueltaPor, onDeshacer }: {
+export function TarjetaDecision({ titulo, consecuencia, accion, estado = 'pendiente', resueltaPor, onDeshacer, estrella = false }: {
   titulo: ReactNode;
+  /** La estrella de MaKo junto al título: SÓLO si lo que bloquea lo propuso MaKo (nunca «porque sí»). */
+  estrella?: boolean;
   /** La consecuencia en prosa, con el número: «340 mensajes · no se puede deshacer». */
   consecuencia: ReactNode;
   /** Lo que abre el detalle: «Revisar y aprobar». Acción + objeto, nunca «Ver» a secas. */
@@ -40,13 +45,15 @@ export function TarjetaDecision({ titulo, consecuencia, accion, estado = 'pendie
 }) {
   return (
     <article className="m-decision" style={{ boxShadow: shadow.card }}>
-      {estado === 'pendiente' && <span className="mk-pill m-decision__pill">{GRAMATICA.aprobacion.rotulo}</span>}
-      <h3 className="m-decision__titulo">{titulo}</h3>
+      <div className="m-decision__cab">
+        {estrella && <MakoStar size={20} animate={false} />}
+        <h3 className="m-decision__titulo">{titulo}</h3>
+      </div>
       <p className="m-decision__consecuencia">{consecuencia}</p>
 
       {estado === 'pendiente' && (accion.href
-        ? <ButtonLink href={accion.href} variant="primary" size="md" full>{accion.rotulo}</ButtonLink>
-        : <Button variant="primary" size="md" full onClick={accion.onClick}>{accion.rotulo}</Button>)}
+        ? <ButtonLink href={accion.href} variant="primary" size="lg" full>{accion.rotulo}</ButtonLink>
+        : <Button variant="primary" size="lg" full onClick={accion.onClick}>{accion.rotulo}</Button>)}
 
       {estado === 'aplicando' && (
         <>

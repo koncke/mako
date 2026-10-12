@@ -414,7 +414,9 @@ async function enviarPushAviso(wsLector: number, a: EmitirAvisoInput): Promise<N
       tipo: a.tipo,
       titulo: a.titulo,
       cuerpo: a.texto,
-      ruta: a.link ?? '/m/inbox',
+      // Sin link propio, el aviso abre la pestaña Avisos del Inbox (no «Para decidir»): rutaMovil
+      // conserva la query de una ruta /m (lib/movil-rutas.ts) y /m/inbox lee `?vista=avisos`.
+      ruta: a.link ?? '/m/inbox?vista=avisos',
       // La tarjeta por partes no tiene `dedupKey` (sale tal cual, una por tarjeta y por lead): sin algo propio
       // en el tag, cada aviso suyo reemplazaría al anterior en el teléfono.
       tag: `aviso:${a.tipo}${a.dedupKey ? `:${a.dedupKey}` : a.partes?.length ? `:${a.lead?.id ?? ''}:${Date.now().toString(36)}` : ''}`,

@@ -31,7 +31,10 @@
 
 import { sanearCron, textoCron, proximaOcurrencia, type CronAviso } from './cron-aviso';
 import { normalizarEtapas, etapasDe, TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
-import { valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, type DisparoActual } from './flujo-conversacion';
+import {
+  valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, detalleDisparador, nombreEtiqueta,
+  type DisparoActual, type EtiquetaParaDisparo,
+} from './flujo-conversacion';
 import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
 import { partesExplicitas, sanearPartes } from './mensaje-partes';
@@ -928,6 +931,61 @@ export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
 
 /** Lo que se le pega a un evento de antes donde se dice (la tarjeta, el botón del desplegable). */
 export const MARCA_DE_ANTES = '(de antes)';
+
+/** Una opción con valor y rótulo (una etapa de un kanban, un disparador del catálogo). */
+type OpcionNombrada = { value: string; label: string };
+
+/**
+ * Lo que hace falta para NOMBRAR un disparador: los kanbans de cada ámbito, las etiquetas, el catálogo
+ * de disparadores y la zona del negocio. Lo arma quien tiene esos datos (el lienzo por props, la
+ * pantalla del teléfono en el server).
+ */
+export type NombresDisparo = {
+  productos: ReadonlyArray<{ funnelId: number | null; productoId: number | null; etapas: readonly OpcionNombrada[]; etapasEntrega: readonly OpcionNombrada[] }>;
+  etiquetas: readonly EtiquetaParaDisparo[];
+  /** El catálogo de disparadores (`TRIGGERS`, lib/email-marketing.ts). */
+  triggers: readonly OpcionNombrada[];
+  /** El nombre de una etapa que no está en ningún kanban (la de antes). */
+  etiquetaEtapa: (key: string) => string;
+  /** La zona del negocio: el texto del horario la nombra. */
+  tz: string | null;
+};
+
+/**
+ * LA FRASE DE SIEMPRE de un disparador («Llega a «Agendado»», «Se le puso «Cualificado»»), con los
+ * nombres de las etapas y las etiquetas. Las etapas se buscan en el kanban de SU ámbito (el embudo o el
+ * producto) y no en la bolsa de todas: dos productos pueden tener una etapa con la misma clave y otro
+ * nombre.
+ *
+ * ⚠️ VIVE ACÁ Y NO EN UN HOOK (11/10/2026): era el `deSiempre` de `useTextoDisparador`
+ * (app/automations/EditorDisparadores.tsx, un módulo 'use client'), y el teléfono (app/m/automations)
+ * tuvo que copiarlo línea por línea porque el server no puede llamar un hook. Ahora los dos llaman a
+ * ésta: una regla, un lugar.
+ */
+export function deSiempreDisparador(d: Disparador, n: NombresDisparo, todas?: readonly OpcionNombrada[]): string {
+  const bolsa = todas ?? n.productos.flatMap((pr) => [...pr.etapas, ...pr.etapasEntrega]);
+  const kanban = d.trigger_tipo === 'etapa_actual'
+    ? n.productos.find((pr) => pr.funnelId != null && pr.funnelId === d.funnel_id)?.etapas ?? null
+    : d.trigger_tipo === 'entrega_actual'
+      ? n.productos.find((pr) => pr.productoId != null && pr.productoId === d.producto_id)?.etapasEntrega ?? null
+      : null;
+  const nombreDe = (k: string) => (kanban ?? bolsa).find((e) => e.value === k)?.label ?? n.etiquetaEtapa(k);
+  const puestas = etapasDe({ etapa: d.etapa ?? null, etapas: d.etapas ?? null });
+  return detalleDisparador({
+    trigger_tipo: d.trigger_tipo, etapa: d.etapa ?? null, cron: null,
+    etiquetaTrigger: n.triggers.find((x) => x.value === d.trigger_tipo)?.label ?? null,
+    nombreEtapa: d.etapa ? nombreDe(d.etapa) : null,
+    nombreEtiqueta: nombreEtiqueta(n.etiquetas, d.etiqueta_id ?? null),
+    nombresEtapas: puestas.map(nombreDe),
+    todas: !!kanban && puestas.length >= 3 && kanban.every((e) => puestas.includes(e.value)),
+  });
+}
+
+/** LO QUE DICE UN CRON con los nombres ya resueltos: la fila de la tarjeta, en el lienzo y en el teléfono. */
+export function textoDelDisparador(d: Disparador, n: NombresDisparo): string {
+  const todas = n.productos.flatMap((pr) => [...pr.etapas, ...pr.etapasEntrega]);
+  return textoDeDisparador(d, { deSiempre: (x) => deSiempreDisparador(x, n, todas), tz: n.tz });
+}
 
 /** La clave del ícono de cada fila (la dibuja `IconoDisparador`, app/automations/IconosDisparador.tsx). */
 export function iconoDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): ClaseDisparador | 'otro' {

@@ -42,8 +42,10 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/inicio',
     scope: '/',
     display: 'standalone',
-    background_color: '#171511',
-    theme_color: '#171511',
+    // Claro, como la app (v2, 11/10/2026: «por defecto es white mode»). Es el --bg del tema claro
+    // (#F4F6F9, app/globals.css): la pantalla de carga de la app instalada ya no sale oscura.
+    background_color: '#F4F6F9',
+    theme_color: '#F4F6F9',
     lang: 'es',
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
@@ -51,10 +53,11 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
     // Los nombres de la barra de MaKo Mobile (lib/movil-rutas.ts): en inglés, como el producto.
+    // v2: MaKo dejó de ser destino de la barra (vive en More), así que el tercer atajo es CRM.
     shortcuts: [
       { name: 'Today', url: '/m/hoy', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
       { name: 'Inbox', url: '/m/inbox', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
-      { name: 'MaKo', url: '/m/mako', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
+      { name: 'CRM', url: '/m/crm', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
     ],
   };
 }

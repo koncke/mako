@@ -42,7 +42,7 @@ import { aFila, plano } from '@/lib/bandeja-filas';
 import type { RolMovil } from '@/lib/movil-rutas';
 import {
   complejidadDe, consecuenciaDeshacer, etiquetaDeOrigen, lineasDeCambios, lineasDelPayload, opcionesDeConfirmacion,
-  ordenarItems, resumenDeBorrador, sumarConteos, tiposVisibles, tituloDeBorrador,
+  detalleDeBorrador, detalleDeLeads, ordenarItems, resumenDeBorrador, sumarConteos, tiposVisibles, tituloDeBorrador,
   type ItemDecision, type TipoDecision,
 } from '@/lib/inbox-movil-reglas';
 
@@ -127,7 +127,7 @@ function leadADecision(prop: Propuesta): ItemDecision {
     resumen: n > 1 ? `${n} contactos para revisar` : 'Contacto para revisar',
     creadaAt: prop.createdAt, origen: etiquetaDeOrigen(prop.origen),
     linkEscritorio: rutaDePropuesta('lead', prop.id),
-    detalle: [],
+    detalle: detalleDeLeads(prop.datos),
   };
 }
 
@@ -138,7 +138,7 @@ function borradorADecision(b: Borrador): ItemDecision {
     resumen: resumenDeBorrador(b),
     creadaAt: b.createdAt, origen: etiquetaDeOrigen(b.origen),
     linkEscritorio: `/plan/revisar/${encodeURIComponent(b.id)}`,
-    detalle: [],
+    detalle: detalleDeBorrador(b),
   };
 }
 
@@ -279,5 +279,12 @@ export async function contarParaDecidir(quien?: QuienMira): Promise<ConteoParaDe
   };
   const porTipo: Partial<Record<TipoDecision, number | null>> = {};
   for (const t of tipos) porTipo[t] = valor[t];
-  return { total: sumarConteos(porTipo, tipos), porTipo };
+  // El número (badge, frase de Today) cuenta SÓLO lo que se decide en el teléfono. Los
+  // borradores del plan y los contactos propuestos se revisan en la computadora: medido en
+  // producción el 11/10/2026, eran 68 de 68 en el ws 9 y casi todos los 138 del ws 1, y el
+  // badge decía 99+ sobre cosas que el teléfono no puede resolver.
+  return { total: sumarConteos(porTipo, tipos.filter((t) => DECIDIBLES_EN_TELEFONO.has(t))), porTipo };
 }
+
+/** Lo que se aprueba desde el teléfono. El resto (borradores, contactos) es de la computadora. */
+export const DECIDIBLES_EN_TELEFONO: ReadonlySet<TipoDecision> = new Set<TipoDecision>(['pendiente', 'accion', 'confirmacion']);

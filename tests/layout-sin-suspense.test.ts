@@ -74,7 +74,20 @@ test('el layout lee la sesión ANTES de dibujar: es lo que vuelve dinámicas a t
 // y el test de arriba seguiría verde porque mira el layout. Lista blanca EXPLÍCITA: un
 // loading.tsx nuevo se decide —y sólo va en segmentos privados—; uno de la lista que ya no existe
 // también falla, para que no quede un permiso escrito para algo que nadie usa.
-const LOADING_PERMITIDOS = ['app/crm/loading.tsx'];
+const LOADING_PERMITIDOS = [
+  'app/crm/loading.tsx',
+  // MaKo Mobile (v2, 11/10/2026): /m es PRIVADO entero (cada page.tsx llama a requireMovil), así
+  // que su esqueleto no esconde nada público. Es lo que hace sentir nativa la entrada a una
+  // sección cuya lectura tarda (la pauta, el informe, el historial de videos, las landings).
+  'app/m/ads/loading.tsx',
+  'app/m/automations/loading.tsx',
+  'app/m/dashboard/loading.tsx',
+  'app/m/landing/loading.tsx',
+  'app/m/landing/[id]/loading.tsx',
+  'app/m/plan/loading.tsx',
+  'app/m/video/loading.tsx',
+  'app/m/video/[id]/loading.tsx',
+];
 
 test('no hay loading.tsx fuera de la lista blanca (cada uno esconde su página sin JavaScript)', () => {
   const raiz = resolve(__dirname, '..');

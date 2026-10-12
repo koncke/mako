@@ -11,6 +11,9 @@
 //
 // Quién entra: la misma regla del Sidebar para la tab MaKo (navKey 'mako'); y adentro,
 // `personaDelRequest` la vuelve a mirar (rol + capa) antes de leer nada.
+//
+// v2: es pantalla de TRABAJO dentro de More (cabecera.ts: «‹ More», «MaKo» en la barra, sin
+// título grande y sin la barra de abajo). La página no pone título.
 // =============================================================================
 
 import { requireMovil } from '@/lib/movil-guard';
@@ -35,6 +38,6 @@ export default async function MakoMovilPage() {
     return <ChatMako sesionesIniciales={sesiones} inicial={inicial} />;
   } catch (e) {
     console.error('[m/mako] abrir:', e instanceof Error ? e.message : e);
-    return <ErrorM frase="No pude cargar el chat. Vuelve a intentarlo en un momento." />;
+    return <ErrorM frase="No pude cargar el chat." />;
   }
 }

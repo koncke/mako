@@ -3,7 +3,9 @@
 Lo que no se ve leyendo el código de `app/m/`, `lib/movil-*`, `lib/push*`, `lib/mako-turno-app*`,
 `public/sw.js` y las extracciones que comparte con escritorio. Las decisiones y la spec están en
 [diseno-mako-mobile.md](diseno-mako-mobile.md); el pedido textual, en `/admin/dev/mako-mobile`.
-Corrida del 11/10/2026 (relevo de 7 agentes + 11 de implementación + 1 revisión adversarial).
+Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 revisión adversarial),
+el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
+de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
 ## Lo que más cuesta redescubrir
 
@@ -23,9 +25,9 @@ Corrida del 11/10/2026 (relevo de 7 agentes + 11 de implementación + 1 revisió
   `guardOnboarding` redirigen a `/crm`, `/plan` y `/onboarding`. En `/m` va `requireMovil` (los
   mismos predicados, destinos `/m`) en CADA página: los layouts no se re-ejecutan al navegar.
   **Vive en:** lib/movil-guard.ts
-- **`black-translucent` obliga a un header OSCURO**: iOS pinta reloj y batería en blanco sobre lo
-  que haya debajo. `env(safe-area-inset-*)` vale 0 sin `viewportFit: 'cover'`. **Vive en:**
-  app/m/layout.tsx, app/m/m.css
+- **`black-translucent` obliga a un header OSCURO** (v1): iOS pinta reloj y batería en blanco sobre lo
+  que haya debajo. `env(safe-area-inset-*)` vale 0 sin `viewportFit: 'cover'`. Desde la v2 el header es
+  CLARO y va `default` (ver «El rediseño v2»). **Vive en:** app/m/layout.tsx, app/layout.tsx, app/m/m.css
 - **«Háptica = navigator.vibrate» deja al iPhone sin háptica**: en iOS no existe. El patrón que anda
   (web-haptics) es un click sincrónico a un `<input type=checkbox switch>` oculto (iOS 18+).
   **Vive en:** lib/haptico.ts
@@ -62,21 +64,223 @@ Corrida del 11/10/2026 (relevo de 7 agentes + 11 de implementación + 1 revisió
   tumbó la app de Claude con 7 chats** (el diagnóstico, en docs/hallazgos-infra.md). Desde entonces el
   vigía mata los `next dev` grandes; al reintentar, mató el mío a los 4 GB compilando `/m/hoy` con
   750 MB libres. Consecuencia: **ninguna pantalla de /m se renderizó antes del deploy**, y salió con el
-  reparto de teléfonos apagado (`MOVIL_ACTIVO = false` en lib/movil-desvio.ts).
+  reparto de teléfonos apagado (`MOVIL_ACTIVO = false` en lib/movil-desvio.ts). Se prendió con la v2
+  (11/10 a la noche), todavía sin haberla visto en un navegador: ver «Lo que quedó sin hacer».
 - **tsc salta todo el chequeo de tipos si cualquier archivo tiene un error de SINTAXIS** (TS1005):
   «los errores son de otro archivo» no prueba que lo tuyo compile. Con errores semánticos (TS2304) el
   resto sí se chequea.
 
+## El rediseño v2 (11/10/2026, tarde): lo que el relevo midió
+
+Diseño y prototipo en [diseno-mako-mobile-v2.md](diseno-mako-mobile-v2.md) (tres lectores sobre las
+pantallas de escritorio; implementado esa misma noche: ver la sección siguiente).
+
+- **«El editor de video estilo CapCut (/video-generator)» no está en `/video-generator`.** La lectura
+  obvia del pedido manda a diseñar sobre un editor que en `main` no existe: ahí hay un wizard de tomas
+  (`PasoTomas.tsx`). El CapCut vive en la rama `video-editor` (`C:/dev/wt-video-editor`), sin mergear.
+  Antes de diseñar una versión reducida de algo, se mira qué hay en `main`. **Vive en:** app/video-generator/
+- ⚠️ **Y el relevo se equivocó con el Gamma, en la dirección contraria**: dijo que el editor tipo Gamma
+  NO estaba en `main`, y SÍ estaba (commit `c27d4f82`: `landing_docs`, app/landing-generator/[id],
+  lib/editor-landing). La implementación v2 casi recorta el alcance de Landing por una frase de un
+  documento de esa misma tarde. Regla: antes de achicar un alcance por lo que dice un relevo,
+  `git log -- <carpeta>` sobre `main`. **Vive en:** app/landing-generator/, lib/editor-landing/
+- **El verde y el rojo de la casa no sirven como TEXTO chico**: `--good` da 3,45:1 y `--bad` 4,26:1
+  sobre blanco (AA pide 4,5), y `--primary` da 4,20:1 sobre `--bg`. En el teléfono el color va en la
+  marca (punto, flecha) con el texto en tinta, y los links sobre `--bg` en `--primary-strong` (5,27).
+  **Vive en:** app/globals.css
+- **Un header claro invierte el hallazgo de `black-translucent`**: con el header claro va `default`
+  (texto oscuro) y `themeColor` claro; en iOS instalada `default` pinta su propia franja, que hay que
+  mirar en un iPhone contra `--bg`. **Vive en:** app/m/layout.tsx
+- **Ads Manager no tiene propuestas de MaKo para aprobar** (son de Meta) y **Automations no muestra
+  números** (están en `/chat-analyst`): un diseño que los dé por existentes inventa trabajo de
+  backend. **Vive en:** app/ads-manager/, app/automations/, app/automations/DashboardChatAgent.tsx
+- **`chrome --headless --window-size=390,844 --screenshot` NO mira un teléfono: diagnostica un
+  desborde que no existe.** Chrome en Windows topea el ancho de la ventana en ~500 px; la página se
+  arma a 500 (y el `@media (max-width: 520px)` igual aplica, así que no se nota) y la captura sale
+  recortada a 390. Medido el 11/10 sobre el prototipo: las tarjetas cortadas en el borde derecho y
+  la barra con 4 de sus 5 destinos, sobre una página que a 390 de verdad mide 390 justos. Para mirar
+  a ancho de teléfono va `Emulation.setDeviceMetricsOverride` por CDP (molde: el puente `mirar.mjs`
+  de `verificar-en-navegador`), y la medición que lo confirma es `document.documentElement.scrollWidth`
+  contra `innerWidth`, no la captura. **Vive en:** docs/prototipos/mako-mobile-v2.html
+
+## La implementación v2 y el desvío PRENDIDO (11/10/2026, noche)
+
+Doce agentes escribieron el armazón y las pantallas sobre el prototipo; una integración enchufó lo que
+cada uno dejó afuera de su carpeta y prendió `MOVIL_ACTIVO`. Nada se vio en un navegador (la máquina
+no tuvo RAM para un `next dev`): todo lo de acá se midió con typecheck, tests y lectura de código.
+
+### Lo que más cuesta redescubrir
+
+- ⚠️ **Prender el desvío TAPABA LO PÚBLICO.** `prefiereMovil` mira el teléfono (UA + cookie), no la
+  sesión: un VISITANTE sin cuenta en un celular —el comprador que vuelve de pagar a
+  `/pagar/<token>/listo`, quien lee `/reembolsos`— habría leído «Esta pantalla se usa en la
+  computadora». `SE_ABREN_IGUAL` era una lista a mano que no seguía a `PUBLICOS`. Regla: lo público
+  no se tapa nunca, y se pregunta con `esPublica` (lib/rutas-publicas.ts), no con una segunda lista.
+  **Vive en:** lib/movil-desvio.ts (`decidirDesvio`)
+- ⚠️ **Y armaba un BUCLE para el admin global sin cliente**: /inicio lo manda a /customer-success →
+  el desvío a /m/cs → `requireMovil` (sin workspace) a /inicio → /customer-success… Antes de la v2
+  /customer-success era «en la computadora» y no había bucle: lo creó MAPEAR una sección nueva.
+  Regla: el desvío pregunta si /m tiene algo que mostrar (`seDesvia`, con `adminSinCliente`), y cada
+  ruta que se suma a `rutaMovil` se mira contra los redirects de `requireMovil`. **Vive en:**
+  lib/movil-desvio.ts, app/layout.tsx, app/inicio/page.tsx
+- **Sumar una ruta a `rutaMovil` cambia ENSEGUIDA lo que abren los Web Push y los links de Today e
+  Inbox**, no sólo el desvío: `MOVIL_ACTIVO` no lo frena. Las páginas de esas secciones salen en el
+  mismo deploy que el mapa. **Vive en:** lib/movil-rutas.ts, lib/push-payload.ts
+- **Donde el id es EL MISMO en los dos lados, el link abre ESA cosa**: el plan de un video
+  (`/video-generator?plan=<uuid>` → `/m/video/<uuid>`) y una landing (`/landing-generator/<id>` →
+  `/m/landing/<id>`). El comentario de `rutaMovil` decía que ningún id coincidía, y era falso para
+  los dos. Y `rutaMovil` conserva la query de una ruta que ya es /m (`/m/inbox?vista=avisos`) pero
+  NUNCA un `?ws=` (conWs no pisa el que ya está: ganaría el del link). **Vive en:** lib/movil-rutas.ts
+- **La pantalla que entra animada con `transform` se vuelve el contenedor de todo lo `position:
+  fixed` de adentro**: el composer del chat y el pie fijo saltaban al fondo de la columna durante
+  320 ms. Se anima `left` sobre `.m-columna` (position relative) y `.m-contenido` lleva
+  `overflow-x: clip`; lo fija un test. **Vive en:** app/m/_ui/ShellM.tsx
+- **La profundidad de una pantalla no son los segmentos de su URL**: /m/mas y /m/dashboard tienen
+  los mismos y uno está ADENTRO del otro. Se mide en el árbol de navegación (`nivel()`), con la barra
+  DEL ROL: si a un rol le falta CRM o Plan, una sección de More sube a la barra y pasa a ser raíz.
+  `destinoActivo`, `cabeceraPorRuta` y `nivel` reciben `barra`. **Vive en:** app/m/_ui/cabecera.ts
+- **Con la pantalla entrando desde la derecha, el título grande está fuera de la ventana POR EL
+  COSTADO** y el IntersectionObserver hacía parpadear el nombre chico: `rootMargin` con los costados
+  agrandados un ancho entero. **Vive en:** app/m/_ui/ShellM.tsx
+- **`[data-m] :is(h1,h2,h3,p){margin:0}` pesa (0,1,1) y le gana a una clase sola**: un margen de
+  título se pierde sin error. Todo h1/h2/p con margen va con `[data-m]` delante. Y al pisar `.mk-btn`
+  desde una pantalla: `[data-m] .mk-btn--tertiary:hover` pesa (0,4,0) y en táctil el `:hover` queda
+  pegado; se sube a (0,5,0) y se repite en el `:hover`. **Vive en:** app/m/m.css
+- **Un filete que arranque donde arranca el texto** (como Ajustes): un `::before` con `left:auto`
+  toma la posición estática, pero con `right:0` el ancho se calcula shrink-to-fit y da 0 px sin
+  error. `left:auto` + `width:100vw` y que corte el overflow del envoltorio. **Vive en:** app/m/m.css
+- **Dos pantallas de /m chocaban por el prefijo de clases** (`.mc-*` era «m crm» y «m cuenta»): Next
+  deja la hoja cargada al salir de la ruta, y abrir el CRM le cambiaba los estilos a la cuenta. El
+  prefijo es el nombre ENTERO de la carpeta (`.m-crm-*`, `.m-cuenta-*`). **Vive en:** app/m/*/*.css
+- **Lo pegado abajo va con `bottom: var(--m-abajo)`, nunca con `--m-tabbar` a mano**: el chat de MaKo
+  pasó a pantalla de trabajo sin barra y el composer quedó flotando 56 px. **Vive en:** app/m/mako/mako.css
+- **Un ícono inventado dibuja un punto, sin error** (Inbox llegó a apuntar a `'inbox'`). Cada ícono de
+  la barra, de More y de las pantallas se fija contra `NOMBRES_ICONO`; al set se sumaron `bandeja`,
+  `computadora`, `mas`, `reloj`, `flecha` y `calendario`. **Vive en:** app/_components/icons.tsx
+- **Una regla que vive en un módulo `'use client'` no la puede llamar el server, y desde el cliente
+  arrastra la pantalla entera al bundle del teléfono**: `estadoDeToma` (PasoTomas.tsx), el texto de un
+  CRON (el hook `useTextoDisparador`), el rótulo «Chatbot» y la apertura de un borrador del lienzo.
+  Las pantallas los copiaron; la integración los mudó a módulos puros (app/video-generator/
+  tomas-estado.ts, `deSiempreDisparador` en lib/disparadores.ts, `ROTULO_CHATBOT` en
+  lib/plantillas-automatizaciones.ts, `borradorAlAbrir` en lib/flujo-conversacion.ts) y escritorio
+  los re-exporta. Regla: la lógica pura de una pantalla va en lib o en un módulo sin `'use client'`.
+- **«Para hoy» de Today y la pestaña «Hoy» de Plan podían ser dos cuentas distintas**: `PlanHoy.hoy`
+  viene SIN las prioridades (Today v1 pintaba las dos listas juntas), así que tomar sólo `plan.hoy`
+  hacía desaparecer la prioridad #1 que vence hoy. Los dos usan `listaHoy`, y la misma casilla
+  (`CasillaM`). **Vive en:** app/plan/board/hoy.ts, app/m/plan/formato.ts, app/m/_ui/CasillaM.tsx
+- **La hora de una reunión puede ser la de la reunión ANTERIOR**: reagendar sin hora deja
+  `junta_N_at` viejo. La hora vale sólo si su día es `fecha_junta_N`: lo cuidaban el CRM
+  (`reunionesDeHoy`, `proximaLlamada`) y NO Today (`leerReuniones`), que se arregló en la
+  integración. `proximaReunionDe` de escritorio (lib/lead-resumen.ts) mira sólo `junta_N_at`: no
+  medido si ya mostró una hora vieja. **Vive en:** lib/hoy-movil.ts, lib/crm-movil.ts, app/m/crm/reglas.ts
+- **Lo que se aprueba no se recorta**: `lineasDelPayload` cortaba todo texto a 160 caracteres y el
+  sheet del Inbox mostraba un WhatsApp con «…»: se aprobaba sin ver el final. El texto va entero
+  (tope de peso 2000); la fila corta una línea con CSS. **Vive en:** lib/inbox-movil-reglas.ts
+- **Desde /m, un link pelado a una pantalla de escritorio rebota**: el desvío la manda de vuelta a su
+  versión móvil (un botón que «no hace nada»). Se escribe la cookie de vista de escritorio y se
+  navega con `conWs`, como «Versión de computadora». **Vive en:** app/m/inbox/InboxM.tsx, app/m/mas/
+
+### Por pantalla (síntoma → causa → regla)
+
+- **Dashboard.** Los «30 días» de Marketing son 29 y la última barra es AYER: `hastaDeFuente` corta en
+  ayer lo que llega por cron. El rótulo dice «vs. el período anterior», nunca «vs. los 30
+  anteriores». Hay DOS CAC (`negocio.cac` = gasto ÷ cierres; `getRevenuePeriod.cac_usd` = gasto ÷
+  primeros pagos): el teléfono muestra el de la hoja, como escritorio. Un gráfico que acompaña a un
+  número sale de las MISMAS filas que ese número (el cash por semana, de `rev.cashItems`). El closer
+  tiene `graphics` en nav.ts pero escritorio le muestra sólo Closing: `seccionesMasVisibles` no le
+  ofrece la fila si su capa no tiene Closing. **Vive en:** lib/graficos-datos.ts, app/m/dashboard/,
+  lib/movil-rutas.ts. Sospecha sin medir: `getCashCollectedPeriodo` y `_getRevenueBreakdowns`
+  (lib/pagos.ts) leen pagos sin paginar.
+- **Ads Manager.** «Hoy» no existe para el gasto por campaña: `marketing_metrics_daily` la llena el
+  cron una vez por día con AYER (escritorio muestra US$0 en «Hoy» de verdad). Con una moneda sin tasa
+  (ARS), `spend_usd` trae el monto CRUDO con el nombre `_usd`: quien dibuja pide
+  `conversorGastoMeta().moneda`. Activar desde escritorio re-prende TODOS los hijos, incluidos los
+  pausados a mano; el teléfono prende sólo los que no estaban activos y su Deshacer pausa exactamente
+  esos (escritorio sigue con el problema). En MXN el presupuesto se compara contra lo TIPEADO, o
+  abrir y cerrar marca un cambio. `toLocaleString('es-AR')` agrupa 4 dígitos y `es-ES` no: todo /m
+  usa es-AR. **Vive en:** app/m/ads/modelo.ts, app/ads-manager/CampanasBrowser.tsx
+- **Customer Success.** El conteo por etapa es sobre los MIEMBROS del servicio, no sobre las filas de
+  `cliente_entrega` (quien nunca se movió no tiene fila y está en la primera). Desde un servicio se
+  invita con `invitarAlCursoDelProductoAction`, NO con la de la ficha: el mismo cliente puede estar
+  invitado a OTRO curso (el diagnóstico obvio era el equivocado). `moverEntregaAction` revalida sólo
+  /customer-success: /m pinta lo que devolvió la action encima de los props. Antes de enlazar a otra
+  sección de /m se pregunta `puedeVerKey` (sin CRM, `wa.me`). Y ante un choque entre el prototipo y
+  una decisión registrada de Martín en el código («Sin clientes en esta etapa.», que él sacó el
+  05/10), manda la decisión. **Vive en:** app/m/cs/, lib/servicio-etapas.ts, app/customer-success/actions.ts
+- **Automations.** El «Probar» de una sola vez (`action:'probar'`) existe en la ruta pero escritorio
+  ya no lo llama, y manda TODAS las tarjetas de todas las ramas: que exista una action no la hace «la
+  de escritorio» (grep de quién la llama hoy). `setSecuenciaPasos` (lo que corre Publicar) valida el
+  grafo pero NO un mensaje vacío: toda pantalla que publique corre `frenoDelFlujo` antes. Las métricas
+  «de 30 días» sólo tienen ventana en los envíos. Con un borrador de pasos `[]`, la lista de
+  escritorio dice «sin publicar» y el lienzo abre lo publicado: el teléfono sigue al lienzo. **Vive
+  en:** lib/setting-secuencias.ts, lib/nutricion.ts, app/m/automations/datos.ts
+- **Video.** `estadoMontajeAction` se puede llamar desde un server component como lectura; con un rol
+  no admin da `ok:false` y se toma como «sin montaje». Y sólo se pregunta con TODAS las tomas
+  filmadas: un montaje viejo no se muestra sobre clips que ya no son los suyos. iOS no pinta el primer
+  cuadro de un `<video>` sin reproducir: `src#t=0.1` (sin medir en un iPhone). **Vive en:** app/m/video/
+- **Landing.** Una vista previa interna NUNCA es un iframe de la URL pública: carga el Pixel y cada
+  vista del dueño sumaría una visita en `landing_visits`; se dibuja con `htmlDeTarjeta`. `analitica()`
+  lee la foto publicada entera (hasta 10 MB): en una lista, Suspense por fila, concurrencia 3 y tope
+  12. `listar()` no trae `sitio_activo` (una pausada se dibujaría «Publicada»), y `publicar()` vuelve
+  a poner EN LÍNEA un sitio pausado: la consecuencia pegada al botón lo dice. **Vive en:**
+  lib/editor-landing/server.ts, lib/editor-landing/publicar.ts, app/m/landing/
+- **CRM.** El nombre de «Por responder» sale del lead, no del `push_name` de WhatsApp
+  (`getConversacionesNoOficial` sólo usa el del lead si el push_name es el número). Contar «como el
+  tablero» aplica su regla de columna: una etapa que el funnel ya no tiene cae en la PRIMERA
+  (`etapaEnTablero`). `getLeadAudit` traga el error: una actividad vacía no se afirma. Una acción de
+  `<CabeceraM accion>` va memoizada (el ReactNode está en las dependencias del efecto). El dictado de
+  Safari se arranca en el `onClick`, nunca en un efecto. Y abrir /m/crm ya no escribe: la v1 llamaba a
+  `getPendientesDeMarcar` (adjunta Fathom y cierra historial) y la v2 la sacó. **Vive en:** app/m/crm/,
+  lib/crm-movil.ts, lib/leads.ts
+- **Plan.** La fila completada podía irse a mitad de la animación porque el `refresh()` de la action
+  llega antes: la fila en tránsito se repone hasta terminar (`conEnTransito`). Estado indexado por id
+  del tablero del cliente va en un `Map`: un objeto reordena solo las claves enteras. El prototipo
+  dibuja PROYECTOS en «Prioridades» y el dato real son 5 TAREAS: replicar es copiar la forma de la
+  fila, no inventar un ranking. **Vive en:** app/m/plan/ListaPlan.tsx
+- **Inbox.** `etiquetaDeOrigen` devuelve «vino de MaKo» también para un origen DESCONOCIDO: la
+  estrella se decide contra las mismas funciones que escriben la etiqueta, y lo desconocido la lleva.
+  `listNotificaciones` traga el error y una lectura caída se dibuja «Sin avisos todavía.». **Vive
+  en:** app/m/inbox/decision-m.ts, lib/notificaciones.ts
+- **Today.** La tarjeta de lo que bloquea trabaja con CONTEOS: el detalle sale de `leerParaDecidir`,
+  que ESCRIBE (vence pendientes) y es del Inbox. Una bandeja sin leer es null, nunca un 0 sumado.
+  **Vive en:** lib/inbox-movil.ts, app/m/hoy/modelo.ts
+
 ## Lo que quedó sin hacer
 
-- **Un teléfono que abre una pantalla de escritorio la ve con el Sidebar en miniatura** (la captura de Martín del 11/10): eso es lo que tapa <DesvioMovil>, inerte hasta prender MOVIL_ACTIVO. Y antes de prenderlo, la revisión tab por tab de /m en un teléfono.
-
-- **Ver /m funcionando en producción y prender `MOVIL_ACTIVO`** (lib/movil-desvio.ts). Ninguna
-  pantalla se miró en un navegador; tampoco /general, /plan/agencia y /mako/pendientes después de las
-  extracciones (revisadas por diff, no por pantalla).
+- ⚠️ **VER /m EN UN NAVEGADOR Y EN UN TELÉFONO, YA CON EL DESVÍO PRENDIDO.** Ninguna pantalla v2 se
+  miró (ni el título grande, ni los sheets, ni el composer con el teclado, ni el oscuro). Con
+  `MOVIL_ACTIVO = true`, el primer deploy hace que todo celular que abra MaKo caiga en /m: si una
+  pantalla tira, es lo que ven los clientes. El interruptor está en lib/movil-desvio.ts.
 - **Medir en un iPhone y un Android reales**: la voz (SpeechRecognition en una PWA standalone), el push
   (activar dentro del toque, iOS 16.4+ instalada), instalar, el teclado con el composer, los gestos del
-  sheet y del mic, la háptica.
+  sheet y del mic, la háptica, el primer cuadro de un video (`#t=0.1`), y la franja de iOS con
+  `statusBarStyle: 'default'` contra `--bg`.
+- **Lo que el prototipo dibuja y el teléfono no hace** (decisiones por default del 11/10, sin respuesta
+  de Martín; ver docs/diseno-mako-mobile-v2.md): filmar de nuevo una toma y crear un anuncio (gasta
+  créditos de Flow), editar una sección de una landing (sería un segundo editor), «Hoy» en Ads
+  Manager (la pauta llega hasta ayer), «Probar en mi WhatsApp», «Conclusiones con MaKo» (/m/mako no
+  acepta un mensaje inicial) y propuestas de MaKo en Ads Manager.
+- **El badge de Inbox puede ser más alto que el «Para decidir · N»**: `contarParaDecidir` cuenta las
+  acciones complejas y los cambios del CRM sin opciones, que la lista pliega en «En la computadora».
+  Contarlos bien pide leer los payloads. **Vive en:** lib/inbox-movil.ts
+- **La tarjeta de Today no abre la decisión directo** (`/m/inbox?abrir=<key>` ya existe): Today sólo
+  tiene conteos. Por lo mismo no lleva la estrella de MaKo: un conteo no dice quién propuso.
+- **Copias que siguen en el teléfono, a propósito o por riesgo**: la cascada, el rollup y el cruce por
+  nombre de Ads Manager (app/m/ads/modelo.ts, copiados de closures de CampanasBrowser.tsx: mudarlos a
+  lib toca la tabla de escritorio sin poder verla, y la cascada del teléfono es distinta a
+  propósito); `sinPublicarDe` (el teléfono sigue al lienzo con un borrador vacío, no a la lista);
+  `ETAPA_LABEL` repetida en ChatAgentApp.tsx y ChatAnalystVista.tsx.
+- `listNotificaciones` (lib/notificaciones.ts) necesita una variante estricta: hoy «No pudimos leer
+  los avisos» no se alcanza nunca.
+- La pantalla de la cuenta se titula «Perfil» (como escritorio) y el prototipo dice «Cuenta»:
+  `TITULO_CUENTA` en app/m/_ui/cabecera.ts, si Martín lo prefiere.
+- Los íconos del composer del chat (enviar, cámara, foto, archivo, candado, «+») siguen en
+  app/m/mako/iconos.tsx y no en el set; las salidas de la cuenta (`SalirDeLaVista`, `CerrarSesion`)
+  se repintan como fila desde app/m/cuenta/cuenta.css en vez de tener una variante `como="fila"`.
+- Un link de escritorio `/automations?sec=<id>` abre la lista en el teléfono, no esa automatización
+  (la pantalla no lee `?sec=`).
+- El orden por defecto del kanban de Customer Success en escritorio es Z→A por nombre
+  (ClientesApp.tsx, `useState('desc')`); el teléfono ordena A→Z.
 - El logout del Sidebar de escritorio no suelta la suscripción push (sólo el de /m).
 - lib/mako-intencion.ts (ACCION_CUENTA_RE) no reconoce imperativos con tú («mueve», «pausa»): el chat
   del teléfono no propone mover etapas con copy neutro. Afecta también a WhatsApp.
@@ -84,10 +288,6 @@ Corrida del 11/10/2026 (relevo de 7 agentes + 11 de implementación + 1 revisió
   los canales; el teléfono la reemplaza con `conInstruccionDeTarjeta`.
 - `tarjetaDePendiente` (lib/mako-turno-app-reglas.ts) repite la decisión de `aFila`
   (lib/bandeja-filas.ts): que la llame.
-- Faltan íconos en app/_components/icons.tsx (más, enviar, cámara, foto, archivo, candado, calendario,
-  compartir): app/m/mako/iconos.tsx los dibuja aparte.
-- Today (app/m/hoy/FilasPlan.tsx) tiene su propia fila del plan; /m/plan tiene ListaPlan y CheckTarea.
-- Los leads quietos son una segunda lectura en lib/crm-movil.ts (copia de lib/lead-quieto-aviso.ts).
 - Latencia del chat: gemini-flash-latest cortó o dio 503 y rotó a flash-lite (23-108 s por turno).
 - `setNotifPush` y `setNotifVistoHasta` reescriben el perfil sin comparar: dos guardados pueden pisarse.
 - El proyecto «Feature: MaKo Mobile» no existe en el tablero del dueño.

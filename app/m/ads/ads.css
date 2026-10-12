@@ -1,0 +1,63 @@
+/* =============================================================================
+   /m/ads — lo propio de la pantalla (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-ads-*: Next deja la hoja cargada al salir de la ruta. Sólo tokens de
+   app/globals.css. Anatomía del prototipo (docs/prototipos/mako-mobile-v2.html: .seg, .stepper,
+   .stepper-pie, .subt). Un h3/p con margen va con [data-m] delante: `[data-m] :is(h1,h2,h3,p)`
+   le gana a una clase sola. */
+
+.m-ads { transition: opacity .2s var(--ease-out); }
+.m-ads--cargando { opacity: .55; }
+
+/* El segmentado del período, debajo del título grande; el resumen 16 px más abajo. */
+.m-ads-seg { padding-top: 4px; }
+.m-ads-resumen { margin-top: 16px; }
+
+/* ── El sheet de una campaña ─────────────────────────────────────────────── */
+[data-m] .m-ads-subt {
+  margin: 22px 4px 10px;
+  font-size: var(--fs-md); font-weight: 600; line-height: 1.3; color: var(--ink);
+}
+[data-m] .m-ads-subt:first-child { margin-top: 0; }
+.m-ads-meta { margin-top: 12px; }
+
+/* El conjunto elegido (ABO con varios): el check azul a la derecha, como Ajustes. */
+.m-ads-elegido { display: inline-flex; color: var(--primary); }
+
+/* El +/− del presupuesto: dos botones de 56 y el monto grande entre ellos. */
+.m-ads-stepper {
+  display: flex; align-items: center; justify-content: center; gap: 22px;
+  padding: 10px 0 6px;
+}
+.m-ads-stepper__btn {
+  flex: none; display: grid; place-items: center;
+  width: 56px; height: 56px; padding: 0;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  background: var(--surface); color: var(--primary-strong);
+  font: inherit; font-size: 28px; font-weight: 500; line-height: 1; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-press) var(--ease-out), opacity .14s ease;
+}
+.m-ads-stepper__btn:active:not(:disabled) { transform: scale(.94); }
+.m-ads-stepper__btn:disabled { opacity: .4; cursor: not-allowed; }
+.m-ads-stepper__btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary); }
+.m-ads-stepper__valor {
+  min-width: 150px; text-align: center;
+  font-size: 40px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+/* «50.000 ARS» a 40 px no entra entre los dos botones a 390 px. */
+.m-ads-stepper__valor[data-largo] { min-width: 0; font-size: 28px; }
+[data-m] .m-ads-stepper__pie {
+  margin: 0 0 6px; text-align: center;
+  font-size: var(--fs-sm); color: var(--dim); font-variant-numeric: tabular-nums;
+}
+
+/* ── Cargando: la forma, no un spinner ───────────────────────────────────── */
+.m-ads-skel-seg { height: 44px; border-radius: var(--r-md); }
+.m-ads-skel-lista { margin-top: 28px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-ads, .m-ads-stepper__btn { transition: none; }
+  .m-ads-stepper__btn:active:not(:disabled) { transform: none; }
+}

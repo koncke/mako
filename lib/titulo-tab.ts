@@ -11,7 +11,7 @@
 // Lógica pura y aparte del componente para poder probarla (tests/titulo-tab).
 
 import { TODOS_LOS_ITEMS, ADMIN_NAV, USER_NAV, type NavItem } from '@/app/_components/nav';
-import { DESTINOS_MOVIL } from './movil-rutas';
+import { DESTINOS_MOVIL, SECCIONES_MAS } from './movil-rutas';
 
 export const MARCA = 'MaKo';
 
@@ -37,6 +37,8 @@ const EXTRA: Record<string, string> = {
   // —/m/hoy es «Today», no «General»—. Sin estas entradas, `desdeLaRuta` titulaba
   // todo /m como «MaKo - M». `/m` atrapa el resto (una subpantalla sin nombre).
   ...Object.fromEntries(DESTINOS_MOVIL.map((d) => [d.href, d.label])),
+  // Y las secciones de More (v2): sin ellas /m/dashboard, /m/ads… quedaban «MaKo» a secas.
+  ...Object.fromEntries(SECCIONES_MAS.map((s) => [s.href, s.label])),
   '/m/cuenta': 'Perfil',
   '/m': 'MaKo',
 };

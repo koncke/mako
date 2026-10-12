@@ -59,8 +59,6 @@ export type LeadsPorDecidir = {
 
 export type HoyMovil = {
   composicion: ComposicionHoy;
-  /** Cuándo se leyó (lo pinta «Actualizado hh:mm»). */
-  leidoAt: string;
   pulso: Lectura<VistaGeneral>;
   plan: Lectura<PlanHoy>;
   reuniones: Lectura<ReunionHoy[]>;
@@ -82,6 +80,17 @@ async function leer<T>(aplica: boolean, nombre: string, f: () => Promise<T>): Pr
   }
 }
 
+/** YYYY-MM-DD de un instante en la zona del negocio (null si no se lee). */
+function diaEnZona(iso: string, tz: string): string | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  } catch {
+    return null;
+  }
+}
+
 async function leerReuniones(ws: number | null): Promise<ReunionHoy[]> {
   if (ws == null) throw new Error('sin workspace');
   const [hoy, tz] = await Promise.all([hoyEnWorkspace(), tzDeWorkspace(ws)]);
@@ -100,7 +109,11 @@ async function leerReuniones(ws: number | null): Promise<ReunionHoy[]> {
   const out: Array<ReunionHoy & { orden: string }> = [];
   for (const j of juntas) {
     const h = horas.get(Number(j.lead_id));
-    const at = h ? (j.tipo === 'J1' ? h.j1 : h.j2) : null;
+    const instante = h ? (j.tipo === 'J1' ? h.j1 : h.j2) : null;
+    // ⚠️ `junta_N_at` SÓLO VALE SI CAE EN EL DÍA DE LA REUNIÓN: reagendar sin hora deja el
+    // instante viejo, y Today diría la hora de la reunión de antes (la misma guarda que
+    // reunionesDeHoy en lib/crm-movil.ts y proximaLlamada en app/m/crm/reglas.ts).
+    const at = instante && diaEnZona(instante, tz) === j.fecha ? instante : null;
     out.push({
       leadId: j.lead_id,
       nombre: j.nombre,
@@ -134,7 +147,6 @@ async function leerDecidir(rol: RolMovil, capa: string | null): Promise<ConteoPa
 export async function componerHoy(ctx: Pick<ContextoMovil, 'rol' | 'capa' | 'ws'>): Promise<HoyMovil> {
   const rol = ctx.rol as RolMovil;
   const composicion = composicionHoy(rol, ctx.capa);
-  const leidoAt = new Date().toISOString();
   const [pulso, plan, reuniones, leads, decidir] = await Promise.all([
     leer(composicion.pulso, 'pulso', () => leerVistaGeneral()),
     leer(composicion.plan, 'plan', () => leerPlanHoy()),
@@ -142,5 +154,5 @@ export async function componerHoy(ctx: Pick<ContextoMovil, 'rol' | 'capa' | 'ws'
     leer(composicion.leadsPorDecidir, 'leads', () => leerLeads()),
     leer(true, 'decidir', () => leerDecidir(rol, ctx.capa)),
   ]);
-  return { composicion, leidoAt, pulso, plan, reuniones, leads, decidir };
+  return { composicion, pulso, plan, reuniones, leads, decidir };
 }

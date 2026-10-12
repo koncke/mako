@@ -1,73 +1,32 @@
 // =============================================================================
-// /m/plan — el plan en el teléfono: qué hago ahora, qué vence hoy y esta semana
+// /m/plan — el plan en el teléfono: Hoy · Semana · Prioridades (v2)
 // =============================================================================
-// Sólo lectura más UN gesto: marcar hecha (con Deshacer). Editar, reordenar,
-// cambiar la prioridad y el Kanban se quedan en la computadora; cada tarea lleva
-// el link a su ficha de escritorio.
+// El prototipo es `#plan` de docs/prototipos/mako-mobile-v2.html: el segmentado, una lista
+// con casilla redonda, el proyecto como punto de su color y el plazo; al final, UNA fila
+// gris «El tablero y los proyectos · En la computadora». Sólo lectura más UN gesto: marcar
+// hecha (con Deshacer). Editar, reordenar, cambiar la prioridad, el Kanban y debatir con
+// el Perro se quedan en la computadora.
 //
-// · CUÁL tablero → `leerPlanHoy` (lib/plan-hoy.ts) lo decide por SESIÓN, igual
-//   que /plan: el dueño ve el suyo; un cliente (o un admin mirándolo), el del
-//   cliente. Esta página no lee `?ws=`.
-// · Las alertas van arriba, una línea cada una, y sólo si existen. Los
-//   borradores llevan al Inbox (ahí se confirman); `borradores: null` es «no se
-//   pudo leer» y NO se dibuja como «no hay».
+// · CUÁL tablero → `leerPlanHoy` (lib/plan-hoy.ts) lo decide por SESIÓN, igual que /plan:
+//   el dueño ve el suyo; un cliente (o un admin mirándolo), el del cliente. Esta página no
+//   lee `?ws=`.
+// · «Hoy» = `listaHoy(prioridades, hoy)`: `plan.hoy` viene SIN las de prioridades (Today
+//   pinta las dos juntas) y acá son pestañas (formato.ts lo explica).
+// · Los borradores del plan NO van acá: se confirman en el Inbox, que ya los cuenta.
 // · `maxDuration` 60: marcar hecha corre la server action desde esta página.
 // =============================================================================
 
+import './plan.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { leerPlanHoy, type PlanHoy } from '@/lib/plan-hoy';
-import { Icon } from '@/app/_components/icons';
-import Link from '@/app/_ui/Link';
-import { ErrorM, PantallaM } from '@/app/m/_ui';
-import { ListaPlan, type SeccionPlan } from './ListaPlan';
-import { contar } from './formato';
-import './plan.css';
+import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
+import { ListaPlan } from './ListaPlan';
+import { listaHoy } from './formato';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-type Alerta = { clave: string; texto: string; tono: 'bad' | 'warn' | 'mako'; href?: string };
-
-function alertasDe(p: PlanHoy): Alerta[] {
-  const out: Alerta[] = [];
-  const nb = p.borradores?.length ?? 0;
-  if (nb > 0) out.push({ clave: 'borradores', texto: `${contar(nb, 'borrador', 'borradores')} para confirmar`, tono: 'mako', href: '/m/inbox' });
-  const atr = p.alertas.proyectosAtrasados;
-  if (atr.length > 0) {
-    out.push({
-      clave: 'atrasados',
-      texto: `${contar(atr.length, 'proyecto atrasado', 'proyectos atrasados')}: ${atr.map((f) => f.nombre).join(', ')}`,
-      tono: 'bad',
-    });
-  }
-  if (p.tablero === 'dueno' && p.alertas.bloqueadas > 0) {
-    out.push({ clave: 'bloqueadas', texto: contar(p.alertas.bloqueadas, 'tarea bloqueada', 'tareas bloqueadas'), tono: 'warn' });
-  }
-  if (p.recortado) out.push({ clave: 'recortado', texto: 'Puede faltar parte del plan', tono: 'warn' });
-  return out;
-}
-
-function Alertas({ items }: { items: Alerta[] }) {
-  if (!items.length) return null;
-  return (
-    <ul className="m-plan-alertas">
-      {items.map((a) => {
-        const cuerpo = (
-          <>
-            <span className="m-plan-alerta__punto" data-tono={a.tono} aria-hidden />
-            <span className="m-plan-alerta__txt">{a.texto}</span>
-            {a.href && <span className="m-plan-alerta__ir" aria-hidden><Icon name="chevron" size={18} /></span>}
-          </>
-        );
-        return (
-          <li key={a.clave}>
-            {a.href ? <Link href={a.href} className="m-plan-alerta">{cuerpo}</Link> : <div className="m-plan-alerta">{cuerpo}</div>}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
+const EN_LA_COMPUTADORA = 'El tablero y los proyectos';
 
 export default async function PlanMovil() {
   await requireMovil({ navKey: 'todo' });
@@ -77,19 +36,24 @@ export default async function PlanMovil() {
     plan = await leerPlanHoy();
   } catch (e) {
     console.error('[m/plan] leerPlanHoy:', e instanceof Error ? e.message : e);
-    return <PantallaM refrescable><ErrorM frase="No se pudo leer el plan." /></PantallaM>;
+    return (
+      <PantallaM refrescable>
+        <ErrorM frase="No pudimos leer el plan. No es nada tuyo." />
+        <ComputadoraM que={EN_LA_COMPUTADORA} />
+      </PantallaM>
+    );
   }
 
-  const secciones: SeccionPlan[] = [
-    { id: 'prioridades', titulo: 'Prioridades', items: plan.prioridades },
-    { id: 'hoy', titulo: 'Hoy', items: plan.hoy },
-    { id: 'semana', titulo: 'Esta semana', items: plan.semana },
-  ];
-
   return (
-    <PantallaM refrescable actualizado={new Date()}>
-      <Alertas items={alertasDe(plan)} />
-      <ListaPlan secciones={secciones} fecha={plan.fecha} />
+    <PantallaM refrescable>
+      <ListaPlan
+        listas={{ hoy: listaHoy(plan.prioridades, plan.hoy), semana: plan.semana, prioridades: plan.prioridades }}
+        fecha={plan.fecha}
+        abiertas={plan.abiertas}
+      />
+      {/* Una lectura llegó al tope de 1000 filas: no se afirma que esto es todo. */}
+      {plan.recortado && <p className="m-plan-nota">Puede faltar parte del plan.</p>}
+      <ComputadoraM que={EN_LA_COMPUTADORA} />
     </PantallaM>
   );
 }
