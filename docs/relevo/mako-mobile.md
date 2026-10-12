@@ -3,26 +3,29 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
-## ⚠️⚠️⚠️ DÓNDE QUEDÓ (11/10 noche → 12/10, 00:20) — LEER ESTO PRIMERO
+## ⚠️⚠️⚠️ DÓNDE QUEDÓ (12/10, madrugada) — LEER ESTO PRIMERO
 
-**La v2 está IMPLEMENTADA en el worktree `C:/dev/wt-mobile` y SIN COMMITEAR** (lo commitea el
-orquestador de la corrida). `MOVIL_ACTIVO = true` en lib/movil-desvio.ts: en cuanto se despliegue,
-**cualquier celular que abra MaKo cae en /m** — es lo que Martín pidió a las 21:54: «Entré desde mi
-celular a la web de MaKo y no se ven los cambios... No solamente tienes que hacerlo como "app" sino a
-cualquiera que entre desde mobile le debe salir este diseño».
+**La v2 está en `main` y PRENDIDA** (`MOVIL_ACTIVO = true`): cualquier celular con sesión que abra MaKo cae
+en /m. Es lo que Martín pidió el 11/10 a las 21:54: «Entré desde mi celular a la web de MaKo y no se ven los
+cambios... No solamente tienes que hacerlo como "app" sino a cualquiera que entre desde mobile le debe salir
+este diseño». Se hizo en el worktree `.claude/worktrees/wt-mobile` (rebasado sobre la undécima de Automations).
 
 - Hecho: Today, Inbox, CRM (lista, ficha, chat), Plan, More, Dashboard, Ads Manager, Customer Success,
-  Automations, Video, Landing, MaKo y la cuenta, sobre el prototipo y con datos reales; cada escritura
-  reusa la action de escritorio con su gating. Las 3 preguntas del diseño se decidieron por default
-  (lo conservador) y quedaron escritas en docs/diseno-mako-mobile-v2.md.
-- Typecheck en cero y los tests puntuales de /m y de los guards del repo en verde (los números, en el
-  reporte de la integración y en la bitácora de `/admin/dev/mako-mobile`).
-- ⚠️ **FALTA VERLO EN UN NAVEGADOR Y EN UN TELÉFONO.** Ninguna pantalla v2 se miró: la máquina no tuvo
-  RAM para un `next dev` en toda la corrida. Antes de desplegar (o enseguida después, con el
-  interruptor a mano para apagarlo), recorrer /m a 390 px tab por tab, y More → cada sección.
-- ⚠️ **Y FALTA DESPLEGARLO**: commit + push a main + `vercel ls` (pushear no es desplegar).
-- Lo que el prototipo dibuja y el teléfono no hace, y por qué: docs/hallazgos-mobile.md → «Lo que
-  quedó sin hacer».
+  Automations (UNA lista, como la undécima), Video, Landing, MaKo (con la vista previa de adjuntos de Offer)
+  y Cuenta, sobre el prototipo y con datos reales. Las 3 preguntas del diseño, por default (lo conservador):
+  docs/diseno-mako-mobile-v2.md.
+- Verificado: typecheck en cero, 8379/8383 tests (los 2 rojos que quedan, `mover-etapa-validacion` y
+  `plan-filtro-cliente`, ya fallaban en main y leen archivos que esto no toca), `next build` verde con las 21
+  rutas de /m, y 13 pantallas miradas a 390 px con UA de iPhone (ws 9 y el CRM del ws 1, sólo leyendo): sin
+  desborde y sin errores de la app. `/plan/agencia` en un teléfono lleva a `/m/plan`, `/integraciones` dice
+  «se usa en la computadora». **La ficha de un lead NO se pudo mirar** (el dev server muere de memoria al
+  compilarla en esta máquina; el build sí la compila).
+- **Lo que falta, en un iPhone y un Android reales:** la ficha (agendar, mover de etapa, dictar), el chat de
+  MaKo con la vista previa de un PDF, la franja de la barra de estado con `statusBarStyle: default`, instalar
+  y los avisos. Si algo sale mal para un cliente: `MOVIL_ACTIVO = false` en lib/movil-desvio.ts y deploy.
+- Lo que el prototipo dibuja y el teléfono no hace, y por qué: docs/hallazgos-mobile.md → «Lo que quedó sin
+  hacer». Lo que Martín tiene que decidir: el título «Perfil» o «Cuenta», y si el teléfono puede gastar
+  créditos de Flow o mostrar propuestas de MaKo en Ads Manager.
 
 ## ⚠️⚠️ EL REDISEÑO PEDIDO (11/10, ~16:30) — ESTO MANDA SOBRE TODO LO DE ABAJO
 

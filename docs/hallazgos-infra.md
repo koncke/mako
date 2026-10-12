@@ -5475,3 +5475,27 @@ al leer, y escribir con `newline=''` deja el archivo entero en LF.
 BYTES; nunca con grep/sed de Git Bash. Al editar con Python: leer con `newline=''`, guardar si había
 `\r\n`, trabajar en `\n` y volver a escribir con el mismo fin de línea. Un buscar-y-reemplazar de
 varias líneas se escribe sin el `\n` final o normalizando antes. · *2026-10-11, MaKo Mobile v2*
+
+## Mirar un worktree en el navegador: dónde tiene que vivir, y por qué el dev server muere a 4 GB (12/10/2026)
+
+**Síntomas, en orden:** (1) un worktree en `C:/dev/` con `node_modules` como junction: Turbopack aborta («Symlink
+node_modules is invalid»); (2) `next dev --webpack` como salida: arranca y TODA página da 500 con
+«Reading from "node:crypto" is not handled» (`lib/auth-session.ts` vía `TemaCandidato`, un módulo cliente que
+sólo Turbopack resuelve); (3) ya con Turbopack, el server muere con «Reached heap limit» al compilar
+`/m/crm/[id]` y pantallas de escritorio (`/integraciones`, `/plan/agencia`) aun con
+`--max-old-space-size=4096`; (4) después de un corte así, TODAS las rutas dan 404 — incluida
+`/api/auth/dev-login` — aunque el server diga «Ready».
+
+**Causas:** (1) y (2) son la regla de arriba: webpack no es una salida en este repo. (3) es memoria de la
+máquina, no la pantalla: la ficha importa `app/crm/actions` (como la versión que ya estaba en producción) y
+el build de producción compiló las 21 rutas de /m en 4,5 min sin problema. (4) es la caché de Turbopack en
+`.next/dev`, escrita a medias por el corte.
+
+**Regla:** un worktree que se va a MIRAR se crea en `.claude/worktrees/<id>` (o se mueve ahí con
+`git worktree move`, sacando antes el junction con `cmd /c rmdir`), con la raíz de Turbopack en
+`resolve(__dirname, '..', '..', '..')` SÓLO para ese proceso (no se commitea). Se mira de a una pantalla
+por proceso si la máquina está apretada, y la verificación se lee con `scrollWidth` y los errores de
+consola — los «ChunkLoadError / ERR_CONNECTION_REFUSED» son el server reiniciándose por memoria, no la app.
+Si después de un corte todo da 404, se borra `.next`: primero sus enlaces (`.next/dev/node_modules/postcss-*`
+y `sharp-*` apuntan al clon) con `cmd /c rmdir`, y recién con cero enlaces la carpeta. **Vive en:**
+`next.config.ts` (`turbopack.root`), `.claude/worktrees/`. · *2026-10-12, MaKo Mobile v2 (verificación)*

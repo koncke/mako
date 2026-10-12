@@ -20,9 +20,11 @@ export function horaCorta(momento: number | string | Date): string {
 /**
  * Las iniciales de un avatar de /m: «Ana María Pérez» → «AP» (la primera y la última
  * palabra), «Sofía» → «SO», y sin nombre, la inicial del email. Nunca vacío: «·».
+ * Sólo cuentan las LETRAS: «Dev (local)» daba «D(» en el avatar (medido el 12/10/2026 en la
+ * verificación a 390 px); con esto da «DL», y «Juan (ventas)», «JV».
  */
 export function inicialesM(nombre: string | null | undefined, email?: string | null): string {
-  const partes = (nombre ?? '').trim().split(/\s+/).filter(Boolean);
+  const partes = (nombre ?? '').replace(/[^\p{L}\s]/gu, ' ').trim().split(/\s+/).filter(Boolean);
   const ini = partes.length > 1 ? partes[0][0] + partes[partes.length - 1][0] : partes[0]?.slice(0, 2) ?? '';
   return (ini || (email ?? '').trim()[0] || '·').toUpperCase();
 }
