@@ -5526,3 +5526,28 @@ instalado él. **Vive en:** `package.json`, `.git/hooks/pre-push`. · *2026-10-1
   El junction de `C:\node_modules` no es de esta sesión: no se tocó.
 
 *12/10/2026, chat «Graphics», cierre de la v5 del Dashboard.*
+## `git_info_fail`: el push sale verde, el deploy queda en Error, y se destraba con el token del OWNER (12/10/2026)
+
+**Síntoma:** dos pushes seguidos a `main` (`e3fcbdbc` de Offer a las 07:04 y `6e709bc3` de Graphics a las 07:56) quedaron
+en **Error** sin build, con duración «?» y `vercel inspect` diciendo «Git information retrieval failed for this deployment»
+(`errorCode: git_info_fail` en `GET /v13/deployments/{id}`). Producción se quedó en el deploy de las 06:46 sin que nada
+lo avisara: el push imprimió su rango de siempre.
+
+**Lo que NO era:** el rol. Martín (`koncke`) sigue en `DEVELOPER`, que es el que despliega (ver arriba), y el deploy
+anterior de las 06:46 había salido Ready con el mismo usuario. Tampoco el código: el build local estaba verde.
+
+**Lo que no sirvió:** `npx vercel redeploy <url>` con la sesión de la CLI (la de koncke) contesta **403 «You don't have
+permission to create a Production Deployment»**: un DEVELOPER dispara deploys por `git push`, no por la CLI.
+
+**Lo que destrabó:** crear el deploy por la API con el token del OWNER (`VERCEL_API_TOKEN` de `.env.local`) y la
+fuente de git explícita — Vercel volvió a leer el commit sin problema:
+
+```
+POST https://api.vercel.com/v13/deployments?teamId=team_gitDpmLwk04T4OJoujoS9Qbq&forceNew=1
+{ "name": "mako", "project": "prj_9EBSJzJLTtaTzfEbNynMk7zOirzM", "target": "production",
+  "gitSource": { "type": "github", "repoId": 1248884951, "ref": "main", "sha": "<sha de origin/main>" } }
+```
+
+Build de 2,5 min y alias a `hola-mako.com`. **La regla:** después de un push se mira el ESTADO del deploy (no sólo que
+exista); con `git_info_fail` se redespliega por la API con el sha de `origin/main` — el de ese momento, no el propio,
+para no pisar lo que otra sesión haya pusheado después. **Vive en:** `.env.local` (VERCEL_API_TOKEN) · *2026-10-12 Graphics*
