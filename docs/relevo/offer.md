@@ -1,12 +1,12 @@
 # Relevo — la tab Offer
 
-<sub>Escrito por el chat que la construyó (cuenta claude3), 11/10/2026 ~20:30 UTC. Primera mano.</sub>
+<sub>Escrito por el chat que la construyó (cuenta claude3), 12/10/2026 ~03:00 UTC. Primera mano.</sub>
 
 ## Dónde quedó
 
 - **v1** (`18b48ced`): `/offer` = chat con IA → diagnóstico de 9 dimensiones → oferta nueva → PDF.
   Análisis es la 4ª tab de Experiments.
-- **v2** (este commit): cada conversación atada a un FUNNEL del CRM (fila de `funnels`; sus ofertas,
+- **v2** (`7d9098cb`): cada conversación atada a un FUNNEL del CRM (fila de `funnels`; sus ofertas,
   `funnel_ofertas`), selector en árbol en el lugar del título, chat con las piezas de WhatsApp de la
   casa, avatar de MaKo (chispa sola, fondo negro), arranque pidiendo documento o link, y el diagnóstico
   de fase preguntado adentro del chat (sólo en el PDF). Migración **0256 aplicada** en prod antes del
@@ -14,12 +14,19 @@
 - **Offer Playbook** (`994461ab`, en prod): `/admin/offer-playbook`, el marco en tabs, lo que corre
   en el código, 19 autores con sus conclusiones y **13 cosas que el código todavía no aplica del
   marco** (`app/admin/offer-playbook/pendientes.ts`).
+- **12/10 (madrugada):** el Playbook rediseñado (5 pestañas, «A definir» primero con 13 tarjetas de
+  decisión; `e6b7bf8e`), «Tu oferta» a la altura del chat, el NUL de un PDF que tiraba el guardado
+  (`fea8a6e1`, en el lector compartido) y **adjuntar como WhatsApp** (`93ee41e5`): elegir no sube ni lee
+  nada, la vista previa compartida `app/whatsapp/_shared/VistaAdjuntos.tsx` en Offer y en ChatHilo, y Offer
+  lee recién al enviar. **El chat de MaKo del teléfono queda para la sesión de MaKo Mobile**, que está
+  reescribiendo app/m/** para su v2 (worktree C:/dev/wt-mobile): le pasé el contrato de VistaAdjuntos y lo
+  enchufa en su composer nuevo después de su push. No tocar app/m desde acá.
 - El renombre visible «Producto» → «Funnel» del CRM lo hizo el chat del CRM (`f5a98420`).
 - **NO se vio en el navegador** (ni v1 ni v2): Martín dijo que lo visual lo revisa él.
 
 ## Lo que espera una decisión de Martín
 
-Las 4 marcadas «Decides tú» en la pestaña Criterio del Playbook: si Prueba pasa a pieza mínima; si
+Las 13 tarjetas de la pestaña «A definir» del Playbook (responde con número y letra). Las 4 de criterio: si Prueba pasa a pieza mínima; si
 con Cliente o Promesa en 3 o menos MaKo rehace la oferta o sólo avisa; si el PDF separa lo que propuso
 MaKo de lo que dijo el dueño; y si las reglas que hoy sólo viven en el prompt merecen control en código.
 Las otras 9 son «cambiar el código» con la regla ya decidida en el marco (la más seria: el filtro de
