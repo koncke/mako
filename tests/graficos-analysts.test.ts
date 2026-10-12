@@ -70,6 +70,22 @@
 // base rota, con un fallo de más cada una. Se restauró a mano y se volvieron a correr: los números de
 // arriba son los de la segunda pasada. Un arnés que restaura deshaciendo tiene que exigir que el
 // fragmento ROTO no exista ya en el archivo.
+//
+// PROBADO ROMPIÉNDOLO EN v5 (12/10/2026; base en verde: 22 pasan, 0 fallan). Arnés que rompe un fragmento y
+// restaura DE MEMORIA, con el hash comparado (nunca con git), y que se niega si el fragmento roto ya existe
+// afuera; pasan / fallan:
+//   · hojaDestino sin el paso de `Hoja.plantilla`                            -> 21 / 1 «…la hoja que NACIÓ de la plantilla…»
+//   · HOJA_DE_ROL sin el setter                                              -> 20 / 2 (los dos del rol con hoja única)
+//   · SETTER_CONJUNTOS sin `conversaciones`                                  -> 20 / 2 (su hoja pediría un 403)
+//   · SETTER_CONJUNTOS con `mako_chat`                                       -> 21 / 1 «lo que el server le contesta…»
+//   · el ítem del Dashboard sin el setter (`rolesWs: ['closer']`)            -> 21 / 1 «las tabs de Analysts salieron…»
+//   · page.tsx sin el setter en `requireRolWs`                               -> 21 / 1 «el modo de un rol está enchufado»
+//   · la ruta sin `if (unica && !puedePedir(rol, body))`                     -> 21 / 1 «…enchufado»
+//   · el pop-up del rol buscado en el informe guardado (no en el de memoria) -> 21 / 1 «…enchufado»
+//   · PLANTILLAS_REEMPLAZADAS sin `whatsapp`                                 -> 21 / 1 «las plantillas que se fueron…»
+//   · Chat Analyst con un gráfico de `mako_chat` (al setter le daría 403)    -> 21 / 1 «cada rol con hoja única ve SÓLO su hoja…»
+//   · vuelve el ítem «pronto» de VSL Analyst a la sidebar                     -> 21 / 1 «las tabs de Analysts salieron…»
+//   · /vsl-analyst redirige sin `rutaConWs`                                  -> 21 / 1 «las tabs de Analysts salieron…»
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

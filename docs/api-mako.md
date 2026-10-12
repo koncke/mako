@@ -7264,7 +7264,7 @@ Pone a MaKo a escribir una caja «Conclusiones de MaKo» de una hoja (el ↻ de 
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** corre la caja de Conclusiones de MaKo y guarda su texto en dashboard_ia_elementos (por persona, hoja y caja)
+- **Escribe:** corre la caja de Conclusiones de MaKo y guarda su texto (por persona, hoja y caja)
 - **Reversible:** no
 - **Costo:** ia · puede tardar
 - **Solo el administrador del workspace.**

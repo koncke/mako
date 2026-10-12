@@ -15,7 +15,7 @@
 //   · El negocio sin `vistas_vsl` → 1 fallo («el lector llena cada campo»).
 //   · El lector sin `resultado.anterior` → 1 fallo («comparar: …»).
 //   · La grilla escribiendo sin estar editando → 1 fallo de 20 («mirar no guarda»).
-// Y la réplica SIN bloques (v5, 12/10/2026; base en 0 fallos, 22 tests): ver los números en el test.
+// Y la réplica SIN bloques (v5, 12/10/2026; base en 0 fallos, 22 tests): seis roturas, 21 / 1 cada una (ver el test).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -193,6 +193,10 @@ test('ningún componente del informe inicial se queda sin fuente conocida', () =
 
 // v5 (12/10/2026): SIN BLOQUES. Comercial se arma con las piezas de la tabla «Los bloques se van» del contrato
 // (docs/relevo/dashboard-v5.md), con los MISMOS ids que la migración del saneo le pone a un informe de antes.
+// Probado rompiéndolo (base 22 / 0, arnés que restaura de memoria con el hash comparado); cada una -> 21 / 1, éste:
+// Tendencias de vuelta a h 10 · los Anuncios de vuelta a `tabla_barras` · «A quién cobrarle» arrancando abierto ·
+// sin la sección que la cierra · el funnel maduro sin el filtro FIJO de la madurez · el Outstanding sin su
+// período a la vista.
 test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las piezas en su lugar y sin perder una métrica', () => {
   const [mk, co] = tableroInicial().hojas;
   const graf = (h: Hoja) => h.componentes.filter(esGrafico);

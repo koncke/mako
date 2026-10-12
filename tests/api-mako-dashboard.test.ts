@@ -28,6 +28,25 @@
 // Y con base 25 / 0:
 //  13. `armarElemento` sin `videoDe`/`insertableDe` (un sitio cualquiera como Video)    → 24 / 1
 //  14. `urlParaCanal` sin redactar la grabación de Fathom por HTTP                    → 24 / 1
+// (La 11 miraba los bloques de antes de v5: hoy la fija la rotura 16.)
+//
+// v5 (12/10/2026), con base 35 / 0, una rotura por vez con el arnés del paquete P9 (restaura de memoria y
+// compara byte a byte, nunca git); medido dos veces, la segunda sobre el árbol de la ola 3. CADA UNA → 34 / 1:
+//  15. `periodoPedido` cortando un rango a medida en hoy · 15b. la consulta mostrando el período sin cortar
+//  16. la def con un parámetro `bloque` · 16b. insertar_elemento nombrando el rectángulo
+//  17. `controlesDeFiltros` sin `fijo: true` · 17b. `conFiltrosFijos` dejando los fijos de antes
+//      · 17c. por HTTP, guardar un filtro sobre un campo de personas
+//  18. `armarGrafico` descartando el período pedido (el bug de antes) · 18b. el período naciendo a la vista
+//  19. `armarGrafico` sin escribir `mako`
+//  20. `armarElemento` aceptando la ficha · 20b. sin el tope de cajas al armar · 20c. una acción de llamada en
+//      un botón de la hoja · 20d. sin el tope de cajas al aplicar
+//  21. quitar un componente dejando sus conectores · 21b. duplicar sin seguir los conectores · 21c. ni lo que
+//      lee la caja · 21d. «ya están unidos» sin `yaEstaba`
+//  22. las columnas extra de una tabla saliendo con nombres por HTTP
+//  23. la hoja en palabras sin «Lo define»
+//  24. leer la caja de un pop-up · 24b. `cajasDeHoja` viendo las de un pop-up · 24c. los nombres reales por
+//      HTTP · 24d. generar con lo abierto (`ref`)
+//  25. un filtro de la hoja dejando elegido un nombre por HTTP · 25b. el runner sin avisar que es HTTP
 // =============================================================================
 
 import { test } from 'node:test';

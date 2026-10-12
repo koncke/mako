@@ -20,19 +20,25 @@
 //     siete hojas de Analysts.
 // Correr: npx tsx --test tests/graficos-plantillas-v5.test.ts
 //
-// PROBADO ROMPIÉNDOLO (12/10/2026; base en verde: 10 pasan, 0 fallan). Una rotura por vez, restaurada de memoria
-// (nunca con git); pasan / fallan:
-//   · Comercial con un `{ clase: 'bloque', bloque: 'revenue' }` de vuelta                     -> 9 / 1 «ninguna… bloque»
-//   · `hook_rat` en vez de `hook_rate` en una tarjeta de Ads Analyst                          -> 9 / 1 «…SIN cambiar…»
-//   · `cobrado` en `envios` en la general «Automatizaciones»                                  -> 9 / 1 «…SIN cambiar…»
-//   · el filtro de «Gasto sin retorno» sin `fijo`                                              -> 9 / 1 «lo que DEFINE…»
-//   · el Outstanding con su período fijo (no a la vista)                                       -> 9 / 1 «lo que DEFINE…»
-//   · «Clientes de Mauricio» como título de la tabla de CS Analyst                             -> 9 / 1 «ningún nombre…»
-//   · la pieza `resumne` en el pop-up «Llamada»                                                -> 9 / 1 «cada pieza…»
-//   · la caja de Closing leyendo `cl-factores` (un id que no está)                             -> 9 / 1 «una caja de IA…»
-//   · la grabación del pop-up «Llamada» un renglón arriba (y: 3 → 2, pisa la cabecera)         -> 9 / 1 «nadie se pisa…»
-//   · Landing sin `buscar`                                                                     -> 9 / 1 «"analyst"…»
-//   · `instanciarPlantilla` sin `plantilla: p.id`                                              -> 9 / 1 «cada hoja dice…»
+// PROBADO ROMPIÉNDOLO (12/10/2026; base en verde: 9 pasan, 0 fallan). Una rotura por vez, con un arnés que
+// restaura DE MEMORIA y compara el hash (nunca con git), y que se niega si el fragmento roto ya existe afuera;
+// pasan / fallan:
+//   · Comercial con un `{ clase: 'bloque', bloque: 'revenue' }` de vuelta                     -> 7 / 2 «ninguna… bloque» y
+//     «…SIN cambiar…» (el saneo lo MIGRA a cinco piezas: la hoja ya no tiene los componentes que se escribieron)
+//   · `hook_rat` en vez de `hook_rate` en una tarjeta de Ads Analyst                          -> 8 / 1 «…SIN cambiar…»
+//   · `cobrado` en `envios` en la general «Automatizaciones»                                  -> 8 / 1 «…SIN cambiar…»
+//   · el filtro de «Gasto sin retorno» sin `fijo`                                              -> 8 / 1 «lo que DEFINE…»
+//   · el Outstanding con su período fijo (no a la vista)                                       -> 8 / 1 «lo que DEFINE…»
+//   · «Clientes de Mauricio» como título de la tabla de CS Analyst                             -> 8 / 1 «ningún nombre…»
+//   · la pieza `resumne` en el pop-up «Llamada»                                                -> 8 / 1 «cada pieza…»
+//   · la caja de Closing leyendo `cl-factores` (un id que no está)                             -> 8 / 1 «una caja de IA…»
+//   · la grabación del pop-up «Llamada» un renglón arriba (y: 3 → 2, pisa la cabecera)         -> 8 / 1 «nadie se pisa…»
+//   · Landing sin `buscar`                                                                     -> 8 / 1 «"analyst"…»
+//   · `instanciarPlantilla` sin `plantilla: p.id`                                              -> 8 / 1 «cada hoja dice…»
+//   · VSL Analyst sin su caja de IA                                                            -> 8 / 1 «una caja de IA…»
+// ⚠️ La primera corrida de este paquete (cortada por el límite de sesión) dejó este encabezado escrito con «10 pasan»
+//    y «9 / 1» ANTES de correr una sola rotura: el archivo tiene 9 tests. Un número de rotura sale del arnés, no del
+//    plan; uno que no cuadra con la cantidad de tests es la señal.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -91,7 +97,8 @@ function mismoGrafico(donde: string, c: Crudo, s: Componente | undefined): void 
   const ks = c.controles ?? [];
   assert.equal(s.controles.length, ks.length, `${donde}/${c.id}: se perdió un control (¿el campo existe?)`);
   for (const k of ks) {
-    const sk = s.controles.find((x) => x.id === k.id);
+    // El tipo va escrito: con la narrowing del `assert.ok` de arriba, tsc no lo infiere (TS7022).
+    const sk: ControlVista | undefined = s.controles.find((x: ControlVista) => x.id === k.id);
     assert.ok(sk, `${donde}/${c.id}: el control ${String(k.id)} cambió de id`);
     assert.deepEqual(sk!.valores, k.valores ?? null, `${donde}/${c.id}: el control ${String(k.id)} perdió sus valores`);
     assert.equal(!!sk!.fijo, k.fijo === true, `${donde}/${c.id}: el control ${String(k.id)} perdió el «fijo»`);

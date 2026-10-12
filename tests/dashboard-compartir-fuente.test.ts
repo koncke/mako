@@ -17,6 +17,14 @@
 //   · el informe compartido sin `soloLectura`                                            → 7 / 1
 //   · el endpoint sin el tope por token                                                  → 7 / 1
 //   · al navegador el informe real (`inicial={tablero}`) en vez del de alias             → 7 / 1
+// (La de `datosDeBloques(` es de antes de v5: los bloques se fueron.)
+//
+// v5 (12/10/2026), con base 9 / 0, con el arnés del paquete P9 (medido dos veces, la segunda sobre el árbol de la
+// ola 3):
+//   · `leerGraficos` leyendo también lo que no sale (`pedidos` en vez de `salen`)        → 8 / 1
+//   · la primera pintada pidiendo lo plegado (`pedidosDeHoja` sin `ocultos`)             → 8 / 1
+//   · el endpoint sin el corte de `popupDe` (buscaría un pop-up en el informe)           → 8 / 1
+//   · el endpoint aceptando la acción `bloques`                                          → 8 / 1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -25,6 +25,26 @@
 //   · `repartirBloques` decidiendo por el id y no por el tipo                    → 16 / 1
 //   · `controlParaLink` sin alias (los chips con el nombre real)                 → 16 / 1
 //   · `factores_cierre` con sus ejemplos (botones a la ficha de una llamada)     → 16 / 1
+// (Las de BLOQUES_COMPARTIBLES, `repartirBloques` y `factores_cierre` son de antes de v5: los bloques se fueron.)
+//
+// v5 (12/10/2026), con base 21 / 0, una rotura por vez con el arnés del paquete P9 (restaura de memoria y
+// compara byte a byte, nunca git); medido dos veces, la segunda sobre el árbol de la ola 3:
+//  15. `filtrosPermitidos` dejando mover un filtro FIJO                                → 20 / 1
+//  16. `filtrosPermitidos` sin la barra de búsqueda de la tabla (`conBusqueda`)        → 20 / 1
+//  17. `periodoCompartido` dejando mover un período de definición                      → 20 / 1
+//  18. `resultadoSinPersonas` con las columnas extra crudas                             → 20 / 1
+//  18b. y con la miniatura de una fila que es una persona                               → 20 / 1
+//  19. `mapa_calor` fuera de TIPOS_QUE_NO_SALEN                                         → 17 / 4
+//  20. `ia` en ELEMENTOS_QUE_SALEN                                                      → 19 / 2
+//  21. `accion` fuera de ELEMENTOS_QUE_NO_SALEN                                         → 20 / 1
+//  22. `graficoParaLink` dejando el pop-up                                              → 20 / 1
+//  23. y las acciones de la fila                                                        → 20 / 1
+//  24. `seComparte` dejando pasar una grabación de Fathom                               → 20 / 1
+//  25. la tarjeta nombrando el TEXTO del elemento (el título de un video es «Llamada con Ana») → 20 / 1
+//  26. la tarjeta fuera de su lugar                                                     → 20 / 1
+//  27. `controlDeLista` dando los valores de un control fijo                            → 20 / 1
+//  28. y los de un gráfico que no sale                                                  → 20 / 1
+//  29. `repartirGraficos` decidiendo por el id y no por el tipo                         → 20 / 1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

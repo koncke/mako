@@ -213,3 +213,10 @@ test('MaKo en WhatsApp manda el link nuevo de una llamada, y el texto de Equipo 
 //   · Configuraciones vuelve a decir «Closing Analyst»                       -> 4 / 1
 //   · el guard sin la salida de lib/api-mako/rest.ts                         -> 4 / 1 (las rutas REST SÍ calzan: la salida hace falta)
 //   · el guard sin la excepción fechada (era DialogoAnalitica.tsx; desde el 11/10 sin excepciones)
+// Y LO DE v5 (12/10/2026; base en verde: 5 / 0; arnés que restaura de memoria y compara el hash):
+//   · TOOL_HREF.chats con `?hoja=chat-analist`                               -> 3 / 2 (no resuelve; y el valor esperado)
+//   · TOOL_HREF.cs vuelve a `/cs-analyst`                                    -> 3 / 2 (el barrido y el valor esperado)
+//   · /cs-analyst redirige sin rutaConWs                                      -> 4 / 1
+//   · /chat-analyst vuelve a montar DashboardChatAgent                        -> 4 / 1
+//   · vuelve app/chat-analyst/ChatAnalystVista.tsx                            -> 4 / 1
+//   · Configuraciones vuelve a la frase vieja del Setter («CRM, WhatsApp y Email») -> 4 / 1

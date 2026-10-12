@@ -28,10 +28,14 @@
 // ⚠️ TANDA v5 (12/10/2026): LOS BLOQUES SE FUERON. El modelo ya no los ve (ni en el catálogo ni en el system) y
 //    uno que llegue igual se DESCARTA con su motivo; las plantillas generales «WhatsApp y MaKo» y «Customer
 //    Success» se fueron (las reemplazan las hojas Chat Analyst y CS Analyst): quedan cuatro.
-//    PROBADO ROMPIENDO LO NUEVO (base: 16 pases, 0 fallos):
-//   r12 · `pieza` acepta un bloque (lo arma como gráfico de cobranza)                         → (ver abajo)
-//   r13 · `pieza` sin el chequeo de `tipoAdmite` (el mapa de calor sobre las visitas)           → (ver abajo)
-//   r14 · el catálogo vuelve a listar «BLOQUES»                                               → (ver abajo)
+//    PROBADO ROMPIENDO LO NUEVO (12/10/2026, arnés que rompe un fragmento y restaura DE MEMORIA con el hash
+//    comparado, nunca con git; base: 16 pases, 0 fallos):
+//   r12 · `pieza` sin la rama que descarta un bloque (cae a la del gráfico)                    → 1 fallo, 15 pases
+//   r13 · `pieza` sin el chequeo de `tipoAdmite` (el mapa de calor sobre las visitas)           → 1 fallo, 15 pases
+//   r14 · el catálogo vuelve a listar «BLOQUES»                                               → 1 fallo, 15 pases
+//   r15 · el system vuelve a ofrecer «un bloque armado»                                        → 1 fallo, 15 pases
+//   r16 · la línea de un tipo sin el «sólo …» de `soloFuentes`                                 → 1 fallo, 15 pases
+//    Medido el mismo día: el catálogo que viaja es el más apretado (sin nombres), 9.539 de 10.500 caracteres.
 // Correr: npx tsx --test tests/graficos-ia.test.ts
 
 import { test } from 'node:test';
