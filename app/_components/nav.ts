@@ -109,6 +109,11 @@ export type NavFamilia = {
   bloques: NavBloque[];
   /** Colecciones que se consultan de a una: abren desplegable al costado. */
   grupos?: NavGrupo[];
+  /**
+   * Fuera de la barra del super admin, los ítems visibles de sus `grupos` se muestran sueltos (un bloque más) y no
+   * como desplegables. Lo aplica el Sidebar al filtrar; el super admin ve los grupos como siempre.
+   */
+  planaParaCliente?: boolean;
 };
 
 /** Todos los destinos de una familia, incluidos los de sus colecciones. */
@@ -200,18 +205,6 @@ export const FAMILIAS: NavFamilia[] = [
         // encuentra qué mover». Va primero porque es de donde sale el criterio
         // con el que se leen los otros tres.
         { key: 'second-brain', label: 'Second Brain', href: '/second-brain', icon: 'cerebro', match: starts('/second-brain') },
-        // OFFER va SUELTA, en el lugar que dejó Análisis, y no adentro de los Analysts. Desde el
-        // 11/10/2026 une Offer Analyst y Offer Generator en UNA tab (pedido de Martín: «todo en
-        // una misma tab que se llame "Offer"»): es un chat que diagnostica la oferta Y ADEMÁS la
-        // ESCRIBE de nuevo (con su PDF), así que ya no es «un analista más» — y la oferta es
-        // anterior a todo lo demás que se analiza (el anuncio, la landing y la llamada venden
-        // ESA oferta). Ocupar el hueco de Análisis hace que la barra no crezca: «La sidebar se
-        // puede scrollear, eso NO debe ser posible NUNCA» (AGENTS.md).
-        //
-        // ⚠️ La key 'offer' es la de siempre (contrato con la base: capas y onboarding). El
-        // match acepta /offer-analyst porque esa ruta vieja redirige acá y sigue escrita en
-        // links que ya salieron.
-        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) },
         // Análisis ya no es un ítem: el 11/10/2026 se mudó ADENTRO de Experiments, como su cuarta
         // tab (/experimentos?tab=analisis). /analisis redirige ahí con su query, y
         // /analisis/trimestre —el informe congelado, que se mandó por WhatsApp— vive donde
@@ -223,9 +216,10 @@ export const FAMILIAS: NavFamilia[] = [
         // cierra /api/graficos (`closerPuedePedir`, lib/graficos-plantillas.ts). La key sigue siendo
         // `graphics`; la de Closing (`closing`) se quedó en las capas y en los gating de la API.
         { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', rolesWs: ['closer'], match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) },
+        // Sólo lo ve el super admin desde el 12/10/2026 (Martín: «Elimina "Competitors Spy" y que solo se vea en super admin»).
         // Salió de los Analysts: los demás analizan un activo PROPIO (un anuncio,
         // una landing, una llamada); éste vigila lo que hacen los demás.
-        { key: 'market-an', label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', comingSoon: true, match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
+        { key: 'market-an', adminOnly: true, label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', comingSoon: true, match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
         { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: (p) => starts('/experimentos')(p) || starts('/analisis')(p) },
       ],
     ],
@@ -235,12 +229,14 @@ export const FAMILIAS: NavFamilia[] = [
         // primero lo que trae a la gente (anuncio → landing → VSL) y al final lo
         // que pasa con la persona (la conversación, la llamada, el cliente). La
         // oferta, que iba primera, salió el 11/10/2026 a su propia tab suelta
-        // («Offer», arriba): ya no sólo analiza, también la escribe.
+        // («Offer», desde el 12/10 en Sales Machine): ya no sólo analiza, también la escribe.
+        // Sólo el super admin desde el 12/10/2026 (Martín: «elimina "analysts" que tiene desplegable con puras tabs de
+        // "pronto"»): las tres llevan adminOnly, así que para un cliente el grupo queda vacío y no se dibuja.
         key: 'analysts', label: 'Analysts', icon: 'search',
         items: [
-          { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
-          { key: 'chat-analyst', label: 'Chat Analyst', href: '/chat-analyst', icon: 'chats', comingSoon: true, rolesWs: ['setter'], match: starts('/chat-analyst') },
-          { key: 'cs-analyst', label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
+          { key: 'vsl-an', adminOnly: true, label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
+          { key: 'chat-analyst', adminOnly: true, label: 'Chat Analyst', href: '/chat-analyst', icon: 'chats', comingSoon: true, rolesWs: ['setter'], match: starts('/chat-analyst') },
+          { key: 'cs-analyst', adminOnly: true, label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
           // CUATRO SALIERON DE ACÁ el 11/10/2026 (Martín: «elimina las tabs que ya hayas puesto como
           // template de la sidebar», y después las decisiones 4, 5 y 6 de ese día):
           //   · Productivity Analyst: era todo análisis; vive entera en la hoja «Productividad» del
@@ -270,6 +266,13 @@ export const FAMILIAS: NavFamilia[] = [
     // Martín (11/10/2026): «En la sidebar principal en la parte de "Sales Machine" elimina todas las tabs con
     // "pronto", que solo sean visibles en super admin». Un cliente (y el super admin mirando como cliente) no las ve.
     bloques: [
+      // La OFERTA va primero: es lo que todo lo de abajo vende. Vino de Analyze el 12/10/2026 (Martín: «Pon Offer en
+      // Sales Machine»). Desde el 11/10 une Offer Analyst y Offer Generator en UNA tab: diagnostica la oferta y la
+      // ESCRIBE de nuevo (con su PDF). ⚠️ La key 'offer' es la de siempre (contrato con la base: capas y
+      // onboarding); el match acepta /offer-analyst porque esa ruta vieja redirige acá y sigue en links que salieron.
+      [
+        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) },
+      ],
       // Capturar: las piezas que traen y convierten al lead.
       [
         // Las keys NO cambiaron (están escritas en la base: capas y estado del
@@ -304,12 +307,16 @@ export const FAMILIAS: NavFamilia[] = [
     // ocho cosas colgando.
     key: 'content',
     label: 'Content Machine',
+    // 12/10/2026, Martín: «Elimina todo lo de "Content Machine", que solo quede Ads Writer y Video Generator. Y que
+    // queden sin sub tabs... Y claro, que el resto quede tal cual en SuperAdmin». Lo demás lleva `adminOnly` y, fuera
+    // de la barra del super admin, los desplegables se aplanan (`planaParaCliente`): quedan las dos sueltas.
+    planaParaCliente: true,
     pregunta: '¿Qué pieza necesito hacer?',
     icon: 'creativos',
     bloques: [
       // Antes de la pieza está de qué hablar. Por eso Ideas va suelto arriba y
       // no adentro de un canal: no es de Meta ni de Instagram ni de YouTube.
-      [{ key: 'ideas', label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') }],
+      [{ key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') }],
     ],
     grupos: [
       {
@@ -319,23 +326,23 @@ export const FAMILIAS: NavFamilia[] = [
         key: 'ads', label: 'Ads', icon: 'meta',
         items: [
           { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
-          { key: 'image-generator', label: 'Image Generator', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
+          { key: 'image-generator', adminOnly: true, label: 'Image Generator', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
           { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
         ],
       },
       {
         key: 'ig-formatos', label: 'Instagram', icon: 'instagram',
         items: [
-          { key: 'reels', label: 'Reels', href: '/reels', icon: 'videogen', match: starts('/reels') },
-          { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
-          { key: 'stories', label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
+          { key: 'reels', adminOnly: true, label: 'Reels', href: '/reels', icon: 'videogen', match: starts('/reels') },
+          { key: 'carousels', adminOnly: true, label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
+          { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
         ],
       },
       {
         key: 'yt-formatos', label: 'YouTube', icon: 'youtube',
         items: [
-          { key: 'youtube-writer', label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
-          { key: 'thumbnails', label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
+          { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
+          { key: 'thumbnails', adminOnly: true, label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
         ],
       },
     ],

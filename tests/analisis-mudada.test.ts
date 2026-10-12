@@ -140,8 +140,13 @@ test('el informe de Análisis enlaza su rango a la tab, no a la ruta vieja', () 
   assert.match(tri, /nav:\s*'experimentos'/, 'el trimestre dejó de pedir la capa de Experiments');
 });
 
-test('Offer: un ítem suelto de Analyze que apunta a /offer, y /offer-analyst sólo redirige', () => {
+// Desde el 12/10/2026 Offer es el PRIMER bloque de Sales Machine (Martín: «Pon Offer en Sales Machine»); antes iba
+// suelta en Analyze, pegada a Second Brain. Verificado rompiéndolo: con Offer de vuelta en Analyze cae «Offer no es el
+// primer bloque de Sales Machine»; con Offer al final del bloque de Capturar, también.
+test('Offer: el primer bloque de Sales Machine apunta a /offer, y /offer-analyst sólo redirige', () => {
   assert.ok(ANALYZE, 'desapareció la familia Analyze');
+  const SALES = FAMILIAS.find((f) => f.key === 'create');
+  assert.ok(SALES, 'desapareció la familia Sales Machine');
   const offer = itemNav('offer');
   assert.ok(offer, 'desapareció el ítem con key «offer» (la key es contrato con la base)');
   assert.equal(offer!.href, '/offer');
@@ -149,14 +154,11 @@ test('Offer: un ítem suelto de Analyze que apunta a /offer, y /offer-analyst s�
   assert.ok(!offer!.comingSoon, 'Offer sigue marcada como «próximamente»');
   assert.equal(offer!.match('/offer'), true);
   assert.equal(offer!.match('/offer-analyst'), true, 'la barra no marca Offer al llegar por la ruta vieja');
-  // Salió del grupo Analysts y ocupa el lugar que dejó Análisis: la barra no crece.
+  // Una sola Offer en toda la barra, y en el primer bloque de Sales Machine (la oferta va antes que lo que la vende).
   const analysts = ANALYZE!.grupos?.find((g) => g.key === 'analysts');
   assert.ok(!analysts?.items.some((i) => i.key === 'offer'), 'Offer volvió al desplegable de Analysts');
-  const bloque = ANALYZE!.bloques.find((b) => b.some((i) => i.key === 'offer'));
-  assert.ok(bloque, 'Offer no está entre los ítems sueltos de Analyze');
-  const keys = bloque!.map((i) => i.key);
-  assert.equal(keys.indexOf('offer'), keys.indexOf('second-brain') + 1, 'Offer no va pegada después de Second Brain');
-  assert.equal(keys.indexOf('graphics'), keys.indexOf('offer') + 1, 'Offer no va pegada antes del Dashboard');
+  assert.ok(!ANALYZE!.bloques.some((b) => b.some((i) => i.key === 'offer')), 'Offer volvió a Analyze');
+  assert.deepEqual(SALES!.bloques[0].map((i) => i.key), ['offer'], 'Offer no es el primer bloque de Sales Machine');
 
   const red = sinComentarios(leer('app/offer-analyst/page.tsx'));
   assert.match(red, /redirect\(await rutaConWs\('\/offer'\)\)/, '/offer-analyst dejó de redirigir a /offer con rutaConWs');

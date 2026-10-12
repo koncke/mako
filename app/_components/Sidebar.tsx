@@ -433,11 +433,17 @@ export function Sidebar() {
     && tabEnCapa(it.key, capa || undefined);
 
   const familiasProducto = FAMILIAS
-    .map((f) => ({
-      ...f,
-      bloques: f.bloques.map((b) => b.filter(puedeVer)).filter((b) => b.length > 0),
-      grupos: (f.grupos ?? []).map((g) => ({ ...g, items: g.items.filter(puedeVer) })).filter((g) => g.items.length > 0),
-    }))
+    .map((f) => {
+      const bloques = f.bloques.map((b) => b.filter(puedeVer)).filter((b) => b.length > 0);
+      const grupos = (f.grupos ?? []).map((g) => ({ ...g, items: g.items.filter(puedeVer) })).filter((g) => g.items.length > 0);
+      // `planaParaCliente` (Content Machine, 12/10/2026): fuera de la barra del super admin, lo que quedó en los
+      // desplegables va suelto, en un bloque más. El super admin los sigue viendo como desplegables.
+      if (f.planaParaCliente && !adminShell) {
+        const sueltos = grupos.flatMap((g) => g.items);
+        return { ...f, bloques: sueltos.length ? [...bloques, sueltos] : bloques, grupos: [] };
+      }
+      return { ...f, bloques, grupos };
+    })
     .filter((f) => f.bloques.length > 0 || f.grupos.length > 0);
 
   /**
