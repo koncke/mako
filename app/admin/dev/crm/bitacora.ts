@@ -1869,4 +1869,33 @@ export const BITACORA: Hito[] = [
       'supabase/migrations/0258_lead_ingreso_e_instagram.sql — las dos columnas nuevas',
     ],
   },
+  {
+    fecha: '12 oct', hora: '10:30', chat: 'CRM', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Once arreglos sobre lo publicado esa mañana, sin multiagente',
+    pedido: '1. Elimina la sección grande que aparece arriba cuando hay una llamada cercana. En su lugar, luego del botón de filtro, haz que aparezca un nuevo botón con ícono de calendario que esté tintineando, y que se abra un modal para ver lo que hoy en día aparece en ese contenedor grande de arriba,.\n2. Si le doy a nuevo lead siempre debería quedar el borrador, por más que salga del modal o incluso de refrescar la pagina.\n3. Deja la topbar más gruesa y mejor si se puede diferenciar sutilmente del desto.\n4. Revisa la captura que busque mi @ de instagram y no saltó nada, eso esta fallando. \n5. Sería bueno investigar alternativas a Brave Search, ya sea de otras apps o de otras formas de hacerlo que no cueste dinero y que podamos tener el mismo resultado.\n6. Si, deja que se mantengan los filtros incluso si doy F5.\n7. No se si ponerlo por negocio, decidelo tu lo que te parezca mejor y la practica mas comun...\n8. Para renombrarlas o editarlas para eso están las etiquetas dentro del detail de un lead, ahí en ese desplegable debe tener los 3 puntos de opciones en cada etiqueta para hacer esas acciones\n9. En la edición de las etapas faltan las etapas de nutrición que hoy ya tengo en el funnel... Pon todas las etapas directamente, incluso ganado y las de descartado, etc... Solo que Ganado y las de descartado no se deberían poder editar mucho.\n10. No entendí lo de "Plazos viejos:" a que te refieres?\n11. Si, claro que está bien, porque "Era calificado" es un botón para alimentar CAPI, solo para eso.\n\n\nSoluciona todo esto ahora, no importa que estemos al 90%, tal vez puedes dejar para despues lo más pesado, como lo de Instagram y el buscador...\nY no uses multiagente para esto, no es dificil de implementar',
+    puntos: [
+      'Con tres capturas: el tablero con la sección «Tus reuniones» arriba, el alta buscando su propio @ sin resultados, y el editor de etapas de PROSPECCIÓN sin las de nutrición.',
+      'Pidió hacerlo ya aunque la cuenta estuviera al 90%, dejando para después lo pesado (el buscador de Instagram).',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '11:01', chat: 'CRM', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las reuniones en un botón, el borrador del alta, todas las etapas y las opciones de cada etiqueta',
+    puntos: [
+      'Las reuniones cercanas son un botón de calendario que late después de «Filtrar» y abre un pop-up con lo que mostraba la sección de arriba.',
+      'El alta guarda su borrador en el navegador, por workspace de la pestaña: cerrar o recargar no pierde lo escrito.',
+      'El editor de etapas lista las de nutrición (quitar una es **apagar** esa nutrición, no borrar una etapa) y Ganado y las de descarte, sólo con el nombre.',
+      'Cada etiqueta tiene sus tres puntos en el desplegable de la ficha, incluidas las que el lead ya tiene, que se listan apagadas.',
+      '**El número de lead sigue siendo el id global**: es el que vive en las URLs, los avisos, la API y la búsqueda por «#».',
+    ],
+    commits: [{ sha: '3e5176c9', msg: 'CRM: el segundo feedback del 12/10 — reuniones en un botón, borrador del alta, la banda de arriba, todas las etapas y las opciones de cada etiqueta', lineas: 813, archivos: 16 }],
+    archivos: [
+      'app/crm/ReunionesProximas.tsx — el botón que late y su pop-up',
+      'app/crm/new/borrador-alta.ts — la clave y el saneo del borrador',
+      'app/crm/EtapasModal.tsx — las filas de nutrición y las fijas',
+      'app/_components/EditarEtiqueta.tsx — renombrar, color y archivar',
+    ],
+  },
 ];

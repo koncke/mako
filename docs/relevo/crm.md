@@ -6,7 +6,24 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
-## 0. Al 12/10/2026 (chat «CRM», cuenta `claude3`, cortado al 86% semanal)
+## 0. Al 12/10/2026, 11:00 (chat «CRM», cuenta `claude3`, al 93% semanal)
+
+### ✅ El segundo feedback del 12/10 (once puntos): HECHO en `3e5176c9`
+
+Martín mandó once puntos a las 10:30 sobre lo publicado esa mañana (textuales en la bitácora). Hechos: las
+reuniones en un botón que late (1), el borrador del alta (2), la barra como banda (3), todas las etapas en
+el editor (9) y los tres puntos de cada etiqueta (8). Contestados sin código: los filtros ya persisten con
+F5 (6, confirmado por él), «¿Era calificado?» es sólo para CAPI y está bien que no aparezca (11), y el
+**número de lead sigue siendo el id global** (7: «decidelo tú»; el porqué, en `docs/hallazgos-crm.md` →
+«El segundo feedback del 12/10»). Sin mirar en el navegador.
+
+**Queda para después, a pedido suyo:** por qué el buscador no encontró `@martin.koncke` (4) y la fuente
+GRATIS para buscar por nombre (5: «investigar alternativas a Brave Search… que no cueste dinero»). Y le
+debemos la explicación de los «plazos viejos» (10): las etapas que tenían un plazo puesto antes de que se
+sacara «Ponerle un plazo» siguen mandando el aviso diario del lead quieto (`lib/lead-quieto-aviso.ts`), y
+ya no hay pantalla para verlos ni quitarlos.
+
+## 0-a. Al 12/10/2026 (chat «CRM», cuenta `claude3`, cortado al 86% semanal)
 
 ### ✅ El feedback del 12/10 (28 puntos): HECHO en `bdcee029`
 
