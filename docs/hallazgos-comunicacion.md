@@ -9748,3 +9748,13 @@ documentos… Y aún escribir un mensaje abajo… en todos los chats que consuma
   Chat Agent): hoy el envío de un archivo falla con «No se pudo enviar «x».».
 **Vive en:** `app/whatsapp/_shared/VistaAdjuntos.tsx`, `app/whatsapp/_shared/adjuntos-vista.ts`,
 `app/whatsapp/_shared/ChatHilo.tsx`. · *2026-10-12 Offer*
+
+## «No salió · Evolution 400» en Probar era un número SIN WhatsApp, no Railway (12/10/2026)
+
+**Síntoma:** en «Probar» con envío real, un mensaje dijo «No salió · Evolution 400» y los anteriores parecían salidos. Se preguntó si era Railway sin pagar.
+
+**Causa real (medido, sólo lectura):** Evolution estaba vivo (`mako_ws1` open, 2.3.7) y el destino guardado como «Nuevo número» (+52 6881405022) da `exists:false` en `chat/whatsappNumbers` (con y sin el 1). NINGUNO salió: el tope de pruebas registró 6 rechazos de ~2 s (un envío real tarda ~9 s) y `wa_mensajes` no tiene filas. El panel dibuja todas las burbujas y la píldora de error llega tarde (`app/automations/PanelProbar.tsx:891-898`), por eso pareció que falló uno. Railway sin pagar daría estado 0, un 5xx o un 404 de Railway, nunca un 400.
+
+**Lo nuestro:** Evolution contesta `{status:400, response:{message:[{exists:false,…}]}}`; `evFetch` busca `message` sólo arriba (`lib/evolution.ts:75-77`) y arma «Evolution 400»; el motivo queda en `detalle` y `enviarTexto` lo descarta (`:831`).
+
+**SIN HACER:** (1) en `enviarTexto`, `enviarMedia` y `enviarAudio`, decir «Ese número no tiene WhatsApp» cuando `detalle` traiga `exists:false` (si no, devolver `detalle`); (2) validar el número con `whatsappNumbers` al guardarlo (`guardarDestinoDeQuienPrueba`, `lib/prueba-paso.ts:63`). **Regla:** un 400 de Evolution se lee por su `detalle` antes de decir nada; «Evolution 400» solo no es un diagnóstico.
