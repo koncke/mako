@@ -46,7 +46,10 @@ export type NavItem = {
   href: string;
   icon: string;
   comingSoon?: boolean;
-  /** Solo visible para rol admin de AGENCIA (el Sidebar filtra con /api/auth/me). */
+  /**
+   * Solo visible para el super admin en SU barra (rol admin de agencia sin mirar como cliente). El Sidebar lo
+   * filtra en `puedeVer`, así que vale para las familias de producto, el buscador y el menú del perfil.
+   */
   adminOnly?: boolean;
   /**
    * Roles DENTRO del negocio que ven esta tab. El admin-cliente (rol_ws='admin')
@@ -263,6 +266,9 @@ export const FAMILIAS: NavFamilia[] = [
     label: 'Sales Machine',
     pregunta: '¿Qué necesito para vender?',
     icon: 'sales',
+    // Las tabs «pronto» (comingSoon) de esta familia llevan `adminOnly`: sólo las ve el super admin en su barra.
+    // Martín (11/10/2026): «En la sidebar principal en la parte de "Sales Machine" elimina todas las tabs con
+    // "pronto", que solo sean visibles en super admin». Un cliente (y el super admin mirando como cliente) no las ve.
     bloques: [
       // Capturar: las piezas que traen y convierten al lead.
       [
@@ -270,8 +276,8 @@ export const FAMILIAS: NavFamilia[] = [
         // onboarding por tab). Lo que cambió es el nombre y la RUTA, para que
         // digan lo mismo. Las rutas viejas redirigen.
         { key: 'landing-writer', label: 'Landing Generator', href: '/landing-generator', icon: 'web', match: (p) => starts('/landing-generator')(p) || starts('/landing-writer')(p) },
-        { key: 'vsl-writer', label: 'VSL Generator', href: '/vsl-generator', icon: 'video', comingSoon: true, match: (p) => starts('/vsl-generator')(p) || starts('/vsl-writer')(p) },
-        { key: 'lead-magnet-generator', label: 'Lead Magnet Generator', href: '/lead-magnet-generator', icon: 'leadmagnet', comingSoon: true, match: starts('/lead-magnet-generator') },
+        { key: 'vsl-writer', adminOnly: true, label: 'VSL Generator', href: '/vsl-generator', icon: 'video', comingSoon: true, match: (p) => starts('/vsl-generator')(p) || starts('/vsl-writer')(p) },
+        { key: 'lead-magnet-generator', adminOnly: true, label: 'Lead Magnet Generator', href: '/lead-magnet-generator', icon: 'leadmagnet', comingSoon: true, match: starts('/lead-magnet-generator') },
       ],
       // Conversar: lo que le habla al lead una vez que entró.
       [
@@ -281,13 +287,13 @@ export const FAMILIAS: NavFamilia[] = [
         // Las URLs viejas (/chatbot, /chat-bot, /chat-agent) redirigen y siguen marcando la tab:
         // salen de UNA lista, la misma que cuida tests/ruta-automations.test.ts.
         { key: 'setting', label: 'Automations', href: RUTA_AUTOMATIONS, icon: 'chatbot', rolesWs: ['setter'], match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) },
-        { key: 'sales-email', label: 'Sales Email', href: '/sales-email', icon: 'salesemail', comingSoon: true, match: starts('/sales-email') },
-        { key: 'newsletters', label: 'Newsletters', href: '/newsletters', icon: 'newsletter', comingSoon: true, match: starts('/newsletters') },
+        { key: 'sales-email', adminOnly: true, label: 'Sales Email', href: '/sales-email', icon: 'salesemail', comingSoon: true, match: starts('/sales-email') },
+        { key: 'newsletters', adminOnly: true, label: 'Newsletters', href: '/newsletters', icon: 'newsletter', comingSoon: true, match: starts('/newsletters') },
       ],
       // Cerrar: lo que usa la persona que atiende la llamada.
       [
-        { key: 'closing-script', label: 'Closing Script', href: '/closing-script', icon: 'closingscript', comingSoon: true, rolesWs: ['closer'], match: starts('/closing-script') },
-        { key: 'sales-roleplay', label: 'Sales Roleplay', href: '/sales-roleplay', icon: 'roleplay', comingSoon: true, rolesWs: ['closer', 'setter'], match: starts('/sales-roleplay') },
+        { key: 'closing-script', adminOnly: true, label: 'Closing Script', href: '/closing-script', icon: 'closingscript', comingSoon: true, rolesWs: ['closer'], match: starts('/closing-script') },
+        { key: 'sales-roleplay', adminOnly: true, label: 'Sales Roleplay', href: '/sales-roleplay', icon: 'roleplay', comingSoon: true, rolesWs: ['closer', 'setter'], match: starts('/sales-roleplay') },
       ],
     ],
   },

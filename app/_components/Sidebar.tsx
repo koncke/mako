@@ -425,8 +425,11 @@ export function Sidebar() {
   //  · CAPA — qué compró el cliente (lib/capas.ts). Aplica a TODOS, incluido el
   //           admin-cliente: no es un permiso, es lo que contrató.
   const rolCliente = rolWs === 'closer' || rolWs === 'setter';
+  //  · SUPER ADMIN — `adminOnly` (las tabs «pronto» de Sales Machine): sólo en la barra del super admin, no
+  //           mirando como cliente. Va acá y no en cada familia: `puedeVer` es por donde pasan la barra y el buscador.
   const puedeVer = (it: NavItem) =>
-    (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true)
+    (!it.adminOnly || adminShell)
+    && (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true)
     && tabEnCapa(it.key, capa || undefined);
 
   const familiasProducto = FAMILIAS
