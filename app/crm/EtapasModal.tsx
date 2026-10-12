@@ -75,8 +75,15 @@ import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 const SANS = "'Geist', sans-serif";
 
 /** La línea de 2 px que dice dónde va a caer la etapa que se está arrastrando. */
-const MARCA: CSSProperties = { boxShadow: 'inset 0 2px 0 0 var(--primary)' };
-const MARCA_FIN: CSSProperties = { boxShadow: 'inset 0 -2px 0 0 var(--primary)' };
+/**
+ * LAS ETAPAS SON TARJETAS (12/10/2026, quinto feedback): «No hagas tan parecido la lista de etapas a la lista
+ * de campañas, sino se confunde... tal vez que sean tarjetas más gordas». Fondo blanco, un anillo y una sombra
+ * (sin `border`: el anillo no le suma alto a la caja), y más alto que una fila de la tabla de campañas.
+ */
+const SOMBRA_TARJETA = '0 0 0 1px var(--border-strong), 0 2px 6px rgba(18,21,27,.07)';
+// La marca del arrastre SUMA su raya a la sombra: si la pisara, la tarjeta destino perdería el borde.
+const MARCA: CSSProperties = { boxShadow: `inset 0 3px 0 0 var(--primary), ${SOMBRA_TARJETA}` };
+const MARCA_FIN: CSSProperties = { boxShadow: `inset 0 -3px 0 0 var(--primary), ${SOMBRA_TARJETA}` };
 
 /**
  * El ASA de arrastre al principio de una fila que se puede mover (12/10/2026: «pon al inicio de cada
@@ -600,7 +607,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
    * diferencie». La caja va sin relleno y con el borde punteado: se lee como «esto no se mueve».
    */
   const filaFija = (e: EtapaDelFunnel) => (
-    <div key={e.key} style={{ ...caja, background: 'transparent', border: '1px dashed var(--border-strong)' }}>
+    <div key={e.key} style={{ ...caja, background: 'transparent', boxShadow: 'none', border: '1px dashed var(--border-strong)' }}>
       <div style={{ ...fila }}>
         <Asa quieta />
         <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: e.dot }} />
@@ -680,10 +687,10 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
    * se entiende» (29/09/2026). Antes el fondo y el radio vivían en la fila y el panel
    * colgaba DEBAJO, sin fondo y separado por el `gap: 4` de la lista: dos bloques sueltos.
    */
-  const caja: CSSProperties = { borderRadius: 10, background: 'var(--surface-2)', overflow: 'hidden' };
+  const caja: CSSProperties = { borderRadius: 12, background: 'var(--surface)', boxShadow: SOMBRA_TARJETA, overflow: 'hidden' };
   /** La fila va TRANSPARENTE: el fondo lo pone la caja, o volveríamos a tener dos. */
   const fila: CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px 7px 11px',
+    display: 'flex', alignItems: 'center', gap: 10, minHeight: 34, padding: '12px 12px 12px 12px',
   };
 
   return (
@@ -771,7 +778,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
               />
             )}
 
-            <div ref={lista} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+            <div ref={lista} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
               onDragOver={(e) => {
                 const g = grupoAgarrado.current;
                 if (!agarrada.current || !g) return;
@@ -1082,7 +1089,7 @@ function NuevaEtapa({ disabled, onCrear }: { disabled?: boolean; onCrear: (label
 
   if (abierto) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px 7px 11px', borderRadius: 10, background: 'var(--surface-2)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 34, padding: '12px', borderRadius: 12, background: 'var(--surface)', boxShadow: SOMBRA_TARJETA }}>
         {/* Hueco, no gris: el color lo elige el server al crearla (`colorParaNueva`), y un punto
             gris acá era justo lo que se reportó: «el circulito al lado de la etapa aparece en gris». */}
         <span aria-hidden style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', border: '1.5px dashed var(--border-strong)', boxSizing: 'border-box' }} />

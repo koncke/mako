@@ -40,9 +40,10 @@
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Modal, Confirm, Spinner, Toast, useToast, SANS, MONO } from '@/app/_ui';
+import { Modal, Confirm, Spinner, Toast, useToast, Button, SANS, MONO } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
-import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { useVerMas } from '@/app/plan/board/VerMas';
 import { ProductoCelda, type ItemCampana } from '@/app/ads-manager/ProductoCelda';
 import type { CampanaAsignada } from '@/lib/campana-config';
 import { hayQuePreguntar, preguntaAsignar, valorDeProducto, funnelDeValor } from '@/lib/campana-asignar';
@@ -109,6 +110,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
   const [q, setQ] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroAsig, setFiltroAsig] = useState('');
+  const [filtrando, setFiltrando] = useState(false);
   const [orden, setOrden] = useState<Orden | null>(null);
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
@@ -180,6 +182,11 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
     });
   })();
 
+  // Cinco a la vista y el «Ver más» de la casa (pedido del 12/10/2026, 14:10): con decenas de
+  // campañas la tabla tapaba el resto del editor del funnel. Va DESPUÉS de filtrar y ordenar,
+  // así las cinco son las que importan (las de este funnel y las activas van primero).
+  const { visibles: filasVistas, boton: verMas } = useVerMas(filas, { inicial: 5 });
+
   /** Los conjuntos que se ven de una campaña: los abiertos a mano, o los que la búsqueda
    *  encontró adentro — si no, el resultado queda detrás de un chevrón y se lee como «no
    *  lo encontró». */
@@ -199,7 +206,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
   // Cada id visible con lo que hace falta para asignarlo. La casilla de «todos» tilda lo
   // VISIBLE: con un filtro puesto, llevarse lo escondido sería asignar lo que nadie vio.
   const visibles = new Map<string, ItemCampana>();
-  for (const c of filas) {
+  for (const c of filasVistas) {
     visibles.set(c.id, { tipo: 'campana', id: c.id, nombre: c.nombre });
     for (const s of hijosVisibles(c)) visibles.set(s.id, { tipo: 'conjunto', id: s.id, nombre: s.nombre, campanaId: c.id });
   }
@@ -286,21 +293,21 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
   };
 
   // ── Dibujo ───────────────────────────────────────────────────────────────
-  const opcionesEstado: DropdownOption[] = [
-    { value: '', label: 'Todos los estados' },
-    { value: 'ACTIVE', label: 'Activas', icono: 'activar' },
-    { value: 'otra', label: 'No activas', icono: 'pausar' },
+  // EL FILTRO (12/10/2026, 14:10): «elimina los 2 filtros de las campañas, en su lugar pon el
+  // ícono de filtro de siempre y obvio no va el filtro de "todos los funnels"». Sin «Todos»:
+  // cada opción se prende y se apaga con un clic, y sin nada prendido se ven todas.
+  const gruposFiltro: Array<{ titulo: string; valor: string; set: (v: string) => void; opciones: Array<{ v: string; label: string; icono: NombreIconoMenu }> }> = [
+    { titulo: 'Estado', valor: filtroEstado, set: setFiltroEstado, opciones: [
+      { v: 'ACTIVE', label: 'Activas', icono: 'activar' },
+      { v: 'otra', label: 'No activas', icono: 'pausar' },
+    ] },
+    { titulo: 'Funnel', valor: filtroAsig, set: setFiltroAsig, opciones: [
+      { v: 'este', label: `En ${nombreProducto}`, icono: 'producto' },
+      { v: 'otro', label: 'En otro funnel', icono: 'mover' },
+      { v: 'sin', label: 'Sin asignar', icono: 'quitar' },
+    ] },
   ];
-  const opcionesAsig: DropdownOption[] = [
-    { value: '', label: 'Todos los funnels' },
-    { value: 'este', label: `En ${nombreProducto}` },
-    { value: 'otro', label: 'En otro funnel' },
-    { value: 'sin', label: 'Sin asignar' },
-  ];
-  const opcionesLote: DropdownOption[] = [
-    ...(estado?.productos ?? []).map((p) => ({ value: valorDeProducto(p.id), label: p.nombre })),
-    { value: '', label: 'Sin asignar' },
-  ];
+  const nFiltros = (filtroEstado ? 1 : 0) + (filtroAsig ? 1 : 0);
   const mias = asignadas.filter((a) => a.funnelId === funnelId).length;
 
   const celdaEstado = (e: string | null): ReactNode => {
@@ -388,8 +395,56 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
                 border: '1px solid var(--border-strong)', background: 'var(--surface-2)',
                 color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none',
               }} />
-            <Dropdown value={filtroEstado} options={opcionesEstado} onChange={setFiltroEstado} ariaLabel="Filtrar por estado" width={170} />
-            <Dropdown value={filtroAsig} options={opcionesAsig} onChange={setFiltroAsig} ariaLabel="Filtrar por funnel" width={190} />
+            {/* El botón de filtro de siempre (el de la barra del CRM, app/crm/CrmToolbar.tsx). */}
+            <span style={{ position: 'relative', flex: 'none', display: 'inline-flex' }}>
+              <button type="button" onClick={() => setFiltrando((v) => !v)} aria-expanded={filtrando}
+                aria-label={nFiltros ? `Filtrar (${nFiltros} activos)` : 'Filtrar'}
+                style={{
+                  position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 14px',
+                  borderRadius: 10, border: `1px solid ${nFiltros ? 'var(--primary-weak)' : 'var(--border-strong)'}`,
+                  background: filtrando ? 'var(--surface-2)' : 'var(--surface)', color: nFiltros ? 'var(--primary)' : 'var(--dim)',
+                  fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>
+                <IconoMenu nombre="filtro" size={15} />Filtrar
+                {nFiltros > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999,
+                    background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)',
+                  }}>{nFiltros}</span>
+                )}
+              </button>
+              {filtrando && <>
+                <span onClick={() => setFiltrando(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                <div role="menu" style={{
+                  position: 'absolute', top: 44, right: 0, zIndex: 41, width: 230, boxSizing: 'border-box',
+                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+                  boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8,
+                }}>
+                  {gruposFiltro.map((g, gi) => (
+                    <div key={g.titulo} style={{ paddingTop: gi ? 8 : 0, marginTop: gi ? 6 : 0, borderTop: gi ? '1px solid var(--border)' : 'none' }}>
+                      <div style={{ padding: '2px 9px 6px', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>{g.titulo}</div>
+                      {g.opciones.map((o) => {
+                        const on = g.valor === o.v;
+                        return (
+                          <button key={o.v} type="button" role="menuitemcheckbox" aria-checked={on}
+                            onClick={() => g.set(on ? '' : o.v)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px', borderRadius: 7,
+                              border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: SANS, fontSize: 13,
+                              color: on ? 'var(--primary)' : 'var(--ink)', fontWeight: on ? 600 : 500, textAlign: 'left',
+                            }}>
+                            <span style={{ display: 'flex', color: on ? 'var(--primary)' : 'var(--dim)' }}><IconoMenu nombre={o.icono} size={15} /></span>
+                            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.label}</span>
+                            {on && <IconoMenu nombre="check" size={14} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </>}
+            </span>
           </div>
 
           {/* LA BARRA DE LOTE aparece con lo tildado, arriba de la tabla — la misma forma que
@@ -405,10 +460,14 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
               <span role="status" style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--primary)', minWidth: 20 }}>{elegidos.length}</span>
               <span style={{ flex: 1 }} />
               {trabajando && <Spinner size={15} />}
-              <Dropdown value="" resetAfterSelect placeholder="Asignar a funnel" disabled={trabajando}
-                ariaLabel={`Asignar ${elegidos.length} a un funnel`}
-                icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
-                options={opcionesLote} onChange={(v) => void elegirProductoLote(v)} width={210} align="right" />
+              {/* «Si estoy editando un funnel siempre se asigna a ese que estoy parado» (12/10/2026):
+                  un botón, no un desplegable de funnels. Pasa por el mismo camino (la previa y su
+                  pregunta si trae leads de otro lado). */}
+              <Button size="sm" disabled={trabajando} icon={<IconoProducto />}
+                aria-label={`Asignar ${elegidos.length} a ${nombreProducto}`}
+                onClick={() => void elegirProductoLote(valorDeProducto(funnelId))}>
+                Asignar a este funnel
+              </Button>
             </div>
           )}
 
@@ -435,11 +494,12 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
         </div>
 
         <div role="table" aria-label="Campañas de Meta" style={{ borderBottom: filas.length ? '1px solid var(--border)' : 'none' }}>
-          {filas.map((c) => [
+          {filasVistas.map((c) => [
             fila(c, { tipo: 'campana', id: c.id, nombre: c.nombre }, 0, (conjuntosDe.get(c.id) ?? []).length),
             ...hijosVisibles(c).map((s) => fila(s, { tipo: 'conjunto', id: s.id, nombre: s.nombre, campanaId: c.id }, 1)),
           ])}
         </div>
+        {verMas && <div style={{ paddingTop: 10 }}>{verMas}</div>}
 
         {/* Los estados vacíos son DISTINTOS y se dicen distinto: todavía no llegó · no hay
             Meta · no hay campañas · el filtro no deja nada. El giro va ADENTRO de la tabla,

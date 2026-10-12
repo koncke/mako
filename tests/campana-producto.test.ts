@@ -462,7 +462,8 @@ test('la casilla SELECCIONA (como en todo MaKo), hay casilla de «todos», y se 
   assert.match(m, /onChange=\{alternarTodos\} aria-label="Seleccionar todas las que se ven"/, 'falta la casilla de todos');
   assert.match(m, /el\.indeterminate = algunoTildado && !todosTildados/);
   assert.match(m, /\{elegidos\.length > 0 && \(/, 'la barra aparece con lo tildado');
-  assert.match(m, /onChange=\{\(v\) => void elegirProductoLote\(v\)\}/);
+  // Desde el 12/10/2026 el lote asigna al funnel que se está editando: un botón, no un desplegable.
+  assert.match(m, /onClick=\{\(\) => void elegirProductoLote\(valorDeProducto\(funnelId\)\)\}/);
   // De a una se asigna desde la columna, con la MISMA pieza que Ads Manager, que dice el
   // nombre del producto: «El producto no debe decir "Este"».
   assert.match(m, /<ProductoCelda item=\{item\}/);
