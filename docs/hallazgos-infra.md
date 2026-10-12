@@ -5463,7 +5463,7 @@ mira primero con `git status` de esa ruta. · *2026-10-11, MaKo Mobile v2 (integ
 
 ## En Git Bash, `grep` no ve los CR: un archivo CRLF «no tiene» `\r` (11/10/2026)
 
-**Síntoma:** `grep -c $'\r' app/m/dashboard/modelo.ts` dio **0**, y `sed -n | od -c` mostraba líneas
+**Síntoma:** `grep -c \r' app/m/dashboard/modelo.ts` dio **0**, y `sed -n | od -c` mostraba líneas
 terminadas en `\n`; el arnés de roturas igual decía «NO ESTÁ» al buscar una línea con `\n` al final.
 
 **Causa:** las herramientas de MSYS leen en modo texto y se comen el `\r` antes de mostrar o contar. El
@@ -5499,3 +5499,15 @@ consola — los «ChunkLoadError / ERR_CONNECTION_REFUSED» son el server reinic
 Si después de un corte todo da 404, se borra `.next`: primero sus enlaces (`.next/dev/node_modules/postcss-*`
 y `sharp-*` apuntan al clon) con `cmd /c rmdir`, y recién con cero enlaces la carpeta. **Vive en:**
 `next.config.ts` (`turbopack.root`), `.claude/worktrees/`. · *2026-10-12, MaKo Mobile v2 (verificación)*
+
+## Una dependencia nueva en `main` sin instalar en el clon frena el pre-push de TODOS (12/10/2026)
+
+Landing Generator sumó `html-to-image` y `pptxgenjs`, y el Video Editor `culori`, `tailwind-merge`,
+`lucide-react` y `opencut-wasm`, cada uno desde su worktree con su propio `node_modules`. En el
+`node_modules` del clon (al que apuntan los junctions de los worktrees de push) no estaban: el typecheck
+de `origin/main` daba TS2307 y el pre-push bloqueaba cualquier push, aunque el cambio fuera de otra área.
+No se arregla con `--no-verify` ni con un `npm install` en el clon compartido (arrastra el lockfile de
+otros). **Lo que destrabó:** apuntar el junction del worktree de push al `node_modules` de un worktree que
+YA tiene todo (`for p in …; do [ -e "$w/node_modules/$p" ]…` sobre `git worktree list`). **La regla:** quien
+suma una dependencia avisa en el relevo que el `node_modules` del clon necesita `npm install`, o lo deja
+instalado él. **Vive en:** `package.json`, `.git/hooks/pre-push`. · *2026-10-12 Offer*
