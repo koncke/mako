@@ -191,7 +191,8 @@ test('las cuatro pantallas abren EL MISMO modal (ConectarMedio), y el de Probar 
   assert.doesNotMatch(fuente('app/automations/EditorMensajeSocial.tsx'), /window\.open\(j\.url, '_blank', 'noopener'\)/);
   const cm = fuente('app/automations/ConectarMedio.tsx');
   assert.match(cm, /const ventana = window\.open\('', 'mako-conectar', /, 'la ventana no se abre en el clic (el navegador la bloquea)');
-  assert.match(cm, /if \(e\?\.ok && Array\.isArray\(e\.cuentas\) && e\.cuentas\.length > 0\) \{/);
+  // Decimocuarta tanda: conectado = una cuenta que ANTES no estaba (con una ya conectada, «hay alguna» cerraba al instante).
+  assert.match(cm, /const nueva = e\?\.ok && Array\.isArray\(e\.cuentas\) \? cuentaNueva\(antes, e\.cuentas\) : null;\n\s+if \(nueva\) \{/);
   // WhatsApp RECONECTA la línea de la automatización; sólo «Vincular nuevo» crea otra.
   assert.match(cm, /\{nueva\s*\? <EvolutionConnect key="nueva-linea" nueva /);
   assert.match(cm, /: <EvolutionConnect key=\{`linea-\$\{linea \?\? ''\}`\} linea=\{linea\} /);
@@ -216,7 +217,8 @@ test('la tarjeta lleva el chip y Probar dice «Conectar»', () => {
   assert.match(pp, /const sinConectar = medioProbar != null && estadoDe\(estadoMedio \?\? null, medioProbar, secuencia\.instance_name \?\? null\)\?\.conectado === false;/);
   assert.match(pp, /\{rolAdmin && !real && !social && \(sinConectar\s*\? <Button size="sm" data-conectar-medio/);
   const perfil = fuente('app/automations/SecuenciaPerfil.tsx');
-  assert.match(perfil, /const medio = rp\.medio \? medioDelError\(e\) : null;\s*if \(medio\) \{ setErr\(e\); setConectarMedio\(medio\); setBusy\(null\); return; \}/);
+  // Decimocuarta tanda (punto 4): el 409 abre el modal y NO deja el chip rojo «Conecta tu …» al lado de «Activar».
+  assert.match(perfil, /const medio = rp\.medio \? medioDelError\(e\) : null;\s*if \(medio\) \{ setConectarMedio\(medio\); setBusy\(null\); return; \}/);
 });
 
 // ── ROTURAS (11/10/2026) ──────────────────────────────────────────────────────────────────

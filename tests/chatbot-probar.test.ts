@@ -107,7 +107,10 @@ test('«Probar» NO reemplaza al lienzo: el editor queda montado y el panel se a
   // Segunda tanda (decisión 11): dónde va «Probar» lo decide UNA función pura (`muelles`,
   // lib/lienzo-grafo.ts, con test en tests/lienzo-muelles.test.ts). La lista sólo mide su caja,
   // reparte los insets y monta el panel en SU rectángulo; el panel lo llena (100 %).
-  assert.match(lista, /const m = calcularMuelles\(caja, \{ listaAbierta: true, probarAbierto: probarVisible, editorAbierto: true \}\);/);
+  // Decimocuarta (punto 3): el chat de MaKo usa el MISMO muelle (lo reserva igual que «Probar»).
+  assert.match(lista, /const makoVisible = makoAbierto && !!sel && !creandoSel && caja\.w > 0;/);
+  assert.match(lista, /const m = calcularMuelles\(caja, \{ listaAbierta: true, probarAbierto: probarVisible \|\| makoVisible, editorAbierto: true \}\);/);
+  assert.match(lista, /makoAlAbrir=\{makoPara === sel\.id\} onChatMako=\{setMakoAbierto\}/);
   assert.match(lista, /insetDer=\{m\.insets\.der \|\| undefined\}\n\s+muelles=\{m\}/);
   assert.match(lista, /\{probarVisible && sel && m\.probar && \(\n\s+<div data-muelle="probar" style=\{\{ position: 'absolute', left: m\.probar\.left, top: m\.probar\.top, width: m\.probar\.width, height: m\.probar\.height, zIndex: 3, display: 'flex' \}\}>\n\s+<PanelProbar\n/);
   assert.match(lista, /style=\{\{ width: '100%', height: '100%' \}\}/);

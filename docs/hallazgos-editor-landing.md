@@ -340,3 +340,16 @@ una, puede salir un pop-up... que te pregunte de que quieres crearla». Hecho si
   existen para la pantalla y no para los agentes.
 - Se borró `app/api/landing-writer/route.ts` (no la llamaba nadie): al integrar en el clon hay que correr
   `npx next typegen` para que `.next/types/validator.ts` deje de nombrarla.
+
+## La caja de pedir, compartida con /automations (12/10/2026, decimocuarta tanda de Automations)
+
+- La caja de «¿Qué vas a crear hoy?» (el campo con el ejemplo que se escribe solo, el micrófono y el ↑) vive en
+  `app/landing-generator/CajaPedido.tsx`. La monta también el modal «Nueva automatización». El «+» y «Plan | Express»
+  siguen en `CajaCrear.tsx` (`antes`). **Regla:** un cambio de la caja es para las dos puertas. Lo de una sola va en
+  `antes`.
+- `Ico` salió a `app/landing-generator/Ico.tsx` (MiniaturaLanding lo re-exporta). Quien no es el editor importa de
+  ahí: MiniaturaLanding trae el render de la landing.
+- ⚠️ Los tokens `--gp-*` de CSS_GP leen `--gma-*` con respaldo CLARO. Fuera de `.gma` (sin gamma.css) el oscuro no
+  los da vuelta. Afuera, `.gp.cp-casa` + `CSS_TOKENS_CASA`.
+- Con `scrollHeight` 0 (escondida en un modal que todavía no entró en la pila) la caja no fija el alto. Cierra el «sin
+  hacer» de la decimotercera de Automations sobre CajaCrear.

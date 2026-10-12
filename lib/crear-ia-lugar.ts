@@ -24,7 +24,7 @@
 // `encuadreInicial` y `muelles` de verdad que la caja no tape el CRON ni la lista.
 // =============================================================================
 
-import { PANEL_MARGEN, ZOOM_ALTO, type Muelles } from './lienzo-grafo';
+import { CHROME_ALTO, MUELLE, PANEL_MARGEN, ZOOM_ALTO, type Muelles } from './lienzo-grafo';
 
 /** El ancho de la caja de crear del lienzo vacío (`min(520px, 100%)`; ya no se dibuja, la mide el test). */
 export const CAJA_IA_ANCHO = 520;
@@ -51,4 +51,22 @@ export function franjaIA(m: Pick<Muelles, 'insets'> | null | undefined, sin: { i
   const izq = m ? m.insets.izq : (sin.izq ?? 0);
   const der = m ? m.insets.derAbajo : (sin.der ?? 0);
   return { left: izq + PANEL_MARGEN, right: der + PANEL_MARGEN, bottom: IA_ABAJO };
+}
+
+// ── El chat de MaKo, al costado (decimocuarta tanda, 12/10/2026) ─────────────────────────────────────
+// Martín, textual: «El chat de MaKo, debe ser como los otros chats, que se abran al costado, no en el medio del flujo».
+// Hasta acá el chat iba en la franja de abajo (`franjaIA`), centrado sobre el lienzo, y tapaba las tarjetas. Ahora va
+// en el muelle de la DERECHA, el de «Probar» (`muelles.probar`): la tab lo calcula con `probarAbierto` en true también
+// cuando el chat está abierto, así el lienzo, el editor y «Publicar» se corren igual que con «Probar». Los dos comparten
+// el muelle: con «Probar» abierto, el chat se esconde sin desmontarse (un pedido en vuelo sigue).
+
+export type RectChat = { left?: number; right?: number; top: number; bottom?: number; width: number; height?: number };
+
+/** El ancho del chat cuando todavía no hay muelles (la caja sin medir): el mínimo de «Probar». */
+export const CHAT_ANCHO_SIN_MUELLE = 360;
+
+/** Dónde va el chat de MaKo: el rectángulo del muelle de la derecha o, sin él, pegado a la derecha debajo del chrome. */
+export function chatAlCostado(m: Pick<Muelles, 'probar'> | null | undefined): RectChat {
+  if (m?.probar) return { left: m.probar.left, top: m.probar.top, width: m.probar.width, height: m.probar.height };
+  return { right: MUELLE.hueco, top: CHROME_ALTO, bottom: MUELLE.hueco, width: CHAT_ANCHO_SIN_MUELLE };
 }

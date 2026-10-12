@@ -41,7 +41,7 @@ import { TRIGGER_RECORDATORIO, frenoDelRecordatorio } from '@/lib/recordatorio-a
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
 import { useFaltanEnAcciones } from '@/app/_components/EditorAccionMako';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { franjaIA, BARRA_IA_ANCHO } from '@/lib/crear-ia-lugar';
+import { chatAlCostado } from '@/lib/crear-ia-lugar';
 import { resumenAvisos, edicionVigente, edicionTocaPasos } from '@/lib/flujo-ia-cliente';
 import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, esNodoMensaje } from '@/lib/flujo-grafo';
@@ -82,11 +82,11 @@ const ALTO_ACCION = 44;
 
 /**
  * EL CHAT DE MaKo Y LA CAPA QUE TAPA EL LIENZO MIENTRAS TRABAJA (decimotercera tanda, puntos 2 y 6). El chat es el hilo de
- * WhatsApp (ChatMako.tsx): mide un alto FIJO, como una ventana de chat, y no lo que tiene adentro. La capa va de la lista
- * para la derecha (la lista se sigue viendo: ahí está la fila recién creada) y por ENCIMA de «Publicar» (`Z_ACCION_LIENZO`,
- * 57, en el mismo contexto de apilamiento: el Lienzo no lo crea), y el chat por encima de la capa.
+ * WhatsApp (ChatMako.tsx) y, desde la decimocuarta tanda (punto 3), va AL COSTADO, en el muelle de «Probar»
+ * (`chatAlCostado`, lib/crear-ia-lugar.ts): de debajo del chrome hasta abajo. La capa va de la lista para la derecha (la
+ * lista se sigue viendo: ahí está la fila recién creada) y por ENCIMA de «Publicar» (`Z_ACCION_LIENZO`, 57, en el mismo
+ * contexto de apilamiento: el Lienzo no lo crea), y el chat por encima de la capa.
  */
-const ALTO_CHAT_MAKO = 'min(460px, calc(100% - 132px))';
 const Z_CAPA_MAKO = 58;
 const Z_CHAT_ENCIMA = 59;
 
@@ -155,7 +155,13 @@ export type EdicionLocal = {
 /** Lo que devuelve `frenoDelFlujo`: el error legible y la tarjeta a abrir. */
 export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null, onChatMako }: {
+  /**
+   * EL CHAT DE MaKo ESTÁ ABIERTO (decimocuarta tanda, punto 3: «El chat de MaKo, debe ser como los otros chats, que se
+   * abran al costado, no en el medio del flujo»). Lo lee la tab para reservarle el muelle de la DERECHA, el de «Probar»
+   * (`muelles`, lib/lienzo-grafo.ts): el lienzo, «Publicar» y el editor se corren igual que con «Probar» abierto.
+   */
+  onChatMako?: (abierto: boolean) => void;
   /**
    * ABRIR CON EL CHAT DE MaKo ABIERTO (duodécima tanda, §2.5 y §3.6): la recién creada con «Pídeselo a MaKo» y el link
    * `?sec=<id>&mako=1` (también el de la API). Se mira el FLANCO (false → true), también con el lienzo ya montado, y
@@ -663,8 +669,20 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       setEditandoIA(true);
       return;
     }
+    // DECIMOCUARTA (punto 3): el chat comparte el muelle de la derecha con «Probar». Con «Probar» abierto el chat está
+    // escondido (no desmontado: un pedido en vuelo sigue): el ✦ cierra «Probar» y lo muestra, nunca lo apaga.
+    if (probarAbierto) {
+      onCerrarProbar?.();
+      setEditandoIA(true);
+      return;
+    }
     setEditandoIA((v) => !v);
   };
+  // La tab reserva el muelle de la derecha mientras el chat está abierto (y lo suelta al desmontar: otra automatización).
+  const avisarChat = useRef(onChatMako);
+  useEffect(() => { avisarChat.current = onChatMako; });
+  useEffect(() => { avisarChat.current?.(rolAdmin && editandoIA); }, [rolAdmin, editandoIA]);
+  useEffect(() => () => { avisarChat.current?.(false); }, []);
   /**
    * ABIERTO AL ENTRAR (`makoAlAbrir`, §3.6): en el flanco (false → true) abre por `abrirMako`, y sólo si está cerrado
    * (abrirMako sin tarjeta alterna). Se ajusta AL DIBUJAR, no en un efecto: un efecto pintaría primero el lienzo sin
@@ -715,7 +733,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         const e = rp.error ? String(rp.error) : '';
         // Un 409 trae el `medio` (GENERAL 6): se abre «Conectar» ahí mismo en vez de señalar una tarjeta.
         const medio = rp.medio ? medioDelError(e) : null;
-        if (medio) { setErr(e); setConectarMedio(medio); setBusy(null); return; }
+        // DECIMOCUARTA (punto 4): SIN el chip rojo «Conecta tu …» al lado de «Activar»: salta el modal y basta.
+        if (medio) { setConectarMedio(medio); setBusy(null); return; }
         // La tarjeta: la que dice el server (`tarjeta`, un dato que no existe) o la que nombra el error.
         const tarjeta = typeof rp.tarjeta === 'string' && rp.tarjeta ? rp.tarjeta : e ? tarjetaDelError(e, pasos) : null;
         frenar(e ? errorLegible(e, pasos) : 'No se pudo publicar.', tarjeta);
@@ -871,9 +890,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         );
         onCambio();
       } else {
-        setErr(r.error || 'No se pudo cambiar.');
+        // Un medio sin conectar abre su modal y NO deja el chip rojo al lado de «Activar» (decimocuarta tanda, punto 4).
         const medio = medioDelError(r.error ? String(r.error) : null);
         if (medio) setConectarMedio(medio);
+        else setErr(r.error || 'No se pudo cambiar.');
       }
     } catch { setErr('Sin conexión — prueba de nuevo.'); }
     setBusy(null);
@@ -911,8 +931,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     });
   }, [secuencia.id, pasos, estAPublicar, nombre, disparo.trigger_tipo, lineaSec, frenoLocal, frenarDesdeProbar]);
 
-  /** Dónde flotan la caja y la barra de «Crear con IA» (la franja de abajo; ver el render). */
-  const franja = franjaIA(muelles, { izq: insetIzq, der: insetDer });
+  /**
+   * DÓNDE VA EL CHAT DE MaKo (decimocuarta tanda, punto 3): en el muelle de la derecha, el de «Probar» (`muelles.probar`,
+   * que la tab calcula con el chat abierto). Sin muelles (la caja sin medir), pegado a la derecha debajo del chrome.
+   */
+  const muelleChat = chatAlCostado(muelles);
 
   /**
    * «PROBAR» (tercera tanda, decisiones 13 y 14): se frena con lo mismo que Publicar
@@ -926,7 +949,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * conectar»: «Me dice "Sin zernio"... Pero me permite probarlo, eso no debería pasar, si falta un paso, en ese caso
    * de conexión, debe decirme que me falta conectar X cosa»). La cuenta es la de Publicar y Activar (`medioQueFrena`,
    * lib/medios-automatizacion.ts: las tarjetas Y el CRON, con la línea de cada una) sobre la MISMA lectura que pinta el
-   * chip de la tarjeta (`useEstadoMedios`). Dice qué falta y abre el modal de ese medio ahí mismo. «No pude
+   * chip de la tarjeta (`useEstadoMedios`). Abre el modal de ese medio ahí mismo, que dice qué falta (desde la decimocuarta
+   * tanda, punto 4, sin el chip rojo «Conecta tu …» al lado de «Activar»: «cuando lo intenten publicar o probar ya les va a
+   * saltar»). «No pude
    * comprobarlo» no frena (conectar no lo arregla).
    */
   const usaMedios = useMemo(() => mediosQueUsa(pasos, crons.lista), [pasos, crons.lista]);
@@ -936,7 +961,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     const freno = frenoDeEsta(pasos);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
     const falta = medioQueFrena(pasos, lineaSec, crons.lista, estadoMedios);
-    if (falta) { setErr(falta.error); setLineaAConectar(falta.linea); setConectarMedio(falta.medio); return; }
+    if (falta) { setErr(null); setLineaAConectar(falta.linea); setConectarMedio(falta.medio); return; }
     setErr(null);
     onProbar(canal);
   };
@@ -994,9 +1019,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           )}
         </div>
       )}
+      {/* DECIMOCUARTA TANDA (punto 3, «que se abran al costado, no en el medio del flujo»): el chat va en el muelle de la
+          DERECHA, el de «Probar» (`chatAlCostado`), de debajo del chrome hasta abajo, como el panel de «Probar». Ya no se
+          esconde con una tarjeta abierta (el editor se corta antes del muelle); sí con «Probar» abierto, que usa el mismo
+          lugar: escondido, no desmontado (un pedido en vuelo sigue). */}
       {rolAdmin && editandoIA && (
-        <div data-crear-ia="editar" style={{ position: 'absolute', ...franja, height: ALTO_CHAT_MAKO, display: tarjetaAbierta ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none', zIndex: chatTrabajando ? Z_CHAT_ENCIMA : 4 }}>
-          <div style={{ pointerEvents: 'auto', width: `min(${BARRA_IA_ANCHO}px, 100%)`, flex: 1, minHeight: 0, position: 'relative' }}>
+        <div data-crear-ia="editar" data-muelle="mako" style={{ position: 'absolute', ...muelleChat, display: probarAbierto ? 'none' : 'flex', flexDirection: 'column', zIndex: chatTrabajando ? Z_CHAT_ENCIMA : 4 }}>
+          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
             <ChatMako secuenciaId={secuencia.id} pasos={pasos} onListo={alListoIA} onCerrar={() => setEditandoIA(false)}
               onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)} />
           </div>
@@ -1069,7 +1098,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {/* DECIMOTERCERA TANDA: también con el lienzo VACÍO. Ahí MaKo CREA sobre esta fila (la ruta lo exige vacía y
                 pausada): es la fila de un pedido que se canceló o falló, o un «Lienzo en blanco». */}
             {rolAdmin && (
-              <BotonLogoMako lado={ALTO_ACCION} encendido={editandoIA} onClick={abrirMako} title={pasos.length ? 'Pedirle un cambio a MaKo' : 'Pedírsela a MaKo'} />
+              <BotonLogoMako lado={ALTO_ACCION} encendido={editandoIA && !probarAbierto} onClick={abrirMako} title={pasos.length ? 'Pedirle un cambio a MaKo' : 'Pedírsela a MaKo'} />
             )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de

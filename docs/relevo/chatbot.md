@@ -5,6 +5,10 @@
 > (Offer en Sales Machine, «pronto» y Content Machine sólo super admin, Customer Success familia propia y al final). Se
 > trabaja en el worktree `C:/dev/wt-undecima` (rama `undecima`; push con `git push origin undecima:main` tras rebasear):
 > el clon de OneDrive no se puede poner al día con origin (trabajo ajeno sin commitear).
+> **Decimocuarta (12/10 ~12:30 AR, también en main):** la caja «Pídeselo a MaKo» es la del Landing Generator (`app/landing-generator/CajaPedido.tsx`,
+> la montan las dos), el chat de MaKo se abre a la derecha, sin el chip «Conecta tu…», y la tarjeta de Instagram/Messenger con
+> el desplegable de cuentas de Zernio (cada tarjeta guarda la suya; el motor manda sólo por ella). Sin hacer: el chip «Sin
+> conectar», Probar y Publicar miran si hay ALGUNA cuenta y no la elegida; las condiciones de Instagram no miran la cuenta.
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo

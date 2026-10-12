@@ -294,7 +294,9 @@ test('el motor: una lectura por lote, «te sigue» sólo si se pide y con el wor
 test('canal-zernio: el envío y las condiciones eligen la fila con la MISMA regla; sólo se consulta a quien escribió', () => {
   const src = sinComentarios(leer('../lib/canal-zernio.ts'));
   const de = bloque(src, 'async function conversacionDe(', '\n}\n', 900);
-  assert.match(de, /return conversacionQueCuenta\(/);
+  // Decimocuarta tanda: con la cuenta de la tarjeta, sólo sus filas; sin ella, conversacionQueCuenta (lib/canal-social.ts).
+  assert.match(de, /return conversacionDelPaso\(\(data \?\? \[\]\) as FilaConversacionSocial\[\], cuenta\);/);
+  assert.match(leer('../lib/canal-social.ts'), /if \(!cuenta\) return conversacionQueCuenta\(filas\);/);
   assert.doesNotMatch(de, /\.limit\(1\)/, 'el corte de la base elegía su propia fila');
   const lote = bloque(src, 'export async function conversacionesDeLeads(', '\n}\n', 900);
   assert.match(lote, /for \(const tanda of enTandas\(/);

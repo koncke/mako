@@ -49,7 +49,7 @@ import { conWs } from '@/lib/ws-tab';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
-import { svgIcono } from '@/lib/editor-landing/iconos';
+import { Ico } from './Ico';
 import { varsDeTema, type Tema } from '@/lib/editor-landing/temas';
 import { parrafo, tarjeta, titulo, type JsonNodo } from '@/lib/editor-landing/doc';
 import type { FormatoDoc, Proporcion } from '@/lib/editor-landing/api-tipos';
@@ -244,11 +244,8 @@ export function Filtros<T extends string>({ valor, opciones, onCambio, etiqueta 
 // Piezas del chrome de Gamma
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Un ícono del catálogo de la landing (Phosphor), del color del texto. */
-export function Ico({ n, t = 16 }: { n: string; t?: number }) {
-  const html = useMemo(() => svgIcono(n, t), [n, t]);
-  return <span className="gp-ico" aria-hidden="true" dangerouslySetInnerHTML={{ __html: html }} />;
-}
+/** Un ícono del catálogo de la landing (Phosphor), del color del texto. Vive en ./Ico.tsx (lo usa la caja de pedir). */
+export { Ico };
 
 /** Un callback que no cambia de identidad y siempre llama a la versión de ahora. */
 function useFijo<A extends unknown[]>(fn: (...a: A) => void): (...a: A) => void {

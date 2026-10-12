@@ -47,8 +47,11 @@ test('abrirMako: con una tarjeta abierta la cierra (foco con id null) y ABRE; si
   assert.match(f, /if \(tarjetaAbierta\) \{\s*setFoco\(\(f\) => \(\{ id: null, vez: \(f\?\.vez \?\? 0\) \+ 1 \}\)\);\s*setEditandoIA\(true\);\s*return;\s*\}/,
     'con una tarjeta abierta no la cierra o no abre');
   assert.match(f, /setEditandoIA\(\(v\) => !v\);\s*\};$/, 'sin tarjeta abierta ya no alterna');
+  // Decimocuarta (punto 3): el chat comparte el muelle de la derecha con «Probar». Con «Probar» abierto, el ✦ lo cierra y
+  // MUESTRA el chat (nunca lo apaga), y el ✦ se ve encendido sólo si el chat se ve.
+  assert.match(f, /if \(probarAbierto\) \{\s*onCerrarProbar\?\.\(\);\s*setEditandoIA\(true\);\s*return;\s*\}/, 'con «Probar» abierto el ✦ no muestra el chat');
   // El botón llama a abrirMako, y nadie más alterna la barra por su lado.
-  assert.match(PERFIL, /<BotonLogoMako lado=\{ALTO_ACCION\} encendido=\{editandoIA\} onClick=\{abrirMako\} /);
+  assert.match(PERFIL, /<BotonLogoMako lado=\{ALTO_ACCION\} encendido=\{editandoIA && !probarAbierto\} onClick=\{abrirMako\} /);
   assert.equal((PERFIL.match(/setEditandoIA\(\(v\) => !v\)/g) ?? []).length, 1, 'otro clic alterna la barra por fuera de abrirMako');
   // `foco` admite null de punta a punta, y el lienzo lo aplica con setSel (null = cerrar).
   assert.match(PERFIL, /useState<\{ id: string \| null; vez: number \} \| null>\(null\)/);

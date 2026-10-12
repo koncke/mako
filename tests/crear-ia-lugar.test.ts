@@ -36,7 +36,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { grafoDeSecuencia } from '../lib/flujo-conversacion';
 import { encuadreInicial, muelles, type Muelles } from '../lib/lienzo-grafo';
-import { franjaIA, CAJA_IA_ANCHO, BARRA_IA_ANCHO, CAJA_IA_ALTO, RESERVA_ABAJO_CREAR } from '../lib/crear-ia-lugar';
+import { franjaIA, chatAlCostado, CAJA_IA_ANCHO, BARRA_IA_ANCHO, CAJA_IA_ALTO, RESERVA_ABAJO_CREAR } from '../lib/crear-ia-lugar';
 import { SecuenciaPerfil } from '../app/automations/SecuenciaPerfil';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 
@@ -103,15 +103,26 @@ test('la franja sale de los muelles: lista a la izquierda, `derAbajo` a la derec
   assert.deepEqual(franjaIA(null, { izq: 100, der: 50 }), { left: 112, right: 62, bottom: 64 });
 });
 
-// ⚠️ DUODÉCIMA TANDA (12/10/2026): la barra pasó a ser el CHAT de MaKo (app/automations/ChatMako.tsx), que mide el
-// ancho de quien lo monta. Desde la DECIMOTERCERA (punto 6) es el hilo de WhatsApp, que LLENA la caja que le dan
-// (`position: absolute; inset: 0`: un alto definido, el que necesita `ChatHilo`). El ancho de la franja lo pone
-// SecuenciaPerfil con `BARRA_IA_ANCHO`, y el alto, `ALTO_CHAT_MAKO` (una ventana de chat de alto fijo).
-test('el ancho de la franja es el que dibuja el chat de MaKo (BARRA_IA_ANCHO, puesto por SecuenciaPerfil)', () => {
+// ⚠️ DECIMOCUARTA TANDA (12/10/2026, punto 3): «El chat de MaKo, debe ser como los otros chats, que se abran al costado, no
+// en el medio del flujo». El chat ya no va en la franja de abajo: va en el muelle de la DERECHA, el de «Probar»
+// (`chatAlCostado`), que la tab reserva con el chat abierto. El hilo LLENA la caja que le dan (`position: absolute; inset: 0`).
+// PROBADO ROMPIÉNDOLO: ver al pie.
+test('el chat de MaKo va AL COSTADO: el muelle de «Probar», sin pisar el editor ni el centro del lienzo', () => {
   const chat = sinComentarios(leer('app/automations/ChatMako.tsx'));
   assert.match(chat, /raiz: \{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', minHeight: 0,/);
-  const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /<div style=\{\{ pointerEvents: 'auto', width: `min\(\$\{BARRA_IA_ANCHO\}px, 100%\)`, flex: 1, minHeight: 0, position: 'relative' \}\}>/);
+  for (const [w, h] of [[1440, 900], [1280, 720], [1920, 1080], [1024, 768]] as const) {
+    // La tab calcula los muelles con el chat abierto como si fuera «Probar» (SimuladorWhatsApp, `makoVisible`).
+    const m = muelles({ w, h }, { listaAbierta: true, probarAbierto: true, editorAbierto: true });
+    const r = chatAlCostado(m);
+    assert.deepEqual(r, { left: m.probar!.left, top: m.probar!.top, width: m.probar!.width, height: m.probar!.height }, `${w}×${h}`);
+    // Pegado al borde derecho y lejos de la lista: no está «en el medio».
+    assert.ok(r.left! + r.width >= w - 20 && r.left! > m.insets.izq + 200, `${w}×${h}: el chat no está al costado`);
+    // El editor apaisado de una tarjeta se corta antes del chat.
+    if (m.editor) assert.ok(m.editor.left + m.editor.width <= r.left!, `${w}×${h}: el editor pisa el chat`);
+  }
+  // Sin muelles (la caja sin medir): a la derecha, debajo del chrome.
+  const sin = chatAlCostado(null);
+  assert.ok(sin.right != null && sin.left == null && sin.width > 0);
 });
 
 const SEC = {
@@ -135,15 +146,18 @@ test('dibujada: una automatización vacía NO dibuja la caja de crear (vive en e
   assert.ok(CAJA_IA_ANCHO > 0 && franjaIA(m).bottom > 0);
 });
 
-// Duodécima tanda: la barra es el chat de MaKo, en el MISMO lugar. Decimotercera (puntos 2 y 6): de alto fijo, también
-// con el lienzo VACÍO (ahí MaKo CREA sobre la fila que nació con el pedido), y encima de la capa mientras trabaja.
-test('el chat de editar se ESCONDE con una tarjeta abierta, sin desmontarse (y la caja de crear no se monta)', () => {
+// Decimocuarta tanda (punto 3): el chat va en el muelle (`muelleChat`), se esconde SÓLO con «Probar» abierto (el mismo lugar),
+// sin desmontarse, y avisa a la tab que está abierto para que le reserve la derecha.
+test('el chat de editar va en el muelle de la derecha y se esconde (sin desmontarse) sólo con «Probar» abierto', () => {
   const src = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Décima tanda: el lienzo vacío no monta la caja de crear (ni reserva lugar para ella).
   assert.doesNotMatch(src, /<CrearConIA /, 'volvió la caja de CrearConIA al lienzo');
   assert.doesNotMatch(src, /RESERVA_ABAJO_CREAR/);
-  const editar = src.match(/\{rolAdmin && editandoIA && \(\n\s+<div data-crear-ia="editar" style=\{\{ position: 'absolute', \.\.\.franja, height: ALTO_CHAT_MAKO, display: tarjetaAbierta \? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none', zIndex: chatTrabajando \? Z_CHAT_ENCIMA : 4 \}\}>\n\s+<div style=\{\{ pointerEvents: 'auto', width: `min\(\$\{BARRA_IA_ANCHO\}px, 100%\)`, flex: 1, minHeight: 0, position: 'relative' \}\}>\n\s+<ChatMako secuenciaId=\{secuencia\.id\}/);
-  assert.ok(editar, 'el chat de editar no está montado como se espera');
+  assert.match(src, /const muelleChat = chatAlCostado\(muelles\);/);
+  const editar = src.match(/\{rolAdmin && editandoIA && \(\n\s+<div data-crear-ia="editar" data-muelle="mako" style=\{\{ position: 'absolute', \.\.\.muelleChat, display: probarAbierto \? 'none' : 'flex', flexDirection: 'column', zIndex: chatTrabajando \? Z_CHAT_ENCIMA : 4 \}\}>\n\s+<div style=\{\{ flex: 1, minHeight: 0, position: 'relative' \}\}>\n\s+<ChatMako secuenciaId=\{secuencia\.id\}/);
+  assert.ok(editar, 'el chat de editar no está montado en el muelle');
+  assert.doesNotMatch(src, /\.\.\.franja, height: ALTO_CHAT_MAKO/, 'volvió el chat a la franja de abajo');
+  assert.match(src, /useEffect\(\(\) => \{ avisarChat\.current\?\.\(rolAdmin && editandoIA\); \}, \[rolAdmin, editandoIA\]\);/);
   assert.match(src, /onTarjetaAbierta=\{setTarjetaAbierta\}/);
 });
 

@@ -432,15 +432,23 @@ test('el generador manda el tipo en TODO pedido a la IA y en el alta', () => {
 test('la caja «¿Qué vas a crear hoy?»: el micrófono y el ejemplo de «Nueva automatización», importados', () => {
   const src = fuente('app/landing-generator/CajaCrear.tsx');
   assert.match(src, /export default function CajaCrear\(/);
-  assert.match(src, /import \{ BotonDictar \} from '@\/app\/plan\/board\/CrearTareaModal';/);
-  assert.match(src, /import \{ useEjemploQueSeEscribe \} from '@\/app\/automations\/CrearConIA';/);
-  assert.match(src, /<BotonDictar titulo="Dictar el pedido" valor=\{pedido\}/);
+  // DECIMOCUARTA TANDA DE AUTOMATIONS (12/10/2026): la caja salió a CajaPedido.tsx, la MISMA que monta el modal «Nueva
+  // automatización». El micrófono y el ejemplo siguen IMPORTADOS (en la caja), no copiados.
+  assert.match(src, /import \{ CajaPedido, CSS_CAJA_PEDIDO \} from '\.\/CajaPedido';/);
+  const caja = fuente('app/landing-generator/CajaPedido.tsx');
+  assert.match(caja, /import \{ BotonDictar \} from '@\/app\/plan\/board\/CrearTareaModal';/);
+  assert.match(caja, /import \{ useEjemploQueSeEscribe \} from '@\/app\/automations\/CrearConIA';/);
+  assert.match(caja, /<BotonDictar titulo="Dictar el pedido" valor=\{p\.valor\}/);
   // Reusar, no copiar: ni el reconocimiento ni la grabación viven acá.
-  assert.doesNotMatch(src, /SpeechRecognition|MediaRecorder|getUserMedia|useDictar\(/);
-  assert.doesNotMatch(src, /function useEjemploQueSeEscribe/);
+  for (const x of [src, caja]) {
+    assert.doesNotMatch(x, /SpeechRecognition|MediaRecorder|getUserMedia|useDictar\(/);
+    assert.doesNotMatch(x, /function useEjemploQueSeEscribe/);
+  }
+  assert.match(fuente('app/automations/ChatMako.tsx'), /import \{ CajaPedido, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA \} from '@\/app\/landing-generator\/CajaPedido';/);
   // El ejemplo se escribe con la lista del tipo, y el campo vuelve a empezar al cambiar de tipo.
-  assert.match(src, /useEjemploQueSeEscribe\(animar, EJEMPLOS_CAJA\[tipo\]\)/);
-  assert.match(src, /<CampoPedido\s+key=\{tipo\}/);
+  assert.match(src, /reinicio=\{tipo\}\s+ejemplos=\{EJEMPLOS_CAJA\[tipo\]\}/);
+  assert.match(caja, /const ejemplo = useEjemploQueSeEscribe\(animar, ejemplos\);/);
+  assert.match(caja, /<CampoPedido\s+key=\{p\.reinicio \?\? ''\}/);
   // Enviar: el pedido a la sesión y la ruta con el tipo; una plantilla: su alta y abrirla. Un
   // DISEÑO de landing pregunta antes el objetivo («¿De qué quieres crearla?»).
   assert.match(src, /const guardado = dejarCaja\(\{ prompt: p, modo \}\);\s*router\.push\(rutaCaja\(tipo, modo, p, guardado\)\);/);

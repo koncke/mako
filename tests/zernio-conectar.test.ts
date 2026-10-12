@@ -112,7 +112,8 @@ test('la key se guarda por la puerta de /integraciones (su modal), y al cerrarlo
   const cm = fuente('app/automations/ConectarMedio.tsx');
   const conectar = bloque(cm, 'const conectar = async () => {', "setFase('esperando');");
   const iVentana = conectar.indexOf("window.open('', 'mako-conectar'");
-  const iPedir = conectar.indexOf("await pedir('conectar')");
+  // Decimocuarta: el pedido de la URL sale junto con el de las cuentas de ANTES (para reconocer la nueva, `cuentaNueva`).
+  const iPedir = conectar.indexOf("await Promise.all([pedir('conectar'), pedir('estado')])");
   assert.ok(iVentana >= 0 && iVentana < iPedir, 'la ventana se abre en el clic, antes de cualquier espera (si no, el navegador la bloquea)');
   // Una key mala que vuelve (401), o Zernio que no está: el modal de Integraciones, ahí mismo.
   assert.match(conectar, /if \(pideKeyZernio\(res\)\) \{ setFase\('zernio'\); return; \}/);
@@ -131,16 +132,20 @@ test('la key se guarda por la puerta de /integraciones (su modal), y al cerrarlo
   assert.match(fuente('lib/metodo-catalogo.ts'), /\{ env: 'ZERNIO_API_KEY', label: 'API key de Zernio'/);
 });
 
-test('la tarjeta ofrece «Conectar» también sin Zernio y con la key mala, y le pasa al modal lo que ya sabe', () => {
+// DECIMOCUARTA TANDA (12/10/2026, puntos 5 a 7): el botón «Conectar» de la tarjeta se fue; «Conectar Instagram» (sin
+// ninguna cuenta, sin Zernio o con la key mala) y «Conectar otra» son opciones del desplegable de la cuenta, en la
+// cabecera del panel (`opcionesDeCuenta`: tests/automations-decimocuarta.test.ts). Lo que sigue valiendo: la misma lectura que
+// el modal y pasarle lo que ya se sabe.
+test('la cabecera ofrece «Conectar» también sin Zernio y con la key mala, y le pasa al modal lo que ya sabe', () => {
   const ed = fuente('app/automations/EditorMensajeSocial.tsx');
   assert.match(ed, /const v: Cuenta = leerZernio\(j\);/, 'la tarjeta y el modal leen la ruta distinto');
-  assert.match(ed, /const puedeConectar = cuenta != null && \(\(cuenta\.estado === 'ok' && !usuario\) \|\| pideKeyZernio\(cuenta\)\);/);
-  assert.match(ed, /\{puedeConectar && \(\s*<button type="button" data-conectar-social /);
-  assert.match(ed, /<ConectarMedio medio=\{canal\} zernio=\{cuenta\} /);
+  assert.doesNotMatch(ed, /data-conectar-social/, 'volvió el botón «Conectar» de la tarjeta');
+  assert.match(ed, /out\.push\(\{ value: CONECTAR_OTRA, label: cuentas\.length \? 'Conectar otra' : `Conectar \$\{NOMBRE_CANAL\[canal\]\}`, crear: true \}\);/);
+  assert.match(ed, /<ConectarMedio medio=\{canal\} zernio=\{estado\} /);
   // La key mala y la cuenta pausada no se guardan en el caché de la visita: arreglarlas tiene que verse.
   assert.match(ed, /if \(v\.estado === 'ok' \|\| v\.estado === 'sin_zernio'\) cacheCuenta\.set\(/);
   // Y el modal acepta lo que ya se sabe sin romper a quien lo monta sin eso (FlujoLienzo, Probar, Publicar).
-  assert.match(fuente('app/automations/ConectarMedio.tsx'), /onConectado, zernio = null \}: \{/);
+  assert.match(fuente('app/automations/ConectarMedio.tsx'), /onConectado, zernio = null, onCuenta \}: \{/);
 });
 
 // ── 3. El 402: la cuenta de Zernio del negocio, pausada, con su link de pago ─────────────────
@@ -166,8 +171,10 @@ test('el 402 viaja como 402 con su link (sólo con key PROPIA), y la pantalla lo
   assert.match(html, /Tu cuenta de Zernio está pausada/);
   assert.match(html, /<a href="https:\/\/zernio\.com\/dashboard\/billing" target="_blank" rel="noopener noreferrer" data-zernio-pago[^>]*>Pagar en Zernio<\/a>/);
   assert.doesNotMatch(html, /data-zernio-key/, 'una cuenta pausada no se arregla con otra key');
-  // La tarjeta: el link de pago en la cabecera.
-  assert.match(fuente('app/automations/EditorMensajeSocial.tsx'), /\{cuenta\?\.estado === 'pausada' && cuenta\.pago && \(\s*<a href=\{cuenta\.pago\} target="_blank" rel="noopener noreferrer" data-zernio-pago/);
+  // La tarjeta: «Pagar Zernio» en el desplegable de la cuenta (decimocuarta tanda), que abre el link ya validado.
+  const ed = fuente('app/automations/EditorMensajeSocial.tsx');
+  assert.match(ed, /if \(estado\?\.estado === 'pausada' && estado\.pago\) out\.push\(\{ value: PAGAR_ZERNIO, label: 'Pagar Zernio' \}\);/);
+  assert.match(ed, /if \(v === PAGAR_ZERNIO\) \{ if \(estado\?\.estado === 'pausada' && estado\.pago\) window\.open\(estado\.pago, '_blank', 'noopener,noreferrer'\); return; \}/);
 });
 
 // ── ROTURAS (12/10/2026) ──────────────────────────────────────────────────────────────────────

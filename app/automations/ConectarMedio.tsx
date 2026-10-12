@@ -134,6 +134,17 @@ export function leerZernio(j: RespuestaZernio | null | undefined): EstadoZernio 
 export const pideKeyZernio = (e: EstadoZernio | null | undefined): boolean => e?.estado === 'sin_zernio' || e?.estado === 'key_mala';
 
 /**
+ * LA CUENTA QUE SE ACABA DE CONECTAR (decimocuarta tanda, punto 5: varias cuentas de Instagram, como varios WhatsApp). Con
+ * una cuenta ya conectada, «hay alguna» daba conectado en el PRIMER sondeo, antes de que la persona terminara en la
+ * ventana: lo que cuenta es una cuenta que antes no estaba. `antes` null = no se supo qué había (cualquiera vale, lo de
+ * antes). Pura y exportada para el test.
+ */
+export function cuentaNueva(antes: readonly string[] | null, ahora: readonly CuentaZernio[]): CuentaZernio | null {
+  if (!antes) return ahora[0] ?? null;
+  return ahora.find((c) => !antes.includes(c.id)) ?? null;
+}
+
+/**
  * ⚠️ SIN ZERNIO O CON LA KEY MALA, EL MODAL DE /integraciones (decimotercera tanda, punto 5; Martín, con la captura del
  * modal «Conectar Instagram» que pedía la key en un campo propio: «No crees un nuevo modal de conectar la API, reutiliza
  * exactamente el mismo que ya tenemos en integraciones»). Es el `ServicioModal` de la grilla para Zernio
@@ -151,8 +162,10 @@ export const REVISAR_ZERNIO = 'Abrir Zernio';
  * ya sabe quien lo abre (la cabecera de la tarjeta): con «sin Zernio» o la key mala abre directo en el modal de
  * Integraciones. Sin `inicial`, pregunta el estado al abrir y, si Zernio no está, va al mismo lugar.
  */
-export function ConectarSocial({ medio, inicial = null, onCerrar, onConectado }: {
+export function ConectarSocial({ medio, inicial = null, onCerrar, onConectado, onCuenta }: {
   medio: CanalSocial; inicial?: EstadoZernio | null; onCerrar: () => void; onConectado: () => void;
+  /** La cuenta que se conectó (quien la pidió desde una tarjeta la deja elegida en ella). */
+  onCuenta?: (c: CuentaZernio) => void;
 }) {
   const [fase, setFase] = useState<'zernio' | 'listo' | 'abriendo' | 'esperando' | 'conectado'>(() => (pideKeyZernio(inicial) ? 'zernio' : 'listo'));
   const [error, setError] = useState<string | null>(() => (inicial && inicial.estado !== 'ok' && inicial.estado !== 'sin_zernio' && !pideKeyZernio(inicial) ? inicial.error : null));
@@ -205,7 +218,11 @@ export function ConectarSocial({ medio, inicial = null, onCerrar, onConectado }:
     // La ventana se abre EN el clic (si no, el navegador la bloquea) y después se le pone la URL.
     const ventana = window.open('', 'mako-conectar', 'width=560,height=720');
     setFase('abriendo');
-    const res = leerZernio(await pedir('conectar'));
+    // Las cuentas de ANTES, para reconocer la nueva (`cuentaNueva`): las de ahora o, si no se pudo leer, las que ya se sabían.
+    const [crudo, previo] = await Promise.all([pedir('conectar'), pedir('estado')]);
+    const res = leerZernio(crudo);
+    const ePrevio = leerZernio(previo);
+    const antes = ePrevio.estado === 'ok' ? ePrevio.cuentas.map((c) => c.id) : inicial?.estado === 'ok' ? inicial.cuentas.map((c) => c.id) : null;
     if (!vivo.current) return;
     if (res.estado !== 'ok' || !res.url) {
       ventana?.close();
@@ -223,10 +240,12 @@ export function ConectarSocial({ medio, inicial = null, onCerrar, onConectado }:
       await new Promise((r) => setTimeout(r, SONDEO_MS));
       if (!vivo.current) return;
       const e = await pedir('estado');
-      if (e?.ok && Array.isArray(e.cuentas) && e.cuentas.length > 0) {
+      const nueva = e?.ok && Array.isArray(e.cuentas) ? cuentaNueva(antes, e.cuentas) : null;
+      if (nueva) {
         try { ventana?.close(); } catch { /* otra ventana */ }
         setFase('conectado');
         avisarMedioConectado();
+        onCuenta?.(nueva);
         onConectado();
         return;
       }
@@ -289,7 +308,7 @@ function ConectarWhatsApp({ linea, nueva, onCerrar, onLinea, onConectado }: {
  * Conectar `medio` ahí mismo. `onLinea` (WhatsApp) y `onDominio` (email) son los del flujo de cada uno, para
  * quien necesita el dato (Probar elige el emisor recién vinculado); `onConectado`, para cualquiera.
  */
-export function ConectarMedio({ medio, linea = null, nueva = false, dom = null, reemplaza = false, onCerrar, onLinea, onDominio, onConectado, zernio = null }: {
+export function ConectarMedio({ medio, linea = null, nueva = false, dom = null, reemplaza = false, onCerrar, onLinea, onDominio, onConectado, zernio = null, onCuenta }: {
   medio: Medio;
   /**
    * WhatsApp: la línea que hay que conectar (la de la automatización; null = la de por default). Se RECONECTA
@@ -309,6 +328,8 @@ export function ConectarMedio({ medio, linea = null, nueva = false, dom = null, 
   onConectado?: () => void;
   /** Instagram / Messenger: lo que ya se sabe de Zernio (la cabecera de la tarjeta). Sin key o key mala: abre en el campo. */
   zernio?: EstadoZernio | null;
+  /** Instagram / Messenger: la cuenta que se conectó (la tarjeta que pidió «Conectar otra» la deja elegida). */
+  onCuenta?: (c: CuentaZernio) => void;
 }): ReactNode {
   // Email: el dominio se conecta en VARIOS pasos (registros DNS, verificación) y `onDominio` avisa en cada
   // uno: no se cierra solo. Cada paso y el cierre vuelven a leer el estado (el chip puede apagarse).
@@ -319,5 +340,5 @@ export function ConectarMedio({ medio, linea = null, nueva = false, dom = null, 
   // Al `body`: quien lo monta vive en un muelle o en la tarjeta del lienzo, y un `fixed` adentro de un
   // contexto de apilamiento queda debajo de lo que tenga un z mayor (AGENTS.md, el `sticky` con z-index).
   if (medio === 'whatsapp') return createPortal(<ConectarWhatsApp linea={linea} nueva={nueva} onCerrar={onCerrar} onLinea={onLinea} onConectado={onConectado} />, document.body);
-  return createPortal(<ConectarSocial medio={medio} inicial={zernio} onCerrar={onCerrar} onConectado={() => onConectado?.()} />, document.body);
+  return createPortal(<ConectarSocial medio={medio} inicial={zernio} onCerrar={onCerrar} onConectado={() => onConectado?.()} onCuenta={onCuenta} />, document.body);
 }

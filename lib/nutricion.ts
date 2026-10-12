@@ -117,7 +117,7 @@ import {
 // UNA rama del envío (`enviarPasoSocial`). Lo demás del motor no cambia.
 // Y desde la duodécima tanda, las condiciones de Instagram y Messenger: la conversación que cuenta y
 // «¿te sigue?», leídas por lote en `hechosDelCatalogo` (`conversacionesDeLeads`, `siguenEnInstagram`).
-import { esCanalSocial, canalAGuardar, conversacionDeFila, type CanalSocial, type ConversacionesPorLead } from '@/lib/canal-social';
+import { esCanalSocial, canalAGuardar, conversacionDeFila, cuentaDelPaso, cuentaAlGuardar, type CanalSocial, type ConversacionesPorLead } from '@/lib/canal-social';
 import { enviarPasoSocial, conversacionesDeLeads, siguenEnInstagram } from '@/lib/canal-zernio';
 import { partesDe } from '@/lib/mensaje-partes';
 // El TURNO del motor por negocio (sexta tanda): lo toman las dos rutas del cron y, desde la
@@ -888,6 +888,8 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
         })(),
         ...partesAlGuardar(p, partesPrevias.get(idDe(flujo, i))),
         ...lineaAlGuardar(p, antes.find((q, j) => idDe(q, j) === idDe(flujo, i))),
+        // La cuenta de Instagram o Messenger de ESTA tarjeta (decimocuarta tanda), con la misma regla que la línea.
+        ...cuentaAlGuardar(p, antes.find((q, j) => idDe(q, j) === idDe(flujo, i))),
       };
     });
   // Ids y `siguiente` EXPLÍCITOS en cada guardado (insertar o borrar un elemento del array ya no
@@ -4475,6 +4477,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           const r = await enviarPasoSocial({
             ws: wsCorrida, leadId: insc.lead_id, canal: paso.canal, partes: partesConDatos(partesDe(paso), varsSocial),
             vars: {}, idempotencia: `nutri:${insc.id}:${idDe(paso, insc.paso_actual)}`, desde,
+            // Por la cuenta que eligió la tarjeta, si eligió una (decimocuarta tanda): sin conversación con ESA, falla.
+            cuenta: cuentaDelPaso(paso),
           });
           partesSalidas = r.salieron;
           destinoSocial = r.destino;

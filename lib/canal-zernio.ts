@@ -22,7 +22,7 @@ import { getTenantDb } from './workspace';
 import { enviarDm, responderComentario, esLimiteDeMeta, estadosDeSeguimiento, ZernioError } from './zernio';
 import {
   decidirSalida, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, COLS_CONVERSACION_SOCIAL,
-  conversacionQueCuenta, conversacionDeFila, conversacionesPorLead, pedidoDeSeguimiento,
+  conversacionDelPaso, conversacionDeFila, conversacionesPorLead, pedidoDeSeguimiento,
   type CanalSocial, type ConversacionesPorLead, type FilaConversacionSocial,
 } from './canal-social';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
@@ -56,7 +56,7 @@ const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * NO es «no tiene» (AGENTS.md: «No pude leer» es un tercer estado): con la base caída se reintenta,
  * nunca se cierra el hilo.
  */
-async function conversacionDe(leadId: number, canal: CanalSocial): Promise<FilaConversacionSocial | null | undefined> {
+async function conversacionDe(leadId: number, canal: CanalSocial, cuenta: string | null): Promise<FilaConversacionSocial | null | undefined> {
   const db = await getTenantDb();
   const { data, error } = await db.from('ig_conversaciones').select(COLS_CONVERSACION_SOCIAL)
     .eq('lead_id', leadId).eq('plataforma', plataformaDe(canal));
@@ -64,7 +64,7 @@ async function conversacionDe(leadId: number, canal: CanalSocial): Promise<FilaC
     console.error(`[canal-zernio] conversación del lead ${leadId} (${canal}): ${error.message}`);
     return undefined;
   }
-  return conversacionQueCuenta((data ?? []) as FilaConversacionSocial[]);
+  return conversacionDelPaso((data ?? []) as FilaConversacionSocial[], cuenta);
 }
 
 /**
@@ -112,13 +112,21 @@ export async function enviarPasoSocial(input: {
   idempotencia: string;
   /** Cuántas partes ya salieron en un intento anterior. */
   desde?: number;
+  /**
+   * La cuenta de Zernio que eligió la tarjeta (`cuentaDelPaso`, decimocuarta tanda). Con ella sale SÓLO por esa cuenta: si
+   * el lead no le escribió, falla con su motivo y no cae a otra. Sin ella, la conversación que cuenta.
+   */
+  cuenta?: string | null;
 }): Promise<ResultadoSocial> {
   const { ws, leadId, canal, partes, vars, idempotencia } = input;
   const desde = Math.max(0, Math.min(partes.length, input.desde ?? 0));
   const nombre = NOMBRE_CANAL[canal];
-  const fila = await conversacionDe(leadId, canal);
+  const cuenta = input.cuenta?.trim() || null;
+  const fila = await conversacionDe(leadId, canal, cuenta);
   if (fila === undefined) return { ok: false, salieron: desde, textos: [], destino: null, error: `no pude leer la conversación de ${nombre}`, backoffHoras: 4 };
   const destino = fila ? (fila.username ? `@${fila.username}` : fila.igsid) : null;
+  // Con la cuenta de la tarjeta y sin conversación con ESA cuenta: el motivo nombra la cuenta elegida (no cae a otra).
+  if (fila === null && cuenta) return { ok: false, salieron: desde, textos: [], destino: null, error: `el lead no le escribió a la cuenta de ${nombre} elegida en la tarjeta`, terminal: true, backoffHoras: 24 };
   const salida = decidirSalida(fila ? conversacionDeFila(fila) : null, Date.now(), canal);
   if (salida.via === null) return { ok: false, salieron: desde, textos: [], destino, error: salida.motivo, terminal: salida.terminal, backoffHoras: 24 };
   if (!partes.length) return { ok: false, salieron: 0, textos: [], destino, error: 'el mensaje está vacío', backoffHoras: 24 };

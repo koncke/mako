@@ -367,6 +367,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   }, [selId, onElegida]);
   /** El panel de «Probar» abierto, y de qué canal. El lienzo NO se desmonta: se prueba lo que se edita. */
   const [probando, setProbando] = useState<CanalProbar | null>(null);
+  /**
+   * EL CHAT DE MaKo ABIERTO en el lienzo (decimocuarta tanda, punto 3: «que se abran al costado»). Lo avisa SecuenciaPerfil
+   * y ocupa el muelle de «Probar»: `muelles` lo cuenta como si «Probar» estuviera abierto.
+   */
+  const [makoAbierto, setMakoAbierto] = useState(false);
   /** La que se pidió abrir con el chat de MaKo abierto (`abrir.mako`, duodécima tanda §3.6): su lienzo lo abre. */
   const [makoPara, setMakoPara] = useState<number | null>(null);
   /** El pedido con que nació (`abrir.pedido`, decimotercera tanda, punto 2): el chat de ESA fila lo manda solo. */
@@ -657,7 +662,10 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   // `editorAbierto: true`: lo que se reparte es el muelle que el editor ocupa CUANDO se abre (el
   // lienzo lo usa al tocar una tarjeta). «Probar» no depende de eso (ver `muelles`).
   const probarVisible = probando != null && !!sel && !creandoSel && caja.w > 0;
-  const m = calcularMuelles(caja, { listaAbierta: true, probarAbierto: probarVisible, editorAbierto: true });
+  // El chat de MaKo usa el MISMO muelle que «Probar» (decimocuarta tanda, punto 3): con cualquiera de los dos abierto, la
+  // derecha queda reservada.
+  const makoVisible = makoAbierto && !!sel && !creandoSel && caja.w > 0;
+  const m = calcularMuelles(caja, { listaAbierta: true, probarAbierto: probarVisible || makoVisible, editorAbierto: true });
 
   /**
    * UNA FILA DE LA LISTA, la MISMA para todas (11/10/2026: «debe ser IDENTICO»): el `ItemLista`, el «⋯» de siempre
@@ -760,7 +768,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             probarAbierto={probarVisible} onCerrarProbar={() => setProbando(null)}
             onCambioLocal={recibirEdicion}
             onAccionTodo={rolAdmin ? (a) => void accionFila(sel, a) : undefined}
-            makoAlAbrir={makoPara === sel.id}
+            makoAlAbrir={makoPara === sel.id} onChatMako={setMakoAbierto}
             pedidoAlAbrir={pedidoPara?.id === sel.id ? pedidoPara.pedido : null}
             onCambio={onReload} />
         )}

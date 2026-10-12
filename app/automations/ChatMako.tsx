@@ -1,6 +1,6 @@
 'use client';
 // =============================================================================
-// ChatMako — el chat con MaKo de UNA automatización, y la barra «Pídeselo a MaKo» del modal
+// ChatMako — el chat con MaKo de UNA automatización, y la caja «Pídeselo a MaKo» del modal
 // =============================================================================
 // Duodécima tanda (12/10/2026, docs/diseno-duodecima-tanda.md §2.5, §2.6 y §3.4). Martín, textual: «tiene que tener
 // un chat donde guarda el registro... como hoy lo hace Claude que te saltan una pregunta con tres opciones» y «que se
@@ -50,13 +50,15 @@ import { avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { transcribirNota } from '@/app/_components/useDictar';
 import { ChatHilo, type HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
-import { ComposerWhatsApp } from '@/app/whatsapp/_shared/ComposerWhatsApp';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { CajaPedido, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA } from '@/app/landing-generator/CajaPedido';
+import { Ico } from '@/app/landing-generator/Ico';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { sanearChat, type MensajeChatMako, type PreguntaMako, type RespuestaMako } from '@/lib/automatizacion-chat';
 import { ordenarAvisos, rondaAbierta, respuestaMako, textoDeCreada, ELIGE_TU, OTRA_COSA, type EleccionMako, type RondaMako } from '@/lib/flujo-ia-cliente';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { useStreamIA, RUTA_IA, TOPE_CLIENTE_MS, TEXTO_FASE, ORDEN_FASES, type EstadoIA, type ListoStreamIA } from './stream-ia';
-import { TITULO_GALERIA_IA, PLACEHOLDER_QUIETO, useEjemploQueSeEscribe, type ListoCrearIA } from './CrearConIA';
+import { EJEMPLOS, PLACEHOLDER_QUIETO, type ListoCrearIA } from './CrearConIA';
 import { useEscucharChatMako } from './chat-mako-eventos';
 
 /** Los colores de MaKo sobre el hilo de WhatsApp (punto 6: «Solo cambiale unos colores»). */
@@ -482,61 +484,63 @@ function TextoConLink({ texto, link }: { texto: string; link?: string }) {
   return <>{texto.slice(0, i)}<Link href={link} style={S.link}>Integraciones</Link>{texto.slice(i + 'Integraciones'.length)}</>;
 }
 
-// ── «Pídeselo a MaKo»: la barra del modal «Nueva automatización» ─────────────────────────────────────
+// ── «Pídeselo a MaKo»: la caja del modal «Nueva automatización» ─────────────────────────────────────
 
 /**
- * LA BARRA DE «PÍDESELO A MaKo» (décima tanda, punto 6; decimotercera, puntos 1, 2 y 4). Es la barra de WhatsApp
- * (`ComposerWhatsApp`: el emoji, la nota de voz y la ➤) con el logo de MaKo y el ejemplo que se escribe y se borra
- * (`useEjemploQueSeEscribe`, que para del todo al primer toque). NO trabaja acá: manda el pedido a quien monta
- * (`onPedido`), que cierra el modal, crea la fila YA y abre su lienzo con el chat (punto 2). Una nota de voz se
- * transcribe y sale como lo escrito.
+ * LA CAJA DE «PÍDESELO A MaKo» (décima tanda, punto 6; decimotercera, puntos 1, 2 y 4; DECIMOCUARTA, puntos 1 y 2).
+ * Martín, 12/10/2026, con la captura de la caja «¿Qué vas a crear hoy?» del Landing Generator: «Vuelve a crear el modal de
+ * "pideselo a MaKo" y que se vea exactamente igual que en la captura... Ya lo tenemos en landing generator, copialo» y
+ * «elimina el texto de "Nace pausada"». ES ESA CAJA (`CajaPedido`, app/landing-generator/CajaPedido.tsx), no una copia:
+ * la tarjeta blanca, el ejemplo que se escribe solo (`EJEMPLOS`, que para del todo al primer toque), el «+» azul con lo
+ * que ofrece quien monta (`acciones`), el micrófono de la casa (dicta en el campo; se lee antes de mandar) y el ↑.
+ *
+ * ⚠️ SIN EL CHIP «Plan | Express» de la landing: acá no hay un modo que elegir (MaKo pregunta lo que le falta en el chat
+ * de la fila, con botones). Un chip que no cambia nada sería inventado.
+ *
+ * NO trabaja acá: manda el pedido a quien monta (`onPedido`), que cierra el modal, crea la fila YA y abre su lienzo con el
+ * chat (decimotercera, punto 2).
  */
-export function BarraPideselo({ onPedido, deshabilitado, inicial }: {
+export function BarraPideselo({ onPedido, deshabilitado, inicial, acciones, onAccion }: {
   onPedido: (pedido: string) => void;
   deshabilitado?: boolean;
   /** Lo escrito que vuelve (la fila no se pudo crear): con algo escrito, el ejemplo no se mueve. */
   inicial?: string | null;
+  /** Lo que ofrece el «+» (la galería: «Lienzo en blanco», «Usar plantilla», «Pegar lo copiado»). Sin esto, no hay «+». */
+  acciones?: readonly DropdownOption[];
+  onAccion?: (valor: string) => void;
 }) {
   const [texto, setTexto] = useState(inicial ?? '');
-  /** El ejemplo ya no se mueve: alguien tocó la barra. No vuelve. */
+  /** El ejemplo ya no se mueve: alguien tocó la caja. No vuelve. */
   const [tocada, setTocada] = useState(!!inicial?.trim());
   const [error, setError] = useState<string | null>(null);
-  const [transcribiendo, setTranscribiendo] = useState(false);
-  const ejemplo = useEjemploQueSeEscribe(!tocada && !texto);
   const parar = () => { if (!tocada) setTocada(true); };
-  const mandar = (t: string) => {
-    const v = t.trim();
+  const mandar = () => {
+    const v = texto.trim();
     if (!v || deshabilitado) return;
     setError(null);
     onPedido(v);
   };
-  const alAudio = async (blob: Blob) => {
-    setError(null); setTranscribiendo(true);
-    const r = await transcribirNota(blob);
-    setTranscribiendo(false);
-    if (!r.ok) { setError(r.error); return; }
-    if (!r.texto.trim()) { setError('No se entendió el audio'); return; }
-    mandar(r.texto);
-  };
   return (
-    <div data-chat-mako="galeria" data-crear-ia-caja="galeria" style={S.barra} onPointerDownCapture={parar} onFocusCapture={parar}>
-      <style>{CSS}</style>
-      <div style={S.encabezado}>
-        <MakoLogo size={24} animate={false} />
-        <span style={S.titulo}>{TITULO_GALERIA_IA}</span>
-        <span style={{ ...S.dim, marginLeft: 'auto' }}>Nace pausada</span>
-      </div>
-      <div data-composer-mako="">
-        <ComposerWhatsApp modo="enviar" valor={texto} onValor={(v) => { setTexto(v); parar(); }} onEnviar={() => mandar(texto)}
-          placeholder={tocada ? PLACEHOLDER_QUIETO : ejemplo} etiqueta="Qué tiene que hacer la automatización"
-          ocupado={!!deshabilitado || transcribiendo} acento={COLORES_MAKO.enviar}
-          onAudio={alAudio} onErrorAudio={setError} />
-      </div>
-      {transcribiendo && <p role="status" style={{ ...S.dim, margin: '0 14px' }}>Transcribiendo…</p>}
-      {error && <p role="alert" style={{ ...S.error, margin: '0 14px' }}>{error}</p>}
+    <div className="gp cp-casa" data-chat-mako="galeria" data-crear-ia-caja="galeria">
+      <style>{CSS_TOKENS_CASA + CSS_CAJA_PEDIDO}</style>
+      <CajaPedido valor={texto} onValor={(v) => { setTexto(v); parar(); }} onEnviar={mandar}
+        ejemplos={EJEMPLOS} animar={!tocada && !texto} placeholderQuieto={PLACEHOLDER_QUIETO}
+        etiqueta="Qué tiene que hacer la automatización" onTocar={parar} deshabilitado={deshabilitado} onError={setError}
+        antes={acciones?.length && onAccion ? (
+          <Dropdown value="" resetAfterSelect sinFlecha search={false} ariaLabel="Agregar" disabled={deshabilitado}
+            botonLabel={<Ico n="mas" t={16} />} options={[...acciones]} onChange={onAccion} menuMinAncho={240}
+            buttonStyle={BOTON_MAS} />
+        ) : null} />
+      {error && <p role="alert" style={{ ...S.error, margin: '8px 0 0', maxWidth: 720, width: '100%' }}>{error}</p>}
     </div>
   );
 }
+
+/** El «+» de la caja (`.gp-cc-mas` de CajaPedido) con el desplegable de la casa: 34 redondo, el azul de Gamma. */
+const BOTON_MAS: CSSProperties = {
+  width: 34, height: 34, padding: 0, border: 0, borderRadius: 9999, justifyContent: 'center',
+  background: 'var(--gp-azul-50)', color: 'var(--gp-azul-600)',
+};
 
 // ⚠️ EL HOVER VA EN LA CLASE, NUNCA EN EL `style` (docs/hallazgos-chatbot.md, parte «horario»: un `border` en línea
 // anula el `:hover` de la clase). Sólo tokens que existen en claro y en oscuro (app/globals.css).
@@ -567,11 +571,4 @@ const S: Record<string, CSSProperties> = {
   dim: { fontSize: 12.5, color: 'var(--faint)' },
   error: { margin: '0 0 8px', fontSize: 13, lineHeight: 1.4, color: 'var(--bad)' },
   link: { color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' },
-  // La barra del modal: a lo ancho, con el borde de MaKo y sin sombra (ya está adentro de una caja).
-  barra: {
-    width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 8,
-    paddingTop: 12, borderRadius: 16, background: 'var(--surface)', border: '1.5px solid var(--mako-border)', overflow: 'hidden',
-  },
-  encabezado: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px' },
-  titulo: { fontSize: 14, fontWeight: 700, color: 'var(--ink)' },
 };

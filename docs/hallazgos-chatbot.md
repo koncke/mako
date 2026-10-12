@@ -4122,3 +4122,48 @@ Lo que no se ve en el diff:
 - Lo visual (el chat como WhatsApp, la capa, el modal de Zernio) no se miró en el navegador: lo mira Martín.
 
 _12/10/2026 — cierre de la decimotercera: typecheck en 0 errores. Tests de las áreas tocadas: 1093 / 1093 (84 archivos). Suite entera, 9043 tests: la primera corrida dio 4 rojos; 1 era un guard de la forma del lienzo (`flujo-lienzo-paralelos`, la rama del email ahora abre un bloque), ya arreglado. Los otros 3 son de HEAD y de otras áreas, y ninguno lee un archivo de la tanda: `mover-etapa-validacion`, `plan-filtro-cliente` y `plan-proyectos-catalogo` (la barra de `nav.ts`). Roturas: 16 de 16 cazadas (`tests/automations-decimotercera.test.ts`, al pie)._
+
+## Decimocuarta tanda (12/10/2026)
+
+El pedido (Martín, 12/10, con dos capturas: la caja «¿Qué vas a crear hoy?» del Landing Generator y la tarjeta INSTAGRAM
+del lienzo): sacar «Nace pausada»; la caja «Pídeselo a MaKo» igual a la del Landing Generator; el chat de MaKo al costado;
+sin el chip «Conecta tu Instagram» junto a «Activar»; varias cuentas de Instagram con el desplegable de WhatsApp («Conectar
+otra» adentro, sin «Conectar», sin «Sin Zernio» ni el logo de la derecha) y el ✦ al lado. Un agente solo, en
+`C:/dev/wt-undecima`.
+
+- **La caja de MaKo ES la del Landing Generator, no una copia.** Salió de `CajaCrear.tsx` a
+  `app/landing-generator/CajaPedido.tsx` y la montan las dos puertas (`BarraPideselo`, ChatMako.tsx). ⚠️ Importar
+  MiniaturaLanding desde /automations arrastra el render de la landing entera: `Ico` salió a `Ico.tsx`. ⚠️ Sus tokens
+  `--gp-*` caen a valores CLAROS fuera de `.gma` (un `var()` inexistente no falla, toma el respaldo): en oscuro la caja
+  salía blanca. Afuera va envuelta en `.gp.cp-casa` con `CSS_TOKENS_CASA` (los de la casa). **Regla:** reusar una pieza
+  de Gamma fuera del editor = sus tokens desde los de la casa, nunca `CSS_GP` suelto.
+- **Sin el chip «Plan | Express»:** acá no hay un modo que elegir (MaKo pregunta en el chat de la fila). El «+» ofrece lo
+  que ya tiene el modal (`accionesMas`): «Lienzo en blanco», «Usar plantilla» (enfoca el buscador) y «Pegar lo copiado».
+- **Medir escondido:** la caja nueva no fija `height: 0px` si `scrollHeight` da 0 (el modal se pinta con
+  `display: none` en su primer render: la trampa de la decimotercera). Cierra ese «sin hacer» para `CajaCrear`.
+- **El chat al costado comparte el muelle de «Probar»** (`chatAlCostado`, lib/crear-ia-lugar.ts). Los muelles los
+  calcula la tab (SimuladorWhatsApp) y el estado del chat vive en SecuenciaPerfil: `onChatMako` sube «abierto» y la tab
+  reserva la derecha con `probarAbierto || makoVisible`. Con «Probar» abierto el chat se ESCONDE sin desmontarse (un
+  pedido en vuelo sigue) y el ✦ cierra «Probar» y lo muestra. Ya no se esconde con una tarjeta abierta: el editor se corta
+  antes del muelle.
+- **El chip «Conecta tu Instagram» era `err`:** el texto del freno quedaba en la píldora roja de «Activar» después de
+  cerrar el modal. Probar, Publicar (409) y Activar ahora sólo abren el modal del medio.
+- ⚠️ **Varias cuentas: el diagnóstico obvio («Zernio no deja») era el equivocado.** Zernio lista varias por profile
+  (`GET /accounts?profileId&platform`) y `connect/{plataforma}` suma otra. Lo que impedía «Conectar otra» era el sondeo
+  de `ConectarSocial`: daba conectado con «hay alguna cuenta», y con una ya conectada cerraba en el PRIMER sondeo, antes de
+  terminar en la ventana. Ahora espera una cuenta que antes no estaba (`cuentaNueva`) y la deja elegida en la tarjeta.
+- **El paso guarda SU cuenta** (`cuenta_zernio`, el `accountId`; `cuentaDelPaso` / `cuentaAlGuardar`, lib/canal-social.ts,
+  como `linea`). El motor manda SÓLO por ella (`conversacionDelPaso`): sin conversación con esa cuenta, falla terminal y
+  no cae a otra. Caer tampoco serviría: la ventana de 24 h de Meta es por conversación, y la conversación es de UNA cuenta.
+  Sin cuenta elegida, lo de siempre; con varias, el desplegable lo dice: «Donde escribió el lead».
+
+**SIN HACER (con su archivo):**
+- `lib/medios-automatizacion.ts`: el chip «Sin conectar», Probar y Publicar miran «hay alguna cuenta», no la ELEGIDA. Una
+  tarjeta con una cuenta desconectada recién falla al enviar.
+- `lib/canal-social.ts` (`conversacionesPorLead`): las condiciones de Instagram («Se le puede escribir…») miran la
+  conversación de cualquier cuenta, no la de la tarjeta que sigue.
+- `app/automations/PanelProbar.tsx` / `SimuladorSocial.tsx`: Probar un DM no muestra por qué cuenta saldría.
+- `app/automations/SecuenciaPerfil.tsx`: con la ventana angosta (editor de columna) no se midió el chat junto al editor.
+- Lo visual (la caja, el chat al costado, la cabecera de Instagram) no se miró en el navegador: lo mira Martín.
+
+_12/10/2026 — cierre de la decimocuarta: typecheck en 0 errores. Áreas tocadas: 1044 / 1044 (82 archivos). Suite entera, 9066 tests: 3 rojos de la tanda (guards de la forma vieja en `medios-automatizacion` y `plantillas-automatizaciones`), ya arreglados. Quedan 3 rojos de HEAD, los mismos de la decimotercera y de otras áreas: `mover-etapa-validacion`, `plan-filtro-cliente` y `plan-proyectos-catalogo`. Roturas: 10 de 10 cazadas (`tests/automations-decimocuarta.test.ts`, al pie)._

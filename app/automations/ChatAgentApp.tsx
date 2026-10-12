@@ -81,6 +81,12 @@ export type PasoSecuenciaDto = {
    * poder»). `null`/ausente = el de la automatización. Lo lee el motor con `lineaDelPaso`.
    */
   linea?: string | null;
+  /**
+   * La CUENTA de Instagram o Messenger de ESTE mensaje (decimocuarta tanda, punto 5: «se debería poder conectar varias
+   * cuentas, como hoy se puede conectar varios WhatsApp»): el id de la cuenta de Zernio. `null`/ausente = la conversación
+   * que cuenta. Lo lee el motor con `cuentaDelPaso` (lib/canal-social.ts).
+   */
+  cuenta_zernio?: string | null;
   asunto: string | null; preheader?: string | null; cuerpo: string;
   /** Sólo email: el cuerpo del editor rico, en HTML saneado. `cuerpo` es su texto plano (lib/nutricion.ts, `cuerpo_html`). */
   cuerpo_html?: string | null;

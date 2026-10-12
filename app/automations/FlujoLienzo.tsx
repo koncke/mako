@@ -100,7 +100,7 @@ import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion } from './ChatAgent
 // Instagram y Messenger (sexta tanda, parte «canales»): su tarjeta y su editor viven aparte.
 import { esCanalSocial } from '@/lib/canal-social';
 import { VistaMensajeSocial } from './VistaMensajeSocial';
-import { EditorMensajeSocial } from './EditorMensajeSocial';
+import { EditorMensajeSocial, CabeceraSocialPanel } from './EditorMensajeSocial';
 // El ícono de cada CRON de la tarjeta (sexta tanda, CRON 10): el de su clase, como en el panel.
 import { IconoDisparador } from './IconosDisparador';
 import { TRIGGER_AVISO_MAKO, type ClaseDisparador, type SubtipoMako } from '@/lib/disparadores';
@@ -719,6 +719,14 @@ export function FlujoLienzo({
         const paso = pasoDe(n.id);
         if (paso && esMako(paso)) return <CabeceraMakoEnWhatsApp paso={pasoDeMako(paso)} deshabilitado={busy} />;
         if (!paso) return null;
+        // INSTAGRAM Y MESSENGER (decimocuarta tanda, puntos 5 a 8): el logo, la CUENTA de ese mensaje en lugar de la palabra
+        // «Instagram» (con «Conectar otra» adentro) y el ✦ al lado, como un WhatsApp. La `key` por tarjeta: siembra estado.
+        if (esCanalSocial(paso.canal)) {
+          return (
+            <CabeceraSocialPanel key={`cab-social-${n.id}`} paso={paso} canal={paso.canal} deshabilitado={busy}
+              onCuenta={(c) => onPasos((prev) => cambiarNodo(prev, n.id, { cuenta_zernio: c }), true)} />
+          );
+        }
         // `linea` es un campo del paso (`PasoSecuenciaDto`): sin cast.
         return (
           <CabeceraWhatsApp paso={paso} lineaAutomatizacion={linea?.actual ?? null} deshabilitado={busy}
@@ -825,6 +833,8 @@ const esClaseDeIcono = (s: string): s is ClaseDisparador | 'otro' => CLASES_ICON
 function cabeceraDe(paso: PasoSecuenciaDto | null, rolAdmin: boolean): boolean {
   if (!paso || !rolAdmin) return false;
   if (claseDe(paso) === 'accion') return esMako(paso);
+  // Instagram y Messenger: su cuenta y el ✦ (decimocuarta tanda).
+  if (claseDe(paso) === 'mensaje' && esCanalSocial(paso.canal)) return true;
   return claseDe(paso) === 'mensaje' && paso.canal === 'whatsapp' && proveedorDelPaso(paso) === 'no_oficial';
 }
 

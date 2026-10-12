@@ -23,10 +23,15 @@
 //     pedido y lo propuesto entran al chat de MaKo (punto 7, `mako.chat`).
 //   · Un archivo de cualquier tipo: Instagram toma foto, video o PDF (`problemaDeAdjunto`).
 //
-// ARRIBA, LA CUENTA DESDE LA QUE SALE (como el número de salida del de WhatsApp), con «Conectar» si
-// no hay ninguna (POST /api/zernio). Duodécima tanda (§2.11): «Conectar» también SIN ZERNIO y con la key mala (el
-// modal abre en el campo «API key de Zernio»); con la cuenta de Zernio pausada, el link de pago. Lo que contestó la
-// ruta lo lee `leerZernio` (ConectarMedio.tsx), la misma que el modal.
+// LA CUENTA DESDE LA QUE SALE va en la CABECERA DEL PANEL, como el número de un WhatsApp (`CabeceraSocialPanel`, la monta
+// el lienzo: FlujoLienzo, `tituloEditor`). DECIMOCUARTA TANDA (12/10/2026), Martín, textual: «se debería poder conectar
+// varias cuentas, como hoy se puede conectar varios WhatsApp... no debería decir "Instagram" sino, el mismo desplegable
+// que tenemos en WhatsApp, que diga el nombre de la cuenta conectada y que ahí mismo se pueda conectar otra», «El botón
+// de "Conectar" eliminalo», «Elimina lo de "Sin Zernio" y el logo de instagram que aparece a la derecha» y «el botón de
+// MaKo te ayuda en el mismo lugar que en WhatsApp, al lado del desplegable». Se fue la fila de adentro (la «S», «Sin
+// Zernio», «Conectar», el ✦ y el logo): el desplegable lista las cuentas de Zernio (POST /api/zernio `estado`, leído por
+// `leerZernio`), la elegida se guarda en el paso (`cuenta_zernio`, que el motor lee con `cuentaDelPaso`) y «Conectar
+// otra» abre el modal de siempre (ConectarMedio: sin Zernio o con la key mala, el de Integraciones).
 // ⚠️ NADA DE ACÁ PUBLICA: `onChange` es un cambio LOCAL; lo único que escribe en el server es la biblioteca de
 // archivos (un archivo nuevo), igual que el de WhatsApp. (La key de Zernio la guarda el modal, no este editor.)
 
@@ -40,18 +45,18 @@ import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
 import { CampoConDatos, type CampoConDatosHandle } from '@/app/_components/CampoConDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
-import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead, propuestaALista } from './EditorMensajeWhatsApp';
+import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead, propuestaALista, claveDeTarjeta, alternarPanelMako, usePanelMako, BotonMakoWhatsApp } from './EditorMensajeWhatsApp';
 import { MakoRedacta, type HistorialRedacta, type PropuestaRedacta } from './MakoRedacta';
-import { BotonMako } from '@/app/_ui/BotonMako';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { aplicarVariables } from '@/lib/template-vars';
 import { cambiosDePaso } from '@/lib/guion-audio';
 import { partesDe, formaGuardada, esUnTexto, TOPE_PARTES, type ParteMensaje } from '@/lib/mensaje-partes';
 import { validarArchivoWA, archivoConTipoWA, tituloDeArchivo, pesoLegible, type AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
-import { IDENTIDAD_SOCIAL, NOMBRE_CANAL, problemaDeAdjunto, plataformaDe, TOPE_TEXTO_SOCIAL, type CanalSocial } from '@/lib/canal-social';
-import { BurbujaSocial, ArchivoSocial, CabeceraSocial, LogoSocial } from './social-ui';
+import { IDENTIDAD_SOCIAL, NOMBRE_CANAL, problemaDeAdjunto, plataformaDe, cuentaDelPaso, TOPE_TEXTO_SOCIAL, type CanalSocial } from '@/lib/canal-social';
+import { BurbujaSocial, ArchivoSocial, LogoSocial } from './social-ui';
 // «Conectar» AHÍ MISMO (décima tanda, GENERAL 6): el OAuth de Zernio en una ventana emergente y el sondeo de la
 // cuenta, en el modal de la tab (antes se abría una pestaña nueva y el editor no se enteraba de la vuelta).
-import { ConectarMedio, useAlConectarMedio, leerZernio, pideKeyZernio, type EstadoZernio, type RespuestaZernio } from './ConectarMedio';
+import { ConectarMedio, useAlConectarMedio, leerZernio, type CuentaZernio, type EstadoZernio, type RespuestaZernio } from './ConectarMedio';
 
 export type EditorMensajeSocialProps = {
   paso: PasoSecuenciaDto;
@@ -110,12 +115,6 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   const [btnClip, setBtnClip] = useState<HTMLButtonElement | null>(null);
   const [subida, setSubida] = useState<{ nombre: string; pct: number; cancelar: () => void } | null>(null);
   const [bibLocal, setBibLocal] = useState<AdjuntoDto[] | null>(() => cacheBiblioteca.get(String(ws ?? ''))?.lista ?? null);
-  const [cuenta, setCuenta] = useState<Cuenta | null>(() => cacheCuenta.get(`${ws ?? ''}|${canal}`)?.v ?? null);
-  /** El modal de «Conectar» abierto (ConectarMedio). */
-  const [conectando, setConectando] = useState(false);
-  /** Sube cuando algo se conectó (acá o en otra pantalla de la tab): la cuenta se vuelve a pedir. */
-  const [vueltaCuenta, setVueltaCuenta] = useState(0);
-  useAlConectarMedio(() => { cacheCuenta.delete(`${ws ?? ''}|${canal}`); setVueltaCuenta((v) => v + 1); });
   const { toast, show, clear } = useToast();
   const area = useRef<HTMLTextAreaElement | null>(null);
   /** Los `{{datos}}` azules y clickeables de la barra (undécima tanda, punto 7). */
@@ -133,24 +132,6 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
     setError(null); setAbierto(null); setAdjunto(null); setEditando(null);
     setBarra(borradores.get(claveBorrador) ?? '');
   }
-
-  // ── La cuenta de salida ──
-  useEffect(() => {
-    const clave = `${ws ?? ''}|${canal}`;
-    const c = cacheCuenta.get(clave);
-    if (c && Date.now() - c.t < CACHE_MS) return;
-    let vivo = true;
-    fetch('/api/zernio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'estado', plataforma: plataformaDe(canal) }), signal: AbortSignal.timeout(65_000) })
-      .then((r) => r.json())
-      .then((j: RespuestaZernio | null) => {
-        const v: Cuenta = leerZernio(j);
-        // Sólo lo que no se arregla solo: la key mala o la cuenta pausada se vuelven a pedir en la próxima visita.
-        if (v.estado === 'ok' || v.estado === 'sin_zernio') cacheCuenta.set(clave, { t: Date.now(), v });
-        if (vivo) setCuenta(v);
-      })
-      .catch(() => { if (vivo) setCuenta({ estado: 'error', error: 'Sin conexión' }); });
-    return () => { vivo = false; };
-  }, [ws, canal, vueltaCuenta]);
 
   // (Acá vivía `conectar`: pedía la URL del OAuth y la abría en una pestaña nueva con `noopener`, sin forma de
   // saber cuándo volvía. Desde la décima tanda lo hace el modal de la tab, ConectarMedio.)
@@ -228,7 +209,11 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   };
 
   // ── EL ✦ DE MaKo (punto 8): el panel en lugar del chat, y la propuesta arriba de la barra ──
-  const [panelMako, setPanelMako] = useState(false);
+  // DECIMOCUARTA: el ✦ vive en la CABECERA del panel (`CabeceraSocialPanel`), como en WhatsApp; el estado es por tarjeta
+  // (`usePanelMako`, EditorMensajeWhatsApp.tsx) y lo comparten la cabecera y este editor.
+  const claveMako = claveDeTarjeta(ws, paso);
+  const panelMako = usePanelMako(claveMako) && !!mako;
+  const setPanelMako = (v: boolean) => alternarPanelMako(claveMako, v);
   const [sugerencia, setSugerencia] = useState<{ mensajes: string[]; nota: string | null } | null>(null);
   const alProponer = (p: PropuestaRedacta) => {
     if (!p.mensajes.length) return;
@@ -313,35 +298,6 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
     return <BurbujaSocial canal={canal}>{conNegocio(p.cuerpo)}</BurbujaSocial>;
   };
 
-  // ── La cuenta, arriba (como el número de salida del WhatsApp) ──
-  const usuario = cuenta?.estado === 'ok' ? cuenta.cuentas[0] : null;
-  // «Conectar» sin cuenta, sin Zernio y con la key mala: el modal resuelve las tres ahí mismo.
-  const puedeConectar = cuenta != null && ((cuenta.estado === 'ok' && !usuario) || pideKeyZernio(cuenta));
-  const filaCuenta = (
-    <CabeceraSocial canal={canal}
-      nombre={usuario ? `@${usuario.usuario}` : cuenta === null ? 'Cargando…' : cuenta.estado === 'sin_zernio' ? 'Sin Zernio' : cuenta.estado === 'ok' ? `Sin cuenta de ${nombreCanal}` : cuenta.error}
-      detalle={usuario && usuario.nombre !== usuario.usuario ? usuario.nombre : undefined}
-      derecha={(
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          {puedeConectar && (
-            <button type="button" data-conectar-social onClick={() => setConectando(true)} disabled={conectando || ocupado} aria-haspopup="dialog"
-              style={{ height: 28, padding: '0 12px', borderRadius: 14, border: 'none', background: ident.burbuja, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Conectar
-            </button>
-          )}
-          {/* El ✦ (punto 8): el botón de MaKo de la casa, el mismo del WhatsApp. */}
-          {mako && <BotonMako lado={28} encendido={panelMako} deshabilitado={ocupado} title="Que MaKo te ayude a escribirlo" onClick={() => setPanelMako((v) => !v)} />}
-          {cuenta?.estado === 'pausada' && cuenta.pago && (
-            <a href={cuenta.pago} target="_blank" rel="noopener noreferrer" data-zernio-pago
-              style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
-              Pagar
-            </a>
-          )}
-          <LogoSocial canal={canal} size={22} />
-        </span>
-      )} />
-  );
-
   const vista = partes.length ? partes.map((p, i) => (
     <div key={i} data-parte={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, alignSelf: 'stretch', minWidth: 0 }}>
       <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
@@ -371,7 +327,6 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, minWidth: 0, border: `1px solid ${ident.borde}`, borderRadius: 16, overflow: 'hidden', background: 'var(--surface)' }}>
-      {filaCuenta}
       {panelMako && mako && (
         <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: 12, borderTop: '1px solid var(--border)' }}>
           <MakoRedacta canal={canal} datos="motor" permiteAudio={false} historial={mako.chat ?? null}
@@ -452,7 +407,133 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         </PopoverWA>
       )}
       <Toast state={toast} onClose={clear} />
-      {conectando && <ConectarMedio medio={canal} zernio={cuenta} onCerrar={() => setConectando(false)} onConectado={() => setConectando(false)} />}
+    </div>
+  );
+}
+
+// ── La cabecera del panel: el logo, la cuenta por la que sale y el ✦ (decimocuarta tanda, puntos 5 a 8) ──────────
+
+/** El valor de «Conectar otra» en el desplegable: no es una cuenta y nunca se guarda. */
+export const CONECTAR_OTRA = '__conectar__';
+/** El valor de «Pagar Zernio» (la cuenta de Zernio pausada): abre su link de pago. */
+export const PAGAR_ZERNIO = '__pagar__';
+/** El valor de «la que usó el lead» (el paso no guarda cuenta: la conversación que cuenta). */
+const SIN_ELEGIR = '';
+
+/** `@usuario` de una cuenta, o su nombre si no tiene usuario. */
+const rotuloCuenta = (c: CuentaZernio): string => (c.usuario ? `@${c.usuario}` : c.nombre);
+
+/**
+ * LAS OPCIONES DEL DESPLEGABLE DE LA CUENTA. Pura y exportada para el test. Salen de lo que contestó Zernio (las MISMAS
+ * cuentas por las que el motor puede mandar: `cuentasConectadas`, lib/zernio.ts):
+ *   · cada cuenta conectada, con su @usuario;
+ *   · sin cuenta elegida y con VARIAS: «Donde escribió el lead» (lo que hace el motor sin `cuenta_zernio`); con UNA, esa;
+ *   · ⚠️ la guardada entra SIEMPRE, aunque ya no esté (un `value` fuera de las opciones se dibuja como la primera y el
+ *     primer clic lo pisa: AGENTS.md, el `<select>` que borra datos);
+ *   · «Conectar otra» (o «Conectar Instagram» sin ninguna) y, con Zernio pausado, «Pagar Zernio».
+ */
+export function opcionesDeCuenta(estado: EstadoZernio | null, actual: string | null, canal: CanalSocial): DropdownOption[] {
+  const cuentas = estado?.estado === 'ok' ? estado.cuentas : [];
+  const out: DropdownOption[] = [];
+  if (cuentas.length > 1) out.push({ value: SIN_ELEGIR, label: 'Donde escribió el lead' });
+  for (const c of cuentas) out.push({ value: c.id, label: rotuloCuenta(c), ...(c.nombre && c.nombre !== c.usuario ? { sub: c.nombre } : {}), color: 'var(--good)' });
+  if (actual && !cuentas.some((c) => c.id === actual)) out.push({ value: actual, label: 'Una cuenta que ya no está', color: 'var(--warn)' });
+  if (estado?.estado === 'pausada' && estado.pago) out.push({ value: PAGAR_ZERNIO, label: 'Pagar Zernio' });
+  out.push({ value: CONECTAR_OTRA, label: cuentas.length ? 'Conectar otra' : `Conectar ${NOMBRE_CANAL[canal]}`, crear: true });
+  return out;
+}
+
+/** Qué se ve elegido: la guardada; sin guardada, la única cuenta (con una) o «Donde escribió el lead» (con varias). */
+export function valorDeCuenta(estado: EstadoZernio | null, actual: string | null): string {
+  if (actual) return actual;
+  const cuentas = estado?.estado === 'ok' ? estado.cuentas : [];
+  return cuentas.length === 1 ? cuentas[0].id : SIN_ELEGIR;
+}
+
+/** Lo que dice el botón cuando no hay una cuenta que nombrar (cargando, sin conectar, sin poder leer). Corto. */
+export function rotuloSinCuenta(estado: EstadoZernio | null): string {
+  if (estado === null) return 'Cargando…';
+  if (estado.estado === 'ok' || estado.estado === 'sin_zernio' || estado.estado === 'key_mala') return 'Sin conectar';
+  if (estado.estado === 'pausada') return 'Zernio pausado';
+  return 'No pude leer las cuentas';
+}
+
+/**
+ * Las cuentas conectadas del negocio en esa plataforma (POST /api/zernio `estado`), UNA vez por pestaña, negocio y
+ * plataforma (10 min). Al conectar algo en la tab, se vuelven a pedir. `null` = todavía no llegó.
+ */
+export function useCuentasSociales(canal: CanalSocial): EstadoZernio | null {
+  const ws = useWs();
+  const clave = `${ws ?? ''}|${canal}`;
+  const [cuenta, setCuenta] = useState<Cuenta | null>(() => cacheCuenta.get(clave)?.v ?? null);
+  /** Sube cuando algo se conectó (acá o en otra pantalla de la tab): las cuentas se vuelven a pedir. */
+  const [vuelta, setVuelta] = useState(0);
+  useAlConectarMedio(() => { cacheCuenta.delete(clave); setVuelta((v) => v + 1); });
+  useEffect(() => {
+    const c = cacheCuenta.get(clave);
+    if (c && Date.now() - c.t < CACHE_MS) return;
+    let vivo = true;
+    fetch('/api/zernio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'estado', plataforma: plataformaDe(canal) }), signal: AbortSignal.timeout(65_000) })
+      .then((r) => r.json())
+      .then((j: RespuestaZernio | null) => {
+        const v: Cuenta = leerZernio(j);
+        // Sólo lo que no se arregla solo: la key mala o la cuenta pausada se vuelven a pedir en la próxima visita.
+        if (v.estado === 'ok' || v.estado === 'sin_zernio') cacheCuenta.set(clave, { t: Date.now(), v });
+        if (vivo) setCuenta(v);
+      })
+      .catch(() => { if (vivo) setCuenta({ estado: 'error', error: 'Sin conexión' }); });
+    return () => { vivo = false; };
+  }, [clave, canal, vuelta]);
+  return cuenta;
+}
+
+/**
+ * LA CABECERA DEL PANEL DE UN INSTAGRAM O MESSENGER, la MISMA forma que la de un WhatsApp (`CabeceraWhatsApp`): el logo,
+ * el desplegable de la cuenta por la que sale ESTE mensaje en lugar de la palabra «Instagram», y el ✦ de MaKo al lado.
+ * Elegir una la guarda en el paso (`onCuenta`, un cambio local como cualquier otro); «Conectar otra» abre el modal de
+ * siempre y la que se conecta queda elegida.
+ */
+export function CabeceraSocialPanel({ paso, canal, onCuenta, deshabilitado, conMako = true }: {
+  paso: PasoSecuenciaDto;
+  canal: CanalSocial;
+  /** Guarda la cuenta de ESTA tarjeta (null = la conversación que cuenta). */
+  onCuenta: (cuenta: string | null) => void;
+  deshabilitado?: boolean;
+  conMako?: boolean;
+}) {
+  const ws = useWs();
+  const estado = useCuentasSociales(canal);
+  const [conectando, setConectando] = useState(false);
+  const actual = cuentaDelPaso(paso);
+  const opciones = opcionesDeCuenta(estado, actual, canal);
+  const hayCuenta = opciones.some((o) => o.value !== CONECTAR_OTRA && o.value !== PAGAR_ZERNIO);
+  const elegir = (v: string) => {
+    if (v === CONECTAR_OTRA) { setConectando(true); return; }
+    if (v === PAGAR_ZERNIO) { if (estado?.estado === 'pausada' && estado.pago) window.open(estado.pago, '_blank', 'noopener,noreferrer'); return; }
+    onCuenta(v || null);
+  };
+  return (
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <LogoSocial canal={canal} size={24} />
+      <div style={{ flex: '0 1 auto', minWidth: 0 }} data-cuenta-social="">
+        <Dropdown
+          value={hayCuenta ? valorDeCuenta(estado, actual) : ''}
+          options={opciones}
+          onChange={elegir}
+          disabled={deshabilitado || estado === null}
+          ariaLabel={`Cuenta de ${NOMBRE_CANAL[canal]} por la que sale este mensaje`}
+          botonLabel={hayCuenta ? undefined : rotuloSinCuenta(estado)}
+          resetAfterSelect={!hayCuenta}
+          search={false}
+          width={210}
+          buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
+        />
+      </div>
+      {conMako && <BotonMakoWhatsApp clave={claveDeTarjeta(ws, paso)} deshabilitado={deshabilitado} />}
+      {conectando && (
+        <ConectarMedio medio={canal} zernio={estado} onCerrar={() => setConectando(false)} onConectado={() => setConectando(false)}
+          onCuenta={(c) => onCuenta(c.id)} />
+      )}
     </div>
   );
 }

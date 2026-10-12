@@ -61,13 +61,12 @@ test('punto 1: el modal se pinta con display:none en su PRIMER render; la barra 
   // está en la pila, y la pila lo pinta oculto. El efecto del hijo corre antes y mide un `scrollHeight` de 0.
   assert.equal(decidirVisible([], 'nuevo', new Set(), new Set()), false);
   assert.match(fuente('app/_ui/Modal.tsx'), /display: capa\.visible \? 'flex' : 'none'/);
-  // La barra es la de WhatsApp: mide con el borde (`offsetHeight - clientHeight`), sólo scrollea pasado el tope y su
-  // `minHeight` no deja que un alto de 0 la colapse.
-  const comp = fuente('app/whatsapp/_shared/ComposerWhatsApp.tsx');
-  assert.match(comp, /const borde = el\.offsetHeight - el\.clientHeight;\n\s+const alto = el\.scrollHeight \+ borde;/);
-  assert.match(comp, /el\.style\.overflowY = alto > tope \? 'auto' : 'hidden';/);
-  assert.match(comp, /minHeight: 40, resize: 'none'/);
-  assert.match(CHAT, /<ComposerWhatsApp modo="enviar" valor=\{texto\}/);
+  // DECIMOCUARTA (punto 2): la barra es la caja del Landing Generator (`CajaPedido`). Escondida no se mide: con un
+  // `scrollHeight` de 0 deja el alto natural (rows 2) en vez de fijar 0, y su `min-height` tampoco la deja colapsar.
+  const caja = fuente('app/landing-generator/CajaPedido.tsx');
+  assert.match(caja, /if \(!t\.scrollHeight\) return;\n\s+t\.style\.height = `\$\{Math\.min\(t\.scrollHeight, 168\)\}px`;/);
+  assert.match(caja, /\.gp \.gp-cc-entrada \{ display: block; width: 100%; min-height: 64px;/);
+  assert.match(CHAT, /<CajaPedido valor=\{texto\}/);
   assert.doesNotMatch(CHAT, /t\.style\.height = `\$\{Math\.min\(t\.scrollHeight, 132\)\}px`/, 'volvió la medida sin el borde');
   // El ejemplo se escribe en el placeholder (y para del todo al tocar: tests/crear-ia-tercera.test.ts).
   const html = renderToStaticMarkup(createElement(BarraPideselo, { onPedido: () => {} }));
@@ -151,7 +150,8 @@ test('punto 3: «Probar» pregunta ANTES de abrir el panel, dice qué falta y ab
   const iFreno = probar.indexOf('medioQueFrena(pasos, lineaSec, crons.lista, estadoMedios)');
   const iAbrir = probar.indexOf('onProbar(canal);');
   assert.ok(iFreno > 0 && iFreno < iAbrir, 'el panel se abre sin mirar los medios');
-  assert.match(probar, /if \(falta\) \{ setErr\(falta\.error\); setLineaAConectar\(falta\.linea\); setConectarMedio\(falta\.medio\); return; \}/);
+  // Decimocuarta (punto 4): sin el chip rojo «Conecta tu …» al lado de «Activar»; el modal de ese medio dice qué falta.
+  assert.match(probar, /if \(falta\) \{ setErr\(null\); setLineaAConectar\(falta\.linea\); setConectarMedio\(falta\.medio\); return; \}/);
   // La MISMA lectura que el chip «Sin conectar» de la tarjeta, con las tarjetas y el CRON.
   assert.match(PERFIL, /const usaMedios = useMemo\(\(\) => mediosQueUsa\(pasos, crons\.lista\), \[pasos, crons\.lista\]\);/);
   assert.match(PERFIL, /const estadoMedios = useEstadoMedios\(usaMedios, rolAdmin && !!onProbar\);/);
@@ -183,9 +183,11 @@ test('punto 6: el chat ES el hilo de WhatsApp (ChatHilo) con los colores de MaKo
   assert.match(tramo(CHAT, 'const enviarAudio = async (blob: Blob)', '\n  };', 700), /const r = await transcribirNota\(blob\);/);
 });
 
-test('punto 4: el logo de MaKo en la barra del modal y en el panel del ✦, no la estrella de texto', () => {
+// DECIMOCUARTA (punto 2): la caja del modal es la del Landing Generator, sin cabecera (ni logo, ni título, ni «Nace
+// pausada»): de este punto queda el panel del ✦ y que la estrella de texto no vuelva.
+test('punto 4: el logo de MaKo en el panel del ✦, no la estrella de texto (la caja del modal, sin cabecera)', () => {
   const barra = renderToStaticMarkup(createElement(BarraPideselo, { onPedido: () => {} }));
-  assert.match(barra, /aria-label="MaKo"[\s\S]*>Pídeselo a MaKo</);
+  assert.doesNotMatch(barra, /Nace pausada/);
   assert.doesNotMatch(barra, />✦</);
   const panel = fuente('app/automations/MakoRedacta.tsx');
   assert.match(panel, /<MakoLogo size=\{20\} animate=\{false\} \/>/);
@@ -314,7 +316,10 @@ test('punto 8: el email y los DM tienen el ✦ (el botón de la casa) y su panel
   assert.match(tramo(email, 'const usarSugerencia = () => {', '\n  };', 700), /onChange\(\{ \.\.\.\(s\.asunto \? \{ asunto: s\.asunto \} : \{\}\), cuerpo_html: html, cuerpo: texto \}\);/);
   const social = fuente('app/automations/EditorMensajeSocial.tsx');
   assert.match(social, /<MakoRedacta canal=\{canal\} datos="motor" permiteAudio=\{false\} historial=\{mako\.chat \?\? null\}/);
-  assert.match(social, /\{mako && <BotonMako lado=\{28\} encendido=\{panelMako\}/);
+  // Decimocuarta (punto 8): el ✦ del DM va en la CABECERA del panel, al lado del desplegable de la cuenta, como en
+  // WhatsApp (el mismo botón y el mismo estado por tarjeta).
+  assert.match(social, /\{conMako && <BotonMakoWhatsApp clave=\{claveDeTarjeta\(ws, paso\)\} deshabilitado=\{deshabilitado\} \/>\}/);
+  assert.match(social, /const panelMako = usePanelMako\(claveMako\) && !!mako;/);
   // «Usar» y «Agregar» con la MISMA función que la barra del WhatsApp.
   assert.match(social, /const sig = propuestaALista\(partesDe\(pasoVivo\.current\), sugerencia\.mensajes, modo\);/);
   // El panel pregunta según el canal, en tú.

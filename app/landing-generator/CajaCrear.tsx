@@ -37,10 +37,9 @@
 // (`CSS_CAJA` + las pastillas) y no depende de las clases del Panel.
 // =============================================================================
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useWs } from '@/app/_ui/Link';
-import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
-import { useEjemploQueSeEscribe } from '@/app/automations/CrearConIA';
+import { CajaPedido, CSS_CAJA_PEDIDO } from './CajaPedido';
 import { tarjetasDe, type JsonNodo } from '@/lib/editor-landing/doc';
 import { formatoDe } from '@/lib/editor-landing/api-tipos';
 import { temaPorId } from '@/lib/editor-landing/temas';
@@ -61,8 +60,6 @@ export type PropsCajaCrear = {
 
 /** El placeholder cuando el ejemplo ya paró (el de la caja de Gamma). */
 const PLACEHOLDER_QUIETO = '¿Qué quieres crear?';
-/** El tope del pedido (el mismo de la caja de antes y del generador). */
-const TOPE_PEDIDO = 8_000;
 
 export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
   const router = useRouter();
@@ -146,50 +143,48 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
 
   return (
     <section className="gp-cc" aria-label="Crear">
-      <style dangerouslySetInnerHTML={{ __html: CSS_TIPO + CSS_CAJA }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_TIPO + CSS_CAJA_PEDIDO + CSS_CAJA }} />
       <h1 className="gp-cc-titulo">¿Qué vas a crear hoy?</h1>
 
-      <form className="gp-cc-caja" onSubmit={(e) => { e.preventDefault(); enviar(); }}>
-        {/* Con `key`: el ejemplo que se escribe solo arranca de cero con la lista del tipo nuevo
-            (el hook supone una lista fija: cambiarla a mitad deja el largo de la frase vieja). */}
-        <CampoPedido
-          key={tipo}
-          tipo={tipo}
-          valor={pedido}
-          animar={!tocada && !pedido}
-          onValor={(v) => { setPedido(v); parar(); }}
-          onTocar={parar}
-          onEnviar={enviar}
-        />
-        <div className="gp-cc-fila">
-          <button
-            type="button"
-            className="gp-cc-mas"
-            aria-label="Agregar"
-            aria-haspopup="menu"
-            aria-expanded={!!menuMas}
-            onClick={(e) => setMenuMas(menuMas ? null : e.currentTarget)}
-          >
-            <Ico n="mas" t={16} />
-          </button>
-          <Desplegable
-            etiqueta="Modo"
-            valor={modo}
-            onCambio={setModo}
-            ancho={300}
-            opciones={[
-              { valor: 'plan', texto: 'Plan', etiqueta: 'Predeterminado', sub: 'Revisa el esquema antes de crear', icono: 'lista' },
-              { valor: 'express', texto: 'Express', sub: 'Más rápido, sin revisar el esquema', icono: 'rayo' },
-            ]}
-          />
-          <span className="gp-cc-mic gp-mic">
-            <BotonDictar titulo="Dictar el pedido" valor={pedido} onValor={(v) => { setPedido(v.slice(0, TOPE_PEDIDO)); parar(); setError(null); }} onError={setError} />
-          </span>
-          <button type="submit" className="gp-cc-enviar" aria-label="Enviar" disabled={!pedido.trim()}>
-            <Ico n="flecha-arriba" t={16} />
-          </button>
-        </div>
-      </form>
+      {/* LA CAJA ES CajaPedido.tsx, la MISMA del modal «Nueva automatización» de /automations (decimocuarta tanda): el
+          campo con el ejemplo que se escribe solo (vuelve a empezar con la lista del tipo nuevo: `reinicio`), el
+          micrófono y el ↑. Lo de esta puerta es el «+» y «Plan | Express». */}
+      <CajaPedido
+        reinicio={tipo}
+        ejemplos={EJEMPLOS_CAJA[tipo]}
+        valor={pedido}
+        animar={!tocada && !pedido}
+        placeholderQuieto={PLACEHOLDER_QUIETO}
+        etiqueta="Qué quieres crear"
+        onValor={(v) => { setPedido(v); parar(); }}
+        onTocar={parar}
+        onEnviar={enviar}
+        onError={setError}
+        antes={(
+          <>
+            <button
+              type="button"
+              className="gp-cc-mas"
+              aria-label="Agregar"
+              aria-haspopup="menu"
+              aria-expanded={!!menuMas}
+              onClick={(e) => setMenuMas(menuMas ? null : e.currentTarget)}
+            >
+              <Ico n="mas" t={16} />
+            </button>
+            <Desplegable
+              etiqueta="Modo"
+              valor={modo}
+              onCambio={setModo}
+              ancho={300}
+              opciones={[
+                { valor: 'plan', texto: 'Plan', etiqueta: 'Predeterminado', sub: 'Revisa el esquema antes de crear', icono: 'lista' },
+                { valor: 'express', texto: 'Express', sub: 'Más rápido, sin revisar el esquema', icono: 'rayo' },
+              ]}
+            />
+          </>
+        )}
+      />
       {error && <p className="gp-error gp-cc-error" role="alert">{error}</p>}
 
       <SelectorTipo valor={tipo} onCambio={setTipo} deshabilitado={!!creando} />
@@ -241,62 +236,10 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
   );
 }
 
-/**
- * El campo del pedido. Vive aparte para llevar `key={tipo}`: el ejemplo que se escribe solo
- * vuelve a empezar con los ejemplos del tipo elegido. Crece con lo que tiene (hasta ~6
- * renglones), también cuando lo llena el dictado, que no dispara `onInput`. Enter envía y
- * Mayús+Enter hace un salto de línea.
- */
-function CampoPedido({ tipo, valor, animar, onValor, onTocar, onEnviar }: {
-  tipo: TipoCrear;
-  valor: string;
-  animar: boolean;
-  onValor: (v: string) => void;
-  onTocar: () => void;
-  onEnviar: () => void;
-}) {
-  const ejemplo = useEjemploQueSeEscribe(animar, EJEMPLOS_CAJA[tipo]);
-  const ref = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
-    const t = ref.current;
-    if (!t) return;
-    t.style.height = 'auto';
-    t.style.height = `${Math.min(t.scrollHeight, 168)}px`;
-  }, [valor]);
-  return (
-    <textarea
-      ref={ref}
-      className="gp-cc-entrada"
-      value={valor}
-      rows={2}
-      maxLength={TOPE_PEDIDO}
-      placeholder={animar ? ejemplo : PLACEHOLDER_QUIETO}
-      aria-label="Qué quieres crear"
-      onPointerDown={onTocar}
-      onFocus={onTocar}
-      onChange={(e) => onValor(e.target.value)}
-      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onEnviar(); } }}
-    />
-  );
-}
-
-/**
- * La hoja de la caja (tokens de CSS_GP; las medidas, las de la caja de Gamma 5 del relevo). El
- * micrófono redondo de 34 sale de `.gp-mic` (CSS_TIPO, crear/PiezasTipo.tsx).
- */
+/** Lo de la página alrededor de la caja (tokens de CSS_GP): el título, el error y las plantillas. La caja trae su hoja (CSS_CAJA_PEDIDO). */
 const CSS_CAJA = `
 .gp .gp-cc { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; margin: 8px 0 28px; }
 .gp .gp-cc-titulo { margin: 0; text-align: center; font-size: 34px; font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; color: var(--gp-titulo); }
-.gp .gp-cc-caja { width: 100%; max-width: 720px; border-radius: 14px; background: var(--gp-superficie); box-shadow: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -2px rgba(0,0,0,.04); border: 1px solid var(--gp-borde-suave); }
-.gp .gp-cc-caja:focus-within { border-color: var(--gp-azul-300); }
-.gp .gp-cc-entrada { display: block; width: 100%; min-height: 64px; padding: 16px 18px 6px; border: 0; background: transparent; color: var(--gp-texto); font: inherit; font-size: 16px; line-height: 1.5; resize: none; outline: none; overflow-y: auto; }
-.gp .gp-cc-entrada::placeholder { color: var(--gp-debil); }
-.gp .gp-cc-fila { display: flex; align-items: center; gap: 8px; padding: 8px 10px 10px; }
-.gp .gp-cc-mas { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border: 0; border-radius: 9999px; background: var(--gp-azul-50); color: var(--gp-azul-600); cursor: pointer; }
-[data-tema="oscuro"] .gp .gp-cc-mas { background: #0b2e79; color: #aad5fe; }
-.gp .gp-cc-mic { display: inline-flex; margin-left: auto; flex: none; }
-.gp .gp-cc-enviar { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border: 0; border-radius: 9999px; background: var(--gp-azul-500); color: #fff; cursor: pointer; }
-.gp .gp-cc-enviar:disabled { background: var(--gp-borde); cursor: not-allowed; }
 .gp .gp-cc-error { max-width: 720px; margin: -6px 0 0; }
 
 .gp .gp-cc-plantillas { display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: 8px; scroll-margin-top: 16px; }

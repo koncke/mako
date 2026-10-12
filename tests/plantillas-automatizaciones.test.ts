@@ -56,7 +56,6 @@ import { porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
 import { TOPE_NOMBRE_SECUENCIA } from '../lib/setting-estrategia';
 import { GaleriaPlantillas, preguntaEtapa, BLANCO, TITULO_GALERIA } from '../app/automations/GaleriaPlantillas';
-import { TITULO_GALERIA_IA } from '../app/automations/CrearConIA';
 import { frenoDelEvento } from '../lib/aviso-evento';
 import { problemasDeForma, miraLaReunion, datosDeReunionSinMirarla } from '../lib/flujo-forma';
 import { problemasDeTokens, textosDeTarjeta } from '../lib/tokens-del-flujo';
@@ -694,10 +693,13 @@ test('la galería dibuja «Pídeselo a MaKo», el buscador, «Lienzo en blanco»
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
   assert.ok(html.includes(TITULO_GALERIA));
   const iIA = html.indexOf('data-galeria-ia');
-  assert.ok(iIA > 0 && html.includes(`>${esc(TITULO_GALERIA_IA)}<`), 'falta «Pídeselo a MaKo»');
+  // Decimocuarta (puntos 1 y 2): la caja del Landing Generator, sin cabecera («Pídeselo a MaKo», «Nace pausada»), con
+  // el micrófono de la casa (dicta en el campo) y su «+».
+  assert.ok(iIA > 0 && !html.includes('Nace pausada'), 'volvió «Nace pausada»');
   assert.ok(html.indexOf('data-crear-ia-caja="galeria"', iIA) > iIA, 'la caja no es la de la galería');
-  // Decimotercera (punto 6): la nota de voz de la barra de WhatsApp (se transcribe y sale como el pedido).
-  assert.ok(html.includes('aria-label="Grabar nota de voz"'), 'sin el micrófono');
+  assert.ok(html.indexOf('data-caja-pedido', iIA) > iIA, 'la caja no es la del Landing Generator');
+  assert.ok(html.includes('aria-label="Dictar el pedido"'), 'sin el micrófono');
+  assert.ok(html.includes('aria-label="Agregar"'), 'sin el «+»');
   const iBuscar = html.indexOf('data-galeria-busqueda');
   assert.ok(iBuscar > iIA, 'el buscador no va debajo de «Pídeselo a MaKo»');
   const iGrilla = html.indexOf('data-galeria-grilla');

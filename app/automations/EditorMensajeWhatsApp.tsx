@@ -285,7 +285,8 @@ export function alternarPanelMako(clave: string, abierto?: boolean): void {
   avisarPanel();
 }
 
-function usePanelMako(clave: string): boolean {
+// Exportado (decimocuarta tanda): el editor de Instagram y Messenger abre su panel con el ✦ de SU cabecera, igual que éste.
+export function usePanelMako(clave: string): boolean {
   // La misma lectura en el server: el estado sólo lo prende un clic, así que al hidratar está vacío
   // (y un test que dibuja en el server puede abrirlo).
   const leer = () => panelesAbiertos.has(clave);

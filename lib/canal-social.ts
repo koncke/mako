@@ -146,6 +146,47 @@ export function conversacionQueCuenta<T extends Pick<FilaConversacionSocial, 'id
   return mejor;
 }
 
+// ── La cuenta de UN paso (decimocuarta tanda, 12/10/2026) ───────────────────────────────────────────────
+// Martín, textual: «En la tarjeta de Instagram, se debería poder conectar varias cuentas, como hoy se puede conectar
+// varios WhatsApp». Como la línea de un WhatsApp (`linea`, lib/mensaje-partes.ts `lineaDelPaso`), la cuenta es un campo
+// del PASO: `cuenta_zernio`, el id de la cuenta de Zernio (`accountId`, el mismo de `ig_conversaciones.zernio_account_id`)
+// que eligió esa tarjeta. Sin el campo, la conversación que cuenta (`conversacionQueCuenta`), lo de siempre.
+//
+// ⚠️ UNA CUENTA PEDIDA NO CAE A OTRA (la regla de las líneas de WhatsApp, AGENTS.md): si el lead no le escribió a ESA
+// cuenta, el paso falla con su motivo; no sale por la otra cuenta del negocio. Meta deja escribir sólo a quien escribió a
+// esa cuenta (la ventana de 24 h es por conversación), así que «la otra» ni siquiera es una salida posible.
+
+/** La cuenta de Zernio por la que sale este paso de Instagram o Messenger, o null (la conversación que cuenta). */
+export function cuentaDelPaso(p: unknown): string | null {
+  if (!p || typeof p !== 'object') return null;
+  const o = p as { canal?: unknown; cuenta_zernio?: unknown };
+  if (!esCanalSocial(o.canal)) return null;
+  return typeof o.cuenta_zernio === 'string' && o.cuenta_zernio.trim() ? o.cuenta_zernio.trim().slice(0, 120) : null;
+}
+
+/**
+ * Lo que `setSecuenciaPasos` le pone al paso reconstruido por su cuenta. Con la clave manda lo que llega (null o vacía =
+ * volver a la de siempre); sin la clave (la API, el generador), se conserva la del paso anterior con el mismo id: «lo que
+ * el cliente no mande sobrevive», como la línea de un WhatsApp (`lineaAlGuardar`).
+ */
+export function cuentaAlGuardar(p: unknown, previo: unknown): { cuenta_zernio?: string } {
+  if (!p || typeof p !== 'object') return {};
+  const o = p as { canal?: unknown };
+  if (!esCanalSocial(o.canal)) return {};
+  if ('cuenta_zernio' in o) { const c = cuentaDelPaso(p); return c ? { cuenta_zernio: c } : {}; }
+  const antes = cuentaDelPaso(previo);
+  return antes ? { cuenta_zernio: antes } : {};
+}
+
+/**
+ * LA CONVERSACIÓN POR LA QUE SALE UN PASO: con su cuenta, sólo las de ESA cuenta (ninguna = null, y el envío falla con su
+ * motivo); sin cuenta, la que cuenta (`conversacionQueCuenta`).
+ */
+export function conversacionDelPaso<T extends Pick<FilaConversacionSocial, 'id' | 'ultimo_mensaje_at' | 'zernio_account_id'>>(filas: readonly T[], cuenta: string | null): T | null {
+  if (!cuenta) return conversacionQueCuenta(filas);
+  return conversacionQueCuenta(filas.filter((f) => (f.zernio_account_id ?? '').trim() === cuenta));
+}
+
 /** Lo que `decidirSalida` necesita de la fila. */
 export const conversacionDeFila = (f: FilaConversacionSocial): ConversacionSocial => ({
   conversacionId: f.zernio_conversation_id, cuentaId: f.zernio_account_id, ventanaExpiraAt: f.ventana_expira_at,

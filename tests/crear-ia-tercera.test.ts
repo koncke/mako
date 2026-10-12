@@ -269,9 +269,14 @@ const dibujar = (props: Partial<Parameters<typeof BarraPideselo>[0]> = {}) => re
 // (ChatAgentApp → SimuladorWhatsApp → SecuenciaPerfil → CrearConIA).
 // Duodécima (romper.mjs, base 14 / 0): el placeholder sin el ejemplo (siempre PLACEHOLDER_QUIETO) → 12 / 2 (éste y el
 // del placeholder que para).
-test('dibujada: «Pídeselo a MaKo», el primer ejemplo genérico en el placeholder y sin los ejemplos de props', () => {
+// DECIMOCUARTA (puntos 1 y 2): la caja es la del Landing Generator (`CajaPedido`), sin cabecera: ni el título, ni el logo, ni «Nace
+// pausada». La dicta el micrófono de la casa (`BotonDictar`), no la nota de voz de WhatsApp.
+test('dibujada: la caja del Landing Generator, el primer ejemplo genérico en el placeholder y sin los ejemplos de props', () => {
   const html = dibujar();
-  assert.match(html, new RegExp(`>${TITULO_GALERIA_IA}<`));
+  assert.doesNotMatch(html, new RegExp(`>${TITULO_GALERIA_IA}<`), 'volvió la cabecera de la barra vieja');
+  assert.doesNotMatch(html, /Nace pausada/);
+  assert.match(html, /<form class="gp-cc-caja" data-caja-pedido=""/);
+  assert.match(html, /class="gp cp-casa"/);
   assert.doesNotMatch(html, /¿Qué quieres que haga\?/);
   assert.match(html, new RegExp(`placeholder="${EJEMPLOS[0]}"`));
   assert.doesNotMatch(html, /Nutrición No Show/);
@@ -280,12 +285,13 @@ test('dibujada: «Pídeselo a MaKo», el primer ejemplo genérico en el placehol
   for (const f of ['app/automations/ChatAgentApp.tsx', 'app/automations/SimuladorWhatsApp.tsx', 'app/automations/SecuenciaPerfil.tsx']) {
     assert.doesNotMatch(sinComentarios(leer(f)), /ejemplosIA/, `${f}: volvió la cadena de los ejemplos con nombres de etapas`);
   }
-  // DECIMOTERCERA (punto 6): la nota de voz de la barra de WhatsApp (se graba, se escucha y la ➤ la manda), transcrita
-  // con lo MISMO que el dictado del Plan (`transcribirNota`, app/_components/useDictar.ts), no con una copia.
-  assert.match(html, /aria-label="Grabar nota de voz"/);
-  assert.match(CAJA, /import \{ transcribirNota \} from '@\/app\/_components\/useDictar';/);
-  // PUNTO 4: el logo de MaKo antes de «Pídeselo a MaKo», no la estrella de texto.
-  assert.ok(html.indexOf('<svg') >= 0 && html.indexOf('<svg') < html.indexOf(`>${TITULO_GALERIA_IA}<`), 'falta el logo antes del título');
+  // El micrófono de la casa (dicta en el campo) y el ↑ de enviar, apagado sin texto.
+  assert.match(html, /aria-label="Dictar el pedido"/);
+  assert.match(html, /<button type="submit" class="gp-cc-enviar" aria-label="Enviar" disabled=""/);
+  assert.match(sinComentarios(leer('app/landing-generator/CajaPedido.tsx')), /import \{ BotonDictar \} from '@\/app\/plan\/board\/CrearTareaModal';/);
+  // Sin acciones no hay «+»; con acciones, el «+» de la casa (el desplegable) con lo que pasa quien monta.
+  assert.doesNotMatch(html, /aria-label="Agregar"/);
+  assert.match(dibujar({ acciones: [{ value: 'blanco', label: 'Lienzo en blanco' }], onAccion: () => {} }), /aria-label="Agregar"/);
   assert.doesNotMatch(html, />✦</, 'volvió la estrella de texto');
   // Lo escrito que volvió (la fila no se pudo crear): está en la barra, y el ejemplo no se mueve.
   const devuelto = dibujar({ inicial: 'Avisarme cuando alguien agenda' });
@@ -305,10 +311,14 @@ test('los ejemplos son genéricos: ni etapas, ni productos, ni nombres, y en tú
 // Duodécima (romper.mjs): `!texto` sin `!tocada` → 13 / 1 (éste).
 test('el placeholder para del todo al tocar la caja, y no vuelve', () => {
   // Desde la décima tanda en la galería («Pídeselo a MaKo»); desde la decimotercera, en `BarraPideselo`.
-  assert.match(CAJA, /const ejemplo = useEjemploQueSeEscribe\(!tocada && !texto\);/);
-  assert.match(CAJA, /onPointerDownCapture=\{parar\} onFocusCapture=\{parar\}/);
+  // Decimocuarta: la caja es `CajaPedido`; el ejemplo se mueve con `animar` y el primer toque (`onTocar`) lo para.
+  assert.match(CAJA, /ejemplos=\{EJEMPLOS\} animar=\{!tocada && !texto\} placeholderQuieto=\{PLACEHOLDER_QUIETO\}/);
+  assert.match(CAJA, /onTocar=\{parar\}/);
   assert.doesNotMatch(CAJA, /setTocada\(false\)/, 'nada la vuelve a prender');
-  assert.match(CAJA, /placeholder=\{tocada \? PLACEHOLDER_QUIETO : ejemplo\}/);
+  const pedido = sinComentarios(leer('app/landing-generator/CajaPedido.tsx'));
+  assert.match(pedido, /const ejemplo = useEjemploQueSeEscribe\(animar, ejemplos\);/);
+  assert.match(pedido, /placeholder=\{animar \? ejemplo : placeholderQuieto\}/);
+  assert.match(pedido, /onPointerDown=\{onTocar\}\n\s+onFocus=\{onTocar\}/);
 });
 
 // rotura (la capa adentro del componente, sin portal): 1 fallo.
