@@ -49,4 +49,12 @@ done
 [ -z "$MIRAR" ] && exit 0
 
 # shellcheck disable=SC2086
-npx eslint --config scripts/eslint-hooks.config.mjs $MIRAR
+# De a LOTES de 40 archivos: con todos juntos en una sola línea (el Video Editor
+# sumó ~400 .tsx el 12/10/2026), Windows contesta «The command line is too
+# long», eslint no corre y el chequeo lo informaba como un hook condicional: un
+# PUSH BLOQUEADO por un error que no existía. `xargs` sale con 123 si cualquier
+# lote falla, así que un hook mal puesto sigue frenando el push igual que antes.
+# Probado rompiéndolo (12/10): un `useState` después de un `return` metido en un
+# lote → exit 123 con 1 error rules-of-hooks; sacándolo → exit 0. El push de ese
+# día eran 5 lotes.
+printf '%s\n' $MIRAR | xargs -n 40 npx eslint --config scripts/eslint-hooks.config.mjs
