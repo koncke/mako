@@ -2,59 +2,115 @@
 // EnElCodigo — lo que MaKo APLICA hoy, leído del código y no del documento
 // =============================================================================
 // El documento (docs/offer-marco.md) dice el porqué; esto dice lo que corre: las
-// piezas que el chat pregunta y las dimensiones con que diagnostica salen de
-// lib/offer-marco.ts, el mismo módulo que usan el chat, el PDF y el motor. Si el
-// documento y el código se separan, acá se ve el código — que es lo que recibe
-// el cliente.
+// piezas que el chat pregunta, las dimensiones con que diagnostica y cuándo una
+// oferta queda «lista» salen de lib/offer-marco.ts, el mismo módulo que usan el
+// chat, el PDF y el motor. Si el documento y el código se separan, acá se ve el
+// código — que es lo que recibe el cliente. (Y esa diferencia es justo lo que
+// lista la pestaña «A definir».)
 //
-// Sin 'use client': se dibuja en el servidor.
+// Tres piezas de la pestaña Criterio: los indicadores, la grilla de piezas y la
+// tabla de la rúbrica. Sin 'use client': se dibujan en el servidor.
 // =============================================================================
 
-import { Tag } from '@/app/_ui';
-import { PIEZAS, DIMENSIONES, DIMENSIONES_CRITICAS } from '@/lib/offer-marco';
+import { Tag, Status } from '@/app/_ui';
+import { PIEZAS, DIMENSIONES, DIMENSIONES_CRITICAS, dimensionLabel } from '@/lib/offer-marco';
 
-const fila: React.CSSProperties = {
-  display: 'grid', gridTemplateColumns: 'minmax(120px, 180px) minmax(0, 1fr)', gap: 14,
-  alignItems: 'baseline', padding: '9px 0', borderTop: '1px solid var(--border)',
-};
+/**
+ * Cuándo el código dice «lista para vender»: las críticas en `criticas` o más y
+ * ninguna dimensión por debajo de `piso`. Vive en `calcularDiagnostico`
+ * (lib/offer-reglas.ts) como literales; el test corre esa función con estos dos
+ * números y falla si se separan.
+ */
+export const LISTA_PARA_VENDER = { criticas: 7, piso: 5 } as const;
 
-function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+/** «a, b y c». */
+const conY = (xs: readonly string[]): string =>
+  xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`;
+
+export function Indicadores() {
+  const minimas = PIEZAS.filter((p) => p.minimo).length;
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-      <h3 style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)', margin: '0 0 8px' }}>{titulo}</h3>
-      {children}
-    </section>
+    <div className="opb-kpis">
+      <div className="opb-kpi">
+        <span className="opb-kpi__n">{PIEZAS.length}</span>
+        <span className="opb-kpi__t">piezas</span>
+        <span className="opb-kpi__s">{minimas} mínimas para analizar</span>
+      </div>
+      <div className="opb-kpi">
+        <span className="opb-kpi__n">{DIMENSIONES.length}</span>
+        <span className="opb-kpi__t">dimensiones</span>
+        <span className="opb-kpi__s">{DIMENSIONES_CRITICAS.length} críticas</span>
+      </div>
+      <div className="opb-kpi">
+        <span className="opb-kpi__n">{LISTA_PARA_VENDER.criticas}+</span>
+        <span className="opb-kpi__t">lista para vender</span>
+        <span className="opb-kpi__s">
+          en {conY(DIMENSIONES_CRITICAS.map(dimensionLabel))}; ninguna bajo {LISTA_PARA_VENDER.piso}
+        </span>
+      </div>
+    </div>
   );
 }
 
-export function EnElCodigo() {
-  const minimas = PIEZAS.filter((p) => p.minimo).length;
+export function GrillaPiezas() {
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: 28,
-      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px',
-      marginBottom: 'var(--sect-gap)',
-    }}>
-      <Bloque titulo={`Las ${PIEZAS.length} piezas · ${minimas} mínimas para analizar`}>
-        {PIEZAS.map((p) => (
-          <div key={p.key} style={fila}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontWeight: 600, color: 'var(--ink)' }}>
-              {p.label}{p.minimo && <Tag color="var(--primary)">Mínima</Tag>}
-            </span>
-            <span style={{ color: 'var(--dim)', fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>{p.que}</span>
+    <div className="opb-piezas">
+      {PIEZAS.map((p, i) => (
+        <div key={p.key} className="opb-pieza" data-minima={p.minimo}>
+          <div className="opb-pieza__cab">
+            <span className="opb-pieza__n">{String(i + 1).padStart(2, '0')}</span>
+            <span className="opb-pieza__t">{p.label}</span>
+            {p.minimo && <Tag color="var(--primary)">Mínima</Tag>}
           </div>
-        ))}
-      </Bloque>
-      <Bloque titulo={`Las ${DIMENSIONES.length} dimensiones · ${DIMENSIONES_CRITICAS.length} críticas`}>
-        {DIMENSIONES.map((d) => (
-          <div key={d.id} style={fila}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontWeight: 600, color: 'var(--ink)' }}>
-              {d.id} · {d.label}{DIMENSIONES_CRITICAS.includes(d.id) && <Tag color="var(--bad)">Crítica</Tag>}
-            </span>
-            <span style={{ color: 'var(--dim)', fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>{d.mide}</span>
-          </div>
-        ))}
-      </Bloque>
+          <p className="opb-pieza__q">{p.que}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** La rúbrica: una fila por dimensión, con lo que mide y cómo se ve cada franja. */
+export function TablaRubrica() {
+  return (
+    <div className="mk-scroll-x opb-marco">
+      <table className="opb-tabla opb-rubrica">
+        <colgroup>
+          <col style={{ width: 150 }} />
+          <col style={{ width: '22%' }} />
+          <col />
+          <col />
+          <col />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col">Dimensión</th>
+            <th scope="col">Qué mide</th>
+            <th scope="col" className="opb-mal">0-3<span className="opb-th__s">débil</span></th>
+            <th scope="col" className="opb-reg">4-6<span className="opb-th__s">a medias</span></th>
+            <th scope="col" className="opb-bien">7-10<span className="opb-th__s">fuerte</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {DIMENSIONES.map((d) => {
+            const critica = DIMENSIONES_CRITICAS.includes(d.id);
+            return (
+              <tr key={d.id} data-critica={critica}>
+                <td>
+                  <div className="opb-dim">
+                    <span className="opb-dim__id">{d.id}</span>
+                    <span className="opb-dim__t">{d.label}</span>
+                    {critica && <Status tono="warn">Crítica</Status>}
+                  </div>
+                </td>
+                <td className="opb-tenue">{d.mide}</td>
+                <td>{d.bajo}</td>
+                <td>{d.medio}</td>
+                <td>{d.alto}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

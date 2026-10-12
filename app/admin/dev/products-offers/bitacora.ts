@@ -184,6 +184,15 @@ export const BITACORA: Hito[] = [
       'supabase/migrations/0256_offer_funnel.sql — la conversación atada al funnel',
     ],
   },
+  {
+    fecha: '12 oct', hora: '01:18', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'El Playbook más simple y gráfico, una tab «A definir», la columna a la altura del chat y los adjuntos como WhatsApp',
+    pedido: '1. Simplifica mucho la tab de super admin... Primero elimina las sub tab de "precio y garantias" y "Fuentes" si para eso ya está la de autores...\n2. Y simplifica mucho, que sea más legible, más facil, más grafico... Utiliza elementos graficos, contendores, tablas, desplegables, o lo que necesites  para que sea facil de entender.\n3. Allí ponme una tab de "A definir" que sea justamente estas 9 correciones o las 4 o las que vayas teniendo... Que esta bien explicado, de manera simple que necesitas que decida.\n4. Con respecto a la tab de offer, la columna de "Tu oferta" debe ser del mismo alto que el chat.\n5. Intenté subir un documento y saltó ese error. No se si apenas lo subí ya lo quiso analizar, eso estaría mal. Solo cuando le doya ENVIAR debería... Sino, debería salir la vista previa del documento que acabo de subir, como lo tiene whatsapp, te envio un ejemplo... Fiajte que se ve la preview, y puedo agregar más documentos... Y aún escribir un mensaje abajo... Quiero que apliques este cambio no solo a offer, sino a todos los chats que consuman esto de subir documento.',
+    puntos: [
+      'El error («unsupported Unicode escape sequence») era un NUL adentro del texto del PDF, que Postgres no acepta en un jsonb: se arregló en el lector compartido de archivos (lib/texto-para-base.ts), así que lo heredan todos los que leen un archivo.',
+      'Sí, Offer leía el documento apenas se elegía (para el ✓ del chip). Se decidió que se lea recién al ENVIAR, detrás de una vista previa como la de WhatsApp que compartan todos los chats (ver el hito de implementación).',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

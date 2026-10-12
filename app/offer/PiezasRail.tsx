@@ -99,11 +99,12 @@ function Acciones({ puedeConcluir, hayConclusion, ocupado, onArmar, onVer }: Acc
 export function RielPiezas({ piezas, acciones }: { piezas: PiezasSabidas; acciones: AccionesPiezas }) {
   return (
     <aside className="of-riel" aria-label="Tu oferta" style={{ flex: 'none', width: 264, flexDirection: 'column', minHeight: 0 }}>
-      {/* La tarjeta se ACHICA (flex 0 1 auto + minHeight 0) y scrollea adentro si no
-          entra: un alto en porcentaje contra un padre que estira con flex da cero en
-          Safari (AGENTS.md, «Dos reglas de layout»). */}
+      {/* La tarjeta ESTIRA hasta el alto del chat (flex 1 1 auto: Martín, 11/10/2026, «la columna de
+          "Tu oferta" debe ser del mismo alto que el chat») y scrollea adentro si no entra (minHeight
+          0). Con flex y no con un alto en porcentaje: contra un padre que estira con flex, un
+          porcentaje da cero en Safari (AGENTS.md, «Dos reglas de layout»). */}
       <div style={{
-        flex: '0 1 auto', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14,
+        flex: '1 1 auto', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14,
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '18px 18px 20px',
       }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>

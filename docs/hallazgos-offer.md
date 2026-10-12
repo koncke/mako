@@ -214,6 +214,15 @@ luego de analizar los cursos que hablan de OFFER, así lo puedo revisar».
   investigación y contra la clase citada. Se re-verificaron a mano tres al azar (Contreras clases 084 y
   109, Carrizo 039): las tres dicen lo que la conclusión afirma. **Las citas textuales se dejaron
   afuera** (todo va parafraseado); sólo queda la del curso propio de MaKo.
+- **Rediseño del mismo día** (pedido de las 01:18 UTC del 12/10: «simplifica mucho… más gráfico»): cinco
+  pestañas («A definir» primero, Criterio, Autores, Discrepancias, Errores comunes), tablas y desplegables
+  `<details>` sin JavaScript. «Precio y garantías» pasó a un desplegable de Criterio y «Fuentes» a uno de
+  Autores; los links viejos `?tab=precio` / `?tab=fuentes` caen ahí, y un `§N.N` abre su desplegable con
+  `?ver=`.
+- **`MarkdownDoc` no entiende `*cursiva*`**: dibuja los asteriscos. El marco tiene 99; el Playbook los saca
+  al dibujar (el documento no cambia), y en `/admin/docs` se siguen viendo.
+- **El guard grande de voseo también marca nombres de constantes en mayúsculas** (`DEJALO`): mira la forma,
+  no si es copy.
 - **Trampa de Windows:** un componente `Pendientes.tsx` al lado de un módulo `pendientes.ts` —mismo
   nombre, distinta mayúscula y extensión— hace que `import './Pendientes'` resuelva al `.ts` en Windows
   (busca `.ts` antes que `.tsx` y el disco no distingue mayúsculas) y al `.tsx` en Linux. Se renombró a
@@ -221,8 +230,10 @@ luego de analizar los cursos que hablan de OFFER, así lo puedo revisar».
 
 ### El marco contra el código (cruce del 11/10/2026, contra HEAD)
 
-Lo que el código de Offer todavía no aplica del marco escrito. En pantalla va una línea por tema
-(`app/admin/offer-playbook/pendientes.ts`); acá, el dónde. Cuando se arregle uno, se saca de los dos.
+Lo que el código de Offer todavía no aplica del marco escrito. En pantalla es una tarjeta de decisión por
+tema en la pestaña «A definir» (`app/admin/offer-playbook/pendientes.ts`); acá, el dónde. Cuando se
+arregle uno, se saca de los dos. ⚠️ Los archivo:línea son de HEAD ANTES de la v2: la v2 corrió
+`lib/offer-reglas.ts` (por ejemplo, «lista para vender» quedó en las líneas 1081-1083).
 
 1. **Cifras inventadas.** El filtro es todo o nada por pieza (`lib/offer-reglas.ts:565-577`): con
    cualquier dato en Prueba o Bonos, todas sus cifras pasan; Bonos se llena sola con los NOMBRES de los

@@ -5428,3 +5428,14 @@ LF, 0. Y `git apply -3` de un parche armado en el clon sobre un worktree de `ori
 los únicos conflictos reales fueron dos áreas nuevas en la misma línea del registro de la API.
 
 *11/10/2026, chat «Graphics», integración de la tanda v4 del Dashboard (commit `6e85d8d7`).*
+
+## Un NUL adentro del texto de un PDF tira el guardado entero: «unsupported Unicode escape sequence» (11/10/2026)
+
+Martín subió un PDF a Offer y saltó «guardar la conversación #1 falló: unsupported Unicode escape
+sequence» (Postgres 22P05). El texto extraído traía un U+0000, que Postgres no acepta ni en un `text`
+ni en un `jsonb`; un sustituto UTF-16 suelto (la mitad de un emoji cortado) hace lo mismo. Se lee como
+un archivo roto de la persona y es nuestro. **Regla:** todo texto que viene de un archivo o de una página
+ajena pasa por `textoParaBase` (o `limpiarParaBase` para una fila entera) antes de la base. Ya lo hace
+`archivoATexto`, así que lo heredan Offer, los importadores del Plan y del CRM, los guiones, el doer de WhatsApp y el chat de MaKo; un
+lector nuevo que no pase por ahí (una página web, un CSV leído a mano) lo tiene que llamar.
+**Vive en:** `lib/texto-para-base.ts`, `lib/archivo-a-texto.ts`, `lib/offer-sesiones.ts`. · *2026-10-11 Offer*
