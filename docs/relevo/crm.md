@@ -6,7 +6,24 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
-## 0. Al 12/10/2026, 14:40 (chat «CRM», cuenta `claude3`, al 97% semanal)
+## 0. Al 12/10/2026, 15:30 (chat «CRM», cuenta `claude3`, al 98% semanal)
+
+### ✅ Sexto feedback del 12/10 (14:54) y el punto 3 del quinto: HECHOS en `ab720661`
+
+El desplegable de tipo va en todas las etapas. El tipo decide la lista y arrastrar a la otra lista cambia el tipo.
+Hay un «+» entre etapas. Las secciones del editor van en cajas grises con cabecera («Editar etapas», «Asignar
+campañas» con el logo de Meta, el tipo de funnel en lista). La tabla de campañas perdió «N asignadas». Sin mirar en
+el navegador.
+
+**Para la próxima:** una etapa propia marcada Nutrición SIGUE GUARDADA en `data.pipeline` (con `marcadaComo`); la saca
+del recorrido `generateFunnel` (`recorridoDe`). Una nutrición de catálogo que sube entra al pipeline con SU clave y
+apaga sus transiciones. Todo eso decide `cambiarTipo` en lib/etapa-banda.ts.
+
+**SIN HACER** (en docs/hallazgos-crm.md): los prompts que describen el recorrido leen `f.pipeline` y listan las
+nutriciones propias como pasos; y una nutrición de catálogo subida al recorrido sigue contando como nutrición para
+`NUTRI_KEYS` (lib/leads.ts, app/crm/edit-logic.ts). Siguen sin hacer las notas como los chats de MaKo y «A revisar»
+en el desplegable (§0-a).
+## 0-a0. Al 12/10/2026, 14:40 (chat «CRM», cuenta `claude3`, al 97% semanal)
 
 ### ✅ Quinto feedback del 12/10 (14:10), puntos 1, 2 y 4: HECHOS en `8ed12c64`
 

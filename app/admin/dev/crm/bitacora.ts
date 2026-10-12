@@ -1993,4 +1993,36 @@ export const BITACORA: Hito[] = [
       'tests/crm-campanas-tarjetas-12-10.test.ts',
     ],
   },
+  {
+    fecha: '12 oct', hora: '14:54', chat: 'CRM', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El desplegable de tipo en todas las etapas, el «+» entre etapas y el editor del funnel en cajas grises',
+    pedido: '1. Revisa que Facturando y las etapas de nutrición no tienen el desplegable... Todos deberían ser lo mismo, sin excepciones...\n2. El placeholder de "Nueva etapa" debería ser igual de grande que la modificación que le hiciste al alto de las tarjetas.\n3. Si arrastro el cursor entre medio de etapas debería aparecer un botón de "+" para agregar una etapa ahí en el medio.\n4. Elimina el texto "2 asignadas a VSL FUNNEL"\n5. Revisa que la topnbar de buscar campaña, con la barra de busqueda, el filtro y los nombres de las columnas tienen el fondo blanco cuando el resto es de fondo un poco gris, corrige eso y que tengan el mismo fondo medio gris.\n6. De la misma manera, todas las etapas encierralas en un contenedor del mismo gris.\n7. En lugar del texto "Anuncios a Landing", que ahí diga "Asignar campañas" y que tenga el logo de Meta, no el logo del mundo.\n8. Y abajo en el recuadro de etapas, en ese mismo lugar que diga "Editar etapas" y que tenga el logo del kanban.\n9. Y que el paso anterior donde se selecciona el tipo de funnel, que sea igual en diseño, tipo lista, no botones.',
+    puntos: [
+      'Con una captura del editor de VSL FUNNEL ya publicado (Facturando y las nutriciones sin el desplegable). Con la cuenta al 97% semanal.',
+      'A mitad de turno: «Pero no necesitas multi agente para esto... Son cambios faciles».',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '15:26', chat: 'CRM', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El tipo de una etapa decide su lista, el «+» entre etapas y las secciones del editor en cajas grises',
+    puntos: [
+      'El desplegable Etapa/Reunión/Nutrición va en todas, Facturando y las nutriciones incluidas.',
+      'Elegir el tipo muda la etapa de lista, y arrastrarla a la otra lista le cambia el tipo. Hay toast con deshacer.',
+      'El modelo vive en lib/etapa-banda.ts. Una propia marcada Nutrición sale del recorrido, y una de catálogo sube con su clave.',
+      'Hay un «+» entre dos etapas y entre nutriciones. «+ Agregar etapa» tiene el alto de las tarjetas.',
+      'Las etapas van en una caja gris con «Editar etapas»; las campañas, con «Asignar campañas» y el logo de Meta.',
+      'El tipo de funnel es una lista de tarjetas; la tabla de campañas perdió «N asignadas» y su barra es gris.',
+    ],
+    commits: [{ sha: 'ab720661', msg: 'CRM: el tipo de una etapa decide su lista, el «+» entre etapas y el editor del funnel en cajas grises', lineas: 803, archivos: 9 }],
+    archivos: [
+      'lib/etapa-banda.ts — cambiarTipo, insertarEnRecorrido, ordenConClave',
+      'lib/pipeline.ts — esNutricionPropia, recorridoDe, generateFunnel',
+      'lib/etapa-reunion.ts — puedeTenerTipo, conTipo conserva el pago',
+      'app/crm/actions.ts — op tipo con at, agregar con nutricionEn',
+      'app/crm/EtapasModal.tsx — elegirTipo, el arrastre entre listas, HuecoAgregar, CabeceraSeccion',
+      'app/crm/CampanasModal.tsx — sin «N asignadas», fondo gris en línea',
+    ],
+  },
 ];

@@ -8355,3 +8355,37 @@ bandas): el plan está en docs/relevo/crm.md §0. Y el lote ya no ofrece «Sin a
 
 **Vive en:** `app/crm/CampanasModal.tsx` · `app/crm/EtapasModal.tsx` (`SOMBRA_TARJETA`, `MARCA`) ·
 `tests/crm-campanas-tarjetas-12-10.test.ts` · *2026-10-12, chat «CRM» (claude3), sin agentes*
+
+## El tipo de una etapa decide su lista: la nutrición propia se queda en el pipeline (12/10/2026)
+
+Pedido de Martín (12/10/2026, 14:10 y 14:54): el desplegable Etapa/Reunión/Nutrición en todas las etapas, «si se
+coloca "Etapa" se desplaza automáticamente hacia arriba, y viceversa», y arrastrar a la otra lista cambia el tipo.
+Lo que no se ve en el código:
+
+- **La marca «Nutrición» dejaba la etapa en el recorrido, y había una guarda que lo FIJABA.** `marcadaComo` se
+  diseñó el mismo día para no cambiar nada (`tests/etapa-reunion.test.ts`: «marcar Nutrición NO cambia transiciones»).
+  Martín lo dio vuelta: ahora `generateFunnel` coloca y encadena sólo el recorrido (`recorridoDe`) y las marcadas van
+  a la banda. La guarda se reescribió con la decisión nueva, citando por qué cambió.
+- **La nutrición propia NO se mudó a otra clave del jsonb.** Era la salida obvia (`data.nutricionesPropias`). Pero
+  ~10 caminos guardan `data.pipeline` tal cual lo leyeron (el onboarding, la API de MaKo, cada op del editor); con la
+  etapa en otra clave, el primero que guardara sin conocerla la borraba. Se queda en el pipeline con la marca, antes
+  del cierre (`armarPipeline`), y `problemasDePipeline` mira el recorrido para no leerla como «algo después del cierre».
+- **Una nutrición de catálogo que sube al recorrido entra con SU clave** (`nutri`, `manual`…) y se suprimen sus
+  transiciones; al bajar se des-suprimen y conserva el nombre en `labels`. La clave es lo que ata a los leads a su
+  columna: con una clave nueva se habrían quedado afuera.
+- **El pago conserva su tipo** al pasar por Etapa o Nutrición (`conTipo`): un arrastre de Facturando a la banda y
+  de vuelta no puede perder «No paga aún» ni lo que pide al mover un lead.
+- **Una revisión con agentes se cortó a pedido de Martín** («no necesitas multi agente para esto... Son cambios
+  faciles»): no dejó hallazgos. Los dos de abajo salieron de leer los lectores a mano.
+
+**SIN HACER:**
+- Los prompts que describen el recorrido leen `f.pipeline` y listan una nutrición propia como un paso
+  (lib/campaign-structurer.ts, lib/ig-writer.ts, lib/landing-analyst.ts, lib/landing-writer.ts, lib/video-planner.ts;
+  también `funnel.pipeline` en lib/objectives.ts y lib/cerebro-grafo.ts). Es como era antes del cambio; el arreglo es
+  `recorridoDe(f.pipeline)`.
+- Una nutrición de catálogo subida al recorrido sigue contando como nutrición para `NUTRI_KEYS`: mover un lead ahí
+  marca `nutricion_realizada` y abre la sección de nutrición de la ficha (lib/leads.ts, app/crm/edit-logic.ts).
+
+**Vive en:** `lib/etapa-banda.ts` · `lib/pipeline.ts` (`esNutricionPropia`, `recorridoDe`, `generateFunnel`) ·
+`lib/etapa-reunion.ts` (`puedeTenerTipo`, `conTipo`) · `app/crm/actions.ts` · `app/crm/EtapasModal.tsx` ·
+`tests/crm-etapas-banda-12-10.test.ts` · *2026-10-12, chat «CRM» (claude3), sin agentes*
