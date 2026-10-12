@@ -1,24 +1,17 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
-> **RETOMADA (11/10/2026 ~17:20, cuota en 9 %) EN EL WORKTREE `C:/dev/wt-undecima` (rama `undecima`, sobre origin/main con
-> el CRON «Pagos»).** El clon compartido no se puede poner al día: más de cien archivos que origin/main cambia tienen
-> trabajo sin commitear de otra sesión (Gráficos/Dashboard), y un rebase con autostash los rompería. La corrida
-> `wf_b4e3948d-3dc` sigue con los relevos del caché y escribe SÓLO en el worktree; se pushea desde ahí
-> (`git push origin undecima:main` tras rebasear). node_modules es un junction: antes de `git worktree remove`, sacarlo
-> con `cmd /c rmdir` (AGENTS.md).
->
-> **FRENADA CON EL DISEÑO HECHO (11/10/2026 ~15:47, `claude3` al 92 % semanal): la UNDÉCIMA tanda** (13 puntos con
-> capturas, pedido literal en el último hito de la bitácora, + las decisiones 2, 3 y 4 de la décima; la 1 la reemplaza
-> el punto 11). El diseño COMPLETO está en `docs/diseno-undecima-tanda.md`: los flujos de prod antes/después tarjeta
-> por tarjeta (§3), lo que el motor tiene que aprender antes de mover datos (§4), paquetes y olas (§8) y 33 decisiones
-> con la recomendada primero (§9). NO se implementó nada (no hay código de esta tanda en el árbol). Para seguir:
-> `Workflow({scriptPath: …/workflows/scripts/undecima-tanda-automations-wf_b4e3948d-3dc.js, resumeFromRunId:
-> "wf_b4e3948d-3dc"})` (los 8 relevos vuelven del caché; el arquitecto se cortó al devolver los paquetes y corre de
-> nuevo: puede leer el documento ya escrito), o implementar directo desde el §8. ⚠️ La migración nueva va en 0257+
-> (la 0256 la tomó Offer). ⚠️ **Antes de implementar, traer origin/main:** medido 11/10 18:50 UTC, el main local del clon NO
-> tiene el CRON «Pagos» (67b7695d, eb514e3c, 1e85eb62, pusheados desde un worktree), que toca lib/disparadores.ts,
-> EditorDisparadores, FlujoLienzo, lib/nutricion.ts, plantillas-automatizaciones, avisos-catalogo y disparadores-canales. Hallazgos de paso, sin tocar: `RESEND_API_KEY` de la plataforma vive en la fila de
-> credenciales del ws1, y el refresh token de Google Calendar del ws1 contesta invalid_grant (§10).
+> **HECHA (11/10/2026 ~22:50, `claude3`): la UNDÉCIMA tanda, `a29af1a9`, pusheada desde el worktree `C:/dev/wt-undecima`.**
+> Mig 0257 aplicada antes del deploy. Lo aprendido: `docs/hallazgos-chatbot.md` → «Undécima tanda». Datos, en este orden y
+> con el simulacro leído: `scripts/zona-negocio-backfill.mts` (ws1 y ws4 Tijuana, ws11 Cancún, ws13 canonizado),
+> `scripts/undecima-email-remitente.mts` (el resend_from del ws1 a vacío), `scripts/undecima-flujos.mts` (antes del 12/10
+> 17:00 UTC, cuando sale el primer recordatorio de la inscripción 201; ⚠️ la inscripción 203 del lead 2645 espera en
+> `nz7zsf8`, la condición que desaparece: aplicar DESPUÉS de que el motor la procese, ~02:36 UTC, o remapearla a
+> `n2199q6`). `scripts/voz-mako-agregar.mts` frena hasta que Martín pague ElevenLabs (US$6, past_due) y cargue
+> `MAKO_ELEVENLABS_API_KEY`. Después de --aplicar, la limpieza del §8.7 en commit aparte. Las 36 decisiones con la
+> recomendada primero: `docs/diseno-undecima-tanda.md` §9. El clon de OneDrive sigue sin poder ponerse al día con
+> origin/main (trabajo ajeno sin commitear): se trabaja en worktrees.
+> **EN COLA:** la tarea del Dashboard (abajo) — ⚠️ Graphics avisó (11/10 ~22:55) que empieza la v5 del Dashboard (los
+> «Bloques de MaKo» se van y cambian las operaciones del área): pedirle el estado ANTES de cablear selectores en ⚡ Acción.
 >
 > **HECHA (11/10/2026 ~12:20, `claude3`): la DÉCIMA tanda, `4e2ebc7d`, desplegada (Ready).** AI Step v2 (un caso
 > por tarjeta, objetivo, «✦ Armar el resto», ensayo, respuesta en audio), Configuraciones (horario + límites),

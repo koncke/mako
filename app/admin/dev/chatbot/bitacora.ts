@@ -1447,4 +1447,20 @@ FEEDBACK PROBAR:
       "En cola DESPUÉS de la undécima (toca lib/disparadores.ts, avisos-catalogo y plantillas); la cuenta está al 92 % semanal.",
     ],
   },
+  {
+    fecha: "11 oct", hora: "22:50", chat: "chatbot", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Undécima tanda hecha: los flujos con las piezas de hoy, un AI Step por objetivo, datos citables y MaKo con voz",
+    puntos: [
+      "«Un Lead Agendó Llamada»: el motor lleva los recordatorios (1 día / 1 h / 15 min antes) y el aviso al equipo dentro del mismo flujo; scripts/undecima-flujos.mts rehace #198 y #213 en el lugar, archiva #228, #239, #240, #223 y #224, y crea la de ws13.",
+      "Nada inventado: {{mensaje_mako}} fuera, CONDITION seguidas frenadas, los eventos de antes salen del selector del CRON.",
+      "Un AI Step por medio con objetivo y escenarios; editor en 4 pasos; «Libertad» es un desplegable de 3.",
+      "Un catálogo de datos citables entero, azules y clickeables al editar; «MaKo en WhatsApp» con el editor de WhatsApp y la Voz de MaKo (mig 0257); email sin remitente de MaKo; zona única por negocio; barra lateral sin secciones; 13 plantillas.",
+      "Hecho en el worktree C:/dev/wt-undecima (el clon compartido tenía trabajo ajeno sin commitear sobre los archivos que origin cambiaba). A pedido de Martín se recortó la revisión adversarial («Recortar todo lo posible»): typecheck y suite enteros en verde.",
+    ],
+    commits: [
+      { sha: "a29af1a9", msg: "Automations, undécima tanda: los flujos con las piezas de hoy, un AI Step por objetivo, datos citables y MaKo con voz", lineas: 21436, archivos: 216 },
+    ],
+    archivos: ["docs/diseno-undecima-tanda.md", "docs/hallazgos-chatbot.md — «Undécima tanda»", "docs/relevo/chatbot.md"],
+  },
 ];
