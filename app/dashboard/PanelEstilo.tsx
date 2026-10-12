@@ -12,7 +12,7 @@
 // variables CSS y `CuerpoGrafico` lee `estiloEfectivo(tema)`. Las tres secciones:
 //   · PLANTILLAS: el catálogo cerrado, cada una con una muestra chiquita hecha con SU tarjeta, SU paleta
 //     y SU letra (no una foto: si la plantilla cambia, la muestra cambia sola).
-//   · COLOR: la paleta de la plantilla y «Otro color». El color nativo dispara un cambio por cada
+//   · COLOR: la paleta de la plantilla y «Otro color» (un círculo más, con la rueda). El color nativo dispara un cambio por cada
 //     píxel que se arrastra: va con un respiro de 450 ms (el molde de CursoApp.tsx), así cada gesto es
 //     UN paso del deshacer y no cuarenta. Elegir el primero de la paleta es volver al de la plantilla.
 //   · LETRA: las TIPOGRAFIAS, cada una escrita con su propia letra (se bajan al abrir el panel, con
@@ -20,6 +20,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useHojasDeFuentes } from '@/app/_cursos/SelectorFuente';
+import { RUEDA_COLOR } from '@/app/_ui/rueda-color';
 import { PLANTILLAS_TEMA, TIPOGRAFIAS, hexONull, paletaDe, plantillaDe, tipografiaDe, type PlantillaTema, type TemaHoja } from '@/lib/graficos-temas';
 
 const RESPIRO_COLOR_MS = 450;
@@ -61,6 +62,7 @@ export function PanelEstilo({ tema, onCambiar }: { tema: TemaHoja; onCambiar: (p
   }, []);
 
   const acentoVisto = probando ?? paleta[0];
+  const enPaleta = p.paleta.some((c) => c.toLowerCase() === acentoVisto.toLowerCase());
 
   return (
     <div className="lk-estilo" onClick={(e) => e.stopPropagation()}>
@@ -81,9 +83,11 @@ export function PanelEstilo({ tema, onCambiar }: { tema: TemaHoja; onCambiar: (p
           <button key={c} type="button" className="lk-color" style={{ background: c }} aria-label={`Color ${c}`} title={c}
             aria-pressed={acentoVisto.toLowerCase() === c.toLowerCase()} onClick={() => { setProbando(null); elegirAcento(c); }} />
         ))}
-        <label className="lk-color-otro" title="Otro color">
-          <span aria-hidden className="lk-color" style={{ background: acentoVisto, width: 16, height: 16, boxShadow: 'none', border: 'none' }} />
-          Otro color
+        {/* «Otro color» es un círculo más, con la rueda arcoíris de la casa (app/_ui/rueda-color.ts) y el selector
+            del sistema encima, invisible (tanda v5, punto 17: era una pastilla con texto). Si el color elegido no es
+            de la paleta, la rueda queda marcada y lleva un punto con ese color: si no, no se sabe qué quedó. */}
+        <label className="lk-color lk-color--rueda" title="Otro color" style={{ background: RUEDA_COLOR }} data-elegido={!enPaleta || undefined}>
+          {!enPaleta && <span aria-hidden className="lk-color-punto" style={{ background: acentoVisto }} />}
           <input type="color" value={acentoVisto} aria-label="Otro color" onChange={(e) => probar(e.target.value)} />
         </label>
       </div>

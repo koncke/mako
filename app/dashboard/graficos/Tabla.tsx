@@ -17,11 +17,16 @@
 //     columnas de texto; las arma el agregador en `FilaResultado.extra`.
 //   · En el mapa de calor, una métrica de «menos es mejor» se tiñe de rojo: más alto, peor.
 //   · Letra: nada por debajo de 13 px (las cabeceras, en la letra de la hoja y sin mayúsculas en mono).
+//   · LAS ACCIONES EN LA FILA (v5, `Grafico.tabla.acciones`: «Marcar cobrada» de un clic con Deshacer): una columna
+//     al final, la MISMA del detalle de un número (../entidades/acciones-fila.tsx). La pide `useColumnaAcciones`, que
+//     sin su provider (editando, en un link compartido, o una tabla sin acciones) no dibuja nada. Su ancho se
+//     descuenta ANTES de decidir qué columnas entran.
 
 import { type KeyboardEvent } from 'react';
 import { fmtValor, OTROS, type FilaResultado, type Resultado } from '@/lib/graficos-agregar';
 import { columnasQueEntran, textoConMuestra } from '@/lib/graficos-gordo';
 import { useMedida } from './medida';
+import { useColumnaAcciones } from '../entidades/acciones-fila';
 
 export type ColumnaExtra = { id: string; nombre: string };
 /** Las dimensiones extra de una fila (`FilaResultado.extra`, las arma el agregador): su texto, o vacío. */
@@ -37,7 +42,7 @@ function propsFila(clave: string, alFila?: (clave: string) => void) {
 
 type Col = { tipo: 'metrica'; i: number } | { tipo: 'extra'; id: string; nombre: string };
 
-const ANCHO = { nombre: 160, barra: 200, numero: 104, extra: 128 };
+const ANCHO = { nombre: 160, barra: 200, numero: 104, extra: 128, acciones: 160 };
 
 export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, compacto, alFila }: {
   r: Resultado; modo: 'plana' | 'barras' | 'calor';
@@ -49,13 +54,14 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
   total: boolean; compacto: boolean; alFila?: (clave: string) => void;
 }) {
   const [ref, tam] = useMedida<HTMLDivElement>();
+  const acciones = useColumnaAcciones();
   const conBarra = modo === 'barras' && barraEn >= 0 && barraEn < r.columnas.length;
   // El orden: el nombre, la de la barra (segunda), las extras, el resto de las métricas.
   const resto: Col[] = [
     ...extras.map((e): Col => ({ tipo: 'extra', id: e.id, nombre: e.nombre })),
     ...r.columnas.map((_, i): Col => ({ tipo: 'metrica', i })).filter((c) => !(conBarra && c.tipo === 'metrica' && c.i === barraEn)),
   ];
-  const ancho = tam?.w ?? 0;
+  const ancho = Math.max(0, (tam?.w ?? 0) - (acciones ? ANCHO.acciones : 0));
   const anchoBarra = conBarra ? Math.min(360, Math.max(ANCHO.barra, Math.round(ancho * 0.34))) : 0;
   const entran = ancho ? columnasQueEntran(ancho, resto.length, { nombre: ANCHO.nombre, barra: anchoBarra, numero: ANCHO.numero }) : resto.length;
   const visibles = resto.slice(0, entran);
@@ -78,6 +84,7 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
           <col />
           {conBarra && <col style={{ width: anchoBarra }} />}
           {visibles.map((c) => <col key={c.tipo === 'extra' ? c.id : c.i} style={{ width: c.tipo === 'extra' ? ANCHO.extra : ANCHO.numero }} />)}
+          {acciones && <col style={{ width: ANCHO.acciones }} />}
         </colgroup>
         <thead>
           <tr>
@@ -86,6 +93,7 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
             {visibles.map((c) => (c.tipo === 'extra'
               ? <th key={c.id} className="gr-izq" title={c.nombre}>{c.nombre}</th>
               : <th key={c.i} title={r.columnas[c.i].nombre}>{r.columnas[c.i].nombre}</th>))}
+            {acciones && <th aria-label="Acciones" />}
           </tr>
         </thead>
         <tbody>
@@ -104,6 +112,7 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
                   </td>
                 )}
                 {visibles.map((c) => celda(f, c))}
+                {acciones && <td>{acciones.de(f)}</td>}
               </tr>
             );
           })}
@@ -112,11 +121,13 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
               <td className="gr-izq">Total</td>
               {conBarra && <td className="gr-izq">{textoConMuestra(r.totales[barraEn], r.muestraChica?.[barraEn], r.columnas[barraEn].formato, (x) => fmtValor(x, r.columnas[barraEn].formato, compacto))}</td>}
               {visibles.map((c) => (c.tipo === 'extra' ? <td key={c.id} /> : <td key={c.i}>{textoConMuestra(r.totales[c.i], r.muestraChica?.[c.i], r.columnas[c.i].formato, (x) => fmtValor(x, r.columnas[c.i].formato, compacto))}</td>))}
+              {acciones && <td />}
             </tr>
           )}
         </tbody>
       </table>
       {r.fuera > 0 && <p className="gr-mas">+{r.fuera} más</p>}
+      {acciones?.nodo}
     </div>
   );
 }

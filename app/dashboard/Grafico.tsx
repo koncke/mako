@@ -36,7 +36,7 @@ import {
   AreaChart, Area, ComposedChart, Treemap, Sankey, FunnelChart, Funnel, LabelList,
 } from 'recharts';
 import { Spinner } from '@/app/_ui';
-import { destinoDetalle, dimensionDe, fuenteDe, metricaDe, tipoDe, tonoDe, type Formato, type Grafico as G } from '@/lib/graficos-catalogo';
+import { destinoDetalle, dimensionDe, fuenteDe, metricaDe, tipoDe, tonoDe, type Efectivo, type Formato, type Grafico as G } from '@/lib/graficos-catalogo';
 import { alternarSerie, serieOculta, type SelDetalle } from '@/lib/graficos-acciones';
 import { colorDeTono, estiloEfectivo, fondoDeTarjeta, type TemaHoja } from '@/lib/graficos-temas';
 import {
@@ -154,7 +154,7 @@ function SoloNumero({ r, compacto }: { r: Resultado; compacto: boolean }) {
  * `onDetalle` (opcional): con él, el gráfico es clickeable — ver la cabecera. Quien lo monta lo pasa sólo
  * mirando: editando, un clic selecciona la tarjeta.
  */
-export function CuerpoGrafico({ g, estado, tema, onDetalle }: { g: G; estado: EstadoDatos; tema: TemaHoja; onDetalle?: (sel: SelDetalle) => void }) {
+export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; estado: EstadoDatos; tema: TemaHoja; onDetalle?: (sel: SelDetalle) => void; efectivo?: Efectivo }) {
   // Las series apagadas desde la leyenda. Estado de la VISTA: no se guarda en el informe.
   // (Arriba de todo: un hook detrás de un `return` es la pantalla en blanco de AGENTS.md.)
   const [ocultas, setOcultas] = useState<ReadonlySet<string>>(() => new Set());
@@ -162,7 +162,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle }: { g: G; estado: Es
   // El hueco de la ola 2: un tipo con dibujo propio (el mapa de calor de página) recibe todo y dibuja él.
   const Propio = DIBUJOS_PROPIOS[g.tipo];
   const cuerpo = ((): ReactNode => {
-    if (Propio) return <Propio g={g} estado={estado} tema={tema} onDetalle={onDetalle} />;
+    if (Propio) return <Propio g={g} estado={estado} tema={tema} onDetalle={onDetalle} efectivo={efectivo} />;
     if (TIPOS_CON_DIBUJO_PROPIO.includes(g.tipo)) return <Mensaje>Este gráfico todavía no se puede dibujar</Mensaje>;
     const r0 = estado.resultado;
     if (!r0) return <Mensaje>{estado.error ?? <Spinner size={20} />}</Mensaje>;

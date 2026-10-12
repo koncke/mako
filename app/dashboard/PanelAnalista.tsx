@@ -9,7 +9,7 @@
 //
 // Dos piezas: `useAnalisisNuevo` (el punto de «hay un análisis nuevo sin ver»; desde la tanda de la
 // topbar, 11/10/2026, el AI Analyst se abre desde el ⋮ de la topbar y el punto va ahí) y `PanelAnalista`
-// (el panel del costado). Acá viven también los botones de MaKo de la tab en su versión CHICA (sólo el
+// (el panel del costado, SUPERPUESTO a la grilla desde v5: no la empuja). Acá viven también los botones de MaKo de la tab en su versión CHICA (sólo el
 // logo sobre negro, punto 3 de esa tanda): `ChatMakoGrafico` y `LogoMako`. El trabajo lo hace el server
 // (app/api/graficos/analisis → lib/graficos-analisis-server.ts): acá no se serializa nada para el
 // modelo, a propósito. Lo único que se usa de `loQueSeVe` es la FIRMA de lo que se ve ahora, para
@@ -595,21 +595,24 @@ const CAJA_CHAT: CSSProperties = {
 const CAB_CHAT: CSSProperties = { flex: 'none', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderBottom: '1px solid var(--border)' };
 const CAMPO: CSSProperties = { height: 32, padding: '0 10px', borderRadius: 8, gap: 6, fontSize: 13 };
 
-// ⚠️ EN LA COMPU ES UNA COLUMNA DE LA FILA DEL LIENZO (`.lk-cuerpo`, un flex en FILA), como el panel de
-// propiedades: el lienzo se ACHICA y los gráficos se reacomodan. Encima (fixed) tapaba la cuarta columna
-// de tarjetas, o sea parte de lo que el análisis comenta (medido en Chrome el 11/10/2026). Era fixed
-// porque antes se montaba al final de `.lk-app`, que es una COLUMNA, y ahí caía debajo de la grilla.
-// En el celular (≤ 760 px) sí va encima, a pantalla completa: al lado no entra.
-//   · z 56 (en el celular): arriba de la esquina de los avisos (55, app/_components/EsquinaAvisos.tsx) — el panel es
-//     algo que la persona ABRIÓ, y un aviso no le puede tapar los botones de abajo — y debajo de los
-//     modales (130, la pila) y de los menús del editor (580): el detalle de un gráfico se abre encima.
-//   · arriba descuenta `--barra-agencia`, como el resto de lo que va pegado al borde de la ventana.
+// ⚠️ SUPERPUESTO, COMO EL PANEL DE PROPIEDADES (tanda v5, punto 19: «que no empuje el lienzo»). Hasta v4 era una
+// COLUMNA de la fila del lienzo (`.lk-cuerpo`, un flex en fila): al abrirlo, el lienzo perdía 360 px, la grilla
+// recibía otro `width` y TODAS las tarjetas se re-maquetaban (los gráficos que el análisis comenta cambiaban de
+// tamaño al abrirlo). Ahora flota arriba de la grilla, pegado a la derecha y con su sombra: tapa sus últimos 360 px
+// y la grilla no se entera. Antes de v4 había sido `fixed` (montado al final de `.lk-app`, una COLUMNA): eso tapaba
+// también la topbar. `absolute` contra `.lk-cuerpo` (que tiene que ir `position: relative`: lo pone P5 para el panel
+// de propiedades) lo deja entre la barra de edición y el borde de abajo, quieto mientras la grilla scrollea (no va
+// adentro de `.lk-lienzo`, que es lo que scrollea).
+//   · z 21: arriba de una tarjeta que se arrastra (react-grid-layout le pone 3) y del panel de propiedades (20), y
+//     debajo de los menús del editor (580) y de los modales (130, la pila): el detalle de un gráfico se abre encima.
+//   · `flex: none` queda: no hace nada en un `absolute`, y es lo que mira tests/dashboard-pantalla.test.ts.
+//   · En el celular (≤ 760 px) va encima a pantalla completa, fixed: al lado no entra.
 //   · al imprimir no sale: `.lk-app *` se fuerza visible para el PDF, y el panel no es parte del informe.
 const CSS = `
-.an { flex: none; align-self: stretch; width: 360px; max-width: 100vw;
+.an { flex: none; position: absolute; top: 12px; right: 12px; bottom: 12px; z-index: 21; width: 360px; max-width: calc(100% - 24px);
   box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column;
-  background: var(--surface); color: var(--ink); border-left: 1px solid var(--border);
-  font-family: 'Geist', system-ui, sans-serif; }
+  background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(18,21,27,.18); font-family: 'Geist', system-ui, sans-serif; }
 @media print { .an { display: none !important; } }
 .an-cab { display: flex; align-items: center; gap: 8px; padding: 12px 10px 10px 16px; border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 1; background: var(--surface); }
@@ -641,5 +644,5 @@ const CSS = `
 .an-fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .an-checks { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
 .an-check { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.35; color: var(--ink); cursor: pointer; }
-@media (max-width: 760px) { .an { position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; z-index: 56; width: 100%; border-left: none; } }
+@media (max-width: 760px) { .an { position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; z-index: 56; width: 100%; max-width: 100vw; border: none; border-radius: 0; box-shadow: none; } }
 `;

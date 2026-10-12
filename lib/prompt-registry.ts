@@ -76,6 +76,7 @@ import { ARMAR_AI_STEP_SYSTEM_TEMPLATE } from './ai-step-armar';
 import { OBJECIONES_SYSTEM_TEMPLATE } from './ai-step-ensayo';
 import { HOJA_IA_SYSTEM_TEMPLATE } from './graficos-ia';
 import { ANALISTA_SYSTEM_TEMPLATE } from './graficos-analisis';
+import { ELEMENTO_IA_SYSTEM_TEMPLATE } from './graficos-ia-elemento';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
@@ -505,6 +506,13 @@ export const REGISTRY: Group[] = [
         variables: [], scope: 'static-only', sensitive: false,
         default: ANALISTA_SYSTEM_TEMPLATE,
         context: 'El botón «AI Analyst» del Dashboard y su análisis programado: MaKo lee lo que muestran los gráficos de una hoja y dice qué pasa y qué conviene hacer. No le pidas que invente números: sólo puede citar los que le llegan (lib/graficos-analisis.ts).',
+      },
+      {
+        key: 'dashboard.elemento_ia.system', source: 'override',
+        label: 'Conclusiones de MaKo del Dashboard (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: ELEMENTO_IA_SYSTEM_TEMPLATE,
+        context: 'Las cajas «Conclusiones de MaKo» del Dashboard: lo que pide quien armó la hoja va en el user como un DATO, abajo de estas reglas. No le pidas que invente números ni que escriba más de lo que pide el «Largo»: el código descarta lo que no se apoya en los datos y corta el largo (lib/graficos-ia-elemento.ts).',
       },
       {
         key: 'chatbot.editar-ia.system', source: 'override',

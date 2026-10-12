@@ -17,25 +17,25 @@
 //     AI Analyst, Exportar (CSV y PDF) y la guía. Sin pestañas, sin el ícono de la tab, sin «Restablecer
 //     el informe» y sin «Guardado»: un guardado que falla avisa con un toast.
 //   · LA BARRA DE EDICIÓN, sólo editando, DEBAJO de la topbar (la topbar no se mueve al apretar Editar),
-//     en el orden de la de Looker: deshacer, rehacer · Añadir datos · Añadir un gráfico (con los bloques
-//     de MaKo) · lo que se inserta, un ícono por cosa (`BARRA_INSERTAR`, ./Galeria.tsx) · y a la derecha
-//     Estilo de la hoja (./PanelEstilo.tsx).
+//     en el orden de la de Looker: deshacer, rehacer · Añadir datos · Añadir un gráfico · lo que se
+//     inserta, un ícono por cosa (`BARRA_INSERTAR`, ./Galeria.tsx) · y a la derecha Estilo de la hoja
+//     (./PanelEstilo.tsx).
 //   · EL LIENZO, que es lo único que scrollea: la grilla. Una sola superficie: var(--bg) de punta a punta
 //     (./editor-css.ts), sin filete entre la topbar y el lienzo.
 //   · EL PANEL DE PROPIEDADES, sólo con algo elegido (./Propiedades.tsx): el CONTENIDO del componente.
-//   · EL AI ANALYST, un panel del costado en la misma fila que el lienzo (./PanelAnalista.tsx): es un
-//     `aside` de alto completo, no un modal.
+//   · EL AI ANALYST, un panel en la fila del lienzo (./PanelAnalista.tsx): es un `aside` de alto completo,
+//     no un modal.
 //
 // ESTADO, en tres capas que no se mezclan:
 //   1. EL INFORME (`tablero`): lo que se guarda. Todo cambio pasa por `mutar`, que apila el deshacer, y
 //      se autoguarda con un respiro. Si la lectura falló (`lecturaFallo`), NO se guarda nada: el primer
 //      cambio pisaría el informe real de la persona.
-//   2. LA VISTA (`vista`): lo que alguien elige en un control MIRANDO. Es como en Looker: no se guarda, no
-//      pasa por `mutar` y no dispara el autoguardado (tests/dashboard-pantalla.test.ts).
-//   3. LOS DATOS: los pide cada gráfico y cada bloque con `efectivoDe` (el período, los filtros y el
-//      «agrupar por» que le tocan, lib/graficos-catalogo.ts), y sólo si cambió su FIRMA (./exportar.ts).
-//      `version` sube con `refrescar()`, después de una acción que cambia los datos (marcar una cuota
-//      cobrada en el detalle o en un bloque).
+//   2. LA VISTA (`vista`): lo que alguien elige en un control MIRANDO, y desde v5 qué secciones están
+//      plegadas (`plegadasVista`). Es como en Looker: no se guarda, no pasa por `mutar` y no dispara el
+//      autoguardado (tests/dashboard-pantalla.test.ts).
+//   3. LOS DATOS: los pide cada gráfico con `efectivoDe` (el período, los filtros y el «agrupar por» que le
+//      tocan, lib/graficos-catalogo.ts), y sólo si cambió su FIRMA (./exportar.ts). `version` sube con
+//      `refrescar()`, después de una acción que cambia los datos (marcar una cuota cobrada en el detalle).
 //
 // ⚠️ MIRAR NO GUARDA: la grilla avisa un cambio también al MONTAR, cuando compacta lo que vino. Así se
 //    guardó el informe de Mauricio el 11/10 a las 01:59 sin que tocara nada. `alMoverGrilla` sólo
@@ -53,19 +53,37 @@
 //     buscarla. No se apila en el deshacer: no es un cambio suyo.
 //   · `soloLectura` (el closer, decisión 6 de Martín): sin Editar, sin Nueva hoja, sin menú de hoja, sin
 //     AI Analyst ni el chat de MaKo de cada gráfico, sin el detalle de un número y sin guardar nunca;
-//     Exportar sí. ⚠️ La pantalla sólo esconde: lo que cierra es /api/graficos (`closerPuedePedir`).
+//     Exportar sí, y desde v5 los POP-UPS (la ficha de una llamada de la tabla «Las llamadas» era lo que su
+//     bloque hacía). ⚠️ La pantalla sólo esconde: lo que cierra es /api/graficos (`closerPuedePedir`).
 //   · `llamadaInicial` (`?llamada=`): abre la ficha de esa llamada (./bloques/extra/FichaLlamada.tsx);
 //     al cerrarla se saca de la URL con el mismo replaceState que usa la hoja.
 //
 // `compartido` (punto 9, el link que arma el paquete «Compartir»): quien lo abre NO tiene sesión. Sin
 // Editar, sin Compartir, sin AI Analyst, sin «Nueva hoja» ni el menú de una hoja, sin el chat de MaKo de
-// cada gráfico, sin el DETALLE de un número (son listas de personas: el endpoint público lo contesta 403,
-// así que el clic no lo ofrece), sin guía y sin guardar nunca; el ⋮ sólo con Exportar. Y TODO lo que se
-// LEE va a /api/compartido/graficos con el token, el id de la hoja y el de cada componente
+// cada gráfico, sin el DETALLE de un número ni los pop-ups (son listas de personas: el endpoint público lo
+// contesta 403, así que el clic no lo ofrece), sin guía y sin guardar nunca; el ⋮ sólo con Exportar. Y TODO
+// lo que se LEE va a /api/compartido/graficos con el token, el id de la hoja y el de cada componente
 // (`pedidoDeLectura`, ./lectura-compartida.ts, que es el contrato con ese endpoint). Igual que con el
 // closer: la pantalla sólo esconde; lo que cierra es el endpoint.
+//
+// TANDA v5 (12/10/2026, contrato docs/relevo/dashboard-v5.md, paquete «Edición»):
+//   · LA VERSIÓN: el autoguardado manda la versión que leyó y va en COLA, uno detrás del otro
+//     (./guardado.ts). Con un 409 deja de guardar y lo dice, con «Recargar».
+//   · EL PANEL SUPERPUESTO (punto 19): el de propiedades va ENCIMA del lienzo, del lado opuesto a lo elegido
+//     (el lado se fija AL ELEGIR, no mientras se arrastra), y el lienzo no cambia de ancho (./edicion-css.ts).
+//   · LA SECCIÓN (puntos 12 y 24): plegar es estado de la vista; lo plegado sale de la grilla y no pide datos,
+//     y lo que la grilla avisa de vuelta se traduce a lo guardado (lib/graficos-secciones.ts) para que editar
+//     con algo plegado no pierda el orden. En el PDF sale todo desplegado.
+//   · LOS CONECTORES (punto 11, ./Conectores.tsx): una capa encima de la grilla; borrar una tarjeta borra los
+//     suyos en el MISMO cambio (un Deshacer los devuelve juntos).
+//   · EL POP-UP (punto 7, ./Popup.tsx): mirando, un clic en un gráfico con `alClic: 'popup'` abre su mini-hoja
+//     con el contexto de lo clickeado. Editando, «Editar el pop-up» pone el lienzo sobre la mini-hoja del
+//     gráfico (`lienzo`), con una miga para volver, la misma grilla y la misma barra de insertar, y la primera
+//     fila del gráfico como muestra.
+//   · Los montajes de los otros paquetes: el «Filtro» de cada tarjeta (./MenuFiltro.tsx, interfaz I1) y la
+//     barra de búsqueda de una tabla (./BuscarEnHoja.tsx, I2).
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
 import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } from 'react-grid-layout';
 import { absoluteStrategy } from 'react-grid-layout/core';
 import 'react-grid-layout/css/styles.css';
@@ -79,34 +97,43 @@ import { useHojasDeFuentes } from '@/app/_cursos/SelectorFuente';
 import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
 import {
-  AREAS, COLS, FUENTES, MAX_COMPONENTES, MAX_CONTROLES, MAX_HOJAS, TIPOS_ELEMENTO,
-  campoDe, efectivoDe, esBloque, esElemento, esGrafico, minimoDeElemento, nuevoBloque, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
-  sanearComponente, sanearControlVista, sanearControles, tituloDe, tonoDe,
-  type BloqueId, type Componente, type ControlVista, type Efectivo, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
+  AREAS, COLS, FUENTES, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
+  abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, minimoDeElemento, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
+  sanearComponente, sanearControlVista, sanearControles, sanearElemento, tituloDe, tonoDe,
+  type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
 import { colorDeTono, estiloEfectivo, letrasDe, paletaDe, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
 import { conHojaAgregada } from '@/lib/graficos-plantillas';
+import { aGuardado, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, type GrupoSeccion } from '@/lib/graficos-secciones';
+import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-conectores';
 import type { Resultado } from '@/lib/graficos-agregar';
 import type { DatosGrafico } from '@/lib/graficos-datos';
 import type { DatosBloque } from '@/lib/graficos-bloques';
-import type { SelDetalle } from '@/lib/graficos-acciones';
-import { CuerpoGrafico, esTarjetaNumero, type EstadoDatos } from './Grafico';
-import { CuerpoBloque, type EstadoBloque } from './bloques/CuerpoBloque';
-import { CuerpoElemento, IconoElemento, PropsElemento } from './Elemento';
+import { accionInicial, entidadDeGrafico, piezaInicial, type SelDetalle } from '@/lib/graficos-acciones';
+import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, type EstadoDatos } from './Grafico';
+import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } from './Elemento';
 import { NuevaHoja } from './NuevaHoja';
 import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
-import { BarraControles, ChipsControles } from './BarraControles';
+import { BarraControles } from './BarraControles';
+import { MenuFiltro } from './MenuFiltro';
+import { BuscarEnTabla } from './BuscarEnHoja';
 import { DetalleModal } from './Detalle';
 import { FichaLlamada } from './bloques/extra/FichaLlamada';
 import { BarraSuperior, MenuHojas } from './Cabecera';
-import { BotonCompartir } from './CompartirInforme';
-import { PropsBloque, PropsGrafico } from './Propiedades';
+import { BotonCompartir, RenglonCompartir } from './CompartirInforme';
+import { PropsGrafico } from './Propiedades';
 import { PanelEstilo } from './PanelEstilo';
+import { FondosSecciones } from './Seccion';
+import { CapaConectores, PropsConector } from './Conectores';
+import { PopupGrafico, contextoPopupDe, entidadAbierta, hojaDelPopup, muestraDe, type ContextoPopup } from './Popup';
 import {
-  BARRA_INSERTAR, Flotante, Galeria, MenuElementos, MenuInsertar, SvgAgregarDatos, SvgAgregarGrafico, SvgDeshacer, SvgEstilo, SvgFlecha, SvgInsertar, SvgLapiz, SvgLupa, SvgOjo,
+  Flotante, Galeria, MenuElementos, MenuInsertar, SvgAgregarDatos, SvgAgregarGrafico, SvgDeshacer, SvgEstilo, SvgFlecha, SvgInsertar, SvgLapiz, SvgLupa, SvgOjo,
+  lugaresInsertar, type MenuBarra, type OpcionInsertar,
 } from './Galeria';
 import { CSS } from './editor-css';
-import { contextoDeGrafico, csvDeHoja, enOrden, loQueSeVeDe, nombreArchivo, pedidosDeHoja, periodoDeHoja, type PedidosHoja } from './exportar';
+import { CSS_EDICION } from './edicion-css';
+import { conBusqueda, contextoDeGrafico, csvDeHoja, enOrden, idBusquedaDe, loQueSeVeDe, nombreArchivo, pedidosDeHoja, periodoDeHoja, type PedidosHoja } from './exportar';
+import { crearColaGuardado, leerRespuestaGuardado, type ColaGuardado } from './guardado';
 import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
 
@@ -123,19 +150,24 @@ const minimoDe = (c: Componente): { w: number; h: number } => (esElemento(c) ? m
 /** Cuánto espera el respiro del autoguardado y el de los pedidos de datos. */
 const RESPIRO_GUARDAR_MS = 700;
 const RESPIRO_DATOS_MS = 250;
+/** Lo más que espera el PDF a que lleguen los datos de lo que estaba plegado. */
+const ESPERA_PDF_MS = 15_000;
 
-/** Los flotantes del editor: uno a la vez. `hojas` es el desplegable del título; `mas`, el ⋮ de la topbar. */
+/**
+ * Los flotantes del editor: uno a la vez. `hojas` es el desplegable del título; `mas`, el ⋮ de la topbar;
+ * `menuInsertar`, uno de los menús de la barra de inserción (`BARRA_INSERTAR`, el que nombra `lugar`).
+ */
 type Menu =
-  | { ancla: HTMLElement; tipo: 'graficos' | 'cambiarTipo' | 'insertar' | 'lineas' | 'formas' | 'estilo' | 'mas' | 'hojas' | 'emoji' }
+  | { ancla: HTMLElement; tipo: 'graficos' | 'cambiarTipo' | 'insertar' | 'estilo' | 'mas' | 'hojas' | 'emoji' }
+  | { ancla: HTMLElement; tipo: 'menuInsertar'; lugar: MenuBarra }
   | null;
+
+/** Lo que se abrió con un clic mirando: el gráfico, lo clickeado, su período y la hoja de ese momento. */
+type PopupAbierto = { g: Grafico; ctx: ContextoPopup; periodo: { desde: string; hasta: string }; hoja: Hoja };
 
 function aEstado(d: DatosGrafico | undefined): EstadoDatos {
   if (!d) return { cargando: true };
   return d.ok ? { cargando: false, resultado: d.resultado } : { cargando: false, error: d.error };
-}
-function aEstadoBloque(d: DatosBloque | undefined): EstadoBloque {
-  if (!d) return { cargando: true };
-  return d.ok ? { cargando: false, datos: d.datos } : { cargando: false, error: d.error };
 }
 /** Si el foco está donde se tipea, las teclas son del texto, no del editor. */
 function enUnTexto(): boolean {
@@ -143,10 +175,11 @@ function enUnTexto(): boolean {
   return !!el && (el.isContentEditable || el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT');
 }
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-/** Lo de un componente que tiene id propio (él y sus controles), nuevo: para duplicar sin compartir lo elegido mirando. */
+/** Lo de un componente que tiene id propio (él, sus controles y lo de su pop-up), nuevo: para duplicar sin compartir lo elegido mirando. */
 function conIdsNuevos(c: Componente): Componente {
   if (esElemento(c)) return { ...c, id: nuevoId() };
-  return { ...c, id: nuevoId(), controles: c.controles.map((k) => ({ ...k, id: nuevoId() })) };
+  const base = { ...c, id: nuevoId(), controles: c.controles.map((k) => ({ ...k, id: nuevoId() })) };
+  return esGrafico(c) && c.popup ? { ...base, popup: { ...c.popup, componentes: c.popup.componentes.map(conIdsNuevos) } } as Grafico : base;
 }
 const altoDe = (h: number) => h * FILA + (h - 1) * MARGEN;
 /** El `title` de un ícono suelto de la barra de inserción: la acción y su objeto («Insertar imagen»). */
@@ -162,16 +195,78 @@ function descargar(texto: string, nombre: string, tipo: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+type Caja = { x: number; y: number; w: number; h: number };
+/**
+ * El informe con las posiciones nuevas de los componentes de una hoja, o del pop-up del gráfico `duenoId` (el que
+ * se está editando). Sin cambios, el MISMO objeto: así la grilla que avisa al montar no dispara un guardado.
+ */
+function conPosiciones(t: Tablero, idHoja: string, duenoId: string | null, pos: ReadonlyMap<string, Caja>): Tablero {
+  let cambio = false;
+  const mover = (cs: Componente[]) => cs.map((c) => {
+    const it = pos.get(c.id);
+    if (!it || (it.x === c.x && it.y === c.y && it.w === c.w && it.h === c.h)) return c;
+    cambio = true;
+    return { ...c, x: it.x, y: it.y, w: it.w, h: it.h };
+  });
+  const hojas = t.hojas.map((h) => {
+    if (h.id !== idHoja) return h;
+    if (!duenoId) { const componentes = mover(h.componentes); return cambio ? { ...h, componentes } : h; }
+    const componentes = h.componentes.map((c) => (c.id === duenoId && esGrafico(c) && c.popup ? { ...c, popup: { ...c.popup, componentes: mover(c.popup.componentes) } } : c));
+    return cambio ? { ...h, componentes } : h;
+  });
+  return cambio ? { ...t, hojas } : t;
+}
+
+/**
+ * De qué lado va el panel (punto 19): del lado OPUESTO a lo elegido. Lo que ocupa casi todo el ancho (y nada
+ * elegido), a la derecha como en Looker; con el AI Analyst abierto (que va a la derecha), a la izquierda.
+ */
+function ladoDelPanel(c: Componente | null, analista: boolean): 'izq' | 'der' {
+  if (analista) return 'izq';
+  if (!c || c.w >= 10) return 'der';
+  return c.x + c.w / 2 <= COLS / 2 ? 'der' : 'izq';
+}
+
+/**
+ * Un elemento nuevo de la barra de inserción, en la hoja o en un pop-up. Los tipos que necesitan algo para
+ * existir lo traen de entrada (el saneo descarta una acción sin acción o una ficha sin pieza): una SECCIÓN nace
+ * con título (sin título y no plegable es un divisor) y con lo que trae su variante (el «Desplegable» es plegable,
+ * `inicial` de ./Galeria.tsx); una ACCIÓN y una FICHA, lo que dice el paquete de IA y entidades para ESE lugar
+ * (`accionInicial`, `piezaInicial`, lib/graficos-acciones.ts); una caja de MaKo en un pop-up lee lo que se abrió.
+ * null = no se puede (una ficha en la hoja, o en el pop-up de un gráfico que no abre una ficha).
+ */
+function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Grafico | null, inicial?: OpcionInsertar['inicial']): Elemento | null {
+  const info = TIPOS_ELEMENTO.find((x) => x.id === t);
+  if (!info) return null;
+  const ctx = { enPopup: !!dueno };
+  const base = { id: nuevoId(), tipo: t, x: 0, y: abajoDeTodo(componentes), w: info.w, h: info.h };
+  const entidad = dueno ? entidadDeGrafico(dueno) : null;
+  if (t === 'seccion') {
+    const seccion = inicial?.seccion ?? { fondo: null, plegable: false, abierto: true };
+    return sanearElemento({ ...base, texto: seccion.plegable ? 'Desplegable' : 'Sección', seccion }, ctx);
+  }
+  if (t === 'accion') return sanearElemento({ ...base, texto: '', accion: accionInicial(entidad) }, ctx);
+  if (t === 'ia') return sanearElemento({ ...base, texto: 'Conclusiones de MaKo', ia: { lee: dueno ? 'entidad' : 'hoja' } }, ctx);
+  if (t === 'entidad') return dueno && entidad ? sanearElemento({ ...base, texto: '', entidad: piezaInicial(entidad) }, ctx) : null;
+  return nuevoElemento(t, componentes);
+}
+
 export function EditorInforme({
-  inicial, datosIniciales, bloquesIniciales, lecturaFallo, hoy, hojaInicial,
+  inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
-  bloquesIniciales: Record<string, DatosBloque>;
+  /**
+   * @deprecated v5: los bloques se migran en el saneo (lib/graficos-migrar-v5.ts) y ninguno llega acá. Queda
+   * opcional hasta que la página y el link dejen de pasarlo; no se lee.
+   */
+  bloquesIniciales?: Record<string, DatosBloque>;
   lecturaFallo: boolean;
   hoy: string;
   hojaInicial: string;
+  /** La versión del informe que se leyó (`leerTablero().version`): el autoguardado la manda (compare-and-set). */
+  versionInicial?: string | null;
   /** La plantilla que pidió `?hoja=` y no estaba: se suma al informe y se guarda. */
   hojaAgregada?: Hoja | null;
   /** Un aviso para mostrar al abrir (el link pidió una hoja y el informe ya no tiene lugar). */
@@ -200,18 +295,25 @@ export function EditorInforme({
   const [vista, setVista] = useState<VistaValores>({});
   const [version, setVersion] = useState(0);
   const [imprimiendo, setImprimiendo] = useState(false);
+  // v5: las secciones plegadas MIRANDO (o editando): estado de la vista, no se guarda.
+  const [plegadasVista, setPlegadasVista] = useState<Record<string, boolean>>({});
+  // v5: el conector elegido, el modo «Conectar», el pop-up abierto mirando y el que se está editando.
+  const [conSel, setConSel] = useState<string | null>(null);
+  const [conectando, setConectando] = useState<{ desde: string | null } | null>(null);
+  const [popup, setPopup] = useState<PopupAbierto | null>(null);
+  const [editPopup, setEditPopup] = useState<string | null>(null);
+  const [enGesto, setEnGesto] = useState(false);
+  const [conflicto, setConflicto] = useState(false);
+  // Compartir (punto 3 de v5, paquete de la topbar): un renglón del ⋮ que abre el modal, montado AFUERA del menú.
+  const [compartir, setCompartir] = useState(false);
   const [datos, setDatos] = useState<Record<string, EstadoDatos>>(() => {
     const o: Record<string, EstadoDatos> = {};
     for (const [id, d] of Object.entries(datosIniciales)) o[id] = aEstado(d);
     return o;
   });
-  const [datosBloque, setDatosBloque] = useState<Record<string, EstadoBloque>>(() => {
-    const o: Record<string, EstadoBloque> = {};
-    for (const [id, d] of Object.entries(bloquesIniciales)) o[id] = aEstadoBloque(d);
-    return o;
-  });
   const { toast, show, clear } = useToast(6000);
   const { width, containerRef, mounted } = useContainerWidth();
+  const grillaRef = useRef<HTMLDivElement>(null);
   const ws = useWs();
   // Mirando sin poder guardar: la lectura falló (el primer cambio pisaría el informe real), es el closer o
   // es un link compartido.
@@ -220,11 +322,31 @@ export function EditorInforme({
   const soloMirar = soloLectura || !!compartido;
 
   const hoja = tablero.hojas.find((h) => h.id === hojaId) ?? tablero.hojas[0];
-  const sel = editando ? hoja.componentes.find((c) => c.id === selId) ?? null : null;
+  // ── El LIENZO: la hoja, o la mini-hoja del pop-up que se está editando (con la primera fila del gráfico de
+  // muestra: sus gráficos se filtran por ella, y las piezas de la ficha la abren).
+  const dueno = editando && editPopup ? (hoja.componentes.find((c): c is Grafico => c.id === editPopup && esGrafico(c) && !!c.popup) ?? null) : null;
+  const muestra = useMemo(() => (dueno ? muestraDe(dueno, datos[dueno.id]?.resultado) : null), [dueno, datos]);
+  const efectivosHoja = useMemo(() => {
+    const o: Record<string, Efectivo> = {};
+    for (const c of hoja.componentes) if (esGrafico(c)) o[c.id] = efectivoDe(conBusqueda(c), hoja, vista, hoy);
+    return o;
+  }, [hoja, vista, hoy]);
+  const lienzo = useMemo(
+    () => (dueno ? hojaDelPopup(hoja, dueno, muestra, efectivosHoja[dueno.id] ?? efectivoDe(dueno, hoja, {}, hoy)) : hoja),
+    [dueno, hoja, muestra, efectivosHoja, hoy],
+  );
+  const sel = editando ? lienzo.componentes.find((c) => c.id === selId) ?? null : null;
+  const conectorSel = editando && !dueno ? (hoja.conectores ?? []).find((k) => k.id === conSel) ?? null : null;
+
+  // ── Las secciones: qué está plegado ahora (en el PDF, nada), qué no se pide y qué no se dibuja ──────
+  const grupos = useMemo(() => gruposDe(lienzo.componentes), [lienzo.componentes]);
+  const plegadas = useMemo(() => (imprimiendo ? new Set<string>() : plegadasDe(lienzo.componentes, plegadasVista)), [lienzo.componentes, plegadasVista, imprimiendo]);
+  const noSePiden = useMemo(() => ocultosPorPlegado(lienzo.componentes, plegadas), [lienzo.componentes, plegadas]);
+  const alternarPlegado = useCallback((id: string) => setPlegadasVista((v) => ({ ...v, [id]: !plegadas.has(id) })), [plegadas]);
 
   // ── El recorrido: uno para mirar y otro para editar (el «?» abre el del lugar) ─────────────────
   // No se abre solo con un menú o un modal abierto: los flotantes del editor van por encima del velo.
-  const capaAbierta = !!menu || modalDatos || nuevaHoja || analista || !!detalle || llamada != null;
+  const capaAbierta = !!menu || modalDatos || nuevaHoja || analista || !!detalle || llamada != null || !!popup || compartir;
   // En un link compartido no hay guía: quien entra no tiene sesión (`soloLocal`: no le pregunta nada al
   // server) y el ⋮ es sólo Exportar.
   const conGuia = !compartido;
@@ -253,27 +375,43 @@ export function EditorInforme({
   const mutarHoja = useCallback((fn: (h: Hoja) => Hoja, id = hoja.id) => {
     mutar((t) => ({ ...t, hojas: t.hojas.map((h) => (h.id === id ? fn(h) : h)) }));
   }, [mutar, hoja.id]);
+  /**
+   * Los componentes del LIENZO (la hoja, o el pop-up que se edita) y, en la hoja, sus conectores: en el MISMO
+   * cambio, así un Deshacer devuelve una tarjeta borrada con sus flechas.
+   */
+  const duenoId = dueno?.id ?? null;
+  const mutarComponentes = useCallback((fn: (cs: Componente[]) => Componente[], fnCon?: (ks: Conector[]) => Conector[]) => {
+    mutarHoja((h) => {
+      if (duenoId) {
+        return { ...h, componentes: h.componentes.map((c) => (c.id === duenoId && esGrafico(c) && c.popup ? { ...c, popup: { ...c.popup, componentes: fn(c.popup.componentes) } } : c)) };
+      }
+      const componentes = fn(h.componentes);
+      if (!fnCon) return { ...h, componentes };
+      const conectores = fnCon(h.conectores ?? []);
+      return { ...h, componentes, conectores: conectores.length ? conectores : undefined };
+    });
+  }, [mutarHoja, duenoId]);
 
-  // ── Los datos: sólo lo de la hoja a la vista, y sólo si su firma cambió ───────────────────────
+  // ── Los datos: sólo lo de la hoja a la vista (sin lo plegado), y sólo si su firma cambió ──────────
   const firmaPedida = useRef<Record<string, string> | null>(null);
   if (firmaPedida.current === null) {
     // Lo que trajo el server en la primera pintada ya está pedido: con la vista vacía y la versión 0,
     // con la MISMA función que usó page.tsx (y sobre el MISMO informe: el que incluye la hoja agregada).
+    // Sin `ocultos`: se anota la firma de todo lo que LLEGÓ, y lo que el server no pidió no está en
+    // `datosIniciales`, así que se pedirá al abrirse.
     const h0 = arranque.hojas.find((h) => h.id === hojaInicial) ?? arranque.hojas[0];
     const p0 = pedidosDeHoja(h0, {}, hoy, 0);
     const f: Record<string, string> = {};
     for (const x of p0.graficos) if (datosIniciales[x.g.id]) f[x.g.id] = x.firma;
-    for (const x of p0.bloques) if (bloquesIniciales[x.b.id]) f[x.b.id] = x.firma;
     firmaPedida.current = f;
   }
   // El link compartido por el que se entró (o nadie): decide a qué ruta van las LECTURAS (./lectura-compartida.ts).
   const tokenLink = compartido?.token ?? null;
   useEffect(() => {
     const firmas = firmaPedida.current!;
-    const p = pedidosDeHoja(hoja, vista, hoy, version);
+    const p = pedidosDeHoja(lienzo, vista, hoy, version, noSePiden);
     const graficos = p.graficos.filter((x) => firmas[x.g.id] !== x.firma);
-    const bloques = p.bloques.filter((x) => firmas[x.b.id] !== x.firma);
-    if (!graficos.length && !bloques.length) return;
+    if (!graficos.length) return;
     const link = tokenLink ? { token: tokenLink } : null;
 
     const pedirGraficos = async (lista: PedidosHoja['graficos']) => {
@@ -286,7 +424,8 @@ export function EditorInforme({
       let fallo = false;
       try {
         // Con sesión, /api/graficos con el cuerpo de siempre; en un link compartido, la ruta del link con
-        // el token, la hoja y el id de cada gráfico.
+        // el token, la hoja y el id de cada gráfico. EDITANDO un pop-up, sin `popupDe`: vale la definición de
+        // la pantalla, que todavía no se guardó (./Popup.tsx).
         const { ruta, cuerpo } = pedidoDeLectura({ accion: 'datos', hojaId: hoja.id, pedidos: lista.map((x) => ({ id: x.g.id, pedido: x.pedido })) }, link);
         const r = await fetch(ruta, {
           method: 'POST', headers: { 'content-type': 'application/json' },
@@ -305,76 +444,62 @@ export function EditorInforme({
         return n;
       });
     };
-    const pedirBloques = async (lista: PedidosHoja['bloques']) => {
-      setDatosBloque((prev) => {
-        const n = { ...prev };
-        for (const { b } of lista) n[b.id] = { ...(n[b.id] ?? {}), cargando: true };
-        return n;
-      });
-      let respuesta: Record<string, DatosBloque> = {};
-      let fallo = false;
-      try {
-        const { ruta, cuerpo } = pedidoDeLectura({ accion: 'bloques', hojaId: hoja.id, pedidos: lista.map((x) => ({ id: x.b.id, pedido: x.pedido })) }, link);
-        const r = await fetch(ruta, {
-          method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(cuerpo),
-          signal: AbortSignal.timeout(65_000),
-        });
-        if (!r.ok) fallo = true; else respuesta = (await r.json()).datos ?? {};
-      } catch { fallo = true; }
-      setDatosBloque((prev) => {
-        const n = { ...prev };
-        for (const x of lista) {
-          if (firmas[x.b.id] !== x.firma) continue;
-          n[x.b.id] = fallo ? { cargando: false, error: 'No pude leer los datos' } : aEstadoBloque(respuesta[x.b.id] ?? { ok: false, error: 'Sin respuesta' });
-        }
-        return n;
-      });
-    };
 
     const t = setTimeout(() => {
       for (const x of graficos) firmas[x.g.id] = x.firma;
-      for (const x of bloques) firmas[x.b.id] = x.firma;
-      // Son una RUTA y no server actions, así que los dos pedidos salen a la vez (las actions se encolan).
-      if (graficos.length) void pedirGraficos(graficos);
-      if (bloques.length) void pedirBloques(bloques);
+      void pedirGraficos(graficos);
     }, RESPIRO_DATOS_MS);
     return () => clearTimeout(t);
-  }, [hoja, vista, hoy, version, tokenLink]);
+  }, [lienzo, hoja.id, vista, hoy, version, tokenLink, noSePiden]);
   /** Después de una acción que cambia los datos (una cuota cobrada): todo lo de la hoja se vuelve a pedir. */
   const refrescar = useCallback(() => setVersion((v) => v + 1), []);
 
-  /** Lo que mira cada gráfico y cada bloque de la hoja, resuelto una vez: lo usan los chips, el detalle y el CSV. */
+  /** Lo que mira cada gráfico del lienzo, resuelto una vez: lo usan el «Filtro» de cada tarjeta, el detalle y el pop-up. */
   const efectivos = useMemo(() => {
+    if (lienzo === hoja) return efectivosHoja;
     const o: Record<string, Efectivo> = {};
-    for (const c of hoja.componentes) if (!esElemento(c)) o[c.id] = efectivoDe(c, hoja, vista, hoy);
+    for (const c of lienzo.componentes) if (esGrafico(c)) o[c.id] = efectivoDe(conBusqueda(c), lienzo, vista, hoy);
     return o;
-  }, [hoja, vista, hoy]);
+  }, [lienzo, hoja, efectivosHoja, vista, hoy]);
   const resultados = useMemo(() => {
     const o: Record<string, Resultado | undefined> = {};
     for (const [id, e] of Object.entries(datos)) o[id] = e.resultado;
     return o;
   }, [datos]);
 
-  // ── El guardado: solo, con un respiro, y nunca si la lectura falló ─────────────────────────────
+  // ── El guardado: solo, con un respiro, en COLA y con la versión; nunca si la lectura falló ────────
   // Lo guardado es el informe que VINO (`inicial`), no el del primer render: si el link sumó una hoja,
   // la diferencia la escribe el autoguardado de abajo sin que nadie toque nada.
+  // `ultimoGuardado` es lo último PEDIDO (si falla, vuelve a lo último confirmado): comparar contra lo
+  // confirmado mientras otra cosa viaja dejaría sin guardar una vuelta a lo de antes (./guardado.ts).
   const ultimoGuardado = useRef(JSON.stringify(inicial));
   const pendienteGuardar = useRef<string | null>(null);
+  const versionLeida = useRef(versionInicial);
+  const colaRef = useRef<ColaGuardado | null>(null);
   const mandar = useCallback(async (json: string, keepalive = false) => {
     if (!guardable || json === ultimoGuardado.current) return;
-    try {
-      const r = await fetch('/api/graficos', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, keepalive,
-        body: `{"accion":"guardar","tablero":${json}}`,
-      });
-      if (!r.ok) throw new Error(String(r.status));
-      ultimoGuardado.current = json;
-      if (pendienteGuardar.current === json) pendienteGuardar.current = null;
-    } catch {
-      // «Guardado» se fue de la fila de arriba (punto 3); lo que no puede irse es el aviso de que NO se guardó.
-      if (!keepalive) show('No se guardó', undefined, 'bad');
-    }
+    const cola = (colaRef.current ??= crearColaGuardado({
+      version: versionLeida.current,
+      ultimo: ultimoGuardado.current,
+      // El único fetch a mano a /api/graficos: guardar (las lecturas van por `pedidoDeLectura`).
+      enviar: async (j, v, ka) => leerRespuestaGuardado(await fetch('/api/graficos', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: ka,
+        body: `{"accion":"guardar","version":${JSON.stringify(v)},"tablero":${j}}`,
+      })),
+      alFallar: (ka, j) => {
+        ultimoGuardado.current = colaRef.current?.ultimo() ?? ultimoGuardado.current;
+        // Lo que no entró queda pendiente: sale con el próximo cambio o al ocultar la pestaña (si no hay uno más nuevo).
+        pendienteGuardar.current ??= j;
+        // «Guardado» se fue de la fila de arriba (punto 3); lo que no puede irse es el aviso de que NO se guardó.
+        if (!ka) show('No se guardó', undefined, 'bad');
+      },
+      // Otro escritor guardó en el medio (otra pestaña, la API de MaKo) o la ruta no reconoce el pedido: seguir
+      // pisaría algo. La cola se para y se dice, con «Recargar» en la cinta de arriba.
+      alConflicto: () => { setConflicto(true); show('Cambió en otra pestaña', undefined, 'bad'); },
+    }));
+    ultimoGuardado.current = json;
+    if (pendienteGuardar.current === json) pendienteGuardar.current = null;
+    await cola.pedir(json, keepalive);
   }, [guardable, show]);
   useEffect(() => {
     const json = JSON.stringify(tablero);
@@ -389,11 +514,15 @@ export function EditorInforme({
     document.addEventListener('visibilitychange', alOcultar);
     return () => { document.removeEventListener('visibilitychange', alOcultar); flush(); };
   }, [mandar]);
+  /** «Recargar» después de un conflicto: la misma pantalla, con el cliente que se mira (`?ws=`). */
+  const recargar = useCallback(() => { window.location.href = conWs(`${window.location.pathname}${window.location.search}`, ws); }, [ws]);
 
   // ── Las hojas ─────────────────────────────────────────────────────────────────────────────────
   const irAHoja = useCallback((id: string) => {
     setHojaId(id);
     setSelId(null);
+    setConSel(null);
+    setEditPopup(null);
     setDetalle(null);
     try {
       const qs = new URLSearchParams(window.location.search);
@@ -434,11 +563,18 @@ export function EditorInforme({
     const h = tablero.hojas.find((x) => x.id === id);
     if (!h || tablero.hojas.length >= MAX_HOJAS) return;
     // TODO lo que tiene id se acuña de nuevo (la hoja, sus controles, sus componentes y los controles de
-    // cada uno): con el mismo id, lo elegido mirando en una se vería en la otra.
+    // cada uno): con el mismo id, lo elegido mirando en una se vería en la otra. Los conectores siguen a
+    // sus componentes por el id NUEVO.
+    const componentes = h.componentes.map(conIdsNuevos);
+    const nuevoDe = new Map(h.componentes.map((c, i) => [c.id, componentes[i].id] as const));
+    const conectores = (h.conectores ?? []).flatMap((k) => {
+      const d = nuevoDe.get(k.desde), a = nuevoDe.get(k.hasta);
+      return d && a ? [{ ...k, id: nuevoId(), desde: d, hasta: a }] : [];
+    });
     const copia: Hoja = {
       ...h, id: nuevoId(), nombre: `${h.nombre} (copia)`.slice(0, 40),
       controles: h.controles.map((c) => ({ ...c, id: nuevoId() })),
-      componentes: h.componentes.map(conIdsNuevos),
+      componentes, conectores: conectores.length ? conectores : undefined,
     };
     mutar((t) => { const i = t.hojas.findIndex((x) => x.id === id); const hs = [...t.hojas]; hs.splice(i + 1, 0, copia); return { ...t, hojas: hs }; });
     irAHoja(copia.id);
@@ -464,14 +600,16 @@ export function EditorInforme({
 
   // ── Los componentes ──────────────────────────────────────────────────────────────────────────
   const cambiar = useCallback((id: string, parche: Record<string, unknown>) => {
-    mutarHoja((h) => ({ ...h, componentes: h.componentes.map((c) => (c.id === id ? sanearComponente({ ...c, ...parche }) ?? c : c)) }));
-  }, [mutarHoja]);
+    mutarComponentes((cs) => cs.map((c) => (c.id === id ? sanearComponente({ ...c, ...parche }, { enPopup: !!duenoId }) ?? c : c)));
+  }, [mutarComponentes, duenoId]);
   const aMirar = useRef<string | null>(null);
   // El id se acuña AFUERA del updater: en modo estricto React lo corre dos veces.
   const agregarComponente = (c: Componente) => {
-    if (hoja.componentes.length >= MAX_COMPONENTES) { show('Máximo de componentes'); return; }
-    mutarHoja((h) => ({ ...h, componentes: [...h.componentes, c] }));
+    const tope = dueno ? MAX_POPUP : MAX_COMPONENTES;
+    if (lienzo.componentes.length >= tope) { show('Máximo de componentes'); return; }
+    mutarComponentes((cs) => [...cs, c]);
     setSelId(c.id);
+    setConSel(null);
     aMirar.current = c.id;
   };
   // Lo que se acaba de agregar nace abajo de todo: se lleva a la vista.
@@ -484,18 +622,64 @@ export function EditorInforme({
   }, [tablero]);
   const duplicar = (c: Componente) => agregarComponente({ ...conIdsNuevos(c), y: c.y + c.h });
   const borrar = useCallback((c: Componente) => {
-    mutarHoja((h) => ({ ...h, componentes: h.componentes.filter((x) => x.id !== c.id) }));
+    // Sus conectores se van en el MISMO cambio: un Deshacer devuelve la tarjeta con sus flechas.
+    mutarComponentes((cs) => cs.filter((x) => x.id !== c.id), (ks) => sinConectoresDe(ks, new Set([c.id])));
     setSelId(null);
-    show(esBloque(c) ? 'Bloque eliminado' : esElemento(c) ? 'Elemento eliminado' : 'Gráfico eliminado', () => deshacer());
-  }, [mutarHoja, show, deshacer]);
+    show(esElemento(c) ? 'Elemento eliminado' : 'Gráfico eliminado', () => deshacer());
+  }, [mutarComponentes, show, deshacer]);
   const anadirFuente = (id: string) => {
     setModalDatos(false);
-    agregarComponente(nuevoGrafico('tabla', hoja.componentes, id));
+    agregarComponente(nuevoGrafico('tabla', lienzo.componentes, id));
   };
   const fuenteParaNuevo = () => (sel && esGrafico(sel) ? sel.fuente : 'negocio');
   // «Restablecer el informe» se fue (punto 2 de la tanda de la topbar: «eso no tiene sentido, eliminalo»).
 
-  // ── Los controles de la hoja (la barra de arriba) y los de cada gráfico (su cabecera) ─────────
+  // ── Los conectores (punto 11): sólo en la hoja (un pop-up no tiene) ────────────────────────────
+  const unir = useCallback((desde: string, hasta: string) => {
+    const ks = tableroRef.current.hojas.find((h) => h.id === hojaId)?.conectores;
+    if (!puedeConectar(ks, desde, hasta, MAX_CONECTORES)) { show(desde === hasta ? 'Elige otra tarjeta' : (ks?.length ?? 0) >= MAX_CONECTORES ? 'Máximo de conectores' : 'Ya están unidas'); return; }
+    const k = conectorNuevo(nuevoId(), desde, hasta);
+    mutarHoja((h) => ({ ...h, conectores: [...(h.conectores ?? []), k] }));
+    setSelId(null);
+    setConSel(k.id);
+  }, [hojaId, mutarHoja, show]);
+  const cambiarConector = (id: string, p: Partial<Conector>) => mutarHoja((h) => ({ ...h, conectores: (h.conectores ?? []).map((k) => (k.id === id ? { ...k, ...p } : k)) }));
+  const borrarConector = useCallback((id: string) => {
+    mutarHoja((h) => { const ks = (h.conectores ?? []).filter((k) => k.id !== id); return { ...h, conectores: ks.length ? ks : undefined }; });
+    setConSel(null);
+    show('Conector quitado', () => deshacer());
+  }, [mutarHoja, show, deshacer]);
+  /** «Conectar» (interfaz I7): con una tarjeta elegida arranca de ella; si no, se eligen las dos. */
+  const iniciarConectar = useCallback(() => {
+    setMenu(null);
+    if (dueno) { show('Sólo en la hoja'); return; }
+    setConectando({ desde: sel ? sel.id : null });
+    setConSel(null);
+  }, [dueno, sel, show]);
+  const elegirParaConectar = (id: string) => {
+    if (!conectando) return;
+    if (!conectando.desde) { setConectando({ desde: id }); return; }
+    if (id === conectando.desde) return;
+    unir(conectando.desde, id);
+    setConectando(null);
+  };
+
+  // ── El pop-up (punto 7) ──────────────────────────────────────────────────────────────────────
+  const abrirPopup = useCallback((g: Grafico, s: SelDetalle) => {
+    const ef = efectivosHoja[g.id] ?? efectivoDe(g, hoja, vista, hoy);
+    setPopup({ g, ctx: contextoPopupDe(g, s, datos[g.id]?.resultado), periodo: { desde: ef.desde, hasta: ef.hasta }, hoja });
+  }, [efectivosHoja, hoja, vista, hoy, datos]);
+  const cerrarPopup = useCallback(() => setPopup(null), []);
+  /** Qué hace un clic mirando: el detalle de siempre, el pop-up, o nada (sin `onDetalle`, no se pinta clicable). */
+  const alClicDe = (c: Grafico): ((s: SelDetalle) => void) | undefined => {
+    if (c.alClic === 'nada') return undefined;
+    if (c.alClic === 'popup' && c.popup) return (s) => abrirPopup(c, s);
+    return (s) => setDetalle({ id: c.id, sel: s });
+  };
+  const editarPopup = (id: string) => { setEditPopup(id); setSelId(null); setConSel(null); setConectando(null); };
+  const salirDelPopup = () => { const id = editPopup; setEditPopup(null); setSelId(id); };
+
+  // ── Los controles de la hoja (la barra de arriba) y los de cada gráfico (su «Filtro») ─────────
   /**
    * Lo que alguien elige MIRANDO: estado de la vista. ⚠️ No pasa por `mutar`, no se guarda y no dispara el
    * autoguardado (como en Looker). Lo que se guarda es lo que el control muestra de entrada.
@@ -534,9 +718,12 @@ export function EditorInforme({
     mutarHoja((h) => ({ ...h, controles: h.controles.filter((c) => c.id !== id) }));
     setVista((v) => { const n = { ...v }; delete n[id]; return n; });
   };
-  /** «Restablecer» de la barra: lo elegido mirando en ESTA hoja vuelve a lo de entrada. */
+  /** «Restablecer» de la barra: lo elegido mirando en ESTA hoja vuelve a lo de entrada (también la búsqueda de una tabla). */
   const restablecerVista = () => {
-    const ids = new Set([...hoja.controles.map((c) => c.id), ...hoja.componentes.flatMap((c) => (esElemento(c) ? [] : c.controles.map((k) => k.id)))]);
+    const ids = new Set([
+      ...hoja.controles.map((c) => c.id),
+      ...hoja.componentes.flatMap((c) => (esElemento(c) ? [] : [...c.controles.map((k) => k.id), ...(esGrafico(c) ? [idBusquedaDe(c) ?? ''] : [])])),
+    ]);
     setVista((v) => Object.fromEntries(Object.entries(v).filter(([id]) => !ids.has(id))));
   };
 
@@ -569,125 +756,193 @@ export function EditorInforme({
   const cerrarAnalista = useCallback(() => setAnalista(false), []);
   const alternarAnalista = useCallback(() => { setMenu(null); setAnalista((v) => !v); }, []);
   const cerrarModalDatos = useCallback(() => setModalDatos(false), []);
-  const loQueSeVe = useMemo(() => (analista ? loQueSeVeDe(hoja, resultados, efectivos) : []), [analista, hoja, resultados, efectivos]);
+  const abrirCompartir = useCallback(() => { setMenu(null); setCompartir(true); }, []);
+  const cerrarCompartir = useCallback(() => setCompartir(false), []);
+  const loQueSeVe = useMemo(() => (analista ? loQueSeVeDe(hoja, resultados, efectivosHoja) : []), [analista, hoja, resultados, efectivosHoja]);
   // El punto de «hay un análisis nuevo», en el ⋮ y en su opción. Al closer y a un link, nada: no tienen AI Analyst.
   const analisisNuevo = useAnalisisNuevo(hoja.id, analista, !soloMirar);
 
   // ── Exportar ─────────────────────────────────────────────────────────────────────────────────
   const exportarCsv = () => {
     setMenu(null);
-    const { csv, salteados } = csvDeHoja({ hoja, resultados, efectivos, hoy });
+    const { csv, salteados } = csvDeHoja({ hoja, resultados, efectivos: efectivosHoja, hoy });
     descargar(csv, nombreArchivo(hoja.nombre, hoy, 'csv'), 'text/csv;charset=utf-8');
     const n = salteados.bloques + salteados.elementos + salteados.sinDatos;
     show(n ? `CSV sin ${n} piezas` : 'CSV descargado');
   };
-  /** El PDF es la impresión del navegador: primero el lienzo pasa al ancho del papel y después se imprime. */
-  const exportarPdf = () => { setMenu(null); setSelId(null); setImprimiendo(true); };
+  /**
+   * El PDF es la impresión del navegador: primero el lienzo pasa al ancho del papel (y se despliega todo lo
+   * plegado), se espera a que lleguen los datos de lo que estaba plegado (hasta ESPERA_PDF_MS) y se imprime.
+   */
+  const exportarPdf = () => { setMenu(null); setSelId(null); setConSel(null); setImprimiendo(true); };
+  const faltanDatos = useRef<() => boolean>(() => false);
+  useEffect(() => {
+    faltanDatos.current = () => lienzo.componentes.some((c) => esGrafico(c) && !noSePiden.has(c.id) && (datos[c.id]?.cargando ?? true));
+  });
   useEffect(() => {
     if (!imprimiendo) return;
     let hecho = false;
     const fin = () => { if (!hecho) { hecho = true; setImprimiendo(false); } };
     window.addEventListener('afterprint', fin);
+    const inicio = Date.now();
+    let t = 0;
     // El respiro deja que la grilla y los gráficos se vuelvan a medir con el ancho del papel.
-    const t = window.setTimeout(() => { window.print(); fin(); }, 450);
+    const intentar = () => {
+      if (faltanDatos.current() && Date.now() - inicio < ESPERA_PDF_MS) { t = window.setTimeout(intentar, 300); return; }
+      window.print();
+      fin();
+    };
+    t = window.setTimeout(intentar, 450);
     return () => { window.clearTimeout(t); window.removeEventListener('afterprint', fin); };
   }, [imprimiendo]);
 
   // ── El teclado del editor: Escape suelta, Suprimir borra (editando, fuera de un texto, sin recorrido) ──
+  const alTecla = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      if (conectando) setConectando(null); else if (conSel) setConSel(null); else setSelId(null);
+      return;
+    }
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+    if (conectorSel) { e.preventDefault(); borrarConector(conectorSel.id); return; }
+    if (sel) { e.preventDefault(); borrar(sel); }
+  }, [conectando, conSel, conectorSel, sel, borrar, borrarConector]);
   useEffect(() => {
     if (!editando) return;
     const k = (e: KeyboardEvent) => {
       if (enRecorrido || enUnTexto() || capaAbierta) return;
-      if (e.key === 'Escape') setSelId(null);
-      if ((e.key === 'Delete' || e.key === 'Backspace') && sel) { e.preventDefault(); borrar(sel); }
+      alTecla(e);
     };
     document.addEventListener('keydown', k);
     return () => document.removeEventListener('keydown', k);
-  }, [editando, enRecorrido, capaAbierta, sel, borrar]);
+  }, [editando, enRecorrido, capaAbierta, alTecla]);
 
   // ── La grilla ────────────────────────────────────────────────────────────────────────────────
-  const layout: Layout = useMemo(
-    () => hoja.componentes.map((c) => { const m = minimoDe(c); return { i: c.id, x: c.x, y: c.y, w: c.w, h: c.h, minW: m.w, minH: m.h }; }),
-    [hoja.componentes],
+  // Lo GUARDADO (con lo plegado), y lo DIBUJADO: sin lo plegado y lo de abajo subido (lib/graficos-secciones.ts).
+  // Mirando, una tarjeta que pidió «ocultar si da cero» y da cero tampoco se dibuja.
+  const layoutGuardado: Layout = useMemo(
+    () => lienzo.componentes.map((c) => { const m = minimoDe(c); return { i: c.id, x: c.x, y: c.y, w: c.w, h: c.h, minW: m.w, minH: m.h }; }),
+    [lienzo.componentes],
   );
-  // Arrastrar y agrandar: se apila UNA vez al empezar el gesto, no en cada píxel.
-  const alEmpezarGesto = useCallback(() => apilar(tableroRef.current), [apilar]);
+  const noSeDibujan = useMemo(() => {
+    const out = new Set(noSePiden);
+    if (!editando) for (const c of lienzo.componentes) if (esGrafico(c) && c.ocultarSiCero && ocultaSiCero(c, datos[c.id] ?? { cargando: true })) out.add(c.id);
+    return out;
+  }, [noSePiden, editando, lienzo.componentes, datos]);
+  const layout: Layout = useMemo(
+    () => aVista(layoutGuardado.filter((it) => !noSeDibujan.has(it.i) || noSePiden.has(it.i)), grupos, plegadas),
+    [layoutGuardado, noSeDibujan, noSePiden, grupos, plegadas],
+  );
+  const visibles = useMemo(() => lienzo.componentes.filter((c) => !noSeDibujan.has(c.id)), [lienzo.componentes, noSeDibujan]);
+  const fondos = useMemo(() => fondosDe(grupos, plegadas), [grupos, plegadas]);
+  const cajasDibujadas = useMemo(() => new Map(layout.map((it) => [it.i, { x: it.x, y: it.y, w: it.w, h: it.h }] as const)), [layout]);
+  // Lo que la vuelta de la grilla necesita, al día ANTES de que la grilla avise (sus avisos van en efectos
+  // pasivos; éste es de layout y corre antes que cualquiera de ellos, también al montar).
+  const vueltaRef = useRef<{ guardado: Layout; grupos: GrupoSeccion[]; plegadas: ReadonlySet<string>; duenoId: string | null }>({ guardado: [], grupos: [], plegadas: new Set(), duenoId: null });
+  useLayoutEffect(() => { vueltaRef.current = { guardado: layoutGuardado, grupos, plegadas, duenoId }; });
+  // Arrastrar y agrandar: se apila UNA vez al empezar el gesto, no en cada píxel. Durante el gesto, los
+  // conectores siguen a las tarjetas desde el DOM (./Conectores.tsx).
+  const alEmpezarGesto = useCallback(() => { apilar(tableroRef.current); setEnGesto(true); }, [apilar]);
+  const alTerminarGesto = useCallback(() => setEnGesto(false), []);
   const idHoja = hoja.id;
   // La grilla avisa un cambio también al MONTAR, cuando compacta lo que vino (medido el 11/10: así se
   // guardó el informe de Mauricio a las 01:59 sin que tocara nada). Mirando, no se escribe: sólo editando.
+  // Lo que avisa son filas DIBUJADAS: `aGuardado` las vuelve a las guardadas (lo plegado, en su lugar).
   const alMoverGrilla = useCallback((l: Layout) => {
     if (!editando) return;
-    setTablero((t) => {
-      let cambio = false;
-      const hojas = t.hojas.map((h) => {
-        if (h.id !== idHoja) return h;
-        const componentes = h.componentes.map((c) => {
-          const it = l.find((x) => x.i === c.id);
-          if (!it || (it.x === c.x && it.y === c.y && it.w === c.w && it.h === c.h)) return c;
-          cambio = true;
-          return { ...c, x: it.x, y: it.y, w: it.w, h: it.h };
-        });
-        return cambio ? { ...h, componentes } : h;
-      });
-      return cambio ? { ...t, hojas } : t;
-    });
+    const v = vueltaRef.current;
+    const pos = aGuardado(l, v.guardado, v.grupos, v.plegadas);
+    setTablero((t) => conPosiciones(t, idHoja, v.duenoId, pos));
   }, [idHoja, editando]);
 
   const angosto = mounted && width > 0 && width < ANCHO_PILA && !imprimiendo;
   // El que el recorrido señala: el primero EN PANTALLA (arriba a la izquierda), no el primero del arreglo,
-  // que puede ser el último que se agregó y estar abajo de todo.
-  const primerGrafico = enOrden(hoja.componentes).find(esGrafico)?.id ?? null;
-  const alternarEdicion = () => { setEditando((v) => !v); setSelId(null); setMenu(null); setDetalle(null); };
+  // que puede ser el último que se agregó y estar abajo de todo. El de MaKo, el primero QUE LO TIENE.
+  const ordenados = enOrden(visibles);
+  const primerGrafico = ordenados.find(esGrafico)?.id ?? null;
+  const primerConMako = ordenados.find((c): c is Grafico => esGrafico(c) && c.mako !== false && !!datos[c.id]?.resultado)?.id ?? null;
+  const alternarEdicion = () => { setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
   const puedeNuevaHoja = guardable && tablero.hojas.length < MAX_HOJAS;
-  /** Un elemento de la barra de inserción (o de su menú), agregado a la hoja. */
-  const insertar = (t: TipoElemento) => { setMenu(null); agregarComponente(nuevoElemento(t, hoja.componentes)); };
+  /**
+   * Un elemento de la barra de inserción (o de su menú), agregado al lienzo. `inicial` es lo que trae una variante
+   * (el «Desplegable» es una sección plegable: interfaz I7, ./Galeria.tsx).
+   */
+  const insertar = (t: TipoElemento, inicial?: OpcionInsertar['inicial']) => {
+    setMenu(null);
+    if (t === 'ia' && lienzo.componentes.filter((c) => esElemento(c) && c.tipo === 'ia').length >= MAX_IA_POR_HOJA) { show(`Máximo ${MAX_IA_POR_HOJA} cajas de MaKo`); return; }
+    const e = nuevoElementoEn(t, lienzo.componentes, dueno, inicial);
+    if (e) agregarComponente(e); else if (t === 'entidad') show(dueno ? 'Este gráfico no abre una ficha' : 'Sólo en un pop-up');
+  };
   /** Abre (o cierra, si ya estaba abierto) un flotante anclado a `ancla`. */
-  const alternarMenu = (tipo: NonNullable<Menu>['tipo'], ancla: HTMLElement) => setMenu((m) => (m && m.tipo === tipo ? null : { ancla, tipo }));
-  const abrirMenu = (tipo: NonNullable<Menu>['tipo']) => (e: ReactMouseEvent<HTMLElement>) => {
+  const alternarMenu = (tipo: Exclude<NonNullable<Menu>['tipo'], 'menuInsertar'>, ancla: HTMLElement) => setMenu((m) => (m && m.tipo === tipo ? null : { ancla, tipo }));
+  const abrirMenu = (tipo: Exclude<NonNullable<Menu>['tipo'], 'menuInsertar'>) => (e: ReactMouseEvent<HTMLElement>) => {
     const ancla = e.currentTarget;
     alternarMenu(tipo, ancla);
+  };
+  const abrirMenuInsertar = (lugar: MenuBarra) => (e: ReactMouseEvent<HTMLElement>) => {
+    const ancla = e.currentTarget;
+    setMenu((m) => (m && m.tipo === 'menuInsertar' && m.lugar === lugar ? null : { ancla, tipo: 'menuInsertar', lugar }));
+  };
+  const menuInsertarAbierto = menu?.tipo === 'menuInsertar' ? menu.lugar : null;
+
+  // ── De qué lado va el panel (punto 19): se fija AL ELEGIR y no se mueve mientras se arrastra ─────────
+  const claveSel = `${sel?.id ?? (conectorSel ? `k:${conectorSel.id}` : '')}|${analista ? 'a' : ''}`;
+  const [lado, setLado] = useState<{ clave: string; lado: 'izq' | 'der' }>({ clave: '', lado: 'der' });
+  if (lado.clave !== claveSel) setLado({ clave: claveSel, lado: ladoDelPanel(sel, analista) });
+
+  /**
+   * Lo que la pantalla le cuenta a un elemento (interfaz I3): la hoja ENTERA (una caja de IA la manda al generar),
+   * el pop-up donde vive y lo abierto (editándolo, la fila de muestra), quién puede generar, lo que se ve, y su
+   * sección. `loQueSeVe` es el del lienzo: una caja compara su firma con lo que muestran los gráficos de su lugar.
+   */
+  const abiertoEnPopup = useMemo(() => entidadAbierta(muestra), [muestra]);
+  const loQueSeVeLienzo = useMemo(() => loQueSeVeDe(lienzo, resultados, efectivos), [lienzo, resultados, efectivos]);
+  const ctxDe = (c: Elemento): ContextoElemento => {
+    const grupo = c.tipo === 'seccion' ? grupos.find((g) => g.id === c.id) : undefined;
+    return {
+      hoja, popupDe: duenoId, abierto: dueno ? abiertoEnPopup : null,
+      periodo: dueno ? efectivosHoja[dueno.id] ?? null : null,
+      puedeGenerar: !soloMirar, compartido: !!compartido, loQueSeVe: loQueSeVeLienzo, vista, onCambio: refrescar,
+      ...(grupo ? { seccion: { plegada: plegadas.has(c.id), onPlegar: grupo.plegable ? () => alternarPlegado(c.id) : undefined, miembros: grupo.miembros.length } } : {}),
+    };
   };
 
   /** Una tarjeta de la grilla (o de la pila del celular). */
   const tarjeta = (c: Componente, enPila = false) => {
     const elegido = editando && c.id === selId;
+    const marcada = conectando?.desde === c.id;
     // La posición en la grilla del PDF (editor-css.ts): el lugar de la tarjeta, en columnas y filas.
     const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...(enPila ? { height: altoDe(c.h) } : {}) } as CSSProperties;
-    const alClic = (ev: ReactMouseEvent) => { if (editando) { ev.stopPropagation(); setSelId(c.id); } };
+    const alClic = (ev: ReactMouseEvent) => {
+      if (!editando) return;
+      ev.stopPropagation();
+      if (conectando) { elegirParaConectar(c.id); return; }
+      setSelId(c.id);
+      setConSel(null);
+    };
     if (esElemento(c)) {
       return (
-        <div key={c.id} data-comp={c.id} className={`lk-comp lk-comp--elemento${elegido ? ' lk-comp--sel' : ''}`} style={base} onClick={alClic}>
-          <CuerpoElemento e={c} colores={colores} editando={editando} onCambiar={(p) => cambiar(c.id, p)} />
+        <div key={c.id} data-comp={c.id} className={`lk-comp lk-comp--elemento${elegido || marcada ? ' lk-comp--sel' : ''}`} style={base} onClick={alClic}>
+          <CuerpoElemento e={c} colores={colores} editando={editando} onCambiar={(p) => cambiar(c.id, p)} ctx={ctxDe(c)} />
         </div>
       );
     }
-    const ef = efectivos[c.id] ?? efectivoDe(c, hoja, vista, hoy);
-    const chips = (
-      <ChipsControles comp={c} hoja={hoja} vista={vista} efectivo={ef} hoy={hoy} editando={editando} onVista={onVista} onCambiarComp={(p) => cambiar(c.id, p)} compartido={compartido} />
-    );
-    if (esBloque(c)) {
-      const est = datosBloque[c.id] ?? { cargando: true };
-      return (
-        <div key={c.id} data-comp={c.id} className={`lk-comp${elegido ? ' lk-comp--sel' : ''}`} style={base} onClick={alClic}>
-          <div className="lk-comp-cab">
-            <div className="lk-comp-tit">
-              <span title={tituloDe(c)}>{tituloDe(c)}</span>
-              {est.cargando && est.datos !== undefined && <span className="lk-mini-giro" aria-label="Actualizando" />}
-            </div>
-            <div className="lk-comp-acciones lk-no-arrastrar" onClick={(e) => e.stopPropagation()}>{chips}</div>
-          </div>
-          {c.subtitulo && <div className="lk-comp-sub" title={c.subtitulo}>{c.subtitulo}</div>}
-          <CuerpoBloque b={c} estado={est} estilo={estilo} desde={ef.desde} hasta={ef.hasta} onRefrescar={refrescar} />
-        </div>
-      );
-    }
+    if (!esGrafico(c)) return null;
+    const ef = efectivos[c.id] ?? efectivoDe(conBusqueda(c), lienzo, vista, hoy);
     const est = datos[c.id] ?? { cargando: true };
+    // Punto 15: mirando, una tarjeta con «ocultar si da cero» que da cero no se dibuja (tampoco ocupa lugar).
+    if (!editando && ocultaSiCero(c, est)) return null;
     const kpi = esTarjetaNumero(c.tipo);
     // El filete y el color de una KPI salen de lo que SIGNIFICA su métrica (lo cobrado, verde; lo
     // pendiente, rojo), no de un color elegido a mano: el estilo es de la hoja.
     const filete = kpi && estilo.filete;
     const tono = filete ? colorDeTono(tonoDe(c.fuente, c.metricas[0]), hoja.tema) : null;
-    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && 'lk-comp--filete', elegido && 'lk-comp--sel'].filter(Boolean).join(' ');
+    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && 'lk-comp--filete', (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
+    // La barra de búsqueda de una tabla (interfaz I2): lo escrito va a la VISTA, en el control de su barra
+    // (`idBusquedaDe`/`conBusqueda`, ./exportar.ts). Sin ese control (sobre el campo ya hay otro filtro), no hay barra.
+    const conBarra = !!c.tabla?.buscar && !!idBusquedaDe(c);
+    // El closer abre los pop-ups (la ficha de una llamada era lo que su bloque hacía); el detalle de un
+    // número, no (son listas de personas: /api/graficos le contesta 403).
+    const popupDelCloser = soloLectura && !compartido && !editando && c.alClic === 'popup' && c.popup ? (s: SelDetalle) => abrirPopup(c, s) : undefined;
     return (
       <div key={c.id} data-comp={c.id} className={clases} style={{ ...base, ...(tono ? { '--lk-filete': tono } : {}) } as CSSProperties} onClick={alClic}
         data-recorrido={c.id === primerGrafico ? (editando ? 'dash-componente' : 'dash-grafico') : undefined}>
@@ -697,12 +952,15 @@ export function EditorInforme({
             {est.cargando && est.resultado && <span className="lk-mini-giro" aria-label="Actualizando" />}
           </div>
           <div className="lk-comp-acciones lk-no-arrastrar" onClick={(e) => e.stopPropagation()}>
-            {chips}
+            {conBarra && <BuscarEnTabla grafico={c} hoja={lienzo} vista={vista} onVista={onVista} compartido={compartido} />}
+            {/* El «Filtro» de la tarjeta (interfaz I1, ./MenuFiltro.tsx): reemplaza a los chips sueltos. */}
+            <MenuFiltro modo="tarjeta" comp={c} hoja={lienzo} vista={vista} efectivo={ef} hoy={hoy} editando={editando} onVista={onVista} onCambiarComp={(p) => cambiarDesdePanel(c, p)} compartido={compartido} />
             {/* El chat de MaKo de cada gráfico (el de las tabs viejas), también mirando, con el botón CHICO (sólo
                 el logo sobre negro, punto 3). Sin personas: ./exportar.ts. Al closer y a un link no: su tab de
-                antes no lo tenía, es IA que gasta en una vista de sólo lectura, y sin sesión no hay chat. */}
-            {est.resultado && !soloMirar && (
-              <span className="lk-mako" data-recorrido={c.id === primerGrafico ? 'dash-mako' : undefined}>
+                antes no lo tenía, es IA que gasta en una vista de sólo lectura, y sin sesión no hay chat. Desde
+                v5 se apaga por gráfico (punto 15: ausente = prendido). */}
+            {est.resultado && !soloMirar && (c.mako !== false) && (
+              <span className="lk-mako" data-recorrido={c.id === primerConMako ? 'dash-mako' : undefined}>
                 <ChatMakoGrafico chartKey={`dashboard:${hoja.id}:${c.id}`} titulo={tituloDe(c)} contexto={contextoDeGrafico(c, est.resultado, ef)} />
               </span>
             )}
@@ -711,8 +969,10 @@ export function EditorInforme({
         {!kpi && c.subtitulo && <div className="lk-comp-sub" title={c.subtitulo}>{c.subtitulo}</div>}
         {/* El detalle de un número pide `detalle` a /api/graficos: al closer le contesta 403, y en un link
             compartido no se ofrece (son listas de personas; el endpoint del link también lo contesta 403).
-            Sin `onDetalle`, el clic en un número no hace nada y no se pinta como clicable. */}
-        <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : (s) => setDetalle({ id: c.id, sel: s })} />
+            Sin `onDetalle`, el clic en un número no hace nada y no se pinta como clicable. Desde v5, lo que
+            abre lo decide el gráfico (`alClicDe`: el detalle, su pop-up o nada). */}
+        {popupDelCloser ? <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={popupDelCloser} efectivo={ef} />
+          : <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : alClicDe(c)} efectivo={ef} />}
       </div>
     );
   };
@@ -720,8 +980,9 @@ export function EditorInforme({
   const gDetalle = detalle ? hoja.componentes.find((c) => c.id === detalle.id) : undefined;
 
   return (
-    <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}`}>
+    <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`}>
       {lecturaFallo && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local">No pude leer tu informe. Los cambios no se guardan.</Banner></div>}
+      {conflicto && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local" accion={{ label: 'Recargar', onClick: recargar }}>Cambió en otra pestaña. Lo de aquí no se guarda.</Banner></div>}
 
       {/* ── La topbar, como la de Looker: el título de la hoja (con su desplegable) y a la derecha los
              filtros, Compartir, Editar y el ⋮ ── */}
@@ -738,11 +999,9 @@ export function EditorInforme({
                 onVista={onVista} onAgregar={agregarControl} onCambiar={cambiarControl} onQuitar={quitarControl} onRestablecer={restablecerVista}
               />
             </div>
-            {/* Compartir (punto 9): lo implementa el paquete «Compartir» con esta misma firma. Sólo quien puede
-                guardar comparte: el closer no, y desde un link no se re-comparte. */}
-            {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} />}
+            {/* «Editar» en azul (punto 3 de v5). Compartir se fue al ⋮. */}
             {!soloMirar && (
-              <button type="button" className="lk-pill" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={alternarEdicion}>
+              <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={alternarEdicion}>
                 {editando ? <><SvgOjo /> Ver</> : <><SvgLapiz /> Editar</>}
               </button>
             )}
@@ -769,19 +1028,20 @@ export function EditorInforme({
             <SvgAgregarGrafico /> Añadir un gráfico <SvgFlecha />
           </button>
           <span className="lk-sep" />
-          {/* Lo que se inserta, un ícono por cosa y en el orden de Looker (código, imagen, texto, línea,
-              formas: `BARRA_INSERTAR`). En el celular no entran: un solo «Insertar ▾» con los nueve. */}
+          {/* Lo que se inserta, un ícono por cosa y en el orden de Looker (`BARRA_INSERTAR` de ./Galeria.tsx, del
+              paquete de la topbar; `lugaresInsertar` saca la Ficha fuera de un pop-up). En el celular no entran: un
+              solo «Insertar ▾» con todos. */}
           <div className="lk-insertar" role="group" aria-label="Insertar" data-recorrido="dash-insertar">
             <span className="lk-ins-sueltos">
-              {BARRA_INSERTAR.map((l) => (l.clase === 'suelto' ? (
+              {lugaresInsertar(!!dueno).map((l) => (l.clase === 'suelto' ? (
                 <button key={l.tipo} type="button" className="lk-herr lk-herr--icono" title={etiquetaInsertar(l.tipo)} aria-label={etiquetaInsertar(l.tipo)}
                   onClick={() => insertar(l.tipo)}>
                   <IconoElemento tipo={l.tipo} size={19} />
                 </button>
               ) : (
                 <button key={l.menu} type="button" className="lk-herr lk-herr--menu" title={l.nombre} aria-label={l.nombre} aria-haspopup="menu"
-                  aria-expanded={menu?.tipo === l.menu} onClick={abrirMenu(l.menu)}>
-                  <IconoElemento tipo={l.tipos[0]} size={19} /> <SvgFlecha />
+                  aria-expanded={menuInsertarAbierto === l.menu} onClick={abrirMenuInsertar(l.menu)}>
+                  <IconoElemento tipo={l.icono} size={19} /> <SvgFlecha />
                 </button>
               )))}
             </span>
@@ -795,13 +1055,21 @@ export function EditorInforme({
         </div>
       )}
 
-      {/* ── El lienzo (lo único que scrollea) y el panel de propiedades ── */}
+      {/* ── El lienzo (lo único que scrollea) y, encima, el panel de propiedades y el AI Analyst ── */}
       <div className="lk-cuerpo">
-        <div className="lk-lienzo" style={varsTema} onClick={() => { if (editando) setSelId(null); }}>
+        <div className="lk-lienzo" style={varsTema} onClick={() => { if (editando) { setSelId(null); setConSel(null); } }}>
           <div className="lk-pagina" ref={containerRef}>
-            {!hoja.componentes.length ? (
+            {dueno && (
+              <nav className="lk-miga lk-no-arrastrar" aria-label="Dónde estás" onClick={(e) => e.stopPropagation()}>
+                <button type="button" onClick={salirDelPopup}>{hoja.nombre}</button>
+                <span aria-hidden>›</span>
+                <span className="lk-miga-actual">Pop-up · {dueno.popup?.titulo || tituloDe(dueno)}</span>
+                {muestra?.etiqueta && <span className="lk-miga-muestra">Muestra: {muestra.etiqueta}</span>}
+              </nav>
+            )}
+            {!lienzo.componentes.length ? (
               <div className="lk-vacio">
-                <p>Esta hoja no tiene gráficos.</p>
+                <p>{dueno ? 'Este pop-up está vacío.' : 'Esta hoja no tiene gráficos.'}</p>
                 {editando ? (
                   <button type="button" className="lk-pill lk-pill--azul" onClick={(e) => { e.stopPropagation(); setMenu({ ancla: e.currentTarget, tipo: 'graficos' }); }}>Añadir un gráfico</button>
                 ) : !soloMirar && (
@@ -811,46 +1079,71 @@ export function EditorInforme({
             ) : angosto ? (
               // En el celular la grilla de 12 columnas no se lee: una tarjeta abajo de la otra, en el orden
               // en que se leen. No se arrastra (no hay dónde), pero se elige y se edita igual.
-              <div className="lk-pila">{enOrden(hoja.componentes).map((c) => tarjeta(c, true))}</div>
+              <div className="lk-pila">{ordenados.map((c) => tarjeta(c, true))}</div>
             ) : mounted && (
-              // ⚠️ `absoluteStrategy` (top/left) y NO el transform de siempre: un ancestro con `transform`
-              // vuelve a un `position: fixed` relativo a ÉL. El modal del chat de MaKo (antes MakoButton), el
-              // toast de «Marcar cobrada» y los menús que no van en portal se dibujaban ADENTRO de la
-              // tarjeta, recortados por su overflow.
-              <ReactGridLayout
-                positionStrategy={absoluteStrategy}
-                width={width}
-                layout={layout}
-                gridConfig={{ cols: COLS, rowHeight: FILA, margin: [MARGEN, MARGEN], containerPadding: [0, 0] }}
-                dragConfig={{ enabled: editando, cancel: '.lk-no-arrastrar' }}
-                resizeConfig={{ enabled: editando, handles: ['se', 'e', 's'] }}
-                compactor={verticalCompactor}
-                onDragStart={alEmpezarGesto}
-                onResizeStart={alEmpezarGesto}
-                onLayoutChange={alMoverGrilla}
-              >
-                {hoja.componentes.map((c) => tarjeta(c))}
-              </ReactGridLayout>
+              <div className="lk-grilla" ref={grillaRef}>
+                <FondosSecciones fondos={fondos} colores={colores} ancho={width} fila={FILA} margen={MARGEN} />
+                {/* ⚠️ `absoluteStrategy` (top/left) y NO el transform de siempre: un ancestro con `transform`
+                    vuelve a un `position: fixed` relativo a ÉL. El modal del chat de MaKo (antes MakoButton), el
+                    toast de «Marcar cobrada» y los menús que no van en portal se dibujaban ADENTRO de la
+                    tarjeta, recortados por su overflow. */}
+                <ReactGridLayout
+                  positionStrategy={absoluteStrategy}
+                  width={width}
+                  layout={layout}
+                  gridConfig={{ cols: COLS, rowHeight: FILA, margin: [MARGEN, MARGEN], containerPadding: [0, 0] }}
+                  dragConfig={{ enabled: editando && !conectando, cancel: '.lk-no-arrastrar' }}
+                  resizeConfig={{ enabled: editando && !conectando, handles: ['se', 'e', 's'] }}
+                  compactor={verticalCompactor}
+                  onDragStart={alEmpezarGesto}
+                  onResizeStart={alEmpezarGesto}
+                  onDragStop={alTerminarGesto}
+                  onResizeStop={alTerminarGesto}
+                  onLayoutChange={alMoverGrilla}
+                >
+                  {visibles.map((c) => tarjeta(c))}
+                </ReactGridLayout>
+                {!dueno && (
+                  <CapaConectores
+                    conectores={hoja.conectores ?? []} cajas={cajasDibujadas} ancho={width} fila={FILA} margen={MARGEN} colores={colores}
+                    editando={editando} seleccionado={conectorSel?.id ?? null} onElegir={(id) => { setConSel(id); setSelId(null); }} onBorrar={borrarConector}
+                    enGesto={enGesto} contenedor={grillaRef} tiradoresDe={sel && !conectando ? sel.id : null} onUnir={unir}
+                  />
+                )}
+              </div>
             )}
           </div>
         </div>
 
+        {conectando && (
+          <div className="lk-conectar-aviso lk-sin-imprimir" role="status">
+            <span>{conectando.desde ? 'Elige la otra tarjeta' : 'Elige la primera tarjeta'}</span>
+            <button type="button" onClick={() => setConectando(null)}>Cancelar</button>
+          </div>
+        )}
+
         {sel && (
-          <aside className="lk-props" aria-label="Propiedades" onClick={(e) => e.stopPropagation()}>
+          <aside className="lk-props" data-lado={lado.lado} aria-label="Propiedades" onClick={(e) => e.stopPropagation()}>
             {esGrafico(sel) ? (
-              <PropsGrafico key={sel.id} g={sel} hoja={hoja} hoy={hoy} onCambiar={(p) => cambiarDesdePanel(sel, p)}
-                onCambiarTipo={(el) => setMenu({ ancla: el, tipo: 'cambiarTipo' })} onDuplicar={() => duplicar(sel)} onBorrar={() => borrar(sel)} onCerrar={() => setSelId(null)} />
-            ) : esBloque(sel) ? (
-              <PropsBloque key={sel.id} b={sel} hoja={hoja} hoy={hoy} onCambiar={(p) => cambiarDesdePanel(sel, p)}
+              <PropsGrafico key={sel.id} g={sel} hoja={lienzo} hoy={hoy} enPopup={!!dueno} onCambiar={(p) => cambiarDesdePanel(sel, p)}
+                onCambiarTipo={(el) => setMenu({ ancla: el, tipo: 'cambiarTipo' })} onDuplicar={() => duplicar(sel)} onBorrar={() => borrar(sel)} onCerrar={() => setSelId(null)}
+                onEditarPopup={dueno ? undefined : () => editarPopup(sel.id)} />
+            ) : esElemento(sel) ? (
+              <PropsElemento key={sel.id} e={sel} colores={colores} hoja={hoja} popupDe={duenoId} contexto={dueno ? abiertoEnPopup : null}
+                entidad={dueno ? entidadDeGrafico(dueno) : null} vista={vista} onCambiar={(p) => cambiar(sel.id, p)}
                 onDuplicar={() => duplicar(sel)} onBorrar={() => borrar(sel)} onCerrar={() => setSelId(null)} />
-            ) : (
-              <PropsElemento key={sel.id} e={sel} colores={colores} onCambiar={(p) => cambiar(sel.id, p)} onDuplicar={() => duplicar(sel)} onBorrar={() => borrar(sel)} />
-            )}
+            ) : null}
+          </aside>
+        )}
+        {!sel && conectorSel && (
+          <aside className="lk-props" data-lado={lado.lado} aria-label="Propiedades del conector" onClick={(e) => e.stopPropagation()}>
+            <PropsConector key={conectorSel.id} k={conectorSel} colores={colores} onCambiar={(p) => cambiarConector(conectorSel.id, p)}
+              onBorrar={() => borrarConector(conectorSel.id)} onCerrar={() => setConSel(null)} />
           </aside>
         )}
 
-        {/* El AI Analyst es un panel del costado (un `aside` de alto completo), no un modal: va en esta
-            fila, al lado del lienzo. Con la vista: el análisis a mano mira lo que la persona eligió. */}
+        {/* El AI Analyst es un panel (un `aside` de alto completo), no un modal: va en esta fila, encima del
+            lienzo en la compu (./edicion-css.ts). Con la vista: el análisis a mano mira lo que la persona eligió. */}
         {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} />}
       </div>
 
@@ -863,20 +1156,19 @@ export function EditorInforme({
               const m = menu;
               setMenu(null);
               if (m.tipo === 'cambiarTipo' && sel && esGrafico(sel)) cambiar(sel.id, { tipo });
-              else agregarComponente(nuevoGrafico(tipo, hoja.componentes, fuenteParaNuevo()));
+              else agregarComponente(nuevoGrafico(tipo, lienzo.componentes, fuenteParaNuevo()));
             }}
-            onBloque={menu.tipo === 'graficos' ? (b: BloqueId) => { setMenu(null); agregarComponente(nuevoBloque(b, hoja.componentes)); } : undefined}
           />
         </Flotante>
       ) : null}
       {menu?.tipo === 'insertar' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={220}>
-          <MenuInsertar onElegir={insertar} />
+          <MenuInsertar onElegir={insertar} componentes={lienzo.componentes} enPopup={!!dueno} onConectar={iniciarConectar} />
         </Flotante>
       )}
-      {(menu?.tipo === 'lineas' || menu?.tipo === 'formas') && (
-        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={200}>
-          <MenuElementos tipos={BARRA_INSERTAR.flatMap((l) => (l.clase === 'menu' && l.menu === menu.tipo ? l.tipos : []))} onElegir={insertar} />
+      {menu?.tipo === 'menuInsertar' && (
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={220}>
+          <MenuElementos menu={menu.lugar} onElegir={insertar} componentes={lienzo.componentes} enPopup={!!dueno} onConectar={iniciarConectar} />
         </Flotante>
       )}
       {menu?.tipo === 'estilo' && (
@@ -888,6 +1180,14 @@ export function EditorInforme({
       {menu?.tipo === 'mas' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={240}>
           <div className="lk-lista" role="menu">
+            {/* Compartir (punto 9; desde v5 un renglón del ⋮): sólo quien puede guardar comparte (el closer no, y
+                desde un link no se re-comparte). El modal va AFUERA del menú: adentro, cerrar el menú lo desmontaría. */}
+            {guardable && (
+              <>
+                <RenglonCompartir onClick={abrirCompartir} />
+                <div className="lk-sep-h" />
+              </>
+            )}
             {!soloMirar && (
               <>
                 <button type="button" role="menuitem" className="lk-opcion lk-opcion--mako" data-abierto={analista || undefined} onClick={alternarAnalista}
@@ -930,20 +1230,26 @@ export function EditorInforme({
       )}
 
       {/* ── Los modales ── */}
+      {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
       {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} />}
       {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} enBlanco={`Página ${tablero.hojas.length + 1}`} />}
       {gDetalle && esGrafico(gDetalle) && detalle && (
-        <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivos[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
+        <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivosHoja[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
           onCerrar={cerrarDetalle} onCambio={refrescar} onFiltrar={filtrarPor} />
       )}
+      {/* El pop-up de un gráfico (punto 7), mirando. Nunca en un link compartido (el clic no lo ofrece). */}
+      {popup && !compartido && (
+        <PopupGrafico g={popup.g} hoja={popup.hoja} contexto={popup.ctx} periodo={popup.periodo} hoy={hoy} onCerrar={cerrarPopup} onCambio={refrescar} puedeGenerar={!soloMirar} />
+      )}
       {/* La llamada del link (`?llamada=`). Sus tareas (re-analizar, revisar) son también del closer:
-          la ficha no va en sólo lectura. Después de una, los bloques se vuelven a pedir. */}
+          la ficha no va en sólo lectura. Después de una, los datos se vuelven a pedir. */}
       {llamada != null && !compartido && <FichaLlamada recordingId={llamada} onCerrar={cerrarLlamada} onCambio={refrescar} />}
 
       <Recorrido id={RECORRIDO_DASHBOARD} pasos={PASOS_DASHBOARD} abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />
       <Recorrido id={RECORRIDO_DASHBOARD_EDICION} pasos={PASOS_DASHBOARD_EDICION} abierto={recorridoEdicion.abierto} onCerrar={recorridoEdicion.onCerrar} />
       <Toast state={toast} onClose={clear} />
       <style>{CSS}</style>
+      <style>{CSS_EDICION}</style>
     </div>
   );
 }

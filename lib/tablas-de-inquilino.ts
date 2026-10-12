@@ -58,6 +58,7 @@ export const TABLAS_DE_INQUILINO = [
   // El «AI Analyst» del Dashboard (mig 0247, 11/10/2026): el análisis y el horario de cada hoja, por
   // persona. Se vacía con el negocio igual que el informe (`graficos.tablero.<sub>`, en app_settings).
   'dashboard_analisis',
+  'dashboard_ia_elementos',
   'email_broadcast_envios', 'email_broadcasts',
   // Los emails que LLEGAN (mig 0245, sexta tanda). `workspace_id` admite null (lo que no es de nadie
   // queda escrito igual): el reset y el borrado vacían sólo los de este inquilino. No va en

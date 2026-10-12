@@ -12,8 +12,9 @@
 //    sin la página blanca con sombra, sin el borde entre las hojas y el lienzo.
 // ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni en un comentario (la parte a
 //    la mitad y la pantalla contesta 200 sin estilos), y el signo de pesos seguido de llave tampoco.
-// ⚠️ Los FILTROS viven en la topbar (.lk-top, tanda del 11/10: «Los botones de filtro también en la
-//    topbar»), que NO scrollea: queda arriba siempre, sin sticky. Lo que scrollea es .lk-lienzo, y sólo
+// ⚠️ La BÚSQUEDA y el FILTRO viven en la topbar (.lk-top, tanda del 11/10: «Los botones de filtro también en
+//    la topbar»; desde v5 una barra de búsqueda y UN botón «Filtro», ./BarraControles.tsx), que NO scrollea:
+//    queda arriba siempre, sin sticky. Lo que scrollea es .lk-lienzo, y sólo
 //    si el <main> tiene ALTO: lo fija app/dashboard/page.tsx (sin eso scrollea el documento y la topbar
 //    se va con la página).
 // ⚠️ Las tarjetas leen el TEMA de la hoja por variables (--dash-*, varsDeTema en
@@ -33,6 +34,13 @@ export const CSS = `
    el hijo, el margen negativo se descuenta dos veces (AGENTS.md, «Un ancho que sale de una métrica
    tipográfica…»). */
 .lk-top { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding: 12px 16px 10px 20px; flex: none; min-width: 0; background: var(--bg); }
+/* EDITANDO, la franja de arriba entera (la topbar y la barra de edición) se separa del lienzo: superficie, filete
+   y una sombra chica, como el cromo blanco de Looker sobre su lienzo gris (tanda v5, punto 10). Mirando no cambia
+   nada, y la topbar tiene el MISMO padding en los dos modos: no salta al apretar Editar. Va sobre los dos
+   hermanos (.lk-top y la .lk-barra que sigue) y no sobre un envoltorio: así no depende de cómo los arme la
+   pantalla. */
+.lk--editando .lk-top { background: var(--surface); }
+.lk--editando .lk-barra { background: var(--surface); margin: 0; border-radius: 0; padding: 2px 16px 6px; border-bottom: 1px solid var(--border); box-shadow: 0 2px 6px rgba(18, 21, 27, .06); position: relative; z-index: 2; }
 .lk-top-izq { flex: 1 1 280px; min-width: 0; display: flex; align-items: center; gap: 10px; }
 .lk-top-emoji { flex: none; display: grid; place-items: center; width: 42px; height: 42px; font-size: 28px; line-height: 1; }
 .lk-top-emoji--btn { border: none; border-radius: 10px; background: transparent; cursor: pointer; padding: 0; color: var(--faint); }
@@ -67,17 +75,22 @@ export const CSS = `
 
 /* El desplegable de las hojas (en un Flotante): «Nueva hoja» primera, y las hojas con su ⋮. */
 .lk-hoja-nueva { display: block; padding: 4px 10px 6px; }
+/* La FILA entera se pinta (tanda v5, punto 5): el hover y la abierta pintaban sólo el botón de la hoja, y el ⋮,
+   el espacio y el margen quedaban con el fondo del panel, una franja blanca. El botón de adentro no tiene fondo
+   propio; el ⋮ lleva un velo encima (box-shadow inset: le gana a cualquier fondo) mientras su submenú esté
+   abierto. */
 .lk-hoja-fila { display: flex; align-items: center; gap: 2px; padding-right: 8px; min-width: 0; }
+.lk-hoja-fila:hover, .lk-hoja-fila[data-opciones] { background: var(--velo-hover); }
+.lk-hoja-fila[data-activa] { background: var(--primary-bg); }
+.lk-hoja-fila .lk-hoja-op, .lk-hoja-fila .lk-hoja-op:hover:not(:disabled), .lk-hoja-fila .lk-hoja-op[aria-checked="true"] { background: transparent; }
+.lk-hoja-fila[data-activa] .lk-hoja-op { color: var(--primary); }
 .lk-hoja-op { flex: 1 1 auto; min-width: 0; gap: 8px; }
 .lk-hoja-marca { flex: none; display: inline-flex; width: 16px; justify-content: center; color: var(--primary); }
 .lk-hoja-nombre { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lk-hoja-mas { flex: none; border: none; background: transparent; width: 26px; height: 28px; border-radius: 8px; color: var(--dim); cursor: pointer; font-size: 16px; opacity: 0; transition: opacity .12s; }
-.lk-hoja-fila:hover .lk-hoja-mas, .lk-hoja-fila[data-activa] .lk-hoja-mas, .lk-hoja-mas:focus-visible { opacity: 1; }
-.lk-hoja-mas:hover { background: var(--velo-hover); color: var(--ink); }
+.lk-hoja-fila:hover .lk-hoja-mas, .lk-hoja-fila[data-activa] .lk-hoja-mas, .lk-hoja-mas:focus-visible, .lk-hoja-mas[aria-expanded="true"] { opacity: 1; }
+.lk-hoja-mas:hover, .lk-hoja-mas[aria-expanded="true"] { box-shadow: inset 0 0 0 999px var(--velo-hover); color: var(--ink); }
 .lk-hoja-input { font: inherit; font-size: 14px; border: 1px solid var(--primary); border-radius: 6px; padding: 6px 8px; margin: 2px 10px; width: calc(100% - 20px); outline: none; background: var(--surface); color: var(--ink); box-sizing: border-box; }
-.lk-hojas-cab { display: flex; align-items: center; gap: 8px; padding: 4px 12px 6px; font-weight: 600; font-size: 14px; min-width: 0; }
-.lk-hojas-volver { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--dim); cursor: pointer; }
-.lk-hojas-volver:hover { background: var(--surface-2); color: var(--ink); }
 .lk-hojas-vacio { padding: 8px 16px; font-size: 13px; color: var(--dim); }
 
 /* La barra de edición: DEBAJO de la topbar, así la topbar no se mueve al apretar Editar. En el orden de
@@ -115,7 +128,7 @@ export const CSS = `
 .lk-comp-tit { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--dash-titulo-tam, 19px); font-weight: var(--dash-titulo-peso, 600); text-transform: var(--dash-titulo-mayus, none); letter-spacing: var(--dash-titulo-espacio, -0.015em); line-height: 1.25; color: var(--ink); }
 .lk-comp-tit > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lk-comp--kpi .lk-comp-tit { font-size: 14px; color: var(--dim); }
-.lk-comp--mono .lk-comp-tit { font-family: 'Geist Mono', monospace; font-weight: 400; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); }
+.lk-comp--mono .lk-comp-tit { font-family: 'Geist Mono', monospace; font-weight: 400; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); }
 .lk-comp-sub { margin-top: -6px; font-size: 13px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lk-comp-acciones { flex: none; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; cursor: default; }
 .lk-mako { display: inline-flex; transition: opacity .15s; }
@@ -195,18 +208,13 @@ export const CSS = `
 .lk-buscar--lista { margin: 4px 8px 6px; }
 .lk-buscar--modal { margin: 0 0 12px; height: 42px; border-radius: 21px; }
 
-/* La galería «Añadir un gráfico», con los bloques de MaKo al final. */
+/* La galería «Añadir un gráfico». */
 .lk-galeria { padding: 4px 12px 10px; }
 .lk-galeria-tit { font-size: 13px; color: var(--ink); margin: 10px 0 6px; font-weight: 600; }
 .lk-galeria-fila { display: flex; flex-wrap: wrap; gap: 6px; }
 .lk-galeria-tipo { display: grid; place-items: center; width: 50px; height: 42px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); cursor: pointer; padding: 0; color: var(--ink); }
 .lk-galeria-tipo:hover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
 .lk-galeria-tipo[data-actual] { border-color: var(--primary); background: var(--primary-bg); }
-.lk-bloques { display: flex; flex-direction: column; gap: 4px; }
-.lk-bloque-op { display: flex; align-items: center; gap: 10px; width: 100%; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 8px 10px; text-align: left; cursor: pointer; color: var(--ink); }
-.lk-bloque-op:hover { border-color: var(--primary); }
-.lk-bloque-nom { font-size: 13.5px; font-weight: 600; }
-.lk-bloque-linea { font-size: 12px; color: var(--dim); }
 
 /* El estilo de la hoja (punto 8): plantillas con su muestra, el color y la letra. */
 .lk-estilo { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 4px; }
@@ -223,8 +231,6 @@ export const CSS = `
 .lk-colores { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .lk-color { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border); cursor: pointer; padding: 0; }
 .lk-color[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
-.lk-color-otro { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px dashed var(--border-strong); border-radius: 14px; font-size: 12.5px; color: var(--dim); cursor: pointer; }
-.lk-color-otro input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 .lk-letras { display: flex; flex-direction: column; }
 .lk-letra { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; width: 100%; border: none; background: transparent; padding: 7px 8px; border-radius: 8px; cursor: pointer; color: var(--ink); text-align: left; }
 .lk-letra:hover { background: var(--velo-hover); }
@@ -241,22 +247,6 @@ export const CSS = `
 .lk-dato-mas { font-size: 13.5px; color: var(--primary); font-weight: 600; }
 .lk-darea-tit { font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); padding: 12px 12px 4px; }
 
-/* Las tablas que dibuja app/dashboard/Grafico.tsx. */
-.lk-tabla { flex: 1; min-height: 0; overflow: auto; }
-.lk-tabla table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.lk-tabla th { text-align: right; font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--dash-tarjeta-fondo, var(--surface)); position: sticky; top: 0; white-space: nowrap; }
-.lk-tabla td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink); }
-.lk-tabla .lk-tabla-izq { text-align: left; max-width: 240px; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-.lk-tabla tbody tr:hover td { background: var(--surface-2); }
-.lk-tabla-total td { font-weight: 600; border-bottom: none; border-top: 1px solid var(--border-strong); }
-.lk-tabla-fuerte { font-weight: 600; }
-.lk-tabla-barra { min-width: 130px; }
-.lk-celda-barra { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-.lk-celda-num { flex: none; min-width: 52px; text-align: right; }
-.lk-celda-pista { flex: 1; min-width: 50px; max-width: 120px; height: 10px; display: flex; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
-.lk-celda-pista span { display: block; height: 100%; border-radius: 5px; }
-.lk-tabla-mas { margin: 8px 10px 0; font-family: 'Geist Mono', monospace; font-size: 12px; color: var(--faint); }
-
 /* Celular: 16 px de margen y nada de scroll de costado. El panel de propiedades sube desde abajo. */
 @media (max-width: 760px) {
   .lk-top { padding: 10px 16px 8px; }
@@ -264,6 +254,7 @@ export const CSS = `
   .lk-top-emoji { width: 36px; height: 36px; font-size: 24px; }
   .lk-top-der { margin-left: 0; justify-content: flex-start; }
   .lk-barra { margin: 0 16px; }
+  .lk--editando .lk-barra { margin: 0; padding: 2px 16px 6px; }
   .lk-ins-sueltos { display: none; }
   .lk-ins-menu { display: inline-flex; }
   .lk-pagina { padding: 10px 16px 32px; }
@@ -295,7 +286,7 @@ export const CSS = `
   .lk-app { position: absolute; left: 0; top: 0; width: 1040px; height: auto !important; display: block !important; }
   .lk-top-der, .lk-top-hojas, .lk-barra, .lk-props, .lk-comp-acciones, .lk-sin-imprimir, .lk-cuerpo > .an { display: none !important; }
   .lk-cuerpo, .lk-lienzo { display: block !important; overflow: visible !important; height: auto !important; }
-  .lk-top { padding: 0 0 10px; }
+  .lk-top { padding: 0 0 10px; background: transparent !important; box-shadow: none !important; border: 0 !important; }
   .lk-top-emoji--vacio { display: none !important; }
   .lk-top .edin[data-vacio]::before { content: '' !important; }
   .lk-solo-imprimir { display: block !important; }

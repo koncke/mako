@@ -23,12 +23,17 @@
 //
 // Los 15 minutos son la granularidad real: «todos los días a las 9:00» corre entre las 9:00 y las 9:15.
 // Se corre a los :08 y no en punto para no caer en el mismo minuto que los crons de la hora en punto.
+//
+// v5 (12/10/2026): drena TAMBIÉN las cajas «Conclusiones de MaKo» con horario (`dashboard_ia_elementos`, mig
+// 0260), con la MISMA función que el AI Analyst (`drenarTabla`, lib/graficos-analisis-server.ts): lo único
+// propio de cada tabla es cómo se corre una fila. Se visita a quien tenga algo vencido en CUALQUIERA de las dos.
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { drenarVencidos, type CuentaCron } from '@/lib/graficos-analisis-server';
+import { drenarCajasVencidas } from '@/lib/graficos-ia-elemento-server';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -42,17 +47,24 @@ export async function GET(req: NextRequest) {
   try {
     // Crudo y sin scope a propósito: es la ÚNICA lectura entre negocios, y sólo sirve para saber a
     // quién visitar. Todo lo que toca datos va adentro del runWithWorkspace de abajo.
-    const { data, error } = await getSupabaseServer()
-      .from('dashboard_analisis')
+    const ahora = new Date().toISOString();
+    const vencidos = (tabla: 'dashboard_analisis' | 'dashboard_ia_elementos') => getSupabaseServer()
+      .from(tabla)
       .select('workspace_id')
       .not('cron', 'is', null)
-      .lte('proxima_at', new Date().toISOString())
+      .lte('proxima_at', ahora)
       .limit(500);
-    if (error) {
-      console.error('[cron:dashboard-analisis]', error.message);
-      return Response.json({ ok: false, error: error.message }, { status: 500 });
+    const [an, cj] = await Promise.all([vencidos('dashboard_analisis'), vencidos('dashboard_ia_elementos')]);
+    // ⚠️ Una tabla que falla no tapa a la otra: si la de las cajas todavía no existe (la 0260 sin aplicar), el
+    // AI Analyst sigue drenando y el error queda en el log y en la respuesta.
+    if (an.error) {
+      console.error('[cron:dashboard-analisis]', an.error.message);
+      return Response.json({ ok: false, error: an.error.message }, { status: 500 });
     }
-    const wss = [...new Set((data ?? []).map((r) => (r as { workspace_id: number }).workspace_id))];
+    if (cj.error) console.error('[cron:dashboard-analisis] cajas:', cj.error.message);
+    const deAnalisis = new Set((an.data ?? []).map((r) => (r as { workspace_id: number }).workspace_id));
+    const deCajas = new Set((cj.data ?? []).map((r) => (r as { workspace_id: number }).workspace_id));
+    const wss = [...new Set([...deAnalisis, ...deCajas])];
 
     const total: CuentaCron = { corridos: 0, fallidos: 0, sinTurno: 0, saltados: 0 };
     const errores: Array<{ ws: number; error: string }> = [];
@@ -62,8 +74,9 @@ export async function GET(req: NextRequest) {
       if (Date.now() > deadline - 90_000) { sinVisitar++; continue; }
       // Un negocio que falla no corta a los demás.
       try {
-        const r = await runWithWorkspace(ws, () => drenarVencidos({ deadline }));
-        for (const k of Object.keys(total) as Array<keyof CuentaCron>) total[k] += r[k];
+        const sumar = (r: CuentaCron) => { for (const k of Object.keys(total) as Array<keyof CuentaCron>) total[k] += r[k]; };
+        if (deAnalisis.has(ws)) sumar(await runWithWorkspace(ws, () => drenarVencidos({ deadline })));
+        if (deCajas.has(ws)) sumar(await runWithWorkspace(ws, () => drenarCajasVencidas({ deadline })));
       } catch (e) {
         errores.push({ ws, error: e instanceof Error ? e.message : String(e) });
       }
@@ -74,7 +87,7 @@ export async function GET(req: NextRequest) {
     console.log(`[cron:dashboard-analisis] negocios=${wss.length} corridos=${total.corridos} fallidos=${total.fallidos} sin_turno=${total.sinTurno + sinVisitar} saltados=${total.saltados} errores=${errores.length} ms=${ms}`);
     const ok = errores.length === 0 || errores.length < wss.length;
     return Response.json({
-      ok, negocios: wss.length, corridos: total.corridos, fallidos: total.fallidos,
+      ok, negocios: wss.length, corridos: total.corridos, fallidos: total.fallidos, ...(cj.error ? { error_cajas: cj.error.message } : {}),
       sin_turno: total.sinTurno, negocios_sin_turno: sinVisitar, saltados: total.saltados, errores, ms,
     }, { status: ok ? 200 : 500 });
   } catch (e) {

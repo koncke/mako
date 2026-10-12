@@ -29,13 +29,13 @@
 //    título mismo es el botón. Y si no hay a dónde ir (una sola hoja y sin «Nueva hoja», como en un link
 //    compartido de una hoja), no hay ▾: un desplegable de una opción es un control que no hace nada.
 
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { NuevoPlaceholder } from '@/app/automations/NuevoPlaceholder';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { conBuscador } from '@/app/components/dropdown-reglas';
 import { MAX_HOJAS, type Hoja } from '@/lib/graficos-catalogo';
-import { SvgFlecha, SvgLupa } from './Galeria';
+import { Flotante, SvgFlecha, SvgLupa } from './Galeria';
 
 type CambioCabecera = Partial<Pick<Hoja, 'nombre' | 'emoji' | 'subtitulo'>>;
 
@@ -122,8 +122,19 @@ export type AccionesHoja = {
  * El desplegable de las hojas: «＋ Nueva hoja» PRIMERA siempre (punto 1; el placeholder punteado de
  * Automations, importado), después las hojas —la abierta marcada— y, pasadas siete, el buscador de la
  * casa (`conBuscador`). Cada hoja lleva su ⋮ (y clic derecho) con Renombrar, Duplicar, Subir, Bajar y
- * Eliminar, que se abren ADENTRO del mismo panel (como el paso de «elige el campo» de un filtro): un
- * segundo flotante anclado a una fila que se desmonta se cerraría solo.
+ * Eliminar.
+ *
+ * Tanda v5 (12/10/2026), punto 5: «el ⋮ queda en blanco» y «reemplaza las opciones».
+ *   · LA FILA ENTERA se pinta (el hover y la abierta), no sólo el botón de la hoja: el ⋮, el espacio entre
+ *     los dos y el margen derecho quedaban con el fondo del panel, una franja blanca (editor-css.ts).
+ *   · El ⋮ abre un SEGUNDO desplegable AL COSTADO (`Flotante` con `lado="derecha"` y `anidado`, que se da
+ *     vuelta si no entra), en vez de reemplazar la lista: las hojas siguen a la vista mientras se elige qué
+ *     hacerle a una. Hasta v4 se reemplazaba porque «un segundo flotante anclado a una fila que se desmonta se
+ *     cerraría solo»: la fila NO se desmonta al abrirlo (sólo al renombrarla o eliminarla, y ahí el submenú se
+ *     cierra solo por `!ancla.isConnected`, que es lo correcto), y el de abajo ya no se cierra con un clic
+ *     adentro del de arriba (`anidado`, ./Galeria.tsx).
+ *   · Cada acción cierra el submenú: Subir y Bajar MUEVEN la fila, y un submenú anclado a una fila que se fue
+ *     a otro lado señalaría la hoja equivocada.
  * `acciones` en null = no se puede guardar (el closer, un link compartido): sólo se elige.
  */
 export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva }: {
@@ -135,39 +146,41 @@ export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva }
   onNueva: () => void;
 }) {
   const [q, setQ] = useState('');
-  const [opciones, setOpciones] = useState<string | null>(null);
+  const [opciones, setOpciones] = useState<{ id: string; ancla: HTMLElement } | null>(null);
   const [renombrando, setRenombrando] = useState<string | null>(null);
+  const cerrarOpciones = useCallback(() => setOpciones(null), []);
   const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   const busca = norm(q.trim());
   const visibles = hojas.filter((h) => !busca || norm(h.nombre).includes(busca));
-  const deOpciones = opciones ? hojas.find((h) => h.id === opciones) : undefined;
+  const deOpciones = opciones ? hojas.find((h) => h.id === opciones.id) : undefined;
+  /** Abre (o cierra, si ya estaba abierto) el submenú de una hoja, anclado a SU fila. */
+  const alternarOpciones = (id: string, fila: HTMLElement | null) => {
+    if (!fila) return;
+    setOpciones((o) => (o && o.id === id ? null : { id, ancla: fila }));
+  };
 
-  if (acciones && deOpciones) {
+  const submenu = (() => {
+    if (!acciones || !deOpciones || !opciones) return null;
     const i = hojas.findIndex((h) => h.id === deOpciones.id);
     const op = (texto: string, icono: NombreIconoMenu, fn: () => void, deshabilitada = false, peligro = false) => (
       <button type="button" role="menuitem" className={`lk-opcion${peligro ? ' lk-opcion--peligro' : ''}`} disabled={deshabilitada}
-        onClick={() => { fn(); setOpciones(null); }}>
+        onClick={() => { setOpciones(null); fn(); }}>
         <IconoMenu nombre={icono} size={17} /> <span>{texto}</span>
       </button>
     );
     return (
-      <div className="lk-lista" role="menu" aria-label={`Opciones de ${deOpciones.nombre}`}>
-        <div className="lk-hojas-cab">
-          <button type="button" className="lk-hojas-volver" aria-label="Volver a las hojas" onClick={() => setOpciones(null)}>
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m15 6-6 6 6 6" /></svg>
-          </button>
-          {deOpciones.emoji && <span aria-hidden>{deOpciones.emoji}</span>}
-          <span className="lk-hoja-nombre">{deOpciones.nombre}</span>
+      <Flotante ancla={opciones.ancla} onCerrar={cerrarOpciones} ancho={210} lado="derecha" anidado>
+        <div className="lk-lista" role="menu" aria-label={`Opciones de ${deOpciones.nombre}`}>
+          {op('Renombrar', 'renombrar', () => setRenombrando(deOpciones.id))}
+          {op('Duplicar', 'duplicar', () => acciones.onDuplicar(deOpciones.id), hojas.length >= MAX_HOJAS)}
+          {op('Subir', 'arriba', () => acciones.onMover(deOpciones.id, -1), i <= 0)}
+          {op('Bajar', 'abajo', () => acciones.onMover(deOpciones.id, 1), i >= hojas.length - 1)}
+          <div className="lk-sep-h" />
+          {op('Eliminar', 'borrar', () => acciones.onEliminar(deOpciones.id), hojas.length <= 1, true)}
         </div>
-        {op('Renombrar', 'renombrar', () => setRenombrando(deOpciones.id))}
-        {op('Duplicar', 'duplicar', () => acciones.onDuplicar(deOpciones.id), hojas.length >= MAX_HOJAS)}
-        {op('Subir', 'arriba', () => acciones.onMover(deOpciones.id, -1), i <= 0)}
-        {op('Bajar', 'abajo', () => acciones.onMover(deOpciones.id, 1), i >= hojas.length - 1)}
-        <div className="lk-sep-h" />
-        {op('Eliminar', 'borrar', () => acciones.onEliminar(deOpciones.id), hojas.length <= 1, true)}
-      </div>
+      </Flotante>
     );
-  }
+  })();
 
   return (
     <div className="lk-lista" role="menu" aria-label="Hojas">
@@ -193,21 +206,24 @@ export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva }
             </div>
           );
         }
+        const abiertas = opciones?.id === h.id;
         return (
-          <div key={h.id} className="lk-hoja-fila" data-activa={esActiva || undefined}
-            onContextMenu={(e) => { if (!acciones) return; e.preventDefault(); setOpciones(h.id); }}>
+          <div key={h.id} className="lk-hoja-fila" data-activa={esActiva || undefined} data-opciones={abiertas || undefined}
+            onContextMenu={(e) => { if (!acciones) return; e.preventDefault(); alternarOpciones(h.id, e.currentTarget); }}>
             <button type="button" role="menuitemradio" aria-checked={esActiva} className="lk-opcion lk-hoja-op" onClick={() => onIr(h.id)} title={h.nombre}>
               <span className="lk-hoja-marca">{esActiva && <IconoMenu nombre="check" size={15} />}</span>
               {h.emoji && <span aria-hidden>{h.emoji}</span>}
               <span className="lk-hoja-nombre">{h.nombre}</span>
             </button>
             {acciones && (
-              <button type="button" className="lk-hoja-mas" aria-label={`Opciones de ${h.nombre}`} aria-haspopup="menu" onClick={() => setOpciones(h.id)}>⋮</button>
+              <button type="button" className="lk-hoja-mas" aria-label={`Opciones de ${h.nombre}`} aria-haspopup="menu" aria-expanded={abiertas}
+                onClick={(e) => alternarOpciones(h.id, e.currentTarget.parentElement)}>⋮</button>
             )}
           </div>
         );
       })}
       {!visibles.length && <div className="lk-hojas-vacio">Ninguna hoja se llama así.</div>}
+      {submenu}
     </div>
   );
 }

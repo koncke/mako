@@ -18,11 +18,16 @@
 // scroll, no dónde está el botón.
 //
 // Celular y computadora NUNCA se mezclan: son dos páginas distintas.
+//
+// ⚠️ DESDE v5 (12/10/2026) EL DASHBOARD NO USA ESTE COMPONENTE: el gráfico «Mapa de calor de página» lo dibuja
+// app/dashboard/MapaCalor.tsx (en vivo, con el período y los filtros de la hoja). Éste queda sólo para el bloque
+// viejo de la hoja Landing (app/dashboard/bloques/extra/BloquesLanding.tsx); se borra cuando se borre ese bloque.
+// El calor y su escala ya son los del Dashboard (app/dashboard/MapaCalorPiezas.tsx).
 // =============================================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Select, Alert, EmptyState, ErrorState, SkeletonLines, Section, MONO } from '@/app/_ui';
 import {
-  colorDeCalor, rankingDe, ubicarPorAncla, ubicarPorPunto, PIXEL_ANCLA_DESDE, PIXEL_PUNTO_DESDE,
+  rankingDe, ubicarPorAncla, ubicarPorPunto, PIXEL_ANCLA_DESDE, PIXEL_PUNTO_DESDE,
   type Dispositivo,
 } from '@/lib/landing-mapa';
 import { RUTA_PIXEL } from '@/lib/pixel-aviso';
@@ -30,57 +35,10 @@ import type { PaginaDelMapa, DatosDelMapa, FondoDelMapa } from '@/lib/landing-ma
 // El rótulo de lo tocado vive en un módulo puro desde el 11/10/2026: lo usa también el
 // conjunto `toques` del Dashboard, del lado del server.
 import { hostPath, rotuloDe } from '@/lib/landing-mapa-rotulo';
+// El calor y su escala viven con el mapa del Dashboard desde el 12/10/2026 (una rampa, un lugar).
+import { Leyenda, pintarCalor } from '@/app/dashboard/MapaCalorPiezas';
 
 const SANS = "'Geist', sans-serif";
-
-/** El calor: cada toque suma alfa en un círculo difuso, y la suma se pinta con la rampa. */
-function pintarCalor(canvas: HTMLCanvasElement, puntos: Array<{ x: number; y: number }>, radio: number) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!puntos.length) return;
-  // La densidad máxima se estima por celdas del tamaño del radio: con ella, la zona
-  // más tocada llega al color más intenso sin que un toque aislado se pierda.
-  const celdas = new Map<string, number>();
-  for (const p of puntos) {
-    const k = `${Math.floor(p.x / radio)}:${Math.floor(p.y / radio)}`;
-    celdas.set(k, (celdas.get(k) ?? 0) + 1);
-  }
-  const max = Math.max(1, ...celdas.values());
-  const alfa = Math.max(0.08, Math.min(1, 1.2 / max));
-  for (const p of puntos) {
-    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radio);
-    g.addColorStop(0, 'rgba(0,0,0,1)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.globalAlpha = alfa;
-    ctx.fillStyle = g;
-    ctx.fillRect(p.x - radio, p.y - radio, radio * 2, radio * 2);
-  }
-  ctx.globalAlpha = 1;
-  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const a = d[i + 3];
-    if (!a) continue;
-    const [r, gg, b, aa] = colorDeCalor(a / 255);
-    d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = Math.round(aa * Math.min(1, (a / 255) * 4));
-  }
-  ctx.putImageData(img, 0, 0);
-}
-
-function Leyenda() {
-  const pasos = Array.from({ length: 12 }, (_, i) => {
-    const [r, g, b, a] = colorDeCalor(i / 11);
-    return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
-  });
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--dim)' }}>
-      <span>Pocos</span>
-      <span aria-hidden style={{ width: 120, height: 8, borderRadius: 4, background: `linear-gradient(90deg, ${pasos.join(', ')})` }} />
-      <span>Muchos toques</span>
-    </div>
-  );
-}
 
 export function MapaDeCalor() {
   const [paginas, setPaginas] = useState<PaginaDelMapa[] | null>(null);

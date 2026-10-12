@@ -368,6 +368,67 @@ test('el renglón recorta el título y nunca las visitas', () => {
   assert.match(COMPARTIR, /\.cmp-item-in \{[^}]*flex: 1/, 'la columna se lleva el sobrante o no hay qué recortar');
 });
 
+// =============================================================================
+// El modo CONTROLADO y la variante de la APP (tanda v5 del Dashboard, 12/10/2026, puntos 3 y 16)
+// =============================================================================
+// El Dashboard abre este MISMO modal desde un renglón de su ⋮ (`abierto` + `onCerrar`: el componente no dibuja
+// su botón) y con el estilo de la app (`variante="app"`): en el Dashboard heredaba el papel y el lima de
+// Conocimientos, porque `--card` y `--lime` no existen fuera del portal y caían a sus respaldos. Lo que se fija
+// es que CONOCIMIENTOS QUEDE EXACTAMENTE IGUAL: sin las dos props, el mismo botón, el mismo modal, las mismas
+// reglas; la variante es una marca (`data-variante`) y reglas estáticas colgadas de ella.
+//
+// Probado ROMPIÉNDOLO (12/10/2026, scratchpad/p4v5-romper.mjs, restaurado de MEMORIA y comparado byte a byte).
+// Base: 15 pasan / 0 fallan. Cada rotura (pasan / fallan):
+//   · el botón propio también en modo controlado          → 13 / 2
+//   · cerrar no avisa afuera (`onCerrar`)                 → 14 / 1
+//   · el overlay sin la marca de la variante              → 14 / 1
+//   · la pila de capas también en Conocimientos           → 14 / 1
+//   · una regla de la variante sin la marca (se escapa)   → 14 / 1
+//   · el lima en la variante                              → 14 / 1
+//   · abierto desde afuera sin limpiar lo de antes        → 14 / 1
+//   · el botón de Conocimientos cambia de clase           → 13 / 2
+
+test('el modo controlado: sin `abierto`, el botón de siempre; con `abierto`, sin botón, y cerrar avisa afuera', () => {
+  assert.match(COMPARTIR, /const controlado = abiertoDesdeAfuera !== undefined;/);
+  assert.match(COMPARTIR, /const visible = controlado \? abiertoDesdeAfuera : abierto;/);
+  assert.match(COMPARTIR, /\{!controlado && \(\s*<button type="button" className=\{claseBoton \?\?/, 'el botón propio se dibuja también controlado');
+  // «Cerrar», el clic en el fondo y Escape pasan por UNA función, que en modo controlado avisa a quien lo abrió.
+  assert.match(COMPARTIR, /const cerrar = \(\) => \{ if \(controlado\) onCerrar\?\.\(\); else setAbierto\(false\); \};/);
+  assert.match(bloque(COMPARTIR, '<div className="cmp-pie">', '</div>', 200), /onClick=\{cerrar\}/);
+  const ov = bloque(COMPARTIR, '{visible && createPortal((', '<div className="cmp-box">', 900);
+  assert.match(ov, /onClick=\{\(e\) => \{ if \(e\.target === e\.currentTarget\) cerrar\(\); \}\}/);
+  // Al abrirse desde afuera, lo de la vez anterior se va (lo mismo que hace el clic del botón propio).
+  assert.match(COMPARTIR, /if \(visible && controlado\) \{ setNuevo\(null\); setError\(null\); setSumaResultado\(null\); \}/);
+});
+
+test('la variante de la app: una marca en el overlay, la pila de capas sólo ahí, y reglas estáticas de tokens', () => {
+  const ov = bloque(COMPARTIR, '{visible && createPortal((', '<div className="cmp-box">', 900);
+  assert.match(ov, /data-variante=\{esApp \? 'app' : undefined\}/, 'sin la marca, la variante no aplica');
+  assert.match(ov, /\{esApp && <CapaDeApp onEscape=\{cerrar\} \/>\}/, 'Escape y la pila de capas, sólo en la app');
+  assert.match(ov, /onKeyDown=\{esApp \?/, 'en el Dashboard, Suprimir en el modal borraría la tarjeta de atrás');
+  // Todas las reglas de la variante cuelgan de la marca, y son tokens: nada del lima, del papel ni un hex.
+  const ini = COMPARTIR_CRUDO.indexOf('.cmp-ov[data-variante="app"] {');
+  assert.ok(ini > -1, 'no encontré las reglas de la variante');
+  const reglas = COMPARTIR_CRUDO.slice(ini, COMPARTIR_CRUDO.indexOf('`}</style>', ini)).replace(/\r\n/g, '\n').split('\n').map((l) => l.trim()).filter(Boolean);
+  assert.ok(reglas.length >= 20, `esperaba las reglas de la variante y encontré ${reglas.length}`);
+  for (const r of reglas) {
+    for (const sel of r.slice(0, r.indexOf('{')).split(',')) assert.match(sel.trim(), /^\.cmp-ov\[data-variante="app"\]/, `una regla de la variante se escapa a Conocimientos: «${r.slice(0, 80)}»`);
+    assert.doesNotMatch(r, /--lime|--card|#[0-9a-f]{3,8}\b|rgba\(200, ?241/i, `«${r.slice(0, 80)}»: el verde o el papel del portal`);
+  }
+});
+
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import Compartir from '../app/conocimientos/Compartir';
+
+test('dibujado: sin `abierto`, el botón de Conocimientos de siempre; con `abierto={false}`, nada', () => {
+  const html = (p: Partial<Pick<Parameters<typeof Compartir>[0], 'abierto' | 'onCerrar' | 'variante' | 'compacto'>>) => renderToStaticMarkup(createElement(Compartir, { recurso: 'curso', recursoId: 'x', etiqueta: 'Curso X', ...p })).replace(/<style[\s\S]*?<\/style>/g, '');
+  assert.match(html({}), /<button type="button" class="cmp-btn">\s*Compartir\s*<\/button>/, 'el botón de siempre cambió');
+  assert.match(html({ compacto: true }), /class="cmp-btn chico" title="Compartir «Curso X» por link"/);
+  assert.equal(html({ abierto: false, onCerrar: () => {} }).trim(), '', 'controlado y cerrado no dibuja nada (ni el botón)');
+  assert.equal(html({ abierto: false, onCerrar: () => {}, variante: 'app' }).trim(), '');
+});
+
 test('NADA de backticks adentro de la hoja de estilos', () => {
   // Esta hoja es un template literal: un backtick en un comentario la cierra a la mitad.
   // No es hipotético — pasó escribiendo el renglón de arriba, el 06/10/2026, con la regla

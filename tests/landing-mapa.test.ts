@@ -21,7 +21,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CORTE_MOVIL, colorDeCalor, dispositivoDe, rankingDe, selAnclado, ubicarPorAncla, ubicarPorPunto, type ToqueMapa } from '../lib/landing-mapa';
-import { congelarVh, congelarVhEnHoja, fotoDeEventos, htmlDeFoto, type NodoFoto } from '../lib/landing-mapa-foto';
+import { anchoMasComun, congelarVh, congelarVhEnHoja, fotoDeEventos, htmlDeFoto, rotuloDeHueco, type NodoFoto } from '../lib/landing-mapa-foto';
+import { atributosSinCors, hojasSinCors } from '../lib/replay-reproductor';
 
 const toque = (p: Partial<ToqueMapa>): ToqueMapa => ({
   tipo: 'clic_vacio', x: 0, y: 0, vw: 400, dh: 4000, sel: null, rx: null, ry: null, vh: null, fijo: null, etiqueta: 'vacio: DIV', p: 0, ...p,
@@ -94,8 +95,9 @@ test('la foto sale SIN código: ni <script>, ni on…, ni javascript:, ni iframe
   const html = htmlDeFoto({ ancho: 400, alto: 800, nodo: FOTO });
   assert.doesNotMatch(html, /<script/i, 'un <script> en la foto correría en el iframe si el sandbox se cayera');
   assert.doesNotMatch(html, /alert\(/, 'ni un atributo on… ni un javascript: puede sobrevivir');
-  assert.doesNotMatch(html, /player\.x\.com/, 'el iframe de un tercero queda vacío: no se carga nada de afuera');
-  assert.match(html, /<iframe width="560" srcdoc="">/);
+  assert.doesNotMatch(html, /player\.x\.com/, 'el iframe de un tercero no carga nada de afuera');
+  // Desde el 12/10/2026 lleva su cartel en el srcdoc (un host que no es de la lista: «Contenido de otro sitio»).
+  assert.match(html, /<iframe width="560" srcdoc="&lt;!DOCTYPE html>[^"]*Contenido de otro sitio[^"]*">/);
   // La hoja guardada adentro va como <style>, y el texto se escapa.
   assert.match(html, /<style>\.hero\{min-height:800px\}<\/style>/);
   assert.match(html, /Hola &lt;b&gt;/);
@@ -177,4 +179,98 @@ test('⚠️ la foto de fondo se busca en las sesiones de ESA página, no en las
   const f = src.slice(src.indexOf('export async function fondoDelMapa'));
   const iIlike = f.indexOf(".ilike('landing_url'");
   assert.ok(iIlike > 0 && iIlike < f.indexOf('.limit('), 'la página se filtra después del tope');
+});
+
+// =============================================================================
+// v5 (12/10/2026): la foto como RESPALDO del mapa en vivo — la hoja sin CORS y los carteles
+// =============================================================================
+// PROBADO ROMPIÉNDOLO (12/10/2026, base de este archivo: 17 pasan / 0 fallan). Cada rotura sola, restaurada
+// de memoria y verificada por hash antes de la siguiente (arnés SCRATCH/p7/romper.mjs):
+//   · `atributosSinCors` sin sacar `integrity` ........................................ 16 / 1
+//   · `htmlDeFoto` sin llamar a `atributosSinCors` (la foto vuelve a pedir en CORS) ...... 16 / 1
+//   · `hojasSinCors` con su propia regla otra vez (sin `atributosSinCors`) ............... 16 / 1
+//   · `atributosSinCors` que también limpia un link que NO es hoja ...................... 16 / 1
+//   · `rotuloDeHueco` reconociendo por una regex de «panda» en el host (un parecido pasa) 16 / 1
+//   · el iframe vuelve a `srcdoc=""` (sin cartel) ......................................... 15 / 2 (cae también
+//     el test de arriba, «la foto sale SIN código», que pide el cartel)
+//   · el `<video>` conserva su `src` ....................................................... 16 / 1
+//   · `anchoMasComun` que desempata por el más grande ..................................... 16 / 1
+
+test('⚠️ la regla de la hoja sin CORS es UNA y la usan las DOS puertas: el reproductor y la foto', () => {
+  // La función pura: a una hoja enlazada le saca crossorigin e integrity; a todo lo demás lo deja igual.
+  const hoja = { rel: 'stylesheet', crossorigin: '', integrity: 'sha384-x', href: 'https://x.com/a.css' };
+  assert.deepEqual(atributosSinCors('link', hoja), { rel: 'stylesheet', href: 'https://x.com/a.css' });
+  assert.equal(hoja.crossorigin, '', 'pura: no toca el objeto que recibe');
+  const precarga = { rel: 'preload', crossorigin: '', href: 'https://x.com/f.woff2' };
+  assert.equal(atributosSinCors('link', precarga), precarga, 'un link que no es hoja no se toca');
+  assert.equal(atributosSinCors('script', { crossorigin: '' }).crossorigin, '');
+
+  // Puerta 1, el reproductor: los eventos de una grabación.
+  const eventos = [{ type: 2, data: { node: { type: 0, childNodes: [{ type: 2, tagName: 'link', attributes: { ...hoja } }] } } }];
+  const r = hojasSinCors(eventos) as typeof eventos;
+  assert.deepEqual(r[0].data.node.childNodes[0].attributes, { rel: 'stylesheet', href: 'https://x.com/a.css' });
+
+  // Puerta 2, la foto del mapa: una hoja SIN `_cssText` (el grabador v2 graba la hoja como link) sale sin
+  // crossorigin ni integrity, y por eso el navegador la aplica adentro del srcdoc (medido en el ws1: con el
+  // atributo, la página salía en serif y sin estilo).
+  const foto: NodoFoto = { type: 0, childNodes: [{ type: 2, tagName: 'html', attributes: {}, childNodes: [
+    { type: 2, tagName: 'head', attributes: {}, childNodes: [{ type: 2, tagName: 'link', attributes: { ...hoja } }] },
+    { type: 2, tagName: 'body', attributes: {}, childNodes: [] },
+  ] }] };
+  const html = htmlDeFoto({ ancho: 390, alto: 800, nodo: foto });
+  assert.match(html, /<link rel="stylesheet" href="https:\/\/x\.com\/a\.css">/);
+  assert.doesNotMatch(html, /crossorigin|integrity/);
+
+  // Y las dos puertas llaman a la MISMA función (no a una copia de la regla).
+  const quitar = (src: string) => src.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rep = quitar(readFileSync(new URL('../lib/replay-reproductor.ts', import.meta.url), 'utf8'));
+  const ini = rep.indexOf('export function hojasSinCors');
+  assert.match(rep.slice(ini, rep.indexOf('\n}\n', ini)), /atributosSinCors\(nodo\.tagName, nodo\.attributes\)/, 'el reproductor volvió a tener su propia regla');
+  const fot = quitar(readFileSync(new URL('../lib/landing-mapa-foto.ts', import.meta.url), 'utf8'));
+  const iniF = fot.indexOf('export function htmlDeFoto');
+  assert.match(fot.slice(iniF, fot.indexOf('\n}\n', iniF)), /atributosSinCors\(tag, attrsCrudos \?\? \{\}\)/, 'la foto dejó de pasar por la regla compartida');
+});
+
+test('los carteles de los huecos: el proveedor se reconoce con la lista de embeds, y un parecido no pasa', () => {
+  assert.equal(rotuloDeHueco('https://player-vz-dd4ad08b-375.tv.pandavideo.com.br/embed/?v=1b9db76c-6bbb-4837-8274-96896c3d8b47', 'iframe'), '▶ Video · Panda Video');
+  // Como lo guarda rrweb a veces: sin esquema.
+  assert.equal(rotuloDeHueco('player-vz-dd4ad08b-375.tv.pandavideo.com.br/embed/', 'iframe'), '▶ Video · Panda Video');
+  assert.equal(rotuloDeHueco('https://calendly.com/negocio/llamada?embed_type=Inline', 'iframe'), 'Agenda · Calendly');
+  assert.equal(rotuloDeHueco('//www.youtube.com/embed/dQw4w9WgXcQ', 'iframe'), '▶ Video · YouTube');
+  // Un host que se PARECE no es el proveedor (la lista compara el host exacto).
+  assert.equal(rotuloDeHueco('https://pandavideo.com.evil.tld/embed/', 'iframe'), 'Contenido de otro sitio');
+  assert.equal(rotuloDeHueco('https://www.google.com/maps/embed?pb=1', 'iframe'), 'Contenido de otro sitio');
+  assert.equal(rotuloDeHueco(null, 'iframe'), 'Contenido de otro sitio');
+  assert.equal(rotuloDeHueco('https://cdn.negocio.com/v.mp4', 'video'), '▶ Video');
+});
+
+test('la foto: el marco de rrweb (`rr_src`) lleva su cartel y no carga nada; el <video> no baja nada', () => {
+  const foto: NodoFoto = { type: 0, childNodes: [{ type: 2, tagName: 'html', attributes: {}, childNodes: [
+    { type: 2, tagName: 'body', attributes: {}, childNodes: [
+      { type: 2, tagName: 'iframe', attributes: { id: 'panda-1', class: 'vsl', rr_src: 'https://player-vz-dd4ad08b-375.tv.pandavideo.com.br/embed/?v=1b9db76c-6bbb-4837-8274-96896c3d8b47' } },
+      { type: 2, tagName: 'iframe', attributes: { rr_src: 'https://calendly.com/negocio/llamada' } },
+      { type: 2, tagName: 'video', attributes: { src: 'https://cdn.negocio.com/v.mp4', class: 'clip', autoplay: true }, childNodes: [
+        { type: 2, tagName: 'source', attributes: { src: 'https://cdn.negocio.com/v.webm' } },
+      ] },
+    ] },
+  ] }] };
+  const html = htmlDeFoto({ ancho: 390, alto: 800, nodo: foto });
+  // El marco conserva lo suyo (id, clase: lo siguen alcanzando las reglas del cliente) y no su dirección.
+  assert.match(html, /<iframe id="panda-1" class="vsl" srcdoc="[^"]*▶ Video · Panda Video[^"]*">/);
+  assert.match(html, /srcdoc="[^"]*Agenda · Calendly[^"]*"/);
+  assert.doesNotMatch(html, /pandavideo|calendly\.com|cdn\.negocio\.com/, 'algo de un tercero se volvería a pedir');
+  // El video: sin src, sin <source>, sin autoplay, con su cartel de portada.
+  assert.match(html, /<video class="clip" preload="none" poster="data:image\/svg\+xml;charset=utf-8,[^"]+"><\/video>/);
+  assert.match(decodeURIComponent(/poster="data:image\/svg\+xml;charset=utf-8,([^"]+)"/.exec(html)![1]), /▶ Video/);
+});
+
+test('la foto de fondo se elige del ancho MÁS COMÚN entre los toques', () => {
+  assert.equal(anchoMasComun([390, 430, 390, 320, 430, 390]), 390);
+  // Empate: el más chico (dos lecturas dan lo mismo).
+  assert.equal(anchoMasComun([430, 390, 430, 390]), 390);
+  assert.equal(anchoMasComun([]), null);
+  assert.equal(anchoMasComun([0, Number.NaN]), null);
+  const src = readFileSync(new URL('../lib/landing-mapa-server.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const f = src.slice(src.indexOf('export async function fondoDelMapa'));
+  assert.match(f, /foto\.ancho === quiere/, 'el fondo dejó de buscar el ancho pedido');
 });

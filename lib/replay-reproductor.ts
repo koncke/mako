@@ -93,16 +93,17 @@ export function constructorDelGlobal(g: unknown): ConstructorPlayer | null {
  *
  * Mira la foto entera (type 2) y los nodos que agrega una mutación (type 3,
  * source 0): una página de una sola pantalla agrega hojas al cambiar de ruta.
+ *
+ * ⚠️ LA REGLA DE QUÉ SE SACA VIVE EN `atributosSinCors`, y la usan DOS puertas: este
+ * reproductor y la FOTO del mapa de calor (`htmlDeFoto`, lib/landing-mapa-foto.ts). Hasta
+ * el 12/10/2026 la foto no la llamaba: el mapa se veía en serif y sin estilo por el mismo
+ * `crossorigin` que acá ya estaba arreglado (relevo v5, área D). Una cosa, un lugar.
  */
 export function hojasSinCors<T>(eventos: T[]): T[] {
   const limpiar = (n: unknown, prof: number): void => {
     if (!n || typeof n !== 'object' || prof > 400) return;
     const nodo = n as { type?: unknown; tagName?: unknown; attributes?: Record<string, unknown>; childNodes?: unknown };
-    const a = nodo.attributes;
-    if (nodo.type === 2 && nodo.tagName === 'link' && a && typeof a.rel === 'string' && /(^|\s)stylesheet(\s|$)/i.test(a.rel)) {
-      delete a.crossorigin;
-      delete a.integrity;
-    }
+    if (nodo.type === 2 && nodo.attributes) nodo.attributes = atributosSinCors(nodo.tagName, nodo.attributes);
     if (Array.isArray(nodo.childNodes)) for (const c of nodo.childNodes) limpiar(c, prof + 1);
   };
   for (const e of eventos) {
@@ -114,6 +115,31 @@ export function hojasSinCors<T>(eventos: T[]): T[] {
     }
   }
   return eventos;
+}
+
+/** Los atributos que obligan al navegador a pedir una hoja en modo CORS (el chequeo de integridad también lo exige). */
+const ATRIBUTOS_CORS = ['crossorigin', 'integrity'] as const;
+
+/** ¿Es una hoja de estilo enlazada (`<link rel="stylesheet">`)? Mira la etiqueta y el `rel`, nada más. */
+export function esHojaEnlazada(tag: unknown, attrs: Readonly<Record<string, unknown>> | null | undefined): boolean {
+  return typeof tag === 'string' && tag.toLowerCase() === 'link' && !!attrs
+    && typeof attrs.rel === 'string' && /(^|\s)stylesheet(\s|$)/i.test(attrs.rel);
+}
+
+/**
+ * Los atributos de un nodo grabado, sin lo que bloquea su hoja por CORS: a una hoja enlazada le saca
+ * `crossorigin` e `integrity`; a cualquier otro nodo lo devuelve TAL CUAL (el mismo objeto).
+ *
+ * PURA: no toca el objeto que recibe, devuelve uno nuevo cuando hay algo que sacar. La usan las dos puertas
+ * que muestran una grabación —el reproductor (`hojasSinCors`) y la foto del mapa de calor (`htmlDeFoto`)— y
+ * un test las prueba a las dos (tests/landing-mapa.test.ts).
+ */
+export function atributosSinCors<T extends Record<string, unknown>>(tag: unknown, attrs: T): T {
+  if (!esHojaEnlazada(tag, attrs)) return attrs;
+  if (!ATRIBUTOS_CORS.some((k) => k in attrs)) return attrs;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(attrs)) if (!(ATRIBUTOS_CORS as readonly string[]).includes(k)) out[k] = v;
+  return out as T;
 }
 
 /** Una sola carga por pestaña, aunque se abran diez grabaciones. */

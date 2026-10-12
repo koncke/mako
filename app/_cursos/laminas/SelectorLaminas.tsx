@@ -22,6 +22,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ACENTOS } from '@/lib/curso-estilo';
+import { RUEDA_COLOR } from '@/app/_ui/rueda-color';
 import { DISENO_DEFAULT, disenoLamina, leerLamina, textoLamina, type DisenoLamina, type ValorLamina } from '@/lib/laminas';
 import { LAMINAS, Lamina, coloresDeLamina, valorElegido } from './index';
 
@@ -179,7 +180,7 @@ function FilaColor({ actual, delDiseno, onElegir, onProbar }: {
   actual: string; delDiseno: string; onElegir: (hex: string) => void; onProbar: (hex: string) => void;
 }) {
   const muestras = [{ nombre: 'El del diseño', hex: delDiseno }, ...ACENTOS.filter((x) => x.hex.toUpperCase() !== delDiseno.toUpperCase())];
-  const rueda = 'conic-gradient(from 90deg, #ff0000, #ffea00, #21d24a, #00c2ff, #2b5cff, #c000ff, #ff0090, #ff0000)';
+  const rueda = RUEDA_COLOR;
   const enMuestras = muestras.some((m) => m.hex.toUpperCase() === actual.toUpperCase());
   return (
     <div className="pp-colores">

@@ -103,6 +103,10 @@ const TENANT_TABLES = new Set<string>([
   // programado de TODOS, y el panel podría mostrar el análisis de otro negocio con el mismo hoja_id
   // (los del informe inicial son fijos: «marketing», «comercial»).
   'dashboard_analisis',
+  // Las cajas «Conclusiones de MaKo» del Dashboard (mig 0260, tanda v5): una fila por negocio, persona, hoja,
+  // pop-up, caja y lo abierto. Mismo porqué que la de arriba, y uno más: la de una caja de llamada guarda lo que
+  // se dijo en esa llamada (el transcript), así que sin esta línea se leería el de OTRO negocio.
+  'dashboard_ia_elementos',
   // ⚠️ SIN ESTA LINEA `getTenantDb()` ES PASSTHROUGH, no «sin scope»: la lectura
   // devolveria las corridas de CUALQUIER workspace y el drenador de un cliente
   // avanzaria y mandaria las filas de todos. No da error: contesta de mas.

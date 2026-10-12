@@ -57,6 +57,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Spinner } from '@/app/_ui';
+import { RUEDA_COLOR } from '@/app/_ui/rueda-color';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { GRADIENTES, cssGradiente, valorGradiente, fondoPortada } from '@/lib/portadas';
 import { esLamina } from '@/lib/laminas';
@@ -367,7 +368,7 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
  * grilla se redibuja sola al tocarlo — que es lo que hace obvio qué cambió.
  */
 function Colores({ actual, onPick }: { actual: string; onPick: (c: string) => void }) {
-  const rueda = 'conic-gradient(from 90deg, #ff0000, #ffea00, #21d24a, #00c2ff, #2b5cff, #c000ff, #ff0090, #ff0000)';
+  const rueda = RUEDA_COLOR;
   return (
     <>
       <p className="pp-seccion pp-seccion-2">Color · {colorName(actual)}</p>

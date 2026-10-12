@@ -53,6 +53,7 @@ import { canonizarVideoId } from '@/lib/video-id';
 import { esPreviewDeEditor } from '@/lib/landing-paginas';
 import { alVisitarPagina } from '@/lib/landing-gracias';
 import { ubicacionDeHeaders, type UbicacionVisita } from '@/lib/graficos-datos-puro';
+import { PUENTE_MAPA_VERSION, esPruebaDelMapa } from '@/lib/landing-mapa-puente';
 
 export const dynamic = 'force-dynamic';
 
@@ -374,7 +375,10 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
     // 07/10/2026). Después del insert —la visita ya quedó— y sin esperar el movimiento: acá sólo
     // se pregunta si la página está marcada (una lectura) y el resto va por detrás. Nunca tira.
     // ⚠️ El editor y localhost no ganan a nadie: son las vistas del dueño probando su página.
-    const pagina = texto(payload.landing_url, 500);
+    // ⚠️ LA VISITA DEL MAPA EN VIVO (`?mko_test=mapa-…`) ES DE MaKo, no de una persona: no gana a nadie ni deja
+    // un «llegó a gracias sin lead» en la página del cliente. Sin página, la pregunta de abajo no se hace.
+    const pruebaDelMapa = esPruebaDelMapa(payload.prueba);
+    const pagina = pruebaDelMapa ? null : texto(payload.landing_url, 500);
     const wsVisita = wsEnContexto();
     if (pagina && wsVisita != null && !esVistaDePrueba(pagina)) {
       await alVisitarPagina({ ws: wsVisita, visitorId, landingUrl: pagina });
@@ -399,6 +403,12 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
     // Best-effort y después del insert: un setting ilegible no puede costar la
     // visita, que es el dato que de verdad importa.
     let rec: { v: number } | null = null;
+    // ⚠️ EL MAPA DE CALOR EN VIVO (12/10/2026): a una visita de prueba del mapa se le contesta el PUENTE, no el
+    // grabador (lib/landing-mapa-puente.ts). El r.js del puente no graba —a quien mira el mapa no se lo guarda
+    // como una sesión del cliente— y contesta por postMessage, sólo a MaKo, dónde está cada cosa de la página.
+    // No depende del interruptor de la grabación: el puente no graba nada, y sin él el mapa cae a la foto.
+    // A cualquier otra visita, lo de siempre: el r.js de los visitantes de verdad NO cambia.
+    if (pruebaDelMapa) return json({ ok: true, rec: { v: PUENTE_MAPA_VERSION } });
     try {
       const cfg = parsearReplay(await getSetting(REPLAY_CONFIG_KEY));
       if (grabaA(cfg, visitorId)) rec = { v: REPLAY_LIB_VERSION };

@@ -623,7 +623,7 @@ export function numerosInventados(texto: string, permitidos: number[]): string[]
 }
 
 /** Sin markdown, sin espacios de más, con la marca bien escrita y con tope de largo. */
-function limpiar(v: unknown, max: number): string {
+export function limpiar(v: unknown, max: number): string {
   if (typeof v !== 'string') return '';
   const t = corregirMarca(v.replace(/[*_`#>]+/g, '').replace(/^\s*[-•]\s+/gm, '').replace(/\s+/g, ' ').trim());
   return t.length > max ? `${t.slice(0, max - 1).replace(/\s+\S*$/, '')}…` : t;

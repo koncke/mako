@@ -32,6 +32,17 @@
 //     «"Ver llamada" abre la ficha…»).
 //   · filasLlamadasVenta sin `r: { llamada, lead }`             → 1 fallo de 17 («los lectores llevan los ids…»).
 //   · Detalle.tsx sin la rama `a.tipo === 'llamada'`            → 1 fallo de 17 («"Ver llamada" abre la ficha…»).
+//
+// Tanda v5 (12/10/2026, P6): las dimensiones de personas de los conjuntos nuevos, la entrega leída del universo de
+// la cartera (P2), y lo que abre un clic en un pop-up y las acciones en la fila de una tabla. Base 20 de 20 (con
+// los 2 rojos de la ola 1 ya en verde); roturas, una por vez, restaurando DE MEMORIA (arnés scratchpad/p6/romper.mjs),
+// cada una 19 pases y 1 fallo; la vuelta, 20 de 20:
+//   · `cobranza.cliente` fuera de DIMENSIONES_PERSONA                    → «las dimensiones con…».
+//   · `filasPorId` quedándose con la PRIMERA de dos cuotas del mismo id  → «las acciones en la fila…».
+//   · `idDeDimension` devolviendo la primera clave de `ids` siempre     → «las acciones en la fila…».
+//   · `contextoDeClic` sin mirar que la dimensión SEA la entidad        → «lo que abre un clic…».
+//   · `contextoDeClic` aceptando un ref que no es un número             → «lo que abre un clic…».
+//   · `accionInicial` de un pop-up de llamada en «sincronizar»          → «con qué nace…».
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -39,9 +50,11 @@ import { join } from 'node:path';
 import { ENTIDADES, FUENTES, destinoDetalle, fuenteDe, sanearGrafico, type Grafico } from '../lib/graficos-catalogo';
 import { agregar, agregarPorRef, OTROS, type Fila } from '../lib/graficos-agregar';
 import {
-  ACCIONES, DIMENSIONES_PERSONA, ESTADO_COBRADO, SIN_CAPACIDADES, aFilaDetalle, accionesDeFila, alternarSerie, campoParaFiltrar,
-  planDetalle, rangoDeClave, recortarAlTramo, serieOculta, type Capacidades,
+  ACCIONES, DIMENSIONES_PERSONA, ESTADO_COBRADO, PIEZAS_ENTIDAD, SIN_CAPACIDADES, aFilaDetalle, accionInicial, accionesDeFila, alternarSerie,
+  campoParaFiltrar, contextoDeClic, entidadDeGrafico, filasPorId, idDeDimension, piezaInicial, planDetalle, rangoDeClave, recortarAlTramo,
+  serieOculta, type Capacidades, type FilaDetalle,
 } from '../lib/graficos-acciones';
+import { PIEZA_COMPLETA } from '../lib/graficos-migrar-v5';
 import { dimensionPublica } from '../lib/graficos-analisis';
 
 const g = (r: Partial<Grafico> & Record<string, unknown>): Grafico => sanearGrafico({ id: 'g1', ...r })!;
@@ -245,11 +258,52 @@ test('las dimensiones con nombres de personas no viajan a ningún modelo (fuera 
   }
   // Y la que NOMBRA cada fila del detalle (la primera de `nombre`) está en la lista: una entidad nueva que se
   // nombre con una persona tiene que sumarse acá (y quedar afuera de allá) antes de que el detalle la liste.
-  // Los anuncios y los conjuntos se nombran con lo que escribió quien armó la campaña: no son personas.
+  // Los anuncios y los conjuntos se nombran con lo que escribió quien armó la campaña: no son personas. Los guiones
+  // (v5) se nombran con el anuncio (`guion` es pública, lib/graficos-analisis.ts).
   for (const [fid, e] of Object.entries(ENTIDADES)) {
-    if (fid === 'meta' || fid === 'presupuesto') continue;
+    if (fid === 'meta' || fid === 'presupuesto' || fid === 'guiones') continue;
     assert.ok(DIMENSIONES_PERSONA.includes(`${fid}.${e.nombre[0]}`), `${fid}.${e.nombre[0]} nombra una fila del detalle y no está en DIMENSIONES_PERSONA`);
   }
+});
+
+// ── v5: las acciones en la fila de una tabla, y lo que abre un clic en un pop-up ──────────────────
+
+const filaDet = (id: string, ids: FilaDetalle['ids']): FilaDetalle => ({ id, nombre: id, linea: null, fecha: null, valores: [], ids, estado: null });
+
+test('las acciones en la fila: el id que nombra cada fila de la tabla, y nunca la primera de dos cuotas', () => {
+  // «A quién cobrarle» agrupa por cliente: la fila de la tabla trae el id del LEAD (`r.cliente`).
+  assert.equal(idDeDimension('cobranza', 'cliente'), 'lead');
+  assert.equal(idDeDimension('llamadas_venta', 'llamada'), 'llamada');
+  assert.equal(idDeDimension('cobranza', 'urgencia'), null, 'una dimensión que no es un id: sin acciones');
+  assert.equal(idDeDimension('inventado', 'cliente'), null);
+  const m = filasPorId([filaDet('c1', { pago: '70', lead: '7' }), filaDet('c2', { pago: '80', lead: '8' }), filaDet('c3', { pago: '81', lead: '8' })], 'lead');
+  assert.deepEqual(m.get('7')?.ids, { pago: '70', lead: '7' }, 'la cuota viaja con SU lead');
+  assert.equal(m.has('8'), false, 'dos cuotas del mismo cliente: no se elige una');
+  // Y con la fila emparejada, el MISMO «Marcar cobrada» del detalle.
+  assert.deepEqual(accionesDeFila(m.get('7')!, TODO, { desde: '2026-10-01', hasta: '2026-10-31' }).map((x) => x.id), ['abrir_ficha', 'marcar_cobrada']);
+});
+
+test('lo que abre un clic: la entidad sólo si la dimensión ES la entidad, con un id que es un número', () => {
+  assert.deepEqual(contextoDeClic({ fuente: 'llamadas_venta', dimension: 'llamada', ref: '123' }), { tipo: 'llamada', ref: '123' });
+  assert.deepEqual(contextoDeClic({ fuente: 'guiones', dimension: 'guion', ref: '120208' }), { tipo: 'anuncio', ref: '120208' });
+  assert.deepEqual(contextoDeClic({ fuente: 'leads', dimension: 'lead', ref: '9' }), { tipo: 'lead', ref: '9' });
+  assert.equal(contextoDeClic({ fuente: 'llamadas_venta', dimension: 'closer', ref: '123' }), null, 'una barra por closer no abre a nadie');
+  assert.equal(contextoDeClic({ fuente: 'llamadas_venta', dimension: 'llamada', ref: 'abc' }), null, 'un ref que no es un id');
+  assert.equal(contextoDeClic({ fuente: 'llamadas_venta', dimension: 'llamada', ref: null }), null);
+  assert.equal(contextoDeClic({ fuente: 'pagos', dimension: 'cuota', ref: '5' }), null, 'una cuota no tiene ficha que partir');
+  assert.equal(entidadDeGrafico({ fuente: 'meta', dimension: 'anuncio' }), 'anuncio');
+  assert.equal(entidadDeGrafico({ fuente: 'meta', dimension: 'campana' }), null);
+});
+
+test('con qué nace un elemento «Acción» o «Ficha» (el saneo descarta uno vacío), y las piezas que existen', () => {
+  assert.equal(accionInicial(null).id, 'sincronizar_llamadas');
+  assert.equal(accionInicial('llamada').id, 'reanalizar_llamada');
+  assert.equal(accionInicial('anuncio').id, 'abrir_ficha');
+  assert.deepEqual(piezaInicial('llamada'), { tipo: 'llamada', pieza: PIEZA_COMPLETA });
+  // La pieza entera (la que pone la migración de los bloques) está en las tres fichas.
+  for (const t of ['llamada', 'anuncio', 'lead'] as const) assert.ok(PIEZAS_ENTIDAD[t].some((p) => p.id === PIEZA_COMPLETA), t);
+  // Los ids de pieza caben en lo que acepta el saneo (/^[a-z0-9_-]{1,40}$/i).
+  for (const ps of Object.values(PIEZAS_ENTIDAD)) for (const p of ps) assert.match(p.id, /^[a-z0-9_-]{1,40}$/i);
 });
 
 test('«Filtrar la página por esto» usa el campo compartido cuando existe', () => {
@@ -300,8 +354,9 @@ test('los lectores llevan los ids de la misma fila (Meta, leads, pagos, llamadas
   assert.match(cuerpo('filasLeads'), /lead: txt\(x\.nombre\)/);
   assert.match(cuerpo('filasPagos'), /r: \{ cliente: lead, cuota: String\(x\.id\) \}/);
   assert.match(cuerpo('filasLlamadas'), /r: \{ llamada: String\(x\.recording_id\)/);
-  assert.match(cuerpo('filasEntrega'), /'id, lead_id, producto_id,/);
-  assert.match(cuerpo('filasEntrega'), /r: \{ cliente: lead \}/);
+  // v5 (P2): la entrega lee el UNIVERSO de la cartera de CS (un cliente sin fila en cliente_entrega también está).
+  assert.match(cuerpo('filasEntrega'), /await carteraEnEntrega\(\)/);
+  assert.match(cuerpo('filasEntrega'), /r: \{ cliente: String\(lead\) \}/);
   assert.equal((cuerpo('filasTareas').match(/r: \{ tarea: String\(x\.id\) \}/g) ?? []).length, 2, 'las dos mitades del tablero');
   // Y las llamadas de venta (lib/graficos-datos-extra.ts): cada fila con SU llamada y su lead, y nombrada como la lista.
   const extra = sinComentarios(leer('lib', 'graficos-datos-extra.ts'));

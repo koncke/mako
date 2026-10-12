@@ -62,6 +62,22 @@
 // Y desde lib/embeds.ts, corriendo este archivo con tests/embeds.test.ts (base 35 / 0): Insertar sin mirar
 // nuestro host → 33 / 2; el Video aceptando una agenda → 33 / 2; Fathom sin miniatura → 32 / 3; el «Abrir ↗» de
 // Fathom al link con el minuto → 33 / 2. Al final, 20 / 0.
+//
+// TANDA v5 (12/10/2026, paquete «La edición»; punto 11): el rectángulo y el círculo SE FUERON (lo que une dos
+// tarjetas es un conector: tests/graficos-conectores.test.ts); quedan la línea y la flecha. El panel de un
+// elemento lleva su ✕ (como el de un gráfico) y perdió las glosas («Pantalla de MaKo», «Se abre en otra
+// pestaña»: el texto que se dibuja es corto). «Insertar» del celular es el de la topbar (./Galeria.tsx):
+// sin formas, con la Sección, el Desplegable, lo de MaKo, «Conectar dos bloques» en la hoja y la Ficha sólo
+// en un pop-up. Los tests de las formas, del SVG, del panel y de «Insertar» se reescribieron sobre eso.
+// Roturas (scratchpad p5/romper.mjs, una por vez, restaurada de MEMORIA + hash; base 20 / 0, al final 20 / 0):
+//   · la línea arrancando en el borde (sin el medio trazo)  → 18 / 2 («ninguna forma se sale…» y «la línea va…»)
+//   · un `RELLENO` de vuelta en Elemento.tsx                 → 19 / 1 («la línea va…»)
+//   · la punta de la flecha con `fillOpacity`                → 19 / 1 («el SVG…»; antes del assert sobre la flecha
+//     daba 20 / 0: el test sólo miraba la línea, que no tiene punta)
+//   · el panel sin su ✕                                      → 19 / 1 («el panel muestra…»)
+//   · la glosa «Pantalla de MaKo» de vuelta bajo el Enlace   → 19 / 1 («el panel de Enlace…»)
+//   · el ícono de la Sección sin dibujo                      → 19 / 1 («Insertar»)
+//   ⚠️ El orden y los grupos de «Insertar» son de ./Galeria.tsx (paquete de la topbar): no se rompieron desde acá.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -88,15 +104,14 @@ const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').
 const el = (o: Record<string, unknown>): Elemento => sanearElemento({ id: 'e1', ...o })!;
 const DIRS = ['derecha', 'izquierda', 'arriba', 'abajo'] as const;
 const GROSORES = [1, 2, 3, 4] as const;
-const TIPOS_FORMA = ['rectangulo', 'circulo', 'linea', 'flecha'] as const;
+// Desde v5 (punto 11) sólo la línea y la flecha: el rectángulo y el círculo se fueron.
+const TIPOS_FORMA = ['linea', 'flecha'] as const;
 const CAJAS: Array<[number, number]> = [[260, 76], [80, 260], [550, 30], [30, 30], [12, 12], [400, 400]];
 const TEMA = { plantilla: 'mako', acento: '#aa3366', fuente: null };
 const PALETA = paletaDe(TEMA);
 
 /** Cuánto ocupa una forma contando el trazo `s`: [minX, minY, maxX, maxY]. */
 function extension(f: FormaSvg, s: number): [number, number, number, number] {
-  if (f.f === 'rect') return [f.x - s / 2, f.y - s / 2, f.x + f.w + s / 2, f.y + f.h + s / 2];
-  if (f.f === 'elipse') return [f.cx - f.rx - s / 2, f.cy - f.ry - s / 2, f.cx + f.rx + s / 2, f.cy + f.ry + s / 2];
   if (f.f === 'linea') {
     // La punta redondeada sobresale medio trazo en todas direcciones desde cada extremo.
     return [Math.min(f.x1, f.x2) - s / 2, Math.min(f.y1, f.y2) - s / 2, Math.max(f.x1, f.x2) + s / 2, Math.max(f.y1, f.y2) + s / 2];
@@ -140,18 +155,20 @@ test('ninguna forma se sale de la caja contando el trazo, en ningún tamaño, di
   }
 });
 
-test('el rectángulo y la elipse se meten medio trazo; la línea va por el medio, horizontal o vertical', () => {
+test('la línea va por el medio, horizontal o vertical, a medio trazo del borde; el rectángulo y el círculo se fueron (v5)', () => {
   for (const g of GROSORES) {
     const s = TRAZO[g];
-    const [r] = geometriaElemento('rectangulo', 'derecha', g, 200, 100);
-    assert.ok(r.f === 'rect');
-    assert.equal(r.x, Math.round((s / 2) * 100) / 100);
-    assert.equal(r.w, Math.round((200 - s) * 100) / 100);
-    const [c] = geometriaElemento('circulo', 'derecha', g, 200, 100);
-    assert.ok(c.f === 'elipse');
-    assert.deepEqual([c.cx, c.cy], [100, 50]);
-    assert.equal(c.rx, Math.round((100 - s / 2) * 100) / 100, 'la elipse llena la caja: no es un círculo chico en el medio');
+    const [l] = geometriaElemento('linea', 'derecha', g, 200, 100);
+    assert.ok(l.f === 'linea');
+    assert.equal(l.x1, Math.round((s / 2) * 100) / 100, 'la punta redondeada sobresale medio trazo: arranca a medio trazo del borde');
+    assert.equal(l.x2, Math.round((200 - s / 2) * 100) / 100);
   }
+  // Punto 11: ni en el catálogo, ni en el saneo (lo guardado de antes no vuelve), ni con dibujo.
+  for (const t of ['rectangulo', 'circulo']) {
+    assert.ok(!TIPOS_ELEMENTO.some((x) => x.id === t), `«${t}» sigue en el catálogo`);
+    assert.equal(sanearElemento({ id: 'e1', tipo: t }), null, `un «${t}» guardado se sigue leyendo`);
+  }
+  assert.doesNotMatch(sinComentarios(leer('app/dashboard/Elemento.tsx')), /'rectangulo'|'circulo'|RELLENO|relleno/, 'quedó el dibujo o el relleno de una forma que se fue');
   const [h] = geometriaElemento('linea', 'derecha', 2, 300, 30);
   assert.ok(h.f === 'linea' && h.y1 === 15 && h.y2 === 15 && h.x1 < h.x2);
   const [v] = geometriaElemento('linea', 'abajo', 2, 80, 260);
@@ -180,14 +197,14 @@ test('el color sale de la PALETA DEL TEMA de la hoja; sin color, o con un índic
   assert.equal(colorDeElemento({ color: 1 }, otra), otra[1]);
 });
 
-test('el SVG de una forma se pinta con el color de la paleta, rellena al 18 % o sólo el contorno', () => {
-  const r = el({ tipo: 'rectangulo', color: 3, relleno: true });
-  const html = renderToStaticMarkup(createElement(SvgElemento, { e: r, colores: PALETA, ancho: 200, alto: 100 }));
+test('el SVG de una línea o una flecha se pinta con el color de la paleta (o la tinta), sólo con trazo y punta', () => {
+  const l = el({ tipo: 'linea', color: 3 });
+  const html = renderToStaticMarkup(createElement(SvgElemento, { e: l, colores: PALETA, ancho: 200, alto: 30 }));
   assert.match(html, new RegExp(`color:${PALETA[3]}`), html);
-  assert.match(html, /<rect[^>]*fill="currentColor"[^>]*fill-opacity="0.18"/);
-  const sinRelleno = renderToStaticMarkup(createElement(SvgElemento, { e: { ...r, relleno: false }, colores: PALETA, ancho: 200, alto: 100 }));
-  assert.match(sinRelleno, /<rect[^>]*fill="none"/);
+  assert.match(html, /<line [^>]*stroke="currentColor"/);
+  assert.doesNotMatch(html, /<rect|<ellipse|fill-opacity/, 'quedó el dibujo de una forma rellena');
   const flecha = renderToStaticMarkup(createElement(SvgElemento, { e: el({ tipo: 'flecha', color: null }), colores: PALETA, ancho: 200, alto: 60 }));
+  assert.doesNotMatch(flecha, /<rect|<ellipse|fill-opacity/, 'la punta de la flecha volvió con relleno al 18 %');
   assert.match(flecha, /color:var\(--ink\)/);
   assert.match(flecha, /<line /);
   assert.match(flecha, /<polygon /);
@@ -235,14 +252,17 @@ test('el panel muestra lo que cada tipo tiene, la tinta y las ocho muestras de l
   const imagen = panel({ tipo: 'imagen' });
   for (const s of ['Subir imagen', 'O pega un enlace', 'Ajuste', 'Descripción']) assert.ok(imagen.includes(s), `imagen: falta «${s}»`);
   assert.ok(!imagen.includes('Grosor') && !imagen.includes('aria-label="Color"'), 'la imagen no tiene color');
-  const rect = panel({ tipo: 'rectangulo', color: 4 });
-  for (const s of ['Relleno', 'Grosor', 'Color']) assert.ok(rect.includes(s), `rectángulo: falta «${s}»`);
-  for (let i = 0; i < 8; i++) assert.ok(rect.includes(`background:${PALETA[i]}`), `falta la muestra ${i + 1} de la paleta`);
-  assert.ok(rect.includes('Tinta'));
-  assert.match(rect, /aria-pressed="true"[^>]*title="Color 5"/, 'la muestra elegida es la del índice guardado');
+  const linea = panel({ tipo: 'linea', color: 4 });
+  for (const s of ['Grosor', 'Color']) assert.ok(linea.includes(s), `línea: falta «${s}»`);
+  for (let i = 0; i < 8; i++) assert.ok(linea.includes(`background:${PALETA[i]}`), `falta la muestra ${i + 1} de la paleta`);
+  assert.ok(linea.includes('Tinta'));
+  assert.match(linea, /aria-pressed="true"[^>]*title="Color 5"/, 'la muestra elegida es la del índice guardado');
   assert.ok(panel({ tipo: 'flecha' }).includes('Dirección'));
-  const linea = panel({ tipo: 'linea' });
   assert.ok(linea.includes('Horizontal') && linea.includes('Vertical') && !linea.includes('Relleno'));
+  // El ✕ de la cabecera (como el panel de un gráfico): sólo si la pantalla sabe cerrarlo.
+  const conCerrar = renderToStaticMarkup(createElement(PropsElemento, { e: el({ tipo: 'texto', texto: 'Hola' }), colores: PALETA, onCambiar: () => {}, onDuplicar: () => {}, onBorrar: () => {}, onCerrar: () => {} }));
+  assert.match(conCerrar, /class="lk-props-cab"[\s\S]*?(aria-label|title)="Cerrar el panel"/, 'el panel de un elemento sin su ✕');
+  assert.doesNotMatch(texto, /Cerrar el panel/, 'un ✕ sin `onCerrar` no cierra nada');
 });
 
 test('dar vuelta el EJE de una línea o flecha chata le da la forma del eje nuevo; si ya era suya, la respeta', () => {
@@ -336,7 +356,7 @@ test('lo que se GUARDA: cada tipo con su vara; un código <iframe> nunca; un tex
   for (const malo of ['https://a:b@ejemplo.com/', 'https://ejemplo.com:8443/', 'https://localhost/', 'https://10.0.0.1/', 'https://ejemplo.com/ a']) {
     assert.equal(urlHttps(malo), '', malo);
   }
-  for (const t of ['texto', 'rectangulo', 'flecha'] as const) assert.equal(sanearElemento({ tipo: t, url: 'https://ejemplo.com/a.png' })!.url, '', t);
+  for (const t of ['texto', 'linea', 'flecha'] as const) assert.equal(sanearElemento({ tipo: t, url: 'https://ejemplo.com/a.png' })!.url, '', t);
   assert.equal(sanearElemento({ tipo: 'imagen', url: 'https://ejemplo.com/a.png' })!.url, 'https://ejemplo.com/a.png', 'la imagen, como siempre');
 
   // Lo que se lee de cada uno, con su tope.
@@ -440,8 +460,11 @@ test('Insertar dibujado: un iframe con el sandbox fijo; lo desconocido tal cual;
 test('el panel de Enlace, Video e Insertar: lo suyo, sin color los que traen el suyo; Duplicar y Eliminar en todos', () => {
   const panel = (o: Record<string, unknown>) => renderToStaticMarkup(createElement(PropsElemento, { e: el(o), colores: PALETA, onCambiar: () => {}, onDuplicar: () => {}, onBorrar: () => {} }));
   const enlace = panel({ tipo: 'enlace', texto: 'Ver', url: '/crm' });
-  for (const s of ['>Texto<', '>Enlace<', 'Tamaño', 'Alineación', 'aria-label="Color"', 'Pantalla de MaKo', 'Duplicar', 'Eliminar']) assert.ok(enlace.includes(s), `enlace: falta «${s}»`);
-  assert.match(panel({ tipo: 'enlace', url: 'https://ejemplo.com' }), /Se abre en otra pestaña/);
+  for (const s of ['>Texto<', '>Enlace<', 'Tamaño', 'Alineación', 'aria-label="Color"', 'Duplicar', 'Eliminar']) assert.ok(enlace.includes(s), `enlace: falta «${s}»`);
+  // v5 (punto 9): las glosas debajo del campo se fueron; el texto que se dibuja es corto.
+  for (const glosa of ['Pantalla de MaKo', 'Se abre en otra pestaña']) {
+    assert.ok(!enlace.includes(glosa) && !panel({ tipo: 'enlace', url: 'https://ejemplo.com' }).includes(glosa), `volvió «${glosa}»`);
+  }
   const video = panel({ tipo: 'video', url: `https://youtu.be/${YT}` });
   for (const s of ['Pega el link del video', 'Título', '>YouTube<', 'Duplicar', 'Eliminar']) assert.ok(video.includes(s), `video: falta «${s}»`);
   const insertado = panel({ tipo: 'insertado', url: 'https://lookerstudio.google.com/embed/x' });
@@ -453,12 +476,19 @@ test('el panel de Enlace, Video e Insertar: lo suyo, sin color los que traen el 
   assert.match(insertado, /class="lk-props-nombre">Insertar</);
 });
 
-test('«Insertar»: los nueve, en tres grupos (lo que se lee, lo que se mira, las formas), cada uno con su dibujo', () => {
-  const menu = renderToStaticMarkup(createElement(MenuInsertar, { onElegir: () => {} }));
-  const nombres = [...menu.matchAll(/<span>([^<]+)<\/span><\/button>/g)].map((m) => m[1]);
-  assert.deepEqual(nombres, ['Texto', 'Enlace', 'Imagen', 'Video', 'Insertar', 'Rectángulo', 'Círculo', 'Línea', 'Flecha']);
-  assert.equal((menu.match(/role="separator"/g) ?? []).length, 2);
-  assert.equal((menu.match(/role="menuitem"/g) ?? []).length, TIPOS_ELEMENTO.length);
+test('«Insertar»: lo de la barra por grupos, sin formas, «Conectar» en la hoja y la Ficha sólo en un pop-up; cada tipo con su dibujo', () => {
+  const nombresDe = (html: string) => [...html.matchAll(/<span>([^<]+)<\/span><\/button>/g)].map((m) => m[1]);
+  const hoja = renderToStaticMarkup(createElement(MenuInsertar, { onElegir: () => {}, onConectar: () => {} }));
+  assert.deepEqual(nombresDe(hoja), [
+    'Texto', 'Enlace', 'Insertar', 'Video', 'Imagen', 'Línea', 'Flecha', 'Conectar dos bloques', 'Sección', 'Desplegable', 'Conclusiones de MaKo', 'Acción',
+  ]);
+  assert.equal((hoja.match(/role="separator"/g) ?? []).length, 4, 'cinco grupos: lo que se lee, lo que se mira, las líneas, la estructura y MaKo');
+  // Sin `onConectar` no se ofrece (una opción que no hace nada se lee como que la app está rota).
+  assert.ok(!nombresDe(renderToStaticMarkup(createElement(MenuInsertar, { onElegir: () => {} }))).includes('Conectar dos bloques'));
+  // Editando un pop-up: la Ficha al final y sin conectores (un pop-up no los tiene).
+  const popup = nombresDe(renderToStaticMarkup(createElement(MenuInsertar, { onElegir: () => {}, onConectar: () => {}, enPopup: true })));
+  assert.equal(popup.at(-1), 'Ficha');
+  assert.ok(!popup.includes('Conectar dos bloques'));
   for (const t of TIPOS_ELEMENTO) {
     const svg = renderToStaticMarkup(createElement(IconoElemento, { tipo: t.id }));
     assert.match(svg, /^<svg[^>]*>.*<(path|rect|circle)/, `${t.id} sin dibujo`);

@@ -28,8 +28,12 @@ export async function GET(req: NextRequest) {
   const url = q.get('url');
   if (!url) return Response.json({ ok: false, error: 'Falta la url.' }, { status: 400 });
   const disp: Dispositivo = q.get('disp') === 'escritorio' ? 'escritorio' : 'movil';
+  // El ancho más común entre los toques (lo calcula la pantalla con lo que ya tiene): la foto de ese ancho, o la
+  // más cercana. Sin él, la más nueva, como antes.
+  const a = Number(q.get('ancho'));
+  const ancho = Number.isFinite(a) && a >= 200 && a <= 4000 ? Math.round(a) : null;
   try {
-    return Response.json({ ok: true, fondo: await fondoDelMapa(url, disp) });
+    return Response.json({ ok: true, fondo: await fondoDelMapa(url, disp, ancho) });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[landing-analyst:mapa-fondo] error: ${message}`);

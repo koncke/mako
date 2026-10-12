@@ -1,14 +1,23 @@
 'use client';
 
 // =============================================================================
-// Galeria — «Añadir un gráfico» (con los bloques de MaKo), «Insertar», y las piezas flotantes del editor
+// Galeria — «Añadir un gráfico», lo que se INSERTA, y las piezas flotantes del editor
 // =============================================================================
-// La galería agrupada como la de Looker Studio, y al final una sección «Bloques de MaKo»: lo de las tabs
-// viejas que tiene su propia lectura y sus acciones (Revenue, A quién cobrarle, las cohortes…,
-// lib/graficos-catalogo.ts → BLOQUES). «Insertar» (punto 18 del feedback del 11/10/2026): texto, imagen,
-// rectángulo, círculo, línea y flecha (TIPOS_ELEMENTO), que dibuja app/dashboard/Elemento.tsx; y desde la
-// decisión 6 (Closing al Dashboard, el mismo día) un Enlace, un Video y una página insertada
-// (app/dashboard/ElementoInsertado.tsx). El menú va en tres grupos: lo que se lee, lo que se mira y las formas.
+// La galería agrupada como la de Looker Studio. «Insertar» (punto 18 del feedback del 11/10/2026, y la
+// decisión 6 del mismo día): texto, enlace, imagen, video, una página insertada, línea y flecha
+// (TIPOS_ELEMENTO), que dibujan app/dashboard/Elemento.tsx y ElementoInsertado.tsx.
+//
+// TANDA v5 (12/10/2026, interfaz I7 del contrato): «Los bloques se van» —los migra el saneo a gráficos del
+// catálogo, así que la galería ya no tiene la sección «Bloques de MaKo»— y se van las FORMAS (rectángulo y
+// círculo: 0 guardados, medido). Entran:
+//   · «Sección» (un contenedor a lo ancho que agrupa las filas de abajo) y «Desplegable», que es la MISMA
+//     sección, plegable (decisión 2 de Martín: «Contenedor = Sección… Es TAMBIÉN el Desplegable»).
+//   · «Conclusiones de MaKo» (una caja de IA; apagada si la hoja ya tiene `MAX_IA_POR_HOJA`) y «Acción»
+//     (un botón que corre una acción de MaKo, como «Sincronizar llamadas»).
+//   · «Conectar», en el menú de la Línea: una flecha que UNE dos bloques y los sigue al moverlos. No es un
+//     elemento de la grilla: llama a `onConectar` y lo implementa la pantalla.
+//   · «Ficha» (una pieza de lo que se abrió: una llamada, un anuncio): SÓLO adentro de un pop-up.
+// Acá sólo se DIBUJAN los menús: qué hace cada opción lo decide quien los monta (app/dashboard/EditorInforme.tsx).
 //
 // Acá viven también el `Flotante` (el panel anclado a un botón que usan todos los menús del editor) y los
 // íconos de la barra, para que la topbar (./Cabecera.tsx), el panel (./Propiedades.tsx) y el editor los
@@ -16,17 +25,19 @@
 //
 // Tanda de la topbar (11/10/2026), punto 8: «El tema de formas, flechas, texto, fijate como lo posiciona
 // Looker, que sea igual.» En la barra de Looker lo que se inserta va SUELTO, un ícono por cosa (código,
-// imagen, texto, línea, formas), y la línea y las formas abren su menú. `BARRA_INSERTAR` es ese orden, con
+// imagen, texto, línea, formas), y lo que tiene variantes abre su menú. `BARRA_INSERTAR` es ese orden, con
 // lo nuestro que Looker no tiene al lado de su pariente (el video junto a lo insertado, el enlace junto al
-// texto). En el celular no entran: va un solo «Insertar ▾» (`MenuInsertar`, los nueve en tres grupos).
+// texto) y lo de MaKo al final. En el celular no entran: va un solo «Insertar ▾» (`MenuInsertar`).
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BLOQUES, GRUPOS, TIPOS, TIPOS_ELEMENTO, type BloqueId, type GrupoElemento, type TipoElemento } from '@/lib/graficos-catalogo';
+import { GRUPOS, MAX_IA_POR_HOJA, TIPOS, TIPOS_ELEMENTO, type Componente, type Elemento, type GrupoElemento, type TipoElemento } from '@/lib/graficos-catalogo';
 import { PALETA_MAKO } from '@/lib/graficos-temas';
-import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { IconoElemento } from './Elemento';
+
+/** Dónde se abre un `Flotante`: debajo del botón (los menús) o al COSTADO de una fila (el ⋮ de una hoja). */
+export type LadoFlotante = 'abajo' | 'derecha';
 
 /**
  * Un panel anclado a un botón, PORTALEADO al body y ubicado por cuenta: el panel de propiedades y el
@@ -35,9 +46,17 @@ import { IconoElemento } from './Elemento';
  *    Escape sólo si es la de arriba, frenando a los demás con `stopImmediatePropagation` (los Escape de la
  *    casa viven en `document`, en captura). Sin la pila, el Escape de un menú abierto encima de un modal
  *    cerraba también el modal.
+ * ⚠️ `anidado`: un Flotante que se abre DESDE otro (el submenú de una hoja, al costado de su fila). El de
+ *    abajo NO se cierra con un clic adentro del de arriba: los dos son portales distintos y, sin esto, tocar
+ *    «Renombrar» en el submenú cerraba la lista de hojas antes de que el clic llegara. El de arriba se registra
+ *    después en la pila, así que el primer Escape lo cierra sólo a él.
+ * `lado: 'derecha'`: a la derecha del ancla (alineado arriba con ella); si no entra, se da vuelta a la
+ * izquierda (molde: el `Flotante` del editor de landing, app/landing-generator/editor/extensiones/piezas.tsx).
  * z-index 580: arriba del recorrido (400) y abajo del toast (600).
  */
-export function Flotante({ ancla, onCerrar, ancho, children }: { ancla: HTMLElement; onCerrar: () => void; ancho: number; children: ReactNode }) {
+export function Flotante({ ancla, onCerrar, ancho, lado = 'abajo', anidado = false, children }: {
+  ancla: HTMLElement; onCerrar: () => void; ancho: number; lado?: LadoFlotante; anidado?: boolean; children: ReactNode;
+}) {
   const capa = useCapaModal(true, { anidada: true });
   const esArriba = capa.esElDeArriba;
   const ref = useRef<HTMLDivElement>(null);
@@ -51,10 +70,24 @@ export function Flotante({ ancla, onCerrar, ancho, children }: { ancla: HTMLElem
       if (!ancla.isConnected) { cerrar.current(); return; }
       const r = ancla.getBoundingClientRect();
       const alto = ref.current?.offsetHeight ?? 0;
-      const w = Math.min(Math.max(ancho, r.width), window.innerWidth - 16);
-      const left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      if (lado === 'derecha') {
+        const w = Math.min(ancho, vw - 16);
+        let left = r.right + 4;
+        if (left + w > vw - 8) left = r.left - w - 4;
+        left = Math.max(8, Math.min(left, vw - w - 8));
+        // La primera opción a la altura de la fila (el panel tiene 6 px de aire arriba).
+        let top = r.top - 6;
+        if (top + alto > vh - 8) top = vh - 8 - alto;
+        top = Math.max(8, top);
+        setPos({ left, top, alto: Math.max(160, vh - top - 8) });
+        return;
+      }
+      const w = Math.min(Math.max(ancho, r.width), vw - 16);
+      const left = Math.min(Math.max(8, r.left), vw - w - 8);
       const abajo = r.bottom + 6;
-      const libreAbajo = window.innerHeight - abajo - 8;
+      const libreAbajo = vh - abajo - 8;
       const top = alto > libreAbajo && r.top - alto - 6 > 8 ? r.top - alto - 6 : abajo;
       setPos({ left, top, alto: Math.max(160, top === abajo ? libreAbajo : r.top - 14) });
     };
@@ -62,24 +95,32 @@ export function Flotante({ ancla, onCerrar, ancho, children }: { ancla: HTMLElem
     window.addEventListener('resize', ubicar);
     window.addEventListener('scroll', ubicar, true);
     return () => { window.removeEventListener('resize', ubicar); window.removeEventListener('scroll', ubicar, true); };
-  }, [ancla, ancho]);
+  }, [ancla, ancho, lado]);
   useEffect(() => {
-    const fuera = (e: MouseEvent) => { const t = e.target as Node; if (ref.current?.contains(t) || ancla.contains(t)) return; cerrar.current(); };
+    const fuera = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || ancla.contains(t)) return;
+      // Un clic adentro de un Flotante ANIDADO (abierto desde éste) no cierra a éste.
+      const el = t instanceof Element ? t : t.parentElement;
+      if (!anidado && el?.closest('[data-lk-anidado]')) return;
+      cerrar.current();
+    };
     const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape' && esArriba()) { e.stopImmediatePropagation(); e.preventDefault(); cerrar.current(); } };
     document.addEventListener('mousedown', fuera, true);
     document.addEventListener('keydown', tecla, true);
     return () => { document.removeEventListener('mousedown', fuera, true); document.removeEventListener('keydown', tecla, true); };
-  }, [ancla, esArriba]);
+  }, [ancla, esArriba, anidado]);
   return createPortal(
-    <div ref={ref} className="lk lk-flotante" style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999, width: Math.min(ancho, typeof window === 'undefined' ? ancho : window.innerWidth - 16), maxHeight: pos?.alto ?? 400, visibility: pos ? 'visible' : 'hidden' }}>
+    <div ref={ref} className="lk lk-flotante" data-lk-anidado={anidado || undefined}
+      style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999, width: Math.min(ancho, typeof window === 'undefined' ? ancho : window.innerWidth - 16), maxHeight: pos?.alto ?? 400, visibility: pos ? 'visible' : 'hidden' }}>
       {children}
     </div>,
     document.body,
   );
 }
 
-/** La galería: los tipos de gráfico por grupo y, si se está agregando, los bloques de MaKo. */
-export function Galeria({ actual, onElegir, onBloque }: { actual?: string; onElegir: (tipo: string) => void; onBloque?: (b: BloqueId) => void }) {
+/** La galería: los tipos de gráfico por grupo. (Desde v5 sin «Bloques de MaKo»: los bloques se migran.) */
+export function Galeria({ actual, onElegir }: { actual?: string; onElegir: (tipo: string) => void }) {
   return (
     <div className="lk-galeria" role="menu">
       {GRUPOS.map((gr) => (
@@ -94,58 +135,35 @@ export function Galeria({ actual, onElegir, onBloque }: { actual?: string; onEle
           </div>
         </div>
       ))}
-      {onBloque && (
-        <div>
-          <div className="lk-galeria-tit">Bloques de MaKo</div>
-          <div className="lk-bloques">
-            {BLOQUES.map((b) => (
-              <button key={b.id} type="button" role="menuitem" className="lk-bloque-op" onClick={() => onBloque(b.id)}>
-                <IconoMenu nombre="grafico" size={18} />
-                <span className="lk-opcion-txt"><span className="lk-bloque-nom">{b.nombre}</span><span className="lk-bloque-linea">{b.linea}</span></span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-/** Los grupos del menú «Insertar», en orden: los del catálogo (`grupo` de TIPOS_ELEMENTO). */
-const GRUPOS_ELEMENTO: readonly GrupoElemento[] = ['texto', 'medios', 'formas'];
+// ── Lo que se inserta ───────────────────────────────────────────────────────────────────────
 
+/** Los menús de la barra de inserción (lo que tiene variantes). Desde v5 sin «Formas». */
+export type MenuBarra = 'lineas' | 'estructura' | 'mako';
 /**
- * «Insertar»: cada opción con su dibujo (la regla de la casa: un desplegable lleva ícono en cada opción).
- * El dibujo es el de ./Elemento.tsx, el mismo de la cabecera de su panel: un solo lugar. Los grupos van
- * separados por un filete, sin rótulo: el dibujo y el nombre ya dicen qué es cada uno.
+ * Una opción de un menú: un TIPO del catálogo, con su nombre y, si es una variante, lo que trae de entrada
+ * (el «Desplegable» es una sección plegable). Quien la recibe arma el elemento con `nuevoElemento(tipo)` y le
+ * pone `inicial` encima.
  */
-export function MenuInsertar({ onElegir }: { onElegir: (t: TipoElemento) => void }) {
-  const grupos = GRUPOS_ELEMENTO.map((g) => TIPOS_ELEMENTO.filter((t) => t.grupo === g)).filter((ts) => ts.length);
-  return (
-    <div className="lk-lista" role="menu">
-      {grupos.map((ts, i) => (
-        <div key={ts[0].grupo} role="group">
-          {i > 0 && <div className="lk-sep-h" role="separator" />}
-          {ts.map((t) => (
-            <button key={t.id} type="button" role="menuitem" className="lk-opcion" onClick={() => onElegir(t.id)}>
-              <IconoElemento tipo={t.id} size={17} /> <span>{t.nombre}</span>
-            </button>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Un lugar de la barra de inserción: un tipo suelto, o un menú con los suyos (la línea y las formas). */
+export type OpcionInsertar = { tipo: TipoElemento; nombre: string; inicial?: Partial<Pick<Elemento, 'seccion'>> };
+/**
+ * Un lugar de la barra de inserción: un tipo suelto (un ícono), o un menú con sus opciones. `soloPopup`: sólo
+ * se ofrece editando un pop-up (una Ficha muestra lo que se abrió; en una hoja no hay qué abrir). `conectar`:
+ * el menú suma «Conectar dos bloques» (sólo en una hoja: un pop-up no tiene conectores).
+ */
 export type LugarInsertar =
-  | { clase: 'suelto'; tipo: TipoElemento }
-  | { clase: 'menu'; menu: 'lineas' | 'formas'; nombre: string; tipos: readonly TipoElemento[] };
+  | { clase: 'suelto'; tipo: TipoElemento; soloPopup?: true }
+  | { clase: 'menu'; menu: MenuBarra; nombre: string; icono: TipoElemento; opciones: readonly OpcionInsertar[]; conectar?: true };
 
 /**
- * La barra de inserción en el ORDEN de Looker (código, imagen, texto, línea, formas), con el video junto a
- * lo insertado y el enlace junto al texto. Cada tipo de `TIPOS_ELEMENTO` aparece UNA vez: lo fija
- * tests/dashboard-topbar.test.ts, así un tipo nuevo del catálogo no queda sin lugar en la barra.
+ * La barra de inserción en el ORDEN de Looker (código, imagen, texto, línea), con el video junto a lo
+ * insertado, el enlace junto al texto y lo nuevo de v5 al final (la sección, lo de MaKo, la ficha de un
+ * pop-up). Cada tipo de `TIPOS_ELEMENTO` vive en UN lugar —un lugar puede ofrecerlo con variantes: la Sección
+ * y el Desplegable—: lo fija tests/dashboard-topbar.test.ts, así un tipo nuevo del catálogo no queda sin
+ * lugar en la barra ni en dos.
  */
 export const BARRA_INSERTAR: readonly LugarInsertar[] = [
   { clase: 'suelto', tipo: 'insertado' },
@@ -153,19 +171,108 @@ export const BARRA_INSERTAR: readonly LugarInsertar[] = [
   { clase: 'suelto', tipo: 'imagen' },
   { clase: 'suelto', tipo: 'texto' },
   { clase: 'suelto', tipo: 'enlace' },
-  { clase: 'menu', menu: 'lineas', nombre: 'Línea', tipos: ['linea', 'flecha'] },
-  { clase: 'menu', menu: 'formas', nombre: 'Formas', tipos: ['rectangulo', 'circulo'] },
+  { clase: 'menu', menu: 'lineas', nombre: 'Línea', icono: 'linea', conectar: true, opciones: [{ tipo: 'linea', nombre: 'Línea' }, { tipo: 'flecha', nombre: 'Flecha' }] },
+  {
+    clase: 'menu', menu: 'estructura', nombre: 'Sección', icono: 'seccion', opciones: [
+      { tipo: 'seccion', nombre: 'Sección' },
+      // Abierta: recién insertada se ve lo que tiene adentro; quien la arma decide si arranca plegada.
+      { tipo: 'seccion', nombre: 'Desplegable', inicial: { seccion: { fondo: null, plegable: true, abierto: true } } },
+    ],
+  },
+  { clase: 'menu', menu: 'mako', nombre: 'MaKo', icono: 'ia', opciones: [{ tipo: 'ia', nombre: 'Conclusiones de MaKo' }, { tipo: 'accion', nombre: 'Acción' }] },
+  { clase: 'suelto', tipo: 'entidad', soloPopup: true },
 ];
 
-/** El menú de la línea o de las formas: cada opción con su dibujo y su nombre. */
-export function MenuElementos({ tipos, onElegir }: { tipos: readonly TipoElemento[]; onElegir: (t: TipoElemento) => void }) {
+/** Los lugares que se ofrecen: la Ficha sólo editando un pop-up. */
+export const lugaresInsertar = (enPopup = false): LugarInsertar[] => BARRA_INSERTAR.filter((l) => l.clase !== 'suelto' || !l.soloPopup || enPopup);
+
+/**
+ * Por qué no se puede insertar un tipo ahora (corto: va en el `title` de la opción apagada), o null. Una caja
+ * de «Conclusiones de MaKo» gasta cuota de IA al correr: hasta `MAX_IA_POR_HOJA` por hoja (el saneo descarta
+ * la que sobre; acá se apaga antes, que es donde se ve).
+ */
+export function motivoInsertar(tipo: TipoElemento, componentes: readonly Componente[]): string | null {
+  if (tipo === 'ia' && componentes.filter((c) => c.clase === 'elemento' && c.tipo === 'ia').length >= MAX_IA_POR_HOJA) return `Hasta ${MAX_IA_POR_HOJA} por hoja`;
+  return null;
+}
+
+/** El dibujo de «Conectar»: dos bloques unidos por una línea con codo. */
+function IconoConectar({ size = 17 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', display: 'block' }}>
+      <rect x="3" y="3.5" width="7" height="6" rx="1.5" /><rect x="14" y="14.5" width="7" height="6" rx="1.5" /><path d="M10 6.5h3.5a2.5 2.5 0 0 1 2.5 2.5v5.5" />
+    </svg>
+  );
+}
+
+type PropsInsertar = {
+  /** Lo que se eligió: el tipo y, si es una variante, lo que trae de entrada (el Desplegable). */
+  onElegir: (t: TipoElemento, inicial?: OpcionInsertar['inicial']) => void;
+  /** Lo que ya tiene la hoja (o el pop-up): apaga «Conclusiones de MaKo» con 4 cajas. */
+  componentes?: readonly Componente[];
+  /** Editando un pop-up: suma la Ficha y saca «Conectar». */
+  enPopup?: boolean;
+  /** «Conectar dos bloques»: lo implementa la pantalla. Sin esto, la opción no se ofrece. */
+  onConectar?: () => void;
+};
+
+/** Las opciones de un lugar (un suelto es una opción con el nombre del catálogo). */
+const opcionesDe = (l: LugarInsertar): readonly OpcionInsertar[] =>
+  l.clase === 'menu' ? l.opciones : [{ tipo: l.tipo, nombre: TIPOS_ELEMENTO.find((t) => t.id === l.tipo)?.nombre ?? l.tipo }];
+
+/** Un renglón de un menú de inserción: su dibujo y su nombre, apagado con su motivo si no se puede. */
+function Opcion({ o, componentes, onElegir }: { o: OpcionInsertar; componentes: readonly Componente[]; onElegir: PropsInsertar['onElegir'] }) {
+  const motivo = motivoInsertar(o.tipo, componentes);
+  return (
+    <button type="button" role="menuitem" className="lk-opcion" disabled={!!motivo} title={motivo ?? undefined} onClick={() => onElegir(o.tipo, o.inicial)}>
+      <IconoElemento tipo={o.tipo} size={17} /> <span>{o.nombre}</span>
+    </button>
+  );
+}
+
+/** Los grupos del menú «Insertar» del celular, en orden: los del catálogo (`grupo` de TIPOS_ELEMENTO). */
+const GRUPOS_ELEMENTO: readonly GrupoElemento[] = ['texto', 'medios', 'formas', 'estructura', 'mako', 'entidad'];
+
+/**
+ * «Insertar» del celular (en la compu, la barra): todo lo que se inserta, cada opción con su dibujo (la regla
+ * de la casa: un desplegable lleva ícono en cada opción). El dibujo es el de ./Elemento.tsx, el mismo de la
+ * cabecera de su panel: un solo lugar. Los grupos van separados por un filete, sin rótulo.
+ */
+export function MenuInsertar({ onElegir, componentes = [], enPopup = false, onConectar }: PropsInsertar) {
+  const lugares = lugaresInsertar(enPopup);
+  const grupos = GRUPOS_ELEMENTO
+    .map((g) => ({ g, opciones: lugares.flatMap(opcionesDe).filter((o) => TIPOS_ELEMENTO.find((t) => t.id === o.tipo)?.grupo === g) }))
+    .filter((x) => x.opciones.length);
+  const conConectar = !enPopup && !!onConectar;
   return (
     <div className="lk-lista" role="menu">
-      {tipos.map((id) => (
-        <button key={id} type="button" role="menuitem" className="lk-opcion" onClick={() => onElegir(id)}>
-          <IconoElemento tipo={id} size={17} /> <span>{TIPOS_ELEMENTO.find((t) => t.id === id)?.nombre ?? id}</span>
-        </button>
+      {grupos.map(({ g, opciones }, i) => (
+        <div key={g} role="group">
+          {i > 0 && <div className="lk-sep-h" role="separator" />}
+          {opciones.map((o) => <Opcion key={`${o.tipo}:${o.nombre}`} o={o} componentes={componentes} onElegir={onElegir} />)}
+          {g === 'formas' && conConectar && (
+            <button type="button" role="menuitem" className="lk-opcion" onClick={onConectar}><IconoConectar /> <span>Conectar dos bloques</span></button>
+          )}
+        </div>
       ))}
+    </div>
+  );
+}
+
+/** El menú de un lugar de la barra (la Línea, la Sección, MaKo): cada opción con su dibujo y su nombre. */
+export function MenuElementos({ menu, onElegir, componentes = [], enPopup = false, onConectar }: PropsInsertar & { menu: MenuBarra }) {
+  const lugar = BARRA_INSERTAR.find((l): l is Extract<LugarInsertar, { clase: 'menu' }> => l.clase === 'menu' && l.menu === menu);
+  if (!lugar) return null;
+  const conConectar = !!lugar.conectar && !enPopup && !!onConectar;
+  return (
+    <div className="lk-lista" role="menu">
+      {lugar.opciones.map((o) => <Opcion key={`${o.tipo}:${o.nombre}`} o={o} componentes={componentes} onElegir={onElegir} />)}
+      {conConectar && (
+        <>
+          <div className="lk-sep-h" role="separator" />
+          <button type="button" role="menuitem" className="lk-opcion" onClick={onConectar}><IconoConectar /> <span>Conectar dos bloques</span></button>
+        </>
+      )}
     </div>
   );
 }
@@ -222,6 +329,11 @@ export function IconoTipo({ tipo, size = 34 }: { tipo: string; size?: number }) 
     case 'embudo_barras': return caja(<><rect x="4" y="5" width="32" height="6" fill={A} /><rect x="9" y="13" width="22" height="6" fill={B} /><rect x="14" y="21" width="12" height="6" fill={C} /></>);
     case 'embudo_columnas': return caja(<><rect x="4" y="4" width="8" height="24" fill={A} /><rect x="16" y="12" width="8" height="16" fill={B} /><rect x="28" y="19" width="8" height="9" fill={C} /></>);
     case 'mapa': return caja(<><path d="M5 9l7-3 8 3 6-2 9 4-2 7-6 3-3 6-6-2-5 1-4-6 2-5Z" fill={A} opacity=".35" stroke={A} strokeWidth="1.2" /><circle cx="22" cy="15" r="2" fill={A} /></>);
+    // v5: los tipos que reemplazan a los bloques.
+    case 'barra_proporcion': return caja(<><rect x="3" y="12" width="21" height="8" rx="2" fill={V} /><rect x="24" y="12" width="13" height="8" rx="2" fill={R} /><text x="3" y="9" fontSize="5" fill={G}>Cobrado</text></>);
+    case 'tramos': return caja(<>{[[3, 9], [12, 7], [19, 12], [31, 6]].map(([x, w], i) => <rect key={x} x={x} y="13" width={w - 1} height="6" rx="1.5" fill={i === 2 ? R : A} opacity={i === 2 ? 1 : 0.7} />)}<path d="M3 24h34" stroke={L} /></>);
+    case 'tarjetas': return caja(<>{[[3, 4], [21, 4], [3, 17], [21, 17]].map(([x, y]) => <g key={`${x}${y}`}><rect x={x} y={y} width="16" height="11" rx="2" stroke={L} /><rect x={x + 2} y={y + 2} width="5" height="7" rx="1" fill={G} opacity=".5" /><rect x={x + 9} y={y + 7} width="5" height="2" fill={A} /></g>)}</>);
+    case 'mapa_calor': return caja(<><rect x="6" y="2" width="28" height="28" rx="2" stroke={L} /><rect x="9" y="5" width="22" height="3" rx="1" fill={L} /><circle cx="15" cy="16" r="5" fill={R} opacity=".45" /><circle cx="26" cy="22" r="3.5" fill={B} opacity=".55" /></>);
     default: return caja(<rect x="4" y="4" width="32" height="24" stroke={L} />);
   }
 }

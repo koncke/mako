@@ -14,8 +14,9 @@
 // La primera versión usaba fondo oscuro con `color: inherit` y quedaba negro
 // sobre negro — ilegible.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useCapaModal } from '@/app/_components/pila-modales';
 
 type Invitado = {
   id: number; email: string; nombre: string | null; gravatar: string; token_prefijo: string;
@@ -86,6 +87,29 @@ function Avatar({ inv }: { inv: { nombre: string | null; email: string; gravatar
 }
 
 /**
+ * Lo que el modal suma en la variante 'app' (el Dashboard): entra en la pila de capas de la casa y Escape lo
+ * cierra a ÉL (frenando a los demás: todos los Escape viven en `document`, y `stopPropagation` no frena a los
+ * listeners hermanos). Es un componente aparte para que Conocimientos, que no lo monta, siga exactamente igual.
+ */
+function CapaDeApp({ onEscape }: { onEscape: () => void }) {
+  const capa = useCapaModal(true);
+  const arriba = capa.esElDeArriba;
+  const escape = useRef(onEscape);
+  useLayoutEffect(() => { escape.current = onEscape; });
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || !arriba()) return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      escape.current();
+    };
+    document.addEventListener('keydown', tecla, true);
+    return () => document.removeEventListener('keydown', tecla, true);
+  }, [arriba]);
+  return null;
+}
+
+/**
  * `recursoId` es opcional porque hay recursos que NO apuntan a una cosa: la tab
  * entera de Conocimientos (`recurso='conocimientos'`) tiene alcance 'todo' y no
  * lleva id. Sin id, la lista de "quién tiene acceso" trae todos los enlaces de
@@ -95,8 +119,23 @@ function Avatar({ inv }: { inv: { nombre: string | null; email: string; gravatar
  * se puede leer del título: "Compartir «Curso X»" se explica solo, "Compartir
  * «Conocimientos»" no dice cuántos cursos son ni qué queda afuera.
  */
-export default function Compartir({ recurso, recursoId = '', etiqueta, nota, compacto, parametros, claseBoton }: {
+export default function Compartir({ recurso, recursoId = '', etiqueta, nota, compacto, parametros, claseBoton, abierto: abiertoDesdeAfuera, onCerrar, variante = 'conocimientos' }: {
   recurso: string; recursoId?: string; etiqueta: string; nota?: string;
+  /**
+   * MODO CONTROLADO (el Dashboard, tanda v5 punto 3: «Compartir» va adentro del ⋮). Con `abierto` definido el
+   * componente NO dibuja su botón: lo abre quien lo monta (un renglón de un menú) y «Cerrar», el clic en el
+   * fondo y Escape llaman `onCerrar`. Va montado AFUERA del menú: si viviera adentro, cerrar el menú lo
+   * desmontaría junto con el modal. Sin `abierto`, el de siempre (su botón y su estado propio).
+   */
+  abierto?: boolean;
+  onCerrar?: () => void;
+  /**
+   * El estilo del modal. 'conocimientos' (el de siempre, el papel y el lima del portal) o 'app' (punto 16 de
+   * v5: en el Dashboard heredaba el verde de Conocimientos, porque `--card` y `--lime` no existen fuera del
+   * portal y caían a sus respaldos). Con 'app', los tokens de la casa —se dan vuelta en oscuro—, sin el lima
+   * ni la sombra corrida, y además entra en la pila de capas (Escape cierra sólo esto).
+   */
+  variante?: 'conocimientos' | 'app';
   /**
    * La clase del DISPARADOR cuando lo monta otra pantalla con su propio botón (la topbar del Dashboard
    * usa el azul de su barra, como el «Compartir» de Looker). Sin ella, el botón de Conocimientos.
@@ -119,6 +158,9 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
   compacto?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const controlado = abiertoDesdeAfuera !== undefined;
+  const visible = controlado ? abiertoDesdeAfuera : abierto;
+  const esApp = variante === 'app';
   const [modo, setModo] = useState<'link' | 'invitados'>('link');
   const [emails, setEmails] = useState('');
   const [creando, setCreando] = useState(false);
@@ -136,6 +178,14 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
   // público `s:<id>` o del de una persona `p:<id>`) para poder re-copiarlo.
   const [correo, setCorreo] = useState<{ listo: boolean; remitente: string } | null>(null);
   const [linkEmitido, setLinkEmitido] = useState<{ key: string; enlace: string } | null>(null);
+  // Abierto desde afuera: al abrirse, lo mismo que hace el clic del botón propio (lo de la vez anterior se va).
+  // Se ajusta en el render y no en un efecto: así el primer cuadro abierto ya sale limpio.
+  const [visibleAntes, setVisibleAntes] = useState(visible);
+  if (visible !== visibleAntes) {
+    setVisibleAntes(visible);
+    if (visible && controlado) { setNuevo(null); setError(null); setSumaResultado(null); }
+  }
+  const cerrar = () => { if (controlado) onCerrar?.(); else setAbierto(false); };
 
   // `parametros` en la query de los GET/PATCH y en el cuerpo de los POST. Vacío = los pedidos de siempre.
   const extra = parametros ? new URLSearchParams(parametros).toString() : '';
@@ -151,7 +201,7 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
     } catch { setLista([]); }
   }, [recurso, recursoId, extra]);
 
-  useEffect(() => { if (abierto) cargar(); }, [abierto, cargar]);
+  useEffect(() => { if (visible) cargar(); }, [visible, cargar]);
 
   async function crear() {
     setCreando(true); setError(null); setNuevo(null);
@@ -255,11 +305,13 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
 
   return (
     <>
-      <button type="button" className={claseBoton ?? `cmp-btn${compacto ? ' chico' : ''}`}
-        title={compacto ? `Compartir «${etiqueta}» por link` : undefined}
-        onClick={() => { setAbierto(true); setNuevo(null); setError(null); setSumaResultado(null); }}>
-        Compartir
-      </button>
+      {!controlado && (
+        <button type="button" className={claseBoton ?? `cmp-btn${compacto ? ' chico' : ''}`}
+          title={compacto ? `Compartir «${etiqueta}» por link` : undefined}
+          onClick={() => { setAbierto(true); setNuevo(null); setError(null); setSumaResultado(null); }}>
+          Compartir
+        </button>
+      )}
 
       {/* ⚠️ EL MODAL VA AL `body`, NO DONDE VIVE EL BOTÓN.
           `.cmp-ov` es `position: fixed; inset: 0; z-index: 120`, y eso promete la
@@ -276,8 +328,13 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
           Es la misma familia que el pop-up de prioridad abierto desde una barra
           sticky. Con el portal el modal no tiene ancestro que lo acote y da igual
           desde dónde se abra. */}
-      {abierto && createPortal((
-        <div className="cmp-ov" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setAbierto(false); }}>
+      {visible && createPortal((
+        <div className="cmp-ov" role="dialog" aria-modal="true" data-variante={esApp ? 'app' : undefined}
+          onClick={(e) => { if (e.target === e.currentTarget) cerrar(); }}
+          // En el Dashboard las teclas de adentro no llegan a sus atajos: un Suprimir con el foco en un botón del
+          // modal borraría la tarjeta elegida de atrás. React despacha desde `document` antes que el editor.
+          onKeyDown={esApp ? (e) => { if (e.key !== 'Escape') e.nativeEvent.stopImmediatePropagation(); } : undefined}>
+          {esApp && <CapaDeApp onEscape={cerrar} />}
           <div className="cmp-box">
             <h3 className="cmp-h">Compartir «{etiqueta}»</h3>
             {nota && <p className="cmp-nota">{nota}</p>}
@@ -454,7 +511,7 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
             )}
 
             <div className="cmp-pie">
-              <button type="button" className="cmp-cerrar" onClick={() => setAbierto(false)}>Cerrar</button>
+              <button type="button" className="cmp-cerrar" onClick={cerrar}>Cerrar</button>
             </div>
           </div>
         </div>
@@ -549,6 +606,42 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
         .cmp-cerrar { padding: 9px 17px; border-radius: 9px; cursor: pointer; font-size: 13.5px; font-weight: 600; font-family: inherit;
           background: transparent; border: 1.5px solid rgba(24,26,22,.25); color: var(--ink, #1a1a1a); }
         .cmp-cerrar.chico { padding: 8px 14px; font-size: 13px; }
+
+        /* LA VARIANTE DE LA APP (el Dashboard, tanda v5 punto 16): los tokens de la casa, que se dan vuelta en
+           oscuro, sin el papel ni el lima del portal ni la sombra corrida, y la letra de la app en vez de la
+           mono. Reglas ESTÁTICAS encima de las de siempre: sin la marca, nada de esto aplica y Conocimientos se
+           ve exactamente igual. Ni comillas invertidas ni signos de pesos con llave acá adentro (ver arriba). */
+        .cmp-ov[data-variante="app"] { background: rgba(18, 21, 27, .42); }
+        .cmp-ov[data-variante="app"] .cmp-box { background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: 0 30px 70px rgba(18, 21, 27, .35); font-family: 'Geist', system-ui, sans-serif; }
+        .cmp-ov[data-variante="app"] .cmp-h { font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+        .cmp-ov[data-variante="app"] .cmp-nota { color: var(--dim); opacity: 1; font-size: 13px; }
+        .cmp-ov[data-variante="app"] .cmp-modo { border: 1px solid var(--border-strong); }
+        .cmp-ov[data-variante="app"] .cmp-modo input { accent-color: var(--primary); }
+        .cmp-ov[data-variante="app"] .cmp-modo.on { border-color: var(--primary); background: var(--primary-bg); }
+        .cmp-ov[data-variante="app"] .cmp-modo small { color: var(--dim); opacity: 1; }
+        .cmp-ov[data-variante="app"] .cmp-mails, .cmp-ov[data-variante="app"] .cmp-link { background: var(--surface); border: 1px solid var(--border-strong); color: var(--ink); font-family: inherit; }
+        .cmp-ov[data-variante="app"] .cmp-mails:focus, .cmp-ov[data-variante="app"] .cmp-link:focus { outline: none; border-color: var(--primary); box-shadow: var(--focus-ring); }
+        .cmp-ov[data-variante="app"] .cmp-tip { color: var(--dim); opacity: 1; font-size: 13px; }
+        .cmp-ov[data-variante="app"] .cmp-err { color: var(--bad); }
+        .cmp-ov[data-variante="app"] .cmp-crear { background: var(--primary); border: 1px solid var(--primary); color: var(--on-primary); font-weight: 600; border-radius: 18px; }
+        .cmp-ov[data-variante="app"] .cmp-crear:hover:not(:disabled) { background: var(--primary-strong); border-color: var(--primary-strong); }
+        .cmp-ov[data-variante="app"] .cmp-nuevo { background: var(--primary-bg); border: 1px solid var(--primary-weak); }
+        .cmp-ov[data-variante="app"] .cmp-copy { background: var(--primary); color: var(--on-primary); }
+        .cmp-ov[data-variante="app"] .cmp-invs :global(li.mal) { color: var(--bad); }
+        .cmp-ov[data-variante="app"] .cmp-lista { border-top: 1px solid var(--border); }
+        .cmp-ov[data-variante="app"] .cmp-lista-t { font-family: inherit; font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--dim); opacity: 1; }
+        .cmp-ov[data-variante="app"] .cmp-grupo { border-bottom-color: var(--border); }
+        .cmp-ov[data-variante="app"] .cmp-pref { font-family: inherit; color: var(--faint); opacity: 1; }
+        .cmp-ov[data-variante="app"] .cmp-item-m, .cmp-ov[data-variante="app"] .cmp-persona-e, .cmp-ov[data-variante="app"] .cmp-persona-s { color: var(--dim); opacity: 1; }
+        .cmp-ov[data-variante="app"] .cmp-persona-s.warn { color: var(--bad); }
+        .cmp-ov[data-variante="app"] .cmp-rev { border: 1px solid var(--bad); color: var(--bad); border-radius: var(--r-sm); }
+        .cmp-ov[data-variante="app"] .cmp-rev:hover { background: var(--bad-bg); }
+        .cmp-ov[data-variante="app"] .cmp-link-btn, .cmp-ov[data-variante="app"] .cmp-cerrar { background: var(--surface); border: 1px solid var(--border-strong); color: var(--ink); }
+        .cmp-ov[data-variante="app"] .cmp-cerrar { border-radius: 18px; }
+        .cmp-ov[data-variante="app"] .cmp-link-btn:hover, .cmp-ov[data-variante="app"] .cmp-cerrar:hover { background: var(--surface-2); border-color: var(--border-strong); }
+        .cmp-ov[data-variante="app"] .cmp-aviso { background: var(--warn-bg); border: 1px solid var(--warn); color: var(--warn); }
+        .cmp-ov[data-variante="app"] .cmp-sumar { color: var(--primary); opacity: 1; text-decoration: none; }
+        .cmp-ov[data-variante="app"] .cmp-sumar:hover { text-decoration: underline; }
       `}</style>
     </>
   );

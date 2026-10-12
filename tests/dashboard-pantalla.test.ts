@@ -54,6 +54,21 @@
 //   · el PDF que imprime «Agrega un subtítulo»           -> 20 / 1  «el PDF: …»
 //   · las acciones de una hoja sin poder guardar         -> 20 / 1  «las hojas: …»
 //   · el AI Analyst preguntándole al server por el closer -> 20 / 1  «el AI Analyst es un panel del costado…»
+//
+// ── Y la tanda v5, paquete «La edición» (12/10/2026, scratchpad p5/romper.mjs, mismo método). Los bloques se
+//    fueron (los migra el saneo), los chips de la tarjeta son `MenuFiltro`, el panel flota. Base: 22 / 0; al final,
+//    22 / 0:
+//   · pedidosDeHoja sin la barra de búsqueda (`conBusqueda`)  -> 21 / 1  «pedidosDeHoja: lo elegido mirando…»
+//   · el control de la barra viajando en el gráfico guardado   -> 21 / 1  el mismo
+//   · el «Filtro» de la tarjeta con `cambiar` pelado           -> 21 / 1  «cambiar lo de ENTRADA de un control…»
+//   · BuscarEnTabla con un handler armado en el lugar          -> 21 / 1  «lo que alguien elige … MIRANDO…»
+//   · el pedido de la pantalla que pide lo plegado             -> 21 / 1  el mismo
+//   · elegir en la hoja y no en el lienzo (el pop-up)          -> 21 / 1  «lo que se fue…»
+//   · un hex solo entre comillas en Seccion.tsx                -> 21 / 1  «una sola superficie y el modo oscuro…»
+//   · un hex adentro de un estilo (`'1px solid #e5e7eb'`)      -> 21 / 1  el mismo (con la vara vieja daba 22 / 0)
+//   · un hex en el CSS de la edición                           -> 21 / 1  el mismo
+//   · el panel que vuelve a ser una columna (sin absolute)     -> 21 / 1  «el panel de propiedades flota…»
+//   · el lado del panel que sigue a la posición                -> 21 / 1  el mismo
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -64,7 +79,7 @@ import type { Resultado } from '../lib/graficos-agregar';
 import { DIMENSIONES_PERSONA } from '../lib/graficos-acciones';
 import { dimensionPublica, firmaResultado } from '../lib/graficos-analisis';
 import {
-  celdaCsv, contextoDeGrafico, csvDeHoja, firmaDe, loQueSeVeDe, nombreArchivo, numeroCsv, pedidosDeHoja, periodoDeHoja, sinPersonas,
+  celdaCsv, contextoDeGrafico, csvDeHoja, firmaDe, idBusquedaDe, loQueSeVeDe, nombreArchivo, numeroCsv, pedidosDeHoja, periodoDeHoja, sinPersonas,
 } from '../app/dashboard/exportar';
 
 const RAIZ = join(__dirname, '..');
@@ -99,25 +114,38 @@ test('la firma cambia con los filtros, el «agrupar por», comparar y la versió
   assert.equal(firmaDe({ ...base, x: 6, y: 9, w: 3, titulo: 'Otro', subtitulo: 'x' }, ef, 0), f0, 'moverlo o retitularlo pide datos de más');
 });
 
-test('pedidosDeHoja: lo elegido mirando cambia el período y los filtros del pedido, y los bloques van aparte', () => {
+// Desde v5 (12/10/2026) no hay bloques: `sanearHoja` los migra a gráficos (lib/graficos-migrar-v5.ts), así
+// que ninguna hoja leída trae uno y `bloques` sale vacío siempre. Lo que sí entra: la barra de búsqueda de
+// una tabla (interfaz I2), que es un control `texto` de la VISTA y no del informe.
+test('pedidosDeHoja: lo elegido mirando cambia el período y los filtros del pedido (también lo buscado en una tabla)', () => {
   const hoja = hojaCon(
     [
       { id: 'g1', clase: 'grafico', tipo: 'tabla', fuente: 'meta', dimension: 'campana', metricas: ['gasto'] },
-      { id: 'b1', clase: 'bloque', bloque: 'revenue' },
       { id: 'e1', clase: 'elemento', tipo: 'texto', texto: 'Hola' },
     ],
     { controles: [{ id: 'cp', tipo: 'periodo', preset: 'ult30' }, { id: 'cl', tipo: 'lista', campo: 'campana' }] },
   );
   const sinVista = pedidosDeHoja(hoja, {}, HOY, 0);
   assert.equal(sinVista.graficos.length, 1);
-  assert.equal(sinVista.bloques.length, 1);
-  assert.deepEqual(sinVista.bloques[0].pedido, { id: 'b1', bloque: 'revenue', desde: '2026-09-12', hasta: HOY });
+  assert.deepEqual(sinVista.bloques, []);
   assert.deepEqual(sinVista.graficos[0].pedido.filtros, []);
   const conVista = pedidosDeHoja(hoja, { cp: { preset: 'ult7' }, cl: { valores: ['Verano'] } }, HOY, 0);
   assert.equal(conVista.graficos[0].pedido.desde, '2026-10-05');
   assert.deepEqual(conVista.graficos[0].pedido.filtros, [{ dimension: 'campana', valores: ['Verano'] }]);
   assert.notEqual(conVista.graficos[0].firma, sinVista.graficos[0].firma);
-  assert.equal(conVista.bloques[0].pedido.desde, '2026-10-05', 'el bloque no sigue al período de la hoja');
+  // La barra de búsqueda: lo escrito viaja como filtro de texto, y el gráfico que viaja es el GUARDADO
+  // (sin el control de la barra adentro: no se guarda nunca).
+  const conBarra = hojaCon([{ id: 'gb', clase: 'grafico', tipo: 'tabla', fuente: 'meta', dimension: 'campana', metricas: ['gasto'], tabla: { buscar: true } }]);
+  const gb = conBarra.componentes[0] as Grafico;
+  const idBarra = idBusquedaDe(gb);
+  assert.ok(idBarra, 'una tabla de campañas con la barra prendida tiene su control de búsqueda');
+  const buscando = pedidosDeHoja(conBarra, { [idBarra]: { texto: 'Ver' } }, HOY, 0).graficos[0];
+  assert.deepEqual(buscando.pedido.filtros, [{ dimension: 'campana', texto: 'Ver' }], 'lo buscado no llega al pedido');
+  assert.deepEqual(buscando.pedido.grafico.controles, [], 'el control de la barra se coló en el gráfico guardado');
+  assert.notEqual(buscando.firma, pedidosDeHoja(conBarra, {}, HOY, 0).graficos[0].firma, 'buscar no pediría nada');
+  // Sin la barra, lo mismo escrito en la vista no filtra nada.
+  const sinBarra = hojaCon([{ ...gb, tabla: undefined }]);
+  assert.deepEqual(pedidosDeHoja(sinBarra, { [idBarra]: { texto: 'Ver' } }, HOY, 0).graficos[0].pedido.filtros, []);
 });
 
 test('el período de la hoja para el PDF: el control con lo elegido mirando, y los filtros activos', () => {
@@ -151,9 +179,9 @@ test('el CSV de una hoja: BOM, CRLF, una sección por gráfico en el orden en qu
   const kpi = { id: 'gk', clase: 'grafico', tipo: 'numero', fuente: 'negocio', metricas: ['gasto'], titulo: 'Ad Spend', comparar: true, x: 0, y: 0, w: 3, h: 4 };
   const serie = { id: 'gs', clase: 'grafico', tipo: 'serie', fuente: 'negocio', dimension: 'dia', metricas: ['leads'], titulo: 'Leads', x: 6, y: 4, w: 6, h: 8 };
   const sinDatos = { id: 'gn', clase: 'grafico', tipo: 'tabla', fuente: 'leads', dimension: 'etapa', metricas: ['leads'], x: 0, y: 20, w: 6, h: 8 };
+  // Sin bloques: desde v5 el saneo los migra a gráficos (y saldrían como «sin datos»).
   const hoja = hojaCon([
     tabla, serie, kpi, sinDatos,
-    { id: 'b1', clase: 'bloque', bloque: 'revenue', x: 0, y: 30 },
     { id: 'e1', clase: 'elemento', tipo: 'texto', texto: 'Título', x: 0, y: 40 },
   ]);
   const ef = { desde: '2026-09-12', hasta: HOY, agrupar: null };
@@ -171,7 +199,7 @@ test('el CSV de una hoja: BOM, CRLF, una sección por gráfico en el orden en qu
   assert.ok(csv.startsWith(String.fromCharCode(0xfeff)), 'sin BOM, Excel abre «Campaña» como «CampaÃ±a»');
   assert.ok(!/[^\r]\n/.test(csv), 'un salto de línea sin CR (RFC 4180 pide CRLF)');
   assert.equal(graficos, 3);
-  assert.deepEqual(salteados, { bloques: 1, elementos: 1, sinDatos: 1 });
+  assert.deepEqual(salteados, { bloques: 0, elementos: 1, sinDatos: 1 });
   const lineas = csv.slice(1).split('\r\n');
   assert.deepEqual(lineas.slice(0, 2), ['Hoja,Marketing', 'Exportado,11/10/2026']);
   // El orden de lectura: arriba la KPI (y 0), después la tabla (x 0) y la serie (x 6) en la fila 4.
@@ -186,7 +214,7 @@ test('el CSV de una hoja: BOM, CRLF, una sección por gráfico en el orden en qu
   // La serie: el día con su clave ISO, que Excel y Sheets entienden en cualquier país.
   const iS = lineas.indexOf('Gráfico,Leads');
   assert.equal(lineas[iS + 3], '2026-10-10,4');
-  assert.ok(lineas.includes('Sin exportar,"1 bloque, 1 elemento, 1 gráfico sin datos"'), 'no dice qué quedó afuera');
+  assert.ok(lineas.includes('Sin exportar,"1 elemento, 1 gráfico sin datos"'), 'no dice qué quedó afuera');
 });
 
 test('el CSV de un cruce (desglose): una columna por valor del desglose y el total', () => {
@@ -283,24 +311,30 @@ test('lo que alguien elige en un control MIRANDO no pasa por mutar ni se guarda'
   assert.match(onVista, /setVista\(/);
   assert.doesNotMatch(onVista, /mutar|setTablero|pila|apilar/, 'elegir mirando entró al informe: se guardaría y se apilaría en el deshacer');
   // Los dos que dibujan controles reciben ESE handler, no uno armado en el lugar.
+  // Desde v5 el «Filtro» de cada tarjeta es `MenuFiltro` (interfaz I1) y la barra de búsqueda de una
+  // tabla, `BuscarEnTabla` (I2): los dos escriben en la VISTA con el mismo handler.
   assert.match(EDITOR, /<BarraControles[\s\S]*?onVista=\{onVista\}/);
-  assert.match(EDITOR, /<ChipsControles [^>]*onVista=\{onVista\}/);
+  assert.match(EDITOR, /<MenuFiltro [^>]*onVista=\{onVista\}/);
+  assert.match(EDITOR, /<BuscarEnTabla [^>]*onVista=\{onVista\}/);
   // Y el autoguardado mira el INFORME, nunca la vista.
   const guardado = bloque(EDITOR, 'const json = JSON.stringify(tablero);', '}, [tablero, mandar]);');
   assert.doesNotMatch(guardado, /vista/);
   // El pedido de datos sí la mira (con la versión de refrescar() y, desde la topbar, el token del link
-  // compartido, que decide la RUTA del pedido y no lo que se pide).
-  assert.match(EDITOR, /const p = pedidosDeHoja\(hoja, vista, hoy, version\);/);
-  assert.match(EDITOR, /\}, \[hoja, vista, hoy, version, tokenLink\]\);/);
+  // compartido, que decide la RUTA del pedido y no lo que se pide). Desde v5 pide el LIENZO (la hoja, o el
+  // pop-up que se está editando) y no lo plegado (`noSePiden`, lib/graficos-secciones.ts).
+  assert.match(EDITOR, /const p = pedidosDeHoja\(lienzo, vista, hoy, version, noSePiden\);/);
+  assert.match(EDITOR, /\}, \[lienzo, hoja\.id, vista, hoy, version, tokenLink, noSePiden\]\);/);
 });
 
 test('cambiar lo de ENTRADA de un control olvida lo elegido mirando en él (la barra y el panel del gráfico)', () => {
   assert.match(bloque(EDITOR, 'const cambiarControl = (', '\n  };'), /olvidarVista\(\[id\]\)/);
   const panel = bloque(EDITOR, 'const cambiarDesdePanel = (', '\n  };');
   assert.match(panel, /olvidarVista\(/);
-  // Los dos paneles que editan controles pasan por ahí, no por `cambiar` pelado.
+  // Los dos que editan los controles de un gráfico pasan por ahí, no por `cambiar` pelado: su panel y, desde
+  // v5, el «Filtro» de la tarjeta editando (`MenuFiltro`). El panel de un bloque se fue con los bloques.
   assert.match(EDITOR, /<PropsGrafico [^>]*onCambiar=\{\(p\) => cambiarDesdePanel\(sel, p\)\}/);
-  assert.match(EDITOR, /<PropsBloque [^>]*onCambiar=\{\(p\) => cambiarDesdePanel\(sel, p\)\}/);
+  assert.match(EDITOR, /<MenuFiltro [^>]*onCambiarComp=\{\(p\) => cambiarDesdePanel\(c, p\)\}/);
+  assert.doesNotMatch(EDITOR, /<PropsBloque\b/);
 });
 
 test('mirar no guarda: la grilla sólo escribe el informe editando', () => {
@@ -328,11 +362,35 @@ test('una sola superficie y el modo oscuro: el CSS del cromo no tiene un solo co
   assert.match(sinCom, /\.lk-app \{[^}]*background: var\(--bg\)/);
   assert.match(sinCom, /\.lk-lienzo \{[^}]*background: var\(--bg\)/);
   assert.doesNotMatch(sinCom, /\.lk-pagina \{[^}]*box-shadow/);
-  // Los archivos del cromo tampoco pintan con hex en línea (los colores de una serie salen del tema).
-  for (const f of ['EditorInforme.tsx', 'Cabecera.tsx', 'Propiedades.tsx', 'PanelEstilo.tsx', 'Galeria.tsx']) {
+  // Los archivos del cromo tampoco pintan con hex en línea (los colores de una serie salen del tema). Desde
+  // v5 también los de la edición: la sección, los conectores, el pop-up y su hoja de estilos.
+  for (const f of ['EditorInforme.tsx', 'Cabecera.tsx', 'Propiedades.tsx', 'PanelEstilo.tsx', 'Galeria.tsx', 'Seccion.tsx', 'Conectores.tsx', 'Popup.tsx']) {
     const src = sinComentarios(leer(`app/dashboard/${f}`));
     assert.deepEqual(src.match(/['"]#[0-9a-f]{3,8}['"]/gi) ?? [], [], `hex en ${f}`);
   }
+  // ⚠️ La vara de arriba sólo ve un hex SOLO entre comillas: `'1px solid #e5e7eb'` le pasa (medido el 12/10/2026
+  // rompiéndolo). Los de la edición de v5 nacieron sin ninguno, así que se miran con la vara entera.
+  for (const f of ['EditorInforme.tsx', 'Propiedades.tsx', 'PanelEstilo.tsx', 'Seccion.tsx', 'Conectores.tsx', 'Popup.tsx']) {
+    assert.deepEqual(sinComentarios(leer(`app/dashboard/${f}`)).match(/#[0-9a-f]{3,8}\b/gi) ?? [], [], `hex adentro de un estilo en ${f}`);
+  }
+  const { CSS_EDICION } = await import('../app/dashboard/edicion-css');
+  assert.deepEqual(CSS_EDICION.replace(/\/\*[\s\S]*?\*\//g, '').match(/#[0-9a-f]{3,8}\b/gi) ?? [], [], 'un hex en el CSS de la edición');
+  assert.ok(!CSS_EDICION.includes('`'), 'una comilla invertida corta la hoja a la mitad');
+});
+
+// Punto 19 de v5: el panel de propiedades FLOTA sobre el lienzo (no lo achica) del lado opuesto a lo elegido,
+// y el lado se fija AL ELEGIR (si siguiera al arrastre, el panel saltaría de costado mientras se mueve).
+test('el panel de propiedades flota del lado opuesto a lo elegido, y el lado se fija al elegir', async () => {
+  const { CSS_EDICION } = await import('../app/dashboard/edicion-css');
+  const escritorio = bloque(CSS_EDICION, '@media (min-width: 761px)', '\n}\n');
+  assert.match(escritorio, /\.lk-props \{[^}]*position: absolute/, 'el panel volvió a ser una columna que achica el lienzo');
+  assert.match(escritorio, /\.lk-props\[data-lado="der"\] \{[^}]*right: 12px/);
+  assert.match(escritorio, /\.lk-props\[data-lado="izq"\] \{[^}]*left: 12px/);
+  assert.match(EDITOR, /<aside className="lk-props" data-lado=\{lado\.lado\}/);
+  // El lado se recalcula sólo cuando cambia LO ELEGIDO (la clave), no cuando cambia su posición.
+  assert.match(EDITOR, /if \(lado\.clave !== claveSel\) setLado\(\{ clave: claveSel, lado: ladoDelPanel\(sel, analista\) \}\);/);
+  const clave = EDITOR.match(/const claveSel = [^\n]*/)?.[0] ?? '';
+  assert.doesNotMatch(clave, /\.x\b|\.w\b/, 'la clave del lado mira la posición: el panel saltaría mientras se arrastra');
 });
 
 // Desde la tanda de la topbar (11/10/2026, punto 7: «Los botones de filtro también en la topbar… que
@@ -368,8 +426,9 @@ test('lo que se fue (puntos 9, 10 y 11): el panel Datos, el arrastre de campos, 
     ['el panel Datos', /PanelDatos|lk-datos\b/], ['el arrastre de campos', /draggable|MIME_CAMPO|onDragStart=\{arrastrar/],
     ['el riel', /lk-riel/], ['«Empecemos»', /Empecemos/], ['el logo de Looker', /SvgLogo/], ['«Guardado»', /'Guardado'|Guardando…/],
   ] as const) assert.doesNotMatch(EDITOR, re, `volvió ${que}`);
-  // Las propiedades, sólo con algo elegido (y elegir sólo existe editando).
-  assert.match(EDITOR, /const sel = editando \? hoja\.componentes\.find/);
+  // Las propiedades, sólo con algo elegido (y elegir sólo existe editando). Desde v5 se elige en el LIENZO:
+  // la hoja, o el pop-up que se está editando.
+  assert.match(EDITOR, /const sel = editando \? lienzo\.componentes\.find/);
   assert.match(EDITOR, /\{sel && \(\s*<aside className="lk-props"/);
   // Un guardado que falla avisa.
   assert.match(EDITOR, /show\('No se guardó'/);

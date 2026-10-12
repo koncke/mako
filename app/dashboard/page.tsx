@@ -24,6 +24,12 @@
 //     plantilla de ids fijos, sin editar ni guardar (`soloLectura`). No se lee su informe guardado: no
 //     tiene uno que pueda tocar. /api/graficos le contesta sólo lo de Closing.
 //   · `?llamada=<recording_id>` abre la ficha de esa llamada (la ruta vieja era /closing?call=).
+//
+// TANDA v5 (12/10/2026):
+//   · LA VERSIÓN de lo que se leyó (`leerTablero().version`) baja a la pantalla: el autoguardado la manda y la
+//     ruta escribe con compare-and-set (lib/graficos-tablero.ts). El closer no guarda: null.
+//   · Lo que arranca PLEGADO (una sección con «Arranca plegada», lib/graficos-secciones.ts) no se pide en la
+//     primera pintada: se pide al abrirse (`pedidosDeHoja` con `ocultos`, la MISMA cuenta que la pantalla).
 
 import { redirect } from 'next/navigation';
 import { Pagina } from '@/app/_ui';
@@ -36,6 +42,7 @@ import { hojaDestino, informeCloser, llamadaDeUrl } from '@/lib/graficos-plantil
 import { datosDeGraficos } from '@/lib/graficos-datos';
 import { datosDeBloques } from '@/lib/graficos-bloques';
 import type { Hoja, Tablero } from '@/lib/graficos-catalogo';
+import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
 import { EditorInforme } from './EditorInforme';
 import { pedidosDeHoja } from './exportar';
 
@@ -61,6 +68,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
 
   let tablero: Tablero;
   let lecturaFallo = false;
+  let version: string | null = null;
   let hoja: Hoja;
   let agregar: Hoja | null = null;
   let lleno = false;
@@ -71,12 +79,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
     const lectura = await leerTablero();
     tablero = lectura.tablero;
     lecturaFallo = lectura.estado === 'error';
+    version = lectura.version;
     const destino = hojaDestino(tablero, pedida);
     agregar = destino.agregar;
     lleno = !!destino.lleno;
     hoja = agregar ?? tablero.hojas.find((h) => h.id === destino.hojaId) ?? tablero.hojas[0];
   }
-  const { graficos, bloques } = pedidosDeHoja(hoja, {}, hoy, 0);
+  const { graficos, bloques } = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
   // El período va TAL CUAL: el corte en hoy (y la fecha que mira hacia adelante) lo decide `datosDeGraficos`
   // (contrato v5, «el corte en hoy en UN lugar»). La firma sale del período que pidió el gráfico.
   const [datos, datosBloque] = await Promise.all([
@@ -99,6 +108,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         lecturaFallo={lecturaFallo}
         hoy={hoy}
         hojaInicial={hoja.id}
+        versionInicial={version}
         hojaAgregada={agregar}
         aviso={lleno ? 'Máximo de hojas' : null}
         soloLectura={closer}

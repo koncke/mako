@@ -13,7 +13,16 @@
 //     medir el alto y encontrar cada elemento por su selector.
 //
 // SIN `server-only`: la reconstrucción es lo que se puede equivocar y se testea.
+//
+// ⚠️ DESDE EL 12/10/2026 LA FOTO ES EL RESPALDO, no el camino principal. Martín eligió la página EN VIVO
+// adentro de un celular (app/dashboard/MapaCalorVivo.tsx, con el puente de lib/landing-mapa-puente.ts) y aceptó
+// el costo: cada apertura le cuenta un PageView al Pixel de Meta del cliente. La foto queda para donde la página
+// no se deja meter en un marco (la de MaKo manda X-Frame-Options DENY) o no hay puente (un Pixel anterior a la
+// v21, que no baja un r.js). Lo de abajo sobre «no en vivo» sigue siendo cierto PARA LA FOTO.
 // =============================================================================
+
+import { atributosSinCors } from './replay-reproductor';
+import { claseDeProveedor, nombreDeProveedor, reconocerUrl } from './embeds';
 
 /** Los tipos de nodo de una foto de rrweb (rrweb-snapshot, `NodeType`). */
 const DOCUMENTO = 0;
@@ -71,6 +80,19 @@ export function fotoDeEventos(texto: string): FotoDePagina | null {
   return null;
 }
 
+/**
+ * El ancho de ventana más común entre los toques: la foto de fondo se elige de ese ancho (relevo v5, área D: la
+ * grabación más nueva del ws1 era de 320 px y la gente mira en 390-430). Empate: el más chico, para que dos
+ * lecturas den lo mismo. `null` sin anchos.
+ */
+export function anchoMasComun(anchos: readonly number[]): number | null {
+  const n = new Map<number, number>();
+  for (const a of anchos) if (Number.isFinite(a) && a > 0) n.set(Math.round(a), (n.get(Math.round(a)) ?? 0) + 1);
+  let mejor: number | null = null;
+  for (const [a, c] of n) if (mejor == null || c > n.get(mejor)! || (c === n.get(mejor)! && a < mejor)) mejor = a;
+  return mejor;
+}
+
 /** Etiquetas sin cierre. */
 const VACIAS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 
@@ -79,6 +101,58 @@ const FUERA = new Set(['script', 'noscript']);
 
 const escTexto = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const escAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+// ── Los HUECOS: lo que el mapa no mide (un reproductor, una agenda, un video) ──────────────
+
+/** Lo que se tapa con un cartel: un marco de otro sitio o un `<video>`. */
+export type TipoHueco = 'iframe' | 'video';
+
+/** La dirección de un marco grabado: rrweb guarda el `src` como `rr_src`, a veces sin esquema. */
+function urlDeHueco(src: string | null | undefined): URL | null {
+  const s = (src ?? '').trim();
+  if (!s) return null;
+  try {
+    return new URL(/^[a-z][a-z0-9+.-]*:/i.test(s) ? s : `https://${s.replace(/^\/\//, '')}`);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * El cartel de un hueco: «▶ Video · Panda Video», «Agenda · Calendly», «▶ Video» o «Contenido de otro sitio».
+ *
+ * El proveedor se reconoce con la MISMA lista que decide qué se puede insertar en MaKo (`reconocerUrl`,
+ * lib/embeds.ts: el host se compara exacto), no con un `includes('panda')` propio. Lo usan la foto (abajo) y la
+ * página en vivo (app/dashboard/MapaCalorVivo.tsx, con el `src` que manda el puente).
+ *
+ * POR QUÉ HAY CARTEL: lo que pasa adentro de un marco de otro sitio no llega al Pixel (un clic en el play de
+ * Panda o en un horario de Calendly es del reproductor, no de la página), así que ahí el mapa está ciego. Una
+ * caja en blanco —lo de antes— se leía como «nadie toca esto».
+ */
+export function rotuloDeHueco(src: string | null | undefined, tipo: TipoHueco): string {
+  const u = urlDeHueco(src);
+  const r = u ? reconocerUrl(u) : null;
+  const nombre = r ? nombreDeProveedor(r.proveedor) : null;
+  if (r && nombre) return claseDeProveedor(r.proveedor) === 'agenda' ? `Agenda · ${nombre}` : `▶ Video · ${nombre}`;
+  return tipo === 'video' ? '▶ Video' : 'Contenido de otro sitio';
+}
+
+/** El documento del cartel de un marco: va en su `srcdoc`, así el marco conserva su caja y las reglas del cliente. */
+export function docDeHueco(rotulo: string): string {
+  return '<!DOCTYPE html><html><head><style>html,body{margin:0;height:100%}body{display:flex;align-items:center;'
+    + 'justify-content:center;box-sizing:border-box;padding:8px;background:#1f2328;color:#fff;'
+    + 'font:600 15px/1.3 system-ui,-apple-system,sans-serif;text-align:center}</style></head>'
+    + `<body>${escTexto(rotulo)}</body></html>`;
+}
+
+/** El cartel de un `<video>`: una imagen de portada (el `<video>` no dibuja lo que tiene adentro). */
+export function posterDeHueco(rotulo: string): string {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">'
+    + '<rect width="640" height="360" fill="#1f2328"/>'
+    + '<text x="320" y="180" fill="#ffffff" font-family="system-ui,sans-serif" font-size="30" font-weight="600" '
+    + `text-anchor="middle" dominant-baseline="middle">${escTexto(rotulo)}</text></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
 
 /**
  * ⚠️ LAS UNIDADES DE VENTANA SE CONGELAN AL ALTO QUE TENÍA LA VENTANA. La foto se
@@ -115,8 +189,16 @@ export function congelarVhEnHoja(css: string, altoVentana: number): string {
  *   · ningún atributo `on…` (un `onerror` en una imagen ES código);
  *   · un `<link>` cuya hoja quedó guardada adentro (`_cssText`) se escribe como
  *     `<style>`: la página no se vuelve a pedir a ningún lado;
- *   · un `<iframe>` (el reproductor del video, una agenda) queda VACÍO, del mismo
- *     tamaño: no se carga nada de un tercero;
+ *   · un `<link>` de hoja SIN `_cssText` (el grabador v2 graba la hoja como link) se
+ *     escribe sin `crossorigin` ni `integrity` (`atributosSinCors`, la MISMA regla del
+ *     reproductor): con el atributo, el navegador la pide en modo CORS desde el origen
+ *     de MaKo, el CDN del cliente no manda Access-Control-Allow-Origin y la página
+ *     queda en serif y sin estilo (medido en el ws1, relevo v5, área D);
+ *   · un `<iframe>` (el reproductor del video, una agenda) NO CARGA NADA de un tercero:
+ *     lleva su cartel en el `srcdoc` («▶ Video · Panda Video», `rotuloDeHueco`). Sigue
+ *     siendo un `<iframe>` a propósito: así lo alcanzan las mismas reglas de la hoja
+ *     del cliente y conserva su tamaño;
+ *   · un `<video>` no baja nada (sin `src` ni `<source>`) y muestra su cartel de portada;
  *   · lo que la grabación tapó a propósito (`rr_width`/`rr_height`) es una caja gris
  *     del mismo tamaño;
  *   · y las unidades de ventana se congelan (ver `congelarVh`).
@@ -125,22 +207,31 @@ export function htmlDeFoto(foto: FotoDePagina): string {
   const vh = foto.alto;
   const partes: string[] = [];
 
-  const atributos = (tag: string, attrs: NodoFoto['attributes']): { texto: string; css: string | null } => {
+  const atributos = (tag: string, attrsCrudos: NodoFoto['attributes']): { texto: string; css: string | null } => {
     let css: string | null = null;
     let texto = '';
     let tapado: { w: string; h: string } | null = null;
-    for (const [nombreCrudo, valorCrudo] of Object.entries(attrs ?? {})) {
+    // La dirección del marco o del video: rrweb la guarda en `rr_src` (y a veces queda en `src`). Se lee para
+    // saber QUÉ era y nunca se escribe.
+    let srcHueco: string | null = null;
+    const attrs = atributosSinCors(tag, attrsCrudos ?? {});
+    for (const [nombreCrudo, valorCrudo] of Object.entries(attrs)) {
       const nombre = nombreCrudo.trim();
       if (!/^[a-zA-Z_:][-a-zA-Z0-9_:.]*$/.test(nombre)) continue;
       if (/^on/i.test(nombre)) continue;
       if (nombre === '_cssText') { css = String(valorCrudo ?? ''); continue; }
+      if ((tag === 'iframe' || tag === 'video') && (nombre === 'rr_src' || nombre === 'src')) {
+        if (typeof valorCrudo === 'string' && (nombre === 'rr_src' || srcHueco == null)) srcHueco = valorCrudo;
+        continue;
+      }
       if (nombre === 'rr_width' || nombre === 'rr_height') {
         tapado = tapado ?? { w: '', h: '' };
         if (nombre === 'rr_width') tapado.w = String(valorCrudo); else tapado.h = String(valorCrudo);
         continue;
       }
       if (nombre.startsWith('rr_')) continue;
-      if (tag === 'iframe' && (nombre === 'src' || nombre === 'srcdoc')) continue;
+      if (tag === 'iframe' && nombre === 'srcdoc') continue;
+      if (tag === 'video' && (nombre === 'poster' || nombre === 'autoplay' || nombre === 'preload')) continue;
       if (valorCrudo === null || valorCrudo === false) continue;
       let valor = valorCrudo === true ? '' : String(valorCrudo);
       if (/^\s*javascript:/i.test(valor)) continue;
@@ -148,7 +239,8 @@ export function htmlDeFoto(foto: FotoDePagina): string {
       texto += valor === '' && valorCrudo === true ? ` ${nombre}` : ` ${nombre}="${escAttr(valor)}"`;
     }
     if (tapado) texto += ` style="display:block;width:${escAttr(tapado.w || '100%')};height:${escAttr(tapado.h || '0')};background:#e7e7e4"`;
-    if (tag === 'iframe') texto += ' srcdoc=""';
+    if (tag === 'iframe') texto += ` srcdoc="${escAttr(docDeHueco(rotuloDeHueco(srcHueco, 'iframe')))}"`;
+    if (tag === 'video') texto += ` preload="none" poster="${escAttr(posterDeHueco(rotuloDeHueco(srcHueco, 'video')))}"`;
     return { texto, css };
   };
 
@@ -181,6 +273,8 @@ export function htmlDeFoto(foto: FotoDePagina): string {
         }
         partes.push(`<${tag}${texto}>`);
         if (VACIAS.has(tag)) return;
+        // Un <video> sin hijos: sus <source> bajarían el archivo, y lo que tiene adentro no se dibuja igual.
+        if (tag === 'video') { partes.push('</video>'); return; }
         const esEstilo = tag === 'style';
         if (esEstilo && css != null && !(n.childNodes ?? []).length) {
           partes.push(congelarVhEnHoja(css, vh).replace(/<\/(style)/gi, '<\\/$1'));

@@ -28,6 +28,12 @@
 // El reproductor (player.js/.css) sigue en la 1: tiene su propia versión
 // (REPLAY_PLAYER_VERSION, lib/replay-reproductor.ts) y no cambió.
 //
+// Y EL PUENTE DEL MAPA DE CALOR EN VIVO (12/10/2026), en otra numeración:
+//   · 901 — `scripts/replay-puente.js` sin sus comentarios de línea. NO GRABA (no define `rrwebRecord`: lo
+//          verifica `noDebeTener`) y lo baja SÓLO una visita de prueba del mapa (`?mko_test=mapa-…`): el
+//          beacon contesta `rec.v = PUENTE_MAPA_VERSION` (lib/landing-mapa-puente.ts) a esa visita y a ninguna
+//          otra. Va desde 901 para que un grabador nuevo (3, 4…) no choque nunca con él.
+//
 // Correr:  node scripts/replay-libs.mjs          (genera, leyendo el disco)
 //          node scripts/replay-libs.mjs --check  (falla si quedó viejo; pre-push)
 //
@@ -51,6 +57,8 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RRWEB = 'node_modules/rrweb/dist/record/rrweb-record.min.js';
 const ENVOLTORIO = 'scripts/replay-envoltorio.js';
 const CONTRATO = 'lib/replay-contrato.ts';
+const PUENTE = 'scripts/replay-puente.js';
+const CONTRATO_PUENTE = 'lib/landing-mapa-puente.ts';
 
 // ⚠️ SE COMPARA SIN LOS SALTOS DE WINDOWS, Y ES LA REGLA DE LA CASA. Con
 // `core.autocrlf=true`, git le mete CRLF a estos bundles al hacer checkout: medido
@@ -80,6 +88,18 @@ function armarV2(rrweb, envoltorio) {
     .filter((l) => l.trim() !== '' && !/^\s*\/\//.test(l))
     .join('\n');
   return Buffer.from((lib.endsWith('\n') ? lib : lib + '\n') + env + '\n', 'latin1');
+}
+
+/**
+ * El puente del mapa (901): el fuente sin sus comentarios de línea entera ni las líneas vacías, la MISMA receta
+ * que la cola de la v2. No lleva rrweb: no graba. En utf8 (el fuente lo es) y sin CR.
+ */
+function armarPuente(fuente) {
+  const js = sinCR(fuente).toString('utf8')
+    .split('\n')
+    .filter((l) => l.trim() !== '' && !/^\s*\/\//.test(l))
+    .join('\n');
+  return Buffer.from(js + '\n', 'utf8');
 }
 
 /**
@@ -118,6 +138,18 @@ const ARTEFACTOS = [
     debeTener: ['rrwebRecord', 'mkoEnvoltorio', 'inlineStylesheet = false'],
     armar: (dep, fuente) => armarV2(dep(RRWEB), fuente(ENVOLTORIO)),
     quien: 'el grabador v2 (rrweb + scripts/replay-envoltorio.js) — también lo baja el VISITANTE',
+  },
+  {
+    a: 'public/replay/901/r.js',
+    puente: 901,
+    // Fijada el 12/10/2026, antes del primer deploy: hasta que se despliegue, un cambio del puente puede
+    // actualizarla A MANO acá. Después, no: un cambio es la 902.
+    publicada: 'e5d6ed202f18',
+    debeTener: ['mkoPuenteMapa', 'postMessage(m, origen)', "e.origin !== origen || e.source !== padre"],
+    // ⚠️ El puente NO GRABA: si el archivo nombra el grabador, alguien le pegó rrweb (o el envoltorio) por error.
+    noDebeTener: ['rrwebRecord', 'rrweb.record', "postMessage(m, '*')"],
+    armar: (dep, fuente) => armarPuente(fuente(PUENTE)),
+    quien: 'el puente del mapa de calor EN VIVO (scripts/replay-puente.js) — lo baja SÓLO una visita de prueba del mapa',
   },
   {
     a: 'public/replay/1/player.js',
@@ -205,6 +237,12 @@ for (const art of ARTEFACTOS) {
       process.exit(1);
     }
   }
+  for (const marca of art.noDebeTener ?? []) {
+    if (bytes.includes(marca)) {
+      console.error(`✖ ${art.a} menciona \`${marca}\` y no puede: ${art.quien}.`);
+      process.exit(1);
+    }
+  }
   // La huella se toma sin CR: es la misma en el clon, en un worktree y en HEAD.
   if (art.publicada && huella(sinCR(bytes)) !== art.publicada) {
     console.error(`✖ ${art.a} es una versión PUBLICADA (huella ${art.publicada}) y lo que se arma hoy da ${huella(sinCR(bytes))}.`);
@@ -248,6 +286,24 @@ if (!m) {
 const anunciada = Number(m[1]);
 if (!ARTEFACTOS.some((a) => a.grabador === anunciada)) {
   console.error(`✖ ${CONTRATO} anuncia REPLAY_LIB_VERSION = ${anunciada} y acá no hay un r.js para esa versión.`);
+  process.exit(1);
+}
+
+// Lo mismo para el PUENTE del mapa: el beacon contesta `rec.v = PUENTE_MAPA_VERSION` a una prueba del mapa, y
+// si ese archivo no existe el mapa en vivo no encuentra nunca su puente (cae a la foto, sin un error que lo diga).
+const contratoPuente = versionado(CONTRATO_PUENTE);
+const mp = contratoPuente && /export const PUENTE_MAPA_VERSION = (\d+);/.exec(sinCR(contratoPuente).toString('latin1'));
+if (!mp) {
+  console.error(`✖ no encontré PUENTE_MAPA_VERSION en ${CONTRATO_PUENTE}: este script lo lee con una regex.`);
+  process.exit(1);
+}
+const puenteAnunciado = Number(mp[1]);
+if (!ARTEFACTOS.some((a) => a.puente === puenteAnunciado)) {
+  console.error(`✖ ${CONTRATO_PUENTE} anuncia PUENTE_MAPA_VERSION = ${puenteAnunciado} y acá no hay un r.js para esa versión.`);
+  process.exit(1);
+}
+if (ARTEFACTOS.some((a) => a.grabador != null && a.grabador === puenteAnunciado)) {
+  console.error(`✖ el puente (${puenteAnunciado}) y un grabador comparten número: el beacon serviría el grabador a quien mira el mapa.`);
   process.exit(1);
 }
 

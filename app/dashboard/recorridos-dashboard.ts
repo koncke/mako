@@ -21,7 +21,9 @@
 //   · la topbar (./Cabecera.tsx): dash-titulo (emoji, título y subtítulo), dash-hojas (el ▾)
 //   · la topbar (./EditorInforme.tsx): dash-controles (los filtros), dash-editar, dash-ver, dash-ayuda (el ⋮)
 //   · los filtros (./BarraControles.tsx): dash-filtro («＋ Filtro», sólo editando)
-//   · el lienzo (./EditorInforme.tsx): dash-grafico, dash-mako, dash-componente
+//   · el lienzo (./EditorInforme.tsx): dash-grafico, dash-mako, dash-componente. Desde la tanda v5 el botón de
+//     MaKo se apaga por gráfico (punto 15): `dash-mako` va en el primer gráfico QUE LO TIENE (y con datos), no en
+//     el primero, o el paso señalaría la nada.
 //   · la barra de edición (./EditorInforme.tsx): dash-deshacer, dash-datos, dash-anadir-grafico,
 //     dash-insertar, dash-estilo
 //
@@ -53,8 +55,8 @@ export const PASOS_DASHBOARD: PasoRecorrido[] = [
 export const PASOS_DASHBOARD_EDICION: PasoRecorrido[] = [
   { objetivo: 'dash-deshacer', titulo: 'Deshacer', texto: 'Vuelve atrás cualquier cambio. También con Ctrl+Z.' },
   { objetivo: 'dash-datos', titulo: 'Añadir datos', texto: 'Una tabla nueva con cualquier conjunto de MaKo.' },
-  { objetivo: 'dash-anadir-grafico', titulo: 'Añadir un gráfico', texto: 'Elige el tipo. Abajo están los bloques de MaKo.' },
-  { objetivo: 'dash-insertar', titulo: 'Insertar', texto: 'Una página, video, imagen, texto, enlace, líneas y formas.' },
+  { objetivo: 'dash-anadir-grafico', titulo: 'Añadir un gráfico', texto: 'Elige el tipo de gráfico.' },
+  { objetivo: 'dash-insertar', titulo: 'Insertar', texto: 'Texto, imágenes, videos, secciones, líneas y conectores.' },
   { objetivo: 'dash-estilo', titulo: 'Estilo de la hoja', texto: 'Plantilla, color y letra para todos los gráficos.' },
   { objetivo: 'dash-filtro', titulo: 'Filtros de la hoja', texto: 'Agrega o quita filtros. Sólo mientras editas.' },
   { objetivo: 'dash-componente', titulo: 'Mover y agrandar', texto: 'Arrástralo o estira su esquina. Con un clic, sus datos.' },

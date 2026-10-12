@@ -31,6 +31,8 @@ import {
 } from '@/lib/graficos-catalogo';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { Alias, dimensionPublica, etiquetaSegura } from '@/lib/graficos-analisis';
+import { campoDeDimension } from '@/lib/graficos-controles-texto';
+import { idDeParte } from '@/lib/graficos-migrar-v5';
 import type { Formato } from '@/lib/graficos-constructores';
 
 // ── El pedido de datos ─────────────────────────────────────────────────────────────────────
@@ -61,12 +63,44 @@ export type PedidosHoja = {
   bloques: Array<{ b: Bloque; ef: Efectivo; firma: string; pedido: PedidoBloqueHoja }>;
 };
 
-/** Los pedidos de TODA la hoja con lo que la vista tiene elegido (vacía = lo que se guardó). */
-export function pedidosDeHoja(hoja: Hoja, vista: VistaValores, hoy: string, version: number): PedidosHoja {
+/**
+ * La barra de búsqueda de una tabla (`g.tabla.buscar`, tanda v5, interfaz I2): lo que se escribe ahí es un
+ * control `texto` sobre el campo de la dimensión de la tabla, con este id FIJO, y vive en la VISTA (no se
+ * guarda). No se guarda ningún control: la tabla lo lleva «de fábrica» mientras tenga la barra, así una tabla
+ * migrada (la de «Las llamadas», lib/graficos-migrar-v5.ts) busca sin que nadie le agregue nada. Si la tabla ya
+ * tiene un control propio sobre ese campo, la barra usa ÉSE (uno por campo: `sanearControles`).
+ */
+export const idBusquedaDe = (g: Pick<Grafico, 'id' | 'fuente' | 'dimension' | 'controles'>): string | null => {
+  const campo = campoDeDimension(g.fuente, g.dimension);
+  if (!campo) return null;
+  const propio = g.controles.find((k) => (k.tipo === 'texto' || k.tipo === 'lista') && k.campo === campo);
+  if (propio) return propio.tipo === 'texto' && !propio.fijo ? propio.id : null;
+  return idDeParte(g.id, 'buscar');
+};
+
+/** El gráfico con el control de su barra de búsqueda (si la tiene y hace falta): lo que mira `efectivoDe`. */
+export function conBusqueda<T extends Grafico>(g: T): T {
+  if (!g.tabla?.buscar) return g;
+  const campo = campoDeDimension(g.fuente, g.dimension);
+  const id = idBusquedaDe(g);
+  if (!campo || !id || g.controles.some((k) => k.id === id)) return g;
+  const control: ControlVista = { id, tipo: 'texto', campo, preset: PRESET_AUTOMATICO, desde: null, hasta: null, valores: null, texto: '', agrupar: 'auto' };
+  return { ...g, controles: [...g.controles, control] };
+}
+
+/**
+ * Los pedidos de TODA la hoja con lo que la vista tiene elegido (vacía = lo que se guardó). `ocultos`: lo que
+ * NO se pide (los miembros de una sección plegada, lib/graficos-secciones.ts; tanda v5, punto 24: «lo plegado
+ * no pide datos hasta abrirse»). Sin `ocultos`, se pide TODO: así lo leen la API de MaKo y el CSV, que no
+ * dibujan nada y tienen que ver también lo plegado.
+ */
+export function pedidosDeHoja(hoja: Hoja, vista: VistaValores, hoy: string, version: number, ocultos?: ReadonlySet<string>): PedidosHoja {
   const out: PedidosHoja = { graficos: [], bloques: [] };
   for (const c of hoja.componentes) {
+    if (ocultos?.has(c.id)) continue;
     if (esGrafico(c)) {
-      const ef = efectivoDe(c, hoja, vista, hoy);
+      // El efectivo con la barra de búsqueda; el gráfico que viaja, el GUARDADO (el server sanea igual).
+      const ef = efectivoDe(conBusqueda(c), hoja, vista, hoy);
       out.graficos.push({ g: c, ef, firma: firmaDe(c, ef, version), pedido: { grafico: c, desde: ef.desde, hasta: ef.hasta, filtros: ef.filtros, agrupar: ef.agrupar } });
     } else if (esBloque(c)) {
       const ef = efectivoDe(c, hoja, vista, hoy);

@@ -34,7 +34,9 @@ import { catalogoPanda } from './panda';
 import { esEventoDeVideo } from './vsl-retencion';
 import { estadoVideo } from './landing-analisis';
 import { enumerar } from './landing-snapshot';
-import { leerPorPaginas, type ConsultaPaginada } from './supabase-paginado';
+import { type ConsultaPaginada } from './supabase-paginado';
+// `verificarPagina`: qué visitas pueden ser de una página (una consulta acotada, no el host entero en serie).
+import { TOPE_VISITAS_VERIFICAR, regexDeLaPagina } from './landing-mapa-visitas';
 import { distintosPorExclusion, listaPostgrest } from './ids-con-filas';
 // Los números del replay NO se escriben de nuevo acá: el grabador los interpola del
 // contrato. Un tope distinto del lado del server descarta la cola de cada sesión y
@@ -550,8 +552,10 @@ export type VerificacionPagina = {
   version: number | null;
   vieja: boolean;
   ultima: string | null;
-  /** Cuántas visitas en los últimos 30 días, para distinguir «anda» de «andaba». */
+  /** Cuántas visitas en los últimos 30 días, para distinguir «anda» de «andaba». Con `visitasTope`, es un PISO. */
   visitas: number;
+  /** Se leyeron las TOPE_VISITAS_VERIFICAR más nuevas y había más: `visitas` es «al menos», no el total. */
+  visitasTope?: boolean;
   texto: string;
 };
 
@@ -570,25 +574,36 @@ export async function verificarPagina(urlCruda: string): Promise<VerificacionPag
     // 30 días y el filtro por URL recién en memoria: en ws1 las 400 más nuevas
     // son 3 días (con 2.552 URLs distintas), así que a cualquier página que no
     // fuera la de más tráfico se le decía «el Pixel no está instalado ahí» sobre
-    // una página que manda eventos. El host es un superconjunto seguro de las
-    // variantes (barra, hash, UTM, mayúsculas, el prefijo de deploy de Netlify
-    // que `hostCanonico` colapsa); la comparación exacta sigue siendo la de
-    // `normalizarUrl`. Paginado por `id` porque un host solo ya pasa las 1000.
-    const host = new URL(url).host;
+    // una página que manda eventos. La comparación exacta sigue siendo la de
+    // `normalizarUrl`.
+    //
+    // ⚠️ Y ES UNA SOLA CONSULTA ACOTADA (12/10/2026). Hasta ese día se filtraba por el
+    // HOST y se leía TODO, en serie: en el ws1 eran 7.180 visitas (8 páginas una
+    // detrás de la otra) en cada apertura del mapa de calor, que la llama sólo para
+    // saber la versión (relevo v5, área D). Ahora la base trae las más nuevas de ESTA
+    // dirección (`regexDeLaPagina`: http o https, el prefijo de Netlify, las barras y
+    // cualquier query; un camino más largo no entra), con tope, y la más nueva manda
+    // la versión. Si se llegó al tope, `visitas` es un PISO y el texto dice «al menos».
+    const patron = regexDeLaPagina(url);
+    if (!patron) throw new Error('la dirección normalizada no se pudo leer');
     type FilaVisita = { created_at: string; landing_url: string | null; sv: number | null };
-    const filas: FilaVisita[] = [];
-    await leerPorPaginas<FilaVisita>(
-      db, 'landing_visits', 'id, created_at, landing_url, sv',
-      (pag) => { for (const r of pag) if (normalizarUrl(r.landing_url ?? '') === url) filas.push(r); },
-      { filtros: (q) => q.gte('created_at', desde).ilike('landing_url', `%${host}%`) },
-    );
-    // El paginado va por `id`; lo que se muestra es por fecha, así que se ordena
-    // acá (la más nueva primero, que es lo que leen `ultima` y la versión).
-    filas.sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
+    const { data, error } = await db
+      .from('landing_visits')
+      .select('created_at, landing_url, sv')
+      .gte('created_at', desde)
+      .filter('landing_url', 'imatch', patron)
+      .order('created_at', { ascending: false })
+      .limit(TOPE_VISITAS_VERIFICAR);
+    if (error) throw new Error(error.message);
+    const crudas = (data ?? []) as FilaVisita[];
+    // Las más nuevas primero (así vienen), que es lo que leen `ultima` y la versión.
+    const filas = crudas.filter((r) => normalizarUrl(r.landing_url ?? '') === url);
+    const visitasTope = crudas.length >= TOPE_VISITAS_VERIFICAR;
     if (!filas.length) {
       return { url, instalada: false, version: null, vieja: false, ultima: null, visitas: 0,
         texto: 'No llega ninguna visita de esta página desde hace 30 días. El Pixel no está instalado ahí, o esa página aún no se publica.' };
     }
+    const nVisitas = `${visitasTope ? 'al menos ' : ''}${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'}`;
     // La versión de la visita MÁS RECIENTE: si repegaron el código hace una hora,
     // lo que importa es eso y no las 300 visitas viejas de antes.
     const conSv = filas.find((r) => r.sv != null);
@@ -597,16 +612,16 @@ export async function verificarPagina(urlCruda: string): Promise<VerificacionPag
     // `snippetDesactualizado`): una página en la 22 no se nombra en el WhatsApp por la v23.
     const vieja = version != null && version < PIXEL_MINIMO_AVISO;
     return {
-      url, instalada: true, version, vieja, ultima: filas[0].created_at, visitas: filas.length,
+      url, instalada: true, version, vieja, ultima: filas[0].created_at, visitas: filas.length, visitasTope,
       texto: version == null
         // Llegan visitas pero ninguna dice su versión: son de antes de que el
         // snippet la mandara, o sea de las más viejas que hay.
-        ? `Está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días), pero el Pixel es tan antiguo que no informa su versión. Pon la línea del Pixel en lugar del código viejo.`
+        ? `Está midiendo (${nVisitas} en 30 días), pero el Pixel es tan antiguo que no informa su versión. Pon la línea del Pixel en lugar del código viejo.`
         : vieja
           ? `Está midiendo con la versión ${version}, y la actual es la ${SNIPPET_VERSION}. Pon la línea del Pixel EN ESTA PÁGINA, en lugar del código viejo, para sumar: ${novedadesDesde(version)}.`
           : version >= SNIPPET_VERSION
-            ? `Todo correcto: está midiendo con la última versión (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días).`
-            : `Todo correcto: está midiendo (${filas.length} ${filas.length === 1 ? 'visita' : 'visitas'} en 30 días).`,
+            ? `Todo correcto: está midiendo con la última versión (${nVisitas} en 30 días).`
+            : `Todo correcto: está midiendo (${nVisitas} en 30 días).`,
     };
   } catch (e) {
     console.error('[verificarPagina] falló:', e instanceof Error ? e.message : e);

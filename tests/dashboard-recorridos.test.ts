@@ -32,6 +32,12 @@
 //   · la guía preguntándole al server en un link        -> 6 / 1  «el de mirar se abre mirando… y en un link no hay guía»
 //   · un paso que señala algo adentro del ⋮ (Exportar)  -> 5 / 2  «el de mirar explica la topbar…» y «TODOS los pasos…»
 //   · el chat de MaKo sin la clase `.lk-mako`            -> 6 / 1  «…lo que aparece al pasar el cursor se ve»
+//
+// ── Y la tanda v5, paquete «La edición» (12/10/2026, scratchpad p5/romper.mjs, mismo método). Base: 7 / 0; al
+//    final, 7 / 0:
+//   · el pop-up abierto que no cuenta como capa           -> 6 / 1  «el de mirar se abre mirando…»
+//   · dash-mako anclado al primer gráfico a secas          -> 6 / 1  «…lo que aparece al pasar el cursor se ve»
+//   · `primerConMako` sin mirar `c.mako !== false`         -> 6 / 1  el mismo
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -153,7 +159,8 @@ test('el de mirar se abre mirando, el de editar al editar, nunca los dos juntos,
   // En un link compartido no hay sesión ni guía (`soloLocal`: no le pregunta nada a /api/recorridos).
   assert.match(EDITOR, /const conGuia = !compartido;/);
   // No se abre solo con un menú o un modal abierto: los flotantes del editor (z 580) quedan arriba del velo.
-  assert.match(EDITOR, /const capaAbierta = !!menu \|\| modalDatos \|\| nuevaHoja \|\| analista \|\| !!detalle \|\| llamada != null;/);
+  // Desde v5 también son capas un pop-up abierto mirando (punto 7) y el modal de Compartir (va en el ⋮).
+  assert.match(EDITOR, /const capaAbierta = !!menu \|\| modalDatos \|\| nuevaHoja \|\| analista \|\| !!detalle \|\| llamada != null \|\| !!popup \|\| compartir;/);
   // El «?» se fue al ⋮ (punto 4): la opción abre la guía del lugar, y el ⋮ es el último paso de las dos.
   assert.match(EDITOR, /\{conGuia && \([\s\S]{0,200}onClick=\{\(\) => \{ setMenu\(null\); \(editando \? recorridoEdicion\.reabrir : recorrido\.reabrir\)\(\); \}\}/);
   assert.match(EDITOR, /className="lk-pill lk-pill--icono lk-mas" data-recorrido="dash-ayuda"/);
@@ -173,7 +180,12 @@ test('mientras corre un recorrido, lo que aparece al pasar el cursor se ve (si n
   const { CSS } = await import('../app/dashboard/editor-css');
   assert.match(CSS, /\.lk:is\(body:has\(> \.mk-rec\) \*\) \.react-grid-item > \.react-resizable-handle, \.lk:is\(body:has\(> \.mk-rec\) \*\) \.lk-hoja-mas, \.lk:is\(body:has\(> \.mk-rec\) \*\) \.lk-mako \{ opacity: 1; \}/);
   // La regla mira `.lk-mako`: el chat de MaKo de cada gráfico sigue envuelto en esa clase (con el botón chico).
-  assert.match(EDITOR, /<span className="lk-mako" data-recorrido=\{c\.id === primerGrafico \? 'dash-mako' : undefined\}>\s*<ChatMakoGrafico /);
+  // Desde v5 el botón se apaga por gráfico (punto 15: `mako: false`): el paso se ancla al primer gráfico que
+  // LO TIENE. Anclado al primero a secas, con ése apagado el paso se salteaba en silencio.
+  assert.match(EDITOR, /<span className="lk-mako" data-recorrido=\{c\.id === primerConMako \? 'dash-mako' : undefined\}>\s*<ChatMakoGrafico /);
+  const primero = EDITOR.match(/const primerConMako = [^\n]*/)?.[0] ?? '';
+  assert.match(primero, /c\.mako !== false/, 'el paso se ancla a un gráfico con el botón apagado');
+  assert.match(primero, /datos\[c\.id\]\?\.resultado/, 'el botón sólo se dibuja con datos: anclado a uno sin datos, el paso apunta a la nada');
   // Y el recorrido sigue montándose en el body como `.mk-rec`, que es lo que esa regla mira.
   const rec = sinComentarios(leer('app/_ui/Recorrido.tsx'));
   assert.match(rec, /<div className="mk-rec" data-recorrido-capa=\{id\}/);

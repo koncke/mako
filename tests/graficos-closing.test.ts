@@ -10,8 +10,10 @@
 //   · La puerta de las rutas de Closing: admin o closer, con el Dashboard en la capa (un setter no gasta IA),
 //     y que la usan las cinco rutas —y NO analizar-lead, que es del CRM—.
 //   · Que cada pedido de la pantalla lleve `signal`, y que su tope supere el `maxDuration` de su ruta.
-//   · El bloque «Las llamadas» registrado (catálogo, lectura, dibujo, con personas) y en la plantilla, abajo;
-//     el KPI «Analizadas»; los ejemplos de Factores abren la ficha; la API de MaKo linkea a la hoja.
+//   · v5 (12/10/2026): «Las llamadas» ya no es un bloque. Su migración deja una TABLA de llamadas con su pop-up
+//     «Llamada» (la ficha entera, una pieza que existe) y el botón «Sincronizar llamadas» (una acción que existe
+//     y pasa por la MISMA puerta); la ficha es UNA (FichaLlamada dibuja el cuerpo de app/dashboard/entidades/
+//     llamada.tsx, que también parte en piezas); la API de MaKo linkea a la hoja.
 //   · Sin voseo en los archivos nuevos (el guard del repo no ve lo que no tiene `git add`).
 // Correr: npx tsx --test tests/graficos-closing.test.ts
 //
@@ -47,21 +49,30 @@
 //   · el conjunto `llamadas` sin el `estado`                               → «el conjunto de TODAS las llamadas…»
 //   · `linkLlamada` de vuelta a /closing?call=                             → «la API de MaKo linkea…»
 //   · «Revisá a mano» en la ficha                                          → «sin voseo…»
+// Los tres tests del BLOQUE «Las llamadas» (su catálogo, la plantilla con el bloque abajo y los ejemplos de
+// Factores del bloque) salieron con la v5: los bloques se migran en el saneo (lib/graficos-migrar-v5.ts).
+// v5 (P6), base 18 de 18 (arnés scratchpad/p6/romper.mjs, restaurando DE MEMORIA); cada rotura, una por vez, dio
+// 17 pases y 1 fallo en el test que la persigue (la vuelta, 18 de 18):
+//   · la ficha de la llamada sin la pieza entera (PIEZAS_ENTIDAD.llamada)        → «la lista de llamadas…»
+//   · `sincronizar_llamadas` fuera de ACCIONES_ELEMENTO                          → «la lista de llamadas…»
+//   · la puerta de «Sincronizar» apuntando a una ruta que no existe              → «la lista de llamadas…»
+//   · FichaLlamada con su propio fetch de /api/closing/llamada                   → «la ficha es UNA…»
+//   · el pedido de la llamada en entidades/llamada.tsx sin `signal`              → «cada pedido… lleva signal…»
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CAMPOS_FICHA, FILTRO_INICIAL, TOPE_MS, estadoDeLlamada, fichaDe, filtrarLlamadas, linkAlSegundo, marcasDeTranscript, nombreDeLlamada,
   postearTarea, puntajeEnVivo, reproductorFathom, textoDeSync, tokenFathom,
 } from '../app/dashboard/bloques/extra/llamadas-modelo';
 import { reglaDePuerta } from '../app/api/closing/puerta-regla';
-import { BLOQUES_CON_PERSONAS, BLOQUES_EXTRA, type FilaLlamada } from '../lib/graficos-bloques-extra-catalogo';
-import { PLANTILLAS_ANALYSTS } from '../lib/graficos-plantillas-analysts';
-import { DIMENSIONES_PERSONA } from '../lib/graficos-acciones';
+import type { FilaLlamada } from '../lib/graficos-bloques-extra-catalogo';
+import { ACCIONES_ELEMENTO, DIMENSIONES_PERSONA, PIEZAS_ENTIDAD } from '../lib/graficos-acciones';
+import { ACCION_SINCRONIZAR_LLAMADAS, PIEZA_COMPLETA } from '../lib/graficos-migrar-v5';
 import { dimensionPublica } from '../lib/graficos-analisis';
-import { fuenteDe, sanearHoja } from '../lib/graficos-catalogo';
+import { esElemento, esGrafico, fuenteDe, sanearHoja } from '../lib/graficos-catalogo';
 import { marcasDeVoseo } from '../lib/puestas-data';
 import type { ClosingAnalysisRow } from '../lib/closing';
 
@@ -225,7 +236,7 @@ test('cada pedido de la ficha y de la lista lleva `signal`, y su tope supera el 
     assert.ok(TOPE_MS[k] > Number(m![1]) * 1000, `${k}: ${TOPE_MS[k]} ms no supera los ${m![1]} s de la ruta`);
   }
   // Cada `fetch(` hasta SU paréntesis de cierre (no un número de caracteres): adentro tiene que estar el signal.
-  for (const archivo of ['app/dashboard/bloques/extra/FichaLlamada.tsx', 'app/dashboard/bloques/extra/BloquesClosing.tsx', 'app/dashboard/bloques/extra/llamadas-modelo.ts']) {
+  for (const archivo of ['app/dashboard/bloques/extra/FichaLlamada.tsx', 'app/dashboard/bloques/extra/BloquesClosing.tsx', 'app/dashboard/bloques/extra/llamadas-modelo.ts', 'app/dashboard/entidades/llamada.tsx']) {
     const src = sinComentarios(leer(archivo));
     let i = src.indexOf('fetch(');
     while (i >= 0) {
@@ -244,44 +255,38 @@ test('cada pedido de la ficha y de la lista lleva `signal`, y su tope supera el 
 
 // ── El bloque, la plantilla y los caminos a la ficha ─────────────────────────────────────
 
-test('«Las llamadas» es un bloque de Closing: catálogo, lectura con la MISMA memo, dibujo con refresco, con personas', () => {
-  const b = BLOQUES_EXTRA.find((x) => x.id === 'llamadas_cierre');
-  assert.ok(b, 'no está en BLOQUES_EXTRA');
-  assert.deepEqual([b!.w, b!.h], [12, 18]);
-  assert.ok(BLOQUES_CON_PERSONAS.includes('llamadas_cierre'), 'trae nombres y emails: va en BLOQUES_CON_PERSONAS');
-  const datos = sinComentarios(leer('lib/graficos-bloques-extra.ts'));
-  assert.match(datos, /case 'llamadas_cierre': return llamadasCierre\(p, una\);/);
-  assert.match(datos, /async function vistaClosing\(una: Una\) \{\n {2}await exigirFathom\(\);\n {2}return una\('closing', \(\) => getClosingViewData\(\)\);/);
-  const ini = datos.indexOf('async function llamadasCierre(');
-  const cuerpo = datos.slice(ini, datos.indexOf('\n}\n', ini));
-  assert.match(cuerpo, /await vistaClosing\(una\)/, 'una sola lectura para los cuatro bloques');
-  assert.match(cuerpo, /enVentana\(vista\.calls, p\.desde, p\.hasta\)/, 'la lista es del período de la hoja');
-  assert.match(cuerpo, /conTranscript: c\.has_transcript !== false/);
-  const dibujo = sinComentarios(leer('app/dashboard/bloques/extra/CuerpoBloqueExtra.tsx'));
-  assert.match(dibujo, /<BloqueLlamadas d=\{d as DatosLlamadas\} onRefrescar=\{onRefrescar\} \/>/);
-  assert.match(dibujo, /<BloqueFactores d=\{d as DatosFactores\} onRefrescar=\{onRefrescar\} \/>/);
+test('la lista de llamadas (v5): la migración deja una tabla con su pop-up «Llamada» y el botón «Sincronizar llamadas», y los dos existen', () => {
+  const h = sanearHoja({ id: 'closing', nombre: 'Closing', componentes: [{ id: 'cl-llamadas', clase: 'bloque', bloque: 'llamadas_cierre', titulo: '', subtitulo: '', periodo: 'auto', desde: null, hasta: null, controles: [], x: 0, y: 0, w: 12, h: 18 }] }, 0)!;
+  const tabla = h.componentes.find((c) => esGrafico(c) && c.fuente === 'llamadas_venta' && c.dimension === 'llamada');
+  assert.ok(tabla && esGrafico(tabla), 'la migración no dejó la tabla de llamadas');
+  assert.equal(tabla.alClic, 'popup');
+  const ficha = tabla.popup?.componentes.find((c) => esElemento(c) && c.tipo === 'entidad');
+  assert.ok(ficha && esElemento(ficha) && ficha.entidad, 'el pop-up no tiene la ficha');
+  assert.deepEqual(ficha.entidad, { tipo: 'llamada', pieza: PIEZA_COMPLETA });
+  assert.ok(PIEZAS_ENTIDAD.llamada.some((p) => p.id === ficha.entidad!.pieza), 'la pieza que pone la migración no la dibuja nadie');
+  const boton = h.componentes.find((c) => esElemento(c) && c.tipo === 'accion');
+  assert.ok(boton && esElemento(boton) && boton.accion?.id === ACCION_SINCRONIZAR_LLAMADAS);
+  const a = ACCIONES_ELEMENTO.find((x) => x.id === ACCION_SINCRONIZAR_LLAMADAS);
+  assert.ok(a?.puerta, '«Sincronizar llamadas» no está en ACCIONES_ELEMENTO');
+  // Por la MISMA puerta de siempre (la del botón del bloque): la ruta existe y pasa por puertaClosing.
+  assert.equal(a.puerta.ruta, '/api/closing/sync');
+  const ruta = `app${a.puerta.ruta}/route.ts`;
+  assert.ok(existsSync(join(RAIZ, ruta)), `${ruta} no existe`);
+  assert.match(sinComentarios(leer(ruta)), /const cerrada = await puertaClosing\(/);
+  assert.ok(a.puerta.topeMs > Number(/export const maxDuration = (\d+);/.exec(leer(ruta))![1]) * 1000, 'el tope del botón no supera el de la ruta');
 });
 
-test('la plantilla Closing: el KPI «Analizadas» arriba y «Las llamadas» abajo de todo, a lo ancho', () => {
-  const h = sanearHoja(PLANTILLAS_ANALYSTS.find((p) => p.id === 'closing')!.armar((l) => l), 0)!;
-  const analizadas = h.componentes.find((c) => c.id === 'cl-analizadas') as Record<string, unknown> | undefined;
-  assert.ok(analizadas, 'falta el KPI «Analizadas»');
-  assert.equal(analizadas!.fuente, 'llamadas_venta');
-  assert.deepEqual(analizadas!.metricas, ['llamadas']);
-  assert.equal(analizadas!.y, 0);
-  const lista = h.componentes.find((c) => c.id === 'cl-llamadas') as Record<string, unknown> | undefined;
-  assert.ok(lista && lista.bloque === 'llamadas_cierre', 'falta «Las llamadas»');
-  assert.equal(lista!.w, 12);
-  const fondo = Math.max(...h.componentes.map((c) => c.y + c.h));
-  assert.equal((lista!.y as number) + (lista!.h as number), fondo, '«Las llamadas» va abajo de todo');
-});
-
-test('los ejemplos de Factores y cada fila de la lista abren la ficha (ninguno vuelve a la tab retirada)', () => {
-  const src = sinComentarios(leer('app/dashboard/bloques/extra/BloquesClosing.tsx'));
-  assert.doesNotMatch(src, /['"`]\/closing/, 'un link a la tab /closing, que se eliminó');
-  assert.equal((src.match(/onAbrir=\{setFicha\}/g) ?? []).length, 2, 'los ejemplos de Factores, donde brilló y donde faltó');
-  assert.match(src, /onClick=\{\(\) => setFicha\(c\.id\)\}/, 'las filas de la lista');
-  assert.equal((src.match(/<FichaLlamada recordingId=\{ficha\} onCerrar=\{\(\) => setFicha\(null\)\} onCambio=\{onRefrescar\} \/>/g) ?? []).length, 2, 'las dos fichas refrescan la hoja después de una tarea');
+test('la ficha es UNA: FichaLlamada dibuja el cuerpo de entidades/llamada.tsx, y es el único que pide la llamada', () => {
+  const ficha = sinComentarios(leer('app/dashboard/bloques/extra/FichaLlamada.tsx'));
+  assert.match(ficha, /from '\.\.\/\.\.\/entidades\/llamada'/);
+  assert.match(ficha, /<CuerpoFichaLlamada f=\{f\} \/>/);
+  assert.doesNotMatch(ficha, /fetch\(/, 'una segunda lectura de la llamada: dos implementaciones de la ficha');
+  const piezas = sinComentarios(leer('app/dashboard/entidades/llamada.tsx'));
+  assert.equal((piezas.match(/fetch\(`\/api\/closing\/llamada\?/g) ?? []).length, 1, 'una lectura por llamada, compartida');
+  // La pieza entera es el MISMO cuerpo que el Modal.
+  const completo = piezas.slice(piezas.indexOf("if (pieza === 'completo') {"), piezas.indexOf('const l = f.llamada;', piezas.indexOf("if (pieza === 'completo') {")));
+  assert.ok(completo.length > 100 && completo.length < 1200, `el recorte de la pieza entera mide ${completo.length}`);
+  assert.match(completo, /<CuerpoFichaLlamada f=\{f\} \/>/);
 });
 
 test('el conjunto de TODAS las llamadas trae el estado del análisis, en palabras', () => {
@@ -315,6 +320,7 @@ const NEUTRAS = new Set(['más', 'está', 'aquí', 'así', 'ahí', 'allí', 'sí
 const NUEVOS = [
   'app/dashboard/bloques/extra/FichaLlamada.tsx', 'app/dashboard/bloques/extra/llamadas-modelo.ts', 'app/dashboard/bloques/extra/BloquesClosing.tsx',
   'app/api/closing/puerta-regla.ts', 'app/api/closing/puerta.ts', 'app/api/closing/llamada/route.ts', 'app/api/closing/revise/route.ts',
+  'app/dashboard/entidades/llamada.tsx', 'app/dashboard/ElementoAccion.tsx',
 ];
 
 test('sin voseo en lo que se dibuja (el guard del repo no ve un archivo sin git add)', () => {

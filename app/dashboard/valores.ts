@@ -3,14 +3,22 @@
 // =============================================================================
 // useValoresCampo — los valores de un campo, para las casillas de una lista desplegable
 // =============================================================================
-// Pide `POST /api/graficos { accion: 'valores', campo, desde, hasta, fuentes? }` (la misma puerta que
-// los datos: admin + la tab en la capa) y devuelve `{ valor, filas }` de más filas a menos.
+// Pide `{ accion: 'valores', campo, desde, hasta, fuentes? }` y devuelve `{ valor, filas }` de más filas a
+// menos. A DÓNDE lo pide lo decide el contrato de lectura (./lectura-compartida.ts, `pedidoDeLectura`):
+//   · con sesión (el admin, el closer), a /api/graficos, con el cuerpo de siempre;
+//   · en un informe COMPARTIDO (el link sin sesión), a /api/compartido/graficos con el token, la hoja y el
+//     control (y el componente, si el control es de una tarjeta): el server del link reconstruye la lista
+//     desde el control GUARDADO y no cree el campo que viaja.
+// Hasta v5 el segundo camino era una copia de este hook adentro de ./BarraControles.tsx
+// (`useValoresCompartidos`), porque éste no aceptaba otra ruta: dos copias del mismo pedido, con el tope y el
+// abort escritos dos veces. Ahora es UNO (hallazgos-graficos, «Lo que quedó sin hacer»).
 //
 // Tres cosas que no se ven en la firma:
-//   · CACHÉ POR CLAVE (campo + período + fuentes), dos minutos. Abrir y cerrar la misma lista no
-//     vuelve a leer, y dos listas iguales abiertas a la vez (la de la barra y la de una tarjeta) hacen
-//     UNA lectura: el pedido en vuelo se comparte.
-//   · ABORT: si el último que esperaba un pedido se va (se cerró el popover, cambió el período), el
+//   · CACHÉ POR CLAVE (campo + período + fuentes, y en un link también token + hoja + control + componente),
+//     dos minutos. Abrir y cerrar la misma lista no vuelve a leer, y dos listas iguales abiertas a la vez
+//     hacen UNA lectura: el pedido en vuelo se comparte. En un link la clave lleva el control porque el
+//     server responde POR CONTROL (dos controles sobre el mismo campo pueden tener permisos distintos).
+//   · ABORT: si el último que esperaba un pedido se va (se cerró el desplegable, cambió el período), el
 //     pedido se corta. Un pedido sin `signal` con la conexión caída no resuelve nunca y deja un giro
 //     eterno (AGENTS.md, «Un tope que vive en la RUTA no protege al cliente»): además del abort, un
 //     tope de 65 s, el de la ruta (60) más un margen.
@@ -23,17 +31,26 @@
 
 import { useEffect, useState } from 'react';
 import type { ValorDeCampo } from '@/lib/graficos-datos';
+import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 
 const TTL_MS = 120_000;
 const TOPE_MS = 65_000;
+
+/**
+ * De dónde lee una lista en un informe COMPARTIDO: el link, la hoja y el control (y la tarjeta, si el control
+ * es de un gráfico). Sin esto (null), la lectura con sesión de siempre.
+ */
+export type LecturaLink = { compartido: Compartido; hojaId: string; controlId: string; componenteId?: string };
 
 type Vuelo = { promesa: Promise<ValorDeCampo[]>; ctrl: AbortController; usuarios: number };
 const cache = new Map<string, { t: number; valores: ValorDeCampo[] }>();
 const enVuelo = new Map<string, Vuelo>();
 
-/** La clave de la caché: el orden de las fuentes no cambia la pregunta. */
-export function claveValores(campo: string, desde: string, hasta: string, fuentes?: readonly string[]): string {
-  return [campo, desde, hasta, fuentes && fuentes.length ? [...new Set(fuentes)].sort().join(',') : '*'].join('|');
+/** La clave de la caché: el orden de las fuentes no cambia la pregunta; el link y el control, sí. */
+export function claveValores(campo: string, desde: string, hasta: string, fuentes?: readonly string[], link?: LecturaLink | null): string {
+  const base = [campo, desde, hasta, fuentes && fuentes.length ? [...new Set(fuentes)].sort().join(',') : '*'];
+  if (link) base.push(`link:${link.compartido.token}`, link.hojaId, link.controlId, link.componenteId ?? '');
+  return base.join('|');
 }
 
 function leerCache(clave: string): ValorDeCampo[] | null {
@@ -52,16 +69,22 @@ function aValores(j: unknown): ValorDeCampo[] {
     .map((x) => ({ valor: x.valor, filas: x.filas }));
 }
 
-function pedir(clave: string, campo: string, desde: string, hasta: string, fuentes?: readonly string[]): Vuelo {
+function pedir(clave: string, campo: string, desde: string, hasta: string, fuentes: readonly string[] | undefined, link: LecturaLink | null): Vuelo {
   const ctrl = new AbortController();
   const corte = setTimeout(() => ctrl.abort(), TOPE_MS);
   const vuelo: Vuelo = { ctrl, usuarios: 0, promesa: Promise.resolve([]) };
+  // Sin link, `pedidoDeLectura` devuelve el cuerpo de SIEMPRE (la hoja y el control no viajan): el closer pasa
+  // por `closerPuedePedir`, que mira el cuerpo entero.
+  const { ruta, cuerpo } = pedidoDeLectura(
+    { accion: 'valores', hojaId: link?.hojaId ?? '', controlId: link?.controlId ?? '', componenteId: link?.componenteId, campo, desde, hasta, fuentes },
+    link?.compartido ?? null,
+  );
   vuelo.promesa = (async () => {
     try {
-      const res = await fetch('/api/graficos', {
+      const res = await fetch(ruta, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'valores', campo, desde, hasta, ...(fuentes && fuentes.length ? { fuentes: [...fuentes] } : {}) }),
+        body: JSON.stringify(cuerpo),
         signal: ctrl.signal,
       });
       const j: unknown = await res.json().catch(() => null);
@@ -89,11 +112,12 @@ export type EstadoValores = {
 };
 
 /**
- * Los valores de `campo` en el período, contados en `fuentes` (sin fuentes: en todos los conjuntos
- * donde el campo significa lo mismo). Con `campo` null no pide nada.
+ * Los valores de `campo` en el período, contados en `fuentes` (sin fuentes: en todos los conjuntos donde el
+ * campo significa lo mismo). Con `campo` null no pide nada. `link`: en un informe compartido, de dónde (ver
+ * `LecturaLink`); null o ausente, la lectura con sesión.
  */
-export function useValoresCampo(campo: string | null, desde: string, hasta: string, fuentes?: readonly string[]): EstadoValores {
-  const clave = campo ? claveValores(campo, desde, hasta, fuentes) : '';
+export function useValoresCampo(campo: string | null, desde: string, hasta: string, fuentes?: readonly string[], link?: LecturaLink | null): EstadoValores {
+  const clave = campo ? claveValores(campo, desde, hasta, fuentes, link) : '';
   const [res, setRes] = useState<{ clave: string; intento: number; valores?: ValorDeCampo[]; error?: string } | null>(null);
   const [intento, setIntento] = useState(0);
 
@@ -101,7 +125,7 @@ export function useValoresCampo(campo: string | null, desde: string, hasta: stri
     if (!campo || leerCache(clave)) return;
     let vivo = true;
     let vuelo = enVuelo.get(clave);
-    if (!vuelo) { vuelo = pedir(clave, campo, desde, hasta, fuentes); enVuelo.set(clave, vuelo); }
+    if (!vuelo) { vuelo = pedir(clave, campo, desde, hasta, fuentes, link ?? null); enVuelo.set(clave, vuelo); }
     vuelo.usuarios += 1;
     const propio = vuelo;
     propio.promesa.then(
@@ -118,7 +142,7 @@ export function useValoresCampo(campo: string | null, desde: string, hasta: stri
       // El último que esperaba se fue: el pedido se corta (no hay a quién contestarle).
       if (propio.usuarios <= 0 && enVuelo.get(clave) === propio) { propio.ctrl.abort(); enVuelo.delete(clave); }
     };
-    // `fuentes` entra por `clave` (un array nuevo por render no es un cambio de pregunta).
+    // `fuentes` y `link` entran por `clave` (un objeto nuevo por render no es un cambio de pregunta).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clave, intento]);
 
