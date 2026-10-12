@@ -92,7 +92,8 @@ if (!turno) {
 // se admitió minutos antes, cuando todavía había memoria. Se espera CON el lock
 // tomado: soltarlo dejaría arrancar a otro en el mismo hueco.
 // Misma regla que el lock: después de 5 min se corre igual y se dice.
-const RAM_MIN_GB = 2.5;
+// 12/10/2026: 2,5 → 2,0 a pedido de Martín («que se trabaje aún más al límite»; ya no hay Chrome abierto).
+const RAM_MIN_GB = 2.0;
 const RAM_ESPERA_MAX_MS = 5 * 60 * 1000;
 async function esperarRam() {
   const hasta = Date.now() + RAM_ESPERA_MAX_MS;

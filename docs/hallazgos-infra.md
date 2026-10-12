@@ -3923,7 +3923,7 @@ preguntar «¿quién tiene más memoria PRIVADA ahora?», no leer el log.
 
 | Pieza | Qué hace | Cómo se engancha |
 |---|---|---|
-| `memoria.mjs` | Antes de un Workflow, un Agent o un comando pesado (tsc directo, `npm test`, builds, `npm ci`) mira la RAM: si no alcanza ESPERA, y si no se libera NIEGA con una razón que el modelo entiende. Tope de 2 workflows a la vez en la máquina | hook `PreToolUse` de `~/.claude/settings.json` |
+| `memoria.mjs` | Antes de un Workflow, un Agent o un comando pesado (tsc directo, `npm test`, builds, `npm ci`) mira la RAM: si no alcanza ESPERA, y si no se libera NIEGA con una razón que el modelo entiende. Tope de 3 workflows a la vez en la máquina (eran 2 hasta el 12/10/2026: Martín pidió trabajar más al límite y bajar un escalón cada umbral) | hook `PreToolUse` de `~/.claude/settings.json` |
 | `vigia.ps1` | Con < 0,9 GB tres lecturas seguidas, mata el más grande entre tsc, vitest, jest, eslint, playwright, next build y next dev. Un `next dev` de más de 5 GB privados se mata siempre: es una fuga | tarea programada `mako-vigia-ram`, al iniciar sesión |
 | `relevo.mjs` | Si la app se cayó (o se reinició por un update), detecta qué chats quedaron a mitad de turno o con un workflow sin terminar y les manda «retomá» | hooks `SessionStart` (con `asyncRewake`) y `UserPromptSubmit` |
 | `scripts/typecheck-lock.mjs` | Además del turno, espera RAM (≥ 2,5 GB) antes de lanzar tsc, con el turno tomado | el pre-push y `npm run typecheck` |

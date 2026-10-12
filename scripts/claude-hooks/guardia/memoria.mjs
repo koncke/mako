@@ -33,15 +33,19 @@ const PROYECTOS = path.join(os.homedir(), '.claude', 'projects');
 
 // Umbrales en GB DISPONIBLES (os.freemem en Windows = ullAvailPhys: libre +
 // standby, lo mismo que "Disponible" en el Administrador de tareas).
+// 12/10/2026: Martín pidió trabajar MÁS AL LÍMITE («libera más RAM para que los demás puedan seguir trabajando...
+// que se trabaje aún más al límite... Yo ya cerré todo lo que no sea Claude, sobre todo Chrome»). Un escalón abajo:
+// workflow 3,5→2,5 · pesado 2,0→1,5 · agente 1,5→1,0 · liviano 0,8→0,6 · tope de workflows 2→3. El de antes quedó
+// en memoria.mjs.antes-12-10. Si vuelve a colgarse la app, esto es lo primero que se sube.
 const REGLAS = {
-  workflow: { minGb: 3.5, esperaS: 120, enfriamientoS: 60 },
-  pesado:   { minGb: 2.0, esperaS: 240, enfriamientoS: 20 },
-  agente:   { minGb: 1.5, esperaS: 60,  enfriamientoS: 0 },
-  liviano:  { minGb: 0.8, esperaS: 20,  enfriamientoS: 0, dejarPasar: true },
+  workflow: { minGb: 2.5, esperaS: 120, enfriamientoS: 45 },
+  pesado:   { minGb: 1.5, esperaS: 240, enfriamientoS: 20 },
+  agente:   { minGb: 1.0, esperaS: 60,  enfriamientoS: 0 },
+  liviano:  { minGb: 0.6, esperaS: 20,  enfriamientoS: 0, dejarPasar: true },
 };
 // Más de esto a la vez y la RAM no alcanza aunque cada uno arranque con margen:
 // los agentes crecen DESPUÉS de la admisión.
-const MAX_WORKFLOWS = 2;
+const MAX_WORKFLOWS = 3;
 const SONDEO_MS = 3000;
 
 // Lo que pide GBs: tsc directo, la suite de tests, builds, instalaciones.

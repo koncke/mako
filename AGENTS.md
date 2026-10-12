@@ -306,7 +306,7 @@ además del turno. Lo que gobierna a cualquier agente:
   son los otros chats, que se caen todos juntos.
 - **Un `next dev` que lanzás en segundo plano lo APAGÁS al terminar.** Sobrevive a tu sesión y
   nadie más sabe que es tuyo; hoy lo para un vigía recién a los 5 GB.
-- **Hasta 2 workflows a la vez en la máquina.** Antes de lanzar uno de muchos agentes, preguntá
+- **Hasta 3 workflows a la vez en la máquina** (eran 2; Martín pidió trabajar más al límite el 12/10/2026). Antes de lanzar uno de muchos agentes, preguntá
   si el trabajo lo necesita — con 7 chats abiertos, el tuyo no es el único.
 
 El detalle, y lo que hace cada pieza, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) →
