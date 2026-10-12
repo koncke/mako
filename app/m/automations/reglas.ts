@@ -68,13 +68,10 @@ export type AutomatizacionM = {
   numeros: NumerosM | null;
 };
 
-/** Las dos divisiones de la lista de escritorio: «Chatbot» y «MaKo en WhatsApp». */
-export type SeccionAutoM = {
-  id: 'chatbot' | 'mako';
-  /** null = sin título (sólo hay automatizaciones del Chatbot: la lista va sola, como en el prototipo). */
-  titulo: string | null;
-  filas: AutomatizacionM[];
-};
+// ⛔ ACÁ VIVÍA `SeccionAutoM`: la lista partida en «Chatbot» y «MaKo en WhatsApp», como el escritorio de
+// antes. La undécima tanda de Automations (11/10/2026, punto 9) la volvió UNA: «que sea todo una misma sidebar
+// para todo, sin dividir, para eso ya tenemos filtros. Y arriba también elimina la palabra "Chatbot"». El
+// teléfono la sigue: una lista en el orden del server (`leerAutomations` devuelve `filas`).
 
 /**
  * El toast de un error del server: el MOTIVO si es corto («Conecta tu WhatsApp», el freno del medio al

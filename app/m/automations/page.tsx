@@ -49,7 +49,7 @@ export default async function AutomationsPagina() {
   }
   return (
     <PantallaM refrescable>
-      <AutomationsM secciones={lectura.secciones} puedeEditar={ctx.rol === 'admin'} />
+      <AutomationsM filas={lectura.filas} puedeEditar={ctx.rol === 'admin'} />
       <ComputadoraM que={COMPU} />
     </PantallaM>
   );

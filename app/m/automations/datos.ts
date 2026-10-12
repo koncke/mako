@@ -22,17 +22,16 @@ import { getFunnelDefault } from '@/lib/funnels';
 import { tzActual } from '@/lib/timezone';
 import { TRIGGERS, ETAPAS } from '@/lib/email-marketing';
 import { TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
-import { ROTULO_CHATBOT, ROTULO_MENSAJES_MAKO } from '@/lib/plantillas-automatizaciones';
 import type { EstrategiaLegada } from '@/lib/flujo-legado';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import {
   borradorAlAbrir, cronEnLectura, frenoDePublicar, lineaDelDisparador, nombresParaTarjetas, pasosEnLectura, publicadoAlAbrir,
   type NombresDisparo,
 } from './modelo';
-import type { AutomatizacionM, SeccionAutoM } from './reglas';
+import type { AutomatizacionM } from './reglas';
 
 export type LecturaAutomations =
-  | { estado: 'ok'; secciones: SeccionAutoM[]; total: number }
+  | { estado: 'ok'; filas: AutomatizacionM[]; total: number }
   | { estado: 'error' };
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -72,8 +71,7 @@ export async function leerAutomations(o: { conNumeros: boolean }): Promise<Lectu
     nombreDeSecuencia: (id: number) => secuencias.find((s) => s.id === id)?.nombre ?? null,
   };
 
-  const chatbot: AutomatizacionM[] = [];
-  const mako: AutomatizacionM[] = [];
+  const filas: AutomatizacionM[] = [];
   for (const s of secuencias) {
     // Lo que no se puede leer de UNA no tumba la lista: se dibuja sin sus tarjetas.
     let fila: AutomatizacionM;
@@ -114,12 +112,10 @@ export async function leerAutomations(o: { conNumeros: boolean }): Promise<Lectu
         id: s.id, nombre: s.nombre, activa: s.activa, disparador: '', pasos: [], borrador: null, numeros: null,
       };
     }
-    (esMako ? mako : chatbot).push(fila);
+    filas.push(fila);
   }
 
-  // Las dos divisiones de escritorio (`partirLista`). Con sólo las del Chatbot, la lista va sin título.
-  const secciones: SeccionAutoM[] = [];
-  if (chatbot.length) secciones.push({ id: 'chatbot', titulo: mako.length ? ROTULO_CHATBOT : null, filas: chatbot });
-  if (mako.length) secciones.push({ id: 'mako', titulo: ROTULO_MENSAJES_MAKO, filas: mako });
-  return { estado: 'ok', secciones, total: secuencias.length };
+  // UNA lista en el orden del server, como el escritorio desde la undécima tanda (sin «Chatbot» ni «MaKo en
+  // WhatsApp»: las del grupo se distinguen por su línea de disparador).
+  return { estado: 'ok', filas, total: secuencias.length };
 }

@@ -28,10 +28,10 @@ import { useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import {
-  FilaDatoM, FilaM, InterruptorM, ListaM, PieM, PildoraM, SeccionM, SheetM, useConexion, useToastM,
+  FilaDatoM, FilaM, InterruptorM, ListaM, PieM, PildoraM, SheetM, useConexion, useToastM,
 } from '@/app/m/_ui';
 import { haptico } from '@/lib/haptico';
-import { avisoCorto, type AutomatizacionM, type BorradorM, type PasoM, type SeccionAutoM } from './reglas';
+import { avisoCorto, type AutomatizacionM, type BorradorM, type PasoM } from './reglas';
 
 const RUTA_PASOS = '/api/whatsapp/secuencias';
 const RUTA_SECUENCIAS = '/api/chat-agent/secuencias';
@@ -58,15 +58,15 @@ async function pedir(url: string, method: 'PATCH' | 'POST', body: Record<string,
  */
 type Cambio = { activa?: boolean; publicada?: boolean; descartada?: boolean; guardado_at?: string };
 
-export function AutomationsM({ secciones, puedeEditar }: { secciones: SeccionAutoM[]; puedeEditar: boolean }) {
+export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[]; puedeEditar: boolean }) {
   const toast = useToastM();
   const router = useRouter();
   const { enLinea } = useConexion();
 
   // Una lectura nueva (tirar para refrescar) trae la verdad del server: lo escrito acá se suelta.
-  const [leidas, setLeidas] = useState(secciones);
+  const [leidas, setLeidas] = useState(filas);
   const [cambios, setCambios] = useState<Record<number, Cambio>>({});
-  if (leidas !== secciones) { setLeidas(secciones); setCambios({}); }
+  if (leidas !== filas) { setLeidas(filas); setCambios({}); }
   const poner = (id: number, c: Cambio) => setCambios((v) => ({ ...v, [id]: { ...v[id], ...c } }));
 
   /** Los interruptores que esperan al server (uno no bloquea a los demás). */
@@ -83,7 +83,7 @@ export function AutomationsM({ secciones, puedeEditar }: { secciones: SeccionAut
   const [ocupado, setOcupado] = useState<'publicar' | 'descartar' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const todas = secciones.flatMap((s) => s.filas);
+  const todas = filas;
   const vista = (a: AutomatizacionM): { activa: boolean; borrador: BorradorM | null; pasos: PasoM[] } => {
     const c = cambios[a.id] ?? {};
     const sinBorrador = c.publicada === true || c.descartada === true;
@@ -206,35 +206,31 @@ export function AutomationsM({ secciones, puedeEditar }: { secciones: SeccionAut
 
   return (
     <div className="m-auto">
-      {secciones.map((s) => {
-        const lista = (
-          <ListaM etiqueta={s.titulo ?? 'Automatizaciones'}>
-            {s.filas.map((x) => {
-              const e = vista(x);
-              return (
-                <FilaM
-                  key={x.id}
-                  titulo={x.nombre}
-                  segunda={x.disparador || undefined}
-                  pill={e.borrador ? <PildoraM tono="warn">Sin publicar</PildoraM> : undefined}
-                  onClick={() => abrir(x.id)}
-                  control={(
-                    <InterruptorM
-                      etiqueta={`${x.nombre}: activa`}
-                      activo={e.activa}
-                      deshabilitado={!puedeEditar || enVuelo.has(x.id)}
-                      onCambio={(nuevo) => { void alternar(x, nuevo); }}
-                    />
-                  )}
-                />
-              );
-            })}
-          </ListaM>
-        );
-        return s.titulo
-          ? <SeccionM key={s.id} id={`m-auto-${s.id}`} titulo={s.titulo}>{lista}</SeccionM>
-          : <div key={s.id} className="m-auto-lista">{lista}</div>;
-      })}
+      {/* UNA lista en el orden del server, como el escritorio desde la undécima tanda (sin divisiones). */}
+      <div className="m-auto-lista">
+        <ListaM etiqueta="Automatizaciones">
+          {filas.map((x) => {
+            const e = vista(x);
+            return (
+              <FilaM
+                key={x.id}
+                titulo={x.nombre}
+                segunda={x.disparador || undefined}
+                pill={e.borrador ? <PildoraM tono="warn">Sin publicar</PildoraM> : undefined}
+                onClick={() => abrir(x.id)}
+                control={(
+                  <InterruptorM
+                    etiqueta={`${x.nombre}: activa`}
+                    activo={e.activa}
+                    deshabilitado={!puedeEditar || enVuelo.has(x.id)}
+                    onCambio={(nuevo) => { void alternar(x, nuevo); }}
+                  />
+                )}
+              />
+            );
+          })}
+        </ListaM>
+      </div>
 
       <SheetM id="automatizacion" abierto={abierto} onCerrar={cerrar} titulo={a?.nombre ?? 'Automatización'} snap="alto"
         ocupado={!!ocupado} pie={pie} rotuloCerrar="Cerrar la automatización">

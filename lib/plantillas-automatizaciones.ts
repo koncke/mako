@@ -157,12 +157,6 @@ export const TOPE_LINEA = 110;
  * la lista ya no tiene una sección con este nombre; queda como el rótulo del canal.
  */
 export const ROTULO_MENSAJES_MAKO = 'MaKo en WhatsApp';
-/**
- * Y el de la PRIMERA división de la lista (las automatizaciones que le escriben al lead). Vive acá junto
- * a su par desde el 11/10/2026: el teléfono (app/m/automations, server) lo necesita y no puede leerlo
- * de app/automations/SimuladorWhatsApp.tsx, que es 'use client' (allá se re-exporta).
- */
-export const ROTULO_CHATBOT = 'Chatbot';
 
 /** ¿Es una plantilla de un Evento de MaKo? (nace con ese CRON, que no se cambia). */
 export const esPlantillaMako = (p: Pick<PlantillaAutomatizacion, 'cron'>): boolean => p.cron.fijo === TRIGGER_AVISO_MAKO;

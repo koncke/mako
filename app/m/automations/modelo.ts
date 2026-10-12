@@ -12,7 +12,7 @@
 //    (`raicesRespuesta`). Una tarjeta suelta no se lista: no corre.
 // ⚠️ LOS NOMBRES SON LOS DEL LIENZO: `tituloDeTarjeta` («WHATSAPP», «DELAY», «CONDITION», pedido de
 //    Martín: los títulos de las tarjetas en inglés) y lo que dice, de `nombreDeTarjeta` (la misma frase
-//    con la que los errores de Publicar nombran una tarjeta). El AI Step, por su caso (`resumenPasoIA`).
+//    con la que los errores de Publicar nombran una tarjeta). El AI Step, por su objetivo (`resumenPasoIA`).
 // =============================================================================
 
 import {
@@ -81,7 +81,10 @@ export function pasosEnLectura(pasos: readonly PasoGrafo[], nombres?: NombresPar
     const titulo = tituloDeTarjeta(p);
     let linea: string | null = null;
     if (esPasoIA(p)) {
-      linea = resumenPasoIA(p).titulo;
+      // Undécima tanda: UN AI Step por objetivo. La línea es lo que dibuja la tarjeta de escritorio en su primer
+      // renglón: «→ objetivo», o «Falta el objetivo» si no lo tiene (`resumenPasoIA`, la misma lectura).
+      const r = resumenPasoIA(p);
+      linea = r.objetivo ? `→ ${r.objetivo}` : 'Falta el objetivo';
     } else {
       // `nombreDeTarjeta` = «TÍTULO: lo que dice» (o el título solo, si no dice nada).
       const nombre = nombreDeTarjeta(pasos, id, nombres);

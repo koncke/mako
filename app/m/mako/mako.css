@@ -135,20 +135,34 @@
 [data-m] .m-mako-grabando__cancelar { font-size: var(--fs-sm); color: var(--dim); white-space: nowrap; }
 @keyframes mMakoLate { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
+/* El primer archivo mientras se achica (después lo muestra la vista previa). */
 [data-m] .m-mako-adjuntos-lista { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 [data-m] .m-mako-adjunto {
   position: relative; width: 64px; height: 64px; border-radius: 12px; overflow: hidden;
   background: var(--surface-2); border: 1px solid var(--border); display: grid; place-items: center;
 }
-[data-m] .m-mako-adjunto img { width: 100%; height: 100%; object-fit: cover; }
-[data-m] .m-mako-adjunto__doc { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; color: var(--dim); }
-[data-m] .m-mako-adjunto__doc span { font-size: 12px; max-width: 56px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* La ✕ (quitar de la selección, no borrar): 24 a la vista y 44 al dedo. */
-[data-m] .m-mako-adjunto__quitar {
-  position: absolute; top: 2px; right: 2px; width: 24px; height: 24px; border-radius: 50%; border: 0; padding: 0;
-  display: grid; place-items: center; background: var(--ink); color: var(--on-ink);
+
+/* ── La vista previa de adjuntos, a pantalla completa (VistaAdjuntosM) ─────
+   Por portal a #m-capas: tapa el encabezado y la barra (40) y queda debajo de los sheets (80) y del
+   toast (90). El fondo llega a los bordes y el contenido respeta las áreas seguras. Con el teclado de
+   iOS arriba, VistaAdjuntosM le pone el top y el alto del visualViewport y abajo no se deja la barra
+   de inicio. Mientras está, el documento de atrás no scrollea (como con un sheet). */
+:root:has([data-m] .m-mako-vista) { overflow: hidden; }
+[data-m] .m-mako-vista {
+  position: fixed; z-index: 60; inset: 0;
+  display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: var(--surface);
+  overscroll-behavior: contain;
 }
-[data-m] .m-mako-adjunto__quitar::after { content: ''; position: absolute; inset: -10px; }
+[data-m] .m-mako-vista[data-teclado] { padding-bottom: 0; }
+/* ⚠️ El campo de la vista trae `fontSize: 14` EN LÍNEA: con menos de 16 px iOS hace zoom al enfocar.
+   La regla de app/m/m.css no alcanza: sólo un !important le gana a un estilo en línea. */
+[data-m] .m-mako-vista textarea { font-size: max(16px, var(--fs-md)) !important; }
+/* 44 al dedo: la ✕ de arriba (42) y el emoji (38) crecen con min-width (el ancho en línea no lo
+   pisa); la ✕ de cada miniatura (20 dibujada) extiende su área hacia afuera. */
+[data-m] .m-mako-vista button:not(.mk-va-x) { min-width: 44px; min-height: 44px; }
+[data-m] .m-mako-vista .mk-va-x::after { content: ''; position: absolute; inset: -12px; }
 
 /* ── El sheet de una propuesta ───────────────────────────────────────────── */
 [data-m] .m-mako-detalle { display: flex; flex-direction: column; gap: 12px; }
