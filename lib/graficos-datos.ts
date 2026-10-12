@@ -13,21 +13,32 @@
 //   · El gasto de Meta está en la moneda de la CUENTA: se pasa a dólares con
 //     `conversorGastoMeta()`. Y la pauta llega por cron: el día en curso todavía no está.
 //   · Las fechas de un instante se pasan a Tijuana, como en el resto de la app.
+//   · EL CORTE EN HOY VIVE ACÁ (`hastaDeFuente`, desde el v5): las puertas (la ruta, la página, el link,
+//     la API de MaKo, el AI Analyst) mandan el período TAL CUAL. Una fecha `futuro` (el vencimiento de una
+//     cuota) no se corta: «Próximos 30 días» mira hacia adelante.
+//   · Una lectura que tarda más de `PLAZO_LECTOR_MS` le devuelve «Tardó demasiado: <conjunto>» a SUS
+//     gráficos y deja llegar al resto: el tope de la ruta es del pedido entero (60 s).
+//   · Lo que el Pixel manda en una PRUEBA (`prueba`, ?mko_test=) o desde la vista previa del constructor no
+//     es del negocio: ningún conjunto lo cuenta (desde el v5, tampoco visitas, vsl ni grabaciones).
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { enRango, queTableroLeer, fechaTj, host, leer, lindo, nombres, num, ruta, txt, type Rango } from './graficos-lectura';
-import { LECTORES_EXTRA } from './graficos-datos-extra';
+import { enRango, queTableroLeer, fechaTj, host, leer, leerPorIds, lindo, nombres, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
+import { LECTORES_EXTRA, noEsDelNegocio } from './graficos-datos-extra';
 export type { Rango };
 import { conversorGastoMeta } from './moneda-meta';
-import { diasAntes, hoyEnTijuana } from './date-utils';
-import { productosCrm } from './api-mako/areas/crm.helpers';
-import { VENTA_SIN_COBRO } from './venta-tipo';
-import { VSL_PRUEBA_VIDEO_ID } from './config';
+import { hoyEnTijuana, lunesDeFecha } from './date-utils';
+import { hoyEnWorkspace } from './timezone';
 import { campoDe, fuenteDe, sanearGrafico, type Grafico } from './graficos-catalogo';
 import { filasAudiencia } from './graficos-audiencia';
-import { agregar, claveCategoria, filtrarFilas, periodoAnterior, SinConexionError, type Filtro, type Fila, type Resultado } from './graficos-agregar';
+import {
+  agregar, claveCategoria, conPlazo, cortarEnHoy, filtrarFilas, hastaDeLectura, periodoAnterior, PlazoVencidoError, SinConexionError,
+  type Filtro, type Fila, type Resultado,
+} from './graficos-agregar';
 import { ESTADO_COBRADO } from './graficos-acciones';
+import { diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, gano, rotuloMadurez, tramosDelCiclo } from './graficos-datos-puro';
+import { carteraEnEntrega } from '@/app/customer-success/entrega';
+import { repartirEnEtapas } from './servicio-etapas';
 
 // ── Marketing ────────────────────────────────────────────────────────────────────────────
 
@@ -53,13 +64,16 @@ async function filasMeta(rg: Rango): Promise<Fila[]> {
 }
 
 /**
- * Las vistas del VSL por día, como las contaba la tab vieja de Marketing (`lib/queries.ts`):
- * las vistas de YouTube del video marcado VSL, más el VSL de prueba anterior, más los plays de
- * Panda, que es la fuente del presente. Un día de YouTube sin delta (`youtube_views` null) no suma.
+ * Las vistas del VSL por día: las vistas de YouTube del video marcado VSL más los plays de Panda, que es
+ * la fuente del presente. Un día de YouTube sin delta (`youtube_views` null) no suma.
+ *
+ * ⛔ Hasta el v5 sumaba también un video de PRUEBA cableado (`VSL_PRUEBA_VIDEO_ID`, lib/config.ts): era el
+ * VSL viejo de UN cliente (Mauricio) y lo veía cualquier negocio. Decisión del contrato v5: el vocabulario
+ * de un cliente sale del Dashboard. Un video de YouTube cuenta si ESE negocio lo marcó como VSL.
  */
-type FVistaVsl = { id: number; fecha: string; plataforma: string; youtube_video_id: string | null; youtube_video_type: string | null; youtube_views: number | null; video_plays: number | null };
+type FVistaVsl = { id: number; fecha: string; plataforma: string; youtube_video_type: string | null; youtube_views: number | null; video_plays: number | null };
 async function vistasVslPorDia(rg: Rango): Promise<Array<{ f: string; n: number }>> {
-  const rows = await leer<FVistaVsl>('marketing_metrics_daily', 'id, fecha, plataforma, youtube_video_id, youtube_video_type, youtube_views, video_plays', rg, {
+  const rows = await leer<FVistaVsl>('marketing_metrics_daily', 'id, fecha, plataforma, youtube_video_type, youtube_views, video_plays', rg, {
     col: 'fecha',
     orden: [{ col: 'fecha' }, { col: 'ad_id' }, { col: 'id' }],
     extra: (q) => q.in('plataforma', ['youtube', 'panda']),
@@ -68,7 +82,7 @@ async function vistasVslPorDia(rg: Rango): Promise<Array<{ f: string; n: number 
   for (const x of rows) {
     const n = x.plataforma === 'panda'
       ? num(x.video_plays)
-      : (x.youtube_video_type === 'vsl' || x.youtube_video_id === VSL_PRUEBA_VIDEO_ID) && x.youtube_views != null ? num(x.youtube_views) : 0;
+      : x.youtube_video_type === 'vsl' && x.youtube_views != null ? num(x.youtube_views) : 0;
     if (n) out.push({ f: x.fecha, n });
   }
   return out;
@@ -91,14 +105,21 @@ async function filasPresupuesto(rg: Rango): Promise<Fila[]> {
   }));
 }
 
+/**
+ * Cada visita del Pixel. ⚠️ SIN LAS PRUEBAS NI LA VISTA PREVIA DEL CONSTRUCTOR (v5, `noEsDelNegocio`): hasta
+ * el 12/10/2026 esto las contaba y `retencion_vsl` no, así que dos tarjetas de la misma hoja contaban
+ * universos distintos — y abrir el mapa en vivo con `?mko_test=` habría sumado una visita por apertura.
+ * La dimensión `prueba` («Variante») queda SIEMPRE vacía por lo mismo: nunca fue una variante A/B.
+ */
 type FVisita = { id: number; created_at: string; visitor_id: string | null; landing_url: string | null; referrer: string | null; prueba: string | null };
 async function filasVisitas(rg: Rango): Promise<Fila[]> {
   const rows = await leer<FVisita>('landing_visits', 'id, created_at, visitor_id, landing_url, referrer, prueba', rg, { col: 'created_at', ts: true });
-  return rows.map((x) => ({ f: fechaTj(x.created_at), d: { pagina: ruta(x.landing_url), origen: host(x.referrer), prueba: txt(x.prueba) }, v: { visitas: 1 }, u: { visitantes: txt(x.visitor_id) } }))
+  return rows.filter((x) => !noEsDelNegocio(x))
+    .map((x) => ({ f: fechaTj(x.created_at), d: { pagina: ruta(x.landing_url), origen: host(x.referrer), prueba: txt(x.prueba) }, v: { visitas: 1 }, u: { visitantes: txt(x.visitor_id) } }))
     .filter((x) => enRango(x.f, rg));
 }
 
-const EVENTO_VSL: Record<string, string> = { play: 'Reproducción', pausa: 'Pausa', salio: 'Se fue', volvio: 'Volvió', cierre: 'Cerró la página', exit: 'Salida' };
+const EVENTO_VSL: Record<string, string> = { play: 'Reproducción', pausa: 'Pausa', salio: 'Se fue', volvio: 'Volvió', cierre: 'Cerró la página', exit: 'Salida', agendo: 'Agendó' };
 const eventoVsl = (e: string | null): string | null => {
   if (!e) return null;
   if (EVENTO_VSL[e]) return EVENTO_VSL[e];
@@ -106,19 +127,32 @@ const eventoVsl = (e: string | null): string | null => {
   const p = /^p(\d+)$/.exec(e); if (p) return `Llegó al ${p[1]}%`;
   return lindo(e);
 };
-type FVsl = { id: number; created_at: string; visitor_id: string | null; tipo_evento: string | null; event: string | null; vsl_titulo: string | null; landing_url: string | null };
+/**
+ * Los eventos del VSL. ⚠️ «Personas» es cualquiera que dejó UN evento en la página (un `salio`, un clic):
+ * medido el 11/10/2026, en el ws1 había 7.197 «se fue» contra 3.885 plays. Quien de verdad le dio play es
+ * `espectadores` (distintos, sólo en las filas de `play`), y `play_rate` = espectadores ÷ personas.
+ * `agendaron` = los eventos `agendo` del Pixel. Sin las pruebas ni la vista previa (v5).
+ */
+type FVsl = { id: number; created_at: string; visitor_id: string | null; tipo_evento: string | null; event: string | null; vsl_titulo: string | null; landing_url: string | null; prueba: string | null };
 async function filasVsl(rg: Rango): Promise<Fila[]> {
-  const rows = await leer<FVsl>('vsl_events', 'id, created_at, visitor_id, tipo_evento, event, vsl_titulo, landing_url', rg, { col: 'created_at', ts: true });
-  return rows.map((x) => {
+  const rows = await leer<FVsl>('vsl_events', 'id, created_at, visitor_id, tipo_evento, event, vsl_titulo, landing_url, prueba', rg, { col: 'created_at', ts: true });
+  return rows.filter((x) => !noEsDelNegocio(x)).map((x) => {
     const tipo = txt(x.tipo_evento) ?? (x.event === 'vsl_play' ? 'play' : null);
-    return { f: fechaTj(x.created_at), d: { evento: eventoVsl(tipo), video: txt(x.vsl_titulo), pagina: ruta(x.landing_url) }, v: { eventos: 1, reproducciones: tipo === 'play' ? 1 : 0 }, u: { personas: txt(x.visitor_id) } };
+    const quien = txt(x.visitor_id);
+    return {
+      f: fechaTj(x.created_at), d: { evento: eventoVsl(tipo), video: txt(x.vsl_titulo), pagina: ruta(x.landing_url) },
+      v: { eventos: 1, reproducciones: tipo === 'play' ? 1 : 0, agendaron: tipo === 'agendo' ? 1 : 0 },
+      u: { personas: quien, espectadores: tipo === 'play' ? quien : null },
+    };
   }).filter((x) => enRango(x.f, rg));
 }
 
-type FReplay = { id: string; inicio: string | null; visitor_id: string | null; landing_url: string | null; segundos: number | null; corte: string | null };
+/** Las grabaciones de sesión. Sin las pruebas ni la vista previa del constructor (v5). */
+type FReplay = { id: string; inicio: string | null; visitor_id: string | null; landing_url: string | null; segundos: number | null; corte: string | null; prueba: string | null };
 async function filasReplays(rg: Rango): Promise<Fila[]> {
-  const rows = await leer<FReplay>('replay_sesiones', 'id, inicio, visitor_id, landing_url, segundos, corte', rg, { col: 'inicio', ts: true });
-  return rows.map((x) => ({ f: fechaTj(x.inicio), d: { pagina: ruta(x.landing_url), corte: lindo(txt(x.corte)) }, v: { grabaciones: 1, segundos: num(x.segundos) }, u: { visitantes: txt(x.visitor_id) } }))
+  const rows = await leer<FReplay>('replay_sesiones', 'id, inicio, visitor_id, landing_url, segundos, corte, prueba', rg, { col: 'inicio', ts: true });
+  return rows.filter((x) => !noEsDelNegocio(x))
+    .map((x) => ({ f: fechaTj(x.inicio), d: { pagina: ruta(x.landing_url), corte: lindo(txt(x.corte)) }, v: { grabaciones: 1, segundos: num(x.segundos) }, u: { visitantes: txt(x.visitor_id) } }))
     .filter((x) => enRango(x.f, rg));
 }
 
@@ -141,42 +175,9 @@ type FLead = {
   origen_lead: string | null; utm_source: string | null; utm_campaign: string | null; utm_content: string | null;
   meta_campaign_name: string | null; meta_ad_name: string | null; closer: string | null; setter: string | null; motivo_perdida: string | null;
   venta_tipo: string | null; fecha_agenda: string | null; fecha_primer_pago: string | null; nombre: string | null;
+  fecha_junta_2: string | null; fecha_confirmacion: string | null; meta_lead_id: string | null;
 };
-const COLS_LEAD = 'id, created_at, fecha_junta_1, fecha_cierre, asistio_j1, calificado, cerro, estado_lead, monto_cierre_usd, total_cobrado_usd, pipeline_stage, funnel_id, origen_lead, utm_source, utm_campaign, utm_content, meta_campaign_name, meta_ad_name, closer, setter, motivo_perdida, venta_tipo, fecha_agenda, fecha_primer_pago, nombre';
-
-/**
- * El ciclo de venta (SCL) en días, como lo medía la tab vieja de Comercial (`_getSCL`): de la
- * agenda al PRIMER PAGO, no al cierre. Negativo es dato roto y no cuenta; sin las dos fechas, null.
- */
-const diasDeCiclo = (x: FLead): number | null => {
-  if (!x.fecha_agenda || !x.fecha_primer_pago) return null;
-  const a = Date.parse(`${x.fecha_agenda.slice(0, 10)}T00:00:00Z`);
-  const p = Date.parse(`${x.fecha_primer_pago.slice(0, 10)}T00:00:00Z`);
-  if (!Number.isFinite(a) || !Number.isFinite(p)) return null;
-  const d = Math.floor((p - a) / 86_400_000);
-  return d >= 0 ? d : null;
-};
-
-/** Los nombres que ve la persona: el del producto de cada embudo y el de cada etapa. Sólo para rotular. */
-async function rotulosDelCrm(): Promise<{ producto: (id: number | null) => string | null; etapa: (id: number | null, key: string | null) => string | null }> {
-  const prods = await productosCrm().catch(() => null);
-  const porEmbudo = new Map<number, { nombre: string; etapas: Map<string, string> }>();
-  let porDefecto: { nombre: string; etapas: Map<string, string> } | null = null;
-  const cualquiera = new Map<string, string>();
-  for (const p of prods ?? []) {
-    const e = new Map(p.etapas.map((s) => [s.key, s.label] as const));
-    const x = { nombre: p.nombre, etapas: e };
-    porEmbudo.set(p.embudoId, x);
-    if (p.esDefault) porDefecto = x;
-    for (const [k, l] of e) if (!cualquiera.has(k)) cualquiera.set(k, l);
-  }
-  // `funnel_id` NULL es el embudo por defecto (así lo lee el tablero del CRM).
-  const de = (id: number | null) => (id != null ? porEmbudo.get(id) : null) ?? porDefecto;
-  return {
-    producto: (id) => de(id)?.nombre ?? null,
-    etapa: (id, key) => (key ? de(id)?.etapas.get(key) ?? cualquiera.get(key) ?? lindo(key) : null),
-  };
-}
+const COLS_LEAD = 'id, created_at, fecha_junta_1, fecha_cierre, asistio_j1, calificado, cerro, estado_lead, monto_cierre_usd, total_cobrado_usd, pipeline_stage, funnel_id, origen_lead, utm_source, utm_campaign, utm_content, meta_campaign_name, meta_ad_name, closer, setter, motivo_perdida, venta_tipo, fecha_agenda, fecha_primer_pago, nombre, fecha_junta_2, fecha_confirmacion, meta_lead_id';
 
 const columnaLead = (fecha: string) => (fecha === 'agenda' ? 'fecha_junta_1' : fecha === 'cierre' ? 'fecha_cierre' : 'created_at');
 async function leadsCrudos(fecha: string, rg: Rango): Promise<FLead[]> {
@@ -184,13 +185,46 @@ async function leadsCrudos(fecha: string, rg: Rango): Promise<FLead[]> {
   const rows = await leer<FLead>('leads', COLS_LEAD, rg, { col, ts: col === 'created_at' });
   return rows.filter((x) => enRango(fecha === 'agenda' ? x.fecha_junta_1 : fecha === 'cierre' ? x.fecha_cierre : fechaTj(x.created_at), rg));
 }
-/** Un ganado que se cuenta como venta: los «sin cobro» (becados) no lo son (tests/venta-sin-cobro.test.ts). */
-const gano = (x: FLead) => (!!x.cerro || x.estado_lead === 'ganado') && x.venta_tipo !== VENTA_SIN_COBRO;
 
+/**
+ * La MADUREZ de la cohorte de cada lead, de las vistas de cohortes (mig 0084): la semana (lunes) y el mes
+ * de su reunión 1, con el estado que la vista calcula («madura» = la última J1 de la cohorte hace ≥ 14 días,
+ * contra la fecha de la base). Es una propiedad de la SEMANA, no del lead: por eso se lee aparte y se
+ * cruza. Es lo que leía el bloque «Salud del funnel comercial» (getFunnelMadurasLeads, lib/queries.ts).
+ */
+async function madurezDeCohortes(): Promise<{ semana: Map<string, string>; mes: Map<string, string> }> {
+  const todo: Rango = { desde: '', hasta: '', sinRango: true };
+  const [sem, mes] = await Promise.all([
+    leer<{ semana_inicio: string; estado_madurez: string | null }>('v_cohortes_semanales', 'semana_inicio, estado_madurez', todo, { orden: 'semana_inicio' }),
+    leer<{ mes_inicio: string; estado_madurez: string | null }>('v_cohortes_mensuales', 'mes_inicio, estado_madurez', todo, { orden: 'mes_inicio' }),
+  ]);
+  return {
+    semana: new Map(sem.map((x) => [String(x.semana_inicio).slice(0, 10), rotuloMadurez(x.estado_madurez) ?? ''] as const)),
+    mes: new Map(mes.map((x) => [String(x.mes_inicio).slice(0, 10), rotuloMadurez(x.estado_madurez) ?? ''] as const)),
+  };
+}
+
+/**
+ * Los leads del CRM. Lo que sumó el v5 (contrato, tabla «Los DATOS»), para que los bloques de Comercial
+ * pasen a ser gráficos:
+ *   · `madurez_semana` / `madurez_mes`: la de la cohorte de su reunión 1 (`madurezDeCohortes`).
+ *   · `limpias` (asistió Y calificado: las «Calificadas» de las cohortes) y su tasa de cierre.
+ *   · `dias_ciclo_cierre` / `con_ciclo_cierre`: de la reunión 1 al cierre, de los que cerraron (el «Ciclo
+ *     J1→cierre» de las cohortes mensuales).
+ *   · `dias_tN` / `con_tN`: los cinco tramos del ciclo (`tramosDelCiclo`, la regla de `_getTramosSCL`).
+ * El ciclo de venta (SCL) sigue siendo de la agenda al PRIMER PAGO (`_getSCL`), y su P90 es una métrica
+ * percentil sobre él: lo calcula el agregador con la lista de los `ciclo` de cada lead.
+ */
 async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
-  const [rows, rot] = await Promise.all([leadsCrudos(fecha, rg), rotulosDelCrm()]);
+  const [rows, rot, madurez] = await Promise.all([leadsCrudos(fecha, rg), rotulosDelCrm(), madurezDeCohortes()]);
   return rows.map((x) => {
-    const ciclo = diasDeCiclo(x);
+    const ciclo = diasEntre(x.fecha_agenda, x.fecha_primer_pago);
+    const vendio = gano(x);
+    const cicloCierre = vendio ? diasEntre(x.fecha_junta_1, x.fecha_cierre) : null;
+    const j1 = x.fecha_junta_1 ? x.fecha_junta_1.slice(0, 10) : null;
+    const t = tramosDelCiclo(x);
+    const dt = (i: number) => t[i] ?? 0;
+    const ct = (i: number) => (t[i] != null ? 1 : 0);
     return {
       f: fecha === 'agenda' ? x.fecha_junta_1 : fecha === 'cierre' ? x.fecha_cierre : fechaTj(x.created_at),
       d: {
@@ -202,14 +236,20 @@ async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
         closer: txt(x.closer), setter: txt(x.setter), motivo: txt(x.motivo_perdida),
         // El lead mismo: es un nombre de persona (lib/graficos-acciones.ts, DIMENSIONES_PERSONA).
         lead: txt(x.nombre),
+        madurez_semana: j1 ? madurez.semana.get(lunesDeFecha(j1)) || null : null,
+        madurez_mes: j1 ? madurez.mes.get(`${j1.slice(0, 7)}-01`) || null : null,
       },
       r: { lead: String(x.id) },
       v: {
         leads: 1, agendas: x.fecha_junta_1 ? 1 : 0, asistencias: x.asistio_j1 ? 1 : 0, calificados: x.calificado ? 1 : 0,
-        cierres: gano(x) ? 1 : 0, vendido: gano(x) ? num(x.monto_cierre_usd) : 0, cobrado: num(x.total_cobrado_usd),
+        limpias: x.asistio_j1 && x.calificado ? 1 : 0,
+        cierres: vendio ? 1 : 0, vendido: vendio ? num(x.monto_cierre_usd) : 0, cobrado: num(x.total_cobrado_usd),
         // No-show como en la tab vieja: agendó y no asistió.
         no_show: x.fecha_junta_1 && !x.asistio_j1 ? 1 : 0,
         dias_ciclo: ciclo ?? 0, con_ciclo: ciclo != null ? 1 : 0,
+        dias_ciclo_cierre: cicloCierre ?? 0, con_ciclo_cierre: cicloCierre != null ? 1 : 0,
+        dias_t1: dt(0), con_t1: ct(0), dias_t2: dt(1), con_t2: ct(1), dias_t3: dt(2), con_t3: ct(2),
+        dias_t4: dt(3), con_t4: ct(3), dias_t5: dt(4), con_t5: ct(4),
       },
     };
   });
@@ -233,13 +273,21 @@ async function filasFormularios(rg: Rango): Promise<Fila[]> {
 }
 
 type FPago = { id: number; lead_id: number | null; numero: number | null; monto_usd: number | null; fecha_esperada: string | null; pagado: boolean | null; fecha_pago: string | null };
+/**
+ * Las cuotas. La fecha `vencimiento` mira hacia ADELANTE (`futuro`, contrato v5): «Próximos 30 días» trae lo
+ * que vence. ⚠️ «Vencido» se decide con el HOY DEL NEGOCIO (su zona, `hoyEnWorkspace`), no con el de
+ * Tijuana: el bloque y el detalle ya lo hacían así, y un negocio de Buenos Aires veía una cuota «vencida»
+ * tres horas antes de que lo estuviera. Si la zona no se puede leer, cae a la de la app.
+ */
 async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
   const col = fecha === 'pago' ? 'fecha_pago' : 'fecha_esperada';
   const rows = await leer<FPago>('pagos', 'id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago', rg, {
     col, extra: (q) => (fecha === 'pago' ? q.eq('pagado', true) : q),
   });
-  const nom = await nombres('leads', rows.map((x) => x.lead_id).filter((x): x is number => x != null));
-  const hoy = hoyEnTijuana();
+  const [nom, hoy] = await Promise.all([
+    nombres('leads', rows.map((x) => x.lead_id).filter((x): x is number => x != null)),
+    hoyEnWorkspace().catch(() => hoyEnTijuana()),
+  ]);
   return rows.map((x) => {
     const monto = num(x.monto_usd);
     // `ESTADO_COBRADO` es el mismo rótulo que mira la acción «Marcar cobrada» para no ofrecerla dos veces.
@@ -326,6 +374,11 @@ async function filasMakoChat(rg: Rango): Promise<Fila[]> {
 
 const ESTADO_INSC: Record<string, string> = { activa: 'Activa', completada: 'Completada', cancelada: 'Cancelada', no_responde: 'No responde', respondio: 'Respondió', handoff: 'Pasó a una persona' };
 type FInsc = { id: number; lead_id: number | null; secuencia_id: number | null; estado: string | null; desenlace: string | null; inscripto_at: string | null; desenlace_at: string | null };
+/**
+ * Quién entró a cada automatización. `respondieron` = las que terminaron en «respondió» o «pasó a una
+ * persona» (`ESTADOS_RESPONDIO`), la tasa sobre las personas. Con la fecha «Hoy» (si el catálogo la
+ * declara: `sinRango`) son TODAS las inscripciones, para contar quién está hoy en una secuencia.
+ */
 async function filasInscripciones(fecha: string, rg: Rango): Promise<Fila[]> {
   const col = fecha === 'desenlace' ? 'desenlace_at' : 'inscripto_at';
   const rows = await leer<FInsc>('nutricion_inscripciones', 'id, lead_id, secuencia_id, estado, desenlace, inscripto_at, desenlace_at', rg, { col, ts: true });
@@ -333,18 +386,34 @@ async function filasInscripciones(fecha: string, rg: Rango): Promise<Fila[]> {
   return rows.map((x) => ({
     f: fechaTj(fecha === 'desenlace' ? x.desenlace_at : x.inscripto_at),
     d: { automatizacion: x.secuencia_id != null ? sec.get(String(x.secuencia_id)) ?? null : null, estado: ESTADO_INSC[x.estado ?? ''] ?? lindo(txt(x.estado)), desenlace: lindo(txt(x.desenlace)) },
-    v: { personas: 1 }, u: { leads: x.lead_id != null ? String(x.lead_id) : null },
+    v: { personas: 1, respondieron: ESTADOS_RESPONDIO.has(String(x.estado ?? '')) ? 1 : 0 }, u: { leads: x.lead_id != null ? String(x.lead_id) : null },
   })).filter((x) => enRango(x.f, rg));
 }
 
-type FEnvio = { id: number; created_at: string; secuencia_id: number | null; canal: string | null; estado: string | null; abierto_at: string | null; clic_at: string | null; respondio_at: string | null };
+type FEnvio = { id: number; created_at: string; secuencia_id: number | null; inscripcion_id: number | null; canal: string | null; estado: string | null; abierto_at: string | null; clic_at: string | null; respondio_at: string | null };
+/**
+ * Lo que mandó cada automatización. ⚠️ «Respuestas» daba SIEMPRE 0: `respondio_at` no lo escribe nadie
+ * (medido el 11/10/2026, 0 de 23). Desde el v5 se DEDUCE de la inscripción (`enviosRespondidos`): si terminó
+ * contestando, cuenta el ÚLTIMO envío de esa inscripción (la secuencia se pausa al responder). Por eso se leen
+ * los envíos de esas inscripciones fuera del período: el último puede caer después.
+ */
 async function filasEnvios(rg: Rango): Promise<Fila[]> {
-  const rows = await leer<FEnvio>('nutricion_envios', 'id, created_at, secuencia_id, canal, estado, abierto_at, clic_at, respondio_at', rg, { col: 'created_at', ts: true });
-  const sec = await nombres('nutricion_secuencias', rows.map((x) => x.secuencia_id).filter((x): x is number => x != null));
+  const rows = await leer<FEnvio>('nutricion_envios', 'id, created_at, secuencia_id, inscripcion_id, canal, estado, abierto_at, clic_at, respondio_at', rg, { col: 'created_at', ts: true });
+  const inscIds = [...new Set(rows.map((x) => x.inscripcion_id).filter((x): x is number => x != null))];
+  const [sec, inscripciones, hermanos] = await Promise.all([
+    nombres('nutricion_secuencias', rows.map((x) => x.secuencia_id).filter((x): x is number => x != null)),
+    leerPorIds<{ id: number; estado: string | null }>('nutricion_inscripciones', 'id, estado', 'id', inscIds),
+    leerPorIds<{ id: number; inscripcion_id: number | null; created_at: string; respondio_at: string | null }>('nutricion_envios', 'id, inscripcion_id, created_at, respondio_at', 'inscripcion_id', inscIds),
+  ]);
+  const estado = new Map(inscripciones.map((x) => [Number(x.id), x.estado] as const));
+  const respondidos = enviosRespondidos(
+    [...rows, ...hermanos].map((x) => ({ id: Number(x.id), inscripcionId: x.inscripcion_id, t: x.created_at, respondioAt: x.respondio_at })),
+    (id) => estado.get(id),
+  );
   return rows.map((x) => ({
     f: fechaTj(x.created_at),
     d: { automatizacion: x.secuencia_id != null ? sec.get(String(x.secuencia_id)) ?? null : null, canal: lindo(txt(x.canal)), estado: x.estado === 'fallo' ? 'Falló' : lindo(txt(x.estado)) },
-    v: { envios: 1, abiertos: x.abierto_at ? 1 : 0, clics: x.clic_at ? 1 : 0, respuestas: x.respondio_at ? 1 : 0 },
+    v: { envios: 1, abiertos: x.abierto_at ? 1 : 0, clics: x.clic_at ? 1 : 0, respuestas: respondidos.has(Number(x.id)) ? 1 : 0 },
   })).filter((x) => enRango(x.f, rg));
 }
 
@@ -388,23 +457,43 @@ async function filasTareas(fecha: string, rg: Rango): Promise<Fila[]> {
 
 // ── Customer Success ─────────────────────────────────────────────────────────────────────
 
-type FEntrega = { id: number; lead_id: number | null; producto_id: number | null; etapa: string | null; etapa_desde: string | null; created_at: string | null };
+/**
+ * Cada cliente en la entrega de cada servicio, con el MISMO universo que el kanban de Customer Success
+ * (`carteraEnEntrega`, app/customer-success/entrega.ts): los clientes ganados que son de ese producto (su
+ * casa, o una fila ahí) y, con la regla de `repartirEnEtapas`, «un cliente sin fila está en la PRIMERA
+ * etapa». ⚠️ Hasta el v5 esto contaba las FILAS de `cliente_entrega`: el ws11 decía «1 cliente en entrega»
+ * teniendo 19 (relevo v5). El que cuenta filas cuenta de menos (AGENTS.md, «Una regla DERIVADA necesita el
+ * UNIVERSO»). La etapa sale con su NOMBRE del catálogo del producto, no con la clave.
+ *
+ * Una fila guardada con una etapa que el catálogo ya no tiene (un huérfano) va con su clave: el kanban la
+ * lista aparte, y acá no se le inventa una columna. Con la fecha «Llegó a la etapa», sólo los que TIENEN fila
+ * (los demás nunca llegaron a ninguna: están ahí por la regla).
+ */
 async function filasEntrega(fecha: string, rg: Rango): Promise<Fila[]> {
-  const rows = await leer<FEntrega>('cliente_entrega', 'id, lead_id, producto_id, etapa, etapa_desde, created_at', rg, { col: fecha === 'desde' ? 'etapa_desde' : null, ts: true });
-  const [prod, cli] = await Promise.all([
-    nombres('productos', rows.map((x) => x.producto_id).filter((x): x is number => x != null)),
-    nombres('leads', rows.map((x) => x.lead_id).filter((x): x is number => x != null)),
-  ]);
-  return rows.map((x) => {
-    const lead = x.lead_id != null ? String(x.lead_id) : null;
-    return {
-      f: fechaTj(x.etapa_desde ?? x.created_at),
+  const c = await carteraEnEntrega();
+  if (!c.ok) throw new Error(`No pude leer la entrega: ${c.error}`);
+  const universo = new Set<number>([
+    ...Object.keys(c.casaPorLead).map(Number),
+    ...Object.values(c.porServicio).flatMap((m) => Object.keys(m).map(Number)),
+  ].filter((x) => Number.isFinite(x)));
+  const cli = await nombres('leads', [...universo]);
+  const out: Fila[] = [];
+  for (const s of c.servicios) {
+    const filas = c.porServicio[s.productoId] ?? {};
+    const delProducto = [...universo].filter((id) => c.casaPorLead[id] === s.productoId || Object.prototype.hasOwnProperty.call(filas, id));
+    const { porEtapa, huerfanos } = repartirEnEtapas(s.etapas, delProducto, (id) => filas[id]?.etapa);
+    const etiqueta = new Map(s.etapas.map((e) => [e.key, e.label] as const));
+    const fila = (lead: number, etapa: string | null): Fila => ({
+      f: fechaTj(filas[lead]?.etapa_desde ?? null),
       // El cliente es un nombre de persona (DIMENSIONES_PERSONA); su lead_id abre la ficha.
-      d: { producto: x.producto_id != null ? prod.get(String(x.producto_id)) ?? null : null, etapa: lindo(txt(x.etapa)), cliente: lead != null ? cli.get(lead) ?? null : null },
+      d: { producto: s.nombre, etapa, cliente: cli.get(String(lead)) ?? null },
       v: { clientes: 1 },
-      r: { cliente: lead },
-    };
-  }).filter((x) => enRango(x.f, rg));
+      r: { cliente: String(lead) },
+    });
+    for (const [key, ids] of Object.entries(porEtapa)) for (const id of ids) out.push(fila(id, etiqueta.get(key) ?? lindo(key)));
+    for (const id of huerfanos) out.push(fila(id, lindo(txt(filas[id]?.etapa ?? null))));
+  }
+  return fecha === 'desde' ? out.filter((x) => enRango(x.f, rg)) : out;
 }
 
 type FProg = { id: number; lead_id: number | null; pct: number | null; estado: string | null; area: string | null; visto_at: string | null; created_at: string | null };
@@ -531,16 +620,38 @@ export const LECTORES: Record<string, (fecha: string, rg: Rango, g?: Pick<Grafic
 };
 
 /**
- * Hasta dónde se lee una fuente. La pauta de Meta llega por cron y el día en curso todavía no
- * está: con hoy adentro, toda línea de gasto termina en un desplome a cero que no pasó (medido
- * el 10/10 sobre el ws1). El resumen del negocio cruza la pauta con el CRM, así que va igual:
- * con el gasto de hoy en cero, el CAC de hoy saldría regalado.
+ * Hasta dónde se lee una fuente: el período cortado en HOY (salvo una fecha que mira hacia adelante,
+ * `futuro`) y, la pauta de Meta y lo que la cruza, en AYER — llega por cron y el día en curso todavía no
+ * está (medido el 10/10 sobre el ws1). La cuenta es `hastaDeLectura` (lib/graficos-agregar.ts, pura y con
+ * test); acá se le pone el hoy.
+ *
+ * ⚠️ ES EL ÚNICO LUGAR DEL CORTE (contrato v5): lo llaman `datosDeGraficos`, `valoresDeCampo` y
+ * `detalleDeGrafico` (lib/graficos-detalle.ts). Sin `fecha`, la primera del conjunto (la que elige
+ * `sanearGrafico`). Quien MUESTRA un período cortado (la API de MaKo, el AI Analyst) usa `cortarEnHoyDe`.
  */
-export function hastaDeFuente(g: Pick<Grafico, 'fuente'>, desde: string, hasta: string): string {
-  if (g.fuente !== 'meta' && g.fuente !== 'negocio' && g.fuente !== 'presupuesto') return hasta;
-  const ayer = diasAntes(hoyEnTijuana(), 1);
-  return hasta > ayer ? (ayer < desde ? desde : ayer) : hasta;
+export function hastaDeFuente(g: { fuente: string; fecha?: string | null }, desde: string, hasta: string): string {
+  return hastaDeLectura(g, desde, hasta, hoyEnTijuana());
 }
+/** El período cortado en hoy como se MUESTRA (sin el «ayer» de la pauta): `cortarEnHoy` con el hoy de la app. */
+export function cortarEnHoyDe(g: { fuente: string; fecha?: string | null }, desde: string, hasta: string): string {
+  return cortarEnHoy(g, desde, hasta, hoyEnTijuana());
+}
+
+/**
+ * Cuánto se espera una lectura antes de devolverle «Tardó demasiado» a sus gráficos. Por debajo del tope de
+ * /api/graficos (60 s) con margen para agregar y contestar: así la ruta contesta SIEMPRE, y lo lento no
+ * apaga lo rápido.
+ */
+export const PLAZO_LECTOR_MS = 45_000;
+/** El mensaje que llega a la tarjeta: QUÉ tardó, para que no se lea como «no hay datos». */
+export const tardoDemasiado = (nombreConjunto: string) => `Tardó demasiado: ${nombreConjunto}`;
+
+/**
+ * Los conjuntos cuyo lector devuelve OTRAS filas según la dimensión del gráfico (sin ser `porDimension`):
+ * `retencion_vsl` por `corte` es una fila por persona y corte (la curva); por cualquier otra, una por persona.
+ * La clave de lectura lleva esa dimensión, o una curva y un cuadro de resultados de la misma hoja se pisarían.
+ */
+const FILAS_POR_DIMENSION: Readonly<Record<string, readonly string[]>> = { retencion_vsl: ['corte'] };
 
 export type DatosGrafico = { ok: true; resultado: Resultado } | { ok: false; error: string };
 /**
@@ -579,10 +690,15 @@ export function sanearFiltros(raw: unknown, fuenteId: string): Filtro[] {
  * Los FILTROS se aplican en memoria, después de la lectura y antes de agregar: la clave de lectura
  * no los lleva, así las filas crudas se siguen compartiendo entre gráficos. Y se aplican TAMBIÉN al
  * período anterior: comparar lo filtrado contra lo no filtrado haría mentir al chip «↑ 1,3×».
+ *
+ * El período llega TAL CUAL lo pidió el gráfico: el corte en hoy es de acá (`hastaDeFuente`). Y cada
+ * lectura tiene su plazo (`PLAZO_LECTOR_MS`): la que no llega, le dice «Tardó demasiado: <conjunto>» a sus
+ * gráficos; el resto contesta igual.
  */
-export async function datosDeGraficos(pedidos: PedidoDatos[]): Promise<Record<string, DatosGrafico>> {
+export async function datosDeGraficos(pedidos: PedidoDatos[], opts: { plazoMs?: number } = {}): Promise<Record<string, DatosGrafico>> {
   const lecturas = new Map<string, Promise<Fila[]>>();
   const out: Record<string, DatosGrafico> = {};
+  const plazo = opts.plazoMs ?? PLAZO_LECTOR_MS;
   await Promise.all(pedidos.map(async (p) => {
     const g0 = sanearGrafico(p.grafico);
     if (!g0) return;
@@ -597,24 +713,34 @@ export async function datosDeGraficos(pedidos: PedidoDatos[]): Promise<Record<st
     const sinRango = !!fuente.fechas.find((x) => x.id === g.fecha)?.sinRango;
     const hasta = hastaDeFuente(g, p.desde, p.hasta);
     const rg: Rango = { desde: p.desde, hasta, sinRango };
-    const porDim = fuente.porDimension ? `|${g.dimension}|${g.desglose ?? ''}` : '';
+    const porDim = fuente.porDimension
+      ? `|${g.dimension}|${g.desglose ?? ''}`
+      : FILAS_POR_DIMENSION[g.fuente]?.includes(g.dimension ?? '') ? `|${g.dimension}` : '';
     const clave = `${g.fuente}|${g.fecha}|${p.desde}|${hasta}|${sinRango}${porDim}`;
-    if (!lecturas.has(clave)) lecturas.set(clave, lector(g.fecha, rg, g));
+    const leerConPlazo = (r: Rango) => conPlazo(lector(g.fecha, r, g), plazo, tardoDemasiado(fuente.nombre));
+    if (!lecturas.has(clave)) lecturas.set(clave, leerConPlazo(rg));
     // El período anterior del MISMO largo, que termina el día antes de que empiece éste.
     const ant = g.comparar && !sinRango ? periodoAnterior(p.desde, hasta) : null;
     const claveAnt = ant ? `${g.fuente}|${g.fecha}|${ant.desde}|${ant.hasta}|false${porDim}` : null;
-    if (ant && claveAnt && !lecturas.has(claveAnt)) lecturas.set(claveAnt, lector(g.fecha, { ...ant, sinRango: false }, g));
+    if (ant && claveAnt && !lecturas.has(claveAnt)) lecturas.set(claveAnt, leerConPlazo({ ...ant, sinRango: false }));
     try {
       const resultado = agregar(g, filtrarFilas(await lecturas.get(clave)!, filtros), p.desde, hasta);
       if (ant && claveAnt) resultado.anterior = agregar(g, filtrarFilas(await lecturas.get(claveAnt)!, filtros), ant.desde, ant.hasta).totales;
       out[g.id] = { ok: true, resultado };
     } catch (e) {
       console.error(`[graficos] ${clave}: ${e instanceof Error ? e.message : String(e)}`);
-      out[g.id] = { ok: false, error: e instanceof SinConexionError ? e.message : 'No pude leer los datos' };
+      out[g.id] = { ok: false, error: e instanceof SinConexionError || e instanceof PlazoVencidoError ? e.message : 'No pude leer los datos' };
     }
   }));
   return out;
 }
+
+/**
+ * Los conjuntos que NO se leen para ofrecer los valores de un campo. `vsl` baja TODOS los eventos del Pixel
+ * del período (48 mil en 30 días en el ws1) y sus páginas son las mismas que ya traen las visitas: abrir el
+ * desplegable «Página» de la hoja Landing releía la tabla entera dos veces (relevo v5).
+ */
+const SIN_VALORES: Readonly<Record<string, readonly string[]>> = { pagina: ['vsl'] };
 
 export type ValorDeCampo = { valor: string; filas: number };
 /**
@@ -623,20 +749,23 @@ export type ValorDeCampo = { valor: string; filas: number };
  * cada uno. Se normaliza con la MISMA función que agrupa y filtra (`claveCategoria`). Con tope: una
  * lista de mil campañas no se elige, se busca.
  */
-export async function valoresDeCampo(campoId: string, desde: string, hasta: string, soloFuentes?: string[]): Promise<ValorDeCampo[]> {
+export async function valoresDeCampo(campoId: string, desde: string, hasta: string, soloFuentes?: string[], opts: { plazoMs?: number } = {}): Promise<ValorDeCampo[]> {
   const campo = campoDe(campoId);
   if (!campo) return [];
   const cuenta = new Map<string, number>();
-  const fuentes = Object.keys(campo.en).filter((f) => !soloFuentes || soloFuentes.includes(f));
-  await Promise.all(fuentes.map(async (fid) => {
+  const caros = SIN_VALORES[campo.id] ?? [];
+  const fuentes = Object.keys(campo.en).filter((f) => (!soloFuentes || soloFuentes.includes(f)));
+  // Si el campo lo da otro conjunto, el caro no se lee; si es el ÚNICO pedido, sí (sin él no habría valores).
+  const aLeer = fuentes.some((f) => !caros.includes(f)) ? fuentes.filter((f) => !caros.includes(f)) : fuentes;
+  await Promise.all(aLeer.map(async (fid) => {
     const f = fuenteDe(fid);
     const lector = LECTORES[fid];
     if (!f || !lector) return;
     const dim = campo.en[fid];
     const fecha = f.fechas[0];
-    const rg: Rango = { desde, hasta: hastaDeFuente({ fuente: fid }, desde, hasta), sinRango: !!fecha.sinRango };
+    const rg: Rango = { desde, hasta: hastaDeFuente({ fuente: fid, fecha: fecha.id }, desde, hasta), sinRango: !!fecha.sinRango };
     try {
-      const filas = await lector(fecha.id, rg, { dimension: dim, desglose: null });
+      const filas = await conPlazo(lector(fecha.id, rg, { dimension: dim, desglose: null }), opts.plazoMs ?? PLAZO_LECTOR_MS, tardoDemasiado(f.nombre));
       for (const fl of filas) { const k = claveCategoria(fl.d[dim]); cuenta.set(k, (cuenta.get(k) ?? 0) + 1); }
     } catch (e) {
       console.error(`[graficos] valores ${campoId}/${fid}: ${e instanceof Error ? e.message : String(e)}`);

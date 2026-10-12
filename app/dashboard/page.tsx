@@ -77,11 +77,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
     hoja = agregar ?? tablero.hojas.find((h) => h.id === destino.hojaId) ?? tablero.hojas[0];
   }
   const { graficos, bloques } = pedidosDeHoja(hoja, {}, hoy, 0);
-  // Como en /api/graficos: un período que termina después de hoy se acota a hoy (la firma no cambia,
-  // porque sale del período que pidió el gráfico, no del acotado).
-  const acotar = (desde: string, hasta: string) => (hasta > hoy ? (hoy < desde ? desde : hoy) : hasta);
+  // El período va TAL CUAL: el corte en hoy (y la fecha que mira hacia adelante) lo decide `datosDeGraficos`
+  // (contrato v5, «el corte en hoy en UN lugar»). La firma sale del período que pidió el gráfico.
   const [datos, datosBloque] = await Promise.all([
-    datosDeGraficos(graficos.map(({ pedido }) => ({ ...pedido, hasta: acotar(pedido.desde, pedido.hasta) }))),
+    datosDeGraficos(graficos.map(({ pedido }) => pedido)),
     datosDeBloques(bloques.map(({ pedido }) => pedido)),
   ]);
 

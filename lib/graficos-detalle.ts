@@ -73,7 +73,9 @@ export async function detalleDeGrafico(p: PedidoDetalle): Promise<RespuestaDetal
   if (plan.grupoPerdido) return { ...sinLista, noAplica: plan.noAplica };
 
   const sinRango = !!fDestino.fechas.find((x) => x.id === destino.fecha)?.sinRango;
-  const hasta = hastaDeFuente({ fuente: destino.fuente }, plan.desde, plan.hasta);
+  // Con la fecha del DESTINO: sin ella toma la primera del conjunto, y en pagos ésa es el vencimiento (que mira
+  // hacia adelante y no se corta), aunque el detalle sea por fecha de pago (v5).
+  const hasta = hastaDeFuente({ fuente: destino.fuente, fecha: destino.fecha }, plan.desde, plan.hasta);
   const metricas = [...new Set([destino.incluye, ...destino.columnas])];
   const columnas = destino.columnas.map((id) => metricaDe(fDestino, id)).filter((x) => !!x).map((x) => ({ id: x!.id, nombre: x!.nombre, formato: x!.formato }));
   const respuesta = { ok: true as const, entidad: ent.entidad, plural: ent.plural, columnas, ...base, desde: plan.desde, hasta, noAplica: plan.noAplica };

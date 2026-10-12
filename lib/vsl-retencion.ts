@@ -177,11 +177,20 @@ export function curvaRetencion(
   duracionS: number | null,
   videoId?: string | null,
 ): Retencion {
-  const porPersona = avancePorPersona(eventos, duracionS, videoId);
-  const arrancaron = porPersona.size;
+  return curvaDesdeAvances(avancePorPersona(eventos, duracionS, videoId).values());
+}
+
+/**
+ * La curva a partir del avance de CADA PERSONA (null = arrancó y no se pudo medir). Es el cuerpo de
+ * `curvaRetencion`, separado para que el RESUMEN (`avanceDeResumen`, la función SQL de la mig 0261) dibuje
+ * la MISMA curva sin bajar los eventos.
+ */
+export function curvaDesdeAvances(avancesPorPersona: Iterable<number | null>): Retencion {
+  const lista = [...avancesPorPersona];
+  const arrancaron = lista.length;
   const avances: number[] = [];
   let sinMedicion = 0;
-  for (const av of porPersona.values()) {
+  for (const av of lista) {
     if (av === null || av <= 0) sinMedicion++;
     else avances.push(av);
   }
@@ -259,12 +268,157 @@ export function histogramaAbandono(
     const previo = porPersona.get(id);
     if (previo === undefined || avance > previo) porPersona.set(id, avance);
   }
+  return histogramaDesdeSalidas(porPersona.values());
+}
+
+/** El cuerpo de `histogramaAbandono`: de la salida de cada persona (su % de abandono, > 0) a los cortes. */
+export function histogramaDesdeSalidas(salidas: Iterable<number>): Array<{ corte: number; salidas: number }> {
   const buckets = new Map<number, number>(CORTES.map((c) => [c, 0]));
-  for (const avance of porPersona.values()) {
+  for (const avance of salidas) {
+    if (!(avance > 0)) continue;
     const corte = Math.min(100, Math.max(5, Math.ceil(avance / 5) * 5));
     buckets.set(corte, (buckets.get(corte) ?? 0) + 1);
   }
   return CORTES.map((corte) => ({ corte, salidas: buckets.get(corte) ?? 0 }));
+}
+
+// =============================================================================
+// EL RESUMEN — la retención sin bajar los eventos (contrato v5, 12/10/2026)
+// =============================================================================
+// La hoja Landing bajaba 48.305 eventos del ws1 (30 días, ~32 MiB, 51 páginas en serie por tramo) DOS
+// veces —el conjunto `retencion_vsl` y el bloque de la curva— para terminar en 3.245 personas. El avance
+// de una persona es un MÁXIMO, así que se puede resumir en la base: `retencion_vsl_resumen` (mig 0261)
+// devuelve una fila por (video, persona, host) con los máximos que `avanceDe` necesita, y
+// `avanceDeResumen` termina la cuenta acá con la duración de Panda.
+//
+// ⚠️ ES UNA SEGUNDA ESCRITURA DE `avanceDe`, Y POR ESO VIVE AL LADO Y TIENE TEST DE PARIDAD
+// (tests/vsl-retencion-resumen.test.ts): `resumirEventos` es la MISMA cuenta que la función SQL, en TS, y
+// el test compara `avancePorPersona` + `histogramaAbandono` contra `resumirEventos` + `avanceDeResumen`
+// sobre los mismos eventos. La regex de lo que es un evento del video sale de `ES_EVENTO_DE_VIDEO` y la
+// del host de `RE_HOST_DE_URL`: el mismo test exige que la migración las traiga TEXTUALES.
+//
+// Por qué el host y no la página: la vista previa del constructor (`esPreviewDeEditor`) se decide por el
+// host, y esa función vive en TS. Agrupar por host deja que el lector la aplique sin reescribirla en SQL.
+
+/** Una fila del resumen: lo que devuelve la función SQL por (video, persona, host). */
+export type ResumenVsl = {
+  /** El `video_id` recortado, o '' para los eventos que no dicen de qué video son. */
+  video_id: string;
+  /** El `visitor_id` recortado; null = sin identidad (no es una persona). */
+  visitor_id: string | null;
+  /** El host de la página del evento, en minúsculas; null = sin URL. */
+  host: string | null;
+  /** El % más alto que mandó el navegador (sólo > 0: un 0 no es un avance). */
+  max_pct: number | null;
+  /** Los segundos más altos de los eventos SIN un % positivo (sólo > 0): se dividen por la duración. */
+  max_seg: number | null;
+  /** Lo mismo, sólo de los `exit` (el punto exacto de abandono). */
+  max_pct_exit: number | null;
+  max_seg_exit: number | null;
+  /** El primer evento (instante ISO). */
+  primera: string | null;
+  /** La `landing_url` del primer evento que trae una. */
+  url: string | null;
+  /** Cuántos eventos dicen cada título del video. */
+  titulos: Record<string, number> | null;
+};
+
+/** El host de una URL, como lo saca la función SQL (`regexp_match` con la misma regex). */
+export const RE_HOST_DE_URL = /^(?:[a-zA-Z][a-zA-Z0-9+.-]*:\/\/)?([^/?#:@]+)/;
+export const hostDeUrl = (u: string | null | undefined): string | null => {
+  const m = RE_HOST_DE_URL.exec((u ?? '').trim());
+  return m ? m[1].toLowerCase() : null;
+};
+
+/** Un evento con lo que el resumen agrupa además de lo que mira `avanceDe`. */
+export type EventoResumible = EventoVsl & {
+  id?: number;
+  created_at: string;
+  landing_url?: string | null;
+  vsl_titulo?: string | null;
+  prueba?: string | null;
+};
+
+const aNumero = (v: unknown): number | null => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : null;
+};
+const max = (a: number | null, b: number | null): number | null => (a == null ? b : b == null ? a : Math.max(a, b));
+
+/**
+ * La función SQL, en TS (mig 0261): de los eventos YA recortados al período, una fila por (video, persona,
+ * host) con los máximos. Saca lo mismo que la base: lo que no es del video (`esEventoDeVideo`) y las
+ * pruebas (`prueba` no vacío). La vista previa del constructor NO: eso lo decide el lector por el host.
+ * La usan el test de paridad y el respaldo del lector cuando la función todavía no está en la base.
+ */
+export function resumirEventos(eventos: readonly EventoResumible[]): ResumenVsl[] {
+  const grupos = new Map<string, ResumenVsl & { _orden: string | null; _id: number }>();
+  for (const e of eventos) {
+    if (!esEventoDeVideo(e.tipo_evento)) continue;
+    if (e.prueba) continue;
+    const video = (e.video_id ?? '').trim();
+    const visitante = (e.visitor_id ?? '').trim() || null;
+    const host = hostDeUrl(e.landing_url);
+    const k = `${video}\u0000${visitante ?? ''}\u0000${host ?? ''}`;
+    let g = grupos.get(k);
+    if (!g) {
+      g = { video_id: video, visitor_id: visitante, host, max_pct: null, max_seg: null, max_pct_exit: null, max_seg_exit: null, primera: null, url: null, titulos: null, _orden: null, _id: Infinity };
+      grupos.set(k, g);
+    }
+    const pct = aNumero(e.porcentaje);
+    const seg = aNumero(e.segundos);
+    const conPct = pct != null && pct > 0;
+    const exit = e.tipo_evento === 'exit';
+    if (conPct) { g.max_pct = max(g.max_pct, pct); if (exit) g.max_pct_exit = max(g.max_pct_exit, pct); }
+    else if (seg != null && seg > 0) { g.max_seg = max(g.max_seg, seg); if (exit) g.max_seg_exit = max(g.max_seg_exit, seg); }
+    if (!g.primera || e.created_at < g.primera) g.primera = e.created_at;
+    // La URL del PRIMER evento que trae una (por instante y, en empate, por id): el `array_agg … order by`.
+    const url = (e.landing_url ?? '').trim() ? e.landing_url! : null;
+    const id = e.id ?? 0;
+    if (url && (g._orden == null || e.created_at < g._orden || (e.created_at === g._orden && id < g._id))) { g.url = url; g._orden = e.created_at; g._id = id; }
+    const t = (e.vsl_titulo ?? '').trim();
+    if (t) { const tt = (g.titulos ??= {}); tt[t] = (tt[t] ?? 0) + 1; }
+  }
+  return [...grupos.values()].map(({ _orden: _o, _id: _i, ...r }) => r);
+}
+
+/** Un % del resumen, recortado a 0..100 como `avanceDe`; null si no hay. */
+const pctDe = (pct: number | null, seg: number | null, duracionS: number | null): number | null => {
+  const a = pct != null && pct > 0 ? clampPct(pct) : null;
+  const b = seg != null && seg > 0 && duracionS != null && Number.isFinite(duracionS) && duracionS > 0 ? clampPct((seg / duracionS) * 100) : null;
+  return max(a, b);
+};
+
+/**
+ * El avance de una fila del resumen: el MÁXIMO de `avanceDe` sobre sus eventos. Como cada evento usa su % si
+ * lo trae positivo y si no sus segundos ÷ la duración, el máximo es el mayor de los dos máximos. null = arrancó
+ * y no se pudo medir (no es 0%).
+ */
+export function avanceDeResumen(r: Pick<ResumenVsl, 'max_pct' | 'max_seg'>, duracionS: number | null): number | null {
+  return pctDe(aNumero(r.max_pct), aNumero(r.max_seg), duracionS);
+}
+
+/** Lo mismo, de sus `exit`: dónde abandonó (para `histogramaDesdeSalidas`). null = no dejó un exit medible. */
+export function salidaDeResumen(r: Pick<ResumenVsl, 'max_pct_exit' | 'max_seg_exit'>, duracionS: number | null): number | null {
+  return pctDe(aNumero(r.max_pct_exit), aNumero(r.max_seg_exit), duracionS);
+}
+
+/**
+ * Las filas de una MISMA persona y video (una por host) juntas, como `avancePorPersona`: el máximo de los
+ * avances medidos, o null si ninguno se pudo medir. Las filas sin persona no cuentan (sin identidad no hay a
+ * quién deduplicar). Devuelve persona → { avance, salida }.
+ */
+export function avancesDeResumen(filas: readonly ResumenVsl[], duracionS: number | null): Map<string, { avance: number | null; salida: number | null }> {
+  const out = new Map<string, { avance: number | null; salida: number | null }>();
+  for (const r of filas) {
+    const id = (r.visitor_id ?? '').trim();
+    if (!id) continue;
+    const previo = out.get(id);
+    const avance = avanceDeResumen(r, duracionS);
+    const salida = salidaDeResumen(r, duracionS);
+    out.set(id, { avance: max(previo?.avance ?? null, avance), salida: max(previo?.salida ?? null, salida) });
+  }
+  return out;
 }
 
 /**

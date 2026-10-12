@@ -52,6 +52,7 @@ import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { canonizarVideoId } from '@/lib/video-id';
 import { esPreviewDeEditor } from '@/lib/landing-paginas';
 import { alVisitarPagina } from '@/lib/landing-gracias';
+import { ubicacionDeHeaders, type UbicacionVisita } from '@/lib/graficos-datos-puro';
 
 export const dynamic = 'force-dynamic';
 
@@ -260,6 +261,12 @@ export async function POST(request: NextRequest) {
     return json({ ok: true, ignored: 'sin workspace' });
   }
 
+  // DE DÓNDE VIENE LA VISITA (mig 0262, decisión de Martín del 12/10/2026): país, región y ciudad, más la
+  // latitud y longitud redondeadas, de los headers que agrega Vercel (`x-vercel-ip-*`). ⚠️ NUNCA LA IP: la
+  // de arriba (`clientIp`) es sólo para el anti-flood y no se guarda en ningún lado. Se lee acá, afuera del
+  // workspace, porque es del PEDIDO; sólo se escribe en la visita (el pageview).
+  const ubicacion = ubicacionDeHeaders((n) => request.headers.get(n));
+
   // Desde acá, TODA escritura cae en el workspace dueño de la landing.
   return runWithWorkspace(ws, async () => {
     // Qué VERSIÓN del snippet tiene puesta este cliente. Es el único lugar del
@@ -269,12 +276,19 @@ export async function POST(request: NextRequest) {
     // no le llega nunca a quien ya lo tenía pegado. Best-effort: nunca rompe el
     // beacon, que es lo que de verdad importa.
     void anotarVersionSnippet(payload.sv, payload.landing_url, payload.tipo_evento).catch(() => {});
-    return procesar(payload, visitorId, ip);
+    return procesar(payload, visitorId, ip, ubicacion);
   });
 }
 
+/**
+ * ¿El insert falló porque una COLUMNA no existe? (`42703` en Postgres, `PGRST204` en PostgREST.) Es lo que
+ * pasa si este código sale antes de la mig 0262: la visita se reintenta SIN la ubicación en vez de perderse.
+ */
+const columnaFaltante = (e: { code?: string; message?: string } | null): boolean =>
+  !!e && (e.code === '42703' || e.code === 'PGRST204' || /column .* does not exist|could not find the .* column/i.test(e.message ?? ''));
+
 // Todo lo que escribe. Corre SIEMPRE dentro de runWithWorkspace.
-async function procesar(payload: Payload, visitorId: string, ip: string): Promise<Response> {
+async function procesar(payload: Payload, visitorId: string, ip: string, ubicacion: UbicacionVisita | null = null): Promise<Response> {
   // Camino 1: si el beacon trae `l` (meta_lead_id pegado por el link de
   // WhatsApp), cosemos el visitor_id al lead conocido. Se evalúa antes de la
   // rama 'pageview' para que el PRIMER beacon (la visita al cargar) ya conecte.
@@ -322,7 +336,10 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
   if (tipoEvento === 'pageview') {
     try {
       const supabase = await getTenantDb();
-      const { error } = await supabase.from('landing_visits').insert({
+      // La ubicación va en el MISMO insert sólo si vino, y si la mig 0262 todavía no está, la visita se reintenta
+      // SIN ella (`columnaFaltante`): es el modo de falla que ya costó los pageviews de producción —una columna que
+      // no existe tira la fila ENTERA—, y una visita vale más que su ubicación.
+      const insertarVisita = (conUbicacion: boolean) => supabase.from('landing_visits').insert({
         visitor_id: visitorId,
         // URL exacta de la landing (multi-landing / pruebas A/B) + referrer.
         landing_url: texto(payload.landing_url, 500),
@@ -340,7 +357,14 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
         // venga—, y con dos landings publicadas eso no puede contestar «¿cuál de
         // las dos quedó vieja?».
         sv: Number.isFinite(Number(payload.sv)) ? Math.trunc(Number(payload.sv)) : null,
+        // DE DÓNDE (mig 0262): país, región, ciudad y las coordenadas redondeadas. NUNCA la IP.
+        ...(conUbicacion && ubicacion ? { pais: ubicacion.pais, region: ubicacion.region, ciudad: ubicacion.ciudad, lat: ubicacion.lat, lon: ubicacion.lon } : {}),
       });
+      let { error } = await insertarVisita(true);
+      if (error && ubicacion && columnaFaltante(error)) {
+        console.warn('[track:vsl] landing_visits sin las columnas de ubicación (mig 0262): la visita va sin ella');
+        ({ error } = await insertarVisita(false));
+      }
       if (error) console.error(`[track:vsl] landing_visits insert falló: ${error.message}`);
     } catch (err) {
       console.error(`[track:vsl] landing_visits error: ${err instanceof Error ? err.message : String(err)}`);

@@ -25,13 +25,21 @@
 //    texto guardado (no la hora: un autoguardado idéntico no es un cambio) y el candado es la hora de la
 //    fila (`updated_at`), que es atómico en la base. NO se compara el `value` en el filtro: un informe
 //    son decenas de KB y un `eq` con eso viaja en la URL, que el proxy corta.
-// ⚠️ Y lo que NO resuelve esto: una pestaña del editor ABIERTA con el informe viejo lo pisa en su
-//    próximo autoguardado (es un upsert ciego). Ver docs/hallazgos-api-mako.md.
+// ⚠️ Y lo que NO resolvía esto hasta v5: una pestaña del editor ABIERTA con el informe viejo lo pisaba en
+//    su próximo autoguardado (era un upsert ciego). Ver docs/hallazgos-api-mako.md.
+//
+// ── v5 (12/10/2026): EL EDITOR TAMBIÉN MANDA LA VERSIÓN ───────────────────────────────────────────────
+// La pantalla lee el informe CON su versión (`leerTablero` → `version`) y el autoguardado escribe con
+// `guardarTableroVersion`, el MISMO compare-and-set que la API: si otro escritor guardó en el medio (otra
+// pestaña, la API de MaKo, el deploy de al lado), no se escribe y la pantalla se entera. Es lo que impide
+// que una pestaña abierta con el deploy anterior BORRE los campos nuevos de v5 (conectores, pop-ups, la
+// sección, el botón de MaKo): su saneo no los conoce y el autoguardado manda el informe ENTERO.
+// `guardarTablero` (sin versión) queda sólo por compatibilidad: la ruta del autoguardado la deja de usar.
 
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { getUsuarioActual } from './auth';
-import { getSettingEstricto, setSetting } from './settings';
+import { setSetting } from './settings';
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual } from './workspace';
 import { sanearTablero, type Tablero } from './graficos-catalogo';
@@ -41,36 +49,59 @@ const clave = (sub: string) => `graficos.tablero.${sub}`;
 /** El prefijo de `clave`: para listar los informes guardados de un workspace. */
 const PREFIJO_CLAVE = 'graficos.tablero.';
 
+/**
+ * Lo que lee la pantalla. `version` es la huella de lo GUARDADO (`versionDe`; null = no guardó nada): el
+ * autoguardado la devuelve tal cual para escribir con compare-and-set (`guardarTableroVersion`). Con la
+ * lectura caída no hay versión: la pantalla no guarda.
+ */
 export type LecturaTablero =
-  | { estado: 'propio'; tablero: Tablero }
-  | { estado: 'inicial'; tablero: Tablero }
-  | { estado: 'error'; tablero: Tablero };
+  | { estado: 'propio'; tablero: Tablero; version: string | null }
+  | { estado: 'inicial'; tablero: Tablero; version: string | null }
+  | { estado: 'error'; tablero: Tablero; version: null };
 
 /** El informe de la persona con sesión (la pantalla). Delega en `leerTableroDe`. */
 export async function leerTablero(): Promise<LecturaTablero> {
   const s = await getUsuarioActual();
-  if (!s) return { estado: 'error', tablero: tableroInicial() };
+  if (!s) return { estado: 'error', tablero: tableroInicial(), version: null };
   return leerTableroDe(s.sub);
 }
 
-/** El informe de la persona `sub` en el workspace en curso. Sin sesión: lo usa la API de MaKo. */
+/**
+ * El informe de la persona `sub` en el workspace en curso, con su versión. Sin sesión: lo usa la API de MaKo.
+ * ⚠️ Lee por `leerTableroVersionado` (la MISMA fila y el mismo workspace que escribe `guardarTableroSi`): una
+ *    versión sacada de otra lectura podría no ser la de la fila que se compara al guardar.
+ */
 export async function leerTableroDe(sub: string): Promise<LecturaTablero> {
   try {
-    const raw = await getSettingEstricto(clave(sub));
-    if (raw == null) return { estado: 'inicial', tablero: tableroInicial() };
-    const t = sanearTablero(JSON.parse(raw));
-    return t ? { estado: 'propio', tablero: t } : { estado: 'inicial', tablero: tableroInicial() };
+    const v = await leerTableroVersionado(sub);
+    return { estado: v.estado, tablero: v.tablero, version: v.version };
   } catch (e) {
     console.error(`[graficos] no pude leer el tablero: ${e instanceof Error ? e.message : String(e)}`);
-    return { estado: 'error', tablero: tableroInicial() };
+    return { estado: 'error', tablero: tableroInicial(), version: null };
   }
 }
 
-/** Guarda el tablero ya saneado. Devuelve lo que quedó guardado. */
+/**
+ * Guarda el tablero ya saneado, SIN mirar la versión. Devuelve lo que quedó guardado.
+ * @deprecated v5: el autoguardado del editor va por `guardarTableroVersion` (un upsert ciego es lo que dejaba
+ * que una pestaña vieja borrara lo que otra guardó). Queda para quien todavía la llame.
+ */
 export async function guardarTablero(raw: unknown): Promise<Tablero> {
   const s = await getUsuarioActual();
   if (!s) throw new Error('Sin sesión');
   return guardarTableroDe(s.sub, raw);
+}
+
+/**
+ * El AUTOGUARDADO del editor (v5): guarda el informe de la persona con sesión SÓLO si lo guardado sigue en la
+ * `version` que leyó la pantalla (la de `leerTablero`, o la que devolvió el guardado anterior). `{ ok: false }`
+ * = alguien guardó en el medio: no se escribe nada y la pantalla lo dice (no pisa). Delega en `guardarTableroSi`,
+ * el mismo compare-and-set que la API de MaKo: una sola escritura con versión, con dos puertas.
+ */
+export async function guardarTableroVersion(raw: unknown, version: string | null): Promise<ResultadoGuardar> {
+  const s = await getUsuarioActual();
+  if (!s) throw new Error('Sin sesión');
+  return guardarTableroSi(s.sub, raw, version);
 }
 
 /** Guarda (sin mirar la versión) el tablero de `sub` en el workspace en curso. */
@@ -127,11 +158,17 @@ export async function leerTableroVersionado(sub: string): Promise<TableroVersion
 }
 
 /**
+ * Lo que contesta un guardado con versión. `version` es la huella de lo que quedó guardado: el que guarda la
+ * usa en el PRÓXIMO guardado (si no, su segundo autoguardado chocaría contra el primero).
+ */
+export type ResultadoGuardar = { ok: true; tablero: Tablero; version: string } | { ok: false };
+
+/**
  * Guarda el tablero de `sub` SÓLO si lo guardado sigue siendo la versión `version` (compare-and-set).
  * `{ ok: false }` = alguien lo cambió en el medio (otra pestaña autoguardó): no se escribe nada.
  * ⚠️ El error de escritura NO se traga: tira, y el que llama lo dice.
  */
-export async function guardarTableroSi(sub: string, raw: unknown, version: string | null): Promise<{ ok: true; tablero: Tablero } | { ok: false }> {
+export async function guardarTableroSi(sub: string, raw: unknown, version: string | null): Promise<ResultadoGuardar> {
   const t = sanearTablero(raw);
   if (!t) throw new Error('Tablero inválido');
   const ws = await wsDeLaLectura();
@@ -140,19 +177,21 @@ export async function guardarTableroSi(sub: string, raw: unknown, version: strin
   const ahora = new Date().toISOString();
   const db = getSupabaseServer();
   const valor = JSON.stringify(t);
+  // La versión nueva es la huella de lo que se escribe (la fila queda con ESTE texto, tal cual).
+  const nueva = versionDe(valor)!;
   if (!actual) {
     // No había fila: se crea sólo si sigue sin haberla (dos «sí» a la vez crean UNA).
     const { data, error } = await db.from('app_settings')
       .upsert({ workspace_id: ws, key: clave(sub), value: valor, updated_at: ahora }, { onConflict: 'workspace_id,key', ignoreDuplicates: true })
       .select('key');
     if (error) throw new Error(`No pude guardar el informe: ${error.message}`);
-    return data?.length ? { ok: true, tablero: t } : { ok: false };
+    return data?.length ? { ok: true, tablero: t, version: nueva } : { ok: false };
   }
   let q = db.from('app_settings').update({ value: valor, updated_at: ahora }).eq('workspace_id', ws).eq('key', clave(sub));
   q = actual.updated_at == null ? q.is('updated_at', null) : q.eq('updated_at', actual.updated_at);
   const { data, error } = await q.select('key');
   if (error) throw new Error(`No pude guardar el informe: ${error.message}`);
-  return data?.length ? { ok: true, tablero: t } : { ok: false };
+  return data?.length ? { ok: true, tablero: t, version: nueva } : { ok: false };
 }
 
 export type InformeGuardadoCrudo = { sub: string; raw: string | null; actualizado: string | null };

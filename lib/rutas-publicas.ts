@@ -104,6 +104,11 @@ export const PUBLICOS = [
   '/api/og',
   '/vsl',
   '/vsl-assets',
+  // La geometría de los mapas del Dashboard (public/geo/v1, Natural Earth, dominio público; v5, 12/10/2026):
+  // la pide también quien abre un informe COMPARTIDO, sin sesión. El matcher del proxy excluye png, js y css
+  // pero no `.json`, así que sin esta línea el link compartido decía «No pude cargar el mapa». Estáticos sin
+  // datos de nadie; no es /api/, así que `esPublicaSoloLeer` la deja sólo en GET/HEAD/OPTIONS.
+  '/geo',
   '/compartido',
   '/api/compartido',
   // ── Las landings publicadas con el editor (11/10/2026, docs/diseno-editor-landing.md D4) ──

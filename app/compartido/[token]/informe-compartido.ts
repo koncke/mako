@@ -66,14 +66,13 @@ export async function leerInformeCompartido(a: AccesoInforme): Promise<Tablero |
 /** El «hoy» de los pedidos: el mismo de app/dashboard/page.tsx, o las firmas no coinciden con la pantalla. */
 export const hoyDelInforme = (): string => hoyEnTijuana();
 
-/** Un período que termina después de hoy se acota a hoy (como /api/graficos y la página del Dashboard). */
-const acotar = (desde: string, hasta: string, hoy: string) => (hasta > hoy ? (hoy < desde ? desde : hoy) : hasta);
-
-/** Lee los GRÁFICOS en el workspace del share y los limpia (`resultadoCompartible`). */
-async function leerGraficos(a: AccesoInforme, pedidos: Array<{ g: Grafico; pedido: PedidoGrafico }>, hoy: string): Promise<Record<string, DatosGrafico>> {
+/**
+ * Lee los GRÁFICOS en el workspace del share y los limpia (`resultadoCompartible`). El período va TAL CUAL:
+ * el corte en hoy vive en `datosDeGraficos` (contrato v5, «el corte en hoy en UN lugar»).
+ */
+async function leerGraficos(a: AccesoInforme, pedidos: Array<{ g: Grafico; pedido: PedidoGrafico }>, _hoy: string): Promise<Record<string, DatosGrafico>> {
   if (!pedidos.length) return {};
-  const crudo = await enSuWorkspace(a, () =>
-    datosDeGraficos(pedidos.map(({ pedido }) => ({ ...pedido, hasta: acotar(pedido.desde, pedido.hasta, hoy) }))));
+  const crudo = await enSuWorkspace(a, () => datosDeGraficos(pedidos.map(({ pedido }) => pedido)));
   const out: Record<string, DatosGrafico> = {};
   // Un alias por pedido: la misma persona es el mismo «Closer N» en todos los gráficos que llegan juntos.
   const alias = new Alias();
@@ -145,6 +144,7 @@ export async function valoresCompartidos(
   const d = typeof desde === 'string' ? desde : '';
   const h = typeof hasta === 'string' ? hasta : '';
   if (!esFechaValida(d) || !esFechaValida(h) || d > h) return { ok: false, motivo: 'periodo' };
-  const valores = await enSuWorkspace(a, () => valoresDeCampo(campo, d, acotar(d, h, hoy), fuentes));
+  // El período TAL CUAL: `valoresDeCampo` lo corta en hoy con la regla de cada conjunto.
+  const valores = await enSuWorkspace(a, () => valoresDeCampo(campo, d, h, fuentes));
   return { ok: true, valores };
 }

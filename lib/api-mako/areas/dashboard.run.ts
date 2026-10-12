@@ -38,7 +38,7 @@ import {
 } from '@/lib/graficos-catalogo';
 import { PLANTILLAS_TEMA } from '@/lib/graficos-temas';
 import { PLANTILLAS_HOJA, instanciarPlantilla, plantillaHojaDe, tableroInicial } from '@/lib/graficos-plantillas';
-import { datosDeGraficos, hastaDeFuente, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
+import { cortarEnHoyDe, datosDeGraficos, hastaDeFuente, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
 import { datosDeBloques } from '@/lib/graficos-bloques';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
 import { guardarTableroSi, leerTableroVersionado, listarTablerosGuardados, type TableroVersionado } from '@/lib/graficos-tablero';
@@ -402,7 +402,7 @@ export const RUNNERS: Runners = {
       const hoy = hoyEnTijuana();
       const { graficos, bloques } = pedidosDeHoja(hoja, {}, hoy, 0);
       const [datos, datosB] = await infra('leer la hoja', () => Promise.all([
-        datosDeGraficos(graficos.map(({ pedido }) => ({ ...pedido, hasta: acotarAHoy(pedido.desde, pedido.hasta, hoy).hasta }))),
+        datosDeGraficos(graficos.map(({ pedido }) => pedido)),
         // Los bloques traen nombres de clientes y del equipo: por HTTP no se leen.
         http || !bloques.length ? Promise.resolve({} as Awaited<ReturnType<typeof datosDeBloques>>) : datosDeBloques(bloques.map((b) => b.pedido)),
       ]));
@@ -413,7 +413,7 @@ export const RUNNERS: Runners = {
       for (const c of [...hoja.componentes].sort((a, b) => a.y - b.y || a.x - b.x)) {
         if (esGrafico(c)) {
           const pg = graficos.find((x) => x.g.id === c.id)!;
-          const hasta = acotarAHoy(pg.ef.desde, pg.ef.hasta, hoy).hasta;
+          const hasta = cortarEnHoyDe(c, pg.ef.desde, pg.ef.hasta);
           const d = datos[c.id];
           const res = d?.ok ? resultadoPara(c, d.resultado, http, alias) : null;
           if (res) { resultados[c.id] = res; efectivos[c.id] = { desde: pg.ef.desde, hasta, agrupar: pg.ef.agrupar }; }
@@ -518,7 +518,7 @@ export const RUNNERS: Runners = {
         if (!esGrafico(cb.valor)) return fallo(`${comillas(nombreDeComponente(cb.valor))} no es un gráfico: el detalle es de un número de un gráfico.`);
         g = cb.valor;
         const ef = efectivoDe(g, hoja, {}, hoy);
-        pedido = { desde: ef.desde, hasta: acotarAHoy(ef.desde, ef.hasta, hoy).hasta, filtros: ef.filtros, agrupar: ef.agrupar };
+        pedido = { desde: ef.desde, hasta: ef.hasta, filtros: ef.filtros, agrupar: ef.agrupar };
         titulo = tituloDe(g);
       } else {
         if (!str(input, 'conjunto')) return fallo('Pasa el gráfico de una hoja (hoja y componente) o uno al vuelo (conjunto y metricas).');

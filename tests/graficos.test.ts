@@ -175,7 +175,9 @@ test('el lector llena cada métrica base y cada dimensión de cada conjunto del 
     const resto = src.slice(ini + 10);
     const fin = resto.search(/\n(?:export )?async function /);
     const cuerpo = src.slice(ini, fin < 0 ? undefined : ini + 10 + fin);
-    for (const x of f.metricas.filter((y) => !y.razon)) assert.match(cuerpo, llena(x.id), `${f.id} no llena la métrica ${x.id}`);
+    // Un percentil no es una base: lo calcula el agregador sobre la lista de su `de`, que sí tiene que existir (v5).
+    for (const x of f.metricas.filter((y) => y.percentil)) assert.ok(f.metricas.some((b) => b.id === x.percentil!.de), `${f.id}.${x.id}: percentil de algo que no existe`);
+    for (const x of f.metricas.filter((y) => !y.razon && !y.percentil)) assert.match(cuerpo, llena(x.id), `${f.id} no llena la métrica ${x.id}`);
     for (const d of f.dimensiones.filter((y) => y.clase === 'categoria')) assert.match(cuerpo, llena(d.id), `${f.id} no llena la dimensión ${d.id}`);
     for (const x of f.metricas.filter((y) => y.razon)) {
       assert.ok(f.metricas.some((b) => b.id === x.razon!.num && !b.razon), `${f.id}.${x.id}: el numerador no es una base`);
@@ -218,6 +220,8 @@ test('el ciclo de venta se promedia sobre los que tienen las dos fechas, no sobr
     { f: '2026-10-01', d: {}, v: { dias_ciclo: 10, con_ciclo: 1, cierres: 1 } },
     { f: '2026-10-02', d: {}, v: { dias_ciclo: 0, con_ciclo: 0, cierres: 1 } },
     { f: '2026-10-03', d: {}, v: { dias_ciclo: 20, con_ciclo: 1, cierres: 1 } },
+    // El ciclo pide 3 casos como mínimo (v5, razon.minimo): la tercera fila deja el promedio en 15.
+    { f: '2026-10-04', d: {}, v: { dias_ciclo: 15, con_ciclo: 1, cierres: 1 } },
   ];
   const r = agregar(g({ fuente: 'leads', tipo: 'numero', fecha: 'cierre', metricas: ['ciclo'] }), filas, '2026-10-01', '2026-10-31');
   assert.equal(r.totales[0], 15);

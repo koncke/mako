@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import { useRouter } from '@/app/_ui/Link';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import MapaMexico from '../dashboard/MapaMexico';
+import MapaMexico from '../dashboard/MapaGeo'; // el mapa de cualquier país (v5): con `pais` 'auto' reconoce México por los nombres de Meta
 import type { SenalRecon } from '@/lib/queries';
 import type { ScriptView } from '@/lib/ads-analyst';
 import { VEREDICTO_BADGE } from './AnuncioCard';

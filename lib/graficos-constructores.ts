@@ -13,6 +13,15 @@ export type Dimension = {
   /** Los tramos tienen su propio orden (la edad de Meta: '18-24' … '65+'): se ordenan por la etiqueta y no
    *  por la métrica. Ordenada por impresiones, la edad salía 45-54, 55-64, 18-24 y no se leía como edad. */
   ordenEtiqueta?: true;
+  /**
+   * El ORDEN FIJO de los valores (v5, 12/10/2026): las bandas de prioridad van Alta, Media, Baja, A futuro,
+   * no por la métrica ni por el alfabeto. Un valor de la lista sin filas sale EN CERO (la banda vacía es un
+   * dato); uno que aparece y no está en la lista va DESPUÉS, en el orden de siempre (no se tira). Lo
+   * aplica el agregador (lib/graficos-agregar.ts).
+   */
+  valores?: readonly string[];
+  /** El color de cada valor, como TOKEN de la casa (`'var(--bad)'`): se da vuelta en oscuro. Lo que no está, con la paleta. */
+  colores?: Readonly<Record<string, string>>;
 };
 /**
  * Una métrica es una SUMA de lo que aporta cada fila, una cuenta de valores DISTINTOS (las
@@ -22,9 +31,23 @@ export type Dimension = {
 export type Metrica = {
   id: string; nombre: string; formato: Formato;
   distinto?: true;
-  razon?: { num: string; den: string; factor: number };
+  /**
+   * `minimo` (v5): con un denominador MENOR que esto, la razón no se da como número —se dibuja «X de Y» o
+   * «—»—. Un promedio de 2 casos se lee como un dato firme (el SCL y el ratio de cierre de la tab vieja
+   * decían «X de Y» con menos de 3).
+   */
+  razon?: { num: string; den: string; factor: number; minimo?: number };
   /** No se suma entre filas (el ALCANCE: la misma persona está en dos plataformas). El total va vacío. */
   sinTotal?: true;
+  /** v5: MENOS es mejor (un costo, el no-show, un ciclo en días). La barra y el color lo respetan. Ausente = más es mejor. */
+  mejor?: 'menos';
+  /**
+   * v5: un PERCENTIL de los valores POR FILA de la métrica `de` (el P90 del ciclo de venta), no una suma. El
+   * agregador guarda la lista de valores del grupo y saca el percentil `p` (1-99). Si `de` es una razón, el
+   * valor de una fila es su num ÷ den y la fila entra SÓLO con den > 0 (un lead sin ciclo no es un cero).
+   * No entra donde sólo se suma (`soloSumas`).
+   */
+  percentil?: { de: string; p: number };
 };
 export type Area = 'Negocio' | 'Marketing' | 'CRM y ventas' | 'Comunicación' | 'Automations' | 'Plan' | 'Customer Success' | 'Second Brain' | 'Onboarding' | 'IA y contenido';
 export const AREAS: readonly Area[] = ['Negocio', 'Marketing', 'CRM y ventas', 'Comunicación', 'Automations', 'Plan', 'Customer Success', 'Second Brain', 'Onboarding', 'IA y contenido'];
@@ -34,8 +57,12 @@ export type Fuente = {
   nombre: string;
   area: Area;
   descripcion: string;
-  /** Las fechas que pueden decidir qué filas entran. `sinRango` = la foto de hoy, sin período. */
-  fechas: Array<{ id: string; nombre: string; sinRango?: true }>;
+  /**
+   * Las fechas que pueden decidir qué filas entran. `sinRango` = la foto de hoy, sin período.
+   * `futuro` (v5) = la fecha MIRA HACIA ADELANTE (el vencimiento de una cuota): el período NO se corta en hoy
+   * (`hastaDe`, lib/graficos-catalogo.ts). Sin la marca, «lo que vence este mes» contaba sólo hasta hoy.
+   */
+  fechas: Array<{ id: string; nombre: string; sinRango?: true; futuro?: true }>;
   dimensiones: Dimension[];
   metricas: Metrica[];
   /**

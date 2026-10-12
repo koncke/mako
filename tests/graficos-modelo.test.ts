@@ -161,7 +161,9 @@ test('la hoja Closing: las llamadas tienen su estado, y el número de una llamad
   // 11/10 se buscaba sólo entre los de siempre y la entidad quedaba declarada sin poder abrirse nunca.
   assert.deepEqual(destinoDetalle('llamadas_venta', 'fecha', 'puntaje'), { fuente: 'llamadas_venta', fecha: 'fecha', incluye: 'puntaje', columnas: ['puntaje', 'puntos'] });
   assert.deepEqual(destinoDetalle('llamadas_venta', 'fecha', 'llamadas')?.columnas, [], 'una llamada vale 1: no es una columna');
-  assert.equal(destinoDetalle('llamadas_dimensiones', 'fecha', 'puntaje'), null, 'sin entidad, no lista');
+  // v5 (12/10/2026): los factores del cierre SÍ abren sus llamadas (contrato: ENTIDADES de llamadas_dimensiones).
+  assert.deepEqual(destinoDetalle('llamadas_dimensiones', 'fecha', 'puntaje'), { fuente: 'llamadas_dimensiones', fecha: 'fecha', incluye: 'puntaje', columnas: ['puntaje', 'puntos'] });
+  assert.equal(destinoDetalle('visitas', 'fecha', 'visitas'), null, 'sin entidad, no lista');
   assert.equal(destinoDetalle('llamadas_venta', 'inventada', 'puntaje'), null);
 });
 

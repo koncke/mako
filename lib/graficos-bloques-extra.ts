@@ -27,7 +27,7 @@ import { getAngles } from './script-angles';
 import {
   buildPatterns, confFromImpr, confidence, esMuestraChica, hold, verdictFromVals, verdictOf,
 } from './ads-analyst-patrones';
-import { curvaRetencion, histogramaAbandono } from './vsl-retencion';
+import { curvaDesdeAvances, histogramaDesdeSalidas } from './vsl-retencion';
 import { getClosingViewData, type ClosingAnalysisRow } from './closing';
 import { closersDe, embudoDe, enVentana, factoresDe } from './api-mako/areas/closing.helpers';
 import { metricasProductividad } from './productividad-metricas';
@@ -80,14 +80,23 @@ async function cuadrante(p: PedidoBloque, una: Una): Promise<DatosCuadrante> {
 
 // ── Landing Analyst ─────────────────────────────────────────────────────────────────────
 
+/**
+ * ⚠️ DESDE EL v5 LA CURVA SALE DEL RESUMEN (`videosDelPeriodo` → `retencion_vsl_resumen`, mig 0261), no de
+ * los eventos: es la misma cuenta (`curvaDesdeAvances` es el cuerpo de `curvaRetencion`, y
+ * `histogramaDesdeSalidas` el de `histogramaAbandono`, con su test de paridad) y la misma lectura que el
+ * conjunto `retencion_vsl`. El bloque se va en el saneo (lib/graficos-migrar-v5.ts lo cambia por un gráfico
+ * de áreas por `corte`); mientras alguien lo pida, contesta igual.
+ */
 async function curvaVsl(p: PedidoBloque): Promise<DatosCurvaVsl> {
   const videos = await videosDelPeriodo({ desde: p.desde, hasta: p.hasta, sinRango: false });
   return {
     videos: videos.map((v) => {
-      const r = curvaRetencion(v.eventos, v.duracion, null);
+      const personas = [...v.personas.values()];
+      const r = curvaDesdeAvances(personas.map((x) => x.avance));
       return {
         id: v.id || 'sin-id', nombre: v.nombre, hayDatos: r.hayDatos, arrancaron: r.arrancaron, medidos: r.medidos, sinMedicion: r.sinMedicion,
-        curva: r.curva, mayorCaida: r.mayorCaida, medianaPct: r.medianaPct, salidas: histogramaAbandono(v.eventos, v.duracion, null),
+        curva: r.curva, mayorCaida: r.mayorCaida, medianaPct: r.medianaPct,
+        salidas: histogramaDesdeSalidas(personas.map((x) => x.salida).filter((x): x is number => x != null)),
       };
     })
       // Primero el que más gente miró: es el VSL; los demás suelen ser testimonios o pruebas.

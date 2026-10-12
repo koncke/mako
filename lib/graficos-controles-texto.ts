@@ -20,9 +20,33 @@
 import {
   AGRUPAR, CAMPOS, MAX_CONTROLES, MAX_VALORES, PRESET_AUTOMATICO, TIPOS_CONTROL,
   campoDe, camposDeFuente, controlActivo, conVista, fuenteDe, nombrePreset, nuevoControlVista, rangoDe,
-  type Agrupar, type Bloque, type ControlVista, type Grafico, type Hoja, type TipoControl, type ValorControl, type VistaValores,
+  type Agrupar, type Bloque, type ControlVista, type Fuente, type Grafico, type Hoja, type TipoControl, type ValorControl, type VistaValores,
 } from './graficos-catalogo';
 import { claveCategoria } from './graficos-agregar';
+
+// ── El campo de una dimensión ───────────────────────────────────────────────────────────────
+
+/**
+ * El CAMPO (de CAMPOS) que filtra la dimensión `dimension` de un conjunto: el compartido si la dimensión
+ * significa lo mismo en otros («Campaña»), si no el propio del conjunto («Ángulo · Guiones»). `null` = esa
+ * dimensión no se puede filtrar (una de tiempo, o una que el conjunto no tiene).
+ * La usan la barra de búsqueda de una tabla (el control `texto` sobre la dimensión de SU fila) y la API de
+ * MaKo (los filtros de un gráfico que arma un agente). Una sola respuesta para las dos: con dos, la tabla
+ * buscaría en un campo y la API filtraría por otro.
+ */
+export function campoDeDimension(fuente: Fuente | string, dimension: string | null | undefined): string | null {
+  const id = typeof fuente === 'string' ? fuente : fuente.id;
+  if (!dimension) return null;
+  return CAMPOS.find((c) => c.en[id] === dimension)?.id ?? null;
+}
+
+// ── Lo que se dibuja ────────────────────────────────────────────────────────────────────────
+
+/**
+ * Los controles que se DIBUJAN (en la barra de la hoja, en el «Filtro» de una tarjeta): todos menos los de
+ * DEFINICIÓN (`fijo`, v5), que deciden igual pero no se muestran ni se mueven mirando.
+ */
+export const controlesQueSeVen = (controles: readonly ControlVista[]): ControlVista[] => controles.filter((c) => !c.fijo);
 
 // ── Fechas cortas ───────────────────────────────────────────────────────────────────────────
 
@@ -216,6 +240,10 @@ export function nuevoControlPara(tipo: TipoControl, campo: string | null, n: Niv
   if (!base || n.nivel === 'hoja') return base;
   const pagina = n.hoja.controles;
   if (tipo === 'periodo') {
+    // Lo que el gráfico YA mira: su control de período (también el fijo: desde v5 el período propio de antes
+    // es un control fijo, migrado en el saneo), su período propio en el campo de antes, o el de la página.
+    const propio = n.comp.controles.find((c) => c.tipo === 'periodo');
+    if (propio) return { ...base, preset: propio.preset, desde: propio.desde, hasta: propio.hasta };
     if (n.comp.periodo !== 'auto') return { ...base, preset: n.comp.periodo, desde: n.comp.desde, hasta: n.comp.hasta };
     const p = pagina.find((c) => c.tipo === 'periodo');
     return p ? { ...base, preset: p.preset, desde: p.desde, hasta: p.hasta } : base;
@@ -248,7 +276,11 @@ export function parcheDeEntrada(tipo: TipoControl, v: ValorControl): Partial<Con
 
 const firmaValores = (v: string[] | null) => (v && v.length ? [...v].map((x) => claveCategoria(x)).sort().join('\u0000') : '');
 
-/** ¿Lo que se está mirando en este control es distinto de lo que muestra de entrada? */
+/**
+ * ¿Lo que se está mirando en este control es distinto de lo que muestra de entrada? Un filtro de DEFINICIÓN
+ * (`fijo`) nunca, y no hace falta preguntarlo acá: `conVista` no lo mueve (un solo lugar decide), así que lo
+ * mirado es lo de entrada y no hay nada que «Restablecer».
+ */
 export function distintoDeEntrada(c: ControlVista, vista: VistaValores): boolean {
   if (!vista[c.id]) return false;
   const v = conVista(c, vista);
@@ -260,7 +292,10 @@ export function distintoDeEntrada(c: ControlVista, vista: VistaValores): boolean
   }
 }
 
-/** ¿Hay algo elegido mirando en esta página (la barra o la cabecera de algún gráfico)? Decide «Restablecer». */
+/**
+ * ¿Hay algo elegido mirando en esta página (la barra o la cabecera de algún gráfico)? Decide «Restablecer».
+ * Los filtros de definición (`fijo`) no cuentan: `distintoDeEntrada` los deja afuera (un solo lugar).
+ */
 export function hayVistaElegida(hoja: Hoja, vista: VistaValores): boolean {
   const todos = [...hoja.controles, ...hoja.componentes.flatMap((c) => (c.clase === 'elemento' ? [] : c.controles))];
   return todos.some((c) => distintoDeEntrada(c, vista));

@@ -32,7 +32,7 @@ export const metadata = {
   description: 'Qué datos usa MaKo, con quién se comparten y qué puedes hacer con ellos.',
 };
 
-const ACTUALIZADO = '8 de octubre de 2026';
+const ACTUALIZADO = '12 de octubre de 2026';
 
 // ⚠️ LOS TRES DATOS QUE NO SALEN DEL CÓDIGO. Una política con el responsable
 // equivocado es peor que no tenerla: es el único dato que le dice a una persona A
@@ -299,7 +299,9 @@ export default function Page() {
         </li>
         <li>
           <strong>Tu página web</strong>, si instalas nuestro píxel: qué visitó cada persona y
-          cuánto vio de tus videos. Además, <strong>el píxel captura los formularios</strong> que
+          cuánto vio de tus videos, y <strong>desde qué país, región y ciudad</strong> llegó cada visita
+          (lo deduce nuestro proveedor de la conexión; la dirección IP no se guarda). Además,{' '}
+          <strong>el píxel captura los formularios</strong> que
           se envían en esa página cuando traen un correo o un teléfono, y esos datos entran a tu
           CRM. Si lo instalas, avísale a tu público en tu propia política de privacidad: es tu
           página y son tus visitantes.

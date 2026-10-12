@@ -17,25 +17,45 @@
 //    no entraba nunca: leía por acá la plata que su pantalla le esconde, y eso sigue siendo así.
 //    Las rutas hermanas (ia, analisis, imagen) siguen sólo para el admin.
 //
-//   POST { accion: 'datos', pedidos: [{ grafico, desde, hasta, filtros?, agrupar? }] } → { datos: Record<id, DatosGrafico> }
+//   POST { accion: 'datos', pedidos: [{ grafico, desde, hasta, filtros?, agrupar? }], popupDe? } → { datos: Record<id, DatosGrafico> }
 //   POST { accion: 'bloques', pedidos: [{ id, bloque, desde, hasta }] }               → { datos: Record<id, DatosBloque> }
 //   POST { accion: 'valores', campo, desde, hasta, fuentes? }                        → { valores: [{ valor, filas }] }
 //   POST { accion: 'detalle', grafico, desde, hasta, filtros?, agrupar?, sel }        → { detalle: RespuestaDetalle }
-//   POST { accion: 'guardar', tablero }                                               → { tablero }
+//   POST { accion: 'guardar', version, tablero }                                      → { tablero, version } · 409 si cambió
 //
 // El DETALLE (lib/graficos-detalle.ts) es lo que hay atrás de un número clickeado: las cosas que lo forman,
 // cada una con sus ids y, en `puede`, qué tabs tiene la capa — de eso dependen los botones de cada fila.
+//
+// ⚠️ EL PERÍODO LLEGA TAL CUAL (contrato v5): el corte en HOY vive en lib/graficos-datos.ts (`hastaDeFuente`),
+// adentro de los datos, los valores y el detalle. Acá se valida que sea un período y nada más: cortarlo acá
+// hacía imposible una fecha que mira hacia ADELANTE (el vencimiento de una cuota, «Próximos 30 días»).
+//
+// EL POP-UP (interfaz I5 del contrato): los gráficos de la mini-hoja guardada adentro de un gráfico
+// (`Grafico.popup`) se piden con este mismo `datos` y `popupDe: <id del gráfico dueño>`. El server busca al
+// dueño en el informe de quien pide —el guardado, o el del closer en memoria— y lee cada componente con SU
+// definición guardada: del cuerpo valen el período, el «agrupar por» y los filtros (el inyectado del clic
+// incluido, que se sanea contra el conjunto como cualquier filtro). Lo que no está en el pop-up guardado: al
+// admin se le lee tal cual (lo está editando y todavía no se guardó; igual podría pedirlo sin pop-up), al
+// closer no se le lee.
 
 import { NextResponse } from 'next/server';
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
-import { esFechaValida, hoyEnTijuana } from '@/lib/date-utils';
-import { bloqueDe, MAX_COMPONENTES, type BloqueId } from '@/lib/graficos-catalogo';
+import { esFechaValida } from '@/lib/date-utils';
+import { bloqueDe, esGrafico, MAX_COMPONENTES, type BloqueId, type Componente, type Tablero } from '@/lib/graficos-catalogo';
 import { datosDeGraficos, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
 import { datosDeBloques, type PedidoBloque } from '@/lib/graficos-bloques';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
-import { guardarTablero } from '@/lib/graficos-tablero';
-import { closerPuedePedir, fuentesDeCampoCloser } from '@/lib/graficos-plantillas';
+import { guardarTableroVersion, leerTablero } from '@/lib/graficos-tablero';
+import { closerPuedePedir, fuentesDeCampoCloser, informeCloser } from '@/lib/graficos-plantillas';
+
+/** Los componentes del pop-up del gráfico `id` (en cualquier hoja del informe), o null si no está o no tiene. */
+function componentesDePopup(t: Tablero, id: string): Componente[] | null {
+  for (const h of t.hojas) for (const c of h.componentes) {
+    if (esGrafico(c) && c.id === id) return Array.isArray(c.popup?.componentes) ? c.popup!.componentes : null;
+  }
+  return null;
+}
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -57,24 +77,43 @@ export async function POST(req: Request) {
   if (closer && !closerPuedePedir(body)) return err(403, 'Sólo la hoja Closing');
 
   if (body.accion === 'guardar') {
+    // v5: el autoguardado manda la VERSIÓN que leyó (compare-and-set, como la API de MaKo). Sin `version` es
+    // una pestaña abierta antes de este deploy: su saneo reconstruye campo por campo y borraría lo nuevo
+    // (filtros fijos, pop-ups, conectores, secciones, cajas de IA) en el primer guardado — se le pide recargar.
+    if (!('version' in body)) return err(409, 'Recarga la página para seguir editando');
     try {
-      return NextResponse.json({ tablero: await guardarTablero(body.tablero) });
+      const r = await guardarTableroVersion(body.tablero, typeof body.version === 'string' ? body.version : null);
+      if (!r.ok) return NextResponse.json({ error: 'El informe cambió en otra pestaña', conflicto: true }, { status: 409 });
+      return NextResponse.json({ tablero: r.tablero, version: r.version });
     } catch (e) {
       return err(400, e instanceof Error ? e.message : 'No se pudo guardar');
     }
   }
 
   if (body.accion === 'datos') {
-    const hoy = hoyEnTijuana();
     const lista = Array.isArray(body.pedidos) ? body.pedidos.slice(0, MAX_COMPONENTES) : [];
+    // El pop-up: sus componentes se leen con la definición GUARDADA del gráfico dueño.
+    let delPopup: Map<string, Componente> | null = null;
+    if (typeof body.popupDe === 'string' && body.popupDe) {
+      const dueno = closer ? informeCloser() : (await leerTablero()).tablero;
+      const comps = componentesDePopup(dueno, body.popupDe.slice(0, 40));
+      if (!comps && closer) return err(403, 'Sólo la hoja Closing');
+      delPopup = new Map((comps ?? []).map((c) => [c.id, c] as const));
+    }
     const pedidos: PedidoDatos[] = [];
     for (const p of lista as Array<Record<string, unknown>>) {
       const desde = String(p?.desde ?? '');
-      let hasta = String(p?.hasta ?? '');
+      const hasta = String(p?.hasta ?? '');
       if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) continue;
-      // Un período que termina después de hoy se acota a hoy; no se descarta.
-      if (hasta > hoy) hasta = hoy < desde ? desde : hoy;
-      pedidos.push({ grafico: p.grafico, desde, hasta, filtros: p.filtros, agrupar: p.agrupar });
+      let grafico = p.grafico;
+      if (delPopup) {
+        const id = grafico && typeof grafico === 'object' ? String((grafico as { id?: unknown }).id ?? '') : '';
+        const guardado = delPopup.get(id);
+        if (guardado) grafico = guardado;
+        else if (closer) continue;
+      }
+      // El período va TAL CUAL: el corte en hoy (y el «futuro») lo decide `datosDeGraficos`.
+      pedidos.push({ grafico, desde, hasta, filtros: p.filtros, agrupar: p.agrupar });
     }
     return NextResponse.json({ datos: await datosDeGraficos(pedidos) });
   }
@@ -95,11 +134,9 @@ export async function POST(req: Request) {
   }
 
   if (body.accion === 'valores') {
-    const hoy = hoyEnTijuana();
     const desde = String(body.desde ?? '');
-    let hasta = String(body.hasta ?? '');
+    const hasta = String(body.hasta ?? '');
     if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) return err(400, 'Período inválido');
-    if (hasta > hoy) hasta = hoy < desde ? desde : hoy;
     // Al closer, los valores salen SÓLO de las llamadas: «Closer» también es un campo de los leads.
     const fuentes = closer
       ? fuentesDeCampoCloser(body.campo, body.fuentes)
@@ -108,12 +145,10 @@ export async function POST(req: Request) {
   }
 
   if (body.accion === 'detalle') {
-    // El mismo período que el pedido de datos: acotado a hoy, como el gráfico que se clickeó.
-    const hoy = hoyEnTijuana();
+    // El mismo período que el pedido de datos, TAL CUAL: el detalle lo corta con la misma regla que el gráfico.
     const desde = String(body.desde ?? '');
-    let hasta = String(body.hasta ?? '');
+    const hasta = String(body.hasta ?? '');
     if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) return err(400, 'Período inválido');
-    if (hasta > hoy) hasta = hoy < desde ? desde : hoy;
     return NextResponse.json({ detalle: await detalleDeGrafico({ grafico: body.grafico, desde, hasta, filtros: body.filtros, agrupar: body.agrupar, sel: body.sel }) });
   }
 

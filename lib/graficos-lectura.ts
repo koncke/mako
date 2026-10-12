@@ -13,6 +13,7 @@ import { tableroDeCapa, type QueTablero } from './tablero-de-capa';
 import { leerTodo, type ConsultaPaginada, type OrdenPaginado } from './supabase-paginado';
 import { diasAntes, hoyEnTijuana } from './date-utils';
 import { tramosDeDias } from './graficos-agregar';
+import { productosCrm } from './api-mako/areas/crm.helpers';
 
 export const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : Number(v);
@@ -90,6 +91,42 @@ export async function leer<T>(tabla: string, cols: string, rg: Rango, opts: { co
 const TRAMOS_EN_PARALELO = 6;
 /** ¿La fecha de la fila entra en el período? (Las de un instante vienen con margen.) */
 export const enRango = (f: string | null, rg: Rango) => rg.sinRango || (!!f && f >= rg.desde && f <= rg.hasta);
+
+/**
+ * Los nombres que ve la persona: el del producto de cada embudo y el de cada etapa. Sólo para rotular. Vive
+ * acá (y no en lib/graficos-datos.ts) porque lo usan los dos lectores: los leads y la cartera de Customer
+ * Success, las conversaciones de WhatsApp (la etapa del lead).
+ */
+export async function rotulosDelCrm(): Promise<{ producto: (id: number | null) => string | null; etapa: (id: number | null, key: string | null) => string | null }> {
+  const prods = await productosCrm().catch(() => null);
+  const porEmbudo = new Map<number, { nombre: string; etapas: Map<string, string> }>();
+  let porDefecto: { nombre: string; etapas: Map<string, string> } | null = null;
+  const cualquiera = new Map<string, string>();
+  for (const p of prods ?? []) {
+    const e = new Map(p.etapas.map((s) => [s.key, s.label] as const));
+    const x = { nombre: p.nombre, etapas: e };
+    porEmbudo.set(p.embudoId, x);
+    if (p.esDefault) porDefecto = x;
+    for (const [k, l] of e) if (!cualquiera.has(k)) cualquiera.set(k, l);
+  }
+  // `funnel_id` NULL es el embudo por defecto (así lo lee el tablero del CRM).
+  const de = (id: number | null) => (id != null ? porEmbudo.get(id) : null) ?? porDefecto;
+  return {
+    producto: (id) => de(id)?.nombre ?? null,
+    etapa: (id, key) => (key ? de(id)?.etapas.get(key) ?? cualquiera.get(key) ?? lindo(key) : null),
+  };
+}
+
+/** Lee filas de `tabla` cuyo `col` está en `ids`, de a tandas (un `.in` con cientos arma una URL que el proxy corta). Paginado. */
+export async function leerPorIds<T>(tabla: string, cols: string, col: string, ids: Array<number | string>, opts: { orden?: OrdenPaginado; extra?: (q: ConsultaPaginada) => ConsultaPaginada } = {}): Promise<T[]> {
+  const unicos = [...new Set(ids.filter((x) => x != null && x !== '').map(String))];
+  const out: T[] = [];
+  for (let i = 0; i < unicos.length; i += 150) {
+    const tanda = unicos.slice(i, i + 150);
+    out.push(...await leer<T>(tabla, cols, { desde: '', hasta: '', sinRango: true }, { orden: opts.orden, extra: (q) => (opts.extra ? opts.extra(q.in(col, tanda)) : q.in(col, tanda)) }));
+  }
+  return out;
+}
 
 export async function nombres(tabla: string, ids: Array<number | string>, col = 'nombre'): Promise<Map<string, string>> {
   const out = new Map<string, string>();

@@ -19,6 +19,7 @@
 // ⚠️ SIN `server-only`: lo leen el catálogo, la pantalla y los tests.
 
 import { FUENTES as LETRAS_CURSO } from '../app/_cursos/fuentes';
+import { radioDe, trazoDe } from './graficos-gordo';
 
 export type TemaHoja = {
   /** El id de PLANTILLAS_TEMA. Un id que no existe cae a la de MaKo. */
@@ -48,10 +49,16 @@ export type PlantillaTema = {
   /** El rótulo de una KPI: en mono y mayúsculas (como las viejas) o en la letra de la hoja. */
   kpi: { etiqueta: 'mono' | 'letra'; tamValor: number };
   graficos: {
+    /** Con etiquetas de valor: las que ENTRAN sin pisarse (lib/graficos-gordo.ts), nunca una por punto. */
     etiquetas: boolean;
     leyenda: 'arriba' | 'abajo' | 'no';
     cuadricula: boolean;
     ejes: boolean;
+    /**
+     * El trazo y el radio que se DIBUJAN (la muestra de app/dashboard/PanelEstilo.tsx los lee de acá). Los
+     * pisos son de lib/graficos-gordo.ts —trazo de 3,5 a 5, radio desde 6— y `estiloEfectivo` los aplica
+     * igual: una plantilla con un número más chico no adelgaza nada, sólo haría mentir a su muestra.
+     */
     trazo: number;
     radioBarra: number;
     compacto: boolean;
@@ -96,7 +103,7 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
     tarjeta: { fondo: 'surface', borde: 'suave', radio: 16, sombra: false, filete: true },
     titulo: { tam: 19, peso: 600, mayus: false },
     kpi: { etiqueta: 'mono', tamValor: 44 },
-    graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 2.5, radioBarra: 4, compacto: false },
+    graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 4, radioBarra: 8, compacto: false },
     fuente: 'geist',
   },
   {
@@ -105,7 +112,7 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
     tarjeta: { fondo: 'transparente', borde: 'no', radio: 0, sombra: false, filete: false },
     titulo: { tam: 16, peso: 600, mayus: false },
     kpi: { etiqueta: 'letra', tamValor: 40 },
-    graficos: { etiquetas: false, leyenda: 'abajo', cuadricula: false, ejes: true, trazo: 2, radioBarra: 2, compacto: true },
+    graficos: { etiquetas: false, leyenda: 'abajo', cuadricula: false, ejes: true, trazo: 3.5, radioBarra: 6, compacto: true },
     fuente: 'geist',
   },
   {
@@ -114,7 +121,7 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
     tarjeta: { fondo: 'surface-2', borde: 'no', radio: 22, sombra: false, filete: false },
     titulo: { tam: 18, peso: 600, mayus: false },
     kpi: { etiqueta: 'letra', tamValor: 42 },
-    graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: false, ejes: true, trazo: 3, radioBarra: 8, compacto: false },
+    graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: false, ejes: true, trazo: 4, radioBarra: 10, compacto: false },
     fuente: 'nunito',
   },
   {
@@ -123,7 +130,7 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
     tarjeta: { fondo: 'surface', borde: 'fuerte', radio: 6, sombra: false, filete: true },
     titulo: { tam: 18, peso: 700, mayus: true },
     kpi: { etiqueta: 'mono', tamValor: 46 },
-    graficos: { etiquetas: true, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 3.5, radioBarra: 0, compacto: true },
+    graficos: { etiquetas: true, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 5, radioBarra: 6, compacto: true },
     fuente: 'atkinson',
   },
   {
@@ -132,7 +139,7 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
     tarjeta: { fondo: 'surface', borde: 'no', radio: 14, sombra: true, filete: false },
     titulo: { tam: 18, peso: 600, mayus: false },
     kpi: { etiqueta: 'letra', tamValor: 42 },
-    graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 2.5, radioBarra: 6, compacto: false },
+    graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 4, radioBarra: 8, compacto: false },
     fuente: 'inter',
   },
   {
@@ -141,7 +148,7 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
     tarjeta: { fondo: 'surface', borde: 'suave', radio: 4, sombra: false, filete: true },
     titulo: { tam: 22, peso: 600, mayus: false },
     kpi: { etiqueta: 'mono', tamValor: 42 },
-    graficos: { etiquetas: false, leyenda: 'abajo', cuadricula: true, ejes: true, trazo: 2, radioBarra: 0, compacto: false },
+    graficos: { etiquetas: false, leyenda: 'abajo', cuadricula: true, ejes: true, trazo: 3.5, radioBarra: 6, compacto: false },
     fuente: 'lora',
   },
 ];
@@ -192,8 +199,9 @@ export function estiloEfectivo(tema: TemaHoja): EstiloEfectivo {
     cuadricula: p.graficos.cuadricula,
     ejes: p.graficos.ejes,
     compacto: p.graficos.compacto,
-    trazo: p.graficos.trazo,
-    radioBarra: p.graficos.radioBarra,
+    // Los pisos del sistema «gordo» (punto 13): ninguna plantilla los baja.
+    trazo: trazoDe(p.graficos.trazo),
+    radioBarra: radioDe(p.graficos.radioBarra),
     kpiEtiqueta: p.kpi.etiqueta,
     kpiTamValor: p.kpi.tamValor,
     filete: p.tarjeta.filete,
@@ -223,6 +231,15 @@ export function varsDeTema(tema: TemaHoja): Record<string, string> {
     '--dash-titulo-espacio': p.titulo.mayus ? '.04em' : '-0.015em',
     '--dash-acento': paletaDe(tema)[0],
   };
+}
+
+/**
+ * El color del FONDO sobre el que se dibuja un gráfico (el de la tarjeta; sin tarjeta, el de la página): es el
+ * halo de las etiquetas de valor y el borde de los puntos (lib/graficos-gordo.ts). Un token: se da vuelta solo.
+ */
+export function fondoDeTarjeta(tema: TemaHoja): string {
+  const f = plantillaDe(tema.plantilla).tarjeta.fondo;
+  return f === 'surface' ? 'var(--surface)' : f === 'surface-2' ? 'var(--surface-2)' : 'var(--bg)';
 }
 
 /** Las tipografías que una hoja necesita bajar (para `useHojasDeFuentes`). */

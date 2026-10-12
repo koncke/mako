@@ -32,6 +32,7 @@ import { randomUUID } from 'node:crypto';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace } from './workspace';
 import { efectivoDe, esBloque, esGrafico, sanearTablero, tituloDe, type Hoja, type VistaValores } from './graficos-catalogo';
 import { datosDeGraficos, hastaDeFuente, type DatosGrafico, type PedidoDatos } from './graficos-datos';
+import { cortarEnHoy } from './graficos-agregar';
 import { tableroInicial } from './graficos-plantillas';
 import { getSettingEstricto } from './settings';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, docsIADisponible, errorDeCascada, type ProvName } from './ai-cheap';
@@ -254,8 +255,8 @@ export async function analizarHoja(p: PedidoAnalisis): Promise<{ ok: boolean; er
       const pedidos: PedidoDatos[] = [];
       const prep = graficos.map((g) => {
         const ef = efectivoDe(g, p.hoja, p.vista, p.hoy);
-        // Como /api/graficos: un período que termina después de hoy se acota a hoy.
-        const hasta = ef.hasta > p.hoy ? (p.hoy < ef.desde ? ef.desde : p.hoy) : ef.hasta;
+        // El período cortado en hoy con la regla de los datos (contrato v5: una sola, `cortarEnHoy`).
+        const hasta = cortarEnHoy(g, ef.desde, ef.hasta, p.hoy);
         if (g.fuente === 'tareas' && p.origen === 'cron' && p.queTablero === 'dueno') {
           return { g, ef, hasta, bloqueo: 'El análisis programado todavía no puede leer el tablero del super admin.' as string | null, comprimir: null };
         }

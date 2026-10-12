@@ -1,5 +1,5 @@
 // Tests de la audiencia de Meta del Dashboard (lib/graficos-audiencia.ts) y del mapa de México
-// (app/dashboard/MapaMexico.tsx). Correr: npx tsx --test tests/graficos-audiencia.test.ts
+// (lib/geo-regiones.ts, antes app/dashboard/MapaMexico.tsx). Correr: npx tsx --test tests/graficos-audiencia.test.ts
 //
 // Las filas de ejemplo son las que mandó Meta el 11/10/2026 para la cuenta del ws1 (Graph v25.0,
 // del 14/07 al 11/10), recortadas: los números vienen como TEXTO y los nombres de región, como
@@ -31,7 +31,10 @@ import {
 import { agregar, SinConexionError, type Fila } from '../lib/graficos-agregar';
 import { sanearGrafico, esGrafico } from '../lib/graficos-catalogo';
 import { tableroInicial } from '../lib/graficos-plantillas';
-import { codigoDeRegion, normalizarRegion, ubicarRegiones, ESTADOS } from '../app/dashboard/MapaMexico';
+// El mapa de México se generalizó a cualquier país (v5): las reglas de México viven en lib/geo-regiones.ts.
+import { ESTADOS_MX as ESTADOS, normalizarRegion, codigoDeRegion as codigoEnPais, ubicarRegiones as ubicarEnPais } from '../lib/geo-regiones';
+const codigoDeRegion = (n: string) => codigoEnPais('MX', n);
+const ubicarRegiones = (rs: Array<{ etiqueta: string; valor: number }>) => ubicarEnPais('MX', rs);
 
 type Cruda = Record<string, unknown>;
 const acc = (tipo: string, valor: number) => ({ action_type: tipo, value: String(valor) });

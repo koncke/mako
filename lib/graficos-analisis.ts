@@ -126,6 +126,14 @@ export const VENCE_MS = 10 * 60_000;
  * ⚠️ PENDIENTE (no es de este archivo): la marca va mejor en la `Dimension` del catálogo
  * (lib/graficos-constructores.ts), así quien declara un conjunto nuevo decide ahí. Mientras tanto,
  * un conjunto nuevo nace con TODAS sus categorías anónimas: es el lado seguro de equivocarse.
+ *
+ * v5 (12/10/2026): suman los conjuntos de las tabs de Analysts (hasta v4 NINGUNO estaba: «Proyecto 3»,
+ * «Ángulo 2» en la IA y en los links) y los nuevos que reemplazan a los bloques. Afuera, con su porqué:
+ *   · llamadas_venta.closer, llamadas_dimensiones.closer, conversaciones.setter → el equipo.
+ *   · llamadas_venta.llamada, llamadas_dimensiones.llamada, ejecucion.tarea, cobranza.cliente,
+ *     cartera.cliente → nombres de personas (los leads, lo que dice el título de una tarea).
+ *   · cartera.motivo → texto que escribe a mano el equipo de Customer Success.
+ * Los guiones se nombran como `meta.anuncio` (lo que escribió quien armó la campaña): no son personas.
  */
 export const DIMENSIONES_PUBLICAS: Readonly<Record<string, readonly string[]>> = {
   meta: ['campana', 'conjunto', 'anuncio'],
@@ -135,7 +143,7 @@ export const DIMENSIONES_PUBLICAS: Readonly<Record<string, readonly string[]>> =
   vsl: ['evento', 'video', 'pagina'],
   replays: ['pagina', 'corte'],
   creativos: ['angulo', 'gancho', 'formato', 'avatar'],
-  leads: ['etapa', 'producto', 'origen', 'campana', 'anuncio'],
+  leads: ['etapa', 'producto', 'origen', 'campana', 'anuncio', 'madurez_semana', 'madurez_mes'],
   crm_cambios: ['campo'],
   formularios: ['formulario'],
   pagos: ['estado', 'cuota'],
@@ -152,6 +160,23 @@ export const DIMENSIONES_PUBLICAS: Readonly<Record<string, readonly string[]>> =
   onboarding: ['tab', 'paso', 'estado'],
   ia: ['funcion', 'modelo', 'proveedor'],
   flow: ['tipo', 'estado'],
+  // ── Los de las tabs de Analysts (lib/graficos-fuentes-extra.ts) ──
+  guiones: ['guion', 'angulo', 'gancho', 'formato', 'avatar', 'tipo', 'campana', 'conjunto', 'veredicto', 'confianza', 'resultado'],
+  clics: ['pagina', 'destino', 'texto', 'dispositivo'],
+  scroll: ['pagina'],
+  toques: ['pagina', 'lugar', 'tipo', 'dispositivo'],
+  retencion_vsl: ['video', 'pagina', 'corte'],
+  landing_analisis: ['pagina', 'veredicto', 'tono', 'estado'],
+  llamadas_venta: ['reunion', 'tono'],
+  llamadas_dimensiones: ['dimension', 'grupo', 'tono', 'reunion'],
+  proyectos: ['proyecto', 'estado', 'con_deadline', 'cuadrante'],
+  ejecucion: ['prioridad', 'estado', 'con_deadline', 'estancada', 'deadline_corrido'],
+  // ── Los nuevos de v5 ──
+  cobranza: ['urgencia', 'proxima'],
+  vsl_leads: ['tramo_visto'],
+  cartera: ['producto', 'estado', 'senal', 'tramo_contacto'],
+  conversaciones: ['linea', 'etapa', 'con_lead'],
+  ubicacion: ['pais', 'region', 'ciudad', 'pagina'],
 };
 
 /** ¿Esta dimensión viaja con sus etiquetas? Las de tiempo siempre; las demás, sólo si están en la lista. */

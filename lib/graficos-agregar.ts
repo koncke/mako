@@ -14,8 +14,23 @@
 //     sale de todas las filas, no de las que entraron al gráfico.
 //   · El DESGLOSE (la segunda dimensión) arma una tabla de cruce sobre la PRIMERA métrica: es
 //     lo que dibujan las columnas apiladas por categoría, la tabla dinámica y el sankey.
+//
+// Lo que sumó el v5 (12/10/2026, contrato docs/relevo/dashboard-v5.md):
+//   · Una métrica PERCENTIL (`Metrica.percentil`) guarda la LISTA de valores por fila de la métrica de
+//     la que sale y elige el de la posición `floor(p/100 · (n−1))` de la lista ordenada: la MISMA vara
+//     que `getSCL` (lib/queries.ts) usó siempre para el P90 del ciclo de venta.
+//   · Una razón con `minimo` y un denominador más chico NO da un porcentaje: da null (se dibuja «—») y
+//     viaja aparte como «X de Y» (`muestraChica`). Un 100% sobre 2 casos se lee como un dato firme.
+//   · Una dimensión con VALORES FIJOS (`Dimension.valores`) va en ese orden, con las categorías sin filas
+//     en cero y sin recorte: es una escala (Alta/Media/Baja, los cortes de 5% del video), como el tiempo.
+//   · Un ATRIBUTO (`sinTotal`) que ninguna fila del grupo trae es null, no 0: un proyecto sin evaluar no
+//     es un proyecto de impacto 0, y la dispersión lo tiene que poder saltear.
+//   · Las opciones de tabla (`Grafico.tabla`): sin períodos vacíos, del más nuevo al más viejo (con eso el
+//     `limite` cuenta también para el tiempo: las últimas N) y dimensiones EXTRA como columnas (`extra`).
+//     El `colorPor` de la dispersión viaja por el mismo camino: es otra dimensión de cada grupo.
+//   · `imagen` (las Tarjetas) y `geo` (las ciudades del mapa) salen de las filas, como `ref`.
 
-import { dimensionDe, fuenteDe, metricaDe, tipoDe, type Formato, type Grafico, type Metrica } from './graficos-catalogo';
+import { dimensionDe, fuenteDe, hastaDe, metricaDe, tipoDe, type Dimension, type Formato, type Grafico, type Metrica } from './graficos-catalogo';
 import { diasAntes, lunesDeFecha } from './date-utils';
 
 /**
@@ -24,8 +39,17 @@ import { diasAntes, lunesDeFecha } from './date-utils';
  * = el lead_id del cliente de una cuota). Se agrupa por el TEXTO, como siempre — dos campañas con el mismo
  * nombre son una para quien mira el gráfico —, y la referencia viaja aparte para que una acción sepa sobre
  * QUÉ actuar (lib/graficos-acciones.ts).
+ *
+ * `img`: la miniatura de lo que la fila nombra (el creativo de un anuncio), para las Tarjetas. `geo`: dónde
+ * está (una visita con su ciudad), para el mapa: el grupo lleva el PROMEDIO de sus filas.
  */
-export type Fila = { f: string | null; d: Record<string, string | null>; v: Record<string, number>; u?: Record<string, string | null>; r?: Record<string, string | null> };
+export type Fila = {
+  f: string | null; d: Record<string, string | null>; v: Record<string, number>; u?: Record<string, string | null>; r?: Record<string, string | null>;
+  img?: string | null; geo?: { lat: number; lon: number } | null;
+};
+
+/** «X de Y»: el numerador y el denominador de una razón cuyo denominador no llegó al `minimo`. */
+export type MuestraChica = { num: number; den: number };
 
 export type FilaResultado = {
   clave: string; etiqueta: string; valores: Array<number | null>; desde?: string; hasta?: string;
@@ -36,6 +60,17 @@ export type FilaResultado = {
    * cuentan como una más). Con esto no hay `ref`: si una rama puede decir «ambiguo», no termina en `[0]`.
    */
   ambiguo?: number;
+  /** La miniatura de la fila MÁS RECIENTE del grupo que trae una (las Tarjetas). */
+  imagen?: string;
+  /** El promedio de las coordenadas de sus filas (las ciudades del mapa, como burbujas). */
+  geo?: { lat: number; lon: number };
+  /**
+   * Las dimensiones EXTRA de este grupo (`Grafico.tabla.columnas` y el `colorPor`), por id: el valor si todas
+   * sus filas dicen lo mismo; si dicen varios, los dos más frecuentes y «+N». Sin filas, null.
+   */
+  extra?: Record<string, string | null>;
+  /** Alineado con `valores`: las razones con denominador bajo su `minimo` («X de Y»); el resto, null. */
+  muestraChica?: Array<MuestraChica | null>;
 };
 export type Resultado = {
   /** Una por métrica del gráfico, en su orden. */
@@ -57,6 +92,12 @@ export type Resultado = {
    * (el chip «↑ 1,3×» de las KPI viejas). Mismo orden que `totales`.
    */
   anterior?: Array<number | null>;
+  /** Alineado con `totales`: las razones del total con denominador bajo su `minimo` («X de Y»). */
+  muestraChica?: Array<MuestraChica | null>;
+  /** Las dimensiones extra que traen las filas en `extra` (las columnas de más de una tabla, el `colorPor`). */
+  columnasExtra?: Array<{ id: string; nombre: string }>;
+  /** La métrica chica de un cuadro de resultados (`Grafico.secundaria`, «14 cierres»): su total. */
+  secundaria?: { id: string; nombre: string; formato: Formato; valor: number | null };
 };
 
 export const SIN_DATO = '(sin dato)';
@@ -117,8 +158,16 @@ export function tramosDeDias(desde: string, hasta: string, n: number): Array<{ d
 /**
  * Lo acumulado de un grupo: las sumas, los conjuntos de distintos, sus fechas extremas y los ids de lo que
  * nombra (`refs`; `sinRef` = alguna fila no traía id). «Otros» no junta ids: no es una cosa.
+ *
+ * `n`: cuántas filas TRAJERON cada atributo (un atributo que ninguna trajo es null, no 0). `l`: las listas
+ * de valores de las métricas percentil. `img`/`imgF`: la miniatura de la fila más reciente que trae una.
+ * `geo`: la suma de las coordenadas y cuántas. `x`: por dimensión extra, cuántas filas dicen cada valor.
  */
-type Acum = { s: Record<string, number>; u: Record<string, Set<string>>; fmin?: string; fmax?: string; refs?: Set<string>; sinRef?: boolean };
+type Acum = {
+  s: Record<string, number>; u: Record<string, Set<string>>; fmin?: string; fmax?: string; refs?: Set<string>; sinRef?: boolean;
+  n?: Record<string, number>; l?: Record<string, number[]>; img?: string; imgF?: string | null;
+  geo?: { lat: number; lon: number; k: number }; x?: Record<string, Map<string, number>>;
+};
 const nuevo = (): Acum => ({ s: {}, u: {} });
 
 function anotarRef(a: Acum, ref: string | null | undefined) {
@@ -135,45 +184,119 @@ function refDeGrupo(a: Acum): Pick<FilaResultado, 'ref' | 'ambiguo'> {
   return { ambiguo: n };
 }
 
-/** Las bases que hacen falta para calcular las métricas pedidas (una razón pide dos). */
-function basesDe(mets: Metrica[], fuenteMets: Metrica[]): { sumas: string[]; distintos: string[] } {
+/**
+ * De qué sale el valor POR FILA de una métrica percentil. Una razón vale num ÷ den en cada fila que tiene
+ * denominador (el ciclo de UN lead: sus días sobre su 1); una suma vale lo que la fila trae. Un distinto no
+ * tiene valor por fila: no se acepta.
+ */
+type Percentil = { id: string; p: number; de: Metrica };
+
+/** Las bases que hacen falta para calcular las métricas pedidas (una razón pide dos; un percentil, su lista). */
+type Bases = { sumas: string[]; distintos: string[]; atributos: string[]; percentiles: Percentil[] };
+function basesDe(mets: Metrica[], fuenteMets: Metrica[]): Bases {
   const sumas = new Set<string>();
   const distintos = new Set<string>();
+  const atributos = new Set<string>();
+  const percentiles: Percentil[] = [];
   const anotar = (id: string) => {
     const mm = fuenteMets.find((x) => x.id === id);
     if (mm?.distinto) distintos.add(id); else sumas.add(id);
+    if (mm?.sinTotal && !mm.razon) atributos.add(id);
   };
   for (const mm of mets) {
-    if (mm.razon) { anotar(mm.razon.num); anotar(mm.razon.den); } else anotar(mm.id);
+    if (mm.percentil) {
+      const de = fuenteMets.find((x) => x.id === mm.percentil!.de);
+      if (de && !de.distinto && !de.percentil) percentiles.push({ id: mm.id, p: mm.percentil.p, de });
+    } else if (mm.razon) { anotar(mm.razon.num); anotar(mm.razon.den); } else anotar(mm.id);
   }
-  return { sumas: [...sumas], distintos: [...distintos] };
+  return { sumas: [...sumas], distintos: [...distintos], atributos: [...atributos], percentiles };
 }
 
-function sumar(a: Acum, fila: Fila, b: { sumas: string[]; distintos: string[] }) {
+/** El valor de la métrica `de` en UNA fila, o null si esa fila no aporta a la lista. */
+function valorDeFila(de: Metrica, fila: Fila): number | null {
+  const v = (k: string): number | null => (Object.prototype.hasOwnProperty.call(fila.v, k) && Number.isFinite(fila.v[k]) ? fila.v[k] : null);
+  if (de.razon) {
+    const n = v(de.razon.num), d = v(de.razon.den);
+    return n != null && d != null && d !== 0 ? (n / d) * de.razon.factor : null;
+  }
+  return v(de.id);
+}
+
+function sumar(a: Acum, fila: Fila, b: Bases) {
   for (const k of b.sumas) a.s[k] = (a.s[k] ?? 0) + (Number.isFinite(fila.v[k]) ? fila.v[k] : 0);
+  for (const k of b.atributos) if (Object.prototype.hasOwnProperty.call(fila.v, k) && Number.isFinite(fila.v[k])) (a.n ??= {})[k] = (a.n?.[k] ?? 0) + 1;
   for (const k of b.distintos) {
     const clave = fila.u?.[k];
     if (clave == null || clave === '') continue;
     (a.u[k] ??= new Set()).add(clave);
+  }
+  for (const pc of b.percentiles) {
+    const x = valorDeFila(pc.de, fila);
+    if (x != null) ((a.l ??= {})[pc.id] ??= []).push(x);
   }
   if (fila.f) {
     if (!a.fmin || fila.f < a.fmin) a.fmin = fila.f;
     if (!a.fmax || fila.f > a.fmax) a.fmax = fila.f;
   }
 }
+/** Lo que no es un número del grupo sino una propiedad de sus filas: la miniatura, el lugar y las columnas extra. */
+function anotarExtras(a: Acum, fila: Fila, extras: Dimension[]) {
+  if (fila.img && (a.img === undefined || (fila.f ?? '') >= (a.imgF ?? ''))) { a.img = fila.img; a.imgF = fila.f; }
+  if (fila.geo && Number.isFinite(fila.geo.lat) && Number.isFinite(fila.geo.lon)) {
+    const g = (a.geo ??= { lat: 0, lon: 0, k: 0 });
+    g.lat += fila.geo.lat; g.lon += fila.geo.lon; g.k++;
+  }
+  for (const d of extras) {
+    const k = d.clase === 'tiempo' ? (fila.f ? claveTiempo(d.id, fila.f) : null) : (fila.d[d.id]?.trim() || null);
+    if (k == null) continue;
+    const m = ((a.x ??= {})[d.id] ??= new Map());
+    m.set(k, (m.get(k) ?? 0) + 1);
+  }
+}
 function juntar(destino: Acum, otro: Acum) {
   for (const [k, v] of Object.entries(otro.s)) destino.s[k] = (destino.s[k] ?? 0) + v;
+  for (const [k, v] of Object.entries(otro.n ?? {})) (destino.n ??= {})[k] = (destino.n?.[k] ?? 0) + v;
   for (const [k, set] of Object.entries(otro.u)) { const d = (destino.u[k] ??= new Set()); for (const x of set) d.add(x); }
+  for (const [k, l] of Object.entries(otro.l ?? {})) ((destino.l ??= {})[k] ??= []).push(...l);
   if (otro.fmin && (!destino.fmin || otro.fmin < destino.fmin)) destino.fmin = otro.fmin;
   if (otro.fmax && (!destino.fmax || otro.fmax > destino.fmax)) destino.fmax = otro.fmax;
 }
 function base(id: string, a: Acum, fuenteMets: Metrica[]): number {
   return fuenteMets.find((x) => x.id === id)?.distinto ? a.u[id]?.size ?? 0 : a.s[id] ?? 0;
 }
+/** El percentil `p` de una lista: la posición `floor(p/100 · (n−1))` de la lista ordenada (la de `getSCL`). */
+export function percentilDe(lista: readonly number[], p: number): number | null {
+  const xs = lista.filter((x) => Number.isFinite(x)).sort((x, y) => x - y);
+  if (!xs.length) return null;
+  const q = Math.min(100, Math.max(0, p)) / 100;
+  return xs[Math.floor(q * (xs.length - 1))];
+}
 function valor(mm: Metrica, a: Acum, fuenteMets: Metrica[]): number | null {
-  if (!mm.razon) return base(mm.id, a, fuenteMets);
+  if (mm.percentil) return percentilDe(a.l?.[mm.id] ?? [], mm.percentil.p);
+  if (!mm.razon) {
+    // Un atributo que ninguna fila trajo es «no se sabe» (un proyecto sin evaluar), nunca un 0.
+    if (mm.sinTotal && !mm.distinto && !(a.n?.[mm.id])) return null;
+    return base(mm.id, a, fuenteMets);
+  }
   const den = base(mm.razon.den, a, fuenteMets);
+  // Con un denominador bajo el mínimo no hay porcentaje que mostrar: va «X de Y» (`muestraChicaDe`).
+  if (mm.razon.minimo != null && den < mm.razon.minimo) return null;
   return den ? (base(mm.razon.num, a, fuenteMets) / den) * mm.razon.factor : null;
+}
+/** «X de Y» de una razón cuyo denominador (mayor que cero) no llegó a su `minimo`; null en cualquier otro caso. */
+function muestraChicaDe(mm: Metrica, a: Acum, fuenteMets: Metrica[]): MuestraChica | null {
+  if (!mm.razon || mm.razon.minimo == null) return null;
+  const den = base(mm.razon.den, a, fuenteMets);
+  return den > 0 && den < mm.razon.minimo ? { num: base(mm.razon.num, a, fuenteMets), den } : null;
+}
+/** El valor de una dimensión extra en un grupo: el único, o los dos más frecuentes y cuántos más hay. */
+function textoExtra(m: Map<string, number> | undefined, d: Dimension): string | null {
+  if (!m || !m.size) return null;
+  const orden = [...m.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], 'es', { numeric: true }));
+  const rot = (k: string) => (d.clase === 'tiempo' ? etiquetaTiempo(d.id, k) : k);
+  if (orden.length === 1) return rot(orden[0][0]);
+  const dos = orden.slice(0, 2).map(([k]) => rot(k)).join(', ');
+  return orden.length > 2 ? `${dos} +${orden.length - 2}` : dos;
 }
 
 /** La etiqueta con la que se AGRUPA una categoría: recortada, y lo vacío como «(sin dato)». El filtro usa la misma. */
@@ -207,6 +330,29 @@ export function filtrarFilas(filas: Fila[], filtros: Filtro[]): Fila[] {
   return filas.filter((fl) => pruebas.every((p) => p(fl)));
 }
 
+/** El orden de los grupos de una categoría: «(sin dato)» al final; una escala con orden propio por su etiqueta; si no, por la métrica. */
+function ordenarGrupos(entradas: Array<{ clave: string; a: Acum; o: number | null }>, dim: Dimension, asc: boolean): void {
+  const signo = asc ? 1 : -1;
+  entradas.sort((x, y) => {
+    if (x.clave === SIN_DATO || y.clave === SIN_DATO) return x.clave === SIN_DATO ? (y.clave === SIN_DATO ? 0 : 1) : -1;
+    // Unos tramos con orden propio (la edad) se leen en ese orden, no del que más al que menos.
+    if (dim.ordenEtiqueta) return x.clave.localeCompare(y.clave, 'es', { numeric: true });
+    if (x.o == null || y.o == null) return x.o == null ? (y.o == null ? 0 : 1) : -1;
+    return signo * (x.o - y.o) || x.clave.localeCompare(y.clave);
+  });
+}
+
+/** Los tipos que no se recortan al `limite`: necesitan todos los grupos para decir lo que dicen. */
+const SIN_RECORTE: ReadonlySet<string> = new Set([
+  // El histograma reparte TODOS los grupos en franjas.
+  'histograma',
+  // El mapa: un estado que queda afuera se dibujaría «Sin datos» teniendo datos.
+  'mapa',
+  // La dispersión no junta en «Otros»: recortada a 10, el tablero del dueño perdía 61 de sus 71 proyectos
+  // sin avisar (medido el 11/10/2026, relevo v5).
+  'dispersion', 'burbujas',
+]);
+
 export function agregar(g: Grafico, filas: Fila[], desde: string, hasta: string): Resultado {
   const fuente = fuenteDe(g.fuente);
   const vacio: Resultado = { columnas: [], filas: [], totales: [], fuera: 0, clase: null };
@@ -221,6 +367,19 @@ export function agregar(g: Grafico, filas: Fila[], desde: string, hasta: string)
   for (const f of filas) sumar(total, f, b);
   // Lo que no se suma entre filas (el alcance) no tiene total: sumado, contaría dos veces a quien está en dos grupos.
   const totales = mets.map((x) => (x.sinTotal ? null : valor(x, total, fm)));
+  const mcTotal = mets.map((x) => (x.sinTotal ? null : muestraChicaDe(x, total, fm)));
+  const muestraTotal = mcTotal.some((x) => x != null) ? { muestraChica: mcTotal } : {};
+
+  // La métrica chica de un cuadro de resultados («14 cierres»): una lectura de las MISMAS filas.
+  const mSec = typeof g.secundaria === 'string' ? metricaDe(fuente, g.secundaria) : undefined;
+  let secundaria: Resultado['secundaria'];
+  if (mSec) {
+    const bs = basesDe([mSec], fm);
+    const a = nuevo();
+    for (const f of filas) sumar(a, f, bs);
+    secundaria = { id: mSec.id, nombre: mSec.nombre, formato: mSec.formato, valor: mSec.sinTotal ? null : valor(mSec, a, fm) };
+  }
+  const conSecundaria = secundaria ? { secundaria } : {};
 
   // La evolución de la primera métrica para el cuadro con tendencia: por día, o por semana si
   // el período es largo (90 puntos ya no se leen en una tarjeta chica).
@@ -234,7 +393,14 @@ export function agregar(g: Grafico, filas: Fila[], desde: string, hasta: string)
   }
 
   const dim = dimensionDe(fuente, g.dimension);
-  if (!dim) return { columnas, filas: [], totales, fuera: 0, clase: null, ...(serie ? { serie } : {}) };
+  if (!dim) return { columnas, filas: [], totales, fuera: 0, clase: null, ...(serie ? { serie } : {}), ...muestraTotal, ...conSecundaria };
+
+  // Las dimensiones EXTRA de cada grupo: las columnas de más de una tabla y la que pinta una dispersión.
+  // `fecha` no es una dimensión del conjunto: es la fecha de las filas del grupo (una llamada, su día).
+  const idsExtra = [...new Set([...(g.tabla?.columnas ?? []), ...(typeof g.colorPor === 'string' ? [g.colorPor] : [])])].filter((id) => id !== dim.id);
+  const extras: Dimension[] = idsExtra
+    .map((id): Dimension | undefined => (id === 'fecha' ? { id: 'fecha', nombre: 'Fecha', clase: 'tiempo' } : dimensionDe(fuente, id)))
+    .filter((x): x is Dimension => !!x);
 
   const grupos = new Map<string, Acum>();
   for (const f of filas) {
@@ -244,29 +410,43 @@ export function agregar(g: Grafico, filas: Fila[], desde: string, hasta: string)
     sumar(a, f, b);
     // Un día no es una cosa con id: la referencia es sólo de las categorías.
     if (dim.clase === 'categoria') anotarRef(a, f.r?.[dim.id]);
+    anotarExtras(a, f, extras);
     grupos.set(k, a);
   }
 
   // ── el orden y el recorte ──
   let lista: Array<{ clave: string; a: Acum }>;
   let fuera = 0;
+  const mOrden = mets.find((x) => x.id === g.ordenMetrica) ?? mets[0];
+  const conOrden = (claves: Array<[string, Acum]>) => claves.map(([clave, a]) => ({ clave, a, o: mOrden ? valor(mOrden, a, fm) : 0 }));
   if (dim.clase === 'tiempo') {
-    lista = clavesDelRango(dim.id, desde, hasta).map((k) => ({ clave: k, a: grupos.get(k) ?? nuevo() }));
+    let claves = clavesDelRango(dim.id, desde, hasta);
+    const t = g.tabla;
+    // Las cohortes de «Todo» son 82 meses casi vacíos: «sin vacíos» deja los que tienen filas.
+    if (t?.sinVacios) claves = claves.filter((k) => grupos.has(k));
+    if (t?.descendente) claves = [...claves].reverse();
+    // Con un orden de tabla, el `limite` cuenta también para el tiempo: las N más NUEVAS.
+    const n = Math.max(1, g.limite);
+    if ((t?.sinVacios || t?.descendente) && claves.length > n) {
+      fuera = claves.length - n;
+      claves = t?.descendente ? claves.slice(0, n) : claves.slice(-n);
+    }
+    lista = claves.map((k) => ({ clave: k, a: grupos.get(k) ?? nuevo() }));
+  } else if (dim.valores?.length) {
+    // ⚠️ UNA ESCALA CON VALORES FIJOS VA EN SU ORDEN, CON LOS VACÍOS EN CERO, Y SIN RECORTE: «Alta, Media,
+    // Baja, A futuro» ordenada por la métrica salía alfabética o por tamaño, y una banda sin tareas
+    // desaparecía (relevo v5, la pirámide). Lo que no está en la escala NO se esconde: va después, en su
+    // orden de siempre, y «(sin dato)» al final.
+    const fijos = [...new Set(dim.valores.map((v) => claveCategoria(v)))];
+    const enEscala = new Set(fijos);
+    const resto = conOrden([...grupos.entries()].filter(([k]) => !enEscala.has(k)));
+    ordenarGrupos(resto, dim, g.ordenAsc);
+    lista = [...fijos.map((k) => ({ clave: k, a: grupos.get(k) ?? nuevo() })), ...resto];
   } else {
-    const mOrden = mets.find((x) => x.id === g.ordenMetrica) ?? mets[0];
-    const signo = g.ordenAsc ? 1 : -1;
-    const ord = [...grupos.entries()].map(([clave, a]) => ({ clave, a, o: mOrden ? valor(mOrden, a, fm) : 0 }));
-    ord.sort((x, y) => {
-      if (x.clave === SIN_DATO || y.clave === SIN_DATO) return x.clave === SIN_DATO ? 1 : -1;
-      // Unos tramos con orden propio (la edad) se leen en ese orden, no del que más al que menos.
-      if (dim.ordenEtiqueta) return x.clave.localeCompare(y.clave, 'es', { numeric: true });
-      if (x.o == null || y.o == null) return x.o == null ? (y.o == null ? 0 : 1) : -1;
-      return signo * (x.o - y.o) || x.clave.localeCompare(y.clave);
-    });
+    const ord = conOrden([...grupos.entries()]);
+    ordenarGrupos(ord, dim, g.ordenAsc);
     lista = ord;
-    // El histograma necesita TODOS los grupos para repartirlos en franjas.
-    // El mapa tampoco se recorta: un estado que queda afuera se dibujaría «Sin datos» teniendo datos.
-    const limite = g.tipo === 'histograma' || g.tipo === 'mapa' ? Infinity : Math.max(1, g.limite);
+    const limite = SIN_RECORTE.has(g.tipo) ? Infinity : Math.max(1, g.limite);
     if (lista.length > limite) {
       const conOtros = info?.grupo === 'Circular' || info?.grupo === 'Barras' || info?.grupo === 'Gráfico de rectángulos';
       if (conOtros) {
@@ -284,14 +464,24 @@ export function agregar(g: Grafico, filas: Fila[], desde: string, hasta: string)
 
   const out: Resultado = {
     columnas, totales, fuera, clase: dim.clase,
-    filas: lista.map((x) => ({
-      clave: x.clave,
-      etiqueta: dim.clase === 'tiempo' ? etiquetaTiempo(dim.id, x.clave) : x.clave,
-      valores: mets.map((mm) => valor(mm, x.a, fm)),
-      ...(x.a.fmin ? { desde: x.a.fmin, hasta: x.a.fmax } : {}),
-      ...refDeGrupo(x.a),
-    })),
+    filas: lista.map((x) => {
+      const mc = mets.map((mm) => muestraChicaDe(mm, x.a, fm));
+      return {
+        clave: x.clave,
+        etiqueta: dim.clase === 'tiempo' ? etiquetaTiempo(dim.id, x.clave) : x.clave,
+        valores: mets.map((mm) => valor(mm, x.a, fm)),
+        ...(x.a.fmin ? { desde: x.a.fmin, hasta: x.a.fmax } : {}),
+        ...refDeGrupo(x.a),
+        ...(x.a.img ? { imagen: x.a.img } : {}),
+        ...(x.a.geo && x.a.geo.k ? { geo: { lat: x.a.geo.lat / x.a.geo.k, lon: x.a.geo.lon / x.a.geo.k } } : {}),
+        ...(extras.length ? { extra: Object.fromEntries(extras.map((d) => [d.id, textoExtra(x.a.x?.[d.id], d)])) } : {}),
+        ...(mc.some((y) => y != null) ? { muestraChica: mc } : {}),
+      };
+    }),
     ...(serie ? { serie } : {}),
+    ...muestraTotal,
+    ...conSecundaria,
+    ...(extras.length ? { columnasExtra: extras.map((d) => ({ id: d.id, nombre: d.nombre })) } : {}),
   };
 
   // ── el cruce con el desglose, sobre la primera métrica ──
@@ -314,12 +504,19 @@ export function agregar(g: Grafico, filas: Fila[], desde: string, hasta: string)
       sumar(c, f, b);
       porColumna.set(kc, c);
     }
-    // Las columnas que más pesan primero; el resto, juntas en «Otros».
-    const cols = [...porColumna.entries()]
-      .map(([k, a]) => ({ k, o: valor(mets[0], a, fm) ?? 0 }))
-      .sort((x, y) => (x.k === SIN_DATO ? 1 : y.k === SIN_DATO ? -1 : y.o - x.o));
-    const quedan = cols.slice(0, MAX_COLUMNAS_DESGLOSE).map((x) => x.k);
-    const hayResto = cols.length > MAX_COLUMNAS_DESGLOSE;
+    // Las columnas que más pesan primero; el resto, juntas en «Otros». Un desglose con valores FIJOS
+    // (Ganada / Perdida, las bandas de prioridad) va en su orden, con sus vacíos, antes que lo demás.
+    const fijosDesg = desg.valores?.length ? [...new Set(desg.valores.map((v) => claveCategoria(v)))] : [];
+    const cols = [
+      ...fijosDesg.map((k) => ({ k, o: 0 })),
+      ...[...porColumna.entries()]
+        .filter(([k]) => !fijosDesg.includes(k))
+        .map(([k, a]) => ({ k, o: valor(mets[0], a, fm) ?? 0 }))
+        .sort((x, y) => (x.k === SIN_DATO ? 1 : y.k === SIN_DATO ? -1 : y.o - x.o)),
+    ];
+    const tope = Math.max(MAX_COLUMNAS_DESGLOSE, fijosDesg.length);
+    const quedan = cols.slice(0, tope).map((x) => x.k);
+    const hayResto = cols.length > tope;
     const claves = hayResto ? [...quedan, OTROS] : quedan;
     out.cruce = {
       claves,
@@ -473,3 +670,62 @@ export function chipComparar(ahora: number | null, antes: number | null): string
  * llega TAL CUAL a la tarjeta: «no hay datos» y «no está conectado» son dos cosas, y la segunda se arregla.
  */
 export class SinConexionError extends Error {}
+
+// ── Hasta dónde se lee: el corte en HOY, en UN lugar (contrato v5) ──────────────────────────
+// Hasta el 12/10/2026 seis puertas cortaban el período en hoy cada una a mano (la ruta en sus dos
+// acciones, la página, el link compartido, la API de MaKo en tres operaciones y el AI Analyst), y los
+// bloques no se cortaban. Una fecha que mira hacia ADELANTE (`futuro`: el vencimiento de una cuota) no
+// podía existir: la cuota que vence el viernes no aparecía en ningún gráfico. La REGLA es `hastaDe` (el
+// modelo, lib/graficos-catalogo.ts); acá se le suman la fecha por defecto y el «ayer» de la pauta, y la
+// llama `hastaDeFuente` (lib/graficos-datos.ts) adentro de `datosDeGraficos`, de `detalleDeGrafico` y de
+// `valoresDeCampo`. Quien necesita MOSTRAR el período ya cortado llama a `cortarEnHoy`.
+
+/** Las fuentes cuyo día en curso todavía no llegó (la pauta de Meta entra por cron): se leen hasta AYER. */
+const HASTA_AYER: ReadonlySet<string> = new Set(['meta', 'negocio', 'presupuesto']);
+
+/** La fecha con la que se lee el gráfico: la pedida, o la primera del conjunto (lo mismo que `sanearGrafico`). */
+const fechaDeLectura = (g: { fuente: string; fecha?: string | null }) => {
+  const f = fuenteDe(g.fuente);
+  return f?.fechas.find((x) => x.id === g.fecha) ?? f?.fechas[0];
+};
+
+/**
+ * El `hasta` cortado en HOY, salvo que la fecha del gráfico mire hacia adelante (`futuro`). Un período que
+ * empieza después de hoy queda en su primer día (no se da vuelta). Es lo que se MUESTRA como período leído;
+ * la lectura de verdad además corta la pauta en ayer (`hastaDeLectura`). La REGLA es `hastaDe` del modelo
+ * (lib/graficos-catalogo.ts, con su test): acá sólo se le pone la fecha por defecto del conjunto.
+ */
+export function cortarEnHoy(g: { fuente: string; fecha?: string | null }, desde: string, hasta: string, hoy: string): string {
+  return hastaDe(g.fuente, fechaDeLectura(g)?.id ?? '', desde, hasta, hoy);
+}
+
+/**
+ * Hasta dónde se lee una fuente: `cortarEnHoy` y, para la pauta y lo que la cruza, AYER — con hoy adentro,
+ * toda línea de gasto termina en un desplome a cero que no pasó (medido el 10/10 sobre el ws1), y el CAC
+ * de hoy saldría regalado.
+ */
+export function hastaDeLectura(g: { fuente: string; fecha?: string | null }, desde: string, hasta: string, hoy: string): string {
+  const h = cortarEnHoy(g, desde, hasta, hoy);
+  if (!HASTA_AYER.has(g.fuente) || fechaDeLectura(g)?.futuro) return h;
+  const ayer = diasAntes(hoy, 1);
+  return h > ayer ? (ayer < desde ? desde : ayer) : h;
+}
+
+// ── El plazo blando de una lectura (contrato v5, «la hoja Landing lenta») ───────────────────
+
+/** Una lectura que no contestó a tiempo. Su mensaje llega tal cual a la tarjeta («Tardó demasiado: …»). */
+export class PlazoVencidoError extends Error {}
+
+/**
+ * La promesa, o un `PlazoVencidoError(mensaje)` a los `ms`. ⚠️ El tope de /api/graficos es del PEDIDO entero
+ * (60 s): una lectura lenta lo pasaba, Vercel contestaba 504 y TODOS los gráficos de la hoja decían «No pude
+ * leer los datos», también los baratos. Con un plazo por lectura, la lenta dice que tardó y el resto llega.
+ * La lectura sigue corriendo atrás (no hay forma de cancelar un fetch de supabase-js desde acá): lo que se
+ * corta es la ESPERA. Su rechazo posterior no queda suelto: `Promise.race` ya lo tiene escuchado.
+ */
+export function conPlazo<T>(p: Promise<T>, ms: number, mensaje: string): Promise<T> {
+  if (!Number.isFinite(ms) || ms <= 0) return p;
+  let t: ReturnType<typeof setTimeout> | undefined;
+  const plazo = new Promise<never>((_, rechazar) => { t = setTimeout(() => rechazar(new PlazoVencidoError(mensaje)), ms); });
+  return Promise.race([p, plazo]).finally(() => clearTimeout(t));
+}
