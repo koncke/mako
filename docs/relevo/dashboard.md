@@ -26,6 +26,11 @@ mapa de calor en vivo.
 (que los gráficos que reemplazan a los bloques se lean bien), las tablas que antes eran «tabla de barras» (punto
 20), y el mapa de calor en vivo de su landing.
 
+**Después (12/10 ~12:00):** Buscar, Filtro, Editar y ⋮ en una sola fila de la topbar (`editor-css.ts`, `.lk-top-der`), y quien
+nunca guardó un informe arranca EN BLANCO con «Crear una página» (`page.tsx` `sinPaginas`, `EditorInforme` `enBlanco`; la
+primera que crea es la única). ⚠️ El teléfono (`/m/dashboard`) todavía le muestra Marketing y Comercial fijos a
+quien no tiene informe: falta aplicarle lo mismo.
+
 ## Lo que falta
 
 1. **Borrar el código muerto de los bloques** (ya no se dibuja ninguno): la lista exacta de qué está muerto y qué
