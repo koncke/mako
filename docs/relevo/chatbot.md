@@ -1,5 +1,14 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **EN COLA (12/10/2026 ~10:30, `claude3` al 91 % semanal): la DECIMOTERCERA tanda** (8 puntos con capturas; pedido literal en el
+> último hito de la bitácora): (1) la barra de «Pídeselo a MaKo» sin placeholder, con scroll y sin la animación que escribe
+> ejemplos; (2) al enviar no pasa nada visible: crear la fila YA en la lista y llevar al lienzo con un loader adentro; (3)
+> «Probar» deja probar con «Sin conectar»: frenar y decir qué falta conectar; (4) la estrella de «Pídeselo a MaKo» → el logo
+> de MaKo; (5) NO un modal nuevo para conectar Zernio: reusar el de Integraciones; (6) el chat de MaKo IGUAL en diseño al
+> de WhatsApp (otros colores); (7) lo que sugiere «MaKo te ayuda a escribirlo» queda en el historial del chat, con qué
+> tarjeta; (8) «MaKo te ayuda a escribirlo» en todos los canales (distinto por canal: email no es WhatsApp). Va en el
+> worktree `C:/dev/wt-undecima` (el clon de OneDrive no se pone al día).
+>
 > **HECHA, SIN PUSH (12/10/2026 ~08:00, `claude3`): la DUODÉCIMA tanda** (feedback de la prueba con Fiesta Music; el
 > pedido, en el último hito de la bitácora). Worktree `C:/dev/wt-undecima` (rama `undecima`), corrida `wf_ec999673-272`.
 > Diseño: `docs/diseno-duodecima-tanda.md`. Lo aprendido: `docs/hallazgos-chatbot.md` → «Duodécima tanda» (y en

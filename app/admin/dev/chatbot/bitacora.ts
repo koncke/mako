@@ -1473,4 +1473,14 @@ FEEDBACK PROBAR:
       "Lo de otras tabs se repartió: Landing Generator (presentación en vez de landing, la tira de imágenes), Integraciones vía la sesión de Pagos (campos que parecen completados, tutoriales largos); la migración de cursos desde Skool/Hotmart queda anotada sin dueño.",
     ],
   },
+  {
+    fecha: "12 oct", hora: "10:30", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Decimotercera tanda: la barra de MaKo, crear y llevarte al lienzo, Probar sin conexión, el chat igual al de WhatsApp",
+    pedido: "1. La barra de chat para hablar con MaKo se bugea, no se ve el placeholder, y tiene scroll, no debería tener scroll... Tampoco aparece más la animación de placeholder que escribe y borra cosas que se le puede pedir...\n2. Al momento de enviar eso, no ocurre nada... Se cierra el modal y queda varios segundos creando la automatización, pero eso esta mal, porque para el usuario pareciera que no funcionó... Me debe crear automáticamente la nueva automatización en la sidebar, y llevarme a ese lienzo... Que dentro aparezca un loader hasta que se cree está bien. Pero no debería no ocurrir nada...\n3. Me dice \"Sin zernio\", es decir que tampoco vinculé la cuenta de Instagram... Pero me permite probarlo, eso no debería pasar, si falta un paso, en ese caso de conexión, debe decirme que me falta conectar X cosa.\n4. Al crear una nueva automatización, previo al texto de \"Pídeselo a MaKo\" hay una estrella, elimina esa estrella y reemplazala por el logo de MaKo.\n\n5. No crees un nuevo modal de conectar la API, reutiliza exactamente el mismo que ya tenemos en integraciones.\n6. El chat con MaKo, para pedirle cosas y que haga modificaciones, quiero que sea exactamente igual en diseño al de WhatsApp... Solo cambiale unos colores o algunos detalles para que se note que es el chat con MaKo.\n7. Y las recomendaciones que te de MaKo, en \"MaKo te ayuda a escribirlo\" dentro de WhatsApp, todo eso se debe quedar guardado como parte del historial del chat, en este caso se tiene que ver que el usuario apretó el botón en X tarjeta...\n8. Falta el botón de \"MaKo te ayuda a escribirlo\" en todos los otros canales de comunicación, que no esté solo en WhatsApp... Pero claro, es diferente WhatsApp que Email por ejemplo, revisa eso.",
+    puntos: [
+      "Con capturas: el modal «Nueva automatización» con la barra de «Pídeselo a MaKo» rota (sin placeholder y con scroll), #246 «Enviar acceso por Instagram a compradore» con las tarjetas «Sin conectar», el modal «Conectar Instagram» nuevo, y el editor de WhatsApp de #213.",
+      "Llegó con la cuenta al 91 % semanal: se anotó y se dejó para la próxima ventana (o la otra cuenta), salvo lo chico.",
+    ],
+  },
 ];
