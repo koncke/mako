@@ -39,6 +39,7 @@ import {
 import { ARMADO, PLANTILLAS_ANALYSTS, PLANTILLAS_POPUP, POPUP_ANUNCIO } from './graficos-plantillas-analysts';
 import { PLANTILLAS_GENERALES } from './graficos-plantillas-generales';
 import type { RolWorkspace } from './auth-session';
+import { CAPA_DE_HOJA_DE_ROL } from './graficos-roles';
 
 export { PLANTILLAS_POPUP, POPUP_ANUNCIO, POPUP_LLAMADA, type PlantillaPopup } from './graficos-plantillas-analysts';
 
@@ -405,8 +406,8 @@ export type HojaDeRol = {
 
 /** EN POSITIVO: un rol que no está acá (el admin) no tiene hoja única; uno nuevo nace sin Dashboard. */
 export const HOJA_DE_ROL: Readonly<Partial<Record<RolWorkspace, HojaDeRol>>> = {
-  closer: { plantilla: 'closing', capa: 'closing', conjuntos: CLOSER_CONJUNTOS, error: 'Sólo la hoja Closing', nombre: 'Closing' },
-  setter: { plantilla: 'chat-analyst', capa: 'whatsapp', conjuntos: SETTER_CONJUNTOS, error: 'Sólo la hoja Chat Analyst', nombre: 'Chat Analyst' },
+  closer: { plantilla: 'closing', capa: CAPA_DE_HOJA_DE_ROL.closer, conjuntos: CLOSER_CONJUNTOS, error: 'Sólo la hoja Closing', nombre: 'Closing' },
+  setter: { plantilla: 'chat-analyst', capa: CAPA_DE_HOJA_DE_ROL.setter, conjuntos: SETTER_CONJUNTOS, error: 'Sólo la hoja Chat Analyst', nombre: 'Chat Analyst' },
 };
 
 /** La hoja única de un rol, o null (el admin, o un rol sin Dashboard). */

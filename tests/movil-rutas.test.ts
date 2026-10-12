@@ -84,9 +84,10 @@ test('admin de un cliente completo: la barra de cinco y More con todo, en tres g
 });
 
 test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () => {
-  // Closer: Dashboard (graphics) y MaKo. Setter: Automations (setting) y MaKo.
+  // Closer: Dashboard (graphics, su hoja Closing) y MaKo. Setter: Dashboard (su hoja Chat Analyst, desde la v5
+  // del 12/10/2026), Automations (setting) y MaKo.
   assert.deepEqual(mas('closer', 'completo'), [['dashboard'], ['mako']]);
-  assert.deepEqual(mas('setter', 'completo'), [['automations'], ['mako']]);
+  assert.deepEqual(mas('setter', 'completo'), [['dashboard', 'automations'], ['mako']]);
   // El closer entra al Dashboard SÓLO por la hoja Closing (app/dashboard/page.tsx): en una capa
   // sin Closing (pm tiene graphics, no closing), More no le ofrece una fila que lo rebota a Today.
   assert.equal(puedeVerKey('graphics', 'closer', 'pm'), true, 'el nav solo se la daría');

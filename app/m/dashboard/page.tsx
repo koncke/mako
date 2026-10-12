@@ -24,7 +24,7 @@ import { rutaConWs } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { leerTablero } from '@/lib/graficos-tablero';
-import { informeCloser } from '@/lib/graficos-plantillas';
+import { hojaDeRol, informeDeRol } from '@/lib/graficos-plantillas';
 import { ComputadoraM, FilaM, ListaM, PantallaM, SeccionM } from '@/app/m/_ui';
 import { DashboardM } from './DashboardM';
 import { entraEnTelefono, esHojaInicial, hojaComercial, hojaMarketing, hojaPropia, periodoPropio } from './datos';
@@ -43,10 +43,14 @@ export default async function DashboardPagina({ searchParams }: { searchParams: 
   // El «hoy» de los períodos es el de escritorio (app/dashboard/page.tsx).
   const hoy = hoyEnTijuana();
 
-  if (ctx.rol === 'closer') {
-    if (!tabEnCapa('closing', ctx.capa)) redirect(await rutaConWs(HOME_MOVIL));
-    // El informe del closer es el de escritorio: la hoja Closing con sus ids fijos, en memoria.
-    const h = informeCloser().hojas[0];
+  // El closer y el setter ven SÓLO su hoja (Closing y Chat Analyst: `HOJA_DE_ROL`), la de escritorio, con sus
+  // ids fijos y en memoria. Preguntar sólo por el closer dejaba al setter en la rama del admin: Marketing,
+  // Comercial y las hojas del informe.
+  const unica = hojaDeRol(ctx.rol);
+  const informeRol = informeDeRol(ctx.rol);
+  if (unica && informeRol) {
+    if (!tabEnCapa(unica.capa, ctx.capa)) redirect(await rutaConWs(HOME_MOVIL));
+    const h = informeRol.hojas[0];
     const def = periodoPropio(h);
     const periodos = def ? periodosParaHoja(def) : [];
     const periodo = def ? periodoDeParam(uno(p.periodo), periodos, def) : null;
@@ -54,7 +58,7 @@ export default async function DashboardPagina({ searchParams }: { searchParams: 
     return (
       <PantallaM refrescable>
         <DashboardM hojas={[hoja]} hojaInicial={hoja.id} periodo={periodo} periodos={periodos} fichaLead={false} />
-        <ComputadoraM que="Llamadas, embudo y factores" />
+        <ComputadoraM que={unica.plantilla === 'closing' ? 'Llamadas, embudo y factores' : 'Las conversaciones y sus tablas'} />
       </PantallaM>
     );
   }

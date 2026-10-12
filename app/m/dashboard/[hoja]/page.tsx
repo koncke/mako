@@ -16,7 +16,7 @@ import { requireMovil } from '@/lib/movil-guard';
 import { rutaConWs } from '@/lib/workspace';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { leerTablero } from '@/lib/graficos-tablero';
-import { hojaDestino } from '@/lib/graficos-plantillas';
+import { hojaDeRol, hojaDestino } from '@/lib/graficos-plantillas';
 import { CabeceraM, ComputadoraM, PantallaM } from '@/app/m/_ui';
 import { DashboardM } from '../DashboardM';
 import { entraEnTelefono, esHojaInicial, hojaPropia, periodoPropio } from '../datos';
@@ -35,7 +35,7 @@ export default async function HojaPropiaPagina({ params, searchParams }: {
 }) {
   const ctx = await requireMovil({ navKey: 'graphics' });
   const volver = '/m/dashboard';
-  if (ctx.rol === 'closer') redirect(await rutaConWs(volver));
+  if (hojaDeRol(ctx.rol)) redirect(await rutaConWs(volver));
 
   const [{ hoja: crudo }, p, lectura] = await Promise.all([params, searchParams, leerTablero()]);
   let id = crudo;

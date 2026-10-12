@@ -25,6 +25,7 @@
 
 import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
 import { tabEnCapa } from './capas';
+import { capaDeHojaDeRol } from './graficos-roles';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
 
 /** Los cinco destinos FIJOS de la barra. */
@@ -117,13 +118,15 @@ export function destinosVisibles(rol: RolMovil, capa: string | null | undefined)
 
 /**
  * ¿Este rol ve esta sección de More? La regla del Sidebar (`puedeVerKey`) y UNA excepción que
- * escritorio aplica en la página y no en el nav: el closer entra al Dashboard sólo para ver la
- * hoja Closing, y si su negocio no la compró lo saca (app/dashboard/page.tsx). Sin esto, More le
+ * escritorio aplica en la página y no en el nav: el closer y el setter entran al Dashboard sólo para
+ * ver SU hoja (Closing y Chat Analyst, `HOJA_DE_ROL`), y si su negocio no tiene la tab de esa hoja
+ * los saca (app/dashboard/page.tsx). Sin esto, More le
  * mostraba la fila y /m/dashboard lo devolvía a Today.
  */
 function veSeccion(s: DefSeccionMas, rol: RolMovil, capa: string | null | undefined): boolean {
   if (!puedeVerKey(s.navKey, rol, capa)) return false;
-  if (s.id === 'dashboard' && rol === 'closer' && !tabEnCapa('closing', capa)) return false;
+  const capaRol = s.id === 'dashboard' ? capaDeHojaDeRol(rol) : null;
+  if (capaRol && !tabEnCapa(capaRol, capa)) return false;
   return true;
 }
 
