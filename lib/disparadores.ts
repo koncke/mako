@@ -34,7 +34,7 @@ import { normalizarEtapas, etapasDe, TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETI
 import { valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, type DisparoActual } from './flujo-conversacion';
 import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
-import { partesExplicitas } from './mensaje-partes';
+import { partesExplicitas, sanearPartes } from './mensaje-partes';
 import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
 
 // ── Los tipos de disparador nuevos ──────────────────────────────────────────────────────────────
@@ -47,6 +47,12 @@ export const TRIGGER_INSTAGRAM = 'instagram';
 export const TRIGGER_MESSENGER = 'messenger';
 /** «Si recibo un email» (CRON punto 8). */
 export const TRIGGER_EMAIL_RECIBIDO = 'email_recibido';
+/**
+ * «Pagos» (11/10/2026, la pasarela de Stripe y Mercado Pago): CUÁL evento lo dice `subtipo`
+ * (`EVENTOS_PAGO`). Lo emite el webhook de la pasarela por `enrolarPorPago` (lib/pago-entrante.ts),
+ * DESPUÉS de asentar el pago en el CRM (así `fecha_primer_pago` ya está y la condición «Pagó» da bien).
+ */
+export const TRIGGER_PAGO = 'pago';
 /**
  * Un Recurrente cuyo «A quién» es SÓLO el grupo de MaKo: no hay cohorte de leads. Con cohorte y
  * grupo a la vez, el `trigger_tipo` es el de la cohorte y `grupo: true`.
@@ -70,6 +76,7 @@ export const TRIGGER_AVISO_MAKO = 'aviso_mako';
  */
 export const TRIGGERS_SOLO_EVENTO: ReadonlySet<string> = new Set([
   TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO,
+  TRIGGER_PAGO,
 ]);
 
 /**
@@ -100,7 +107,7 @@ export const TRIGGERS_NUEVOS: readonly string[] = [...TRIGGERS_SOLO_EVENTO, TRIG
  * y el evento de MaKo quedaba sin evento.
  */
 export const SOLO_DESDE_EL_CRON: ReadonlySet<string> = new Set([
-  TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_SOLO_GRUPO, ...TRIGGERS_DEL_EMISOR,
+  TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_PAGO, TRIGGER_SOLO_GRUPO, ...TRIGGERS_DEL_EMISOR,
 ]);
 export const MOTIVO_SOLO_DESDE_EL_CRON = 'Ese disparador se elige en el CRON de la automatización.';
 
@@ -109,22 +116,26 @@ export const TOPE_DISPARADORES = 10;
 /** Cuántas etiquetas se pueden «Ignorar». */
 export const TOPE_IGNORAR = 50;
 
-// ── Las seis clases de la primera pantalla ──────────────────────────────────────────────────────
+// ── Las siete clases de la primera pantalla ─────────────────────────────────────────────────────
 
 /**
- * `mako` = «Evento de MaKo» (11/10/2026). NO es un botón de la primera pantalla (`CLASES_DISPARADOR` sigue
- * en seis): una fila de evento nace de la galería con su CRON puesto, y no se cambia.
+ * `mako` = «Evento de MaKo» (11/10/2026). NO es un botón de la primera pantalla: una fila de evento nace de
+ * la galería con su CRON puesto, y no se cambia.
+ *
+ * `pagos` (11/10/2026): los eventos de la pasarela (Stripe / Mercado Pago). Martín eligió que sea un BOTÓN
+ * PROPIO y no un evento adentro de «Producto», con la grilla en 4+3 — nunca 3+3+1, que se ve roto.
  */
-export type ClaseDisparador = 'producto' | 'recurrente' | 'etiqueta' | 'instagram' | 'messenger' | 'email' | 'mako';
+export type ClaseDisparador = 'producto' | 'recurrente' | 'etiqueta' | 'instagram' | 'messenger' | 'email' | 'pagos' | 'mako';
 
-/** Los botones gigantes de la primera pantalla del CRON (CRON puntos 1, 2, 6, 7 y 8), en ese orden. */
+/** Los botones gigantes de la primera pantalla del CRON (CRON puntos 1, 2, 6, 7 y 8, y Pagos), en ese orden. */
 export const CLASES_DISPARADOR: ReadonlyArray<{ clase: ClaseDisparador; label: string }> = [
-  { clase: 'producto', label: 'Producto' },
+  { clase: 'producto', label: 'Funnel' },
   { clase: 'recurrente', label: 'Recurrente' },
   { clase: 'etiqueta', label: 'Etiqueta' },
   { clase: 'instagram', label: 'Instagram' },
   { clase: 'messenger', label: 'Messenger' },
   { clase: 'email', label: 'Email' },
+  { clase: 'pagos', label: 'Pagos' },
 ];
 
 /** Un evento de un canal. `apagado` = el motivo por el que todavía no se ofrece (como en ManyChat). */
@@ -165,8 +176,21 @@ export const EVENTOS_EMAIL: readonly EventoCanal[] = [
   { subtipo: 'recibido', label: 'Recibes un email' },
 ];
 
+/**
+ * «Pagos» (11/10/2026): lo que confirma la pasarela de un cobro creado en MaKo. El vocabulario del CRON;
+ * el del proveedor (checkout.session.completed, invoice.paid, approved…) lo traduce el webhook a éste
+ * (lib/cobros-eventos.ts), en UN lugar. Un pago aprobado dispara también en cada RENOVACIÓN de una
+ * suscripción: la automatización corre una vez por lead, así que la bienvenida sale con el primero.
+ */
+export const EVENTOS_PAGO: readonly EventoCanal[] = [
+  { subtipo: 'aprobado', label: 'Se aprueba un pago' },
+  { subtipo: 'rechazado', label: 'Se rechaza un pago' },
+  { subtipo: 'reembolsado', label: 'Se devuelve un pago' },
+  { subtipo: 'suscripcion_cancelada', label: 'Se cancela una suscripción' },
+];
+
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
-export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida';
+export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido';
 
 /**
  * LOS EVENTOS DE MAKO (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md §1): cada uno es un aviso del
@@ -176,19 +200,54 @@ export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida';
  *
  * `trae`: lo que el código que lo emite tiene en la mano. `mensaje` = el texto que arma (lo que sale con
  * `{{mensaje_mako}}`); `cuota` = los datos de la cuota (`{{cuota_monto}}`…). El lead, los tres.
+ * Undécima tanda (11/10/2026, punto 4: `{{mensaje_mako}}` «NO existe… No es trackeable»): `pago` = los datos del
+ * pago (`{{pago_monto}}`…, los pasa `avisarPagoRecibido`); `escrito` = lo que escribió el lead
+ * (`{{lead_escribio}}`, la charla). `mensaje` se queda en los dos hasta la limpieza (docs/diseno-undecima-tanda.md §8.7).
+ *
+ * `retirado` (undécima tanda, punto 8: «Debería estar todo en un mismo flujo de "Agendó reunión"»): el evento ya no se
+ * OFRECE a una fila nueva (`EVENTOS_MAKO_OFRECIDOS`, la galería): el aviso de nuevo agendado y el de la media hora antes
+ * son tarjetas «MaKo en WhatsApp» de «Un Lead Agendó Llamada». SIGUE en la tabla hasta la limpieza (§8.7): sin él,
+ * `eventoDeFila` devolvería null para las filas vivas (#239, #240) entre el deploy y el script de la ola 4, y sus avisos
+ * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
-export type EventoMako = EventoCanal & { subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota'> };
+export type EventoMako = EventoCanal & { subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito'>; retirado?: true };
 export const EVENTOS_MAKO: readonly EventoMako[] = [
-  { subtipo: 'reunion_pronto', aviso: 'reunion-recordatorio', label: 'Falta media hora para una reunión', trae: ['lead', 'mensaje'] },
-  { subtipo: 'lead_contesta', aviso: 'wa-mensaje-entrante', label: 'Un lead contesta y MaKo no le respondió', trae: ['lead', 'mensaje'] },
+  { subtipo: 'reunion_pronto', aviso: 'reunion-recordatorio', label: 'Falta media hora para una reunión', trae: ['lead', 'mensaje'], retirado: true },
+  { subtipo: 'lead_contesta', aviso: 'wa-mensaje-entrante', label: 'Un lead contesta y MaKo no le respondió', trae: ['lead', 'escrito', 'mensaje'] },
   { subtipo: 'cuota_vencida', aviso: 'cuota-vencida', label: 'Una cuota vence sin cobrarse', trae: ['lead', 'cuota'] },
+  // GENERAL 7 de la décima tanda (11/10/2026), textual: «Vuelve a poner la automatización que avisa que se agendó un
+  // nuevo lead en Mauricio y Código». El aviso nunca se dejó de mandar (sale de los webhooks de Calendly y Cal.com);
+  // lo que no se veía era la AUTOMATIZACIÓN. Desde acá sale sólo por la fila de este evento (docs/diseno-automations-
+  // galeria-v2.md §5), y la mudanza de ws1 y ws13 la crea antes del deploy (scripts/mudanza-nuevo-agendado.mts).
+  { subtipo: 'lead_agendo', aviso: 'reunion-nuevo-agendado', label: 'Un lead agenda una reunión', trae: ['lead', 'mensaje'], retirado: true },
+  // La pasarela de pagos (11/10/2026): el aviso «Entró un pago» lo arma lib/cobros.ts cuando Stripe o Mercado Pago
+  // confirman un cobro creado en MaKo. Al equipo (el grupo de MaKo), no al lead: al lead le escribe el CRON «Pagos».
+  { subtipo: 'pago_recibido', aviso: 'pago-recibido', label: 'Entra un pago', trae: ['lead', 'pago', 'mensaje'] },
 ];
+
+/**
+ * LOS EVENTOS DE MaKo QUE SE OFRECEN a una fila nueva: sin los `retirado` (la cobranza, la charla y el pago). Los
+ * retirados se siguen LEYENDO (`eventosDe('mako')`, `eventoDeFila`) hasta la limpieza.
+ */
+export const EVENTOS_MAKO_OFRECIDOS: readonly EventoMako[] = EVENTOS_MAKO.filter((e) => !e.retirado);
+
+/**
+ * LOS EVENTOS QUE OFRECE EL SELECTOR DEL CRON (app/automations/EditorDisparadores.tsx): los de la clase, y en «Evento
+ * de MaKo» sólo `EVENTOS_MAKO_OFRECIDOS` (undécima tanda: «Un lead agenda» y «Falta media hora» son tarjetas de «Un
+ * Lead Agendó Llamada»). El que la fila YA tiene se sigue viendo elegido (una fila viva de antes, hasta el script);
+ * cambiarlo a un retirado lo frena igual `problemaDeCambio`.
+ */
+export function eventosOfrecidos(clase: ClaseDisparador | 'otro' | null, elegido: unknown): readonly EventoCanal[] {
+  if (clase !== 'mako') return eventosDe(clase);
+  return EVENTOS_MAKO.filter((e) => EVENTOS_MAKO_OFRECIDOS.includes(e) || e.subtipo === elegido);
+}
 
 /** Los eventos de una clase de canal (vacío para las demás). */
 export function eventosDe(clase: ClaseDisparador | 'otro' | null): readonly EventoCanal[] {
   if (clase === 'instagram') return EVENTOS_INSTAGRAM;
   if (clase === 'messenger') return EVENTOS_MESSENGER;
   if (clase === 'email') return EVENTOS_EMAIL;
+  if (clase === 'pagos') return EVENTOS_PAGO;
   if (clase === 'mako') return EVENTOS_MAKO;
   return [];
 }
@@ -216,10 +275,14 @@ export function subtipoDelEvento(canal: 'instagram' | 'messenger', subtipoDelWeb
 }
 
 /** El `trigger_tipo` de cada clase de canal. */
-const TRIGGER_DE_CANAL: Record<'instagram' | 'messenger' | 'email', string> = {
-  instagram: TRIGGER_INSTAGRAM, messenger: TRIGGER_MESSENGER, email: TRIGGER_EMAIL_RECIBIDO,
+/** Las clases cuyo CRON es «elegí el evento» (`subtipo`): los canales y los pagos. */
+export type ClaseDeEventos = 'instagram' | 'messenger' | 'email' | 'pagos';
+export const esClaseDeEventos = (c: ClaseDisparador | 'otro' | null): c is ClaseDeEventos =>
+  c === 'instagram' || c === 'messenger' || c === 'email' || c === 'pagos';
+const TRIGGER_DE_CANAL: Record<ClaseDeEventos, string> = {
+  instagram: TRIGGER_INSTAGRAM, messenger: TRIGGER_MESSENGER, email: TRIGGER_EMAIL_RECIBIDO, pagos: TRIGGER_PAGO,
 };
-export const triggerDeCanal = (c: 'instagram' | 'messenger' | 'email'): string => TRIGGER_DE_CANAL[c];
+export const triggerDeCanal = (c: ClaseDeEventos): string => TRIGGER_DE_CANAL[c];
 
 /**
  * ¿Está conectado el canal? Lo contesta el servidor (lib/disparadores-canales.ts). `conectado: null`
@@ -227,7 +290,7 @@ export const triggerDeCanal = (c: 'instagram' | 'messenger' | 'email'): string =
  * no puede llegar es una automatización que no arranca nunca, sin error).
  */
 export type EstadoCanal = { conectado: boolean | null; motivo?: string; cuenta?: string | null };
-export type EstadoCanales = Record<'instagram' | 'messenger' | 'email', EstadoCanal>;
+export type EstadoCanales = Record<ClaseDeEventos, EstadoCanal>;
 
 // ── El dato ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -284,7 +347,7 @@ const DE_ETAPA: ReadonlySet<string> = new Set([TRIGGER_ETAPA, TRIGGER_ENTREGA]);
 /** Las que llevan `ignorar`. */
 const CON_IGNORAR: ReadonlySet<string> = new Set([TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA]);
 /** Las que llevan `subtipo` (el evento de MaKo también: cuál de `EVENTOS_MAKO`). */
-const CON_SUBTIPO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO]);
+const CON_SUBTIPO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO, TRIGGER_PAGO]);
 
 /**
  * CADA DISPARADOR LLEVA SÓLO LOS CAMPOS DE SU TIPO. Un campo de otro tipo que sobrevive a un cambio
@@ -461,19 +524,48 @@ export function nuevosOCambiados(lista: readonly Disparador[], previos: readonly
 
 // ── Qué es cada uno ─────────────────────────────────────────────────────────────────────────────
 
-/** La clase de un disparador. `null` = todavía no se eligió nada (`manual`); `otro` = uno de antes. */
-export function claseDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): ClaseDisparador | 'otro' | null {
-  if (d.cron) return 'recurrente';
-  const t = d.trigger_tipo;
-  if (t === 'manual' || !t) return null;
+/** La clase de las seis (o `mako`) que tiene un `trigger_tipo`, sin mirar el horario. null = ninguna. */
+function claseDelTipo(t: string): ClaseDisparador | null {
   if (DE_ETAPA.has(t)) return 'producto';
   if (t === TRIGGER_ETIQUETA || CON_IGNORAR.has(t)) return 'etiqueta';
   if (t === TRIGGER_INSTAGRAM) return 'instagram';
   if (t === TRIGGER_MESSENGER) return 'messenger';
   if (t === TRIGGER_EMAIL_RECIBIDO) return 'email';
+  if (t === TRIGGER_PAGO) return 'pagos';
   if (t === TRIGGER_AVISO_MAKO) return 'mako';
   if (t === TRIGGER_SOLO_GRUPO) return 'recurrente';
-  return 'otro';
+  return null;
+}
+
+/**
+ * ¿ES UN EVENTO DE ANTES? Un CRON que arranca por un evento del catálogo (`TRIGGERS`: «dejó el formulario
+ * sin agendar», «agendó», «no asistió»…) que el panel ya no ofrece: los eventos pasaron a las condiciones
+ * en la tercera tanda («Elimina lo de "Eventos" todo eso debería ir dentro del editable del CONDICIONAL»).
+ * Medido el 11/10/2026: 6 de las 8 automatizaciones vivas arrancan así (docs/diseno-automations-configuraciones.md
+ * §4). Con horario no cuenta: ése es un Recurrente y su «A quién» ya lo dice. Y los del EMISOR (el
+ * recordatorio de la reunión) tampoco: no son de antes, son de otro motor (`TRIGGERS_DEL_EMISOR`).
+ */
+export function esEventoDeAntes(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): boolean {
+  const t = d.trigger_tipo;
+  return !d.cron && !!t && t !== 'manual' && !TRIGGERS_DEL_EMISOR.has(t) && claseDelTipo(t) == null;
+}
+
+/**
+ * La clase de un disparador. `null` = todavía no se eligió nada (`manual`).
+ *
+ * ⚠️ UN EVENTO DE ANTES ES «PRODUCTO» (décima tanda, CRON 2, 11/10/2026: «al editar el segundo paso no me
+ * aparece ningún desplegable... O que no se selecciona los pasos que elegí... Nunca nada debe quedar en una
+ * versión vieja»). Era `otro`: la primera pantalla no marcaba ninguna de las seis y el editor lo dibujaba como
+ * un texto con «←», sin desplegable. Ahora abre el de Producto con lo puesto en el botón, «(de antes)»
+ * (`textoDeDisparador`), y elegir una etapa lo reemplaza. Lo que es de antes lo dice `esEventoDeAntes`.
+ * `otro` queda para el recordatorio de la reunión (su emisor lo dice como es, sin editor) y para el ícono de
+ * lo que todavía no se eligió (`iconoDeDisparador`).
+ */
+export function claseDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): ClaseDisparador | 'otro' | null {
+  if (d.cron) return 'recurrente';
+  const t = d.trigger_tipo;
+  if (t === 'manual' || !t) return null;
+  return claseDelTipo(t) ?? (esEventoDeAntes(d) ? 'producto' : 'otro');
 }
 
 /** ¿Tiene una cohorte de leads? (el grupo solo y «a mano» no). */
@@ -507,7 +599,7 @@ export function conDisparo(d: Disparador, a: DisparoActual): Disparador {
 /** Un disparador nuevo, sin elegir todavía, de una clase (lo que dibuja el editor hasta que se elige). */
 export function borradorDeClase(clase: ClaseDisparador, id: string, cronPorDefecto: CronAviso): Disparador {
   if (clase === 'recurrente') return { id, trigger_tipo: 'manual', cron: cronPorDefecto, cron_proxima_at: null };
-  if (clase === 'instagram' || clase === 'messenger' || clase === 'email') return { id, trigger_tipo: TRIGGER_DE_CANAL[clase], subtipo: null };
+  if (esClaseDeEventos(clase)) return { id, trigger_tipo: TRIGGER_DE_CANAL[clase], subtipo: null };
   if (clase === 'etiqueta') return { id, trigger_tipo: 'manual' };
   return { id, trigger_tipo: 'manual' };
 }
@@ -578,13 +670,19 @@ export function problemaDeCambio(previos: readonly Disparador[], lista: readonly
     return igual ? null : MOTIVO_CRON_FIJO;
   }
   const deNada = previos.every((d) => d.trigger_tipo === 'manual' && !d.cron);
-  return deNada ? null : MOTIVO_CRON_FIJO;
+  if (!deNada) return MOTIVO_CRON_FIJO;
+  // Undécima tanda: una fila NUEVA (pegar, duplicar) no nace con un Evento de MaKo retirado. La que ya lo tiene sigue
+  // (arriba: sin cambios, se guarda igual) hasta la limpieza.
+  return ahora.some((d) => d.trigger_tipo === TRIGGER_AVISO_MAKO && EVENTOS_MAKO.some((e) => e.retirado && e.subtipo === d.subtipo)) ? MOTIVO_EVENTO_RETIRADO : null;
 }
+
+/** Lo que contesta poner en una fila nueva un Evento de MaKo retirado (`EventoMako.retirado`). */
+export const MOTIVO_EVENTO_RETIRADO = 'Ese evento se retiró: va en «Un Lead Agendó Llamada»';
 
 // ── Cuándo dispara un evento ────────────────────────────────────────────────────────────────────
 
 /** Los eventos de los disparadores nuevos (los de siempre los decide lib/nutricion-etapa.ts). */
-export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido';
+export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido' | 'pago';
 
 /**
  * ¿ESTE disparador arranca con ESTE evento? Es la pregunta fina del evento (la gruesa, qué
@@ -618,6 +716,12 @@ export function disparaPorEvento(
     return t === (evento === 'instagram' ? TRIGGER_INSTAGRAM : TRIGGER_MESSENGER) && !!sub && d.subtipo === sub;
   }
   if (evento === 'email_recibido') return t === TRIGGER_EMAIL_RECIBIDO;
+  // Pagos: el MISMO evento (`subtipo`), como Instagram. Sin subtipo, nada: un aviso de la pasarela que no
+  // dice qué pasó no puede caer en «entonces todos».
+  if (evento === 'pago') {
+    const sub = typeof ctx?.subtipo === 'string' ? ctx.subtipo : '';
+    return t === TRIGGER_PAGO && !!sub && d.subtipo === sub;
+  }
   return false;
 }
 
@@ -816,8 +920,14 @@ export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
     const ev = eventosDe(claseDeDisparador({ trigger_tipo: t, cron: null })).find((e) => e.subtipo === d.subtipo);
     return ev?.label ?? 'Elige el evento';
   }
+  // Un evento de antes se dice como es y se MARCA (décima tanda, CRON 2): en la tarjeta y en el botón del
+  // desplegable de Producto, que es donde se cambia. Hasta que se migre (scripts/migrar-cron-de-antes.mts).
+  if (esEventoDeAntes(d)) return `${n.deSiempre(d)} ${MARCA_DE_ANTES}`;
   return n.deSiempre(d);
 }
+
+/** Lo que se le pega a un evento de antes donde se dice (la tarjeta, el botón del desplegable). */
+export const MARCA_DE_ANTES = '(de antes)';
 
 /** La clave del ícono de cada fila (la dibuja `IconoDisparador`, app/automations/IconosDisparador.tsx). */
 export function iconoDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): ClaseDisparador | 'otro' {
@@ -833,7 +943,8 @@ export function iconoDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>):
  * que la automatización dice, recorriendo la salida desde el CRON:
  *   · una tarjeta WHATSAPP de texto (o «MaKo lo adapta», con su texto base) → su texto, y de un
  *     mensaje de varias partes, las partes de texto (y el pie de un archivo);
- *   · una tarjeta MAKO (`avisar_al_equipo`) → su mensaje;
+ *   · una tarjeta MAKO (`avisar_al_equipo`) → sus partes de texto y los pies de sus archivos (o su
+ *     mensaje, si es de antes y no tiene partes);
  *   · un DELAY no se espera (sale todo junto): el grupo no tiene una corrida que esperar;
  *   · una CONDITION, «Si responde» o un «Ir a» CORTAN ese camino: no hay un lead sobre el cual
  *     decidir, y elegir una rama por él sería inventar;
@@ -864,8 +975,23 @@ export function textosParaElGrupo(pasos: readonly PasoGrafo[]): string[] {
     }
     if (clase === 'accion') {
       const a = p.accion as { operacion?: unknown; params?: Record<string, unknown> } | null | undefined;
-      const m = a?.operacion === OP_AVISAR && typeof a.params?.mensaje === 'string' ? a.params.mensaje.trim() : '';
-      if (m) out.push(m);
+      if (a?.operacion === OP_AVISAR) {
+        // Undécima tanda: la tarjeta «MaKo en WhatsApp» va por PARTES (`params.partes`; lib/mako-tarjeta.ts,
+        // `partesDeMako`). Salen sus textos y los pies de sus archivos, como en una tarjeta WhatsApp; el espejo
+        // `mensaje` sólo en una de antes, sin partes (si no, una que es sólo la Voz de MaKo mandaba al grupo el
+        // texto «🎤 Nota de voz de MaKo»). Se sanea acá con `sanearPartes`: importar lib/mako-tarjeta.ts cerraría
+        // un ciclo (→ nutricion-grafo-motor → zona-negocio-reglas → este archivo).
+        const crudas = a.params?.partes;
+        if (Array.isArray(crudas)) {
+          for (const pt of sanearPartes(crudas)) {
+            if (pt.tipo === 'texto' && pt.cuerpo.trim()) out.push(pt.cuerpo.trim());
+            if (pt.tipo === 'media' && pt.cuerpo?.trim()) out.push(pt.cuerpo.trim());
+          }
+        } else {
+          const m = typeof a.params?.mensaje === 'string' ? a.params.mensaje.trim() : '';
+          if (m) out.push(m);
+        }
+      }
     }
     for (const pu of puertosDe(pasos, i)) recorrer(pu.destino, profundidad + 1);
   };

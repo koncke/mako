@@ -3,19 +3,23 @@
 // =============================================================================
 // Body: { recording_id: number }. Baja el contenido de Fathom, corre Claude y
 // hace upsert en closing_analyses. Sirve para forzar el re-análisis de una
-// llamada (p.ej. clasificada mal, o que falló). Gated por el login del dashboard.
+// llamada (p.ej. clasificada mal, o que falló): «↻ Re-analizar» de la ficha de
+// una llamada (app/dashboard/bloques/extra/FichaLlamada.tsx).
+//
+// Puerta (../puerta.ts): admin o closer, el Dashboard en la capa y Fathom conectado.
+// Paga IA: un setter no llega acá.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { analyzeOne } from '@/lib/closing';
-import { integracionConectada } from '@/lib/credenciales';
+import { puertaClosing } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
-  // Fase 1: analizar baja contenido del Fathom global del dueño → solo él.
-  if (!(await integracionConectada('fathom'))) return Response.json({ ok: false, error: 'Fathom no está conectado en este workspace. Conéctalo en Configuraciones → Método.' }, { status: 403 });
+  const cerrada = await puertaClosing({ fathom: true });
+  if (cerrada) return cerrada;
   let body: { recording_id?: number | string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 

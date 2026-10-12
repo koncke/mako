@@ -99,6 +99,27 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/integraciones.ts: la única integración cuyo estado son eventos REALES
     { t: 'La única que se comprueba de verdad', d: 'Las demás se ven «conectadas» porque hay una credencial cargada. Esta se pone en verde solo cuando llega un evento real.' },
   ],
+  // La pasarela de pagos (11/10/2026, docs/diseno-pasarela-pagos.md). Cada slide afirma sólo lo que
+  // está escrito en el contrato y en la lib que cita; lo que es FASE 2 (el botón «Pagos» del CRON de
+  // Automations, el aviso al dueño) no se promete aquí.
+  stripe: [
+    // lib/cobros.ts (crearCobro, urlParaPagar) + app/pagar/[token]
+    { t: 'Un link de pago por lead', d: 'Desde la ficha del lead armas el link con el monto y se lo mandas. Si el de Stripe vence, el link de MaKo crea otro solo.' },
+    // app/api/webhooks/stripe + lib/cobros.ts (aplicarPagoAprobado → lib/pagos.ts registrarCobroDeProveedor)
+    { t: 'El pago entra solo al CRM', d: 'Cuando te pagan, la cuota queda pagada en la ficha y el lead pasa a ganado. Sin cargar nada a mano.' },
+    // lib/stripe-api.ts (mode subscription, interval month) + invoice.paid en el webhook
+    { t: 'Cobros mensuales', d: 'Una suscripción cobra cada mes, y cada renovación suma su cuota pagada en la ficha.' },
+    // lib/cobros-conexion.ts (descubrirStripe → asegurarWebhookStripe)
+    { t: 'Se configura con una clave', d: 'Pegas tu clave y MaKo encuentra tu cuenta y registra el aviso de pagos en Stripe por ti.' },
+  ],
+  mercadopago: [
+    // lib/cobros.ts (crearCobro) + lib/pasarela-moneda.ts (la moneda sale del sitio de la cuenta)
+    { t: 'Un link de pago por lead', d: 'Desde la ficha del lead armas el link en la moneda de tu país y se lo mandas por donde quieras.' },
+    // app/api/webhooks/mercadopago + lib/cobros.ts (aplicarPagoAprobado)
+    { t: 'El pago entra solo al CRM', d: 'Cuando te pagan, la cuota queda pagada en la ficha y el lead pasa a ganado. Sin cargar nada a mano.' },
+    // app/api/webhooks/mercadopago: el aviso no se cree, se relee el pago con tu token (§4.5 del contrato)
+    { t: 'Un aviso falso no marca nada', d: 'Antes de anotar un pago, MaKo lo vuelve a consultar en tu cuenta de Mercado Pago. Solo cuenta lo que Mercado Pago confirma.' },
+  ],
   // Claude enchufado a MaKo. Sin API key: se instala una skill del lado del usuario y
   // habla por /api/agente/* con un token.
   //

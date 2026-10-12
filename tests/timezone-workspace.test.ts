@@ -66,30 +66,57 @@ test('Y toda lada de la tabla existe en el catálogo de países', () => {
   }
 });
 
-test('La zona se AVERIGUA, y por orden de autoridad', () => {
-  const src = leer('../lib/timezone.ts');
-  // Sobre el CÓDIGO: la prosa de arriba nombra las tres fuentes para explicarlas y
-  // desordenaría los índices. (Tercera vez en esta sesión que un test se dispara
-  // contra su propio comentario — vale como recordatorio.)
-  const codigo = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  // Lo que el cliente ELIGIÓ en su herramienta de agenda manda sobre cualquier
-  // inferencia nuestra.
-  const iCal = codigo.indexOf('tzDeCalcom');
-  const iGoo = codigo.indexOf('tzDelCalendarioGoogle');
-  const iTel = codigo.indexOf('tzDeTelefono');
-  assert.ok(iCal > 0 && iGoo > iCal && iTel > iGoo,
-    'cambió el orden de las fuentes: el teléfono es una inferencia y va ÚLTIMO');
-  assert.match(src, /resolverYGuardarTz/, 'tzDeWorkspace volvió a devolver el default sin averiguar nada');
+// ── 11/10/2026 · la undécima tanda de Automations, decisión 4 de la décima ─────────────────────
+// Lo de arriba (averiguar la zona en la LECTURA y guardarla) se dio vuelta: una lectura con efectos obligó a tres
+// módulos de la API a reimplementar una lectura que no escribiera, y al motor a tener su propio default (Ciudad de
+// México) para no pagar la carrera de red por tick. Ahora la zona se DETECTA del navegador de los admins propios del
+// negocio (app/_components/zona-actions.ts) y, para los que nadie abre, de las integraciones del cliente
+// (`inferirZonaDesdeIntegraciones`) y del backfill. `tzDeWorkspace` es LA lectura: una consulta, sin red.
+//
+// Probado rompiéndolo (11/10/2026), una rotura por vez con este archivo solo; base 7 pasan / 0 fallan:
+//   T1. el teléfono antes que Meta en `averiguarZona`                                 → 6 / 1 (el orden de las fuentes)
+//   T2. `tzDeWorkspace` vuelve a llamar a `inferirZonaDesdeIntegraciones`            → 6 / 1 (la lectura no sale a la red)
+//   T3. `inferirZonaDesdeIntegraciones` sin el `Promise.race` de 4 s                  → 6 / 1 (techo y sin escribir)
+//   T4. el memo guarda una lectura fallida (`p.catch(() => {})`)                      → 6 / 1 (techo y sin escribir)
+
+/** El cuerpo de una función de lib/timezone.ts, sin comentarios. */
+const TZ = leer('../lib/timezone.ts').replace(/\r\n/g, '\n').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const cuerpoDe = (abre: string, cierra: string): string => {
+  const i = TZ.indexOf(abre);
+  assert.ok(i >= 0, `no encontré «${abre}» en lib/timezone.ts`);
+  const f = TZ.indexOf(cierra, i + abre.length);
+  return TZ.slice(i, f > i ? f : undefined);
+};
+
+test('La zona se INFIERE de las integraciones del cliente, por orden de autoridad', () => {
+  // Lo que el cliente ELIGIÓ en su herramienta de agenda manda; después la cuenta publicitaria de Meta (su
+  // `timezone_name`: el ws1 y el ws4 dicen America/Tijuana, el ws11 America/Cancun); el teléfono, ÚLTIMO.
+  const inf = cuerpoDe('async function averiguarZona(', '\n}\n');
+  const iCal = inf.indexOf('tzDeCalcom');
+  const iGoo = inf.indexOf('tzDelCalendarioGoogle');
+  const iMeta = inf.indexOf('cuentaMeta');
+  const iTel = inf.indexOf('tzDeTelefono');
+  assert.ok(iCal > 0 && iGoo > iCal && iMeta > iGoo && iTel > iMeta,
+    'cambió el orden de las fuentes: Cal.com → Google → Meta → teléfono (el teléfono es una inferencia y va ÚLTIMO)');
+  assert.match(inf, /timezoneName/, 'de Meta se usa la zona de la cuenta, no el país fiscal');
 });
 
-test('Un default que no se pudo verificar NO se guarda', () => {
-  // Guardarlo convierte «no pude averiguarlo» en «esta es su zona», y eso ya no se
-  // reintenta nunca. Es la regla de la casa aplicada acá: no poder leer un dato no
-  // es un valor del dato.
-  const src = leer('../lib/timezone.ts');
-  const i = src.indexOf('if (!hallada) return TZ_DEFAULT;');
-  assert.ok(i > 0, 'se perdió la salida sin guardar');
-  const antes = src.slice(Math.max(0, i - 500), i);
-  assert.ok(!/setTimezoneWorkspace/.test(antes), 'se guarda el default antes de comprobar que se averiguó');
-  assert.match(src, /Promise\.race/, 'la averiguación perdió su techo de tiempo: puede frenar un render');
+test('Una LECTURA de la zona no sale a la red ni escribe', () => {
+  // `tzDeWorkspace` tiene ~53 llamadas en ~40 archivos: es `zonaDelNegocio` con su nombre de siempre.
+  assert.match(cuerpoDe('export async function tzDeWorkspace(', '\n}\n'), /return zonaDelNegocio\(ws\);/);
+  const lectura = cuerpoDe('const SIN_ZONA', 'export type ResultadoZona');
+  for (const prohibido of ['inferirZonaDesdeIntegraciones', 'averiguarZona', 'fijarZonaDelNegocio', 'escribirZonaSi', '.insert(', '.update(', '.upsert(', 'fetch(']) {
+    assert.ok(!lectura.includes(prohibido), `la lectura de la zona usa ${prohibido}`);
+  }
+  assert.match(lectura, /\.eq\('workspace_id', ws\)/, 'la zona se lee por workspace EXPLÍCITO');
+});
+
+test('La inferencia tiene techo y NO guarda: decide quien la usa, y un error de lectura no se memoriza', () => {
+  const inf = cuerpoDe('export function inferirZonaDesdeIntegraciones(', '\n}\n');
+  assert.match(inf, /Promise\.race/, 'la inferencia perdió su techo de tiempo: puede frenar una pantalla');
+  assert.match(inf, /setTimeout\(\(\) => r\(null\), 4000\)/);
+  const fuentes = cuerpoDe('async function averiguarZona(', '\n}\n');
+  assert.ok(!/fijarZonaDelNegocio|escribirZonaSi|setSetting|\.upsert\(|\.insert\(/.test(inf + fuentes), 'la inferencia guarda lo que averiguó');
+  // «No pude leer» no es un valor: se devuelve el default SIN memorizarlo.
+  assert.match(TZ, /p\.catch\(\(\) => \{ if \(memo\.get\(ws\)\?\.p === p\) memo\.delete\(ws\); \}\);/);
 });

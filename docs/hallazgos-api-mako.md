@@ -1091,3 +1091,95 @@ viernes» → «la tarea», el turno le avisa al modelo que no tiene con qué ca
 
 _09/10/2026 — agente en worktree + revisión adversarial (8 roturas, cada una con su fallo, y dos del
 implementador re-hechas); `tests/agenda-whatsapp.test.ts` 16/16. Integrado por quien escribe esto._
+
+## El área `cobros` (11/10/2026, la pasarela de pagos)
+
+### Sumar el área a `AREA_KEYWORDS` no alcanzaba: el diagnóstico obvio era el equivocado
+
+**Medido:** «mandale un link de pago a Ana», «reembolsale el pago a Carlos» y «creá un checkout de
+Mercado Pago para Laura» salían `capturar` y DUDOSAS, y con una intención dudosa `herramientasDelTurno`
+ni siquiera mira las áreas del texto. **Causa:** no había ninguna regla que reconociera un pedido de
+cobro. **Regla:** la señal es el OBJETO (link de pago, checkout, reembolso, suscripción) más un verbo de
+pedido, y las tres puertas (clasificador, router y `esCargaDePlan`) dicen lo mismo.
+**Vive en:** `lib/mako-intencion.ts` (`esPedidoDeCobro`) · `lib/mako-router.ts` · `lib/mako-doer-in.ts`.
+
+### «Cancelá» es una palabra de CONFIRMACIÓN
+
+Con una pendiente abierta, «cancelá la suscripción de Pedro» se leía como «cancelá la pendiente». Todo
+pedido por objeto se excluye de la regla 1 del clasificador. **Vive en:** `lib/mako-intencion.ts`.
+
+### Las áreas del clasificador incluyen las de las lecturas PREVIAS
+
+Sin `crm` en el turno, `crear_link_pago` llegaba sin `listar_productos` (de donde sale el `productoId`):
+comprobado rompiéndolo. **Vive en:** `lib/mako-intencion.ts` (`AREAS_COBROS`).
+
+### Mercado Pago no crea links por la API, a propósito
+
+El catálogo está en USD y Mercado Pago cobra en la moneda de su cuenta: `preparar()` lo rechaza con un
+mensaje claro en vez de dejar una pendiente que falla al confirmar. Y `crear_link_pago` no duplica: con
+un link pendiente del mismo producto y pasarela devuelve `yaEstaba` y vuelve a pasar ESE link.
+**Vive en:** `lib/api-mako/areas/cobros.run.ts`.
+
+### Una fuente nueva de variables rompe dos tests que no la nombran
+
+`tests/datos-mensaje.test.ts` (`porFuente`, un `Record<FuenteDato>`) y el prefijo `link_` de
+`tests/variables-aviso.test.ts` se rompen con cualquier fuente o variable nueva (`{{link_pago}}`, fuente
+`cobro`). **Vive en:** `lib/variables-aviso.ts`.
+
+_11/10/2026 — `tests/api-mako-cobros.test.ts` (15, probado con 10 roturas)._
+
+## El área Dashboard (11/10/2026, 22 operaciones en `metricas`)
+
+### Lo que viene de un agente se valida ESTRICTO antes de sanear
+
+El modelo del Dashboard corrige en silencio: `sanearGrafico` convierte una métrica o un tipo que no existe
+en otra cosa sin error, y `sanearElemento` aceptaba como Video cualquier https. Por la API eso es un
+gráfico distinto del que se pidió y un «ok». **Regla:** cada operación valida contra el catálogo vigente y
+rechaza con la lista de lo disponible (`armarGrafico`, `armarElemento`, `armarControlHoja`); el saneo queda
+para lo que ya está guardado. **Vive en:** `lib/api-mako/areas/dashboard.helpers.ts`.
+
+### Para borrar un campo de texto se manda `-`
+
+El validador tira el `''` como «no vino» (`lib/api-mako/validar.ts:83`), así que un vacío nunca llega al
+runner y no hay forma de vaciar un subtítulo. Mismo agujero que `vaciaEsValor` para las listas.
+
+### El tablero leído sin cookie miente
+
+Fuera de una request (un flujo, un token), `leerTablero()` devolvía el tablero inicial como si no hubiera
+nada guardado: `lib/settings.ts` cae a `OWNER_WS` cuando no hay workspace. La lectura de la API exige
+workspace y tira si falta (`wsDeLaLectura`, `lib/graficos-tablero.ts`).
+
+### El compare-and-set no compara el JSON
+
+Un `.eq` sobre el valor del tablero rompe el largo de la URL de PostgREST. Va un hash del valor y el
+compare-and-set sobre `updated_at` (`guardarTableroSi`). ⚠️ El autoguardado del editor todavía escribe sin
+versión: dos escritores, gana el último (ver [hallazgos-graficos.md](hallazgos-graficos.md)).
+
+### La persona se NOMBRA, y en un flujo es obligatoria
+
+Un `Ctx` no trae persona (sólo ws, canal y rol): «el informe» de un flujo no existe sin nombrarlo. Sin
+nombrar y con un solo informe guardado, ése; con varios, pide elegir; en un flujo, error. Closer y setter
+no son persona de un informe. Por HTTP las etiquetas de personas salen como alias y el link de una
+grabación de Fathom no sale (`urlParaCanal`). **Vive en:** `elegirPersona`, `etiquetaPersona`.
+
+### Crear, borrar y restablecer no corren en una automatización
+
+Se frenan en `preparar()` (`noEnFlujo`), no en `NO_EN_FLUJOS`: una hoja por cada lead que entra no es lo
+que nadie quiso configurar.
+
+### Tres trampas del registro que mordieron al sumar el área
+
+- **El chequeo de `server-only` en las `.def.ts` sólo ve las registradas**: una def suelta que lo importe
+  no rompe nada hasta que alguien la registra. El test ahora barre el DIRECTORIO (probado con un
+  `zzrotura.def.ts`: la lista vieja daba verde).
+- **La regex de runners del test** (`^\s{2}'?id'?:\s*\{`) prohíbe cualquier otra clave con dos espacios de
+  sangría en un `.run.ts`.
+- **«plantilla» suelta choca con WhatsApp** en `mako-intencion`: la regex exige «plantilla de hoja /
+  dashboard / informe».
+
+### Un type guard sobre `l.c` no angosta `l`
+
+Para angostar una unión discriminada se pregunta por la FORMA del objeto (`!('desde' in l)`). Lo cazó el
+typecheck, no los tests.
+
+_11/10/2026 — `tests/api-mako-dashboard.test.ts` (25, probado con 14 roturas), commit `6e85d8d7`._

@@ -111,30 +111,30 @@ const SEC = {
   activa: false, pasos: [], inscriptos: 0, enviados: 0, estrategia: null, metricas: {},
 } as unknown as SecuenciaDto;
 
-test('dibujada: la caja de una automatización vacía flota en la franja, y la capa no toma el puntero', () => {
+// ⚠️ DESDE LA DÉCIMA TANDA (11/10/2026) EL LIENZO VACÍO YA NO DIBUJA LA CAJA (docs/diseno-automations-galeria-v2.md §1,
+// «decisión tomada, a confirmar»): pedirle a MaKo vive en el modal «Nueva automatización». La geometría de arriba sigue
+// valiendo para la barra de editar y para el día que la caja vuelva (el modo `crear` de CrearConIA sigue vivo).
+test('dibujada: una automatización vacía NO dibuja la caja de crear (vive en el modal «Nueva automatización»)', () => {
   const m = muelles({ w: 1440, h: 760 }, { listaAbierta: true, probarAbierto: false, editorAbierto: true });
   const html = renderToStaticMarkup(createElement(SecuenciaPerfil, {
     secuencia: SEC, secuencias: [SEC], productos: [], disparadores: [], onAbrirClave: () => {}, objetivos: [],
     etiquetaEtapa: (k: string) => k, rolAdmin: true, audios: [], negocio: 'Mi negocio', canalCaido: false, tz: null,
     onAudioNuevo: () => {}, onCambio: () => {}, muelles: m,
   } as Parameters<typeof SecuenciaPerfil>[0]));
-  const capa = html.match(/<div data-crear-ia="crear" style="([^"]*)"><div style="([^"]*)">/);
-  assert.ok(capa, 'no se dibujó la caja de crear');
-  const f = franjaIA(m);
-  assert.match(capa[1], new RegExp(`position:absolute;left:${f.left}px;right:${f.right}px;bottom:${f.bottom}px;display:flex`));
-  assert.match(capa[1], /pointer-events:none/);
-  assert.doesNotMatch(capa[1], /inset:0/);
-  assert.match(capa[2], new RegExp(`pointer-events:auto;width:min\\(${CAJA_IA_ANCHO}px, 100%\\)`));
+  assert.doesNotMatch(html, /data-crear-ia="crear"/, 'volvió la caja de crear al lienzo vacío');
+  assert.doesNotMatch(html, />Generar con IA</);
+  // La pieza sigue midiendo lo mismo, por si vuelve.
+  assert.ok(CAJA_IA_ANCHO > 0 && franjaIA(m).bottom > 0);
 });
 
-test('las dos se ESCONDEN con una tarjeta abierta, sin desmontar CrearConIA', () => {
+test('la barra de editar se ESCONDE con una tarjeta abierta, sin desmontar CrearConIA (y la caja de crear no se monta)', () => {
   const src = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
-  const crear = src.match(/\{rolAdmin && pasos\.length === 0 && \(\n\s+<div data-crear-ia="crear" style=\{\{ position: 'absolute', \.\.\.franja, display: tarjetaAbierta \? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 \}\}>\n\s+<div style=\{\{ pointerEvents: 'auto', width: `min\(\$\{CAJA_IA_ANCHO\}px, 100%\)` \}\}>\n\s+<CrearConIA modo="crear"/);
-  assert.ok(crear, 'la caja de crear no está montada como se espera (o depende de tarjetaAbierta para montarse)');
+  // Décima tanda: el lienzo vacío no monta la caja de crear (ni reserva lugar para ella).
+  assert.doesNotMatch(src, /<CrearConIA modo="crear"/, 'volvió la caja de crear al lienzo vacío');
+  assert.doesNotMatch(src, /RESERVA_ABAJO_CREAR/);
   const editar = src.match(/\{rolAdmin && editandoIA && pasos\.length > 0 && \(\n\s+<div data-crear-ia="editar" style=\{\{ position: 'absolute', \.\.\.franja, display: tarjetaAbierta \? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 \}\}>\n\s+<div style=\{\{ pointerEvents: 'auto', width: `min\(\$\{BARRA_IA_ANCHO\}px, 100%\)` \}\}>\n\s+<CrearConIA modo="editar"/);
   assert.ok(editar, 'la barra de editar no está montada como se espera');
   assert.match(src, /onTarjetaAbierta=\{setTarjetaAbierta\}/);
-  assert.match(src, /reservaAbajo=\{rolAdmin && pasos\.length === 0 \? RESERVA_ABAJO_CREAR : 0\}/);
 });
 
 test('el lienzo avisa la tarjeta abierta (calculada del dato, antes de pintar) y pasa la reserva', () => {

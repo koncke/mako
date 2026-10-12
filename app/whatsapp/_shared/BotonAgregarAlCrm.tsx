@@ -58,8 +58,8 @@ export function BotonAgregarAlCrm({ productos, creando, onAgregar }: {
   return (
     <div style={{ marginTop: '12px' }}>
       <Dropdown value="" resetAfterSelect sinFlecha alContenido disabled={creando}
-        placeholder={rotulo} ariaLabel="Agregar al CRM en un producto" buttonStyle={COMO_LINK}
-        columns={[[{ title: 'Producto', options: productos.map((p) => ({ value: String(p.id), label: p.nombre })) }]]}
+        placeholder={rotulo} ariaLabel="Agregar al CRM en un funnel" buttonStyle={COMO_LINK}
+        columns={[[{ title: 'Funnel', options: productos.map((p) => ({ value: String(p.id), label: p.nombre })) }]]}
         onChange={(v) => { const id = Number(v); if (Number.isInteger(id) && id > 0) onAgregar(id); }} />
     </div>
   );

@@ -224,12 +224,15 @@ test('el disparador compacto es el MISMO componente, con otro tamaño', () => {
   // Un «CompartirChico» aparte sería la copia que se queda vieja: acá ya pasó con el
   // contrato del `detalle`. Lo único que cambia es la clase del botón.
   assert.match(COMPARTIR, /compacto\?: boolean/, 'el modo compacto es un prop de Compartir');
-  assert.match(COMPARTIR, /className=\{`cmp-btn\$\{compacto \? ' chico' : ''\}`\}/,
+  // `claseBoton` es la otra pantalla que monta este MISMO modal con su propio botón (la topbar del
+  // Dashboard, el azul de Looker, 11/10/2026). Sin ella, el disparador es el de Conocimientos de siempre.
+  // Verificado quitando el `claseBoton ??`: 1 fallo, 11 pases.
+  assert.match(COMPARTIR, /className=\{claseBoton \?\? `cmp-btn\$\{compacto \? ' chico' : ''\}`\}/,
     'el modo compacto cambia la clase del disparador, no el componente');
 
   // Y dice «Compartir», no un ícono solo: en la esquina de una tarjeta un glifo suelto no
   // se entiende, y una palabra no viola ningún techo de texto de pantalla.
-  const boton = bloque(COMPARTIR, 'className={`cmp-btn${compacto', '</button>', 500);
+  const boton = bloque(COMPARTIR, '`cmp-btn${compacto', '</button>', 500);
   assert.match(boton, />\s*Compartir\s*</, 'el disparador compacto sigue diciendo Compartir');
   // En la grilla el título del curso no está en el botón: lleva su `title` para que se
   // sepa QUÉ se comparte sin abrir el modal.

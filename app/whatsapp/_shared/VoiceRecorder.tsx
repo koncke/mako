@@ -44,9 +44,20 @@ const entornoDelNavegador: EntornoGrabador = {
   crearRecorder: (s) => new MediaRecorder(s),
 };
 
+/**
+ * Cada cuánto el grabador entrega lo que lleva grabado, cuando alguien lo pide (`onTrozo`). Décima tanda del
+ * Chatbot, WhatsApp 3 («Alguien puede estar grabando un audio y sin querer refresca o se sale y perdió lo
+ * grabado»): quien monta guarda una copia a cada trozo, y lo más que se pierde es este rato.
+ */
+export const TROZO_MS = 1000;
+
 export type GrabadorVoz = {
-  /** `onSend` y `onError` se pasan EN CADA `start`: los de ese momento (ver el hook). */
-  start: (onSend: (blob: Blob, secs: number) => void | Promise<void>, onError?: (msg: string) => void) => Promise<void>;
+  /**
+   * `onSend` y `onError` se pasan EN CADA `start`: los de ese momento (ver el hook). `onTrozo` (opcional):
+   * lo grabado HASTA AHORA de este tramo, cada `TROZO_MS`, para guardar un borrador. No entrega nada: `onSend`
+   * sigue siendo lo único que sale, y sólo cuando la persona lo pide.
+   */
+  start: (onSend: (blob: Blob, secs: number) => void | Promise<void>, onError?: (msg: string) => void, onTrozo?: (parcial: Blob) => void) => Promise<void>;
   stop: (cancel: boolean) => void;
   pause: () => void;
   resume: () => void;
@@ -90,7 +101,7 @@ export function crearGrabadorVoz(alEstado: (e: EstadoGrabacion) => void, entorno
   };
 
   return {
-    async start(onSend, onError) {
+    async start(onSend, onError, onTrozo) {
       if (activo) return;
       const mio = ++intento;
       pidiendo = true;
@@ -111,7 +122,11 @@ export function crearGrabadorVoz(alEstado: (e: EstadoGrabacion) => void, entorno
       stream = s;
       chunks = [];
       cancelado = false;
-      r.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      r.ondataavailable = (e) => {
+        if (e.data && e.data.size) chunks.push(e.data);
+        // El borrador (WhatsApp 3): lo de este tramo hasta ahora. Una cancelación no deja borrador.
+        if (onTrozo && rec === este && !cancelado && chunks.length) onTrozo(new Blob(chunks, { type: este.mimeType || 'audio/webm' }));
+      };
       r.onstop = () => {
         s.getTracks().forEach((t) => t.stop()); // libera el micrófono
         pararTimer();
@@ -127,7 +142,8 @@ export function crearGrabadorVoz(alEstado: (e: EstadoGrabacion) => void, entorno
       };
       rec = r;
       activo = true; pausado = false; secs = 0;
-      r.start();
+      // Con `onTrozo`, en trozos (el navegador entrega cada `TROZO_MS`); sin él, como siempre: todo al parar.
+      if (onTrozo) r.start(TROZO_MS); else r.start();
       avisar();
       arrancarTimer();
     },
@@ -244,15 +260,23 @@ export type EntornoVoz = EntornoGrabador & {
   soltarUrl: (u: string) => void;
 };
 
+/**
+ * EL BORRADOR DE LA SESIÓN (décima tanda del Chatbot, WhatsApp 3): todo lo grabado y sin mandar —los tramos
+ * de antes y lo que va del que se está grabando—, a cada trozo y al pasar a escucharlo. `null`: la persona lo
+ * TIRÓ (🗑). Mandarlo (➤) no avisa nada: eso lo sabe quien recibe `onSend`. Lo usa el editor del lienzo para
+ * que un audio no se pierda al cerrar el panel o recargar (app/automations/EditorMensajeWhatsApp.tsx).
+ */
+export type BorradorDeVoz = (b: { tramos: Blob[]; secs: number } | null) => void;
+
 export type SesionVoz = {
-  /** 🎤 desde cero: tira lo que hubiera y graba. */
-  start: (onSend: (blob: Blob, secs: number) => void | Promise<void>, onError?: (msg: string) => void) => Promise<void>;
+  /** 🎤 desde cero: tira lo que hubiera y graba. `onBorrador` (opcional): ver `BorradorDeVoz`. */
+  start: (onSend: (blob: Blob, secs: number) => void | Promise<void>, onError?: (msg: string) => void, onBorrador?: BorradorDeVoz) => Promise<void>;
   /** ✓: cierra el tramo y pasa a escuchar. */
   terminar: () => void;
   /** 🎤 en la revisión: otro tramo que se suma al final. */
   seguir: () => Promise<void>;
   /** WA9: arranca en la revisión con un audio que YA existe; 🎤 le suma, ➤ manda el nuevo. */
-  revisarExistente: (base: { blob: Blob; secs: number }, onSend: (blob: Blob, secs: number) => void | Promise<void>, onError?: (msg: string) => void) => Promise<void>;
+  revisarExistente: (base: { blob: Blob; secs: number }, onSend: (blob: Blob, secs: number) => void | Promise<void>, onError?: (msg: string) => void, onBorrador?: BorradorDeVoz) => Promise<void>;
   /** ➤: une todo y lo entrega. */
   enviar: () => Promise<void>;
   /** 🗑: tira todo (grabando o revisando). */
@@ -278,6 +302,9 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
   let uniendo = false;
   let entregar: ((blob: Blob, secs: number) => void | Promise<void>) | null = null;
   let avisarError: ((m: string) => void) | undefined;
+  /** El borrador (WhatsApp 3) y cuántos tramos se GRABARON en esta sesión: un audio que ya existía no es un borrador. */
+  let alBorrador: BorradorDeVoz | undefined;
+  let grabados = 0;
   // Cada `start` del grabador vale para UN tramo: si mientras tanto se descartó, lo que llega se tira.
   let vuelta = 0;
   // ⚠️ La fase pasa a «grabando» ANTES de que el navegador entregue el micrófono (la barra tiene que
@@ -305,6 +332,7 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
       soltarRevision();
       revision = { url: entorno.crearUrl(blob), secs: secsPrevios(), blob };
       fase = 'revisando';
+      if (grabados > 0) alBorrador?.({ tramos: [blob], secs: revision.secs });
     } catch {
       avisarError?.('No se pudo juntar el audio. Vuelve a grabarlo.');
       tramos = []; fase = 'quieta';
@@ -315,9 +343,15 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
     const mia = ++vuelta;
     pidiendoMic = true; avisar();
     try {
+      // El trozo de lo que va grabado (WhatsApp 3), con los tramos de antes adelante: el borrador es TODO.
+      const trozo = alBorrador ? (parcial: Blob) => {
+        if (mia !== vuelta) return;
+        alBorrador?.({ tramos: [...tramos.map((t) => t.blob), parcial], secs: secsPrevios() + secsTramo });
+      } : undefined;
       await grabador.start((blob, secs) => {
         if (mia !== vuelta) return;   // se descartó mientras el navegador cerraba el tramo
         tramos.push({ blob, secs });
+        grabados++;
         secsTramo = 0;
         void armarRevision();
       }, (m) => {
@@ -327,7 +361,7 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
         uniendo = false; pidiendoMic = false;
         fase = tramos.length ? 'revisando' : 'quieta'; paused = false; secsTramo = 0;
         if (fase === 'revisando' && !revision) void armarRevision(); else avisar();
-      });
+      }, trozo);
     } finally {
       // Con la vuelta ya descartada, quien la descartó apagó `pidiendoMic` (y puede haber otra pidiendo).
       if (mia === vuelta && pidiendoMic) { pidiendoMic = false; avisar(); }
@@ -335,9 +369,9 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
   }
 
   return {
-    async start(onSend, onError) {
+    async start(onSend, onError, onBorrador) {
       if (fase === 'grabando') return;
-      entregar = onSend; avisarError = onError;
+      entregar = onSend; avisarError = onError; alBorrador = onBorrador; grabados = 0;
       soltarRevision(); tramos = []; secsTramo = 0; paused = false;
       fase = 'grabando'; avisar();
       await grabarTramo();
@@ -355,11 +389,11 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
       fase = 'grabando'; paused = false; secsTramo = 0; avisar();
       await grabarTramo();
     },
-    async revisarExistente(base, onSend, onError) {
+    async revisarExistente(base, onSend, onError, onBorrador) {
       vuelta++;
       pidiendoMic = false;
       grabador.soltar();
-      entregar = onSend; avisarError = onError;
+      entregar = onSend; avisarError = onError; alBorrador = onBorrador; grabados = 0;
       soltarRevision();
       tramos = [{ blob: base.blob, secs: Math.max(0, Math.round(base.secs)) }];
       secsTramo = 0; paused = false;
@@ -375,6 +409,8 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
     },
     descartar() {
       vuelta++;
+      // La persona lo TIRÓ: el borrador también se va (WhatsApp 3).
+      alBorrador?.(null);
       // `stop(true)` también cancela un pedido de micrófono pendiente (el grabador suelta las pistas al volver).
       if (fase === 'grabando') grabador.stop(true);
       soltarRevision(); tramos = []; secsTramo = 0; paused = false; uniendo = false; pidiendoMic = false; fase = 'quieta'; avisar();
@@ -453,7 +489,7 @@ export type GrabacionVoz = EstadoVoz & Omit<SesionVoz, 'start' | 'revisarExisten
  * El hook de la sesión. `onSend` recibe lo que se MANDA (con ➤, después de escucharlo): el blob de un
  * tramo tal cual o el WAV de los tramos unidos, y los segundos.
  */
-export function useGrabacionVoz(onSend: (blob: Blob, secs: number) => void | Promise<void>, onError?: (msg: string) => void): GrabacionVoz {
+export function useGrabacionVoz(onSend: (blob: Blob, secs: number) => void | Promise<void>, onError?: (msg: string) => void, onBorrador?: BorradorDeVoz): GrabacionVoz {
   const [estado, setEstado] = useState<EstadoVoz>(ESTADO_VOZ_INICIAL);
   const [sesion] = useState(() => crearSesionVoz(setEstado, entornoVozDelNavegador));
   useEffect(() => () => sesion.soltar(), [sesion]);
@@ -461,8 +497,8 @@ export function useGrabacionVoz(onSend: (blob: Blob, secs: number) => void | Pro
     ...estado,
     // `onSend` el de ESTE render, como el grabador. Lo que se grabó NO viaja a otro destino: quien
     // monta esto para mandar remonta al cambiar de chat (`key`), y el desmontaje lo descarta.
-    start: () => sesion.start(onSend, onError),
-    revisarExistente: (base) => sesion.revisarExistente(base, onSend, onError),
+    start: () => sesion.start(onSend, onError, onBorrador),
+    revisarExistente: (base) => sesion.revisarExistente(base, onSend, onError, onBorrador),
     terminar: sesion.terminar, seguir: sesion.seguir, enviar: sesion.enviar, descartar: sesion.descartar,
     pause: sesion.pause, resume: sesion.resume,
   };

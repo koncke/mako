@@ -197,13 +197,16 @@ test('el desplegable es el del Plan: el Dropdown de la casa por secciones, con v
   // El número arriba a la derecha, que también quita (el molde del Plan y del CRM).
   assert.match(f, /\{n > 0 && \(\n\s+<span aria-hidden onClick=\{\(\) => onCambio\(\[\]\)\} title="Quitar filtros"/);
   // La lista le pasa TODAS sus filas (automatizaciones: el recordatorio desde el 10/10/2026 y las de «MaKo en
-  // WhatsApp» desde el 11/10) y filtra con la misma función. Las dos divisiones salen de lo que pasa.
+  // WhatsApp» desde el 11/10) y filtra con la misma función. Se dibuja lo que pasa, en UNA lista (undécima tanda,
+  // punto 9: «sin dividir, para eso ya tenemos filtros»). Rotura R2 de wf-undecima/w1-lista-ui/romper.mjs (la lista
+  // vuelve a partirse): base 11 / 0 → 10 / 1.
   const lista = fuente('app/automations/SimuladorWhatsApp.tsx');
   assert.match(lista, /<FiltroLista filas=\{todasLasFilas\} valores=\{filtros\} onCambio=\{setFiltros\} \/>/);
   assert.match(lista, /const todasLasFilas: FilaFiltrable\[\] = \[\.\.\.filasSec\.values\(\)\];/,
     'el desplegable no cuenta todas las filas de la lista');
   assert.match(lista, /pasaFiltroLista\(filasSec\.get\(j\.id\) \?\? filaDeSecuencia\(j\), filtros\)/);
-  assert.match(lista, /const divisiones = useMemo\(\(\) => partirLista\(lista\), \[lista\]\);/, 'las divisiones no salen de lo que pasa el filtro');
+  assert.match(lista, /\{lista\.map\(filaDeLista\)\}/, 'la lista no dibuja lo que pasa el filtro');
+  assert.doesNotMatch(lista, /partirLista|divisiones/, 'volvieron las divisiones');
 });
 
 test('el Dropdown aprendió lo que le faltaba del filtro del Plan: el resumen de la sección, la línea y el pie que no cierra', () => {

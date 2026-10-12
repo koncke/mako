@@ -7,7 +7,8 @@
 // metricas.run.ts, cruzados por id. Español neutro (lo lee el cliente).
 //
 // El área son los NÚMEROS del negocio (/dashboard → /marketing y /comercial, y
-// /analisis). Son todas lecturas: las escrituras que vivían cerca (marcar una
+// la tab Análisis de Experiments, /experimentos?tab=analisis — hasta el 11/10/2026
+// era su propia tab, /analisis, que hoy redirige ahí). Son todas lecturas: las escrituras que vivían cerca (marcar una
 // cuota, el plan de pagos, despachar un reporte, los chats por gráfico) las
 // declaran las áreas dueñas (crm, equipo, mako) para no tener dos puertas a lo
 // mismo.
@@ -21,8 +22,8 @@
 // ⚠️ Hay TRES definiciones de «cierre» y tres de «CAC» en las libs de abajo. Cada
 // descripción dice cuál usa: si dos operaciones discuten, es por eso.
 //
-// ⚠️ Rol: TODAS llevan `rolMinimo: 'admin'`. /marketing, /comercial y /analisis
-// hacen requireRolWs([], {nav}) y con [] solo pasa el admin (lib/tab-access.ts):
+// ⚠️ Rol: TODAS llevan `rolMinimo: 'admin'`. /marketing, /comercial y /experimentos
+// (donde vive Análisis) hacen requireRolWs([], {nav}) y con [] solo pasa el admin (lib/tab-access.ts):
 // un closer o setter no ve sold, cash, CAC ni cohortes en su pantalla, así que
 // tampoco se los cuenta MaKo en la app (ctx.rol='miembro' en app/api/mako-doer).
 // Por HTTP y WhatsApp el rol es siempre admin: ahí no cambia nada.
@@ -38,6 +39,11 @@ const TODOS = ['whatsapp', 'app', 'http'] as const;
 /** Nombres de personas y montos por lead: no salen a un token que vive en la máquina de un tercero. */
 const SIN_HTTP = ['whatsapp', 'app'] as const;
 const GATING_GRAPHICS: Gating = { tab: 'graphics', rolMinimo: 'admin' };
+// La tab 'analisis' ya no es un ítem de la barra (se mudó adentro de Experiments el
+// 11/10/2026), y la key se queda igual A PROPÓSITO: `gating.tab` pregunta por la CAPA
+// (tabEnCapa en lib/capas.ts), que sólo mira las listas de keys de cada capa y no exige que
+// el ítem exista — y en las cuatro capas 'analisis' da lo mismo que 'experimentos'.
+// Cambiarla movería docs/api-mako.md por nada.
 const GATING_ANALISIS: Gating = { tab: 'analisis', rolMinimo: 'admin' };
 
 const desde = (extra = ''): Parametro => ({

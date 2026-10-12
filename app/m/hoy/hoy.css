@@ -1,0 +1,93 @@
+/* =============================================================================
+   /m/hoy — Today. Todo con alcance `.m-hoy-*` y sólo tokens de app/globals.css.
+   ============================================================================= */
+
+/* La frase héroe: el número va adentro, en 700 y tabular. */
+.m-hoy-num { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.m-hoy-bloque { padding-top: 16px; }
+
+.m-hoy-error,
+.m-hoy-vacio { margin: 8px 0 0; font-size: var(--fs-sm); line-height: 1.5; color: var(--dim); }
+.m-hoy-error { color: var(--ink); }
+
+/* La lámpara: punto + texto (el color nunca va solo). */
+.m-hoy-lampara {
+  display: flex; align-items: center; gap: 10px; margin-top: 16px;
+  font-size: var(--fs-md); font-weight: 600; color: var(--ink);
+}
+.m-hoy-lampara__punto { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--faint); }
+.m-hoy-lampara[data-estado="rojo"] .m-hoy-lampara__punto { background: var(--bad); }
+.m-hoy-lampara[data-estado="ambar"] .m-hoy-lampara__punto { background: var(--warn-fill); }
+.m-hoy-lampara[data-estado="verde"] .m-hoy-lampara__punto { background: var(--good); }
+.m-hoy-lampara[data-estado="apagado"] .m-hoy-lampara__punto { background: transparent; box-shadow: inset 0 0 0 2px var(--border-strong); }
+
+/* LA acción del día: texto + UN botón. No es una tarjeta (las tarjetas son para lo que bloquea). */
+.m-hoy-foco { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; }
+.m-hoy-foco__accion { margin: 0; font-size: var(--fs-sect); font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; color: var(--ink); }
+.m-hoy-foco__razon { margin: 0 0 4px; font-size: var(--fs-sm); line-height: 1.5; color: var(--dim); }
+
+/* El objetivo. */
+.m-hoy-obj { display: flex; flex-direction: column; gap: 10px; }
+.m-hoy-obj__num { margin: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; font-variant-numeric: tabular-nums; }
+.m-hoy-obj__num strong { font-size: var(--fs-kpi); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; color: var(--ink); }
+.m-hoy-obj__num span { font-size: var(--fs-md); font-weight: 500; color: var(--dim); }
+.m-hoy-obj__barra { position: relative; height: 8px; border-radius: 999px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); }
+.m-hoy-obj__barra i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--good); }
+.m-hoy-obj__barra i[data-atrasado] { background: var(--warn-fill); }
+/* La marca del tiempo: dónde «debería» ir a esta altura del período. */
+.m-hoy-obj__barra b { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); }
+.m-hoy-obj__ritmo { margin: 0; font-size: var(--fs-sm); line-height: 1.5; color: var(--dim); }
+
+/* FilaPulso: rótulo · valor · comparación en palabras. */
+.m-hoy-pulso {
+  position: relative; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  min-height: 64px; padding: 14px var(--m-gutter);
+}
+.m-hoy-pulso + .m-hoy-pulso::before {
+  content: ''; position: absolute; top: 0; left: var(--m-gutter); right: 0; height: 1px; background: var(--border);
+}
+.m-hoy-pulso__txt { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-hoy-pulso__rotulo { font-size: var(--fs-sm); color: var(--dim); }
+.m-hoy-pulso__valor { font-size: var(--fs-sect); font-weight: 700; line-height: 1.25; color: var(--ink); font-variant-numeric: tabular-nums; }
+.m-hoy-pulso__comp { display: flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
+.m-hoy-pulso__punto { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--faint); }
+.m-hoy-pulso[data-estado="rojo"] .m-hoy-pulso__punto { background: var(--bad); }
+.m-hoy-pulso[data-estado="ambar"] .m-hoy-pulso__punto { background: var(--warn-fill); }
+.m-hoy-pulso[data-estado="verde"] .m-hoy-pulso__punto { background: var(--good); }
+
+.m-hoy-registrar { display: flex; gap: 8px; flex: 1 1 100%; }
+.m-hoy-registrar__campo {
+  flex: 1; min-width: 0; height: 44px; padding: 0 12px;
+  font: inherit; font-size: var(--fs-md); font-variant-numeric: tabular-nums;
+  color: var(--ink); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-md);
+}
+.m-hoy-registrar__campo:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* El punto de una alerta / un vencimiento (con aria-label: el color nunca va solo). */
+.m-hoy-alerta { display: block; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--faint); }
+.m-hoy-alerta[data-nivel="rojo"] { background: var(--bad); }
+.m-hoy-alerta[data-nivel="ambar"] { background: var(--warn-fill); }
+
+.m-hoy-vencida { color: var(--bad); font-weight: 600; }
+
+.m-hoy-ver {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px;
+  font-size: var(--fs-sm); font-weight: 600; color: var(--primary); text-decoration: none;
+}
+
+/* El check de una tarea: dibujo de 24 dentro de un target de 44. */
+.m-hoy-check {
+  display: grid; place-items: center; width: 44px; height: 44px; margin: -10px -10px -10px -10px;
+  padding: 0; border: 0; background: none; cursor: pointer; border-radius: 50%;
+}
+.m-hoy-check span {
+  width: 24px; height: 24px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--border-strong);
+  transition: box-shadow var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out);
+}
+.m-hoy-check:active span { background: var(--good-bg); box-shadow: inset 0 0 0 2px var(--good); }
+.m-hoy-check:disabled { cursor: default; opacity: .45; }
+.m-hoy-check:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+@media (prefers-reduced-motion: reduce) {
+  .m-hoy-check span { transition: none; }
+}

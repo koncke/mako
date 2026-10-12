@@ -95,8 +95,20 @@ function Avatar({ inv }: { inv: { nombre: string | null; email: string; gravatar
  * se puede leer del título: "Compartir «Curso X»" se explica solo, "Compartir
  * «Conocimientos»" no dice cuántos cursos son ni qué queda afuera.
  */
-export default function Compartir({ recurso, recursoId = '', etiqueta, nota, compacto }: {
+export default function Compartir({ recurso, recursoId = '', etiqueta, nota, compacto, parametros, claseBoton }: {
   recurso: string; recursoId?: string; etiqueta: string; nota?: string;
+  /**
+   * La clase del DISPARADOR cuando lo monta otra pantalla con su propio botón (la topbar del Dashboard
+   * usa el azul de su barra, como el «Compartir» de Looker). Sin ella, el botón de Conocimientos.
+   */
+  claseBoton?: string;
+  /**
+   * Lo que viaja en CADA pedido a /api/compartir, además de lo de siempre. Lo usa el informe del
+   * Dashboard (app/dashboard/CompartirInforme.tsx) para mandar la hoja abierta: el server la pega como
+   * `?hoja=` en todo link que devuelve (crear, copiar, rotar e invitar). Sin esto, los pedidos son
+   * idénticos a los de Conocimientos.
+   */
+  parametros?: Record<string, string>;
   /**
    * `compacto` es el botón para una TARJETA de la grilla, no otro componente.
    *
@@ -125,14 +137,19 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
   const [correo, setCorreo] = useState<{ listo: boolean; remitente: string } | null>(null);
   const [linkEmitido, setLinkEmitido] = useState<{ key: string; enlace: string } | null>(null);
 
+  // `parametros` en la query de los GET/PATCH y en el cuerpo de los POST. Vacío = los pedidos de siempre.
+  const extra = parametros ? new URLSearchParams(parametros).toString() : '';
+  const conExtra = (q: string) => (extra ? `${q}&${extra}` : q);
+
   const cargar = useCallback(async () => {
     try {
-      const r = await fetch(`/api/compartir?recurso=${encodeURIComponent(recurso)}&recursoId=${encodeURIComponent(recursoId)}`);
+      const q = `recurso=${encodeURIComponent(recurso)}&recursoId=${encodeURIComponent(recursoId)}`;
+      const r = await fetch(`/api/compartir?${extra ? `${q}&${extra}` : q}`);
       const j = await r.json();
       setLista(j.ok ? j.shares : []);
       if (j.ok && j.correo) setCorreo(j.correo);
     } catch { setLista([]); }
-  }, [recurso, recursoId]);
+  }, [recurso, recursoId, extra]);
 
   useEffect(() => { if (abierto) cargar(); }, [abierto, cargar]);
 
@@ -141,7 +158,7 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
     try {
       const r = await fetch('/api/compartir', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recurso, recursoId, modo, etiqueta, destinatarios: modo === 'invitados' ? emails : '' }),
+        body: JSON.stringify({ ...parametros, recurso, recursoId, modo, etiqueta, destinatarios: modo === 'invitados' ? emails : '' }),
       });
       const j = await r.json();
       if (!j.ok) setError(j.error || 'no se pudo crear');
@@ -155,7 +172,7 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
     try {
       const r = await fetch('/api/compartir', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shareId, destinatarios: sumaTexto }),
+        body: JSON.stringify({ ...parametros, shareId, destinatarios: sumaTexto }),
       });
       const j = await r.json();
       if (!j.ok) setError(j.error || 'no se pudo invitar');
@@ -180,7 +197,7 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
     setError(null);
     try {
       const q = esInvitado ? `copiarInvitado=${id}` : `copiar=${id}`;
-      const r = await fetch(`/api/compartir?${q}`);
+      const r = await fetch(`/api/compartir?${conExtra(q)}`);
       const j = await r.json();
       if (j.ok && j.enlace) { setLinkEmitido({ key, enlace: j.enlace }); copiar(j.enlace, key); return; }
       // `ok` con `enlace: null` = fila vieja. No es un error: es que hay que rotar.
@@ -194,7 +211,7 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
     if (!confirm(aviso)) return;
     setError(null);
     try {
-      const r = await fetch(`/api/compartir?${query}`, { method: 'PATCH' });
+      const r = await fetch(`/api/compartir?${conExtra(query)}`, { method: 'PATCH' });
       const j = await r.json();
       if (!j.ok) { setError(j.error || 'no se pudo generar el link'); return; }
       setLinkEmitido({ key, enlace: j.enlace });
@@ -238,7 +255,7 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota, com
 
   return (
     <>
-      <button type="button" className={`cmp-btn${compacto ? ' chico' : ''}`}
+      <button type="button" className={claseBoton ?? `cmp-btn${compacto ? ' chico' : ''}`}
         title={compacto ? `Compartir «${etiqueta}» por link` : undefined}
         onClick={() => { setAbierto(true); setNuevo(null); setError(null); setSumaResultado(null); }}>
         Compartir

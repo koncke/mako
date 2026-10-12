@@ -108,7 +108,8 @@ test('las lecturas del motor piden la lista y, sin la 0241, vuelven a lo de siem
 test('la ficha de una secuencia (API de MaKo) trae la lista de CRON, no sólo el primero', () => {
   const run = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));
   const ini = run.indexOf('ficha_secuencia_mensajes: {');
-  const ficha = run.slice(ini, run.indexOf('pasos: s.pasos.map(', ini));
+  // Desde la undécima la ficha lee los pasos JUNTOS (`const pasos = juntarPasosIA(s.pasos).pasos`).
+  const ficha = run.slice(ini, run.indexOf('pasos: pasos.map(', ini));
   assert.ok(ini >= 0 && ficha.length > 0 && ficha.length < 1500, `el recorte mide ${ficha.length}: está mirando otra cosa`);
   assert.match(ficha, /disparadores: s\.disparadores \?\? \[\],/);
 });

@@ -56,7 +56,12 @@ test('El movimiento no pasa por setState', () => {
   // que esta casa ya tiene escrito para las guardas que leen fuente.
   const src = leer(LIENZO).replace(/^[ 	]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const mover = src.slice(src.indexOf('function onPointerMove'), src.indexOf('function onPointerUp'));
-  assert.ok(!/set[A-Z]/.test(mover), 'el paneo volvió a pasar por el estado de React');
+  // ⚠️ LA ÚNICA EXCEPCIÓN (décima tanda, general 2: el lazo atenúa lo no elegido MIENTRAS se arrastra): lo que
+  // toca el lazo va al estado, pero SÓLO cuando cambia el conjunto (entra o sale una tarjeta), nunca por píxel.
+  // Se exige esa forma exacta, con su guarda, y se la saca antes de buscar cualquier otro set.
+  const LAZO = 'if (clave !== lazoClave.current) { lazoClave.current = clave; setLazoVivo(ids); }';
+  assert.ok(mover.includes(LAZO), 'lo que toca el lazo va al estado sin la guarda de «cambió el conjunto»');
+  assert.ok(!/set[A-Z]/.test(mover.replace(LAZO, '')), 'el paneo volvió a pasar por el estado de React');
   assert.match(mover, /pintar\(\)/);
 });
 

@@ -1,48 +1,29 @@
 // =============================================================================
-// /landing-analyst — Landing Analyst
+// /landing-analyst → la tab se retiró el 11/10/2026 (redirige, no se borra)
 // =============================================================================
-// MaKo baja la landing del cliente, le lee el copy y lo cruza con el
-// comportamiento real de esa misma URL (visitas y retención del beacon, agendas
-// del CRM) para decir qué cambiar y por qué. La data vive en landing_analyses
-// (la llenan /api/landing-analyst/{analyze,sync}); esta página solo lee.
+// Decisión de Martín: «Lo de Landing Analyst se muda a Landing Generator y Landing Analyst
+// se ELIMINA (la ruta redirige)». Lo que era ANÁLISIS (`?tab=pulso`, `?tab=mapa`) ya vivía
+// en la hoja «Landing» del Dashboard; lo que era TAREA —el diagnóstico: analizar una URL,
+// buscar mis páginas, pegar el texto, reintentar, quitar, «Escribir la nueva versión»— se
+// mudó a /landing-generator/analizar. La traducción de la pestaña vive en ./destino.ts, con
+// su test (tests/landing-generator-analizar.test.ts).
 //
-// A diferencia de Closing (que sin Fathom no tiene NADA que mostrar), acá no se
-// gatea por integración: con pegar una URL alcanza para tener el diagnóstico del
-// copy. El seguimiento agrega el cruce con comportamiento, y cuando falta, la
-// tab lo dice adentro, en el bloque que lo necesita.
-// =============================================================================
+// ⚠️ SE REDIRIGE, NO SE BORRA (AGENTS.md, «Retirar una RUTA…»): la siguen avisos de WhatsApp ya
+// mandados, marcadores, tareas del plan y el onboarding viejo. Va con `rutaConWs`: un
+// `redirect()` pelado pierde la pestaña del cliente que el super admin está mirando.
+//
+// Sin guard de rol a propósito (molde: app/chatbot/page.tsx): un redirect no muestra nada, y
+// las dos pantallas de destino hacen su propio `requireRolWs`. La key 'landing-an' NO se va:
+// sigue en lib/capas.ts, en el onboarding y en el gating de la API (está escrita en la base).
+//
+// Los componentes de esta carpeta SE QUEDAN donde están: LandingAnalystApp.tsx lo monta
+// /landing-generator/analizar, y MapaDeCalor.tsx / PulsoPaginas.tsx los usa el Dashboard. Next
+// sólo hace ruta de este page.tsx.
 
-import { getLandingViewData, type LandingViewData } from '@/lib/landing-analyst';
-import { LandingAnalystApp } from './LandingAnalystApp';
-import { requireRolWs } from '@/lib/tab-access';
+import { redirect } from 'next/navigation';
+import { rutaConWs } from '@/lib/workspace';
+import { destinoLandingAnalyst } from './destino';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-const EMPTY: LandingViewData = {
-  landings: [],
-  sinAnalizar: [],
-  kpis: { total: 0, conError: 0, scorePromedio: null, hallazgosAltos: 0 },
-  lastSync: null,
-};
-
-// La pestaña viaja en `?tab=` y se lee ACÁ, en el server (regla de la casa): si
-// sólo la leyera el navegador, el link que se copia no sería la pestaña que se ve.
-const VISTAS = ['copy', 'pulso', 'mapa'] as const;
-type Vista = (typeof VISTAS)[number];
-
-export default async function LandingAnalystPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  await requireRolWs([], { nav: 'landing-an' });
-  const { tab } = await searchParams;
-  const vista: Vista = (VISTAS as readonly string[]).includes(tab ?? '') ? (tab as Vista) : 'copy';
-
-  let data: LandingViewData = EMPTY;
-  let errorMsg: string | null = null;
-  try {
-    data = await getLandingViewData();
-  } catch (err) {
-    errorMsg = err instanceof Error ? err.message : String(err);
-  }
-
-  return <LandingAnalystApp data={data} errorMsg={errorMsg} vistaInicial={vista} />;
+export default async function LandingAnalystRetirada({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  redirect(await rutaConWs(destinoLandingAnalyst(await searchParams)));
 }

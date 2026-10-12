@@ -32,13 +32,13 @@ export async function etapasDeProducto(funnelId: number): Promise<Array<{ key: s
 /** El nombre que ve la persona: el del producto si lo hay, si no el del embudo. */
 async function nombreDeProducto(funnelId: number): Promise<string> {
   const f = (await listarFunnels()).find((x) => x.id === funnelId);
-  return (f ? nombreVisible(f) : '') || 'otro producto';
+  return (f ? nombreVisible(f) : '') || 'otro funnel';
 }
 
 async function filasDe(leadId: number): Promise<FilaLeadFunnel[]> {
   const db = await getTenantDb();
   const { data, error } = await db.from('lead_funnel').select('id, funnel_id, etapa, etapa_desde, created_at').eq('lead_id', leadId);
-  if (error) throw new Error('No se pudieron leer los productos del lead: ' + error.message);
+  if (error) throw new Error('No se pudieron leer los funnels del lead: ' + error.message);
   return (data ?? []) as FilaLeadFunnel[];
 }
 
@@ -59,17 +59,17 @@ export async function agregarAProducto(leadId: number, funnelId: number, opts?: 
   const { productos } = await productosDelLead(leadId);
   if (productos.some((p) => p.funnelId === funnelId)) return { agregado: false, etapa: null };
   const funnels = await listarFunnels();
-  if (!funnels.some((f) => f.id === funnelId)) throw new Error('Ese producto no existe.');
+  if (!funnels.some((f) => f.id === funnelId)) throw new Error('Ese funnel no existe.');
   const etapa = etapaDeEntrada(await etapasDeProducto(funnelId));
-  if (!etapa) throw new Error('Ese producto no tiene etapas.');
+  if (!etapa) throw new Error('Ese funnel no tiene etapas.');
   const autor = await autorDelMovimiento(opts?.autor);
   const db = await getTenantDb();
   const { error } = await db.from('lead_funnel').upsert(
     [{ lead_id: leadId, funnel_id: funnelId, etapa, por: autor, etapa_desde: new Date().toISOString() }],
     { onConflict: 'workspace_id,lead_id,funnel_id', ignoreDuplicates: true },
   );
-  if (error) throw new Error('No se pudo agregar al producto: ' + error.message);
-  await logLeadEvent(leadId, 'Producto', `Agregado a «${await nombreDeProducto(funnelId)}»`, autor);
+  if (error) throw new Error('No se pudo agregar al funnel: ' + error.message);
+  await logLeadEvent(leadId, 'Funnel', `Agregado a «${await nombreDeProducto(funnelId)}»`, autor);
   return { agregado: true, etapa };
 }
 
@@ -100,28 +100,28 @@ const esEstado = (v: unknown): v is EstadoDeshacer => typeof v === 'string' && (
 export async function quitarDeProducto(leadId: number, funnelId: number, opts?: { autor?: string }): Promise<DeshacerQuitar> {
   const { productos, defaultId, funnelIdDelLead, etapaCasa } = await productosDelLead(leadId);
   const p = productos.find((x) => x.funnelId === funnelId);
-  if (!p) throw new Error('No está en ese producto.');
-  if (!puedeQuitar(productos)) throw new Error('Es su único producto.');
+  if (!p) throw new Error('No está en ese funnel.');
+  if (!puedeQuitar(productos)) throw new Error('Es su único funnel.');
   const autor = await autorDelMovimiento(opts?.autor);
   const db = await getTenantDb();
   const nombre = await nombreDeProducto(funnelId);
 
   if (!p.esCasa) {
     const { error } = await db.from('lead_funnel').delete().eq('lead_id', leadId).eq('funnel_id', funnelId);
-    if (error) throw new Error('No se pudo quitar del producto: ' + error.message);
-    await logLeadEvent(leadId, 'Producto', `Quitado de «${nombre}»`, autor);
+    if (error) throw new Error('No se pudo quitar del funnel: ' + error.message);
+    await logLeadEvent(leadId, 'Funnel', `Quitado de «${nombre}»`, autor);
     return { leadId, funnelId, fila: { funnel_id: funnelId, etapa: p.etapa ?? '', etapa_desde: p.desde }, casaAntes: null };
   }
 
   const nueva = aQuienPromover(productos);
-  if (!nueva) throw new Error('Es su único producto.');
+  if (!nueva) throw new Error('Es su único funnel.');
   // La casa nueva: su producto y su etapa pasan al lead; la fila deja de existir (nunca hay
   // fila para la casa). Se escribe directo y no por setPipelineStage: la etapa viene de otro
   // tablero y no es un movimiento del recorrido.
   const { error: e1 } = await db.from('leads')
     .update({ funnel_id: casaParaEscribir(nueva.funnelId, defaultId), pipeline_stage: nueva.etapa })
     .eq('id', leadId);
-  if (e1) throw new Error('No se pudo quitar del producto: ' + e1.message);
+  if (e1) throw new Error('No se pudo quitar del funnel: ' + e1.message);
   // ⚠️ PERO SI LA ETAPA PROMOVIDA ES UN DESENLACE, EL ESTADO LA SIGUE (08/10/2026). El desenlace
   // del lead (estado_lead, lo que cuentan Revenue y Customer Success) es el de su CASA, y escribir
   // sólo la columna dejaba la tarjeta en «Ganado» con el lead abierto: medido en el CRM de Leila
@@ -141,7 +141,7 @@ export async function quitarDeProducto(leadId: number, funnelId: number, opts?: 
   }
   const { error: e2 } = await db.from('lead_funnel').delete().eq('lead_id', leadId).eq('funnel_id', nueva.funnelId);
   if (e2) console.error('[lead-funnel] la fila promovida no se borró:', e2.message);
-  await logLeadEvent(leadId, 'Producto', `Quitado de «${nombre}»: ahora su producto es «${await nombreDeProducto(nueva.funnelId)}»`, autor);
+  await logLeadEvent(leadId, 'Funnel', `Quitado de «${nombre}»: ahora su funnel es «${await nombreDeProducto(nueva.funnelId)}»`, autor);
   return {
     leadId, funnelId,
     fila: { funnel_id: nueva.funnelId, etapa: nueva.etapa ?? '', etapa_desde: nueva.desde },
@@ -166,7 +166,7 @@ export async function deshacerQuitar(d: DeshacerQuitar, opts?: { autor?: string 
     );
     if (error) throw new Error('No se pudo deshacer: ' + error.message);
   }
-  await logLeadEvent(d.leadId, 'Producto', `Vuelve a «${await nombreDeProducto(d.funnelId)}» (se deshizo)`, autor);
+  await logLeadEvent(d.leadId, 'Funnel', `Vuelve a «${await nombreDeProducto(d.funnelId)}» (se deshizo)`, autor);
 }
 
 /**
@@ -178,8 +178,8 @@ export async function moverEtapaEnProducto(leadId: number, funnelId: number, eta
   const { data, error } = await db.from('lead_funnel').select('etapa').eq('lead_id', leadId).eq('funnel_id', funnelId).limit(1);
   if (error) throw new Error('No se pudo leer la etapa: ' + error.message);
   const fila = ((data ?? []) as Array<{ etapa: string }>)[0];
-  if (!fila) throw new Error('El lead no está agregado a ese producto.');
-  if (!(await etapasDeProducto(funnelId)).some((s) => s.key === etapa)) throw new Error('Esa etapa no existe en ese producto.');
+  if (!fila) throw new Error('El lead no está agregado a ese funnel.');
+  if (!(await etapasDeProducto(funnelId)).some((s) => s.key === etapa)) throw new Error('Esa etapa no existe en ese funnel.');
   if (fila.etapa === etapa) return { antes: etapa };
   const autor = await autorDelMovimiento(opts?.autor);
   const { error: e2 } = await db.from('lead_funnel')
@@ -219,9 +219,9 @@ export async function moverEtapaEnProducto(leadId: number, funnelId: number, eta
  */
 export async function agregarLoteAProducto(leadIds: number[], funnelId: number, porQue: string, opts?: { autor?: string }): Promise<{ agregados: number[]; fallaron: number }> {
   const funnels = await listarFunnels();
-  if (!funnels.some((f) => f.id === funnelId)) throw new Error('Ese producto no existe.');
+  if (!funnels.some((f) => f.id === funnelId)) throw new Error('Ese funnel no existe.');
   const etapa = etapaDeEntrada(await etapasDeProducto(funnelId));
-  if (!etapa) throw new Error('Ese producto no tiene etapas.');
+  if (!etapa) throw new Error('Ese funnel no tiene etapas.');
   const defaultId = await idDelFunnelDefault();
   const db = await getTenantDb();
   const autor = await autorDelMovimiento(opts?.autor);
@@ -247,7 +247,7 @@ export async function agregarLoteAProducto(leadIds: number[], funnelId: number, 
     if (error) { fallaron += nuevos.length; continue; }
     const ok = ((ins ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id));
     agregados.push(...ok);
-    const audit = ok.map((lead_id) => ({ lead_id, campo: 'Producto', valor_anterior: null, valor_nuevo: porQue, autor }));
+    const audit = ok.map((lead_id) => ({ lead_id, campo: 'Funnel', valor_anterior: null, valor_nuevo: porQue, autor }));
     if (audit.length) {
       const { error: ea } = await db.from('lead_audit').insert(audit);
       if (ea) console.error('[lead-funnel] historial falló:', ea.message);
@@ -267,7 +267,7 @@ export async function quitarLoteDeProducto(leadIds: number[], funnelId: number, 
     if (error) { console.error('[lead-funnel] quitar en lote falló:', error.message); continue; }
     const ok = ((data ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id));
     n += ok.length;
-    if (ok.length) await db.from('lead_audit').insert(ok.map((lead_id) => ({ lead_id, campo: 'Producto', valor_anterior: null, valor_nuevo: porQue, autor })));
+    if (ok.length) await db.from('lead_audit').insert(ok.map((lead_id) => ({ lead_id, campo: 'Funnel', valor_anterior: null, valor_nuevo: porQue, autor })));
   }
   return n;
 }

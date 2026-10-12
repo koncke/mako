@@ -28,8 +28,13 @@
 
 import type { EstadoKpi, Cadencia } from './objectives-modelo';
 import { capacidad } from './mako-capacidades';
+import { sinRecurrentes } from './plan-recurrentes';
 
-export type OrigenFoco = 'kpi' | 'objetivo' | 'alerta' | 'plan' | 'arranque';
+/**
+ * De dónde salió la acción. `datos` = no se pudieron LEER las fuentes (#165): no es
+ * configuración —no hay nada que el cliente tenga que conectar— ni una alerta del semáforo.
+ */
+export type OrigenFoco = 'kpi' | 'objetivo' | 'alerta' | 'plan' | 'arranque' | 'datos';
 
 export const ORIGEN_LABEL: Record<OrigenFoco, string> = {
   kpi: 'KPI',
@@ -37,7 +42,17 @@ export const ORIGEN_LABEL: Record<OrigenFoco, string> = {
   alerta: 'Semáforo',
   plan: 'Plan',
   arranque: 'Configuración',
+  datos: 'Datos',
 };
+
+/**
+ * Qué falta CONFIGURAR para que la pantalla pueda contestar, o null si la acción es otra.
+ *
+ * ⚠️ EXISTE PARA QUE NINGUNA PANTALLA COMPARE TEXTO. La cabecera de /general escondía la
+ * acción preguntando `foco.hrefLabel === 'Cargar el objetivo'`: el día que alguien cambiara
+ * ese copy acá, se rompía en silencio en dos pantallas (escritorio y Today móvil).
+ */
+export type PideConfigurar = 'objetivo' | 'kpis' | 'fuente';
 
 export type Foco = {
   /** 1 — Qué hacer. Imperativa, concreta y acotada. */
@@ -64,10 +79,16 @@ export type Foco = {
    * alguien reescribe el copy en un solo lado.
    */
   alertaIdx: number | null;
-  /** El destino REAL donde se ejecuta. Nunca un href a mano cuando hay catálogo. */
+  /**
+   * El destino REAL donde se ejecuta. Nunca un href a mano cuando hay catálogo.
+   * ⚠️ Es una ruta de ESCRITORIO (/general, /integraciones, /plan, la tab de una
+   * capacidad…). El móvil la traduce con `rutaMovil()` de lib/movil-rutas.ts.
+   */
   href: string;
   hrefLabel: string;
   nivel: 'rojo' | 'ambar' | 'neutro';
+  /** Qué falta configurar (objetivo, KPIs o una fuente), o null. Ver `PideConfigurar`. */
+  pideConfigurar: PideConfigurar | null;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,6 +125,11 @@ export type TareaParaFoco = {
   deadline: string | null;
   /** El `hacelo_en` de la tarea: un id de `mako-capacidades`, si lo tiene. */
   haceloEn?: string | null;
+  /**
+   * «Se repite para siempre» (mig 0163). Una recurrente NUNCA es la acción: no compite por
+   * un puesto (lib/plan-recurrentes.ts). `elegirFoco` la saca aunque el que llama se olvide.
+   */
+  recurrente?: boolean;
 };
 
 export type EntradaFoco = {
@@ -134,6 +160,12 @@ export type EntradaFoco = {
    * que contar por estado da «conectada» sobre cero datos.
    */
   sinFuentes: boolean;
+  /**
+   * `true` cuando `sinFuentes` es porque las fuentes NO SE PUDIERON LEER, no porque no
+   * tengan datos. Cambia sólo el texto del escalón: decirle «conecta una fuente» a quien la
+   * tiene conectada es mandarlo a arreglar algo que no rompió. Ausente = `false`.
+   */
+  fuentesSinLeer?: boolean;
   hoy: string;
 };
 
@@ -222,6 +254,7 @@ function focoDeKpi(k: KpiParaFoco): Foco {
     href: destino.href,
     hrefLabel: destino.label,
     nivel: k.estado === 'rojo' ? 'rojo' : 'ambar',
+    pideConfigurar: null,
   };
 }
 
@@ -276,13 +309,18 @@ export function elegirFoco(e: EntradaFoco): Foco {
       href: alerta.href,
       hrefLabel: alerta.hrefLabel,
       nivel: 'rojo',
+      pideConfigurar: null,
     };
   }
 
   const ambar = peor('ambar');
   if (ambar) return focoDeKpi(ambar);
 
-  const tarea = [...e.tareas].sort((a, b) => b.score - a.score)[0];
+  // ⚠️ SIN LAS RECURRENTES, ACÁ Y NO SÓLO EN QUIEN LLAMA. «La junta de los miércoles» no
+  // tiene un fin que se pueda adelantar: como LA acción del día sería una orden que no se
+  // puede cumplir nunca. Se corta en el que elige para que una pantalla nueva que arme sus
+  // tareas a mano no la pueda colar.
+  const tarea = sinRecurrentes([...e.tareas]).sort((a, b) => b.score - a.score)[0];
   if (tarea) {
     const cap = tarea.haceloEn ? capacidad(tarea.haceloEn) : undefined;
     return {
@@ -297,6 +335,7 @@ export function elegirFoco(e: EntradaFoco): Foco {
       href: cap?.ruta ?? '/plan',
       hrefLabel: cap?.tab ?? 'Plan',
       nivel: 'neutro',
+      pideConfigurar: null,
     };
   }
 
@@ -317,6 +356,7 @@ export function elegirFoco(e: EntradaFoco): Foco {
       href: '/general',
       hrefLabel: 'Cargar el objetivo',
       nivel: 'neutro',
+      pideConfigurar: 'objetivo',
     };
   }
   if (e.kpis.length === 0) {
@@ -332,6 +372,7 @@ export function elegirFoco(e: EntradaFoco): Foco {
       href: '/general',
       hrefLabel: 'Elegir KPIs',
       nivel: 'neutro',
+      pideConfigurar: 'kpis',
     };
   }
   // ⚠️ ESTE ESCALÓN VA ANTES DEL VERDE Y NO ES OPCIONAL (#165). Con cero fuentes que
@@ -340,6 +381,25 @@ export function elegirFoco(e: EntradaFoco): Foco {
   // el escalón de abajo afirma que el negocio va bien sobre un negocio del que no se
   // sabe nada. Va DESPUÉS de objetivo y KPIs porque ésos son el primer paso del
   // arranque; conectar la fuente es lo que hace que el número aparezca solo.
+  if (e.sinFuentes && e.fuentesSinLeer) {
+    // ⚠️ La lectura FALLÓ: no es nada del cliente y no hay nada que conectar. Se dice qué
+    // pasó, se lo exime de la culpa, y el botón es volver a cargar (AGENTS.md, «Un mensaje
+    // de error dice DE QUIÉN fue y QUÉ HACER»). Lo que no puede pasar es el verde de abajo.
+    return {
+      alertaIdx: null,
+      accion: 'No pude leer tus fuentes de datos.',
+      razon: 'Falló la lectura, no es nada tuyo: sin eso no puedo decirte si vas al día.',
+      resultadoEsperado: 'Cuando la lectura vuelva, el tablero vuelve a opinar.',
+      responsable: 'MaKo',
+      progreso: null,
+      siguienteRevision: 'En la próxima carga',
+      origen: 'datos',
+      href: '/general',
+      hrefLabel: 'Reintentar',
+      nivel: 'ambar',
+      pideConfigurar: null,
+    };
+  }
   if (e.sinFuentes) {
     return {
       alertaIdx: null,
@@ -353,6 +413,7 @@ export function elegirFoco(e: EntradaFoco): Foco {
       href: '/integraciones',
       hrefLabel: 'Integraciones',
       nivel: 'ambar',
+      pideConfigurar: 'fuente',
     };
   }
   return {
@@ -367,5 +428,6 @@ export function elegirFoco(e: EntradaFoco): Foco {
     href: '/plan',
     hrefLabel: 'Plan',
     nivel: 'neutro',
+    pideConfigurar: null,
   };
 }

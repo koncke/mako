@@ -336,7 +336,9 @@ export const AREAS: AreaDev[] = [
     slug: 'dashboard', titulo: 'Dashboard', familia: 'Analyze',
     estado: 'listo', verEnApp: '/dashboard',
     alcance: 'La tab Dashboard es un editor de informes copiado de Looker Studio: hojas (Marketing y Comercial son las dos del informe inicial), 40 tipos de gráfico, estilo editable, control de período y los 24 conjuntos de datos de MaKo. Por persona y workspace.',
-    vive: ['app/dashboard/', 'app/graficos/', 'app/marketing/page.tsx', 'app/comercial/page.tsx', 'app/api/graficos/', 'lib/graficos-catalogo.ts', 'lib/graficos-agregar.ts', 'lib/graficos-datos.ts', 'lib/graficos-tablero.ts', 'tests/graficos.test.ts'],
+    vive: ['app/dashboard/', 'app/graficos/', 'app/marketing/page.tsx', 'app/comercial/page.tsx', 'app/api/graficos/', 'lib/graficos-catalogo.ts', 'lib/graficos-agregar.ts', 'lib/graficos-datos.ts', 'lib/graficos-tablero.ts', 'tests/graficos.test.ts',
+      'lib/graficos-ia-red.ts', 'lib/graficos-ia-generar.ts', 'lib/graficos-analisis-server.ts',
+      'lib/api-mako/areas/dashboard.def.ts', 'lib/api-mako/areas/dashboard.run.ts', 'lib/api-mako/areas/dashboard.helpers.ts'],
     proyectos: ['Feature: Dashboard'],
   },
   {
@@ -356,9 +358,12 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'experiments', titulo: 'Experiments', familia: 'Analyze',
     estado: 'listo', verEnApp: '/experimentos',
-    alcance: 'El shell de tres tabs (Retro · Experiments · Conclusions) con el estado de datos, el toast y el modo demo local sin Supabase. Gateado por PanelActivacion si Meta no está conectado, porque la Retro necesita métricas contra qué medir.',
-    vive: ['app/experimentos/page.tsx', 'app/experimentos/ExperimentosApp.tsx', 'app/experimentos/ui.tsx', 'app/experimentos/_demo.ts', 'lib/experimentos.ts', 'app/api/experimentos/route.ts'],
+    alcance: 'El shell de cuatro tabs (Retro · Experiments · Conclusions · Análisis) con el estado de datos, el toast y el modo demo local sin Supabase. Sin Meta, el PanelActivacion ocupa Retro, Experiments y Conclusions (miden contra Meta); Análisis —el informe en cascada que hasta el 11/10/2026 era la tab /analisis— sale del CRM y anda igual.',
+    vive: ['app/experimentos/page.tsx', 'app/experimentos/ExperimentosApp.tsx', 'app/experimentos/ui.tsx', 'app/experimentos/_demo.ts', 'lib/experimentos.ts', 'app/api/experimentos/route.ts',
+      'app/experimentos/tabs.ts', 'app/experimentos/VistaAnalisis.tsx', 'lib/analisis-negocio.ts', 'lib/analisis-modelo.ts',
+      'app/analisis/page.tsx', 'app/analisis/trimestre/page.tsx'],
     proyectos: ['Feature: Experiments'],
+    nota: 'La tab se lee en el SERVER (?tab=, con tabDeUrl de app/experimentos/tabs.ts, un módulo puro: nunca un valor de ExperimentosApp, que es use client) porque analisisNegocio es lenta y sólo corre cuando la URL pide Análisis. /analisis redirige a ?tab=analisis con su query; /analisis/trimestre (el informe congelado del ws1) se quedó en su ruta a propósito.',
   },
   {
     slug: 'retro', titulo: 'Retro', familia: 'Analyze',
@@ -369,35 +374,48 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'ads-analyst', titulo: 'Ads Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'listo', verEnApp: '/ads-analyst',
-    alcance: 'Cruza el análisis cualitativo de Claude sobre el guion (ángulo, gancho, beats) con las métricas Meta×CRM de todo el histórico del anuncio; arriba viven Patrones (ganadores/a cortar/de proceso) y el Cuadrante de Retención. Sin filtro de fecha y gateado por Meta.',
-    vive: ['app/ads-analyst/page.tsx', 'app/ads-analyst/ScriptsBrowser.tsx', 'lib/ads-analyst.ts', 'lib/script-angles.ts', 'lib/script-avatares.ts', 'app/api/ads-analyst/'],
+    estado: 'listo', verEnApp: '/dashboard?hoja=ads-analyst',
+    alcance: 'Cruza el análisis cualitativo de Claude sobre el guion (ángulo, gancho, beats) con las métricas Meta×CRM de todo el histórico del anuncio; arriba viven Patrones (ganadores/a cortar/de proceso) y el Cuadrante de Retención. Sin filtro de fecha y gateado por Meta. Desde el 11/10/2026 ya no es una tab: el análisis es la hoja «Ads Analyst» del Dashboard, valorar un guion nuevo vive en Ads Writer (?tab=analizar) y /ads-analyst redirige a la hoja.',
+    vive: ['app/ads-analyst/page.tsx', 'app/ads-analyst/ScriptsBrowser.tsx', 'lib/ads-analyst.ts', 'lib/script-angles.ts', 'lib/script-avatares.ts', 'app/api/ads-analyst/',
+      'app/ads-writer/AnalizarGuion.tsx', 'lib/graficos-plantillas-analysts.ts', 'app/dashboard/bloques/extra/BloquesAds.tsx'],
     proyectos: ['Feature: Ads Analyst'],
   },
   {
     slug: 'landing-analyst', titulo: 'Landing Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'listo', verEnApp: '/landing-analyst',
+    estado: 'listo', verEnApp: '/landing-generator/analizar',
     alcance: 'Baja la landing del cliente, le lee el copy y lo cruza con el comportamiento real de esa URL (beacon + agendas del CRM): lista de landings a la izquierda, diagnóstico con hallazgos por severidad a la derecha. A propósito NO se gatea por integración: con pegar una URL alcanza. Desde el 06/10/2026 analiza SOLA cada página que se declara en el Pixel (por detrás, con un cron de red) y tiene el MAPA DE CALOR: los toques dibujados sobre la foto de la página que guarda una grabación.',
     vive: ['app/landing-analyst/page.tsx', 'app/landing-analyst/LandingAnalystApp.tsx', 'lib/landing-analyst.ts', 'app/api/landing-analyst/',
       'app/landing-analyst/PulsoPaginas.tsx', 'app/landing-analyst/MapaDeCalor.tsx',
       'lib/landing-mapa.ts', 'lib/landing-mapa-foto.ts', 'lib/landing-mapa-server.ts',
       'lib/landing-url.ts', 'lib/landing-analyst-auto.ts', 'app/api/cron/landing-analyst-auto/route.ts',
-      'tests/landing-mapa.test.ts', 'tests/landing-analyst-auto.test.ts'],
+      'tests/landing-mapa.test.ts', 'tests/landing-analyst-auto.test.ts',
+      'app/landing-generator/analizar/page.tsx', 'app/landing-analyst/destino.ts', 'tests/landing-generator-analizar.test.ts', 'app/dashboard/bloques/extra/BloquesLanding.tsx'],
     proyectos: ['Feature: Landing Analyst'],
+    nota: 'Desde el 11/10/2026 no es una tab: analizar una página es «Diagnóstico», dentro de Landing Generator (/landing-generator/analizar, que monta LandingAnalystApp desde donde está) y el pulso y el mapa de calor son la hoja «Landing» del Dashboard. /landing-analyst redirige. La key `landing-an` sigue gobernando los gating de la API.',
   },
   {
     slug: 'closing-analyst', titulo: 'Closing Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'listo', verEnApp: '/closing',
-    alcance: 'Trae las llamadas de Fathom, las matchea con los leads del CRM y analiza al closer en las de VENTA (R1/R2) con método SPIN; las de entrega de servicio, internas y de prueba se detectan y se excluyen. Sin Fathom muestra PanelActivacion. Visible para rol closer.',
-    vive: ['app/closing/page.tsx', 'app/closing/ClosingBrowser.tsx', 'lib/closing.ts', 'app/api/closing/'],
+    estado: 'listo', verEnApp: '/dashboard?hoja=closing',
+    alcance: 'Trae las llamadas de Fathom, las matchea con los leads del CRM y analiza al closer en las de VENTA (R1/R2) con método SPIN; las de entrega de servicio, internas y de prueba se detectan y se excluyen. Desde el 11/10/2026 no es una tab: es la hoja «Closing» del Dashboard, con la ficha de cada llamada y sus tareas; el closer ve SÓLO esa hoja, sin editar. /closing?call=<id> redirige a ?hoja=closing&llamada=<id>.',
+    vive: ['app/closing/page.tsx', 'lib/closing.ts', 'app/api/closing/', 'lib/graficos-plantillas-analysts.ts', 'lib/graficos-plantillas.ts',
+      'app/dashboard/bloques/extra/BloquesClosing.tsx', 'app/dashboard/bloques/extra/FichaLlamada.tsx'],
     proyectos: ['Feature: Closing Analyst'],
   },
   {
-    slug: 'offer-analyst', titulo: 'Offer Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'por-construir', verEnApp: '/offer-analyst',
-    alcance: 'Analizar la oferta del cliente (precio, promesa, garantía, qué la hace comprable). Hoy es ComingSoon puro: la page solo monta el placeholder.',
-    vive: ['app/offer-analyst/page.tsx', 'app/_components/ComingSoon.tsx'],
-    proyectos: ['Feature: Offer Analyst'],
+    // El slug se queda 'offer-analyst' aunque el título ya sea «Offer»: es la URL del registro
+    // y la clave del historial generado. Sin grupo: desde el 11/10/2026 Offer es un ítem suelto
+    // de Analyze (salió de los Analysts), igual que en app/_components/nav.ts.
+    slug: 'offer-analyst', titulo: 'Offer', familia: 'Analyze',
+    estado: 'parcial', verEnApp: '/offer',
+    alcance: 'Offer Analyst y Offer Generator en UNA tab: un chat donde MaKo pregunta por las piezas de la oferta, la diagnostica con una rúbrica y escribe la oferta nueva, descargable en PDF; cada cambio propuesto se puede probar como experimento.',
+    vive: ['app/offer/', 'app/api/offer/', 'supabase/migrations/0254_offer_sesiones.sql', 'supabase/migrations/0256_offer_funnel.sql',
+      'lib/offer-marco.ts', 'lib/offer-reglas.ts', 'lib/offer-ia.ts', 'lib/offer-sesiones.ts', 'lib/offer-contexto.ts',
+      'lib/offer-pdf.ts', 'lib/pdf-escritor.ts', 'lib/pdf-helvetica.ts', 'app/offer-analyst/page.tsx', 'docs/offer-marco.md',
+      'app/admin/offer-playbook/', 'lib/offer-autores.ts', 'docs/hallazgos-offer.md'],
+    // Los DOS proyectos se quedan (decisión del 25/09; ver lib/plan-proyectos-catalogo.ts):
+    // la tab es una, el trabajo pendiente sigue repartido entre los dos.
+    proyectos: ['Feature: Offer Analyst', 'Feature: Offer Generator'],
+    nota: 'Hay dos claves que NO cambiaron con el nombre: la key del nav sigue siendo \'offer\' (contrato con la base: capas y onboarding, pasos of_contar y of_conclusion) y la ruta vieja /offer-analyst redirige a /offer. En Offer no hay wizard delante: el chat ES el onboarding.',
   },
   {
     slug: 'vsl-analyst', titulo: 'VSL Analyst', familia: 'Analyze', grupo: 'Analysts',
@@ -547,11 +565,25 @@ export const AREAS: AreaDev[] = [
     hallazgos: 'hallazgos-chatbot',
   },
   {
+    // Desde el 11/10/2026 la tab es el editor copiado de Gamma 5 (docs/diseno-editor-landing.md):
+    // la pantalla vieja (LandingWriterApp.tsx) y su ruta (/api/landing-writer) se retiraron. El
+    // `vive` va por CARPETA donde el área es dueña de la carpeta entera: un `vive` corto no da un
+    // área con poca historia, da un área invisible (AGENTS.md, «Una ruta que apunta a la nada…»).
     slug: 'landing-generator', titulo: 'Landing Generator', familia: 'Sales Machine',
     estado: 'listo', verEnApp: '/landing-generator',
-    alcance: 'MaKo escribe la página entera (estructura + copy bloque por bloque) desde el funnel y, si esa URL ya pasó por el Landing Analyst, sus hallazgos; con refinado por instrucción y guardado.',
-    vive: ['app/landing-generator/page.tsx', 'app/landing-generator/LandingWriterApp.tsx', 'app/landing-writer/page.tsx', 'lib/landing-writer.ts', 'lib/landing-spec.ts', 'app/api/landing-writer/route.ts'],
+    alcance: 'El editor de landings copiado de Gamma 5: Panel con carpetas, plantillas y papelera; «Crear con IA» en dos pasos (esquema que se edita, secciones en tandas) desde el funnel, el perfil y —si la página ya pasó por el Landing Analyst— sus hallazgos; edición por secciones y bloques en TipTap (menú «/», barra de formato, 52 diseños, temas, comentarios, historial, Edición con IA); exportar a PDF, PNG, PPTX y HTML; y publicar como foto en hola-mako.com/l/<slug>, multipágina, con el Pixel de MaKo y el Píxel de Meta.',
+    vive: [
+      'app/landing-generator', 'app/api/landing-generator', 'app/l', 'lib/editor-landing', 'lib/imagenes-stock.ts',
+      'supabase/migrations/0246_editor_landing.sql', 'scripts/gen-iconos-landing.mjs', 'docs/diseno-editor-landing.md',
+      'app/landing-writer/page.tsx', 'lib/landing-writer.ts', 'lib/landing-spec.ts', 'app/admin/dev/landing-generator/bitacora.ts',
+      'tests/editor-landing-agente.test.ts', 'tests/editor-landing-armazon.test.ts', 'tests/editor-landing-crear.test.ts',
+      'tests/editor-landing-exportar.test.ts', 'tests/editor-landing-ia-bloques.test.ts', 'tests/editor-landing-ia.test.ts',
+      'tests/editor-landing-insertar.test.ts', 'tests/editor-landing-menus.test.ts', 'tests/editor-landing-plantillas.test.ts',
+      'tests/editor-landing-publica.test.ts', 'tests/editor-landing-render.test.ts', 'tests/editor-landing-server.test.ts',
+      'tests/editor-landing-temas.test.ts', 'tests/editor-landing-validar.test.ts',
+    ],
     proyectos: ['Feature: Landing Generator'],
+    hallazgos: 'hallazgos-editor-landing',
   },
   {
     slug: 'vsl-generator', titulo: 'VSL Generator', familia: 'Sales Machine',
@@ -596,7 +628,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'closing-script', titulo: 'Closing Script', familia: 'Sales Machine',
     estado: 'por-construir', verEnApp: '/closing-script',
-    alcance: 'El guion que usa el closer en la llamada. ComingSoon; su contraparte de ANÁLISIS (/closing, Closing Analyst) sí existe y funciona, así que el bucle natural es que ésta se alimente de aquélla.',
+    alcance: 'El guion que usa el closer en la llamada. ComingSoon; su contraparte de ANÁLISIS (la hoja Closing del Dashboard, ex Closing Analyst) sí existe y funciona, así que el bucle natural es que ésta se alimente de aquélla.',
     // ⚠️ Este `vive` eran dos rutas: el stub (UN commit en toda su vida) y nav.ts
     // (68). El Change History automático mostraba 12 commits y ninguno hablaba del
     // área. Es el gemelo de «Una ruta que apunta a la nada»: una que apunta a TODO
@@ -855,10 +887,22 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'payment-gateway', titulo: 'Payment Gateway', familia: 'Business', grupo: 'Cobros y planes',
-    estado: 'por-construir',
-    alcance: 'Cobrarle al cliente de verdad: Stripe, el checkout, los webhooks de pago y los recibos. Hoy no hay una sola línea de eso en el repo.',
-    vive: [],
-    nota: 'El grep de «stripe» da exactamente dos falsos positivos, y conviene saberlo para no perder el tiempo: el regex que TAPA claves sk_live_… en lib/agente-redaccion.ts:43, y un caso de prueba del ruteo del Perro en scripts/probe-perro-gemini.ts:28. El proyecto del tablero al que rutean estas tareas se llama «Cobros y planes» (lib/plan-proyectos-catalogo.ts:145), no «Payment Gateway».',
+    estado: 'parcial', verEnApp: '/admin/cobros',
+    alcance: 'Cobrar con Stripe y Mercado Pago: la conexión pegando la clave (BYOK), el link de pago /pagar/<token>, los avisos de cada pasarela, la reconciliación, y MaKo vendiendo sus planes con el alta de la cuenta al pagar.',
+    vive: [
+      'lib/cobros.ts', 'lib/cobros-tipos.ts', 'lib/cobros-reglas.ts', 'lib/cobros-conexion.ts', 'lib/cobros-eventos.ts', 'lib/cobros-webhook.ts',
+      'lib/pasarela-eventos.ts', 'lib/pasarela-firma.ts', 'lib/pasarela-moneda.ts', 'lib/stripe-api.ts', 'lib/stripe-form.ts', 'lib/mercadopago-api.ts',
+      'lib/alta-cliente.ts',
+      'app/api/webhooks/stripe/route.ts', 'app/api/webhooks/mercadopago/route.ts', 'app/api/cron/cobros-reconciliar/route.ts',
+      'app/pagar/[token]/route.ts', 'app/pagar/[token]/listo/page.tsx', 'app/pagar/[token]/listo/AccesoMako.tsx', 'app/pagar/acceso.ts', 'app/pagar/cambio-email.ts',
+      'app/api/pagar/email/route.ts', 'app/reembolsos/page.tsx',
+      'app/admin/cobros/page.tsx', 'app/admin/cobros/actions.ts', 'app/admin/cobros/VenderPlan.tsx', 'app/admin/cobros/ListaCobrosMako.tsx',
+      'app/crm/[id]/cobros-actions.ts', 'lib/api-mako/areas/cobros.def.ts', 'lib/api-mako/areas/cobros.run.ts',
+      'supabase/migrations/0255_cobros_pasarela.sql', 'docs/diseno-pasarela-pagos.md',
+    ],
+    proyectos: ['Feature: Cobros y planes'],
+    hallazgos: 'hallazgos-planes-y-cobro',
+    nota: 'Nació el 11/10/2026 («Lo voy a utilizar yo como superadmin para vender MaKo, pero también los usuarios pueden alojarlo»). MaKo NO tiene una máquina de cobro propia: vende con la misma integración que conecta un cliente, desde /integraciones del workspace `wsSuperAdmin()`, y lo único de la plataforma es la rama de lib/cobros.ts que da de alta la cuenta al pagar — escrita en positivo, porque sin eso un cliente que vende con su Stripe crearía inquilinos. Dos trampas que ya costaron un diagnóstico: Stripe NO firma como Svix (el `whsec_` va entero; claveDelSecreto lo decodificaría y rechazaría el 100%), y las claves se leen con credDelCliente y con nada más (credWs/envCred caen al ws1, que es Mauricio). El contrato entre las piezas está en docs/diseno-pasarela-pagos.md. Lo que sigue: el primer cobro real (migración 0255 + conectar la cuenta de MaKo) y «Pagos» en el CRON de Automations (fase 2).',
   },
   {
     slug: 'subscriptions-billing', titulo: 'Subscriptions & Billing', familia: 'Business', grupo: 'Cobros y planes',
@@ -877,10 +921,10 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'legal-compliance', titulo: 'Legal & Compliance', familia: 'Business', grupo: 'Legal',
     estado: 'parcial',
-    alcance: 'Los papeles del negocio: términos, privacidad, tratamiento de datos, LLC y fiscal. /privacidad y /terminos EXISTEN desde el 5/09 y el pie de la landing los linkea; falta lo que depende de decisiones del dueño (responsable legal, jurisdicción) y lo que exige cobrar (/reembolsos y las cláusulas de suscripción).',
-    vive: ['app/privacidad/page.tsx', 'app/privacidad/extension/page.tsx', 'app/terminos/page.tsx', 'app/_legal/LegalShell.tsx', 'app/vsl/Landing.tsx', 'lib/rutas-publicas.ts', 'docs/hallazgos-integraciones.md'],
+    alcance: 'Los papeles del negocio: términos, privacidad, reembolsos, tratamiento de datos, LLC y fiscal. /privacidad y /terminos EXISTEN desde el 5/09 y el pie de la landing los linkea; /reembolsos y la cláusula de cobro de /terminos existen desde el 11/10 como BORRADOR; falta lo que depende de decisiones del dueño (responsable legal, jurisdicción, la política de reembolsos).',
+    vive: ['app/privacidad/page.tsx', 'app/privacidad/extension/page.tsx', 'app/terminos/page.tsx', 'app/reembolsos/page.tsx', 'app/_legal/LegalShell.tsx', 'app/vsl/Landing.tsx', 'lib/rutas-publicas.ts', 'docs/hallazgos-integraciones.md'],
     proyectos: ['Legal y fiscal'],
-    nota: '⚠️ Esta ficha decía «Cero código: no hay /terminos ni /privacidad» y lo afirmó durante UN MES después de que dejara de ser cierto: las dos páginas y el pie de la landing salieron el 5/09 (b8247937→d6eb4cc5) y el `vive[]` vacío hacía que el panel de historial de esta área naciera sin un solo commit. Es la regla «una ruta que apunta a la nada», del lado del que CREA el código: quien escribe la ruta actualiza el área, o el área miente sola. Lo que SÍ falta hoy: los tres datos que no salen del código (responsable legal, jurisdicción, edad mínima) siguen como SUPUESTO marcado al tope de las dos páginas, esperando al dueño desde el 5/09; y `app/terminos/page.tsx` afirma «No hay cobros automáticos dentro del producto», que deja de ser cierto el día que exista la pasarela — ahí hacen falta /reembolsos y las cláusulas de suscripción, renovación y cancelación que pide el merchant of record. Antecedente útil: el Perro repartía lo legal por palabra suelta (los ToS caían en «Vender MaKo: Landing y VSL», la LLC en «Cobros y planes»); scripts/mover-legales.ts las reubicó al proyecto «Legal y fiscal» del catálogo (lib/plan-proyectos-catalogo.ts:176), que es transversal y explícitamente NO es la pantalla de cobros.',
+    nota: '⚠️ Esta ficha decía «Cero código: no hay /terminos ni /privacidad» y lo afirmó durante UN MES después de que dejara de ser cierto: las dos páginas y el pie de la landing salieron el 5/09 (b8247937→d6eb4cc5) y el `vive[]` vacío hacía que el panel de historial de esta área naciera sin un solo commit. Es la regla «una ruta que apunta a la nada», del lado del que CREA el código: quien escribe la ruta actualiza el área, o el área miente sola. Lo que SÍ falta hoy: los tres datos que no salen del código (responsable legal, jurisdicción, edad mínima) siguen como SUPUESTO marcado al tope de las dos páginas, esperando al dueño desde el 5/09. `app/terminos/page.tsx` afirmaba «No hay cobros automáticos dentro del producto», y dejó de decirlo el 11/10, en la MISMA tanda que abrió la pasarela (área payment-gateway): la sección 8 ahora cuenta suscripción, renovación y cancelación, y /reembolsos existe — las dos de mínima y marcadas BORRADOR en el fuente, para que Martín decida el plazo de respuesta, la garantía del grupal y si se cancela sin escribir. Antecedente útil: el Perro repartía lo legal por palabra suelta (los ToS caían en «Vender MaKo: Landing y VSL», la LLC en «Cobros y planes»); scripts/mover-legales.ts las reubicó al proyecto «Legal y fiscal» del catálogo (lib/plan-proyectos-catalogo.ts:176), que es transversal y explícitamente NO es la pantalla de cobros.',
   },
   {
     slug: 'account-offboarding', titulo: 'Account Offboarding', familia: 'Business', grupo: 'Legal',
@@ -1096,6 +1140,13 @@ export const AREAS: AreaDev[] = [
     estado: 'listo', verEnApp: '/admin/docs',
     alcance: 'AGENTS.md y docs/*.md renderizados DESDE el repo (sin copia propia), agrupados, con buscador y la ficha de git de cada documento. Todo el estado vive en la URL.',
     vive: ['app/admin/docs/page.tsx', 'app/admin/docs/DocsView.tsx', 'app/admin/docs/catalogo.ts', 'app/admin/docs/git-meta.ts'],
+  },
+  {
+    slug: 'mako-mobile', titulo: 'MaKo Mobile', familia: 'Platform', grupo: 'Dev',
+    estado: 'parcial', verEnApp: '/m',
+    alcance: 'La app del teléfono (PWA): Today, Inbox, MaKo, CRM y Plan re-adaptados en /m, con Web Push por persona y el chat de MaKo que propone y se aprueba desde el hilo. Salió con el reparto de teléfonos apagado (/inicio): se abre por URL hasta verla en producción.',
+    vive: ['app/m/', 'app/api/m/', 'app/api/push/', 'app/api/perfil/notif-push/', 'public/sw.js', 'lib/movil-rutas.ts', 'lib/movil-guard.ts', 'lib/movil-dispositivo.ts', 'lib/movil-instalar.ts', 'lib/haptico.ts', 'lib/push.ts', 'lib/push-payload.ts', 'lib/push-cliente.ts', 'lib/mako-turno-app.ts', 'lib/mako-turno-app-reglas.ts', 'lib/inbox-movil.ts', 'lib/hoy-movil.ts', 'lib/crm-movil.ts', 'lib/plan-hoy.ts', 'lib/plan-marcar.ts', 'lib/vista-general.ts', 'app/plan/board/prioridades.ts', 'docs/diseno-mako-mobile.md'],
+    proyectos: ['Feature: MaKo Mobile'],
   },
   {
     slug: 'mako-ux-ui', titulo: 'MaKo UX/UI', familia: 'Platform', grupo: 'Dev',

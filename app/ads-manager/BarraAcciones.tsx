@@ -348,7 +348,7 @@ export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onP
           solo bloque partido por una raya. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, flexWrap: 'wrap', flex: 'none' }}>
         {onPresupuesto && <BotonLote icono="sales" disabled={trabajando} activo={modo === 'presupuesto'} onClick={() => setModo((m) => (m === 'presupuesto' ? null : 'presupuesto'))}>Presupuesto</BotonLote>}
-        {productos && productos.length > 0 && onProducto && <BotonLote icono="tag" disabled={trabajando} activo={modo === 'producto'} onClick={() => setModo((m) => (m === 'producto' ? null : 'producto'))}>Producto</BotonLote>}
+        {productos && productos.length > 0 && onProducto && <BotonLote icono="tag" disabled={trabajando} activo={modo === 'producto'} onClick={() => setModo((m) => (m === 'producto' ? null : 'producto'))}>Funnel</BotonLote>}
         {onRenombrar && <BotonLote icono="notepencil" disabled={trabajando} onClick={onRenombrar}>Renombrar</BotonLote>}
         {onAgregarConjunto && <BotonLote icono="users" disabled={trabajando} onClick={onAgregarConjunto}>Agregar conjunto</BotonLote>}
         {onAgregarAnuncio && <BotonLote icono="creativos" disabled={trabajando} onClick={onAgregarAnuncio}>Agregar anuncio</BotonLote>}

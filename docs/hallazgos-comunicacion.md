@@ -9669,3 +9669,79 @@ algo que se configura en SuperAdmin». Revierte la mitad del cliente de «las do
   negocio (`/api/admin/plantillas` edita el store del cliente que se mira).
 - Al cliente le quedan cuatro en su lista: reporte semanal, recordatorio de reunión próxima, mensaje de WhatsApp
   entrante y cuota vencida. Los tres que salieron se siguen emitiendo igual.
+
+## Undécima tanda (11/10/2026): el remitente del negocio nunca es MaKo, y «avisé» no es «llegó»
+
+Martín, sobre el ws1: «Quítale a Mauricio que pueda mandar email con MaKo. Nadie debería poder.» El diseño, en
+`docs/diseno-undecima-tanda.md` (decisión 3); lo de Automations, en [hallazgos-chatbot.md](hallazgos-chatbot.md).
+
+**El remitente**
+
+- **⚠️ El corte de la décima era NEGATIVO** («es de MaKo y no es la plataforma») y sólo miraba `sendEmail` sin `from`:
+  un `from` explícito se lo salteaba, y cada pantalla tenía su propia rama «de MaKo». Regla: UNA puerta positiva,
+  `remitenteDelNegocio` (pura, `lib/email-remitente.ts`), leída por `remitenteDelNegocioActual` (`lib/resend.ts`) con
+  lecturas ESTRICTAS: un error de lectura es «no puede». `getEmailFrom` devuelve el sandbox cuando no pasa, así que todo
+  preflight que ya preguntaba `remitenteEsSandbox()` quedó bien sin tocarlo, y `sendEmail` se niega («Conecta tu
+  email»). La invitación al curso usa la misma puerta (`invitacionDeVeredicto`; su copia `remitenteDeLaInvitacion` se
+  borró): la entrada del 08/10 de más arriba sigue valiendo, ahora con una sola función.
+- **«Habla MaKo» salía por la cuenta del CLIENTE.** Los mails con `from: REMITENTE_MAKO` usaban `resendKey()`, que
+  empieza por la key del workspace del contexto: dentro de ws10/ws11 (avisos, canal-vigilante con `runWithWorkspace`)
+  era la del cliente, donde hola-mako.com no existe. Regla: «habla MaKo» ⟺ `from === REMITENTE_MAKO`, y entonces
+  siempre `keyDeLaPlataforma()`. PLAUSIBLE: no se mandó un mail real para medirlo.
+- **⚠️ La key de la plataforma no es UN valor** (el diagnóstico obvio era el equivocado). La de `.env.local` (acceso
+  completo) es distinta de la fila del ws1 (sólo envío), que en prod el boot hidrata a la env; la del ws4 es una copia
+  de la del ws1. Comparar sólo contra `process.env` hacía «cuenta propia» la del ws4. `esDeLaPlataforma`
+  (`lib/credenciales.ts`) compara contra las dos y tira si no puede leer la base.
+- **El preflight de «te compartieron material»** (`app/api/compartir/route.ts`) medía el remitente de NEGOCIO del ws9,
+  que no tiene: decía que el mail no llegaba y sí salía. Lo que firma MaKo se mide con `correoDeMakoListo()`.
+- **El ws1 NO tiene `resend_domain`**: el hallazgo de la décima que decía que sí estaba mal (medido en el simulacro).
+  Hoy sólo ws10 y ws11 pueden mandar email de negocio, los dos por su propia cuenta; el dominio del ws11 figura
+  'failed' en Resend.
+- Guardar un `RESEND_FROM` de un dominio de MaKo se rechaza en TODO workspace (`RemitenteNoPropioError`), y
+  `RESEND_FROM` pasó a `NO_MIGRAR_A_WS`: si no, cada boot copiaba el remitente de la env al ws1 y tiraba.
+
+**Los avisos al grupo**
+
+- **⚠️ «Le avisé al equipo» en un negocio sin grupo** (ws14). Lo obvio (equivocado): el envío. Causa: `emitirAviso`
+  (`lib/avisos.ts`) devuelve `ok: true` si no TIRÓ; si llegó lo dicen `wa` y `waError`. Regla: quien necesita saber si
+  llegó mira `wa` (`resultadoDelAviso`, `lib/mako-tarjeta.ts`), nunca `ok`.
+- Por partes (`enviarPartesAJid`, `lib/mako-grupo.ts`), una parte cuenta como salida sólo si Evolution devuelve
+  `key.id`, y el envío corta en la primera que falla. ⚠️ `enviarAlGrupoMaKo` y `enviarAGrupoJid` (el texto de los ~48
+  avisos) todavía cuentan un 201 sin `key.id` como enviado: SIN HACER.
+- Medido el 11/10: el ws3 (Cliente de Prueba) no tiene `mako.grupo_jid`; tienen grupo ws1, 9, 10, 11, 13 y 15.
+
+**SIN HACER:** `scripts/undecima-email-remitente.mts --aplicar` (simulacro: el `resend_from` del ws1 pasa a '' y nadie
+más cambia); la `RESEND_API_KEY` de la plataforma sigue en la fila de credenciales del ws1; un envío real que pruebe que
+un mail de MaKo desde ws10/ws11 sale por la key de la plataforma; el 201 sin `key.id` de arriba.
+
+**Vive en:** `lib/email-remitente.ts` · `lib/resend.ts` · `lib/credenciales.ts` · `lib/invitaciones.ts` ·
+`lib/curso-invitar-canales.ts` · `lib/avisos.ts` · `lib/mako-grupo.ts` · `lib/mako-tarjeta.ts`
+
+_11/10/2026 — undécima tanda (w1-email, w1-mako-envio y el enchufe), probado rompiéndolo (los números, en cada test)._
+
+## Adjuntar como WhatsApp: elegir no sube nada, Enviar sí (12/10/2026)
+
+Pedido de Martín, después de que un PDF tirara un error apenas lo eligió en Offer: «Solo cuando le doy a
+ENVIAR debería… debería salir la vista previa del documento… como lo tiene whatsapp… puedo agregar más
+documentos… Y aún escribir un mensaje abajo… en todos los chats que consuman esto de subir documento».
+
+- **El componente es UNO: `app/whatsapp/_shared/VistaAdjuntos.tsx`** (+ `adjuntos-vista.ts`, puro, con
+  `useListaAdjuntos` y `enviarEnOrden`). Lo usan ChatHilo (la bandeja de WhatsApp, los grupos de MaKo, el
+  simulador de /automations) y la tab Offer. Un chat nuevo con adjuntos lo
+  monta en vez de dibujar su propio chip.
+- **ChatHilo manda varios en orden con `onEnviarArchivo`, el texto como pie del PRIMERO**; si uno falla, se
+  corta ahí y los que faltan vuelven a la vista con el error (el que ya salió no se reenvía).
+- **La primera página del PDF sale de `unpdf` importado DINÁMICO** (pdf.js, ~1,6 MB: no va al bundle de
+  entrada). En el navegador pide el polyfill de `Math.sumPrecise`, y el documento se cierra con
+  `pdf.loadingTask.destroy()` (en sus tipos no existe `pdf.destroy`).
+- **Un objectURL creado en `useMemo` y liberado en un efecto deja la imagen ROTA en dev**: StrictMode monta
+  dos veces, el primer desmontaje libera la URL y el segundo montaje reusa la memoizada. Se crea y se libera
+  en el mismo efecto. (Era el caso del chip viejo de ChatHilo.)
+- **`sinComentarios` de los tests se come un `accept='image/*,…'`**: el `/*` adentro de la cadena abre un
+  falso comentario de bloque y el guard deja de mirar lo que sigue. Un `accept` con comodín en un fuente que
+  lee un test va con las líneas antes que los bloques, o se busca en otra forma.
+- **En `app/_ui/iconos-menu.tsx`, `mas` son TRES PUNTOS; el «+» es `agregar`.**
+- Quedan dos chats que muestran el clip aunque sólo mandan audio (el ensayo del AI Step y el onboarding del
+  Chat Agent): hoy el envío de un archivo falla con «No se pudo enviar «x».».
+**Vive en:** `app/whatsapp/_shared/VistaAdjuntos.tsx`, `app/whatsapp/_shared/adjuntos-vista.ts`,
+`app/whatsapp/_shared/ChatHilo.tsx`. · *2026-10-12 Offer*

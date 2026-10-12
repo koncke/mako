@@ -13,6 +13,19 @@
 //
 // El copy sale en español neutro/mexicano (es para la audiencia del cliente); el
 // `rationale` va en la voz de MaKo, que le habla al dueño.
+//
+// ⚠️ DESDE EL 11/10/2026 LA TAB ES EL EDITOR COPIADO DE GAMMA (lib/editor-landing/*). La pantalla
+// vieja (app/landing-generator/LandingWriterApp.tsx) y su única ruta (app/api/landing-writer) se
+// retiraron en la integración: nada más las llamaba (grep de `api/landing-writer` en app, lib,
+// tests, scripts, extension y plugin: sólo ellas). Lo que SIGUE VIVO de acá: el brief del negocio
+// (`buildLandingBrief`, `diagnosticoDe`, `brandSystem`), que usa lib/editor-landing/ia.ts, y
+// `listarDrafts`/`borrarDraft`, que usa la API de MaKo (lib/api-mako/areas/landing.run.ts; el
+// «Importar → Del generador anterior» del Panel lee `landing_drafts` por su cuenta, en
+// lib/editor-landing/server.ts). `generarLanding`, `ajustarLanding` y
+// `guardarDraft` quedaron SIN CALL SITE: no se borraron en la misma tanda porque sus prompts viven
+// en el registro editable (`landing_writer.suggest.*` / `.adjust.*`, que un negocio pudo haber
+// sobrescrito) y su feature `landing-writer` en lib/model-catalogo.ts. Retirarlos es una limpieza
+// aparte (con esos dos registros), no un olvido.
 // =============================================================================
 
 import 'server-only';

@@ -22,13 +22,15 @@ import { PASOS_COMUNIDAD, TAB_COMUNIDAD, cambiosDeOnboarding, lineaOnboarding, p
 const todos = FAMILIAS.flatMap(itemsDe);
 const item = todos.find((i) => i.key === 'cs-comunidad');
 
-test('la barra tiene «Comunidad» (key cs-comunidad) en el grupo de Customer Success', () => {
+test('la barra tiene «Comunidad» (key cs-comunidad) en la familia Customer Success', () => {
   assert.ok(item, 'falta el ítem cs-comunidad');
   assert.equal(item.label, 'Comunidad');
   assert.equal(item.href, '/customer-success/comunidad');
   assert.ok(NOMBRES_ICONO.includes(item.icon), `el ícono «${item.icon}» no existe: dibujaría un punto`);
-  const grupo = FAMILIAS.flatMap((f) => f.grupos ?? []).find((g) => g.items.some((i) => i.key === 'cs-comunidad'));
-  assert.equal(grupo?.key, 'cs-grupo', 'va en el desplegable de Customer Success');
+  // Desde el 12/10/2026 Customer Success es una FAMILIA propia (antes, un desplegable de Operate).
+  const familia = FAMILIAS.find((f) => f.bloques.some((b) => b.some((i) => i.key === 'cs-comunidad')));
+  assert.equal(familia?.label, 'Customer Success', 'va en la familia Customer Success');
+  assert.ok(!FAMILIAS.find((f) => f.key === 'operate')?.grupos?.some((g) => g.items.some((i) => i.key === 'cs-comunidad')), 'volvió al desplegable de Operate');
 });
 
 test('se enciende sólo en su ruta: ni Clientes ni Curso se encienden ahí, ni ella en las de ellos', () => {

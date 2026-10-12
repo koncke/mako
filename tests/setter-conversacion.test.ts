@@ -295,7 +295,9 @@ test('el saneo de la estrategia conserva «contesta solo» sólo con un true lit
 test('el motor manda solo únicamente con el caso prendido, sin descalificar, y por el mismo borrador (#787)', () => {
   const b = RESPUESTA(NUTRI_787);
   assert.match(b, /clas\.escenario\.contestaSolo === true && !alertaDescalifica\)/);
-  assert.match(b, /const d = puedeContestarSolo\(\{/);
+  // Desde la décima tanda (11/10/2026) el tope y el horario son del negocio, y con algo ilegible no sale
+  // solo: lo cuida tests/automations-configuraciones.test.ts.
+  assert.match(b, /const d = limites === 'ilegible' \|\| horario === 'ilegible'[\s\S]{0,120}: puedeContestarSolo\(\{/);
   assert.match(b, /if \(d\.ok\) \{\s*const \{ enviarBorrador \} = await import\('@\/lib\/evolution-envio'\);\s*const env = await enviarBorrador\(borradorId, 'mako-auto'\);/);
   // Y una sola llamada que envía: el hand-off y la rama sin caso no mandan nada.
   assert.equal((b.match(/enviarBorrador\(/g) ?? []).length, 1);

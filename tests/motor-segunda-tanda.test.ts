@@ -67,7 +67,8 @@ test('⚠️ Activar valida lo guardado con las MISMAS reglas que Publicar, sin 
   // llamada → 6 pasan / 1 falla (éste).
   const val = cuerpo(NUTRI, 'export async function validarActivacion(', '\nexport async function setSecuenciaActiva(');
   assert.match(val, /await setSecuenciaPasos\(id, Array\.isArray\(guardados\) \? \(guardados as PasoSecuencia\[\]\) : \[\], \{ soloValidar: true \}\);/);
-  assert.match(val, /throw new PasosInvalidosError\(e\.message\.replace\(\/\^No se guardó:\/, 'No se activó:'\)\)/, 'el rechazo dice que no se ACTIVÓ');
+  // (Undécima tanda: con la tarjeta culpable, para que el lienzo la abra.)
+  assert.match(val, /throw new PasosInvalidosError\(e\.message\.replace\(\/\^No se guardó:\/, 'No se activó:'\), e\.tarjeta\)/, 'el rechazo dice que no se ACTIVÓ');
   const act = cuerpo(NUTRI, 'export async function setSecuenciaActiva(', '\nexport async function setSecuenciaLinea(');
   assert.match(act, /if \(activa\) await validarActivacion\(id\);/, 'apagar no valida; prender sí');
   assert.ok(act.indexOf('validarActivacion(id)') < act.indexOf(".update({ activa"), 'valida ANTES de prender');
@@ -100,7 +101,8 @@ test('la fecha del aviso va en la zona del NEGOCIO, no en la del servidor (lo me
   const lead = { junta_1_at: '2026-10-10T01:00:00Z' };
   assert.equal(textoFechaReunion(lead, 'America/Tijuana'), 'viernes, 9 de octubre, 18:00');
   assert.equal(textoFechaReunion(lead, 'America/Argentina/Buenos_Aires'), 'viernes, 9 de octubre, 22:00');
-  assert.equal(textoFechaReunion(lead, 'Marte/Olympus'), 'viernes, 9 de octubre, 19:00', 'una zona rota cae a Ciudad de México');
+  // Undécima tanda: UN default de la casa (`ZONA_POR_DEFECTO`); el motor caía a Ciudad de México y ése era el bug.
+  assert.equal(textoFechaReunion(lead, 'Marte/Olympus'), 'viernes, 9 de octubre, 18:00', 'una zona rota cae a la zona por defecto (Tijuana)');
   // Un día sin hora se dice sin hora, y en ese mismo día.
   assert.equal(textoFechaReunion({ fecha_junta_1: '2026-10-09' }, 'America/Tijuana'), 'viernes, 9 de octubre');
   assert.equal(textoFechaReunion({}, 'America/Tijuana'), '');

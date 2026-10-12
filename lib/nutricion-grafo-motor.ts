@@ -21,16 +21,29 @@
 
 import {
   CAMPOS_CONDICION, TOPE_CASOS, TOPE_NODOS, TOPE_RESPONDER, TOPE_INSTRUCCIONES, TOPE_OTRA_AVISO,
-  claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida, esPasoIA, faltaEnCaso,
+  TOPE_OBJETIVO, TOPE_EJEMPLOS, TOPE_EJEMPLO, TOPE_ESCENARIOS_AI_STEP, MEDIOS_AI_STEP,
+  claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida, esPasoIA,
   normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta,
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
+  type EjemploCaso, type MedioAIStep,
 } from './flujo-grafo';
+// La libertad de un escenario del AI Step (undécima tanda): la única que escribe `sola` / `no_contesta`.
+import { conLibertad, libertadesPermitidas } from './ai-step-libertad';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { condicionPorId, reunionesDeFila, TOPE_REUNIONES, type HechosCatalogo } from './condiciones-catalogo';
-import { parseFechaJunta, reunionFuturaMs } from './nutricion-reinscripcion';
+import { parseFechaJunta, reunionFuturaMs, proximaReunion, soloQuedaElCarril, type FilaReunion } from './nutricion-reinscripcion';
+// El CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4): la marca y la tolerancia del emisor de hoy, los hilos
+// de una inscripción y la operación de la tarjeta «MaKo en WhatsApp». Los cuatro son puros.
+import { claveDelCarril, TOLERANCIA_MIN, type CualReunion } from './recordatorio-lead';
+import { sanearHilos, hilosIniciales, esFilaNueva, type Hilo } from './nutricion-hilos';
+import { OP_AVISAR } from './flujo-legado';
 import { claseCompleta } from './curso-bloqueo';
 import type { Clase, Progreso } from './curso';
 import { minutosDeSegundos, segundosDeMinutos } from './espera-duracion';
+// LA zona del negocio (undécima tanda, decisión 4 de la décima): un solo default y una sola regla de lectura, la de las
+// pantallas. ⚠️ Sólo se usa adentro de funciones: zona-negocio-reglas → disparadores → flujo-conversacion →
+// mako-tarjeta → ESTE archivo es un ciclo, y un valor leído al cargar el módulo podría llegar sin inicializar.
+import { zonaDeLoGuardado } from './zona-negocio-reglas';
 
 /** Cuántos «Ir a» se siguen en una sola resolución. `validarGrafo` ya prohíbe el bucle sin espera: esto es la red. */
 export const TOPE_SALTOS = 20;
@@ -105,6 +118,13 @@ export type ContextoControl = {
   ahoraMs: number;
   /** La próxima reunión del lead (ms). La necesita una espera «antes de la reunión». */
   reunionMs: number | null;
+  /**
+   * La próxima reunión CON HORA (undécima tanda, M3 a: `proximaReunion(…, { estricta: true })`, la regla del
+   * emisor del recordatorio). Con el campo, una espera «antes de la reunión» se ancla en ÉSTA y no en la laxa
+   * (que le inventa las 12:00 de México a una fecha sin hora); si no hay pero la laxa sí —la reunión sólo tiene
+   * fecha—, esa espera cierra SU hilo (`sin_hora`), no la inscripción (M3 g). Ausente = `reunionMs`, lo de antes.
+   */
+  reunionConHoraMs?: number | null;
 };
 
 /**
@@ -125,6 +145,11 @@ export type Resolucion = (
   | { tipo: 'ir_a_secuencia'; secuenciaId: number; via: string[] }
   /** Una espera «antes de la reunión» sin reunión por delante: se cierra sin mandar, como el ancla de siempre. */
   | { tipo: 'sin_reunion'; via: string[] }
+  /**
+   * Una espera «antes de la reunión» con una reunión por delante que NO TIENE HORA (sólo fecha), con
+   * `reunionConHoraMs` en el contexto: se cierra ESE hilo, no la inscripción (undécima tanda, M3 g).
+   */
+  | { tipo: 'sin_hora'; via: string[] }
   /** Más de `TOPE_SALTOS` «Ir a» seguidos: un bucle que `validarGrafo` no dejó guardar, hecho a mano. */
   | { tipo: 'tope_saltos'; via: string[] }
 ) & {
@@ -201,8 +226,14 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
       const minutos = Math.max(0, Number(p.espera?.minutos) || 0);
       let objetivo: number;
       if (p.espera?.modo === 'antes_reunion') {
-        if (ctx.reunionMs == null) return { tipo: 'sin_reunion', via, repartos };
-        objetivo = ctx.reunionMs - minutos * 60_000;
+        // El ancla: la reunión CON HORA si quien llama la pasó (el carril, M3), si no la de siempre.
+        const ancla = ctx.reunionConHoraMs !== undefined ? ctx.reunionConHoraMs : ctx.reunionMs;
+        if (ancla == null) {
+          return ctx.reunionConHoraMs !== undefined && ctx.reunionMs != null
+            ? { tipo: 'sin_hora', via, repartos }
+            : { tipo: 'sin_reunion', via, repartos };
+        }
+        objetivo = ancla - minutos * 60_000;
       } else {
         objetivo = ctx.ahoraMs + minutos * 60_000;
       }
@@ -351,6 +382,233 @@ export function minutosAntesDeReunion(pasos: readonly PasoGrafo[], idx: number):
     }
   }
   return max;
+}
+
+// ── EL CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4) ────────────────────────────
+// Pedido de Martín (11/10/2026, punto 8): «"Recordatorio de reunión" NO debería ser un flujo aparte, para eso ya
+// tenemos el flujo de "Agendó reunión", los recordatorios se pueden configurar allí mismo con DELAY». El
+// recordatorio era un EMISOR aparte (lib/reunion-recordatorio.ts) con reglas que el motor no tenía: tolerancia
+// de 12 min (pasada, el toque se pierde, no sale tarde), una marca por reunión y minuto, la reunión con HORA y
+// sin cancelar, fuera del anti-ban, del horario y de los topes, y sin cortarse si el lead contesta. Una tarjeta
+// que cuelga de un DELAY «N antes de la reunión» es del CARRIL y tiene esas reglas; el resto del flujo, las de
+// siempre. Esto decide; lib/nutricion.ts (`procesarEnvios`, `pausarPorRespuesta`) lee y escribe.
+
+/** ¿Una espera «N antes de la reunión»? */
+const esEsperaAntes = (p: PasoGrafo | null | undefined): boolean => !!p && claseDe(p) === 'esperar' && p.espera?.modo === 'antes_reunion';
+
+/** ¿La automatización tiene un carril (algún DELAY «antes de la reunión»)? */
+export function tieneCarril(pasos: readonly PasoGrafo[]): boolean {
+  return pasos.some((p) => esEsperaAntes(p));
+}
+
+/** ¿Es la tarjeta «MaKo en WhatsApp» (la acción `avisar_al_equipo`: el aviso al grupo del negocio)? */
+export function esTarjetaMako(p: PasoGrafo | null | undefined): boolean {
+  if (!p || claseDe(p) !== 'accion') return false;
+  const a = p.accion as { operacion?: unknown } | null | undefined;
+  return String(a?.operacion ?? '') === OP_AVISAR;
+}
+
+/**
+ * ¿La tarjeta `idx` es del CARRIL? Una espera «antes de la reunión», lo que cuelga de ella (un mensaje sube por
+ * las condiciones, una acción mira su padre: `minutosAntesDeReunion`) y una CONDICIÓN que cuelga de ella (la
+ * espera deja el hilo parado en lo que sigue, y lo que sigue puede ser la condición que decide el mensaje).
+ * Es lo que se queda vivo cuando el lead contesta (M4) y lo que corre fuera del horario (M3 f).
+ */
+export function esHiloDelCarril(pasos: readonly PasoGrafo[], idx: number): boolean {
+  const p = pasos[idx];
+  if (!p) return false;
+  const c = claseDe(p);
+  if (c === 'esperar') return esEsperaAntes(p);
+  if (c === 'mensaje' || c === 'accion') return minutosAntesDeReunion(pasos, idx) != null;
+  if (c !== 'condicion') return false;
+  const vuelta = aristasDeVuelta(pasos);
+  const vistos = new Set<string>([idDe(p, idx)]);
+  const pila = [idDe(p, idx)];
+  while (pila.length) {
+    const cur = pila.pop()!;
+    for (const pa of padresSinVuelta(pasos, cur, vuelta)) {
+      const padre = pasos[indicePorId(pasos, pa.id)];
+      if (!padre) continue;
+      if (esEsperaAntes(padre)) return true;
+      if (claseDe(padre) !== 'condicion' || vistos.has(pa.id)) continue;
+      vistos.add(pa.id);
+      pila.push(pa.id);
+    }
+  }
+  return false;
+}
+
+/**
+ * ¿Esta corrida puede MOVER la tarjeta `idx` de una inscripción?
+ *  · `enRespuesta` (la inscripción está en 'respondio': el lead contestó): SÓLO el carril (M4). Lo demás —el
+ *    «no confirmó», el «¿alcanzaste a ver el video?», el AI Step— se corta como siempre.
+ *  · `fueraDeHorario` (el horario de envío del negocio está cerrado, o no se pudo leer): el carril y las
+ *    tarjetas «MaKo en WhatsApp» (M3 f; decisiones §9.6 y §9.7: el aviso al equipo sale a cualquier hora,
+ *    como el del webhook). Lo demás espera a que abra, como siempre.
+ *  · Si no, todo.
+ */
+export function seMueveEnLaCorrida(pasos: readonly PasoGrafo[], idx: number, o: { enRespuesta: boolean; fueraDeHorario: boolean }): boolean {
+  if (esHiloDelCarril(pasos, idx)) return true;
+  if (o.enRespuesta) return false;
+  if (o.fueraDeHorario) return esTarjetaMako(pasos[idx]);
+  return true;
+}
+
+/**
+ * ¿Un mensaje pasa por el freno anti-ban de 20 h (`frenadoPorAntiBan`)? No si es del carril (M3 d: el «1 h antes»
+ * y el «15 min antes» van a 45 minutos, y con la reunión encima el freno deja 3 h), ni si es de Instagram o
+ * Messenger (la ventana de Meta es de 24 h), ni si su canal está apagado (no sale).
+ */
+export function pasaPorAntiBan(o: { carril: boolean; social: boolean; canalApagado: boolean }): boolean {
+  return !o.carril && !o.social && !o.canalApagado;
+}
+
+/** ¿Lo que salió cuenta para el cupo de la corrida (el tope por hora de la línea)? El carril no (M3 e). */
+export function cuentaParaElCupo(o: { carril: boolean }): boolean {
+  return !o.carril;
+}
+
+/** Cada cuánto vuelve a mirarse un hilo frenado de una fila que tiene el carril pendiente (`aplazaParaNoTapar`). */
+export const APLAZO_SIN_TAPAR_MS = 15 * 60_000;
+
+/**
+ * ¿El hilo `h`, que esta corrida deja SIN MOVER (fuera del horario, frenado por el anti-ban, sin cupo), se tiene
+ * que APLAZAR para no TAPAR al carril del recordatorio? (Undécima tanda, M3.)
+ *
+ * ⚠️ EL TICK DE CADA MINUTO SÓLO MIRA LO QUE ACABA DE VENCER (app/api/cron/nutricion-tick: `proximo_envio_at` de
+ * los últimos 10 minutos), y con hilos esa columna RESUME el que vence primero (lib/nutricion-hilos.ts). Un hilo
+ * vencido que no se mueve (la preparación de las 21:30, fuera del horario hasta las 9) deja la columna clavada en
+ * las 21:30: el «1 h antes» de las 8:30 nunca es «lo que acaba de vencer», y la corrida de cada hora lo ve a las
+ * 9:00, pasada la tolerancia — perdido. Aplazado de a `APLAZO_SIN_TAPAR_MS`, la columna sigue al carril.
+ *
+ * Sólo un hilo que NO es del carril y sólo si la fila tiene otro que SÍ: sin carril, lo de siempre (la corrida de
+ * cada hora lo vuelve a mirar). Pura.
+ */
+export function aplazaParaNoTapar(pasos: readonly PasoGrafo[], hilos: readonly Hilo[] | null, h: string | null | undefined): boolean {
+  if (!hilos || !h) return false;
+  const este = hilos.find((x) => x.h === h);
+  if (!este || esHiloDelCarril(pasos, indicePorId(pasos, este.nodo))) return false;
+  return hilos.some((x) => x.h !== h && esHiloDelCarril(pasos, indicePorId(pasos, x.nodo)));
+}
+
+/** Qué hacer con una tarjeta del carril en esta corrida. */
+export type DecisionCarril =
+  /** Sale ahora. `clave`: la marca a reclamar ANTES de mandar (null = una acción, que se reclama a sí misma). */
+  | { tipo: 'enviar'; clave: string | null; cual: CualReunion; inicio: string; min: number }
+  /** No sale y el hilo SIGUE a la tarjeta siguiente: se pasó la tolerancia, o el toque ya salió. */
+  | { tipo: 'omitido'; motivo: string; clave: string | null }
+  /** Todavía no es su momento (el lead reagendó para más tarde): se re-ancla en `proximoMs`. */
+  | { tipo: 'esperar'; proximoMs: number }
+  /** Sin reunión con hora por delante (sólo fecha, cancelada, ya pasó): se cierra ESE hilo, no la inscripción. */
+  | { tipo: 'cerrar-hilo'; motivo: string };
+
+/**
+ * LA DECISIÓN DEL CARRIL para la tarjeta `idx` (M3), o null si no es del carril (no cuelga de un DELAY «antes
+ * de la reunión»). Las reglas son las del emisor de hoy (`toquesVencidos`, lib/recordatorio-lead.ts):
+ *
+ *  a. el ancla es `proximaReunion(…, { estricta: true })`: la HORA puesta, la fecha en pie que coincide, sin
+ *     asistencia. (h) Una reunión CANCELADA (fecha en null) no cuenta. (g) Sin una así —sólo fecha, o nada—
+ *     se cierra ESE hilo: inventarle una hora a una fecha es el «1 h antes» a las 11:00 de una hora que nadie
+ *     cargó (74 leads así en el ws1, 11/10/2026).
+ *  b. el toque VENCE en `momento = inicio − N`: antes, espera; si se pasó `TOLERANCIA_MIN` (12) NO SALE —
+ *     «te recuerdo tu reunión de mañana» una hora antes miente— y el hilo sigue a la tarjeta de después.
+ *  c. la marca es `claveDelCarril` = `claveToque` para un WhatsApp (la MISMA del emisor: no sale dos veces
+ *     mientras convivan), con `estadoMarca` ya leído: 'tomada' = ya salió. Una acción no lleva marca.
+ *
+ * El anti-ban (d), los topes (e) y el horario (f) no se miran acá: los saltea el motor para el carril.
+ */
+export function decidirToqueDelCarril(p: {
+  leadId: number;
+  pasos: readonly PasoGrafo[];
+  idx: number;
+  juntas: FilaReunion | null | undefined;
+  ahoraMs: number;
+  /** La zona del negocio: una fecha escrita en ella también coincide con la hora (`fechaCoincide`). */
+  tz?: string | null;
+  /** Lo que dice la marca (`estadoDeLaMarca`). Ausente = todavía no se leyó. */
+  estadoMarca?: 'libre' | 'reintento' | 'tomada' | null;
+  /** `estado_lead` del lead: un cerrado o perdido sigue con la fecha cargada y no se le recuerda nada (`leadAbierto`). */
+  estadoLead?: string | null;
+  toleranciaMin?: number;
+}): DecisionCarril | null {
+  const paso = p.pasos[p.idx];
+  const min = minutosAntesDeReunion(p.pasos, p.idx);
+  if (!paso || min == null) return null;
+  if (p.estadoLead != null && p.estadoLead !== 'abierto') return { tipo: 'cerrar-hilo', motivo: 'el lead ya no está abierto' };
+  const r = proximaReunion(p.juntas, p.ahoraMs, { estricta: true, tz: p.tz ?? null });
+  if (!r) {
+    const laxa = proximaReunion(p.juntas, p.ahoraMs, { estricta: false });
+    return { tipo: 'cerrar-hilo', motivo: laxa && !laxa.conHora ? 'la reunión no tiene hora' : 'sin reunión con hora por delante' };
+  }
+  const momento = r.inicioMs - min * 60_000;
+  if (momento > p.ahoraMs) return { tipo: 'esperar', proximoMs: momento };
+  const inicio = new Date(r.inicioMs).toISOString();
+  const clave = claseDe(paso) === 'mensaje' ? claveDelCarril(p.leadId, r.cual, inicio, min, paso.canal) : null;
+  if (p.ahoraMs - momento >= (p.toleranciaMin ?? TOLERANCIA_MIN) * 60_000) {
+    return { tipo: 'omitido', motivo: `se pasó la hora del recordatorio (${min} min antes)`, clave };
+  }
+  if (clave && p.estadoMarca === 'tomada') return { tipo: 'omitido', motivo: 'el recordatorio ya salió', clave };
+  return { tipo: 'enviar', clave, cual: r.cual, inicio, min };
+}
+
+/**
+ * LO QUE QUEDA VIVO cuando el lead CONTESTA (M4). `pausarPorRespuesta` pasa la inscripción a 'respondio' y
+ * le sacaba el próximo envío a TODO: con el recordatorio adentro del flujo, contestar «ok, ahí estaré» apagaba
+ * el «1 h antes» (el emisor de hoy lo mandaba igual). Quedan los hilos del CARRIL con su próximo envío; los demás
+ * se cortan, como siempre. Devuelve las columnas a escribir (con `estado: 'respondio'`) y si quedó carril.
+ *
+ *  · con hilos: sólo los del carril, y las columnas de siempre resumen el que vence primero;
+ *  · una fila NUEVA de varias raíces (todavía no repartida): sus raíces del carril, como las repartiría el motor;
+ *  · un solo cursor: si está en el carril, sigue tal cual; si no, sin próximo envío.
+ */
+export function alResponder(
+  pasos: readonly PasoGrafo[],
+  fila: { paso_actual: number; nodo_actual?: string | null; proximo_envio_at?: string | null; hilos?: unknown },
+  ahoraIso: string,
+): { carril: boolean; update: Record<string, unknown> } {
+  const enCarril = (x: Hilo): boolean => esHiloDelCarril(pasos, indicePorId(pasos, x.nodo));
+  const conHilos = (hs: Hilo[]): { carril: boolean; update: Record<string, unknown> } => {
+    const vivos = hs.filter(enCarril);
+    if (!vivos.length) return { carril: false, update: { proximo_envio_at: null, hilos: null } };
+    const ms = (iso: string): number => (Number.isFinite(Date.parse(iso)) ? Date.parse(iso) : 0);
+    const primero = [...vivos].sort((a, b) => ms(a.proximo) - ms(b.proximo) || (a.h < b.h ? -1 : a.h > b.h ? 1 : 0))[0];
+    const i = indicePorId(pasos, primero.nodo);
+    return { carril: true, update: { hilos: vivos, ...(i >= 0 ? { paso_actual: i } : {}), nodo_actual: primero.nodo, proximo_envio_at: primero.proximo } };
+  };
+  const hs = sanearHilos(fila.hilos);
+  if (hs) return conHilos(hs);
+  if (esFilaNueva(fila)) {
+    const ini = hilosIniciales(pasos, () => fila.proximo_envio_at ?? ahoraIso);
+    if (ini) return conHilos(ini);
+  }
+  const idx = indiceActual(pasos, fila);
+  if (idx >= 0 && esHiloDelCarril(pasos, idx) && fila.proximo_envio_at) return { carril: true, update: { proximo_envio_at: fila.proximo_envio_at } };
+  return { carril: false, update: { proximo_envio_at: null } };
+}
+
+/**
+ * El ESTADO que se escribe en una inscripción que ya está en 'respondio' (M4): sigue en 'respondio'. El motor
+ * escribe 'activa' al mover un hilo y 'completada' cuando no queda ninguno; en una fila del lead que contestó,
+ * cualquiera de los dos le borraba la respuesta — 'activa' la volvía a poner en cola entera, y 'completada'
+ * hacía que el desenlace («Respondió» = logrado) no la viera nunca. 'cancelada' pasa igual.
+ *
+ * Salvo que el desenlace YA esté escrito (`desenlace`, una fila re-armada sólo con el carril): ésa termina
+ * 'completada', porque el evaluador ya no la va a mirar y en 'respondio' no se podría reusar nunca más.
+ */
+export function estadoAlEscribir(leido: string | null | undefined, nuevo: unknown, desenlace?: string | null): unknown {
+  if (leido !== 'respondio') return nuevo;
+  if (nuevo === 'activa') return 'respondio';
+  if (nuevo === 'completada') return desenlace != null ? 'completada' : 'respondio';
+  return nuevo;
+}
+
+/**
+ * ¿El desenlace ESPERA a esta inscripción? (M4.) Una en 'respondio' con el carril vivo (próximo envío puesto):
+ * cerrarla como lograda ahora le apagaba los recordatorios que quedan. Cuando el carril termina, el motor la deja
+ * en 'respondio' sin próximo envío, y ahí el desenlace la cierra como siempre.
+ */
+export function desenlaceEsperaAlCarril(f: { estado: string; proximo_envio_at?: string | null }): boolean {
+  return soloQuedaElCarril(f);
 }
 
 /**
@@ -690,23 +948,21 @@ export function anotarEnCorrida(m: EnviadoEnCorrida, leadId: number, canal: stri
 
 // ── La ventana horaria, en la zona del NEGOCIO (decisión 6) ─────────────────────
 
-/**
- * La zona de un negocio que no tiene `mako.timezone`: Ciudad de México, que es lo que el motor
- * hacía siempre (`TZ_OFFSET_MX = -6`). No es `TZ_DEFAULT` (Tijuana) a propósito: cambiar la
- * ventana de los que no tienen zona sería mover cuándo les sale todo, sin que nadie lo pidiera.
- */
-export const ZONA_SIN_CONFIGURAR = 'America/Mexico_City';
-
 /** ¿Es una zona IANA que el runtime conoce? */
 export function zonaValida(tz: unknown): tz is string {
   if (typeof tz !== 'string' || !tz) return false;
   try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch { return false; }
 }
 
-/** La zona con la que corre el motor: la guardada si es válida, si no Ciudad de México. */
-export function zonaDelMotor(guardada: unknown): string {
-  return zonaValida(guardada) ? guardada : ZONA_SIN_CONFIGURAR;
-}
+// La zona con la que corre el motor ES `zonaDeLoGuardado` (lib/zona-negocio-reglas.ts), la MISMA regla de las
+// pantallas, la API y el tick: la guardada en su forma canónica y, sin zona o rota, `ZONA_POR_DEFECTO` (Tijuana).
+//
+// ⚠️ HASTA LA UNDÉCIMA TANDA EL MOTOR TENÍA SU PROPIO DEFAULT: `ZONA_SIN_CONFIGURAR` = Ciudad de México («lo que el
+// motor hacía siempre», `TZ_OFFSET_MX = -6`), mientras las pantallas caían a Tijuana. Parecía prudente —no mover
+// cuándo les sale todo a los que no tienen zona— y era el bug: el ws1 (Baja California, sin zona guardada, horario de
+// 9 a 21) recibió el envío #22 a las 08:00 de su hora, y Configuraciones › Horario le mostraba otra zona que la que
+// frenaba. Decisión 4 de la décima, literal de Martín: «Si, siempre por ubicación que se maneje por defecto». El alias
+// `zonaDelMotor` se borró en el cierre de la ola 3 (nadie lo importaba): se usa `zonaDeLoGuardado` por su nombre.
 
 /** La hora de pared (0-23) de un instante en una zona. */
 export function horaEnZona(ahoraMs: number, tz: string): number {
@@ -737,7 +993,8 @@ export function textoFechaReunion(lead: Record<string, unknown>, tz: string): st
   // Un día suelto se lee a mediodía UTC: cae en ese mismo día en cualquier zona de América.
   const d = new Date(soloDia ? `${raw}T12:00:00Z` : raw);
   if (Number.isNaN(d.getTime())) return '';
-  const zona = zonaValida(tz) ? tz : ZONA_SIN_CONFIGURAR;
+  // Sin zona (o rota), la de por defecto de la casa (`zonaDeLoGuardado` → `ZONA_POR_DEFECTO`): la misma que ve la pantalla.
+  const zona = zonaDeLoGuardado(tz);
   try {
     return soloDia
       ? d.toLocaleDateString('es-MX', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' })
@@ -863,9 +1120,53 @@ function sanearCaso(x: unknown, deIA = false): CasoRespuesta | null {
     const r = typeof o.responder === 'string' ? o.responder.trim().slice(0, TOPE_RESPONDER) : '';
     if (r) caso.responder = r;
     if (o.sola === true) caso.sola = true;
-    if (o.avisar === true) caso.avisar = true;
+    // ── AI STEP v2 (décima tanda): la QUINTA PUERTA para los campos del caso (AGENTS.md: un campo nuevo de un
+    //    paso pasa por `camposDelFlujo`/`sanearCaso`). Ausente = lo de antes, y sólo un valor literal prende. ──
+    if (o.cualquiera === true) caso.cualquiera = true;
+    if (o.no_contesta === true) caso.no_contesta = true;
+    // ⚠️ UNDÉCIMA TANDA: el caso ya no guarda `objetivo`, `audio`, `ejemplos` (son del AI STEP: los sube
+    //    `camposDelFlujo` al nodo si el nodo no los trae), ni `hasta` (siempre el objetivo) ni `avisar` (el aviso
+    //    se deriva de la libertad, lib/ai-step-libertad.ts). Lo de antes que llega con ellos lo junta
+    //    `juntarPasosIA` DESPUÉS de este saneo (`grafoAGuardar`, lib/nutricion.ts).
   }
   return caso;
+}
+
+/** Los campos de un caso de AI Step que la undécima subió al NODO: los lee `camposDelFlujo` como respaldo. */
+function delObjetivoEnCasos(casos: unknown): { objetivo?: string; audio?: { voz: string }; ejemplos?: EjemploCaso[] } {
+  const out: { objetivo?: string; audio?: { voz: string }; ejemplos?: EjemploCaso[] } = {};
+  if (!Array.isArray(casos)) return out;
+  for (const x of casos) {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) continue;
+    const o = x as Record<string, unknown>;
+    if (out.objetivo === undefined) { const t = typeof o.objetivo === 'string' ? o.objetivo.trim().slice(0, TOPE_OBJETIVO) : ''; if (t) out.objetivo = t; }
+    if (out.audio === undefined) { const a = sanearAudioCaso(o.audio); if (a) out.audio = a; }
+    if (out.ejemplos === undefined) { const e = sanearEjemplos(o.ejemplos); if (e.length) out.ejemplos = e; }
+  }
+  return out;
+}
+
+/** La voz de un AI Step que contesta en audio: 'propia' o un voiceId de ElevenLabs (alfanumérico). */
+function sanearAudioCaso(x: unknown): { voz: string } | null {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  const voz = (x as Record<string, unknown>).voz;
+  if (voz === 'propia') return { voz: 'propia' };
+  return typeof voz === 'string' && /^[A-Za-z0-9]{8,64}$/.test(voz) ? { voz } : null;
+}
+
+/** Los ejemplos del ensayo: pares con los dos lados escritos, recortados y sin pasar el tope. */
+function sanearEjemplos(x: unknown): EjemploCaso[] {
+  if (!Array.isArray(x)) return [];
+  const out: EjemploCaso[] = [];
+  for (const e of x) {
+    if (!e || typeof e !== 'object' || Array.isArray(e)) continue;
+    const o = e as Record<string, unknown>;
+    const lead = typeof o.lead === 'string' ? o.lead.trim().slice(0, TOPE_EJEMPLO) : '';
+    const tu = typeof o.tu === 'string' ? o.tu.trim().slice(0, TOPE_EJEMPLO) : '';
+    if (lead && tu) out.push({ lead, tu });
+    if (out.length >= TOPE_EJEMPLOS) break;
+  }
+  return out;
 }
 
 /**
@@ -897,7 +1198,9 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 }
 
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
-export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar' | 'paso_ia' | 'instrucciones' | 'otra_aviso'>;
+export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar' | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'medio'
+  // Undécima tanda: lo del OBJETIVO del AI Step (la quinta puerta: sin esto el primer guardado lo borraba).
+  | 'objetivo' | 'audio' | 'ejemplos'>;
 
 /**
  * Las flechas en paralelo, saneadas: ids válidos, sin repetidos. Sólo en las clases que las
@@ -944,10 +1247,25 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
     if (o.suelta === true) out.suelta = true;
     if (deIA) {
       out.paso_ia = true;
+      // El tono y el aviso de «Otra cosa» de antes se CONSERVAN acá (@deprecated): los pliega o los saca
+      // `juntarPasosIA`, que corre DESPUÉS de este saneo. Borrados acá, el tono se perdía sin plegarse.
       const tono = typeof o.instrucciones === 'string' ? o.instrucciones.trim().slice(0, TOPE_INSTRUCCIONES) : '';
       if (tono) out.instrucciones = tono;
       const aviso = typeof o.otra_aviso === 'string' ? o.otra_aviso.trim().slice(0, TOPE_OTRA_AVISO) : '';
       if (aviso) out.otra_aviso = aviso;
+      // El MEDIO (AI Step v2): sólo uno de los conocidos, y WhatsApp no se escribe (ausente = WhatsApp).
+      if (typeof o.medio === 'string' && (MEDIOS_AI_STEP as readonly string[]).includes(o.medio) && o.medio !== 'whatsapp') out.medio = o.medio as MedioAIStep;
+      // ── UNDÉCIMA TANDA: lo del OBJETIVO es del AI Step (la QUINTA PUERTA: `setSecuenciaPasos` arma cada paso con
+      //    esta función, así que sin estas líneas el primer guardado los borraba). Si el nodo no los trae y un caso
+      //    sí (lo de antes, que el saneo del caso ya no guarda), suben de ahí: no se pierden antes de juntar. ──
+      const deCasos = delObjetivoEnCasos(o.casos);
+      const obj = typeof o.objetivo === 'string' ? o.objetivo.trim().slice(0, TOPE_OBJETIVO) : '';
+      if (obj || deCasos.objetivo) out.objetivo = obj || deCasos.objetivo;
+      const audio = sanearAudioCaso(o.audio) ?? deCasos.audio;
+      if (audio) out.audio = audio;
+      const ej = sanearEjemplos(o.ejemplos);
+      const ejemplos = ej.length ? ej : deCasos.ejemplos;
+      if (ejemplos?.length) out.ejemplos = ejemplos;
     }
   }
   if (nodo === 'ir_a') out.destino = sanearDestino(o.destino);
@@ -1012,6 +1330,9 @@ export type CasoEnsenado = { titulo: string; cuando: string; comoResponder: stri
  * Mismo título = el MISMO caso: se actualiza su «cuándo», y la guía del mensaje que cuelga si
  * es un «MaKo contesta»; si no lo es, el mensaje nuevo se pone delante de lo que ya colgaba.
  * Devuelve `null` si no hay tarjeta «Si responde» o si ya tiene el máximo de casos.
+ *
+ * Con un AI STEP (undécima tanda), el escenario entra ADENTRO del AI Step (≤ `TOPE_ESCENARIOS_AI_STEP`), con
+ * la libertad de `camposDeLibertad`. Sin «Si responde» ni AI Step, `{ error }` como siempre.
  */
 export function agregarCasoAlGrafo<P extends PasoGrafo>(
   pasosIn: readonly P[], caso: CasoEnsenado, rnd: () => number = Math.random,
@@ -1030,33 +1351,33 @@ export function agregarCasoAlGrafo<P extends PasoGrafo>(
   // forma de siempre es justo lo que `validarGrafo` no deja guardar ahí («debajo no van tarjetas»), y la
   // API («enseñar este caso») y el hand-off resuelto entran por acá. Mismo título = el mismo caso.
   if (esPasoIA(r)) {
-    const adentro = { cuando, ...(guia ? { responder: guia.slice(0, TOPE_RESPONDER) } : {}), ...(caso.contestaSolo === true ? { sola: true } : {}) };
-    // ⚠️ UN CASO QUE NO CONTESTA NI AVISA SE FRENA ACÁ, no al guardar (revisión de la novena tanda).
-    // `comoResponder` es opcional en la API (`agregar_escenario_secuencia`), y en la forma de siempre un
-    // caso sin guía igual colgaba un «MaKo contesta». En un AI Step queda sin `responder` y sin `avisar`
-    // —lo que `faltaEnCaso` rechaza—, así que `preparar` decía «Agregar el caso…», la persona lo
-    // confirmaba y `ejecutar` moría en `setSecuenciaPasos` con «no contesta ni avisa». Lo que se puede
-    // saber sin escribir falla en `preparar()` (AGENTS.md, el registro de la API, punto 3). Un caso que
-    // YA estaba y ya contesta o avisa conserva lo suyo: sólo se le reescribe el «cuándo».
-    const sinQueHacer = (c: CasoRespuesta): { error: string } | null =>
-      faltaEnCaso(c) === 'que_hace' ? { error: 'en un AI Step el caso necesita «cómo responder»' } : null;
-    if (k >= 0) {
-      // `sola` se reescribe con lo que dice el caso enseñado (ausente = a revisar, como siempre).
-      const { sola: _antes, ...resto } = casos[k];
-      void _antes;
-      const nuevo = { ...resto, ...adentro };
-      const falta = sinQueHacer(nuevo);
-      if (falta) return falta;
-      const out = [...pasos];
-      out[ri] = { ...r, casos: casos.map((c, j) => (j === k ? nuevo : c)) };
+    // ⚠️ UNDÉCIMA TANDA: UN AI STEP POR OBJETIVO, con los escenarios ADENTRO (docs/diseno-undecima-tanda.md §6). El
+    // escenario enseñado (la API `agregar_escenario_secuencia`, el hand-off resuelto) entra a ESTE AI Step: mismo
+    // nombre = el mismo escenario (se le reescribe el «cuándo», la respuesta si viene y la libertad); uno nuevo va
+    // al final de los escenarios, antes de «Lo demás», hasta `TOPE_ESCENARIOS_AI_STEP`.
+    //   · La LIBERTAD la escribe `camposDeLibertad` (lib/ai-step-libertad.ts): «Sola» si el caso lo pide y puede
+    //     (nunca con plata: `libertadesPermitidas`), si no «Para aprobar». Sin respuesta es «Sólo te avisa» (un
+    //     escenario válido: ya no hay «no contesta ni avisa» que frenar).
+    const libre = (c: CasoRespuesta): CasoRespuesta => {
+      const quiere = caso.contestaSolo === true ? 'sola' : 'aprueba';
+      return conLibertad(c, libertadesPermitidas(c).includes(quiere) ? quiere : 'aprueba');
+    };
+    const cs = r.casos ?? [];
+    const j = cs.findIndex((c) => c.cualquiera !== true && c.titulo.trim().toLowerCase() === titulo.toLowerCase());
+    const out = [...pasos];
+    if (j >= 0) {
+      // Sin respuesta nueva, sólo el «cuándo»: su libertad y lo que contestaba quedan como estaban.
+      const nuevo = guia ? libre({ ...cs[j], cuando, responder: guia.slice(0, TOPE_RESPONDER) }) : { ...cs[j], cuando };
+      out[ri] = { ...r, casos: cs.map((c, m) => (m === j ? nuevo : c)) };
       return { pasos: normalizar(out) };
     }
-    if (casos.length >= TOPE_CASOS) return { error: `«Si responde» ya tiene ${TOPE_CASOS} casos, el máximo` };
-    const nuevo = { id: nuevoId(pasos, rnd), titulo, siguiente: null, ...adentro };
-    const falta = sinQueHacer(nuevo);
-    if (falta) return falta;
-    const out = [...pasos];
-    out[ri] = { ...r, casos: [...casos, nuevo] };
+    void k;
+    if (cs.filter((c) => c.cualquiera !== true).length >= TOPE_ESCENARIOS_AI_STEP) {
+      return { error: `el AI Step ya tiene ${TOPE_ESCENARIOS_AI_STEP} escenarios, el máximo` };
+    }
+    const nuevo = libre({ id: nuevoId(pasos, rnd), titulo, cuando, siguiente: null, ...(guia ? { responder: guia.slice(0, TOPE_RESPONDER) } : {}) });
+    const k0 = cs.findIndex((c) => c.cualquiera === true);
+    out[ri] = { ...r, casos: k0 < 0 ? [...cs, nuevo] : [...cs.slice(0, k0), nuevo, ...cs.slice(k0)] };
     return { pasos: normalizar(out) };
   }
   const nuevoMensaje = (siguiente: string | null): P => ({

@@ -52,7 +52,7 @@ export async function ordenarColumnaCrmAction(funnelId: number | null, etapa: st
     if (funnelId != null) {
       const funnels = await listarFunnels();
       const f = funnels.find((x) => x.id === Number(funnelId));
-      if (!f) return { ok: false, error: 'Ese producto no es tuyo.' };
+      if (!f) return { ok: false, error: 'Ese funnel no es tuyo.' };
       funnel = f.esDefault ? null : f.id;
       idReal = f.id;
     } else {

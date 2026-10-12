@@ -9,28 +9,13 @@
 // el board: hasta que haya eventos reales, muestran un estado "sin datos todavía".
 
 import { useMemo, useState } from 'react';
-import { type BoardTask, type Label, type Hist, PCOLOR, PLABEL, prioFromScore, type Prio } from './types';
-import { sinRecurrentes } from '@/lib/plan-recurrentes';
+import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore, type Prio } from './types';
+// Los cálculos viven en un módulo puro desde el 11/10/2026: los usa también el Dashboard
+// (la plantilla «Productividad»), del lado del server. Incluido el criterio de las recurrentes.
+import { cuadranteDe, metricasProductividad, proyectosDelFiltro, type Cuadrante, type DoneFilter } from '@/lib/productividad-metricas';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
-const DAY = 86400000;
-
-// ── helpers sobre el historial (eventos con timestamp) ────────────────────────
-const creadoTs = (h: Hist[]): number => {
-  const c = h.find((x) => (x.text || '').startsWith('Creó'));
-  if (c) return c.ts;
-  return h.length ? Math.min(...h.map((x) => x.ts)) : 0;
-};
-const completadoTs = (t: BoardTask): number | null => {
-  if (t.progress < 100) return null;
-  const done = t.historial.filter((x) => /completa/i.test(x.text || '')).sort((a, b) => b.ts - a.ts)[0];
-  return done ? done.ts : null;
-};
-const ultActividad = (h: Hist[]): number => (h.length ? Math.max(...h.map((x) => x.ts)) : 0);
-const deadlineMoves = (h: Hist[]): number => h.filter((x) => (x.text || '').startsWith('Deadline')).length;
-
-type DoneFilter = 'todos' | 'activos' | 'completados';
 
 /**
  * ⚠️ PIDE `tasks` Y `labels`, NO EL BOARD ENTERO (26/09/2026). Es de sólo LECTURA —no
@@ -45,52 +30,14 @@ type DoneFilter = 'todos' | 'activos' | 'completados';
  * solo error. Con esta firma, la pantalla nueva lee del server y no monta ninguno.
  */
 export function GraphicsView({ tasks: tasksIn, labels }: { tasks: BoardTask[]; labels: Label[] }) {
-  // ⚠️ SIN LAS RECURRENTES, igual que el resto del tablero. Todo lo que esta pantalla
-  // dibuja —cuántas activas, cuántas hechas, el avance por proyecto, los deadlines
-  // corridos— mide trabajo que EMPIEZA Y TERMINA. Una tarea que se repite para siempre
-  // está clavada en «activa» y en 0% por definición: contarla hunde todas las barras y el
-  // gráfico contesta otra pregunta que la que su título promete.
-  const tasks = sinRecurrentes(tasksIn);
+  // ⚠️ SIN LAS RECURRENTES: lo decide `metricasProductividad` (lib/productividad-metricas.ts),
+  // que es donde vive el criterio para la tab y para el Dashboard.
   const [filtro, setFiltro] = useState<DoneFilter>('activos');
 
-  const m = useMemo(() => {
-    const now = Date.now();
-    const activas = tasks.filter((t) => t.progress < 100);
-    const hechas = tasks.filter((t) => t.progress >= 100);
-    // proyecto = "completado" si tiene tareas y todas están hechas
-    const projMeta = labels.map((l) => {
-      const suyas = tasks.filter((t) => t.labels.includes(l.id));
-      const done = suyas.filter((t) => t.progress >= 100).length;
-      const pct = suyas.length ? Math.round(suyas.reduce((s, t) => s + t.progress, 0) / suyas.length) : 0;
-      return { l, total: suyas.length, done, pct, completo: suyas.length > 0 && done === suyas.length };
-    });
-    const avanceGlobal = projMeta.length ? Math.round(projMeta.reduce((s, p) => s + p.pct, 0) / projMeta.length) : 0;
-
-    // pirámide: tareas activas por columna
-    const piramide: Record<Prio, number> = { alta: 0, media: 0, baja: 0, futuro: 0 };
-    activas.forEach((t) => { piramide[prioFromScore(t.score)]++; });
-
-    // comportamiento (necesita eventos reales)
-    const ciclos = hechas.map((t) => { const c = creadoTs(t.historial); const f = completadoTs(t); return c && f && f - c > DAY / 2 ? { t, dias: (f - c) / DAY, prio: prioFromScore(t.score) } : null; }).filter(Boolean) as { t: BoardTask; dias: number; prio: Prio }[];
-    const conDeadline = hechas.map((t) => { const f = completadoTs(t); if (!f || !t.deadline) return null; const dl = Date.parse(t.deadline + 'T23:59:59'); if (!Number.isFinite(dl)) return null; return { t, aTiempo: f <= dl, dias: Math.round((f - dl) / DAY) }; }).filter(Boolean) as { t: BoardTask; aTiempo: boolean; dias: number }[];
-
-    // estancadas: activas sin actividad hace > 7 días
-    const estancadas = activas.map((t) => ({ t, dias: Math.round((now - ultActividad(t.historial)) / DAY) })).filter((x) => x.dias >= 7).sort((a, b) => b.dias - a.dias);
-    // sin deadline (foco en Alta)
-    const sinDeadlineAlta = activas.filter((t) => prioFromScore(t.score) === 'alta' && !t.deadline);
-    const sinDeadlineTotal = activas.filter((t) => !t.deadline).length;
-    const projSinDeadline = labels.filter((l) => !l.deadline);
-    // deadlines que se corrieron
-    const corridos = tasks.map((t) => ({ t, n: deadlineMoves(t.historial) })).filter((x) => x.n >= 2).sort((a, b) => b.n - a.n);
-
-    // WIP
-    const wip = activas.filter((t) => t.progress > 0).length;
-
-    return { activas, hechas, projMeta, avanceGlobal, piramide, ciclos, conDeadline, estancadas, sinDeadlineAlta, sinDeadlineTotal, projSinDeadline, corridos, wip };
-  }, [tasks, labels]);
+  const m = useMemo(() => metricasProductividad(tasksIn, labels, Date.now()), [tasksIn, labels]);
 
   // proyectos filtrados (para matriz + avance)
-  const projShown = m.projMeta.filter((p) => (filtro === 'todos' ? true : filtro === 'completados' ? p.completo : !p.completo));
+  const projShown = proyectosDelFiltro(m.projMeta, filtro);
 
   return (
     <div style={{ flex: '1 0 auto', padding: '18px 30px 44px', fontFamily: SANS }}>
@@ -193,7 +140,9 @@ function Vacio({ msg, icon = '📊' }: { msg: string; icon?: string }) {
   );
 }
 
-const quadColor = (imp: number, esf: number): string => (imp >= 50 && esf < 50 ? '#1BAF7A' : imp >= 50 && esf >= 50 ? '#2A78D6' : imp < 50 && esf < 50 ? '#8A8880' : '#E34948');
+// El cuadrante lo decide `cuadranteDe` (lib/productividad-metricas.ts); el color es de esta pantalla.
+const COLOR_CUADRANTE: Record<Cuadrante, string> = { quick: '#1BAF7A', apuesta: '#2A78D6', relleno: '#8A8880', trampa: '#E34948' };
+const quadColor = (imp: number, esf: number): string => COLOR_CUADRANTE[cuadranteDe(imp, esf)];
 
 function Matriz({ proyectos }: { proyectos: { l: Label; total: number }[] }) {
   const [hov, setHov] = useState<string | null>(null);

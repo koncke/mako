@@ -262,8 +262,9 @@ test('⚠️ al MANDAR se vuelve a preguntar si sigue siendo residuo, y si no, s
   const fn = bloque(src, 'export async function procesarEnvios(', '\nexport ');
   assert.match(fn, /residuoDelLote[^;]*= delResiduo\.length\s*\?\s*await residuoVigente\(supabase, delResiduo\)/);
   // Hasta el re-anclado del recordatorio (08/10/2026: `anclada`, que suma la espera «antes de la
-  // reunión» del flujo al `ancla` de siempre).
-  const guarda = bloque(fn, 'if (sec.trigger_tipo === TRIGGER_RESIDUO)', 'if (anclada) {');
+  // reunión» del flujo al `ancla` de siempre). Desde la undécima tanda lo que sigue es el CARRIL del
+  // recordatorio (M3): el recorte termina donde empieza.
+  const guarda = bloque(fn, 'if (sec.trigger_tipo === TRIGGER_RESIDUO)', 'let carril: {');
   assert.match(guarda, /if \(residuoDelLote === null\)\s*\{\s*res\.detalle\.push\(\{[^}]*\}\);\s*continue;/, 'sin poder leer, no puede seguir de largo');
   assert.match(guarda, /if \(!residuoDelLote\.has\(insc\.lead_id\)\)\s*\{[\s\S]*estado: 'completada', proximo_envio_at: null[\s\S]*continue;/);
   // Y va ANTES de cualquier rama que mande.

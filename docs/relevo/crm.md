@@ -6,6 +6,65 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0. Al 11/10/2026 18:00 (chat «CRM», cuenta `claude3`, cortado al 85% semanal)
+
+**Medido contra el árbol, no copiado de abajo.** Desde este relevo (10/10 20:48) nadie
+trabajó el CRM: los commits que tocan sus rutas son de OTRAS áreas y de pasada
+(`7527b8c2` y `b21f16ab` del Dashboard en `app/crm/actions.ts` y `deal-actions.ts`;
+`ef8626ce` de MaKo Mobile, que en `app/crm/revisar/[id]/acciones.ts` sólo le puso guarda a
+DESCARTAR). Los tres pendientes de la §3 siguen abiertos tal cual: la cohorte del panel
+(`app/crm/LeadSheet.tsx:225`), `funnelIds` en `FilaImport` (`app/crm/leads-importar.ts:211`,
+ausente también en `app/crm/actions.ts`) y el `marcarAplicada` DESPUÉS de crear
+(`app/crm/revisar/[id]/acciones.ts:83`). Se le ofrecieron a Martín sin respuesta todavía;
+la decisión 1 de la §5 se le presentó con la (c) recomendada.
+
+### ✅ «Producto» → «Funnel»: HECHO el 11/10 a las 16:26 (`53ba6450`, 63 archivos)
+
+Martín contestó a las 15:55: *«Es así: funnel > oferta > productos»* (el catálogo con precio
+sigue siendo «producto») y *«arrancalo ahora»*. Cambió sólo lo que se lee, donde la palabra
+nombra un funnel: el CRM entero, el teléfono, «Agregar al CRM» de WhatsApp, Ads Manager, el
+paso 2 del Pixel, el CRON y las condiciones de Automations, el paso «⚡ Acción», el aviso del
+lead quieto y los mensajes de las acciones del CRM por MaKo. El porqué de cada frontera, en
+`docs/hallazgos-crm.md` → «"Producto" → "Funnel"». **Sin verificar en el navegador**: se
+verificó con tests (304 pass en los 19 archivos del área) y typecheck.
+
+**Lo que quedó pendiente:** las descripciones de las `.def.ts` de la API de MaKo (esperan a que
+`lib/api-mako` no tenga cambios ajenos, porque regeneran `docs/api-mako.md`), la dimensión
+«Producto» de los gráficos (`lib/graficos-catalogo.ts`, de la sesión del Dashboard) y los prompts.
+Y un rojo que NO es de esta tarea: `tests/mover-etapa-validacion.test.ts` («la opción del modal de
+confirmaciones valida») falla contra `lib/mako-confirmaciones.ts`, último commit `ef8626ce`
+(MaKo Mobile).
+
+Lo de abajo es lo que se sabía ANTES de hacerlo:
+
+Pedido de Martín, textual (11/10/2026, en el chat de la tab Offer, que la reenvió acá):
+*«Las ofertas deben estar atados a los productos del CRM... Y quiero cambiar el concepto
+"Producto" por "Funnel" en todos lados... Porque un mismo funnel puede tener varias
+"ofertas"... Configuralo de esa manera, para que yo pueda seleccionar en que funnel analizar
+o crear una nueva oferta. Mandale como tarea al CRM que lo cambie en todos lados.»*
+
+Lo que hay que saber antes de tocar una línea:
+
+- **En el CRM, lo que la pantalla llama «producto» YA ES un funnel por dentro**: la casa del
+  lead es `leads.funnel_id`, los «otros productos» son filas de `lead_funnel`, y el nombre que
+  se ve sale del producto principal del funnel (`productoDeFunnel`, `lib/funnels.ts:230`). O
+  sea que el renombre CORRIGE el rótulo, no cambia el modelo.
+- **Y la relación que Martín describe ya existe en la base**: `producto ──oferta_productos──>
+  oferta ──funnel_ofertas──> funnel`. Un funnel con N ofertas es `funnel_ofertas`, no
+  `oferta_productos`.
+- ⚠️ **Hay un SEGUNDO «producto» que no es un funnel**: el catálogo de `lib/productos.ts`
+  (tabla `productos`: precio, único/suscripción), que va DENTRO de una oferta y del que cuelgan
+  la entrega de Customer Success, los cursos y el onboarding. Si ése también se llama
+  «Funnel», la cadena se lee «funnel → oferta → funnel». Pregunta abierta a Martín.
+- **El tamaño**: 40 archivos de `app/crm` nombran «producto» (incluye identificadores) y la
+  palabra «Embudo» también se ve en 17 (`CrmBoard`, `EtapasModal`, `CrmToolbar`…). Default
+  propuesto: «Embudo» también pasa a «Funnel», porque es la misma cosa.
+- **Lo que NO se renombra** (regla de AGENTS.md, como /chatbot → /automations): tablas,
+  columnas, `producto_id`/`funnel_id`, keys de settings y de onboarding, áreas y operaciones
+  de la API de MaKo. Cambia lo que se LEE. Los tests que miran copy se corren antes de pushear.
+- **El chat «Offer»** lee del CRM con `listProductos(true)`; se le avisó que el funnel con sus
+  ofertas es `funnels` + `funnel_ofertas`. Si cambia una firma, se le avisa por ese chat.
+
 **Qué es esta parte del producto, para quien nunca la vio.** MaKo es una plataforma de
 marketing y ventas que Martín Koncke (el dueño) le vende a negocios. El CRM es la tab
 `/crm`: un tablero kanban donde cada tarjeta es un **lead** (un contacto interesado) y cada

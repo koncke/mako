@@ -95,6 +95,30 @@ test('Fathom: ruteo y secreto estrictos, y el fallo pasa por el clasificador', (
   assert.equal((src.match(/responderFalloDeRuteo\('fathom'/g) ?? []).length, 2);
 });
 
+// Las pasarelas de pago (11/10/2026). Stripe sin Connect no dice de qué cuenta es el evento: lo dice el
+// `?acct=` que MaKo puso al registrar el webhook, y lo PRUEBA la firma con el secreto de ese negocio.
+// Mercado Pago rutea por el `user_id` (cuerpo o `?u=`). Stripe reintenta 3 días y MP cada 15 minutos
+// sin máximo: el 503 sólo para lo transitorio. El orden entero lo fija tests/cobros-webhook-rutas.test.ts.
+// Probado rompiéndolo (11/10/2026), restaurando de memoria: Stripe con `credWs(` para el secreto →
+// 14 pasan / 1 falla (este bloque); MP con `wsPorIdentificador(` → 12 / 3 (este bloque y los dos
+// barridos, el de la carpeta y el de app/ + lib/). Restaurado: 15 / 0.
+test('Stripe: ruteo por ?acct= y secreto estrictos, y el fallo pasa por el clasificador', () => {
+  const src = ruta('stripe');
+  assert.ok(!/\bcredWs\(|\bcredDelCliente\(|\benvCred\(/.test(src), 'el secreto de Stripe volvió a leerse con una lectura que traga el error');
+  assert.match(src, /wsPorIdentificadorEstricto\('stripe', acct\)/);
+  assert.match(src, /credWsEstricta\('STRIPE_WEBHOOK_SECRET', ws\)/);
+  assert.equal((src.match(/responderFalloDeRuteo\('stripe'/g) ?? []).length, 1, 'el ruteo y el secreto tienen que fallar por el clasificador');
+  assert.match(src, /acctDelWebhook\(req\.nextUrl\.searchParams\.get\('acct'\)\)/, 'sin tope de largo, un ?acct= gigante sin firmar anota un fallo por pedido');
+});
+
+test('Mercado Pago: ruteo por user_id y secreto estrictos, y el fallo pasa por el clasificador', () => {
+  const src = ruta('mercadopago');
+  assert.ok(!/\bcredWs\(|\bcredDelCliente\(|\benvCred\(/.test(src), 'el secreto de Mercado Pago volvió a leerse con una lectura que traga el error');
+  assert.match(src, /wsPorIdentificadorEstricto\('mercadopago', n\.userId\)/);
+  assert.match(src, /credWsEstricta\('MERCADOPAGO_WEBHOOK_SECRET', ws\)/);
+  assert.equal((src.match(/responderFalloDeRuteo\('mercadopago'/g) ?? []).length, 1);
+});
+
 test('Meta: un ruteo que no se pudo leer de forma transitoria hace reintentar el LOTE', () => {
   const src = ruta('meta-leads');
   assert.match(src, /anotarFalloDeRuteo\('meta', err, pageId\)/);

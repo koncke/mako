@@ -13,11 +13,27 @@
 // de la tarjeta del lienzo y de la vista previa del editor) y la barra es `ComposerWhatsApp` en
 // modo `enviar` (la misma del inbox y del editor). Lo que queda aquí es lo del HILO: el scroll,
 // los borradores por conversación, el lightbox y la entrada animada de lo nuevo.
+//
+// LOS ARCHIVOS (11/10/2026, pedido de Martín con la captura de WhatsApp Web: «debería salir la vista
+// previa del documento que acabo de subir, como lo tiene whatsapp… y puedo agregar más documentos... Y
+// aún escribir un mensaje abajo… no solo a offer, sino a todos los chats»): elegir archivo(s) con el clip
+// abre la VISTA PREVIA (./VistaAdjuntos.tsx) en el lugar del hilo, y se pueden juntar varios. Enviar los
+// manda EN ORDEN con `onEnviarArchivo`, el texto como pie del primero (`enviarEnOrden`), y vuelve al
+// hilo; si uno falla, los que faltan vuelven a la vista con el error. Antes era UN archivo en un chip.
+//   ⚠️ El tope de 4 MB por archivo sigue: es del envío de quien monta el hilo (multipart).
+//   ⚠️ Los archivos también son borrador POR CONVERSACIÓN (`adjuntoStore`), como el texto.
 
-import { useEffect, useMemo, useRef, useState, Fragment, type ReactNode } from 'react';
+import { useEffect, useRef, useState, Fragment, type ReactNode } from 'react';
 import { Ticks } from './Ticks';
 import { BurbujaHilo, type ContenidoBurbuja } from './BurbujaHilo';
 import { ComposerWhatsApp } from './ComposerWhatsApp';
+import { VistaAdjuntos, useListaAdjuntos } from './VistaAdjuntos';
+import { enviarEnOrden, MAX_ADJUNTOS, type ItemAdjunto } from './adjuntos-vista';
+
+/** El `accept` del clip del hilo (y del «+» de la vista previa). */
+const ACCEPT_HILO = 'image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx';
+/** El tope de CADA archivo: el envío de quien monta el hilo es multipart y corta ahí. */
+const TOPE_ARCHIVO_HILO = 4 * 1024 * 1024;
 
 export type HiloMsg = {
   id: string | number;
@@ -132,17 +148,20 @@ export type ChatHiloProps = {
 //    de una grabación o de una escucha la descarta. Lo contrario —que viaje y salga en el otro chat, o
 //    en el de antes con la pantalla mostrando otro— es justo «el audio que se escapa».
 const draftStore = new Map<string, string>();
-const adjuntoStore = new Map<string, File>();
+const adjuntoStore = new Map<string, ItemAdjunto[]>();
 
 export function ChatHilo({
   mensajes, header, accent = 'var(--wa-noof)', accentBubble = 'var(--wa-noof-bubble)',
   onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey, onDraftChange, animarNuevos, encimaDelComposer, renderMensaje,
 }: ChatHiloProps) {
   const [draft, setDraftState] = useState<string>(() => (draftKey ? draftStore.get(draftKey) ?? '' : ''));
-  const [adjunto, setAdjuntoState] = useState<File | null>(() => (draftKey ? adjuntoStore.get(draftKey) ?? null : null));
+  const lista = useListaAdjuntos(
+    { maxBytes: TOPE_ARCHIVO_HILO, maxArchivos: MAX_ADJUNTOS, accept: ACCEPT_HILO },
+    () => (draftKey ? adjuntoStore.get(draftKey) ?? [] : []),
+  );
   const prevKey = useRef(draftKey);
-  // Reporta si el chat tiene ALGO en borrador (texto/adjunto) → orden en la lista.
-  const reportar = (key: string | undefined) => { if (key) onDraftChange?.(key, !!(draftStore.get(key) || adjuntoStore.get(key))); };
+  // Reporta si el chat tiene ALGO en borrador (texto/adjuntos) → orden en la lista.
+  const reportar = (key: string | undefined) => { if (key) onDraftChange?.(key, !!(draftStore.get(key) || adjuntoStore.get(key)?.length)); };
   // El borrador se lleva TAMBIÉN en un ref, y el store se escribe FUERA del
   // updater de estado. React puede invocar un updater dos veces (StrictMode) y
   // `reportar` avisa al PADRE: hacerlo adentro dispara un efecto ajeno durante
@@ -154,7 +173,12 @@ export function ChatHilo({
     setDraftState(next);
     if (draftKey) { if (next) draftStore.set(draftKey, next); else draftStore.delete(draftKey); reportar(draftKey); }
   };
-  const setAdjunto = (f: File | null) => { setAdjuntoState(f); if (draftKey) { if (f) adjuntoStore.set(draftKey, f); else adjuntoStore.delete(draftKey); reportar(draftKey); } };
+  /** Los adjuntos de una conversación al store (fuera de un updater, por lo mismo que el texto). */
+  const guardarAdjuntos = (key: string | undefined, l: ItemAdjunto[]) => {
+    if (!key) return;
+    if (l.length) adjuntoStore.set(key, l); else adjuntoStore.delete(key);
+    reportar(key);
+  };
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
   const [audioFase, setAudioFase] = useState<string | null>(null);
@@ -170,25 +194,37 @@ export function ChatHilo({
   if (siguientes !== vistos) setVistos(siguientes);
   const entrando = animarNuevos ? siguientes.entrando : null;
 
-  const adjuntoPreview = useMemo(() => (adjunto && adjunto.type.startsWith('image/') ? URL.createObjectURL(adjunto) : null), [adjunto]);
-  useEffect(() => () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview); }, [adjuntoPreview]);
-  // Cambió la conversación → cargar SU borrador/adjunto (no se pierden).
+  // Cambió la conversación → cargar SU borrador/adjuntos (no se pierden).
   useEffect(() => {
     if (prevKey.current === draftKey) return;
     prevKey.current = draftKey;
     const suyo = draftKey ? draftStore.get(draftKey) ?? '' : '';
     draftRef.current = suyo; // el ref tiene que seguir al estado o el próximo envío usa el borrador viejo
     setDraftState(suyo);
-    setAdjuntoState(draftKey ? adjuntoStore.get(draftKey) ?? null : null);
+    lista.poner(draftKey ? adjuntoStore.get(draftKey) ?? [] : []);
     setSendErr(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al cambiar de conversación
   }, [draftKey]);
   useEffect(() => { const el = scrollRef.current; if (el && stickRef.current) el.scrollTop = el.scrollHeight; }, [mensajes, typing]);
   const onScroll = () => { const el = scrollRef.current; if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; };
 
-  function pickFile(f: File | null) {
-    if (!f) return;
-    if (f.size > 4 * 1024 * 1024) { setSendErr('Archivo muy grande (máx 4 MB).'); return; }
-    setAdjunto(f);
+  /** El clip (o el «+» de la vista): suma a la vista previa; lo que no entra dice por qué. */
+  function agregarArchivos(fs: File[]) {
+    if (!fs.length) return;
+    const errores = lista.agregar(fs);
+    guardarAdjuntos(draftKey, lista.ref.current);
+    setSendErr(errores.length ? errores.join(' ') : null);
+  }
+  function quitarArchivo(id: string) {
+    lista.quitar(id);
+    guardarAdjuntos(draftKey, lista.ref.current);
+    if (!lista.ref.current.length) setSendErr(null);
+  }
+  /** La ✕ de la vista (o Escape): descarta los archivos. El texto queda: es el borrador del chat. */
+  function cerrarVista() {
+    lista.vaciar();
+    guardarAdjuntos(draftKey, []);
+    setSendErr(null);
   }
   async function enviarTexto() {
     const texto = draftRef.current.trim();
@@ -209,18 +245,33 @@ export function ChatHilo({
       setSendErr('No se pudo enviar (' + (e instanceof Error ? e.message : 'error de red') + ').');
     } finally { setSending(false); }
   }
-  async function enviarComposer() {
-    if (sending) return;
-    if (adjunto && onEnviarArchivo) {
-      const arch = adjunto; const cap = draftRef.current.trim();
-      setSending(true); setSendErr(null); stickRef.current = true;
-      setAdjunto(null); setDraft('');
-      try {
-        if (!(await onEnviarArchivo(arch, '', arch.name, cap || undefined))) {
-          setAdjunto(arch); setDraft((d) => d || cap); setSendErr('No se pudo enviar el archivo.');
-        }
-      } finally { setSending(false); }
-    } else await enviarTexto();
+  /**
+   * Enviar de la vista previa: vuelve al hilo YA (como WhatsApp: lo que sale se ve salir en el hilo, no
+   * detrás de la vista) y manda los archivos en orden, el texto como pie del primero. Si uno falla, los
+   * que faltan vuelven a la vista con el error; el texto vuelve sólo si no salió con el primero.
+   * ⚠️ Si la persona cambió de conversación mientras salían, lo que faltó vuelve al borrador de LA SUYA
+   * (el store de esa clave), nunca a la vista de la que está mirando ahora.
+   */
+  async function enviarAdjuntos() {
+    const items = lista.ref.current;
+    if (sending || !onEnviarArchivo || !items.length) return;
+    const key = draftKey;
+    const cap = draftRef.current.trim();
+    setSending(true); setSendErr(null); stickRef.current = true;
+    lista.vaciar(); guardarAdjuntos(key, []); setDraft('');
+    try {
+      const r = await enviarEnOrden(items, cap, (it, caption) => onEnviarArchivo(it.file, '', it.file.name, caption));
+      if (!r.faltan.length) return;
+      if (prevKey.current === key) {
+        lista.poner(r.faltan);
+        guardarAdjuntos(key, r.faltan);
+        if (!r.textoSalio) setDraft((d) => d || cap);
+        setSendErr(r.error);
+      } else if (key) {
+        if (!r.textoSalio && cap && !draftStore.get(key)) draftStore.set(key, cap);
+        guardarAdjuntos(key, r.faltan);
+      }
+    } finally { setSending(false); }
   }
   // El audio ya se ESCUCHÓ en la barra del composer (✓ termina, ➤ manda): lo que llega acá es lo que
   // se pidió mandar. Si el envío falla, se dice: la barra ya se vació, y volver a grabar es lo que hay.
@@ -235,6 +286,9 @@ export function ChatHilo({
     setSending(false); setAudioFase(null);
   };
   const puedeComponer = !readOnly && (!!onEnviarTexto || !!onEnviarArchivo);
+  /** La vista previa tapa el hilo y la barra mientras haya archivos juntados (sin desmontarlos: la barra
+   *  guarda la sesión de voz y el hilo su scroll). */
+  const hayVista = puedeComponer && !!onEnviarArchivo && lista.items.length > 0;
 
   return (
     // `data-esquina-ocupada` cuando hay composer: su «Enviar» vive en el rincón de abajo a la
@@ -243,6 +297,9 @@ export function ChatHilo({
       {header && <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>{header}</div>}
       {entrando && <style>{CSS_ENTRADA}</style>}
 
+      {/* El cuerpo (hilo + barra) en una caja propia: la vista previa se apoya ENCIMA con `inset: 0`, un
+          alto definido en todos los motores (un `height: 100%` contra un alto de flex da cero en Safari). */}
+      <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface-2)' }}>
         {cargando && mensajes.length === 0 && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -321,16 +378,34 @@ export function ChatHilo({
           modo="enviar"
           valor={draft}
           onValor={setDraft}
-          onEnviar={() => void enviarComposer()}
+          onEnviar={() => void enviarTexto()}
           ocupado={sending}
-          placeholder={adjunto ? 'Agrega un texto (opcional)…' : placeholder}
-          onArchivo={onEnviarArchivo ? pickFile : undefined}
-          acceptArchivo="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx"
+          placeholder={placeholder}
+          onArchivos={onEnviarArchivo ? agregarArchivos : undefined}
+          acceptArchivo={ACCEPT_HILO}
           onAudio={onEnviarArchivo ? enviarAudio : undefined}
           onErrorAudio={setSendErr}
-          chip={adjunto ? { imagen: adjuntoPreview, icono: 'doc', titulo: adjunto.name, detalle: `${(adjunto.size / 1024).toFixed(0)} KB`, onQuitar: () => setAdjunto(null) } : null}
         />
       )}
+
+      {hayVista && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column' }}>
+          <VistaAdjuntos
+            items={lista.items}
+            onAgregar={agregarArchivos}
+            onQuitar={quitarArchivo}
+            onCerrar={cerrarVista}
+            texto={draft}
+            onTexto={setDraft}
+            onEnviar={() => void enviarAdjuntos()}
+            accept={ACCEPT_HILO}
+            maxArchivos={MAX_ADJUNTOS}
+            enviando={sending}
+            error={sendErr}
+          />
+        </div>
+      )}
+      </div>
 
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2500, padding: 28 }}>

@@ -33,8 +33,8 @@
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
-- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_secuencia_mensajes` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
-- **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline`
+- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
+- **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard`
 - **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
@@ -44,6 +44,7 @@
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
+- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
 
 ## General — `general`
@@ -662,7 +663,7 @@ curl -L \
 
 ### `GET /api/v1/plan/prioridades` — Qué hacer ahora
 
-Las tareas abiertas de mayor score que se pueden empezar YA: excluye las bloqueadas por una dependencia abierta (siguen siendo importantes, pero no ejecutables) y dice cuántas quedaron afuera por eso. Si TODAS las abiertas están bloqueadas, devuelve igual las de mayor score marcadas `bloqueada: true`, para saber qué destrabar primero. Responde «¿qué hago hoy?».
+Las tareas abiertas que se pueden empezar YA, en el MISMO orden que la vista Prioridades del tablero (banda con la urgencia heredada, después las del objetivo principal, el score del proyecto y la urgencia): excluye las bloqueadas por una dependencia abierta (siguen siendo importantes, pero no ejecutables) y dice cuántas quedaron afuera por eso. Si TODAS las abiertas están bloqueadas, devuelve igual las primeras en ese orden marcadas `bloqueada: true`, para saber qué destrabar primero. Responde «¿qué hago hoy?».
 
 - **Ruta por operación:** `GET /api/v1/plan/ver_prioridades_plan`
 - **Token detallado:** permiso `plan=read` (Solo lectura en «Plan»)
@@ -3456,7 +3457,7 @@ curl -L \
 
 ### `GET /api/v1/ads/guiones-valorados` — Guiones nuevos ya valorados
 
-El historial de guiones nuevos valorados en Ads Analyst («Analiza un guion nuevo»), más recientes primero: id, etiqueta, ángulo, tipo de gancho, veredicto, rangos estimados de hook y retención y un extracto del guion. Úsala para «¿qué dijo MaKo del guion que probé ayer?» o para conseguir el id antes de proponer_borrar_guion_valorado.
+El historial de guiones nuevos valorados en Ads Writer («Analizar guion»), más recientes primero: id, etiqueta, ángulo, tipo de gancho, veredicto, rangos estimados de hook y retención y un extracto del guion. Úsala para «¿qué dijo MaKo del guion que probé ayer?» o para conseguir el id antes de proponer_borrar_guion_valorado.
 
 - **Ruta por operación:** `GET /api/v1/ads/listar_guiones_valorados`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
@@ -4899,7 +4900,7 @@ curl -L \
 
 ### `GET /api/v1/email/ajustes/remitente` — Remitente actual del email
 
-Con qué nombre y dirección salen los emails del negocio («De:») y si ese remitente es el sandbox de Resend, que solo entrega al dueño de la cuenta. Úsala para confirmar la firma antes de un envío o para explicar por qué un mail no le llega a nadie. No pide parámetros.
+Con qué nombre y dirección salen los emails del negocio («De:») y si el negocio tiene remitente PROPIO (`propio`; sin él no sale nada y `sandbox` es true: el email de MaKo no es el de un negocio). La `nota` dice por qué. Úsala para confirmar la firma antes de un envío o para explicar por qué un mail no le llega a nadie. No pide parámetros.
 
 - **Ruta por operación:** `GET /api/v1/email/remitente_email`
 - **Token detallado:** permiso `email=read` (Solo lectura en «Email»)
@@ -5305,7 +5306,7 @@ curl -L \
 
 ## Chatbot y secuencias — `chatbot`
 
-Tab **Automations** (`/automations`). 14 lecturas · 14 acciones.
+Tab **Automations** (`/automations`). 14 lecturas · 13 acciones.
 
 ### `GET /api/v1/chatbot/secuencias` — Listar las secuencias de mensajes
 
@@ -5330,7 +5331,7 @@ curl -L \
 
 ### `GET /api/v1/chatbot/secuencias/{secuenciaId}` — Ficha de una secuencia
 
-Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
+Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue, y el AI Step con su objetivo y cada escenario con su libertad), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/ficha_secuencia_mensajes`
 - **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
@@ -5442,7 +5443,7 @@ curl -L \
 
 ### `GET /api/v1/chatbot/etapas` — Etapas donde colgar una secuencia
 
-Las etapas del funnel de este negocio donde se puede colgar una secuencia de mensajes (nutrición y pipeline; se excluyen las de salida), con su clave y su nombre. Úsala antes de crear_secuencia_mensajes: la etapa se pasa por su clave, que cambia de un negocio a otro.
+Las etapas del funnel de este negocio donde se puede colgar una secuencia de mensajes (nutrición y pipeline; se excluyen las de salida), con su clave y su nombre. La etapa se pasa por su clave, que cambia de un negocio a otro.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/etapas_para_secuencia`
 - **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
@@ -5649,37 +5650,6 @@ curl -L \
   -d '{"activa":true}'
 ```
 
-### `POST /api/v1/chatbot/secuencias` — Crear una secuencia de mensajes
-
-PROPONE crear una secuencia de mensajes nueva colgada de una etapa del funnel. Nace PAUSADA y con dos pasos de esqueleto sin texto: no le escribe a nadie hasta que se redacte y se active. Pide antes la clave de la etapa con etapas_para_secuencia (y revisa huecos_secuencias).
-
-- **Ruta por operación:** `POST /api/v1/chatbot/crear_secuencia_mensajes`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
-- **Token clásico:** alcance mínimo proponer
-- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
-- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** inserta una fila pausada en nutricion_secuencias
-- **Reversible:** sí
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** setting
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `etapa` | string | sí | clave de la etapa del funnel (de etapas_para_secuencia). |
-| `nombre` | string | sí | nombre de la secuencia, como lo va a ver el dueño (hasta 40 caracteres). |
-
-```bash
-curl -L \
-  -X POST \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer <TU-TOKEN>" \
-  -H "X-MaKo-Api-Version: 2026-10-08" \
-  -H "Content-Type: application/json" \
-  "https://hola-mako.com/api/v1/chatbot/secuencias" \
-  -d '{"etapa":"ETAPA","nombre":"NOMBRE"}'
-```
-
 ### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/pasos/{orden}` — Cambiar la espera de un paso
 
 PROPONE cambiar cuántas horas espera un paso de una secuencia antes de salir (desde el paso anterior, o antes de la reunión si el paso está anclado a ella). Si el paso es una tarjeta «Esperar», cambia lo que espera esa tarjeta. No reprograma los envíos ya calculados de los leads inscriptos. Pide antes el secuenciaId y el orden del paso con ficha_secuencia_mensajes.
@@ -5802,7 +5772,7 @@ curl -L \
 
 ### `POST /api/v1/chatbot/avisos-equipo` — Avisar al equipo
 
-PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Úsala desde una automatización cuando el caso lo tiene que ver una persona.
+PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Con partes, el aviso son esos mensajes en orden (textos, notas de voz con la Voz de MaKo y archivos de la biblioteca); desde una automatización salen tal cual, sin título ni firma. Úsala desde una automatización cuando el caso lo tiene que ver una persona.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/avisar_al_equipo`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -5818,7 +5788,13 @@ PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) p
 | --- | --- | --- | --- |
 | `leadId` | number | no | opcional: el lead del que se avisa (de buscar_leads). En una automatización, el del evento. |
 | `titulo` | string | no | opcional: el título corto del aviso. |
-| `mensaje` | string | sí | lo que tiene que saber el equipo, en una o dos frases. |
+| `mensaje` | string | sí | lo que tiene que saber el equipo, en una o dos frases. Con partes, el resumen que se ve en la app (los textos unidos). |
+| `partes` | object[] | no | opcional: el aviso como varios mensajes, en orden (hasta 6). Una nota de voz tiene que ser la Voz de MaKo (no un audio del negocio); un archivo, de la biblioteca de archivos del chatbot. |
+| `partes.tipo` | string (texto \\| audio \\| media) | sí | texto, nota de voz (audio exige audio_id) o archivo (media exige media_id; el cuerpo es su pie). |
+| `partes.cuerpo` | string | no | el texto del mensaje, o el pie del archivo. Admite los datos {{…}} del aviso al equipo. |
+| `partes.audio_id` | number | no | id de un audio de la Voz de MaKo de este negocio, sólo si tipo es audio. |
+| `partes.media_id` | number | no | id del archivo de la biblioteca de archivos del chatbot, sólo si tipo es media. |
+| `partes.pausa_s` | number | no | opcional: segundos de espera antes de este mensaje (desde el segundo; hasta 10). |
 | `respuesta` | string | no | opcional: lo que escribió el lead, textual. Va en el aviso, y el aviso no se repite para esa misma respuesta (en vez de para el mismo lead). |
 
 ```bash
@@ -5947,14 +5923,14 @@ curl -L \
 
 ### `POST /api/v1/chatbot/secuencias/{secuenciaId}/escenarios` — Agregar un caso previsto
 
-PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la secuencia tiene la tarjeta «Si responde», el caso entra ahí como una rama nueva con un «MaKo contesta» que usa tu guía; si no, la secuencia tiene que tener estrategia guardada. Máximo 30 casos. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
+PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la automatización tiene un AI Step, el caso entra ADENTRO como un escenario más de su objetivo (hasta 10): sale solo si contestaSolo y no habla de plata; si no, queda para aprobar; sin cómo responder, sólo te avisa. Si tiene la tarjeta «Si responde» de siempre, entra como una rama nueva con un «MaKo contesta» que usa tu guía (máximo 30); si no tiene ninguna, la secuencia tiene que tener estrategia guardada. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
 
 - **Ruta por operación:** `POST /api/v1/chatbot/agregar_escenario_secuencia`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** agrega un escenario a nutricion_secuencias.estrategia.escenarios
+- **Escribe:** agrega el escenario al AI Step (o a «Si responde») de nutricion_secuencias.pasos, o a estrategia.escenarios si no tiene ninguno
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -6070,7 +6046,7 @@ curl -L \
 
 ## Dashboard y análisis — `metricas`
 
-Tab **Dashboard** (`/dashboard`). 20 lecturas · 0 acciones.
+Tab **Dashboard** (`/dashboard`). 24 lecturas · 14 acciones.
 
 ### `GET /api/v1/metricas/numeros` — Números del negocio por período
 
@@ -6558,6 +6534,616 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/metricas/pipeline"
+```
+
+### `GET /api/v1/metricas/dashboard/catalogo` — Catálogo del Dashboard
+
+Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, los bloques armados, las plantillas de hoja, los estilos, los filtros, los elementos, los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.
+
+- **Ruta por operación:** `GET /api/v1/metricas/ver_catalogo_dashboard`
+- **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** markdown (también `?formato=` md | json)
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `conjunto` | string | no | El id del conjunto de datos (leads, meta, pagos, llamadas…; la lista en ver_catalogo_dashboard). Con esto, el detalle de ese conjunto. |
+| `seccion` | string (conjuntos \\| tipos \\| bloques \\| plantillas \\| estilos \\| filtros \\| elementos \\| periodos \\| campos) | no | Sólo esta parte del catálogo. Los campos (para filtrar) sólo salen pidiéndolos. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/catalogo?conjunto=leads"
+```
+
+### `GET /api/v1/metricas/dashboard/datos` — Consultar datos del Dashboard
+
+Arma un gráfico al vuelo y devuelve sus números: un conjunto, sus métricas y, si quieres, una dimensión y un desglose, en un período y con filtros. Lee con las MISMAS funciones que dibuja la pantalla, así que da lo mismo que un gráfico igual del Dashboard. Úsala para cualquier pregunta sobre un número que esté en el catálogo («cuántos leads por campaña en septiembre», «el CAC por mes este año»). Un id que no existe vuelve con los `disponibles`. La pauta de Meta llega con un día de atraso: su período termina ayer. Por HTTP, las categorías con nombres de personas salen como «Closer 1» y no se puede filtrar por ellas. Por HTTP acepta ?formato=md|csv|json.
+
+- **Ruta por operación:** `GET /api/v1/metricas/consultar_datos_dashboard`
+- **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** markdown (también `?formato=` md | csv | json)
+- **Costo:** gratis · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `conjunto` | string | sí | El id del conjunto de datos (leads, meta, pagos, llamadas…; la lista en ver_catalogo_dashboard). |
+| `metricas` | string[] | sí | Los ids de las métricas del conjunto, en orden (de ver_catalogo_dashboard). Un tipo de gráfico acepta un mínimo y un máximo. |
+| `dimension` | string | no | Por qué se agrupa: dia, semana, mes o una categoría del conjunto (etapa, campana, closer…). Sin esto, sólo el total; al editar, «-» la saca. |
+| `desglose` | string | no | Una segunda categoría que reparte la primera métrica (columnas apiladas, tabla dinámica). Al editar, «-» lo saca. |
+| `periodo` | string | no | El período: ult7, ult30, este_mes, mes_pasado, ult12m, todo… (la lista en ver_catalogo_dashboard). Con desde y hasta, uno a medida. Default: últimos 30 días. |
+| `desde` | string | no | Primer día de un período a medida, YYYY-MM-DD. Va junto con hasta. |
+| `hasta` | string | no | Último día de un período a medida, YYYY-MM-DD, inclusive. Va junto con desde. |
+| `fecha` | string | no | Cuál fecha del conjunto decide qué filas entran (en leads: alta, agenda o cierre). Sin esto, la primera del conjunto. |
+| `filtros` | object[] | no | Filtros sobre categorías: cada uno con su campo y una lista de valores (o un texto que contenga). |
+| `filtros.campo` | string | sí | La categoría que se filtra: una dimensión del conjunto (etapa, campana) o un campo de ver_catalogo_dashboard. |
+| `filtros.valores` | string[] | no | Los valores que entran, escritos como los muestra el gráfico. |
+| `filtros.texto` | string | no | En vez de valores: entra lo que contenga este texto. |
+| `limite` | number | no | Cuántos grupos de una categoría se muestran (el resto se cuenta). Default 20. |
+| `orden` | string (desc \\| asc) | no | Del que más al que menos (desc, default) o al revés, por la primera métrica. El tiempo va siempre en orden. |
+| `comparar` | boolean | no | true = trae también los totales del período anterior del mismo largo. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/datos?conjunto=leads&metricas=%5B%22leads%22%2C%22cierres%22%5D&dimension=mes&periodo=ult30&desde=2026-09-01&hasta=2026-09-30"
+```
+
+### `GET /api/v1/metricas/dashboard/hojas/{hoja}` — Leer una hoja del Dashboard
+
+Una hoja del informe de una persona con su configuración y sus números: la cabecera, los filtros de arriba, y cada gráfico con su período, sus filtros y lo que muestra (lo mismo que dibuja la pantalla al abrirla). Úsala para «¿qué dice mi hoja de Marketing?» o antes de cambiar un gráfico (trae los ids). En csv es el MISMO archivo que el botón Exportar. Por HTTP, las categorías con nombres de personas salen como «Cliente 1» y los bloques van sin datos. Por HTTP acepta ?formato=md|csv|json.
+
+- **Ruta por operación:** `GET /api/v1/metricas/leer_hoja_dashboard`
+- **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** markdown (también `?formato=` md | csv | json)
+- **Costo:** gratis · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA?persona=ana%40negocio.com"
+```
+
+### `GET /api/v1/metricas/dashboard/hojas/{hoja}/analisis` — Último análisis del AI Analyst
+
+El último análisis del AI Analyst de una hoja: el resumen, los hallazgos con su número, las recomendaciones y cuándo se hizo, si hay uno corriendo, si el último intento falló y el horario programado. Úsala después de analizar_hoja_dashboard (que corre por detrás) o para «¿qué dijo MaKo de mi hoja?». Por HTTP los nombres de personas quedan como «Closer 1». Por HTTP acepta ?formato=md|json.
+
+- **Ruta por operación:** `GET /api/v1/metricas/leer_analisis_dashboard`
+- **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** markdown (también `?formato=` md | json)
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/analisis?persona=ana%40negocio.com"
+```
+
+### `POST /api/v1/metricas/dashboard/hojas` — Crear una hoja del Dashboard
+
+Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: desde una plantilla (`plantilla`: marketing, comercial, closing, ads-analyst…; la lista en ver_catalogo_dashboard), en blanco (sin plantilla ni pedido), o con un `pedido` en palabras para que MaKo la arme con IA gratis («los leads por campaña y el CAC de los últimos 90 días»). Con pedido, MaKo la arma ANTES de proponerla y el resumen dice qué gráficos tiene. Devuelve el id de la hoja. No corre en una automatización.
+
+- **Ruta por operación:** `POST /api/v1/metricas/crear_hoja_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega una hoja al informe guardado de esa persona (app_settings, graficos.tablero.<su id>)
+- **Reversible:** sí
+- **Costo:** ia · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `plantilla` | string | no | El id de una plantilla de hoja (de ver_catalogo_dashboard). |
+| `pedido` | string | no | Qué quiere ver, en palabras, para que MaKo arme la hoja. Usa esto O plantilla. |
+| `nombre` | string | no | El nombre de la pestaña. Default: el de la plantilla, el que elija MaKo o «Página N». |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas" \
+  -d '{"persona":"ana@negocio.com","plantilla":"comercial"}'
+```
+
+### `PATCH /api/v1/metricas/dashboard/hojas/{hoja}` — Editar una hoja del Dashboard
+
+Cambia cómo se llama o se ve una hoja del Dashboard: nombre, emoji, subtítulo, estilo de la página o su lugar entre las pestañas. Sólo cambia lo que se pasa. Si ya está así, lo dice y no propone nada.
+
+- **Ruta por operación:** `POST /api/v1/metricas/editar_hoja_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia la cabecera, el estilo o el orden de una hoja del informe de esa persona
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `nombre` | string | no | El nombre nuevo de la pestaña. |
+| `emoji` | string | no | Un emoji al lado del título. «-» lo saca. |
+| `subtitulo` | string | no | La línea de abajo del título. «-» la saca. |
+| `tema` | string | no | El estilo de la página: mako, minimal, suave, contraste, elevada o editorial (la lista en ver_catalogo_dashboard). |
+| `posicion` | number | no | En qué lugar queda la pestaña, contando desde 1 (la primera). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA" \
+  -d '{"persona":"ana@negocio.com"}'
+```
+
+### `POST /api/v1/metricas/dashboard/hojas/{hoja}/copias` — Duplicar una hoja del Dashboard
+
+Copia una hoja del Dashboard con todos sus gráficos y filtros, al lado de la original. La copia se llama como la original con «(copia)». Devuelve el id de la hoja nueva.
+
+- **Ruta por operación:** `POST /api/v1/metricas/duplicar_hoja_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega una copia de la hoja al informe de esa persona
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/copias" \
+  -d '{"persona":"ana@negocio.com"}'
+```
+
+### `DELETE /api/v1/metricas/dashboard/hojas/{hoja}` — Borrar una hoja del Dashboard
+
+Borra una hoja del informe del Dashboard de una persona, con sus gráficos. No se puede borrar la última hoja. Por la API no se deshace: la pantalla tiene su deshacer, la API no. No corre en una automatización.
+
+- **Ruta por operación:** `POST /api/v1/metricas/borrar_hoja_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca la hoja del informe guardado de esa persona
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA" \
+  -d '{"persona":"ana@negocio.com"}'
+```
+
+### `POST /api/v1/metricas/dashboard/hojas/{hoja}/componentes` — Agregar un gráfico o bloque
+
+Agrega un gráfico o un bloque armado a una hoja del Dashboard. Un gráfico es un `tipo` (tabla, serie, barras, circular, numero…) sobre un `conjunto` con sus `metricas` y, según el tipo, una `dimension` y un `desglose`; un bloque se pide con `bloque` (revenue, cobranza…). Lo que el tipo no acepta se rechaza con los `disponibles`, nunca se corrige en silencio. Va abajo de todo, o arriba con lugar. Devuelve el id del componente.
+
+- **Ruta por operación:** `POST /api/v1/metricas/agregar_grafico_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega un componente a una hoja del informe de esa persona
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `tipo` | string | no | El tipo de gráfico (de ver_catalogo_dashboard). Va con conjunto y metricas. |
+| `conjunto` | string | no | El id del conjunto de datos (leads, meta, pagos, llamadas…; la lista en ver_catalogo_dashboard). Va con tipo. |
+| `metricas` | string[] | no | Los ids de las métricas del conjunto, en orden (de ver_catalogo_dashboard). Un tipo de gráfico acepta un mínimo y un máximo. |
+| `dimension` | string | no | Por qué se agrupa: dia, semana, mes o una categoría del conjunto (etapa, campana, closer…). Sin esto, sólo el total; al editar, «-» la saca. |
+| `desglose` | string | no | Una segunda categoría que reparte la primera métrica (columnas apiladas, tabla dinámica). Al editar, «-» lo saca. |
+| `fecha` | string | no | Cuál fecha del conjunto decide qué filas entran (en leads: alta, agenda o cierre). Sin esto, la primera del conjunto. |
+| `periodo` | string | no | El período: ult7, ult30, este_mes, mes_pasado, ult12m, todo… (la lista en ver_catalogo_dashboard). Con desde y hasta, uno a medida. «auto» o sin esto = el filtro de período de la hoja. |
+| `desde` | string | no | Primer día de un período a medida, YYYY-MM-DD. Va junto con hasta. |
+| `hasta` | string | no | Último día de un período a medida, YYYY-MM-DD, inclusive. Va junto con desde. |
+| `titulo` | string | no | El título que se ve arriba. Sin título, se arma solo con la métrica y la dimensión; al editar, «-» lo saca. |
+| `bloque` | string | no | En vez de un gráfico, un bloque armado (de ver_catalogo_dashboard). |
+| `comparar` | boolean | no | true = muestra el cambio contra el período anterior. |
+| `lugar` | string (abajo \\| arriba) | no | Dónde va: abajo de todo (default) o arriba de todo. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/componentes" \
+  -d '{"persona":"ana@negocio.com","tipo":"barras","conjunto":"leads","metricas":["leads","cierres"],"dimension":"mes","periodo":"ult30","desde":"2026-09-01","hasta":"2026-09-30"}'
+```
+
+### `PATCH /api/v1/metricas/dashboard/hojas/{hoja}/componentes/{componente}` — Editar un gráfico del Dashboard
+
+Cambia un gráfico de una hoja: título, tipo, conjunto, métricas, dimensión, desglose, período, límite, comparar o sus filtros propios. Sólo cambia lo que se pasa; lo que el tipo nuevo no acepta se rechaza con los `disponibles`. Los `filtros` REEMPLAZAN los filtros propios del gráfico (una lista vacía los saca). El estilo es de la página: se cambia con editar_hoja_dashboard.
+
+- **Ruta por operación:** `POST /api/v1/metricas/editar_grafico_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia la configuración de un gráfico de una hoja del informe de esa persona
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `componente` | string | sí | El id del gráfico, bloque o elemento (de leer_hoja_dashboard), o su título. |
+| `titulo` | string | no | El título que se ve arriba. Sin título, se arma solo con la métrica y la dimensión; al editar, «-» lo saca. |
+| `subtitulo` | string | no | La línea chica de abajo. «-» la saca. |
+| `tipo` | string | no | El tipo de gráfico nuevo (de ver_catalogo_dashboard). |
+| `conjunto` | string | no | El id del conjunto de datos (leads, meta, pagos, llamadas…; la lista en ver_catalogo_dashboard). Si cambia, pasa también las métricas. |
+| `metricas` | string[] | no | Los ids de las métricas del conjunto, en orden (de ver_catalogo_dashboard). Un tipo de gráfico acepta un mínimo y un máximo. |
+| `dimension` | string | no | Por qué se agrupa: dia, semana, mes o una categoría del conjunto (etapa, campana, closer…). Sin esto, sólo el total; al editar, «-» la saca. |
+| `desglose` | string | no | Una segunda categoría que reparte la primera métrica (columnas apiladas, tabla dinámica). Al editar, «-» lo saca. |
+| `fecha` | string | no | Cuál fecha del conjunto decide qué filas entran (en leads: alta, agenda o cierre). Sin esto, la primera del conjunto. |
+| `periodo` | string | no | El período: ult7, ult30, este_mes, mes_pasado, ult12m, todo… (la lista en ver_catalogo_dashboard). Con desde y hasta, uno a medida. «auto» = el filtro de período de la hoja. |
+| `desde` | string | no | Primer día de un período a medida, YYYY-MM-DD. Va junto con hasta. |
+| `hasta` | string | no | Último día de un período a medida, YYYY-MM-DD, inclusive. Va junto con desde. |
+| `limite` | number | no | Cuántos grupos de una categoría se muestran. |
+| `comparar` | boolean | no | true = muestra el cambio contra el período anterior. |
+| `filtros` | object[] | no | Los filtros propios del gráfico, que ganan sobre los de la hoja en el mismo campo. Reemplaza los que tenía; una lista vacía los saca. |
+| `filtros.campo` | string | sí | La categoría que se filtra: una dimensión del conjunto (etapa, campana) o un campo de ver_catalogo_dashboard. |
+| `filtros.valores` | string[] | no | Los valores que entran, escritos como los muestra el gráfico. |
+| `filtros.texto` | string | no | En vez de valores: entra lo que contenga este texto. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/componentes/COMPONENTE" \
+  -d '{"persona":"ana@negocio.com","conjunto":"leads","metricas":["leads","cierres"],"dimension":"mes","periodo":"ult30","desde":"2026-09-01","hasta":"2026-09-30"}'
+```
+
+### `DELETE /api/v1/metricas/dashboard/hojas/{hoja}/componentes/{componente}` — Quitar un componente de una hoja
+
+Saca un gráfico, un bloque o un elemento de una hoja del Dashboard. Por la API no se deshace solo: el resumen trae su configuración para volver a agregarlo.
+
+- **Ruta por operación:** `POST /api/v1/metricas/quitar_componente_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca un componente de una hoja del informe de esa persona
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `componente` | string | sí | El id del gráfico, bloque o elemento (de leer_hoja_dashboard), o su título. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/componentes/COMPONENTE" \
+  -d '{"persona":"ana@negocio.com"}'
+```
+
+### `POST /api/v1/metricas/dashboard/hojas/{hoja}/filtros` — Agregar un filtro a una hoja
+
+Agrega un filtro a la barra de arriba de una hoja: un período, una lista de valores de un campo, una búsqueda por texto o un agrupar por día, semana o mes. Uno por cosa: un período, un agrupar y uno por campo. Lo que se elige al mirar no se guarda; esto fija lo que el filtro muestra de entrada. Devuelve el id del filtro.
+
+- **Ruta por operación:** `POST /api/v1/metricas/agregar_filtro_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega un filtro a la barra de una hoja del informe de esa persona
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `tipo` | string | sí | periodo, lista (valores de un campo), texto (lo que contenga) o agrupar (día, semana o mes). |
+| `campo` | string | no | Para lista y texto: el campo (campana, closer, leads.etapa…; de ver_catalogo_dashboard, sección campos). |
+| `periodo` | string | no | El período: ult7, ult30, este_mes, mes_pasado, ult12m, todo… (la lista en ver_catalogo_dashboard). Con desde y hasta, uno a medida. Para el tipo periodo. |
+| `desde` | string | no | Primer día de un período a medida, YYYY-MM-DD. Va junto con hasta. |
+| `hasta` | string | no | Último día de un período a medida, YYYY-MM-DD, inclusive. Va junto con desde. |
+| `valores` | string[] | no | Para lista: los valores elegidos de entrada. Sin esto, todos. |
+| `texto` | string | no | Para texto: lo que se busca de entrada. |
+| `agrupar` | string | no | Para agrupar: auto, dia, semana o mes. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/filtros" \
+  -d '{"persona":"ana@negocio.com","tipo":"TIPO","periodo":"ult30","desde":"2026-09-01","hasta":"2026-09-30"}'
+```
+
+### `DELETE /api/v1/metricas/dashboard/hojas/{hoja}/filtros/{filtro}` — Quitar un filtro de una hoja
+
+Saca un filtro de la barra de arriba de una hoja del Dashboard. Se nombra por su id (de leer_hoja_dashboard) o por su tipo y su campo.
+
+- **Ruta por operación:** `POST /api/v1/metricas/quitar_filtro_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca un filtro de la barra de una hoja del informe de esa persona
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `filtro` | string | no | El id del filtro (de leer_hoja_dashboard). |
+| `tipo` | string | no | En vez del id: el tipo del filtro (periodo, lista, texto o agrupar). |
+| `campo` | string | no | Con tipo lista o texto: su campo. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/filtros/FILTRO" \
+  -d '{"persona":"ana@negocio.com"}'
+```
+
+### `POST /api/v1/metricas/dashboard/hojas/{hoja}/elementos` — Insertar un elemento en una hoja
+
+Inserta un elemento en una hoja del Dashboard: un texto, una imagen, una forma, un enlace, un video o una página insertada, según los tipos de ver_catalogo_dashboard. Una dirección sólo con https; el resumen la muestra ENTERA para que la persona la confirme, porque una dirección que pasó por un modelo puede no ser exacta. Devuelve el id del elemento.
+
+- **Ruta por operación:** `POST /api/v1/metricas/insertar_elemento_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega un elemento a una hoja del informe de esa persona
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `tipo` | string | sí | El tipo de elemento: texto, imagen, rectangulo, circulo, linea, flecha… (la lista en ver_catalogo_dashboard). |
+| `texto` | string | no | El texto (un título, una nota) o lo que dice un enlace. |
+| `url` | string | no | La dirección https de una imagen, un enlace, un video o una página insertada. |
+| `titulo` | string | no | El título de un video o de una página insertada. |
+| `tamano` | string | no | El tamaño de un texto: s, m, l o xl. |
+| `lugar` | string (abajo \\| arriba) | no | Dónde va: abajo de todo (default) o arriba de todo. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/elementos" \
+  -d '{"persona":"ana@negocio.com","tipo":"texto"}'
+```
+
+### `DELETE /api/v1/metricas/dashboard/informe` — Restablecer el informe del Dashboard
+
+Vuelve el informe de una persona al inicial de MaKo, con sus dos hojas: Marketing y Comercial. Se pierden sus hojas y gráficos propios; por la API no se deshace. No corre en una automatización.
+
+- **Ruta por operación:** `POST /api/v1/metricas/restablecer_informe_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** reemplaza el informe guardado de esa persona por el inicial
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/informe" \
+  -d '{"persona":"ana@negocio.com"}'
+```
+
+### `POST /api/v1/metricas/dashboard/hojas/{hoja}/analisis` — Analizar una hoja con el AI Analyst
+
+Pone a MaKo a analizar los gráficos de una hoja y deja el resultado guardado. Lee lo que la hoja muestra, sin nombres de personas, y escribe un resumen, hallazgos con su número y recomendaciones, sólo con IA gratis. Corre POR DETRÁS y puede tardar más de un minuto: contesta «en curso» y el resultado se lee con leer_analisis_dashboard. Los bloques no se analizan.
+
+- **Ruta por operación:** `POST /api/v1/metricas/analizar_hoja_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** corre el AI Analyst y guarda su resultado en dashboard_analisis (por persona y hoja)
+- **Reversible:** no
+- **Costo:** ia · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `componentes` | string[] | no | Sólo estos gráficos (sus ids). Sin esto, todos los de la hoja. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/analisis" \
+  -d '{"persona":"ana@negocio.com"}'
+```
+
+### `PUT /api/v1/metricas/dashboard/hojas/{hoja}/analisis/horario` — Programar el análisis de una hoja
+
+Programa cada cuánto MaKo analiza una hoja sola: cada N días, semanas o meses, a una hora del negocio. Con unidad «apagar» se saca el horario. «Cada hora» no se puede: la IA gratis tiene un tope por día.
+
+- **Ruta por operación:** `POST /api/v1/metricas/programar_analisis_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda el horario del AI Analyst de esa hoja en dashboard_analisis
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+| `unidad` | string | sí | dia, semana, mes, o apagar para sacar el horario. |
+| `cada` | number | no | Cada cuántas unidades. Default 1. |
+| `hora` | number | no | La hora del negocio, 0 a 23. Default 9. |
+| `minuto` | number | no | El minuto. Default 0. |
+| `diaSemana` | number | no | Con semana: 0 = domingo, 1 = lunes… Default lunes. |
+| `diaMes` | number | no | Con mes: el día, 1 a 28. Default 1. |
+| `componentes` | string[] | no | Sólo estos gráficos (sus ids). Sin esto, todos los de la hoja. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/analisis/horario" \
+  -d '{"persona":"ana@negocio.com","unidad":"UNIDAD"}'
+```
+
+### `DELETE /api/v1/metricas/dashboard/hojas/{hoja}/analisis/corrida` — Cancelar el análisis en curso
+
+Corta el análisis de una hoja que está corriendo. El que sigue por detrás termina, pero ya no guarda su resultado; el último análisis bueno queda. Si no hay ninguno corriendo, lo dice.
+
+- **Ruta por operación:** `POST /api/v1/metricas/cancelar_analisis_dashboard`
+- **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca como cancelada la corrida del AI Analyst de esa hoja en dashboard_analisis
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** graphics
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/metricas/dashboard/hojas/HOJA/analisis/corrida" \
+  -d '{"persona":"ana@negocio.com"}'
 ```
 
 ## Experiments y Retro — `experimentos`
@@ -7165,7 +7751,7 @@ curl -L \
 
 ## Landing (Analyst, Generator y tracking) — `landing`
 
-Tab **Landing Analyst** (`/landing-analyst`). 19 lecturas · 7 acciones.
+Tab **Landing Generator** (`/landing-generator`). 19 lecturas · 7 acciones.
 
 ### `GET /api/v1/landing/landings` — Landings declaradas del negocio
 
@@ -7501,7 +8087,7 @@ curl -L \
 
 ### `GET /api/v1/landing/diagnosticos` — Diagnósticos de landings
 
-Las landings que tienen diagnóstico del Landing Analyst, las más nuevas primero: estado (analizada, pendiente o error, con el motivo), score de 0 a 10 (null = el modelo no lo dio, NO es 0), veredicto de una línea y cuándo se analizó. Úsala para saber qué páginas ya se diagnosticaron antes de proponer analizar una, o para conseguir la URL exacta de un diagnóstico. No requiere parámetros.
+Las landings que tienen diagnóstico (Landing Generator → Diagnóstico), las más nuevas primero: estado (analizada, pendiente o error, con el motivo), score de 0 a 10 (null = el modelo no lo dio, NO es 0), veredicto de una línea y cuándo se analizó. Úsala para saber qué páginas ya se diagnosticaron antes de proponer analizar una, o para conseguir la URL exacta de un diagnóstico. No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/landing/listar_analisis_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -7708,14 +8294,14 @@ curl -L \
 
 ### `POST /api/v1/landing/landings` — Agregar o corregir una landing
 
-Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se analiza sola en Landing Analyst, por detrás. Tope: 12 landings.
+Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Landing Generator → Diagnóstico). Tope: 12 landings.
 
 - **Ruta por operación:** `POST /api/v1/landing/guardar_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** la lista de landings declaradas (app_settings landing.config) y, si la página es nueva, su análisis en Landing Analyst (landing_analyses), con la cascada gratis del negocio
+- **Escribe:** la lista de landings declaradas (app_settings landing.config) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -7769,7 +8355,7 @@ curl -L \
 
 ### `DELETE /api/v1/landing/landings/diagnostico` — Borrar el diagnóstico de una landing
 
-Borra el diagnóstico del Landing Analyst de una URL (no toca visitas ni eventos). También desaparece del selector del Landing Generator. No se puede deshacer: rehacerlo cuesta otro análisis con IA. Úsala solo a pedido explícito del dueño. Deja un link para confirmar.
+Borra el diagnóstico de una landing (no toca visitas ni eventos). También desaparece de Landing Generator → Diagnóstico y del selector «Sobre cuál» al crear una landing. No se puede deshacer: rehacerlo cuesta otro análisis con IA. Úsala solo a pedido explícito del dueño. Deja un link para confirmar.
 
 - **Ruta por operación:** `POST /api/v1/landing/borrar_analisis_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -7827,7 +8413,7 @@ curl -L \
 
 ## Closing Analyst — `closing`
 
-Tab **Closing Analyst** (`/closing`). 7 lecturas · 2 acciones.
+Tab **Dashboard** (`/dashboard?hoja=closing`). 7 lecturas · 2 acciones.
 
 ### `GET /api/v1/closing/panorama` — Panorama del Closing Analyst
 
@@ -9687,7 +10273,7 @@ Para una tab de MaKo (closing, email, script, crm, marketing, experimentos, come
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `key` | string (closing \\| email \\| script \\| crm \\| marketing \\| experimentos \\| comercial) | sí | la tab: closing (Closing Analyst), email, script (Ads Analyst), crm, marketing (Dashboard), experimentos o comercial. |
+| `key` | string (closing \\| email \\| script \\| crm \\| marketing \\| experimentos \\| comercial) | sí | la tab: closing (la hoja Closing del Dashboard), email, script (los guiones de los anuncios: Ads Writer y la hoja Ads Analyst del Dashboard), crm, marketing (Dashboard), experimentos o comercial. |
 
 ```bash
 curl -L \
@@ -9768,7 +10354,7 @@ curl -L \
 
 ### `GET /api/v1/equipo/negocio/zona-horaria` — Zona horaria del negocio
 
-La zona horaria IANA con la que MaKo calcula «hoy», las reuniones y los avisos de este negocio, y la hora local actual en ella. Si nunca se fijó, lo dice (`fijada: false`) y devuelve la que se usa mientras tanto: MaKo intenta averiguarla sola al calendarizar. Úsala antes de proponer horarios o de fijar_zona_horaria_workspace. Los reportes del cron siguen anclados a Tijuana.
+La zona horaria IANA con la que MaKo calcula «hoy», las reuniones, el horario de oficina y los avisos de este negocio, la hora local actual en ella y de dónde salió (`origen`: persona, navegador, ip, calendario, meta, telefono o legado). Se detecta de la ubicación del equipo del negocio; lo que elige una persona gana. Si nunca se fijó, lo dice (`fijada: false`) y devuelve la que se usa mientras tanto (America/Tijuana). Úsala antes de proponer horarios o de fijar_zona_horaria_workspace. Los reportes del cron siguen anclados a Tijuana.
 
 - **Ruta por operación:** `GET /api/v1/equipo/ver_zona_horaria_workspace`
 - **Token detallado:** permiso `equipo=read` (Solo lectura en «Cuenta, equipo y notificaciones»)
@@ -9874,14 +10460,14 @@ curl -L \
 
 ### `PUT /api/v1/equipo/negocio/zona-horaria` — Fijar la zona horaria del negocio
 
-PROPONE fijar la zona horaria IANA con la que MaKo calcula «hoy», las reuniones y los avisos de este negocio (queda pendiente hasta el «sí»). Úsala cuando las horas le aparecen en otra zona (un negocio en Cancún, en Buenos Aires, en Madrid). Revisa antes ver_zona_horaria_workspace. No cambia los reportes del cron, que siguen en hora de Tijuana.
+PROPONE fijar la zona horaria IANA con la que MaKo calcula «hoy», las reuniones, el horario de oficina y los avisos de este negocio (queda pendiente hasta el «sí»). Queda como elegida por una persona: ninguna detección por ubicación la vuelve a cambiar. Úsala cuando las horas le aparecen en otra zona (un negocio en Cancún, en Buenos Aires, en Madrid). Revisa antes ver_zona_horaria_workspace. No cambia los reportes del cron, que siguen en hora de Tijuana.
 
 - **Ruta por operación:** `POST /api/v1/equipo/fijar_zona_horaria_workspace`
 - **Token detallado:** permiso `equipo=write` (Lectura y escritura en «Cuenta, equipo y notificaciones»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** app_settings mako.timezone del negocio
+- **Escribe:** app_settings mako.timezone y mako.timezone.origen del negocio
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -10387,6 +10973,173 @@ curl -L \
   "https://hola-mako.com/api/v1/curso/clases/CLASE_ID/restauracion"
 ```
 
+## Cobros (Stripe y Mercado Pago) — `cobros`
+
+Tab **CRM** (`/crm`). 2 lecturas · 4 acciones.
+
+### `GET /api/v1/cobros/cobros` — Cobros de Stripe y Mercado Pago
+
+Los cobros que el negocio pidió por Stripe o Mercado Pago (links de pago y suscripciones), más recientes primero: id, lead, concepto, monto y moneda, estado (pendiente, pagado, rechazado, reembolsado, anulado), pasarela, si es de prueba, fechas y qué acciones admite cada uno. Con leadId, sólo los de ese lead. NO trae el link de pago ni datos de tarjeta. No son las cuotas del CRM (eso es cobranza_lead).
+
+- **Ruta por operación:** `GET /api/v1/cobros/listar_cobros`
+- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | no | filtra por lead (de buscar_leads). |
+| `estado` | string (pendiente \\| pagado \\| fallido \\| reembolsado \\| anulado) | no | filtra por estado. «fallido» es un pago rechazado. |
+| `limite` | number | no | cuántos devolver (default 30). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/cobros"
+```
+
+### `GET /api/v1/cobros/cobros/{cobroId}` — Detalle de un cobro
+
+UN cobro de Stripe o Mercado Pago por su id: lead, producto, concepto, monto, moneda y su valor en dólares, estado, pasarela, si es una suscripción y si sigue activa, fechas de pago y de reembolso, el motivo si algo falló, y qué se puede hacer con él (anular el link, reembolsar, cancelar la suscripción). NO trae el link de pago.
+
+- **Ruta por operación:** `GET /api/v1/cobros/ver_cobro`
+- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `cobroId` | number | sí | id del cobro en MaKo (de listar_cobros o ver_cobro). No es el id de Stripe ni el de Mercado Pago, ni el pagoId de una cuota del CRM. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/cobros/COBRO_ID"
+```
+
+### `POST /api/v1/cobros/links-pago` — Crear un link de pago
+
+PROPONE crear un link de pago de Stripe o Mercado Pago, con la cuenta del negocio, para que UN lead pague un producto del catálogo de ofertas. El precio sale del catálogo (listar_productos), nunca se escribe a mano: un monto libre se carga desde la ficha del lead. Pide antes el leadId (buscar_leads) y el productoId (listar_productos). Al confirmar, el link le llega a la persona por aparte y queda en la ficha del lead: NO lo escribas ni lo copies. Si el lead ya tiene un link pendiente de ese producto, no crea otro.
+
+- **Ruta por operación:** `POST /api/v1/cobros/crear_link_pago`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea el cobro en `cobros` y su checkout (Stripe) o su preferencia (Mercado Pago) con la cuenta del negocio, y deja historial en el lead
+- **Reversible:** sí
+- **Costo:** externo
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead que va a pagar (de buscar_leads). |
+| `productoId` | number | sí | id del producto del catálogo de ofertas (de listar_productos), con su precio. NO es el embudoId del CRM. |
+| `pasarela` | string (stripe \\| mercadopago) | no | stripe o mercadopago. Sin valor: la única conectada, o Stripe si están las dos (el precio del catálogo está en dólares). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/links-pago" \
+  -d '{"leadId":1,"productoId":1}'
+```
+
+### `PUT /api/v1/cobros/links-pago/{cobroId}/anulacion` — Anular un link de pago
+
+PROPONE anular un link de pago que todavía no se pagó: deja de poder pagarse desde MaKo (en Stripe además vence el checkout). Pide antes el cobroId (listar_cobros). Un cobro pagado no se anula: se reembolsa con reembolsar_cobro.
+
+- **Ruta por operación:** `POST /api/v1/cobros/anular_link_pago`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca el cobro anulado en `cobros`, vence el checkout de Stripe y deja historial en el lead
+- **Reversible:** no
+- **Costo:** externo
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `cobroId` | number | sí | id del cobro en MaKo (de listar_cobros o ver_cobro). No es el id de Stripe ni el de Mercado Pago, ni el pagoId de una cuota del CRM. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/links-pago/COBRO_ID/anulacion"
+```
+
+### `POST /api/v1/cobros/cobros/{cobroId}/reembolsos` — Reembolsar un cobro
+
+PROPONE devolverle a un cliente un cobro pagado por Stripe o Mercado Pago, ENTERO, con la cuenta del negocio. Mueve dinero real y no se puede deshacer: se confirma en una pantalla, nunca por el chat. Pide antes el cobroId (listar_cobros). En una suscripción devuelve el primer pago y no la cancela (para eso, cancelar_suscripcion). Un cobro ya reembolsado se rechaza.
+
+- **Ruta por operación:** `POST /api/v1/cobros/reembolsar_cobro`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** pide el reembolso total a Stripe o Mercado Pago con la cuenta del negocio, marca el cobro reembolsado, desmarca la cuota del CRM y deja historial en el lead
+- **Reversible:** no
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `cobroId` | number | sí | id del cobro en MaKo (de listar_cobros o ver_cobro). No es el id de Stripe ni el de Mercado Pago, ni el pagoId de una cuota del CRM. |
+| `motivo` | string | no | por qué se devuelve (va al historial del lead). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/cobros/COBRO_ID/reembolsos"
+```
+
+### `PUT /api/v1/cobros/cobros/{cobroId}/cancelacion-suscripcion` — Cancelar una suscripción
+
+PROPONE cancelar una suscripción de Stripe o Mercado Pago: deja de cobrarle al cliente en el acto y el CRM la cuenta hasta hoy. Se confirma en una pantalla, nunca por el chat, y no se puede deshacer. Pide antes el cobroId de la suscripción (listar_cobros). Una suscripción que nadie pagó todavía no se cancela: se anula su link con anular_link_pago.
+
+- **Ruta por operación:** `POST /api/v1/cobros/cancelar_suscripcion`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** cancela la suscripción en Stripe o Mercado Pago con la cuenta del negocio, la marca cancelada en `cobros`, cierra la suscripción del lead y deja historial
+- **Reversible:** no
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `cobroId` | number | sí | id del cobro de la suscripción en MaKo (de listar_cobros). No es el id de la suscripción en Stripe ni en Mercado Pago. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/cobros/COBRO_ID/cancelacion-suscripcion"
+```
+
 ## MaKo (pendientes, propuestas, chats) — `mako`
 
 Tab **Pregúntale a MaKo** (`/mako`). 6 lecturas · 0 acciones · 2 controles.
@@ -10553,7 +11306,7 @@ El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: por cada capacidad, 
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `id` | string (ads-publicar \\| creativos \\| copy-ads \\| landing-diagnosticar \\| landing-escribir \\| crm-lead \\| wa-conversar \\| nutricion \\| email \\| metricas \\| llamadas \\| guiones-ads \\| experimento \\| contexto \\| conectar \\| funnel \\| objetivo \\| equipo) | no | id de UNA capacidad para traer solo esa. Sin id, trae todas. |
+| `id` | string (ads-publicar \\| creativos \\| copy-ads \\| oferta-revisar \\| landing-diagnosticar \\| landing-escribir \\| crm-lead \\| wa-conversar \\| nutricion \\| email \\| metricas \\| llamadas \\| guiones-ads \\| guion-valorar \\| experimento \\| contexto \\| conectar \\| funnel \\| objetivo \\| equipo) | no | id de UNA capacidad para traer solo esa. Sin id, trae todas. |
 
 ```bash
 curl -L \

@@ -44,10 +44,11 @@
 //     que el motor resuelve por este camino (`datosDelLead`). Sin «Tu negocio».
 //
 // ⚠️ VARIAS PARTES SÓLO DONDE EL MOTOR LAS MANDA: el WhatsApp NO oficial (`permiteAudio ||
-//    permiteAdjuntos`). En el oficial sale UNA plantilla, en el recordatorio de la reunión UN texto y en
-//    «MaKo en WhatsApp» UN aviso al grupo: ahí va UN mensaje, con la MISMA interfaz (la burbuja con ✏️ y
-//    🗑, la barra vacía y la ➤: `enviarUnico`). Hasta el 10/10/2026 la barra ERA el mensaje (modo
-//    `editar`) y el texto se veía dos veces, en la burbuja y en la barra.
+//    permiteAdjuntos`) y, desde la undécima tanda, «MaKo en WhatsApp» (la tarjeta del lienzo: ver abajo). En el
+//    oficial sale UNA plantilla, en el recordatorio de la reunión UN texto y en los Mensajes de MaKo de /mensajes
+//    (`EditorMensajeGrupo`) UN aviso: ahí va UN mensaje, con la MISMA interfaz (la burbuja con ✏️ y 🗑, la barra
+//    vacía y la ➤: `enviarUnico`). Hasta el 10/10/2026 la barra ERA el mensaje (modo `editar`) y el texto se veía
+//    dos veces, en la burbuja y en la barra.
 // ⚠️ LO ESCRITO SIN ENVIAR NO SE PIERDE AL TOCAR OTRA TARJETA: el borrador de la barra vive en un
 //    mapa del módulo por tarjeta (como el borrador de un chat). No viaja a la secuencia. Salvo en el de
 //    UN mensaje, que no tiene identidad propia en «MaKo en WhatsApp» (ver `recordarBarra`).
@@ -56,15 +57,47 @@
 //    secuencia. Lo fija tests/editor-mensaje-whatsapp.test.ts.
 // ⚠️ LO QUE TERMINA DESPUÉS DE UN `await` SE APLICA SÓLO AL MISMO PASO (`mismoPaso`): subir un video
 //    tarda, y el lienzo puede reusar este editor para otro nodo.
+//
+// ── DÉCIMA TANDA (11/10/2026, «FEEDBACK WHATSAPP» 2, 3, 5 y 6) ─────────────────────────────────────
+//   · 2, EL ✏️ OTRA VEZ CIERRA LA EDICIÓN (`alTocarEditar`): como la ✕ de «Editando»; la burbuja queda igual.
+//   · 3, NADA DE LA BARRA SE PIERDE (lib/borrador-barra.ts, la cabecera): al SALIR del editor lo que quedó
+//     (texto, archivo, audio grabado) entra al mensaje como una burbuja más —el audio, después de subirlo a la
+//     biblioteca— y con eso al borrador de la automatización (`pasos_borrador`); y mientras tanto hay una copia
+//     en el navegador (texto y archivo en `localStorage`, el audio en IndexedDB, a cada segundo mientras se
+//     graba: `onBorradorVoz` del composer) que vuelve a la barra si se recargó o se cerró la pestaña. Un audio
+//     que no se pudo subir vuelve a la barra de escucharlo para reintentar.
+//   · 5, LA SUGERENCIA DE MaKo NO ES UNA BURBUJA (`SugerenciaMaKo`): lo que propone el ✦ espera en un recuadro
+//     arriba de la barra, con «Agregar» y «Usar»; la ✕ lo pliega a un renglón «✦ Ver sugerencia».
+//   · 6, «MaKo EN WHATSAPP» (`EditorMensajeGrupo`) ES ESTE MISMO EDITOR. Lo que no ofrece, y por qué, está en su
+//     comentario (al pie): el aviso al grupo sale como UN texto.
+//
+// ── UNDÉCIMA TANDA (11/10/2026, decisión 2 de la décima) ───────────────────────────────────────────────
+//   Literal: «2. Si, agregale esas opciones. Pero en audios, que se pueda configurar con ElevenLabs que salga la voz
+//   de MaKo. La que usamos para crear los VSL de la landing.» = la tarjeta «MaKo en WhatsApp» del lienzo monta ESTE
+//   editor (FlujoLienzo, `EditorMako`) con las MISMAS opciones que un WhatsApp: archivos de la biblioteca, varios
+//   mensajes, pausas, minutos (la tarjeta se parte) y el ✦. Con `vozMako`:
+//   · EL AUDIO ES SÓLO LA VOZ DE MaKo. Sin micrófono y sin «Audios guardados» (que MaKo hable con la voz del dueño
+//     sería suplantarlo). El clip suma «Voz de MaKo»: deja su chip arriba de la barra, lo escrito es lo que DICE
+//     MaKo, y la ➤ la genera (`generarVoz`: POST /api/automations/voz-mako, ElevenLabs con la voz de los VSL, la
+//     paga la plataforma y la misma frase sale de la caché). Un error se muestra con su motivo y NO se reintenta.
+//   · EL ✦ ESCRIBE PARA EL EQUIPO (`redactaCon` = el contexto de la tarjeta, lib/mako-redacta.ts), y la nota de voz
+//     que propone se genera con la voz de MaKo («Generar con la voz de MaKo»), no se graba.
+//   · Sin «↻ variantes» ni «adaptarlo a cada persona»: el aviso no los honra.
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import type { AudioSetting, PasoSecuenciaDto } from './ChatAgentApp';
 import { BurbujaHilo } from '../whatsapp/_shared/BurbujaHilo';
 import { Ticks } from '../whatsapp/_shared/Ticks';
 import { ComposerWhatsApp, PopoverWA, IconVideo, iconComposer, type ComposerHandle, type OpcionMenuWA, type ChipComposer } from '../whatsapp/_shared/ComposerWhatsApp';
 import { IconClip, IconDoc, IconMic } from '../whatsapp/_shared/composer-icons';
+import { unirAudios, type BorradorDeVoz } from '../whatsapp/_shared/VoiceRecorder';
+import {
+  firmaDelMensaje, borradorAGuardar, borradorALeer, vozALeer, claveLocalBarra,
+  type AdjuntoBarra, type BorradorBarra, type BorradorVoz,
+} from '@/lib/borrador-barra';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
+import { fueraDelContexto } from '@/app/_components/CampoConDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
 import { SalidaWhatsApp } from './SalidaWhatsApp';
 import { MakoRedacta } from './MakoRedacta';
@@ -75,7 +108,8 @@ import { BotonMako } from '@/app/_ui/BotonMako';
 import { useWs } from '@/app/_ui/Link';
 import { Spinner, Toast, useToast } from '@/app/_ui';
 import { aplicarVariables, esVariableConocida } from '@/lib/template-vars';
-import { datosOfrecidos, type GrupoDatos } from '@/lib/variables-aviso';
+import { datosOfrecidos, type GrupoDatos, type ContextoDatos } from '@/lib/variables-aviso';
+import { textoParaVozMaKo } from '@/lib/voz-mako-reglas';
 import { cambiosDePaso } from '@/lib/guion-audio';
 import {
   partesDe, formaGuardada, esUnTexto, TOPE_PARTES, pausaVisible, pausasPosibles, lineaDelPaso, type ParteMensaje,
@@ -138,9 +172,16 @@ export type EditorMensajeWhatsAppProps = {
   variables?: VariableEditor[];
   /**
    * QUÉ DATOS USA EL ✦ AL ESCRIBIR (10/10/2026): 'recordatorio' = los del recordatorio de la reunión, un solo
-   * mensaje y sin «adaptarlo a cada persona» (su emisor manda el texto tal cual). Ausente = los del motor.
+   * mensaje y sin «adaptarlo a cada persona» (su emisor manda el texto tal cual). Un `ContextoDatos` (undécima
+   * tanda): el de la tarjeta «MaKo en WhatsApp» (destino 'equipo'), y el ✦ escribe el aviso al EQUIPO. Ausente = los
+   * del motor (un mensaje al lead).
    */
-  redactaCon?: 'recordatorio';
+  redactaCon?: 'recordatorio' | ContextoDatos;
+  /**
+   * LA TARJETA «MaKo en WhatsApp» (undécima tanda, decisión 2 de la décima): el único audio es la VOZ DE MaKo. Sin
+   * micrófono ni «Audios guardados» (aunque venga `permiteAudio`), y el clip suma «Voz de MaKo» (ver la cabecera).
+   */
+  vozMako?: boolean;
   /**
    * Una espera de MINUTOS antes del mensaje `i` (WhatsApp 2, 10/10/2026): quien monta PARTE la tarjeta
    * en dos con una espera en el medio (lib/flujo-edicion.ts, `partirConEspera`). Sin esto, sólo segundos.
@@ -152,6 +193,12 @@ export type EditorMensajeWhatsAppProps = {
    * mensaje al lead (`datosDelLead`).
    */
   datos?: GrupoDatos[];
+  /**
+   * CON QUÉ SE RESUELVE ESTE MENSAJE (undécima tanda, punto 7): el contexto de su tarjeta (`contextoDeTarjeta`,
+   * lib/tokens-del-flujo.ts, la pregunta de Publicar). Pinta en rojo, en la barra, el `{{dato}}` que Publicar no
+   * deja pasar. Sin esto, el de `redactaCon` si es un contexto; si no, lo que el «{ }» no ofrece.
+   */
+  contexto?: ContextoDatos | 'oficial';
   /** ✦ MaKo (el panel que ayuda a escribir y «adaptarlo a cada persona»). Sólo por el no oficial. */
   permiteIA?: boolean;
   /** Abre la guía de voz la primera vez que se prende «adaptarlo a cada persona». */
@@ -284,12 +331,18 @@ export function CabeceraWhatsApp({ paso, lineaAutomatizacion, onLinea, deshabili
   );
 }
 
-/** La cabecera del panel de «MaKo en WhatsApp» (MaKo en WhatsApp 1: «El título debe ser ese»). */
-export function CabeceraMakoEnWhatsApp() {
+/**
+ * La cabecera del panel de «MaKo en WhatsApp» (MaKo en WhatsApp 1: «El título debe ser ese»). Con el `paso` (la
+ * tarjeta del lienzo, undécima tanda) lleva el ✦ al lado, como la de un WhatsApp: abre el panel que ayuda a escribir
+ * ESTA tarjeta (`claveDeTarjeta`, la misma clave que su editor). Sin `paso` (los Mensajes de MaKo de /mensajes), sin ✦.
+ */
+export function CabeceraMakoEnWhatsApp({ paso, deshabilitado }: { paso?: Pick<PasoSecuenciaDto, 'id' | 'orden'>; deshabilitado?: boolean } = {}) {
+  const ws = useWs();
   return (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
       <MakoLogo size={22} animate={false} />
       <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MaKo en WhatsApp</div>
+      {paso && <BotonMakoWhatsApp clave={claveDeTarjeta(ws, paso)} deshabilitado={deshabilitado} />}
     </div>
   );
 }
@@ -307,15 +360,17 @@ export const mismoPaso = (a: Pick<PasoSecuenciaDto, 'id' | 'orden'>, b: Pick<Pas
  * El placeholder dice qué se está escribiendo: no hay rótulos (pedido de Martín, punto 5). `adjunto`
  * es lo que espera arriba de la barra: con un archivo, lo escrito es su pie.
  */
-export function placeholderDe(tipo: PasoSecuenciaDto['tipo'], propio?: string, adjunto?: 'audio' | 'media' | null): string {
+export function placeholderDe(tipo: PasoSecuenciaDto['tipo'], propio?: string, adjunto?: 'audio' | 'media' | 'voz' | null): string {
+  // Con el chip «Voz de MaKo» (undécima tanda), lo escrito es lo que dice MaKo.
+  if (adjunto === 'voz') return 'Lo que dice MaKo';
   if (adjunto === 'media') return 'Agrega un texto (opcional)';
   if (adjunto === 'audio') return 'Texto después del audio';
   if (tipo === 'ia') return 'Qué tiene que lograr';
   return propio ?? 'Escribe un mensaje';
 }
 
-/** Un adjunto elegido que todavía no se envió (el chip arriba de la barra). */
-type Pendiente = { tipo: 'audio'; audio_id: number } | { tipo: 'media'; media_id: number };
+/** Un adjunto elegido que todavía no se envió (el chip arriba de la barra). El de lib/borrador-barra.ts: se guarda. */
+type Pendiente = AdjuntoBarra;
 
 /**
  * Lo que la barra MANDA: el adjunto (con lo escrito como su pie) o el texto. Un audio con texto son
@@ -362,15 +417,118 @@ export function propuestaALista(lista: readonly ParteMensaje[], textos: readonly
   return (modo === 'reemplazar' ? nuevas : [...lista, ...nuevas]).slice(0, TOPE_PARTES);
 }
 
+/**
+ * ✏️ OTRA VEZ CIERRA LA EDICIÓN (décima tanda, WhatsApp 2: «Si le doy a un botón de "Editar" y le vuelvo a dar, se
+ * debe cerrar la edición»): el lápiz de la burbuja que se está editando la suelta, como la ✕ de «Editando» (la
+ * burbuja queda como estaba). Con algo escrito en la barra, otra burbuja no se abre. Pura (test).
+ */
+export function alTocarEditar(editando: number | null, i: number, hayEscrito: boolean): 'cerrar' | 'abrir' | 'ocupado' {
+  if (editando === i) return 'cerrar';
+  return hayEscrito ? 'ocupado' : 'abrir';
+}
+
+/**
+ * LO QUE QUEDÓ EN LA BARRA, AL SALIR DEL EDITOR (décima tanda, WhatsApp 3; lib/borrador-barra.ts): la lista con
+ * eso adentro, como «Enviar» (al final, o en su lugar si se editaba una burbuja), o null si no hay nada o no
+ * entra (un «adaptado a cada persona» va de un solo mensaje; el tope de partes). Lo que no entra no se pierde:
+ * queda la copia local y vuelve a la barra al reabrir. Pura (test).
+ */
+export function listaAlSalir(lista: readonly ParteMensaje[], texto: string, adjunto: Pendiente | null, editando: number | null, esIA: boolean): ParteMensaje[] | null {
+  const nuevas = partesDeLaBarra(texto, adjunto);
+  if (!nuevas.length) return null;
+  if (esIA && editando == null && lista.length >= 1) return null;
+  const sig = enviarALista(lista, nuevas, editando);
+  return sig.length > TOPE_PARTES ? null : sig;
+}
+
+/**
+ * LA SUGERENCIA DE MaKo (décima tanda, WhatsApp 5: «Las sugerencias de MaKo, no deberían aparecer como un mensaje
+ * enviado, sino como un recuadro diferente arriba del recuadro donde uno escribe. Con la posibilidad de "cerrar" la
+ * sugerencia, y que se pliegue a un sutil texto arriba del mismo recuadro de texto donde se escribe»). Lo que
+ * propone el ✦ (MakoRedacta.tsx, `onPropuesta`) ya no se dibuja como burbujas adentro del panel: el panel se
+ * cierra y la propuesta espera ARRIBA DE LA BARRA, en su recuadro (el ámbar de MaKo, sin forma de burbuja ni
+ * palomitas), con «Agregar» y «Usar». La ✕ la PLIEGA a un renglón («✦ Ver sugerencia»); tocarlo la abre.
+ */
+export type SugerenciaMaKo = { mensajes: string[]; audio: string | null; nota: string | null; plegada: boolean };
+
+/** Lo que queda de la sugerencia después de usar una parte (sus mensajes, o el guion); null si nada. Pura (test). */
+export function sugerenciaTras(s: SugerenciaMaKo, uso: 'mensajes' | 'audio'): SugerenciaMaKo | null {
+  const sig = uso === 'mensajes' ? { ...s, mensajes: [] } : { ...s, audio: null };
+  return sig.mensajes.length || sig.audio ? sig : null;
+}
+
 /** El borrador de la barra por tarjeta: tocar otra no lo tira (no viaja a la secuencia). */
 const borradores = new Map<string, string>();
 /** El guion que propuso MaKo para grabar, por tarjeta (WhatsApp 6: sólo si propuso uno). */
 const guionesDeMaKo = new Map<string, string>();
+/** La sugerencia de MaKo por tarjeta (WhatsApp 5 de la décima tanda): sobrevive a tocar otra, como el guion. */
+const sugerencias = new Map<string, SugerenciaMaKo>();
+
+// ── LA COPIA EN EL NAVEGADOR (décima tanda, WhatsApp 3; lib/borrador-barra.ts) ───────────────────────
+// El texto y el archivo de la barra en `localStorage`; el audio sin mandar en IndexedDB (un Blob no entra en
+// `localStorage`). Todo envuelto: en una ventana privada o con el almacenamiento bloqueado, esto no hace nada y
+// queda la otra capa (al salir, a la burbuja).
+
+function guardarBarraLocal(clave: string, b: BorradorBarra | null): void {
+  try {
+    if (b) localStorage.setItem(claveLocalBarra(clave), JSON.stringify(b));
+    else localStorage.removeItem(claveLocalBarra(clave));
+  } catch { /* sin almacenamiento */ }
+}
+function leerBarraLocal(clave: string): string | null {
+  try { return localStorage.getItem(claveLocalBarra(clave)); } catch { return null; }
+}
+
+const IDB_BASE = 'mako-borradores';
+const IDB_VOZ = 'voz';
+/** Una operación sobre la tabla de audios sin mandar. `null`: no hay IndexedDB, o falló (no se reintenta). */
+function conIdb<T>(modo: IDBTransactionMode, op: (st: IDBObjectStore) => IDBRequest<T>): Promise<T | null> {
+  return new Promise((res) => {
+    try {
+      if (typeof indexedDB === 'undefined') { res(null); return; }
+      const ab = indexedDB.open(IDB_BASE, 1);
+      ab.onupgradeneeded = () => { try { ab.result.createObjectStore(IDB_VOZ); } catch { /* ya estaba */ } };
+      ab.onerror = () => res(null);
+      ab.onblocked = () => res(null);
+      ab.onsuccess = () => {
+        const db = ab.result;
+        try {
+          const tx = db.transaction(IDB_VOZ, modo);
+          const rq = op(tx.objectStore(IDB_VOZ));
+          tx.oncomplete = () => { db.close(); res((rq.result as T) ?? null); };
+          tx.onerror = () => { db.close(); res(null); };
+          tx.onabort = () => { db.close(); res(null); };
+        } catch { db.close(); res(null); }
+      };
+    } catch { res(null); }
+  });
+}
+const guardarVozLocal = (clave: string, v: BorradorVoz) => conIdb('readwrite', (st) => st.put(v, clave));
+const leerVozLocal = (clave: string) => conIdb<unknown>('readonly', (st) => st.get(clave));
+const borrarVozLocal = (clave: string) => conIdb('readwrite', (st) => st.delete(clave));
 
 // La biblioteca de archivos se pide UNA vez por pestaña y cliente (10 min): el editor se monta
 // cada vez que se toca un nodo, y diez nodos no son diez pedidos.
 const CACHE_MS = 10 * 60_000;
 const cacheBiblioteca = new Map<string, { t: number; lista: AdjuntoDto[] }>();
+
+// ── LA VOZ DE MaKo (`vozMako`, undécima tanda) ───────────────────────────────────────────────────────────
+/** Una voz de MaKo como la devuelve su ruta (app/api/automations/voz-mako/route.ts). */
+type VozMaKoDto = { id: number; titulo: string; transcript: string | null; url: string | null };
+/** La ruta corta a los 60 s (`maxDuration`); el navegador espera un poco más y no para siempre. */
+const ESPERA_VOZ_MAKO_MS = 65_000;
+/** El contexto del ✦ con la voz de MaKo si quien monta no da el de su tarjeta: el aviso al equipo sobre un lead. */
+const CONTEXTO_EQUIPO: ContextoDatos = { destino: 'equipo', conLead: true };
+/** Una voz de MaKo como la lee el editor (un audio más de la lista con que se dibujan las burbujas). */
+const audioDeVoz = (v: VozMaKoDto): AudioSetting => ({ id: v.id, titulo: v.titulo, media_mime: 'audio/mpeg', duracion_s: null, transcript: v.transcript, url: v.url });
+/**
+ * Las voces de MaKo ya generadas, por negocio (10 min, como la biblioteca). NO están en «Audios guardados» (son de
+ * MaKo, no del negocio): sin esta lista, la burbuja de una ya puesta en la tarjeta no se podría escuchar.
+ */
+const cacheVoces = new Map<string, { t: number; lista: AudioSetting[] }>();
+/** `xs` con las de `nuevas` que no estaban (por id). Pura. */
+const juntarAudios = (xs: readonly AudioSetting[], nuevas: readonly AudioSetting[]): AudioSetting[] =>
+  [...xs, ...nuevas.filter((n) => !xs.some((x) => x.id === n.id))];
 
 const chip: CSSProperties = { height: 28, padding: '0 10px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
 const cajaPopover: CSSProperties = { width: 280, maxHeight: 340, overflowY: 'auto', padding: 10, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12, boxShadow: '0 12px 34px rgba(18,21,27,.18)', fontFamily: "'Geist', sans-serif", display: 'flex', flexDirection: 'column', gap: 8 };
@@ -403,10 +561,17 @@ export function horaDeAhora(): string {
 }
 
 export function EditorMensajeWhatsApp({
-  paso, onChange, audios, onAudioNuevo, variables, datos, permiteIA, onModoIA, permiteAudio = true, permiteAdjuntos = true,
-  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor, redactaCon, onPartirConEspera,
+  paso, onChange, audios, onAudioNuevo, variables, datos, permiteIA, onModoIA, permiteAudio: pidenAudio = true, permiteAdjuntos = true,
+  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor, redactaCon: redactaPedido, onPartirConEspera, vozMako,
+  contexto,
 }: EditorMensajeWhatsAppProps) {
   const ws = useWs();
+  // ⚠️ CON LA VOZ DE MaKo NO SE GRABA NI SE USA UN AUDIO DEL NEGOCIO (undécima tanda): el micrófono, «Audios
+  // guardados» y el «seguir grabando» cuelgan de `permiteAudio`, así que se apaga ACÁ, aunque quien monta lo pida.
+  const permiteAudio = pidenAudio && !vozMako;
+  // Y el ✦ escribe para el EQUIPO: sin el contexto de la tarjeta, el de un aviso al equipo sobre un lead. Con
+  // `redactaCon` puesto tampoco se ofrece «adaptarlo a cada persona».
+  const redactaCon = redactaPedido ?? (vozMako ? CONTEXTO_EQUIPO : undefined);
   // ¿Varias partes? Sólo por el no oficial (ver la cabecera): el oficial, el recordatorio y el aviso
   // al grupo mandan uno.
   const varias = permiteAudio || permiteAdjuntos;
@@ -430,6 +595,8 @@ export function EditorMensajeWhatsApp({
   const [subida, setSubida] = useState<{ nombre: string; pct: number; cancelar: () => void } | null>(null);
   const [bibLocal, setBibLocal] = useState<AdjuntoDto[] | null>(() => cacheBiblioteca.get(String(ws ?? ''))?.lista ?? null);
   const [audiosAca, setAudiosAca] = useState<AudioSetting[]>([]);
+  /** El chip «Voz de MaKo» arriba de la barra (`vozMako`): lo escrito es lo que dice MaKo, y la ➤ lo genera. */
+  const [modoVoz, setModoVoz] = useState(false);
   const [abierto, setAbierto] = useState<'datos' | 'variantes' | null>(null);
   const [btnDatos, setBtnDatos] = useState<HTMLButtonElement | null>(null);
   const [btnVariantes, setBtnVariantes] = useState<HTMLButtonElement | null>(null);
@@ -443,14 +610,32 @@ export function EditorMensajeWhatsApp({
   const cancelarSubida = useRef<(() => void) | null>(null);
   useEffect(() => () => { cancelarSubida.current?.(); }, []);
   const panelMako = usePanelMako(claveBorrador) && !!permiteIA;
+  /** La sugerencia del ✦ (WhatsApp 5 de la décima tanda), por tarjeta. */
+  const [sugerencia, setSugerencia] = useState<SugerenciaMaKo | null>(() => sugerencias.get(claveBorrador) ?? null);
+  const ponerSugerencia = (s: SugerenciaMaKo | null) => {
+    setSugerencia(s);
+    if (s) sugerencias.set(claveBorrador, s); else sugerencias.delete(claveBorrador);
+  };
+
+  // ── NADA DE LA BARRA SE PIERDE (décima tanda, WhatsApp 3; lib/borrador-barra.ts) ─────────────────────
+  /** El mensaje como está: la copia local vale sólo para él (`firma`). */
+  const firma = useMemo(() => firmaDelMensaje(paso), [paso]);
+  /** El audio grabado y sin mandar: lo último que reportó la sesión de voz (o el que se restauró). */
+  const vozPendiente = useRef<{ tramos: Blob[]; secs: number; dondeIba: number | null } | null>(null);
+  /** Un audio sin mandar que volvió (recarga, o una subida que falló): se escucha en la barra, como uno grabado. */
+  const [vozGuardada, setVozGuardada] = useState<{ url: string; blob: Blob; secs: number; dondeIba: number | null } | null>(null);
+  /** Lo que lee la salida del editor (corre DESPUÉS del último render: todo por ref). */
+  const vivo = useRef({ barra, adjunto, editando, clave: claveBorrador, firma, onChange, onAudioNuevo, modoVoz });
+  useLayoutEffect(() => { vivo.current = { barra, adjunto, editando, clave: claveBorrador, firma, onChange, onAudioNuevo, modoVoz }; });
 
   // El lienzo puede reusar este editor para otro nodo: lo que era del anterior (el guion de MaKo, el
   // error, la barra) no se queda dibujado en éste.
   const [claveVista, setClaveVista] = useState(clavePaso);
   if (claveVista !== clavePaso) {
     setClaveVista(clavePaso);
-    setError(null); setAbierto(null); setAdjunto(null); setEditando(null);
+    setError(null); setAbierto(null); setAdjunto(null); setEditando(null); setModoVoz(false);
     setGuionMaKo(guionesDeMaKo.get(claveBorrador) ?? null);
+    setSugerencia(sugerencias.get(claveBorrador) ?? null);
     setBarra(recordarBarra ? borradores.get(claveBorrador) ?? '' : '');
   }
 
@@ -478,7 +663,7 @@ export function EditorMensajeWhatsApp({
     if (!recordarBarra) return;
     if (v) borradores.set(claveBorrador, v); else borradores.delete(claveBorrador);
   };
-  const limpiarBarra = () => { escribir(''); setAdjunto(null); setEditando(null); };
+  const limpiarBarra = () => { escribir(''); setAdjunto(null); setEditando(null); setModoVoz(false); };
   const ponerGuion = (g: string | null) => {
     setGuionMaKo(g);
     if (g) guionesDeMaKo.set(claveBorrador, g); else guionesDeMaKo.delete(claveBorrador);
@@ -495,6 +680,33 @@ export function EditorMensajeWhatsApp({
   const partes = varias ? partesDe(paso) : [];
   const esIA = paso.tipo === 'ia';
 
+  // LAS VOCES DE MaKo QUE YA ESTÁN EN LA TARJETA (`vozMako`): no vienen en `audios` (la biblioteca del negocio), así
+  // que se piden a su ruta, una vez y sólo si falta alguna (las ids que faltan son la dependencia: una que ya no existe
+  // no vuelve a pedir).
+  const vocesQueFaltan = vozMako ? partes.flatMap((p) => (p.tipo === 'audio' && !audioDe(p.audio_id) ? [p.audio_id] : [])).join(',') : '';
+  useEffect(() => {
+    if (!vocesQueFaltan) return;
+    const clave = String(ws ?? '');
+    const c = cacheVoces.get(clave);
+    const faltan = vocesQueFaltan.split(',').map(Number);
+    if (c && Date.now() - c.t < CACHE_MS && faltan.every((id) => c.lista.some((a) => a.id === id))) {
+      setAudiosAca((xs) => juntarAudios(xs, c.lista));
+      return;
+    }
+    let vigente = true;
+    fetch('/api/automations/voz-mako', { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; audios?: VozMaKoDto[] }) => {
+        if (!j?.ok || !Array.isArray(j.audios)) return;
+        const lista = j.audios.map(audioDeVoz);
+        cacheVoces.set(clave, { t: Date.now(), lista });
+        if (vigente) setAudiosAca((xs) => juntarAudios(xs, lista));
+      })
+      // Sin la lista, la burbuja dice «audio» sin reproductor: no afirma que se borró.
+      .catch(() => { /* nada */ });
+    return () => { vigente = false; };
+  }, [vocesQueFaltan, ws]);
+
   /**
    * Le pasa al lienzo la lista nueva en su forma GUARDADA (`formaGuardada`). Las variantes («↻ N»)
    * son de UN texto: con cualquier otra cosa se sueltan EXPLÍCITAS (`[]`).
@@ -506,11 +718,16 @@ export function EditorMensajeWhatsApp({
       ...antes, tipo: f.tipo, cuerpo: f.cuerpo, audio_id: f.audio_id, media_id: f.media_id, partes: f.partes,
       ...(esUnTexto(lista) ? {} : { variantes: [] }),
     };
-    onChange(cambiosDePaso(antes, despues));
+    // El `onChange` de AHORA (por ref) y el paso nuevo anotado ya: al SALIR del editor (WhatsApp 3) se aplica
+    // lo de la barra y después el audio que termina de subir, sin un render en el medio que actualice el paso.
+    vivo.current.onChange(cambiosDePaso(antes, despues));
+    pasoVivo.current = despues;
   };
 
   /** «Enviar»: lo de la barra se suma (o vuelve a su lugar, si se editaba) y la barra se vacía. */
   const enviar = () => {
+    // Con el chip «Voz de MaKo», lo escrito lo DICE MaKo: la ➤ genera la voz (y vacía la barra si salió).
+    if (modoVoz) { void generarVoz(barra, editando, limpiarBarra); return; }
     const nuevas = partesDeLaBarra(barra, adjunto);
     if (!nuevas.length) return;
     const lista = partesDe(pasoVivo.current);
@@ -523,11 +740,16 @@ export function EditorMensajeWhatsApp({
     limpiarBarra();
   };
 
-  /** ✏️: la burbuja vuelve a la barra. Un audio abre la barra de escucharlo (WhatsApp 9). */
+  /**
+   * ✏️: la burbuja vuelve a la barra. Un audio abre la barra de escucharlo (WhatsApp 9). Y el ✏️ de la que ya se
+   * está editando CIERRA la edición (décima tanda, WhatsApp 2: `alTocarEditar`).
+   */
   const editar = (i: number) => {
     const p = partes[i];
     if (!p) return;
-    if ((barra.trim() || adjunto) && editando !== i) { avisar('Primero envía lo escrito'); return; }
+    const q = alTocarEditar(editando, i, !!(barra.trim() || adjunto));
+    if (q === 'cerrar') { setError(null); limpiarBarra(); return; }
+    if (q === 'ocupado') { avisar('Primero envía lo escrito'); return; }
     setError(null);
     setEditando(i);
     if (p.tipo === 'texto') { setAdjunto(null); escribir(p.cuerpo); }
@@ -561,9 +783,11 @@ export function EditorMensajeWhatsApp({
     onChange({ cuerpo: r.cuerpo });
     limpiarBarra();
   };
-  /** ✏️ con un solo mensaje: el texto sube a la barra. */
+  /** ✏️ con un solo mensaje: el texto sube a la barra; otra vez, la edición se cierra (WhatsApp 2). */
   const editarElUnico = () => {
-    if (barra.trim() && editando == null) { avisar('Primero envía lo escrito'); return; }
+    const q = alTocarEditar(editando, 0, !!barra.trim());
+    if (q === 'cerrar') { setError(null); limpiarBarra(); return; }
+    if (q === 'ocupado') { avisar('Primero envía lo escrito'); return; }
     setError(null);
     setEditando(0);
     escribir(pasoVivo.current.cuerpo ?? '');
@@ -586,12 +810,61 @@ export function EditorMensajeWhatsApp({
     aplicarPartes(lista.map((x, k) => (k === i ? { ...x, pausa_s: s } : x)));
   };
 
-  // ── El audio: grabar, ESCUCHAR y mandarlo con la ➤ (la sesión de voz del composer) ─────────────
-  /** Lo que la ➤ verde mandó (ya escuchado): se pasa a MP3, se guarda en la biblioteca y entra al chat. */
-  async function usarAudio(blob: Blob, secs: number) {
+  // ── LA VOZ DE MaKo (`vozMako`, undécima tanda): lo escrito lo DICE MaKo ──────────────────────────
+  /**
+   * GENERA LA VOZ DE MaKo y la suma al chat como una nota de voz (a su lugar, si se editaba una burbuja). La genera
+   * ElevenLabs con la voz de los VSL (POST /api/automations/voz-mako; la paga la plataforma y la misma frase sale de
+   * la caché). Antes, la MISMA regla que la ruta (`textoParaVozMaKo`: sin datos, sin links, con tope), así un texto
+   * que no puede ser audio no cuesta un pedido.
+   *
+   * ⚠️ NUNCA REINTENTA: un error se muestra con su motivo y lo escrito queda; volver a apretar es otro pedido, de la
+   * persona. ⚠️ No va a «Audios guardados» (`onAudioNuevo`): es la voz de MaKo, no un audio del negocio. Lo que
+   * termina después del `await` se aplica sólo al MISMO paso (`mismoPaso`). `alSalirBien`: lo que se suelta si salió
+   * (la barra, o el guion de la sugerencia).
+   */
+  async function generarVoz(texto: string, dondeIba: number | null, alSalirBien?: () => void) {
     if (fase) return;
+    const t = textoParaVozMaKo(texto);
+    if (!t.ok) { avisar(t.error); return; }
     const deQuien = pasoVivo.current;
-    const dondeIba = editando;
+    setError(null);
+    setFase('Generando la voz…');
+    try {
+      const r = await fetch('/api/automations/voz-mako', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto }),
+        signal: AbortSignal.timeout(ESPERA_VOZ_MAKO_MS),
+      });
+      const j = await r.json().catch(() => null) as { ok?: boolean; audio?: VozMaKoDto; error?: string } | null;
+      if (!j?.ok || !j.audio) { avisar(j?.error || 'No salió la voz de MaKo.'); return; }
+      const audio = audioDeVoz(j.audio);
+      const c = cacheVoces.get(String(ws ?? ''));
+      if (c) c.lista = juntarAudios([audio], c.lista);
+      setAudiosAca((xs) => juntarAudios([audio], xs));
+      if (!mismoPaso(pasoVivo.current, deQuien)) return;
+      const sig = enviarALista(partesDe(pasoVivo.current), [{ tipo: 'audio', audio_id: audio.id }], dondeIba);
+      if (sig.length > TOPE_PARTES) { avisar(`Hasta ${TOPE_PARTES} mensajes`); return; }
+      aplicarPartes(sig);
+      alSalirBien?.();
+    } catch (e) {
+      avisar(e instanceof Error && e.name === 'TimeoutError' ? 'Tardó demasiado. Prueba de nuevo.' : 'No salió la voz de MaKo.');
+    } finally { setFase(null); }
+  }
+
+  // ── El audio: grabar, ESCUCHAR y mandarlo con la ➤ (la sesión de voz del composer) ─────────────
+  /**
+   * Lo que la ➤ verde mandó (ya escuchado): se pasa a MP3, se guarda en la biblioteca y entra al chat. Lo usan
+   * también el audio que volvió (`vozGuardada`) y la SALIDA del editor (WhatsApp 3 de la décima tanda: `saliendo`,
+   * ya sin pantalla). Lo que se manda deja de ser un borrador; si la subida falla, vuelve a la barra de escucharlo
+   * (`devolverVoz`) para reintentar, y su copia local sigue hasta que suba.
+   */
+  async function usarAudio(blob: Blob, secs: number, opciones: { dondeIba?: number | null; saliendo?: boolean } = {}) {
+    if (fase && !opciones.saliendo) return;
+    const deQuien = pasoVivo.current;
+    const dondeIba = opciones.dondeIba !== undefined ? opciones.dondeIba : editando;
+    const respaldo = vozPendiente.current ?? { tramos: [blob], secs, dondeIba };
+    vozPendiente.current = null;
+    const clave = vivo.current.clave;
     setError(null);
     try {
       setFase('Convirtiendo…');
@@ -607,10 +880,12 @@ export function EditorMensajeWhatsApp({
         signal: AbortSignal.timeout(ESPERA_AUDIO_MS),
       });
       const j = await r.json().catch(() => null) as { ok?: boolean; audio?: AudioSetting; error?: string } | null;
-      if (!j?.ok || !j.audio) { avisar(j?.error || 'No se pudo guardar el audio.'); return; }
+      if (!j?.ok || !j.audio) { avisar(j?.error || 'No se pudo guardar el audio.'); devolverVoz(respaldo); return; }
       const audio = j.audio;
       setAudiosAca((xs) => [audio, ...xs]);
-      onAudioNuevo?.(audio);
+      vivo.current.onAudioNuevo?.(audio);
+      // Ya está en la biblioteca: la copia local se va (WhatsApp 3).
+      void borrarVozLocal(clave);
       if (!mismoPaso(pasoVivo.current, deQuien)) return;
       // Como en WhatsApp: la nota de voz SALE con la flecha (se suma al chat). Si se estaba editando una
       // burbuja (un audio al que se le grabó algo más), la reemplaza.
@@ -618,12 +893,125 @@ export function EditorMensajeWhatsApp({
       const sig = enviarALista(partesDe(pasoVivo.current), [nueva], dondeIba);
       if (sig.length > TOPE_PARTES) { avisar(`Hasta ${TOPE_PARTES} mensajes`); return; }
       aplicarPartes(sig);
-      if (dondeIba != null) limpiarBarra();
+      if (dondeIba != null && !opciones.saliendo) limpiarBarra();
       ponerGuion(null);
     } catch (e) {
       avisar(e instanceof Error && e.name === 'TimeoutError' ? 'Tardó demasiado. Prueba de nuevo.' : 'No se pudo procesar el audio.');
+      devolverVoz(respaldo);
     } finally { setFase(null); }
   }
+
+  /** Un audio sin mandar vuelve a la barra de escucharlo (al reabrir, o si falló su subida). */
+  function devolverVoz(v: { tramos: Blob[]; secs: number; dondeIba: number | null }) {
+    vozPendiente.current = v;
+    const unido = v.tramos.length === 1 ? Promise.resolve(v.tramos[0]) : unirAudios(v.tramos);
+    void unido.then((blob) => {
+      if (urlGuardada.current) URL.revokeObjectURL(urlGuardada.current);
+      const url = URL.createObjectURL(blob);
+      urlGuardada.current = url;
+      setVozGuardada({ url, blob, secs: v.secs, dondeIba: v.dondeIba });
+    }).catch(() => { /* no se pudo juntar: queda la copia local, y al salir se intenta subir igual */ });
+  }
+  /** La URL del audio que volvió: se suelta al reemplazarlo o al irse (una por audio, no por render). */
+  const urlGuardada = useRef<string | null>(null);
+  useEffect(() => () => { if (urlGuardada.current) URL.revokeObjectURL(urlGuardada.current); }, []);
+  /** El audio que volvió deja la barra (se usó, se tiró, o se grabó otro encima). */
+  const soltarVozGuardada = () => {
+    if (urlGuardada.current) { URL.revokeObjectURL(urlGuardada.current); urlGuardada.current = null; }
+    setVozGuardada(null);
+  };
+
+  /**
+   * EL BORRADOR DEL AUDIO (WhatsApp 3): la sesión de voz del composer reporta lo grabado y sin mandar a cada
+   * segundo (`onBorradorVoz`), y al pasar a escucharlo; `null` si se tiró. Se guarda en IndexedDB en el acto. La
+   * función que se le pasa al composer es UNA por montaje (la sesión guarda la del 🎤): lo de cada render va por ref.
+   */
+  const manejarVoz = useRef<BorradorDeVoz>(() => {});
+  useLayoutEffect(() => {
+    manejarVoz.current = (b) => {
+      const { clave, firma: f, editando: ed } = vivo.current;
+      if (!b) { vozPendiente.current = null; soltarVozGuardada(); void borrarVozLocal(clave); return; }
+      vozPendiente.current = { tramos: b.tramos, secs: b.secs, dondeIba: ed };
+      // Otro audio grabado encima del que volvió: ése pasa a ser el borrador.
+      soltarVozGuardada();
+      void guardarVozLocal(clave, { firma: f, tramos: b.tramos, secs: b.secs, dondeIba: ed, t: Date.now() });
+    };
+  });
+  // El parámetro va tipado: con `useState<función>(() => función)` el inicializador es una unión (S | () => S) y
+  // TypeScript no le da tipo a la flecha de adentro (TS7006 en el typecheck del cierre de la décima).
+  const [alBorradorVoz] = useState<BorradorDeVoz>(() => (b: Parameters<BorradorDeVoz>[0]) => manejarVoz.current(b));
+
+  /**
+   * AL SALIR DEL EDITOR (cerrar el panel, tocar otra tarjeta): lo que quedó en la barra entra al mensaje
+   * (`listaAlSalir`) y el audio sin mandar se sube y se suma (WhatsApp 3). Corre en el tick siguiente al
+   * desmontaje: en desarrollo, StrictMode desmonta y vuelve a montar, y eso no es una salida.
+   */
+  const saliendo = useRef(false);
+  const alSalir = () => {
+    const v = vivo.current;
+    if (!varias) {
+      // UN SOLO MENSAJE: lo escrito pasa a ser EL mensaje si se puede (editándolo, o si todavía no hay uno).
+      const r = enviarUnico(pasoVivo.current.cuerpo ?? '', v.barra, v.editando != null);
+      if (typeof r === 'object') v.onChange({ cuerpo: r.cuerpo });
+      return;
+    }
+    // Lo escrito para la VOZ DE MaKo no entra como texto (no es lo que se quería mandar) ni se genera solo (cuesta):
+    // se queda en la barra de esta pestaña y en su copia local, y vuelve al reabrir.
+    if (v.modoVoz) return;
+    const actual = partesDe(pasoVivo.current);
+    const lista = listaAlSalir(actual, v.barra, v.adjunto, v.editando, pasoVivo.current.tipo === 'ia');
+    // Una burbuja abierta para editar y sin tocar vuelve igual: no es un cambio (ni entra a la pila de deshacer).
+    if (lista && JSON.stringify(lista) !== JSON.stringify(actual)) aplicarPartes(lista);
+    // (Y su copia local se va: si no, al reabrir volvería a abrirse para editar.)
+    else if (lista) guardarBarraLocal(v.clave, null);
+    if (lista) borradores.delete(v.clave);
+    const voz = vozPendiente.current;
+    if (voz) {
+      const unido = voz.tramos.length === 1 ? Promise.resolve(voz.tramos[0]) : unirAudios(voz.tramos);
+      void unido.then((blob) => usarAudio(blob, voz.secs, { dondeIba: voz.dondeIba, saliendo: true })).catch(() => { /* queda la copia local */ });
+    }
+  };
+  useEffect(() => {
+    saliendo.current = false;
+    return () => {
+      saliendo.current = true;
+      window.setTimeout(() => { if (saliendo.current) alSalir(); }, 0);
+    };
+    // Una vez por montaje (el editor se monta por tarjeta: `key`); lo de cada render lo lee por ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * AL ABRIR, LO QUE QUEDÓ DE ANTES (WhatsApp 3): la barra y el archivo (si en esta pestaña no había nada
+   * escrito) y el audio sin mandar, si son de este mensaje como está (`firma`). Una vez por montaje.
+   */
+  useEffect(() => {
+    if (!varias) return;
+    let vigente = true;
+    const ahora = Date.now();
+    if (!borradores.get(claveBorrador) && !barra && !adjunto) {
+      const b = borradorALeer(leerBarraLocal(claveBorrador), firma, ahora);
+      if (b) {
+        escribir(b.texto);
+        setAdjunto(b.adjunto);
+        if (b.editando != null && b.editando < partes.length) setEditando(b.editando);
+      }
+    }
+    void leerVozLocal(claveBorrador).then((raw) => {
+      if (!vigente || vozPendiente.current) return;
+      const v = vozALeer(raw, firma, ahora);
+      if (v) devolverVoz({ tramos: v.tramos, secs: v.secs, dondeIba: v.dondeIba });
+      else if (raw) void borrarVozLocal(claveBorrador);
+    });
+    return () => { vigente = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // La copia local de la barra, a cada cambio (WhatsApp 3). Vacía, se borra.
+  useEffect(() => {
+    if (!varias) return;
+    guardarBarraLocal(claveBorrador, borradorAGuardar(firma, barra, adjunto, editando, Date.now()));
+  }, [varias, claveBorrador, firma, barra, adjunto, editando]);
 
   // MIENTRAS SE GRABA, SÓLO EL GUION QUE PROPUSO MaKo (WhatsApp 6: «solo si sugirió algo, sino, que no
   // aparezca nada»). Ni el botón de pedirlo (el ✦ de la cabecera lo hace) ni el texto del mensaje.
@@ -664,7 +1052,7 @@ export function EditorMensajeWhatsApp({
       cacheBiblioteca.set(clave, { t: Date.now(), lista });
       setBibLocal(lista);
       onAdjuntoNuevo?.(adj);
-      if (mismoPaso(pasoVivo.current, deQuien)) setAdjunto({ tipo: 'media', media_id: adj.id });
+      if (mismoPaso(pasoVivo.current, deQuien)) { setModoVoz(false); setAdjunto({ tipo: 'media', media_id: adj.id }); }
     } catch (e) {
       avisar(e instanceof Error ? e.message : 'No se pudo subir el archivo.');
     } finally {
@@ -683,6 +1071,9 @@ export function EditorMensajeWhatsApp({
   } else if (audioSinUrl !== undefined && !audioSinUrl?.url) {
     // Editando un audio que no se puede escuchar (no está en la biblioteca, o sin URL): el nombre, sin barra.
     chipActual = { icono: 'audio', titulo: audioSinUrl?.titulo ?? 'Nota de voz', detalle: 'No disponible' };
+  } else if (modoVoz) {
+    // LA VOZ DE MaKo (`vozMako`): lo escrito es lo que dice; la ➤ la genera.
+    chipActual = { icono: 'audio', titulo: 'Voz de MaKo', onQuitar: () => setModoVoz(false), tituloQuitar: 'Quitar la voz de MaKo' };
   } else if (adjunto?.tipo === 'audio') {
     const a = audioDe(adjunto.audio_id);
     chipActual = { icono: 'audio', titulo: a?.titulo ?? 'Nota de voz', detalle: fmtDur(a?.duracion_s), onQuitar: () => setAdjunto(null), tituloQuitar: 'Quitar audio' };
@@ -702,9 +1093,17 @@ export function EditorMensajeWhatsApp({
   // ➤ lo deja como está, 🎤 le graba algo más al final (lo nuevo reemplaza a esta burbuja).
   const editandoAudio = editando != null && partes[editando]?.tipo === 'audio' ? partes[editando] as Extract<ParteMensaje, { tipo: 'audio' }> : null;
   const audioEditado = editandoAudio ? audioDe(editandoAudio.audio_id) : null;
+  // UN AUDIO SIN MANDAR QUE VOLVIÓ (décima tanda, WhatsApp 3: recargó, cerró la pestaña o falló la subida): la
+  // MISMA barra de escucharlo. 🗑 lo tira, 🎤 le graba más, ➤ lo sube y lo suma (a donde iba).
   const audioPendiente = editandoAudio && audioEditado?.url
     ? { url: audioEditado.url, secs: audioEditado.duracion_s, seguir: permiteAudio, rotuloUsar: 'Dejar este audio', onDescartar: () => { const i = editando!; limpiarBarra(); borrar(i); }, onUsar: limpiarBarra }
-    : null;
+    : vozGuardada && permiteAudio
+      ? {
+        url: vozGuardada.url, secs: vozGuardada.secs, seguir: true, rotuloUsar: 'Usar este audio',
+        onDescartar: () => { vozPendiente.current = null; soltarVozGuardada(); void borrarVozLocal(claveBorrador); },
+        onUsar: () => { const v = vozGuardada; soltarVozGuardada(); void usarAudio(v.blob, v.secs, { dondeIba: v.dondeIba }); },
+      }
+      : null;
 
   // ── El clip ──────────────────────────────────────────────────────────────────────────────
   const menuClip: OpcionMenuWA[] = [];
@@ -718,11 +1117,15 @@ export function EditorMensajeWhatsApp({
       submenu: todosLosAudios.map((a) => ({ key: `a${a.id}`, label: a.titulo, icono: <IconMic />, detalle: fmtDur(a.duracion_s), onElegir: () => setAdjunto({ tipo: 'audio', audio_id: a.id }) })),
     });
   }
+  // LA VOZ DE MaKo (undécima tanda): el único audio de «MaKo en WhatsApp». Deja su chip arriba de la barra.
+  if (vozMako) {
+    menuClip.push({ key: 'voz-mako', label: 'Voz de MaKo', icono: <IconMic />, onElegir: () => { setAdjunto(null); setModoVoz(true); composer.current?.enfocar(); } });
+  }
   if (permiteAdjuntos) {
     menuClip.push({
       key: 'archivos', label: 'Archivos guardados', icono: <IconClip />, vacio: biblioteca === null ? 'Cargando…' : 'Sin archivos todavía.',
       submenu: (biblioteca ?? []).map((a) => ({
-        key: `f${a.id}`, label: a.titulo, detalle: pesoLegible(a.tamano), onElegir: () => setAdjunto({ tipo: 'media', media_id: a.id }),
+        key: `f${a.id}`, label: a.titulo, detalle: pesoLegible(a.tamano), onElegir: () => { setModoVoz(false); setAdjunto({ tipo: 'media', media_id: a.id }); },
         // El ícono por TIPO de archivo (general 10): el nombre lo puso el negocio, el tipo es estándar.
         icono: tipoEnvioDeMime(a.media_mime) === 'video' || tipoEnvioDeMime(a.media_mime) === 'image' ? <IconVideo size={18} /> : <IconDoc size={18} />,
       })),
@@ -766,9 +1169,15 @@ export function EditorMensajeWhatsApp({
     () => datos ?? (variables ? arbolDeVariables(variables) : datosDelLead(varias)),
     [datos, variables, varias],
   );
+  // EL ROJO DE LA BARRA (punto 7): lo que Publicar no deja pasar en ESTA tarjeta. Sin contexto, lo decide el árbol.
+  const datosFuera = useMemo(() => {
+    const ctx = contexto ?? (typeof redactaCon === 'object' ? redactaCon : undefined);
+    return ctx ? fueraDelContexto(ctx) : undefined;
+  }, [contexto, redactaCon]);
   // «↻ N» sólo en UN mensaje de texto: las variantes son otras formas de decir ESE texto (costuras-1).
   const unTexto = varias ? esUnTexto(partes) : (!paso.tipo || paso.tipo === 'texto' || paso.tipo === 'ia');
-  const variantes = unTexto ? (paso.variantes ?? []) : [];
+  // Sin variantes en «MaKo en WhatsApp» (`vozMako`): el aviso al equipo no las sortea.
+  const variantes = unTexto && !vozMako ? (paso.variantes ?? []) : [];
   const ocupado = !!deshabilitado || !!fase || !!subida;
 
   const pastillaPausa = (i: number) => {
@@ -811,8 +1220,10 @@ export function EditorMensajeWhatsApp({
           <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
             onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={{ ...chip, height: 28 }}>↻ {variantes.length}</button>
         )}
-        <button type="button" disabled={ocupado} onClick={alEditar} title="Editar" aria-label={`Editar el mensaje ${i + 1}`}
-          style={{ ...accionBurbuja, ...(editando === i ? { border: '1px solid var(--primary)', color: 'var(--primary)' } : {}) }}><IconLapiz /></button>
+        {/* Otra vez sobre la que se edita, CIERRA la edición (décima tanda, WhatsApp 2: `alTocarEditar`). */}
+        <button type="button" disabled={ocupado} onClick={alEditar} title={editando === i ? 'Cerrar edición' : 'Editar'} aria-pressed={editando === i}
+          aria-label={editando === i ? `Cerrar la edición del mensaje ${i + 1}` : `Editar el mensaje ${i + 1}`}
+          style={{ ...accionBurbuja, ...(editando === i ? { border: '1px solid var(--primary)', color: 'var(--primary)', background: 'var(--primary-bg)' } : {}) }}><IconLapiz /></button>
         {/* El tacho de la casa (app/_ui/BotonBorrar.tsx, general 9): rojo siempre. */}
         <button type="button" disabled={ocupado} onClick={alBorrar} title="Borrar" aria-label={`Borrar el mensaje ${i + 1}`}
           style={{ ...accionBurbuja, color: 'var(--bad)', border: '1px solid var(--bad)' }}><IconoBorrar size={16} /></button>
@@ -835,7 +1246,8 @@ export function EditorMensajeWhatsApp({
   // ofrecer no hay botón: un «{ }» que abre un árbol vacío se lee roto (como `SelectorDatos`).
   const botonDatos = grupos.length === 0 ? null : (
     <button type="button" ref={setBtnDatos} disabled={ocupado} title="Insertar un dato" aria-label="Insertar un dato" aria-expanded={abierto === 'datos'}
-      onClick={() => setAbierto((a) => (a === 'datos' ? null : 'datos'))}
+      // Con el cursor ADENTRO de un dato, el «{ }» lo abre con ESE dato elegido, para cambiarlo (punto 7).
+      onClick={() => { if (abierto !== 'datos' && composer.current?.abrirDatoEnCursor()) return; setAbierto((a) => (a === 'datos' ? null : 'datos')); }}
       style={{ ...iconComposer, width: 38, height: 38, fontSize: 13.5, fontWeight: 600, fontFamily: "'Geist Mono', monospace", color: abierto === 'datos' ? 'var(--primary)' : 'var(--dim)', opacity: ocupado ? 0.5 : 1 }}>{'{ }'}</button>
   );
 
@@ -859,16 +1271,20 @@ export function EditorMensajeWhatsApp({
       valor={barra}
       onValor={escribir}
       onEnviar={enviar}
-      placeholder={placeholderDe(paso.tipo, placeholder, adjunto?.tipo ?? null)}
+      placeholder={placeholderDe(paso.tipo, placeholder, modoVoz ? 'voz' : adjunto?.tipo ?? null)}
       ocupado={ocupado}
       menuClip={menuClip.length ? menuClip : undefined}
       onAudio={permiteAudio ? (blob, secs) => usarAudio(blob, secs) : undefined}
       onErrorAudio={avisar}
+      // Lo grabado y sin mandar, a cada segundo: la copia local (WhatsApp 3 de la décima tanda).
+      onBorradorVoz={permiteAudio ? alBorradorVoz : undefined}
       mientrasGraba={mientrasGraba}
       audioPendiente={audioPendiente}
       chip={chipActual}
       maxAlto={168}
       trasClip={botonDatos}
+      datos={grupos}
+      datosFuera={datosFuera}
     />
   ) : (
     // UN SOLO MENSAJE: también `enviar` (ver `enviarElUnico`). La barra NO es el mensaje: arranca
@@ -883,6 +1299,8 @@ export function EditorMensajeWhatsApp({
       ocupado={ocupado}
       maxAlto={168}
       trasClip={botonDatos}
+      datos={grupos}
+      datosFuera={datosFuera}
     />
   );
 
@@ -903,7 +1321,76 @@ export function EditorMensajeWhatsApp({
     // Arranca a grabar en el MISMO clic (el permiso del micrófono necesita el gesto de la persona).
     composer.current?.grabar();
   };
+  /**
+   * LO QUE PROPUSO EL ✦ (WhatsApp 5 de la décima tanda): espera en su recuadro arriba de la barra, abierto. El
+   * panel se cierra salvo que MaKo pida la voz del negocio (ese recuadro vive en el panel).
+   */
+  const alProponer = (p: { mensajes: string[]; audio: string | null; nota: string | null; sinVoz: boolean }) => {
+    ponerSugerencia({ mensajes: p.mensajes, audio: p.audio, nota: p.nota, plegada: false });
+    if (!p.sinVoz) alternarPanelMako(claveBorrador, false);
+  };
+  const usarSugerencia = (modo: 'reemplazar' | 'agregar') => {
+    if (!sugerencia) return;
+    usarPropuesta(sugerencia.mensajes, modo);
+    ponerSugerencia(sugerenciaTras(sugerencia, 'mensajes'));
+  };
+  const grabarSugerencia = () => {
+    if (!sugerencia?.audio) return;
+    const g = sugerencia.audio;
+    // «Generar con la voz de MaKo» (`vozMako`): el guion lo dice MaKo, no se graba. El guion se suelta si salió (lo
+    // que quede de la sugerencia en ESE momento: la persona pudo usar los mensajes mientras se generaba).
+    if (vozMako) {
+      void generarVoz(g, null, () => { const s = sugerencias.get(claveBorrador); ponerSugerencia(s ? sugerenciaTras(s, 'audio') : null); });
+      return;
+    }
+    ponerSugerencia(sugerenciaTras(sugerencia, 'audio'));
+    usarGuion(g);
+  };
+  const botonSug: CSSProperties = { height: 28, padding: '0 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer' };
+  const cerrarSug: CSSProperties = { marginLeft: 'auto', flex: 'none', background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 };
+  // EL RECUADRO DE LA SUGERENCIA, ARRIBA DE LA BARRA (WhatsApp 5): ni burbuja ni palomitas (no es un mensaje
+  // enviado). Plegada, un renglón sutil que la vuelve a abrir.
+  const sugerenciaNodo: ReactNode = !sugerencia ? null : sugerencia.plegada ? (
+    <div data-sugerencia="plegada" style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderBottom: '1px solid var(--border)' }}>
+      <button type="button" onClick={() => ponerSugerencia({ ...sugerencia, plegada: false })} aria-expanded={false}
+        style={{ background: 'none', border: 'none', padding: 0, fontFamily: "'Geist', sans-serif", fontSize: 12, fontWeight: 600, color: 'var(--mako-ink)', cursor: 'pointer' }}>
+        ✦ Ver sugerencia de MaKo
+      </button>
+      <button type="button" onClick={() => ponerSugerencia(null)} title="Descartar" aria-label="Descartar la sugerencia" style={cerrarSug}>✕</button>
+    </div>
+  ) : (
+    <div data-sugerencia="abierta" role="region" aria-label="Sugerencia de MaKo"
+      style={{ flex: 'none', margin: 8, padding: '9px 11px', borderRadius: 10, background: 'var(--mako-bg)', border: '1px solid var(--mako-border)', display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 230, overflowY: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700, color: 'var(--mako-ink)' }}>
+        ✦ Sugerencia de MaKo
+        <button type="button" onClick={() => ponerSugerencia({ ...sugerencia, plegada: true })} title="Cerrar" aria-label="Cerrar la sugerencia" aria-expanded style={cerrarSug}>✕</button>
+      </div>
+      {sugerencia.mensajes.map((m, k) => (
+        <div key={k} style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', padding: '6px 9px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--mako-border)' }}>{conNegocio(m)}</div>
+      ))}
+      {sugerencia.mensajes.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+          <button type="button" style={botonSug} disabled={ocupado} onClick={() => usarSugerencia('agregar')}>Agregar</button>
+          <button type="button" style={{ ...botonSug, border: 'none', background: 'var(--wa)', color: '#fff' }} disabled={ocupado} onClick={() => usarSugerencia('reemplazar')}>Usar</button>
+        </div>
+      )}
+      {sugerencia.audio && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: 'var(--mako-ink)' }}><IconMic /> Mejor como nota de voz</div>
+          <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{sugerencia.audio}</div>
+          {(permiteAudio || vozMako) && (
+            <button type="button" style={{ ...botonSug, alignSelf: 'flex-end' }} disabled={ocupado} onClick={grabarSugerencia}>
+              {vozMako ? 'Generar con la voz de MaKo' : 'Grabar con este guion'}
+            </button>
+          )}
+        </>
+      )}
+      {sugerencia.nota && <div style={{ fontSize: 12, color: 'var(--dim)' }}>{sugerencia.nota}</div>}
+    </div>
+  );
   const textoActual = (varias ? partes.flatMap((p) => (p.tipo === 'texto' ? [p.cuerpo] : p.tipo === 'media' && p.cuerpo ? [p.cuerpo] : [])) : [paso.cuerpo ?? '']).join('\n\n');
+  // Sin «adaptarlo a cada persona» en «MaKo en WhatsApp» (`vozMako`): el aviso no lo honra. Lo cubre `redactaCon`,
+  // que con la voz de MaKo siempre está (ver arriba).
   const puedeAdaptar = !!permiteIA && adaptable(paso, varias);
 
   // LA FILA DE ARRIBA: las variantes de un solo mensaje SIN texto (con texto, el «↻ N» va al lado de su
@@ -925,10 +1412,11 @@ export function EditorMensajeWhatsApp({
         <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: 12, borderRadius: 14, border: '1px solid var(--mako-border)', background: 'var(--surface)' }}>
           <MakoRedacta
             contexto={{ actual: textoActual, disparador, objetivo: paraGuion?.objetivo ?? null, gancho: paraGuion?.gancho ?? null }}
-            permiteAudio={permiteAudio}
+            // Con la Voz de MaKo también propone una nota de voz: la genera MaKo («Generar con la voz de MaKo»).
+            permiteAudio={permiteAudio || !!vozMako}
             datos={redactaCon ?? 'motor'}
             adaptar={puedeAdaptar && !redactaCon ? { activo: esIA, onCambiar: (on) => { onChange({ tipo: on ? 'ia' : 'texto' }); onModoIA?.(on); } } : null}
-            onUsar={usarPropuesta} onGuion={usarGuion}
+            onPropuesta={alProponer}
             onCerrar={() => alternarPanelMako(claveBorrador, false)}
             deshabilitado={ocupado}
           />
@@ -944,6 +1432,7 @@ export function EditorMensajeWhatsApp({
           </div>
         </div>
         <div data-barra style={{ flex: 'none', border: '1px solid var(--border)', borderRadius: '0 0 14px 14px', overflow: 'hidden', background: 'var(--surface)' }}>
+          {sugerenciaNodo}
           {faseNodo}
           {editandoNodo}
           {errorNodo}
@@ -990,9 +1479,23 @@ export function EditorMensajeWhatsApp({
  * GRUPO del negocio. Es UN texto (el aviso al grupo es un mensaje): la barra es el mensaje, con
  * emojis y «{ }», sin audio ni archivos, y la burbuja la firma MaKo.
  *
- * Lo montan la tarjeta MAKO del lienzo (FlujoLienzo, `EditorMako`) y el lienzo de los Mensajes de MaKo
- * (las «Notificaciones», app/agencia/FlujoAviso.tsx, MaKo en WhatsApp 3: «tienen una interfaz vieja,
- * elimina eso»), con el árbol del «{ }» para el EQUIPO (`datos`).
+ * ⚠️ DESDE LA UNDÉCIMA TANDA LO MONTA SÓLO el lienzo de los Mensajes de MaKo (las «Notificaciones»,
+ * app/agencia/FlujoAviso.tsx, MaKo en WhatsApp 3: «tienen una interfaz vieja, elimina eso»), con el árbol del
+ * «{ }» para el EQUIPO (`datos`): ese aviso sigue siendo UN texto. La tarjeta MAKO del lienzo de las automatizaciones
+ * (FlujoLienzo, `EditorMako`) monta `EditorMensajeWhatsApp` con `vozMako`: varias partes, archivos, la Voz de MaKo y ✦.
+ * Lo de abajo («lo que NO ofrece») vale para /mensajes.
+ *
+ * ⚠️ DÉCIMA TANDA, WhatsApp 6 («El editor de "MaKo en WhatsApp" debería ser exactamente igual que el editor de
+ * WhatsApp, tener las misma opciones... El mismo tamaño de modal»). ES el mismo componente: la burbuja con ✏️
+ * (que también cierra) y 🗑, la barra con emojis y «{ }», lo que queda escrito al salir entra como el mensaje.
+ * Lo que NO ofrece, decidido así y no por descuido:
+ *   · audio, archivos y VARIOS mensajes: lo que sale es la ⚡ Acción `avisar_al_equipo`
+ *     (lib/api-mako/areas/chatbot.run.ts), que manda UN texto (`params.mensaje`) al grupo. Un 🎤 o un 📎 acá
+ *     serían controles que no hacen nada en el envío. Sumarlos es enseñarle a esa acción a mandar partes.
+ *   · el ✦: el panel de MaKo (MakoRedacta.tsx, lib/mako-redacta.ts) escribe un mensaje AL LEAD con la voz del
+ *     negocio; el del grupo lo escribe MaKo para el equipo, con otros datos (los del EQUIPO, `datos`).
+ *   · el tamaño del panel lo decide el lienzo por TIPO de tarjeta (`editorDeTarjeta`, lib/lienzo-grafo.ts: la
+ *     tarjeta `mako` tiene alto de control, 280). Igualarlo al de un mensaje es una línea ahí.
  */
 export function EditorMensajeGrupo({ texto, onTexto, variables, datos, deshabilitado, placeholder = 'Mensaje para tu equipo' }: {
   texto: string;

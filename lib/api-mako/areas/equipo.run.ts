@@ -7,9 +7,11 @@
 //
 // Cuatro cosas que no se ven leyendo las libs y que gobiernan este archivo:
 //
-//  1. tzDeWorkspace ESCRIBE. Si la zona no está fijada la averigua (Cal.com, Google,
-//     lada) y la GUARDA. Una lectura no puede hacer eso: ver_zona_horaria_workspace
-//     lee el setting crudo y dice «no fijada» en vez de llamarla.
+//  1. LA ZONA DEL NEGOCIO tiene UNA lectura y UN escritor (lib/timezone.ts, undécima tanda
+//     de Automations, 11/10/2026): ver_zona_horaria_workspace lee `zonaDelNegocioDetalle`
+//     (no sale a la red ni escribe) y fijar_zona_horaria_workspace escribe con
+//     `fijarZonaDelNegocio(…, 'persona', …)`: lo que una persona elige gana sobre lo
+//     detectado de la ubicación del equipo.
 //  2. «LA PERSONA» SALE DE LA COOKIE. getPerfil/getNotifInApp resuelven a quién
 //     leen con getUsuarioActual(). Por eso las dos lecturas son solo de la app, y
 //     las escrituras de la persona (editar_perfil, configurar_notificaciones_inapp)
@@ -33,8 +35,8 @@ import type { Runners, Preparado, Ejecutado, SalidaLectura } from '../tipos';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspace, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
-import { getSetting } from '@/lib/settings';
-import { KEY_TIMEZONE, TZ_DEFAULT, esTzValida, setTimezoneWorkspace } from '@/lib/timezone';
+import { zonaDelNegocioDetalle, fijarZonaDelNegocio } from '@/lib/timezone';
+import { zonaCanonica, textoOrigen } from '@/lib/zona-negocio-reglas';
 import { getPerfil, getNotifPrefs, setNotifPrefs, avisoWaActivo, getNotifInApp, DEFAULT_PERFIL, type NotifPrefs } from '@/lib/perfil';
 import { AVISOS_WA_EN_VIVO, NOTIF_IN_APP, soloDigitos, telefonoValido, emailValido, inAppActivo } from '@/lib/notif-catalogo';
 import { CATALOGO_AVISOS, esAvisoSoloSuperAdmin } from '@/lib/avisos-catalogo';
@@ -199,12 +201,14 @@ export const RUNNERS: Runners = {
   },
 
   ver_zona_horaria_workspace: {
-    leer: async () => {
-      const raw = await getSetting(KEY_TIMEZONE);
-      if (raw && esTzValida(raw)) return json({ zona_horaria: raw, fijada: true, hora_local_ahora: horaEn(raw) });
+    leer: async (_input, ctx) => {
+      const d = await zonaDelNegocioDetalle(ctx.ws);
       return json({
-        zona_horaria: null, fijada: false, se_usa_mientras_tanto: TZ_DEFAULT, hora_local_ahora_en_esa_zona: horaEn(TZ_DEFAULT),
-        nota: 'Nunca se fijó. MaKo intenta averiguarla (Cal.com, Google Calendar, lada del teléfono principal) la próxima vez que calendariza; si no puede, usa America/Tijuana. Para fijarla: fijar_zona_horaria_workspace.',
+        zona_horaria: d.tz, fijada: d.guardada, origen: d.origen?.origen ?? null, de_donde: textoOrigen(d.origen),
+        hora_local_ahora: horaEn(d.tz),
+        nota: d.guardada
+          ? 'Se detecta de la ubicación de tu equipo; lo que elige una persona gana. Para cambiarla: fijar_zona_horaria_workspace.'
+          : `Sin fijar: se usa ${d.tz} hasta que se detecte de la ubicación de tu equipo. Para fijarla: fijar_zona_horaria_workspace.`,
       });
     },
   },
@@ -366,20 +370,21 @@ export const RUNNERS: Runners = {
 
   // ── Acciones por chat ───────────────────────────────────────────────────────
   fijar_zona_horaria_workspace: {
-    preparar: async (input): Promise<Preparado> => {
-      const tz = str(input, 'timezone')!;
-      if (!esTzValida(tz)) return { error: `«${tz}» no es una zona horaria IANA válida (por ejemplo America/Cancun o America/Argentina/Buenos_Aires).`, faltan: ['timezone'] };
-      const actual = await getSetting(KEY_TIMEZONE);
-      if (actual === tz) return { error: `La zona del negocio ya es ${tz}.` };
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const crudo = str(input, 'timezone')!;
+      const tz = zonaCanonica(crudo);
+      if (!tz) return { error: `«${crudo}» no es una zona horaria IANA válida (por ejemplo America/Cancun o America/Argentina/Buenos_Aires).`, faltan: ['timezone'] };
+      const actual = await zonaDelNegocioDetalle(ctx.ws);
+      if (actual.guardada && actual.tz === tz && actual.origen?.origen === 'persona') return { error: `La zona del negocio ya es ${tz}.` };
       return {
         payload: { timezone: tz },
-        resumen: `Fijar la zona horaria del negocio en ${tz} (ahí ahora: ${horaEn(tz)}). Antes: ${actual && esTzValida(actual) ? actual : `sin fijar (se usaba ${TZ_DEFAULT} o la autodetectada)`}. Cambia reuniones, «hoy» y avisos; los reportes siguen en hora de Tijuana.`,
+        resumen: `Fijar la zona horaria del negocio en ${tz} (ahí ahora: ${horaEn(tz)}). Antes: ${actual.guardada ? `${actual.tz} (${textoOrigen(actual.origen).replace(/^./, (c) => c.toLowerCase())})` : `sin fijar (se usaba ${actual.tz})`}. Cambia reuniones, «hoy» y avisos; los reportes siguen en hora de Tijuana.`,
       };
     },
     ejecutar: async (payload, ctx) => escribir(async () => {
-      const tz = String(payload.timezone ?? '');
-      await setTimezoneWorkspace(ctx.ws, tz);
-      return `Zona horaria del negocio fijada en ${tz}.`;
+      const r = await fijarZonaDelNegocio(ctx.ws, String(payload.timezone ?? ''), 'persona', ctx.actor ?? (await emailDeSesion()));
+      if (!r.ok) return { ok: false, resumen: `No se pudo fijar la zona (${r.error ?? 'error'}).` };
+      return `Zona horaria del negocio fijada en ${r.zona}.`;
     }),
   },
 

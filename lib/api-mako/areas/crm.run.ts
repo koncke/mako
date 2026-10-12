@@ -212,7 +212,7 @@ async function vinculoDeInput(input: Record<string, unknown>): Promise<{ vinculo
   if (!productos) return { error: NO_LEI_PRODUCTOS };
   const emb = n(input.embudoId);
   const p = emb != null ? productos.find((x) => x.embudoId === emb) : productos.find((x) => x.esDefault);
-  if (!p) return { error: emb != null ? `No existe el producto #${emb} en el CRM de este negocio.` : 'No encontré el producto principal del negocio.', disponibles: productos.map((x) => ({ embudoId: x.embudoId, nombre: x.nombre })) };
+  if (!p) return { error: emb != null ? `No existe el funnel #${emb} en el CRM de este negocio.` : 'No encontré el funnel principal del negocio.', disponibles: productos.map((x) => ({ embudoId: x.embudoId, nombre: x.nombre })) };
   const st = p.etapas.find((x) => x.key === etapa);
   if (!st) return { error: `«${etapa}» no es una etapa de «${p.nombre}».`, disponibles: p.etapas.map((x) => ({ key: x.key, label: x.label })) };
   return { vinculo: { funnelId: p.esDefault ? null : p.embudoId, etapaKey: etapa }, texto: `vinculada a «${st.label}» de «${p.nombre}»` };
@@ -249,7 +249,7 @@ function usoTexto(u: Awaited<ReturnType<typeof usoDeEtiqueta>>): string {
 
 // ── un lead en varios productos (mig 0207) ────────────────────────────────────
 
-const NO_LEI_PRODUCTOS = 'No se pudieron leer los productos del CRM de este negocio.';
+const NO_LEI_PRODUCTOS = 'No se pudieron leer los funnels del CRM de este negocio.';
 const etiquetaDe = (p: ProductoCrm, key: string | null | undefined): string => p.etapas.find((e) => e.key === key)?.label ?? key ?? 'sin etapa';
 
 /** Lo que las tres acciones validan antes de proponer: el lead en ESTE negocio (getLead scopea),
@@ -266,7 +266,7 @@ async function leadYProducto(input: Record<string, unknown>): Promise<
   const producto = productos.find((p) => p.embudoId === id);
   if (!producto) {
     return {
-      error: `No existe el producto #${String(input.embudoId)} en el CRM de este negocio. Pide el embudoId con productos_del_lead.`,
+      error: `No existe el funnel #${String(input.embudoId)} en el CRM de este negocio. Pide el embudoId con productos_del_lead.`,
       disponibles: productos.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })),
     };
   }
@@ -279,7 +279,7 @@ async function leadYProducto(input: Record<string, unknown>): Promise<
 async function nombresDe(leadId: number, embudoId: number): Promise<{ lead: string; producto: string; etapa: (key: string | null | undefined) => string }> {
   const [lead, productos] = await Promise.all([leadDe(leadId), productosCrm().catch(() => null)]);
   const p = productos?.find((x) => x.embudoId === embudoId);
-  return { lead: lead?.nombre ?? `el lead #${leadId}`, producto: p?.nombre ?? `el producto #${embudoId}`, etapa: (key) => (p ? etiquetaDe(p, key) : key ?? 'sin etapa') };
+  return { lead: lead?.nombre ?? `el lead #${leadId}`, producto: p?.nombre ?? `el funnel #${embudoId}`, etapa: (key) => (p ? etiquetaDe(p, key) : key ?? 'sin etapa') };
 }
 
 /** ejecutar() NUNCA lanza: si algo falla, ok:false con el motivo (la pendiente se
@@ -1068,10 +1068,10 @@ export const RUNNERS: Runners = {
       if (!entrada) return { error: `«${r.producto.nombre}» no tiene etapas.` };
       return {
         payload: { leadId: r.lead.id, embudoId: r.producto.embudoId },
-        resumen: `Agregar a ${r.lead.nombre} a «${r.producto.nombre}», en «${etiquetaDe(r.producto, entrada)}» (sigue en los productos que ya tiene).`,
+        resumen: `Agregar a ${r.lead.nombre} a «${r.producto.nombre}», en «${etiquetaDe(r.producto, entrada)}» (sigue en los funnels que ya tiene).`,
       };
     },
-    ejecutar: (payload, ctx) => seguro('agregar al producto', async () => {
+    ejecutar: (payload, ctx) => seguro('agregar al funnel', async () => {
       const id = Number(payload.leadId); const embudo = Number(payload.embudoId);
       const r = await agregarAProducto(id, embudo, { autor: autorDe(ctx) });
       const n = await nombresDe(id, embudo);
@@ -1085,24 +1085,24 @@ export const RUNNERS: Runners = {
       const r = await leadYProducto(input);
       if ('error' in r) return r;
       if (!r.enEse) return { error: `${r.lead.nombre} no está en «${r.producto.nombre}».`, yaEstaba: true };
-      if (!puedeQuitar(r.suyos)) return { error: `«${r.producto.nombre}» es el único producto de ${r.lead.nombre}: no se lo puede quitar.` };
+      if (!puedeQuitar(r.suyos)) return { error: `«${r.producto.nombre}» es el único funnel de ${r.lead.nombre}: no se lo puede quitar.` };
       let resumen = `Quitar a ${r.lead.nombre} de «${r.producto.nombre}»`;
       if (r.enEse.esCasa) {
         // Quitar la casa PROMUEVE otra: lo dice antes del «sí», con su nombre y su etapa.
         const nueva = aQuienPromover(r.suyos);
         const np = nueva ? r.productos.find((p) => p.embudoId === nueva.funnelId) : undefined;
-        if (nueva && np) resumen += `: era su producto principal, y pasa a serlo «${np.nombre}», en «${etiquetaDe(np, nueva.etapa)}»`;
+        if (nueva && np) resumen += `: era su funnel principal, y pasa a serlo «${np.nombre}», en «${etiquetaDe(np, nueva.etapa)}»`;
       }
       return { payload: { leadId: r.lead.id, embudoId: r.producto.embudoId }, resumen: `${resumen}.` };
     },
-    ejecutar: (payload, ctx) => seguro('quitar del producto', async () => {
+    ejecutar: (payload, ctx) => seguro('quitar del funnel', async () => {
       const id = Number(payload.leadId); const embudo = Number(payload.embudoId);
       const d = await quitarDeProducto(id, embudo, { autor: autorDe(ctx) });
       invalidar('leads');
       const n = await nombresDe(id, embudo);
       return {
         ok: true,
-        resumen: d.casaAntes ? `Listo: ${n.lead} salió de «${n.producto}», que era su producto principal; ahora lo es el que tenía hace más tiempo.` : `Listo: ${n.lead} salió de «${n.producto}».`,
+        resumen: d.casaAntes ? `Listo: ${n.lead} salió de «${n.producto}», que era su funnel principal; ahora lo es el que tenía hace más tiempo.` : `Listo: ${n.lead} salió de «${n.producto}».`,
         datos: { deshacer: d },
       };
     }),
@@ -1114,7 +1114,7 @@ export const RUNNERS: Runners = {
       if (!r.enEse) return { error: `${r.lead.nombre} no está en «${r.producto.nombre}»: se suma antes con agregar_lead_a_producto.` };
       // La casa se mueve por el camino de siempre (requisitos, estado, Meta): moverEtapaEnProducto
       // escribe sólo la fila de lead_funnel, y la casa no tiene fila.
-      if (r.enEse.esCasa) return { error: `«${r.producto.nombre}» es el producto principal de ${r.lead.nombre}: ahí se mueve con proponer_cambio_etapa, que pide el monto o el motivo cuando hacen falta.` };
+      if (r.enEse.esCasa) return { error: `«${r.producto.nombre}» es el funnel principal de ${r.lead.nombre}: ahí se mueve con proponer_cambio_etapa, que pide el monto o el motivo cuando hacen falta.` };
       const etapa = s(input.etapa) ?? '';
       const destino = r.producto.etapas.find((e) => e.key === etapa);
       if (!destino) return { error: `«${etapa}» no es una etapa de «${r.producto.nombre}».`, disponibles: r.producto.etapas.map((e) => ({ key: e.key, label: e.label })) };
@@ -1124,7 +1124,7 @@ export const RUNNERS: Runners = {
         resumen: `Mover a ${r.lead.nombre} en «${r.producto.nombre}»: de «${etiquetaDe(r.producto, r.enEse.etapa)}» a «${destino.label}».`,
       };
     },
-    ejecutar: (payload, ctx) => seguro('mover en el producto', async () => {
+    ejecutar: (payload, ctx) => seguro('mover en el funnel', async () => {
       const id = Number(payload.leadId); const embudo = Number(payload.embudoId); const etapa = String(payload.etapa);
       const r = await moverEtapaEnProducto(id, embudo, etapa, { autor: autorDe(ctx) });
       const n = await nombresDe(id, embudo);

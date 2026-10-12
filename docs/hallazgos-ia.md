@@ -3827,3 +3827,36 @@ la reunión).
 **Sin hacer:** `lib/transcribe.ts` (el pipeline de cursos) tiene su propio `sttGemini` sin este
 chequeo; `escucharCon` no prueba el otro modelo de la misma key ante un bucle; no se corrió contra la
 red real (cada llamada escribe filas de uso en prod). · *2026-10-08 Customer Success*
+
+## Google le bloqueó el PROYECTO a la key de Gemini del ws1, y el mensaje culpaba a «la configuración de MaKo» (11/10/2026)
+
+**Síntoma:** el AI Analyst del Dashboard, en el ws1 (Mauricio), contestó «Hay un problema de
+configuración de MaKo con ese proveedor de IA: el modelo que teníamos puesto ya no está disponible. No
+es tu key», con `gemini: HTTP 403 · openrouter: This model is unavailable for free… · mistral: HTTP 429`.
+
+**Causa, medida pidiendo el cuerpo del 403** (sin imprimir la key): la única key de Gemini del ws1
+(`GEMINI_API_KEY`, termina en `…YTBA`) contesta **«Your project has been denied access. Please contact
+support.» (`PERMISSION_DENIED`)** a cualquier pedido, no sólo a éste. El último uso bueno de Gemini del
+ws1 en `anthropic_usage` fue el 11/10 a las 06:52 UTC (896 llamadas en 3 días). No es cuota (eso es
+429) ni una key mal pegada: Google bloqueó el proyecto de Google Cloud de esa key. **Afecta a toda la IA
+del ws1** que pase por Gemini, no sólo al Dashboard. Las keys del ws9 contestan bien (una 200, dos 503
+por saturación).
+
+**Y el mensaje eligió la causa equivocada:** el veredicto tomó el texto de OpenRouter
+(`minimax/minimax-m3:free` ya no es gratis: «The paid version is available now») y concluyó «el modelo
+que teníamos puesto ya no está disponible… no es tu key». Lo de OpenRouter es cierto y es nuestro (hay
+que cambiar `MODELO_DOCS.openrouter` y el `chatModel` por defecto en `lib/ai-cheap.ts`), pero la causa
+que mandaba era el proyecto bloqueado de la key del cliente, que sólo se arregla en su Google Cloud o
+cargando otra key. Un 403 `PERMISSION_DENIED` merece su propia causa en `lib/fallo-ia-texto.ts`.
+
+**Sin hacer:** avisarle a Mauricio (lo decide Martín); el 403 como causa propia; reemplazar el modelo
+de OpenRouter. **Vive en:** `lib/ai-cheap.ts` (`MODELO_DOCS`, `provsDe`), `lib/fallo-ia-texto.ts`.
+
+## `chatCheapCascade` no dice qué modelo CONTESTÓ, y una clave de más en una variable compila (11/10/2026)
+
+El AI Analyst guarda qué modelo escribió el análisis (`dashboard_analisis.modelo`). La cascada no lo
+devuelve, y guardar el CONFIGURADO es la degradación silenciosa que landing-analyst ya pagó: queda en
+`null` (no medido). Trampa de TypeScript: `lib/graficos-analisis-server.ts` le pasa `respondioOut` en un
+objeto armado en una variable, y COMPILA aunque la función no declare ese campo (el chequeo de
+propiedades de más sólo mira literales frescos). **Sin hacer:** el parámetro `respondioOut?: { provider?;
+model? }` en `chatCheapCascade`, escrito donde devuelve el texto. · *2026-10-11 Graphics*

@@ -23,6 +23,7 @@ import { pideWizardAlElegir } from './mover-etapa';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import type { FathomLink } from '@/lib/leads';
 import { suscripcionDeFila } from '@/lib/venta-tipo';
+import { muestraPagos, planEnLead, tieneDeal } from '@/lib/muestra-pagos';
 import { JourneyTimeline } from './JourneyTimeline';
 import { OrigenCard } from './lead-view/OrigenCard';
 import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
@@ -123,7 +124,6 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   const stageKey = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
   const sm: Stage | undefined = stageMeta(stages, stageKey);
   const chip = sm ? CHIP[sm.tone] || CHIP.neutral : CHIP.neutral;
-  const isGanado = lead.estado_lead === 'ganado';
   const monto = lead.monto_cierre_usd ?? 0;
 
   const journey = buildJourney({
@@ -250,7 +250,14 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     </>
   );
 
-  const tabCobranza = isGanado || pagos.length > 0 ? (
+  // ⚠️ LA TAB PAGOS SALE DE LA MISMA REGLA QUE LA RUTA /crm/[id] (lib/muestra-pagos.ts), con los
+  // mismos datos. Hasta el 11/10/2026 acá se pedía «tiene cuotas» y allá «es venta o tiene plan»: un
+  // Ganado sin cuotas tenía Pagos por una puerta y no por la otra. Con una pasarela conectada la tab
+  // también está en el lead que todavía no compró: ahí vive «Cobrar con link», y la tarjeta le
+  // dibuja sólo los links (sin el deal vacío), por eso «Editar deal →» va sólo cuando hay deal.
+  const etapaPagos = { estado: lead.estado_lead, etapa: stageKey, cuotas: pagos.length, planEnLead: planEnLead(lead) };
+  const verPagos = muestraPagos({ ...etapaPagos, ...vigente.cobro });
+  const tabCobranza = (
     <>
       {/* ⚠️ `onCambio`: acá el lead es estado de cliente (getLeadFullAction), así que el
           refresh de la tarjeta no lo alcanza. Se aplica lo que la action devolvió —el wizard
@@ -260,13 +267,8 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
         setFresca({ ...vigente, lead: { ...vigente.lead, ...patch } });
         void getLeadFullAction(lead.id).then((x) => { if (x) setFresca(x); }).catch(() => {});
       }} />
-      <Link href={`/crm/${lead.id}?tab=cobranza&edit=1`} style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Editar deal →</Link>
+      {tieneDeal(etapaPagos) && <Link href={`/crm/${lead.id}?tab=cobranza&edit=1`} style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Editar deal →</Link>}
     </>
-  ) : (
-    <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 10 }}>Deal Details</div>
-      <p style={{ fontSize: 14, color: 'var(--faint)' }}>El deal se habilita cuando el lead pasa a Facturando o Ganado.</p>
-    </section>
   );
 
   return (
@@ -348,7 +350,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               // contenido es una pestaña que se abre una vez y no se abre nunca más,
               // pero que todos los días ocupa lugar y hace dudar de si falta algo.
               // Con pagos cargados vuelve sola, con todo lo de siempre.
-              ...(pagos.length ? [{ key: 'cobranza', label: 'Pagos', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length }] : []),
+              ...(verPagos ? [{ key: 'cobranza', label: 'Pagos', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length }] : []),
               // ⚠️ ANÁLISIS VA PEGADO A HISTORIAL, y es pedido de Martín («que análisis
               // esté previo al historial», 27/09/2026). Las dos contestan «qué pasó con
               // esta persona» —una lo interpreta, la otra lo registra— así que se leen

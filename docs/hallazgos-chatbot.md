@@ -2946,7 +2946,7 @@ arrastra `server-only` (lib/tab-access, lib/settings). Cinco tests dibujan `Simu
 `pie`), y lo monta ChatAgentApp, que ningún test importa en runtime. Lo que se puede dibujar (el botón, la
 cuenta de dónde cae el panel) va en un archivo sin las acciones (`HorarioBoton.tsx`), que sí se prueba.
 
-**Vive en:** `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `app/automations/SimuladorWhatsApp.tsx`
+**Vive en:** `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `app/automations/SimuladorWhatsApp.tsx` · desde la décima tanda (11/10/2026) los dos de Horario se borraron: los reemplaza `app/automations/ConfiguracionesBoton.tsx` (`tests/automations-configuraciones.test.ts`)
 
 ### Un popover con un `Dropdown` de la casa adentro: el clic y el Escape del desplegable caen «afuera» [horario]
 
@@ -2959,7 +2959,7 @@ ni el Escape (`hayMenuAbiertoEn`). Y `capa.visible` de `useCapaModal` es false e
 capa se registra en un efecto): un `display` atado a eso deja el panel en `display:none` justo cuando se
 lo mide y se le da el foco.
 
-**Vive en:** `app/automations/HorarioBoton.tsx` · `app/components/Dropdown.tsx` · `app/_components/pila-modales.ts`
+**Vive en:** `app/automations/HorarioBoton.tsx` · `app/components/Dropdown.tsx` · `app/_components/pila-modales.ts` · desde la décima tanda (11/10/2026) los dos de Horario se borraron: los reemplaza `app/automations/ConfiguracionesBoton.tsx` (`tests/automations-configuraciones.test.ts`)
 
 ### Revisión: el panel anclado tiraba lo no guardado, y el borde en línea anulaba el hover [horario]
 
@@ -2987,7 +2987,7 @@ La revisión adversarial (sólo lectura) dejó dos reglas. Se arreglaron en la r
   quedaba muerto en toda la pantalla. El retenido frena sólo la tecla que nace en el panel, en su botón o
   sin foco. Las dos cosas las fija `tests/automations-horario.test.ts` (roturas C1-C8).
 
-**Vive en:** `app/configuraciones/HorarioEnvioPanel.tsx` · `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `tests/automations-horario.test.ts`
+**Vive en:** `app/configuraciones/HorarioEnvioPanel.tsx` · `app/automations/HorarioLista.tsx` · `app/automations/HorarioBoton.tsx` · `tests/automations-horario.test.ts` · desde la décima tanda (11/10/2026) los dos de Horario se borraron: los reemplaza `app/automations/ConfiguracionesBoton.tsx` (`tests/automations-configuraciones.test.ts`)
 
 ### Lo que quedó sin hacer (parte «horario»)
 
@@ -3616,3 +3616,251 @@ que hicimos de CONDITIONS y DELAY… Solo debes readaptar esas plantillas»). El
   queda contada. El dry-run la muestra como «acción».
 - **Consecuencia que se avisó:** desde el deploy, «aviso antes de la reunión», «un lead te escribió» y «cuota vencida»
   dejan de salir en los 10 negocios hasta que cada uno agregue su plantilla. El ws1 recibía 7 y 3 en 30 días.
+
+## Décima tanda (11/10/2026, claude3)
+
+Siete partes en paralelo, una revisión adversarial de motor y datos y el cierre. El pedido, textual, en
+`app/admin/dev/chatbot/bitacora.ts` (11/10, 04:30). Lo que no se ve en el diff:
+
+- **Un freno de «no cambia lo que se contesta» compara lo que lee el REDACTOR, no sólo el clasificador.** La migración
+  del AI Step ponía en cada caso el objetivo de la tabla de §8.4 y `loQueContesta` daba igual (nombre, «cuándo», guía,
+  «sale sola»), pero el objetivo viaja aparte al redactor (`bloqueEscenario`): con `--aplicar`, la #213 del ws1 (activa,
+  dos casos que salen solos) contestaba otra cosa. El diseño se contradecía (§8.4 contra §10-A). Lo migrado NO lleva
+  objetivo (se imprime como sugerencia) y el freno compara objetivo, ejemplos, audio y «hasta». **Vive en:**
+  `lib/ai-step-migrar.ts`, `scripts/ai-step-v2.mts`.
+- **El repo tiene DOS zonas por defecto:** `ZONA_SIN_CONFIGURAR` (Ciudad de México, `lib/nutricion-grafo-motor.ts`) y
+  `TZ_DEFAULT` (Tijuana, `lib/timezone.ts`). Al sumar el horario de oficina, «Contesta sola» saltó de una a la otra y en
+  el ws1 (sin `mako.timezone`, horario 9-21 prendido) la ventana se corrió una hora, dos desde el 1/11. El diagnóstico
+  obvio era «el horario está mal»: estaba bien. Volvió a `tz` (`tzActual`). **Vive en:** `lib/nutricion.ts` («4.5) ¿SALE
+  SOLA?»). ⚠️ SIN DECIDIR: el resto del motor ya manda con el horario en hora de Ciudad de México al ws1, que es de Baja
+  California: o se guarda su `mako.timezone`, o se unifican los dos defaults. **Resuelto en la undécima** (un default y una lectura):
+  `docs/hallazgos-infra.md` → «Una zona, un default, una lectura».
+- **Lo de fábrica no se valida contra el rango de lo que se ELIGE.** `limitesDeFabrica` respeta un env fuera de rango
+  a propósito y `limitesParaGuardar` lo rechazaba igual: con `NUTRICION_MAX_POR_DIA` > 150 no pasaba ningún guardado
+  (el env de prod no se pudo medir). **Vive en:** `lib/limites-envio.ts`.
+- **Dos clasificadores sobre las mismas palabras: el arreglo de uno rompe al otro.** La agenda se llevaba «créame una
+  automatización que le escriba a los que no vinieron a la reunión»; la regla nueva, puesta antes, se llevó «Quiero una
+  reunión sobre el flujo de ventas» y «Haz el flujo de caja». Entre el verbo y el sustantivo no puede haber otro objeto
+  de agenda, y «flujo de caja / efectivo / fondos / dinero» no es un flujo. **Vive en:** `lib/mako-intencion.ts`.
+- **El typecheck acotado a «mis archivos» no ve los tests de otro:** quedaron cuatro errores de la tanda —
+  `useState<función>(() => (b) => …)` deja `b` sin tipo, un `rol: 'setter'` que `Rol` no tiene, el estrechamiento de
+  `p.cron` perdido en un callback, un `gating` opcional—. Y un enchufe del reparto por archivo: «MaKo en WhatsApp» seguía
+  en el panel de control de 280 (`editorDeTarjeta`, `lib/lienzo-grafo.ts`; /mensajes ya lo medía como un mensaje).
+- **Filtrar el selector no corta un remitente.** El ws1 tiene guardados el remitente y el dominio de MaKo: el corte real
+  va en el motor (`procesarEnvios`, junto al sandbox: «remitente de MaKo: conecta tu email», un reintento por día) y en
+  /integraciones, que seguía diciendo «Conectada». **Vive en:** `lib/nutricion.ts`, `lib/integraciones.ts`.
+- **La propuesta para el CRON de antes cerraba un círculo** en 24 de 32: un paso sin `siguiente` sigue por el de abajo
+  del array, y la entrada se agregaba al final de una lista vieja. Se normaliza ANTES. **Vive en:** `lib/cron-de-antes.ts`.
+- **Lienzo y editores, medido:** `flex: 1` con `minHeight` deja encoger el recuadro bajo su contenido (va `flex: 1 0
+  auto`); un tacho que cuelga 9 px en una caja `overflow: auto` da scroll lateral (`AIRE_ESQUINA`); la rueda hacía zoom
+  en los paneles porque el listener no pasivo del lienzo hace `preventDefault` de todo (`queHaceLaRueda`); el cleanup de
+  un efecto ve el primer render (va por refs); la grabación se perdía al recargar (`VoiceRecorder.tsx`, por trozos).
+- **Herramientas que mintieron:** `sed -i` de Git Bash pasó dos archivos CRLF a LF; un argumento que empieza con `//`
+  se reescribe (TS1161); un heredoc con comillas dobles ejecutó backticks; Edit escribe ` ` como espacio duro; los
+  guards con `git ls-files` no ven lo nuevo (índice temporal: `GIT_INDEX_FILE` + `git add -N`).
+
+**SIN HACER:**
+- Datos, en orden: la mig `0251_setting_audios_origen.sql` ANTES del deploy (verificar el número contra las 0249/0250
+  de otras sesiones); `scripts/mudanza-nuevo-agendado.mts --aplicar` antes del push (sin eso ws1 y ws13 se quedan sin
+  «nuevo agendado»); deploy; `scripts/ai-step-v2.mts` simulacro y `--aplicar` DESPUÉS (volver atrás luego es
+  destructivo). `scripts/migrar-cron-de-antes.mts` se niega a `--aplicar`: falta la fase 1 del motor.
+- Al commitear, `git rm` de `HorarioBoton.tsx`, `HorarioLista.tsx` y `tests/automations-horario.test.ts`: si no,
+  `funnel-estructura` y `motor-tick` dan ENOENT (leen el índice).
+- `app/_ui/BotonMako.tsx` (la estrella chica del ✦), `EditorCondicionDeRespuesta` sin el layout nuevo
+  (`app/automations/EditorCondicion.tsx`), el chip «Sin conectar» del CRON (`FlujoLienzo.tsx`, `CuerpoCron`), el AI Step
+  por Instagram/Messenger (§6), «Escuchar» en `PanelProbar.tsx`, `armar_ai_step` en la API, el filtro por medio
+  (`lib/chatbot-lista-filtro.ts`), las props muertas `claseInicial` (`EditorDisparadores.tsx`) y `graphify update`.
+  Nada se abrió en el navegador: lo revisa Martín.
+
+**DECISIONES TOMADAS POR MARTÍN, a confirmar:** lo migrado sin objetivo (§10-A); «Contesta sola» en `tzActual`; el
+editor de «MaKo en WhatsApp» con el tamaño del de WhatsApp pero **sin audio, archivos, varios mensajes ni ✦** (el pedido
+dice «las mismas opciones»); el email de MaKo no sale y /integraciones del ws1 dice «falta» (Mauricio sin emails hasta
+vincular su dominio); al salir del editor la barra pasa a burbuja; «Descartar cambios» sin preguntar si está abierta;
+0 en «por persona» = siempre borrador; Publicar frena aunque esté pausada; el tutorial se abre solo a un admin la
+primera vez que ve un lienzo; Instagram y Messenger sin AI Step en la galería; el evento de antes no se ofrece en el CRON.
+
+## El CRON «Pagos» y el aviso «Entra un pago» (11/10/2026, la pasarela de pagos)
+
+- **«Pagos» es un BOTÓN PROPIO de la primera pantalla** (decisión de Martín, elegida entre dos opciones):
+  siete botones van en una grilla de **4+3**, nunca 3+3+1 (un botón solo en una tercera fila se ve roto).
+  `esClaseDeEventos` reemplazó las tres copias de «instagram || messenger || email» (editor, API).
+  **Vive en:** `lib/disparadores.ts` · `app/automations/EditorDisparadores.tsx` · `tests/editor-disparadores.test.ts`.
+- **Lo emite la pasarela DESPUÉS de asentar el pago en el CRM** (`enrolarPorPago`, `lib/pago-entrante.ts`):
+  con `fecha_primer_pago` ya escrita, `esLeadCliente` da true y el WhatsApp sale solo, no como borrador.
+  Y un lead que entra pagando NO dispara `lead_nuevo` («dejó el formulario sin agendar»).
+- **«Se aprueba un pago» corre UNA vez por lead**: la inscripción es única por (lead, automatización), así
+  que la bienvenida sale con el primer pago y no con cada renovación de una suscripción.
+- **«Entra un pago» es el quinto Evento de MaKo** (`pago_recibido` → `pago-recibido`, `textoDelCodigo`):
+  sale sólo si el negocio agrega «Aviso de pago recibido» (`mako-pago`) de la galería. En una venta de
+  MaKo, el texto dice cómo quedó el alta de la cuenta. `tests/plantillas-viejas.test.ts` cruza el aviso
+  contra su emisor (`lib/cobros.ts`): sin emisor queda rojo — y así quedó en la rama de Automations hasta
+  juntarla con la pasarela.
+- **`disparadores-canales` suma `pagos`**: «conectado» es tener Stripe o Mercado Pago con lo que MaKo
+  deriva (sin el aviso registrado, un pago nunca llegaría). Un test que arma `EstadoCanales` a mano
+  (`tests/editor-disparadores.test.ts`) se rompe en el TYPECHECK, no en la suite: `npm test` no chequea
+  tipos. **Vive en:** `lib/disparadores-canales.ts`.
+
+_11/10/2026 — `tests/disparadores-pagos.test.ts` (6, probado con 3 roturas)._
+
+## Undécima tanda (11/10/2026, claude3): un flujo por categoría, un AI Step por objetivo, nada inventado
+
+El pedido, textual, en `app/admin/dev/chatbot/bitacora.ts` (11/10, 14:38), con las cuatro decisiones de la décima (12:38).
+El diseño, en `docs/diseno-undecima-tanda.md`. Diez paquetes en cuatro olas, un enchufador y el cierre, en el worktree
+`C:/dev/wt-undecima` (rama `undecima`). Lo que no se ve en el diff:
+
+**El AI Step: un nodo, el saneo y los atajos**
+
+- **⚠️ Un campo que se MUDA del caso al nodo se pierde en el saneo, no en el modelo** (el diagnóstico obvio era el
+  equivocado). El diseño decía «el saneo del caso deja de escribir objetivo/audio/ejemplos»; hecho así, se borraban al
+  guardar, porque `setSecuenciaPasos` arma lo limpio con `camposDelFlujo` ANTES de juntar (`grafoAGuardar` →
+  `juntarPasosIA`). Regla: el campo se SUBE en el saneo, y lo que juntar tiene que plegar o reportar no se borra ahí.
+  **Y se buscan los atajos de antes:** `vozDeAIStepQueFalta` salía con null mirando sólo `c.audio` antes de llamar a la
+  regla pura: con la voz en el nodo, Publicar nunca frenaba por la voz y los tests de la regla seguían verdes.
+  **Vive en:** `lib/nutricion-grafo-motor.ts` (`camposDelFlujo`), `lib/nutricion.ts`.
+- **Sacar tarjetas del array corre los índices.** Sin ids ni `siguiente` explícitos, las de después cambian de identidad
+  (`o<i>`) y de salida («la de abajo»), y una inscripción guarda una POSICIÓN. `juntarPasosIA` normaliza antes de quitar,
+  y el script de prod deja los ids viejos en su índice y agrega al final (frena si algo se corre). En #213 las tres
+  quitadas eran las últimas. **Vive en:** `lib/flujo-grafo.ts`, `lib/undecima-flujos-plan.ts`.
+- **Una sola puerta para la libertad** (`libertadesPermitidas` + `juntarPasosIA`). Una rotura con 0 rojos destapó que el
+  corte de plata del conversor (`lib/paso-ia-convertir.ts`) era código muerto: una copia de una regla es código que
+  ninguna rotura detecta.
+- **«Crear con IA» rompía TODO flujo con AI Step** desde que Publicar exige el objetivo: `lib/flujo-ia-crear-core.ts`
+  valida la salida del modelo a nivel Publicar, toda la cascada fallaba y el reintento citaba un id que el modelo no
+  conoce. Regla: una regla nueva de Publicar entra al contrato de la IA en la misma tanda (prompt, `deIA` y `validarIA`
+  con las palabras del modelo).
+- **`Partial<…>` es un tipo débil:** el DTO de la pantalla (`CamposDelFlujo`, `ChatAgentApp.tsx`) y el tipo de la fila
+  (`PasoSecuencia`, `lib/nutricion.ts`) no declaraban objetivo/audio/ejemplos y todo compilaba. Sólo una línea de tipo
+  que lo exija lo protege (`tests/automations-paso-ia-revision.test.ts`).
+
+**El recordatorio adentro del flujo (el carril)**
+
+- **⚠️ El «1 h antes» de una reunión temprana no salía**, aunque el carril corre fuera de horario. Lo obvio (equivocado):
+  la tolerancia o el horario. Causa: el tick sólo mira las filas cuyo `proximo_envio_at` venció en los últimos 10 min, y
+  con hilos esa columna resume el hilo MÁS VIEJO: uno frenado (fuera de horario, anti-ban, cupo) la deja clavada y tapa al
+  del recordatorio. Regla: un hilo que tiene que salir a horario no comparte fila con uno frenado sin aplazarlo
+  (`aplazaParaNoTapar`, 15 min). Y el tick filtraba `estado = 'activa'`: lo que vive en 'respondio' le era invisible
+  (`ESTADOS_QUE_SE_MUEVEN`). **Vive en:** `lib/nutricion.ts`, `lib/nutricion-grafo-motor.ts`,
+  `app/api/cron/nutricion-tick/route.ts`.
+- **Una respuesta apagaba los recordatorios por DOS caminos:** `pausarPorRespuesta` pasaba la inscripción entera a
+  'respondio' (ahora `alResponder` deja vivos los hilos del carril), y #213 tiene `desenlace.logrado = 'respondio'`, así
+  que el evaluador la cerraba como lograda la hora siguiente (`desenlaceEsperaAlCarril`). Además una 'respondio' no se
+  reusaba: quien contestaba y reagendaba se quedaba sin el «Nuevo agendado» (`soloQuedaElCarril`).
+- **El anti-ban se comía el «15 min antes»**: sale 45 min después del «1 h antes» y el freno deja 3 h entre mensajes. El
+  carril no pasa por el anti-ban ni por los topes (`pasaPorAntiBan`), pero sus envíos SÍ entran en la cuenta diaria y
+  horaria de la línea para los demás mensajes (~2 por día en el ws1).
+- **`{{hora}}` no es el mismo dato en dos emisores.** En el del recordatorio (`VARIABLES`, `lib/recordatorio-lead.ts`) es
+  la hora de la REUNIÓN; en el catálogo del motor, la del MOMENTO. Los textos de #228 copiados tal cual decían otra hora.
+  Un texto que viene de otro emisor se traduce dato por dato, y lo que no está en el mapa frena (`MAPA_RECORDATORIO`).
+- **La reserva entra al instante a su etapa** (M1): `enrolarPorEvento('agenda_nueva')` suma los CRON de la etapa
+  efectiva. Lo que la ficha carga a mano tiene su propia trampa, en [hallazgos-crm.md](hallazgos-crm.md).
+
+**Los flujos de producción**
+
+- **⚠️ #238: «la lista `disparadores` le gana a la columna» era falso, y el diagnóstico obvio se equivocó DOS veces.** El
+  relevo dijo «manda la columna» y el arquitecto lo «corrigió». El motor saca el PRIMER CRON siempre de las columnas
+  (`disparadoresDe`/`listaDe`, `lib/nutricion.ts`) y la lista sólo suma del segundo en adelante. Regla: qué dispara una
+  fila se le pregunta a `disparadoresDe(fila)`, nunca al jsonb crudo.
+- **Los borradores viejos pisan lo rehecho:** #198 tenía `pasos_borrador` y #213 `posiciones` de la forma anterior, y
+  «Publicar» desde el lienzo devolvía lo viejo. El script los pone en null.
+- **La galería ya traía lo que Martín rechaza:** `bienvenida-sin-agenda` era CONDITION → DELAY → CONDITION y
+  `agendo-preparar` CONDITION → CONDITION; #198 nació de ahí. `problemasDeForma` (`lib/flujo-forma.ts`) cuida ahora la
+  galería, «Crear con IA» y el script.
+- **El ws13 no tiene etapa de no-show:** #224 se archiva (un CRON «(de antes)» se rehace sólo si el embudo tiene la
+  etapa). Y su fila nueva nace PAUSADA, pre-siembra sus 9 leads de «Pre R1» y recién ahí se prende: prendida al
+  insertar, el barrido podía mandar 9 «Nuevo agendado» viejos al grupo del cliente.
+
+**Datos y tokens**
+
+- **El renglón opcional se lleva el renglón ENTERO.** Con «{{pago_tipo}} · {{pago_modo}}», cada pago real (sin modo)
+  perdía «Primer pago». Un dato opcional por renglón. «Sin valor» = la clave no está; '' cuenta como valor (si no,
+  «Hola {{nombre}}, …» con nombre '' se comía el saludo). ⚠️ Y una lectura que FALLA ahora borra el renglón en silencio,
+  porque el mapa de valores no distingue «no tiene» de «no pude leer» (antes salía crudo y se notaba). SIN HACER:
+  marcar en el resolvedor lo que no pudo leer (`lib/variables-resolver.ts`).
+- **`{{ mensaje_mako }}` con espacios no lo ve `tokensDe`** (`RE_VARIABLE` es estricto) y `aplicarVariables` sí lo
+  resuelve: un validador de token prohibido armado con `tokensDe` deja pasar justo lo que el motor manda. Se busca con el
+  regex del motor (`lib/tokens-del-flujo.ts`). Y `limpiarTexto` de «Crear con IA» borraba todo dato fuera de los 5 del
+  motor (también los de «Próxima reunión»), y su llave suelta no aceptaba dígitos (`lead_hora_r1`).
+- **Un Evento de MaKo que se retira no se borra ni se apaga:** fuera de `EVENTOS_MAKO`, #239/#240 dejan de salir; con
+  `apagado`, no se pueden guardar. Es `retirado` + `EVENTOS_MAKO_OFRECIDOS`, que quedó HUÉRFANO hasta el enchufe: el
+  selector del CRON seguía ofreciendo «Un lead agenda». Escribir la salida no es ofrecerla.
+- **Un ciclo de imports que sólo falla según quién cargue primero:** `flujo-conversacion → tokens-del-flujo →
+  aviso-evento → disparadores → flujo-conversacion`, con `aviso-evento` evaluando `EVENTOS_MAKO` al cargar. Los tests de
+  flujo-conversacion pasaban e `import('lib/disparadores.ts')` tiraba «Cannot access 'EVENTOS_MAKO' before
+  initialization». Regla: `lib/flujo-conversacion.ts` sólo hace `import type` de esos dos (`frenoDelFlujo` recibe los
+  problemas calculados), y antes de importar algo que llega a disparadores se prueba
+  `node --import tsx -e "import('./lib/disparadores.ts')"`.
+- **Sumar contexto al user de «Crear con IA» deja a Groq fuera de la cascada, sin error.** Subir `TOPE_TARJETAS_IA` a
+  30 parecía cambiar un número, y la salida mínima está calibrada para ~20 tarjetas: quedó en 25. Todo lo que se sume
+  pasa por `entraEnGroq` (`lib/flujo-ia.ts`); la calibración es `tests/crear-ia-tercera.test.ts`.
+
+**La tarjeta «MaKo en WhatsApp» y la Voz de MaKo**
+
+- **«Le avisé al equipo» sin grupo:** `emitirAviso` devuelve `ok: true` aunque el WhatsApp no salga. Detalle en
+  [hallazgos-comunicacion.md](hallazgos-comunicacion.md) → «Undécima tanda».
+- **El cambio del editor va DENTRO del updater** (`onPasos(prev => …)`): al salir del editor llegan dos cambios en el
+  mismo tick (la barra y el audio), y con los params del render el segundo pisaba al primero.
+- **Editar una tarjeta de antes la pasa a TAL CUAL**: pierde el envoltorio (título, teléfono, link, «— MaKo») y el dedup
+  de 12 h. La `ne9jyr0` de #213 está así hasta que corra el script, que la reescribe con los datos a la vista.
+- **⚠️ Sin la mig 0257, generar la voz SÍ cobra** (el diseño §8.2 decía que no): el insert va después del TTS. `crearAudio`
+  borra el binario huérfano y la 0257 va antes o junto con el deploy. La key es `MAKO_ELEVENLABS_API_KEY`, no
+  `ELEVENLABS_API_KEY`: ws9/10/11 tienen ElevenLabs BYOK y la hidratación podría dejar la de un cliente en la env de
+  siempre. Y el error no dice «tu cuenta» (`textoFalloVozMaKo`): esa voz la paga la plataforma.
+
+**La lista**
+
+- **Un campo sembrado de la prop + una SEGUNDA puerta que escribe el mismo dato:** con «Renombrar» desde la lista y la
+  automatización abierta (mismo `key`), el título de `SecuenciaPerfil` quedaba viejo y un clic + blur volvía a ESCRIBIR el
+  nombre anterior. Se re-siembra al dibujar cuando cambia la prop y no se está editando.
+- **Un test de selector que no podía caer:** `loQuePide` (`tests/automations-recorrido.test.ts`) no pedía las clases
+  (`(?<![\w-])\.` nunca coincide en `tag.clase`). Al simplificar un selector, romperlo y ver caer el test.
+- Renombrar un id ARCHIVADO funcionaba y uno ajeno contestaba «ok» sin cambiar nada: ahora los dos dan 404.
+
+**Herramientas**
+
+- `grep $'\r'` del Git Bash dijo LF en archivos CRLF: el worktree tiene `core.autocrlf=true` y TODO `lib/` y `tests/`
+  sale CRLF. Se mide con node o con `grep --binary`. Edit conserva el CRLF; Write escribe LF (git lo normaliza).
+- Un typecheck que espera turno puede leer el árbol en medio de una rotura: se vuelve a correr con los archivos quietos.
+- `mock.module` de node:test prueba `server-only` de punta a punta (`--conditions=react-server
+  --experimental-test-module-mocks`): hay que sacar `default` del namespace que se mockea y cargar
+  `lib/api-mako/runners.ts` antes que un `areas/*.run.ts`. Molde: `tests/voz-mako.test.ts`, `tests/zona-negocio.test.ts`.
+- Retirar un script con un `process.exit(1)` suelto arriba hace que TypeScript tome el resto como `never` (222 errores):
+  se retira con una función `void` (`retirado()`).
+- Borrar un archivo trackeado rompe los tests que recorren `git ls-files` (ENOENT) hasta el `git rm`.
+- Los tests que fijan una línea exacta o un TOPE de largo de un recorte (nutricion-canal 5000 → 6500,
+  flujo-aviso-accion 2500, seis que fijaban `preparaUnaReunion(sec.trigger_tipo)`) se rompen con cambios que no les
+  tocan: se escriben con margen y anclados a una función, no a una línea.
+- Un campo «para la pantalla» que nadie lee pasa todos los tests (`propio` del dominio, `PasosInvalidosError.tarjeta`):
+  sólo un grep de lectores lo ve.
+
+**SIN HACER (con su archivo):**
+- Datos, en orden y todos en simulacro: mig 0257 antes o con el deploy → deploy → `scripts/zona-negocio-backfill.mts` →
+  `scripts/undecima-email-remitente.mts` → `scripts/voz-mako-agregar.mts` (después de pagar ElevenLabs y cargar
+  `MAKO_ELEVENLABS_API_KEY`) → `scripts/undecima-flujos.mts`, mejor antes del 12/10 17:00 UTC (primer toque real).
+  Ninguno corrió `--aplicar`.
+- La limpieza §8.7, en commit aparte después de `--aplicar`: la compatibilidad de `{{mensaje_mako}}` (también
+  `CLAVE_MENSAJE_MAKO` en `app/_components/CampoConDatos.tsx`), el emisor del recordatorio, `DATOS_RECORDATORIO` en
+  `FlujoLienzo.tsx` y `TRIGGER_RECORDATORIO` de `TRIGGERS_DEL_EMISOR`. Los campos `@deprecated` del caso del AI Step se
+  van cuando una medición diga «0 filas con la forma de antes» (`lib/flujo-grafo.ts`).
+- «Tiene una duda» no está en `ESCENARIOS_TIPICOS` (`lib/ai-step-escenarios.ts`): `lead-tuvo-reunion` y
+  `cliente-empezo` salen sin él. Agregarlo es inventar texto: lo decide Martín.
+- El Recurrente al grupo manda los textos de las partes pero no los binarios (`lib/disparadores.ts`
+  `textosParaElGrupo`, `lib/nutricion.ts` `mandarRecurrenteAlGrupo`).
+- Sin guarda para un email o un borrador que quedan vacíos por el renglón opcional (`lib/nutricion.ts`), y el HTML del
+  email no recorta (`sinRenglonesVacios`).
+- Una R2 no inscribe al instante (`app/api/webhooks/{calendly,calcom}/route.ts`, rama j2); un «Ir a» desde el AI Step o
+  el destrabe de `requiere: 'respondio'` dejan `hilos` en null y apagan el carril de una 'respondio'; lo aplazado sale
+  hasta 15 min después de la apertura (`lib/nutricion.ts`).
+- La CONDITION «Próxima reunión ≤ N h» sigue laxa y el ancla del DELAY es estricta (`lib/nutricion-grafo-motor.ts`):
+  igualarlas es una decisión. `u11aviso` cuelga del CRON sin esa condición: un lead sin reunión futura perdería el primer
+  renglón del aviso.
+- `--restaurar` del script de flujos no deshace las pre-siembras 'completada' (`scripts/undecima-flujos.mts`).
+- «Pídele un cambio» no suma escenarios al AI Step (`lib/flujo-ia.ts`, `deIAEdicion`); el AI Step de Instagram y
+  Messenger (`MEDIOS_OFRECIDOS`, `EditorPasoIA.tsx`); el alto del editor con 10 escenarios (`lib/lienzo-grafo.ts`); el
+  lint `react-hooks/refs` en `app/_components/CampoConDatos.tsx:340-349`.
+- No medido: Evolution mandando un mp3 a un @g.us, ni la plataforma hablando con «David». El ws3 no tiene grupo de MaKo:
+  se crea antes de probar ahí (nunca en el ws1).
+- Nada se abrió en el navegador: lo visual lo mira Martín.
+
+_11/10/2026 — cierre de la undécima: typecheck limpio; suite entera 8190 tests: 8186 pasan, 3 fallan (de MaKo Mobile,
+ya en HEAD: `confirm-encima-de-modales`, `mover-etapa-validacion`, `plan-filtro-cliente`), 1 skip. El cuarto rojo era de
+la corrida (un «acá» en el `context` de `chatbot.crear-ia.system`) y lo arregló el cierre._

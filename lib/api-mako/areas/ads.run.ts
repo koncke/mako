@@ -544,11 +544,13 @@ export const RUNNERS: Runners = {
       const hasta = str(input, 'hasta') || undefined;
       if ((desde && !esFecha(desde)) || (hasta && !esFecha(hasta))) return fallo('Las fechas van como YYYY-MM-DD.');
       const puntos = await getQuadrantData(desde, hasta);
-      // COPIA de verdictFromVals (app/ads-analyst/ScriptsBrowser.tsx): primero la
-      // confianza por impresiones (confFromImpr: menos de 8000 = baja → 'validar'),
-      // después HOOK_MID/HOLD_MID, que valen lo mismo que HOOK_BENCH/HOLD_BENCH de
-      // lib/ads-analyst.ts. Deuda: la lib no exporta una función pura del veredicto;
-      // si los umbrales cambian allá, hay que cambiarlos acá.
+      // COPIA de verdictFromVals (hoy en lib/ads-analyst-patrones.ts; vivía en
+      // app/ads-analyst/ScriptsBrowser.tsx): primero la confianza por impresiones
+      // (confFromImpr: menos de 8000 = baja → 'validar'), después HOOK_MID/HOLD_MID,
+      // que valen lo mismo que HOOK_BENCH/HOLD_BENCH de lib/ads-analyst.ts. Deuda: desde
+      // el 11/10/2026 esa función pura SÍ existe y se exporta, pero sus claves no son las
+      // de esta salida ('reescribir' vs 'reescribir_cuerpo'): cambiarla por un import
+      // cambia lo que lee quien ya consume la API. Si los umbrales cambian allá, acá también.
       const HOOK = 28, HOLD = 10, IMPR_MIN = 8000;
       const cuadrante = (h: number, r: number, impr: number) => (impr < IMPR_MIN ? 'validar' : h >= HOOK ? (r >= HOLD ? 'escalar' : 'reescribir_cuerpo') : (r >= HOLD ? 'mejorar_gancho' : 'repensar'));
       return J({
@@ -598,7 +600,7 @@ export const RUNNERS: Runners = {
       if (guion.length < 80) return fallo('El guion tiene que tener al menos 80 caracteres.');
       const r = await valorarGuion(guion, num(input, 'dur') ?? undefined);
       if (!r.ok) return fallo(`No se pudo valorar el guion: ${r.error}`);
-      return J({ nota: 'Valoración ESTIMADA contra el perfil de la cuenta; no quedó guardada en el historial de Ads Analyst.', valoracion: r.valoracion });
+      return J({ nota: 'Valoración ESTIMADA contra el perfil de la cuenta; no quedó guardada en el historial de Ads Writer (Analizar guion).', valoracion: r.valoracion });
     },
   },
 

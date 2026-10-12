@@ -12,6 +12,7 @@
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
+import { esRutaMovil } from '@/lib/movil-rutas';
 
 /** ¿La ruta es una landing pública? (no debe mostrar chrome de la app). */
 export function isPublicLandingPath(pathname: string | null | undefined): boolean {
@@ -25,7 +26,9 @@ export function isPublicLandingPath(pathname: string | null | undefined): boolea
   // `/mi-curso` es el cliente de un negocio mirando SU curso con la cookie de alumno
   // (lib/alumno-sesion.ts): no tiene `mako_session`, así que es «alguien de afuera» igual
   // que un link de /compartido — sin sidebar y sin los pollers del WhatsApp del negocio.
-  return p === '/' || p === '/vsl' || p.startsWith('/vsl/') || p === '/compartido' || p.startsWith('/compartido/') || p === RUTA_ALUMNO;
+  // `/pagar/<token>` es el comprador volviendo de Stripe o Mercado Pago (la página de retorno de un
+  // cobro, app/pagar): no tiene sesión, y los pollers de la app le darían 401 en bucle.
+  return p === '/' || p === '/vsl' || p.startsWith('/vsl/') || p === '/compartido' || p.startsWith('/compartido/') || p === RUTA_ALUMNO || p.startsWith('/pagar/');
 }
 
 /**
@@ -55,7 +58,13 @@ export function esVistaSinChrome(pathname: string | null | undefined): boolean {
     || /^\/integraciones\/escuchando\/?$/.test(p)
     // El Video Editor ocupa la ventana entera, como CapCut. Su salida es el menú de
     // su barra superior («Volver al inicio», con el `?ws=`): sin chrome no hay sidebar.
-    || /^\/video-editor\/[^/]+\/?$/.test(p);
+    || /^\/video-editor\/[^/]+\/?$/.test(p)
+    // MaKo Mobile (/m) dibuja SU cromo (header y barra inferior, app/m/layout.tsx):
+    // el Sidebar, los banners y la esquina de avisos de escritorio no van. NO entra
+    // en `isPublicLandingPath`: /m exige sesión, y esa lista significa «público».
+    // Por `esRutaMovil` y nunca `startsWith('/m')`, que atrapa /mako, /marketing y
+    // la ruta PÚBLICA /m.js del Pixel.
+    || esRutaMovil(p);
 }
 
 /** Renderiza a sus hijos SOLO en las pantallas que sí llevan el chrome de la app. */

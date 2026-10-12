@@ -36,7 +36,11 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import Link from '@/app/_ui/Link';
+import { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
+// «Conectar» AHÍ MISMO (décima tanda, GENERAL 6): el email en el modal de la tab; y conectar algo vacía la
+// lectura de los canales de la visita (`canalesDeLaVisita`), o el CRON seguiría diciendo «Conecta tu…».
+import { ConectarMedio, avisarMedioConectado, useAlConectarMedio } from './ConectarMedio';
 import { botonGrande } from '@/app/_components/Lienzo';
 import { EditorRecurrente } from './EditorRecurrente';
 import { IconoDisparador, IconoEvento } from './IconosDisparador';
@@ -45,18 +49,19 @@ import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NuevoPlaceholder } from './NuevoPlaceholder';
 import { CRON_DEFAULT } from '@/app/_components/EditorCron';
 import {
-  CLASES_DISPARADOR, claseDeDisparador, eventosDe, triggerDeCanal, borradorDeClase, conDisparo, disparoActualDe, esDelEmisor,
+  CLASES_DISPARADOR, claseDeDisparador, eventosOfrecidos, triggerDeCanal, esClaseDeEventos, borradorDeClase, conDisparo, disparoActualDe, esDelEmisor, esEventoDeAntes,
   disparadoresDe, sanearDisparadores, firmaLista, nuevoIdDisparador, problemaDeDisparador, textoDeDisparador,
   valoresQuien, quienTrasTocar, valorEtiqueta, conValorEtiqueta, alternarIgnorar, textoQuien, VALOR_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA, TEXTO_GRUPO,
   TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA,
-  type ClaseDisparador, type Disparador, type EstadoCanales,
+  type ClaseDisparador, type ClaseDeEventos, type Disparador, type EstadoCanales,
 } from '@/lib/disparadores';
 import {
   pasosDisparo, valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, rotuloDisparo,
   detalleDisparador, nombreEtiqueta, PASO_PRODUCTOS, type DisparoActual, type SeccionDisparo,
 } from '@/lib/flujo-conversacion';
 import { etapasDe } from '@/lib/nutricion-etapa';
+import { scrollParaVer } from '@/lib/lienzo-grafo';
 import type { CronAviso } from '@/lib/cron-aviso';
 import type { Opcion, ProductoOpcion, SecuenciaDto } from './ChatAgentApp';
 import type { EtiquetaLienzo } from './FlujoLienzo';
@@ -217,6 +222,8 @@ function NuevoCron({ onClick }: { onClick: () => void }) {
 
 /** El alto mínimo de cada recuadro de CRON: con más de dos, la lista scrollea (CRON 3). */
 const ALTO_RECUADRO_CRON = 150;
+/** El alto de cada uno de los seis botones de la primera pantalla (décima tanda, CRON 1: eran 92). */
+export const ALTO_BOTON_CLASE = 76;
 
 /**
  * LA PRIMERA PANTALLA: seis botones gigantes con su ícono (CRON puntos 1 y 2). En una grilla de tres,
@@ -228,22 +235,35 @@ const ALTO_RECUADRO_CRON = 150;
  * MARCADA (CRON 4: «si le pongo a la flecha de atrás, que esté marcado la opción que había elegido») y
  * tocarla vuelve a su editor tal cual (lo decide quien monta), sin empezar de cero.
  */
+/**
+ * ⚠️ ADENTRO DE SU RECUADRO, SIEMPRE (décima tanda, CRON 1, 11/10/2026: «al editar el CRON en el primer paso,
+ * se sobre sale del recuadro, eso no debe pasar»). Los seis botones medían 92 de alto (dos filas: 194 con el
+ * aire) y el recuadro del CRON, con «＋ Nuevo CRON» al lado, llenaba la MITAD del panel con un piso de 150 que
+ * le ganaba al alto de su contenido: los botones salían por abajo. Ahora la grilla es más baja (76) y el
+ * recuadro nunca mide menos que lo que tiene adentro (`flex: 1 0 auto`, ver `recuadro`): si no entra, la lista
+ * scrollea. Y el texto no empuja el ancho (`minWidth: 0`, se parte la palabra antes que desbordar).
+ *
+ * ⚠️ SIETE BOTONES EN 4+3 (11/10/2026): «Pagos» es un botón propio (decisión de Martín). En la grilla de 3
+ * quedaba 3+3+1 —un botón solo en una tercera fila, que se ve roto—, así que son CUATRO columnas: dos filas,
+ * el mismo alto que antes, y la letra un punto más chica para que «Recurrente» entre en la columna angosta.
+ */
 export function ElegirClase({ onElegir, disabled, actual }: { onElegir: (c: ClaseDisparador) => void; disabled?: boolean; actual?: ClaseDisparador | 'otro' | null }) {
   return (
-    <div role="group" aria-label="Qué dispara esta automatización" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+    <div role="group" aria-label="Qué dispara esta automatización" data-cron-clases style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, minWidth: 0 }}>
       {CLASES_DISPARADOR.map((c) => {
         const on = actual === c.clase;
         return (
           <button key={c.clase} type="button" onClick={() => onElegir(c.clase)} disabled={disabled} data-clase-cron={c.clase} aria-pressed={on}
             style={{
-              minHeight: 92, padding: '14px 8px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`,
-              background: on ? 'var(--primary-bg)' : 'var(--surface)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 9, cursor: 'pointer',
-              fontFamily: SANS, fontSize: 15, fontWeight: 700, color: on ? 'var(--primary)' : 'var(--ink)', transition: 'border-color .12s, box-shadow .12s, transform .12s',
+              minHeight: ALTO_BOTON_CLASE, minWidth: 0, padding: '10px 6px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`,
+              background: on ? 'var(--primary-bg)' : 'var(--surface)', boxSizing: 'border-box',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, cursor: 'pointer',
+              fontFamily: SANS, fontSize: 13, fontWeight: 700, lineHeight: 1.2, textAlign: 'center', overflowWrap: 'anywhere',
+              color: on ? 'var(--primary)' : 'var(--ink)', transition: 'border-color .12s, box-shadow .12s, transform .12s',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,.07)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = on ? 'var(--primary)' : 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}>
-            <IconoDisparador tipo={c.clase} tam={38} />
+            <IconoDisparador tipo={c.clase} tam={32} />
             {c.label}
           </button>
         );
@@ -256,6 +276,9 @@ export function ElegirClase({ onElegir, disabled, actual }: { onElegir: (c: Clas
 let canalesDeLaVisita: Promise<EstadoCanales | null> | null = null;
 function useEstadoCanales(activo: boolean): EstadoCanales | null | undefined {
   const [estado, setEstado] = useState<EstadoCanales | null | undefined>(undefined);
+  // Algo se conectó (acá o en otra pantalla de la tab): la lectura de la visita ya no vale.
+  const [vuelta, setVuelta] = useState(0);
+  useAlConectarMedio(() => { canalesDeLaVisita = null; setVuelta((v) => v + 1); });
   useEffect(() => {
     if (!activo) return;
     let vivo = true;
@@ -264,39 +287,57 @@ function useEstadoCanales(activo: boolean): EstadoCanales | null | undefined {
       .catch(() => null);
     void canalesDeLaVisita.then((c) => { if (vivo) setEstado(c); if (!c) canalesDeLaVisita = null; });
     return () => { vivo = false; };
-  }, [activo]);
+  }, [activo, vuelta]);
   return estado;
 }
 
 /**
- * LOS EVENTOS DE UN CANAL (Instagram, Messenger, Email: CRON puntos 6, 7 y 8), en una grilla de dos
+ * La página de Facebook (lo que ESCUCHA un CRON de Instagram o Messenger) se conecta con Meta en
+ * /integraciones, que no cabe en un modal: se abre en una VENTANA EMERGENTE —la pestaña de Automations sigue
+ * ahí— y al cerrarla se vuelve a preguntar. Con el `?ws=` (AGENTS.md: un `window.open` también navega).
+ */
+function abrirIntegraciones(ws: number | null) {
+  const v = window.open(conWs('/integraciones', ws), 'mako-integraciones', 'width=1100,height=820');
+  if (!v) { window.open(conWs('/integraciones', ws), '_blank'); return; }
+  const t = window.setInterval(() => { if (v.closed) { window.clearInterval(t); avisarMedioConectado(); } }, 1000);
+}
+
+/**
+ * LOS EVENTOS DE UN CANAL (Instagram, Messenger, Email: CRON puntos 6, 7 y 8; y Pagos), en una grilla de dos
  * columnas: el ícono del evento y la frase de ManyChat. Los que ManyChat apaga (los de anuncios) van
  * apagados con su motivo; con el canal SIN conectar, todos, con el motivo arriba y el link a donde se
  * conecta. «No pude comprobarlo» (`conectado: null`) también los apaga: un evento que no puede llegar
  * es una automatización que no arranca nunca.
  */
 export function EventosDeCanal({ clase, d, estado, onElegir, disabled }: {
-  clase: 'instagram' | 'messenger' | 'email'; d: Disparador; estado: EstadoCanales | null | undefined;
+  clase: ClaseDeEventos; d: Disparador; estado: EstadoCanales | null | undefined;
   onElegir: (subtipo: string) => void; disabled?: boolean;
 }) {
   const canal = estado?.[clase];
   const cargando = estado === undefined;
   const conectado = canal?.conectado === true;
   const motivo = cargando ? null : estado === null ? 'No pude comprobarlo' : (!conectado ? (canal?.motivo ?? 'Sin conectar') : null);
+  const ws = useWs();
+  /** El modal del email abierto (ConectarMedio). */
+  const [conectarEmail, setConectarEmail] = useState(false);
+  const boton: CSSProperties = { border: 'none', background: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {motivo && (
         <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--warn)', fontFamily: SANS }}>
           <span>{motivo}</span>
+          {/* «CONECTAR» SIN SALIR DE LA PESTAÑA (décima tanda, GENERAL 6): eran dos links a /email y a
+              /integraciones. El email, en el modal de la tab; la página de Facebook, en una ventana emergente
+              (el `href` queda para el clic del medio, con el `?ws=`). */}
           {canal?.conectado === false && (clase === 'email'
-            // El Link de la casa: se lleva el `?ws=` (sin él, el super admin que mira un cliente
-            // terminaba en SUS integraciones — AGENTS.md, las cinco formas de navegar).
-            ? <Link href="/email" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar</Link>
-            : <Link href="/integraciones" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar</Link>)}
+            ? <button type="button" data-conectar-canal="email" aria-haspopup="dialog" onClick={() => setConectarEmail(true)} style={boton}>Conectar</button>
+            : <a href={conWs('/integraciones', ws)} data-conectar-canal={clase} target="_blank" rel="noopener"
+              onClick={(e) => { e.preventDefault(); abrirIntegraciones(ws); }} style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar</a>)}
         </div>
       )}
+      {conectarEmail && <ConectarMedio medio="email" onCerrar={() => setConectarEmail(false)} />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-        {eventosDe(clase).map((ev) => {
+        {eventosOfrecidos(clase, d.subtipo).map((ev) => {
           const elegido = d.subtipo === ev.subtipo;
           const apagado = !!ev.apagado || !conectado;
           return (
@@ -377,7 +418,28 @@ export function EditorDisparadores(p: PropsEditorDisparadores) {
   /** El CRON es del EMISOR (el recordatorio, un evento de MaKo): va solo y no se cambia (ver la cabecera). */
   const fijo = esDelEmisor(lista[0]);
   const elegirTipo = eligiendo || !actual || clase === null;
-  const estadoCanales = useEstadoCanales(clase === 'instagram' || clase === 'messenger' || clase === 'email');
+  const estadoCanales = useEstadoCanales(esClaseDeEventos(clase ?? null));
+  /**
+   * AL ABRIR UN CRON, LA LISTA VA HASTA ÉL (décima tanda, CRON 3: «Si le doy a "Nuevo CRON" me debe desplazar
+   * con el scroll hacia allí para editarlo. Lo mismo que si estoy editando un CRON y selecciono el de arriba o
+   * de abajo, siempre me debe desplazar hacia donde esté parado»). Cuando cambia el abierto —«＋ Nuevo CRON»,
+   * tocar otro recuadro o su cajita en la tarjeta del lienzo— se scrollea ESTA lista (`scrollParaVer`,
+   * lib/lienzo-grafo.ts, con test) y nunca con `scrollIntoView`, que movería también la caja del lienzo.
+   *
+   * ⚠️ ANTES DEL `return` de quien sólo mira (AGENTS.md: un hook detrás de un return temprano).
+   */
+  const listaRef = useRef<HTMLDivElement | null>(null);
+  const claveAbierta = editando === 'nuevo' ? 'nuevo' : (editando ?? lista[0]?.id ?? null);
+  useEffect(() => {
+    const cont = listaRef.current;
+    if (!cont || claveAbierta == null) return;
+    const el = [...cont.querySelectorAll<HTMLElement>('[data-cron-recuadro]')].find((x) => x.getAttribute('data-cron-recuadro') === claveAbierta);
+    if (!el) return;
+    const rc = cont.getBoundingClientRect();
+    const re = el.getBoundingClientRect();
+    const nuevo = scrollParaVer({ top: re.top - rc.top + cont.scrollTop, alto: re.height }, { scrollTop: cont.scrollTop, alto: cont.clientHeight });
+    if (nuevo != null) cont.scrollTo({ top: nuevo, behavior: 'smooth' });
+  }, [claveAbierta]);
 
   /** Aplica un cambio: completo, se guarda (reemplaza o se suma); incompleto, queda en el editor. */
   const aplicar = (d: Disparador, claseDe: ClaseDisparador | null = clase === 'otro' ? null : clase) => {
@@ -430,10 +492,14 @@ export function EditorDisparadores(p: PropsEditorDisparadores) {
    * (tocarlos los abre). Con dos recuadros los dos llenan el alto; con más, cada uno su mínimo y scroll.
    */
   const llenan = lista.length + 1 <= 2;
+  // ⚠️ `flex: 1 0 auto` Y NO `flex: 1` (décima tanda, CRON 1): con `flex: 1` el recuadro podía ACHICARSE hasta
+  // su piso de 150 aunque lo de adentro midiera más —el `minHeight` explícito le gana al mínimo automático de
+  // un hijo flex—, y los seis botones salían por abajo. Ahora llena lo que le toca pero nunca menos que su
+  // contenido, y lo que no entra lo scrollea la lista (`overflowY: auto` siempre).
   const recuadro = (esteAbierto: boolean): CSSProperties => ({
-    position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 14, boxSizing: 'border-box',
+    position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 14, boxSizing: 'border-box', minWidth: 0,
     border: `1.5px solid ${esteAbierto ? 'var(--primary)' : 'var(--border)'}`, background: esteAbierto ? 'var(--surface)' : 'var(--surface-2)',
-    flex: llenan ? 1 : 'none', minHeight: ALTO_RECUADRO_CRON,
+    flex: llenan ? '1 0 auto' : 'none', minHeight: ALTO_RECUADRO_CRON,
   });
   const rotulo = (texto: string) => (
     <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>{texto}</span>
@@ -451,9 +517,24 @@ export function EditorDisparadores(p: PropsEditorDisparadores) {
     />
   ) : null;
 
+  /**
+   * «＋ NUEVO CRON» (o el recuadro del nuevo, abierto). ARRIBA DE TODO CON DOS O MÁS CRON (décima tanda, CRON 4:
+   * «Si ya hay 2 CRON, el botón de "Nuevo CRON" siempre arriba del todo, primero»); con uno, abajo, como el
+   * placeholder de siempre. Lo decide `nuevoArriba` (pura, con test).
+   */
+  const nuevo = fijo ? null : editando === 'nuevo' ? (
+    <div key="nuevo" data-cron-recuadro="nuevo" style={recuadro(true)}>
+      <BotonBorrar talla="xs" title="Descartar el CRON nuevo" onClick={() => onEditar(null)} style={esquina} />
+      {rotulo('Nuevo CRON')}
+      {editorAbierto}
+    </div>
+  ) : !borrador ? <NuevoCron key="nuevo" onClick={() => onEditar('nuevo')} /> : null;
+  const arriba = nuevoArriba(lista.length);
+
   return (
     <div data-cron-recuadros style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12, overflowY: llenan ? 'visible' : 'auto', padding: '9px 9px 2px 0' }}>
+      <div ref={listaRef} data-cron-lista className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', overflowX: 'hidden', padding: '9px 9px 2px 0' }}>
+        {arriba && nuevo}
         {lista.map((d, i) => {
           const esteAbierto = editando !== 'nuevo' && abierto?.id === d.id;
           return (
@@ -470,18 +551,15 @@ export function EditorDisparadores(p: PropsEditorDisparadores) {
             </div>
           );
         })}
-        {fijo ? null : editando === 'nuevo' ? (
-          <div data-cron-recuadro="nuevo" style={recuadro(true)}>
-            <BotonBorrar talla="xs" title="Descartar el CRON nuevo" onClick={() => onEditar(null)} style={esquina} />
-            {rotulo('Nuevo CRON')}
-            {editorAbierto}
-          </div>
-        ) : !borrador && <NuevoCron onClick={() => onEditar('nuevo')} />}
+        {!arriba && nuevo}
       </div>
       {p.pie}
     </div>
   );
 }
+
+/** ¿«＋ Nuevo CRON» va ARRIBA de la lista? Con dos o más CRON (décima tanda, CRON 4). */
+export const nuevoArriba = (cuantos: number): boolean => cuantos >= 2;
 
 /** El editor de UN CRON, según su clase. */
 function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, disparadores, tz, busy, onCambiar, onVolver }: {
@@ -514,15 +592,19 @@ function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, 
 
   if (clase === 'producto') {
     const hay = deProductos.length > 0;
-    const valor = d.trigger_tipo === 'etapa_actual' || d.trigger_tipo === 'entrega_actual' ? valorDisparo(actual) : '';
+    // ⚠️ UN EVENTO DE ANTES TAMBIÉN TIENE VALOR (décima tanda, CRON 2): abre ESTE desplegable con lo puesto en
+    // el botón, «(de antes)» (`textos.texto`, que lo marca), y elegir una etapa lo reemplaza (`tocarEtapa`
+    // arranca de cero con otro tipo). No entra a las opciones: «La que tiene puesta» salió en la cuarta tanda
+    // (punto 2), y el desplegable de la casa no es un `<select>` (nada lo pisa hasta que se elija otra cosa).
+    const valor = d.trigger_tipo === 'etapa_actual' || d.trigger_tipo === 'entrega_actual' || esEventoDeAntes(d) ? valorDisparo(actual) : '';
     return cabeza(hay ? (
       <Dropdown
         value={valor} secciones={deProductos} search width="100%"
         varios={valor ? valoresDisparo(actual) : []} minimo={1} buttonStyle={BOTON_CAMPO_CRON}
-        botonLabel={valor ? rotuloDisparo(conRaiz, valor, textos.deSiempre(d)) : 'Elige la etapa'}
+        botonLabel={valor ? rotuloDisparo(conRaiz, valor, textos.texto(d)) : 'Elige la etapa'}
         onChange={tocarEtapa} ariaLabel="Qué etapa dispara esta automatización" disabled={busy}
       />
-    ) : <div style={{ fontSize: 13, color: 'var(--dim)', fontFamily: SANS }}>Todavía no tienes productos con etapas.</div>);
+    ) : <div style={{ fontSize: 13, color: 'var(--dim)', fontFamily: SANS }}>{esEventoDeAntes(d) ? textos.texto(d) : 'Todavía no tienes funnels con etapas.'}</div>);
   }
 
   if (clase === 'etiqueta') {
@@ -563,7 +645,7 @@ function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, 
     );
   }
 
-  if (clase === 'instagram' || clase === 'messenger' || clase === 'email') {
+  if (esClaseDeEventos(clase)) {
     return (
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         <Volver onClick={onVolver} disabled={busy} />
@@ -604,6 +686,7 @@ function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, 
     );
   }
 
-  // Un disparador de ANTES (un evento del catálogo, ya no se ofrece): se dice como es, y la ← lo cambia.
+  // Lo que no tiene editor propio (un «grupo de MaKo» sin horario, que el server no guarda): se dice como es, y
+  // la ← lo cambia. Un evento de ANTES ya no llega acá: es «Producto» (`claseDeDisparador`, décima tanda, CRON 2).
   return cabeza(<div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', fontFamily: SANS, lineHeight: 1.4 }}>{textos.texto(d)}</div>);
 }

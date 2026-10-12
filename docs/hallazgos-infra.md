@@ -2259,7 +2259,7 @@ por defecto»: llega a un Tijuana que parece dato. Para distinguirlo hay que lee
 `setTimezoneWorkspace` tienen call-sites, p. ej. `lib/api-mako/acciones.ts:171`.)
 *2026-09-16 api-mako-areas*
 
-**16/09/2026: leer la zona la ESCRIBE.** `tzDeWorkspace`
+**16/09/2026: leer la zona la ESCRIBE** (hasta el 11/10/2026: ver «Una zona, un default, una lectura», abajo). `tzDeWorkspace`
 (`lib/timezone.ts:39-43`) lee `mako.timezone` y, si no está, llama a `resolverYGuardarTz`
 (:55), que averigua la zona (Cal.com → Google Calendar → teléfono) y la GUARDA; si no llega
 en 4 s devuelve el default sin guardarlo (:59-72). O sea que una lectura —un resumen, una
@@ -2278,7 +2278,8 @@ algo que se supone de solo lectura tiene que saberlo: el runner de contenido de 
   el trimestre (`quarterActual`, `lib/objectives.ts:79`)— se calcula con otra zona, y cerca
   de la medianoche el valor cae en el día vecino sin que nada lo diga. Para algo que decide
   (cerrar un período, marcar un vencimiento) la zona se lee con una variante que tire.
-  **Esa variante no existe todavía.**
+  **Esa variante no existe todavía.** (Existe desde el 11/10/2026: `zonaDelNegocioEstricta`; ver «Una zona, un
+  default, una lectura», abajo.)
 - **Y los guiones calculan el día sin zona.** `fechaGuion`/`diaGuion`
   (`lib/guion-estado.ts:77-91`) usan la zona del proceso: la del navegador en la tab, UTC
   en el server. La API usa la del negocio (`diaEnTz`, `contenido.helpers.ts:220`), así que
@@ -2323,6 +2324,51 @@ call-sites**. No es display: son bordes de día que deciden cohortes y disparos,
 regla de arriba (escritura y lectura juntas).
 
 **Vive en:** lib/date-utils.ts, anotado en lib/timezone.ts:47
+
+### Una zona, un default, una lectura (11/10/2026, undécima tanda)
+
+**Síntoma:** el envío #22 del ws1 (Baja California, horario 9-21) salió a las 08:00 de Tijuana, y Configuraciones ›
+Horario le mostraba «Ciudad de México» mientras el resto de la app decía Tijuana.
+
+**Causa:** DOS defaults. `TZ_DEFAULT = Tijuana` en las pantallas y `ZONA_SIN_CONFIGURAR = Ciudad de México` en el motor,
+puesto como «prudente» («no mover cuándo les sale todo»). ⚠️ El default prudente ERA el bug, no una protección. Y
+`zonaPara` (`lib/variables-resolver.ts`) elegía la zona según el DESTINO: al equipo Tijuana, al lead Ciudad de México,
+así que el «Nuevo agendado» y el recordatorio de la misma reunión decían dos horas distintas.
+
+**Por qué nacieron dos:** `tzDeWorkspace` era una lectura con efectos (averiguaba por la red hasta 4 s y GUARDABA, ver
+arriba). Tres módulos de la API reimplementaron una lectura sin escritura, y el motor puso su propio default para no
+pagar 4 s por tick.
+
+**Regla:** UN default (`ZONA_POR_DEFECTO`, Tijuana) y UNA lectura para el motor, el tick, las pantallas, la API y el
+resolvedor: `zonaDeLoGuardado` (pura) / `zonaDelNegocio(ws)`, y `zonaDelNegocioEstricta(ws)` para lo que decide (la
+variante que tira, que la entrada del 16/09 echaba en falta). Las lecturas son puras; averiguar es otra función, explícita,
+que no guarda (`inferirZonaDesdeIntegraciones`). Escribe UNA sola: `fijarZonaDelNegocio` (compare-and-set sobre
+`updated_at`, con su origen en `mako.timezone.origen`). Ninguna zona se elige por destino.
+
+- **⚠️ Toda comparación de zonas por texto pasa por `zonaCanonica`.** Lo obvio (equivocado): «el ws13 tiene zona
+  argentina, así que su acento es `ar`». Tenía `America/Buenos_Aires` (el alias que contestan Cal.com y Chrome) y
+  `POR_ZONA` sólo conocía `America/Argentina/Buenos_Aires`: resolvía 'latam'. Trampa del entorno: en Node 24
+  `resolvedOptions().timeZone` devuelve el id ICU, que es el nombre VIEJO (`Asia/Kolkata` → `Asia/Calcutta`), así que no
+  sirve de forma canónica: se mapea a la zona de `ZONAS_POR_PAIS`.
+- **`decidirZona` tiene tres salidas, no dos** (escribir / sellar / nada). Con «mismo reloj → nada», el primer viaje de
+  Mauricio a Ciudad de México con el origen en 'meta' (el backfill) habría movido la hora de todo el negocio. Un
+  navegador que CONFIRMA la zona la sella sin cambiarla. El origen guarda su `tz`: si la zona ya es otra (un deploy viejo,
+  `clonar-config`, una edición a mano), el origen queda huérfano y cuenta como «sin origen».
+- **El selector de zona sólo se veía con el horario de oficina PRENDIDO**, y el default es apagado: la zona de todo el
+  negocio no se podía ver ni cambiar. Ahora está en la misma fila, siempre.
+- La detección va por el navegador de un admin PROPIO del negocio, en producción y una vez por pestaña (nunca el super
+  admin mirando con `?ws=`); para los demás, sólo llena un vacío con las integraciones del cliente.
+
+**SIN HACER:** `scripts/zona-negocio-backfill.mts --aplicar` (simulacro del 11/10: ws1 y ws4 → Tijuana por Meta, ws11 →
+Cancún, ws13 canonizado a `America/Argentina/Buenos_Aires`, ws9/10/14/15 sólo el origen 'legado'), y no tiene
+`--restaurar` (volver atrás es a mano con el respaldo). `lib/offer-pdf.ts:54` tiene su propio default de Ciudad de México
+(área Offer; declarado como PENDIENTE en `tests/zona-negocio.test.ts`). Las zonas de protocolo siguen como estaban
+(`isoToFechaTijuana`, `TZ_FECHA_AGENDA`, `parseFechaJunta`, `crm-auto`, los reportes). La detección no corre al cambiar de
+cliente con `?ws=` en la misma pestaña (`app/_components/ZonaDelNegocio.tsx`; inofensivo, el backfill cubre el vacío).
+
+**Vive en:** `lib/zona-negocio-reglas.ts` · `lib/timezone.ts` · `app/_components/zona-actions.ts` ·
+`app/configuraciones/HorarioEnvioPanel.tsx` · `lib/acento-workspace.ts` · `scripts/zona-negocio-backfill.mts` ·
+*2026-10-11 undécima tanda (w1-zona y w3-motor-integracion)*
 
 ---
 
@@ -3850,6 +3896,79 @@ archivos / 853.311 bytes idénticos.
 
 **Vive en:** esta entrada · *2026-10-09*
 
+### ⚠️ Se cayó con 7 chats adentro y NO fue la GPU: RAM agotada por un `next dev` huérfano de 8 GB (11/10/2026)
+
+**Síntoma.** 05:07, la app de Claude se colgó y murió con 7 sesiones trabajando, 4 con
+workflows. Al reabrirla ningún chat siguió solo: Martín entró a cada uno a escribir «Continua».
+
+**El diagnóstico obvio —el bug de la GPU de las entradas de arriba— era el equivocado.** El log
+no tiene `GPU process gone` ni `beforeQuitForUpdate`: se corta en seco. Lo que sí tiene es
+`[CliGovernor] memory pressure (critical): evicted 0 of 0 idle session(s), 10 effective` y
+`event-loop-stall` de hasta 15 s. Y la firma de que la app no murió de golpe sino que quedó
+**colgada**: el relanzamiento de las 05:08:02 dice `Not main instance, returning early` — la
+instancia vieja seguía viva, paginando, con el lock de instancia única tomado. Recién la de las
+05:09:54 arrancó. Sin dump en Crashpad y sin evento en el Visor.
+
+**La causa medida: un `next dev` HUÉRFANO con 8,1 GB de memoria privada** (1,3 GB de working
+set; el resto, paginado). Lo había lanzado en segundo plano una sesión a las 04:59; su CLI murió
+con el crash y él siguió vivo, filtrando. Matarlo llevó la RAM disponible de 0,55 a 5,16 GB en
+tres segundos. Encima había 4 workflows, un `tsc` de 3 GB, un `npm ci` y Defender en 1,7 GB; el
+pagefile llegó a un pico de 20,9 GB.
+
+⚠️ **El `tree_rss_sum` del log de la app decía 3 GB un minuto antes de morir**: el `next dev`
+ya no estaba en el árbol (su padre había muerto), así que el log de la app no lo ve. Lo encontró
+preguntar «¿quién tiene más memoria PRIVADA ahora?», no leer el log.
+
+**La guardia que quedó**, en `~/.claude/guardia/` (fuera del repo: vale para cualquier proyecto):
+
+| Pieza | Qué hace | Cómo se engancha |
+|---|---|---|
+| `memoria.mjs` | Antes de un Workflow, un Agent o un comando pesado (tsc directo, `npm test`, builds, `npm ci`) mira la RAM: si no alcanza ESPERA, y si no se libera NIEGA con una razón que el modelo entiende. Tope de 3 workflows a la vez en la máquina (eran 2 hasta el 12/10/2026: Martín pidió trabajar más al límite y bajar un escalón cada umbral) | hook `PreToolUse` de `~/.claude/settings.json` |
+| `vigia.ps1` | Con < 0,9 GB tres lecturas seguidas, mata el más grande entre tsc, vitest, jest, eslint, playwright, next build y next dev. Un `next dev` de más de 5 GB privados se mata siempre: es una fuga | tarea programada `mako-vigia-ram`, al iniciar sesión |
+| `relevo.mjs` | Si la app se cayó (o se reinició por un update), detecta qué chats quedaron a mitad de turno o con un workflow sin terminar y les manda «retomá» | hooks `SessionStart` (con `asyncRewake`) y `UserPromptSubmit` |
+| `scripts/typecheck-lock.mjs` | Además del turno, espera RAM (≥ 2,5 GB) antes de lanzar tsc, con el turno tomado | el pre-push y `npm run typecheck` |
+
+Todo lo que deciden queda en `~/.claude/guardia/guardia.log`, y lo que el vigía mata, en
+`vigia.csv`.
+
+**Las trampas que salieron armándola:**
+
+- **Task Scheduler lanza con prioridad 7** (bajo normal, y memoria y E/S de baja prioridad): el
+  vigía quedó con 0,015 s de CPU y 3 MB sin llegar a ejecutar una línea — lo opuesto a lo que
+  necesita algo que tiene que actuar EN plena presión. Va `Settings.Priority = 3`.
+- **Los hooks se recargan en caliente**: el `PreToolUse` nuevo corrió en las 6 sesiones ya
+  abiertas sin reiniciarlas (verificado con un archivo de traza).
+- **`asyncRewake` existe en Claude Code 2.1.295**: un hook en segundo plano que sale con 2
+  DESPIERTA al modelo con su stderr (`rewakeMessage` es el prefijo). Es lo único que permite
+  que un chat retome sin que nadie le escriba.
+- **Al reabrir, la app levanta sola 2 chats** (`Warming session` en el log: los que tienen
+  preview). Ésos disparan `SessionStart`, y el primero se vuelve el que avisa a los demás.
+- **El mapeo `local_… ↔ cliSessionId`** está en
+  `%APPDATA%\Claude\claude-code-sessions\<cuenta>\<org>\local_*.json`.
+- **Un enfriamiento entre admisiones, con 7 sesiones, es inanición**: cada admisión ajena
+  renovaba la espera y una sesión esperó 4 min para que le negaran. Ahora sólo aplica si no hay
+  lugar para dos.
+- **El patrón `typecheck` suelto agarraba el NOMBRE de un test liviano**
+  (`tests/typecheck-lock.test.ts`) y la guardia frenó a la sesión que la estaba escribiendo. Lo
+  pesado se nombra por COMANDO, no por palabra.
+
+**Probado:** el relevo contra la caída de hoy, simulando las 05:11, marca exactamente los 6 chats
+a los que Martín les escribió «Continua» y ningún otro; el que se despierta por el aviso del líder
+no se vuelve a despertar; y mirado después los da a todos por «ya retomada». El lock, roto de dos
+formas, da 1 fallo cada una.
+
+**Lo que quedó SIN hacer:**
+
+- El camino `SessionStart` + `asyncRewake` no se probó de punta a punta: hace falta otra caída.
+  El de `UserPromptSubmit` (escribir en cualquier chat) es el respaldo.
+- Excluir `node_modules`, `.next` y `~/.claude` de Defender (MsMpEng en 1,7 GB privados): pide
+  admin. Es de Martín.
+- Un `next dev` que una sesión lanza en segundo plano sobrevive a la sesión, y nadie lo apaga al
+  cerrar el chat: hoy lo para el vigía recién a los 5 GB.
+
+**Vive en:** `~/.claude/guardia/` · `~/.claude/settings.json` · `scripts/typecheck-lock.mjs` ·
+*2026-10-11*
+
 ## La integración con Claude nunca funcionó desde afuera
 
 **Vive en:** `lib/rutas-publicas.ts` · `proxy.ts` · `tests/rutas-publicas.test.ts`
@@ -5237,3 +5356,86 @@ un argumento calculado (`$(...)`, una variable en el bucle): lo que haga falta s
 del scratchpad y se corre `node <script>` con rutas literales.
 
 **Vive en:** el mensaje de cada commit · *2026-10-09 /chatbot, sexta tanda, segunda pasada*
+
+## Verificar con la máquina llena: el vigía mata el `next dev` y el build, y `next start` + una cookie firmada sí entra (11/10/2026)
+
+Con varios chats abiertos, el vigía de RAM (`~/.claude/guardia/`) mató un `next dev` a los 5,6 y 6 GB
+(con 320 MB libres en la máquina) y dos `npm run build` (5,4 GB, «zona roja» con ~850 MB libres): no son
+errores del código, y el build sale con código 1 sin decir nada. Lo que anduvo:
+
+- **`npm run build` cuando hubo lugar, y `next start -p <puerto>`**, que consume una fracción del dev.
+- **`/api/auth/dev-login` es INERTE en modo producción** (devuelve 404 con `NODE_ENV=production`). La
+  sesión se firma con `crearToken` de `lib/auth-session.ts` (sin `server-only`) desde un script y se
+  pone como cookie `mako_session` en Playwright: la misma sesión que arma dev-login.
+- **El hook de la guardia reconoce un comando pesado por el TEXTO**: un `grep` sobre un archivo cuyo
+  nombre contiene «tsc» se trata como un typecheck («esto necesita 2,5 GB»). Un archivo de salida no se
+  nombra con «tsc».
+
+## El próximo número de migración tampoco se ve en los worktrees hermanos (11/10/2026)
+
+La 0246 estaba tomada por `0246_editor_landing.sql` en `../wt-gamma`, sin commitear: invisible para
+`ls supabase/migrations` y para `git ls-tree` de cualquier rama. Se encontró con
+`find .. -maxdepth 6 -path '*/supabase/migrations/024*'`. Antes de nombrar una migración, se mira también
+ahí. (El Dashboard tomó la 0247.)
+
+## El reset del cliente de prueba no barre el bucket `portadas` (11/10/2026, leído, no medido)
+
+`lib/reset-workspace.ts` no nombra `portadas` en su lista de buckets, y además barre por el prefijo
+`<N>/`, mientras portadas usa `ws<N>/`. Las portadas del plan y las imágenes del Dashboard
+(`ws<N>/dashboard/…`) sobreviven a un reset. **Vive en:** `lib/reset-workspace.ts`. · *2026-10-11 Graphics*
+
+## Tres trampas medidas armando la pasarela de pagos (11/10/2026)
+
+- **Next contesta un `HEAD` llamando al `GET`.** Un route handler cuyo `GET` tiene efectos (crear una
+  sesión de Stripe en `/pagar/<token>`) los dispara con el `HEAD` de un bot de vista previa. Regla: ese
+  handler declara su propio `HEAD`. **Vive en:** `node_modules/next/dist/server/route-modules/app-route/helpers/auto-implement-methods.js` ·
+  `app/pagar/[token]/route.ts`.
+- **El test de páginas sin `<Suspense>` no veía las páginas CORTAS.** Envolver `/reembolsos` en un
+  Suspense propio daba verde: el umbral de React (~12.800 bytes) es ACUMULATIVO, y una página corta
+  renderizada sola nunca lo alcanza (en producción el layout ya escribió bytes antes). Ahora el test
+  antepone 16 KB de CSS y el mínimo de caracteres visibles es por página. **Vive en:** `tests/layout-sin-suspense.test.ts`.
+- **Un `npm run typecheck` que sale con 1 y SIN un solo error es la RAM**, no el código: con la máquina
+  justa, el `tsc` hijo muere y `typecheck-lock` devuelve `code ?? 1`. Se espera y se repite; no se busca
+  un error que no existe. **Vive en:** `scripts/typecheck-lock.mjs`.
+- **Con la RAM al límite, un worktree propio y agentes de a tres.** Con 6 sesiones sobre el clon y dos
+  workflows de otras sesiones corriendo, la guardia (`~/.claude/guardia/memoria.mjs`) frenó el workflow;
+  la salida fue un worktree en `C:/dev` (junction a `node_modules`) y agentes sueltos de a tres, con la
+  parte de Automations en una rama aparte rebaseada sobre el commit de la sesión que la estaba
+  reescribiendo.
+
+## Un `tsc` que no dice nada no dijo que está todo bien (11/10/2026)
+
+- **El vigía de RAM mata el `tsc` del lock** (`~/.claude/guardia/guardia.log`, «MATO pid … tsc --noEmit por
+  zona-roja») y el script sale con 1 sin imprimir un error: se lee como «typecheck en rojo sin errores».
+  Se diagnostica leyendo ese log, no la salida del script, y se repite.
+- **Un `tsc` con TS6053** («File not found», porque otra sesión borró un archivo del glob en medio de la
+  corrida) no calcula los diagnósticos semánticos: la salida muestra sólo esos errores y parece que todo lo
+  demás compila. Se repite. `scripts/typecheck-lock.mjs` podría detectarlo.
+
+**Vive en:** `scripts/typecheck-lock.mjs`.
+
+## Un worktree no trae `.env.local`, y `next start` ahí rebota todo al login (11/10/2026)
+
+`.env.local` no se versiona, así que un worktree recién armado arranca `next start` sin `AUTH_SECRET`: la
+cookie firmada con `crearToken` (la del clon) no verifica y TODA ruta privada redirige a `/login`. Se lee
+como un bug de los redirects que se están probando. Se copia `.env.local` del clon al worktree antes de
+arrancar (está en `.gitignore`), y se recuerda que bootear local escribe en prod.
+
+## `git merge-file` entre worktrees da conflictos falsos por los CRLF (11/10/2026)
+
+Simular un merge con la copia de trabajo (CRLF) contra un `git show` (LF) dio 3 conflictos; normalizado a
+LF, 0. Y `git apply -3` de un parche armado en el clon sobre un worktree de `origin/main` sí resuelve solo:
+los únicos conflictos reales fueron dos áreas nuevas en la misma línea del registro de la API.
+
+*11/10/2026, chat «Graphics», integración de la tanda v4 del Dashboard (commit `6e85d8d7`).*
+
+## Un NUL adentro del texto de un PDF tira el guardado entero: «unsupported Unicode escape sequence» (11/10/2026)
+
+Martín subió un PDF a Offer y saltó «guardar la conversación #1 falló: unsupported Unicode escape
+sequence» (Postgres 22P05). El texto extraído traía un U+0000, que Postgres no acepta ni en un `text`
+ni en un `jsonb`; un sustituto UTF-16 suelto (la mitad de un emoji cortado) hace lo mismo. Se lee como
+un archivo roto de la persona y es nuestro. **Regla:** todo texto que viene de un archivo o de una página
+ajena pasa por `textoParaBase` (o `limpiarParaBase` para una fila entera) antes de la base. Ya lo hace
+`archivoATexto`, así que lo heredan Offer, los importadores del Plan y del CRM, los guiones, el doer de WhatsApp y el chat de MaKo; un
+lector nuevo que no pase por ahí (una página web, un CSV leído a mano) lo tiene que llamar.
+**Vive en:** `lib/texto-para-base.ts`, `lib/archivo-a-texto.ts`, `lib/offer-sesiones.ts`. · *2026-10-11 Offer*

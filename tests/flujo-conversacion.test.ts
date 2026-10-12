@@ -264,7 +264,8 @@ test('⚠️ el ＋ de un puerto inserta EN ese puerto, y lo que colgaba pasa a 
   const mk = insertarDesdeLienzo(pasos, 'c', 'r1', 'mako', rndDe(5));
   assert.equal(nodoPorId(mk.pasos, 'c')!.ramas![0].siguiente, mk.id);
   assert.equal(nodoPorId(mk.pasos, mk.id)!.siguiente, 'm1');
-  assert.deepEqual(nodoPorId(mk.pasos, mk.id)!.accion, { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje: '' } });
+  // Undécima tanda: nace por PARTES (vacía; Publicar la frena hasta que alguien la escriba).
+  assert.deepEqual(nodoPorId(mk.pasos, mk.id)!.accion, { operacion: 'avisar_al_equipo', params: { leadId: 'evento', partes: [] } });
   // El orden queda renumerado (lo lee `orden`, las métricas por paso).
   assert.deepEqual(r.pasos.map((p) => p.orden), r.pasos.map((_, i) => i + 1));
 });
@@ -326,7 +327,8 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   // (Integración: el freno recibe además lo que le falta a cada «⚡ Acción» según su formulario.)
   // (Desde el 10/10/2026 va por `frenoDeEsta`, que es `frenoDelFlujo` más la regla del recordatorio, y desde el
   // 11/10/2026 la del evento de MaKo: `frenoDelEvento`, lo que el emisor de ese evento sabe correr.)
-  assert.match(perfil, /const frenoDeEsta = useCallback\(\s*\(ps: typeof pasos\) => frenoDelFlujo\(ps, faltanEnAccion\)\s*\?\? \(esRecordatorio \? frenoDelRecordatorio\(ps\) : esEvento \? frenoDelEvento\(ps, eventoMako\) : null\),/);
+  // (Undécima tanda: y los DATOS, con la MISMA `problemasDeTokens` que `setSecuenciaPasos`, con el CRON y el evento.)
+  assert.match(perfil, /const frenoDeEsta = useCallback\(\s*\(ps: typeof pasos\) => frenoDelFlujo\(ps, faltanEnAccion, problemasDeTokens\(ps, disparo\.trigger_tipo, eventoMako \?\? undefined\)\)\s*\?\? \(esRecordatorio \? frenoDelRecordatorio\(ps\) : esEvento \? frenoDelEvento\(ps, eventoMako\) : null\),/);
   const valida = pub.indexOf('frenoDeEsta(pasos)');
   assert.ok(valida >= 0 && valida < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda sin validar');
   assert.match(pub, /const freno = frenoDeEsta\(pasos\);\s*if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
@@ -397,10 +399,10 @@ test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / E
     actual: { trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 }, textoActual: 'x',
   });
   // La raíz: «Productos» y «Etiquetas» (cuarta tanda, punto 2). Ni «Eventos» ni «La que tiene puesta».
-  assert.deepEqual(secs.map((s) => s.title), ['Productos', 'Etiquetas']);
+  assert.deepEqual(secs.map((s) => s.title), ['Funnels', 'Etiquetas']);
   const raiz = (t: string) => secs.find((s) => s.title === t)!;
-  assert.deepEqual(raiz('Productos').grupos!.map((g) => g.title), ['Mentoría', 'Servicio'], 'adentro de «Productos», el nombre de cada uno');
-  const prod = (t: string) => raiz('Productos').grupos!.find((s) => s.title === t) ?? raiz(t);
+  assert.deepEqual(raiz('Funnels').grupos!.map((g) => g.title), ['Mentoría', 'Servicio'], 'adentro de «Funnels», el nombre de cada uno');
+  const prod = (t: string) => raiz('Funnels').grupos!.find((s) => s.title === t) ?? raiz(t);
   assert.deepEqual(prod('Mentoría').options, [], 'un producto no tiene opciones: tiene pasos');
   assert.deepEqual(prod('Mentoría').grupos!.map((g) => [g.title, g.options.map((o) => o.value)]), [
     ['Adquisición de clientes', ['venta:5:agendado']], ['Entrega del servicio', ['entrega:9:onb']],
@@ -413,7 +415,7 @@ test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / E
   assert.equal(rotuloDisparo(secs, 'etiqueta:3', 'x'), 'Se le puso «Cualificado»');
   // Con UN producto, el producto no está: «Productos» abre directo en Adquisición / Entrega.
   const uno = pasosDisparo({ disparadores: DISPARADORES, productos: [PRODUCTOS[0]], etiquetas: [], actual: { trigger_tipo: 'etapa_actual', etapa: 'agendado', funnel_id: 5 }, textoActual: 'x' });
-  assert.deepEqual(uno.map((s) => s.title), ['Productos']);
+  assert.deepEqual(uno.map((s) => s.title), ['Funnels']);
   assert.deepEqual(uno[0].grupos!.map((s) => s.title), ['Adquisición de clientes', 'Entrega del servicio']);
   assert.equal(rotuloDisparo(uno, 'venta:5:agendado', 'x'), 'Llega a «Agendado»');
   // Un disparador por EVENTO de antes NO es una sección («La que tiene puesta» salió): lo dice el
@@ -447,7 +449,9 @@ test('⚠️ el desplegable del CRON va por PASOS: producto → Adquisición / E
   // Cuarta tanda, punto 14: el desplegable elige VARIAS (`varios` con las etapas puestas y la última
   // que no se apaga) y, punto 1, es un campo grande (`BOTON_CAMPO_CRON`). El botón sigue diciendo lo
   // puesto con `rotuloDisparo`.
-  assert.match(editor, /<Dropdown\s+value=\{valor\} secciones=\{deProductos\} search width="100%"\s+varios=\{valor \? valoresDisparo\(actual\) : \[\]\} minimo=\{1\} buttonStyle=\{BOTON_CAMPO_CRON\}\s+botonLabel=\{valor \? rotuloDisparo\(conRaiz, valor, textos\.deSiempre\(d\)\) : 'Elige la etapa'\}/);
+  // Décima tanda, CRON 2: lo puesto que no está entre las opciones (un evento de antes) lo dice
+  // `textos.texto`, que lo marca «(de antes)» (tests/cron-de-antes.test.ts).
+  assert.match(editor, /<Dropdown\s+value=\{valor\} secciones=\{deProductos\} search width="100%"\s+varios=\{valor \? valoresDisparo\(actual\) : \[\]\} minimo=\{1\} buttonStyle=\{BOTON_CAMPO_CRON\}\s+botonLabel=\{valor \? rotuloDisparo\(conRaiz, valor, textos\.texto\(d\)\) : 'Elige la etapa'\}/);
 });
 
 test('`seccionesDisparo` (el catálogo PLANO que lee «Crear con IA»): el de antes, sin «Eventos», y con los valores de los pasos', () => {

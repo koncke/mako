@@ -102,7 +102,30 @@ import { DURACION_DEFECTO_MIN, instanteDeLocal } from './horarios-respuesta';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
-import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
+import { tabEnCapa } from '@/lib/capas';
+
+/**
+ * «Marcar cobrada» la usa quien tenga acceso a la tab desde la que se marca (Martín, 11/10/2026:
+ * «Cualquiera con acceso a esa tab»): el CRM (cualquier rol cuya capa lo incluya: la ficha del lead) o el
+ * Dashboard (admin, con la tab en la capa: «A quién cobrarle» y el detalle de un número). Sin sesión,
+ * nadie: la action no tenía ninguna guarda y la podía llamar cualquiera que conociera su id.
+ * Y la cuota tiene que ser DE ESE lead: el par (cuota, lead) lo arma el navegador, y la action escribía el
+ * historial en el lead que le pasaran. No exportada: es un archivo 'use server'.
+ */
+async function exigirAccesoAMarcarPago(pagoId: number, leadId: number): Promise<void> {
+  const rol = await getRolWsEfectivo();
+  if (rol == null) throw new Error('Inicia sesión para marcar un pago.');
+  const capa = await getCapaActual();
+  const porCrm = tabEnCapa('crm', capa);
+  const porDashboard = rol === 'admin' && tabEnCapa('graphics', capa);
+  if (!porCrm && !porDashboard) throw new Error('No tienes acceso a la cobranza de esta cuenta.');
+  const ws = await getWorkspaceActual();
+  const db = await getTenantDb();
+  const { data, error } = await db.from('pagos').select('lead_id').eq('id', pagoId).eq('workspace_id', ws ?? -1).maybeSingle();
+  if (error) throw new Error(`No pude leer la cuota: ${error.message}`);
+  if (!data || Number((data as { lead_id: unknown }).lead_id) !== Number(leadId)) throw new Error('Esa cuota no es de este lead.');
+}
 
 /**
  * Autor para el historial: el email del usuario logueado (se resuelve a nombre y
@@ -119,6 +142,8 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
+import { faltaComprobante } from '@/lib/pago-comprobante';
+import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { urlGravatar } from '@/lib/gravatar';
 import { type VisitasMap } from './crm-map';
@@ -198,6 +223,12 @@ export type LeadFullData = {
    *  null sin email. La cadena WhatsApp → email → iniciales la arma el cliente
    *  (app/_components/foto-contacto.ts). */
   fotoEmail: string | null;
+  /**
+   * Lo que la pasarela de pagos aporta a «¿se dibuja la tab Pagos?» (lib/muestra-pagos.ts): si el
+   * negocio puede cobrar con un link y si el lead ya tiene cobros. Los MISMOS datos que lee la ruta
+   * /crm/[id] (`senalesDeCobroAction`), para que las dos puertas de la ficha no difieran.
+   */
+  cobro: { pasarelaConectada: boolean; hayCobros: boolean };
 };
 
 /**
@@ -237,7 +268,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // calor del proyecto), y se fueron el 06/10/2026 con Clarity entero: la grabación
   // la hace MaKo y se dibuja adentro de la ficha. Nunca rompe la ficha:
   // `replayDeLead` no tira y distingue «no pude leer».
-  const [respuestas, insightGen, equipo, grabable, replay, funnels] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => [])]);
+  const [respuestas, insightGen, equipo, grabable, replay, funnels, cobro] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => []), senalesDeCobroAction(id)]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
@@ -247,14 +278,15 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const adNombre = resolverNombreAd(adIdCand, lead.meta_ad_name ?? utmC, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
-  const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
+  // Un cobro confirmado por la pasarela no pide comprobante (lib/pago-comprobante.ts).
+  const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   // El NOMBRE DEL PRODUCTO, no el del embudo: «Funnel principal» es el que puso la migración
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail };
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail, cobro };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -752,7 +784,7 @@ export async function crearProductoAction(nombre: string, canal?: string | null)
     revalidatePath('/funnel');
     return { funnelId };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'No se pudo crear el producto.' };
+    return { error: e instanceof Error ? e.message : 'No se pudo crear el funnel.' };
   }
 }
 
@@ -849,7 +881,7 @@ async function yaEstanEnProducto(ids: number[], destinoId: number, defaultId: nu
       db.from('lead_funnel').select('lead_id').eq('funnel_id', destinoId).in('lead_id', tanda),
     ]);
     if (casas.error) throw new Error('No se pudo leer la casa de los leads: ' + casas.error.message);
-    if (filas.error) throw new Error('No se pudo leer en qué productos están: ' + filas.error.message);
+    if (filas.error) throw new Error('No se pudo leer en qué funnels están: ' + filas.error.message);
     for (const l of (casas.data ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>) {
       if (casaReal(l.funnel_id == null ? null : Number(l.funnel_id), defaultId) === destinoId) out.add(Number(l.id));
     }
@@ -1058,7 +1090,7 @@ export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: str
       revalidatePath('/crm');
       return { ...choque, agregadoA: destino.nombre ?? undefined };
     } catch (err) {
-      return { ...choque, errorAlAgregar: err instanceof Error ? err.message : 'No pude agregarlo al producto.' };
+      return { ...choque, errorAlAgregar: err instanceof Error ? err.message : 'No pude agregarlo al funnel.' };
     }
   }
 }
@@ -1086,6 +1118,7 @@ export async function marcarPagoAction(
   pagado: boolean,
   fechaPago: string | null,
 ): Promise<void> {
+  await exigirAccesoAMarcarPago(pagoId, leadId);
   await marcarPago(pagoId, pagado, fechaPago);
   // Queda registrado en Change History (marcar y desmarcar).
   await logLeadEvent(
@@ -1864,7 +1897,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     ? etapaDeGanado((funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault()).stages)
     : null;
   if (hayGanados && !etapaGanado) {
-    errores.push('Este embudo no tiene etapa de cierre: esos leads entraron en la primera etapa.');
+    errores.push('Este funnel no tiene etapa de cierre: esos leads entraron en la primera etapa.');
   }
 
   for (const f of validadas) {
@@ -2847,7 +2880,7 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
         // Escala» — y como el título es un input, renombrar arrancaba desde el valor
         // equivocado. Se pide sólo por ESTE id: el mapa entero es para el desplegable.
         nombre: (cfg.id != null ? (await productosPorFunnel([cfg.id])).get(cfg.id) : null)?.trim()
-          || cfg.nombre || 'Tu embudo',
+          || cfg.nombre || 'Tu funnel',
         esDefault: cfg.esDefault,
         etapas: propias,
         fijas,
@@ -2937,13 +2970,13 @@ export async function extrasDelEmbudoAction(funnelId?: number): Promise<ExtrasDe
  * nombre del PRODUCTO. El porqué completo está en `renombrarFunnel` (lib/funnels.ts).
  */
 export async function renombrarEmbudoAction(funnelId: number | null, nombre: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede editar el embudo.' };
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede editar el funnel.' };
   try {
     // Sin id es el del NEGOCIO, y hay que resolver cuál es: `renombrarFunnel` necesita una fila.
     let id = funnelId;
     if (id == null) {
       const cfg = await getFunnelDefault();
-      if (cfg.origen === 'error' || cfg.id == null) return { ok: false, error: 'No se pudo leer tu embudo principal. Vuelve a intentarlo.' };
+      if (cfg.origen === 'error' || cfg.id == null) return { ok: false, error: 'No se pudo leer tu funnel principal. Vuelve a intentarlo.' };
       id = cfg.id;
     }
     await renombrarFunnel(id, nombre);
@@ -2966,7 +2999,7 @@ export async function renombrarEmbudoAction(funnelId: number | null, nombre: str
  * no para decidir: guardar NUNCA se bloquea, y esto tampoco.
  */
 export async function archivarEmbudoAction(funnelId: number): Promise<{ ok: true; leads: number } | { ok: false; error: string }> {
-  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede eliminar un embudo.' };
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede eliminar un funnel.' };
   try {
     const leads = await contarLeadsDeFunnel(funnelId).catch(() => -1);
     await archivarFunnel(funnelId);
@@ -2991,11 +3024,11 @@ export async function eliminarEmbudoDefinitivoAction(funnelId: number): Promise<
     revalidatePath('/crm');
     return { ok: true, rescatados };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo borrar el producto.' };
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo borrar el funnel.' };
   }
 }
 export async function restaurarEmbudoAction(funnelId: number): Promise<{ ok: true } | { ok: false; error: string }> {
-  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede restaurar un embudo.' };
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede restaurar un funnel.' };
   try {
     await restaurarFunnel(funnelId);
     bust(TAG.pipeline, TAG.leads);
@@ -3128,7 +3161,7 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       if (!pipeline.some((st) => st.key === op.key)) {
         return { ok: false, error: 'Esa etapa no es del pipeline: no se puede eliminar, solo renombrar.' };
       }
-      if (pipeline.length <= 1) return { ok: false, error: 'Tu embudo se quedaría sin etapas.' };
+      if (pipeline.length <= 1) return { ok: false, error: 'Tu funnel se quedaría sin etapas.' };
       // La etapa de ENTRADA tampoco: sin ella el embudo no tiene por dónde llegar un lead,
       // y es de donde cuelga la declaración de cómo entra la gente.
       if (pipeline.find((st) => st.key === op.key)?.kind === 'entrada') {
@@ -3178,7 +3211,7 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
           .filter((t) => t.category === 'nutricion')
           .map((t) => `${t.from}>${t.to}`),
       );
-      if (!posibles.has(op.id)) return { ok: false, error: 'Esa nutrición no es de este embudo.' };
+      if (!posibles.has(op.id)) return { ok: false, error: 'Esa nutrición no es de este funnel.' };
       const sup = new Set(actual.suppressed);
       // Todos los ids de la MISMA nutrición se escriben juntos: con uno solo, apagarla la
       // deja corriendo desde la otra etapa de la que sale.
@@ -3197,14 +3230,14 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       // cierre no tienen plazo (un lead en Ganado no está «quieto», ya terminó), y la etapa
       // tiene que existir en ESTE embudo.
       const st = actual.stages.find((x) => x.key === op.key);
-      if (!st) return { ok: false, error: 'Esa etapa no es de este embudo.' };
+      if (!st) return { ok: false, error: 'Esa etapa no es de este funnel.' };
       if (!puedeTenerPlazo(st)) return { ok: false, error: 'Esa etapa no lleva plazo.' };
       const dias = op.dias == null ? null : sanearPlazo(op.dias);
       if (op.dias != null && dias == null) return { ok: false, error: `El plazo va de 1 a ${PLAZO_MAX_DIAS} días.` };
       // Las OTRAS claves de `umbrales` se conservan: las cuatro perillas del CRM automático
       // viven en el mismo objeto, y `saveFunnelDe` reemplaza `umbrales` entero.
       const u = await umbralesDe(funnelId ?? null);
-      if (u == null) return { ok: false, error: 'No se pudo leer el embudo; no se guardó nada para no pisarlo.' };
+      if (u == null) return { ok: false, error: 'No se pudo leer el funnel; no se guardó nada para no pisarlo.' };
       const previos = u.porEtapa && typeof u.porEtapa === 'object' && !Array.isArray(u.porEtapa)
         ? { ...(u.porEtapa as Record<string, unknown>) } : {};
       if (dias == null) delete previos[op.key];
@@ -3223,7 +3256,7 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       // «funcionaría» —el guardado no fallaría— y la pantalla volvería a mostrarlas donde
       // estaban, que es la peor forma de no hacer nada.
       const i = pipeline.findIndex((st) => st.key === op.key);
-      if (i < 0) return { ok: false, error: 'Esa etapa la pone MaKo al final del embudo y no se puede mover. Sí puedes cambiarle el nombre.' };
+      if (i < 0) return { ok: false, error: 'Esa etapa la pone MaKo al final del funnel y no se puede mover. Sí puedes cambiarle el nombre.' };
       const j = i + op.delta;
       if (j < 0 || j >= pipeline.length) return { ok: false, error: 'Esa etapa ya está en la punta.' };
       // El cierre va último: es de donde salen los datos de la venta, y `problemasDePipeline`
@@ -3243,7 +3276,7 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       // entrada, el pago, el cierre y las terminales no pueden ser una reunión (perderían su
       // tipo, y al desmarcarlas volverían como un paso cualquiera). Ver `puedeSerReunion`.
       const st = pipeline.find((x) => x.key === op.key);
-      if (!st) return { ok: false, error: 'Esa etapa la pone MaKo al final del embudo: no puede ser una reunión.' };
+      if (!st) return { ok: false, error: 'Esa etapa la pone MaKo al final del funnel: no puede ser una reunión.' };
       if (!puedeSerReunion(st)) return { ok: false, error: 'Esa etapa no puede ser una reunión.' };
       pipeline = pipeline.map((x) => (x.key === op.key ? ({ ...x, kind: tipoAlMarcar(op.es) } as Stage) : x));
     } else {

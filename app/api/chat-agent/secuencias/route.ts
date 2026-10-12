@@ -34,6 +34,9 @@
 //                                                            (400 con el motivo si no se puede)
 // GET ?canales=1 → { ok, canales } — ¿están conectados Instagram, Messenger y el email? (el CRON los
 //                  ofrece sólo si lo están: lib/disparadores-canales.ts)
+// GET ?medios=whatsapp,email,… → { ok, medios } — ¿están conectados los medios por los que SALE una
+//                  automatización? (décima tanda, GENERAL 6: el chip «Sin conectar» de la tarjeta y el
+//                  «Conectar» de Probar). Sólo los pedidos: Zernio tarda. lib/medios-automatizacion.ts
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -41,7 +44,7 @@ import { getRolWsEfectivo, getWorkspaceActual, getWorkspace, getTenantDb } from 
 import {
   getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, crearSecuenciaVacia, probarSecuencia,
   muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa, setDisparadorEntrega, renombrarSecuencia, setCronSecuencia,
-  setTriggerSecuencia, setEmojiSecuencia, TriggerInvalidoError,
+  setTriggerSecuencia, setEmojiSecuencia, TriggerInvalidoError, SecuenciaNoExisteError,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
 } from '@/lib/setting-secuencias';
 import { parseEstrategia, parseCriterio, OBJETIVOS } from '@/lib/setting-estrategia';
@@ -70,7 +73,8 @@ import { guardarPosicionesSecuencia, type DbPosiciones } from '@/lib/secuencia-p
 import { guardarBorradorSecuencia, descartarBorradorSecuencia, type DbBorrador } from '@/lib/secuencia-borrador';
 // VARIOS CRON (sexta tanda, mig 0241): guardar la lista y saber qué canales se pueden ofrecer.
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
-import { estadoCanalesDisparo } from '@/lib/disparadores-canales';
+import { estadoCanalesDisparo, estadoMedios } from '@/lib/disparadores-canales';
+import { mediosDeConsulta } from '@/lib/medios-automatizacion';
 // LA GALERÍA (10/10/2026): crear una automatización desde una plantilla. Los pasos van por
 // `setSecuenciaPasos` y el CRON por `guardarDisparadores`, las puertas de siempre (lib/plantilla-crear.ts).
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
@@ -93,6 +97,15 @@ export async function GET(req: NextRequest) {
   }
   // ¿Están conectados Instagram, Messenger y el email? Aparte del GET de siempre, a propósito: le
   // pregunta a Meta (hasta 6 s) y sólo lo necesita el editor del CRON al abrir uno de esos canales.
+  // Los MEDIOS de una automatización (GENERAL 6): sólo los que se piden. Aparte de `canales`, que le pregunta
+  // a Meta por la página (lo que ESCUCHA un CRON); esto mide lo que MANDA un paso.
+  const pedidos = req.nextUrl?.searchParams.get('medios');
+  if (pedidos != null) {
+    try { return Response.json({ ok: true, medios: await estadoMedios(mediosDeConsulta(pedidos)) }); } catch (e) {
+      console.error(`[api:setting/secuencias GET medios] ${msg(e)}`);
+      return Response.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
+  }
   if (req.nextUrl?.searchParams.get('canales') === '1') {
     try { return Response.json({ ok: true, canales: await estadoCanalesDisparo() }); } catch (e) {
       console.error(`[api:setting/secuencias GET canales] ${msg(e)}`);
@@ -253,11 +266,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // El NOMBRE, que se edita tocándolo en el lienzo (mismo gesto que en /mensajes).
+    // El NOMBRE, que se edita tocándolo en el lienzo (mismo gesto que en /mensajes) y con «Renombrar» del «⋯» de la
+    // lista (undécima tanda, punto 5). Un id que no es de este negocio o está archivado contesta 404: antes
+    // contestaba «ok» sin cambiar nada.
     if (body.action === 'nombre') {
       const id = Number(body.secuenciaId);
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
-      await renombrarSecuencia(id, String(body.nombre ?? ''));
+      try {
+        await renombrarSecuencia(id, String(body.nombre ?? ''));
+      } catch (e) {
+        if (e instanceof SecuenciaNoExisteError) return Response.json({ ok: false, error: 'No existe' }, { status: 404 });
+        if (e instanceof TriggerInvalidoError) return Response.json({ ok: false, error: e.message }, { status: 400 });
+        throw e;
+      }
       return Response.json({ ok: true });
     }
 
@@ -350,7 +371,7 @@ export async function POST(req: NextRequest) {
         return Response.json({ ok: true });
       }
       const fid = body.funnelId == null || body.funnelId === '' ? null : Number(body.funnelId);
-      if (fid != null && !Number.isFinite(fid)) return Response.json({ ok: false, error: 'producto inválido' }, { status: 400 });
+      if (fid != null && !Number.isFinite(fid)) return Response.json({ ok: false, error: 'funnel inválido' }, { status: 400 });
       await setDisparadorEtapa(id, String(body.etapa ?? ''), fid);
       return Response.json({ ok: true });
     }

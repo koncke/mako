@@ -24,9 +24,9 @@ import { parseEstrategia, hitoYaHecho, silencioCumplido, type Desenlace } from '
 import { leerTodo } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
 import { enviosPorInscripcion } from './nutricion-envios-resumen';
-import { preparaUnaReunion } from './nutricion-familias';
+import { preparaReunion } from './nutricion-familias';
 import { reunionQuePreparaMs, type JuntasLead } from './nutricion-reinscripcion';
-import { agendoLead, pagoLead, logroCierraLaInscripcion, textoFechaReunion } from './nutricion-grafo-motor';
+import { agendoLead, pagoLead, logroCierraLaInscripcion, textoFechaReunion, desenlaceEsperaAlCarril } from './nutricion-grafo-motor';
 import { proximoDeEntrada } from './nutricion-hilos';
 import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
 import { esFlujoExplicito } from './flujo-legado';
@@ -46,6 +46,8 @@ export type ResultadoDesenlaces = {
 type FilaInsc = {
   id: number; lead_id: number; secuencia_id: number; estado: string;
   ultimo_paso_at: string | null; inscripto_at: string;
+  /** Con 'respondio' y el próximo envío puesto, el carril del recordatorio sigue vivo (M4, `desenlaceEsperaAlCarril`). */
+  proximo_envio_at?: string | null;
 };
 
 /** Horas transcurridas desde un ISO. El umbral del desenlace se mide acá. */
@@ -100,7 +102,7 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   // el lead sin moverse de etapa), sin un solo error. Las activas no salen de
   // la cola hasta que se definen, así que ese tope se llenaba con las mismas.
   const inscs = await leerTodo<FilaInsc>(
-    supabase, 'nutricion_inscripciones', 'id, lead_id, secuencia_id, estado, ultimo_paso_at, inscripto_at',
+    supabase, 'nutricion_inscripciones', 'id, lead_id, secuencia_id, estado, ultimo_paso_at, inscripto_at, proximo_envio_at',
     { orden: 'id', filtros: (q) => q.is('desenlace', null) },
   );
   if (!inscs.length) return res;
@@ -149,9 +151,15 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
   // Todas las secuencias del workspace por CLAVE: el encadenamiento apunta a la
   // clave (estable y legible) y no al id (que cambia entre workspaces).
   const { data: todasSec } = await supabase
-    .from('nutricion_secuencias').select('id, clave, nombre, activa, archivada_at, estrategia, pasos, trigger_tipo')
+    // `etapa, etapas, disparadores`: lo que mira `preparaReunion` (la forma del flujo, undécima tanda M2).
+    .from('nutricion_secuencias').select('id, clave, nombre, activa, archivada_at, estrategia, pasos, trigger_tipo, etapa, etapas, disparadores')
     .is('archivada_at', null);
-  const porClave = new Map(((todasSec ?? []) as Array<{ id: number; clave: string; nombre: string; activa: boolean; estrategia: unknown; pasos: unknown; trigger_tipo: string }>).map((x) => [x.clave, x]));
+  type FilaSiguiente = {
+    id: number; clave: string; nombre: string; activa: boolean; estrategia: unknown; pasos: unknown; trigger_tipo: string;
+    etapa?: string | null; etapas?: unknown[] | null;
+    disparadores?: Array<{ trigger_tipo: string; etapa?: string | null; etapas?: unknown[] | null }> | null;
+  };
+  const porClave = new Map(((todasSec ?? []) as FilaSiguiente[]).map((x) => [x.clave, x]));
 
   /**
    * Arranca la secuencia que sigue. Devuelve por qué NO arrancó, o null si sí.
@@ -190,11 +198,13 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     const primero = proximoDeEntrada(pasos, (p) => new Date(Date.now() + (Number(p?.delay_horas ?? 0) || 0) * 3_600_000).toISOString());
     // La reunión que esta inscripción prepara (mig 0205), igual que al inscribir por el
     // cohorte: sin ella, el reuso de mañana no sabría si la próxima agenda es otra reunión.
-    const reunion = preparaUnaReunion(sig.trigger_tipo) ? reunionQuePreparaMs(lead as JuntasLead) : null;
+    // Por la FORMA del flujo (`preparaReunion`, undécima tanda M2), no sólo por el trigger de antes.
+    const prepara = preparaReunion({ ...sig, pasos });
+    const reunion = prepara ? reunionQuePreparaMs(lead as JuntasLead) : null;
     const { error } = await supabase.from('nutricion_inscripciones').insert({
       lead_id: leadId, secuencia_id: sig.id, paso_actual: 0, estado: 'activa',
       proximo_envio_at: primero,
-      ...(preparaUnaReunion(sig.trigger_tipo) ? { reunion_at: reunion == null ? null : new Date(reunion).toISOString() } : {}),
+      ...(prepara ? { reunion_at: reunion == null ? null : new Date(reunion).toISOString() } : {}),
     });
     if (error) { console.error(`[desenlace] encadenar ${clave}:`, error.message); return `error-${error.code ?? ""}`; }
     res.encadenados += 1;
@@ -212,6 +222,10 @@ export async function evaluarDesenlaces(): Promise<ResultadoDesenlaces> {
     // EN HAND-OFF NO SE DECIDE NADA. Hay una persona en esa conversación; el
     // reloj del fallo está congelado hasta que alguien resuelva el caso.
     if (insc.estado === 'handoff') continue;
+    // EL CARRIL DEL RECORDATORIO SIGUE VIVO (undécima tanda, M4): el lead contestó, pero los recordatorios de su
+    // reunión siguen saliendo. Cerrarla ahora como lograda los apagaba; cuando el carril termina, el motor la deja
+    // en 'respondio' sin próximo envío y ésta la cierra como siempre.
+    if (desenlaceEsperaAlCarril({ estado: insc.estado, proximo_envio_at: insc.proximo_envio_at ?? null })) continue;
 
     const sec = secs.get(insc.secuencia_id);
     const est = sec ? parseEstrategia(sec.estrategia) : null;

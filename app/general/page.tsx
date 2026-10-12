@@ -19,17 +19,14 @@
 //
 // La columna vertebral que lo sostiene (Q → Objective → KPI) vive en
 // `lib/objectives*.ts`; la elección de LA acción, en `lib/focus.ts`, que es puro y
-// testeable. Acá sólo se lee y se pinta.
+// testeable. TODO lo que la pantalla decide se LEE en `lib/vista-general.ts` (lo comparte
+// el Today de MaKo Mobile) y se calcula en `lib/vista-general-modelo.ts`, con test. Acá
+// sólo queda lo que dibuja el escritorio.
 // =============================================================================
 
 import Link from '@/app/_ui/Link';
 import type { CSSProperties } from 'react';
 import {
-  getResumenComparativo,
-  getPendientesDeMarcar,
-  getResumenComercialMaduras,
-  getFatigaAdsets,
-  getTramoJ1J2Reciente,
   getAgendasBreakdown,
   getSenalesRecon,
   compareMTD,
@@ -40,25 +37,18 @@ import {
   type SenalRecon,
 } from '@/lib/queries';
 import { fmtUSD, fmtNum } from '@/lib/format';
-import { DIAS_J1_J2_ALERTA } from '@/lib/config';
-import { getCuotasPendientes, getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
-import { getMetaAccountHealth } from '@/lib/meta-health';
-import { getDataSources } from '@/lib/sources';
-import { listTareas } from '@/lib/todo';
-import { estaPendiente } from '@/lib/todo-estados';
-import { getDiagnosticoFase } from '@/lib/fase-store';
+import { getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
+import { METRICA_LABEL } from '@/lib/objectives-modelo';
+import { leerVistaGeneral } from '@/lib/vista-general';
 import {
-  quarterActual, listObjectives, avanceDeObjetivo, getTableroKpis, getCapacidad,
-  proponerKpis, migrarSettingsAObjectives, type ObjectiveConAvance, type KpiEnTablero,
-} from '@/lib/objectives';
-import { elegirObjetivoPrincipal, ES_PLATA, METRICA_LABEL } from '@/lib/objectives-modelo';
-import { elegirFoco, type AlertaParaFoco } from '@/lib/focus';
+  estadoPendientes,
+  type AlertaGeneral, type CuotaDeAlerta, type EstadoFuentes, type EstadoLampara,
+} from '@/lib/vista-general-modelo';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
 import { Icon } from '../_components/icons';
 import { requireRolWs } from '@/lib/tab-access';
-import { pendientesOnboarding } from '@/lib/onboarding-pendientes';
 import { Cabecera } from './Cabecera';
-import { KpisCard, type KpiVista, type CandidatoVista } from './KpisCard';
+import { KpisCard, type KpiVista } from './KpisCard';
 
 /** La fórmula de una sección de este producto. Literal, y la misma de /comercial y /marketing. */
 const SECCION: CSSProperties = {
@@ -92,77 +82,54 @@ function revItemsToDesglose(items: RevItem[], fechaLabel: string, focus = 'plan-
   }));
 }
 
-type Nivel = 'rojo' | 'ambar' | 'verde';
+type Nivel = AlertaGeneral['nivel'];
+/** Una alerta como la dibuja el escritorio: la de cuotas, con su desglose lead por lead. */
 type Alerta = { nivel: Nivel; titulo: string; detalle: string; href: string; hrefLabel: string; desglose?: DesgloseData };
+
+function cuotaItems(arr: CuotaDeAlerta[]): DesgloseItem[] {
+  return arr.map((c) => ({
+    nombre: c.lead_nombre,
+    valor: fmtUSD(c.monto_usd),
+    detalle: `cuota ${c.numero === 0 ? 'inicial' : c.numero} · vence ${fmtDMY(c.fecha_esperada)} · ${c.dias < 0 ? `${Math.abs(c.dias)}d vencida` : c.dias === 0 ? 'vence hoy' : `en ${c.dias}d`}`,
+    leadId: c.lead_id,
+    focus: 'plan-pagos',
+  }));
+}
+
+/**
+ * De la alerta CRUDA (`armarAlertas`, lib/vista-general-modelo.ts) a la fila del escritorio.
+ * Las de cuotas traen sus filas y su total; el desglose —que abre la ficha EDITABLE del
+ * lead— es cosa de esta pantalla, por eso se arma acá y no en la lib.
+ */
+function alertaDeEscritorio(a: AlertaGeneral): Alerta {
+  const fila: Alerta = { nivel: a.nivel, titulo: a.titulo, detalle: a.detalle, href: a.href, hrefLabel: a.hrefLabel };
+  if (!a.cuotas) return fila;
+  const vencidas = a.tipo === 'cuotas-vencidas';
+  return {
+    ...fila,
+    desglose: {
+      label: vencidas ? 'Cuotas vencidas' : 'Cuotas por vencer',
+      value: fmtUSD(a.totalUsd ?? 0),
+      color: vencidas ? 'var(--bad)' : 'var(--warn-fill)',
+      items: cuotaItems(a.cuotas),
+      emptyText: vencidas ? 'Sin cuotas vencidas.' : 'Sin cuotas por vencer.',
+    },
+  };
+}
 
 export default async function GeneralPage() {
   await requireRolWs([], { nav: 'general' });
 
-  // ⚠️ LA MIGRACIÓN VA PRIMERO Y NO ROMPE NADA SI FALLA. Convierte los tres
-  // settings viejos (`objetivo_cash_usd`, `objetivo_cierres`, `objetivo_desde`) en
-  // los primeros objetivos del Q. Deja su propia marca y sale temprano, así que a
-  // partir de la segunda visita es UNA lectura de setting.
-  //
-  // Corre en el render y no en un cron a propósito: sin objetivos esta pantalla no
-  // tiene nada que decir, y el momento en que hace falta es exactamente cuando
-  // alguien la abre. Va en su propio try porque una migración que falla no puede
-  // dejar la pantalla en blanco.
-  try { await migrarSettingsAObjectives(); } catch { /* la pantalla funciona igual, sin el objetivo migrado */ }
-
-  const { qt, hoy, progreso } = await quarterActual();
-  const ayer = (() => { const d = new Date(`${hoy}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })();
-
-  const [objR, kpisR, capR, compR, pendR, madR, fatR, tramoR, cuotasR, saludR, fuentesR, tareasR, faseR] =
-    await Promise.allSettled([
-      listObjectives(qt),
-      getTableroKpis(hoy),
-      getCapacidad(hoy),
-      getResumenComparativo(ayer),
-      getPendientesDeMarcar(hoy),
-      getResumenComercialMaduras(),
-      getFatigaAdsets(hoy),
-      getTramoJ1J2Reciente(hoy, 60),
-      getCuotasPendientes(hoy),
-      getMetaAccountHealth(),
-      getDataSources(),
-      listTareas(),
-      getDiagnosticoFase(),
-    ]);
-
-  const objetivosBase = objR.status === 'fulfilled' ? objR.value : [];
-  const kpis: KpiEnTablero[] = kpisR.status === 'fulfilled' ? kpisR.value : [];
-  const capacidad = capR.status === 'fulfilled' ? capR.value
-    : { cupo: null, activos: 0, libres: null, ocupacionPct: null, mesesEntrega: 4, error: 'no pude leer la capacidad' };
-  const comparativo = compR.status === 'fulfilled' ? compR.value : null;
-  const pendientes: Pendientes = pendR.status === 'fulfilled' ? pendR.value : { items: [], total: 0, porTipo: { A: 0, B: 0, C: 0, M: 0, R: 0 } };
-  const maduras = madR.status === 'fulfilled' ? madR.value : null;
-  const fatiga = fatR.status === 'fulfilled' ? fatR.value : [];
-  const tramo = tramoR.status === 'fulfilled' ? tramoR.value : { promedio: null, n: 0 };
-  const cuotas = cuotasR.status === 'fulfilled' ? cuotasR.value : { vencidas: [], porVencer: [] };
-  const saludMeta = saludR.status === 'fulfilled' ? saludR.value : null;
-  const fuentes = fuentesR.status === 'fulfilled' ? fuentesR.value : [];
-  const tareas = tareasR.status === 'fulfilled' ? tareasR.value : [];
-  const fase = faseR.status === 'fulfilled' ? faseR.value : null;
-
-  // El avance de cada objetivo se lee de los datos, nunca de una columna guardada.
-  const objetivos: ObjectiveConAvance[] = await Promise.all(
-    objetivosBase.map((o) => avanceDeObjetivo(o, hoy)),
-  ).catch(() => [] as ObjectiveConAvance[]);
-
-  // La propuesta de KPIs sólo se calcula si hace falta: con KPIs cargados es una
-  // pantalla que nadie va a ver, y son dos lecturas (funnel + fase).
-  let candidatos: CandidatoVista[] = [];
-  if (kpis.length === 0) {
-    try {
-      candidatos = (await proponerKpis()).map((c) => ({
-        nombre: c.nombre, porque: c.porque, cadencia: c.cadencia,
-        compromiso: c.compromiso, unidad: c.unidad, fuente: c.fuente,
-      }));
-    } catch { /* sin propuesta, el vacío ofrece crear el primero a mano */ }
-  }
+  // ⚠️ TODO LO QUE DECIDE ESTA PANTALLA SE LEE EN `lib/vista-general.ts`, y no acá: la
+  // migración de los settings viejos, las trece lecturas con sus defaults, las seis reglas
+  // del semáforo, la guarda #165, el objetivo principal, la plata del hero y LA acción del
+  // día. Lo comparte el Today de MaKo Mobile: una segunda copia de esta lista es la que se
+  // queda vieja. Acá queda lo que sólo dibuja el escritorio — el detalle del mes y la forma.
+  const v = await leerVistaGeneral();
+  const { qt, progreso, objetivos, objetivoPrincipal, kpis, candidatos, capacidad, foco, pendientes, comparativo, plata } = v;
 
   // Desgloses del bloque plegado, en una sola ola.
-  const mtd = compareMTD(ayer);
+  const mtd = compareMTD(v.ayer);
   let mtdBreak: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let agendasMTD: AgendaItem[] = [];
   let senalesMTD: SenalRecon[] = [];
@@ -177,200 +144,36 @@ export default async function GeneralPage() {
     // degradación elegante: las cards muestran los números sin desglose.
   }
 
-  // ── Semáforo: las mismas seis reglas de siempre ──
-  const alertas: Alerta[] = [];
-
-  const pendArranque = await pendientesOnboarding().then((r) => ({ ok: true as const, r }), () => ({ ok: false as const, r: [] }));
-  if (!pendArranque.ok) {
-    alertas.push({
-      nivel: 'ambar',
-      titulo: 'No pude chequear qué te quedó pendiente del arranque',
-      detalle: 'Puede que tengas una conexión sin terminar y no lo esté viendo. Revisa Integraciones.',
-      href: '/integraciones', hrefLabel: 'Integraciones',
-    });
-  }
-  for (const pend of pendArranque.r) {
-    alertas.push({
-      nivel: 'ambar',
-      titulo: `Te quedó pendiente: ${pend.que.toLowerCase()}`,
-      detalle: 'Lo dejaste para después durante tu arranque. Mientras no esté, MaKo trabaja con la mitad de los datos de tu negocio.',
-      href: pend.ruta, hrefLabel: pend.donde,
-    });
-  }
-  if (saludMeta && saludMeta.severidad !== 'verde') {
-    const esRojo = saludMeta.severidad === 'rojo';
-    const saldo = saludMeta.balanceMxn > 0
-      ? `Adeudo ~${saludMeta.balanceMxn.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN${saludMeta.fundingCard ? ` (${saludMeta.fundingCard})` : ''}. `
-      : '';
-    alertas.push({
-      nivel: esRojo ? 'rojo' : 'ambar',
-      titulo: esRojo
-        ? `Cuenta de Meta: ${saludMeta.statusLabel} — entrega frenada`
-        : `Cuenta de Meta: ${saludMeta.statusLabel} — vigilar`,
-      detalle: esRojo
-        ? `${saldo}Los anuncios figuran ACTIVOS pero la cuenta no está entregando${saludMeta.disableReasonLabel ? ` (${saludMeta.disableReasonLabel})` : ''}. Regulariza el pago en Meta cuanto antes.`
-        : `Estado de cuenta "${saludMeta.statusLabel}". La entrega puede estar limitada — revisa el Business Manager.`,
-      href: '/marketing/salud', hrefLabel: 'Estado de Meta',
-    });
-  }
-  const cuotaItems = (arr: typeof cuotas.vencidas): DesgloseItem[] => arr.map((c) => ({
-    nombre: c.lead_nombre,
-    valor: fmtUSD(c.monto_usd),
-    detalle: `cuota ${c.numero === 0 ? 'inicial' : c.numero} · vence ${fmtDMY(c.fecha_esperada)} · ${c.dias < 0 ? `${Math.abs(c.dias)}d vencida` : c.dias === 0 ? 'vence hoy' : `en ${c.dias}d`}`,
-    leadId: c.lead_id,
-    focus: 'plan-pagos',
-  }));
-  if (cuotas.vencidas.length > 0) {
-    const tot = cuotas.vencidas.reduce((s, c) => s + c.monto_usd, 0);
-    const n = cuotas.vencidas.length;
-    alertas.push({
-      nivel: 'rojo',
-      titulo: `${n} cuota${n === 1 ? '' : 's'} VENCIDA${n === 1 ? '' : 'S'} — cobrar URGENTE (${fmtUSD(tot)})`,
-      detalle: `Pagos vencidos sin cobrar (ej: ${cuotas.vencidas[0].lead_nombre}, ${Math.abs(cuotas.vencidas[0].dias)}d de atraso). Cóbralos cuanto antes.`,
-      href: '/dashboard?hoja=comercial', hrefLabel: 'Comercial',
-      desglose: { label: 'Cuotas vencidas', value: fmtUSD(tot), color: 'var(--bad)', items: cuotaItems(cuotas.vencidas), emptyText: 'Sin cuotas vencidas.' },
-    });
-  }
-  if (cuotas.porVencer.length > 0) {
-    const n = cuotas.porVencer.length;
-    const tot = cuotas.porVencer.reduce((s, c) => s + c.monto_usd, 0);
-    alertas.push({
-      nivel: 'ambar',
-      titulo: `${n} cuota${n === 1 ? '' : 's'} por cobrar pronto`,
-      detalle: `Vencen en los próximos días (ej: ${cuotas.porVencer[0].lead_nombre}, en ${cuotas.porVencer[0].dias}d). Ten listo el seguimiento de cobro.`,
-      href: '/dashboard?hoja=comercial', hrefLabel: 'Comercial',
-      desglose: { label: 'Cuotas por vencer', value: fmtUSD(tot), color: 'var(--warn-fill)', items: cuotaItems(cuotas.porVencer), emptyText: 'Sin cuotas por vencer.' },
-    });
-  }
-  if (tramo.n >= 3 && tramo.promedio !== null && tramo.promedio > DIAS_J1_J2_ALERTA) {
-    alertas.push({
-      nivel: 'ambar',
-      titulo: `Los deals se enfrían entre R1 y R2 (${tramo.promedio.toFixed(1)} días prom.)`,
-      detalle: 'Cuanto más tarda la R2, más cae la intención. Agenda la R2 en la misma R1, en vivo.',
-      href: '/dashboard?hoja=comercial', hrefLabel: 'Comercial',
-    });
-  }
-  for (const a of fatiga) {
-    alertas.push({
-      nivel: 'ambar',
-      titulo: `Posible fatiga de creativo · ${a.adset_name}`,
-      detalle: `Frecuencia 7d ${a.frequency_7d.toFixed(1)} y el costo por lead subió (${fmtUSD(a.cpl_7d_usd)} vs ${fmtUSD(a.cpl_28d_usd)} a 28 días). Rota el creativo.`,
-      href: '/dashboard?hoja=marketing', hrefLabel: 'Marketing',
-    });
-  }
-  if (maduras && maduras.tasa_cierre_madura !== null && maduras.limpias >= 3) {
-    if (maduras.tasa_cierre_madura >= 30) {
-      alertas.push({
-        nivel: 'verde',
-        titulo: 'El sistema de venta está sano',
-        detalle: 'El ratio de cierre maduro es saludable. Para más cierres, el foco es marketing: más volumen o mejor calidad.',
-        href: '/dashboard?hoja=comercial', hrefLabel: 'Comercial',
-      });
-    } else if (maduras.tasa_cierre_madura < 20) {
-      alertas.push({
-        nivel: 'rojo',
-        titulo: `Tasa de cierre baja: ${maduras.tasa_cierre_madura.toFixed(0)}% en cohortes maduras`,
-        detalle: 'Califican pero no cierran. Revisa la oferta y el manejo de objeciones en la R2.',
-        href: '/dashboard?hoja=comercial', hrefLabel: 'Comercial',
-      });
-    }
-  }
-
-  const peso: Record<Nivel, number> = { rojo: 0, ambar: 1, verde: 2 };
-  alertas.sort((a, b) => peso[a.nivel] - peso[b.nivel]);
-  const urgentes = alertas.filter((a) => a.nivel === 'rojo').length;
-
-  // ⚠️ TAREA #165 — el semáforo no puede certificar la salud de un negocio del que
-  // no sabe nada. Con cero fuentes comerciales conectadas ninguna de las seis
-  // reglas empuja una alerta, y el veredicto caía al verde final: «El negocio está
-  // sano». Es el peor primer contacto posible — luz verde a alguien que todavía no
-  // conectó nada, y eso se lleva puesta la credibilidad del resto del tablero.
-  //
-  // `lib/sources.ts` ya distingue «la fuente no está» de «la fuente dice cero»; lo
-  // único que faltaba era que esta pantalla la mirara.
-  // ⚠️ SE MIRA `lastSync`, NO `status`. Medido el 06/09/2026 sobre un workspace sin
-  // un solo dato: la primera versión de esto preguntaba `status !== 'off'` y el
-  // veredicto salió VERDE igual — el bug que venía a arreglar, otra vez.
-  //
-  // La causa: de las cinco fuentes, `calendly` y `vsl_beacon` devuelven `'stale'`
-  // cuando NUNCA hubo un dato (`lib/sources.ts:101` y `:129`), no `'off'`. O sea que
-  // «conectada pero sin datos recientes» y «nunca entregó nada» comparten valor en
-  // dos de las cinco, y contarlas por el estado daba 2 conectadas sobre un
-  // workspace vacío.
-  //
-  // `lastSync` no tiene esa ambigüedad: es la fecha del último dato real, o null
-  // porque no hubo ninguno. La pregunta que hay que hacer es «¿alguna fuente entregó
-  // algo alguna vez?», y ésa es la columna que la contesta.
-  const conDatos = fuentes.filter((f) => f.lastSync !== null);
-  const sinFuentes = fuentes.length > 0 && conDatos.length === 0;
-
-  // ── El objetivo que manda ──
-  // ⚠️ NO es `objetivos[0]`: `listObjectives` mezcla a propósito los ANUALES con los
-  // del Q, así que el primero por `orden` puede ser el del AÑO, y la cabecera estaría
-  // mostrando el número del año arriba de una pantalla que habla del trimestre. La
-  // regla de selección vive en el modelo, para que el hero y los KPIs nuevos elijan
-  // el mismo — si eligen distinto, el compromiso cuelga de otra cosa que la meta.
-  const objetivoPrincipal = elegirObjetivoPrincipal(objetivos);
+  // ── Semáforo: las mismas seis reglas de siempre (armadas en la lib) ──
+  const alertas: Alerta[] = v.alertas.map(alertaDeEscritorio);
 
   // El detalle lead por lead del número grande, y la OTRA métrica de plata del mismo
-  // período. Sólo para objetivos de plata: `getRevenueBreakdowns` devuelve montos, y
-  // colgarlo de un objetivo que cuenta reuniones abriría una lista de dinero debajo
-  // de un número que no lo es. En su propio try: si falla, el hero muestra el número
-  // y esconde el desglose — nunca se cae la pantalla por un detalle.
+  // período. `plata` sólo existe para objetivos de plata y si la lectura salió: si falla,
+  // el hero muestra el número y esconde el desglose — nunca se cae la pantalla por un detalle.
   let heroDesglose: DesgloseData | null = null;
   let heroComplemento: React.ComponentProps<typeof Cabecera>['complemento'] = null;
-  if (objetivoPrincipal && ES_PLATA(objetivoPrincipal.metrica)) {
-    try {
-      const br = await getRevenueBreakdowns(objetivoPrincipal.desde, objetivoPrincipal.hasta);
-      const esCash = objetivoPrincipal.metrica === 'cash_usd';
-      const propios = esCash ? br.cash : br.sold;
-      const otros = esCash ? br.sold : br.cash;
-      heroDesglose = {
-        label: `${METRICA_LABEL[objetivoPrincipal.metrica]} del período`,
-        value: fmtUSD(propios.reduce((s, i) => s + i.monto, 0)),
-        color: esCash ? 'var(--good)' : 'var(--ink)',
-        items: revItemsToDesglose(propios, esCash ? 'pago' : 'cierre', 'plan-pagos'),
-        emptyText: esCash ? 'Todavía no entró un pago en este período.' : 'Todavía no se firmó nada en este período.',
-      };
-      heroComplemento = {
-        label: esCash ? 'Firmado' : 'Cobrado',
-        valor: fmtUSD(otros.reduce((s, i) => s + i.monto, 0)),
-        pie: esCash ? 'comprometido en contratos, aún no cobrado' : 'lo que efectivamente entró',
-        desglose: {
-          label: esCash ? 'Firmado en el período' : 'Cobrado en el período',
-          value: fmtUSD(otros.reduce((s, i) => s + i.monto, 0)),
-          color: esCash ? 'var(--ink)' : 'var(--good)',
-          items: revItemsToDesglose(otros, esCash ? 'cierre' : 'pago', 'plan-pagos'),
-          emptyText: esCash ? 'Sin cierres firmados en el período.' : 'Sin cobros en el período.',
-        },
-      };
-    } catch {
-      // El número grande no depende de esto: se pierde el detalle, no el dato.
-    }
+  if (objetivoPrincipal && plata) {
+    const esCash = plata.esCash;
+    heroDesglose = {
+      label: `${METRICA_LABEL[objetivoPrincipal.metrica]} del período`,
+      value: fmtUSD(plata.totalPropios),
+      color: esCash ? 'var(--good)' : 'var(--ink)',
+      items: revItemsToDesglose(plata.propios, esCash ? 'pago' : 'cierre', 'plan-pagos'),
+      emptyText: esCash ? 'Todavía no entró un pago en este período.' : 'Todavía no se firmó nada en este período.',
+    };
+    heroComplemento = {
+      label: esCash ? 'Firmado' : 'Cobrado',
+      valor: fmtUSD(plata.totalOtros),
+      pie: esCash ? 'comprometido en contratos, aún no cobrado' : 'lo que efectivamente entró',
+      desglose: {
+        label: esCash ? 'Firmado en el período' : 'Cobrado en el período',
+        value: fmtUSD(plata.totalOtros),
+        color: esCash ? 'var(--ink)' : 'var(--good)',
+        items: revItemsToDesglose(plata.otros, esCash ? 'cierre' : 'pago', 'plan-pagos'),
+        emptyText: esCash ? 'Sin cierres firmados en el período.' : 'Sin cobros en el período.',
+      },
+    };
   }
-
-  // ── LA acción prioritaria ──
-  const tituloObjetivo = new Map(objetivos.map((o) => [o.id, o.titulo]));
-  const foco = elegirFoco({
-    kpis: kpis.map((k) => ({
-      id: k.id, nombre: k.nombre, estado: k.estado, cadencia: k.cadencia,
-      compromiso: k.compromiso, unidad: k.unidad, valor: k.valor,
-      fuente: k.fuente, fuenteId: k.fuenteId,
-      objetivoTitulo: k.objectiveId ? (tituloObjetivo.get(k.objectiveId) ?? null) : null,
-      orden: k.orden,
-    })),
-    alertas: alertas as AlertaParaFoco[],
-    tareas: tareas
-      .filter((t) => estaPendiente(t.estado))
-      .map((t) => ({ titulo: t.titulo, score: t.score, progreso: t.progreso, deadline: t.deadline, haceloEn: null })),
-    objetivos: objetivos.length,
-    cuello: fase?.cuello ?? null,
-    // ⚠️ #165, la otra mitad. La guarda vivía sólo adentro del semáforo, así que con
-    // objetivos y KPIs cargados sobre un workspace sin un solo dato el titular decía
-    // «vas al día con todo lo que te comprometiste». Ahora el que elige también lo sabe.
-    sinFuentes,
-    hoy,
-  });
 
   // Cuántas alertas quedan para el plegado, sacando la que ya es el titular.
   const restantes = alertas.length - (foco.alertaIdx === null ? 0 : 1);
@@ -446,6 +249,7 @@ export default async function GeneralPage() {
           foco={foco}
           capacidad={capacidad}
           progreso={progreso}
+          fraccion={v.fraccionObjetivo}
           anio={qt.anio}
           quarter={qt.q}
           desglose={heroDesglose}
@@ -465,12 +269,12 @@ export default async function GeneralPage() {
           <h2 style={{ ...H2, marginBottom: 24 }}>Semáforo del negocio</h2>
           <Semaforo
             alertas={alertas}
-            sinFuentes={sinFuentes}
+            fuentes={v.fuentes}
+            lampara={v.lampara.estado}
             saltar={foco.alertaIdx}
             restantes={restantes}
-            // `alDia === false` sólo se afirma cuando el avance se pudo LEER: con
-            // `actual === null` no se sabe si va atrasado, y no saberlo no es ir mal.
-            objetivoAtrasado={objetivoPrincipal?.actual !== null && objetivoPrincipal?.ritmo?.alDia === false}
+            // `objetivoAtrasado` sólo se afirma cuando el avance se pudo LEER (lib/vista-general-modelo.ts).
+            objetivoAtrasado={v.objetivoAtrasado}
           />
         </section>
 
@@ -587,9 +391,15 @@ function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record
  *   · el filete de 4 px de color por fila — veto duro de la casa, y la cuarta copia
  *     del mismo bit.
  */
-function Semaforo({ alertas, sinFuentes, saltar, restantes, objetivoAtrasado }: {
+function Semaforo({ alertas, fuentes, lampara, saltar, restantes, objetivoAtrasado }: {
   alertas: Alerta[];
-  sinFuentes: boolean;
+  /** Qué se sabe de las fuentes (#165). Cualquier cosa que no sea `con-datos` apaga las lámparas. */
+  fuentes: EstadoFuentes;
+  /**
+   * El color, calculado sobre TODAS las alertas (`estadoLampara`, lib/vista-general-modelo.ts):
+   * la lámpara dice el estado del negocio, las filas lo que queda por leer acá.
+   */
+  lampara: EstadoLampara;
   /** El índice de la alerta que ya es el titular de la pantalla. */
   saltar: number | null;
   /** Cuántas alertas quedan para esta lista, sacando la que ya es titular. */
@@ -607,8 +417,7 @@ function Semaforo({ alertas, sinFuentes, saltar, restantes, objetivoAtrasado }: 
    */
   objetivoAtrasado: boolean;
 }) {
-  const urgentes = alertas.filter((a) => a.nivel === 'rojo').length;
-  const vigilar = alertas.filter((a) => a.nivel === 'ambar').length + (objetivoAtrasado ? 1 : 0);
+  const sinFuentes = fuentes !== 'con-datos';
   const visibles = alertas.filter((_, i) => i !== saltar);
 
   return (
@@ -623,9 +432,9 @@ function Semaforo({ alertas, sinFuentes, saltar, restantes, objetivoAtrasado }: 
         // pantalla y la de la cabecera tienen que ser el mismo material.
         background: 'var(--sidebar)', borderRadius: 18, padding: '18px 16px',
       }}>
-        <Lampara color="var(--bad)" encendida={!sinFuentes && urgentes > 0} />
-        <Lampara color="var(--warn-fill)" encendida={!sinFuentes && urgentes === 0 && vigilar > 0} />
-        <Lampara color="var(--good)" encendida={!sinFuentes && urgentes === 0 && vigilar === 0} />
+        <Lampara color="var(--bad)" encendida={lampara === 'rojo'} />
+        <Lampara color="var(--warn-fill)" encendida={lampara === 'ambar'} />
+        <Lampara color="var(--good)" encendida={lampara === 'verde'} />
       </div>
 
       <div style={{ flex: 1, minWidth: 280 }}>
@@ -633,13 +442,19 @@ function Semaforo({ alertas, sinFuentes, saltar, restantes, objetivoAtrasado }: 
             ninguna fuente entregó jamás un dato, lo que sigue no se sostiene — y por
             eso arriba las TRES lámparas quedan apagadas, que es lo único honesto. */}
         {sinFuentes ? (
+          // ⚠️ «No las pude leer» NO es «no hay fuentes»: la primera es nuestra, y mandar a
+          // conectar algo que está conectado es mandar a arreglar lo que no se rompió.
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)' }}>
-              Sin fuentes conectadas no puedo opinar de tu negocio.
+              {fuentes === 'sin-leer'
+                ? 'No pude leer tus fuentes de datos: hoy no puedo opinar de tu negocio.'
+                : 'Sin fuentes conectadas no puedo opinar de tu negocio.'}
             </span>
-            <Link href="/integraciones" style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
-              Conectar →
-            </Link>
+            {fuentes !== 'sin-leer' && (
+              <Link href="/integraciones" style={{ fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
+                Conectar →
+              </Link>
+            )}
           </div>
         ) : visibles.length === 0 ? (
           <span style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)' }}>
@@ -710,6 +525,11 @@ function Lampara({ color, encendida }: { color: string; encendida: boolean }) {
  * es la acción del día. Dos primarios compitiendo es que no hay ninguno.
  */
 function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
+  // ⚠️ «Al día» sólo si se leyó TODO. Con `aviso` (una lectura que falló) y cero
+  // pendientes, la tarjeta decía «Datos al día — el tablero es confiable»: el falso
+  // all-clear que `aviso` existe para evitar. Ver `estadoPendientes`.
+  const estado = estadoPendientes(pendientes);
+  const aviso = (pendientes.aviso ?? '').trim();
   const tipos = [
     { n: pendientes.porTipo.A, l: 'sin asistencia a R1' },
     { n: pendientes.porTipo.B, l: 'sin R2 ni resolución' },
@@ -724,7 +544,7 @@ function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
           {/* El número grande sólo cuando HAY algo que marcar. Un «0» de 34 px al lado
               de «datos al día» es un titular sobre la nada: el cero ya lo dice la
               frase, y pintarlo grande le da a lo que no pasó el peso de lo que pasa. */}
-          {pendientes.total > 0 && (
+          {estado === 'por-marcar' && (
             <span style={{
               fontWeight: 700, fontSize: 'var(--fs-kpi)', letterSpacing: '-0.03em', lineHeight: 1,
               color: 'var(--bad)', fontVariantNumeric: 'tabular-nums',
@@ -733,12 +553,14 @@ function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
             </span>
           )}
           <h2 style={H2}>
-            {pendientes.total > 0
+            {estado === 'por-marcar'
               ? 'leads sin marcar bloquean la confiabilidad del tablero'
+              : estado === 'sin-confirmar'
+              ? 'No pude confirmar que los datos estén al día'
               : 'Datos al día — el tablero es confiable'}
           </h2>
         </div>
-        {pendientes.total > 0 && (
+        {estado === 'por-marcar' && (
           <Link href="/crm" style={{
             flex: 'none', alignSelf: 'center', padding: '9px 16px', borderRadius: 'var(--r-md)',
             border: '1px solid var(--border-strong)', background: 'transparent',
@@ -748,6 +570,12 @@ function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
           </Link>
         )}
       </div>
+
+      {/* Qué no se pudo leer, con las palabras de quien lo detectó (lib/queries.ts). Con
+          pendientes también va: el número es cierto, pero la lista puede estar incompleta. */}
+      {aviso !== '' && (
+        <p style={{ margin: '12px 0 0', fontSize: 'var(--fs-md)', color: 'var(--warn)' }}>{aviso}</p>
+      )}
 
       {tipos.length > 0 && (
         <div style={{ marginTop: 18 }}>

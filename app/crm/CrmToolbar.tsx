@@ -781,7 +781,7 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // teñía el texto: `color` en un DropdownOption dibuja un PUNTO de 9 px, así que el
   // renglón salió con una bolita gris al lado y el texto igual de negro que los demás.
   // El flag `crear` es el que apaga la fila y la enciende al pasar el cursor.
-  opciones.push({ value: NUEVA, label: 'Nuevo producto', crear: true });
+  opciones.push({ value: NUEVA, label: 'Nuevo funnel', crear: true });
   // ⚠️ LA PUERTA DE VUELTA. Eliminar un producto lo ARCHIVA —la fila y sus leads quedan
   // enteros— pero sin una pantalla que los nombre, para la persona desapareció igual: una
   // copia de seguridad que nadie puede ver no es una copia de seguridad. El renglón sólo
@@ -791,7 +791,7 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // 30/09/2026). Con `crear` salía con el mismo `＋` y el mismo peso que «Nuevo producto»,
   // y dos renglones con el mismo peso son dos acciones con el mismo peso — pero una se usa
   // todas las semanas y la otra casi nunca.
-  if (hayArchivados) opciones.push({ value: ARCHIVADOS, label: 'Productos eliminados', sutil: true });
+  if (hayArchivados) opciones.push({ value: ARCHIVADOS, label: 'Funnels eliminados', sutil: true });
   // ⚠️ EL ANCHO VA EN EL DROPDOWN, NO EN UN ENVOLTORIO. Estaba `<span minWidth:190>`
   // alrededor de un Dropdown sin `width`, que se dibuja del tamaño de su contenido:
   // el span medía 190 y el botón 166,7, así que quedaban 23,3 px muertos a la derecha
@@ -808,7 +808,7 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
         value={String(actual.id)}
         options={opciones}
         width={190}
-        ariaLabel="Producto que dibuja el tablero"
+        ariaLabel="Funnel que dibuja el tablero"
         onChange={(v) => {
           // ⚠️ SE RESUELVE ACÁ, NO EN OTRA PANTALLA. Hasta el 27/09/2026 esto hacía
           // `router.push('/second-brain?area=oferta')`: sacaba a la persona del CRM,
@@ -919,8 +919,8 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   return (
     <Modal
       titulo={titulos[paso].t}
-      encabezado={`Nuevo producto · ${paso + 1} de 3`}
-      etiqueta={`Nuevo producto, paso ${paso + 1} de 3: ${titulos[paso].t}`}
+      encabezado={`Nuevo funnel · ${paso + 1} de 3`}
+      etiqueta={`Nuevo funnel, paso ${paso + 1} de 3: ${titulos[paso].t}`}
       ancho={560}
       alto="min(80vh, 520px)"
       sinFiletes
@@ -936,7 +936,7 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
           style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
         <button type="button" onClick={seguir} disabled={guardando}
           style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>
-          {paso < 2 ? 'Siguiente' : guardando ? 'Creando…' : 'Crear producto'}
+          {paso < 2 ? 'Siguiente' : guardando ? 'Creando…' : 'Crear funnel'}
         </button>
       </>)}
     >
@@ -948,7 +948,7 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
 
       {paso === 0 && (
         <input
-          type="text" value={nombre} autoFocus aria-label="Nombre del producto"
+          type="text" value={nombre} autoFocus aria-label="Nombre del funnel"
           onChange={(e) => { setErr(null); setNombre(e.target.value); }}
           onKeyDown={(e) => { if (e.key === 'Enter') seguir(); }}
           // ⚠️ EL PLACEHOLDER NO NOMBRA A UN CLIENTE. Decía «Sistema DOS™», que es el
@@ -1053,7 +1053,7 @@ function ArchivadosModal({ onCerrar, onRestaurado }: { onCerrar: () => void; onR
 
   return (
     <Modal
-      titulo="Productos eliminados"
+      titulo="Funnels eliminados"
       ancho={520}
       onCerrar={onCerrar}
       pie={(
@@ -1065,7 +1065,7 @@ function ArchivadosModal({ onCerrar, onRestaurado }: { onCerrar: () => void; onR
     >
       {filas === null && !err && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0 }}>Cargando…</p>}
       {filas?.length === 0 && (
-        <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0 }}>No eliminaste ningún producto.</p>
+        <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0 }}>No eliminaste ningún funnel.</p>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {(filas ?? []).map((f) => (
@@ -1105,7 +1105,7 @@ function ArchivadosModal({ onCerrar, onRestaurado }: { onCerrar: () => void; onR
         <Confirm
           title={`Borrar «${borrar.nombre}» para siempre`}
           message={borrar.leads > 0
-            ? `Sus ${borrar.leads} ${borrar.leads === 1 ? 'lead pasa' : 'leads pasan'} a tu producto principal. Se pierden sus etapas y su nutrición, y esto no se puede deshacer.`
+            ? `Sus ${borrar.leads} ${borrar.leads === 1 ? 'lead pasa' : 'leads pasan'} a tu funnel principal. Se pierden sus etapas y su nutrición, y esto no se puede deshacer.`
             : 'Se pierden sus etapas y su nutrición, y esto no se puede deshacer.'}
           confirmLabel="Borrar para siempre"
           onCancel={() => setBorrar(null)}

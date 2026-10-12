@@ -1,11 +1,51 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
-> **EN CURSO (11/10/2026 ~04:40, `claude3`): la DÉCIMA tanda** (el pedido textual, en el último hito de
-> `app/admin/dev/chatbot/bitacora.ts`). La corre el workflow `wf_0a9d0973-480` (script en
-> `~/.claude/projects/…-dashboard-marketing/<sesión>/workflows/scripts/decima-tanda-automations-*.js`): diseño
-> (`docs/diseno-ai-step-v2.md`, `docs/diseno-automations-configuraciones.md`, `docs/diseno-automations-galeria-v2.md`)
-> → UI → funciones → revisión de motor → cierre con cosecha en hallazgos-chatbot.md. Si el chat se corta: retomar con
-> `resumeFromRunId` o seguir desde los diseños; los scripts de datos quedan en SIMULACRO hasta desplegar.
+> **HECHA (11/10/2026 ~22:50, `claude3`): la UNDÉCIMA tanda, `a29af1a9`, pusheada desde el worktree `C:/dev/wt-undecima`.**
+> Mig 0257 aplicada antes del deploy. Lo aprendido: `docs/hallazgos-chatbot.md` → «Undécima tanda». **Datos APLICADOS el
+> 12/10 ~02:00 UTC, con el simulacro leído y releídos de la base:** zona (ws1 y ws4 Tijuana, ws11 Cancún, ws13 canonizado;
+> respaldo `backups/zona-negocio-2026-10-12T01-55-55-263Z.json`), remitente del ws1 a vacío, y los flujos: ws1 #198 «Un Lead
+> Entró» y #213 «Un Lead Agendó Llamada» (prendidas, un AI Step c/u), #238 sólo su CRON; archivadas #228, #239, #240, #223,
+> #224; ws13 #241 «Un Lead Agendó Llamada» (sólo el aviso, prendida, 9 leads de «Pre R1» pre-sembrados); ws4 #209 y #210
+> rehechas y pausadas. Inscripciones 201 y 202: recordatorios el 12/10 y el 19/10 17:00 UTC. La 203 (lead 2645) estaba en
+> `nz7zsf8`, la condición que se juntó: se REMAPEÓ a mano a `n2199q6` (compare-and-set) con su mismo horario (02:36 UTC).
+> Respaldo de los flujos en `backups/undecima-flujos-*.json` (del worktree). **Falta:** `scripts/voz-mako-agregar.mts` (frena
+> hasta que Martín pague ElevenLabs, US$6 past_due, y cargue `MAKO_ELEVENLABS_API_KEY`; el voice_id de «David» sin
+> verificar), y la limpieza del §8.7 en commit aparte (ya hay 0 filas vivas con {{mensaje_mako}} o el recordatorio viejo).
+> Las 36 decisiones con la recomendada primero: `docs/diseno-undecima-tanda.md` §9. El clon de OneDrive sigue sin poder
+> ponerse al día con origin/main (trabajo ajeno sin commitear): se trabaja en worktrees.
+> **EN COLA:** la tarea del Dashboard (abajo) — ⚠️ Graphics avisó (11/10 ~22:55) que empieza la v5 del Dashboard (los
+> «Bloques de MaKo» se van y cambian las operaciones del área): pedirle el estado ANTES de cablear selectores en ⚡ Acción.
+>
+> **HECHA (11/10/2026 ~12:20, `claude3`): la DÉCIMA tanda, `4e2ebc7d`, desplegada (Ready).** AI Step v2 (un caso
+> por tarjeta, objetivo, «✦ Armar el resto», ensayo, respuesta en audio), Configuraciones (horario + límites),
+> galería v2 y editores. Diseños: `docs/diseno-ai-step-v2.md`, `docs/diseno-automations-configuraciones.md`,
+> `docs/diseno-automations-galeria-v2.md`. Lo aprendido: `docs/hallazgos-chatbot.md` → «Décima tanda». Datos, medidos
+> después: mig 0251 aplicada; «Aviso de nuevo agendado» creado y prendido en ws1 (#239) y ws13 (#240) antes del deploy;
+> AI Step v2 aplicado (#198 y #213 del ws1, respaldo en `backups/ai-step-v2-2026-10-11T15-20-50-160Z.json`; volver a un
+> deploy anterior es DESTRUCTIVO, §8.5). `scripts/migrar-cron-de-antes.mts` sigue SIN aplicar: falta la fase 1 del motor.
+> **Decisiones pendientes de Martín:** (1) lo migrado quedó SIN objetivo (los sugeridos se imprimen, no se escriben);
+> (2) el editor de «MaKo en WhatsApp» tiene el tamaño del de WhatsApp pero sin audio, archivos ni varios mensajes;
+> (3) el email de MaKo ya no sale desde el motor (lo pidió él: «No permitas enviar emails con los email de MaKo»);
+> medido 11/10: ninguna automatización prendida tiene pasos de email, así que hoy no corta nada; (4) el resto del motor
+> manda en hora de Ciudad de México al ws1, que es de Baja California («Contesta sola» ya usa la del negocio).
+> **Coordinación:** el hash `4e2ebc7d` ya se le mandó a la sesión «Integración Mercado Pago y Stripe» (CRON «Pagos»,
+> 7º botón, grilla 4+3).
+> **EN COLA (11/10 ~16:10, pedido de Martín reenviado por el chat Graphics): Automations CONFIGURA y CONSUME el
+> Dashboard.** Martín: «mandale tarea al chat de chatbot para que se pueda configurar en automations y consumir esto
+> tambien». Graphics ya puso 22 operaciones en la API (área metricas, `lib/api-mako/areas/dashboard.*`, commit
+> 6e85d8d7). Lo nuestro: (1) un Evento de MaKo «El AI Analyst terminó» (`analisis_listo`, aviso
+> `dashboard_analisis_listo`, datos `{ hoja, hojaId, persona, link }`) — ⚠️ SIN `{{mensaje_mako}}` ni textoDelCodigo
+> (rechazado en la undécima, punto 4): el mensaje se arma con datos citables (hoja, resumen, hallazgos, link) en una
+> tarjeta «MaKo en WhatsApp»; avisarle el id a Graphics, que agrega la emisión en `lib/graficos-analisis-server.ts`;
+> (2) las acciones del Dashboard que tengan sentido en un flujo en el selector de ⚡ Acción (`lib/editor-acciones.ts`),
+> con selectores persona → hoja → componente y conjuntos (`app/api/flujos/opciones/route.ts`,
+> `app/_components/CamposAccion.tsx`); ofrecerlas sólo con disparadores que no son de un lead es decisión de Martín;
+> (3) más adelante, junto con Grupos de WhatsApp: la salida de una acción al paso siguiente y un evento
+> `numero_umbral`. Va DESPUÉS de la undécima (toca lib/disparadores.ts, avisos-catalogo y plantillas). El mensaje
+> completo de Graphics, con líneas, está en la transcripción de este chat (11/10 ~16:10 hora local).
+> **EN COLA, después de la décima:** «Grupos de WhatsApp» (la tarjeta para mandar a uno o más grupos, el grupo como
+> medio del AI Step, y condiciones de grupo: está en el grupo X, mandó un mensaje, llegó cualquier mensaje, mandó
+> una palabra). Pedido textual en el hito siguiente de la bitácora.
 >
 > **HECHO (11/10/2026 ~04:15, `56581a3f`):** lo de abajo está en producción; lo aprendido en
 > `docs/hallazgos-chatbot.md` → «"MaKo en WhatsApp" = una automatización más». Sin ver con clics (lo mira Martín).

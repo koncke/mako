@@ -69,8 +69,11 @@ export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: 
   // porque el cron la necesita ANTES, para decidir si saltear al que no tiene a quién.
   const { emails } = destinosDelReporte(await getDestinatarios(), perfil);
 
-  // 1) Feed in-app (bitácora durable).
+  // 1) Feed in-app (bitácora durable), en el feed del workspace DEL REPORTE (`wsRep`: el del
+  // cliente adentro del `runWithWorkspace` del cron semanal). Sin el ws la fila no se escribe:
+  // la tabla lo exige (mig 0250), porque un reporte sin dueño se lo mostraría a todos.
   const notifId = await crearNotificacion({
+    ws: wsRep,
     tipo: rep.tipo,
     severidad: rep.severidad,
     titulo: rep.titulo,
@@ -82,7 +85,6 @@ export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: 
     link: '/configuraciones',
     entityType: 'reporte',
     payload: { texto: rep.texto },
-    canalWa: 'no',
     origen: `cron:${rep.tipo}`,
   });
 

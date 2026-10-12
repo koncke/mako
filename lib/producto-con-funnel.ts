@@ -57,7 +57,7 @@ export type ProductoNuevo = { productoId: number; ofertaId: number; funnelId: nu
  */
 export async function crearProductoConFunnel(nombreCrudo: string, canal?: string | null): Promise<ProductoNuevo> {
   const nombre = (nombreCrudo ?? '').trim();
-  if (!nombre) throw new Error('El producto necesita un nombre.');
+  if (!nombre) throw new Error('El funnel necesita un nombre.');
   // El nombre del funnel reservado es el que la migración 0170 le puso a todos:
   // dejar crear otro con el mismo nombre haría que el desplegable muestre dos
   // renglones idénticos y no se pueda saber cuál es cuál.

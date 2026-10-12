@@ -142,7 +142,7 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
     return (
       <div>
         <p style={{ fontFamily: SANS, fontSize: 14, color: 'var(--dim)', margin: 0 }}>
-          Solo tienes este producto. Crea otro para poder agregar leads de ahí.
+          Solo tienes este funnel. Crea otro para poder agregar leads de ahí.
         </p>
         <button type="button" onClick={onAtras} style={btnAtras}>← Atrás</button>
       </div>
@@ -158,7 +158,7 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
           value={String(origen ?? '')}
           options={opciones}
           onChange={(v) => setOrigen(Number(v))}
-          ariaLabel="De qué producto traer"
+          ariaLabel="De qué funnel traer"
           width={220}
         />
         <input
@@ -208,11 +208,11 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
               const on = !f.yaEsta && sel.includes(f.id);
               return (
                 <tr key={f.id} onClick={f.yaEsta ? undefined : () => alternar(f.id)}
-                  title={f.yaEsta ? 'Ya está en este producto' : undefined}
+                  title={f.yaEsta ? 'Ya está en este funnel' : undefined}
                   style={{ cursor: f.yaEsta ? 'default' : 'pointer', background: on ? 'var(--primary-weak)' : 'transparent', opacity: f.yaEsta ? 0.55 : 1 }}>
                   <td style={{ ...td, padding: '9px 0 9px 12px' }}>
                     <input type="checkbox" checked={on} readOnly tabIndex={-1} disabled={f.yaEsta}
-                      aria-label={f.yaEsta ? `${f.nombre} ya está en este producto` : `Agregar a ${f.nombre}`}
+                      aria-label={f.yaEsta ? `${f.nombre} ya está en este funnel` : `Agregar a ${f.nombre}`}
                       style={{ width: 16, height: 16, cursor: f.yaEsta ? 'default' : 'pointer', accentColor: 'var(--primary)', pointerEvents: 'none' }} />
                   </td>
                   <td style={{ ...td, fontWeight: 600 }}>
@@ -240,7 +240,7 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
           <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--faint)', padding: '22px 14px', margin: 0 }}>Cargando…</p>
         )}
         {filas?.length === 0 && (
-          <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>Ese producto no tiene leads.</p>
+          <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>Ese funnel no tiene leads.</p>
         )}
         {!!filas?.length && visibles.length === 0 && (
           <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>Nadie con esos filtros.</p>

@@ -1,21 +1,24 @@
 // =============================================================================
 // POST /api/closing/sync — sincroniza llamadas de Fathom → closing_analyses
 // =============================================================================
-// Disparado desde el botón "Sincronizar" de /closing (gated por el login del
-// dashboard vía middleware). Procesa un lote con presupuesto de tiempo; devuelve
-// cuántas quedaron pendientes para que la UI pueda volver a llamar.
+// Disparado desde «↻ Sincronizar» del bloque «Las llamadas» de la hoja Closing del Dashboard
+// (app/dashboard/bloques/extra/BloquesClosing.tsx; hasta el 11/10/2026, desde la tab /closing). Procesa un
+// lote con presupuesto de tiempo; devuelve cuántas quedaron pendientes para que la UI pueda volver a llamar.
+//
+// Puerta (../puerta.ts): admin o closer, el Dashboard en la capa y Fathom conectado. Hasta el 11/10 sólo
+// pedía sesión y Fathom: un setter podía disparar análisis con IA con un `fetch` a mano.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { syncClosingCalls } from '@/lib/closing';
-import { integracionConectada } from '@/lib/credenciales';
+import { puertaClosing } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  // Fase 1: Fathom es la integración global del dueño → solo él sincroniza.
-  if (!(await integracionConectada('fathom'))) return Response.json({ ok: false, error: 'Fathom no está conectado en este workspace. Conéctalo en Configuraciones → Método.' }, { status: 403 });
+  const cerrada = await puertaClosing({ fathom: true });
+  if (cerrada) return cerrada;
   let body: { max?: number; force?: boolean } = {};
   try { body = await req.json(); } catch { /* body opcional */ }
 

@@ -27,6 +27,12 @@ export type Pago = {
   comprobante_path?: string | null;
   comprobante_nombre?: string | null;
   pago_hora?: string | null;
+  // De qué cobro de la pasarela salió (mig 0255). null = cargada a mano o por un plan.
+  cobro_id?: number | null;
+  proveedor?: 'stripe' | 'mercadopago' | null;
+  proveedor_pago_id?: string | null;
+  moneda?: string | null;          // la del cobro real; null = USD
+  monto_original?: number | null;  // en esa moneda
   created_at: string;
 };
 
@@ -335,6 +341,172 @@ export async function sincronizarTotalCobrado(leadId: number): Promise<void> {
     })
     .eq('id', leadId);
   if (error) throw new Error(`Error sincronizando total_cobrado del lead ${leadId}: ${error.message}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cuotas que escribe la PASARELA (Stripe / Mercado Pago, mig 0255)
+// ─────────────────────────────────────────────────────────────────────────────
+// Las llama SOLO lib/cobros.ts, adentro de runWithWorkspace(ws del cobro): un webhook no tiene
+// sesión, y `pagos.workspace_id` tiene DEFAULT 1 (Mauricio, un cliente) — un insert con
+// getSupabaseServer() o fuera del contexto escribiría el cobro de otro negocio en su CRM sin un error.
+
+const PG_DUPLICADO = '23505';
+
+/**
+ * Asienta en el CRM un pago que CONFIRMÓ la pasarela. Si el cobro salda una cuota existente
+ * (`pagoId`), la marca con `marcarPago` (que además corta los recordatorios de cobranza) y le
+ * pone de qué pasarela salió; si no, inserta una cuota PAGADA nueva (molde: «Registrar
+ * mensualidad cobrada», saveCuotasAction).
+ *
+ * IDEMPOTENTE por (workspace_id, proveedor, proveedor_pago_id) —el índice único de la mig 0255—:
+ * Stripe y Mercado Pago reentregan, y la renovación de una suscripción es una cuota nueva por
+ * factura. El 23505 de ESE índice es «ya estaba»; el del UNIQUE(lead_id, numero) es una carrera
+ * con otro escritor y se reintenta una vez con el número recalculado.
+ */
+export async function registrarCobroDeProveedor(p: {
+  leadId: number;
+  cobroId: number;
+  pagoId?: number | null;
+  proveedor: 'stripe' | 'mercadopago';
+  proveedorPagoId: string;
+  montoUsd: number;
+  montoOriginal: number;
+  moneda: string;
+  fechaPago: string;
+}): Promise<{ pagoId: number; yaEstaba: boolean }> {
+  const db = await getTenantDb();
+  const marca = {
+    cobro_id: p.cobroId,
+    proveedor: p.proveedor,
+    proveedor_pago_id: p.proveedorPagoId,
+    moneda: p.moneda,
+    monto_original: p.montoOriginal,
+  };
+  const buscarMia = () =>
+    db.from('pagos').select('id').eq('lead_id', p.leadId)
+      .eq('proveedor', p.proveedor).eq('proveedor_pago_id', p.proveedorPagoId).maybeSingle();
+
+  const yaEsta = await buscarMia();
+  if (yaEsta.error) throw new Error(`Error buscando el cobro ${p.proveedorPagoId}: ${yaEsta.error.message}`);
+  if (yaEsta.data) {
+    // «Ya estaba» puede ser un intento anterior que insertó la cuota y se cortó ANTES de sincronizar: sin esto,
+    // `fecha_primer_pago` y lo cobrado no se escribían nunca (revisión del 11/10/2026). Sincronizar es idempotente.
+    await sincronizarTotalCobrado(p.leadId);
+    return { pagoId: Number(yaEsta.data.id), yaEstaba: true };
+  }
+
+  // La cuota que saldaba el link, si sigue existiendo y sigue sin pagar. Si ya la marcó alguien a
+  // mano, el pago de la pasarela NO la pisa: entra como cuota nueva (la plata entró dos veces y
+  // eso lo tiene que ver una persona, no esconderse).
+  if (p.pagoId) {
+    // De ESTE lead: un pagoId que viniera de otro lado no puede saldar la cuota de otra persona.
+    const cuota = await db.from('pagos').select('id, pagado, proveedor_pago_id').eq('id', p.pagoId).eq('lead_id', p.leadId).maybeSingle();
+    if (cuota.error) throw new Error(`Error leyendo la cuota ${p.pagoId}: ${cuota.error.message}`);
+    if (cuota.data && !cuota.data.pagado && !cuota.data.proveedor_pago_id) {
+      const { error } = await db.from('pagos').update(marca).eq('id', p.pagoId).is('proveedor_pago_id', null);
+      if (error) {
+        if (error.code === PG_DUPLICADO) return { pagoId: p.pagoId, yaEstaba: true };
+        throw new Error(`Error marcando la cuota ${p.pagoId}: ${error.message}`);
+      }
+      await marcarPago(p.pagoId, true, p.fechaPago);
+      return { pagoId: p.pagoId, yaEstaba: false };
+    }
+  }
+
+  // ⚠️ SI EL LEAD YA TENÍA UNA CUOTA IMPAGA DE ESE MONTO, el pago la SALDA (revisión del 11/10/2026). Ningún
+  // link nace atado a una cuota (`pagoId`), y sin esto el pago entraba como cuota NUEVA con la del plan
+  // todavía impaga: Outstanding de más, recordatorios de cobranza a quien ya pagó y, cuando el closer la
+  // marcaba a mano, el doble de cash. Se casa por monto en USD, la más vieja primero, sólo una sin pasarela.
+  if (!p.pagoId) {
+    const impagas = (await getPagosByLead(p.leadId))
+      .filter((q) => !q.pagado && !q.proveedor_pago_id && q.fecha_esperada && Math.abs(Number(q.monto_usd) - p.montoUsd) < 0.01)
+      .sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)) || a.numero - b.numero);
+    const casa = impagas[0];
+    if (casa) {
+      const { data: marcada, error } = await db.from('pagos').update(marca).eq('id', casa.id).eq('lead_id', p.leadId).is('proveedor_pago_id', null).select('id');
+      if (error && error.code !== PG_DUPLICADO) throw new Error(`Error saldando la cuota ${casa.id}: ${error.message}`);
+      if (!error && marcada && marcada.length) {
+        await marcarPago(casa.id, true, p.fechaPago);
+        return { pagoId: casa.id, yaEstaba: false };
+      }
+      // Otro escritor la tomó en el medio, o fue la reentrega: se sigue como si no hubiera.
+      const otra = await buscarMia();
+      if (otra.data) return { pagoId: Number(otra.data.id), yaEstaba: true };
+    }
+  }
+
+  for (let intento = 0; intento < 2; intento++) {
+    const existentes = await getPagosByLead(p.leadId);
+    const base = existentes.length > 0 ? Math.max(...existentes.map((q) => q.numero)) : 0;
+    const { data, error } = await db
+      .from('pagos')
+      .insert({
+        lead_id: p.leadId,
+        numero: base + 1,
+        monto_usd: p.montoUsd,
+        fecha_esperada: p.fechaPago,
+        pagado: true,
+        fecha_pago: p.fechaPago,
+        ...marca,
+      })
+      .select('id')
+      .single();
+    if (!error && data) {
+      await sincronizarTotalCobrado(p.leadId);
+      return { pagoId: Number(data.id), yaEstaba: false };
+    }
+    if (error?.code === PG_DUPLICADO) {
+      // ¿Fue la reentrega (el índice del proveedor) o una carrera por el número?
+      const otra = await buscarMia();
+      if (otra.data) return { pagoId: Number(otra.data.id), yaEstaba: true };
+      continue;
+    }
+    throw new Error(`Error registrando el cobro ${p.proveedorPagoId} del lead ${p.leadId}: ${error?.message ?? 'sin respuesta'}`);
+  }
+  throw new Error(`No pude numerar la cuota del cobro ${p.proveedorPagoId} del lead ${p.leadId} (dos choques seguidos).`);
+}
+
+/**
+ * El reembolso de un pago de la pasarela: la cuota queda DESMARCADA (no se borra: el historial
+ * del lead la cuenta) y se recalcula lo cobrado.
+ *
+ * ⚠️ `sincronizarTotalCobrado` NUNCA limpia `fecha_primer_pago` (sólo la escribe), y de esa fecha
+ * cuelgan `esLeadCliente` (el WhatsApp sale solo en vez de borrador), la condición «Pagó» y la
+ * nutrición. Un reembolso que deja al lead sin ninguna cuota pagada la limpia ACÁ, y sólo acá: en
+ * los demás caminos (una importación que gana con monto y sin cuotas) esa fecha puede venir de
+ * otro lado y borrarla mentiría al revés.
+ */
+export async function desmarcarCobroDeProveedor(p: {
+  leadId: number;
+  proveedor: 'stripe' | 'mercadopago';
+  proveedorPagoId: string;
+}): Promise<{ desmarcado: boolean; quedanPagadas: number }> {
+  const db = await getTenantDb();
+  const { data, error } = await db
+    .from('pagos')
+    .select('id, pagado')
+    .eq('lead_id', p.leadId)
+    .eq('proveedor', p.proveedor)
+    .eq('proveedor_pago_id', p.proveedorPagoId)
+    .maybeSingle();
+  if (error) throw new Error(`Error buscando el cobro ${p.proveedorPagoId}: ${error.message}`);
+  let desmarcado = false;
+  if (data?.pagado) {
+    // ⚠️ SIN `fecha_esperada` (revisión del 11/10/2026): con `pagado=false` y la fecha del pago, la cuota
+    // devuelta entraba al Outstanding, a «A quién cobrarle» y al cron de cobranza — un reembolso hecho hoy
+    // salía como `cuota-por-vencer`. Lo devuelto no es una deuda: queda en la tabla (el historial la cuenta)
+    // y fuera de esas lecturas, que filtran `fecha_esperada` null.
+    const { error: e1 } = await db.from('pagos').update({ pagado: false, fecha_pago: null, fecha_esperada: null }).eq('id', data.id);
+    if (e1) throw new Error(`Error desmarcando el cobro ${p.proveedorPagoId}: ${e1.message}`);
+    await sincronizarTotalCobrado(p.leadId);
+    desmarcado = true;
+  }
+  const quedanPagadas = (await getPagosByLead(p.leadId)).filter((q) => q.pagado).length;
+  if (quedanPagadas === 0) {
+    const { error: e2 } = await db.from('leads').update({ fecha_primer_pago: null }).eq('id', p.leadId);
+    if (e2) throw new Error(`Error limpiando el primer pago del lead ${p.leadId}: ${e2.message}`);
+  }
+  return { desmarcado, quedanPagadas };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

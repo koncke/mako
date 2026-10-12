@@ -323,8 +323,8 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 ### Dashboard
 
 - 🟢 **Dashboard**  `/dashboard`  · ícono `graphics`  
-  El shell de los dos tableros de números: /dashboard solo redirige a /marketing y la barra GraphicsTabs conmuta entre Marketing y Comercial conservando el filtro de fecha (?desde&hasta).  
-  <sub>app/dashboard/page.tsx · app/_components/GraphicsTabs.tsx · app/_components/FechaFiltro.tsx</sub>
+  *(Reescrita a mano el 11/10/2026; el 08/08 era el shell que redirigía a /marketing.)* Un editor de informes estilo Looker Studio: Marketing y Comercial son las dos hojas del informe inicial (sus rutas traen con `?hoja=`), y Ads Analyst, Landing, Closing y Productividad son plantillas de hoja. `?hoja=<plantilla>` abre la hoja con esa firma o la AGREGA al informe (`hojaDestino`, lib/graficos-plantillas.ts). El closer lo ve con SÓLO la hoja Closing, en memoria y sin editar.  
+  <sub>app/dashboard/page.tsx · app/dashboard/EditorInforme.tsx · lib/graficos-plantillas.ts · app/api/graficos/route.ts</sub>
 - 🟢 **Marketing Dashboard**  `/marketing`  · ícono `graphics`  
   KPIs estrella, salud del funnel en trapezoides, tendencias, anuncios ganadores y los desgloses de toda la cuenta de Meta (edad/género, plataforma, mapa). Gateado por PanelActivacion si Meta no está conectado.  
   <sub>app/marketing/page.tsx · app/marketing/ResumenCreativos.tsx · app/marketing/AnuncioCard.tsx · app/marketing/ad-charts.tsx</sub>
@@ -337,6 +337,15 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 
 ### Analyze
 
+> **Nota del 11/10/2026** (escrita a mano sobre este relevamiento del 08/08): Offer dejó de ser
+> un ítem del grupo Analysts y es un ítem SUELTO de Analyze, en el lugar que dejó Análisis
+> (entre Second Brain y Dashboard). Análisis se mudó adentro de Experiments como su cuarta tab.
+> Las fichas de Offer y de Experiments están al día con eso; el resto del documento sigue siendo
+> la foto del 08/08.
+
+- 🟡 **Offer**  `/offer`  · ícono `tag`  
+  Offer Analyst y Offer Generator en UNA tab: un chat donde MaKo pregunta por las piezas de la oferta, la diagnostica con una rúbrica y escribe la oferta nueva, descargable en PDF; cada cambio propuesto se puede probar como experimento («Probarlo» abre el alta en Experiments con la hipótesis escrita). La key del nav sigue siendo `offer` y `/offer-analyst` redirige a `/offer`. Los dos proyectos del tablero (Offer Analyst y Offer Generator) siguen separados.  
+  <sub>app/offer/page.tsx · app/offer/OfferApp.tsx · app/api/offer/route.ts · app/api/offer/pdf/route.ts · lib/offer-marco.ts · lib/offer-ia.ts · lib/offer-pdf.ts</sub>
 - ⚪ **Competitor Spy**  `/competitor-spy`  · ícono `spy`  
   Vigilar lo que hacen los demás (anuncios y ofertas de la competencia); es la única de Analyze que no analiza un activo propio. Hoy es ComingSoon; /market-analyst es la ruta vieja que redirige y la nav key sigue siendo 'market-an'.  
   <sub>app/competitor-spy/page.tsx · app/market-analyst/page.tsx · app/_components/ComingSoon.tsx</sub>
@@ -344,8 +353,8 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 ### Experiments
 
 - 🟢 **Experiments**  `/experimentos`  · ícono `experiments`  
-  El shell de tres tabs (Retro · Experiments · Conclusions) con el estado de datos, el toast y el modo demo local sin Supabase. Gateado por PanelActivacion si Meta no está conectado, porque la Retro necesita métricas contra qué medir.  
-  <sub>app/experimentos/page.tsx · app/experimentos/ExperimentosApp.tsx · app/experimentos/ui.tsx · app/experimentos/_demo.ts</sub>
+  El shell de cuatro tabs (Retro · Experiments · Conclusions · Análisis) con el estado de datos, el toast y el modo demo local sin Supabase. Sin Meta, el PanelActivacion ocupa Retro, Experiments y Conclusions (miden contra Meta) y Análisis sigue andando: sale del CRM. *(11/10/2026: antes eran tres tabs, y sin Meta el panel tapaba la pantalla entera.)*  
+  <sub>app/experimentos/page.tsx · app/experimentos/ExperimentosApp.tsx · app/experimentos/tabs.ts · app/experimentos/ui.tsx · app/experimentos/_demo.ts</sub>
 - 🟢 **Retro** **A**  `/experimentos`  · ícono `mako`  
   El agente que corre 8 fases (memoria → recolección → auditoría → diagnóstico paralelo por área → cruces → cerebro → verificación → redacción) sobre un período y devuelve el reporte v3 (Overview · Plan · Detail) con hallazgos, plan encadenado a experimentos y tareas, gate del Perro y ejecución en vivo por stream NDJSON.  
   <sub>app/experimentos/RetroTab.tsx · app/experimentos/RetroReport.tsx · lib/retro.ts · lib/retro-pipeline.ts</sub>
@@ -355,27 +364,38 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 - 🟢 **Conclusions**  `/experimentos`  · ícono `check`  
   Las verdades del negocio ya validadas: experimentos cerrados con veredicto (validada / refutada / no concluyente), su serie de datos y el filtro por veredicto. Es el único lugar del producto donde se declara una verdad.  
   <sub>app/experimentos/ConclusionsTab.tsx · lib/experimentos.ts</sub>
+- 🟢 **Análisis**  `/experimentos?tab=analisis`  · ícono `analytics`  
+  *(Entra el 11/10/2026: hasta ese día era su propia tab, `/analisis`, que hoy redirige acá con su query.)* El informe del período en el orden en que se pregunta: advertencias arriba, la cascada de costos, los que asistieron sin calificar, los creativos y qué haría falta para la meta. El rango viaja en la URL para poder compartirlo. `/analisis/trimestre` (el informe congelado del ws1) se quedó en su ruta.  
+  <sub>app/experimentos/VistaAnalisis.tsx · lib/analisis-negocio.ts · lib/analisis-modelo.ts · app/analisis/page.tsx · app/analisis/trimestre/page.tsx</sub>
 
 ### Analysts
 
-- ⚪ **Offer Analyst**  `/offer-analyst`  · ícono `tag`  
-  Analizar la oferta del cliente (precio, promesa, garantía, qué la hace comprable). Hoy es ComingSoon puro: la page solo monta el placeholder.  
-  <sub>app/offer-analyst/page.tsx · app/_components/ComingSoon.tsx</sub>
-- 🟢 **Ads Analyst**  `/ads-analyst`  · ícono `notepencil`  
-  Cruza el análisis cualitativo de Claude sobre el guion (ángulo, gancho, beats) con las métricas Meta×CRM de todo el histórico del anuncio; arriba viven Patrones (ganadores/a cortar/de proceso) y el Cuadrante de Retención. Sin filtro de fecha y gateado por Meta.  
-  <sub>app/ads-analyst/page.tsx · app/ads-analyst/ScriptsBrowser.tsx · lib/ads-analyst.ts · lib/script-angles.ts</sub>
-- 🟢 **Landing Analyst**  `/landing-analyst`  · ícono `web`  
-  Baja la landing del cliente, le lee el copy y lo cruza con el comportamiento real de esa URL (beacon + agendas del CRM): lista de landings a la izquierda, diagnóstico con hallazgos por severidad a la derecha. A propósito NO se gatea por integración: con pegar una URL alcanza.  
-  <sub>app/landing-analyst/page.tsx · app/landing-analyst/LandingAnalystApp.tsx · lib/landing-analyst.ts · app/api/landing-analyst/</sub>
+> **Nota del 11/10/2026** (escrita a mano sobre este relevamiento del 08/08): Ads Analyst, Landing
+> Analyst y Closing Analyst SALIERON de la sidebar (decisiones 4, 5 y 6 de Martín de ese día), como
+> antes Productivity Analyst. Lo que era análisis son HOJAS del Dashboard (`/dashboard?hoja=ads-analyst`,
+> `?hoja=landing`, `?hoja=closing`); las tareas se mudaron: valorar un guion a Ads Writer
+> (`/ads-writer?tab=analizar`), analizar una página a Landing Generator (`/landing-generator/analizar`),
+> y las de Closing (sincronizar, re-analizar, revisar) van COMPLETAS a la hoja Closing, con la ficha de
+> cada llamada. El closer ve el Dashboard con SÓLO esa hoja. Las rutas viejas redirigen
+> (`/closing?call=<id>` → `?hoja=closing&llamada=<id>`) y las keys del nav (`script`, `landing-an`,
+> `closing`) se quedaron en las capas y en los gating de la API. Las fichas de abajo están al día con
+> eso; el grupo Analysts quedó con VSL, Chat y CS Analyst (los tres por construir).
+
+- 🟢 **Ads Analyst**  `/dashboard?hoja=ads-analyst`  · ícono `notepencil`  
+  Cruza el análisis cualitativo de Claude sobre el guion (ángulo, gancho, beats) con las métricas Meta×CRM de todo el histórico del anuncio; arriba viven Patrones (ganadores/a cortar/de proceso) y el Cuadrante de Retención. Sin filtro de fecha y gateado por Meta. *(11/10/2026: ya no es una tab; es la hoja «Ads Analyst» del Dashboard y `/ads-analyst` redirige ahí.)*  
+  <sub>lib/graficos-plantillas-analysts.ts · app/dashboard/bloques/extra/BloquesAds.tsx · lib/ads-analyst.ts · lib/script-angles.ts · app/ads-analyst/page.tsx (redirect)</sub>
+- 🟢 **Landing Analyst**  `/landing-generator/analizar`  · ícono `web`  
+  Baja la landing del cliente, le lee el copy y lo cruza con el comportamiento real de esa URL (beacon + agendas del CRM): lista de landings a la izquierda, diagnóstico con hallazgos por severidad a la derecha. A propósito NO se gatea por integración: con pegar una URL alcanza. *(11/10/2026: ya no es una tab; analizar es «Diagnóstico», dentro de Landing Generator, y el pulso y el mapa de calor son la hoja «Landing» del Dashboard. `/landing-analyst` redirige.)*  
+  <sub>app/landing-generator/analizar/page.tsx · app/landing-analyst/LandingAnalystApp.tsx · lib/landing-analyst.ts · app/api/landing-analyst/</sub>
 - ⚪ **VSL Analyst**  `/vsl-analyst`  · ícono `video`  
   En qué tramo se cae el espectador del VSL, contra qué parte del guion, y qué pasó después con ese lead en el CRM. Hoy es ComingSoon.  
   <sub>app/vsl-analyst/page.tsx · app/_components/ComingSoon.tsx</sub>
 - ⚪ **Chat Analyst**  `/chat-analyst`  · ícono `chats`  
   Lo que Closing Analyst hace con las llamadas, pero con las conversaciones (WhatsApp, Email, Instagram): dónde se cae el chat, qué objeción aparece y qué responde mejor. Hoy es ComingSoon; visible para rol setter.  
   <sub>app/chat-analyst/page.tsx · app/_components/ComingSoon.tsx</sub>
-- 🟢 **Closing Analyst**  `/closing`  · ícono `closing`  
-  Trae las llamadas de Fathom, las matchea con los leads del CRM y analiza al closer en las de VENTA (R1/R2) con método SPIN; las de entrega de servicio, internas y de prueba se detectan y se excluyen. Sin Fathom muestra PanelActivacion. Visible para rol closer.  
-  <sub>app/closing/page.tsx · app/closing/ClosingBrowser.tsx · lib/closing.ts · app/api/closing/</sub>
+- 🟢 **Closing Analyst**  `/dashboard?hoja=closing`  · ícono `closing`  
+  Trae las llamadas de Fathom, las matchea con los leads del CRM y analiza al closer en las de VENTA (R1/R2) con método SPIN; las de entrega de servicio, internas y de prueba se detectan y se excluyen. *(11/10/2026: ya no es una tab; es la hoja «Closing» del Dashboard, con la ficha de cada llamada y sus tareas. El closer ve SÓLO esa hoja, sin editar.)*  
+  <sub>lib/graficos-plantillas-analysts.ts · app/dashboard/bloques/extra/BloquesClosing.tsx · app/dashboard/bloques/extra/FichaLlamada.tsx · lib/closing.ts · app/api/closing/ · app/closing/page.tsx (redirect)</sub>
 - ⚪ **CS Analyst**  `/cs-analyst`  · ícono `cs`  
   Retención y customer success: anticipar la baja de un cliente ya cerrado. Hoy es ComingSoon.  
   <sub>app/cs-analyst/page.tsx · app/_components/ComingSoon.tsx</sub>
@@ -388,26 +408,26 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 - 🟢 **All Scripts**  `/ads-analyst/guiones`  · ícono `script`  
   La ruta «ver todos»: la tab previsualiza 8 guiones y ésta muestra los N con el mismo toggle tabla/tarjetas y el mismo modal de embudo. Solo lee.  
   <sub>app/ads-analyst/guiones/page.tsx · app/ads-analyst/ScriptsBrowser.tsx</sub>
-- 🟢 **New Script Check**  `/ads-analyst`  · ícono `pen`  
+- 🟢 **New Script Check**  `/ads-writer?tab=analizar`  · ícono `pen`  
   «Analizá un guion nuevo»: se pega un guion que todavía no está en Meta, MaKo lo compara contra lo que ya funciona y devuelve valoración + qué esperar; los intentos quedan en un historial de borradores borrable.  
   <sub>app/ads-analyst/ScriptsBrowser.tsx · app/api/ads-analyst/valorar/route.ts · lib/ads-analyst.ts</sub>
 - 🟢 **Angles & Avatars**  `/ads-analyst`  · ícono `tools`  
   El CRUD de la taxonomía de ángulos y avatares (color, nombre y la descripción que además guía a la IA al clasificar). Se abre desde Ads Analyst y desde el onboarding: misma data, un solo componente.  
   <sub>app/components/TaxonomyManager.tsx · app/api/ads-analyst/angles/route.ts · app/api/ads-analyst/avatares/route.ts · lib/script-angles.ts</sub>
-- 🟢 **Closing Metrics**  `/closing`  · ícono `analytics`  
-  La vista «Métricas» del panorama agregado: KPIs, hallazgo de la semana (la dimensión que más decide los cierres), tendencia del score, embudo, dumbbell de gap ganadas↔perdidas por dimensión y el ranking de closers. Todo computado en cliente sobre las ventas reales.  
-  <sub>app/closing/ClosingBrowser.tsx</sub>
-- 🟢 **Calls**  `/closing?call=`  · ícono `mic`  
-  La vista «Llamadas»: lista filtrable (tipo, closer, resultado, búsqueda, orden) y el detalle de una llamada — grabación embebida con deep-link al segundo, dimensiones, momentos, objeciones, transcript anotado, revisión manual e historial de ediciones. Deep link ?call=<recording_id>.  
-  <sub>app/closing/ClosingBrowser.tsx · app/api/closing/transcript/route.ts · app/api/closing/revise/route.ts</sub>
+- 🟢 **Closing Metrics**  `/dashboard?hoja=closing`  · ícono `analytics`  
+  La vista «Métricas» del panorama agregado: KPIs, tendencia del score, embudo, factores (gap ganadas↔perdidas por dimensión) y el ranking de closers. *(11/10/2026: son los bloques y gráficos de la hoja Closing; los calcula el server con las copias de lib/api-mako/areas/closing.helpers.ts.)*  
+  <sub>lib/graficos-plantillas-analysts.ts · app/dashboard/bloques/extra/BloquesClosing.tsx · lib/graficos-bloques-extra.ts</sub>
+- 🟢 **Calls**  `/dashboard?hoja=closing&llamada=`  · ícono `mic`  
+  La lista de llamadas y el detalle de una — grabación con deep-link al segundo, dimensiones, momentos, objeciones, transcript anotado, revisión manual e historial de ediciones. *(11/10/2026: la ficha es un modal del Dashboard; `?llamada=<recording_id>` la abre, y el `?call=` de la ruta vieja se traduce a eso.)*  
+  <sub>app/dashboard/bloques/extra/FichaLlamada.tsx · app/api/closing/transcript/route.ts · app/api/closing/revise/route.ts</sub>
 
 ## Sales Machine  ·  17 piezas
 
 ### Sales Machine
 
 - 🟢 **Landing Generator**  `/landing-generator`  · ícono `web`  
-  MaKo escribe la página entera (estructura + copy bloque por bloque) desde el funnel y, si esa URL ya pasó por el Landing Analyst, sus hallazgos; con refinado por instrucción y guardado.  
-  <sub>app/landing-generator/page.tsx · app/landing-generator/LandingWriterApp.tsx · app/landing-writer/page.tsx (redirect de la ruta vieja) · lib/landing-writer.ts</sub>
+  Desde el 11/10/2026, el editor de landings copiado de Gamma 5: Panel, «Crear con IA» en dos pasos, edición por secciones y bloques, temas, exportar y publicar en hola-mako.com/l/<slug> (docs/diseno-editor-landing.md). La pantalla vieja (LandingWriterApp.tsx) se retiró.  
+  <sub>app/landing-generator/ · app/api/landing-generator/ · app/l/ · lib/editor-landing/ · app/landing-writer/page.tsx (redirect de la ruta vieja, con la query)</sub>
 - ⚪ **VSL Generator**  `/vsl-generator`  · ícono `video`  
   Escribir el guion de un VSL. Hoy es un ComingSoon puro; no hay lib ni API (lib/vsl-estructuras.ts existe pero lo consume el Landing Analyst, no esto).  
   <sub>app/vsl-generator/page.tsx (ComingSoon) · app/vsl-writer/page.tsx (redirect) · app/_components/nav.ts (key 'vsl-writer', comingSoon: true)</sub>
@@ -433,8 +453,8 @@ Cada pieza va a tener su **Roadmap** (derivado de las tareas del plan) y su **Ch
 ### Landing Generator
 
 - 🟢 **Landing Versions**  · ícono `contexto`  
-  El panel «Tus versiones»: las landings guardadas (landing_drafts), que al clickear vuelven a cargar la propuesta completa en pantalla.  
-  <sub>app/landing-generator/LandingWriterApp.tsx (bloque «Tus versiones») · lib/landing-writer.ts (listarDrafts)</sub>
+  Hasta el 11/10/2026, el panel «Tus versiones» del generador anterior (landing_drafts). Hoy sus filas se ofrecen en el Panel del editor como «Importar → Del generador anterior» y se convierten con specADoc.  
+  <sub>lib/editor-landing/server.ts (borradoresViejos, importarBorrador) · lib/editor-landing/spec-a-doc.ts · lib/landing-writer.ts (listarDrafts, que usa la API de MaKo)</sub>
 
 ### Chatbot
 

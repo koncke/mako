@@ -373,7 +373,8 @@ test('aInscribir: sólo se reusa en la familia que prepara una reunión, y la fi
   const c = cuerpo(MOTOR, 'async function aInscribir(');
   assert.match(c, /const reusables = reusaInscripciones\(sec\) \?/);
   assert.match(c, /const pendientes = candidatos\.filter\(\(id\) => !conFila\.has\(id\)\)/);
-  assert.match(MOTOR, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos'>\): boolean =>\s*preparaUnaReunion\(s\.trigger_tipo\) && s\.pasos\.length > 0;/);
+  // (Undécima tanda, M2: «prepara una reunión» por la FORMA del flujo, `preparaReunion` — tests/motor-entrada-etapa.test.ts.)
+  assert.match(MOTOR, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos' \| 'etapa' \| 'etapas' \| 'disparadores'>\): boolean =>\s*preparaReunion\(s\) && s\.pasos\.length > 0;/);
 });
 
 test('la familia: una fila reusable no bloquea; cualquier otra sí', () => {
@@ -398,7 +399,8 @@ test('los cierres SIN envío dejan su fila: «la reunión ya pasó» y el tope d
   assert.match(anotar, /from\('nutricion_envios'\)\.insert\(\{[\s\S]*estado: 'omitido',[\s\S]*error: motivo,/);
   // (08/10/2026: «anclada» = el `ancla` de siempre O la espera «antes de la reunión» del flujo;
   // y «el primero» es `esPrimerPaso`, con el tope de la secuencia o el de su condición de entrada.)
-  const reunion = proc.slice(proc.indexOf('if (anclada || preparaUnaReunion(sec.trigger_tipo))'), proc.indexOf('if (anclada) {'));
+  // (Undécima tanda: `preparaReunion(sec)` por la forma del flujo; el re-anclado de abajo es sólo del `ancla` de siempre.)
+  const reunion = proc.slice(proc.indexOf('if (anclada || preparaReunion(sec))'), proc.indexOf('if (anclada && minAntes == null) {'));
   assert.match(reunion, /await anotarCierreSinEnvio\(insc, paso, lead, 'la reunión ya pasó'\);\s*continue;/);
   const antig = proc.slice(proc.indexOf('if (esPrimerPaso(sec.pasos, insc.paso_actual) && topeAntig != null'), proc.indexOf("if (paso.requiere === 'ya_contactado'"));
   assert.match(antig, /await anotarCierreSinEnvio\(insc, paso, lead, `llegó hace más de \$\{topeAntig\} h`\);\s*continue;/);
@@ -417,7 +419,7 @@ test('cada paso que sale re-anota la reunión, en un update APARTE del avance', 
   assert.ok(iniHelper > 0, 'no encontré la re-anotación de la reunión');
   const helper = proc.slice(iniHelper, proc.indexOf('\n  };', iniHelper));
   assert.ok(helper.length > 0 && helper.length < 900, `la re-anotación mide ${helper.length}: está mirando otra cosa`);
-  assert.match(helper, /const reunionDelPaso = preparaUnaReunion\(sec\.trigger_tipo\) \? reunionQuePreparaMs\(lead\) : null;\s*if \(reunionDelPaso != null\) \{\s*const \{ error: eReunion \} = await supabase\.from\('nutricion_inscripciones'\)\s*\.update\(\{ reunion_at: /);
+  assert.match(helper, /const reunionDelPaso = preparaReunion\(sec\) \? reunionQuePreparaMs\(lead\) : null;\s*if \(reunionDelPaso != null\) \{\s*const \{ error: eReunion \} = await supabase\.from\('nutricion_inscripciones'\)\s*\.update\(\{ reunion_at: /);
   // (08/10/2026: lo que sigue sale del GRAFO, `avanceDesde`, no del índice + 1.)
   // (Segunda tanda, 08/10/2026: el avance trae también los hilos que arrancan, `nuevos`.)
   const ini = proc.indexOf('const { campos: avance, yaToca, nuevos: nuevosAlSalir } = avanceDesde(sec, insc.paso_actual, lead);');
@@ -449,8 +451,8 @@ test('la reunión NUEVA del reuso es la R1 (`reunionQuePreparaMs`), nunca «la m
 
 test('lo que se anota en `reunion_at` al inscribir también es la R1: el cohorte, el evento y encadenar', () => {
   assert.match(cuerpo(MOTOR, 'async function aInscribir('), /nuevas: pendientes\.map\(\(id\) => alta\(id, reunionQuePreparaMs\(juntas\.get\(id\)\)\)\),/, 'el alta del cohorte');
-  assert.match(cuerpo(MOTOR, 'export async function enrolarPorEvento('), /const reunion = preparaUnaReunion\(s\.trigger_tipo\) \? reunionQuePreparaMs\(juntas\) : null;/, 'el alta por evento');
-  assert.match(DESENLACE, /const reunion = preparaUnaReunion\(sig\.trigger_tipo\) \? reunionQuePreparaMs\(lead as JuntasLead\) : null;/, 'encadenar');
+  assert.match(cuerpo(MOTOR, 'export async function enrolarPorEvento('), /const reunion = preparaReunion\(s\) \? reunionQuePreparaMs\(juntas\) : null;/, 'el alta por evento');
+  assert.match(DESENLACE, /const prepara = preparaReunion\(\{ \.\.\.sig, pasos \}\);\s*const reunion = prepara \? reunionQuePreparaMs\(lead as JuntasLead\) : null;/, 'encadenar');
 });
 
 test('el corte de lo que el reuso desliga es el instante de ANTES de leer la fila, no el de la llamada', () => {
@@ -482,7 +484,7 @@ test('el corte de lo que el reuso desliga es el instante de ANTES de leer la fil
 test('encadenar NO reusa (lo escrito en su comentario) y sí escribe la reunión que prepara', () => {
   assert.doesNotMatch(DESENLACE, /reactivarInscripcion/);
   assert.match(DESENLACE, /if \(ya\) return 'ya-estuvo-en-la-siguiente';/);
-  assert.match(DESENLACE, /\.\.\.\(preparaUnaReunion\(sig\.trigger_tipo\) \? \{ reunion_at:/);
+  assert.match(DESENLACE, /\.\.\.\(prepara \? \{ reunion_at:/);
 });
 
 test('la 0205 agrega la columna y dice su orden de despliegue', () => {

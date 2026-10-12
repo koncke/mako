@@ -43,6 +43,11 @@ import {
 import { LANDING_ANALYZE_SYSTEM_TEMPLATE, LANDING_ANALYZE_USER_TEMPLATE } from './landing-analyst';
 import { PRODUCTOS_SYSTEM_TEMPLATE, PRODUCTOS_USER_TEMPLATE } from './productos-ia';
 import { OFERTAS_SYSTEM_TEMPLATE, OFERTAS_USER_TEMPLATE } from './ofertas-ia';
+import {
+  OFFER_TURNO_SYSTEM_TEMPLATE, OFFER_TURNO_USER_TEMPLATE,
+  OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE, OFFER_DIAGNOSTICO_USER_TEMPLATE,
+  OFFER_PROPUESTA_SYSTEM_TEMPLATE, OFFER_PROPUESTA_USER_TEMPLATE,
+} from './offer-ia';
 import { EMAIL_GEN_SYSTEM_TEMPLATE } from '@/app/api/email/generar/route';
 import {
   LANDING_SUGGEST_SYSTEM_TEMPLATE,
@@ -50,6 +55,14 @@ import {
   LANDING_ADJUST_SYSTEM_TEMPLATE,
   LANDING_ADJUST_USER_TEMPLATE,
 } from './landing-writer';
+import {
+  ESQUEMA_SYSTEM_TEMPLATE as LANDING_EDITOR_ESQUEMA_SYSTEM, ESQUEMA_USER_TEMPLATE as LANDING_EDITOR_ESQUEMA_USER,
+  SECCIONES_SYSTEM_TEMPLATE as LANDING_EDITOR_SECCIONES_SYSTEM, SECCIONES_USER_TEMPLATE as LANDING_EDITOR_SECCIONES_USER,
+  EDITAR_SYSTEM_TEMPLATE as LANDING_EDITOR_EDITAR_SYSTEM, EDITAR_USER_TEMPLATE as LANDING_EDITOR_EDITAR_USER,
+  TEXTO_SYSTEM_TEMPLATE as LANDING_EDITOR_TEXTO_SYSTEM, TEXTO_USER_TEMPLATE as LANDING_EDITOR_TEXTO_USER,
+  DISENOS_SYSTEM_TEMPLATE as LANDING_EDITOR_DISENOS_SYSTEM, DISENOS_USER_TEMPLATE as LANDING_EDITOR_DISENOS_USER,
+  NOTAS_SYSTEM_TEMPLATE as LANDING_EDITOR_NOTAS_SYSTEM, NOTAS_USER_TEMPLATE as LANDING_EDITOR_NOTAS_USER,
+} from './editor-landing/ia-reglas';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-secuencias';
 import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
@@ -59,6 +72,10 @@ import { VARIANTES_SYSTEM_TEMPLATE } from './secuencias-variantes';
 import { PASO_IA_SYSTEM_TEMPLATE } from './paso-ia';
 import { GUION_PASO_SYSTEM_TEMPLATE } from './guion-audio';
 import { CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE } from './flujo-ia';
+import { ARMAR_AI_STEP_SYSTEM_TEMPLATE } from './ai-step-armar';
+import { OBJECIONES_SYSTEM_TEMPLATE } from './ai-step-ensayo';
+import { HOJA_IA_SYSTEM_TEMPLATE } from './graficos-ia';
+import { ANALISTA_SYSTEM_TEMPLATE } from './graficos-analisis';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
@@ -454,7 +471,40 @@ export const REGISTRY: Group[] = [
         label: 'Crear una automatización con IA (system)', kind: 'system', dynamic: true,
         variables: [], scope: 'static-only', sensitive: false,
         default: CREAR_IA_SYSTEM_TEMPLATE,
-        context: 'La caja «Generar con IA» de una automatización nueva: el modelo devuelve el flujo como un JSON propio con NOMBRES, y el código lo traduce y lo repara (lib/flujo-ia.ts → deIA). No borres la forma del JSON ni las reglas duras: el código saca lo que no las cumple y, si queda roto, prueba otro proveedor. No le pidas links ni ids: los pone el código, y el disparador va por su clave corta (d1, d2…). No le agregues «ir_a»: la IA no arma saltos (el código los saca). No lo alargues: cada token de más le resta salida a Groq y lo deja afuera de la cascada. Y no lo pases a voseo: los mensajes le llegan al cliente del negocio.',
+        context: 'La caja «Generar con IA» de una automatización nueva: el modelo devuelve el flujo como un JSON propio con NOMBRES, y el código lo traduce y lo repara (lib/flujo-ia.ts → deIA). No borres la forma del JSON ni las reglas duras: el código saca lo que no las cumple y, si queda roto, prueba otro proveedor. No le pidas links ni ids: los pone el código, y el disparador va por su clave corta (d1, d2…). No le agregues «ir_a»: la IA no arma saltos (el código los saca). No borres el "objetivo" de "si_responde": es el del AI Step que arma el código (lib/flujo-ia.ts → objetivoDeIA), y sin él no se publica. No borres la regla 8 (una automatización por categoría: recordatorios con antes_de_reunion, el aviso al equipo con avisar_al_equipo y UN si_responde) ni los datos que permite la regla 2: los de la reunión sólo detrás de una espera antes de la reunión o de la condición reunion_en (el código los rechaza en otro lado), y los del equipo sólo en avisar_al_equipo. El ejemplo de la categoría del pedido (la plantilla de la galería) viaja en el mensaje user, no aquí. No lo alargues: cada token de más le resta salida a Groq y lo deja afuera de la cascada. Y no lo pases a voseo: los mensajes le llegan al cliente del negocio.',
+      },
+      // El AI Step (décima tanda; uno por objetivo desde la undécima, docs/diseno-undecima-tanda.md §6): «✦ Armar» y
+      // las objeciones del ensayo. Un slot (`medio`); el objetivo, el negocio, los escenarios y el catálogo van en el
+      // mensaje user (un override no los pierde).
+      {
+        key: 'automations.ai_step.armar', source: 'override',
+        label: 'AI Step — armar los escenarios desde el objetivo (system)', kind: 'system', dynamic: true,
+        variables: [v('medio', 'por dónde contesta la tarjeta: WhatsApp, Instagram o Messenger')], scope: 'static-only', sensitive: false,
+        default: ARMAR_AI_STEP_SYSTEM_TEMPLATE,
+        context: '«✦ Armar» y «✦ Otro con MaKo» de un AI Step: con el objetivo, el modelo arma los escenarios (de 2 a 6, o uno más) con su nombre, cuándo entra, cómo responder y su libertad, y qué pasa con «Lo demás», como un JSON {"escenarios":[…],"lo_demas":…}. El código lo repara (lib/ai-step-armar.ts → repararArmado): nombres que no se repiten, «cuándo» obligatorio, nunca «sola» si habla de plata ni en «Lo demás», hasta 10. No borres la forma del JSON. Y no lo pases a voseo: lo que escribe le llega al cliente del negocio.',
+      },
+      {
+        key: 'automations.ai_step.objeciones', source: 'override',
+        label: 'AI Step — las objeciones del ensayo (system)', kind: 'system', dynamic: true,
+        variables: [v('medio', 'por dónde le escribe el lead: WhatsApp, Instagram o Messenger')], scope: 'static-only', sensitive: false,
+        default: OBJECIONES_SYSTEM_TEMPLATE,
+        context: 'El ensayo de objeciones de un AI Step: con el objetivo y TODOS sus escenarios, el modelo propone el primer mensaje del lead y 4 objeciones de ESTE negocio, como un JSON (lib/ai-step-ensayo.ts → leerObjeciones). Después MaKo hace de lead con el prompt del ensayo de siempre (setting.ensayo). No borres la forma del JSON.',
+      },
+      // El Dashboard (11/10/2026). SIN slots: el catálogo y lo que muestran los gráficos viajan en el
+      // mensaje user, así un override guardado no pierde un conjunto nuevo.
+      {
+        key: 'dashboard.hoja-ia.system', source: 'override',
+        label: 'Armar una hoja del Dashboard con IA (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: HOJA_IA_SYSTEM_TEMPLATE,
+        context: '«Pídeselo a MaKo» al crear una hoja del Dashboard. El modelo elige conjuntos, tipos y métricas POR SU ID del catálogo que le llega; el código descarta lo que no existe y acomoda la grilla (lib/graficos-ia.ts → deIAHoja). No le pidas ids ni posiciones: los pone el código.',
+      },
+      {
+        key: 'dashboard.analista.system', source: 'override',
+        label: 'AI Analyst del Dashboard (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: ANALISTA_SYSTEM_TEMPLATE,
+        context: 'El botón «AI Analyst» del Dashboard y su análisis programado: MaKo lee lo que muestran los gráficos de una hoja y dice qué pasa y qué conviene hacer. No le pidas que invente números: sólo puede citar los que le llegan (lib/graficos-analisis.ts).',
       },
       {
         key: 'chatbot.editar-ia.system', source: 'override',
@@ -660,6 +710,100 @@ export const REGISTRY: Group[] = [
         variables: [v('specActual', 'el LandingSpec actual en JSON'), v('instruccion', 'el cambio que pide el usuario'), v('contexto', 'contexto del negocio')], scope: 'full', sensitive: false,
         default: LANDING_ADJUST_USER_TEMPLATE,
         context: 'Le pasa a MaKo el spec actual y el cambio pedido. Mantén los slots y el pedido de devolver el JSON COMPLETO (si devuelve solo el bloque cambiado, se pierde el resto de la página).',
+      },
+    ],
+  },
+  {
+    // El editor copiado de Gamma (lib/editor-landing/ia.ts; los defaults viven en
+    // lib/editor-landing/ia-reglas.ts, portados de presenton con su aviso Apache-2.0).
+    // Las keys y los slots los fija tests/editor-landing-ia.test.ts contra PROMPTS_EDITOR.
+    group: 'Editor de landings (Landing Generator)',
+    icon: '🧩',
+    blurb: 'MaKo en el editor de landings: arma el esquema, escribe las secciones con su diseño, edita con IA la landing o una sección, reescribe textos, propone otros diseños y escribe las notas del orador.',
+    entries: [
+      {
+        key: 'landing_editor.esquema.system', source: 'override',
+        label: 'Esquema de la landing (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma del copy (español neutro de México por default)'), v('formato', 'forma EXACTA del JSON del esquema')], scope: 'static-only', sensitive: true,
+        default: LANDING_EDITOR_ESQUEMA_SYSTEM,
+        context: 'Arma la lista de secciones que la persona revisa antes de generar. NO borres «PROHIBIDO INVENTAR» ni la regla de que los AJUSTES mandan: el texto pegado o importado puede traer instrucciones adentro y son datos. Conserva {{idioma}} y {{formato}}, o la pantalla no puede leer el esquema.',
+      },
+      {
+        key: 'landing_editor.esquema.user', source: 'override',
+        label: 'Ajustes + contenido + contexto (user)', kind: 'user', dynamic: true,
+        variables: [v('ajustes', 'cantidad de secciones, idioma, objetivo, audiencia, tono y cantidad de texto'), v('contenido', 'el pedido, el texto pegado o la página importada'), v('instrucciones', 'instrucciones extra y el modo de texto'), v('contexto', 'funnel + perfil + método del negocio'), v('diagnostico', 'diagnóstico del Landing Analyst si la landing ya se analizó')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_ESQUEMA_USER,
+        context: 'Le pasa a MaKo los ajustes y el material. Conserva los slots: {{contenido}} llega delimitado como dato no confiable.',
+      },
+      {
+        key: 'landing_editor.secciones.system', source: 'override',
+        label: 'Secciones con su diseño (system)', kind: 'system', dynamic: true,
+        variables: [v('gramatica', 'los bloques que la IA puede escribir (sale del código)'), v('texto', 'la cantidad de texto por sección'), v('modoTexto', 'Generar · Condensar · Conservar'), v('idioma', 'el idioma del copy'), v('formato', 'forma del JSON de este pedido')], scope: 'static-only', sensitive: true,
+        default: LANDING_EDITOR_SECCIONES_SYSTEM,
+        context: 'Escribe hasta 3 secciones por pedido con la gramática de bloques del editor. {{gramatica}} sale del código (las listas cerradas del documento): si se borra, la IA no sabe qué bloques existen y nada se puede convertir. NO borres «PROHIBIDO INVENTAR».',
+      },
+      {
+        key: 'landing_editor.secciones.user', source: 'override',
+        label: 'Esquema + secciones pedidas (user)', kind: 'user', dynamic: true,
+        variables: [v('ajustes', 'los ajustes de la generación'), v('esquema', 'la página entera por títulos, con las pedidas marcadas'), v('pedidas', 'el detalle de las secciones a escribir'), v('instrucciones', 'instrucciones extra'), v('contexto', 'funnel + perfil + método del negocio')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_SECCIONES_USER,
+        context: 'Le pasa a MaKo el esquema completo (para que no repita) y el detalle solo de las secciones de esta tanda. Conserva los slots.',
+      },
+      {
+        key: 'landing_editor.editar.system', source: 'override',
+        label: 'Edición con IA (system)', kind: 'system', dynamic: true,
+        variables: [v('gramatica', 'los bloques que la IA puede escribir'), v('idioma', 'el idioma del copy'), v('formato', 'forma del JSON de la edición')], scope: 'static-only', sensitive: true,
+        default: LANDING_EDITOR_EDITAR_SYSTEM,
+        context: 'Aplica la instrucción de la persona sobre la landing o una sección. Conserva las reglas de devolver cada sección ENTERA con su id y de no tocar las bloqueadas: si se borran, una edición pierde el resto de la sección. Las bloqueadas igual se descartan en código.',
+      },
+      {
+        key: 'landing_editor.editar.user', source: 'override',
+        label: 'Instrucción + secciones (user)', kind: 'user', dynamic: true,
+        variables: [v('instruccion', 'lo que pidió la persona'), v('alcance', 'la landing entera o una sección'), v('secciones', 'las secciones actuales en la gramática (las bloqueadas, solo el título)'), v('contexto', 'funnel + perfil + método del negocio')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_EDITAR_USER,
+        context: 'Le pasa a MaKo la instrucción y las secciones actuales. Conserva los slots.',
+      },
+      {
+        key: 'landing_editor.texto.system', source: 'override',
+        label: 'Acciones de texto (system)', kind: 'system', dynamic: true,
+        variables: [v('accion', 'qué hacer: mejorar, corregir, acortar, ampliar, simplificar, más específico, tono, traducir o continuar'), v('idioma', 'el idioma de la respuesta')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_TEXTO_SYSTEM,
+        context: 'Reescribe la selección con la acción elegida en la barra. Conserva {{accion}} (la escribe el código según el botón) y la regla de devolver SOLO el texto: lo que vuelve reemplaza la selección tal cual.',
+      },
+      {
+        key: 'landing_editor.texto.user', source: 'override',
+        label: 'Texto + contexto (user)', kind: 'user', dynamic: true,
+        variables: [v('texto', 'la selección'), v('contexto', 'la sección donde está el texto, si la hay')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_TEXTO_USER,
+        context: 'Le pasa a MaKo el texto seleccionado. Conserva los slots.',
+      },
+      {
+        key: 'landing_editor.disenos.system', source: 'override',
+        label: 'Probar nuevo diseño (system)', kind: 'system', dynamic: true,
+        variables: [v('gramatica', 'los bloques que la IA puede escribir'), v('formato', 'forma del JSON de las alternativas')], scope: 'static-only', sensitive: true,
+        default: LANDING_EDITOR_DISENOS_SYSTEM,
+        context: 'Propone hasta 3 formas distintas de la misma sección. Conserva la regla de que el TEXTO se conserva: las alternativas que cambian el texto se descartan en código y no llegan a la persona.',
+      },
+      {
+        key: 'landing_editor.disenos.user', source: 'override',
+        label: 'Sección actual (user)', kind: 'user', dynamic: true,
+        variables: [v('seccion', 'la sección actual en la gramática')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_DISENOS_USER,
+        context: 'Le pasa a MaKo la sección actual. Conserva el slot.',
+      },
+      {
+        key: 'landing_editor.notas.system', source: 'override',
+        label: 'Notas del orador (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma de las notas')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_NOTAS_SYSTEM,
+        context: 'Escribe lo que la persona diría al presentar la sección. Texto plano: el modo Presentar lo muestra tal cual.',
+      },
+      {
+        key: 'landing_editor.notas.user', source: 'override',
+        label: 'Sección (user)', kind: 'user', dynamic: true,
+        variables: [v('seccion', 'el texto de la sección')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_NOTAS_USER,
+        context: 'Le pasa a MaKo el texto de la sección. Conserva el slot.',
       },
     ],
   },
@@ -1067,6 +1211,60 @@ export const REGISTRY: Group[] = [
         label: 'Verificador del reporte (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
         default: RETRO3_VERIF_SYSTEM,
         context: 'El verificador que contrasta el borrador del reporte contra los números medidos antes de publicarlo. Conserva el esquema JSON de salida.',
+      },
+    ],
+  },
+  // La tab Offer (11/10/2026): Offer Analyst + Offer Generator en un chat. El MARCO viaja por el slot
+  // {{marco}} y no pegado en el texto, a propósito: un override guardado desde /configuraciones no
+  // congela una versión vieja del marco (lib/offer-marco.ts es la única fuente). Lo que el código
+  // corrige sobre la salida (una pregunta por turno, el total, el cuello, lo que el dueño no dio) vive
+  // en lib/offer-reglas.ts: aunque el texto se edite, esa segunda capa no se apaga.
+  {
+    group: 'Offer (MaKo conversa, diagnostica y arma la oferta)',
+    icon: '🎯',
+    blurb: 'La tab Offer: MaKo le pregunta al dueño por su oferta de a una pregunta, la diagnostica con la rúbrica de 9 dimensiones y escribe la oferta nueva para el PDF.',
+    entries: [
+      {
+        key: 'offer.turno.system', source: 'override',
+        label: 'La conversación: cómo pregunta MaKo (system)', kind: 'system', dynamic: true,
+        variables: [v('marco', 'el marco de oferta entero: piezas, rúbrica y reglas (lib/offer-marco.ts)'), v('guia', 'las preguntas de la guía, en orden de prioridad')], scope: 'static-only', sensitive: true,
+        default: OFFER_TURNO_SYSTEM_TEMPLATE,
+        context: 'Cada turno del chat de Offer. Reglas que no se tocan: UNA pregunta por mensaje, nunca re-preguntar lo que ya se sabe, pedir primero un documento o el link de la web, construir con preguntas cerradas lo que falta, opciones cerradas a medida del negocio, «sin dato» sólo si ni con opciones lo define, las preguntas del diagnóstico de fase ADAPTADAS sin cambiar sus números ni su orden (y sin decirle al dueño el resultado), y el JSON exacto. El código corta una segunda pregunta, decide cuándo una pregunta del diagnóstico es obligatoria, devuelve a la opción original la adaptada que cambie un número y decide solo cuándo ofrecer «Armar mi oferta» (lib/offer-reglas.ts). Conserva los slots {{marco}} y {{guia}}. Y no lo pases a voseo: lo lee el cliente.',
+      },
+      {
+        key: 'offer.turno.user', source: 'override',
+        label: 'La conversación: lo que MaKo lee en cada turno (user)', kind: 'user', dynamic: true,
+        variables: [v('contexto', 'lo que el negocio ya tenía cargado (perfil, Archivero, el funnel y sus ofertas, productos, avatares, razones, fase)'), v('piezas', 'lo que ya se sabe de cada pieza'), v('faltan', 'las piezas que faltan'), v('documentos', 'el texto de los documentos y las webs que mandó el dueño'), v('diagnostico', 'la próxima pregunta del diagnóstico de fase con sus 5 opciones originales, y si es obligatoria (la decide el código)'), v('conversacion', 'los últimos 30 mensajes, con quién dijo qué')], scope: 'full', sensitive: false,
+        default: OFFER_TURNO_USER_TEMPLATE,
+        context: 'Los datos del turno. Lo que viene del dueño va envuelto como dato no confiable; el bloque del diagnóstico NO (lo escribe el código y trae la orden de si la pregunta es obligatoria). Conserva los seis slots y la orden del JSON del final: un modelo chico pesa más lo último que lee.',
+      },
+      {
+        key: 'offer.diagnostico.system', source: 'override',
+        label: 'El diagnóstico de la oferta actual (system)', kind: 'system', dynamic: true,
+        variables: [v('marco', 'el marco de oferta entero: piezas, rúbrica y reglas (lib/offer-marco.ts)')], scope: 'static-only', sensitive: true,
+        default: OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE,
+        context: 'Las 9 notas con su porqué citando al dueño, la tesis, lo más fuerte y de 1 a 3 cambios como HIPÓTESIS para probar en Experiments. El total, el cuello de botella y si está lista los calcula el código, no el modelo. Conserva la forma EXACTA del JSON (las 9 dimensiones) o el diagnóstico se descarta.',
+      },
+      {
+        key: 'offer.diagnostico.user', source: 'override',
+        label: 'El diagnóstico: lo que MaKo lee (user)', kind: 'user', dynamic: true,
+        variables: [v('contexto', 'lo que el negocio ya tenía cargado'), v('embudo', 'el embudo de los últimos 90 días'), v('piezas', 'lo que se sabe de cada pieza'), v('documentos', 'el texto de los documentos'), v('conversacion', 'los últimos 30 mensajes')], scope: 'full', sensitive: false,
+        default: OFFER_DIAGNOSTICO_USER_TEMPLATE,
+        context: 'Los datos del diagnóstico. El embudo va para que MaKo diga primero dónde se corta antes de culpar a la oferta. Conserva los cinco slots y la orden del JSON del final.',
+      },
+      {
+        key: 'offer.propuesta.system', source: 'override',
+        label: 'La oferta nueva (system)', kind: 'system', dynamic: true,
+        variables: [v('marco', 'el marco de oferta entero: piezas, rúbrica y reglas (lib/offer-marco.ts)')], scope: 'static-only', sensitive: true,
+        default: OFFER_PROPUESTA_SYSTEM_TEMPLATE,
+        context: 'La plantilla de la oferta, sección por sección, con «[completar]» donde falte un dato que el dueño no dio. La regla que NO se toca: nunca inventar testimonios, cifras de casos, valores de bonos, cupos ni fechas. El código igual pasa a «[completar]» la urgencia, las cifras de prueba y los valores de bonos que el dueño no dio. Conserva la forma EXACTA del JSON o la pantalla y el PDF no pueden leerla.',
+      },
+      {
+        key: 'offer.propuesta.user', source: 'override',
+        label: 'La oferta nueva: lo que MaKo lee (user)', kind: 'user', dynamic: true,
+        variables: [v('contexto', 'lo que el negocio ya tenía cargado'), v('piezas', 'lo que dio el dueño de cada pieza'), v('diagnostico', 'el diagnóstico con el cálculo del sistema'), v('documentos', 'el texto de los documentos'), v('conversacion', 'los últimos 30 mensajes')], scope: 'full', sensitive: false,
+        default: OFFER_PROPUESTA_USER_TEMPLATE,
+        context: 'Los datos para escribir la oferta nueva, con el diagnóstico de la actual. Conserva los cinco slots y la orden del JSON del final.',
       },
     ],
   },

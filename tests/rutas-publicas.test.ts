@@ -17,7 +17,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { esPublica, esPublicaSoloLectura, esPublicaDeEscritura, PUBLICOS_ESCRITURA } from '../lib/rutas-publicas';
+import { esPublica, esPublicaSoloLectura, esPublicaDeEscritura, esPublicaSoloLeer, PUBLICOS_ESCRITURA } from '../lib/rutas-publicas';
 
 test('las rutas del agente que hablan por Bearer entran sin sesión', () => {
   // Son las que corren en la máquina del cliente, donde no hay cookie posible.
@@ -111,6 +111,16 @@ test('meter un lead se puede; el resto de /api/agente/lead no se hereda', () => 
   assert.equal(esPublicaDeEscritura('/api/agente/lead/borrar'), false, 'match exacto: nada colgado abajo hereda el POST');
 });
 
+test('los datos del informe del Dashboard compartido: la ruta EXACTA acepta POST, y nada colgado abajo', () => {
+  // Es POST aunque sólo lea, para que el token del link viaje en el CUERPO (como la comunidad). La
+  // credencial entera es ese token y la ruta no lee la cookie (tests/dashboard-compartir-fuente.test.ts).
+  // Probado rompiéndolo (11/10/2026): sacando la entrada de PUBLICOS_ESCRITURA, 11 pass / 1 fail (cae éste).
+  assert.equal(esPublicaDeEscritura('/api/compartido/graficos'), true);
+  assert.equal(esPublica('/api/compartido/graficos'), true);
+  assert.equal(esPublicaDeEscritura('/api/compartido/graficos/detalle'), false, 'match exacto: nada colgado abajo hereda el POST');
+  assert.equal(esPublicaSoloLectura('/api/compartido/graficos/detalle'), true);
+});
+
 test('los datos vivos son de LECTURA: entran sin sesión pero no pueden escribir', () => {
   // Las dos devuelven datos del negocio (inversión, visitas, reuniones, leads) y
   // ninguna tiene POST. Que estén en PUBLICOS y no en PUBLICOS_DE_ESCRITURA es lo
@@ -120,4 +130,43 @@ test('los datos vivos son de LECTURA: entran sin sesión pero no pueden escribir
     assert.equal(esPublica(r), true, `${r} tiene que entrar sin sesión`);
     assert.equal(esPublicaDeEscritura(r), false, `${r} es de solo lectura`);
   }
+});
+
+// Probado rompiéndolo (11/10/2026), cada rotura sola sobre 12 pases: `'/api/pagar/email'` cambiado por
+// `'/api/pagar'` en PUBLICOS → 1 fallo / 11 pases; sacarla de PUBLICOS_ESCRITURA → 1 / 11; sacar
+// `'/pagar'` de PUBLICOS → 1 / 11 (y 1 / 3 en tests/acciones-sin-sesion.test.ts). Restaurado: 12 pases.
+test('el comprador de un link de pago entra sin sesión, y sólo a lo suyo (11/10/2026)', () => {
+  // `/pagar/<token>` y su retorno: los abre alguien que no tiene ni va a tener sesión de MaKo. Va
+  // como prefijo porque el token es un segmento; siguen siendo PÁGINAS, así que sólo se leen.
+  for (const r of ['/pagar/AbCdEfGhIjKlMnOpQrStUvWxYz012345', '/pagar/AbCdEfGhIjKlMnOpQrStUvWxYz012345/listo']) {
+    assert.equal(esPublica(r), true, r);
+    assert.equal(esPublicaDeEscritura(r), false, `${r} es una página: no escribe`);
+  }
+  // El prefijo no se hereda a lo que empieza igual: los pagos del CRM siguen detrás del login.
+  for (const r of ['/pagos', '/pagarx', '/api/pagos', '/api/pagar']) assert.equal(esPublica(r), false, r);
+  // Lo único que escribe es el cambio de email, EXACTO: nada colgado abajo ni al lado hereda el POST.
+  assert.equal(esPublica('/api/pagar/email'), true);
+  assert.equal(esPublicaDeEscritura('/api/pagar/email'), true);
+  assert.equal(esPublica('/api/pagar/email/otra'), true, 'PUBLICOS es por prefijo: por eso la escritura es exacta');
+  assert.equal(esPublicaDeEscritura('/api/pagar/email/otra'), false);
+  assert.equal(esPublicaDeEscritura('/api/pagar/emails'), false);
+  assert.equal(esPublica('/api/pagar/otra'), false, '/api/pagar no es un prefijo público');
+  // La política de reembolsos: la abre el revisor de la pasarela sin cuenta.
+  assert.equal(esPublica('/reembolsos'), true);
+});
+
+test('las landings publicadas (/l) entran sin sesión, y sólo para LEER', () => {
+  // Las abre un visitante sin cuenta de MaKo (app/l/**/route.ts, docs/diseno-editor-landing.md D4).
+  // Sin esto, en producción el proxy las manda a /login; en local no se ve (el gate está apagado).
+  // Probado rompiéndolo (11/10/2026): sacar `/l` de PUBLICOS, corriendo este archivo con
+  // tests/editor-landing-publica.test.ts, da 36 pass / 2 fail (cae éste y su gemelo de allá).
+  // Restaurado: 38 / 0.
+  for (const r of ['/l/mi-landing', '/l/mi-landing/gracias', '/l/vista/tok_ABCdef123456']) {
+    assert.equal(esPublica(r), true, r);
+    // No es /api/: una página pública que acepta POST ejecuta server actions sin sesión.
+    assert.equal(esPublicaSoloLeer(r), true, r);
+    assert.equal(esPublicaDeEscritura(r), false, r);
+  }
+  // El prefijo es «/l» más la barra: la tab del editor (con sesión) también empieza con «/l».
+  for (const r of ['/landing-generator', '/landing-generator/12', '/landing-writer', '/lx']) assert.equal(esPublica(r), false, r);
 });

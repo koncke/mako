@@ -21,7 +21,7 @@ import { spawn } from 'node:child_process';
 import { writeFileSync, readFileSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { tmpdir } from 'node:os';
+import { tmpdir, freemem } from 'node:os';
 
 const LOCK = join(tmpdir(), 'mako-typecheck.lock');
 const ESPERA_MAX_MS = 10 * 60 * 1000;  // 10 min
@@ -83,6 +83,36 @@ if (!turno) {
   // es peor que dos typechecks a la vez.
   process.stderr.write('  [typecheck] el lock no se liberó en 10 min: corro igual (puede ir lento)\n');
 }
+
+// EL TURNO NO ALCANZA: TAMBIÉN TIENE QUE HABER RAM. Medido el 11/10/2026: la app
+// de Claude se colgó y murió con 7 chats adentro, con 5 typechecks en cola detrás
+// de este lock y 0,8 GB libres. El que tomaba el turno arrancaba su tsc de 3 GB
+// sobre una máquina que ya paginaba — y la guarda de RAM de las sesiones
+// (~/.claude/guardia/memoria.mjs) no lo ve, porque el `git push` que lo disparó
+// se admitió minutos antes, cuando todavía había memoria. Se espera CON el lock
+// tomado: soltarlo dejaría arrancar a otro en el mismo hueco.
+// Misma regla que el lock: después de 5 min se corre igual y se dice.
+// 12/10/2026: 2,5 → 2,0 a pedido de Martín («que se trabaje aún más al límite»; ya no hay Chrome abierto).
+const RAM_MIN_GB = 2.0;
+const RAM_ESPERA_MAX_MS = 5 * 60 * 1000;
+async function esperarRam() {
+  const hasta = Date.now() + RAM_ESPERA_MAX_MS;
+  let aviso = false;
+  for (;;) {
+    const libre = freemem() / 1024 ** 3;
+    if (libre >= RAM_MIN_GB) return;
+    if (Date.now() >= hasta) {
+      process.stderr.write(`  [typecheck] la RAM no se liberó en 5 min (${libre.toFixed(1)} GB): corro igual (puede ir lento)\n`);
+      return;
+    }
+    if (!aviso) {
+      process.stderr.write(`  [typecheck] quedan ${libre.toFixed(1)} GB de RAM y tsc pide ~3: espero a que se libere…\n`);
+      aviso = true;
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+}
+await esperarRam();
 
 // Se llama al tsc de node_modules con el MISMO node, sin npx y sin shell:
 // npx agrega un proceso y ~1 s de arranque, y `shell: true` con argumentos

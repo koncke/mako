@@ -1,0 +1,25 @@
+/* /m/cuenta — lo propio de la pantalla. Alcance [data-m], prefijo .mc-, sólo var(--token). */
+
+[data-m] .mc-email { font-size: var(--fs-meta); color: var(--dim); max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+[data-m] .mc-vista,
+[data-m] .mc-bloque { display: flex; flex-direction: column; gap: 8px; padding: 8px 0 4px; }
+[data-m] .mc-frase { margin: 0; font-size: var(--fs-md); line-height: 1.5; color: var(--ink); }
+[data-m] .mc-dim { color: var(--dim); font-size: var(--fs-sm); }
+[data-m] .mc-error { margin: 0; font-size: var(--fs-sm); color: var(--bad); font-weight: 600; }
+[data-m] .mc-prefs { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; }
+[data-m] .mc-tipos { list-style: none; margin: 0; padding: 0 0 0 4px; display: flex; flex-direction: column; }
+[data-m] .mc-tipos li + li { border-top: 1px solid var(--border); }
+[data-m] .mc-salidas { display: flex; flex-direction: column; gap: 8px; padding-top: 32px; }
+
+/* /m/cuenta/instalar — un paso por pantalla, ícono grande. */
+[data-m] .mc-paso {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 16px; padding: 40px 0 24px; min-height: 50dvh; justify-content: center;
+}
+[data-m] .mc-paso__ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 96px; height: 96px; border-radius: 24px; background: var(--surface-2); color: var(--ink);
+}
+[data-m] .mc-paso__n { font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
+[data-m] .mc-paso__frase { margin: 0; font-size: var(--fs-sect); font-weight: 600; line-height: 1.3; color: var(--ink); max-width: 22ch; }
+[data-m] .mc-paso__acciones { display: flex; flex-direction: column; gap: 8px; width: 100%; }

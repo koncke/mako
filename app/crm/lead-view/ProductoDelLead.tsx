@@ -294,9 +294,9 @@ export function ProductoDelLead({ ficha, rotulo = true }: {
         label: p.nombre,
         sub: p.esta ? undefined : 'No está',
         acciones: accion === 'quitar'
-          ? [{ icono: <IconoQuitar />, title: 'Quitar de este producto', tone: 'bad' as const, cierra: true, onClick: () => ficha.quitar(p) }]
+          ? [{ icono: <IconoQuitar />, title: 'Quitar de este funnel', tone: 'bad' as const, cierra: true, onClick: () => ficha.quitar(p) }]
           : accion === 'agregar'
-            ? [{ icono: <IconoAgregar />, title: 'Agregar a este producto', cierra: true, onClick: () => ficha.agregar(p) }]
+            ? [{ icono: <IconoAgregar />, title: 'Agregar a este funnel', cierra: true, onClick: () => ficha.agregar(p) }]
             : undefined,
       };
     })
@@ -306,7 +306,7 @@ export function ProductoDelLead({ ficha, rotulo = true }: {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        {rotulo && <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)' }}>Producto</span>}
+        {rotulo && <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)' }}>Funnel</span>}
         <Dropdown
           value={String(ficha.idEnVista ?? '')}
           options={opciones}
@@ -317,10 +317,10 @@ export function ProductoDelLead({ ficha, rotulo = true }: {
             if (p.esta) ficha.verProducto(p.id); else ficha.agregar(p);
           }}
           disabled={!productos}
-          placeholder="Producto"
-          ariaLabel={`Producto en vista: ${enVista}`}
+          placeholder="Funnel"
+          ariaLabel={`Funnel en vista: ${enVista}`}
           align={rotulo ? 'right' : 'left'}
-          icono={rotulo ? undefined : <span title="Producto" style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
+          icono={rotulo ? undefined : <span title="Funnel" style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
           buttonStyle={rotulo ? undefined : { fontSize: 13, fontWeight: 600 }}
         />
       </div>

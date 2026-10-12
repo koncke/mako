@@ -380,14 +380,17 @@ test('«Probar» 2: los emisores salen de lo vinculado del negocio, y viaja sól
   const src = PANEL();
   const mandar = src.slice(src.indexOf('const mandarReal = ('), src.indexOf('const mostrarParte = ('));
   assert.match(mandar, /postar\(\{ action: 'enviar-real', secuenciaId: c\.secuenciaId, destino: destinoReal, mensaje: m, primero, emisor: c\.emisor \}\)/, 'el emisor elegido no viaja');
-  assert.match(src, /emisor=\{\{ opciones: opcionesEmisor, elegido: emisorVisible, onElegir: setEmisor, onVincular: abrirVincular \}\}/);
+  // Décima tanda (EMAIL 1): más el porqué de un «De» vacío (el email de MaKo no se ofrece).
+  assert.match(src, /emisor=\{\{\s*opciones: opcionesEmisor, elegido: emisorVisible, onElegir: setEmisor, onVincular: abrirVincular,/);
   // «Vincular nuevo» es el flujo de siempre (el QR de una línea nueva; el dominio de /email), y el email
-  // dice que REEMPLAZA (hoy hay UN remitente por negocio).
-  assert.match(src, /<EvolutionConnect key="nueva-linea" nueva inline panelVisible ocultarChip onLineaCreada=\{onLinea\} \/>/);
+  // dice que REEMPLAZA (hoy hay UN remitente por negocio). Desde la décima tanda (GENERAL 6) el modal vive en
+  // ConectarMedio.tsx: lo montan además la tarjeta, Publicar y el CRON.
+  const conectar = sinComentarios(readFileSync(new URL('../app/automations/ConectarMedio.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n'));
+  assert.match(conectar, /<EvolutionConnect key="nueva-linea" nueva inline panelVisible ocultarChip onLineaCreada=\{\(l: string\) => listo\(l\)\} \/>/);
   // El modal del email ES el del editor de Gmail (`VincularRemitente`, que lleva el aviso de que
   // reemplaza: lo cuida tests/editor-email-gmail.test.ts), no una copia (segunda pasada, parte «datos»).
-  assert.match(src, /<VincularRemitente inicial=\{dom\} reemplaza=\{reemplaza\}/);
-  assert.match(src, /<VincularEmisor canal=\{canal\}[^>]*reemplaza=\{vinculados\.length > 0\}/);
+  assert.match(conectar, /<VincularRemitente inicial=\{dom\} reemplaza=\{reemplaza\}/);
+  assert.match(src, /<ConectarMedio medio=\{medioProbar\} nueva=\{vinculando === 'nuevo'\}[^>]*reemplaza=\{vinculados\.length > 0\}/);
 });
 
 test('el simulador de cada canal se elige en UN lugar (la parte «canales» enchufa ahí)', () => {

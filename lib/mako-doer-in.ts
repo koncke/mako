@@ -32,7 +32,7 @@ import { credWs } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
-import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo, esPedidoSobreLead } from '@/lib/mako-intencion';
+import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
@@ -50,6 +50,10 @@ import { crearMemoDeAcciones } from '@/lib/turno-sin-duplicar';
 // un lugar").
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { puedeLeerse, formatosLegibles, porQueNoPuedo } from '@/lib/formatos-archivo';
+// Cómo entra una foto o un PDF al turno: lo comparte con el chat del teléfono
+// (lib/mako-turno-app.ts). Ver la cabecera de lib/mako-adjuntos.ts: el bloque de imagen NO
+// le llega a Gemini por chatCheapTools (medido el 11/10/2026).
+import { mimeImagenWhatsApp, bloquesDeAdjuntos, placeholderDeAdjunto } from '@/lib/mako-adjuntos';
 import { ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { recordUsage } from '@/lib/anthropic-usage';
 import { rutearDoer } from '@/lib/mako-router';
@@ -176,9 +180,7 @@ function adjuntoDe(m: MsgIn): { tipo: 'image' | 'document' | 'texto'; base64: st
   const msg = m.message ?? {};
   const img = msg.imageMessage as { base64?: string; mimetype?: string; caption?: string } | undefined;
   if (img) {
-    const mime = (img.mimetype || 'image/jpeg').split(';')[0];
-    const ok = /^image\/(jpeg|png|gif|webp)$/.test(mime);
-    return { tipo: 'image', base64: m.base64 || img.base64 || null, mime: ok ? mime : 'image/jpeg', caption: img.caption || '', nombre: 'captura.jpg', soportado: true };
+    return { tipo: 'image', base64: m.base64 || img.base64 || null, mime: mimeImagenWhatsApp(img.mimetype), caption: img.caption || '', nombre: 'captura.jpg', soportado: true };
   }
   const doc = msg.documentMessage as { base64?: string; mimetype?: string; caption?: string; fileName?: string } | undefined;
   if (doc) {
@@ -220,6 +222,9 @@ function esCargaDePlan(texto: string): boolean {
   // se exigía un borrador del plan y, con la IA caída, el pedido se guardaba como una tarea
   // (08/10/2026, ws15). La misma función que usa el clasificador (lib/mako-intencion.ts).
   if (esPedidoSobreLead(texto)) return false;
+  // Y un pedido de cobro (link de pago, reembolso, suscripción), por lo mismo (11/10/2026). En su
+  // propia línea: tests/crm-pedidos-whatsapp.test.ts lee la de arriba textual.
+  if (esPedidoDeCobro(texto)) return false;
   if (/\b(anot[aá]|apunt[aá])|al plan\b|a la lista\b/i.test(norm(texto))) return true;
   return (texto.match(/(^|\n)\s*(\d+[.)]|[-*•])\s+\S/g) ?? []).length >= 2;
 }
@@ -287,13 +292,13 @@ SEGÚN DE QUÉ TE HABLEN, puedes tener herramientas de cada tab de MaKo (email, 
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
 const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, da el resumen corto y CIERRA con un link para verlo (formato: "Mira el detalle aquí → URL"). No inventes rutas; usa estas (base ${APP_URL}):
 - Ficha 360 de un lead: ${APP_URL}/crm/{id}
-- Análisis de una llamada de ventas: ${APP_URL}/closing?call={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tienes, ${APP_URL}/closing.
+- Análisis de una llamada de ventas: ${APP_URL}/dashboard?hoja=closing&llamada={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tienes, ${APP_URL}/dashboard?hoja=closing.
 - WhatsApp con un lead: ${APP_URL}/whatsapp?lead={id}
 - Marketing / anuncios: ${APP_URL}/dashboard · Ads Manager: ${APP_URL}/ads-manager
 - Experimentos (verdades validadas): ${APP_URL}/experimentos
 - Plan / tareas: ${APP_URL}/plan · Nutrición y email: ${APP_URL}/email
 - Salud de la cuenta de Meta: ${APP_URL}/integraciones
-Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes aquí → ${APP_URL}/closing".`;
+Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes aquí → ${APP_URL}/dashboard?hoja=closing".`;
 
 /**
  * Cuántas API keys de IA tiene cargadas ESTE workspace.
@@ -762,11 +767,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           void enviarAGrupoJid(jid, 'Me llegó tu archivo pero WhatsApp no me deja bajarlo. ¿Me lo reenvías?', 0);
           return { engaged: false, skip: 'adjunto sin base64' };
         }
-        const source = { type: 'base64', media_type: adjunto.tipo === 'image' ? adjunto.mime : 'application/pdf', data: b64 };
-        const prompt = textoDirecto || adjunto.caption || (adjunto.tipo === 'image' ? 'Mira esta imagen y dime qué ves y qué hago.' : 'Lee este PDF y dime lo importante.');
-        mediaBlocks = [{ type: adjunto.tipo, source }, { type: 'text', text: prompt }];
+        mediaBlocks = bloquesDeAdjuntos([{ tipo: adjunto.tipo, mime: adjunto.mime, base64: b64 }], textoDirecto || adjunto.caption);
         // Para la memoria guardamos un placeholder de texto.
-        texto = `(envió ${adjunto.tipo === 'image' ? 'una imagen' : 'un PDF'}${adjunto.caption ? `: ${adjunto.caption}` : ''})${textoDirecto ? ` — ${textoDirecto}` : ''}`;
+        texto = placeholderDeAdjunto(adjunto.tipo, adjunto.caption, textoDirecto);
       }
     }
 

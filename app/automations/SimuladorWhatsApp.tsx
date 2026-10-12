@@ -35,19 +35,25 @@
 //
 // ── 11/10/2026: «MaKo EN WHATSAPP» SON AUTOMATIZACIONES, IGUALES A LAS DEMÁS ──
 //   · Martín, textual: «Te pedí que la parte de WhatsApp de MaKo sea exactamente igual y siguen muchas
-//     cosas diferentes... 1. Los 3 puntos de "MaKo en WhatsApp" no tienen los botones de duplicar o
-//     copiar. 2. Las tarjetas cambian, cambia el CRON, cambia la tarjeta de "MaKo en WhatsApp" cambia
-//     todo, y NO debería... debe ser IDENTICO».
-//   · Cada mensaje es una fila de `nutricion_secuencias` con el CRON «Evento de MaKo» (`aviso_mako`,
-//     lib/disparadores.ts). La sección «MaKo en WhatsApp» son las filas de ESE CRON (`partirLista`), con
-//     el MISMO `ItemLista`, el MISMO «⋯» (`opcionesDeFila`: Activar/Pausar, Duplicar, Copiar flujo,
-//     Eliminar), las MISMAS acciones y la MISMA selección: abren el MISMO lienzo (`SecuenciaPerfil`).
-//     «＋ Nuevo mensaje» abre la galería en su sección (`onNueva('mako')`). Un setter las ve como a
-//     cualquier automatización.
+//     cosas diferentes... debe ser IDENTICO». Cada mensaje es una fila de `nutricion_secuencias` con el CRON
+//     «Evento de MaKo» (`aviso_mako`, lib/disparadores.ts), con el MISMO `ItemLista`, el MISMO «⋯», las MISMAS
+//     acciones y la MISMA selección: abren el MISMO lienzo (`SecuenciaPerfil`).
 //   · ⛔ SE FUERON los Mensajes de MaKo de antes (quinta y novena tanda): las filas que venían del endpoint
 //     de Configuraciones › Notificaciones (`avisos`), su lienzo propio (`MensajeMakoLienzo`, el editor de
 //     /mensajes), su «⋯» recortado (`opcionesDeMensaje`), su «Eliminar» que los ocultaba y el alta de un
 //     mensaje propio. El diseño, en docs/diseno-mako-en-whatsapp-unificado.md.
+//
+// ── UNDÉCIMA TANDA (11/10/2026): UNA SOLA LISTA, EL MENÚ ANTES DEL BUSCADOR Y «RENOMBRAR» ──
+//   · Punto 9, textual: «Te pido que en la sidebar elimines la separación con "MaKo en WhatsApp" que sea todo
+//     una misma sidebar para todo, sin dividir, para eso ya tenemos filtros. Y arriba también elimina la
+//     palabra "Chatbot"... Y que los botones de "Configuraciones" y "Tutorial" estén en otro botón desplegable
+//     al inicio de la barra de busqueda». → Una lista en el orden del server, sin rótulos ni «＋ Nuevo mensaje»
+//     (se fueron `partirLista`, `ROTULO_CHATBOT` y el reexport de `ROTULO_MENSAJES_MAKO`); las de MaKo las separa
+//     el filtro que ya existía («Al WhatsApp de MaKo», lib/chatbot-lista-filtro.ts). El menú (`menu`) llega como
+//     NODO desde la tab, delante del buscador.
+//   · Punto 5, textual: «Quiero que en los 3 puntos exista la opción de renombrar.» → `opcionesDeFila` la trae
+//     segunda; se edita EN la fila (Enter o salir guardan, Escape cancela, sin cambio no escribe), optimista y con
+//     vuelta atrás, por la puerta de siempre (`action: 'nombre'`, que contesta 404 si no tocó ninguna fila).
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
@@ -58,12 +64,9 @@ import { PanelProbar, type CanalProbar } from './PanelProbar';
 import { FiltroLista, LADO_FILTRO } from './FiltroLista';
 import { disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
 import { copiaDeFlujo, textoDeCopia, type PasoCopiado } from '@/lib/flujo-copia';
-import { TRIGGER_AVISO_MAKO, type ClaseDisparador } from '@/lib/disparadores';
-import { ROTULO_MENSAJES_MAKO } from '@/lib/plantillas-automatizaciones';
-import type { SeccionGaleria } from './GaleriaPlantillas';
 import type { ProductoOpcion } from './ChatAgentApp';
 import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
-import type { Objetivo } from '@/lib/setting-estrategia';
+import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
 import { muelles as calcularMuelles, MUELLE } from '@/lib/lienzo-grafo';
 import { enviosDePasos, pasaFiltroLista, type FilaFiltrable } from '@/lib/chatbot-lista-filtro';
 
@@ -84,9 +87,10 @@ const LISTA_HUECO = MUELLE.hueco;
 /**
  * El tope del nombre de una automatización. Medido el 08/10/2026: los seis vigentes miden de 31
  * a 39 caracteres, y en dos renglones de la lista entran ~44. Lo hacen cumplir los escritores del
- * nombre (el server y el título del lienzo); la lista lo usa para el `title` de lo que no entre.
+ * nombre (el server, el título del lienzo y «Renombrar» de la lista); la lista lo usa para el `title` de lo
+ * que no entre. Es el de la lib (`TOPE_NOMBRE_SECUENCIA`) desde la undécima tanda: un solo número.
  */
-export const TOPE_NOMBRE = 40;
+export const TOPE_NOMBRE = TOPE_NOMBRE_SECUENCIA;
 
 // (Acá vivía `ID_RECORDATORIO`, el ítem del recordatorio de la reunión en la lista, que no era una fila de
 // `nutricion_secuencias`. Desde el 10/10/2026 el recordatorio ES una automatización —con su CRON, «Agendó una
@@ -142,21 +146,31 @@ export function listaConCreando(lista: readonly SecuenciaDto[], creando: Creando
  * `data:`, con la papelera en un rojo copiado a mano.
  */
 export const ICONOS_FILA = {
-  activar: 'activar', pausar: 'pausar', duplicar: 'duplicar', copiar: 'copiar', eliminar: 'borrar',
+  activar: 'activar', pausar: 'pausar', renombrar: 'renombrar', duplicar: 'duplicar', copiar: 'copiar', descartar: 'restaurar', eliminar: 'borrar',
 } as const satisfies Record<string, NombreIconoMenu>;
 
 /**
  * Lo que ofrece el «⋯» de una fila. Activar o Pausar según cómo esté. Cada una con su ícono.
  * Una fila de «MaKo en WhatsApp» lleva ÉSTA, tal cual (11/10/2026: «Los 3 puntos de "MaKo en WhatsApp" no
  * tienen los botones de duplicar o copiar»): es una automatización más.
+ *
+ * `conCambios` (décima tanda, general 5, 11/10/2026: «en los 3 puntitos de la sidebar, a los que tienen cambios
+ * sin guardar, que aparezca la opción "Descartar cambios"»): la fila tiene algo sin publicar (`sinPublicarDe`, el
+ * mismo punto ámbar del nombre). Sólo ahí aparece «Descartar cambios», antes de «Eliminar». Reemplaza al botón
+ * «Volver a lo publicado» que había al lado de «Activar».
+ *
+ * «RENOMBRAR» (undécima tanda, punto 5: «Quiero que en los 3 puntos exista la opción de renombrar»): segunda, en
+ * todas las filas. No pide nada al elegirla: la fila pasa a ser un campo (`accionFila` → `renombrando`).
  */
-export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'duplicar' | 'copiar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
+export function opcionesDeFila(activa: boolean, conCambios = false): Array<{ value: 'activa' | 'renombrar' | 'duplicar' | 'copiar' | 'descartar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
   return [
     { value: 'activa', label: activa ? 'Pausar' : 'Activar', icono: activa ? ICONOS_FILA.pausar : ICONOS_FILA.activar },
+    { value: 'renombrar', label: 'Renombrar', icono: ICONOS_FILA.renombrar },
     { value: 'duplicar', label: 'Duplicar', icono: ICONOS_FILA.duplicar },
     // «COPIAR FLUJO» (10/10/2026: «que esté en los 3 puntos de cada flujo en la sidebar... por si un usuario
     // de MaKo le quiere compartir un flujo que creó a otro»). Va al portapapeles (lib/flujo-copia.ts).
     { value: 'copiar', label: 'Copiar flujo', icono: ICONOS_FILA.copiar },
+    ...(conCambios ? [{ value: 'descartar' as const, label: 'Descartar cambios', icono: ICONOS_FILA.descartar }] : []),
     { value: 'eliminar', label: 'Eliminar', icono: ICONOS_FILA.eliminar },
   ];
 }
@@ -166,7 +180,7 @@ export function opcionesDeFila(activa: boolean): Array<{ value: 'activa' | 'dupl
 // un mensaje de «MaKo en WhatsApp» es una automatización con el CRON del evento, y su copia (Duplicar, que
 // conserva la lista de CRON: lib/secuencia-duplicar.ts) sale igual que el original.
 
-/** El botón «⋯» de una fila: el MISMO en «Chatbot» y en «MaKo en WhatsApp». */
+/** El botón «⋯» de una fila: el MISMO en todas (también las de «MaKo en WhatsApp»). */
 const ESTILO_BOTON_MENU: CSSProperties = { width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 };
 
 // El emoji que se eligió en el título (tercera tanda, decisión 8: `nutricion_secuencias.emoji`) y, sin
@@ -200,28 +214,11 @@ export const filaDeSecuencia = (j: Pick<SecuenciaDto, 'activa' | 'emoji' | 'estr
  */
 export const sinPublicarDe = (x: { borrador?: unknown }, abierta = false): boolean => abierta || x.borrador != null;
 
-/**
- * LAS DOS DIVISIONES DE LA LISTA (sexta tanda, punto 3, con la respuesta de Martín del mismo día: la
- * sidebar lleva DOS, «Chatbot» y «MaKo en WhatsApp»). La primera son las automatizaciones que le escriben
- * al lead (y el recordatorio de la reunión); la segunda, desde el 11/10/2026, las automatizaciones con el
- * CRON «Evento de MaKo», que le escriben al grupo del negocio (`partirLista`). El rótulo de la segunda vive
- * en lib/plantillas-automatizaciones.ts: lo usa también la galería, que no carga esta pantalla.
- */
-export const ROTULO_CHATBOT = 'Chatbot';
-export { ROTULO_MENSAJES_MAKO };
-
-/**
- * LA LISTA PARTIDA EN SUS DOS DIVISIONES: «MaKo en WhatsApp» son las filas cuyo CRON es el «Evento de MaKo»
- * (`trigger_tipo === TRIGGER_AVISO_MAKO`, la columna del primer CRON: una fila de evento lleva uno solo,
- * `esDelEmisor`), y todo lo demás es «Chatbot». Pura y sin columna nueva: se DERIVA del dato. Conserva el
- * orden de la lista.
- */
-export function partirLista<T extends Pick<SecuenciaDto, 'trigger_tipo'>>(secuencias: readonly T[]): { chatbot: T[]; mako: T[] } {
-  const chatbot: T[] = [];
-  const mako: T[] = [];
-  for (const j of secuencias) (j.trigger_tipo === TRIGGER_AVISO_MAKO ? mako : chatbot).push(j);
-  return { chatbot, mako };
-}
+// ⛔ ACÁ VIVÍAN `ROTULO_CHATBOT`, el reexport de `ROTULO_MENSAJES_MAKO` y `partirLista`: las DOS divisiones de la
+// lista (sexta tanda, punto 3), «Chatbot» y, desde el 11/10/2026, «MaKo en WhatsApp» (las filas del CRON «Evento
+// de MaKo»). Se fueron en la undécima tanda, punto 9: «que sea todo una misma sidebar para todo, sin dividir, para
+// eso ya tenemos filtros. Y arriba también elimina la palabra "Chatbot"». Las de MaKo se ven con el filtro
+// «Al WhatsApp de MaKo» (lib/chatbot-lista-filtro.ts), que deja pasar también una con una tarjeta MaKo.
 
 const API_SECUENCIAS = '/api/chat-agent/secuencias';
 
@@ -254,11 +251,7 @@ const CSS_LISTA = `
 
 /** La caja del lienzo: de borde a borde, estirando con flex (la del recordatorio, la automatización o un mensaje). */
 const ESTILO_LIENZO: CSSProperties = { flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' };
-/** El rótulo de un grupo de la lista: el de los grupos del Dropdown de la casa (mono, chico, apagado). */
-const ROTULO_GRUPO: CSSProperties = {
-  fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase',
-  color: 'var(--faint)', padding: '12px 12px 4px', marginTop: 4, borderTop: '1px solid var(--border)',
-};
+// (Acá iba `ROTULO_GRUPO`, el estilo de los rótulos «Chatbot» y «MaKo en WhatsApp». Se fue con ellos: punto 9.)
 
 /**
  * Un pedido de abrir el LIENZO de una automatización desde afuera (el link del aviso,
@@ -269,10 +262,15 @@ export type AbrirSecuencia = { id: number };
 // (Acá vivía `AbrirAviso`, el pedido de abrir un Mensaje de MaKo desde el link de Notificaciones,
 // `/automations?aviso=<id>`. Se fue el 11/10/2026 con esos mensajes: un mensaje de MaKo se abre con `?sec=`.)
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, horario, tz, abrir, handoffs, arranque, onArranqueUsado }: {
-  /** La recién creada con un tipo de CRON elegido en el modal: su lienzo abre ese CRON (una vez). */
-  arranque?: { id: number; clase: ClaseDisparador } | null;
-  onArranqueUsado?: () => void;
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, menu, tz, abrir, handoffs, onElegida }: {
+  // (Acá iban `arranque` y `onArranqueUsado`: la recién creada con un tipo de CRON elegido en «¿Qué la dispara?» del
+  // modal abría su CRON en ese tipo. Se fueron con esos botones en la décima tanda: «eso ya lo hacemos dentro en el CRON».)
+  /**
+   * LA QUE SE ESTÁ VIENDO, para que la URL la diga (décima tanda, NUEVA AUTOMATIZACIÓN 9: «cada automatización nueva,
+   * debe tener una URL que se pueda abrir»). `/automations?sec=<id>` ya la abría (el deep link); faltaba escribirla al
+   * elegir: si sólo se lee, el link que se copia no es la que se está viendo. Quien monta hace el `router.replace`.
+   */
+  onElegida?: (id: number) => void;
   // (Acá iban `avisos`, `abrirAviso`, `onAvisosCambio` y `onOcultosCambio`: los Mensajes de MaKo de antes,
   // que venían de otro endpoint. Se fueron el 11/10/2026: son filas de `secuencias` con el CRON del evento.)
   /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
@@ -289,12 +287,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   audios: AudioSetting[];
   onAudioNuevo: (a: AudioSetting) => void;
   /**
-   * «Nueva»: crea una automatización VACÍA y pausada y la abre con la caja de «Crear con IA»
-   * (decisión 14 de la segunda tanda). Se llama SIEMPRE por `nueva`, la puerta que pregunta por lo
-   * no publicado ANTES de crear. Con `'mako'` («＋ Nuevo mensaje», 11/10/2026) la galería abre en la
-   * sección «MaKo en WhatsApp».
+   * «Nueva»: abre la galería (en blanco o desde una plantilla). Se llama SIEMPRE por `nueva`, la puerta que
+   * pregunta por lo no publicado ANTES de crear. (Hasta la undécima tanda llevaba una sección: «＋ Nuevo
+   * mensaje» la abría en «MaKo en WhatsApp». Se fue con ese botón, punto 9.)
    */
-  onNueva: (seccion?: SeccionGaleria) => void;
+  onNueva: () => void;
   /** Por qué no se pudo crear la última («＋ Nueva»): se dibuja pegado al botón. */
   errorNueva?: string | null;
   onReload: () => void;
@@ -302,13 +299,14 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   // una» le dejaba a la caja de Crear con IA). Salieron el 10/10/2026 con el pie: era de una versión
   // anterior (ver el comentario del montaje en ChatAgentApp).
   /**
-   * EL HORARIO DE ENVÍO DEL NEGOCIO, en la cabecera de la lista (pedido de Martín, 10/10/2026: «haz
-   * que se pueda configurar allí mismo, sin redirigir»). Va en el renglón de «Chatbot», arriba de
-   * «＋ Nueva»: es del negocio y vale para todas las automatizaciones, no para una. Lo arma la tab
-   * (`HorarioLista`, con el editor y las acciones de Configuraciones) y llega como nodo: importado
-   * acá, las acciones arrastrarían `server-only` a los tests que dibujan esta lista.
+   * EL MENÚ DE LA TAB, ANTES DEL BUSCADOR (undécima tanda, punto 9: «que los botones de "Configuraciones" y
+   * "Tutorial" estén en otro botón desplegable al inicio de la barra de busqueda»): Configuraciones del negocio
+   * (el horario de oficina y los límites) y el recorrido. Son de la tab entera, no de una automatización. Lo arma
+   * la tab (con los editores y las acciones) y llega como NODO: importado acá, las acciones arrastrarían
+   * `server-only` a los tests que dibujan esta lista (los hace caer AL IMPORTAR). Hasta la undécima se llamaba
+   * `horario` e iba en el renglón de «Chatbot».
    */
-  horario?: ReactNode;
+  menu?: ReactNode;
   /** La zona del negocio, para el texto del horario. */
   tz: string | null;
   /** Abrir esta automatización en su lienzo (el deep link `?sec=`). */
@@ -340,6 +338,19 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    */
   const existe = (id: number | ''): boolean => id !== '' && secuencias.some((j) => j.id === id);
   const selId = existe(elegidaViva) ? elegidaViva : existe(volverA) ? volverA : (secuencias[0]?.id ?? '');
+  /**
+   * LA URL DICE LA ELEGIDA (`onElegida`, ver la prop), pero recién DESPUÉS de la primera elección (un clic, el link del
+   * aviso, la recién creada): la que se elige sola al abrir la tab —la primera de la lista— no se escribe, porque en
+   * ese mismo render el deep link (`?sec=`) todavía no llegó y la pisaría. Desde ahí, todo cambio de la elegida
+   * (también la fila nueva que toma su id real, o la que queda al eliminar) se escribe una vez.
+   */
+  const eligio = useRef(false);
+  const escrita = useRef<number | null>(null);
+  useEffect(() => {
+    if (!eligio.current || typeof selId !== 'number' || selId <= 0 || selId === escrita.current) return;
+    escrita.current = selId;
+    onElegida?.(selId);
+  }, [selId, onElegida]);
   /** El panel de «Probar» abierto, y de qué canal. El lienzo NO se desmonta: se prueba lo que se edita. */
   const [probando, setProbando] = useState<CanalProbar | null>(null);
   /** Lo que el lienzo tiene sin publicar (`onCambioLocal`): es lo que prueba el panel. */
@@ -358,12 +369,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   // El desplegable cuenta sobre TODAS; la lista dibuja las que pasan.
   const filasSec = useMemo(() => new Map(secuencias.map((j) => [j.id, filaDeSecuencia(j)] as const)), [secuencias]);
   const todasLasFilas: FilaFiltrable[] = [...filasSec.values()];
+  // UNA lista, en el orden del server (undécima tanda, punto 9): lo que pasa el filtro y el buscador, sin divisiones.
   const lista = useMemo(
     () => secuencias.filter((j) => pasaFiltroLista(filasSec.get(j.id) ?? filaDeSecuencia(j), filtros) && (!q || j.nombre.toLowerCase().includes(q))),
     [secuencias, filasSec, q, filtros],
   );
-  /** Las dos divisiones de lo que pasa el filtro: «Chatbot» y «MaKo en WhatsApp» (`partirLista`). */
-  const divisiones = useMemo(() => partirLista(lista), [lista]);
 
   /**
    * Elegir OTRA automatización: cierra «Probar» y suelta la edición local de la anterior.
@@ -376,6 +386,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    */
   const cambiarA = (id: number) => {
     setSelId(id); setProbando(null); setEdicion(null);
+    // Desde acá la URL dice la elegida (`onElegida`, décima tanda): una elección de verdad, no la primera de la lista.
+    eligio.current = true;
     // Abrir la fila que se está creando recuerda de dónde se vino (si el server falla, se vuelve).
     if (typeof id === 'number' && id < 0) setVolverA(selId);
   };
@@ -386,7 +398,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * botón; «Nueva secuencia» pasa por la misma puerta.
    */
   const [sinPublicar, setSinPublicar] = useState(false);
-  const [pendiente, setPendiente] = useState<{ ir: number | 'nueva'; seccion?: SeccionGaleria } | null>(null);
+  const [pendiente, setPendiente] = useState<{ ir: number | 'nueva' } | null>(null);
   /** El descarte del borrador del lienzo abierto (lo deja SecuenciaPerfil): «Descartar cambios» lo BORRA, no lo guarda. */
   const descartarBorrador = useRef<(() => void) | null>(null);
   const elegir = (id: number) => {
@@ -395,11 +407,10 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     cambiarA(id);
   };
   // ⚠️ La pregunta va ANTES de crear (revisión de la segunda tanda, 09/10/2026): el «Armar una» del pie
-  // de antes creaba la fila primero y «Seguir editando» dejaba una vacía de más. «＋ Nuevo mensaje» pasa por
-  // la MISMA puerta, con su sección (11/10/2026).
-  const nueva = (seccion?: SeccionGaleria) => {
-    if (sinPublicar) { setPendiente({ ir: 'nueva', seccion }); return; }
-    onNueva(seccion);
+  // de antes creaba la fila primero y «Seguir editando» dejaba una vacía de más.
+  const nueva = () => {
+    if (sinPublicar) { setPendiente({ ir: 'nueva' }); return; }
+    onNueva();
   };
   const descartar = () => {
     const p = pendiente;
@@ -409,17 +420,66 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     // 10/10/2026, hallazgo #6). La lista se relee sola al desmontarse, después del borrado.
     descartarBorrador.current?.();
     setSinPublicar(false);
-    if (p.ir === 'nueva') onNueva(p.seccion);
+    if (p.ir === 'nueva') onNueva();
     else cambiarA(p.ir);
   };
   const recibirEdicion = useCallback((v: EdicionLocal) => setEdicion(v), []);
 
   // ── Los tres puntos de cada fila (decisión 6) ─────────────────────────────────
-  // (Desde el 11/10/2026 son los MISMOS en «Chatbot» y en «MaKo en WhatsApp»: todas las filas son automatizaciones.)
+  // (Desde el 11/10/2026 son los MISMOS en todas las filas, también las de «MaKo en WhatsApp»: son automatizaciones.)
   /** La fila con una acción en vuelo: su «⋯» se apaga hasta que vuelva. */
   const [ocupada, setOcupada] = useState<number | null>(null);
   /** Por qué no se pudo: debajo de ESA fila, no en otro lado. */
   const [errFila, setErrFila] = useState<{ id: number; texto: string } | null>(null);
+
+  /**
+   * «RENOMBRAR» (undécima tanda, punto 5). La fila que se está renombrando (su nombre pasa a ser un campo) y los
+   * nombres OPTIMISTAS: lo escrito se ve YA, y vuelve atrás si el server dice que no. Molde: el renombrar en el
+   * lugar de una columna del CRM (app/crm/CrmBoard.tsx).
+   */
+  const [renombrando, setRenombrando] = useState<number | null>(null);
+  const [nombresOptimistas, setNombresOptimistas] = useState<ReadonlyMap<number, string>>(() => new Map());
+  // El optimista se va cuando la lista ya trae ese nombre (o la fila ya no está). Se calcula AL DIBUJAR, sin efecto:
+  // un efecto pintaría un cuadro con el nombre de antes.
+  const optimistasViejos = [...nombresOptimistas].filter(([id, n]) => {
+    const j = secuencias.find((s) => s.id === id);
+    return !j || j.nombre === n;
+  });
+  if (optimistasViejos.length) {
+    setNombresOptimistas((m) => {
+      const c = new Map(m);
+      for (const [id, n] of optimistasViejos) if (c.get(id) === n) c.delete(id);
+      return c;
+    });
+  }
+  /** El nombre que se VE: el optimista mientras el server no lo trae. */
+  const nombreDe = (j: Pick<SecuenciaDto, 'id' | 'nombre'>): string => nombresOptimistas.get(j.id) ?? j.nombre;
+  /**
+   * Guarda lo escrito en la fila. Sin cambio (o vacío) sólo cierra (`nombreParaGuardar`). Se compara con el que se
+   * VE: con un renombre en vuelo, volver al de antes también es un cambio.
+   */
+  const guardarNombre = async (j: SecuenciaDto, escrito: string) => {
+    setRenombrando(null);
+    const previo = nombreDe(j);
+    const n = nombreParaGuardar(previo, escrito);
+    if (n == null) return;
+    setErrFila(null);
+    setNombresOptimistas((m) => new Map(m).set(j.id, n));
+    const volver = () => setNombresOptimistas((m) => {
+      if (m.get(j.id) !== n) return m;
+      const c = new Map(m);
+      c.delete(j.id);
+      return c;
+    });
+    try {
+      const r = await pedir(API_SECUENCIAS, 'POST', { action: 'nombre', secuenciaId: j.id, nombre: n });
+      if (!r.ok) { volver(); setErrFila({ id: j.id, texto: r.error || 'No se pudo renombrar' }); return; }
+      onReload();
+    } catch {
+      volver();
+      setErrFila({ id: j.id, texto: 'Sin conexión' });
+    }
+  };
   const [aEliminar, setAEliminar] = useState<SecuenciaDto | null>(null);
   const [eliminando, setEliminando] = useState(false);
   /** La copia recién creada: se abre cuando llegue en la lista (si no hay nada sin publicar). */
@@ -458,9 +518,40 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       setErrFila({ id: j.id, texto: 'No se pudo copiar' });
     }
   };
+  /**
+   * «DESCARTAR CAMBIOS» DEL «⋯» (décima tanda, general 5). La ABIERTA vuelve a lo publicado en el lienzo y su
+   * borrador se borra (`descartarBorrador`, lo deja SecuenciaPerfil: `descartarCambios`), con su foto: Ctrl+Z
+   * lo devuelve, así que no se pregunta. Una CERRADA no tiene deshacer —su borrador vive sólo en el server—:
+   * pasa por la confirmación de la casa (`aDescartar`) y se borra con la acción de siempre
+   * (`descartar-borrador`, app/api/chat-agent/secuencias).
+   */
+  const [aDescartar, setADescartar] = useState<SecuenciaDto | null>(null);
+  const [descartando, setDescartando] = useState(false);
+  const descartarCerrada = async () => {
+    const j = aDescartar;
+    if (!j) return;
+    setDescartando(true);
+    try {
+      const r = await pedir(API_SECUENCIAS, 'POST', { action: 'descartar-borrador', secuenciaId: j.id });
+      if (!r.ok) { setErrFila({ id: j.id, texto: r.error || 'No se pudo descartar' }); return; }
+      onReload();
+    } catch {
+      setErrFila({ id: j.id, texto: 'Sin conexión' });
+    } finally {
+      setDescartando(false); setADescartar(null);
+    }
+  };
   const accionFila = async (j: SecuenciaDto, accion: string) => {
     if (accion === 'eliminar') { setErrFila(null); setAEliminar(j); return; }
+    // «Renombrar» no pide nada: la fila pasa a ser un campo (`guardarNombre` escribe al salir).
+    if (accion === 'renombrar') { setErrFila(null); setRenombrando(j.id); return; }
     if (accion === 'copiar') { setErrFila(null); await copiarFlujo(j); return; }
+    if (accion === 'descartar') {
+      setErrFila(null);
+      if (j.id === selId && descartarBorrador.current) { descartarBorrador.current(); setSinPublicar(false); return; }
+      setADescartar(j);
+      return;
+    }
     if (accion !== 'activa' && accion !== 'duplicar') return;
     setErrFila(null); setOcupada(j.id);
     try {
@@ -539,16 +630,19 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const m = calcularMuelles(caja, { listaAbierta: true, probarAbierto: probarVisible, editorAbierto: true });
 
   /**
-   * UNA FILA DE LA LISTA, la MISMA en «Chatbot» y en «MaKo en WhatsApp» (11/10/2026: «debe ser IDENTICO»): el
-   * `ItemLista`, el «⋯» de siempre (`opcionesDeFila`, con Duplicar y Copiar flujo) y la selección de siempre.
+   * UNA FILA DE LA LISTA, la MISMA para todas (11/10/2026: «debe ser IDENTICO»): el `ItemLista`, el «⋯» de siempre
+   * (`opcionesDeFila`, con Renombrar, Duplicar y Copiar flujo) y la selección de siempre.
    */
   const filaDeLista = (j: SecuenciaDto) => {
     const creando = esFilaCreando(j);
     return (
       <div key={creando ? j.clave : j.id}>
-        <ItemLista on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={j.nombre} creando={creando}
+        <ItemLista on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={nombreDe(j)} creando={creando}
           sinPublicar={sinPublicarDe(j, j.id === selId && sinPublicar)}
           onClick={() => elegir(j.id)}
+          editarNombre={renombrando === j.id && rolAdmin && !creando
+            ? { onGuardar: (t) => void guardarNombre(j, t), onCancelar: () => setRenombrando(null) }
+            : undefined}
           menu={rolAdmin && !creando ? (
             /* ⚠️ VA EL `Dropdown` DE LA CASA y no un menú propio: la lista scrollea
                (`overflowY: auto`) y un menú en flujo se recortaría contra su borde. Éste se
@@ -558,7 +652,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             <Dropdown value="" placeholder="⋯" align="afuera" resetAfterSelect sinFlecha search={false}
               ariaLabel={`Opciones de ${j.nombre}`} disabled={ocupada === j.id}
               buttonStyle={ESTILO_BOTON_MENU}
-              options={opcionesDeFila(j.activa)}
+              options={opcionesDeFila(j.activa, sinPublicarDe(j, j.id === selId && sinPublicar))}
               onChange={(v) => void accionFila(j, v)} />
           ) : undefined} />
         {errFila?.id === j.id && <div role="alert" style={{ padding: '0 12px 8px 56px', fontSize: 12.5, color: 'var(--bad)' }}>{errFila.texto}</div>}
@@ -584,9 +678,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   return (
     <div ref={raiz} style={{ flex: 1, minHeight: 0, position: 'relative', minWidth: 0, display: 'flex' }}>
       <style>{CSS_LISTA}</style>
-      {/* EL LIENZO: debajo de todo y de borde a borde. Uno solo, el de la automatización elegida, sea de
-          «Chatbot» o de «MaKo en WhatsApp» (11/10/2026: hasta acá un mensaje de MaKo abría el editor de
-          /mensajes, `MensajeMakoLienzo`). */}
+      {/* EL LIENZO: debajo de todo y de borde a borde. Uno solo, el de la automatización elegida, también si le
+          escribe al grupo de MaKo (11/10/2026: hasta acá un mensaje de MaKo abría el editor de /mensajes,
+          `MensajeMakoLienzo`). */}
       <div style={ESTILO_LIENZO}>
         {!sel ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>
@@ -635,7 +729,6 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             probarAbierto={probarVisible} onCerrarProbar={() => setProbando(null)}
             onCambioLocal={recibirEdicion}
             onAccionTodo={rolAdmin ? (a) => void accionFila(sel, a) : undefined}
-            arranque={arranque?.id === sel.id ? arranque.clase : undefined} onArranqueUsado={onArranqueUsado}
             onCambio={onReload} />
         )}
       </div>
@@ -661,22 +754,18 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
               el buscador se lleve el lugar: «debería ser más chico, con el ícono de filtro como ya
               lo tenemos en otros lados, así la barra de busqueda tiene más espacio». Adentro, el
               desplegable del Plan por secciones (`FiltroLista`). */}
+          {/* EL MENÚ (Configuraciones y Tutorial) VA ANTES DEL BUSCADOR (undécima tanda, punto 9), cuadrado y del
+              alto del buscador, como el filtro del otro lado: el buscador se lleva lo que sobra. */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {menu}
             <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar" aria-label="Buscar por nombre"
               style={{ flex: 1, minWidth: 0, height: LADO_FILTRO, boxSizing: 'border-box', padding: '0 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
             <FiltroLista filas={todasLasFilas} valores={filtros} onCambio={setFiltros} />
           </div>
         </div>
         <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
-          {/* La PRIMERA división (sexta tanda, punto 3): las automatizaciones. Arriba de todo, sin
-              filete (no la separa nada de arriba). */}
-          {/* EL HORARIO va en este renglón, a la derecha del rótulo (10/10/2026): es de todo lo que
-              cuelga de «Chatbot», y su panel abre hacia AFUERA de la lista, sin tapar «＋ Nueva» ni
-              los «⋯». El rótulo queda igual: el renglón es un envoltorio. */}
-          <div data-cabecera-chatbot style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingRight: 4, marginBottom: horario ? 2 : 0 }}>
-            <div data-grupo-chatbot style={{ ...ROTULO_GRUPO, borderTop: 'none', marginTop: 0, padding: '4px 12px 6px' }}>{ROTULO_CHATBOT}</div>
-            {horario}
-          </div>
+          {/* (Acá iban el rótulo «Chatbot», con el horario a su derecha, y más abajo el rótulo «MaKo en WhatsApp»
+              con su «＋ Nuevo mensaje». Se fueron en la undécima tanda, punto 9: una sola lista, sin dividir.) */}
           {rolAdmin && (
             <button type="button" onClick={() => nueva()} className="chb-nueva"
               style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center', padding: '10px', borderRadius: 12, cursor: 'pointer', marginBottom: 6, fontFamily: 'inherit' }}>
@@ -686,22 +775,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           )}
           {rolAdmin && errorNueva && <div role="alert" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errorNueva}</div>}
           {lista.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}
-          {divisiones.chatbot.map(filaDeLista)}
-          {/* «MaKo EN WHATSAPP» (11/10/2026): las automatizaciones con el CRON «Evento de MaKo», con la MISMA
-              fila, el MISMO «⋯» y la MISMA selección que las de arriba (`filaDeLista`). Martín: «debe ser IDENTICO». */}
-          {(divisiones.mako.length > 0 || rolAdmin) && (
-            <div data-grupo-mensajes-mako style={ROTULO_GRUPO}>{ROTULO_MENSAJES_MAKO}</div>
-          )}
-          {/* «＋ NUEVO MENSAJE»: el mismo botón que «Nueva automatización», y abre la galería en la sección «MaKo en
-              WhatsApp» (`nueva('mako')`): de ahí nace cada mensaje, como cualquier plantilla. */}
-          {rolAdmin && (
-            <button type="button" onClick={() => nueva('mako')} className="chb-nueva" data-nuevo-mensaje
-              style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center', padding: '10px', borderRadius: 12, cursor: 'pointer', marginBottom: 6, fontFamily: 'inherit' }}>
-              <span aria-hidden className="chb-nueva__mas" style={{ width: 36, height: 36, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>＋</span>
-              <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nuevo mensaje</span>
-            </button>
-          )}
-          {divisiones.mako.map(filaDeLista)}
+          {/* UNA lista, en el orden del server, con la MISMA fila para todas (`filaDeLista`). */}
+          {lista.map(filaDeLista)}
         </div>
         {/* (Acá iba el pie de la lista, «N etapas sin secuencia · Armar una». Salió el 10/10/2026: era
             de una versión anterior. Ver el comentario del montaje en ChatAgentApp.) */}
@@ -742,6 +817,15 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           onConfirm={() => void eliminar()} onCancel={() => setAEliminar(null)}
         />
       )}
+
+      {/* «Descartar cambios» de una CERRADA (décima tanda, general 5): sin deshacer, se pregunta. */}
+      {aDescartar && (
+        <Confirm
+          message={`Vuelve a lo publicado de «${aDescartar.nombre}».`}
+          confirmLabel="Descartar cambios" cancelLabel="No descartar" tone="danger" loading={descartando}
+          onConfirm={() => void descartarCerrada()} onCancel={() => setADescartar(null)}
+        />
+      )}
     </div>
   );
 }
@@ -758,8 +842,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
  * aparece al pasar el cursor, con la fila elegida y siempre en una pantalla táctil.
  *
  * La fila es un <div> con DOS botones (abrir y el menú): un botón adentro de otro no es HTML.
+ *
+ * RENOMBRANDO (undécima tanda, punto 5: `editarNombre`): el mismo emoji y, en lugar del botón, un campo con el
+ * nombre (`CampoNombre`); el «⋯» se esconde mientras tanto.
  */
-function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar }: {
+function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar, editarNombre }: {
   on: boolean; activa: boolean; emoji: string; nombre: string; onClick: () => void;
   /** El «⋯» de la fila. Sin él (la que se está creando, quien no es admin), nada. */
   menu?: ReactNode;
@@ -767,26 +854,59 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
   creando?: boolean;
   /** Tiene cambios sin publicar (`sinPublicarDe`): un punto ámbar al final del nombre. */
   sinPublicar?: boolean;
+  /** Se está renombrando: el nombre es un campo. Guardar recibe lo escrito; cancelar, nada. */
+  editarNombre?: { onGuardar: (escrito: string) => void; onCancelar: () => void };
 }) {
+  // El emoji con el punto de estado: el MISMO en la fila y mientras se renombra.
+  // El punto dice el estado sin una palabra: en una fila de 320 px, «pausada» se come el nombre. El rótulo
+  // entero está en el lienzo.
+  const circulo = (
+    <span style={{ position: 'relative', width: 36, height: 36, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+      {creando ? <span className="mk-spin" style={{ width: 14, height: 14 }} aria-hidden /> : emoji}
+      <span title={activa ? 'Activa' : 'Pausada'} style={{ position: 'absolute', right: -1, bottom: -1, width: 10, height: 10, borderRadius: '50%', background: activa ? 'var(--good)' : 'var(--border-strong)', boxShadow: `0 0 0 2px ${on ? 'var(--surface-2)' : 'var(--surface)'}` }} />
+    </span>
+  );
   return (
     <div className={`chb-fila${on ? ' is-on' : ''}`}
       style={{ display: 'flex', alignItems: 'center', borderRadius: 12, borderWidth: 1, borderStyle: 'solid', marginBottom: 2 }}>
-      <button type="button" onClick={onClick} title={nombre.length > TOPE_NOMBRE ? nombre : undefined} aria-current={on || undefined}
-        style={{ flex: 1, minWidth: 0, textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center', padding: '10px 4px 10px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', opacity: activa || creando ? 1 : 0.55 }}>
-        {/* El punto dice el estado sin una palabra: en una fila de 320 px, «pausada» se come el
-            nombre. El rótulo entero está en el lienzo. */}
-        <span style={{ position: 'relative', width: 36, height: 36, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-          {creando ? <span className="mk-spin" style={{ width: 14, height: 14 }} aria-hidden /> : emoji}
-          <span title={activa ? 'Activa' : 'Pausada'} style={{ position: 'absolute', right: -1, bottom: -1, width: 10, height: 10, borderRadius: '50%', background: activa ? 'var(--good)' : 'var(--border-strong)', boxShadow: `0 0 0 2px ${on ? 'var(--surface-2)' : 'var(--surface)'}` }} />
-        </span>
-        <span style={{ minWidth: 0, flex: 1, fontWeight: 600, fontSize: 13.5, lineHeight: 1.3, color: 'var(--ink)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>{nombre}</span>
-        {/* El punto ámbar de PlantillasView: un ESTADO, que sobrevive a cambiar de fila y al reload. */}
-        {sinPublicar && (
-          <span data-sin-publicar role="img" aria-label="Sin publicar" title="Tiene cambios sin publicar: todavía sale lo de antes"
-            style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
-        )}
-      </button>
-      {menu && <span className="chb-menu" style={{ flex: 'none', marginRight: 4, display: 'inline-flex' }}>{menu}</span>}
+      {editarNombre ? (
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 10, alignItems: 'center', padding: '10px', opacity: activa ? 1 : 0.55 }}>
+          {circulo}
+          <CampoNombre nombre={nombre} onGuardar={editarNombre.onGuardar} onCancelar={editarNombre.onCancelar} />
+        </div>
+      ) : (
+        <button type="button" onClick={onClick} title={nombre.length > TOPE_NOMBRE ? nombre : undefined} aria-current={on || undefined}
+          style={{ flex: 1, minWidth: 0, textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center', padding: '10px 4px 10px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', opacity: activa || creando ? 1 : 0.55 }}>
+          {circulo}
+          <span style={{ minWidth: 0, flex: 1, fontWeight: 600, fontSize: 13.5, lineHeight: 1.3, color: 'var(--ink)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>{nombre}</span>
+          {/* El punto ámbar de PlantillasView: un ESTADO, que sobrevive a cambiar de fila y al reload. */}
+          {sinPublicar && (
+            <span data-sin-publicar role="img" aria-label="Sin publicar" title="Tiene cambios sin publicar: todavía sale lo de antes"
+              style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
+          )}
+        </button>
+      )}
+      {menu && !editarNombre && <span className="chb-menu" style={{ flex: 'none', marginRight: 4, display: 'inline-flex' }}>{menu}</span>}
     </div>
+  );
+}
+
+/**
+ * EL NOMBRE COMO CAMPO, en la fila (undécima tanda, punto 5). Enter o salir del campo GUARDAN; Escape cancela.
+ * ⚠️ Uno solo de los tres: Enter cierra el campo y, al desmontarse con el foco adentro, el navegador puede disparar
+ * además el blur (`hecho`). Y el Escape no sigue de largo: el lienzo de abajo también lo escucha.
+ */
+function CampoNombre({ nombre, onGuardar, onCancelar }: { nombre: string; onGuardar: (escrito: string) => void; onCancelar: () => void }) {
+  const hecho = useRef(false);
+  const una = (f: () => void) => { if (hecho.current) return; hecho.current = true; f(); };
+  return (
+    <input autoFocus defaultValue={nombre} maxLength={TOPE_NOMBRE_SECUENCIA} aria-label="Nombre de la automatización"
+      onFocus={(e) => e.currentTarget.select()}
+      onBlur={(e) => { const t = e.currentTarget.value; una(() => onGuardar(t)); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.preventDefault(); const t = e.currentTarget.value; una(() => onGuardar(t)); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); una(onCancelar); }
+      }}
+      style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', height: 32, padding: '0 8px', borderRadius: 8, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'inherit', fontWeight: 600, fontSize: 13.5, outline: 'none' }} />
   );
 }

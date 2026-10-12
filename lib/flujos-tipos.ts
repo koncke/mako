@@ -15,6 +15,7 @@
 // sacarlo junto con esos flujos).
 
 import type { RamaCondicion } from './flujo-grafo';
+import type { ParteMensaje } from './mensaje-partes';
 
 export type EventoFlujo =
   | 'lead.agendo'        // webhooks/calendly invitee.created (R1 y R2)
@@ -87,7 +88,14 @@ export type PasoAccion = {
 };
 
 export type Paso =
-  | { tipo: 'mensaje'; canal: CanalPaso; texto: string; requiereAprobacion?: boolean }
+  /**
+   * `partes` (undécima tanda, decisión 2 de la décima): SÓLO en `aviso_dueno` de una fila de EVENTO de MaKo
+   * (`pasosDelEvento`, lib/aviso-evento.ts), cuando la tarjeta «MaKo en WhatsApp» guarda su lista
+   * (`params.partes`, lib/mako-tarjeta.ts). Con ella la tarjeta sale TAL CUAL, por partes (textos, la Voz de MaKo,
+   * archivos); `texto` queda como su espejo (el feed). Sin ella, el texto de siempre. En el store de /mensajes
+   * no la escribe nadie.
+   */
+  | { tipo: 'mensaje'; canal: CanalPaso; texto: string; requiereAprobacion?: boolean; partes?: ParteMensaje[] }
   | PasoAccion
   | { tipo: 'esperar'; horas: number }
   /**

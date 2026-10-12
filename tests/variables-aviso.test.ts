@@ -22,10 +22,13 @@ import {
   VARIABLES_AVISO, RUTA_DE_LINK, tramosConVariables, variablesPara,
   resolverVariables, valoresDeEjemplo, GRUPOS_VARIABLES, CLAVES_DEL_LEAD,
   necesitaFichaDelLead, agruparVariables, variablesPorGrupo, RE_VARIABLE,
-  variablesOfrecidas,
+  variablesOfrecidas, tokensDe, reemplazarToken, tokensFueraDe, sinRenglonesVacios, buscarDatos, datosOfrecidos,
+  ramasDelGrupo, CLAVE_MENSAJE_MAKO, datoDe,
 } from '../lib/variables-aviso';
-import { valoresDelLead, plata, fecha } from '../lib/variables-del-lead';
+import { problemasDeTokens } from '../lib/tokens-del-flujo';
+import { valoresDelLead, plata, fecha, textoConDatos } from '../lib/variables-del-lead';
 import { CATALOGO_AVISOS } from '../lib/avisos-catalogo';
+import { marcasDeVoseo } from '../lib/puestas-data';
 import type { Lead } from '../lib/leads';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -112,7 +115,9 @@ test('Y el EDITOR de los avisos es el de WhatsApp: escribe en una caja de texto 
 test('Cada link del catálogo tiene su ruta, y cada ruta su link', () => {
   // Un link ofrecido sin ruta sale como `{{link_x}}` crudo al WhatsApp del cliente; una
   // ruta sin link es código que no ofrece nadie. Se cruzan en las dos direcciones.
-  const delCatalogo = VARIABLES_AVISO.filter((v) => v.key.startsWith('link_') && v.key !== 'link_lead').map((v) => v.key).sort();
+  // `link_lead` (lleva el id del evento) y `link_pago` (el /pagar/<token> de su cobro, 11/10/2026) no
+  // son una pantalla de MaKo: no tienen ruta fija.
+  const delCatalogo = VARIABLES_AVISO.filter((v) => v.key.startsWith('link_') && v.key !== 'link_lead' && v.key !== 'link_pago').map((v) => v.key).sort();
   assert.deepEqual(delCatalogo, Object.keys(RUTA_DE_LINK).sort());
   for (const r of Object.values(RUTA_DE_LINK)) assert.match(r, /^\/[a-z-]+$/, `ruta rara: ${r}`);
 });
@@ -295,11 +300,12 @@ test('⚠️ sin lead, los datos del CRM NO SE MUESTRAN', () => {
   const conLead = variablesOfrecidas({ conLead: true }).flatMap((g) => g.items);
   assert.ok(conLead.some((f) => f.alcance === 'lead'), 'con lead tiene que haber datos del CRM');
   assert.ok(!conLead.some((f) => f.alcance === 'cuota'), 'ofreció datos de una cuota en un mensaje que no la tiene');
-  // (11/10/2026: «Lo que arma MaKo» pide además el texto del código: `conMensaje`, sólo un evento de MaKo.)
+  // (11/10/2026: «Lo que arma MaKo» pide además el texto del código: `conMensaje`, sólo un evento de MaKo. Y desde
+  // la undécima tanda, el PAGO —`conPago`, «Entra un pago»— y lo que ESCRIBIÓ —`conEscrito`, la charla—.)
   assert.equal(
-    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true }).flatMap((g) => g.items).length,
+    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true, conPago: true, conEscrito: true }).flatMap((g) => g.items).length,
     VARIABLES_AVISO.filter((v) => !v.oculta && v.soloPara !== 'lead').length,
-    'con lead, cuota y el texto del código se puede resolver TODO lo del equipo',
+    'con lead, cuota, el texto del código, el pago y lo escrito se puede resolver TODO lo del equipo',
   );
   // Y los grupos vacíos no se dibujan: un título sin filas promete algo que no está.
   assert.ok(gs.every((g) => g.items.length > 0), 'quedó un grupo vacío en el desplegable');
@@ -479,3 +485,141 @@ test('⚠️ NINGÚN placeholder de un formulario nombra a una persona o un nego
     }
   }
 });
+
+// ── Undécima tanda (11/10/2026): los tokens de un texto, el renglón opcional y los alcances nuevos ──────────
+// Martín, punto 4 («{{Mensaje de MaKo}}, ese dato NO existe... No es trackeable») y punto 7 («los datos, al momento
+// de EDITAR, también se deben marcar en azul y ser clickeables… y que se pueda cambiar allí mismo por otro dato»).
+// Diseño: docs/diseno-undecima-tanda.md §5. Todas EJECUTADAS: son las que usan el editor, Publicar y el motor.
+
+test('tokensDe: dónde está cada token (para pintarlo y para tocarlo), con su clave en minúsculas', () => {
+  const t = 'Hola {{nombre}}, tu reunión es {{Reunion_Cuando}}.\n{{x}}';
+  const ts = tokensDe(t);
+  assert.deepEqual(ts.map((x) => x.key), ['nombre', 'reunion_cuando', 'x']);
+  for (const x of ts) assert.match(t.slice(x.ini, x.fin), /^\{\{[A-Za-z0-9_]+\}\}$/, 'el offset no cae justo en el token');
+  assert.equal(t.slice(ts[1].ini, ts[1].fin), '{{Reunion_Cuando}}');
+  assert.deepEqual(tokensDe('sin datos { ni } {una}'), []);
+  assert.deepEqual(tokensDe(undefined as unknown as string), []);
+});
+
+test('reemplazarToken: tocar un dato y elegir otro lo cambia AHÍ MISMO (como `insertarEnCursor`)', () => {
+  const t = 'Hola {{nombre}}, te espero {{reunion_cuando}}.';
+  const [, cuando] = tokensDe(t);
+  assert.deepEqual(reemplazarToken(t, cuando.ini, cuando.fin, 'reunion_hora'),
+    { valor: 'Hola {{nombre}}, te espero {{reunion_hora}}.', cursor: cuando.ini + '{{reunion_hora}}'.length });
+  // Offsets fuera del texto (el texto cambió mientras se elegía): se recortan, no rompen.
+  assert.equal(reemplazarToken('abc', 10, 20, 'nombre').valor, 'abc{{nombre}}');
+  assert.equal(reemplazarToken('abc', -3, 1, 'nombre').valor, '{{nombre}}bc');
+});
+
+test('tokensFueraDe: lo que ESE mensaje no puede resolver, con el mismo contexto con el que el «{ }» ofrece', () => {
+  const alLead = { destino: 'lead' as const, conLead: true };
+  assert.deepEqual(tokensFueraDe('Hola {{nombre}}, {{reunion_cuando}} a las {{reunion_hora}}', alLead), []);
+  assert.deepEqual(tokensFueraDe('{{link_crm}} {{inventado}} {{link_crm}}', alLead), ['{{link_crm}}', '{{inventado}}'], 'sin repetir, en orden');
+  assert.deepEqual(tokensFueraDe('{{lead_nombre}}', { destino: 'equipo', conLead: true }), [], 'un nombre viejo (oculto) se resuelve igual');
+  assert.deepEqual(tokensFueraDe('{{lead_nombre}}', { destino: 'equipo', conLead: false }), ['{{lead_nombre}}'], 'pero no sin lead');
+  assert.deepEqual(tokensFueraDe('{{pago_monto}}', { destino: 'equipo', conLead: true, conCuota: true }), ['{{pago_monto}}'], 'el pago no lo trae una cobranza');
+  assert.deepEqual(tokensFueraDe('{{pago_monto}}', { destino: 'equipo', conLead: true, conPago: true }), []);
+  assert.deepEqual(tokensFueraDe('{{pago_monto}}', { destino: 'lead', conLead: true, conPago: true }), ['{{pago_monto}}'], 'el pago es del equipo');
+  // Es la misma regla que el selector: lo que se ofrece no está fuera, y viceversa.
+  const ctx = { destino: 'equipo' as const, conLead: true, conCuota: true };
+  const ofrecidos = datosOfrecidos(ctx).flatMap((g) => g.items.map((i) => i.key));
+  const todos = VARIABLES_AVISO.filter((v) => !v.oculta).map((v) => v.key);
+  for (const k of todos) assert.equal(tokensFueraDe(`{{${k}}}`, ctx).length === 0, ofrecidos.includes(k), `${k}: el «{ }» y Publicar dicen distinto`);
+});
+
+test('⚠️ EL RENGLÓN OPCIONAL: sin link, el renglón del link se va; un token DESCONOCIDO no (queda crudo)', () => {
+  const t = 'Hola {{nombre}}, te recuerdo tu reunión {{reunion_cuando}}.\nPara entrar: {{reunion_link}}\nCódigo: {{inventado}}';
+  // Sin link: se va SU renglón, entero. El desconocido se queda (Publicar lo frena; borrarlo lo escondería).
+  assert.equal(sinRenglonesVacios(t, { nombre: 'Sofía', reunion_cuando: 'mañana' }),
+    'Hola {{nombre}}, te recuerdo tu reunión {{reunion_cuando}}.\nCódigo: {{inventado}}');
+  // Con todo, no se toca nada.
+  assert.equal(sinRenglonesVacios(t, { nombre: 'Sofía', reunion_cuando: 'mañana', reunion_link: 'https://x' }), t);
+  // Un renglón con un desconocido Y un dato sin valor se queda entero: lo desconocido manda (crudo se nota).
+  assert.equal(sinRenglonesVacios('📱 {{lead_telefono}} {{fantasma}}', {}), '📱 {{lead_telefono}} {{fantasma}}');
+  // ⚠️ '' ES UN VALOR: el motor pone `nombre: ''` a un lead sin nombre, y el saludo no se borra por eso.
+  assert.equal(sinRenglonesVacios('Hola {{nombre}}, tu reunión es {{reunion_cuando}}', { nombre: '', reunion_cuando: 'hoy' }), 'Hola {{nombre}}, tu reunión es {{reunion_cuando}}');
+  // Los renglones sin tokens, los vacíos y el \r de un CRLF se conservan.
+  assert.equal(sinRenglonesVacios('a\r\n\r\n📱 {{lead_telefono}}\r\nb', {}), 'a\r\n\r\nb');
+  assert.equal(sinRenglonesVacios('sin datos', {}), 'sin datos');
+});
+
+test('textoConDatos: primero se van los renglones sin valor, después se ponen los datos (como el motor)', () => {
+  const aviso = '🎯 *Nuevo agendado*: {{nombre_completo}} reservó su {{reunion_cual}}.\nVino del anuncio "{{lead_utm_campaign}}".\n📱 {{lead_telefono}}\n✉️ {{lead_email}}\n{{lead_respuestas_agenda}}\n\n👉 {{link_lead}}';
+  const vars = { nombre_completo: 'Sofía Contreras', reunion_cual: '1ª reunión', lead_telefono: '+52 1 55 1234 5678', link_lead: 'https://x/crm/1/resumen', lead_respuestas_agenda: '• Tiene equipo: Sí\n• Rubro: 5 años' };
+  assert.equal(textoConDatos(aviso, vars),
+    '🎯 *Nuevo agendado*: Sofía Contreras reservó su 1ª reunión.\n📱 +52 1 55 1234 5678\n• Tiene equipo: Sí\n• Rubro: 5 años\n\n👉 https://x/crm/1/resumen');
+  // Un valor con renglones NO se recorta (se pone después) y un valor con `{{…}}` no se vuelve a resolver.
+  assert.equal(textoConDatos('«{{lead_escribio}}»', { lead_escribio: 'mira {{link_crm}}' }), '«mira {{link_crm}}»');
+  // La sustitución es la del motor (`aplicarVariables`): la llave sola de los mensajes de antes sigue saliendo.
+  assert.equal(textoConDatos('Hola {nombre}', { nombre: 'Sofía' }), 'Hola Sofía');
+});
+
+test('⚠️ cada alcance nuevo es UNA rama en positivo: el pago y lo escrito NO caen en la cobranza (ni al revés)', () => {
+  const claves = (o: Parameters<typeof variablesPara>[0]) => variablesPara(o).map((v) => v.key);
+  const cobranza = claves({ conLead: true, conCuota: true });
+  for (const k of ['pago_monto', 'pago_concepto', 'pago_pasarela', 'pago_tipo', 'pago_modo', 'pago_alta', 'lead_escribio']) {
+    assert.ok(!cobranza.includes(k), `${k} se ofrece en una cobranza, que no lo trae`);
+  }
+  assert.ok(claves({ conLead: true, conPago: true }).includes('pago_monto'));
+  assert.ok(!claves({ conLead: true, conPago: true }).includes('cuota_monto'), 'el pago no trae una cuota');
+  assert.ok(claves({ conLead: true, conEscrito: true }).includes('lead_escribio'));
+  assert.ok(!claves({ conLead: true, conEscrito: true }).includes('pago_monto'));
+  assert.ok(!claves({ conLead: true, conPago: true, conEscrito: true, destino: 'lead' }).some((k) => k.startsWith('pago_') || k === 'lead_escribio'), 'son del equipo');
+});
+
+test('«Próxima reunión» es una sub-rama de Reuniones, con los cinco datos, y la búsqueda la encuentra', () => {
+  const prox = VARIABLES_AVISO.filter((v) => v.rama === 'Próxima reunión');
+  assert.deepEqual(prox.map((v) => v.key), ['reunion_cuando', 'reunion_hora', 'reunion_faltan', 'reunion_link', 'reunion_cual']);
+  assert.ok(prox.every((v) => v.grupo === 'reuniones' && v.alcance === 'lead' && v.fuente === 'proxima' && !v.soloPara), 'para los dos destinos, con lead');
+  const g = datosOfrecidos({ destino: 'lead', conLead: true });
+  assert.ok(buscarDatos(g, 'proxima reunion').some((r) => r.dato.key === 'reunion_hora'), 'la búsqueda no mira la sub-rama');
+  // El selector la dibuja ARRIBA, como sub-rama, y el resto de Reuniones cuelga directo del grupo.
+  const reuniones = g.find((x) => x.key === 'reuniones')!;
+  const ramas = ramasDelGrupo(reuniones.items);
+  assert.deepEqual(ramas.map((r) => r.rama), ['Próxima reunión', null]);
+  assert.equal(ramas[0].items.length, 5);
+  assert.equal(ramas.reduce((n, r) => n + r.items.length, 0), reuniones.items.length, 'la sub-rama perdió o duplicó datos');
+  assert.deepEqual(ramasDelGrupo(g.find((x) => x.key === 'lead')!.items).map((r) => r.rama), [null], 'un grupo sin sub-ramas es una sola');
+  // Una forma de hora: «10:00 a. m.» en todas las horas del catálogo.
+  for (const k of ['reunion_hora', 'lead_hora_r1', 'lead_hora_r2', 'hora']) {
+    assert.match(VARIABLES_AVISO.find((v) => v.key === k)!.ejemplo, /^\d{1,2}:\d{2} [ap]\. m\.$/, `${k} con otra forma de hora`);
+  }
+  assert.equal(necesitaFichaDelLead('{{reunion_cuando}}'), true, 'la próxima reunión sale de la ficha');
+  assert.equal(necesitaFichaDelLead('{{lead_respuestas_agenda}}'), false, 'lo que contestó es otra lectura');
+});
+
+// UNDÉCIMA TANDA (punto 4: «{{Mensaje de MaKo}}, ese dato NO existe... No es trackeable»; docs/diseno-undecima-tanda.md
+// §1.11): OCULTO. No se ofrece en ningún «{ }», ni con el texto del código; Publicar lo rechaza; y el motor lo sigue
+// RESOLVIENDO para las filas vivas que lo tienen (#239, #240) hasta la limpieza, después del script de la ola 4.
+// Rotura R9 (arnés wf-undecima/w3-plantillas/roturas.cjs, base 32 / 0): sacarle `oculta` → 31 / 1 (éste).
+test('⚠️ {{mensaje_mako}} está OCULTO: no se ofrece (ni con el texto del código), Publicar lo rechaza y se sigue resolviendo', () => {
+  assert.equal(datoDe(CLAVE_MENSAJE_MAKO)?.oculta, true);
+  const ctx = { conLead: true, conMensaje: true, destino: 'equipo' as const };
+  assert.ok(!variablesPara(ctx).some((v) => v.key === CLAVE_MENSAJE_MAKO), 'se ofrece');
+  assert.ok(!datosOfrecidos(ctx).flatMap((g) => g.items).some((v) => v.key === CLAVE_MENSAJE_MAKO), 'el árbol lo dibuja');
+  assert.deepEqual(buscarDatos(datosOfrecidos(ctx), 'Lo que arma'), [], 'la búsqueda lo encuentra');
+  // Lo vivo: el token se entiende (no es «desconocido») y se resuelve con lo que pasa el emisor.
+  assert.deepEqual(tokensFueraDe('{{mensaje_mako}}', ctx), []);
+  assert.equal(resolverVariables('{{mensaje_mako}}', { [CLAVE_MENSAJE_MAKO]: '⏰ En 30 min' }), '⏰ En 30 min');
+  // Lo nuevo: Publicar no lo deja pasar en ninguna tarjeta.
+  const tarjeta = { id: 'k1', accion: { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje: '{{mensaje_mako}}' } } };
+  assert.equal(problemasDeTokens([tarjeta], 'aviso_mako', 'lead_contesta').length, 1);
+});
+
+test('⚠️ los rótulos y los ejemplos del catálogo van de TÚ (sin voseo)', () => {
+  // Es la pantalla del «{ }» que abren todos los clientes, y la mitad son mexicanos.
+  const malos = VARIABLES_AVISO.flatMap((v) => marcasDeVoseo(`${v.label} ${v.ejemplo}`).map((m) => `${v.key}: ${m}`));
+  assert.deepEqual(malos, []);
+});
+
+// ── Roturas de la undécima tanda (11/10/2026, arnés scratchpad/wf-undecima/w1-datos-catalogo/romper.mjs) ─────
+// Una por vez, restaurada desde la copia en memoria y verificada con md5 (nunca `git checkout`). Este archivo solo:
+// base 31 / 0, restaurado 31 / 0.
+//   R1. `sinRenglonesVacios` BORRA un renglón con un token desconocido (lo escondería)        → 30 / 1
+//   R7. `sinRenglonesVacios` toma '' como «sin valor» (se comería «Hola {{nombre}},…»)        → 30 / 1
+//   R8. `textoConDatos` pone los datos ANTES de recortar (un valor con renglones se mutila)   → 30 / 1
+//   R23. `ramasDelGrupo` sin mirar la sub-rama (la «Próxima reunión» se mezcla con el resto)  → 30 / 1
+// Con tests/tokens-del-flujo (base 37 / 0):
+//   R5. `tokensFueraDe` sin mirar el destino                                                  → 34 / 3
+// Con tests/tokens-del-flujo, aviso-evento y datos-mensaje (base 70 / 0):
+//   R2. el alcance `pago` cae en `conCuota` (cualquier cobranza ofrecería el pago)            → 66 / 4

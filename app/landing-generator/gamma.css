@@ -1,0 +1,1102 @@
+/* =============================================================================
+   Landing Generator — el CHROME del editor copiado de Gamma 5, limitado a `.gma`
+   =============================================================================
+   Pedido de Martín (11/10/2026): «Replica por completo a Gamma». Regla de copia: cuando
+   nombra una app se copia IGUAL (memoria «Copiar una app TAL CUAL»), así que este chrome
+   NO se «arregla» a los componentes de app/_ui: tiene sus propios botones, menús y
+   tooltips, con los valores de Gamma (molde: app/api-mako/github.css, el GitHub de /api-mako).
+
+   DOS HOJAS, DOS PREFIJOS (docs/diseno-editor-landing.md, D3):
+     · `gm-`  → el CONTENIDO de la landing (lib/editor-landing/css.ts). Lo que se edita es lo
+       que se publica: esta hoja no toca ni una regla `gm-`.
+     · `gma-` → el chrome (barras, paneles, menús). Sólo CLASES: ningún selector de elemento
+       pelado bajo `.gma` (un `.gma button {}` pintaría los botones de la landing que se edita).
+
+   LOS VALORES (gamma-tokens.md §9-§10, medidos con getComputedStyle en Gamma):
+     · titanium (los grises de la UI), trueblue/deepocean (los azules) y aurora (los violetas).
+     · Barra superior 48 px + borde .8px rgba(0,0,0,.06); botones de 32 px en píldora (radio
+       24); el botón partido de Publicar con radios 24px 0 0 24px / 0 24px 24px 0 y la flecha
+       aparte de 32 px; menús con padding 8, radio 16, sombra 0 8px 16px rgba(0,0,0,.15) e
+       ítems de 28 px (500 14px/21px, padding 6px 8px, radio 6); tooltip titanium-800 12px/600.
+     · El popover «Agregar bloque»: 560 px, radio 12 (xl), fondo titanium-50, sombra xl, grilla
+       de 3 columnas con gap 6 px y alto máximo 360 px; tile con borde gray-200, radio 12,
+       padding 10px 8px, y al pasar el mouse scale(1.05) rotate(-0.25deg) + sombra lg.
+     · El interruptor Edición manual / Edición con IA: fondo gray-100, padding 2, radio 6,
+       botones de 28 px y un «pulgar» blanco de 36×28 que se desliza con 280ms
+       cubic-bezier(0.34, 1.4, 0.64, 1) (el rebote de Gamma).
+
+   LA LETRA: la UI de Gamma es PP Mori (Pangram Pangram), que NO está en Google Fonts. La más
+   cercana libre es INSTRUMENT SANS: grotesca de proporción compacta y curvas apenas
+   cuadradas, como Mori, con los pesos que usa la UI (400, 500, 600, 700). La hoja la carga
+   EditorLanding con un <link> (URL_FUENTE_CHROME): un @import remoto acá dependería de cómo
+   Turbopack trata una URL externa en una hoja importada desde un componente, y eso no se
+   midió. Si la fuente no llega, cae a Geist (la carga el layout raíz para toda la app).
+
+   MODO OSCURO: el de MaKo (`[data-tema="oscuro"]` en <html>, AGENTS.md «Una pantalla oscura
+   se hace redefiniendo TOKENS»), con las superficies «elevation» de Gamma (#1a1b1d → #515c68).
+   ⚠️ En el visor de Gamma el chrome también se oscurece cuando el TEMA de la landing es
+   oscuro. Eso NO se copia: los menús y diálogos van portaleados al <body> y no heredarían un
+   atributo puesto en la raíz del editor; el de <html> sí les llega.
+   ============================================================================= */
+
+.gma {
+  /* titanium (gray) */
+  --gma-t50: #f5f5f6;
+  --gma-t100: #ececed;
+  --gma-t200: #dfdfe0;
+  --gma-t300: #cacacb;
+  --gma-t400: #aeaeb2;
+  --gma-t500: #8b8b90;
+  --gma-t600: #66666b;
+  --gma-t700: #4d4d51;
+  --gma-t800: #38383c;
+  --gma-t900: #252527;
+  --gma-t950: #131314;
+  /* trueblue / deepocean (blue) */
+  --gma-b50: #ebf3fe;
+  --gma-b100: #d0e6fe;
+  --gma-b200: #aad5fe;
+  --gma-b300: #84c1fa;
+  --gma-b400: #63acf7;
+  --gma-b500: #2c88f7;
+  --gma-b600: #0858f7;
+  --gma-b700: #0740df;
+  --gma-b800: #0540ad;
+  --gma-b900: #0b2e79;
+  --gma-b950: #002253;
+  /* aurora (purple) */
+  --gma-a50: #f8f6ff;
+  --gma-a100: #f2ecff;
+  --gma-a200: #e1d5ff;
+  --gma-a600: #9044eb;
+  --gma-a700: #8131dc;
+  --gma-a800: #6623ad;
+  /* evergreen y calamity, para los estados */
+  --gma-verde: #2c8c2c;
+  --gma-rojo: #dc2626;
+  --gma-rojo-fondo: #fef2f2;
+
+  /* lo que leen las piezas (lo que cambia en oscuro) */
+  --gma-fondo-app: var(--gma-t50);
+  --gma-superficie: #ffffff;
+  --gma-superficie-2: var(--gma-t50);
+  --gma-superficie-3: var(--gma-t100);
+  --gma-borde: var(--gma-t200);
+  --gma-borde-suave: rgba(0, 0, 0, 0.06);
+  --gma-texto: var(--gma-t700);
+  --gma-texto-fuerte: var(--gma-t800);
+  --gma-tenue: var(--gma-t500);
+  --gma-hover: var(--gma-t100);
+  --gma-presionado: var(--gma-t200);
+  --gma-primario: var(--gma-b800);
+  --gma-primario-hover: var(--gma-b700);
+  --gma-sobre-primario: #ffffff;
+  --gma-secundario: var(--gma-b100);
+  --gma-secundario-hover: var(--gma-b200);
+  --gma-sobre-secundario: var(--gma-b950);
+  --gma-activo: var(--gma-b100);
+  --gma-sobre-activo: var(--gma-b800);
+  --gma-seleccion: var(--gma-b500);
+  --gma-icono-bloque: var(--gma-b600);
+  --gma-menu: #ffffff;
+  --gma-sobre-menu: var(--gma-t800);
+  --gma-tooltip: var(--gma-t800);
+  --gma-sobre-tooltip: var(--gma-t50);
+  --gma-modo-fondo: var(--gma-t100);
+  --gma-pulgar: #ffffff;
+  --gma-lienzo-vacio: var(--gma-t100);
+
+  /* medidas */
+  --gma-alto-barra: 48px;
+  --gma-alto-boton: 32px;
+  --gma-alto-item: 28px;
+  --gma-radio-pildora: 9999px;
+  --gma-radio-menu: 16px;
+  --gma-radio-item: 6px;
+  --gma-radio-xl: 12px;
+  --gma-radio-lg: 8px;
+  --gma-sombra-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --gma-sombra-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --gma-sombra-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --gma-sombra-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --gma-sombra-menu: 0 8px 16px rgba(0, 0, 0, 0.15);
+  --gma-sombra-avatar: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --gma-rebote: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --gma-fuente: 'Instrument Sans', 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  font-family: var(--gma-fuente);
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--gma-texto);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* El oscuro de MaKo → las superficies «elevation» de Gamma (1 #1a1b1d … 6 #515c68). */
+[data-tema="oscuro"] .gma {
+  --gma-fondo-app: #1a1b1d;
+  --gma-superficie: #1d1f22;
+  --gma-superficie-2: #212327;
+  --gma-superficie-3: #2f3339;
+  --gma-borde: #3d444c;
+  --gma-borde-suave: rgba(255, 255, 255, 0.08);
+  --gma-texto: var(--gma-t200);
+  --gma-texto-fuerte: var(--gma-t50);
+  --gma-tenue: var(--gma-t400);
+  --gma-hover: #2f3339;
+  --gma-presionado: #3d444c;
+  --gma-primario: var(--gma-b300);
+  --gma-primario-hover: var(--gma-b200);
+  --gma-sobre-primario: var(--gma-b950);
+  --gma-secundario: #3d444c;
+  --gma-secundario-hover: #515c68;
+  --gma-sobre-secundario: var(--gma-t300);
+  --gma-activo: rgba(44, 136, 247, 0.22);
+  --gma-sobre-activo: var(--gma-b200);
+  --gma-icono-bloque: var(--gma-b300);
+  --gma-menu: var(--gma-t950);
+  --gma-sobre-menu: var(--gma-t200);
+  --gma-tooltip: var(--gma-t100);
+  --gma-sobre-tooltip: var(--gma-t900);
+  --gma-modo-fondo: #2f3339;
+  --gma-pulgar: #515c68;
+  --gma-lienzo-vacio: #131314;
+  --gma-rojo-fondo: rgba(220, 38, 38, 0.16);
+}
+
+/* ── Raíz a pantalla completa ──────────────────────────────────────────────────────────
+   ⚠️ El alto es un NÚMERO (100dvh) y los hijos estiran con flex: 1 + min-height: 0. Nada
+   de height: 100% en un hijo de flex: 1 (AGENTS.md, «Dos reglas de layout»: Safari lo
+   resuelve a CERO y con overflow: hidden la pantalla queda en blanco). Molde: .lk-app del
+   editor de informes. */
+.gma-app {
+  height: 100vh;
+  height: 100dvh;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--gma-fondo-app);
+  overflow: hidden;
+}
+
+/* ── Barra superior (48 px) ───────────────────────────────────────────────────────── */
+.gma-barra {
+  flex: none;
+  height: var(--gma-alto-barra);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px 8px 8px;
+  background: var(--gma-superficie);
+  border-bottom: 0.8px solid var(--gma-borde-suave);
+  position: relative;
+  z-index: 3;
+}
+.gma-barra-izq { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1 1 auto; }
+.gma-barra-der { display: flex; align-items: center; gap: 8px; flex: none; }
+
+.gma-titulo {
+  flex: 0 1 auto;
+  min-width: 60px;
+  max-width: 420px;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--gma-radio-item);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--gma-texto-fuerte);
+  text-overflow: ellipsis;
+  outline: none;
+}
+.gma-titulo::placeholder { color: var(--gma-tenue); }
+.gma-titulo:hover { border-color: var(--gma-borde); }
+.gma-titulo:focus { border-color: var(--gma-seleccion); background: var(--gma-superficie); }
+
+.gma-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--gma-tenue);
+  white-space: nowrap;
+}
+.gma-estado[data-estado="error"],
+.gma-estado[data-estado="conflicto"] { color: var(--gma-rojo); }
+.gma-estado[data-estado="sin-guardar"]::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gma-t400);
+}
+.gma-estado-reintentar {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--gma-b600);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ── Botones (Chakra de Gamma: píldora, 32 px, 14 px) ─────────────────────────────── */
+.gma-boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  height: var(--gma-alto-boton);
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 0.8px solid transparent;
+  border-radius: var(--gma-radio-pildora);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 21px;
+  color: var(--gma-texto);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.gma-boton:hover { background: var(--gma-hover); }
+.gma-boton:active { background: var(--gma-presionado); }
+.gma-boton:disabled { opacity: 0.45; cursor: not-allowed; background: transparent; }
+.gma-boton:focus-visible,
+.gma-herr-boton:focus-visible,
+.gma-menu-item:focus-visible,
+.gma-tile:focus-visible,
+.gma-mini:focus-visible,
+.gma-pag:focus-visible { outline: 2px solid var(--gma-b400); outline-offset: 1px; }
+.gma-boton--primario { background: var(--gma-primario); color: var(--gma-sobre-primario); font-weight: 400; }
+.gma-boton--primario:hover { background: var(--gma-primario-hover); }
+.gma-boton--primario:active { background: var(--gma-b900); }
+.gma-boton--secundario { background: var(--gma-secundario); border-color: var(--gma-secundario); color: var(--gma-sobre-secundario); }
+.gma-boton--secundario:hover { background: var(--gma-secundario-hover); border-color: var(--gma-secundario-hover); }
+.gma-boton--contorno { border-color: var(--gma-borde); background: var(--gma-superficie); }
+.gma-boton--icono { width: var(--gma-alto-boton); padding: 0; }
+.gma-boton--chico { height: 28px; font-size: 13px; padding: 0 10px; }
+.gma-boton--chico.gma-boton--icono { width: 28px; padding: 0; }
+.gma-boton--peligro { color: var(--gma-rojo); }
+
+/* El botón partido de Publicar: [⤒ Publicar][▾], radios 24px 0 0 24px y 0 24px 24px 0. */
+.gma-partido { display: inline-flex; align-items: stretch; position: relative; }
+.gma-partido > .gma-boton:first-child { border-radius: 24px 0 0 24px; padding: 0 12px 0 12px; }
+.gma-partido > .gma-boton:last-child {
+  width: 32px;
+  padding: 0;
+  border-radius: 0 24px 24px 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.28);
+}
+.gma-punto-cambios {
+  position: absolute;
+  top: -2px;
+  right: 30px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--gma-b400);
+  box-shadow: 0 0 0 2px var(--gma-superficie);
+  pointer-events: none;
+}
+
+.gma-avatar {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gma-b600);
+  color: #ffffff;
+  font-size: 12.8px;
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: var(--gma-sombra-avatar);
+  user-select: none;
+}
+
+/* El aviso de una versión más nueva (concurrencia optimista). */
+.gma-aviso {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--gma-b100);
+  color: var(--gma-b950);
+  font-size: 13px;
+  line-height: 18px;
+}
+.gma-aviso[data-tono="error"] { background: var(--gma-rojo-fondo); color: var(--gma-rojo); }
+
+/* ── Cuerpo: panel izquierdo · centro · panel derecho ─────────────────────────────── */
+.gma-cuerpo { flex: 1; min-height: 0; display: flex; position: relative; }
+
+.gma-izq {
+  flex: none;
+  width: 340px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--gma-superficie);
+  border-right: 0.8px solid var(--gma-borde-suave);
+}
+.gma-izq[data-panel="paginas"] { width: 280px; }
+.gma-izq-cabeza {
+  flex: none;
+  height: 48px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 12px;
+  border-bottom: 0.8px solid var(--gma-borde-suave);
+}
+.gma-izq-casa {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--gma-borde);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gma-tenue);
+}
+.gma-izq-titulo {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gma-texto-fuerte);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gma-izq-cuerpo { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+.gma-der {
+  flex: none;
+  width: 360px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--gma-superficie);
+  border-left: 0.8px solid var(--gma-borde-suave);
+  overflow: hidden;
+}
+
+.gma-centro {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 8px 0;
+  position: relative;
+}
+
+/* ── La barra de herramientas (franja blanca redondeada sobre la tira y el lienzo) ─── */
+.gma-herramientas {
+  flex: none;
+  min-height: 48px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--gma-superficie);
+  border-radius: var(--gma-radio-xl);
+  box-shadow: var(--gma-sombra-sm), 0 0 0 0.8px var(--gma-borde-suave);
+  position: relative;
+  z-index: 2;
+}
+.gma-sep { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--gma-borde); }
+.gma-herr-boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  height: var(--gma-alto-item);
+  min-width: var(--gma-alto-item);
+  box-sizing: border-box;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--gma-radio-item);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gma-texto);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.gma-herr-boton:hover { background: var(--gma-hover); }
+.gma-herr-boton[aria-pressed="true"],
+.gma-herr-boton[aria-expanded="true"] { background: var(--gma-activo); color: var(--gma-sobre-activo); }
+.gma-herr-boton:disabled { opacity: 0.4; cursor: default; background: transparent; }
+.gma-herr-ctx { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; }
+.gma-herr-der { flex: none; display: flex; align-items: center; gap: 4px; margin-left: auto; }
+/* «Agregar bloque» se colapsa a un ícono solo cuando no entra (como en Gamma). */
+@media (max-width: 1180px) {
+  .gma-herr-texto { display: none; }
+}
+
+/* El interruptor Edición manual / Edición con IA, con el pulgar que rebota. */
+.gma-modo {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--gma-radio-item);
+  background: var(--gma-modo-fondo);
+}
+.gma-modo-pulgar {
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 36px;
+  height: 28px;
+  box-sizing: border-box;
+  border-radius: 5px;
+  border: 1px solid var(--gma-t200);
+  background: var(--gma-pulgar);
+  box-shadow: var(--gma-sombra-sm);
+  transition: inset-inline-start 280ms var(--gma-rebote);
+  pointer-events: none;
+}
+.gma-modo[data-modo="ia"] .gma-modo-pulgar { inset-inline-start: 38px; }
+.gma-modo-boton {
+  position: relative;
+  z-index: 1;
+  width: 36px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--gma-tenue);
+  cursor: pointer;
+}
+.gma-modo-boton[aria-pressed="true"] { color: var(--gma-texto-fuerte); }
+.gma-modo[data-modo="ia"] .gma-modo-boton[data-boton="ia"] { color: var(--gma-a700); }
+.gma-modo-boton[data-meneo="si"] svg { animation: gma-meneo 450ms ease-out; }
+@keyframes gma-meneo {
+  0% { transform: scale(1) rotate(0deg); }
+  40% { transform: scale(1.25) rotate(-12deg); }
+  70% { transform: scale(0.95) rotate(6deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Vista previa por dispositivo: un segmentado de tres íconos. */
+.gma-dispositivos {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--gma-radio-item);
+  background: var(--gma-modo-fondo);
+}
+.gma-dispositivos .gma-herr-boton { height: 26px; min-width: 30px; }
+.gma-dispositivos .gma-herr-boton[aria-pressed="true"] { background: var(--gma-pulgar); color: var(--gma-texto-fuerte); box-shadow: var(--gma-sombra-sm); }
+
+/* ── Área: tira + lienzo ───────────────────────────────────────────────────────── */
+.gma-area { flex: 1; min-height: 0; display: flex; gap: 8px; }
+
+/* La tira de secciones (filmstrip). */
+.gma-tira {
+  flex: none;
+  width: 140px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--gma-superficie);
+  border-radius: var(--gma-radio-xl) var(--gma-radio-xl) 0 0;
+  box-shadow: 0 0 0 0.8px var(--gma-borde-suave);
+}
+.gma-tira[data-vista="lista"] { width: 200px; }
+.gma-tira-cabeza {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 6px 4px;
+}
+.gma-tira-cabeza .gma-herr-boton { height: 24px; min-width: 24px; padding: 0 4px; }
+.gma-tira-cabeza-sep { flex: 1; }
+.gma-tira-agregar {
+  flex: none;
+  margin: 2px 8px 8px;
+  height: 28px;
+  border-radius: var(--gma-radio-pildora);
+  border: 0.8px solid var(--gma-borde);
+  background: var(--gma-superficie);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gma-texto);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.gma-tira-agregar:hover { background: var(--gma-hover); }
+.gma-tira-lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 8px 16px;
+  position: relative;
+  touch-action: none;
+}
+.gma-mini {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 3px;
+  box-sizing: border-box;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+.gma-mini:hover { background: var(--gma-hover); }
+.gma-mini[data-activa="si"] { border-color: var(--gma-seleccion); background: var(--gma-b50); }
+[data-tema="oscuro"] .gma .gma-mini[data-activa="si"] { background: rgba(44, 136, 247, 0.16); }
+.gma-mini[data-arrastrando="si"] { opacity: 0.5; }
+.gma-mini[data-oculta="si"] .gma-mini-caja { opacity: 0.4; }
+.gma-mini-caja {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  box-shadow: 0 0 0 0.8px var(--gma-borde-suave);
+  background: var(--gma-lienzo-vacio);
+  pointer-events: none;
+}
+.gma-mini-escala { position: absolute; top: 0; left: 0; width: 640px; transform-origin: 0 0; }
+.gma-mini-num {
+  position: absolute;
+  left: 7px;
+  bottom: 7px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background: #ffffff;
+  color: var(--gma-t800);
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: var(--gma-sombra-sm);
+  pointer-events: none;
+}
+.gma-mini-oculta {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: #ffffff;
+  color: var(--gma-t700);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.gma-fila-lista {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  margin: 0 0 2px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--gma-radio-item);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--gma-texto);
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+.gma-fila-lista:hover { background: var(--gma-hover); }
+.gma-fila-lista[data-activa="si"] { background: var(--gma-activo); color: var(--gma-sobre-activo); }
+.gma-fila-lista[data-oculta="si"] { opacity: 0.5; }
+.gma-fila-num { flex: none; width: 18px; font-size: 11px; color: var(--gma-tenue); font-variant-numeric: tabular-nums; }
+.gma-fila-titulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gma-marca-destino {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 3px;
+  margin-top: -5px;
+  border-radius: 2px;
+  background: var(--gma-seleccion);
+  pointer-events: none;
+}
+.gma-tira-abrir {
+  flex: none;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+/* El lienzo: el fondo de la página (lo pinta .gm-fondo del tema) y las secciones al centro. */
+.gma-lienzo {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-radius: var(--gma-radio-xl) var(--gma-radio-xl) 0 0;
+  background: var(--gma-lienzo-vacio);
+  position: relative;
+  scroll-behavior: auto;
+}
+.gma-lienzo > .gm-doc { flex: 1 0 auto; display: flex; flex-direction: column; min-width: 0; }
+.gma-lienzo > .gm-doc > .gm-fondo { flex: 1 0 auto; }
+.gma-lienzo[data-dispositivo="tableta"] > .gm-doc,
+.gma-lienzo[data-dispositivo="movil"] > .gm-doc {
+  align-self: center;
+  margin: 16px 0 24px;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--gma-sombra-lg), 0 0 0 1px var(--gma-borde-suave);
+}
+.gma-lienzo[data-dispositivo="tableta"] > .gm-doc { width: min(820px, calc(100% - 32px)); }
+.gma-lienzo[data-dispositivo="movil"] > .gm-doc { width: min(390px, calc(100% - 32px)); }
+/* El editor de TipTap no dibuja su anillo de foco: el foco se ve en la sección. */
+.gma-lienzo .ProseMirror { outline: none; }
+.gma-lienzo .ProseMirror[contenteditable="false"] { cursor: default; }
+
+/* ── Esquina de abajo a la derecha: zoom «100%» y «?» ─────────────────────────────── */
+.gma-esquina {
+  position: absolute;
+  right: 20px;
+  bottom: 16px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gma-zoom {
+  height: 28px;
+  min-width: 52px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border-radius: var(--gma-radio-pildora);
+  border: 0.8px solid var(--gma-borde);
+  background: var(--gma-superficie);
+  box-shadow: var(--gma-sombra-md);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gma-texto);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.gma-zoom:hover { background: var(--gma-hover); }
+.gma-ayuda {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0.8px solid var(--gma-borde);
+  background: var(--gma-superficie);
+  box-shadow: var(--gma-sombra-md);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gma-texto);
+  cursor: pointer;
+}
+.gma-ayuda:hover { background: var(--gma-hover); }
+
+/* ── Menús (los de Gamma: padding 8, radio 16, ítems de 28 px) ─────────────────────── */
+.gma-flotante { position: fixed; top: 0; left: 0; }
+.gma-menu {
+  min-width: 220px;
+  max-width: 320px;
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 8px;
+  border-radius: var(--gma-radio-menu);
+  background: var(--gma-menu);
+  color: var(--gma-sobre-menu);
+  box-shadow: var(--gma-sombra-menu), 0 0 0 0.8px var(--gma-borde-suave);
+}
+.gma-menu-cabeza { padding: 4px 8px 8px; margin-bottom: 4px; border-bottom: 0.8px solid var(--gma-borde); }
+.gma-menu-cabeza-titulo { font-size: 14px; font-weight: 600; color: var(--gma-sobre-menu); overflow-wrap: anywhere; }
+.gma-menu-cabeza-sub { font-size: 12px; line-height: 16px; color: var(--gma-tenue); }
+.gma-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--gma-alto-item);
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--gma-radio-item);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 500;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gma-menu-item:hover,
+.gma-menu-item[data-foco="si"] { background: var(--gma-hover); }
+.gma-menu-item:disabled { opacity: 0.45; cursor: default; background: transparent; }
+.gma-menu-item[data-peligro="si"] { color: var(--gma-rojo); }
+.gma-menu-item[data-peligro="si"]:hover { background: var(--gma-rojo-fondo); }
+.gma-menu-icono { flex: none; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--gma-tenue); }
+.gma-menu-item[data-peligro="si"] .gma-menu-icono { color: var(--gma-rojo); }
+.gma-menu-texto { flex: 1; min-width: 0; }
+.gma-menu-atajo { flex: none; font-size: 12px; font-weight: 500; color: var(--gma-tenue); }
+.gma-menu-sep { height: 0.8px; margin: 6px 0; background: var(--gma-borde); border: 0; }
+
+/* ── «Agregar bloque» (560 px, radio xl, titanium-50, sombra xl) ───────────────────── */
+.gma-pop {
+  width: 560px;
+  max-width: calc(100vw - 24px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border-radius: var(--gma-radio-xl);
+  border: 0.8px solid var(--gma-borde);
+  background: var(--gma-superficie-2);
+  box-shadow: var(--gma-sombra-xl);
+  overflow: hidden;
+  transition: opacity 0.12s ease;
+}
+.gma-pop[data-arrastrando="si"] { opacity: 0; pointer-events: none; }
+.gma-pop-buscar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 10px 0;
+  padding: 0 10px;
+  height: 36px;
+  border-radius: var(--gma-radio-lg);
+  border: 0.8px solid var(--gma-borde);
+  background: var(--gma-superficie);
+  color: var(--gma-tenue);
+}
+.gma-pop-buscar:focus-within { border-color: var(--gma-seleccion); }
+.gma-pop-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  color: var(--gma-texto-fuerte);
+}
+.gma-pop-input::placeholder { color: var(--gma-tenue); }
+.gma-pop-cuerpo { flex: 1; min-height: 0; display: flex; gap: 4px; padding: 8px 6px 10px 10px; }
+.gma-pop-nav { flex: none; width: 150px; display: flex; flex-direction: column; gap: 2px; }
+.gma-pop-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--gma-radio-lg);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gma-texto);
+  text-align: left;
+  cursor: pointer;
+}
+.gma-pop-nav-item:hover { background: var(--gma-hover); }
+.gma-pop-nav-item[data-activo="si"] { background: var(--gma-activo); color: var(--gma-sobre-activo); font-weight: 600; }
+.gma-pop-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gma-pop-cabeza { display: flex; align-items: center; gap: 8px; padding: 4px 4px 8px; }
+.gma-pop-titulo { margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; color: var(--gma-texto-fuerte); }
+.gma-pop-sub { margin: 0; font-size: 12px; line-height: 16px; color: var(--gma-tenue); }
+.gma-pop-grilla {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  max-height: 360px;
+  overflow: hidden auto;
+  padding: 6px;
+  align-content: start;
+}
+.gma-pop-vacio { padding: 24px 8px; text-align: center; font-size: 13px; color: var(--gma-tenue); }
+.gma-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 88px;
+  box-sizing: border-box;
+  padding: 10px 8px;
+  border: 0.8px solid var(--gma-borde);
+  border-radius: var(--gma-radio-xl);
+  background: var(--gma-superficie);
+  box-shadow: var(--gma-sombra-sm);
+  font: inherit;
+  text-align: left;
+  cursor: grab;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.gma-tile:hover { transform: scale(1.05) rotate(-0.25deg); box-shadow: var(--gma-sombra-lg); z-index: 1; }
+.gma-tile:active { cursor: grabbing; }
+.gma-tile-icono { color: var(--gma-icono-bloque); display: inline-flex; }
+.gma-tile-nombre {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--gma-t700);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+[data-tema="oscuro"] .gma .gma-tile-nombre { color: var(--gma-t200); }
+.gma-tile-ayuda {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  color: var(--gma-t500);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.gma-tile-asa {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  color: var(--gma-t400);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.gma-tile:hover .gma-tile-asa { opacity: 1; }
+
+/* ── Panel de páginas ─────────────────────────────────────────────────────────── */
+.gma-paginas { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; position: relative; touch-action: none; }
+.gma-pag {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-bottom: 2px;
+  padding: 4px 4px 4px 8px;
+  box-sizing: border-box;
+  border-radius: var(--gma-radio-lg);
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+.gma-pag:hover { background: var(--gma-hover); }
+.gma-pag[data-activa="si"] { background: var(--gma-activo); color: var(--gma-sobre-activo); }
+.gma-pag[data-arrastrando="si"] { opacity: 0.5; }
+.gma-pag-icono { flex: none; color: var(--gma-tenue); display: inline-flex; }
+.gma-pag[data-activa="si"] .gma-pag-icono { color: var(--gma-sobre-activo); }
+.gma-pag-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gma-pag-titulo { font-size: 13px; line-height: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gma-pag-ruta { font-size: 12px; line-height: 16px; color: var(--gma-tenue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gma-pag .gma-boton { opacity: 0; }
+.gma-pag:hover .gma-boton,
+.gma-pag[data-activa="si"] .gma-boton,
+.gma-pag .gma-boton[aria-expanded="true"] { opacity: 1; }
+.gma-campo {
+  width: 100%;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 1px solid var(--gma-seleccion);
+  border-radius: var(--gma-radio-item);
+  background: var(--gma-superficie);
+  font: inherit;
+  font-size: 13px;
+  color: var(--gma-texto-fuerte);
+  outline: none;
+}
+.gma-campo[aria-invalid="true"] { border-color: var(--gma-rojo); }
+.gma-campo-error { font-size: 12px; line-height: 16px; color: var(--gma-rojo); padding: 2px 2px 0; }
+.gma-campo-prefijo { font-size: 12px; color: var(--gma-tenue); }
+
+/* ── Diálogo chico (confirmar, ver la instrucción de origen) ───────────────────────── */
+.gma-dialogo-fondo {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(19, 19, 20, 0.45);
+}
+.gma-dialogo {
+  width: 420px;
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 20px;
+  border-radius: var(--gma-radio-menu);
+  background: var(--gma-superficie);
+  color: var(--gma-texto);
+  box-shadow: var(--gma-sombra-xl);
+}
+.gma-dialogo-titulo { margin: 0 0 8px; font-size: 17px; line-height: 24px; font-weight: 600; color: var(--gma-texto-fuerte); }
+.gma-dialogo-texto { margin: 0 0 16px; font-size: 14px; line-height: 21px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gma-dialogo-cita {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: var(--gma-radio-lg);
+  background: var(--gma-superficie-2);
+  font-size: 14px;
+  line-height: 21px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.gma-dialogo-pie { display: flex; justify-content: flex-end; gap: 8px; }
+.gma-boton--rojo { background: var(--gma-rojo); color: #ffffff; }
+.gma-boton--rojo:hover { background: #b91c1c; }
+
+/* ── Toast (3-4 palabras, con «Deshacer» opcional) ─────────────────────────────── */
+.gma-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 40px;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 8px 16px;
+  border-radius: var(--gma-radio-lg);
+  background: var(--gma-t800);
+  color: var(--gma-t50);
+  font-size: 14px;
+  line-height: 21px;
+  box-shadow: var(--gma-sombra-lg);
+  animation: gma-subir 0.18s ease-out;
+}
+[data-tema="oscuro"] .gma .gma-toast { background: var(--gma-t100); color: var(--gma-t900); }
+.gma-toast-accion {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--gma-b300);
+  cursor: pointer;
+}
+[data-tema="oscuro"] .gma .gma-toast-accion { color: var(--gma-b700); }
+@keyframes gma-subir { from { opacity: 0; transform: translate(-50%, 8px); } }
+
+/* ── Tooltip (titanium-800, 12px/600, el atajo a la derecha) ───────────────────────── */
+.gma-tip { position: relative; }
+.gma-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 6px);
+  transform: translateX(-50%);
+  z-index: 90;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: var(--gma-tooltip);
+  color: var(--gma-sobre-tooltip);
+  font-family: var(--gma-fuente);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.1s ease 0s, visibility 0s linear 0.1s;
+}
+.gma-tip[data-atajo]::after { content: attr(data-tip) '   ' attr(data-atajo); }
+.gma-tip[data-tip-lado="arriba"]::after { top: auto; bottom: calc(100% + 6px); }
+.gma-tip[data-tip-lado="izquierda"]::after { left: auto; right: calc(100% + 6px); top: 50%; transform: translateY(-50%); }
+.gma-tip:hover::after,
+.gma-tip:focus-visible::after { opacity: 1; visibility: visible; transition: opacity 0.12s ease 0.35s, visibility 0s linear 0.35s; }
+.gma-tip[aria-expanded="true"]::after { opacity: 0; visibility: hidden; }
+
+/* ── Estados: vacío, error, cargando ───────────────────────────────────────────── */
+.gma-vacio {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px 16px;
+  text-align: center;
+}
+.gma-vacio-titulo { margin: 0; font-size: 17px; line-height: 24px; font-weight: 600; color: var(--gma-texto-fuerte); }
+.gma-vacio-texto { margin: 0; max-width: 420px; font-size: 14px; line-height: 21px; color: var(--gma-tenue); overflow-wrap: anywhere; }
+.gma-vacio-acciones { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.gma-girar { animation: gma-girar 0.9s linear infinite; }
+@keyframes gma-girar { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .gma-modo-pulgar,
+  .gma-tile,
+  .gma-pop { transition: none; }
+  .gma-modo-boton[data-meneo="si"] svg,
+  .gma-toast,
+  .gma-girar { animation: none; }
+}
+
+/* Lo que se monta adentro de un panel (el agente, el tema, los comentarios) estira con FLEX, no
+   con height: 100% (que en un hijo de flex Safari puede resolver a cero: AGENTS.md). */
+.gma-izq-cuerpo > *,
+.gma-der > * { flex: 1 1 auto; min-height: 0; }

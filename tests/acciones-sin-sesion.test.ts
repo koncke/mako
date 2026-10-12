@@ -13,6 +13,8 @@
 //     → 1 fallo («las páginas públicas sólo se leen»).
 //   · el proxy volviendo a `esPublicaSoloLectura` en la rama pública → 1 fallo (el guard del fuente).
 //   · sacando el `haySesion()` de `resolverConfirmacionAction` → 1 fallo.
+//   · (11/10/2026) sacando `'/pagar'` de PUBLICOS → 1 fallo, 3 pases (las páginas del comprador
+//     dejan de ser públicas). Restaurado: 4 pases.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,14 +27,16 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('las páginas públicas sólo se leen', () => {
-  for (const p of ['/login', '/privacidad', '/terminos', '/vsl', '/vsl/estrategia', '/vsl-assets/x.html', '/compartido/abc', '/compartido/curso/c1.1.1.1.x']) {
+  // /reembolsos y las del comprador de un link de pago (/pagar/<token> y su retorno) entraron el
+  // 11/10/2026: son páginas, así que un POST ahí tiene que dar 405 como en las demás.
+  for (const p of ['/login', '/privacidad', '/terminos', '/vsl', '/vsl/estrategia', '/vsl-assets/x.html', '/compartido/abc', '/compartido/curso/c1.1.1.1.x', '/reembolsos', '/pagar/AbCdEfGhIjKlMnOpQrStUvWxYz012345', '/pagar/AbCdEfGhIjKlMnOpQrStUvWxYz012345/listo']) {
     assert.ok(esPublica(p), `${p} debería ser pública`);
     assert.equal(esPublicaSoloLeer(p), true, `${p} es una página pública: no puede aceptar POST (ejecutaría server actions sin sesión)`);
   }
 });
 
 test('las APIs públicas que escriben siguen escribiendo', () => {
-  for (const p of ['/api/track/vsl', '/api/webhooks/meta-leads', '/api/compartido/curso/tarea', '/api/compartido/curso/progreso', '/api/agente/lead']) {
+  for (const p of ['/api/track/vsl', '/api/webhooks/meta-leads', '/api/compartido/curso/tarea', '/api/compartido/curso/progreso', '/api/agente/lead', '/api/pagar/email']) {
     assert.equal(esPublicaSoloLeer(p), false, `${p} recibe POST sin sesión por diseño`);
   }
   // Y las de sólo lectura siguen siéndolo.

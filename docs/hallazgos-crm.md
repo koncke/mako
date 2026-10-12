@@ -7843,3 +7843,132 @@ De paso: los 433 `closing_analyses` de ws9 son llamadas de Martín (146 internas
 79 de prueba, 17 de venta) y **ninguna tiene `lead_id`**: no se cruzan con el CRM de MaKo.
 
 **Vive en:** `pagos` (ws11) · `closing_analyses` (ws9). *Corrida `wf_01c22b1b-91a`, 10/10/2026.*
+
+## «Marcar cobrada»: la action no tiene guarda de rol, no mira de quién es la cuota, y deshacer no reabre la cobranza (11/10/2026)
+
+Salió al cablear «Marcar cobrada» en el Dashboard (`app/dashboard/bloques/BloqueCobranza.tsx`):
+
+- **`marcarPagoAction` (`app/crm/actions.ts`) no tiene guarda de rol propia.** En el Dashboard la protege
+  la puerta admin de la página; por la ficha del CRM y por el doer (`marcar_pago_cobrado`, sin
+  `rolMinimo`) la puede usar cualquiera con CRM. Si la regla es «sólo admin marca cobrado», va adentro de
+  la action, no en el botón. **Lo decide Martín.**
+- **Y no comprueba que la cuota sea del lead que recibe.** Por eso el Dashboard saca el par (pago, lead)
+  de la MISMA fila del server (`Fila.r` del lector de pagos) y nunca lo arma en el navegador.
+- **Deshacer «Marcar cobrada» devuelve el dato pero no la secuencia:** `marcarPago(true)` cierra los
+  recordatorios de cobranza (`lib/pagos.ts`) y el deshacer no los reabre. Previo al Dashboard.
+- **Las lecturas de pagos de Comercial no paginan:** `getOutstandingDetalle` (`lib/pagos.ts`) lee TODA la
+  tabla del workspace (medido: ws1 = 34, ws11 = 21 cuotas). Cuando alguien pase las 1000, el
+  Outstanding y «A quién cobrarle» van a dar de menos sin un error.
+
+**Vive en:** `app/crm/actions.ts` (`marcarPagoAction`) · `lib/pagos.ts`. *2026-10-11 Graphics.*
+
+## Cobrar desde la ficha (11/10/2026, la pasarela de pagos)
+
+El modelo de la pasarela vive en [hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «La
+pasarela». Acá, lo que es del CRM.
+
+### `findLeadByContacto` no encuentra lo que `createLead` guarda, y con dos elige en silencio
+
+**Síntoma:** buscar «juan@x.com» no encuentra un lead guardado como «Juan@X.com» (y crearlo choca por
+duplicado), y con dos leads del mismo email se queda con el más viejo avisando sólo en un `console.warn`.
+**Causa:** `primerLeadPor` compara con `eq` sobre el email en minúsculas, pero `createLead` sólo le hace
+`trim`. La mig 0061 afirma que «el código ya normaliza el email de entrada a lowercase», y `createLead` no
+lo hace. **Regla:** quien ata algo a un lead por email cuenta antes (`limit 2`), corta si hay más de uno,
+y le pasa el email ya en minúsculas a `createLead`. **Vive en:** `lib/leads.ts` (`primerLeadPor`,
+`createLead`) · `app/admin/cobros/actions.ts` (`leadDelComprador`).
+
+### Un test protegía la incoherencia que había que arreglar
+
+`tests/crm-ficha-y-selector.test.ts` fijaba con regex «venta o plan» en `/crm/[id]` y «hay cuotas» en el
+modal (`LeadSheet`): dos condiciones distintas para la MISMA tab Pagos. La regla «las dos puertas
+iguales» no se podía cumplir sin romperlo. **Regla:** un guard de FORMA también congela un bug; ahora
+pide la misma variable (`verPagos`, de `lib/muestra-pagos.ts`) en las dos.
+**Vive en:** `tests/crm-ficha-y-selector.test.ts` · `lib/muestra-pagos.ts`.
+
+### El comprobante de pago: cinco copias de un predicado
+
+`p.pagado && !p.comprobante_path` estaba copiado en cinco lugares y marcaba para siempre «Datos sin
+marcar: Comprobante de pago» a todo cobro confirmado por la pasarela. Ahora es UNA función pura
+(`faltaComprobante`, que exime a los que tienen `proveedor`) y los cinco la llaman.
+**Vive en:** `lib/pago-comprobante.ts` · `lib/queries.ts` · `app/crm/actions.ts` · `app/crm/[id]/page.tsx` ·
+`lib/api-mako/areas/crm.helpers.ts`.
+
+### Una cuota se marcaba sin mirar de qué lead era
+
+`registrarCobroDeProveedor` buscaba la cuota a saldar sólo por id: un `pagoId` que viniera de otro lado
+saldaba la cuota de otra persona. Ahora filtra también por el lead, y `crearCobroAction` no acepta un
+`pagoId` del navegador. **Vive en:** `lib/pagos.ts` · `app/crm/[id]/cobros-actions.ts`.
+
+### El `Confirm` de `app/_ui` no entra en la pila de modales (deducido, no probado en el navegador)
+
+Montado adentro de la ficha en modal, Escape cerraría la ficha entera: `LeadSheet` escucha en `window`
+en captura, antes que el listener del Confirm. Se envolvió con `useCapaModal(true, { anidada: true })`
+en la lista de cobros; el «Borrar lead» de `LeadSheet` probablemente tiene el mismo problema.
+**Vive en:** `app/_ui/Confirm.tsx` · `app/crm/[id]/CobrosDelLead.tsx`.
+
+_11/10/2026 — pasarela de pagos; `tests/muestra-pagos.test.ts` y `tests/pago-comprobante.test.ts`
+probados rompiéndolos._
+
+## «Producto» → «Funnel»: la palabra nombraba DOS cosas, y sólo una se renombró (11/10/2026)
+
+Martín pidió cambiar el concepto «Producto» por «Funnel» «en todos lados», y la jerarquía que
+fijó es **funnel > oferta > productos**. El renombre (`53ba6450`) sólo es correcto si se separa
+qué nombraba cada «producto», porque en el código la misma palabra apuntaba a dos tablas:
+
+| Lo que dice la pantalla | Qué es por dentro | Quedó |
+|---|---|---|
+| El «producto» del CRM (selector, ficha, «traer de otro…», campañas, Pixel, «Agregar al CRM») | una fila de `funnels` (`leads.funnel_id`, `lead_funnel`), con el nombre de `productoDeFunnel` | **funnel** |
+| El catálogo con precio (único/suscripción), lo que entrega Customer Success, los cursos | `productos` (`lib/productos.ts`), dentro de una oferta | **producto** |
+
+- **La regla para decidir cada aparición: de dónde salen los datos**, no cómo se llama la
+  variable. `funnels` / `lead_funnel` / `funnel_id` → funnel; `productos` / `listProductos` /
+  `producto_id` / `oferta_productos` → producto. Las variables y funciones siguen llamándose
+  `productos` (`TraerDeOtroProducto`, `agregarAProducto`): lo que cambia es lo que se LEE.
+- ⚠️ **En Automations los dos conviven en la misma fila.** `productosConEtapas`
+  (`lib/setting-secuencias.ts`) devuelve una fila POR FUNNEL, con las etapas de venta del funnel
+  y las de entrega de su producto principal, más los productos sueltos que sólo tienen entrega.
+  Por eso el paso del CRON pasó a «Funnels» (`PASO_PRODUCTOS`) y el disparador de ETAPA dice
+  «funnel», pero el de ENTREGA (`producto_id`, `TRIGGER_ENTREGA`) sigue diciendo «Elige el
+  producto»: el kanban de entrega es del producto, no del funnel.
+- **La relación «un funnel tiene varias ofertas» ya existía:** es `funnel_ofertas` (mig 0171),
+  no `oferta_productos`. El chat de la tab Offer estaba por armar su selector con
+  `listProductos`, que es el catálogo de precios; se le avisó y pasó a `leerFunnels()` +
+  `ofertasDeFunnels()`.
+- **El historial del lead no se migró:** las entradas nuevas dicen «Funnel» en el campo y las
+  viejas «Producto». Nadie filtra por ese campo (medido con grep), así que no rompe nada.
+
+**Lo que quedó sin hacer, con dónde vive:**
+- Las descripciones de `lib/api-mako/areas/crm.def.ts` (y otras `.def.ts`) siguen diciendo
+  «producto»: generan `docs/api-mako.md`, que al 11/10 tenía cambios sin commitear de otra
+  sesión. Se hace cuando `lib/api-mako` esté limpio, regenerando con
+  `node --import tsx scripts/generar-api-doc.mjs`.
+- La dimensión «Producto» de los gráficos (`lib/graficos-catalogo.ts`, `cat('producto', 'Producto')`):
+  el archivo estaba en curso en la sesión del Dashboard.
+- Los prompts de IA (`lib/flujo-ia.ts`, el doer) siguen diciendo «producto» a propósito: cambiar
+  la palabra que lee un modelo es cambiar lo que contesta.
+
+**Vive en:** `lib/funnels.ts` · `lib/setting-secuencias.ts` · `lib/flujo-conversacion.ts` ·
+`app/crm/CrmToolbar.tsx`. *Chat CRM, 2026-10-11, sin multi-agente (la guardia de RAM lo frenó).*
+
+## La fecha de una reunión cargada en la ficha no pasa por `updateLead` (11/10/2026)
+
+Lo encontró la undécima tanda de Automations al hacer que una reunión cargada a mano inscriba al instante en el flujo de
+su etapa (M1-b, `docs/diseno-undecima-tanda.md`). El motor y su porqué, en [hallazgos-chatbot.md](hallazgos-chatbot.md).
+
+- **⚠️ El lugar obvio era el equivocado.** «Inscribir cuando cambia la etapa derivada» en `updateLead` no cubría el caso
+  para el que existe: la fecha de la ficha se guarda por `saveLeadMeta` (un UPDATE directo), y `updateLead` sólo ve la
+  asistencia y el estado.
+- **Un guardado de varios pasos pasa por etapas derivadas intermedias.** `completeStageMoveAction`
+  (`app/crm/actions.ts`) guarda la fecha, después la asistencia y recién al final el override: con «cualquier cambio de
+  la derivada», un «no asistió» camino a «No Show» inscribía en lo de 'noshow_r1', que el barrido nunca alcanza.
+- **Regla:** se inscribe sólo HACIA una etapa de tipo reunión (`entraAEtapaDeReunion`), desde `updateLead`,
+  `saveLeadMeta` y `setMeetingManual` (al final, con `disparoDeEtapa: false` en su `updateLead`). Y al reservar una R1
+  desde el webhook, un override de «no agendó» puesto a mano (lead/nutri/reactivación/no-show) se limpia en el mismo
+  update y queda auditado como «Etapa» por MaKo (`limpiaEtapaAlReservar`): sin eso, ~7 % de las agendas del ws1 no
+  entraban al flujo. Una R2 no toca nada.
+
+**SIN HACER:** una reserva de R2 no dispara el evento al instante (`app/api/webhooks/{calendly,calcom}/route.ts`, rama
+j2): entra por el barrido de la hora.
+
+**Vive en:** `lib/leads.ts` (`enrolarPorEtapaDerivada`, `auditarEtapaDeLaReserva`) · `lib/nutricion-etapa.ts` ·
+`lib/nutricion-familias.ts` · *2026-10-11 undécima tanda (w2-motor-reuniones)*

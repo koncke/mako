@@ -59,7 +59,9 @@ export type TabActivacion = {
 export const TABS_ACTIVACION: Record<string, TabActivacion> = {
   closing: {
     key: 'closing',
-    titulo: 'Closing Analyst',
+    // La key sigue siendo 'closing' (está en la base y en las capas). La tab Closing Analyst se retiró
+    // el 11/10/2026 y fue entera a la hoja Closing del Dashboard: el título nombra dónde vive ahora.
+    titulo: 'Closing en el Dashboard',
     servicio: 'fathom',
     eyebrow: '✦ Con Fathom conectado',
     queFalta: 'Fathom es donde se graban tus llamadas. Con su API key, el sync las trae solo y MaKo las analiza en lotes.',
@@ -67,9 +69,10 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     slides: [
       // lib/closing.ts (ClosingDim/ClosingObjection con t_seconds) + cron closing-sync
       { t: 'Cada llamada, puntuada', d: 'Separa venta de entrega de servicio, puntúa por SPIN y ejecución, y cita el minuto exacto de cada fortaleza y de cada objeción.' },
-      // app/closing/ClosingBrowser.tsx (embedToken + deep-link al segundo)
+      // app/dashboard/bloques/extra/FichaLlamada.tsx (era app/closing/ClosingBrowser.tsx): embed de
+      // Fathom + ▶ mm:ss que abre la grabación en ESE segundo en Fathom (el embed no salta solo).
       { t: 'El video y el transcript, juntos', d: 'Player embebido y transcript anotado: tocas una línea y la grabación salta a ese segundo.' },
-      // ClosingBrowser: vista Métricas agregada en cliente sobre data.calls
+      // La hoja Closing del Dashboard (lib/graficos-plantillas-analysts.ts + app/dashboard/bloques/extra/BloquesClosing.tsx)
       { t: 'Qué dimensión decide tus cierres', d: 'Cruza ganadas contra perdidas y te marca la dimensión con más gap, la tendencia del score y cómo va cada closer.' },
       // lib/closing.ts:828 reviseAnalysis + :870 reviseWithMako → edit_history
       { t: 'La última palabra es tuya', d: 'Corriges un puntaje a mano o le pides a MaKo que re-analice con tu nota, y queda el historial de quién cambió qué.' },
@@ -100,7 +103,11 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
 
   script: {
     key: 'script',
-    titulo: 'Ads Analyst',
+    // La key sigue siendo 'script' (está en la base y en las capas). Lo que cambió el 11/10/2026 es
+    // DÓNDE se ve este panel: la tab Ads Analyst se retiró y el panel lo monta Ads Writer en su vista
+    // «Analizar guion» (app/ads-writer/page.tsx) cuando falta Meta. Se lee «Analizar guion se prende
+    // con esto» (app/_components/PanelActivacion.tsx).
+    titulo: 'Analizar guion',
     servicio: 'meta',
     eyebrow: '✦ Con Meta Ads conectado',
     queFalta: 'Con tu cuenta de Meta, MaKo baja y transcribe el video de cada anuncio, y recién ahí lo analiza. Se llena solo en segundo plano.',

@@ -437,8 +437,8 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
     setConfirmar({
       titulo: `Quitar «${e.label}»`,
       cuerpo: n == null
-        ? 'No se pudo contar cuántos leads tiene. Los que estén ahí no se borran: quedan fuera del embudo hasta que los muevas.'
-        : `Sus ${n} ${n === 1 ? 'lead queda' : 'leads quedan'} fuera del embudo hasta que los muevas. No se borran.`,
+        ? 'No se pudo contar cuántos leads tiene. Los que estén ahí no se borran: quedan fuera del funnel hasta que los muevas.'
+        : `Sus ${n} ${n === 1 ? 'lead queda' : 'leads quedan'} fuera del funnel hasta que los muevas. No se borran.`,
       boton: 'Quitar la etapa',
       hacer,
     });
@@ -473,9 +473,9 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
     setConfirmar({
       titulo: `Eliminar «${emb.nombre}»`,
       cuerpo: extras && extras.leads > 0
-        ? `Sus ${extras.leads} ${extras.leads === 1 ? 'lead deja' : 'leads dejan'} de verse hasta que lo recuperes. Se guarda entero y vuelve desde «Embudos eliminados».`
-        : 'Se guarda entero y vuelve desde «Embudos eliminados».',
-      boton: 'Eliminar el producto',
+        ? `Sus ${extras.leads} ${extras.leads === 1 ? 'lead deja' : 'leads dejan'} de verse hasta que lo recuperes. Se guarda entero y vuelve desde «Funnels eliminados».`
+        : 'Se guarda entero y vuelve desde «Funnels eliminados».',
+      boton: 'Eliminar el funnel',
       hacer: () => archivar(false),
     });
   };
@@ -520,7 +520,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
             defaultValue={emb?.nombre ?? nombre}
             key={emb?.nombre ?? nombre}
             maxLength={60}
-            aria-label="Nombre del producto"
+            aria-label="Nombre del funnel"
             onBlur={(e) => guardarNombreEmbudo(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
             style={{
@@ -539,7 +539,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
         // El cuerpo ya es una lista de filas con su propio fondo: cada filete de la caja
         // es una raya más sobre una pantalla llena de bordes. Se pidió dos veces.
         sinFiletes
-        etiqueta={`Editar el producto ${emb?.nombre ?? nombre}`}
+        etiqueta={`Editar el funnel ${emb?.nombre ?? nombre}`}
         onCerrar={onCerrar}
         pie={
           // ⚠️ UN SOLO BOTÓN DE CERRAR (la ✕ de arriba). Acá abajo va sólo eliminar, a la
@@ -548,7 +548,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
             <div style={{ flex: 1, display: 'flex' }}>
               <button type="button" onClick={eliminarProducto} disabled={trabajando}
                 style={{ background: 'none', border: 'none', padding: 0, color: 'var(--bad)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: trabajando ? 'default' : 'pointer' }}>
-                Eliminar producto
+                Eliminar funnel
               </button>
             </div>
           ) : undefined

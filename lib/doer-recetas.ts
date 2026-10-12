@@ -29,7 +29,16 @@ const RECETA_OFRECER = `SI LO QUE TE PREGUNTAN LLEVA A UNA ACCIÓN (mover un lea
 
 const RECETA_PRESUPUESTO = `EL PRESUPUESTO de una campaña mueve plata y NUNCA se confirma por el chat: si tienes la tool para proponerlo, te devuelve un link a una pantalla de revisión; pásalo y NO pidas un "sí". Si no tienes esa tool, di que el presupuesto se cambia desde MaKo, en Ads Manager.`;
 
-const RECETA_LEAD = `CUANDO TE PIDEN CARGAR UNA PERSONA AL CRM ("agrega este lead", "carga a fulano", "me sumas a este contacto"):
+/**
+ * Los cobros de Stripe y Mercado Pago (11/10/2026). Sus ids NO llevan `proponer_` a propósito: la
+ * receta genérica de acciones pide un «sí», y el reembolso y la baja de una suscripción se
+ * confirman en una PANTALLA. Y el link de pago es una URL con un id al azar: si el modelo la
+ * copia, la puede romper sin que se note (AGENTS.md, «un link que lee un modelo lo escribe el
+ * código»): lo agrega el sistema al confirmar.
+ */
+const RECETA_COBROS = `LOS COBROS (Stripe y Mercado Pago): para un LINK DE PAGO necesitas el leadId ('buscar_leads') y el productoId ('listar_productos'): el precio sale del catálogo, nunca lo escribas tú. 'crear_link_pago' y 'anular_link_pago' quedan PENDIENTES: explica en una línea qué vas a hacer y pide el "sí". El link lo agrega el sistema al confirmar: ⛔ NO lo escribas, NO lo copies y NO inventes uno. REEMBOLSAR un cobro o CANCELAR UNA SUSCRIPCIÓN mueve plata del cliente y NUNCA se confirma por el chat: la tool te devuelve un link a una pantalla de revisión; pásalo tal cual y NO pidas un "sí". El cobroId sale de 'listar_cobros', y no es el pagoId de una cuota.`;
+
+const RECETA_LEAD =`CUANDO TE PIDEN CARGAR UNA PERSONA AL CRM ("agrega este lead", "carga a fulano", "me sumas a este contacto"):
 - Si te COMPARTIERON UNA TARJETA DE CONTACTO, los datos ya te llegaron en el mensaje: úsalos, NO los pidas de nuevo.
 - Con el nombre alcanza para proponer. Llama 'proponer_lead' y TERMINA AHÍ: el mensaje con el link lo escribe el CÓDIGO, siempre igual ("${EJEMPLO_LEAD}"), y reemplaza lo que tú contestes en ese turno. No lo escribas tú y NO copies el link.
 - ⛔ NUNCA digas "anotado", "listo", "lo ingresé al CRM" ni "ya lo cargué". El lead NO EXISTE hasta que la persona confirma en esa pantalla. Un "anotado" en pasado hace creer que ya está — pasó, y la clienta dio por cargado un contacto que no estaba.
@@ -68,6 +77,7 @@ export function recetasDelTurno(nombres: ReadonlySet<string>, ofrece: boolean): 
   if (ofrece) partes.push(RECETA_OFRECER);
   if (hay(/^proponer_(?!tareas_plan$|lead$|leads$)/)) partes.push(RECETA_ACCIONES);
   if (hay(/^proponer_presupuesto/)) partes.push(RECETA_PRESUPUESTO);
+  if (hay(/^(?:crear_link_pago|anular_link_pago|reembolsar_cobro|cancelar_suscripcion)$/)) partes.push(RECETA_COBROS);
   if (hay(/^proponer_leads?$/)) partes.push(RECETA_LEAD);
   if (nombres.has('proponer_agendar_reunion')) partes.push(RECETA_AGENDA);
   if (nombres.has('confirmar_accion')) partes.push(RECETA_CONFIRMAR);

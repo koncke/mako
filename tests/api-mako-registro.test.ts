@@ -54,15 +54,35 @@ test('el registro cargó sin problemas (ids únicos, snake_case, alias que no pi
   }
 });
 
+/**
+ * Los archivos de runners de un área cuando NO es uno solo (`<area>.run.ts`). El editor del Dashboard es
+ * del área `metricas` y vive en dashboard.run.ts (11/10/2026). Un .run.ts que no esté en ningún área es
+ * un archivo que este test no mira: el de abajo lo frena.
+ * Verificado rompiéndolo (11/10/2026), base 22 pass / 0 fail: sin `dashboard` en la lista → 21 / 1
+ * (este test); sin `import 'server-only'` en dashboard.run.ts → 21 / 1. Y el barrido de las .def.ts
+ * (el test de abajo): una def SUELTA con server-only (lib/api-mako/areas/zzrotura.def.ts, que ningún
+ * área importa) → 21 / 1 con el barrido del directorio y 22 / 0 con la lista por área de antes.
+ */
+const RUNS_DE_AREA: Partial<Record<string, readonly string[]>> = { metricas: ['metricas', 'dashboard'] };
+const runsDe = (a: string): readonly string[] => RUNS_DE_AREA[a] ?? [a];
+
 test('toda def tiene su runner en el .run.ts de su área, y todo runner tiene def', () => {
   const porArea = new Map<string, Set<string>>();
   for (const a of AREAS) {
-    const p = join(RAIZ, 'lib', 'api-mako', 'areas', `${a}.run.ts`);
-    assert.ok(existsSync(p), `falta ${p}`);
-    const s = leer(p);
-    assert.match(s, /^import 'server-only';$/m, `${a}.run.ts tiene que llevar server-only: toca la base`);
-    porArea.set(a, new Set([...s.matchAll(/^\s{2}'?([a-z][a-z0-9_]*)'?:\s*\{/gm)].map((m) => m[1])));
+    const ids = new Set<string>();
+    for (const archivo of runsDe(a)) {
+      const p = join(RAIZ, 'lib', 'api-mako', 'areas', `${archivo}.run.ts`);
+      assert.ok(existsSync(p), `falta ${p}`);
+      const s = leer(p);
+      assert.match(s, /^import 'server-only';$/m, `${archivo}.run.ts tiene que llevar server-only: toca la base`);
+      for (const m of s.matchAll(/^\s{2}'?([a-z][a-z0-9_]*)'?:\s*\{/gm)) ids.add(m[1]);
+    }
+    porArea.set(a, ids);
   }
+  // Y ningún .run.ts queda afuera: uno que no es de ningún área tiene runners que nadie cruza con su def.
+  const mirados = new Set(AREAS.flatMap((a) => runsDe(a)));
+  const sueltos = readdirSync(join(RAIZ, 'lib', 'api-mako', 'areas')).filter((f) => f.endsWith('.run.ts')).map((f) => f.slice(0, -'.run.ts'.length)).filter((f) => !mirados.has(f));
+  assert.deepEqual(sueltos, [], `nadie mira estos runners (súmalos a RUNS_DE_AREA): ${sueltos.join(', ')}`);
   const ids = new Set(REGISTRO.map((d) => d.id));
   for (const d of REGISTRO) assert.ok(porArea.get(d.area)?.has(d.id), `«${d.id}» (${d.area}) está en el catálogo y no tiene runner en ${d.area}.run.ts`);
   for (const [a, claves] of porArea) for (const k of claves) assert.ok(ids.has(k), `${a}.run.ts implementa «${k}» y ninguna .def.ts la declara`);
@@ -73,8 +93,11 @@ test('las defs, tipos, registro, docs, canal y alcance NO importan valores de m�
   // react-server`: un import transitivo de server-only revienta el pre-push de las
   // dos cuentas con un error que no nombra la def. Se mira el ARCHIVO DESTINO de
   // cada import, no una lista escrita a mano.
+  // TODAS las .def.ts del directorio, no una por área: el Dashboard tiene la suya (dashboard.def.ts) y
+  // con la lista por área quedaba sin mirar.
+  const dirAreas = join(RAIZ, 'lib', 'api-mako', 'areas');
   const libres = [
-    ...AREAS.map((a) => join(RAIZ, 'lib', 'api-mako', 'areas', `${a}.def.ts`)),
+    ...readdirSync(dirAreas).filter((f) => f.endsWith('.def.ts')).map((f) => join(dirAreas, f)),
     ...['tipos', 'registro', 'docs', 'canal', 'alcance', 'validar'].map((m) => join(RAIZ, 'lib', 'api-mako', `${m}.ts`)),
   ];
   for (const archivo of libres) {

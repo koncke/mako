@@ -96,11 +96,13 @@ test('con la fila que se está creando elegida, el lienzo está abierto con su l
 });
 
 test('crearNueva pone la fila y la abre ANTES de pedirle nada al server; el id real ANTES del load', () => {
-  // Sin `pedido` desde el 10/10/2026: lo mandaba «Armar una» del pie de la lista, que salió.
-  const c = recorte(APP(), 'const crearNueva = async (clase?: ClaseDisparador) => {', '\n  };', 1700);
+  // Sin `pedido` desde el 10/10/2026: lo mandaba «Armar una» del pie de la lista, que salió. Y sin `clase` desde la
+  // décima tanda (11/10/2026): era el tipo de CRON de «¿Qué la dispara?» del modal, que se fue («eso ya lo hacemos
+  // dentro en el CRON»); con él se fue el `const id` que lo acompañaba, y el id real va directo a la fila.
+  const c = recorte(APP(), 'const crearNueva = async () => {', '\n  };', 1700);
   const iFila = c.indexOf('setCreando({ temporal, id: null });\n    setAbrirSec({ id: temporal });');
   const iPost = c.indexOf("fetch('/api/chat-agent/secuencias'");
-  const iReal = c.indexOf('setCreando({ temporal, id });');
+  const iReal = c.indexOf('setCreando({ temporal, id: Number(r.secuenciaId) });');
   const iLoad = c.indexOf('await load();');
   assert.ok(iFila >= 0 && iPost > iFila, 'la fila aparece después del POST: vuelve a tardar');
   assert.ok(iReal > iPost && iLoad > iReal, 'el id real tiene que llegar antes del load');
@@ -143,9 +145,11 @@ test('«Nueva» tiene su animación al pasar el cursor (el ＋ gira), quieta con
 // ── Los tres puntos (decisión 6) ─────────────────────────────────────────────────
 
 test('cada fila tiene su «⋯» (el menú de la casa): Activar o Pausar, Duplicar y Eliminar', () => {
-  // «Copiar flujo» desde el 10/10/2026 (copiar y pegar flujos, lib/flujo-copia.ts).
-  assert.deepEqual(opcionesDeFila(true).map((o) => o.label), ['Pausar', 'Duplicar', 'Copiar flujo', 'Eliminar']);
-  assert.deepEqual(opcionesDeFila(false).map((o) => o.label), ['Activar', 'Duplicar', 'Copiar flujo', 'Eliminar']);
+  // «Copiar flujo» desde el 10/10/2026 (copiar y pegar flujos, lib/flujo-copia.ts); «Renombrar» desde la undécima
+  // tanda (punto 5: «Quiero que en los 3 puntos exista la opción de renombrar»), segunda. Rotura (11/10/2026,
+  // wf-undecima/w1-lista-ui/romper.mjs R3, `opcionesDeFila` sin «Renombrar»): base 10 / 0 → 9 / 1.
+  assert.deepEqual(opcionesDeFila(true).map((o) => o.label), ['Pausar', 'Renombrar', 'Duplicar', 'Copiar flujo', 'Eliminar']);
+  assert.deepEqual(opcionesDeFila(false).map((o) => o.label), ['Activar', 'Renombrar', 'Duplicar', 'Copiar flujo', 'Eliminar']);
   const html = dibujar([SECUENCIA]);
   assert.match(html, /aria-label="Opciones de Bienvenida"/);
   // Su columna PROPIA, al lado del botón que abre: no tapa el nombre (y un botón no va adentro de otro).
@@ -156,7 +160,7 @@ test('cada fila tiene su «⋯» (el menú de la casa): Activar o Pausar, Duplic
   const lista = LISTA();
   // Cuarta tanda, punto 13: el menú abre hacia AFUERA de la lista, sin tapar la tarjeta.
   assert.match(lista, /<Dropdown value="" placeholder="⋯" align="afuera" resetAfterSelect sinFlecha search=\{false\}/);
-  assert.match(lista, /options=\{opcionesDeFila\(j\.activa\)\}/);
+  assert.match(lista, /options=\{opcionesDeFila\(j\.activa, sinPublicarDe\(j, j\.id === selId && sinPublicar\)\)\}/);
 });
 
 test('las acciones: Activar/Pausar por la puerta de siempre, Duplicar por `duplicar`, Eliminar ARCHIVA con la confirmación de la casa', () => {

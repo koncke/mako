@@ -102,7 +102,8 @@ for (const [archivo, abre, cierra] of [
     const bloque = src.slice(ini, fin);
     // 4.009 caracteres el 09/10/2026 en `setSecuenciaPasos`, al juntarse el remitente de un email
     // (cuarta tanda, punto 16) y las partes de un mensaje (punto 15) en el mismo merge por id.
-    assert.ok(bloque.length < 5000, `el recorte mide ${bloque.length}: está mirando otra cosa`);
+    // ~5.650 el 11/10/2026 (undécima tanda): Publicar valida también los datos (`problemasDeTokens`).
+    assert.ok(bloque.length < 6_500, `el recorte mide ${bloque.length}: está mirando otra cosa`);
     const linea = bloque.split('\n').find((l) => /\bproveedor:/.test(l)) ?? '';
     assert.match(linea, /proveedorDelPaso\(/, `${archivo} decide el proveedor por su cuenta: ${linea.trim()}`);
   });

@@ -14,6 +14,26 @@
  */
 export const TOPE_NOMBRE_SECUENCIA = 40;
 
+/**
+ * El nombre como se guarda: sin espacios de más y con el tope de la lista (`TOPE_NOMBRE_SECUENCIA`).
+ * Vive acá (y no en lib/setting-secuencias.ts, que lo re-exporta) porque lo usan también la lista y el
+ * título del lienzo, que son del cliente y no pueden importar algo con `server-only`.
+ */
+export function nombreDeSecuencia(nombre: string): string {
+  return (nombre ?? '').trim().replace(/\s+/g, ' ').slice(0, TOPE_NOMBRE_SECUENCIA).trim();
+}
+
+/**
+ * LO QUE SE GUARDA AL RENOMBRAR (undécima tanda, punto 5: «Renombrar» en el «⋯»; y el título del lienzo).
+ * `escrito` como se guarda (`nombreDeSecuencia`), o `null` = no se escribe nada: quedó vacío, o es el mismo
+ * que ya tenía. El de antes se compara también normalizado: un nombre viejo de más de 40 o con un espacio
+ * doble no se reescribe porque alguien abrió el campo y apretó Enter sin tocarlo.
+ */
+export function nombreParaGuardar(previo: string, escrito: string): string | null {
+  const n = nombreDeSecuencia(escrito);
+  return !n || n === nombreDeSecuencia(previo) ? null : n;
+}
+
 // 'preparar' salió de la reunión del 31/07: es el objetivo que Mauricio declaró
 // como EL más importante del setter ("número dos, preparar para la llamada"),
 // por encima de cualificar. Sin él no era representable.
@@ -133,6 +153,17 @@ export type EscenarioSecuencia = {
    * un link sin completar o pase el tope por lead y por horario.
    */
   contestaSolo?: boolean;
+  // ── AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §7): lo del caso que viaja desde su tarjeta
+  //    (`extrasDeCaso`, lib/flujo-grafo.ts). NO se guardan en `estrategia.escenarios` (`escenariosDe` no los
+  //    lee): salen del flujo en cada respuesta. Los lee el redactor (`bloqueEscenario`). ──
+  /** Qué tiene que lograr ESTE caso. Se SUMA al objetivo de la automatización, no lo reemplaza. */
+  objetivo?: string;
+  /** Cómo contestó la persona en el ensayo: ejemplos de estilo para el redactor. */
+  ejemplos?: Array<{ lead: string; tu: string }>;
+  /** Contesta con una nota de voz ('propia' o un voiceId): el redactor escribe para ser dicho. */
+  audio?: { voz: string };
+  // ⛔ `hasta: 'una'` SE FUE (undécima tanda, punto 13: «El "Hasta" siempre es atado al objetivo»). La charla la
+  // cierra el objetivo ([FIN:BIEN] / [FIN:MAL] del redactor); medido el 11/10/2026: 0 casos en prod.
 };
 
 const escenariosDe = (raw: unknown): EscenarioSecuencia[] => {

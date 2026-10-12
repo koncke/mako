@@ -34,6 +34,9 @@ export const IA_FEATURE_LABEL: Record<string, string> = {
   'wa-advisor': 'Asesor de WhatsApp',
   'nutricion-generator': 'Generar nutrición',
   'post-llamada': 'Follow-up post-llamada',
+  // Editor de landings (lib/editor-landing/ia.ts): las dos features de lib/model-catalogo.ts.
+  'landing-editor': 'Editor de landings · generar',
+  'landing-editor-ia': 'Editor de landings · editar con IA',
   'ads-rename': 'Ordenar nombres de anuncios',
   // Voz / transcripción
   'stt-nota-voz': 'Transcripción de nota de voz',

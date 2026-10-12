@@ -181,3 +181,76 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   { id: 'crm-lead-estancado', titulo: 'Leads quietos en una etapa', sub: 'MaKo movió los que pasaron el plazo de su columna. UN mensaje por día con todos juntos.' },
   { id: 'crm-lead-quieto', titulo: 'Leads que pasaron el plazo de su etapa', sub: 'Siguen quietos más días de los que le pusiste a la etapa. UN mensaje por día con todos juntos.' },
 ];
+
+// ── 4. Web Push (MaKo Mobile): lo que le llega al TELÉFONO de una persona ────
+// La preferencia es de la PERSONA (`usuarios.perfil.notifPush`), igual que el pop-up y el
+// sonido: el teléfono es suyo, no del negocio. Lo que el NEGOCIO decide (si un aviso sale,
+// cada cuánto, si espera al resumen de la mañana) ya lo resolvió `emitirAviso` ANTES de
+// llegar al push (lib/avisos.ts): esto sólo contesta «¿esta persona lo quiere en el
+// teléfono?».
+//
+// ⚠️ SIN `server-only`, a propósito: lo leen la pantalla de Cuenta (/m/cuenta), el
+// despachador (lib/push.ts) y un test.
+//
+// ⚠️ Un aviso que NO está en esta lista igual se pushea si la persona tiene el push
+// prendido — la misma regla que AVISOS_WA_EN_VIVO arriba: lo que se pierde al olvidarse de
+// sumarlo es poder APAGARLO de a uno, no el aviso.
+
+/** Los dos que no son avisos del catálogo: las decisiones que MaKo deja esperando. */
+export const PUSH_DE_MAKO: AvisoWaDef[] = [
+  { id: 'mako-pendiente', titulo: 'MaKo te pide confirmar', sub: 'Una acción espera tu sí.' },
+  { id: 'mako-propuesta', titulo: 'MaKo dejó algo para revisar', sub: 'Un borrador espera tu revisión.' },
+];
+
+/** Lo que la pantalla ofrece prender y apagar de a uno, en el orden en que se muestra. */
+export const PUSH_TIPOS: AvisoWaDef[] = [...PUSH_DE_MAKO, ...AVISOS_WA_EN_VIVO];
+
+/**
+ * Lo que sólo les llega a los ADMIN del negocio, prendan lo que prendan. Confirmar una
+ * acción de MaKo es de quien puede confirmarla (`gating.rolMinimo`, lib/api-mako): a un
+ * closer le avisaría de algo que su pantalla no le deja tocar.
+ */
+// 'mako-propuesta' también: lo que MaKo deja para revisar lo confirma un admin (y un contacto
+// propuesto trae datos de una persona). Los AVISOS los manda emitirAviso con soloAdmins: en
+// escritorio son de admin (adeudos, cuotas con montos, reportes), y el teléfono no los abre más.
+export const PUSH_SOLO_ADMINS: ReadonlySet<string> = new Set(['mako-pendiente', 'mako-propuesta']);
+
+/** `activo` = el interruptor de toda la persona; `items[tipo] === false` apaga uno. */
+export type NotifPush = { activo: boolean; items: Record<string, boolean> };
+
+/** El rol con el que se decide el default. Ausente = no se sabe: se trata como admin (abajo). */
+export type RolPush = 'admin' | 'closer' | 'setter';
+
+/**
+ * El rol EFECTIVO de una fila de `usuarios`, con la MISMA regla que `getRolWsEfectivo`
+ * (lib/workspace.ts): admin global → admin; si no, `rol_ws`, y sin `rol_ws` → admin (las
+ * filas de antes del rol por workspace eran todas del dueño de su cuenta).
+ */
+export function rolPushDeFila(f: { rol?: string | null; rol_ws?: string | null }): RolPush {
+  if (f.rol === 'admin') return 'admin';
+  return f.rol_ws === 'closer' || f.rol_ws === 'setter' ? f.rol_ws : 'admin';
+}
+
+/**
+ * Normaliza lo que venga de la base (jsonb libre). Sin nada guardado, el DEFAULT es por rol
+ * (decisión de diseño de MaKo Mobile): el admin lo tiene prendido —es a quien le llegan hoy
+ * los avisos al grupo—; closer y setter lo prenden ellos, porque la mayoría de los avisos del
+ * negocio no son de su trabajo.
+ */
+export function normalizarPush(raw: unknown, rol: RolPush): NotifPush {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Partial<NotifPush>;
+  const items: Record<string, boolean> = {};
+  const src = (o.items && typeof o.items === 'object' ? o.items : {}) as Record<string, unknown>;
+  // Se conservan TODOS los que vinieron como booleano (no sólo los ofrecidos): un aviso que
+  // hoy no está en PUSH_TIPOS y la persona apagó cuando sí estaba no vuelve a sonar solo.
+  for (const [k, v] of Object.entries(src)) if (typeof v === 'boolean') items[k] = v;
+  return {
+    activo: typeof o.activo === 'boolean' ? o.activo : rol === 'admin',
+    items,
+  };
+}
+
+/** ¿Esta persona quiere este push? El maestro manda; abajo, cada uno puede apagarse. */
+export function quierePush(prefs: NotifPush, tipo: string): boolean {
+  return prefs.activo && prefs.items[tipo] !== false;
+}

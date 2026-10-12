@@ -1,0 +1,201 @@
+// =============================================================================
+// MaKo Mobile — el shell de /m: lo que se rompe sin dar error
+// =============================================================================
+//   · la escala móvil forzada en [data-m] tiene los MISMOS valores que el
+//     @media (max-width: 820px) de app/globals.css (si se separan, un iPad ve
+//     otra app que un teléfono);
+//   · app/m/m.css no trae hex, ni 100vh, ni `transition: all`, y toda regla
+//     tiene alcance (Next deja cargada la hoja después de salir de /m);
+//   · el cromo de escritorio se apaga en /m (esVistaSinChrome) sin volverlo
+//     «público», y el título de la pestaña usa los nombres de la barra;
+//   · el manifest abre /inicio con `id: '/'`;
+//   · la cabecera por defecto y la física de los gestos (lógica pura);
+//   · nadie en /m navega con next/link ni pregunta `startsWith('/m')`.
+//
+// Verificado ROMPIÉNDOLO (11/10/2026):
+//   · `--fs-sect: 21px` en el bloque [data-m]: 1 fallo («la escala…»).
+//   · un `color: #fff` en app/m/m.css: 1 fallo («m.css sin hex…»); una regla
+//     `h4 { … }` sin alcance: 1 fallo (el mismo test).
+//   · `|| esRutaMovil(p)` quitado de esVistaSinChrome: 1 fallo.
+//   · `start_url: '/'` en el manifest: 1 fallo.
+//   · la cabecera de /m/crm/12 volviendo a «Today»: 1 fallo.
+//   · `UMBRAL_SWIPE = 0.5`: 1 fallo (la física del swipe).
+// =============================================================================
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { esVistaSinChrome, isPublicLandingPath } from '../app/_components/PublicRouteGate';
+import { tituloDe } from '../lib/titulo-tab';
+import manifest from '../app/manifest';
+import { cabeceraPorRuta, llevaBarra, profundidad } from '../app/m/_ui/cabecera';
+import {
+  rubberband, decidirSwipe, destinoDelSheet, velocidadDe, ejeDelGesto, distanciaDePull,
+} from '../app/m/_ui/gestos';
+
+const leer = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
+const sinComentariosCss = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '');
+const sinComentariosTs = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+/** Parte una lista de selectores por las comas de PRIMER nivel (no las de adentro de :is()). */
+function partirPorComas(s: string): string[] {
+  const out: string[] = [];
+  let prof = 0;
+  let actual = '';
+  for (const ch of s) {
+    if (ch === '(') prof += 1;
+    if (ch === ')') prof -= 1;
+    if (ch === ',' && prof === 0) { out.push(actual); actual = ''; } else actual += ch;
+  }
+  out.push(actual);
+  return out;
+}
+
+function vars(bloque: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of bloque.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) out[m[1]] = m[2].trim();
+  return out;
+}
+
+test('la escala de [data-m] es la misma que la del @media del teléfono', () => {
+  const css = sinComentariosCss(leer('app/globals.css'));
+  const media = css.match(/@media \(max-width: 820px\) \{\s*:root \{([^}]*)\}/);
+  const dataM = css.match(/\n\[data-m\] \{([^}]*)\}/);
+  assert.ok(media, 'no encontré el @media (max-width: 820px) de la escala');
+  assert.ok(dataM, 'no encontré el bloque [data-m] de globals.css');
+  const a = vars(media![1]);
+  const b = vars(dataM![1]);
+  assert.ok(Object.keys(a).length >= 8, 'el @media tiene menos variables de las esperadas');
+  assert.deepEqual(b, a);
+});
+
+test('los tokens del shell existen UNA vez en :root', () => {
+  const css = sinComentariosCss(leer('app/globals.css'));
+  for (const t of ['--ease-out', '--ease-in-out', '--ease-drawer', '--dur-press', '--dur-pop', '--dur-sheet',
+    '--dur-sheet-out', '--m-header', '--m-tabbar', '--m-gutter', '--scrim']) {
+    const n = css.split(new RegExp(`\\n\\s*${t}\\s*:`)).length - 1;
+    assert.equal(n, 1, `${t} declarado ${n} veces`);
+  }
+});
+
+test('m.css sin hex, sin 100vh, sin transition: all, y todo con alcance', () => {
+  const css = sinComentariosCss(leer('app/m/m.css'));
+  assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b/, 'un hex en m.css: sólo var(--token)');
+  assert.doesNotMatch(css, /100vh/, '100vh en m.css: va 100dvh');
+  assert.doesNotMatch(css, /transition\s*:\s*all/);
+  // Cada selector de primer nivel tiene alcance de /m.
+  const sinAt = css
+    .replace(/@keyframes[^{]*\{(?:[^{}]*\{[^}]*\})*\s*\}/g, '')
+    .replace(/@(media|starting-style)[^{]*\{/g, '')
+    .replace(/\{[^}]*\}/g, '{}');
+  const selectores = sinAt.split('{}').map((s) => s.trim()).filter(Boolean)
+    .flatMap((s) => partirPorComas(s).map((x) => x.trim().replace(/^\}+\s*/, '')))
+    .filter(Boolean);
+  const conAlcance = /^(\[data-m\]|\.m-|:root:has\(#m-root\)|:root:has\(\.m-sheet-capa\)|\[data-tema="oscuro"\] \.m-)/;
+  const sueltos = selectores.filter((s) => !conAlcance.test(s));
+  assert.deepEqual(sueltos, [], 'reglas sin alcance de /m');
+});
+
+test('el viewport de /m: cover, sin bloquear el zoom, themeColor = --sidebar', () => {
+  const src = sinComentariosTs(leer('app/m/layout.tsx'));
+  assert.match(src, /viewportFit:\s*'cover'/);
+  assert.match(src, /interactiveWidget:\s*'resizes-content'/);
+  assert.doesNotMatch(src, /maximumScale|userScalable/);
+  const sidebar = leer('app/globals.css').match(/\n\s*--sidebar:\s*(#[0-9A-Fa-f]{6});/)![1];
+  assert.match(src, new RegExp(`themeColor:\\s*'${sidebar}'`, 'i'));
+});
+
+test('/m apaga el cromo de escritorio sin volverse público', () => {
+  for (const p of ['/m', '/m/hoy', '/m/crm/3']) {
+    assert.equal(esVistaSinChrome(p), true, p);
+    assert.equal(isPublicLandingPath(p), false, p);
+  }
+  assert.equal(esVistaSinChrome('/mako'), false);
+  assert.equal(esVistaSinChrome('/marketing'), false);
+});
+
+test('el título de la pestaña en /m usa los nombres de la barra', () => {
+  assert.equal(tituloDe('/m/hoy'), 'MaKo - Today');
+  assert.equal(tituloDe('/m/inbox'), 'MaKo - Inbox');
+  assert.equal(tituloDe('/m/mako'), 'MaKo');
+  assert.equal(tituloDe('/m/crm/12'), 'MaKo - CRM');
+  assert.equal(tituloDe('/m/cuenta'), 'MaKo - Perfil');
+  assert.equal(tituloDe('/m'), 'MaKo');
+});
+
+test('el manifest abre el repartidor y conserva la identidad', () => {
+  const m = manifest();
+  assert.equal(m.id, '/');
+  assert.equal(m.start_url, '/inicio');
+  assert.equal(m.scope, '/');
+  assert.equal(m.display, 'standalone');
+  assert.ok((m.icons ?? []).length >= 3, 'se perdieron los íconos');
+  assert.deepEqual((m.shortcuts ?? []).map((s) => [s.name, s.url]),
+    [['Today', '/m/hoy'], ['Inbox', '/m/inbox'], ['MaKo', '/m/mako']]);
+});
+
+test('la cabecera por defecto: título en la raíz, volver fijo en la subpantalla', () => {
+  assert.deepEqual(cabeceraPorRuta('/m/hoy'), { titulo: 'Today', padre: null });
+  assert.deepEqual(cabeceraPorRuta('/m/crm'), { titulo: 'CRM', padre: null });
+  assert.deepEqual(cabeceraPorRuta('/m/crm/12'), { titulo: '', padre: { href: '/m/crm', label: 'CRM' } });
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), { titulo: 'Perfil', padre: { href: '/m/hoy', label: 'Today' } });
+  assert.deepEqual(cabeceraPorRuta('/m/raro'), { titulo: '', padre: { href: '/m/hoy', label: 'Today' } });
+  assert.equal(llevaBarra('/m/configurar'), false);
+  assert.equal(llevaBarra('/m/hoy'), true);
+  assert.ok(profundidad('/m/crm/12') > profundidad('/m/crm'));
+});
+
+test('la física de los gestos', () => {
+  // Rubber-band: menos que el dedo, conserva el signo, 0 sin sobrante.
+  assert.ok(rubberband(100, 1000) < 100 && rubberband(100, 1000) > 40);
+  assert.ok(rubberband(-100, 1000) < 0);
+  assert.equal(rubberband(0, 1000), 0);
+  assert.equal(distanciaDePull(-20, 800), 0);
+  // Eje: nada antes de 10 px, el vertical gana los empates.
+  assert.equal(ejeDelGesto(5, 3), null);
+  assert.equal(ejeDelGesto(20, 4), 'x');
+  assert.equal(ejeDelGesto(12, 12), 'y');
+  // Swipe: 35% del ancho, o un flick EN el mismo sentido.
+  assert.equal(decidirSwipe(36, 100, 0), 'derecha');
+  assert.equal(decidirSwipe(30, 100, 0), null);
+  assert.equal(decidirSwipe(20, 100, 0.2), 'derecha');
+  assert.equal(decidirSwipe(60, 100, -0.2), null);
+  assert.equal(decidirSwipe(-40, 100, 0), 'izquierda');
+  // Velocidad: con una muestra no se inventa un flick.
+  assert.equal(velocidadDe([{ v: 0, t: 0 }]), 0);
+  assert.equal(velocidadDe([{ v: 0, t: 0 }, { v: 50, t: 100 }]), 0.5);
+  // Sheet: un flick hacia abajo desde «medio» cierra; quieto en alto, queda.
+  const alturas = { medio: 400, alto: 800 };
+  assert.equal(destinoDelSheet({ visible: 380, velocidad: 0.5, alturas, desde: 'medio' }), 'cerrado');
+  assert.equal(destinoDelSheet({ visible: 790, velocidad: 0, alturas, desde: 'alto' }), 'alto');
+  assert.equal(destinoDelSheet({ visible: 420, velocidad: -0.5, alturas, desde: 'medio' }), 'alto');
+  assert.equal(destinoDelSheet({ visible: 700, velocidad: 0.05, alturas, desde: 'alto' }), 'alto');
+  assert.equal(destinoDelSheet({ visible: 500, velocidad: 0.05, alturas, desde: 'alto' }), 'medio');
+});
+
+function archivos(dir: string): string[] {
+  const out: string[] = [];
+  for (const n of readdirSync(join(__dirname, '..', dir))) {
+    const rel = `${dir}/${n}`;
+    if (statSync(join(__dirname, '..', rel)).isDirectory()) out.push(...archivos(rel));
+    else if (/\.(ts|tsx)$/.test(n)) out.push(rel);
+  }
+  return out;
+}
+
+test('nadie en /m navega con next/link ni pregunta startsWith(\'/m\')', () => {
+  const propios = [
+    ...archivos('app/m'),
+    'lib/movil-rutas.ts', 'lib/movil-guard.ts', 'lib/movil-dispositivo.ts', 'lib/movil-instalar.ts', 'lib/haptico.ts',
+    'app/_components/PublicRouteGate.tsx', 'app/_components/NotificationsProvider.tsx', 'lib/titulo-tab.ts',
+  ];
+  for (const f of propios) {
+    const src = sinComentariosTs(leer(f));
+    assert.doesNotMatch(src, /startsWith\(\s*['"]\/m['"]\s*\)/, `${f}: startsWith('/m') atrapa /mako y /m.js`);
+    if (f.startsWith('app/m/')) {
+      assert.doesNotMatch(src, /from\s+['"]next\/link['"]/, `${f}: Link va de @/app/_ui/Link`);
+      assert.doesNotMatch(src, /import\s*\{[^}]*\buseRouter\b[^}]*\}\s*from\s*['"]next\/navigation['"]/, `${f}: useRouter va de @/app/_ui/Link`);
+    }
+  }
+});

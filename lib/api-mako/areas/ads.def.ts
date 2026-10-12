@@ -1,9 +1,13 @@
 // =============================================================================
 // api-mako/areas/ads.def — las operaciones del área `ads` (definiciones)
 // =============================================================================
-// Dos tabs en un área: Ads Manager (el árbol de Meta en vivo, rendimiento por
-// anuncio, escrituras a Meta) y Ads Analyst (guiones analizados, vocabulario de
-// ángulos y avatares). SIN server-only y sin importar valores de módulos que lo
+// Dos partes en un área: Ads Manager (el árbol de Meta en vivo, rendimiento por
+// anuncio, escrituras a Meta) y los guiones (guiones analizados, vocabulario de
+// ángulos y avatares), que eran la tab Ads Analyst: desde el 11/10/2026 su análisis
+// es la hoja «Ads Analyst» del Dashboard y sus tareas viven en Ads Writer →
+// «Analizar guion». La key de gating sigue siendo `script` (está escrita en la base
+// y en las capas: no se renombra con la pantalla).
+// SIN server-only y sin importar valores de módulos que lo
 // tengan: esto lo importan los tests y el generador de la referencia. Los cuerpos
 // van en ads.run.ts, cruzados por id. Español neutro (lo lee el cliente).
 //
@@ -50,7 +54,7 @@ const SIN_HTTP = ['whatsapp', 'app'] as const;
 
 /** Lecturas del Ads Manager (la page exige admin del workspace y la capa con la tab). */
 const G_MANAGER: Gating = { tab: 'ads-manager', integracion: 'meta', rolMinimo: 'admin' };
-/** Lecturas y escrituras de Ads Analyst (nav key `script`). */
+/** Lecturas y escrituras de los guiones (nav key `script`, la de la ex tab Ads Analyst). */
 const G_ANALYST: Gating = { tab: 'script', rolMinimo: 'admin' };
 /** Lo que mueve plata o crea en la cuenta de Meta. */
 const G_META_ADMIN: Gating = { tab: 'ads-manager', integracion: 'meta', rolMinimo: 'admin' };
@@ -349,7 +353,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_guiones_valorados', area: 'ads', tipo: 'lectura',
     titulo: 'Guiones nuevos ya valorados',
-    descripcion: 'El historial de guiones nuevos valorados en Ads Analyst («Analiza un guion nuevo»), más recientes primero: id, etiqueta, ángulo, tipo de gancho, veredicto, rangos estimados de hook y retención y un extracto del guion. Úsala para «¿qué dijo MaKo del guion que probé ayer?» o para conseguir el id antes de proponer_borrar_guion_valorado.',
+    descripcion: 'El historial de guiones nuevos valorados en Ads Writer («Analizar guion»), más recientes primero: id, etiqueta, ángulo, tipo de gancho, veredicto, rangos estimados de hook y retención y un extracto del guion. Úsala para «¿qué dijo MaKo del guion que probé ayer?» o para conseguir el id antes de proponer_borrar_guion_valorado.',
     parametros: [
       { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'cuántos traer (default 20).' },
     ],

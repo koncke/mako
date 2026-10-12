@@ -1757,4 +1757,42 @@ export const BITACORA: Hito[] = [
       'tests/crm-filtro-ads.test.ts — dos roturas, pass 20 / fail 1',
     ],
   },
+  {
+    fecha: '11 oct', hora: '15:10', chat: 'Offer', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '«Producto» pasa a llamarse «Funnel» en todos lados',
+    pedido: 'Las ofertas deben estar atados a los productos del CRM... Y quiero cambiar el concepto "Producto" por "Funnel" en todos lados... Porque un mismo funnel puede tener varias "ofertas"... Configuralo de esa manera, para que yo pueda seleccionar en que funnel analizar o crear una nueva oferta. Mandale como tarea al CRM que lo cambie en todos lados.',
+    puntos: [
+      'Lo escribió en el chat de la tab Offer, que se lo pasó al chat CRM.',
+      'En el CRM ese «producto» ya era un funnel por dentro: la casa del lead es leads.funnel_id.',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '15:55', chat: 'CRM', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El catálogo sigue siendo «producto»: funnel > oferta > productos',
+    pedido: '1. Es así: funnel > oferta > productos...\n2. Si, arrancalo ahora, ya se reestablecieron los tokens',
+    puntos: [
+      'Contestó las dos preguntas: el catálogo con precio (lo que va dentro de una oferta) no se renombra, y el cambio se hace ya.',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '16:26', chat: 'CRM', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Todo lo que nombraba un funnel como «producto» o «embudo» dice «funnel»',
+    puntos: [
+      'El tablero, su selector, la ficha, importar, la bandeja de revisión, las campañas y el CRM del teléfono.',
+      'Fuera del CRM, donde nombra al mismo funnel: Agregar al CRM de WhatsApp, Ads Manager, el paso 2 del Pixel, el CRON y las condiciones de Automations, el paso «⚡ Acción», el aviso del lead quieto.',
+      'Queda «producto»: el catálogo con precio, la entrega de Customer Success y los cursos. Y las claves, tablas y operaciones de la API no cambian.',
+      'Pendiente: las descripciones de la API de MaKo, la dimensión «Producto» de los gráficos y los prompts.',
+    ],
+    commits: [{ sha: '53ba6450', msg: 'CRM: lo que la pantalla llamaba «producto» (y «embudo») pasa a llamarse «funnel»', lineas: 436, archivos: 63 }],
+    archivos: [
+      'app/crm/CrmToolbar.tsx — el selector y el alta de un funnel',
+      'app/crm/EtapasModal.tsx — eliminar y renombrar un funnel',
+      'lib/lead-funnel.ts — los mensajes de agregar, quitar y mover',
+      'lib/flujo-conversacion.ts — el paso «Funnels» del CRON',
+      'tests/ — 13 tests que afirmaban el texto viejo',
+    ],
+  },
 ];

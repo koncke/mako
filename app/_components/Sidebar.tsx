@@ -429,17 +429,25 @@ export function Sidebar() {
   // Antes `adminOnly` sólo lo leía el menú de la foto (USER_NAV): puesto en una
   // familia no escondía nada. Es cosmético; el cierre real es el guard de la page.
   const rolCliente = rolWs === 'closer' || rolWs === 'setter';
+  //  · SUPER ADMIN — `adminOnly` (las tabs «pronto» de Sales Machine): sólo en la barra del super admin, no
+  //           mirando como cliente. Va acá y no en cada familia: `puedeVer` es por donde pasan la barra y el buscador.
   const puedeVer = (it: NavItem) =>
-    (!it.adminOnly || rol === 'admin')
+    (!it.adminOnly || adminShell)
     && (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true)
     && tabEnCapa(it.key, capa || undefined);
 
   const familiasProducto = FAMILIAS
-    .map((f) => ({
-      ...f,
-      bloques: f.bloques.map((b) => b.filter(puedeVer)).filter((b) => b.length > 0),
-      grupos: (f.grupos ?? []).map((g) => ({ ...g, items: g.items.filter(puedeVer) })).filter((g) => g.items.length > 0),
-    }))
+    .map((f) => {
+      const bloques = f.bloques.map((b) => b.filter(puedeVer)).filter((b) => b.length > 0);
+      const grupos = (f.grupos ?? []).map((g) => ({ ...g, items: g.items.filter(puedeVer) })).filter((g) => g.items.length > 0);
+      // `planaParaCliente` (Content Machine, 12/10/2026): fuera de la barra del super admin, lo que quedó en los
+      // desplegables va suelto, en un bloque más. El super admin los sigue viendo como desplegables.
+      if (f.planaParaCliente && !adminShell) {
+        const sueltos = grupos.flatMap((g) => g.items);
+        return { ...f, bloques: sueltos.length ? [...bloques, sueltos] : bloques, grupos: [] };
+      }
+      return { ...f, bloques, grupos };
+    })
     .filter((f) => f.bloques.length > 0 || f.grupos.length > 0);
 
   /**

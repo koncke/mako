@@ -20,7 +20,7 @@ import { listarFunnels, getFunnelDe, getFunnelDefault, productoDeFunnel } from '
 import { nombreVisible } from './lead-funnel-reglas';
 import { entregasDeProductos } from './entrega-servicio';
 import type { EntregaConfig } from './servicio-etapas';
-import { parseEstrategia, TOPE_NOMBRE_SECUENCIA, type Estrategia } from './setting-estrategia';
+import { parseEstrategia, nombreDeSecuencia, type Estrategia } from './setting-estrategia';
 import { agregarMetricas, serieDiaria, METRICAS_CERO, type FilaEnvio, type FilaInsc, type MetricasSecuencia, type PuntoSerie } from './setting-metricas';
 import { getContactoReportes } from './perfil';
 import { getInstanciaRow } from './evolution';
@@ -253,22 +253,32 @@ export async function setCronSecuencia(secuenciaId: number, cron: unknown): Prom
 }
 
 /**
- * El nombre como se guarda: sin espacios de más y con el tope de la lista (`TOPE_NOMBRE_SECUENCIA`,
- * 40). Lo usan los dos que escriben un nombre acá; la API de MaKo lo declara en su `max`.
+ * El nombre como se guarda (sin espacios de más, tope 40). Se mudó a lib/setting-estrategia.ts en la undécima
+ * tanda: lo usan también la lista y el título del lienzo, que son del cliente. Sigue saliendo de acá para los
+ * que ya lo importaban (app/api/chat-agent/secuencias, lib/flujo-ia-crear.ts).
  */
-export function nombreDeSecuencia(nombre: string): string {
-  return (nombre ?? '').trim().replace(/\s+/g, ' ').slice(0, TOPE_NOMBRE_SECUENCIA).trim();
-}
+export { nombreDeSecuencia };
 
+/** El renombre no tocó ninguna fila: el id no es de este negocio, o la automatización está archivada. */
+export class SecuenciaNoExisteError extends Error {}
+
+/**
+ * RENOMBRA una automatización viva de ESTE negocio. ⚠️ Mira cuántas filas tocó (undécima tanda, punto 5): un id
+ * ajeno o archivado contestaba «ok» sin cambiar nada, y «Renombrar» del «⋯» lo mostraba como guardado.
+ * Vacío → `TriggerInvalidoError` (400); ninguna fila → `SecuenciaNoExisteError` (404).
+ */
 export async function renombrarSecuencia(secuenciaId: number, nombre: string): Promise<void> {
   const n = nombreDeSecuencia(nombre);
-  if (!n) throw new Error('El nombre no puede quedar vacío.');
+  if (!n) throw new TriggerInvalidoError('El nombre no puede quedar vacío.');
   const supabase = await getTenantDb();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('nutricion_secuencias')
     .update({ nombre: n, updated_at: new Date().toISOString() })
-    .eq('id', secuenciaId);
+    .eq('id', secuenciaId)
+    .is('archivada_at', null)
+    .select('id');
   if (error) throw new Error(`renombrarSecuencia: ${error.message}`);
+  if (!data?.length) throw new SecuenciaNoExisteError('No existe');
 }
 
 /**
@@ -396,10 +406,10 @@ export async function setDisparadorEtapa(secuenciaId: number, etapa: string | re
     if (funnelId == null) {
       // «Todos los productos»: la etapa tiene que existir en ALGUNO, o es una key muerta.
       const existe = productos.some((pr) => pr.etapas.some((e) => e.value === key));
-      if (!existe) throw new Error(`La etapa «${key}» no existe en ninguno de tus productos.`);
+      if (!existe) throw new Error(`La etapa «${key}» no existe en ninguno de tus funnels.`);
     } else {
       const pr = productos.find((x) => x.funnelId === funnelId);
-      if (!pr) throw new Error('Ese producto no existe o está archivado.');
+      if (!pr) throw new Error('Ese funnel no existe o está archivado.');
       if (!pr.etapas.some((e) => e.value === key)) {
         throw new Error(`«${key}» no es una etapa de ${pr.nombre}: elige una de las suyas.`);
       }
@@ -531,7 +541,7 @@ export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigge
   const pedidas: string | string[] = etapas.length ? etapas : String(c.etapa ?? '');
   if (tipo === TRIGGER_ETAPA) {
     const fid = c.funnel_id == null ? null : Number(c.funnel_id);
-    if (fid != null && !Number.isFinite(fid)) throw new TriggerInvalidoError('Ese producto no existe.');
+    if (fid != null && !Number.isFinite(fid)) throw new TriggerInvalidoError('Ese funnel no existe.');
     try { return await setDisparadorEtapa(secuenciaId, pedidas, fid); }
     catch (e) { throw new TriggerInvalidoError(e instanceof Error ? e.message : String(e)); }
   }
@@ -555,7 +565,7 @@ export async function setTriggerSecuencia(secuenciaId: number, c: CambioDeTrigge
   // `null` explícito = «todos», que sí es una elección.
   const tocaEmbudo = c.funnel_id !== undefined;
   const funnelId = c.funnel_id == null ? null : Number(c.funnel_id);
-  if (funnelId != null && (!Number.isFinite(funnelId) || funnelId <= 0)) throw new TriggerInvalidoError('Ese producto no existe.');
+  if (funnelId != null && (!Number.isFinite(funnelId) || funnelId <= 0)) throw new TriggerInvalidoError('Ese funnel no existe.');
   const supabase = await getTenantDb();
   let etiquetaId: number | null = null;
   if (tipo === TRIGGER_ETIQUETA) {

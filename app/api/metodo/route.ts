@@ -10,7 +10,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { eliminarCredencial, estadoCampo, guardarCredencial } from '@/lib/credenciales';
+import { eliminarCredencial, estadoCampo, guardarCredencial, RemitenteNoPropioError } from '@/lib/credenciales';
 import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { ENVS_METODO, SERVICIOS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
 
@@ -67,10 +67,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: 'servicio inválido' }, { status: 400 });
       }
       const valores = body.valores && typeof body.valores === 'object' ? body.valores : {};
-      const envsDelServicio = new Set(servicio.campos.map((c) => c.env));
+      // Sin los DERIVADOS (lib/metodo-catalogo.ts → `derivado`): el id de la cuenta de Stripe o de
+      // Mercado Pago lo escribe sólo el descubrimiento (lib/cobros-conexion.ts). Tipeado aquí,
+      // reclamaba el de otro negocio — es la misma whitelist que la de /api/integraciones/credencial,
+      // y cerrar una deja la otra abierta.
+      const envsDelServicio = new Set(servicio.campos.filter((c) => !c.derivado).map((c) => c.env));
       let guardadas = 0;
       for (const [env, valor] of Object.entries(valores)) {
-        if (!envsDelServicio.has(env)) continue; // whitelist estricta
+        if (!envsDelServicio.has(env)) continue; // whitelist estricta (y sin derivados)
         const v = typeof valor === 'string' ? valor.trim() : '';
         if (!v) continue;
         // Sin excepciones para el dueño: guardar SIEMPRE escribe en la base, y la
@@ -78,7 +82,13 @@ export async function POST(req: NextRequest) {
         // La sesión legacy trae el email de una cookie no firmada (editable) →
         // no lo usamos como atribución; guardamos el sub en su lugar.
         const autor = sesion.legacy ? sesion.sub : (sesion.email || sesion.sub);
-        await guardarCredencial(ws, env, v, servicio.key, autor);
+        try {
+          await guardarCredencial(ws, env, v, servicio.key, autor);
+        } catch (e) {
+          // El remitente de MaKo como `RESEND_FROM` (undécima tanda): es un dato del usuario, no un 500.
+          if (e instanceof RemitenteNoPropioError) return NextResponse.json({ ok: false, error: e.message }, { status: 400 });
+          throw e;
+        }
         guardadas++;
       }
       return NextResponse.json({ ok: true, guardadas, servicios: await estadoServicios(ws) });

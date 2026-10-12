@@ -24,7 +24,8 @@
 // está «sucio» (`onSucio`): el panel anclado de Automations no se cierra con un clic afuera.
 //
 // ⚠️ EL HUSO ES EL DEL NEGOCIO (`mako.timezone`), no uno del horario: lo lee el motor para todo. Por eso
-// se guarda con su propia acción (`saveZonaHorarioAction`).
+// se guarda con su propia acción (`saveZonaHorarioAction`) y se ve aunque el horario esté apagado. Sin elegir,
+// es la que se detectó de la ubicación de su equipo (app/_components/zona-actions.ts).
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown } from '@/app/components/Dropdown';
@@ -63,10 +64,11 @@ function Interruptor({ on, disabled, onCambio, etiqueta }: { on: boolean; disabl
 
 /**
  * Las dos props son OPCIONALES y Configuraciones › Horario no pasa ninguna: ahí el panel es la pantalla.
- * Las usa quien lo monta ADENTRO de otra cosa (el panel anclado de Automations, app/automations/HorarioLista.tsx):
- *   · `onGuardado` — justo después de guardar bien, con el horario guardado: el botón de afuera se pone
- *     al día sin esperar a que se cierre el panel;
- *   · `onSucio` — si hay un guardado pendiente: el panel anclado no se cierra con un clic afuera mientras tanto.
+ * Las usa quien lo monta ADENTRO de otra cosa (el modal «Configuraciones» de Automations,
+ * app/automations/ConfiguracionesBoton.tsx, que reemplazó al panel anclado del horario en la décima tanda):
+ *   · `onGuardado` — justo después de guardar bien, con el horario guardado (lo usaba el botón del horario
+ *     para ponerse al día; el de Configuraciones no muestra el horario y no lo pasa);
+ *   · `onSucio` — si hay un guardado pendiente: el modal no se cierra mientras tanto.
  */
 export function HorarioEnvioPanel({ onGuardado, onSucio }: {
   onGuardado?: (h: HorarioEnvio) => void;
@@ -138,19 +140,26 @@ export function HorarioEnvioPanel({ onGuardado, onSucio }: {
         <Interruptor on={h.activo} disabled={off} etiqueta={h.activo ? 'Apagar el horario de oficina' : 'Prender el horario de oficina'} onCambio={(v) => cambiar({ activo: v })} />
       </div>
 
-      {h.activo && (
-        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Las horas Y el huso en la MISMA fila (10/10/2026). */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: SANS, fontSize: 14, color: 'var(--ink)' }}>
-            <span>De</span>
-            <Dropdown value={String(h.desde)} options={DESDE} width={104} ariaLabel="Desde" disabled={off} onChange={(v) => cambiar({ desde: Number(v) })} />
-            <span>a</span>
-            <Dropdown value={String(h.hasta)} options={HASTA} width={104} ariaLabel="Hasta" disabled={off} onChange={(v) => cambiar({ hasta: Number(v) })} />
-            <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-              <Dropdown value={zona} options={opcionesDeZona(zona)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
-            </div>
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Las horas Y el huso en la MISMA fila (10/10/2026). El huso se ve también con el horario APAGADO
+            (decisión 4 de la décima, 11/10/2026): es la zona de TODO el negocio, no una del horario. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: SANS, fontSize: 14, color: 'var(--ink)' }}>
+          {h.activo && (
+            <>
+              <span>De</span>
+              <Dropdown value={String(h.desde)} options={DESDE} width={104} ariaLabel="Desde" disabled={off} onChange={(v) => cambiar({ desde: Number(v) })} />
+              <span>a</span>
+              <Dropdown value={String(h.hasta)} options={HASTA} width={104} ariaLabel="Hasta" disabled={off} onChange={(v) => cambiar({ hasta: Number(v) })} />
+            </>
+          )}
+          <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+            <Dropdown value={zona} options={opcionesDeZona(zona)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
           </div>
-          <div role="group" aria-label="Días" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        </div>
+        {/* Los días CENTRADOS en el recuadro (décima tanda de Automations, general 3, 11/10/2026: «En "Horarios
+            de Oficina" pon los días centrado en el recuadro, no alineado a la izquierda»). */}
+        {h.activo && (
+          <div role="group" aria-label="Días" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
             {DIAS_PANTALLA.map((d) => {
               const on = h.dias.includes(d.dia);
               return (
@@ -164,8 +173,8 @@ export function HorarioEnvioPanel({ onGuardado, onSucio }: {
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
       {aviso && <div role="alert" style={{ marginTop: 12, fontSize: 13, color: 'var(--bad)', fontFamily: SANS }}>{aviso}</div>}
     </div>
   );

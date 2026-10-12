@@ -215,6 +215,11 @@ export async function descartarBorradorSetter(leadId: number): Promise<number> {
  */
 export async function guardarBorradorSetter(input: {
   leadId: number; telefono: string; texto: string; secuenciaId: number; linea: string | null;
+  /**
+   * AI Step v2 (décima tanda, §5): la respuesta es una NOTA DE VOZ (`setting_audios.id`, con `origen: 'ai_step'`).
+   * `texto` pasa a ser lo que va DEBAJO del audio (los links): `enviarBorrador` manda el audio y después el pie.
+   */
+  audioId?: number | null;
 }): Promise<{ ok: true; id: number; reemplazo: boolean } | { ok: false; error: string }> {
   const supabase = await getTenantDb();
   const telefono = (input.telefono || '').replace(/\D/g, '');
@@ -222,6 +227,7 @@ export async function guardarBorradorSetter(input: {
     lead_id: input.leadId, telefono, chat_jid: null, texto: input.texto,
     origen: 'setter-asistido', secuencia_id: input.secuenciaId, paso: null, inscripcion_id: null,
     instance_name: input.linea, estado: 'pendiente',
+    ...(Number(input.audioId) > 0 ? { audio_id: Number(input.audioId) } : {}),
   };
   let reemplazo = false;
   for (let intento = 0; intento < 2; intento++) {

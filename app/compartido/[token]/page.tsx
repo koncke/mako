@@ -12,10 +12,12 @@ import type { Metadata } from 'next';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { listarAssetsDeWorkspace } from '@/lib/branding';
-import { resolverToken, filtrarPorShare, registrarVisita } from '@/lib/shares';
+import { resolverToken, filtrarPorShare, registrarVisita, RECURSO_INFORME } from '@/lib/shares';
 import Galeria from './Galeria';
 import CursoCompartido from './CursoCompartido';
 import AnalisisCompartido from './AnalisisCompartido';
+import InformeCompartido from './InformeCompartido';
+import { informeDeAcceso } from './informe-compartido';
 // ⚠️ La tab va PEREZOSA (su propio chunk): importada directo, el catálogo entero viajaba a TODO
 //    link de esta ruta, también al de UN curso con lo que el super admin ocultó. Ver el archivo.
 import PortalCompartido from './PortalCompartidoPerezoso';
@@ -86,6 +88,8 @@ function NoAbrio() {
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const { token } = await params;
   const acceso = await resolver(token).catch(() => null);
+  // El informe del Dashboard tampoco se nombra (ni el informe ni el negocio): la pestaña dice qué ES.
+  if (acceso?.share.recurso === RECURSO_INFORME) return { ...GENERICA, title: 'Informe compartido' };
   if (!acceso || acceso.share.recurso !== 'curso') return GENERICA;
   const slug = acceso.share.recurso_id;
   // Branding se sirve por su propio recurso; como curso da 404 (ver más abajo). Y el
@@ -112,10 +116,24 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   };
 }
 
-export default async function CompartidoPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function CompartidoPage({ params, searchParams }: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ hoja?: string | string[] }>;
+}) {
   const { token } = await params;
   const acceso = await resolver(token);
   if (!acceso) notFound();
+
+  // ── El INFORME del Dashboard (11/10/2026): el editor en sólo lectura ──
+  // `informeDeAcceso` pregunta `puedeVerInforme` (lib/shares.ts), la MISMA puerta que usa el endpoint de
+  // datos: si sólo la usara la página, el endpoint serviría datos con cualquier token vivo. Todo lo que
+  // lee corre en el workspace DEL SHARE (./informe-compartido.ts), nunca en el del pedido.
+  if (acceso.share.recurso === RECURSO_INFORME) {
+    const informe = informeDeAcceso(acceso);
+    if (!informe) notFound();
+    const pedida = (await searchParams).hoja;
+    return <InformeCompartido informe={informe} token={token} hoja={(Array.isArray(pedida) ? pedida[0] : pedida) ?? null} />;
+  }
 
   // ── La TAB ENTERA de Conocimientos: el selector con todos los cursos ──
   // No lleva `recurso_id`: el alcance es "todo" y la lista se resuelve en cada

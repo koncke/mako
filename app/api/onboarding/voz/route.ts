@@ -4,6 +4,8 @@
 // GET                                → { muestras:[…], clon:…|null, puede:{…} }
 // POST multipart (file)              → sube audios
 // POST json {action:'clonar'}        → crea el clon en ElevenLabs
+// POST json {action:'clonar', destino:'otra', nombre, muestras:[ids]}
+//                                    → OTRA voz (AI Step v2, décima tanda): sólo con esas muestras
 // POST json {action:'olvidar'}       → borra el clon (en ElevenLabs y acá)
 // DELETE ?id                         → borra UN audio
 //
@@ -16,7 +18,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { familiaDeArchivo } from '@/lib/formatos-archivo';
 import {
-  getVozCliente, subirMuestra, borrarMuestra, leerMuestra, guardarClon, olvidarClon,
+  getVozCliente, subirMuestra, borrarMuestra, leerMuestra, guardarClon, olvidarClon, guardarOtraVoz,
 } from '@/app/video-generator/voz-cliente';
 import { clonarVoz, borrarVoz, preflightEleven, verificarVoz, elevenKey } from '@/lib/elevenlabs';
 
@@ -45,6 +47,8 @@ async function estado() {
   return {
     muestras: v.muestras.map((m) => ({ id: m.id, nombre: m.nombre, mime: m.mime })),
     clon: v.clon ? { voiceId: v.clon.voiceId, nombre: v.clon.nombre, creadoAt: v.clon.creadoAt } : null,
+    // Las otras voces (AI Step v2): las ofrece el desplegable «Tu voz» de un AI Step.
+    otras: (v.otras ?? []).map((o) => ({ voiceId: o.voiceId, nombre: o.nombre })),
   };
 }
 
@@ -83,7 +87,7 @@ export async function POST(req: NextRequest) {
   return runWithWorkspace(ws, async () => {
     try {
       if (ct.includes('application/json')) {
-        const body = (await req.json()) as { action?: string; autorizo?: boolean; nombre?: string };
+        const body = (await req.json()) as { action?: string; autorizo?: boolean; nombre?: string; destino?: string; muestras?: unknown };
 
         if (body.action === 'olvidar') {
           const v = await getVozCliente();
@@ -109,7 +113,15 @@ export async function POST(req: NextRequest) {
           return Response.json({ ok: false, error: 'Falta tu autorización para clonar la voz.' }, { status: 400 });
         }
         const v = await getVozCliente();
-        if (!v.muestras.length) {
+        // OTRA VOZ (AI Step v2): se clona SÓLO con las muestras que se subieron para ella (`muestras`, ids), y
+        // con su nombre. Sin ids, no: con todas, saldría una mezcla con «Tu voz».
+        const otra = body.destino === 'otra';
+        const ids = Array.isArray(body.muestras) ? body.muestras.filter((x): x is string => typeof x === 'string') : [];
+        const muestras = otra ? v.muestras.filter((m) => ids.includes(m.id)) : v.muestras;
+        if (otra && !(body.nombre ?? '').trim()) {
+          return Response.json({ ok: false, error: 'Ponle un nombre a la voz.' }, { status: 400 });
+        }
+        if (!muestras.length) {
           return Response.json({ ok: false, error: 'Todavía no subiste ningún audio.' }, { status: 400 });
         }
 
@@ -119,7 +131,7 @@ export async function POST(req: NextRequest) {
         const pre = await preflightEleven();
         if (!pre.ok) return Response.json({ ok: false, error: pre.error, motivo: pre.motivo }, { status: 502 });
 
-        const buffers = await Promise.all(v.muestras.map(async (m) => {
+        const buffers = await Promise.all(muestras.map(async (m) => {
           const buf = await leerMuestra(m.path);
           return buf ? { nombre: m.nombre, mime: m.mime, buf } : null;
         }));
@@ -129,6 +141,13 @@ export async function POST(req: NextRequest) {
         }
 
         const nombre = (body.nombre || `MaKo ws${ws}`).slice(0, 100);
+        if (otra) {
+          const r = await clonarVoz(nombre, utiles);
+          if (!r.ok) return Response.json({ ok: false, error: r.error, motivo: r.motivo }, { status: 502 });
+          const ahora = new Date().toISOString();
+          await guardarOtraVoz({ voiceId: r.valor.voiceId, nombre, creadoAt: ahora, muestras: muestras.map((m) => m.path), autorizadoAt: ahora }, muestras.map((m) => m.id));
+          return Response.json({ ok: true, ...(await estado()), vivo: true, voiceId: r.valor.voiceId });
+        }
         // ⚠️ EL CLON VIEJO SE ANOTA ANTES DE CREAR EL NUEVO.
         //
         // `clonarVoz` siempre crea una voz NUEVA y `guardarClon` pisa el id

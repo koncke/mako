@@ -76,7 +76,7 @@ export function sanearPlazosPorEtapa(
       continue;
     }
     if (etapas && !etapas.has(etapa)) {
-      descartes.push(`${etapa}: el embudo de este workspace no tiene esa etapa`);
+      descartes.push(`${etapa}: el funnel de este workspace no tiene esa etapa`);
       continue;
     }
     plazos[etapa] = Math.floor(dias);
@@ -339,5 +339,5 @@ export function resumenEstancados(
     .map(([etapa, x]) => `${x.n} de *${etiqueta(etapa)}*${x.plazo ? ` (plazo ${x.plazo} ${x.plazo === 1 ? 'día' : 'días'})` : ''}`);
   const quedaron = total === 1 ? 'quedó' : 'quedaron';
   const lead = total === 1 ? 'lead' : 'leads';
-  return `⏳ Moví *${total} ${lead}* que ${quedaron} más tiempo del que marca tu embudo: ${partes.join(' y ')}. El motivo quedó en el historial de cada uno. — MaKo`;
+  return `⏳ Moví *${total} ${lead}* que ${quedaron} más tiempo del que marca tu funnel: ${partes.join(' y ')}. El motivo quedó en el historial de cada uno. — MaKo`;
 }

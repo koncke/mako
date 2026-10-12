@@ -102,6 +102,112 @@ export const BITACORA: Hito[] = [
     ],
     commits: [{ sha: '8a38d2c', msg: 'Los conteos contra prod, y el bug que no tiene víctima', lineas: 26, archivos: 2 }],
   },
+  {
+    fecha: '11 oct', hora: '07:55', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Offer Analyst y Offer Generator en UNA tab, con un chat de IA y un PDF',
+    pedido: 'Implementa completamente la funcionalidad de "Offer Analyst" y "Offer Generator" Pero todo en una mista tab que se llame "Offer"...\nElimina la tab de "Análisis", llevala dentro de "Experiments"...\n\nY para la implementación de "Offer", revisa las transcripciones de los cursos que tenemos en CONOCIMIENTOS... Hay muchos que hablan justamente de esto, de la oferta, e incluso tienen templates sobre como crear una.\nRevisa lo de Sofia Contreras, Marcos Razzetti, Ramiro Cubria, Juan Carrizo, y todos los que hablen de oferta para basarte en esta tab...\n\nQuiero que esta tab sea muy de "IA", es decir, que en lugar de formularios larguisimos para entender lo que vende el usuario, prefiero algo simple como un chat con una IA, donde el usuario pueda escribir o mandar audio o adjuntar como en el "Archivero" como ya hacemos en muchos lugares...\n\nDiseñalo bien, revisa que sea entendible, que no tenga mucho texto la tab y que el "resultado final" sea que te de un PDF con la conclusión... Y claro que se pueda visualizar allí también la conclusión.',
+    puntos: [
+      'Revive la etapa P2 que se había eliminado el 03/10. Los deadlines que Martín sacó a mano del tablero NO se reponen.',
+      'Confirma la decisión que ya estaba escrita el 25/09: si el Analyst terminaba siendo un chat que dice qué mejorar, se fusionaba con el Generator en una tab con dos modos.',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '13:30', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tab Offer: chat → diagnóstico de 9 dimensiones → oferta nueva → PDF; Análisis pasa a Experiments',
+    puntos: [
+      'El marco salió de leer los cursos: 6 investigadores (MasteryHaus, BlueHacker, Sell Your Knowledge, ATV, Hormozi/Maffia/Escala 100k y un barrido de 12 más) y una síntesis con atribución por autor en docs/offer-marco.md.',
+      'Un chat donde el dueño escribe, dicta o adjunta; MaKo ya trae lo que sabe del negocio (Archivero, oferta, productos, fase) y pregunta de a una pieza. Con las 5 piezas mínimas ofrece «Armar mi oferta»: diagnóstico (lo calcula el código: puntaje, cuello, lista para vender) y la oferta nueva con «[completar]» donde falta un dato, nunca inventado.',
+      'Cada cambio propuesto lleva «Probarlo», que abre el alta de experimento con la hipótesis escrita: fuera de /experimentos MaKo no declara verdades.',
+      'El PDF se escribe a mano (lib/pdf-escritor.ts) para no hacer un npm install sobre un lockfile con cambios ajenos. La prueba por rotura destapó que pdf.js repara en silencio un xref corrido.',
+      'Análisis es la cuarta tab de Experiments (/analisis redirige con su query) y ya no la esconde el corte de Meta.',
+      'IA gratis por la cascada del cliente (gemini, groq, openrouter) con la red de plataforma; sin Claude.',
+    ],
+    archivos: [
+      'docs/offer-marco.md — el marco de oferta destilado de los cursos',
+      'docs/hallazgos-offer.md — lo que costó y lo que quedó sin hacer',
+      'lib/offer-marco.ts — el contrato: piezas, rúbrica, tipos',
+      'app/offer/OfferApp.tsx — la pantalla (chat, generando, conclusión)',
+      'app/api/offer/route.ts — la API (turno, leer, diagnosticar, generar, guardar)',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '18:04', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las ofertas, atadas a un funnel; el chat igual al de WhatsApp; el diagnóstico adentro',
+    pedido: 'Las ofertas deben estar atados a los productos del CRM... Y quiero cambiar el concepto "Producto" por "Funnel" en todos lados... Porque un mismo funnel puede tener varias "ofertas"... Configuralo de esa manera, para que yo pueda seleccionar en que funnel analizar o crear una nueva oferta. Mandale como tarea al CRM que lo cambie en todos lados.\n\nEn la tab de offer, que donde hoy está el título de "Offer" se elimine y ahí se seleccione un funnel, y se pueda crear o analizar una oferta.\n\nY para la funcionalidad de la tab, quiero que aproveches las cosas que ya construimos... Por ejemplo "El diagnóstico" (Que en este caso, las preguntas deben ser más personalizadas y el resultado del diagnóstico no se debe ver al finalizar esas preguntas, pero si ser parte del PDF final). Aprovecha "El archivero", "Avatares", "Razones"...\n\nPuedes ir pidiendole todo por el chat, en el orden que te parezca... Yo creo que si partimos de un documento o un link de su web o landing o algo así, sería mucho más fácil... Pero si no tiene nada o hay cosas que le faltan, como que nunca pensó en una garantía o no tiene claro su avatar, también con preguntas poder ir creando todo.\n\nElimina el botón de "Ofertas anteriores", para eso ya estará el desplegable... Y ese desplegable debe ser modo arbol, como lo hacemos siempre. Primero el paso del funnel y dentro las ofertas que hayan.\n\nQuiero que el diseño del chat se vea exactamente igual a lo que ya creamos... Que tenga ese formato de grabar audio, la animación de grabando audio, adjuntar archivos, imagenes, emojis... Copialo tal cual. Y el que pregunta, que sería MaKo, la foto de perfil que sea la estrella de MaKo, que tiene una sola estrella sin una estrellita pequeña arriba, y el fondo negro.',
+    puntos: [
+      'El renombre «Producto» → «Funnel» del CRM se le pasó al chat del CRM, que lo hizo el mismo día (f5a98420: cambia sólo el texto que se ve; tablas, claves y firmas quedan igual).',
+      'El chat del CRM corrigió el contrato: el «funnel» es una fila de `funnels`, no un producto de `productos`. Ver docs/hallazgos-offer.md.',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '18:19', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Una tab en SuperAdmin con el criterio y las conclusiones de los cursos de oferta',
+    pedido: 'También quiero que me dejes en SuperAdmin una tab con el criterio y todas las conclusiones que sacaste luego de analizar los cursos que hablan de OFFER, así lo puedo revisar',
+    puntos: [
+      '«El criterio» se leyó como DOS cosas: lo que dice el marco escrito (docs/offer-marco.md) y lo que el código aplica de verdad; donde no coinciden, la tab lo muestra en vez de elegir uno.',
+      '«Todas las conclusiones» no es el volcado de las seis investigaciones (~600 KB): es lo que concluyó cada autor, una idea por fila y con su fuente.',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '19:28', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Offer Playbook: el marco en tabs, lo que corre en el código y lo que concluyó cada autor',
+    puntos: [
+      'La tab RENDERIZA docs/offer-marco.md partido en seis pestañas (Criterio, Precio y garantías, Errores comunes, Autores, Discrepancias, Fuentes): no hay copia del marco.',
+      'Criterio muestra lo que corre de verdad (las 13 piezas y las 9 dimensiones, leídas de lib/offer-marco.ts) y las 13 cosas que el código todavía no aplica del marco, con quién lo resuelve.',
+      'Autores: 19 autores y 132 conclusiones, destiladas por 6 agentes y verificadas por otros 6 contra la investigación y la clase citada; tres re-verificadas a mano. Sin citas textuales de los cursos.',
+      'El cruce marco ↔ código lo hizo un agente aparte contra HEAD. Lo más serio: el filtro de cifras deja pasar números inventados en el PDF.',
+    ],
+    archivos: [
+      'app/admin/offer-playbook/page.tsx — la tab',
+      'app/admin/offer-playbook/secciones.ts — cómo se reparte el marco entre las pestañas',
+      'app/admin/offer-playbook/pendientes.ts — lo que el código todavía no aplica',
+      'lib/offer-autores.ts — las conclusiones por autor',
+      'docs/hallazgos-offer.md — el cruce con archivo:línea',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '20:25', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Offer v2: cada conversación atada a un funnel, el chat de WhatsApp y el diagnóstico de fase adentro',
+    puntos: [
+      'En el lugar del título, un selector en árbol (el Dropdown de la casa): funnel → sus ofertas → sus conversaciones, con «Nueva oferta» y «Analizar». Se fue «Ofertas anteriores».',
+      'El funnel es una fila de `funnels` (lo que dibuja el CRM) y sus ofertas salen de `funnel_ofertas`; «Guardar en este funnel» liga la oferta, y queda como principal sólo si el funnel no tenía ninguna. Migración 0256, aplicada antes del deploy.',
+      'El chat usa las piezas de WhatsApp de la casa (ChatHilo, BurbujaHilo, ComposerWhatsApp: audio con su animación, adjuntos, imágenes, emojis) y el avatar de MaKo es la chispa sola sobre negro. La nota de voz se transcribe antes de guardar nada.',
+      'Arranca pidiendo un documento o el link de la web; el diagnóstico de fase se pregunta adentro del chat con opciones a medida que mapean a la original, no se muestra y va al PDF.',
+      'Revisión adversarial antes de subir (5 revisores + 5 refutadores): 26 hallazgos reales, cero de seguridad, todos arreglados con su test probado rompiéndolo. El más serio: una lista de opciones corrida un lugar guardaba otro rango en el diagnóstico del negocio.',
+    ],
+    archivos: [
+      'app/offer/OfferApp.tsx — la pantalla',
+      'app/offer/SelectorFunnel.tsx — el selector en árbol',
+      'app/offer/ChatOffer.tsx — el chat con las piezas de WhatsApp',
+      'app/api/offer/route.ts — la API (arbol, nueva, turno con audio, leer-link, guardar en el funnel)',
+      'lib/offer-reglas.ts — el diagnóstico adentro del chat y el árbol',
+      'supabase/migrations/0256_offer_funnel.sql — la conversación atada al funnel',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '01:18', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'El Playbook más simple y gráfico, una tab «A definir», la columna a la altura del chat y los adjuntos como WhatsApp',
+    pedido: '1. Simplifica mucho la tab de super admin... Primero elimina las sub tab de "precio y garantias" y "Fuentes" si para eso ya está la de autores...\n2. Y simplifica mucho, que sea más legible, más facil, más grafico... Utiliza elementos graficos, contendores, tablas, desplegables, o lo que necesites  para que sea facil de entender.\n3. Allí ponme una tab de "A definir" que sea justamente estas 9 correciones o las 4 o las que vayas teniendo... Que esta bien explicado, de manera simple que necesitas que decida.\n4. Con respecto a la tab de offer, la columna de "Tu oferta" debe ser del mismo alto que el chat.\n5. Intenté subir un documento y saltó ese error. No se si apenas lo subí ya lo quiso analizar, eso estaría mal. Solo cuando le doya ENVIAR debería... Sino, debería salir la vista previa del documento que acabo de subir, como lo tiene whatsapp, te envio un ejemplo... Fiajte que se ve la preview, y puedo agregar más documentos... Y aún escribir un mensaje abajo... Quiero que apliques este cambio no solo a offer, sino a todos los chats que consuman esto de subir documento.',
+    puntos: [
+      'El error («unsupported Unicode escape sequence») era un NUL adentro del texto del PDF, que Postgres no acepta en un jsonb: se arregló en el lector compartido de archivos (lib/texto-para-base.ts), así que lo heredan todos los que leen un archivo.',
+      'Sí, Offer leía el documento apenas se elegía (para el ✓ del chip). Se decidió que se lea recién al ENVIAR, detrás de una vista previa como la de WhatsApp que compartan todos los chats (ver el hito de implementación).',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '02:40', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Adjuntar como WhatsApp: la vista previa compartida, y Offer lee recién al enviar',
+    puntos: [
+      'Un componente para todos los chats (app/whatsapp/_shared/VistaAdjuntos.tsx): el archivo grande (la primera página del PDF, la imagen o su reproductor), la tira de miniaturas con «+» y «×», el mensaje abajo y Enviar.',
+      'Offer: elegir no sube ni lee nada; Enviar sube y lee cada uno en orden y recién ahí manda el mensaje. Si una lectura falla, no sale el mensaje y no se releen los ya leídos.',
+      'ChatHilo (bandeja de WhatsApp, grupos de MaKo, simulador de Automations): varios archivos a la vez, en orden, con el texto como pie del primero.',
+      'El error que lo disparó (un NUL adentro del texto del PDF) ya estaba arreglado en el lector compartido.',
+    ],
+    archivos: [
+      'app/whatsapp/_shared/VistaAdjuntos.tsx — la vista previa',
+      'app/offer/adjuntos-envio.ts — leer al enviar, en orden y sin releer',
+      'app/whatsapp/_shared/ChatHilo.tsx — varios adjuntos en los chats de WhatsApp',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

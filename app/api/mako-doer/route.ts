@@ -21,7 +21,7 @@ import { areasDelMensaje } from '@/lib/mako-intencion';
 import type { Ctx } from '@/lib/api-mako/tipos';
 import {
   createSession, getSession, listSessions, listAllSessions, getSessionMessages, appendMessage,
-  renameSession, setPinned, setArchived, deleteSession, type ChartMsg,
+  renameSession, setPinned, setArchived, deleteSession, esChatDelTelefono, esSesionDelTelefono, type ChartMsg,
 } from '@/lib/chart-chats';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { getPromptText } from '@/lib/prompt-render';
@@ -123,9 +123,17 @@ export async function GET(req: NextRequest) {
   try {
     if (sp.get('all')) return Response.json({ sessions: await listAllSessions(arch) });
     const sessionId = sp.get('sessionId');
-    if (sessionId) return Response.json({ messages: await getSessionMessages(Number(sessionId)) });
+    // ⚠️ Un chat del TELÉFONO es de UNA persona: por esta ruta (por workspace) no se abre
+    // (lib/chart-chats.ts, `esSesionDelTelefono`).
+    if (sessionId) {
+      if (await esSesionDelTelefono(Number(sessionId))) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+      return Response.json({ messages: await getSessionMessages(Number(sessionId)) });
+    }
     const chartKey = sp.get('chartKey');
-    if (chartKey) return Response.json({ sessions: await listSessions(chartKey, arch) });
+    if (chartKey) {
+      if (esChatDelTelefono(chartKey)) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+      return Response.json({ sessions: await listSessions(chartKey, arch) });
+    }
     return Response.json({ error: 'parámetros faltantes' }, { status: 400 });
   } catch (err) {
     return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
@@ -138,6 +146,10 @@ export async function POST(req: NextRequest) {
   const { action, titulo = 'Chat' } = body;
 
   try {
+    // Lo mismo para escribir: send/rename/pin/archive/delete por id no tocan un chat del teléfono.
+    if (body.sessionId != null && (await esSesionDelTelefono(Number(body.sessionId)))) {
+      return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+    }
     if (action === 'open') {
       const sesiones = await listSessions(CHART_KEY);
       if (sesiones.length > 0) {

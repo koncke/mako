@@ -245,7 +245,6 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/chatbot/onboarding', 'estado_onboarding_chatbot'],
   ['POST', '/chatbot/onboarding/reaperturas', 'reabrir_onboarding_chatbot'],
   ['GET', '/chatbot/secuencias', 'listar_secuencias_nutricion'],
-  ['POST', '/chatbot/secuencias', 'crear_secuencia_mensajes'],
   ['GET', '/chatbot/secuencias-archivadas', 'listar_secuencias_archivadas'],
   ['DELETE', '/chatbot/secuencias/{secuenciaId}', 'archivar_secuencia'],
   ['GET', '/chatbot/secuencias/{secuenciaId}', 'ficha_secuencia_mensajes'],
@@ -277,6 +276,26 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/metricas/pipeline', 'ver_distribucion_pipeline'],
   ['GET', '/metricas/tendencias', 'ver_tendencias'],
   ['GET', '/metricas/vsl/plays', 'ver_serie_vsl'],
+  // El EDITOR del Dashboard (lib/api-mako/areas/dashboard.def.ts, 11/10/2026). El recurso es `dashboard`:
+  // las hojas, sus componentes y sus filtros cuelgan del informe de una persona (`persona`, por query).
+  ['GET', '/metricas/dashboard/catalogo', 'ver_catalogo_dashboard'],
+  ['GET', '/metricas/dashboard/datos', 'consultar_datos_dashboard'],
+  ['DELETE', '/metricas/dashboard/informe', 'restablecer_informe_dashboard'],
+  ['POST', '/metricas/dashboard/hojas', 'crear_hoja_dashboard'],
+  ['GET', '/metricas/dashboard/hojas/{hoja}', 'leer_hoja_dashboard'],
+  ['PATCH', '/metricas/dashboard/hojas/{hoja}', 'editar_hoja_dashboard'],
+  ['DELETE', '/metricas/dashboard/hojas/{hoja}', 'borrar_hoja_dashboard'],
+  ['POST', '/metricas/dashboard/hojas/{hoja}/copias', 'duplicar_hoja_dashboard'],
+  ['POST', '/metricas/dashboard/hojas/{hoja}/componentes', 'agregar_grafico_dashboard'],
+  ['PATCH', '/metricas/dashboard/hojas/{hoja}/componentes/{componente}', 'editar_grafico_dashboard'],
+  ['DELETE', '/metricas/dashboard/hojas/{hoja}/componentes/{componente}', 'quitar_componente_dashboard'],
+  ['POST', '/metricas/dashboard/hojas/{hoja}/elementos', 'insertar_elemento_dashboard'],
+  ['POST', '/metricas/dashboard/hojas/{hoja}/filtros', 'agregar_filtro_dashboard'],
+  ['DELETE', '/metricas/dashboard/hojas/{hoja}/filtros/{filtro}', 'quitar_filtro_dashboard'],
+  ['GET', '/metricas/dashboard/hojas/{hoja}/analisis', 'leer_analisis_dashboard'],
+  ['POST', '/metricas/dashboard/hojas/{hoja}/analisis', 'analizar_hoja_dashboard'],
+  ['PUT', '/metricas/dashboard/hojas/{hoja}/analisis/horario', 'programar_analisis_dashboard'],
+  ['DELETE', '/metricas/dashboard/hojas/{hoja}/analisis/corrida', 'cancelar_analisis_dashboard'],
   // ── experimentos ──────────────────────────────────────────────────────────
   ['GET', '/experimentos/conclusiones', 'listar_conclusiones_experimentos'],
   ['GET', '/experimentos/experimentos', 'listar_experimentos'],
@@ -433,6 +452,15 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/curso/clases/{claseId}', 'borrar_clase_curso'],
   ['PUT', '/curso/clases/{claseId}/lugar', 'mover_clase_curso'],
   ['PUT', '/curso/clases/{claseId}/restauracion', 'restaurar_clase_curso'],
+  // ── cobros (11/10/2026: la pasarela de pagos, Stripe y Mercado Pago) ──────────
+  // Un link de pago ES un cobro pendiente: se crea por su propio recurso (lo que pide quien
+  // llama) y se anula sobre él; reembolsar y cancelar son estados del cobro ya pagado.
+  ['GET', '/cobros/cobros', 'listar_cobros'],
+  ['GET', '/cobros/cobros/{cobroId}', 'ver_cobro'],
+  ['POST', '/cobros/cobros/{cobroId}/reembolsos', 'reembolsar_cobro'],
+  ['PUT', '/cobros/cobros/{cobroId}/cancelacion-suscripcion', 'cancelar_suscripcion'],
+  ['POST', '/cobros/links-pago', 'crear_link_pago'],
+  ['PUT', '/cobros/links-pago/{cobroId}/anulacion', 'anular_link_pago'],
   // ── mako ──────────────────────────────────────────────────────────────────
   ['GET', '/mako/bandejas', 'resumen_bandejas_confirmacion'],
   ['GET', '/mako/capacidades', 'listar_capacidades_mako'],

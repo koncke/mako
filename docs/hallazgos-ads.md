@@ -107,7 +107,21 @@ y Jose seguían afuera. El ruteo está bien: `webhook_routing` apunta a ws15 des
 quedó listo a las 16:40 UTC, y la pasada de las 16:50 trajo a Jose (#2621) y a Nicolas
 (#2622) al embudo 17 «Captacion Forms», con sus 5 campos. Nadie escribió nada a mano.*
 
-### ⚠️ El mapa de México no pinta cero: pinta el estado equivocado
+### ⚠️ El mapa de México no pinta cero: pinta el estado equivocado — ARREGLADO el 11/10/2026
+
+> **Corrección medida (11/10/2026, Graph v25.0, cuenta del ws1, 33 filas):** el mecanismo de abajo
+> suponía que Meta manda «Mexico City», y en esta cuenta **no lo manda**: manda **«Distrito
+> Federal»** y **«State of Mexico»**. Con el `startsWith` viejo los DOS quedaban en **CERO** (no se
+> mudaba el valor al vecino), y son los estados con más impresiones de la cuenta (36.817 y 45.415).
+> «Coahuila de Zaragoza», «Michoacán de Ocampo» y «Querétaro Arteaga» calzaban de casualidad por el
+> prefijo; también llegan «San Luis Potosi» (sin tilde) y «Unknown». Y con `breakdowns=region` Meta
+> **no manda ninguna conversión de afuera** (ni la agenda ni `landing_page_view`, 0 de 33 filas): la
+> pestaña «Agendas» del mapa siempre pintó México vacío por eso, no por los nombres.
+> Arreglado con un diccionario explícito nombre → código ISO (`MX-CMX`…) e igualdad exacta; lo que no
+> se ubica se cuenta aparte. «Mexico City» quedó igual como alias. **Ahora vive en:**
+> `app/dashboard/MapaMexico.tsx` (`ESTADOS`, `ALIAS`, `ubicarRegiones`), que montan el Dashboard y
+> `app/marketing/ad-charts.tsx`. El detalle, en [hallazgos-graficos.md](hallazgos-graficos.md) → «La
+> audiencia de Meta». Lo de abajo queda como el diagnóstico de agosto.
 
 **Síntoma:** Mauricio reportó que «el mapa marca cero en Ciudad de México cuando debería
 haber datos».
@@ -139,10 +153,9 @@ match**: es una colisión esperando el nombre más corto. Donde dos fuentes nomb
 entidad, va un **diccionario explícito**, y lo que no está en el diccionario devuelve `null`
 —«sin dato»— nunca `0`. El tooltip y la escala tienen que distinguir las dos cosas.
 
-**Sin verificar:** los nombres exactos que devuelve la API de Meta con `breakdowns:'region'`
-para México. El diccionario hay que armarlo mirando una respuesta real, no de memoria.
-Aparte: `GEOURL` es un `fetch` a `raw.githubusercontent.com` desde un componente cliente —
-conviene bajar el GeoJSON al repo.
+**Medido el 11/10/2026** (ver la corrección de arriba): los nombres salieron de una respuesta
+real. Sigue pendiente: `GEOURL` es un `fetch` a `raw.githubusercontent.com` desde un componente
+cliente — conviene bajar el GeoJSON (184.555 bytes) a `public/`.
 
 **Vive en:** `app/marketing/ad-charts.tsx:48,60,512-519,547-549` ·
 `app/ads-manager/EntityDetalle.tsx:156` (el otro consumidor de `regiones`).
@@ -3944,3 +3957,25 @@ un `hasta` posterior a hoy se ACOTA a hoy, con el mismo criterio que `/graficos`
 `?desde=2026-10-01&hasta=2026-12-15` en el ws1: las dos pantallas dibujan desde el 01/10 y ya no
 vuelven a 30 días. **Sigue igual:** `app/ads-manager/AdsManagerView.tsx` (misma condición
 `hastaParam <= hoyReal`) y el CAC acumulado sin «desde».
+
+## Ads Analyst se mudó a Ads Writer: `force` no es «reintentar» (11/10/2026)
+
+**Vive en:** `lib/ads-analyst.ts:522-575` (con `getVideoTranscripts`, que ordena por `ad_id`, :468),
+`app/ads-writer/AnalizarGuion.tsx`
+
+- **Con `force`, todos los transcripts pasan a candidatos y se corren los primeros 6 por `ad_id`:
+  siempre los mismos seis, cobrando cada vez.** Los pendientes pueden no tocarse nunca, y reclasificar con
+  ángulos nuevos no llega al resto. Sin `force` ya se reintentan los que tienen error o están pendientes.
+  En la tab, el «Actualizar igual» del caso «recién sincronizado» mandaba `force`. Ahora sólo lo manda con
+  todo al día y sin errores, y avisa que gasta IA. **SIN HACER:** que `force` avance más allá de los seis
+  (la lib no es de ningún paquete).
+- **La copia de `verdictFromVals` en `lib/api-mako/areas/ads.run.ts` no se puede cambiar por el import**
+  de `lib/ads-analyst-patrones` como sugiere su cabecera: las claves son distintas (`reescribir` contra
+  `reescribir_cuerpo`) y rompería lo que ya lee la API.
+- **Una vista que el server manda sólo cuando su `?tab=` la pide se desmonta al cambiar de vista** y se
+  pierde lo escrito, salvo que el cliente guarde el último nodo que llegó.
+- **Quedaron sin montar** el componente `ScriptsBrowser` y `GuionesFull` (`app/ads-analyst/`). El
+  archivo no se puede borrar entero: `app/marketing/ad-charts.tsx` importa de ahí `FunnelModal`,
+  `applyAngles` y `applyAvatares`. Mudar eso y borrar el resto es una decisión aparte.
+
+*11/10/2026, chat «Graphics», paquete P3 de la tanda v4 del Dashboard (commit `6e85d8d7`).*

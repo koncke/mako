@@ -141,13 +141,13 @@ export function destinoDelAlta(
   funnels: readonly EmbudoDelAlta[] | null,
   funnelId: number | null | undefined,
 ): DestinoDelAlta | { error: string; elegir?: ProductoParaAlta[] } {
-  if (!funnels) return { error: 'No pude leer tus productos.' };
+  if (!funnels) return { error: 'No pude leer tus funnels.' };
   if (funnelId == null) {
-    if (pideProducto(funnels)) return { error: 'Elige el producto.', elegir: productosParaAlta(funnels) ?? [] };
+    if (pideProducto(funnels)) return { error: 'Elige el funnel.', elegir: productosParaAlta(funnels) ?? [] };
     return { casa: null, real: null, nombre: null };
   }
   const f = funnels.find((x) => x.id === funnelId);
-  if (!f) return { error: 'Ese producto no existe.' };
+  if (!f) return { error: 'Ese funnel no existe.' };
   const def = funnels.find((x) => x.esDefault)?.id ?? null;
   return { casa: casaParaEscribir(f.id, def), real: f.id, nombre: nombreVisible(f) };
 }

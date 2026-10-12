@@ -44,10 +44,12 @@ import { TRIGGER_ETIQUETA } from '@/lib/etiquetas-reglas';
 import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from '@/lib/disparadores';
 import { setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { getEmailFrom, remitenteEsSandbox, emailConectado, displayNameDe, verifyResendDomain, getResendDomain } from '@/lib/resend';
+import { remitenteEsSandbox, emailConectado, displayNameDe, verifyResendDomain, getResendDomain, remitenteDelNegocioActual, SANDBOX_FROM } from '@/lib/resend';
+import type { MotivoSinRemitente } from '@/lib/email-remitente';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
+import { zonaDelNegocio } from '@/lib/timezone';
 import {
-  estadoEmail, tzGuardada, alcanceEnvioReal, dominioIdDelWorkspace,
+  estadoEmail, alcanceEnvioReal, dominioIdDelWorkspace,
   secuenciasArchivadas, leadDelWorkspace, historialEmailLead, bajasEmail,
 } from './email.helpers';
 
@@ -63,6 +65,22 @@ const str = (input: Record<string, unknown>, k: string): string | undefined => {
 };
 const json = (x: unknown): string => JSON.stringify(x);
 const errorLectura = (content: string): SalidaLectura => ({ content, isError: true });
+
+/**
+ * La nota de `remitente_email`, del veredicto de `remitenteDelNegocio` (lib/email-remitente.ts, undécima tanda).
+ * Es para MaKo, no para una pantalla: dice qué pasa y dónde se arregla.
+ */
+const NOTA_REMITENTE_PROPIO: Record<'dominio' | 'cuenta-propia', string> = {
+  dominio: 'Remitente propio del negocio: su dominio, verificado en /email.',
+  'cuenta-propia': 'Remitente propio del negocio: su propia cuenta de Resend.',
+};
+const NOTA_SIN_REMITENTE: Record<MotivoSinRemitente, string> = {
+  'sin-remitente': 'El negocio no tiene remitente propio: sus emails no salen. Se conecta en /email.',
+  sandbox: 'El remitente es el de prueba de Resend: sus emails no salen. Se conecta un dominio propio en /email.',
+  'de-mako': 'El remitente era un email de MaKo, que ningún negocio puede usar: sus emails no salen hasta que conecte su dominio en /email.',
+  'otro-dominio': 'El remitente no es del dominio que el negocio verificó en /email: sus emails no salen.',
+  'sin-cuenta-propia': 'El remitente necesita la propia cuenta de Resend del negocio (su API key): sus emails no salen.',
+};
 const recorte = (t: string | null | undefined, n: number): string => {
   const s = (t ?? '').replace(/\s+/g, ' ').trim();
   return s.length > n ? `${s.slice(0, n)}… (+${s.length - n} caracteres)` : s;
@@ -326,11 +344,14 @@ export const RUNNERS: Runners = {
   },
 
   remitente_email: {
+    // ⚠️ UNA lectura del veredicto (undécima tanda): `getEmailFrom` y `remitenteEsSandbox` salen de él
+    // (lib/resend.ts), así que el remitente, `sandbox`, `propio` y la nota no pueden decir cosas distintas.
     leer: async () => {
-      const [from, sandbox] = await Promise.all([getEmailFrom(), remitenteEsSandbox()]);
+      const v = await remitenteDelNegocioActual();
+      const from = v.puede ? v.from : SANDBOX_FROM;
       return json({
-        remitente: from, nombre_visible: displayNameDe(from), sandbox,
-        nota: sandbox ? 'Es el remitente de prueba de Resend: los emails solo le llegan al dueño de la cuenta de Resend, a nadie más.' : 'Remitente propio del negocio.',
+        remitente: from, nombre_visible: displayNameDe(from), sandbox: !v.puede, propio: v.puede,
+        nota: v.puede ? NOTA_REMITENTE_PROPIO[v.via] : NOTA_SIN_REMITENTE[v.motivo],
       });
     },
   },
@@ -609,7 +630,7 @@ export const RUNNERS: Runners = {
   },
 
   programar_broadcast: {
-    preparar: async (input) => {
+    preparar: async (input, ctx) => {
       const id = num(input, 'id')!;
       const b = await broadcastPorId(id);
       if (!b) return { error: noBroadcast(id) };
@@ -623,9 +644,9 @@ export const RUNNERS: Runners = {
       if (!Number.isFinite(ms)) return { error: `«${crudo}» no es una fecha válida en ISO 8601.`, faltan: ['programado_at'] };
       if (ms < Date.now() + 60_000) return { error: 'La fecha tiene que ser futura. Para mandarlo ahora, usa enviar_broadcast.' };
       if (ms > Date.now() + 366 * 86400_000) return { error: 'La fecha está a más de un año: revisa el año.' };
-      // La zona se LEE (tzGuardada), no se resuelve: tzDeWorkspace la escribe cuando falta.
-      const [leads, envioOn, sandbox, tzLeida] = await Promise.all([contarSegmento(b.segmento), envioEmailHabilitado(), remitenteEsSandbox(), tzGuardada()]);
-      const tz = tzLeida ?? 'UTC';
+      // La zona del negocio (undécima tanda): LA lectura de lib/timezone.ts, la misma del motor y las pantallas.
+      // Sin zona guardada es la de por defecto (ZONA_POR_DEFECTO), nunca UTC: un segundo default es el bug.
+      const [leads, envioOn, sandbox, tz] = await Promise.all([contarSegmento(b.segmento), envioEmailHabilitado(), remitenteEsSandbox(), zonaDelNegocio(ctx.ws)]);
       if (leads === 0) return { error: `El segmento «${labelDe(SEGMENTOS, b.segmento)}» no tiene leads con email: no hay a quién mandarlo.` };
       if (leads > TOPE_ENVIO) return { error: MSG_TOPE_SEGMENTO(leads) };
       const iso = new Date(ms).toISOString();
@@ -633,8 +654,7 @@ export const RUNNERS: Runners = {
       const avisos = [
         turno !== ms ? `El envío automático solo corre a las :00 y :30 entre las 13:00 y las 23:30 UTC: no sale a la hora pedida sino en el primer turno, el ${fmtFecha(new Date(turno).toISOString(), tz)}.` : '',
         !envioOn ? 'El envío real está APAGADO: al vencer no sale y queda programado hasta que se prenda.' : '',
-        envioOn && sandbox ? 'El remitente es el sandbox de Resend: el envío se va a rechazar hasta configurar un remitente propio.' : '',
-        !tzLeida ? 'Este negocio no tiene zona horaria guardada: las horas se muestran en UTC.' : '',
+        envioOn && sandbox ? 'El negocio no tiene remitente propio: el envío se va a rechazar hasta que conecte su dominio en /email.' : '',
       ].filter(Boolean);
       return {
         payload: { id, programado_at: iso },
@@ -666,7 +686,7 @@ export const RUNNERS: Runners = {
       if (b.estado === 'programado') return { error: `El broadcast #${id} está programado: mandarlo ahora puede pisarse con el envío automático y duplicar emails. Primero cancela la programación (cancelar_programacion_broadcast) o espera al envío automático.` };
       const [envioOn, sandbox, leads] = await Promise.all([envioEmailHabilitado(), remitenteEsSandbox(), contarSegmento(b.segmento)]);
       if (!envioOn) return { error: 'El envío real de email está apagado. Enviar así marcaría el broadcast como enviado sin mandar nada, y ya no se podría reenviar. Primero hay que prenderlo (activar_envio_real_email).' };
-      if (sandbox) return { error: 'El remitente es el sandbox de Resend, que no entrega a terceros: primero hay que verificar el dominio y fijar un remitente propio en /email.' };
+      if (sandbox) return { error: 'El negocio no tiene remitente propio (o era un email de MaKo, que ningún negocio usa): primero hay que verificar su dominio y fijar el remitente en /email.' };
       if (leads === 0) return { error: `El segmento «${labelDe(SEGMENTOS, b.segmento)}» no tiene leads con email.` };
       if (leads > TOPE_ENVIO) return { error: MSG_TOPE_SEGMENTO(leads) };
       return {
@@ -679,7 +699,7 @@ export const RUNNERS: Runners = {
       // Se vuelve a mirar: si el interruptor se apagó entre el «sí» y ahora,
       // enviarBroadcast quemaría el broadcast en simulado.
       if (!(await envioEmailHabilitado())) return { ok: false, resumen: 'El envío real se apagó antes de confirmar: no se envió nada y el broadcast sigue intacto.' };
-      if (await remitenteEsSandbox()) return { ok: false, resumen: 'El remitente es el sandbox de Resend: no se envió nada.' };
+      if (await remitenteEsSandbox()) return { ok: false, resumen: 'El negocio no tiene remitente propio: no se envió nada.' };
       // El estado y el segmento pudieron cambiar entre el «sí» y ahora.
       const b = await broadcastPorId(id);
       if (!b) return { ok: false, resumen: noBroadcast(id) };
@@ -701,10 +721,12 @@ export const RUNNERS: Runners = {
       if (!/^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]{2,}$/.test(email)) return { error: `«${email}» no parece una dirección de email válida.`, faltan: ['emailPrueba'] };
       const b = await broadcastPorId(id);
       if (!b) return { error: noBroadcast(id) };
-      const sandbox = await remitenteEsSandbox();
+      // Sin remitente propio la prueba tampoco sale (undécima tanda, decisión 24: `sendEmail` se niega también con el
+      // sandbox): decirlo acá y no después de que la persona confirme.
+      if (await remitenteEsSandbox()) return { error: 'El negocio no tiene remitente propio: la prueba no sale. Primero hay que verificar su dominio y fijar el remitente en /email.' };
       return {
         payload: { id, emailPrueba: email },
-        resumen: `Mandar una prueba del broadcast #${id} «${recorte(b.asunto, 80)}» a ${email}.${sandbox ? ' OJO: el remitente es el sandbox de Resend y la prueba solo llega si esa dirección es la del dueño de la cuenta de Resend.' : ''}`,
+        resumen: `Mandar una prueba del broadcast #${id} «${recorte(b.asunto, 80)}» a ${email}.`,
       };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
@@ -739,7 +761,7 @@ export const RUNNERS: Runners = {
     preparar: async (input) => {
       const on = input.on === true;
       const [actual, conectado, alcance] = await Promise.all([envioEmailHabilitado(), emailConectado(), alcanceEnvioReal()]);
-      if (on && !conectado) return { error: 'El email no está conectado (falta la key o el remitente sigue en sandbox): primero hay que verificar el dominio y fijar el remitente en /email. Revisa estado_email.' };
+      if (on && !conectado) return { error: 'El email no está conectado (falta la key o el negocio no tiene remitente propio): primero hay que verificar su dominio y fijar el remitente en /email. Revisa remitente_email.' };
       const activas = alcance.secuencias_con_email;
       const programados = alcance.broadcasts_programados;
       const ya = actual === on ? ` Ya estaba ${on ? 'prendido' : 'apagado'}.` : '';

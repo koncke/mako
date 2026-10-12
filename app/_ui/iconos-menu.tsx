@@ -118,6 +118,9 @@ const TRAZOS = {
   arriba: <><path d="M12 19.5V5" /><path d="m6.5 10.5 5.5-5.5 5.5 5.5" /></>,
   abajo: <><path d="M12 4.5V19" /><path d="m6.5 13.5 5.5 5.5 5.5-5.5" /></>,
   pregunta: <><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7" /><path d="M12 17h.01" /></>,
+  // El elemento «Insertar» del Dashboard (11/10/2026): una página de otro sitio adentro de la hoja. Los
+  // corchetes angulares de un código, que es lo que la persona pega.
+  insertar: <path d="m8.5 7.5-5 4.5 5 4.5M15.5 7.5l5 4.5-5 4.5M13.4 5.5l-2.8 13" />,
 } satisfies Record<string, ReactNode>;
 
 export type NombreIconoMenu = keyof typeof TRAZOS;

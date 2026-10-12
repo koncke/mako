@@ -23,12 +23,12 @@
 //
 // Dentro de una familia hay dos niveles, y la diferencia importa:
 //   · `items`  — lo que se abre TODOS LOS DÍAS. Siempre a la vista.
-//   · `grupos` — colecciones que se consultan de a una (los siete Analysts, los
+//   · `grupos` — colecciones que se consultan de a una (los Analysts, los
 //     tres canales de chat, los writers). Abren un desplegable al costado. Sin
 //     esto, Analyze eran nueve filas y la barra se volvía una lista de todo.
 //
 // Dos parejas que conviene no confundir, porque son la razón del reparto:
-//   · Ads Manager (Operate) EJECUTA · Ads Analyst (Analyze) COMPRENDE.
+//   · Ads Manager (Operate) EJECUTA · el Dashboard (Analyze, la hoja «Ads Analyst») COMPRENDE.
 //   · Automations (Create) se configura y se entrena · WhatsApp/Email (Operate)
 //     es la conversación de todos los días.
 //
@@ -46,7 +46,10 @@ export type NavItem = {
   href: string;
   icon: string;
   comingSoon?: boolean;
-  /** Solo visible para rol admin de AGENCIA (el Sidebar filtra con /api/auth/me). */
+  /**
+   * Solo visible para el super admin en SU barra (rol admin de agencia sin mirar como cliente). El Sidebar lo
+   * filtra en `puedeVer`, así que vale para las familias de producto, el buscador y el menú del perfil.
+   */
   adminOnly?: boolean;
   /**
    * Roles DENTRO del negocio que ven esta tab. El admin-cliente (rol_ws='admin')
@@ -106,6 +109,11 @@ export type NavFamilia = {
   bloques: NavBloque[];
   /** Colecciones que se consultan de a una: abren desplegable al costado. */
   grupos?: NavGrupo[];
+  /**
+   * Fuera de la barra del super admin, los ítems visibles de sus `grupos` se muestran sueltos (un bloque más) y no
+   * como desplegables. Lo aplica el Sidebar al filtrar; el super admin ve los grupos como siempre.
+   */
+  planaParaCliente?: boolean;
 };
 
 /** Todos los destinos de una familia, incluidos los de sus colecciones. */
@@ -147,43 +155,34 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
       ],
     ],
-    grupos: [
-      {
-        // Después de la venta. Va en Operate y no en Analyze porque contesta «¿qué
-        // tengo que hacer hoy con mis clientes?», no «¿qué pasó?».
+  },
+  {
+    // Después de la venta: los clientes, su curso y su comunidad. Desde el 12/10/2026 es FAMILIA propia y no un
+    // desplegable de Operate (Martín: «Customer Success no debería estar dentro de Operate, sino que debería ser
+    // otra tab padre dentro de la sidebar»). La key de la familia no es contrato; las de los ítems sí (capas).
+    key: 'customer',
+    label: 'Customer Success',
+    pregunta: '¿Cómo van mis clientes?',
+    icon: 'cs',
+    bloques: [
+      [
+        // ⚠️ LA KEY ES `customer-success`, que es la que pide el guard de las dos páginas
+        // (`requireCapa('customer-success')` → `tabEnCapa`) y la que nombran las capas en
+        // lib/capas.ts. Cambiarla acá deja a la barra preguntando por otra cosa que la
+        // página: la fila se esconde donde la página abre, o al revés.
         //
-        // ⚠️ VOLVIÓ A SER UN DESPLEGABLE DE DOS (06/10/2026). Del 26/09 al 06/10 fue una
-        // fila sola: el segundo destino era `/customer-success/programa`, el temario de 44
-        // clases de Mauricio escrito en código, y se borró al rearmar la tab para cualquier
-        // workspace. Volvió el curso —ahora en la base, colgado de las etapas de entrega de
-        // cada producto (mig 0202)— y con dos destinos que se consultan de a uno (la
-        // cartera es lo de todos los días, el curso se toca cuando se arma) el criterio de
-        // `NavGrupo` vuelve a pedir el desplegable.
-        //
-        // La key del GRUPO no es contrato (sólo identifica el desplegable); la de los
-        // ítems sí, y por eso el grupo NO se llama `customer-success`: ese nombre es de la
-        // fila de Clientes y dos cosas con la misma key en la barra son dos cosas que se
-        // pisan en cualquier mapa por key.
-        key: 'cs-grupo', label: 'Customer Success', icon: 'cs',
-        items: [
-          // ⚠️ LA KEY ES `customer-success`, que es la que pide el guard de las dos páginas
-          // (`requireCapa('customer-success')` → `tabEnCapa`) y la que nombran las capas en
-          // lib/capas.ts. Cambiarla acá deja a la barra preguntando por otra cosa que la
-          // página: la fila se esconde donde la página abre, o al revés.
-          //
-          // Y el `match` es IGUALDAD, no `starts`: con `starts` se encendería también
-          // estando en /customer-success/curso, y la barra marcaría dos destinos a la vez.
-          { key: 'customer-success', label: 'Clientes', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' },
-          // El curso: las clases de cada producto y el avance de cada cliente. Su página pide
-          // `customer-success` (no tiene capa propia); que este destino se VEA en cada capa
-          // donde esa página deja entrar lo persigue tests/curso-admin.test.ts.
-          { key: 'cs-curso', label: 'Curso', href: '/customer-success/curso', icon: 'video', match: starts('/customer-success/curso') },
-          // La comunidad tipo Skool de cada producto (07/10/2026, D8 de docs/diseno-curso-skool.md).
-          // Como el curso, su página pide `customer-success` (no tiene capa propia), y que el destino
-          // se VEA en cada capa donde esa página deja entrar lo persigue tests/comunidad-nav.test.ts.
-          { key: 'cs-comunidad', label: 'Comunidad', href: '/customer-success/comunidad', icon: 'comunidad', match: starts('/customer-success/comunidad') },
-        ],
-      },
+        // Y el `match` es IGUALDAD, no `starts`: con `starts` se encendería también
+        // estando en /customer-success/curso, y la barra marcaría dos destinos a la vez.
+        { key: 'customer-success', label: 'Clientes', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' },
+        // El curso: las clases de cada producto y el avance de cada cliente. Su página pide
+        // `customer-success` (no tiene capa propia); que este destino se VEA en cada capa
+        // donde esa página deja entrar lo persigue tests/curso-admin.test.ts.
+        { key: 'cs-curso', label: 'Curso', href: '/customer-success/curso', icon: 'video', match: starts('/customer-success/curso') },
+        // La comunidad tipo Skool de cada producto (07/10/2026, D8 de docs/diseno-curso-skool.md).
+        // Como el curso, su página pide `customer-success` (no tiene capa propia), y que el destino
+        // se VEA en cada capa donde esa página deja entrar lo persigue tests/comunidad-nav.test.ts.
+        { key: 'cs-comunidad', label: 'Comunidad', href: '/customer-success/comunidad', icon: 'comunidad', match: starts('/customer-success/comunidad') },
+      ],
     ],
   },
   {
@@ -197,42 +196,51 @@ export const FAMILIAS: NavFamilia[] = [
         // encuentra qué mover». Va primero porque es de donde sale el criterio
         // con el que se leen los otros tres.
         { key: 'second-brain', label: 'Second Brain', href: '/second-brain', icon: 'cerebro', match: starts('/second-brain') },
-        // Va PEGADO al Dashboard y no adentro de los Analysts: el Dashboard
-        // muestra métricas y deja que vos armes la historia; éste ya la arma —
-        // la cascada de costos, la fuga de los que no calificaban y qué replicar,
-        // en el orden en que se pregunta. Son la misma familia de pregunta con
-        // dos niveles de digestión.
-        { key: 'analisis', label: 'Análisis', href: '/analisis', icon: 'analytics', match: starts('/analisis') },
-        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) },
-        // Salió de los Analysts: los otros seis analizan un activo PROPIO (una
-        // oferta, un anuncio, una landing); éste vigila lo que hacen los demás.
-        { key: 'market-an', label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', comingSoon: true, match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
-        { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
+        // Análisis ya no es un ítem: el 11/10/2026 se mudó ADENTRO de Experiments, como su cuarta
+        // tab (/experimentos?tab=analisis). /analisis redirige ahí con su query, y
+        // /analisis/trimestre —el informe congelado, que se mandó por WhatsApp— vive donde
+        // estaba: por eso el match de Experiments acepta las dos rutas, para que la barra marque
+        // la tab y el título de la pestaña no caiga a «MaKo - Analisis» sin tilde.
+        // El CLOSER lo ve desde el 11/10/2026 (decisión 6 de Martín): Closing Analyst se retiró y su
+        // análisis, con la ficha de cada llamada y sus tareas, es la hoja «Closing» del Dashboard. Ve
+        // SÓLO esa hoja y sin editar: lo pone app/dashboard/page.tsx (un informe en memoria) y lo
+        // cierra /api/graficos (`closerPuedePedir`, lib/graficos-plantillas.ts). La key sigue siendo
+        // `graphics`; la de Closing (`closing`) se quedó en las capas y en los gating de la API.
+        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', rolesWs: ['closer'], match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) },
+        // Sólo lo ve el super admin desde el 12/10/2026 (Martín: «Elimina "Competitors Spy" y que solo se vea en super admin»).
+        // Salió de los Analysts: los demás analizan un activo PROPIO (un anuncio,
+        // una landing, una llamada); éste vigila lo que hacen los demás.
+        { key: 'market-an', adminOnly: true, label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', comingSoon: true, match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
+        { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: (p) => starts('/experimentos')(p) || starts('/analisis')(p) },
       ],
     ],
     grupos: [
       {
         // Ordenados por el CAMINO del negocio, no alfabético ni por antigüedad:
-        // primero la oferta, después lo que la trae (anuncio → landing → VSL) y
-        // al final lo que pasa con la persona (la llamada, el cliente).
+        // primero lo que trae a la gente (anuncio → landing → VSL) y al final lo
+        // que pasa con la persona (la conversación, la llamada, el cliente). La
+        // oferta, que iba primera, salió el 11/10/2026 a su propia tab suelta
+        // («Offer», desde el 12/10 en Sales Machine): ya no sólo analiza, también la escribe.
+        // Sólo el super admin desde el 12/10/2026 (Martín: «elimina "analysts" que tiene desplegable con puras tabs de
+        // "pronto"»): las tres llevan adminOnly, así que para un cliente el grupo queda vacío y no se dibuja.
         key: 'analysts', label: 'Analysts', icon: 'search',
         items: [
-          { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
-          { key: 'script', label: 'Ads Analyst', href: '/ads-analyst', icon: 'notepencil', match: starts('/ads-analyst') },
-          { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', match: starts('/landing-analyst') },
-          { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
-          // Va antes que Closing porque ése es el orden del embudo: primero la
-          // conversación que califica, después la llamada que cierra.
-          { key: 'chat-analyst', label: 'Chat Analyst', href: '/chat-analyst', icon: 'chats', comingSoon: true, rolesWs: ['setter'], match: starts('/chat-analyst') },
-          { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', rolesWs: ['closer'], match: starts('/closing') },
-          { key: 'cs-analyst', label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
-          // ⚠️ AL FINAL Y NO EN EL ORDEN DEL EMBUDO, a propósito: los otros siete analizan
-          // una pieza del camino de la VENTA (la oferta, el anuncio, la landing, la
-          // llamada); éste analiza lo que produjo el TABLERO. Es el único que no mira
-          // hacia afuera, así que no tiene lugar en esa secuencia.
-          // Era la quinta pestaña de /plan hasta el 26/09/2026 — ver el encabezado de
-          // app/productivity-analyst/page.tsx.
-          { key: 'productivity-analyst', label: 'Productivity Analyst', href: '/productivity-analyst', icon: 'analytics', match: starts('/productivity-analyst') },
+          { key: 'vsl-an', adminOnly: true, label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
+          { key: 'chat-analyst', adminOnly: true, label: 'Chat Analyst', href: '/chat-analyst', icon: 'chats', comingSoon: true, rolesWs: ['setter'], match: starts('/chat-analyst') },
+          { key: 'cs-analyst', adminOnly: true, label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
+          // CUATRO SALIERON DE ACÁ el 11/10/2026 (Martín: «elimina las tabs que ya hayas puesto como
+          // template de la sidebar», y después las decisiones 4, 5 y 6 de ese día):
+          //   · Productivity Analyst: era todo análisis; vive entera en la hoja «Productividad» del
+          //     Dashboard. Su ruta redirige (app/productivity-analyst/page.tsx).
+          //   · Ads Analyst (key `script`): el análisis es la hoja «Ads Analyst» del Dashboard y la tarea
+          //     (valorar un guion, sincronizar, ángulos y avatares) se mudó a Ads Writer (?tab=analizar).
+          //   · Landing Analyst (key `landing-an`): el análisis es la hoja «Landing» y la tarea (analizar
+          //     una página) se mudó a Landing Generator (/landing-generator/analizar).
+          //   · Closing Analyst (key `closing`): va COMPLETO a la hoja «Closing», con la ficha de cada
+          //     llamada y sus tareas; el closer ve el Dashboard (el ítem `graphics`, arriba).
+          // Sus rutas REDIRIGEN (hay links afuera que nadie puede editar) y sus KEYS se quedan en
+          // lib/capas.ts y en los gating de la API: están escritas en la base. Que nadie vuelva a
+          // enlazarlas lo cuida tests/tabs-retiradas.test.ts.
         ],
       },
     ],
@@ -245,15 +253,25 @@ export const FAMILIAS: NavFamilia[] = [
     label: 'Sales Machine',
     pregunta: '¿Qué necesito para vender?',
     icon: 'sales',
+    // Las tabs «pronto» (comingSoon) de esta familia llevan `adminOnly`: sólo las ve el super admin en su barra.
+    // Martín (11/10/2026): «En la sidebar principal en la parte de "Sales Machine" elimina todas las tabs con
+    // "pronto", que solo sean visibles en super admin». Un cliente (y el super admin mirando como cliente) no las ve.
     bloques: [
+      // La OFERTA va primero: es lo que todo lo de abajo vende. Vino de Analyze el 12/10/2026 (Martín: «Pon Offer en
+      // Sales Machine»). Desde el 11/10 une Offer Analyst y Offer Generator en UNA tab: diagnostica la oferta y la
+      // ESCRIBE de nuevo (con su PDF). ⚠️ La key 'offer' es la de siempre (contrato con la base: capas y
+      // onboarding); el match acepta /offer-analyst porque esa ruta vieja redirige acá y sigue en links que salieron.
+      [
+        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) },
+      ],
       // Capturar: las piezas que traen y convierten al lead.
       [
         // Las keys NO cambiaron (están escritas en la base: capas y estado del
         // onboarding por tab). Lo que cambió es el nombre y la RUTA, para que
         // digan lo mismo. Las rutas viejas redirigen.
         { key: 'landing-writer', label: 'Landing Generator', href: '/landing-generator', icon: 'web', match: (p) => starts('/landing-generator')(p) || starts('/landing-writer')(p) },
-        { key: 'vsl-writer', label: 'VSL Generator', href: '/vsl-generator', icon: 'video', comingSoon: true, match: (p) => starts('/vsl-generator')(p) || starts('/vsl-writer')(p) },
-        { key: 'lead-magnet-generator', label: 'Lead Magnet Generator', href: '/lead-magnet-generator', icon: 'leadmagnet', comingSoon: true, match: starts('/lead-magnet-generator') },
+        { key: 'vsl-writer', adminOnly: true, label: 'VSL Generator', href: '/vsl-generator', icon: 'video', comingSoon: true, match: (p) => starts('/vsl-generator')(p) || starts('/vsl-writer')(p) },
+        { key: 'lead-magnet-generator', adminOnly: true, label: 'Lead Magnet Generator', href: '/lead-magnet-generator', icon: 'leadmagnet', comingSoon: true, match: starts('/lead-magnet-generator') },
       ],
       // Conversar: lo que le habla al lead una vez que entró.
       [
@@ -263,13 +281,13 @@ export const FAMILIAS: NavFamilia[] = [
         // Las URLs viejas (/chatbot, /chat-bot, /chat-agent) redirigen y siguen marcando la tab:
         // salen de UNA lista, la misma que cuida tests/ruta-automations.test.ts.
         { key: 'setting', label: 'Automations', href: RUTA_AUTOMATIONS, icon: 'chatbot', rolesWs: ['setter'], match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) },
-        { key: 'sales-email', label: 'Sales Email', href: '/sales-email', icon: 'salesemail', comingSoon: true, match: starts('/sales-email') },
-        { key: 'newsletters', label: 'Newsletters', href: '/newsletters', icon: 'newsletter', comingSoon: true, match: starts('/newsletters') },
+        { key: 'sales-email', adminOnly: true, label: 'Sales Email', href: '/sales-email', icon: 'salesemail', comingSoon: true, match: starts('/sales-email') },
+        { key: 'newsletters', adminOnly: true, label: 'Newsletters', href: '/newsletters', icon: 'newsletter', comingSoon: true, match: starts('/newsletters') },
       ],
       // Cerrar: lo que usa la persona que atiende la llamada.
       [
-        { key: 'closing-script', label: 'Closing Script', href: '/closing-script', icon: 'closingscript', comingSoon: true, rolesWs: ['closer'], match: starts('/closing-script') },
-        { key: 'sales-roleplay', label: 'Sales Roleplay', href: '/sales-roleplay', icon: 'roleplay', comingSoon: true, rolesWs: ['closer', 'setter'], match: starts('/sales-roleplay') },
+        { key: 'closing-script', adminOnly: true, label: 'Closing Script', href: '/closing-script', icon: 'closingscript', comingSoon: true, rolesWs: ['closer'], match: starts('/closing-script') },
+        { key: 'sales-roleplay', adminOnly: true, label: 'Sales Roleplay', href: '/sales-roleplay', icon: 'roleplay', comingSoon: true, rolesWs: ['closer', 'setter'], match: starts('/sales-roleplay') },
       ],
     ],
   },
@@ -280,12 +298,16 @@ export const FAMILIAS: NavFamilia[] = [
     // ocho cosas colgando.
     key: 'content',
     label: 'Content Machine',
+    // 12/10/2026, Martín: «Elimina todo lo de "Content Machine", que solo quede Ads Writer y Video Generator. Y que
+    // queden sin sub tabs... Y claro, que el resto quede tal cual en SuperAdmin». Lo demás lleva `adminOnly` y, fuera
+    // de la barra del super admin, los desplegables se aplanan (`planaParaCliente`): quedan las dos sueltas.
+    planaParaCliente: true,
     pregunta: '¿Qué pieza necesito hacer?',
     icon: 'creativos',
     bloques: [
       // Antes de la pieza está de qué hablar. Por eso Ideas va suelto arriba y
       // no adentro de un canal: no es de Meta ni de Instagram ni de YouTube.
-      [{ key: 'ideas', label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') }],
+      [{ key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') }],
     ],
     grupos: [
       {
@@ -295,7 +317,7 @@ export const FAMILIAS: NavFamilia[] = [
         key: 'ads', label: 'Ads', icon: 'meta',
         items: [
           { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
-          { key: 'image-generator', label: 'Image Generator', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
+          { key: 'image-generator', adminOnly: true, label: 'Image Generator', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
           { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
           // ⚠️ `adminOnly` HASTA QUE MARTÍN LO VALIDE: es una copia de CapCut que se arma
           // por tandas. Esto sólo la esconde de la barra; quien la cierra de verdad es el
@@ -306,16 +328,16 @@ export const FAMILIAS: NavFamilia[] = [
       {
         key: 'ig-formatos', label: 'Instagram', icon: 'instagram',
         items: [
-          { key: 'reels', label: 'Reels', href: '/reels', icon: 'videogen', match: starts('/reels') },
-          { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
-          { key: 'stories', label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
+          { key: 'reels', adminOnly: true, label: 'Reels', href: '/reels', icon: 'videogen', match: starts('/reels') },
+          { key: 'carousels', adminOnly: true, label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
+          { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
         ],
       },
       {
         key: 'yt-formatos', label: 'YouTube', icon: 'youtube',
         items: [
-          { key: 'youtube-writer', label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
-          { key: 'thumbnails', label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
+          { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
+          { key: 'thumbnails', adminOnly: true, label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
         ],
       },
     ],
@@ -397,6 +419,10 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // referidos. Sólo super admin: vive bajo /admin y abre con getSesionAdmin. La key
         // NO lleva el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros).
         { key: 'admin-estrategia', label: 'Strategy', href: '/admin/estrategia', icon: 'analytics', match: starts('/admin/estrategia') },
+        // Martín vendiendo MaKo (11/10/2026: «Lo voy a utilizar yo como superadmin para vender
+        // MaKo»): el link de pago de un plan y lo que se cobró, con el alta de cada cuenta. Sólo
+        // super admin, mismo guard que Strategy; la key tampoco lleva el prefijo 'dev-'.
+        { key: 'admin-cobros', label: 'Cobros', href: '/admin/cobros', icon: 'tag', match: starts('/admin/cobros') },
       ],
       // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
       // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar
@@ -407,6 +433,11 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         { key: 'modelos-ia', label: 'Modelos IA', href: '/modelos-ia', icon: 'mako', match: starts('/modelos-ia') },
         // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
         { key: 'conocimientos', label: 'Conocimientos', href: '/conocimientos', icon: 'contexto', match: starts('/conocimientos') },
+        // El criterio de la tab Offer y lo que se concluyó de cada curso de oferta (11/10/2026,
+        // Martín: «una tab con el criterio y todas las conclusiones… así lo puedo revisar»). Va
+        // en este bloque porque es CON QUÉ PIENSA MaKo cuando analiza una oferta. La key NO
+        // lleva el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros).
+        { key: 'admin-offer-playbook', label: 'Offer Playbook', href: '/admin/offer-playbook', icon: 'tag', match: starts('/admin/offer-playbook') },
       ],
     ],
   },
@@ -514,6 +545,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-meta-platform', label: 'Meta Platform', href: '/admin/dev/meta-platform', icon: 'config', match: starts('/admin/dev/meta-platform') },
           { key: 'dev-plan', label: 'Plan', href: '/admin/dev/plan', icon: 'todo', match: starts('/admin/dev/plan') },
           { key: 'dev-plans-entitlements', label: "Plans & Entitlements", href: '/admin/dev/plans-entitlements', icon: 'config', match: starts('/admin/dev/plans-entitlements') },
+          { key: 'dev-payment-gateway', label: 'Payment Gateway', href: '/admin/dev/payment-gateway', icon: 'tag', match: starts('/admin/dev/payment-gateway') },
           { key: 'dev-rate-limiting', label: "Rate Limiting", href: '/admin/dev/rate-limiting', icon: 'config', match: starts('/admin/dev/rate-limiting') },
           { key: 'dev-reels', label: "Reels", href: '/admin/dev/reels', icon: 'config', match: starts('/admin/dev/reels') },
           { key: 'dev-self-healing-dev-agent', label: "Self-Healing Dev Agent", href: '/admin/dev/self-healing-dev-agent', icon: 'config', match: starts('/admin/dev/self-healing-dev-agent') },
@@ -527,6 +559,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           // UX/UI es el catálogo que los muestra montados (/admin/ui).
           { key: 'dev-design-system', label: 'Design System', href: '/admin/dev/design-system', icon: 'graphics', match: starts('/admin/dev/design-system') },
           { key: 'dev-mako-ux-ui', label: 'MaKo UX/UI', href: '/admin/dev/mako-ux-ui', icon: 'graphics', match: starts('/admin/dev/mako-ux-ui') },
+          { key: 'dev-mako-mobile', label: 'MaKo Mobile', href: '/admin/dev/mako-mobile', icon: 'mako', match: starts('/admin/dev/mako-mobile') },
           // Va pegada a VSL Tracking porque son las dos puntas del mismo bucle:
           // aquélla MIDE dónde se cae la curva, ésta escribe el guion que se
           // reescribe con ese dato. Hoy la pantalla es un ComingSoon; el registro
@@ -534,6 +567,9 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-vsl-generator', label: 'VSL Generator', href: '/admin/dev/vsl-generator', icon: 'video', match: starts('/admin/dev/vsl-generator') },
           // La copia de CapCut (11/10/2026): el pedido textual y las tandas del port.
           { key: 'dev-video-editor', label: 'Video Editor', href: '/admin/dev/video-editor', icon: 'tijera', match: starts('/admin/dev/video-editor') },
+          // El editor de landings copiado de Gamma (11/10/2026): su registro lleva el pedido literal
+          // de Martín y lo que quedó sin hacer (app/admin/dev/landing-generator/bitacora.ts).
+          { key: 'dev-landing-generator', label: 'Landing Generator', href: '/admin/dev/landing-generator', icon: 'web', match: starts('/admin/dev/landing-generator') },
           { key: 'dev-credentials-vault-byok', label: 'Credentials Vault (BYOK)', href: '/admin/dev/credentials-vault-byok', icon: 'config', match: starts('/admin/dev/credentials-vault-byok') },
           // Los dos formatos de Content Machine con registro escrito. Stories ya
           // está construida; Thumbnails sigue siendo un ComingSoon y su registro

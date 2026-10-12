@@ -69,7 +69,8 @@ import { RichText, mdAHtml, stripHtml, FOCO_BARRA } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
-import { resolverDeps, estaBloqueada, type EstadoDeps, type Dep } from './dependencias';
+import { resolverDeps, type EstadoDeps, type Dep } from './dependencias';
+import { prioridadesDelTablero } from './prioridades';
 import { ESCALERA } from './types';
 import { DependenciasBloque } from './DependenciasBloque';
 import { apiPlan } from './repo-plan';
@@ -552,22 +553,10 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // El guardián es dueño de la ubicación: la columna respeta la restricción
   // (Alta solo para el proyecto top / sin proyecto / emergencia).
   //
-  // El Objetivo Principal es el proyecto de mayor score QUE TODAVÍA TIENE TRABAJO.
-  // Antes era, sin más, el de mayor score: cuando lo terminabas, el norte se quedaba
-  // clavado en un proyecto 100% hecho y la vista Prioridades se vaciaba en vez de
-  // pasar al siguiente. Si ya está TODO hecho, se muestra igual el de mayor score
-  // (para no dejar la card vacía), pero no hay nada que priorizar.
-  //
-  // El score del proyecto lo DERIVA el Perro de sus tareas (`recurvarProyectosOwner`), así
-  // que dos proyectos empatan cuando su mejor trabajo vale lo mismo — y eso pasa seguido en
-  // la punta. El desempate NO puede quedar en `orden`, que es el orden en que se crearon:
-  // el norte del tablero cambiaría de proyecto por un motivo que no significa nada. Empata
-  // el que tiene MÁS trabajo abierto: si dos cosas importan igual, se ataca donde hay más.
-  const pendientesPorProy = new Map<string, number>();
-  // Sobre `conFin`: de este conteo sale el OBJETIVO PRINCIPAL, y un proyecto al que solo
-  // se le hace la reunion semanal no es el norte del tablero. Es la misma particion que
-  // usa el avance, unas lineas mas abajo.
-  for (const t of conFin) if (t.progress < 100) for (const id of t.labels) pendientesPorProy.set(id, (pendientesPorProy.get(id) ?? 0) + 1);
+  // ⚠️ EL OBJETIVO PRINCIPAL Y LAS CINCO DE PRIORIDADES YA NO SE CALCULAN ACÁ: viven en
+  // `./prioridades.ts` (`prioridadesDelTablero`), con su porqué entero, y se llaman más
+  // abajo — donde ya existe el filtro de cliente. La misma función la usan el teléfono y la
+  // API de MaKo: una sola definición de «¿qué hago ahora?» (11/10/2026).
 
   // ── Dependencias (mig 0140) ──
   // Se resuelven ACÁ, en el render, y NO se persiste ni un número. Es la decisión de
@@ -586,30 +575,6 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     ...(estDeps.bloqueantesProy[id] ?? []).map(nombreDe),
   ];
 
-  // Un proyecto está frenado cuando NINGUNA de sus tareas abiertas se puede empezar. Ojo
-  // con el matiz: alcanza con que UNA sea arrancable para que el proyecto lo sea, porque
-  // el norte del tablero tiene que ser algo en lo que hoy se puede poner una hora.
-  // Tambien sobre `conFin`: «arrancable» decide el desempate del objetivo principal, y
-  // una recurrente no es trabajo que se pueda arrancar y terminar.
-  const proyArrancable = (id: string) => conFin.some((t) => t.progress < 100 && t.labels.includes(id) && !estaBloqueada(t.id, estDeps));
-
-  // ⚠️ SIN LOS QUE SE REPITEN, y no alcanzaba con sacarlos del ranking del Perro: marcar
-  // un proyecto NO le baja el score, le deja el que tenía (bajárselo lo mandaría al fondo
-  // como si estuviera abandonado, que es otra mentira). Así que el que estaba primero sigue
-  // primero en esta lista, y de acá sale el Objetivo Principal — el norte del tablero
-  // señalando algo que no se puede terminar.
-  const porScore = sinRecurrentes(labels).slice().sort((a, b) => b.score - a.score || (pendientesPorProy.get(b.id) ?? 0) - (pendientesPorProy.get(a.id) ?? 0));
-  const tienePendientes = (id: string) => (pendientesPorProy.get(id) ?? 0) > 0;
-  // El Objetivo Principal exige trabajo ARRANCABLE, no solo pendiente: un norte en el que
-  // no se puede empezar nada hoy es un norte que no sirve. Si todo está frenado se cae al
-  // criterio de siempre en vez de dejar la card vacía — y ahí el tablero ya está diciendo
-  // otra cosa (que la cadena está trabada), que se ve en los candados.
-  // Una FUNCIÓN y no la expresión suelta: Prioridades filtrada a un cliente elige SU objetivo
-  // con este mismo criterio (ver `objetivoVista`), y dos copias del criterio del norte son
-  // dos nortes el día que alguien toque una.
-  const elegirObjetivo = (ls: Label[]) => ls.find((l) => proyArrancable(l.id)) ?? ls.find((l) => tienePendientes(l.id)) ?? ls[0] ?? null;
-  const objetivoPrincipal = elegirObjetivo(porScore);
-  const topProjectId = objetivoPrincipal?.id ?? null;
   // ── "Datos sin marcar" (feedback jul-19): el deadline (opcional), en UN modal batch.
   // Reemplaza al gauntlet card-by-card que auto-popeaba de a una. Persistimos qué se ignoró. (El «no volver a pedir» de
   // `mako_plan_datos_off` se fue con el auto-open: sin pop-up solo, no hay nada que apagar.) ──
@@ -829,8 +794,8 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   /**
    * EL FILTRO DE CLIENTE, COMO PREDICADO: uno para tareas y uno para proyectos, y los llaman
    * TODAS las vistas — `passes` (Tareas, Kanban y tabla), las dos listas de Recurrentes, la
-   * grilla y la tabla de Proyectos (`ProyectosView`) y Prioridades (`pendientesTodas` y el
-   * objetivo). Es la regla de este archivo para la barra de filtros: un predicado por
+   * grilla y la tabla de Proyectos (`ProyectosView`) y Prioridades (`filtroCli` entero va a
+   * `prioridadesDelTablero`: las cinco y el objetivo). Es la regla de este archivo para la barra de filtros: un predicado por
    * pregunta, o el filtro nuevo funciona en una vista y en la otra no.
    *
    * Los proyectos del cliente se calculan UNA vez por render (no por tarjeta): con 550
@@ -928,50 +893,25 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // Sobre `conFin`, NUNCA sobre `tasks`: ver el porqué arriba, donde se parte el tablero.
   const avg = conFin.length ? Math.round(conFin.reduce((s, t) => s + t.progress, 0) / conFin.length) : 0;
   const hechas = conFin.filter((t) => t.progress >= 100).length;
-  // "En prioridad" = AUTOMÁTICO: las 3 tareas de mayor score del Objetivo Principal
-  // (no lo elige el usuario). NUNCA se queda corta: si al proyecto top le quedan menos
-  // de 3 pendientes, se completa con lo mejor del resto del plan (por score del
-  // proyecto y después por score de la tarea). Antes, con el norte al 86%, la vista
-  // mostraba UNA sola tarjeta y el resto del plan quedaba invisible: el tablero decía
-  // "no hay nada más que hacer" con 20 tareas abiertas.
-  const scoreProy = (t: BoardTask) => Math.max(0, ...t.labels.map((id) => board.labelById(id)?.score ?? 0));
-  // ⚠️ Prioridades responde «¿qué hago AHORA?», así que lo BLOQUEADO no entra. No es que
-  // valga menos —su score no se toca, y en el Kanban sigue donde estaba—: es que hoy no se
-  // puede empezar, y una lista de «hacé esto» con cosas que no se pueden hacer es peor que
-  // una lista corta. Lo que sí sube es lo que las DESTRABA, por la urgencia heredada.
-  const pendientesTodas = conFin.filter((t) => t.progress < 100 && !estaBloqueada(t.id, estDeps) && pasaCliente(t));
-  /**
-   * EL NORTE DE ESTA VISTA. Sin filtro es el Objetivo Principal del tablero, igual que
-   * siempre. Con el filtro de cliente es el mejor proyecto DE ESE CLIENTE, con el mismo
-   * criterio (`elegirObjetivo`) — que es lo que ya muestra su ficha, donde el tablero sólo
-   * tiene sus filas.
-   *
-   * ⚠️ `topProjectId` NO CAMBIA CON EL FILTRO, y es a propósito: ése decide en qué COLUMNA
-   * cae cada tarjeta del Kanban (`displayPrio`), y un filtro que mueve tarjetas de columna no
-   * filtra: reordena. Esto es sólo lo que Prioridades dibuja a la izquierda y con qué
-   * desempata.
-   */
-  const objetivoVista = filtroCli ? elegirObjetivo(porScore.filter(pasaClienteProy)) : objetivoPrincipal;
-  const topVistaId = objetivoVista?.id ?? null;
-  // ⚠️ MANDA LA BANDA, Y EL PROYECTO TOP DESEMPATA ADENTRO DE ELLA.
+  // ── PRIORIDADES: el Objetivo Principal y las cinco de «¿qué hago AHORA?» ──────────
   //
-  // Acá entraban primero TODAS las pendientes del proyecto top ordenadas por score y el
-  // resto del plan completaba atrás, así que una tarea floja del norte le ganaba a una
-  // fuerte de cualquier otro proyecto. Medido el 25/09/2026 en el tablero del dueño: la
-  // #3 de la lista salía con prioridad **20** al lado de 90, 91, 79 y 71 — y una lista de
-  // «qué hago ahora» con una tarea a futuro en el podio deja de ser una respuesta.
+  // Se calculan en `./prioridades.ts` (`prioridadesDelTablero`), que es la extracción
+  // LITERAL de lo que vivía acá: banda (con la urgencia heredada) → objetivo principal →
+  // score del proyecto → urgencia, sin bloqueadas, sin recurrentes, tope MAX_PRIORIDAD. La
+  // misma función la llaman el teléfono (lib/plan-hoy.ts) y la API de MaKo
+  // (`ver_prioridades_plan`): antes eran dos definiciones que contestaban distinto a la
+  // misma pregunta, y el teléfono iba a ser la tercera. `tests/plan-prioridades.test.ts`
+  // la compara contra este código de antes.
   //
-  // La banda es la misma que agrupa el Kanban (`prioFromScore`: alta ≥ 75 · media ≥ 50 ·
-  // baja ≥ 25 · futuro < 25), así que las dos vistas no se pueden contradecir. Una ALTA de
-  // otro proyecto siempre le gana a una BAJA del proyecto top; empatada la banda, sí manda
-  // el norte. El score que se mira es el EFECTIVO (la urgencia heredada de lo que destraba),
-  // que es el mismo con el que después se ordena.
-  const urg = (t: BoardTask) => estDeps.urgencia[t.id] ?? t.score;
-  const banda = (t: BoardTask) => PRIOS.indexOf(prioFromScore(urg(t)));   // 0 = alta … 3 = a futuro
-  const esDelTop = (t: BoardTask) => (topVistaId ? t.labels.includes(topVistaId) : false);
-  const enPrio = [...pendientesTodas]
-    .sort((a, b) => banda(a) - banda(b) || Number(esDelTop(b)) - Number(esDelTop(a)) || scoreProy(b) - scoreProy(a) || urg(b) - urg(a))
-    .slice(0, MAX_PRIORIDAD);
+  // Recibe el grafo YA resuelto (`estDeps`, memoizado arriba) y el filtro de cliente: con
+  // filtro cambia el norte de LA VISTA (`objetivoVista`, lo que Prioridades dibuja a la
+  // izquierda y con qué desempata) pero NO `topProjectId`, que decide en qué COLUMNA cae
+  // cada tarjeta del Kanban — un filtro que mueve tarjetas de columna no filtra: reordena.
+  const prio = prioridadesDelTablero({ tareas: tasks, proyectos: labels, estDeps, filtro: filtroCli });
+  const objetivoPrincipal = prio.objetivoPrincipal;
+  const topProjectId = objetivoPrincipal?.id ?? null;
+  const objetivoVista = prio.objetivoVista;
+  const enPrio = prio.prioridades;
   const prioAvg = enPrio.length ? Math.round(enPrio.reduce((s, t) => s + t.progress, 0) / enPrio.length) : 0;
   // agregado de proyectos (para el chip del header en la vista Proyectos)
   // ⚠️ SIN LOS QUE SE REPITEN. Un proyecto recurrente no llega a 100 nunca —por definición,

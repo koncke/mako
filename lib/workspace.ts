@@ -98,6 +98,11 @@ const TENANT_TABLES = new Set<string>([
   // 30/09/2026: la tabla quedó vacía porque el upsert fallaba, y eso tapó el agujero
   // de casualidad. Es el mismo modo de falla del `wsDeInstancia` de la 0180.
   'avisos_programados',
+  // El «AI Analyst» del Dashboard (mig 0247): una fila por negocio, persona y hoja, que es a la vez el
+  // estado, el candado y el horario. Sin esta línea el cron de un negocio leería y avanzaría lo
+  // programado de TODOS, y el panel podría mostrar el análisis de otro negocio con el mismo hoja_id
+  // (los del informe inicial son fijos: «marketing», «comercial»).
+  'dashboard_analisis',
   // ⚠️ SIN ESTA LINEA `getTenantDb()` ES PASSTHROUGH, no «sin scope»: la lectura
   // devolveria las corridas de CUALQUIER workspace y el drenador de un cliente
   // avanzaria y mandaria las filas de todos. No da error: contesta de mas.
@@ -143,6 +148,11 @@ const TENANT_TABLES = new Set<string>([
   // líneas `getTenantDb()` es PASSTHROUGH: el CRUD listaría las etiquetas de TODOS los negocios y
   // «¿este lead ya la tiene?» contestaría con filas de otro cliente.
   'crm_etiquetas', 'crm_lead_etiquetas',
+  // El feed de avisos POR WORKSPACE (mig 0250, MaKo Mobile): la 0048 no tenía `workspace_id` y
+  // aplicada habría mostrado a cada cliente los avisos de todos. lib/notificaciones.ts escribe y
+  // lee con el ws explícito; esta línea es la red si alguien la lee con getTenantDb.
+  // (`push_suscripciones` NO va: no tiene `workspace_id`, se ata a la PERSONA.)
+  'notificaciones',
   // Las insistencias vivas (mig 0180): un aviso que vuelve hasta que alguien dice «lo vi».
   // Va acá porque la fila es del workspace cuyo grupo recibe el mensaje — y porque el
   // techo que protege SU línea de WhatsApp no puede depender de leer la de otro.
@@ -161,9 +171,17 @@ const TENANT_TABLES = new Set<string>([
   'objectives', 'kpis', 'kpi_registros',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_campaign_drafts', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros',
+  // Los cobros de la pasarela (Stripe / Mercado Pago, mig 0255). Sin esta línea getTenantDb() es
+  // PASSTHROUGH y la tab Pagos de una ficha listaría los cobros de TODOS los negocios. Las rutas
+  // públicas (/pagar/<token>) y los webhooks leen con service role y ws explícito, a propósito.
+  'cobros',
   // El funnel y la oferta, desde el día uno de su migración (0169-0171). `funnels`
   // reemplaza a `funnel_config`, que era singleton y por eso quedaba afuera.
   'funnels', 'ofertas', 'oferta_productos', 'funnel_ofertas', 'lead_magnets',
+  // Las conversaciones de la tab Offer (mig 0254): N filas por negocio, con lo que el dueño contó de
+  // su oferta y el texto de sus documentos. Sin esta línea `getTenantDb()` es PASSTHROUGH y la lista
+  // de conversaciones de un negocio mostraría las de todos (lib/offer-sesiones.ts).
+  'offer_sesiones',
   // Grabación de sesión (mig 0191). Las DOS, y acá no hay margen: son las filas más
   // sensibles del producto —la pantalla de un visitante— y `getTenantDb()` sin esta
   // línea es PASSTHROUGH, así que la ficha de un lead listaría las grabaciones de
@@ -176,6 +194,12 @@ const TENANT_TABLES = new Set<string>([
   // igual, por si esta línea se pierde al juntar las partes del rediseño del chatbot).
   'setting_adjuntos',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',
+  // El editor de landings copiado de Gamma (mig 0246): las landings, su historial de versiones y
+  // los comentarios por sección. Las tres tienen N filas por workspace: sin estas líneas
+  // `getTenantDb()` es PASSTHROUGH y el Panel de un negocio listaría las landings de TODOS, con su
+  // contenido. (lib/editor-landing/server.ts escribe además el `.eq` a mano en cada consulta.) La
+  // página PÚBLICA no pasa por acá: lee por slug o por token con el cliente crudo.
+  'landing_docs', 'landing_doc_versiones', 'landing_doc_comentarios',
   // Canal Instagram vía Zernio (mig 0136). La tab se retiró el 06/10/2026 y ya no
   // las lee ni las escribe nadie, pero las TABLAS quedan en la base (sin migración
   // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que

@@ -92,6 +92,13 @@ export type VozCliente = {
   muestras: MuestraGuardada[];
   /** El clon en ElevenLabs, si ya lo hizo. */
   clon?: ClonDeVoz;
+  /**
+   * OTRAS VOCES (AI Step v2, décima tanda: «O si quiere agregar una nueva voz»). Una por persona que
+   * contesta (un closer, una socia), cada una con su `autorizadoAt`: la regla de arriba vale igual — sin
+   * consentimiento no se clona. Un AI Step guarda su `voiceId`; «Tu voz» se guarda como 'propia' y se
+   * resuelve al clon VIGENTE al mandar.
+   */
+  otras?: ClonDeVoz[];
 };
 
 const VACIO: VozCliente = { acento: '', muletillas: [], muestras: [] };
@@ -128,7 +135,13 @@ export async function getVozCliente(): Promise<VozCliente> {
         autorizadoAt: c.autorizadoAt,
       }
       : undefined;
-    return { acento, muletillas, muestras, ...(clon ? { clon } : {}) };
+    // Las otras voces, con la MISMA regla que el clon: `voiceId` y autorización, o no cuentan.
+    const otras = Array.isArray(v.otras)
+      ? v.otras.flatMap((o): ClonDeVoz[] => (o && typeof o.voiceId === 'string' && o.voiceId && typeof o.autorizadoAt === 'string' && o.autorizadoAt
+        ? [{ voiceId: o.voiceId, nombre: String(o.nombre ?? '').slice(0, 100), creadoAt: String(o.creadoAt ?? ''), muestras: Array.isArray(o.muestras) ? o.muestras.filter((x): x is string => typeof x === 'string') : [], autorizadoAt: o.autorizadoAt }]
+        : []))
+      : [];
+    return { acento, muletillas, muestras, ...(clon ? { clon } : {}), ...(otras.length ? { otras } : {}) };
   } catch {
     return VACIO;
   }
@@ -249,6 +262,22 @@ export async function borrarMuestra(id: string): Promise<VozCliente> {
 export async function guardarClon(clon: ClonDeVoz): Promise<VozCliente> {
   const v = await getVozCliente();
   const nuevo: VozCliente = { ...v, clon };
+  await setSetting(KEY, JSON.stringify(nuevo));
+  return nuevo;
+}
+
+/**
+ * Anota OTRA voz (AI Step v2) y saca de la lista de muestras las que se usaron para ella: son de otra persona,
+ * y con ellas adentro el próximo re-clonado de «Tu voz» mezclaría las dos. Los archivos quedan (son la
+ * procedencia de ese clon: `ClonDeVoz.muestras`).
+ */
+export async function guardarOtraVoz(clon: ClonDeVoz, usadas: readonly string[]): Promise<VozCliente> {
+  const v = await getVozCliente();
+  const nuevo: VozCliente = {
+    ...v,
+    muestras: v.muestras.filter((m) => !usadas.includes(m.id)),
+    otras: [...(v.otras ?? []).filter((o) => o.voiceId !== clon.voiceId), clon],
+  };
   await setSetting(KEY, JSON.stringify(nuevo));
   return nuevo;
 }

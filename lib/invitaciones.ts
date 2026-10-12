@@ -26,14 +26,12 @@
 
 import 'server-only';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
-import { sendEmail, renderEmailHtml, displayNameDe } from './resend';
+import { sendEmail, renderEmailHtml, displayNameDe, remitenteDelNegocioActual } from './resend';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getSupabaseServer } from './supabase';
-import { getSettingEstricto } from './settings';
-import { credDelCliente } from './credenciales';
 import type { RolWorkspace } from './auth-session';
 import { textoInvitacionCurso, textoInvitacionLider, textoLinkAlumno, type ResultadoInvitacion } from './invitacion-aviso';
-import { remitenteDeLaInvitacion, type RemitenteInvitacion } from './curso-invitar-canales';
+import { invitacionDeVeredicto, type RemitenteInvitacion } from './curso-invitar-canales';
 
 // El tipo y el texto que lee la persona viven en `invitacion-aviso` (sin `server-only`,
 // para que lo importen las pantallas y los tests). Acá se re-exporta para que quien manda
@@ -224,8 +222,8 @@ export async function invitarPorEmail(u: {
 // o sea que la invitación al curso de CUALQUIER negocio salía firmada «MaKo <equipo@hola-mako.com>»,
 // tuviera o no su dominio verificado. Para el alumno, MaKo es una marca que no conoce.
 //
-// La regla de abajo —y su porqué— vive en `remitenteDeLaInvitacion` (lib/curso-invitar-canales.ts,
-// puro y con test). Acá se leen las tres cosas que la deciden, del workspace del ALUMNO.
+// La regla es la de `sendEmail` (`remitenteDelNegocio`, lib/email-remitente.ts, pura y con test), leída del
+// workspace del ALUMNO con `remitenteDelNegocioActual`; `invitacionDeVeredicto` la pasa a la invitación.
 //
 // ⚠️ ESTO NO CONTRADICE A `REMITENTE_MAKO`: aquello es la identidad de la PLATAFORMA para lo que manda
 //    MaKo (el acceso de un cliente a MaKo, las alarmas). La invitación al curso la manda EL NEGOCIO a SUS
@@ -241,20 +239,10 @@ export async function invitarPorEmail(u: {
 async function remitenteDelNegocio(ws: number): Promise<RemitenteInvitacion> {
   if (!Number.isInteger(ws) || ws <= 0) return { via: 'mako' };
   try {
-    return await runWithWorkspace(ws, async () => {
-      const [resendFrom, resendDominio, credFrom, credKey] = await Promise.all([
-        getSettingEstricto('resend_from'),
-        getSettingEstricto('resend_domain'),
-        // Las del CLIENTE (`credDelCliente`), nunca `credWs`: ésa le daría al ws1 —un cliente— las de la
-        // plataforma (ver `remitenteDeLaInvitacion`).
-        credDelCliente('RESEND_FROM', ws),
-        credDelCliente('RESEND_API_KEY', ws),
-      ]);
-      return remitenteDeLaInvitacion({
-        resendFrom, resendDominio, credFrom, credKeyPropia: !!credKey,
-        dominioMako: EMAIL_MAKO.slice(EMAIL_MAKO.lastIndexOf('@') + 1),
-      });
-    });
+    // Undécima tanda: la MISMA puerta que `sendEmail` (`remitenteDelNegocioActual`, lib/resend.ts). Lee las
+    // credenciales del CLIENTE (`credDelCliente`, nunca `credWs`) y compara su key con la de la plataforma:
+    // la copia del ws4 no es «su cuenta». Una regla propia acá decía «negocio» donde `sendEmail` rechaza.
+    return await runWithWorkspace(ws, async () => invitacionDeVeredicto(await remitenteDelNegocioActual()));
   } catch (e) {
     console.warn(`[invitaciones] no pude leer el remitente del ws ${ws}; va el de MaKo:`, e instanceof Error ? e.message : e);
     return { via: 'mako' };

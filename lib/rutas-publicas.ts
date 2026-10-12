@@ -65,6 +65,26 @@ export const PUBLICOS = [
   // Los términos del servicio. Google los EXIGE junto con la política para
   // verificar la app OAuth de Calendar, y su revisor los abre sin cuenta.
   '/terminos',
+  // La política de reembolsos (11/10/2026, con la pasarela de pagos). Stripe y Mercado Pago la
+  // piden para aprobar la cuenta ANTES del primer cobro, y la lee quien está por pagar: las dos
+  // la abren sin cuenta de MaKo. Es una página: sólo GET (`esPublicaSoloLeer`).
+  '/reembolsos',
+  // ── El comprador de un link de pago (11/10/2026) ──────────────────────────────
+  // `/pagar/<token>` (route handler: redirige al checkout de Stripe o Mercado Pago) y
+  // `/pagar/<token>/listo` (adonde vuelve desde la pasarela). Las abre un COMPRADOR, que no tiene
+  // ni va a tener sesión de MaKo: el cliente de un negocio que le mandó el link, o alguien que está
+  // comprando un plan de MaKo y todavía no tiene cuenta. Se autentican con el token de la URL (32
+  // caracteres al azar, lib/cobros-reglas.ts) y NO leen ninguna cookie. Va como PREFIJO porque el
+  // token es un segmento de la ruta; abajo de `/pagar` no vive nada más, y por no ser `/api/` es
+  // sólo GET/HEAD/OPTIONS (`esPublicaSoloLeer`): lo que escribe va por `/api/pagar/email`.
+  '/pagar',
+  // Lo único que ESCRIBE del comprador: cambiar el email con el que va a entrar a MaKo después de
+  // pagar un plan (el login es sólo Google, y paga con el email que tenga a mano). Exacta, no
+  // `/api/pagar`. Se autentica con el token del cobro en el CUERPO —la misma credencial que el
+  // link— y no lee la cookie: sin el token no escribe nada, así que el Origin que el early-return
+  // saltea no protegía nada. Las condiciones (pagado, alta hecha, nunca entró, menos de 3 cambios)
+  // viven en app/pagar/cambio-email.ts, con test.
+  '/api/pagar/email',
   // El robots.txt (app/robots.ts). Sin esto el gate lo mandaba a /login: un crawler que
   // pedía reglas recibía una página de login.
   '/robots.txt',
@@ -75,11 +95,29 @@ export const PUBLICOS = [
   // que un cambio del matcher no apague el Pixel de todos los clientes con un 401. No es
   // /api/, así que `esPublicaSoloLeer` la deja sólo en GET/HEAD/OPTIONS.
   '/m.js',
+  // El service worker de MaKo Mobile (public/sw.js, 11/10/2026): lo pide el NAVEGADOR al
+  // registrarlo y al buscar actualizaciones, y no tiene que depender de la sesión (una sesión
+  // vencida no puede dejar al teléfono sin el código que muestra los avisos). Es un archivo
+  // estático sin datos de nadie. Mismo caso que '/m.js': el matcher del proxy ya excluye todo
+  // camino que termina en `.js`, y está acá por si eso cambia. Sólo GET/HEAD/OPTIONS.
+  '/sw.js',
   '/api/og',
   '/vsl',
   '/vsl-assets',
   '/compartido',
   '/api/compartido',
+  // ── Las landings publicadas con el editor (11/10/2026, docs/diseno-editor-landing.md D4) ──
+  // `/l/<slug>`, `/l/<slug>/<ruta>` y `/l/vista/<token>` (el borrador por el link privado).
+  // Las abre un VISITANTE, sin cuenta de MaKo: detrás del gate se leerían como una página de
+  // login. Son route handlers que leen la foto por slug o por token con el cliente crudo y
+  // NO miran la cookie de sesión para nada (sin cookie, `getTenantDb` caería al ws1).
+  //
+  // Va como PREFIJO, como `/compartido` y `/api/v1`: la carpeta `app/l` es pública POR
+  // CONSTRUCCIÓN, y tests/editor-landing-publica.test.ts enumera en positivo los route.ts que
+  // puede tener (una ruta nueva ahí falla hasta que alguien decide que también es pública).
+  // No es /api/, así que `esPublicaSoloLeer` la deja sólo en GET/HEAD/OPTIONS: los
+  // formularios de la landing no postean acá — el opt-in lo manda el Pixel a /api/track/optin.
+  '/l',
   // ── El agente (Claude) ──────────────────────────────────────────────────
   // Se listan UNA POR UNA y no como `/api/agente`, en positivo, porque en esa carpeta
   // conviven dos clases de ruta. Estas cuatro las llama el agente desde la máquina del
@@ -167,7 +205,14 @@ export const PUBLICOS_ESCRITURA = [
   // (mig 0217: una sola ruta, también para leer, así el token no queda en la URL).
   '/api/compartido/curso/entrega',
   '/api/compartido/comunidad',
+  // Los datos de un informe del Dashboard compartido por link (11/10/2026). NO escribe: es POST para que el
+  // token del link viaje en el CUERPO y no en la URL, igual que la comunidad. La credencial entera es ese
+  // token (revalidado contra la fila viva en cada pedido) y la ruta no lee la cookie de sesión.
+  '/api/compartido/graficos',
   '/api/agente/lead',
+  // El comprador cambia el email de su acceso a MaKo (11/10/2026): el token del cobro viaja en el
+  // CUERPO y es la credencial entera (ver su entrada en PUBLICOS).
+  '/api/pagar/email',
 ] as const;
 
 const matchea = (lista: readonly string[], pathname: string) =>

@@ -28,11 +28,31 @@ export type AudioSetting = {
 
 const COLS = 'id, titulo, media_path, media_mime, duracion_s, transcript, created_at';
 
+/**
+ * La BIBLIOTECA del dueño: sólo lo que él subió (`origen = 'biblioteca'`, mig 0251). Las notas de voz con que
+ * un AI Step contesta a cada lead (`origen: 'ai_step'`, AI Step v2) también viven en esta tabla —el borrador y
+ * `enviarBorrador` las buscan por id— pero NO son de la biblioteca: sin el filtro, cada respuesta en audio
+ * le llenaba la lista de audios al dueño. Lo mismo la Voz de MaKo de las tarjetas «MaKo en WhatsApp»
+ * (`origen: 'voz_mako'`, mig 0257): no es del dueño y no aparece en «Audios guardados».
+ *
+ * ⚠️ SIN LA COLUMNA (la migración todavía no se aplicó: 42703) se lee como antes, sin filtro: no hay
+ * respuestas en audio que esconder, porque guardarlas exige la columna (`crearAudio` con `origen`).
+ */
 export async function listAudios(): Promise<AudioSetting[]> {
   const supabase = await getTenantDb();
-  const { data, error } = await supabase.from('setting_audios').select(COLS).order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('setting_audios').select(COLS).eq('origen', 'biblioteca').order('created_at', { ascending: false });
+  if (error && esColumnaQueFalta(error)) {
+    const viejo = await supabase.from('setting_audios').select(COLS).order('created_at', { ascending: false });
+    if (viejo.error) throw new Error(`listAudios: ${viejo.error.message}`);
+    return (viejo.data ?? []) as AudioSetting[];
+  }
   if (error) throw new Error(`listAudios: ${error.message}`);
   return (data ?? []) as AudioSetting[];
+}
+
+/** La columna que no existe (Postgres 42703, PostgREST PGRST204): NO la tabla que falta. */
+function esColumnaQueFalta(e: { code?: string; message?: string }): boolean {
+  return e.code === '42703' || e.code === 'PGRST204' || /column .*origen.* does not exist/i.test(e.message ?? '');
 }
 
 /**
@@ -40,7 +60,16 @@ export async function listAudios(): Promise<AudioSetting[]> {
  * MaKo sepa QUÉ dice el audio (lo usa el generador y el simulador: sin esto, un
  * paso de audio es una caja negra para la IA).
  */
-export async function crearAudio(input: { titulo: string; base64: string; mime?: string; duracionS?: number | null }): Promise<AudioSetting> {
+export async function crearAudio(input: {
+  titulo: string; base64: string; mime?: string; duracionS?: number | null;
+  /** Lo que dice el audio, si ya se sabe (la respuesta de un AI Step: es el texto que leyó la voz). Sin STT. */
+  transcript?: string | null;
+  /**
+   * De dónde sale: la biblioteca del dueño (default), una respuesta de un AI Step o la Voz de MaKo de una
+   * tarjeta «MaKo en WhatsApp» (lib/voz-mako.ts, mig 0257). Las dos últimas no se listan.
+   */
+  origen?: OrigenAudio;
+}): Promise<AudioSetting> {
   const mime = input.mime || 'audio/ogg';
   const b64 = input.base64.includes(',') ? input.base64.split(',').pop()! : input.base64;
   const buf = Buffer.from(b64, 'base64');
@@ -53,16 +82,25 @@ export async function crearAudio(input: { titulo: string; base64: string; mime?:
   const { error: upErr } = await supabase.storage.from(MEDIA_BUCKET).upload(path, buf, { contentType: mime, upsert: false });
   if (upErr) throw new Error(`No se pudo guardar el audio: ${upErr.message}`);
 
-  // Transcripción best-effort: si falla, el audio igual queda usable.
-  let transcript: string | null = null;
-  try { transcript = (await transcribirAudio(b64, mime)).trim() || null; } catch { transcript = null; }
+  // Transcripción best-effort: si falla, el audio igual queda usable. Si ya se sabe lo que dice, no se paga el STT.
+  let transcript: string | null = input.transcript?.trim() || null;
+  if (!transcript) { try { transcript = (await transcribirAudio(b64, mime)).trim() || null; } catch { transcript = null; } }
 
+  // `origen` va SÓLO si no es la biblioteca: así subir un audio a la biblioteca no depende de la mig 0251, y una
+  // respuesta de un AI Step sin la columna FALLA (y sale en texto) en vez de caer en la lista del dueño.
   const { data, error } = await supabase
     .from('setting_audios')
-    .insert({ titulo: input.titulo.trim() || 'Audio sin título', media_path: path, media_mime: mime, duracion_s: input.duracionS ?? null, transcript })
+    .insert({
+      titulo: input.titulo.trim() || 'Audio sin título', media_path: path, media_mime: mime, duracion_s: input.duracionS ?? null, transcript,
+      ...(input.origen && input.origen !== 'biblioteca' ? { origen: input.origen } : {}),
+    })
     .select(COLS)
     .single();
-  if (error) throw new Error(`crearAudio: ${error.message}`);
+  if (error) {
+    // La fila no quedó: el binario recién subido sería un huérfano (p. ej. 'voz_mako' sin la mig 0257: 23514).
+    try { await supabase.storage.from(MEDIA_BUCKET).remove([path]); } catch { /* huérfano tolerable */ }
+    throw new Error(`crearAudio: ${error.message}`);
+  }
   return data as AudioSetting;
 }
 
@@ -91,6 +129,66 @@ export async function getAudio(id: number): Promise<AudioSetting | null> {
   const supabase = await getTenantDb();
   const { data } = await supabase.from('setting_audios').select(COLS).eq('id', id).maybeSingle();
   return (data as AudioSetting | null) ?? null;
+}
+
+/** De dónde sale un audio (mig 0251 y 0257). */
+export type OrigenAudio = 'biblioteca' | 'ai_step' | 'voz_mako';
+
+/**
+ * Un audio del workspace actual por id, CON su origen (o null si no existe o es de otro ws). Lo usa la
+ * tarjeta «MaKo en WhatsApp»: su audio tiene que ser la Voz de MaKo, nunca uno del negocio.
+ * ⚠️ Sin la columna (mig 0251 sin aplicar) todo es 'biblioteca', que es lo que era.
+ */
+export async function getAudioConOrigen(id: number): Promise<(AudioSetting & { origen: OrigenAudio }) | null> {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase.from('setting_audios').select(`${COLS}, origen`).eq('id', id).maybeSingle();
+  if (error && esColumnaQueFalta(error)) {
+    const a = await getAudio(id);
+    return a ? { ...a, origen: 'biblioteca' } : null;
+  }
+  if (error) throw new Error(`getAudioConOrigen: ${error.message}`);
+  return (data as (AudioSetting & { origen: OrigenAudio }) | null) ?? null;
+}
+
+/**
+ * El audio más nuevo de ESTE origen que dice exactamente `transcript` (la caché de la Voz de MaKo: el mismo
+ * texto no se vuelve a pagar). Un error de lectura TIRA: «no pude mirar» no es «no hay», y leerlo como «no
+ * hay» paga otra vez.
+ */
+export async function buscarAudioPorTranscript(origen: OrigenAudio, transcript: string): Promise<AudioSetting | null> {
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase.from('setting_audios').select(COLS)
+    .eq('origen', origen).eq('transcript', transcript).order('created_at', { ascending: false }).limit(1);
+  if (error) throw new Error(`buscarAudioPorTranscript: ${error.message}`);
+  return ((data ?? [])[0] as AudioSetting | undefined) ?? null;
+}
+
+/**
+ * Los transcripts de un origen creados desde `desdeIso` (el uso del mes de la Voz de MaKo: cada audio cobra
+ * sus caracteres). Paginado: PostgREST corta en 1000 filas sin avisar. Un error TIRA (el tope no se puede
+ * saltear por un error de lectura).
+ */
+export async function transcriptsDesde(origen: OrigenAudio, desdeIso: string): Promise<string[]> {
+  const supabase = await getTenantDb();
+  const out: string[] = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await supabase.from('setting_audios').select('id, transcript')
+      .eq('origen', origen).gte('created_at', desdeIso).order('id', { ascending: true }).range(desde, desde + 999);
+    if (error) throw new Error(`transcriptsDesde: ${error.message}`);
+    const filas = (data ?? []) as Array<{ transcript: string | null }>;
+    for (const f of filas) out.push(f.transcript ?? '');
+    if (filas.length < 1000) return out;
+  }
+}
+
+/** Los audios de un origen, del más nuevo al más viejo (la lista de la Voz de MaKo). */
+export async function listAudiosDeOrigen(origen: Exclude<OrigenAudio, 'biblioteca'>, limite = 50): Promise<AudioSetting[]> {
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase.from('setting_audios').select(COLS)
+    .eq('origen', origen).order('created_at', { ascending: false }).limit(Math.max(1, Math.min(200, limite)));
+  if (error) throw new Error(`listAudiosDeOrigen: ${error.message}`);
+  return (data ?? []) as AudioSetting[];
 }
 
 /** Binario en base64 para mandarlo por Evolution. null si no se pudo bajar. */

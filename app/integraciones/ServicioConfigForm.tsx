@@ -15,7 +15,7 @@
 //
 // Reusa la infra de /metodo:
 //   · GET  /api/integraciones/credencial?servicio=<key>  → catálogo + estado
-//   · POST { action:'guardar'|'borrar'|'verificar'|'revelar', ... }
+//   · POST { action:'guardar'|'borrar'|'verificar'|'revelar'|'descubrir-pago', ... }
 // El estado por campo (configurado / máscara / ilegible) manda el semáforo y qué
 // íconos aparecen. Solo se envían los campos TIPEADOS: "vacío" nunca pisa nada.
 // OJO: no existe el concepto "configurada en el servidor" — TODO campo es editable.
@@ -27,6 +27,8 @@ import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
+// Puro y sin `server-only` (lib/cobros-tipos.ts): se puede importar desde aquí sin arrastrar nada.
+import { esPasarela } from '@/lib/cobros-tipos';
 // ⚠️ `next/dynamic` con ssr:false, NO un import normal: es lo que saca su código
 // del bundle de los demás servicios. Un import estático lo volvería a meter.
 const GithubRepoPicker = dynamic(() => import('./GithubRepoPicker').then((m) => m.GithubRepoPicker), { ssr: false });
@@ -58,6 +60,8 @@ type Campo = {
   host: boolean;
   /** La app lo completa sola: no se pide, se muestra como resultado. */
   auto?: boolean;
+  /** Lo escribe SÓLO el servidor (un id de ruteo de la pasarela): ni «cargarlos a mano» lo abre. */
+  derivado?: boolean;
   /** Nº de CUENTA de esta API key (1 = la de siempre). Las de la 2 en adelante
    *  llegan plegadas: se muestran si ya están cargadas o si pedís agregar otra. */
   slot?: number;
@@ -551,6 +555,12 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
     if (!servicio) return;
     const v = (valores[env] ?? '').trim();
     if (!v) return;
+    // Pasarela de pagos: la clave NO pasa por verificar + guardar. Sus otros campos obligatorios
+    // son derivados que todavía no existen, así que el camino de abajo la guardaba SIN probar
+    // («Guardada. Falta ID de tu cuenta para poder probarla») y una clave rota quedaba adentro. El
+    // descubrimiento la prueba contra el proveedor y recién ahí guarda todo junto.
+    const campo = servicio.campos.find((c) => c.env === env);
+    if (esPasarela(servicio.key) && campo && !campo.auto && !campo.opcional) { void conectarPasarela(env, v); return; }
     const n = ++seq.current;
     setGuardando(env); ponerMsg(env, null);
     try {
@@ -636,6 +646,35 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
     } catch {
       if (mostrarMsgEn) ponerMsg(mostrarMsgEn, { ok: false, text: 'Guardada, pero no pude leer tu cuenta de Meta. Prueba "Buscar mis datos".' });
     } finally { setDescubriendo(false); }
+  };
+
+  /**
+   * Stripe / Mercado Pago: la app lee la cuenta con la clave, reclama su id y (en Stripe) registra
+   * el aviso de pagos. Con `valor` es la clave recién pegada y se guarda sólo si el proveedor la
+   * acepta; sin `valor` vuelve a conectar con la guardada (un permiso que se agregó en Stripe, una
+   * mudanza de dominio). El mensaje lo arma el server: sabe qué quedó y qué falta.
+   */
+  const conectarPasarela = async (env: string, valor?: string) => {
+    if (!servicio) return;
+    const n = ++seq.current;
+    setGuardando(env); ponerMsg(env, null);
+    try {
+      const j = await fetch('/api/integraciones/credencial', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'descubrir-pago', servicio: servicio.key, ...(valor ? { valores: { [env]: valor } } : {}) }),
+      }).then((r) => r.json());
+      if (!j.ok) {
+        const base = j.error ?? 'No se pudo conectar.';
+        ponerMsg(env, { ok: false, text: valor && j.nadaGuardado ? `${base} No la guardé.` : base });
+        return;
+      }
+      if (j.servicio) aplicar(j.servicio as Servicio, n);
+      onGuardado?.();
+      if (valor) setValores((val) => { const nv = { ...val }; delete nv[env]; return nv; });
+      ponerMsg(env, { ok: j.completa !== false, text: j.mensaje ?? 'Conectada.' });
+      if (Array.isArray(j.facts) && j.facts.length) onFacts?.(j.facts);
+    } catch { ponerMsg(env, { ok: false, text: 'No se pudo conectar. Prueba de nuevo.' }); }
+    finally { setGuardando(null); }
   };
 
   /** El cliente eligió una de varias cuentas/páginas/píxeles. */
@@ -729,7 +768,9 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           editar a mano si el cliente abre "cargarlos a mano". Pedir seis tokens
           cuando cinco se descubren solos era la fricción entera del paso. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {servicio.campos.filter((c) => (!c.auto || manual) && ((c.slot ?? 1) === 1 || c.configurado || extrasAbiertas.includes(c.env))).map((c) => {
+        {/* Un `derivado` no se abre ni a mano: lo escribe sólo el servidor (el server además lo
+            rechaza en 'guardar'), y un input que no guarda es peor que no tener input. */}
+        {servicio.campos.filter((c) => (!c.auto || (manual && !c.derivado)) && ((c.slot ?? 1) === 1 || c.configurado || extrasAbiertas.includes(c.env))).map((c) => {
           const tipeado = !!(valores[c.env] ?? '').trim();
           const sem = semaforo(c, tipeado);
           const cerrada = estaCerrada(c);
@@ -779,7 +820,9 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
                     // es la pista de FORMATO que evita que peguen cualquier cosa.
                     // Se pierde solo cuando el semáforo tiene algo más urgente que
                     // decir (credencial ilegible: "volvé a pegarla").
-                    placeholder={!c.ilegible && c.placeholder ? c.placeholder : sem.placeholder}
+                    // Con «Ej.:» adelante y en cursiva (globals.css): sin eso, «rk_live_…» se leía como una clave ya
+                    // guardada (12/10/2026). Guardada, manda el semáforo («••••1234»), que sí es lo que hay.
+                    placeholder={c.ilegible || c.configurado || !c.placeholder ? sem.placeholder : `Ej.: ${c.placeholder}`}
                     autoComplete="off"
                     spellCheck={false}
                     aria-label={c.label}
@@ -932,7 +975,8 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
             </div>
             {listos.length === 0 ? (
               <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-                Al guardar {servicio.campos.find((c) => !c.auto)?.label.toLowerCase() ?? 'la credencial'}, MaKo busca el resto en tu cuenta y lo completa solo.
+                {/* Sólo la PRIMERA letra a minúscula: «clave de Stripe», no «clave de stripe». */}
+                Al guardar {(() => { const l = servicio.campos.find((c) => !c.auto)?.label; return l ? l.charAt(0).toLowerCase() + l.slice(1) : 'la credencial'; })()}, MaKo busca el resto en tu cuenta y lo completa solo.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -998,7 +1042,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
 
       {/* El escape hatch, en chico y al final: quien QUIERA pegar los campos a
           mano puede, pero no es el camino por default. */}
-      {servicio.campos.some((c) => c.auto) && (
+      {servicio.campos.some((c) => c.auto && !c.derivado) && (
         <button type="button" onClick={() => setManual((m) => !m)}
           style={{ alignSelf: 'flex-start', border: 0, background: 'none', padding: 0, color: 'var(--faint)', fontFamily: SANS, fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}>
           {manual ? 'Ocultar los campos que completa MaKo' : 'Prefiero cargarlos a mano'}
@@ -1024,6 +1068,20 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           ↻ Buscar mis datos en Meta
         </button>
       )}
+
+      {/* Pasarela: volver a conectar con la clave guardada. Es lo que se hace después de agregar en
+          Stripe el permiso que faltaba (sin borrar la clave) o de una mudanza de dominio: el aviso
+          de pagos se registra con la dirección de HOY. */}
+      {esPasarela(servicio.key) && (() => {
+        const clave = servicio.campos.find((c) => !c.auto && !c.opcional);
+        if (!clave?.configurado) return null;
+        return (
+          <button type="button" disabled={guardando === clave.env} onClick={() => conectarPasarela(clave.env)}
+            style={{ alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
+            {guardando === clave.env ? 'Conectando…' : `↻ Volver a conectar con ${servicio.nombre}`}
+          </button>
+        );
+      })()}
 
       {/* zIndex 310: el modal de /integraciones va en 300 y el confirm tiene que
           quedar ARRIBA (el default de 120 lo dejaría invisible por debajo). */}

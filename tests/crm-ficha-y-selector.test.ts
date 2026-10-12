@@ -198,9 +198,11 @@ test('las DOS fichas hablan el mismo idioma y muestran lo mismo', () => {
     assert.ok(!/label: 'Chat'/.test(f), `${ruta}: la pestaña Chat se sacó`);
   }
 
-  // Y Pagos es condicional en las dos que la dibujan como tab de datos.
-  assert.ok(/\.\.\.\(\(esVenta \|\| tienePlan\) \? \[\{ key: 'cobranza'/.test(leer('../app/crm/[id]/page.tsx')), 'Pagos condicional en la ruta');
-  assert.ok(/\.\.\.\(pagos\.length \? \[\{ key: 'cobranza'/.test(leer('../app/crm/LeadSheet.tsx')), 'Pagos condicional en el modal');
+  // Y Pagos es condicional en las dos que la dibujan como tab de datos, y desde el 11/10/2026 con
+  // LA MISMA regla (lib/muestra-pagos.ts; antes la ruta pedía «venta o plan» y el modal «cuotas»).
+  // Lo que decide la regla lo fija tests/muestra-pagos.test.ts.
+  assert.ok(/\.\.\.\(verPagos \? \[\{ key: 'cobranza'/.test(leer('../app/crm/[id]/page.tsx')), 'Pagos condicional en la ruta');
+  assert.ok(/\.\.\.\(verPagos \? \[\{ key: 'cobranza'/.test(leer('../app/crm/LeadSheet.tsx')), 'Pagos condicional en el modal');
 });
 
 test('las notas y el recorrido están en las DOS fichas, y en el mismo lugar', () => {
@@ -252,11 +254,11 @@ test('«Nuevo producto» es la salida para CREAR: apagada, y se enciende al pasa
   const drop = leer('../app/components/Dropdown.tsx');
 
   // El llamador la marca con el flag, no con un estilo suyo.
-  assert.ok(/label: 'Nuevo producto', crear: true/.test(tb), 'va con el flag `crear`');
+  assert.ok(/label: 'Nuevo funnel', crear: true/.test(tb), 'va con el flag `crear`');
   // ⚠️ `color` en un DropdownOption dibuja un PUNTO de 9 px, no tiñe el texto: el
   // intento anterior (`color: 'var(--faint)'`) dejó una bolita gris al lado del
   // renglón y el texto igual de negro que los demás.
-  assert.ok(!/'Nuevo producto'[^}]*color:/.test(tb), 'nada de `color`: dibuja un punto, no tiñe');
+  assert.ok(!/'Nuevo funnel'[^}]*color:/.test(tb), 'nada de `color`: dibuja un punto, no tiñe');
 
   // Y NINGUNA opción lleva subtítulo. «JAMÁS uses textos innecesarios»: «el de tu
   // negocio» debajo del único producto que hay era un renglón para no decir nada.

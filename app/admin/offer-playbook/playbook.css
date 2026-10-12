@@ -1,0 +1,174 @@
+/* =============================================================================
+   /admin/offer-playbook — la hoja de Offer Playbook
+   =============================================================================
+   Todo vive bajo `.opb` (la raíz del contenido de la pantalla): no toca una regla
+   del resto de la app. La importa page.tsx, no los componentes, así se pueden
+   dibujar en un test sin un cargador de CSS (el molde es /admin/estrategia).
+
+   ⚠️ LOS COLORES SALEN DE LOS TOKENS de app/globals.css que existen en claro Y en
+   oscuro (--surface, --ink, --primary, --bad-bg…): el test los verifica uno por uno.
+   La única excepción es --mako, que es un solo hex en los dos temas a propósito.
+
+   Hace falta una hoja (y no style={{}}) por tres cosas que un estilo en línea no
+   tiene: el :hover, el `details[open]` (la tarjeta de autor abierta ocupa la fila
+   entera de la grilla) y el marcador del <summary>.
+   ============================================================================= */
+
+.opb { display: flex; flex-direction: column; gap: calc(var(--sect-gap) * 1.3); min-width: 0; }
+.opb-sec { display: flex; flex-direction: column; gap: 12px; min-width: 0; scroll-margin-top: 16px; }
+.opb-h { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: var(--fs-sect); font-weight: 700; color: var(--ink); }
+.opb-h__n { font-family: 'Geist Mono', monospace; font-size: var(--fs-sm); font-weight: 500; color: var(--faint); }
+.opb-h3 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 4px; font-size: var(--fs-md); font-weight: 650; color: var(--ink); }
+.opb-tenue { color: var(--dim); }
+
+/* ── Indicadores (Criterio) ─────────────────────────────────────────────────── */
+.opb-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.opb-kpi { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.opb-kpi__n { font-size: var(--fs-kpi); font-weight: 700; line-height: 1.05; letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.opb-kpi__t { font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
+.opb-kpi__s { font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); }
+
+/* ── Las piezas (Criterio) ──────────────────────────────────────────────────── */
+.opb-piezas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px; }
+.opb-pieza { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.opb-pieza[data-minima="true"] { border-color: var(--primary-weak); box-shadow: inset 3px 0 0 var(--primary); }
+.opb-pieza__cab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.opb-pieza__n { font-family: 'Geist Mono', monospace; font-size: var(--fs-meta); color: var(--faint); font-variant-numeric: tabular-nums; }
+.opb-pieza__t { flex: 1; min-width: 0; font-size: var(--fs-card); font-weight: 650; color: var(--ink); }
+.opb-pieza__q { margin: 0; font-size: var(--fs-meta); line-height: 1.45; color: var(--dim); }
+
+/* ── Tablas ─────────────────────────────────────────────────────────────────── */
+/* La caja de una tabla ancha: `.mk-scroll-x` al lado, así scrollea ADENTRO de su caja. */
+.opb-marco { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.opb-marco--pad { padding: 8px 10px; }
+.opb-tabla { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.opb-tabla th { padding: 10px 12px; text-align: left; vertical-align: bottom; white-space: nowrap; font-size: var(--fs-meta); font-weight: 650; color: var(--dim); background: var(--surface-2); border-bottom: 1px solid var(--border-strong); }
+.opb-tabla td { padding: 10px 12px; vertical-align: top; line-height: 1.5; color: var(--ink); border-top: 1px solid var(--border); }
+.opb-tabla tbody tr:first-child td { border-top: none; }
+.opb-th__s { margin-left: 6px; font-weight: 500; opacity: .85; }
+.opb-tabla th.opb-mal { background: var(--bad-bg); color: var(--bad); }
+.opb-tabla th.opb-reg { background: var(--warn-bg); color: var(--warn); }
+.opb-tabla th.opb-bien { background: var(--good-bg); color: var(--good); }
+
+/* La rúbrica: las críticas llevan una marca en el borde, además del rótulo. */
+.opb-rubrica { min-width: 900px; }
+.opb-rubrica tr[data-critica="true"] td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+.opb-dim { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.opb-dim__id { font-family: 'Geist Mono', monospace; font-size: var(--fs-meta); color: var(--faint); }
+.opb-dim__t { font-weight: 650; color: var(--ink); }
+
+/* Las conclusiones de un autor. */
+.opb-concl { min-width: 600px; }
+.opb-concl td:first-child, .opb-concl td:last-child { white-space: nowrap; }
+
+/* ── Recuadro de texto del documento (cómo sale la nota, otros errores) ─────── */
+.opb-nota { padding: 4px 18px 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; }
+.opb-nota__t { margin: 12px 0 0; font-size: var(--fs-card); font-weight: 650; color: var(--ink); }
+
+/* ── Desplegables (<details>, sin JavaScript) ───────────────────────────────── */
+.opb-dets { display: flex; flex-direction: column; gap: 8px; }
+.opb-det { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; scroll-margin-top: 16px; }
+.opb-det[open] { border-color: var(--border-strong); }
+.opb-det > summary { display: flex; align-items: center; gap: 10px; min-height: var(--touch); padding: 12px 16px; border-radius: 12px; cursor: pointer; list-style: none; }
+.opb-det > summary::-webkit-details-marker { display: none; }
+.opb-det > summary::before {
+  content: ''; flex: none; width: 0; height: 0;
+  border-left: 5px solid var(--dim); border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  transition: transform .15s ease;
+}
+.opb-det[open] > summary::before { transform: rotate(90deg); }
+.opb-det[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.opb-det > summary:hover { background: var(--surface-2); }
+.opb-det > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.opb-det__t { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 650; color: var(--ink); }
+.opb-det__meta { flex: none; font-family: 'Geist Mono', monospace; font-size: var(--fs-meta); color: var(--faint); }
+.opb-det__cuerpo { min-width: 0; padding: 2px 18px 16px; border-top: 1px solid var(--border); }
+.opb-det__sub { margin: 18px 0 2px; font-size: var(--fs-card); font-weight: 650; color: var(--ink); }
+.opb-ancla { scroll-margin-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .opb-det > summary::before { transition: none; } }
+
+/* ── Autores ────────────────────────────────────────────────────────────────── */
+.opb-autores { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px; align-items: start; }
+/* Abierta, la tarjeta ocupa la fila entera: la tabla de conclusiones no entra en una columna. */
+.opb-autores > .opb-det[open] { grid-column: 1 / -1; }
+.opb-autor > summary { align-items: flex-start; padding: 14px 16px; }
+.opb-autor > summary::before { margin-top: 8px; }
+.opb-autor__cab { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.opb-autor__nombre { font-size: var(--fs-card); font-weight: 700; color: var(--ink); }
+.opb-autor__curso { font-size: var(--fs-meta); color: var(--dim); }
+.opb-autor__tesis { font-size: var(--fs-sm); line-height: 1.5; color: var(--ink); }
+.opb-autor:not([open]) .opb-autor__tesis { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.opb-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.opb-chip { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: var(--fs-meta); line-height: 1.45; color: var(--dim); }
+.opb-cita { margin: 12px 0 0; padding-left: 12px; border-left: 2px solid var(--border-strong); font-style: italic; color: var(--dim); }
+.opb-dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px 28px; margin-top: 16px; }
+.opb-lista { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.opb-lista > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: var(--fs-sm); line-height: 1.5; color: var(--ink); }
+.opb-lista > li.opb-lista__una { grid-template-columns: minmax(0, 1fr); }
+.opb-ref { font-family: 'Geist Mono', monospace; font-size: var(--fs-meta); white-space: nowrap; color: var(--primary); text-decoration: none; }
+.opb-ref:hover { text-decoration: underline; }
+.opb-ref--muerta { color: var(--faint); }
+.opb-fuente { font-family: 'Geist Mono', monospace; font-size: var(--fs-meta); color: var(--faint); }
+.opb-ok { margin-left: 4px; font-weight: 700; color: var(--good); }
+.opb-carpeta { margin: 14px 0 0; font-family: 'Geist Mono', monospace; font-size: var(--fs-meta); color: var(--faint); overflow-wrap: anywhere; }
+
+/* «Quién habla de qué»: temas × autores principales, la celda es la cantidad. */
+.opb-mapa { border-collapse: separate; border-spacing: 3px; font-size: var(--fs-sm); }
+.opb-mapa th { padding: 4px 8px; text-align: center; white-space: nowrap; font-size: var(--fs-meta); font-weight: 600; color: var(--dim); }
+.opb-mapa thead th a { color: var(--primary); text-decoration: none; }
+.opb-mapa thead th a:hover { text-decoration: underline; }
+.opb-mapa th[scope="row"] { text-align: left; font-size: var(--fs-sm); font-weight: 500; color: var(--ink); }
+.opb-mapa td { min-width: 56px; height: 28px; padding: 0 6px; text-align: center; border-radius: 6px; font-family: 'Geist Mono', monospace; font-size: var(--fs-meta); font-weight: 600; color: var(--ink); }
+.opb-mapa td[data-n="0"] { font-weight: 400; color: var(--faint); }
+.opb-mapa td[data-n="1"] { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); }
+.opb-mapa td[data-n="2"] { background: color-mix(in srgb, var(--primary) 24%, var(--surface)); }
+.opb-mapa td[data-n="3"] { background: color-mix(in srgb, var(--primary) 36%, var(--surface)); }
+.opb-mapa .opb-mapa__total { color: var(--dim); background: none; }
+
+/* ── A definir ──────────────────────────────────────────────────────────────── */
+.opb-como { margin: 0; padding: 10px 14px; border-radius: 10px; background: var(--primary-bg); font-size: var(--fs-sm); color: var(--ink); }
+.opb-como strong { font-family: 'Geist Mono', monospace; }
+.opb-resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+.opb-resumen__caja { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; color: var(--ink); text-decoration: none; }
+.opb-resumen__caja:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.opb-resumen__caja:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.opb-resumen__n { font-size: var(--fs-kpi); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.opb-resumen__caja[data-tipo="correccion"] .opb-resumen__n { color: var(--primary); }
+.opb-resumen__caja[data-tipo="decision"] .opb-resumen__n { color: var(--warn); }
+.opb-resumen__t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.opb-resumen__t strong { font-size: var(--fs-md); font-weight: 650; }
+.opb-resumen__t span { font-size: var(--fs-sm); color: var(--dim); }
+.opb-cards { display: flex; flex-direction: column; gap: 12px; }
+.opb-card { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 18px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; scroll-margin-top: 16px; }
+.opb-card__cab { display: flex; align-items: flex-start; gap: 12px; }
+.opb-card__n { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-family: 'Geist Mono', monospace; font-size: var(--fs-sm); font-weight: 700; }
+.opb-card[data-tipo="correccion"] .opb-card__n { background: var(--primary-bg); color: var(--primary); }
+.opb-card[data-tipo="decision"] .opb-card__n { background: var(--warn-bg); color: var(--warn); }
+.opb-card__t { margin: 4px 0 0; font-size: var(--fs-card); font-weight: 700; line-height: 1.35; color: var(--ink); }
+.opb-bloque { display: flex; flex-direction: column; gap: 4px; }
+.opb-et { margin: 0; font-size: var(--fs-meta); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+/* El tope de lectura va en el PÁRRAFO, no en la página (app/_ui/LEEME.md). */
+.opb-texto { margin: 0; max-width: 75ch; font-size: var(--fs-md); line-height: 1.55; color: var(--ink); }
+.opb-pregunta { margin: 0; font-size: var(--fs-md); font-weight: 650; color: var(--ink); }
+.opb-ops { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 8px; margin-top: 6px; }
+.opb-op { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.opb-op[data-rec="true"] { background: var(--primary-bg); border-color: var(--primary); }
+.opb-op__cab { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 650; color: var(--ink); }
+.opb-op__letra { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border-strong); font-family: 'Geist Mono', monospace; font-size: var(--fs-meta); font-weight: 700; color: var(--ink); }
+.opb-op[data-rec="true"] .opb-op__letra { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.opb-op__c { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); }
+.opb-rec { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0; padding-top: 12px; border-top: 1px solid var(--border); font-size: var(--fs-sm); line-height: 1.5; color: var(--ink); }
+
+/* ── Errores comunes ────────────────────────────────────────────────────────── */
+.opb-errores { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.opb-error { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.opb-error__cab { display: flex; align-items: flex-start; gap: 10px; }
+.opb-error__n { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--bad-bg); color: var(--bad); font-family: 'Geist Mono', monospace; font-size: var(--fs-meta); font-weight: 700; }
+.opb-error__t { margin: 2px 0 0; font-size: var(--fs-card); font-weight: 650; line-height: 1.35; color: var(--ink); }
+.opb-error__ve { margin: 0; font-size: var(--fs-sm); font-style: italic; line-height: 1.5; color: var(--dim); }
+
+/* ── Discrepancias ──────────────────────────────────────────────────────────── */
+.opb-tramo__et { margin: 14px 0 0; font-size: var(--fs-meta); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+/* El criterio que adopta MaKo, destacado: dorado = MaKo (la regla de color de la casa). */
+.opb-mako { margin: 12px 0; padding: 10px 14px 4px; background: var(--mako-bg); border: 1px solid var(--mako-border); border-left: 3px solid var(--mako); border-radius: 10px; }
+.opb-mako__et { margin: 0; font-size: var(--fs-meta); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--mako-ink); }

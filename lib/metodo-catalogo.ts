@@ -67,6 +67,21 @@ export type CampoCredencial = {
    *  y solo deja editarlo a mano detrás de "cargar a mano". Meta es el caso: de
    *  sus 6 credenciales, 5 salen del access token (ver lib/meta-descubrir.ts). */
   auto?: boolean;
+  /**
+   * true → lo escribe SÓLO el servidor, derivado de otro campo, y NINGÚN «guardar» lo acepta
+   * tipeado: ni el de /integraciones, ni el de /metodo, ni detrás de «Prefiero cargarlos a mano».
+   * Va siempre junto con `auto` (que es lo que leen la pantalla y el guard de ruteo).
+   *
+   * Existe por la pasarela de pagos (11/10/2026): el id de la cuenta de Stripe y el de Mercado
+   * Pago son identificadores de RUTEO, y no son secretos. Si se pudieran escribir a mano, el
+   * primero que pegara el de otro negocio le bloquearía la conexión (`IdentificadorOcupadoError`)
+   * o se quedaría con sus avisos de pago — el caso del company_id de Whop en
+   * docs/hallazgos-customer-success.md («Un identificador de ruteo que se pregunta…»). La firma
+   * del aviso de Stripe también: la crea Stripe al registrar el aviso, y una tipeada no coincide
+   * con ninguna. Meta NO lo usa: su cuenta y su página se ELIGEN entre varias, y eso lo decide la
+   * persona.
+   */
+  derivado?: boolean;
   /** Nº de CUENTA de una API key que admite varias (ver lib/ia-keys.ts). 1 = la de
    *  siempre; 2 y 3 son cuentas extra del mismo proveedor para rotar cuando la
    *  primera se queda sin cuota. La UI las muestra plegadas: si aparecieran los
@@ -835,6 +850,91 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  // ⚠️ LA PASARELA DE PAGOS (11/10/2026, docs/diseno-pasarela-pagos.md): Stripe y Mercado Pago.
+  // BYOK: cada negocio pega SU clave, y MaKo se vende con la del workspace de la plataforma, pegada
+  // aquí como la de cualquiera. La persona pega UNA cosa; el resto lo DERIVA MaKo de esa clave
+  // (lib/cobros-conexion.ts) y no se acepta tipeado (`derivado`).
+  //
+  // Cada campo va en UNA línea con todos sus flags: tests/webhook-ruteo-obligatorio.test.ts lee el
+  // catálogo línea por línea, y un campo partido en dos se lee como «sin auto» o «no declarado».
+  // El id de la cuenta es `auto` y NO opcional a propósito: así «conectado» exige que exista la fila
+  // de ruteo, que es lo que hace que un pago vuelva al CRM.
+  {
+    key: 'stripe',
+    nombre: 'Stripe',
+    categoria: 'Pagos',
+    paraQue: 'Cobrar con un link de pago: cuando te pagan, la cuota queda pagada en la ficha del lead sin cargar nada.',
+    campos: [
+      { env: 'STRIPE_SECRET_KEY', label: 'Clave de Stripe', secreto: true, placeholder: 'rk_live_…', nota: 'Es lo único que tienes que pegar. Mejor una clave restringida (empieza con rk_live_) con los permisos de la guía; la secreta (sk_live_) también funciona. Con ella MaKo encuentra tu cuenta y registra solo el aviso de pagos.' },
+      { env: 'STRIPE_ACCOUNT_ID', label: 'ID de tu cuenta', auto: true, derivado: true, placeholder: 'acct_…', nota: 'Lo completa MaKo con tu clave y no se escribe a mano. Es lo que le dice a MaKo que cada aviso de pago es tuyo: sin esto, los pagos no entran a tu CRM y no vas a ver ningún error.' },
+      { env: 'STRIPE_WEBHOOK_SECRET', label: 'Firma del aviso de pagos', secreto: true, auto: true, derivado: true, placeholder: 'whsec_…', nota: 'La crea Stripe cuando MaKo registra el aviso de pagos en tu cuenta, y no se escribe a mano. Prueba que cada aviso viene de Stripe: sin esto, los pagos no entran a tu CRM.' },
+    ],
+    // Sin pasoExterno A PROPÓSITO: el aviso lo registra MaKo en la cuenta (asegurarWebhookStripe),
+    // con la URL que nombra la cuenta (`?acct=`). Pedirle a la persona que lo cree a mano era pedirle
+    // que copie un secreto que la API ya devuelve.
+    tutorial: {
+      url: 'https://dashboard.stripe.com/apikeys',
+      urlLabel: 'Stripe → API keys',
+      pasos: [
+        'Para qué sirve: cobras con un link de pago de Stripe y, cuando te pagan, la cuota queda pagada en la ficha del lead sin que cargues nada.',
+        'Entra a dashboard.stripe.com/apikeys con la cuenta de Stripe donde quieres recibir el dinero.',
+        'Toca "Create restricted key". Una clave restringida solo puede hacer lo que le permites, y es la que recomienda Stripe.',
+        'Ponle un nombre en "Key name", por ejemplo MaKo.',
+        'Dale permiso "Write" a Checkout Sessions, Webhook Endpoints, Refunds y Subscriptions.',
+        'Dale permiso "Read" a Invoices, Charges, Payment Intents y Accounts. Lo demás queda en "None".',
+        'Toca "Create key" y completa la verificación que te pide Stripe.',
+        'Copia la clave en ese momento: empieza con rk_live_ y Stripe no la vuelve a mostrar.',
+        'Pégala en el campo "Clave de Stripe" y guarda. MaKo busca tu cuenta y registra solo el aviso de pagos en Stripe: no hay nada que pegar del otro lado.',
+        'Si a la clave le falta un permiso, MaKo te dice cuál al guardarla. Lo agregas en Stripe con "Edit key", sin crear otra clave.',
+        'Para probar sin dinero real, haz lo mismo en un entorno de prueba de Stripe: la clave empieza con rk_test_ y esos pagos quedan marcados como prueba.',
+      ],
+    },
+  },
+  {
+    key: 'mercadopago',
+    nombre: 'Mercado Pago',
+    categoria: 'Pagos',
+    paraQue: 'Cobrar con un link de Mercado Pago en la moneda de tu país: cuando te pagan, la cuota queda pagada en la ficha del lead sin cargar nada.',
+    campos: [
+      { env: 'MERCADOPAGO_ACCESS_TOKEN', label: 'Access token', secreto: true, placeholder: 'APP_USR-…', nota: 'Es lo único obligatorio: el access token de producción de tu aplicación de Mercado Pago, que empieza con APP_USR-. Con él MaKo encuentra tu cuenta sola.' },
+      { env: 'MERCADOPAGO_USER_ID', label: 'ID de tu cuenta', auto: true, derivado: true, placeholder: '123456789', nota: 'Lo completa MaKo con tu access token y no se escribe a mano. Es lo que le dice a MaKo que cada aviso de pago es tuyo: sin esto, los pagos no entran a tu CRM y no vas a ver ningún error.' },
+      // ⚠️ OPCIONAL DE VERDAD para «conectado», con `sinEsto` (hallazgos-integraciones.md, el
+      // remitente de Resend): lo que protege de un aviso falso NO es esta firma, es que el webhook
+      // vuelve a leer cada pago con el token del negocio y exige que sea de su cuenta. Pero esta
+      // clave sólo existe después de guardar la dirección en el panel de Mercado Pago, y ese paso
+      // es el ÚNICO camino de los avisos de una suscripción (POST /preapproval no acepta
+      // `notification_url`). Vacía, lo más probable es que el paso no se hizo.
+      { env: 'MERCADOPAGO_WEBHOOK_SECRET', label: 'Clave secreta del aviso', secreto: true, opcional: true, sinEsto: 'Sin el aviso configurado en Mercado Pago, las renovaciones de una suscripción no entran a tu CRM.', nota: 'Aparece en Mercado Pago cuando guardas la dirección del recuadro amarillo. Pegarla aquí confirma que ese paso quedó hecho, y con ella MaKo comprueba que cada aviso venga de Mercado Pago.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pega esta dirección dentro de Mercado Pago',
+      porque: 'Es por donde Mercado Pago avisa cada cobro de una suscripción. Sin esto, las renovaciones no entran a tu CRM.',
+      valor: '{{APP_URL}}/api/webhooks/mercadopago',
+      donde: 'En mercadopago.com/developers/panel/app ("Tus integraciones"): tu aplicación → "Webhooks" → "Configurar notificaciones", en la URL de producción.',
+      ojo: [
+          'En los eventos, marca "Pagos" y "Planes y suscripciones". Sin "Pagos", Mercado Pago no avisa ni las cuotas de una suscripción.',
+          'Al guardar, Mercado Pago genera una "clave secreta" en esa misma pantalla. Muéstrala, cópiala y pégala en el campo "Clave secreta del aviso".',
+          'Tiene que ser la misma aplicación de la que sacaste el access token: cada aplicación tiene sus propios avisos y su propia clave.',
+          'Los pagos de una cuenta de prueba solo avisan por esta dirección: si estás probando, este paso es obligatorio.',
+        ],
+    },
+    tutorial: {
+      url: 'https://www.mercadopago.com/developers/panel/app',
+      urlLabel: 'Mercado Pago → Tus integraciones',
+      pasos: [
+        'Para qué sirve: cobras con un link de Mercado Pago en la moneda de tu país y, cuando te pagan, la cuota queda pagada en la ficha del lead sin que cargues nada.',
+        'Entra a mercadopago.com/developers/panel/app con la cuenta de Mercado Pago donde quieres recibir el dinero. Esa pantalla se llama "Tus integraciones".',
+        'Abre tu aplicación. Si todavía no tienes ninguna, créala con "Crear aplicación".',
+        'Si al crearla te pregunta qué vas a integrar, elige "Checkout Pro": es la de los links de pago.',
+        'En el menú de la izquierda, entra a "Credenciales de producción".',
+        'Si es la primera vez, Mercado Pago te pide activarlas: indica el rubro de tu negocio, la dirección de tu sitio web y acepta los términos.',
+        'Copia el "Access Token": empieza con APP_USR-. La "Public Key" es otra cosa y no sirve aquí.',
+        'Pégalo en el campo "Access token" y guarda. MaKo busca tu cuenta sola y completa el resto.',
+        'Para que entren también las renovaciones de una suscripción, falta un paso en Mercado Pago: el recuadro amarillo de más abajo dice qué dirección pegar y dónde.',
+        'Para probar sin dinero real, usa una cuenta de prueba de Mercado Pago: su access token también empieza con APP_USR-.',
+      ],
+    },
+  },
   // Google NO va acá, por lo mismo que Supabase: GOOGLE_CLIENT_ID/SECRET son la
   // app OAuth de la AGENCIA (login + Google Calendar), infra compartida de la
   // plataforma. Un cliente jamás crea su propia app OAuth ni pisa estas
@@ -1444,6 +1544,59 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://developer.calendly.com/api-docs/b3A6NTkxNDI1-create-webhook-subscription',
     urlLabel: 'Calendly → Create Webhook Subscription',
+  },
+  // La pasarela de pagos (11/10/2026). Los pasos de Stripe salen de docs.stripe.com/keys/restricted-api-keys
+  // (leída ese día): «Create restricted key» → «Key name» → None/Read/Write por recurso → «Create key»
+  // → verificación en dos pasos → la clave se copia UNA vez. Los nombres de los recursos NO se pudieron
+  // ver en el panel: por eso el último paso dice que MaKo nombra el que falte (el 403 de Stripe trae el
+  // permiso en el mensaje, y lib/cobros-conexion.ts lo muestra tal cual).
+  STRIPE_SECRET_KEY: {
+    pasos: [
+      'Para qué sirve: es lo único que pegas. Con esta clave MaKo crea los links de pago en tu cuenta de Stripe, se entera de cada pago y lo anota en la ficha del lead.',
+      'Entra a dashboard.stripe.com/apikeys con la cuenta de Stripe donde quieres recibir el dinero.',
+      'Toca "Create restricted key". Una clave restringida solo puede hacer lo que le permites, y es la que recomienda Stripe.',
+      'Ponle un nombre en "Key name", por ejemplo MaKo.',
+      'Dale permiso "Write" a Checkout Sessions (los links de pago), Webhook Endpoints (el aviso de cada pago), Refunds (las devoluciones) y Subscriptions (los cobros mensuales).',
+      'Dale permiso "Read" a Invoices, Charges, Payment Intents y Accounts. Lo demás queda en "None".',
+      'Toca "Create key" y completa la verificación que te pide Stripe.',
+      'Copia la clave en ese momento: empieza con rk_live_ y Stripe no la vuelve a mostrar.',
+      'Pégala en este campo y guarda. MaKo busca tu cuenta y registra solo el aviso de pagos en Stripe.',
+      'Si a la clave le falta un permiso, MaKo te dice cuál, con el nombre que usa Stripe. Lo agregas en Stripe con "Edit key" y vuelves a conectar: no hace falta otra clave.',
+      'También funciona la clave secreta (empieza con sk_live_), pero puede hacer cualquier cosa en tu cuenta: la restringida es más segura.',
+      'Para probar sin dinero real, crea la clave en un entorno de prueba de Stripe: empieza con rk_test_ y esos pagos quedan marcados como prueba.',
+    ],
+    url: 'https://dashboard.stripe.com/apikeys',
+    urlLabel: 'Stripe → API keys',
+  },
+  MERCADOPAGO_ACCESS_TOKEN: {
+    pasos: [
+      'Para qué sirve: es lo único obligatorio. Con este token MaKo crea los links de pago en tu cuenta de Mercado Pago, se entera de cada pago y lo anota en la ficha del lead.',
+      'Entra a mercadopago.com/developers/panel/app con la cuenta de Mercado Pago donde quieres recibir el dinero. Esa pantalla se llama "Tus integraciones".',
+      'Abre tu aplicación. Si todavía no tienes ninguna, créala con "Crear aplicación".',
+      'Si al crearla te pregunta qué vas a integrar, elige "Checkout Pro": es la de los links de pago.',
+      'En el menú de la izquierda, entra a "Credenciales de producción".',
+      'Si es la primera vez, Mercado Pago te pide activarlas: indica el rubro de tu negocio, la dirección de tu sitio web y acepta los términos.',
+      'Copia el "Access Token": empieza con APP_USR-. La "Public Key" es otra cosa y no sirve aquí.',
+      'Pégalo en este campo y guarda. MaKo busca tu cuenta sola y completa el resto.',
+      'Para probar sin dinero real, usa una cuenta de prueba de Mercado Pago: su access token también empieza con APP_USR-.',
+    ],
+    url: 'https://www.mercadopago.com/developers/panel/app',
+    urlLabel: 'Mercado Pago → Tus integraciones',
+  },
+  MERCADOPAGO_WEBHOOK_SECRET: {
+    pasos: [
+      'Para qué sirve: confirma que configuraste el aviso de pagos en Mercado Pago, que es lo que hace entrar las renovaciones de una suscripción. Y con ella MaKo comprueba que cada aviso venga de Mercado Pago.',
+      'Entra a mercadopago.com/developers/panel/app y abre la misma aplicación de la que sacaste el access token.',
+      'En el menú de la izquierda, entra a "Webhooks" y después a "Configurar notificaciones".',
+      'En la URL de producción, pega esta dirección: {{APP_URL}}/api/webhooks/mercadopago — es el buzón de MaKo. Más abajo en esta pantalla hay un recuadro amarillo con esa misma dirección y un botón "Copiar".',
+      'En los eventos, marca "Pagos" y "Planes y suscripciones".',
+      'Guarda. Mercado Pago genera una "clave secreta" en esa misma pantalla.',
+      'Muéstrala y cópiala.',
+      'Pégala en este campo y guarda.',
+      'Si estás probando con una cuenta de prueba, este paso es obligatorio: sus pagos solo avisan por la dirección del panel.',
+    ],
+    url: 'https://www.mercadopago.com/developers/panel/app',
+    urlLabel: 'Mercado Pago → Tus integraciones',
   },
 };
 

@@ -29,6 +29,13 @@ import {
   type IdentidadFiscal,
 } from './deal-actions';
 import { esSinCobro } from '@/lib/venta-tipo';
+import { pipelineStageOf } from '@/lib/pipeline';
+import { planEnLead, tieneDeal } from '@/lib/muestra-pagos';
+import { NOMBRE_PASARELA, esPasarela, type CobroVisible } from '@/lib/cobros-tipos';
+import { formatoMonto } from '@/lib/pasarela-moneda';
+import { opcionesCobroAction, cobrosDelLeadAction, type OpcionesCobro } from './cobros-actions';
+import { CobrarConLink } from './CobrarConLink';
+import { CobrosDelLead } from './CobrosDelLead';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -251,6 +258,34 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
     return () => { alive = false; };
   }, []);
 
+  // ── Links de pago (Stripe / Mercado Pago, 11/10/2026) ──
+  // Por actions y no por props: esta tarjeta se monta en TRES puertas y en dos el lead es estado de
+  // cliente (LeadSheet, Customer Success). Las opciones (pasarelas, productos, si administra) son
+  // lecturas de la base; la moneda de cada cuenta la pide el asistente al abrirse.
+  const [opcCobro, setOpcCobro] = useState<OpcionesCobro | null>(null);
+  const [cobros, setCobros] = useState<CobroVisible[] | null>(null);
+  const [errCobros, setErrCobros] = useState(false);
+  const [vueltaCobros, setVueltaCobros] = useState(0);
+  // En edición la sección no se dibuja (ver `seccionLinks`): no se lee.
+  useEffect(() => {
+    if (editing) return;
+    let vivo = true;
+    opcionesCobroAction(lead.id)
+      .then((o) => { if (vivo) setOpcCobro(o); })
+      .catch(() => { if (vivo) setOpcCobro({ ok: false, error: 'No pude leer cómo cobrar.' }); });
+    return () => { vivo = false; };
+  }, [lead.id, editing]);
+  useEffect(() => {
+    if (editing) return;
+    let vivo = true;
+    cobrosDelLeadAction(lead.id)
+      .then((c) => { if (vivo) { setCobros(c); setErrCobros(false); } })
+      .catch(() => { if (vivo) setErrCobros(true); });
+    return () => { vivo = false; };
+  }, [lead.id, vueltaCobros, editing]);
+  // Un cobro nuevo, anulado o devuelto cambia la lista, el historial y (al devolver) las cuotas.
+  const cobrosCambiaron = () => { setVueltaCobros((v) => v + 1); refrescarFicha(); };
+
   // save() para el ÚNICO "Guardar cambios" de la ficha (vía ref).
   useImperativeHandle(ref, () => ({
     save: async () => {
@@ -446,6 +481,36 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
   const identSel = lead.facturado_por_id != null ? identidades?.find((i) => i.id === lead.facturado_por_id) : undefined;
   const facturadoPorTexto = lead.facturado_por_id == null ? '—' : identSel ? `${identSel.nombre}${identSel.id_fiscal ? ` · ${identSel.id_fiscal}` : ''}` : identidades === null ? 'Cargando…' : '—';
 
+  // ⚠️ UN LEAD QUE TODAVÍA NO COMPRÓ también tiene tab Pagos cuando el negocio puede cobrarle con un
+  // link (lib/muestra-pagos.ts). A ese lead se le dibuja SÓLO la sección de los links: el deal entero
+  // (servicio, promesa, datos fiscales…) vacío sería ruido fijo. En edición se dibuja todo, como siempre.
+  const conDeal = !!d || tieneDeal({ estado: lead.estado_lead, etapa: pipelineStageOf(lead), cuotas: pagos.length, planEnLead: planEnLead(lead) });
+
+  // Los links se cobran y se anulan desde la LECTURA: en edición la tarjeta es un borrador que se
+  // guarda con el «Guardar cambios» de la ficha, y un cobro no espera a ese botón.
+  const seccionLinks = !d && (
+    <section style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div style={sectLabel}>Links de pago</div>
+        {opcCobro?.ok && (
+          <CobrarConLink lead={{ id: lead.id, nombre: lead.nombre, email: lead.email, telefono: lead.telefono }}
+            pasarelas={opcCobro.pasarelas} productos={opcCobro.productos} onCreado={cobrosCambiaron} />
+        )}
+      </div>
+      {opcCobro && !opcCobro.ok && <p style={{ margin: 0, fontSize: 13, color: 'var(--faint)' }}>{opcCobro.error}</p>}
+      <CobrosDelLead cobros={cobros} error={errCobros} esAdmin={!!opcCobro?.ok && opcCobro.esAdmin} onCambio={cobrosCambiaron} />
+    </section>
+  );
+
+  if (!conDeal) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {feedback && <div style={bannerStyle(feedback.kind)}>{feedback.msg}</div>}
+        {seccionLinks}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {feedback && <div style={bannerStyle(feedback.kind)}>{feedback.msg}</div>}
@@ -558,7 +623,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, border: `1px solid ${borde}`, borderRadius: 11, padding: '11px 14px', background: p.pagado ? 'var(--good-bg)' : 'var(--surface-2)', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                       <span style={{ color: 'var(--ink)', fontWeight: 600, fontSize: 14 }}>{etiquetaCuota(p.numero)}</span>
-                      <span style={{ color: 'var(--dim)', fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(Number(p.monto_usd))}</span>
+                      <span style={{ color: 'var(--dim)', fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(Number(p.monto_usd))}{p.moneda && p.moneda !== 'USD' && p.monto_original != null ? ` (${formatoMonto(Number(p.monto_original), p.moneda)})` : ''}</span>
                       <span style={{ fontSize: 13, color: vencida ? 'var(--bad)' : porVencer ? 'var(--warn)' : 'var(--dim)' }}>
                         {p.pagado ? `cobrada el ${fmtDDMMYYYY(p.fecha_pago)}${p.pago_hora ? ` · ${p.pago_hora.slice(0, 5)}` : ''}` : vencida ? `venció ${fmtDDMMYYYY(p.fecha_esperada)} · vencida` : `vence ${fmtDDMMYYYY(p.fecha_esperada)}${porVencer && dt !== null ? (dt === 0 ? ' · hoy' : ` · en ${dt} día${dt === 1 ? '' : 's'}`) : ''}`}
                       </span>
@@ -567,7 +632,12 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
                       {p.pagado ? (
                         <>
                           {p.comprobante_path && <button type="button" style={{ ...linkBtn, color: 'var(--primary)', fontWeight: 600 }} onClick={() => setModal({ tipo: 'comprobante', pago: p })}>Ver comprobante</button>}
-                          <button type="button" style={{ ...linkBtn, opacity: pending ? 0.5 : 1 }} disabled={pending} onClick={() => desmarcarPago(p)}>deshacer</button>
+                          {/* La cobró una PASARELA: la prueba es su aviso (no hay comprobante que subir) y
+                              no se «deshace» a mano — eso dejaría el cobro pagado y la cuota sin pagar.
+                              Lo que la revierte es «Devolver», en Links de pago. */}
+                          {esPasarela(p.proveedor)
+                            ? <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>por {NOMBRE_PASARELA[p.proveedor]}</span>
+                            : <button type="button" style={{ ...linkBtn, opacity: pending ? 0.5 : 1 }} disabled={pending} onClick={() => desmarcarPago(p)}>deshacer</button>}
                         </>
                       ) : (
                         <button type="button" style={goodBtn} onClick={() => setModal({ tipo: 'pagar', pago: p })}>Marcar pagada</button>
@@ -614,6 +684,9 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
           <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 10 }}>El cash del dashboard lee de aquí.</p>
         </div>
       </section>
+
+      {/* 1b · LINKS DE PAGO (Stripe / Mercado Pago) */}
+      {seccionLinks}
 
       {/* 2 · DATOS FISCALES */}
       <section style={card}>

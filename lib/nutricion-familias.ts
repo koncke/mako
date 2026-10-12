@@ -6,11 +6,16 @@
 // riesgo no es que sobre gente, es que el mismo lead entre por las dos puertas
 // y reciba dos mensajes que se contradicen.
 //
-// ⚠️ VIVE EN UN MÓDULO PROPIO, SIN NINGÚN IMPORT, A PROPÓSITO. Estaba en
+// ⚠️ VIVE EN UN MÓDULO PROPIO, SIN NINGÚN IMPORT DEL SERVIDOR, A PROPÓSITO. Estaba en
 // `lib/nutricion.ts`, que arrastra `lib/workspace.ts` y con eso todo el runtime
 // de Next: ningún test lo puede importar. Y esto gobierna cuántos mensajes
 // recibe una persona real, o sea que es justo lo que no puede quedarse sin red.
 // Es el mismo criterio que `exigirClienteDePrueba` y que `lib/model-catalogo.ts`.
+// (Desde la undécima tanda importa DOS módulos puros —`lib/pipeline.ts` por el TIPO de una etapa y
+// `lib/nutricion-etapa.ts` por sus etapas—: `preparaReunion` decide por la forma del flujo.)
+
+import { PIPELINE_KIND } from './pipeline';
+import { etapasDe, TRIGGER_ETAPA } from './nutricion-etapa';
 
 /** Agendó DESPUÉS de recibir tu bienvenida: ya te escuchó. Se retoma la charla. */
 export const TRIGGER_AGENDA_CONOCIDO = 'agendado_ya_contactado';
@@ -54,6 +59,74 @@ export const TRIGGER_AGENDA_SIN_CONFIRMAR = 'agendado_sin_confirmar';
  */
 export function preparaUnaReunion(triggerTipo: string): boolean {
   return FAMILIA_POST_AGENDA.includes(triggerTipo) || triggerTipo === TRIGGER_AGENDA_SIN_CONFIRMAR;
+}
+
+/**
+ * ¿Un cambio de la etapa DERIVADA del lead tiene que inscribir AL INSTANTE en las automatizaciones de la etapa
+ * nueva? (undécima tanda, M1-b; decisión §9.5: «una reunión cargada a mano en la ficha también inscribe al
+ * instante».) Sí cuando la etapa CAMBIÓ y la nueva es de tipo REUNIÓN (Agenda R1, Agenda R2): es una reunión
+ * cargada a mano (la ficha, el Kanban «Agendada fuera de Calendly», el CRM automático).
+ *
+ * ⚠️ SÓLO LA REUNIÓN, NO CUALQUIER ETAPA DERIVADA. Los guardados de varios pasos (el asistente de un movimiento
+ * del Kanban guarda la fecha, después la asistencia y recién al final la etapa) pasan por etapas derivadas
+ * INTERMEDIAS: con cualquier etapa, marcar «no asistió» camino a «No Show» inscribía en lo de «noshow_r1», que el
+ * barrido de la hora nunca alcanza (ahí manda la etapa puesta). Lo demás lo sigue levantando el barrido. Pura.
+ */
+export function entraAEtapaDeReunion(
+  antes: string | null | undefined,
+  despues: string | null | undefined,
+  kindDeEtapa: (key: string) => string | null | undefined = (key) => PIPELINE_KIND[key] ?? null,
+): boolean {
+  return !!despues && antes !== despues && kindDeEtapa(despues) === 'reunion';
+}
+
+/** Un CRON como lo necesita `preparaReunion`: su trigger y, si es de etapa, su etapa o etapas. */
+export type CronQuePrepara = { trigger_tipo: string; etapa?: string | null; etapas?: readonly unknown[] | null };
+
+/** Lo que `preparaReunion` mira de una automatización (una fila, o una vista de `vistasPorDisparador`). */
+export type SecuenciaQuePrepara = CronQuePrepara & {
+  /** TODOS sus CRON (mig 0241). Ausente o vacía = el de las columnas (`trigger_tipo`, `etapa`, `etapas`). */
+  disparadores?: readonly CronQuePrepara[] | null;
+  /** Las tarjetas: se busca un DELAY «antes de la reunión» (`nodo: 'esperar'`, `espera.modo: 'antes_reunion'`). */
+  pasos?: readonly unknown[] | null;
+};
+
+/** ¿Una tarjeta es un DELAY «antes de la reunión»? (Sin importar el modelo: este módulo no importa nada del servidor.) */
+const esEsperaAntesDeLaReunion = (p: unknown): boolean => {
+  const x = p as { nodo?: unknown; espera?: { modo?: unknown } | null } | null | undefined;
+  return !!x && x.nodo === 'esperar' && x.espera?.modo === 'antes_reunion';
+};
+
+/**
+ * ¿Esta automatización PREPARA UNA REUNIÓN? (undécima tanda, M2: docs/diseno-undecima-tanda.md §1.6 y §4.)
+ *
+ * Es la pregunta de cuatro cosas del motor: anotar `reunion_at` al inscribir, el REUSO al reagendar (Martín,
+ * 06/10/2026: «también con reunión nueva»), «la reunión ya pasó» y el corte de la charla del AI Step después de
+ * la reunión. Era `preparaUnaReunion(trigger_tipo)`, o sea la familia `agendado_*` y nada más: con «Un Lead
+ * Agendó Llamada» colgado de la ETAPA «Agenda R1» ninguna de las cuatro valía, y una reagenda no volvía a
+ * preparar nada.
+ *
+ * Vale si se cumple ALGUNA, por la FORMA del flujo y no por su nombre:
+ *  1. algún CRON es de la familia de antes (`preparaUnaReunion`);
+ *  2. algún CRON `etapa_actual` es de una etapa de TIPO reunión (`PIPELINE_KIND`: Agenda R1 y Agenda R2). Por
+ *     el tipo y no por tener un DELAY: el «Un Lead Agendó Llamada» del ws13 es sólo el aviso al equipo, y sin
+ *     esta regla perdía el reuso (hoy #240 avisa CADA reserva);
+ *  3. tiene un DELAY «antes de la reunión».
+ *
+ * Mira la automatización ENTERA (todos sus CRON), también desde una vista de un CRON: la inscripción es una por
+ * (lead, automatización). `kindDeEtapa` es el tipo de una etapa: el de la casa (`PIPELINE_KIND`) salvo que quien
+ * llama sepa el de un embudo propio. Pura.
+ */
+export function preparaReunion(
+  sec: SecuenciaQuePrepara,
+  kindDeEtapa: (key: string) => string | null | undefined = (key) => PIPELINE_KIND[key] ?? null,
+): boolean {
+  const crones: readonly CronQuePrepara[] = sec.disparadores?.length ? sec.disparadores : [sec];
+  for (const d of [sec, ...crones]) {
+    if (preparaUnaReunion(d.trigger_tipo)) return true;
+    if (d.trigger_tipo === TRIGGER_ETAPA && etapasDe(d).some((k) => kindDeEtapa(k) === 'reunion')) return true;
+  }
+  return (sec.pasos ?? []).some(esEsperaAntesDeLaReunion);
 }
 
 /**

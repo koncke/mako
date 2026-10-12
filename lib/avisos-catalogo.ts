@@ -771,7 +771,14 @@ Escríbele hoy o agenda una sesión.`,
   {
     id: 'reunion-nuevo-agendado', titulo: 'Nuevo lead que agendó reunión', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'Webhook Calendly invitee.created.',
+    // Los cuatro emisores (Calendly y Cal.com, R1 y R2) arman su texto: el de Cal.com con el teléfono y lo
+    // completado («un único WhatsApp», Código Inmobiliario). Desde el 11/10/2026 es un EVENTO de MaKo
+    // (`lead_agendo`, lib/disparadores.ts), RETIRADO desde la undécima tanda: el aviso de nuevo agendado es una
+    // tarjeta «MaKo en WhatsApp» de «Un Lead Agendó Llamada», con datos citables (`{{reunion_cuando}}`,
+    // `{{lead_respuestas_agenda}}`…). La marca queda SÓLO para las filas vivas con `{{mensaje_mako}}` (#239, #240)
+    // hasta la limpieza (docs/diseno-undecima-tanda.md §8.7).
+    textoDelCodigo: true,
+    disparador: 'Webhook de Calendly (invitee.created) o de Cal.com (BOOKING_CREATED): un lead reserva una reunión.',
     // Decía «la ficha ya quedó armada en el CRM» y no daba el link: mandaba a
     // buscarla a mano justo cuando el dato recién llegó y es más fácil de mirar.
     ejemplo: `🎯 *Nuevo agendado*: Juan Pérez reservó una *R1 para el jueves 16 a las 11:00*. Vino del anuncio "VSL testimonios".
@@ -939,10 +946,10 @@ https://hola-mako.com/plan — MaKo`,
   },
 
   {
-    id: 'crm-lead-estancado', titulo: 'Leads quietos más de lo que marca tu embudo', categoria: 'aviso',
+    id: 'crm-lead-estancado', titulo: 'Leads quietos más de lo que marca tu funnel', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'El CRM automático movió leads que pasaron el plazo de su etapa. UN mensaje por corrida con todos juntos, y como máximo uno por día.',
-    ejemplo: `⏳ Moví *6 leads* que quedaron más tiempo del que marca tu embudo: 4 de *Lead entrante* (plazo 2 días) y 2 de *No responde* (plazo 30 días). El motivo quedó en el historial de cada uno. — MaKo`,
+    ejemplo: `⏳ Moví *6 leads* que quedaron más tiempo del que marca tu funnel: 4 de *Lead entrante* (plazo 2 días) y 2 de *No responde* (plazo 30 días). El motivo quedó en el historial de cada uno. — MaKo`,
   },
   {
     // ⚠️ NO ES EL DE ARRIBA. Aquél cuenta lo que el CRM automático MOVIÓ (tres columnas, y sólo
@@ -951,7 +958,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'crm-lead-quieto', titulo: 'Leads que pasaron el plazo de su etapa', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Un lead lleva en su etapa más días que el plazo que le pusiste en el editor de etapas. UN mensaje por día con todos juntos.',
-    ejemplo: `⏳ *5 leads* llevan en su etapa más de lo que marca tu embudo: 3 en *Agenda R2* (más de 5 días) y 2 en *Facturando* (más de 3 días). Los que más esperan: Ana, Pedro y Lucía. — MaKo`,
+    ejemplo: `⏳ *5 leads* llevan en su etapa más de lo que marca tu funnel: 3 en *Agenda R2* (más de 5 días) y 2 en *Facturando* (más de 3 días). Los que más esperan: Ana, Pedro y Lucía. — MaKo`,
   },
 
   // ── COBRANZA / CASH ────────────────────────────────────────────────────────
@@ -996,10 +1003,21 @@ https://hola-mako.com/plan — MaKo`,
     ejemplo: `🟡 Mañana vence la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}). Avisarle hoy sale más barato que perseguirlo después. — MaKo`,
   },
   {
-    id: 'pago-recibido', titulo: 'Pago recibido / cash collected', categoria: 'aviso',
-    prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'no',
-    disparador: 'Se registra un pago (cierre o cuota cobrada).',
-    ejemplo: `💰 *Entró plata*: pago de Grupo Delta por *$2.300*. Cash del mes: $14.600 — vas 68% de la meta. Bien ahí. — MaKo`,
+    id: 'pago-recibido', titulo: 'Pago recibido', categoria: 'aviso',
+    prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    // Desde el 11/10/2026 lo emite la pasarela (lib/cobros.ts, aplicarPagoAprobado) cuando Stripe o Mercado Pago
+    // confirman un cobro creado en MaKo, y es un EVENTO de MaKo (`pago_recibido`, lib/disparadores.ts): sale por la
+    // automatización «Entró un Pago» que el negocio agrega de la galería (`mako-pago`). Undécima tanda: la tarjeta cita
+    // los DATOS del pago que pasa `avisarPagoRecibido` (`{{pago_monto}}`, `{{pago_pasarela}}`, `{{pago_concepto}}`…).
+    // El texto armado por el código (`textoDelCodigo`) queda sólo para una fila con `{{mensaje_mako}}` hasta la limpieza.
+    textoDelCodigo: true,
+    disparador: 'Stripe o Mercado Pago confirman un pago de un link de cobro creado en MaKo.',
+    ejemplo: `💰 *Entró un pago*: Grupo Delta pagó *US$ 2.300* por Stripe (Mentoría).
+
+👉 Mira su ficha:
+https://hola-mako.com/crm/123/resumen
+
+— MaKo`,
   },
   {
     id: 'cierre-venta', titulo: 'Cierre de venta nuevo', categoria: 'aviso',

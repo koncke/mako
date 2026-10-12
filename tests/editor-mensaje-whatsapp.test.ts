@@ -74,15 +74,19 @@ test('el editor no publica: no le habla a la ruta de las secuencias ni hace PATC
   assert.doesNotMatch(EDITOR, /\/api\/whatsapp\/secuencias|\/api\/chat-agent\/secuencias/, 'el editor no guarda la secuencia: eso es «Publicar»');
   assert.doesNotMatch(EDITOR, /method: 'PATCH'|setAudioDePaso/);
   // Lo único que escribe: la biblioteca de audios y la de archivos. (El guion de «✦ guion» salió con
-  // la sexta tanda: lo propone el panel de MaKo, MakoRedacta.tsx, que tampoco guarda nada.)
+  // la sexta tanda: lo propone el panel de MaKo, MakoRedacta.tsx, que tampoco guarda nada.) Y desde la undécima
+  // (decisión 2 de la décima), la VOZ DE MaKo de la tarjeta «MaKo en WhatsApp»: lee las ya generadas y genera una
+  // (app/api/automations/voz-mako/route.ts). Tampoco publica: la voz queda en la tarjeta, que publica «Publicar».
   const rutas = [...EDITOR.matchAll(/fetch\(([^,)]+)/g)].map((m) => m[1]!.trim()).sort();
-  assert.deepEqual(rutas, ["'/api/chat-agent/adjuntos'", "'/api/chat-agent/adjuntos'", "'/api/chat-agent/audios'"].sort());
+  assert.deepEqual(rutas, ["'/api/chat-agent/adjuntos'", "'/api/chat-agent/adjuntos'", "'/api/chat-agent/audios'", "'/api/automations/voz-mako'", "'/api/automations/voz-mako'"].sort());
   // El número de CADA mensaje lo guarda quien monta la cabecera (un cambio local del paso).
   assert.match(EDITOR, /<SalidaWhatsApp actual=\{actual\} explicita onElegir=\{\(l\) => \{ if \(l\) onLinea\(l\); \}\}/);
 });
 
 test('la nota de voz se manda con la ➤ (ya escuchada), sube a la biblioteca y se suma al chat, en local', () => {
-  const usar = EDITOR.slice(EDITOR.indexOf('async function usarAudio(blob: Blob, secs: number)'), EDITOR.indexOf('const mientrasGraba'));
+  // Décima tanda (WhatsApp 3): `usarAudio` recibe además a dónde iba y si es la salida del editor; lo de
+  // después (el audio que vuelve, la salida) va en tests/decima-tanda-whatsapp.test.ts.
+  const usar = EDITOR.slice(EDITOR.indexOf('async function usarAudio(blob: Blob, secs: number,'), EDITOR.indexOf('function devolverVoz('));
   assert.ok(usar.length > 200 && usar.length < 3000, `no encontré usarAudio (${usar.length})`);
   assert.match(usar, /fetch\('\/api\/chat-agent\/audios'/);
   assert.match(usar, /if \(!mismoPaso\(pasoVivo\.current, deQuien\)\) return;/, 'el paso cambia sólo si sigue siendo el mismo');
@@ -330,7 +334,12 @@ test('una sola columna: el chat, y la barra abajo de todo con «{ }» al lado de
     const iDatos = abajo.indexOf('aria-label="Insertar un dato"');
     const iCampo = abajo.indexOf('<textarea');
     assert.ok(iClip < iDatos && iDatos < iCampo, `${disposicion}: «{ }» no está entre el clip y el campo`);
-    assert.doesNotMatch(abajo.slice(iClip, iCampo), /<div/, '«{ }» se fue a otra fila');
+    // Entre el «{ }» y el campo sólo va la caja de los datos azules (CampoConDatos: la caja y su espejo, undécima
+    // tanda, punto 7), que ocupa el lugar del campo en la MISMA fila.
+    assert.doesNotMatch(abajo.slice(iClip, iDatos), /<div/, '«{ }» se fue a otra fila');
+    const entre = abajo.slice(iDatos, iCampo);
+    assert.match(entre, /<div data-campo-datos=""/, `${disposicion}: el campo no tiene sus datos azules`);
+    assert.equal((entre.match(/<div/g) ?? []).length, 2, '«{ }» se fue a otra fila');
     // «no quiero botones ni nada abajo de donde se escriben mensajes».
     const despuesDelCampo = abajo.slice(abajo.indexOf('</textarea>'));
     for (const t of ['Insertar un dato', '✦ MaKo', '↻']) assert.ok(!despuesDelCampo.includes(t), `${disposicion}: ${t} quedó debajo de la barra`);

@@ -54,6 +54,7 @@ export function PortadaSinJs() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', justifyContent: 'center', fontSize: 13.5, color: '#6B7280', marginTop: 12 }}>
         <a href="/privacidad" style={link}>Privacidad</a>
         <a href="/terminos" style={link}>Términos</a>
+        <a href="/reembolsos" style={link}>Reembolsos</a>
         <a href={`mailto:${EMAIL_MAKO}`} style={link}>{EMAIL_MAKO}</a>
         <span>{`Razón social: ${RAZON_SOCIAL_MAKO}`}</span>
       </div>

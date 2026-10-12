@@ -210,7 +210,10 @@ test('el motor: reparte al entrar, toma UN hilo por vuelta y vuelve a la cola si
   // Probado rompiéndolo (08/10/2026): sin el `vistos.delete(insc.id); otraVuelta = true;` de la
   // selección → 19 pasan / 1 falla (éste).
   assert.match(PROC, /if \(sec && !hs && esFilaNueva\(insc\) && raicesSalida\(sec\.pasos\)\.length > 1\) \{\s*hs = await repartirAlEntrar\(/);
-  assert.match(PROC, /const libres = hilosVencidos\(hs, Date\.now\(\)\)\.filter\(\(x\) => !hilosVistos\.has\(`\$\{insc\.id\}:\$\{x\.h\}:\$\{x\.nodo\}`\)\);/);
+  // (Undécima tanda, M3 f: fuera del horario se toman sólo los hilos que corren igual —el carril del recordatorio,
+  // «MaKo en WhatsApp»—; los demás se quedan como están. Ver tests/motor-carril-recordatorio.test.ts.)
+  assert.match(PROC, /const vencidos = hilosVencidos\(hs, Date\.now\(\)\)\.filter\(\(x\) => !hilosVistos\.has\(`\$\{insc\.id\}:\$\{x\.h\}:\$\{x\.nodo\}`\)\);/);
+  assert.match(PROC, /const libres = fueraDeHorario && !enRespuesta \? vencidos\.filter\(\(x\) => seMueve\(indicePorId\(sec\.pasos, x\.nodo\)\)\) : vencidos;/);
   assert.match(PROC, /if \(libres\.length > 1\) \{ vistos\.delete\(insc\.id\); otraVuelta = true; \}/);
   // Toda escritura de la posición pasa por la puerta, y la puerta decide si hay hilos.
   assert.match(PROC, /if \(planDePosicion\(pasosInsc, leidoDePosicion\(insc, pasosInsc\), campos, o\)\.modo === 'hilos'\) return escribirHilos\(/);
@@ -220,7 +223,9 @@ test('el motor: reparte al entrar, toma UN hilo por vuelta y vuelve a la cola si
   assert.deepEqual(updates.sort(), ['...campos', '...campos', 'reunion_at'], `una escritura de la posición por fuera de la puerta: ${updates.join(', ')}`);
   // El compare-and-set por la revisión, con la relectura que no confunde «otro hilo» con «este hilo».
   const eh = NUTRI.slice(NUTRI.indexOf('async function escribirHilos('), NUTRI.indexOf('async function repartirAlEntrar('));
-  assert.match(eh, /\.eq\('id', insc\.id\)\.eq\('estado', 'activa'\)\.eq\('hilos_rev', rev\)/);
+  // (Undécima tanda, M4: contra el estado LEÍDO —'activa', o 'respondio' con el carril vivo—, que no cambia.)
+  assert.match(eh, /\.eq\('id', insc\.id\)\.eq\('estado', estadoLeido\(insc\)\)\.eq\('hilos_rev', rev\)/);
+  assert.match(NUTRI, /const estadoLeido = \(insc: \{ estado\?: string \| null \}\): string => insc\.estado \?\? 'activa';/);
   assert.match(eh, /hiloSigueEn\(hs, leido\.h \?\? HILO_PRINCIPAL, leido\.nodo\)/);
 });
 

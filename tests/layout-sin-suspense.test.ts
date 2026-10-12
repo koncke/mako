@@ -20,10 +20,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Writable } from 'node:stream';
 import ts from 'typescript';
-import { createElement, Suspense, type ReactElement } from 'react';
+import { createElement, Fragment, Suspense, type ReactElement } from 'react';
 import { renderToPipeableStream } from 'react-dom/server';
 import Privacidad from '../app/privacidad/page';
 import Terminos from '../app/terminos/page';
+import Reembolsos from '../app/reembolsos/page';
 
 const LAYOUT = resolve(__dirname, '..', 'app/layout.tsx');
 
@@ -126,18 +127,32 @@ function visibleSinJs(html: string): string {
 // un DOCUMENTO (tests/razon-social-sitio.test.ts lo midió con la portada).
 const documento = (hijo: ReactElement) => createElement('html', null, createElement('body', null, hijo));
 
-const PAGINAS: Array<[string, () => ReactElement, string]> = [
+// ⚠️ Y CON LO QUE EL LAYOUT ESCRIBE ANTES DE LA PÁGINA. El umbral (~12.800 bytes) es ACUMULATIVO: una
+// página CORTA renderizada sola nunca lo pasa, así que un <Suspense> propio de /reembolsos salía
+// visible acá y oculto en producción (medido el 11/10/2026: sin esto, envolverla en un Suspense daba
+// 7 pass / 0 fail). 16 KB de CSS delante —que no es texto visible— ponen a todas las páginas en el
+// peor caso, que es el de producción.
+const LO_DE_ANTES = createElement('style', { dangerouslySetInnerHTML: { __html: '.relleno{color:red} '.repeat(800) } });
+const conLoDeAntes = (hijo: ReactElement) => createElement(Fragment, null, LO_DE_ANTES, hijo);
+
+// El cuarto valor es el mínimo de caracteres visibles. 5000 sirve para /privacidad y /terminos (más de
+// 10.000); /reembolsos es corta de verdad (~2.700), y el modo de falla que esto mide deja ~20, así que
+// su mínimo es 2000: un umbral copiado de una página larga la daba por «casi vacía» estando entera.
+const PAGINAS: Array<[string, () => ReactElement, string, number?]> = [
   ['/privacidad', () => createElement(Privacidad), 'Uso limitado de los datos de Google'],
   ['/terminos', () => createElement(Terminos), 'Responsable del servicio'],
+  // La política de reembolsos (11/10/2026): la piden Stripe y Mercado Pago para aprobar la cuenta, y
+  // su revisor la abre sin cuenta y puede que sin JavaScript, igual que el de Google las otras dos.
+  ['/reembolsos', () => createElement(Reembolsos), 'El mes ya pagado no se reembolsa', 2000],
 ];
 
-for (const [ruta, pagina, frase] of PAGINAS) {
+for (const [ruta, pagina, frase, minimo = 5000] of PAGINAS) {
   test(`${ruta} se lee entera sin JavaScript cuando nada la envuelve en un Suspense`, async () => {
-    const html = await streamear(documento(pagina()));
+    const html = await streamear(documento(conLoDeAntes(pagina())));
     assert.ok(!html.includes('<div hidden id="S:'), `${ruta} salió con un bloque oculto`);
     const vis = visibleSinJs(html);
     assert.ok(vis.includes(frase), `sin JavaScript no se lee «${frase}» en ${ruta}`);
-    assert.ok(vis.length > 5000, `${ruta} se ve con ${vis.length} caracteres: está casi vacía`);
+    assert.ok(vis.length > minimo, `${ruta} se ve con ${vis.length} caracteres: está casi vacía`);
   });
 }
 
@@ -152,3 +167,6 @@ test('control: adentro del Suspense que tenía el layout, /privacidad queda ocul
 //   · envolver la página de /privacidad en un Suspense propio (app/privacidad/page.tsx): 1 fallo, 5 pases;
 //   · cambiar `await getSesionAdmin()` del layout por una constante: 1 fallo, 5 pases;
 //   · agregar un app/privacidad/loading.tsx: 1 fallo, 5 pases.
+// Y el 11/10/2026, con /reembolsos sumada (base de 7 pases): envolverla en un Suspense propio daba
+// 7 pases / 0 fallos SIN `conLoDeAntes` (una página corta sola no pasa el umbral) y 1 fallo, 6 pases
+// con él. Restaurada: 7 pases.

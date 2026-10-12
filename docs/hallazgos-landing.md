@@ -4090,3 +4090,20 @@ reenvía los UTM de la página: separar la prospección de la campaña pide un l
 `utm_source` por canal.
 
 **Vive en:** `app/vsl/Landing.tsx`. *Corrida `wf_01c22b1b-91a`, 10/10/2026.*
+
+## Landing Analyst se retiró como tab: el diagnóstico vive en Landing Generator (11/10/2026)
+
+**Vive en:** `app/landing-generator/analizar/page.tsx` (monta `app/landing-analyst/LandingAnalystApp.tsx`
+desde donde está), `app/landing-analyst/page.tsx` (redirige)
+
+- ⚠️ **«El Dashboard monta los dos componentes» era falso**: la hoja Landing sólo importa `MapaDeCalor`
+  (`app/dashboard/bloques/extra/BloquesLanding.tsx:15`) y rehízo el pulso con gráficos genéricos. Quedan con
+  CERO usos `app/landing-analyst/PulsoPaginas.tsx`, `app/api/landing-analyst/pulso/route.ts` y
+  `lib/landing-pulso-server.ts`. Borrarlos lo decide Martín. Antes de declarar que un componente «se
+  queda porque lo usa X», se busca quién lo importa.
+- **El editor copiado de Gamma llegó a main con un link a la ruta retirada**
+  (`app/landing-generator/editor/dialogos/DialogoAnalitica.tsx:146`, «Abrir el Landing Analyst»). El
+  redirect lo salva y `tests/tabs-retiradas.test.ts` lo tolera con fecha; el cambio (a la hoja Landing del
+  Dashboard) se le pidió a la sesión Landing Generator, junto con un acceso a «Diagnóstico» en su nav.
+
+*11/10/2026, chat «Graphics», paquete P4 de la tanda v4 del Dashboard (commit `6e85d8d7`).*

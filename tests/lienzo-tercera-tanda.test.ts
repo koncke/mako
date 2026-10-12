@@ -42,6 +42,12 @@
 //   R1. las esperas del recordatorio vuelven a dibujarse como tarjetas        -> 9 / 1
 //   R2. un título del recordatorio escrito a mano («Mensaje»)                 -> 9 / 1
 //
+// Undécima tanda (11/10/2026, w2-mako-editor: la tarjeta MAKO con el editor de WhatsApp y la Voz de MaKo). Arnés
+// scratchpad/wf-undecima/w2-mako-editor/romper.mjs, una por vez y restaurada con md5. Base 10 / 0. Pasan / fallan:
+//   U1. EditorMako monta el editor sin `vozMako`                               -> 9 / 1
+//   U2. la cabecera del panel MAKO sin el ✦ (sin su paso)                       -> 9 / 1
+//   U3. `nodoNuevo('mako')` nace como antes (`mensaje: ''`, sin `partes`)       -> 9 / 1
+//
 // Correr: node --import tsx --test tests/lienzo-tercera-tanda.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -165,7 +171,9 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   assert.equal(nodo(g, 'v').advertencia, 'Sin escribir', 'una tarjeta MAKO sin mensaje no se marca');
   assert.deepEqual(n.puertos, [{ id: 'sig', vacio: false, paralelo: true }], 'la tarjeta MAKO sigue con una salida, como una Acción');
   assert.ok(esMako(mako('x', 'y')) && !esMako(msg('x')) && !esMako(msg('x', { accion: { operacion: 'poner_etiqueta_lead', params: {} } })));
-  assert.deepEqual(makoDeAccion(mako('x', 'Llámalo', { accion: { operacion: 'avisar_al_equipo', params: { mensaje: 'Llámalo', titulo: 'Urgente' } } })), { mensaje: 'Llámalo', titulo: 'Urgente' });
+  // Undécima: con sus PARTES (la de antes, sin lista, se lee como su texto).
+  assert.deepEqual(makoDeAccion(mako('x', 'Llámalo', { accion: { operacion: 'avisar_al_equipo', params: { mensaje: 'Llámalo', titulo: 'Urgente' } } })),
+    { mensaje: 'Llámalo', titulo: 'Urgente', partes: [{ tipo: 'texto', cuerpo: 'Llámalo' }] });
   // El «Si no» con el que nace la condición que escucha es una tarjeta MAKO (el aviso al grupo): se crea
   // eligiendo «Su respuesta trata de» en una CONDITION vacía (`condicionARespuesta`).
   const vacia: PasoParaGrafo = { id: 'k', canal: 'whatsapp', delay_horas: 0, cuerpo: '', nodo: 'condicion', si_no: null, ramas: [{ id: 'kr', modo: 'todas', filas: [], siguiente: null }] };
@@ -175,21 +183,30 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   const otra = rp.find((p) => p.id === rp.find((q) => q.id === 'k')!.si_no)!;
   assert.equal(nodo(grafoDeSecuencia(rp, { disparador: 'X' }), otra.id!).tipo, 'mako');
   assert.equal(nombreDeTarjeta(rp, otra.id!), 'MAKO EN WHATSAPP: Te escribió algo que no s…');
-  // Y el editor de la tarjeta MAKO es el de WhatsApp en modo grupo (sexta tanda, MaKo en WhatsApp 2:
-  // «la misma interfaz»): el mensaje con los datos del lead en «{ }». El título salió de la pantalla y
-  // el guardado lo conserva (`params` viaja entero).
+  // Y el editor de la tarjeta MAKO es el de WhatsApp (sexta tanda, MaKo en WhatsApp 2: «la misma interfaz»).
+  // ⚠️ UNDÉCIMA TANDA (decisión 2 de la décima: «agregale esas opciones. Pero en audios… la voz de MaKo»): ya no el
+  // «modo grupo» de UN texto sino EL MISMO `EditorMensajeWhatsApp` con `vozMako`, sobre el DTO de la tarjeta
+  // (`pasoDeMako`: su id y su orden reales) y de vuelta por `paramsDeMako` (la lista explícita: sale TAL CUAL).
   const flujo = sinComentarios(leer('../app/automations/FlujoLienzo.tsx'));
-  assert.match(flujo, /if \(esMako\(paso\)\) return <EditorMako key=\{`mako-\$\{id\}`\} /);
-  const ed = bloque(flujo, 'function EditorMako(', '\n}\n', 3_200);
-  // Desde el 11/10/2026, en una fila de «MaKo en WhatsApp» el «{ }» es lo que trae SU evento (`datosDelEvento`).
-  assert.match(ed, /const datos = useMemo\(\(\) => \(evento \? datosOfrecidos\(datosDelEvento\(evento\)\) : GRUPOS_MAKO\), \[evento\]\);/);
-  assert.match(ed, /<EditorMensajeGrupo texto=\{m\.mensaje\} onTexto=\{poner\} datos=\{datos\}/);
-  assert.match(ed, /\.\.\.params, leadId: params\.leadId \?\? LEAD_DEL_EVENTO, mensaje/, 'el aviso perdió el lead del evento o el título guardado');
-  // Segunda pasada: el catálogo de lo que un mensaje AL EQUIPO sobre un lead puede resolver, no los 4
-  // datos del motor (MaKo en WhatsApp 4: «falta muchísimos datos posibles»).
-  assert.match(flujo, /const GRUPOS_MAKO = datosOfrecidos\(\{ destino: 'equipo', conLead: true \}\);/);
+  assert.match(flujo, /if \(esMako\(paso\)\) return <EditorMako key=\{`mako-\$\{id\}`\} \{\.\.\.pr\} paso=\{paso\} id=\{id\} \/>;/);
+  const ed = bloque(flujo, 'function EditorMako(', '\n}\n', 4_000);
+  assert.match(ed, /const dto = useMemo\(\(\) => pasoDeMako\(paso\), \[paso\]\);/);
+  assert.match(ed, /paso=\{dto\} autor="MaKo" vozMako /);
+  assert.match(ed, /audios=\{\[\]\} permiteAudio=\{false\} permiteAdjuntos adjuntos=\{adjuntos\} onAdjuntoNuevo=\{onAdjuntoNuevo\}/, 'sin los audios del negocio, con la biblioteca de archivos');
+  assert.match(ed, /datos=\{datos\} redactaCon=\{contexto\} permiteIA /, 'el ✦ no escribe con los datos de la tarjeta');
+  assert.match(ed, /onPartirConEspera=\{\(i, m\) => onPasos\(\(prev\) => \{ const r = partirConEspera\(prev, id, i, m\); return r\.ok \? r\.pasos : prev; \}, true\)\}/);
+  // El cambio vuelve a los `params` de la tarjeta DE AHORA (adentro del updater), con el lead del evento.
+  assert.match(ed, /const sig = paramsDeMako\(\{ \.\.\.params, leadId: params\.leadId \?\? LEAD_DEL_EVENTO \}, patch as unknown as CambioDeMako\);/, 'el aviso perdió el lead del evento o el título guardado');
+  assert.match(ed, /return cambiarNodo\(prev, id, \{ accion: \{ operacion: accion\.operacion \?\? '', params: sig \} \}\);\n\s*\}, cambioApila\(patch, dto\)\);/);
+  // Los datos («{ }» y ✦): los de la tarjeta, con el MISMO contexto con que Publicar los valida (`contextoDeTarjeta`):
+  // en un flujo de lead, el equipo y el lead (segunda pasada: no los 4 del motor); en una fila de evento, lo que trae.
+  assert.match(ed, /const ctx = contextoDeTarjeta\(paso, \{ trigger_tipo: trigger, subtipo: eventoMako \?\? undefined \}\);/);
+  assert.match(ed, /const datos = useMemo\(\(\) => datosOfrecidos\(contexto\), \[contexto\]\);/);
+  assert.match(flujo, /const CONTEXTO_MAKO: ContextoDatos = \{ destino: 'equipo', conLead: true \};/);
   // Integración: va como ÁRBOL (prop `datos`), no aplanado con el grupo en el rótulo.
-  assert.doesNotMatch(flujo, /DATOS_MAKO/, 'volvió la lista plana de la tarjeta MAKO');
+  assert.doesNotMatch(flujo, /DATOS_MAKO|<EditorMensajeGrupo/, 'volvió la lista plana o el «modo grupo» de la tarjeta MAKO');
+  // La cabecera del panel lleva el ✦ de ESTA tarjeta (la misma clave que su editor).
+  assert.match(flujo, /if \(paso && esMako\(paso\)\) return <CabeceraMakoEnWhatsApp paso=\{pasoDeMako\(paso\)\} deshabilitado=\{busy\} \/>;/);
   // ⚠️ Y EL RUNNER LOS REEMPLAZA (integración): «＋ Dato del lead» inserta `{{nombre}}`, y sin esto
   // salía crudo al grupo. Mensaje Y título, con la función del motor y el nombre CRUDO del lead (el
   // `nombre` del aviso trae el respaldo «el lead #N», que no es un nombre).
@@ -201,7 +218,9 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   const run = sinComentarios(leer('../lib/api-mako/areas/chatbot.run.ts'));
   assert.match(run, /\.select\('id, nombre, telefono, empresa'\)/);
   assert.match(run, /const base = lead \? valoresVariablesLead\(\{ nombre: lead\.nombreCrudo, empresa: lead\.empresa \}\) : \{\};/);
-  assert.match(run, /await conVariables\(t, \{ ws, leadId: lead\?\.id \?\? null, leadNombre: lead\?\.nombreCrudo \?\? null, destino: 'equipo' \}, base\);/);
+  // Undécima tanda (§5): los valores del catálogo y `textoConDatos`, la MISMA función de todo envío.
+  assert.match(run, /await valoresDeVariables\(\{ ws, leadId: lead\?\.id \?\? null, leadNombre: lead\?\.nombreCrudo \?\? null, destino: 'equipo' \}, t, base\)/);
+  assert.match(run, /textoConDatos\(t, /);
   assert.match(run, /const mensaje = await textoDelAviso\(mensajeCrudo, lead, ctx\.ws\);/);
   assert.match(run, /const titulo = \(await textoDelAviso\(String\(payload\.titulo \?\? ''\), lead, ctx\.ws\)\) \|\|/);
 });
@@ -296,7 +315,8 @@ test('el recordatorio usa los MISMOS títulos que el lienzo (y la tarjeta de Wha
 test('la tarjeta MAKO entra por el ＋ con su logo, sobre el lead del evento', () => {
   const r = insertarDesdeLienzo([msg('a')], 'a', 'sig', 'mako', rndDe(4));
   const p = r.pasos.find((x) => x.id === r.id)!;
-  assert.deepEqual(p.accion, { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje: '' } });
+  // Undécima: nace con la lista EXPLÍCITA (vacía): toda tarjeta nueva sale TAL CUAL (lib/mako-tarjeta.ts).
+  assert.deepEqual(p.accion, { operacion: 'avisar_al_equipo', params: { leadId: 'evento', partes: [] } });
   assert.equal(p.siguiente, null);
   assert.equal(nodo(grafoDeSecuencia(r.pasos, { disparador: 'X' }), r.id!).tipo, 'mako');
 });

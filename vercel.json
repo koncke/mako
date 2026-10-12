@@ -156,6 +156,14 @@
     {
       "path": "/api/cron/cs-sin-contacto",
       "schedule": "3 14 * * *"
+    },
+    {
+      "path": "/api/cron/dashboard-analisis",
+      "schedule": "8,23,38,53 * * * *"
+    },
+    {
+      "path": "/api/cron/cobros-reconciliar",
+      "schedule": "17,47 * * * *"
     }
   ]
 }

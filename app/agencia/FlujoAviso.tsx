@@ -59,6 +59,7 @@ import { IconoDisparador } from '@/app/automations/IconosDisparador';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
 import { PopoverWA, insertarEnCursor } from '@/app/whatsapp/_shared/ComposerWhatsApp';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
+import { CampoConDatos, type CampoConDatosHandle } from '@/app/_components/CampoConDatos';
 import {
   grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, disparadoresDeAviso,
   cabezaDeCadena, pasoDeTarjeta, segundosDeEspera, horasDeEspera, unidadDeEsperaAviso, UNIDADES_ESPERA_AVISO, ESPERA_AVISO_MAX_S,
@@ -1316,6 +1317,8 @@ function EditorEmailAviso({ nodo, asunto, titulo, texto, asuntoEditable, textoEd
   datos: ReturnType<typeof variablesOfrecidas>;
 }) {
   const cuerpo = useRef<HTMLTextAreaElement>(null);
+  /** Los `{{datos}}` azules y clickeables del cuerpo (undécima tanda, punto 7): `CampoConDatos`. */
+  const datosCuerpo = useRef<CampoConDatosHandle | null>(null);
   const [btnDatos, setBtnDatos] = useState<HTMLButtonElement | null>(null);
   const [datosAbiertos, setDatosAbiertos] = useState(false);
   const fila: CSSProperties = { flex: 'none', display: 'flex', alignItems: 'center', gap: 8, minHeight: 34, padding: '0 12px', borderBottom: '1px solid var(--border)', fontSize: 13 };
@@ -1339,15 +1342,18 @@ function EditorEmailAviso({ nodo, asunto, titulo, texto, asuntoEditable, textoEd
             style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, padding: '7px 0' }} />
         </div>
         {textoEditable ? (
+          <CampoConDatos ref={datosCuerpo} datos={datos} onValor={onTexto}>
           <textarea ref={cuerpo} value={texto} onChange={(e) => onTexto(e.target.value)} rows={8} aria-label="Cuerpo del email"
             placeholder="Escribe el mensaje"
             style={{ border: 'none', outline: 'none', resize: 'vertical', padding: '10px 12px', background: 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, lineHeight: 1.5, minHeight: 140 }} />
+          </CampoConDatos>
         ) : (
           <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}><TextoMarcas texto={texto} /></div>
         )}
         {textoEditable && datos.length > 0 && (
           <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 2, padding: '4px 6px', borderTop: '1px solid var(--border)' }}>
-            <button type="button" ref={setBtnDatos} onClick={() => setDatosAbiertos((v) => !v)} aria-expanded={datosAbiertos}
+            <button type="button" ref={setBtnDatos} aria-expanded={datosAbiertos}
+              onClick={() => { if (!datosAbiertos && datosCuerpo.current?.abrirDatoEnCursor()) return; setDatosAbiertos((v) => !v); }}
               title="Insertar un dato" aria-label="Insertar un dato"
               style={{ height: 28, minWidth: 28, padding: '0 7px', border: 'none', borderRadius: 7, background: datosAbiertos ? 'var(--primary-bg)' : 'transparent', color: datosAbiertos ? 'var(--primary)' : 'var(--dim)', cursor: 'pointer', fontFamily: "'Geist Mono', monospace", fontSize: 12.5, fontWeight: 600 }}>{'{ }'}</button>
           </div>

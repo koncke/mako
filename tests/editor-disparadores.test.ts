@@ -44,14 +44,19 @@ const dibujar = (lista: Disparador[], extra: Record<string, unknown> = {}) => re
 const cuantos = (html: string, re: RegExp) => (html.match(re) ?? []).length;
 const botonesApagados = (html: string) => cuantos(html, /<button[^>]*disabled=""/g);
 
-test('la primera pantalla: los SEIS botones gigantes, en orden y con su ícono; sin «Por tiempo» / «Por una acción»', () => {
+test('la primera pantalla: los SIETE botones gigantes en 4+3, en orden y con su ícono; sin «Por tiempo» / «Por una acción»', () => {
   const html = dibujar([{ id: 'd1', trigger_tipo: 'manual' }]);
   const clases = [...html.matchAll(/data-clase-cron="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(clases, ['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email']);
-  for (const l of ['Producto', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email']) assert.match(html, new RegExp(`>${l}</button>`));
+  assert.deepEqual(clases, ['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email', 'pagos']);
+  for (const l of ['Funnel', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email', 'Pagos']) assert.match(html, new RegExp(`>${l}</button>`));
   // Cada botón lleva su ícono (un <svg>), no un emoji.
-  assert.ok(cuantos(html, /<svg/g) >= 6, 'faltan los íconos de los botones');
-  assert.match(html, /min-height:92px/, 'los botones dejaron de ser gigantes');
+  assert.ok(cuantos(html, /<svg/g) >= 7, 'faltan los íconos de los botones');
+  // 4+3, nunca 3+3+1 (11/10/2026: con «Pagos» son siete, y un botón solo en una tercera fila se ve roto).
+  // Roto a propósito el 11/10/2026 (la grilla de vuelta en 3 columnas): 9 pass / 1 fail; restaurado: 10 / 0.
+  const grilla = html.slice(html.indexOf('data-cron-clases'), html.indexOf('data-cron-clases') + 300);
+  assert.match(grilla, /grid-template-columns:repeat\(4, minmax\(0, ?1fr\)\)/, 'siete botones en una grilla que no es de 4 dejan uno solo en la última fila');
+  // 76 desde la décima tanda (CRON 1: con 92 los seis salían del recuadro); siguen siendo los grandes del panel.
+  assert.match(html, /min-height:76px/, 'los botones dejaron de ser gigantes');
   assert.doesNotMatch(html, /Por tiempo|Por una acción/);
 });
 
@@ -95,6 +100,7 @@ const ESTADO = (conectado: boolean | null): EstadoCanales => ({
   instagram: { conectado, motivo: conectado ? undefined : 'Sin conectar' },
   messenger: { conectado, motivo: conectado ? undefined : 'Sin conectar' },
   email: { conectado, motivo: conectado ? undefined : 'Sin conectar' },
+  pagos: { conectado, motivo: conectado ? undefined : 'Sin conectar' },
 });
 const eventos = (clase: 'instagram' | 'messenger' | 'email', estado: EstadoCanales | null | undefined, d: Partial<Disparador> = {}) =>
   renderToStaticMarkup(createElement(EventosDeCanal, { clase, d: { id: 'd1', trigger_tipo: 'manual', ...d } as Disparador, estado, onElegir: () => {} }));
@@ -108,7 +114,7 @@ test('Instagram conectado: los seis eventos de ManyChat, y SÓLO el del anuncio 
   assert.doesNotMatch(html, /Sin conectar/);
 });
 
-test('sin conectar: TODOS apagados, con el motivo y el link a donde se conecta (Messenger e Instagram a /integraciones, el email a /email)', () => {
+test('sin conectar: TODOS apagados, con el motivo y «Conectar» ahí mismo (Messenger e Instagram, /integraciones en una ventana; el email, el modal)', () => {
   const ig = eventos('instagram', ESTADO(false));
   assert.equal(botonesApagados(ig), 6);
   assert.match(ig, /Sin conectar/);
@@ -119,7 +125,10 @@ test('sin conectar: TODOS apagados, con el motivo y el link a donde se conecta (
   const em = eventos('email', ESTADO(false));
   assert.equal(botonesApagados(em), 1);
   assert.match(em, /Recibes un email/);
-  assert.match(em, /href="\/email"/);
+  // Desde la décima tanda (GENERAL 6: «sin salirse de la pestaña») el email se conecta en el modal de la tab
+  // (ConectarMedio), no con un link a /email; lo cuida tests/medios-automatizacion.test.ts.
+  assert.match(em, /<button type="button" data-conectar-canal="email" aria-haspopup="dialog"[^>]*>Conectar<\/button>/);
+  assert.doesNotMatch(em, /href="\/email"/);
   // «No pude comprobarlo» también apaga: un evento que no puede llegar no arranca nunca.
   const nulo = eventos('instagram', null);
   assert.equal(botonesApagados(nulo), 6);

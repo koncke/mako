@@ -26,11 +26,12 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import type { PasoSecuenciaDto } from './ChatAgentApp';
 import { useWs } from '@/app/_ui/Link';
-import { Spinner, Toast, useToast } from '@/app/_ui';
+import { Toast, useToast } from '@/app/_ui';
 import { PopoverWA, MenuWA, type OpcionMenuWA } from '../whatsapp/_shared/ComposerWhatsApp';
 import { IconClip, IconDoc } from '../whatsapp/_shared/composer-icons';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
+import { CampoConDatos, type CampoConDatosHandle } from '@/app/_components/CampoConDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
 import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead } from './EditorMensajeWhatsApp';
 import { aplicarVariables } from '@/lib/template-vars';
@@ -39,6 +40,9 @@ import { partesDe, formaGuardada, esUnTexto, TOPE_PARTES, type ParteMensaje } fr
 import { validarArchivoWA, archivoConTipoWA, tituloDeArchivo, pesoLegible, type AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import { IDENTIDAD_SOCIAL, NOMBRE_CANAL, problemaDeAdjunto, plataformaDe, TOPE_TEXTO_SOCIAL, type CanalSocial } from '@/lib/canal-social';
 import { BurbujaSocial, ArchivoSocial, CabeceraSocial, LogoSocial } from './social-ui';
+// «Conectar» AHÍ MISMO (décima tanda, GENERAL 6): el OAuth de Zernio en una ventana emergente y el sondeo de la
+// cuenta, en el modal de la tab (antes se abría una pestaña nueva y el editor no se enteraba de la vuelta).
+import { ConectarMedio, useAlConectarMedio } from './ConectarMedio';
 
 export type EditorMensajeSocialProps = {
   paso: PasoSecuenciaDto;
@@ -89,9 +93,15 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   const [subida, setSubida] = useState<{ nombre: string; pct: number; cancelar: () => void } | null>(null);
   const [bibLocal, setBibLocal] = useState<AdjuntoDto[] | null>(() => cacheBiblioteca.get(String(ws ?? ''))?.lista ?? null);
   const [cuenta, setCuenta] = useState<Cuenta | null>(() => cacheCuenta.get(`${ws ?? ''}|${canal}`)?.v ?? null);
+  /** El modal de «Conectar» abierto (ConectarMedio). */
   const [conectando, setConectando] = useState(false);
+  /** Sube cuando algo se conectó (acá o en otra pantalla de la tab): la cuenta se vuelve a pedir. */
+  const [vueltaCuenta, setVueltaCuenta] = useState(0);
+  useAlConectarMedio(() => { cacheCuenta.delete(`${ws ?? ''}|${canal}`); setVueltaCuenta((v) => v + 1); });
   const { toast, show, clear } = useToast();
   const area = useRef<HTMLTextAreaElement | null>(null);
+  /** Los `{{datos}}` azules y clickeables de la barra (undécima tanda, punto 7). */
+  const campoDatos = useRef<CampoConDatosHandle | null>(null);
   const inputArchivo = useRef<HTMLInputElement>(null);
   const pasoVivo = useRef(paso);
   useEffect(() => { pasoVivo.current = paso; }, [paso]);
@@ -121,18 +131,10 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
       })
       .catch(() => { if (vivo) setCuenta({ estado: 'error', error: 'Sin conexión' }); });
     return () => { vivo = false; };
-  }, [ws, canal]);
+  }, [ws, canal, vueltaCuenta]);
 
-  const conectar = async () => {
-    setConectando(true);
-    try {
-      const r = await fetch('/api/zernio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'conectar', plataforma: plataformaDe(canal) }), signal: AbortSignal.timeout(65_000) });
-      const j = await r.json().catch(() => null) as { ok?: boolean; url?: string; error?: string } | null;
-      if (!j?.ok || !j.url) { avisar(j?.error ?? 'No se pudo conectar'); return; }
-      cacheCuenta.delete(`${ws ?? ''}|${canal}`);
-      window.open(j.url, '_blank', 'noopener');
-    } catch { avisar('Sin conexión'); } finally { setConectando(false); }
-  };
+  // (Acá vivía `conectar`: pedía la URL del OAuth y la abría en una pestaña nueva con `noopener`, sin forma de
+  // saber cuándo volvía. Desde la décima tanda lo hace el modal de la tab, ConectarMedio.)
 
   // ── La biblioteca de archivos (la misma del WhatsApp) ──
   const biblioteca = adjuntos ?? bibLocal;
@@ -283,9 +285,9 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
       derecha={(
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           {cuenta?.estado === 'ok' && !usuario && (
-            <button type="button" onClick={() => void conectar()} disabled={conectando || ocupado}
+            <button type="button" onClick={() => setConectando(true)} disabled={conectando || ocupado} aria-haspopup="dialog"
               style={{ height: 28, padding: '0 12px', borderRadius: 14, border: 'none', background: ident.burbuja, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {conectando ? <Spinner size={12} /> : 'Conectar'}
+              Conectar
             </button>
           )}
           <LogoSocial canal={canal} size={22} />
@@ -346,12 +348,14 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         <button type="button" ref={setBtnClip} disabled={ocupado} title="Adjuntar" aria-label="Adjuntar" aria-expanded={abierto === 'clip'}
           onClick={() => setAbierto((a) => (a === 'clip' ? null : 'clip'))} style={iconoBarra}><IconClip /></button>
         <button type="button" ref={setBtnDatos} disabled={ocupado} title="Insertar un dato" aria-label="Insertar un dato" aria-expanded={abierto === 'datos'}
-          onClick={() => setAbierto((a) => (a === 'datos' ? null : 'datos'))}
+          onClick={() => { if (abierto !== 'datos' && campoDatos.current?.abrirDatoEnCursor()) return; setAbierto((a) => (a === 'datos' ? null : 'datos')); }}
           style={{ ...iconoBarra, fontSize: 13, fontWeight: 600, fontFamily: "'Geist Mono', monospace", color: abierto === 'datos' ? 'var(--primary)' : 'var(--dim)' }}>{'{ }'}</button>
+        <CampoConDatos ref={campoDatos} datos={datos} onValor={escribir} estiloCaja={{ flex: 1, minWidth: 0 }}>
         <textarea ref={area} value={barra} rows={1} disabled={ocupado} aria-label={`Mensaje de ${nombreCanal}`}
           placeholder={adjunto != null ? 'Agrega un texto (opcional)' : 'Mensaje…'}
           onChange={(e) => escribir(e.target.value)} onKeyDown={onTecla}
           style={{ flex: 1, minWidth: 0, resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 14, lineHeight: 1.4, padding: '7px 4px', maxHeight: 120, fieldSizing: 'content' } as CSSProperties} />
+        </CampoConDatos>
         <button type="button" onClick={enviar} disabled={ocupado || (!barra.trim() && adjunto == null)} title="Enviar" aria-label="Enviar"
           style={{ ...iconoBarra, color: canal === 'instagram' ? '#5B51D8' : '#0084FF', opacity: (!barra.trim() && adjunto == null) ? 0.4 : 1 }}><IconEnviar /></button>
       </div>
@@ -370,6 +374,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         </PopoverWA>
       )}
       <Toast state={toast} onClose={clear} />
+      {conectando && <ConectarMedio medio={canal} onCerrar={() => setConectando(false)} onConectado={() => setConectando(false)} />}
     </div>
   );
 }

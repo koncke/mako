@@ -17,6 +17,7 @@ import {
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { isPublicLandingPath } from './PublicRouteGate';
+import { esRutaMovil } from '@/lib/movil-rutas';
 import { inAppActivo, type NotifInApp } from '@/lib/notif-catalogo';
 
 /**
@@ -207,7 +208,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // `inApp` seguía en null y todo sonaba, hubiera apagado lo que hubiera apagado.
   // El ref evita repetir el GET en cada navegación.
   useEffect(() => {
-    if (pathname.startsWith('/login') || isPublicLandingPath(pathname)) return;
+    if (pathname.startsWith('/login') || isPublicLandingPath(pathname) || esRutaMovil(pathname)) return;
     let alive = true;
     const cargar = (forzar: boolean) => {
       if (!forzar && prefsPedidasRef.current) return;
@@ -274,6 +275,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const tick = () => {
       if (pathRef.current.startsWith('/login') || isPublicLandingPath(pathRef.current)) return; // sin sesión / landing pública: no polleamos
+      // ⚠️ En MaKo Mobile (/m) tampoco: el teléfono no tiene a dónde llevar el aviso
+      // (las plantillas viven en Automations, que es de escritorio), y un poll cada 6 s
+      // es batería y datos móviles para nada. Lo que importa allá llega por el Inbox y
+      // por push. Por `esRutaMovil`, nunca `startsWith('/m')` (atrapa /mako y /marketing).
+      if (esRutaMovil(pathRef.current)) return;
       tickRef.current += 1;
       if (tickRef.current === 1 || tickRef.current % 5 === 0) void checkTemplates();
     };
@@ -287,6 +293,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const tick = async () => {
       if (pathRef.current.startsWith('/login') || isPublicLandingPath(pathRef.current)) return;
+      // En /m no: el contador alimenta el badge del Sidebar y el pop-up que lleva a
+      // /whatsapp de escritorio — ninguno de los dos existe en el teléfono.
+      if (esRutaMovil(pathRef.current)) return;
       try {
         const r = await fetch('/api/whatsapp/evolution/mensajes?resumen=1');
         const j = await r.json();
@@ -345,7 +354,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ unreadTotal, noOficialUnread, marcarLeidoNoOficial, setOpenChatNoOficial, inApp }}>
       {children}
-      {!isPublicLandingPath(pathname) && toast && (
+      {!isPublicLandingPath(pathname) && !esRutaMovil(pathname) && toast && (
         <button
           onClick={() => goToChatNoOficial(toast.gid)}
           style={{
@@ -366,7 +375,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           </span>
         </button>
       )}
-      {!isPublicLandingPath(pathname) && tplToast && (
+      {!isPublicLandingPath(pathname) && !esRutaMovil(pathname) && tplToast && (
         <button
           onClick={() => goToPlantilla(tplToast.name)}
           style={{

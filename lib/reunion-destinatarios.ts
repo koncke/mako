@@ -31,7 +31,7 @@ import { enviarAPersonaMaKo } from './mako-grupo';
 import { enviarTexto } from './evolution';
 import { sendEmail } from './resend';
 import { crearPropuesta, type PropuestaTarea } from './plan-propuesta';
-import { linkApp, APP_BASE_URL as APP_URL } from './app-url';
+import { linkApp, APP_BASE_URL as APP_URL, REMITENTE_MAKO } from './app-url';
 
 /** Una tarea que se le reparte a alguien (lo mínimo que viaja del modal al server).
  *  `minuto`/`minutos` viajan para que la tarjeta que le queda a la otra persona abra
@@ -220,6 +220,10 @@ export async function enviarTareasAPersona(opts: {
   }
   if (canales.email) {
     const r = await sendEmail({
+      // Lo firma MaKo («— MaKo» al pie), así que va con el remitente de la PLATAFORMA explícito. Sin `from`,
+      // `sendEmail` resolvía el del workspace en curso —el de un cliente, o el de MaKo heredado por el ws1— y
+      // desde la décima tanda (EMAIL 1) se niega a mandar con un email de MaKo que no se pasó a propósito.
+      from: REMITENTE_MAKO,
       to: dest.email,
       subject: `Tus tareas de la reunión${reunion.titulo ? ` «${reunion.titulo}»` : ''}`,
       html: htmlEmail(de, dest.nombre, tareas, reunion, opts.link),

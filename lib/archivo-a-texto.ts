@@ -1,4 +1,5 @@
 import 'server-only';
+import { textoParaBase } from './texto-para-base';
 
 // =============================================================================
 // archivo-a-texto — un archivo entra, texto sale (sin importar el formato)
@@ -35,9 +36,31 @@ const LEER_DOC = 'Transcribe TODO el texto legible de este documento, tal cual, 
 
 export type LecturaArchivo = { texto: string; warning?: string; via: 'texto' | 'docx' | 'pdf' | 'pdf-vision' | 'imagen' | 'audio' | 'planilla' | 'diapositivas' | 'opendocument' | 'no-soportado' };
 
-export async function archivoATexto(file: File): Promise<LecturaArchivo> {
+/**
+ * A quién se le anota el gasto de IA (visión y transcripción) en el Saldo de IA.
+ *
+ * `feature` es el tag de gasto; sin él, visión queda en 'Importar al plan' (el primer llamador de este
+ * módulo, y lo que todos anotaban hasta el 11/10/2026) y la transcripción en el default de
+ * `transcribirAudio`. `motivo` reemplaza la descripción por defecto («Leer «archivo»»). Los dos son
+ * opcionales para que los llamadores de siempre sigan anotando exactamente lo mismo; la tab Offer los
+ * pasa para que lo que lee se vea como suyo y no como una importación al plan.
+ */
+export type OpcionesLectura = { feature?: string; motivo?: string };
+
+/**
+ * El texto sale limpio de lo que la base no acepta guardar (el NUL de un PDF, un sustituto suelto):
+ * todos los que leen un archivo lo guardan después en un `text` o un `jsonb`, y uno de esos caracteres
+ * tira el guardado entero («unsupported Unicode escape sequence»). Ver lib/texto-para-base.ts.
+ */
+export async function archivoATexto(file: File, opts: OpcionesLectura = {}): Promise<LecturaArchivo> {
+  const lectura = await leerArchivo(file, opts);
+  return { ...lectura, texto: textoParaBase(lectura.texto) };
+}
+
+async function leerArchivo(file: File, opts: OpcionesLectura): Promise<LecturaArchivo> {
   const name = (file.name || '').toLowerCase();
   const mime = file.type || '';
+  const featureVision = opts.feature || 'Importar al plan';
   if (file.size > MAX_ARCHIVO_BYTES) {
     return { texto: '', via: 'no-soportado', warning: `«${file.name}» pesa más de 25 MB. Es demasiado para leerlo de una.` };
   }
@@ -81,21 +104,21 @@ export async function archivoATexto(file: File): Promise<LecturaArchivo> {
       if (text && text.trim().length > 80) return { texto: text, via: 'pdf' };
     } catch { /* sin capa de texto → es un escaneo, va por visión */ }
     try {
-      const { text } = await leerDocumentoIA({ dataUrl: `data:application/pdf;base64,${buf.toString('base64')}`, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'Importar al plan', motivo: `Leer «${file.name}»` });
+      const { text } = await leerDocumentoIA({ dataUrl: `data:application/pdf;base64,${buf.toString('base64')}`, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»` });
       return { texto: text, via: 'pdf-vision' };
     } catch (e) { return { texto: '', via: 'pdf-vision', warning: `No pude leer «${file.name}»: ${msg(e)}` }; }
   }
 
   if (familia === 'imagen') {
     try {
-      const { text } = await leerDocumentoIA({ dataUrl: `data:${mime || 'image/jpeg'};base64,${buf.toString('base64')}`, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'Importar al plan', motivo: `Leer «${file.name}»` });
+      const { text } = await leerDocumentoIA({ dataUrl: `data:${mime || 'image/jpeg'};base64,${buf.toString('base64')}`, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»` });
       return { texto: text, via: 'imagen' };
     } catch (e) { return { texto: '', via: 'imagen', warning: `No pude leer «${file.name}»: ${msg(e)}` }; }
   }
 
   if (familia === 'audio' || familia === 'video') {
     try {
-      const texto = await transcribirAudio(buf.toString('base64'), mime || 'audio/mpeg', { motivo: `Transcribir «${file.name}»` });
+      const texto = await transcribirAudio(buf.toString('base64'), mime || 'audio/mpeg', { feature: opts.feature, motivo: opts.motivo || `Transcribir «${file.name}»` });
       if (!texto.trim()) return { texto: '', via: 'audio', warning: `«${file.name}» se transcribió vacío: puede que no tenga voz.` };
       return { texto, via: 'audio' };
     } catch (e) { return { texto: '', via: 'audio', warning: `No pude transcribir «${file.name}»: ${msg(e)}` }; }

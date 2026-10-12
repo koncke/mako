@@ -12,7 +12,8 @@
 
 import 'server-only';
 import { crearNotificacion, type NotifSeveridad } from './notificaciones';
-import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
+import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, enviarPartesAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
+import { partesConRotulo, textoDePreparadas, type PartePreparada } from './mako-tarjeta';
 import { reclamarEspaciado, salioReciente } from './espaciado';
 import { frecuenciaEfectiva } from './disparador-mensaje';
 import { estadoAviso, resumenAvisosActivo, type EstadoAviso } from './perfil';
@@ -85,6 +86,15 @@ export type EmitirAvisoInput = {
    * (`estadoAviso`) ni se abre una insistencia: el interruptor de esos avisos es la automatización.
    */
   estado?: EstadoAviso;
+  /**
+   * LA TARJETA «MaKo en WhatsApp» POR PARTES (undécima tanda, lib/mako-tarjeta.ts): al grupo del negocio
+   * salen ESTAS partes (texto, nota de voz, archivo), en orden, en vez de `texto`. Ya vienen preparadas:
+   * los datos resueltos y los binarios bajados. `texto` sigue siendo lo que leen el feed, el push y el email.
+   * Sólo al grupo del CLIENTE: un aviso `alDueno` sale como texto.
+   */
+  partes?: readonly PartePreparada[];
+  /** `false`: sin el rótulo de barras del grupo (`encabezadoAviso`). La tarjeta tal cual sale como se ve. */
+  rotulo?: false;
 };
 
 // `wa:false` con `waError` = el aviso NO llegó a WhatsApp (línea desconectada, grupo
@@ -93,6 +103,12 @@ export type EmitirAvisoInput = {
 export type EmitirAvisoResult = {
   /** ¿Salió también por email? Ausente en los caminos que ni lo intentan. */
   email?: boolean;
+  /**
+   * El Web Push a los teléfonos (MaKo Mobile, lib/push.ts): a cuántas suscripciones salió y
+   * a cuántas personas que lo querían les falta un teléfono. Ausente en los caminos que no
+   * llegan al envío (dedup, apagado, espaciado, agrupado).
+   */
+  push?: { enviados: number; fallidos: number; sinSuscripciones: number; motivo?: string };
   ok: boolean; feedId: number | null; wa: boolean; deduped: boolean; waError?: string;
   /** no salió porque el negocio lo espació en la pantalla, no porque se repitiera. */
   espaciado?: boolean;
@@ -130,7 +146,14 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     if (a.dedupTtlMin && (await salioReciente(ws, a.tipo, a.dedupTtlMin, a.dedupKey))) {
       return { ok: true, feedId: null, wa: false, deduped: true };
     }
+    // ⚠️ EL WORKSPACE DE QUIEN LO VA A LEER, no el de quien lo generó (la misma regla que la
+    // cola, más abajo): un aviso `alDueno` sale por el grupo del super admin aunque se emita
+    // adentro del workspace de un cliente, así que su fila del feed y su push son del
+    // workspace de PLATAFORMA. Con el `ws` del cliente, el cliente vería en su Inbox los
+    // avisos de agencia sobre él, y el super admin no los vería en el suyo.
+    const wsLector = a.alDueno === true ? await wsSuperAdmin().catch(() => ws) : ws;
     const feedId = await crearNotificacion({
+      ws: wsLector,
       tipo: a.tipo,
       severidad: SEV_POR_SEMAFORO[a.semaforo ?? 'na'],
       titulo: a.titulo,
@@ -201,7 +224,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // pasarían dos cosas malas: la preferencia que decide sería la de ÉL y no la del dueño,
     // y el resumen saldría partido en un mensaje por cliente — que es exactamente lo que
     // este resumen viene a evitar.
-    const wsCola = a.alDueno === true ? await wsSuperAdmin().catch(() => ws) : ws;
+    const wsCola = wsLector;
     if (puedeEsperar(a.tipo, a.categoria) && (await resumenAvisosActivo(wsCola))) {
       const guardado = await encolarAviso(wsCola, {
         tipo: a.tipo, titulo: a.titulo, texto: a.texto,
@@ -225,17 +248,41 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // Idempotente a propósito: si un call-site ya lo trae (una plantilla que el
     // dueño editó a mano copiando el formato), no se duplica.
     const encabezado = encabezadoAviso(a.tipo);
-    const texto = a.texto.trimStart().startsWith('━━') ? a.texto : `${encabezado}\n${a.texto}`;
+    // `rotulo: false` (la tarjeta «MaKo en WhatsApp» tal cual): lo que se ve en la tarjeta es lo que llega.
+    const texto = a.rotulo === false || a.texto.trimStart().startsWith('━━') ? a.texto : `${encabezado}\n${a.texto}`;
+    // Por PARTES (la tarjeta por partes): el rótulo, si va, pegado a la primera. Al grupo del dueño, texto.
+    const salida = a.partes?.length && a.alDueno !== true ? partesConRotulo(a.partes, a.rotulo === false ? null : encabezado) : null;
+    // ⚠️ EL PUSH AL TELÉFONO (MaKo Mobile) VA ACÁ, y el lugar es parte del contrato: DESPUÉS
+    // del interruptor (un aviso apagado no suena), del espaciado (el «cada cuánto» del negocio
+    // vale también para el teléfono) y de la cola del resumen (lo que el negocio pidió juntar
+    // a la mañana no interrumpe ahora). Antes de cualquiera de los tres, pushearía lo que el
+    // negocio decidió no mandar. Arranca acá y se espera al final: en PARALELO con el correo
+    // y el WhatsApp, que pueden tardar segundos. Best-effort: nunca tumba el aviso.
+    const pushP = enviarPushAviso(wsLector, a);
     // Y EL EMAIL, si el cliente lo prendió para este aviso. Va acá, en el choke point,
     // por lo mismo que el resto: los ~48 avisos del catálogo y los que se creen mañana
     // lo heredan sin que nadie se acuerde. Primero el correo y después WhatsApp no es
     // capricho: el de WhatsApp puede tardar (abre sesión, resuelve el grupo) y el correo
     // no depende de él — si la línea está caída, el aviso igual sale por mail.
     const email = canal.email ? await enviarAvisoPorEmail(a, texto) : false;
+    // ⚠️ Por partes, una parte salió sólo con su `key.id` y corta en la primera que falla: `salieron` dice
+    // cuántas le llegaron al grupo, y el historial guarda ésas (no las que no salieron).
+    const porPartes = canal.wa && salida ? await enviarPartesAlGrupoMaKo(ws, salida) : null;
     const env = canal.wa
-      ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto) : await enviarAlGrupoMaKo(ws, texto))
+      ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto)
+        : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió' })
+          : await enviarAlGrupoMaKo(ws, texto))
       : { ok: false as const, id: undefined, error: undefined };
     if (canal.wa && !env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
+    // Lo que el grupo VIO: el texto, o las partes que salieron (sin las que no).
+    const textoTurno = porPartes && salida ? textoDePreparadas(salida.slice(0, porPartes.salieron)) : texto;
+    if (porPartes && !porPartes.ok && porPartes.salieron > 0) {
+      const jidParcial = await getGrupoJidMaKo(ws);
+      if (jidParcial) {
+        const { guardarTurno } = await import('./mako-doer-conv');
+        await guardarTurno(ws, jidParcial, 'assistant', textoTurno, porPartes.ids[porPartes.ids.length - 1]).catch(() => {});
+      }
+    }
     // El aviso queda EN LA CONVERSACIÓN del grupo. Sin esto, MaKo manda una pregunta
     // ("saqué 97 compromisos, ¿los cargo?") y no le queda ningún registro: cuando el
     // dueño contesta "sí, cargalo", el doer no sabe a qué le dijo que sí y se agarra
@@ -246,8 +293,8 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       const jid = a.alDueno === true ? await getGrupoSuperAdminJid() : await getGrupoJidMaKo(ws);
       // Se guarda el texto QUE SE MANDÓ (con rótulo), no el pelado: el historial
       // del doer tiene que ser lo que el dueño ve en el chat, o el modelo razona
-      // sobre un mensaje que nadie leyó.
-      if (jid) await guardarTurno(ws, jid, 'assistant', texto, env.id).catch(() => {});
+      // sobre un mensaje que nadie leyó. Por partes, los textos de las partes.
+      if (jid) await guardarTurno(ws, jid, 'assistant', textoTurno, env.id).catch(() => {});
 
       // ¿ESTE AVISO INSISTE? Si el cliente lo configuró en Configuraciones ›
       // Notificaciones, además de salir queda una insistencia abierta: vuelve cada N
@@ -280,7 +327,8 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
         }
       }
     }
-    return { ok: true, feedId, wa: env.ok, email, deduped: false, waError: env.ok ? undefined : env.error };
+    const push = await pushP;
+    return { ok: true, feedId, wa: env.ok, email, push, deduped: false, waError: env.ok ? undefined : env.error };
   } catch (e) {
     console.error(`[avisos] emitirAviso(${a.tipo}) falló:`, e);
     return { ok: false, feedId: null, wa: false, deduped: false };
@@ -341,6 +389,47 @@ async function enviarAvisoPorEmail(a: EmitirAvisoInput, textoConRotulo: string):
     // Que falle el mail no puede tumbar el aviso: WhatsApp sigue.
     console.error(`[avisos] ${a.tipo}: fallo mandando por email:`, e instanceof Error ? e.message : String(e));
     return false;
+  }
+}
+
+/**
+ * El aviso como Web Push a los teléfonos de las personas de `wsLector` que lo quieren
+ * (lib/push.ts decide quiénes). Va con el texto PELADO —sin el rótulo de barras, que es del
+ * grupo— y lib/push-payload.ts lo reduce a una frase. El link es el del aviso traducido a su
+ * pantalla móvil; sin link, el Inbox, que es donde vive el feed de avisos.
+ *
+ * TTL de 6 h (lib/push.ts, cabecera): un aviso del día sigue sirviendo a la tarde, y uno de
+ * ayer que llega hoy confunde. Urgencia alta sólo para el semáforo en rojo.
+ *
+ * El tag junta los avisos IGUALES (mismo tipo y misma entidad, `dedupKey`): el segundo
+ * reemplaza al primero en el teléfono; dos leads distintos son dos notificaciones.
+ *
+ * El módulo se importa dinámico: lib/push.ts trae `web-push`, y la mitad del repo importa
+ * este archivo sin mandar nunca un aviso.
+ */
+async function enviarPushAviso(wsLector: number, a: EmitirAvisoInput): Promise<NonNullable<EmitirAvisoResult['push']>> {
+  try {
+    const { enviarPush } = await import('./push');
+    const r = await enviarPush(wsLector, {
+      tipo: a.tipo,
+      titulo: a.titulo,
+      cuerpo: a.texto,
+      ruta: a.link ?? '/m/inbox',
+      // La tarjeta por partes no tiene `dedupKey` (sale tal cual, una por tarjeta y por lead): sin algo propio
+      // en el tag, cada aviso suyo reemplazaría al anterior en el teléfono.
+      tag: `aviso:${a.tipo}${a.dedupKey ? `:${a.dedupKey}` : a.partes?.length ? `:${a.lead?.id ?? ''}:${Date.now().toString(36)}` : ''}`,
+      ttl: 6 * 3600,
+      urgencia: a.semaforo === 'rojo' ? 'high' : 'normal',
+      // Un aviso habla del negocio entero (adeudo de Meta, cuotas con montos, reportes): en
+      // escritorio eso es de admin, y un closer o setter no lo recibe en el teléfono.
+      soloAdmins: true,
+    });
+    if (r.fallidos || r.motivo === 'error') console.warn(`[avisos] ${a.tipo}: push (ws ${wsLector}) ${JSON.stringify(r)}`);
+    return { enviados: r.enviados, fallidos: r.fallidos, sinSuscripciones: r.sinSuscripciones, ...(r.motivo ? { motivo: r.motivo } : {}) };
+  } catch (e) {
+    // Que falle el push no puede tumbar el aviso: el grupo y el correo siguen.
+    console.error(`[avisos] ${a.tipo}: fallo mandando el push:`, e instanceof Error ? e.message : String(e));
+    return { enviados: 0, fallidos: 0, sinSuscripciones: 0, motivo: 'error' };
   }
 }
 

@@ -1,63 +1,15 @@
 // =============================================================================
-// /ads-analyst/guiones — lista completa de guiones (ruta "ver todos")
+// /ads-analyst/guiones — ahora es la tabla «Guiones» de la hoja «Ads Analyst» del Dashboard
 // =============================================================================
-// La tab /ads-analyst previsualiza 6 guiones; esta ruta muestra los N con el
-// mismo toggle tabla/tarjetas y el modal de embudo. Solo lee.
-// =============================================================================
+// Era el «Ver todos» de la tab Ads Analyst, que se retiró el 11/10/2026 (el porqué y adónde fue cada
+// cosa, en app/ads-analyst/page.tsx). La lista completa de guiones con sus métricas es un componente de
+// la hoja (lib/graficos-plantillas-analysts.ts, «Guiones»), así que el link viejo va a la hoja.
+//
+// SE REDIRIGE, NO SE BORRA: /script-analyst/guiones también llega acá por next.config.ts. Con `rutaConWs`.
 
-import { getScriptAnalystView, type ScriptAnalystView } from '@/lib/ads-analyst';
-import { getAngles, DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
-import { getAvatares, type Avatar } from '@/lib/script-avatares';
-import { requireRolWs } from '@/lib/tab-access';
-import { GuionesFull } from '../ScriptsBrowser';
+import { redirect } from 'next/navigation';
+import { rutaConWs } from '@/lib/workspace';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-const MONO = "'Geist Mono', monospace";
-
-const EMPTY: ScriptAnalystView = {
-  scripts: [],
-  counts: { enVista: 0, analizadas: 0, pendientes: 0, descartadas: 0, sinTranscript: 0, errores: 0, total: 0 },
-  lastSync: null,
-};
-
-export default async function GuionesPage() {
-  await requireRolWs([], { nav: 'script' }); // solo admin-cliente/agencia; closer/setter → /crm
-  let data: ScriptAnalystView = EMPTY;
-  let errorMsg: string | null = null;
-  let angles: Angle[] = DEFAULT_ANGLES;
-  let avatares: Avatar[] = [];
-  try {
-    data = await getScriptAnalystView();
-  } catch (err) {
-    errorMsg = err instanceof Error ? err.message : String(err);
-  }
-  try {
-    [angles, avatares] = await Promise.all([getAngles(), getAvatares()]);
-  } catch { /* si falla, ángulos default y sin avatares */ }
-
-  return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
-      <header style={{ marginBottom: 22 }}>
-        <a href="/ads-analyst" style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.06em', color: 'var(--faint)', textDecoration: 'none' }}>← Ads Analyst</a>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 13, marginTop: 8 }}>
-          <h1 style={{ fontWeight: 600, fontSize: 40, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Todos los guiones</h1>
-          <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{data.scripts.length}</span>
-        </div>
-      </header>
-
-      {errorMsg ? (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '32px', fontSize: 14, color: 'var(--dim)' }}>
-          No se pudo leer la base (en local faltan las claves de Supabase). Los datos se ven en el deploy.
-        </div>
-      ) : data.scripts.length === 0 ? (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '32px', fontSize: 14, color: 'var(--dim)' }}>
-          Todavía no hay guiones analizados. Sincroniza desde la tab de Ads Analyst.
-        </div>
-      ) : (
-        <GuionesFull scripts={data.scripts} angles={angles} avatares={avatares} />
-      )}
-    </main>
-  );
+export default async function Page() {
+  redirect(await rutaConWs('/dashboard?hoja=ads-analyst'));
 }

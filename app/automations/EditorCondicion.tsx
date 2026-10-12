@@ -167,6 +167,19 @@ export const PLACEHOLDER: CSSProperties = {
   border: '1.5px dashed var(--border-strong)', fontSize: 14.5,
 };
 
+/**
+ * EL RECUADRO DE CADA CONDICIÓN CON DOS O MÁS (décima tanda, CONDITION 1, 11/10/2026, textual: «el recuadro del
+ * desplegable del "Ya le escribiste", es decir de la condición, debería ser mucho más alto, ocupar todo el
+ * recuadro... Solo cuando creo 2 o más condiciones achicarse un poco, pero no tanto. Hazlo para que quepan 2
+ * en el recuadro sin hacer scroll. Y cuando haya más de 1, los botones siempre arriba del todo»).
+ *
+ * Con UNA, su recuadro llena el panel (`flex: 1 0 auto`) y «＋ y / ＋ o» van abajo. Con dos o más, los
+ * botones arriba y cada recuadro con este alto como piso (la pregunta de 48 y lo que pide, de 38, con su aire):
+ * dos entran en el panel de la CONDITION sin scroll (`ALTO_EDITOR_CONTROL.condicion`, lib/lienzo-grafo.ts, con
+ * la cuenta); la tercera scrollea. Es el mismo molde que los recuadros del CRON (EditorDisparadores, CRON 3).
+ */
+export const ALTO_CONDICION_VARIAS = 120;
+
 /** Lo que pide una condición, debajo de la pregunta: más chico y colgando de una línea a la izquierda. */
 const SECUNDARIO: CSSProperties = { minHeight: 38, padding: '7px 11px', fontSize: 13.5, fontWeight: 500, borderRadius: 9 };
 const COLGANDO: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', paddingLeft: 12, borderLeft: '2px solid var(--border)', marginLeft: 6 };
@@ -189,8 +202,10 @@ export function EditorCondicion({ paso, cambiar, ambito, etapas, productos, busy
   // no» al pie para que se entienda el orden. Una sola (todo lo nuevo): la pregunta, sin cajas.
   const varias = ramas.length > 1;
 
+  // Una rama (todo lo nuevo): el editor LLENA el panel (`flex: 1 0 auto`: nunca menos que su contenido, así el
+  // panel scrollea cuando no entra), y su recuadro también (CONDITION 1). Las de antes, numeradas, como estaban.
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12, ...(varias ? {} : { flex: '1 0 auto' }) }}>
       {ramas.map((r, ri) => (
         <Rama key={r.id} rama={r} numero={varias ? ri + 1 : null} secciones={secciones} cat={cat} busy={busy}
           onCambiar={(nr, apilar) => setRama(ri, nr, apilar)}
@@ -233,13 +248,29 @@ function Rama({ rama, numero, secciones, cat, busy, onCambiar, onQuitarRama, pue
   const caja: CSSProperties = numero != null
     ? { border: '1px solid var(--border)', borderRadius: 10, padding: '10px 10px 9px', background: 'var(--surface)' }
     : {};
+  // CONDITION 1 (décima tanda): la rama de siempre (sin número) llena el panel; con dos o más condiciones, los
+  // botones van ARRIBA de todo y cada recuadro tiene su piso (`ALTO_CONDICION_VARIAS`).
+  const llenar = numero == null;
+  const variasFilas = filas.length > 1;
+  const botones = filas.length === 0
+    ? <Agregar texto="＋ Condición" aria="Agregar una condición" secciones={secciones} disabled={lleno} onElegir={agregar(null)} falta />
+    : (
+      // Los dos placeholders LADO A LADO y repartiendo el renglón (punto 4: «no pongas uno abajo
+      // del otro, sino que uno al lado del otro, pero que ocupen todo el ancho»).
+      <div data-condicion-botones style={{ display: 'flex', gap: 8, width: '100%', flex: 'none' }}>
+        <Agregar texto="＋ y" aria="Agregar una condición que se cumpla además" titulo="Se cumplen las dos" secciones={deLaSalida} disabled={lleno} onElegir={agregar('y')} />
+        <Agregar texto="＋ o" aria="Agregar una condición alternativa" titulo="Alcanza con una" secciones={deLaSalida} disabled={lleno} onElegir={agregar('o')} />
+      </div>
+    );
   return (
-    <div style={{ ...caja, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ ...caja, display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, ...(llenar ? { flex: '1 0 auto' } : {}) }}>
       {numero != null && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--faint)', fontFamily: SANS }}>{numero}</span>}
+      {variasFilas && botones}
       {filas.map((f, fi) => (
         <Fragment key={fi}>
           {fi > 0 && <Union union={unionDe(rama, fi)} busy={busy} onCambiar={(u) => setFila(fi, { ...f, union: u }, true)} />}
           <FilaFrase fila={f} cat={cat} secciones={deLaSalida} busy={busy}
+            alto={llenar ? (variasFilas ? 'varias' : 'sola') : undefined}
             onCambiar={(nf, apilar) => setFila(fi, nf, apilar)}
             // ⚠️ CON UN SOLO DESPLEGABLE, SIN TACHO (10/10/2026, condición 1: «si hay un solo desplegable
             // no debería estar el tacho de basura, para eso se elimina toda la tarjeta, y para eso ya
@@ -247,16 +278,7 @@ function Rama({ rama, numero, secciones, cat, busy, onCambiar, onQuitarRama, pue
             onQuitar={filas.length > 1 || puedeQuitarRama ? () => quitarFila(fi) : undefined} />
         </Fragment>
       ))}
-      {filas.length === 0
-        ? <Agregar texto="＋ Condición" aria="Agregar una condición" secciones={secciones} disabled={lleno} onElegir={agregar(null)} falta />
-        : (
-          // Los dos placeholders LADO A LADO y repartiendo el renglón (punto 4: «no pongas uno abajo
-          // del otro, sino que uno al lado del otro, pero que ocupen todo el ancho»).
-          <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-            <Agregar texto="＋ y" aria="Agregar una condición que se cumpla además" titulo="Se cumplen las dos" secciones={deLaSalida} disabled={lleno} onElegir={agregar('y')} />
-            <Agregar texto="＋ o" aria="Agregar una condición alternativa" titulo="Alcanza con una" secciones={deLaSalida} disabled={lleno} onElegir={agregar('o')} />
-          </div>
-        )}
+      {!variasFilas && botones}
     </div>
   );
 }
@@ -311,11 +333,16 @@ function tieneValor(def: DefCondicion | null, campo: string): boolean {
  * Una fila: la PREGUNTA (el desplegable grande, de ancho completo: punto 3, «más protagonismo el
  * principal») y su ✕; debajo, más chico y colgando, lo que pide.
  */
-function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar }: {
+function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar, alto }: {
   fila: FilaCondicion; cat: CatalogosCondicion; secciones: SeccionOpciones[]; busy: boolean;
   onCambiar: (f: FilaCondicion, apilar: boolean) => void;
   /** Ausente = es la única condición: sin tacho (se borra la tarjeta entera). */
   onQuitar?: () => void;
+  /**
+   * El alto del recuadro (CONDITION 1): 'sola' llena el panel; 'varias', con su piso
+   * (`ALTO_CONDICION_VARIAS`). Ausente = lo que mide (las ramas de antes, numeradas).
+   */
+  alto?: 'sola' | 'varias';
 }) {
   const def = condicionPorId(fila.campo);
   const valorCampo = valorOpcion(String(fila.campo), !!fila.no && !!def?.negable);
@@ -345,8 +372,9 @@ function FilaFrase({ fila, cat, secciones, busy, onCambiar, onQuitar }: {
   // esquina para no robarle ancho a la pregunta, que sigue siendo el campo grande.
   return (
     <div data-condicion-fila style={{
-      position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, padding: 10, borderRadius: 12,
+      position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, padding: 10, borderRadius: 12, boxSizing: 'border-box', minWidth: 0,
       border: `1px solid ${incompleta ? 'var(--bad)' : 'var(--border)'}`, background: 'var(--surface-2)',
+      ...(alto === 'sola' ? { flex: '1 0 auto' } : alto === 'varias' ? { flex: '1 0 auto', minHeight: ALTO_CONDICION_VARIAS } : {}),
     }}>
       {onQuitar && <BotonQuitar onClick={onQuitar} disabled={busy} aria="Quitar esta condición" />}
       <Dropdown value={valorCampo} secciones={secciones as DropdownGroup[]} search ariaLabel="Condición" disabled={busy}

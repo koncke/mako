@@ -42,6 +42,10 @@ import { yaGuardado } from './lead-respuestas';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 // Qué reunión anula una cancelación: puro y con test (tests/recordatorio-lead.test.ts).
 import { juntaACancelar } from './recordatorio-lead';
+// La undécima tanda (M1-b y M6), puras y con test (tests/motor-entrada-etapa.test.ts): cuándo una etapa DERIVADA
+// inscribe al instante y cuándo una reserva limpia la etapa puesta a mano.
+import { entraAEtapaDeReunion } from './nutricion-familias';
+import { limpiaEtapaAlReservar } from './nutricion-etapa';
 import type { Stage, StageDerivable } from './pipeline';
 import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
 // El funnel vive en lib/funnels.ts desde la mig 0170. Acá se usa el lector DEL
@@ -439,13 +443,13 @@ export async function contarLeadsDeFunnel(funnelId: number | null): Promise<numb
   const { count, error } = await (funnelId == null ? base.is('funnel_id', null) : base.eq('funnel_id', funnelId));
   // ⚠️ Un error NO es «cero leads». Devolver 0 acá haría que la pantalla dijera «este
   // embudo no tiene leads» sobre uno lleno, y con eso alguien lo archiva tranquilo.
-  if (error) throw new Error('No se pudo contar los leads del embudo: ' + error.message);
+  if (error) throw new Error('No se pudo contar los leads del funnel: ' + error.message);
   // Y los AGREGADOS (mig 0207): también están en ese tablero. Contarlos de menos haría que un
   // embudo con gente pareciera vacío justo antes de archivarlo.
   const id = funnelId ?? (await idDelFunnelDefault());
   if (id == null) return count ?? 0;
   const ag = await supabase.from('lead_funnel').select('id', { count: 'exact', head: true }).eq('funnel_id', id);
-  if (ag.error) throw new Error('No se pudo contar los leads agregados al embudo: ' + ag.error.message);
+  if (ag.error) throw new Error('No se pudo contar los leads agregados al funnel: ' + ag.error.message);
   return (count ?? 0) + (ag.count ?? 0);
 }
 async function _listLeads(): Promise<Lead[]> {
@@ -823,7 +827,7 @@ export async function moverLeadDeFunnel(leadId: number, funnelId: number | null)
   // Un error acá NO se traga: la pantalla de arriba tiene que poder decir que el lead
   // sigue donde estaba. Un «listo» sobre un movimiento que no pasó manda a buscarlo a un
   // tablero donde no está.
-  if (error) throw new Error('No se pudo mover el lead de producto: ' + error.message);
+  if (error) throw new Error('No se pudo mover el lead de funnel: ' + error.message);
   // ⚠️ El caché lo invalida la ACTION, no esta función: `lib/leads.ts` no importa `bust`
   // y meterlo acá sumaría una dependencia de Next a un módulo que hoy es sólo datos.
 }
@@ -893,6 +897,11 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
 export async function updateLead(
   id: number,
   input: LeadUpdateInput,
+  /**
+   * `disparoDeEtapa: false` = no inscribe por la etapa derivada (M1-b, abajo). Lo pasa quien deja la etapa
+   * definitiva después y dispara él (`setMeetingManual`: limpia el override al final). Ausente = dispara.
+   */
+  opts?: { disparoDeEtapa?: boolean },
 ): Promise<Lead> {
   const supabase = (await getTenantDb());
 
@@ -1054,6 +1063,16 @@ export async function updateLead(
     const antes = pipelineStageOf(actual);
     const despues = pipelineStageOf(data as Lead);
     if (antes !== despues) await espejarEtiquetasDeEtapa(id, actual.funnel_id ?? null, antes, despues);
+    // ⚠️ Y SI ENTRÓ A UNA REUNIÓN, SU AUTOMATIZACIÓN ARRANCA YA (undécima tanda, M1-b; decisión §9.5). Una reunión
+    // cargada a mano cambia la etapa DERIVADA sin escribir `pipeline_stage`, y esto lo descubría sólo el barrido de
+    // la hora: «Un Lead Agendó Llamada» (CRON «Agenda R1») avisaba hasta una hora tarde. Es el MISMO evento que el
+    // movimiento explícito (`setBoardStageOverride`), y sólo hacia una etapa de reunión (`entraAEtapaDeReunion`: el
+    // porqué, ahí). NO con un cambio de ESTADO (ganar, perder, reabrir): ése es el desenlace, y la etapa que sigue
+    // la escribe quien lo cambió (`setPipelineStage`). Nunca tira.
+    const cambioDeEstado = input.estado_lead !== undefined && input.estado_lead !== actual.estado_lead;
+    if (opts?.disparoDeEtapa !== false && !cambioDeEstado && entraAEtapaDeReunion(antes, despues)) {
+      await enrolarPorEtapaDerivada(id, despues, actual.funnel_id ?? null);
+    }
   }
 
   // ───────────────────────────────────────────────────────────────────
@@ -1312,7 +1331,7 @@ export async function upsertLeadFromMeta(input: {
     if (porCampana.asignada && porCampana.funnelId !== funnelActual) {
       await logLeadEvent(
         existing.id,
-        'Producto',
+        'Funnel',
         `Volvió a entrar por «${porCampana.nombre}», que es de ${porCampana.producto}. Sigue en su tablero.`,
         'Meta',
       ).catch(() => { /* el rastro no puede tumbar la ingesta */ });
@@ -1421,12 +1440,19 @@ export async function setMeetingManual(leadId: number, which: 'agenda' | 'agenda
   // hace nada" (bug: Ganado → R2 no cambiaba el status).
   const actual = await getLead(leadId);
   if (actual && actual.estado_lead !== 'abierto') input.estado_lead = 'abierto';
-  await updateLead(leadId, input);
+  // El disparo de la etapa DERIVADA va al final (M1-b), cuando el override ya se limpió: la etapa de la mitad no
+  // es la que queda.
+  await updateLead(leadId, input, { disparoDeEtapa: false });
   // Limpiar el override para que el lead avance por derivación (p.ej. R2 asistida
   // → Facturando). No lo toca updateLead (pipeline_stage no es campo editable ahí).
   const supabase = (await getTenantDb());
   const { error } = await supabase.from('leads').update({ pipeline_stage: null }).eq('id', leadId);
   if (error) throw new Error(`Error limpiando override del lead ${leadId}: ${error.message}`);
+  // «Agendada fuera de Calendly» desde el Kanban: si quedó en una reunión, su automatización arranca ya (M1-b).
+  const despues = await getLead(leadId).catch(() => null);
+  if (actual && despues && entraAEtapaDeReunion(pipelineStageOf(actual), pipelineStageOf(despues))) {
+    await enrolarPorEtapaDerivada(leadId, pipelineStageOf(despues), despues.funnel_id ?? null);
+  }
 }
 
 /**
@@ -1915,6 +1941,14 @@ export async function upsertLeadFromCalendly(
         await logLeadEvent(existing.id, 'Reunión 1 — no asistió', textoNoShow(existing.fecha_junta_1, canal), canal).catch(() => {});
         updatePayload.asistio_j1 = null;
       }
+      // ⚠️ RESERVAR LIMPIA LA ETAPA DE «NO AGENDÓ» PUESTA A MANO (undécima tanda, M6; decisión §9.4). La regla T2
+      // del CRM deja en `nutri` (a mano) a quien no agendó en 2 días, y después en `reactivacion`; si después reserva,
+      // `pipelineStageOf` seguía devolviendo esa etapa y «Un Lead Agendó Llamada» (CRON «Agenda R1») no lo veía:
+      // ni el aviso, ni la preparación, ni los recordatorios (4 de 54 leads del ws1 en 90 días). Sólo si sin el
+      // override quedaría en «Agenda R1» (`limpiaEtapaAlReservar`); lo audita abajo, y la inscripción la dispara el
+      // webhook con el evento de la reserva (M1).
+      const derivadaDespues = deriveStageKey({ ...existing, ...(updatePayload as Partial<StageDerivable>), pipeline_stage: null });
+      if (limpiaEtapaAlReservar(existing.pipeline_stage ?? null, derivadaDespues)) updatePayload.pipeline_stage = null;
     }
 
     const { data, error } = await supabase
@@ -1933,6 +1967,8 @@ export async function upsertLeadFromCalendly(
       const antes = pipelineStageOf(existing);
       const despues = pipelineStageOf(data as Lead);
       if (antes !== despues) await espejarEtiquetasDeEtapa(existing.id, existing.funnel_id ?? null, antes, despues);
+      // La etapa que la reserva limpió (M6), al historial: campo 'Etapa', firmada por MaKo, con la de antes.
+      if ('pipeline_stage' in updatePayload && antes !== despues) await auditarEtapaDeLaReserva(existing.id, antes, data as Lead);
     }
     return { created: false, lead: data as Lead };
   }
@@ -2706,6 +2742,9 @@ export async function setPipelineStage(
   if (NUTRI_KEYS.includes(stageKey)) {
     sync.nutricion_realizada = true;
   }
+  // (El disparo de la etapa DERIVADA de `updateLead`, M1-b, no se cruza con este movimiento: `sync` siempre trae
+  // `estado_lead`, y un cambio de estado no dispara; sin cambio de estado, sólo una asistencia que se limpia —el
+  // «Reagenda R1»— lo deja en «Agenda R1», que es justo la etapa que se escribe abajo.)
   await updateLead(id, sync);
 
   // 2) Guardar el override de la columna del tablero. El deadline de nutrición
@@ -2838,6 +2877,39 @@ const COLS_ETAPA_PREVIA = 'pipeline_stage, funnel_id, estado_lead, fecha_agenda,
  * cortarse al responder (el patrón del `void actualizarEtiquetaLead` que esto reemplaza).
  * Adentro de un lote (`conLoteDeEtiquetas`) escribe la base y deja la sincronización para el final.
  */
+/**
+ * El rastro de la etapa que LIMPIÓ una reserva (undécima tanda, M6): una línea 'Etapa' del historial, firmada por
+ * MaKo, con la etapa de antes y la de ahora. La misma forma que `logLeadChanges` y el mismo `etapa_vista` (así la
+ * pasada de los pendientes no la vuelve a escribir). Nunca tira: la reserva ya entró.
+ */
+async function auditarEtapaDeLaReserva(leadId: number, antes: string, despues: Lead): Promise<void> {
+  try {
+    const cambio = cambioDeEtapa(despues, antes);
+    if (!cambio) return;
+    const { error } = await (await getTenantDb()).from('lead_audit')
+      .insert([{ lead_id: leadId, campo: CAMPO_ETAPA, valor_anterior: cambio.desde, valor_nuevo: cambio.hacia, autor: AUTOR_SISTEMA }]);
+    if (error) { console.error(`[leads] el historial de la etapa que limpió la reserva del lead ${leadId}: ${error.message}`); return; }
+    await marcarEtapaVista([leadId], cambio.hacia);
+  } catch (e) {
+    console.error(`[leads] el historial de la etapa que limpió la reserva del lead ${leadId}:`, e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
+ * Inscribe al lead en las automatizaciones de la etapa a la que acaba de llegar por DERIVACIÓN (undécima tanda,
+ * M1-b): el MISMO evento que el movimiento explícito (`setBoardStageOverride` → `enrolarPorEvento('etapa')`). Import
+ * dinámico (lib/nutricion.ts importa este módulo) y nunca tira: el guardado del lead no puede fallar por la
+ * nutrición; lo que no entre, lo levanta el barrido de la hora.
+ */
+async function enrolarPorEtapaDerivada(leadId: number, etapa: string, funnelId: number | null): Promise<void> {
+  try {
+    const { enrolarPorEvento } = await import('./nutricion');
+    await enrolarPorEvento(leadId, 'etapa', { etapa, funnelId });
+  } catch (e) {
+    console.error(`[leads] no pude enrolar al lead ${leadId} por llegar a «${etapa}»:`, e instanceof Error ? e.message : String(e));
+  }
+}
+
 async function espejarEtiquetasDeEtapa(leadId: number, funnelId: number | null, desde: string | null, hacia: string, autor?: string): Promise<void> {
   try {
     const { espejarEtapa } = await import('./etiquetas');
@@ -2932,8 +3004,18 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
   if (meta.web !== undefined) payload.web = meta.web;
   if (meta.telefono !== undefined) { payload.telefono = meta.telefono; payload.telefono_normalizado = normalizarTelefono(meta.telefono); }
   if (Object.keys(payload).length === 0) return;
+  // Una FECHA DE REUNIÓN cargada acá cambia la etapa derivada como en `updateLead` (M1-b): se lee la etapa de antes
+  // sólo si viene una fecha, y nunca tira (sin leerla, lo levanta el barrido de la hora).
+  const conFecha = meta.fecha_junta_1 !== undefined || meta.fecha_junta_2 !== undefined;
+  const antes = conFecha
+    ? (((await supabase.from('leads').select(COLS_ETAPA_PREVIA).eq('id', id).limit(1)).data ?? []) as Array<{ funnel_id: number | null } & StageDerivable>)[0]
+    : undefined;
   const { error } = await supabase.from('leads').update(payload).eq('id', id);
   if (error) throw new Error(`Error guardando datos del lead ${id}: ${error.message}`);
+  if (antes) {
+    const despues = pipelineStageOf({ ...antes, ...(payload as Partial<StageDerivable>) });
+    if (entraAEtapaDeReunion(pipelineStageOf(antes), despues)) await enrolarPorEtapaDerivada(id, despues, antes.funnel_id ?? null);
+  }
 }
 
 /**

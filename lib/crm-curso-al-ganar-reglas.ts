@@ -74,9 +74,9 @@ const POR_QUE_NO: Record<string, string> = {
   // Customer Success lo suma (08/10): entró con un link copiado a mano, así que tiene acceso y lo usa.
   'ya-entro': 'ya entró al curso',
   'sin-email': 'no tiene email',
-  'sin-clases': 'sus productos no tienen clases',
+  'sin-clases': 'sus funnels no tienen clases',
   cortado: 'su acceso está cortado',
-  'no-ganado': 'no está ganado en su producto principal',
+  'no-ganado': 'no está ganado en su funnel principal',
 };
 
 /**

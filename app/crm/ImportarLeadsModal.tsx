@@ -171,7 +171,7 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Los dos caminos, en el mismo lugar: subir algo, o traer de otro tablero. */}
       <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', borderRadius: 999, padding: 3 }}>
-        {([['archivo', 'Desde un archivo'], ['producto', 'De otro producto']] as Array<['archivo' | 'producto', string]>).map(([k, txt]) => (
+        {([['archivo', 'Desde un archivo'], ['producto', 'De otro funnel']] as Array<['archivo' | 'producto', string]>).map(([k, txt]) => (
           <button key={k} type="button" onClick={() => { setOrigen(k); setErr(null); }}
             style={{
               border: 'none', background: origen === k ? 'var(--surface)' : 'transparent',

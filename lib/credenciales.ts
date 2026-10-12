@@ -27,6 +27,7 @@ import { OWNER_WS } from './auth-session';
 import { ENVS_METODO, servicioDeEnv, servicioMetodo } from './metodo-catalogo';
 import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs } from './webhook-routing';
 import { esClaveDeCuenta } from './ia-keys';
+import { problemaDeRemitenteGuardado } from './email-remitente';
 
 export type CredencialMeta = {
   clave: string;
@@ -305,6 +306,37 @@ export class KeyDePlataformaError extends Error {
 }
 
 /**
+ * Se pidió guardar como `RESEND_FROM` un remitente de un dominio de MaKo (undécima tanda, decisión 3 de la
+ * décima: «Quitale a Mauricio que pueda mandar email con MaKo. Nadie debería poder.»). El mensaje es el de
+ * `problemaDeRemitenteGuardado` (lib/email-remitente.ts), para mostrar tal cual.
+ */
+export class RemitenteNoPropioError extends Error {
+  constructor(public clave: string, mensaje: string) {
+    super(mensaje);
+    this.name = 'RemitenteNoPropioError';
+  }
+}
+
+/**
+ * ¿`valor` es la credencial `clave` de la PLATAFORMA? Compara contra las DOS copias, porque pueden diferir:
+ * `process.env` (lo que dejó la hidratación del boot, o el env de Vercel si todavía no corrió) y la fila del
+ * dueño (`OWNER_WS`, de donde sale la hidratación). Medido el 11/10/2026: la `RESEND_API_KEY` del `.env.local`
+ * y la de la fila del ws1 son DISTINTAS, y la del ws4 es una copia de la del ws1 («Datos de Mau»): mirando sólo
+ * el env, esa copia se leería como la cuenta propia del ws4.
+ *
+ * ⚠️ «NO PUDE LEER» TIRA (`credWsEstricta`): quien pregunta esto decide si una key es «propia», y un error
+ *    leído como «no es la de la plataforma» la volvería propia. Quien llama atrapa y no deja mandar.
+ */
+export async function esDeLaPlataforma(clave: string, valor: string | null | undefined): Promise<boolean> {
+  const v = typeof valor === 'string' ? valor.trim() : '';
+  if (!v) return false;
+  const env = process.env[clave];
+  if (esValorReal(env) && env.trim() === v) return true;
+  const base = await credWsEstricta(clave, OWNER_WS);
+  return esValorReal(base) && base.trim() === v;
+}
+
+/**
  * Claves BYOK cuyo valor NUNCA puede coincidir con el de la plataforma. Para
  * estas, «key propia» activa un modo distinto (lib/zernio.ts: byok=true saltea
  * el aislamiento por profile y usa el Default de LA CUENTA), así que un cliente
@@ -326,6 +358,13 @@ export async function guardarCredencial(ws: number, clave: string, valor: string
   if (ws !== OWNER_WS && BYOK_NUNCA_PLATAFORMA.has(clave)) {
     const plataforma = await envCred(clave);
     if (plataforma && valor === plataforma) throw new KeyDePlataformaError(clave);
+  }
+  // ⚠️ EL REMITENTE DE MaKo NO ES DE NADIE (undécima tanda): ni el ws1, ni un cliente, ni la plataforma lo guardan
+  // como credencial. Lo que habla MaKo lleva `REMITENTE_MAKO` en el código (lib/app-url.ts); un negocio, el suyo.
+  // Para TODO workspace, en el choke point por el que pasan los cinco caminos de guardado.
+  if (clave === 'RESEND_FROM') {
+    const problema = problemaDeRemitenteGuardado(valor);
+    if (problema) throw new RemitenteNoPropioError(clave, problema);
   }
   // Si esta clave identifica webhooks entrantes, RECLAMAR PRIMERO. El orden no es
   // capricho: guardar y espejar después dejaba la credencial escrita aunque el
@@ -447,7 +486,34 @@ export async function hidratarCredenciales(): Promise<void> {
  * disfrazada de conexión propia de Mauricio. Es exactamente el caso de Zernio
  * que ya está contado arriba.
  */
-const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set(['ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET', 'ELEVENLABS_API_KEY']);
+/**
+ * ⚠️ Las SEIS de la pasarela de pagos (11/10/2026) están por otro motivo, y es más grave:
+ * acá no se copia una cuenta que gasta, se copia una cuenta que COBRA.
+ *
+ *  · El boot: si alguien carga `STRIPE_SECRET_KEY` como env de Vercel «para la plataforma», la
+ *    migración la escribiría en la fila del ws1 —Mauricio, un cliente— y sus links de pago
+ *    cobrarían en la cuenta de MaKo con cara de conexión propia. La Stripe de MaKo vive en la fila
+ *    de `wsSuperAdmin()`, pegada desde /integraciones como la de cualquier cliente.
+ *  · «Datos de Mau» (lib/datos-mau.ts) copia las credenciales del ws1 a un workspace de prueba:
+ *    sin esto, un clic dejaba la clave de cobro de Mauricio adentro de otro espacio.
+ *
+ * Los ids derivados (`STRIPE_ACCOUNT_ID`, `MERCADOPAGO_USER_ID`) igual rebotarían por
+ * `IdentificadorOcupadoError`, pero van también: una lista que deja pasar la mitad de una
+ * conexión es una lista que hay que pensar cada vez. tests/pasarela-sin-env.test.ts cuida el
+ * otro lado: que ningún código lea estas claves de `process.env`.
+ */
+/**
+ * ⚠️ `RESEND_FROM` (undécima tanda, 11/10/2026): el del entorno es la identidad de la PLATAFORMA, y
+ * `guardarCredencial` ya no deja guardar un remitente de MaKo en ningún workspace. Sin esto, si el env lo
+ * tuviera, cada boot intentaría copiarlo al ws1 y fallaría (un error en el log por arranque), y «Datos de Mau»
+ * lo copiaría al workspace de prueba. Un CLIENTE sigue pegando el suyo desde /integraciones.
+ */
+const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set([
+  'ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET', 'ELEVENLABS_API_KEY',
+  'STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET',
+  'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_WEBHOOK_SECRET',
+  'RESEND_FROM',
+]);
 
 /** Para que otros módulos pregunten en vez de repetir la lista. */
 export function esCredencialDeLaCasa(clave: string): boolean {

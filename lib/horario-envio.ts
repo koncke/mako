@@ -16,8 +16,9 @@
 //     horario (la fila queda vencida, nada se pierde) y el tick de cada minuto barre todo lo
 //     vencido en el minuto en que el horario abre (`acabaDeAbrir`).
 //
-// ⚠️ LA HORA ES LA DEL NEGOCIO (`mako.timezone`), con el mismo default que el motor usó siempre
-// (`zonaDelMotor`, Ciudad de México). No se averigua por la red: el cron no se cuelga por una zona.
+// ⚠️ LA HORA ES LA DEL NEGOCIO (`mako.timezone`), con EL default de la casa (`ZONA_POR_DEFECTO`, Tijuana,
+// por `zonaDeLoGuardado` / `zonaDelNegocio`; undécima tanda: el motor tenía un segundo default, Ciudad de
+// México, y ése era el bug). No se averigua por la red: el cron no se cuelga por una zona.
 //
 // ⚠️ PURO, SIN `server-only` Y SIN IMPORTS: lo importan el motor, el tick, la pantalla de
 // Configuraciones y su test. Con un import, la pantalla arrastraría al navegador lo que ése traiga.

@@ -66,7 +66,10 @@ test('1b: el Sidebar respeta adminOnly en las tabs de producto, no sólo en el m
   const sb = sinLineas(leer('app/_components/Sidebar.tsx'));
   assert.match(
     sb,
-    /const puedeVer = \(it: NavItem\) =>\s*\(!it\.adminOnly \|\| rol === 'admin'\)/,
+    // Desde el 12/10 la condición es `adminShell` (super admin SIN impersonar, de main):
+    // lo `adminOnly` se ve en el workspace propio, y por eso `video-editor` está en la capa
+    // `superadmin` (lib/capas.ts).
+    /const puedeVer = \(it: NavItem\) =>\s*\(!it\.adminOnly \|\| (?:rol === 'admin'|adminShell)\)/,
     '`puedeVer` dejó de mirar adminOnly: el Video Editor aparecería en la barra de cualquier cliente',
   );
 });

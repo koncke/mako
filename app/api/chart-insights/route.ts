@@ -11,7 +11,7 @@ import { chatClaude, type ClaudeMsg } from '@/lib/anthropic';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import {
   createSession, getSession, listSessions, listAllSessions, getSessionMessages, appendMessage,
-  renameSession, setPinned, setArchived, deleteSession, type ChartMsg,
+  renameSession, setPinned, setArchived, deleteSession, esChatDelTelefono, esSesionDelTelefono, type ChartMsg,
 } from '@/lib/chart-chats';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { getPromptText } from '@/lib/prompt-render';
@@ -71,9 +71,17 @@ export async function GET(req: NextRequest) {
   try {
     if (sp.get('all')) return Response.json({ sessions: await listAllSessions(arch) });
     const sessionId = sp.get('sessionId');
-    if (sessionId) return Response.json({ messages: await getSessionMessages(Number(sessionId)) });
+    // ⚠️ Un chat del TELÉFONO es de UNA persona: por esta ruta (por workspace) no se abre
+    // ni se lista (lib/chart-chats.ts, `esSesionDelTelefono`).
+    if (sessionId) {
+      if (await esSesionDelTelefono(Number(sessionId))) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+      return Response.json({ messages: await getSessionMessages(Number(sessionId)) });
+    }
     const chartKey = sp.get('chartKey');
-    if (chartKey) return Response.json({ sessions: await listSessions(chartKey, arch) });
+    if (chartKey) {
+      if (esChatDelTelefono(chartKey)) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+      return Response.json({ sessions: await listSessions(chartKey, arch) });
+    }
     return Response.json({ error: 'parámetros faltantes' }, { status: 400 });
   } catch (err) {
     return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
@@ -86,6 +94,12 @@ export async function POST(req: NextRequest) {
   const { action, chartKey, titulo = 'Chat', contexto = '' } = body;
 
   try {
+    // Ni abrir/crear con la clave de un chat del teléfono, ni send/rename/pin/archive/delete
+    // sobre uno de sus ids: son de UNA persona (lib/chart-chats.ts, `esSesionDelTelefono`).
+    if (chartKey && esChatDelTelefono(chartKey)) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+    if (body.sessionId != null && (await esSesionDelTelefono(Number(body.sessionId)))) {
+      return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+    }
     if (action === 'open') {
       if (!chartKey) return Response.json({ error: 'chartKey requerido' }, { status: 400 });
       const sesiones = await listSessions(chartKey);

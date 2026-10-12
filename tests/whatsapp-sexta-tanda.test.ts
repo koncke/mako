@@ -296,7 +296,8 @@ test('NINGÚN composer manda al soltar: `audioAlSoltar` no decide nada, y la gra
   const comp = sinComentarios(leer('app/whatsapp/_shared/ComposerWhatsApp.tsx'));
   const cuerpo = comp.slice(comp.indexOf('export function ComposerWhatsApp('));
   assert.doesNotMatch(cuerpo.slice(cuerpo.indexOf('}: ComposerWhatsAppProps) {')), /audioAlSoltar/, 'el composer vuelve a mirar `audioAlSoltar`');
-  assert.match(comp, /useGrabacionVoz\(async \(blob, secs\) => \{ await onAudio\?\.\(blob, secs\); \}, onErrorAudio\)/);
+  // Décima tanda (WhatsApp 3): más el borrador de lo grabado (`onBorradorVoz`), que NO manda nada.
+  assert.match(comp, /useGrabacionVoz\(async \(blob, secs\) => \{ await onAudio\?\.\(blob, secs\); \}, onErrorAudio, onBorradorVoz\)/);
   for (const r of ['app/automations/GrabadorAudioPaso.tsx', 'app/automations/PasoAudioControl.tsx']) {
     const src = sinComentarios(leer(r));
     assert.match(src, /useGrabacionVoz\(subir, onError\)/, `${r} no usa la sesión de voz`);
@@ -581,7 +582,8 @@ test('«MaKo en WhatsApp»: el MISMO editor, UN texto, con «{ }», sin mic ni c
   assert.ok(html.includes('>MaKo<'), 'la burbuja no la firma MaKo');
   assert.ok(renderToStaticMarkup(createElement(CabeceraMakoEnWhatsApp)).includes('MaKo en WhatsApp'));
   const flujo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
-  assert.match(flujo, /if \(paso && esMako\(paso\)\) return <CabeceraMakoEnWhatsApp \/>;/);
+  // Undécima tanda: la cabecera recibe la tarjeta (en la forma del editor) para dibujar el ✦ de esa tarjeta.
+  assert.match(flujo, /if \(paso && esMako\(paso\)\) return <CabeceraMakoEnWhatsApp paso=\{pasoDeMako\(paso\)\} deshabilitado=\{busy\} \/>;/);
   assert.match(bloque(flujo, 'function cabeceraDe(', '\n}\n', 800), /if \(claseDe\(paso\) === 'accion'\) return esMako\(paso\);/);
 });
 

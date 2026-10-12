@@ -33,7 +33,7 @@ import type { Permisos } from './permisos';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'integraciones', 'equipo', 'cs', 'curso', 'mako',
+  'integraciones', 'equipo', 'cs', 'curso', 'cobros', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -50,8 +50,11 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   chatbot: { titulo: 'Chatbot y secuencias', tab: 'Automations', ruta: '/automations' },
   metricas: { titulo: 'Dashboard y análisis', tab: 'Dashboard', ruta: '/dashboard' },
   experimentos: { titulo: 'Experiments y Retro', tab: 'Experiments', ruta: '/experimentos' },
-  landing: { titulo: 'Landing (Analyst, Generator y tracking)', tab: 'Landing Analyst', ruta: '/landing-analyst' },
-  closing: { titulo: 'Closing Analyst', tab: 'Closing Analyst', ruta: '/closing' },
+  // Landing Analyst y Closing Analyst se retiraron como tabs el 11/10/2026: analizar una página es parte
+  // de Landing Generator, y las llamadas son la hoja «Closing» del Dashboard. Las ÁREAS (`landing`,
+  // `closing`) y sus títulos no cambian: son la clave del registro y de los permisos de los tokens.
+  landing: { titulo: 'Landing (Analyst, Generator y tracking)', tab: 'Landing Generator', ruta: '/landing-generator' },
+  closing: { titulo: 'Closing Analyst', tab: 'Dashboard', ruta: '/dashboard?hoja=closing' },
   negocio: { titulo: 'El negocio (onboarding, Second Brain, conocimiento)', tab: 'Onboarding', ruta: '/onboarding' },
   contenido: { titulo: 'Content Machine', tab: 'Ads Writer', ruta: '/ads-writer' },
   video: { titulo: 'Video Generator', tab: 'Video Generator', ruta: '/video-generator' },
@@ -59,6 +62,10 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Configuraciones', ruta: '/configuraciones' },
   cs: { titulo: 'Customer Success', tab: 'Customer Success', ruta: '/customer-success' },
   curso: { titulo: 'Curso (módulos y clases)', tab: 'Customer Success › Curso', ruta: '/customer-success/curso' },
+  // La pasarela de pagos (11/10/2026, docs/diseno-pasarela-pagos.md). Área PROPIA y no `crm`, a
+  // propósito: un token detallado con escritura en el CRM no crea links de pago ni reembolsa, y los
+  // tokens que ya existen no la tienen. Vive en la ficha del lead (tab Pagos), por eso la tab es el CRM.
+  cobros: { titulo: 'Cobros (Stripe y Mercado Pago)', tab: 'CRM', ruta: '/crm' },
   mako: { titulo: 'MaKo (pendientes, propuestas, chats)', tab: 'Pregúntale a MaKo', ruta: '/mako' },
 };
 

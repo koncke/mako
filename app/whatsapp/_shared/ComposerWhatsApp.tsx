@@ -41,6 +41,9 @@
 //    lados. En el body, ubicado con la caja del botón, entra siempre.
 // ⚠️ EL EMOJI SE INSERTA EN EL CURSOR, no al final (`insertarEnCursor`). Al final, un emoji puesto
 //    a mitad de una frase aparecía después del link del pie.
+// LOS {{DATOS}} AZULES (undécima tanda, punto 7): con `datos`, el campo va envuelto en `CampoConDatos`
+//    (app/_components/CampoConDatos.tsx), que los pinta con un espejo detrás y abre el «{ }» con el dato tocado.
+//    Sin `datos` (los chats), el campo es el de siempre.
 
 import {
   useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore,
@@ -49,8 +52,10 @@ import {
 import { createPortal } from 'react-dom';
 import { EmojiPicker } from '../EmojiPicker';
 import { SendArrow, IconSmiley, IconClip, IconMic, IconDoc } from './composer-icons';
-import { useGrabacionVoz, BarraGrabacion } from './VoiceRecorder';
+import { useGrabacionVoz, BarraGrabacion, type BorradorDeVoz } from './VoiceRecorder';
 import { useCapaModal } from '@/app/_components/pila-modales';
+import { CampoConDatos, type CampoConDatosHandle, type DatoFuera } from '@/app/_components/CampoConDatos';
+import type { GrupoDatos } from '@/lib/variables-aviso';
 
 // ── Lo que se decide sin DOM (lo ejecuta tests/composer-whatsapp.test.ts) ────────────────────
 
@@ -239,6 +244,11 @@ export type ComposerHandle = {
   enfocar: () => void;
   /** Arranca a grabar (el ✦ de MaKo: «Grabar con este guion»). Sin micrófono (`onAudio`), nada. */
   grabar: () => void;
+  /**
+   * Con el cursor ADENTRO de un `{{dato}}`: lo selecciona y abre el «{ }» con ese dato elegido (undécima tanda,
+   * punto 7: el camino del teclado). `false` = no había uno (o la barra no tiene `datos`): el «{ }» inserta.
+   */
+  abrirDatoEnCursor: () => boolean;
 };
 
 export type ComposerWhatsAppProps = {
@@ -254,12 +264,23 @@ export type ComposerWhatsAppProps = {
   onEnviar?: () => void;
   /** Clip simple: abre el selector de archivos con `acceptArchivo` y entrega el archivo. */
   onArchivo?: (f: File) => void;
+  /**
+   * Clip simple que deja elegir VARIOS (`multiple`) y los entrega juntos. Lo usa ChatHilo para abrir la
+   * vista previa (VistaAdjuntos.tsx) con todos los elegidos, como WhatsApp. Gana sobre `onArchivo`.
+   */
+  onArchivos?: (fs: File[]) => void;
   acceptArchivo?: string;
   /** Clip con menú (el editor): «Foto o video», «Documento», «Audios guardados»… */
   menuClip?: OpcionMenuWA[];
   /** Mic: lo que se MANDA (con la ➤ verde, después de escucharlo). Sin esto, no hay micrófono. */
   onAudio?: (blob: Blob, secs: number) => void | Promise<void>;
   onErrorAudio?: (m: string) => void;
+  /**
+   * EL BORRADOR DEL AUDIO (décima tanda del Chatbot, WhatsApp 3): lo grabado y sin mandar, a cada segundo
+   * mientras se graba y al pasar a escucharlo; `null` si se tiró. No manda nada (`onAudio` sigue siendo lo
+   * único que sale). Lo usa el editor del lienzo para no perder un audio al cerrar el panel o recargar.
+   */
+  onBorradorVoz?: BorradorDeVoz;
   /** Arriba de la barra de grabación, MIENTRAS se graba (el guion que sugirió MaKo, si sugirió uno). */
   mientrasGraba?: ReactNode;
   /**
@@ -278,14 +299,24 @@ export type ComposerWhatsAppProps = {
    * la barra sólo le da el lugar. Sin esto, la barra es la de siempre.
    */
   trasClip?: ReactNode;
+  /**
+   * LOS DATOS DE ESTE MENSAJE (undécima tanda, punto 7: «los datos, al momento de EDITAR, también se deben marcar en
+   * azul y ser clickeables»): con el árbol del «{ }», el campo pinta cada `{{dato}}` en azul (en rojo el que no se
+   * puede mandar) y tocarlo abre el árbol con ese dato elegido (app/_components/CampoConDatos.tsx). Sin esto, los
+   * chats de /whatsapp quedan como estaban.
+   */
+  datos?: GrupoDatos[];
+  /** Lo que va en rojo (`fueraDelContexto`). Sin esto, lo que `datos` no ofrece. */
+  datosFuera?: DatoFuera;
 };
 
 export function ComposerWhatsApp({
-  modo, valor, onValor, placeholder, ocupado, soloLectura, onEnviar, onArchivo, acceptArchivo, menuClip,
-  onAudio, onErrorAudio, mientrasGraba, audioPendiente, chip, ref, maxAlto, trasClip,
+  modo, valor, onValor, placeholder, ocupado, soloLectura, onEnviar, onArchivo, onArchivos, acceptArchivo, menuClip,
+  onAudio, onErrorAudio, onBorradorVoz, mientrasGraba, audioPendiente, chip, ref, maxAlto, trasClip, datos, datosFuera,
 }: ComposerWhatsAppProps) {
   const editar = modo === 'editar';
   const campo = useRef<HTMLTextAreaElement | null>(null);
+  const campoDatos = useRef<CampoConDatosHandle | null>(null);
   const archivo = useRef<HTMLInputElement | null>(null);
   const [btnEmoji, setBtnEmoji] = useState<HTMLButtonElement | null>(null);
   const [btnClip, setBtnClip] = useState<HTMLButtonElement | null>(null);
@@ -293,7 +324,7 @@ export function ComposerWhatsApp({
   const valorVivo = useRef(valor);
   const cursorPendiente = useRef<number | null>(null);
 
-  const voz = useGrabacionVoz(async (blob, secs) => { await onAudio?.(blob, secs); }, onErrorAudio);
+  const voz = useGrabacionVoz(async (blob, secs) => { await onAudio?.(blob, secs); }, onErrorAudio, onBorradorVoz);
   const [bajando, setBajando] = useState(false);
   /** 🎤 sobre un audio que ya existe: se baja, se entra a la sesión con él y se graba lo que sigue. */
   const seguirExistente = async () => {
@@ -342,7 +373,10 @@ export function ComposerWhatsApp({
   useImperativeHandle(ref, () => ({
     insertar, enfocar: () => campo.current?.focus(),
     grabar: () => { if (onAudio && voz.fase === 'quieta') void voz.start(); },
+    abrirDatoEnCursor: () => campoDatos.current?.abrirDatoEnCursor() ?? false,
   }));
+  /** Lo que escribe el campo: tipear y cambiar un dato desde su «{ }» van por el MISMO lado. */
+  const escribirCampo = (v: string) => { valorVivo.current = v; onValor(v); };
 
   if (soloLectura) {
     return (
@@ -374,7 +408,7 @@ export function ComposerWhatsApp({
     );
   }
 
-  const conClip = !!onArchivo || !!menuClip?.length;
+  const conClip = !!onArchivo || !!onArchivos || !!menuClip?.length;
   const hayParaEnviar = !!valor.trim() || !!chip;
   // En el editor la fila es más angosta (el panel del nodo mide 328 px): botones de 38.
   const icono: CSSProperties = editar ? { ...iconComposer, width: 38, height: 38 } : iconComposer;
@@ -401,9 +435,13 @@ export function ComposerWhatsApp({
         </div>
       )}
       <div style={{ padding: editar ? '8px 8px' : '8px 12px', display: 'flex', alignItems: 'flex-end', gap: editar ? 2 : 4 }}>
-        {onArchivo && !menuClip?.length && (
-          <input ref={archivo} type="file" accept={acceptArchivo} style={{ display: 'none' }}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; if (f) onArchivo(f); }} />
+        {(onArchivo || onArchivos) && !menuClip?.length && (
+          <input ref={archivo} type="file" accept={acceptArchivo} multiple={!!onArchivos} style={{ display: 'none' }}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              const lista = Array.from(e.target.files ?? []);
+              e.target.value = '';
+              if (onArchivos) { if (lista.length) onArchivos(lista); } else if (lista[0]) onArchivo?.(lista[0]);
+            }} />
         )}
         <button type="button" ref={setBtnEmoji} onClick={() => setAbierto((a) => (a === 'emoji' ? null : 'emoji'))} title="Emojis" aria-label="Emojis" aria-expanded={abierto === 'emoji'}
           style={{ ...icono, color: abierto === 'emoji' ? 'var(--primary)' : 'var(--dim)' }}><IconSmiley /></button>
@@ -413,8 +451,9 @@ export function ComposerWhatsApp({
             style={{ ...icono, color: abierto === 'clip' ? 'var(--primary)' : 'var(--dim)', opacity: ocupado ? 0.5 : 1 }}><IconClip /></button>
         )}
         {trasClip}
+        <CampoConDatos ref={campoDatos} datos={datos} fuera={datosFuera} onValor={escribirCampo} estiloCaja={{ flex: 1, minWidth: 0 }}>
         <textarea ref={campo} value={valor} rows={1}
-          onChange={(e) => { valorVivo.current = e.target.value; onValor(e.target.value); }}
+          onChange={(e) => escribirCampo(e.target.value)}
           onKeyDown={(e) => {
             if (accionDeTecla(modo, { key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing }) !== 'enviar') return;
             e.preventDefault();
@@ -423,6 +462,7 @@ export function ComposerWhatsApp({
           placeholder={placeholder ?? 'Escribe un mensaje…'}
           aria-label={placeholder ?? 'Mensaje'}
           style={{ flex: 1, minWidth: 0, minHeight: 40, resize: 'none', padding: '9px 16px', borderRadius: 21, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 14, lineHeight: 1.35, outline: 'none' }} />
+        </CampoConDatos>
         {!editar && hayParaEnviar && onEnviar ? (
           <button type="button" onClick={onEnviar} disabled={ocupado} title="Enviar" aria-label="Enviar" style={{ flex: 'none', width: 42, height: 42, borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: ocupado ? 'default' : 'pointer', opacity: ocupado ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
         ) : onAudio ? (

@@ -20,10 +20,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FUENTES, TIPOS, sanearGrafico, sanearTablero, tableroInicial, nuevoGrafico, tituloDe, metricasPara, fuenteDe, rangoDe, rangoDeGrafico,
-  nuevoControl, esGrafico, type Grafico, type Hoja,
+  FUENTES, TIPOS, sanearGrafico, sanearTablero, nuevoGrafico, tituloDe, metricasPara, fuenteDe, rangoDe, rangoDeGrafico,
+  esGrafico, esBloque, sanearComponente, hojaVacia, type Grafico, type Hoja,
 } from '../lib/graficos-catalogo';
-import { agregar, chipComparar, clavesDelRango, fmtValor, histograma, OTROS, periodoAnterior, SIN_DATO, type Fila } from '../lib/graficos-agregar';
+import { tableroInicial } from '../lib/graficos-plantillas';
+import { agregar, chipComparar, clavesDelRango, fmtValor, histograma, OTROS, periodoAnterior, SIN_DATO, tramosDeDias, type Fila } from '../lib/graficos-agregar';
 
 const g = (r: Partial<Grafico> & Record<string, unknown>): Grafico => sanearGrafico({ id: 'g1', ...r })!;
 
@@ -70,7 +71,10 @@ test('un informe del v1 se pasa a una hoja, y uno sin hojas no se pierde', () =>
 test('el informe inicial trae las hojas Marketing y Comercial, y todo sale válido', () => {
   const t = tableroInicial();
   assert.deepEqual(t.hojas.map((h) => h.id), ['marketing', 'comercial']);
-  for (const h of t.hojas) for (const c of h.componentes) assert.deepEqual(sanearGrafico(c), c);
+  for (const h of t.hojas) for (const c of h.componentes) assert.deepEqual(sanearComponente(c), c);
+  // Los ids del inicial son FIJOS: quien sólo mira recibe el inicial en cada carga, y lo atado a un id
+  // (lo elegido en un control, el chat de MaKo) se perdería en cada recarga con ids al azar.
+  assert.deepEqual(JSON.stringify(tableroInicial()), JSON.stringify(t), 'dos lecturas del inicial dan lo mismo');
   for (const x of TIPOS) { const n = nuevoGrafico(x.id, []); assert.deepEqual(sanearGrafico(n), n, x.id); }
   assert.equal(tituloDe(g({ fuente: 'meta', tipo: 'circular', dimension: 'campana', metricas: ['gasto'] })), 'Gasto por campaña');
 });
@@ -80,11 +84,10 @@ test('el período: los presets, y el control de la hoja manda sobre el «Automá
   assert.deepEqual(rangoDe('mes_pasado', '2026-01-15'), { desde: '2025-12-01', hasta: '2025-12-31' });
   assert.deepEqual(rangoDe('este_mes', '2026-10-11'), { desde: '2026-10-01', hasta: '2026-10-11' });
   const graf = g({ fuente: 'meta', tipo: 'numero' });
-  const control = { ...nuevoControl([]), preset: 'ult7' as const };
-  const hoja: Hoja = { id: 'h', nombre: 'H', componentes: [graf, control] };
+  const hoja: Hoja = hojaVacia('H', { componentes: [graf], controles: [{ id: 'p', tipo: 'periodo', campo: null, preset: 'ult7', desde: null, hasta: null, valores: null, texto: '', agrupar: 'auto' }] });
   assert.deepEqual(rangoDeGrafico(graf, hoja, '2026-10-11'), { desde: '2026-10-05', hasta: '2026-10-11' });
   assert.deepEqual(rangoDeGrafico({ ...graf, periodo: 'ayer' }, hoja, '2026-10-11'), { desde: '2026-10-10', hasta: '2026-10-10' }, 'el período propio gana');
-  assert.deepEqual(rangoDeGrafico(graf, { ...hoja, componentes: [graf] }, '2026-10-11'), { desde: '2026-09-12', hasta: '2026-10-11' }, 'sin control, 30 días');
+  assert.deepEqual(rangoDeGrafico(graf, { ...hoja, controles: [] }, '2026-10-11'), { desde: '2026-09-12', hasta: '2026-10-11' }, 'sin control, 30 días');
 });
 
 const filasMeta: Fila[] = [
@@ -157,17 +160,21 @@ test('fmtValor: plata, porcentaje, veces, segundos y lo que no se puede calcular
 });
 
 test('el lector llena cada métrica base y cada dimensión de cada conjunto del catálogo', () => {
-  const src = readFileSync(join(__dirname, '..', 'lib', 'graficos-datos.ts'), 'utf8').replace(/\r\n/g, '\n');
-  const lectores = src.slice(src.indexOf('export const LECTORES'), src.indexOf('};', src.indexOf('export const LECTORES')));
+  // Los lectores viven en tres archivos: los de siempre, la audiencia de Meta y los de las tabs de Analysts.
+  const leer = (n: string) => readFileSync(join(__dirname, '..', 'lib', n), 'utf8').replace(/\r\n/g, '\n');
+  const src = ['graficos-datos.ts', 'graficos-audiencia.ts', 'graficos-datos-extra.ts'].map(leer).join('\n');
+  const mapa = (desde: string) => { const i = src.indexOf(desde); return i < 0 ? '' : src.slice(i, src.indexOf('\n};', i)); };
+  const lectores = mapa('export const LECTORES:') + mapa('export const LECTORES_EXTRA:');
   // La clave puede ir con valor (`gasto: …`) o abreviada (`{ estado, … }`).
   const llena = (id: string) => new RegExp(`(?:\\b${id}:|[{,]\\s*${id}\\s*[,}])`);
   for (const f of FUENTES) {
     const m = new RegExp(`\\b${f.id}: \\([^)]*\\) => (\\w+)\\(`).exec(lectores);
     assert.ok(m, `falta el lector de ${f.id} en LECTORES`);
-    const ini = src.indexOf(`async function ${m![1]}(`);
+    const ini = src.search(new RegExp(`(?:export )?async function ${m![1]}\\(`));
     assert.ok(ini >= 0, `no encuentro ${m![1]}`);
-    const fin = src.indexOf('\nasync function ', ini + 10);
-    const cuerpo = src.slice(ini, fin < 0 ? undefined : fin);
+    const resto = src.slice(ini + 10);
+    const fin = resto.search(/\n(?:export )?async function /);
+    const cuerpo = src.slice(ini, fin < 0 ? undefined : ini + 10 + fin);
     for (const x of f.metricas.filter((y) => !y.razon)) assert.match(cuerpo, llena(x.id), `${f.id} no llena la métrica ${x.id}`);
     for (const d of f.dimensiones.filter((y) => y.clase === 'categoria')) assert.match(cuerpo, llena(d.id), `${f.id} no llena la dimensión ${d.id}`);
     for (const x of f.metricas.filter((y) => y.razon)) {
@@ -188,19 +195,20 @@ test('el informe inicial es la réplica de las tabs viejas: los bloques en su lu
   const fila1 = graf(mk).filter((c) => c.y === 0).sort((a, b) => a.x - b.x);
   assert.deepEqual(fila1.map((c) => c.titulo), ['Ad Spend', 'CAC real', 'ROAS cash', 'ROAS sold']);
   assert.deepEqual(fila1.map((c) => c.metricas[0]), ['gasto', 'cac', 'roas_cobrado', 'roas_vendido']);
-  assert.ok(fila1[0].estilo.comparar, 'el Ad Spend trae el chip contra el período anterior');
+  assert.ok(fila1[0].comparar, 'el Ad Spend trae el chip contra el período anterior');
   assert.deepEqual(graf(mk).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl']);
-  assert.deepEqual(graf(co).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['agendas', 'asistencias', 'calificados', 'cierres']);
-  // Las cohortes con sus ocho columnas: el saneo no se comió ninguna (el tope de la tabla era 6).
-  const coh = graf(co).find((c) => c.titulo === 'Cohortes mensuales')!;
-  assert.deepEqual(coh.metricas, ['agendas', 'asistencias', 'no_show', 'calificados', 'cierres', 'tasa_cierre', 'ciclo', 'vendido']);
+  assert.ok(graf(mk).some((c) => c.tipo === 'mapa' && c.dimension === 'region'), 'el mapa de México de la Audiencia');
+  // El filtro de fecha arriba, en las dos (punto 5: «Como el filtro de fecha»).
+  for (const h of [mk, co]) assert.equal(h.controles.filter((c) => c.tipo === 'periodo').length, 1, h.nombre);
+  // Comercial: los bloques de la tab vieja, en su orden.
+  assert.deepEqual(co.componentes.filter(esBloque).map((b) => b.bloque), ['revenue', 'cobranza', 'funnel_maduro', 'scl', 'cohortes_mes', 'cohortes_semana']);
   // Nadie se pisa en la grilla: la compactación correría lo de abajo y lo sacaría de su lugar.
   for (const h of [mk, co]) {
     const cs = h.componentes;
     for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
       const a = cs[i], b = cs[j];
       const pisa = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-      assert.ok(!pisa, `${h.nombre}: se pisan ${(a as Grafico).titulo} y ${(b as Grafico).titulo}`);
+      assert.ok(!pisa, `${h.nombre}: se pisan ${a.id} y ${b.id}`);
     }
   }
 });
@@ -226,8 +234,8 @@ test('comparar: el período anterior es del mismo largo y termina el día antes;
   // Y el lector lo pide de verdad: con `comparar`, los totales del período anterior viajan en `anterior`.
   const src = readFileSync(join(__dirname, '..', 'lib', 'graficos-datos.ts'), 'utf8').replace(/\r\n/g, '\n');
   const cuerpo = src.slice(src.indexOf('export async function datosDeGraficos'));
-  assert.ok(cuerpo.includes('g.estilo.comparar && !sinRango ? periodoAnterior(p.desde, hasta)'), 'el lector no pide el período anterior');
-  assert.ok(cuerpo.includes('resultado.anterior = agregar(g, await lecturas.get(claveAnt)!, ant.desde, ant.hasta).totales'), 'el lector no devuelve los totales anteriores');
+  assert.ok(cuerpo.includes('g.comparar && !sinRango ? periodoAnterior(p.desde, hasta)'), 'el lector no pide el período anterior');
+  assert.ok(cuerpo.includes('resultado.anterior = agregar(g, filtrarFilas(await lecturas.get(claveAnt)!, filtros), ant.desde, ant.hasta).totales'), 'el lector no devuelve los totales anteriores, filtrados igual');
 });
 
 test('mirar no guarda: la grilla sólo escribe el informe mientras se edita', () => {
@@ -239,4 +247,41 @@ test('mirar no guarda: la grilla sólo escribe el informe mientras se edita', ()
   const cuerpo = src.slice(ini, src.indexOf('}, [idHoja, editando]);', ini));
   assert.ok(cuerpo.length > 0 && cuerpo.length < 1500, `el recorte mide ${cuerpo.length}: está mirando otra cosa`);
   assert.match(cuerpo, /^const alMoverGrilla = useCallback\(\(l: Layout\) => \{\n\s*if \(!editando\) return;/);
+});
+
+// La lectura de un instante va en tramos a la vez (lib/graficos-lectura.ts, `leer`): si dos tramos se
+// pisaran, un evento se contaría dos veces; si quedara un hueco, faltaría un día. Medido contra la base el
+// 11/10/2026: con los tramos, las ocho fuentes de la hoja Landing trajeron EXACTAMENTE las mismas filas.
+// Probado rompiéndolo (20 / 1 las dos): el último tramo sin recortar a `hasta` (se pasa del período) y `tam` con Math.floor (sobra un tramo).
+test('los tramos de días cubren el período entero, sin huecos ni días repetidos, y el último cierra en «hasta»', () => {
+  const dia = (f: string) => Date.parse(`${f}T00:00:00Z`) / 86_400_000;
+  const casos: Array<[string, string, number]> = [
+    ['2026-09-11', '2026-10-12', 6], ['2026-10-01', '2026-10-01', 6], ['2026-10-01', '2026-10-03', 6],
+    ['2020-01-01', '2026-10-12', 6], ['2026-02-27', '2026-03-02', 2], ['2026-09-11', '2026-10-12', 1],
+  ];
+  for (const [desde, hasta, n] of casos) {
+    const t = tramosDeDias(desde, hasta, n);
+    assert.ok(t.length >= 1 && t.length <= n, `${desde}..${hasta}: ${t.length} tramos`);
+    assert.equal(t[0].desde, desde);
+    assert.equal(t[t.length - 1].hasta, hasta, `${desde}..${hasta}: el último no cierra en «hasta»`);
+    for (let i = 0; i < t.length; i++) {
+      assert.ok(t[i].desde <= t[i].hasta, `tramo ${i} al revés`);
+      if (i) assert.equal(dia(t[i].desde), dia(t[i - 1].hasta) + 1, `${desde}..${hasta}: hueco o pisada entre ${i - 1} y ${i}`);
+    }
+  }
+  assert.equal(tramosDeDias('2026-09-11', '2026-10-12', 6).length, 6);
+});
+
+// Sin sesión (la API de MaKo por WhatsApp o HTTP, una automatización, un cron) `tableroActual()` contesta
+// 'cliente' para todos, y en el workspace del super admin Tareas y Productividad leían el tablero VACÍO.
+// Probado rompiéndolo (base 22 / 0): `tableroActual()` de vuelta en filasTareas -> 21 / 1.
+test('Tareas y Productividad: con sesión, quién mira; sin sesión, la CAPA del workspace', () => {
+  const lect = readFileSync(join(__dirname, '..', 'lib', 'graficos-lectura.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const f = lect.slice(lect.indexOf('export async function queTableroLeer('), lect.indexOf('\n}\n', lect.indexOf('export async function queTableroLeer(')));
+  assert.match(f, /if \(s\) return tableroActual\(\);\n  return tableroDeCapa\(await getCapaActual\(\)/);
+  for (const ruta of ['graficos-datos.ts', 'graficos-datos-extra.ts']) {
+    const src = readFileSync(join(__dirname, '..', 'lib', ruta), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
+    assert.doesNotMatch(src, /tableroActual\(\)/, `${ruta}: elige el tablero por la sesión`);
+    assert.match(src, /await queTableroLeer\(\)/, `${ruta}: no usa queTableroLeer`);
+  }
 });

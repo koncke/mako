@@ -56,7 +56,8 @@ test('la tarjeta de un mensaje de VARIAS partes mide sus dos primeras burbujas y
 
 test('la tarjeta dibuja hasta dos partes, «+N mensajes…» y NO la transcripción del audio', () => {
   const vista = bloque(FLUJO, 'function VistaMensaje(', '\nfunction VistaEmail(', 4_000);
-  assert.match(vista, /partesExplicitas\(paso\)/, 'la tarjeta no cuenta las partes');
+  // Desde la décima tanda (WhatsApp 1) cuenta las BURBUJAS (`burbujasDeTarjeta`): también el audio con su texto de antes.
+  assert.match(vista, /burbujasDeTarjeta\(paso /, 'la tarjeta no cuenta las partes');
   assert.match(vista, /height: ALTO_MAS_PARTES/, 'el recuadro no usa el alto con que lo mide `altoDeMensaje`');
   assert.match(vista, /partes\.slice\(0, PARTES_EN_TARJETA\)/, 'la tarjeta no corta en dos burbujas');
   assert.match(vista, /transcript: null/, 'la tarjeta vuelve a dibujar la transcripción');

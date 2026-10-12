@@ -176,7 +176,8 @@ test('los eventos de ManyChat: seis de Instagram y seis de Messenger, con el del
   // La tienda de Facebook, apagada desde la segunda pasada (09/10/2026): Zernio no la avisa
   // (`DISPARADORES_SOCIALES` la marca `disponible: false`, tests/disparadores-canal-social.test.ts).
   assert.deepEqual(EVENTOS_MESSENGER.filter((e) => e.apagado).map((e) => e.subtipo), ['anuncio', 'tienda']);
-  assert.deepEqual(CLASES_DISPARADOR.map((c) => c.label), ['Producto', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email']);
+  // «Pagos», el séptimo (11/10/2026): botón propio por decisión de Martín, con la grilla en 4+3.
+  assert.deepEqual(CLASES_DISPARADOR.map((c) => c.label), ['Funnel', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email', 'Pagos']);
 });
 
 // ── 4. El Recurrente: «A quién» ─────────────────────────────────────────────────────────────────
@@ -256,6 +257,14 @@ test('⚠️ al grupo le llegan los TEXTOS de la salida; una condición corta, u
   // Varias partes: las de texto y el pie de un archivo, en orden.
   const partes: PasoGrafo[] = [{ id: 'a', canal: 'whatsapp', cuerpo: 'Hola', partes: [{ tipo: 'texto', cuerpo: 'Hola' }, { tipo: 'audio', audio_id: 2 }, { tipo: 'media', media_id: 4, cuerpo: 'El PDF' }], siguiente: null }];
   assert.deepEqual(textosParaElGrupo(partes), ['Hola', 'El PDF']);
+  // Undécima tanda: la tarjeta «MaKo en WhatsApp» por partes. Sus textos y el pie del archivo; NUNCA el espejo
+  // `mensaje` (sólo la Voz de MaKo mandaba «🎤 Nota de voz de MaKo» al grupo). Probado rompiéndolo (11/10/2026,
+  // scratchpad wf-undecima/enchufador/roturas.cjs): volver a leer sólo `params.mensaje` → 18 / 1 (base 19 / 0).
+  const mako: PasoGrafo[] = [
+    { id: 'a', accion: { operacion: 'avisar_al_equipo', params: { mensaje: '🎤 Nota de voz de MaKo', partes: [{ tipo: 'audio', audio_id: 9 }] } }, siguiente: 'b' },
+    { id: 'b', accion: { operacion: 'avisar_al_equipo', params: { mensaje: 'Hola\n\nEl PDF', partes: [{ tipo: 'texto', cuerpo: 'Hola' }, { tipo: 'media', media_id: 4, cuerpo: 'El PDF' }] } }, siguiente: null },
+  ];
+  assert.deepEqual(textosParaElGrupo(mako), ['Hola', 'El PDF']);
 });
 
 // ── 8. El huso: los países del teléfono, con sus zonas ──────────────────────────────────────────

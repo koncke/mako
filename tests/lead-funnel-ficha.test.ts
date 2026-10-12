@@ -117,10 +117,10 @@ test('cada renglón: la X (roja) con puedeQuitar, el «+» (neutro) donde no est
   const b = entre(PROD, 'const opciones: DropdownOption[] = productos', 'const enVista');
   assert.match(b, /const accion = accionDelRenglon\(p\.esta, ficha\.puedeQuitar\);/, 'la X tiene que mirar puedeQuitar');
   assert.match(b, /sub: p\.esta \? undefined : 'No está',/);
-  assert.match(b, /accion === 'quitar'\s*\? \[\{ icono: <IconoQuitar \/>, title: 'Quitar de este producto', tone: 'bad' as const, cierra: true, onClick: \(\) => ficha\.quitar\(p\) \}\]/);
+  assert.match(b, /accion === 'quitar'\s*\? \[\{ icono: <IconoQuitar \/>, title: 'Quitar de este funnel', tone: 'bad' as const, cierra: true, onClick: \(\) => ficha\.quitar\(p\) \}\]/);
   const mas = b.match(/accion === 'agregar'\s*\? \[\{([^\]]*)\}\]/);
   assert.ok(mas, 'falta el «+» en los productos donde no está');
-  assert.match(mas[1], /icono: <IconoAgregar \/>, title: 'Agregar a este producto', cierra: true, onClick: \(\) => ficha\.agregar\(p\)/);
+  assert.match(mas[1], /icono: <IconoAgregar \/>, title: 'Agregar a este funnel', cierra: true, onClick: \(\) => ficha\.agregar\(p\)/);
   assert.doesNotMatch(mas[1], /tone:/, 'el «+» va en tono neutro: agregar no es una acción peligrosa');
   // Elegir el renglón: donde está, MIRARLO; donde no, lo mismo que el «+».
   assert.match(PROD, /if \(p\.esta\) ficha\.verProducto\(p\.id\); else ficha\.agregar\(p\);/);

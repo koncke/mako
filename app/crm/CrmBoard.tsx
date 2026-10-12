@@ -1786,7 +1786,7 @@ export function CrmBoard({
   // pop-up tiene que decir CUÁL embudo se está tocando, y para eso ese nombre no sirve.
   const nombreDeFunnel = (id: number | null) => {
     const f = funnels.find((x) => x.id === id) ?? funnels.find((x) => x.esDefault);
-    return (f ? nombreVisible(f) : '') || 'Tu embudo';
+    return (f ? nombreVisible(f) : '') || 'Tu funnel';
   };
   // Cerrar el aviso de error es SÓLO de esta vista: al recargar vuelve a calcularse.
   const [errorCerrado, setErrorCerrado] = useState(false);
@@ -2531,9 +2531,9 @@ export function CrmBoard({
                     `stageMetaOpt` y NO `stageMeta`: el segundo cae a `stages[0]`, o
                     sea que contestaría «Nuevo» — el mismo dato falso otra vez. */}
                 {l.stageFuera && (
-                  <div title={`Este lead quedó guardado en «${stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera}», una etapa que tu embudo ya no tiene. Se muestra aquí porque no hay columna donde ponerlo.`}
+                  <div title={`Este lead quedó guardado en «${stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera}», una etapa que tu funnel ya no tiene. Se muestra aquí porque no hay columna donde ponerlo.`}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6, fontSize: 10.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 999, padding: '1px 8px', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera} · fuera del embudo
+                    {stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera} · fuera del funnel
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
@@ -2974,7 +2974,7 @@ export function CrmBoard({
         // PADRE y no el form: un formulario no puede cambiar el tamaño de la caja que lo
         // contiene. Y el alto va FIJO, o la caja salta al cambiar de vista.
         <Modal
-          titulo={nuevoLead.traer ? 'Traer de otro producto' : 'Nuevo lead'}
+          titulo={nuevoLead.traer ? 'Traer de otro funnel' : 'Nuevo lead'}
           ancho={nuevoLead.traer ? 1040 : 720}
           alto={nuevoLead.traer ? "min(88vh, 720px)" : undefined}
           onCerrar={() => setNuevoLead(null)}

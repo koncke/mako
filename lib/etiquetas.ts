@@ -203,9 +203,9 @@ async function validarVinculo(v: { funnelId: number | null; etapaKey: string }):
   const def = await idDelFunnelDefault();
   const pedido = v.funnelId == null ? null : Number(v.funnelId);
   const destino = pedido ?? def;
-  if (destino == null) throw new EtiquetaError('No encontré el producto del negocio.');
-  if (pedido != null && !(await listarFunnels()).some((f) => f.id === pedido)) throw new EtiquetaError('Ese producto no existe.');
-  if (!(await etapasDeProducto(destino)).some((s) => s.key === key)) throw new EtiquetaError(`«${key}» no es una etapa de ese producto.`);
+  if (destino == null) throw new EtiquetaError('No encontré el funnel del negocio.');
+  if (pedido != null && !(await listarFunnels()).some((f) => f.id === pedido)) throw new EtiquetaError('Ese funnel no existe.');
+  if (!(await etapasDeProducto(destino)).some((s) => s.key === key)) throw new EtiquetaError(`«${key}» no es una etapa de ese funnel.`);
   // El producto del negocio se guarda como NULL, la misma convención que `leads.funnel_id`.
   return { funnel_id: pedido == null || pedido === def ? null : pedido, etapa_key: key };
 }
@@ -372,9 +372,9 @@ async function sincronizarAfuera(leadId: number, e: Etiqueta, accion: 'poner' | 
 async function moverPorEtiqueta(leadId: number, funnelId: number | null, etapaKey: string, autor: string): Promise<{ movio: boolean; etapa?: string; motivo?: string }> {
   const def = await idDelFunnelDefault();
   const destino = funnelId ?? def;
-  if (destino == null) return { movio: false, motivo: 'no encontré el producto del negocio' };
+  if (destino == null) return { movio: false, motivo: 'no encontré el funnel del negocio' };
   const etapa = (await etapasDeProducto(destino)).find((s) => s.key === etapaKey);
-  if (!etapa) return { movio: false, motivo: `la etapa «${etapaKey}» ya no existe en ese producto` };
+  if (!etapa) return { movio: false, motivo: `la etapa «${etapaKey}» ya no existe en ese funnel` };
   if (terminalEstadoFor(etapaKey) !== 'abierto') return { movio: false, motivo: `«${etapa.label}» es un cierre y se mueve a mano` };
   const db = await getTenantDb();
   const { data, error } = await db.from('leads')
@@ -390,11 +390,11 @@ async function moverPorEtiqueta(leadId: number, funnelId: number | null, etapaKe
     return { movio: true, etapa: etapa.label };
   }
   const { data: filas, error: ef } = await db.from('lead_funnel').select('etapa').eq('lead_id', leadId).eq('funnel_id', destino).limit(1);
-  if (ef) throw new Error(`No pude leer sus productos: ${ef.message}`);
+  if (ef) throw new Error(`No pude leer sus funnels: ${ef.message}`);
   const fila = ((filas ?? []) as Array<{ etapa: string }>)[0];
   if (!fila) {
     const f = (await listarFunnels()).find((x) => x.id === destino);
-    return { movio: false, motivo: `no está en «${f ? nombreVisible(f) : 'ese producto'}»` };
+    return { movio: false, motivo: `no está en «${f ? nombreVisible(f) : 'ese funnel'}»` };
   }
   if (fila.etapa === etapaKey) return { movio: false };
   await moverEtapaEnProducto(leadId, destino, etapaKey, { autor });
@@ -696,7 +696,7 @@ export async function conciliarEspejoEtapas(): Promise<ResultadoConciliacion> {
   // vuelva a tener una vinculada arranca como línea de base, porque no está en sus `productos`.
   if (!vinculadas.length) return out;
   const def = await idDelFunnelDefault();
-  if (def == null) throw new Error('No encontré el producto del negocio.');
+  if (def == null) throw new Error('No encontré el funnel del negocio.');
   const productos = [...new Set(vinculadas.map((e) => e.funnel_id ?? def))];
   const foto = leerFotoEspejo(await getSettingEstricto(KEY_FOTO_ESPEJO));
 

@@ -51,10 +51,13 @@ import {
   claseDe, idDe, normalizar, puertosDe, raizRespuesta, descendientes, puedeTenerParalelos,
   indicePorId, nuevoId, conectarPuerto, leerPuertoParalelo, puertoParalelo, paralelosDeResultado,
   contarParalelos, fijarRaiz, validarParaGuardar, cruces, ciclosSinEspera,
+  esPasoIA, medioDe, raicesRespuesta, puedeSumarAIStep,
 } from './flujo-grafo';
-import { nodoNuevo, type QueAgregar } from './flujo-conversacion';
+import { nodoNuevo, esMako, type QueAgregar } from './flujo-conversacion';
 // Puro: las partes de un mensaje y cómo se guardan (partirConEspera).
 import { partesDe, formaGuardada, type ParteMensaje, type PasoConPartes } from './mensaje-partes';
+// Puro: las partes de una tarjeta «MaKo en WhatsApp» y la forma de sus `params` (partirConEspera, undécima).
+import { partesDeMako, paramsConPartes } from './mako-tarjeta';
 
 /** Lo que devuelve una edición: el flujo nuevo, o el MISMO flujo con un motivo corto (va a un aviso). */
 export type Edicion<P> =
@@ -79,6 +82,8 @@ export const MOTIVO = {
   cronNo: 'El CRON no se elimina',
   noSeDuplica: 'Esta tarjeta no se duplica',
   sinFlechas: 'No le llega ninguna flecha',
+  // Undécima tanda: UN AI Step por medio (`TOPE_AI_STEP_POR_MEDIO`); sus escenarios van adentro.
+  topeAIStep: 'Ya hay un AI Step',
 } as const;
 
 const listo = <P>(pasos: P[], id?: string): Edicion<P> => ({ ok: true, pasos, ...(id ? { id } : {}) });
@@ -163,8 +168,19 @@ export function conectar<P extends PasoGrafo>(pasosIn: readonly P[], desde: stri
   if (claseDe(fijo[j]) === 'respuesta') {
     // «Si responde» sólo cuelga del CRON. Si la persona le había borrado esa flecha (`suelta`), conectarla
     // desde el CRON se la devuelve (10/10/2026, «Una condición normal»).
-    if (desde === ID_INICIO && fijo[j].suelta === true && raizRespuesta(fijo) == null) {
-      return listo(normalizar(fijo.map((q, k) => (k === j ? sinSuelta(q) : q))));
+    // ⚠️ UNDÉCIMA TANDA: UN AI Step por medio. Uno suelto vuelve sólo si no hay otro del medio escuchando (ni un
+    // «Si responde» de los de siempre): conectado al lado de otro, el motor los juntaría y la pantalla mostraría
+    // dos. Un «Si responde» de los de siempre, sólo si no hay otra que escuche.
+    if (desde === ID_INICIO && fijo[j].suelta === true) {
+      if (!esPasoIA(fijo[j])) {
+        if (raizRespuesta(fijo) == null) return listo(normalizar(fijo.map((q, k) => (k === j ? sinSuelta(q) : q))));
+      } else {
+        const m = medioDe(fijo[j]);
+        if (fijo.some((q, k) => k !== j && esPasoIA(q) && q.suelta !== true && medioDe(q) === m)) return no(base, MOTIVO.topeAIStep);
+        if (!fijo.some((q) => claseDe(q) === 'respuesta' && !esPasoIA(q) && q.suelta !== true)) {
+          return listo(normalizar(fijo.map((q, k) => (k === j ? sinSuelta(q) : q))));
+        }
+      }
     }
     return no(base, MOTIVO.aRespuesta);
   }
@@ -215,7 +231,7 @@ export function desconectar<P extends PasoGrafo>(pasosIn: readonly P[], desde: s
   const { base, fijo } = paraEditar(pasosIn);
   // LA FLECHA DEL CRON A «SI RESPONDE» (10/10/2026): no es un puerto del dato, así que borrarla es soltar
   // la tarjeta (`suelta`): deja de escuchar y Publicar la frena hasta que se vuelva a conectar.
-  if (desde === ID_INICIO && hacia === raizRespuesta(fijo)) return listo(conSuelta(fijo, hacia));
+  if (desde === ID_INICIO && raicesRespuesta(fijo).includes(hacia)) return listo(conSuelta(fijo, hacia));
   const i = indicePorId(fijo, desde);
   if (i < 0) return no(base, MOTIVO.noConectadas);
   const pt = puertosDe(fijo, i).find((x) => x.destino === hacia && (x.puerto === puerto || filaDe(x.puerto) === filaDe(puerto)));
@@ -232,7 +248,7 @@ export function soltar<P extends PasoGrafo>(pasosIn: readonly P[], id: string): 
   const i = indicePorId(fijo, id);
   if (id === ID_INICIO || i < 0 || claseDe(fijo[i]) === 'inicio') return no(base, i < 0 ? MOTIVO.noExiste : MOTIVO.sinFlechas);
   // «Desconectar» sobre «Si responde» le saca la única flecha que tiene: la del CRON.
-  if (claseDe(fijo[i]) === 'respuesta') return id === raizRespuesta(fijo) ? listo(conSuelta(fijo, id)) : no(base, MOTIVO.sinFlechas);
+  if (claseDe(fijo[i]) === 'respuesta') return raicesRespuesta(fijo).includes(id) ? listo(conSuelta(fijo, id)) : no(base, MOTIVO.sinFlechas);
   const out = soltarDe(fijo, id);
   if (out === fijo || JSON.stringify(out) === JSON.stringify(fijo)) return no(base, MOTIVO.sinFlechas);
   return listo(out);
@@ -277,14 +293,20 @@ export function eliminar<P extends PasoGrafo>(pasosIn: readonly P[], id: string)
  * `minutos` (la que programa y sobrevive a la corrida) y después una tarjeta nueva con el resto. Las
  * flechas en paralelo y lo de después se mudan a la última: arrancaban cuando la tarjeta terminaba.
  * Devuelve el id de la espera (la que el lienzo abre).
+ *
+ * ⚠️ UNDÉCIMA TANDA (decisión 2 de la décima: «MaKo en WhatsApp» con las MISMAS opciones que el WhatsApp): una
+ * tarjeta MAKO se parte igual, en dos tarjetas MAKO con el DELAY en el medio. Sus partes viven en
+ * `accion.params.partes` (`partesDeMako`) y cada mitad se escribe con `paramsConPartes` (lib/mako-tarjeta.ts): la
+ * lista explícita, el espejo `mensaje`, y el mismo lead y título.
  */
 export function partirConEspera<P extends PasoGrafo>(pasosIn: readonly P[], id: string, i: number, minutos: number, rnd: () => number = Math.random): Edicion<P> {
   const { base, fijo } = paraEditar(pasosIn);
   const k = indicePorId(fijo, id);
   if (k < 0) return no(base, MOTIVO.noExiste);
   const p = fijo[k] as P & PasoConPartes & { paralelos?: string[]; variantes?: string[] };
-  const partes = partesDe(p);
-  if (claseDe(p) !== 'mensaje' || !(i > 0 && i < partes.length) || !(minutos > 0)) return no(base, MOTIVO.sinSalida);
+  const accion = esMako(p) ? (p.accion as { operacion?: string; params?: Record<string, unknown> }) : null;
+  const partes = accion ? partesDeMako(accion.params) : partesDe(p);
+  if (!(accion || claseDe(p) === 'mensaje') || !(i > 0 && i < partes.length) || !(minutos > 0)) return no(base, MOTIVO.sinSalida);
   const idEspera = nuevoId(fijo, rnd);
   const idResto = nuevoId([...fijo, { id: idEspera }], rnd);
   const ia = p.tipo === 'ia';
@@ -292,9 +314,13 @@ export function partirConEspera<P extends PasoGrafo>(pasosIn: readonly P[], id: 
   const resto = partes.slice(i).map((x, j) => (j === 0 ? sinPausa(x) : x));
   const { variantes: _v, paralelos: par, ...sinExtras } = p;
   void _v;
-  const antes = { ...sinExtras, ...formaGuardada(partes.slice(0, i), ia), siguiente: idEspera } as unknown as P;
+  // Lo de adentro de cada mitad: la forma de un mensaje, o los `params` de la tarjeta MAKO.
+  const adentro = (lista: ParteMensaje[]) => (accion
+    ? { accion: { ...accion, params: paramsConPartes(accion.params, lista) } }
+    : formaGuardada(lista, ia));
+  const antes = { ...sinExtras, ...adentro(partes.slice(0, i)), siguiente: idEspera } as unknown as P;
   const espera = { ...nodoNuevo('esperar', fijo, rnd), id: idEspera, espera: { modo: 'tiempo', minutos: Math.round(minutos) }, siguiente: idResto } as unknown as P;
-  const despues = { ...sinExtras, ...formaGuardada(resto, ia), id: idResto, siguiente: p.siguiente ?? null, ...(par?.length ? { paralelos: par } : {}) } as unknown as P;
+  const despues = { ...sinExtras, ...adentro(resto), id: idResto, siguiente: p.siguiente ?? null, ...(par?.length ? { paralelos: par } : {}) } as unknown as P;
   const out = [...fijo.slice(0, k), antes, espera, despues, ...fijo.slice(k + 1)];
   return listo(normalizar(out), idEspera);
 }
@@ -312,11 +338,10 @@ const sinPausa = (x: ParteMensaje): ParteMensaje => {
  */
 export function crearSuelta<P extends PasoGrafo>(pasosIn: readonly P[], que: QueAgregar, rnd: () => number = Math.random): { pasos: P[]; id: string } {
   const { base, fijo } = paraEditar(pasosIn);
-  // El AI STEP (novena tanda) es la que escucha: una por automatización. Con una ya puesta (conectada o
-  // suelta) no se crea otra —un flujo con dos no se guarda ni como borrador—, y `id` vacío lo dice. Nace
-  // colgada del CRON (sin `suelta`): «Si responde» no tiene flechas que le lleguen, así que «sin flechas»
-  // ya es su forma de siempre.
-  if (que === 'ai_step' && base.some((p) => claseDe(p) === 'respuesta')) return { pasos: base, id: '' };
+  // El AI STEP: UNO por medio (undécima tanda, `puedeSumarAIStep`: sin mezclarlo con un «Si responde» de los de
+  // siempre, y no si ya hay uno). Si no se puede, `id` vacío lo dice (el motivo es `MOTIVO.topeAIStep`). Nace
+  // colgado del CRON (sin `suelta`): no tiene flechas que le lleguen, así que «sin flechas» ya es su forma.
+  if (que === 'ai_step' && !puedeSumarAIStep(base)) return { pasos: base, id: '' };
   const n = { ...nodoNuevo(que, fijo, rnd), siguiente: null } as unknown as P;
   const id = n.id!;
   return { pasos: normalizar([...fijo, n]), id };
@@ -333,12 +358,32 @@ export function duplicar<P extends PasoGrafo>(pasosIn: readonly P[], id: string,
   const i = indicePorId(fijo, id);
   if (i < 0) return no(base, MOTIVO.noExiste);
   const c = claseDe(fijo[i]);
-  if (c === 'inicio' || c === 'respuesta') return no(base, MOTIVO.noSeDuplica);
+  // Un «Si responde» de los de siempre no se duplica (hay uno solo), y el CRON tampoco. Un AI STEP tampoco desde la
+  // undécima: hay UNO por medio (`puedeSumarAIStep` es false con el original puesto), así que el motivo es ése. La
+  // copia de abajo queda para un AI Step de OTRO medio, si algún día se ofrece duplicar a otro medio.
+  const ia = esPasoIA(fijo[i]);
+  if (c === 'inicio' || (c === 'respuesta' && !ia)) return no(base, MOTIVO.noSeDuplica);
+  if (ia && !puedeSumarAIStep(fijo, medioDe(fijo[i]))) return no(base, MOTIVO.topeAIStep);
   const copia = JSON.parse(JSON.stringify(fijo[i])) as P;
   const nid = nuevoId(fijo, rnd);
   copia.id = nid;
   delete copia.paralelos;
   delete copia.paralelos_si_no;
+  if (ia) {
+    // SUELTA como toda copia (se conecta desde el CRON), con su caso de id nuevo y sin «Cualquier respuesta»:
+    // dos por medio no se publican.
+    const usados = [...fijo, { id: nid }];
+    copia.casos = (copia.casos ?? []).map((x) => {
+      const cid = nuevoId(usados, rnd);
+      usados.push({ id: cid });
+      const caso = { ...x, id: cid, siguiente: null };
+      delete caso.cualquiera;
+      return caso;
+    });
+    copia.si_no = null;
+    copia.suelta = true;
+    return listo([...fijo, copia], nid);
+  }
   if (c === 'condicion') {
     const usados: PasoGrafo[] = [...fijo, { id: nid }];
     copia.ramas = (copia.ramas ?? []).map((r) => {

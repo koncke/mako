@@ -47,15 +47,28 @@
 //     pedido pesaba ~10k tokens contra el techo de 7k de la cascada. El contexto va COMPACTO
 //     (`bloquesDeContexto`) y la salida se dimensiona para que entre (`salidaParaIA`). El detalle,
 //     medido, en `PROVS_CREAR_IA` y en docs/hallazgos-chatbot.md.
+//
+// ── UNDÉCIMA TANDA (11/10/2026): LAS PIEZAS DE HOY, UNA POR CATEGORÍA ────────────────
+//   · Las condiciones son las del CATÁLOGO (`condicionPorId`, no retiradas, `problemaDeFila` null), no sólo las nueve
+//     de antes: «Próxima reunión en ≤ N h», «Tiene reunión agendada», «Asistió a la reunión»…
+//   · Los datos: al lead, `{{nombre}}` y los de su próxima reunión (sólo detrás de una espera «antes de la reunión» o
+//     de una condición «Próxima reunión en»: `datosDeReunionSinMirarla`); al equipo, en `avisar_al_equipo` («MaKo en
+//     WhatsApp»), también los suyos (el link a la ficha, el teléfono). La tarjeta MaKo nace con su lista (`partes`):
+//     sale TAL CUAL, como la del lienzo.
+//   · El EJEMPLO: la plantilla de la galería de la categoría más cercana al pedido (`plantillaParaPedido`), con el MISMO
+//     `aIA` de editar, en el mensaje user; sin coincidencia, el de siempre (el del system).
+//   · Lo que el modelo arme fuera de lo de hoy (dos CONDITION pegadas, CONDITION → DELAY → CONDITION…) lo dice
+//     `problemasDeForma` (lib/flujo-forma.ts) en los avisos.
 // =============================================================================
 
 import {
   type PasoGrafo, type FilaCondicion, type CampoCondicion,
-  CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS,
+  CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS, TOPE_OBJETIVO,
   claseDe, idDe, nuevoId, puertosDe, raicesSalida, raizRespuesta, descendientes, indicePorId,
   conectarPuerto, puedeTenerParalelos, validarGrafo, contarParalelos, esPasoIA,
 } from './flujo-grafo';
 import { faltanEnPaso, LEAD_DEL_EVENTO } from './api-mako/flujo-params';
+import { respuestaAPasoIA } from './paso-ia-convertir';
 import { accionDelFlujo, PARAM_ETIQUETAS } from './editor-acciones';
 import type { Parametro } from './api-mako/tipos';
 import { esVariableConocida } from './template-vars';
@@ -68,6 +81,12 @@ import type { ProvName } from './ai-cheap';
 // Cómo se escribe un disparador de VARIAS etapas (cuarta tanda, punto 14): UNA forma, la del
 // desplegable del CRON. Puro: lib/flujo-conversacion.ts no importa nada con `server-only`.
 import { kanbanDeValor, valorDeVarios, separarValor } from './flujo-conversacion';
+// Undécima tanda: las filas del catálogo, los datos del «{ }», la tarjeta MaKo por partes, la forma de hoy y la galería.
+import { condicionPorId, problemaDeFila, OPERADORES, type OperadorCondicion } from './condiciones-catalogo';
+import { datoDe, valePara, type DestinoMensaje } from './variables-aviso';
+import { paramsConPartes } from './mako-tarjeta';
+import { problemasDeForma, datosDeReunionSinMirarla } from './flujo-forma';
+import { PLANTILLAS, pasosDePlantilla, type PlantillaAutomatizacion } from './plantillas-automatizaciones';
 
 // ── Constantes que comparten la ruta y los tests ─────────────────────────────────
 
@@ -183,8 +202,17 @@ function conEtiquetas(params: Record<string, unknown>, ids: readonly number[]): 
   return { ...resto, etiquetaId: ids[0], ...(ids.length > 1 ? { [PARAM_ETIQUETAS]: [...ids] } : {}) };
 }
 
-/** Tope de tarjetas que se le pide al modelo (el del grafo es 60: `TOPE_NODOS`). */
-export const TOPE_TARJETAS_IA = 20;
+/**
+ * Tope de tarjetas que se le pide al modelo (el del grafo es 60: `TOPE_NODOS`).
+ *
+ * ⚠️ UNDÉCIMA TANDA: SE PIDIÓ 30 Y QUEDÓ EN 25, porque 30 no entra en la salida de Groq (`salidaParaIA`). Una automatización
+ * ahora es la CATEGORÍA entera («Un Lead Agendó Llamada» tiene 22 tarjetas). Medido el 11/10/2026 (scratchpad
+ * wf-undecima/w3-plantillas/medir-ia.mts, `tokensAprox` = caracteres / 3,5): esa plantilla escrita como la escribe el
+ * modelo son ~58 tokens por tarjeta, y el mínimo de salida (`SALIDA_MIN_IA`, 3.000) se midió para ~20 tarjetas más lo que
+ * piensa un modelo de razonamiento (~1.850). En un negocio típico, con el ejemplo de su categoría en el pedido, a Groq le
+ * quedan 3.295 de salida: 25 × 58 + 1.850 = 3.300 entra justo; 30 × 58 + 1.850 = 3.590, no.
+ */
+export const TOPE_TARJETAS_IA = 25;
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
 
@@ -293,7 +321,7 @@ const RX_VARIABLE = /\{\{?\s*([A-Za-z_]+)\s*\}?\}/g;
  */
 const RX_LLAVES = /\{+\s*([^{}\n]{0,60}?)\s*\}+/g;
 /** Lo que queda después de `RX_LLAVES`: una variable buena (se conserva) o una llave suelta. */
-const RX_LLAVE_SUELTA = /\{\{[a-z_]+\}\}|[{}]/g;
+const RX_LLAVE_SUELTA = /\{\{[a-z][a-z0-9_]*\}\}|[{}]/g;
 /**
  * UN DOMINIO SIN `http` NI `www` TAMBIÉN ES UN LINK (revisión, 09/10/2026): WhatsApp convierte en
  * link «calendly.com/juan», y `RX_URL` lo dejaba pasar en las dos capas. Sólo con un TLD de esta
@@ -319,7 +347,7 @@ function hostDe(u: string): string {
  *     resuelve se reescriben con doble llave, que es como las lee `aplicarVariables`.
  * Devuelve el texto y qué clase de cosa se sacó, para el aviso.
  */
-export function limpiarTexto(t: string): { texto: string; quitado: Array<'link' | 'corchete' | 'variable'> } {
+export function limpiarTexto(t: string, o: { destino?: DestinoMensaje } = {}): { texto: string; quitado: Array<'link' | 'corchete' | 'variable'> } {
   const quitado = new Set<'link' | 'corchete' | 'variable'>();
   let s = String(t ?? '');
   s = s.replace(RX_URL, () => { quitado.add('link'); return ''; });
@@ -327,7 +355,7 @@ export function limpiarTexto(t: string): { texto: string; quitado: Array<'link' 
   s = s.replace(RX_CORCHETE, () => { quitado.add('corchete'); return ''; });
   s = s.replace(RX_LLAVES, (_m, k: string) => {
     const key = String(k).trim().toLowerCase();
-    if (/^[a-z_]+$/.test(key) && esVariableConocida(key)) return `{{${key}}}`;
+    if (/^[a-z][a-z0-9_]*$/.test(key) && (esVariableConocida(key) || (o.destino != null && datoPermitido(key, o.destino)))) return `{{${key}}}`;
     quitado.add('variable');
     return '';
   });
@@ -342,6 +370,20 @@ export function limpiarTexto(t: string): { texto: string; quitado: Array<'link' 
     .split('\n').map((l) => l.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
   return { texto: s, quitado: [...quitado] };
 }
+
+/**
+ * ¿Un dato del CATÁLOGO del «{ }» que la IA puede poner en un texto a ese destino? (undécima tanda: la regla 2 del prompt).
+ * Los del lead (`alcance` lead o siempre: los resuelve el motor con el lead de la automatización), que valgan para ese
+ * destino y que se ofrezcan (`oculta` no). Lo de un evento (la cuota, el pago, lo que escribió) no: una automatización de
+ * lead no lo trae. `{{mensaje_mako}}` tampoco (oculto).
+ */
+export function datoPermitido(key: string, destino: DestinoMensaje): boolean {
+  const v = datoDe(key);
+  return !!v && !v.oculta && valePara(v, destino) && (v.alcance === 'lead' || v.alcance === 'siempre');
+}
+
+/** ¿Una variable que un MENSAJE AL LEAD puede llevar? La del motor de siempre o un dato del catálogo para el lead. */
+const variableDelLead = (k: string): boolean => esVariableConocida(k) || datoPermitido(k, 'lead');
 
 const AVISO_QUITADO: Record<'link' | 'corchete' | 'variable', string> = {
   link: 'Borré un link escrito en un texto: los pone MaKo desde tus links',
@@ -504,11 +546,49 @@ const CAMPOS: Record<string, CampoCondicion> = {
   tiene_telefono: 'tiene_telefono', tiene_whatsapp: 'tiene_telefono', tiene_email: 'tiene_email',
 };
 
+/** El operador de una fila numérica como lo escribe el modelo («menor_igual», «<=», «≤»…). Ausente = ≥. */
+function operadorDe(v: unknown): OperadorCondicion | null {
+  const k = normNombre(v).replace(/\s+/g, '_');
+  if (OPERADORES.includes(k as OperadorCondicion)) return k as OperadorCondicion;
+  if (k === '<=' || k === '≤' || k === 'menor' || k === 'menos' || k === 'hasta') return 'menor_igual';
+  if (k === '>=' || k === '≥' || k === 'mayor' || k === 'mas' || k === 'desde') return 'mayor_igual';
+  return null;
+}
+
+/**
+ * UNA FILA DEL CATÁLOGO que no es de las nueve de antes (undécima tanda): la que existe, no está retirada, no es la de
+ * «Su respuesta trata de» (va en la condición que escucha) y se puede decidir SIN elegir algo del negocio (una lista se
+ * elige en el lienzo). Completa = `problemaDeFila` null, la MISMA pregunta que Publicar.
+ */
+function filaDelCatalogo(id: string, o: Record<string, unknown>, est: Estado): FilaCondicion | null {
+  const def = condicionPorId(id);
+  if (!def || def.retirada || def.evento) return null;
+  const f: FilaCondicion = { campo: def.id };
+  if ((o.no === true || o.negar === true) && def.negable) f.no = true;
+  const v = def.valor;
+  if (v.t === 'lista' || (v.t === 'numero' && v.ref)) { est.avisos.push(`Saqué la condición «${def.rotulo[0]}»: se elige en el lienzo`); return null; }
+  if (v.t === 'numero') {
+    const n = Number(o.valor ?? o.horas ?? (Number(o.dias) > 0 ? Number(o.dias) * 24 : NaN));
+    if (Number.isFinite(n)) f.valor = Math.round(n);
+    const op = operadorDe(o.op ?? o.operador);
+    if (op) f.op = op;
+  }
+  if (v.t === 'texto') f.valor = str(o.valor ?? o.texto).trim().slice(0, 120);
+  if (problemaDeFila(f)) { est.avisos.push(`Saqué la condición «${def.rotulo[0]}»: estaba incompleta`); return null; }
+  return f;
+}
+
 function filaDe(x: unknown, est: Estado): FilaCondicion | null {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   const o = x as Record<string, unknown>;
-  const campo = CAMPOS[normNombre(o.campo).replace(/[\s-]+/g, '_')];
-  if (!campo || !CAMPOS_CONDICION.includes(campo)) { est.avisos.push(`Saqué una condición «${str(o.campo) || '?'}»: no existe`); return null; }
+  const crudo = normNombre(o.campo).replace(/[\s-]+/g, '_');
+  const campo = CAMPOS[crudo];
+  if (!campo || !CAMPOS_CONDICION.includes(campo)) {
+    const delCatalogo = condicionPorId(crudo) ? filaDelCatalogo(crudo, o, est) : null;
+    if (delCatalogo) return delCatalogo;
+    if (!condicionPorId(crudo)) est.avisos.push(`Saqué una condición «${str(o.campo) || '?'}»: no existe`);
+    return null;
+  }
   const f: FilaCondicion = { campo };
   if (o.no === true || o.negar === true) f.no = true;
   if (campo === 'etiqueta') {
@@ -587,7 +667,7 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
   let producto: ProductoIA | null = null;
   if (def.parametros.some((p) => p.nombre === 'embudoId')) {
     producto = resolverProducto(datos.embudoId ?? datos.producto ?? datos.embudo ?? null, est.ctx);
-    if (!producto || producto.funnelId == null) return { quitar: `Saqué «${def.titulo}»: ese producto no existe` };
+    if (!producto || producto.funnelId == null) return { quitar: `Saqué «${def.titulo}»: ese funnel no existe` };
     params.embudoId = producto.funnelId;
   }
   for (const p of def.parametros) {
@@ -609,9 +689,18 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
     // (lib/nutricion.ts), no sobre los datos de una acción. Medido con Groq el 08/10/2026: el
     // modelo escribió «El lead {{nombre}} ya agendó» en el aviso al equipo, que habría llegado con
     // las llaves. Se borran (con los corchetes), y el aviso ya lleva el nombre por el `leadId`.
+    // «MaKo en WhatsApp» (undécima tanda): la lista la arma el código desde el mensaje (`paramsConPartes`, abajo); una que
+    // escriba el modelo podría nombrar un audio o un archivo que no existe.
+    if (def.id === OP_MAKO && p.nombre === 'partes') continue;
     const crudo = datos[p.nombre];
     let dato: unknown = crudo;
-    if (p.tipo === 'string' && typeof crudo === 'string') {
+    // El MENSAJE del aviso al equipo SÍ completa sus datos (lib/api-mako/areas/chatbot.run.ts → `textoDelAviso`, con el
+    // catálogo para el equipo): se limpia como un texto, dejando los datos del equipo.
+    if (def.id === OP_MAKO && p.nombre === 'mensaje' && typeof crudo === 'string') {
+      const l = limpiarTexto(crudo.slice(0, 2000), { destino: 'equipo' });
+      for (const q of l.quitado) est.avisos.push(AVISO_QUITADO[q]);
+      dato = l.texto;
+    } else if (p.tipo === 'string' && typeof crudo === 'string') {
       const sin = crudo.replace(RX_LLAVES, '').replace(/[{}]/g, '').replace(RX_CORCHETE, '').replace(/[ \t]+/g, ' ').replace(/ +([,.;:!?])/g, '$1').trim();
       if (sin !== crudo.trim()) est.avisos.push('Borré una variable de una acción: ahí no se completa');
       dato = sin;
@@ -626,8 +715,15 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
   }
   const faltan = faltanEnPaso(def.parametros as Parametro[], params, { leadId: 1 });
   if (faltan.length) return { quitar: `Saqué «${def.titulo}»: le falta ${faltan.map((f) => `«${f}»`).join(', ')}` };
+  // La tarjeta «MaKo en WhatsApp» nace con su LISTA (lib/mako-tarjeta.ts): sale TAL CUAL, como la que arma el lienzo.
+  if (def.id === OP_MAKO && typeof params.mensaje === 'string') {
+    return { accion: { operacion: def.id, params: paramsConPartes(params, [{ tipo: 'texto', cuerpo: params.mensaje }]) }, rotulo: def.titulo };
+  }
   return { accion: { operacion: def.id, params }, rotulo: def.titulo };
 }
+
+/** La operación de la tarjeta «MaKo en WhatsApp» (el mismo literal que `OP_TARJETA_MAKO`, lib/mako-tarjeta.ts). */
+const OP_MAKO = 'avisar_al_equipo';
 
 function porIdOTitulo<T extends { id: number; titulo: string }>(lista: readonly T[], v: unknown): T | null {
   const n = typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v.trim()) ? Number(v.trim()) : NaN;
@@ -669,8 +765,8 @@ const relleno = (): Pick<PasoIA, 'orden' | 'canal' | 'delay_horas' | 'asunto' | 
 
 const vacio = (tmp: string, clase: NodoIA['clase']): NodoIA => ({ tmp, clase, paso: {}, sigue: [], ramas: [], siNo: null, casos: [], quitar: false });
 
-function textoLimpio(v: unknown, est: Estado, tope: number): string {
-  const r = limpiarTexto(str(v).slice(0, tope * 2));
+function textoLimpio(v: unknown, est: Estado, tope: number, destino?: DestinoMensaje): string {
+  const r = limpiarTexto(str(v).slice(0, tope * 2), { destino });
   for (const q of r.quitado) est.avisos.push(AVISO_QUITADO[q]);
   return r.texto.slice(0, tope).trim();
 }
@@ -684,10 +780,10 @@ function nodoDe(c: Card, est: Estado): NodoIA {
       const n = vacio(c.tmp, 'mensaje');
       n.sigue = refs(raw.sigue);
       const canal: 'whatsapp' | 'email' = c.tipo === 'email' || normNombre(raw.canal) === 'email' ? 'email' : 'whatsapp';
-      let cuerpo = textoLimpio(raw.texto ?? raw.cuerpo ?? raw.mensaje, est, canal === 'email' ? 5000 : 1500);
+      let cuerpo = textoLimpio(raw.texto ?? raw.cuerpo ?? raw.mensaje, est, canal === 'email' ? 5000 : 1500, 'lead');
       const paso: Partial<PasoIA> = { canal };
       if (canal === 'email') {
-        const asunto = textoLimpio(raw.asunto, est, 120);
+        const asunto = textoLimpio(raw.asunto, est, 120, 'lead');
         if (!asunto) { avisos.push('Saqué un email sin asunto'); n.quitar = true; return n; }
         paso.asunto = asunto;
         const pre = textoLimpio(raw.vista_previa ?? raw.preheader, est, 150);
@@ -1206,12 +1302,24 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
     if (extra.length < raices.length - 1) pasos = podarSueltas(pasos);
   }
   pasos = podarSueltas(pasos);
+  // EL AI STEP (undécima tanda, docs/diseno-undecima-tanda.md §6: UNO por objetivo, con los escenarios adentro). El
+  // «Si responde» que arma el modelo se PLIEGA a UN AI Step cuando se puede sin cambiar lo que hace
+  // (`respuestaAPasoIA`: cada caso es un «MaKo contesta» y/o un aviso), con el OBJETIVO de la tarjeta `si_responde`
+  // (`objetivoDeIA`): sin él, Publicar no lo deja pasar y `validarIA` lo dice para que el modelo lo corrija. Si algo
+  // no entra (una condición, un texto fijo), queda como «Si responde» de los de siempre (que no lleva objetivo).
+  if (pasos.some((p) => claseDe(p) === 'respuesta')) {
+    const objetivo = objetivoDeIA(respuestas.map((c) => c.raw.objetivo), est.avisos);
+    const comoIA = respuestaAPasoIA(pasos, undefined, { objetivo });
+    if (!('error' in comoIA)) pasos = comoIA.pasos;
+  }
   // ⚠️ EL DISPARADOR SE RESUELVE ANTES DE ELEGIR LAS ETIQUETAS NUEVAS: «etiqueta:Lista» CREA la
   // etiqueta (un ref), y resuelto después quedaba `etiqueta:-2` con la -2 afuera de
   // `etiquetasNuevas` — la ruta no la creaba y el disparador se perdía (medido con el test).
   // Una o VARIAS claves del mismo kanban, y si el pedido habla de un alumno, todas las de la entrega
   // de ese producto (punto 14: la segunda capa de la regla del prompt).
   const disparador = disparadorDelPedido(resolverDisparadores(o.disparador, est), ctx);
+  // Lo que el modelo armó FUERA de las piezas de hoy (undécima tanda, lib/flujo-forma.ts): se dice, la persona lo ve.
+  for (const pr of problemasDeForma(pasos)) est.avisos.push(pr.motivo);
   return {
     pasos: renumerar(pasos),
     etiquetasNuevas: soloUsadas(est.nuevas, pasos, disparador),
@@ -1219,6 +1327,23 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
     nombre: str(o.nombre).trim() || null,
     disparador,
   };
+}
+
+/**
+ * EL OBJETIVO DEL AI STEP que escribió el modelo en la tarjeta `si_responde` (undécima tanda): el primero que no está
+ * vacío (con varias «Si responde», la que queda es la primera), limpio como cualquier texto del modelo (`limpiarTexto`:
+ * sin links, corchetes ni variables), en un renglón y hasta `TOPE_OBJETIVO`. Lo que se saca, a `avisos`.
+ */
+export function objetivoDeIA(valores: readonly unknown[], avisos: string[]): string {
+  for (const v of valores) {
+    const crudo = str(v).trim();
+    if (!crudo) continue;
+    const l = limpiarTexto(crudo);
+    for (const q of l.quitado) avisos.push(AVISO_QUITADO[q]);
+    const t = l.texto.replace(/\s+/g, ' ').trim().slice(0, TOPE_OBJETIVO).trim();
+    if (t) return t;
+  }
+  return '';
 }
 
 /** Los ids de «Si responde» y todo lo que cuelga de ella. */
@@ -1496,7 +1621,7 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
           const suyas = etiquetasDeAccion(a.params);
           if (!suyas.length || suyas.some((id) => !etiquetaOk(id))) err.push('una etiqueta de una acción no existe');
         }
-        if ('embudoId' in (a.params ?? {}) && !ctx.productos.some((x) => x.funnelId === Number(a.params.embudoId))) err.push('una acción usa un producto que no existe');
+        if ('embudoId' in (a.params ?? {}) && !ctx.productos.some((x) => x.funnelId === Number(a.params.embudoId))) err.push('una acción usa un funnel que no existe');
         for (const pr of def.parametros) {
           const v = a.params?.[pr.nombre];
           if (pr.tipo === 'number' && RX_PARAM_PLATA.test(pr.nombre) && v != null && !(ctx.numerosPermitidos ?? []).includes(Number(v))) err.push(`a «${def.titulo}» le pusieron un monto que no está en el pedido`);
@@ -1514,16 +1639,24 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
         for (const u of s.match(RX_URL) ?? []) if (!links.has(u)) err.push('un texto tiene un link que no es de tus links');
         // Un dominio suelto vale sólo si es el de uno de tus links (el de la URL completa ya se miró).
         for (const d of s.replace(RX_URL, ' ').match(RX_DOMINIO) ?? []) if (!hostsDeLinks.has(hostDe(d))) err.push('un texto tiene un link que no es de tus links');
-        for (const m of s.matchAll(RX_VARIABLE)) if (!esVariableConocida(m[1].toLowerCase())) err.push(`un texto usa la variable «${m[1]}», que no existe`);
+        for (const m of s.matchAll(RX_VARIABLE)) if (!variableDelLead(m[1].toLowerCase())) err.push(`un texto usa la variable «${m[1]}», que no existe`);
         // Sacadas las variables buenas, no puede quedar NINGUNA llave: el motor la manda cruda.
-        if (/[{}]/.test(s.replace(/\{\{([a-z_]+)\}\}/g, (m0, k: string) => (esVariableConocida(k) ? '' : m0)))) err.push('un texto tiene llaves que no son una variable');
+        if (/[{}]/.test(s.replace(/\{\{([a-z][a-z0-9_]*)\}\}/g, (m0, k: string) => (variableDelLead(k) ? '' : m0)))) err.push('un texto tiene llaves que no son una variable');
         if (!ctx.usaVoseo && marcasDeVoseo(s).length) err.push(`un texto está en voseo («${marcasDeVoseo(s)[0]}»)`);
       }
     }
     // Decisión 3 (tercera tanda): un «Ir a» no lo arma la IA. `deIA` lo saca; si llegara uno, una
     // reparación falló. En editar, los «Ir a» que YA estaban son de la persona (`soloIds`).
     if (c === 'ir_a') err.push('la IA no arma «Ir a»');
+    // UNDÉCIMA TANDA: un AI Step sin objetivo no se publica (`erroresDelPasoIA`). `validarGrafo` lo dice con el id
+    // interno de la tarjeta, que el modelo no conoce; esto lo dice con SU palabra, para el reintento («corrige esto»).
+    if (c === 'respuesta' && esPasoIA(p) && !String(p.objetivo ?? '').trim()) err.push('la tarjeta «si_responde» no tiene "objetivo"');
   });
+  // UNDÉCIMA TANDA: un dato de la reunión sólo detrás de una espera «antes_de_reunion» o de una condición «reunion_en»
+  // (sin eso le llega a quien ya la tuvo, o a quien no tiene ninguna).
+  for (const id of datosDeReunionSinMirarla(pasos)) {
+    if (!soloIds || soloIds.has(id)) err.push('un texto usa un dato de la reunión sin un "esperar" con "antes_de_reunion" ni una condición "reunion_en" antes');
+  }
   return [...new Set(err)];
 }
 
@@ -1541,19 +1674,31 @@ function filaAIA(f: FilaCondicion, n?: Nombres): Record<string, unknown> {
     if (prod) out.producto = prod.nombre;
   }
   if (f.campo === 'antiguedad') out.horas = Number(f.valor);
+  // Una del catálogo (undécima tanda): su número y su operador, como los lee `filaDelCatalogo`.
+  if (!CAMPOS_CONDICION.includes(f.campo as CampoCondicion)) {
+    if (f.op) out.op = f.op;
+    if (f.valor != null && f.valor !== '') out.valor = f.valor;
+  }
   return out;
 }
 
 const recorte = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+
+/** El largo de un texto en el EJEMPLO de crear (`aIA` compacto): alcanza para ver qué datos cita y cómo arranca. */
+const TOPE_TEXTO_EJEMPLO = 60;
 
 /**
  * El flujo en la forma que escribe el modelo, con los ids REALES (para que editar pueda anclar
  * un tramo nuevo a una tarjeta, una rama o un caso). Los textos van recortados: es contexto, no
  * algo que el modelo tenga que copiar. El nodo de inicio no es una tarjeta: es el CRON
  * (`inicio` dice qué caminos salen de él).
+ *
+ * `compacto` (undécima tanda, el EJEMPLO de crear: `ejemploDePlantilla`): los textos más cortos y las ramas sin su id ni
+ * su modo, que sólo sirven para anclar un tramo al EDITAR. Cada carácter le resta salida a Groq (`salidaParaIA`).
  */
-export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres): { inicio: string[]; tarjetas: Array<Record<string, unknown>> } {
+export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres, o: { compacto?: boolean } = {}): { inicio: string[]; tarjetas: Array<Record<string, unknown>> } {
   const tarjetas: Array<Record<string, unknown>> = [];
+  const largo = o.compacto ? TOPE_TEXTO_EJEMPLO : 300;
   pasos.forEach((p0, i) => {
     const p = p0 as PasoIA;
     const id = idDe(p, i);
@@ -1565,7 +1710,7 @@ export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres): { inicio: s
     switch (c) {
       case 'inicio': return;
       case 'mensaje': {
-        const t: Record<string, unknown> = { id, tipo: p.canal === 'email' ? 'email' : 'mensaje', canal: p.canal === 'email' ? 'email' : 'whatsapp', texto: recorte(String(p.cuerpo ?? ''), 300) };
+        const t: Record<string, unknown> = { id, tipo: p.canal === 'email' ? 'email' : 'mensaje', ...(o.compacto && p.canal !== 'email' ? {} : { canal: p.canal === 'email' ? 'email' : 'whatsapp' }), texto: recorte(String(p.cuerpo ?? ''), largo) };
         if (p.canal === 'email') t.asunto = p.asunto ?? '';
         if (p.tipo === 'ia') t.ia = true;
         if (p.tipo === 'audio') t.audio = p.audio_id;
@@ -1588,6 +1733,11 @@ export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres): { inicio: s
         }
         const datos = { ...(a?.params ?? {}) };
         delete datos.leadId;
+        // La lista de «MaKo en WhatsApp» la arma el código desde el mensaje: el modelo lee el mensaje (su espejo).
+        if (a?.operacion === OP_MAKO) {
+          delete datos.partes;
+          if (o.compacto && typeof datos.mensaje === 'string') datos.mensaje = recorte(datos.mensaje, largo);
+        }
         tarjetas.push({ id, tipo: 'accion', operacion: a?.operacion ?? '', datos, sigue: sigue() });
         return;
       }
@@ -1603,12 +1753,16 @@ export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres): { inicio: s
       case 'condicion':
         tarjetas.push({
           id, tipo: 'condicion',
-          ramas: (p.ramas ?? []).map((r) => ({ id: r.id, modo: r.modo, si: (r.filas ?? []).map((f) => filaAIA(f, nombres)), sigue: r.siguiente ?? null })),
+          ramas: (p.ramas ?? []).map((r) => ({ ...(o.compacto ? {} : { id: r.id, modo: r.modo }), si: (r.filas ?? []).map((f) => filaAIA(f, nombres)), sigue: r.siguiente ?? null })),
           si_no: p.si_no ?? null,
         });
         return;
       case 'respuesta':
-        tarjetas.push({ id, tipo: 'si_responde', casos: (p.casos ?? []).map((x) => ({ id: x.id, titulo: x.titulo, cuando: x.cuando, sigue: x.siguiente ?? null })), otra_cosa: p.si_no ?? null });
+        // El AI Step (undécima tanda) dice también su objetivo: el modelo lo LEE para decidir qué falta.
+        tarjetas.push({
+          id, tipo: 'si_responde', ...(esPasoIA(p) && (p.objetivo ?? '').trim() ? { objetivo: recorte(String(p.objetivo), 300) } : {}),
+          casos: (p.casos ?? []).map((x) => ({ id: x.id, titulo: x.titulo, cuando: x.cuando, sigue: x.siguiente ?? null })), otra_cosa: p.si_no ?? null,
+        });
         return;
       case 'ir_a': {
         const d = p.destino;
@@ -1725,9 +1879,83 @@ function bloquesDeContexto(ctx: CtxIA, d: DatosPedido): string[] {
   ];
 }
 
-/** El mensaje `user` para CREAR. */
+/**
+ * El mensaje `user` para CREAR: el contexto, la plantilla de la categoría del pedido (si hay una) y el pedido.
+ *
+ * ⚠️ LA PLANTILLA VA SÓLO SI GROQ SIGUE ENTRANDO con la salida que pide el tope de tarjetas (`entraEnGroq`): en un negocio
+ * GRANDE (tests/crear-ia-tercera.test.ts, `ctxGrande`) el ejemplo de «Un Lead Agendó Llamada» (~2.700 caracteres) lo
+ * dejaba afuera de la cascada, y Groq es el único proveedor que le contesta al ws1. Sin lugar, va el ejemplo de siempre
+ * (el del system).
+ */
 export function userDeCrear(ctx: CtxIA, d: DatosPedido): string {
-  return [...bloquesDeContexto(ctx, d), `EL PEDIDO DEL DUEÑO:\n${d.pedido.trim().slice(0, 2000)}`, 'Arma la automatización.'].join('\n\n');
+  const pedido = [`EL PEDIDO DEL DUEÑO:\n${d.pedido.trim().slice(0, 2000)}`, 'Arma la automatización.'];
+  const sin = [...bloquesDeContexto(ctx, d), ...pedido].join('\n\n');
+  const p = plantillaParaPedido(d.pedido);
+  if (!p) return sin;
+  const con = [
+    ...bloquesDeContexto(ctx, d),
+    `LA DE ESA CATEGORÍA (de la galería: «${p.nombre}»; úsala de base y adáptala al pedido y al negocio, sin copiar sus textos):\n${JSON.stringify(ejemploDePlantilla(p))}`,
+    ...pedido,
+  ].join('\n\n');
+  return entraEnGroq(CREAR_IA_SYSTEM_TEMPLATE, con) ? con : sin;
+}
+
+/**
+ * LA CUENTA DE GROQ, COPIADA de lib/ai-cheap.ts (es server-only: no se puede importar desde este módulo puro):
+ * `TECHO_ENTRADA.groq` y el divisor de `tokensAprox`. tests/flujo-ia.test.ts los lee de ese archivo y falla si cambian.
+ */
+export const TECHO_GROQ_IA = 7_000;
+export const CARACTERES_POR_TOKEN_IA = 3.5;
+/**
+ * La salida que pide un flujo de `TOPE_TARJETAS_IA` tarjetas (ver su comentario: ~58 tokens por tarjeta más ~1.850 de lo
+ * que piensa un modelo de razonamiento). Más que `SALIDA_MIN_IA` (3.000, que se midió para ~20).
+ */
+export const SALIDA_DEL_TOPE_IA = TOPE_TARJETAS_IA * 58 + 1_850;
+
+/** ¿Con este system y este user, a Groq le queda la salida que pide el tope de tarjetas? */
+export function entraEnGroq(system: string, user: string): boolean {
+  const prompt = Math.ceil(system.length / CARACTERES_POR_TOKEN_IA) + Math.ceil(user.length / CARACTERES_POR_TOKEN_IA);
+  return prompt + SALIDA_DEL_TOPE_IA <= TECHO_GROQ_IA;
+}
+
+// ── La plantilla de la categoría del pedido (undécima tanda, punto 10) ──────────────────────────
+
+/**
+ * LAS PALABRAS DE CADA CATEGORÍA, en el orden en que se miran (gana la primera): lo más específico antes («no vinieron» antes
+ * que «reunión»; «no pagó» antes que «compró»). Sólo las plantillas que «Crear con IA» puede armar: un CRON de etapa (o de
+ * etiqueta) y mensajes por WhatsApp o email. Los eventos de MaKo, Instagram, Messenger y el email entrante no: su CRON no
+ * se elige acá (`disparadoresParaIA`) y el modelo no escribe DMs. El texto se compara sin acentos ni mayúsculas.
+ */
+export const PALABRAS_PLANTILLA: ReadonlyArray<readonly [id: string, palabras: RegExp]> = [
+  ['email-newsletter', /suscri|newsletter|boletin/],
+  ['lead-confirmo-compra', /no (ha |han )?pag|falta (que )?pag|pago pendiente|confirm\w* (la )?compra/],
+  ['lead-no-asistio', /no (vino|vinieron|asistio|asistieron|se conecto|se conectaron|llego|llegaron|se presento|se presentaron)|falt\w* a la (reunion|llamada|cita)|no ?show|plant(o|aron)/],
+  ['lead-tuvo-reunion', /(tuvo|tuvieron|despues de) (la|su) (reunion|llamada)|no (compro|compraron|cerro|cerraron)|reactiv/],
+  ['cliente-empezo', /clientes?\b|compr(o|aron|a)\b|testimoni|alumn|onboarding|entrega/],
+  ['lead-entro', /dej\w* (sus |los )?datos|leads? nuevos?|nuevos? leads?|bienvenida|formulario|landing|no agend|lead frio|ultimo intento|(entra|entro|entran|llega|llegan) (un |los )?leads?|leads? (que )?(entra|entro|entran|llega|llegan)/],
+  ['lead-agendo', /agend|reserv|reunion|llamada|recordatori|cita/],
+];
+
+/** Sin acentos, sin mayúsculas, sin espacios de más. */
+const planoPedido = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** LA PLANTILLA DE LA CATEGORÍA MÁS CERCANA AL PEDIDO (`PALABRAS_PLANTILLA`), o null: sin coincidencia va el ejemplo de siempre. */
+export function plantillaParaPedido(pedido: string): PlantillaAutomatizacion | null {
+  const t = planoPedido(String(pedido ?? ''));
+  if (!t) return null;
+  for (const [id, rx] of PALABRAS_PLANTILLA) if (rx.test(t)) return PLANTILLAS.find((p) => p.id === id) ?? null;
+  return null;
+}
+
+/**
+ * LA PLANTILLA COMO EJEMPLO DEL MODELO, con el MISMO `aIA` de editar (la forma que el modelo escribe). Sin el AI Step: su
+ * forma («si_responde» con su "objetivo") la enseña el ejemplo del system, y la guía de cada escenario no tiene lugar en
+ * la forma del modelo.
+ */
+export function ejemploDePlantilla(p: PlantillaAutomatizacion): { nombre: string; inicio: string | string[] | null; tarjetas: Array<Record<string, unknown>> } {
+  const pasos = pasosDePlantilla(p).filter((x) => !esPasoIA(x));
+  const { inicio, tarjetas } = aIA(pasos, undefined, { compacto: true });
+  return { nombre: p.nombre, inicio: inicio.length > 1 ? inicio : inicio[0] ?? null, tarjetas };
 }
 
 /** El mensaje `user` para EDITAR: lo mismo, más el flujo actual con sus ids reales. */
@@ -1759,21 +1987,22 @@ const TARJETAS_Y_REGLAS = `LAS TARJETAS (no hay otras):
 - "esperar": "horas" o "dias". Con "antes_de_reunion": true, espera hasta ese tiempo antes de la reunión del lead.
 - "condicion": "ramas": [{"si": [filas], "sigue": id}] y "si_no" para lo demás. Gana la primera rama que se cumple.
 - "etiqueta": "poner" o "sacar" una etiqueta o varias (una lista), por su nombre.
-- "accion": "operacion" (una de ACCIONES) y "datos".
-- "si_responde": lo que pasa cuando el lead contesta. Una sola y sin padre: escucha desde que entra y pausa lo demás. "casos": [{"titulo", "cuando", "sigue"}] y "otra_cosa" para lo que no encaja.
+- "accion": "operacion" (una de ACCIONES) y "datos". "avisar_al_equipo" es el aviso al grupo del negocio: su "mensaje" lleva los datos que el equipo necesita.
+- "si_responde": lo que pasa cuando el lead contesta. Una sola y sin padre: escucha desde que entra y pausa lo demás. "objetivo": qué tiene que lograr la charla, en una frase. "casos": [{"titulo", "cuando", "sigue"}] y "otra_cosa" para lo que no encaja.
 
-FILAS: {"campo": "agendo"} · {"campo": "pago"} · {"campo": "etiqueta", "etiqueta": "<nombre>"} · {"campo": "etapa", "etapa": "<nombre>", "producto": "<nombre>"} · {"campo": "antiguedad", "horas": 72} (llegó hace menos de 72 horas) · {"campo": "ya_contactado"} · {"campo": "respondio"} (te escribió alguna vez) · {"campo": "tiene_telefono"} · {"campo": "tiene_email"}. Con "no": true se niegan.
+FILAS: {"campo": "agendo"} · {"campo": "pago"} · {"campo": "etiqueta", "etiqueta": "<nombre>"} · {"campo": "etapa", "etapa": "<nombre>", "producto": "<nombre>"} · {"campo": "antiguedad", "horas": 72} (llegó hace menos de 72 horas) · {"campo": "ya_contactado"} · {"campo": "respondio"} (te escribió alguna vez) · {"campo": "tiene_telefono"} · {"campo": "tiene_email"} · {"campo": "reunion_en", "op": "menor_igual", "valor": 720} (tiene una reunión en las próximas 720 h) · {"campo": "reunion_agendada"} · {"campo": "asistio_reunion"}. Con "no": true se niegan. Varias filas en una rama se cumplen todas: no pongas dos "condicion" seguidas.
 
 CÓMO SE CONECTAN: cada tarjeta tiene un "id" corto ("t1", "t2"…) y "sigue" dice cuál viene después. Si "sigue" es una lista, la primera es la que sigue y las demás arrancan A LA VEZ (por ejemplo, un camino por WhatsApp y otro por email). Cada tarjeta cuelga de un solo lugar y no hay saltos.
 
 REGLAS (el código las comprueba y saca lo que no cumpla):
 1. Usa SÓLO lo de las listas. Una etiqueta que no existe va por su nombre en "etiquetas_nuevas". Nunca inventes un id.
-2. En los textos, ni links, ni corchetes, ni llaves: un link va en "link", y sin LINKS no se promete. La única variable es {{nombre}}.
+2. En los textos, ni links ni corchetes: un link va en "link", y sin LINKS no se promete. Al lead: {{nombre}}, y los de su reunión ({{reunion_cuando}}, {{reunion_hora}}, {{reunion_faltan}}, {{reunion_link}}) sólo detrás de un "esperar" con "antes_de_reunion" o de una condición "reunion_en". En "avisar_al_equipo", además: {{nombre_completo}}, {{lead_telefono}}, {{lead_email}} y {{link_lead}}.
 3. Entre dos WhatsApp va un "esperar" de 20 horas o más, salvo que preparen una reunión.
 4. Debajo de "si_responde": sin "esperar", sin email y nada a la vez. Ahí un mensaje con "ia": true es una GUÍA para que MaKo conteste (sin días ni horarios: MaKo no ve la agenda; para agendar, el "link" de agenda); sin "ia", un texto fijo.
 5. Hasta ${TOPE_TARJETAS_IA} tarjetas, ${TOPE_PARALELOS} caminos a la vez por tarjeta, ${TOPE_RAMAS} ramas por condición y ${TOPE_FILAS} filas por rama.
 6. No inventes precios, cifras, plazos ni resultados que no estén en el negocio.
-7. Escribe con la GUÍA DE VOZ. Sin guía: español neutro, cercano y directo, con tú, aunque el negocio sea del Río de la Plata.`;
+7. Escribe con la GUÍA DE VOZ. Sin guía: español neutro, cercano y directo, con tú, aunque el negocio sea del Río de la Plata.
+8. Una automatización por categoría, completa: los recordatorios van con "antes_de_reunion", el aviso al equipo con "avisar_al_equipo" y lo que contesta en UN "si_responde" con varios casos. Entre dos "condicion" va un mensaje o un aviso.`;
 
 // ⚠️ EL EJEMPLO OBEDECE A LAS REGLAS QUE ENSEÑA (revisión, 09/10/2026). La guía de «Quiere agendar»
 // decía «Ofrécele dos horarios de esta semana»: justo lo que prohíbe la regla 4 (MaKo no ve la
@@ -1783,7 +2012,7 @@ REGLAS (el código las comprueba y saca lo que no cumpla):
 export const CREAR_IA_SYSTEM_TEMPLATE = `Armas AUTOMATIZACIONES de WhatsApp y email para un negocio: un flujo de tarjetas que arranca solo (el CRON) y les escribe a sus leads. Te paso el negocio, sus listas y el pedido del dueño. Devuelves el flujo como un objeto JSON.
 
 ${TARJETAS_Y_REGLAS}
-8. "nombre": hasta 40 caracteres. "disparador": una clave de DISPARADORES ("d1") o una lista de claves de la MISMA línea (["d7", "d8"]) si vale en varias etapas. «Etapa» = leads que todavía no compraron; «Entrega» = clientes que ya compraron. Si el pedido habla de un alumno (terminó una clase, un módulo), van TODAS las claves de «Entrega» de ese producto. "inicio": la primera tarjeta; si es una lista, cada una arranca un camino desde el CRON.
+9. "nombre": hasta 40 caracteres. "disparador": una clave de DISPARADORES ("d1") o una lista de claves de la MISMA línea (["d7", "d8"]) si vale en varias etapas. «Etapa» = leads que todavía no compraron; «Entrega» = clientes que ya compraron. Si el pedido habla de un alumno (terminó una clase, un módulo), van TODAS las claves de «Entrega» de ese producto. "inicio": la primera tarjeta; si es una lista, cada una arranca un camino desde el CRON.
 
 LA FORMA (un ejemplo; no copies sus textos):
 {"nombre": "Bienvenida a quien dejó sus datos", "disparador": "d1", "etiquetas_nuevas": ["Seguimiento"], "inicio": "t1", "tarjetas": [
@@ -1792,7 +2021,7 @@ LA FORMA (un ejemplo; no copies sus textos):
 {"id": "t3", "tipo": "condicion", "ramas": [{"si": [{"campo": "agendo"}], "sigue": "t4"}], "si_no": "t5"},
 {"id": "t4", "tipo": "accion", "operacion": "avisar_al_equipo", "datos": {"mensaje": "Agendó después de la bienvenida"}},
 {"id": "t5", "tipo": "etiqueta", "poner": "Seguimiento"},
-{"id": "r1", "tipo": "si_responde", "casos": [{"titulo": "Quiere agendar", "cuando": "Pide un horario o pregunta cómo agendar", "sigue": "r2"}], "otra_cosa": null},
+{"id": "r1", "tipo": "si_responde", "objetivo": "Que agende una llamada", "casos": [{"titulo": "Quiere agendar", "cuando": "Pide un horario o pregunta cómo agendar", "sigue": "r2"}], "otra_cosa": null},
 {"id": "r2", "tipo": "mensaje", "canal": "whatsapp", "ia": true, "texto": "Dile que con gusto hablan y pásale el link para que elija cuándo.", "link": "agenda"}
 ]}
 

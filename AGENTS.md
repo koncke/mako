@@ -293,6 +293,25 @@ catálogo o cualquier cosa que un test mire por su NOMBRE, corré `npm test` ant
 pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y la mayoría
 de los cambios no los necesita — pero los renombres, sí.
 
+# La guardia de RAM puede demorar o negar: no es un error, y no se esquiva
+
+El 11/10/2026 la app de Claude se colgó y murió con 7 chats adentro: RAM agotada, con un `next
+dev` HUÉRFANO de 8 GB (lo había lanzado una sesión en segundo plano y sobrevivió a ella). Desde
+entonces un hook (`~/.claude/guardia/memoria.mjs`) mira la RAM antes de un Workflow, un Agent o
+un comando pesado (tsc directo, `npm test`, builds, `npm ci`), y el lock del typecheck espera RAM
+además del turno. Lo que gobierna a cualquier agente:
+
+- **Si te demora o te niega, esperá y reintentá, o hacelo sin fan-out.** No es un error de tu
+  código, y **no se esquiva** reescribiendo el comando para que no lo reconozca: lo que protege
+  son los otros chats, que se caen todos juntos.
+- **Un `next dev` que lanzás en segundo plano lo APAGÁS al terminar.** Sobrevive a tu sesión y
+  nadie más sabe que es tuyo; hoy lo para un vigía recién a los 5 GB.
+- **Hasta 3 workflows a la vez en la máquina** (eran 2; Martín pidió trabajar más al límite el 12/10/2026). Antes de lanzar uno de muchos agentes, preguntá
+  si el trabajo lo necesita — con 7 chats abiertos, el tuyo no es el único.
+
+El detalle, y lo que hace cada pieza, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) →
+«Se cayó con 7 chats adentro y NO fue la GPU».
+
 # En un archivo `'use server'` SOLO se exportan funciones async
 
 Un `export const`, un `export type` con valor, un `export function` sincrónico: los tres
@@ -362,6 +381,17 @@ Reglas que salen de eso:
   línea que el compilador exigía. Antes de excluir un archivo tocado por los dos, `git
   diff <archivo>` y separá: `git checkout HEAD -- <archivo>`, reaplicá **solo tu hunk**,
   commiteá, y devolvé el contenido completo al working tree.
+- ⚠️ **Y tu hunk se reaplica por CONTENIDO, nunca con `git apply --unidiff-zero` de una
+  inserción pura.** Un hunk sin contexto y sin líneas `-` no tiene nada que verificar: cae por
+  número de línea, y ese número salió de `git diff` contra el ÍNDICE — que no es HEAD si otra
+  sesión tiene algo stageado en ese archivo. Medido el 11/10/2026 en `app/_components/nav.ts`:
+  la línea cayó 7 renglones más abajo, suelta entre dos familias de la barra, y `ADMIN_NAV`
+  (un `flatMap` que corre al cargar el módulo) tiraba «Cannot read properties of undefined» —
+  **la app entera rota**. Y el pre-push no lo vio, porque chequea los tipos del ÁRBOL DE TRABAJO,
+  donde la línea estaba bien. Lo cazó correr los tests en un worktree limpio antes de pushear.
+  Se arma el archivo desde `git show HEAD:<ruta>` insertando junto a una línea ancla única, y se
+  mete con `git hash-object -w` + `git update-index --cacheinfo`. Un hunk que reemplaza líneas
+  (con `-`) sí se puede aplicar sin contexto: si el `-` no coincide, falla en vez de caer mal.
 - ⚠️ **Y un `git status` encadenado con `&&` no frena nada.** Mirar el estado de una ruta antes de
   `git checkout <sha> -- <ruta>` es la regla, y en una sola línea no sirve: `status` sale con 0
   aunque la ruta esté modificada, así que el `checkout` corre igual y pisa el trabajo ajeno sin
@@ -1042,6 +1072,33 @@ del CONTEXTO, que para un cron que itera clientes es el dueño. Medido el 29/09/
 CLIENTE después — un aviso que el dueño tenía apagado moría para todos sus clientes, con el
 interruptor de cada uno decorativo para ese camino. No da error: el aviso no sale, que es
 indistinguible de «no pasó nada que avisar».
+
+# El remitente de un NEGOCIO nunca es MaKo, y lo que firma MaKo sale por la key de MaKo
+
+Decisión de Martín (11/10/2026): «Quítale a Mauricio que pueda mandar email con MaKo. Nadie debería poder.» El porqué
+y lo medido, en `docs/hallazgos-comunicacion.md` → «Undécima tanda».
+
+- **El remitente de un negocio sale de UNA puerta positiva**, `remitenteDelNegocio` (`lib/email-remitente.ts`), leída
+  por `remitenteDelNegocioActual` (`lib/resend.ts`): su dominio verificado o su propia cuenta de Resend, nunca un dominio
+  de MaKo ni el sandbox. Sin remitente propio, `sendEmail` se niega. No se agregan ramas «si es de MaKo» en una pantalla.
+- **«Habla MaKo» ⟺ `from === REMITENTE_MAKO`**, explícito en la llamada, y sale siempre por `keyDeLaPlataforma()`.
+- **Un preflight mide lo que se va a usar:** `getEmailFrom`/`emailConectado` para un mail del negocio,
+  `correoDeMakoListo()` para uno que firma MaKo.
+- **La key de la plataforma tiene dos copias** (la env y la fila del ws1): «es de la plataforma» se pregunta con
+  `esDeLaPlataforma`, que mira las dos.
+
+# La zona del negocio sale de UNA función, y no hay un segundo default
+
+El repo tuvo dos (Tijuana en las pantallas, Ciudad de México en el motor) y el ws1 recibió mensajes una hora antes de su
+horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, una lectura».
+
+- **Se lee con `zonaDelNegocio(ws)`** (o `zonaDeLoGuardado(valor)` si ya se leyó el setting en lote), y con
+  `zonaDelNegocioEstricta(ws)` cuando la zona DECIDE algo (una ventana, un período). Nunca `zona || 'America/…'` ni una
+  zona elegida según el destinatario: el default es UNO, `ZONA_POR_DEFECTO` (`lib/zona-negocio-reglas.ts`).
+- **Leer no escribe.** Averiguar la zona por las integraciones es otra función (`inferirZonaDesdeIntegraciones`), y
+  escribe una sola: `fijarZonaDelNegocio`, con su origen.
+- **Dos zonas se comparan después de `zonaCanonica`**: Cal.com y Chrome contestan alias (`America/Buenos_Aires`) y Node
+  24 devuelve el nombre viejo de ICU.
 
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
@@ -2077,6 +2134,29 @@ que nadie reviso.
 del campo contesta **«que pongo ACA»**, que es la pregunta de quien tiene el cursor
 adentro del input. Si los cuatro campos abren el mismo texto de 20 pasos, tres de esos
 cuatro estan contestando otra cosa.
+
+# Un cobro pasa por `lib/cobros.ts`, y la clave de una pasarela se lee con `credDelCliente`
+
+La pasarela de pagos (Stripe y Mercado Pago, 11/10/2026) tiene UN escritor de lo que importa: `lib/cobros.ts`
+crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve o cancela. El contrato está en
+[docs/diseno-pasarela-pagos.md](docs/diseno-pasarela-pagos.md); lo que costó, en
+[docs/hallazgos-planes-y-cobro.md](docs/hallazgos-planes-y-cobro.md) → «La pasarela». Lo que gobierna código nuevo:
+
+- **Un COBRO no es un PAGO.** `pagos` (lib/pagos.ts) son las CUOTAS del CRM y `pagoId` es una cuota; lo que se le
+  pide a una pasarela es un `cobro` (`cobroId`). Un camino nuevo que cobre algo crea un cobro con `crearCobro`, no
+  escribe `pagos` ni `estado_lead` a mano: la cuota la asienta `registrarCobroDeProveedor` (idempotente por el pago
+  del proveedor) y el lead se gana por `setPipelineStage` + `etapaDeGanado`. Si no, el CRM automático le escribe
+  «no agendaste» al que pagó.
+- **La clave de una pasarela se lee con `credDelCliente(clave, ws)`**, nunca `credWs`/`envCred`/`process.env`: esos
+  caen al ws1 (Mauricio, un cliente). La de MaKo es la del workspace `wsSuperAdmin()`, conectada desde
+  /integraciones como la de cualquiera. Y **ninguna clave `STRIPE_*`/`MERCADOPAGO_*` va al entorno de Vercel**
+  (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts).
+- **Lo que confirma la pasarela se RELEE al proveedor** con la clave del workspace ruteado antes de aplicarse: el
+  cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
+- **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
+  cliente que vende con su Stripe no crea inquilinos.
+- **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
+  valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
@@ -4263,6 +4343,12 @@ con eso la barra lateral de una pantalla se iba con el scroll. Medido a 1920x880
   igual que antes, **con el `position: sticky` puesto y sin un solo error**. Antes de
   escribirlo, caminá los ancestros hasta el primero con `overflow-y` en `auto`/`scroll` y
   preguntá si ÉSE es el que la persona scrollea.
+- ⚠️ **Y ese que scrollea tiene que TENER ALTO.** Un `overflow-y: auto` sin alto definido crece
+  con su contenido y no scrollea nunca: scrollea el documento y el sticky se va con la página.
+  En esta casa la trampa es `Pagina`: trae `flex: 1` (base 0%), que en la columna del layout
+  ANULA el `height: 100vh` que le pongas en el `style`. Una pantalla de alto completo va con
+  `flex: 'none'` + `height: '100dvh'` + `overflow: 'hidden'` (molde: `app/dashboard/page.tsx`).
+  Medido el 11/10/2026: tres asserts del sticky en verde y la barra en y = −1079.
 - **Y verificalo SCROLLEANDO.** Con `scrollY = 0` un sticky roto se ve igual que uno sano,
   asi que cualquier chequeo que no mueva la pagina da verde sobre algo roto. Esto se pago
   cinco veces seguidas sobre la misma pantalla.
@@ -7442,6 +7528,21 @@ mig 0228). Lo que eso exige al escribir código nuevo:
   «Próxima reunión en ≤ 720 h» después de CADA espera por tiempo, antes de lo que habla de la reunión.
   Y «Agendó» es «tiene una reunión cargada», pasada o futura: a quien faltó a una, también.
 
+**Y desde la undécima tanda (11/10/2026), un flujo se ARMA con las piezas que existen hoy, y nada se inventa.** Lo
+pidió Martín varias veces, con enojo («no quiero NADA fuera de lo que ya configuramos»):
+
+- **CRON = una etapa del embudo** (o un Evento de MaKo vigente, `EVENTOS_MAKO_OFRECIDOS`); **CONDITION = filas del
+  catálogo, VARIAS en una tarjeta**; nunca CONDITION → CONDITION ni CONDITION → DELAY → CONDITION, ni un CRON «(de
+  antes)», ni un dato que no se puede citar. `problemasDeForma` (`lib/flujo-forma.ts`) es la vara de la galería, de
+  «Crear con IA» y de todo script de datos.
+- **Un flujo por categoría:** los recordatorios son DELAY «antes de la reunión» dentro del mismo flujo (el carril del
+  motor) y el aviso al equipo es una tarjeta «MaKo en WhatsApp» dentro del mismo flujo. Las plantillas, igual.
+- **UN AI Step por medio y por objetivo** (`juntarPasosIA`); los casos son escenarios adentro, y objetivo, audio y
+  ejemplos viven en el NODO. Un campo que se muda del caso al nodo se SUBE en el saneo (`camposDelFlujo`), y se buscan
+  sus atajos (un `if (!c.audio) return null` antes de la regla pura la deja sin efecto).
+- **Lo de prod se REHACE con esas piezas por script** (simulacro, respaldo releído, compare-and-set); lo viejo se
+  archiva, nunca se borra. Qué dispara una fila lo dice `disparadoresDe(fila)`, nunca el jsonb crudo de `disparadores`.
+
 # Un TIPO DE NODO nuevo son CINCO puertas; un CAMPO del nodo es UNA rama
 
 Cuando a un paso del lienzo le falta una capacidad —que el mensaje lo escriba la IA, que
@@ -7509,6 +7610,14 @@ puestas.** No da error, y lo que se rompe es la única cosa que el editor promet
 - **Y lo que el motor no puede resolver, el selector no lo OFRECE** (ya es regla de la
   casa). Un token escrito a mano que llega literal al cliente es el mismo bug por la otra
   puerta.
+
+**Y desde la undécima tanda (11/10/2026) el catálogo de datos citables es UNO** (`lib/variables-aviso.ts`) **y el motor
+resuelve todo lo que el «{ }» ofrece.** Un dato que no se puede rastrear —`{{mensaje_mako}}`, un texto que arma el
+código— no se ofrece ni se publica: `problemasDeTokens` (`lib/tokens-del-flujo.ts`) frena en `setSecuenciaPasos` y en el
+lienzo, y el rojo del editor es la misma pregunta (`fueraDelContexto`). Un emisor nuevo pasa datos atómicos (`datos:`),
+nunca un texto armado. Todo envío resuelve con `textoConDatos`: un dato sin valor borra su renglón, así que **un dato
+opcional va en su propio renglón**. Y un token prohibido se busca con el regex del motor (con `\s*` entre las llaves),
+no con `tokensDe`.
 
 # Apoyar algo sobre el borde de un lienzo son CUATRO lugares, y el encuadre es el que no se ve
 
@@ -7605,3 +7714,22 @@ a todo lo que su matcher no exime —un `.json`, `.avif` o `.mp4` de `public/` i
 no por el status. Lo estático que se pide sin sesión se exime en el matcher por RUTA (`ve/`,
 `cono-tx/`); una ruta de PÁGINA no se exime nunca, porque el proxy es el único que valida el
 `?ws=`.
+
+# MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
+
+La app del teléfono vive en `app/m/` y se monta DENTRO del layout raíz (no hay route groups). Las decisiones
+están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md); lo que costó, en
+[docs/hallazgos-mobile.md](docs/hallazgos-mobile.md).
+
+- **«¿Es móvil?» se pregunta con `esRutaMovil` (`lib/movil-rutas.ts`), nunca con `startsWith('/m')`**: eso
+  atrapa /mako, /marketing y la ruta PÚBLICA /m.js del Pixel.
+- **Cada `page.tsx` de /m llama a `requireMovil` (`lib/movil-guard.ts`)**, nunca a `requireRolWs`/`requireCapa`:
+  esos redirigen a pantallas de escritorio y sacan a la persona de la app. Los layouts no se re-ejecutan al navegar.
+- **Qué destino ve cada rol sale de `lib/movil-rutas.ts`** (la misma regla del Sidebar: `rolesWs` + capa). Un destino
+  nuevo declara la key de `nav.ts` que refleja; no hay segunda tabla de permisos.
+- **Un link de escritorio que va al teléfono pasa por `rutaMovil`/`rutaMovilOHome`**, y uno que SALE (un push) por
+  `linkApp` — salvo al workspace de plataforma, que va sin `?ws=` (para un admin global es impersonación).
+- **Primitivas de `app/m/_ui`** (FilaM, SheetM, PantallaM, useToastM…), nunca `Pagina`, `Modal`, `Tooltip` ni
+  `.mk-btn--sm` (son de escritorio). Sólo `var(--token)`; el header es oscuro siempre (`black-translucent`).
+- **MaKo Mobile se prende con UN interruptor, `MOVIL_ACTIVO` (lib/movil-desvio.ts)**: el reparto de /inicio y el desvío de las pantallas de escritorio en un teléfono (<DesvioMovil>). Salió apagado
+  porque ninguna pantalla se pudo renderizar antes del deploy.

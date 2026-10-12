@@ -132,6 +132,10 @@ test('(2) una espera «antes de la reunión»: sin reunión cierra, ya pasada si
   assert.deepEqual(resolverControl(R, 0, { hechos: null, ahoraMs: AHORA, reunionMs: AHORA + 3 * HORA }), { tipo: 'esperar', idx: 1, proximoMs: AHORA + 2 * HORA, via: ['e1'], repartos: [] });
   assert.equal(minutosAntesDeReunion(R, 1), 60, 'el mensaje que cuelga de esa espera es un recordatorio');
   assert.equal(minutosAntesDeReunion(A, 4), null, 'una espera de tiempo no ancla nada');
+  // Undécima tanda (M3, el carril del recordatorio): con la reunión CON HORA en el contexto se ancla en ésa, y si
+  // la reunión sólo tiene fecha, `sin_hora` cierra ESE hilo (no la inscripción). Sin el campo, lo de siempre.
+  assert.equal(resolverControl(R, 0, { hechos: null, ahoraMs: AHORA, reunionMs: AHORA + 3 * HORA, reunionConHoraMs: null }).tipo, 'sin_hora');
+  assert.deepEqual(resolverControl(R, 0, { hechos: null, ahoraMs: AHORA, reunionMs: AHORA + 9 * HORA, reunionConHoraMs: AHORA + 3 * HORA }), { tipo: 'esperar', idx: 1, proximoMs: AHORA + 2 * HORA, via: ['e1'], repartos: [] });
 });
 
 test('(2) «Ir a»: otra automatización la termina; a una tarjeta salta; un bucle corta en el tope', () => {
@@ -214,12 +218,16 @@ test('(5) setSecuenciaPasos normaliza, VALIDA y rechaza con PasosInvalidosError;
   assert.match(g, /if \(esNodoDeControl\(flujo\)\) return \{ orden: i \+ 1, \.\.\.RELLENO_CONTROL, \.\.\.flujo \}/);
   assert.match(g, /\.\.\.flujo,\n/, 'los campos del flujo de un mensaje se pierden en el saneo');
   const valida = g.indexOf('const errores = validarGrafo(grafo);');
-  assert.ok(g.indexOf('const grafo = normalizar(limpio);') >= 0 && valida > 0, 'se guarda sin validar el flujo');
+  // AI Step v2 (décima tanda): entre normalizar y validar, la puerta para lo viejo. UNDÉCIMA: `juntarPasosIA` (UN AI
+  // Step por medio); el alias `separarPasosIA` se borró en la ola 4.
+  assert.ok(g.indexOf('const grafo = grafoAGuardar(limpio);') >= 0 && valida > 0, 'se guarda sin validar el flujo');
+  assert.match(fn(NUTRI, 'function grafoAGuardar('), /const junto = juntarPasosIA\(normalizar\(limpio\)\);\n\s+return normalizar\(/);
   assert.match(g, /if \(errores\.length\) throw new PasosInvalidosError\(/);
   assert.ok(valida < g.indexOf('.update({ pasos: grafo,'), 'la validación va ANTES de escribir');
   assert.match(NUTRI, /export class PasosInvalidosError extends Error/);
   const ruta = sinComentarios(leer('../app/api/whatsapp/secuencias/route.ts'));
-  assert.match(ruta, /if \(err instanceof PasosInvalidosError\) return Response\.json\(\{ ok: false, error: msg \}, \{ status: 400 \}\);/);
+  // Undécima tanda: con la tarjeta culpable cuando el error es de una (el lienzo la abre).
+  assert.match(ruta, /if \(err instanceof PasosInvalidosError\) return Response\.json\(\{ ok: false, error: msg, \.\.\.\(err\.tarjeta \? \{ tarjeta: err\.tarjeta \} : \{\}\) \}, \{ status: 400 \}\);/);
 });
 
 test('(5) las operaciones «por orden» de MaKo sólo tocan un flujo LINEAL', () => {
@@ -264,7 +272,9 @@ test('(6) un caso nuevo es una RAMA con su «MaKo contesta»; el mismo título l
   assert.ok('error' in agregarCasoAlGrafo(lleno, { titulo: 'otro', cuando: 'y', comoResponder: 'z' }));
   // Y el hand-off resuelto con una secuencia de tarjetas pasa por acá y por el guardado que valida.
   const h = sinComentarios(leer('../lib/chat-agent-handoff.ts'));
-  assert.match(h, /if \(raizRespuesta\(pasos\) != null\) \{[\s\S]{0,400}agregarCasoAlGrafo\(pasos, escenario\)[\s\S]{0,300}await setSecuenciaPasos\(h\.secuencia_id, r\.pasos\)/);
+  // Undécima tanda: sobre lo JUNTO (un AI Step por medio), como el preparar de la API. Probado rompiéndolo
+  // (wf-undecima/enchufador/roturas.cjs): `agregarCasoAlGrafo(pasos, …)` sin juntar → 20 / 1 (base 21 / 0).
+  assert.match(h, /if \(raizRespuesta\(pasos\) != null\) \{[\s\S]{0,700}agregarCasoAlGrafo\(juntarPasosIA\(pasos\)\.pasos, escenario\)[\s\S]{0,300}await setSecuenciaPasos\(h\.secuencia_id, r\.pasos\)/);
   assert.match(h, /linkApp\(`\/automations\?sec=\$\{input\.secuenciaId\}`, ws\)/, 'el aviso del hand-off sin link a la automatización');
 });
 
@@ -326,7 +336,8 @@ test('(7) un archivo de la biblioteca sale con su forma, y un documento nunca si
 
 test('(8) «Si responde» despacha a responderConGrafo, y «MaKo contesta» usa el MISMO redactor', () => {
   const asistir = fn(NUTRI, 'async function asistirRespuesta(');
-  const despacho = asistir.indexOf('if (raizRespuesta(secuencia.pasos) != null) return responderConGrafo(c);');
+  // AI Step v2 (décima tanda): contesta si escucha por el MEDIO del mensaje (`escuchaPor`: la expansión de ese medio).
+  const despacho = asistir.indexOf('if (escuchaPor(secuencia.pasos, medio)) return responderConGrafo(c, medio);');
   assert.ok(despacho > 0, 'una secuencia con «Si responde» cae al hand-off de antes');
   assert.ok(despacho < asistir.indexOf("update({ estado: 'handoff'"), 'el despacho va ANTES del hand-off');
   const grafo = fn(NUTRI, 'async function responderConGrafo(');
@@ -350,7 +361,9 @@ test('(8) la posición se escribe y se compara: el motor lee y guarda `nodo_actu
   const proc = fn(NUTRI, 'export async function procesarEnvios(');
   // (Segunda tanda, 08/10/2026: la cola lee también `hilos, hilos_rev` —mig 0228, ANTES del deploy—
   // y `proximo_envio_at`, que es el próximo del cursor cuando se convierte en el hilo principal.)
-  assert.match(proc, /\.select\('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev'\)/);
+  // (Undécima tanda, M4: y `estado` y `desenlace`, el compare-and-set de una 'respondio' con el carril del
+  // recordatorio vivo y cómo termina.)
+  assert.match(proc, /\.select\('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace'\)/);
   const mig0228 = leer('../supabase/migrations/0228_hilos_paralelos.sql');
   for (const col of ['hilos jsonb', 'hilos_rev integer not null default 0']) assert.ok(mig0228.includes(`add column if not exists ${col}`), `falta ${col} en la 0228`);
   assert.match(mig0228, /ANTES DEL DEPLOY/, 'la 0228 no dice en qué orden se aplica');
@@ -379,7 +392,11 @@ test('(9) avisar_al_equipo: la acción que usa «Otra cosa», por el canal de lo
   const i = run.indexOf('\n  avisar_al_equipo: {');
   const b = run.slice(i, run.indexOf('\n  },\n', i));
   assert.match(b, /ws: ctx\.ws,/, 'sin ws explícito el aviso cae al grupo de la agencia');
-  // Por lead, y por RESPUESTA cuando sale de «Si responde» (revisión del 08/10/2026).
-  assert.match(b, /dedupKey: respuesta \? `lead:\$\{lead\.id\}:resp:\$\{respuesta\}` : `lead:\$\{lead\.id\}`, dedupTtlMin: 60 \* 12,/, 'dos automatizaciones del mismo lead son dos avisos');
+  // Por lead, y por RESPUESTA cuando sale de «Si responde» (revisión del 08/10/2026). UNDÉCIMA TANDA: la forma del
+  // aviso la arma `armarAvisoDeTarjeta` (lib/mako-tarjeta.ts, del paquete de «MaKo en WhatsApp»): la de antes
+  // conserva este dedup; una tarjeta con `partes` sale tal cual (el reclamo del motor ya impide el doble envío).
+  assert.match(b, /\.\.\.armarAvisoDeTarjeta\(payload, \{/);
+  const tarjeta = sinComentarios(leer('../lib/mako-tarjeta.ts'));
+  assert.match(tarjeta, /dedupKey: respuesta \? `lead:\$\{lead\.id\}:resp:\$\{respuesta\}` : `lead:\$\{lead\.id\}`, dedupTtlMin: 60 \* 12,/, 'dos automatizaciones del mismo lead son dos avisos');
   assert.match(b, /linkApp\(`\/crm\/\$\{lead\.id\}`, ctx\.ws\)/);
 });

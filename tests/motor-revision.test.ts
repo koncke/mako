@@ -224,11 +224,20 @@ test('(8) el aviso de «Otra cosa» lleva el texto del lead, se deduplica por re
   const op = DEFS.find((d) => d.id === OP_AVISAR)!;
   const p = op.parametros.find((x) => x.nombre === 'respuesta');
   assert.ok(p && p.obligatorio !== true, 'avisar_al_equipo sin el parámetro opcional `respuesta`');
+  // Undécima tanda: el armado del aviso y la lectura de su resultado se mudaron a lib/mako-tarjeta.ts
+  // (armarAvisoDeTarjeta y resultadoDelAviso), que usa el runner de avisar_al_equipo.
+  const tarjeta = sinComentarios(leer('../lib/mako-tarjeta.ts'));
+  const ia = tarjeta.indexOf('export function armarAvisoDeTarjeta(');
+  const armar = tarjeta.slice(ia, tarjeta.indexOf('\n}\n', ia));
+  assert.match(armar, /\.\.\.\(respuesta \? \['', `_"\$\{respuesta\.slice\(0, 400\)\}"_`\] : \[\]\),/, 'el aviso no dice qué escribió el lead');
+  const ir = tarjeta.indexOf('export function resultadoDelAviso(');
+  const resultado = tarjeta.slice(ir, tarjeta.indexOf('\n}\n', ir));
+  assert.match(resultado, /if \(r\.deduped\) return \{ ok: true, resumen: `\$\{AVISO_REPETIDO\}/);
   const run = sinComentarios(leer('../lib/api-mako/areas/chatbot.run.ts'));
   const i = run.indexOf('\n  avisar_al_equipo: {');
   const b = run.slice(i, run.indexOf('\n  },\n', i));
-  assert.match(b, /\.\.\.\(respuesta \? \['', `_"\$\{respuesta\.slice\(0, 400\)\}"_`\] : \[\]\),/, 'el aviso no dice qué escribió el lead');
-  assert.match(b, /if \(r\.deduped\) return \{ ok: true, resumen: `\$\{AVISO_REPETIDO\}/);
+  assert.match(b, /armarAvisoDeTarjeta\(/, 'el runner no arma el aviso con armarAvisoDeTarjeta');
+  assert.match(b, /resultadoDelAviso\(/, 'el runner no lee el resultado con resultadoDelAviso');
   // El motor: le pasa el texto, y marca el aviso con lo que DEVOLVIÓ, no antes de correrlo.
   const accion = fn(NUTRI, 'async function correrAccionDeRespuesta(');
   // Segunda tanda: el campo sale de LLENA_EL_FLUJO (la lista que el editor esconde), no de un

@@ -161,7 +161,9 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // (26/09/2026) sacarlos de esta capa habría sido quitarle una pantalla a quien la
     // usaba, sin que nadie lo pidiera. Un Project Manager es justamente el que mira
     // cuánto se produjo.
-    navKeys: ['todo', 'mako', 'productivity-analyst'],
+    // ⚠️ Y `graphics` desde el 11/10/2026: Productivity Analyst salió de la sidebar y es una plantilla
+    // del Dashboard (su ruta redirige ahí); sin la tab, el Project Manager se quedaba sin nada.
+    navKeys: ['todo', 'mako', 'productivity-analyst', 'graphics'],
     // Sin /integraciones: no tiene nada que conectar y la tab sería una lista de
     // rojos que le hace creer que le falta algo. Sin /contexto (es de agencia).
     userNavKeys: ['perfil', 'configuraciones'],
@@ -277,7 +279,11 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // afuera de la única capa que administra el producto era la última pieza del bug que
     // hacía que Customer Success fuera «la tab de Mauricio»: sin esto, el super-admin sólo
     // podía verla ENTRANDO al workspace de un cliente, o sea mirando la cartera de otro.
-    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst'],
+    // ⚠️ `video-editor` ENTRA ACÁ EL 12/10/2026 porque es `adminOnly` hasta que Martín lo
+    // valide, y el Sidebar muestra lo `adminOnly` sólo al super admin SIN impersonar
+    // (`adminShell`), o sea en ESTE workspace. Sin esta key, la tab no aparecía en ningún
+    // lado: adentro de un cliente la esconde el Sidebar, y acá la rebotaba `requireCapa`.
+    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.
     onboarding: [],

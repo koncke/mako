@@ -12,9 +12,14 @@
 import 'server-only';
 import { verificarFirmaSvix } from './standard-webhooks';
 import crypto from 'node:crypto';
-import { credWs, envCred } from './credenciales';
-import { getSetting } from './settings';
-import { APP_BASE_URL } from './app-url';
+import { credWs, credDelCliente, envCred, esDeLaPlataforma } from './credenciales';
+import { getSettingEstricto } from './settings';
+import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
+import { getWorkspaceActual, wsSuperAdmin } from './workspace';
+import {
+  remitenteDelNegocio, remitenteDelPaso, sanearRemitente, dominioDe, esDominioDeMako, SIN_EMAIL_PROPIO,
+  type VeredictoRemitente,
+} from './email-remitente';
 
 const API_BASE = 'https://api.resend.com';
 const ENDPOINT = `${API_BASE}/emails`;
@@ -26,7 +31,7 @@ const ENDPOINT = `${API_BASE}/emails`;
 // bandeja de «Probar» (app/automations/PanelProbar.tsx, `remitenteVisible`) le mostraba «De: Mauricio
 // Bustos» a otro negocio, y la firma de sus mails decía lo mismo hasta que dejó de salir del
 // remitente. Sin nombre, quien lo dibuja cae al nombre del negocio. Lo fija tests/email-remitente.test.ts.
-const SANDBOX_FROM = 'onboarding@resend.dev';
+export const SANDBOX_FROM = 'onboarding@resend.dev';
 
 // ── Config por workspace (Opción A: cuenta única de MaKo) ────────────────────
 // La API key es LA DE MAKO (env global) para todos los workspaces — cada cliente
@@ -48,13 +53,59 @@ async function resendKey(): Promise<string | null> {
   return compartida && compartida.trim() ? compartida : null;
 }
 
-/** Remitente del workspace actual: setting resend_from → credencial → sandbox. */
+/**
+ * La key de la PLATAFORMA, siempre: la de lo que HABLA MaKo (`from: REMITENTE_MAKO`).
+ *
+ * ⚠️ NO `resendKey()` (undécima tanda, 11/10/2026): ésa empieza por la key PROPIA del workspace del contexto, así
+ *    que adentro de un negocio con su cuenta de Resend (ws10, ws11) un aviso de MaKo salía por la cuenta del
+ *    CLIENTE, donde hola-mako.com no existe, y Resend lo rechazaba (PLAUSIBLE: no se mandó nada para probarlo).
+ *    Hoy la key de la plataforma vive en la fila del ws1 y el boot la hidrata a process.env (lib/credenciales.ts).
+ */
+async function keyDeLaPlataforma(): Promise<string | null> {
+  const k = await envCred('RESEND_API_KEY');
+  return k && k.trim() ? k : null;
+}
+
+/**
+ * EL REMITENTE DEL NEGOCIO del workspace actual, con su veredicto (`remitenteDelNegocio`, lib/email-remitente.ts,
+ * puro y con test). Lee el setting `resend_from` y `resend_domain` del workspace, y la credencial `RESEND_FROM`
+ * DEL CLIENTE (`credDelCliente`: `credWs` le daría al ws1 —`OWNER_WS`, un CLIENTE— el del env de la plataforma).
+ *   · `keyPropia`: su `RESEND_API_KEY` cargada Y distinta de la de la plataforma (`esDeLaPlataforma` mira el env Y la
+ *     fila del dueño: la del ws1 es la de la plataforma y la del ws4 una copia).
+ *   · `plataforma`: sólo se pregunta si el candidato es de un dominio de MaKo.
+ * ⚠️ UN ERROR DE LECTURA = NO PUEDE: «no pude leer» no es «tiene remitente», y un mail que no sale se dice;
+ *    uno que sale con el remitente equivocado, no.
+ */
+export async function remitenteDelNegocioActual(): Promise<VeredictoRemitente> {
+  try {
+    const [resendFrom, resendDominio, credFrom] = await Promise.all([
+      getSettingEstricto('resend_from'),
+      getSettingEstricto('resend_domain'),
+      credDelCliente('RESEND_FROM'), // la fila del workspace; nunca el env de la plataforma
+    ]);
+    const conCred = !!credFrom && credFrom.trim() !== '';
+    const keyCliente = conCred ? await credDelCliente('RESEND_API_KEY') : null;
+    const keyPropia = !!keyCliente && !(await esDeLaPlataforma('RESEND_API_KEY', keyCliente));
+    const candidato = sanearRemitente(resendFrom);
+    const plataforma = candidato && esDominioDeMako(dominioDe(candidato)) ? await enLaPlataforma() : false;
+    return remitenteDelNegocio({ resendFrom, resendDominio, credFrom, keyPropia, plataforma });
+  } catch (e) {
+    console.error('[resend] no pude leer el remitente del negocio:', e instanceof Error ? e.message : String(e));
+    return { puede: false, motivo: 'sin-remitente' };
+  }
+}
+
+/**
+ * Remitente del workspace actual: el que pasa `remitenteDelNegocio`, o el SANDBOX si no hay ninguno.
+ *
+ * ⚠️ DEVOLVER EL SANDBOX ES LA REGLA, no un default (undécima tanda): todo lo que pregunta `remitenteEsSandbox()`
+ *    —el motor, los broadcasts, «Probar», las secuencias de antes, la API, /integraciones, el «De» del editor, GET
+ *    /api/email/dominio— pasa a leer «no tiene remitente propio» SIN tocar sus llamadas. Antes devolvía el setting
+ *    tal cual, y el ws1 —un cliente— tenía «MaKo <equipo@hola-mako.com>».
+ */
 export async function getEmailFrom(): Promise<string> {
-  const setting = await getSetting('resend_from');
-  if (setting && setting.trim()) return setting.trim();
-  const cred = await credWs('RESEND_FROM'); // dueño → env RESEND_FROM; cliente → su fila
-  if (cred && cred.trim()) return cred.trim();
-  return SANDBOX_FROM;
+  const v = await remitenteDelNegocioActual();
+  return v.puede ? v.from : SANDBOX_FROM;
 }
 
 export async function resendConfigurado(): Promise<boolean> {
@@ -62,15 +113,39 @@ export async function resendConfigurado(): Promise<boolean> {
 }
 
 // true si el remitente del workspace sigue siendo el sandbox (resend.dev), que
-// NO entrega a terceros. Sirve de preflight antes de un envío real.
+// NO entrega a terceros. Sirve de preflight antes de un envío real. Desde la undécima,
+// «sandbox» = «el negocio no tiene remitente propio» (`getEmailFrom`).
 export async function remitenteEsSandbox(): Promise<boolean> {
   return /@resend\.dev>?\s*$/i.test(await getEmailFrom());
 }
 
-/** Email "conectado" para este workspace: hay key y el remitente no es sandbox. */
+/**
+ * ¿El workspace del CONTEXTO es el de la plataforma (el del super admin)? Es el único que puede mandar a SUS
+ * leads con un dominio de MaKo, y sólo si lo reclamó en /email. Si no se puede saber (sin contexto, la base
+ * caída), NO lo es: lo que se cierra es el email de MaKo, nunca el del negocio.
+ */
+async function enLaPlataforma(): Promise<boolean> {
+  try {
+    const [ws, plataforma] = await Promise.all([getWorkspaceActual(), wsSuperAdmin()]);
+    return ws != null && ws === plataforma;
+  } catch {
+    return false;
+  }
+}
+
+/** Email "conectado" para este workspace: hay key y el negocio tiene un remitente propio (`remitenteDelNegocio`). */
 export async function emailConectado(): Promise<boolean> {
-  const [key, sandbox] = await Promise.all([resendKey(), remitenteEsSandbox()]);
-  return !!key && !sandbox;
+  const [key, v] = await Promise.all([resendKey(), remitenteDelNegocioActual()]);
+  return !!key && v.puede;
+}
+
+/**
+ * ¿Lo que HABLA MaKo puede salir? La key de la plataforma y `EMAIL_MAKO` fuera del sandbox. Es el preflight de
+ * quien manda con `from: REMITENTE_MAKO` (el «te compartieron material» de /conocimientos): preguntar
+ * `remitenteEsSandbox()` mide el remitente de un NEGOCIO, que no es el que va a firmar.
+ */
+export async function correoDeMakoListo(): Promise<boolean> {
+  return !!(await keyDeLaPlataforma()) && !/@resend\.dev$/i.test(EMAIL_MAKO);
 }
 
 /** Display name de un remitente "Nombre <email>" (o '' si no tiene). */
@@ -123,11 +198,29 @@ export type SendEmailParams = {
 // Envía un email por Resend. NO chequea el flag de envío del workspace — eso lo
 // decide el caller (el motor de nutrición / broadcasts), igual que sendWhatsappTemplate.
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
-  const key = await resendKey();
+  // ⚠️ DOS IDENTIDADES, Y SE RECONOCEN SÓLO POR LA CONSTANTE (undécima tanda, decisión 3 de la décima: «Quitale a
+  // Mauricio que pueda mandar email con MaKo. Nadie debería poder.»):
+  //   · HABLA MaKo (`from: REMITENTE_MAKO`: los avisos, los reportes, el acceso a MaKo): sale por la key de la
+  //     PLATAFORMA, nunca por la del workspace del contexto (en ws10/ws11 era la cuenta del cliente).
+  //   · HABLA EL NEGOCIO (todo lo demás): sale SÓLO con un remitente que pasa `remitenteDelNegocio`. Sin él no
+  //     sale, tampoco con el sandbox (decisión 24). Con `from`, sólo si es del mismo dominio (`remitenteDelPaso`):
+  //     el corte de la décima miraba sólo lo que llegaba SIN `from`, y un `from` explícito se lo salteaba.
+  const hablaMako = params.from === REMITENTE_MAKO;
+  const key = hablaMako ? await keyDeLaPlataforma() : await resendKey();
   if (!key) return { ok: false, error: 'RESEND_API_KEY no configurada' };
 
+  let from: string;
+  if (hablaMako) from = REMITENTE_MAKO;
+  else {
+    const v = await remitenteDelNegocioActual();
+    if (!v.puede) return { ok: false, error: SIN_EMAIL_PROPIO };
+    const elegido = params.from ? remitenteDelPaso(params.from, v.from) : v.from;
+    if (!elegido) return { ok: false, error: 'Ese remitente no es de tu negocio' };
+    from = elegido;
+  }
+
   const payload: Record<string, unknown> = {
-    from: params.from || (await getEmailFrom()),
+    from,
     to: params.to,
     subject: params.subject,
     html: params.html,

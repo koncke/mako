@@ -10,7 +10,10 @@
 
 import 'server-only';
 import { CALCOM_API, calcomHeaders } from './calcom';
+import { errorDeMercadoPago, errorDeStripe, factsDeMercadoPago, factsDeStripe } from './cobros-conexion';
 import { credWs } from './credenciales';
+import { leerCuentaMp } from './mercadopago-api';
+import { leerCuentaStripe } from './stripe-api';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
@@ -474,6 +477,40 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
       ? { k: 'Reservas en vivo', v: 'Listas, cuando pegues la dirección en Cal.com', c: 'var(--good)' }
       : { k: 'Reservas en vivo', v: 'Falta el secret del webhook', c: 'var(--warn)' });
     return { ok: true, detalle: quien ? `Conectado como ${quien}.` : 'API key válida.', facts };
+  },
+
+  // ── La pasarela de pagos (11/10/2026) ──────────────────────────────────────
+  // Le pegan al proveedor DE VERDAD (GET /v1/account, GET /users/me) y leen el estado en el
+  // cuerpo, no sólo el status. Los textos de error y los facts viven en lib/cobros-conexion.ts,
+  // que es lo que corre al guardar la clave: el tilde y el descubrimiento dicen lo mismo.
+  //
+  // ⚠️ Este ping NO corre al pegar la clave: el formulario la manda directo al descubrimiento,
+  // porque con los campos derivados todavía vacíos `verificarServicio` contestaría «Falta
+  // completar» y el tilde genérico la guardaría SIN probar. Corre al probar una conexión ya
+  // hecha (el enchufe de la fila, la API de MaKo) y al guardar la clave del aviso de Mercado Pago.
+  async stripe(v) {
+    const r = await leerCuentaStripe(v.STRIPE_SECRET_KEY);
+    if (!r.ok) return { ok: false, error: errorDeStripe(r, v.STRIPE_SECRET_KEY) };
+    // La clave de OTRA cuenta con el ruteo de esta: los links se crearían en una cuenta y sus
+    // avisos llegarían a nombre de otra. Se cambia de cuenta quitando la clave y pegando la nueva.
+    if (v.STRIPE_ACCOUNT_ID && r.id !== v.STRIPE_ACCOUNT_ID) {
+      return { ok: false, error: 'Esa clave es de otra cuenta de Stripe. Para cambiar de cuenta, quita la clave guardada y pega la nueva.' };
+    }
+    const facts = factsDeStripe(r, !!v.STRIPE_WEBHOOK_SECRET);
+    const modo = r.modo === 'prueba' ? ' (modo prueba)' : '';
+    return { ok: true, detalle: r.cobrosHabilitados ? `Conectada a tu cuenta de Stripe${modo}.` : `Clave válida${modo}, pero tu cuenta todavía no puede cobrar: termina de activarla en Stripe.`, facts };
+  },
+
+  async mercadopago(v) {
+    const r = await leerCuentaMp(v.MERCADOPAGO_ACCESS_TOKEN);
+    if (!r.ok) return { ok: false, error: errorDeMercadoPago(r) };
+    if (v.MERCADOPAGO_USER_ID && r.id !== v.MERCADOPAGO_USER_ID) {
+      return { ok: false, error: 'Ese access token es de otra cuenta de Mercado Pago. Para cambiar de cuenta, quita el token guardado y pega el nuevo.' };
+    }
+    // La clave del aviso NO se puede comprobar contra nadie (sólo existe en el panel de Mercado
+    // Pago y no hay API que la devuelva): como el secret de Cal.com, se dice que está, no que anda.
+    const facts = factsDeMercadoPago(r, !!v.MERCADOPAGO_WEBHOOK_SECRET);
+    return { ok: true, detalle: `Conectada a tu cuenta de Mercado Pago${r.modo === 'prueba' ? ' (modo prueba)' : ''}.`, facts };
   },
 
   // google: NO tiene ping. Salió del catálogo (es la app OAuth de la agencia,

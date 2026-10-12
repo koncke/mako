@@ -496,3 +496,17 @@ test('CABLEADO: Publicar y Activar rechazan, con el CRON del recordatorio, lo qu
   assert.match(nut, /if \(\(previo as \{ trigger_tipo\?: string \} \| null\)\?\.trigger_tipo === TRIGGER_RECORDATORIO\) \{\s*const r = toquesDeLaAutomatizacion\(grafo\);\s*if \(r\.problema\) throw new PasosInvalidosError/);
   assert.match(sinComentarios(leer('lib/recordatorio-lead.ts')), /const malas = variablesDesconocidas\(t\);/);
 });
+
+// Undécima tanda (11/10/2026): «cuánto falta» es también el dato `{{reunion_faltan}}` del «{ }» y vive al lado de
+// `cuandoEs` y `horaDe` (lib/curso-mensajes-texto.ts). El recordatorio lo re-exporta: UNA función, no dos copias que
+// se separan. Y el link de la próxima reunión pasa por la MISMA limpieza que el del recordatorio.
+// PROBADO ROMPIÉNDOLO (arnés w1-datos-catalogo/romper.mjs, R22, restaurado con md5): una copia propia de
+// `faltanTexto` en lib/recordatorio-lead.ts → 34 / 1 (base 35 / 0).
+test('«cuánto falta» es UNA función (la del dato y la del recordatorio), y el link pasa por la misma limpieza', async () => {
+  const texto = await import('../lib/curso-mensajes-texto');
+  const rec = await import('../lib/recordatorio-lead');
+  assert.equal(rec.faltanTexto, texto.faltanTexto, 'el recordatorio tiene su propia copia de «cuánto falta»');
+  assert.equal(rec.limpiarLink(' https://meet.google.com/abc '), 'https://meet.google.com/abc');
+  assert.equal(rec.limpiarLink('http://meet.google.com/abc'), null);
+  assert.equal(rec.limpiarLink('javascript:alert(1)'), null);
+});

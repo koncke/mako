@@ -22,11 +22,11 @@
 //     (`parsearSecciones`), que es 'use client': importarlo desde el server da una
 //     referencia de cliente, no la función. Se replicó la regla mínima (línea sola
 //     en MAYÚSCULA = rótulo), acotada a los rótulos de la estructura cuando se conoce.
-//  3. EL DÍA DE UN GUION EN LA ZONA DEL NEGOCIO sin escribir. `tzDeWorkspace` GUARDA la
-//     zona la primera vez que la averigua (sale a Cal.com / Google): una lectura no
-//     puede escribir, así que se lee la clave tal cual y, sin zona fijada, se usa la
-//     default. `fechaGuion`/`diaGuion` de lib/guion-estado.ts usan la zona del PROCESO
-//     (UTC en Vercel), que corre un guion de la noche al día siguiente.
+//  3. EL DÍA DE UN GUION EN LA ZONA DEL NEGOCIO, con LA lectura de la zona
+//     (`zonaDelNegocioDetalle`, lib/timezone.ts: no sale a la red ni escribe). Hasta el
+//     11/10/2026 se leía la clave a mano porque `tzDeWorkspace` la averiguaba y la guardaba.
+//     `fechaGuion`/`diaGuion` de lib/guion-estado.ts usan la zona del PROCESO (UTC en
+//     Vercel), que corre un guion de la noche al día siguiente.
 //  4. LEER LA MATRIZ SIN CONFUNDIR «NO PUDE LEER» CON «NO HAY». getRazones lee con
 //     getSetting, que convierte un error de Supabase en null, y null en []: una lectura
 //     caída se reportaba como «el negocio no tiene anuncios». Aquí se lee con
@@ -43,8 +43,9 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { getRazones, sugerirGuion, generarGuion, type GuionItem, type RazonCelda } from '@/lib/razones';
 import { elegirAngulo, formatoPorId } from '@/lib/angulos-formatos';
-import { getSetting, getSettingEstricto } from '@/lib/settings';
-import { KEY_TIMEZONE, TZ_DEFAULT, esTzValida } from '@/lib/timezone';
+import { getSettingEstricto } from '@/lib/settings';
+import { TZ_DEFAULT, zonaDelNegocioDetalle } from '@/lib/timezone';
+import { getWorkspaceActual } from '@/lib/workspace';
 
 // ── 4 y 5. La matriz, leída en estricto ──────────────────────────────────────
 
@@ -207,13 +208,16 @@ export function bloquesDeGuion(texto: string, etiquetas: readonly string[] = [])
 
 // ── 3. La zona del negocio, sin escribir ─────────────────────────────────────
 
-/** La zona FIJADA del workspace en curso, o la default. Nunca sale a la red ni guarda. */
+/** La zona del negocio en curso (`fijada` = guardada), o la default. Nunca sale a la red ni guarda. */
 export async function tzSinResolver(): Promise<{ tz: string; fijada: boolean }> {
   try {
-    const tz = await getSetting(KEY_TIMEZONE);
-    if (tz && esTzValida(tz)) return { tz, fijada: true };
-  } catch { /* cae a la default */ }
-  return { tz: TZ_DEFAULT, fijada: false };
+    const ws = await getWorkspaceActual();
+    if (ws == null) return { tz: TZ_DEFAULT, fijada: false };
+    const d = await zonaDelNegocioDetalle(ws);
+    return { tz: d.tz, fijada: d.guardada };
+  } catch {
+    return { tz: TZ_DEFAULT, fijada: false };
+  }
 }
 
 /** 'YYYY-MM-DD' de un epoch ms en una zona. '' para 0 (guion sin fecha). */

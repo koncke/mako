@@ -218,8 +218,10 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       const lead = await requireLead(input);
       // Sin Google Calendar: esto lo lee un modelo (lib/agenda-sin-ia.ts).
       const r = await buscarReunionesAutomatico(lead, { conGoogle: false }).catch(() => null);
-      // Llamadas analizadas por Closing Analyst → su recording_id sirve para el deep
-      // link /closing?call=<id> (MaKo puede mandar el link al análisis completo).
+      // Llamadas analizadas por el análisis de cierres → su recording_id sirve para el deep
+      // link /dashboard?hoja=closing&llamada=<id>, la ficha de esa llamada en la hoja Closing
+      // del Dashboard (MaKo puede mandar el link al análisis completo). La ruta vieja,
+      // /closing?call=<id>, redirige ahí.
       let analisis: Array<Record<string, unknown>> = [];
       try {
         const db = await getTenantDb();

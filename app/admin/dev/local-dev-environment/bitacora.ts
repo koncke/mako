@@ -36,7 +36,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Las copias que se generan, no se escriben', detalle: 'Las skills son .md y no pueden importar: `sync-contrato-detalle`, `sync-gramatica-doc` y `generar-plugin` las escriben desde el módulo vivo, y el pre-push falla si quedaron viejas', estado: 'hecha' },
   { titulo: 'Las trampas de la herramienta de búsqueda', detalle: 'Reescribe `/` como `\\` en el contenido que devuelve, y declara BINARIO cualquier archivo con un byte NUL · las dos ya produjeron un diagnóstico entero sobre texto que no existe', estado: 'hecha' },
   { titulo: 'Probar una interacción de verdad', detalle: '`next dev` NO hidrata en este proyecto; `next build` + `next start` sí · la receta está escrita, la causa raíz no · y la URL es `localhost`, nunca `127.0.0.1`', estado: 'sigue' },
-  { titulo: 'La máquina: Claude Code se cierra solo', detalle: 'Bug de la app con ~10 issues abiertos, disparado por el navegador embebido (7 de 7 a menos de 41 s) · no hay cura, solo el paliativo de no abrirlo', estado: 'sigue' },
+  { titulo: 'La máquina: Claude Code se cierra solo', detalle: 'Bug de la app con ~10 issues abiertos, disparado por el navegador embebido (7 de 7 a menos de 41 s) · no hay cura, solo el paliativo de no abrirlo · y desde el 11/10 la otra causa, RAM agotada, tiene guardia: frena lo pesado, mata la fuga y los chats cortados se retoman solos', estado: 'sigue' },
   { titulo: 'Un entorno que no sea producción', detalle: 'El `.env.local` apunta a la base real y el boot le ESCRIBE la hidratación env→base · no hay staging ni base de desarrollo: toda prueba que salga hacia afuera va al mail y al teléfono del dueño', estado: 'cola' },
   { titulo: 'El pre-push no se versiona', detalle: 'Vive en `.git/hooks`, así que un reclon lo borra en silencio y el único chequeo de tipos desaparece sin avisar · y no corre `npm test`, que hay que acordarse a mano', estado: 'cola' },
 ];
@@ -468,6 +468,25 @@ export const BITACORA: Hito[] = [
       'scripts/claude-hooks/ — la copia versionada del hook y del bloque de settings.json',
       'AGENTS.md — el aviso del corte pasa a ser automático, y la orden se cumple antes de seguir',
       '~/.claude/bitacora-sesion.sh — la acción `turno`',
+    ],
+  },
+  {
+    fecha: '11 oct', hora: '05:13', chat: 'Crash prevention con múltiples instancias', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que no se vuelva a caer con muchos chats, y si se cae, que todos sigan solos',
+    pedido: 'Recién se creasheó Claude porque tengo muchos ejecutandose... Asegurate de que no pase, y si llegase a pasar, asegurate de enviarle la instruccion a todos que continuen',
+    puntos: [
+      '⚠️ **No fue el bug de la GPU.** El log se corta sin `GPU process gone` ni `beforeQuitForUpdate`, con `memory pressure (critical)`, y el relanzamiento de las 05:08 dice `Not main instance`: la app quedó COLGADA paginando, no murió de golpe.',
+      '**La causa: un `next dev` huérfano con 8,1 GB de memoria privada**, que una sesión había lanzado en segundo plano y sobrevivió a ella. El log de la app no lo ve (ya no estaba en su árbol). Matarlo llevó la RAM disponible de 0,55 a 5,16 GB.',
+      'Quedó una guardia en `~/.claude/guardia/` que corre en todos los chats sin reiniciarlos: frena workflows, agentes y comandos pesados mientras no haya RAM (y hasta 2 workflows a la vez), un vigía que mata la fuga o lo más grande en zona roja, y el lock del typecheck espera RAM además del turno.',
+      '**El relevo:** si la app se cae, el primer chat que se levanta (la app reabre sola dos) despierta solo y les manda «retomá» a los que quedaron cortados. Probado contra esta caída: marca exactamente los 6 chats a los que Martín les escribió «Continua». Lo que falta probar de punta a punta es el despertar solo, que necesita otra caída; escribir en cualquier chat dispara lo mismo.',
+    ],
+    archivos: [
+      'scripts/claude-hooks/guardia/memoria.mjs — la guardia de RAM (hook PreToolUse)',
+      'scripts/claude-hooks/guardia/vigia.ps1 + instalar-vigia.ps1 — el vigía, como tarea programada con prioridad 3',
+      'scripts/claude-hooks/guardia/relevo.mjs — el relevo tras una caída (SessionStart con asyncRewake + UserPromptSubmit)',
+      'scripts/typecheck-lock.mjs — espera RAM con el turno tomado',
+      'docs/hallazgos-infra.md → «Se cayó con 7 chats adentro y NO fue la GPU»',
     ],
   },
 ];

@@ -22,6 +22,10 @@
 //   · volver el link de la ayuda abajo de los pasos → 1 fallo
 //   · devolver el `<IconBtn name="help"` a la barra del campo → 1 fallo
 //   · aceptar cualquier dominio en `problemaDelRemitente` → 2 fallos
+// Undécima tanda (11/10/2026, arnés `romper.mjs` de wf-undecima/w1-email, base 49/0 entre los cuatro archivos del
+// paquete de email):
+//   · el ping deja pasar el dominio de MaKo (sin `esDominioDeMako(dom)`) → 47/2 (el ping acá; las rutas)
+//   · la tarjeta de /integraciones vuelve a la rama del sandbox          → 47/2 (la tarjeta acá; decima-remitente-mako)
 // =============================================================================
 
 import { test } from 'node:test';
@@ -29,6 +33,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { problemaDelRemitente } from '../lib/resend-remitente';
+import { NO_ES_TUYO } from '../lib/email-remitente';
 
 const leer = (rel: string) => readFileSync(resolve(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas de comentario primero y los bloques después (un `/*` adentro de un `//` abriría un
@@ -106,10 +111,21 @@ test('el semáforo pinta «falta» ANTES de llegar a «opcional»', () => {
   assert.ok(opcional > falta, 'la rama de `sinEsto` tiene que ir antes que la de «opcional»');
 });
 
-test('la tarjeta de Email no dice «Conectada» con el remitente en el sandbox', () => {
+test('la tarjeta de Email no dice «Conectada» sin un remitente PROPIO (el sandbox, el de MaKo, otro dominio)', () => {
+  // Undécima tanda: UNA rama positiva (`emailConectado` = key Y `remitenteDelNegocio`), con el porqué corto.
   const integ = sinComentarios(leer('lib/integraciones.ts'));
-  assert.match(integ, /d\.key === 'email' && !faltan\.length && await remitenteEsSandbox\(\)/);
-  assert.match(integ, /estado: 'falta' as EstadoIntegracion,\s*detalle: 'Falta el remitente/);
+  assert.match(integ, /d\.key === 'email' && !faltan\.length && !\(await emailConectado\(\)\.catch\(\(\) => false\)\)/);
+  assert.match(integ, /estado: 'falta' as EstadoIntegracion,\s*detalle: POR_QUE_SIN_EMAIL,/);
+});
+
+test('el ping frena un remitente de un dominio de MaKo ANTES de guardar (undécima tanda: «Nadie debería poder»)', () => {
+  // Aunque la cuenta tenga ese dominio verificado: es la cuenta de la PLATAFORMA (la key del ws1 y su copia en el
+  // ws4), no la del negocio. Mismo texto que `guardarCredencial` y que /email.
+  const mako = [{ name: 'hola-mako.com', status: 'verified' }];
+  assert.equal(problemaDelRemitente('MaKo <equipo@hola-mako.com>', mako), NO_ES_TUYO);
+  assert.equal(problemaDelRemitente('ventas@send.hola-mako.com', mako), NO_ES_TUYO, 'un subdominio también');
+  assert.equal(problemaDelRemitente('hola@makodigital.app', []), NO_ES_TUYO, 'antes que «no está en tu cuenta»');
+  assert.equal(problemaDelRemitente('hola@hola-makos.com', [{ name: 'hola-makos.com', status: 'verified' }]), null, 'un dominio parecido no');
 });
 
 test('punto 13: el link de la ayuda va ARRIBA de los pasos, y la nota vive adentro', () => {

@@ -15,7 +15,7 @@ import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-
 import type { PasoSecuencia } from '@/lib/nutricion';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox } from '@/lib/resend';
-import { firmaDelPie } from '@/lib/email-remitente';
+import { firmaDelPie, SIN_EMAIL_PROPIO, POR_QUE_SIN_EMAIL } from '@/lib/email-remitente';
 import { getWorkspace, getWorkspaceActual } from '@/lib/workspace';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { enTandas } from '@/lib/ids-con-filas';
@@ -344,6 +344,9 @@ export const TRIGGERS: Opcion[] = [
   { value: 'instagram', label: 'Un evento de Instagram' },
   { value: 'messenger', label: 'Un evento de Messenger' },
   { value: 'email_recibido', label: 'Recibes un email' },
+  // Los pagos de la pasarela (11/10/2026, `TRIGGER_PAGO`): necesitan el evento (`subtipo`), así que se eligen en
+  // el CRON y /email los rechaza (`SOLO_DESDE_EL_CRON`).
+  { value: 'pago', label: 'Un evento de pago' },
   { value: 'grupo_mako', label: 'Recurrente al grupo de MaKo' },
   // «MaKo en WhatsApp» como automatización (11/10/2026, `TRIGGER_AVISO_MAKO`): lo emite el código de cada
   // aviso (lib/aviso-evento.ts), no el motor. Nace de la galería con su evento: /email lo rechaza.
@@ -721,11 +724,14 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
   if (b.estado === 'enviado') return vacio('el broadcast ya fue enviado');
 
   // Flag de envío real DEL WORKSPACE + preflight de remitente: si el envío está
-  // activo pero el remitente sigue siendo sandbox, no mandamos (Resend
-  // rechazaría a terceros). No marcamos enviado.
+  // activo pero el negocio no tiene remitente propio, no mandamos. No marcamos enviado.
+  // ⚠️ Desde la undécima tanda «sandbox» = «sin remitente propio»: `getEmailFrom` (lib/resend.ts) devuelve el
+  // sandbox también con el email de MaKo en un cliente (el ws1). Sin este corte, `sendEmail` se negaría con
+  // cada destinatario y quedaría anotado como un fallo, o sea como ya intentado, que es lo que el reanudable
+  // saltea: conectar después el dominio propio no les mandaba el broadcast.
   const emailOn = await envioEmailHabilitado();
   if (emailOn && (await remitenteEsSandbox())) {
-    return vacio('remitente sandbox: verifica tu dominio de envío antes de enviar');
+    return vacio(`${SIN_EMAIL_PROPIO}. ${POR_QUE_SIN_EMAIL}`);
   }
 
   const todos = await leadsDeSegmento(b.segmento);

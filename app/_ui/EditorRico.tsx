@@ -89,7 +89,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { createPortal } from 'react-dom';
 import { useEditor, useEditorState, EditorContent, type Editor } from '@tiptap/react';
 import { Extension, Node as NodoTiptap, createDocument, type JSONContent } from '@tiptap/core';
-import { NodeSelection } from '@tiptap/pm/state';
+import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
+import type { Node as NodoPM } from '@tiptap/pm/model';
+import { tokensDe } from '@/lib/variables-aviso';
 import { closeHistory, undoDepth } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
@@ -148,6 +151,27 @@ export type EditorRicoProps = {
    * temprano en la barra a propósito: lo que se pierde en «Más» es lo del final.
    */
   botonesExtra?: ReadonlyArray<BotonExtraRico>;
+  /**
+   * LOS `{{datos}}` AZULES Y CLICKEABLES (undécima tanda del Chatbot, punto 7: «los datos, al momento de EDITAR,
+   * también se deben marcar en azul y ser clickeables»). Con esto el editor pinta cada token (en rojo el que
+   * `fuera` marca) y avisa del que se toca (`onDato`) o del que tiene el cursor adentro (`alCursor`). Es una
+   * DECORACIÓN (`DatosResaltados`), no un nodo ni una marca: el HTML que sale no cambia. Lo usa el cuerpo del email
+   * de las automatizaciones; las lecciones del curso no lo pasan. Se lee al montar: sin él al montar, no se activa.
+   */
+  datos?: DatosDelEditor;
+};
+
+/** Un `{{dato}}` del cuerpo: dónde está en el documento, su caja (para anclar el «{ }») y cómo cambiarlo por otro. */
+export type DatoDelEditor = { key: string; desde: number; hasta: number; ancla: HTMLElement; reemplazar: (key: string) => void };
+
+/** Ver `EditorRicoProps.datos`. */
+export type DatosDelEditor = {
+  /** ¿Este dato NO se puede mandar acá? (rojo). La clave en minúsculas, sin llaves. */
+  fuera?: (key: string) => boolean;
+  /** Se tocó un dato: ya quedó seleccionado. */
+  onDato: (d: DatoDelEditor) => void;
+  /** El dato que tiene el cursor adentro (o null), para que el «{ }» lo abra elegido. */
+  alCursor?: (d: DatoDelEditor | null) => void;
 };
 
 /**
@@ -482,6 +506,91 @@ const AtajosMako = Extension.create<{ abrirEnlace: () => void }>({
   },
 });
 
+// ── Los {{datos}} del texto (undécima tanda del Chatbot, punto 7) ─────────────────────────────────────────
+// ⚠️ DECORACIÓN, NO NODO NI MARCA: el documento (y el HTML que se guarda y se manda) no se entera. Un token partido
+//    por una marca (`{{nom` normal y `bre}}` en negrita) son dos nodos de texto y no se pinta: tampoco se resuelve al
+//    mandar (`aplicarVariablesHtml` busca el token entero en el HTML), así que no pintarlo es decir la verdad.
+
+/** Los tokens del documento, cada uno ENTERO adentro de un nodo de texto, con sus posiciones. Pura (test). */
+export function datosDelDoc(doc: NodoPM): Array<{ desde: number; hasta: number; key: string }> {
+  const out: Array<{ desde: number; hasta: number; key: string }> = [];
+  doc.descendants((n, pos) => {
+    if (!n.isText || !n.text) return;
+    for (const t of tokensDe(n.text)) out.push({ desde: pos + t.ini, hasta: pos + t.fin, key: t.key });
+  });
+  return out;
+}
+
+/** Las decoraciones: cada token en azul (`var(--primary-strong)`), en rojo el que `fuera` marca. Sin peso. Pura (test). */
+export function decoracionesDeDatos(doc: NodoPM, fuera?: (key: string) => boolean): DecorationSet {
+  return DecorationSet.create(doc, datosDelDoc(doc).map((d) => Decoration.inline(d.desde, d.hasta, {
+    class: 'mk-dato-rico', 'data-dato': d.key, 'data-dato-desde': String(d.desde),
+    style: `color:${fuera?.(d.key) ? 'var(--bad)' : 'var(--primary-strong)'};cursor:pointer`,
+  })));
+}
+
+/** Cambia ESE token por `{{nuevo}}`, como texto (conserva sus marcas), si sigue en su lugar. */
+function reemplazarDato(view: EditorView, tok: { desde: number; hasta: number; key: string }, nuevo: string) {
+  if (view.isDestroyed) return;
+  const { doc } = view.state;
+  if (tok.hasta > doc.content.size || doc.textBetween(tok.desde, tok.hasta).toLowerCase() !== `{{${tok.key}}}`) return;
+  const texto = `{{${nuevo.toLowerCase()}}}`;
+  const tr = view.state.tr.insertText(texto, tok.desde, tok.hasta);
+  tr.setSelection(TextSelection.create(tr.doc, tok.desde + texto.length));
+  view.dispatch(tr.scrollIntoView());
+  view.focus();
+}
+
+const CLAVE_DATOS = new PluginKey<DecorationSet>('datosResaltados');
+
+/**
+ * Los `{{datos}}` azules y clickeables (ver `EditorRicoProps.datos`). `leer` es una FUNCIÓN y no el objeto: TipTap
+ * copia en profundidad las opciones que son objetos (`mergeDeep`) y un ref copiado no se entera de lo nuevo.
+ */
+export const DatosResaltados = Extension.create<{ leer: () => DatosDelEditor | undefined }>({
+  name: 'datosResaltados',
+  addOptions() { return { leer: () => undefined }; },
+  addProseMirrorPlugins() {
+    const leer = this.options.leer;
+    const dato = (view: EditorView, t: { desde: number; hasta: number; key: string }, ancla: HTMLElement): DatoDelEditor => (
+      { ...t, ancla, reemplazar: (k) => reemplazarDato(view, t, k) }
+    );
+    return [new Plugin<DecorationSet>({
+      key: CLAVE_DATOS,
+      state: {
+        init: (_c, st) => decoracionesDeDatos(st.doc, leer()?.fuera),
+        apply: (tr, viejo, _a, st) => (tr.docChanged ? decoracionesDeDatos(st.doc, leer()?.fuera) : viejo),
+      },
+      props: {
+        decorations: (st) => CLAVE_DATOS.getState(st),
+        // El clic se resuelve con lo que se tocó (la decoración), no con la posición del cursor: un clic sobre «}}»
+        // deja el cursor DESPUÉS del token.
+        handleClick: (view, _pos, event) => {
+          const d = leer();
+          if (!d || !view.editable) return false;
+          const el = (event.target as HTMLElement | null)?.closest?.('[data-dato]') as HTMLElement | null;
+          if (!el || !view.dom.contains(el)) return false;
+          const t = datosDelDoc(view.state.doc).find((x) => x.desde === Number(el.dataset.datoDesde));
+          if (!t) return false;
+          view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, t.desde, t.hasta)));
+          d.onDato(dato(view, t, el));
+          return true;
+        },
+      },
+      view: () => ({
+        update: (view, antes) => {
+          const d = leer();
+          if (!d?.alCursor || (antes.selection.eq(view.state.selection) && antes.doc.eq(view.state.doc))) return;
+          const { from, to } = view.state.selection;
+          const t = datosDelDoc(view.state.doc).find((x) => (from === x.desde && to === x.hasta) || (x.desde < from && to < x.hasta));
+          const el = t ? view.dom.querySelector<HTMLElement>(`[data-dato-desde="${t.desde}"]`) : null;
+          d.alCursor(t && el ? dato(view, t, el) : null);
+        },
+      }),
+    })];
+  },
+});
+
 // ── Las paletas ──────────────────────────────────────────────────────────────
 
 /**
@@ -782,7 +891,7 @@ type Pieza = PiezaBoton | { tipo: 'sep'; id: string; sep: true } | { tipo: 'bloq
 export function EditorRico({
   valor, onCambio, subirAdjunto, urlDeAdjunto, placeholder = 'Escribe aquí…', soloLectura = false,
   aceptaArchivos, aceptaImagenes = 'image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif',
-  minAlto = 140, etiqueta = 'Texto', className, style, botonesExtra,
+  minAlto = 140, etiqueta = 'Texto', className, style, botonesExtra, datos,
 }: EditorRicoProps) {
   const ctx = useRef<CtxAdjuntos | null>(null);
   if (!ctx.current) ctx.current = { resolver: urlDeAdjunto, vivas: new Set(), locales: new Map() };
@@ -794,6 +903,9 @@ export function EditorRico({
   /** Cuántas imágenes ajenas sacó el último pegado (lo lee `handlePaste`, que corre después). */
   const imagenesFueraDelPegado = useRef(0);
   const abrirEnlaceRef = useRef<() => void>(() => {});
+  /** Los `{{datos}}` de quien monta (ver `EditorRicoProps.datos`): la extensión los lee al momento, por acá. */
+  const datosRef = useRef(datos);
+  useEffect(() => { datosRef.current = datos; }, [datos]);
   const editorRef = useRef<Editor | null>(null);
   /** Mete un video o una agenda donde está el cursor: el panel «Insertar» y el pegado de un código. */
   const insertarEmbedRef = useRef((e: Embed) => {
@@ -917,6 +1029,8 @@ export function EditorRico({
     TableCell,
     Placeholder.configure({ placeholder }),
     AtajosMako.configure({ abrirEnlace: () => abrirEnlaceRef.current() }),
+    // Sólo si quien monta pasa `datos` (el email de las automatizaciones): las lecciones quedan como estaban.
+    ...(datosRef.current ? [DatosResaltados.configure({ leer: () => datosRef.current })] : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ], []);
 

@@ -270,11 +270,9 @@ test('⚠️ El interruptor se mira DESPUÉS de reclamar', () => {
 });
 
 test('⚠️ La ZONA se congela en la fila, no se resuelve por tick', () => {
-  // `tzDeWorkspace` sale a la red (Cal.com, Google Calendar) con una carrera de 4 s y,
-  // si no llega, devuelve America/Tijuana sin guardarla. Resolverla en cada tick
-  // serían 6 × 4 s del presupuesto del tick (los seis workspaces activos sin
-  // `mako.timezone`, medido el 30/09) — y, peor, dejaría que el horario de un mensaje
-  // se mueva solo el día que la averiguación conteste otra cosa.
+  // Desde la undécima tanda `tzDeWorkspace` es una lectura pura (`zonaDelNegocio`, lib/timezone.ts: sin red,
+  // con memo y con el default único). Igual se congela en la fila: si la zona del negocio cambia (la
+  // detecta el navegador, la elige una persona), el horario de un mensaje ya agendado no se mueve solo.
   const src = leer('../lib/avisos-programados.ts');
   const set = src.slice(src.indexOf('export async function setProgramado'), src.indexOf('export async function drenarProgramados'));
   const dren = src.slice(src.indexOf('export async function drenarProgramados'));

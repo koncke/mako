@@ -91,6 +91,10 @@ El webhook de pago es, entonces: **extraer eso a una función de lib, envolverlo
 `verificarFirmaSvix` (`lib/standard-webhooks.ts:72-106`) y agregarle idempotencia.**
 `/api/webhooks` ya es prefijo público en `lib/rutas-publicas.ts`.
 
+⚠️ **CORREGIDO el 11/10/2026, al construirlo:** la extracción se hizo (`lib/alta-cliente.ts`), pero
+**la mitad de Svix era falsa** para Stripe y Mercado Pago — ver «La pasarela» más abajo, primera
+entrada. Ni Stripe ni Mercado Pago firman como Svix.
+
 ---
 
 ## El rail de cobro no es UNO: la AUP del merchant of record prohíbe «coaching»
@@ -183,6 +187,11 @@ cancelación o reembolso.
 Esa URL es pública y la abren los revisores del MoR y de Google. **El día que la pasarela
 esté viva, afirma algo falso** — y se arregla en el mismo commit que escribe `/reembolsos`,
 no después.
+
+✅ **Hecho el 11/10/2026, como BORRADOR:** la sección 8 de `/terminos` pasó a «Precio, pagos y
+cancelación» y existe `/reembolsos` (`app/reembolsos/page.tsx`), las dos en el mismo commit que la
+pasarela. Las cláusulas las tiene que revisar Martín (plazo de respuesta de 5 días hábiles, el mes
+pagado no se devuelve salvo error o cobro duplicado, el grupal según lo acordado en la llamada).
 
 ---
 
@@ -404,6 +413,128 @@ escribe en el prompt.**
 
 ---
 
+## La pasarela (Stripe y Mercado Pago, 11/10/2026): lo que no se ve leyendo el código
+
+Pedido de Martín: «implementes end-to-end la integración con Mercado Pago y con Stripe, tipo pasarela
+de pagos... Lo voy a utilizar yo como superadmin para vender MaKo, pero también los usuarios pueden
+alojarlo». El contrato (vocabulario, datos, firmas, rutas) está en
+[diseno-pasarela-pagos.md](diseno-pasarela-pagos.md); lo de abajo es lo que costó.
+
+### El diagnóstico obvio era el equivocado: el webhook de pago NO es Svix
+
+**Síntoma (evitado):** este mismo documento decía «envolverlo con `verificarFirmaSvix`». Hecho así, la
+firma de Stripe da «no coincide» en el 100% de los eventos — que se lee igual que un secreto mal pegado.
+**Causa:** el secreto de Stripe también empieza con `whsec_`, pero Stripe lo usa TAL CUAL como clave
+HMAC (UTF-8) y `claveDelSecreto` (Svix) le saca el prefijo y lo decodifica de base64. Además Stripe
+firma en hex `${t}.${raw}` y puede mandar VARIOS `v1` mientras se rota el secreto (el parser de
+`lib/calendly.ts` se queda con el último y rechazaría tráfico legítimo justo durante la rotación), y
+`v0` es una firma falsa de los eventos de prueba. Mercado Pago firma un MANIFIESTO
+(`id:<data.id>;request-id:<x-request-id>;ts:<ts>;`), no el cuerpo.
+**Regla:** cada pasarela con su verificador puro y con vectores fijos; nunca por `standard-webhooks`.
+**Vive en:** `lib/pasarela-firma.ts` · `tests/pasarela-firma.test.ts`.
+
+### La primera factura de una suscripción de Stripe llega DOS veces
+
+**Síntoma (cazado en la reconciliación):** la primera cuota de una suscripción entraba duplicada al
+CRM. **Causa:** el primer cobro llega por `checkout.session.completed` (que trae `invoice`) Y por
+`invoice.paid` con `billing_reason = subscription_create`; si un camino usa el id de la SESIÓN y el otro
+el de la FACTURA, el segundo se lee como una RENOVACIÓN (otra cuota). **Regla:** el `proveedorPagoId`
+de una suscripción es SIEMPRE la factura (`in_…`) y el de un pago único el payment intent (`pi_…`); sin
+factura todavía, no se aplica — entra por `invoice.paid`. La cuota del CRM es idempotente por el índice
+`pagos_proveedor_uk (workspace_id, proveedor, proveedor_pago_id)`.
+**Vive en:** `lib/cobros-eventos.ts` (`confirmarCheckout`) · `lib/cobros.ts` (`reconciliarCobros`) ·
+`supabase/migrations/0255_cobros_pasarela.sql`.
+
+### Mercado Pago: la notificación no trae el pago, y la firma no se le puede exigir a todo
+
+**Causa:** el aviso trae un id; el estado se pide SIEMPRE con `GET /v1/payments/{id}` y el token del
+negocio (y `payer` viene con los datos personales en null «por seguridad»: para cruzar sirve
+`external_reference`, el token del cobro). La firma: el formato IPN viejo NO se puede validar (lo dice
+MP) y no está medido si la `notification_url` de una preferencia llega firmada. **Regla:** el aviso es
+sólo «andá a mirar»: se relee el recurso con el token del ws y se exige `collector_id ===
+MERCADOPAGO_USER_ID` (con el token del negocio también se leen pagos donde esa cuenta fue la que PAGÓ).
+Una notificación falsa sólo provoca una relectura. Se verifica la firma sólo en el formato webhook y si
+hay secreto. Y **deduplicar «por id de evento» como en Stripe era el diagnóstico equivocado**: MP manda
+varias (created, updated) sin un id estable; la clave es `<tipo>:<id>:<estado resultante>`, y sale de la
+relectura.
+**Vive en:** `app/api/webhooks/mercadopago/route.ts` · `lib/cobros-webhook.ts` · `lib/cobros-eventos.ts`.
+
+### La moneda depende de la PASARELA, y el catálogo está en dólares
+
+**Síntoma (evitado):** el orden obvio del formulario —monto, después pasarela— ofrecía «US$ 97» a una
+cuenta de Mercado Pago argentina, que lo rechaza al crear el link. **Causa:** Mercado Pago cobra en la
+moneda del sitio de SU cuenta (MLA = ARS) y `productos.monto_usd` está en USD. **Reglas:** en todo
+formulario que cobra, la pasarela se pregunta ANTES del monto; `cobros.monto` + `cobros.moneda` son la
+verdad, y `monto_usd` es el valor en dólares que DECLARÓ alguien (el producto o quien creó el link) —
+**nunca una tasa inventada**: sin ese valor el cobro se registra igual pero no escribe cuota en el CRM
+(`pagos.monto_usd` es NOT NULL) y lo dice en `motivo`. Por lo mismo, la API de MaKo no crea links de
+Mercado Pago (el precio del catálogo es en USD): hace falta precio en moneda local en el catálogo.
+**Vive en:** `lib/cobros-reglas.ts` (`decidirCobro`, `montoUsdDelCobro`) · `app/crm/[id]/CobrarConLink.tsx` ·
+`app/admin/cobros/VenderPlan.tsx` · `lib/api-mako/areas/cobros.run.ts`.
+
+### Un link de Stripe VENCE: el que se manda es de MaKo
+
+**Causa:** una Checkout Session dura entre 30 min y 24 h; un link mandado por WhatsApp llega vencido.
+**Regla:** el link que sale es `/pagar/<token>` (32 base64url, no se adivina), que redirige al checkout
+vivo y crea otra sesión si la vieja vence en menos de 5 min (con una clave de idempotencia atada al
+vencimiento anterior: dos clics no crean dos sesiones). ⚠️ **Y Next contesta los `HEAD` llamando al
+`GET`**: un bot de vista previa que pedía `HEAD /pagar/<token>` creaba una sesión de Stripe. Un route
+handler cuyo GET tiene efectos declara su propio `HEAD`.
+**Vive en:** `lib/cobros.ts` (`urlParaPagar`) · `app/pagar/[token]/route.ts`.
+
+### El alta automática de MaKo: en positivo, reclamada, y sin tocar a quien ya tenía cuenta
+
+**Reglas:** corre SÓLO si el cobro es del workspace de la plataforma (`ws === await wsSuperAdmin()`,
+escrito en positivo: un cliente que vende con su Stripe NO crea inquilinos aunque su fila trajera
+`alta_capa`, y `crearCobro` lo rechaza al crear), sólo con capas vendibles, y se RECLAMA con
+compare-and-set (`alta_estado` null|error → pendiente) antes de crear: dos avisos simultáneos no dan
+dos altas; un `pendiente` de más de 10 min es una corrida muerta y el cron lo retoma. Si el email ya es
+usuario → `ya_tenia_cuenta` y NO se le cambia la capa a ciegas. El login es sólo Google: la página de
+retorno deja cambiar el email del acceso (sólo si el cobro está pagado, el alta hecha, el usuario NUNCA
+entró y quedan cambios; el usuario se busca por su workspace y no por el email del cobro, que después del
+primer cambio ya no coincide).
+**Vive en:** `lib/cobros.ts` (`altaSiCorresponde`) · `lib/alta-cliente.ts` · `app/api/pagar/email/route.ts` ·
+`app/pagar/acceso.ts`.
+
+### Ganar al que pagó es lo que evita el «no agendaste»
+
+`aplicarPagoAprobado` asienta la cuota (`registrarCobroDeProveedor`, que reusa `marcarPago` y corta la
+cobranza) y RECIÉN después gana el lead por `setPipelineStage` + `etapaDeGanado` (nunca `estado_lead` a
+mano), y RECIÉN después dispara Automations: con `fecha_primer_pago` ya escrita, el WhatsApp al lead sale
+solo y no como borrador, y la condición «Pagó» da bien. El CRM automático del workspace de la plataforma
+está apagado (medido el 11/10/2026: sin `crm_auto_enabled`, que fuera del ws1 es apagado).
+**Vive en:** `lib/cobros.ts` · `lib/pagos.ts`.
+
+### «Pagado» primero y el resto después: lo que se corta a la mitad no lo reintentaba NADIE
+
+**Síntoma (cazado por la revisión adversarial):** con la base lenta, el webhook pasa los 8 s, contesta 200
+y sigue en `after()`; si asentar la cuota falla ahí, queda el cobro «pagado», sin cuota, con el lead sin
+ganar y —en una venta de MaKo— sin alta. Stripe y MP ya tienen su 200 y no reintentan, y el cron sólo
+miraba los PENDIENTES. El cliente pagó y no le llegaba nada. **Causa:** cada paso era idempotente, pero el
+único que los volvía a correr era un reintento del proveedor. **Regla:** el cron REPARA los pagados sin su
+cuota en el CRM o con el alta sin terminar, pasándolos otra vez por `aplicarPagoAprobado`; un «ya estaba»
+de la cuota igual sincroniza lo cobrado; y el aviso y el CRON se atan a que la cuota ESTÉ (deduplicados por
+el pago del proveedor), no a que ESTE intento la haya escrito. Además: la ventana de los pendientes cuenta
+desde `updated_at` (la preferencia de MP no vence), la RENOVACIÓN de una suscripción cuyo primer pago se
+devolvió sigue entrando, y a Mercado Pago una firma que no coincide no se le contesta 401 (la seguridad es la
+relectura, y un 401 rebotaba para siempre a un negocio con el secreto renovado).
+**Vive en:** `lib/cobros.ts` (`reconciliarCobros`, `aplicarPagoAprobado`) · `lib/pagos.ts` · `app/api/webhooks/mercadopago/route.ts`.
+
+### Un guard de credenciales que no veía lo que importa
+
+**Síntoma:** `tests/pasarela-sin-env.test.ts` daba verde con `credWsEstricta('STRIPE_WEBHOOK_SECRET', ws)`
+o `credWs(CLAVE, ws)` puestos en `lib/cobros.ts`. **Causa:** busca el nombre de la clave pegado a
+`credWs(`, y `credWsEstricta` es legítima en el ruteo de un webhook, así que no se puede prohibir en todo
+el repo. **Regla:** además del barrido, un guard POR MÓDULO que prohíbe `credWs\w*(`, `envCred(`,
+`process.env` y `OWNER_WS` en `lib/cobros.ts`. ⚠️ Y nunca se carga una clave de pasarela en el entorno de
+Vercel: `credWs`/`credWsEstricta` se la entregarían al ws1 (Mauricio) como si fuera suya.
+**Vive en:** `tests/cobros-servicio.test.ts` · `tests/pasarela-sin-env.test.ts` · `lib/credenciales.ts` (`NO_MIGRAR_A_WS`).
+
+*Corrida del 11/10/2026: relevamiento de 8 agentes, la base escrita a mano, 7 agentes de
+implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para Automations.*
+
+---
+
 ## Lo que quedó SIN hacer, con el archivo donde vive
 
 | Qué | Dónde |
@@ -416,6 +547,24 @@ escribe en el prompt.**
 | `funnel_id` en el motor de nutrición y en el CRM automático | mig 0170, `lib/nutricion*.ts`, `lib/crm-auto.ts` |
 | Contraseña o segundo proveedor de login | `app/api/auth/callback/google/route.ts` |
 | Atribución de referidos (`workspaces.origen = 'referido:<ws>'`), sólo con Paddle cobrando y 5+ referidos pagando | `embudo-y-high-ticket.md:401`, [referidos.md](referidos.md) § 6 |
+| **Pasarela:** probar con claves REALES — si una clave restringida (`rk_`) puede leer `GET /v1/account` y si la `notification_url` de MP llega firmada | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts` (tutorial), `app/api/webhooks/mercadopago/route.ts` |
+| **Pasarela:** desconectar del todo (borrar el aviso en la cuenta de Stripe y soltar el ruteo al quitar la clave) | acción `borrar` de `app/api/integraciones/credencial/route.ts`, `lib/cobros-conexion.ts` |
+| **Pasarela:** un producto de suscripción con plazo (`suscripcion_meses`) se cobra como suscripción sin fin | `lib/cobros.ts`, `lib/stripe-api.ts` |
+| **Pasarela:** precios en moneda local en el catálogo (para que la API y las automatizaciones creen links de Mercado Pago) | `lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts` |
+| **Pasarela:** los pagos que NO creó MaKo (cobrados por fuera) se ignoran con rastro; un contracargo de MP no hace nada en el CRM | `lib/cobros-eventos.ts`, decisión de Martín |
+| **Pasarela:** `crear_link_pago` en la lista corta del «⚡ Acción» (necesita un control propio para el producto del catálogo) | `lib/editor-acciones.ts` |
+| **Pasarela:** guarda de costo `dinero` en un paso de una automatización (hoy un flujo puede reembolsar) | `lib/api-mako/flujo.ts`, decisión de Martín |
+| **Pasarela:** en `/mako/revisar` el `cobroId` de un reembolso se puede editar y el título sigue mostrando el original | `lib/api-mako/acciones.ts` |
+| **Pasarela:** Stripe no abre cuentas a negocios radicados en Argentina, y la primera venta a un mexicano arranca el reloj del RFC (`stripe-reloj` en el modelo) | `app/admin/dev/pricing/modelo.ts:635,1272`, decisión de Martín |
+| **Pasarela:** revisar los BORRADORES legales | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` §8 |
+| **Pasarela (revisión):** el cambio de email tras el alta tiene ventana de 48 h, pero lo puede hacer quien PAGÓ aunque no sea el dueño de la cuenta: falta un código al email actual | `app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts` |
+| **Pasarela (revisión):** los topes de `/api/pagar/email` viven en memoria (por instancia) y su 409 «ya tiene cuenta» deja preguntar emails | `app/api/pagar/email/route.ts`, `lib/rate-limit.ts` |
+| **Pasarela (revisión):** avisos de MP sin firma a un `user_id` ajeno escriben filas `sin-workspace` sin techo y relecturas con el token del cliente | `app/api/webhooks/mercadopago/route.ts` |
+| **Pasarela (revisión):** un reembolso de Stripe se da por hecho con `pending`; no se escuchan `charge.refund.updated` ni `refund.failed` | `lib/cobros.ts` (`reembolsarCobro`), `lib/stripe-api.ts` |
+| **Pasarela (revisión):** qué hace el lead GANADO cuando se le devuelve el pago (sigue en Sold y con su monto) | decisión de Martín, `lib/cobros.ts` (`aplicarReembolso`) |
+| **Pasarela (revisión):** el MRR al cancelar una suscripción redondea por meses (puede contar un mes de más o de menos) | `lib/cobros-reglas.ts` (`mesesTranscurridos`) |
+| **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
+| **Pasarela (revisión):** `aplicarAEnv` copia al entorno las claves de pasarela del ws1, y `revelar` las lee con `credWs` | `lib/credenciales.ts`, `app/api/integraciones/credencial/route.ts` |
 
 *Corrida del 04/10/2026, 12 agentes. Las refutaciones dieron vuelta nueve afirmaciones; las
 tres que más cambiaron el plan están arriba (la cuenta del runway, el margen del 47 y el

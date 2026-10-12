@@ -14,18 +14,26 @@
 // constantes viven en lib/horario-envio.ts.
 
 import { requireSesion } from '@/lib/tab-access';
-import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
-import { KEY_TIMEZONE, esTzValida } from '@/lib/timezone';
-import { zonaDelMotor } from '@/lib/nutricion-grafo-motor';
+import { getSettingEstricto, setSetting } from '@/lib/settings';
+import { getUsuarioActual } from '@/lib/auth';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { fijarZonaDelNegocio, zonaDelNegocioDetalle } from '@/lib/timezone';
+import { zonaCanonica, ZONA_POR_DEFECTO } from '@/lib/zona-negocio-reglas';
 import { KEY_HORARIO_ENVIO, HORARIO_SUGERIDO, sanearHorario, horarioParaGuardar, type HorarioEnvio } from '@/lib/horario-envio';
 
 export async function getHorarioEnvioAction(): Promise<{ horario: HorarioEnvio; zona: string; puedeEditar: boolean }> {
   const rol = await requireSesion();
+  const ws = await getWorkspaceActual();
   // Estricto: si no se puede leer, la pantalla dice que no pudo, no que «no hay horario».
-  const [raw, tz] = await Promise.all([getSettingEstricto(KEY_HORARIO_ENVIO), getSetting(KEY_TIMEZONE).catch(() => null)]);
+  // ⚠️ La zona es LA del negocio (`zonaDelNegocioDetalle`, decisión 4 de la décima): hasta el 11/10 esta pantalla
+  // mostraba la del motor (Ciudad de México sin zona guardada) y el resto de la app, Tijuana.
+  const [raw, zona] = await Promise.all([
+    getSettingEstricto(KEY_HORARIO_ENVIO),
+    ws == null ? Promise.resolve(ZONA_POR_DEFECTO) : zonaDelNegocioDetalle(ws).then((d) => d.tz),
+  ]);
   // Sin nada guardado, la pantalla propone el horario de siempre APAGADO: prenderlo es un clic.
   const horario = sanearHorario(raw) ?? { ...HORARIO_SUGERIDO, activo: false };
-  return { horario, zona: zonaDelMotor(tz), puedeEditar: rol === 'admin' };
+  return { horario, zona, puedeEditar: rol === 'admin' };
 }
 
 export async function saveHorarioEnvioAction(h: unknown): Promise<{ ok: boolean; error?: string; horario?: HorarioEnvio }> {
@@ -44,17 +52,20 @@ export async function saveHorarioEnvioAction(h: unknown): Promise<{ ok: boolean;
 /**
  * EL HUSO DEL NEGOCIO, en la misma fila que las horas (10/10/2026: «que eso se configure también allí
  * mismo, el huso horario, en la misma fila donde se configura la hora»). Es `mako.timezone`, la zona de
- * TODO el negocio (la lee el motor: `zonaDelMotor`), no una del horario. Admin, como el horario.
+ * TODO el negocio, no una del horario. Admin, como el horario.
+ *
+ * Elegirla acá es el origen 'persona': gana sobre cualquier detección y sólo otra persona la cambia
+ * (`fijarZonaDelNegocio`, el único escritor).
  */
 export async function saveZonaHorarioAction(tz: unknown): Promise<{ ok: boolean; error?: string; zona?: string }> {
   const rol = await requireSesion();
   if (rol !== 'admin') return { ok: false, error: 'Solo un admin puede cambiar el huso.' };
-  const z = typeof tz === 'string' ? tz.trim() : '';
-  if (!z || !esTzValida(z)) return { ok: false, error: 'Ese huso no existe.' };
-  try {
-    await setSetting(KEY_TIMEZONE, z);
-    return { ok: true, zona: zonaDelMotor(z) };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
-  }
+  const z = zonaCanonica(tz);
+  if (!z) return { ok: false, error: 'Ese huso no existe.' };
+  const ws = await getWorkspaceActual();
+  if (ws == null) return { ok: false, error: 'No sé de qué negocio es.' };
+  const sesion = await getUsuarioActual();
+  const r = await fijarZonaDelNegocio(ws, z, 'persona', sesion?.email || null);
+  if (!r.ok) return { ok: false, error: r.error || 'No se pudo guardar.' };
+  return { ok: true, zona: r.zona };
 }

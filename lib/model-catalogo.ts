@@ -140,6 +140,10 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // Para devolverlas a Claude hace falta una fila en CLAUDE_PERMITIDO con su fecha.
   { feature: 'lead_insights', label: 'Insight 360 del lead', grupo: 'Análisis', def: GEMINI(), pii: true, recomendado: GEMINI(), nota: 'Síntesis multi-fuente sobre PII. Bajó a Gemini con el veto: no corría desde julio y su permiso pago no lo revisaba nadie.' },
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El análisis más pesado del producto. Bajó a Gemini con el veto: sin corridas desde el 5/7. Si vuelve a hacer falta Opus, va con fila y fecha en lib/veto-claude.ts.' },
+  // El Dashboard (11/10/2026): las dos van GRATIS y sin fallback pago. Lo que sale se VE (una hoja que
+  // se puede deshacer, un análisis que se puede volver a pedir) y pasa por un saneo determinista.
+  { feature: 'dashboard-hoja-ia', label: 'Armar una hoja del Dashboard con IA', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: '«Pídeselo a MaKo» en Nueva hoja: elige gráficos del catálogo por su nombre. Los ids, el lugar y el estilo los pone el código (lib/graficos-ia.ts).' },
+  { feature: 'dashboard-analista', label: 'AI Analyst del Dashboard', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: 'MaKo lee lo que MUESTRAN los gráficos de una hoja (números ya agregados, sin nombres de leads ni conversaciones) y escribe qué pasa y qué hacer. A mano o programado (lib/graficos-analisis.ts).' },
   { feature: 'ads-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: GEMINI(), nota: 'Lectura estructural creativa sobre un guion público. Si Gemini falla, la cascada gratis sigue antes de pagar.' },
   { feature: 'script-valorador', label: 'Valorar guion nuevo', grupo: 'Análisis', def: GEMINI() },
   { feature: 'landing-analyst', label: 'Diagnosticar una landing', grupo: 'Análisis', def: GEMINI(), nota: 'Lee el copy de la página y lo cruza con el comportamiento medido (visitas, retención, agendas). Sin PII: la landing es pública y las métricas van agregadas.' },
@@ -150,6 +154,10 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'plan-seed-ia', label: 'Plan de arranque del cliente nuevo', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe el plan inicial desde el onboarding del cliente. Corre UNA vez por cliente, con la key del PROPIO cliente (cascada de IA barata), así que no le cuesta a la agencia.' },
   // Mismo trato que plan-seed-ia: lib/productos-ia.ts pasa el pin a chatCheapCascade.
   { feature: 'productos', label: 'Armar el catálogo de productos', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El paso "Tus productos" del onboarding: lee el brief y El Archivero y propone el catálogo. Corre a pedido del cliente, con la key del PROPIO cliente. Default GRATIS: es una extracción, no copy.' },
+  // La tab Offer (11/10/2026): lib/offer-ia.ts pasa el pin a chatCheapCascade (primero, si es gratis; uno
+  // pago se ignora) y nunca cae a nada que cobre. NO reusa el tag 'ofertas' de abajo: ése es el paso del
+  // onboarding, y con un solo tag no se podría ver en el Saldo de IA cuánto gasta cada uno.
+  { feature: 'offer', label: 'Offer: conversar, diagnosticar y armar la oferta', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'La tab Offer: MaKo conversa con el dueño sobre su oferta, la diagnostica con la rúbrica de 9 dimensiones y escribe la nueva. Corre a pedido, con las keys gratis del PROPIO cliente (gemini → groq → openrouter) y, si ninguna contesta, la red gratis de la agencia: la conversación, el diagnóstico y la oferta nunca pagan. Ojo: LEER una imagen, un PDF escaneado o un audio que sube el dueño usa el lector compartido de archivos (el mismo del Archivero), que como último recurso puede usar la OpenAI del propio cliente si la tiene cargada (docs/hallazgos-offer.md).' },
   // Mismo trato: lib/ofertas-ia.ts pasa el pin a chatCheapCascade.
   { feature: 'ofertas', label: 'Armar la oferta del negocio', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El paso "Tu oferta" del onboarding: lee el brief y El Archivero y propone promesa, garantía, prueba, objeciones y bonos. Corre a pedido del cliente, con la key del PROPIO cliente. Default GRATIS: es una extracción, no copy.' },
   // La MÁS cara de todas y la que disparó la regla: corre sola en cada reunión
@@ -195,6 +203,14 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: GEMINI(), nota: 'Estrategia + voz de marca. Sonnet.' },
   { feature: 'landing-writer', label: 'Escribir la landing (Landing Generator)', grupo: 'Copywriting', def: GEMINI(), nota: 'Escribe la estructura y el copy de la página entera desde el funnel, el perfil y —si lo hay— el diagnóstico del Landing Analyst. Voz de marca sin PII.' },
+  // El editor copiado de Gamma (lib/editor-landing/ia.ts, docs/diseno-editor-landing.md D5).
+  // Dos features y no una: generar (esquema + secciones, lo más voluminoso) y editar (texto,
+  // diseños, notas, «Edición con IA») se pueden mover de modelo por separado en /modelos-ia.
+  // GRATIS y sin `fallback: []`: un copy flojo se VE en el lienzo antes de publicar y la persona
+  // lo edita, así que degradarse de proveedor es aceptable. Claude vetado: sin fila en
+  // CLAUDE_PERMITIDO a propósito. Sin PII: el brief del negocio y lo que la persona escribe.
+  { feature: 'landing-editor', label: 'Generar una landing en el editor (Landing Generator)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Arma el esquema (desde un pedido, un texto pegado o una página importada) y escribe las secciones de a tres, con su diseño y la búsqueda de cada foto. Las fotos las pone el código desde un banco de imágenes, nunca la IA. Sin PII.' },
+  { feature: 'landing-editor-ia', label: 'Editar con IA en el editor de landings (Landing Generator)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Edición con IA de la landing o de una sección (respeta las bloqueadas), las acciones de texto (mejorar, acortar, traducir…), «Probar nuevo diseño» y las notas del orador. Sin PII.' },
   // Los tres writers de contenido de Instagram (lib/ig-writer.ts). Mismo perfil
   // que landing-writer: copy con voz de marca sobre el brief del negocio, sin PII
   // (el pedido del usuario + funnel + perfil público) → default GRATIS.

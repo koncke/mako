@@ -19,11 +19,15 @@
 import type { OperacionDef, Parametro } from '../tipos';
 // Catálogo PURO (sin server-only, ni él ni lo que importa): el enum sale de ahí para no desincronizarse.
 import { CLAVES_AUDIO } from '@/lib/audios-paso';
-// Puro también (lib/setting-estrategia.ts no importa nada): el tope del nombre es UNO para la
-// pantalla, el servidor y esto.
-import { TOPE_NOMBRE_SECUENCIA } from '@/lib/setting-estrategia';
 // Puro y sin imports: las unidades de un horario son las del saneador del motor (`sanearCron`).
 import { UNIDADES } from '@/lib/cron-aviso';
+// Puro: los topes de una lista de partes son los mismos que los de un WhatsApp (lib/mensaje-partes.ts).
+import { TOPE_PARTES, PAUSA_MAX_S } from '@/lib/mensaje-partes';
+// Puro (lo importa la galería, un componente cliente): el enum de plantillas sale del catálogo para no desincronizarse.
+import { PLANTILLAS } from '@/lib/plantillas-automatizaciones';
+
+/** Los ids de la galería de Automations (las 13 de la undécima tanda), en el orden del embudo. */
+const IDS_PLANTILLAS: readonly string[] = PLANTILLAS.map((p) => p.id);
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
@@ -52,7 +56,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ficha_secuencia_mensajes', area: 'chatbot', tipo: 'lectura',
     titulo: 'Ficha de una secuencia',
-    descripcion: 'Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue, y el AI Step con su objetivo y cada escenario con su libertad), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -94,7 +98,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'etapas_para_secuencia', area: 'chatbot', tipo: 'lectura',
     titulo: 'Etapas donde colgar una secuencia',
-    descripcion: 'Las etapas del funnel de este negocio donde se puede colgar una secuencia de mensajes (nutrición y pipeline; se excluyen las de salida), con su clave y su nombre. Úsala antes de crear_secuencia_mensajes: la etapa se pasa por su clave, que cambia de un negocio a otro.',
+    descripcion: 'Las etapas del funnel de este negocio donde se puede colgar una secuencia de mensajes (nutrición y pipeline; se excluyen las de salida), con su clave y su nombre. La etapa se pasa por su clave, que cambia de un negocio a otro.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -189,6 +193,15 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
+  // LA GALERÍA POR LA API (undécima tanda, docs/diseno-undecima-tanda.md §7): una plantilla por categoría. SIN http
+  // (decisión de la tanda: ninguna operación nueva sale por HTTP).
+  {
+    id: 'listar_plantillas_automatizaciones', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Plantillas de automatizaciones',
+    descripcion: 'Las plantillas de la galería de Automations, una por categoría del embudo (Un Lead Entró, Un Lead Agendó Llamada, Un Lead No Asistió…): su id, nombre, para qué sirve, el objetivo, por dónde sale (WhatsApp, email, Instagram, Messenger o «MaKo en WhatsApp», el aviso al grupo) y qué etapa pide al crearla, o si ya trae su CRON puesto. Úsala antes de crear_automatizacion_desde_plantilla.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB },
+  },
   {
     id: 'listar_secuencias_archivadas', area: 'chatbot', tipo: 'lectura',
     titulo: 'Listar las secuencias archivadas',
@@ -209,16 +222,41 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'cambia nutricion_secuencias.activa de la secuencia',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // ⛔ ACÁ IBA `crear_secuencia_mensajes` (dos pasos de esqueleto sin texto, el modelo lineal de antes; 0 usos medidos
+  // por HTTP y 0 pendientes al 11/10/2026). Se RETIRÓ con la décima tanda (docs/diseno-automations-galeria-v2.md §4):
+  // con las dos, el doer elige por relevancia y podía crear el esqueleto viejo. La reemplaza la de abajo.
+  //
+  // «PÍDESELO A MaKo» POR LA API (décima tanda, NUEVA AUTOMATIZACIÓN 8 y 9, 11/10/2026). Martín: «quiero que lo guardes
+  // en la API... por el grupo de WhatsApp con MaKo si escribo o envio un audio pidiendo que cree una automatización, lo
+  // haga llamando justamente a esta función» y «cada automatización nueva, debe tener una URL que se pueda abrir». La MISMA
+  // función que la caja del modal (`crearFlujoConIA`, lib/flujo-ia-crear.ts).
+  //   · `chat` y no `pantalla`: crea algo PAUSADO y gratis; la automatización misma es la pantalla editable.
+  //   · SIN `http`: tarda minutos y /api/v1 corta a 60 s (AGENTS.md, regla 3), y gasta la IA del negocio.
+  //   · Un flujo NO la corre (`preparar` lo rechaza y `accionesParaFlujo` la saca del lienzo).
   {
-    id: 'crear_secuencia_mensajes', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Crear una secuencia de mensajes',
-    descripcion: 'PROPONE crear una secuencia de mensajes nueva colgada de una etapa del funnel. Nace PAUSADA y con dos pasos de esqueleto sin texto: no le escribe a nadie hasta que se redacte y se active. Pide antes la clave de la etapa con etapas_para_secuencia (y revisa huecos_secuencias).',
+    id: 'crear_automatizacion_con_ia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una automatización con IA',
+    descripcion: 'PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción.',
     parametros: [
-      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 60, descripcion: 'clave de la etapa del funnel (de etapas_para_secuencia).' },
-      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: TOPE_NOMBRE_SECUENCIA, descripcion: `nombre de la secuencia, como lo va a ver el dueño (hasta ${TOPE_NOMBRE_SECUENCIA} caracteres).` },
+      { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'qué tiene que hacer, con las palabras de la persona.' },
     ],
-    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias',
-    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con el flujo que arma la IA (y las etiquetas nuevas que nombre)',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // Crear desde la GALERÍA (undécima tanda): la MISMA función que «＋ Nueva» (`crearDesdePlantilla`, lib/plantilla-crear.ts),
+  // con las puertas de siempre. `chat`: crea algo PAUSADO y gratis, y la automatización misma es la pantalla editable.
+  // SIN http (ninguna operación nueva sale por HTTP). Un flujo no la corre (`preparar` lo rechaza).
+  {
+    id: 'crear_automatizacion_desde_plantilla', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una automatización desde una plantilla',
+    descripcion: 'PROPONE crear una automatización desde una plantilla de la galería de Automations (lo mismo que elegirla en «＋ Nueva»): trae todas las tarjetas de su categoría y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. Si la plantilla arranca en una etapa (o una etiqueta), pasa su nombre en etapa; si hay dos con ese nombre en distintos productos, pasa también el producto. Sin etapa, nace con el CRON a elegir. Pide antes el id con listar_plantillas_automatizaciones.',
+    parametros: [
+      { nombre: 'plantilla', tipo: 'string', obligatorio: true, enum: IDS_PLANTILLAS, descripcion: 'el id de la plantilla (de listar_plantillas_automatizaciones).' },
+      { nombre: 'etapa', tipo: 'string', max: 120, descripcion: 'opcional: el nombre de la etapa del embudo (o de la etiqueta) donde arranca, como se ve en el CRM.' },
+      { nombre: 'producto', tipo: 'string', max: 120, descripcion: 'opcional: el producto de esa etapa, sólo si hay varias etapas con ese nombre.' },
+    ],
+    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla (y su CRON, si se eligió la etapa)',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'cambiar_espera_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
@@ -300,14 +338,30 @@ export const DEFS: readonly OperacionDef[] = [
   // y tests/flujo-motor-grafo.test.ts lo fija). Avisa al grupo de WhatsApp del negocio (el de
   // «MaKo <> cliente»), nunca al lead. Sale por HTTP: no lee nada de nadie, sólo deja un aviso en
   // el grupo del propio negocio.
+  //
+  // ⚠️ `partes` (undécima tanda, lib/mako-tarjeta.ts): la tarjeta «MaKo en WhatsApp» con las MISMAS opciones
+  // que un WhatsApp (varios mensajes, la Voz de MaKo, archivos, pausas). `mensaje` sigue OBLIGATORIO: con
+  // partes es su ESPEJO (los textos unidos, o «🎤 Nota de voz de MaKo»), que leen el feed, el push y todo lo
+  // que no sabe de partes; el editor (`paramsDeMako`) lo escribe siempre.
   {
     id: 'avisar_al_equipo', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Avisar al equipo',
-    descripcion: 'PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Úsala desde una automatización cuando el caso lo tiene que ver una persona.',
+    descripcion: 'PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Con partes, el aviso son esos mensajes en orden (textos, notas de voz con la Voz de MaKo y archivos de la biblioteca); desde una automatización salen tal cual, sin título ni firma. Úsala desde una automatización cuando el caso lo tiene que ver una persona.',
     parametros: [
       { nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'opcional: el lead del que se avisa (de buscar_leads). En una automatización, el del evento.' },
       { nombre: 'titulo', tipo: 'string', max: 120, descripcion: 'opcional: el título corto del aviso.' },
-      { nombre: 'mensaje', tipo: 'string', obligatorio: true, max: 1000, descripcion: 'lo que tiene que saber el equipo, en una o dos frases.' },
+      { nombre: 'mensaje', tipo: 'string', obligatorio: true, max: 1000, descripcion: 'lo que tiene que saber el equipo, en una o dos frases. Con partes, el resumen que se ve en la app (los textos unidos).' },
+      {
+        nombre: 'partes', tipo: 'object[]', max: TOPE_PARTES,
+        descripcion: `opcional: el aviso como varios mensajes, en orden (hasta ${TOPE_PARTES}). Una nota de voz tiene que ser la Voz de MaKo (no un audio del negocio); un archivo, de la biblioteca de archivos del chatbot.`,
+        campos: [
+          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: ['texto', 'audio', 'media'], descripcion: 'texto, nota de voz (audio exige audio_id) o archivo (media exige media_id; el cuerpo es su pie).' },
+          { nombre: 'cuerpo', tipo: 'string', max: 1000, descripcion: 'el texto del mensaje, o el pie del archivo. Admite los datos {{…}} del aviso al equipo.' },
+          { nombre: 'audio_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'id de un audio de la Voz de MaKo de este negocio, sólo si tipo es audio.' },
+          { nombre: 'media_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del archivo de la biblioteca de archivos del chatbot, sólo si tipo es media.' },
+          { nombre: 'pausa_s', tipo: 'number', entero: true, minimo: 1, maximo: PAUSA_MAX_S, descripcion: `opcional: segundos de espera antes de este mensaje (desde el segundo; hasta ${PAUSA_MAX_S}).` },
+        ],
+      },
       // La pone el MOTOR cuando el aviso sale de «Si responde» (lib/nutricion.ts →
       // correrAccionDeRespuesta): el texto literal del lead. Sin ella, el aviso de «Otra cosa» no
       // decía qué escribió y se deduplicaba por lead contra cualquier otro aviso de las 12 h.
@@ -404,14 +458,14 @@ export const DEFS: readonly OperacionDef[] = [
         nombre: 'crons', tipo: 'object[]', obligatorio: true, max: 10, descripcion: 'los CRON, el principal primero (hasta 10).',
         campos: [
           { nombre: 'id', tipo: 'string', max: 24, descripcion: 'opcional: el id del CRON (de ficha_secuencia_mensajes), para conservar la próxima ocurrencia de su horario.' },
-          { nombre: 'trigger_tipo', tipo: 'string', obligatorio: true, max: 60, descripcion: 'qué lo dispara: etapa_actual, entrega_actual, etiqueta_puesta, etiqueta_agregada, etiqueta_quitada, instagram, messenger, email_recibido, grupo_mako, o un trigger de listar_triggers_email (área email).' },
+          { nombre: 'trigger_tipo', tipo: 'string', obligatorio: true, max: 60, descripcion: 'qué lo dispara: etapa_actual, entrega_actual, etiqueta_puesta, etiqueta_agregada, etiqueta_quitada, instagram, messenger, email_recibido, pago, grupo_mako, o un trigger de listar_triggers_email (área email).' },
           { nombre: 'etapa', tipo: 'string', max: 60, descripcion: 'con etapa_actual o entrega_actual: la clave de la etapa (de etapas_para_secuencia).' },
           { nombre: 'etapas', tipo: 'string[]', max: 20, descripcion: 'opcional: varias etapas del mismo kanban (la primera es la de etapa).' },
           { nombre: 'funnel_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'con etapa_actual: el embudo del producto (sin él, la etapa de cualquier producto).' },
           { nombre: 'producto_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'con entrega_actual: el producto cuya entrega se mira.' },
           { nombre: 'etiqueta_id', tipo: 'number', entero: true, minimo: 1, descripcion: 'con etiqueta_puesta: la etiqueta (de listar_etiquetas, área crm).' },
           { nombre: 'ignorar', tipo: 'string[]', max: 50, descripcion: 'con etiqueta_agregada o etiqueta_quitada: los ids de las etiquetas que NO la disparan, como textos ("12", "15").' },
-          { nombre: 'subtipo', tipo: 'string', max: 30, descripcion: 'con instagram, messenger o email_recibido: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido.' },
+          { nombre: 'subtipo', tipo: 'string', max: 30, descripcion: 'con instagram, messenger, email_recibido o pago: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido. Pago: aprobado, rechazado, reembolsado, suscripcion_cancelada.' },
           { nombre: 'grupo', tipo: 'boolean', descripcion: 'con horario: además (o en vez) de la cohorte, le escribe al grupo de WhatsApp de MaKo del negocio.' },
           {
             nombre: 'cron', tipo: 'object', descripcion: 'opcional: el horario de un Recurrente. Con horario, el CRON no arranca por el evento: sale en cada ocurrencia, a los que están en la cohorte.',
@@ -436,7 +490,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'agregar_escenario_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Agregar un caso previsto',
-    descripcion: 'PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la secuencia tiene la tarjeta «Si responde», el caso entra ahí como una rama nueva con un «MaKo contesta» que usa tu guía; si no, la secuencia tiene que tener estrategia guardada. Máximo 30 casos. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).',
+    descripcion: 'PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la automatización tiene un AI Step, el caso entra ADENTRO como un escenario más de su objetivo (hasta 10): sale solo si contestaSolo y no habla de plata; si no, queda para aprobar; sin cómo responder, sólo te avisa. Si tiene la tarjeta «Si responde» de siempre, entra como una rama nueva con un «MaKo contesta» que usa tu guía (máximo 30); si no tiene ninguna, la secuencia tiene que tener estrategia guardada. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).',
     parametros: [
       pSecuenciaId,
       { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'cómo se llama el caso: «Pregunta el precio».' },
@@ -444,20 +498,20 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'comoResponder', tipo: 'string', max: 1000, descripcion: 'qué contestar: la guía del borrador, no el texto literal.' },
       { nombre: 'contestaSolo', tipo: 'boolean', descripcion: 'true: si el mensaje encaja en este caso, MaKo le contesta solo en vez de dejar un borrador. Sólo para casos que no tocan plata (confirmar, cambiar el día): una respuesta que habla de precio o trae un link sin completar queda en borrador igual. Default false.' },
     ],
-    reversible: true, escribe: 'agrega un escenario a nutricion_secuencias.estrategia.escenarios',
+    reversible: true, escribe: 'agrega el escenario al AI Step (o a «Si responde») de nutricion_secuencias.pasos, o a estrategia.escenarios si no tiene ninguno',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'resolver_handoff', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Enseñar el caso de un hand-off',
-    descripcion: 'PROPONE resolver un hand-off enseñándole a MaKo el caso (título, cuándo aplica y cómo responder) y devuelve un link para revisarlo. Al confirmar se suma el caso a la secuencia (aunque esté archivada; si tiene la tarjeta «Si responde», como una rama nueva), el hand-off queda resuelto y la inscripción del lead vuelve a correr. Si la secuencia no tiene estrategia, el caso no se guarda en ningún lado (solo se resuelve); si ya tiene 30 casos, no se propone. Pide antes el handoffId con listar_handoffs_pendientes.',
+    descripcion: 'PROPONE resolver un hand-off enseñándole a MaKo el caso (título, cuándo aplica y cómo responder) y devuelve un link para revisarlo. Al confirmar se suma el caso a la secuencia (aunque esté archivada; si tiene un AI Step, como un escenario más adentro; si tiene la tarjeta «Si responde» de siempre, como una rama nueva), el hand-off queda resuelto y la inscripción del lead vuelve a correr. Si la secuencia no tiene estrategia, el caso no se guarda en ningún lado (solo se resuelve); si ya tiene 30 casos, no se propone. Pide antes el handoffId con listar_handoffs_pendientes.',
     parametros: [
       { nombre: 'handoffId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del hand-off (de listar_handoffs_pendientes).' },
       { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'cómo se llama el caso.' },
       { nombre: 'cuando', tipo: 'string', obligatorio: true, max: 600, descripcion: 'cuándo aplica, en palabras del negocio.' },
       { nombre: 'comoResponder', tipo: 'string', max: 1000, descripcion: 'qué contestar: la guía del borrador.' },
     ],
-    reversible: false, escribe: 'agrega el escenario a la estrategia, marca chat_agent_handoffs.resuelto_at y reactiva la inscripción',
+    reversible: false, escribe: 'agrega el escenario al AI Step o a «Si responde» de la secuencia (o a su estrategia), marca chat_agent_handoffs.resuelto_at y reactiva la inscripción',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {

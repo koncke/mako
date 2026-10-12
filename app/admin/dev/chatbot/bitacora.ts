@@ -1387,4 +1387,90 @@ FEEDBACK PROBAR:
       "Con capturas: el lienzo de «Bienvenida» (CRON con un evento viejo, AI Step con sólo «Otra cosa»), el panel del CRON con el paso 2 sin desplegable y los seis recuadros desbordando, CONDITION con dos filas y scroll lateral, el editor de WhatsApp con la sugerencia como burbuja, y Probar con el remitente cortado.",
     ],
   },
+  {
+    fecha: "11 oct", hora: "04:50", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Grupos de WhatsApp: la tarjeta, el medio del AI Step y sus condiciones",
+    pedido: "También agrega la tarjeta de \"Grupo de WhatsApp\", para poder mandar mensajes a uno o más grupos que el usuario quiera... Y claro, en AI Step la opción de \"Grupo de WhatsApp\"... Y como vamos a trabajar con grupos de WhatsApp, también puedes agregar condiciones de estos... Por ejemplo, que esté dentro de X grupo... O que haya enviado un mensaje, o que se haya recibido cualquier mensaje en ese grupo, o que se haya enviado un mensaje con una palabra específica... Etc etc...",
+    puntos: [
+      "Llegó con la décima tanda corriendo (wf_0a9d0973-480): va DESPUÉS, porque toca los mismos archivos (motor, lienzo, AI Step v2, condiciones).",
+      "Ojo al diseñarlo: `fetchAllGroups` de Evolution no termina en una línea grande (AGENTS.md, «Una sonda se valida en los DOS estados»): la lista de grupos y «está dentro del grupo X» no pueden colgar de esa llamada en cada envío.",
+    ],
+  },
+  {
+    fecha: "11 oct", hora: "12:17", chat: "chatbot", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Décima tanda hecha: AI Step v2, Configuraciones, galería nueva y editores",
+    puntos: [
+      "AI Step v2: un caso por tarjeta, objetivo, «✦ Armar el resto», ensayo de objeciones y respuesta en audio con ElevenLabs (mig 0251). Los AI Step que ya existían se parten SIN objetivo: ponérselo cambiaba lo que MaKo le contesta a los leads de la #213.",
+      "Configuraciones de la tab: horario de envío y límites por canal en un panel. «Contesta sola» se mide en la zona del negocio.",
+      "Galería: «Lienzo en blanco» primero, buscador y filtro, plantillas de MaKo y de Instagram. «Nuevo agendado» pasa a ser un evento de MaKo: ws1 (#239) y ws13 (#240) lo tienen prendido desde antes del deploy.",
+      "«Pídeselo a MaKo» por la API, por la misma puerta que la caja del modal; sale crear_secuencia_mensajes (0 usos).",
+      "Editores: el medio se conecta desde la tarjeta, recorrido de la tab, «MaKo en WhatsApp» del mismo tamaño que WhatsApp (todavía sin audio, archivos ni varios mensajes: decisión pendiente).",
+      "Revisión del motor y los datos: tests/decima-revision.test.ts, cada guard probado rompiéndolo.",
+    ],
+    commits: [
+      { sha: "4e2ebc7d", msg: "Automations, décima tanda: AI Step v2, Configuraciones, galería nueva y editores al pedido de Martín", lineas: 13713, archivos: 137 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «Décima tanda»", "docs/diseno-ai-step-v2.md", "docs/diseno-automations-configuraciones.md", "docs/diseno-automations-galeria-v2.md", "docs/relevo/chatbot.md"],
+  },
+  {
+    fecha: "11 oct", hora: "12:38", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Las cuatro decisiones de la décima tanda: objetivos, editor de MaKo con audio, email y zona horaria",
+    pedido: "1. Ponle los objetivos a los que ya existian... Recuerda, nunca puede quedar una tarjeta en una version \"vieja\"\n2. Si, agregale esas opciones. Pero en audios, que se pueda configurar con ElevenLabs que salga la voz de MaKo. La que usamos para crear los VSL de la landing.\n3. Quitale a Mauricio que pueda mandar email con MaKo. Nadie debería poder.\n4. Si, siempre por ubicación que se maneje por defecto. Detectando la ubicacion del usuario.",
+    puntos: [
+      "Contesta a las cuatro preguntas del cierre de la décima: (1) los AI Step migrados quedaron sin objetivo; (2) el editor de «MaKo en WhatsApp» sin audio, archivos ni varios mensajes; (3) ws1 tenía resend_from = MaKo <equipo@hola-mako.com>; (4) el motor mandaba en hora de Ciudad de México a un negocio de Baja California.",
+      "La voz de MaKo de los VSL es «David» de ElevenLabs (eleven_multilingual_v2, stability 0.35, style 0.5, speed 1.08; MaKo-VSL/funnel/funnel.md).",
+      "Reglas nuevas en la memoria: nunca-version-vieja, email-negocio-nunca-con-mako, zona-horaria-por-ubicacion.",
+    ],
+  },
+  {
+    fecha: "11 oct", hora: "14:38", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Undécima tanda: rehacer los flujos con lo que ya existe, un solo AI Step, «Un Lead Agendó Llamada» y la barra lateral",
+    pedido: "1. En configuraciones elimina el divider de abajo del título y más abajo hay 2 divider sueltos, eliminalos también.\n2. En el CRON dice \"Dejó su formulario sin agendar (de antes)\"... Eso NO tiene sentido... Ya te pedí varias veces que no inventes cosas en las tarjetas, que utilices lo que ya configuramos... En este caso, la automatización debería apuntar a la etapa de \"Lead Entrante\" y en CONDITIONS configurar que no agendó con las configuraciones existentes...\n3. En ese mismo flujo hay 2 conditions uno al lado del otro, cuando justamente tenemos la opción de en una misma tarjeta de condition poner más de 1... Y lo peor es que en el medio de los conditions hay un delay de 1 hora, eso no tiene sentido... Revisa bien las automatizaciones existentes, no quiero NADA fuera de lo que ya configuramos...\n4. O por ejemplo en la automatización de MaKo en WhatsApp de que llegó una nueva agenda... En el mensaje dice \"{{Mensaje de MaKo}}\", ese dato NO existe... No es trackeable, no tiene sentido eso...\n5. Quiero que en los 3 puntos exista la opción de renombrar.\n6. En recordatorio de la reunión también tarjetas viejas... Con opciones que no deberían existir... El desplegable de datos solo me muestra 5 opciones, cuando normalmente hay muchos datos que se pueden citar. Eso está mal... Jamás se debe cambiar una tarjeta, no se más como decirlo... Elimina todas los flujos y vuelvelos a hacer con las herramientas que ya existen, porque estan muy mal...\n7. Y los datos, al momento de EDITAR, también se deben marcar en azul y ser clickeables, si los clickeo que salte el desplegable con el dato que elegí y que se pueda cambiar allí mismo por otro dato.\n8. \"Recordatorio de reunión\" NO debería ser un flujo aparte, para eso ya tenemos el flujo de \"Agendó reunión\", los recordatorios se pueden configurar allí mismo con DELAY... Lo mismo con el flujo de \"Aviso de nuevo agendado\"... Debería estar todo en un mismo flujo de \"Agendó reunión\", ya que se puede configurar el recordatorio por WhatsApp de MaKo también en el mismo flujo... Y que el único flujo pase a llamarse \"Un Lead Agendó Llamada\".\n9. Te pido que en la sidebar elimines la separación con \"MaKo en WhatsApp\" que sea todo una misma sidebar para todo, sin dividir, para eso ya tenemos filtros. Y arriba también elimina la palabra \"Chatbot\"... Y que los botones de \"Configuraciones\" y \"Tutorial\" estén en otro botón desplegable al inicio de la barra de busqueda, es decir, antes de la barra de busqueda.\n10. Revisa los templates, para complejizarlos con todo esto... Prefiero que los templates en lugar de crear muchos \"pequeños flujos\" creen uno que incluya todo la categoría... Si es \"Un Lead Agendó Llamada\", y así con los demás templates... Piensa en que se podría avisar por WhatsApp de MaKo, etc...\n11. Toda la cantidad de tarjetas de \"AI Step\" deberían ser una sola... Si justamente es el mismo objetivo, solo son diferentes objeciones o escenarios...\n12. No pongas tanto input de texto en AI Step... No me gusta para nada, solo el primero donde le pides a la IA o grabas audio... El resto con desplegables o otras cosas que no sean input de texto... Obvio, menos la parte de entrenamiento que uno tiene que responder.\n13. En el paso de \"Libertad\" lo complejizaste al pedo... Solo basta con los primeros 3 botones, que me gustaría que sean un desplegable... El \"Hasta\" siempre es atado al objetivo. Y el \"Te avisa cada vez\" ya es uno de los 3 botones... Y elimina todo el resto de titulos y aclaraciones que sobran... Poco texto quiero.",
+    puntos: [
+      "Con capturas: Configuraciones (los divisores), el CRON «Dejó el formulario sin agendar (de antes)» de #198, «Aviso de nuevo agendado» con {{mensaje_mako}}, «Recordatorio de la reunión» con el desplegable de 5 datos, las 4 tarjetas de AI Step de #213 «Sin objetivo», y el paso «Libertad».",
+      "Llegó con la corrida de las cuatro decisiones (wf_e8db65f3-71f) todavía en el relevo: se frenó sin haber escrito nada y se rearmó junto con esto.",
+      "Da vuelta la décima: «1 caso por tarjeta de AI Step» pasa a ser UN AI Step por objetivo, con los casos como escenarios u objeciones adentro.",
+    ],
+  },
+  {
+    fecha: "11 oct", hora: "16:10", chat: "graphics", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Automations configura y consume el Dashboard (pedido reenviado por el chat Graphics)",
+    pedido: "«Revisa que todo esto se pueda consumir en la API de MaKo, absolutamente todo. Y también mandale tarea al chat de chatbot para que se pueda configurar en automations y consumir esto tambien». («Esto» = el Dashboard: hojas, gráficos, bloques, AI Analyst con horario, Exportar.)",
+    puntos: [
+      "Graphics ya puso 22 operaciones del Dashboard en la API (área metricas, commit 6e85d8d7). Lo de Automations: un Evento de MaKo «El AI Analyst terminó» (aviso dashboard_analisis_listo), las acciones del Dashboard en el selector de ⚡ Acción con selectores persona → hoja → componente, y más adelante la salida de una acción al paso siguiente y un evento de umbral.",
+      "Ajuste al llegar: el mensaje NO va con {{mensaje_mako}} (Martín lo rechazó en la undécima, punto 4); se arma con datos citables en una tarjeta «MaKo en WhatsApp».",
+      "En cola DESPUÉS de la undécima (toca lib/disparadores.ts, avisos-catalogo y plantillas); la cuenta está al 92 % semanal.",
+    ],
+  },
+  {
+    fecha: "11 oct", hora: "22:50", chat: "chatbot", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Undécima tanda hecha: los flujos con las piezas de hoy, un AI Step por objetivo, datos citables y MaKo con voz",
+    puntos: [
+      "«Un Lead Agendó Llamada»: el motor lleva los recordatorios (1 día / 1 h / 15 min antes) y el aviso al equipo dentro del mismo flujo; scripts/undecima-flujos.mts rehace #198 y #213 en el lugar, archiva #228, #239, #240, #223 y #224, y crea la de ws13.",
+      "Nada inventado: {{mensaje_mako}} fuera, CONDITION seguidas frenadas, los eventos de antes salen del selector del CRON.",
+      "Un AI Step por medio con objetivo y escenarios; editor en 4 pasos; «Libertad» es un desplegable de 3.",
+      "Un catálogo de datos citables entero, azules y clickeables al editar; «MaKo en WhatsApp» con el editor de WhatsApp y la Voz de MaKo (mig 0257); email sin remitente de MaKo; zona única por negocio; barra lateral sin secciones; 13 plantillas.",
+      "Hecho en el worktree C:/dev/wt-undecima (el clon compartido tenía trabajo ajeno sin commitear sobre los archivos que origin cambiaba). A pedido de Martín se recortó la revisión adversarial («Recortar todo lo posible»): typecheck y suite enteros en verde.",
+    ],
+    commits: [
+      { sha: "a29af1a9", msg: "Automations, undécima tanda: los flujos con las piezas de hoy, un AI Step por objetivo, datos citables y MaKo con voz", lineas: 21436, archivos: 216 },
+    ],
+    archivos: ["docs/diseno-undecima-tanda.md", "docs/hallazgos-chatbot.md — «Undécima tanda»", "docs/relevo/chatbot.md"],
+  },
+  {
+    fecha: "12 oct", hora: "01:50", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Duodécima tanda: Crear con IA que respeta el canal y el catálogo, el chat de MaKo con historial, Instagram y sin onboarding",
+    pedido: "Feedback de una prueba de Automations con Fiesta Music (12/10/2026), extractos textuales:\n- «le especifiqué que sea por Instagram y volvió a crearlo por WhatsApp, así que está funcionando bastante mal» / «de igual manera tendría que haberlo detectado porque nombraste la palabra reel».\n- «debería haber puesto en entrega de servicio... tendría que haber elegido onboarding... Llega una persona a onboarding, no es lead entrante, es un cliente entrante» / «yo fui agregando más opciones del desplegable después de implementar la automatización de creación a través de MaKo, entonces tal vez no le está llegando todas las opciones que tiene».\n- «apareció en condiciones una condición llamada pagó que no existía dentro del desplegable, eso jamás tiene que pasar. Siempre tiene que seleccionar las cosas que existen dentro del desplegable» / «yo en ningún momento aclaré que había tipo cuotas... está asumiendo muchas cosas que no hay».\n- «antes de generar la automatización haga preguntas para clarificarlo... el medio WhatsApp o Instagram, cuáles son las condiciones» / «la regla de MaKo es que no genere fricción. Pero... en lugar de simplemente un input de texto con el audio, tiene que tener un chat donde guarda el registro y en ese mismo chat, cuando vos le envías un audio, cuando le envías un texto, MaKo te podría llegar a responder con alguna pregunta si lo necesita. No siempre... como hoy lo hace Claude que te saltan una pregunta con tres opciones».\n- «si vos acabas de crear una automatización a través de un mensaje para MaKo, que automáticamente al entrar a la automatización aparezca ya abierto el chat de MaKo con el último mensaje» / «que se guarde un registro tipo chat de las cosas que vos le fuiste pidiendo desde el primer pedido hasta el último».\n- «Cambia por favor las tarjetas de WhatsApp a tarjetas por Instagram. Esa tarjeta no puede abrir otro camino a la vez, no agregué este tramo... para modificaciones hay que ver si puede quitar y volver a poner las tarjetas nuevas y modificar campos de tarjetas existentes que ya fueron creadas, súper importante».\n- «el botón de MaKo... ese botón está más grande que el de al lado» / «se aprieta el botón de MaKo cuando está abierta cualquier tarjeta y la tarjeta debería cerrarse; no debería permanecer abierta y no hacer nada».\n- «lo que falta en el probar es un aviso, que eso ya se lo pedí y no lo hizo: un aviso de que ya se envió y que revise sus chats o notificaciones».\n- «filtros en la sidebar: faltan los canales que agregamos, el canal de Instagram, el canal de Messenger».\n- «esa condición de que te siga o condiciones de Instagram no hay todavía» / «Información del lead: tiene WhatsApp, Gmail... me imagino que después se va a agregar el Instagram».\n- «si tenés que conectar Zernio, te lo permita conectar desde ahí mismo, como hoy te permite escanear el WhatsApp... sin cambiar de tab».\n- «hoy hay un onboarding dentro de la tab que debería quitarse... Leandro entró a la tab y lo primero que le pidió es conectar WhatsApp; vos entrás en la tab por primera vez y tenés que ver el lienzo y tiene que salir el tutorial, y cuando creás un paso que requiera WhatsApp y te diga que tu WhatsApp no está conectado, ahí que salte el QR. Que no haya ninguna fricción».\n- Fuera de Automations: «cuando alguien da clic en Operate, que es el desplegable de todas las tabs, se lo lleva a General; no debería pasar eso» / «Customer Success no debería estar dentro de Operate, sino que debería ser otra tab padre dentro de la sidebar» / «en todas las conexiones de API que no se tienen todavía conectadas, siempre aparece como si fuera un placeholder ya completado» / «los tutoriales para conectar APIs están muy largos» / la landing «te lo creó tipo presentación diapositiva, no como si fuera una landing» / «se buguea en la vista de tira de imágenes» / migrar cursos desde Skool o Hotmart («si tiene API que lo haga directamente con integración; si no, que sea algo más sencillo»).",
+    puntos: [
+      "Martín pegó la transcripción de una prueba con Fiesta Music y pidió «Te paso feedback, implementalo». Acá van los extractos que piden algo; la charla entera no se guarda (es personal).",
+      "Lo de otras tabs se repartió: Landing Generator (presentación en vez de landing, la tira de imágenes), Integraciones vía la sesión de Pagos (campos que parecen completados, tutoriales largos); la migración de cursos desde Skool/Hotmart queda anotada sin dueño.",
+    ],
+  },
 ];

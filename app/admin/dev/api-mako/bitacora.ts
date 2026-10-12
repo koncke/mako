@@ -220,4 +220,15 @@ export const BITACORA: Hito[] = [
       { sha: '3b684747', msg: 'API de MaKo: las tareas y el video por código del curso', lineas: 446, archivos: 9 },
     ],
   },
+  // ── 11/10: la pasarela de pagos entra a la API ─────────────────────────────
+  {
+    fecha: '11 oct', hora: '—', chat: '—', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Cobrar con Stripe y Mercado Pago, también desde la API',
+    pedido: 'Esta tab se llama "Integraciones". Quiero que implementes end-to-end la integración con Mercado Pago y con Stripe, tipo pasarela de pagos... Lo voy a utilizar yo como superadmin para vender MaKo, pero también los usuarios pueden alojarlo... Obvio revisa si hay que meterlo en diferentes lugares, como la API de MaKo, como automatios, como el CRM, etc...',
+    puntos: [
+      'Para la API, «meterlo en la API de MaKo» es un área nueva, `cobros`, y no más operaciones del CRM: así un token con escritura en el CRM no crea links de pago ni reembolsa. El contrato, en docs/diseno-pasarela-pagos.md §4.8.',
+      'Decisiones suyas del mismo día: alta automática al pagar un plan de MaKo, cada cliente pega sus claves (BYOK) y «Pagos» será un botón propio del CRON de Automations (fase 2).',
+    ],
+  },
 ];

@@ -33,6 +33,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { EditorEmailGmail, paramsDeVista, nombreDelRemitente, avisoDelRemitente, htmlLegible, AVISO_REEMPLAZA } from '../app/automations/EditorEmailGmail';
 import { renderEmailHtml } from '../lib/email-html';
+import { SIN_EMAIL_PROPIO } from '../lib/email-remitente';
 import { sanearHtmlEmail } from '../lib/email-html-seguro';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -190,11 +191,14 @@ test('el De: los vinculados de la ruta, lo elegido con la función del MOTOR, y 
     'la pantalla diría un remitente que el envío ya no usa');
   assert.match(GMAIL, /const opciones = opcionesDeRemitente\(vinculados, remitente, estado\?\.remitente\);/);
   assert.match(GMAIL, /onChange\(\{ remitente: r === vinculados\[0\] \? null : r \}\);/, 'elegir el del workspace tiene que SACAR el campo');
-  assert.match(GMAIL, /\{ key: '__vincular', label: 'Vincular nuevo', icono: <IconMas \/>, onElegir: \(\) => setVincular\(true\) \}/);
+  // Décima tanda (EMAIL 1): sin ninguno propio (el del negocio es el de MaKo), se vincula EL SUYO.
+  assert.match(GMAIL, /\{ key: '__vincular', label: vinculados\.length \? 'Vincular nuevo' : 'Vincular tu email', icono: <IconMas \/>, onElegir: \(\) => setVincular\(true\) \}/);
   // Sin leer todavía, el De dice «…»; nunca inventa un remitente.
   assert.match(dibujar(), /class="mk-gmail-de-txt"[^>]*>…</);
-  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: true }), 'No sale · dominio sin verificar', 'con el sandbox no sale aunque esté prendido');
-  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: false }), 'No sale · dominio sin verificar', 'el sandbox gana: prenderlo no lo arregla');
+  // Undécima tanda: sin remitente propio el chip dice SIN_EMAIL_PROPIO (lib/email-remitente.ts), la misma
+  // constante que frena el envío; el email de MaKo en un cliente llega acá como el sandbox.
+  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: true }), SIN_EMAIL_PROPIO, 'con el sandbox no sale aunque esté prendido');
+  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: false }), SIN_EMAIL_PROPIO, 'el sandbox gana: prenderlo no lo arregla');
   assert.equal(avisoDelRemitente({ sandbox: false, envioHabilitado: false }), 'Email apagado');
   assert.equal(avisoDelRemitente({ sandbox: false, envioHabilitado: true }), null);
   assert.equal(avisoDelRemitente(null), null, 'sin leer el remitente no se inventa un aviso');
@@ -237,9 +241,13 @@ test('«Vincular nuevo» es UN modal: el de «Probar» es éste (`VincularRemite
   // tests/panel-probar-ancho); volver a escribir su `RUTA_LINEAS` → 1 fallo. Restaurado → verde.
   assert.match(GMAIL, /^export function VincularRemitente\(/m);
   const probar = sinComentarios(leer('app/automations/PanelProbar.tsx'));
-  assert.match(probar, /if \(canal === 'email'\) return <VincularRemitente inicial=\{dom\} reemplaza=\{reemplaza\} onCerrar=\{onCerrar\} onDominio=\{onDominio\} \/>;/);
-  assert.match(probar, /import \{ VincularRemitente \} from '\.\/EditorEmailGmail';/);
-  assert.doesNotMatch(probar, /DominioSetup|import\('\.\.\/email\/EmailApp'\)/, 'volvió la copia del modal');
+  // Desde la décima tanda (GENERAL 6) el modal de «Probar» es ConectarMedio (lo montan además la tarjeta,
+  // Publicar y el CRON), y el del email sigue siendo ÉSTE.
+  const conectar = sinComentarios(leer('app/automations/ConectarMedio.tsx'));
+  assert.match(conectar, /return <VincularRemitente inicial=\{dom\} reemplaza=\{reemplaza\} onCerrar=/);
+  assert.match(conectar, /import \{ VincularRemitente \} from '\.\/EditorEmailGmail';/);
+  assert.match(probar, /import \{ ConectarMedio, useEstadoMedios \} from '\.\/ConectarMedio';/);
+  for (const s of [probar, conectar]) assert.doesNotMatch(s, /DominioSetup|import\('\.\.\/email\/EmailApp'\)/, 'volvió la copia del modal');
   // Y las líneas del negocio salen de UNA ruta: la de SalidaWhatsApp.
   assert.match(probar, /import \{[^}]*\bRUTA_LINEAS\b[^}]*\} from '\.\/SalidaWhatsApp';/);
   assert.doesNotMatch(probar, /const RUTA_LINEAS\s*=/, 'PanelProbar volvió a escribir su ruta de líneas');

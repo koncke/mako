@@ -32,8 +32,10 @@ import {
 } from '../lib/variables-aviso';
 import {
   valoresDelNombre, valoresDelLead, valoresConZona, valoresDelProducto, valoresDeEtiquetas, valoresDePagos,
-  valoresDelCurso, valoresDelPerfil, valoresDelLeadMagnet, valoresDelMomento,
+  valoresDelCurso, valoresDelPerfil, valoresDelLeadMagnet, valoresDelMomento, valoresDelCobro,
+  valoresDeLaProximaReunion, valoresDeRespuestasAgenda, valoresDelPago, valoresDeLoEscrito, TOPE_ESCRITO,
 } from '../lib/variables-del-lead';
+import { detalleDelAviso } from '../lib/calcom';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO, esVariableConocida } from '../lib/template-vars';
 import { CLAVES_DE_CUOTA } from '../lib/cobranza';
 import type { Lead } from '../lib/leads';
@@ -84,8 +86,21 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     // como la cuota la pone el cron de cobranza: lo fija tests/aviso-evento.test.ts leyendo ese fuente.
     evento: new Set(['link_lead', CLAVE_MENSAJE_MAKO]),
     cuota: new Set(CLAVES_DE_CUOTA),
+    // El link para pagar (11/10/2026): su cobro pendiente más nuevo, de la tabla `cobros`.
+    cobro: set(valoresDelCobro('https://x/pagar/abc')),
+    // Undécima tanda (11/10/2026): la PRÓXIMA reunión (la fila + la zona + el momento), lo que contestó al agendar
+    // (`lead_respuestas`), y lo que pasan los emisores en `datos`: el pago (`avisarPagoRecibido`) y lo que escribió
+    // el lead (la charla). Esos dos se cruzan con su emisor en el test de abajo.
+    proxima: set(valoresDeLaProximaReunion(PROXIMA, 'America/Tijuana', AHORA_PROXIMA)),
+    respuestas: set(valoresDeRespuestasAgenda([{ respuestas: [{ q: '¿Tienes equipo?', a: 'Sí' }] }])),
+    pago: set(valoresDelPago({ monto: 2300, moneda: 'USD', concepto: 'Mentoría', proveedor: 'stripe', renovacion: false, modo: 'prueba', alta: 'hecha' })),
+    escrito: set(valoresDeLoEscrito('¿Puedo cambiar la hora?')),
   };
 }
+
+/** Una R2 mañana a las 10:00 de Tijuana, en pie, con link: todo lo de «Próxima reunión» tiene valor. */
+const PROXIMA = { junta_2_at: '2026-10-13T17:00:00Z', fecha_junta_2: '2026-10-13', asistio_j2: null, junta_2_url: 'https://meet.google.com/abc-defg-hij' };
+const AHORA_PROXIMA = Date.parse('2026-10-12T17:00:00Z');
 
 test('⛔ «Tu negocio» no se ofrece en NINGÚN «{ }», y el token se sigue resolviendo', () => {
   // Probado rompiéndolo (09/10/2026): `negocio` sin `oculta` → cae éste.
@@ -131,7 +146,7 @@ test('⚠️ TODO lo que el árbol ofrece tiene quien lo PONGA: cada clave sale 
   assert.deepEqual(faltan, [], `el «{ }» ofrece datos que nadie resuelve: ${faltan.join(', ')}`);
   // Y cada fuente tiene su lectura en el resolvedor (una lectura por entidad nombrada).
   const res = sinComentarios(leer('lib/variables-resolver.ts'));
-  for (const f of ['ficha', 'zona', 'producto', 'curso', 'etiquetas', 'pagos', 'perfil', 'lead_magnet'] as const) {
+  for (const f of ['ficha', 'zona', 'producto', 'curso', 'etiquetas', 'pagos', 'cobro', 'perfil', 'lead_magnet', 'proxima', 'respuestas'] as const) {
     assert.match(res, new RegExp(`f\\.has\\('${f}'\\)`), `el resolvedor no lee «${f}»`);
   }
   assert.match(res, /if \(pide\('negocio'\)\)/);
@@ -146,8 +161,9 @@ test('⚠️ TODO lo que el árbol ofrece tiene quien lo PONGA: cada clave sale 
 });
 
 test('las funciones de cada entidad dicen lo que dicen', () => {
-  // La hora de la reunión en la zona del NEGOCIO (01:00 UTC del 15/10 = 18:00 del 14 en Tijuana).
-  assert.deepEqual(valoresConZona(LEAD, 'America/Tijuana'), { lead_hora_r1: '18:00', lead_hora_r2: '17:30' });
+  // La hora de la reunión en la zona del NEGOCIO (01:00 UTC del 15/10 = 18:00 del 14 en Tijuana), con la forma de
+  // todas desde la undécima tanda («6:00 p. m.», `horaDe`).
+  assert.deepEqual(valoresConZona(LEAD, 'America/Tijuana'), { lead_hora_r1: '6:00 p. m.', lead_hora_r2: '5:30 p. m.' });
   assert.deepEqual(valoresConZona({ junta_1_at: null, junta_2_at: 'basura' }, 'America/Tijuana'), {}, 'sin hora no se inventa una');
   // La etapa con su rótulo; una clave que el producto ya no tiene no se dice (sería un slug).
   assert.deepEqual(valoresDelProducto({ etapaClave: 'agenda', etapas: [{ key: 'agenda', label: 'Agendado' }], producto: ' Mentoría ' }), { lead_etapa: 'Agendado', lead_producto: 'Mentoría' });
@@ -179,7 +195,7 @@ test('las funciones de cada entidad dicen lo que dicen', () => {
   // El lead magnet: el primero con nombre, y su link si lo tiene.
   assert.deepEqual(valoresDelLeadMagnet([{ nombre: '' }, { nombre: 'Plantilla' }]), { negocio_lead_magnet: 'Plantilla' });
   // El momento en la zona: viernes 9/10 a las 9:00 en Ciudad de México.
-  assert.deepEqual(valoresDelMomento(Date.parse('2026-10-09T15:00:00Z'), 'America/Mexico_City'), { fecha: '09/10', hora: '09:00', dia_semana: 'viernes' });
+  assert.deepEqual(valoresDelMomento(Date.parse('2026-10-09T15:00:00Z'), 'America/Mexico_City'), { fecha: '09/10', hora: '9:00 a. m.', dia_semana: 'viernes' });
   // El nombre partido como el motor.
   assert.deepEqual(valoresDelNombre('  Sofía   Contreras Ruiz '), { nombre: 'Sofía', nombre_completo: 'Sofía Contreras Ruiz', lead_nombre: 'Sofía Contreras Ruiz', apellido: 'Contreras Ruiz' });
 });
@@ -229,6 +245,67 @@ test('el selector: árbol con ícono por rama, buscador, texto plano y sin filtr
   assert.doesNotMatch(src, /chip/i, 'un chip lo borra el serializador del editor');
 });
 
+// ── Undécima tanda (11/10/2026): lo que reemplaza a «{{mensaje_mako}}» ───────────────────────────────────────
+// Martín, punto 4: «ese dato NO existe... No es trackeable». Lo que el código de cada aviso pegaba en un token pasa
+// a datos que se citan: la próxima reunión (tests/proxima-reunion), lo que contestó al agendar, lo que escribió el
+// lead y el pago. Los dos últimos los pasa su EMISOR en `datos` (como la cuota de la cobranza).
+
+test('lo que contestó al agendar: la ÚLTIMA fila, con los MISMOS renglones que el aviso de Cal.com', () => {
+  const qa = [
+    { q: '¿Hace cuánto que formas parte del rubro inmobiliario?', a: '5 años' },
+    { q: 'Tu Instagram', a: '@ejemplo' },
+    { q: '   ', a: 'sin pregunta' }, { q: 'Vacía', a: ' ' },
+  ];
+  const v = valoresDeRespuestasAgenda([{ respuestas: qa }, { respuestas: [{ q: 'vieja', a: 'no' }] }]);
+  // La misma función que arma el aviso de hoy (`detalleDelAviso`, sin contacto): un renglón, una forma.
+  const delAviso = detalleDelAviso({ telefono: null, email: null, respuestas: qa.slice(0, 2).map((x) => ({ clave: 'c', rotulo: x.q, valor: x.a })) });
+  assert.equal(v.lead_respuestas_agenda, delAviso.join('\n'));
+  assert.equal(v.lead_respuestas_agenda, '• Hace cuánto que formas parte del rubro…: 5 años\n• Instagram: @ejemplo');
+  // Más de seis: «+N en el resumen» (la ficha del CRM, adonde lleva el link del aviso).
+  const muchas = Array.from({ length: 8 }, (_, i) => ({ q: `Pregunta ${i + 1}`, a: 'Sí' }));
+  assert.match(valoresDeRespuestasAgenda([{ respuestas: muchas }]).lead_respuestas_agenda!, /\n• \+2 en el resumen$/);
+  // Sin fila, sin respuestas con texto o con basura: nada (y su renglón se va).
+  assert.deepEqual(valoresDeRespuestasAgenda([]), {});
+  assert.deepEqual(valoresDeRespuestasAgenda([{ respuestas: 'roto' }]), {});
+  assert.deepEqual(valoresDeRespuestasAgenda([{ respuestas: [{ q: 'x', a: '' }, null] }]), {});
+});
+
+test('lo que escribió el lead: el texto, cortado en una palabra si es largo; vacío no entra', () => {
+  assert.deepEqual(valoresDeLoEscrito('  ¿Puedo cambiar la hora?  '), { lead_escribio: '¿Puedo cambiar la hora?' });
+  assert.deepEqual(valoresDeLoEscrito('   '), {});
+  assert.deepEqual(valoresDeLoEscrito(null), {});
+  const largo = valoresDeLoEscrito('palabra '.repeat(60)).lead_escribio!;
+  assert.ok(largo.length <= TOPE_ESCRITO && largo.endsWith('…'), `cortó mal: ${largo.length}`);
+});
+
+test('⚠️ el PAGO por CÓDIGO: el monto con su moneda, la pasarela, el tipo, la prueba y el alta de MaKo', () => {
+  assert.deepEqual(valoresDelPago({ monto: 2300, moneda: 'USD', concepto: ' Mentoría ', proveedor: 'stripe', renovacion: false, modo: 'real', alta: null }),
+    { pago_monto: 'US$ 2.300', pago_concepto: 'Mentoría', pago_pasarela: 'Stripe', pago_tipo: 'Primer pago' });
+  // La renovación trae SU monto y su moneda; la prueba se dice; el alta de una venta de MaKo también.
+  const r = valoresDelPago({ monto: 1500.5, moneda: 'MXN', concepto: 'Plan', proveedor: 'mercadopago', renovacion: true, modo: 'prueba', alta: 'ya_tenia_cuenta' });
+  assert.equal(r.pago_monto, '$ 1.500,50 MXN');
+  assert.equal(r.pago_pasarela, 'Mercado Pago');
+  assert.equal(r.pago_tipo, 'Renovación');
+  assert.equal(r.pago_modo, 'Prueba');
+  assert.equal(r.pago_alta, 'Ya tenía cuenta');
+  assert.equal(valoresDelPago({ monto: 1, moneda: 'USD', concepto: null, proveedor: 'stripe', renovacion: false, modo: 'real', alta: 'error' }).pago_alta, 'El alta falló');
+  // Sin valor NO entra (y el renglón se va): un pago real no dice «Prueba», un alta pendiente no dice nada.
+  const real = valoresDelPago({ monto: 1, moneda: 'USD', concepto: '', proveedor: 'stripe', renovacion: false, modo: 'real', alta: 'pendiente' });
+  for (const k of ['pago_modo', 'pago_alta', 'pago_concepto']) assert.ok(!(k in real), `${k} entró sin valor`);
+});
+
+test('CABLEADO: los emisores pasan los datos (el pago y la charla), y el texto de siempre se queda hasta la limpieza', () => {
+  // lib/cobros.ts lleva `server-only` (no carga bajo tsx): se lee su fuente sin comentarios.
+  const cobros = sinComentarios(leer('lib/cobros.ts'));
+  const aviso = cobros.slice(cobros.indexOf('async function avisarPagoRecibido('), cobros.indexOf('async function estadoDelAlta('));
+  assert.ok(aviso.length > 200, 'no encontré el aviso del pago');
+  assert.match(aviso, /const alta = await estadoDelAlta\(c\);\n\s*const cuenta = lineaDelAlta\(c, alta\);/, 'el alta se lee dos veces (o ninguna)');
+  assert.match(aviso, /datos: valoresDelPago\(\{\n\s*monto: p\.monto, moneda: p\.moneda, concepto: c\.concepto, proveedor: c\.proveedor,\n\s*renovacion: p\.renovacion, modo: c\.modo, alta,\n\s*\}\),/, 'el aviso del pago no pasa sus datos');
+  assert.match(aviso, /\n\s*texto: `💰 \*Entró un pago\*/, 'el texto de siempre (compatibilidad de `{{mensaje_mako}}`) se fue antes de la limpieza');
+  const handoff = sinComentarios(leer('lib/chat-agent-handoff.ts'));
+  assert.match(handoff, /lead: \{ id: input\.leadId, nombre: input\.leadNombre \?\? null \},\n\s*datos: valoresDeLoEscrito\(input\.mensaje\),/, 'la charla no pasa lo que escribió el lead');
+});
+
 // ── Roturas (09/10/2026) ─────────────────────────────────────────────────────────────────────
 // Arnés en el scratchpad, una por vez, restaurada DE MEMORIA (nunca `git checkout`), corriendo este
 // archivo con tests/paso-variables-editor y tests/variables-aviso. Base: 34 / 0. Restaurado: 34 / 0.
@@ -242,3 +319,13 @@ test('el selector: árbol con ícono por rama, buscador, texto plano y sin filtr
 //   D8. la búsqueda sensible a tildes y mayúsculas                               → 33 / 1
 //   PV1. `aplicarVariables` sin dígitos en las dos llaves (paso-variables-editor) → 33 / 1
 //   PV2. «Tu negocio» de vuelta en VARIABLES_NEGOCIO                             → 32 / 2
+// Undécima tanda (11/10/2026, arnés scratchpad/wf-undecima/w1-datos-catalogo/romper.mjs, restaurado con md5).
+// Este archivo solo: base 11 / 0, restaurado 11 / 0.
+//   R14. lo que contestó al agendar con la fila más VIEJA en vez de la última                  → 10 / 1
+//   R15. `pago_modo` puesto en '' en un pago real (su renglón no se iría)                       → 10 / 1
+//   R16. `avisarPagoRecibido` sin pasar sus `datos`                                             → 10 / 1
+//   R17. la charla (lib/chat-agent-handoff.ts) sin pasar lo que escribió                        → 10 / 1
+//   R18. el resolvedor sin la lectura de `lead_respuestas`                                      → 10 / 1
+//   R19. la hora de las reuniones otra vez en 24 h («18:00»: dos formas de la misma hora)      → 10 / 1
+// Con tests/proxima-reunion (base 19 / 0): la estricta acepta una fecha sin hora               → 17 / 2
+// Con tests/calcom-respuestas (base 31 / 0): el aviso de Cal.com con otros renglones que el dato → 28 / 3

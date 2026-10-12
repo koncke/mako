@@ -3,7 +3,8 @@
 // =============================================================================
 // Esto es una FOTO, no una consulta. Se leyó una vez de Supabase (workspace 1,
 // modo solo lectura) el 09/09/2026 y quedó acá escrita. La diferencia con
-// /analisis, que es la misma pregunta calculada en vivo, es deliberada: un
+// la tab Análisis de Experiments (antes /analisis), que es la misma pregunta
+// calculada en vivo, es deliberada: un
 // informe que se cita tiene que dar el mismo número el día que se cita y seis
 // meses después. Si esto consultara la base, cada corrección retroactiva del
 // CRM cambiaría el argumento del texto sin que nadie lo note.

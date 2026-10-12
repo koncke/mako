@@ -47,6 +47,9 @@ import { getPipelineStagesDeLead, listarFunnels } from '@/lib/funnels';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { urlGravatar } from '@/lib/gravatar';
 import { getLeadInsights, getEquipoAction } from '../actions';
+import { senalesDeCobroAction } from './cobros-actions';
+import { muestraPagos, planEnLead } from '@/lib/muestra-pagos';
+import { faltaComprobante } from '@/lib/pago-comprobante';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -93,7 +96,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   // ⚠️ ACÁ SE GATEABAN LOS LINKS A MICROSOFT CLARITY, y se fueron el 06/10/2026
   // con Clarity entero (ver el mismo comentario en app/crm/actions.ts, que es la
   // otra puerta de esta MISMA ficha). `replayDeLead` no tira nunca.
-  const [respuestas, insightGen, equipo, funnels, replay] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction(), listarFunnels().catch(() => []), replayDeLead(lead.visitor_id, ultimaActividad)]);
+  const [respuestas, insightGen, equipo, funnels, replay, cobro] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction(), listarFunnels().catch(() => []), replayDeLead(lead.visitor_id, ultimaActividad), senalesDeCobroAction(lead.id)]);
   // Los productos para el desplegable de la ficha. Sólo el id, el nombre y si es el del
   // negocio: lo demás no lo necesita la pantalla y bajaría la config entera de cada embudo
   // al navegador.
@@ -144,11 +147,12 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     etapas: stages, etapaActual: stageKey,
   });
 
-  const esVenta = lead.estado_lead === 'ganado' || stageKey === 'facturando';
-  const tienePlan = pagos.length > 0 || !!lead.cobro_inicial_usd || (lead.total_cuotas ?? 0) > 0;
+  // La tab Pagos: LA MISMA regla que el modal (lib/muestra-pagos.ts), con los mismos datos.
+  const verPagos = muestraPagos({ estado: lead.estado_lead, etapa: stageKey, cuotas: pagos.length, planEnLead: planEnLead(lead), ...cobro });
 
-  // "Datos sin marcar": todo lo que la etapa actual adeuda (posible de conseguir).
-  const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
+  // "Datos sin marcar": todo lo que la etapa actual adeuda (posible de conseguir). Un cobro confirmado
+  // por la pasarela no pide comprobante (lib/pago-comprobante.ts).
+  const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages });
   const cuotasPendientes = pagos.filter((p) => !p.pagado).length;
   // Nutrición positiva (derivada): el lead avanza y está en su ventana informativa.
@@ -272,8 +276,9 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
             // 1.138 leads esta pestaña no decía más que «está vacía»: una pestaña cuyo
             // único contenido es avisar que no hay contenido se abre una vez y no se
             // abre nunca más, pero todos los días ocupa lugar y hace dudar de si falta
-            // algo. Con pagos cargados vuelve sola, con todo lo de siempre.
-            ...((esVenta || tienePlan) ? [{ key: 'cobranza', label: 'Pagos', badge: cuotasPendientes, content: <DealDetailsCard lead={lead} pagos={pagos} /> }] : []),
+            // algo. Con pagos cargados vuelve sola, con todo lo de siempre. Y con una pasarela
+            // conectada también está en el lead que todavía no compró: ahí vive «Cobrar con link».
+            ...(verPagos ? [{ key: 'cobranza', label: 'Pagos', badge: cuotasPendientes, content: <DealDetailsCard lead={lead} pagos={pagos} /> }] : []),
             // Análisis va pegado a Historial: las dos contestan «qué pasó con esta
             // persona» —una lo interpreta, la otra lo registra— y se leen seguidas.
             {

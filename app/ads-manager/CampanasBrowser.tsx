@@ -102,7 +102,7 @@ const ALL_COLS: ColDef[] = [
   { id: 'cash', label: 'Cash (CRM)' },
   { id: 'aprendizaje', label: 'Aprendizaje', levels: ['adset'] },
   // Un anuncio no se asigna: el ruteo es por campaña o conjunto (lib/campana-config.ts).
-  { id: 'producto', label: 'Producto (CRM)', levels: ['campaign', 'adset'] },
+  { id: 'producto', label: 'Funnel (CRM)', levels: ['campaign', 'adset'] },
 ];
 const ALWAYS_ON: ColId[] = ['entrega'];
 const COLS_KEY = (tab: Tab) => `mako.adsTable.cols.${tab}`;
@@ -583,7 +583,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     if (valor === '') {
       const antes = items.map((i) => asignadaDe.get(i.id)).filter(Boolean) as CampanaAsignada[];
       for (const i of items) await quitarCampanaAction(i.id).then((r) => { if (r.ok) setAsig((v) => (v ? { ...v, asignadas: r.asignadas } : v)); });
-      showProd(`${antes.length} sin producto`, async () => {
+      showProd(`${antes.length} sin funnel`, async () => {
         for (const a of antes) await asignarCampanaAction(a.funnelId, { tipo: a.tipo, id: a.id, nombre: a.nombre, campanaId: a.campanaId }, false)
           .then((r) => { if (r.ok) setAsig((v) => (v ? { ...v, asignadas: r.asignadas } : v)); });
       });
@@ -591,11 +591,11 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     }
 
     const funnelId = funnelDeValor(valor);
-    const nombreProd = asig.productos.find((p) => p.id === funnelId)?.nombre ?? 'el producto';
+    const nombreProd = asig.productos.find((p) => p.id === funnelId)?.nombre ?? 'el funnel';
     const previas = await Promise.all(items.map((i) => previaCampanaAction(funnelId, i).catch(() => null)));
     const aTraer = previas.reduce((n, p) => n + (p && p.ok ? p.aTraer : 0), 0);
     const enOtro = items.some((i) => { const a = asignadaDe.get(i.id); return !!a && a.funnelId !== funnelId; });
-    if (hayQuePreguntar(aTraer, enOtro ? 'otro producto' : null)) {
+    if (hayQuePreguntar(aTraer, enOtro ? 'otro funnel' : null)) {
       setPideLote({ valor, funnelId, nombre: nombreProd, aTraer, n: items.length });
       return;
     }
@@ -945,7 +945,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
         <Confirm
           title={pideLote.aTraer > 0 ? `¿Traer ${pideLote.aTraer} ${pideLote.aTraer === 1 ? 'lead' : 'leads'} a «${pideLote.nombre}»?` : `¿Mover ${pideLote.n} a «${pideLote.nombre}»?`}
           message={pideLote.aTraer > 0
-            ? `Se mueven de su producto actual al nuevo. Los que entren desde ahora van a «${pideLote.nombre}».`
+            ? `Se mueven de su funnel actual al nuevo. Los que entren desde ahora van a «${pideLote.nombre}».`
             : 'Los leads que ya entraron se quedan donde están; sólo cambia a dónde van los nuevos.'}
           confirmLabel={pideLote.aTraer > 0 ? `Traer ${pideLote.aTraer}` : 'Mover'}
           cancelLabel="No asignar"

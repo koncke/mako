@@ -120,7 +120,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
 
   const asignadas = useMemo(() => estado?.asignadas ?? [], [estado]);
   const dondeVa = useMemo(() => new Map(asignadas.map((a) => [a.id, a.funnelId])), [asignadas]);
-  const nombreDe = (id: number | null) => estado?.productos.find((p) => p.id === id)?.nombre ?? 'otro producto';
+  const nombreDe = (id: number | null) => estado?.productos.find((p) => p.id === id)?.nombre ?? 'otro funnel';
   const esMia = (id: string) => dondeVa.has(id) && dondeVa.get(id) === funnelId;
 
   const actualizar = (nuevas: CampanaAsignada[]) => {
@@ -282,9 +282,9 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
     { value: 'otra', label: 'No activas', icono: 'pausar' },
   ];
   const opcionesAsig: DropdownOption[] = [
-    { value: '', label: 'Todos los productos' },
+    { value: '', label: 'Todos los funnels' },
     { value: 'este', label: `En ${nombreProducto}` },
-    { value: 'otro', label: 'En otro producto' },
+    { value: 'otro', label: 'En otro funnel' },
     { value: 'sin', label: 'Sin asignar' },
   ];
   const opcionesLote: DropdownOption[] = [
@@ -380,7 +380,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
                 color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none',
               }} />
             <Dropdown value={filtroEstado} options={opcionesEstado} onChange={setFiltroEstado} ariaLabel="Filtrar por estado" width={170} />
-            <Dropdown value={filtroAsig} options={opcionesAsig} onChange={setFiltroAsig} ariaLabel="Filtrar por producto" width={190} />
+            <Dropdown value={filtroAsig} options={opcionesAsig} onChange={setFiltroAsig} ariaLabel="Filtrar por funnel" width={190} />
           </div>
 
           {/* LA BARRA DE LOTE aparece con lo tildado, arriba de la tabla — la misma forma que
@@ -396,8 +396,8 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
               <span role="status" style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--primary)', minWidth: 20 }}>{elegidos.length}</span>
               <span style={{ flex: 1 }} />
               {trabajando && <Spinner size={15} />}
-              <Dropdown value="" resetAfterSelect placeholder="Asignar a producto" disabled={trabajando}
-                ariaLabel={`Asignar ${elegidos.length} a un producto`}
+              <Dropdown value="" resetAfterSelect placeholder="Asignar a funnel" disabled={trabajando}
+                ariaLabel={`Asignar ${elegidos.length} a un funnel`}
                 icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
                 options={opcionesLote} onChange={(v) => void elegirProductoLote(v)} width={210} align="right" />
             </div>
@@ -421,7 +421,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
             <Th activo={orden === 'nombre'} dir={dir} onSort={() => ordenar('nombre')}>Campaña</Th>
             <Th activo={orden === 'estado'} dir={dir} onSort={() => ordenar('estado')}>Estado</Th>
             <Th activo={orden === 'leads'} dir={dir} onSort={() => ordenar('leads')} derecha>Leads</Th>
-            <span style={TH}>Producto</span>
+            <span style={TH}>Funnel</span>
           </div>
         </div>
 

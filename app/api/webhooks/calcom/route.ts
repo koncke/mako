@@ -226,6 +226,9 @@ export async function POST(request: NextRequest) {
             nombre: lead.nombre, reunion: 'R2', cuando: fmtFechaHoraLocal(reserva.inicio, tz), link: linkResumenLead(lead.id, ws),
             telefono: reserva.telefono ?? lead.telefono, email: reserva.email ?? lead.email, respuestas: reserva.respuestas,
           }),
+          // El lead del evento (11/10/2026: es un Evento de MaKo, `lead_agendo`): sin él la CONDITION de la
+          // automatización no ve nada y `{{lead_nombre}}` o `{{link_lead}}` salen crudos.
+          lead: { id: lead.id, nombre: lead.nombre },
         });
         // La MISMA clave que el aviso de arriba: Cal.com reentrega, y una reentrega no repite los pasos.
         await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2', dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}` });
@@ -273,6 +276,8 @@ export async function POST(request: NextRequest) {
           nombre: reserva.nombre ?? reserva.email, reunion: 'R1', cuando: fmtFechaHoraLocal(reserva.inicio, tz), link: linkResumenLead(lead.id, ws),
           telefono: reserva.telefono ?? lead.telefono, email: reserva.email, respuestas: reserva.respuestas,
         }),
+        // El lead del evento: ver la nota de la R2.
+        lead: { id: lead.id, nombre: reserva.nombre ?? reserva.email },
       });
       await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: reserva.nombre ?? reserva.email, reunion: 'R1', dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}` });
       // Las automatizaciones de «Agendó» arrancan YA, como con Calendly. Sin esto, una agenda de

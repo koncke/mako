@@ -18,11 +18,9 @@ import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { pendientesDelWorkspace, type Pendiente } from '@/lib/mako-pendientes';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
-import { etiquetaDeCanal } from '@/lib/api-mako/canal';
-import { porId } from '@/lib/api-mako/registro';
-import { esAccion } from '@/lib/api-mako/tipos';
+import { aFila } from '@/lib/bandeja-filas';
 import { PANTALLA_DE_PROPUESTA } from '@/lib/propuestas-tipos';
-import { BandejaPendientes, type FilaPendiente } from './BandejaPendientes';
+import { BandejaPendientes } from './BandejaPendientes';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -32,39 +30,8 @@ export const revalidate = 0;
 // sin resultado, con la escritura hecha a medias.
 export const maxDuration = 300;
 
-/** Hora local del workspace, corta. La ISO cruda no le dice a nadie «vence en 40 min». */
-function fmtHora(iso: string, tz: string): string {
-  try {
-    return new Date(iso).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: tz });
-  } catch {
-    return iso;
-  }
-}
-
-function enCuanto(iso: string): string {
-  const min = Math.round((Date.parse(iso) - Date.now()) / 60_000);
-  if (!Number.isFinite(min) || min <= 0) return 'vence ahora';
-  if (min < 60) return `en ${min} min`;
-  const h = Math.floor(min / 60);
-  const resto = min % 60;
-  return resto ? `en ${h} h ${resto} min` : `en ${h} h`;
-}
-
-function aFila(p: Pendiente, tz: string): FilaPendiente {
-  const def = porId(p.tipo);
-  const accion = def && esAccion(def) ? def : null;
-  return {
-    id: p.id,
-    resumen: p.resumen,
-    origen: etiquetaDeCanal(p.grupoJid),
-    operacion: def?.titulo ?? p.tipo,
-    escribe: accion?.escribe ?? null,
-    reversible: accion ? accion.reversible : null,
-    vence: `${fmtHora(p.venceAt, tz)} (${enCuanto(p.venceAt)})`,
-    creada: fmtHora(p.createdAt, tz),
-    payload: p.payload,
-  };
-}
+// La fila (aFila, con su hora local y su «vence en…») vive en lib/bandeja-filas.ts: la
+// comparte el Inbox del teléfono, que muestra las mismas pendientes.
 
 export default async function PendientesPage() {
   await requireRolWs([], { nav: 'mako' });

@@ -1483,3 +1483,39 @@ las 03:02 UTC del 09/10, antes de convertir.
 _09/10/2026 — corrida de 4 agentes en worktrees (token, Pixel, Chatwoot, agenda) + revisión
 adversarial de cada rama; integrado, typecheck 0 y 6327/0 antes de subir. Conversión y mediciones en
 producción hechas por quien integró._
+
+## Un informe del Dashboard por link: la credencial es el token, y el pedido no decide nada (11/10/2026)
+
+**Vive en:** `app/api/compartido/graficos/route.ts` · `app/compartido/[token]/informe-compartido.ts` ·
+`app/compartido/[token]/informe-reglas.ts` · `lib/shares.ts` (`puedeVerInforme`) · `lib/rutas-publicas.ts`
+
+Martín pidió compartir los gráficos «exactamente igual» que Conocimientos: link o invitados por email,
+con el mismo modal y la misma tabla `shares`. Lo nuevo es que acá quien abre el link pide DATOS en vivo
+(cada cambio de período o de filtro es un pedido), así que el endpoint es una puerta sin sesión a las
+lecturas del negocio. Lo que la cierra:
+
+- **El token viaja en el CUERPO, no en la URL** (la URL queda en los logs). Por eso el endpoint es POST
+  aunque sólo lea, y está EXACTO en `PUBLICOS_ESCRITURA`: el proxy le contesta 405 a todo POST bajo
+  `/api/compartido` que no esté ahí, igual que `/api/compartido/comunidad`. No lee la cookie para nada.
+- **Todo corre adentro de `runWithWorkspace(<el del share>)`**, con el workspace sacado de la FILA que
+  resolvió el token. Sin eso, sin sesión `getWorkspaceActual()` cae al ws1 (un cliente) y el informe de
+  otro negocio se leería con los datos del ws1, sin un error. Es la regla de «/conocimientos se comparte
+  por link público», que acá se paga en cada pedido y no sólo al abrir.
+- **Cada pedido revalida el token contra la fila viva**, sin caché: revocar corta también a la pestaña
+  que ya tenía el informe abierto (medido: revocar 200 y el link 404 en el acto).
+- **Token inválido, revocado, vencido, u hoja que el informe no tiene: el mismo 404.** Distinguirlos
+  ayuda a enumerar tokens.
+- **Topes por IP antes de leer nada** (un barrido de tokens no toca la base) **y por token después** (un
+  link repartido no martilla la base de un negocio). En memoria y por instancia: cortan lo trivial, no un
+  ataque distribuido.
+- **Lo que el cuerpo describe del componente no se lee**: la consulta se rearma desde el informe
+  guardado, y del navegador sólo vale lo que la vista puede mover. Las cuatro reglas (personas, filtros
+  sobre campos no públicos, bloques con acción) están en [hallazgos-graficos.md](hallazgos-graficos.md),
+  «Compartir un informe»; viven puras en `informe-reglas.ts`, con test.
+
+⚠️ **Pendiente:** si quien abre el link TIENE sesión de MaKo, el tablero de Tareas se elige por su
+sesión y no por la capa del share. No cruza de negocio (todo sigue en el workspace del share); puede
+leer la tabla vacía.
+
+_11/10/2026 — chat «Graphics», agente COMPARTIR + integración; verificado en Chrome sobre ws9 (crear,
+abrir sin sesión, detalle 403, revocar, link revocado 404)._

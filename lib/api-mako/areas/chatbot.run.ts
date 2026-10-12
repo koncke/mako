@@ -14,18 +14,21 @@
 import 'server-only';
 import type { Ctx, Runners, SalidaLectura } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
-import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, PasosInvalidosError, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
 import { motivoNoInscribe } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA } from '@/lib/flujo-grafo';
-import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo, AVISO_REPETIDO } from '@/lib/nutricion-grafo-motor';
+import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, type PasoGrafo } from '@/lib/flujo-grafo';
+import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
+import { libertadDeLoDemas } from '@/lib/ai-step-armar';
+import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo } from '@/lib/nutricion-grafo-motor';
 import { getAdjunto } from '@/lib/setting-adjuntos';
 import { emitirAviso } from '@/lib/avisos';
 import { linkApp } from '@/lib/app-url';
-import { aplicarVariables, valoresVariablesLead } from '@/lib/template-vars';
-import { conVariables } from '@/lib/variables-resolver';
+import { valoresVariablesLead } from '@/lib/template-vars';
+import { valoresDeVariables } from '@/lib/variables-resolver';
+import { textoConDatos } from '@/lib/variables-del-lead';
 import { prepararDisparadores, guardarDisparadores } from '@/lib/disparadores-guardar';
-import { firmaLista, eventosDe, claseDeDisparador, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
 import { textoCron } from '@/lib/cron-aviso';
 import { TRIGGERS } from '@/lib/email-marketing';
 import { getTenantDb } from '@/lib/workspace';
@@ -33,8 +36,17 @@ import { logLeadEvent } from '@/lib/leads';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { PREFIJO_FLUJO } from '../canal';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
-import { partesExplicitas, pasosUsanAudio } from '@/lib/mensaje-partes';
-import { getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia, muestraParaCriterio, TriggerInvalidoError } from '@/lib/setting-secuencias';
+import { partesExplicitas, pasosUsanAudio, problemaDePartes, sanearPartes } from '@/lib/mensaje-partes';
+import { partesDeMako, esTarjetaTalCual, armarAvisoDeTarjeta, resultadoDelAviso, textoDePreparadas, type PartePreparada } from '@/lib/mako-tarjeta';
+import { prepararPartesGrupo, problemaDePartesGrupo } from '@/lib/mako-tarjeta-envio';
+import { getSettingData, guardarEstrategia, probarSecuencia, muestraParaCriterio, productosConEtapas, TriggerInvalidoError } from '@/lib/setting-secuencias';
+import {
+  PLANTILLAS, plantillaPorId, canalesDe, eleccionEnPalabras, CANALES_PLANTILLA, OBJETIVOS_PLANTILLA, type PlantillaAutomatizacion,
+} from '@/lib/plantillas-automatizaciones';
+import { crearDesdePlantilla, motivoDePlantillaVieja, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
+import { listarEtiquetas } from '@/lib/etiquetas';
+import { crearFlujoConIA, hayIAParaCrear } from '@/lib/flujo-ia-crear';
+import { falloDeIA } from '@/lib/flujo-ia';
 import { parseEstrategia, OBJETIVOS, type Estrategia, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import { huecosDeSecuencias, archivarSecuencias } from '@/lib/secuencias-huecos';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
@@ -123,7 +135,7 @@ async function leadDelAviso(leadId: number): Promise<{ id: number; nombre: strin
 /**
  * Los datos «{ }» en el mensaje y el título de un aviso al EQUIPO (la tarjeta MAKO EN WHATSAPP del lienzo).
  *
- * ⚠️ DESDE LA SEXTA TANDA, CON EL CATÁLOGO ENTERO (`conVariables`, lib/variables-resolver.ts, destino
+ * ⚠️ DESDE LA SEXTA TANDA, CON EL CATÁLOGO ENTERO (`valoresDeVariables`, lib/variables-resolver.ts, destino
  * 'equipo'): la tarjeta ofrece el árbol de `datosOfrecidos({ destino: 'equipo' })` —la etapa, la reunión,
  * los links al CRM, la campaña— y hasta acá resolvía sólo los cinco del motor: todo lo demás llegaba
  * CRUDO al grupo. Es la regla de AGENTS.md («La previsualización de un editor no puede resolver un token
@@ -131,15 +143,26 @@ async function leadDelAviso(leadId: number): Promise<{ id: number; nombre: strin
  * workspace del ctx (nunca el de las cookies: un flujo corre en un cron).
  *
  * Lo del motor que ya estaba en la mano (el nombre partido y la empresa de la fila que se acaba de leer)
- * va como `datos` y GANA; y después `aplicarVariables` cubre lo de antes con UNA llave (`{nombre}`), que
+ * va como `datos` y GANA; y después `textoConDatos` (adentro, `aplicarVariables`) cubre lo de antes con UNA llave (`{nombre}`), que
  * el catálogo nuevo no lee. Lo que no se puede resolver queda crudo: se nota.
  */
 async function textoDelAviso(texto: string, lead: { id: number; nombreCrudo: string | null; empresa: string | null } | null, ws: number): Promise<string> {
   const t = texto.trim();
   if (!t) return t;
   const base = lead ? valoresVariablesLead({ nombre: lead.nombreCrudo, empresa: lead.empresa }) : {};
-  const conDatos = await conVariables(t, { ws, leadId: lead?.id ?? null, leadNombre: lead?.nombreCrudo ?? null, destino: 'equipo' }, base);
-  return (lead ? aplicarVariables(conDatos, base) : conDatos).trim();
+  // UNDÉCIMA TANDA (docs/diseno-undecima-tanda.md §5): con `textoConDatos`, la MISMA función de todo envío. Un renglón
+  // cuyo dato del catálogo no tiene valor se va entero («📱 {{lead_telefono}}» de un lead sin teléfono no sale); lo que
+  // no se conoce queda crudo. Sin token, ni una lectura.
+  const vars = t.includes('{{') ? await valoresDeVariables({ ws, leadId: lead?.id ?? null, leadNombre: lead?.nombreCrudo ?? null, destino: 'equipo' }, t, base) : base;
+  return (lead ? textoConDatos(t, { ...vars, ...base }) : textoConDatos(t, vars)).trim();
+}
+
+/** Qué hay que elegir al crear una plantilla, en palabras (null = trae su CRON puesto). */
+function pideDePlantilla(p: PlantillaAutomatizacion): string | null {
+  if (p.cron.pide === 'etapa_venta') return 'una etapa del embudo de venta';
+  if (p.cron.pide === 'etapa_entrega') return 'una etapa de la entrega';
+  if (p.cron.pide === 'etiqueta') return 'una etiqueta';
+  return null;
 }
 
 /** ¿Lo pide un paso «⚡ Acción» de un flujo? La clave de scope lo dice (lib/api-mako/canal.ts). */
@@ -171,7 +194,7 @@ function textoDeUnCron(d: Disparador): string {
   const nombre = TRIGGERS.find((t) => t.value === d.trigger_tipo)?.label ?? d.trigger_tipo;
   if (d.cron) return `${textoCron(d.cron, d.cron.tz ?? null)}${d.grupo ? ' · al grupo de MaKo' : ''}${d.trigger_tipo !== TRIGGER_SOLO_GRUPO && d.trigger_tipo !== 'manual' ? ` · ${nombre}` : ''}`;
   const clase = claseDeDisparador(d);
-  const evento = clase === 'instagram' || clase === 'messenger' || clase === 'email' ? eventosDe(clase).find((e) => e.subtipo === d.subtipo)?.label : null;
+  const evento = esClaseDeEventos(clase) ? eventosDe(clase).find((e) => e.subtipo === d.subtipo)?.label : null;
   if (evento) return evento;
   if (d.etapa) return `${nombre}: ${[...new Set([d.etapa, ...(d.etapas ?? [])])].join(', ')}`;
   if (d.etiqueta_id) return `${nombre} (#${d.etiqueta_id})`;
@@ -179,19 +202,40 @@ function textoDeUnCron(d: Disparador): string {
 }
 
 /**
- * Lo que la ficha de una automatización dice de un AI STEP (novena tanda): la marca, el tono, el aviso de
- * «Otra cosa» y cada caso con lo que hace. Explícito y con todos los campos (null/false = no lo tiene):
- * quien lee la ficha es un modelo, y un campo ausente lo lee como «no sé», no como «no».
+ * Lo que la ficha de una automatización dice de un AI STEP (undécima tanda, docs/diseno-undecima-tanda.md §6: UNO por
+ * medio, con un objetivo y sus escenarios adentro): el objetivo, por dónde escucha, la voz, cuántas respuestas del
+ * ensayo tiene, cada escenario con su LIBERTAD (`libertadDeCaso`: la MISMA que dibuja la tarjeta y lee el motor) y
+ * «Lo demás» aparte. Explícito y con todos los campos (null/0 = no lo tiene): quien lee la ficha es un modelo, y un
+ * campo ausente lo lee como «no sé», no como «no». Lo de antes (tono, «Otra cosa» con texto, «hasta», `avisar`) ya no
+ * se dice: la ficha lee lo junto (`juntarPasosIA`), que es lo que el motor y el lienzo ven. Se lee con el tipo del
+ * modelo (`PasoGrafo`): `PasoSecuencia` (lib/nutricion.ts) todavía no declara `objetivo`, `audio` ni `ejemplos`.
  */
-function fichaPasoIA(p: PasoSecuencia) {
+function fichaPasoIA(p: PasoGrafo) {
+  const casos = p.casos ?? [];
   return {
     paso_ia: true as const,
-    instrucciones: p.instrucciones ?? null,
-    otra_aviso: p.otra_aviso ?? null,
-    casos: (p.casos ?? []).map((c) => ({
-      id: c.id, titulo: c.titulo, cuando: c.cuando, responder: c.responder ?? null, sola: c.sola === true, avisar: c.avisar === true,
+    objetivo: (p.objetivo ?? '').trim() || null,
+    medio: medioDe(p),
+    suelta: p.suelta === true,
+    audio: p.audio ?? null,
+    ejemplos: (p.ejemplos ?? []).length,
+    escenarios: casos.filter((c) => c.cualquiera !== true).map((c) => ({
+      id: c.id, titulo: c.titulo, cuando: c.cuando, responder: (c.responder ?? '').trim() || null, libertad: libertadDeCaso(c),
     })),
+    lo_demas: libertadDeLoDemas(casos),
   };
+}
+
+/**
+ * Cómo se dice dónde entra un escenario enseñado (`agregar_escenario_secuencia`, `resolver_handoff`), con la libertad
+ * con la que QUEDA (la escribe `agregarCasoAlGrafo` con `libertadesPermitidas`: un «contesta solo» que habla de plata
+ * queda para aprobar, y la pantalla de revisión lo tiene que decir así, no como se pidió).
+ */
+function dondeEntra(pasos: readonly PasoGrafo[], titulo: string): string {
+  const r = nodoPorId(pasos, raizRespuesta(pasos));
+  if (!r || !esPasoIA(r)) return 'como rama de «Si responde»';
+  const c = (r.casos ?? []).find((x) => x.cualquiera !== true && x.titulo.trim().toLowerCase() === titulo.trim().toLowerCase());
+  return `como escenario del AI Step${c ? ` (${ROTULO_LIBERTAD[libertadDeCaso(c)]})` : ''}`;
 }
 
 /** El detector de copy sin terminar del motor (RX_RELLENO en lib/nutricion.ts, que no lo exporta):
@@ -210,24 +254,27 @@ export const RUNNERS: Runners = {
       const { secuencias } = await getSettingData();
       const s = secuencias.find((x) => x.id === id);
       if (!s) return errorLectura(noExiste(id));
+      // UN AI Step por medio (undécima tanda): lo guardado de antes (varias tarjetas) se lee JUNTO, como lo ven el
+      // motor y el lienzo (`juntarPasosIA`, la puerta para lo viejo). Sin AI Step, los mismos pasos.
+      const pasos = juntarPasosIA(s.pasos).pasos;
       return json({
         id: s.id, clave: s.clave, nombre: s.nombre, etapa: s.etapa, trigger: s.trigger_tipo, activa: s.activa,
         // LOS CRON (sexta tanda, mig 0241): la automatización arranca por CUALQUIERA de ellos, y `trigger` /
         // `etapa` de arriba son sólo el PRIMERO. Sin esto, quien lee la ficha creía que tenía uno solo.
         disparadores: s.disparadores ?? [],
         // Con ramas, «el paso 3» no es un lugar del flujo: cada tarjeta va con su `id` y a cuál sigue.
-        con_ramas: !esLineal(s.pasos),
-        pasos: s.pasos.map((p, i) => esNodoDeControl(p) ? ({
+        con_ramas: !esLineal(pasos),
+        pasos: pasos.map((p, i) => esNodoDeControl(p) ? ({
           // Una tarjeta de CONTROL no manda nada: decide por dónde sigue el flujo.
-          orden: p.orden, id: idDe(p, i), tipo: p.nodo, siguiente: siguienteDe(s.pasos, i), espera: p.espera ?? null,
-          ramas: p.ramas ?? null, casos: p.casos ?? null, si_no: p.si_no ?? null, paralelos_si_no: p.paralelos_si_no ?? null, destino: p.destino ?? null,
-          // EL AI STEP (novena tanda) sí contesta, y lo que contesta vive ADENTRO de la tarjeta: sin esto la
-          // ficha mostraba un «Si responde» con casos sin nada debajo, o sea uno que no contesta nada.
+          orden: p.orden, id: idDe(p, i), tipo: p.nodo, siguiente: siguienteDe(pasos, i), espera: p.espera ?? null,
+          // EL AI STEP sí contesta, y lo que contesta vive ADENTRO de la tarjeta: sus escenarios van en `escenarios`
+          // (`fichaPasoIA`), no como los casos de un «Si responde» (que no dirían su libertad).
+          ramas: p.ramas ?? null, casos: esPasoIA(p) ? undefined : p.casos ?? null, si_no: p.si_no ?? null, paralelos_si_no: p.paralelos_si_no ?? null, destino: p.destino ?? null,
           ...(esPasoIA(p) ? fichaPasoIA(p) : {}),
         }) : esPasoAccion(p) ? ({
           // Un paso «⚡ Acción de MaKo» no manda un mensaje: corre esta operación del registro.
           orden: p.orden, id: idDe(p, i), tipo: 'accion', delay_horas: p.delay_horas, ancla: p.ancla ?? null, requiere: p.requiere ?? null,
-          accion: p.accion, siguiente: siguienteDe(s.pasos, i),
+          accion: p.accion, siguiente: siguienteDe(pasos, i),
         }) : ({
           orden: p.orden, id: idDe(p, i), canal: p.canal, delay_horas: p.delay_horas, ancla: p.ancla ?? null, tipo: p.tipo ?? 'texto',
           audio_id: p.audio_id ?? null, media_id: p.media_id ?? null, requiere: p.requiere ?? null, proveedor: p.canal === 'whatsapp' ? proveedorDelPaso(p) : null,
@@ -235,14 +282,14 @@ export const RUNNERS: Runners = {
           // VARIOS mensajes seguidos (cuarta tanda, punto 15): `cuerpo`/`audio_id`/`media_id` son el
           // espejo de la PRIMERA parte; sin esto, quien lee la ficha creía que el paso era sólo eso.
           ...(partesExplicitas(p) ? { partes: partesExplicitas(p) } : {}),
-          revisar: p.revisar ?? null, siguiente: siguienteDe(s.pasos, i),
+          revisar: p.revisar ?? null, siguiente: siguienteDe(pasos, i),
           sin_terminar: RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? ''),
         })),
         estrategia: s.estrategia,
         metricas_30d: { ventana: ventana30(), ...s.metricas },
         historico: { inscriptos: s.inscriptos, enviados: s.enviados },
         notas: [
-          'Un «Si responde» con paso_ia=true (AI Step) contesta adentro: cada caso dice cómo responde (responder, con el tono de instrucciones arriba), si sale solo (sola) y si te avisa (avisar); lo que no encaja va a «Otra cosa», que avisa con otra_aviso.',
+          'Un «Si responde» con paso_ia=true es un AI Step: UN AI Step por medio, con un objetivo y sus escenarios adentro (hasta 10). Contesta cuando el lead escribe, hasta lograr el objetivo. Cada escenario dice cuándo entra (cuando), cómo responde (responder; null = no contesta) y su libertad: avisa (sólo te avisa), aprueba (deja la respuesta para aprobar y te avisa) o sola (sale sola, nunca si habla de plata). lo_demas es lo que pasa con lo que no encaja en ningún escenario: avisa o aprueba. Un escenario nuevo entra con agregar_escenario_secuencia.',
           'Un paso con sin_terminar=true no sale nunca: el motor lo reprograma cada 24 h.',
           'Los [tu link …] salen literales al lead: nada los reemplaza.',
           'activa=true no garantiza envíos: mira estado_canal_whatsapp_chatbot.',
@@ -444,6 +491,22 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // La galería (undécima tanda). Explícito y con todos los campos: quien lee es un modelo (un campo ausente es «no sé»).
+  listar_plantillas_automatizaciones: {
+    leer: async () => json({
+      total: PLANTILLAS.length,
+      plantillas: PLANTILLAS.map((p) => ({
+        id: p.id, nombre: p.nombre, para_que: p.linea,
+        objetivo: OBJETIVOS_PLANTILLA.find((o) => o.id === p.objetivo)?.label ?? p.objetivo,
+        canales: canalesDe(p).map((c) => CANALES_PLANTILLA.find((x) => x.id === c)?.label ?? c),
+        pide_etapa: pideDePlantilla(p),
+        cron_puesto: p.cron.fijo ? true : false,
+        ayuda_etapa: p.cron.ayuda ?? null,
+      })),
+      nota: 'Nacen pausadas. pide_etapa dice qué hay que elegir al crearla (null = trae su CRON puesto). Para crear una: crear_automatizacion_desde_plantilla.',
+    }),
+  },
+
   listar_secuencias_archivadas: {
     leer: async () => {
       const filas = await secuenciasArchivadas();
@@ -461,18 +524,85 @@ export const RUNNERS: Runners = {
     ejecutar: (payload, ctx) => ejecutarAccion(ctx.ws, 'nutricion_toggle', payload),
   },
 
-  crear_secuencia_mensajes: {
-    preparar: async (input) => {
-      const etapa = str(input, 'etapa');
-      const nombre = str(input, 'nombre');
-      const etapas = await etapasParaSecuencia();
-      const e = etapas.find((x) => x.value === etapa);
-      if (!e) return { error: `«${etapa}» no es una etapa de este funnel donde se pueda colgar una secuencia.`, disponibles: etapas };
-      return { payload: { etapa, nombre }, resumen: `Crear la secuencia «${nombre}» en la etapa «${e.label}» (nace pausada y sin texto)` };
+  // «Pídeselo a MaKo» por la API (décima tanda; la def explica el porqué de cada decisión). Reemplaza a
+  // `crear_secuencia_mensajes`, que se retiró.
+  crear_automatizacion_con_ia: {
+    preparar: async (input, ctx) => {
+      // ⚠️ UN FLUJO NO LA CORRE: `ctxDeFlujo` usa el canal `app`, así que toda acción `app` aparece sola como «⚡ Acción»
+      // en los lienzos. Una automatización que crea automatizaciones con IA cada vez que alguien entra es un lazo que gasta
+      // la IA del negocio. Además se saca de la lista del lienzo (`NO_EN_FLUJOS`, lib/api-mako/flujo.ts).
+      if (desdeUnFlujo(ctx)) return { error: 'Una automatización no puede crear automatizaciones: pídeselo a MaKo por el grupo o en Automations.' };
+      const pedido = str(input, 'pedido');
+      if (!pedido) return { error: 'Falta qué tiene que hacer la automatización.', faltan: ['pedido'] };
+      // Todo lo que se puede saber sin escribir falla ACÁ (AGENTS.md): confirmar reclama la pendiente y no vuelve.
+      // El link a donde se arregla lo escribe el código y va a la persona (`paraLaPersona`), nunca por el modelo.
+      if (!(await hayIAParaCrear())) {
+        const f = falloDeIA([], false);
+        return { error: f.error, ...(f.link ? { paraLaPersona: `${f.error} Conéctala aquí 👉 ${linkApp(f.link, ctx.ws)}` } : {}) };
+      }
+      return { payload: { pedido }, resumen: `Crear con IA: «${pedido.length > 120 ? `${pedido.slice(0, 119)}…` : pedido}» (nace pausada)` };
     },
-    ejecutar: async (payload) => {
-      const id = await crearSecuenciaDesdeEtapa(String(payload.etapa), String(payload.nombre));
-      return { ok: true, resumen: `Secuencia «${String(payload.nombre)}» creada (#${id}), pausada y con dos pasos sin texto.`, datos: { secuenciaId: id } };
+    ejecutar: async (payload, ctx) => {
+      // 170 s: el turno del doer corre en un `after()` con `maxDuration` 300 y ya gastó lo suyo.
+      const r = await crearFlujoConIA({ ws: ctx.ws, pedido: String(payload.pedido ?? ''), plazoMs: 170_000 });
+      if (!r.ok) return { ok: false, resumen: r.error, ...(r.link ? { paraLaPersona: `${r.error} 👉 ${linkApp(r.link, ctx.ws)}` } : {}) };
+      // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser
+      // exacto). `/automations?sec=<id>` abre el lienzo de esa automatización, y `linkApp` le pega el `?ws=`.
+      const link = linkApp(`/automations?sec=${r.secuenciaId}`, ctx.ws);
+      const falta = r.disparador ? '' : ' Le falta elegir qué la dispara.';
+      return {
+        ok: true,
+        resumen: `Automatización «${r.nombre}» creada (#${r.secuenciaId}), pausada.${falta}`,
+        datos: { secuenciaId: r.secuenciaId },
+        paraLaPersona: `🧩 «${r.nombre}» quedó pausada.${falta} Ábrela y actívala 👉 ${link}`,
+      };
+    },
+  },
+
+  // Crear desde la galería (undécima tanda; la def explica el porqué de cada decisión).
+  crear_automatizacion_desde_plantilla: {
+    preparar: async (input, ctx) => {
+      if (desdeUnFlujo(ctx)) return { error: 'Una automatización no puede crear automatizaciones: pídeselo a MaKo por el grupo o en Automations.' };
+      const id = str(input, 'plantilla');
+      const p = plantillaPorId(id);
+      // Un id de antes nombra la que lo reemplaza; nunca se crea otra cosa en silencio.
+      if (!p) return { error: `${motivoDePlantillaVieja(id) ?? 'Esa plantilla no existe.'} Pide el id con listar_plantillas_automatizaciones.` };
+      const etapa = str(input, 'etapa');
+      const producto = str(input, 'producto');
+      if (!p.cron.pide || !etapa) {
+        const falta = p.cron.pide ? ' (le falta elegir dónde arranca: se elige en su CRON)' : '';
+        return { payload: { plantilla: p.id, disparador: null }, resumen: `Crear «${p.nombre}» desde la galería, pausada${falta}` };
+      }
+      // La etapa en palabras → el valor del desplegable del CRON, con LAS MISMAS opciones que la galería. Con dos que
+      // calzan, contesta con las opciones: una automatización en la etapa equivocada le escribe a otra gente.
+      const e = eleccionEnPalabras(p.cron.pide, {
+        productos: p.cron.pide === 'etiqueta' ? [] : await productosConEtapas(),
+        etiquetas: p.cron.pide === 'etiqueta' ? (await listarEtiquetas()).map((x) => ({ id: x.id, nombre: x.nombre, archivada_at: x.archivada_at })) : [],
+      }, etapa, producto || null);
+      if (!e.ok) return { error: e.opciones.length ? `${e.motivo} Puede ser: ${e.opciones.join(' · ')}.` : e.motivo };
+      return { payload: { plantilla: p.id, disparador: e.valor }, resumen: `Crear «${p.nombre}» desde la galería, pausada, arrancando en «${e.rotulo}»` };
+    },
+    ejecutar: async (payload, ctx) => {
+      try {
+        const r = await crearDesdePlantilla(payload.plantilla, {
+          db: (await getTenantDb()) as unknown as DbPlantilla,
+          setPasos: setSecuenciaPasos,
+          setDisparadores: guardarDisparadores,
+          motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
+        }, { disparador: payload.disparador ?? undefined });
+        // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser exacto).
+        const link = linkApp(`/automations?sec=${r.id}`, ctx.ws);
+        const falta = r.aviso ? ` ${r.aviso}` : r.pide ? ' Le falta elegir dónde arranca.' : '';
+        return {
+          ok: true,
+          resumen: `Automatización «${r.nombre}» creada (#${r.id}), pausada.${falta}`,
+          datos: { secuenciaId: r.id },
+          paraLaPersona: `🧩 «${r.nombre}» quedó pausada.${falta} Ábrela y actívala 👉 ${link}`,
+        };
+      } catch (e) {
+        if (e instanceof PlantillaInvalidaError || e instanceof PasosInvalidosError) return { ok: false, resumen: e.message };
+        throw e;
+      }
     },
   },
 
@@ -639,6 +769,12 @@ export const RUNNERS: Runners = {
   // 'lead-no-confirmo' (lib/nutricion-desenlace.ts): `ws` EXPLÍCITO (sin él cae al grupo de la
   // agencia), un tipo propio y el dedup POR LEAD (sin `dedupKey`, el primero se comería el aviso de
   // todos los demás durante la ventana).
+  //
+  // ⚠️ Y DESDE LA UNDÉCIMA, LA TARJETA «MaKo en WhatsApp» POR PARTES (lib/mako-tarjeta.ts): con `partes`,
+  // desde un flujo y sin `respuesta`, sale TAL CUAL (sin envoltorio, sin rótulo, sin dedup: el reclamo del
+  // motor ya impide el doble envío). Lo que arma el aviso —el de antes y el tal cual— es
+  // `armarAvisoDeTarjeta`, y lo que se le contesta al motor, `resultadoDelAviso`: un WhatsApp que no salió
+  // es un FALLO con su causa (hasta la décima quedaba «Le avisé al equipo.»).
   avisar_al_equipo: {
     preparar: async (input) => {
       const mensaje = str(input, 'mensaje');
@@ -646,6 +782,18 @@ export const RUNNERS: Runners = {
       const titulo = str(input, 'titulo');
       const respuesta = str(input, 'respuesta');
       const leadId = input.leadId != null ? num(input, 'leadId') : null;
+      // Las partes, con la MISMA vara que un WhatsApp (`problemaDePartes`: una parte sin su texto o su
+      // archivo, el tope, las pausas) y cada audio y archivo de ESTE negocio (la Voz de MaKo, nunca un audio
+      // del dueño). Revalida al confirmar: `preparar` vuelve a correr con el mismo input.
+      const conPartes = Array.isArray(input.partes);
+      const partes = conPartes ? sanearPartes(input.partes) : [];
+      if (conPartes) {
+        const mala = problemaDePartes({ canal: 'whatsapp', proveedor: 'no_oficial', partes: input.partes as unknown[] });
+        if (mala) return { error: `El aviso ${mala}.` };
+        if (!partes.length) return { error: 'Falta el mensaje del aviso.', faltan: ['partes'] };
+        const ajena = await problemaDePartesGrupo(partes);
+        if (ajena) return { error: ajena };
+      }
       let quien: string | null = null;
       if (leadId != null) {
         const l = await leadDelAviso(leadId);
@@ -653,14 +801,16 @@ export const RUNNERS: Runners = {
         quien = l.nombre;
       }
       return {
-        payload: { ...(leadId != null ? { leadId } : {}), ...(titulo ? { titulo } : {}), mensaje, ...(respuesta ? { respuesta } : {}) },
-        resumen: `Avisar al equipo${quien ? ` sobre ${quien}` : ''}: «${mensaje.slice(0, 120)}»`,
+        payload: { ...(leadId != null ? { leadId } : {}), ...(titulo ? { titulo } : {}), mensaje, ...(conPartes ? { partes } : {}), ...(respuesta ? { respuesta } : {}) },
+        resumen: `Avisar al equipo${quien ? ` sobre ${quien}` : ''}: «${mensaje.slice(0, 120)}»${partes.length > 1 ? ` (${partes.length} mensajes)` : ''}`,
       };
     },
     ejecutar: async (payload, ctx) => {
       const leadId = payload.leadId != null ? Number(payload.leadId) : null;
-      const mensajeCrudo = String(payload.mensaje ?? '').trim();
-      if (!mensajeCrudo) return { ok: false, resumen: 'El aviso no tiene mensaje.' };
+      const lista = esTarjetaTalCual(payload) ? partesDeMako(payload) : [];
+      // Con partes, el texto sale de ellas (`mensaje` es su espejo): no se resuelve dos veces.
+      const mensajeCrudo = lista.length ? '' : String(payload.mensaje ?? '').trim();
+      if (!mensajeCrudo && !lista.length) return { ok: false, resumen: 'El aviso no tiene mensaje.' };
       // Lo que escribió el lead, cuando el aviso sale de «Si responde» (lo pone el motor).
       const respuesta = String(payload.respuesta ?? '').trim();
       const lead = leadId != null ? await leadDelAviso(leadId) : null;
@@ -668,38 +818,26 @@ export const RUNNERS: Runners = {
       // Los datos «{ }» (la tarjeta MAKO EN WHATSAPP los ofrece): sin esto, «{{nombre}}» salía crudo al grupo.
       const mensaje = await textoDelAviso(mensajeCrudo, lead, ctx.ws);
       const titulo = (await textoDelAviso(String(payload.titulo ?? ''), lead, ctx.ws)) || (lead ? `${lead.nombre}: hay que verlo` : 'Una automatización te avisa');
+      // ⚠️ TODOS LOS BINARIOS SE BAJAN ANTES DE MANDAR NADA (y antes del feed): si falta la nota de voz o el
+      // archivo, no sale una tarjeta a medias. Cada texto, con los mismos datos que el de antes.
+      let partes: PartePreparada[] | null = null;
+      if (lista.length) {
+        const p = await prepararPartesGrupo(lista, (t) => textoDelAviso(t, lead, ctx.ws));
+        if (!p.ok) return { ok: false, resumen: `No salió el aviso: ${p.error}` };
+        partes = p.partes;
+      }
       const r = await emitirAviso({
         ws: ctx.ws,
-        tipo: 'chatbot-aviso-equipo',
-        titulo: titulo.slice(0, 120),
-        categoria: 'accion',
-        semaforo: 'amarillo',
-        // POR LEAD y 12 h: dos automatizaciones avisando del mismo lead en la misma tarde son un
-        // aviso. Sin lead no hay entidad de qué deduplicar, y por tipo se comería los de todos.
-        // ⚠️ CON `respuesta`, POR RESPUESTA (revisión del 08/10/2026): por lead, el aviso de «Otra
-        // cosa» se lo comía el «no confirmó» de la misma tarde —el mismo tipo y la misma clave— y
-        // lo que escribió el lead no le llegaba a nadie. La clave se hashea (`keyEspaciado`).
-        ...(lead ? {
-          dedupKey: respuesta ? `lead:${lead.id}:resp:${respuesta}` : `lead:${lead.id}`, dedupTtlMin: 60 * 12,
-          lead: { id: lead.id, nombre: lead.nombre }, link: `/crm/${lead.id}`,
-        } : {}),
-        // El link que viaja en el WhatsApp va por `linkApp` (lleva el `?ws=`): abierto desde el
-        // teléfono, sin él abre la ficha en el negocio que esté mirando la pestaña.
-        texto: [
-          `🟡 *${titulo}*`,
-          '',
-          mensaje,
-          ...(respuesta ? ['', `_"${respuesta.slice(0, 400)}"_`] : []),
-          ...(lead ? ['', `${lead.nombre}${lead.telefono ? ` · ${lead.telefono}` : ''}`, `👉 ${linkApp(`/crm/${lead.id}`, ctx.ws)}`] : []),
-          '',
-          '— MaKo',
-        ].join('\n'),
+        ...armarAvisoDeTarjeta(payload, {
+          desdeUnFlujo: desdeUnFlujo(ctx), respuesta, lead,
+          // El link que viaja en el WhatsApp va por `linkApp` (lleva el `?ws=`): abierto desde el
+          // teléfono, sin él abre la ficha en el negocio que esté mirando la pestaña.
+          linkLead: lead ? linkApp(`/crm/${lead.id}`, ctx.ws) : null,
+          textos: { titulo, mensaje: partes ? textoDePreparadas(partes) : mensaje },
+          partes,
+        }),
       });
-      // El resumen de un aviso deduplicado EMPIEZA con `AVISO_REPETIDO`: el motor lo lee
-      // (`avisoSalio`, lib/nutricion-grafo-motor.ts) para mandar el de respaldo.
-      if (r.deduped) return { ok: true, resumen: `${AVISO_REPETIDO}${lead ? ` de ${lead.nombre}` : ''} hace poco.` };
-      if (r.apagado) return { ok: true, resumen: 'El aviso está apagado en Configuraciones › Notificaciones: quedó sólo en la app.' };
-      return { ok: r.ok, resumen: r.ok ? 'Le avisé al equipo.' : 'No pude avisarle al equipo.' };
+      return resultadoDelAviso(r, lead);
     },
   },
 
@@ -941,10 +1079,16 @@ export const RUNNERS: Runners = {
       };
       // ⚠️ CON «SI RESPONDE», EL CASO ES UNA RAMA DE LA TARJETA: en `estrategia.escenarios` ya no lo
       // lee nadie (el clasificador de esa secuencia lee los casos de la tarjeta).
-      if (raizRespuesta(s.pasos) != null) {
-        const r = agregarCasoAlGrafo(s.pasos, escenario);
+      // ⚠️ CON UN AI STEP (undécima tanda), UN ESCENARIO MÁS ADENTRO DEL AI STEP, sobre lo JUNTO (`juntarPasosIA`):
+      // «mismo nombre = el mismo escenario» mira todos los escenarios, no sólo los de la primera tarjeta de antes. La
+      // libertad la escribe `agregarCasoAlGrafo` (plata → nunca «Sola») y el resumen dice la que QUEDA.
+      const pasos = juntarPasosIA(s.pasos).pasos;
+      if (raizRespuesta(pasos) != null) {
+        const r = agregarCasoAlGrafo(pasos, escenario);
         if ('error' in r) return { error: `No se puede agregar el caso en «${s.nombre}»: ${r.error}.` };
-        return { payload: { secuenciaId: id, escenario }, resumen: `Agregar el caso «${escenario.titulo}» como rama de «Si responde» en «${s.nombre}»${escenario.contestaSolo ? ' (MaKo contesta solo)' : ''}` };
+        const donde = dondeEntra(r.pasos, escenario.titulo);
+        const solo = donde.startsWith('como rama') && escenario.contestaSolo ? ' (MaKo contesta solo)' : '';
+        return { payload: { secuenciaId: id, escenario }, resumen: `Agregar el caso «${escenario.titulo}» ${donde} en «${s.nombre}»${solo}` };
       }
       const est = parseEstrategia(s.estrategia);
       if (!est) return { error: `La secuencia «${s.nombre}» no tiene estrategia: guárdala primero con guardar_estrategia_secuencia.` };
@@ -955,11 +1099,14 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload) => {
       const id = Number(payload.secuenciaId);
       const s = await secuenciaVigente(id);
-      if (s && raizRespuesta(s.pasos) != null) {
-        const r = agregarCasoAlGrafo(s.pasos, payload.escenario as EscenarioSecuencia);
+      const pasos = s ? juntarPasosIA(s.pasos).pasos : [];
+      if (s && raizRespuesta(pasos) != null) {
+        const r = agregarCasoAlGrafo(pasos, payload.escenario as EscenarioSecuencia);
         if ('error' in r) return { ok: false, resumen: `No se agregó el caso: ${r.error}.` };
+        // Todo escritor de pasos pasa por `setSecuenciaPasos` (sanea, junta y valida).
         await setSecuenciaPasos(id, r.pasos);
-        return { ok: true, resumen: `Caso «${(payload.escenario as EscenarioSecuencia).titulo}» agregado a «Si responde» de «${s.nombre}».` };
+        const titulo = (payload.escenario as EscenarioSecuencia).titulo;
+        return { ok: true, resumen: `Caso «${titulo}» agregado ${dondeEntra(r.pasos, titulo)} de «${s.nombre}».` };
       }
       const est = s ? parseEstrategia(s.estrategia) : null;
       if (!s || !est) return { ok: false, resumen: 'La secuencia ya no existe o se quedó sin estrategia.' };
@@ -982,11 +1129,12 @@ export const RUNNERS: Runners = {
       const escenario = { titulo: str(input, 'titulo'), cuando: str(input, 'cuando'), comoResponder: str(input, 'comoResponder') };
       // Con «Si responde» el caso entra como RAMA (resolverHandoff, lib/chat-agent-handoff.ts): el
       // tope y lo que se dice salen de la tarjeta, no de la estrategia.
-      const pasos = s && Array.isArray(s.pasos) ? (s.pasos as PasoSecuencia[]) : [];
+      // Con un AI Step (undécima tanda), sobre lo JUNTO: entra como un escenario más adentro (`agregarCasoAlGrafo`).
+      const pasos = s && Array.isArray(s.pasos) ? juntarPasosIA(s.pasos as PasoSecuencia[]).pasos : [];
       if (s && raizRespuesta(pasos) != null) {
         const r = agregarCasoAlGrafo(pasos, escenario);
         if ('error' in r) return { error: `No se puede enseñar el caso en «${s.nombre}»: ${r.error}.` };
-        return { payload: { handoffId: id, escenario }, resumen: `Resolver el hand-off #${id} con el caso «${escenario.titulo}» (se suma como rama de «Si responde» en «${s.nombre}») y reactivar al lead` };
+        return { payload: { handoffId: id, escenario }, resumen: `Resolver el hand-off #${id} con el caso «${escenario.titulo}» (se suma ${dondeEntra(r.pasos, escenario.titulo)} en «${s.nombre}») y reactivar al lead` };
       }
       // resolverHandoff agrega al FINAL y escenariosDe recorta a 30 en la próxima lectura: el caso enseñado
       // desaparecería en silencio con el hand-off ya resuelto y la inscripción reactivada.
