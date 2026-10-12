@@ -10,8 +10,8 @@
 // EL LAYOUT es el de Gamma 5 (gamma-ui.md §5.1-§5.2): arriba la barra (⌂ al Panel · páginas ·
 // el título editable «Sin título» · el estado del guardado · Compartir · el botón partido azul
 // [⤒ Publicar ▾] · ⋯ · el avatar); a la izquierda el panel del agente (✨, se colapsa con ⇤) o
-// el de páginas; sobre el lienzo la barra de herramientas redondeada (el interruptor Edición
-// manual / Edición con IA, Deshacer/Rehacer, «⊞ Agregar bloque», la zona contextual de formato y
+// el de páginas; sobre el lienzo la barra de herramientas redondeada (✨ para reabrir el agente si se
+// plegó —el interruptor Edición manual / Edición con IA de Gamma se sacó el 12/10—, Deshacer/Rehacer, «⊞ Agregar bloque», la zona contextual de formato y
 // la vista por dispositivo); la tira de secciones; y el lienzo con el fondo del tema y las
 // secciones al centro. Abajo a la derecha, el zoom «100%» y el «?» de los atajos.
 //
@@ -228,7 +228,12 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
 
   // ── La pantalla ──
   const [tarjetaActiva, setTarjetaActivaEstado] = useState<string | null>(null);
-  const [panelIzq, setPanelIzqEstado] = useState<PanelIzq>(null);
+  // El agente arranca ABIERTO y se puede plegar (feedback de Martín, 12/10/2026: «No deberían existir
+  // esos botones [Edición manual / Edición con IA], por defecto el editor de IA siempre abierto. Y de
+  // ultima que se pueda plegar»). Con el agente abierto se edita a mano igual.
+  const [panelIzq, setPanelIzqEstado] = useState<PanelIzq>('agente');
+  /** La persona plegó el agente: cerrar el panel de páginas no lo vuelve a abrir. */
+  const agentePlegado = useRef(false);
   const [panelDer, setPanelDer] = useState<PanelDer>(null);
   const [dialogo, setDialogo] = useState<Dialogo>(null);
   const [tiraVisible, setTiraVisible] = useState(true);
@@ -239,7 +244,6 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
   const [menuPublicar, setMenuPublicar] = useState<HTMLElement | null>(null);
   const [menuZoom, setMenuZoom] = useState<HTMLElement | null>(null);
   const [agregarBloque, setAgregarBloque] = useState<HTMLElement | null>(null);
-  const [meneo, setMeneo] = useState(0);
 
   // ── Refs: la verdad que leen los callbacks de identidad fija ──
   const tituloRef = useRef(doc.titulo);
@@ -704,10 +708,14 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
 
   /** El agente y el modo IA son lo mismo visto de dos lados: se CALCULA, no se sincroniza. */
   const modoIA = panelIzq === 'agente';
-  const setPanelIzq = useCallback((p: PanelIzq) => setPanelIzqEstado(p), []);
+  const setPanelIzq = useCallback((p: PanelIzq) => {
+    if (p === 'agente') agentePlegado.current = false;
+    else if (p === null) agentePlegado.current = true;
+    setPanelIzqEstado(p);
+  }, []);
   const setModoIA = useCallback((v: boolean) => {
+    agentePlegado.current = !v;
     setPanelIzqEstado((p) => (v ? 'agente' : p === 'agente' ? null : p));
-    if (v) setMeneo((m) => m + 1);
   }, []);
 
   const ctx = useMemo<CtxEditorLanding>(() => ({
@@ -759,7 +767,8 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
   // no se hace nada — el atajo del texto gana (AGENTS.md, «el Ctrl+Z nativo gana en un texto»).
   const cerrarDialogo = useCallback(() => setDialogo(null), []);
   const cerrarPanelDer = useCallback(() => setPanelDer(null), []);
-  const cerrarPanelIzq = useCallback(() => setPanelIzqEstado(null), []);
+  /** Cerrar el panel de páginas vuelve al agente, salvo que la persona lo haya plegado. */
+  const cerrarPaginas = useCallback(() => setPanelIzqEstado(agentePlegado.current ? null : 'agente'), []);
   const arriba = useRef({ dialogo, panelDer, panelIzq });
   arriba.current = { dialogo, panelDer, panelIzq };
 
@@ -774,8 +783,10 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
       if (e.defaultPrevented) return;
       if (conMod && !e.shiftKey && (e.key === 'e' || e.key === 'E')) {
         e.preventDefault();
-        setPanelIzqEstado((p) => (p === 'agente' ? null : 'agente'));
-        setMeneo((m) => m + 1);
+        setPanelIzqEstado((p) => {
+          agentePlegado.current = p === 'agente';
+          return p === 'agente' ? null : 'agente';
+        });
         return;
       }
       if (conMod && e.key === '/') {
@@ -789,7 +800,7 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
         const u = arriba.current;
         if (u.dialogo) setDialogo(null);
         else if (u.panelDer) setPanelDer(null);
-        else if (u.panelIzq === 'paginas') setPanelIzqEstado(null);
+        else if (u.panelIzq === 'paginas') cerrarPaginas();
       }
     };
     // Mod+Enter presenta AUNQUE el foco esté en el texto: el salto de línea de StarterKit
@@ -925,7 +936,7 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
               <Ico n="casa" t={18} />
             </Link>
             <button type="button" className="gma-boton gma-boton--icono gma-tip" data-tip="Abrir panel de páginas" aria-label="Abrir panel de páginas"
-              aria-pressed={panelIzq === 'paginas'} onClick={() => setPanelIzqEstado((p) => (p === 'paginas' ? null : 'paginas'))}>
+              aria-pressed={panelIzq === 'paginas'} onClick={() => (panelIzq === 'paginas' ? cerrarPaginas() : setPanelIzqEstado('paginas'))}>
               <Ico n="paginas" t={18} />
             </button>
             <input
@@ -983,38 +994,29 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
           {/* ── Panel izquierdo: el agente o las páginas ── */}
           {panelIzq === 'agente' ? (
             <aside className="gma-izq" data-panel="agente" aria-label="Edición con IA">
-              <div className="gma-izq-cabeza">
-                <span className="gma-izq-casa"><Ico n="casa" t={12} /></span>
-                <span className="gma-izq-titulo">{titulo.trim() || 'Sin título'}</span>
-                <button type="button" className="gma-boton gma-boton--chico gma-boton--icono gma-tip" data-tip="Contraer" aria-label="Contraer"
-                  onClick={cerrarPanelIzq}>
-                  <Ico n="chevron-doble-izquierda" t={16} />
-                </button>
-              </div>
+              {/* Sin cabecera propia: la del agente (casa, título y plegar) es la única. Había dos. */}
               <div className="gma-izq-cuerpo"><PanelAgente /></div>
             </aside>
           ) : panelIzq === 'paginas' ? (
             <aside className="gma-izq" data-panel="paginas" aria-label="Páginas">
-              <PanelPaginas onCerrar={cerrarPanelIzq} />
+              <PanelPaginas onCerrar={cerrarPaginas} />
             </aside>
           ) : null}
 
           <main className="gma-centro">
             {/* ── Barra de herramientas ── */}
             <div className="gma-herramientas" role="toolbar" aria-label="Herramientas">
-              <div className="gma-modo" data-modo={modoIA ? 'ia' : 'manual'}>
-                <span className="gma-modo-pulgar" aria-hidden />
-                <button type="button" className="gma-modo-boton gma-tip" data-boton="manual" data-tip="Edición manual" aria-label="Edición manual"
-                  aria-pressed={!modoIA} onClick={() => setModoIA(false)}>
-                  <Ico n="lapiz" t={16} />
-                </button>
-                <button key={meneo} type="button" className="gma-modo-boton gma-tip" data-boton="ia" data-tip="Edición con IA" data-atajo={`${mod}E`}
-                  aria-label="Edición con IA" aria-pressed={modoIA} data-meneo={modoIA && meneo > 0 ? 'si' : undefined}
-                  onClick={() => setModoIA(true)}>
-                  <Ico n="destellos" t={16} />
-                </button>
-              </div>
-              <span className="gma-sep" />
+              {/* Sin «Edición manual / Edición con IA»: con el agente abierto se edita a mano igual. Lo
+                  único que queda es volver a abrirlo si se plegó. */}
+              {!modoIA && (
+                <>
+                  <button type="button" className="gma-herr-boton gma-tip" data-tip="Abrir MaKo" data-atajo={`${mod}E`} aria-label="Abrir MaKo"
+                    onClick={() => setModoIA(true)}>
+                    <Ico n="destellos" t={16} />
+                  </button>
+                  <span className="gma-sep" />
+                </>
+              )}
               <DeshacerRehacer editor={editor} mod={mod} />
               <span className="gma-sep" />
               <button type="button" className="gma-herr-boton gma-tip" data-tip="Agregar bloque" aria-label="Agregar bloque"

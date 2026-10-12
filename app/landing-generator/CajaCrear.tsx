@@ -49,9 +49,10 @@ import {
   marcarReciente, pedirDocs, useAviso,
 } from './MiniaturaLanding';
 import {
-  EJEMPLOS_CAJA, docDe, pedidoDePlantilla, plantillasDe, rutaCaja, rutaPaso, type PlantillaCrear, type TipoCrear,
+  EJEMPLOS_CAJA, docDe, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, rutaCaja, rutaPaso, type PlantillaCrear, type TipoCrear,
 } from './crear/tipo';
 import { CSS_TIPO, SelectorTipo } from './crear/PiezasTipo';
+import { DialogoObjetivo } from './crear/DialogoObjetivo';
 
 export type PropsCajaCrear = {
   /** El tipo con el que abre (por ejemplo, el de `?tipo=` de la query). Sin él, una landing. */
@@ -82,6 +83,9 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
   /** «Del generador anterior» abierto (con la hora de cuando se abrió, para el «hace…»), o null. */
   const [borradores, setBorradores] = useState<number | null>(null);
   const cerrarBorradores = useCallback(() => setBorradores(null), []);
+  /** El DISEÑO que se tocó y espera su objetivo («¿De qué quieres crearla?»), o null. */
+  const [eligiendo, setEligiendo] = useState<PlantillaCrear | null>(null);
+  const cerrarEleccion = useCallback(() => setEligiendo(null), []);
 
   // `contenido()` arma ids NUEVOS en cada llamada: las muestras se arman después de montar (si
   // no, el HTML del server y el del navegador no coincidirían), y sólo las del tipo que se ve.
@@ -105,14 +109,28 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
     router.push(rutaCaja(tipo, modo, p, guardado));
   };
 
-  /** Crear desde una plantilla y abrirla: lo que cambió es QUÉ EXISTE, así que la navegación es dura. */
-  const usar = async (p: PlantillaCrear) => {
+  /** Crear y abrir: lo que cambió es QUÉ EXISTE, así que la navegación es dura. */
+  const crear = async (clave: string, alta: ReturnType<typeof pedidoDePlantilla>) => {
     if (creando) return;
-    setCreando(p.id);
-    const r = await pedirDocs(pedidoDePlantilla(p));
-    if (!r.ok) { setCreando(null); avisar('No se pudo crear'); console.error('[caja crear] plantilla', p.id, r.error); return; }
+    setCreando(clave);
+    const r = await pedirDocs(alta);
+    if (!r.ok) { setCreando(null); avisar('No se pudo crear'); console.error('[caja crear] plantilla', clave, r.error); return; }
     marcarReciente(r.doc.id);
     irDuro(`/landing-generator/${r.doc.id}`, ws);
+  };
+
+  /** Un DISEÑO de landing pregunta primero de qué es (el copy); una presentación se crea directo. */
+  const usar = (p: PlantillaCrear) => {
+    if (creando) return;
+    if (p.pideObjetivo) { setEligiendo(p); return; }
+    void crear(p.id, pedidoDePlantilla(p));
+  };
+
+  const conObjetivo = (objetivo: string) => {
+    if (!eligiendo || creando) return;
+    const alta = pedidoDeDiseno(eligiendo, objetivo);
+    if (!alta) { avisar('No se pudo crear'); return; }
+    void crear(`${eligiendo.id}:${objetivo}`, alta);
   };
 
   const irAPlantillas = () => {
@@ -177,7 +195,7 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
       <SelectorTipo valor={tipo} onCambio={setTipo} deshabilitado={!!creando} />
 
       <section className="gp-cc-plantillas" ref={plantillasRef} aria-labelledby="gp-cc-plantillas-titulo">
-        <h2 id="gp-cc-plantillas-titulo" className="gp-cc-subtitulo">Plantillas</h2>
+        <h2 id="gp-cc-plantillas-titulo" className="gp-cc-subtitulo">{tipo === 'landing' ? 'Diseños' : 'Plantillas'}</h2>
         <div className="gp-cc-grilla">
           {lista.map((p) => (
             <button
@@ -186,8 +204,8 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
               className="gp-cc-plantilla"
               disabled={!!creando}
               data-creando={creando === p.id ? 'si' : undefined}
-              aria-label={`Crear ${docDe(tipo)} con la plantilla ${p.nombre}`}
-              onClick={() => void usar(p)}
+              aria-label={`Crear ${docDe(tipo)} con ${p.pideObjetivo ? 'el diseño' : 'la plantilla'} ${p.nombre}`}
+              onClick={() => usar(p)}
             >
               <div className="gp-cc-mini">
                 {m
@@ -195,7 +213,7 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
                   : <div className="gp-mini gp-brillo" style={{ aspectRatio: tipo === 'presentacion' ? '16 / 9' : '16 / 10' }} />}
                 {creando === p.id
                   ? <span className="gp-cc-usar" data-visible="si"><span className="gp-giro" /> Creando</span>
-                  : <span className="gp-cc-usar">Usar plantilla</span>}
+                  : <span className="gp-cc-usar">{p.pideObjetivo ? 'Usar diseño' : 'Usar plantilla'}</span>}
               </div>
               <span className="gp-cc-nombre">{p.nombre}</span>
               <span className="gp-cc-desc">{p.descripcion}</span>
@@ -217,6 +235,7 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
         </MenuFlotante>
       )}
       {borradores !== null && <DialogoBorradores onCerrar={cerrarBorradores} ws={ws} ahora={borradores} />}
+      {eligiendo && <DialogoObjetivo ocupado={!!creando} onElegir={conObjetivo} onCerrar={cerrarEleccion} />}
       {aviso}
     </section>
   );

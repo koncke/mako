@@ -88,8 +88,14 @@ test('editor: en una landing los controles de la sección van ADENTRO (como en u
   assert.ok(lado && lado.includes('.gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-lado') && /left: 12px; top: 12px;/.test(lado));
   const entre = CSS_NODOS.split('\n').find((l) => l.includes('> .gmc-entre { height: 1.6em'));
   assert.ok(entre && entre.includes('.gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-entre'));
-  const mini = CSS_NODOS.split('\n').find((l) => l.includes('> .gmc-mini { transform: translate(-50%, -50%)'));
+  // La barra de la sección activa va ADENTRO, pegada abajo: centrada sobre el borde, su mitad de abajo
+  // quedaba tapada por la sección siguiente (cada sección lleva `isolation: isolate`, así que su
+  // z-index no le gana a la vecina). Y la activa sube de capa (12/10/2026, «Se oculta y no se ven
+  // los botones»).
+  const mini = CSS_NODOS.split('\n').find((l) => l.includes('> .gmc-mini { top: auto; bottom: 0.75em; transform: translate(-50%, 0)'));
   assert.ok(mini && mini.includes('.gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-mini'));
+  assert.ok(CSS_NODOS.includes('.gm-doc:not([data-formato="presentacion"]) .gm-tarjeta[data-activa="si"] { z-index: 3; }'), 'la activa sube de capa');
+  assert.ok(!CSS_NODOS.includes('> .gmc-mini { transform: translate(-50%, -50%)'), 'la barra no vuelve al borde');
 });
 
 // ── 2 · La tira de miniaturas ────────────────────────────────────────────────────────────────

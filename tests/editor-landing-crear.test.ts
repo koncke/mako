@@ -360,7 +360,9 @@ test('el alta de la IA: una presentación nace presentación (y sobrevive al san
 
 test('las plantillas de cada tipo, y el alta de cada una con SU formato', () => {
   assert.equal(plantillasDe('presentacion'), PLANTILLAS_PRESENTACION);
-  assert.equal(plantillasDe('landing'), PLANTILLAS);
+  // Una landing ofrece DISEÑOS, y el copy (el objetivo) se elige después (12/10/2026; el cruce
+  // diseño × objetivo lo fija tests/editor-landing-disenos.test.ts).
+  assert.ok(plantillasDe('landing').every((p) => p.pideObjetivo), 'una landing ofrece diseños');
   assert.ok(PLANTILLAS_PRESENTACION.length >= 12, `hay ${PLANTILLAS_PRESENTACION.length} presentaciones`);
   for (const p of PLANTILLAS_PRESENTACION) {
     const r = pedidoDePlantilla(p);
@@ -439,10 +441,14 @@ test('la caja «¿Qué vas a crear hoy?»: el micrófono y el ejemplo de «Nueva
   // El ejemplo se escribe con la lista del tipo, y el campo vuelve a empezar al cambiar de tipo.
   assert.match(src, /useEjemploQueSeEscribe\(animar, EJEMPLOS_CAJA\[tipo\]\)/);
   assert.match(src, /<CampoPedido\s+key=\{tipo\}/);
-  // Enviar: el pedido a la sesión y la ruta con el tipo; una plantilla: su alta y abrirla.
+  // Enviar: el pedido a la sesión y la ruta con el tipo; una plantilla: su alta y abrirla. Un
+  // DISEÑO de landing pregunta antes el objetivo («¿De qué quieres crearla?»).
   assert.match(src, /const guardado = dejarCaja\(\{ prompt: p, modo \}\);\s*router\.push\(rutaCaja\(tipo, modo, p, guardado\)\);/);
   assert.match(src, /const lista = plantillasDe\(tipo\);/);
-  assert.match(src, /await pedirDocs\(pedidoDePlantilla\(p\)\);/);
+  assert.match(src, /if \(p\.pideObjetivo\) \{ setEligiendo\(p\); return; \}\s*void crear\(p\.id, pedidoDePlantilla\(p\)\);/);
+  assert.match(src, /const alta = pedidoDeDiseno\(eligiendo, objetivo\);/);
+  assert.match(src, /<DialogoObjetivo ocupado=\{!!creando\} onElegir=\{conObjetivo\} onCerrar=\{cerrarEleccion\} \/>/);
+  assert.match(src, /const r = await pedirDocs\(alta\);/);
   assert.match(src, /irDuro\(`\/landing-generator\/\$\{r\.doc\.id\}`, ws\);/);
   assert.match(src, /router\.push\(rutaPaso\(tipo, 'importar'\)\)/);
   // Las miniaturas con la forma del documento (la diapositiva, en una presentación).

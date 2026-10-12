@@ -62,7 +62,12 @@ export const CSS_NODOS = [
 
   // La mini barra debajo de la sección activa: [ + | ✨ | ▾ ]
   '.gmc-mini { ' + LETRA + ' position: absolute; top: 100%; left: 50%; transform: translate(-50%, 0.75em); display: flex; align-items: stretch; height: 30px; border-radius: 999px; background: var(--gmc-fondo); border: 1px solid var(--gmc-borde); box-shadow: var(--gmc-sombra-sm); overflow: hidden; z-index: 6; }',
-  '.gm-tarjeta[data-ancho="completo"] > .gmc-mini, .gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-mini { transform: translate(-50%, -50%); }',
+  // Página continua (secciones pegadas, sin aire): centrada sobre el borde, la mitad de abajo quedaba
+  // DEBAJO de la sección siguiente, que se pinta después y la tapaba (feedback de Martín, 12/10: «está
+  // mal... Se oculta y no se ven los botones»). Va ADENTRO de la activa, pegada abajo, y la activa sube
+  // de capa para que nada de la vecina la pise.
+  '.gm-tarjeta[data-ancho="completo"] > .gmc-mini, .gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-mini { top: auto; bottom: 0.75em; transform: translate(-50%, 0); }',
+  '.gm-doc:not([data-formato="presentacion"]) .gm-tarjeta[data-activa="si"] { z-index: 3; }',
   '.gmc-mini > button { display: grid; place-items: center; width: 36px; border: 0; background: none; color: var(--gmc-tenue); cursor: pointer; padding: 0; }',
   '.gmc-mini > button + button { border-left: 1px solid var(--gmc-borde); }',
   '.gmc-mini > button:hover, .gmc-mini > button[aria-expanded="true"] { background: var(--gmc-hover); color: var(--gmc-texto); }',

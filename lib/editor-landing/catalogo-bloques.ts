@@ -16,6 +16,9 @@ import type { VarianteOptimizado, TonoRecuadro, TipoGrafico } from './doc';
 
 export const CATEGORIAS_BLOQUE = [
   'Bloques básicos',
+  // Lo que conecta la landing con MaKo (feedback de Martín, 12/10/2026: «aproveches las herramientas que
+  // tenemos dentro de MaKo, como por ejemplo, embed de calendly, de cal, de stripe, de mercado pago, del VSL»).
+  'Herramientas de MaKo',
   'Diseños optimizados',
   'Formularios y botones',
   'Imágenes',
@@ -36,6 +39,8 @@ export type IdBloque =
   | 'opt-vinetas' | 'opt-cajas' | 'opt-iconos' | 'opt-tiempo' | 'opt-etapas' | 'opt-flechas'
   | 'opt-estadisticas' | 'opt-comparacion' | 'opt-piramide' | 'opt-embudo' | 'opt-ciclo'
   | 'opt-citas' | 'opt-equipo' | 'opt-logos' | 'opt-galeria'
+  // Herramientas de MaKo
+  | 'agenda' | 'vsl' | 'pago'
   // Formularios y botones
   | 'boton' | 'botones-2' | 'formulario' | 'etiqueta'
   // Imágenes
@@ -107,6 +112,13 @@ export const BLOQUES: readonly DefBloque[] = [
   { id: 'opt-equipo', nombre: 'Fotos del equipo', categoria: 'Diseños optimizados', ayuda: 'Personas con nombre y rol', buscar: ['team', 'equipo', 'personas'], icono: 'opt-equipo', variante: 'equipo' },
   { id: 'opt-logos', nombre: 'Galería de logotipos', categoria: 'Diseños optimizados', ayuda: 'Empresas, socios y patrocinadores', buscar: ['logos', 'clientes', 'marcas', 'confian'], icono: 'opt-logos', variante: 'logos' },
   { id: 'opt-galeria', nombre: 'Galería', categoria: 'Diseños optimizados', ayuda: 'Varias imágenes juntas', buscar: ['gallery', 'fotos', 'imagenes'], icono: 'opt-galeria', variante: 'galeria' },
+
+  // ── Herramientas de MaKo ────────────────────────────────────────────────────
+  // Atajos a lo que ya existe: la agenda y el VSL son el bloque «Insertar» (lib/embeds.ts decide qué
+  // proveedores entran) con su proveedor de entrada; el pago es un botón al link de pago que se pegue.
+  { id: 'agenda', nombre: 'Agenda', categoria: 'Herramientas de MaKo', ayuda: 'Calendly o Cal.com, para que agenden aquí', buscar: ['calendly', 'calcom', 'cal', 'agendar', 'reservar', 'llamada', 'cita'], icono: 'calendario-check' },
+  { id: 'vsl', nombre: 'VSL', categoria: 'Herramientas de MaKo', ayuda: 'Tu video de venta: YouTube, Panda, Vimeo, Wistia', buscar: ['video', 'youtube', 'panda', 'vimeo', 'wistia', 'venta'], icono: 'video-enlace' },
+  { id: 'pago', nombre: 'Botón de pago', categoria: 'Herramientas de MaKo', ayuda: 'Lleva al link de pago de Stripe o Mercado Pago', buscar: ['stripe', 'mercado pago', 'mercadopago', 'pagar', 'checkout', 'cobrar', 'comprar'], icono: 'tarjeta-credito' },
 
   // ── Formularios y botones ───────────────────────────────────────────────────
   { id: 'boton', nombre: 'Botón', categoria: 'Formularios y botones', ayuda: 'Lleva a un link, a una sección o a tu agenda', buscar: ['button', 'cta', 'boton'], icono: 'boton' },

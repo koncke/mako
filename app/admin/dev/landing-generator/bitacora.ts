@@ -150,4 +150,38 @@ export const BITACORA: Hito[] = [
       'lib/editor-landing/html-libre.ts + replicar-reglas.ts + publicar.ts — el freno del formulario de contraseña',
     ],
   },
+  {
+    fecha: '12 oct', hora: '11:13', chat: 'Landing Generator', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La barra «agregar sección» tapada, las herramientas de MaKo y el diseño separado del copy',
+    pedido: '1. Revisa que entre las secciones, donde dice "agregar sección", está mal... Se oculta y no se ven los botones.\n2. Es muy importante que aproveches las herramientas que tenemos dentro de MaKo, como por ejemplo, embed de calendly, de cal, de stripe, de mercado pago, del VSL ya sea en YouTube, Panda, Vimeo, etc...\n3. Quiero que integres todo esto a las plantillas que construiste, y sobre todo, veo que en las plantillas confundiste la plantilla de DISEÑO, con el COPY... En el panel principal, se tienen que ver plantillas del diseño, y al darle a una, puede salir un pop-up o algo así que te pregunte de que quieres crearla, y ahí las opciones de "Agendar llamada, webinar, lead magnet, y todas las opciones que pusiste"\nEstos son cambios simples, hazlo ahora por más que estemos al limite semanal y no utilices multiagente, ya que no es tan complejo',
+    puntos: ['Llegó con una captura del editor (la barra de la sección activa cortada por la sección de abajo).'],
+  },
+  {
+    fecha: '12 oct', hora: '11:20', chat: 'Landing Generator', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sin «Edición manual / Edición con IA»: el agente abierto siempre, y una sola cabecera',
+    pedido: 'También no entiendo los botones de "Edición manual y edición con IA", si mientras estoy en edición con IA puedo editar tanquilamente de manera manaul...\nNo deberían existir esos botones, por defecto el editor de IA siempre abierto. Y de ultima que se pueda plegar. También revisa que hay 2 botones para plegarlo y 2 títulos iguales...\nSoluciona esto, tambien no es un cambio grande',
+    puntos: ['Llegó con una captura del editor mientras se trabajaba el pedido anterior; se hizo en la misma tanda.'],
+  },
+  {
+    fecha: '12 oct', hora: '11:40', chat: 'Landing Generator', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tanda 3, sin agentes: diseños × objetivos, «Herramientas de MaKo» y el agente siempre abierto',
+    puntos: [
+      '⚠️ **La barra no se escondía por su z-index sino por el contexto de apilamiento**: cada sección lleva `isolation: isolate`, así que el `z-index: 6` de la barra se resolvía adentro de su sección y la de abajo, que se pinta después, la tapaba. Va adentro de la activa y la activa sube de capa.',
+      'Las plantillas de landing pasaron a ser DISEÑOS (tema + hero + zigzag) y el copy se elige en «¿De qué quieres crearla?», desde la caja de crear y desde la galería del Panel. Las presentaciones no cambian.',
+      'Agenda (Calendly o Cal.com), VSL (YouTube, Panda, Vimeo, Wistia) y botón de pago (link de Stripe o Mercado Pago): entran solos en los objetivos que los usan y como categoría «Herramientas de MaKo» del menú de bloques. El botón no arma el link desde la pasarela de MaKo (queda anotado).',
+      'Sin el conmutador «Edición manual / Edición con IA»: el agente arranca abierto, se pliega con su « y vuelve con ✨ en la barra o Ctrl/⌘+E; cerrar Páginas vuelve al agente salvo que se haya plegado. La cabecera de afuera (casa, título, plegar) se sacó: la del agente es la única.',
+    ],
+    commits: [],
+    archivos: [
+      'lib/editor-landing/disenos-landing.ts — los diseños, los objetivos y el cruce (landingDesde)',
+      'app/landing-generator/crear/DialogoObjetivo.tsx — el pop-up del objetivo (lo montan la caja y el Panel)',
+      'app/landing-generator/editor/extensiones/estilos-nodos.ts — la barra de la sección activa',
+      'lib/editor-landing/catalogo-bloques.ts + editor/insertar.ts — «Herramientas de MaKo»',
+      'app/landing-generator/editor/EditorLanding.tsx — el agente abierto por defecto, sin conmutador ni cabecera doble',
+      'tests/editor-landing-disenos.test.ts — los 80 cruces pasan el saneo; los bloques de MaKo donde van',
+    ],
+  },
 ];

@@ -27,6 +27,7 @@ import {
 import type { LandingContenido } from '@/lib/editor-landing/doc';
 import { PLANTILLAS } from '@/lib/editor-landing/plantillas';
 import { PLANTILLAS_PRESENTACION } from '@/lib/editor-landing/plantillas-presentaciones';
+import { DISENOS_LANDING, landingDesde } from '@/lib/editor-landing/disenos-landing';
 
 export const TIPOS_CREAR = ['landing', 'presentacion'] as const;
 export type TipoCrear = (typeof TIPOS_CREAR)[number];
@@ -89,11 +90,28 @@ export type PlantillaCrear = {
   /** Sólo las de presentación: viene en la plantilla y viaja al `config`. */
   formato?: FormatoDoc;
   proporcion?: Proporcion;
+  /** Un DISEÑO de landing: al tocarlo se pregunta «¿De qué quieres crearla?» (el objetivo = el copy). */
+  pideObjetivo?: boolean;
 };
 
 /** Las plantillas que se ofrecen debajo de la caja, según el tipo elegido. */
 export function plantillasDe(t: TipoCrear): readonly PlantillaCrear[] {
-  return t === 'presentacion' ? PLANTILLAS_PRESENTACION : PLANTILLAS;
+  // En una landing se ofrecen DISEÑOS, no copys (feedback de Martín, 12/10: «confundiste la plantilla
+  // de DISEÑO, con el COPY»). La miniatura se dibuja con el copy de «Agenda una llamada».
+  return t === 'presentacion' ? PLANTILLAS_PRESENTACION : DISENOS_LANDING.map((d) => ({
+    id: d.id, nombre: d.nombre, descripcion: d.descripcion, tema: d.tema, pideObjetivo: true,
+    contenido: () => landingDesde(d, 'agenda-llamada') ?? PLANTILLAS[0].contenido(),
+  }));
+}
+
+/** El alta de un DISEÑO con el objetivo elegido: el copy del objetivo vestido con el diseño. */
+export function pedidoDeDiseno(p: PlantillaCrear, objetivo: string): Extract<PedidoDocs, { accion: 'crear' }> | null {
+  const d = DISENOS_LANDING.find((x) => x.id === p.id);
+  const contenido = d ? landingDesde(d, objetivo) : null;
+  const obj = PLANTILLAS.find((x) => x.id === objetivo);
+  if (!d || !contenido || !obj) return null;
+  const config: Partial<ConfigLanding> = { tema: d.tema, formato: 'pagina', origen: { modo: 'plantilla', plantilla: `${d.id}:${objetivo}` } };
+  return { accion: 'crear', titulo: obj.nombre, contenido, config };
 }
 
 /**

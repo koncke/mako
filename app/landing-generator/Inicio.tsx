@@ -64,11 +64,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link, { useRouter, useWs } from '@/app/_ui/Link';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { TEMAS, temaPorId, type Tema } from '@/lib/editor-landing/temas';
-import { CATEGORIAS_PLANTILLA, PLANTILLAS, type Plantilla } from '@/lib/editor-landing/plantillas';
+import type { Plantilla } from '@/lib/editor-landing/plantillas';
 import { CATEGORIAS_PRESENTACION, PLANTILLAS_PRESENTACION, type PlantillaPresentacion } from '@/lib/editor-landing/plantillas-presentaciones';
-import { tarjetasDe, urlPublica, type JsonNodo } from '@/lib/editor-landing/doc';
+import { tarjetasDe, urlPublica, type JsonNodo, type LandingContenido } from '@/lib/editor-landing/doc';
 import type { LandingResumen, PedidoDocs, TemaPropio } from '@/lib/editor-landing/api-tipos';
-import { ICONO_TIPO, NOMBRE_TIPO, TIPOS_CREAR, pedidoDePlantilla, type TipoCrear } from './crear/tipo';
+import {
+  ICONO_TIPO, NOMBRE_TIPO, TIPOS_CREAR, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, type PlantillaCrear, type TipoCrear,
+} from './crear/tipo';
+import { DialogoObjetivo } from './crear/DialogoObjetivo';
 import CajaCrear from './CajaCrear';
 import PanelDiagnostico from './diagnostico/PanelDiagnostico';
 import { normalizarUrl } from '@/lib/landing-url';
@@ -107,6 +110,8 @@ type Dialogo =
   | { tipo: 'eliminarDoc'; doc: LandingResumen }
   | { tipo: 'eliminarAnalizada'; url: string; nombre: string }
   | { tipo: 'plantilla'; plantilla: PlantillaGaleria }
+  /** Un DISEÑO de landing: pregunta el objetivo (el copy) y crea. */
+  | { tipo: 'diseno'; plantilla: PlantillaCrear }
   | { tipo: 'tema'; tema: Tema };
 
 /** Lo que oye un lector de pantalla del ícono de cada renglón. */
@@ -299,6 +304,11 @@ export function Inicio(props: PropsInicio) {
   // El config del alta de una plantilla sale de `pedidoDePlantilla` (crear/tipo.ts): una
   // presentación creada sin su formato nacería como página.
   const usarPlantilla = (p: PlantillaGaleria) => void crearYAbrir(pedidoDePlantilla(p));
+  const usarDiseno = (p: PlantillaCrear, objetivo: string) => {
+    const alta = pedidoDeDiseno(p, objetivo);
+    if (!alta) { avisar('No se pudo crear'); return; }
+    void crearYAbrir(alta);
+  };
   const usarTema = (t: Tema) => void crearYAbrir({ accion: 'crear', config: { tema: t.id, formato: 'pagina', origen: { modo: 'cero' } } });
 
   const recargarLista = async () => {
@@ -398,7 +408,7 @@ export function Inicio(props: PropsInicio) {
     // no se resiembra, AGENTS.md).
     contenido = <PanelDiagnostico key={`${derecha.docId ?? ''}|${derecha.url ?? ''}`} docId={derecha.docId} url={derecha.url} onCerrar={cerrarDiagnostico} onAnalizada={sumarAnalizada} />;
   } else if (derecha.tipo === 'plantillas') {
-    contenido = <><h1 className="gp-cabeza-titulo">Plantillas</h1><GaleriaPlantillas onVer={(p) => setDialogo({ tipo: 'plantilla', plantilla: p })} /></>;
+    contenido = <><h1 className="gp-cabeza-titulo">Plantillas</h1><GaleriaPlantillas onVer={(p) => setDialogo({ tipo: 'plantilla', plantilla: p })} onDiseno={(p) => setDialogo({ tipo: 'diseno', plantilla: p })} /></>;
   } else if (derecha.tipo === 'temas') {
     contenido = <><h1 className="gp-cabeza-titulo">Temas</h1><GaleriaTemas propios={props.propios} errorTemas={props.errorTemas} onVer={(t) => setDialogo({ tipo: 'tema', tema: t })} /></>;
   } else if (derecha.tipo === 'papelera') {
@@ -517,6 +527,9 @@ export function Inicio(props: PropsInicio) {
           <VistaPlantilla plantilla={dialogo.plantilla} />
         </DialogoGamma>
       )}
+      {dialogo?.tipo === 'diseno' && (
+        <DialogoObjetivo ocupado={creando} onElegir={(o) => usarDiseno(dialogo.plantilla, o)} onCerrar={cerrarDialogo} />
+      )}
       {dialogo?.tipo === 'tema' && (
         <DialogoGamma
           titulo="Vista previa del tema"
@@ -549,30 +562,34 @@ export function Inicio(props: PropsInicio) {
 const esDePresentacion = (p: PlantillaGaleria): p is PlantillaPresentacion => 'formato' in p && p.formato === 'presentacion';
 
 /**
- * Plantillas: «Landing | Presentación» (las pastillas de crear), chips por categoría y una
- * tarjeta por plantilla con la miniatura de su primera sección (o diapositiva, con su forma).
+ * Plantillas: «Landing | Presentación» (las pastillas de crear) y una tarjeta por plantilla con la
+ * miniatura de su primera sección (o diapositiva, con su forma). En una landing son DISEÑOS (el
+ * copy se elige después, en «¿De qué quieres crearla?»: feedback de Martín, 12/10/2026); en una
+ * presentación, plantillas con chips por categoría y su vista previa.
  * `contenido()` arma ids NUEVOS en cada llamada, así que las muestras se arman después de
  * montar (si no, el HTML del server y el del navegador no coincidirían).
  */
-function GaleriaPlantillas({ onVer }: { onVer: (p: PlantillaGaleria) => void }) {
+function GaleriaPlantillas({ onVer, onDiseno }: { onVer: (p: PlantillaGaleria) => void; onDiseno: (p: PlantillaCrear) => void }) {
   const [tipo, setTipo] = useState<TipoCrear>('landing');
   const [categoria, setCategoria] = useState<string>('todo');
   const [muestras, setMuestras] = useState<Record<string, JsonNodo | null> | null>(null);
   useEffect(() => {
-    const primera = (p: PlantillaGaleria): JsonNodo | null => {
+    const primera = (p: { contenido: () => LandingContenido }): JsonNodo | null => {
       const pagina = p.contenido().paginas[0];
       return pagina ? tarjetasDe(pagina)[0] ?? null : null;
     };
     setMuestras(Object.fromEntries([
-      ...PLANTILLAS.map((p) => [`landing:${p.id}`, primera(p)] as const),
+      ...plantillasDe('landing').map((p) => [`landing:${p.id}`, primera(p)] as const),
       ...PLANTILLAS_PRESENTACION.map((p) => [`presentacion:${p.id}`, primera(p)] as const),
     ]));
   }, []);
-  const base: readonly PlantillaGaleria[] = tipo === 'presentacion' ? PLANTILLAS_PRESENTACION : PLANTILLAS;
-  const lista = base.filter((p) => categoria === 'todo' || p.categoria === categoria);
+  const disenos = useMemo(() => plantillasDe('landing'), []);
+  const lista: readonly (PlantillaGaleria | PlantillaCrear)[] = tipo === 'presentacion'
+    ? PLANTILLAS_PRESENTACION.filter((p) => categoria === 'todo' || p.categoria === categoria)
+    : disenos;
   const opciones = useMemo(
-    () => [{ valor: 'todo', texto: 'Todo' }, ...(tipo === 'presentacion' ? CATEGORIAS_PRESENTACION : CATEGORIAS_PLANTILLA).map((c) => ({ valor: c as string, texto: c as string }))],
-    [tipo],
+    () => [{ valor: 'todo', texto: 'Todo' }, ...CATEGORIAS_PRESENTACION.map((c) => ({ valor: c as string, texto: c as string }))],
+    [],
   );
   return (
     <div className="gp-galeria">
@@ -584,24 +601,25 @@ function GaleriaPlantillas({ onVer }: { onVer: (p: PlantillaGaleria) => void }) 
             </button>
           ))}
         </div>
-        <Filtros valor={categoria} opciones={opciones} onCambio={setCategoria} etiqueta="Categoría" />
+        {tipo === 'presentacion' && <Filtros valor={categoria} opciones={opciones} onCambio={setCategoria} etiqueta="Categoría" />}
       </div>
       {lista.length ? (
         <div className="gp-grilla">
           {lista.map((p) => {
-            const pres = esDePresentacion(p);
+            const pres = 'formato' in p && p.formato === 'presentacion';
+            const diseno = 'pideObjetivo' in p && !!p.pideObjetivo;
             return (
-              <button key={p.id} type="button" className="gp-card gp-card-plantilla" onClick={() => onVer(p)}>
+              <button key={p.id} type="button" className="gp-card gp-card-plantilla" onClick={() => (diseno ? onDiseno(p as PlantillaCrear) : onVer(p as PlantillaGaleria))}>
                 <div className="gp-card-mini">
                   {muestras ? (
                     <MiniaturaLanding
                       tarjeta={muestras[`${tipo}:${p.id}`] ?? null}
                       tema={temaPorId(p.tema)}
                       formato={pres ? 'presentacion' : 'pagina'}
-                      proporcion={pres ? p.proporcion : undefined}
+                      proporcion={pres ? (p as PlantillaPresentacion).proporcion : undefined}
                     />
                   ) : <div className="gp-mini gp-brillo" style={{ aspectRatio: pres ? '16 / 9' : '16 / 10' }} />}
-                  <span className="gp-card-usar">Usar plantilla</span>
+                  <span className="gp-card-usar">{diseno ? 'Usar diseño' : 'Usar plantilla'}</span>
                 </div>
                 <div className="gp-card-info">
                   <div className="gp-card-titulo">{p.nombre}</div>

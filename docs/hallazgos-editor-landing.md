@@ -281,6 +281,41 @@ en el navegador y un revisor adversarial; acá va lo que costó.
   conexión real a Vercel. Y la cascada de IA del ws1: el Landing Analyst no tiene un proveedor gratis que
   conteste (decide Martín).
 
+## Tanda 3 (12/10/2026): diseño contra copy, herramientas de MaKo y la barra entre secciones
+
+Pedido de Martín, con una captura del editor: «Revisa que entre las secciones, donde dice "agregar
+sección", está mal... Se oculta y no se ven los botones», «aproveches las herramientas que tenemos dentro
+de MaKo, como por ejemplo, embed de calendly, de cal, de stripe, de mercado pago, del VSL ya sea en
+YouTube, Panda, Vimeo» y «en las plantillas confundiste la plantilla de DISEÑO, con el COPY... al darle a
+una, puede salir un pop-up... que te pregunte de que quieres crearla». Hecho sin agentes.
+
+- **La barra «＋ | ✨ | ▾» de la sección activa quedaba tapada por la sección de ABAJO.** En página
+  continua las secciones van pegadas y la barra se centraba sobre el borde (`translate(-50%, -50%)`): su
+  mitad de abajo caía sobre la sección siguiente, que se pinta después. Su `z-index: 6` no servía: cada
+  `.gm-tarjeta` lleva `isolation: isolate` (css.ts), así que ese 6 se resuelve ADENTRO de la sección y no
+  contra la vecina. **Regla: algo que cuelga del borde de una caja con `isolation` (o cualquier contexto de
+  apilamiento) no le gana a la hermana de abajo por su z-index propio; o va adentro, o la caja entera sube
+  de capa.** Va las dos cosas: la barra adentro, pegada abajo, y la sección activa con `z-index: 3`.
+  **Vive en:** `app/landing-generator/editor/extensiones/estilos-nodos.ts`.
+- **Las «plantillas» eran COPY con un tema pegado**: diez objetivos (agendar, webinar, lead magnet…), cada
+  uno con su tema fijo, así que elegir cómo se VE era elegir qué DICE. Ahora son dos ejes que se cruzan al
+  crear: `DISENOS_LANDING` (tema + hero + zigzag de las imágenes) y el objetivo (el copy de
+  `PLANTILLAS`, por id). `landingDesde(diseño, objetivo)` arma el contenido; la caja de crear y la galería
+  del Panel muestran los diseños y preguntan el objetivo en un pop-up (`DialogoObjetivo`). Las
+  presentaciones no cambian (ahí la plantilla sí es una pieza entera). El `origen.plantilla` guarda
+  `<diseño>:<objetivo>`. **Vive en:** `lib/editor-landing/disenos-landing.ts`, `app/landing-generator/crear/`.
+- **Las herramientas de MaKo entran VACÍAS y sin un bloque nuevo**: la agenda (Calendly o Cal.com) y el VSL
+  (YouTube, Panda, Vimeo, Wistia) son el `insertado` de siempre con su proveedor de entrada (lo decide
+  después el enlace que se pegue, `lib/embeds.ts`); el pago es un botón «Pagar ahora» al que se le pega el
+  link de Stripe o Mercado Pago. Un `insertado` con `src` vacío pasa el saneo del server sin descartes:
+  medido sobre los 80 cruces diseño × objetivo (`tests/editor-landing-disenos.test.ts`). En el menú de
+  bloques son la categoría «Herramientas de MaKo» (Agenda, VSL, Botón de pago). **Vive en:**
+  `lib/editor-landing/catalogo-bloques.ts`, `app/landing-generator/editor/insertar.ts`.
+- **Sin hacer**: el botón de pago no arma el link desde la pasarela de MaKo (`lib/cobros.ts`, `crearCobro`):
+  la persona pega el suyo. Conectarlo es un cobro por visitante, con su producto y su moneda, y no entraba
+  en «cambios simples». Y falta mirarlo con clics (la barra en una sección del medio y en la última, y el
+  pop-up desde el Panel y desde la caja).
+
 ## Lo que quedó sin hacer
 
 - **«Generar imagen con IA» por Google Flow** (decisión de Martín, 11/10). Bloqueo medido: el Flow nuevo

@@ -192,6 +192,14 @@ export function bloqueJson(id: IdBloque, extra: { url?: string | null } = {}): J
       return { type: NODO.optimizado, attrs: { variante: v, columnas: 'auto', mostrarIconos: true }, content: itemsDe(v) };
     }
 
+    // ── Herramientas de MaKo ──
+    // La agenda y el VSL entran vacíos con su proveedor de entrada: el NodeView pide el enlace y
+    // el proveedor real lo decide lo que se pegue (un link de Cal.com en «Agenda» queda Cal.com).
+    case 'agenda': return { type: NODO.insertado, attrs: { src: '', proveedor: 'calendly', alto: null } };
+    case 'vsl': return { type: NODO.insertado, attrs: { src: '', proveedor: 'youtube', alto: null } };
+    // El link de pago se pega en el botón (BotonesVista abre en otra pestaña lo que empieza con http).
+    case 'pago': return { type: NODO.botones, attrs: { alinea: 'izquierda' }, content: [boton('Pagar ahora', 'primario')] };
+
     // ── Formularios y botones ──
     case 'boton': return { type: NODO.botones, attrs: { alinea: 'izquierda' }, content: [boton('Comenzar ahora', 'primario')] };
     case 'botones-2':

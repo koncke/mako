@@ -736,6 +736,7 @@ export const CSS_GP = `
 .gp .gp-borradores { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .gp .gp-borrador { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 1px solid var(--gp-borde-suave); border-radius: 10px; background: var(--gp-superficie); text-align: left; cursor: pointer; color: var(--gp-tenue); }
 .gp .gp-borrador:hover:not(:disabled) { border-color: var(--gp-azul-300); }
+.gp .gp-objetivo > .gp-ico:first-child { flex: none; color: var(--gp-azul-600); }
 .gp .gp-borrador-textos { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .gp .gp-borrador-titulo { color: var(--gp-titulo); font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gp .gp-borrador-sub { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -38,6 +38,7 @@ export const TIPO_ARRASTRE_BLOQUE = 'application/x-gma-bloque';
 /** Lo que dice la navegación y la cabeza de cada categoría (los textos de Gamma en español). */
 const CATEGORIA: Record<CategoriaBloque, { corto: string; sub: string; icono: string }> = {
   'Bloques básicos': { corto: 'Bloques', sub: 'Añade elementos comunes como texto.', icono: 'texto-aa' },
+  'Herramientas de MaKo': { corto: 'MaKo', sub: 'Agenda, VSL y botón de pago.', icono: 'destellos' },
   'Diseños optimizados': { corto: 'Diseños', sub: 'Visualiza tu texto con diseños.', icono: 'opt-cajas' },
   'Formularios y botones': { corto: 'Formularios', sub: 'Añade elementos de entrada interactivos.', icono: 'formulario' },
   'Imágenes': { corto: 'Imágenes', sub: 'Carga o busca imágenes.', icono: 'imagen' },
