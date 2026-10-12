@@ -1,6 +1,6 @@
 # Relevo — la tab Offer
 
-<sub>Escrito por el chat que la construyó (cuenta claude3), 12/10/2026 ~03:00 UTC. Primera mano.</sub>
+<sub>Escrito por el chat que la construyó (cuenta claude3), 12/10/2026 ~07:45 UTC. Primera mano.</sub>
 
 ## Dónde quedó
 
@@ -24,13 +24,15 @@
 - El renombre visible «Producto» → «Funnel» del CRM lo hizo el chat del CRM (`f5a98420`).
 - **NO se vio en el navegador** (ni v1 ni v2): Martín dijo que lo visual lo revisa él.
 
-## Lo que espera una decisión de Martín
+## Las 13 decisiones de «A definir» (12/10/2026, 05:48 UTC)
 
-Las 13 tarjetas de la pestaña «A definir» del Playbook (responde con número y letra). Las 4 de criterio: si Prueba pasa a pieza mínima; si
-con Cliente o Promesa en 3 o menos MaKo rehace la oferta o sólo avisa; si el PDF separa lo que propuso
-MaKo de lo que dijo el dueño; y si las reglas que hoy sólo viven en el prompt merecen control en código.
-Las otras 9 son «cambiar el código» con la regla ya decidida en el marco (la más seria: el filtro de
-cifras deja pasar números inventados en el PDF).
+Martín las contestó todas (textual en la bitácora de Products & Offers; resumen en la memoria
+`offer-decisiones-a-definir`) y quedaron aplicadas en el commit «Offer: las 13 decisiones de Martín…»
+(`c3b28bc2` en el clon; en el remoto con otro hash). La pestaña «A definir» queda vacía y las 13 pasan a
+«Decididas». **Si ese commit no figura en `origin/main`, es lo primero que hay que subir**: el pre-push
+choca con `html-to-image`/`pptxgenjs` (dependencias de Landing Generator que no están en el
+`node_modules` del clon); se subió desde un worktree con el enlace apuntando al `node_modules` de
+`wt-gamma`, que sí las tiene.
 
 ## Lo que quedó sin hacer
 
