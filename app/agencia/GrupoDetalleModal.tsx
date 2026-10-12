@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { MakoStar } from '../_components/MakoBrand';
+import { TelefonoConPais } from '../_components/TelefonoConPais';
+import { DIAL_DEFAULT, unirTelefono } from '@/lib/paises';
 
 type Info = { jid: string; subject: string; descripcion: string; foto: string | null; participantes: Array<{ numero: string; admin: boolean }> };
 
@@ -21,7 +23,13 @@ export function GrupoDetalleModal({ jid, onClose, onCambio }: { jid: string; onC
   const [info, setInfo] = useState<Info | null>(null);
   const [subject, setSubject] = useState('');
   const [desc, setDesc] = useState('');
+  // ⚠️ EL PAÍS VA PRIMERO, con banderas (punto 5 del 12/10/2026: «en todos lados que se configure
+  // telefono es así»). Al server le llegan los MISMOS dígitos que antes, con el código de país:
+  // antes se escribían a mano después de un «+54 9 …» de ejemplo y se les sacaba todo lo que no
+  // fuera un dígito; ahora la lada sale del selector y `unirTelefono` hace lo mismo.
+  const [nuevaLada, setNuevaLada] = useState(DIAL_DEFAULT);
   const [nuevoNum, setNuevoNum] = useState('');
+  const numeroNuevo = nuevoNum.replace(/\D/g, '') ? unirTelefono(nuevaLada, nuevoNum) : '';
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -37,7 +45,7 @@ export function GrupoDetalleModal({ jid, onClose, onCambio }: { jid: string; onC
   const flashOk = (m: string) => { setFlash(m); setTimeout(() => setFlash(null), 2200); };
   const guardarNombre = async () => { setBusy('nombre'); if (await post({ jid, action: 'nombre', subject })) { flashOk('Nombre actualizado ✓'); onCambio?.(); } setBusy(null); };
   const guardarDesc = async () => { setBusy('desc'); if (await post({ jid, action: 'descripcion', descripcion: desc })) flashOk('Descripción actualizada ✓'); setBusy(null); };
-  const agregar = async () => { const n = nuevoNum.replace(/\D/g, ''); if (!n) return; setBusy('add'); if (await post({ jid, action: 'add', numeros: [n] })) { setNuevoNum(''); await cargar(); flashOk('Número agregado ✓'); } else flashOk('No se pudo agregar'); setBusy(null); };
+  const agregar = async () => { const n = numeroNuevo; if (!n) return; setBusy('add'); if (await post({ jid, action: 'add', numeros: [n] })) { setNuevoNum(''); await cargar(); flashOk('Número agregado ✓'); } else flashOk('No se pudo agregar'); setBusy(null); };
   const quitar = async (num: string) => { setBusy('rm' + num); if (await post({ jid, action: 'remove', numeros: [num] })) await cargar(); setBusy(null); };
   const cambiarFoto = async (f: File | null) => {
     if (!f) return;
@@ -93,8 +101,10 @@ export function GrupoDetalleModal({ jid, onClose, onCambio }: { jid: string; onC
         <div>
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Participantes {info ? `· ${info.participantes.length}` : ''}</div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-            <input value={nuevoNum} onChange={(e) => setNuevoNum(e.target.value)} inputMode="tel" placeholder="+54 9 …" style={inp} />
-            <button onClick={agregar} disabled={busy === 'add' || !nuevoNum.replace(/\D/g, '')} style={{ ...btn, flex: 'none', opacity: busy === 'add' ? 0.5 : 1 }}>Agregar</button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <TelefonoConPais lada={nuevaLada} numero={nuevoNum} onLada={setNuevaLada} onNumero={setNuevoNum} onEnter={agregar} inputStyle={inp} anchoLada={112} />
+            </div>
+            <button onClick={agregar} disabled={busy === 'add' || !numeroNuevo} style={{ ...btn, flex: 'none', opacity: busy === 'add' ? 0.5 : 1 }}>Agregar</button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {info?.participantes.map((p) => (

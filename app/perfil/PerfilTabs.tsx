@@ -9,6 +9,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../_components/icons';
 import { Dropdown } from '../components/Dropdown';
+import { TelefonoConPais } from '../_components/TelefonoConPais';
+import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -46,11 +48,20 @@ export function PerfilTabs() {
   const [flash, setFlash] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  // ⚠️ EL TELÉFONO CON EL PAÍS PRIMERO (punto 5 del 12/10/2026: «en todos lados que se configure
+  // telefono es así»). La lada y el número viven aparte mientras se escribe —derivarlos del texto
+  // guardado en cada render tiraría la lada elegida con el número todavía vacío— y lo que va al
+  // perfil sale en la MISMA forma que enseñaba el ejemplo del campo: «+» y los dígitos con el
+  // código de país (`+5216861234567`). Va ANTES del `return` de «Cargando…»: un hook después de
+  // un return temprano es la pantalla en blanco (AGENTS.md).
+  const [tel, setTel] = useState<{ lada: string; numero: string }>({ lada: DIAL_DEFAULT, numero: '' });
 
   useEffect(() => {
     fetch('/api/perfil').then((r) => r.json()).then((j) => {
       if (!j.ok) return;
       setPerfil(j.perfil as Perfil); setDraft(j.perfil as Perfil);
+      const { lada, resto } = splitTelefono(String((j.perfil as Perfil).telefono ?? ''));
+      setTel({ lada, numero: resto });
       if (j.vista?.deOtro) setVista(j.vista as Vista);
     }).catch(() => {});
   }, []);
@@ -65,6 +76,11 @@ export function PerfilTabs() {
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(perfil);
   const set = <K extends keyof Perfil>(k: K, v: Perfil[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d));
+  /** Cambia la lada o el número y deja en el borrador el teléfono ENTERO, como se guarda. */
+  const cambiarTel = (t: { lada: string; numero: string }) => {
+    setTel(t);
+    set('telefono', t.numero.replace(/\D/g, '') ? `+${unirTelefono(t.lada, t.numero)}` : '');
+  };
 
   const persistir = async (p: Perfil) => {
     const r = await fetch('/api/perfil', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'perfil', perfil: p }) });
@@ -151,7 +167,11 @@ export function PerfilTabs() {
             <div><label style={labelStyle}>Empresa</label><input style={input} value={draft.empresa} onChange={(e) => set('empresa', e.target.value)} placeholder="Negocio que Escala" /></div>
             <div><label style={labelStyle}>Sitio web</label><input style={input} value={draft.web} onChange={(e) => set('web', e.target.value)} placeholder="https://…" /></div>
             <div><label style={labelStyle}>Email (acceso)</label><input style={{ ...input, background: 'var(--surface-2)', color: 'var(--dim)', cursor: 'not-allowed' }} type="email" value={draft.email} readOnly disabled placeholder="—" /></div>
-            <div><label style={labelStyle}>Teléfono</label><input style={input} value={draft.telefono} onChange={(e) => set('telefono', e.target.value)} placeholder="+5216861234567" /></div>
+            <div>
+              <span style={labelStyle}>Teléfono</span>
+              <TelefonoConPais lada={tel.lada} numero={tel.numero} inputStyle={input} placeholder="1 686 123 4567" anchoLada={112}
+                onLada={(v) => cambiarTel({ ...tel, lada: v })} onNumero={(v) => cambiarTel({ ...tel, numero: v })} />
+            </div>
             <div>
               <label style={labelStyle}>Zona horaria</label>
               <Dropdown value={draft.timezone} options={TZ_OPTS} onChange={(v) => set('timezone', v)} width="100%" />

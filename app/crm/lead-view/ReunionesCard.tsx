@@ -25,7 +25,7 @@ import { AgendarR2 } from './AgendarR2';
 import { InsightsLlamadaCard } from './InsightsLlamadaCard';
 // Los campos que se editan EN EL LUGAR (fecha, sí/no, persona). Acá NO hay modo
 // edición: cada dato se corrige donde se lee. Ver app/crm/campo-inline.ts.
-import { FechaEditable, TriEditable, PersonaEditable, EnlaceFathomEditable } from './CampoEditable';
+import { CajaCampo, FechaEditable, TriEditable, PersonaEditable, EnlaceFathomEditable } from './CampoEditable';
 // El candado de «calificado» es UNO y vive en lib/calificado-reunion.ts: esta
 // tarjeta y la de Tracking tienen que bloquear en el mismo caso.
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
@@ -79,12 +79,12 @@ function BloqueReunion({ titulo, leadId, campoFecha, campoFathom, fecha, fallbac
           siendo el mismo recuadro de antes: lo que cambió es que la URL se sobrescribe
           con un click y el «Abrir →» quedó al lado en vez de envolver todo. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', padding: '9px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
+        <CajaCampo style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', padding: '9px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
           <span style={{ flex: 'none', fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Grabación (Fathom)</span>
           <span style={{ flex: 1, minWidth: 160 }}>
             <EnlaceFathomEditable leadId={leadId} campo={campoFathom} url={slot?.url ?? null} titulo={`Link de Fathom de la ${titulo.toLowerCase()}`} />
           </span>
-        </div>
+        </CajaCampo>
         {extras.map((f, i) => (
           <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, textDecoration: 'none', padding: '9px 13px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{f.label || 'Grabación'} (Fathom)</span>
@@ -210,9 +210,11 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
           que sólo se podía corregir desde el formulario, y es de la misma familia
           que la confirmación de pago (una fecha del recorrido, no de una reunión).
           `auto-fit` en vez de las 4 columnas fijas: con 170 px de mínimo, en el modal
-          angosto bajan a dos filas en vez de recortar el valor. */}
+          angosto bajan a dos filas en vez de recortar el valor.
+          Cada recuadro es una `CajaCampo` (12/10/2026, punto 7): un clic en cualquier parte
+          abre su campo, no sólo sobre el «—». */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 16 }}>
-        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        <CajaCampo style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Agendamiento</span>
           <div style={{ marginTop: 3 }}>
             <FechaEditable
@@ -224,22 +226,22 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
               estilo={{ fontSize: 14, fontWeight: 600, color: lead.fecha_agenda ? 'var(--ink)' : 'var(--faint)' }}
             />
           </div>
-        </div>
-        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        </CajaCampo>
+        <CajaCampo style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           {/* Closer: si está vacío pero Fathom detectó uno, lo ofrecemos como sugerencia
               en el lugar del valor — elegirlo del desplegable es lo que lo guarda. */}
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Closer</span>
           <div style={{ marginTop: 3 }}>
             <PersonaEditable leadId={lead.id} campo="closer" valor={lead.closer ?? null} equipo={equipo} hint={closerDetectado && !lead.closer ? `${closerDetectado} (de Fathom)` : undefined} />
           </div>
-        </div>
-        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        </CajaCampo>
+        <CajaCampo style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Setter</span>
           <div style={{ marginTop: 3 }}>
             <PersonaEditable leadId={lead.id} campo="setter" valor={lead.setter ?? null} equipo={equipo} />
           </div>
-        </div>
-        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        </CajaCampo>
+        <CajaCampo style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Confirmación de pago</span>
           <div style={{ marginTop: 3 }}>
             <FechaEditable
@@ -251,7 +253,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
               estilo={{ fontSize: 14, fontWeight: 600, color: lead.fecha_confirmacion ? 'var(--ink)' : 'var(--faint)' }}
             />
           </div>
-        </div>
+        </CajaCampo>
       </div>
     </section>
   );

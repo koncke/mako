@@ -570,7 +570,9 @@ test('⚠️ el pop-up de etapas: una operación por cambio, y el pipeline nunca
   assert.match(md, /editarEtapaAction\(op, funnelId \?\? undefined\)/, 'el pop-up no manda la operación al funnel que abrió');
 
   // 2) Las cinco operaciones están enchufadas, y cada una es una op propia.
-  for (const op of ['renombrar', 'eliminar', 'agregar', 'mover', 'nutricion']) {
+  //    ⚠️ `nutricion` salió de la lista el 12/10/2026 con su subtab («Elimina las tabs de
+  //    "Nutrición" y "Etiqueta"»); entró `tipo`, el desplegable Etapa / Reunión / Nutrición.
+  for (const op of ['renombrar', 'eliminar', 'agregar', 'mover', 'tipo']) {
     assert.ok(md.includes(`op: '${op}'`), `al pop-up le falta la operación «${op}»`);
   }
 

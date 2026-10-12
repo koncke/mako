@@ -52,7 +52,10 @@ de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 - **Un aislamiento por persona sobre una tabla compartida se cae por la ruta vieja**: los chats del
   teléfono son por persona (`mako-movil:<persona>`), pero `chart_sessions` también la leen por id
   `/api/chart-insights` y `/api/mako-doer` (ids correlativos): un closer leía los chats del dueño.
-  Al restringir filas, grep de TODO lo que lee o escribe esa tabla por id. **Vive en:** lib/chart-chats.ts
+  Al restringir filas, grep de TODO lo que lee o escribe esa tabla por id. Y esa privacidad es un PREFIJO
+  de texto, no RLS: un chat por persona NUEVO sobre `chart_sessions` la hereda sólo si su clave empieza con
+  `mako-movil:` (lo hizo MaKo Analyst de la ficha del lead, 12/10/2026: ver «El turno del teléfono, prestado
+  a la ficha del lead», abajo). **Vive en:** lib/chart-chats.ts
 - **Un default de límite silencioso convierte un conteo en mentira**: `listPropuestasPendientes()`
   sin argumento topa en 8, y el teléfono decía «8 borradores» con 133. **Vive en:** lib/plan-hoy.ts
 - **El parche de fetch (WsFetch) no cubre `XMLHttpRequest`**: la subida con progreso del chat le
@@ -302,6 +305,14 @@ no tuvo RAM para un `next dev`): todo lo de acá se midió con typecheck, tests 
 - Latencia del chat: gemini-flash-latest cortó o dio 503 y rotó a flash-lite (23-108 s por turno).
 - `setNotifPush` y `setNotifVistoHasta` reescriben el perfil sin comparar: dos guardados pueden pisarse.
 - El proyecto «Feature: MaKo Mobile» no existe en el tablero del dueño.
+- **La nota desde el teléfono recorta a 4000 caracteres en silencio al crearla** (`notaLeadAction`,
+  app/m/crm/acciones.ts:80, `slice(0, 4000)`). Desde el 12/10/2026 el alta de escritorio y la edición RECHAZAN lo que
+  pasa `TOPE_NOTA` (app/crm/notas-reglas.ts) en vez de recortar, pero /m corta ANTES de llamar al alta, así que el
+  rechazo nunca la ve: una nota dictada más larga se guarda cortada y el teléfono contesta que quedó. Lo que falta es
+  rechazar con `TOPE_NOTA` y decirlo en el toast. El porqué, en hallazgos-crm.md → «La segunda revisión del 12/10».
+- Los mensajes fijos de `lib/mako-turno-app-reglas.ts` (`MENSAJE_BORRADOR_APP` :272 y la ficha preparada :277) dicen
+  «confírmalo en Inbox», y desde el 12/10/2026 ese turno también corre en ESCRITORIO (MaKo Analyst de la ficha del
+  lead), donde Inbox no existe. En el chat la fila sí lleva a su pantalla.
 
 ## Las trampas que midieron los agentes, por área
 
@@ -402,3 +413,41 @@ si el negocio no tiene la tab de esa hoja (`capaDeHojaDeRol`, lib/graficos-roles
 navegador en cada página y no puede importar las plantillas). Lo fija `tests/movil-dashboard-rol.test.ts` (probado
 volviendo al chequeo del closer: 0/1). **Vive en:** `app/m/dashboard/page.tsx`, `app/m/dashboard/[hoja]/page.tsx`,
 `lib/movil-rutas.ts`.
+
+## El turno del teléfono, prestado a la ficha del lead (MaKo Analyst, 12/10/2026)
+
+Pedido de Martín (12/10/2026, punto 19 del feedback del CRM): «Cambia el nombre de la tab "Análisis" por "MaKo Analyst"
+y replica el chat que tenemos en la tab de "Offer", basicamente que sea un chat con la IA que por defecto tenga atado los
+datos de ese lead, para eso tenemos una API de todo». No hay un motor nuevo: la pestaña corre el turno de MaKo Mobile
+(`lib/mako-turno-app.ts`), que lee datos reales, propone acciones en tarjetas y deja que una persona confirme. Lo que no
+se ve en el código:
+
+- **El turno no tenía por dónde recibir contexto.** El system se armaba siempre con el mismo contexto vacío; para atarle
+  un lead hubo que sumar `EntradaTurnoApp.contexto` (opcional), que va al FINAL del system —manda sobre la voz del
+  teléfono— y **no se guarda en el hilo**: los datos de un lead cambian mientras se conversa, y guardados serían la foto
+  del primer mensaje. Lo arma `contextoDelLead` en CADA turno, leyendo seis operaciones de la API de MaKo con el rol de
+  quien pregunta (lo que su pantalla no le muestra, el chat tampoco), con un tope de 14.000 caracteres
+  (`TOPE_CONTEXTO`) y diciendo lo que se cortó o no se pudo leer. Sin `contexto`, el turno es el de siempre para los
+  demás llamadores.
+- **La privacidad de ese chat es el PREFIJO de su clave.** Las sesiones van como `mako-movil:u5:lead:123` a propósito:
+  con ese prefijo la lista de /mako (que es por workspace) no las muestra, y /api/chart-insights y /api/mako-doer
+  contestan 404 a su id (`esSesionDelTelefono`, lib/chart-chats.ts). Con un prefijo nuevo, cualquiera del workspace las
+  leía por id, y los ids son correlativos. El string vive en TRES copias (lib/chart-chats.ts,
+  lib/mako-turno-app-reglas.ts, lib/mako-analyst-lead-reglas.ts) porque esos módulos no se importan entre sí sin traer el
+  registro de la API; los atan `tests/movil-privacidad.test.ts` y `tests/mako-analyst-lead.test.ts`. **Regla:** un chat
+  por persona nuevo sobre `chart_sessions` lleva ese prefijo, o no es privado.
+- **Lo que se lee en CADA turno no puede ir a un tercero.** `reuniones_lead` quedó fuera de `LECTURAS_DEL_LEAD` porque es
+  lenta y externa (le pregunta a Calendly en cada llamada) y correría en cada mensaje; las fechas de R1 y R2 con su
+  asistencia ya vienen en la ficha y en el recorrido.
+- El permiso es el de VER el CRM, no el de la tab MaKo: un closer que ve la ficha ve el chat. Lo decidió el frente, no
+  Martín.
+
+**SIN HACER:**
+- «confírmalo en Inbox» en escritorio: ver «Lo que quedó sin hacer», arriba.
+- No medido: si al releerse la ficha (app/crm/LeadSheet.tsx) la pestaña se desmonta mientras carga, el chat pierde el
+  mensaje en curso. El historial no se pierde: vuelve del servidor.
+
+**Vive en:** `lib/mako-turno-app.ts` (`EntradaTurnoApp.contexto`) · `lib/mako-analyst-lead.ts` ·
+`lib/mako-analyst-lead-reglas.ts` (`chartKeyDelLead`, `LECTURAS_DEL_LEAD`, `contextoDelLead`) ·
+`app/api/crm/analyst/route.ts` · `app/crm/lead-view/MakoAnalystLead.tsx` · `app/crm/lead-view/AnalystDelLead.tsx` ·
+`lib/chart-chats.ts` · `tests/mako-analyst-lead.test.ts` · *2026-10-12 corrida crm-feedback-12-10 (frente E-analyst)*

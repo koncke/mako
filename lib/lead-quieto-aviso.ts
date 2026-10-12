@@ -11,6 +11,18 @@
 //
 // ⚠️ CORRE DESPUÉS DEL CRM AUTOMÁTICO (app/api/cron/crm-automatico): lo que el motor acaba de
 // mover ya no está quieto, y contarlo dos veces sería avisar de un lead que ya se atendió.
+//
+// ⚠️ DESDE EL 12/10/2026 NO HAY PANTALLA QUE PONGA UN PLAZO. La pastilla «Plazo» del pop-up de
+// etapas (app/crm/EtapasModal.tsx) se fue con el punto 4 del feedback: «Elimina lo de "Ponerle
+// un plazo", para eso ya tenemos la tab de "Automations"... como una automatización que se lo
+// pase a otra etapa». Lo que quedó, a propósito, y por eso este aviso está INERTE y no muerto:
+//   · la op `plazo` de `editarEtapaAction` (app/crm/actions.ts), sin call site en la app;
+//   · este aviso y su cron, que sólo leen leads si hay algún plazo guardado;
+//   · los plazos que YA estaban guardados (`funnels.data.umbrales.porEtapa`): siguen avisando, y
+//     también los leen el CRM automático (T2 y T6, lib/crm-auto-plan.ts) y MaKo Mobile
+//     (lib/crm-movil.ts). Ya no hay dónde verlos ni sacarlos: el aviso se apaga desde
+//     Notificaciones (`crm-lead-quieto`). Borrar el backend, o limpiar esos plazos, es una
+//     decisión que no se tomó acá.
 // =============================================================================
 
 import 'server-only';

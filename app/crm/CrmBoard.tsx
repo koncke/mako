@@ -12,7 +12,8 @@ import { useSearchParams, usePathname } from 'next/navigation';
 import { empujeDeColumna } from './arrastre-columna';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { useRouter, useWs } from '@/app/_ui/Link';
-import { claveFiltros, escribirFiltros, leerFiltros } from './filtros-guardados';
+import { BANDAS_KANBAN, claveFiltros, escribirFiltros, leerFiltros } from './filtros-guardados';
+import { ayudaDelTotal, textoDelTotal, totalDeColumna } from './total-columna';
 import { Fragment,
   useCallback,
   useEffect,
@@ -94,10 +95,8 @@ import { coincideBusqueda } from '@/lib/buscar-texto';
 import type { FunnelResumen } from '@/lib/funnel-fila';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { openCalendlyEn } from './calendly-widget';
-import { Icon } from '../_components/icons';
 import {
   AccionesHeader,
-  BandasToggle,
   Buscador,
   SelectorFunnel,
   CrmFilterMenu,
@@ -168,6 +167,13 @@ export type CrmLead = {
   nutriManualDeadline: string | null;   // deadline de la nutrición manual (null si no aplica)
   monto: number;
   totalCobrado: number;
+  /**
+   * El ingreso ESTIMADO del lead en USD (`leads.ingreso_estimado`, mig 0258; punto 21 del
+   * 12/10/2026). `null` = nadie lo cargó, que no es 0. NO es la venta (`monto`): suma en el
+   * encabezado de las columnas ABIERTAS con la marca de estimado; en Ganado manda lo real.
+   * Lo arma `mapToCrmLead` (app/crm/crm-map.ts). Obligatorio: un mapper nuevo no lo olvida.
+   */
+  ingresoEstimado: number | null;
   /**
    * El tipo de venta guardado (`leads.venta_tipo`). Lo lee `leadToMoveInfo` para el wizard.
    *
@@ -327,8 +333,15 @@ function ThCrm({ children, activo, dir, onSort, alinear = 'left' }: {
  * cada entrada siguiente empezara con ella apagada — que es exactamente «al entrar
  * está desmarcado», el mismo síntoma por otra puerta. Dentro de la sesión el toggle
  * funciona igual.
+ *
+ * ⚠️ CAMBIÓ EL 12/10/2026 (punto 25): «Que los botones de "Activo, nutrición, descartado"
+ * sean un desplegable dentro de filtros». Desde ahí son una categoría más de «Filtrar»
+ * («Mostrar»), cuentan en su número, «Limpiar filtros» las prende, y se GUARDAN como el
+ * resto de los filtros («se deben mantener siempre los filtros», 10/10/2026). Siguen
+ * arrancando las tres prendidas para quien nunca apagó ninguna. El porqué de la decisión,
+ * en app/crm/filtros-guardados.ts (`ocultas`), que es también de donde sale esta lista.
  */
-const KANBAN_BANDS: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
+const KANBAN_BANDS: StageBand[] = [...BANDAS_KANBAN];
 /**
  * La línea de 2 px que dice dónde va a caer la columna que se está arrastrando.
  *
@@ -1762,6 +1775,26 @@ export function CrmBoard({
    * no puede perder desde qué columna se abrió.
    */
   const [nuevoLead, setNuevoLead] = useState<{ etapa: string | null; traer?: boolean } | null>(null);
+
+  /**
+   * La ficha del lead recién creado desde el placeholder de una columna (punto 27): se abre
+   * cuando ya entró a esa columna y NO queda ningún diálogo del camino de soltar abierto —
+   * la agenda (`meetingChoice` / `manualMeeting`), la nutrición manual, la confirmación con
+   * las señales a Meta o el pop-up de completar el movimiento —. Se CALCULA mirando esos
+   * estados en vez de engancharse a cada uno: si mañana soltar abre otro diálogo, la ficha
+   * sólo tiene que esperarlo acá. Cancelar el diálogo también la abre: el lead ya existe.
+   */
+  const [fichaTrasAlta, setFichaTrasAlta] = useState<number | null>(null);
+  const hayDialogoDeSoltar = !!(meetingChoice || manualMeeting || manualNutri || confirmacion || stageMove);
+  // `nuevoLead` también espera: si en el medio se abrió otra alta, la ficha no se le pone encima.
+  const altaAbierta = nuevoLead != null;
+  useEffect(() => {
+    if (fichaTrasAlta == null || altaPendiente || hayDialogoDeSoltar || altaAbierta) return;
+    setSelectedId(fichaTrasAlta);
+    setFichaTrasAlta(null);
+  }, [fichaTrasAlta, altaPendiente, hayDialogoDeSoltar, altaAbierta]);
+  /** Cierra el modal de alta. Estable: es el `onCerrar` del Modal (ver su nota). */
+  const cerrarAlta = useCallback(() => setNuevoLead(null), []);
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
   // renglón del selector puede abrir uno que no es el del tablero.
   const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string; entradas?: boolean } | null>(null);
@@ -1854,6 +1887,7 @@ export function CrmBoard({
     setCampanaFilter(new Set(f.campanas));
     setCreativoFilter(new Set(f.anuncios));
     setOrdenElegido(f.orden ? { funnel: funnelActivo, valor: f.orden } : null);
+    setActiveBands(new Set(KANBAN_BANDS.filter((b) => !f.ocultas.includes(b))));
     recienRestaurado.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- se restaura al cambiar de cliente o de embudo, no en cada render
   }, [claveGuardado]);
@@ -1863,9 +1897,10 @@ export function CrmBoard({
     try {
       window.localStorage.setItem(claveGuardado, escribirFiltros({
         etapas: [...stageFilter], origenes: [...originFilter], campanas: [...campanaFilter], anuncios: [...creativoFilter], orden,
+        ocultas: BANDAS_KANBAN.filter((b) => !activeBands.has(b)),
       }));
     } catch { /* sin almacenamiento: los filtros duran lo que dure la pantalla */ }
-  }, [claveGuardado, stageFilter, originFilter, campanaFilter, creativoFilter, ordenElegido, funnelActivo]);
+  }, [claveGuardado, stageFilter, originFilter, campanaFilter, creativoFilter, ordenElegido, funnelActivo, activeBands]);
   const ordenKanban: OrdenKanban = ordenElegido && ordenElegido.funnel === funnelActivo ? ordenElegido.valor : ordenBase;
   const elegirOrden = (v: OrdenKanban) => setOrdenElegido(v === ordenBase ? null : { funnel: funnelActivo, valor: v });
   /** «Ordenar» del menú, sólo en el kanban: la tabla se ordena por sus columnas. */
@@ -1954,6 +1989,13 @@ export function CrmBoard({
     // dónde va la nueva, así que se descarta y manda el del server.
     if (op.op !== 'reordenar') setOrdenCols(null);
     router.refresh();
+    // ⚠️ SI QUEDÓ REUNIÓN SOLA, SE DICE ACÁ TAMBIÉN (revisión del 12/10/2026). El server marca
+    // Reunión por el NOMBRE al crear o renombrar (`reunionPorNombre`, punto 13) desde las DOS
+    // puertas: el pop-up de etapas lo avisaba con su deshacer y el «···» de la columna no, así que
+    // renombrar una columna «Llamada» le cambiaba el tipo en silencio — y con eso dónde se guardan
+    // las fechas de reunión. El deshacer la deja como «Etapa» elegida a mano, igual que el pop-up.
+    const sola = r.reunionSola;
+    if (sola) mostrarAviso('Quedó como reunión', () => { void opEtapa({ op: 'tipo', key: sola, tipo: 'etapa' }); });
     return r;
   };
 
@@ -2229,8 +2271,17 @@ export function CrmBoard({
   };
 
   // Una columna del Kanban (reutilizada por cada banda).
+  // ── La plata de cada columna (punto 21 del 12/10/2026) ─────────────────────────
+  // Qué suma cada columna lo decide app/crm/total-columna.ts (puro, con test). Se calcula UNA
+  // vez por render para saber si ALGUNA columna tiene plata: con una sola que la tenga, todas
+  // reservan el renglón (vacío en las que dan 0, que no dibujan nada) y las tarjetas de todas
+  // arrancan a la misma altura. Sin plata en ninguna, ningún encabezado crece.
+  const totalesCol = new Map(columnasKanban.map((c) => [c.key, totalDeColumna(c.key, filtered.filter((l) => effStage(l) === c.key))] as const));
+  const hayPlataEnColumnas = [...totalesCol.values()].some((t) => t != null);
+
   const renderColumn = (c: Stage) => {
     const cards = enOrden(filtered.filter((l) => effStage(l) === c.key));
+    const total = totalesCol.get(c.key) ?? null;
     const bandC = CATEGORY[bandToCategory(c.band)].c;
     // Dónde está esta columna entre las reordenables, y si la marca de destino cae acá.
     const iProp = colsPropias.indexOf(c.key);
@@ -2302,9 +2353,10 @@ export function CrmBoard({
           draggable={seArrastraCol(c) && renombrando !== c.key}
           onDragStart={(e) => agarrarCol(e, c.key)}
           onDragEnd={limpiarDragCol}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 11px', borderBottom: '1px solid var(--border)', cursor: seArrastraCol(c) && renombrando !== c.key ? 'grab' : 'default' }}
+          style={{ display: 'flex', alignItems: hayPlataEnColumnas ? 'flex-start' : 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 11px', borderBottom: '1px solid var(--border)', cursor: seArrastraCol(c) && renombrando !== c.key ? 'grab' : 'default' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 'none' }}>
             <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: c.dot }} />
             {renombrando === c.key ? (
               /* El nombre se edita EN SU LUGAR. Un modal para cambiar una palabra es un
@@ -2341,11 +2393,29 @@ export function CrmBoard({
               </>
             )}
           </div>
+          {/* ⚠️ LA PLATA VA EN SU PROPIO RENGLÓN, DEBAJO DEL TÍTULO, y no al lado del contador:
+              en 282 px el título, el contador, el total y el «⋯» no entran juntos, y el que
+              cedía era el nombre de la etapa (con «…» a los 80 px). Corrido para alinear con el
+              título (el punto de color + su hueco). El estimado lleva «≈» y va apagado; lo
+              vendido, en verde como el monto de la tarjeta de Ganado. El porqué, en el `title`. */}
+          {hayPlataEnColumnas && (
+            <div style={{ minHeight: 16, paddingLeft: 18, display: 'flex', alignItems: 'center' }}>
+              {total && (
+                <span title={ayudaDelTotal(total)} aria-label={ayudaDelTotal(total)}
+                  style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, lineHeight: '16px', color: total.clase === 'vendido' ? 'var(--good)' : 'var(--dim)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                  {textoDelTotal(total)}
+                </span>
+              )}
+            </div>
+          )}
+          </div>
           {renombrando !== c.key && (
             /* ⚠️ EL `⋯` QUEDA FUERA DEL AGARRE, y por eso el `<span data-nodrag>`: el
                `Dropdown` tiene la lista de props cerrada (sin `...rest`), así que el atributo
-               no se le puede pasar. Sin esto, abrir el menú arrastra la columna. */
-            <span data-nodrag style={{ flex: 'none', display: 'inline-flex' }}>
+               no se le puede pasar. Sin esto, abrir el menú arrastra la columna.
+               Con el renglón de la plata, la cabecera se alinea arriba y el «⋯» sube 4 px para
+               quedar a la altura del título, no entre los dos renglones. */
+            <span data-nodrag style={{ flex: 'none', display: 'inline-flex', marginTop: hayPlataEnColumnas ? -4 : 0 }}>
               {/* ⚠️ VA EL `Dropdown` DEL REPO Y NO UN MENÚ PROPIO: el tablero vive dentro de un
                  `overflowX: auto`, así que un menú en flujo normal se recorta contra el borde
                  de la columna. Éste se dibuja por portal. */}
@@ -2557,28 +2627,17 @@ export function CrmBoard({
   };
 
   return (
-    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', display: 'flex', flexDirection: 'column' }}>
+    // ⚠️ ARRIBA, 16 Y NO 34 (punto 23 del 12/10/2026: «Sube la topbar del todo»). Con el título
+    // fuera ya no hay header: la primera fila es la barra, y los 34 px de arriba eran el aire de
+    // un título que no está. El esqueleto (app/crm/loading.tsx) lleva el mismo número.
+    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px', display: 'flex', flexDirection: 'column' }}>
       <CrmToolbarStyles />
 
-      {/* HEADER — título a la izquierda, UN solo clúster de acciones a la derecha.
-          El conteo "N de M" se fue a la barra: es el resultado de los filtros, no
-          parte del nombre de la pantalla. */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          <span style={{ display: 'inline-flex', flex: 'none', color: 'var(--accent)' }}><Icon name="crm" size={34} /></span>
-          {/* clamp(): los estilos inline no tienen @media, y a 46px fijos el título se
-              salía de la pantalla en mobile. */}
-          <h1 style={{ fontWeight: 600, fontSize: 'clamp(30px, 6vw, 46px)', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>CRM</h1>
-        </div>
-        {/* El pill del CRM automático y su divisor se fueron del header: el interruptor es
-            ahora un renglón del menú de `AccionesHeader` (ver su comentario en CrmToolbar).
-            Este call site se desenchufa acá porque el componente que lo montaba ya no existe. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <AccionesHeader
-            onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead({ etapa: null })}
-            onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })} />
-        </div>
-      </header>
+      {/* ⛔ SIN HEADER DESDE EL 12/10/2026. Era el ícono del CRM y un «CRM» de 46 px a la
+          izquierda, con «+ Nuevo lead» y el «⋯» a la derecha. Martín: «Elimina el título de la
+          tab "CRM" con el emoji» (punto 22) y «Sube la topbar del todo» (23). El nombre de la
+          pantalla ya lo dicen la barra lateral y la pestaña del navegador («MaKo - CRM», punto
+          2); las dos acciones bajaron a la fila de la barra, al final (`AccionesHeader`). */}
 
       {/* ⚠️ SE PUEDE CERRAR Y SE PUEDE REINTENTAR, desde el 27/09/2026. Era una barra
           roja con el mensaje crudo de Postgres y ninguna salida: no se cerraba, no
@@ -2652,10 +2711,14 @@ export function CrmBoard({
         </section>
       )}
 
-      {/* TOOLBAR — fila 1: vista · buscar · filtrar ····· bandas · conteo.
+      {/* LA BARRA — UNA fila: funnel · vista · buscar · filtrar ····· + Nuevo lead · ⋯
+          (puntos 22-26 del 12/10/2026). El funnel a la izquierda del todo, con su cubo (24);
+          «Activo · Nutrición · Descartado» adentro de «Filtrar» (25); el «⋯» a la derecha del
+          todo, después de «+ Nuevo lead» (26).
           nowrap + flex:'none' en cada control + UN solo elástico. Nada de
           marginLeft:'auto' acá: al envolver deja un hueco del ancho de la fila. */}
       <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, marginBottom: 16 }}>
+        {vista !== 'pendientes' && <SelectorFunnel funnels={funnels} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />}
         <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
         {/* Buscar, filtrar y el conteo describen la LISTA de leads. En "Pendientes" no
             hay lista de leads sino un worklist con su propia lógica: dejarlos ahí era
@@ -2668,20 +2731,23 @@ export function CrmBoard({
             origenes={originOptions} origen={originFilter} setOrigen={setOriginFilter}
             listas={listasFiltro}
             orden={ordenFiltro}
+            // Las bandas son una propiedad del KANBAN (qué columnas se ven): sólo viajan en
+            // esa vista, como «Ordenar». Eran tres botones sueltos en esta fila (punto 25).
+            bandas={vista === 'kanban' ? {
+              activas: activeBands,
+              alternar: toggleBand,
+              conteo: (band) => filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length,
+              prenderTodas: () => setActiveBands(new Set(KANBAN_BANDS)),
+            } : undefined}
             abierto={filtroAbierto} setAbierto={setFiltroAbierto}
           />
         </>}
         <span className="crm-tb-elastico" style={{ flex: 1 }} />
-        {/* Las bandas son una propiedad del KANBAN (qué columnas se ven), no un filtro
-            de datos: solo existen en esa vista y por eso no viven en el menú. */}
-        {vista === 'kanban' && (
-          <BandasToggle
-            bandas={activeBands}
-            onToggle={toggleBand}
-            conteo={(band) => filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length}
-          />
-        )}
-        {vista !== 'pendientes' && <SelectorFunnel funnels={funnels} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />}
+        {/* El pill del CRM automático vive como renglón del menú de `AccionesHeader` (ver su
+            comentario en CrmToolbar). */}
+        <AccionesHeader
+          onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead({ etapa: null })}
+          onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })} />
       </div>
 
       {/* Sin fila de chips debajo de la barra: «No debe salir los chips de abajo del filtro y
@@ -2968,16 +3034,19 @@ export function CrmBoard({
           ficha no se abre (`selected` la busca en `leads`) y sin el aviso el botón
           se leería como que no hizo nada. */}
       {nuevoLead && (
-        // ⚠️ DOS VISTAS, DOS TAMAÑOS. El alta es un formulario de seis campos y entra en
-        // 720; traer de otro producto es una tabla con seis columnas, su buscador y su
-        // filtro, y ahí 720 deja cada fila en dos renglones. Por eso la vista la decide el
-        // PADRE y no el form: un formulario no puede cambiar el tamaño de la caja que lo
-        // contiene. Y el alto va FIJO, o la caja salta al cambiar de vista.
+        // ⚠️ DOS VISTAS, DOS TAMAÑOS. El alta son CUATRO campos uno debajo del otro (puntos
+        // 27-28 del 12/10/2026) y entra en 560; traer de otro producto es una tabla con seis
+        // columnas, su buscador y su filtro, y ahí 720 deja cada fila en dos renglones. Por
+        // eso la vista la decide el PADRE y no el form: un formulario no puede cambiar el
+        // tamaño de la caja que lo contiene. Y el alto va FIJO en «traer», o la caja salta al
+        // cambiar de vista.
+        // `onCerrar` de identidad FIJA (`cerrarAlta`): con una flecha nueva por render del
+        // tablero, el Modal le devuelve el foco atrás y el campo pierde la letra (AGENTS.md).
         <Modal
           titulo={nuevoLead.traer ? 'Traer de otro funnel' : 'Nuevo lead'}
-          ancho={nuevoLead.traer ? 1040 : 720}
+          ancho={nuevoLead.traer ? 1040 : 560}
           alto={nuevoLead.traer ? "min(88vh, 720px)" : undefined}
-          onCerrar={() => setNuevoLead(null)}
+          onCerrar={cerrarAlta}
         >
           {nuevoLead.traer ? (
             <TraerDeOtroProducto
@@ -2995,14 +3064,19 @@ export function CrmBoard({
           <NewLeadForm enModal={{
             funnelId: funnelActivo,
             onTraer: () => setNuevoLead({ ...nuevoLead, traer: true }),
-            onCerrar: () => setNuevoLead(null),
             onCreado: (id) => {
               const etapa = nuevoLead.etapa;
               setNuevoLead(null);
-              // Desde el placeholder de una columna NO se abre la ficha: el camino de esa
-              // columna puede abrir su propio diálogo (el plazo de la nutrición manual, la
-              // agenda) y la ficha se lo taparía. Lo hace `altaPendiente`.
-              if (etapa) setAltaPendiente({ id, etapa }); else setSelectedId(id);
+              // ⚠️ AL CREAR SE ABRE LA FICHA, SIEMPRE (punto 27 del 12/10/2026: «una vez que creo
+              // se debe abrir el detail automáticamente»): el alta pide cuatro datos y el resto
+              // «se puede configurar dentro». Es la MISMA ficha que abre una tarjeta
+              // (`selectedId` → `LeadEditModal` → `LeadSheet`), y se abre cuando el refresh trae
+              // al lead (`selected` lo busca en `leads`).
+              // Desde el placeholder de una columna, PRIMERO va a esa columna por el camino de
+              // soltar una tarjeta (`altaPendiente`), que puede abrir su propio diálogo (la
+              // agenda, una confirmación): la ficha espera a que ese diálogo se cierre
+              // (`fichaTrasAlta`), o se lo taparía.
+              if (etapa) { setAltaPendiente({ id, etapa }); setFichaTrasAlta(id); } else setSelectedId(id);
               mostrarAviso('Lead creado');
               router.refresh();
             },

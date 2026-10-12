@@ -14,7 +14,7 @@
 // (`./CampoEditable`). Así la tarjeta la puede renderizar el server.
 
 import type { CSSProperties } from 'react';
-import { TextoEditable, FechaEditable } from './CampoEditable';
+import { CajaCampo, TextoEditable, FechaEditable } from './CampoEditable';
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
@@ -42,9 +42,10 @@ export function MotivoCard({ leadId, motivo }: { leadId: number; motivo: string 
   return (
     <section style={card}>
       <div style={{ ...sectLabel, marginBottom: 12 }}>Motivo de salida</div>
-      <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>
+      {/* Toda la tarjeta abre el campo (punto 7, 12/10/2026): `CajaCampo`. */}
+      <CajaCampo style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>
         <TextoEditable leadId={leadId} campo="motivo_perdida" valor={motivo} titulo="Motivo de salida" placeholder="Por qué se perdió" />
-      </div>
+      </CajaCampo>
     </section>
   );
 }
@@ -61,7 +62,7 @@ export function PlazoNutricionCard({ leadId, deadline }: { leadId: number; deadl
   return (
     <section style={card}>
       <div style={{ ...sectLabel, marginBottom: 12 }}>Nutrición manual</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+      <CajaCampo style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 13.5, color: 'var(--dim)' }}>Fecha límite</span>
         <FechaEditable
           leadId={leadId}
@@ -71,7 +72,7 @@ export function PlazoNutricionCard({ leadId, deadline }: { leadId: number; deadl
           vacio="sin plazo"
           estilo={{ fontSize: 15, fontWeight: 700, color: deadline ? 'var(--ink)' : 'var(--bad)' }}
         />
-      </div>
+      </CajaCampo>
       <p style={{ fontSize: 12.5, color: 'var(--faint)', margin: '10px 0 0', lineHeight: 1.5 }}>Si vence sin que el lead avance, vuelve a la lista de datos sin marcar.</p>
     </section>
   );

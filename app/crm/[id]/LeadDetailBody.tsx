@@ -16,29 +16,34 @@
 // mira un producto donde el lead está AGREGADO, el desplegable es el de ese tablero y mover
 // escribe sólo su fila, sin wizard (ver lead-view/ProductoDelLead.tsx). "Volver" usa el
 // historial del navegador.
+//
+// ⚠️ DESDE EL 12/10/2026 LA CABECERA ES `CabeceraLead` (lead-view/CabeceraLead.tsx), la MISMA pieza
+// que la del pop-up del tablero: portada con la cara (punto 11), nombre editable con un clic,
+// etiquetas arriba del nombre (punto 9) y UN desplegable en árbol —funnel › etapa— encima de «N sin
+// marcar» (punto 9). Era la tercera vez que esta ruta se quedaba con la versión anterior de algo que
+// cambió en el pop-up; con una sola pieza, no puede.
 
 import { useState, useTransition, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { deleteLeadAction } from '../actions';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
-import { deriveStageKey, stageMetaOpt, CHIP, type Stage } from '@/lib/pipeline';
-import type { Lead, FathomLink } from '@/lib/leads';
+import { deriveStageKey, stageMetaOpt, type Stage } from '@/lib/pipeline';
+import type { FathomLink } from '@/lib/leads';
 import { suscripcionDeFila } from '@/lib/venta-tipo';
 import type { Step } from '@/lib/stage-requirements';
 import type { Pago } from '@/lib/pagos';
 import type { MiembroEquipo } from '../actions';
-import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { EditarDeal } from './EditarDeal';
 import { LeadTabs, type LeadTabDef } from '../lead-view/LeadTabs';
-import { ProductoDelLead, EtapaEnProducto, useProductosDeLaFicha, type ProductoOpcion } from '../lead-view/ProductoDelLead';
+import { FunnelYEtapa, useProductosDeLaFicha, type ProductoOpcion } from '../lead-view/ProductoDelLead';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
-import { CaraDelLead } from '../lead-view/CaraDelLead';
+import { CabeceraLead, type LeadConCara } from '../lead-view/CabeceraLead';
 import { EtiquetasDelLead, versionDeEtiquetas } from '../lead-view/EtiquetasDelLead';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
 import { MoverEtapaConfirm } from '../MoverEtapaConfirm';
 import { pideWizardAlElegir } from '../mover-etapa';
-import { Dropdown } from '@/app/components/Dropdown';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 
 const SANS = "'Geist', sans-serif";
 
@@ -65,11 +70,12 @@ export function BackButton() {
   );
 }
 
-export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, empresa, createdISO, stageLabel, chipTone, faltantes = [], equipo = [], productos = [], fotoEmail = null }: {
-  lead: Lead;
+export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, stageLabel, faltantes = [], equipo = [], productos = [], fotoEmail = null }: {
+  /** Con las columnas de la cara (portada, encuadres): la cabecera las dibuja y las cambia. */
+  lead: LeadConCara;
   stages: Stage[];
   pagos: Pago[];
-  /** La foto del email (Gravatar, `d=404`), armada en el server. Ver CaraDelLead. */
+  /** La foto del email (Gravatar, `d=404`), armada en el server. Ver lead-view/CaraDelLead.tsx. */
   fotoEmail?: string | null;
   initialTab?: string;
   initialEdit?: boolean;
@@ -77,13 +83,10 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   initialSolucionar?: boolean;
   /** Tabs de LECTURA (contenido server-rendered). */
   tabs: LeadTabDef[];
-  // Datos del header (antes vivían en page.tsx; ahora acá para que "Editar"
-  // conviva con las tabs y respete la tab actual).
+  // El nombre (para la confirmación de borrar) y el de la etapa (para «Mover de… a…»). La
+  // empresa, el alta y el color salen del `lead`, adentro de la cabecera.
   nombre: string;
-  empresa: string | null;
-  createdISO: string;
   stageLabel: string;
-  chipTone: keyof typeof CHIP;
   /** Datos sin marcar de la etapa actual (badge + Solucionar). */
   faltantes?: Step[];
   /** Equipo del workspace (para los desplegables de setter/closer del wizard). */
@@ -121,11 +124,9 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   const [prevInitEdit, setPrevInitEdit] = useState(!!initialEdit);
   if (!!initialEdit !== prevInitEdit) { setPrevInitEdit(!!initialEdit); if (initialEdit) setEditandoDeal(true); }
   const salirEdicion = () => { setEditandoDeal(false); if (initialEdit || initialSolucionar) router.replace(pathname); };
-  const chip = CHIP[chipTone] || CHIP.neutral;
   // En qué productos está y cuál se mira. Acá no hace falta releer nada si cambia la casa: el
   // `router.refresh()` que hace la ficha después de cada cambio le trae el lead de nuevo.
   const fichaProd = useProductosDeLaFicha({ leadId: lead.id, casa: lead.funnel_id, foto: productos });
-  const agregado = fichaProd.vista && !fichaProd.vista.esCasa ? fichaProd.vista : null;
 
   const moveInfo: MoveLeadInfo = {
     id: lead.id,
@@ -177,103 +178,46 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
     });
   };
 
-  // Selector de etapa: muestra la ETAPA ACTUAL; elegir otra abre el wizard.
-  // Dos columnas lado a lado (Pipeline + Salida | Nutrición) para verlo entero
-  // sin scroll.
-  const deBanda = (band: 'pipeline' | 'nutricion' | 'salidas') =>
-    stages
-      .filter((s) => (s.band ?? 'pipeline') === band)
-      .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
-      .map((s) => ({ value: s.key, label: s.label, color: s.dot }));
-  // ⚠️ ES LA ETAPA DEL PRODUCTO QUE SE MIRA: en un producto agregado, las de ESE tablero
-  // (`EtapaEnProducto`). Mientras no se sabe cuál se mira, espera (`etapaEnEspera`).
-  const stageSelector: ReactNode = agregado ? (
-    <EtapaEnProducto ficha={fichaProd} producto={agregado} width={250} align="right" columnas />
-  ) : (
-    <Dropdown
-      value={fichaProd.esperando ? '' : currentStage}
-      placeholder="Etapa"
-      disabled={fichaProd.esperando}
-      align="right"
-      width={250}
-      ariaLabel="Etapa del lead (elige otra para mover)"
-      // Elegir otra etapa MUEVE (08-T22), como soltar una card en el tablero: las
-      // etapas de reunión y la nutrición manual sí abren el wizard (ver
-      // pideWizardAlElegir). Antes toda etapa abría el wizard con sus preguntas.
-      onChange={(key) => {
-        if (!key || key === currentStage) return;
-        if (pideWizardAlElegir(stages, key)) setMoveTo(key); else setMoverDirecto(key);
-      }}
-      columns={[
-        [{ title: 'Pipeline', options: deBanda('pipeline') }, { title: 'Salida', options: deBanda('salidas') }],
-        [{ title: 'Nutrición', options: deBanda('nutricion') }],
-      ]}
-    />
-  );
+  // Elegir otra etapa de la CASA mueve (08-T22), como soltar una card en el tablero: las etapas de
+  // reunión y la nutrición manual sí abren el wizard (ver pideWizardAlElegir). Antes toda etapa
+  // abría el wizard con sus preguntas. Las etapas de un funnel AGREGADO las mueve el desplegable
+  // solo (lead-view/ProductoDelLead.tsx), sin wizard.
+  const pickStage = (key: string) => {
+    if (!key || key === currentStage) return;
+    if (pideWizardAlElegir(stages, key)) setMoveTo(key); else setMoverDirecto(key);
+  };
 
-  // El dropdown de etapa queda inline con las tabs (acciones); "Editar" vive en
-  // el header (arriba a la derecha, donde antes estaba la Cohorte).
+  // ⚠️ LA CABECERA ES LA DEL POP-UP (lead-view/CabeceraLead.tsx), en su caja (`marco`): acá atrás
+  // está el fondo de la página. Las etiquetas van ARRIBA del nombre y, a la derecha, el desplegable
+  // del funnel ENCIMA del aviso de datos sin marcar (punto 9, 12/10/2026). Se va con el scroll: en
+  // esta ruta —que se abre desde el link de un WhatsApp, o sea muchas veces en un teléfono— una
+  // portada fija se comería media pantalla. Lo que queda pegado arriba es la fila de pestañas.
+  //
+  // ⚠️ EL AVISO DE DATOS SIN MARCAR VA ACÁ, debajo del desplegable, no en su propia franja. Ocupaba
+  // un renglón de ancho completo arriba de las tabs para decir un número — y era el renglón que
+  // empujaba las pestañas hacia abajo en TODOS los leads con algo sin marcar (el 98%).
   const header: ReactNode = (
-    // ⚠️ LOS DESPLEGABLES VAN A LA DERECHA AUNQUE EL NOMBRE SEA LARGO. Con
-    // `space-between` + `wrap`, un nombre largo empujaba la columna de la derecha a un
-    // segundo renglón y ahí caía pegada a la IZQUIERDA (captura de Martín, 06/10/2026:
-    // «los desplegables de productos y etapa están mal ubicados a la izquierda»). El bloque
-    // del nombre CEDE (`flex: 1 1 320px`, el nombre envuelve adentro) y la columna no: con
-    // `marginLeft: 'auto'`, si de verdad no entra —un celular— baja de renglón pegada a la
-    // derecha.
-    <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
-      <div style={{ minWidth: 0, flex: '1 1 320px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-        <CaraDelLead nombre={nombre} telefono={lead.telefono} fotoEmail={fotoEmail} fotoGuardada={lead.foto_auto_url} icono={lead.icono} avatarUrl={lead.avatar_url} tam={56} color={chip.fg} />
-        <div style={{ minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
-          <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{stageLabel}</span>
-          {/* ⚠️ ACÁ ESTABA EL CHIP «N datos sin marcar», con su punto ROJO parpadeando
-              (`blinkRed 1.4s infinite`). Se fue el 27/09/2026 porque era la primera de
-              CUATRO apariciones del MISMO aviso en la misma pantalla: el chip acá, la
-              fila de abajo, la tarjeta roja del formulario de edición y la enumeración
-              de la tarjeta de Análisis. Es la fila «el mismo aviso 3 veces» del plan de
-              fricción, que estaba marcada como aplicada y nunca se había ubicado.
-
-              El aviso no se pierde: queda el de abajo, que es UNO y sirve para las dos
-              cosas que el chip no hacía — decir QUÉ falta y llevar a completarlo. */}        </div>
-        <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>{nombre}</h1>
-        <p style={{ marginTop: 6, fontSize: 14, color: 'var(--dim)' }}>{empresa ?? 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(createdISO)}</p>
-        </div>
-      </div>
-      {/* Producto + etapa, juntos arriba a la derecha. */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flex: 'none', marginLeft: 'auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {/* El producto va ANTES de la etapa: la etapa es una posición DENTRO de un
-              embudo, así que leer «Mentoría · Agenda R1» en ese orden es leer la frase
-              completa. Al revés, la etapa cuelga de un embudo que todavía no se nombró. */}
-          <ProductoDelLead ficha={fichaProd} />
-          {stageSelector}
-          {/* ⚠️ ACÁ ESTABA EL BOTÓN «✎ Editar», y se fue el 05/10/2026 (pedido DOS veces).
-              No se cambió por un lápiz: los 15 campos que ese formulario editaba se editan
-              en la ficha, cada uno donde se lee. Lo único que sigue teniendo pantalla propia
-              es el DEAL, y su entrada está en la tab Pagos, al lado del deal. */}
-        </div>
-        {/* ⚠️ DEBAJO DEL DESPLEGABLE DE ETAPA, no en su propia franja. Ocupaba un renglón
-            de ancho completo arriba de las tabs para decir un número — y era el renglón
-            que empujaba las pestañas y el contenido hacia abajo en TODOS los leads con
-            algo sin marcar (el 98%).
-        
-            Acá arriba comparte la columna con la etapa, que es la otra cosa que se
-            decide de un lead sin bajar: «está en Ganado y le faltan 6 datos» se lee de
-            un vistazo, en el lugar donde ya se estaba mirando. Y no cuesta alto: entra
-            en el hueco que el bloque del nombre ya dejaba libre a la derecha. */}
-        {faltantes.length > 0 && (
-          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />
-        )}
-      </div>
+    <div style={{ marginTop: 14, marginBottom: 20 }}>
+      <CabeceraLead
+        lead={lead}
+        fotoEmail={fotoEmail}
+        marco
+        kicker={<EtiquetasDelLead leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
+        acciones={
+          <>
+            <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={currentStage} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
+            {faltantes.length > 0 && (
+              <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />
+            )}
+          </>
+        }
+      />
     </div>
   );
 
   return (
     <div>
       {header}
-      {/* Las ETIQUETAS del lead (mig 0224): la MISMA pieza que el pop-up del tablero. */}
-      <div style={{ margin: '0 0 16px' }}><EtiquetasDelLead leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} /></div>
       {editandoDeal ? (
         <EditarDeal
           lead={lead}
@@ -284,14 +228,16 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
         />
       ) : (
         <>
-          <LeadTabs initial={tab} onChange={setTab} tabs={tabs} />
+          {/* La fila de pestañas queda pegada arriba al scrollear la página (punto 16). */}
+          <LeadTabs initial={tab} onChange={setTab} tabs={tabs} fija={{ fondo: 'var(--bg)' }} />
           {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
               que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el
-              suyo). Es irreversible, así que queda discreto al fondo y con su confirmación
-              nombrando la consecuencia, pegada al botón. */}
+              suyo). Es irreversible, así que queda al fondo y con su confirmación
+              nombrando la consecuencia, pegada al botón. Desde el 12/10/2026 es el tacho rojo
+              de la casa, igual que en el pop-up (punto 12). */}
           {delErr && <div style={{ marginTop: 14, color: 'var(--bad)', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>{delErr}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 18 }}>
-            <button type="button" onClick={() => setConfirmDelete(true)} disabled={borrando} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--bad)', background: 'transparent', color: 'var(--bad)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: borrando ? 0.5 : 1 }}>Borrar lead</button>
+            <BotonBorrar texto="Borrar lead" title={`Borrar a ${nombre || 'este lead'}`} onClick={() => setConfirmDelete(true)} disabled={borrando} />
           </div>
         </>
       )}

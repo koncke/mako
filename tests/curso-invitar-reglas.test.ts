@@ -323,7 +323,10 @@ test('la pantalla: el borrador en sessionStorage, la lista desde ESTE curso y el
   assert.match(COMP, /<ServicioConfigForm servicioKey="email"/);
   assert.match(MODAL, /\{correoMal && <CorreoAhiMismo cual=\{correoMal\} \/>\}/);
   // Punto 11 y 12: el teléfono no es obligatorio, y la lista dice que son los ganados.
-  assert.match(COMP, /<TextField label="Teléfono" type="tel"(?![^>]*\brequired\b)[^>]*hint="Opcional\./);
+  // Desde el 12/10/2026 es el selector con banderas (punto 5 del feedback del CRM) adentro de un
+  // `Field`: sigue sin `required` y con su «Opcional.».
+  assert.match(COMP, /<Field label="Teléfono"(?![^>]*\brequired\b)[^>]*hint="Opcional\./);
+  assert.match(COMP, /<TelefonoConPais lada=\{tel\.lada\} numero=\{tel\.numero\}/);
   assert.match(COMP, /Sólo aparecen los clientes ganados\./);
   assert.match(sinComentarios(leer('app/customer-success/curso/invitar-actions.ts')), /if \(!emailUtilizable\(correo\)\) return \{ ok: false, error: 'Ese email no sirve\.' \};/);
 });

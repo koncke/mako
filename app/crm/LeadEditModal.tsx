@@ -12,6 +12,10 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { LeadSheet } from './LeadSheet';
 import { getLeadFullAction, type LeadFullData } from './actions';
+// El ancho del esqueleto es EL MISMO de la ficha (punto 14 del 12/10/2026: la ficha pasó de
+// 760 a más ancha). Con un número propio acá, la caja abría a 760 y medio segundo después
+// saltaba al ancho de la ficha — y el lead recién creado (punto 27) abre justo por este esqueleto.
+import { ANCHO_FICHA_LEAD } from './lead-view/ficha-medidas';
 
 const SANS = "'Geist', sans-serif";
 const overlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 };
@@ -74,7 +78,7 @@ export function LeadEditModal({
     // Skeleton instantáneo con lo que el caller ya sabe del lead.
     return (
       <div onClick={onClose} style={overlay}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: 'clamp(18px,4vw,24px) clamp(16px,4vw,28px)', fontFamily: SANS }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: ANCHO_FICHA_LEAD, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: 'clamp(18px,4vw,24px) clamp(16px,4vw,28px)', fontFamily: SANS }}>
           <div style={{ fontSize: 'clamp(20px,5vw,27px)', fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.02em' }}>{seed?.nombre ?? 'Cargando…'}</div>
           {seed?.empresa && <div style={{ fontSize: 14, color: 'var(--dim)', marginTop: 3 }}>{seed.empresa}</div>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>

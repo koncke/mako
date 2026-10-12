@@ -24,6 +24,8 @@ import { EditableInline } from '@/app/_components/EditableInline';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { saveLeadMetaAction } from '../actions';
 import { hrefDeWeb } from '@/lib/contacto-lead';
+import { linkInstagram, usuarioInstagram } from '../campo-inline';
+import { CajaCampo, InstagramEditable, MontoEditable, TelefonoEditable } from './CampoEditable';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -71,7 +73,9 @@ function EnviarNoOficial({ leadId, nombre, telefono }: { leadId: number; nombre:
     <>
       <button type="button" onClick={() => { setOpen(true); setMsg(null); }} aria-label="Enviar WhatsApp no oficial" title="Enviar por WhatsApp no oficial (Evolution)" style={btn}><IconWhatsApp /></button>
       {open && (
-        <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24 }}>
+        // `data-no-abre`: este pop-up vive ADENTRO de la tarjeta del teléfono (`CajaCampo`), y sin la
+        // marca un clic en su fondo o en su texto abriría además la edición del número.
+        <div data-no-abre onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: 22, fontFamily: SANS }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>WhatsApp no oficial</div>
@@ -94,22 +98,38 @@ function EnviarNoOficial({ leadId, nombre, telefono }: { leadId: number; nombre:
   );
 }
 
-function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar }: {
+/** El recuadro de cada dato: el mismo en las celdas que copian y en las que no. */
+const celda: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' };
+
+function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar, editor, copiable = true }: {
   label: string; value: string | null; copyKey: string; copied: string;
   onCopy: (text: string, key: string) => void; extra?: ReactNode;
   /** Presente = el valor se corrige acá mismo. Ausente = solo se copia. */
   onGuardar?: (v: string) => void;
+  /** Un editor propio en lugar del texto libre (el teléfono con su país, el monto, Instagram). */
+  editor?: ReactNode;
+  /** El botón de copiar. Sin él para lo que no se pega en otro lado (el ingreso estimado). */
+  copiable?: boolean;
 }) {
   const has = !!value?.trim();
   const iconBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', flex: 'none' };
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' }}>
+  // ⚠️ LA TARJETA ENTERA ABRE LA EDICIÓN (punto 7 del 12/10/2026): `CajaCampo` lleva un clic en
+  // cualquier parte que no sea un botón (copiar, WhatsApp, Gmail, el link) al campo de adentro, y
+  // la caja de edición ocupa el ancho. Antes había que acertarle al «—».
+  // ⚠️ El envoltorio se elige en el `return` y NO con un componente definido acá adentro: uno
+  // definido en el cuerpo es un TIPO nuevo en cada render y React remontaría el campo —se pierde el
+  // foco a mitad de escribir— cada vez que cambia el «Copiado ✓».
+  const editable = !!(onGuardar || editor);
+  const contenido = (
+    <>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>{label}</div>
         {/* ⚠️ CON `onGuardar` EL VALOR SE EDITA ACÁ; el COPIAR no se pierde, sigue en
             el botón de la derecha. Antes el texto ERA el botón de copiar, así que el
             único camino a corregirlo era irse de la ficha. */}
-        {onGuardar ? (
+        {editor ? (
+          <div style={{ marginTop: 2, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{editor}</div>
+        ) : onGuardar ? (
           <div style={{ marginTop: 2, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>
             <EditableInline valor={value ?? ''} onGuardar={onGuardar} placeholder="—" titulo={`Edita ${label.toLowerCase()}`} maxLargo={120} />
           </div>
@@ -126,23 +146,32 @@ function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar }: {
           <div style={{ fontSize: 14.5, color: 'var(--faint)', marginTop: 2 }}>—</div>
         )}
       </div>
-      {has && (
+      {has && copiable && (
         <button type="button" onClick={() => onCopy(value!, copyKey)} aria-label={`Copiar ${label.toLowerCase()}`} title="Copiar" style={iconBtn}>
           <IconCopy />
         </button>
       )}
       {has && extra}
-    </div>
+    </>
   );
+  return editable ? <CajaCampo style={celda}>{contenido}</CajaCampo> : <div style={celda}>{contenido}</div>;
 }
 
-export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, web = null, cohorte }: {
+export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, web = null, cohorte, ingresoEstimado, instagram }: {
   leadId: number; nombre: string; empresa: string | null; email: string | null; telefono: string | null;
   /** La web del lead (`leads.web`, mig 0194). Reemplazó a «Dirección»: «Saca en el resumen
    *  el dato de "Dirección" eso no importa. En su lugar, pon "Web"» (Martín, 06/10/2026). */
   web?: string | null;
   /** Cohorte de madurez del lead — solo tiene sentido si hubo R1. */
   cohorte?: { label: string; color: string; texto: string | null } | null;
+  /**
+   * El ingreso ESTIMADO en USD (`leads.ingreso_estimado`, mig 0258). Martín (12/10/2026, punto 21):
+   * «en "Información principal" pon una opción de "Ingreso Estimado"». `undefined` = esta ficha no
+   * lo ofrece (la de Customer Success: un cliente ya compró); `null` = nadie lo cargó.
+   */
+  ingresoEstimado?: number | null;
+  /** El usuario de Instagram (`leads.instagram`, mig 0258; punto 28). `undefined` = no se ofrece. */
+  instagram?: string | null;
 }) {
   const [copied, setCopied] = useState('');
   const copy = (text: string, key: string) => {
@@ -190,6 +219,50 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
     });
   };
   const iconLink: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--primary)', flex: 'none', textDecoration: 'none' };
+  const ig = usuarioInstagram(instagram);
+  const usuarioIg = linkInstagram(ig);
+  const debajo: ReactNode[] = [
+    <Row
+      key="web"
+      label="Web"
+      onGuardar={guardar('web', web)} value={web} copyKey="web" copied={copied} onCopy={copy}
+      extra={hrefDeWeb(web)
+        ? <a href={hrefDeWeb(web)!} target="_blank" rel="noopener noreferrer" aria-label="Abrir la web" title="Abrir la web" style={iconLink}><IconExterno /></a>
+        : null}
+    />,
+    // Instagram (punto 28): se lee con la @ y se abre el perfil al lado. Se guarda sin la @ y en
+    // minúsculas (`usuarioInstagram`, la misma regla del alta y del server).
+    ...(instagram !== undefined ? [
+      <Row
+        key="instagram"
+        label="Instagram"
+        value={ig ? `@${ig}` : null} copyKey="ig" copied={copied} onCopy={copy}
+        editor={<InstagramEditable leadId={leadId} valor={instagram} />}
+        extra={usuarioIg
+          ? <a href={usuarioIg} target="_blank" rel="noopener noreferrer" aria-label="Abrir el perfil de Instagram" title="Abrir el perfil de Instagram" style={iconLink}><IconExterno /></a>
+          : null}
+      />,
+    ] : []),
+    // El ingreso ESTIMADO (punto 21): en USD, corregible en el lugar. No se copia: no es un dato que
+    // se pegue en otro lado. El total por columna lo suma el tablero con la marca de estimado.
+    ...(ingresoEstimado !== undefined ? [
+      <Row
+        key="ingreso"
+        label="Ingreso estimado (USD)"
+        value={ingresoEstimado != null ? String(ingresoEstimado) : null} copyKey="ingreso" copied={copied} onCopy={copy} copiable={false}
+        editor={<MontoEditable leadId={leadId} campo="ingreso_estimado" valor={ingresoEstimado} titulo="Ingreso estimado del lead, en dólares" />}
+      />,
+    ] : []),
+    ...(cohorte ? [
+      <div key="cohorte" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' }}>
+        <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Cohorte</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: cohorte.color }}>{cohorte.label}</span>
+          {cohorte.texto && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{cohorte.texto}</span>}
+        </div>
+      </div>,
+    ] : []),
+  ];
   return (
     <>
     <section style={card}>
@@ -198,9 +271,15 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px' }}>
         <Row label="Nombre" value={nombre} copyKey="nombre" copied={copied} onCopy={copy} onGuardar={guardar('nombre', nombre)} />
         <Row label="Empresa" value={empresa} copyKey="empresa" copied={copied} onCopy={copy} onGuardar={guardar('empresa', empresa)} />
+        {/* ⚠️ EL TELÉFONO SE EDITA CON EL PAÍS PRIMERO (punto 5 del 12/10/2026): «siempre en todos
+            lados que pida telefono, primero tiene que ir la numeración que ya tenemos con las
+            banderas». `TelefonoEditable` no reescribe el formato guardado si los dígitos no
+            cambiaron; el guardado sigue siendo el de siempre (`saveLeadMetaAction`, con su
+            deshacer y su línea en el historial). */}
         <Row
           label="Teléfono"
-          onGuardar={guardar('telefono', telefono)} value={telefono && telefono !== '—' ? telefono : null} copyKey="tel" copied={copied} onCopy={copy}
+          value={telefono && telefono !== '—' ? telefono : null} copyKey="tel" copied={copied} onCopy={copy}
+          editor={<TelefonoEditable valor={telefono && telefono !== '—' ? telefono : null} onGuardar={guardar('telefono', telefono)} />}
           extra={telefono && telefono !== '—' ? <EnviarNoOficial leadId={leadId} nombre={nombre} telefono={telefono} /> : null}
         />
         <Row
@@ -208,25 +287,14 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
           onGuardar={guardar('email', email)} value={email} copyKey="email" copied={copied} onCopy={copy}
           extra={<a href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email ?? '')}`} target="_blank" rel="noopener noreferrer" aria-label="Escribir por Gmail" title="Escribir por Gmail" style={iconLink}><IconMail /></a>}
         />
-        {/* Web + Cohorte en la MISMA fila (Web ocupa todo si no hay cohorte). */}
-        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: cohorte ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: '16px 24px' }}>
-          <Row
-            label="Web"
-            onGuardar={guardar('web', web)} value={web} copyKey="web" copied={copied} onCopy={copy}
-            extra={hrefDeWeb(web)
-              ? <a href={hrefDeWeb(web)!} target="_blank" rel="noopener noreferrer" aria-label="Abrir la web" title="Abrir la web" style={iconLink}><IconExterno /></a>
-              : null}
-          />
-          {cohorte && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' }}>
-              <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Cohorte</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: cohorte.color }}>{cohorte.label}</span>
-                {cohorte.texto && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{cohorte.texto}</span>}
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Lo que sigue al 2×2 va de a DOS por fila, y si queda uno solo ocupa la fila entera
+            (como la Web cuando no hay cohorte). En la ficha del CRM son cuatro: Web | Instagram,
+            Ingreso estimado | Cohorte. En la de Customer Success, Web y Cohorte, como siempre. */}
+        {debajo.map((celdaDebajo, i) => (
+          <div key={i} style={{ minWidth: 0, display: 'grid', gridColumn: i === debajo.length - 1 && debajo.length % 2 === 1 ? '1 / -1' : undefined }}>
+            {celdaDebajo}
+          </div>
+        ))}
       </div>
     </section>
     <Toast state={toast} onClose={clear} />

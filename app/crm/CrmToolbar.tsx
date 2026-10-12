@@ -42,13 +42,37 @@ import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
 import { Confirm } from '@/app/_ui/Confirm';
 import { useCrmAuto } from './CrmAutoToggle';
 import { LapizIcon } from './iconos';
+import { BANDAS_KANBAN } from './filtros-guardados';
+// El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
+// mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
 
 /** Vista del tablero. "pendientes" (datos sin marcar) es UNA VISTA: reemplaza el board entero. */
 export type CrmVista = 'kanban' | 'tabla' | 'pendientes';
 /** Categorías del menú de filtros. El buscador NO es una categoría (no genera chip). */
-export type FiltroCat = 'etapa' | 'origen' | 'creativo' | 'orden';
+export type FiltroCat = 'banda' | 'etapa' | 'origen' | 'creativo' | 'orden';
+
+/**
+ * «Estado» del menú: las tres bandas del Kanban (Activo · Nutrición · Descartado).
+ *
+ * Pedido de Martín (12/10/2026, punto 25): «Que los botones de "Activo, nutrición, descartado"
+ * sean un desplegable dentro de filtros». Eran tres botones sueltos en la barra (`BandasToggle`,
+ * que se fue). Sólo viaja en el KANBAN: son las columnas que se dibujan, y la tabla no tiene
+ * columnas por etapa (igual que «Ordenar»). La regla de que siempre quede una prendida sigue
+ * siendo del tablero (`toggleBand`); acá sólo se la respeta al dibujar.
+ */
+export type BandasFiltro = {
+  activas: Set<StageBand>;
+  alternar: (b: StageBand) => void;
+  /** Cuántos leads (de lo que los otros filtros dejan) hay en esa banda. */
+  conteo: (b: StageBand) => number;
+  /** «Limpiar filtros»: las tres a la vista. */
+  prenderTodas: () => void;
+};
+/** El orden en que se dibujan y se ofrecen: la MISMA lista que guarda los filtros. */
+const ORDEN_BANDAS: readonly StageBand[] = BANDAS_KANBAN;
 
 /**
  * «Ordenar» (mig 0200): UNA opción a la vez, y su BASE. Con un orden manual guardado la base
@@ -149,12 +173,18 @@ function useEscape(activo: boolean, cerrar: () => void) {
 }
 
 // =============================================================================
-// A) Acciones del header — un solo clúster a la derecha
+// A) Acciones — el clúster de la DERECHA de la barra: «+ Nuevo lead» y el «⋯»
 // =============================================================================
-// "+ Nuevo lead" es el ÚNICO botón primario y siempre el último. Importar y
-// Exportar bajan al kebab: los dos iconos que tenían eran la misma bandeja con la
-// flecha para el otro lado y no se distinguían sin pasar el mouse por encima —
-// además, con cada acción nueva el header crecía a lo ancho.
+// "+ Nuevo lead" es el ÚNICO botón primario. Importar y Exportar bajan al kebab: los
+// dos iconos que tenían eran la misma bandeja con la flecha para el otro lado y no se
+// distinguían sin pasar el mouse por encima — además, con cada acción nueva el header
+// crecía a lo ancho.
+//
+// ⚠️ EL «⋯» VA A LA DERECHA DEL TODO, DESPUÉS DE «+ Nuevo lead» (punto 26 del 12/10/2026:
+// «Que los 3 puntos estén a la derecha del todo, no antes de "Nuevo lead"»). Y ya no hay
+// header aparte: el título «CRM» con su ícono se fue (punto 22) y estas dos piezas viven en
+// la MISMA fila que el selector de funnel, la vista, el buscador y «Filtrar» (punto 23:
+// «Sube la topbar del todo»).
 
 /**
  * El layout que comparten las DOS clases de renglón del menú: la que es un botón (una
@@ -261,16 +291,34 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
   const crmAuto = useCrmAuto();
 
   return (
-    <div className="crm-acciones" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+    <div className="crm-acciones" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 'none' }}>
+      {/* ⚠️ UN BOTÓN, NO UN LINK (27/09/2026). Navegaba a /crm/new y al volver se
+          perdían el filtro, la búsqueda y el scroll, y se releían los 1.142 leads —
+          por un form de seis campos. Todo el resto del CRM ya son modales.
+          La ruta sigue existiendo para un link directo; el form es el mismo. */}
+      <button type="button" onClick={onNuevo} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', height: CTRL_H, padding: '0 18px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+        + Nuevo lead
+      </button>
+
+      {/* ⚠️ ACÁ HABÍA UN BOTÓN «Importar CSV» CON EL CRM VACÍO, y se fue el 29/09/2026.
+          «Elimina el botón de "Importar csv", para eso ya están los 3 puntos de arriba
+          del todo». Era la MISMA acción que el renglón del menú, con el mismo handler.
+          De paso se lleva un bug: su condición era `total === 0`, y `total` no son los
+          leads del workspace sino los del embudo que se está mirando, así que un
+          producto nuevo hacía aparecer el botón con 1.146 leads en la base. */}
+
+      {/* El «⋯», el ÚLTIMO de la fila (punto 26). Su menú abre hacia la izquierda
+          (`right: 0`), así que pegado al borde no se sale de la ventana. */}
       <span style={{ position: 'relative', flex: 'none', display: 'inline-flex' }}>
         <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Más acciones del CRM" aria-expanded={open}
           title="Importar, exportar y editar el funnel"
-          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, flex: 'none', borderRadius: 9, border: `1px solid ${open ? 'var(--primary)' : 'var(--border-strong)'}`, background: open ? 'var(--surface-2)' : 'var(--surface)', color: open ? 'var(--primary)' : 'var(--dim)', cursor: 'pointer', padding: 0 }}>
+          // CTRL_H y no 38: ahora comparte la fila con los controles de 40 (era del header).
+          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: CTRL_H, height: CTRL_H, flex: 'none', borderRadius: 10, border: `1px solid ${open ? 'var(--primary)' : 'var(--border-strong)'}`, background: open ? 'var(--surface-2)' : 'var(--surface)', color: open ? 'var(--primary)' : 'var(--dim)', cursor: 'pointer', padding: 0 }}>
           <KebabIcon />
         </button>
         {open && <>
           <span onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-          <div role="menu" style={{ position: 'absolute', top: 44, right: 0, zIndex: 41, width: 306, maxWidth: 'calc(100vw - 32px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: 7, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div role="menu" style={{ position: 'absolute', top: CTRL_H + 6, right: 0, zIndex: 41, width: 306, maxWidth: 'calc(100vw - 32px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: 7, display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* «Que ya no se llame "Importar csv"... Que simplemente sea "Importar
                 leads"»: el pop-up ya se llamaba así, era el menú el que prometía un
                 formato cuando el importador lee planilla, PDF, foto y documento. */}
@@ -306,21 +354,6 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
           </div>
         </>}
       </span>
-
-      {/* ⚠️ ACÁ HABÍA UN BOTÓN «Importar CSV» CON EL CRM VACÍO, y se fue el 29/09/2026.
-          «Elimina el botón de "Importar csv", para eso ya están los 3 puntos de arriba
-          del todo». Era la MISMA acción que el renglón del menú, con el mismo handler.
-          De paso se lleva un bug: su condición era `total === 0`, y `total` no son los
-          leads del workspace sino los del embudo que se está mirando, así que un
-          producto nuevo hacía aparecer el botón con 1.146 leads en la base. */}
-
-      {/* ⚠️ UN BOTÓN, NO UN LINK (27/09/2026). Navegaba a /crm/new y al volver se
-          perdían el filtro, la búsqueda y el scroll, y se releían los 1.142 leads —
-          por un form de seis campos. Todo el resto del CRM ya son modales.
-          La ruta sigue existiendo para un link directo; el form es el mismo. */}
-      <button type="button" onClick={onNuevo} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', height: CTRL_H, padding: '0 18px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
-        + Nuevo lead
-      </button>
     </div>
   );
 }
@@ -416,33 +449,11 @@ export function Buscador({ value, onChange }: { value: string; onChange: (v: str
   );
 }
 
-export function BandasToggle({ bandas, onToggle, conteo }: {
-  bandas: Set<StageBand>;
-  onToggle: (b: StageBand) => void;
-  conteo: (b: StageBand) => number;
-}) {
-  const ORDEN: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
-  return (
-    <div style={{ display: 'inline-flex', flex: 'none', alignItems: 'center', gap: 3, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 3 }}>
-      {ORDEN.map((band) => {
-        const on = bandas.has(band);
-        const accent = CATEGORY[bandToCategory(band)].c;
-        // La última banda encendida no se puede apagar: con 0 bandas el tablero se
-        // vaciaba entero y no había nada en pantalla que explicara por qué.
-        const ultima = on && bandas.size === 1;
-        return (
-          <button key={band} type="button" onClick={() => onToggle(band)} aria-pressed={on}
-            title={ultima ? 'Tiene que quedar al menos una banda visible' : on ? `Ocultar ${BAND_LABEL[band]}` : `Mostrar ${BAND_LABEL[band]}`}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 8, border: 'none', cursor: ultima ? 'default' : 'pointer', background: on ? accent : 'transparent', color: on ? '#fff' : 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', opacity: ultima ? 0.9 : 1 }}>
-            <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: on ? '#fff' : accent, flex: 'none' }} />
-            {BAND_LABEL[band]}
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, opacity: 0.85, fontVariantNumeric: 'tabular-nums' }}>{conteo(band)}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+// ── Acá vivía `BandasToggle` ──────────────────────────────────────────────────
+// Los tres botones «Activo · Nutrición · Descartado» con su conteo, sueltos en la barra. Desde
+// el 12/10/2026 (punto 25: «que sean un desplegable dentro de filtros») son la categoría
+// «Estado» de `CrmFilterMenu`, con el mismo conteo, el mismo color de cada banda y la misma
+// regla: la última prendida no se apaga.
 
 // =============================================================================
 // C) Filtros — un único menú "Filtrar (N)" (mismo patrón que el board del plan)
@@ -451,7 +462,7 @@ export function BandasToggle({ bandas, onToggle, conteo }: {
 // contenido reemplaza el panel EN EL MISMO LUGAR con un "‹ volver". Nunca hay más
 // de una categoría en pantalla, así el panel no crece con el catálogo del cliente.
 
-export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, setOrigen, listas = [], orden, abierto, setAbierto }: {
+export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, setOrigen, listas = [], orden, bandas, abierto, setAbierto }: {
   stages: Stage[];
   etapas: Set<string>;
   setEtapas: (s: Set<string>) => void;
@@ -462,6 +473,8 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   listas?: ListaFiltro[];
   /** «Ordenar». Sólo en el kanban: la tabla se ordena por sus columnas. */
   orden?: OrdenFiltro;
+  /** «Estado» (las bandas del Kanban). Sólo en el kanban, como «Ordenar». */
+  bandas?: BandasFiltro;
   abierto: FiltroAbierto;
   setAbierto: (v: FiltroAbierto) => void;
 }) {
@@ -474,9 +487,11 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   // dibuja (p. ej. un negocio sin Meta no tiene campañas).
   const vivas = listas.filter((l) => l.opciones.length > 0);
   const ordenOn = !!orden && orden.valor !== orden.base;
+  // Cada banda APAGADA cuenta como un filtro: es lo que esconde leads del tablero.
+  const bandasApagadas = bandas ? ORDEN_BANDAS.filter((b) => !bandas.activas.has(b)).length : 0;
   const elegidosDe = (l: ListaFiltro) => l.sel.size + (l.hijos?.sel.size ?? 0);
-  const n = etapas.size + origen.size + listas.reduce((a, l) => a + elegidosDe(l), 0) + (ordenOn ? 1 : 0);
-  const limpiar = () => { setEtapas(new Set()); setOrigen(new Set()); for (const l of listas) { l.set(new Set()); l.hijos?.set(new Set()); } orden?.elegir(orden.base); };
+  const n = bandasApagadas + etapas.size + origen.size + listas.reduce((a, l) => a + elegidosDe(l), 0) + (ordenOn ? 1 : 0);
+  const limpiar = () => { bandas?.prenderTodas(); setEtapas(new Set()); setOrigen(new Set()); for (const l of listas) { l.set(new Set()); l.hijos?.set(new Set()); } orden?.elegir(orden.base); };
   // Los grupos del árbol que la persona abrió o cerró a mano. Por defecto van ABIERTOS si
   // son pocos (con una o dos campañas, cerrarlas sólo esconde los anuncios detrás de un
   // clic) y cerrados si son muchos.
@@ -519,6 +534,11 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
     sel.size === 0 ? 'Todas' : sel.size === 1 ? label([...sel][0]) : `${sel.size} elegidas`;
 
   const cats: Array<{ key: FiltroCat; label: string; resumen: string; activo: boolean }> = [
+    // Primero: es lo que antes se veía a la vista en la barra, y decide qué COLUMNAS hay.
+    ...(bandas ? [{
+      key: 'banda' as const, label: 'Estado', activo: bandasApagadas > 0,
+      resumen: bandasApagadas === 0 ? 'Todos' : ORDEN_BANDAS.filter((b) => bandas.activas.has(b)).map((b) => BAND_LABEL[b]).join(' · '),
+    }] : []),
     { key: 'etapa', label: 'Etapa', resumen: resumen(etapas, etapaLabel), activo: etapas.size > 0 },
     { key: 'origen', label: 'Origen', resumen: origen.size === 0 ? 'Todos' : origen.size === 1 ? [...origen][0] : `${origen.size} elegidos`, activo: origen.size > 0 },
     ...vivas.map((l) => {
@@ -615,8 +635,25 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
             <>
               <button type="button" onClick={() => { setBuscar(''); setAbierto('root'); }} style={backBtn}>
                 <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>‹</span>
-                {abierto === 'etapa' ? 'Etapa' : abierto === 'origen' ? 'Origen' : abierto === 'orden' ? 'Ordenar' : (lista?.label ?? '')}
+                {abierto === 'banda' ? 'Estado' : abierto === 'etapa' ? 'Etapa' : abierto === 'origen' ? 'Origen' : abierto === 'orden' ? 'Ordenar' : (lista?.label ?? '')}
               </button>
+              {/* VARIAS a la vez, como los tres botones que reemplaza: el menú no vuelve a la
+                  raíz al tocar. Cada banda con SU color (el del borde de sus columnas) y su
+                  conteo. La última prendida no se apaga — con cero bandas el tablero se vaciaba
+                  entero sin nada que explicara por qué —, y se dice en su `title`. */}
+              {abierto === 'banda' && bandas && ORDEN_BANDAS.map((b) => {
+                const on = bandas.activas.has(b);
+                const ultima = on && bandas.activas.size === 1;
+                return (
+                  <button key={b} type="button" onClick={() => bandas.alternar(b)} style={{ ...rowBtn, cursor: ultima ? 'default' : 'pointer' }} aria-pressed={on}
+                    title={ultima ? 'Tiene que quedar al menos uno a la vista' : on ? `Ocultar ${BAND_LABEL[b]}` : `Mostrar ${BAND_LABEL[b]}`}>
+                    <span style={check(on)}>{on ? '✓' : ''}</span>
+                    <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', background: CATEGORY[bandToCategory(b)].c, flex: 'none' }} />
+                    <span style={{ ...texto, flex: 1 }}>{BAND_LABEL[b]}</span>
+                    <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{bandas.conteo(b)}</span>
+                  </button>
+                );
+              })}
               {/* UNA opción a la vez: elegir vuelve a la raíz, donde se ve el resumen. */}
               {abierto === 'orden' && orden && Object.entries(orden.opciones).map(([k, label]) => (
                 <button key={k} type="button" onClick={() => { orden.elegir(k); setAbierto('root'); }} style={rowBtn} aria-pressed={orden.valor === k}>
@@ -799,15 +836,24 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // del CRM en el navegador: 23,3 px de desfase con el envoltorio, 0 con el ancho en el
   // Dropdown. Se reportó DOS veces como «no está alineado con Nuevo lead».
   //
-  // Es el último elemento de su fila, así que con el botón ocupando los 190 px su borde
-  // derecho cae exactamente donde el de «+ Nuevo lead» del header: las dos filas son
-  // hijas del mismo <main> y comparten su padding.
+  //
+  // ⚠️ VA PRIMERO EN LA FILA, a la izquierda del todo y antes de «Kanban/Tabla» (punto 24 del
+  // 12/10/2026: «Que el desplegable de FUNNELS esté a la izquierda del todo, previo a los
+  // botones de "Kanban/tabla". Y que siempre tenga el ícono del cubo»). Antes era el último,
+  // alineado con «+ Nuevo lead» del header, que ya no existe: el funnel es QUÉ tablero se mira,
+  // y eso se lee antes que cómo se lo mira.
+  //
+  // ⚠️ EL CUBO VA EN `icono`, NO EN CADA OPCIÓN: es el ícono de lo que el control ES (un
+  // funnel), fijo, diga lo que diga el elegido. En las opciones no va: cada funnel lo nombra
+  // el negocio, y un mismo dibujo repetido en cada renglón no distingue a ninguno (regla de
+  // app/_ui/iconos-menu.tsx).
   return (
     <span style={{ flex: 'none' }}>
       <Dropdown
         value={String(actual.id)}
         options={opciones}
         width={190}
+        icono={<IconoMenu nombre="producto" size={15} />}
         ariaLabel="Funnel que dibuja el tablero"
         onChange={(v) => {
           // ⚠️ SE RESUELVE ACÁ, NO EN OTRA PANTALLA. Hasta el 27/09/2026 esto hacía

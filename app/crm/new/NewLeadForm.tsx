@@ -1,34 +1,51 @@
 'use client';
 
 // =============================================================================
-// NewLeadForm — form de alta con validación: nombre + (email O teléfono)
+// NewLeadForm — el alta de un lead: CUATRO campos, y el resto se carga en la ficha
 // =============================================================================
-// Sin contacto el lead es incontactable, así que se exige al menos un canal.
-// El submit va a la server action createLeadAction (que re-valida).
+// Pedido de Martín (12/10/2026, puntos 27 y 28): «mucho mejor que el modal de "Nuevo Lead" sea
+// simple, solo nombre, email y teléfono, que el resto se pueda configurar dentro... Y una vez
+// que creo se debe abrir el detail automáticamente» y «Que sean 4 opciones... "Nombre, Email,
+// Telefono, Instagram"». Se fueron la empresa y las dos fechas (agendamiento y Reunión 1, punto
+// 6): todo eso se edita en la ficha, que se abre sola al crear (el tablero: `onCreado`).
+//
+// Validación: nombre + (email O teléfono). Sin contacto el lead es incontactable, así que se
+// exige al menos un canal. El submit va a la server action, que RE-valida.
 //
 // ⚠️ EL MISMO FORM EN DOS CONTENEDORES: la ruta /crm/new (que navega a la ficha
 // nueva) y el modal del tablero (que se cierra y la abre ahí mismo). Lo único que
 // cambia es a dónde se va después, así que es UNA prop y no dos componentes: dos
-// copias de un form de seis campos divergen en el primer campo que se agregue.
+// copias de un form divergen en el primer campo que se agregue.
 //
 // Lo que el modo modal cambia, y nada más:
 //   · la acción — `crearLeadEnTableroAction`, que devuelve el id en vez de redirigir
-//   · «Cancelar» — cierra en vez de navegar
 //   · la caja — sin borde ni fondo propios: el Modal ya los pone
+//
+// ⚠️ SIN «CANCELAR» (punto 20: «elimina el botón de "Cancelar" para eso ya está la cruz de
+// arriba»). En el modal cierra la ✕; en la ruta, el «← Volver» de arriba. Y «Crear lead» va
+// abajo de todo, en la MISMA fila que «Traer de otro funnel» («que esté alineado abajo del todo,
+// donde está el botón de "Traer de otro funnel"»).
 
-import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
+import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
+import { DIAL_DEFAULT, unirTelefono } from '@/lib/paises';
+import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
+import { InstagramBuscador, type PerfilIg } from '@/app/crm/new/InstagramBuscador';
+import { instagramDelAlta } from '../campo-inline';
 import { createLeadAction, crearLeadEnTableroAction, type ChoqueDeLead } from '../actions';
 import { agregarAProductoAction, quitarDeProductoAction } from '../lead-funnel-actions';
 
 const SANS = "'Geist', sans-serif";
-const field: CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
+const field: CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', boxSizing: 'border-box' };
 const card: CSSProperties = { maxWidth: 720, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 'clamp(20px,4vw,32px)' };
+/** El id del nombre, para enfocarlo cuando la caja YA se ve (`autoFocus` adentro de un Modal no llega). */
+const ID_NOMBRE = 'nuevo-lead-nombre';
 
 export function NewLeadForm({ enModal }: {
   /** Presente = el form vive adentro del modal del tablero. Ausente = es la ruta. */
   enModal?: {
-    onCerrar: () => void;
+    // Sin `onCerrar`: el form ya no tiene «Cancelar» (punto 20), cierra la ✕ del Modal.
     onCreado: (id: number) => void;
     /**
      * Se AGREGÓ a este producto un lead que ya existía («Agregarlo aquí»), en vez de crear
@@ -62,6 +79,28 @@ export function NewLeadForm({ enModal }: {
   /** Lo tipeado, para poder reintentar el alta con «Crear igual» sin volver a escribirlo. */
   const [pendiente, setPendiente] = useState<FormData | null>(null);
 
+  // ⚠️ EL TELÉFONO VA CON EL PAÍS PRIMERO (punto 5: «siempre en todos lados que pida telefono,
+  // primero tiene que ir la numeración que ya tenemos con las banderas, el desplegable»).
+  // Lo que viaja al server es `unirTelefono(lada, número)`: los DÍGITOS con el código de país
+  // (`525512345678`), que es lo que `splitTelefono` sabe volver a separar en la ficha y lo
+  // mismo que guarda el teléfono editado en el lugar (app/crm/lead-view/CampoEditable.tsx).
+  // El server (`createLead`) guarda el texto tal cual y saca los dígitos para
+  // `telefono_normalizado`, así que la llave de match con WhatsApp no cambia de forma; lo que
+  // cambia es que ya no puede llegar un número sin su lada, que es el que nunca matcheaba.
+  const [lada, setLada] = useState(DIAL_DEFAULT);
+  const [numero, setNumero] = useState('');
+  const telefono = numero.replace(/\D/g, '') ? unirTelefono(lada, numero) : '';
+  // Instagram (punto 28): el buscador de perfiles (app/crm/new/InstagramBuscador.tsx). Se guarda
+  // el USUARIO, sin la @ (`leads.instagram`, mig 0258); la foto es para la lista y vence.
+  const [perfil, setPerfil] = useState<PerfilIg | null>(null);
+  // Y lo ESCRITO en el buscador: si es un @ y nadie eligió un perfil de la lista, se guarda igual
+  // (`instagramDelAlta`). Sin esto, «@martinkoncke» tipeado y «Crear lead» creaba el lead sin él.
+  const [igEscrito, setIgEscrito] = useState('');
+  // El nodo del form, para que el desplegable de países se abra ADENTRO del modal (la nota de
+  // `portalTo` en TelefonoConPais). Estable: un ref en línea es una función nueva por render.
+  const [caja, setCaja] = useState<HTMLFormElement | null>(null);
+  const refCaja = useCallback((el: HTMLFormElement | null) => setCaja(el), []);
+  useFocoInicial(ID_NOMBRE);
 
   /** La validación de acá es la MISMA que la del server, y corre antes para no
    *  perder lo tipeado en un viaje. El server la repite: este chequeo es
@@ -71,6 +110,7 @@ export function NewLeadForm({ enModal }: {
 
   return (
     <form
+      ref={refCaja}
       action={enModal ? undefined : createLeadAction}
       onSubmit={(e) => {
         const fd = new FormData(e.currentTarget);
@@ -104,20 +144,26 @@ export function NewLeadForm({ enModal }: {
         : { ...card, display: 'flex', flexDirection: 'column', gap: 16 }}
     >
       <Field label="Nombre" required>
-        <input type="text" name="nombre" required autoFocus style={field} />
+        <input id={ID_NOMBRE} type="text" name="nombre" required autoFocus style={field} />
       </Field>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-        <Field label="Email" hint="Al menos uno: email o teléfono."><input type="email" name="email" style={field} /></Field>
-        <Field label="Teléfono"><input type="tel" name="telefono" style={field} /></Field>
-      </div>
+      <Field label="Email" hint="Al menos uno: email o teléfono.">
+        <input type="email" name="email" style={field} />
+      </Field>
 
-      <Field label="Empresa"><input type="text" name="empresa" style={field} /></Field>
+      {/* ⚠️ GRUPO Y NO <label>: adentro hay DOS controles (el país y el número), y un <label>
+          le reenvía el clic de su texto al PRIMERO — o sea que tocar «Teléfono» abría el
+          desplegable de países. El número viaja en un campo oculto, ya unido a su lada. */}
+      <Field label="Teléfono" grupo>
+        <TelefonoConPais lada={lada} numero={numero} onLada={setLada} onNumero={setNumero}
+          inputStyle={field} portalTo={enModal ? caja : undefined} />
+        <input type="hidden" name="telefono" value={telefono} />
+      </Field>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-        <Field label="Fecha de agendamiento"><input type="date" name="fecha_agenda" style={field} /></Field>
-        <Field label="Fecha de Reunión 1 (si ya la tienes)"><input type="date" name="fecha_junta_1" style={field} /></Field>
-      </div>
+      <Field label="Instagram" grupo>
+        <InstagramBuscador valor={perfil} onElegir={setPerfil} onTexto={setIgEscrito} />
+        <input type="hidden" name="instagram" value={instagramDelAlta(perfil?.usuario, igEscrito)} />
+      </Field>
 
       {err && !choque && (
         <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 14, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
@@ -190,39 +236,41 @@ export function NewLeadForm({ enModal }: {
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, paddingTop: 4 }}>
-        {enModal
-          ? <button type="button" onClick={enModal.onCerrar} style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-          : <Link href="/crm" style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>Cancelar</Link>}
-        <button type="submit" disabled={guardando} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>{guardando ? 'Creando…' : 'Crear lead'}</button>
-      </div>
+      {/* LA FILA DE ABAJO DE TODO: «Traer de otro funnel» a la izquierda y «Crear lead» a la
+          derecha, en la misma línea (punto 20). Sin «Cancelar»: la ✕ del modal ya cierra.
 
-      {/* ⚠️ ESTE BOTÓN NO ABRE NADA ACÁ: avisa al padre, que cambia la VISTA ENTERA del
+          ⚠️ «TRAER» NO ABRE NADA ACÁ: avisa al padre, que cambia la VISTA ENTERA del
           modal. «Cuando le doy, debe reemplazar al formulario de arriba, con un botón de
           atrás claro» (Martín, 30/09/2026). Antes desplegaba un buscador debajo del
           formulario, y con eso el modal pedía dos cosas a la vez —cargar a alguien nuevo y
           buscar a alguien que ya está—, que son dos tareas y ninguna es un paso de la otra. */}
-      {enModal?.onTraer && (
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderTop: enModal?.onTraer ? '1px solid var(--border)' : undefined, paddingTop: enModal?.onTraer ? 14 : 4 }}>
+        {enModal?.onTraer && (
           <button type="button" onClick={enModal.onTraer}
             style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
             Traer de otro funnel
           </button>
-        </div>
-      )}
+        )}
+        <span style={{ flex: 1 }} />
+        <button type="submit" disabled={guardando} style={{ flex: 'none', padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>{guardando ? 'Creando…' : 'Crear lead'}</button>
+      </div>
     </form>
   );
 }
 
-/** Un campo con su rótulo, su asterisco de obligatorio y su ayuda. */
-function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: ReactNode }) {
-  return (
-    <label style={{ display: 'block' }}>
-      <span style={{ display: 'block', fontSize: 12.5, marginBottom: 6, color: 'var(--dim)' }}>
-        {label}{required && <span style={{ color: 'var(--bad)', marginLeft: 3 }}>*</span>}
-      </span>
-      {children}
-      {hint && <span style={{ display: 'block', fontSize: 12, marginTop: 5, color: 'var(--faint)' }}>{hint}</span>}
-    </label>
+/**
+ * Un campo con su rótulo, su asterisco de obligatorio y su ayuda.
+ * `grupo` = adentro hay más de un control: va como <div> con el rótulo arriba, porque un
+ * <label> le reenvía el clic de su texto a su primer control.
+ */
+function Field({ label, required, hint, grupo, children }: { label: string; required?: boolean; hint?: string; grupo?: boolean; children: ReactNode }) {
+  const rotulo = (
+    <span style={{ display: 'block', fontSize: 12.5, marginBottom: 6, color: 'var(--dim)' }}>
+      {label}{required && <span style={{ color: 'var(--bad)', marginLeft: 3 }}>*</span>}
+    </span>
   );
+  const ayuda = hint && <span style={{ display: 'block', fontSize: 12, marginTop: 5, color: 'var(--faint)' }}>{hint}</span>;
+  return grupo
+    ? <div role="group" aria-label={label} style={{ display: 'block' }}>{rotulo}{children}{ayuda}</div>
+    : <label style={{ display: 'block' }}>{rotulo}{children}{ayuda}</label>;
 }

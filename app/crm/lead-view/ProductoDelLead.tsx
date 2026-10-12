@@ -13,12 +13,12 @@
 // ⚠️ HASTA EL 06/10 ESTE DESPLEGABLE MOVÍA: un lead vivía en UN producto y elegir otro lo sacaba
 // del primero, detrás de un Confirm «Mover a X». Desde la mig 0207 un lead puede estar en varios:
 // su CASA (`leads.funnel_id`, NULL = el del negocio) y una fila de `lead_funnel` por cada OTRO
-// producto, con la etapa de ESE tablero. El desplegable ahora dice en cuáles está:
-//   · elegir uno donde está → cambia el PRODUCTO EN VISTA, y la etapa de al lado pasa a ser la
-//     suya (`EtapaEnProducto`, abajo);
-//   · elegir uno donde NO está, o tocar su «+» → lo agrega, en la etapa de entrada de ese producto;
-//   · la X → lo saca de ése. Sólo con dos o más: sacarlo del único lo dejaría en ningún tablero. El
-//     server lo vuelve a contar (esconder la X no protege nada).
+// producto, con la etapa de ESE tablero. El desplegable (en árbol desde el 12/10/2026) dice en
+// cuáles está, y en cada uno:
+//   · donde está → sus etapas; elegir una lo MUEVE ahí y ese funnel pasa a ser el que se mira;
+//   · donde NO está → «Agregar a este funnel», que lo agrega en la etapa de entrada;
+//   · «Quitar de este funnel», al fondo de sus etapas. Sólo con dos o más: sacarlo del único lo
+//     dejaría en ningún tablero. El server lo vuelve a contar (esconder la opción no protege nada).
 // Actúa al toque, sin «¿estás seguro?», y el aviso trae Deshacer: el molde es Customer Success
 // (app/customer-success/FichaEntrega.tsx).
 //
@@ -33,17 +33,27 @@
 // ⚠️ UNA SOLA FUENTE PARA LAS DOS PUERTAS. El estado vive en `useProductosDeLaFicha` y lo usan el
 // pop-up (app/crm/LeadSheet.tsx) y la ruta (app/crm/[id]/LeadDetailBody.tsx): es la misma ficha, y
 // ya se pagó que una se quedara con la versión anterior.
+//
+// ⚠️ DESDE EL 12/10/2026 ES UN SOLO DESPLEGABLE, EN ÁRBOL (`FunnelYEtapa`, abajo). Eran dos —el de
+// productos y, al lado, el de la etapa del producto en vista— y Martín (punto 9): «Que sea solo 1
+// desplegable de "PROSPECCIÓN" que es el funnel, y que sea un desplegable tipo arbol, que dentro de
+// "PROSPECCIÓN" tenga mis etapas, y que ahí se configure eso... O le pueda agregar a otros funnel».
+// Lo que se ofrece en cada funnel lo decide ./arbol-funnels.ts (puro, con test); las escrituras
+// son las de siempre, de este hook. Se fueron `ProductoDelLead` y `EtapaEnProducto`: sin call
+// sites, eran trabajo que no existe.
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast, type ToastState } from '@/app/_ui/Toast';
-import { Dropdown, type DropdownOption, type DropdownGroup } from '@/app/components/Dropdown';
-import { BAND_LABEL, type StageBand } from '@/lib/pipeline';
+import { Dropdown } from '@/app/components/Dropdown';
 import {
   productosDeLaFichaAction, agregarAProductoAction, quitarDeProductoAction, deshacerQuitarAction,
   quitarLoteDeProductoAction, moverEtapaEnProductoAction, type ProductoFicha,
 } from '../lead-funnel-actions';
+import {
+  funnelsDelArbol, seccionesDelArbol, funnelEnVista, leerEleccion, valorEtapa, type EtapaDelArbol,
+} from './arbol-funnels';
 
 export type { ProductoFicha };
 
@@ -54,15 +64,10 @@ export type ProductoOpcion = { id: number; nombre: string; esDefault: boolean };
 
 type Deshacer = Parameters<typeof deshacerQuitarAction>[0];
 
-// ── Las tres decisiones, puras ──────────────────────────────────────────────────
+// ── Las dos decisiones, puras ───────────────────────────────────────────────────
 // Sin JSX ni nada de afuera: tests/lead-funnel-ficha.test.ts las saca de ESTE fuente y las ejecuta
-// (el archivo no se puede importar en un test: trae server actions).
-
-/** Qué botón lleva el renglón de un producto: la X donde está (sólo con dos o más), el «+» donde no. */
-export function accionDelRenglon(esta: boolean, puedeQuitar: boolean): 'quitar' | 'agregar' | null {
-  if (!esta) return 'agregar';
-  return puedeQuitar ? 'quitar' : null;
-}
+// (el archivo no se puede importar en un test: trae server actions). La tercera —qué acción lleva
+// cada funnel, `accionDelRenglon`— se mudó a ./arbol-funnels.ts con el árbol que la usa.
 
 /**
  * El producto en vista: el pedido, si el lead ESTÁ ahí; si no, su casa.
@@ -101,6 +106,8 @@ export type FichaProductos = {
   vista: ProductoFicha | null;
   /** El id que nombra el botón, también antes de que el server conteste. */
   idEnVista: number | null;
+  /** La casa según los datos de la pantalla (el NULL ya resuelto al funnel del negocio). */
+  casaId: number | null;
   /** El selector de etapa espera (ver `etapaEnEspera`). */
   esperando: boolean;
   fallo: string | null;
@@ -235,12 +242,12 @@ export function useProductosDeLaFicha({ leadId, casa, foto, onCasaCambiada }: {
   };
 
   return {
-    foto, productos, puedeQuitar: puede, vista, idEnVista, esperando, fallo,
+    foto, productos, puedeQuitar: puede, vista, idEnVista, casaId: casaDeLaPantalla, esperando, fallo,
     verProducto: setVistaId, agregar, quitar, moverEtapa, aviso: toast, cerrarAviso: clear,
   };
 }
 
-// ── El desplegable de productos ─────────────────────────────────────────────────
+// ── El desplegable: los funnels y sus etapas, en árbol ─────────────────────────
 
 function IconoProducto() {
   return (
@@ -250,119 +257,80 @@ function IconoProducto() {
   );
 }
 
-/** La cruz de Customer Success (viewBox 16, trazo 1.5). */
-function IconoQuitar() {
-  return (
-    <svg width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" aria-hidden>
-      <path d="M4 4l8 8M12 4l-8 8" />
-    </svg>
-  );
-}
-
-/** El «+» del mismo molde, para los productos donde no está. */
-function IconoAgregar() {
-  return (
-    <svg width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" aria-hidden>
-      <path d="M8 3.5v9M3.5 8h9" />
-    </svg>
-  );
-}
-
-export function ProductoDelLead({ ficha, rotulo = true }: {
+/**
+ * EL desplegable de la cabecera: «Funnel › Etapa» en el botón y, adentro, cada funnel con sus
+ * etapas (punto 9 del 12/10/2026, ver la cabecera de este archivo y ./arbol-funnels.ts).
+ *
+ * Elegir una etapa MUEVE, en el funnel donde está:
+ *   · en la CASA, por el camino de siempre (`onElegirCasa`: lo decide la ficha, que es la que tiene
+ *     el wizard y la confirmación de mover — `pideWizardAlElegir`);
+ *   · en un funnel AGREGADO, sólo su fila (`ficha.moverEtapa`), con su aviso y Deshacer.
+ * Y en los dos casos el funnel pasa a ser el que se mira: el botón dice dónde quedó.
+ *
+ * ⚠️ ESPERA (apagado) en las dos ventanas cortas de `etapaEnEspera`: mover con las etapas de la
+ * pantalla cuando el server dice que la casa es otra escribiría una clave que ahí no existe.
+ */
+export function FunnelYEtapa({ ficha, etapasCasa, etapaCasa, onElegirCasa, ariaLabel, width = 260, align = 'right' }: {
   ficha: FichaProductos;
-  /**
-   * Con `false`, sin la palabra «Producto» al lado: va el ícono adentro del botón, como en
-   * la barra de lote del tablero. Es lo que usa la fila de controles del pop-up, donde el
-   * rótulo suelto quedaba «todo amontonado» (Martín, 06/10/2026).
-   */
-  rotulo?: boolean;
+  /** Las etapas de la CASA que tiene la pantalla: las mismas con las que decide el wizard. */
+  etapasCasa: readonly EtapaDelArbol[];
+  /** La etapa del lead en su casa, según la pantalla. */
+  etapaCasa: string | null;
+  /** Mover en la casa: la ficha decide si pasa por el wizard o por la confirmación. */
+  onElegirCasa: (etapa: string) => void;
+  ariaLabel: string;
+  width?: number;
+  align?: 'left' | 'right';
 }) {
-  const { foto, productos } = ficha;
-  // Con un solo producto no hay nada que elegir, y un desplegable de una opción es un
-  // control que promete una decisión que no existe.
-  if (foto.length < 2) return null;
+  const funnels = funnelsDelArbol({ foto: ficha.foto, productos: ficha.productos, casaId: ficha.casaId, etapasCasa, etapaCasa });
+  const secciones = seccionesDelArbol(funnels, ficha.puedeQuitar);
+  const enVista = funnelEnVista(funnels, ficha.idEnVista);
+  const etapa = enVista?.etapas.find((s) => s.key === enVista.etapa) ?? null;
+  // Mientras espera, el botón nombra el funnel que se va a mirar y NINGUNA etapa: la de la casa ahí
+  // sería la de otro tablero, cambiada medio segundo después (ver `etapaEnEspera`).
+  const nombreEnEspera = ficha.foto.find((f) => f.id === ficha.idEnVista)?.nombre ?? enVista?.nombre ?? 'Funnel';
 
-  // ⚠️ LOS PRODUCTOS EN LOS QUE NO ESTÁ SE OFRECEN IGUAL, con «No está» en gris (como Customer
-  // Success): el pedido es justamente poder agregarlo. Y mientras el server no contestó se dibujan
-  // los de la pantalla, sin marcas y con el desplegable apagado: pintar «No está» sin saberlo
-  // afirmaría ceros.
-  const opciones: DropdownOption[] = productos
-    ? productos.map((p) => {
-      const accion = accionDelRenglon(p.esta, ficha.puedeQuitar);
-      return {
-        value: String(p.id),
-        label: p.nombre,
-        sub: p.esta ? undefined : 'No está',
-        acciones: accion === 'quitar'
-          ? [{ icono: <IconoQuitar />, title: 'Quitar de este funnel', tone: 'bad' as const, cierra: true, onClick: () => ficha.quitar(p) }]
-          : accion === 'agregar'
-            ? [{ icono: <IconoAgregar />, title: 'Agregar a este funnel', cierra: true, onClick: () => ficha.agregar(p) }]
-            : undefined,
-      };
-    })
-    : foto.map((p) => ({ value: String(p.id), label: p.nombre }));
-  const enVista = foto.find((p) => p.id === ficha.idEnVista)?.nombre ?? 'el del negocio';
+  const elegir = (v: string) => {
+    const e = leerEleccion(v);
+    if (!e) return;
+    const f = funnels.find((x) => x.id === e.funnelId);
+    if (!f) return;
+    // Las dos acciones sobre el funnel van por el server del hook, con el producto del server: sin
+    // respuesta del server el árbol no las ofrece (sólo tiene la casa).
+    const p = ficha.productos?.find((x) => x.id === e.funnelId);
+    if (e.tipo === 'agregar') { if (p) ficha.agregar(p); return; }
+    if (e.tipo === 'quitar') { if (p) ficha.quitar(p); return; }
+    ficha.verProducto(f.id);
+    if (f.esCasa) onElegirCasa(e.etapa);
+    else if (p) ficha.moverEtapa(p, e.etapa);
+  };
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        {rotulo && <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)' }}>Funnel</span>}
-        <Dropdown
-          value={String(ficha.idEnVista ?? '')}
-          options={opciones}
-          onChange={(v) => {
-            const p = productos?.find((x) => String(x.id) === v);
-            if (!p) return;
-            // Donde está, elegirlo es MIRARLO; donde no, es lo mismo que su «+».
-            if (p.esta) ficha.verProducto(p.id); else ficha.agregar(p);
-          }}
-          disabled={!productos}
-          placeholder="Funnel"
-          ariaLabel={`Funnel en vista: ${enVista}`}
-          align={rotulo ? 'right' : 'left'}
-          icono={rotulo ? undefined : <span title="Funnel" style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
-          buttonStyle={rotulo ? undefined : { fontSize: 13, fontWeight: 600 }}
-        />
-      </div>
-      {ficha.fallo && !productos && <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--bad)' }}>No se pudo cargar</span>}
-      {/* El aviso de las dos piezas (este desplegable y `EtapaEnProducto`). Va acá porque las dos
-          existen sólo con dos productos o más, que es cuando este componente se dibuja. */}
+      <Dropdown
+        value={ficha.esperando || !enVista || !etapa ? '' : valorEtapa(enVista.id, etapa.key)}
+        secciones={secciones}
+        onChange={elegir}
+        disabled={ficha.esperando}
+        placeholder="Funnel"
+        ariaLabel={ariaLabel}
+        align={align}
+        width={width}
+        icono={<span title="Funnel" style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
+        // El botón dice las DOS cosas, el funnel y su etapa: la pastilla de la etapa que estaba arriba
+        // del nombre se fue (ahí van las etiquetas), así que éste es el único lugar donde se lee.
+        botonLabel={ficha.esperando || !enVista ? <span>{nombreEnEspera}</span> : (
+          <>
+            <span>{enVista.nombre}</span>
+            <span aria-hidden style={{ color: 'var(--faint)', margin: '0 6px' }}>›</span>
+            <span style={{ fontWeight: 500 }}>{etapa?.label ?? 'Etapa borrada'}</span>
+          </>
+        )}
+        buttonStyle={{ fontSize: 13, fontWeight: 600 }}
+      />
+      {ficha.fallo && !ficha.productos && <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--bad)' }}>No se pudo cargar</span>}
+      {/* El aviso de agregar, quitar y mover en un agregado (con su Deshacer). */}
       <Toast state={ficha.aviso} onClose={ficha.cerrarAviso} />
     </>
-  );
-}
-
-// ── La etapa en un producto AGREGADO ────────────────────────────────────────────
-
-/**
- * El selector de etapa cuando lo que se mira NO es la casa: las etapas de ESE producto y la etapa
- * de su fila. Mover escribe sólo la fila (`moverEtapaEnProductoAction`), sin wizard y sin tocar el
- * recorrido de la casa, con aviso y Deshacer.
- */
-export function EtapaEnProducto({ ficha, producto, width, align = 'left', columnas = false }: {
-  ficha: FichaProductos;
-  producto: ProductoFicha;
-  width?: number;
-  align?: 'left' | 'right';
-  /** Como el selector de la ruta: Pipeline + Salida | Nutrición, lado a lado. */
-  columnas?: boolean;
-}) {
-  const deBanda = (b: StageBand): DropdownOption[] => producto.etapas
-    .filter((s) => ((s.band as StageBand | undefined) ?? 'pipeline') === b)
-    .map((s) => ({ value: s.key, label: s.label, color: s.dot, ...(columnas ? {} : { sub: BAND_LABEL[b] }) }));
-  const grupo = (title: string, b: StageBand): DropdownGroup[] => { const o = deBanda(b); return o.length ? [{ title, options: o }] : []; };
-  const cols = [[...grupo('Pipeline', 'pipeline'), ...grupo('Salida', 'salidas')], grupo('Nutrición', 'nutricion')].filter((c) => c.length);
-  return (
-    <Dropdown
-      value={producto.etapa ?? ''}
-      placeholder="Etapa borrada"
-      align={align}
-      width={width}
-      ariaLabel={`Etapa en ${producto.nombre}`}
-      onChange={(k) => ficha.moverEtapa(producto, k)}
-      {...(columnas
-        ? { columns: cols }
-        : { options: [...deBanda('pipeline'), ...deBanda('nutricion'), ...deBanda('salidas')], buttonStyle: { fontSize: 13, fontWeight: 600 } })}
-    />
   );
 }

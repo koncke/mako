@@ -138,6 +138,12 @@ export function mapToCrmLead(
     created: fmtDay(l.created_at) ?? '—',
     monto: l.monto_cierre_usd ?? 0,
     totalCobrado: l.total_cobrado_usd ?? 0,
+    // El ingreso ESTIMADO (mig 0258, punto 21 del 12/10/2026): lo que alguien cree que vale el
+    // lead mientras está abierto, en USD. Lo suma el encabezado de cada columna con la marca de
+    // estimado (CrmBoard). NO es el `monto`: ése es la venta y lo cuenta Revenue. `null` = nadie
+    // lo cargó, que no es 0. El `Number` porque un `numeric` de Postgres puede llegar como texto
+    // por un driver que no sea supabase-js, y una suma con un string concatena en vez de sumar.
+    ingresoEstimado: l.ingreso_estimado == null ? null : (Number.isFinite(Number(l.ingreso_estimado)) ? Number(l.ingreso_estimado) : null),
     // El tipo de venta (LISTA_COLS ya baja `venta_tipo`). Sin esto el wizard del tablero
     // le pedía el monto a un becado (#747): ver `CrmLead.ventaTipo`.
     ventaTipo: l.venta_tipo ?? null,

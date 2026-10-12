@@ -3888,7 +3888,10 @@ que no pasó.
   repo GUARDA son dígitos pelados (`542233550684`): no matcheaba ninguna lada de un número ya
   guardado y caía siempre al país por default, con el `54` adentro del "resto". Vivía suelto
   en `OnboardingWizard.tsx`; se movió a `lib/paises.ts` (sin `server-only`, testeable) y ahora
-  lo comparten el wizard y el modal.
+  lo comparten el wizard y el modal. Y su caída al país por default con TODOS los dígitos (cuando
+  ninguna lada coincide) es la que, el 12/10/2026, reescribía con «52» adelante el teléfono de la
+  ficha del CRM con sólo abrirlo y cerrarlo: ver [hallazgos-crm.md](hallazgos-crm.md) → «La revisión
+  de lo invisible del feedback del 12/10».
 - **Estados Unidos y Canadá comparten `+1`**, y el `PAISES.map` daba dos opciones con la
   misma `value` → React tiraba «Encountered two children with the same key» (venía de antes,
   en el onboarding) y con claves repetidas puede omitir o duplicar renglones. Se funden en un

@@ -39,7 +39,10 @@ import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 // ese dato es el que viaja a Meta. Mismo control y misma columna que en Reuniones.
 import { CalificacionCard } from '../lead-view/CalificacionCard';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
-import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
+import { AnalystDelLead } from '../lead-view/AnalystDelLead';
+import { ANCHO_FICHA_LEAD, ALTO_CHAT_EN_LA_RUTA } from '../lead-view/ficha-medidas';
+import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
+import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
 import { faltantesDeLead } from '@/lib/leads';
@@ -96,7 +99,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   // ⚠️ ACÁ SE GATEABAN LOS LINKS A MICROSOFT CLARITY, y se fueron el 06/10/2026
   // con Clarity entero (ver el mismo comentario en app/crm/actions.ts, que es la
   // otra puerta de esta MISMA ficha). `replayDeLead` no tira nunca.
-  const [respuestas, insightGen, equipo, funnels, replay, cobro] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction(), listarFunnels().catch(() => []), replayDeLead(lead.visitor_id, ultimaActividad), senalesDeCobroAction(lead.id)]);
+  const [respuestas, insightGen, equipo, funnels, replay, cobro, verTracking] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction(), listarFunnels().catch(() => []), replayDeLead(lead.visitor_id, ultimaActividad), senalesDeCobroAction(lead.id), verTrackingDeLead(lead.funnel_id)]);
   // Los productos para el desplegable de la ficha. Sólo el id, el nombre y si es el del
   // negocio: lo demás no lo necesita la pantalla y bajaría la config entera de cada embudo
   // al navegador.
@@ -147,6 +150,11 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     etapas: stages, etapaActual: stageKey,
   });
 
+  // Las dos pestañas que dependen del FUNNEL del lead (su casa), con la MISMA regla que el modal:
+  // «Tracking» si su funnel tiene una campaña de Meta asignada (punto 18; `verTracking`, arriba, con
+  // la lectura caída da `true`) y «Reuniones» si tiene una etapa de reunión (punto 13).
+  const verReuniones = tieneEtapaDeReunion(stages);
+
   // La tab Pagos: LA MISMA regla que el modal (lib/muestra-pagos.ts), con los mismos datos.
   const verPagos = muestraPagos({ estado: lead.estado_lead, etapa: stageKey, cuotas: pagos.length, planEnLead: planEnLead(lead), ...cobro });
 
@@ -160,7 +168,9 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
 
   return (
     <main className="crm-hover" style={{ minHeight: '100vh', width: '100%', background: 'var(--bg)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", padding: 'clamp(20px,4vw,44px)' }}>
-      <div style={{ maxWidth: 920, margin: '0 auto' }}>
+      {/* El mismo ancho que el pop-up del tablero (punto 14, lead-view/ficha-medidas.ts): es la misma
+          ficha por otra puerta. */}
+      <div style={{ maxWidth: ANCHO_FICHA_LEAD, margin: '0 auto' }}>
         <BackButton />
         {/* HEADER (nombre + chip + Editar) y tabs viven en LeadDetailBody; la
             cohorte pasó adentro de Información principal. */}
@@ -172,10 +182,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           initialEdit={edit === '1'}
           initialSolucionar={solucionar === '1'}
           nombre={lead.nombre}
-          empresa={lead.empresa}
-          createdISO={lead.created_at}
           stageLabel={sm?.label ?? lead.estado_lead}
-          chipTone={sm?.tone ?? 'neutral'}
           faltantes={faltantes}
           equipo={equipo}
           productos={productos}
@@ -209,6 +216,9 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                     telefono={lead.telefono}
                     web={lead.web ?? null}
                     cohorte={lead.fecha_junta_1 ? { label: cohorteLabel, color: cohorteColor, texto: textoJ1 } : null}
+                    // Mig 0258 (12/10/2026): el ingreso estimado (punto 21) y el Instagram (punto 28).
+                    ingresoEstimado={lead.ingreso_estimado ?? null}
+                    instagram={lead.instagram ?? null}
                   />
                   {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del
                       lead. Como pestaña propia se escribieron 4 en toda la base — no
@@ -247,7 +257,10 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 </>
               ),
             },
-            {
+            // ⚠️ SÓLO SI EL FUNNEL DEL LEAD TIENE UNA CAMPAÑA DE META ASIGNADA (punto 18, 12/10/2026:
+            // «La tab de "Tracking" recién debería salir si configuré una campaña vinculado a ese
+            // funnel, sino que no aparezca»). Igual que el modal.
+            ...(verTracking ? [{
               key: 'comportamiento', label: 'Tracking',
               // ⚠️ EL ORDEN LO DECIDIÓ MARTÍN, textual (05/10/2026): «la primera sección debe
               // ser "Origen del lead" y luego "Comportamiento" y por ultimo "Actividad
@@ -270,8 +283,9 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                   <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={trackingEventos} pixelPuesto={pixelPuesto} replay={replay} />
                 </>
               ),
-            },
-            { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
+            }] : []),
+            // ⚠️ SÓLO SI EL FUNNEL TIENE UNA ETAPA DE REUNIÓN (punto 13), igual que el modal.
+            ...(verReuniones ? [{ key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> }] : []),
             // ⚠️ SOLO CUANDO TIENE ALGO ADENTRO, igual que en el modal. En 1.124 de los
             // 1.138 leads esta pestaña no decía más que «está vacía»: una pestaña cuyo
             // único contenido es avisar que no hay contenido se abre una vez y no se
@@ -281,16 +295,21 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
             ...(verPagos ? [{ key: 'cobranza', label: 'Pagos', badge: cuotasPendientes, content: <DealDetailsCard lead={lead} pagos={pagos} /> }] : []),
             // Análisis va pegado a Historial: las dos contestan «qué pasó con esta
             // persona» —una lo interpreta, la otra lo registra— y se leen seguidas.
+            //
+            // ⚠️ DESDE EL 12/10/2026 SE LLAMA «MaKo Analyst» Y ES UN CHAT atado a este lead (punto 19),
+            // con el análisis de las llamadas debajo, plegado y sólo si hay algo. La MISMA pieza que el
+            // modal (lead-view/AnalystDelLead.tsx). La `key` no cambia: viaja en los links (`?tab=`).
             {
-              key: 'insights', label: 'Análisis', badge: insights.length,
+              key: 'insights', label: 'MaKo Analyst',
               content: (
-                <GeneratedInsightCard
+                <AnalystDelLead
                   lead={lead}
                   stages={stages}
                   tienePlan={pagos.length > 0}
                   inicial={insightGen}
                   faltantesIniciales={faltantesParaInsights(lead, pagos.length > 0, stages)}
                   llamadas={insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
+                  alto={ALTO_CHAT_EN_LA_RUTA}
                 />
               ),
             },

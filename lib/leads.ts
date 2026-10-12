@@ -109,6 +109,15 @@ export type Lead = {
   empresa: string | null;
   /** La web del lead (mig 0194). Reemplazó a «Dirección» en la ficha el 06/10/2026. */
   web?: string | null;
+  /**
+   * Lo que alguien CREE que vale el lead mientras está abierto, en USD (mig 0258, punto 21 del
+   * 12/10/2026). NO es una venta: Revenue y el dashboard siguen leyendo `monto_cierre_usd` /
+   * `suscripcion_monto_usd`. El tablero lo suma por columna con la marca de estimado. Opcional
+   * porque la migración puede no estar aplicada en una base vieja (con `select('*')` no llega).
+   */
+  ingreso_estimado?: number | null;
+  /** Usuario de Instagram SIN la @ (mig 0258, punto 28). La foto del perfil no se guarda: vence. */
+  instagram?: string | null;
   /** La cara que ELIGIÓ una persona (mig 0173/0174), desde la ficha del cliente. Gana sobre
    *  la foto automática (WhatsApp / Gravatar), que se calcula al leer y nunca se escribe acá. */
   avatar_url?: string | null;
@@ -292,6 +301,11 @@ export type LeadCreateInput = {
   origen_lead?: string | null;
   telefono_normalizado?: string | null;
   visitor_id?: string | null;
+  /**
+   * El usuario de Instagram, SIN la @ (mig 0258, punto 28 del 12/10/2026): lo elige el buscador
+   * del alta (app/crm/new/InstagramBuscador.tsx) y llega normalizado por `usuarioInstagram`.
+   */
+  instagram?: string | null;
 };
 
 export type LeadUpdateInput = {
@@ -347,6 +361,10 @@ const LISTA_COLS =
   'fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado, fecha_confirmacion, fecha_primer_pago, fecha_cierre, ' +
   'monto_cierre_usd, total_cobrado_usd, closer, setter, fathom_links, motivo_perdida, visitor_id, ' +
   'venta_tipo, suscripcion_monto_usd, suscripcion_meses, ' +
+  // ⚠️ MIG 0258 ANTES DEL DEPLOY: el tablero suma `ingreso_estimado` por columna (punto 21) y
+  // la ficha muestra `instagram` (punto 28). Una columna que no existe acá rechaza la consulta
+  // ENTERA y el CRM abre vacío, sin un error que lo diga.
+  'ingreso_estimado, instagram, ' +
   'meta_ad_name, meta_campaign_name, meta_lead_id, meta_ad_id, utm_campaign, ' +
   // ⚠️ Estas cuatro las LEEN los mappers y no se pedían: `origenAds` (el filtro por
   // campaña y por anuncio) necesita `utm_content`, que es donde la landing guarda el
@@ -869,6 +887,10 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
       utm_content: input.utm_content?.trim() || null,
       fbclid: input.fbclid?.trim() || null,
       funnel_id: input.funnel_id ?? null,
+      // ⚠️ SÓLO SI VINO: un insert que NOMBRA una columna que no existe se rechaza ENTERO. Sin
+      // la mig 0258 aplicada, un alta sin Instagram tiene que seguir entrando; con Instagram,
+      // el error dice qué columna falta en vez de perder el lead en silencio.
+      ...(input.instagram?.trim() ? { instagram: input.instagram.trim() } : {}),
       ...(solo ? { setter: solo, closer: solo } : {}),
     })
     .select('*')
@@ -1576,6 +1598,10 @@ const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
   { k: 'telefono', label: 'Teléfono' },
   { k: 'empresa', label: 'Empresa' },
   { k: 'web', label: 'Web' },
+  // Los dos de la mig 0258 (12/10/2026). Revertibles: app/crm/actions.ts, REVERTIBLES y los
+  // dos switch de revertir.
+  { k: 'ingreso_estimado', label: 'Ingreso estimado' },
+  { k: 'instagram', label: 'Instagram' },
   { k: 'estado_lead', label: 'Estado' },
   { k: 'fecha_agenda', label: 'Fecha de agendamiento' },
   { k: 'asistio_j1', label: 'Asistió R1' },
@@ -2855,6 +2881,10 @@ export type LeadMetaInput = {
   telefono?: string | null;
   empresa?: string | null;
   web?: string | null;
+  /** Ingreso ESTIMADO en USD (mig 0258). Llega ya validado (≥ 0) por `valorDeCampo`. */
+  ingreso_estimado?: number | null;
+  /** Usuario de Instagram sin la @ (mig 0258). Llega ya normalizado por `valorDeCampo`. */
+  instagram?: string | null;
 };
 
 /** Lo que `setBoardStageOverride` lee del lead ANTES de escribir: su etapa y su producto, y lo que
@@ -3002,6 +3032,8 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
   if (meta.email !== undefined) payload.email = meta.email;
   if (meta.empresa !== undefined) payload.empresa = meta.empresa;
   if (meta.web !== undefined) payload.web = meta.web;
+  if (meta.ingreso_estimado !== undefined) payload.ingreso_estimado = meta.ingreso_estimado;
+  if (meta.instagram !== undefined) payload.instagram = meta.instagram;
   if (meta.telefono !== undefined) { payload.telefono = meta.telefono; payload.telefono_normalizado = normalizarTelefono(meta.telefono); }
   if (Object.keys(payload).length === 0) return;
   // Una FECHA DE REUNIÓN cargada acá cambia la etapa derivada como en `updateLead` (M1-b): se lee la etapa de antes

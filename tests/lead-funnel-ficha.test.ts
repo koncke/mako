@@ -18,15 +18,21 @@
 // (el molde es `traer` de tests/flow-estado-clip.test.ts). El cableado se mira sobre el código
 // sin comentarios.
 //
-// ⚠️ PROBADO ROMPIÉNDOLO, las ocho, restaurando de memoria (06/10/2026). Con todo puesto: 8 pases, 0 fallos.
-//   · la X sin mirar puedeQuitar (`return 'quitar'` en accionDelRenglon) ....... 1 FALLO, 7 pases
-//   · el desplegable le pasa `true` en vez de `ficha.puedeQuitar` ................ 1 FALLO, 7 pases
-//   · sin el «+»: el renglón donde no está queda sin acción ....................... 1 FALLO, 7 pases
-//   · vuelve el Confirm «Mover a X» (import de Confirm en ProductoDelLead) ........ 1 FALLO, 7 pases
-//   · el pop-up dibuja siempre el selector de la casa (sin EtapaEnProducto) ....... 1 FALLO, 7 pases
-//   · la ruta /crm/[id] dibuja siempre el selector de la casa ..................... 1 FALLO, 7 pases
-//   · la vista sigue al pedido aunque el lead NO esté ahí (sin `&& p.esta`) ....... 1 FALLO, 7 pases
-//   · la etapa no espera cuando la casa del server ≠ la de la pantalla ........... 1 FALLO, 7 pases
+// ⚠️ DESDE EL 12/10/2026 SON UN SOLO DESPLEGABLE, EN ÁRBOL (punto 9: «Que sea solo 1 desplegable de
+// "PROSPECCIÓN" que es el funnel, y que sea un desplegable tipo arbol, que dentro de "PROSPECCIÓN"
+// tenga mis etapas... O le pueda agregar a otros funnel»): `FunnelYEtapa` en ProductoDelLead.tsx.
+// Qué se ofrece en cada funnel lo decide app/crm/lead-view/arbol-funnels.ts, que es puro y acá se
+// IMPORTA y se ejecuta (ahí vive también `accionDelRenglon`, que se mudó con el árbol).
+//
+// ⚠️ PROBADO ROMPIÉNDOLO, restaurando de memoria. Lo de abajo, medido el 12/10/2026 sobre la versión
+// en árbol (las roturas del 06/10 que tocaban los dos desplegables viejos se fueron con ellos).
+// Con todo puesto: 13 pases, 0 fallos.
+//   · «Quitar» sin mirar puedeQuitar (`return 'quitar'` en accionDelRenglon) ...... 1 FALLO, 12 pases
+//   · el árbol pinta la etapa de la casa del SERVER y no la de la pantalla ......... 1 FALLO, 12 pases
+//   · un funnel donde NO está ofrece sus etapas en vez de «Agregar» ................. 1 FALLO, 12 pases
+//   · el desplegable no espera (sin `disabled={ficha.esperando}`) .................. 1 FALLO, 12 pases
+//   · la casa se mueve sin pasar por la ficha (sin `onElegirCasa`) .................. 1 FALLO, 12 pases
+//   · la vista sigue al pedido aunque el lead NO esté ahí (sin `&& p.esta`) ......... 1 FALLO, 12 pases
 // =============================================================================
 
 import { test } from 'node:test';
@@ -34,6 +40,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ts from 'typescript';
+import {
+  accionDelRenglon, funnelsDelArbol, seccionesDelArbol, leerEleccion, valorEtapa, etapasEnOrden, funnelEnVista,
+} from '../app/crm/lead-view/arbol-funnels';
 
 const leer = (p: string) => readFileSync(resolve(import.meta.dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src
@@ -70,18 +79,10 @@ function traer<T>(nombre: string): T {
 }
 
 type P = { id: number; esta: boolean; esCasa: boolean };
-const accionDelRenglon = traer<(esta: boolean, puedeQuitar: boolean) => 'quitar' | 'agregar' | null>('accionDelRenglon');
 const productoEnVista = traer<(ps: readonly P[] | null, pedido: number | null) => P | null>('productoEnVista');
 const etapaEnEspera = traer<(o: { cargado: boolean; fallo: boolean; idEnVista: number | null; vistaEsCasa: boolean; casaDeLaPantalla: number | null }) => boolean>('etapaEnEspera');
 
 // ── Lo puro, ejecutado ─────────────────────────────────────────────────────────
-
-test('la X sólo donde está y sólo con dos productos o más; el «+» en todos los que no está', () => {
-  assert.equal(accionDelRenglon(true, true), 'quitar');
-  assert.equal(accionDelRenglon(true, false), null, 'con uno solo, sacarlo lo dejaría en ningún tablero');
-  assert.equal(accionDelRenglon(false, true), 'agregar');
-  assert.equal(accionDelRenglon(false, false), 'agregar', 'el «+» no depende de cuántos tenga');
-});
 
 test('el producto en vista: el de la URL si el lead ESTÁ ahí; si no, su casa', () => {
   const ps: P[] = [
@@ -111,19 +112,99 @@ test('la etapa ESPERA mientras no se sabe qué se mira, y mientras la casa del s
   assert.equal(etapaEnEspera({ ...cargado, idEnVista: 14, vistaEsCasa: true }), true);
 });
 
-// ── El desplegable ────────────────────────────────────────────────────────────
+// ── El árbol (ejecutado) ──────────────────────────────────────────────────────
 
-test('cada renglón: la X (roja) con puedeQuitar, el «+» (neutro) donde no está, y «No está» en gris', () => {
-  const b = entre(PROD, 'const opciones: DropdownOption[] = productos', 'const enVista');
-  assert.match(b, /const accion = accionDelRenglon\(p\.esta, ficha\.puedeQuitar\);/, 'la X tiene que mirar puedeQuitar');
-  assert.match(b, /sub: p\.esta \? undefined : 'No está',/);
-  assert.match(b, /accion === 'quitar'\s*\? \[\{ icono: <IconoQuitar \/>, title: 'Quitar de este funnel', tone: 'bad' as const, cierra: true, onClick: \(\) => ficha\.quitar\(p\) \}\]/);
-  const mas = b.match(/accion === 'agregar'\s*\? \[\{([^\]]*)\}\]/);
-  assert.ok(mas, 'falta el «+» en los productos donde no está');
-  assert.match(mas[1], /icono: <IconoAgregar \/>, title: 'Agregar a este funnel', cierra: true, onClick: \(\) => ficha\.agregar\(p\)/);
-  assert.doesNotMatch(mas[1], /tone:/, 'el «+» va en tono neutro: agregar no es una acción peligrosa');
-  // Elegir el renglón: donde está, MIRARLO; donde no, lo mismo que el «+».
-  assert.match(PROD, /if \(p\.esta\) ficha\.verProducto\(p\.id\); else ficha\.agregar\(p\);/);
+/** Las etapas de la casa como las tiene la PANTALLA (con `col`), y las de un agregado como las trae el server. */
+const ETAPAS_CASA = [
+  { key: 'nopaga', label: 'Nutrición - No Paga', band: 'nutricion', dot: '#a', col: 0 },
+  { key: 'agenda', label: 'Agenda R1', band: 'pipeline', dot: '#b', col: 1 },
+  { key: 'lead', label: 'Lead entrante', band: 'pipeline', dot: '#c', col: 0 },
+  { key: 'perdido', label: 'Perdido', band: 'salidas', dot: '#d', col: 0 },
+];
+const FOTO = [
+  { id: 1, nombre: 'PROSPECCIÓN', esDefault: true },
+  { id: 14, nombre: 'Mentoría', esDefault: false },
+  { id: 20, nombre: 'Taller', esDefault: false },
+];
+const SERVER = [
+  // La casa, con la etapa VIEJA: el server sólo se relee tras agregar/quitar/mover en un agregado.
+  { id: 1, nombre: 'PROSPECCIÓN', esDefault: true, esta: true, esCasa: true, etapa: 'lead', etapas: [{ key: 'lead', label: 'Lead entrante' }] },
+  { id: 14, nombre: 'Mentoría', esDefault: false, esta: true, esCasa: false, etapa: 'm2', etapas: [{ key: 'm1', label: 'Nuevo' }, { key: 'm2', label: 'Círculo ROJO' }] },
+  { id: 20, nombre: 'Taller', esDefault: false, esta: false, esCasa: false, etapa: null, etapas: [] },
+];
+
+test('el árbol: sin respuesta del server, SÓLO la casa, con las etapas de la pantalla', () => {
+  const fs = funnelsDelArbol({ foto: FOTO, productos: null, casaId: 1, etapasCasa: ETAPAS_CASA, etapaCasa: 'agenda' });
+  assert.equal(fs.length, 1, 'sin saber si está en los otros, no se afirma nada de ellos');
+  assert.deepEqual([fs[0].id, fs[0].nombre, fs[0].esCasa, fs[0].etapa], [1, 'PROSPECCIÓN', true, 'agenda']);
+  // Sin la casa en la pantalla (NULL = el del negocio), es el del negocio.
+  assert.equal(funnelsDelArbol({ foto: FOTO, productos: null, casaId: null, etapasCasa: [], etapaCasa: null })[0].id, 1);
+});
+
+test('el árbol: la casa con las etapas y la etapa de la PANTALLA; el agregado con las suyas; donde no está, sólo «Agregar»', () => {
+  const fs = funnelsDelArbol({ foto: FOTO, productos: SERVER, casaId: 1, etapasCasa: ETAPAS_CASA, etapaCasa: 'agenda' });
+  assert.equal(fs[0].etapa, 'agenda', 'la etapa de la casa es la de la pantalla, no la que guardó el server');
+  assert.equal(fs[0].etapas.length, 4, 'y sus etapas, las del wizard');
+  const [casa, mentoria, taller] = seccionesDelArbol(fs, true);
+  // La casa: sus etapas EN EL ORDEN DEL TABLERO (pipeline por columna, nutrición, salida), con una
+  // línea donde cambia la banda, y «Quitar» al fondo.
+  assert.deepEqual(casa.options.map((o) => o.label), ['Lead entrante', 'Agenda R1', 'Nutrición - No Paga', 'Perdido', 'Quitar de este funnel']);
+  assert.deepEqual(casa.options.map((o) => !!o.lineaArriba), [false, false, true, true, true]);
+  assert.equal(casa.resumen, 'Agenda R1', 'la fila de la raíz dice su etapa');
+  assert.equal(leerEleccion(casa.options[1].value)?.tipo, 'etapa');
+  // El agregado: SUS etapas.
+  assert.deepEqual(mentoria.options.map((o) => o.label), ['Nuevo', 'Círculo ROJO', 'Quitar de este funnel']);
+  assert.equal(mentoria.resumen, 'Círculo ROJO');
+  // Donde no está: una sola opción, y la raíz dice «No está».
+  assert.deepEqual(taller.options.map((o) => o.label), ['Agregar a este funnel']);
+  assert.deepEqual(leerEleccion(taller.options[0].value), { tipo: 'agregar', funnelId: 20 });
+  assert.equal(taller.resumen, 'No está');
+});
+
+test('«Quitar» sólo con dos funnels o más; «Agregar» siempre donde no está', () => {
+  assert.equal(accionDelRenglon(true, true), 'quitar');
+  assert.equal(accionDelRenglon(true, false), null, 'con uno solo, sacarlo lo dejaría en ningún tablero');
+  assert.equal(accionDelRenglon(false, true), 'agregar');
+  assert.equal(accionDelRenglon(false, false), 'agregar', 'agregar no depende de cuántos tenga');
+  const fs = funnelsDelArbol({ foto: FOTO, productos: SERVER, casaId: 1, etapasCasa: ETAPAS_CASA, etapaCasa: 'agenda' });
+  const sinQuitar = seccionesDelArbol(fs, false);
+  assert.ok(sinQuitar.every((g) => !g.options.some((o) => leerEleccion(o.value)?.tipo === 'quitar')), 'sin puedeQuitar no hay «Quitar» en ningún funnel');
+  assert.deepEqual(leerEleccion(seccionesDelArbol(fs, true)[1].options.at(-1)!.value), { tipo: 'quitar', funnelId: 14 });
+});
+
+test('el valor de un renglón dice QUÉ funnel y QUÉ hacer, aunque la etapa traiga dos puntos', () => {
+  assert.deepEqual(leerEleccion(valorEtapa(14, 'r1:llamada')), { tipo: 'etapa', funnelId: 14, etapa: 'r1:llamada' });
+  assert.equal(leerEleccion(''), null);
+  assert.equal(leerEleccion('e:14'), null, 'una etapa sin clave no es una elección');
+  assert.equal(leerEleccion('a:14:x'), null);
+  assert.equal(leerEleccion('basura'), null);
+});
+
+test('dos funnels con el mismo nombre no comparten sección (la navegación del Dropdown va por título)', () => {
+  const fs = [
+    { id: 1, nombre: 'Ventas', esta: true, esCasa: true, etapa: 'a', etapas: [{ key: 'a', label: 'A' }] },
+    { id: 2, nombre: 'Ventas', esta: false, esCasa: false, etapa: null, etapas: [] },
+  ];
+  assert.deepEqual(seccionesDelArbol(fs, false).map((g) => g.title), ['Ventas', 'Ventas (2)']);
+});
+
+test('el botón nombra el funnel que se mira si el lead ESTÁ ahí; si no, la casa', () => {
+  const fs = funnelsDelArbol({ foto: FOTO, productos: SERVER, casaId: 1, etapasCasa: ETAPAS_CASA, etapaCasa: 'agenda' });
+  assert.equal(funnelEnVista(fs, 14)?.id, 14);
+  assert.equal(funnelEnVista(fs, 20)?.id, 1, 'donde no está no se puede mirar');
+  assert.equal(funnelEnVista(fs, null)?.id, 1);
+  assert.deepEqual(etapasEnOrden([{ key: 'x', label: 'X' }, { key: 'y', label: 'Y', band: 'salidas' }, { key: 'z', label: 'Z' }]).map((e) => e.key), ['x', 'z', 'y'], 'sin columna, el orden de llegada dentro de la banda');
+});
+
+// ── El desplegable (cableado) ─────────────────────────────────────────────────
+
+test('el componente arma el árbol con el estado de la ficha, y agregar/quitar van por el server del hook', () => {
+  const comp = entre(PROD, 'export function FunnelYEtapa', '\n}\n');
+  assert.match(comp, /funnelsDelArbol\(\{ foto: ficha\.foto, productos: ficha\.productos, casaId: ficha\.casaId, etapasCasa, etapaCasa \}\)/);
+  assert.match(comp, /seccionesDelArbol\(funnels, ficha\.puedeQuitar\)/, 'la X tiene que mirar puedeQuitar');
+  assert.match(comp, /secciones=\{secciones\}/, 'es el Dropdown de la casa en modo árbol, no un menú propio');
+  assert.match(comp, /if \(e\.tipo === 'agregar'\) \{ if \(p\) ficha\.agregar\(p\); return; \}/);
+  assert.match(comp, /if \(e\.tipo === 'quitar'\) \{ if \(p\) ficha\.quitar\(p\); return; \}/);
 });
 
 test('sin Confirm de mover: actúa al toque y el aviso trae Deshacer', () => {
@@ -151,20 +232,24 @@ test('en un producto AGREGADO la etapa es la de su fila y se mueve con moverEtap
   assert.match(mover, /await moverEtapaEnProductoAction\(leadId, p\.id, etapa\)/);
   assert.match(mover, /show\(`Movido a \$\{nombre\}`, \(\) => \{[\s\S]*moverEtapaEnProductoAction\(leadId, p\.id, r\.antes\)/, 'con Deshacer, que vuelve a la etapa de antes');
   assert.doesNotMatch(mover, /StageMoveDialog|MoverEtapaConfirm|setPipelineStage|setMoveTo/);
-  const sel = entre(PROD, 'export function EtapaEnProducto', '\n}\n');
-  assert.match(sel, /value=\{producto\.etapa \?\? ''\}/);
-  assert.match(sel, /onChange=\{\(k\) => ficha\.moverEtapa\(producto, k\)\}/);
-  assert.match(sel, /producto\.etapas/, 'las etapas de ESE producto, no las de la casa');
+  // En el árbol: la etapa de un funnel AGREGADO se mueve con `ficha.moverEtapa`, la de la CASA la
+  // decide la ficha (`onElegirCasa`: wizard o confirmación). Nunca al revés.
+  const elegir = entre(PROD, 'const elegir = (v: string) =>', 'return (');
+  assert.match(elegir, /if \(f\.esCasa\) onElegirCasa\(e\.etapa\);\s*else if \(p\) ficha\.moverEtapa\(p, e\.etapa\);/);
+  assert.match(elegir, /ficha\.verProducto\(f\.id\);/, 'el funnel donde se movió pasa a ser el que se mira');
 });
 
-test('las dos puertas: agregado → EtapaEnProducto; casa → el selector de siempre, que espera si no se sabe', () => {
+test('las dos puertas montan el MISMO árbol, con las etapas de la casa que tiene la pantalla, y espera si no se sabe', () => {
   for (const [f, src, casa] of [['LeadSheet', SHEET, 'stageKey'], ['LeadDetailBody', RUTA, 'currentStage']] as const) {
-    assert.match(src, /const agregado = fichaProd\.vista && !fichaProd\.vista\.esCasa \? fichaProd\.vista : null;/, `${f}: falta el producto en vista`);
-    assert.match(src, /agregado\s*\?\s*\(?\s*<EtapaEnProducto ficha=\{fichaProd\} producto=\{agregado\}/, `${f}: el agregado no usa sus etapas`);
-    assert.match(src, new RegExp(`value=\\{fichaProd\\.esperando \\? '' : ${casa}\\}`), `${f}: la casa no espera`);
-    assert.match(src, /disabled=\{fichaProd\.esperando\}/);
-    assert.match(src, /<ProductoDelLead ficha=\{fichaProd\}/);
+    assert.match(src, new RegExp(`<FunnelYEtapa ficha=\\{fichaProd\\} etapasCasa=\\{stages\\} etapaCasa=\\{${casa}\\} onElegirCasa=\\{pickStage\\}`), `${f}: el árbol no recibe la casa de la pantalla`);
+    assert.doesNotMatch(src, /<ProductoDelLead|<EtapaEnProducto/, `${f}: volvieron los dos desplegables`);
+    // La casa se mueve por el camino de siempre: wizard o confirmación.
+    assert.match(src, /pideWizardAlElegir\(stages, (k|key)\)\) setMoveTo\((k|key)\); else setMoverDirecto\((k|key)\)/, `${f}: la casa no decide entre wizard y mover`);
   }
+  // Y el desplegable ESPERA (apagado, sin etapa elegida) en las dos ventanas de `etapaEnEspera`.
+  const comp = entre(PROD, 'export function FunnelYEtapa', '\n}\n');
+  assert.match(comp, /disabled=\{ficha\.esperando\}/);
+  assert.match(comp, /value=\{ficha\.esperando \|\| !enVista \|\| !etapa \? '' : valorEtapa\(enVista\.id, etapa\.key\)\}/);
 });
 
 test('la vista inicial sale del tablero desde el que se abrió (?funnel=N), y el pop-up se relee si cambia la casa', () => {

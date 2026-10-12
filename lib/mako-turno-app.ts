@@ -170,7 +170,20 @@ const SIN_TOOLS_APP = `EN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el 
 
 // ── El turno ─────────────────────────────────────────────────────────────────
 
-export type EntradaTurnoApp = { mensaje: string; adjuntos?: AdjuntoListo[] };
+export type EntradaTurnoApp = {
+  mensaje: string;
+  adjuntos?: AdjuntoListo[];
+  /**
+   * Lo que la PANTALLA ata a esta conversación: hoy, la ficha de un lead en «MaKo Analyst»
+   * (lib/mako-analyst-lead.ts, 12/10/2026: «un chat con la IA que por defecto tenga atado los
+   * datos de ese lead»). Lo arma el código leyendo la API de MaKo EN ESTE turno y va al FINAL
+   * del system, así que manda sobre la voz del teléfono. NO se guarda en el hilo: los datos del
+   * lead cambian entre turnos, y guardados serían la foto del primero (AGENTS.md, «Un dato
+   * EXACTO que viaja con un trabajo diferido es la FOTO de cuando se guardó»). Sin esto, el
+   * turno de siempre.
+   */
+  contexto?: string;
+};
 
 /** El cartel de la plataforma: se muestra y NO se guarda (AGENTS.md, «Un cartel de la
  *  PLATAFORMA no es un turno de la conversación»). */
@@ -288,7 +301,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       ? `\n\n${TOOLS_APP}${recetasDelTurno(permitidas, turno.ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\n${CANAL_APP}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
       : `\n\n${SIN_TOOLS_APP}`;
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
-    const system = `${base}\n\n${VOZ_APP}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
+    const ctxAtado = (entrada.contexto ?? '').trim();
+    const system = `${base}\n\n${VOZ_APP}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
     // ── Las herramientas ───────────────────────────────────────────────────────
     const runRegistro = runnerDelRegistro(ctx);

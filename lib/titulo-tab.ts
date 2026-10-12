@@ -74,9 +74,17 @@ function desdeLaRuta(pathname: string): string | null {
  * Antepone la marca, salvo que el nombre de la sección ya la traiga: hay dos que
  * la tienen adentro ("Preguntale a MaKo", "WhatsApp de MaKo") y quedaban como
  * "MaKo - WhatsApp de MaKo". El producto se nombra una vez.
+ *
+ * ⚠️ Y EL NOMBRE SALE COMO LO VA A DEVOLVER `document.title` (revisión del 12/10/2026):
+ * sin espacios en las puntas ni repetidos. El navegador los saca al leerlo, y
+ * TituloTab compara lo que lee con esto para decidir si reescribe: con «/reportes-»
+ * (un link roto) el título era «MaKo - Reportes », la comparación no daba igual
+ * NUNCA y su MutationObserver reescribía sin fin, con la pestaña congelada.
  */
 function conMarca(label: string): string {
-  return /\bmako\b/i.test(label) ? label : `${MARCA} - ${label}`;
+  const limpio = label.replace(/\s+/g, ' ').trim();
+  if (!limpio) return MARCA;
+  return /\bmako\b/i.test(limpio) ? limpio : `${MARCA} - ${limpio}`;
 }
 
 export function tituloDe(pathname: string): string {

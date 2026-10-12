@@ -91,6 +91,27 @@ export function unirTelefono(lada: string, local: string): string {
 }
 
 /**
+ * Lo que se escribió o se pegó en el campo del NÚMERO de `TelefonoConPais`: si arranca con `+`, lo
+ * que sigue es el código de país, y va al selector (`lada`); si no, `lada: null` (no se toca).
+ *
+ * ⚠️ REVISIÓN DEL 12/10/2026: el campo borraba el `+` y dejaba los dígitos del país ADENTRO del
+ * número. Pegar «+54 9 11 2233-4455» (copiado de WhatsApp) con México elegido guardaba
+ * «525491122334455»: dos códigos de país y un número al que el WhatsApp no llega. Mientras el código
+ * todavía no se reconoce (se está tipeando «+5»), el `+` y los dígitos quedan en el campo sin decidir
+ * nada. Tipeado de a uno, decide el primer código que se reconoce («+1» antes que «+1809»): los
+ * dígitos que se guardan son los mismos.
+ */
+export function numeroTecleado(texto: string): { lada: string | null; numero: string } {
+  const t = (texto || '').trimStart();
+  if (!t.startsWith('+')) return { lada: null, numero: (texto || '').replace(/[^\d\s-]/g, '') };
+  const digitos = t.replace(/\D/g, '');
+  const p = splitTelefono(digitos);
+  // `splitTelefono` cae a la lada por defecto con TODOS los dígitos cuando ninguna coincide.
+  if (digitos && p.resto.length < digitos.length) return { lada: p.lada, numero: p.resto };
+  return { lada: null, numero: `+${t.slice(1).replace(/[^\d\s-]/g, '')}` };
+}
+
+/**
  * Zona horaria por código de país — SOLO para los países que tienen UNA sola.
  *
  * ⚠️ La lista es corta a propósito y lo que NO está es lo importante. Estados

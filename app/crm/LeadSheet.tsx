@@ -12,7 +12,8 @@
 import Link from '@/app/_ui/Link';
 import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { useRouter } from '@/app/_ui/Link';
-import { CHIP, BAND_LABEL, deriveStageKey, stageMeta, nutricionPositivaDe, type Stage, type StageBand } from '@/lib/pipeline';
+import { deriveStageKey, stageMeta, nutricionPositivaDe, type Stage } from '@/lib/pipeline';
+import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
 import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
@@ -20,22 +21,23 @@ import { deleteLeadInlineAction, getLeadFullAction, type LeadFullData } from './
 import { StageMoveDialog, type MoveLeadInfo } from './StageMoveDialog';
 import { MoverEtapaConfirm } from './MoverEtapaConfirm';
 import { pideWizardAlElegir } from './mover-etapa';
-import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import type { FathomLink } from '@/lib/leads';
 import { suscripcionDeFila } from '@/lib/venta-tipo';
 import { muestraPagos, planEnLead, tieneDeal } from '@/lib/muestra-pagos';
 import { JourneyTimeline } from './JourneyTimeline';
 import { OrigenCard } from './lead-view/OrigenCard';
 import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
-import { CaraDelLead } from './lead-view/CaraDelLead';
-import { ProductoDelLead, EtapaEnProducto, useProductosDeLaFicha } from './lead-view/ProductoDelLead';
+import { CabeceraLead } from './lead-view/CabeceraLead';
+import { FunnelYEtapa, useProductosDeLaFicha } from './lead-view/ProductoDelLead';
+import { AnalystDelLead } from './lead-view/AnalystDelLead';
+import { ANCHO_FICHA_LEAD, ALTO_CHAT_EN_EL_POPUP } from './lead-view/ficha-medidas';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
 // «¿Era calificado?» vive también acá, en Tracking: hay funnels sin reuniones y
 // ese dato es el que viaja a Meta. Mismo control y misma columna que en Reuniones.
 import { CalificacionCard } from './lead-view/CalificacionCard';
 import { ReunionesCard } from './lead-view/ReunionesCard';
-import { GeneratedInsightCard } from './lead-view/GeneratedInsightCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
 import { LeadTabs } from './lead-view/LeadTabs';
 import { NotasCard } from './lead-view/NotasCard';
@@ -51,11 +53,6 @@ const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
-
-
-function IconX() {
-  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
-}
 
 export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; onClose: () => void; initialTab?: string }) {
   // ⚠️ LA FICHA SE RELEE CUANDO CAMBIA LA CASA DEL LEAD. Sus datos los trajo una action al abrir
@@ -83,7 +80,6 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     leadId: lead.id, casa: lead.funnel_id, foto: productos,
     onCasaCambiada: releer,
   });
-  const agregado = fichaProd.vista && !fichaProd.vista.esCasa ? fichaProd.vista : null;
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const onCloseRef = useRef(onClose);
@@ -123,7 +119,6 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
 
   const stageKey = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
   const sm: Stage | undefined = stageMeta(stages, stageKey);
-  const chip = sm ? CHIP[sm.tone] || CHIP.neutral : CHIP.neutral;
   const monto = lead.monto_cierre_usd ?? 0;
 
   const journey = buildJourney({
@@ -145,12 +140,9 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     etapas: stages, etapaActual: stageKey,
   });
 
-  // Cambiar etapa desde el header (botón a la derecha). `moveTo` abre el wizard de
-  // datos: solo para las etapas que lo necesitan, y para «Completar ahora».
+  // Cambiar etapa desde el header (el desplegable del funnel, a la derecha). `moveTo` abre el
+  // wizard de datos: solo para las etapas que lo necesitan, y para «Completar ahora».
   const [moveTo, setMoveTo] = useState<string | null>(null);
-  const stageOptions: DropdownOption[] = (['pipeline', 'nutricion', 'salidas'] as StageBand[]).flatMap((b) =>
-    stages.filter((s) => (s.band ?? 'pipeline') === b).sort((a, c) => (a.col ?? 0) - (c.col ?? 0)).map((s) => ({ value: s.key, label: s.label, sub: BAND_LABEL[b], color: s.dot })),
-  );
   const moveInfo: MoveLeadInfo = {
     id: lead.id, name: lead.nombre,
     fechaJ1: lead.fecha_junta_1, fechaJ2: lead.fecha_junta_2,
@@ -232,7 +224,8 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           modulo entero al navegador del cliente, que es la frontera que esta casa ya pago.
           Se calcula en el SERVER y baja por props, como hace la ruta. Queda anotado en
           docs/relevo/crm.md. */}
-      <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} web={lead.web ?? null} />
+      <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} web={lead.web ?? null}
+        ingresoEstimado={lead.ingreso_estimado ?? null} instagram={lead.instagram ?? null} />
       {/* Lo que contestó en el formulario de Meta. Hasta el 07/10/2026 sólo lo dibujaba la
           ruta, y el tablero abre ESTE pop-up: en el uso diario no se veía. Las respuestas
           llegan resueltas del server (`respuestasForm`, getLeadFullAction). */}
@@ -271,61 +264,68 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     </>
   );
 
+  // ⚠️ LAS PESTAÑAS QUE DEPENDEN DEL FUNNEL DEL LEAD (su casa), con la MISMA regla que la ruta
+  // /crm/[id]: Tracking si su funnel tiene una campaña de Meta asignada (lo decide el server; sin
+  // el dato, se dibuja), y Reuniones si tiene una etapa de reunión.
+  const verTracking = vigente.verTracking ?? true;
+  const verReuniones = tieneEtapaDeReunion(stages);
+
+  // MaKo Analyst: el chat y, debajo, plegado, el análisis de las llamadas (lead-view/AnalystDelLead.tsx).
+  const tabAnalyst = (
+    <AnalystDelLead
+      lead={lead}
+      stages={stages}
+      tienePlan={pagos.length > 0}
+      inicial={insightGen}
+      faltantesIniciales={faltantesInsight}
+      llamadas={insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
+      alto={ALTO_CHAT_EN_EL_POPUP}
+    />
+  );
+
   return (
     <FichaCambioProvider value={releer}>
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(16px,4vw,48px) clamp(10px,3vw,20px)' }}>
-      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="leadsheet-title" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, maxHeight: 'calc(100dvh - clamp(32px,8vw,96px))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden', outline: 'none' }}>
+      {/* ⚠️ MÁS ANCHO (punto 14 del 12/10/2026: «bastante más ancho, para aprovechar más el
+          espacio»): eran 760. El número vive en lead-view/ficha-medidas.ts, que también lee el
+          esqueleto de carga. Sin `aria-labelledby`: el nombre ahora es un campo editable, y un
+          diálogo no se nombra con un campo. */}
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={lead.nombre || 'Lead'} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: ANCHO_FICHA_LEAD, maxHeight: 'calc(100dvh - clamp(32px,8vw,96px))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden', outline: 'none' }}>
 
-        <div style={{ height: 3, background: sm?.dot ?? 'var(--accent)' }} />
+        {/* ⚠️ LA CABECERA ES LA MISMA PIEZA QUE LA DE LA RUTA (lead-view/CabeceraLead.tsx): la
+            portada con la cara del lead cruzándola (punto 11), el nombre que se edita con un clic,
+            las ETIQUETAS ARRIBA DEL NOMBRE en el lugar de la pastilla de la etapa (punto 9), y a la
+            derecha UN desplegable en árbol —el funnel con sus etapas adentro— ENCIMA de «N sin
+            marcar · Solucionar». La cruz va sobre la portada. Queda FIJA: no está adentro del
+            cuerpo que scrollea (punto 16).
 
-        {/* header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, padding: 'clamp(18px,4vw,24px) clamp(16px,4vw,28px) 12px' }}>
-          <div style={{ display: 'flex', gap: 14, minWidth: 0 }}>
-            {/* La cara: lo elegido → WhatsApp → Gravatar → iniciales (CaraDelLead). */}
-            <CaraDelLead nombre={lead.nombre} telefono={lead.telefono} fotoEmail={fotoEmail} fotoGuardada={lead.foto_auto_url} icono={lead.icono} avatarUrl={lead.avatar_url} color={chip.fg} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ marginBottom: 5 }}><span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{sm?.label ?? lead.estado_lead}</span></div>
-              <h2 id="leadsheet-title" style={{ fontWeight: 600, fontSize: 'clamp(20px,5vw,27px)', letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)', lineHeight: 1.1 }}>{lead.nombre}</h2>
-              <div style={{ fontSize: 14, color: 'var(--dim)', marginTop: 3 }}>{lead.empresa ?? 'Sin empresa'}</div>
-              <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', color: 'var(--faint)', marginTop: 4 }}>Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}</div>
-            </div>
-          </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ flex: 'none', width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconX /></button>
-        </div>
+            Antes eran tres renglones: la cabecera con la etapa en una pastilla, una fila con el
+            desplegable de producto y el de la etapa, y otra con las etiquetas. Martín (12/10/2026):
+            «Que sea solo 1 desplegable de "PROSPECCIÓN" que es el funnel, y que sea un desplegable
+            tipo arbol». */}
+        <CabeceraLead
+          lead={lead}
+          fotoEmail={fotoEmail}
+          onCerrar={onClose}
+          kicker={<EtiquetasDelLead leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
+          acciones={
+            <>
+              <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={stageKey} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
+              {faltantes.length > 0 && (
+                <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />
+              )}
+            </>
+          }
+        />
 
-        {/* ⚠️ LA FILA DE CONTROLES, debajo de la cabecera y no apilada a su derecha. Estaban
-            en una columna —✕, «Producto» + desplegable, etapa, «N sin marcar»— y Martín
-            (06/10/2026): «Los 2 desplegables uno abajo del otro, el texto de "producto" y
-            encima "2 sin marcar Solucionar →" está todo amontonado». Ahora es UN renglón:
-            producto (con su ícono en vez del rótulo, como la barra de lote del tablero) y
-            etapa a la izquierda —producto antes, porque la etapa es una posición DENTRO de un
-            producto—, y el aviso de datos sin marcar a la derecha. Si no entra, envuelve: el
-            aviso baja pegado a la derecha. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '0 clamp(16px,4vw,28px) 14px' }}>
-          <ProductoDelLead ficha={fichaProd} rotulo={false} />
-          {/* ⚠️ LA ETAPA ES LA DEL PRODUCTO QUE SE MIRA. En la casa, el selector de siempre (con su
-              wizard); en un producto agregado, las etapas de ESE tablero, y moverla escribe sólo su
-              fila. Mientras no se sabe cuál se mira, espera: ver `etapaEnEspera`. */}
-          {agregado
-            ? <EtapaEnProducto ficha={fichaProd} producto={agregado} width={210} />
-            : <Dropdown value={fichaProd.esperando ? '' : stageKey} placeholder="Etapa" disabled={fichaProd.esperando} options={stageOptions} onChange={pickStage} align="left" width={210} ariaLabel="Cambiar etapa" buttonStyle={{ fontSize: 13, fontWeight: 600 }} />}
-          {faltantes.length > 0 && (
-            <span style={{ marginLeft: 'auto' }}>
-              <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />
-            </span>
-          )}
-        </div>
-
-        {/* Las ETIQUETAS del lead (mig 0224): chips con ×, y «＋ Etiqueta». Su renglón propio,
-            debajo de producto y etapa: son otra pregunta («qué es este lead»), no su posición. */}
-        <div style={{ padding: '0 clamp(16px,4vw,28px) 14px' }}>
-          <EtiquetasDelLead leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />
-        </div>
-
-        {/* tabs + cuerpo scrolleable */}
+        {/* tabs + cuerpo scrolleable. ⚠️ LA FILA DE PESTAÑAS QUEDA PEGADA ARRIBA de este cuerpo
+            (`fija`, punto 16: «las tabs de arriba deben acompañar el scroll. Deben permanecer fijas,
+            como todo lo que esta arriba»). Este div es el que scrollea y TIENE ALTO (flex: 1 en un
+            panel con el alto topeado), que es lo que un sticky necesita para pegarse. */}
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 clamp(16px,4vw,28px) clamp(14px,4vw,20px)' }}>
           <LeadTabs
             initial={initialTab}
+            fija={{ fondo: 'var(--surface)' }}
             tabs={[
               { key: 'resumen', label: 'Resumen', content: tabResumen },
               // ⚠️ EL ORDEN LO DECIDIÓ MARTÍN, textual (05/10/2026): «la primera sección debe
@@ -342,8 +342,16 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               // ⚠️ Y ESTE MONTAJE Y EL DE `app/crm/[id]/page.tsx` TIENEN QUE QUEDAR IGUALES:
               // es la MISMA ficha por dos puertas, y ya se pagó que una se quedara con la
               // versión anterior.
-              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><CalificacionCard lead={lead} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={tracking} pixelPuesto={pixelPuesto} replay={replay} /></> },
-              { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
+              //
+              // ⚠️ Y SÓLO SI EL FUNNEL DEL LEAD TIENE UNA CAMPAÑA DE META ASIGNADA (punto 18, 12/10/2026:
+              // «La tab de "Tracking" recién debería salir si configuré una campaña vinculado a ese
+              // funnel, sino que no aparezca»). Lo decide el server (`verTracking`, getLeadFullAction →
+              // lib/tracking-ficha-server.ts) y con la lectura caída la pestaña SE DIBUJA.
+              ...(verTracking ? [{ key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><CalificacionCard lead={lead} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={tracking} pixelPuesto={pixelPuesto} replay={replay} /></> }] : []),
+              // ⚠️ SÓLO SI EL FUNNEL TIENE UNA ETAPA DE REUNIÓN (punto 13, 12/10/2026: «Si en mi funnel no
+              // tengo ninguna etapa marcada como "reunión" no debería aparecer la tab de "reuniones"»).
+              // Marcada, o con un nombre que lo dice («Agenda R1», «Llamada»): `tieneEtapaDeReunion`.
+              ...(verReuniones ? [{ key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> }] : []),
               // ⚠️ SOLO CUANDO TIENE ALGO ADENTRO. En 1.124 de 1.138 leads esta
               // pestaña no decía más que «está vacía» —y con tres redacciones
               // distintas—: una pestaña cuyo único contenido es avisar que no hay
@@ -355,18 +363,15 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               // esté previo al historial», 27/09/2026). Las dos contestan «qué pasó con
               // esta persona» —una lo interpreta, la otra lo registra— así que se leen
               // seguidas; Pagos contesta otra cosa y estaba en el medio.
+              //
+              // ⚠️ Y DESDE EL 12/10/2026 SE LLAMA «MaKo Analyst» Y ES UN CHAT (punto 19: «Cambia el
+              // nombre de la tab "Análisis" por "MaKo Analyst" y replica el chat que tenemos en la tab
+              // de "Offer"... un chat con la IA que por defecto tenga atado los datos de ese lead»). La
+              // `key` sigue siendo 'insights': es la que viaja en los links (`?tab=`). Lo que mostraba
+              // antes (el análisis de las llamadas) queda debajo, PLEGADO, y sólo si hay algo.
               {
-                key: 'insights', label: 'Análisis', badge: insights.length,
-                content: (
-                  <GeneratedInsightCard
-                    lead={lead}
-                    stages={stages}
-                    tienePlan={pagos.length > 0}
-                    inicial={insightGen}
-                    faltantesIniciales={faltantesInsight}
-                    llamadas={insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
-                  />
-                ),
+                key: 'insights', label: 'MaKo Analyst',
+                content: tabAnalyst,
               },
               // ⚠️ EL RECORRIDO SE MUDÓ ACÁ. Estaba arriba de todo en el Resumen, ocupando
               // la primera pantalla con algo que ya pasó — y el Historial, que es
@@ -388,19 +393,17 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           />
         </div>
 
-        {/* footer */}
+        {/* footer — ⚠️ SIN «Cerrar» (punto 12, 12/10/2026: «Elimina el botón de "Cerrar" que está
+            abajo del modal de un lead, para eso ya tenemos la cruz... Ahí debería estar el botón de
+            "Borrar lead" y en rojo»). Es el tacho rojo de la casa (BotonBorrar), con la confirmación
+            que nombra la consecuencia. Antes era un texto gris a la izquierda, que no se leía como
+            algo irreversible.
+            ⚠️ Y ACÁ ESTABA «Editar lead →», que se fue el 05/10/2026 (pedido DOS veces): los 15
+            campos que ese formulario editaba se editan en la ficha, cada uno donde se lee. Lo único
+            con pantalla propia es el DEAL, y su entrada está en la tab Pagos. */}
         {delErr && <div style={{ padding: '8px clamp(16px,4vw,28px)', color: 'var(--bad)', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>{delErr}</div>}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '14px clamp(16px,4vw,28px)', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <button onClick={() => setConfirmDelete(true)} disabled={pending} style={{ padding: '8px 6px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>Borrar lead</button>
-          {/* ⚠️ ACÁ ESTABA «Editar lead →», y se fue el 05/10/2026 (pedido DOS veces:
-              «que ya no exista el botón de "editar" … simplemente le doy click arriba y
-              ya puedo sobre escribir»). No se reemplazó por un lápiz: los 15 campos que
-              ese formulario editaba se editan en la ficha, cada uno donde se lee.
-              Lo único que sigue teniendo pantalla propia es el DEAL, y su entrada está
-              donde el deal se lee (el «Editar deal →» de la tab Pagos). */}
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>Cerrar</button>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14, padding: '12px clamp(16px,4vw,28px)', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+          <BotonBorrar texto="Borrar lead" title={`Borrar a ${lead.nombre || 'este lead'}`} onClick={() => setConfirmDelete(true)} disabled={pending} />
         </div>
       </div>
 

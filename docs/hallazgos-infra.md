@@ -1519,6 +1519,11 @@ misma corrida dijo «comparten el moduleCache, es la misma promesa» y estaba eq
 **Regla:** cualquier singleton que tenga que ser uno por proceso va en `globalThis`, no en una
 variable de módulo.
 
+⚠️ **Y el reverso (12/10/2026): un caché en `globalThis` es de TODOS los inquilinos del proceso.** Si guarda algo
+leído con la credencial o el dato de UN cliente, el `ws` va en la clave. El caso (el buscador de Instagram del CRM le
+mostraba a un negocio lo que otro había buscado) y el barrido de las demás cachés en memoria, en
+[hallazgos-crm.md](hallazgos-crm.md) → «La segunda revisión del 12/10».
+
 **Vive en:** lib/credenciales.ts:162-171 (ya corregido con `globalThis.__makoBootCreds`); aplica a todo caché o cliente cacheado a nivel de módulo · *2026-08-05 ~review-commit-firma-webhooks*
 
 ### El lector de un stream NDJSON se traga el error real del server

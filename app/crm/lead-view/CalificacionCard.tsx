@@ -25,7 +25,7 @@
 import type { CSSProperties } from 'react';
 import type { Lead } from '@/lib/leads';
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
-import { TriEditable } from './CampoEditable';
+import { CajaCampo, TriEditable } from './CampoEditable';
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
@@ -37,7 +37,8 @@ export function CalificacionCard({ lead }: { lead: Lead }) {
   return (
     <section style={card}>
       <div style={{ ...sectLabel, marginBottom: 14 }}>Calificación</div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+      {/* Un clic en la pregunta también abre el sí/no (punto 7, 12/10/2026). */}
+      <CajaCampo style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>¿Era un lead calificado?</div>
           <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.45, marginTop: 3 }}>
@@ -55,7 +56,7 @@ export function CalificacionCard({ lead }: { lead: Lead }) {
           titulo="¿Era un lead calificado?"
           bloqueado={noVino}
         />
-      </div>
+      </CajaCampo>
     </section>
   );
 }

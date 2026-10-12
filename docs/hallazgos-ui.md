@@ -2305,7 +2305,11 @@ Debería decir «MaKo - CRM» o el nombre de la tab donde está parado (2026-08-
 módulo que lo resuelve tiene los dos bugs de matchers descritos en
 [Layout, sidebar y tabs](#layout-sidebar-y-tabs).
 
-**Vive en:** lib/titulo-tab.ts
+Desde entonces lo escribe `app/_components/TituloTab.tsx` en todas las tabs; /crm era la que
+faltaba, y lo que costó arreglarla (un observador del `<head>` que entraba en bucle) está en
+«Un observador que reescribe lo que observa…», al final (12/10/2026).
+
+**Vive en:** lib/titulo-tab.ts · app/_components/TituloTab.tsx
 
 ### La ficha del lead tiene una TERCERA copia, en /whatsapp, y es de solo lectura
 
@@ -3548,3 +3552,61 @@ o no se escribe mientras se mira la cuenta de otro.
 
 **Vive en:** `lib/workspace.ts:193-224` · `app/_components/TendenciasSection.tsx:38` (hoy la
 selección vive en `useState`). *Corrida `wf_01c22b1b-91a`, 10/10/2026.*
+
+## Un observador que reescribe lo que observa compara contra lo que el navegador DEVUELVE (12/10/2026)
+
+Pedido de Martín del 12/10 (punto 2 del feedback del CRM): «Todos las tabs tienen su nombre al lado de "MaKo", también
+debe tenerlo la de CRM». /crm es la única ruta con `loading.tsx`, y la hipótesis del frente que lo arregló es que ahí el
+router cambia la ruta con el ESQUELETO —el efecto de `TituloTab` escribe «MaKo - CRM»— y el `<title>` del layout
+(«MaKo») llega después, en streaming, cuando el `requestAnimationFrame` que lo reafirmaba ya pasó. El arreglo fue un
+`MutationObserver` sobre el `<head>` que devuelve el título cada vez que alguien lo pisa.
+
+- ⚠️ **Y ese observador entraba en un bucle infinito** (lo cazó la segunda revisión). El getter de `document.title` saca
+  los espacios de las puntas y colapsa los repetidos, así que con un título que los tiene, `document.title !== titulo`
+  da true SIEMPRE: se escribe, la escritura cambia el `<title>` (un `childList` del `<head>` observado), el callback
+  vuelve a escribir, y así sin fin, en microtareas encadenadas: la pestaña se congela en vez de mostrar el 404. Lo
+  dispara una ruta inexistente cuyo primer segmento termina en «-» o tiene «--» (`/reportes-` daba «MaKo - Reportes »,
+  `/a--b` daba «MaKo - A  b»), o sea un link roto o un typo; ningún label de `nav.ts` lo produce. El
+  `requestAnimationFrame` de antes reafirmaba UNA vez, y por eso antes no había bucle. Ahora `conMarca`
+  (lib/titulo-tab.ts) devuelve el título como lo va a devolver `document.title`.
+- **Regla:** un observador que escribe sobre lo que observa compara contra la forma que el navegador DEVUELVE al leer, no
+  contra el string que escribió. `document.title` normaliza espacios, el `value` de un `<textarea>` normaliza los saltos
+  de línea, un atributo `style` se reserializa: sobre una escritura que el navegador normaliza, «si no es igual, escribo»
+  no compara igual nunca, y es un bucle.
+
+**SIN HACER:** la causa del título de /crm (el `<title>` del layout que llega en streaming detrás de `loading.tsx`) es
+una hipótesis y no se midió en un navegador. Si algún día se quiere sacar el observador, se mide primero.
+
+**Vive en:** `app/_components/TituloTab.tsx` · `lib/titulo-tab.ts` (`conMarca`, `tituloDe`) · `app/crm/loading.tsx` ·
+*2026-10-12 corrida crm-feedback-12-10 (frente B y segunda revisión)*
+
+## Un control que parte un dato en dos no puede avisar las dos mitades en el mismo evento (12/10/2026)
+
+Pedido de Martín del 12/10 (punto 5 del feedback del CRM): el teléfono con el país primero, con banderas
+(`TelefonoConPais`), en el alta del CRM, la ficha, `StageMoveDialog`, `GrupoDetalleModal`, `TelefonosPanel`,
+`InvitarAlumnos`, `NuevoCliente`, `PerfilTabs`, `OnboardingChatAgent` y `ReunionTareas`.
+
+- ⚠️ **Un número PEGADO con su «+código» quedaba con DOS códigos** (segunda revisión). El campo borraba el `+` y dejaba
+  los dígitos del país adentro del número: con México elegido por default (`DIAL_DEFAULT`), pegar «+54 9 11 2233-4455»
+  copiado de WhatsApp guardaba `525491122334455`. Varios de esos montajes eran de texto libre y su ejemplo enseñaba a
+  poner la lada («+54 9 …», «52 55 1234 5678», «ej. 5215512345678»), así que es justo lo que la gente pega. El dedupe por
+  los últimos 10 dígitos lo sigue encontrando, y lo que falla es el envío: el WhatsApp al lead, el «No se pudo agregar»
+  de Evolution en un grupo, el código de verificación del onboarding del Chat Agent que no llega, el WhatsApp de las
+  tareas de una reunión. Ahora `numeroTecleado` (lib/paises.ts): si el texto arranca con `+` y se reconoce una lada, la
+  lada va al selector y el resto queda como número; mientras el código todavía no se reconoce («+5»), el `+` se queda en
+  el campo sin decidir nada.
+- ⚠️ **Y la cura obvia —llamar `onLada` y `onNumero` seguidos— pisaba la lada nueva con la vieja.** Cuatro montajes
+  guardan lada y número en UN objeto con un spread sobre el estado del render (`setDraft({ ...draft, lada: v })` en
+  `TelefonosPanel`; también `InvitarAlumnos`, `PerfilTabs` y `ReunionTareas`): la segunda llamada parte del mismo `draft`
+  que la primera y vuelve a escribir la lada de antes. Por eso la lada va primero y el número espera en un ref hasta que
+  la lada nueva vuelve por props, y sale con el `onNumero` de ESE render. **Regla:** una pieza compartida que emite dos
+  callbacks por un solo gesto no puede suponer que el padre los funde con `setX(prev => …)`: o emite uno con las dos
+  mitades, o los encadena por props.
+- Es la misma familia que «partir un valor guardado y volver a unirlo NO es neutro», del lado de la entrada:
+  `splitTelefono` cae a la lada por defecto con TODOS los dígitos cuando ninguna coincide, y eso es lo que reescribía el
+  teléfono de la ficha con sólo abrirlo y cerrarlo. El caso y la regla («se compara contra la partición con la que se
+  abrió») están en [hallazgos-crm.md](hallazgos-crm.md) → «La revisión de lo invisible del feedback del 12/10».
+
+**Vive en:** `app/_components/TelefonoConPais.tsx` · `lib/paises.ts` (`numeroTecleado`, `splitTelefono`,
+`unirTelefono`) · `tests/crm-tablero-alta-12-10.test.ts` · *2026-10-12 corrida crm-feedback-12-10 (frente B y segunda
+revisión)*

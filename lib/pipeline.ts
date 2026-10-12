@@ -33,6 +33,25 @@ export type Stage = {
   tone: StageTone;        // color del chip en el Kanban del CRM
   custom?: boolean;
   kind?: StageKind;       // tipo de etapa de Activo (entrada/reunion/grupo/pago/cierre)
+  /**
+   * Lo que la persona ELIGIÓ en el desplegable de tipo del pop-up de etapas (punto 3 del feedback
+   * del 12/10/2026: «Elimina las tabs de "Nutrición"... las nutriciones deben tomarse como una etapa
+   * más... un desplegable para marcar "Reunión, Nutrición"»). Ver `tipoDeEtapa` en
+   * lib/etapa-reunion.ts.
+   *
+   * ⚠️ ES UNA MARCA APARTE Y NO UN `kind` NUEVO, a propósito: `kind` lo leen ~40 archivos
+   * (`generateFunnel` deriva las transiciones por él, `reunionesDe` las fechas de reunión, los
+   * requisitos de etapa, el CRM automático, la API de MaKo…) y un valor que ninguno conoce cae
+   * en el `default` de cada uno, cada uno a su manera. Con la marca, una etapa «Nutrición» tiene
+   * `kind: 'paso'` y para todos ellos es EXACTAMENTE lo que era: no cambia transiciones,
+   * reuniones ni automatizaciones.
+   *
+   * `'etapa'` = la persona dijo explícitamente que NO es una reunión: el nombre deja de contar
+   * (`tieneEtapaDeReunion`, y la marca sola al renombrar). Reunión no va acá: es `kind: 'reunion'`.
+   * Sobrevive al guardado porque `sanearPipeline` conserva la etapa entera y cada operación de
+   * `editarEtapaAction` la copia con un spread.
+   */
+  marcadaComo?: 'etapa' | 'nutricion';
   // Layout del diagrama del funnel (tab /funnel)
   band?: StageBand;       // fila
   col?: number;           // columna dentro de la fila
@@ -69,6 +88,80 @@ export const STAGE_LAYOUT: Record<string, Pick<Stage, 'band' | 'col' | 'bg' | 'f
 
 export const NEW_STAGE_PALETTE = ['#3B6FB0', '#C8870C', '#0E8E7E', '#6A4BD8', '#C7417B', '#B5630A', '#2E7DBE', '#8A6D3B', '#4F5BD5', '#9D4EDD'];
 export const NEW_STAGE_TONES: StageTone[] = ['info', 'accent', 'teal', 'violet', 'rose', 'orange', 'sky', 'taupe', 'indigo', 'magenta'];
+
+// ── El color de una etapa propia (punto 8 del feedback del 12/10/2026) ───────────────────
+// «Todas las nuevas etapas que creo, en las columnas, el circulito al lado de la etapa aparece
+// en gris, no se por que...». El porqué: `editarEtapaAction` (op `agregar`) las creaba con
+// `dot: '#5B6472'` y `tone: 'neutral'` —un gris de relleno, no un color elegido— y el tablero
+// dibuja el punto con `dot` y el chip de la ficha con `tone`.
+
+/** El gris con que nacían las etapas nuevas hasta el 12/10/2026. No es un color: es «sin color». */
+export const DOT_SIN_COLOR = '#5B6472';
+
+/** ¿Esta etapa no tiene color propio? (sin `dot`, o con el gris de relleno de antes). */
+export function sinColor(st: { dot?: string | null }): boolean {
+  const d = (st.dot ?? '').trim().toUpperCase();
+  return !d || d === DOT_SIN_COLOR;
+}
+
+const mismoColor = (a: string | null | undefined, b: string | null | undefined): boolean =>
+  !!a && !!b && a.trim().toUpperCase() === b.trim().toUpperCase();
+
+/**
+ * El lugar de la paleta que le toca a una clave, ESTABLE: sale de la clave y no de la posición,
+ * así reordenar no le cambia el color a nadie. Las claves que acuña la action son `st0`, `st1`…:
+ * a ésas les toca su número, y dos etapas creadas seguidas salen de colores seguidos.
+ */
+function indiceDeColor(key: string): number {
+  const m = /^st(\d+)$/.exec(key);
+  if (m) return Number(m[1]) % NEW_STAGE_PALETTE.length;
+  let h = 0;
+  for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h % NEW_STAGE_PALETTE.length;
+}
+
+/**
+ * El pipeline con color en cada etapa: la que no tiene (o tiene el gris de antes) toma uno de la
+ * paleta, sin repetir el de la vecina de arriba ni el de la de abajo si se puede.
+ *
+ * ⚠️ SE DERIVA AL LEER Y NO SE ESCRIBE. Lo llama `generateFunnel`, que corre en cada lectura
+ * (`filaAFunnel`): las etapas viejas sin color dejan de verse grises en todos los tableros sin una
+ * migración y sin tocar `funnels.data`. El pipeline CRUDO (`cfg.pipeline`, lo que se guarda) no pasa
+ * por acá, así que ninguna escritura lo hereda.
+ */
+export function conColores(pipeline: Stage[]): Stage[] {
+  const out: Stage[] = [];
+  pipeline.forEach((st, i) => {
+    if (!sinColor(st)) { out.push(st); return; }
+    const arriba = out[i - 1]?.dot;
+    const abajo = pipeline[i + 1] && !sinColor(pipeline[i + 1]) ? pipeline[i + 1].dot : undefined;
+    const base = indiceDeColor(st.key);
+    let j = base;
+    for (let k = 0; k < NEW_STAGE_PALETTE.length; k++) {
+      const cand = (base + k) % NEW_STAGE_PALETTE.length;
+      if (!mismoColor(NEW_STAGE_PALETTE[cand], arriba) && !mismoColor(NEW_STAGE_PALETTE[cand], abajo)) { j = cand; break; }
+    }
+    out.push({ ...st, dot: NEW_STAGE_PALETTE[j], tone: !st.tone || st.tone === 'neutral' ? NEW_STAGE_TONES[j] : st.tone });
+  });
+  return out;
+}
+
+/**
+ * El color con que NACE una etapa que se inserta en la posición `at` del pipeline: el primero de la
+ * paleta que no use ninguna otra etapa; si ya están todos, uno distinto de sus dos vecinas.
+ *
+ * Se mira contra los colores EFECTIVOS (`conColores`), no contra los guardados: una vecina vieja
+ * sin color se ve con el que le deriva la lectura, y es ése el que no hay que repetir.
+ */
+export function colorParaNueva(pipeline: Stage[], at: number): { dot: string; tone: StageTone } {
+  const efectivas = conColores(pipeline);
+  const usados = efectivas.map((s) => s.dot);
+  const vecinas = [efectivas[at - 1]?.dot, efectivas[at]?.dot];
+  let j = NEW_STAGE_PALETTE.findIndex((c) => !usados.some((u) => mismoColor(u, c)));
+  if (j < 0) j = NEW_STAGE_PALETTE.findIndex((c) => !vecinas.some((v) => mismoColor(v, c)));
+  if (j < 0) j = 0;
+  return { dot: NEW_STAGE_PALETTE[j], tone: NEW_STAGE_TONES[j] ?? 'neutral' };
+}
 
 // Nutriciones NEGATIVAS (cambian la etapa; con deadline y desenlace posible). La
 // nutrición POSITIVA (post-agenda / post-reunión) ya NO es etapa: es derivada
@@ -447,7 +540,9 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], lab
   const col: Record<StageBand, number> = { pipeline: 0, nutricion: 0, salidas: 0 };
   const place = (s: Stage, band: StageBand) => { if (placed.has(s.key)) return; placed.add(s.key); stages.push({ ...s, band, col: col[band]++ }); };
 
-  pipeline.forEach((p) => place(p, 'pipeline'));
+  // Con su color derivado si no tiene uno (`conColores`): lo que se COLOCA es lo que dibujan el
+  // tablero y la ficha; el pipeline crudo, el que se guarda, sigue intacto.
+  conColores(pipeline).forEach((p) => place(p, 'pipeline'));
   // ⚠️ `ganado` SIEMPRE, igual que las tres de abajo. `place` deduplica por clave, así que
   // con el pipeline normal —que la trae— esto no hace nada; y al funnel al que le falte
   // (porque alguien la borró cuando se podía) se la devuelve al FINAL, que es donde va un
@@ -752,6 +847,8 @@ export type EtapaVisible = {
    * entrada sin que nadie lo decida.
    */
   kind?: string;
+  /** Lo elegido en el desplegable de tipo (Etapa / Nutrición). Ver `Stage.marcadaComo`. */
+  marcadaComo?: 'etapa' | 'nutricion';
 };
 
 /**
@@ -768,9 +865,13 @@ export function etapasVisibles(stages: Stage[]): { propias: EtapaVisible[]; fija
   const uno = (st: Stage): EtapaVisible => ({
     key: st.key,
     label: st.label,
-    dot: st.dot ?? '#5B6472',
+    // El color ya viene derivado de `generateFunnel` (`conColores`); el gris es la red para una
+    // lista que no pasó por ahí.
+    dot: st.dot ?? DOT_SIN_COLOR,
     fija: esTerminal(st.key),
     kind: st.kind,
+    // Sólo si la trae: un `marcadaComo: undefined` explícito es una clave de más en cada etapa.
+    ...(st.marcadaComo ? { marcadaComo: st.marcadaComo } : null),
   });
   return {
     propias: visibles.filter((st) => !esTerminal(st.key)).map(uno),
@@ -1050,7 +1151,10 @@ export const TEMPLATE_POR_CANAL: Record<CanalId, string> = {
 export function mismoPipeline(a: Stage[] | null | undefined, b: Stage[] | null | undefined): boolean {
   const x = a ?? [], y = b ?? [];
   if (x.length !== y.length) return false;
-  return x.every((s, i) => s.key === y[i].key && s.label === y[i].label && (s.kind ?? 'paso') === (y[i].kind ?? 'paso'));
+  // `marcadaComo` también cuenta (12/10/2026): una etapa marcada «Nutrición» es una decisión de la
+  // persona, y un embudo con una de ésas ya no es la plantilla que se le habría dado.
+  return x.every((s, i) => s.key === y[i].key && s.label === y[i].label && (s.kind ?? 'paso') === (y[i].kind ?? 'paso')
+    && (s.marcadaComo ?? null) === (y[i].marcadaComo ?? null));
 }
 
 /** La plantilla de un canal, o `null` si el canal no existe. Falla CERRADO a propósito:
