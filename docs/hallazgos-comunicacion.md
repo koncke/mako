@@ -9757,4 +9757,6 @@ documentos… Y aún escribir un mensaje abajo… en todos los chats que consuma
 
 **Lo nuestro:** Evolution contesta `{status:400, response:{message:[{exists:false,…}]}}`; `evFetch` busca `message` sólo arriba (`lib/evolution.ts:75-77`) y arma «Evolution 400»; el motivo queda en `detalle` y `enviarTexto` lo descarta (`:831`).
 
-**SIN HACER:** (1) en `enviarTexto`, `enviarMedia` y `enviarAudio`, decir «Ese número no tiene WhatsApp» cuando `detalle` traiga `exists:false` (si no, devolver `detalle`); (2) validar el número con `whatsappNumbers` al guardarlo (`guardarDestinoDeQuienPrueba`, `lib/prueba-paso.ts:63`). **Regla:** un 400 de Evolution se lee por su `detalle` antes de decir nada; «Evolution 400» solo no es un diagnóstico.
+**HECHO (12/10):** `enviarTexto`, `enviarMedia` y `enviarAudio` devuelven el motivo de `motivoDeEvolution(status, cuerpo)` (`lib/evolution-sonda.ts`, pura; la arma `evFetch` como `motivo`): con `exists:false`, «Ese número no tiene WhatsApp»; si no, el mensaje de Evolution, arriba o anidado; recién sin nada, «Evolution <status>». Test: `tests/evolution-motivo.test.ts`. Los envíos de la voz de MaKo (`lib/mako-grupo.ts`, `lib/mako-tarjeta.ts`) tienen su propio `ev` y no pasan por acá.
+
+**SIN HACER:** validar el número con `whatsappNumbers` al guardarlo (`guardarDestinoDeQuienPrueba`, `lib/prueba-paso.ts:63`). **Regla:** un 400 de Evolution se lee por su `detalle` antes de decir nada; «Evolution 400» solo no es un diagnóstico.

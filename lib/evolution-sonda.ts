@@ -39,6 +39,36 @@ export function mensajeEvolution(body: unknown, status: number): string {
 }
 
 /**
+ * El MOTIVO de un envío que Evolution rechazó, dicho para una persona (lo dibuja «Probar» y
+ * cualquier pantalla que muestre el error de un envío).
+ *
+ * ⚠️ «Evolution 400» NO ES UN MOTIVO. Medido el 12/10/2026: a un número sin WhatsApp Evolution
+ * contesta `{status:400, error:'Bad Request', response:{message:[{exists:false, jid, number}]}}`,
+ * y `evFetch` armaba el error con `body.message` (arriba de todo, que no existe): en Probar se
+ * leía «No salió · Evolution 400» y parecía Railway caído (docs/hallazgos-comunicacion.md).
+ *
+ *   algún `exists:false` .......... «Ese número no tiene WhatsApp».
+ *   un mensaje, arriba o anidado .. ese mensaje (una lista se une con « · »).
+ *   nada ........................... «Evolution <status>».
+ */
+export function motivoDeEvolution(status: number, cuerpo: unknown): string {
+  let m: unknown;
+  if (typeof cuerpo === 'string') m = cuerpo.trim().startsWith('<') ? undefined : cuerpo; // una página HTML no es un motivo
+  else if (cuerpo && typeof cuerpo === 'object') {
+    const b = cuerpo as { message?: unknown; response?: { message?: unknown } | null };
+    m = b.message ?? b.response?.message;
+  }
+  const lista = Array.isArray(m) ? m : m == null ? [] : [m];
+  if (lista.some((x) => !!x && typeof x === 'object' && (x as { exists?: unknown }).exists === false)) {
+    return 'Ese número no tiene WhatsApp';
+  }
+  const textos = lista
+    .map((x) => (typeof x === 'string' ? x.trim() : x && typeof x === 'object' ? JSON.stringify(x) : x == null ? '' : String(x)))
+    .filter(Boolean);
+  return textos.length ? textos.join(' · ').slice(0, 200) : `Evolution ${status}`;
+}
+
+/**
  * ¿Qué dice esta respuesta de la sesión?
  *
  *   ok .................................. vivo: WhatsApp contestó.

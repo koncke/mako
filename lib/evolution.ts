@@ -18,7 +18,7 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { APP_BASE_URL } from '@/lib/app-url';
-import { hayQueRecrear, mensajeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
+import { hayQueRecrear, mensajeEvolution, motivoDeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
 import { elegirLinea, esLineaDelWorkspace, instanceNameDeWs, nombreLineaNueva, lineaPorDefault } from './lineas-whatsapp';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
@@ -53,7 +53,10 @@ export type EstadoConexion = 'desconectado' | 'conectando' | 'conectado' | 'erro
 // `detalle`: lo que Evolution dijo de verdad, anidado donde esté (ver `mensajeEvolution`). Va
 // APARTE de `error` a propósito: `error` lo leen pantallas de clientes y conserva su texto de
 // siempre; la sonda necesita el crudo para ver el «Connection Closed».
-type EvResult<T> = { ok: true; data: T } | { ok: false; error: string; status: number; detalle?: string };
+// `motivo`: lo mismo, para una PERSONA («Ese número no tiene WhatsApp»; ver `motivoDeEvolution`).
+// Lo devuelven los envíos (enviarTexto/Media/Audio) en vez de `error`. Sin status (no llegamos a
+// Evolution) no hay motivo y vale `error`.
+type EvResult<T> = { ok: true; data: T } | { ok: false; error: string; status: number; detalle?: string; motivo?: string };
 
 async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: number): Promise<EvResult<T>> {
   if (!evolutionConfigurado()) return { ok: false, error: 'Evolution no configurado', status: 0 };
@@ -79,7 +82,7 @@ async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: n
       // crudo de Evolution es un array JSON que no le dice nada a nadie (revisión del 11/09).
       // `detalle` lleva lo que Evolution dijo de verdad, anidado en `response.message`: sin eso
       // la sonda nunca veía el «Connection Closed» (ver `mensajeEvolution`).
-      return { ok: false, error: msg, status: res.status, detalle: mensajeEvolution(body, res.status) };
+      return { ok: false, error: msg, status: res.status, detalle: mensajeEvolution(body, res.status), motivo: motivoDeEvolution(res.status, body) };
     }
     return { ok: true, data: body as T };
   } catch (err) {
@@ -828,7 +831,7 @@ export async function enviarTexto(telefono: string, texto: string, linea?: strin
     `/message/sendText/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ number: num, text: texto, delay }) },
   );
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return { ok: false, error: r.motivo ?? r.error }; // el MOTIVO (`motivoDeEvolution`), no «Evolution 400»
   return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net`, instance };
 }
 
@@ -857,7 +860,7 @@ export async function enviarMedia(
     `/message/sendMedia/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify(body) },
   );
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return { ok: false, error: r.motivo ?? r.error }; // el MOTIVO (`motivoDeEvolution`), no «Evolution 400»
   return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net`, instance };
 }
 
@@ -876,7 +879,7 @@ export async function enviarAudio(telefono: string, base64: string, linea?: stri
     `/message/sendWhatsAppAudio/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ number: num, audio: audio64, delay, encoding: true }) },
   );
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return { ok: false, error: r.motivo ?? r.error }; // el MOTIVO (`motivoDeEvolution`), no «Evolution 400»
   return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net`, instance };
 }
 
