@@ -17,6 +17,7 @@
 
 import { esRutaMovil, rutaMovil } from './movil-rutas';
 import { esPublica } from './rutas-publicas';
+import { conWs } from './ws-tab';
 
 /**
  * EL INTERRUPTOR de MaKo Mobile: si un teléfono entra solo a /m (por /inicio) y si las pantallas
@@ -63,14 +64,23 @@ export function decidirDesvio(pathname: string | null | undefined, search = ''):
 }
 
 /**
- * ¿Se desvía ESTE request? El interruptor, un teléfono sin «Versión completa», y que /m tenga algo
- * que mostrar.
+ * ¿Se desvía ESTE request? El interruptor y un teléfono sin «Versión completa». Nadie más queda afuera.
  *
- * ⚠️ EL ADMIN GLOBAL SIN CLIENTE NO SE DESVÍA: /m es la app de UN negocio. `requireMovil` lo manda
- * a /inicio, y /inicio lo manda a /customer-success; con el desvío prendido, /customer-success iba
- * a /m/cs, que volvía a /inicio: un BUCLE de redirecciones en el teléfono de Martín. Sin cliente
- * elegido ve su panel de escritorio; con uno (`?ws=`), ve /m de ese negocio.
+ * ⚠️ EL ADMIN GLOBAL SIN CLIENTE TAMBIÉN SE DESVÍA, a SU negocio (`wsPropioMovil`). La versión del
+ * 11/10/2026 lo excluía para cortar un bucle (/m → /inicio → /customer-success → /m/cs → /inicio), y con
+ * eso le dejaba el escritorio en el teléfono justo a quien pidió la app: Martín, 12/10, «No aún no veo la
+ * versión mobile, me sale todo igual...». El bucle se corta en la RAÍZ: `requireMovil` ya no manda a ese
+ * admin a /inicio sino a /m de la plataforma (lib/movil-guard.ts).
  */
-export function seDesvia(p: { activo: boolean; telefono: boolean; adminSinCliente: boolean }): boolean {
-  return p.activo && p.telefono && !p.adminSinCliente;
+export function seDesvia(p: { activo: boolean; telefono: boolean }): boolean {
+  return p.activo && p.telefono;
+}
+
+/**
+ * El destino del desvío con el negocio que tiene que ver la pestaña. Con un cliente elegido (`wsPestana`,
+ * el `?ws=`), el router de app/_ui/Link ya lo lleva: no se toca. El admin global SIN cliente no tiene
+ * pestaña, y sin `?ws=` /m no sabe de qué negocio es: va al suyo (`wsPropio`, el workspace de plataforma).
+ */
+export function destinoMovil(destino: string, wsPestana: number | null, wsPropio: number | null): string {
+  return wsPestana == null && wsPropio != null ? conWs(destino, wsPropio) : destino;
 }

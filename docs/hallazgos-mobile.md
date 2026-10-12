@@ -120,9 +120,20 @@ no tuvo RAM para un `next dev`): todo lo de acá se midió con typecheck, tests 
 - ⚠️ **Y armaba un BUCLE para el admin global sin cliente**: /inicio lo manda a /customer-success →
   el desvío a /m/cs → `requireMovil` (sin workspace) a /inicio → /customer-success… Antes de la v2
   /customer-success era «en la computadora» y no había bucle: lo creó MAPEAR una sección nueva.
-  Regla: el desvío pregunta si /m tiene algo que mostrar (`seDesvia`, con `adminSinCliente`), y cada
-  ruta que se suma a `rutaMovil` se mira contra los redirects de `requireMovil`. **Vive en:**
-  lib/movil-desvio.ts, app/layout.tsx, app/inicio/page.tsx
+  ⚠️⚠️ **La primera cura fue la EQUIVOCADA y salió a producción:** sacar a ese admin del desvío
+  (`adminSinCliente`). Ese admin es MARTÍN cuando entra a hola-mako.com sin mirar a un cliente, o
+  sea la única persona que había pedido la app: abrió el celular el 12/10 y vio el escritorio («No
+  aún no veo la versión mobile, me sale todo igual...»). Cortar el síntoma (el bucle) dejaba afuera
+  justo el caso que importaba. La cura de raíz: `requireMovil` lo manda a /m de SU negocio
+  (`?ws=` de `wsSuperAdmin()`, la plataforma) en vez de a /inicio; el desvío le pone ese `?ws=` en el
+  destino (`destinoMovil`), /inicio en un teléfono lo manda a /m, y en lo suyo no se dibuja la
+  píldora de «viendo a un cliente» (`enLoPropio`, lib/movil-guard.ts). **Y por qué ninguna
+  verificación lo vio:** el login de desarrollo (`/api/auth/dev-login?ws=9`) SIEMPRE trae un
+  workspace, así que el camino «admin sin cliente» no existe en local; las 13 pantallas a 390 px
+  pasaron en un estado que el dueño nunca tiene. Regla: una exclusión por ROL o por ESTADO de sesión
+  se pregunta «¿quién cae acá en producción?» antes de escribirla — y si la respuesta es «el dueño»,
+  no es una exclusión. **Vive en:** lib/movil-desvio.ts, lib/movil-guard.ts, app/layout.tsx,
+  app/inicio/page.tsx, app/_components/DesvioMovil.tsx
 - **Sumar una ruta a `rutaMovil` cambia ENSEGUIDA lo que abren los Web Push y los links de Today e
   Inbox**, no sólo el desvío: `MOVIL_ACTIVO` no lo frena. Las páginas de esas secciones salen en el
   mismo deploy que el mapa. **Vive en:** lib/movil-rutas.ts, lib/push-payload.ts

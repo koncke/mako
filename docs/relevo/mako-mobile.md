@@ -3,6 +3,16 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## ⚠️⚠️⚠️⚠️ 12/10, mañana: Martín seguía viendo el escritorio en el celular — ARREGLADO
+
+«No aún no veo la versión mobile, me sale todo igual...». Causa: la integración había dejado FUERA del
+desvío al admin global sin cliente (`adminSinCliente`, para cortar un bucle), y ese admin es él cuando
+entra sin mirar a un cliente. Ahora va a /m de SU negocio (`?ws=` de la plataforma, `wsSuperAdmin`):
+`requireMovil` ya no lo manda a /inicio, el desvío le pone el `?ws=` (`destinoMovil`), /inicio en el
+teléfono lo manda a /m y en lo suyo no ve la píldora de cliente. Detalle y por qué ninguna
+verificación lo vio: docs/hallazgos-mobile.md → «Y armaba un BUCLE…». **Falta que él lo confirme en
+su celular** (si había tocado «Versión completa», esa cookie dura 12 h).
+
 ## ⚠️⚠️⚠️ DÓNDE QUEDÓ (12/10, madrugada) — LEER ESTO PRIMERO
 
 **La v2 está en `main` y PRENDIDA** (`MOVIL_ACTIVO = true`): cualquier celular con sesión que abra MaKo cae

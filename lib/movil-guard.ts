@@ -23,7 +23,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getUsuarioActual, type Sesion } from './auth';
 import {
-  getCapaActual, getRolWsEfectivo, getWorkspace, getWorkspaceActual, estaImpersonando, rutaConWs,
+  getCapaActual, getRolWsEfectivo, getWorkspace, getWorkspaceActual, estaImpersonando, rutaConWs, wsSuperAdmin,
 } from './workspace';
 import { requireSesion } from './tab-access';
 import { onboardingPendiente } from './onboarding-state';
@@ -31,7 +31,7 @@ import { HOME_MOVIL, puedeVerKey } from './movil-rutas';
 import { tipoDeDispositivo, vaAMovil, VISTA_COOKIE } from './movil-dispositivo';
 import { rutaDeSalida } from './agencia-cartera';
 import { agenciaDeCliente } from './agencia';
-import { WS_PARAM } from './ws-tab';
+import { WS_PARAM, conWs } from './ws-tab';
 import type { RolWorkspace } from './auth-session';
 import type { CapaId } from './capas';
 
@@ -69,7 +69,11 @@ export const contextoMovil = cache(async (): Promise<ContextoMovil | null> => {
   if (!sesion) return null;
   const rol = await getRolWsEfectivo();
   if (!rol) return null;
-  const [capa, ws, impersonando] = await Promise.all([getCapaActual(), getWorkspaceActual(), estaImpersonando()]);
+  const [capa, ws, conPestana] = await Promise.all([getCapaActual(), getWorkspaceActual(), estaImpersonando()]);
+  // El admin global en SU negocio (el workspace de plataforma, a donde lo manda `requireMovil` sin cliente)
+  // no está «viendo a un cliente»: sin esto, el teléfono le dibujaba la píldora «MaKo» y «Salir de MaKo».
+  const enLoPropio = sesion.rol === 'admin' && ws != null && ws === (await wsSuperAdmin());
+  const impersonando = conPestana && !enLoPropio;
   const clienteNombre = impersonando && ws != null ? await nombreDeCliente(ws) : null;
   return { sesion, rol, capa, ws, impersonando, clienteNombre };
 });
@@ -80,8 +84,8 @@ export const contextoMovil = cache(async (): Promise<ContextoMovil | null> => {
  *   const ctx = await requireMovil({ navKey: 'crm' });
  *
  * · Sin sesión (o suspendida) → /login.
- * · Admin global sin cliente → /inicio (que lo manda a su panel): /m es la app de
- *   UN negocio, y sin workspace no hay nada que mostrar.
+ * · Admin global sin cliente → /m/hoy de SU negocio (`?ws=` del workspace de plataforma):
+ *   /m es la app de UN negocio, y el suyo es la plataforma (antes iba a /inicio).
  * · Onboarding pendiente → /m/configurar (salvo `onboarding: false`, que lo usa
  *   esa misma pantalla para no redirigirse a sí misma).
  * · `navKey` (la key de nav.ts del destino) que este rol o esta capa no ven →
@@ -94,7 +98,10 @@ export async function requireMovil(opts: { navKey?: string | null; onboarding?: 
   await requireSesion();
   const ctx = await contextoMovil();
   if (!ctx) redirect('/login');
-  if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect('/inicio');
+  // El admin global SIN cliente ve /m de SU negocio (el workspace de plataforma), no su panel: hasta
+  // el 12/10/2026 iba a /inicio, y eso obligaba a dejarlo fuera del desvío (Martín veía el escritorio
+  // en el teléfono). Con `?ws=` en la URL, el resto de /m lo lleva solo (el Link de app/_ui).
+  if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(HOME_MOVIL, await wsSuperAdmin()));
   if (opts.onboarding !== false && (await onboardingPendiente())) redirect(await rutaConWs(RUTA_CONFIGURAR_MOVIL));
   if (opts.navKey && !puedeVerKey(opts.navKey, ctx.rol, ctx.capa)) redirect(await rutaConWs(HOME_MOVIL));
   return ctx;
