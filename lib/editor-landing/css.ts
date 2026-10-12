@@ -637,6 +637,110 @@ const SITIO: string[] = [
   // En una miniatura la sección ocupa todo el cuadro, sin el aire de la página.
   r(D + '[data-modo="miniatura"] .gm-pagina', 'padding: 0;'),
   r(D + '[data-modo="miniatura"] .gm-tarjeta', 'width: 100%; margin: 0;'),
+  // Y sin esmerilado: a ese tamaño no se ve, y un backdrop-filter adentro de una capa con
+  // transform: scale() y overflow: hidden (la tira de secciones) es una capa de GPU por
+  // miniatura que Chrome repinta mal al scrollear (feedback del 12/10/2026, «se buguea»).
+  r([D + '[data-modo="miniatura"] .gm-tarjeta-fondo', D + '[data-modo="miniatura"] .gm-acento::after'], '-webkit-backdrop-filter: none; backdrop-filter: none;'),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 15b. Presentaciones (T3, tanda 2): cada sección es una DIAPOSITIVA con la forma de
+//      `config.proporcion` (16:9 por default, 4:3; «Fluido» = como una página)
+// ─────────────────────────────────────────────────────────────────────────────
+// El formato lo declara la raíz (`htmlDePagina` y el lienzo del editor ponen
+// `data-formato`/`data-proporcion` en .gm-doc) o el ENVOLTORIO directo de una raíz suelta
+// (`htmlDeTarjeta` no conoce la configuración: Presentar y una miniatura los ponen en su
+// contenedor, que es el padre del .gm-doc).
+//
+// La diapositiva mide 64.5em de ancho (la tarjeta de siempre) y su alto sale de `aspect-ratio`,
+// así que TODO lo de adentro, que va en em de la letra base, escala con ella: para que entre de
+// ancho, la letra base de una presentación no tiene el piso de 15px de la página (en el editor la
+// calcula EditorLanding con el ancho del lienzo, en Presentar Presentar.tsx).
+//
+// ⚠️ EL ALTO ES UN PISO, NO UN TECHO (salvo en Presentar). Con `aspect-ratio` y `min-height: auto`
+//    una caja crece si el contenido no entra (el «mínimo automático» de CSS): es lo que hace Gamma
+//    en el editor —la diapositiva crece y una guía punteada marca el límite— y es lo único seguro
+//    en la página publicada (recortar escondería contenido a quien la visita). Por eso cada
+//    `min-height` de la hoja (alto de pantalla, imagen al costado, imagen de fondo) se vuelve
+//    `auto` en una diapositiva: con un min-height explícito, la caja dejaría de crecer y el texto
+//    se saldría por debajo. El alto FIJO con el contenido achicado para entrar lo hace Presentar.
+// ⚠️ EL ANCHO DE LA SECCIÓN NO CAMBIA EL TAMAÑO DE LA DIAPOSITIVA: todas miden lo mismo (como en
+//    Gamma); «Completo» se queda con la sombra y el radio del tema (`inherit` devuelve los del tema
+//    que esa regla pisaba).
+// ⚠️ LA GUÍA DE DESBORDAMIENTO NO NECESITA JAVASCRIPT: dos pseudo-elementos de `.gm-tarjeta-fondo`
+//    (que mide lo mismo que la sección) con el MISMO `aspect-ratio` y `box-sizing: content-box`
+//    terminan exactamente en el límite de la diapositiva, y lo que dibujan (una franja tenue y una
+//    línea punteada) va DEBAJO de ese límite: con la sección del alto justo, `overflow: hidden` del
+//    fondo lo recorta y no se ve nada; si el contenido desborda, aparece donde empieza lo que no
+//    entra. Sólo en el editor.
+// ⚠️ EN CELULAR la diapositiva vuelve a ser fluida (el bloque 17, `movil`): 64.5em en 390px son
+//    letras de 6px. Presentar no la suelta nunca.
+
+const FIJA = ':not([data-proporcion="fluido"])';
+/** Los selectores de una diapositiva: la raíz con el formato, o la raíz suelta adentro de un envoltorio con él. */
+function diapo(resto: string, prop = FIJA, raiz = ''): string[] {
+  return [D + raiz + '[data-formato="presentacion"]' + prop + resto, '[data-formato="presentacion"]' + prop + ' > ' + D + raiz + resto];
+}
+const GUIA = D + '[data-modo="editor"][data-formato="presentacion"]';
+
+const PRESENTACION: string[] = [
+  '/* ── 15b. Presentaciones: la diapositiva (16:9 · 4:3) y la guía de desbordamiento ── */',
+  r(diapo(' .gm-pagina'), 'font-size: var(--gm-base, min(18px, calc(100vw / 68.5)));'),
+  r(diapo(' .gm-tarjeta'), 'width: min(64.5em, calc(100% - 4em)); min-height: auto; margin-top: 3.5em; aspect-ratio: 16 / 9; --gm-radio-tarjeta: inherit; --gm-tarjeta-borde: inherit; --gm-tarjeta-sombra: inherit;'),
+  r(diapo(' .gm-tarjeta', '[data-proporcion="4:3"]'), 'aspect-ratio: 4 / 3;'),
+  // La imagen de acento arriba no se come media diapositiva de 16:9 (en 4:3 queda la de siempre).
+  r(diapo(' .gm-tarjeta[data-diseno="arriba"] > .gm-acento', ':not([data-proporcion="fluido"]):not([data-proporcion="4:3"])'), 'height: 13.5em;'),
+  // Una miniatura de una diapositiva: el cuadro entero, con la forma de la diapositiva.
+  r(diapo(' .gm-tarjeta', FIJA, '[data-modo="miniatura"]'), 'width: 100%; margin: 0;'),
+  // La guía de desbordamiento (sólo en el editor; ver arriba por qué no se ve si todo entra).
+  r(GUIA + FIJA + ' .gm-tarjeta > .gm-tarjeta-fondo', 'overflow: hidden;'),
+  r([GUIA + FIJA + ' .gm-tarjeta > .gm-tarjeta-fondo::before', GUIA + FIJA + ' .gm-tarjeta > .gm-tarjeta-fondo::after'], 'content: ""; position: absolute; left: 0; right: 0; top: 0; aspect-ratio: 16 / 9; box-sizing: content-box; pointer-events: none;'),
+  r(GUIA + FIJA + ' .gm-tarjeta > .gm-tarjeta-fondo::before', 'border-bottom: 200em solid rgba(229, 72, 77, 0.07);'),
+  r(GUIA + FIJA + ' .gm-tarjeta > .gm-tarjeta-fondo::after', 'top: 1px; border-bottom: 2px dashed rgba(229, 72, 77, 0.85);'),
+  r([GUIA + '[data-proporcion="4:3"] .gm-tarjeta > .gm-tarjeta-fondo::before', GUIA + '[data-proporcion="4:3"] .gm-tarjeta > .gm-tarjeta-fondo::after'], 'aspect-ratio: 4 / 3;'),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 15c. Página (landing): las secciones A SANGRE, una pegada a la otra
+// ─────────────────────────────────────────────────────────────────────────────
+// Feedback de Martín (12/10/2026, la prueba de un cliente): «pidieron una landing page… y te lo
+// creó tipo presentación diapositiva, no te lo creó como si fuera una landing». Las tarjetas
+// flotantes con aire entre ellas (la hoja de arriba: el modo documento de Gamma) se leen como
+// diapositivas. Una landing es una PÁGINA continua, como un sitio publicado de Gamma
+// (gamma-tokens §2: «tarjetas a sangre: wrapper padding 0, radio 0, ancho 100%»): cada sección
+// ocupa el ancho entero, sin radio ni sombra, pegada a la siguiente, y su contenido se centra al
+// ancho que elige «Ancho» (Angosto 48em · Normal 64.5em · Amplio 84em · Completo, todo). Las
+// tarjetas con aire y proporción quedan SÓLO para `formato: 'presentacion'` (15b).
+//
+// ⚠️ ES EL DEFAULT: vale para toda raíz que NO sea una presentación ni esté adentro de un
+//    envoltorio de presentación (`htmlDeTarjeta` no conoce el formato: una miniatura o Presentar
+//    lo declaran en el padre del .gm-doc). Lo guardado sin `formato` es una página (sanearConfig).
+// ⚠️ EL ANCHO DE LA SECCIÓN SE VUELVE SU PADDING, NO SU ANCHO: el fondo (.gm-tarjeta-fondo) y la
+//    imagen «de fondo» son absolutos con inset 0 sobre la caja de PADDING, así que pintan de borde
+//    a borde mientras la grilla (imagen al costado + texto) queda centrada.
+// ⚠️ Lo publicado antes de esto no cambia hasta que se vuelva a publicar: la foto guarda la hoja
+//    con la que se publicó (publicar.ts, `css`).
+// ⚠️ ESPECIFICIDAD: `PAG .gm-pagina > .gm-tarjeta` pesa (0,5,0) y va después de las reglas del
+//    bloque 2 que lo igualan (`:not(completo) + completo`); el bloque de celular repite lo que hace
+//    falta con su prefijo (`movil`), porque va después de éste.
+function pagDe(p: string): string {
+  return ':not([data-formato="presentacion"]) > ' + p + ':not([data-formato="presentacion"])';
+}
+const PAG = pagDe(D);
+
+const PAGINA: string[] = [
+  '/* ── 15c. Página (landing): secciones a sangre, una pegada a la otra ── */',
+  r(PAG + ' .gm-pagina', 'padding-bottom: 0;'),
+  r(PAG + ' .gm-pagina > .gm-tarjeta', 'width: 100%; margin: 0; --gm-radio-tarjeta: 0px; --gm-tarjeta-borde: 0 0 #0000; --gm-tarjeta-sombra: 0 0 #0000;'),
+  r(PAG + ' .gm-pagina > .gm-tarjeta:not([data-ancho="completo"])', 'padding-inline: max(0px, calc((100% - 64.5em) / 2));'),
+  r(PAG + ' .gm-pagina > .gm-tarjeta[data-ancho="angosto"]', 'padding-inline: max(0px, calc((100% - 48em) / 2));'),
+  r(PAG + ' .gm-pagina > .gm-tarjeta[data-ancho="amplio"]', 'padding-inline: max(0px, calc((100% - 84em) / 2));'),
+  r(PAG + ' .gm-pagina > .gm-tarjeta[data-alto="pantalla"]', 'min-height: 100vh; min-height: 100svh;'),
+  // El pie sigue pegado a la última sección: un filete lo separa (es del color de la tarjeta).
+  r(PAG + ' .gm-pie', 'margin-top: 0; box-shadow: inset 0 0.0625em 0 var(--gm-borde-neutro, rgba(0,0,0,0.12));'),
+  // La copia fiel de «Replicar» (T6): una sección a sangre con UN «HTML personalizado» adentro va
+  // de borde a borde, sin el padding del cuerpo (en página y en presentación).
+  r(D + ' .gm-tarjeta[data-ancho="completo"] > .gm-tarjeta-cuerpo:has(> .gm-html:only-child)', 'padding: 0; width: 100%;'),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -732,6 +836,15 @@ function movil(p: string): string[] {
     r(p + ' .gm-nav-interior', 'width: calc(100% - 1.5em); gap: 0.4em 1em;'),
     r(p + ' .gm-nav-enlaces', 'order: 3; width: 100%; justify-content: center; font-size: 0.92em;'),
     r(p + ' .gm-pie', 'margin-top: 2em;'),
+    // Presentaciones (15b): en celular la diapositiva vuelve a ser fluida, con la letra de celular.
+    // El mismo peso que las reglas de 15b (raíz con formato + :not), que van antes: gana ésta.
+    r(['[data-formato="presentacion"]' + FIJA + ' > ' + p + ' .gm-pagina', p + '[data-formato="presentacion"]' + FIJA + ' .gm-pagina'], 'font-size: var(--gm-base-movil, 16px);'),
+    r(['[data-formato="presentacion"]' + FIJA + ' > ' + p + ' .gm-tarjeta', p + '[data-formato="presentacion"]' + FIJA + ' .gm-tarjeta'], 'width: calc(100% - 1.5em); margin-top: 1.5em; aspect-ratio: auto;'),
+    // Fluida, ya no hay límite que marcar: sin la guía (medido: a 400px marcaba 212px sobre una de 1055).
+    r([p + '[data-modo="editor"][data-formato="presentacion"]' + FIJA + ' .gm-tarjeta > .gm-tarjeta-fondo::before', p + '[data-modo="editor"][data-formato="presentacion"]' + FIJA + ' .gm-tarjeta > .gm-tarjeta-fondo::after'], 'display: none;'),
+    // Página (15c): también en el celular las secciones van a sangre y pegadas. Las de arriba
+    // (`:not(completo) + completo`, con este prefijo) pesan igual y van antes: gana ésta.
+    r(pagDe(p) + ' .gm-pagina > .gm-tarjeta', 'width: 100%; margin: 0;'),
   ];
 }
 
@@ -762,6 +875,8 @@ const IMPRESION: string[] = [
   r(D + ' .gm-pagina', 'padding: 0; font-size: 12pt;'),
   r(D + ' .gm-tarjeta', 'width: 100% !important; margin: 0 auto !important; min-height: 0 !important; break-inside: avoid; break-after: page;'),
   r(D + ' .gm-tarjeta:last-child', 'break-after: auto;'),
+  // Una diapositiva impresa conserva su forma (el min-height: 0 de arriba la dejaría sin piso).
+  r(diapo(' .gm-tarjeta'), 'min-height: auto !important;'),
   r(D + ' .gm-tarjeta-fondo', 'box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;'),
   r(D + ' .gm-boton', 'transform: none; filter: none;'),
   '}',
@@ -773,7 +888,7 @@ const IMPRESION: string[] = [
  */
 export const CSS_CONTENIDO: string = [
   ...RAIZ, ...TARJETA, ...ACENTO, ...TIPOGRAFIA, ...MARCAS_TEXTO, ...BLOQUES, ...OPTIMIZADO,
-  ...SITIO, ...ANIMACION, ...RESPONSIVE, ...IMPRESION,
+  ...SITIO, ...PRESENTACION, ...PAGINA, ...ANIMACION, ...RESPONSIVE, ...IMPRESION,
 ].join('\n');
 
 /** Las variantes que la hoja reparte por modo (para el test: ninguna queda sin forma). */

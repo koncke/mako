@@ -53,10 +53,21 @@ import {
   seccionesParaEditar, emparejarEdicion, convertirEdicion, attrsDe,
   prepararAlternativa, elegirAlternativas,
   instruccionTexto, accionTextoValida, limpiarTextoDelModelo, limpiarNotas,
-  objetoConUnaReparacion, SalidaInvalida,
+  objetoConUnaReparacion, SalidaInvalida, REGLAS_PAGINA,
 } from './ia-reglas';
 import { NODO, TOPES, textoDe, type JsonNodo } from './doc';
 import type { Esquema, ParamsGeneracion, FuenteImagenes, AccionTexto } from './api-tipos';
+import { REGLAS_DIAPOSITIVAS_ESQUEMA, REGLAS_DIAPOSITIVAS_SECCIONES, REGLAS_DIAPOSITIVAS_EDITAR } from './plantillas-presentaciones';
+
+/**
+ * T3 (tanda 2): ¿el pedido es para una PRESENTACIÓN? Se lee del pedido CRUDO porque
+ * `normalizarParams` (ia-reglas.ts) arma los parámetros campo por campo y no conoce `formato`.
+ * Con diapositivas, las reglas de `REGLAS_DIAPOSITIVAS_*` (plantillas-presentaciones.ts: una idea
+ * por diapositiva, poco texto, diseños optimizados) se agregan a los slots que ya existen
+ * (`{{ajustes}}`, «mandan»; `{{alcance}}` al editar): los prompts editables no cambian.
+ */
+const esDiapositivas = (params: unknown): boolean =>
+  !!params && typeof params === 'object' && (params as { formato?: unknown }).formato === 'presentacion';
 
 /** Esquema, secciones e importar (lo que crea una landing). */
 export const FEATURE_GENERAR = 'landing-editor';
@@ -205,13 +216,14 @@ export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: s
 export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: Esquema }>> {
   const t0 = Date.now();
   const params = normalizarParams(p.params);
+  const diapos = esDiapositivas(p.params);
   let texto = '';
   let pedido = '';
-  let tituloFallback = 'Landing';
+  let tituloFallback = diapos ? 'Presentación' : 'Landing';
 
   if (p.modo === 'generar') {
     pedido = String(p.prompt ?? '').trim().slice(0, 8_000);
-    if (!pedido) return invalido('Escribe qué landing quieres.');
+    if (!pedido) return invalido(diapos ? 'Escribe qué presentación quieres.' : 'Escribe qué landing quieres.');
   } else if (p.modo === 'pegar') {
     texto = String(p.texto ?? '').slice(0, MAX_TEXTO_ENTRADA).trim();
     if (!texto) return invalido('Pega el texto primero.');
@@ -259,7 +271,7 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
     ]);
     const sys = await system(PROMPTS_EDITOR.esquemaSystem, { idioma: bloqueIdioma(params.idioma), formato: FORMATO_ESQUEMA });
     const user = await renderPrompt(PROMPTS_EDITOR.esquemaUser.key, PROMPTS_EDITOR.esquemaUser.tpl, {
-      ajustes: ajustesAutoritativos(params, cantidad),
+      ajustes: ajustesAutoritativos(params, cantidad) + `\n${diapos ? REGLAS_DIAPOSITIVAS_ESQUEMA : REGLAS_PAGINA}`,
       contenido,
       instrucciones,
       contexto,
@@ -268,7 +280,7 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
     const hastaMs = t0 + PLAZOS.esquema.ia;
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_GENERAR,
-      motivo: p.modo === 'importar' ? 'Esquema de landing (importada)' : p.modo === 'pegar' ? 'Esquema de landing (texto pegado)' : 'Esquema de landing',
+      motivo: `Esquema de ${diapos ? 'presentación' : 'landing'}${p.modo === 'importar' ? ' (importada)' : p.modo === 'pegar' ? ' (texto pegado)' : ''}`,
       maxTokens: 4_000,
       effort: 'medium',
       hastaMs,
@@ -309,6 +321,7 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
   if (!v.ok) return invalido(v.error);
   const indices = v.indices;
   const params = normalizarParams(p.params);
+  const diapos = esDiapositivas(p.params);
 
   // En «Conservar» un punto es un párrafo entero de la persona (hasta el tope de un nodo):
   // tres secciones así pueden no entrar en un pedido, y la salida tiene que copiarlas enteras.
@@ -326,7 +339,7 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
       formato: FORMATO_SECCIONES,
     });
     const user = await renderPrompt(PROMPTS_EDITOR.seccionesUser.key, PROMPTS_EDITOR.seccionesUser.tpl, {
-      ajustes: ajustesAutoritativos(params, esq.secciones.length),
+      ajustes: ajustesAutoritativos(params, esq.secciones.length) + `\n${diapos ? REGLAS_DIAPOSITIVAS_SECCIONES : REGLAS_PAGINA}`,
       esquema: contenidoNoConfiable(tanda.esquema, 'esquema'),
       pedidas: contenidoNoConfiable(tanda.pedidas, 'secciones_pedidas'),
       instrucciones: params.instrucciones ? contenidoNoConfiable(params.instrucciones, 'instrucciones') : '(ninguna)',
@@ -335,7 +348,7 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
     const hastaIA = t0 + PLAZOS.secciones.ia;
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_GENERAR,
-      motivo: `Secciones ${indices.map((i) => i + 1).join(', ')} de «${esq.titulo.slice(0, 60)}»`,
+      motivo: `${diapos ? 'Diapositivas' : 'Secciones'} ${indices.map((i) => i + 1).join(', ')} de «${esq.titulo.slice(0, 60)}»`,
       // Una sección con un diseño optimizado de seis ítems ronda los 1.500 tokens; con texto
       // conservado, la salida copia lo pedido entero (~4 caracteres por token, más la gramática).
       maxTokens: Math.min(16_000, Math.max(2_200 * indices.length + 800, Math.ceil(tanda.pedidas.length / 2.5))),
@@ -403,7 +416,8 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: J
     const sys = await system(PROMPTS_EDITOR.editarSystem, { gramatica: GRAMATICA_IA, idioma: bloqueIdioma(params.idioma), formato: FORMATO_EDITAR });
     const user = await renderPrompt(PROMPTS_EDITOR.editarUser.key, PROMPTS_EDITOR.editarUser.tpl, {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
-      alcance: p.alcance === 'seccion' ? 'una sección: cambia solo esa' : 'toda la landing: cambia solo las secciones que la instrucción toca',
+      alcance: (p.alcance === 'seccion' ? 'una sección: cambia solo esa' : 'toda la landing: cambia solo las secciones que la instrucción toca')
+        + `\n${esDiapositivas(p.params) ? REGLAS_DIAPOSITIVAS_EDITAR : REGLAS_PAGINA}`,
       secciones: contenidoNoConfiable(json, 'secciones'),
       contexto,
     });

@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 import { EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP } from "./lib/extension-tienda";
+import { CABECERAS_HTML_LIBRE } from "./lib/editor-landing/html-libre";
+import { PATRON_HOSTS_DE_MAKO } from "./lib/editor-landing/dominios-reglas";
 
 const nextConfig: NextConfig = {
   // El chequeo de tipos NO corre en el build: es ~65 de los ~99 segundos de cada
@@ -135,12 +137,36 @@ const nextConfig: NextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
           // Sin default-src: no restringe script/img/etc. (para no romper Next/Panda/
           // Supabase). Solo endurece los vectores seguros de bloquear.
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'" },
         ],
       },
+      // HSTS SÓLO en los hosts de MaKo (revisión de la tanda 2, 12/10/2026). Estaba en el bloque de
+      // arriba, que no mira el host: el dominio propio de una landing (proxy.ts la sirve en el host
+      // del cliente) también recibía `max-age=63072000; includeSubDomains`, y si el cliente conectaba
+      // su dominio RAÍZ, los navegadores de sus visitantes le forzaban HTTPS por dos años a TODOS sus
+      // subdominios — rompiendo cualquiera que sólo ande por HTTP. En positivo: los dominios de MaKo
+      // y sus subdominios (`PATRON_HOSTS_DE_MAKO`, de `DOMINIOS_DE_MAKO`); Next lo compila `^(…)$`
+      // contra el host sin puerto. Lo que NO se movió y queda pendiente: las redirecciones de arriba
+      // y los archivos de public/ también se sirven en el dominio de un cliente
+      // (docs/hallazgos-editor-landing.md, «Tanda 2»).
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: PATRON_HOSTS_DE_MAKO }],
+        headers: [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' }],
+      },
+      // Lo que se sirve ADENTRO de un iframe de una página nuestra (editor de landings, tanda 2):
+      // el «HTML personalizado» de una landing (/l/html/<docId>/<bloque>, T6) y la página de afuera
+      // del Diagnóstico (T5). Las dos necesitan que su propio origen las enmarque (SAMEORIGIN, no
+      // DENY) y la política `sandbox` (origen opaco: el HTML del cliente o de un tercero no ve la
+      // sesión de hola-mako.com). VAN DESPUÉS del bloque '/:path*' A PROPÓSITO: con dos bloques que
+      // ponen la misma cabecera gana el último, y Next descarta la que ponga la ruta si next.config
+      // ya puso una (por eso no alcanza con que la ruta las mande). Las dos rutas además se niegan a
+      // contestar si no las pide un iframe (`Sec-Fetch-Dest`): abiertas como pestaña, sin sandbox,
+      // correrían con el origen de MaKo. Fuente única de las cabeceras: lib/editor-landing/html-libre.ts.
+      { source: '/l/html/:path*', headers: [...CABECERAS_HTML_LIBRE] },
+      { source: '/api/landing-generator/diagnostico/pagina', headers: [...CABECERAS_HTML_LIBRE] },
       // El service worker de MaKo Mobile (public/sw.js: sólo push y click, SIN 'fetch'). Lo
       // que pide la guía de PWA de Next 16 (§8): servido como JavaScript, SIN caché —un sw.js
       // viejo cacheado deja a todos los teléfonos con el comportamiento anterior hasta que el

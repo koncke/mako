@@ -49,6 +49,7 @@ import {
   type TamanoTexto, type TipoCampo, type VarianteOptimizado, type VarianteParrafo,
 } from './doc';
 import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, nombreDeProveedor } from '../embeds';
+import { SANDBOX_PUBLICO } from './html-libre';
 import {
   arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
 } from './grafico-svg';
@@ -84,6 +85,12 @@ export type CtxSpec = {
    * `.gm-tarjeta-fondo`) pero la tinta del texto es la del tema.
    */
   varsFondo?: (relleno: string) => Record<string, string>;
+  /**
+   * La URL desde la que se sirve el «HTML personalizado» de un bloque (`/l/html/<docId>/<id>`,
+   * html-libre.ts), o null. Sólo se usa en modo 'publico': la pasa render.ts cuando conoce la
+   * landing (`OpRender.htmlLibre`). Sin esto, o sin id, el bloque sale con `srcdoc` como siempre.
+   */
+  srcHtmlLibre?: (idBloque: string) => string | null;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -396,11 +403,16 @@ export function attrsEspaciador(raw: unknown): AttrsEspaciador {
   return { alto: enLista(ALTOS_ESPACIADOR, obj(raw).alto, 'm') };
 }
 
-/** HTML personalizado: si pasa el tope (`TOPES.htmlLibre`) no se recorta (quedaría roto): queda vacío. */
+/**
+ * HTML personalizado: si pasa el tope (`TOPES.htmlLibre`) no se recorta (quedaría roto): queda vacío.
+ * `id` (tanda 2): el id estable del bloque, o null — el saneo (validar.ts) le pone uno. Va PRIMERO en
+ * el objeto a propósito: el `{}` de acá es lo que declara los atributos del nodo en TipTap
+ * (`attrsSinParseo(attrsHtmlLibre({}))`), y un atributo que no se declara TipTap lo tira al cargar.
+ */
 export function attrsHtmlLibre(raw: unknown): AttrsHtmlLibre {
   const r = obj(raw);
   const html = typeof r.html === 'string' && r.html.length <= TOPES.htmlLibre ? r.html.replace(/\u0000/g, '') : '';
-  return { html, alto: deListaNum(ALTOS_HTML_LIBRE, r.alto, 300) as AttrsHtmlLibre['alto'] };
+  return { id: idValido(r.id), html, alto: deListaNum(ALTOS_HTML_LIBRE, r.alto, 300) as AttrsHtmlLibre['alto'] };
 }
 
 export type AttrsParrafo = { variante: VarianteParrafo | null; textAlign: AlineacionTexto | null };
@@ -803,12 +815,25 @@ export function specEspaciador(raw: unknown): NodoArbol {
  * origen OPACO (sin `allow-same-origin`), como en Gamma: no ve la sesión de hola-mako.com, no
  * navega la pestaña de arriba ni abre ventanas. El `srcdoc` sale escapado como cualquier
  * atributo: un `"></iframe><script>` adentro no puede cerrar el iframe.
+ *
+ * En la página PUBLICADA (tanda 2, T6), si render.ts conoce la landing (`ctx.srcHtmlLibre`) y el bloque
+ * tiene id, sale `iframe[src="/l/html/<docId>/<id>"][sandbox="allow-scripts allow-forms allow-popups"]`
+ * SIN `srcdoc`: ese documento trae su propia política (html-libre.ts) y su JavaScript corre — el
+ * `srcdoc` hereda la política estricta de la página y no corría. `data-alto` queda como alto de
+ * partida; el script de la página (pagina-publica.ts) lo ajusta con lo que el bloque mide.
  */
 export function specHtmlLibre(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsHtmlLibre(raw);
   const attrsDiv: AttrsArbol = { class: 'gm-html', 'data-alto': String(a.alto) };
   if (!a.html) return el('div', { ...attrsDiv, 'data-vacia': 'si' });
   if (modo(ctx) === 'miniatura') return el('div', { ...attrsDiv, 'data-marcador': 'si' }, el('div', { class: 'gm-marcador' }));
+  const src = modo(ctx) === 'publico' && a.id && ctx?.srcHtmlLibre ? ctx.srcHtmlLibre(a.id) : null;
+  if (src) {
+    return el('div', attrsDiv, el('iframe', {
+      sandbox: SANDBOX_PUBLICO, src, title: 'HTML personalizado', loading: 'lazy',
+      referrerpolicy: 'no-referrer', style: `height:${a.alto}px`,
+    }));
+  }
   return el('div', attrsDiv, el('iframe', {
     sandbox: 'allow-scripts', srcdoc: a.html, title: 'HTML personalizado', loading: 'lazy',
     referrerpolicy: 'no-referrer', style: `height:${a.alto}px`,

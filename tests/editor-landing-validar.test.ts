@@ -287,7 +287,8 @@ test('topes: texto largo recortado, HTML personalizado sobre el tope vacío, sec
   assert.equal(t.content![0].content![0].text!.length, TOPES.caracteresTexto);
   assert.equal(t.content![1].attrs!.html, '');
   tieneMotivo(r.descartes, /texto de 20010 caracteres/);
-  tieneMotivo(r.descartes, /HTML personalizado de 50001 caracteres/);
+  // El tope del HTML libre subió en la tanda 2 (T6: una copia fiel de otra landing): se lee de TOPES.
+  tieneMotivo(r.descartes, new RegExp(`HTML personalizado de ${TOPES.htmlLibre + 1} caracteres`));
   assert.equal(r.contenido.paginas[0].doc.content.length, TOPES.tarjetasPorPagina);
   tieneMotivo(r.descartes, /secciones en .* \(tope 60\)/);
   assert.equal(excedeTope(r), false);

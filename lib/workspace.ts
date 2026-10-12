@@ -204,6 +204,8 @@ const TENANT_TABLES = new Set<string>([
   // contenido. (lib/editor-landing/server.ts escribe además el `.eq` a mano en cada consulta.) La
   // página PÚBLICA no pasa por acá: lee por slug o por token con el cliente crudo.
   'landing_docs', 'landing_doc_versiones', 'landing_doc_comentarios',
+  // Los comentarios del diagnóstico de una landing (mig 0264, tanda 2 T5): N filas por workspace.
+  'landing_sugerencias',
   // Canal Instagram vía Zernio (mig 0136). La tab se retiró el 06/10/2026 y ya no
   // las lee ni las escribe nadie, pero las TABLAS quedan en la base (sin migración
   // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que

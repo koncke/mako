@@ -211,7 +211,8 @@ export function bloqueJson(id: IdBloque, extra: { url?: string | null } = {}): J
     case 'video-enlace':
     case 'insertar':
       return { type: NODO.insertado, attrs: { src: '', proveedor: '', alto: null } };
-    case 'html-libre': return { type: NODO.htmlLibre, attrs: { html: '', alto: 300 } };
+    // Con id desde que nace (T6): la publicada sirve cada bloque desde /l/html/<docId>/<id>.
+    case 'html-libre': return { type: NODO.htmlLibre, attrs: { id: nuevoId('h'), html: '', alto: 300 } };
 
     // ── Gráficos ──
     case 'grafico-barras':

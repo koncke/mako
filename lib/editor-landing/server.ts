@@ -30,7 +30,7 @@ import { tzDeWorkspace } from '../timezone';
 import { hoyEnTz } from '../date-utils';
 import type { LandingSpec } from '../landing-spec';
 import { contenidoVacio, slugDe, slugValido, urlPublica, type JsonNodo, type LandingContenido } from './doc';
-import { CONFIG_DEFAULT } from './api-tipos';
+import { CONFIG_DEFAULT, formatoDe, proporcionDe } from './api-tipos';
 import type {
   Analitica, Comentario, ConfigLanding, Falla, LandingCompleta, LandingResumen, PedidoDocs,
   TemaPropio, VersionResumen,
@@ -38,9 +38,10 @@ import type {
 import { sanearContenido, sanearConfig, excedeTope } from './validar';
 import { sanearTemaPropio } from './temas';
 import { specADoc } from './spec-a-doc';
+import { soltarDominioDeVercel } from './dominios';
 import {
   MOTIVO, TOPE_VERSIONES_AUTO, TOPE_TEMAS, CLAVE_TEMAS, cambiosSinPublicar, candidatosSlug, esUrlMedida,
-  idValido, mezclarConfig, motivoSlugInvalido, prefiltroVisitas, primeraLibre, puedeBorrarse, sanearCarpeta,
+  idValido, mezclarConfig, motivoSlugInvalido, prefiltroVisitas, primeraLibre, puedeBorrarse,
   sanearMotivo, sanearTemasPropios, sanearTitulo, slugPedido, tarjetaIdValido, esComentarioPropio, puedeBorrarComentario,
   tocaVersionAutomatica, urlsAMedir, urlVistaPrevia, visitasPorDia,
 } from './server-reglas';
@@ -66,8 +67,6 @@ export type RespuestasDocs = CubreTodas<{
   guardar: { version: number; actualizado: string; cambiosSinPublicar: boolean; descartes: number };
   duplicar: { doc: LandingResumen };
   renombrar: { version: number; titulo: string };
-  favorito: { favorito: boolean };
-  carpeta: { carpeta: string | null };
   papelera: Nada;
   restaurar: Nada;
   borrar: Nada;
@@ -138,10 +137,10 @@ export const COLS_DOC = 'id, workspace_id, titulo, contenido, config, version, s
  * página) y NO se trae el contenido entero: con 40 landings de 200 KB, el Panel bajaría 8 MB para
  * dibujar 40 miniaturas.
  */
-const COLS_RESUMEN = 'id, titulo, tema:config->>tema, created_at, updated_at, creado_por_nombre, favorito, carpeta, papelera_at, slug, publicado_at, primera:contenido->paginas->0->doc->content->0';
+const COLS_RESUMEN = 'id, titulo, tema:config->>tema, formato:config->>formato, proporcion:config->>proporcion, created_at, updated_at, creado_por_nombre, favorito, carpeta, papelera_at, slug, publicado_at, primera:contenido->paginas->0->doc->content->0';
 
 type FilaResumen = {
-  id: number; titulo: string; tema: string | null; created_at: string; updated_at: string;
+  id: number; titulo: string; tema: string | null; formato: string | null; proporcion: string | null; created_at: string; updated_at: string;
   creado_por_nombre: string | null; favorito: boolean; carpeta: string | null; papelera_at: string | null;
   slug: string | null; publicado_at: string | null; primera: unknown;
 };
@@ -162,6 +161,10 @@ function aResumen(f: FilaResumen): LandingResumen {
     slug: f.slug,
     publicadoAt: f.publicado_at,
     primera: esNodo(f.primera) ? f.primera : null,
+    // T1/T3: el ícono del renglón del Panel y la forma de la miniatura. Sin el campo (lo guardado
+    // antes de la tanda 2) es una página: las mismas funciones que `sanearConfig`.
+    formato: formatoDe(f),
+    proporcion: proporcionDe(f),
   };
 }
 
@@ -481,32 +484,9 @@ export async function renombrar(idRaw: unknown, tituloRaw: unknown): Promise<Res
   }
 }
 
-export async function marcarFavorito(idRaw: unknown, valor: unknown): Promise<Resultado<'favorito'>> {
-  const ws = await wsOFalla();
-  if (typeof ws !== 'number') return ws;
-  const id = idValido(idRaw);
-  if (!id) return falla('Falta la landing');
-  try {
-    const r = await cambiarMetadatos(ws, id, { favorito: valor === true });
-    return r === true ? { ok: true, favorito: valor === true } : r;
-  } catch (e) {
-    return falla(msg(e), 500);
-  }
-}
-
-export async function moverACarpeta(idRaw: unknown, carpetaRaw: unknown): Promise<Resultado<'carpeta'>> {
-  const ws = await wsOFalla();
-  if (typeof ws !== 'number') return ws;
-  const id = idValido(idRaw);
-  if (!id) return falla('Falta la landing');
-  const carpeta = sanearCarpeta(carpetaRaw);
-  try {
-    const r = await cambiarMetadatos(ws, id, { carpeta });
-    return r === true ? { ok: true, carpeta } : r;
-  } catch (e) {
-    return falla(msg(e), 500);
-  }
-}
+// «Favorito» y «Mover a carpeta» se fueron con la tanda 2 (T1, 11/10/2026): el Panel ya no tiene las
+// vistas de Favoritos ni las Carpetas, así que marcar algo no se veía en ningún lado. Las columnas
+// favorito y carpeta quedan en la tabla sin uso (no se borra un dato por una pantalla).
 
 /**
  * A la papelera. Lo publicado NO se borra: la página pública deja de servirla mientras esté en la
@@ -554,10 +534,28 @@ export async function borrar(idRaw: unknown): Promise<Resultado<'borrar'>> {
     if (!f) return falla('No existe', 404);
     if (!puedeBorrarse(f)) return falla('Primero va a la papelera', 409);
     const db = await getTenantDb();
+    // T7: el dominio propio se suelta de Vercel ANTES de borrar la fila, como `quitarDominio`
+    // (revisión de la tanda 2, BAJA): después, en el hueco, otra cuenta lo reclama y el DELETE se lo
+    // saca del proyecto. Y si Vercel falla, la landing NO se borra: sin la fila nadie sabría qué
+    // dominio quedó colgado. Se lee aparte: sin la migración 0263 la columna no existe (42703, se
+    // tolera: no hay dominio que soltar), y un select con una columna que falta rechazaría el borrado
+    // entero. Cualquier otro error de lectura frena: «no pude leer» no es «no tiene dominio».
+    const { data: conDominio, error: eDominio } = await db.from('landing_docs').select('dominio, dominio_agregado_por_mako').eq('workspace_id', ws).eq('id', id).maybeSingle();
+    if (eDominio && (eDominio as { code?: string }).code !== '42703') return falla(eDominio.message, 500);
+    const fd = eDominio ? null : (conDominio as { dominio?: string | null; dominio_agregado_por_mako?: boolean | null } | null);
+    if (fd?.dominio) {
+      try {
+        await soltarDominioDeVercel(fd.dominio, fd.dominio_agregado_por_mako);
+      } catch (e) {
+        console.error(`[landing-editor:borrar] #${id}: no pude soltar ${fd.dominio} de Vercel, no se borra: ${msg(e)}`);
+        return falla('No pude soltar el dominio propio de esta landing. Vuelve a intentar.', 502);
+      }
+    }
     const { data, error } = await db.from('landing_docs').delete()
       .eq('workspace_id', ws).eq('id', id).not('papelera_at', 'is', null).select('id');
     if (error) return falla(error.message, 500);
-    return (data ?? []).length ? { ok: true } : falla('Primero va a la papelera', 409);
+    if (!(data ?? []).length) return falla('Primero va a la papelera', 409);
+    return { ok: true };
   } catch (e) {
     return falla(msg(e), 500);
   }

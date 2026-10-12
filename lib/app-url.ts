@@ -24,6 +24,9 @@
 //   3. APP_BASE_URL y NEXT_PUBLIC_APP_URL en Vercel (production + preview) + deploy.
 //      Ojo: NEXT_PUBLIC_* se inlinea en BUILD — sin redeploy queda el valor viejo.
 //   4. El dominio agregado al proyecto de Vercel + su DNS.
+//   4b. El dominio VIEJO (y el nuevo) en `DOMINIOS_DE_MAKO` (lib/editor-landing/dominios-reglas.ts):
+//      un host que no está ahí lo trata proxy.ts como el dominio propio de una landing de un
+//      cliente, y la app entera contesta 404 en ese host.
 // Afuera (lo que se olvida y falla EN SILENCIO):
 //   5. Los webhooks REGISTRADOS en cada servicio: cada instancia de
 //      Evolution (incluida la de voz, que ningún botón de la UI alcanza), Calendly,

@@ -52,6 +52,9 @@ import { htmlDeTarjeta } from '@/lib/editor-landing/render';
 import { svgIcono } from '@/lib/editor-landing/iconos';
 import { varsDeTema, type Tema } from '@/lib/editor-landing/temas';
 import { parrafo, tarjeta, titulo, type JsonNodo } from '@/lib/editor-landing/doc';
+import type { FormatoDoc, Proporcion } from '@/lib/editor-landing/api-tipos';
+import type { BorradorViejo } from '@/lib/editor-landing/server';
+import { pedirDocs, marcarReciente } from './cliente';
 // Los pedidos a las rutas, los plazos, la letra del chrome y lo que se recuerda en el navegador
 // viven en ./cliente (un módulo SIN 'use client': cuatro copias divergían). Se re-exportan para
 // que el Panel y Crear sigan importando de acá.
@@ -89,15 +92,9 @@ export function haceCuanto(fecha: string | number, ahora: number): string {
   return `hace ${a} ${a === 1 ? 'año' : 'años'}`;
 }
 
-/** El host y la ruta de una URL, sin «www.», para nombrar una landing analizada. */
-export function hostDe(url: string): string {
-  try {
-    const u = new URL(url);
-    return u.hostname.replace(/^www\./, '') + (u.pathname === '/' ? '' : u.pathname.replace(/\/$/, ''));
-  } catch {
-    return url;
-  }
-}
+// El host y la ruta de una URL, sin «www.», para nombrar una landing analizada. Vive en
+// ./panel-reglas (un módulo puro: lo usan también la barra lateral del Panel y su test).
+export { hostDe } from './panel-reglas';
 
 /**
  * La caja «¿Qué quieres crear?» del Panel le pasa el pedido a Crear por sessionStorage y no
@@ -144,17 +141,33 @@ const TARJETA_VACIA: JsonNodo = tarjeta([titulo('', 1), parrafo()], { id: 'tvaci
  * en un cuadro de la proporción dada. `entera` = sin cuadro: la sección con su alto real
  * (la vista de generación en vivo). Es decorativa: `aria-hidden` e `inert`, sin enlaces
  * que se puedan tocar.
+ *
+ * T3 (tanda 2): con `formato: 'presentacion'` la miniatura es la DIAPOSITIVA, con la forma de
+ * su `proporcion` (16:9 o 4:3; «Fluido» se dibuja 16:9: una miniatura necesita un cuadro). El
+ * formato lo declara el PADRE DIRECTO del `.gm-doc` (`data-formato`/`data-proporcion`):
+ * `htmlDeTarjeta` no conoce la configuración, y css.ts («15b. Presentaciones») lee el
+ * envoltorio. `aspecto` es el cuadro de una PÁGINA (16 / 10 por default).
  */
-export function MiniaturaLanding({ tarjeta: t, tema, proporcion = '16 / 10', entera = false }: {
+export function MiniaturaLanding({ tarjeta: t, tema, formato = 'pagina', proporcion = '16:9', aspecto = '16 / 10', entera = false }: {
   tarjeta: JsonNodo | null;
   tema: Tema;
-  proporcion?: string;
+  formato?: FormatoDoc;
+  proporcion?: Proporcion;
+  aspecto?: string;
   entera?: boolean;
 }) {
   const html = useMemo(() => htmlDeTarjeta(t ?? TARJETA_VACIA, tema, { modo: 'miniatura', incluirOcultas: true }), [t, tema]);
+  const diapo = formato === 'presentacion';
+  const prop: Proporcion = proporcion === '4:3' ? '4:3' : '16:9';
+  const cuadro = diapo ? (prop === '4:3' ? '4 / 3' : '16 / 9') : aspecto;
   return (
-    <div className="gp-mini" data-entera={entera ? 'si' : undefined} style={entera ? undefined : { aspectRatio: proporcion }} aria-hidden="true" inert>
-      <div className="gp-mini-lienzo" dangerouslySetInnerHTML={{ __html: html }} />
+    <div className="gp-mini" data-entera={entera ? 'si' : undefined} style={entera ? undefined : { aspectRatio: cuadro }} aria-hidden="true" inert>
+      <div
+        className="gp-mini-lienzo"
+        data-formato={diapo ? 'presentacion' : undefined}
+        data-proporcion={diapo ? prop : undefined}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     </div>
   );
 }
@@ -507,6 +520,62 @@ export function useAviso(): { avisar: (texto: string, deshacer?: () => void) => 
   return { avisar, nodo };
 }
 
+/**
+ * «Del generador anterior»: los borradores de landing_drafts, convertidos (specADoc, del lado
+ * del server) al abrirlos. Vivía en el Panel detrás de «Importar ▾»; la tanda 2 sacó esa fila de
+ * botones (T1: «Muchos botones a la derecha»), así que se ofrece desde la caja de crear (el «+»)
+ * y vive acá, en lo común del Panel y de Crear.
+ */
+export function DialogoBorradores({ onCerrar, ws, ahora }: { onCerrar: () => void; ws: number | null; ahora: number }) {
+  const [borradores, setBorradores] = useState<BorradorViejo[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [importando, setImportando] = useState<number | null>(null);
+
+  const cargar = useCallback(async () => {
+    const r = await pedirDocs({ accion: 'borradoresViejos' });
+    if (!r.ok) { setError(r.error); return; }
+    setBorradores(r.borradores);
+  }, []);
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  const importar = async (b: BorradorViejo) => {
+    setImportando(b.id);
+    setError(null);
+    const r = await pedirDocs({ accion: 'importarBorrador', draftId: b.id }, 60_000);
+    if (!r.ok) { setImportando(null); setError(r.error); return; }
+    marcarReciente(r.doc.id);
+    irDuro(`/landing-generator/${r.doc.id}`, ws);
+  };
+
+  return (
+    <DialogoGamma titulo="Del generador anterior" ancho={600} onCerrar={onCerrar} cerrable={importando === null}>
+      {error && (
+        <div className="gp-error" role="alert">
+          <span>{error}</span>
+          {!borradores && <button type="button" className="gp-btn gp-btn-contorno" onClick={() => { setError(null); void cargar(); }}>Reintentar</button>}
+        </div>
+      )}
+      {!borradores && !error && <div className="gp-esperando-centro"><span className="gp-giro" /></div>}
+      {borradores && !borradores.length && <p className="gp-vacio">No hay borradores del generador anterior.</p>}
+      {borradores && borradores.length > 0 && (
+        <ul className="gp-borradores">
+          {borradores.map((b) => (
+            <li key={b.id}>
+              <button type="button" className="gp-borrador" disabled={importando !== null} onClick={() => void importar(b)}>
+                <span className="gp-borrador-textos">
+                  <span className="gp-borrador-titulo">{b.titulo}</span>
+                  <span className="gp-borrador-sub">{b.pedido.slice(0, 110) || 'Sin pedido'} · {haceCuanto(b.creado, ahora)}</span>
+                </span>
+                {importando === b.id ? <span className="gp-giro" /> : <Ico n="chevron-derecha" t={14} />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </DialogoGamma>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // La hoja del chrome (tokens medidos de Gamma)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -662,6 +731,15 @@ export const CSS_GP = `
 .gp .gp-filtro { height: 30px; padding: 0 12px; border: 0; border-radius: 9999px; background: var(--gp-borde-suave); color: var(--gp-texto); font-size: 13px; font-weight: 500; cursor: pointer; }
 .gp .gp-filtro:hover { background: var(--gp-borde); }
 .gp .gp-filtro[aria-pressed="true"] { background: var(--gp-activo-fondo); color: var(--gp-activo-texto); }
+
+/* «Del generador anterior» (DialogoBorradores). */
+.gp .gp-borradores { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.gp .gp-borrador { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 1px solid var(--gp-borde-suave); border-radius: 10px; background: var(--gp-superficie); text-align: left; cursor: pointer; color: var(--gp-tenue); }
+.gp .gp-borrador:hover:not(:disabled) { border-color: var(--gp-azul-300); }
+.gp .gp-borrador-textos { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.gp .gp-borrador-titulo { color: var(--gp-titulo); font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gp .gp-borrador-sub { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gp .gp-esperando-centro { display: flex; justify-content: center; padding: 24px; color: var(--gp-tenue); }
 
 @media (prefers-reduced-motion: reduce) { .gp *, .gp *::before, .gp *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 `;

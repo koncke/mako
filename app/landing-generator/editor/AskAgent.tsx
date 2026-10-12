@@ -34,6 +34,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { createPortal } from 'react-dom';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { useEditorLanding } from './contexto';
+import { formatoDe, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
 import type { JsonNodo } from '@/lib/editor-landing/doc';
 import {
   EstilosContenido, EstilosPanelesB, Ico, Miniatura, RevisionPropuesta, aceptarPropuesta, cortadoPorUsuario, pedirIA, tituloVivo,
@@ -151,13 +152,13 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
   // ── Pedidos ──────────────────────────────────────────────────────────────
   const correrEdicion = async (pedido: string, crear: boolean) => {
     const original = seccion();
-    if (!original) { setFase({ f: 'mensaje', texto: 'La sección ya no está.', error: true }); return; }
+    if (!original) { setFase({ f: 'mensaje', texto: `La ${terminoTarjeta(ctxRef.current.config)} ya no está.`, error: true }); return; }
     if (!pedido.trim()) return;
     setFase({ f: 'corriendo' });
     setTraducir(false);
     const corte = new AbortController();
     corteRef.current = corte;
-    const r = await pedirIA({ accion: 'editar', instruccion: crear ? instruccionCrear(original, pedido.trim()) : pedido.trim(), tarjetas: [original], alcance: 'seccion' }, { signal: corte.signal });
+    const r = await pedirIA({ accion: 'editar', instruccion: crear ? instruccionCrear(original, pedido.trim()) : pedido.trim(), tarjetas: [original], alcance: 'seccion', params: { formato: formatoDe(ctxRef.current.config) } }, { signal: corte.signal });
     if (!vivo.current) return;
     if (!r.ok) { setFase(cortadoPorUsuario(r) ? { f: 'pedir' } : { f: 'mensaje', texto: r.error, error: true }); return; }
     if (!('tarjetas' in r)) { setFase({ f: 'mensaje', texto: 'Respuesta inválida', error: true }); return; }
@@ -169,7 +170,7 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
 
   const correrDisenos = async () => {
     const original = seccion();
-    if (!original) { setFase({ f: 'mensaje', texto: 'La sección ya no está.', error: true }); return; }
+    if (!original) { setFase({ f: 'mensaje', texto: `La ${terminoTarjeta(ctxRef.current.config)} ya no está.`, error: true }); return; }
     setFase({ f: 'corriendo' });
     const corte = new AbortController();
     corteRef.current = corte;
@@ -313,7 +314,7 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
       <style href="gma-ask" precedence="medium">{CSS_ASK}</style>
 
       <div className="gma-ask-cab">
-        <span className="gma-ask-donde" title={tituloSeccion}>{modo === 'agregar' ? 'Después de: ' : ''}{tituloSeccion || 'Sección'}</span>
+        <span className="gma-ask-donde" title={tituloSeccion}>{modo === 'agregar' ? 'Después de: ' : ''}{tituloSeccion || terminoTarjeta(ctx.config, { mayuscula: true })}</span>
         <button type="button" className="gma-pb-iconbtn" onClick={cerrar} aria-label="Cerrar" title="Cerrar"><Ico n="cerrar" t={14} /></button>
       </div>
 
@@ -326,7 +327,7 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); enviar(); } }}
-            placeholder={ocupado ? 'Espera a que la IA termine' : modo === 'agregar' ? 'Describe la sección nueva' : 'Pídele algo a MaKo'}
+            placeholder={ocupado ? 'Espera a que la IA termine' : modo === 'agregar' ? `Describe la ${terminoTarjeta(ctx.config)} nueva` : 'Pídele algo a MaKo'}
             disabled={ocupado}
             aria-label="Pídele algo a MaKo"
           />

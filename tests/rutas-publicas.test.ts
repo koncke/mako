@@ -161,7 +161,10 @@ test('las landings publicadas (/l) entran sin sesión, y sólo para LEER', () =>
   // Probado rompiéndolo (11/10/2026): sacar `/l` de PUBLICOS, corriendo este archivo con
   // tests/editor-landing-publica.test.ts, da 36 pass / 2 fail (cae éste y su gemelo de allá).
   // Restaurado: 38 / 0.
-  for (const r of ['/l/mi-landing', '/l/mi-landing/gracias', '/l/vista/tok_ABCdef123456']) {
+  // `/l/html/<doc>/<bloque>` (tanda 2, T6): el «HTML personalizado» lo pide un IFRAME de la página
+  // publicada, sin sesión. Probado rompiéndolo (11/10/2026): un `!pathname.startsWith('/l/html')` en
+  // `esPublica` da 1 fallo en este test (y deja intactos los otros tres casos).
+  for (const r of ['/l/mi-landing', '/l/mi-landing/gracias', '/l/vista/tok_ABCdef123456', '/l/html/12/h1abc']) {
     assert.equal(esPublica(r), true, r);
     // No es /api/: una página pública que acepta POST ejecuta server actions sin sesión.
     assert.equal(esPublicaSoloLeer(r), true, r);

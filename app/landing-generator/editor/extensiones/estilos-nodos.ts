@@ -47,11 +47,13 @@ export const CSS_NODOS = [
   '.gm-tarjeta:hover > .gmc-lado, .gm-tarjeta[data-activa="si"] > .gmc-lado, .gmc-lado[data-abierto] { opacity: 1; pointer-events: auto; }',
   // A sangre (ancho completo) no hay lugar afuera: la columna va adentro, arriba a la izquierda.
   // y lo mismo en la vista de teléfono o tableta, donde la sección ocupa todo el ancho del marco.
-  '.gm-tarjeta[data-ancho="completo"] > .gmc-lado, [data-dispositivo="movil"] .gm-tarjeta > .gmc-lado, [data-dispositivo="tableta"] .gm-tarjeta > .gmc-lado { right: auto; left: 12px; top: 12px; padding: 0; }',
+  // Y en una LANDING todas van a sangre (css.ts, bloque 15c, feedback del 12/10/2026): las
+  // tarjetas con aire son sólo de una presentación, así que ahí la columna sigue afuera.
+  '.gm-tarjeta[data-ancho="completo"] > .gmc-lado, [data-dispositivo="movil"] .gm-tarjeta > .gmc-lado, [data-dispositivo="tableta"] .gm-tarjeta > .gmc-lado, .gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-lado { right: auto; left: 12px; top: 12px; padding: 0; }',
 
   // El «+» entre secciones: ocupa el hueco de arriba de la sección (el margin-top de 3.5em).
   '.gmc-entre { position: absolute; left: 0; right: 0; bottom: 100%; height: 3.5em; display: flex; align-items: center; justify-content: center; z-index: 4; }',
-  '.gm-tarjeta[data-ancho="completo"] > .gmc-entre { height: 1.6em; bottom: calc(100% - 0.8em); }',
+  '.gm-tarjeta[data-ancho="completo"] > .gmc-entre, .gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-entre { height: 1.6em; bottom: calc(100% - 0.8em); }',
   '.gm-tarjeta[data-activa="si"] + .gm-tarjeta > .gmc-entre { display: none; }',
   '.gmc-entre > button { ' + LETRA + ' width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--gmc-borde); background: var(--gmc-fondo); color: var(--gmc-tenue); box-shadow: var(--gmc-sombra-sm); display: grid; place-items: center; cursor: pointer; opacity: 0; transition: opacity 0.12s ease; padding: 0; }',
   '.gmc-entre:hover > button, .gmc-entre > button:focus-visible { opacity: 1; }',
@@ -60,7 +62,7 @@ export const CSS_NODOS = [
 
   // La mini barra debajo de la sección activa: [ + | ✨ | ▾ ]
   '.gmc-mini { ' + LETRA + ' position: absolute; top: 100%; left: 50%; transform: translate(-50%, 0.75em); display: flex; align-items: stretch; height: 30px; border-radius: 999px; background: var(--gmc-fondo); border: 1px solid var(--gmc-borde); box-shadow: var(--gmc-sombra-sm); overflow: hidden; z-index: 6; }',
-  '.gm-tarjeta[data-ancho="completo"] > .gmc-mini { transform: translate(-50%, -50%); }',
+  '.gm-tarjeta[data-ancho="completo"] > .gmc-mini, .gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-mini { transform: translate(-50%, -50%); }',
   '.gmc-mini > button { display: grid; place-items: center; width: 36px; border: 0; background: none; color: var(--gmc-tenue); cursor: pointer; padding: 0; }',
   '.gmc-mini > button + button { border-left: 1px solid var(--gmc-borde); }',
   '.gmc-mini > button:hover, .gmc-mini > button[aria-expanded="true"] { background: var(--gmc-hover); color: var(--gmc-texto); }',

@@ -16,6 +16,12 @@
 //   3. El deep link del Landing Analyst (`?url=`) sólo preselecciona «Sobre cuál» si la
 //      URL está entre las analizadas de ESTE negocio (una URL cualquiera en la query no
 //      puede meter el diagnóstico de otra página en el prompt).
+//   4. T4 (tanda 2, punto 6: «Al momento de crear nuevo tengo que elegir si crear landing,
+//      presentación...»): con una PRESENTACIÓN el alta lleva `formato` y proporción (y
+//      sobrevive al saneo del server), todo pedido a la IA lleva `params.formato`, cada
+//      plantilla nace con SU formato, la caja manda el tipo en la URL, la pantalla dice
+//      «diapositiva», y la caja usa el micrófono (`BotonDictar`) y el ejemplo que se escribe
+//      solo (`useEjemploQueSeEscribe`) de «Nueva automatización» IMPORTADOS, no copiados.
 //
 // Lo que no es puro (que la pantalla use estas funciones y no otras) se fija LEYENDO EL
 // FUENTE, sin comentarios y con CRLF normalizado.
@@ -35,6 +41,31 @@
 //   · B11 completarConEsquema pisa también lo que ya llegó                     -> 16 / 1
 //   · B12 el Panel redirige el ?url= sin `rutaConWs`                           -> 16 / 1
 //   · B13 esquemaParaEnviar deja pasar las viñetas vacías                      -> 16 / 1
+//
+// ── Roturas de la sección 4 (T4, 12/10/2026, mismo arnés —restaura de memoria y compara el
+//    sha256—; base en verde: 26 pasan, 0 fallan; al final, 26 / 0 otra vez). Cada una tumba
+//    UN test, el que la persigue ──
+//   · B14 tipoValido acepta cualquier «presentaci…» (también «PRESENTACION»)   -> 25 / 1
+//   · B15 paramsDeTipo no suelta la landing de base en una presentación        -> 25 / 1
+//   · B16 paramsDeTipo pone `formato` sólo en presentación (queda pegado)      -> 25 / 1
+//   · B17 configDeCreacion sin `formato` en presentación (nace página)          -> 25 / 1
+//   · B18 pedidoDePlantilla ignora el formato de la plantilla                   -> 25 / 1
+//   · B19 rutaCaja no lleva el tipo                                             -> 25 / 1
+//   · B20 rutaCaja manda el pedido en la URL aunque entró en la sesión          -> 25 / 1
+//   · B21 rotuloTanda ignora el tipo («Sección 7» en una presentación)          -> 25 / 1
+//   · B22 textoSecciones ignora el tipo                                          -> 25 / 1
+//   · B23 las secciones se piden con los parámetros crudos (sin formato)         -> 25 / 1
+//   · B24 el esquema de «pegar» con los parámetros crudos                        -> 25 / 1
+//   · B25 el alta arma su config a mano, sin configDeCreacion                    -> 25 / 1
+//   · B26 «Sobre cuál» se dibuja también en una presentación                     -> 25 / 1
+//   · B27 la página no le pasa el tipo de la query al generador                  -> 25 / 1
+//   · B28 la caja COPIA un botón de dictado en vez de importar BotonDictar       -> 25 / 1
+//   · B29 el campo de la caja sin `key={tipo}` (el ejemplo queda trabado)        -> 25 / 1
+//   · B30 la plantilla de la caja con su propio alta (sin formato)               -> 25 / 1
+//     (el test de `pedidoDePlantilla` sigue verde ahí: por eso se lee el fuente)
+//   · B31 enviar desde la caja sin el tipo                                       -> 25 / 1
+//   · B32 la miniatura de la plantilla sin el formato (sin forma de diapositiva) -> 25 / 1
+//   · B33 un ejemplo de 87 caracteres para el placeholder                        -> 25 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -45,7 +76,15 @@ import {
   baseDelDeepLink, colocarTanda, completarConEsquema, contenidoGenerado, correrTandas, guardarSiCompleta, nuevaGeneracion,
   objetivoValido, rotuloTanda, todasListas, type DepsGeneracion, type EstadoGen, type ResultadoTanda,
 } from '../app/landing-generator/crear/CrearConIA';
-import { agregarSeccion, esquemaParaEnviar, moverSeccion, quitarSeccion } from '../app/landing-generator/crear/EditorEsquema';
+import { agregarSeccion, esquemaParaEnviar, moverSeccion, quitarSeccion, textoSecciones } from '../app/landing-generator/crear/EditorEsquema';
+import {
+  EJEMPLOS_CAJA, configDeCreacion, cuantas, paramsDeTipo, pedidoDePlantilla, plantillasDe, rutaCaja, rutaPaso, termino, tipoValido,
+} from '../app/landing-generator/crear/tipo';
+import { PARAMS_DEFAULT } from '../lib/editor-landing/ia-reglas';
+import { sanearConfig } from '../lib/editor-landing/validar';
+import { mezclarConfig } from '../lib/editor-landing/server-reglas';
+import { PLANTILLAS } from '../lib/editor-landing/plantillas';
+import { PLANTILLAS_PRESENTACION } from '../lib/editor-landing/plantillas-presentaciones';
 import { temaSugerido } from '../app/landing-generator/crear/SelectorTemaCrear';
 import { TEMAS } from '../lib/editor-landing/temas';
 import { tarjeta, textoDe, titulo, type JsonNodo } from '../lib/editor-landing/doc';
@@ -276,5 +315,143 @@ test('mover, quitar y agregar secciones respetan los bordes', () => {
 test('el tema sugerido existe en el catálogo para cada objetivo', () => {
   for (const o of ['agendar', 'vender', 'registrar', 'descargar'] as const) {
     assert.ok(TEMAS.some((t) => t.id === temaSugerido(o)), `${o} → ${temaSugerido(o)}`);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. T4 (tanda 2): Landing | Presentación, la caja con el micrófono y las plantillas
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ORIGEN = { modo: 'ia' as const, pedido: 'algo', objetivo: 'agendar' as const, basadoEnUrl: null };
+
+test('el tipo de la query: sólo «presentacion» crea una presentación; lo demás, una landing', () => {
+  assert.equal(tipoValido('presentacion'), 'presentacion');
+  for (const v of ['landing', 'PRESENTACION', 'presentación', '', null, undefined, 'pagina']) assert.equal(tipoValido(v), 'landing', String(v));
+});
+
+test('los parámetros de la IA: una presentación pide diapositivas y suelta la landing de base', () => {
+  const p = { ...PARAMS_DEFAULT, basadoEnUrl: 'https://ejemplo.com/landing', cantidad: 6 };
+  const pres = paramsDeTipo(p, 'presentacion');
+  assert.equal(pres.formato, 'presentacion');
+  assert.equal(pres.basadoEnUrl, null, 'el diagnóstico de una página no viaja en una presentación');
+  assert.equal(pres.cantidad, 6);
+  const land = paramsDeTipo(p, 'landing');
+  assert.equal(land.formato, 'pagina');
+  assert.equal(land.basadoEnUrl, 'https://ejemplo.com/landing');
+  // Volver de Presentación a Landing no deja el formato pegado.
+  assert.equal(paramsDeTipo({ ...p, formato: 'presentacion' }, 'landing').formato, 'pagina');
+});
+
+test('el alta de la IA: una presentación nace presentación (y sobrevive al saneo del server)', () => {
+  const c = configDeCreacion('presentacion', 'pewter', ORIGEN);
+  assert.equal(c.formato, 'presentacion');
+  assert.equal(c.proporcion, '16:9');
+  assert.equal(c.tema, 'pewter');
+  assert.deepEqual(c.origen, ORIGEN);
+  // El camino del server (crearEn): mezclar con el default y sanear.
+  const guardada = sanearConfig(mezclarConfig(c)).config;
+  assert.equal(guardada.formato, 'presentacion');
+  assert.equal(guardada.proporcion, '16:9');
+  const l = configDeCreacion('landing', 'pewter', ORIGEN);
+  assert.equal(l.formato, 'pagina');
+  assert.equal('proporcion' in l, false);
+  assert.equal(sanearConfig(mezclarConfig(l)).config.formato, 'pagina');
+});
+
+test('las plantillas de cada tipo, y el alta de cada una con SU formato', () => {
+  assert.equal(plantillasDe('presentacion'), PLANTILLAS_PRESENTACION);
+  assert.equal(plantillasDe('landing'), PLANTILLAS);
+  assert.ok(PLANTILLAS_PRESENTACION.length >= 12, `hay ${PLANTILLAS_PRESENTACION.length} presentaciones`);
+  for (const p of PLANTILLAS_PRESENTACION) {
+    const r = pedidoDePlantilla(p);
+    assert.equal(r.accion, 'crear');
+    assert.equal(r.titulo, p.nombre);
+    assert.equal(r.config?.formato, 'presentacion', p.id);
+    assert.equal(r.config?.proporcion, p.proporcion, p.id);
+    assert.equal(r.config?.tema, p.tema);
+    assert.deepEqual(r.config?.origen, { modo: 'plantilla', plantilla: p.id });
+    assert.ok((r.contenido?.paginas[0]?.doc.content?.length ?? 0) > 0, `${p.id} sin diapositivas`);
+    assert.equal(sanearConfig(mezclarConfig(r.config)).config.formato, 'presentacion', `${p.id} nace página`);
+  }
+  for (const p of PLANTILLAS) {
+    const r = pedidoDePlantilla(p);
+    assert.equal(r.config?.formato, 'pagina', p.id);
+    assert.equal(r.config && 'proporcion' in r.config, false, p.id);
+    assert.deepEqual(r.config?.origen, { modo: 'plantilla', plantilla: p.id });
+  }
+});
+
+test('a dónde manda la caja: el tipo viaja en la URL; el pedido, sólo si no entró en la sesión', () => {
+  const url = (s: string) => new URL(s, 'https://x.test');
+  const a = url(rutaCaja('presentacion', 'express', 'mi pitch', true));
+  assert.equal(a.pathname, '/landing-generator/crear');
+  assert.equal(a.searchParams.get('desde'), 'caja');
+  assert.equal(a.searchParams.get('modo'), 'express');
+  assert.equal(a.searchParams.get('tipo'), 'presentacion');
+  assert.equal(a.searchParams.get('prompt'), null, 'con la sesión, el pedido no viaja en la URL');
+  const b = url(rutaCaja('landing', 'plan', `  ${'x'.repeat(2_000)}  `, false));
+  assert.equal(b.searchParams.get('tipo'), null);
+  assert.equal(b.searchParams.get('prompt'), 'x'.repeat(1_500));
+  const c = url(rutaPaso('presentacion', 'importar'));
+  assert.equal(c.searchParams.get('paso'), 'importar');
+  assert.equal(c.searchParams.get('tipo'), 'presentacion');
+  assert.equal(url(rutaPaso('landing', 'importar')).searchParams.get('tipo'), null);
+});
+
+test('la palabra: «diapositiva» en una presentación, «sección» en una landing', () => {
+  assert.equal(rotuloTanda([6], 'presentacion'), 'Diapositiva 7');
+  assert.equal(rotuloTanda([3, 4, 5], 'presentacion'), 'Diapositivas 4–6');
+  assert.equal(textoSecciones(1, 'presentacion'), '1 diapositiva en total');
+  assert.equal(textoSecciones(8, 'presentacion'), '8 diapositivas en total');
+  assert.equal(textoSecciones(8), '8 secciones en total');
+  assert.equal(cuantas(1, 'presentacion'), '1 diapositiva');
+  assert.equal(cuantas(3, 'landing'), '3 secciones');
+  assert.equal(termino('presentacion', { plural: true, mayuscula: true }), 'Diapositivas');
+});
+
+test('el generador manda el tipo en TODO pedido a la IA y en el alta', () => {
+  const src = fuente('app/landing-generator/crear/CrearConIA.tsx');
+  // Los tres esquemas (generar, pegar, importar) y las secciones pasan por paramsDeTipo.
+  assert.equal((src.match(/accion: 'esquema', modo: '(generar|pegar|importar)'[^\n]*params: paramsDeTipo\(v\.params, v\.tipo\)/g) ?? []).length, 3);
+  assert.match(src, /accion: 'secciones', esquema: esq, indices, params: paramsDeTipo\(vivo\.current\.params, tipoGen\.current\)/);
+  assert.doesNotMatch(src, /params: (v|vivo\.current)\.params[,\s}]/, 'un pedido con los parámetros crudos no lleva el formato');
+  // El alta sale de configDeCreacion con el tipo CONGELADO de la generación.
+  assert.match(src, /configDeCreacion\(tipoGen\.current, v\.temaId,/);
+  assert.match(src, /if \(!docRef\.current\) \{ tipoGen\.current = vivo\.current\.tipo;/);
+  // El tipo de la query se valida, y la página se lo pasa.
+  assert.match(src, /useState<TipoCrear>\(\(\) => tipoValido\(props\.tipo\)\)/);
+  assert.match(fuente('app/landing-generator/crear/page.tsx'), /tipo=\{uno\(sp\.tipo\)\}/);
+  // «Sobre cuál» sólo se dibuja en una landing.
+  assert.match(src, /\{tipo === 'landing' && \(\s*<>\s*<Desplegable\s+etiqueta="Sobre cuál"/);
+  // Y la caja de «Generar» tiene el micrófono de la casa.
+  assert.match(src, /<BotonDictar titulo="Dictar el pedido" valor=\{prompt\}/);
+});
+
+test('la caja «¿Qué vas a crear hoy?»: el micrófono y el ejemplo de «Nueva automatización», importados', () => {
+  const src = fuente('app/landing-generator/CajaCrear.tsx');
+  assert.match(src, /export default function CajaCrear\(/);
+  assert.match(src, /import \{ BotonDictar \} from '@\/app\/plan\/board\/CrearTareaModal';/);
+  assert.match(src, /import \{ useEjemploQueSeEscribe \} from '@\/app\/automations\/CrearConIA';/);
+  assert.match(src, /<BotonDictar titulo="Dictar el pedido" valor=\{pedido\}/);
+  // Reusar, no copiar: ni el reconocimiento ni la grabación viven acá.
+  assert.doesNotMatch(src, /SpeechRecognition|MediaRecorder|getUserMedia|useDictar\(/);
+  assert.doesNotMatch(src, /function useEjemploQueSeEscribe/);
+  // El ejemplo se escribe con la lista del tipo, y el campo vuelve a empezar al cambiar de tipo.
+  assert.match(src, /useEjemploQueSeEscribe\(animar, EJEMPLOS_CAJA\[tipo\]\)/);
+  assert.match(src, /<CampoPedido\s+key=\{tipo\}/);
+  // Enviar: el pedido a la sesión y la ruta con el tipo; una plantilla: su alta y abrirla.
+  assert.match(src, /const guardado = dejarCaja\(\{ prompt: p, modo \}\);\s*router\.push\(rutaCaja\(tipo, modo, p, guardado\)\);/);
+  assert.match(src, /const lista = plantillasDe\(tipo\);/);
+  assert.match(src, /await pedirDocs\(pedidoDePlantilla\(p\)\);/);
+  assert.match(src, /irDuro\(`\/landing-generator\/\$\{r\.doc\.id\}`, ws\);/);
+  assert.match(src, /router\.push\(rutaPaso\(tipo, 'importar'\)\)/);
+  // Las miniaturas con la forma del documento (la diapositiva, en una presentación).
+  assert.match(src, /<MiniaturaLanding tarjeta=\{m\[p\.id\] \?\? null\} tema=\{temaPorId\(p\.tema\)\} formato=\{formatoDe\(p\)\} proporcion=\{p\.proporcion\} \/>/);
+});
+
+test('los ejemplos que se escriben solos: cortos y de los dos tipos', () => {
+  for (const t of ['landing', 'presentacion'] as const) {
+    assert.ok(EJEMPLOS_CAJA[t].length >= 3, t);
+    for (const e of EJEMPLOS_CAJA[t]) assert.ok(e.length <= 70, `${t}: «${e}» es largo para un placeholder`);
   }
 });

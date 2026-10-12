@@ -43,6 +43,7 @@ import {
 import { attrsTarjeta } from '@/lib/editor-landing/especificacion';
 import { varsDeTema } from '@/lib/editor-landing/temas';
 import { useEditorLanding } from '../contexto';
+import { diapositivaFija } from '@/lib/editor-landing/api-tipos';
 import { EntradaColor, EstilosGmp, Icono, Segmentado, posicionJunto, useFijo, type OpcionSeg } from '../dialogos/piezas-gma';
 
 /** A qué se ancla: el botón que lo abrió, o un rectángulo ya medido. */
@@ -220,7 +221,9 @@ const CSS_ESTILO = [
 ].join('\n');
 
 export function EstiloSeccion({ tarjetaId, ancla, onCerrar }: { tarjetaId: string; ancla: AnclaEstilo; onCerrar: () => void }) {
-  const { editor, tema, elegirImagen } = useEditorLanding();
+  const { editor, tema, elegirImagen, config } = useEditorLanding();
+  // T3: en una diapositiva de forma fija el ancho no cambia nada (css.ts, 15b): no se ofrece.
+  const sinAncho = diapositivaFija(config);
   const capa = useCapaModal(true, { anidada: true });
   const ref = useRef<HTMLDivElement>(null);
   const cerrar = useFijo(onCerrar);
@@ -378,8 +381,10 @@ export function EstiloSeccion({ tarjetaId, ancla, onCerrar }: { tarjetaId: strin
           onCambiar={(hex) => { setColorLibre(hex); cambiar({ fondo: 'color', fondoColor: hex, fondoDegradado: null }); }} />
       </div>
 
-      <p className="gmp-sub">Ancho</p>
-      <Segmentado etiqueta="Ancho" ancho valor={a.ancho} opciones={ANCHOS} onCambiar={(v) => cambiar({ ancho: v })} />
+      {sinAncho ? null : <>
+        <p className="gmp-sub">Ancho</p>
+        <Segmentado etiqueta="Ancho" ancho valor={a.ancho} opciones={ANCHOS} onCambiar={(v) => cambiar({ ancho: v })} />
+      </>}
 
       <p className="gmp-sub">Alineación de contenido</p>
       <Segmentado etiqueta="Alineación de contenido" ancho valor={a.alineacion} opciones={ALINEACIONES} onCambiar={(v) => cambiar({ alineacion: v })} />

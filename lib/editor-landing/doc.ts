@@ -299,7 +299,12 @@ export type AttrsGrafico = {
   mostrarValores: boolean; leyenda: boolean; sufijo: string; prefijo: string;
 };
 export type AttrsEspaciador = { alto: AltoEspaciador };
-export type AttrsHtmlLibre = { html: string; alto: (typeof ALTOS_HTML_LIBRE)[number] };
+/**
+ * `id` = el id ESTABLE del bloque (tanda 2, T6): la página publicada lo sirve desde su propia URL,
+ * `/l/html/<docId>/<id>` (lib/editor-landing/html-libre.ts). null hasta que el saneo le pone uno
+ * (validar.ts). `alto` es el alto de PARTIDA: el iframe se ajusta solo con lo que mide adentro.
+ */
+export type AttrsHtmlLibre = { id: string | null; html: string; alto: (typeof ALTOS_HTML_LIBRE)[number] };
 
 /** Topes que el server aplica al guardar (y la IA respeta al generar). */
 export const TOPES = {
@@ -307,7 +312,9 @@ export const TOPES = {
   tarjetasPorPagina: 60,
   bytesContenido: 1_500_000,
   caracteresTexto: 20_000,      // por nodo de texto
-  htmlLibre: 50_000,
+  // ~400 KB (tanda 2, T6): «Copia fiel» de una landing de afuera trae su <head> con los estilos.
+  // Sigue bajo `bytesContenido`, que es el tope de la landing entera.
+  htmlLibre: 400_000,
   camposFormulario: 10,
   categoriasGrafico: 24,
   seriesGrafico: 8,
@@ -389,7 +396,8 @@ export function enLista<T extends string | number>(lista: readonly T[], v: unkno
 export const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,58})[a-z0-9]$/;
 // `vista` es una carpeta FIJA de app/l (el link privado del borrador): una landing con ese slug
 // tendría sus páginas tapadas por la ruta fija (server-reglas.ts, RUTAS_DE_L, lo frena también).
-export const SLUGS_RESERVADOS = new Set(['api', 'admin', 'login', 'app', 'mako', 'vsl', 'www', 'static', 'assets', 'nuevo', 'editar', 'vista']);
+// `html` también (tanda 2): app/l/html/[docId]/[bloque] sirve el «HTML personalizado» publicado.
+export const SLUGS_RESERVADOS = new Set(['api', 'admin', 'login', 'app', 'mako', 'vsl', 'www', 'static', 'assets', 'nuevo', 'editar', 'vista', 'html']);
 
 export function slugDe(texto: string): string {
   return texto

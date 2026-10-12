@@ -22,6 +22,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-session';
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
 import { esPublica, esPublicaSoloLeer, decidirRutaAlumno } from './lib/rutas-publicas';
+import { HEADER_DOMINIO, RUTA_DOMINIO, decidirHost, hostDeCabecera, paginaNoExisteDominio } from './lib/editor-landing/dominios-reglas';
 
 // La lista de rutas públicas vive en lib/rutas-publicas.ts, no acá: es la condición
 // que decide qué entra sin sesión, y adentro de un middleware ningún test la puede
@@ -38,7 +39,9 @@ const SOLO_ADMIN = ['/admin', '/api/admin', '/metodo', '/api/metodo'];
 // a este)— no responde más: recibe un cartel de mudanza que reenvía al mismo
 // path del dominio bueno. La lógica es genérica (cualquier host ≠ canónico
 // muda), así que un cambio de dominio futuro es solo pisar HOST_CANONICO acá +
-// lib/app-url.ts + las env vars de Vercel.
+// lib/app-url.ts + las env vars de Vercel — y sumar el dominio viejo a `DOMINIOS_DE_MAKO`
+// (lib/editor-landing/dominios-reglas.ts): desde T7, un host que no es de MaKo es el dominio de una
+// landing (`respuestaDominioPropio`, más abajo) y NO llega a este cartel.
 //
 // Con tres excepciones que NO se pueden cortar, porque no las abre una persona.
 // Todas validan por firma/secret propio, así que abrirlas por host no afloja nada:
@@ -130,6 +133,54 @@ function paginaMudanza(destino: string): string {
 </body></html>`;
 }
 
+// ── El dominio propio de una landing (T7, docs/diseno-editor-landing.md) ────────
+// Un host que NO es de MaKo (`esHostDeMako`, lib/editor-landing/dominios-reglas.ts: el canónico,
+// los viejos y los *.vercel.app) es el dominio de un cliente, y ahí se sirve SÓLO su landing: `/` y
+// `/<ruta>` se reescriben a la ruta interna (GET de app/api/landing-generator/dominio), que lee qué
+// landing tiene ese dominio VERIFICADO y la arma igual que /l/<slug>; el HTML libre (/l/html) pasa;
+// todo lo demás de la app y de /api —también cron, webhooks y track— es 404. La sesión no corre
+// riesgo: la cookie de MaKo es de hola-mako.com y el navegador no la manda a otro dominio. Va
+// ANTES del cartel de mudanza, y sólo en producción, como él.
+//
+// La consulta host → landing NO va acá: necesita la base, y el proxy es síncrono (su forma es un
+// contrato: tests/alumno-sesion.test.ts lo ejecuta y lee `.status` sin `await`). La decisión que sí
+// va acá es pura y tiene test (tests/editor-landing-dominios.test.ts).
+function respuestaDominioPropio(req: NextRequest, pathname: string): NextResponse | null {
+  if (process.env.VERCEL_ENV !== 'production') return null;
+  const hostCrudo = req.headers.get('host');
+  const d = decidirHost(hostCrudo, pathname, req.method);
+  if (d.tipo === 'app') return null;
+  const host = hostDeCabecera(hostCrudo);
+  // La cabecera del dominio la pone el proxy PISANDO la que traiga el pedido; la del workspace, nunca.
+  const conDominio = () => {
+    const headers = new Headers(req.headers);
+    headers.delete(WS_HEADER);
+    headers.set(HEADER_DOMINIO, host);
+    return headers;
+  };
+  switch (d.tipo) {
+    case 'sitio': {
+      const u = req.nextUrl.clone();
+      u.pathname = RUTA_DOMINIO;
+      u.search = '';
+      u.searchParams.set('ruta', d.ruta);
+      return NextResponse.rewrite(u, { request: { headers: conDominio() } });
+    }
+    case 'pasar':
+      return NextResponse.next({ request: { headers: conDominio() } });
+    case 'minusculas':
+      // En el MISMO dominio y con la query intacta (los utm_* son la atribución del anuncio).
+      return NextResponse.redirect(new URL(d.destino + req.nextUrl.search, `https://${host}`), 308);
+    case 'metodo':
+      return new NextResponse('Method Not Allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
+    default:
+      return new NextResponse(paginaNoExisteDominio(), {
+        status: 404,
+        headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' },
+      });
+  }
+}
+
 /**
  * Dejar pasar el request, resolviendo de paso el workspace de ESTA pestaña.
  *
@@ -150,6 +201,9 @@ function paginaMudanza(destino: string): string {
 function seguir(req: NextRequest) {
   const headers = new Headers(req.headers);
   headers.delete(WS_HEADER);
+  // El dominio propio de una landing lo pone SÓLO `respuestaDominioPropio`: en cualquier otra salida
+  // se borra, o cualquiera podría pedirle a la ruta interna la landing de un dominio ajeno.
+  headers.delete(HEADER_DOMINIO);
 
   const ws = parseWs(req.nextUrl.searchParams.get(WS_PARAM));
   // ⚠️ La sesión se verifica ACÁ ADENTRO y no se recibe por parámetro. Parece un
@@ -169,6 +223,11 @@ function seguir(req: NextRequest) {
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // El dominio de una landing → sólo esa landing. Va antes que la mudanza, que trata a todo host
+  // que no sea el canónico como un dominio viejo de MaKo.
+  const propio = respuestaDominioPropio(req, pathname);
+  if (propio) return propio;
 
   // Dominio viejo → cartel de mudanza. Va PRIMERO: ni el gate ni las rutas
   // públicas deben responder ahí.

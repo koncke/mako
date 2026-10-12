@@ -1,57 +1,35 @@
 // =============================================================================
-// /landing-generator/analizar — el diagnóstico de una landing, dentro de Landing Generator
+// /landing-generator/analizar — redirige al Panel con el Diagnóstico abierto a la derecha
 // =============================================================================
-// Decisión de Martín (11/10/2026): «Lo de Landing Analyst se muda a Landing Generator y
-// Landing Analyst se ELIMINA (la ruta redirige)». Lo que se mudó es la TAREA: pegar una URL
-// y analizarla, «Buscar mis páginas», pegar el texto cuando la página se arma en el
-// navegador, reintentar / volver a analizar / quitar, leer el diagnóstico y «Escribir la
-// nueva versión». Lo que era ANÁLISIS (el pulso del Pixel, el mapa de calor, los KPIs) ya
-// vive en la hoja «Landing» del Dashboard. /landing-analyst redirige acá conservando la
-// query (app/landing-analyst/destino.ts).
+// Pedido de Martín (11/10/2026, tanda 2, punto 2), textual: «"Diagnóstico" no debería ser otra
+// ruta, debería abrirse ahí a la derecha.» Decisión T2 de docs/diseno-editor-landing.md: el
+// Diagnóstico de una landing se dibuja en el área principal del Panel (/landing-generator, que
+// monta diagnostico/PanelDiagnostico.tsx), y esta ruta pasa a REDIRIGIR ahí.
 //
-// MaKo baja la landing del cliente, le lee el copy y lo cruza con el comportamiento real de
-// esa misma URL (visitas y retención del Pixel, agendas del CRM). La data vive en
-// landing_analyses (la llenan /api/landing-analyst/{analyze,sync} y el análisis automático de
-// las declaradas); esta página solo lee. No se gatea por integración: con pegar una URL
-// alcanza para tener el diagnóstico del copy, y cuando falta el Pixel el bloque que lo
-// necesita lo dice adentro.
+// ⚠️ SE REDIRIGE, NO SE BORRA (AGENTS.md, «Retirar una RUTA…»): la nombran el onboarding de
+// 'landing-an' (lib/tab-onboarding-catalogo.ts, escrito en la base), lib/mako-capacidades.ts,
+// «Analizar una página» de Crear, /admin/dev, y los links viejos de /landing-analyst, que ya
+// redirigen acá (app/landing-analyst/destino.ts, RUTA_DIAGNOSTICO). La traducción de la query
+// (`?diagnostico=<id>` o `?id=` → una landing nuestra; `?url=` o `?analizar=` → una de afuera;
+// sin ninguna → el Diagnóstico vacío para pegar una URL; el `?ws=` del link viaja) vive en
+// `destinoAnalizar` (../panel-reglas.ts, puro y con test), y `rutaConWs` le pone el `?ws=` de la
+// pestaña si el link no traía uno.
 //
-// ⚠️ CARPETA ESTÁTICA A PROPÓSITO: la sesión del editor de landings crea `[id]/` al lado, y un
-// segmento estático gana sobre el dinámico, así que `analizar` nunca se lee como un id. Y el
-// componente NO se mudó: se importa de app/landing-analyst/ (esa sesión toca su link de
-// «Escribir la nueva versión»; mudarlo partiría el trabajo de las dos en dos archivos).
+// ⚠️ CARPETA ESTÁTICA A PROPÓSITO: al lado está `[id]/`, y un segmento estático gana sobre el
+// dinámico, así que `analizar` nunca se lee como el id de una landing.
 //
-// La puerta es la de la tab que la contiene: admin del workspace + `landing-writer` en su capa
-// (la key del nav de Landing Generator). La key 'landing-an' se queda gobernando el onboarding
-// del diagnóstico y el gating de la API de MaKo: está escrita en la base. Página privada y sin
-// Suspense: el componente no lee la query.
+// La puerta es la de la tab del Panel (admin del workspace + `landing-writer` en su capa): el
+// destino la vuelve a pedir, pero así un link de un setter no rebota dos veces.
 
-import { getLandingViewData, type LandingViewData } from '@/lib/landing-analyst';
-import { LandingAnalystApp } from '@/app/landing-analyst/LandingAnalystApp';
+import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
+import { rutaConWs } from '@/lib/workspace';
+import { destinoAnalizar } from '../panel-reglas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const VACIO: LandingViewData = {
-  landings: [],
-  sinAnalizar: [],
-  kpis: { total: 0, conError: 0, scorePromedio: null, hallazgosAltos: 0 },
-  lastSync: null,
-};
-
-export default async function DiagnosticoLandingPage() {
+export default async function DiagnosticoLandingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireRolWs([], { nav: 'landing-writer' });
-
-  // Una lectura que falla no es «no analizaste ninguna página»: la pantalla dibuja el error
-  // arriba (errorMsg) y deja la caja de analizar a mano, que no depende de esta lectura.
-  let data: LandingViewData = VACIO;
-  let errorMsg: string | null = null;
-  try {
-    data = await getLandingViewData();
-  } catch (err) {
-    errorMsg = err instanceof Error ? err.message : String(err);
-  }
-
-  return <LandingAnalystApp data={data} errorMsg={errorMsg} />;
+  redirect(await rutaConWs(destinoAnalizar(await searchParams)));
 }

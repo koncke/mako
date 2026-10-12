@@ -33,8 +33,23 @@ export type ConfigSitio = {
   marcaMako: boolean;                // «Hecho con MaKo»
 };
 
+/**
+ * T3 (tanda 2): qué es el documento. «Página web» = secciones fluidas; «Presentación» = cada
+ * sección es una DIAPOSITIVA (la UI dice «diapositiva», Presentar es la acción principal y, con
+ * una proporción fija, la diapositiva tiene la forma de `proporcion`: css.ts, «Presentaciones»).
+ */
+export const FORMATOS = ['pagina', 'presentacion'] as const;
+export type FormatoDoc = (typeof FORMATOS)[number];
+/** La «Relación de aspecto» de Gamma para una presentación. En una página no se usa. */
+export const PROPORCIONES = ['16:9', '4:3', 'fluido'] as const;
+export type Proporcion = (typeof PROPORCIONES)[number];
+
 export type ConfigLanding = {
   tema: string;                      // id de TEMAS (lib/editor-landing/temas.ts) o 'ws:<id>' (temas propios)
+  /** Opcional en el TIPO porque lo guardado antes de la tanda 2 no lo trae; `sanearConfig` lo completa ('pagina'). */
+  formato?: FormatoDoc;
+  /** Sólo cuenta en una presentación ('16:9' por default). */
+  proporcion?: Proporcion;
   sitio: ConfigSitio;
   pagina: { animaciones: boolean; fondoImagen: string | null };
   /** Lo que MaKo usó para generarla (para «Ver instrucción de origen»). */
@@ -43,6 +58,8 @@ export type ConfigLanding = {
 
 export const CONFIG_DEFAULT: ConfigLanding = {
   tema: 'pewter',
+  formato: 'pagina',
+  proporcion: '16:9',
   sitio: {
     nombre: '', favicon: null, seoTitulo: '', seoDescripcion: '', ogImagen: null, indexar: false,
     nav: { mostrar: false, logo: null, enlaces: [], botones: [] },
@@ -51,6 +68,34 @@ export const CONFIG_DEFAULT: ConfigLanding = {
   },
   pagina: { animaciones: true, fondoImagen: null },
 };
+
+/** El formato de una configuración (sin el campo, o con uno que no existe: 'pagina'). */
+export function formatoDe(c: { formato?: unknown } | null | undefined): FormatoDoc {
+  return c?.formato === 'presentacion' ? 'presentacion' : 'pagina';
+}
+export const esPresentacion = (c: { formato?: unknown } | null | undefined): boolean => formatoDe(c) === 'presentacion';
+/** La proporción de las diapositivas (sin el campo, o con uno que no existe: '16:9'). */
+export function proporcionDe(c: { proporcion?: unknown } | null | undefined): Proporcion {
+  const v = c?.proporcion;
+  return (PROPORCIONES as readonly unknown[]).includes(v) ? (v as Proporcion) : '16:9';
+}
+/** ¿La diapositiva tiene forma fija? (presentación y no «Fluido»). */
+export const diapositivaFija = (c: { formato?: unknown; proporcion?: unknown } | null | undefined): boolean =>
+  esPresentacion(c) && proporcionDe(c) !== 'fluido';
+/** Ancho / alto de la diapositiva (16/9 o 4/3), o null si no tiene forma fija. La usan Presentar y el PPTX. */
+export function relacionDe(c: { formato?: unknown; proporcion?: unknown } | null | undefined): number | null {
+  if (!diapositivaFija(c)) return null;
+  return proporcionDe(c) === '4:3' ? 4 / 3 : 16 / 9;
+}
+
+/**
+ * Cómo se llama la tarjeta según el formato («sección» / «diapositiva»: el `selectCardTerm` de
+ * Gamma). Para que TODA la UI cambie de palabra con el formato y no cada pantalla a su manera.
+ */
+export function terminoTarjeta(c: { formato?: unknown } | null | undefined, op: { plural?: boolean; mayuscula?: boolean } = {}): string {
+  const t = esPresentacion(c) ? (op.plural ? 'diapositivas' : 'diapositiva') : (op.plural ? 'secciones' : 'sección');
+  return op.mayuscula ? t[0].toUpperCase() + t.slice(1) : t;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Documentos
@@ -70,6 +115,9 @@ export type LandingResumen = {
   publicadoAt: string | null;
   /** La primera sección, para dibujar la miniatura del Panel en el navegador. */
   primera: JsonNodo | null;
+  /** T1/T3: el ícono del renglón y la forma de la miniatura (sin el campo: una página). Lo llena `listar` desde `config`. */
+  formato?: FormatoDoc;
+  proporcion?: Proporcion;
 };
 
 export type LandingCompleta = {
@@ -123,8 +171,6 @@ export type PedidoDocs =
   | { accion: 'guardar'; id: number; version: number; titulo?: string; contenido?: LandingContenido; config?: ConfigLanding }
   | { accion: 'duplicar'; id: number }
   | { accion: 'renombrar'; id: number; titulo: string }
-  | { accion: 'favorito'; id: number; valor: boolean }
-  | { accion: 'carpeta'; id: number; carpeta: string | null }
   | { accion: 'papelera'; id: number }
   | { accion: 'restaurar'; id: number }
   | { accion: 'borrar'; id: number }                       // sólo desde la papelera
@@ -169,6 +215,8 @@ export type ParamsGeneracion = {
   fuenteImagenes: FuenteImagenes;
   instrucciones: string;             // ≤ 5.000
   modoTexto: 'generar' | 'condensar' | 'conservar';
+  /** T3: 'presentacion' pide diapositivas (poco texto, diseños optimizados). Sin el campo, una página. */
+  formato?: FormatoDoc;
 };
 
 export type SeccionEsquema = { titulo: string; puntos: string[] };

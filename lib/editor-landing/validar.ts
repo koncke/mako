@@ -36,7 +36,7 @@ import {
   MAX_COLUMNAS, MAX_ITEMS_OPTIMIZADO, MIN_COLUMNAS, NODO, TOPES, enLista, nuevoId, rutaValida, slugDe,
   type JsonMarca, type JsonNodo, type LandingContenido, type Pagina,
 } from './doc';
-import { CONFIG_DEFAULT, type BotonNav, type ConfigLanding, type EnlaceNav } from './api-tipos';
+import { CONFIG_DEFAULT, FORMATOS, PROPORCIONES, type BotonNav, type ConfigLanding, type EnlaceNav } from './api-tipos';
 import { OBJETIVOS_LANDING, type ObjetivoLanding } from '../landing-spec';
 import {
   NORMALIZAR_MARCAS, NORMALIZAR_NODOS, attrsFormulario, attrsTarjeta, hrefPermitido, idValido, obj,
@@ -142,7 +142,32 @@ const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
  */
 const ATTRS_DE_TIPTAP = new Set(['class', 'rel', 'type', 'colwidth', 'dir', 'target', 'abierto']);
 
-type Ctx = { d: string[]; omitidos: number; idsTarjeta: Set<string>; idsCampo: Set<string>; nodos: number; cortado: boolean };
+type Ctx = {
+  d: string[]; omitidos: number; idsTarjeta: Set<string>; idsCampo: Set<string>; nodos: number; cortado: boolean;
+  /** Ids de «HTML personalizado» ya usados, la sección que se está saneando y cuántos lleva adentro. */
+  idsHtml: Set<string>; tarjeta: string; htmlEnTarjeta: number;
+};
+
+/** Hash corto y DETERMINISTA (FNV-1a de 32 bits, en base 36). */
+function hashCorto(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36);
+}
+
+/**
+ * El id de un «HTML personalizado» que no lo trae (o lo trae repetido). DETERMINISTA, no al azar
+ * como el de una sección: la vista previa del borrador (publicar.ts, `leerVistaPrevia`) sanea en
+ * CADA pedido, y la ruta del bloque (app/l/html/[docId]/[bloque]) vuelve a sanear para encontrarlo.
+ * Con un id al azar, la página pediría `/l/html/<doc>/hX` y la ruta buscaría `hY`: 404. Sale de la
+ * sección que lo contiene y de su orden adentro, así que el mismo contenido da siempre el mismo id.
+ */
+function idHtmlDerivado(ctx: Ctx): string {
+  const base = `h${hashCorto(`${ctx.tarjeta}:${ctx.htmlEnTarjeta}`)}`;
+  let id = base;
+  for (let i = 2; ctx.idsHtml.has(id); i++) id = `${base}-${i}`;
+  return id;
+}
 
 const esObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
@@ -332,9 +357,21 @@ function sanearNodo(h: Record<string, unknown>, ctx: Ctx, prof: number, donde: s
   } else if (tipo === NODO.formulario) {
     attrs = sanearFormulario(crudo, ctx, donde);
   } else if (tipo === NODO.htmlLibre) {
-    attrs = attrsConMotivo(tipo, crudo, ctx, donde, ['html']);
+    attrs = attrsConMotivo(tipo, crudo, ctx, donde, ['html', 'id']);
     if (typeof crudo.html === 'string' && crudo.html.length > TOPES.htmlLibre) {
       descartar(ctx, `HTML personalizado de ${crudo.html.length} caracteres en ${donde} (tope ${TOPES.htmlLibre}): queda vacío`);
+    }
+    // Id estable y único en toda la landing (tanda 2: la publicada lo sirve en /l/html/<doc>/<id>).
+    // Sin id es lo normal en un bloque recién insertado: se le pone uno SIN motivo (si no, cada
+    // guardado anotaría lo mismo). Repetido (un copiar y pegar) o inválido, sí con motivo.
+    ctx.htmlEnTarjeta++;
+    const pedido = attrs.id as string | null;
+    if (pedido && !ctx.idsHtml.has(pedido)) ctx.idsHtml.add(pedido);
+    else {
+      if (pedido || (crudo.id != null && crudo.id !== '')) descartar(ctx, `id de HTML personalizado ${pedido ? `repetido «${pedido}»` : 'inválido'} en ${donde}: se regenera`);
+      const nuevo = idHtmlDerivado(ctx);
+      ctx.idsHtml.add(nuevo);
+      attrs = { ...attrs, id: nuevo };
     }
   } else if (tipo === NODO.boton) {
     attrs = attrsConMotivo(tipo, crudo, ctx, donde, ['href']);
@@ -453,6 +490,8 @@ function sanearTarjeta(h: Record<string, unknown>, ctx: Ctx, donde: string): Jso
     descartar(ctx, `id de sección repetido «${id}» en ${donde}: se regenera`);
     id = idUnico(ctx.idsTarjeta, 't');
   } else ctx.idsTarjeta.add(id);
+  ctx.tarjeta = id;
+  ctx.htmlEnTarjeta = 0;
   const content = sanearBloques(h.content, BLOQUES_TARJETA, ctx, 1, donde, 'una sección');
   return { type: NODO.tarjeta, attrs: { ...a, id }, content: content.length ? content : [parrafo()] };
 }
@@ -523,7 +562,7 @@ const bytesDe = (v: unknown): number => {
  * sola página). Nunca tira: lo que no se puede leer termina en una página vacía, con su motivo.
  */
 export function sanearContenido(raw: unknown): ResultadoSaneo {
-  const ctx: Ctx = { d: [], omitidos: 0, idsTarjeta: new Set(), idsCampo: new Set(), nodos: 0, cortado: false };
+  const ctx: Ctx = { d: [], omitidos: 0, idsTarjeta: new Set(), idsCampo: new Set(), nodos: 0, cortado: false, idsHtml: new Set(), tarjeta: '', htmlEnTarjeta: 0 };
   let r: unknown = raw;
   if (typeof r === 'string') {
     try { r = JSON.parse(r); } catch { r = null; descartar(ctx, 'el contenido no es un JSON válido: queda una página vacía'); }
@@ -660,8 +699,16 @@ export function sanearConfig(raw: unknown): { config: ConfigLanding; descartes: 
   const tema = typeof r.tema === 'string' && /^(ws:)?[A-Za-z0-9_-]{1,60}$/.test(r.tema) ? r.tema : D.tema;
   if (r.tema !== undefined && tema !== r.tema) d.push(`tema «${recorte(r.tema, 30)}» inválido: queda «${D.tema}»`);
 
+  // T3: el formato y la proporción, de sus listas cerradas (lo de antes de la tanda 2 no los trae: página, 16:9).
+  const formato = enLista(FORMATOS, r.formato, 'pagina');
+  if (r.formato !== undefined && formato !== r.formato) d.push(`formato «${recorte(r.formato, 30)}» inválido: queda «pagina»`);
+  const proporcion = enLista(PROPORCIONES, r.proporcion, '16:9');
+  if (r.proporcion !== undefined && proporcion !== r.proporcion) d.push(`proporción «${recorte(r.proporcion, 30)}» inválida: queda «16:9»`);
+
   const config: ConfigLanding = {
     tema,
+    formato,
+    proporcion,
     sitio: {
       nombre: texto(s.nombre, 80, 'nombre del sitio'),
       favicon: imagen(s.favicon, 'el ícono del sitio'),

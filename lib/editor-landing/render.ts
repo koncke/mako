@@ -33,6 +33,7 @@ import {
 } from './especificacion';
 import { HtmlCrudo, escaparTexto, htmlDeArbol, type AttrsArbol, type HijoArbol, type NodoArbol } from './grafico-svg';
 import { sanearConfig } from './validar';
+import { urlBloqueHtmlLibre } from './html-libre';
 
 export { ORIGEN_IMAGENES, origenImagenes, srcPermitido, hrefPermitido } from './especificacion';
 export type { ModoRender } from './especificacion';
@@ -48,6 +49,12 @@ export type OpRender = {
   incluirOcultas?: boolean;
   urlBase?: string;
   paginas?: ReadonlyArray<Pick<Pagina, 'id' | 'ruta'>>;
+  /**
+   * La landing que se publica (tanda 2, T6): con esto, en modo 'publico', cada «HTML personalizado»
+   * sale como `<iframe src="/l/html/<docId>/<id>">` (con `?vista=<token>` en el borrador por el link
+   * privado) y su JavaScript corre. Sin esto, sale con `srcdoc` como siempre (exportar, miniaturas).
+   */
+  htmlLibre?: { docId: number; vista?: string | null };
 };
 
 /** La dirección de MaKo del sello «Hecho con MaKo». */
@@ -104,6 +111,10 @@ function ctxDe(op?: Partial<OpRender>, tema?: Tema, formulario: string | null = 
     resolverHref: (h) => resolverHref(h, ctx),
     // La tinta de una sección con fondo propio la calcula el tema (temas.ts).
     varsFondo: tema ? (relleno) => varsDeFondoPropio(tema, relleno) : undefined,
+    // El «HTML personalizado» desde su propia URL (html-libre.ts): sólo en la publicada.
+    srcHtmlLibre: modo === 'publico' && op?.htmlLibre
+      ? (id) => urlBloqueHtmlLibre(op.htmlLibre!.docId, id, op.htmlLibre!.vista ?? null)
+      : undefined,
   };
   return ctx;
 }
@@ -341,6 +352,7 @@ export function htmlDePagina(pagina: Pagina, config: ConfigLanding, tema: Tema, 
   }, 0], interior);
   return raiz(fondo, tema, ctx, {
     'data-tema': cfg.tema,
+    'data-formato': cfg.formato === 'presentacion' ? 'presentacion' : undefined, 'data-proporcion': cfg.formato === 'presentacion' ? cfg.proporcion : undefined, // T3: la forma de la diapositiva (css.ts)
     'data-animaciones': cfg.pagina.animaciones ? 'si' : undefined,
     'data-pagina': esObj(pagina) ? idValido(pagina.id) ?? undefined : undefined,
   });

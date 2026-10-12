@@ -355,14 +355,11 @@ export type InfoDocumento = {
  * ítem abre (el diálogo de la instrucción de origen) o termina (un pedido al server) tiene que
  * seguir vivo. Montado sólo mientras el menú está abierto, el diálogo no llegaba a dibujarse.
  */
-export default function MenuDocumento({ abierto, ancla, onCerrar, info, favorito, onFavorito }: {
+export default function MenuDocumento({ abierto, ancla, onCerrar, info }: {
   abierto: boolean;
   ancla: Ancla | null;
   onCerrar: () => void;
   info: InfoDocumento;
-  /** Si la landing está en favoritos (lo trae la página: `LandingCompleta` no lo incluye). */
-  favorito: boolean;
-  onFavorito: (valor: boolean) => void;
 }) {
   const ctx = useEditorLanding();
   const ws = useWs();
@@ -381,13 +378,8 @@ export default function MenuDocumento({ abierto, ancla, onCerrar, info, favorito
     try { await fn(); } catch { ctx.avisar('No se pudo completar'); } finally { ocupado.current = false; }
   }, [ctx]);
 
-  const marcarFavorito = () => correr(async () => {
-    const valor = !favorito;
-    const r = await pedirDocs({ accion: 'favorito', id: ctx.docId, valor });
-    if (!r.ok) throw new Error(r.error);
-    onFavorito(r.favorito);
-    ctx.avisar(r.favorito ? 'Añadida a favoritos' : 'Quitada de favoritos');
-  });
+  // «Añadir a favoritos» se fue con la tanda 2 (T1, 11/10/2026): el Panel ya no tiene la vista de
+  // Favoritos, y marcar algo que no se ve en ningún lado es un control que no hace nada.
 
   // Duplicar, guardar versión y eliminar copian o mueven la FILA del server: lo pendiente va
   // primero (guardarAhora cancela el respiro del autoguardado), o la copia sale sin lo último.
@@ -425,8 +417,6 @@ export default function MenuDocumento({ abierto, ancla, onCerrar, info, favorito
         </div>
         <ItemMenu icono="deshacer" texto="Deshacer" atajo={`${mod}Z`} disabled={!puedeDeshacer}
           onClick={() => { ctx.editor?.commands.undo(); }} />
-        <ItemMenu icono={favorito ? 'estrella-llena' : 'estrella'} texto={favorito ? 'Quitar de favoritos' : 'Añadir a favoritos'}
-          onClick={marcarFavorito} />
         <ItemMenu icono="historial" texto="Historial de versiones…" onClick={() => ctx.setPanelDer('historial')} />
         {pedido ? <ItemMenu icono="flecha-externa" texto="Ver instrucción de origen" onClick={() => setVerOrigen(true)} /> : null}
         <ItemMenu icono="paleta" texto="Logotipo, colores, fuentes..." onClick={() => ctx.setPanelDer('tema')} />

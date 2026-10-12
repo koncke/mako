@@ -47,7 +47,8 @@
 //    ⚠️ Y EL COSTO, que hay que decir: un <iframe srcdoc> HEREDA la política del padre, así
 //    que el bloque «HTML personalizado» (render.ts lo pone en un iframe sandbox con srcdoc)
 //    NO ejecuta sus scripts en la página publicada. Arreglarlo no es aflojar esta política:
-//    es servir ese HTML desde una URL propia con su propio header (pedido en el informe).
+//    es servir ese HTML desde una URL propia con su propio header — hecho en la tanda 2 (T6):
+//    app/l/html/[docId]/[bloque], `frame-src 'self'` y el oyente del alto en SCRIPT_PAGINA.
 //
 // 3. `style-src` CON 'unsafe-inline' y SIN hashes: el tema viaja en atributos `style`
 //    (`.gm-doc`, `--gm-cols`), y con un hash en la lista el navegador ignora el
@@ -320,6 +321,25 @@ export const SCRIPT_PAGINA = [
   '    if (f.parentNode) f.parentNode.insertBefore(aviso, f.nextSibling);',
   "    f.style.display = 'none';",
   '  });',
+  // (d) EL ALTO DEL «HTML PERSONALIZADO» (tanda 2, T6): cada bloque se sirve desde /l/html/… en un
+  //     iframe sandbox, y un script suyo manda `{ tipo: 'gm-html-alto', alto }` (html-libre.ts). Se
+  //     acepta SÓLO si `ev.source` es la ventana de uno de esos iframes (su origen es opaco: 'null'),
+  //     con los mismos topes que `altoDeMensaje` (24 y 20000). El `if` del principio: sin
+  //     addEventListener en la ventana no hay nada que escuchar (y no se corta lo de abajo).
+  "  if (w.addEventListener) w.addEventListener('message', function (ev) {",
+  '    var m = ev.data;',
+  "    if (!m || typeof m !== 'object' || m.tipo !== 'gm-html-alto') return;",
+  "    var fr = d.querySelectorAll('.gm-html iframe');",
+  '    for (var q = 0; q < fr.length; q++) {',
+  '      if (fr[q].contentWindow !== ev.source) continue;',
+  '      var h = Math.round(Number(m.alto));',
+  '      if (!isFinite(h)) return;',
+  '      if (h < 24) h = 24;',
+  '      if (h > 20000) h = 20000;',
+  "      fr[q].style.height = h + 'px';",
+  '      return;',
+  '    }',
+  '  });',
   "  if (!d.body || d.body.getAttribute('data-gm-animar') !== '1') return;",
   '  var IO = w.IntersectionObserver;',
   '  if (!IO) return;',
@@ -426,7 +446,8 @@ export function politicaDeContenido(o: OpcionesPolitica): string {
     ['img-src', ["'self'", 'data:', ...(app ? [app] : []), ...(bucket ? [bucket] : []), ...(o.conMeta ? ['https://www.facebook.com'] : [])]],
     ['media-src', ["'self'", ...(bucket ? [bucket] : [])]],
     ['connect-src', ["'self'", ...(o.conPixel && app ? [app] : []), ...(o.conMeta ? ['https://www.facebook.com', 'https://connect.facebook.net'] : [])]],
-    ['frame-src', hostsDeIframes()],
+    // 'self': el «HTML personalizado» se sirve desde /l/html/<doc>/<bloque> del MISMO host (T6).
+    ['frame-src', ["'self'", ...hostsDeIframes()]],
     ['worker-src', ["'self'", 'blob:']],
     ['object-src', ["'none'"]],
     ['base-uri', ["'none'"]],
@@ -600,7 +621,12 @@ const HTML = 'text/html; charset=utf-8';
 export const FORMA_TOKEN_VISTA = /^[A-Za-z0-9_-]{8,200}$/;
 
 export type PedidoPublico =
-  | { tipo: 'pagina'; slug: string; ruta: string }
+  /**
+   * `base` (T7, dominio propio): la dirección de inicio del sitio cuando se sirve en el dominio del
+   * cliente (`https://<dominio>`, sin barra final). Con ella la canónica y el og:url son los del
+   * dominio y no los de hola-mako.com/l/<slug>. Sin ella, la URL de MaKo.
+   */
+  | { tipo: 'pagina'; slug: string; ruta: string; base?: string }
   /** `ruta` = otra página del borrador (app/l/vista/[token]/[ruta]); sin ella, la de inicio. */
   | { tipo: 'vista'; token: string; ruta?: string };
 
@@ -663,7 +689,7 @@ export async function responderPublico(req: Request, pedido: PedidoPublico, dep:
     }
     if (!slugValido(slug) || !rutaValida(ruta)) return respuestaError(404, sinCuerpo);
     modo = 'publico';
-    urlCanonica = urlPublica(entorno.appBaseUrl, slug, ruta);
+    urlCanonica = pedido.base ? `${pedido.base}${ruta ? `/${ruta}` : '/'}` : urlPublica(entorno.appBaseUrl, slug, ruta);
   } else {
     const ruta = pedido.ruta ?? '';
     if (!FORMA_TOKEN_VISTA.test(pedido.token) || !rutaValida(ruta)) return respuestaError(404, sinCuerpo);

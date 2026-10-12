@@ -65,7 +65,6 @@ export default async function EditorLandingPage({ params }: { params: Promise<{ 
       doc={doc}
       error={error}
       temasPropios={temasPropios}
-      favorito={doc?.favorito ?? false}
       creadoPor={doc?.creadoPor ?? null}
       autor={autor}
     />

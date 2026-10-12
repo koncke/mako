@@ -171,6 +171,12 @@ export type FotoPublicada = {
   config: ConfigLanding;
   version: number;
   publicadoAt: string | null;
+  /**
+   * T6: el HTML de cada bloque «Formato libre (HTML)» publicado, por su id (`fuentesHtmlLibre`). De
+   * acá lo sirve /l/html/<docId>/<bloque> (`htmlLibreDeFoto`): la versión PUBLICADA, nunca el borrador.
+   * Opcional: una foto anterior a la tanda 2 no lo trae (y su página dibuja el bloque con srcdoc).
+   */
+  htmlLibre?: Record<string, string>;
 };
 
 /**
@@ -330,13 +336,6 @@ export function mezclarConfig(parcial: unknown, base: ConfigLanding = CONFIG_DEF
 export function sanearTitulo(raw: unknown): string {
   const t = typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim().slice(0, TOPES.titulo).trim() : '';
   return t || 'Sin título';
-}
-
-/** El nombre de una carpeta, o null (sin carpeta). */
-export function sanearCarpeta(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  const t = raw.replace(/\s+/g, ' ').trim().slice(0, 80).trim();
-  return t || null;
 }
 
 /** El motivo de una versión guardada a mano o por la IA. */

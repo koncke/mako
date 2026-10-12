@@ -7,7 +7,8 @@
 // la izquierda en una columna lila (#8a9cef sobre aurora-100), el título en negrita y
 // las viñetas debajo, todo editable en el lugar; «+ Agregar sección» como fila punteada
 // a lo ancho; y al pie «N secciones en total». En una página web Gamma dice «sección»
-// donde en una presentación dice «diapositiva»/«módulo»: acá siempre «sección».
+// donde en una presentación dice «diapositiva»: desde la tanda 2 (T4) el esquema recibe el
+// `tipo` y dice la palabra de `termino` (crear/tipo.ts, la misma del editor).
 //
 // Teclado como en Gamma: Enter en el título baja a la primera viñeta; Enter en una
 // viñeta crea la siguiente; Retroceso en una viñeta vacía la borra y vuelve a la de
@@ -28,13 +29,15 @@ import type { Esquema, SeccionEsquema } from '@/lib/editor-landing/api-tipos';
 import { MAX_PUNTOS, MAX_SECCIONES, MAX_TITULO_SECCION } from '@/lib/editor-landing/ia-reglas';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Ico } from '../MiniaturaLanding';
+import { termino, type TipoCrear } from './tipo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo puro (con test)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function textoSecciones(n: number): string {
-  return n === 1 ? '1 sección en total' : `${n} secciones en total`;
+/** «8 secciones en total» (en una presentación, «8 diapositivas en total»). */
+export function textoSecciones(n: number, tipo: TipoCrear = 'landing'): string {
+  return `${n} ${termino(tipo, { plural: n !== 1 })} en total`;
 }
 
 /** Mueve la sección `i` un lugar arriba (-1) o abajo (+1). Fuera de rango, igual. */
@@ -91,11 +94,14 @@ function AutoTexto({ value, ...resto }: TextareaHTMLAttributes<HTMLTextAreaEleme
   return <textarea ref={ref} rows={1} value={value} {...resto} />;
 }
 
-export function EditorEsquema({ esquema, onCambio, deshabilitado = false }: {
+export function EditorEsquema({ esquema, onCambio, deshabilitado = false, tipo = 'landing' }: {
   esquema: Esquema;
   onCambio: (e: Esquema) => void;
   deshabilitado?: boolean;
+  /** Landing o presentación: cambia la palabra («sección» / «diapositiva»). */
+  tipo?: TipoCrear;
 }) {
+  const palabra = termino(tipo);
   const raiz = useRef<HTMLDivElement>(null);
   // El campo que tiene que tomar el foco DESPUÉS del render que lo crea (una viñeta
   // nueva no existe todavía cuando se aprieta Enter).
@@ -174,8 +180,8 @@ export function EditorEsquema({ esquema, onCambio, deshabilitado = false }: {
                 data-campo={`t${i}`}
                 className="gp-esq-titulo"
                 value={s.titulo}
-                placeholder="Título de la sección"
-                aria-label={`Título de la sección ${i + 1}`}
+                placeholder={`Título de la ${palabra}`}
+                aria-label={`Título de la ${palabra} ${i + 1}`}
                 maxLength={MAX_TITULO_SECCION}
                 disabled={deshabilitado}
                 onChange={(ev) => setSeccion(i, { ...s, titulo: ev.target.value })}
@@ -190,7 +196,7 @@ export function EditorEsquema({ esquema, onCambio, deshabilitado = false }: {
                         className="gp-esq-punto"
                         value={p}
                         placeholder="Escribe un punto"
-                        aria-label={`Punto ${j + 1} de la sección ${i + 1}`}
+                        aria-label={`Punto ${j + 1} de la ${palabra} ${i + 1}`}
                         disabled={deshabilitado}
                         onChange={(ev) => setSeccion(i, { ...s, puntos: s.puntos.map((x, k) => (k === j ? ev.target.value : x)) })}
                         onKeyDown={teclaPunto(i, j)}
@@ -206,13 +212,13 @@ export function EditorEsquema({ esquema, onCambio, deshabilitado = false }: {
               )}
             </div>
             <div className="gp-esq-acciones">
-              <button type="button" className="gp-icono-btn" aria-label="Subir sección" disabled={deshabilitado || i === 0} onClick={() => onCambio(moverSeccion(esquema, i, -1))}>
+              <button type="button" className="gp-icono-btn" aria-label={`Subir ${palabra}`} disabled={deshabilitado || i === 0} onClick={() => onCambio(moverSeccion(esquema, i, -1))}>
                 <Ico n="flecha-arriba" t={14} />
               </button>
-              <button type="button" className="gp-icono-btn" aria-label="Bajar sección" disabled={deshabilitado || i === secciones.length - 1} onClick={() => onCambio(moverSeccion(esquema, i, 1))}>
+              <button type="button" className="gp-icono-btn" aria-label={`Bajar ${palabra}`} disabled={deshabilitado || i === secciones.length - 1} onClick={() => onCambio(moverSeccion(esquema, i, 1))}>
                 <Ico n="flecha-abajo" t={14} />
               </button>
-              <button type="button" className="gp-icono-btn gp-icono-btn-peligro" aria-label="Eliminar sección" disabled={deshabilitado || secciones.length <= 1} onClick={() => onCambio(quitarSeccion(esquema, i))}>
+              <button type="button" className="gp-icono-btn gp-icono-btn-peligro" aria-label={`Eliminar ${palabra}`} disabled={deshabilitado || secciones.length <= 1} onClick={() => onCambio(quitarSeccion(esquema, i))}>
                 <IconoBorrar size={15} />
               </button>
             </div>
@@ -226,10 +232,10 @@ export function EditorEsquema({ esquema, onCambio, deshabilitado = false }: {
         disabled={deshabilitado || secciones.length >= MAX_SECCIONES}
         onClick={() => { onCambio(agregarSeccion(esquema)); enfocar(`t${secciones.length}`); }}
       >
-        <Ico n="mas" t={14} /> Agregar sección
+        <Ico n="mas" t={14} /> Agregar {palabra}
       </button>
 
-      <div className="gp-esq-pie">{textoSecciones(secciones.length)}</div>
+      <div className="gp-esq-pie">{textoSecciones(secciones.length, tipo)}</div>
     </div>
   );
 }

@@ -29,10 +29,17 @@
 // slug sale de `urlPublica` y el interruptor queda sin dibujar: no se afirma un estado que no se
 // leyó.
 //
-// Lo que NO se dibuja, a propósito (decisión D4): dominio propio, Google Tag Manager y código
-// personalizado. La sesión de MaKo es una cookie del mismo origen: un script ajeno en
-// hola-mako.com podría llamar `/api/*` como el que mira. El Píxel de Meta sí: el código oficial
-// lo arma el server con un id de sólo dígitos.
+// Lo que NO se dibuja, a propósito (decisión D4): Google Tag Manager y código personalizado. La
+// sesión de MaKo es una cookie del mismo origen: un script ajeno en hola-mako.com podría llamar
+// `/api/*` como el que mira. El Píxel de Meta sí: el código oficial lo arma el server con un id de
+// sólo dígitos.
+//
+// La pestaña «Dominios» (tanda 2, T7: «o la opción de traer tu dominio») copia la de Gamma: la
+// dirección de MaKo arriba, y «Añadir dominio» → la tabla Tipo | Nombre | Datos con copiar, el
+// estado Verificando / Verificado, «Verificar de nuevo» y el tacho. Habla con
+// /api/landing-generator/dominio (`SeccionDominio`, abajo); la API de Vercel y su token viven sólo
+// en el server (lib/editor-landing/dominios.ts). Al TXT `_mako` lo pide MaKo, no Gamma: el porqué,
+// en esa lib.
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -41,6 +48,11 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import { PREFIJO_PUBLICO, slugDe, slugValido, textoDe, tituloDeTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
 import { hrefPermitido } from '@/lib/editor-landing/especificacion';
 import type { BotonNav, ConfigLanding, EnlaceNav } from '@/lib/editor-landing/api-tipos';
+import {
+  RUTA_DOMINIO, motivoDominioInvalido, normalizarDominio, urlDeDominio,
+  type EstadoDominio, type PedidoDominio, type RegistroDns, type RespuestaDominio,
+} from '@/lib/editor-landing/dominios-reglas';
+import { PLAZO_DOCS_MS, postJson } from '../../cliente';
 import { useEditorLanding } from '../contexto';
 import {
   Campo, CampoImagen, EstilosGmp, FilaAjuste, Giro, Icono, Interruptor, MenuGma, ModalGma, Pestanas, Segmentado,
@@ -69,7 +81,7 @@ export function pixelEscrito(v: string): string {
 
 type Info = { slug: string | null; sitioActivo: boolean | null; publicadoAt: string | null };
 type Chequeo = { slug: string; disponible: boolean; motivo: string | null; sugerencia: string | null };
-type Pestana = 'ajustes' | 'navegacion' | 'seo';
+type Pestana = 'ajustes' | 'navegacion' | 'seo' | 'dominio';
 
 const CSS_PUBLICAR = [
   '.gmp-estado{display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:14px;border-radius:12px;background:var(--gmp-suave)}',
@@ -101,6 +113,24 @@ const CSS_PUBLICAR = [
   '.gmp-og-tit{margin:2px 0;font-size:14.5px;font-weight:600;color:var(--gmp-tinta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
   '.gmp-og-desc{font-size:12.5px;color:var(--gmp-texto);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
   '@media (max-width:560px){.gmp-fila-enlace,.gmp-fila-boton{grid-template-columns:minmax(0,1fr) auto}.gmp-nav-tarjetas{grid-template-columns:1fr}}',
+  // Pestaña «Dominios» (T7): la lista de dominios del sitio y la tabla de registros, como Gamma.
+  '.gmp-dom-fila{display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 10px;border:1px solid var(--gmp-borde);border-radius:8px;margin-bottom:8px}',
+  '.gmp-dom-nombre{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--gmp-tinta)}',
+  'a.gmp-dom-nombre{color:var(--gmp-azul-linea);text-decoration:none}a.gmp-dom-nombre:hover{text-decoration:underline}',
+  '.gmp-dom-sub{flex:none;font-size:12px;color:var(--gmp-tenue)}',
+  '.gmp-insignia{flex:none;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}',
+  '.gmp-insignia[data-tono="espera"]{background:#fef3c7;color:#92400e}',
+  '.gmp-insignia[data-tono="ok"]{background:#dcfce7;color:#166534}',
+  '[data-tema="oscuro"] .gmp-insignia[data-tono="espera"]{background:rgba(251,191,36,.18);color:#fcd34d}',
+  '[data-tema="oscuro"] .gmp-insignia[data-tono="ok"]{background:rgba(74,222,128,.16);color:#86efac}',
+  '.gmp-dom-nuevo{display:flex;gap:8px}.gmp-dom-nuevo input{flex:1;min-width:0}',
+  '.gmp-dns{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}',
+  '.gmp-dns th{padding:6px 8px;text-align:left;font-size:12px;font-weight:600;color:var(--gmp-tenue);border-bottom:1px solid var(--gmp-borde)}',
+  '.gmp-dns td{padding:6px 8px;border-bottom:1px solid var(--gmp-borde);vertical-align:middle}',
+  '.gmp-dns code{font:12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--gmp-tinta);word-break:break-all}',
+  '.gmp-dns-dato{display:flex;align-items:center;gap:2px}.gmp-dns-dato code{flex:1;min-width:0}',
+  '.gmp-dns th:nth-child(1),.gmp-dns td:nth-child(1){width:64px}.gmp-dns th:nth-child(2),.gmp-dns td:nth-child(2){width:28%}.gmp-dns th:nth-child(4),.gmp-dns td:nth-child(4){width:28px}',
+  '.gmp-dom-acciones{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}',
 ].join('\n');
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -315,7 +345,9 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
   const urlVista = url ?? `https://${HOST}${PREFIJO_PUBLICO}/${slug || 'tu-pagina'}`;
 
   let cuerpo: ReactNode;
-  if (pestana === 'ajustes') {
+  if (pestana === 'dominio') {
+    cuerpo = <SeccionDominio docId={docId} urlMako={url} publicado={publicado} confirmar={confirmar} avisar={avisar} />;
+  } else if (pestana === 'ajustes') {
     cuerpo = (
       <>
         <Campo etiqueta="Dirección" htmlFor="gmp-slug">
@@ -489,11 +521,182 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
       )}
       <div style={{ margin: '6px 0 14px' }}>
         <Pestanas etiqueta="Ajustes del sitio" valor={pestana} onCambiar={setPestana}
-          opciones={[{ valor: 'ajustes', texto: 'Ajustes', icono: 'engrane' }, { valor: 'navegacion', texto: 'Navegación', icono: 'navegacion' }, { valor: 'seo', texto: 'SEO', icono: 'buscar' }]} />
+          opciones={[
+            { valor: 'ajustes', texto: 'Ajustes', icono: 'engrane' }, { valor: 'navegacion', texto: 'Navegación', icono: 'navegacion' },
+            { valor: 'seo', texto: 'SEO', icono: 'buscar' }, { valor: 'dominio', texto: 'Dominios', icono: 'globo' },
+          ]} />
       </div>
       {cuerpo}
       {nodoConfirma}
     </ModalGma>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La pestaña «Dominios» (T7)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const pedirDominio = (cuerpo: PedidoDominio) => postJson<RespuestaDominio>(RUTA_DOMINIO, cuerpo, PLAZO_DOCS_MS);
+
+const PARA_REGISTRO: Record<RegistroDns['para'], string> = {
+  apuntar: 'Lleva tu dominio a MaKo',
+  vercel: 'Prueba ante Vercel que el dominio es tuyo',
+  mako: 'Prueba ante MaKo que el dominio es tuyo',
+};
+
+/**
+ * La dirección de MaKo y el dominio propio. Se monta sólo con la pestaña abierta: el estado se lee
+ * AL ABRIRLA (mira Vercel y el DNS en ese momento), no con cada apertura del diálogo. Lo que dice
+ * «Verificado» lo decide el server; la pantalla sólo pinta lo que contesta.
+ */
+function SeccionDominio({ docId, urlMako, publicado, confirmar, avisar }: {
+  docId: number;
+  urlMako: string | null;
+  publicado: boolean;
+  confirmar: (p: { titulo: string; texto: string; boton: string; peligro?: boolean }) => Promise<boolean>;
+  avisar: (texto: string) => void;
+}) {
+  const [cargando, setCargando] = useState(true);
+  const [dato, setDato] = useState<EstadoDominio | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [escrito, setEscrito] = useState('');
+  const [ocupado, setOcupado] = useState<null | 'conectar' | 'verificar' | 'quitar'>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    void pedirDominio({ accion: 'estado', id: docId }).then((r) => {
+      if (!vivo) return;
+      setCargando(false);
+      if (r.ok) setDato(r.dominio);
+      else setError(r.error);
+    });
+    return () => { vivo = false; };
+  }, [docId]);
+
+  const conectar = async (crudo: string) => {
+    const d = normalizarDominio(crudo);
+    const motivo = motivoDominioInvalido(d);
+    if (motivo || !d) { setError(motivo); return; }
+    setOcupado('conectar');
+    setError(null);
+    const r = await pedirDominio({ accion: 'conectar', id: docId, dominio: d });
+    setOcupado(null);
+    if (!r.ok) { setError(r.error); return; }
+    setDato(r.dominio);
+    setEscrito('');
+    avisar('Dominio añadido');
+  };
+
+  const verificar = async () => {
+    setOcupado('verificar');
+    setError(null);
+    const r = await pedirDominio({ accion: 'estado', id: docId, verificar: true });
+    setOcupado(null);
+    if (!r.ok) { setError(r.error); return; }
+    if (r.dominio?.estado === 'verificado' && dato?.estado !== 'verificado') avisar('Dominio verificado');
+    setDato(r.dominio);
+  };
+
+  const quitar = async () => {
+    if (!dato) return;
+    const ok = await confirmar({ titulo: 'Eliminar dominio', texto: 'Cualquier enlace que use este dominio dejará de funcionar.', boton: 'Eliminar dominio' });
+    if (!ok) return;
+    setOcupado('quitar');
+    setError(null);
+    const r = await pedirDominio({ accion: 'quitar', id: docId });
+    setOcupado(null);
+    if (!r.ok) { setError(r.error); return; }
+    setDato(r.dominio);
+    avisar('Dominio eliminado');
+  };
+
+  const copiarValor = async (v: string) => { if (await copiarTexto(v)) avisar('Copiado'); };
+
+  const verificado = dato?.estado === 'verificado';
+  const verTabla = !!dato && dato.enVercel && (!verificado || !!dato.falta);
+
+  return (
+    <>
+      <p className="gmp-grupo-tit">Dominios</p>
+      <div className="gmp-dom-fila">
+        <Icono nombre="enlace" tam={15} />
+        {urlMako
+          ? <a className="gmp-dom-nombre" href={urlMako} target="_blank" rel="noopener noreferrer">{urlMako.replace(/^https?:\/\//, '')}</a>
+          : <span className="gmp-dom-nombre">{HOST}{PREFIJO_PUBLICO}/…</span>}
+        <span className="gmp-dom-sub">De MaKo</span>
+      </div>
+
+      {cargando ? (
+        <Giro chico etiqueta="Revisando el dominio" />
+      ) : dato ? (
+        <>
+          <div className="gmp-dom-fila">
+            <Icono nombre="globo" tam={15} />
+            {verificado
+              ? <a className="gmp-dom-nombre" href={urlDeDominio(dato.dominio)} target="_blank" rel="noopener noreferrer">{dato.dominio}</a>
+              : <span className="gmp-dom-nombre">{dato.dominio}</span>}
+            <span className="gmp-insignia" data-tono={verificado ? 'ok' : 'espera'}>{verificado ? 'Verificado' : 'Verificando'}</span>
+            <BotonBorrar talla="md" title="Eliminar dominio" disabled={!!ocupado} onClick={() => void quitar()} />
+          </div>
+          {dato.falta && <p className={verificado ? 'gmp-error' : 'gmp-ayuda'} style={{ margin: '0 0 8px' }}>{dato.falta}</p>}
+          {!dato.enVercel && (
+            <button type="button" className="gmp-btn gmp-btn-contorno gmp-btn-chico" disabled={!!ocupado} onClick={() => void conectar(dato.dominio)}>
+              {ocupado === 'conectar' ? <Giro chico etiqueta="Conectando" /> : <Icono nombre="restablecer" tam={14} />}Conectar de nuevo
+            </button>
+          )}
+          {verTabla && (
+            <>
+              <p className="gmp-sub">Registros DNS</p>
+              <table className="gmp-dns">
+                <thead><tr><th>Tipo</th><th>Nombre</th><th>Datos</th><th aria-label="Estado" /></tr></thead>
+                <tbody>
+                  {dato.registros.map((r) => (
+                    <tr key={`${r.tipo}-${r.nombre}-${r.valor}`} title={PARA_REGISTRO[r.para]}>
+                      <td><code>{r.tipo}</code></td>
+                      <td>
+                        <span className="gmp-dns-dato">
+                          <code>{r.nombre}</code>
+                          <button type="button" className="gmp-x" onClick={() => void copiarValor(r.nombre)} aria-label={`Copiar el nombre ${r.nombre}`} title="Copiar"><Icono nombre="copiar" tam={14} /></button>
+                        </span>
+                      </td>
+                      <td>
+                        <span className="gmp-dns-dato">
+                          <code>{r.valor}</code>
+                          <button type="button" className="gmp-x" onClick={() => void copiarValor(r.valor)} aria-label={`Copiar los datos del registro ${r.tipo}`} title="Copiar"><Icono nombre="copiar" tam={14} /></button>
+                        </span>
+                      </td>
+                      <td>
+                        {r.listo === true
+                          ? <span className="gmp-ok" title="Listo" aria-label="Listo"><Icono nombre="check" tam={15} /></span>
+                          : <span className="gmp-ayuda" title={r.listo === false ? 'Falta' : 'Sin leer'} aria-label={r.listo === false ? 'Falta' : 'Sin leer'}>…</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="gmp-dom-acciones">
+                <button type="button" className="gmp-btn gmp-btn-contorno gmp-btn-chico" disabled={!!ocupado} onClick={() => void verificar()}>
+                  {ocupado === 'verificar' ? <Giro chico etiqueta="Verificando" /> : <Icono nombre="restablecer" tam={14} />}Verificar de nuevo
+                </button>
+                <span className="gmp-ayuda">Cárgalos donde compraste el dominio. Puede tardar hasta 48 horas.</span>
+              </div>
+            </>
+          )}
+          {verificado && !publicado && <p className="gmp-ayuda" style={{ marginTop: 8 }}>Publica el sitio para que se vea en tu dominio.</p>}
+        </>
+      ) : (
+        <Campo etiqueta="Añadir un dominio" htmlFor="gmp-dominio" ayuda="Un dominio o subdominio que ya tengas.">
+          <form className="gmp-dom-nuevo" onSubmit={(e) => { e.preventDefault(); void conectar(escrito); }}>
+            <input id="gmp-dominio" className="gmp-input" value={escrito} spellCheck={false} autoComplete="off" inputMode="url"
+              placeholder="promo.tunegocio.com" onChange={(e) => { setEscrito(e.target.value); setError(null); }} />
+            <button type="submit" className="gmp-btn gmp-btn-primario" disabled={!escrito.trim() || !!ocupado}>
+              {ocupado === 'conectar' ? <Giro chico etiqueta="Añadiendo" /> : <Icono nombre="mas" tam={14} />}Añadir dominio
+            </button>
+          </form>
+        </Campo>
+      )}
+      {error && <p className="gmp-error" role="alert" style={{ marginTop: 8 }}>{error}</p>}
+    </>
   );
 }
 

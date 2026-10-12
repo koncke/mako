@@ -41,6 +41,13 @@
 //      lienzo lo dice, el editor queda de sólo lectura y el guardado manda esa página como
 //      estaba, no lo que muestra el editor.
 //
+// PRESENTACIONES (T3, tanda 2: «Falta la funcionalidad de crear presentaciones… Diapositivas, tal
+// cual como lo hace gamma»): con `config.formato === 'presentacion'` la barra cambia Publicar por
+// PRESENTAR como botón principal (Publicar queda en el ▾), la raíz del lienzo lleva
+// `data-formato`/`data-proporcion` (la forma de la diapositiva y la guía de desbordamiento son de
+// css.ts) y, con forma fija, la letra base sale del ANCHO DEL LIENZO (`baseDelLienzo`): una
+// diapositiva que no entra de ancho achica su alto y el contenido, en em, se sale.
+//
 // Lo que NO se copia de Gamma: el «Formato libre» (bloques con posición absoluta), la edición en
 // tiempo real con otros (no hay infraestructura de presencia: D8) y el chrome oscuro por tema
 // (ver app/landing-generator/gamma.css).
@@ -60,7 +67,10 @@ import {
   NODO, TOPES, docPagina, nuevoId, tarjetaVacia,
   type DocPagina, type JsonNodo, type LandingContenido, type Pagina,
 } from '@/lib/editor-landing/doc';
-import type { ConfigLanding, LandingCompleta, PedidoDocs, TemaPropio } from '@/lib/editor-landing/api-tipos';
+import {
+  diapositivaFija, esPresentacion, proporcionDe, terminoTarjeta,
+  type ConfigLanding, type LandingCompleta, type PedidoDocs, type TemaPropio,
+} from '@/lib/editor-landing/api-tipos';
 import type { IdBloque } from '@/lib/editor-landing/catalogo-bloques';
 import {
   EditorLandingContext,
@@ -130,11 +140,18 @@ type Paquete = { sucio: Sucio; titulo?: string; contenido?: LandingContenido; co
  * sección (css.ts), así que escalar la letra base es escalar el dibujo entero sin transform:
  * los clics, las selecciones y las barras flotantes siguen cayendo donde se ven.
  */
-function baseDelLienzo(dispositivo: Dispositivo, zoom: number): Record<string, string> {
+function baseDelLienzo(dispositivo: Dispositivo, zoom: number, diapo: { ancho: number } | null = null): Record<string, string> {
   const z = zoom / 100;
   if (dispositivo === 'movil') return { '--gm-base-movil': `calc(16px * ${z})`, '--gm-base': `calc(16px * ${z})` };
-  if (dispositivo === 'tableta') return { '--gm-base': `calc(15px * ${z})` };
-  return { '--gm-base': `calc(clamp(15px, calc(100vw / 68.5), 18px) * ${z})` };
+  // T3: una diapositiva de forma fija mide 64.5em y tiene que ENTRAR de ancho (si no, su alto sale
+  // del ancho achicado y el contenido, en em, desborda): la letra base sale del ancho del lienzo
+  // (o del cuadro de la tableta, que mide min(820px, lienzo − 32px): gamma.css). 68.5 = 64.5 + 4 de aire.
+  const tope = diapo && diapo.ancho > 0
+    ? `${(Math.round(((dispositivo === 'tableta' ? Math.min(820, diapo.ancho - 32) : diapo.ancho) / 68.5) * 100) / 100)}px`
+    : null;
+  if (dispositivo === 'tableta') return { '--gm-base': tope ? `calc(min(15px, ${tope}) * ${z})` : `calc(15px * ${z})` };
+  const normal = 'clamp(15px, calc(100vw / 68.5), 18px)';
+  return { '--gm-base': `calc(${tope ? `min(${normal}, ${tope})` : normal} * ${z})` };
 }
 
 /** Iniciales para el avatar. */
@@ -155,8 +172,6 @@ export type PropsEditorLanding = {
   error?: string | null;
   /** Los temas propios del workspace (app_settings `landing.temas`). */
   temasPropios: TemaPropio[];
-  /** Si está en favoritos (LandingCompleta no lo trae). */
-  favorito: boolean;
   /** Quién la creó (para la cabeza del menú ⋯). */
   creadoPor: string | null;
   /** Quién mira (el avatar de la barra). */
@@ -193,7 +208,7 @@ function ErrorDeCarga({ error }: { error: string | null }) {
 // El armazón
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Armazon({ doc, temasPropios, favorito: favoritoInicial, creadoPor, autor }: PropsEditorLanding & { doc: LandingCompleta }) {
+function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & { doc: LandingCompleta }) {
   const docId = doc.id;
   const mod = useTeclaMod();
 
@@ -209,7 +224,6 @@ function Armazon({ doc, temasPropios, favorito: favoritoInicial, creadoPor, auto
   const [urlPublica, setUrlPublica] = useState<string | null>(doc.urlPublica);
   const [cambiosSinPublicar, setCambiosSinPublicar] = useState(doc.cambiosSinPublicar);
   const [propios, setPropios] = useState<TemaPropio[]>(temasPropios);
-  const [favorito, setFavorito] = useState(favoritoInicial);
   const [info] = useState<InfoDocumento>({ creado: doc.creado, creadoPor });
 
   // ── La pantalla ──
@@ -260,6 +274,11 @@ function Armazon({ doc, temasPropios, favorito: favoritoInicial, creadoPor, auto
   }, []);
 
   const tema = useMemo(() => temaPorId(config.tema, propios), [config.tema, propios]);
+  // T3: una presentación dice «diapositiva», Presentar es la acción principal y, con forma fija,
+  // la letra base sale del ancho del lienzo (baseDelLienzo).
+  const presentacion = esPresentacion(config);
+  const fija = diapositivaFija(config);
+  const [anchoLienzo, setAnchoLienzo] = useState(0);
 
   // «Recientes» del Panel: una landing abierta desde un link o un marcador también es reciente.
   useEffect(() => { marcarReciente(docId); }, [docId]);
@@ -626,7 +645,7 @@ function Armazon({ doc, temasPropios, favorito: favoritoInicial, creadoPor, auto
     });
     const nodos = nodosDe(e, conIds);
     if (!nodos || !nodos.length) { avisar('No se pudo insertar'); return; }
-    if (e.state.doc.childCount + nodos.length > TOPES.tarjetasPorPagina) { avisar('Máximo de secciones'); return; }
+    if (e.state.doc.childCount + nodos.length > TOPES.tarjetasPorPagina) { avisar(`Máximo de ${terminoTarjeta(configRef.current, { plural: true })}`); return; }
     const ref = despuesDe === undefined ? tarjetaActivaRef.current : despuesDe;
     const s = ref ? seccionPorId(e.state.doc, ref) : null;
     const pos = s ? s.pos + s.nodo.nodeSize : e.state.doc.content.size;
@@ -869,11 +888,23 @@ function Armazon({ doc, temasPropios, favorito: favoritoInicial, creadoPor, auto
     if (ventana) { ventana.opener = null; ventana.location.href = r.url; } else window.open(r.url, '_blank', 'noopener');
   };
 
+  // El ancho del lienzo, sólo para la letra base de una diapositiva fija (baseDelLienzo). Se
+  // redondea a 8 px: un ResizeObserver dispara por cada píxel al abrir un panel.
+  useEffect(() => {
+    const el = lienzoRef.current;
+    if (!el || !fija || typeof ResizeObserver === 'undefined') return;
+    const medir = () => setAnchoLienzo(Math.round(el.clientWidth / 8) * 8);
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fija]);
+
   const paginaRota = rota !== null && rota === paginaActual;
   const sinPaginas = contenido.paginas.length === 0;
   const estiloDoc = useMemo(
-    () => ({ ...varsDeTema(tema), ...baseDelLienzo(dispositivo, zoom) }) as CSSProperties,
-    [tema, dispositivo, zoom],
+    () => ({ ...varsDeTema(tema), ...baseDelLienzo(dispositivo, zoom, fija ? { ancho: anchoLienzo } : null) }) as CSSProperties,
+    [tema, dispositivo, zoom, fija, anchoLienzo],
   );
 
   return (
@@ -914,12 +945,20 @@ function Armazon({ doc, temasPropios, favorito: favoritoInicial, creadoPor, auto
               <Ico n="candado" t={14} /> Compartir
             </button>
             <div className="gma-partido">
-              <button type="button" className="gma-boton gma-boton--primario gma-tip"
-                data-tip={cambiosSinPublicar ? 'Tienes cambios que publicar' : 'Publicar'}
-                onClick={() => setDialogo('publicar')}>
-                <Ico n="subir" t={15} /> Publicar
-              </button>
-              <button type="button" className="gma-boton gma-boton--primario" aria-label="Más opciones de publicación"
+              {/* T3: en una presentación la acción principal es Presentar (Publicar queda en el ▾). */}
+              {presentacion ? (
+                <button type="button" className="gma-boton gma-boton--primario gma-tip" data-tip="Presentar" data-atajo={`${mod}↵`}
+                  onClick={() => setDialogo('presentar')}>
+                  <Ico n="presentar" t={15} /> Presentar
+                </button>
+              ) : (
+                <button type="button" className="gma-boton gma-boton--primario gma-tip"
+                  data-tip={cambiosSinPublicar ? 'Tienes cambios que publicar' : 'Publicar'}
+                  onClick={() => setDialogo('publicar')}>
+                  <Ico n="subir" t={15} /> Publicar
+                </button>
+              )}
+              <button type="button" className="gma-boton gma-boton--primario" aria-label={presentacion ? 'Más opciones' : 'Más opciones de publicación'}
                 aria-expanded={!!menuPublicar} onClick={(e) => setMenuPublicar(menuPublicar ? null : e.currentTarget)}>
                 <Ico n="chevron-abajo" t={14} />
               </button>
@@ -1021,11 +1060,11 @@ function Armazon({ doc, temasPropios, favorito: favoritoInicial, creadoPor, auto
               >
                 {sinPaginas ? (
                   <div className="gma-vacio">
-                    <h2 className="gma-vacio-titulo">Esta landing no tiene páginas</h2>
+                    <h2 className="gma-vacio-titulo">{presentacion ? 'Esta presentación está vacía' : 'Esta landing no tiene páginas'}</h2>
                     <div className="gma-vacio-acciones">
                       <button type="button" className="gma-boton gma-boton--primario"
                         onClick={() => setPaginas([{ id: nuevoId('p'), titulo: 'Inicio', ruta: '', doc: docPagina([tarjetaVacia()]) }])}>
-                        Añadir página
+                        {presentacion ? 'Añadir diapositiva' : 'Añadir página'}
                       </button>
                     </div>
                   </div>
@@ -1043,6 +1082,8 @@ function Armazon({ doc, temasPropios, favorito: favoritoInicial, creadoPor, auto
                   className="gm-doc"
                   data-modo="editor"
                   data-tema={config.tema}
+                  data-formato={presentacion ? 'presentacion' : undefined}
+                  data-proporcion={presentacion ? proporcionDe(config) : undefined}
                   data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo}
                   style={{ ...estiloDoc, display: paginaRota || sinPaginas ? 'none' : undefined }}
                 >
@@ -1080,18 +1121,27 @@ function Armazon({ doc, temasPropios, favorito: favoritoInicial, creadoPor, auto
         </div>
 
         {/* ── Menús ── */}
-        <MenuDocumento abierto={!!menuDoc} ancla={menuDoc} onCerrar={() => setMenuDoc(null)} info={info}
-          favorito={favorito} onFavorito={setFavorito} />
+        <MenuDocumento abierto={!!menuDoc} ancla={menuDoc} onCerrar={() => setMenuDoc(null)} info={info} />
         {menuPublicar ? (
-          <Menu ancla={menuPublicar} onCerrar={() => setMenuPublicar(null)} alinear="fin" etiqueta="Publicar" ancho={240}>
+          <Menu ancla={menuPublicar} onCerrar={() => setMenuPublicar(null)} alinear="fin" etiqueta={presentacion ? 'Presentar' : 'Publicar'} ancho={240}>
+            {presentacion ? (
+              <>
+                <ItemMenu icono="presentar" texto="Presentar" atajo={`${mod}↵`} onClick={() => setDialogo('presentar')} />
+                <SepMenu />
+              </>
+            ) : null}
             <ItemMenu icono="globo" texto="Publicar" onClick={() => setDialogo('publicar')} />
             <ItemMenu icono="ojo" texto="Vista previa" onClick={() => { void vistaPrevia(); }} />
             {urlPublica ? (
               <ItemMenu icono="flecha-externa" texto="Ver página publicada"
                 onClick={() => { window.open(urlPublica, '_blank', 'noopener,noreferrer'); }} />
             ) : null}
-            <SepMenu />
-            <ItemMenu icono="presentar" texto="Presentar" atajo={`${mod}↵`} onClick={() => setDialogo('presentar')} />
+            {presentacion ? null : (
+              <>
+                <SepMenu />
+                <ItemMenu icono="presentar" texto="Presentar" atajo={`${mod}↵`} onClick={() => setDialogo('presentar')} />
+              </>
+            )}
           </Menu>
         ) : null}
         {menuZoom ? (

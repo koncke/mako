@@ -33,6 +33,22 @@
 // contenedor, así que el ítem se anota en el `pointerdown` (AGENTS.md, «el gesto de un lienzo»),
 // y un clic que fue arrastre no dispara el click del ítem (el click cae en el contenedor).
 // `useReordenar` lo usa también el panel de páginas.
+//
+// ⚠️ «SE BUGUEA EN LA TIRA DE IMÁGENES, EN LA DE LISTA NO» (feedback de Martín, 12/10/2026). La
+//    lista es de filas de 30 px fijos; la tira, de miniaturas cuyo ALTO sale de su ANCHO
+//    (k = ancho del cuadro / 640). Dos realimentaciones que la lista no puede tener:
+//    1. La barra de scroll. En Windows ocupa ~15 px: con las miniaturas justo sobre el alto de la
+//       tira, aparece la barra → el cuadro se angosta → las miniaturas bajan de alto → ya no hace
+//       falta la barra → desaparece → crecen → vuelve. Un ResizeObserver en bucle: la tira tiembla
+//       sin parar. `scrollbar-gutter: stable` (gamma.css, .gma-tira-lista) reserva el lugar de la
+//       barra SIEMPRE, y el ancho deja de depender de si hay barra.
+//    2. Las imágenes. Cada cambio de una sección reemplaza el HTML de su miniatura; un `<img>`
+//       nuevo mide 0 de alto hasta decodificarse (aunque venga de la caché), así que la miniatura
+//       se achicaba y volvía a crecer a cada pausa al escribir, y la tira entera saltaba. Mientras
+//       haya una imagen sin cargar, la miniatura conserva su alto anterior y se vuelve a medir con
+//       el `load` (o el `error`) de esa imagen.
+//    Y la miniatura no lleva esmerilado (css.ts, modo 'miniatura'): un backdrop-filter adentro de
+//    una capa escalada y recortada es una capa de GPU por miniatura que Chrome repinta mal.
 // =============================================================================
 
 import {
@@ -44,6 +60,7 @@ import type { Node as NodoPM } from '@tiptap/pm/model';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
 import { nuevoId, tarjetaVacia, tituloDeTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
 import type { Tema } from '@/lib/editor-landing/temas';
+import { esPresentacion, proporcionDe, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useEditorLanding } from './contexto';
 import { borrarTarjeta, duplicarTarjeta, moverTarjeta, seccionPorId, seccionesDe } from './insertar';
@@ -188,7 +205,24 @@ function leerItems(editor: Editor, tema: Tema, cache: Cache, previos: ItemTira[]
   return out.length === previos.length && out.every((x, i) => x === previos[i]) ? previos : out;
 }
 
-const Miniatura = memo(function Miniatura({ html }: { html: string }) {
+/** ¿Queda alguna imagen de la miniatura sin cargar? Mientras tanto mide 0 y el alto mentiría. */
+export function hayImagenSinCargar(raiz: { querySelectorAll(sel: string): ArrayLike<{ complete: boolean }> }): boolean {
+  const imgs = raiz.querySelectorAll('img');
+  for (let i = 0; i < imgs.length; i++) if (!imgs[i].complete) return true;
+  return false;
+}
+
+/** El alto de la miniatura a partir del alto de la sección a 640 px y la escala, con sus topes. */
+export function altoDeMiniatura(altoSeccion: number, k: number): number {
+  return Math.min(ALTO_MAX, Math.max(24, Math.round(altoSeccion * k)));
+}
+
+const Miniatura = memo(function Miniatura({ html, formato, proporcion }: {
+  html: string;
+  /** Con una presentación, la miniatura toma la forma de la diapositiva (css.ts lee el formato del padre del .gm-doc). */
+  formato?: 'presentacion';
+  proporcion?: string;
+}) {
   const cajaRef = useRef<HTMLDivElement | null>(null);
   const escalaRef = useRef<HTMLDivElement | null>(null);
   const [medida, setMedida] = useState<{ k: number; alto: number }>({ k: 0.17, alto: 64 });
@@ -199,14 +233,27 @@ const Miniatura = memo(function Miniatura({ html }: { html: string }) {
     if (!caja || !escala) return;
     const medir = () => {
       const k = (caja.clientWidth || 108) / ANCHO_BASE;
-      const alto = Math.min(ALTO_MAX, Math.max(24, Math.round(escala.offsetHeight * k)));
+      // Con una imagen a medio cargar la sección mide de menos: se conserva el alto que tenía
+      // (ver la cabecera, «se buguea»); el `load` de la imagen vuelve a llamar acá.
+      if (hayImagenSinCargar(escala)) {
+        setMedida((m) => (Math.abs(m.k - k) < 0.0005 ? m : { k, alto: m.alto }));
+        return;
+      }
+      const alto = altoDeMiniatura(escala.offsetHeight, k);
       setMedida((m) => (Math.abs(m.k - k) < 0.0005 && m.alto === alto ? m : { k, alto }));
     };
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(escala);
     ro.observe(caja);
-    return () => ro.disconnect();
+    // `load` y `error` no burbujean: se escuchan en captura sobre la capa.
+    escala.addEventListener('load', medir, true);
+    escala.addEventListener('error', medir, true);
+    return () => {
+      ro.disconnect();
+      escala.removeEventListener('load', medir, true);
+      escala.removeEventListener('error', medir, true);
+    };
   }, []);
 
   return (
@@ -214,6 +261,8 @@ const Miniatura = memo(function Miniatura({ html }: { html: string }) {
       <div
         ref={escalaRef}
         className="gma-mini-escala"
+        data-formato={formato}
+        data-proporcion={formato ? proporcion : undefined}
         // --gm-base: la sección mide 64.5em = ANCHO_BASE. El ancho lo pone la clase.
         style={{ transform: `scale(${medida.k})`, ['--gm-base' as string]: `calc(${ANCHO_BASE}px / 64.5)` }}
         inert
@@ -240,8 +289,14 @@ export default function TiraSecciones({ revision, onCerrar }: {
   onCerrar: () => void;
 }) {
   const ctx = useEditorLanding();
-  const { editor, tema, tarjetaActiva, irATarjeta, insertarTarjetas, avisar, urlPublica, paginas, paginaActual } = ctx;
+  const { editor, tema, tarjetaActiva, irATarjeta, insertarTarjetas, avisar, urlPublica, paginas, paginaActual, config } = ctx;
   const mod = useTeclaMod();
+  // «sección» o «diapositiva» (T3): la misma palabra que el resto del editor.
+  const uno = terminoTarjeta(config, { mayuscula: true });
+  const unoMin = terminoTarjeta(config);
+  const muchos = terminoTarjeta(config, { plural: true });
+  const formatoMini = esPresentacion(config) ? 'presentacion' as const : undefined;
+  const proporcionMini = formatoMini ? proporcionDe(config) : undefined;
   const [items, setItems] = useState<ItemTira[]>([]);
   const [vista, setVista] = useState<'miniaturas' | 'lista'>('miniaturas');
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -276,7 +331,7 @@ export default function TiraSecciones({ revision, onCerrar }: {
   }, [editor, tema, revision]);
 
   const { contRef, arrastre, fueArrastre, handlers } = useReordenar((de, a) => {
-    if (editor && moverTarjeta(editor, de, a)) avisar('Sección movida');
+    if (editor && moverTarjeta(editor, de, a)) avisar(`${uno} movida`);
   });
 
   // ── Acciones sobre una sección ──
@@ -289,7 +344,7 @@ export default function TiraSecciones({ revision, onCerrar }: {
     if (!editor || !buscar(id)) return;
     const pagina = paginaRef.current;
     const deshacer = borrarTarjeta(editor, id);
-    avisar('Sección eliminada', () => { if (paginaRef.current === pagina) deshacer(); });
+    avisar(`${uno} eliminada`, () => { if (paginaRef.current === pagina) deshacer(); });
   };
 
   const duplicar = (id: string) => {
@@ -300,7 +355,7 @@ export default function TiraSecciones({ revision, onCerrar }: {
     const s = buscar(id);
     if (!s) return;
     portapapeles = s.nodo.toJSON() as JsonNodo;
-    if (avisarlo) avisar('Sección copiada');
+    if (avisarlo) avisar(`${uno} copiada`);
   };
 
   const pegar = (id: string) => {
@@ -313,7 +368,7 @@ export default function TiraSecciones({ revision, onCerrar }: {
     if (!s) return;
     const oculta = s.nodo.attrs.oculta === true;
     editor.view.dispatch(editor.state.tr.setNodeMarkup(s.pos, undefined, { ...s.nodo.attrs, oculta: !oculta }));
-    avisar(oculta ? 'Sección visible' : 'Sección oculta');
+    avisar(`${uno} ${oculta ? 'visible' : 'oculta'}`);
   };
 
   const pagina = paginas.find((p) => p.id === paginaActual);
@@ -358,12 +413,12 @@ export default function TiraSecciones({ revision, onCerrar }: {
           <Ico n="lista" t={14} />
         </button>
         <span className="gma-tira-cabeza-sep" />
-        <button type="button" className="gma-herr-boton gma-tip" data-tip="Cerrar tira de diapositivas" aria-label="Cerrar tira de diapositivas" onClick={onCerrar}>
+        <button type="button" className="gma-herr-boton gma-tip" data-tip={`Cerrar tira de ${muchos}`} aria-label={`Cerrar tira de ${muchos}`} onClick={onCerrar}>
           <Ico n="cerrar" t={14} />
         </button>
       </div>
       <button type="button" className="gma-tira-agregar" onClick={() => insertarTarjetas([tarjetaVacia()], tarjetaActiva)}>
-        <Ico n="mas" t={12} /> Agregar sección
+        <Ico n="mas" t={12} /> Agregar {unoMin}
       </button>
       <div ref={contRef} className="gma-tira-lista" {...handlers}>
         {items.map((it, i) => (vista === 'miniaturas' ? (
@@ -373,7 +428,7 @@ export default function TiraSecciones({ revision, onCerrar }: {
             role="button"
             tabIndex={0}
             className="gma-mini"
-            aria-label={`Sección ${i + 1}${it.titulo ? `: ${it.titulo}` : ''}`}
+            aria-label={`${uno} ${i + 1}${it.titulo ? `: ${it.titulo}` : ''}`}
             data-activa={it.id === tarjetaActiva ? 'si' : undefined}
             data-oculta={it.oculta ? 'si' : undefined}
             data-arrastrando={arrastre?.de === i ? 'si' : undefined}
@@ -381,7 +436,7 @@ export default function TiraSecciones({ revision, onCerrar }: {
             onContextMenu={(e) => abrirMenu(e, it.id)}
             onKeyDown={(e) => teclas(e, it.id, i)}
           >
-            <Miniatura html={it.html} />
+            <Miniatura html={it.html} formato={formatoMini} proporcion={proporcionMini} />
             <span className="gma-mini-num">{i + 1}</span>
             {it.oculta ? <span className="gma-mini-oculta"><Ico n="ojo-tachado" t={11} /></span> : null}
           </div>
@@ -406,7 +461,7 @@ export default function TiraSecciones({ revision, onCerrar }: {
       </div>
 
       {menu && itemMenu ? (
-        <Menu ancla={menu} onCerrar={() => setMenu(null)} etiqueta="Menú de la sección" ancho={250}>
+        <Menu ancla={menu} onCerrar={() => setMenu(null)} etiqueta={`Menú de la ${unoMin}`} ancho={250}>
           <div className="gma-menu-cabeza">
             <div className="gma-menu-cabeza-titulo">{itemMenu.titulo || 'Sin título'}</div>
           </div>
@@ -414,7 +469,7 @@ export default function TiraSecciones({ revision, onCerrar }: {
           <ItemMenu icono="copiar" texto="Copiar" atajo={`${mod}C`} onClick={() => copiar(menu.id)} />
           {portapapeles ? <ItemMenu icono="pegar" texto="Pegar debajo" atajo={`${mod}V`} onClick={() => pegar(menu.id)} /> : null}
           <ItemMenu icono="duplicar" texto="Duplicar" atajo={`${mod}D`} onClick={() => duplicar(menu.id)} />
-          <ItemMenu icono="mas" texto="Agregar sección debajo" onClick={() => insertarTarjetas([tarjetaVacia()], menu.id)} />
+          <ItemMenu icono="mas" texto={`Agregar ${unoMin} debajo`} onClick={() => insertarTarjetas([tarjetaVacia()], menu.id)} />
           <SepMenu />
           <ItemMenu icono={itemMenu.oculta ? 'ojo' : 'ojo-tachado'} texto={itemMenu.oculta ? 'Mostrar' : 'Ocultar'} onClick={() => alternarOculta(menu.id)} />
           {enlaceDe(menu.id) ? <ItemMenu icono="enlace" texto="Copiar enlace" onClick={() => copiarEnlace(menu.id)} /> : null}

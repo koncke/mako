@@ -42,7 +42,7 @@ async function puerta(): Promise<Response | null> {
  */
 const ACCIONES: Record<docs.AccionDocs, true> = {
   listar: true, abrir: true, crear: true, guardar: true, duplicar: true, renombrar: true,
-  favorito: true, carpeta: true, papelera: true, restaurar: true, borrar: true,
+  papelera: true, restaurar: true, borrar: true,
   versiones: true, version: true, guardarVersion: true, restaurarVersion: true,
   slugDisponible: true, publicar: true, despublicar: true, sitioActivo: true, vistaPrevia: true,
   comentarios: true, comentar: true, resolverComentario: true, borrarComentario: true,
@@ -60,8 +60,6 @@ function ejecutar(p: PedidoDocs): Promise<docs.Resultado<docs.AccionDocs>> {
     case 'guardar': return docs.guardar(p);
     case 'duplicar': return docs.duplicar(p.id);
     case 'renombrar': return docs.renombrar(p.id, p.titulo);
-    case 'favorito': return docs.marcarFavorito(p.id, p.valor);
-    case 'carpeta': return docs.moverACarpeta(p.id, p.carpeta);
     case 'papelera': return docs.mandarAPapelera(p.id);
     case 'restaurar': return docs.restaurarDePapelera(p.id);
     case 'borrar': return docs.borrar(p.id);

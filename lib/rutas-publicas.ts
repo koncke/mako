@@ -112,7 +112,9 @@ export const PUBLICOS = [
   '/compartido',
   '/api/compartido',
   // ── Las landings publicadas con el editor (11/10/2026, docs/diseno-editor-landing.md D4) ──
-  // `/l/<slug>`, `/l/<slug>/<ruta>` y `/l/vista/<token>` (el borrador por el link privado).
+  // `/l/<slug>`, `/l/<slug>/<ruta>` y `/l/vista/<token>` (el borrador por el link privado). Y desde
+  // la tanda 2, `/l/html/<docId>/<bloque>`: el «HTML personalizado» de una landing, servido aislado
+  // (CSP sandbox) para que su JavaScript corra en la publicada. También sólo GET/HEAD/OPTIONS.
   // Las abre un VISITANTE, sin cuenta de MaKo: detrás del gate se leerían como una página de
   // login. Son route handlers que leen la foto por slug o por token con el cliente crudo y
   // NO miran la cookie de sesión para nada (sin cookie, `getTenantDb` caería al ws1).

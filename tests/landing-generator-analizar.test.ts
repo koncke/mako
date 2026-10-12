@@ -116,20 +116,23 @@ test('/landing-analyst es SÓLO el redirect, con `rutaConWs` y la query', () => 
 
 // ── 2 · La pantalla nueva ─────────────────────────────────────────────────────────────────────
 
-test('/landing-generator/analizar: la puerta de Landing Generator ANTES de leer, y el componente de donde estaba', () => {
-  assert.ok(existsSync(join(RAIZ, PAGINA_NUEVA)), 'falta la pantalla del diagnóstico');
+// Tanda 2 del editor de landings (T2, 11/10/2026: «"Diagnóstico" no debería ser otra ruta, debería
+// abrirse ahí a la derecha»): esta ruta pasó a REDIRIGIR al Panel con el Diagnóstico abierto. Lo que
+// sigue valiendo: la puerta ANTES de cualquier otra cosa, y el `?ws=` (rutaConWs). La traducción de
+// la query (`destinoAnalizar`, puro) la prueba tests/editor-landing-panel.test.ts. Actualizado en la
+// integración (12/10/2026). Probado rompiéndolo: el redirect antes del guard → 1 fallo; sin
+// rutaConWs → 1 fallo; vuelve el import de LandingAnalystApp → 1 fallo.
+test('/landing-generator/analizar: la puerta de Landing Generator ANTES del redirect al Panel, con el ?ws=', () => {
+  assert.ok(existsSync(join(RAIZ, PAGINA_NUEVA)), 'falta la ruta del diagnóstico');
   const src = sinComentarios(leer(PAGINA_NUEVA));
   const guard = src.indexOf("await requireRolWs([], { nav: 'landing-writer' });");
-  const lectura = src.indexOf('await getLandingViewData()');
-  assert.ok(guard > 0, 'la pantalla no tiene la puerta de Landing Generator (admin + landing-writer en la capa)');
-  assert.ok(lectura > guard, 'la lectura corre antes del guard: un setter leería los diagnósticos');
-  assert.match(src, /import \{ LandingAnalystApp \} from '@\/app\/landing-analyst\/LandingAnalystApp';/,
-    'el componente se mudó o se copió (la sesión del editor de landings toca su link en app/landing-analyst/)');
+  const salto = src.indexOf('redirect(');
+  assert.ok(guard > 0, 'la ruta no tiene la puerta de Landing Generator (admin + landing-writer en la capa)');
+  assert.ok(salto > guard, 'el redirect corre antes del guard');
+  assert.match(src, /redirect\(await rutaConWs\(destinoAnalizar\(await searchParams\)\)\);/);
+  assert.doesNotMatch(src, /LandingAnalystApp|getLandingViewData/, 'el diagnóstico ya no se dibuja en esta ruta: se abre en el Panel');
   assert.match(src, /export const dynamic = 'force-dynamic';/);
-  assert.doesNotMatch(src, /<Suspense/, 'una página privada que no lee la query no necesita Suspense');
-  assert.match(src, /<LandingAnalystApp data=\{data\} errorMsg=\{errorMsg\} \/>/);
-  // Una lectura que falla se muestra, no se traga: errorMsg sale del catch.
-  assert.match(src, /catch \(err\) \{\s*errorMsg = err instanceof Error \? err\.message : String\(err\);/);
+  assert.doesNotMatch(src, /<Suspense/, 'una página privada no necesita Suspense');
 });
 
 // ── 3 · El componente: sólo la tarea, y la tarea entera ──────────────────────────────────────

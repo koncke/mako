@@ -5,6 +5,8 @@
 // landings que ya pasaron por el Diagnóstico (/landing-generator/analizar) (para «Sobre cuál» y para validar el
 // deep link `?url=`), los temas propios del negocio y la query cruda. Diseño:
 // docs/diseno-editor-landing.md (D5, D9).
+// La query cruda incluye `?tipo=presentacion` (tanda 2, T4: la caja del Panel elige Landing |
+// Presentación); la valida la pantalla (`tipoValido`, crear/tipo.ts).
 //
 // La puerta es la misma de la tab: `requireRolWs([], { nav: 'landing-writer' })` (la key
 // del nav no cambió con el editor nuevo: contrato en la base). Página privada: no lleva
@@ -69,6 +71,7 @@ export default async function CrearLandingPage({ searchParams }: { searchParams:
         desdeCaja={uno(sp.desde) === 'caja'}
         modoCaja={modo === 'express' ? 'express' : 'plan'}
         promptUrl={uno(sp.prompt)}
+        tipo={uno(sp.tipo)}
       />
     </Pagina>
   );

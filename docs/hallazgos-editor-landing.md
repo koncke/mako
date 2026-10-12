@@ -77,8 +77,8 @@ autoguardado lo guardaría encima: se pierde la landing entera. Dos reglas:
   se copiaron «código personalizado» ni Google Tag Manager de Gamma; sí el Píxel de Meta, armado por
   el server con un id de dígitos.
 - Un `<iframe srcdoc sandbox>` aísla el ORIGEN, no la política: bajo la CSP estricta de la página, el
-  bloque «HTML personalizado» **no ejecuta scripts en la publicada** aunque en el editor sí. Pendiente
-  (abajo).
+  bloque «HTML personalizado» **no ejecuta scripts en la publicada** aunque en el editor sí. Resuelto en
+  la tanda 2 (abajo): el bloque se sirve desde su propia URL.
 - Un slug igual a una carpeta fija de `app/l` tapa las páginas de esa landing (`/l/vista/gracias` se
   lee como token): toda carpeta fija va a `SLUGS_RESERVADOS`.
 - `getOrCreateLandingToken` lee con `getSetting`, que ante un error devuelve null y entonces CREA un
@@ -128,6 +128,159 @@ tamaño de la IMAGEN y `sizing.w/h` la caja: se calcula el tamaño natural y se 
   production build»; el segundo (`--debug`), verde. Los `next-panic-*.log` de `%TEMP%` eran de otros
   días: antes de diagnosticar uno, mirá su fecha.
 
+## Tanda 2 (12/10/2026)
+
+Pedido de Martín (11/10, diez puntos, textual en [diseno-editor-landing.md](diseno-editor-landing.md) →
+«Tanda 2») más el feedback de una prueba con Fiesta Music (12/10): «Te paso feedback, implementalo» —
+«pidieron una landing page… y te lo creó tipo presentación diapositiva, no te lo creó como si fuera una
+landing» y «se buguea cuando estoy en la vista de editar… en el sidebar de secciones, principalmente en la
+vista que dice tira de imágenes... en la vista de lista no». Seis paquetes, una integración, un verificador
+en el navegador y un revisor adversarial; acá va lo que costó.
+
+### Lo de Fiesta Music: el diagnóstico obvio era el equivocado las dos veces
+
+- **La landing «tipo diapositivas» no era la IA: era la HOJA.** `css.ts` dibujaba el modo DOCUMENTO de Gamma
+  (tarjetas flotantes, con aire y sombra) para todo. Una landing (`formato: 'pagina'`) es ahora una página
+  continua como un sitio publicado de Gamma (secciones a sangre, sin radio ni sombra; «Ancho» elige el ancho
+  del contenido) y las tarjetas con aire son sólo de una presentación. **Regla: el aspecto página/presentación
+  lo decide `config.formato` en el CSS; el prompt sólo cubre las palabras** (`REGLAS_PAGINA`). Lo publicado
+  antes guarda su propia hoja en la foto: se ve como antes hasta republicar.
+  **Vive en:** `lib/editor-landing/css.ts` (15b, 15c), `editor/extensiones/estilos-nodos.ts`, `ia.ts`.
+- **La tira de miniaturas en bucle, y la lista no.** El alto de cada miniatura sale de su ANCHO, y en Windows
+  la barra de scroll (~15 px) aparecía y desaparecía con el alto total: un ResizeObserver realimentado. Encima,
+  cada pausa al tipear reemplazaba el HTML y un `<img>` nuevo mide 0 hasta decodificarse. La lista anda porque
+  sus filas miden 30 px fijos. **Regla: todo layout cuyo alto depende del ancho lleva `scrollbar-gutter:
+  stable`**, y una miniatura conserva su alto mientras una imagen carga (re-mide en `load`/`error`).
+  **Vive en:** `editor/TiraSecciones.tsx` (`altoDeMiniatura`, `hayImagenSinCargar`), `gamma.css`. Sin verlo
+  todavía en Chrome de Windows (abajo).
+
+### HTML personalizado y «Replicar»
+
+- **Abrir `/l/html/...` como pestaña correría el HTML del cliente con el origen y la sesión de MaKo**: Next
+  descarta la CSP `sandbox` de la ruta si next.config ya puso una. Regla: la ruta sólo contesta a
+  `Sec-Fetch-Dest: iframe`, con `Vary` y caché `private`, y sus cabeceras van en next.config DESPUÉS del bloque
+  global (gana el último). **Vive en:** `lib/editor-landing/html-libre.ts`, `app/l/html/[docId]/[bloque]`.
+- **La copia fiel salía en blanco en el editor**: un `<iframe srcdoc>` hereda `base-uri 'self'` de la app y
+  el `<base>` de la copia se ignora. Una copia no puede depender de `<base>`: las direcciones se escriben
+  absolutas al copiar. **Vive en:** `replicar-reglas.ts` (`absolutizarUrls`, `cssAbsoluto`).
+- **Un id de bloque al azar daba 404 en el borrador**: la vista previa sanea en cada pedido y la ruta vuelve a
+  sanear para encontrar el bloque. Un id que dos lecturas separadas tienen que reencontrar se DERIVA del
+  contenido (hash de la sección y su orden). **Vive en:** `validar.ts`.
+- **Phishing con nuestra barra de direcciones** (revisión, MEDIA): HTML libre con `allow-forms allow-popups`
+  + «Copia fiel» = cualquier login copiado publicado en `hola-mako.com/l/<slug>`. El origen opaco protege la
+  sesión, no el dominio: si Safe Browsing marca la página, puede marcar la app entera. Quedó un FRENO
+  (`pideContrasena`: no se copia, no se publica, la ruta contesta 451); un script puede armar la palabra por
+  partes, así que lo de fondo sigue pendiente (abajo).
+
+### Dominio propio
+
+- **«Verificado» en Vercel no prueba quién es el dueño**: Vercel sólo mira que el DNS apunte a Vercel, y hay
+  UN proyecto para todas las cuentas. El dominio de un cliente exige un TXT `_mako` con un HMAC por landing, y
+  una vez verificado no vuelve atrás por una lectura (un DNS que parpadea apagaría un sitio que anda).
+- **La API de Vercel no da errores donde uno esperaría**: el CNAME recomendado viene con punto final y es
+  propio del proyecto; `recommendedIPv4[].value` es una lista; un dominio que no está en el proyecto contesta
+  404; sin `?slug=<equipo>` busca en la cuenta personal; el nombre `mako` sirve como id del proyecto.
+- **Un 409 idempotente convirtió un guard en NEGATIVO en una puerta para el DELETE** (revisión, MEDIA).
+  «Soltable» era «válido y fuera de `DOMINIOS_DE_MAKO`», y `agregarAVercel` daba por bueno un dominio que ya
+  estaba en el proyecto: el día que se sume uno de MaKo que no esté en la lista, cualquier admin lo
+  «conectaba» y al «quitarlo» lo sacaba de producción. **Regla: soltar sólo lo que NOSOTROS agregamos** —
+  marca `dominio_agregado_por_mako` (mig 0263), puesta sólo con un 2xx a nuestro POST y después de LEER que no
+  estaba (si Vercel contestara 200 a uno existente, la marca caería sobre algo ajeno).
+- **Cualquier admin podía reservar el dominio de otro para siempre** (revisión, MEDIA): el índice único vale
+  también para los pendientes. Ahora un pendiente vence a las 72 h, quien carga SU TXT se lo quita antes, y un
+  negocio no tiene más de 5 sin verificar; la quita es un compare-and-set sobre ESE reclamo.
+  **Vive en:** `dominios-reglas.ts` (`motivoParaQuitarReclamo`, `pendientesVigentes`), `dominios.ts` (`reclamar`).
+- **Las cabeceras globales de next.config y su matcher no miran el host: un dominio propio hereda lo de MaKo**
+  (revisión, MEDIA). El HSTS con `includeSubDomains` y dos años le forzaba HTTPS a todos los subdominios del
+  cliente: ahora va sólo con `has: [{ type: 'host', value: PATRON_HOSTS_DE_MAKO }]`. **Regla: lo que es de MaKo
+  se condiciona con `has: host`, en positivo.** Quedan las redirecciones y los archivos de `public/` (abajo).
+- **Un proxy async «por un solo caso» rompía un test ajeno**: `tests/alumno-sesion.test.ts` llama a `proxy()`
+  y lee `.status` sin `await`. Lo que necesita la base se resuelve en una RUTA, con una reescritura y una
+  cabecera que `seguir` borra. **Vive en:** `proxy.ts`, `app/api/landing-generator/dominio`.
+- **Toda ruta que pasa en un host propio verifica que lo pedido sea de ESE dominio**: `/l/html` servía bloques
+  de cualquier landing, y la caché host → slug (60 s por instancia) podía servir la landing de otro si el slug
+  se liberaba y lo tomaba otra. Las dos comparan el `docId`.
+- **Borrar soltaba el dominio DESPUÉS de borrar la fila y leía sin mirar el error** (revisión, BAJA): en el
+  hueco otra cuenta lo reclama, y con la base caída se leía «no tiene dominio». Ahora suelta ANTES (si Vercel
+  falla, no borra) y sólo tolera la columna que falta (42703). **Vive en:** `server.ts` (`borrar`),
+  `reset-workspace.ts` (`vaciarTablas`).
+
+### Diagnóstico
+
+- **«7/100»**: el saneo nuevo asumió 0-100 sin leer el contrato del Landing Analyst (puntúa 0-10). Al consumir
+  un dato de otro módulo, se lee su prompt y se miden filas reales.
+- **El recorrido señalaba la vista entera**: `dangerouslySetInnerHTML={{…}}` con un objeto nuevo por render
+  reescribe el HTML y deja desconectados los nodos guardados. Se memoiza si se guardan referencias de adentro.
+- **El `<Recorrido>` de la casa no sirve para un iframe** (decide el scroll mirando la ventana): el recorrido
+  le pide a la vista que traiga el bloque (`ir`) y le pregunta dónde quedó (`caja`).
+- **Error interno en pantalla («Claude vetado — lib/veto-claude.ts»)**: era la segunda copia del mensaje de
+  fallo de IA; todo error de IA hacia la persona va por `errorDeCascada`.
+- **Hueco de 300 px**: en modo exportar el bloque HTML va sin el script que mide su alto. Toda vista nueva que
+  pinte la landing necesita el script y quien escuche el alto (hoy: editor, publicada y diagnóstico).
+- **Abrir el diagnóstico de afuera sumaba una visita** (el Pixel de MaKo y el de Meta iban en el HTML servido):
+  `sinPixelDeMako` y `sinRastreadores`. **«Sin ubicar» antes de que cargara el iframe**: «no sé todavía» y «no
+  está» eran el mismo `null`; `ubicacion` devuelve `undefined` para lo primero.
+- **Una landing nuestra se analiza por `analizarCopy`, nunca por `analizarLanding`**: `landing_analyses` tiene
+  una fila por URL y el Panel la listaría «de afuera» (hay un test que lo fija).
+  **Vive en:** `lib/editor-landing/diagnostico*.ts`, `app/landing-generator/diagnostico/*`, mig 0264.
+
+### Presentaciones, crear y el Panel
+
+- **La diapositiva no crecía**: con `aspect-ratio`, los `min-height` explícitos de la hoja anulan el
+  crecimiento automático → en una diapositiva va `min-height: auto`. Y la guía de desbordamiento sale sin
+  JavaScript (dos pseudo-elementos con el mismo `aspect-ratio`), apagada en el celular, donde mentía.
+- **`formato` se perdía dos veces**: `normalizarParams` y `sanearConfig` reconstruyen campo por campo. Todo
+  campo nuevo de `ParamsGeneracion` o `ConfigLanding` pasa por ahí (o se lee crudo).
+- **En el PPTX, el texto que no entraba se cortaba arriba** (centrado, PowerPoint desborda para los dos lados):
+  si no entra ni achicado, la caja va arriba.
+- **El ejemplo que se escribe solo quedaba trabado al cambiar de tipo**: el hook supone una lista fija; si
+  cambia, se remonta con `key`. **Y la caja vieja perdía el tipo** (`PedidoCaja` no lo llevaba): toda
+  dimensión nueva de un traspaso viaja en la URL.
+- **Un guard daba verde con «Nueva landing» repetido** (`indexOf` de la primera): lo que es único se CUENTA.
+  **Escribir la vista en la URL con `router.replace` relee la página del server**: va `history.replaceState`.
+
+### Entorno de la corrida
+
+- **tsc no reporta errores de TIPOS si hay uno de SINTAXIS en cualquier archivo**: un verde con un archivo
+  ajeno a medias no dice nada.
+- **Write/Edit decodificaron ``` en un `String.raw`** (no siempre): después de escribir un escape, buscar
+  caracteres crudos con node. **Backticks en `node -e "…"` los ejecuta bash**: los scripts van a un archivo.
+- **Dos arneses de roturas solapados se restauran uno al otro**: antes de relanzar, confirmar que el anterior
+  terminó (y restaurar reemplazando sólo lo roto, con las anclas en el fin de línea de cada archivo).
+- **El número de migración se mira también en los worktrees vivos, no sólo en `origin/main`**: el 12/10 la
+  0258 estaba libre en main y la tenía `git add -N` la sesión del CRM en su worktree; la de Graphics, de la
+  0260 a la 0262. Estas dos se renumeraron a 0263/0264 antes de aplicarse.
+
+### Lo que quedó sin hacer (tanda 2)
+
+- **`VERCEL_API_TOKEN` y `VERCEL_TEAM_SLUG` en producción**: sin ellas la pestaña dice «no está activado en
+  MaKo». El token de `.env.local` es de mbustos (un cliente): decide Martín cuál va. `lib/editor-landing/dominios.ts`
+  (`configVercel`).
+- **Las redirecciones de `next.config.ts` corren antes del proxy en un dominio de cliente** (`/extension`,
+  `/leads`, `/todo`, `/graphics`, `/script-analyst`): van con `has: host` de MaKo, que también tiene que
+  aceptar `localhost` y los `*.vercel.app`. `next.config.ts` (`redirects`).
+- **El matcher de `proxy.ts` no corre en rutas con sufijo de archivo**: en el dominio del cliente se sirven
+  `/_next/*`, el `favicon.ico` de MaKo, `/m.js`, `/sw.js`. Un rewrite `beforeFiles` con `missing` host de MaKo
+  hacia un 404. `proxy.ts` (matcher), `next.config.ts`.
+- **Servir `/l/html` desde un dominio aparte, sólo para contenido de usuarios**: lo de fondo contra el
+  phishing. `lib/editor-landing/html-libre.ts`, `especificacion.ts`.
+- **Los popups del bloque heredan el sandbox** (un checkout ajeno puede fallar): decidir con Martín
+  `allow-popups-to-escape-sandbox`. `html-libre.ts` (`SANDBOX_PUBLICO`).
+- **La pestaña «Dominios» no avisa que una reserva venció** (`queFalta` no lo sabe); el `www.` no se agrega
+  solo; los subdominios `<slug>.hola-mako.com` quedan para Martín. `dominios-reglas.ts`.
+- **«Probar nuevo diseño» no recibe el formato** (el server `disenos` no toma params) y **el PDF de una
+  presentación sale vertical**. `lib/editor-landing/ia.ts`, `exportar-pdf.ts`.
+- **Las rutas `analyze`, `sync` y `pulso` del Landing Analyst no miran el rol** (quedó como tarea aparte).
+  `app/api/landing-analyst/*`.
+- **Una página armada como app** (`html/body` al 100% con scroll interno) queda en 400 px por sección en la
+  copia fiel. **Sólo se analiza la página de inicio**, el puntaje de una landing nuestra no se guarda, y una
+  landing con dominio propio analizada en `https://<dominio>` aparece «de afuera» (`LandingResumen` no trae el
+  dominio). `replicar-reglas.ts`, `diagnostico.ts`, `panel-reglas.ts`.
+- **Verlo con clics**: la tira en Chrome de Windows (6-9 secciones con imágenes, al borde de scrollear, sin
+  «ResizeObserver loop» en la consola), Presentar, guardar sugerencias reales (con la 0264 ya aplicada) y la
+  conexión real a Vercel. Y la cascada de IA del ws1: el Landing Analyst no tiene un proveedor gratis que
+  conteste (decide Martín).
+
 ## Lo que quedó sin hacer
 
 - **«Generar imagen con IA» por Google Flow** (decisión de Martín, 11/10). Bloqueo medido: el Flow nuevo
@@ -143,11 +296,9 @@ tamaño de la IMAGEN y `sizing.w/h` la caja: se calcula el tamaño natural y se 
 - **Verificación en navegador incompleta**: el verificador recorrió el editor y se cortó por el límite
   de la cuenta al final; no dejó datos de prueba (medido: 0 landings, 0 archivos en el bucket). Falta
   mirarlo con clics.
-- **HTML personalizado en la publicada**: servirlo desde su propia URL con
-  `Content-Security-Policy: sandbox allow-scripts` (p.ej. `app/l/html/[docId]/[bloque]`) y renderizar con
-  `src`; hoy en la publicada no corre JS.
+- ~~HTML personalizado en la publicada~~: hecho en la tanda 2 (`app/l/html/[docId]/[bloque]`, arriba).
 - **No copiado de Gamma, a propósito**: Formato libre (posicionamiento absoluto por bloque), edición en
-  tiempo real, dominio propio (el proxy contesta 410 a otros hosts), insertar la landing en otra web
+  tiempo real, insertar la landing en otra web
   (`X-Frame-Options: DENY`), Google Tag Manager y código personalizado, Imagine, la caja de agente de
   Gamma 5 con preguntas (se usa el generador clásico con modo Plan/Express).
 - **API de MaKo**: listar/ver/publicar landings no están en el registro (`lib/api-mako/areas/landing.*`):

@@ -29,6 +29,7 @@ import { slugValido, rutaValida, urlPublica } from './doc';
 import { htmlDePagina } from './render';
 import { temaPorId, urlFuentes } from './temas';
 import { CSS_CONTENIDO } from './css';
+import { TEXTO_PIDE_CONTRASENA, fuentesHtmlLibre, pideContrasena } from './html-libre';
 import {
   falla, leerFilaDoc, crearVersion, slugsOcupados, temasPropiosDe, limpiarContenido, limpiarConfig,
   type FallaHttp, type FilaDoc, type Resultado,
@@ -84,8 +85,14 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * página (pagina-publica.ts) sólo redirige a http(s). La vista previa pasa la del link privado
  * (`/l/vista/<token>`): sus otras páginas se sirven en app/l/vista/[token]/[ruta], y así el menú
  * del sitio y los botones entre páginas de un borrador no llevan a lo publicado.
+ *
+ * `vista` (T6, tanda 2) es el token del link privado en la vista previa y null al publicar: con él
+ * el render dibuja cada bloque «Formato libre (HTML)» como un iframe a SU URL (/l/html/<docId>/<bloque>,
+ * con `?vista=` en el borrador), servida con la política sandbox que deja correr su JavaScript. La
+ * foto publicada guarda además el HTML de esos bloques (`htmlLibre`), que es de donde los sirve esa
+ * ruta: así se sirve lo PUBLICADO aunque el borrador cambie.
  */
-function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'config' | 'version'>, propios: TemaPropio[], publicadoAt: string | null, urlBase: string | null): FotoPublicada {
+function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'config' | 'version'>, propios: TemaPropio[], publicadoAt: string | null, urlBase: string | null, vista: string | null): FotoPublicada {
   const donde = `${publicadoAt ? 'publicar' : 'vista previa'} #${f.id}`;
   const contenido = limpiarContenido(f.contenido, donde).contenido;
   const config = limpiarConfig(f.config, donde).config;
@@ -94,10 +101,10 @@ function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'config' | '
   const rutas = publicables.map((p) => ({ id: p.id, ruta: p.ruta }));
   const paginas = publicables.map((p) => {
     const meta = metaDePagina(p, config.sitio, f.titulo);
-    const html = htmlDePagina(p, config, tema, { modo: 'publico', paginas: rutas, ...(urlBase ? { urlBase } : {}) });
+    const html = htmlDePagina(p, config, tema, { modo: 'publico', paginas: rutas, ...(urlBase ? { urlBase } : {}), htmlLibre: { docId: f.id, vista } });
     return { ruta: p.ruta, titulo: meta.titulo, descripcion: meta.descripcion, html };
   });
-  return { v: 1, paginas, css: CSS_CONTENIDO, fuentes: urlFuentes([tema]), config, version: f.version, publicadoAt };
+  return { v: 1, paginas, css: CSS_CONTENIDO, fuentes: urlFuentes([tema]), config, version: f.version, publicadoAt, htmlLibre: fuentesHtmlLibre(publicables) };
 }
 
 async function wsOFalla(): Promise<number | FallaHttp> {
@@ -135,8 +142,11 @@ export async function publicar(idRaw: unknown, versionRaw: unknown, slugRaw: unk
 
     const propios = await temasPropiosDe(ws);
     const publicadoAt = new Date().toISOString();
-    const foto = armarFoto(f, propios, publicadoAt, urlPublica(APP_BASE_URL, slug));
+    const foto = armarFoto(f, propios, publicadoAt, urlPublica(APP_BASE_URL, slug), null);
     if (!foto.paginas.length) return falla('No hay nada para publicar');
+    // Un bloque HTML que pide una contraseña no se publica en hola-mako.com (revisión de la tanda 2:
+    // html-libre.ts, `pideContrasena`). La ruta tampoco lo sirve; acá se dice antes de publicar.
+    if (Object.values(foto.htmlLibre ?? {}).some(pideContrasena)) return falla(`Un bloque «HTML personalizado» pide una contraseña. ${TEXTO_PIDE_CONTRASENA}`, 422);
     if (Buffer.byteLength(JSON.stringify(foto), 'utf8') > TOPE_FOTO_BYTES) return falla('Demasiado grande para publicar', 413);
 
     const db = await getTenantDb();
@@ -257,5 +267,5 @@ export async function leerVistaPrevia(token: string, ruta = ''): Promise<SitioPu
   const f = data as (Pick<FilaDoc, 'id' | 'workspace_id' | 'titulo' | 'contenido' | 'config' | 'version' | 'papelera_at'>) | null;
   if (!f || f.papelera_at) return null;
   const ws = Number(f.workspace_id);
-  return sitioDe(ws, Number(f.id), f.titulo, armarFoto(f, await temasPropiosDe(ws), null, urlVistaPrevia(APP_BASE_URL, token)), ruta);
+  return sitioDe(ws, Number(f.id), f.titulo, armarFoto(f, await temasPropiosDe(ws), null, urlVistaPrevia(APP_BASE_URL, token), token), ruta);
 }

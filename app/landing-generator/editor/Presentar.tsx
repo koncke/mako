@@ -20,6 +20,15 @@
 // de `--gm-base`, así que la escala es UN número (ancho / 68.5, achicado si la sección no entra
 // de alto).
 //
+// UNA PRESENTACIÓN (T3, tanda 2) se presenta con la FORMA de su diapositiva (`config.proporcion`:
+// 16:9 o 4:3): el envoltorio de cada raíz lleva `data-formato`/`data-proporcion` (css.ts lee el
+// formato también del padre directo de un .gm-doc suelto, porque `htmlDeTarjeta` no conoce la
+// configuración), la escala sale del cuadro de la diapositiva (ancho y alto a la vez) y la
+// diapositiva tiene ALTO FIJO: si el contenido no entra, se achica la letra del cuerpo hasta que
+// entre (el «Adapta el contenido» de Gamma), con un piso; lo que igual no entra queda recortado
+// por la diapositiva y se ve en el editor con la guía de desbordamiento. Una página (o una
+// presentación «Fluida») se presenta como antes: la sección entera, achicada si no entra de alto.
+//
 // ⚠️ LAS SECCIONES SALEN DEL DOCUMENTO VIVO (`editor.getJSON()`), no de lo guardado: se presenta
 //    lo que se ve en el editor aunque el autoguardado no haya llegado. Las ocultas no se presentan
 //    (el render las devuelve vacías sin `incluirOcultas`).
@@ -35,6 +44,7 @@ import { createPortal } from 'react-dom';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { useEditorLanding } from './contexto';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
+import { esPresentacion, proporcionDe, relacionDe, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
 import { EstilosContenido, EstilosPanelesB, Ico } from './paneles/PanelAgente';
 import { idDe, tarjetasDelDoc, tituloVisible } from './diff-tarjetas';
 
@@ -44,6 +54,37 @@ type Diapo = { id: string; titulo: string; html: string; notas: string };
 const SEL_BLOQUES = '.gm-tarjeta > .gm-tarjeta-cuerpo > *';
 /** Cuánto se queda quieta la barra antes de esconderse. */
 const BARRA_MS = 2500;
+/** El ancho de una diapositiva en em de la letra base (la tarjeta de css.ts) y el aire alrededor. */
+const ANCHO_EM = 64.5;
+/** El piso del achique del contenido de una diapositiva fija (más chico ya no se lee). */
+const ESCALA_MIN = 0.55;
+
+/**
+ * La letra base que hace entrar una diapositiva de `relacion` (ancho / alto) en un escenario de
+ * W × H, con el 4 % de aire a los lados y el 6 % arriba y abajo.
+ */
+function baseDiapositiva(W: number, H: number, relacion: number): number {
+  const porAncho = (W * 0.96) / ANCHO_EM;
+  const porAlto = (H * 0.94 * relacion) / ANCHO_EM;
+  return Math.max(4, Math.min(porAncho, porAlto, 60));
+}
+
+/**
+ * Achica la letra del cuerpo de una diapositiva de alto fijo hasta que su contenido entre (de a
+ * 5 %, hasta ESCALA_MIN). Devuelve la escala que quedó. El cuerpo pisa su `font-size` con el
+ * mismo cálculo de css.ts (`--gm-escala-cuerpo` del tema) multiplicado por la escala.
+ */
+function encajar(sec: HTMLElement): number {
+  const cuerpo = sec.querySelector<HTMLElement>(':scope > .gm-tarjeta-cuerpo');
+  if (!cuerpo) return 1;
+  cuerpo.style.fontSize = '';
+  let k = 1;
+  while (sec.scrollHeight > sec.clientHeight + 1 && k > ESCALA_MIN) {
+    k = Math.round((k - 0.05) * 100) / 100;
+    cuerpo.style.fontSize = `calc(${k}em * var(--gm-escala-cuerpo, 1))`;
+  }
+  return k;
+}
 
 const reloj = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -59,6 +100,15 @@ export function Presentar({ onSalir, onCerrar }: { onSalir?: () => void; onCerra
   useLayoutEffect(() => { onSalirRef.current = onSalir ?? onCerrar; });
   const { tema } = ctx;
   const capa = useCapaModal(true);
+  // La forma, como está AL ENTRAR (igual que las secciones).
+  const [forma] = useState(() => ({
+    presentacion: esPresentacion(ctx.config),
+    proporcion: proporcionDe(ctx.config),
+    relacion: relacionDe(ctx.config),
+  }));
+  const plural = terminoTarjeta(ctx.config, { plural: true });
+  const uno = terminoTarjeta(ctx.config);
+  const formaRef = useRef(forma.relacion);
 
   // Las secciones como están AL ENTRAR (presentar no sigue la edición).
   const [diapos] = useState<Diapo[]>(() => {
@@ -168,6 +218,17 @@ export function Presentar({ onSalir, onCerrar }: { onSalir?: () => void; onCerra
     const W = esc.clientWidth;
     const H = esc.clientHeight;
     if (!W || !H) return;
+    // Una diapositiva fija: la escala sale del cuadro (ancho y alto) y el contenido se encaja adentro.
+    // `--gm-base-movil` también: en una ventana angosta la hoja usa ésa y la diapositiva no entraría.
+    const relacion = formaRef.current;
+    if (relacion) {
+      const base = `${baseDiapositiva(W, H, relacion)}px`;
+      el.style.setProperty('--gm-base', base);
+      el.style.setProperty('--gm-base-movil', base);
+      const sec = el.querySelector<HTMLElement>('.gm-tarjeta');
+      if (sec) encajar(sec);
+      return;
+    }
     let b = Math.min(W / 68.5, 40);
     for (let k = 0; k < 2; k++) {
       el.style.setProperty('--gm-base', `${b}px`);
@@ -269,10 +330,14 @@ export function Presentar({ onSalir, onCerrar }: { onSalir?: () => void; onCerra
 
       <div ref={escenarioRef} className="gma-pr-escenario" data-notas={notas ? '' : undefined}>
         {d
-          ? <div ref={lienzoRef} className="gma-pr-lienzo" onClick={clicLienzo} onSubmitCapture={(e) => e.preventDefault()} dangerouslySetInnerHTML={{ __html: d.html }} />
+          ? <div ref={lienzoRef} className="gma-pr-lienzo" onClick={clicLienzo} onSubmitCapture={(e) => e.preventDefault()}
+              data-formato={forma.presentacion ? 'presentacion' : undefined}
+              data-proporcion={forma.presentacion ? forma.proporcion : undefined}
+              data-fija={forma.relacion ? forma.proporcion : undefined}
+              dangerouslySetInnerHTML={{ __html: d.html }} />
           : (
             <div className="gma-pr-vacio">
-              <span>No hay secciones para presentar.</span>
+              <span>No hay {plural} para presentar.</span>
               <button type="button" className="gma-pb-boton" data-v="primario" onClick={salir}>Salir</button>
             </div>
           )}
@@ -297,9 +362,9 @@ export function Presentar({ onSalir, onCerrar }: { onSalir?: () => void; onCerra
       )}
 
       <div className="gma-pr-barra" data-visible={barra ? '' : undefined} onMouseEnter={() => { window.clearTimeout(timerBarra.current); setBarra(true); }} onMouseLeave={mostrarBarra}>
-        <button type="button" className="gma-pb-iconbtn" onClick={() => avanzar(-1)} disabled={i === 0 && (!destacar || bloque <= 0)} aria-label="Sección anterior" title="Sección anterior"><Ico n="chevron-izquierda" t={16} /></button>
+        <button type="button" className="gma-pb-iconbtn" onClick={() => avanzar(-1)} disabled={i === 0 && (!destacar || bloque <= 0)} aria-label={`${uno[0].toUpperCase()}${uno.slice(1)} anterior`} title={`${uno[0].toUpperCase()}${uno.slice(1)} anterior`}><Ico n="chevron-izquierda" t={16} /></button>
         <span className="gma-pr-cuenta">{n ? i + 1 : 0} / {n}</span>
-        <button type="button" className="gma-pb-iconbtn" onClick={() => avanzar(1)} disabled={i >= n - 1 && !destacar} aria-label="Siguiente sección" title="Siguiente sección"><Ico n="chevron-derecha" t={16} /></button>
+        <button type="button" className="gma-pb-iconbtn" onClick={() => avanzar(1)} disabled={i >= n - 1 && !destacar} aria-label={`Siguiente ${uno}`} title={`Siguiente ${uno}`}><Ico n="chevron-derecha" t={16} /></button>
         <span className="gma-pr-sep" aria-hidden />
         <button type="button" className="gma-pr-btn" aria-pressed={destacar} onClick={() => { setDestacar((v) => !v); setBloque(0); }} title="Destacar (S)"><Ico n="brillo" t={15} /> Destacar</button>
         <button type="button" className="gma-pr-btn" aria-pressed={notas} onClick={() => setNotas((v) => !v)} title="Notas del orador (N)"><Ico n="notas" t={15} /> Notas del orador</button>
@@ -325,6 +390,9 @@ const CSS_PRESENTAR = `
 .gma-pr .gma-pr-lienzo .gm-doc .gm-pagina{width:100%;padding:0}
 .gma-pr .gma-pr-lienzo .gm-doc .gm-tarjeta{margin:2em auto}
 .gma-pr .gma-pr-lienzo .gm-doc .gm-tarjeta[data-ancho="completo"]{margin:0}
+.gma-pr .gma-pr-lienzo[data-fija] .gm-doc .gm-tarjeta{width:64.5em;max-width:none;margin:0 auto;min-height:0;overflow:hidden}
+.gma-pr .gma-pr-lienzo[data-fija="16:9"] .gm-doc .gm-tarjeta{aspect-ratio:16/9}
+.gma-pr .gma-pr-lienzo[data-fija="4:3"] .gm-doc .gm-tarjeta{aspect-ratio:4/3}
 .gma-pr [data-gma-foco]{transition:opacity .35s ease,filter .35s ease}
 .gma-pr [data-gma-foco="visto"]{opacity:.45}
 .gma-pr [data-gma-foco="futuro"]{opacity:.12;filter:blur(3px)}

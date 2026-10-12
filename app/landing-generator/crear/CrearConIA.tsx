@@ -42,9 +42,20 @@
 //     guardar con huecos sería abrir el editor con secciones que faltan sin decirlo.
 //   · Lo puro (troceo, colocación, guardado al final, deep link) vive arriba y tiene test
 //     (tests/editor-landing-crear.test.ts); la pantalla lo llama tal cual.
-//   · Lo que no se copia de Gamma: los formatos (Presentación / Documento / Social: acá
-//     siempre es una página web), las imágenes con IA (D5: van por Google Flow y se
-//     construyen después), Drive (no hay integración) y el modo Estudio.
+//   · Lo que no se copia de Gamma: los formatos Documento y Social, las imágenes con IA (D5:
+//     van por Google Flow y se construyen después), Drive (no hay integración) y el modo
+//     Estudio.
+//
+// TANDA 2 (11/10/2026, punto 6: «Al momento de crear nuevo tengo que elegir si crear landing,
+// presentación...»; decisión T4): el generador recibe el TIPO (`?tipo=presentacion`, de la caja
+// del Panel, CajaCrear.tsx) y lo deja cambiar con las pastillas Landing | Presentación. Con una
+// presentación: el alta lleva `formato: 'presentacion'` y la proporción (`configDeCreacion`), todo
+// pedido a la IA lleva `params.formato` (`paramsDeTipo`: diapositivas, poco texto, diseños
+// optimizados), «Sobre cuál» se esconde (el diagnóstico de una página no es contexto de una
+// presentación) y la pantalla dice «diapositiva» donde decía «sección» (`termino`, el mismo de
+// api-tipos que usa el editor). El tipo de una generación se CONGELA al arrancarla (`tipoGen`):
+// las tandas que siguen tienen que pedir lo mismo que el documento que se creó. Y la caja de
+// «Generar» suma el micrófono (`BotonDictar`, el de «Nueva automatización»).
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -64,6 +75,11 @@ import {
 } from '../MiniaturaLanding';
 import { CSS_ESQUEMA, EditorEsquema, esquemaParaEnviar, textoSecciones } from './EditorEsquema';
 import { SelectorTemaCrear, temaSugerido } from './SelectorTemaCrear';
+import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
+import {
+  PROPORCION_IA, configDeCreacion, cuantas, docDe, formatoDeTipo, paramsDeTipo, termino, tipoValido, type TipoCrear,
+} from './tipo';
+import { CSS_TIPO, SelectorTipo } from './PiezasTipo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo puro (con test)
@@ -87,12 +103,12 @@ export function objetivoValido(v: string | null | undefined): ObjetivoLanding | 
   return OBJETIVOS_LANDING.some((o) => o.value === v) ? (v as ObjetivoLanding) : null;
 }
 
-/** «Sección 4» o «Secciones 4–6» (en base 1, como las ve la persona). */
-export function rotuloTanda(indices: readonly number[]): string {
+/** «Sección 4» o «Secciones 4–6» (en base 1, como las ve la persona); en una presentación, «Diapositiva…». */
+export function rotuloTanda(indices: readonly number[], tipo: TipoCrear = 'landing'): string {
   if (!indices.length) return '';
   const a = indices[0] + 1;
   const b = indices[indices.length - 1] + 1;
-  return a === b ? `Sección ${a}` : `Secciones ${a}–${b}`;
+  return a === b ? `${termino(tipo, { mayuscula: true })} ${a}` : `${termino(tipo, { plural: true, mayuscula: true })} ${a}–${b}`;
 }
 
 /** Cuántas tandas se piden a la vez. Dos: la cuota por minuto de la IA gratis es chica. */
@@ -223,7 +239,7 @@ export function contenidoGenerado(paginaId: string, tarjetas: JsonNodo[]): Landi
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** «Ejemplos de instrucciones»: casos de landing, sin nombres de negocios reales. */
-const EJEMPLOS: readonly { icono: string; texto: string }[] = [
+const EJEMPLOS_LANDING: readonly { icono: string; texto: string }[] = [
   { icono: 'calendario', texto: 'Landing para agendar una llamada de diagnóstico gratis con una agencia de marketing' },
   { icono: 'videollamada', texto: 'Registro a un webinar en vivo sobre finanzas personales, con página de gracias' },
   { icono: 'graduacion', texto: 'Venta de un curso online de fotografía con celular, con precio y garantía' },
@@ -237,6 +253,22 @@ const EJEMPLOS: readonly { icono: string; texto: string }[] = [
   { icono: 'ubicacion', texto: 'Inscripción a un taller presencial de cerámica' },
   { icono: 'edificio', texto: 'Inmobiliaria que busca compradores para departamentos en preventa' },
 ];
+/** Los de una presentación (T4), con la misma regla: genéricos, sin negocios ni personas reales. */
+const EJEMPLOS_PRESENTACION: readonly { icono: string; texto: string }[] = [
+  { icono: 'cohete', texto: 'Pitch de una startup de reservas para restaurantes, para inversionistas' },
+  { icono: 'apreton', texto: 'Propuesta comercial de una agencia de marketing para un cliente nuevo' },
+  { icono: 'grafico', texto: 'Informe mensual de resultados de campañas de anuncios' },
+  { icono: 'graduacion', texto: 'Clase de un curso sobre cómo vender por WhatsApp' },
+  { icono: 'usuarios', texto: 'Onboarding para un cliente que empieza un servicio de contabilidad' },
+  { icono: 'calendario', texto: 'Plan de marketing del próximo trimestre para una tienda online' },
+  { icono: 'videollamada', texto: 'Webinar sobre finanzas personales para principiantes' },
+  { icono: 'trofeo', texto: 'Caso de éxito de una clínica que duplicó sus citas' },
+  { icono: 'ruta', texto: 'Roadmap de producto de una app de hábitos para el año' },
+  { icono: 'comunidad', texto: 'Presentación del equipo de una consultora a un cliente' },
+  { icono: 'dinero', texto: 'Presentación de ventas de un software para gimnasios' },
+  { icono: 'objetivo', texto: 'Reporte de resultados del semestre para la dirección' },
+];
+const EJEMPLOS_DE: Record<TipoCrear, readonly { icono: string; texto: string }[]> = { landing: EJEMPLOS_LANDING, presentacion: EJEMPLOS_PRESENTACION };
 const EJEMPLOS_VISIBLES = 6;
 
 const IDIOMAS: readonly OpcionDesplegable<string>[] = [
@@ -312,6 +344,8 @@ export type PropsCrear = {
   modoCaja: 'plan' | 'express';
   /** Respaldo del pedido de la caja si sessionStorage no estaba. */
   promptUrl: string | null;
+  /** Lo crudo de `?tipo=` (T4): 'presentacion' crea una presentación; lo demás, una landing. */
+  tipo: string | null;
 };
 
 export function CrearConIA(props: PropsCrear) {
@@ -324,6 +358,7 @@ export function CrearConIA(props: PropsCrear) {
     return props.paso === 'generar' || props.paso === 'pegar' || props.paso === 'importar' ? props.paso : 'inicio';
   });
   const [origen, setOrigen] = useState<Origen>('generar');
+  const [tipo, setTipo] = useState<TipoCrear>(() => tipoValido(props.tipo));
   const [prompt, setPrompt] = useState('');
   const [texto, setTexto] = useState('');
   const [urlImportar, setUrlImportar] = useState('');
@@ -349,8 +384,14 @@ export function CrearConIA(props: PropsCrear) {
   const tema = useMemo(() => temaPorId(temaId, propios), [temaId, propios]);
 
   // Lo que leen los pasos asíncronos: la versión de AHORA, no la del render en que arrancaron.
-  const vivo = useRef({ prompt, texto, urlImportar, params, temaId });
-  useLayoutEffect(() => { vivo.current = { prompt, texto, urlImportar, params, temaId }; });
+  const vivo = useRef({ prompt, texto, urlImportar, params, temaId, tipo });
+  useLayoutEffect(() => { vivo.current = { prompt, texto, urlImportar, params, temaId, tipo }; });
+  /**
+   * El tipo de la generación EN CURSO, congelado al arrancarla: las tandas piden lo que se creó.
+   * El ref lo leen los pasos asíncronos; el estado, la pantalla (un ref no se lee al dibujar).
+   */
+  const tipoGen = useRef<TipoCrear>(tipo);
+  const [tipoDeGen, setTipoDeGen] = useState<TipoCrear>(tipo);
   const genRef = useRef<EstadoGen | null>(null);
   const esqRef = useRef<Esquema | null>(null);
   const docRef = useRef<{ id: number; version: number; paginaId: string } | null>(null);
@@ -371,16 +412,16 @@ export function CrearConIA(props: PropsCrear) {
     pedir: async (indices) => {
       const esq = esqRef.current;
       if (!esq) return { ok: false, error: 'Falta el esquema.' };
-      const r = await pedirIA({ accion: 'secciones', esquema: esq, indices, params: vivo.current.params, temaId: vivo.current.temaId }, 90_000);
+      const r = await pedirIA({ accion: 'secciones', esquema: esq, indices, params: paramsDeTipo(vivo.current.params, tipoGen.current), temaId: vivo.current.temaId }, 90_000);
       if (!r.ok) return { ok: false, error: r.error };
       return 'tarjetas' in r ? { ok: true, tarjetas: r.tarjetas } : { ok: false, error: 'Respuesta inesperada.' };
     },
     guardar: async (tarjetas) => {
       const d = docRef.current;
       const esq = esqRef.current;
-      if (!d || !esq) return { ok: false, error: 'La landing no se creó.' };
+      if (!d || !esq) return { ok: false, error: `La ${docDe(tipoGen.current)} no se creó.` };
       const r = await pedirDocs({ accion: 'guardar', id: d.id, version: d.version, titulo: esq.titulo, contenido: contenidoGenerado(d.paginaId, tarjetas) }, 60_000);
-      if (!r.ok) return { ok: false, error: r.conflicto ? 'Otra pestaña cambió esta landing.' : r.error };
+      if (!r.ok) return { ok: false, error: r.conflicto ? `Otra pestaña cambió esta ${docDe(tipoGen.current)}.` : r.error };
       d.version = r.version;
       // Lo que cambió es QUÉ EXISTE (una landing con contenido): navegación dura.
       irDuro(`/landing-generator/${d.id}`, ws);
@@ -391,7 +432,9 @@ export function CrearConIA(props: PropsCrear) {
   /** Crea la landing (una sola vez) y corre todas las tandas. `de` = por dónde entró el pedido. */
   const generar = useCallback(async (esqCrudo: Esquema, de: Origen) => {
     const esq = esquemaParaEnviar(esqCrudo);
-    if (!esq.secciones.length) { setFalla({ texto: 'Agrega al menos una sección.' }); return; }
+    if (!esq.secciones.length) { setFalla({ texto: `Agrega al menos una ${termino(vivo.current.tipo)}.` }); return; }
+    // Con el documento ya creado (un reintento), el tipo es el suyo: no el que se eligió después.
+    if (!docRef.current) { tipoGen.current = vivo.current.tipo; setTipoDeGen(vivo.current.tipo); }
     esqRef.current = esq;
     setEsquema(esq);
     setFalla(null);
@@ -404,15 +447,13 @@ export function CrearConIA(props: PropsCrear) {
       setCrear('creando');
       setErrorCrear(null);
       const v = vivo.current;
-      const config: Partial<ConfigLanding> = {
-        tema: v.temaId,
-        origen: {
-          modo: de === 'importar' ? 'importar' : 'ia',
-          pedido: (de === 'generar' ? v.prompt : de === 'pegar' ? v.texto : v.urlImportar).slice(0, 2_000),
-          objetivo: v.params.objetivo,
-          basadoEnUrl: v.params.basadoEnUrl,
-        },
-      };
+      const p = paramsDeTipo(v.params, tipoGen.current);
+      const config: Partial<ConfigLanding> = configDeCreacion(tipoGen.current, v.temaId, {
+        modo: de === 'importar' ? 'importar' : 'ia',
+        pedido: (de === 'generar' ? v.prompt : de === 'pegar' ? v.texto : v.urlImportar).slice(0, 2_000),
+        objetivo: p.objetivo,
+        basadoEnUrl: p.basadoEnUrl,
+      });
       const r = await pedirDocs({ accion: 'crear', titulo: esq.titulo, config }, 30_000);
       if (!r.ok) { setCrear('error'); setErrorCrear(r.error); return; }
       docRef.current = { id: r.doc.id, version: r.doc.version, paginaId: r.doc.contenido.paginas[0]?.id ?? nuevoId('p') };
@@ -427,13 +468,13 @@ export function CrearConIA(props: PropsCrear) {
     let cuerpo: PedidoIA;
     if (de === 'generar') {
       if (!v.prompt.trim()) return;
-      cuerpo = { accion: 'esquema', modo: 'generar', prompt: v.prompt, params: v.params };
+      cuerpo = { accion: 'esquema', modo: 'generar', prompt: v.prompt, params: paramsDeTipo(v.params, v.tipo) };
     } else if (de === 'pegar') {
       if (!v.texto.trim()) return;
-      cuerpo = { accion: 'esquema', modo: 'pegar', texto: v.texto, params: v.params };
+      cuerpo = { accion: 'esquema', modo: 'pegar', texto: v.texto, params: paramsDeTipo(v.params, v.tipo) };
     } else {
       if (!/^https?:\/\/\S+\.\S+/i.test(v.urlImportar.trim())) { setFalla({ texto: 'Escribe un enlace que empiece con https://' }); return; }
-      cuerpo = { accion: 'esquema', modo: 'importar', url: v.urlImportar.trim(), params: v.params };
+      cuerpo = { accion: 'esquema', modo: 'importar', url: v.urlImportar.trim(), params: paramsDeTipo(v.params, v.tipo) };
     }
     recordarIndicacion(de, de === 'generar' ? v.prompt : de === 'pegar' ? v.texto : v.urlImportar);
     setCargando('esquema');
@@ -525,33 +566,39 @@ export function CrearConIA(props: PropsCrear) {
   const controles = (conCantidad: boolean) => (
     <div className="gp-controles">
       {conCantidad && (
-        <div className="gp-stepper" role="group" aria-label="Cantidad de secciones">
-          <button type="button" aria-label="Menos secciones" disabled={ocupado || params.cantidad <= MIN_SECCIONES} onClick={() => set('cantidad', params.cantidad - 1)}><Ico n="menos" t={12} /></button>
-          <span>{params.cantidad === 1 ? '1 sección' : `${params.cantidad} secciones`}</span>
-          <button type="button" aria-label="Más secciones" disabled={ocupado || params.cantidad >= MAX_SECCIONES} onClick={() => set('cantidad', params.cantidad + 1)}><Ico n="mas" t={12} /></button>
+        <div className="gp-stepper" role="group" aria-label={`Cantidad de ${termino(tipo, { plural: true })}`}>
+          <button type="button" aria-label={`Menos ${termino(tipo, { plural: true })}`} disabled={ocupado || params.cantidad <= MIN_SECCIONES} onClick={() => set('cantidad', params.cantidad - 1)}><Ico n="menos" t={12} /></button>
+          <span>{cuantas(params.cantidad, tipo)}</span>
+          <button type="button" aria-label={`Más ${termino(tipo, { plural: true })}`} disabled={ocupado || params.cantidad >= MAX_SECCIONES} onClick={() => set('cantidad', params.cantidad + 1)}><Ico n="mas" t={12} /></button>
         </div>
       )}
       <Desplegable etiqueta="Idioma de salida" icono="traducir" valor={params.idioma} opciones={IDIOMAS} onCambio={(v) => set('idioma', v)} deshabilitado={ocupado} />
-      <Desplegable etiqueta="Objetivo de la página" icono="objetivo" valor={params.objetivo} opciones={OBJETIVOS} onCambio={(v) => set('objetivo', v)} deshabilitado={ocupado} ancho={320} />
-      <Desplegable
-        etiqueta="Sobre cuál"
-        valor={params.basadoEnUrl ?? ''}
-        opciones={opcionesBase}
-        onCambio={(v) => set('basadoEnUrl', v || null)}
-        deshabilitado={ocupado || (!analizadas.length && !errorAnalizadas)}
-        ancho={340}
-      />
-      {errorAnalizadas && <span className="gp-nota-error">No se pudieron leer las landings analizadas.</span>}
-      {/* Sin analizadas el desplegable queda apagado: esto dice dónde se analiza (el ex Landing Analyst). */}
-      <Link href="/landing-generator/analizar" className="gp-enlace-boton">Analizar una página</Link>
+      <Desplegable etiqueta="Objetivo" icono="objetivo" valor={params.objetivo} opciones={OBJETIVOS} onCambio={(v) => set('objetivo', v)} deshabilitado={ocupado} ancho={320} />
+      {/* «Sobre cuál» es de una LANDING (su diagnóstico entra al prompt): en una presentación no se
+          dibuja, y `paramsDeTipo` tampoco lo manda — nada viaja a la IA sin estar en la pantalla. */}
+      {tipo === 'landing' && (
+        <>
+          <Desplegable
+            etiqueta="Sobre cuál"
+            valor={params.basadoEnUrl ?? ''}
+            opciones={opcionesBase}
+            onCambio={(v) => set('basadoEnUrl', v || null)}
+            deshabilitado={ocupado || (!analizadas.length && !errorAnalizadas)}
+            ancho={340}
+          />
+          {errorAnalizadas && <span className="gp-nota-error">No se pudieron leer las landings analizadas.</span>}
+          {/* Sin analizadas el desplegable queda apagado: esto dice dónde se analiza (el ex Landing Analyst). */}
+          <Link href="/landing-generator/analizar" className="gp-enlace-boton">Analizar una página</Link>
+        </>
+      )}
     </div>
   );
 
   const camposPersonalizar = (
     <div className="gp-personalizar">
       <div className="gp-campo-fila">
-        <span className="gp-etiqueta">Cantidad de texto por sección</span>
-        <div className="gp-segmentado" role="radiogroup" aria-label="Cantidad de texto por sección">
+        <span className="gp-etiqueta">Cantidad de texto por {termino(tipo)}</span>
+        <div className="gp-segmentado" role="radiogroup" aria-label={`Cantidad de texto por ${termino(tipo)}`}>
           {TEXTOS.map((t) => (
             <button key={t.valor} type="button" role="radio" aria-checked={params.textoPorSeccion === t.valor} onClick={() => set('textoPorSeccion', t.valor)}>{t.texto}</button>
           ))}
@@ -575,6 +622,9 @@ export function CrearConIA(props: PropsCrear) {
       </label>
     </div>
   );
+
+  /** Las pastillas Landing | Presentación (T4). Cambiar de tipo no borra lo escrito. */
+  const selectorTipo = <SelectorTipo valor={tipo} onCambio={setTipo} deshabilitado={ocupado} />;
 
   const lineaFalla = falla && (
     <div className="gp-error" role="alert">
@@ -645,11 +695,13 @@ export function CrearConIA(props: PropsCrear) {
       </div>
     );
   } else if (paso === 'generar') {
-    const ejemplos = Array.from({ length: EJEMPLOS_VISIBLES }, (_, k) => EJEMPLOS[(ejemplo0 + k) % EJEMPLOS.length]);
+    const lista = EJEMPLOS_DE[tipo];
+    const ejemplos = Array.from({ length: EJEMPLOS_VISIBLES }, (_, k) => lista[(ejemplo0 + k) % lista.length]);
     cuerpo = (
       <div className="gp-crear-centro">
         <h1 className="gp-crear-h1">Generar</h1>
         <p className="gp-crear-sub">¿Qué te gustaría crear hoy?</p>
+        {selectorTipo}
         {controles(true)}
         <div className="gp-caja-prompt">
           <textarea
@@ -663,6 +715,10 @@ export function CrearConIA(props: PropsCrear) {
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void pedirEsquema('generar'); } }}
           />
+          {/* El micrófono de «Nueva automatización» (T4): dictado en vivo y, de respaldo, grabar y transcribir. */}
+          <div className="gp-caja-mic gp-mic">
+            <BotonDictar titulo="Dictar el pedido" valor={prompt} onValor={(v) => setPrompt(v.slice(0, 8_000))} onError={(m) => setFalla({ texto: m })} />
+          </div>
         </div>
         <div className="gp-acciones-centro">
           {escribiendo || (
@@ -678,7 +734,7 @@ export function CrearConIA(props: PropsCrear) {
         {personalizar && camposPersonalizar}
         <div className="gp-ejemplos-cabeza">
           <span className="gp-separador-texto">Ejemplos de instrucciones</span>
-          <button type="button" className="gp-btn gp-btn-fantasma" onClick={() => setEjemplo0((n) => (n + EJEMPLOS_VISIBLES + Math.floor(Math.random() * 3)) % EJEMPLOS.length)}>
+          <button type="button" className="gp-btn gp-btn-fantasma" onClick={() => setEjemplo0((n) => (n + EJEMPLOS_VISIBLES + Math.floor(Math.random() * 3)) % lista.length)}>
             <Ico n="refrescar" t={14} /> Aleatorio
           </button>
         </div>
@@ -698,6 +754,7 @@ export function CrearConIA(props: PropsCrear) {
       <div className="gp-crear-centro">
         <h1 className="gp-crear-h1">Pegar texto</h1>
         <p className="gp-crear-sub">Pega la nota, el esquema o el contenido de texto que quieras usar</p>
+        {selectorTipo}
         <div className="gp-caja-prompt">
           <textarea
             className="gp-caja-texto"
@@ -740,6 +797,7 @@ export function CrearConIA(props: PropsCrear) {
       <div className="gp-crear-centro">
         <h1 className="gp-crear-h1">Importar con IA</h1>
         <p className="gp-crear-sub">Selecciona el archivo que quieras transformar</p>
+        {selectorTipo}
         {cargando === 'archivo' ? (
           <div className="gp-cargando-archivo" role="status">
             <div className="gp-barra"><span /></div>
@@ -807,6 +865,7 @@ export function CrearConIA(props: PropsCrear) {
               <p className="gp-instruccion-resumen">Texto pegado · {texto.length.toLocaleString('es-MX')} caracteres · <button type="button" className="gp-enlace-boton gp-en-linea" onClick={() => ir('pegar')}>Editar</button></p>
             )}
             {origen === 'importar' && <p className="gp-instruccion-resumen">{hostDe(urlImportar)}</p>}
+            {selectorTipo}
             {controles(!(origen !== 'generar' && params.modoTexto === 'conservar'))}
             {escribiendo}
             {lineaFalla}
@@ -814,11 +873,11 @@ export function CrearConIA(props: PropsCrear) {
 
           <section className="gp-bloque" aria-labelledby="gp-esquema-titulo">
             <h2 id="gp-esquema-titulo" className="gp-crear-h2">Esquema</h2>
-            <EditorEsquema esquema={esquema} onCambio={setEsquema} deshabilitado={ocupado} />
+            <EditorEsquema esquema={esquema} onCambio={setEsquema} deshabilitado={ocupado} tipo={tipo} />
           </section>
 
           <section className="gp-bloque" aria-labelledby="gp-personaliza-titulo">
-            <h2 id="gp-personaliza-titulo" className="gp-crear-h2">Personaliza tu landing</h2>
+            <h2 id="gp-personaliza-titulo" className="gp-crear-h2">Personaliza tu {docDe(tipo)}</h2>
             <div className="gp-tarjeta-blanca">
               <SelectorTemaCrear valor={temaId} onCambio={setTemaElegido} sugerido={sugerido} propios={propios} />
             </div>
@@ -829,7 +888,7 @@ export function CrearConIA(props: PropsCrear) {
           </section>
         </div>
         <div className="gp-barra-abajo" data-esquina-ocupada>
-          <span>{textoSecciones(n)}</span>
+          <span>{textoSecciones(n, tipo)}</span>
           <button type="button" className="gp-btn gp-btn-primario" data-tam="lg" disabled={ocupado || !n} onClick={() => void generar(esquema, origen)}>
             <Ico n="destellos" /> Generar
           </button>
@@ -841,21 +900,23 @@ export function CrearConIA(props: PropsCrear) {
     // `generar` deja en `esquema` lo MISMO que manda (esquemaParaEnviar): las secciones de la
     // vista en vivo son las del pedido, índice por índice.
     const esq = esquema;
+    const tg = tipoDeGen;
+    const doc = docDe(tg);
     cuerpo = (
       <div className="gp-generando">
         <aside className="gp-gen-log" aria-live="polite">
-          <h1 className="gp-gen-titulo">{gen.guardado === 'listo' ? 'Landing generada' : 'Generando tu landing…'}</h1>
+          <h1 className="gp-gen-titulo">{gen.guardado === 'listo' ? `${doc[0].toUpperCase()}${doc.slice(1)} generada` : `Generando tu ${doc}…`}</h1>
           <p className="gp-gen-nota">Tarda unos minutos. No cierres esta pestaña.</p>
           <ol className="gp-pasos">
-            <PasoLog estado={crear === 'error' ? 'error' : crear === 'lista' ? 'lista' : 'pidiendo'} enCurso="Creando la landing" hecho="Landing creada"
+            <PasoLog estado={crear === 'error' ? 'error' : crear === 'lista' ? 'lista' : 'pidiendo'} enCurso={`Creando la ${doc}`} hecho={`${doc[0].toUpperCase()}${doc.slice(1)} creada`}
               error={errorCrear} onReintentar={reintentarCrear} />
             {gen.tandas.map((t, k) => (
               <PasoLog
                 key={k}
                 estado={crear !== 'lista' ? 'esperando' : t.estado}
-                enCurso={`Escribiendo ${rotuloTanda(t.indices).toLowerCase()}`}
-                hecho={`${rotuloTanda(t.indices)} ${t.indices.length === 1 ? 'escrita' : 'escritas'}`}
-                error={t.error ? `${rotuloTanda(t.indices)}: ${t.error}` : null}
+                enCurso={`Escribiendo ${rotuloTanda(t.indices, tg).toLowerCase()}`}
+                hecho={`${rotuloTanda(t.indices, tg)} ${t.indices.length === 1 ? 'escrita' : 'escritas'}`}
+                error={t.error ? `${rotuloTanda(t.indices, tg)}: ${t.error}` : null}
                 onReintentar={() => reintentarTanda(k)}
               />
             ))}
@@ -868,7 +929,7 @@ export function CrearConIA(props: PropsCrear) {
             />
           </ol>
           {crear === 'lista' && gen.tandas.some((t) => t.estado === 'error') && !gen.tandas.some((t) => t.estado === 'pidiendo' || t.estado === 'esperando') && (
-            <button type="button" className="gp-btn gp-btn-contorno" title="Las secciones que faltan quedan con el título y los puntos del esquema" onClick={completar}>
+            <button type="button" className="gp-btn gp-btn-contorno" title={`Las ${termino(tg, { plural: true })} que faltan quedan con el título y los puntos del esquema`} onClick={completar}>
               Completar con el esquema
             </button>
           )}
@@ -878,7 +939,7 @@ export function CrearConIA(props: PropsCrear) {
             const t = gen.tarjetas[i];
             const tanda = gen.tandas.find((x) => x.indices.includes(i));
             return t ? (
-              <div key={i} className="gp-gen-seccion" data-lista="si"><MiniaturaLanding tarjeta={t} tema={tema} entera /></div>
+              <div key={i} className="gp-gen-seccion" data-lista="si"><MiniaturaLanding tarjeta={t} tema={tema} formato={formatoDeTipo(tg)} proporcion={PROPORCION_IA} entera /></div>
             ) : (
               <div key={i} className="gp-gen-seccion" data-falla={tanda?.estado === 'error' ? 'si' : undefined}>
                 <div className="gp-gen-hueco">
@@ -901,7 +962,7 @@ export function CrearConIA(props: PropsCrear) {
 
   return (
     <div className="gma gp gp-crear" data-paso={paso}>
-      <style dangerouslySetInnerHTML={{ __html: CSS_GP + CSS_ESQUEMA + CSS_CREAR }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_GP + CSS_ESQUEMA + CSS_TIPO + CSS_CREAR }} />
       <link rel="stylesheet" href={URL_FUENTE_CHROME} />
       {(paso !== 'generando' || crear === 'error') && (
         <div className="gp-crear-barra">
@@ -993,6 +1054,7 @@ const CSS_CREAR = `
 .gp .gp-caja-texto { display: block; width: 100%; min-height: 84px; padding: 14px 16px; border: 0; border-radius: 12px; background: transparent; color: var(--gp-texto); font: inherit; font-size: 16px; line-height: 1.5; resize: vertical; outline: none; }
 .gp .gp-caja-texto[data-alto="grande"] { min-height: 280px; font-size: 14.5px; }
 .gp .gp-caja-texto::placeholder { color: var(--gp-debil); }
+.gp .gp-caja-mic { display: flex; justify-content: flex-end; padding: 0 10px 10px; }
 .gp .gp-caja-pie { display: flex; justify-content: space-between; gap: 12px; padding: 8px 16px 10px; border-top: 1px solid var(--gp-borde-suave); color: var(--gp-debil); font-size: 12.5px; }
 .gp .gp-acciones-centro { display: flex; justify-content: center; min-height: 40px; }
 .gp .gp-esperando { display: inline-flex; align-items: center; gap: 10px; color: var(--gp-tenue); font-size: 14px; }

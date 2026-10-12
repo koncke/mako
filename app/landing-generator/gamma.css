@@ -549,8 +549,16 @@
 .gma-tira-agregar {
   flex: none;
   margin: 2px 8px 8px;
-  height: 28px;
-  border-radius: var(--gma-radio-pildora);
+  /* Alto MÍNIMO, no fijo: en una presentación dice «Agregar diapositiva» y en 124 px parte en dos
+     renglones; con `height: 28px` el segundo renglón se salía de la píldora (medido en el navegador,
+     12/10/2026). */
+  min-height: 28px;
+  padding: 3px 6px;
+  line-height: 1.25;
+  text-align: center;
+  /* 14 px = la mitad del alto de un renglón: con uno es la misma píldora; con dos, un rectángulo
+     redondeado y no un óvalo. */
+  border-radius: 14px;
   border: 0.8px solid var(--gma-borde);
   background: var(--gma-superficie);
   font: inherit;
@@ -568,6 +576,10 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* El lugar de la barra va reservado SIEMPRE: el alto de cada miniatura sale de su ancho, y si
+     la barra aparece y desaparece (Windows: ~15 px) las miniaturas se achican, la barra se va,
+     crecen y vuelve — la tira tiembla sin parar (TiraSecciones.tsx, «se buguea», 12/10/2026). */
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   padding: 2px 8px 16px;
   position: relative;

@@ -153,15 +153,19 @@ export function useEjemploQueSeEscribe(activo: boolean, ejemplos: readonly strin
   useEffect(() => {
     if (!activo || quieto) return;
     const frase = ejemplos[i % ejemplos.length];
-    if (!borrando && largo === frase.length) {
+    // El largo se mide contra la frase ACTUAL: si la lista cambia (la caja del Landing Generator
+    // cambia de ejemplos al pasar de Landing a Presentación), el de la frase vieja puede quedar más
+    // largo que la nueva y no llegaba nunca a «igual»: seguía escribiendo para siempre.
+    const n = Math.min(largo, frase.length);
+    if (!borrando && n === frase.length) {
       const t = setTimeout(() => setBorrando(true), MS_QUIETA);
       return () => clearTimeout(t);
     }
-    if (borrando && largo === 0) {
+    if (borrando && n === 0) {
       const t = setTimeout(() => { setBorrando(false); setI((x) => (x + 1) % ejemplos.length); }, 280);
       return () => clearTimeout(t);
     }
-    const t = setTimeout(() => setLargo((l) => l + (borrando ? -1 : 1)), (borrando ? MS_BORRAR : MS_LETRA) + Math.random() * MS_JITTER);
+    const t = setTimeout(() => setLargo((l) => Math.min(l, frase.length) + (borrando ? -1 : 1)), (borrando ? MS_BORRAR : MS_LETRA) + Math.random() * MS_JITTER);
     return () => clearTimeout(t);
   }, [activo, quieto, i, largo, borrando, ejemplos]);
 

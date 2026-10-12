@@ -391,7 +391,7 @@ export const AREAS: AreaDev[] = [
       'tests/landing-mapa.test.ts', 'tests/landing-analyst-auto.test.ts',
       'app/landing-generator/analizar/page.tsx', 'app/landing-analyst/destino.ts', 'tests/landing-generator-analizar.test.ts', 'app/dashboard/bloques/extra/BloquesLanding.tsx'],
     proyectos: ['Feature: Landing Analyst'],
-    nota: 'Desde el 11/10/2026 no es una tab: analizar una página es «Diagnóstico», dentro de Landing Generator (/landing-generator/analizar, que monta LandingAnalystApp desde donde está) y el pulso y el mapa de calor son la hoja «Landing» del Dashboard. /landing-analyst redirige. La key `landing-an` sigue gobernando los gating de la API.',
+    nota: 'Desde el 11/10/2026 no es una tab: analizar una página es «Diagnóstico», dentro de Landing Generator: desde la tanda 2 (12/10/2026) se abre a la derecha del Panel como un recorrido con comentarios guardados (app/landing-generator/diagnostico/), y /landing-generator/analizar redirige ahí y el pulso y el mapa de calor son la hoja «Landing» del Dashboard. /landing-analyst redirige. La key `landing-an` sigue gobernando los gating de la API.',
   },
   {
     slug: 'closing-analyst', titulo: 'Closing Analyst', familia: 'Analyze', grupo: 'Analysts',
@@ -571,7 +571,7 @@ export const AREAS: AreaDev[] = [
     // área con poca historia, da un área invisible (AGENTS.md, «Una ruta que apunta a la nada…»).
     slug: 'landing-generator', titulo: 'Landing Generator', familia: 'Sales Machine',
     estado: 'listo', verEnApp: '/landing-generator',
-    alcance: 'El editor de landings copiado de Gamma 5: Panel con carpetas, plantillas y papelera; «Crear con IA» en dos pasos (esquema que se edita, secciones en tandas) desde el funnel, el perfil y —si la página ya pasó por el Landing Analyst— sus hallazgos; edición por secciones y bloques en TipTap (menú «/», barra de formato, 52 diseños, temas, comentarios, historial, Edición con IA); exportar a PDF, PNG, PPTX y HTML; y publicar como foto en hola-mako.com/l/<slug>, multipágina, con el Pixel de MaKo y el Píxel de Meta.',
+    alcance: 'El editor de landings y presentaciones copiado de Gamma 5: Panel con una barra de documentos (landings, presentaciones y páginas de afuera analizadas, cada una con su «⋯»), la caja «¿Qué vas a crear hoy?» con dictado y las plantillas de cada tipo, y el Diagnóstico como recorrido con comentarios guardados y «Solucionar con IA» o «Replicar»; «Crear con IA» en dos pasos (esquema que se edita, secciones en tandas) desde el funnel, el perfil y —si la página ya pasó por el Landing Analyst— sus hallazgos; edición por secciones y bloques en TipTap (menú «/», barra de formato, 52 diseños, temas, comentarios, historial, Edición con IA); exportar a PDF, PNG, PPTX y HTML; y publicar como foto en hola-mako.com/l/<slug> o en el dominio del cliente, multipágina, con el Pixel de MaKo, el Píxel de Meta y el «HTML personalizado» servido aislado en /l/html. Una landing se ve como una página continua (secciones a sangre); las tarjetas con proporción son de las presentaciones.',
     vive: [
       'app/landing-generator', 'app/api/landing-generator', 'app/l', 'lib/editor-landing', 'lib/imagenes-stock.ts',
       'supabase/migrations/0246_editor_landing.sql', 'scripts/gen-iconos-landing.mjs', 'docs/diseno-editor-landing.md',
@@ -581,6 +581,9 @@ export const AREAS: AreaDev[] = [
       'tests/editor-landing-insertar.test.ts', 'tests/editor-landing-menus.test.ts', 'tests/editor-landing-plantillas.test.ts',
       'tests/editor-landing-publica.test.ts', 'tests/editor-landing-render.test.ts', 'tests/editor-landing-server.test.ts',
       'tests/editor-landing-temas.test.ts', 'tests/editor-landing-validar.test.ts',
+      'supabase/migrations/0263_landing_dominios.sql', 'supabase/migrations/0264_landing_sugerencias.sql',
+      'tests/editor-landing-diagnostico.test.ts', 'tests/editor-landing-dominios.test.ts', 'tests/editor-landing-htmllibre.test.ts',
+      'tests/editor-landing-panel.test.ts', 'tests/editor-landing-presentaciones.test.ts', 'tests/editor-landing-integracion.test.ts',
     ],
     proyectos: ['Feature: Landing Generator'],
     hallazgos: 'hallazgos-editor-landing',

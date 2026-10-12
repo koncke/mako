@@ -97,6 +97,25 @@ export async function vaciarTablas(ws: number): Promise<{ borrado: Record<string
   const sb = getSupabaseServer();
   const borrado: Record<string, number> = {};
   const avisos: string[] = [];
+  // El dominio propio de cada landing (T7, mig 0263) se suelta de Vercel ANTES de borrar sus filas:
+  // sin la fila, nadie sabe qué dominio quedó colgado en el proyecto. Sólo el que MaKo agregó (su
+  // marca). Sin la migración la columna no existe (42703: no hay nada que soltar); cualquier otro
+  // error de lectura se AVISA — «no pude leer» no es «no tiene dominio» (revisión de la tanda 2).
+  try {
+    const { data, error } = await sb.from('landing_docs').select('dominio, dominio_agregado_por_mako').eq('workspace_id', ws).not('dominio', 'is', null);
+    if (error && (error as { code?: string }).code !== '42703') {
+      avisos.push(`Dominios propios de landings: no se pudieron leer (${error.message}). Revisa a mano el proyecto de Vercel.`);
+    }
+    const filas = ((error ? [] : data ?? []) as { dominio: string | null; dominio_agregado_por_mako: boolean | null }[]).filter((f) => !!f.dominio);
+    if (filas.length) {
+      const { soltarDominioDeVercel } = await import('./editor-landing/dominios');
+      for (const f of filas) {
+        await soltarDominioDeVercel(f.dominio, f.dominio_agregado_por_mako).catch((e) => avisos.push(`Dominio ${f.dominio}: no se pudo quitar de Vercel (${msg(e)}). Quítalo a mano del proyecto.`));
+      }
+    }
+  } catch (e) {
+    avisos.push(`Dominios propios de landings: no se pudieron revisar (${msg(e)}).`);
+  }
   let pendientes: string[] = [...TABLAS_RESET];
   for (let pasada = 0; pasada < 3 && pendientes.length; pasada++) {
     const fallaron: string[] = [];

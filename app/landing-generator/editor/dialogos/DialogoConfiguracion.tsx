@@ -18,8 +18,17 @@
 // entero, y una sección nueva nace con el default (como en Gamma, donde la configuración de la
 // página aplica a lo que existe).
 //
+//   · Formato (Página web · Presentación) y, en una presentación, «Relación de aspecto»
+//     (16:9 · 4:3 · Fluido): T3 de la tanda 2 («Falta la funcionalidad de crear presentaciones,
+//     no solo landings»). Con una forma fija, «Ancho de las secciones» no se ofrece: todas las
+//     diapositivas miden lo mismo (css.ts, «Presentaciones»), y un control que no cambia nada se
+//     lee como roto.
+//
 // Lo que NO se copia de Gamma, y por qué:
-//   · Formato y relación de aspecto (16:9, 4:3, Carta…): una landing es fluida por definición.
+//   · Las relaciones de aspecto 4:5, 9:16, Carta, A4 y «Sin páginas»: son de documentos y
+//     redes, no de una landing ni de una presentación.
+//   · «Mostrar guías de desbordamiento» como interruptor: la guía sale siempre en el editor y no
+//     se ve si todo entra.
 //   · Tamaño de fuente base y «Adapta el contenido»: lo decide el tema (escala) en css.ts.
 //   · «CSS de la página»: código libre en una página pública (decisión D4: no).
 //   · «Encabezados y pies de página» de presentación: el pie de un sitio está en Publicar.
@@ -29,6 +38,7 @@ import { useState } from 'react';
 import { useEditorState } from '@tiptap/react';
 import { NODO, type AttrsTarjeta } from '@/lib/editor-landing/doc';
 import { attrsTarjeta } from '@/lib/editor-landing/especificacion';
+import { diapositivaFija, esPresentacion, proporcionDe, terminoTarjeta, type FormatoDoc, type Proporcion } from '@/lib/editor-landing/api-tipos';
 import { useEditorLanding } from '../contexto';
 import { Campo, CampoImagen, EstilosGmp, FilaAjuste, Icono, Interruptor, ModalGma, Segmentado, useConfigViva, useFijo, type OpcionSeg } from './piezas-gma';
 
@@ -39,6 +49,15 @@ const ANCHOS: OpcionSeg<AttrsTarjeta['ancho']>[] = [
   { valor: 'normal', texto: 'Predeterminado' },
   { valor: 'amplio', texto: 'Amplio' },
   { valor: 'completo', texto: 'Completo' },
+];
+const FORMATOS_OPC: OpcionSeg<FormatoDoc>[] = [
+  { valor: 'pagina', texto: 'Página web' },
+  { valor: 'presentacion', texto: 'Presentación' },
+];
+const PROPORCIONES_OPC: OpcionSeg<Proporcion>[] = [
+  { valor: '16:9', texto: '16:9' },
+  { valor: '4:3', texto: '4:3' },
+  { valor: 'fluido', texto: 'Fluido' },
 ];
 const ALINEACIONES: OpcionSeg<AttrsTarjeta['alineacion']>[] = [
   { valor: 'arriba', texto: 'Arriba' },
@@ -73,6 +92,8 @@ function DialogoConfiguracionAbierto({ onCerrar }: { onCerrar?: () => void }) {
   const { config, cambiar } = useConfigViva();
   const cerrar = useFijo(() => (onCerrar ? onCerrar() : setDialogo(null)));
   const [seccion, setSeccion] = useState<Seccion>('secciones');
+  const presentacion = esPresentacion(config);
+  const fija = diapositivaFija(config);
 
   // El ancho y la alineación de cada sección de la página abierta (en vivo).
   const todas = useEditorState({
@@ -108,20 +129,33 @@ function DialogoConfiguracionAbierto({ onCerrar }: { onCerrar?: () => void }) {
       <EstilosGmp extra={{ href: 'gmp-configuracion', css: CSS_CONFIGURACION }} />
       <div className="gmp-conf">
         <nav className="gmp-conf-nav" aria-label="Configuración de la página">
-          <button type="button" aria-current={seccion === 'secciones'} onClick={() => setSeccion('secciones')}><Icono nombre="secciones" tam={16} />Secciones</button>
+          <button type="button" aria-current={seccion === 'secciones'} onClick={() => setSeccion('secciones')}><Icono nombre="secciones" tam={16} />{terminoTarjeta(config, { plural: true, mayuscula: true })}</button>
           <button type="button" aria-current={seccion === 'fondo'} onClick={() => setSeccion('fondo')}><Icono nombre="fondo" tam={16} />Fondo</button>
         </nav>
         <div className="gmp-conf-form">
           {seccion === 'secciones' ? (
             <>
+              <Campo etiqueta="Formato">
+                <Segmentado etiqueta="Formato" ancho valor={presentacion ? 'presentacion' : 'pagina'} opciones={FORMATOS_OPC}
+                  onCambiar={(v) => cambiar((c) => ({ ...c, formato: v, proporcion: proporcionDe(c) }))} />
+              </Campo>
+              {presentacion ? (
+                <Campo etiqueta="Relación de aspecto">
+                  <Segmentado etiqueta="Relación de aspecto" ancho valor={proporcionDe(config)} opciones={PROPORCIONES_OPC}
+                    onCambiar={(v) => cambiar((c) => ({ ...c, proporcion: v }))} />
+                </Campo>
+              ) : null}
+              <hr className="gmp-sep" />
               <FilaAjuste titulo="Animaciones">
                 <Interruptor etiqueta="Animaciones" activo={config.pagina.animaciones}
                   onCambiar={(v) => cambiar((c) => ({ ...c, pagina: { ...c.pagina, animaciones: v } }))} />
               </FilaAjuste>
               <hr className="gmp-sep" />
-              <Campo etiqueta="Ancho de las secciones">
-                <Segmentado etiqueta="Ancho de las secciones" ancho valor={todas?.ancho ?? null} opciones={ANCHOS} onCambiar={(v) => aTodas({ ancho: v })} />
-              </Campo>
+              {fija ? null : (
+                <Campo etiqueta="Ancho de las secciones">
+                  <Segmentado etiqueta="Ancho de las secciones" ancho valor={todas?.ancho ?? null} opciones={ANCHOS} onCambiar={(v) => aTodas({ ancho: v })} />
+                </Campo>
+              )}
               <Campo etiqueta="Alineación de contenido">
                 <Segmentado etiqueta="Alineación de contenido" ancho valor={todas?.alineacion ?? null} opciones={ALINEACIONES} onCambiar={(v) => aTodas({ alineacion: v })} />
               </Campo>

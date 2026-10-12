@@ -41,6 +41,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import type { Editor } from '@tiptap/react';
 import Link from '@/app/_ui/Link';
 import { useEditorLanding, type CtxEditorLanding } from '../contexto';
+import { esPresentacion, formatoDe, terminoTarjeta, type ConfigLanding } from '@/lib/editor-landing/api-tipos';
 import type { JsonNodo } from '@/lib/editor-landing/doc';
 import { cortadoPorUsuario, pedirDocs, pedirIA } from '../../cliente';
 import { urlFuentes, type Tema } from '@/lib/editor-landing/temas';
@@ -300,7 +301,7 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
   onDescartar: () => void;
   onRestaurar?: () => void;
 }) {
-  const { tema, editor } = useEditorLanding();
+  const { tema, editor, config } = useEditorLanding();
   const [vista, setVista] = useState<'original' | 'modificado'>('modificado');
   const plan = useMemo(() => planDeAplicacion(propuesta.enviadas, propuesta.tarjetas, { anclaNuevas: propuesta.anclaNuevas }), [propuesta]);
   const diff = useMemo(() => diffTarjetas(propuesta.enviadas, plan.resultado), [propuesta, plan]);
@@ -346,7 +347,7 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
         })}
       </ul>
       {diff.cambios.length > MAX_FILAS && <span className="gma-rv-mas">y {diff.cambios.length - MAX_FILAS} más</span>}
-      {tocadas.length > 0 && <p className="gma-rv-aviso">{tocadas.length === 1 ? 'Editaste esa sección mientras tanto.' : `Editaste ${tocadas.length} de esas secciones mientras tanto.`}</p>}
+      {tocadas.length > 0 && <p className="gma-rv-aviso">{tocadas.length === 1 ? `Editaste esa ${terminoTarjeta(config)} mientras tanto.` : `Editaste ${tocadas.length} de esas ${terminoTarjeta(config, { plural: true })} mientras tanto.`}</p>}
       {aviso && <p className="gma-rv-error" role="alert">{aviso}</p>}
       <div className="gma-rv-acciones">
         {estado === 'pendiente' && (
@@ -432,12 +433,13 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
     mensajes: [...h.mensajes, { id: ++ultimoId, de: 'yo', texto, seccion: activa ? tituloVivo(editor, idDe(activa)) : null }],
   }));
   if (!enviadas.length) {
-    cambiarHilo(docId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, { id: ++ultimoId, de: 'mako', texto: 'Esta página no tiene secciones.', error: true }] }));
+    cambiarHilo(docId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, { id: ++ultimoId, de: 'mako', texto: `Esta página no tiene ${terminoTarjeta(ctx.config, { plural: true })}.`, error: true }] }));
     return;
   }
   const corte = new AbortController();
   cortes.set(docId, corte);
-  const r = await pedirIA({ accion: 'editar', instruccion: texto, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing' }, { signal: corte.signal });
+  // T3: con una presentación, la IA edita diapositivas (ia.ts lee `params.formato` del pedido crudo).
+  const r = await pedirIA({ accion: 'editar', instruccion: texto, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing', params: { formato: formatoDe(ctx.config) } }, { signal: corte.signal });
   cortes.delete(docId);
   let msg: Mensaje;
   if (!r.ok) msg = { id: ++ultimoId, de: 'mako', texto: r.error, error: !cortadoPorUsuario(r) };
@@ -454,7 +456,8 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Las sugerencias del panel (Gamma 5): el rótulo es lo que se ve; `instruccion`, lo que se pide. */
-const SUGERENCIAS: { rotulo: string; instruccion?: string; alcance?: 'landing'; rellenar?: string; enfocar?: boolean }[] = [
+type Sugerencia = { rotulo: string; instruccion?: string; alcance?: 'landing'; rellenar?: string; enfocar?: boolean };
+const SUGERENCIAS: Sugerencia[] = [
   { rotulo: 'Mejorar la escritura', instruccion: 'Mejora la escritura. Conserva lo que dice y la estructura.' },
   { rotulo: 'Acortar', instruccion: 'Acorta el texto a lo esencial, sin perder lo importante.' },
   { rotulo: 'Traducir…', rellenar: 'Traduce al ' },
@@ -462,6 +465,17 @@ const SUGERENCIAS: { rotulo: string; instruccion?: string; alcance?: 'landing'; 
   { rotulo: 'Agregar una sección de preguntas frecuentes', alcance: 'landing', instruccion: 'Agrega una sección de preguntas frecuentes, con un desplegable por pregunta. Usa lo que la landing ya dice y no inventes datos.' },
   { rotulo: 'Edita todas las secciones con IA', alcance: 'landing', enfocar: true },
 ];
+
+/**
+ * Las sugerencias según el formato (T3). En una presentación no se ofrecen preguntas frecuentes
+ * (los desplegables no van en una diapositiva: REGLAS_DIAPOSITIVAS_*) y se dice «diapositivas».
+ */
+function sugerenciasDe(config: ConfigLanding): Sugerencia[] {
+  if (!esPresentacion(config)) return SUGERENCIAS;
+  return SUGERENCIAS
+    .filter((s) => !s.rotulo.startsWith('Agregar una sección de preguntas'))
+    .map((s) => (s.enfocar ? { ...s, rotulo: `Edita todas las ${terminoTarjeta(config, { plural: true })} con IA` } : s));
+}
 
 /** `onCerrar`: quien lo monta puede cerrarlo a su manera; si no, el panel se colapsa por el contexto. */
 export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
@@ -471,6 +485,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   const ctxVivo = useCallback(() => ctxRef.current, []);
   const { docId, titulo, editor, tarjetaActiva, modoIA, setPanelIzq, avisar, setPanelDer } = ctx;
   const hilo = useHilo(docId);
+  const sugerencias = sugerenciasDe(ctx.config);
   const [texto, setTexto] = useState('');
   // El alcance que eligió la persona, y para qué sección lo eligió.
   const [eleccion, setEleccion] = useState<{ alcance: 'landing' | 'seccion'; tarjeta: string | null } | null>(null);
@@ -500,7 +515,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
     setTexto('');
   };
 
-  const sugerir = (s: (typeof SUGERENCIAS)[number]) => {
+  const sugerir = (s: Sugerencia) => {
     if (s.alcance) setAlcance(s.alcance);
     if (s.instruccion) { enviar(s.instruccion, s.alcance ?? alcanceReal); return; }
     if (s.rellenar) setTexto(s.rellenar);
@@ -552,7 +567,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
           <>
             <div className="gma-ag-burbuja" data-de="mako">Pídeme que edite, cree o diseñe lo que quieras.</div>
             <div className="gma-ag-pildoras">
-              {SUGERENCIAS.map((s) => (
+              {sugerencias.map((s) => (
                 <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={hilo.corriendo || !editor}>{s.rotulo}</button>
               ))}
             </div>
@@ -584,7 +599,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
         {hilo.corriendo && <div className="gma-ag-burbuja gma-ag-pensando" data-de="mako"><span className="gma-pb-giro" aria-hidden /> Pensando</div>}
         {hilo.mensajes.length > 0 && !hilo.corriendo && (
           <div className="gma-ag-pildoras">
-            {SUGERENCIAS.slice(0, 4).map((s) => (
+            {sugerencias.slice(0, 4).map((s) => (
               <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={!editor}>{s.rotulo}</button>
             ))}
           </div>
@@ -594,7 +609,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
       <footer className="gma-ag-pie">
         <div className="gma-ag-alcance" role="group" aria-label="Alcance">
           <button type="button" className="gma-ag-chip" aria-pressed={alcanceReal === 'landing'} onClick={() => setAlcance('landing')}>
-            <Ico n="paginas" t={13} /> Toda la landing
+            <Ico n="paginas" t={13} /> {esPresentacion(ctx.config) ? 'Toda la presentación' : 'Toda la landing'}
           </button>
           {seccionActiva && (
             <button type="button" className="gma-ag-chip" aria-pressed={alcanceReal === 'seccion'} onClick={() => setAlcance('seccion')} title={seccionActiva}>

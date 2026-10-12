@@ -37,7 +37,7 @@ import { EditorLandingContext } from '../contexto';
 import { attrsTarjeta, specTarjeta, srcImagen } from '@/lib/editor-landing/especificacion';
 import { varsDeFondoPropio } from '@/lib/editor-landing/temas';
 import { DISENOS_SECCION } from '@/lib/editor-landing/plantillas';
-import { TIPOS_IMAGEN, TOPE_IMAGEN_BYTES } from '@/lib/editor-landing/api-tipos';
+import { TIPOS_IMAGEN, TOPE_IMAGEN_BYTES, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
 import { NODO, TOPES, tituloDeTarjeta, type AttrsTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import AskAgent, { type ModoAskAgent } from '../AskAgent';
@@ -69,6 +69,9 @@ function contenedorConScroll(el: HTMLElement | null): HTMLElement | Window {
 export default function TarjetaVista(props: NodeViewProps & { selectionInside?: boolean }) {
   const { node, editor, getPos } = props;
   const ctx = useContext(EditorLandingContext);
+  // «sección» o «diapositiva» (T3); sin el contexto (no debería pasar), «sección».
+  const uno = terminoTarjeta(ctx?.config ?? {});
+  const Uno = terminoTarjeta(ctx?.config ?? {}, { mayuscula: true });
   const a = attrsTarjeta(node.attrs);
   const id = String(node.attrs.id ?? '');
   const fondoRef = useRef<HTMLDivElement | null>(null);
@@ -265,7 +268,7 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
 
   const eliminar = () => {
     const deshacer = borrarTarjeta(editor, id);
-    avisar('Sección eliminada', deshacer);
+    avisar(`${Uno} eliminada`, deshacer);
   };
 
   const abrir = (tipo: Panel['tipo'], ancla: HTMLElement | null, modo?: ModoAgente) => {
@@ -352,8 +355,8 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
               type="button"
               className="gmc-btn"
               data-asa=""
-              title="Opciones · arrastra para reordenar las secciones"
-              aria-label="Opciones de la sección"
+              title={`Opciones · arrastra para reordenar las ${terminoTarjeta(ctx?.config ?? {}, { plural: true })}`}
+              aria-label={`Opciones de la ${uno}`}
               aria-haspopup="menu"
               aria-expanded={panel?.tipo === 'menu'}
               onMouseDown={sinRobarFoco}
@@ -441,14 +444,14 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
 
       {/* ── Los paneles ── */}
       {panel?.tipo === 'menu' && (
-        <Flotante ancla={panel.ancla} onCerrar={cerrarPanel} etiqueta="Sección" lado="derecha" rol="menu" ancho={248}>
-          <div className="gmc-menu-titulo">Sección</div>
+        <Flotante ancla={panel.ancla} onCerrar={cerrarPanel} etiqueta={Uno} lado="derecha" rol="menu" ancho={248}>
+          <div className="gmc-menu-titulo">{Uno}</div>
           <FilaMenu icono="copiar" texto="Copiar" onClick={desdeMenu(copiar)} />
-          <FilaMenu icono="duplicar" texto="Duplicar sección" onClick={desdeMenu(() => { duplicarTarjeta(editor, id); })} />
+          <FilaMenu icono="duplicar" texto={`Duplicar ${uno}`} onClick={desdeMenu(() => { duplicarTarjeta(editor, id); })} />
           <FilaMenu icono="flecha-arriba" texto="Combinar con lo anterior" apagado={iMenu <= 0} onClick={desdeMenu(() => { combinarConAnterior(editor, id); })} />
           <SepMenu />
           <FilaMenu icono="paleta" texto="Cambiar el color de fondo" onClick={() => setPanel({ tipo: 'estilo', ancla: asaRef.current ?? panel.ancla })} />
-          <FilaMenu icono="diseno" texto="Editar estilo de sección" onClick={() => setPanel({ tipo: 'estilo', ancla: asaRef.current ?? panel.ancla })} />
+          <FilaMenu icono="diseno" texto={`Editar estilo de ${uno}`} onClick={() => setPanel({ tipo: 'estilo', ancla: asaRef.current ?? panel.ancla })} />
           <FilaMenu icono="refrescar" texto="Restablecer estilo" onClick={desdeMenu(() => setAttrs(ESTILO_RESTABLECIDO))} />
           <FilaMenu icono="notas" texto="Notas del orador" onClick={() => setPanel({ tipo: 'notas', ancla: asaRef.current ?? panel.ancla })} />
           <FilaMenu icono="enlace" texto="Copiar enlace" onClick={desdeMenu(copiarEnlace)} />

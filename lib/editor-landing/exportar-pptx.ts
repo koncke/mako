@@ -13,6 +13,15 @@
 //     PowerPoint se decide acá, donde un test lo puede mirar.
 //   · `exportarPptx` (navegador): baja las imágenes, llama a pptxgenjs y descarga el archivo.
 //
+// PRESENTACIONES (T3, tanda 2): el tamaño de la diapositiva sale de `config.proporcion` (16:9 →
+// LAYOUT_16x9 de 10 × 5,625; 4:3 → LAYOUT_4x3 de 10 × 7,5; una página o «Fluido» → 16:9), y las
+// cajas de cada diseño se escalan a ESE alto (`cajasDeDiseno(lugar, tam)`): con las de 16:9 en una
+// de 4:3 la imagen de un costado quedaba cortada a 3/4 del alto y el texto apretado arriba.
+// ⚠️ «SIN RECORTE RARO»: si el texto no entra ni con el achique mínimo, PowerPoint lo desborda
+//    hacia los DOS lados de la caja cuando va centrado (valign middle), y lo de arriba queda fuera
+//    de la diapositiva, cortado. En ese caso la caja se alinea arriba (`alinear: 'top'`): lo que no
+//    entra sale por abajo, donde se ve y se puede arreglar.
+//
 // Lo que NO se copia de Gamma, y por qué:
 //   · Los diseños optimizados, las columnas y las tablas salen como texto con viñetas, no
 //     como formas: rearmar 52 diseños en formas de PowerPoint es otra herramienta. Se
@@ -27,6 +36,7 @@ import { DEGRADADOS, NODO, type JsonNodo, type JsonMarca } from './doc';
 import { attrsTarjeta, hrefPermitido, srcImagen } from './especificacion';
 import { varsDeFondoPropio, varsDeTema, type Tema } from './temas';
 import { descargar, nombreArchivo, type SeccionElegida } from './exportar-html';
+import { relacionDe, type ConfigLanding } from './api-tipos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El modelo (puro)
@@ -37,6 +47,17 @@ export const ANCHO_DIAPO = 10;
 export const ALTO_DIAPO = 5.625;
 
 export type Caja = { x: number; y: number; w: number; h: number };
+
+/** El tamaño de la diapositiva (pulgadas) y el layout de pptxgenjs que le corresponde. */
+export type TamanoDiapo = { w: number; h: number; layout: 'LAYOUT_16x9' | 'LAYOUT_4x3' };
+export const DIAPO_16x9: TamanoDiapo = { w: ANCHO_DIAPO, h: ALTO_DIAPO, layout: 'LAYOUT_16x9' };
+export const DIAPO_4x3: TamanoDiapo = { w: ANCHO_DIAPO, h: 7.5, layout: 'LAYOUT_4x3' };
+
+/** El tamaño según la configuración: 4:3 sólo en una presentación de 4:3; todo lo demás, 16:9. */
+export function tamanoDiapo(config: Pick<ConfigLanding, 'formato' | 'proporcion'> | null | undefined): TamanoDiapo {
+  const r = relacionDe(config);
+  return r !== null && Math.abs(r - 4 / 3) < 0.01 ? DIAPO_4x3 : DIAPO_16x9;
+}
 
 export type Trozo = {
   texto: string;
@@ -101,14 +122,23 @@ function hex6(v: unknown, def: string): string {
   return typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim()) ? v.trim().slice(1).toUpperCase() : def;
 }
 
-/** El área de la imagen y la del texto para cada diseño de la sección. */
-export function cajasDeDiseno(lugar: LugarImagen | null): { imagen: Caja | null; texto: Caja } {
+/**
+ * El área de la imagen y la del texto para cada diseño de la sección, en una diapositiva de `tam`.
+ * Los márgenes son los de siempre (en pulgadas) y lo que crece con el alto es el área: en 16:9 da
+ * exactamente las cajas de antes (imagen arriba de 2,1", texto de 4,725" de alto…).
+ */
+export function cajasDeDiseno(lugar: LugarImagen | null, tam: Pick<TamanoDiapo, 'w' | 'h'> = DIAPO_16x9): { imagen: Caja | null; texto: Caja } {
+  const { w: W, h: H } = tam;
+  const r = (n: number) => Math.round(n * 1000) / 1000;
   switch (lugar) {
-    case 'arriba': return { imagen: { x: 0, y: 0, w: ANCHO_DIAPO, h: 2.1 }, texto: { x: 0.6, y: 2.3, w: 8.8, h: 3.0 } };
-    case 'izquierda': return { imagen: { x: 0, y: 0, w: 3.75, h: ALTO_DIAPO }, texto: { x: 4.15, y: 0.45, w: 5.25, h: 4.725 } };
-    case 'derecha': return { imagen: { x: 6.25, y: 0, w: 3.75, h: ALTO_DIAPO }, texto: { x: 0.6, y: 0.45, w: 5.25, h: 4.725 } };
-    case 'fondo': return { imagen: { x: 0, y: 0, w: ANCHO_DIAPO, h: ALTO_DIAPO }, texto: { x: 0.8, y: 0.6, w: 8.4, h: 4.425 } };
-    default: return { imagen: null, texto: { x: 0.6, y: 0.45, w: 8.8, h: 4.725 } };
+    case 'arriba': {
+      const alto = r(H * (2.1 / ALTO_DIAPO));
+      return { imagen: { x: 0, y: 0, w: W, h: alto }, texto: { x: 0.6, y: r(alto + 0.2), w: r(W - 1.2), h: r(H - alto - 0.2 - 0.325) } };
+    }
+    case 'izquierda': return { imagen: { x: 0, y: 0, w: r(W * 0.375), h: H }, texto: { x: r(W * 0.375 + 0.4), y: 0.45, w: r(W * 0.625 - 1.0), h: r(H - 0.9) } };
+    case 'derecha': return { imagen: { x: r(W * 0.625), y: 0, w: r(W * 0.375), h: H }, texto: { x: 0.6, y: 0.45, w: r(W * 0.625 - 1.0), h: r(H - 0.9) } };
+    case 'fondo': return { imagen: { x: 0, y: 0, w: W, h: H }, texto: { x: 0.8, y: 0.6, w: r(W - 1.6), h: r(H - 1.2) } };
+    default: return { imagen: null, texto: { x: 0.6, y: 0.45, w: r(W - 1.2), h: r(H - 0.9) } };
   }
 }
 
@@ -280,8 +310,8 @@ export function escalarTexto(parrafos: ParrafoDiapo[], caja: Caja): number {
 
 const ALINEAR: Record<string, Diapositiva['alinear']> = { arriba: 'top', centro: 'middle', abajo: 'bottom' };
 
-/** Una sección → su diapositiva. */
-export function modeloDiapositiva(elegida: SeccionElegida, tema: Tema): Diapositiva {
+/** Una sección → su diapositiva (en una de `tam`: 16:9 si no se dice). */
+export function modeloDiapositiva(elegida: SeccionElegida, tema: Tema, tam: Pick<TamanoDiapo, 'w' | 'h'> = DIAPO_16x9): Diapositiva {
   const a = attrsTarjeta(elegida.tarjeta.attrs);
   const v = varsDeTema(tema);
   const acento = hex6(tema.colores.acento, '2C88F7');
@@ -316,7 +346,7 @@ export function modeloDiapositiva(elegida: SeccionElegida, tema: Tema): Diaposit
   let ajuste: ImagenDiapo['ajuste'] = a.imagenAjuste;
   if (a.diseno !== 'sin' && a.imagenSrc) { lugar = a.diseno; src = a.imagenSrc; }
   else if (r.imagenes.length) { lugar = 'derecha'; src = r.imagenes[0]; ajuste = 'contener'; }
-  const cajas = cajasDeDiseno(lugar);
+  const cajas = cajasDeDiseno(lugar, tam);
   const imagen: ImagenDiapo | null = lugar && src && cajas.imagen
     ? { src, lugar, ajuste, focoX: a.imagenFocoX, focoY: a.imagenFocoY, caja: cajas.imagen }
     : null;
@@ -331,6 +361,8 @@ export function modeloDiapositiva(elegida: SeccionElegida, tema: Tema): Diaposit
 
   const factor = escalarTexto(r.out, cajas.texto);
   const parrafos = r.out.map((p) => ({ ...p, tam: Math.max(TAM_MINIMO, Math.round(p.tam * factor * 2) / 2) }));
+  // Si ni achicado entra, centrado se cortaría ARRIBA (fuera de la diapositiva): va arriba y desborda por abajo.
+  const noEntra = altoDe(r.out, cajas.texto.w, factor) > cajas.texto.h;
 
   return {
     numero: elegida.numero,
@@ -340,15 +372,15 @@ export function modeloDiapositiva(elegida: SeccionElegida, tema: Tema): Diaposit
     fuentes: { titulo: tema.fuentes.titulo.familia, cuerpo: tema.fuentes.cuerpo.familia },
     parrafos,
     cajaTexto: cajas.texto,
-    alinear: ALINEAR[a.alineacion] ?? 'middle',
+    alinear: noEntra ? 'top' : ALINEAR[a.alineacion] ?? 'middle',
     imagen,
     velo,
     notas: a.notas,
   };
 }
 
-export function modeloDiapositivas(elegidas: readonly SeccionElegida[], tema: Tema): Diapositiva[] {
-  return elegidas.map((e) => modeloDiapositiva(e, tema));
+export function modeloDiapositivas(elegidas: readonly SeccionElegida[], tema: Tema, tam: Pick<TamanoDiapo, 'w' | 'h'> = DIAPO_16x9): Diapositiva[] {
+  return elegidas.map((e) => modeloDiapositiva(e, tema, tam));
 }
 
 /**
@@ -460,12 +492,17 @@ export function textosPptx(d: Diapositiva): { text: string; options: OpcionesTex
   return out;
 }
 
-export async function exportarPptx(op: { titulo: string; elegidas: readonly SeccionElegida[]; tema: Tema; onProgreso?: (f: number) => void }): Promise<void> {
+export async function exportarPptx(op: {
+  titulo: string; elegidas: readonly SeccionElegida[]; tema: Tema; onProgreso?: (f: number) => void;
+  /** La del documento (DialogoExportar ya la manda en OpExportar): decide 16:9 o 4:3. */
+  config?: Pick<ConfigLanding, 'formato' | 'proporcion'> | null;
+}): Promise<void> {
   const { default: PptxGenJS } = await import('pptxgenjs');
   const pptx = new PptxGenJS();
-  pptx.layout = 'LAYOUT_16x9';
+  const tam = tamanoDiapo(op.config);
+  pptx.layout = tam.layout;
   pptx.title = op.titulo;
-  const diapos = modeloDiapositivas(op.elegidas, op.tema);
+  const diapos = modeloDiapositivas(op.elegidas, op.tema, tam);
   for (let i = 0; i < diapos.length; i++) {
     const d = diapos[i];
     const s = pptx.addSlide();
@@ -476,7 +513,7 @@ export async function exportarPptx(op: { titulo: string; elegidas: readonly Secc
     }
     if (d.velo) {
       s.addShape(pptx.ShapeType.rect, {
-        x: 0, y: 0, w: ANCHO_DIAPO, h: ALTO_DIAPO,
+        x: 0, y: 0, w: tam.w, h: tam.h,
         fill: { color: d.velo.color, transparency: d.velo.transparencia },
         line: { color: d.velo.color, transparency: 100 },
       });

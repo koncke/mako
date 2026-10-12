@@ -1,0 +1,245 @@
+// =============================================================================
+// editor-landing/diagnostico-server — analizar una landing y guardar sus comentarios (tanda 2, T5)
+// =============================================================================
+// Lo que corre en el server detrás de POST /api/landing-generator/diagnostico. Lo puro (el contrato,
+// la búsqueda de una cita, el saneo de lo que devuelve el modelo, la clave que deduplica) vive en
+// ./diagnostico.ts, con test: un módulo `server-only` no lo importa ningún test.
+//
+// LOS DOS CAMINOS DEL ANÁLISIS, como pide T5 (docs/diseno-editor-landing.md):
+//   · una landing NUESTRA (`docId`): su texto sale del CONTENIDO guardado (las secciones visibles de la
+//     página de inicio, en orden: `bloquesDeTexto`), no de bajar la página. Se analiza con el MISMO
+//     análisis del Landing Analyst (`analizarCopy`: su prompt editable, su modelo y el cruce con el
+//     comportamiento de la URL publicada si la hay) pero NO se guarda en landing_analyses: esa tabla es
+//     de páginas por URL y la lista del Panel las mostraría como «de afuera». Cada cita se ubica en su
+//     sección con `ubicarCitaEnBloques` (eso es lo que «Solucionar con IA» edita).
+//   · una landing de AFUERA (`url`): `analizarLanding`, exactamente como hoy (baja la página con la
+//     guarda anti-SSRF, cruza el comportamiento y guarda la fila de landing_analyses).
+// Los dos guardan cada hallazgo como una fila de `landing_sugerencias` (mig 0264), con la clave que
+// hace que volver a analizar no repita lo que ya está (tampoco lo descartado).
+//
+// ⚠️ LA PUERTA LA PONE LA RUTA (admin del workspace + la tab en su capa). Acá se vuelve a pedir el
+//    workspace y cada consulta lleva su `.eq('workspace_id', …)` además del acote de getTenantDb.
+// =============================================================================
+
+import 'server-only';
+import { getTenantDb, getWorkspaceActual } from '../workspace';
+import { leerTodo } from '../supabase-paginado';
+import { analizarCopy, analizarLanding, getComportamiento, type LandingComportamiento } from '../landing-analyst';
+import { errorDeCascada } from '../ai-cheap';
+import type { LandingExtraida } from '../landing-fetch';
+import { normalizarUrl } from '../landing-url';
+import { abrir } from './server';
+import {
+  TOPES_DIAGNOSTICO, bloquesDeTexto, claveSugerencia, contarPalabras, estadoValido, normalizarHallazgos,
+  objetivoDe, paginaPrincipal, resumenDeAnalisis, textoParaAnalisis, ubicarCitaEnBloques,
+  type EstadoSugerencia, type HallazgoDiagnostico, type ResumenDiagnostico, type RespuestaListaDiagnostico,
+  type Sugerencia,
+} from './diagnostico';
+
+export type FallaDiagnostico = { ok: false; error: string; status: number; pegable?: boolean };
+export type ResultadoLista = RespuestaListaDiagnostico | FallaDiagnostico;
+export type ResultadoEstado = { ok: true; sugerencia: Sugerencia } | FallaDiagnostico;
+
+const falla = (error: string, status = 400, extra: { pegable?: boolean } = {}): FallaDiagnostico => ({ ok: false, error, status, ...extra });
+const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * El texto de un análisis que la IA no pudo hacer. `analizarCopy` devuelve el `message` crudo, y
+ * «Claude vetado — «landing-analyst» no está en la lista blanca de lib/veto-claude.ts…» llegaba TAL
+ * CUAL al panel (medido en el navegador, 12/10/2026, ws1: Gemini 403, Mistral 429, OpenAI sin crédito
+ * y el último recurso cortado por el veto). Es la regla de `falloIA` (ia.ts): ese error quiere decir
+ * que la cascada gratis ENTERA no contestó, y `errorDeCascada` lo dice sin inventar una causa. Los
+ * otros mensajes (la URL no vale, la página no se pudo bajar, se arma en el navegador) ya están
+ * escritos para la persona y pasan igual.
+ */
+async function textoDeFalloIA(error: string): Promise<string> {
+  if (!/Claude vetado/i.test(error)) return error;
+  console.error(`[landing-generator/diagnostico] ${error}`);
+  return errorDeCascada([], 'diagnosticar la landing');
+}
+
+const TABLA = 'landing_sugerencias';
+const COLS = 'id, hallazgo, cita, seccion_id, estado, created_at, updated_at';
+type Fila = { id: number; hallazgo: unknown; cita: string | null; seccion_id: string | null; estado: string; created_at: string; updated_at: string };
+
+/** «Sin datos»: una landing nuestra sin publicar no tiene visitas que cruzar (el prompt lo dice solo). */
+const SIN_COMPORTAMIENTO: LandingComportamiento = {
+  visitas: 0, visitantes: 0, plays: 0, medidos: 0, llegaron_al_50: null, llegaron_al_final: null, agendas: 0,
+  primer_evento: null, ultimo_evento: null, top_referrers: [], hay_datos: false, visitantes_compartidos: false,
+};
+
+function aSugerencia(f: Fila): Sugerencia | null {
+  // La fila se vuelve a sanear al leer: el jsonb lo escribió el server, pero el panel no puede
+  // recibir un hallazgo sin título o sin cita (nada que mostrar, nada que ubicar).
+  const [h] = normalizarHallazgos([f.hallazgo]);
+  if (!h) return null;
+  return {
+    id: Number(f.id),
+    hallazgo: h,
+    cita: (f.cita ?? '') || h.cita,
+    seccionId: f.seccion_id ?? null,
+    estado: estadoValido(f.estado) ? f.estado : 'pendiente',
+    creado: f.created_at,
+    actualizado: f.updated_at,
+  };
+}
+
+async function wsOFalla(): Promise<number | FallaDiagnostico> {
+  const ws = await getWorkspaceActual();
+  return ws ?? falla('No hay un negocio abierto', 403);
+}
+
+type Objetivo = { docId: number } | { url: string };
+
+/** Los comentarios guardados de una landing, del más viejo al más nuevo. Un error de base TIRA. */
+async function leerSugerencias(ws: number, obj: Objetivo): Promise<Sugerencia[]> {
+  const eq: Record<string, string | number> = 'docId' in obj ? { workspace_id: ws, doc_id: obj.docId } : { workspace_id: ws, url: obj.url };
+  // Paginado y por la PK (AGENTS.md, «un número redondo es una hipótesis de truncamiento»).
+  const filas = await leerTodo<Fila>(await getTenantDb(), TABLA, COLS, { eq, orden: 'id' });
+  return filas.map(aSugerencia).filter((s): s is Sugerencia => s !== null);
+}
+
+/** El veredicto guardado de una landing de afuera (landing_analyses), o null. */
+async function resumenGuardado(url: string): Promise<ResumenDiagnostico | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('landing_analyses').select('status, score, veredicto, resumen, analyzed_at').eq('url', url).maybeSingle();
+  if (error) throw new Error(error.message);
+  const f = data as { status?: string; score?: number | null; veredicto?: string | null; resumen?: string | null; analyzed_at?: string | null } | null;
+  if (!f || f.status !== 'analizada') return null;
+  return resumenDeAnalisis({ score: f.score, veredicto: f.veredicto, resumen: f.resumen }, f.analyzed_at ?? null);
+}
+
+/** Guarda los hallazgos nuevos (los repetidos, por su clave, no se tocan). Devuelve cuántos entraron. */
+async function guardarHallazgos(ws: number, obj: Objetivo, hallazgos: ReadonlyArray<{ h: HallazgoDiagnostico; seccionId: string | null }>): Promise<number> {
+  if (!hallazgos.length) return 0;
+  const filas = hallazgos.map(({ h, seccionId }) => ({
+    workspace_id: ws,
+    doc_id: 'docId' in obj ? obj.docId : null,
+    url: 'url' in obj ? obj.url : null,
+    hallazgo: h,
+    cita: h.cita,
+    seccion_id: seccionId,
+    estado: 'pendiente' as EstadoSugerencia,
+    clave: claveSugerencia(obj, h),
+  }));
+  const db = await getTenantDb();
+  const { data, error } = await db.from(TABLA).upsert(filas, { onConflict: 'workspace_id,clave', ignoreDuplicates: true }).select('id');
+  if (error) throw new Error(`No pude guardar los comentarios: ${error.message}`);
+  return Array.isArray(data) ? data.length : 0;
+}
+
+/** POST {accion:'listar'}: los comentarios guardados y, de una de afuera, su veredicto. */
+export async function listar(p: { docId?: unknown; url?: unknown }): Promise<ResultadoLista> {
+  const ws = await wsOFalla();
+  if (typeof ws !== 'number') return ws;
+  const obj = objetivoDe(p);
+  if (!obj) return falla('Elige una landing o pega un enlace.');
+  try {
+    if ('docId' in obj) {
+      const r = await abrir(obj.docId);
+      if (!r.ok) return falla(r.error, r.status);
+      return { ok: true, sugerencias: await leerSugerencias(ws, obj), resumen: null, url: null };
+    }
+    const [sugerencias, resumen] = await Promise.all([leerSugerencias(ws, obj), resumenGuardado(obj.url)]);
+    return { ok: true, sugerencias, resumen, url: obj.url };
+  } catch (e) {
+    return falla(msg(e), 500);
+  }
+}
+
+/** POST {accion:'analizar'}: analiza, guarda lo nuevo y devuelve la lista entera. */
+export async function analizar(p: { docId?: unknown; url?: unknown; texto?: unknown }): Promise<ResultadoLista> {
+  const ws = await wsOFalla();
+  if (typeof ws !== 'number') return ws;
+  const obj = objetivoDe(p);
+  if (!obj) return falla('Elige una landing o pega un enlace.');
+  return 'docId' in obj ? analizarNuestra(ws, obj) : analizarDeAfuera(ws, obj, typeof p.texto === 'string' ? p.texto : undefined);
+}
+
+async function analizarNuestra(ws: number, obj: { docId: number }): Promise<ResultadoLista> {
+  const r = await abrir(obj.docId);
+  if (!r.ok) return falla(r.error, r.status);
+  const doc = r.doc;
+  const bloques = bloquesDeTexto(paginaPrincipal(doc.contenido));
+  const texto = textoParaAnalisis(bloques);
+  const palabras = contarPalabras(texto);
+  if (palabras < TOPES_DIAGNOSTICO.palabras) return falla('Tiene muy poco texto para diagnosticarla.');
+
+  let url: string | null = null;
+  try { url = doc.urlPublica ? normalizarUrl(doc.urlPublica) : null; } catch { url = null; }
+  try {
+    // Publicada: el comportamiento real de su URL (visitas, scroll, agendas). Sin publicar: «sin
+    // datos», y el prompt del Landing Analyst ya sabe decirlo sin inventar.
+    const comp = url ? await getComportamiento(url) : SIN_COMPORTAMIENTO;
+    const pagina: LandingExtraida = {
+      url: url ?? `Borrador sin publicar: «${doc.titulo}»`,
+      urlFinal: url ?? `Borrador sin publicar: «${doc.titulo}»`,
+      titulo: doc.config.sitio.seoTitulo || doc.titulo,
+      descripcion: doc.config.sitio.seoDescripcion,
+      bloques: [],
+      texto,
+      palabras,
+      htmlBytes: 0,
+      fetchMs: 0,
+      // El texto salió del documento, no de una página que no se pudo leer.
+      bloqueada: false,
+    };
+    const res = await analizarCopy(pagina, comp);
+    if (!res.ok) return falla(await textoDeFalloIA(res.error), 502);
+    const hallazgos = normalizarHallazgos(res.analysis).map((h) => ({ h, seccionId: ubicarCitaEnBloques(h.cita, bloques) }));
+    const nuevas = await guardarHallazgos(ws, obj, hallazgos);
+    console.log(`[landing-generator/diagnostico] doc #${obj.docId}: ${hallazgos.length} hallazgos, ${nuevas} nuevos, ${hallazgos.filter((x) => !x.seccionId).length} sin ubicar`);
+    return {
+      ok: true,
+      sugerencias: await leerSugerencias(ws, obj),
+      resumen: resumenDeAnalisis(res.analysis, new Date().toISOString()),
+      url: null,
+      nuevas,
+    };
+  } catch (e) {
+    return falla(msg(e), 500);
+  }
+}
+
+async function analizarDeAfuera(ws: number, obj: { url: string }, texto?: string): Promise<ResultadoLista> {
+  try {
+    const res = await analizarLanding(obj.url, texto);
+    // No es un 500: la página de afuera falló (404, armada en el navegador, plazo), no nuestro server.
+    if (!res.ok) return falla(await textoDeFalloIA(res.error), 200, { pegable: res.pegable === true });
+    const row = res.row;
+    const url = row.url;
+    const destino = { url };
+    const hallazgos = normalizarHallazgos(row.hallazgos ?? []).map((h) => ({ h, seccionId: null }));
+    const nuevas = await guardarHallazgos(ws, destino, hallazgos);
+    return {
+      ok: true,
+      sugerencias: await leerSugerencias(ws, destino),
+      resumen: resumenDeAnalisis({ score: row.score, veredicto: row.veredicto, resumen: row.resumen }, row.analyzed_at),
+      url,
+      nuevas,
+    };
+  } catch (e) {
+    return falla(msg(e), 500);
+  }
+}
+
+/** POST {accion:'estado'}: pendiente / resuelta / descartada. Nunca borra. */
+export async function cambiarEstado(p: { id?: unknown; estado?: unknown }): Promise<ResultadoEstado> {
+  const ws = await wsOFalla();
+  if (typeof ws !== 'number') return ws;
+  const id = typeof p.id === 'number' ? p.id : Number(p.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return falla('Falta el comentario');
+  if (!estadoValido(p.estado)) return falla('Estado desconocido');
+  try {
+    const db = await getTenantDb();
+    const { data, error } = await db.from(TABLA)
+      .update({ estado: p.estado, updated_at: new Date().toISOString() })
+      .eq('workspace_id', ws).eq('id', id)
+      .select(COLS).maybeSingle();
+    if (error) return falla(error.message, 500);
+    const s = data ? aSugerencia(data as Fila) : null;
+    return s ? { ok: true, sugerencia: s } : falla('No existe', 404);
+  } catch (e) {
+    return falla(msg(e), 500);
+  }
+}

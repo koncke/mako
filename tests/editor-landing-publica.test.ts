@@ -515,14 +515,18 @@ function rutasBajo(dir: string): string[] {
   return out;
 }
 
-test('app/l tiene EXACTAMENTE las cuatro rutas, sólo GET y HEAD, y ninguna lee la sesión', () => {
+test('app/l tiene EXACTAMENTE las cinco rutas, sólo GET y HEAD, y ninguna lee la sesión', () => {
   // `/l` entra en PUBLICOS como prefijo porque la carpeta es pública por construcción: un
   // archivo nuevo acá adentro queda abierto sin sesión, así que tiene que decidirse a mano.
   // La cuarta (las otras páginas de un BORRADOR por el link privado) la sumó la integración del
-  // 11/10/2026: es la misma lectura que la vista previa, con la ruta.
+  // 11/10/2026: es la misma lectura que la vista previa, con la ruta. La quinta (el «HTML
+  // personalizado» aislado, T6) la sumó la integración de la tanda 2 (12/10/2026): no arma una
+  // página sino un documento para un iframe, y su decisión (`responderHtmlLibre`) la cubre
+  // tests/editor-landing-htmllibre.test.ts.
   const RUTAS_L = [
     'app/l/[slug]/[ruta]/route.ts',
     'app/l/[slug]/route.ts',
+    'app/l/html/[docId]/[bloque]/route.ts',
     'app/l/vista/[token]/[ruta]/route.ts',
     'app/l/vista/[token]/route.ts',
   ];
@@ -532,6 +536,7 @@ test('app/l tiene EXACTAMENTE las cuatro rutas, sólo GET y HEAD, y ninguna lee 
     const exportados = [...src.matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(\w+)/g)].map((m) => m[1]).sort();
     assert.deepEqual(exportados, ['GET', 'HEAD', 'dynamic'], `${f}: sólo lectura`);
     assert.doesNotMatch(src, /next\/headers|cookies\(|getTenantDb|getSesion|getWorkspaceActual/, `${f}: no mira la sesión`);
+    if (f.startsWith('app/l/html/')) { assert.match(src, /responderHtmlLibre\(/, `${f}: la decisión vive en html-libre.ts`); continue; }
     assert.match(src, /responderPublico\(/, `${f}: la decisión vive en pagina-publica.ts`);
     // La vista previa entra como 'vista' (noindex, sin Pixel, no-store); las otras dos como 'pagina'.
     if (f.includes('vista')) assert.match(src, /responderPublico\(req, \{ tipo: 'vista', token(?:, ruta)? \}, \{ leer: \(\) => leerVistaPrevia\(token(?:, ruta)?\) \}\)/);

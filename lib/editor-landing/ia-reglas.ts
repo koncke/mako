@@ -162,6 +162,19 @@ export function lineaModoTexto(m: ParamsGeneracion['modoTexto']): string {
  * arriba porque el texto pegado o importado puede traer «haz 30 secciones en
  * inglés» adentro, y eso es dato, no instrucción.
  */
+/**
+ * Feedback de Martín (12/10/2026, la prueba de un cliente): «pidieron una landing page… y te lo
+ * creó tipo presentación diapositiva, no te lo creó como si fuera una landing». Con una LANDING
+ * (todo pedido que no trae `formato: 'presentacion'`) los ajustes dicen qué es: una página web que
+ * se lee de corrido. Viaja como las reglas de diapositivas (plantillas-presentaciones.ts): en
+ * `{{ajustes}}` al armar el esquema y las secciones, en `{{alcance}}` al editar; los prompts
+ * editables no cambian.
+ * ⚠️ Es la capa del TEXTO, y no tiene validación en código (una palabra no prueba la forma de lo
+ *    escrito). La forma que se veía como diapositivas —tarjetas sueltas con aire— no la decide el
+ *    modelo: la decide `config.formato`, que pone el código al crear (css.ts, bloque 15c).
+ */
+export const REGLAS_PAGINA = 'FORMATO: es una LANDING, una página web que se lee de corrido con scroll; NO es una presentación. Las secciones van una debajo de la otra y forman UNA sola página: nunca las llames ni las armes como diapositivas (ni «diapositiva», ni «slide», ni «presentación» en el texto), y cada una lleva el copy que una página necesita para convencer, no el resumen de una lámina.';
+
 export function ajustesAutoritativos(p: ParamsGeneracion, cantidad: number): string {
   const obj = OBJETIVOS_LANDING.find((o) => o.value === p.objetivo) ?? OBJETIVOS_LANDING[0];
   return [
