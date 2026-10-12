@@ -8279,3 +8279,32 @@ en el código:
 (`etapasVisibles().nutricion`) · `app/_components/etiquetas-cliente.tsx` (`editable`) ·
 `app/_components/EditarEtiqueta.tsx` · `app/crm/new/borrador-alta.ts` · `app/crm/ReunionesProximas.tsx` ·
 `tests/crm-segundo-feedback-12-10.test.ts` · *2026-10-12, chat «CRM» (claude3), sin agentes*
+
+## El tercer feedback del 12/10: el «Selecciona…» del país lo producía nuestro saneo (12/10/2026)
+
+Pedido de Martín (12/10/2026, 11:37): «al entrar dice "seleccionado" ese desplegable, eso esta mal, debe estar
+como siempre con la última selección que hice». Lo que no se ve en el código:
+
+- **El diagnóstico obvio era el equivocado.** Parecía que al alta le faltaba un default; lo tenía (`DIAL_DEFAULT`).
+  Lo que dejaba el desplegable vacío era el saneo del BORRADOR, escrito esa misma mañana:
+  `txt(o.lada, 6).replace(/\D/g, '')` le sacaba el «+» a `+54`, y `54` no es ninguna opción de `PAISES`
+  (todas son `+NN`). O sea que sólo fallaba cuando HABÍA borrador — por eso no se vio al escribirlo, con el
+  campo limpio. **Un saneo devuelve el valor en el formato que el CONSUMIDOR compara**, y se prueba con un valor
+  que hace el viaje entero (se escribe con el control, se guarda, se lee, se vuelve a dibujar). Ahora
+  `sanearLada` devuelve `+NN` y sólo si está en la lista; acepta el `54` de los borradores viejos.
+- **La última lada ELEGIDA es una preferencia aparte del borrador**, y se escribe en el `onLada` del control,
+  nunca en un efecto: hidratar con la detectada por zona no puede convertirse en «lo que eligió»
+  (AGENTS.md → «Un control que hidrata un dato guardado no escribe si la persona no tocó nada»). El orden al
+  abrir es borrador → preferida → zona horaria del navegador (`paisDeCuentaMeta`, el lector de zonas de
+  Ads Manager) → `DIAL_DEFAULT`, en `ladaInicial`, puro y con test.
+- **La ficha del lead tenía un alto MÁXIMO, no un alto**: con poco contenido se achicaba, y con mucho dejaba
+  ~96 px de margen. Ahora el alto es fijo (`ALTO_FICHA_LEAD`) y el chat de MaKo Analyst se calcula con el mismo
+  margen; los dos números viven en `lead-view/ficha-medidas.ts`, que también lee el esqueleto de carga.
+
+**SIN HACER:** las notas como los chats de MaKo (punto 3) y «A revisar» con los datos en el desplegable (punto
+4); el detalle, en `docs/relevo/crm.md` §0. Los plazos de etapa como template de Automations se le pasaron al
+chat «Chatbot».
+
+**Vive en:** `app/crm/new/borrador-alta.ts` (`sanearLada`, `ladaInicial`) · `app/crm/new/NewLeadForm.tsx`
+(`elegirLada`) · `app/crm/lead-view/ficha-medidas.ts` · `app/crm/EtapasModal.tsx` ·
+`tests/crm-segundo-feedback-12-10.test.ts` · *2026-10-12, chat «CRM» (claude3), sin agentes*

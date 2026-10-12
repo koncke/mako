@@ -6,7 +6,29 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
-## 0. Al 12/10/2026, 11:00 (chat «CRM», cuenta `claude3`, al 93% semanal)
+## 0. Al 12/10/2026, 12:00 (chat «CRM», cuenta `claude3`, al 95% semanal)
+
+### ✅ El tercer feedback del 12/10: HECHO en `40d5ba8c`, salvo dos puntos
+
+Martín mandó ocho puntos a las 11:37 y uno más a las 11:43 (textuales en la bitácora). Hechos: el editor de
+etapas en UNA lista en el orden del tablero (1), el país del alta que recuerda la última elegida y si no detecta
+el de la zona horaria (2), la barra como tarjeta del ancho del kanban (5), etiquetas con lápiz, sin «Ya la tiene»
+y con ✓ para crear (6), la ficha a alto completo (8) y «Campañas de Meta» en la fila de entrada del editor (el
+pedido de las 11:43). El 7 (los plazos de etapa como template de Automations) se lo pasé al chat «Chatbot», como
+él pidió. Sin mirar en el navegador.
+
+**SIN HACER, por la cuota (95%):**
+- **3. Las notas como los chats de MaKo** (adjuntar archivos e imágenes, emojis, y el micrófono que TRANSCRIBE en
+  vez de mandar audio). Vive en `app/crm/lead-view/NotasCard.tsx`; el molde es `ComposerWhatsApp`
+  (`app/whatsapp/_shared/ComposerWhatsApp.tsx`) y el dictado `transcribirNota` (`app/_components/useDictar`), que
+  ya usa MaKo Analyst. Adjuntar en una nota necesita dónde guardar el archivo: hoy una nota es sólo texto.
+- **4. «A revisar» sin ir a otra tab**: `app/_components/MakoConfirmGate.tsx` (`irAPendientes` hace
+  `router.push('/crm?pendientes=1')`). Sólo tiene el CONTEO (`/api/datos-sin-marcar-count`): mostrar los datos en
+  el desplegable pide un endpoint que devuelva la lista.
+- **1, a medias**: las etapas de nutrición se renombran con un clic y se quitan con la ✕, pero no tienen el lápiz
+  (color y tipo) de las propias. Si «editables como cualquier otra» era eso, falta.
+
+## 0-a. Al 12/10/2026, 11:00 (chat «CRM», cuenta `claude3`, al 93% semanal)
 
 ### ✅ El segundo feedback del 12/10 (once puntos): HECHO en `3e5176c9`
 
@@ -23,7 +45,7 @@ debemos la explicación de los «plazos viejos» (10): las etapas que tenían un
 sacara «Ponerle un plazo» siguen mandando el aviso diario del lead quieto (`lib/lead-quieto-aviso.ts`), y
 ya no hay pantalla para verlos ni quitarlos.
 
-## 0-a. Al 12/10/2026 (chat «CRM», cuenta `claude3`, cortado al 86% semanal)
+## 0-b. Al 12/10/2026 (chat «CRM», cuenta `claude3`, cortado al 86% semanal)
 
 ### ✅ El feedback del 12/10 (28 puntos): HECHO en `bdcee029`
 

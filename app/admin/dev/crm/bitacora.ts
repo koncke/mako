@@ -1898,4 +1898,43 @@ export const BITACORA: Hito[] = [
       'app/_components/EditarEtiqueta.tsx — renombrar, color y archivar',
     ],
   },
+  {
+    fecha: '12 oct', hora: '11:37', chat: 'CRM', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Ocho ajustes más: etapas en una lista, el país del teléfono, notas como los chats, «A revisar» en el lugar',
+    pedido: '1. No separes las secciones en 2 partes, que este todo junto, y en el orden correcto... Y las etapas de nutrición deberían ser editables como cualquier otra etapa.\n2. Si le doy a nuevo lead, y cambio incluso es desplegable de la caracteristica del país, ya debería quedarse guardado eso... Y revisa que al entrar dice "seleccionado" ese desplegable, eso esta mal, debe estar como siempre con la última selección que hice. Y también quiero que se detecte automáticamente el país de origen del usuario por ubicación, como ya lo hacemos en otros lugares, y que por defecto siempre se ponga esa caracteristica.\n3. En notas, el botón de enviar como el de grabar audio debe ser como los otros chats que creamos dentro de MaKo, replica esos chats... Que se pueda adjuntar archivos, imagenes, emojis, etc... Ya tenemos varios chats como ese, lo pusiste en MaKo an2alyst por ejemplo... Solo que en este caso el "grabar audio" en lugar de grabar, transcribe.\n4. En "A revisar" jamás me debe llevar a otra tab, deben salir allí mismo los datos a revisar, en el desplegable.\n5. El contenedor que pusiste en la topbar, que no esté a todo el ancho de la pagina, sino al mismo ancho del kanban, y que tenga los bordes redondeados... Y que no esté pegado arriba, que sea basicamente como un contenedor y atrás el color del bg igual que el resto.\n6. Al momento de crear una nueva etiqueta, que el botón no diga "crear" que sea un icono check. Y en el desplegable de etiquetas, no pongas subtitulo de "ya la tiene", solo pon más opaco las etiquetas que no tenga... Porque hoy por ejemplo, puse una etiqueta y en el desplegable ya sale opaco... Y cambia el botón de tres puntos por un lapiz en las etiquetas.\n7. Si, pasa a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo haga el.\n8. En el detail del lead, todo lo que está abajo de las tabs, siento que esta muy compacto, es decir, le falta "largo", tengo que hacer mucho scroll... Soluciona eso.',
+    puntos: [
+      'Con dos capturas: el editor de etapas de PROSPECCIÓN con una segunda sección aparte, y el alta con el país en «Selecciona…».',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '11:43', chat: 'CRM', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Asignar campañas desde el editor del funnel',
+    pedido: 'Dentro del editor de funnel, agrega un desplegable para asignar campañas, el mismo que tenemos en los 3 puntos de "Leads entrantes"',
+    puntos: [
+      'Llegó mientras se trabajaba la tanda de las 11:37, y salió en el mismo commit.',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '12:04', chat: 'CRM', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las etapas en una sola lista, el país que recuerda y se detecta, la barra como tarjeta y la ficha a alto completo',
+    puntos: [
+      'El editor de etapas es UNA lista en el orden del tablero: las propias, «+ Agregar etapa», Ganado, las de nutrición y los descartes, cada fija con una pastilla que dice qué es.',
+      'La fila de entrada del editor tiene «Campañas de Meta», que abre el mismo pop-up de los tres puntos de «Leads entrantes».',
+      'El país del alta abre con la última lada elegida, y si no hay, con la del país de la zona horaria. **El «Selecciona…» lo producía nuestro saneo del borrador**, que le sacaba el «+».',
+      'La barra del tablero es una tarjeta redondeada del ancho del kanban, con el fondo de siempre detrás.',
+      'Etiquetas: un lápiz en vez de los tres puntos, la puesta sólo opaca y un ✓ para crear.',
+      'La ficha del lead ocupa la ventana entera, con alto fijo: el cuerpo de abajo de las pestañas ganó ~72 px.',
+      'Los plazos de etapa como automatización se los pasé al chat de Chatbot. Quedan para después las notas como los chats (3) y «A revisar» en el desplegable (4).',
+    ],
+    commits: [{ sha: '40d5ba8c', msg: 'CRM: el tercer feedback del 12/10 — etapas en una lista, campañas en el editor, el país del alta, la barra como tarjeta, etiquetas con lápiz y la ficha más alta', lineas: 281, archivos: 10 }],
+    archivos: [
+      'app/crm/EtapasModal.tsx — una sola lista y el botón de campañas',
+      'app/crm/new/borrador-alta.ts — la lada con su «+», la preferida y la de la zona',
+      'app/crm/CrmBoard.tsx — la barra como tarjeta',
+      'app/crm/lead-view/ficha-medidas.ts — el alto de la ficha',
+    ],
+  },
 ];
