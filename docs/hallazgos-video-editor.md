@@ -48,6 +48,9 @@ Ante un error de tipos raro adentro de `_opencut/`, primero mirá si el mismo c�
   4,83 s de fuente para un tramo de 4,68 s. Cada mitad se escala para que su media dé justo la fuente
   que le toca (caso 3 de `tests/video-editor-velocidad-curva.test.ts`): lo que cierra en una división es
   la suma de fuentes, no la forma.
+- **La música de la biblioteca caía fuera de lugar**: `fetchLibraryAudioClip` (`media/audio.ts`) entregaba
+  ticks donde el resto del audio espera segundos. El tipo no lo frena porque los dos son `number`; todo
+  tiempo que cruza de `media/` al audio-manager se mira en qué unidad viene.
 
 ## Velocidad: el tono por defecto es el contrario, y 1× no guarda nada
 
@@ -89,7 +92,7 @@ eso los pases `ce-*` (diseño §1.4) se separan en `frame-descriptor.ts`. De ah�
 `effects/lut/leer-lut.ts`
 
 `pases-ce.ts` atrapa a propósito el error de compilación para que la reproducción siga: el cuadro sale
-sin el efecto y el error queda sólo en la consola. Tres formas de llegar ahí:
+sin el efecto y el error queda sólo en la consola. Cuatro formas de que un pase falle sin avisar:
 
 - **Un uniform con un nombre de la cabecera.** El «Giro» del Remolino se mapeaba a `u_giro`, que la
   cabecera ya declara: «redefinition», y el Remolino no hacía nada. Los nombres reservados están en la
@@ -98,7 +101,11 @@ sin el efecto y el error queda sólo en la consola. Tres formas de llegar ahí:
   misma unidad, y uno sin asignar apunta a la 0, donde está la imagen: sin LUT elegida, `INVALID_OPERATION`
   en el draw. `ce-ajuste` manda `u_lut` siempre (0 = identidad 2³) y `pases-ce` lo enlaza en la unidad 2.
 - **Un uniform que no se manda HEREDA el valor de la vuelta anterior** (quedan guardados en el
-  programa). Lo que un pase no manda tiene que poder heredar sin daño, o `pases-ce` lo resetea.
+  programa). Lo que un pase no manda tiene que poder heredar sin daño, o `pases-ce` lo resetea. Los de
+  las transiciones (`transiciones/shaders.ts`) mandan TODOS sus uniforms en cada vuelta.
+- **`smoothstep` con los dos bordes iguales no está definido en GLSL**: cada GPU devuelve lo que quiere.
+  Un borde suave de ancho 0 (un barrido sin difuminado) no se deja llegar a 0 (`u_suavidad` en
+  `transiciones/shaders.ts`).
 
 Y uno de rendimiento de la misma familia: el hash de una textura dibujada incluye los uniforms, y
 `u_tiempo` cambia en cada cuadro. Mandado a un filtro quieto, el texto y el fondo de abajo se
@@ -147,7 +154,10 @@ escala nada: sólo encuadra con `containScale`. Dos veces el diagnóstico obvio 
 
 El texto tampoco es absoluto: `fontSize` es relativo al ALTO del lienzo (÷90) y el relleno del fondo se
 multiplica por fontSize/15. Con números fijos un subtítulo vertical salía casi el doble que uno
-horizontal; se calcula desde el lado corto, en px, y se convierte (`subtitles/estilos.ts`).
+horizontal; se calcula desde el lado corto, en px, y se convierte (`subtitles/estilos.ts`). Las
+plantillas de texto cayeron en lo mismo en la tanda 3 (casi al doble en 9:16): `paramsParaLienzo`
+(`text/estilos-predefinidos.ts`) las escala por el lado corto. Todo tamaño de texto que se escriba fijo
+pasa por una de esas dos.
 
 Y el lienzo lo fijaba el PRIMER clip visual, siempre: elegir 9:16 y agregar un clip 16:9 volvía a 16:9.
 En CapCut eso pasa sólo con «Original»: manda el primer clip si `settings.relacion` está vacío o es
@@ -195,16 +205,60 @@ también cambia desde deshacer.
   de render no tenía `catch`, así que la marca de «render en curso» quedaba prendida. La frontera con el
   WASM se traduce en `paraElWasm` (`wasm-compositor.ts`); un render que falla nunca deja la marca prendida.
 
-## Decodificar fuera del reproductor: nunca el `videoCache`
+## Los ganchos `ce-*`: el orden decide, y todo gancho devuelve el estado ENTERO
+
+**Vive en:** `services/renderer/ganchos-ce.ts` · `recorte/ganchos.ts` · `fondo/recorte-persona.ts` ·
+`animaciones/{gancho,calcular}.ts` · `transiciones/{gancho,catalogo,escena}.ts` ·
+`services/renderer/{resolve.ts,compositor/frame-descriptor.ts}`
+
+Los ganchos corren en fila por `orden`. Los de FUENTE tocan el cuadro antes de que llegue al compositor
+(recorte 10, quitar fondo 20); los VISUALES, la transformación, la opacidad y los pases de la capa
+(animación 100, reflejo 1000, transiciones 1100). El contrato está en el diseño §4.1; lo que no se ve:
+
+- ⚠️ **Los barridos sobre un clip reflejado iban al revés, y «la máscara está mal» era falso**: los pases
+  de la transición corren sobre la FUENTE, antes de que el compositor la voltee y la gire, así que «hacia
+  la derecha» en pantalla es hacia la izquierda en un clip reflejado. Un pase con dirección recibe la de
+  pantalla llevada a la capa con el signo FINAL de la escala y el giro (`direccionEnCapa`,
+  `transiciones/catalogo.ts`). Por eso las transiciones van últimas y sólo multiplican la escala por
+  positivos.
+- **Un gancho visual que rearma el estado como `{ transform, opacity }` tira los `pases` que sumó otro**:
+  le pasaba a `aplicarPose` (`animaciones/calcular.ts`). Hoy no se ve porque la animación (100) corre
+  antes que las transiciones (1100), que son las que suman pases; aparece el día que alguien reordene o
+  sume un gancho después. Todo gancho visual devuelve `{ ...estado, … }`.
+- **Las puntas son la identidad, o el clip salta**: una transición en p = 0 y p = 1, y una animación
+  Combinada o en Bucle al empezar y al terminar cada vuelta, dejan el cuadro EXACTAMENTE como estaba.
+  «Latido» terminaba en escala 1,0000015 porque una campana de Gauss nunca llega a 0: se multiplica por
+  una ventana sin(π·fase). Sólo se nota reproduciendo, como un salto al entrar o salir del tramo (tests 1
+  y 2 de `tests/video-editor-animaciones.test.ts`, test 1 de `tests/video-editor-transiciones.test.ts`).
+- **Con una transición el clip se dibuja también fuera de su rango** (la ventana va centrada en el corte).
+  «Fuera del clip» se chequeaba en dos lugares (`resolveVisualState` y `resolveVideoNode`) y los dos
+  pasaron a `fueraDeVentana` (`transiciones/escena.ts`); el gancho recibe el instante sin acotar en
+  `ContextoVisual.tiempoClip`. El fondo «Lienzo con desenfoque» quedó con el chequeo viejo (ver «sin
+  hacer»).
+- **Un gancho de fuente que necesita bajar algo no puede ser síncrono**: los primeros cuadros del export
+  salían sin recortar porque el modelo de quitar fondo todavía bajaba. Lo que hay que esperar se espera
+  DENTRO del render (`preparar(ctx)`, esperado en `frame-descriptor.ts`), y toda espera lleva tope (2 min,
+  `fondo/segmentador.ts`): un CDN que no contesta dejaría el reproductor y el export parados para siempre.
+
+El otro de los ganchos de fuente —devolver siempre el mismo lienzo congela un video— está en «El
+compositor es UNO».
+
+## Decodificar: un decodificador por clave, y fuera del reproductor nunca el `videoCache`
 
 **Vive en:** `services/video-cache/service.ts` · `timeline/components/miniaturas.ts` · `recorte/cuadro.ts` ·
-`retime/revertir.ts`
+`retime/revertir.ts` · `transiciones/{escena,claves}.ts` · `commands/media/remove-media-asset.ts`
 
 El `videoCache` es del reproductor: UN decodificador por medio, con los pedidos numerados por
 «generación». Un pedido de la línea de tiempo (miniaturas) o de un comando (Congelar, el diálogo de
 Recortar) invalida el cuadro que espera el reproductor o le salta el decodificador: la reproducción
 tartamudea o la imagen salta. Los cuadros fuera del reproductor salen de un `Input` y un `CanvasSink`
-de mediabunny PROPIOS, que se cierran con `dispose`. Y tres trampas de `CanvasSink`:
+de mediabunny PROPIOS, que se cierran con `dispose`.
+
+Adentro del reproductor pasa lo mismo con el MISMO video a los dos lados de un corte (dividir y poner una
+transición, el caso común): en la ventana los dos clips piden cuadro a la vez, uno pierde la generación
+y muestra el cuadro del otro. Dos nodos que piden cuadros del mismo video en el mismo instante usan
+claves distintas (`claveDecodificadorTransicion` → `${mediaId}#transicion`), y quien suelte los
+decodificadores de un medio suelta también ése (`remove-media-asset.ts`). Y las trampas de mediabunny:
 
 - **Con `poolSize` recicla sus lienzos en anillo**: guardar cuadros para codificarlos después
   (Revertir) da N veces el último. Para guardar, `poolSize: 0`, con la ventana calculada por memoria
@@ -213,6 +267,9 @@ de mediabunny PROPIOS, que se cierran con `dispose`. Y tres trampas de `CanvasSi
   0,033 s. Cada `null` dejaba el pedido sin caché, el aviso de «llegaron cuadros» redibujaba y se volvía
   a pedir: decodificación en bucle. Se pide con `max(t, getFirstTimestamp())` y se recuerdan los pedidos
   sin cuadro o con error.
+- **En el final EXACTO del video tampoco hay cuadro**, y una transición lo pide (sin material recortado,
+  el clip de la izquierda se queda en su último cuadro): se pide 1 ms antes (`acotarFuente`,
+  `transiciones/escena.ts`).
 - **`Output` pierde el tipo del target** si la variable se declara `Output | null` («Property 'buffer'
   does not exist»): se guarda la referencia al `new BufferTarget()` y se lee `.buffer` de ella.
 
@@ -227,9 +284,10 @@ de mediabunny PROPIOS, que se cierran con `dispose`. Y tres trampas de `CanvasSi
   el nivel AVC sólo por tamaño, sin mirar los fps, y a 1080p60 le da 4.0 (tope 245.760 macrobloques/s;
   hacen falta 489.600). Se pasa un `fullCodecString` con el nivel calculado con los fps, confirmado con
   `canEncodeVideo(…, {fullCodecString, frameRate})`, y si no lo acepta se vuelve a la de mediabunny.
-- **`decodeAudioToFloat32` deja un `AudioContext` vivo por llamada**, y Chrome topea los contextos
-  vivos. Para decodificar o remuestrear, `OfflineAudioContext` (los subtítulos ya lo usan; la función de
-  `media/audio.ts` es de J y sigue igual).
+- **Un `AudioContext` que no se cierra se acumula, y Chrome topea los contextos vivos**:
+  `decodeAudioToFloat32` dejaba uno por llamada, y cada export creaba otro que nunca se cerraba y
+  decodificaba N veces un archivo partido en N clips. Para decodificar o remuestrear, `OfflineAudioContext`
+  o cerrar en un `finally`, y una decodificación por archivo (`createTimelineAudioBuffer`, `media/audio.ts`).
 
 ## La vista previa del motor: `previewElements` reemplaza `params` entero y no pasa por el pipeline
 
@@ -255,6 +313,12 @@ La vista previa mezcla `{...element, ...cambio}` por campo de PRIMER nivel, y `c
   aplicaba la velocidad vieja guardada en un ref y sumaba un paso de deshacer. Una confirmación que lee
   un valor pendiente confirma sólo si `editor.timeline.isPreviewActive()`.
 
+Y del lado de los comandos, al revés: **`UpdateElementsCommand` MEZCLA los params, así que omitir una
+clave no la borra.** «Ninguno» o cambiar de plantilla de subtítulos dejaba el halo de la anterior.
+Sacar algo es ESCRIBIR su valor apagado: quitar una transición pone los defaults de `transicion.*`, y
+`SIN_EFECTO` y toda plantilla escriben todos los interruptores de apariencia, apagados los que no usan
+(`text/estilos-predefinidos.ts`).
+
 ## El imán de CapCut no es el ripple de OpenCut, y va en `updateTracks`
 
 **Vive en:** `ripple/iman.ts` · `core/managers/commands.ts` · `actions/use-editor-actions.ts`
@@ -275,6 +339,25 @@ Son dos interruptores, como en la barra de CapCut.
 - Y una de geometría: la principal es más alta que una superposición del mismo tipo, así que todo
   cálculo vertical nuevo de la línea de tiempo recibe el id de la principal, o coincide con el dibujo en
   todas las filas menos en la más grande.
+
+## Dividir y borrar: lo que va pegado a un borde se queda de su lado
+
+**Vive en:** `commands/timeline/element/{split-elements,delete-elements}.ts` · `animaciones/reglas.ts` ·
+`transiciones/reglas.ts` · `audio/claves.ts`
+
+Un clip lleva cosas pegadas a su principio o a su final, y al dividirlo las dos mitades las copiaban
+enteras:
+
+- **Los fundidos de audio**: las dos mitades conservaban los dos y el volumen bajaba y subía en el
+  corte. La izquierda se queda con la aparición y la derecha con la desaparición.
+- **Las animaciones**: igual, la Entrada en la izquierda y la Salida en la derecha.
+- **La transición vive en el clip de la IZQUIERDA del corte**: si la mitad izquierda la conservara,
+  aparecería en el corte nuevo. Y al BORRAR un clip, su vecino izquierdo la pierde: el imán cerraría el
+  hueco y se la pasaría al clip siguiente.
+
+Todo param nuevo que dependa de un borde del clip se reparte en `split-elements.ts` (la fila de `sin…`
+de `leftParams`) y se revisa en `delete-elements.ts`. «Recuperar audio» todavía no lo cumple (ver «sin
+hacer»).
 
 ## El teclado: `actions/` escucha en captura y le gana al reproductor
 
@@ -321,9 +404,9 @@ reproductor ya tenía hechas las teclas de CapCut.
 
 ## `params/extra`: todo lo declarado se dibuja, y la ruta del ◇ depende de dónde vive el parámetro
 
-**Vive en:** `params/extra/` · `components/editor/panels/properties/respaldo-contenido.tsx`,
+**Vive en:** `params/extra/` · `params/index.ts` · `components/editor/panels/properties/respaldo-contenido.tsx`,
 `hooks/use-params-con-fotogramas.ts` · `timeline/animation-targets.ts` · `services/renderer/resolve.ts` ·
-`subtitles/build-subtitle-text-element.ts`
+`subtitles/build-subtitle-text-element.ts` · `commands/timeline/element/atributos.ts`
 
 - **Todo param declarado entra como CONTROL en las listas genéricas.** `subtitulo` es una marca, y el
   panel «Texto» dibujaba un interruptor que convertía cualquier texto en subtítulo. Una marca no se
@@ -341,6 +424,13 @@ reproductor ya tenía hechas las teclas de CapCut.
 - **El ↺ de un param con `write` propio** parchaba sólo `params`, y el valor de un efecto del clip vive
   en `element.effects`: quitaba los fotogramas y dejaba el valor. Un parche que sale de un `write` lleva
   también el campo que ese `write` cambia.
+- **«Pegar atributos» copia lo declarado, y SÓLO eso**: `audio.normalizar` viajaba sin su medida
+  (`audio.intensidad`, sin declarar) y en el otro clip la casilla quedaba marcada sin efecto. Lo que
+  depende del ARCHIVO del clip (una medida, los ritmos, una marca como `audio.extraidoDe`) no se declara,
+  ni la casilla ni su dato.
+- **`coerceParamValue` (`params/index.ts`) descarta EN SILENCIO el id de un select que no está en sus
+  `options`**: un predefinido con un id fuera de la lista no se aplica, sin error. Cada preset es una
+  opción de su selector (test 5 de `tests/video-editor-animaciones.test.ts`).
 
 ## El tema vive en `.ce`: portales, pantalla completa, z-index y `hsl(var())`
 
@@ -473,7 +563,8 @@ Es la familia de `hallazgos-infra.md` → «El manifest de la app estaba detrás
 
 **Vive en:** `services/transcription/worker.ts` (`detectarIdioma`) · `transcription/models.ts`,
 `transcription/audio.ts` (`trocearAudio`), `transcription/caption.ts` (`quitarNoVoz`) ·
-`subtitles/build-subtitle-text-element.ts` (`partirYUbicar`) · `services/renderer/nodes/text-node.ts`
+`subtitles/build-subtitle-text-element.ts` (`partirYUbicar`) · `subtitles/repartir.ts` ·
+`services/renderer/nodes/text-node.ts`
 
 - **«Auto detect» (el default de OpenCut) no existe**: transformers.js 3.8 no detecta el idioma, y sin
   `language` arranca con `<|en|>` avisando sólo en la consola. Un audio en español salía traducido o mal
@@ -487,9 +578,12 @@ Es la familia de `hallazgos-infra.md` → «El manifest de la app estaba detrás
 - **Con silencio o música, Whisper escribe lo que nadie dijo** («Subtítulos realizados por la comunidad
   de Amara.org», «[Música]»). No se le da silencio (se saltean los trozos con RMS < 0,005) y lo que vuelve
   se filtra contra la lista de alucinaciones.
-- **El motor de texto no parte líneas ni dibuja contorno ni sombra**: un subtítulo largo se salía del
-  lienzo. Quien cambie fuente o tamaño vuelve a partir con `partirYUbicar`; hasta que haya contorno, la
-  legibilidad la da el FONDO.
+- **El motor de texto no parte líneas**: un subtítulo lleva los saltos que le puso `partirYUbicar` al
+  crearlo, medidos con SU fuente y SU tamaño, y uno largo se salía del lienzo. **El contrato «si el panel
+  Texto le cambia la fuente o el tamaño, se vuelve a partir» quedó anotado acá y en el mensaje de K, no
+  en la tabla del diseño §4.1, y H no lo cumplió**: cada paquete lee la tabla, no los mensajes de los
+  otros. Lo cerró el integrador con `subtitles/repartir.ts` (`useRepartirSubtitulo`, enchufado en
+  `text/components/pestana-texto.tsx`). Todo contrato entre paquetes va a la tabla, o no existe.
 - **El primer test de trozos dio VERDE con la guarda rota** (`RMS_SILENCIO = 0`): medía «ningún trozo
   empieza después de 50,5 s» y el corte caía a los 50,02. Se mide la propiedad (ningún trozo es puro
   silencio), no un número cercano (`tests/video-editor-subtitulos.test.ts`).
@@ -508,19 +602,112 @@ Es la familia de `hallazgos-infra.md` → «El manifest de la app estaba detrás
 - **Los textos de `textoEleven` mienten fuera del Video Generator**: `proveedor` promete «se reintenta
   solo» (acá nadie reintenta) y `voz_muerta` habla del CLON. La ruta pisa esos dos.
 
+## El texto en el render: el canvas 2D no hace lo que uno supone
+
+**Vive en:** `text/{dibujar,measure-element,revelado,estilos-predefinidos}.ts` ·
+`services/renderer/nodes/text-node.ts` · `services/renderer/compositor/frame-descriptor.ts`
+(`collectTextNode`) · `text/components/pestana-texto.tsx`
+
+El trazo, la sombra, el brillo y la curva los dibuja `text/dibujar.ts`, que reemplaza en el render a
+`drawMeasuredTextLayout` de OpenCut. Lo que el canvas 2D hace distinto de lo esperado:
+
+- **`shadowOffset*` y `shadowBlur` no siguen la transformación del contexto** (van en píxeles del lienzo
+  de destino): la sombra no giraba ni escalaba con el texto. El desplazamiento se pasa a mano por la
+  matriz.
+- **La sombra no se le pone al trazo y al relleno por separado**: donde se pisan se oscurece dos veces. Y
+  el `source-atop` del trazo «Dentro» recortaba también el fondo. Las letras van SOLAS en un lienzo
+  aparte, y la sombra sale de ahí con un único `drawImage`.
+- **Brillo + Sombra dibujaban las letras dos veces**: el brillo es una sombra sin desplazamiento, y
+  dibujado como la sombra trae sus propias letras. Se dibuja sólo el halo: la imagen va corrida FUERA del
+  lienzo y su sombra, corrida un lienzo exacto, cae en su lugar.
+- **La textura del texto se redibuja si cambia CUALQUIER cosa de lo medido** (el hash es un JSON de todo,
+  `collectTextNode`): la «Máquina de escribir» con la fracción cruda redibujaba en cada cuadro aunque no
+  apareciera ninguna letra. La fracción se cuantiza a unidades visibles (`cuantizarRevelado`). Es la
+  familia de `u_tiempo` en «Un shader `ce-*` roto no falla».
+- **Un texto insertado antes de que cargue su fuente queda con la de respaldo PARA SIEMPRE**: el
+  compositor no redibuja si nada de lo medido cambió, y que la fuente termine de bajar no cambia nada.
+  `loadFonts` antes de insertar o de aplicar un estilo.
+- ⚠️ **«May./min.» parecía ir en `buildTextLayoutParamsFromElement`, y ahí está mal**: el editor de texto
+  sobre el reproductor edita ese `content` y lo guardaría en mayúsculas. Se aplica sólo al MEDIR
+  (`measure-element.ts`).
+
+Que el tamaño del texto es relativo al alto del lienzo está en «Todo se mide en píxeles del LIENZO»; que
+el motor no parte líneas, en «Subtítulos con Whisper»; que quitar un efecto es escribirlo apagado, en
+«La vista previa del motor».
+
+## Quitar el fondo con MediaPipe en el navegador
+
+**Vive en:** `fondo/{segmentador,recorte-persona,mascara}.ts` · `fondo/panel-eliminar-fondo.tsx` ·
+`public/ve/modelos/selfie_segmenter.tflite` · `next.config.ts` (CSP) · `tests/video-editor-fondo.test.ts`
+
+- ⚠️ **El suavizado obvio era el equivocado**: el `filter: blur()` del canvas toma como TRANSPARENTE lo
+  que está fuera del cuadro, así que una persona cortada por el borde salía desvanecida contra ese borde.
+  Las máscaras se suavizan con un desenfoque propio que repite los bordes (`mascara.ts`, test 5).
+- ⚠️ **El cuentagotas no lee el clip, lee la PANTALLA**: con el croma andando, volver a elegir el color
+  tomaba el negro de lo ya recortado. Mientras el cuentagotas está abierto, el reproductor muestra el
+  clip sin croma (vista previa, sin paso de deshacer) y se esperan 150 ms antes de leer (`verSinCroma`,
+  `panel-eliminar-fondo.tsx`). Es la otra cara de «el croma corre primero» (en «Los efectos se aplican en
+  el descriptor»): el color se elige contra el ORIGINAL.
+- **El JS de npm y el wasm del CDN se separan sin avisar**: `@mediapipe/tasks-vision` va con `^1.1.0` y
+  el wasm sale de jsdelivr con la versión fija (`VERSION_MEDIAPIPE`); un `npm install` que suba la versión
+  los desparejaría. Lo frena el test 1.
+- **El modo VIDEO de MediaPipe exige marcas de tiempo crecientes**, y el editor salta hacia atrás y
+  alterna clips: va en modo IMAGEN.
+- **La doc de MediaPipe dice dos máscaras para el selfie y el modelo trae un solo rótulo**:
+  `segmentador.ts` maneja los dos casos; falta ver en Chrome cuál llega.
+- **Trampa del entorno**: MediaPipe carga su JS desde el CDN con una etiqueta `<script>`. Si alguien suma
+  `script-src` a la CSP de `next.config.ts`, quitar fondo se rompe callado (sólo queda el aviso).
+
+La espera del modelo dentro del render está en «Los ganchos `ce-*`».
+
+## El audio: «Recuperar audio» no recuperaba, y la caché se tiraba por mover un texto
+
+**Vive en:** `timeline/audio-separation/index.ts` ·
+`commands/timeline/element/toggle-source-audio-separation.ts` · `core/managers/audio-manager.ts`
+
+- ⚠️ **«OpenCut ya trae Recuperar audio» era el diagnóstico equivocado**: sólo volvía a prender el audio
+  del video y NO sacaba el extraído, así que sonaban dos audios (corridos, si se había movido uno). El
+  extraído lleva `audio.extraidoDe` y se saca con `sinAudioExtraido`. Lo que todavía no cubre está en
+  «sin hacer».
+- **Mover un TEXTO dejaba muda la reproducción de un clip con voz modificada mientras se reprocesaba, y
+  arrastrar el volumen tartamudeaba**: cada cambio tiraba todo lo procesado, y la clave incluía el id y
+  el inicio del clip. La caché se indexa por lo que cambia el SONIDO, se descarta lo que nadie usa, y
+  durante una vista previa (un arrastre) no se reinicia nada.
+
+## El DSP de audio propio: cada fórmula de libro se midió, y estaba corrida
+
+**Vive en:** `audio/dsp/{ruido,intensidad,ritmos,tono}.ts` · `tests/video-editor-audio.test.ts`
+
+- ⚠️ **«El percentil bajo de la magnitud es el piso del ruido» era falso**: subestima la potencia del
+  ruido unas 5 veces, y la pausa bajaba sólo 3,6 dB. La magnitud de un ruido en una banda sigue una
+  Rayleigh, y el percentil se corrige con esa distribución (`ruido.ts`).
+- **Un clip mono medido como UN canal da 3 dB menos**, y normalizado quedaba 3 dB más fuerte que una
+  música estéreo. Se mide como suena, por los dos lados (`intensidad.ts`).
+- **Los ritmos caían 8,6–8,9 ms antes del golpe** (el desfase del flujo espectral): se corrige 0,8 de un
+  salto. Y al bajar la tasa por trozos, el resto se guarda entre trozos o los ritmos se van corriendo
+  (`ritmos.ts`).
+- **SoundTouch en JS no entrega los últimos ~0,27 s, adelanta 10–20 ms y tarda 0,33 s por minuto de
+  audio**, que congelaba la pantalla: relleno de silencio al final, recorte al largo original y ceder el
+  hilo (`tono.ts`).
+
 ## Los textos de CapCut: el `.po` manda, con sus erratas
 
 **Vive en:** la tabla en/es del scratchpad (no se versiona, ver el diseño) ·
 `components/editor/panels/properties/video/basico.tsx` · `effects/definitions/{ajuste,efectos}.ts` ·
-`commands/timeline/element/{split,duplicate}-elements.ts`
+`commands/timeline/element/{split,duplicate}-elements.ts` · `{animaciones,transiciones}/catalogo.ts` ·
+`audio/voz.ts`
 
 - **El relevamiento no es la fuente**: «Tamaño: aprox. 82 MB» es traducción propia; el `.po` dice
   «Duración: %1 | Tamaño: alrededor de %2» (`pc_new_size`). El texto sale de `look.py`.
 - **Erratas del `.po` que se corrigen y se anotan en el comentario**: «Alinar al centro» y «Alinar arriba»
   (`pc_align_title_center`, `pc_align_title_up`), «Amplia» sin tilde.
 - **Rótulos que no son los que uno adivina**: Highlights = «Iluminar», Sharpen = «Enfocar», Brilliance =
-  «Luminosidad», Lightness (HSL) y Clarity = «Claridad» las dos, Glow = «Brillo» igual que Brightness. Los
-  nombres de efectos y filtros vienen del servidor de CapCut y no están en el `.po`: son nuestros.
+  «Luminosidad», Lightness (HSL) y Clarity = «Claridad» las dos, Glow = «Brillo» igual que Brightness.
+- **Lo que CapCut baja de su servidor no está en el `.po`, y los nombres son nuestros**: efectos y
+  filtros, animaciones, efectos y plantillas de texto, transiciones y filtros de voz (éstos, con un
+  sonido también nuestro).
+- **La consigna también se equivoca**: pedía «Combinado» para las animaciones de texto, y CapCut ahí
+  tiene «Bucle» (relevamiento §2.6); se sumó `anim.bucle.*`. Ante una diferencia, manda el relevamiento.
 - **Dividir y duplicar sumaban «(left)» y «(copy)» al nombre**, invisible hasta que el nombre se dibujó en
   el clip. Al barrer inglés, mirar también las plantillas que terminan en `element.name`.
 
@@ -604,8 +791,9 @@ Medido el 11/10, con 16 GB y 6-7 sesiones abiertas.
   sintaxis y, si hay alguna, no corre el chequeo de tipos. Un archivo a medio editar de otro paquete deja
   ciegos a todos. Lo propio se chequea con un tsconfig de scratch que extienda el del worktree e incluya
   sólo esos archivos, con el mismo lock.
-- **El verde de `tsc-ve` no cubre `app/api` ni `lib/`**: un paquete del editor que los toca los
-  typechequea aparte.
+- **El verde de `tsc-ve` no cubre `app/api`, `lib/` ni `tests/`**: un paquete del editor que los toca
+  los typechequea aparte. Un `tests/video-editor-*` que no compila aparece recién en el typecheck
+  completo o en el pre-push: tocar uno pide correr el completo.
 - **`timeout 600 node tsc-ve.mjs` volvió con exit 124 y sin errores**: esperaba el lock y `timeout` lo mató
   antes de compilar. Un 124 no es verde ni rojo; el typecheck se espera en segundo plano, sin `timeout`.
 - **Una dependencia sin tipos** (`gifenc` 1.0.3) da TS7016 con strict: va un `declare module` en la
@@ -636,7 +824,8 @@ camino es transparente». En esta corrida pegó así:
 
 ## Lo que quedó SIN hacer
 
-**Nada se vio en un navegador.** La corrida prohibió levantar el dev server. Lo primero a probar: importar
+**Las tandas 1 y 2 se hicieron sin dev server**, y lo que se midió después en Chrome (cinco bugs del
+motor, arriba) no cubre esta lista. Lo primero a probar: importar
 → dividir → texto → exportar MP4/MOV/WebM y medirlo con ffprobe (`export/`), con el reescalado de
 mediabunny sobre el canvas WebGPU, HEVC, AV1 y GIF; reglas y guías (`guides/reglas.tsx`,
 `guides/use-arrastre-guia.ts`); pantalla completa sobre `.ce` (`preview/hooks/use-pantalla-completa.ts`);
@@ -650,12 +839,50 @@ diálogos abiertos desde un menú. «Editar en el editor» (`app/video-editor/de
 tiene hoy con qué probarse: 0 montajes `listo` en prod y «Anuncios terminados» sólo en el ws1, que es de
 un cliente.
 
-**Paquetes sin construir: G (transiciones), H (animaciones y estilos de texto), J (audio) y M (Eliminar
-fondo).** Sus contratos están en el diseño §4.1. Lo que hoy se nota: los círculos de fundido se dibujan y
-se arrastran pero no se oyen (J: `params/extra` + `media/audio.ts` + `core/managers/audio-manager.ts`);
-el texto sin contorno ni sombra (H: `services/renderer/nodes/text-node.ts`, y sumar las claves en
-`subtitles/estilos.ts`); el vúmetro junto al tiempo (`preview/components/toolbar.tsx`, `TimecodeDisplay`);
-`reflejo.vertical` existe y se dibuja pero ningún botón lo alterna (el «Voltear» va en Video › Básico).
+**La tanda 3 (G, H, J, M) se construyó el 11-12/10 y no se vio en Chrome.** Lo primero a mirar,
+reproduciendo y en el MP4 con ffprobe: las transiciones (los barridos sobre un clip reflejado o girado,
+los shaders en el GLSL ES real, `transiciones/shaders.ts`); trazo, sombra y brillo del texto y las
+tarjetas con hover (`text/dibujar.ts`, `animaciones/components/*`); quitar fondo con una o dos máscaras,
+la GPU de MediaPipe, 1080p30, el alfa en el compositor y el cuentagotas (`fondo/segmentador.ts`,
+`fondo/recorte-persona.ts`, `fondo/panel-eliminar-fondo.tsx`).
+
+**Transiciones (G)**
+- Fundido a negro y Destello blanco tiñen sólo el clip, no las barras de un vertical en 16:9
+  (`transiciones/catalogo.ts` `haciaColor`, `transiciones/shaders.ts`).
+- El fondo «Lienzo con desenfoque» cambia en seco en el corte y sigue con el chequeo de rango viejo
+  (`resolveBlurBackgroundNode` en `services/renderer/resolve.ts`, `buildBlurBackgroundNodes` en
+  `services/renderer/scene-builder.ts`).
+- Transición y animación de Entrada/Salida en el mismo clip: decidir contra CapCut (`animaciones/gancho.ts`).
+- Un clip con curva de velocidad dentro de la ventana, sin verificar (`resolveVideoNode`).
+- Soltar una transición en un hueco no avisa (`timeline/controllers/drag-drop-controller.ts`, `onDrop`).
+
+**Animaciones y texto (H)**
+- La marca del tramo de animación sobre el clip está hecha de memoria (`animaciones/components/franjas-animacion.tsx`).
+- Animaciones con desenfoque o 3D («Desenfoque», «Zoom borroso»): el gancho sólo mueve transformación y
+  opacidad (`animaciones/catalogo.ts`).
+- «Burbuja», fondo por carácter y alineación vertical (`text/registro.ts`, `text/components/pestana-texto.tsx`).
+- Tamaño, espaciado, trazo y sombra sin ◇: el render usa el valor base (`params/extra/texto.ts`).
+- La miniatura de un predefinido con curva se ve recta (`text/components/miniatura-estilo.tsx`).
+
+**Audio (J)**
+- El vúmetro junto al tiempo (un analizador en `core/managers/audio-manager.ts` y el botón en
+  `preview/components/toolbar.tsx`).
+- Canal, Mejorar voz, Aislar voz y voz clonada; «Voz a canción» apagada (`audio/components/basico.tsx`,
+  `audio/components/modificador-voz.tsx`).
+- Tono y Timbre sin ◇ (`params/extra/audio.ts`, `audio/cadena.ts`).
+- Grabar no compensa la latencia, no dibuja el clip rojo que crece ni bloquea acciones (`audio/grabar.ts`).
+- Ritmos: tope de 10 min y sin «Alinear con los marcadores de ritmo» (`audio/ritmos.ts`).
+- Reducir el ruido no es RNNoise: no saca un ruido que varía (`audio/dsp/ruido.ts`).
+- Normalizar no vuelve a medir al recortar (`audio/normalizar.ts`).
+- «Recuperar audio» no saca el extraído en la mitad nueva de un video dividido ni los extraídos de antes
+  de la marca `audio.extraidoDe` (`timeline/audio-separation/index.ts`, `split-elements.ts`).
+
+**Quitar fondo (M)**
+- El pincel de «Eliminación personalizada»: params `matting.*` y el dibujo sobre el reproductor
+  (`fondo/panel-eliminar-fondo.tsx`).
+- CapCut procesa el clip antes, con «Aplicando el recorte automático… %»; acá va cuadro a cuadro y sin
+  progreso en la primera carga (`fondo/recorte-persona.ts`).
+- El cuentagotas de la paleta toma el color con el croma puesto (`components/ui/color-picker.tsx`).
 
 **Render y exportar**
 - 2K y 4K interpolan desde el lienzo; la nitidez nativa exige escalar posiciones, texto, máscaras y
@@ -693,6 +920,8 @@ el texto sin contorno ni sombra (H: `services/renderer/nodes/text-node.ts`, y su
   de fotogramas) los muestra en inglés.
 - Básico no dibuja lo que el motor no puede (Estabilización, Reducir ruido, Parpadeos, Mejorar la calidad,
   Iluminación, Movimiento difuminado, Autoenmarcado, Movimiento de IA); Retoque, tampoco.
+- `reflejo.vertical` existe y se dibuja, pero ningún botón lo alterna: el «Voltear» va en Video › Básico
+  (`params/extra/reflejo.ts`, `properties/video/basico.tsx`).
 
 **Línea de tiempo**
 - Recortar un clip con curva usa la velocidad media: `getSourceSpanAtClipTime` sin `clipDuration` en
@@ -743,6 +972,8 @@ el texto sin contorno ni sombra (H: `services/renderer/nodes/text-node.ts`, y su
 
 **Decisiones de Martín e integración**
 - Sumar `video-editor` a la capa `superadmin` o probar siempre en ws3 (`lib/capas.ts`).
+- Quitar fondo usa el modelo selfie, que sirve para tomas cercanas; un cuerpo entero pediría el
+  multiclase, de ~16 MB (`fondo/segmentador.ts`).
 - Abrirlo a clientes: `veEditorVideo` en `app/video-editor/acceso.ts`, sacar `adminOnly` de
   `app/_components/nav.ts` y decidir las capas.
 - La vuelta (el mp4 exportado → bucket del workspace → «Mis creativos» de Ads Manager), anotada en
@@ -773,4 +1004,5 @@ el texto sin contorno ni sombra (H: `services/renderer/nodes/text-node.ts`, y su
 - Para mirar a ojo: Espejo deja una línea de 1 px en el centro; Saturación −50 queda igual que Blanco y
   negro; Saturación +50 deja la piel muy naranja.
 
-*11/10/2026, chat «Video Editor»: tanda 1 (paquetes A–E), tanda 2 (F, I, K, L) y la integración.*
+*Chat «Video Editor»: tanda 1 (paquetes A–E), tanda 2 (F, I, K, L) y su integración el 11/10/2026;
+tanda 3 (G, H, J, M) el 12/10.*
